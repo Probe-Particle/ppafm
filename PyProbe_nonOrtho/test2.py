@@ -21,7 +21,7 @@ def makeclean( ):
 	[ os.remove(f) for f in os.listdir(".") if f.endswith(".o") ]
 	[ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
 
-#makeclean( )  # force to recompile 
+makeclean( )  # force to recompile 
 
 import  ProbeParticle as PP
 
