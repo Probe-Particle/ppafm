@@ -5,17 +5,19 @@ from   ctypes import c_int, c_double
 import ctypes
 import os
 
-
-
 # ====================== constants
 
 eVA_Nm =  16.0217657
 
-
+# ==============================
 # ============================== Pure python functions
-
+# ==============================
 
 def multArray( F, nx=2,ny=2 ):
+	'''
+	multiply data array "F" along second two axis (:, :*nx, :*ny ) 
+	it is usefull to visualization of images computed in periodic supercell ( PBC )
+	'''
 	nF = np.shape(F)
 	print "nF: ",nF
 	F_ = np.zeros( (nF[0],nF[1]*ny,nF[2]*nx) )
@@ -25,6 +27,10 @@ def multArray( F, nx=2,ny=2 ):
 	return F_
 
 def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
+	'''
+	set Force-Filed and Scanning supercell to fit optimally given geometry
+	then shifts the geometry in the center of the supercell
+	'''
 	zmax=max(Rs[2]); 	Rs[2] -= zmax
 	print " autoGeom substracted zmax = ",zmax
 	xmin=min(Rs[0]); xmax=max(Rs[0])
@@ -45,6 +51,10 @@ def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
 		print " autoGeom moved geometry by ",dx,dy
 
 def PBCAtoms( Zs, Rs, Qs, avec, bvec ):
+	'''
+	multiply atoms of sample along supercell vectors
+	the multiplied sample geometry is used for evaluation of forcefield in Periodic-boundary-Conditions ( PBC )
+	'''
 	Zs_ = []
 	Rs_ = []
 	Qs_ = []
@@ -61,12 +71,18 @@ def PBCAtoms( Zs, Rs, Qs, avec, bvec ):
 
 
 def get_C612( i, j, FFparams ):
+	'''
+	compute Lenard-Jones coefitioens C6 and C12 pair of atoms i,j
+	'''
 	#print i, j, FFparams[i], FFparams[j]
 	Rij = FFparams[i][0] + FFparams[j][0]
 	Eij = np.sqrt( FFparams[i][1] * FFparams[j][1] )
 	return 2*Eij*(Rij**6), Eij*(Rij**12)
 
 def getAtomsLJ(  iZprobe, iZs,  FFparams ):
+	'''
+	compute Lenard-Jones coefitioens C6 and C12 for interaction between atoms in list "iZs" and probe-particle "iZprobe"
+	'''
 	n   = len(iZs)
 	C6  = np.zeros(n)
 	C12 = np.zeros(n)
@@ -77,8 +93,10 @@ def getAtomsLJ(  iZprobe, iZs,  FFparams ):
 
 def Fz2df( F, dz=0.1, k0 = 1800.0, f0=30300.0, n=4, units=16.0217656 ):
 	'''
+	conversion of vertical force Fz to frequency shift 
 	according to:
 	Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
+	oscialltion amplitude of cantilever is A = n * dz
 	'''
 	x  = np.linspace(-1,1,n+1)
 	y  = np.sqrt(1-x*x)
@@ -87,9 +105,11 @@ def Fz2df( F, dz=0.1, k0 = 1800.0, f0=30300.0, n=4, units=16.0217656 ):
 	dFconv = prefactor * np.apply_along_axis( lambda m: np.convolve(m, dy, mode='valid'), axis=0, arr=F )
 	return dFconv*units*f0/k0
 
+# ==============================
+# ==============================  server interface file I/O
+# ==============================
 
-# ==========  server interface file I/O
-
+# default parameters of simulation
 params={
 'PBC': False,
 'gridN':       np.array( [ 150,     150,   50   ] ).astype(np.int32),
@@ -99,13 +119,8 @@ params={
 'moleculeShift':  np.array( [  0.0,      0.0,    -2.0 ] ),
 'probeType':   8,
 'charge':      0.00,
-#'lRadial':   4.0,
-#'kRadial':   1.0,
-#'r0Probe':  np.array( [ 0.00, 0.00, 0.00] ),
-#'kSpring':  np.array( [ 0.03, 0.03, 0.00] ),
 'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
 'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
-
 
 'scanStep': np.array( [ 0.10, 0.10, 0.10] ),
 'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
@@ -121,6 +136,7 @@ params={
 
 }
 
+# overide default parameters by parameters read from a file 
 def loadParams( fname ):
 	fin = open(fname,'r')
 	FFparams = []
@@ -157,6 +173,8 @@ def loadParams( fname ):
 						print key, params[key], words[1], words[2], words[3]
 	fin.close()
 
+
+# load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
 def loadSpecies( fname ):
 	fin = open(fname,'r')
 	FFparams = []
@@ -167,13 +185,14 @@ def loadSpecies( fname ):
 	fin.close()
 	return np.array( FFparams )
 
-
-# ============================== Ctypes C++ interface
-
+# ==============================
+# ============================== interface to C++ core 
+# ==============================
 
 name='ProbeParticle'
 ext='_lib.so'
 
+# recompilation of C++ dynamic librady ProbeParticle_lib.so from ProbeParticle.cpp
 def recompile( 
 		LFLAGS="",
 		#FFLAGS="-Og -g -Wall"
@@ -186,18 +205,23 @@ def recompile(
 	os.system("g++ "+FFLAGS+" -c -fPIC "+name+".cpp -o "+name+".o"+LFLAGS)
 	os.system("g++ "+FFLAGS+" -shared -Wl,-soname,"+name+ext+" -o "+name+ext+" "+name+".o"+LFLAGS)
 
+
+# if binary of ProbeParticle_lib.so is deleted => recompile it
 if not os.path.exists("./"+name+ext ):
 	recompile()
 
-lib    = ctypes.CDLL("./"+name+ext )
+lib    = ctypes.CDLL("./"+name+ext )    # load dynamic librady object using ctypes 
 
+# define used numpy array types for interfacing with C++
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
 array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
 array2d = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
 array3d = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
 array4d = np.ctypeslib.ndpointer(dtype=np.double, ndim=4, flags='CONTIGUOUS')
 
-
+# ========
+# ======== Python warper function for C++ functions
+# ========
 
 # void setFF( int * n, double * grid, double * step,  )
 lib.setFF.argtypes = [array1i,array4d,array2d]
@@ -225,11 +249,6 @@ lib.setFIRE.restype  = None
 def setFIRE( finc = 1.1, fdec = 0.5, falpha  = 0.99 ):
 	lib.setFIRE( finc, fdec, falpha )
 
-#void setTip( double lRad, double kRad, double * rPP0, double * kSpring )
-#lib.setTip.argtypes = [ c_double, c_double, array1d, array1d ]
-#lib.setTip.restype  = None
-#def setTip( lRadial=params['lRadial'], kRadial=-1*params['kRadial'], rPP0=params['r0Probe'], kSpring=-1*params['kSpring'] ):
-#	lib.setTip( lRadial, kRadial, rPP0, kSpring )
 
 #void setTip( double lRad, double kRad, double * rPP0, double * kSpring )
 lib.setTip.argtypes = [ c_double, c_double, array1d, array1d ]
@@ -249,8 +268,6 @@ def setTip( lRadial=None, kRadial=None, rPP0=None, kSpring=None	):
 	print " rPP0 ", rPP0
 	print " kSpring ", kSpring
 	lib.setTip( lRadial, kRadial, rPP0, kSpring )
-
-
 
 
 # void getClassicalFF       (    int natom,   double * Rs_, double * C6, double * C12 )
