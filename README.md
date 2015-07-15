@@ -6,9 +6,9 @@ This is implementation of efficient and simple model for simulation of High-reso
 There are two versions of the code - 
 
 * currently developed Python/C++ version in PyProbe_nonOrtho  (branch *master* ); 
-* * to get quick esence of this model you can also try web interface hostet here: http://nanosurf.fzu.cz/ppr/
+** to get quick esence of this model you can also try web interface hostet here: http://nanosurf.fzu.cz/ppr/
 * Legacy fortran version in SHTM_springTip2 (branch *fortranr* ); 
-* * for more details see wikipage: https://github.com/ProkopHapala/ProbeParticleModel/wiki
+** for more details see wikipage: https://github.com/ProkopHapala/ProbeParticleModel/wiki
 
 
 
