@@ -7,8 +7,10 @@ There are two versions of the code -
 
 * currently developed Python/C++ version in PyProbe_nonOrtho  (branch *master* ); 
   * to get quick esence of this model you can also try web interface hostet here: http://nanosurf.fzu.cz/ppr/
-* Legacy fortran version in SHTM_springTip2 (branch *fortranr* ); 
   * for more details see wikipage: https://github.com/ProkopHapala/ProbeParticleModel/wiki
+* Legacy fortran version in SHTM_springTip2 (branch *fortran* ); 
+  * more detailed description o the fortran version is here: http://nanosurf.fzu.cz/wiki/doku.php?id=probe_particle_model 
+
 
 
 
