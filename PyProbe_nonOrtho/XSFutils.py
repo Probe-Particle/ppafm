@@ -9,9 +9,9 @@ import numpy as np
 
 
 
-name='FileRead'
+name='ProbeParticle_lib'
 ext='.so'
-
+'''
 def recompile( 
                 LFLAGS="",
                 #FFLAGS="-Og -g -Wall"
@@ -22,7 +22,7 @@ def recompile(
         print  os.getcwd()
         os.system("g++ "+FFLAGS+" -c -fPIC "+name+".cpp -o "+name+".o"+LFLAGS)
         os.system("g++ "+FFLAGS+" -shared -Wl,-soname,"+name+ext+" -o "+name+ext+" "+name+".o"+LFLAGS)
-
+'''
 
 
 
@@ -52,7 +52,7 @@ def readNums(filein):
 	return pylab.array(out)
 
 def readNumsUpTo(filename, dimensions):
-        recompile()
+#        recompile()
         lib    = ctypes.CDLL("./"+name+ext )
         array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
         array1i = np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='CONTIGUOUS')

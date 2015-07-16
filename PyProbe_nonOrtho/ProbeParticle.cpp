@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "Vec3.cpp"
 #include "Mat3.cpp"
+#include <string.h>
 
 // ================= MACROS
 
