@@ -1,0 +1,41 @@
+\documentclass[english]{book}
+\usepackage[utf8]{inputenc}
+\usepackage[T2A,T1]{fontenc}
+\usepackage[dvips]{graphicx} % Для начала работы с изображениями нужно подключить пакет graphicx, который обеспечивает их вставку в текст документа. Есть много драйверов для работы с изображениями, но мы будем использовать dvips - это позволит нам потом сравнительно легко и довольно просто конвертировать диплом из LaTeX в Word или OpenOffice через формат RTF, используя открытую программу latex2rtf. Для этого ваши рисунки нужно конвертировать в EPS, что делается программой convert из пакета imagemagick
+\graphicspath{{images/}}
+\usepackage{babel}
+\usepackage{mathrsfs}
+\linespread{1.3}
+\usepackage[left=2cm, right=2cm,top=2cm,bottom=2cm]{geometry} % Разметка страницы
+
+\usepackage{ gensymb }
+
+\usepackage[colorlinks,filecolor=blue,pagebackref]{hyperref} % Пакет hyperref рекомендуется загружать последним, поскольку он переопределяет многие команды LaTeX'а
+\usepackage[framemethod=tikz]{mdframed}
+\usetikzlibrary{shadows}
+
+\newmdenv[shadow=true,shadowcolor=black,font=\sffamily,rightmargin=8pt]{shadedbox}
+
+\usepackage{listings}
+
+
+\lstset{
+basicstyle=\ttfamily
+}
+
+
+
+\title{Probe Particle model}
+\author{}
+\begin{document}
+\maketitle
+
+\tableofcontents
+
+\chapter{Introduction}
+\input{intro/intro.tex}  
+
+\chapter{Quick Start}
+\input{quick_start/quick_start.tex}
+%put your text here
+\end{document}

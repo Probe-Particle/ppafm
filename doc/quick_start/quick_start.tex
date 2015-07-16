@@ -1,0 +1,32 @@
+The quickest start is just to run an example script like test2.py from terminal with python.
+\begin{shadedbox}
+    \begin{lstlisting}[language=bash]
+cd PyProbe_nonOrtho
+python test2.py
+    \end{lstlisting}
+\end{shadedbox}
+
+
+the script will automatically
+\begin{enumerate}
+\item   recompile the C++ code,
+\item   load the library,
+\item   load the input data example,
+\item   setup and run the simulation
+\item   and plot the results
+\end{enumerate}
+
+User input without scripting
+
+Even though the code is supposed to be used as python library, and the main mean
+of usage is to write python scripts, it can be also used fairly well without
+editing any code, just by modification of input files. 
+
+There are three input files:
+\begin{enumerate}
+
+    \item params.ini - setup parametrs of simulation ( grid, sanning area, tip parameters, conversion and plotting )
+    \item input.xyz - setup the geometry of the sample ( using e.g. standard xyz file format )
+    \item atomtypes.ini - define radius and binding energy between pairs of atoms ( used for definition of Lenard-Jones model potential )
+
+\end{enumerate}
