@@ -14,4 +14,131 @@ There are two versions of the code:
         more detailed description o the fortran version is here:
         http://nanosurf.fzu.cz/wiki/doku.php?id=probe\_particle\_model 
 \end{enumerate}
+\cite{phapalamechhighresol}
+\cite{phapalaoriginhighresol}
+
+
+\section{C++ \& Python version}
+
+\subsection{Examples of results}
+
+
+\subsection{How it works}
+
+\begin{itemize}
+
+    \item  Pauli-repulsion ( currently approximated by repulsive part of
+    Lenard-Jones potential $r^{-12}$ )
+    \item van der Waals attraction ( currently approximated by attractive part
+    of Lenard-Jones potentia $r^{-6}$ )
+    \item electrostatic ( currently can be computed as coulomb pairwise
+    interaction between PP and point charges in centers of atoms of sample, or
+    by reading electrostatic force-field obtained by derivative of sample
+    Hartree potential as described in supplementary of this paper
+    \cite{phapalaoriginhighresol}.
+
+\end{itemize}
+
+The computation of images is divided into two parts:
+\begin{enumerate}
+    \item Precompute vector Forcefield ( Fx(x,y,z), Fy(x,y,z), Fz(x,y,z) ) over
+    sample and store it on a 3D-grid. ( see getLenardJonesFF and getCoulombFF
+    functions for more details ). After individial components of forcefiled are
+    sampled ( i.e. Lenard-Jones and electrostatic ) they are summed up to form
+    one single total effective forcefield in which Probe-Particle moves.
+    
+    \item relax Probe-Particle attached to the tip under influence of the total
+    effective forcefield. The relaxation of Probe-Particle is done using "Fast
+    Inertial Realxation Engine" (FIRE) algorithm
+    \cite{ebitzekstructrelaxmadesimple}. implemented in
+    FIRE:move() function. In each step of relaxation the forcefield on the grid
+    is interpolated in interpolate3DvecWrap function, considering periodic
+    boundary condition. From python the relaxation is called as relaxTipStroke
+    function providing 1D-array of tip positions, and obtaining back 1D-array of
+    Probe-Particle position after the relaxation and of force between tip
+    ProbePartcile and sample at that position. The lateral scan in (x,y) to
+    obtained stack of images is done by calling relaxTipStroke at different
+    (x,y) position of tip, where each call of relaxTipStroke does one approach
+    along z-direction.
+
+\end{enumerate}
+
+\subsection{Why it is splitted like this ?}
+
+This splitting of computation ( first sampling of forcefiled on the grid, and
+than relaxation using interpolation) has several advantages over strightforward
+computation of interaction on the fly during relaxation process.
+
+
+\begin{itemize}
+
+    \item \textbf{It is faster} - if there is ~100 atoms of sample, summing over
+    each pairwise Lennard-Jones interactions, is much slower, than just
+    interpolating the forcefield from the grid. Because force evaluation is done
+    several-times for each voxel of the 3D scanning grid, it is more efficient
+    to precompute it just once for each voxel, and then interpolate.
+
+    \item \textbf{It is more flexible and general} - Decoupling of relaxation
+    process and computation of forcefiled allows us to plug-in any forcefield.
+    The original motivation was to used electrostatic forcefield obtained from
+    Hartree potential from DFT calculation. However, it is not limited to that.
+    We can plug in e.g. a derivative of potential energy of probe peraticle
+    (i.e. Xe or CO ) obtained by scanning it in DFT code, in similar way as Guo
+    did in \cite{chshguohighresolmodel} . The only limitation here is computational cost of obtaining
+    such potential from ab-initio calculation.
+\end{itemize}
+
+
+
+\subsection{Code structure}
+The code is divided into Python and C++, where performance intensive
+computations are done in C++ and python is used as convenient scripting
+interface for doing tasks like file I/O, plotting, memory management. For
+binding of Python and C++ is used python ctypes library. 
+
+
+\subsubsection{Dependencies:}
+\begin{itemize}
+    \item \textbf{C++} : g++ ( tested with g++ (Ubuntu 4.8.1-2ubuntu1~12.04) 4.8.1 )
+    \item \textbf{Python} : python ( 2.7.3 ), numpy (1.9.2), matplotlib ( 1.4.3 ), ctypes
+    ( 1.1.0 )
+\end{itemize}
+
+\subsubsection{C++ source:}
+\begin{itemize}
+    \item  ProbeParticle.cpp - implementation of all performance intensive
+    ProbeParticle model as dynamic library which can be called dynamically from
+    python.
+    \item Vec3.cpp,Mat3.cpp math subroutines for operations with 3D vectors and
+    metrices
+\end{itemize}
+
+\subsubsection{Python source:}
+\begin{itemize}
+    \item ProbeParticle.py - Interface between C++ core and python ising
+    C-types. Here are also defined some python rutines like: 
+    \begin{itemize}
+        \item  conversion from Force to frequency shift ( Fz2df ),
+        \item  evaluation of Lenard-Jones coeffitints ( getAtomsLJ )
+        \item  copy sample geometry to simulate periodic boundary condition (
+        PBCAtoms )
+        \item automatic setup of imagining area acroding to geometry of
+        nonperiodic sample ( autoGeom )
+        \item default parameters of simulation ( params ) with subroutine to
+        read this parameters from a file ( loadParams )
+    \end{itemize}
+
+
+    \item  test2.py, testServer2.py - two examples of python scripts with run
+    actual computations using ProbeParticle library. The idea is that this files
+    can be modified by user to match particular task
+    \item basUtils.py - routines for loading of molecule geometry from
+    xyz-format, ( loadAtoms ), finding bonds and other.
+    \item Element.py and elements.py contains just parameters of atoms form
+    periodic table ( like effective raidus, color for visualization etc. ). It
+    is used by basUtils.py
+
+        
+
+\end{itemize}
 

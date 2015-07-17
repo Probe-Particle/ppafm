@@ -1,0 +1,310 @@
+\section{Examples}
+Example of python scripts which setup simulation, run it, and plot results are
+can be seen in test2.py and testServer2.py files.
+
+Here we provide overview of various operations done in this example scripts with
+a bit more detailed explanation than just inline-comments within the script
+code. The topics and are discussed in order in which are done in the example the
+script test2.py. The \textbf{order} of operations is sometimes important ( e.g. you
+cannot allocate grid until you set it's size, you cannot do scan until you
+sample forcefiled etc. ) 
+
+
+\subsection{Import common libraries}
+
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import elements
+import basUtils
+    \end{lstlisting}
+\end{shadedbox}
+
+
+
+
+\subsection{Load ProbeParticle library}
+
+C++ part of ProbeParticle library ( ProbeParticle.cpp ) is compiled into
+ProbeParticle\_lib.so binary dynamic library. If we do any change in C++ code, we
+have to recompile the library. This is done automatically during call of import
+ProbeParticle if the file ProbeParticle\_lib.so is not pressent in the directory.
+So, If we want force recompilation of the C++ dynamic library, we just delelete
+the library. This can be done e.g. like this: 
+
+
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+def makeclean( ):
+    import os
+    [ os.remove(f) for f in os.listdir(".") if f.endswith(".so") ]
+    [ os.remove(f) for f in os.listdir(".") if f.endswith(".o") ]
+    [ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
+
+makeclean( )  # force to recompile 
+import  ProbeParticle as PP
+
+    \end{lstlisting}
+\end{shadedbox}
+
+
+
+\subsection{Setup system and simulation parameters}
+
+One way to change simulation parameters is to change the default dictionary
+PP.params. Which is by default e.g. defined like this:
+
+
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+params={
+'PBC': False,
+'gridN':       np.array( [ 150,     150,   50   ] ).astype(np.int32),
+'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
+'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
+'gridC':       np.array( [      0,        0,      5.0 ] ),
+'moleculeShift':  np.array( [  0.0,      0.0,    -2.0 ] ),
+'probeType':   8,
+'charge':      0.00,
+'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
+'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
+'scanStep': np.array( [ 0.10, 0.10, 0.10] ),
+'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
+'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
+'kCantilever'  :  1800.0, 
+'f0Cantilever' :  30300.0,
+'Amplitude'    :  1.0,
+'plotSliceFrom':  16,
+'plotSliceTo'  :  22,
+'plotSliceBy'  :  1,
+'imageInterpolation': 'nearest',
+'colorscale'   : 'gray',
+}
+   \end{lstlisting}
+\end{shadedbox}
+
+An alternative way is to load the parameters from a file using PP.loadParams.
+This should be done before all other operations ( like definition and allocation
+of sampling and scanning grid )
+
+
+
+
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+PP.loadParams( 'params.ini' ) # load parametes from ini file
+   \end{lstlisting}
+\end{shadedbox}
+
+
+Then we should define system geometry ( positions of atoms and it types )
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+atoms    = basUtils.loadAtoms('input.xyz', elements.ELEMENT_DICT )
+Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
+iZs      = np.array( atoms[0])
+   \end{lstlisting}
+\end{shadedbox}
+
+
+
+
+ize and shape of sampling and scanning grid is normally set by parameters
+PP.params['gridA'],'gridB','gridC','scanMin','scanMax'. However, in case of
+non-periodic samples ( such as single molecule ) it is more conveninent let
+program build proper sampling and scanning box around the molecule, instead of
+defining the super-lattice verctors. This can be done by calling PP.autoGeom(
+fitCell=True ) function like this:
+
+Before the simulation the geometry of molecule should be shifted to proper
+position with respect to sampling grid. The shift of the molecule can be set
+either manually in PP.params['moleculeShift' ], or let program set this
+parameter automatically using PP.autoGeom( shiftXY=True ). 
+
+        
+        
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+if not PP.params['PBC' ]:
+    PP.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
+
+Rs[0] += PP.params['moleculeShift' ][0]          # shift molecule so that we sample reasonable part of potential 
+Rs[1] += PP.params['moleculeShift' ][1]          
+Rs[2] += PP.params['moleculeShift' ][2]          
+Rs     = np.transpose( Rs, (1,0) ).copy() 
+
+   \end{lstlisting}
+\end{shadedbox}
+
+If we used periodic boundary condition, it is necessary to multiply geometry of
+sample to neighboring unit cells. There is automatic procedure PP.PBCAtoms() to
+do that:
+
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+if PP.params['PBC' ]:
+    iZs,Rs,Qs = PP.PBCAtoms( iZs, Rs, Qs, avec=PP.params['gridA'],
+    bvec=PP.params['gridB'] )
+   \end{lstlisting}
+\end{shadedbox}
+
+
+Beside the geometry (position of atoms) the sample properties are defined also
+by parameters of this atoms,such as Lenard-Jones parameters and charge. In
+principle it is possible to set parameters (C6,C12 and Q ) of each atom
+independently by hand (it is just array of numbers). However, more convenient
+way is to read it from file of L-J parameters by PP.loadSpecies() for each atom
+type and set the the parameters for each atom instance by PP.getAtomsLJ().
+Charges for pairwise pointcharge Coulomb interaction are read from 5-th column
+of geometry file.
+
+\textbf{NOTE}: it is important to do this step after the multiplication of periodic
+images to neighboring cells. 
+
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+Qs       = np.array( atoms[4] )
+FFparams = PP.loadSpecies        ( 'atomtypes.ini'  )
+C6,C12   = PP.getAtomsLJ( PP.params['probeType'], iZs, FFparams )
+   \end{lstlisting}
+\end{shadedbox}
+
+\subsection{Define and allocate arrays}
+Do this before simulation, in case it will crash
+
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+dz    = PP.params['scanStep'][2]
+zTips = np.arange( PP.params['scanMin'][2], PP.params['scanMax'][2]+0.00001, dz )[::-1];
+ntips = len(zTips); 
+print " zTips : ",zTips
+rTips = np.zeros((ntips,3))
+rs    = np.zeros((ntips,3))
+fs    = np.zeros((ntips,3))
+
+rTips[:,0] = 1.0
+rTips[:,1] = 1.0
+rTips[:,2] = zTips 
+
+PP.setTip()
+
+xTips  = np.arange( PP.params['scanMin'][0], PP.params['scanMax'][0]+0.00001, 0.1 )
+yTips  = np.arange( PP.params['scanMin'][1], PP.params['scanMax'][1]+0.00001, 0.1 )
+extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
+fzs    = np.zeros(( len(zTips), len(yTips ), len(xTips ) ));
+
+nslice = 10;
+
+FFparams = PP.loadSpecies        ( 'atomtypes.ini'  )
+C6,C12   = PP.getAtomsLJ( PP.params['probeType'], iZs, FFparams )
+
+print " # ============ define Grid "
+
+cell =np.array([
+PP.params['gridA'],
+PP.params['gridB'],
+PP.params['gridC'],
+]).copy() 
+
+gridN = PP.params['gridN']
+
+FF   = np.zeros( (gridN[2],gridN[1],gridN[0],3) )
+
+   \end{lstlisting}
+\end{shadedbox}
+
+
+
+
+\subsection{Sample Lenard-Jones and electrostatic potential}
+
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+
+PP.setFF( FF, cell  )
+PP.setFF_Pointer( FF )
+PP.getLenardJonesFF( Rs, C6, C12 )
+
+plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF LJ ' )
+for i in range(nslice):
+    plt.subplot( 1, nslice, i+1 )
+    plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
+
+
+withElectrostatics = ( abs( PP.params['charge'] )>0.001 )
+if withElectrostatics: 
+    print " # =========== Sample Coulomb "
+    FFel = np.zeros( np.shape( FF ) )
+    CoulombConst = -14.3996448915;  # [ e^2 eV/A ]
+    Qs *= CoulombConst
+    #print Qs
+    PP.setFF_Pointer( FFel )
+    PP.getCoulombFF ( Rs, Qs )
+    plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FFel ' )
+    for i in range(nslice):
+        plt.subplot( 1, nslice, i+1 )
+        plt.imshow( FFel[i,:,:,2], origin='image', interpolation='nearest' )
+    FF += FFel*PP.params['charge']
+    PP.setFF_Pointer( FF )
+    del FFel
+
+plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF total ' )
+for i in range(nslice):
+    plt.subplot( 1, nslice, i+1 )
+    plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
+   \end{lstlisting}
+\end{shadedbox}
+
+\subsection{3D-Scan with ProbeParticle relaxation}
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+for ix,x in enumerate( xTips  ):
+    print "relax ix:", ix
+    rTips[:,0] = x
+    for iy,y in enumerate( yTips  ):
+        rTips[:,1] = y
+        itrav = PP.relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
+        fzs[:,iy,ix] = fs[:,2].copy()
+    \end{lstlisting}
+\end{shadedbox}
+
+
+
+\subsection{Convert Fz -> df}
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+dfs = PP.Fz2df( fzs, dz = dz, k0 = PP.params['kCantilever'], f0=PP.params['f0Cantilever'], n=int(PP.params['Amplitude']/dz) )
+    \end{lstlisting}
+\end{shadedbox}
+
+
+
+\subsection{Plot results of relaxed 3D-scan}
+\begin{shadedbox}
+    \begin{lstlisting}[language=python]
+print " # ============  Plot Relaxed Scan 3D "
+
+#slices = range( PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy'] )
+#print "plotSliceFrom, plotSliceTo, plotSliceBy : ", PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy']
+#print slices 
+#nslice = len( slices )
+
+slices = range( 0, len(dfs) )
+
+for ii,i in enumerate(slices):
+    print " plotting ", i
+    plt.figure( figsize=( 10,10 ) )
+    plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
+    z = zTips[i] - PP.params['moleculeShift' ][2]
+    plt.colorbar();
+    plt.xlabel(r' Tip_x $\AA$')
+    plt.ylabel(r' Tip_y $\AA$')
+    plt.title( r"df Tip_z = %2.2f $\AA$" %z  )
+    plt.savefig( 'df_%3i.png' %i, bbox_inches='tight' )
+
+    \end{lstlisting}
+\end{shadedbox}
+
+

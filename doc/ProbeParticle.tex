@@ -10,7 +10,8 @@
 
 \usepackage{ gensymb }
 
-\usepackage[colorlinks,filecolor=blue,pagebackref]{hyperref} % Пакет hyperref рекомендуется загружать последним, поскольку он переопределяет многие команды LaTeX'а
+\bibliographystyle{plain}
+
 \usepackage[framemethod=tikz]{mdframed}
 \usetikzlibrary{shadows}
 
@@ -23,7 +24,7 @@
 basicstyle=\ttfamily
 }
 
-
+\usepackage[colorlinks,filecolor=blue,pagebackref]{hyperref} % Пакет hyperref рекомендуется загружать последним, поскольку он переопределяет многие команды LaTeX'а
 
 \title{Probe Particle model}
 \author{}
@@ -37,5 +38,18 @@ basicstyle=\ttfamily
 
 \chapter{Quick Start}
 \input{quick_start/quick_start.tex}
+
+\chapter{Scripting}
+\input{scripting/scripting.tex}
+
+\chapter{Technical details}
+\input{technical_details/technical_details.tex}
+
+
+
+\newpage
+\bibliography{biblio}
+
+
 %put your text here
 \end{document}
