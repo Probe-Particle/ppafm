@@ -112,7 +112,7 @@ def Fz2df( F, dz=0.1, k0 = 1800.0, f0=30300.0, n=4, units=16.0217656 ):
 # default parameters of simulation
 params={
 'PBC': False,
-'gridN':       np.array( [ 150,     150,   50   ] ).astype(np.int32),
+'gridN':       np.array( [ 150,     150,   50   ] ).astype(np.int),
 'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
 'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
 'gridC':       np.array( [      0,        0,      5.0 ] ),
