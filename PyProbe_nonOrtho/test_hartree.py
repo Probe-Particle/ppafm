@@ -4,6 +4,7 @@
 #matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
 
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import elements
@@ -12,17 +13,13 @@ import basUtils
 import ProbeParticle as PP
 
 
-print " # ========== make & load  ProbeParticle C++ library " 
+try:
+    sys.argv[1]
+except IndexError:
+    print "Please specify a file with coordinates"
+    exit(1)
 
-def makeclean( ):
-	import os
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".so") ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".o") ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
-
-makeclean( )  # force to recompile 
-
-
+print "Reading coordinates from the file {}".format(sys.argv[1])
 
 print " >> WARNING!!! OVEWRITING SETTINGS by params.ini  "
 
@@ -66,25 +63,9 @@ PP.setFF( FF, cell  )
 print " # ============ define atoms "
 
 
-atoms    = basUtils.loadAtoms('input.xyz', elements.ELEMENT_DICT )
+atoms    = basUtils.loadAtoms(sys.argv[1], elements.ELEMENT_DICT )
 Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
 iZs      = np.array( atoms[0])
-
-if not PP.params['PBC' ]:
-	print " NO PBC => autoGeom "
-	PP.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
-	print " NO PBC => params[ 'gridA'   ] ", PP.params[ 'gridA' ] 
-	print " NO PBC => params[ 'gridB'   ] ", PP.params[ 'gridB'   ]
-	print " NO PBC => params[ 'gridC'   ] ", PP.params[ 'gridC'   ]
-	print " NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ]
-	print " NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ]
-
-
-'''
-Rs[0] += PP.params['moleculeShift' ][0]          # shift molecule so that we sample reasonable part of potential 
-Rs[1] += PP.params['moleculeShift' ][1]          
-Rs[2] += PP.params['moleculeShift' ][2]          
-'''
 
 Rs     = np.transpose( Rs, (1,0) ).copy() 
 

@@ -1,65 +1,37 @@
 #!/usr/bin/python
 
-#import matplotlib
-#matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
-
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import elements
-
-#print dir( elements ) 
-
-
+import ProbeParticle as PP
 import basUtils
 
+#PP.makeclean( )  # force to recompile 
+
 print " # ========== make & load  ProbeParticle C++ library " 
+try:
+    sys.argv[1]
+except IndexError:
+    print "Please specify a file with coordinates"
+    exit(1)
 
-def makeclean( ):
-	import os
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".so") ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".o") ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
 
-makeclean( )  # force to recompile 
-
-import  ProbeParticle as PP
-
-print " # ==========  server interface file I/O "
-
+print "Reading coordinates from the file {}".format(sys.argv[1])
 
 print " >> WARNING!!! OVERIDING SETTINGS by params.ini  "
-
-PP.loadParams( 'params.ini' )
+PP.loadParams( "params.ini" )
 
 print " # ============ define atoms "
 
-#bas        = basUtils.loadBas('surf.bas')[0]
-#bas        = basUtils.loadBas('PTCDA_Ruslan_1x1.bas')[0]
-#bas        = basUtils.loadBas('GrN6x6.bas')[0]
-#atoms      = basUtils.loadAtoms('GrN6x6.bas', elements.ELEMENT_DICT )
-#atoms      = basUtils.loadAtoms('GrN6x6.xyz', elements.ELEMENT_DICT )
-
-atoms    = basUtils.loadAtoms('input.xyz', elements.ELEMENT_DICT )
+atoms    = basUtils.loadAtoms(sys.argv[1], elements.ELEMENT_DICT )
 Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
 iZs      = np.array( atoms[0])
 
-if not PP.params['PBC' ]:
-	print " NO PBC => autoGeom "
-	PP.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
-	print " NO PBC => params[ 'gridA'   ] ", PP.params[ 'gridA' ] 
-	print " NO PBC => params[ 'gridB'   ] ", PP.params[ 'gridB'   ]
-	print " NO PBC => params[ 'gridC'   ] ", PP.params[ 'gridC'   ]
-	print " NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ]
-	print " NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ]
-
-Rs[0] += PP.params['moleculeShift' ][0]          # shift molecule so that we sample reasonable part of potential 
-Rs[1] += PP.params['moleculeShift' ][1]          
-Rs[2] += PP.params['moleculeShift' ][2]          
 Rs     = np.transpose( Rs, (1,0) ).copy() 
 
 Qs = np.array( atoms[4] )
-
 if PP.params['PBC' ]:
 	iZs,Rs,Qs = PP.PBCAtoms( iZs, Rs, Qs, avec=PP.params['gridA'], bvec=PP.params['gridB'] )
 
@@ -146,30 +118,6 @@ for i in range(nslice):
 	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
 
 
-'''
-print " # ============ Relaxed Scan 1D "
-
-print rTips
-
-PP.relaxTipStroke( rTips, rs, fs, probeStart=1, relaxAlg=1 )
-fz = fs[:,2]
-
-print fz
-
-plt.figure(); plt.plot( zTips, fz ); plt.title(" Fz 1D ")
-plt.figure(); plt.plot( zTips, rs[:,2] ); plt.title(" rProbe z 1D ")
-
-print " # ============  convert to frequency shift"
-
-plt.figure()
-for n in [ 2, 4, 8, 16 ]:
-	df = PP.Fz2df( fz, dz=dz, n=n  )
-	plt.plot( zTips[n-1:], df, label=('A=%1.1f' %(dz*n) ) )
-plt.title(" df 1D ")
-plt.ylim(-5,5)
-plt.legend()
-
-'''
 
 print " # ============  Relaxed Scan 3D "
 
@@ -193,18 +141,15 @@ dfs = PP.Fz2df( fzs, dz = dz, k0 = PP.params['kCantilever'], f0=PP.params['f0Can
 
 print " # ============  Plot Relaxed Scan 3D "
 
-#slices = range( PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy'] )
-#print "plotSliceFrom, plotSliceTo, plotSliceBy : ", PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy']
-#print slices 
-#nslice = len( slices )
 
 slices = range( 0, len(dfs) )
 
 for ii,i in enumerate(slices):
 	print " plotting ", i
 	plt.figure( figsize=( 10,10 ) )
-	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
-	z = zTips[i] - PP.params['moleculeShift' ][2]
+	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent , vmin=-20, vmax=20)
+#	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
+	z = zTips[i] #- PP.params['moleculeShift' ][2]
 	plt.colorbar();
 	plt.xlabel(r' Tip_x $\AA$')
 	plt.ylabel(r' Tip_y $\AA$')

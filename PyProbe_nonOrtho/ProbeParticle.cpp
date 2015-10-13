@@ -355,6 +355,8 @@ void initProbeParticle(void){
     {
         FILE *f;
         char line[5000]; // define a length which is long enough to store a line
+        char *waste;
+        int waste2;
         long i=0, j=0, k=0, tot=0; 
 
         int nx=dims[0];
@@ -373,11 +375,11 @@ void initProbeParticle(void){
         {
             if (strstr(line, "DATAGRID_3D_"))     break;
         }
-        fgets(line,5000, f);
-        fgets(line,5000, f);
-        fgets(line,5000, f);
-        fgets(line,5000, f);
-        fgets(line,5000, f);
+        waste=fgets(line,5000, f);
+        waste=fgets(line,5000, f);
+        waste=fgets(line,5000, f);
+        waste=fgets(line,5000, f);
+        waste=fgets(line,5000, f);
 
 //       printf ("Line: %s", line);
         for  (tot=0, k=0; k<dims[2]; k++)
@@ -386,7 +388,7 @@ void initProbeParticle(void){
             {   
                 for (i=0; i<dims[0]; i++)
                 {
-                    fscanf(f,"%lf",&numbers[tot]);
+                    waste2=fscanf(f,"%lf",&numbers[tot]);
                     tot++;
                 }
             }

@@ -4,6 +4,7 @@ import numpy as np
 from   ctypes import c_int, c_double
 import ctypes
 import os
+#import sys
 
 # ====================== constants
 
@@ -116,7 +117,6 @@ params={
 'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
 'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
 'gridC':       np.array( [      0,        0,      5.0 ] ),
-'moleculeShift':  np.array( [  0.0,      0.0,    -2.0 ] ),
 'probeType':   8,
 'charge':      0.00,
 'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
@@ -189,28 +189,34 @@ def loadSpecies( fname ):
 # ============================== interface to C++ core 
 # ==============================
 
-name='ProbeParticle'
+name=os.path.dirname(__file__)+"/"+"ProbeParticle"
 ext='_lib.so'
 
-# recompilation of C++ dynamic librady ProbeParticle_lib.so from ProbeParticle.cpp
-def recompile( 
-		LFLAGS="",
-		#FFLAGS="-Og -g -Wall"
-		#FFLAGS="-std=c99 -O3 -ffast-math -ftree-vectorize"
-		FFLAGS="-std=c++11 -O3 -ffast-math -ftree-vectorize"
-	):
-	import os
-	print " ===== COMPILATION OF : "+name+".cpp"+"   "+name+ext
-	print  os.getcwd()
-	os.system("g++ "+FFLAGS+" -c -fPIC "+name+".cpp -o "+name+".o"+LFLAGS)
-	os.system("g++ "+FFLAGS+" -shared -Wl,-soname,"+name+ext+" -o "+name+ext+" "+name+".o"+LFLAGS)
 
+
+
+def makeclean( ):
+	[ os.remove(os.path.dirname(__file__)+"/"+f) for f in os.listdir(os.path.dirname(__file__)) if f.endswith(".so") ]
+	[ os.remove(os.path.dirname(__file__)+"/"+f) for f in os.listdir(os.path.dirname(__file__)) if f.endswith(".o") ]
+	[ os.remove(os.path.dirname(__file__)+"/"+f) for f in os.listdir(os.path.dirname(__file__)) if f.endswith(".pyc") ]
+
+
+
+
+# recompilation of C++ dynamic librady ProbeParticle_lib.so from ProbeParticle.cpp
+def recompile():
+        current_directory=os.getcwd()
+        os.chdir(os.path.dirname(__file__))
+        os.system("make")
+        os.chdir(current_directory)
 
 # if binary of ProbeParticle_lib.so is deleted => recompile it
-if not os.path.exists("./"+name+ext ):
+
+makeclean()
+if not os.path.exists(name+ext ):
 	recompile()
 
-lib    = ctypes.CDLL("./"+name+ext )    # load dynamic librady object using ctypes 
+lib    = ctypes.CDLL(name+ext )    # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')

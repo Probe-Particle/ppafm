@@ -9,7 +9,7 @@ import numpy as np
 
 
 
-name='ProbeParticle_lib'
+name=os.path.dirname(__file__)+'/ProbeParticle_lib'
 ext='.so'
 '''
 def recompile( 
@@ -53,7 +53,7 @@ def readNums(filein):
 
 def readNumsUpTo(filename, dimensions):
 #        recompile()
-        lib    = ctypes.CDLL("./"+name+ext )
+        lib    = ctypes.CDLL(name+ext )
         array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
         array1i = np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='CONTIGUOUS')
         lib.ReadNumsUpTo_C.argtypes  = [c_char_p, array1d, array1i]
