@@ -35,7 +35,7 @@ X, Y, Z = getMGrid(dims, dd)
 
 # --- probe particle potential ---
 
-rho = getProbePotential(sampleSize, X, Y, Z, sigma, dd)
+rho = getProbeDensity(sampleSize, X, Y, Z, sigma, dd)
 
 # --- print various quantities
 

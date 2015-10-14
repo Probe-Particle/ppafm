@@ -132,24 +132,29 @@ def loadXSF(fname):
 
 # =============== Vector Field
 
+def packVecGrid( Fx, Fy, Fz, FF = None ):
+	if FF is None:
+		nDim = np.shape( Fx )
+		FF = np.zeros( (nDim[0],nDim[1],nDim[2],3) )
+	FF[:,:,:,0]=Fx; 	FF[:,:,:,1]=Fy;	FF[:,:,:,2]=Fz
+	return FF
+
+def unpackVecGrid( FF ):
+	return FF[:,:,:,0].copy(), FF[:,:,:,1].copy(), FF[:,:,:,2].copy()
 
 def loadVecFieldXsf( fname, FF = None ):
-	FFx,lvec,nDim,head=PP.loadXSF(fname+'_x.xsf')
-	FFy,lvec,nDim,head=PP.loadXSF(fname+'_y.xsf')
-	FFz,lvec,nDim,head=PP.loadXSF(fname+'_z.xsf')
-	if FF == None:
-		FF = np.zeros( (nDim[0],nDim[1],nDim[2],3) )
-	FF[:,:,:,0]=FFx; 	FF[:,:,:,1]=FFy;	FF[:,:,:,2]=FFz
+	Fx,lvec,nDim,head=loadXSF(fname+'_x.xsf')
+	Fy,lvec,nDim,head=loadXSF(fname+'_y.xsf')
+	Fz,lvec,nDim,head=loadXSF(fname+'_z.xsf')
+	FF = packVecGrid( Fx, Fy, Fz, FF )
 	del FFx,FFy,FFz
 	return FF, lvec, nDim, head
 
 def loadVecFieldNpy( fname, FF = None ):
-	FFLJ[:,:,:,0] = np.load(fname+'_x.npy' )
-	FFLJ[:,:,:,1] = np.load(fname+'_y.npy' )
-	FFLJ[:,:,:,2] = np.load(fname+'_z.npy' )
-	if FF == None:
-		FF = np.zeros( (nDim[0],nDim[1],nDim[2],3) )
-	FF[:,:,:,0]=FFx; 	FF[:,:,:,1]=FFy; 	FF[:,:,:,2]=FFz
+	FF[:,:,:,0] = np.load(fname+'_x.npy' )
+	FF[:,:,:,1] = np.load(fname+'_y.npy' )
+	FF[:,:,:,2] = np.load(fname+'_z.npy' )
+	FF = packVecGrid( Fx, Fy, Fz, FF )
 	del FFx,FFy,FFz
 	return FF
 

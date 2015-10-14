@@ -102,9 +102,6 @@ yTips  = np.arange( PP.params['scanMin'][1], PP.params['scanMax'][1]+0.00001, 0.
 extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
 
 
-
-
-
 lvecScan =np.array([
 PP.params['scanMin'],
 [        PP.params['scanMax'][0],0.0,0.0],

@@ -6,10 +6,13 @@ import ctypes
 import os
 
 import GridUtils as GU
+import libFFTfin
+
 
 # ====================== constants
 
-eVA_Nm =  16.0217657
+eVA_Nm       =  16.0217657
+CoulombConst = -14.3996448915;
 
 # ==============================
 # ============================== Pure python functions
@@ -237,10 +240,16 @@ array4d = np.ctypeslib.ndpointer(dtype=np.double, ndim=4, flags='CONTIGUOUS')
 # void setFF( int * n, double * grid, double * step,  )
 lib.setFF.argtypes = [array1i,array4d,array2d]
 lib.setFF.restype  = None
-def setFF( grid, mat ):
+def setFF( grid, cell = None ):
 	n_    = np.shape(grid)
 	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
-	lib.setFF( n, grid, mat )
+	if cell is None:
+		cell = np.array([
+		params['gridA'],
+		params['gridB'],
+		params['gridC'],
+		]).copy() 
+	lib.setFF( n, grid, cell )
 
 # void setFF( int * n, double * grid, double * step,  )
 lib.setFF_Pointer.argtypes = [array4d]
@@ -265,13 +274,13 @@ def setFIRE( finc = 1.1, fdec = 0.5, falpha  = 0.99 ):
 lib.setTip.argtypes = [ c_double, c_double, array1d, array1d ]
 lib.setTip.restype  = None
 def setTip( lRadial=None, kRadial=None, rPP0=None, kSpring=None	):
-	if lRadial==None:
+	if lRadial is None:
 		lRadial=params['r0Probe'][2]
-	if kRadial==None:
+	if kRadial is  None:
 		kRadial=params['stiffness'][2]/-eVA_Nm
-	if rPP0==None:
+	if rPP0 is  None:
 		rPP0=np.array((params['r0Probe'][0],params['r0Probe'][1],0.0))
-	if kSpring==None: 
+	if kSpring is  None: 
 		kSpring=np.array((params['stiffness'][0],params['stiffness'][1],0.0))/-eVA_Nm 
 	print " IN setTip !!!!!!!!!!!!!! "
 	print " lRadial ", lRadial
@@ -305,7 +314,7 @@ def relaxTipStroke( rTips, rs, fs, probeStart=1, relaxAlg=1 ):
 
 # =============  ProbeParticle Simulation Macros
 
-def prepareGrids( ):
+def prepareScanGrids( ):
 	zTips  = np.arange( params['scanMin'][2], params['scanMax'][2]+0.00001, params['scanStep'][2] )[::-1];
 	xTips  = np.arange( params['scanMin'][0], params['scanMax'][0]+0.00001, 0.1 )
 	yTips  = np.arange( params['scanMin'][1], params['scanMax'][1]+0.00001, 0.1 )
@@ -318,18 +327,21 @@ def prepareGrids( ):
 	]).copy() 
 	return xTips,yTips,zTips,lvecScan
 
-def computeLJ( atoms, FFLJ=None, cell=None, FFparams=None, autogeom = False, PBC = True ):
-	if ( FFLJ == None ):
-		gridN = params['gridN']
-		FFLJ = np.zeros( (gridN[0],gridN[1],gridN[2],3)    )
-	else:
-		params['gridN'] = np.shape( FFLJ )	
-	if ( cell == None ):
-		cell = np.array([
-		params['gridA'],
-		params['gridB'],
-		params['gridC'],
-		]).copy() 
+def lvec2params( lvec ):
+	PP.params['gridA'] = lvec[ 1,: ].copy()
+	PP.params['gridB'] = lvec[ 2,: ].copy()
+	PP.params['gridC'] = lvec[ 3,: ].copy()
+
+def params2lvec( ):
+	lvec = np.array([
+	[ 0.0, 0.0, 0.0 ],
+	PP.params['gridA'],
+	PP.params['gridB'],
+	PP.params['gridC'],
+	]).copy
+	return lvec
+
+def parseAtoms( atoms, autogeom = False, PBC = True ):
 	Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
 	iZs      = np.array( atoms[0] )
 	if autogeom:
@@ -339,46 +351,75 @@ def computeLJ( atoms, FFLJ=None, cell=None, FFparams=None, autogeom = False, PBC
 	Qs = np.array( atoms[4] )
 	if PBC:
 		iZs,Rs,Qs = PBCAtoms( iZs, Rs, Qs, avec=params['gridA'], bvec=params['gridB'] )
-	if FFparams == None:
+	return iZs,Rs,Qs
+
+def computeLJ( Rs, iZs, FFLJ=None, FFparams=None ):
+	if ( FFLJ is None ):
+		gridN = params['gridN']
+		FFLJ = np.zeros( (gridN[0],gridN[1],gridN[2],3)    )
+	else:
+		params['gridN'] = np.shape( FFLJ )	
+	iZs,Rs,Qs = parseAtoms( )
+	if FFparams is None:
 		FFparams = loadSpecies( LIB_PATH+'/defaults/atomtypes.ini' )
 	C6,C12   = getAtomsLJ( params['probeType'], iZs, FFparams )
-	setFF( FFLJ, cell  )
-	setFF_Pointer( FFLJ )
+	setFF( FFLJ )
 	getLenardJonesFF( Rs, C6, C12 )
 	return FFLJ
 
-def prepareLJ( xsfLJ = False, recomputeLJ = False, save = True ):
-	if xsfLJ:
-		if not os.path.isfile('FFLJ_x.xsf'):
-			recomputeLJ = True
+def computeCoulomb( Rs, Qs, FFel=None ):
+	if ( FFel is None ):
+		gridN = params['gridN']
+		FFel = np.zeros( (gridN[0],gridN[1],gridN[2],3)    )
 	else:
-		if not os.path.isfile('FFLJ_x.npy'):
-			recomputeLJ = True
-	if recomputeLJ:
-		computeLJ(  )
-		if save:
-			if xsfLJ:
-				saveVecFieldXsf( 'FFLJ', FFLJ, head, lvec )
-			else:
-				saveVecFieldNpy( 'FFLJ', FFLJ )
-	else:
-		if xsfLJ:
-			FFLJ, lvec, nDim, head = loadVecFieldXsf( fname, FFLJ )
-		else:
-			FFLJ = loadVecField( fname, FFLJ )
+		params['gridN'] = np.shape( FFel )	
+	setFF( FFel )
+	FFel  = PP.getCoulombFF ( Rs, Qs * CoulombConst )
+	return FFel
 
-def prepareForceFields(  ):
-	lvecRewrite = False
-	if ( xsfLJ  and os.path.isfile('Fel_x.xsf')):
-		print " Fel_x.xsf found => reading forcefield from file"
-		FFel, lvec, nDim, head = loadVecField('FFel', FFel)
-		params['gridA'] = lvec[ 1,:  ].copy()
-		params['gridB'] = lvec[ 2,:  ].copy()
-		params['gridC'] = lvec[ 3,:  ].copy()
-		params['gridN'] = nDim.copy()
+def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFparams=None ):
+	newEl = False
+	newLJ = False
+	head = None
+	# --- try to load FFel or compute it from LOCPOT.xsf
+	if ( os.path.isfile('FFel_x.xsf') ):
+		print " FFel_x.xsf found "
+		FFel, lvecEl, nDim, head = GU.loadVecField('FFel', FFel)
+		lvec2params( lvecEl )
 	else:
-		print " Fel_x.xsf not found => reading forcefield from file"
-	prepareLJ()
+		print "F Fel_x.xsf not found "
+		if ( xsfLJ  and os.path.isfile('LOCPOT.xsf') ):
+			print " LOCPOT.xsf found "
+			V, lvecEl, nDim, head = GU.loadXSF('LOCPOT.xsf')
+			lvec2params( lvecEl )
+			FFel_x,FFel_y,FFel_z = libFFTfin.potential2forces( V, lvecEl, nDim, sigma = 1.0 )
+			FFel = GU.packVecGrid( FFel_x,FFel_y,FFel_z )
+			del FFel_x,FFel_y,FFel_z
+			GU.saveVecFieldXsf( 'FFel', FF, lvecEl, head = head )
+		else:
+			print " LOCPOT.xsf not found "
+			newEl = True
+	# --- try to load FFLJ 
+	if ( os.path.isfile('FFLJ_x.xsf') ):
+		print " FFLJ_x.xsf found "
+		FFLJ, lvecLJ, nDim, head = GU.loadVecFieldXsf( 'FFLJ' )
+		lvec2params( lvecLJ )
+	else: 
+		newLJ = True
+	# --- compute Forcefield by atom-wise interactions 
+	if ( newEl or newEl ):
+		atoms     = basUtils.loadAtoms('geom.bas', elements.ELEMENT_DICT )
+		iZs,Rs,Qs = parseAtoms( atoms, autogeom = autogeom, PBC = params.['PBC'] )
+		lvec = params2lvec( )
+		if head is None:
+			head = GU.XSF_HEAD_DEFAULT
+		if newLJ:
+			FFLJ = computeLJ     ( Rs, iZs, FFparams=FFparams )
+			GU.saveVecFieldXsf( 'FFLJ', FF, lvecEl, head = head )
+		if newEl:
+			FFel = computeCoulomb( Rs, Qs, FFel )
+			GU.saveVecFieldXsf( 'FFel', FF, lvecEl, head = head )
+	return FFLJ, FFel
 		
 def relaxedScan3D( xTips, yTips, zTips ):
 	ntips = len(zTips); 
