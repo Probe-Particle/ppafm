@@ -8,7 +8,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import elements
-import XSFutils
+import GridUtils as GU
 import basUtils
 import ProbeParticle as PP
 
@@ -27,9 +27,9 @@ PP.loadParams( 'params.ini' )
 
 
 
-Fx,lvec,nDim,head=XSFutils.loadXSF('Fx.xsf')
-Fy,lvec,nDim,head=XSFutils.loadXSF('Fy.xsf')
-Fz,lvec,nDim,head=XSFutils.loadXSF('Fz.xsf')
+Fx,lvec,nDim,head=GU.loadXSF('Fx.xsf')
+Fy,lvec,nDim,head=GU.loadXSF('Fy.xsf')
+Fz,lvec,nDim,head=GU.loadXSF('Fz.xsf')
 
 PP.params['gridA'] = lvec[ 1,:  ].copy()
 PP.params['gridB'] = lvec[ 2,:  ].copy()

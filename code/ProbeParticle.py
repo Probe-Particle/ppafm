@@ -207,7 +207,7 @@ def makeclean( ):
 def recompile():
         current_directory=os.getcwd()
         os.chdir(os.path.dirname(__file__))
-        os.system("make")
+        os.system("make PP")
         os.chdir(current_directory)
 
 # if binary of ProbeParticle_lib.so is deleted => recompile it
