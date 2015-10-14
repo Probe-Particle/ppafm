@@ -9,133 +9,71 @@ import numpy as np
 
 
 
-name=os.path.dirname(__file__)+'/ProbeParticle_lib'
+name=os.path.dirname(__file__)+'/GridUtils_lib'
 ext='.so'
-'''
-def recompile( 
-                LFLAGS="",
-                #FFLAGS="-Og -g -Wall"
-                FFLAGS="-std=c99 -O3 -ffast-math -ftree-vectorize"
-        ):
-        import os
-        print " ===== COMPILATION OF : "+name+".cpp"
-        print  os.getcwd()
-        os.system("g++ "+FFLAGS+" -c -fPIC "+name+".cpp -o "+name+".o"+LFLAGS)
-        os.system("g++ "+FFLAGS+" -shared -Wl,-soname,"+name+ext+" -o "+name+ext+" "+name+".o"+LFLAGS)
-'''
 
-
-
-
-
-
+def recompile():
+        current_directory=os.getcwd()
+        os.chdir(os.path.dirname(__file__))
+        os.system("make GU")
+        os.chdir(current_directory)
 
 def readUpTo( filein, keyword ):
-	i = 0
-	linelist = []
-	while True :
-		line = filein.readline()
-		linelist.append(line)
-		i=i+1
-		if 	((not line) or (keyword in line)): break;
-	return i,linelist
+        i = 0
+        linelist = []
+        while True :
+                line = filein.readline()
+                linelist.append(line)
+                i=i+1
+                if      ((not line) or (keyword in line)): break;
+        return i,linelist
 
 def readNums(filein):
-	out = []
-	while True :
-		line = filein.readline()
-		if (not line): break;
-		words = line.split()
-		try: float(words[0])
-		except ValueError: break;
-		out = out + [ float(iii) for iii in words  ]
-	return pylab.array(out)
+        out = []
+        while True :
+                line = filein.readline()
+                if (not line): break;
+                words = line.split()
+                try: float(words[0])
+                except ValueError: break;
+                out = out + [ float(iii) for iii in words  ]
+        return pylab.array(out)
 
-def readNumsUpTo(filename, dimensions):
-#        recompile()
+def readNumsUpTo(filename, dimensions, noline):
+        recompile()
         lib    = ctypes.CDLL(name+ext )
         array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
         array1i = np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='CONTIGUOUS')
-        lib.ReadNumsUpTo_C.argtypes  = [c_char_p, array1d, array1i]
+        lib.ReadNumsUpTo_C.argtypes  = [c_char_p, array1d, array1i, c_int]
         lib.ReadNumsUpTo_C.restype   = c_int
         N_arry=np.zeros((dimensions[0]*dimensions[1]*dimensions[2]), dtype = np.double)
-        lib.ReadNumsUpTo_C(filename, N_arry, dimensions)
-	return pylab.array(N_arry)
+        lib.ReadNumsUpTo_C(filename, N_arry, dimensions, noline)
+        return pylab.array(N_arry)
 
 def readmat(filein, n):
-	temp = []
-	for i in range(n):
-		temp.append( [ float(iii) for iii in filein.readline().split() ] )
-	return pylab.array(temp)
+        temp = []
+        for i in range(n):
+                temp.append( [ float(iii) for iii in filein.readline().split() ] )
+        return pylab.array(temp)
 
 def seekWord(filein, word):
-	line = filein.readline()
-	while line and not (word in line):
-		line = filein.readline()
-
-def loadXSF_old(fname):
-	filein = open(fname )
-	startline, head = readUpTo(filein, "BEGIN_DATAGRID_3D_")
-	nDim = [ int(iii) for iii in filein.readline().split() ]
-	nDim.reverse()
-	nDim = pylab.array( nDim )
-	lvec = readmat(filein, 4)
-	#F = readNums(filein)
-	F = readNumsUpTo(filein,"END_DATAGRID_3D")
-	print "pylab.shape(F)",pylab.shape(F)
-	print "nDim",nDim
-	filein.close()
-	#F = pylab.genfromtxt(fname, skip_header=startline+1, skip_footer=2, usecols = (1,2,3,4,5) )
-	FF = pylab.reshape (F.flat, nDim )
-	return FF,lvec, nDim, head
-	#return 1.0,lvec, nDim, head
-
-def iter_loadtxt(filename, delimiter=',', skip_header=0, dtype=float):
-	print "iter_loadtxt "
-	def iter_func():
-		with open(filename, 'r') as infile:
-			for _ in range(skip_header):
-				next(infile)
-			for line in infile:
-				line = line.rstrip().split(delimiter)
-				try:
-					float(line[0])
-					for item in line:
-						yield dtype(item)
-				except ValueError:
-					print "Not a float"
-					break
-		iter_loadtxt.rowlength = len(line)
-	data = pylab.fromiter(iter_func(), dtype=dtype)
-	data = data.reshape((-1, iter_loadtxt.rowlength))
-	return data
+        line = filein.readline()
+        while line and not (word in line):
+                line = filein.readline()
 
 def loadXSF(fname):
 	filein = open(fname )
-	#startline, head = readUpTo(filein, "BEGIN_DATAGRID_3D_")
-	startline, head = readUpTo(filein, "DATAGRID_3D_")
-	nDim = [ int(iii) for iii in filein.readline().split() ]
+	startline, head = readUpTo(filein, "DATAGRID_3D_")              # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
+        print startline
+	nDim = [ int(iii) for iii in filein.readline().split() ]        # reading 1 line with dimensions
 	nDim.reverse()
-#	nDim = pylab.array( nDim, dtype=np.int32 )
 	nDim = pylab.array( nDim)
-	lvec = readmat(filein, 4)
-	line = filein.readline()
-	perline = len(line.split())
-	rewind = len(line)
-	if(perline==0):
-		line = filein.readline()
-		rewind += len(line)
-		perline = len(line.split())
-	ntot = nDim[0]*nDim[1]*nDim[2]
-	nrest = ntot%perline
-	print ntot,ntot/perline,perline,nrest
-#	if (( perline > 1 )&(nrest!=0)):    
-	print "load "+fname+" using readNumsUpTo (very fast)"    
-	filein.seek(-rewind,1)
+	lvec = readmat(filein, 4)                                       # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
 	filein.close()
-	F = readNumsUpTo(fname,nDim.astype(np.int32).copy())
+	print "GridUtils| Load "+fname+" using readNumsUpTo "    
+	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(), startline+5)
 
-        print "Done"
+        print "GridUtils| Done"
         print nDim
 	FF = pylab.reshape (F, nDim )
 	return FF,lvec, nDim, head
@@ -161,3 +99,40 @@ def saveXSF(fname, head, lvec, data ):
 
 
 
+def loadCUBE(fname):
+        filein = open(fname )
+
+#First two lines of the header are comments
+	header1=filein.readline()
+	header2=filein.readline()
+	
+#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
+        sth0 = filein.readline().split()
+#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
+        sth1 = filein.readline().split()
+        sth2 = filein.readline().split()
+        sth3 = filein.readline().split()
+        filein.close()
+        nDim = pylab.array( [int(sth1[0]),int(sth2[0]),int(sth3[0])] )
+        lvec = np.zeros((4, 3))
+        for jj in range(3):
+            lvec[0,jj]=float(sth0[jj+1])
+            lvec[1,jj]=float(sth1[jj+1])*int(sth1[0])*0.529177249
+            lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*0.529177249
+            lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*0.529177249
+
+        ntot = nDim[0]*nDim[1]*nDim[2]
+        print "GridUtils| Load "+fname+" using readNumsUpTo"  
+	noline = 6+int(sth0[0])
+        print "staring line:", noline
+        print
+        F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
+        print "pylab.shape(F)",pylab.shape(F)
+        print "nDim",nDim
+        print nDim
+        FF = pylab.reshape (F, nDim )
+        head = []
+        head.append("BEGIN_BLOCK_DATAGRID_3D \n")
+        head.append("g98_3D_unknown \n")
+        head.append("DATAGRID_3D_g98Cube \n")
+        return FF,lvec, nDim, head

@@ -3,7 +3,7 @@
 #include <string.h>
 extern "C"
 {
-    int ReadNumsUpTo_C (char *fname, double *numbers, int * dims)
+    int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline)
     {
         FILE *f;
         char line[5000]; // define a length which is long enough to store a line
@@ -23,15 +23,10 @@ extern "C"
             fprintf(stderr, "Can't open the file %s", fname);
             exit (1); 
         }
-        while (fgets(line,5000, f))
-        {
-            if (strstr(line, "DATAGRID_3D_"))     break;
+        for (i=0; i<noline; i++)
+        {   
+            waste=fgets(line,5000, f);
         }
-        waste=fgets(line,5000, f);
-        waste=fgets(line,5000, f);
-        waste=fgets(line,5000, f);
-        waste=fgets(line,5000, f);
-        waste=fgets(line,5000, f);
 
 //       printf ("Line: %s", line);
         for  (tot=0, k=0; k<dims[2]; k++)
@@ -41,7 +36,9 @@ extern "C"
                 for (i=0; i<dims[0]; i++)
                 {
                     waste2=fscanf(f,"%lf",&numbers[tot]);
+//                    printf ("%20.20lf ", numbers[tot]);
                     tot++;
+//                    if (tot > 5 ) exit(1);
                 }
             }
         }
