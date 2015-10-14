@@ -194,7 +194,7 @@ for ii,i in enumerate(slices):
 	print " plotting ", i
 	plt.figure( figsize=( 10,10 ) )
 	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
-	z = zTips[i] - PP.params['moleculeShift' ][2]
+	z = zTips[i]
 	plt.colorbar();
 	plt.xlabel(r' Tip_x $\AA$')
 	plt.ylabel(r' Tip_y $\AA$')
