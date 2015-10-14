@@ -8,7 +8,6 @@ import os
 import GridUtils as GU
 import libFFTfin
 
-
 # ====================== constants
 
 eVA_Nm       =  16.0217657
@@ -328,16 +327,16 @@ def prepareScanGrids( ):
 	return xTips,yTips,zTips,lvecScan
 
 def lvec2params( lvec ):
-	PP.params['gridA'] = lvec[ 1,: ].copy()
-	PP.params['gridB'] = lvec[ 2,: ].copy()
-	PP.params['gridC'] = lvec[ 3,: ].copy()
+	params['gridA'] = lvec[ 1,: ].copy()
+	params['gridB'] = lvec[ 2,: ].copy()
+	params['gridC'] = lvec[ 3,: ].copy()
 
 def params2lvec( ):
 	lvec = np.array([
 	[ 0.0, 0.0, 0.0 ],
-	PP.params['gridA'],
-	PP.params['gridB'],
-	PP.params['gridC'],
+	params['gridA'],
+	params['gridB'],
+	params['gridC'],
 	]).copy
 	return lvec
 
@@ -374,7 +373,7 @@ def computeCoulomb( Rs, Qs, FFel=None ):
 	else:
 		params['gridN'] = np.shape( FFel )	
 	setFF( FFel )
-	FFel  = PP.getCoulombFF ( Rs, Qs * CoulombConst )
+	FFel  = getCoulombFF ( Rs, Qs * CoulombConst )
 	return FFel
 
 def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFparams=None ):
@@ -409,7 +408,7 @@ def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFpara
 	# --- compute Forcefield by atom-wise interactions 
 	if ( newEl or newEl ):
 		atoms     = basUtils.loadAtoms('geom.bas', elements.ELEMENT_DICT )
-		iZs,Rs,Qs = parseAtoms( atoms, autogeom = autogeom, PBC = params.['PBC'] )
+		iZs,Rs,Qs = parseAtoms( atoms, autogeom = autogeom, PBC = params['PBC'] )
 		lvec = params2lvec( )
 		if head is None:
 			head = GU.XSF_HEAD_DEFAULT
@@ -439,22 +438,4 @@ def relaxedScan3D( xTips, yTips, zTips ):
 			itrav = relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
 			fzs[:,iy,ix] = fs[:,2].copy()
 	return fzs
-
-# =========== Plotting
-
-def plotImages( prefix, F, slices ):
-	for ii,i in enumerate(slices):
-		print " plotting ", i
-		plt.figure( figsize=( 10,10 ) )
-		plt.imshow( F[i], origin='image', interpolation=params['imageInterpolation'], cmap=params['colorscale'], extent=extent )
-		z = zTips[i] - params['moleculeShift' ][2]
-		plt.colorbar();
-		plt.xlabel(r' Tip_x $\AA$')
-		plt.ylabel(r' Tip_y $\AA$')
-		plt.title( r"Tip_z = %2.2f $\AA$" %z  )
-		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
-		plt.close()
-
-
-
 

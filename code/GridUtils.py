@@ -147,15 +147,15 @@ def loadVecFieldXsf( fname, FF = None ):
 	Fy,lvec,nDim,head=loadXSF(fname+'_y.xsf')
 	Fz,lvec,nDim,head=loadXSF(fname+'_z.xsf')
 	FF = packVecGrid( Fx, Fy, Fz, FF )
-	del FFx,FFy,FFz
+	del Fx,Fy,Fz
 	return FF, lvec, nDim, head
 
 def loadVecFieldNpy( fname, FF = None ):
-	FF[:,:,:,0] = np.load(fname+'_x.npy' )
-	FF[:,:,:,1] = np.load(fname+'_y.npy' )
-	FF[:,:,:,2] = np.load(fname+'_z.npy' )
+	Fx = np.load(fname+'_x.npy' )
+	Fy = np.load(fname+'_y.npy' )
+	Fz = np.load(fname+'_z.npy' )
 	FF = packVecGrid( Fx, Fy, Fz, FF )
-	del FFx,FFy,FFz
+	del Fx,Fy,Fz
 	return FF
 
 def saveVecFieldXsf( fname, FF, lvec, head = XSF_HEAD_DEFAULT ):
