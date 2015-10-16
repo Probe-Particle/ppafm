@@ -13,6 +13,35 @@ import libFFTfin
 eVA_Nm       =  16.0217657
 CoulombConst = -14.3996448915;
 
+
+# default parameters of simulation
+params={
+'PBC': False,
+'nPBC' :       np.array( [      1,        1,        1 ] ),
+'gridN':       np.array( [ 150,     150,   50   ] ).astype(np.int),
+'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
+'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
+'gridC':       np.array( [      0,        0,      5.0 ] ),
+'moleculeShift':  np.array( [  0.0,      0.0,    -2.0 ] ),
+'probeType':   8,
+'charge':      0.00,
+'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
+'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
+
+'scanStep': np.array( [ 0.10, 0.10, 0.05 ] ),
+'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
+'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
+'kCantilever'  :  1800.0, 
+'f0Cantilever' :  30300.0,
+'Amplitude'    :  1.0,
+'plotSliceFrom':  16,
+'plotSliceTo'  :  22,
+'plotSliceBy'  :  1,
+'imageInterpolation': 'bicubic',
+'colorscale'   : 'gray',
+
+}
+
 # ==============================
 # ============================== Pure python functions
 # ==============================
@@ -57,7 +86,7 @@ def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
 		dy = -0.5*(ymin+ymax) + 0.5*( params[ 'gridA' ][1] + params[ 'gridB' ][1] ); Rs[1] += dy;
 		print " autoGeom moved geometry by ",dx,dy
 
-def PBCAtoms( Zs, Rs, Qs, avec, bvec ):
+def PBCAtoms( Zs, Rs, Qs, avec, bvec, na=None, nb=None ):
 	'''
 	multiply atoms of sample along supercell vectors
 	the multiplied sample geometry is used for evaluation of forcefield in Periodic-boundary-Conditions ( PBC )
@@ -65,8 +94,12 @@ def PBCAtoms( Zs, Rs, Qs, avec, bvec ):
 	Zs_ = []
 	Rs_ = []
 	Qs_ = []
-	for i in [-1,0,1]:
-		for j in [-1,0,1]:
+	if na is None:
+		na=params['nPBC'][0]
+	if nb is None:
+		nb=params['nPBC'][1]
+	for i in range(-na,na+1):
+		for j in range(-nb,nb+1):
 			for iatom in range(len(Zs)):
 				x = Rs[iatom][0] + i*avec[0] + j*bvec[0]
 				y = Rs[iatom][1] + i*avec[1] + j*bvec[1]
@@ -116,33 +149,6 @@ def Fz2df( F, dz=0.1, k0 = 1800.0, f0=30300.0, n=4, units=16.0217656 ):
 # ==============================
 # ==============================  server interface file I/O
 # ==============================
-
-# default parameters of simulation
-params={
-'PBC': False,
-'gridN':       np.array( [ 150,     150,   50   ] ).astype(np.int),
-'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
-'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
-'gridC':       np.array( [      0,        0,      5.0 ] ),
-'moleculeShift':  np.array( [  0.0,      0.0,    -2.0 ] ),
-'probeType':   8,
-'charge':      0.00,
-'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
-'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
-
-'scanStep': np.array( [ 0.10, 0.10, 0.05 ] ),
-'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
-'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
-'kCantilever'  :  1800.0, 
-'f0Cantilever' :  30300.0,
-'Amplitude'    :  1.0,
-'plotSliceFrom':  16,
-'plotSliceTo'  :  22,
-'plotSliceBy'  :  1,
-'imageInterpolation': 'nearest',
-'colorscale'   : 'gray',
-
-}
 
 # overide default parameters by parameters read from a file 
 def loadParams( fname ):
