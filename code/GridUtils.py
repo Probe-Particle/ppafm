@@ -28,17 +28,6 @@ def readUpTo( filein, keyword ):
                 if      ((not line) or (keyword in line)): break;
         return i,linelist
 
-def readNums(filein):
-        out = []
-        while True :
-                line = filein.readline()
-                if (not line): break;
-                words = line.split()
-                try: float(words[0])
-                except ValueError: break;
-                out = out + [ float(iii) for iii in words  ]
-        return pylab.array(out)
-
 def readNumsUpTo(filename, dimensions, noline):
         recompile()
         lib    = ctypes.CDLL(name+ext )
