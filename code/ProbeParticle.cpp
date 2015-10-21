@@ -8,7 +8,6 @@
 
 // ================= MACROS
 
-#define fast_floor( x )    ( ((int)(x+1000))-1000 ) 
 #define i3D( ix, iy, iz )  ( iz*nxy + iy*nx + ix  ) 
 
 // ================= CONSTANTS
