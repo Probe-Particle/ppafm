@@ -86,9 +86,9 @@ plotWithAtoms( Fy, ilist, extent, dz = dz, cmap = 'jet', withcolorbar=False )
 plotWithAtoms( Fz, ilist, extent, dz = dz, cmap = 'jet', withcolorbar=False )
 
 print " saving "
-saveXSF('Fx.xsf', head, lvec, Fx )
-saveXSF('Fy.xsf', head, lvec, Fy )
-saveXSF('Fz.xsf', head, lvec, Fz )
+saveXSF('Fx.xsf', Fx, lvec, head)
+saveXSF('Fy.xsf', Fy, lvec, head)
+saveXSF('Fz.xsf', Fz, lvec, head)
 
 #plotWithAtoms( Fx_check, ilist, extent, dz = dz, cmap = 'jet', withcolorbar=True )
 #plotWithAtoms( Fx_diff, ilist, extent, dz = dz, cmap = 'jet', withcolorbar=True )
