@@ -45,11 +45,6 @@ def readmat(filein, n):
                 temp.append( [ float(iii) for iii in filein.readline().split() ] )
         return pylab.array(temp)
 
-def seekWord(filein, word):
-        line = filein.readline()
-        while line and not (word in line):
-                line = filein.readline()
-
 def loadXSF(fname):
 	filein = open(fname )
 	startline, head = readUpTo(filein, "DATAGRID_3D_")              # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
