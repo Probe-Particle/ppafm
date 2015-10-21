@@ -70,11 +70,11 @@ def loadXSF(fname):
 	nDim = pylab.array( nDim)
 	lvec = readmat(filein, 4)                                       # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
 	filein.close()
+        print nDim
 	print "GridUtils| Load "+fname+" using readNumsUpTo "    
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(), startline+5)
 
         print "GridUtils| Done"
-        print nDim
 	FF = pylab.reshape (F, nDim )
 	return FF,lvec, nDim, head
 
@@ -120,17 +120,14 @@ def loadCUBE(fname):
             lvec[1,jj]=float(sth1[jj+1])*int(sth1[0])*0.529177249
             lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*0.529177249
             lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*0.529177249
-
-        ntot = nDim[0]*nDim[1]*nDim[2]
         print "GridUtils| Load "+fname+" using readNumsUpTo"  
 	noline = 6+int(sth0[0])
-        print "staring line:", noline
-        print
         F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
-        print "pylab.shape(F)",pylab.shape(F)
-        print "nDim",nDim
+        print "GridUtils| pylab.shape(F)",pylab.shape(F)
+        print "GridUtils| nDim",nDim
         print nDim
-        FF = pylab.reshape (F, nDim )
+        FF = pylab.reshape(F, nDim ).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
+	nDim=[nDim[2],nDim[1],nDim[0]]                          # Setting up the corresponding dimensions. 
         head = []
         head.append("BEGIN_BLOCK_DATAGRID_3D \n")
         head.append("g98_3D_unknown \n")
