@@ -12,7 +12,8 @@ sigma  = 1.0 # [ Angstroem ]
 print '--- Data Loading ---'
 
 V, lvec, nDim, head = GU.loadXSF('LOCPOT.xsf')
-
+print np.shape(lvec)
+print head
 print '--- Preprocessing ---'
 
 sampleSize = getSampleDimensions(lvec)
@@ -37,9 +38,9 @@ print 'Fx.max(), Fx.min() = ', Fx.max(), Fx.min()
 
 print "--- Saving ---"
 
-GU.saveXSF('FFel_x.xsf', head, lvec, Fx)
-GU.saveXSF('FFel_.xsf' , head, lvec, Fy)
-GU.saveXSF('FFel_.xsf' , head, lvec, Fz)
+GU.saveXSF('FFel_x.xsf', Fx, lvec, head)
+GU.saveXSF('FFel_y.xsf' , Fy, lvec, head)
+GU.saveXSF('FFel_z.xsf' , Fz, lvec, head)
     
 show()
 
