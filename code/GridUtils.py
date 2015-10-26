@@ -15,38 +15,20 @@ print " ProbeParticle Library DIR = ", LIB_PATH
 name='GridUtils'
 ext='_lib.so'
 
+def recompile():
+        current_directory=os.getcwd()
+        os.chdir(os.path.dirname( os.path.realpath(__file__) ) )
+        os.system("make GU")
+        os.chdir(current_directory)
 
-# recompilation of C++ dynamic librady ProbeParticle_lib.so from ProbeParticle.cpp
-def recompile( 
-		LFLAGS="",
-		#FFLAGS="-Og -g -Wall"
-		#FFLAGS="-std=c99 -O3 -ffast-math -ftree-vectorize"
-		FFLAGS="-std=c++11 -O3 -ffast-math -ftree-vectorize"
-	):
-	import os
-	print " ===== COMPILATION OF : "+name+".cpp"+"   "+name+ext
-	CWD = os.getcwd()
-	os.chdir( LIB_PATH );   print " >> WORKDIR: ", os.getcwd()
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".so")  ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".o")   ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
-	os.system("g++ "+FFLAGS+" -c -fPIC "+name+".cpp -o "+name+".o"+LFLAGS)
-	os.system("g++ "+FFLAGS+" -shared -Wl,-soname,"+name+ext+" -o "+name+ext+" "+name+".o"+LFLAGS)
-	os.chdir(CWD);          print " >> WORKDIR: ", os.getcwd()
 
-# if binary of ProbeParticle_lib.so is deleted => recompile it
-if not os.path.exists(LIB_PATH+"/"+name+ext ):
-	recompile()
-
+recompile()
 lib    = ctypes.CDLL(LIB_PATH+"/"+name+ext )    # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
 
-array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
+array1i = np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='CONTIGUOUS')
 array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
-array2d = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
-array3d = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
-array4d = np.ctypeslib.ndpointer(dtype=np.double, ndim=4, flags='CONTIGUOUS')
 
 # ==============  Xsf
 
@@ -59,28 +41,28 @@ BEGIN_BLOCK_DATAGRID_3D
    BEGIN_DATAGRID_3D_whatever 
 '''
 
-lib.ReadNumsUpTo_C.argtypes  = [c_char_p, array1d, array1i]
+lib.ReadNumsUpTo_C.argtypes  = [c_char_p, array1d, array1i, c_int]
 lib.ReadNumsUpTo_C.restype   = c_int
-def readNumsUpTo(filename, dimensions):
-	N_arry=np.zeros( (dimensions[0]*dimensions[1]*dimensions[2]), dtype = np.double )
-	lib.ReadNumsUpTo_C( filename, N_arry, dimensions )
-	return N_arry
+def readNumsUpTo(filename, dimensions, noline):
+        N_arry=np.zeros( (dimensions[0]*dimensions[1]*dimensions[2]), dtype = np.double )
+        lib.ReadNumsUpTo_C( filename, N_arry, dimensions, noline )
+        return N_arry
 
 def readUpTo( filein, keyword ):
-	i = 0
-	linelist = []
-	while True :
-		line = filein.readline()
-		linelist.append(line)
-		i=i+1
-		if 	((not line) or (keyword in line)): break;
-	return i,linelist
+        i = 0
+        linelist = []
+        while True :
+                line = filein.readline()
+                linelist.append(line)
+                i=i+1
+                if      ((not line) or (keyword in line)): break;
+        return i,linelist
 
 def readmat(filein, n):
-	temp = []
-	for i in range(n):
-		temp.append( [ float(iii) for iii in filein.readline().split() ] )
-	return np.array(temp)
+        temp = []
+        for i in range(n):
+                temp.append( [ float(iii) for iii in filein.readline().split() ] )
+        return np.array(temp)
 
 def writeArr(f, arr):
     f.write(" ".join(str(x) for x in arr) + "\n")
@@ -103,28 +85,17 @@ def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
 
 def loadXSF(fname):
 	filein = open(fname )
-	#startline, head = readUpTo(filein, "BEGIN_DATAGRID_3D_")
-	startline, head = readUpTo(filein, "DATAGRID_3D_")
-	nDim = [ int(iii) for iii in filein.readline().split() ]
+        startline, head = readUpTo(filein, "DATAGRID_3D_")              # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
+	nDim = [ int(iii) for iii in filein.readline().split() ]        # reading 1 line with dimensions
 	nDim.reverse()
 	nDim = np.array( nDim)
-	lvec = readmat(filein, 4)
-	line = filein.readline()
-	perline = len(line.split())
-	rewind = len(line)
-	if(perline==0):
-		line = filein.readline()
-		rewind += len(line)
-		perline = len(line.split())
-	ntot = nDim[0]*nDim[1]*nDim[2]
-	nrest = ntot%perline
-	print ntot,ntot/perline,perline,nrest  
-	print "load "+fname+" using readNumsUpTo (very fast)"    
-	filein.seek(-rewind,1)
+	lvec = readmat(filein, 4)                                       # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
 	filein.close()
-	F = readNumsUpTo(fname,nDim.astype(np.int32).copy())
-        print "Done"
         print nDim
+	print "GridUtils| Load "+fname+" using readNumsUpTo "    
+	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(), startline+5)
+
+        print "GridUtils| Done"
 	FF = np.reshape (F, nDim )
 	return FF,lvec, nDim, head
 
@@ -168,25 +139,37 @@ def saveVecFieldNpy( fname, FF ):
 	np.save(fname+'_y.npy', FF[:,:,:,1] )
 	np.save(fname+'_z.npy', FF[:,:,:,2] )
 
+def loadCUBE(fname):
+        filein = open(fname )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#First two lines of the header are comments
+	header1=filein.readline()
+	header2=filein.readline()
+	
+#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
+        sth0 = filein.readline().split()
+#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
+        sth1 = filein.readline().split()
+        sth2 = filein.readline().split()
+        sth3 = filein.readline().split()
+        filein.close()
+        nDim = np.array( [int(sth1[0]),int(sth2[0]),int(sth3[0])] )
+        lvec = np.zeros((4, 3))
+        for jj in range(3):
+            lvec[0,jj]=float(sth0[jj+1])
+            lvec[1,jj]=float(sth1[jj+1])*int(sth1[0])*0.529177249
+            lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*0.529177249
+            lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*0.529177249
+        print "GridUtils| Load "+fname+" using readNumsUpTo"  
+	noline = 6+int(sth0[0])
+        F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
+        print "GridUtils| np.shape(F): ",np.shape(F)
+        print "GridUtils| nDim: ",nDim
+        print nDim
+        FF = np.reshape(F, nDim ).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
+	nDim=[nDim[2],nDim[1],nDim[0]]                          # Setting up the corresponding dimensions. 
+        head = []
+        head.append("BEGIN_BLOCK_DATAGRID_3D \n")
+        head.append("g98_3D_unknown \n")
+        head.append("DATAGRID_3D_g98Cube \n")
+        return FF,lvec, nDim, head
