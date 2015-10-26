@@ -100,6 +100,45 @@ def loadXSF(fname):
 	return FF,lvec, nDim, head
 
 
+
+# =============== Vector Field
+
+def packVecGrid( Fx, Fy, Fz, FF = None ):
+	if FF is None:
+		nDim = np.shape( Fx )
+		FF = np.zeros( (nDim[0],nDim[1],nDim[2],3) )
+	FF[:,:,:,0]=Fx; 	FF[:,:,:,1]=Fy;	FF[:,:,:,2]=Fz
+	return FF
+
+def unpackVecGrid( FF ):
+	return FF[:,:,:,0].copy(), FF[:,:,:,1].copy(), FF[:,:,:,2].copy()
+
+def loadVecFieldXsf( fname, FF = None ):
+	Fx,lvec,nDim,head=loadXSF(fname+'_x.xsf')
+	Fy,lvec,nDim,head=loadXSF(fname+'_y.xsf')
+	Fz,lvec,nDim,head=loadXSF(fname+'_z.xsf')
+	FF = packVecGrid( Fx, Fy, Fz, FF )
+	del Fx,Fy,Fz
+	return FF, lvec, nDim, head
+
+def loadVecFieldNpy( fname, FF = None ):
+	Fx = np.load(fname+'_x.npy' )
+	Fy = np.load(fname+'_y.npy' )
+	Fz = np.load(fname+'_z.npy' )
+	FF = packVecGrid( Fx, Fy, Fz, FF )
+	del Fx,Fy,Fz
+	return FF
+
+def saveVecFieldXsf( fname, FF, lvec, head = XSF_HEAD_DEFAULT ):
+	saveXSF(fname+'_x.xsf', FF[:,:,:,0], lvec, head )
+	saveXSF(fname+'_y.xsf', FF[:,:,:,1], lvec, head )
+	saveXSF(fname+'_z.xsf', FF[:,:,:,2], lvec, head )
+
+def saveVecFieldNpy( fname, FF ):
+	np.save(fname+'_x.npy', FF[:,:,:,0] )
+	np.save(fname+'_y.npy', FF[:,:,:,1] )
+	np.save(fname+'_z.npy', FF[:,:,:,2] )
+
 def loadCUBE(fname):
         filein = open(fname )
 
