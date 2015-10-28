@@ -76,8 +76,8 @@ def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
 		params[ 'gridB' ][0] = 0
 		params[ 'gridB' ][1] = (ymax-ymin) + 2*border
 		params[ 'scanMin' ][0] = 0
-		params[ 'scanMax' ][1] = params[ 'gridA' ][0]
-		params[ 'scanMin' ][0] = 0
+		params[ 'scanMin' ][1] = 0
+		params[ 'scanMax' ][0] = params[ 'gridA' ][0]
 		params[ 'scanMax' ][1] = params[ 'gridB' ][1]
 		print " autoGeom changed cell to = ", params[ 'scanMax' ]
 	if shiftXY:
