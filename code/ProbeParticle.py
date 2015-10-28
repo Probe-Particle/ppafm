@@ -4,7 +4,6 @@ import numpy as np
 from   ctypes import c_int, c_double, c_char_p
 import ctypes
 import os
-
 import GridUtils as GU
 import libFFTfin
 
@@ -145,7 +144,6 @@ def Fz2df( F, dz=0.1, k0 = 1800.0, f0=30300.0, n=4, units=16.0217656 ):
 	dFconv = prefactor * np.apply_along_axis( lambda m: np.convolve(m, dy, mode='valid'), axis=0, arr=F )
 	return dFconv*units*f0/k0
 
-
 # ==============================
 # ==============================  server interface file I/O
 # ==============================
@@ -206,26 +204,29 @@ def loadSpecies( fname ):
 name='ProbeParticle'
 ext='_lib.so'
 
+
+
+
+def makeclean( ):
+        [ os.remove(LIB_PATH+"/"+f) for f in os.listdir(LIB_PATH) if f.endswith(".so") ]
+        [ os.remove(LIB_PATH+"/"+f) for f in os.listdir(LIB_PATH) if f.endswith(".o") ]
+        [ os.remove(LIB_PATH+"/"+f) for f in os.listdir(LIB_PATH) if f.endswith(".pyc") ]
+
+
+
+
 # recompilation of C++ dynamic librady ProbeParticle_lib.so from ProbeParticle.cpp
-def recompile( 
-		LFLAGS="",
-		#FFLAGS="-Og -g -Wall"
-		#FFLAGS="-std=c99 -O3 -ffast-math -ftree-vectorize"
-		FFLAGS="-std=c++11 -O3 -ffast-math -ftree-vectorize"
-	):
-	import os
-	print " ===== COMPILATION OF : "+name+".cpp"+"   "+name+ext
-	CWD = os.getcwd()
-	os.chdir( LIB_PATH );   print " >> WORKDIR: ", os.getcwd()
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".so")  ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".o")   ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
-	os.system("g++ "+FFLAGS+" -c -fPIC "+name+".cpp -o "+name+".o"+LFLAGS)
-	os.system("g++ "+FFLAGS+" -shared -Wl,-soname,"+name+ext+" -o "+name+ext+" "+name+".o"+LFLAGS)
-	os.chdir(CWD);          print " >> WORKDIR: ", os.getcwd()
+def recompile():
+        CWD=os.getcwd()
+        os.chdir(LIB_PATH)
+        os.system("make PP")
+        os.chdir(CWD)
 
 # if binary of ProbeParticle_lib.so is deleted => recompile it
-if not os.path.exists(LIB_PATH+"/"+name+ext ):
+
+makeclean()
+
+if not os.path.exists(LIB_PATH+"/"+name+ext):
 	recompile()
 
 lib    = ctypes.CDLL(LIB_PATH+"/"+name+ext )    # load dynamic librady object using ctypes 
