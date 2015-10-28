@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from pylab import *
-from xsfutil import *
+import GridUtils as GU
 from STHM_Utils import *
 from os import *
 
@@ -25,7 +25,7 @@ else:
 '''
 
 print " loading: "
-V,lvec, nDim, head = loadXSF('hartree.xsf')
+V,lvec, nDim, head = GU.loadXSF('hartree.xsf')
 
 print nDim
 print lvec
@@ -86,9 +86,9 @@ plotWithAtoms( Fy, ilist, extent, dz = dz, cmap = 'jet', withcolorbar=False )
 plotWithAtoms( Fz, ilist, extent, dz = dz, cmap = 'jet', withcolorbar=False )
 
 print " saving "
-saveXSF('Fx.xsf', head, lvec, Fx )
-saveXSF('Fy.xsf', head, lvec, Fy )
-saveXSF('Fz.xsf', head, lvec, Fz )
+GU.saveXSF('Fx.xsf', Fx, lvec, head)
+GU.saveXSF('Fy.xsf', Fy, lvec, head)
+GU.saveXSF('Fz.xsf', Fz, lvec, head)
 
 #plotWithAtoms( Fx_check, ilist, extent, dz = dz, cmap = 'jet', withcolorbar=True )
 #plotWithAtoms( Fx_diff, ilist, extent, dz = dz, cmap = 'jet', withcolorbar=True )
