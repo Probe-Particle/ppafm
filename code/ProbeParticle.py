@@ -208,9 +208,10 @@ ext='_lib.so'
 
 
 def makeclean( ):
-	[ os.remove(LIB_PATH+"/"+f) for f in os.listdir(LIB_PATH) if f.endswith(".so") ]
-	[ os.remove(LIB_PATH+"/"+f) for f in os.listdir(LIB_PATH) if f.endswith(".o") ]
-	[ os.remove(LIB_PATH+"/"+f) for f in os.listdir(LIB_PATH) if f.endswith(".pyc") ]
+        CWD=os.getcwd()
+        os.chdir(LIB_PATH)
+        os.system("make clean")
+        os.chdir(CWD)
 
 
 
