@@ -347,9 +347,6 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
 	return itrsum;
 }
 
-void initProbeParticle(void){
-
-}
 
 }
 
