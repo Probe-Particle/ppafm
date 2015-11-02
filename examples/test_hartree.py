@@ -4,10 +4,12 @@
 #matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
 
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import elements
-import XSFutils
+import GridUtils as GU
+#import XSFutils
 import basUtils
 import ProbeParticle as PP
 
@@ -30,9 +32,9 @@ PP.loadParams( 'params.ini' )
 
 
 
-Fx,lvec,nDim,head=XSFutils.loadXSF('Fx.xsf')
-Fy,lvec,nDim,head=XSFutils.loadXSF('Fy.xsf')
-Fz,lvec,nDim,head=XSFutils.loadXSF('Fz.xsf')
+Fx,lvec,nDim,head=GU.loadXSF('FFel_x.xsf')
+Fy,lvec,nDim,head=GU.loadXSF('FFel_y.xsf')
+Fz,lvec,nDim,head=GU.loadXSF('FFel_z.xsf')
 
 PP.params['gridA'] = lvec[ 1,:  ].copy()
 PP.params['gridB'] = lvec[ 2,:  ].copy()
@@ -126,7 +128,11 @@ fzs    = np.zeros(( len(zTips), len(yTips ), len(xTips ) ));
 
 nslice = 10;
 
-FFparams = PP.loadSpecies        ( 'atomtypes.ini'  )
+
+fname=os.path.dirname(sys.argv[0])
+dname=os.path.dirname(fname)
+FFparams = PP.loadSpecies( dname+'/code/defaults/atomtypes.ini'  )
+#FFparams = PP.loadSpecies        ( 'atomtypes.ini'  )
 C6,C12   = PP.getAtomsLJ( PP.params['probeType'], iZs, FFparams )
 
 print " # ============ define Grid "
@@ -218,13 +224,7 @@ for ii,i in enumerate(slices):
 	plt.xlabel(r' Tip_x $\AA$')
 	plt.ylabel(r' Tip_y $\AA$')
 	plt.title( r"df Tip_z = %2.2f $\AA$" %z  )
-	plt.savefig( 'df_%3i.png' %i, bbox_inches='tight' )
+	plt.savefig( 'df_%4i.png' %i, bbox_inches='tight' )
 
 
 print " ***** ALL DONE ***** "
-
-plt.show()
-
-
-
-
