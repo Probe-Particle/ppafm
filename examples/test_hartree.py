@@ -224,7 +224,7 @@ for ii,i in enumerate(slices):
 	plt.xlabel(r' Tip_x $\AA$')
 	plt.ylabel(r' Tip_y $\AA$')
 	plt.title( r"df Tip_z = %2.2f $\AA$" %z  )
-	plt.savefig( 'df_%4i.png' %i, bbox_inches='tight' )
+	plt.savefig( 'df_%04i.png' %i, bbox_inches='tight' )
 
 
 print " ***** ALL DONE ***** "
