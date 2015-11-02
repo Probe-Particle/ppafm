@@ -13,8 +13,6 @@ sigma  = 1.0 # [ Angstroem ]
 print '--- Data Loading ---'
 
 V, lvec, nDim, head = GU.loadXSF('LOCPOT.xsf')
-print np.shape(lvec)
-print head
 print '--- Preprocessing ---'
 
 sampleSize = getSampleDimensions(lvec)
