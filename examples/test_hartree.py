@@ -20,17 +20,6 @@ parser = OptionParser()
 parser.add_option(      "--dfrange", action="store", type="float", help="Range of plotted frequency shift (df)", nargs=2)
 (options, args) = parser.parse_args()
 
-print " # ========== make & load  ProbeParticle C++ library " 
-
-def makeclean( ):
-	import os
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".so") ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".o") ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
-
-makeclean( )  # force to recompile 
-
-
 
 print " >> WARNING!!! OVEWRITING SETTINGS by params.ini  "
 
