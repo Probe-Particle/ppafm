@@ -13,6 +13,12 @@ import GridUtils as GU
 import basUtils
 import ProbeParticle as PP
 
+from optparse import OptionParser
+
+
+parser = OptionParser()
+parser.add_option(      "--dfrange", action="store", type="float", help="Range of plotted frequency shift (df)", nargs=2)
+(options, args) = parser.parse_args()
 
 print " # ========== make & load  ProbeParticle C++ library " 
 
@@ -218,7 +224,12 @@ slices = range( 0, len(dfs) )
 for ii,i in enumerate(slices):
 	print " plotting ", i
 	plt.figure( figsize=( 10,10 ) )
-	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
+	if(options.dfrange != None):
+		fmin = options.dfrange[0]
+		fmax = options.dfrange[1]
+		plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], vmin=fmin, vmax=fmax, cmap=PP.params['colorscale'], extent=extent )
+	else:
+		plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
 	z = zTips[i] - PP.params['moleculeShift' ][2]
 	plt.colorbar();
 	plt.xlabel(r' Tip_x $\AA$')
