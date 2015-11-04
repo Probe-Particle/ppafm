@@ -24,6 +24,7 @@ def makeclean( ):
 makeclean( )  # force to recompile 
 
 import  ProbeParticle as PP
+#import  ProbeParticle as PP
 
 print " # ==========  server interface file I/O "
 
