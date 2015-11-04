@@ -2,12 +2,13 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include "Vec3.cpp"
 #include "Mat3.cpp"
+#include <string.h>
 
 // ================= MACROS
 
+#define fast_floor( x )    ( ((int)(x+1000))-1000 )
 #define i3D( ix, iy, iz )  ( iz*nxy + iy*nx + ix  ) 
 
 // ================= CONSTANTS
