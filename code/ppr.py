@@ -53,10 +53,6 @@ PP.params['gridC'],
 gridN = PP.params['gridN']
 
 
-print "cell", cell
-
-
-
 PP.setFF( FF, cell  )
 
 
@@ -76,27 +72,15 @@ if not PP.params['PBC' ]:
 	print " NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ]
 	print " NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ]
 
-
-'''
-Rs[0] += PP.params['moleculeShift' ][0]          # shift molecule so that we sample reasonable part of potential 
-Rs[1] += PP.params['moleculeShift' ][1]          
-Rs[2] += PP.params['moleculeShift' ][2]          
-'''
-
-Rs     = np.transpose( Rs, (1,0) ).copy() 
-
+Rs = np.transpose( Rs, (1,0) ).copy() 
 Qs = np.array( atoms[4] )
+
 
 if PP.params['PBC' ]:
 	iZs,Rs,Qs = PP.PBCAtoms( iZs, Rs, Qs, avec=PP.params['gridA'], bvec=PP.params['gridB'] )
 
 print "shape( Rs )", np.shape( Rs ); 
 #print "Rs : ",Rs
-
-
-
-
-
 
 
 
@@ -123,12 +107,9 @@ fzs    = np.zeros(( len(zTips), len(yTips ), len(xTips ) ));
 
 nslice = 10;
 
-
-fname=os.path.dirname(sys.argv[0])
-dname=os.path.dirname(fname)
-FFparams = PP.loadSpecies( dname+'/code/defaults/atomtypes.ini'  )
-#FFparams = PP.loadSpecies        ( 'atomtypes.ini'  )
-C6,C12   = PP.getAtomsLJ( PP.params['probeType'], iZs, FFparams )
+atomTypesFile = os.path.dirname(sys.argv[0]) + '/defaults/atomtypes.ini'
+FFparams      = PP.loadSpecies(atomTypesFile)
+C6,C12        = PP.getAtomsLJ( PP.params['probeType'], iZs, FFparams )
 
 print " # ============ define Grid "
 
@@ -141,13 +122,6 @@ PP.params['gridC'],
 gridN = PP.params['gridN']
 
 
-
-
-
-
-
-#quit()
-
 # ==============================================
 #   The costly part of simulation starts here
 # ==============================================
@@ -158,10 +132,10 @@ PP.setFF( FF, cell  )
 PP.setFF_Pointer( FF )
 PP.getLenardJonesFF( Rs, C6, C12 )
 
-plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF LJ ' )
-for i in range(nslice):
-	plt.subplot( 1, nslice, i+1 )
-	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
+#plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF LJ ' )
+#for i in range(nslice):
+#	plt.subplot( 1, nslice, i+1 )
+#	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
 
 
 withElectrostatics = ( abs( PP.params['charge'] )>0.001 )
@@ -173,12 +147,10 @@ if withElectrostatics:
 
 del FFel
 
-
-plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF total ' )
-for i in range(nslice):
-	plt.subplot( 1, nslice, i+1 )
-	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
-
+#plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF total ' )
+#for i in range(nslice):
+#	plt.subplot( 1, nslice, i+1 )
+#	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
 
 
 print " # ============  Relaxed Scan 3D "
@@ -190,26 +162,15 @@ for ix,x in enumerate( xTips  ):
 		rTips[:,1] = y
 		itrav = PP.relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
 		fzs[:,iy,ix] = fs[:,2].copy()
-		#print itrav
-		#if itrav > 100:
-		#	print " bad convergence > %i iterations per pixel " % itrav
-		#	print " exiting "
-		#	break
 		
 
 print " # ============  convert Fz -> df "
 
 dfs = PP.Fz2df( fzs, dz = dz, k0 = PP.params['kCantilever'], f0=PP.params['f0Cantilever'], n=int(PP.params['Amplitude']/dz) )
 
+
 print " # ============  Plot Relaxed Scan 3D "
-
-#slices = range( PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy'] )
-#print "plotSliceFrom, plotSliceTo, plotSliceBy : ", PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy']
-#print slices 
-#nslice = len( slices )
-
 slices = range( 0, len(dfs) )
-
 for ii,i in enumerate(slices):
 	print " plotting ", i
 	plt.figure( figsize=( 10,10 ) )
