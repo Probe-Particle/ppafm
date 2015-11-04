@@ -9,17 +9,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import elements
 import GridUtils as GU
+#import XSFutils
 import basUtils
 import ProbeParticle as PP
 
+from optparse import OptionParser
 
-try:
-    sys.argv[1]
-except IndexError:
-    print "Please specify a file with coordinates"
-    exit(1)
 
-print "Reading coordinates from the file {}".format(sys.argv[1])
+parser = OptionParser()
+parser.add_option(      "--dfrange", action="store", type="float", help="Range of plotted frequency shift (df)", nargs=2)
+(options, args) = parser.parse_args()
+
 
 print " >> WARNING!!! OVEWRITING SETTINGS by params.ini  "
 
@@ -27,9 +27,9 @@ PP.loadParams( 'params.ini' )
 
 
 
-Fx,lvec,nDim,head=GU.loadXSF('Fx.xsf')
-Fy,lvec,nDim,head=GU.loadXSF('Fy.xsf')
-Fz,lvec,nDim,head=GU.loadXSF('Fz.xsf')
+Fx,lvec,nDim,head=GU.loadXSF('FFel_x.xsf')
+Fy,lvec,nDim,head=GU.loadXSF('FFel_y.xsf')
+Fz,lvec,nDim,head=GU.loadXSF('FFel_z.xsf')
 
 PP.params['gridA'] = lvec[ 1,:  ].copy()
 PP.params['gridB'] = lvec[ 2,:  ].copy()
@@ -53,34 +53,34 @@ PP.params['gridC'],
 gridN = PP.params['gridN']
 
 
-print "cell", cell
-
-
-
 PP.setFF( FF, cell  )
 
 
 print " # ============ define atoms "
 
 
-atoms    = basUtils.loadAtoms(sys.argv[1], elements.ELEMENT_DICT )
+atoms    = basUtils.loadAtoms('input.xyz', elements.ELEMENT_DICT )
 Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
 iZs      = np.array( atoms[0])
 
-Rs     = np.transpose( Rs, (1,0) ).copy() 
+if not PP.params['PBC' ]:
+	print " NO PBC => autoGeom "
+	PP.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
+	print " NO PBC => params[ 'gridA'   ] ", PP.params[ 'gridA' ] 
+	print " NO PBC => params[ 'gridB'   ] ", PP.params[ 'gridB'   ]
+	print " NO PBC => params[ 'gridC'   ] ", PP.params[ 'gridC'   ]
+	print " NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ]
+	print " NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ]
 
+Rs = np.transpose( Rs, (1,0) ).copy() 
 Qs = np.array( atoms[4] )
+
 
 if PP.params['PBC' ]:
 	iZs,Rs,Qs = PP.PBCAtoms( iZs, Rs, Qs, avec=PP.params['gridA'], bvec=PP.params['gridB'] )
 
 print "shape( Rs )", np.shape( Rs ); 
 #print "Rs : ",Rs
-
-
-
-
-
 
 
 
@@ -107,8 +107,9 @@ fzs    = np.zeros(( len(zTips), len(yTips ), len(xTips ) ));
 
 nslice = 10;
 
-FFparams = PP.loadSpecies        ( 'atomtypes.ini'  )
-C6,C12   = PP.getAtomsLJ( PP.params['probeType'], iZs, FFparams )
+atomTypesFile = os.path.dirname(sys.argv[0]) + '/defaults/atomtypes.ini'
+FFparams      = PP.loadSpecies(atomTypesFile)
+C6,C12        = PP.getAtomsLJ( PP.params['probeType'], iZs, FFparams )
 
 print " # ============ define Grid "
 
@@ -121,13 +122,6 @@ PP.params['gridC'],
 gridN = PP.params['gridN']
 
 
-
-
-
-
-
-#quit()
-
 # ==============================================
 #   The costly part of simulation starts here
 # ==============================================
@@ -138,10 +132,10 @@ PP.setFF( FF, cell  )
 PP.setFF_Pointer( FF )
 PP.getLenardJonesFF( Rs, C6, C12 )
 
-plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF LJ ' )
-for i in range(nslice):
-	plt.subplot( 1, nslice, i+1 )
-	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
+#plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF LJ ' )
+#for i in range(nslice):
+#	plt.subplot( 1, nslice, i+1 )
+#	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
 
 
 withElectrostatics = ( abs( PP.params['charge'] )>0.001 )
@@ -153,12 +147,10 @@ if withElectrostatics:
 
 del FFel
 
-
-plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF total ' )
-for i in range(nslice):
-	plt.subplot( 1, nslice, i+1 )
-	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
-
+#plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF total ' )
+#for i in range(nslice):
+#	plt.subplot( 1, nslice, i+1 )
+#	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
 
 
 print " # ============  Relaxed Scan 3D "
@@ -170,42 +162,30 @@ for ix,x in enumerate( xTips  ):
 		rTips[:,1] = y
 		itrav = PP.relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
 		fzs[:,iy,ix] = fs[:,2].copy()
-		#print itrav
-		#if itrav > 100:
-		#	print " bad convergence > %i iterations per pixel " % itrav
-		#	print " exiting "
-		#	break
 		
 
 print " # ============  convert Fz -> df "
 
 dfs = PP.Fz2df( fzs, dz = dz, k0 = PP.params['kCantilever'], f0=PP.params['f0Cantilever'], n=int(PP.params['Amplitude']/dz) )
 
+
 print " # ============  Plot Relaxed Scan 3D "
-
-#slices = range( PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy'] )
-#print "plotSliceFrom, plotSliceTo, plotSliceBy : ", PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy']
-#print slices 
-#nslice = len( slices )
-
 slices = range( 0, len(dfs) )
-
 for ii,i in enumerate(slices):
 	print " plotting ", i
 	plt.figure( figsize=( 10,10 ) )
-	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
-	z = zTips[i]
+	if(options.dfrange != None):
+		fmin = options.dfrange[0]
+		fmax = options.dfrange[1]
+		plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], vmin=fmin, vmax=fmax, cmap=PP.params['colorscale'], extent=extent )
+	else:
+		plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
+	z = zTips[i] - PP.params['moleculeShift' ][2]
 	plt.colorbar();
 	plt.xlabel(r' Tip_x $\AA$')
 	plt.ylabel(r' Tip_y $\AA$')
 	plt.title( r"df Tip_z = %2.2f $\AA$" %z  )
-	plt.savefig( 'df_%3i.png' %i, bbox_inches='tight' )
+	plt.savefig( 'df_%04i.png' %i, bbox_inches='tight' )
 
 
 print " ***** ALL DONE ***** "
-
-plt.show()
-
-
-
-
