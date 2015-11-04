@@ -225,7 +225,7 @@ def recompile():
 
 # if binary of ProbeParticle_lib.so is deleted => recompile it
 
-makeclean()
+#makeclean()
 
 if not os.path.exists(LIB_PATH+"/"+name+ext):
 	recompile()

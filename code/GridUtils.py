@@ -21,8 +21,9 @@ def recompile():
         os.system("make GU")
         os.chdir(current_directory)
 
+if not os.path.exists(LIB_PATH+"/"+name+ext):  # check if lib exist
+	recompile()
 
-recompile()
 lib    = ctypes.CDLL(LIB_PATH+"/"+name+ext )    # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
