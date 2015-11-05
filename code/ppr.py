@@ -1,15 +1,11 @@
 #!/usr/bin/python
 
-#import matplotlib
-#matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
-
 import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import elements
 import GridUtils as GU
-#import XSFutils
 import basUtils
 import ProbeParticle as PP
 
@@ -132,11 +128,6 @@ PP.setFF( FF, cell  )
 PP.setFF_Pointer( FF )
 PP.getLenardJonesFF( Rs, C6, C12 )
 
-#plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF LJ ' )
-#for i in range(nslice):
-#	plt.subplot( 1, nslice, i+1 )
-#	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
-
 
 withElectrostatics = ( abs( PP.params['charge'] )>0.001 )
 if withElectrostatics: 
@@ -146,11 +137,6 @@ if withElectrostatics:
 
 
 del FFel
-
-#plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF total ' )
-#for i in range(nslice):
-#	plt.subplot( 1, nslice, i+1 )
-#	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
 
 
 print " # ============  Relaxed Scan 3D "
