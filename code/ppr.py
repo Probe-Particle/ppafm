@@ -14,8 +14,8 @@ from optparse import OptionParser
 
 parser = OptionParser()
 parser.add_option(      "--dfrange", action="store", type="float", help="Range of plotted frequency shift (df)", nargs=2)
+parser.add_option(      "--df",      action="store_true",  help="Write AFM frequency shift in df.xsf file", default=False)
 (options, args) = parser.parse_args()
-
 
 print " >> WARNING!!! OVEWRITING SETTINGS by params.ini  "
 
@@ -155,6 +155,9 @@ print " # ============  convert Fz -> df "
 dfs = PP.Fz2df( fzs, dz = dz, k0 = PP.params['kCantilever'], f0=PP.params['f0Cantilever'], n=int(PP.params['Amplitude']/dz) )
 
 
+if(options.df == True):
+	GU.saveXSF('df.xsf', dfs, lvec, head)
+
 print " # ============  Plot Relaxed Scan 3D "
 slices = range( 0, len(dfs) )
 for ii,i in enumerate(slices):
@@ -166,7 +169,8 @@ for ii,i in enumerate(slices):
 		plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], vmin=fmin, vmax=fmax, cmap=PP.params['colorscale'], extent=extent )
 	else:
 		plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
-	z = zTips[i] - PP.params['moleculeShift' ][2]
+	z = zTips[i]
+#	z = zTips[i] - PP.params['moleculeShift' ][2]
 	plt.colorbar();
 	plt.xlabel(r' Tip_x $\AA$')
 	plt.ylabel(r' Tip_y $\AA$')
