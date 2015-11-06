@@ -366,7 +366,7 @@ def computeLJ( Rs, iZs, FFLJ=None, FFparams=None ):
 		FFLJ = np.zeros( (gridN[0],gridN[1],gridN[2],3)    )
 	else:
 		params['gridN'] = np.shape( FFLJ )	
-	iZs,Rs,Qs = parseAtoms( )
+#	iZs,Rs,Qs = parseAtoms( )
 	if FFparams is None:
 		FFparams = loadSpecies( LIB_PATH+'/defaults/atomtypes.ini' )
 	C6,C12   = getAtomsLJ( params['probeType'], iZs, FFparams )
