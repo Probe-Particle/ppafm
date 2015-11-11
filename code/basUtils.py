@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import Element
+import elements
 import math
 
 def loadBas(name):
@@ -32,7 +32,7 @@ def loadBas(name):
 	f.close()
 	return xyzs
 
-def loadAtoms( name, ELEMENT_DICT ):
+def loadAtoms( name, ELEMENT_DICT = elements.ELEMENT_DICT ):
 	xyzs = []
 	f = open(name,"r")
 	n=0;
@@ -72,7 +72,7 @@ def loadAtoms( name, ELEMENT_DICT ):
 	f.close()
 	return [ e,x,y,z,q ]
 
-def findBonds( xyz, sc ):
+def findBonds( xyz, sc, ELEMENTS = elements.ELEMENTS ):
 	bonds = []
 	n = len(xyz[0])
 	for i in xrange(n):
@@ -81,7 +81,7 @@ def findBonds( xyz, sc ):
 			dy=xyz[2][j]-xyz[2][i]
 			dz=xyz[3][j]-xyz[3][i]
 			r=math.sqrt(dx*dx+dy*dy+dz*dz)
-			bondlength=Element.rad[xyz[0][i]-1]+ Element.rad[xyz[0][j]-1]
+			bondlength=ELEMENTS[xyz[0][i]-1][7]+ ELEMENTS[[xyz[0][j]-1]][7]
 			if (r<( sc * bondlength)) :
 				bonds.append([i,j])
 	return bonds
