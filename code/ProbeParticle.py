@@ -24,6 +24,7 @@ params={
 'moleculeShift':  np.array( [  0.0,      0.0,    -2.0 ] ),
 'probeType':   8,
 'charge':      0.00,
+'useLJ':True,
 'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
 'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
 
