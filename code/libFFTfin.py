@@ -24,9 +24,9 @@ def getMGrid(dims, dd):
 	Z = dz*np.roll( XYZ[0] - nDim[0]/2 -1, nDim[0]/2 , axis=0)
 	return X, Y, Z
 
-def getSpericalHarmonic( X, Y, Z, kind='dz2' ):
+def getSphericalHarmonic( X, Y, Z, kind='dz2' ):
 	# TODO: renormalization should be probaby here
-	if kind=='s':
+	if    kind=='s':
 		return 1.0
 	# p-functions
 	elif  kind=='px':
