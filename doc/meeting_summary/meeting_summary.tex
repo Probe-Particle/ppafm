@@ -1,0 +1,61 @@
+\section{13th of November 2015}
+
+\begin{enumerate}
+    \item \textbf{Cooding style}
+
+    It is highly recommended to follow a generally accepted Python coding style.
+    It would be usefull for an easy sharing of the code. More information can be found
+    here: https://google.github.io/styleguide/pyguide.html
+
+    \item \textbf{Documentation}
+
+    It is required to put a docstring after each function definition. Points
+    needed to be described are the following:
+    \begin{enumerate}
+        \item What function is doing
+
+        \textit{Function checks ...}
+
+        \item Input parameters description
+
+        \textit{:param x: is x coordinate of the particle}
+
+        \item Output parameters description:
+
+        \textit{ :return: a boolean, true if...}
+    \end{enumerate}
+
+    After having created the docstring generation of the documentation can be done automatically
+
+    \item \textbf{Standardized output}
+
+    It must be usefull to create a function, which prints some ouput data in a
+    standardized format. 
+
+    \item \textbf{Modular structure of the code}
+
+    In order to have in future as less as possible problems related to the code
+    design we need to define the structure as clear as possible. Because if later some other
+    codes will use the  ProbeParticle, any changes of its strucure like
+    output format etc. will end up in a big mess. 
+    
+    Possible features that code should have:
+        \begin{enumerate}
+            \item Using of another codes to compute $F_z$ has to be
+            straightforward
+
+            \item Independent steps of calculations should be done by separate scripts.
+
+            
+        \end{enumerate}
+
+
+    \item \textbf{Unexpected internal changes of the structure}
+
+    Any changes of the molecule (its position, orientation, ...) must not be
+    used as default operations, but optional things with a clear output of what
+    have been done. This will prevent from possible confusions between what user
+    expected to obtain and what he has obtained. 
+
+
+\end{enumerate}
