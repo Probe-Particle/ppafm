@@ -5,6 +5,10 @@ from   ctypes import c_int, c_double, c_char_p
 import ctypes
 import os
 
+# ============================== 
+
+bohrRadius2angstroem = 0.5291772109217
+
 # ==============================
 # ============================== interface to C++ core 
 # ==============================
@@ -72,6 +76,9 @@ def writeArr2D(f, arr):
 	for vec in arr:
 		writeArr(f,vec)
 
+
+# =================== XSF
+
 def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
 	fileout = open(fname, 'w')
 	for line in head:
@@ -100,6 +107,55 @@ def loadXSF(fname):
 	FF = np.reshape (F, nDim )
 	return FF,lvec, nDim, head
 
+def getFromHead_PRIMCOORD( head ): 
+	Zs = None; Rs = None;
+	for i,line in enumerate( head ):			
+		if "PRIMCOORD" in line: 
+			natoms = int( head[i+1].split()[0] )
+			Zs = np.zeros( natoms, dtype='int32' ); Rs = np.zeros( (natoms,3) )
+			for j in range(natoms):
+				words = head[i+j+2].split()
+				Zs[j  ]    = int  ( words[ 0 ] )
+				Rs[j,0] = float( words[ 1 ] )
+				Rs[j,1] = float( words[ 2 ] )
+				Rs[j,2] = float( words[ 3 ] )
+	return Zs, Rs
+
+
+# =================== Cube
+
+def loadCUBE(fname):
+	filein = open(fname )
+	#First two lines of the header are comments
+	header1=filein.readline()
+	header2=filein.readline()
+	#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
+	sth0 = filein.readline().split()
+	#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
+	sth1 = filein.readline().split()
+	sth2 = filein.readline().split()
+	sth3 = filein.readline().split()
+	filein.close()
+	nDim = np.array( [int(sth1[0]),int(sth2[0]),int(sth3[0])] )
+	lvec = np.zeros((4, 3))
+	for jj in range(3):
+		lvec[0,jj]=float(sth0[jj+1])
+		lvec[1,jj]=float(sth1[jj+1])*int(sth1[0])*bohrRadius2angstroem  # bohr_radius ?
+		lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*bohrRadius2angstroem
+		lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*bohrRadius2angstroem
+	print "GridUtils| Load "+fname+" using readNumsUpTo"  
+	noline = 6+int(sth0[0])
+	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
+	print "GridUtils| np.shape(F): ",np.shape(F)
+	print "GridUtils| nDim: ",nDim
+	print nDim
+	FF = np.reshape(F, nDim ).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
+	nDim=[nDim[2],nDim[1],nDim[0]]                          # Setting up the corresponding dimensions. 
+	head = []
+	head.append("BEGIN_BLOCK_DATAGRID_3D \n")
+	head.append("g98_3D_unknown \n")
+	head.append("DATAGRID_3D_g98Cube \n")
+	return FF,lvec, nDim, head
 
 
 # =============== Vector Field
@@ -140,37 +196,8 @@ def saveVecFieldNpy( fname, FF ):
 	np.save(fname+'_y.npy', FF[:,:,:,1] )
 	np.save(fname+'_z.npy', FF[:,:,:,2] )
 
-def loadCUBE(fname):
-        filein = open(fname )
 
-#First two lines of the header are comments
-	header1=filein.readline()
-	header2=filein.readline()
-	
-#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
-        sth0 = filein.readline().split()
-#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
-        sth1 = filein.readline().split()
-        sth2 = filein.readline().split()
-        sth3 = filein.readline().split()
-        filein.close()
-        nDim = np.array( [int(sth1[0]),int(sth2[0]),int(sth3[0])] )
-        lvec = np.zeros((4, 3))
-        for jj in range(3):
-            lvec[0,jj]=float(sth0[jj+1])
-            lvec[1,jj]=float(sth1[jj+1])*int(sth1[0])*0.529177249
-            lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*0.529177249
-            lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*0.529177249
-        print "GridUtils| Load "+fname+" using readNumsUpTo"  
-	noline = 6+int(sth0[0])
-        F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
-        print "GridUtils| np.shape(F): ",np.shape(F)
-        print "GridUtils| nDim: ",nDim
-        print nDim
-        FF = np.reshape(F, nDim ).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
-	nDim=[nDim[2],nDim[1],nDim[0]]                          # Setting up the corresponding dimensions. 
-        head = []
-        head.append("BEGIN_BLOCK_DATAGRID_3D \n")
-        head.append("g98_3D_unknown \n")
-        head.append("DATAGRID_3D_g98Cube \n")
-        return FF,lvec, nDim, head
+
+
+
+

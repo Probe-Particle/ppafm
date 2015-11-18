@@ -122,6 +122,23 @@ def make_bas_list( ns, bas=[['s']] ):
 			bas_list.append( bas[i] )
 	return bas_list
 
+'''
+def make_Ratoms( atom_types, type_R,  fmin = 0.9 , fmax = 1.3 ):
+	natoms =  len( atom_types )
+	R_min = np.zeros( natoms )
+	R_max = np.zeros( natoms )
+	for i,typ in enumerate(atom_types):
+		R_min[i] = type_R[ typ ] * fmin
+		R_max[i] = type_R[ typ ] * fmax
+	return R_min,R_max
+'''
+
+
+def make_Ratoms( atom_types, type_R,  fmin = 0.9 , fmax = 1.3 ):
+	atom_R = type_R[atom_types]
+	return atom_R*fmin,atom_R*fmax
+
+
 # ==============================
 # ============================== interface to C++ core 
 # ==============================
