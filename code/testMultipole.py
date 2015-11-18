@@ -27,6 +27,18 @@ atom_pos = np.array( [
 [ 3.0, 0.0, 0.0 ],
 ] );
 
+'''
+atom_bas = [ 
+[ 's', 'px', 'py', 'pz' ],
+[ 's'                   ],
+[ 's'                   ],
+[ 's', 'dz2'            ],
+]
+'''
+
+atom_bas = MP.make_bas_list( [ len( atom_pos ) ] )
+print "bas_list:", atom_bas
+
 atom_Rmin = np.array( [ 1.0,   1.0,  1.0,   1.0 ] );
 atom_Rmax = np.array( [ 2.0,   2.0,  2.0,   2.0 ] ); 
 atom_mask = np.array( [ True, True, True, False ] ); 
@@ -40,4 +52,32 @@ cell = np.array([
 
 MP.setGrid( V, cell );
 
-MP.sampleGridArroundAtoms( atom_pos, atom_Rmin, atom_Rmax, atom_mask );
+sampled_val, sampled_pos = MP.sampleGridArroundAtoms( atom_pos, atom_Rmin, atom_Rmax, atom_mask )
+
+
+
+
+
+
+
+
+
+'''
+X = sampled_pos[:,0]
+Y = sampled_pos[:,1] 
+Z = sampled_pos[:,2] 
+basis_set,basis_assignment = MP.make_matrix( atom_pos, atom_bas, X, Y, Z, radial_func = None, beta=1.0 )
+
+print "basis_assignment: ", basis_assignment
+
+# M     = np.dot( basis_set, np.transpose(basis_set) )
+# coefs = np.linalg.solve( M , sampled_val )
+# print "basis_set: ", np.shape( basis_set ), "sampled_val: ", np.shape( sampled_val )
+
+fit_result =  np.linalg.lstsq( np.transpose( basis_set ), sampled_val ) 
+coefs = fit_result[0]
+
+for i in range( len( coefs ) ):
+	print basis_assignment[i], coefs[i]
+'''
+

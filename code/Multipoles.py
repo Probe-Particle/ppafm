@@ -94,22 +94,33 @@ def getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=None ):
 #	for each of them there is various number of multipole expansion atom_bas which is e.g. atom_bas[i] = [ 's', 'px', 'py', 'pz', 'dz2' ]  
 #	you can set specific radial function radial_func( R, beta ) as optional paramenter, othervise exp( -beta*R ) is used
 def make_matrix( atom_pos, atom_bas, X, Y, Z, radial_func = None, beta=1.0 ):
-	natom = len(atom_pos)
 	basis_set = [ ]
-	for apos in enumerate( natom ):
+	basis_assignment = [ ]
+	for iatom, apos in enumerate( atom_pos ):
 		dX = X - apos[0]
 		dY = Y - apos[1]
 		dZ = Z - apos[2]
-		r  = sqrt( dX**2 + dY**2 + dZ**2 )
+		r  = np.sqrt( dX**2 + dY**2 + dZ**2 )
+		radial = None
 		if radial_func is None:
-			radial = radial_func( R, beta )
+			radial = np.exp( -beta*r )	
 		else:
-			radial = exp( -beta*R )	
-		for kind in atom_bas:
+			radial = radial_func( r, beta )
+		for kind in atom_bas[iatom]:
 			basis_func = radial * getSphericalHarmonic( X, Y, Z, kind=kind )
 			basis_set.append( basis_func )
-	return np.array( basis_set )
+			basis_assignment.append( ( iatom, kind ) )
+	return np.array( basis_set ), basis_assignment
 
+# make_bas_list
+# create list of basises for each atom 
+# e.g. make_bas_list( ns=[3,5], bas=[ ['s','px','py','pz'], ['s', 'dz2'] ] ) will create first 3 atoms with ['s','px','py','pz'] basiset,  than 5 atoms with ['s', 'dz2'] basiset
+def make_bas_list( ns, bas=[['s']] ):
+	bas_list = []
+	for i,n in enumerate(ns):
+		for j in range(n):
+			bas_list.append( bas[i] )
+	return bas_list
 
 # ==============================
 # ============================== interface to C++ core 
@@ -169,18 +180,18 @@ def setGrid_Pointer( grid ):
 # int sampleGridArroundAtoms( 
 # 	int natoms, double * atom_pos, double * atom_Rmin, double * atom_Rmax, bool * atom_mask, 
 # 	double * sampled_val, double * sampled_pos, bool canStore )
-lib.sampleGridArroundAtoms.argtypes  = [ c_int, array2d, array1d, array1d, array1b, array1d, array2d, c_bool ]
+lib.sampleGridArroundAtoms.argtypes  = [ c_int, array2d, array1d, array1d, array1b, array1d, array2d, c_bool, c_bool ]
 lib.sampleGridArroundAtoms.restype   = c_int
-def sampleGridArroundAtoms( atom_pos, atom_Rmin, atom_Rmax, atom_mask ):
+def sampleGridArroundAtoms( atom_pos, atom_Rmin, atom_Rmax, atom_mask, pbc = False ):
 	natom = len( atom_pos ) 
 	#points_found = lib.sampleGridArroundAtoms( natom, atom_pos, atom_Rmin, atom_Rmax, atom_mask, None, None,              False )
 	sampled_val  = np.zeros(  1    )
 	sampled_pos  = np.zeros( (1,3) )
-	points_found = lib.sampleGridArroundAtoms( natom, atom_pos, atom_Rmin, atom_Rmax, atom_mask, sampled_val, sampled_pos, False )
+	points_found = lib.sampleGridArroundAtoms( natom, atom_pos, atom_Rmin, atom_Rmax, atom_mask, sampled_val, sampled_pos, False, pbc  )
 	print " found ",points_found," points "  
 	sampled_val  = np.zeros(  points_found    )
 	sampled_pos  = np.zeros( (points_found,3) )
-	points_found = lib.sampleGridArroundAtoms( natom, atom_pos, atom_Rmin, atom_Rmax, atom_mask, sampled_val, sampled_pos, True )
+	points_found = lib.sampleGridArroundAtoms( natom, atom_pos, atom_Rmin, atom_Rmax, atom_mask, sampled_val, sampled_pos, True, pbc )
 	return sampled_val, sampled_pos
 
 

@@ -2,8 +2,7 @@ CC=g++
 CPPFLAGS=-std=c++11 -O3 -ffast-math -ftree-vectorize 
 CPPLFLAGS= $(CPPFLAGS) -shared -Wl,-soname
 
-all: PP GU
-
+all: PP GU MP
 
 PP:
 	$(CC) $(CPPFLAGS) -c -fPIC ProbeParticle.cpp 
@@ -16,4 +15,4 @@ MP:
 	$(CC) $(CPPLFLAGS),Multipoles_lib.so -o Multipoles_lib.so Multipoles.o
 
 clean:
-	rm *.o *.so
+	rm *.o *.so *.pyc

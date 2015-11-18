@@ -15,10 +15,23 @@
 // Force-Field namespace 
 namespace GRID {		    
 	double * grid;      // pointer to data array (3D)
+	Mat3d   cell;
 	Mat3d   dCell;      // basis vector of each voxel ( lattice vectors divided by number of points )
 	Mat3d   diCell;     // inversion of voxel basis vector
 	Vec3i   n;          // number of pixels along each basis vector
 }
+
+const static int images [27][3] = {
+	{ 0, 0, 0}, {-1, 0, 0}, {+1, 0, 0},
+	{ 0,-1, 0}, {-1,-1, 0}, {+1,-1, 0},
+	{ 0,+1, 0}, {-1,+1, 0}, {+1,+1, 0},
+	{ 0, 0,-1}, {-1, 0,-1}, {+1, 0,-1},
+	{ 0,-1,-1}, {-1,-1,-1}, {+1,-1,-1},
+	{ 0,+1,-1}, {-1,+1,-1}, {+1,+1,-1},
+	{ 0, 0,+1}, {-1, 0,+1}, {+1, 0,+1},
+	{ 0,-1,+1}, {-1,-1,+1}, {+1,-1,+1},
+	{ 0,+1,+1}, {-1,+1,+1}, {+1,+1,+1}
+};
 
 // =====================================================
 // ==========   Export these functions ( to Python )
@@ -35,6 +48,9 @@ void setGrid_Pointer( double * grid ){
 void setGrid( int * n, double * grid, double * cell ){
 	GRID::grid = grid;
 	GRID::n.set(n);
+	GRID::cell.a.set ( cell[0], cell[1], cell[2] );  
+	GRID::cell.b.set ( cell[3], cell[4], cell[5] );   
+	GRID::cell.c.set ( cell[6], cell[7], cell[8] );
 	GRID::dCell.a.set( cell[0], cell[1], cell[2] );   GRID::dCell.a.mul( 1.0d/GRID::n.a );
 	GRID::dCell.b.set( cell[3], cell[4], cell[5] );   GRID::dCell.b.mul( 1.0d/GRID::n.b );
 	GRID::dCell.c.set( cell[6], cell[7], cell[8] );   GRID::dCell.c.mul( 1.0d/GRID::n.c );
@@ -48,12 +64,27 @@ void setGrid( int * n, double * grid, double * cell ){
 	printf( " inv_c %f %f %f \n", GRID::diCell.c.x,GRID::diCell.c.y,GRID::diCell.c.z );
 }
 
+
+/*
+inline atom_sphere( rProbe  const Vec3d& pos,    bool &withinRmax, bool withinRmin  ){
+	Vec3d dr;
+	dr.set_sub( atom_pos[iatom], rProbe ); 
+	double r2   = dr.norm2();
+	double rmin = atom_Rmin[iatom];
+	double rmax = atom_Rmax[iatom];
+	if( r2<(rmax*rmax) ){ 
+		if( atom_mask[iatom] ){ withinRmax = true; }  
+		if( r2<(rmin*rmin)   ){ withinRmin = true; }
+	}
+}
+*/
+
 //  sampleGridArroundAtoms
 //  	takes from a 3D grid values at grid points which are in area between $atom_Rmin[i] to $atom_Rmaxs[i] distance from any i-th atom at position $atom_posp[i]
 //		if $canStore == true it will save values to $sampled_val and postions to $sampled_pos else it only returns number of gridpoints fullfilling the conditions
 int sampleGridArroundAtoms( 
 	int natoms, Vec3d * atom_pos_, double * atom_Rmin, double * atom_Rmax, bool * atom_mask, 
-	double * sampled_val, Vec3d * sampled_pos_, bool canStore
+	double * sampled_val, Vec3d * sampled_pos_, bool canStore, bool pbc
 ){
 	Vec3d * atom_pos    = (Vec3d*) atom_pos_;
 	Vec3d * sampled_pos = (Vec3d*) sampled_pos_;
@@ -63,6 +94,7 @@ int sampleGridArroundAtoms(
 	int nxy = ny * nx; // used in macro i3D( ia, ib, ic )
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	int points_found = 0;
+	int nimg = 0; if (pbc) nimg = 27; // PBC ?
 	for ( int ia=0; ia<nx; ia++ ){ 
 		//printf( " ia %i \n", ia );
 		rProbe.add( GRID::dCell.a );  
@@ -72,15 +104,20 @@ int sampleGridArroundAtoms(
 				rProbe.add( GRID::dCell.c );
 				bool withinRmin = false; 
 				bool withinRmax = false; 
-				for ( int iatom=0; iatom<natoms; iatom++ ){
-					Vec3d dr;
-					dr.set_sub( atom_pos[iatom], rProbe ); 
-					double r2   = dr.norm2();
-					double rmin = atom_Rmin[iatom];
-					double rmax = atom_Rmax[iatom];
-					if( r2<(rmax*rmax) ){ 
-						if( atom_mask[iatom] ){ withinRmax = true; }  
-						if( r2<(rmin*rmin)   ){ withinRmin = true; break; }
+				for ( int iimg=0; iimg<nimg; iimg++ ){
+					Vec3d cell_shift;
+					cell_shift.set_lincomb( images[iimg][0], images[iimg][1], images[iimg][2], GRID::cell.a, GRID::cell.b, GRID::cell.c );
+					for ( int iatom=0; iatom<natoms; iatom++ ){
+						Vec3d dr;
+						dr.set_sub( rProbe, atom_pos[iatom] );
+						dr.sub( cell_shift ); 
+						double r2   = dr.norm2();
+						double rmin = atom_Rmin[iatom];
+						double rmax = atom_Rmax[iatom];
+						if( r2<(rmax*rmax) ){ 
+							if( atom_mask[iatom] ){ withinRmax = true; }  
+							if( r2<(rmin*rmin)   ){ withinRmin = true; break; }
+						}
 					}
 				}
 				if( withinRmax && (!withinRmin) ){
