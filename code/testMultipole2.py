@@ -7,6 +7,8 @@ import sys
 import basUtils
 import elements
 
+# ============== recompile & load C++ libraries
+
 def makeclean( ):
 	LIB_PATH = os.path.dirname( os.path.realpath(__file__) )
 	print " ProbeParticle Library DIR = ", LIB_PATH
@@ -21,57 +23,52 @@ import GridUtils     as GU
 import Multipoles    as MP
 import ProbeParticle as PP
 
-# ============== LOAD REFFERENCE GRID
+# ============== Setup
 
-V, lvec, nDim, head = GU.loadXSF('/home/prokop/Desktop/Probe_Particle_Simulations/Multipoles/COCu4/LOCPOT.xsf')
+WORK_DIR =  '/home/prokop/Desktop/Probe_Particle_Simulations/Multipoles/COCu4/'
+# NOTE: Data for COCu4 tip example are on tarkil  /auto/praha1/prokop/STHM/vasp/COCu4
+
+# ============== load reference grid
+
+V, lvec, nDim, head = GU.loadXSF( WORK_DIR + 'LOCPOT.xsf' )
 
 cell = np.array( [ lvec[1], lvec[2], lvec[3] ]); 
 
 MP.setGrid( V, cell );
 
-# ============== LOAD ATOMS
+# ============== prepare atoms
 
-atom_types,atom_pos = GU.getFromHead_PRIMCOORD( head )
+atom_types,atom_pos = GU.getFromHead_PRIMCOORD( head )   # load atoms from header of xsf file
 
-spacies = PP.loadSpecies( './defaults/atomtypes.ini' )
-R_type = spacies[:,0]
+# set sample region around atom atom_Rmin, atom_Rmax
+spacies              = PP.loadSpecies( './defaults/atomtypes.ini' )
+R_type               = spacies[:,0]
 atom_Rmin, atom_Rmax = MP.make_Ratoms( atom_types, R_type ) 
 
-natoms = len( atom_types )
-atom_mask = np.array( [ True ] * natoms ); 
+# mask atoms which should not to be included into the expansion 
+natoms          = len( atom_types )
+atom_mask       = np.array( [ True ] * natoms ); 
+atom_mask[ 2: ] = False
 
-print "atom_pos:  " , atom_pos
-print "atom_Rmin: ", atom_Rmin
-print "atom_Rmax: ", atom_Rmax
-print "atom_mask: ", atom_mask
+# set basiset for each atom 
+atom_basis = MP.make_bas_list( [ len( atom_pos ) ],  basis=[ ['s','px','py','pz'] ] )
 
+#print "atom_pos:   ", atom_pos
+#print "atom_Rmin:  ", atom_Rmin
+#print "atom_Rmax:  ", atom_Rmax
+#print "atom_mask:  ", atom_mask
+#print "atom_basis: ", atom_basis
 
-sampled_val, sampled_pos = MP.sampleGridArroundAtoms( atom_pos, atom_Rmin, atom_Rmax, atom_mask )
+# ============== do the fitting
 
+coefs, basis_assignment   =   MP.fitMultipolesPotential( atom_pos, atom_basis, atom_Rmin, atom_Rmax, atom_mask=atom_mask, show_where=True );
 
-
-
-'''
-
-atom_bas = MP.make_bas_list( [ len( atom_pos ) ] )
-print "bas_list:", atom_bas
-
-
-X = sampled_pos[:,0]
-Y = sampled_pos[:,1] 
-Z = sampled_pos[:,2] 
-basis_set,basis_assignment = MP.make_matrix( atom_pos, atom_bas, X, Y, Z, radial_func = None, beta=1.0 )
-
-print "basis_assignment: ", basis_assignment
-
-# M     = np.dot( basis_set, np.transpose(basis_set) )
-# coefs = np.linalg.solve( M , sampled_val )
-# print "basis_set: ", np.shape( basis_set ), "sampled_val: ", np.shape( sampled_val )
-
-fit_result =  np.linalg.lstsq( np.transpose( basis_set ), sampled_val ) 
-coefs = fit_result[0]
+# ============== output results
 
 for i in range( len( coefs ) ):
 	print basis_assignment[i], coefs[i]
-'''
+
+print "saving LOCPOT_debug.xsf "
+GU.saveXSF( WORK_DIR + 'LOCPOT_debug.xsf', V, lvec, head );
+
 

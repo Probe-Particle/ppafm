@@ -84,7 +84,7 @@ inline atom_sphere( rProbe  const Vec3d& pos,    bool &withinRmax, bool withinRm
 //		if $canStore == true it will save values to $sampled_val and postions to $sampled_pos else it only returns number of gridpoints fullfilling the conditions
 int sampleGridArroundAtoms( 
 	int natoms, Vec3d * atom_pos_, double * atom_Rmin, double * atom_Rmax, bool * atom_mask, 
-	double * sampled_val, Vec3d * sampled_pos_, bool canStore, bool pbc
+	double * sampled_val, Vec3d * sampled_pos_, bool canStore, bool pbc, bool show_where
 ){
 	Vec3d * atom_pos    = (Vec3d*) atom_pos_;
 	Vec3d * sampled_pos = (Vec3d*) sampled_pos_;
@@ -94,7 +94,7 @@ int sampleGridArroundAtoms(
 	int nxy = ny * nx; // used in macro i3D( ia, ib, ic )
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	int points_found = 0;
-	int nimg = 0; if (pbc) nimg = 27; // PBC ?
+	int nimg = 1; if (pbc) nimg = 27; // PBC ?
 	for ( int ia=0; ia<nx; ia++ ){ 
 		//printf( " ia %i \n", ia );
 		rProbe.add( GRID::dCell.a );  
@@ -123,6 +123,7 @@ int sampleGridArroundAtoms(
 				if( withinRmax && (!withinRmin) ){
 					if( canStore ){
 						sampled_val[points_found] = GRID::grid[ i3D( ia, ib, ic ) ];
+						if( show_where ) GRID::grid[ i3D( ia, ib, ic ) ] = +100.0d;
 						sampled_pos[points_found].set( rProbe );
 					}
 					points_found++;

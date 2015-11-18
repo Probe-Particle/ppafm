@@ -320,7 +320,7 @@ def relaxTipStroke( rTips, rs, fs, probeStart=1, relaxAlg=1 ):
 	return lib.relaxTipStroke( probeStart, relaxAlg, n, rTips, rs, fs )
 
 
-# =============  ProbeParticle Simulation Macros
+# ============= Hi-Level Macros
 
 def prepareScanGrids( ):
 	zTips  = np.arange( params['scanMin'][2], params['scanMax'][2]+0.00001, params['scanStep'][2] )[::-1];
