@@ -17,9 +17,6 @@ if (num < 2):
     sys.exit("Number of arguments = "+str(num-1)+". This script shoudl have at least one argument. I am terminating...")
 finput = sys.argv[num-1]
 
-# --- initialization ---
-
-sigma  = 1.0 # [ Angstroem ] 
 
 
 
@@ -61,15 +58,7 @@ atoms     = basUtils.loadAtoms('input.xyz', elements.ELEMENT_DICT )
 iZs,Rs,Qs = PP.parseAtoms( atoms, autogeom = False, PBC = True )
 FFLJ      = PP.computeLJ( Rs, iZs, FFLJ=None, FFparams=None)
 
-# TODO: remove to large values
-'''
-FRLJ      = np.sqrt( FFLJ[:,:,:,0]**2  +  FFLJ[:,:,:,1]**2  + FFLJ[:,:,:,2]**2 )
-mask = ( FRLJ > 1000.0 )
-FFLJ[:][mask] = 1000.0
-FFLJ[][mask] = 1000.0 
-FFLJ[][mask] = 1000.0
-'''
-
+GU.limit_vec_field( FFLJ, Fmax=100.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
 
 print "--- Save  ---"
 GU.saveVecFieldXsf( 'FFLJ', FFLJ, lvec, head)

@@ -196,8 +196,15 @@ def saveVecFieldNpy( fname, FF ):
 	np.save(fname+'_y.npy', FF[:,:,:,1] )
 	np.save(fname+'_z.npy', FF[:,:,:,2] )
 
-
-
+def limit_vec_field( FF, Fmax=100.0 ):
+	'''
+	remove too large values; preserves direction of vectors
+	'''
+	FR   = np.sqrt( FF[:,:,:,0]**2  +  FF[:,:,:,1]**2  + FF[:,:,:,2]**2 ).flat
+	mask = ( FR > Fmax )
+	FF[:,:,:,0].flat[mask] *= Fmax/FR[mask]
+	FF[:,:,:,1].flat[mask] *= Fmax/FR[mask] 
+	FF[:,:,:,2].flat[mask] *= Fmax/FR[mask]
 
 
 
