@@ -24,6 +24,7 @@ params={
 'moleculeShift':  np.array( [  0.0,      0.0,    -2.0 ] ),
 'probeType':   8,
 'charge':      0.00,
+'useLJ':True,
 'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
 'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
 
@@ -319,7 +320,7 @@ def relaxTipStroke( rTips, rs, fs, probeStart=1, relaxAlg=1 ):
 	return lib.relaxTipStroke( probeStart, relaxAlg, n, rTips, rs, fs )
 
 
-# =============  ProbeParticle Simulation Macros
+# ============= Hi-Level Macros
 
 def prepareScanGrids( ):
 	zTips  = np.arange( params['scanMin'][2], params['scanMax'][2]+0.00001, params['scanStep'][2] )[::-1];
