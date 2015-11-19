@@ -23,19 +23,56 @@ def getMGrid(dims, dd):
     Y = dy*np.roll( XYZ[1] - nDim[1]/2 -1, nDim[1]/2 , axis=1)
     Z = dz*np.roll( XYZ[0] - nDim[0]/2 -1, nDim[0]/2 , axis=0)
     return X, Y, Z
-   
-def getProbeDensity(sampleSize, X, Y, Z, sigma, dd):
+
+def getSpericalHarmonic( X, Y, Z, kind='dz2' ):
+    # TODO: renormalization should be probaby here
+    if kind=='s':
+        return 1.0
+	# p-functions
+    elif  kind=='px':
+        return Z
+    elif  kind=='py':
+        return Y
+    elif  kind=='pz':
+        return Z
+    # d-functions
+    if    kind=='dz2' :
+        return 0.25*(2*Z**2 - X**2 + Y**2)
+    else:
+        return 0.0
+            
+'''
+def getProbeDensity(sampleSize, X, Y, Z, sigma, dd ):
+	'returns probe particle potential'
+	mat = getNormalizedBasisMatrix(sampleSize).getT()
+	rx = X*mat[0, 0] + Y*mat[0, 1] + Z*mat[0, 2]
+	ry = X*mat[1, 0] + Y*mat[1, 1] + Z*mat[1, 2]
+	rz = X*mat[2, 0] + Y*mat[2, 1] + Z*mat[2, 2]
+	rquad = rx**2 + ry**2 + rz**2
+	rho = np.exp( -(rquad)/(1*sigma**2) )
+	rho_sum = np.sum(rho)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]
+	rho = rho / rho_sum
+	return rho
+'''
+
+def getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=None ):
     'returns probe particle potential'
     mat = getNormalizedBasisMatrix(sampleSize).getT()
     rx = X*mat[0, 0] + Y*mat[0, 1] + Z*mat[0, 2]
     ry = X*mat[1, 0] + Y*mat[1, 1] + Z*mat[1, 2]
     rz = X*mat[2, 0] + Y*mat[2, 1] + Z*mat[2, 2]
-    rquad = rx**2 + ry**2 + rz**2
-    rho = np.exp( -(rquad)/(1*sigma**2) )
-    rho_sum = np.sum(rho)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]
-    rho = rho / rho_sum
- 
-    return rho
+    rquad  = rx**2 + ry**2 + rz**2
+    radial       = np.exp( -(rquad)/(1*sigma**2) )
+    radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]  # TODO analytical renormalization may save some time ?
+    radial      /= radial_renom
+    if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
+        rho = np.zeros( shape(radial) )
+        for kind, coef in multipole_dict.iteritems():
+            rho += radial * coef * getSphericalHarmonic( X, Y, Z, kind=kind )    # TODO renormalization should be probaby inside getSphericalHarmonic if possible ?
+	else:
+            rho = radial
+            return rho
+
 
 def getSkewNormalBasis(sampleSize):
     'returns normalized basis vectors pertaining to the skew basis'
@@ -124,8 +161,3 @@ def potential2forces( V, lvec, nDim, sigma = 1.0 ):
 	Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
 	print 'Fx.max(), Fx.min() = ', Fx.max(), Fx.min()
 	return Fx,Fy,Fz
-
-
-
-
-
