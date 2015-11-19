@@ -46,7 +46,7 @@ X, Y, Z = getMGrid(dims, dd)
 
 print '--- Get Probe Density ---'
 
-rho = getProbeDensity(sampleSize, X, Y, Z, sigma, dd, 'dz2')
+rho = getProbeDensity(sampleSize, X, Y, Z, sigma, dd, 'dz2:1.0')
 
 print '--- Get Forces ---'
 Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
