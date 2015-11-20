@@ -4,7 +4,7 @@ import numpy as np
 import basUtils
 import elements
 import GridUtils     as GU
-import ProbeParticle as PP
+import ProbeParticle      as PP;    PPU = PP.PPU;
 import libFFTfin     as LFF
 from optparse import OptionParser
 
@@ -48,10 +48,10 @@ del Fel_x,Fel_y,Fel_z,V
 
 print " ========= get lenard jones potential "
 
-PP.params['gridA'] = lvec[ 1,:  ].copy()
-PP.params['gridB'] = lvec[ 2,:  ].copy()
-PP.params['gridC'] = lvec[ 3,:  ].copy()
-PP.params['gridN'] = nDim.copy()
+PPU.params['gridA'] = lvec[ 1,:  ].copy()
+PPU.params['gridB'] = lvec[ 2,:  ].copy()
+PPU.params['gridC'] = lvec[ 3,:  ].copy()
+PPU.params['gridN'] = nDim.copy()
 
 print "--- Compute Lennard-Jones Force-filed ---"
 atoms     = basUtils.loadAtoms('input.xyz', elements.ELEMENT_DICT )

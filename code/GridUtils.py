@@ -207,4 +207,18 @@ def limit_vec_field( FF, Fmax=100.0 ):
 	FF[:,:,:,2].flat[mask] *= Fmax/FR[mask]
 
 
+# =============== Other Utils
+
+def multArray( F, nx=2,ny=2 ):
+	'''
+	multiply data array "F" along second two axis (:, :*nx, :*ny ) 
+	it is usefull to visualization of images computed in periodic supercell ( PBC )
+	'''
+	nF = np.shape(F)
+	print "nF: ",nF
+	F_ = np.zeros( (nF[0],nF[1]*ny,nF[2]*nx) )
+	for iy in range(ny):
+		for ix in range(nx):
+			F_[:, iy*nF[1]:(iy+1)*nF[1], ix*nF[2]:(ix+1)*nF[2]  ] = F
+	return F_
 

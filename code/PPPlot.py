@@ -74,12 +74,12 @@ def plotVecFieldRG( prefix, dXs, dYs, slices, extent=None, zs = None, figsize=(1
 		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
 		plt.close()
 
-def plotDistortions( prefix, Rs, slices, extent=None, zs = None, by=2, figsize=(10,10) ):
+def plotDistortions( prefix, X, Y, slices, BG=None, extent=None, zs = None, by=2, figsize=(10,10) ):
 	for ii,i in enumerate(slices):
 		print " plotting ", i
 		plt.figure( figsize=figsize )
-		plt.plot( Rs[i,::by,::by,0].flat, Rs[i,::by,::by,1].flat, 'r.', markersize=0.5 )
-		plt.imshow( Rs[i,:,:,2], origin='image', interpolation=params['imageInterpolation'], cmap=params['colorscale'], extent=extent )
+		plt.plot  ( X[i,::by,::by].flat, Y[i,::by,::by].flat, 'r.', markersize=0.5 )
+		plt.imshow( BG[i,:,:], origin='image', interpolation=params['imageInterpolation'], cmap=params['colorscale'], extent=extent )
 		plt.colorbar();
 		plt.xlabel(r' Tip_x $\AA$')
 		plt.ylabel(r' Tip_y $\AA$')
