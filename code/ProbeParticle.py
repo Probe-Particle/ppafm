@@ -438,7 +438,10 @@ def relaxedScan3D( xTips, yTips, zTips ):
 	rTips[:,0] = 1.0
 	rTips[:,1] = 1.0
 	rTips[:,2] = zTips 
-	fzs    = np.zeros(( len(zTips), len(yTips ), len(xTips ) ));
+	nx = len(zTips); ny = len(yTips ); nz = len(xTips);
+	fzs    = np.zeros( ( nx,ny,nz ) );
+	dxs    = np.zeros( ( nx,ny,nz ) );
+	dys    = np.zeros( ( nx,ny,nz ) );
 	for ix,x in enumerate( xTips  ):
 		print "relax ix:", ix
 		rTips[:,0] = x
@@ -446,5 +449,7 @@ def relaxedScan3D( xTips, yTips, zTips ):
 			rTips[:,1] = y
 			itrav = relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
 			fzs[:,iy,ix] = fs[:,2].copy()
-	return fzs
+			dxs[:,iy,ix] = rs[:,0] - rTips[:,0]
+			dys[:,iy,ix] = rs[:,1] - rTips[:,1]
+	return fzs,dxs,dys
 
