@@ -37,7 +37,17 @@ def getSphericalHarmonic( X, Y, Z, kind='dz2' ):
 		return Z
 	# d-functions
 	if    kind=='dz2' :
-		return X**2 + Y**2 - 2*Z**2
+		return 0.25*(2*Z**2 - X**2 - Y**2) #quadrupole normalized to get 3 times the quadrpole in the standard (cartesian) tensor normalization of Qzz. Also, 3D integral of rho_dz2(x,y,z)*(z/sigma)**2 gives 1 in the normalization use here.
+	elif    kind=='dx2' :
+		return 0.25*(2*X**2 - Y**2 - Z**2)
+	elif    kind=='dy2' :
+		return 0.25*(2*Y**2 - X**2 - Z**2)
+	elif    kind=='dxy' :
+		return X*Y
+	elif    kind=='dxz' :
+		return X*Z
+	elif    kind=='dyz' :
+		return Y*Z
 	else:
 		return 0.0
 
@@ -62,13 +72,13 @@ def getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=None ):
 	ry = X*mat[1, 0] + Y*mat[1, 1] + Z*mat[1, 2]
 	rz = X*mat[2, 0] + Y*mat[2, 1] + Z*mat[2, 2]
 	rquad  = rx**2 + ry**2 + rz**2
-	radial       = np.exp( -(rquad)/(1*sigma**2) )
-	radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]  # TODO analytical renormalization may save some time ?
+	radial       = np.exp( -(rquad)/(2*sigma**2) )
+	radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]
 	radial      /= radial_renom
 	if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
 		rho = np.zeros( shape(radial) )
 		for kind, coef in multipole_dict.iteritems():
-			rho += radial * coef * getSphericalHarmonic( X, Y, Z, kind=kind )    # TODO renormalization should be probaby inside getSphericalHarmonic if possible ?
+			rho += radial * coef * getSphericalHarmonic( X/sigma, Y/sigma, Z/sigma, kind=kind )
 	else:
 		rho = radial
 	return rho
