@@ -30,7 +30,7 @@ def getSphericalHarmonic( X, Y, Z, kind='dz2' ):
 		return 1.0
 	# p-functions
 	elif  kind=='px':
-		return Z
+		return X
 	elif  kind=='py':
 		return Y
 	elif  kind=='pz':
