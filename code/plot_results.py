@@ -24,6 +24,8 @@ parser.add_option( "--arange", action="store", type="float", help="oscilation am
 parser.add_option( "--df",       action="store_true", default=False, help="plot images for dfz " )
 parser.add_option( "--save_df" , action="store_true", default=False, help="save frequency shift as df.xsf " )
 parser.add_option( "--pos",      action="store_true", default=False, help="save probe particle positions" )
+parser.add_option( "--atoms",    action="store_true", default=False, help="save probe particle positions" )
+parser.add_option( "--bonds",    action="store_true", default=False, help="save probe particle positions" )
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
@@ -34,7 +36,8 @@ opt_dict = vars(options)
 
 print " >> OVEWRITING SETTINGS by params.ini  "
 PPU.loadParams( 'params.ini' )
-PPPlot.params = PPU.params
+
+#PPPlot.params = PPU.params
 
 print " >> OVEWRITING SETTINGS by command line arguments  "
 print opt_dict
@@ -69,7 +72,21 @@ print "Amps =", Amps
 print " ============= RUN  "
 
 xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
-extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
+extent = ( xTips[0], xTips[-1], yTips[0], yTips[-1] )
+
+atoms = None
+bonds = None
+if opt_dict['atoms']:
+	atoms = basUtils.loadAtoms( 'input_plot.xyz' )
+	print "atoms ", atoms
+	atom_colors = basUtils.getAtomColors( atoms )
+	atoms[ 4 ] = atom_colors
+	print "atom_colors: ", atom_colors
+if opt_dict['bonds']:
+	bonds = basUtils.findBonds( atoms, 1.0 )
+	print "bonds ", bonds
+atomSize = 0.15
+
 
 for iq,Q in enumerate( Qs ):
 	for ik,K in enumerate( Ks ):
@@ -78,7 +95,7 @@ for iq,Q in enumerate( Qs ):
 			try:
 				PPpos, lvec, nDim, head = GU.loadVecFieldXsf( dirname+'/PPpos' )
 				print " plotting PPpos : "
-				PPPlot.plotDistortions( dirname+"/xy", PPpos[:,:,:,0], PPpos[:,:,:,1], slices = range( 0, len(PPpos) ), BG=PPpos[:,:,:,2], extent=extent )
+				PPPlot.plotDistortions( dirname+"/xy", PPpos[:,:,:,0], PPpos[:,:,:,1], slices = range( 0, len(PPpos) ), BG=PPpos[:,:,:,2], extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize )
 				del PPpos
 			except:
 				print "error: ", sys.exc_info()
@@ -98,7 +115,7 @@ for iq,Q in enumerate( Qs ):
 						GU.saveXSF( dirNameAmp+'/df.xsf', PPpos, lvec, GU.XSF_HEAD_DEFAULT )
 					if opt_dict['df']:
 						print " plotting df : "
-						PPPlot.plotImages( dirNameAmp+"/df", dfs, slices = range( 0, len(dfs) ), extent=extent )
+						PPPlot.plotImages( dirNameAmp+"/df", dfs, slices = range( 0, len(dfs) ), extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize )
 					del dfs
 				del fzs
 			except:

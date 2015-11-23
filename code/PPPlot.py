@@ -3,9 +3,17 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
-params = None
+#params = None
 
+
+# =========== defaults
+
+default_figsize       = (10,10)
+default_cmap          = 'gray'
+default_interpolation = 'bicubic'
+default_atom_size     =  0.15
 
 # =========== Utils
 
@@ -14,19 +22,23 @@ def plotBonds( xyz, bonds ):
 		i=b[0]; j=b[1]
 		plt.arrow(xyz[1][i], xyz[2][i], xyz[1][j]-xyz[1][i], xyz[2][j]-xyz[2][i], head_width=0.0, head_length=0.0,  fc='k', ec='k', lw= 1.0,ls='solid' )
 
-
-def plotAtoms( xyz, atomSize=0.3, edge=True, ec='k', color='w', colors=None ):
+def plotAtoms( atoms, atomSize=default_atom_size, edge=True, ec='k', color='w' ):
 	plt.fig = plt.gcf()
-	if colors is None:
-		colors=[ color ]*100
-	for i in range(len(xyz[1])):
-		fc = colors[xyz[0][i]]
+	es = atoms[0]
+	xs = atoms[1]
+	ys = atoms[2]
+	if len( atoms ) > 4:
+		colors = atoms[4]
+	else:
+		colors = [ color ]*100
+	for i in range(len(atoms[1])):
+		fc = '#%02x%02x%02x' % colors[ i ]
 		if not edge:
 			ec=fc
-		circle=plt.Circle( (xyz[1][i],xyz[2][i]), atomSize, fc=fc, ec=ec  )
+		circle=plt.Circle( ( xs[i], ys[i] ), atomSize, fc=fc, ec=ec  )
 		plt.fig.gca().add_artist(circle)
 
-def plotGeom( atoms=None, bonds=None, atomSize=0.3 ):
+def plotGeom( atoms=None, bonds=None, atomSize=default_atom_size ):
 	if (bonds is not None) and (atoms is not None):
 		plotBonds( atoms, bonds )	
 	if atoms is not None:
@@ -44,48 +56,110 @@ def colorize_XY2RG( Xs, Ys ):
 
 # =========== plotting functions
 
-def plotImages( prefix, F, slices, extent=None, zs = None, figsize=(10,10) ):
+def plotImages( 
+	prefix, F, slices,
+	extent=None, zs = None, figsize=default_figsize, 
+	cmap=default_cmap, interpolation=default_interpolation, vmin=None, vmax=None, cbar=False, 
+	atoms=None, bonds=None, atomSize=default_atom_size
+	):
 	for ii,i in enumerate(slices):
 		print " plotting ", i
 		plt.figure( figsize=figsize )
-		plt.imshow( F[i], origin='image', interpolation=params['imageInterpolation'], cmap=params['colorscale'], extent=extent )
-		plt.colorbar();
+		plt.imshow( F[i], origin='image', interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax )
+		if cbar:
+			plt.colorbar();
+		plotGeom( atoms, bonds, atomSize=atomSize )
 		plt.xlabel(r' Tip_x $\AA$')
 		plt.ylabel(r' Tip_y $\AA$')
-		z = i*params['scanStep'][2]
+		z = i
 		if zs is not None:
 			z = zs[i]
 		plt.title( r"Tip_z = %2.2f $\AA$" %z  )
 		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
 		plt.close()
 
-def plotVecFieldRG( prefix, dXs, dYs, slices, extent=None, zs = None, figsize=(10,10) ):
+def plotVecFieldRG( 
+	prefix, dXs, dYs, slices, 
+	extent=None, zs = None, figsize=default_figsize, 
+	interpolation=default_interpolation, 
+	atoms=None, bonds=None, atomSize=default_atom_size
+	):
 	for ii,i in enumerate(slices):
 		print " plotting ", i
 		plt.figure( figsize=( 10,10 ) )
 		HSBs,vmax = colorize_XY2RG(dXs[i],dYs[i])
-		plt.imshow( HSBs, extent=extent, origin='image', interpolation=PP.params['imageInterpolation'] ) 
+		plt.imshow( HSBs, extent=extent, origin='image', interpolation=interpolation ) 
+		plotGeom( atoms, bonds, atomSize=atomSize )
 		plt.xlabel(r' Tip_x $\AA$')
 		plt.ylabel(r' Tip_y $\AA$')
-		z = i*params['scanStep'][2]
+		z = i
 		if zs is not None:
 			z = zs[i]
 		plt.title( r"Tip_z = %2.2f $\AA$" %z  )
 		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
 		plt.close()
 
-def plotDistortions( prefix, X, Y, slices, BG=None, extent=None, zs = None, by=2, figsize=(10,10) ):
+def plotDistortions( 
+	prefix, X, Y, slices, BG=None, by=2, 
+	extent=None, zs = None,  figsize=default_figsize, 
+	cmap=default_cmap, interpolation=default_interpolation, vmin=None, vmax=None, cbar=False, markersize=1.0,
+	atoms=None, bonds=None, atomSize=default_atom_size
+	):
 	for ii,i in enumerate(slices):
 		print " plotting ", i
 		plt.figure( figsize=figsize )
-		plt.plot  ( X[i,::by,::by].flat, Y[i,::by,::by].flat, 'r.', markersize=0.5 )
-		plt.imshow( BG[i,:,:], origin='image', interpolation=params['imageInterpolation'], cmap=params['colorscale'], extent=extent )
-		plt.colorbar();
+		plt.plot  ( X[i,::by,::by].flat, Y[i,::by,::by].flat, 'r.', markersize=markersize )
+		if BG is not None:
+			plt.imshow( BG[i,:,:], origin='image', interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax )
+			if cbar:
+				plt.colorbar()
+		plotGeom( atoms, bonds, atomSize=atomSize )
 		plt.xlabel(r' Tip_x $\AA$')
 		plt.ylabel(r' Tip_y $\AA$')
-		z = i*params['scanStep'][2]
+		z = i
 		if zs is not None:
 			z = zs[i]
 		plt.title( r"Tip_z = %2.2f $\AA$" %z  )
 		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
 		plt.close()
+
+def plotArrows( 
+	# not yet tested
+	prefix, dX, dY, X, Y,  slices, BG=None, C=None, 
+	extent=None, zs = None, by=2,  figsize=default_figsize, 
+	cmap=default_cmap, interpolation=default_interpolation, vmin=None, vmax=None, cbar=False,
+	atoms=None, bonds=None, atomSize=default_atom_size
+	):
+	for ii,i in enumerate(slices):
+		print " plotting ", i
+		plt.figure( figsize=figsize )
+		#plt.plt.quiver( dX, dY, X, Y, C=C, width=width, scale=scale )
+		plt.quiver(  Xs[::by,::by], Ys[::by,::by],  dX[::by,::by], dY[::by,::by], color = 'k', headlength=10, headwidth=10, scale=15 )
+		if BG is not None:
+			plt.imshow    ( BG[i,:,:], origin='image',  interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax  )
+			if cbar:
+				plt.colorbar()
+		plotGeom( atoms, bonds, atomSize=atomSize )
+		plt.xlabel(r' Tip_x $\AA$')
+		plt.ylabel(r' Tip_y $\AA$')
+		z = i
+		if zs is not None:
+			z = zs[i]
+		plt.title( r"Tip_z = %2.2f $\AA$" %z  )
+		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
+		plt.close()
+
+# ================
+
+def makeCmap_Blue1( vals=( 0.25, 0.5, 0.75 ) ):
+	cdict = {	'red':   ( (0.0, 1.0, 1.0), (vals[0], 1.0, 1.0),  (vals[1], 1.0, 1.0), (vals[2], 0.0, 0.0), (1.0, 0.0, 0.0)   ),
+				'green': ( (0.0, 0.0, 0.0), (vals[0], 1.0, 1.0),  (vals[1], 1.0, 1.0), (vals[2], 1.0, 1.0), (1.0, 0.0, 0.0)   ),
+				'blue':  ( (0.0, 0.0, 0.0), (vals[0], 0.0, 0.0),  (vals[1], 1.0, 1.0), (vals[2], 1.0, 1.0), (1.0, 1.0, 1.0)   )    }
+	return LinearSegmentedColormap('BlueRed1', cdict)
+
+def makeCmap_Blue2( vals=( 0.25, 0.5, 0.75 ) ):
+	cdict = {	'red':   ( (0.0, 1.0, 1.0), (vals[0], 1.0, 1.0),  (vals[1], 0.0, 0.0), (vals[2], 0.0, 0.0), (1.0, 0.0, 0.0)   ),
+				'green': ( (0.0, 1.0, 1.0), (vals[0], 0.0, 0.0),  (vals[1], 0.0, 0.0), (vals[2], 0.0, 0.0), (1.0, 1.0, 1.0)   ),
+				'blue':  ( (0.0, 0.0, 0.0), (vals[0], 0.0, 0.0),  (vals[1], 0.0, 0.0), (vals[2], 1.0, 1.0), (1.0, 1.0, 1.0)   )    }
+	return LinearSegmentedColormap('BlueRed1', cdict)
+

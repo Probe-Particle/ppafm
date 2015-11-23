@@ -33,7 +33,6 @@ def loadBas(name):
 	return xyzs
 
 def loadAtoms( name, ELEMENT_DICT = elements.ELEMENT_DICT ):
-	xyzs = []
 	f = open(name,"r")
 	n=0;
 	l = f.readline()
@@ -72,33 +71,48 @@ def loadAtoms( name, ELEMENT_DICT = elements.ELEMENT_DICT ):
 	f.close()
 	return [ e,x,y,z,q ]
 
-def findBonds( xyz, sc, ELEMENTS = elements.ELEMENTS ):
+def findBonds( atoms, sc, ELEMENTS = elements.ELEMENTS ):
 	bonds = []
-	n = len(xyz[0])
+	es = atoms[0]
+	xs = atoms[1]
+	ys = atoms[2]
+	zs = atoms[3]
+	n = len( xs )
 	for i in xrange(n):
 		for j in xrange(i):
-			dx=xyz[1][j]-xyz[1][i]
-			dy=xyz[2][j]-xyz[2][i]
-			dz=xyz[3][j]-xyz[3][i]
-			r=math.sqrt(dx*dx+dy*dy+dz*dz)
-			bondlength=ELEMENTS[xyz[0][i]-1][7]+ ELEMENTS[[xyz[0][j]-1]][7]
+			dx=xs[j]-xs[i]
+			dy=ys[j]-ys[i]
+			dz=zs[j]-zs[i]
+			r=math.sqrt( dx*dx + dy*dy + dz*dz )
+			ii = es[i]-1
+			jj = es[j]-1	
+			bondlength=ELEMENTS[ ii ][6]+ ELEMENTS[ jj ][6]
 			if (r<( sc * bondlength)) :
-				bonds.append([i,j])
+				bonds.append( (i,j) )
 	return bonds
 
 def findBondsSimple( xyz, rmax ):
 	bonds = []
-	n = len(xyz[0])
+	xs = atoms[1]
+	ys = atoms[2]
+	zs = atoms[3]
+	n = len( xs )
 	for i in xrange(n):
 		for j in xrange(i):
-			dx=xyz[1][j]-xyz[1][i]
-			dy=xyz[2][j]-xyz[2][i]
-			dz=xyz[3][j]-xyz[3][i]
+			dx=xs[j]-xs[i]
+			dy=ys[j]-ys[i]
+			dz=zs[j]-zs[i]
 			r=math.sqrt(dx*dx+dy*dy+dz*dz)
 			if (r<rmax) :
-				bonds.append([i,j])
+				bonds.append( (i,j) )
 	return bonds
 
+def getAtomColors( atoms, ELEMENTS = elements.ELEMENTS ):
+	colors=[]
+	es = atoms[0]
+	for i,e in enumerate( es ): 
+		colors.append( ELEMENTS[ e - 1 ][7] )
+	return colors
 
 def multCell( xyz, cel, m=(2,2,1) ):
 	n = len(xyz[0])
@@ -107,7 +121,7 @@ def multCell( xyz, cel, m=(2,2,1) ):
 	xs = [None] * mtot
 	ys = [None] * mtot
 	zs = [None] * mtot
-	j = 0
+	j  = 0
 	for ia in range(m[0]):
 		for ib in range(m[1]):
 			for ic in range(m[2]):
