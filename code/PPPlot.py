@@ -10,10 +10,10 @@ from matplotlib.colors import LinearSegmentedColormap
 
 # =========== defaults
 
-default_figsize       = (10,10)
+default_figsize       = (8,8)
 default_cmap          = 'gray'
 default_interpolation = 'bicubic'
-default_atom_size     =  0.15
+default_atom_size     =  0.10
 
 # =========== Utils
 
