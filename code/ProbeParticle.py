@@ -395,7 +395,7 @@ def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFpara
 		FFel, lvecEl, nDim, head = GU.loadVecField('FFel', FFel)
 		lvec2params( lvecEl )
 	else:
-		print "F Fel_x.xsf not found "
+		print "FFel_x.xsf not found "
 		if ( xsfLJ  and os.path.isfile('LOCPOT.xsf') ):
 			print " LOCPOT.xsf found "
 			V, lvecEl, nDim, head = GU.loadXSF('LOCPOT.xsf')
