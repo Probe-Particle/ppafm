@@ -15,7 +15,7 @@ parser.add_option( "-i", "--input", action="store", type="string", help="format 
 
 num = len(sys.argv)
 if (num < 2):
-    sys.exit("Number of arguments = "+str(num-1)+". This script shoudl have at least one argument. I am terminating...")
+    sys.exit("Number of arguments = "+str(num-1)+". This script should have at least one argument. I am terminating...")
 finput = sys.argv[num-1]
 
 # --- initialization ---
@@ -46,7 +46,7 @@ X, Y, Z = getMGrid(dims, dd)
 
 print '--- Get Probe Density ---'
 
-rho = getProbeDensity(sampleSize, X, Y, Z, sigma, dd, 'dz2:1.0')
+rho = getProbeDensity(sampleSize, X, Y, Z, sigma, dd, {'dz2':1.0})
 
 print '--- Get Forces ---'
 Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
