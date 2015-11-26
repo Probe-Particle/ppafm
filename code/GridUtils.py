@@ -8,6 +8,7 @@ import os
 # ============================== 
 
 bohrRadius2angstroem = 0.5291772109217
+eV2Ha = 27.211396132
 
 # ==============================
 # ============================== interface to C++ core 
@@ -150,11 +151,12 @@ def loadCUBE(fname):
 	print "GridUtils| nDim: ",nDim
 	print nDim
 	FF = np.reshape(F, nDim ).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
-	nDim=[nDim[2],nDim[1],nDim[0]]                          # Setting up the corresponding dimensions. 
+	nDim= np.array([ nDim[2],nDim[1],nDim[0]])                          # Setting up the corresponding dimensions. 
 	head = []
 	head.append("BEGIN_BLOCK_DATAGRID_3D \n")
 	head.append("g98_3D_unknown \n")
 	head.append("DATAGRID_3D_g98Cube \n")
+	FF *= eV2Ha
 	return FF,lvec, nDim, head
 
 
