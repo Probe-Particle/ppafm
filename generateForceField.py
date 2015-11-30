@@ -42,7 +42,6 @@ if(options.input == 'vasp.locpot.xsf'):
 elif(options.input == 'aims.cube'):
     V, lvec, nDim, head = GU.loadCUBE(finput)
 
-'''
 print " computing convolution with tip by FFT "
 Fel_x,Fel_y,Fel_z = fFFT.potential2forces( V, lvec, nDim, sigma = 1.0 )
 
@@ -53,7 +52,6 @@ GU.saveXSF('FFel_z.xsf', Fel_z, lvec, head)
 
 del Fel_x,Fel_y,Fel_z,V
 
-'''
 
 
 
