@@ -22,7 +22,8 @@ finput = sys.argv[num-1]
 sigma  = 1.0 # [ Angstroem ] 
 
 
-
+print " >> OVEWRITING SETTINGS by params.ini  "
+PPU.loadParams( 'params.ini' )
 
 
 
