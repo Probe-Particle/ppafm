@@ -18,7 +18,8 @@ if (num < 2):
 finput = sys.argv[num-1]
 
 
-
+print " >> OVEWRITING SETTINGS by params.ini  "
+PPU.loadParams( 'params.ini' )
 
 
 
