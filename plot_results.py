@@ -4,11 +4,20 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+
+'''
 import basUtils
 import elements
 import GridUtils as GU
 import ProbeParticleUtils as PPU
 import PPPlot
+'''
+
+import pyProbeParticle                as PPU     
+import pyProbeParticle.GridUtils      as GU
+import pyProbeParticle.PPPlot         as PPPlot
+#import pyProbeParticle.core           as PPC
+#import pyProbeParticle.HighLevel      as PPH
 
 # =============== arguments definition
 

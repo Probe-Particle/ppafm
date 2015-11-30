@@ -4,6 +4,8 @@ import numpy as np
 from   ctypes import c_int, c_double, c_char_p
 import ctypes
 import os
+import cpp_utils
+
 
 # ============================== 
 
@@ -13,22 +15,9 @@ bohrRadius2angstroem = 0.5291772109217
 # ============================== interface to C++ core 
 # ==============================
 
-LIB_PATH = os.path.dirname( os.path.realpath(__file__) )
-print " ProbeParticle Library DIR = ", LIB_PATH
-
-name='GridUtils'
-ext='_lib.so'
-
-def recompile():
-        current_directory=os.getcwd()
-        os.chdir(os.path.dirname( os.path.realpath(__file__) ) )
-        os.system("make GU")
-        os.chdir(current_directory)
-
-if not os.path.exists(LIB_PATH+"/"+name+ext):  # check if lib exist
-	recompile()
-
-lib    = ctypes.CDLL(LIB_PATH+"/"+name+ext )    # load dynamic librady object using ctypes 
+cpp_name='GridUtils'
+cpp_utils.compile_lib( cpp_name  )
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
 

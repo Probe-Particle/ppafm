@@ -1,0 +1,16 @@
+#!/bin/bash
+
+masks="*.pyc *.pyd *.o *.so *.x      *.png *.jpg *.jpeg *.eps *.ps *.pdf    *.out   *~"
+
+if [[ $1 = "y" ]]; then
+    echo "find, print, delete" 
+    for mask in $masks; do
+    	find . -name $mask 
+    	find . -name $mask -print0 | xargs -0 rm -rf
+    done
+else
+    echo "just find and print"
+    for mask in $masks; do
+    	find . -name $mask
+    done
+fi

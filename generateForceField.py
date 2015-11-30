@@ -1,11 +1,18 @@
 #!/usr/bin/python
 import sys
 import numpy as np
-import basUtils
-import elements
-import GridUtils     as GU
-import ProbeParticle      as PP;    PPU = PP.PPU;
-import libFFTfin     as LFF
+
+
+import pyProbeParticle                as PPU     
+from   pyProbeParticle            import basUtils
+from   pyProbeParticle            import elements   
+import pyProbeParticle.GridUtils      as GU
+#import pyProbeParticle.core          as PPC
+import pyProbeParticle.HighLevel      as PPH
+import pyProbeParticle.fieldFFT       as fFFT
+
+
+
 from optparse import OptionParser
 
 parser = OptionParser()
@@ -32,8 +39,9 @@ if(options.input == 'vasp.locpot.xsf'):
 elif(options.input == 'aims.cube'):
     V, lvec, nDim, head = GU.loadCUBE(finput)
 
+'''
 print " computing convolution with tip by FFT "
-Fel_x,Fel_y,Fel_z = LFF. potential2forces( V, lvec, nDim, sigma = 1.0 )
+Fel_x,Fel_y,Fel_z = fFFT.potential2forces( V, lvec, nDim, sigma = 1.0 )
 
 print " saving electrostatic forcefiled "
 GU.saveXSF('FFel_x.xsf', Fel_x, lvec, head)
@@ -42,7 +50,7 @@ GU.saveXSF('FFel_z.xsf', Fel_z, lvec, head)
 
 del Fel_x,Fel_y,Fel_z,V
 
-
+'''
 
 
 
@@ -55,8 +63,8 @@ PPU.params['gridN'] = nDim.copy()
 
 print "--- Compute Lennard-Jones Force-filed ---"
 atoms     = basUtils.loadAtoms('input.xyz', elements.ELEMENT_DICT )
-iZs,Rs,Qs = PP.parseAtoms( atoms, autogeom = False, PBC = True )
-FFLJ      = PP.computeLJ( Rs, iZs, FFLJ=None, FFparams=None)
+iZs,Rs,Qs = PPH.parseAtoms( atoms, autogeom = False, PBC = True )
+FFLJ      = PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=None)
 
 GU.limit_vec_field( FFLJ, Fmax=100.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
 

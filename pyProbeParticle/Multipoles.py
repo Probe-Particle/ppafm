@@ -4,11 +4,8 @@ import numpy as np
 from   ctypes import c_int, c_double, c_char_p, c_bool
 import ctypes
 import os
-import GridUtils as GU
-import libFFTfin
 
 # ====================== constants
-
 
 # ==============================
 # ============================== Pure python functions
