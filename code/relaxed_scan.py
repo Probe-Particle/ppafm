@@ -2,7 +2,7 @@
 
 import os
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import sys
 import basUtils
 import elements
@@ -89,11 +89,11 @@ for iq,Q in enumerate( Qs ):
 			os.makedirs( dirname )
 		PP.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
 		fzs,PPpos = PP.relaxedScan3D( xTips, yTips, zTips )
-		GU.saveXSF( dirname+'/OutFz.xsf', fzs, lvecScan, GU.XSF_HEAD_DEFAULT )
+		GU.saveXSF( dirname+'/OutFz.xsf', fzs, lvecScan, head )
 		if opt_dict['pos']:
-			GU.saveVecFieldXsf( dirname+'/PPpos', PPpos, lvec, GU.XSF_HEAD_DEFAULT )
+			GU.saveVecFieldXsf( dirname+'/PPpos', PPpos, lvec, head )
 		# the rest is done in plot_results.py
-		'''
+		
 		if opt_dict['df'] or opt_dict['img']:
 			for iA,Amp in enumerate( Amps ):
 				AmpStr = "/Amp%2.2f" %Amp
@@ -104,17 +104,14 @@ for iq,Q in enumerate( Qs ):
 				dz  = PPU.params['scanStep'][2]
 				dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
 				if opt_dict['']:
-					GU.saveXSF( dirNameAmp+'/df.xsf', dfs, lvecScan, GU.XSF_HEAD_DEFAULT )
+					GU.saveXSF( dirNameAmp+'/df.xsf', dfs, lvecScan, head )
+				'''
 				if opt_dict['img']:
 					extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
 					PPPlot.plotImages( dirNameAmp+"/df", dfs, slices = range( 0, len(dfs) ), extent=extent )
-		'''
+				'''
 
 
 print " ***** ALL DONE ***** "
 
 #plt.show()
-
-
-
-

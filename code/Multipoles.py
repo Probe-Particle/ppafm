@@ -46,7 +46,7 @@ def getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=None ):
 	radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]   # TODO analytical renormalization may save some time ?
 	radial      /= radial_renom
 	if multipole_dict is not None:	   # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
-		rho = np.zeros( shape(radial) )
+		rho = np.zeros( np.shape(radial) )
 		for kind, coef in multipole_dict.iteritems():
 			rho += radial * coef * getSphericalHarmonic( X, Y, Z, kind=kind )    # TODO renormalization should be probaby inside getSphericalHarmonic if possible ?
 	else:

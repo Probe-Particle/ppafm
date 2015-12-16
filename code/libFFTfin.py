@@ -76,7 +76,7 @@ def getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=None ):
 	radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]
 	radial      /= radial_renom
 	if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
-		rho = np.zeros( shape(radial) )
+		rho = np.zeros( np.shape(radial) )
 		for kind, coef in multipole_dict.iteritems():
 			rho += radial * coef * getSphericalHarmonic( X/sigma, Y/sigma, Z/sigma, kind=kind )
 	else:
@@ -154,7 +154,7 @@ def exportPotential(rho, rho_data='rho_data'):
 		#filerho.write(rho)
 	filerho.close()
 
-def potential2forces( V, lvec, nDim, sigma = 1.0 ):
+def potential2forces( V, lvec, nDim, sigma = 1.0, multipole=None):
 	print '--- Preprocessing ---'
 	sampleSize = getSampleDimensions( lvec )
 	dims = (nDim[2], nDim[1], nDim[0])
@@ -164,10 +164,10 @@ def potential2forces( V, lvec, nDim, sigma = 1.0 ):
 	dd = (dx, dy, dz)
 	X, Y, Z = getMGrid(dims, dd)
 	print '--- Get Probe Density ---'
-	rho = getProbeDensity(sampleSize, X, Y, Z, sigma, dd)
+	rho = getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=multipole)
 	print '--- Get Forces ---'
 	Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
-	print 'Fx.max(), Fx.min() = ', Fx.max(), Fx.min()
+	print 'Fz.max(), Fz.min() = ', Fz.max(), Fz.min()
 	return Fx,Fy,Fz
 
 
