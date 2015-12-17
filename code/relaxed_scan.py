@@ -24,7 +24,7 @@ parser.add_option( "--qrange", action="store", type="float", help="tip charge ra
 parser.add_option( "-a",       action="store", type="float", help="oscilation amplitude [A]" )
 parser.add_option( "--arange", action="store", type="float", help="oscilation amplitude range (min,max,n) [A]", nargs=3)
 
-#parser.add_option( "--img",    action="store_true", default=False, help="save images for dfz " )
+parser.add_option( "--img",    action="store_true", default=False, help="save images for dfz " )
 parser.add_option( "--df" ,    action="store_true", default=False, help="save frequency shift as df.xsf " )
 parser.add_option( "--pos",    action="store_true", default=False, help="save probe particle positions" )
 
@@ -103,7 +103,7 @@ for iq,Q in enumerate( Qs ):
 					os.makedirs( dirNameAmp )
 				dz  = PPU.params['scanStep'][2]
 				dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
-				if opt_dict['']:
+				if opt_dict['df']:
 					GU.saveXSF( dirNameAmp+'/df.xsf', dfs, lvecScan, head )
 				'''
 				if opt_dict['img']:

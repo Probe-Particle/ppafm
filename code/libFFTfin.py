@@ -154,7 +154,7 @@ def exportPotential(rho, rho_data='rho_data'):
 		#filerho.write(rho)
 	filerho.close()
 
-def potential2forces( V, lvec, nDim, sigma = 1.0, multipole=None):
+def potential2forces( V, lvec, nDim, sigma = 1.0, rho=None, multipole=None):
 	print '--- Preprocessing ---'
 	sampleSize = getSampleDimensions( lvec )
 	dims = (nDim[2], nDim[1], nDim[0])
@@ -163,11 +163,10 @@ def potential2forces( V, lvec, nDim, sigma = 1.0, multipole=None):
 	zsize, dz = getSize('z', dims, sampleSize)
 	dd = (dx, dy, dz)
 	X, Y, Z = getMGrid(dims, dd)
-	print '--- Get Probe Density ---'
-	rho = getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=multipole)
+	if rho == None:
+		print '--- Get Probe Density ---'
+		rho = getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=multipole)
 	print '--- Get Forces ---'
 	Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
 	print 'Fz.max(), Fz.min() = ', Fz.max(), Fz.min()
 	return Fx,Fy,Fz
-
-

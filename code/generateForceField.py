@@ -13,6 +13,8 @@ parser.add_option( "-i", "--input",       action="store",        type="string", 
 parser.add_option(       "--lj",          action="store_true",                  help="calculate Lennard-Jones force-field ",  default=False)
 parser.add_option(       "--el",          action="store_true",                  help="calculate electrostatic force-field",   default=False)
 parser.add_option(       "--all",         action="store_true",                  help="calculate all force-field",             default=True)
+parser.add_option( "-t", "--tip",         action="store",        type="string", help="tip model (multipole)", default='')
+parser.add_option( "-w", "--sigma",       action="store",        type="float",  help="sigma [angstrom] gives width of the Gaussian envelope in tip model", default=1.0)
 (options, args) = parser.parse_args()
 
 num = len(sys.argv)
@@ -24,12 +26,10 @@ if(options.all and not options.el and not options.lj):
     options.el = True
     options.lj = True
 
-sigma  = 1.0 # [ Angstroem ] 
+sigma  = options.sigma # [ Angstroem ] 
 
 print " >> OVEWRITING SETTINGS by params.ini  "
 PPU.loadParams( 'params.ini' )
-
-
 
 print " ========= get electrostatic forcefiled from hartree "
 
@@ -47,10 +47,20 @@ PPU.params['gridC'] = lvec[ 3,:  ].copy()
 PPU.params['gridN'] = nDim.copy()
 
 
+rho = None
+multipole = None
+if options.tip in {'s','px','py','pz','dx2','dy2','dz2','dxy','dxz','dyz'}:
+    rho = None
+    tip={options.tip:1.0}
+elif tip.endswith(".xsf"):
+    rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(options.tip)
+    if nDim_tip != nDim:
+        sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")
+
 if(options.el):
     print " --- computing electrostatic forcefiled from hartree ---"
     print "   + computing convolution with tip by FFT "
-    Fel_x,Fel_y,Fel_z = LFF. potential2forces( V, lvec, nDim, sigma = 1.0 )
+    Fel_x,Fel_y,Fel_z = LFF. potential2forces( V, lvec, nDim, sigma = sigma, rho = rho, multipole = multipole)
     
     print "   + saving electrostatic forcefiled into *.xsf files"
     GU.saveXSF('FFel_x.xsf', Fel_x, lvec, head)
