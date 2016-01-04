@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import sys
 import numpy as np
+import os
 
 
 import pyProbeParticle                as PPU     
@@ -17,12 +18,16 @@ from optparse import OptionParser
 
 parser = OptionParser()
 parser.add_option( "-i", "--input", action="store", type="string", help="format of input file", default='vasp.locpot.xsf')
+parser.add_option( "--sigma", type="float",  help="gaussian width for convolution in Electrostatics [Angstroem]", default=1.0 )
 (options, args) = parser.parse_args()
+
+print options
+
 
 num = len(sys.argv)
 if (num < 2):
     sys.exit("Number of arguments = "+str(num-1)+". This script shoudl have at least one argument. I am terminating...")
-finput = sys.argv[num-1]
+finput = sys.argv[1]
 
 
 
@@ -43,7 +48,7 @@ elif(options.input == 'aims.cube'):
     V, lvec, nDim, head = GU.loadCUBE(finput)
 
 print " computing convolution with tip by FFT "
-Fel_x,Fel_y,Fel_z = fFFT.potential2forces( V, lvec, nDim, sigma = 1.0 )
+Fel_x,Fel_y,Fel_z = fFFT.potential2forces( V, lvec, nDim, sigma = options.sigma )
 
 print " saving electrostatic forcefiled "
 GU.saveXSF('FFel_x.xsf', Fel_x, lvec, head)
@@ -64,8 +69,12 @@ PPU.params['gridN'] = nDim.copy()
 
 print "--- Compute Lennard-Jones Force-filed ---"
 atoms     = basUtils.loadAtoms('input.xyz', elements.ELEMENT_DICT )
+FFparams=None
+if os.path.isfile( 'atomtypes.ini' ):
+	print ">> LOADING LOCAL atomtypes.ini"  
+	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
 iZs,Rs,Qs = PPH.parseAtoms( atoms, autogeom = False, PBC = True )
-FFLJ      = PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=None)
+FFLJ      = PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams )
 
 GU.limit_vec_field( FFLJ, Fmax=100.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
 

@@ -62,7 +62,7 @@ def getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=None ):
 	ry = X*mat[1, 0] + Y*mat[1, 1] + Z*mat[1, 2]
 	rz = X*mat[2, 0] + Y*mat[2, 1] + Z*mat[2, 2]
 	rquad  = rx**2 + ry**2 + rz**2
-	radial       = np.exp( -(rquad)/(1*sigma**2) )
+	radial       = np.exp( -rquad/( sigma**2 ) )
 	radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]  # TODO analytical renormalization may save some time ?
 	radial      /= radial_renom
 	if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
