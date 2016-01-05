@@ -1,4 +1,6 @@
 
+#ifndef Mat3_h 
+#define Mat3_h 
 
 //template <class TYPE, class VEC> 
 //template <class TYPE> 
@@ -218,4 +220,5 @@ using Mat3f = Mat3TYPE< float >;
 using Mat3d = Mat3TYPE< double>;
 */
 
+#endif
 

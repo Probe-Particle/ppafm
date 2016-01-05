@@ -21,26 +21,51 @@ lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )
 
 # define used numpy array types for interfacing with C++
 
-array1i = np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='CONTIGUOUS')
+array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
 array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
+array2d = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
+array3d = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
+array4d = np.ctypeslib.ndpointer(dtype=np.double, ndim=4, flags='CONTIGUOUS')
 
-# ==============  Xsf
-
-XSF_HEAD_DEFAULT = headScan='''
-ATOMS
- 1   0.0   0.0   0.0
-
-BEGIN_BLOCK_DATAGRID_3D                        
-   some_datagrid      
-   BEGIN_DATAGRID_3D_whatever 
-'''
-
+#    int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline)
 lib.ReadNumsUpTo_C.argtypes  = [c_char_p, array1d, array1i, c_int]
 lib.ReadNumsUpTo_C.restype   = c_int
 def readNumsUpTo(filename, dimensions, noline):
-        N_arry=np.zeros( (dimensions[0]*dimensions[1]*dimensions[2]), dtype = np.double )
-        lib.ReadNumsUpTo_C( filename, N_arry, dimensions, noline )
-        return N_arry
+	N_arry=np.zeros( (dimensions[0]*dimensions[1]*dimensions[2]), dtype = np.double )
+	lib.ReadNumsUpTo_C( filename, N_arry, dimensions, noline )
+	return N_arry
+
+#	void interpolate_gridCoord( int n, Vec3d * pos_list, double * data )
+lib.interpolate_gridCoord.argtypes = [ c_int, array2d, array3d, array1d ]
+lib.interpolate_gridCoord.restype   = None
+interpolate_gridCoord               = lib.interpolate_gridCoord
+
+#	void interpolateLine_gridCoord( int n, Vec3d * p1, Vec3d * p2, double * data, double * out )
+lib.interpolateLine_gridCoord.argtypes = [ c_int, array1d, array1d, array3d, array1d ]
+lib.interpolateLine_gridCoord.restype   = None
+interpolateLine_gridCoord                   = lib.interpolateLine_gridCoord
+
+#	void interpolateQuad_gridCoord( int * nij, Vec3d * p00, Vec3d * p01, Vec3d * p10, Vec3d * p11, double * data, double * out )
+lib.interpolateQuad_gridCoord.argtypes = [ array1i, array1d, array1d, array1d, array1d, array3d, array2d ]
+lib.interpolateQuad_gridCoord.restype  = None
+interpolateQuad_gridCoord              = lib.interpolateQuad_gridCoord
+
+#	void interpolate_cartesian( int n, Vec3d * pos_list, double * data )
+lib.interpolate_cartesian.argtypes  = [ c_int, array2d, array3d, array1d  ]
+lib.interpolate_cartesian.restype   = None
+interpolate_cartesian               = lib.interpolate_cartesian
+
+#	void setGridCell( double * cell )
+lib.setGridCell.argtypes  = [array2d]
+lib.setGridCell.restype   = None
+setGridCell = lib.setGridCell
+	
+#	void setGridN( int * n )
+lib.setGridN.argtypes  = [array1i]
+lib.setGridN.restype   = None
+setGridN = lib.setGridN
+
+# ==============  String / File IO utils
 
 def readUpTo( filein, keyword ):
         i = 0
@@ -67,6 +92,15 @@ def writeArr2D(f, arr):
 
 
 # =================== XSF
+
+XSF_HEAD_DEFAULT = headScan='''
+ATOMS
+ 1   0.0   0.0   0.0
+
+BEGIN_BLOCK_DATAGRID_3D                        
+   some_datagrid      
+   BEGIN_DATAGRID_3D_whatever 
+'''
 
 def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
 	fileout = open(fname, 'w')

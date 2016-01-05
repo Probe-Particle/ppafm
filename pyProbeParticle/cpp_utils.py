@@ -28,8 +28,8 @@ def compile_lib( name,
 	print os.getcwd()
 	if clean:
 		try:
-			os.remove( 'lib'+lib_name  )
-			#os.remove( name+".o" ) 
+			os.remove( lib_name  )
+			os.remove( name+".o" ) 
 		except:
 			pass 
 	os.system("g++ "+FFLAGS+" -c -fPIC "+name+".cpp -o "+name+".o "+LFLAGS )
