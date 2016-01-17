@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import numpy as np
 #import matplotlib.pyplot as plt
 #from xsfutil import *
@@ -12,8 +13,6 @@ sigma  = 1.0 # [ Angstroem ]
 print '--- Data Loading ---'
 
 V, lvec, nDim, head = GU.loadXSF('LOCPOT.xsf')
-print np.shape(lvec)
-print head
 print '--- Preprocessing ---'
 
 sampleSize = getSampleDimensions(lvec)
@@ -42,5 +41,5 @@ GU.saveXSF('FFel_x.xsf', Fx, lvec, head)
 GU.saveXSF('FFel_y.xsf' , Fy, lvec, head)
 GU.saveXSF('FFel_z.xsf' , Fz, lvec, head)
     
-show()
+#show()
 
