@@ -57,7 +57,7 @@ print " >> OVEWRITING SETTINGS by command line arguments  "
 # Ks
 if opt_dict['krange'] is not None:
 	Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], opt_dict['krange'][2] )
-elif opt_dict['krange'] is not None:
+elif opt_dict['k'] is not None:
 	Ks = [ opt_dict['k'] ]
 else:
 	Ks = [ PPU.params['stiffness'][0] ]
