@@ -250,7 +250,7 @@ def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFpara
 			FFel_x,FFel_y,FFel_z = libFFTfin.potential2forces( V, lvecEl, nDim, sigma = 1.0 )
 			FFel = GU.packVecGrid( FFel_x,FFel_y,FFel_z )
 			del FFel_x,FFel_y,FFel_z
-			GU.saveVecFieldXsf( 'FFel', FF, lvecEl, head = head )
+			GU.saveVecFieldXsf( 'FFel', FFel, lvecEl, head = head )
 		else:
 			print " LOCPOT.xsf not found "
 			newEl = True
@@ -270,10 +270,10 @@ def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFpara
 			head = GU.XSF_HEAD_DEFAULT
 		if newLJ:
 			FFLJ = computeLJ     ( Rs, iZs, FFparams=FFparams )
-			GU.saveVecFieldXsf( 'FFLJ', FF, lvecEl, head = head )
+			GU.saveVecFieldXsf( 'FFLJ', FFLJ, lvecEl, head = head )
 		if newEl:
 			FFel = computeCoulomb( Rs, Qs, FFel )
-			GU.saveVecFieldXsf( 'FFel', FF, lvecEl, head = head )
+			GU.saveVecFieldXsf( 'FFel', FFel, lvecEl, head = head )
 	return FFLJ, FFel
 		
 def relaxedScan3D( xTips, yTips, zTips ):

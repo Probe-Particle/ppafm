@@ -51,7 +51,7 @@ rho = None
 multipole = None
 if options.tip in {'s','px','py','pz','dx2','dy2','dz2','dxy','dxz','dyz'}:
     rho = None
-    tip={options.tip:1.0}
+    multipole={options.tip:1.0}
 elif tip.endswith(".xsf"):
     rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(options.tip)
     if nDim_tip != nDim:
@@ -60,8 +60,7 @@ elif tip.endswith(".xsf"):
 if(options.el):
     print " --- computing electrostatic forcefiled from hartree ---"
     print "   + computing convolution with tip by FFT "
-    Fel_x,Fel_y,Fel_z = LFF. potential2forces( V, lvec, nDim, sigma = sigma, rho = rho, multipole = multipole)
-    
+    Fel_x,Fel_y,Fel_z = LFF.potential2forces( V, lvec, nDim, sigma = sigma, rho = rho, multipole = multipole)
     print "   + saving electrostatic forcefiled into *.xsf files"
     GU.saveXSF('FFel_x.xsf', Fel_x, lvec, head)
     GU.saveXSF('FFel_y.xsf', Fel_y, lvec, head)
@@ -81,4 +80,3 @@ if(options.lj):
 
     print "   + saving  LJ Force-filed into *.xsf files ---"
     GU.saveVecFieldXsf( 'FFLJ', FFLJ, lvec, head)
-

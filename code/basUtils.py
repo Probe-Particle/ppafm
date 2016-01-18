@@ -67,7 +67,7 @@ def loadAtoms( name, ELEMENT_DICT = elements.ELEMENT_DICT ):
 					q.append( 0.0 )				
 				i+=1
 			else:
-				print " skiped line : ", line
+				print " skipped line : ", line
 	f.close()
 	return [ e,x,y,z,q ]
 

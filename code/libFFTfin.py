@@ -27,26 +27,36 @@ def getMGrid(dims, dd):
 def getSphericalHarmonic( X, Y, Z, kind='dz2' ):
 	# TODO: renormalization should be probaby here
 	if    kind=='s':
+		print 'Spherical harmonic: s'
 		return 1.0
 	# p-functions
 	elif  kind=='px':
+		print 'Spherical harmonic: px'
 		return X
 	elif  kind=='py':
+		print 'Spherical harmonic: py'
 		return Y
 	elif  kind=='pz':
+		print 'Spherical harmonic: pz'
 		return Z
 	# d-functions
 	if    kind=='dz2' :
+		print 'Spherical harmonic: dz2'
 		return 0.25*(2*Z**2 - X**2 - Y**2) #quadrupole normalized to get 3 times the quadrpole in the standard (cartesian) tensor normalization of Qzz. Also, 3D integral of rho_dz2(x,y,z)*(z/sigma)**2 gives 1 in the normalization use here.
 	elif    kind=='dx2' :
+		print 'Spherical harmonic: dx2'
 		return 0.25*(2*X**2 - Y**2 - Z**2)
 	elif    kind=='dy2' :
+		print 'Spherical harmonic: dy2'
 		return 0.25*(2*Y**2 - X**2 - Z**2)
 	elif    kind=='dxy' :
+		print 'Spherical harmonic: dxy'
 		return X*Y
 	elif    kind=='dxz' :
+		print 'Spherical harmonic: dxz'
 		return X*Z
 	elif    kind=='dyz' :
+		print 'Spherical harmonic: dyz'
 		return Y*Z
 	else:
 		return 0.0

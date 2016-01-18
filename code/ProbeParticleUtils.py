@@ -52,7 +52,7 @@ def Fz2df( F, dz=0.1, k0 = 1800.0, f0=30300.0, n=4, units=16.0217656 ):
 	y  = np.sqrt(1-x*x)
 	dy =  ( y[1:] - y[:-1] )/(dz*n)
 	fpi    = (n-2)**2; prefactor = ( 1 + fpi*(2/np.pi) ) / (fpi+1) # correction for small n
-	dFconv = prefactor * np.apply_along_axis( lambda m: np.convolve(m, dy, mode='valid'), axis=0, arr=F )
+	dFconv = -prefactor * np.apply_along_axis( lambda m: np.convolve(m, dy, mode='valid'), axis=0, arr=F )
 	return dFconv*units*f0/k0
 
 # ==============================
