@@ -5,8 +5,8 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import elements
-import ProbeParticle as PP
 import basUtils
+import ProbeParticle as PP
 
 #PP.makeclean( )  # force to recompile 
 
@@ -20,9 +20,18 @@ except IndexError:
 
 print "Reading coordinates from the file {}".format(sys.argv[1])
 
-print " >> WARNING!!! OVERIDING SETTINGS by params.ini  "
-PP.loadParams( "params.ini" )
+print " >> WARNING!!! OVERWRITING SETTINGS by params.ini  "
 
+PP.loadParams( 'params.ini' )
+
+cell =np.array([
+PP.params['gridA'],
+PP.params['gridB'],
+PP.params['gridC'],
+]).copy() 
+gridN = PP.params['gridN']
+
+FF   = np.zeros( (gridN[2],gridN[1],gridN[0],3) )
 print " # ============ define atoms "
 
 atoms    = basUtils.loadAtoms(sys.argv[1], elements.ELEMENT_DICT )
@@ -62,23 +71,12 @@ fzs    = np.zeros(( len(zTips), len(yTips ), len(xTips ) ));
 
 nslice = 10;
 
-FFparams = PP.loadSpecies        ( 'atomtypes.ini'  )
+
+atomTypesFile = os.path.dirname(sys.argv[0]) + '/defaults/atomtypes.ini'
+FFparams      = PP.loadSpecies(atomTypesFile)
 C6,C12   = PP.getAtomsLJ( PP.params['probeType'], iZs, FFparams )
 
-print " # ============ define Grid "
 
-cell =np.array([
-PP.params['gridA'],
-PP.params['gridB'],
-PP.params['gridC'],
-]).copy() 
-
-gridN = PP.params['gridN']
-
-FF   = np.zeros( (gridN[2],gridN[1],gridN[0],3) )
-
-
-#quit()
 
 # ==============================================
 #   The costly part of simulation starts here
@@ -148,8 +146,8 @@ slices = range( 0, len(dfs) )
 for ii,i in enumerate(slices):
 	print " plotting ", i
 	plt.figure( figsize=( 10,10 ) )
-	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent , vmin=-20, vmax=20)
-#	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
+#	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent , vmin=-20, vmax=20)
+	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
 	z = zTips[i] #- PP.params['moleculeShift' ][2]
 	plt.colorbar();
 	plt.xlabel(r' Tip_x $\AA$')

@@ -25,7 +25,7 @@ else:
 '''
 
 print " loading: "
-V,lvec, nDim, head = GU.loadXSF('hartree.xsf')
+V,lvec, nDim, head = GU.loadCUBE('hartree.cube')
 
 print nDim
 print lvec

@@ -27,9 +27,10 @@ parser.add_option(      "--dfrange", action="store", type="float", help="Range o
 
 print "Reading coordinates from the file {}".format(sys.argv[1])
 
-print " >> WARNING!!! OVEWRITING SETTINGS by params.ini  "
+print " >> WARNING!!! OVERWRITING SETTINGS by params.ini  "
 
 PP.loadParams( 'params.ini' )
+
 
 
 Fx,lvec,nDim,head=GU.loadXSF('FFel_x.xsf')
@@ -57,7 +58,6 @@ PP.params['gridC'],
 gridN = PP.params['gridN']
 
 
-PP.setFF( FF, cell  )
 
 
 print " # ============ define atoms "
@@ -67,8 +67,7 @@ atoms    = basUtils.loadAtoms(sys.argv[1], elements.ELEMENT_DICT )
 Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
 iZs      = np.array( atoms[0])
 
-Rs     = np.transpose( Rs, (1,0) ).copy() 
-
+"""
 if not PP.params['PBC' ]:
 	print " NO PBC => autoGeom "
 	PP.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
@@ -77,7 +76,7 @@ if not PP.params['PBC' ]:
 	print " NO PBC => params[ 'gridC'   ] ", PP.params[ 'gridC'   ]
 	print " NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ]
 	print " NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ]
-
+"""
 Rs = np.transpose( Rs, (1,0) ).copy() 
 Qs = np.array( atoms[4] )
 
@@ -117,15 +116,6 @@ atomTypesFile = os.path.dirname(sys.argv[0]) + '/defaults/atomtypes.ini'
 FFparams      = PP.loadSpecies(atomTypesFile)
 C6,C12        = PP.getAtomsLJ( PP.params['probeType'], iZs, FFparams )
 
-print " # ============ define Grid "
-
-cell =np.array([
-PP.params['gridA'],
-PP.params['gridB'],
-PP.params['gridC'],
-]).copy() 
-
-gridN = PP.params['gridN']
 
 
 # ==============================================
@@ -180,14 +170,17 @@ slices = range( 0, len(dfs) )
 for ii,i in enumerate(slices):
 	print " plotting ", i
 	plt.figure( figsize=( 10,10 ) )
+	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
 	z = zTips[i]
+        """
 	if(options.dfrange != None):
 		fmin = options.dfrange[0]
 		fmax = options.dfrange[1]
 		plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], vmin=fmin, vmax=fmax, cmap=PP.params['colorscale'], extent=extent )
 	else:
 		plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
-	z = zTips[i] - PP.params['moleculeShift' ][2]
+	z = zTips[i]# - PP.params['moleculeShift' ][2]
+        """
 	plt.colorbar();
 	plt.xlabel(r' Tip_x $\AA$')
 	plt.ylabel(r' Tip_y $\AA$')
