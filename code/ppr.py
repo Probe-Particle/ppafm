@@ -6,18 +6,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 import elements
 import GridUtils as GU
+#import XSFutils
 import basUtils
 import ProbeParticle as PP
 
 from optparse import OptionParser
 
+try:
+    sys.argv[1]
+except IndexError:
+    print "Please specify a file with coordinates"
+    exit(1)
 
 parser = OptionParser()
 parser.add_option(      "--dfrange", action="store", type="float", help="Range of plotted frequency shift (df)", nargs=2)
 parser.add_option(      "--df",      action="store_true",  help="Write AFM frequency shift in df.xsf file", default=False)
 (options, args) = parser.parse_args()
 
-print " >> WARNING!!! OVEWRITING SETTINGS by params.ini  "
+print "Reading coordinates from the file {}".format(sys.argv[1])
+
+print " >> WARNING!!! OVERWRITING SETTINGS by params.ini  "
 
 PP.loadParams( 'params.ini' )
 
@@ -40,7 +48,6 @@ FFel[:,:,:,0]=Fx
 FFel[:,:,:,1]=Fy
 FFel[:,:,:,2]=Fz
 
-
 cell =np.array([
 PP.params['gridA'],
 PP.params['gridB'],
@@ -49,16 +56,16 @@ PP.params['gridC'],
 gridN = PP.params['gridN']
 
 
-PP.setFF( FF, cell  )
 
 
 print " # ============ define atoms "
 
 
-atoms    = basUtils.loadAtoms('input.xyz', elements.ELEMENT_DICT )
+atoms    = basUtils.loadAtoms(sys.argv[1], elements.ELEMENT_DICT )
 Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
 iZs      = np.array( atoms[0])
 
+"""
 if not PP.params['PBC' ]:
 	print " NO PBC => autoGeom "
 	PP.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
@@ -67,7 +74,7 @@ if not PP.params['PBC' ]:
 	print " NO PBC => params[ 'gridC'   ] ", PP.params[ 'gridC'   ]
 	print " NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ]
 	print " NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ]
-
+"""
 Rs = np.transpose( Rs, (1,0) ).copy() 
 Qs = np.array( atoms[4] )
 
@@ -107,15 +114,6 @@ atomTypesFile = os.path.dirname(sys.argv[0]) + '/defaults/atomtypes.ini'
 FFparams      = PP.loadSpecies(atomTypesFile)
 C6,C12        = PP.getAtomsLJ( PP.params['probeType'], iZs, FFparams )
 
-print " # ============ define Grid "
-
-cell =np.array([
-PP.params['gridA'],
-PP.params['gridB'],
-PP.params['gridC'],
-]).copy() 
-
-gridN = PP.params['gridN']
 
 
 # ==============================================
@@ -171,6 +169,7 @@ for ii,i in enumerate(slices):
 		plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
 	z = zTips[i]
 #	z = zTips[i] - PP.params['moleculeShift' ][2]
+	z = zTips[i]
 	plt.colorbar();
 	plt.xlabel(r' Tip_x $\AA$')
 	plt.ylabel(r' Tip_y $\AA$')
