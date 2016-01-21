@@ -61,6 +61,7 @@ def Fz2df( F, dz=0.1, k0 = 1800.0, f0=30300.0, n=4, units=16.0217656 ):
 
 # overide default parameters by parameters read from a file 
 def loadParams( fname ):
+        print " >> OVERWRITING SETTINGS by "+fname
 	fin = open(fname,'r')
 	FFparams = []
 	for line in fin:

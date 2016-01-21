@@ -24,8 +24,9 @@ def parseAtoms( atoms, autogeom = False, PBC = True ):
 
 def computeLJ( Rs, iZs, FFLJ=None, FFparams=None ):
 	if ( FFLJ is None ):
+                print "Here"
 		gridN = PPU.params['gridN']
-		FFLJ = np.zeros( (gridN[0],gridN[1],gridN[2],3)    )
+		FFLJ = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
 	else:
 		PPU.params['gridN'] = np.shape( FFLJ )	
 #	iZs,Rs,Qs = parseAtoms( )

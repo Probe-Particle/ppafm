@@ -43,10 +43,8 @@ opt_dict = vars(options)
 
 # dgdfgdfg
 
-print " >> OVEWRITING SETTINGS by params.ini  "
 PPU.loadParams( 'params.ini' )
 
-print " >> OVEWRITING SETTINGS by command line arguments  "
 print opt_dict
 # Ks
 if opt_dict['krange'] is not None:
