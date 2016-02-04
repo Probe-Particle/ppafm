@@ -24,8 +24,8 @@ parser.add_option( "--arange", action="store", type="float", help="amplitude ran
 (options, args) = parser.parse_args()
 
 
-Ks   = [  0.3, 0.5, 0.7 ]
-Qs   = [ -0.2, -0.1, 0.0, 0.1, 0.2]
+Ks   = [  0.3 ]
+Qs   = [ 0.0]
 Amps = [  1.0 ]
 
 print " ============= RUN  "
