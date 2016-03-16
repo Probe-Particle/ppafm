@@ -16,7 +16,7 @@ params={
 'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
 'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
 'gridC':       np.array( [      0,        0,      5.0 ] ),
-'moleculeShift':  np.array( [  0.0,      0.0,    -2.0 ] ),
+'moleculeShift':  np.array( [  0.0,      0.0,    0.0 ] ),
 'probeType':   8,
 'charge':      0.00,
 'useLJ':True,

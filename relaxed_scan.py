@@ -82,7 +82,7 @@ FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
 print " load Lenard-Jones Force-field "
 FFLJ, lvec, nDim, head = GU.loadVecFieldXsf( "FFLJ" )
 PPU.lvec2params( lvec )
-PPC.setFF( FFel )
+PPC.setFF( FFLJ )
 
 xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
 

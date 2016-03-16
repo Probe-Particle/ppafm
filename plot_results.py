@@ -133,7 +133,10 @@ for iq,Q in enumerate( Qs ):
 						GU.saveXSF( dirNameAmp+'/df.xsf', PPpos, lvec, GU.XSF_HEAD_DEFAULT )
 					if opt_dict['df']:
 						print " plotting df : "
-						PPPlot.plotImages( dirNameAmp+"/df"+atoms_str+cbar_str, dfs, slices = range( 0, len(dfs) ), extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+						PPPlot.plotImages(
+                                                dirNameAmp+"/df"+atoms_str+cbar_str,
+                                                dfs,  slices = range( 0,
+                                                len(dfs) ), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
 					del dfs
 				del fzs
 			except:
