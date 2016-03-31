@@ -40,7 +40,7 @@ def compile_lib( name,
 def make( what="" ):
 	current_directory = os.getcwd()
 	os.chdir ( CPP_PATH          )
-	os.system( "make"+what       )
+	os.system( "make "+what       )
 	os.chdir ( current_directory )
 
 def makeclean( ):

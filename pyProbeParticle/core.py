@@ -12,7 +12,8 @@ import cpp_utils
 # ==============================
 
 cpp_name='ProbeParticle'
-cpp_utils.compile_lib( cpp_name  )
+#cpp_utils.compile_lib( cpp_name  )
+cpp_utils.make( "PP"  )
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++

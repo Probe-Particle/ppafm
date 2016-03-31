@@ -14,7 +14,8 @@ bohrRadius2angstroem = 0.5291772109217
 # ============================== interface to C++ core 
 
 cpp_name='GridUtils'
-cpp_utils.compile_lib( cpp_name  )
+#cpp_utils.compile_lib( cpp_name  )
+cpp_utils.make("GU")
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++

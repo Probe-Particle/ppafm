@@ -107,7 +107,8 @@ def make_Ratoms( atom_types, type_R,  fmin = 0.9 , fmax = 1.3 ):
 # ==============================
 
 cpp_name='Multipoles'
-cpp_utils.compile_lib( cpp_name  )
+#cpp_utils.compile_lib( cpp_name  )
+cpp_utils.make("MP")
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/lib" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
