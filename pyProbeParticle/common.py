@@ -23,7 +23,7 @@ params={
 'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
 'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
 
-'scanStep': np.array( [ 0.10, 0.10, 0.05 ] ),
+'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
 'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
 'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
 'kCantilever'  :  1800.0, 

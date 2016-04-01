@@ -54,12 +54,18 @@ elif opt_dict['k'] is not None:
 else:
 	Ks = [ PPU.params['stiffness'][0] ]
 # Qs
+
+charged_system=False
 if opt_dict['qrange'] is not None:
 	Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
 elif opt_dict['q'] is not None:
 	Qs = [ opt_dict['q'] ]
 else:
 	Qs = [ PPU.params['charge'] ]
+
+for iq,Q in enumerate(Qs):
+        if ( abs(Q) > 1e-7):
+                charged_system=True
 
 # Amps
 #if opt_dict['arange'] is not None:
@@ -76,9 +82,10 @@ print "Qs   =", Qs
 print " ============= RUN  "
 
 #PPPlot.params = PPU.params 			# now we dont use PPPlot here
+if ( charged_system == True):
+        print " load Electrostatic Force-field "
+        FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
 
-print " load Electrostatic Force-field "
-FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
 print " load Lenard-Jones Force-field "
 FFLJ, lvec, nDim, head = GU.loadVecFieldXsf( "FFLJ" )
 PPU.lvec2params( lvec )
@@ -87,7 +94,10 @@ PPC.setFF( FFLJ )
 xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
 
 for iq,Q in enumerate( Qs ):
-	FF = FFLJ + FFel * Q
+        if ( charged_system == True):
+	        FF = FFLJ + FFel * Q
+        else:
+                FF = FFLJ
 	PPC.setFF_Pointer( FF )
 	for ik,K in enumerate( Ks ):
 		dirname = "Q%1.2fK%1.2f" %(Q,K)
