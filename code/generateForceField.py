@@ -39,6 +39,7 @@ if(options.input == 'vasp.locpot.xsf'):
     V, lvec, nDim, head = GU.loadXSF(finput)
 elif(options.input == 'aims.cube'):
     V, lvec, nDim, head = GU.loadCUBE(finput)
+    V=V*27.211396132
 
 print "     + update super-cell "
 PPU.params['gridA'] = lvec[ 1,:  ].copy()
