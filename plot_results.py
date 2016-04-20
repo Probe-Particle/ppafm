@@ -130,7 +130,7 @@ for iq,Q in enumerate( Qs ):
 						os.makedirs( dirNameAmp )
 					dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
 					if opt_dict['save_df']:
-						GU.saveXSF( dirNameAmp+'/df.xsf', PPpos, lvec, GU.XSF_HEAD_DEFAULT )
+						GU.saveXSF( dirNameAmp+'/df.xsf', dfs, lvec, GU.XSF_HEAD_DEFAULT )
 					if opt_dict['df']:
 						print " plotting df : "
 						PPPlot.plotImages(
