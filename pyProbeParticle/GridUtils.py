@@ -4,54 +4,103 @@ import numpy as np
 from   ctypes import c_int, c_double, c_char_p
 import ctypes
 import os
+import cpp_utils
+
 
 # ============================== 
 
 bohrRadius2angstroem = 0.5291772109217
 
-# ==============================
 # ============================== interface to C++ core 
-# ==============================
 
-LIB_PATH = os.path.dirname( os.path.realpath(__file__) )
-print " ProbeParticle Library DIR = ", LIB_PATH
-
-name='GridUtils'
-ext='_lib.so'
-
-def recompile():
-        current_directory=os.getcwd()
-        os.chdir(os.path.dirname( os.path.realpath(__file__) ) )
-        os.system("make GU")
-        os.chdir(current_directory)
-
-if not os.path.exists(LIB_PATH+"/"+name+ext):  # check if lib exist
-	recompile()
-
-lib    = ctypes.CDLL(LIB_PATH+"/"+name+ext )    # load dynamic librady object using ctypes 
+cpp_name='GridUtils'
+#cpp_utils.compile_lib( cpp_name  )
+cpp_utils.make("GU")
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
 
-array1i = np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='CONTIGUOUS')
+array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
 array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
+array2d = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
+array3d = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
+array4d = np.ctypeslib.ndpointer(dtype=np.double, ndim=4, flags='CONTIGUOUS')
 
-# ==============  Xsf
 
-XSF_HEAD_DEFAULT = headScan='''
-ATOMS
- 1   0.0   0.0   0.0
+# ============== Filters
 
-BEGIN_BLOCK_DATAGRID_3D                        
-   some_datagrid      
-   BEGIN_DATAGRID_3D_whatever 
-'''
+def renorSlice( F ):
+	vranges = []
+	for i in range( len(F) ):
+		Fi = F[i]
+		vmin = np.nanmin( Fi )
+		vmax = np.nanmax( Fi )
+		#F[ i ] = ( Fi - vmin ) /( vmax - vmin )
+		F[i] -= vmin;
+		F[i] /= ( vmax - vmin )
+		vranges.append( (vmin,vmax) )
+	return vranges
 
-lib.ReadNumsUpTo_C.argtypes  = [c_char_p, array1d, array1i, c_int]
-lib.ReadNumsUpTo_C.restype   = c_int
-def readNumsUpTo(filename, dimensions, noline):
-        N_arry=np.zeros( (dimensions[0]*dimensions[1]*dimensions[2]), dtype = np.double )
-        lib.ReadNumsUpTo_C( filename, N_arry, dimensions, noline )
-        return N_arry
+# ==============  Cutting, Sampling, Interpolation ...
+
+#	void interpolate_gridCoord( int n, Vec3d * pos_list, double * data )
+lib.interpolate_gridCoord.argtypes = [ c_int, array2d, array3d, array1d ]
+lib.interpolate_gridCoord.restype   = None
+interpolate_gridCoord               = lib.interpolate_gridCoord
+
+#	void interpolateLine_gridCoord( int n, Vec3d * p1, Vec3d * p2, double * data, double * out )
+lib.interpolateLine_gridCoord.argtypes = [ c_int, array1d, array1d, array3d, array1d ]
+lib.interpolateLine_gridCoord.restype  = None
+interpolateLine_gridCoord                   = lib.interpolateLine_gridCoord
+
+#	void interpolateQuad_gridCoord( int * nij, Vec3d * p00, Vec3d * p01, Vec3d * p10, Vec3d * p11, double * data, double * out )
+lib.interpolateQuad_gridCoord.argtypes = [ array1i, array1d, array1d, array1d, array1d, array3d, array2d ]
+lib.interpolateQuad_gridCoord.restype  = None
+interpolateQuad_gridCoord              = lib.interpolateQuad_gridCoord
+
+#	void interpolate_cartesian( int n, Vec3d * pos_list, double * data )
+lib.interpolate_cartesian.argtypes  = [ c_int, array2d, array3d, array1d  ]
+lib.interpolate_cartesian.restype   = None
+interpolate_cartesian               = lib.interpolate_cartesian
+
+#	void setGridCell( double * cell )
+lib.setGridCell.argtypes  = [array2d]
+lib.setGridCell.restype   = None
+setGridCell = lib.setGridCell
+	
+#	void setGridN( int * n )
+lib.setGridN.argtypes  = [array1i]
+lib.setGridN.restype   = None
+setGridN = lib.setGridN
+
+def interpolateLine( F, p1, p2, sz=500, cartesian=False ):
+	result = np.zeros( sz )
+	p00 = np.array ( p1, dtype='float64' )
+	p01 = np.array ( p2, dtype='float64' )
+	interpolateLine_gridCoord( sz, p00, p01, F, result )
+	return result
+
+def interpolateQuad( F, p00, p01, p10, p11, sz=(500,500) ):
+	result = np.zeros( sz )
+	npxy   = npxy = np.array( sz, dtype='int32' )
+	p00 = np.array ( p00, dtype='float64' )
+	p01 = np.array ( p01, dtype='float64' )
+	p10 = np.array ( p10, dtype='float64' )
+	p11 = np.array ( p11, dtype='float64' )
+	interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
+	return result
+
+def verticalCut( F, p1, p2, sz=(500,500) ):
+	result = np.zeros( sz )
+	npxy   = npxy = np.array( sz, dtype='int32' )
+	p00 = np.array ( ( p1[0],p1[1],p1[2] ), dtype='float64' )
+	p01 = np.array ( ( p2[0],p2[1],p1[2] ), dtype='float64' )
+	p10 = np.array ( ( p1[0],p1[1],p2[2] ), dtype='float64' )
+	p11 = np.array ( ( p2[0],p2[1],p2[2] ), dtype='float64' )
+	interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
+	return result
+
+# ==============  String / File IO utils
 
 def readUpTo( filein, keyword ):
         i = 0
@@ -76,8 +125,41 @@ def writeArr2D(f, arr):
 	for vec in arr:
 		writeArr(f,vec)
 
+#    int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline)
+lib.ReadNumsUpTo_C.argtypes  = [c_char_p, array1d, array1i, c_int]
+lib.ReadNumsUpTo_C.restype   = c_int
+def readNumsUpTo(filename, dimensions, noline):
+	N_arry=np.zeros( (dimensions[0]*dimensions[1]*dimensions[2]), dtype = np.double )
+	lib.ReadNumsUpTo_C( filename, N_arry, dimensions, noline )
+	return N_arry
+
+# =================== binary dbl (double)
+
+def parseNameString( name ):
+	words = name.split("_")
+	#print words
+	prefix = words[0]
+	shape = [ int(word) for word in words[1:] ]
+	return prefix,shape
+
+def loadFromDbl( name ):
+	prefix,ndim = parseNameString( name )
+	F = np.fromfile ( name+'.dbl' )
+	#print "ndim", ndim
+	F = np.reshape  ( F, (ndim[2],ndim[1],ndim[0]) )
+	F = np.transpose( F, (2,1,0) )
+	return np.ascontiguousarray( F )
 
 # =================== XSF
+
+XSF_HEAD_DEFAULT = headScan='''
+ATOMS
+ 1   0.0   0.0   0.0
+
+BEGIN_BLOCK_DATAGRID_3D                        
+   some_datagrid      
+   BEGIN_DATAGRID_3D_whatever 
+'''
 
 def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
 	fileout = open(fname, 'w')

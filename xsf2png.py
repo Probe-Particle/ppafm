@@ -6,7 +6,8 @@ import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-import GridUtils as GU
+#import GridUtils as GU
+import pyProbeParticle.GridUtils      as GU
 
 from optparse import OptionParser
 

@@ -4,11 +4,10 @@ import numpy as np
 from   ctypes import c_int, c_double, c_char_p, c_bool
 import ctypes
 import os
-import GridUtils as GU
-import libFFTfin
+
+import cpp_utils
 
 # ====================== constants
-
 
 # ==============================
 # ============================== Pure python functions
@@ -107,30 +106,10 @@ def make_Ratoms( atom_types, type_R,  fmin = 0.9 , fmax = 1.3 ):
 # ============================== interface to C++ core 
 # ==============================
 
-name='Multipoles'
-ext='_lib.so'
-
-def makeclean( ):
-	CWD=os.getcwd()
-	os.chdir(LIB_PATH)
-	os.system("make clean")
-	os.chdir(CWD)
-
-# recompilation of C++ dynamic librady ProbeParticle_lib.so from ProbeParticle.cpp
-def recompile():
-	CWD=os.getcwd()
-	os.chdir(LIB_PATH)
-	os.system("make MP")
-	os.chdir(CWD)
-
-# if binary of ProbeParticle_lib.so is deleted => recompile it
-
-#makeclean()
-
-if not os.path.exists(LIB_PATH+"/"+name+ext):
-	recompile()
-
-lib    = ctypes.CDLL(LIB_PATH+"/"+name+ext )    # load dynamic librady object using ctypes 
+cpp_name='Multipoles'
+#cpp_utils.compile_lib( cpp_name  )
+cpp_utils.make("MP")
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/lib" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
 

@@ -71,10 +71,10 @@ def plotImages(
 		plotGeom( atoms, bonds, atomSize=atomSize )
 		plt.xlabel(r' Tip_x $\AA$')
 		plt.ylabel(r' Tip_y $\AA$')
-		z = i
-		if zs is not None:
-			z = zs[i]
-		plt.title( r"Tip_z = %2.2f $\AA$" %z  )
+		if zs is None:
+			plt.title( r"iz = %i" %i  )
+		else:
+			plt.title( r"Tip_z = %2.2f $\AA$" %zs[i]  )
 		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
 		plt.close()
 
@@ -92,10 +92,10 @@ def plotVecFieldRG(
 		plotGeom( atoms, bonds, atomSize=atomSize )
 		plt.xlabel(r' Tip_x $\AA$')
 		plt.ylabel(r' Tip_y $\AA$')
-		z = i
-		if zs is not None:
-			z = zs[i]
-		plt.title( r"Tip_z = %2.2f $\AA$" %z  )
+		if zs is None:
+			plt.title( r"iz = %i" %i  )
+		else:
+			plt.title( r"Tip_z = %2.2f $\AA$" %zs[i]  )
 		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
 		plt.close()
 
@@ -116,10 +116,10 @@ def plotDistortions(
 		plotGeom( atoms, bonds, atomSize=atomSize )
 		plt.xlabel(r' Tip_x $\AA$')
 		plt.ylabel(r' Tip_y $\AA$')
-		z = i
-		if zs is not None:
-			z = zs[i]
-		plt.title( r"Tip_z = %2.2f $\AA$" %z  )
+		if zs is None:
+			plt.title( r"iz = %i" %i  )
+		else:
+			plt.title( r"Tip_z = %2.2f $\AA$" %zs[i] ) 
 		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
 		plt.close()
 
@@ -142,10 +142,10 @@ def plotArrows(
 		plotGeom( atoms, bonds, atomSize=atomSize )
 		plt.xlabel(r' Tip_x $\AA$')
 		plt.ylabel(r' Tip_y $\AA$')
-		z = i
-		if zs is not None:
-			z = zs[i]
-		plt.title( r"Tip_z = %2.2f $\AA$" %z  )
+		if zs is None:
+			plt.title( r"iz = %i" %i  )
+		else:
+			plt.title( r"Tip_z = %2.2f $\AA$" %zs[i]  )
 		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
 		plt.close()
 

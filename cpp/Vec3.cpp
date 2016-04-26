@@ -1,5 +1,6 @@
 
-
+#ifndef Vec3_h 
+#define Vec3_h 
 
 template <class TYPE, class VEC> 
 class Vec3TYPE{
@@ -95,4 +96,6 @@ class Vec3d : public Vec3TYPE<double,Vec3d>{
 		return norm;
     };
 };
+
+#endif
 
