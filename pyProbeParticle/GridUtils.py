@@ -239,6 +239,16 @@ def loadCUBE(fname):
 	head.append("DATAGRID_3D_g98Cube \n")
 	return FF,lvec, nDim, head
 
+#================ Npy
+
+def saveNpy(fname, data, lvec ):
+	np.save(fname+'.npy', data)
+	np.save(fname+'_vec.npy',lvec)
+
+def loadNpy(fname):
+	data = np.load(fname+'.npy')
+	lvec = np.load(fname+'_vec.npy')
+	return data, lvec
 
 # =============== Vector Field
 
@@ -264,19 +274,21 @@ def loadVecFieldNpy( fname, FF = None ):
 	Fx = np.load(fname+'_x.npy' )
 	Fy = np.load(fname+'_y.npy' )
 	Fz = np.load(fname+'_z.npy' )
+	lvec = np.load(fname+'_vec.npy' )
 	FF = packVecGrid( Fx, Fy, Fz, FF )
 	del Fx,Fy,Fz
-	return FF
+	return FF, lvec
 
 def saveVecFieldXsf( fname, FF, lvec, head = XSF_HEAD_DEFAULT ):
 	saveXSF(fname+'_x.xsf', FF[:,:,:,0], lvec, head )
 	saveXSF(fname+'_y.xsf', FF[:,:,:,1], lvec, head )
 	saveXSF(fname+'_z.xsf', FF[:,:,:,2], lvec, head )
 
-def saveVecFieldNpy( fname, FF ):
+def saveVecFieldNpy( fname, FF, lvec ):
 	np.save(fname+'_x.npy', FF[:,:,:,0] )
 	np.save(fname+'_y.npy', FF[:,:,:,1] )
 	np.save(fname+'_z.npy', FF[:,:,:,2] )
+	np.save(fname+'_vec.npy', lvec )
 
 def limit_vec_field( FF, Fmax=100.0 ):
 	'''

@@ -259,18 +259,19 @@ void getLenardJonesFF( int natom, double * Rs_, double * C6, double * C12 ){
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	for ( int ia=0; ia<nx; ia++ ){ 
 		printf( " ia %i \n", ia );
-		rProbe.add( FF::dCell.a );  
+
 		for ( int ib=0; ib<ny; ib++ ){ 
-			rProbe.add( FF::dCell.b );
 			for ( int ic=0; ic<nz; ic++ ){
-				rProbe.add( FF::dCell.c );
 				FF::grid[ i3D( ia, ib, ic ) ].add( getAtomsForceLJ( rProbe, natom, Rs, C6, C12 ) );
 				//printf(  " %i %i %i     %f %f %f  \n", ia, ib, ic,     rProbe.x, rProbe.y, rProbe.z  );
 				//FF[ i3D( ix, iy, iz ) ].set( rProbe );
+				rProbe.add( FF::dCell.c );
 			} 
 			rProbe.add_mul( FF::dCell.c, -nz );
+			rProbe.add( FF::dCell.b );
 		} 
 		rProbe.add_mul( FF::dCell.b, -ny );
+		rProbe.add( FF::dCell.a );  
 	}
 }
 
@@ -285,19 +286,19 @@ void getCoulombFF( int natom, double * Rs_, double * kQQs ){
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	//for ( int i=0; i<natom; i++ ){ 		printf( " atom %i   q=  %f \n", i, kQQs[i] );	}
 	for ( int ia=0; ia<nx; ia++ ){ 
-		printf( " ia %i \n", ia );
-		rProbe.add( FF::dCell.a );  
-		for ( int ib=0; ib<ny; ib++ ){ 
-			rProbe.add( FF::dCell.b );
+		printf( " ia %i \n", ia );  
+		for ( int ib=0; ib<ny; ib++ ){
 			for ( int ic=0; ic<nz; ic++ ){
-				rProbe.add( FF::dCell.c );
 				FF::grid[ i3D( ia, ib, ic ) ].add( getAtomsForceCoulomb( rProbe, natom, Rs, kQQs ) );
 				//printf(  " %i %i %i     %f %f %f  \n", ia, ib, ic,     rProbe.x, rProbe.y, rProbe.z  );
 				//FF[ i3D( ix, iy, iz ) ].set( rProbe );
+				rProbe.add( FF::dCell.c );
 			} 
-			rProbe.add_mul( FF::dCell.c, -nz );
+			rProbe.add_mul( FF::dCell.c, -nz ); 
+			rProbe.add( FF::dCell.b );
 		} 
 		rProbe.add_mul( FF::dCell.b, -ny );
+		rProbe.add( FF::dCell.a );
 	}
 }
 
