@@ -24,8 +24,11 @@ from optparse import OptionParser
 
 parser = OptionParser()
 parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
+parser.add_option( "-q", "--charge" , action="store_true", default=False, help="Electrostatic forcefield from Q nearby charges ")
+parser.add_option( "--noPBC", action="store_false",  help="pbc False", default=True)
 (options, args) = parser.parse_args()
-
+opt_dict = vars(options)
+    
 print options
 
 if options.input==None:
@@ -52,7 +55,7 @@ FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
 	print ">> LOADING LOCAL atomtypes.ini"  
 	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
-iZs,Rs,Qs = PPH.parseAtoms( atoms, autogeom = False, PBC = True )
+iZs,Rs,Qs = PPH.parseAtoms( atoms, autogeom = False, PBC = options.noPBC )
 FFLJ      = PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams )
 
 GU.limit_vec_field( FFLJ, Fmax=100.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
@@ -60,3 +63,8 @@ GU.limit_vec_field( FFLJ, Fmax=100.0 ) # remove too large valuesl; keeps the sam
 print "--- Save  ---"
 GU.saveVecFieldXsf( 'FFLJ', FFLJ, lvec)
 
+if opt_dict["charge"]:
+    print "Electrostatic Field from xyzq file"
+    FFel = PPH.computeCoulomb( Rs, Qs, FFel=None )
+    print "--- Save ---"
+    GU.saveVecFieldXsf('FFel', FFel, lvec)

@@ -40,11 +40,11 @@ def computeLJ( Rs, iZs, FFLJ=None, FFparams=None ):
 def computeCoulomb( Rs, Qs, FFel=None ):
 	if ( FFel is None ):
 		gridN = PPU.params['gridN']
-		FFel = np.zeros( (gridN[0],gridN[1],gridN[2],3)    )
+		FFel = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
 	else:
 		PPU.params['gridN'] = np.shape( FFel )	
 	core.setFF( FFel )
-	FFel  = core.getCoulombFF ( Rs, Qs * CoulombConst )
+	core.getCoulombFF ( Rs, Qs * PPU.CoulombConst )
 	return FFel
 
 def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFparams=None ):
@@ -99,7 +99,7 @@ def relaxedScan3D( xTips, yTips, zTips ):
 	fs    = np.zeros((ntips,3))
 	rTips[:,0] = 1.0
 	rTips[:,1] = 1.0
-	rTips[:,2] = zTips[::-1] 
+	rTips[:,2] = zTips 
 	nx = len(zTips); ny = len(yTips ); nz = len(xTips);
 	fzs    = np.zeros( ( nx,ny,nz ) );
 	PPpos  = np.zeros( ( nx,ny,nz,3 ) );
@@ -109,9 +109,9 @@ def relaxedScan3D( xTips, yTips, zTips ):
 		for iy,y in enumerate( yTips  ):
 			rTips[:,1] = y
 			itrav = core.relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
-			fzs[:,iy,ix] = (fs[:,2].copy()) [::-1]
-			PPpos[:,iy,ix,0] = rs[::-1,0] # - rTips[:,0]
-			PPpos[:,iy,ix,1] = rs[::-1,1] # - rTips[:,1]
-			PPpos[:,iy,ix,2] = rs[::-1,2] # - rTips[:,2]
+			fzs[:,iy,ix] = fs[:,2].copy()
+			PPpos[:,iy,ix,0] = rs[:,0] # - rTips[:,0]
+			PPpos[:,iy,ix,1] = rs[:,1] # - rTips[:,1]
+			PPpos[:,iy,ix,2] = rs[:,2] # - rTips[:,2]
 	return fzs,PPpos
 
