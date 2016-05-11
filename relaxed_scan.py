@@ -31,9 +31,9 @@ parser.add_option( "-q",       action="store", type="float", help="tip charge [e
 parser.add_option( "--qrange", action="store", type="float", help="tip charge range (min,max,n) [e]", nargs=3)
 #parser.add_option( "-a",       action="store", type="float", help="oscilation amplitude [A]" )
 #parser.add_option( "--arange", action="store", type="float", help="oscilation amplitude range (min,max,n) [A]", nargs=3)
+#parser.add_option( "--img",    action="store_true", default=False, help="save images for dfz " )
+#parser.add_option( "--df" ,    action="store_true", default=False, help="save frequency shift as df.xsf " )
 
-parser.add_option( "--img",    action="store_true", default=False, help="save images for dfz " )
-parser.add_option( "--df" ,    action="store_true", default=False, help="save frequency shift as df.xsf " )
 parser.add_option( "--pos",    action="store_true", default=False, help="save probe particle positions" )
 
 (options, args) = parser.parse_args()
@@ -109,8 +109,8 @@ for iq,Q in enumerate( Qs ):
 		GU.saveXSF( dirname+'/OutFz.xsf', fzs, lvecScan, GU.XSF_HEAD_DEFAULT )
 		if opt_dict['pos']:
 			GU.saveVecFieldXsf( dirname+'/PPpos', PPpos, lvec, head )
-		# the rest is done in plot_results.py
-		
+		# the rest is done in plot_results.py; For df, go to plot_results.py
+		'''
 		if opt_dict['df'] or opt_dict['img']:
 			for iA,Amp in enumerate( Amps ):
 				AmpStr = "/Amp%2.2f" %Amp
@@ -122,12 +122,12 @@ for iq,Q in enumerate( Qs ):
 				dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
 				if opt_dict['df']:
 					GU.saveXSF( dirNameAmp+'/df.xsf', dfs, lvecScan, head )
-				'''
+				
 				if opt_dict['img']:
 					extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
 					PPPlot.plotImages( dirNameAmp+"/df", dfs, slices = range( 0, len(dfs) ), extent=extent )
-				'''
-
+				
+		'''
 
 print " ***** ALL DONE ***** "
 
