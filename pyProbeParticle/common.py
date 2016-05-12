@@ -12,7 +12,7 @@ CoulombConst         = -14.3996448915;
 params={
 'PBC': False,
 'nPBC' :       np.array( [      1,        1,        1 ] ),
-'gridN':       np.array( [ 150,     150,   50   ] ).astype(np.int),
+'gridN':       np.array( [ -1,     -1,   -1   ] ).astype(np.int),
 'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
 'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
 'gridC':       np.array( [      0,        0,      5.0 ] ),
@@ -95,6 +95,10 @@ def loadParams( fname ):
 						print key
 						params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
 						print key, params[key], words[1], words[2], words[3]
+	if (params["gridN"][0]<=0):
+		params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
+		params["gridN"][1]=round(np.linalg.norm(params["gridB"])*10)
+		params["gridN"][2]=round(np.linalg.norm(params["gridC"])*10)
 	fin.close()
 
 
