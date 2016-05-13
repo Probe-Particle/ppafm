@@ -71,6 +71,86 @@ def loadAtoms( name, ELEMENT_DICT = elements.ELEMENT_DICT ):
 	f.close()
 	return [ e,x,y,z,q ]
 
+
+
+def loadAtomsCUBE( fname, ELEMENT_DICT = elements.ELEMENT_DICT ):
+	bohrRadius2angstroem = 0.5291772109217 # find a good place for this
+	e=[];x=[];y=[]; z=[]; q=[]
+	f = open(fname )
+	#First two lines of the header are comments
+	header1=f.readline()
+	header2=f.readline()
+	#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
+	sth0 = f.readline().split()
+	#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
+	sth1 = f.readline().split()
+	sth2 = f.readline().split()
+	sth3 = f.readline().split()
+
+	shift = [float(sth0[1]), float(sth0[2]), float(sth0[3])]
+	nlines = int(sth0[0])
+	for i in range(nlines):
+		l=f.readline().split()
+		r=[float(l[2]),float(l[3]),float(l[4])]
+#		print l
+		x.append( (r[0] - shift[0]) * bohrRadius2angstroem )
+		y.append( (r[1] - shift[1]) * bohrRadius2angstroem )
+		z.append( (r[2] - shift[2]) * bohrRadius2angstroem )
+#		print float(l[2])*bohrRadius2angstroem, float(l[3])*bohrRadius2angstroem, float(l[4])*bohrRadius2angstroem
+		e.append( int(  l[0]) )
+		q.append(0.0)
+	f.close()
+	return [ e,x,y,z,q ]
+
+
+def loadCellCUBE( fname ):
+	bohrRadius2angstroem = 0.5291772109217 # find a good place for this
+	f = open(fname )
+	#First two lines of the header are comments
+	header1=f.readline()
+	header2=f.readline()
+	#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
+	line = f.readline().split()
+	n0 = int(line[0])
+	c0 =[ float(s) for s in line[1:4] ]
+
+	#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
+	line = f.readline().split()
+	n1 = int(line[0])
+	c1 =[ float(s) for s in line[1:4] ]
+
+	line = f.readline().split()
+	n2 = int(line[0])
+	c2 =[ float(s) for s in line[1:4] ]
+
+	line = f.readline().split()
+	n3 = int(line[0])
+	c3 =[ float(s) for s in line[1:4] ]
+
+#	cell0 = [c0[0]*   bohrRadius2angstroem, c0[1]   *bohrRadius2angstroem, c0[2]   *bohrRadius2angstroem]
+	cell0 = [0.0, 0.0, 0.0]
+	cell1 = [c1[0]*n1*bohrRadius2angstroem, c1[1]*n1*bohrRadius2angstroem, c1[2]*n1*bohrRadius2angstroem]
+	cell2 = [c2[0]*n2*bohrRadius2angstroem, c2[1]*n2*bohrRadius2angstroem, c2[2]*n2*bohrRadius2angstroem]
+	cell3 = [c3[0]*n3*bohrRadius2angstroem, c3[1]*n3*bohrRadius2angstroem, c3[2]*n3*bohrRadius2angstroem]
+	f.close()
+	return [ cell0, cell1, cell2, cell3 ]
+
+def loadNCUBE( fname ):
+	bohrRadius2angstroem = 0.5291772109217 # find a good place for this
+	f = open(fname )
+	#First two lines of the header are comments
+	header1=f.readline()
+	header2=f.readline()
+	#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
+	sth0 = f.readline().split()
+	#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
+	sth1 = f.readline().split()
+	sth2 = f.readline().split()
+	sth3 = f.readline().split()
+	f.close()
+	return [ int(sth1[0]), int(sth2[0]), int(sth3[0]) ]
+
+
 def findBonds( atoms, sc, ELEMENTS = elements.ELEMENTS ):
 	bonds = []
 	es = atoms[0]
