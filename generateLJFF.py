@@ -55,7 +55,13 @@ print "--- Compute Lennard-Jones Force-filed ---"
 if(is_xyz):
 	atoms = basUtils.loadAtoms(options.input, elements.ELEMENT_DICT )
 elif(is_cube):
-	atoms               = basUtils.loadAtomsCUBE(options.input,elements.ELEMENT_DICT)
+	atoms = basUtils.loadAtomsCUBE(options.input,elements.ELEMENT_DICT)
+	lvec  = basUtils.loadCellCUBE(options.input)
+	n  = basUtils.loadNCUBE(options.input)
+	PPU.params['gridN'] = n
+	PPU.params['gridA'] = lvec[1]
+	PPU.params['gridB'] = lvec[2]
+	PPU.params['gridC'] = lvec[3]
 else:
 	sys.exit("ERROR!!! Unknown format of geometry system. Supported formats: .xyz, .cube \n\n")
 
