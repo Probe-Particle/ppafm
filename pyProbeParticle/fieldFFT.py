@@ -176,6 +176,8 @@ def potential2forces( V, lvec, nDim, sigma = 1.0, rho=None, multipole=None):
 	if rho == None:
 		print '--- Get Probe Density ---'
 		rho = getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=multipole)
+	else:
+		rho[:,:,:] = rho[::-1,::-1,::-1].copy()
 	print '--- Get Forces ---'
 	Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
 	print 'Fz.max(), Fz.min() = ', Fz.max(), Fz.min()

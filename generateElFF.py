@@ -71,6 +71,3 @@ GU.saveXSF('FFel_y.xsf', Fel_y, lvec, head)
 GU.saveXSF('FFel_z.xsf', Fel_z, lvec, head)
 
 del Fel_x,Fel_y,Fel_z,V
-
-
-
