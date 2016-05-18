@@ -34,7 +34,9 @@ print options
 if options.input==None:
     sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
 
-if not options.input.lower().endswith(".xyz"):
+is_xyz  = options.input.lower().endswith(".xyz")
+is_cube = options.input.lower().endswith(".cube")
+if not (is_xyz or is_cube):
     sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
 
 
@@ -50,7 +52,19 @@ lvec[ 3,:  ] =    PPU.params['gridC'].copy()
 #PPU.params['gridN'] = nDim.copy()
 
 print "--- Compute Lennard-Jones Force-filed ---"
-atoms     = basUtils.loadAtoms(options.input, elements.ELEMENT_DICT )
+if(is_xyz):
+	atoms = basUtils.loadAtoms(options.input, elements.ELEMENT_DICT )
+elif(is_cube):
+	atoms = basUtils.loadAtomsCUBE(options.input,elements.ELEMENT_DICT)
+	lvec  = basUtils.loadCellCUBE(options.input)
+	n  = basUtils.loadNCUBE(options.input)
+	PPU.params['gridN'] = n
+	PPU.params['gridA'] = lvec[1]
+	PPU.params['gridB'] = lvec[2]
+	PPU.params['gridC'] = lvec[3]
+else:
+	sys.exit("ERROR!!! Unknown format of geometry system. Supported formats: .xyz, .cube \n\n")
+
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
 	print ">> LOADING LOCAL atomtypes.ini"  
