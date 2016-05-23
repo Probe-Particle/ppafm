@@ -35,6 +35,7 @@ parser.add_option( "--qrange", action="store", type="float", help="tip charge ra
 #parser.add_option( "--df" ,    action="store_true", default=False, help="save frequency shift as df.xsf " )
 
 parser.add_option( "--pos",    action="store_true", default=False, help="save probe particle positions" )
+parser.add_option( "--disp",    action="store_true", default=False, help="save probe particle displacements")
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
@@ -107,6 +108,29 @@ for iq,Q in enumerate( Qs ):
 		PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
 		fzs,PPpos = PPH.relaxedScan3D( xTips, yTips, zTips )
 		GU.saveXSF( dirname+'/OutFz.xsf', fzs, lvecScan, GU.XSF_HEAD_DEFAULT )
+
+#                print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
+                if opt_dict['disp']:
+                    PPdisp=PPpos.copy()
+                    nx=PPdisp.shape[2]
+                    ny=PPdisp.shape[1]
+                    nz=PPdisp.shape[0]
+                    test=np.meshgrid(xTips,yTips,zTips)
+#                    print "TEST SHAPE", np.array(test).shape
+#                    print nx,ny,nz
+                    i=0
+                    while i<nx:
+                        j=0
+                        while j<ny:
+                            k=0
+                            while k<nz:
+                                PPdisp[k][j][i]-=np.array([xTips[i],xTips[j],zTips[k]])+ np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
+                                k+=1
+                            j+=1
+                        i+=1
+		    
+                    GU.saveVecFieldXsf( dirname+'/PPdisp', PPdisp, lvec, head )
+                    
 		if opt_dict['pos']:
 			GU.saveVecFieldXsf( dirname+'/PPpos', PPpos, lvec, head )
 		# the rest is done in plot_results.py; For df, go to plot_results.py
