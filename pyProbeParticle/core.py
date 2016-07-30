@@ -101,3 +101,25 @@ lib.relaxTipStroke.restype   = c_int
 def relaxTipStroke( rTips, rs, fs, probeStart=1, relaxAlg=1 ):
 	n = len(rTips) 
 	return lib.relaxTipStroke( probeStart, relaxAlg, n, rTips, rs, fs )
+
+# void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ )
+lib.subsample_uniform_spline.argtypes  = [ c_double, c_double, c_int, array2d, c_int, array1d, array1d ]
+lib.subsample_uniform_spline.restype   = None
+def subsample_uniform_spline( x0, dx, ydys, xs_, ys_=None ):
+	n = len(ydys)
+	m = len(xs_)
+	if ys_ is None :
+		ys_ = np.zeros(m)
+	lib.subsample_uniform_spline( x0, dx, n, ydys, m, xs_, ys_ );
+	return ys_;
+
+# void subsample_nonuniform_spline( int n, double * xs, double * ydys, int m, double * xs_, double * ys_ )
+lib.subsample_nonuniform_spline.argtypes  = [ c_int, array1d, array2d, c_int, array1d, array1d ]
+lib.subsample_nonuniform_spline.restype   = None
+def subsample_nonuniform_spline( xs, ydys, xs_, ys_=None ):
+	n = len(xs )
+	m = len(xs_)
+	if ys_ is None :
+		ys_ = np.zeros(m)
+	lib.subsample_nonuniform_spline( n, xs, ydys, m, xs_, ys_ );
+	return ys_;

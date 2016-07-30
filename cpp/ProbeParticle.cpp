@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "Vec3.cpp"
 #include "Mat3.cpp"
+#include "spline_hermite.h"
 #include <string.h>
 
 // ================= MACROS
@@ -347,6 +348,40 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
 	}
 	//printf( " itr min, max, average %i %i %f \n", itrmin, itrmax, itrsum/(double)nstep );
 	return itrsum;
+}
+
+void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ ){
+	double denom = 1/dx;
+	for( int j=0; j<m; j++ ){
+		double x  = xs_[j];
+		double u  = (x - x0)*denom;
+		int    i  = (int)u;
+		       u -= i;  
+		int i_=i<<1;
+		//printf( " %i %i %f %f (%f,%f) (%f,%f) (%f,%f) \n", j, i, x, u, xs[i], xs[i+1], ydys[i_], ydys[i_+2], ydys[i_+1], ydys[i_+3] );
+		ys_[j] = Spline_Hermite::val<double>( u, ydys[i_], ydys[i_+2], ydys[i_+1]*dx, ydys[i_+3]*dx );
+	}
+}
+
+void subsample_nonuniform_spline( int n, double * xs, double * ydys, int m, double * xs_, double * ys_ ){
+	int i=0;
+	//double x0=xs[0],x1=xs[1],dx=x1-x0,denom=1/dx;
+	double x0,x1=-1e+300,dx,denom;
+	for( int j=0; j<m; j++ ){
+		double x = xs_[j]; 
+		if( x>x1 ){
+			i         = Spline_Hermite::find_index<double>( i, n-i, x, xs );
+			x0        = xs[i  ];
+			x1        = xs[i+1];
+			dx = x1-x0;
+			denom = 1/dx;
+			//printf( " region shift %i %f %f %f %f \n", i, x0, x1, dx, denom );
+		}
+		double u = (x-x0)*denom;
+		int i_=i<<1;
+		//printf( " %i %i %f %f (%f,%f) (%f,%f) (%f,%f) \n", j, i, x, u, xs[i], xs[i+1], ydys[i_], ydys[i_+2], ydys[i_+1], ydys[i_+3] );
+		ys_[j] = Spline_Hermite::val<double>( u, ydys[i_], ydys[i_+2], ydys[i_+1]*dx, ydys[i_+3]*dx );
+	}
 }
 
 }
