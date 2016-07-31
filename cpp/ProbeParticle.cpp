@@ -16,7 +16,6 @@
 
 // ================= GLOBAL VARIABLES
 
-
 // Force-Field namespace 
 namespace FF {		    
 	Vec3d * grid;       // pointer to data array (3D)
@@ -31,6 +30,11 @@ namespace TIP{
 	Vec3d   kSpring;    // bending stiffness ( z component usually zero )
 	double  lRadial;    // radial PP-tip distance
 	double  kRadial;    // radial PP-tip stiffness
+
+	// tip forcefiled spline
+	int      rff_n    = 0;
+	double * rff_xs   = NULL; 
+	double * rff_ydys = NULL;
 
 	void makeConsistent(){ // place rPP0 on the sphere to be consistent with radial spring
 		if( fabs(kRadial) > 1e-8 ){  
@@ -106,11 +110,25 @@ namespace FIRE{
 
 // ========== Classical force field
 
-
 // radial spring constrain - force length of vector |dR| to be l0
 inline Vec3d forceRSpring( const Vec3d& dR, double k, double l0 ){
 	double l = sqrt( dR.norm2() );
 	Vec3d f; f.set_mul( dR, k*( l - l0 )/l );
+	return f;
+}
+
+// radial spring constrain 
+Vec3d forceRSpline( const Vec3d& dR, int n, double * xs, double * ydys ){
+	double x     =  sqrt( dR.norm2() );
+	int    i     = Spline_Hermite::find_index<double>( i, n-i, x, xs );
+	double x0    = xs[i  ];
+	double x1    = xs[i+1];
+	double dx    = x1-x0;
+	double denom = 1/dx;
+	double u     = (x-x0)*denom;
+	i=i<<1;
+	double fr =  Spline_Hermite::val<double>( u, ydys[i], ydys[i+2], ydys[i+1]*dx, ydys[i+3]*dx );
+	Vec3d f; f.set_mul( dR, fr/x );
 	return f;
 }
 
@@ -148,8 +166,6 @@ inline Vec3d getAtomsForceCoulomb( const Vec3d& rProbe, int n, Vec3d * Rs, doubl
 }
 
 
-
-
 // ========== Interpolations
 
 // interpolation of vector force-field Vec3d[ix,iy,iz] in periodic boundary condition
@@ -169,7 +185,7 @@ inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r 
 }
 
 // relax probe particle position "r" given on particular position of tip (rTip) and initial position "r" 
-inline int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
+int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
 	Vec3d v; v.set( 0.0d );
 	int iter;
 	//printf( " alg %i r  %f %f %f  rTip  %f %f %f \n", relaxAlg, r.x,r.y,r.z,  rTip.x, rTip.y, rTip.z );
@@ -180,7 +196,11 @@ inline int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
 		rGrid.set( r.dot( FF::diCell.a ), r.dot( FF::diCell.b ), r.dot( FF::diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
 		drTip.set_sub( r, rTip );                                                             // vector between Probe-particle and tip apex
 		f.set    ( interpolate3DvecWrap( FF::grid, FF::n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
-		f.add    ( forceRSpring( drTip, TIP::kRadial, TIP::lRadial ) );                       // force from tip - radial component 
+		if( TIP::rff_xs ){
+			f.add( forceRSpline( drTip, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
+		}else{		
+			f.add( forceRSpring( drTip, TIP::kRadial, TIP::lRadial ) );                       // force from tip - radial component harmonic		
+		}		
 		drTip.sub( TIP::rPP0 );
 		f.add_mul( drTip, TIP::kSpring );      // spring force                                // force from tip - lateral bending force 
 		if( relaxAlg == 1 ){                                                                  // move by either damped-leap-frog ( 0 ) or by FIRE ( 1 )
@@ -247,6 +267,13 @@ void setTip( double lRad, double kRad, double * rPP0, double * kSpring ){
 	TIP::rPP0.set(rPP0);   
 	TIP::kSpring.set(kSpring); 
 	TIP::makeConsistent();  // rPP0 to be consistent with  lRadial
+}
+
+// set parameters of the tip like stiffness and equlibirum position in radial and lateral direction
+void setTipSpline( int n, double * xs, double * ydys ){  
+	TIP::rff_n    = n;
+	TIP::rff_xs   = xs;  
+	TIP::rff_ydys = ydys;   
 }
 
 // sample Lenard-Jones Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with given C6 and C12 parameters; 
@@ -381,6 +408,25 @@ void subsample_nonuniform_spline( int n, double * xs, double * ydys, int m, doub
 		int i_=i<<1;
 		//printf( " %i %i %f %f (%f,%f) (%f,%f) (%f,%f) \n", j, i, x, u, xs[i], xs[i+1], ydys[i_], ydys[i_+2], ydys[i_+1], ydys[i_+3] );
 		ys_[j] = Spline_Hermite::val<double>( u, ydys[i_], ydys[i_+2], ydys[i_+1]*dx, ydys[i_+3]*dx );
+	}
+}
+
+void test_force( int type, int n, double * r0_, double * dr_, double * R_, double * fs_ ){
+	Vec3d r,dr,R;
+	r .set( r0_[0], r0_[1], r0_[2] );
+	dr.set( dr_[0], dr_[1], dr_[2] );
+	R .set( R_ [0], R_ [1], R_ [2] );
+	Vec3d * fs = (Vec3d *) fs_;
+	for( int i=0; i<n; i++ ){
+		//Vec3d drTip.set_sub( r, R );
+		Vec3d f;
+		switch( type ){
+			case 1 : f = forceRSpline( r-R, TIP::rff_n,   TIP::rff_xs, TIP::rff_ydys ); break;
+			case 2 : f = forceRSpring( r-R, TIP::kRadial, TIP::lRadial               ); break;  
+		}
+		fs[i] = f;
+		//printf( " %i (%3.3f,%3.3f,%3.3f) (%3.3f,%3.3f,%3.3f) \n", i, r.x, r.y, r.z,  f.x, f.y, f.z );
+		r.add(dr);
 	}
 }
 

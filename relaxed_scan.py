@@ -68,6 +68,15 @@ for iq,Q in enumerate(Qs):
         if ( abs(Q) > 1e-7):
                 charged_system=True
 
+try:
+	S = np.genfromtxt('TipRSpline.ini')
+	print "TipRSpline.ini overrides harmonic tip"
+	xs   = S[:,0].copy();  print "xs: ",   xs
+	ydys = S[:,1:].copy(); print "ydys: ", ydys
+	PPC.setTipSpline( xs, ydys )
+except:
+	pass
+	
 # Amps
 #if opt_dict['arange'] is not None:
 #	Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], opt_dict['arange'][2] )

@@ -80,6 +80,12 @@ def setTip( lRadial=None, kRadial=None, rPP0=None, kSpring=None	):
 	print " kSpring ", kSpring
 	lib.setTip( lRadial, kRadial, rPP0, kSpring )
 
+#void setTipSpline( int n, double * xs, double * ydys ){  
+lib.setTipSpline.argtypes = [ c_int, array1d, array2d ]
+lib.setTipSpline.restype  = None
+def setTipSpline( xs, ydys	):
+	n = len(xs)
+	lib.setTipSpline( n, xs, ydys )
 
 # void getClassicalFF       (    int natom,   double * Rs_, double * C6, double * C12 )
 lib.getLenardJonesFF.argtypes  = [ c_int,       array2d,      array1d,     array1d     ]
@@ -123,3 +129,13 @@ def subsample_nonuniform_spline( xs, ydys, xs_, ys_=None ):
 		ys_ = np.zeros(m)
 	lib.subsample_nonuniform_spline( n, xs, ydys, m, xs_, ys_ );
 	return ys_;
+
+# void test_force( int type, int n, double * r0_, double * dr_, double * R_, double * fs_ ){
+lib.test_force.argtypes  = [ c_int, c_int, array1d, array1d, array1d, array2d ]
+lib.test_force.restype   = None
+def test_force( typ, r0, dr, R, fs ):
+	n = len( fs )
+	lib.test_force( typ, n, r0, dr, R, fs );
+	return fs;
+
+
