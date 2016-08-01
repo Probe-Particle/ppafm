@@ -75,7 +75,7 @@ def getProbeDensity(sampleSize, X, Y, Z, sigma, dd ):
 	return rho
 '''
 	
-def getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=None ):
+def getProbeDensity( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None ):
 	'returns probe particle potential'
 	mat = getNormalizedBasisMatrix(sampleSize).getT()
 	rx = X*mat[0, 0] + Y*mat[0, 1] + Z*mat[0, 2]
@@ -164,7 +164,7 @@ def exportPotential(rho, rho_data='rho_data'):
 		#filerho.write(rho)
 	filerho.close()
 
-def potential2forces( V, lvec, nDim, sigma = 1.0, rho=None, multipole=None):
+def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None):
 	print '--- Preprocessing ---'
 	sampleSize = getSampleDimensions( lvec )
 	dims = (nDim[2], nDim[1], nDim[0])
@@ -175,7 +175,7 @@ def potential2forces( V, lvec, nDim, sigma = 1.0, rho=None, multipole=None):
 	X, Y, Z = getMGrid(dims, dd)
 	if rho == None:
 		print '--- Get Probe Density ---'
-		rho = getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=multipole)
+		rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole)
 	else:
 		rho[:,:,:] = rho[::-1,::-1,::-1].copy()
 	print '--- Get Forces ---'

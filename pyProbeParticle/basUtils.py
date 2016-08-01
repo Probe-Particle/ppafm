@@ -71,7 +71,28 @@ def loadAtoms( name, ELEMENT_DICT = elements.ELEMENT_DICT ):
 	f.close()
 	return [ e,x,y,z,q ]
 
-
+def loadXSFGeom( fname ):
+	f = open(fname )
+	e=[];x=[];y=[]; z=[]; q=[]
+	nDim = []
+	lvec = [] 
+	for i in range(10000):
+		if 'PRIMCOORD' in f.readline():
+			break
+	n = int(f.readline().split()[0])
+	for j in range(n):
+		ws = f.readline().split();  e.append(float(ws[0])); x.append(float(ws[1])); y.append(float(ws[2])); z.append(float(ws[3])); q.append(0);
+	for i in range(10000):
+		if 'BEGIN_DATAGRID_3D' in f.readline():	
+			break
+	ws = f.readline().split(); nDim = [int(ws[0]),int(ws[1]),int(ws[2])]
+	for j in range(4):
+		ws = f.readline().split(); lvec.append( [float(ws[0]),float(ws[1]),float(ws[2])] )
+	f.close()
+	print "nDim", nDim
+	print "lvec", lvec
+	print "e,x,y,z", e,x,y,z
+	return [ e,x,y,z,q ], nDim, lvec
 
 def loadAtomsCUBE( fname, ELEMENT_DICT = elements.ELEMENT_DICT ):
 	bohrRadius2angstroem = 0.5291772109217 # find a good place for this

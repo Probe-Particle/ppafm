@@ -14,10 +14,11 @@ import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.fieldFFT       as fFFT
 
 HELP_MSG="""Use this program in the following way:
-"""+os.path.basename(main.__file__) +""" -i <filename> 
+%s -i <filename> 
 
 Supported file fromats are:
-   * xyz """
+   * xyz 
+""" %os.path.basename(main.__file__)
 
 
 from optparse import OptionParser
@@ -36,7 +37,8 @@ if options.input==None:
 
 is_xyz  = options.input.lower().endswith(".xyz")
 is_cube = options.input.lower().endswith(".cube")
-if not (is_xyz or is_cube):
+is_xsf  = options.input.lower().endswith(".xsf")
+if not (is_xyz or is_cube or is_xsf ):
     sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
 
 
@@ -57,8 +59,14 @@ if(is_xyz):
 elif(is_cube):
 	atoms = basUtils.loadAtomsCUBE(options.input,elements.ELEMENT_DICT)
 	lvec  = basUtils.loadCellCUBE(options.input)
-	n  = basUtils.loadNCUBE(options.input)
-	PPU.params['gridN'] = n
+	nDim  = basUtils.loadNCUBE(options.input)
+	PPU.params['gridN'] = nDim
+	PPU.params['gridA'] = lvec[1]
+	PPU.params['gridB'] = lvec[2]
+	PPU.params['gridC'] = lvec[3]
+elif(is_xsf):
+	atoms, nDim, lvec = basUtils.loadXSFGeom( options.input )
+	PPU.params['gridN'] = nDim
 	PPU.params['gridA'] = lvec[1]
 	PPU.params['gridB'] = lvec[2]
 	PPU.params['gridC'] = lvec[3]

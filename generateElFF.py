@@ -25,7 +25,7 @@ from optparse import OptionParser
 parser = OptionParser()
 parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
 parser.add_option( "-t", "--tip", action="store", type="string", help="tip model (multipole)", default='s')
-parser.add_option( "-w", "--sigma", action="store", type="float",  help="gaussian width for convolution in Electrostatics [Angstroem]", default=1.0)
+parser.add_option( "-w", "--sigma", action="store", type="float",  help="gaussian width for convolution in Electrostatics [Angstroem]", default=0.7)
 (options, args) = parser.parse_args()
 
 print options
@@ -62,8 +62,7 @@ elif options.tip.endswith(".xsf"):
         sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")    
 
 print " computing convolution with tip by FFT "
-Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, sigma = options.sigma,
-                                          rho=rho, multipole = multipole)
+Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma = options.sigma, multipole = multipole)
 
 print " saving electrostatic forcefiled "
 GU.saveXSF('FFel_x.xsf', Fel_x, lvec, head)

@@ -6,8 +6,8 @@
 python ../../generateLJFF.py -i Gr6x6N3hole.xyz -q
 
 # ALTERNATIVELY : calculation with DFT electrostatics
-#python ../../generateLJFF.py -i Gr6x6N3hole.xyz
-#python ../../generateElFF.py LOCPOT.xsf
+#python ../../generateElFF.py -i LOCPOT.xsf
+#python ../../generateLJFF.py -i LOCPOT.xsf
 
 # ======= STEP 2 : Relax Probe Particle using that force-field grid 
 
