@@ -34,8 +34,9 @@ parser.add_option( "--qrange", action="store", type="float", help="tip charge ra
 #parser.add_option( "--img",    action="store_true", default=False, help="save images for dfz " )
 #parser.add_option( "--df" ,    action="store_true", default=False, help="save frequency shift as df.xsf " )
 
-parser.add_option( "--pos",    action="store_true", default=False, help="save probe particle positions" )
-parser.add_option( "--disp",    action="store_true", default=False, help="save probe particle displacements")
+parser.add_option( "--pos",       action="store_true", default=False, help="save probe particle positions" )
+parser.add_option( "--disp",      action="store_true", default=False, help="save probe particle displacements")
+parser.add_option( "--tipspline", action="store", type="string", help="file where spline is stored", default=None )
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
@@ -65,17 +66,20 @@ else:
 	Qs = [ PPU.params['charge'] ]
 
 for iq,Q in enumerate(Qs):
-        if ( abs(Q) > 1e-7):
-                charged_system=True
+	if ( abs(Q) > 1e-7):
+		charged_system=True
 
-try:
-	S = np.genfromtxt('TipRSpline.ini')
-	print "TipRSpline.ini overrides harmonic tip"
-	xs   = S[:,0].copy();  print "xs: ",   xs
-	ydys = S[:,1:].copy(); print "ydys: ", ydys
-	PPC.setTipSpline( xs, ydys )
-except:
-	pass
+if options.tipspline is not None :
+	try:
+		S = np.genfromtxt(options.tipspline )
+		print " loading tip spline from "+options.tipspline
+		xs   = S[:,0].copy();  print "xs: ",   xs
+		ydys = S[:,1:].copy(); print "ydys: ", ydys
+		PPC.setTipSpline( xs, ydys )
+		#Ks   = [0.0]
+	except:
+		print "cannot load tip spline from "+options.tipspline
+		sys.exit()
 	
 # Amps
 #if opt_dict['arange'] is not None:
@@ -104,10 +108,10 @@ PPC.setFF( FFLJ )
 xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
 
 for iq,Q in enumerate( Qs ):
-        if ( charged_system == True):
-	        FF = FFLJ + FFel * Q
-        else:
-                FF = FFLJ
+	if ( charged_system == True):
+		FF = FFLJ + FFel * Q
+	else:
+		FF = FFLJ
 	PPC.setFF_Pointer( FF )
 	for ik,K in enumerate( Ks ):
 		dirname = "Q%1.2fK%1.2f" %(Q,K)
@@ -117,29 +121,26 @@ for iq,Q in enumerate( Qs ):
 		PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
 		fzs,PPpos = PPH.relaxedScan3D( xTips, yTips, zTips )
 		GU.saveXSF( dirname+'/OutFz.xsf', fzs, lvecScan, GU.XSF_HEAD_DEFAULT )
-
-#                print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
-                if opt_dict['disp']:
-                    PPdisp=PPpos.copy()
-                    nx=PPdisp.shape[2]
-                    ny=PPdisp.shape[1]
-                    nz=PPdisp.shape[0]
-                    test=np.meshgrid(xTips,yTips,zTips)
-#                    print "TEST SHAPE", np.array(test).shape
-#                    print nx,ny,nz
-                    i=0
-                    while i<nx:
-                        j=0
-                        while j<ny:
-                            k=0
-                            while k<nz:
-                                PPdisp[k][j][i]-=np.array([xTips[i],xTips[j],zTips[k]])+ np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
-                                k+=1
-                            j+=1
-                        i+=1
-		    
-                    GU.saveVecFieldXsf( dirname+'/PPdisp', PPdisp, lvec, head )
-                    
+		#print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
+		if opt_dict['disp']:
+			PPdisp=PPpos.copy()
+			nx=PPdisp.shape[2]
+			ny=PPdisp.shape[1]
+			nz=PPdisp.shape[0]
+			test=np.meshgrid(xTips,yTips,zTips)
+			#print "TEST SHAPE", np.array(test).shape
+			#print nx,ny,nz
+			i=0
+			while i<nx:
+				j=0
+				while j<ny:
+				    k=0
+				    while k<nz:
+				        PPdisp[k][j][i]-=np.array([xTips[i],xTips[j],zTips[k]])+ np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
+				        k+=1
+				    j+=1
+				i+=1
+			GU.saveVecFieldXsf( dirname+'/PPdisp', PPdisp, lvec, head )
 		if opt_dict['pos']:
 			GU.saveVecFieldXsf( dirname+'/PPpos', PPpos, lvec, head )
 		# the rest is done in plot_results.py; For df, go to plot_results.py

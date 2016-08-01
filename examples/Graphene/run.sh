@@ -17,7 +17,7 @@ python ../../relaxed_scan.py -k 0.5 -q -0.05
 # ======= STEP 3 : Plot the results
 
 #python ../../plot_results.py -k 0.5 --qrange -0.05 0.0 2 --arange 0.5 2.0 2 --pos --df 
-python ../../plot_results.py -k 0.5 -q -0.05 --arange 0.5 2.0 2 --df
+python ../../plot_results.py -k 0.5 -q -0.05 -a 2.0 --df
 
 
 
