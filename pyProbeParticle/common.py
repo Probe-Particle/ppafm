@@ -41,7 +41,7 @@ params={
 # ============================== Pure python functions
 # ==============================
 
-def Fz2df( F, dz=0.1, k0 = 1800.0, f0=30300.0, n=4, units=16.0217656 ):
+def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4, units=16.0217656 ):
 	'''
 	conversion of vertical force Fz to frequency shift 
 	according to:
