@@ -28,6 +28,7 @@ array4d = np.ctypeslib.ndpointer(dtype=np.double, ndim=4, flags='CONTIGUOUS')
 # ======== Python warper function for C++ functions
 # ========
 
+'''
 # void setFF( int * n, double * grid, double * step,  )
 lib.setFF.argtypes = [array1i,array4d,array2d]
 lib.setFF.restype  = None
@@ -47,6 +48,46 @@ lib.setFF_Pointer.argtypes = [array4d]
 lib.setFF_Pointer.restype  = None
 def setFF_Pointer( grid ):
 	lib.setFF_Pointer( grid )
+'''
+
+# void .setFF_shape( int * n, double * step  )
+lib.setFF_shape.argtypes = [array1i,array2d]
+lib.setFF_shape.restype  = None
+def setFF_shape( n_, cell ):
+	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
+	lib.setFF_shape( n, cell )
+
+# void setFF_pointer( double * gridF, double * gridE  )
+lib.setFF_Fpointer.argtypes = [array4d]
+lib.setFF_Fpointer.restype  = None
+def setFF_Fpointer( gridF ):
+	lib.setFF_Fpointer( gridF )
+
+# void setFF_pointer( double * gridF, double * gridE  )
+lib.setFF_Epointer.argtypes = [array3d]
+lib.setFF_Epointer.restype  = None
+def setFF_Epointer( gridE ):
+	lib.setFF_Epointer( gridE )
+
+def setFF( gridF=None, cell=None, gridE=None ):
+	n_ = None
+	if gridF is not None:
+		setFF_Fpointer( gridF )
+		n_    = np.shape(gridF)
+	if gridE is not None:
+		setFF_Epointer( gridE )
+		n_    = np.shape(gridF)
+	if cell is None:
+		cell = np.array([
+		PPU.params['gridA'],
+		PPU.params['gridB'],
+		PPU.params['gridC'],
+		]).copy() 	
+	if n_ is not None:
+		setFF_shape( n_, cell )
+	else:
+		"Warrning : setFF shape not set !!! "
+
 
 #void setRelax( int maxIters, double convF2, double dt, double damping )
 lib.setRelax.argtypes = [ c_int, c_double, c_double, c_double ]

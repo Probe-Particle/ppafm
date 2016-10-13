@@ -27,6 +27,7 @@ parser = OptionParser()
 parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
 parser.add_option( "-q", "--charge" , action="store_true", default=False, help="Electrostatic forcefield from Q nearby charges ")
 parser.add_option( "--noPBC", action="store_false",  help="pbc False", default=True)
+parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
     
@@ -73,20 +74,30 @@ elif(is_xsf):
 else:
 	sys.exit("ERROR!!! Unknown format of geometry system. Supported formats: .xyz, .cube \n\n")
 
+
+
+
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
 	print ">> LOADING LOCAL atomtypes.ini"  
 	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
-iZs,Rs,Qs = PPH.parseAtoms( atoms, autogeom = False, PBC = options.noPBC )
-FFLJ      = PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams )
+iZs,Rs,Qs      = PPH.parseAtoms( atoms, autogeom = False, PBC = options.noPBC )
+FFLJ, VLJ      = PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams, Vpot=options.energy )
 
-GU.limit_vec_field( FFLJ, Fmax=100.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
+GU.limit_vec_field( FFLJ, Fmax=10.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
 
 print "--- Save  ---"
 GU.saveVecFieldXsf( 'FFLJ', FFLJ, lvec)
+if options.energy :
+	Vmax = 10.0; VLJ[ VLJ>Vmax ] = Vmax
+	GU.saveXSF( 'VLJ.xsf', VLJ, lvec)
+
 
 if opt_dict["charge"]:
     print "Electrostatic Field from xyzq file"
-    FFel = PPH.computeCoulomb( Rs, Qs, FFel=None )
+    FFel, VeL = PPH.computeCoulomb( Rs, Qs, FFel=None, Vpot=options.energy  )
     print "--- Save ---"
     GU.saveVecFieldXsf('FFel', FFel, lvec)
+    if options.energy :
+	Vmax = 10.0; Vel[ Vel>Vmax ] = Vmax
+	GU.saveXSF( 'Vel.xsf', Vel, lvec)

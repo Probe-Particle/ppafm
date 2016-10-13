@@ -182,3 +182,57 @@ def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None):
 	Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
 	print 'Fz.max(), Fz.min() = ', Fz.max(), Fz.min()
 	return Fx,Fy,Fz
+
+
+def Average_surf( Val_surf, W_surf, W_tip ):
+	'''
+	            Int_r Val_surf(r+R)  W_tip(r) W_sample(r+R)     W_tip) * (Val_surf W_sample)
+	 <F>(R) = -----------------------------------------  = -----------------------------; where * means convolution
+	            Int_r W_tip(r) W_sample(r+R)                     W_tip * W_sample
+	'''
+	print "Forward FFT " 
+	kE_tip   = np.fft.fftn( W_tip    )           # W_tip
+	kE_surf  = np.fft.fftn( W_surf   )           # W_sample
+	kFE_surf = np.fft.fftn( W_surf * Val_surf  ) # (Val_surf W_surf)
+
+	del Val_surf; del W_surf; del W_tip
+
+	kE  = kE_tip *  kE_surf
+	kFE = kE_tip * kFE_surf
+
+	del kE_tip; del kE_surf; del kFE_surf
+
+	print "Backward FFT " 
+
+	E  = np.fft.ifftn(kE)
+	FE = np.fft.ifftn(kFE)
+
+	del kE; del kFE
+	return (FE/E).real;
+
+def Average_tip( Val_tip, W_surf, W_tip ):
+	'''
+	            Int_r Val_tip(r)  W_tip(r) W_sample(r+R)    (Val_tip W_tip) * W_sample
+	 <F>(R) = -----------------------------------------  = -----------------------------; where * means convolution
+	            Int_r W_surf(r) W_sample(r+R)                     W_tip * W_sample
+	'''
+	print "Forward FFT " 
+	kE_tip   = np.fft.fftn( W_tip    )          # W_tip
+	kE_surf  = np.fft.fftn( W_surf   )          # W_sample
+	kFE_tip  = np.fft.fftn( W_tip * Val_tip  )  # (Val_tip W_tip)
+
+	del Val_tip; del W_surf; del W_tip
+
+	kE  = kE_tip  *  kE_surf
+	kFE = kE_surf *  kFE_tip
+
+	del kE_tip; del kE_surf; del kFE_tip
+
+	print "Backward FFT " 
+
+	E  = np.fft.ifftn(kE)
+	FE = np.fft.ifftn(kFE)
+
+	del kE; del kFE
+	return (FE/E).real;
+

@@ -33,6 +33,7 @@ parser.add_option( "--qrange", action="store", type="float", help="tip charge ra
 #parser.add_option( "--arange", action="store", type="float", help="oscilation amplitude range (min,max,n) [A]", nargs=3)
 #parser.add_option( "--img",    action="store_true", default=False, help="save images for dfz " )
 #parser.add_option( "--df" ,    action="store_true", default=False, help="save frequency shift as df.xsf " )
+parser.add_option( "-b", "--boltzmann" ,action="store_true", default=False, help="calculate forces with boltzmann particle" )
 
 parser.add_option( "--pos",       action="store_true", default=False, help="save probe particle positions" )
 parser.add_option( "--disp",      action="store_true", default=False, help="save probe particle displacements")
@@ -100,6 +101,11 @@ if ( charged_system == True):
         print " load Electrostatic Force-field "
         FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
 
+if options.boltzmann :
+        print " load Boltzmann Force-field "
+        FFboltz, lvec, nDim, head = GU.loadVecFieldXsf( "FFboltz" )
+
+
 print " load Lenard-Jones Force-field "
 FFLJ, lvec, nDim, head = GU.loadVecFieldXsf( "FFLJ" )
 PPU.lvec2params( lvec )
@@ -112,7 +118,9 @@ for iq,Q in enumerate( Qs ):
 		FF = FFLJ + FFel * Q
 	else:
 		FF = FFLJ
-	PPC.setFF_Pointer( FF )
+	if options.boltzmann :
+		FF += FFboltz
+	PPC.setFF_Fpointer( FF )
 	for ik,K in enumerate( Ks ):
 		dirname = "Q%1.2fK%1.2f" %(Q,K)
 		print " relaxed_scan for ", dirname

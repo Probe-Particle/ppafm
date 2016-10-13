@@ -22,30 +22,35 @@ def parseAtoms( atoms, autogeom = False, PBC = True ):
 		iZs,Rs,Qs = PPU.PBCAtoms( iZs, Rs, Qs, avec=PPU.params['gridA'], bvec=PPU.params['gridB'] )
 	return iZs,Rs,Qs
 
-def computeLJ( Rs, iZs, FFLJ=None, FFparams=None ):
-	if ( FFLJ is None ):
-                print "Here"
+
+def perpareArrays( FF, Vpot ):
+	if ( FF is None ):
+		print "Here"
 		gridN = PPU.params['gridN']
-		FFLJ = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
+		FF = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
 	else:
-		PPU.params['gridN'] = np.shape( FFLJ )	
-#	iZs,Rs,Qs = parseAtoms( )
+		PPU.params['gridN'] = np.shape( FF )	
+	if ( Vpot ):
+		V = np.zeros( (gridN[2],gridN[1],gridN[0])    )
+	else:
+		V=None
+	core.setFF( gridF=FF, gridE=V )
+	return FF, V 
+
+def computeLJ( Rs, iZs, FFLJ=None, FFparams=None, Vpot=False ):
+	FFLJ,VLJ = perpareArrays( FFLJ, Vpot )
 	if FFparams is None:
 		FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 	C6,C12   = PPU.getAtomsLJ( PPU.params['probeType'], iZs, FFparams )
-	core.setFF( FFLJ )
+	#core.setFF( gridF=FFLJ, gridE=VLJ )
 	core.getLenardJonesFF( Rs, C6, C12 )
-	return FFLJ
+	return FFLJ, VLJ
 
-def computeCoulomb( Rs, Qs, FFel=None ):
-	if ( FFel is None ):
-		gridN = PPU.params['gridN']
-		FFel = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
-	else:
-		PPU.params['gridN'] = np.shape( FFel )	
-	core.setFF( FFel )
+def computeCoulomb( Rs, Qs, FFel=None , Vpot=False ):
+	FFel,Vel = perpareArrays( FFel, Vpot )
+	#core.setFF( gridF=FFel, gridE=Vel )
 	core.getCoulombFF ( Rs, Qs * PPU.CoulombConst )
-	return FFel
+	return FFel, Vel
 
 def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFparams=None ):
 	newEl = False
