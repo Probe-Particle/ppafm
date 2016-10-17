@@ -38,6 +38,7 @@ parser.add_option( "--pos",      action="store_true", default=False, help="save 
 parser.add_option( "--atoms",    action="store_true", default=False, help="plot atoms to images" )
 parser.add_option( "--bonds",    action="store_true", default=False, help="plot bonds to images" )
 parser.add_option( "--cbar",     action="store_true", default=False, help="plot bonds to images" )
+parser.add_option( "--WSxM",     action="store_true", default=False, help="save frequency shift into WsXM *.dat files" )
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
@@ -119,7 +120,7 @@ for iq,Q in enumerate( Qs ):
 			except:
 				print "error: ", sys.exc_info()
 				print "cannot load : " + ( dirname+'/PPpos_?.xsf' ) 
-		if ( ( opt_dict['df'] or opt_dict['save_df'] ) ):
+		if ( ( opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM'] ) ):
 			try :
 				fzs, lvec, nDim, head = GU.loadXSF( dirname+'/OutFz.xsf' )
 				for iA,Amp in enumerate( Amps ):
@@ -137,6 +138,9 @@ for iq,Q in enumerate( Qs ):
                                                 dirNameAmp+"/df"+atoms_str+cbar_str,
                                                 dfs,  slices = range( 0,
                                                 len(dfs) ), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+					if opt_dict['WSxM']:
+						print " printing df into WSxM files :"
+						GU.saveWSxM_3D( dirNameAmp+"/df" , dfs , extent , slices=None)
 					del dfs
 				del fzs
 			except:

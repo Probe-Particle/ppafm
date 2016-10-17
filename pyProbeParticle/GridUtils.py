@@ -238,6 +238,33 @@ def loadCUBE(fname):
 	head.append("g98_3D_unknown \n")
 	head.append("DATAGRID_3D_g98Cube \n")
 	return FF,lvec, nDim, head
+#================ WSxM output
+
+def saveWSxM_2D(name_file, data, Xs, Ys):
+	tmp_data=data.flatten()
+	out_data=np.zeros((len(tmp_data),3))
+	out_data[:,0]=Xs.flatten()
+	out_data[:,1]=Ys.flatten()
+	out_data[:,2]=tmp_data	#.copy()
+	f=open(name_file,'w')
+	print >> f, "WSxM file copyright Nanotec Electronica"
+	print >> f, "WSxM ASCII XYZ file; obtained from PP-AFM simulator code by Hapala et al."
+	print >> f, "X[A]  Y[A]  df[Hz]"
+	print >> f, ""
+	np.savetxt(f, out_data)
+	f.close()
+
+def saveWSxM_3D( prefix, data, extent, slices=None ):
+	nDim=np.shape(data)
+	if slices is None:
+		slices=range( nDim[0] )
+	xs=np.linspace( extent[0], extent[1], nDim[2] )
+	ys=np.linspace( extent[2], extent[3], nDim[1] )
+	Xs, Ys = np.meshgrid(xs,ys)
+	for i in slices:
+		print "slice no: ", i
+		fname = prefix+'_%03d.dat' %i
+		saveWSxM_2D(fname, data[i], Xs, Ys)
 
 #================ Npy
 
