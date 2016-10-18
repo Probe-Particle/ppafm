@@ -191,9 +191,9 @@ def Average_surf( Val_surf, W_surf, W_tip ):
 	            Int_r W_tip(r) W_sample(r+R)                     W_tip * W_sample
 	'''
 	print "Forward FFT " 
-	kE_tip   = np.fft.fftn( W_tip    )           # W_tip
-	kE_surf  = np.fft.fftn( W_surf   )           # W_sample
-	kFE_surf = np.fft.fftn( W_surf * Val_surf  ) # (Val_surf W_surf)
+	kE_tip   = np.fft.fftn( W_tip[::-1,::-1,::-1]    )  # W_tip
+	kE_surf  = np.fft.fftn( W_surf   )                  # W_sample
+	kFE_surf = np.fft.fftn( W_surf * Val_surf  )        # (Val_surf W_surf)
 
 	del Val_surf; del W_surf; del W_tip
 
@@ -217,9 +217,9 @@ def Average_tip( Val_tip, W_surf, W_tip ):
 	            Int_r W_surf(r) W_sample(r+R)                     W_tip * W_sample
 	'''
 	print "Forward FFT " 
-	kE_tip   = np.fft.fftn( W_tip    )          # W_tip
-	kE_surf  = np.fft.fftn( W_surf   )          # W_sample
-	kFE_tip  = np.fft.fftn( W_tip * Val_tip  )  # (Val_tip W_tip)
+	kE_tip   = np.fft.fftn( W_tip[::-1,::-1,::-1]    )                               # W_tip
+	kE_surf  = np.fft.fftn( W_surf   )                                               # W_sample
+	kFE_tip  = np.fft.fftn( W_tip[::-1,::-1,::-1] * (-1)*Val_tip[::-1,::-1,::-1]  )  # (Val_tip W_tip)
 
 	del Val_tip; del W_surf; del W_tip
 
