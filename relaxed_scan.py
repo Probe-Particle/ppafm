@@ -34,6 +34,7 @@ parser.add_option( "--qrange", action="store", type="float", help="tip charge ra
 #parser.add_option( "--img",    action="store_true", default=False, help="save images for dfz " )
 #parser.add_option( "--df" ,    action="store_true", default=False, help="save frequency shift as df.xsf " )
 parser.add_option( "-b", "--boltzmann" ,action="store_true", default=False, help="calculate forces with boltzmann particle" )
+parser.add_option( "--bI" ,action="store_true", default=False, help="calculate current between boltzmann particle and tip" )
 
 parser.add_option( "--pos",       action="store_true", default=False, help="save probe particle positions" )
 parser.add_option( "--disp",      action="store_true", default=False, help="save probe particle displacements")
@@ -101,7 +102,7 @@ if ( charged_system == True):
         print " load Electrostatic Force-field "
         FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
 
-if options.boltzmann :
+if (options.boltzmann  or options.bI) :
         print " load Boltzmann Force-field "
         FFboltz, lvec, nDim, head = GU.loadVecFieldXsf( "FFboltz" )
 
@@ -148,9 +149,16 @@ for iq,Q in enumerate( Qs ):
 				        k+=1
 				    j+=1
 				i+=1
-			GU.saveVecFieldXsf( dirname+'/PPdisp', PPdisp, lvec, head )
+			GU.saveVecFieldXsf( dirname+'/PPdisp', PPdisp, lvecScan, head )
 		if opt_dict['pos']:
-			GU.saveVecFieldXsf( dirname+'/PPpos', PPpos, lvec, head )
+			GU.saveVecFieldXsf( dirname+'/PPpos', PPpos, lvecScan, head )
+		if options.bI:
+			print "Calculating current from tip to the Boltzmann particle:"
+			I_in, lvec, nDim, head = GU.loadXSF('I_boltzmann.xsf')
+			print I_in.shape
+			I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None ) 
+			del I_in;
+			GU.saveXSF( dirname+'/OutI_boltzmann.xsf', I_out, lvecScan, head )
 		# the rest is done in plot_results.py; For df, go to plot_results.py
 		'''
 		if opt_dict['df'] or opt_dict['img']:

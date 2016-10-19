@@ -51,17 +51,17 @@ interpolate_gridCoord               = lib.interpolate_gridCoord
 #	void interpolateLine_gridCoord( int n, Vec3d * p1, Vec3d * p2, double * data, double * out )
 lib.interpolateLine_gridCoord.argtypes = [ c_int, array1d, array1d, array3d, array1d ]
 lib.interpolateLine_gridCoord.restype  = None
-interpolateLine_gridCoord                   = lib.interpolateLine_gridCoord
+#interpolateLine_gridCoord                   = lib.interpolateLine_gridCoord
 
 #	void interpolateQuad_gridCoord( int * nij, Vec3d * p00, Vec3d * p01, Vec3d * p10, Vec3d * p11, double * data, double * out )
 lib.interpolateQuad_gridCoord.argtypes = [ array1i, array1d, array1d, array1d, array1d, array3d, array2d ]
 lib.interpolateQuad_gridCoord.restype  = None
-interpolateQuad_gridCoord              = lib.interpolateQuad_gridCoord
+#interpolateQuad_gridCoord              = lib.interpolateQuad_gridCoord
 
-#	void interpolate_cartesian( int n, Vec3d * pos_list, double * data )
-lib.interpolate_cartesian.argtypes  = [ c_int, array2d, array3d, array1d  ]
+#	void interpolate_cartesian( int n, Vec3d * pos_list, double * data, double * out )
+lib.interpolate_cartesian.argtypes  = [ c_int, array4d, array3d, array3d  ]
 lib.interpolate_cartesian.restype   = None
-interpolate_cartesian               = lib.interpolate_cartesian
+#interpolate_cartesian               = lib.interpolate_cartesian
 
 #	void setGridCell( double * cell )
 lib.setGridCell.argtypes  = [array2d]
@@ -77,17 +77,30 @@ def interpolateLine( F, p1, p2, sz=500, cartesian=False ):
 	result = np.zeros( sz )
 	p00 = np.array ( p1, dtype='float64' )
 	p01 = np.array ( p2, dtype='float64' )
-	interpolateLine_gridCoord( sz, p00, p01, F, result )
+	lib.interpolateLine_gridCoord( sz, p00, p01, F, result )
 	return result
 
 def interpolateQuad( F, p00, p01, p10, p11, sz=(500,500) ):
 	result = np.zeros( sz )
-	npxy   = npxy = np.array( sz, dtype='int32' )
+	npxy   = np.array( sz, dtype='int32' )
 	p00 = np.array ( p00, dtype='float64' )
 	p01 = np.array ( p01, dtype='float64' )
 	p10 = np.array ( p10, dtype='float64' )
 	p11 = np.array ( p11, dtype='float64' )
-	interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
+	lib.interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
+	return result
+
+def interpolate_cartesian( F, pos, cell=None, result=None ):
+	if cell is not None:
+		#print np.array(F.shape)
+		setGridN( np.array(F.shape, dtype='int32' ) )
+		setGridCell( cell )
+	nDim = np.array(pos.shape)
+	print nDim
+	if result is None:
+		result = np.zeros( (nDim[0],nDim[1],nDim[2]) )
+	n  = nDim[0]*nDim[1]*nDim[2]
+	lib.interpolate_cartesian( n, pos, F, result )
 	return result
 
 def verticalCut( F, p1, p2, sz=(500,500) ):
@@ -97,7 +110,7 @@ def verticalCut( F, p1, p2, sz=(500,500) ):
 	p01 = np.array ( ( p2[0],p2[1],p1[2] ), dtype='float64' )
 	p10 = np.array ( ( p1[0],p1[1],p2[2] ), dtype='float64' )
 	p11 = np.array ( ( p2[0],p2[1],p2[2] ), dtype='float64' )
-	interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
+	lib.interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
 	return result
 
 # ==============  String / File IO utils

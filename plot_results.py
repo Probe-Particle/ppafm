@@ -39,6 +39,7 @@ parser.add_option( "--atoms",    action="store_true", default=False, help="plot 
 parser.add_option( "--bonds",    action="store_true", default=False, help="plot bonds to images" )
 parser.add_option( "--cbar",     action="store_true", default=False, help="plot bonds to images" )
 parser.add_option( "--WSxM",     action="store_true", default=False, help="save frequency shift into WsXM *.dat files" )
+parser.add_option( "--bI",       action="store_true", default=False, help="plot images for Boltzmann current" )
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
@@ -146,10 +147,19 @@ for iq,Q in enumerate( Qs ):
 			except:
 				print "error: ", sys.exc_info()
 				print "cannot load : ", dirname+'/OutFz.xsf'
+		if opt_dict['bI']:
+			try:
+				I, lvec, nDim, head = GU.loadXSF( dirname+'/OutI_boltzmann.xsf' )
+				print " plotting Boltzmann current: "
+				PPPlot.plotImages(
+                                                dirname+"/OutI"+atoms_str+cbar_str,
+                                                I,  slices = range( 0,
+                                                len(I) ), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+				del I
+			except:
+				print "error: ", sys.exc_info()
+				print "cannot load : " + ( dirname+'/OutI_boltzmann.xsf' ) 
 		
 print " ***** ALL DONE ***** "
 
 #plt.show()
-
-
-
