@@ -261,7 +261,7 @@ def saveWSxM_2D(name_file, data, Xs, Ys):
 	out_data[:,2]=tmp_data	#.copy()
 	f=open(name_file,'w')
 	print >> f, "WSxM file copyright Nanotec Electronica"
-	print >> f, "WSxM ASCII XYZ file; obtained from PP-AFM simulator code by Hapala et al."
+	print >> f, "WSxM ASCII XYZ file"
 	print >> f, "X[A]  Y[A]  df[Hz]"
 	print >> f, ""
 	np.savetxt(f, out_data)
@@ -276,7 +276,7 @@ def saveWSxM_3D( prefix, data, extent, slices=None ):
 	Xs, Ys = np.meshgrid(xs,ys)
 	for i in slices:
 		print "slice no: ", i
-		fname = prefix+'_%03d.dat' %i
+		fname = prefix+'_%03d.xyz' %i
 		saveWSxM_2D(fname, data[i], Xs, Ys)
 
 #================ Npy
