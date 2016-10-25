@@ -288,7 +288,7 @@ def saveNpy(fname, data, lvec ):
 def loadNpy(fname):
 	data = np.load(fname+'.npy')
 	lvec = np.load(fname+'_vec.npy')
-	return data, lvec
+	return data.copy(), lvec;	#necessary for being 'C_CONTINUOS'
 
 # =============== Vector Field
 
@@ -340,6 +340,58 @@ def limit_vec_field( FF, Fmax=100.0 ):
 	FF[:,:,:,1].flat[mask] *= Fmax/FR[mask] 
 	FF[:,:,:,2].flat[mask] *= Fmax/FR[mask]
 
+def save_vec_field(fname, data, lvec, format="xsf"):
+	'''
+	Saving scalar fields into xsf, or npy
+	'''
+	if (format=="xsf"):
+		saveVecFieldXsf(fname, data, lvec)
+	elif (format=="npy"):
+		saveVecFieldNpy(fname, data, lvec)
+	else:
+		print "I cannot save this format!"
+
+
+def load_vec_field(fname, format="xsf"):
+	'''
+	Loading Vector fields into xsf, or npy
+	'''
+	if (format=="xsf"):
+		data, lvec, ndim, head =loadVecFieldXsf(fname)
+	elif (format=="npy"):
+		data, lvec = loadVecFieldNpy(fname)
+		ndim = np.delete(data.shape,3)
+	else:
+		print "I cannot load this format!"
+	return data, lvec, ndim;
+
+
+# =============== Scalar Fields
+
+def save_scal_field(fname, data, lvec, format="xsf"):
+	'''
+	Saving scalar fields into xsf, or npy
+	'''
+	if (format=="xsf"):
+		saveXSF(fname+".xsf", data, lvec)
+	elif (format=="npy"):
+		saveNpy(fname, data, lvec)
+	else:
+		print "I cannot save this format!"
+
+
+def load_scal_field(fname, format="xsf"):
+	'''
+	Loading scalar fields into xsf, or npy
+	'''
+	if (format=="xsf"):
+		data, lvec, ndim, head =loadXSF(fname+".xsf")
+	elif (format=="npy"):
+		data, lvec = loadNpy(fname)
+		ndim = data.shape
+	else:
+		print "I cannot load this format!"
+	return data.copy(), lvec, ndim;
 
 # =============== Other Utils
 

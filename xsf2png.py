@@ -14,9 +14,15 @@ from optparse import OptionParser
 
 parser = OptionParser()
 parser.add_option(      "--dfrange", action="store", type="float", help="Range of plotted frequency shift (df)", nargs=2)
+parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
 (options, args) = parser.parse_args()
 
-dfs,lvec,nDim,head=GU.loadXSF('df.xsf')
+if options.npy:
+    format ="npy"
+else:
+    format ="xsf"
+
+dfs,lvec,nDim=GU.load_scal_field('df',format=format)
 #print lvec
 #print nDim
 

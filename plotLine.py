@@ -66,6 +66,7 @@ parser.add_option("--image",   action="store", type="float", help="position of t
 
 parser.add_option("-p", "--points",type=str, help="Point where to perform Z-scan", action="append", nargs=3)
 parser.add_option("--disp", type=str, help="print ProbeParticle displacments", action="append", nargs=1)
+parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
 #parser.add_option( "-y", action="store", type="float", help="format of input file")
 #parser.add_option( "--yrange", action="store", type="float", help="y positions of the tip range (min,max,n) [A]", nargs=3)
 
@@ -73,6 +74,10 @@ parser.add_option("--disp", type=str, help="print ProbeParticle displacments", a
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
 print options
+if options.npy:
+    format ="npy"
+else:
+    format ="xsf"
 
 if options.points==[]:
     sys.exit(HELP_MSG)
@@ -127,7 +132,7 @@ for iq,Q in enumerate( Qs ):
 
                 print "Working in {} directory".format(dirname)
 
-                fzs,lvec,nDim,head=GU.loadXSF(dirname+'/OutFz.xsf')
+                fzs,lvec,nDim=GU.load_scal_field(dirname+'/OutFz',format=format)
                 dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
 #                print "TYT", fzs.shape
 
@@ -143,7 +148,14 @@ for iq,Q in enumerate( Qs ):
                     print opt_dict['disp']
                     if opt_dict['disp'] :
                         print "Displacment {}".format(opt_dict['disp'][0])
-                        disp,lvec,nDim,head=GU.loadXSF(dirname+'/PPdisp_'+opt_dict['disp'][0]+'.xsf')
+                        disp_all,lvec,nDim,head=GU.load_vec_field(dirname+'/PPdisp_')
+                        disp_x,disp_y,disp_z = GU.unpackVecGrid( disp_all ); del disp_all;
+                        if (opt_dict['disp'][0]=='x'):
+                            disp = disp_x; del disp_y, disp_z;
+                        elif (opt_dict['disp'][0]=='y'):
+                            disp = disp_y; del disp_x, disp_z;
+                        elif (opt_dict['disp'][0]=='z'):
+                            disp = disp_z; del disp_x, disp_y;
                         DSPplot=selectLine(BIGarray=disp, MIN=scan_min,
                                    MAX=scan_max,startingPoint=np.array([xmin,ymin,zmin]),
                                    endPoint=np.array([xmax,ymax,zmax]),

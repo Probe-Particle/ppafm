@@ -26,10 +26,14 @@ parser = OptionParser()
 parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
 parser.add_option( "-t", "--tip", action="store", type="string", help="tip model (multipole)", default='s')
 parser.add_option( "-w", "--sigma", action="store", type="float",  help="gaussian width for convolution in Electrostatics [Angstroem]", default=0.7)
+parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
 (options, args) = parser.parse_args()
 
 print options
-
+if options.npy:
+    format ="npy"
+else:
+    format ="xsf"
 
 if options.input==None:
     sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
@@ -63,10 +67,9 @@ elif options.tip.endswith(".xsf"):
 
 print " computing convolution with tip by FFT "
 Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma = options.sigma, multipole = multipole)
+FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
 
 print " saving electrostatic forcefiled "
-GU.saveXSF('FFel_x.xsf', Fel_x, lvec, head)
-GU.saveXSF('FFel_y.xsf', Fel_y, lvec, head)
-GU.saveXSF('FFel_z.xsf', Fel_z, lvec, head)
+GU.save_vec_field(FFel,FF,lvec,format=format)
 
-del Fel_x,Fel_y,Fel_z,V
+del Fel_x,Fel_y,Fel_z,V, FFel;

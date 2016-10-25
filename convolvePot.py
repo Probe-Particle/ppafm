@@ -27,10 +27,15 @@ parser = OptionParser()
 parser.add_option( "--noProbab", action="store_false",  help="probability False", default=True )
 parser.add_option( "--noForces", action="store_false",  help="Forces False"     , default=True )
 parser.add_option( "--current" , action="store_true" ,  help="current True"     , default=False)
+parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
     
 print options
+if options.npy:
+    format ="npy"
+else:
+    format ="xsf"
 
 kBoltz = 8.617332478e-5   # [ eV / K ]
 
@@ -121,7 +126,8 @@ Egauss = -0.01
 
 if options.noProbab :
 	print " ==== calculating probabilties ===="
-	V_tip,   lvec, nDim, head = GU.loadXSF('tip/VLJ.xsf')
+	# --- tip
+	V_tip,   lvec, nDim = GU.load_scal_field('tip/VLJ',format=format)
 	#cell   = np.array( [ lvec[1],lvec[2],lvec[3] ] ); print "nDim ", nDim, "\ncell ", cell
 	#X,Y,Z  = getXYZ( nDim, cell )
 	#V_tip = V_tip*0 + Egauss * getProbeDensity( (cell[0,0]/2.+cell[1,0]/2.,cell[1,1]/2,cell[2,2]/2.-3.8), X, Y, Z, wGauss ) # works for tip (the last flexible tip apex atom) in the middle of the cell
@@ -129,16 +135,15 @@ if options.noProbab :
 	W_tip  = np.exp( -beta * V_tip  )
 	#W_tip = W_cut(W_tip,nz=95,side='down',sm=5)
 	del V_tip;
-	GU.saveXSF ( 'W_tip.xsf',  W_tip,    lvec)#, echo=True )
-
+	GU.save_scal_field ( 'W_tip',  W_tip,    lvec, format=format)
 
 	# --- sample
-	V_surf,  lvec, nDim, head = GU.loadXSF('sample/VLJ.xsf')
+	V_surf,  lvec, nDim = GU.load_scal_field('sample/VLJ',format=format)
 	limitE( V_surf, E_cutoff ) 
 	W_surf = np.exp( -beta * V_surf )
 	#W_surf=W_cut(W_surf,nz=50,side='up',sm=1)
 	del V_surf; 
-	GU.saveXSF ( 'W_surf.xsf', W_surf,   lvec)#, echo=True )
+	GU.save_scal_field ( 'W_surf', W_surf,   lvec, format=format)
 
 #=================== Force
 
@@ -147,37 +152,33 @@ if options.noForces :
 	if (options.noProbab==False) :
 		print " ==== loading probabilties ====" 
 		# --- tip
-		W_tip,   lvec, nDim, head = GU.loadXSF('W_tip.xsf')
+		W_tip,   lvec, nDim = GU.load_scal_field('W_tip',format=format)
 		# --- sample
-		W_surf,  lvec, nDim, head = GU.loadXSF('W_surf.xsf')
+		W_surf,  lvec, nDim = GU.load_scal_field('W_surf',format=format)
 
 	W_tip = np.roll(np.roll(np.roll(W_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
+	FF_tmp, lvec, nDim = GU.load_vec_field('tip/FFLJ',format=format)
+	Fx_tip, Fy_tip, Fz_tip = GU.unpackVecGrid( FF_tmp )
+	del FF_tmp;
 
 	# Fz:
-	Fz_tmp, lvec, nDim, head = GU.loadXSF('tip/FFLJ_z.xsf')
-	Fz_tip = np.roll(np.roll(np.roll(Fz_tmp.copy(),nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
-	del Fz_tmp;
-
+	Fz_tip = np.roll(np.roll(np.roll(Fz_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
 	F1=fFFT.Average_tip( Fz_tip , W_surf, W_tip  )
-	GU.saveXSF        ( 'FFboltz_z.xsf', F1, lvec)#, echo=True )
-	del F1; del Fz_tip;
+	#GU.saveXSF        ( 'FFboltz_z.xsf', F1, lvec)#, echo=True )
 
 	# Fx:
-	Fx_tmp, lvec, nDim, head = GU.loadXSF('tip/FFLJ_x.xsf')
-	Fx_tip = np.roll(np.roll(np.roll(Fx_tmp.copy(),nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
-	del Fx_tmp;
-
-	F1=fFFT.Average_tip( Fx_tip , W_surf, W_tip  )
-	GU.saveXSF        ( 'FFboltz_x.xsf', F1, lvec)#, echo=True )
-	del F1; del Fx_tip
+	Fx_tip = np.roll(np.roll(np.roll(Fx_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
+	F2=fFFT.Average_tip( Fx_tip , W_surf, W_tip  )
+	#GU.saveXSF        ( 'FFboltz_x.xsf', F1, lvec)#, echo=True )
 
 	# Fy:
-	Fy_tmp, lvec, nDim, head = GU.loadXSF('tip/FFLJ_y.xsf')
-	Fy_tip = np.roll(np.roll(np.roll(Fy_tmp.copy(),nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
-	del Fy_tmp;
-	F1=fFFT.Average_tip( Fy_tip , W_surf, W_tip  )
-	GU.saveXSF        ( 'FFboltz_y.xsf', F1, lvec)#, echo=True )
-	del F1; del Fy_tip;
+	Fy_tip = np.roll(np.roll(np.roll(Fy_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
+	F3=fFFT.Average_tip( Fy_tip , W_surf, W_tip  )
+	#GU.saveXSF        ( 'FFboltz_y.xsf', F1, lvec)#, echo=True )
+	FF_boltz = GU.packVecGrid(F3,F2,F1)
+	GU.save_vec_field('FFboltz',FF_boltz,lvec,format=format)
+	del F1; del F2; del F3; del FF_boltz; del Fz_tip; del Fy_tip; del Fx_tip;
+
 
 	print "x,y & z forces for the Boltzmann distribution of moving particle stored"
 
@@ -194,10 +195,10 @@ if options.current :
 	if ((options.noProbab==False)and(options.noForces==False)) :
 		print " ==== loading probabilties ====" 
 		# --- tip
-		W_tip,   lvec, nDim, head = GU.loadXSF('W_tip.xsf')
+		W_tip,   lvec, nDim = GU.load_scal_field('W_tip',format=format)
 		W_tip = np.roll(np.roll(np.roll(W_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
 		# --- sample
-		W_surf,  lvec, nDim, head = GU.loadXSF('W_surf.xsf')
+		W_surf,  lvec, nDim = GU.load_scal_field('W_surf',format=format)
 
 	if ((options.noProbab)and(options.noForces==False)) :
 		W_tip = np.roll(np.roll(np.roll(W_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
@@ -207,8 +208,10 @@ if options.current :
 	X,Y,Z  = getXYZ( nDim, cell )
 	T_tip = getProbeTunelling( (cell[0,0]/2.+cell[1,0]/2.,cell[1,1]/2,cell[2,2]/2.) ,  X, Y, Z, beta=1.14557 )  #beta decay in eV/Angstom for WF = 5.0 eV;  works for tip (the last flexible tip apex atom) in the middle of the cell
 	T_tip = np.roll(np.roll(np.roll(T_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2)
-	T=fFFT.Average_tip( (-1)*T_tip, W_surf, W_tip )                                             # T stands for hoppings
+	T=fFFT.Average_tip( (-1)*T_tip, W_surf, W_tip )                  # T stands for hoppings
 	del T_tip;
-	GU.saveXSF        ( 'I_boltzmann.xsf', T**2 , lvec)#, echo=True ) # I ~ T**2 
+	print T.shape
+	print (T**2).shape
+	GU.save_scal_field ( 'I_boltzmann', T**2,   lvec, format=format) # I ~ T**2 
 
 print " ***** ALL DONE ***** "

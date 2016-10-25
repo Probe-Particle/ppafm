@@ -5,13 +5,6 @@ import numpy as np
 #import matplotlib.pyplot as plt
 import sys
 
-'''
-import basUtils
-import elements
-import GridUtils as GU
-import ProbeParticle      as PP;    PPU = PP.PPU;
-'''
-
 import pyProbeParticle                as PPU     
 import pyProbeParticle.GridUtils      as GU
 import pyProbeParticle.core           as PPC
@@ -39,9 +32,15 @@ parser.add_option( "--bI" ,action="store_true", default=False, help="calculate c
 parser.add_option( "--pos",       action="store_true", default=False, help="save probe particle positions" )
 parser.add_option( "--disp",      action="store_true", default=False, help="save probe particle displacements")
 parser.add_option( "--tipspline", action="store", type="string", help="file where spline is stored", default=None )
+parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
+
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
+if options.npy:
+    format ="npy"
+else:
+    format ="xsf"
 
 # =============== Setup
 
@@ -100,15 +99,15 @@ print " ============= RUN  "
 #PPPlot.params = PPU.params 			# now we dont use PPPlot here
 if ( charged_system == True):
         print " load Electrostatic Force-field "
-        FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
+        FFel, lvec, nDim = GU.load_vec_field( "FFel" ,format=format)
 
 if (options.boltzmann  or options.bI) :
         print " load Boltzmann Force-field "
-        FFboltz, lvec, nDim, head = GU.loadVecFieldXsf( "FFboltz" )
+        FFboltz, lvec, nDim = GU.load_vec_field( "FFboltz", format=format)
 
 
 print " load Lenard-Jones Force-field "
-FFLJ, lvec, nDim, head = GU.loadVecFieldXsf( "FFLJ" )
+FFLJ, lvec, nDim = GU.load_vec_field( "FFLJ" , format=format)
 PPU.lvec2params( lvec )
 PPC.setFF( FFLJ )
 
@@ -129,7 +128,7 @@ for iq,Q in enumerate( Qs ):
 			os.makedirs( dirname )
 		PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
 		fzs,PPpos = PPH.relaxedScan3D( xTips, yTips, zTips )
-		GU.saveXSF( dirname+'/OutFz.xsf', fzs, lvecScan, GU.XSF_HEAD_DEFAULT )
+		GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan, format=format )
 		#print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
 		if opt_dict['disp']:
 			PPdisp=PPpos.copy()
@@ -149,35 +148,16 @@ for iq,Q in enumerate( Qs ):
 				        k+=1
 				    j+=1
 				i+=1
-			GU.saveVecFieldXsf( dirname+'/PPdisp', PPdisp, lvecScan, head )
+			GU.save_vec_field( dirname+'/PPdisp', PPdisp, lvecScan, format=format )
 		if opt_dict['pos']:
-			GU.saveVecFieldXsf( dirname+'/PPpos', PPpos, lvecScan, head )
+			GU.save_vec_field( dirname+'/PPpos', PPpos, lvecScan, format=format )
 		if options.bI:
 			print "Calculating current from tip to the Boltzmann particle:"
-			I_in, lvec, nDim, head = GU.loadXSF('I_boltzmann.xsf')
-			print I_in.shape
+			I_in, lvec, nDim = GU.load_scal_field('I_boltzmann', format=format)
 			I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None ) 
 			del I_in;
-			GU.saveXSF( dirname+'/OutI_boltzmann.xsf', I_out, lvecScan, head )
+			GU.save_scal_field( dirname+'/OutI_boltzmann', I_out, lvecScan, format=format)
 		# the rest is done in plot_results.py; For df, go to plot_results.py
-		'''
-		if opt_dict['df'] or opt_dict['img']:
-			for iA,Amp in enumerate( Amps ):
-				AmpStr = "/Amp%2.2f" %Amp
-				print "Amp= ",AmpStr
-				dirNameAmp = dirname+AmpStr
-				if not os.path.exists( dirNameAmp ):
-					os.makedirs( dirNameAmp )
-				dz  = PPU.params['scanStep'][2]
-				dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
-				if opt_dict['df']:
-					GU.saveXSF( dirNameAmp+'/df.xsf', dfs, lvecScan, head )
-				
-				if opt_dict['img']:
-					extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
-					PPPlot.plotImages( dirNameAmp+"/df", dfs, slices = range( 0, len(dfs) ), extent=extent )
-				
-		'''
 
 print " ***** ALL DONE ***** "
 

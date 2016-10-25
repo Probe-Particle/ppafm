@@ -28,10 +28,15 @@ parser.add_option( "-i", "--input", action="store", type="string", help="format 
 parser.add_option( "-q", "--charge" , action="store_true", default=False, help="Electrostatic forcefield from Q nearby charges ")
 parser.add_option( "--noPBC", action="store_false",  help="pbc False", default=True)
 parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
+parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
     
 print options
+if options.npy:
+    format ="npy"
+else:
+    format ="xsf"
 
 if options.input==None:
     sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
@@ -87,17 +92,17 @@ FFLJ, VLJ      = PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams, Vpot=opti
 GU.limit_vec_field( FFLJ, Fmax=10.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
 
 print "--- Save  ---"
-GU.saveVecFieldXsf( 'FFLJ', FFLJ, lvec)
+GU.save_vec_field( 'FFLJ', FFLJ, lvec,format=format)
 if options.energy :
 	Vmax = 10.0; VLJ[ VLJ>Vmax ] = Vmax
-	GU.saveXSF( 'VLJ.xsf', VLJ, lvec)
+	GU.save_scal_field( 'VLJ', VLJ, lvec,format=format)
 
 
 if opt_dict["charge"]:
     print "Electrostatic Field from xyzq file"
     FFel, VeL = PPH.computeCoulomb( Rs, Qs, FFel=None, Vpot=options.energy  )
     print "--- Save ---"
-    GU.saveVecFieldXsf('FFel', FFel, lvec)
+    GU.save_vec_field('FFel', FFel, lvec, format=format)
     if options.energy :
 	Vmax = 10.0; Vel[ Vel>Vmax ] = Vmax
-	GU.saveXSF( 'Vel.xsf', Vel, lvec)
+	GU.save_scal_field( 'Vel.xsf', Vel, lvec, format=format)
