@@ -8,10 +8,7 @@ import numpy as np
 import GridUtils as GU
 import PPPlot as PL
 import matplotlib.pyplot as plt
-
-
 import sys
-
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
 
@@ -94,8 +91,16 @@ PP.params['gridC'],
 
 
 lvec = PP.params2lvec()
-atoms    = basUtils.loadAtoms(filename, elements.ELEMENT_DICT )
-iZs,Rs,Qs = PP.parseAtoms( atoms, autogeom = False, PBC = True )
+atoms    = basUtils.loadAtoms(filename )
+
+FFparams=None
+if os.path.isfile( 'atomtypes.ini' ):
+	print ">> LOADING LOCAL atomtypes.ini"  
+	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+else:
+	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+
+iZs,Rs,Qs = PP.parseAtoms( atoms, autogeom = False, PBC = True,FFparams=FFparams )
 
 
 
@@ -116,15 +121,6 @@ if PP.params['useLJ']:
     else:
         print "I haven't found files containing LJ forcefields. Therefore I will recompute them from scratch"
         todoLJ='compute'
-
-
-
-
-
-
-
-
-
 
 
 # Electrostatic contribution to the force field

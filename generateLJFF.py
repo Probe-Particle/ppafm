@@ -12,6 +12,7 @@ import pyProbeParticle.GridUtils      as GU
 #import pyProbeParticle.core          as PPC
 import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.fieldFFT       as fFFT
+import pyProbeParticle.cpp_utils      as cpp_utils
 
 HELP_MSG="""Use this program in the following way:
 %s -i <filename> 
@@ -61,9 +62,9 @@ lvec[ 3,:  ] =    PPU.params['gridC'].copy()
 
 print "--- Compute Lennard-Jones Force-filed ---"
 if(is_xyz):
-	atoms = basUtils.loadAtoms(options.input, elements.ELEMENT_DICT )
+	atoms = basUtils.loadAtoms(options.input)
 elif(is_cube):
-	atoms = basUtils.loadAtomsCUBE(options.input,elements.ELEMENT_DICT)
+	atoms = basUtils.loadAtomsCUBE(options.input)
 	lvec  = basUtils.loadCellCUBE(options.input)
 	nDim  = basUtils.loadNCUBE(options.input)
 	PPU.params['gridN'] = nDim
@@ -77,7 +78,8 @@ elif(is_xsf):
 	PPU.params['gridB'] = lvec[2]
 	PPU.params['gridC'] = lvec[3]
 else:
-	sys.exit("ERROR!!! Unknown format of geometry system. Supported formats: .xyz, .cube \n\n")
+	sys.exit("ERROR!!! Unknown format of geometry system. Supported "
+                 "formats are: .xyz, .cube, .xsf \n\n")
 
 
 
@@ -86,10 +88,30 @@ FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
 	print ">> LOADING LOCAL atomtypes.ini"  
 	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
-iZs,Rs,Qs      = PPH.parseAtoms( atoms, autogeom = False, PBC = options.noPBC )
-FFLJ, VLJ      = PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams, Vpot=options.energy )
+else:
+	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+
+
+iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = options.noPBC,
+                         FFparams=FFparams )
+# This function returns the following information:
+# iZs - 1D array, containing the numbers of the elements, which corresponds to
+# their position in the atomtypes.ini file (Number of line - 1)
+# Rs  - 2D array, containing the coordinates of the atoms:
+#       [ [x1,y1,z1],
+#         [x2,y2,z2],
+#          ... 
+#         [xn,yn,zn]]
+# Qs  - 1D array, containing the atomic charges
+
+FFLJ, VLJ=PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams, Vpot=options.energy )
+# This function computes the LJ forces experienced by the ProbeParticle
+# FFparams either read from the local "atomtypes.ini" file, or will be read from
+# the default one inside the computeLJ function
+
 
 GU.limit_vec_field( FFLJ, Fmax=10.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
+
 
 print "--- Save  ---"
 GU.save_vec_field( 'FFLJ', FFLJ, lvec,format=format)

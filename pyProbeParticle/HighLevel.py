@@ -10,13 +10,28 @@ import core
 import cpp_utils
 
 
-def parseAtoms( atoms, autogeom = False, PBC = True ):
-	Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
-	iZs      = np.array( atoms[0] )
+def parseAtoms( atoms, autogeom = False, PBC = True, FFparams=None ):
+	if FFparams is None:
+		raise ValueError("You should provide a list of LJ parameters!")
+	Rs = np.array([atoms[1],atoms[2],atoms[3]]); 
+        Natoms=[]
+        elem_dict={}
+        for i,ff in enumerate(FFparams):
+                elem_dict[ff[3]] = i+1
+        for atm in atoms[0]:
+                try:
+                        Natoms.append(int(atm))
+                except:
+                        try:
+                                Natoms.append(elem_dict[atm])
+                        except:
+                                raise ValueError("Did not find atomkind: "
+                                "{}".format(atm))
+	iZs=np.array( Natoms )
 	if autogeom:
 		print " autoGeom "
 		PPU.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
-	Rs = np.transpose( Rs, (1,0) ).copy() 
+	Rs = np.transpose( Rs, (1,0) ).copy()
 	Qs = np.array( atoms[4] )
 	if PBC:
 		iZs,Rs,Qs = PPU.PBCAtoms( iZs, Rs, Qs, avec=PPU.params['gridA'], bvec=PPU.params['gridB'] )
@@ -25,7 +40,6 @@ def parseAtoms( atoms, autogeom = False, PBC = True ):
 
 def perpareArrays( FF, Vpot ):
 	if ( FF is None ):
-		print "Here"
 		gridN = PPU.params['gridN']
 		FF = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
 	else:
@@ -38,9 +52,9 @@ def perpareArrays( FF, Vpot ):
 	return FF, V 
 
 def computeLJ( Rs, iZs, FFLJ=None, FFparams=None, Vpot=False ):
-	FFLJ,VLJ = perpareArrays( FFLJ, Vpot )
 	if FFparams is None:
-		FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+		raise ValueError("You should provide a list of LJ parameters!")
+	FFLJ,VLJ = perpareArrays( FFLJ, Vpot )
 	C6,C12   = PPU.getAtomsLJ( PPU.params['probeType'], iZs, FFparams )
 	#core.setFF( gridF=FFLJ, gridE=VLJ )
 	core.getLenardJonesFF( Rs, C6, C12 )
@@ -51,7 +65,7 @@ def computeCoulomb( Rs, Qs, FFel=None , Vpot=False ):
 	#core.setFF( gridF=FFel, gridE=Vel )
 	core.getCoulombFF ( Rs, Qs * PPU.CoulombConst )
 	return FFel, Vel
-
+"""
 def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFparams=None ):
 	newEl = False
 	newLJ = False
@@ -83,8 +97,9 @@ def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFpara
 		newLJ = True
 	# --- compute Forcefield by atom-wise interactions 
 	if ( newEl or newEl ):
-		atoms     = basUtils.loadAtoms('geom.bas', elements.ELEMENT_DICT )
-		iZs,Rs,Qs = parseAtoms( atoms, autogeom = autogeom, PBC = PPU.params['PBC'] )
+                atoms     = basUtils.loadAtoms('geom.bas')
+		iZs,Rs,Qs = parseAtoms( atoms, autogeom = autogeom, PBC =
+                PPU.params['PBC'], FFparams = FFparams )
 		lvec = PPU.params2lvec( )
 		if head is None:
 			head = GU.XSF_HEAD_DEFAULT
@@ -95,7 +110,7 @@ def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFpara
 			FFel = computeCoulomb( Rs, Qs, FFel )
 			GU.saveVecFieldXsf( 'FFel', FF, lvecEl, head = head )
 	return FFLJ, FFel
-		
+"""		
 def relaxedScan3D( xTips, yTips, zTips ):
 	ntips = len(zTips); 
 	print " zTips : ",zTips

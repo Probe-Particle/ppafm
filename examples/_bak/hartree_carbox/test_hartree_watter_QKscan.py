@@ -68,7 +68,7 @@ PP.setFF( FFLJ, cell  )
 
 print " # ============ define atoms "
 
-atoms    = basUtils.loadAtoms('watter4NaCl-2.xyz', elements.ELEMENT_DICT )
+atoms    = basUtils.loadAtoms('watter4NaCl-2.xyz')
 Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
 iZs      = np.array( atoms[0])
 

@@ -19,7 +19,8 @@ import pyProbeParticle.PPPlot         as PPPlot
 from   pyProbeParticle            import basUtils
 from   pyProbeParticle            import elements 
 #import pyProbeParticle.core           as PPC
-#import pyProbeParticle.HighLevel      as PPH
+import pyProbeParticle.HighLevel      as PPH
+import pyProbeParticle.cpp_utils      as cpp_utils
 
 # =============== arguments definition
 
@@ -42,6 +43,7 @@ parser.add_option( "--WSxM",     action="store_true", default=False, help="save 
 parser.add_option( "--bI",       action="store_true", default=False, help="plot images for Boltzmann current" )
 parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
 
+parser.add_option( "--noPBC", action="store_false",  help="pbc False", default=True)
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
@@ -103,12 +105,20 @@ bonds = None
 if opt_dict['atoms'] or opt_dict['bonds']:
 	atoms_str="_atoms"
 	atoms = basUtils.loadAtoms( 'input_plot.xyz' )
-	print "atoms ", atoms
-	atom_colors = basUtils.getAtomColors( atoms )
-	atoms[ 4 ] = atom_colors
+#	print "atoms ", atoms
+        if os.path.isfile( 'atomtypes.ini' ):
+        	print ">> LOADING LOCAL atomtypes.ini"  
+        	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+        else:
+	        FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+        iZs,Rs,Qstmp=PPH.parseAtoms(atoms, autogeom = False,PBC = options.noPBC,
+                                 FFparams=FFparams)
+	atom_colors = basUtils.getAtomColors(iZs,FFparams=FFparams)
+        Rs=Rs.transpose().copy()
+	atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]
 	#print "atom_colors: ", atom_colors
 if opt_dict['bonds']:
-	bonds = basUtils.findBonds( atoms, 1.0 )
+	bonds = basUtils.findBonds(atoms,iZs,1.0,FFparams=FFparams)
 	#print "bonds ", bonds
 atomSize = 0.15
 

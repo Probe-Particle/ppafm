@@ -55,9 +55,15 @@ PP.params['gridC'] = lvec[ 3,:  ].copy()
 PP.params['gridN'] = nDim.copy()
 
 print " compute Lennard-Jones Force-filed "
-atoms     = basUtils.loadAtoms('geom.bas', elements.ELEMENT_DICT )
-iZs,Rs,Qs = parseAtoms( atoms, autogeom = False, PBC = True )
-FFLJ      = PP.computeLJ( iZs, Rs, FFLJ=None, cell=None, autogeom = False, PBC = True )
+atoms     = basUtils.loadAtoms('geom.bas')
+if os.path.isfile( 'atomtypes.ini' ):
+	print ">> LOADING LOCAL atomtypes.ini"  
+	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+else:
+	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+iZs,Rs,Qs = parseAtoms( atoms, autogeom = False, PBC = True, FFparams=FFparams )
+FFLJ      = PP.computeLJ( iZs, Rs, FFLJ=None, cell=None, autogeom = False, PBC =
+                         True, FFparams=FFparams)
 
 print "impose 4fold symmetry on FFLJ "
 FFLJ4 = np.zeros(np.shape( FFLJ ))

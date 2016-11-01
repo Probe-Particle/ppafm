@@ -2,6 +2,7 @@
 
 import numpy as np
 import os
+import sys
 
 # ====================== constants
 
@@ -17,12 +18,13 @@ params={
 'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
 'gridC':       np.array( [      0,        0,      5.0 ] ),
 'moleculeShift':  np.array( [  0.0,      0.0,    0.0 ] ),
-'probeType':   8,
+'probeType':   '8',
 'charge':      0.00,
 'useLJ':True,
 'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
 'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
-
+'tip':'s',
+'sigma':1.0,
 'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
 'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
 'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
@@ -60,10 +62,9 @@ def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4
 # ==============================
 
 # overide default parameters by parameters read from a file 
-def loadParams( fname ):
+def loadParams( fname,FFparams=None ):
         print " >> OVERWRITING SETTINGS by "+fname
 	fin = open(fname,'r')
-	FFparams = []
 	for line in fin:
 		words=line.split()
 		if len(words)>=2:
@@ -95,23 +96,37 @@ def loadParams( fname ):
 						print key
 						params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
 						print key, params[key], words[1], words[2], words[3]
+	fin.close()
 	if (params["gridN"][0]<=0):
 		params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
 		params["gridN"][1]=round(np.linalg.norm(params["gridB"])*10)
 		params["gridN"][2]=round(np.linalg.norm(params["gridC"])*10)
-	fin.close()
+
+
+        try:
+                params['probeType'] = int(params['probeType'])
+        except:
+                if FFparams is None:
+                    raise ValueError("if the ProbeParticle type is defined as "
+                    "string, you have to provide parameter FFparams to the "
+                    "loadParams function")
+                elem_dict={}
+                for i,ff in enumerate(FFparams):
+                        elem_dict[ff[3]] = i+1
+                try:
+                        params['probeType']=elem_dict[params['probeType']]
+                except:
+                        raise ValueError("The element {} for the ProbeParticle "
+                        "was not found".format(params['probeType']))
+                    
 
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
 def loadSpecies( fname ):
-	fin = open(fname,'r')
-	FFparams = []
-	for line in fin:
-		words=line.split()
-		if len(words)>=2:
-			FFparams.append( ( float(words[0]), float(words[1]) ) )
-	fin.close()
-	return np.array( FFparams )
+        FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),
+                                            ('atom',np.int),('symbol', '|S10')],
+                                            usecols=[0,1,2,3])
+	return FFparams 
 
 
 def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
@@ -165,7 +180,7 @@ def get_C612( i, j, FFparams ):
 	'''
 	compute Lenard-Jones coefitioens C6 and C12 pair of atoms i,j
 	'''
-	#print i, j, FFparams[i], FFparams[j]
+#	print i, j, FFparams[i], FFparams[j]
 	Rij = FFparams[i][0] + FFparams[j][0]
 	Eij = np.sqrt( FFparams[i][1] * FFparams[j][1] )
 	return 2*Eij*(Rij**6), Eij*(Rij**12)

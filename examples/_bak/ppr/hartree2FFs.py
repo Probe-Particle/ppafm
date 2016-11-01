@@ -59,9 +59,16 @@ PP.params['gridC'] = lvec[ 3,:  ].copy()
 PP.params['gridN'] = nDim.copy()
 
 print "--- Compute Lennard-Jones Force-filed ---"
-atoms     = basUtils.loadAtoms('input.xyz', elements.ELEMENT_DICT )
-iZs,Rs,Qs = PP.parseAtoms( atoms, autogeom = False, PBC = True )
-FFLJ      = PP.computeLJ( Rs, iZs, FFLJ=None, FFparams=None)
+atoms     = basUtils.loadAtoms('input.xyz')
+if os.path.isfile( 'atomtypes.ini' ):
+	print ">> LOADING LOCAL atomtypes.ini"  
+	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+else:
+	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+
+iZs,Rs,Qs = PP.parseAtoms(atoms, autogeom = False, PBC = True,
+                          FFparams=FFparams)
+FFLJ      = PP.computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams)
 
 print "--- Saving ---"
 

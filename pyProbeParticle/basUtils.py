@@ -32,15 +32,17 @@ def loadBas(name):
 	f.close()
 	return xyzs
 
-def loadAtoms( name, ELEMENT_DICT = elements.ELEMENT_DICT ):
+def loadAtoms( name ):
 	f = open(name,"r")
 	n=0;
 	l = f.readline()
 	#print "--",l,"--"
 	try:
 		n=int(l)
-	except ValueError:
-		return
+	except:
+                raise ValueError("First line of a xyz file should contain the "
+                "number of atoms. Aborting...")
+	line = f.readline() 
 	if (n>0):
 		n=int(l)
 		e=[];x=[];y=[]; z=[]; q=[]
@@ -51,13 +53,7 @@ def loadAtoms( name, ELEMENT_DICT = elements.ELEMENT_DICT ):
 			nw = len( words)
 			ie = None
 			if( nw >=4 ):
-				try :
-					ie = int( words[0] )
-				except:
-					if words[0] in ELEMENT_DICT:
-						ie = ELEMENT_DICT[ words[0] ][0]
-			if ie is not None:
-				e.append( ie )
+				e.append( words[0] )
 	   			x.append( float(words[1]) )
 	   			y.append( float(words[2]) )
 	   			z.append( float(words[3]) )
@@ -70,7 +66,6 @@ def loadAtoms( name, ELEMENT_DICT = elements.ELEMENT_DICT ):
 				print " skipped line : ", line
 	f.close()
 	return [ e,x,y,z,q ]
-
 def loadXSFGeom( fname ):
 	f = open(fname )
 	e=[];x=[];y=[]; z=[]; q=[]
@@ -94,7 +89,7 @@ def loadXSFGeom( fname ):
 	print "e,x,y,z", e,x,y,z
 	return [ e,x,y,z,q ], nDim, lvec
 
-def loadAtomsCUBE( fname, ELEMENT_DICT = elements.ELEMENT_DICT ):
+def loadAtomsCUBE( fname ):
 	bohrRadius2angstroem = 0.5291772109217 # find a good place for this
 	e=[];x=[];y=[]; z=[]; q=[]
 	f = open(fname )
@@ -172,9 +167,8 @@ def loadNCUBE( fname ):
 	return [ int(sth1[0]), int(sth2[0]), int(sth3[0]) ]
 
 
-def findBonds( atoms, sc, ELEMENTS = elements.ELEMENTS ):
+def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
 	bonds = []
-	es = atoms[0]
 	xs = atoms[1]
 	ys = atoms[2]
 	zs = atoms[3]
@@ -185,9 +179,9 @@ def findBonds( atoms, sc, ELEMENTS = elements.ELEMENTS ):
 			dy=ys[j]-ys[i]
 			dz=zs[j]-zs[i]
 			r=math.sqrt( dx*dx + dy*dy + dz*dz )
-			ii = es[i]-1
-			jj = es[j]-1	
-			bondlength=ELEMENTS[ ii ][6]+ ELEMENTS[ jj ][6]
+			ii = iZs[i]-1
+			jj = iZs[j]-1	
+			bondlength=ELEMENTS[FFparams[ii][2]-1][6]+ELEMENTS[FFparams[jj][2]-1][6]
 			if (r<( sc * bondlength)) :
 				bonds.append( (i,j) )
 	return bonds
@@ -208,11 +202,10 @@ def findBondsSimple( xyz, rmax ):
 				bonds.append( (i,j) )
 	return bonds
 
-def getAtomColors( atoms, ELEMENTS = elements.ELEMENTS ):
+def getAtomColors( iZs, ELEMENTS = elements.ELEMENTS, FFparams=None ):
 	colors=[]
-	es = atoms[0]
-	for i,e in enumerate( es ): 
-		colors.append( ELEMENTS[ e - 1 ][7] )
+	for e in iZs: 
+		colors.append( ELEMENTS[ FFparams[e - 1][2] -1 ][7] )
 	return colors
 
 def multCell( xyz, cel, m=(2,2,1) ):

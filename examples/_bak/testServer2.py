@@ -36,10 +36,7 @@ print " # ============ define atoms "
 #bas      = basUtils.loadBas('PTCDA_Ruslan_1x1.bas')[0]
 #bas      = basUtils.loadBas('GrN6x6.bas')[0]
 
-#atoms      = basUtils.loadAtoms('GrN6x6.bas', elements.ELEMENT_DICT )
-#atoms      = basUtils.loadAtoms('GrN6x6.xyz', elements.ELEMENT_DICT )
-
-atoms    = basUtils.loadAtoms('input.xyz', elements.ELEMENT_DICT )
+atoms    = basUtils.loadAtoms('input.xyz')
 Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
 iZs      = np.array( atoms[0])
 
