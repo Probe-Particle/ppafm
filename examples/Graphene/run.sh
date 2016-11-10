@@ -3,7 +3,8 @@
 # ======= STEP 1 : Generate force-field grid 
 
 # calculation without DFT electrostatics using atomic charges
-python ../../generateLJFF.py -i Gr6x6N3hole.xyz -q
+python ../../generateLJFF.py -i Gr6x6N3hole.xyz 
+python ../../generateElFF.py -i Gr6x6N3hole.xyz 
 
 # ALTERNATIVELY : calculation with DFT electrostatics
 #python ../../generateElFF.py -i LOCPOT.xsf
@@ -23,9 +24,10 @@ echo ""
 echo "!!! Now trying the same with saving to npy !!!:"
 echo ""
 
-python ../../generateLJFF.py -i Gr6x6N3hole.xyz -q --npy
-python ../../relaxed_scan.py -k 0.2 -q -0.05 --npy
-python ../../plot_results.py -k 0.2 -q -0.05 -a 2.0 --df --npy
+python ../../generateLJFF.py -i Gr6x6N3hole.xyz  -f npy
+python ../../generateElFF.py -i Gr6x6N3hole.xyz  -f npy
+python ../../relaxed_scan.py -k 0.2 -q -0.05 -f npy 
+python ../../plot_results.py -k 0.2 -q -0.05 -a 2.0 --df -f npy
 
 
  

@@ -14,6 +14,9 @@ parser.add_option( "-p",   action="store", type="string", help="pixels (ix,iy) t
 parser.add_option( "-i",   action="store", type="string", help="input file",                   default='OutFz'        )
 parser.add_option( "--iz", action="store", type="int",    help="z-slice index to plot legend", default=15                 )
 parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
+parser.add_option("-f","--data_format" , action="store" , type="string",
+                  help="Specify the output format of the vector and scalar "
+                  "field. Supported formats are: xsf,npy", default="xsf")
 (options, args) = parser.parse_args()
 
 try:
@@ -23,12 +26,7 @@ except:
 	print options.p+" not found => exiting ..."
 	sys.exit()
 
-if options.npy:
-    format ="npy"
-else:
-    format ="xsf"
-
-fzs,lvec,nDim=GU.load_scal_field(options.i,format=format)
+fzs,lvec,nDim=GU.load_scal_field(options.i,data_format=options.data_format)
 #xs = lvec[3,2]/*np.array( range(nDim[0]) )
 xs = np.linspace( 0, lvec[3,2], nDim[0] )
 

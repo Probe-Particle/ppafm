@@ -41,26 +41,21 @@ parser.add_option( "--bonds",    action="store_true", default=False, help="plot 
 parser.add_option( "--cbar",     action="store_true", default=False, help="plot bonds to images" )
 parser.add_option( "--WSxM",     action="store_true", default=False, help="save frequency shift into WsXM *.dat files" )
 parser.add_option( "--bI",       action="store_true", default=False, help="plot images for Boltzmann current" )
-parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
+parser.add_option("-f","--data_format" , action="store" , type="string",help="Specify the input/output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
 
-parser.add_option( "--noPBC", action="store_false",  help="pbc False", default=True)
+parser.add_option( "--noPBC", action="store_false",  help="pbc False", dest="PBC",default=None)
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
 print "opt_dict: "
 print opt_dict
-
-if options.npy:
-    format ="npy"
-else:
-    format ="xsf"
-
 # =============== Setup
 
 # dgdfgdfg
 
 print " >> OVEWRITING SETTINGS by params.ini  "
 PPU.loadParams( 'params.ini' )
+PPU.apply_options(opt_dict)
 
 #PPPlot.params = PPU.params
 
@@ -71,7 +66,7 @@ if opt_dict['krange'] is not None:
 elif opt_dict['k'] is not None:
 	Ks = [ opt_dict['k'] ]
 else:
-	Ks = [ PPU.params['stiffness'][0] ]
+	Ks = [ PPU.params['klat'] ]
 # Qs
 if opt_dict['qrange'] is not None:
 	Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
@@ -131,16 +126,17 @@ for iq,Q in enumerate( Qs ):
 		dirname = "Q%1.2fK%1.2f" %(Q,K)
 		if opt_dict['pos']:
 			try:
-				PPpos, lvec, nDim = GU.load_vec_field( dirname+'/PPpos' ,format=format)
+				PPpos, lvec, nDim = GU.load_vec_field(
+                                dirname+'/PPpos' ,data_format=options.data_format)
 				print " plotting PPpos : "
 				PPPlot.plotDistortions( dirname+"/xy"+atoms_str+cbar_str, PPpos[:,:,:,0], PPpos[:,:,:,1], slices = range( 0, len(PPpos) ), BG=PPpos[:,:,:,2], extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, markersize=2.0, cbar=opt_dict['cbar'] )
 				del PPpos
 			except:
 				print "error: ", sys.exc_info()
-				print "cannot load : " + ( dirname+'/PPpos_?.' + format ) 
+				print "cannot load : " + ( dirname+'/PPpos_?.' + data_format ) 
 		if ( ( opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM'] ) ):
 			try :
-				fzs, lvec, nDim = GU.load_scal_field( dirname+'/OutFz' , format=format)
+				fzs, lvec, nDim = GU.load_scal_field(dirname+'/OutFz' , data_format=options.data_format)
 				for iA,Amp in enumerate( Amps ):
 					AmpStr = "/Amp%2.2f" %Amp
 					print "Amp= ",AmpStr
@@ -149,7 +145,8 @@ for iq,Q in enumerate( Qs ):
 						os.makedirs( dirNameAmp )
 					dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
 					if opt_dict['save_df']:
-						GU.save_scal_field( dirNameAmp+'/df', dfs, lvec, format=format )
+						GU.save_scal_field(
+                                                dirNameAmp+'/df', dfs, lvec,data_format=options.data_format )
 					if opt_dict['df']:
 						print " plotting df : "
 						PPPlot.plotImages(
@@ -163,10 +160,11 @@ for iq,Q in enumerate( Qs ):
 				del fzs
 			except:
 				print "error: ", sys.exc_info()
-				print "cannot load : ", dirname+'/OutFz.'+format
+				print "cannot load : ",dirname+'/OutFz.'+options.data_format
 		if opt_dict['bI']:
 			try:
-				I, lvec, nDim = GU.load_scal_field( dirname+'/OutI_boltzmann', format=format )
+				I, lvec, nDim = GU.load_scal_field(
+                                dirname+'/OutI_boltzmann', data_format=options.data_format )
 				print " plotting Boltzmann current: "
 				PPPlot.plotImages(
                                                 dirname+"/OutI"+atoms_str+cbar_str,
@@ -175,7 +173,7 @@ for iq,Q in enumerate( Qs ):
 				del I
 			except:
 				print "error: ", sys.exc_info()
-				print "cannot load : " + ( dirname+'/OutI_boltzmann.'+format ) 
+				print "cannot load : " + (dirname+'/OutI_boltzmann.'+data_format ) 
 		
 print " ***** ALL DONE ***** "
 

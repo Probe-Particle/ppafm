@@ -2,6 +2,7 @@
 
 import elements
 import math
+import numpy as np
 
 def loadBas(name):
 	xyzs = []
@@ -166,6 +167,36 @@ def loadNCUBE( fname ):
 	f.close()
 	return [ int(sth1[0]), int(sth2[0]), int(sth3[0]) ]
 
+def loadGeometry(fname=None,params=None):
+    if fname == None:
+        raise ValueError("Please provide the name of the file with coordinates")
+    if params == None:
+        raise ValueError("Please provide the parameters dictionary here")
+    lvec=np.zeros((4,3))
+    lvec[ 1,:  ] = params['gridA'].copy() 
+    lvec[ 2,:  ] = params['gridB'].copy()
+    lvec[ 3,:  ] = params['gridC'].copy()
+    nDim=params['gridN'].copy()
+    is_xyz  = fname.lower().endswith(".xyz")
+    is_cube = fname.lower().endswith(".cube")
+    is_xsf  = fname.lower().endswith(".xsf")
+    is_npy  = fname.lower().endswith(".npy")
+    if(is_xyz):
+    	atoms = loadAtoms(fname)
+    elif(is_cube):
+    	atoms = loadAtomsCUBE(fname)
+    	lvec  = loadCellCUBE(fname)
+    	nDim  = loadNCUBE(fname)
+    elif(is_xsf):
+    	atoms, nDim, lvec = basUtils.loadXSFGeom( fname)
+    elif(is_npy):
+        raise ValueError("reading the geometry from the .npy file is not yet "
+        "implemented")
+        #TODO: introduce a function which reads the geometry from the .npy file
+    else:
+    	sys.exit("ERROR!!! Unknown format of geometry system. Supported "
+                 "formats are: .xyz, .cube, .xsf \n\n")
+    return atoms,nDim,lvec
 
 def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
 	bonds = []

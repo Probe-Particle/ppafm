@@ -250,6 +250,7 @@ def loadCUBE(fname):
 	head.append("BEGIN_BLOCK_DATAGRID_3D \n")
 	head.append("g98_3D_unknown \n")
 	head.append("DATAGRID_3D_g98Cube \n")
+        FF*=27.211396132
 	return FF,lvec, nDim, head
 #================ WSxM output
 
@@ -340,25 +341,25 @@ def limit_vec_field( FF, Fmax=100.0 ):
 	FF[:,:,:,1].flat[mask] *= Fmax/FR[mask] 
 	FF[:,:,:,2].flat[mask] *= Fmax/FR[mask]
 
-def save_vec_field(fname, data, lvec, format="xsf"):
+def save_vec_field(fname, data, lvec, data_format="xsf"):
 	'''
 	Saving scalar fields into xsf, or npy
 	'''
-	if (format=="xsf"):
+	if (data_format=="xsf"):
 		saveVecFieldXsf(fname, data, lvec)
-	elif (format=="npy"):
+	elif (data_format=="npy"):
 		saveVecFieldNpy(fname, data, lvec)
 	else:
 		print "I cannot save this format!"
 
 
-def load_vec_field(fname, format="xsf"):
+def load_vec_field(fname, data_format="xsf"):
 	'''
 	Loading Vector fields into xsf, or npy
 	'''
-	if (format=="xsf"):
+	if (data_format=="xsf"):
 		data, lvec, ndim, head =loadVecFieldXsf(fname)
-	elif (format=="npy"):
+	elif (data_format=="npy"):
 		data, lvec = loadVecFieldNpy(fname)
 		ndim = np.delete(data.shape,3)
 	else:
@@ -368,25 +369,25 @@ def load_vec_field(fname, format="xsf"):
 
 # =============== Scalar Fields
 
-def save_scal_field(fname, data, lvec, format="xsf"):
+def save_scal_field(fname, data, lvec, data_format="xsf"):
 	'''
 	Saving scalar fields into xsf, or npy
 	'''
-	if (format=="xsf"):
+	if (data_format=="xsf"):
 		saveXSF(fname+".xsf", data, lvec)
-	elif (format=="npy"):
+	elif (data_format=="npy"):
 		saveNpy(fname, data, lvec)
 	else:
 		print "I cannot save this format!"
 
 
-def load_scal_field(fname, format="xsf"):
+def load_scal_field(fname, data_format="xsf"):
 	'''
 	Loading scalar fields into xsf, or npy
 	'''
-	if (format=="xsf"):
+	if (data_format=="xsf"):
 		data, lvec, ndim, head =loadXSF(fname+".xsf")
-	elif (format=="npy"):
+	elif (data_format=="npy"):
 		data, lvec = loadNpy(fname)
 		ndim = data.shape
 	else:

@@ -124,7 +124,7 @@ def relaxedScan3D( xTips, yTips, zTips ):
 	fzs    = np.zeros( ( nx,ny,nz ) );
 	PPpos  = np.zeros( ( nx,ny,nz,3 ) );
 	for ix,x in enumerate( xTips  ):
-		print "relax ix:", ix
+		print "relax ix: {}\r".format(ix),
 		rTips[:,0] = x
 		for iy,y in enumerate( yTips  ):
 			rTips[:,1] = y
@@ -133,5 +133,6 @@ def relaxedScan3D( xTips, yTips, zTips ):
 			PPpos[:,iy,ix,0] = rs[::-1,0] # - rTips[:,0]
 			PPpos[:,iy,ix,1] = rs[::-1,1] # - rTips[:,1]
 			PPpos[:,iy,ix,2] = rs[::-1,2] # - rTips[:,2]
+        print ""
 	return fzs,PPpos
 
