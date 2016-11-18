@@ -74,33 +74,46 @@ def update_atoms(atms=None):
     print "UPDATING ATOMS"
     print atms
     x=[]
+    constr=[]
     for atm in atms:
         i=elem_dict[atm[0]]
-        FFparams[i][0]=float(atm[1])
-        x.append(float(atm[1]))
+        val1,val2=float(atm[1]),float(atm[2])
+        FFparams[i][0]=val1
+        x.append(val1)
+        constr.append((val1*0.75,val1*1.25 ) )
         FFparams[i][1]=float(atm[2])
-        x.append(float(atm[2]))
+        x.append(val2)
+        constr.append((5e-6,0.05 ) )
     print "UPDATING : " ,x    
-    return x
+    return x,constr
 
 def set_fit_dict(opt=None):
     i=0
     x=[]
+    constr=[]
     fit_dict['atom']=[]
     for key,value in opt.iteritems():
             if opt[key] is None:
                 continue
             if key is "atom":
                 print opt[key]
-                x+=update_atoms(value)
+                x_tmp,constr_tmp=update_atoms(value)
+                x+=x_tmp
+                constr+=constr_tmp
                 for val in value:
                     print "TYTA",val
                     fit_dict['atom'].append(list(val))
             else:
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
+                if (key is "charge"):
+                    constr.append((-0.2,0.2))
+                elif (key is "sigma"):
+                    constr.append((0.01,2))
+                elif (key is "klat"):
+                    constr.append( (0.01,2) )
                 i+=1
-    return x
+    return x,constr
 
 def update_fit_dict(x=[]):
     i=0
@@ -150,7 +163,10 @@ if __name__=="__main__":
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
     PPU.apply_options(opt_dict) # setting up all the options according to their
-    x=set_fit_dict(opt=opt_dict)
+    x,bounds=set_fit_dict(opt=opt_dict)
+    print "params", x
+    print "constr", bounds
 #    print comp_rmsd(x)
-    minimize(comp_rmsd,x,method='Nelder-Mead')
+#    minimize(comp_rmsd,x,method='Nelder-Mead')
+    minimize(comp_rmsd,x,bounds=bounds)
 
