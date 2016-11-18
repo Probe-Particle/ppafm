@@ -2,6 +2,7 @@
 
 import os
 import numpy as np
+import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver"; # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 import matplotlib.pyplot as plt
 import sys
 
@@ -179,4 +180,4 @@ for iq,Q in enumerate( Qs ):
 		
 print " ***** ALL DONE ***** "
 
-#plt.show()
+#plt.show()  # for interactive plotting you have to comment "import matplotlib as mpl;  mpl.use('Agg');" at the end
