@@ -70,6 +70,6 @@ Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma = option
 FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
 
 print " saving electrostatic forcefiled "
-GU.save_vec_field(FFel,FF,lvec,format=format)
+GU.save_vec_field("FFel",FFel,lvec,format=format)
 
 del Fel_x,Fel_y,Fel_z,V, FFel;
