@@ -3,17 +3,17 @@ LD=g++
 CPPFLAGS= -std=c++11 -O3 -ffast-math -ftree-vectorize 
 LDFLAGS= -shared
 
-%::%.cpp
-	$(CC) -c $< -o $@.o $(CFLAGS)
-	$(LD) $(LDFLAGS) $@.o -o $@_lib.so
-
-PP: ProbeParticle
-
-GU: GridUtils
-
-MP: Multipoles
-
 all: PP GU MP
 
+PP: ProbeParticle.o
+
+GU: GridUtils.o
+
+MP: Multipoles.o
+
+%.o::%.cpp
+	$(CC) -c $< -o $@ $(CFLAGS)
+	$(LD) $(LDFLAGS) $@ -o $*_lib.so
+
 clean:
-	rm *.o *.so *.pyc
+	rm -f *.o *.so *.pyc
