@@ -1,18 +1,21 @@
 CC=g++
-CPPFLAGS=-std=c++11 -O3 -ffast-math -ftree-vectorize 
-CPPLFLAGS= $(CPPFLAGS) -shared -Wl,-soname
+LD=g++
+CPPFLAGS= -std=c++11 -O3 -ffast-math -ftree-vectorize 
+LDFLAGS= -shared
 
 all: PP GU MP
 
-PP:
-	$(CC) $(CPPFLAGS) -c -fPIC ProbeParticle.cpp 
-	$(CC) $(CPPLFLAGS),ProbeParticle_lib.so -o ProbeParticle_lib.so ProbeParticle.o
-GU:
-	$(CC) $(CPPFLAGS) -c -fPIC GridUtils.cpp
-	$(CC) $(CPPLFLAGS),GridUtils_lib.so -o GridUtils_lib.so GridUtils.o
-MP:
-	$(CC) $(CPPFLAGS) -c -fPIC Multipoles.cpp
-	$(CC) $(CPPLFLAGS),Multipoles_lib.so -o Multipoles_lib.so Multipoles.o
+PP: ProbeParticle.o
+
+GU: GridUtils.o
+
+MP: Multipoles.o
+
+# .o files depend on .cpp files with same prefix
+# $@ target, $< prerequisite, $* matched stencil
+%.o:: %.cpp
+	$(CC) -c $< -o $@ $(CFLAGS)
+	$(LD) $(LDFLAGS) $@ -o $*_lib.so
 
 clean:
-	rm *.o *.so *.pyc
+	rm -f *.o *.so *.pyc
