@@ -11,7 +11,9 @@ GU: GridUtils.o
 
 MP: Multipoles.o
 
-%.o::%.cpp
+# .o files depend on .cpp files with same prefix
+# $@ target, $< prerequisite, $* matched stencil
+%.o:: %.cpp
 	$(CC) -c $< -o $@ $(CFLAGS)
 	$(LD) $(LDFLAGS) $@ -o $*_lib.so
 
