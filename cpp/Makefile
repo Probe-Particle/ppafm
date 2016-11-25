@@ -1,6 +1,6 @@
 CC=g++
 LD=g++
-CPPFLAGS= -std=c++11 -O3 -ffast-math -ftree-vectorize 
+CPPFLAGS= -std=c++11 -O3 -ffast-math -ftree-vectorize -fPIC
 LDFLAGS= -shared
 
 all: PP GU MP
@@ -14,7 +14,7 @@ MP: Multipoles.o
 # .o files depend on .cpp files with same prefix
 # $@ target, $< prerequisite, $* matched stencil
 %.o:: %.cpp
-	$(CC) -c $< -o $@ $(CFLAGS)
+	$(CC) $(CPPFLAGS) -c $< -o $@
 	$(LD) $(LDFLAGS) $@ -o $*_lib.so
 
 clean:
