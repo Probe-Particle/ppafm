@@ -77,6 +77,7 @@ def interpolateLine( F, p1, p2, sz=500, cartesian=False ):
 	result = np.zeros( sz )
 	p00 = np.array ( p1, dtype='float64' )
 	p01 = np.array ( p2, dtype='float64' )
+	setGridN( np.array(F.shape, dtype='int32' ) )
 	lib.interpolateLine_gridCoord( sz, p00, p01, F, result )
 	return result
 
@@ -93,7 +94,6 @@ def interpolateQuad( F, p00, p01, p10, p11, sz=(500,500) ):
 def interpolate_cartesian( F, pos, cell=None, result=None ):
 	if cell is not None:
 		#print np.array(F.shape)
-		setGridN( np.array(F.shape, dtype='int32' ) )
 		setGridCell( cell )
 	nDim = np.array(pos.shape)
 	print nDim
