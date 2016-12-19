@@ -513,6 +513,20 @@ void test_force( int type, int n, double * r0_, double * dr_, double * R_, doubl
 	}
 }
 
+
+void test_eigen3x3( double * mat, double * evs ){
+	Mat3d* pmat  = (Mat3d*)mat;
+    Vec3d* es    = (Vec3d*)evs;
+	Vec3d* ev1   = (Vec3d*)(evs+3);
+	Vec3d* ev2   = (Vec3d*)(evs+6);
+	Vec3d* ev3   = (Vec3d*)(evs+9);
+	pmat->eigenvals( *es ); 
+	pmat->eigenvec( es->a, *ev1 );
+	pmat->eigenvec( es->b, *ev2 );
+	pmat->eigenvec( es->c, *ev3 );
+
+}
+
 }
 
 

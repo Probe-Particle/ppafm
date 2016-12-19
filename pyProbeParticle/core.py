@@ -179,4 +179,12 @@ def test_force( typ, r0, dr, R, fs ):
 	lib.test_force( typ, n, r0, dr, R, fs );
 	return fs;
 
+# void test_eigen3x3( double * mat, double * evs ){
+lib.test_eigen3x3.argtypes  = [ array2d, array2d ]
+lib.test_eigen3x3.restype   = None
+def  test_eigen3x3( mat ):
+	evs = np.zeros((4,3))
+	lib.test_eigen3x3( mat, evs );
+	return evs;
+
 
