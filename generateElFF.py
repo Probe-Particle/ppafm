@@ -18,7 +18,7 @@ import pyProbeParticle.cpp_utils      as cpp_utils
 
 
 def computeElFF(iZs,Rs,Qs,V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
-    if V == None :
+    if V is None :
         print " ========= get electrostatic forcefiled from the point charges "
         FFel, V = PPH.computeCoulomb( Rs, Qs, FFel=None, Vpot=computeVpot  )
         if computeVpot :
@@ -32,8 +32,15 @@ def computeElFF(iZs,Rs,Qs,V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None)
             multipole={tip:1.0}
         elif tip.endswith(".xsf"):
             rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(tip)
-            if any(nDim_tip != nDim):
+            if any(np.array(nDim_tip) != np.array(nDim)):
                 sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")    
+        elif tip.endswith(".cube"):
+            print "Loading the tip charge density from the file: {}".format(tip)
+            rho, lvec_tip, nDim_tip, tiphead = GU.loadCUBE(tip)
+            if any(np.array(nDim_tip) != np.array(nDim)):
+                sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")    
+        else:
+            raise ValueError("Please specify the tip!")
         print " computing convolution with tip by FFT "
         Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, 
         sigma=PPU.params['sigma'], multipole = multipole)

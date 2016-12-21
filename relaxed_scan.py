@@ -30,7 +30,7 @@ def perform_relaxation (FFLJ,FFel,FFboltz,tipspline,lvec):
     FF=None
     xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
     FF = FFLJ.copy()
-    if ( FFel != None):
+    if ( FFel is not None):
         FF += FFel * PPU.params['charge']
         print "adding charge:", PPU.params['charge']
     if FFboltz != None :
