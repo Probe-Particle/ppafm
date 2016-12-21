@@ -5,7 +5,7 @@ import os
 import __main__ as main
 from optparse import OptionParser
 from scipy.interpolate import RegularGridInterpolator
-from scipy.optimize import minimize
+from scipy.optimize import minimize,basinhopping
 
 from generateLJFF import computeLJFF
 from relaxed_scan import perform_relaxation
@@ -19,14 +19,25 @@ import pyProbeParticle.HighLevel as PPH
 iteration=0
 
 def pm2a(val):
+    """
+    Function which converts picometers in angstroms"
+    """
     res=float(val)/100
     return res
 
 def pN2ev_o_a(val):
+    """
+    Function which converts forces from piconewtons to ev/A
+    """
     res=float(val)*6.241506363094e-4
     return res
+
 def getFzlist(BIGarray,MIN,MAX,points):
-#    print "Hello world"
+    """
+    Function makes an interpolation of a function stored in the BIGarray and finds its values in the "points"
+    BIGarray - a 3d array containing a grid of function values 
+    MIN,MAX  - 1d array containing the minimum and maximum values of x,y,z
+    """
     x=np.linspace(MIN[0],MAX[0],BIGarray.shape[2])
     y=np.linspace(MIN[1],MAX[1],BIGarray.shape[1])
     z=np.linspace(MIN[2],MAX[2],BIGarray.shape[0])
@@ -39,6 +50,7 @@ def getFzlist(BIGarray,MIN,MAX,points):
 #    print "TEST", interp([MAX[2], current_pos[1],current_pos[0]])
 #    print "TEST", interp([8.0, current_pos[1],current_pos[0]])
     return np.array(result)
+
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
 	print ">> LOADING LOCAL atomtypes.ini"  
@@ -71,20 +83,23 @@ iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'], FFpar
 
 fit_dict={}
 def update_atoms(atms=None):
-    print "UPDATING ATOMS"
-    print atms
+#    print "UPDATING ATOMS"
+#    print atms
     x=[]
     constr=[]
+    min_range=0.8
+    max_range=1.2
     for atm in atms:
         i=elem_dict[atm[0]]
         val1,val2=float(atm[1]),float(atm[2])
         FFparams[i][0]=val1
         x.append(val1)
-        constr.append((val1*0.75,val1*1.25 ) )
+#        constr.append((val1*min_range,val1*max_range ) )
+        constr.append((1.0,3.0) )
         FFparams[i][1]=float(atm[2])
         x.append(val2)
-        constr.append((5e-6,0.05 ) )
-    print "UPDATING : " ,x    
+        constr.append((1e-6,0.1 ) )
+#    print "UPDATING : " ,x    
     return x,constr
 
 def set_fit_dict(opt=None):
@@ -101,26 +116,29 @@ def set_fit_dict(opt=None):
                 x+=x_tmp
                 constr+=constr_tmp
                 for val in value:
-                    print "TYTA",val
                     fit_dict['atom'].append(list(val))
-            else:
+            elif (key is "charge"):
+                constr.append((-0.2,0.2))
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
-                if (key is "charge"):
-                    constr.append((-0.2,0.2))
-                elif (key is "sigma"):
-                    constr.append((0.01,2))
-                elif (key is "klat"):
-                    constr.append( (0.01,2) )
-                i+=1
-    return x,constr
-
+            elif (key is "sigma"):
+                constr.append((0.01,2))
+                fit_dict[key]=opt[key]
+                x.append(opt[key])
+            elif (key is "klat"):
+                constr.append( (0.01,2) )
+                fit_dict[key]=opt[key]
+                x.append(opt[key])
+            else:
+                continue
+            i+=1
+    return np.array(x),constr
 def update_fit_dict(x=[]):
     i=0
     for key,value in fit_dict.iteritems():
         if key is "atom":
             for atm in value:
-                print atm
+#                print atm
                 atm[1]=x[i]
                 atm[2]=x[i+1]
                 i+=2
@@ -129,7 +147,10 @@ def update_fit_dict(x=[]):
             i+=1
 
 
-def comp_rmsd(x=[]):
+def comp_msd(x=[]):
+    """ Function computes the Mean Square Deviation of DFT forces (provided in the file frc_tip.ini) 
+    and forces computed with the ProbeParticle approach" 
+    """ 
     global iteration
     iteration+=1
     update_fit_dict(x) # updating the array with the optimized values
@@ -150,23 +171,29 @@ def comp_rmsd(x=[]):
 if __name__=="__main__":
     parser = OptionParser()
     parser.add_option( "-q","--charge", action="store", type="float", help="fit tip charge ", default=None)
-
     parser.add_option( "-s","--sigma", action="store", type="float", help="Fit "
     "the gaussian width of the charge distribution", default=None)
-
     parser.add_option( "-k","--klat", action="store", type="float", help="Fit "
     "the lateral stiffness of the PP", default=None)
-
     parser.add_option( "-a","--atom", action="append", type="string",help="Fit "
     "the LJ parameters of the given atom", default=None, nargs=3)
-#    parser.add_option( "-a","--atom", action="append",type=l
+    parser.add_option( "--nobounds", action="store_true",
+    help="Skipf the first optimization step with bounds", default=False)
+
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
     PPU.apply_options(opt_dict) # setting up all the options according to their
     x,bounds=set_fit_dict(opt=opt_dict)
     print "params", x
-    print "constr", bounds
-#    print comp_rmsd(x)
-#    minimize(comp_rmsd,x,method='Nelder-Mead')
-    minimize(comp_rmsd,x,bounds=bounds)
+    print "bounds", bounds
+    x_new=np.zeros(x.shape)
+    if opt_dict['nobounds'] is not True:
+        print "Starting bounded optimization"
+        result=minimize(comp_msd,x,bounds=bounds)
+        x_new=result.x.copy()
+    while   np.max(np.abs((x-x_new)/x)) > 0.01:
+        print "Starting non-bounded optimization"
+        x=x_new.copy()
+        result=minimize(comp_msd,x,method='Nelder-Mead')
+        x_new=result.x.copy()
 
