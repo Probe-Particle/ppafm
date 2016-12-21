@@ -54,7 +54,13 @@ print opt_dict
 # dgdfgdfg
 
 print " >> OVEWRITING SETTINGS by params.ini  "
-PPU.loadParams( 'params.ini' )
+FFparams=None
+if os.path.isfile( 'atomtypes.ini' ):
+	print ">> LOADING LOCAL atomtypes.ini"  
+	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+else:
+	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+PPU.loadParams( 'params.ini',FFparams=FFparams )
 PPU.apply_options(opt_dict)
 
 #PPPlot.params = PPU.params
@@ -101,13 +107,6 @@ if opt_dict['atoms'] or opt_dict['bonds']:
 	atoms_str="_atoms"
 	atoms = basUtils.loadAtoms( 'input_plot.xyz' )
 #	print "atoms ", atoms
-        if os.path.isfile( 'atomtypes.ini' ):
-        	print ">> LOADING LOCAL atomtypes.ini"  
-        	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
-        else:
-	        FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-        iZs,Rs,Qstmp=PPH.parseAtoms(atoms, autogeom = False,PBC = options.noPBC,
-                                 FFparams=FFparams)
 	atom_colors = basUtils.getAtomColors(iZs,FFparams=FFparams)
         Rs=Rs.transpose().copy()
 	atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]
@@ -152,7 +151,9 @@ for iq,Q in enumerate( Qs ):
 						PPPlot.plotImages(
                                                 dirNameAmp+"/df"+atoms_str+cbar_str,
                                                 dfs,  slices = range( 0,
-                                                len(dfs) ), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+                                                len(dfs) ),
+                                                zs=zTips+PPU.params['Amplitude']/2.0,
+                                                extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
 					if opt_dict['WSxM']:
 						print " printing df into WSxM files :"
 						GU.saveWSxM_3D( dirNameAmp+"/df" , dfs , extent , slices=None)

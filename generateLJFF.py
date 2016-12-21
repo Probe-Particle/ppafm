@@ -20,12 +20,10 @@ def computeLJFF(iZs, Rs, FFparams, Fmax=None, computeVpot=False, Vmax=None):
     if Fmax != None:
         print "Limit vector field"
         GU.limit_vec_field( FFLJ, Fmax=Fmax )
-#        FFLJ [FFLJ> abs(Fmax) ] =  Fmax # remove too large values; keeps the same
-                                  # direction; good for the visualization 
-#        FFLJ [FFLJ< abs(-Fmax)] = -Fmax # 
+        # remove too large values; keeps the same
+        # direction; good for the visualization 
     if  Vmax != None and VLJ != None:
-    	VLJ[ VLJ > abs(Vmax) ] =  abs(Vmax) # remove too large values; keeps the same
-    	VLJ[ VLJ <-abs(Vmax) ] = -abs(Vmax) # direction; good for visualization 
+    	VLJ[ VLJ > Vmax ] =  Vmax # remove too large values
     return FFLJ,VLJ
 
 
@@ -50,9 +48,15 @@ if __name__=="__main__":
     print options
     if options.input==None:
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
-    
+    FFparams=None
+    if os.path.isfile( 'atomtypes.ini' ):
+    	print ">> LOADING LOCAL atomtypes.ini"  
+    	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+    else:
+        import pyProbeParticle.cpp_utils as cpp_utils
+    	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
     print " >> OVEWRITING SETTINGS by params.ini  "
-    PPU.loadParams( 'params.ini' )
+    PPU.loadParams( 'params.ini',FFparams=FFparams )
     print " >> APPLYING options to the SETTINGS"
     # TODO: introduce a class "Parameters", add a new function
     PPU.apply_options(opt_dict)
@@ -67,14 +71,7 @@ if __name__=="__main__":
     PPU.params['gridB'] = lvec[2]
     PPU.params['gridC'] = lvec[3]
 
-    FFparams=None
-    if os.path.isfile( 'atomtypes.ini' ):
-    	print ">> LOADING LOCAL atomtypes.ini"  
-    	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
-    else:
-        import pyProbeParticle.cpp_utils as cpp_utils
-    	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-    
+        
     iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'],
                              FFparams=FFparams )
     # The function returns the following information:

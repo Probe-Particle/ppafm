@@ -9,6 +9,7 @@ import pyProbeParticle                as PPU
 import pyProbeParticle.GridUtils      as GU
 import pyProbeParticle.core           as PPC
 import pyProbeParticle.HighLevel      as PPH
+import pyProbeParticle.cpp_utils      as cpp_utils
 
 #import PPPlot 		# we do not want to make it dempendent on matplotlib
 print "Amplitude ", PPU.params['Amplitude']
@@ -83,7 +84,15 @@ if __name__=="__main__":
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
     # =============== Setup
-    PPU.loadParams( 'params.ini' )
+
+    FFparams=None
+    if os.path.isfile( 'atomtypes.ini' ):
+    	print ">> LOADING LOCAL atomtypes.ini"  
+        FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+    else:
+        FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+    
+    PPU.loadParams( 'params.ini',FFparams=FFparams )
     print opt_dict
     # Ks
     if opt_dict['krange'] is not None:
