@@ -149,6 +149,20 @@ def relaxTipStroke( rTips, rs, fs, probeStart=1, relaxAlg=1 ):
 	n = len(rTips) 
 	return lib.relaxTipStroke( probeStart, relaxAlg, n, rTips, rs, fs )
 
+# void stiffnessMatrix( double ddisp, int which, int n,  double * rTips_, double * rs_,    double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
+lib.stiffnessMatrix.argtypes  = [ c_double, c_int, c_int, array2d, array2d,    array2d, array2d, array2d, array2d  ]
+lib.stiffnessMatrix.restype   = None
+def stiffnessMatrix( rTips, rPPs, which=0, ddisp=0.05 ):
+	n = len(rTips) 
+	eigenvals = np.zeros( (n,3) )
+	# this is really stupid solution because we cannot simply pass null pointer by ctypes; see :
+	# https://github.com/numpy/numpy/issues/6239 
+	# http://stackoverflow.com/questions/32120178/how-can-i-pass-null-to-an-external-library-using-ctypes-with-an-argument-decla
+	evecs = [eigenvals,eigenvals,eigenvals]
+	for i in range(which): evecs[i] = np.zeros( (n,3) )
+	lib.stiffnessMatrix( ddisp, which, n, rTips, rPPs, eigenvals, evecs[0], evecs[1], evecs[2] )
+	return eigenvals, evecs
+
 # void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ )
 lib.subsample_uniform_spline.argtypes  = [ c_double, c_double, c_int, array2d, c_int, array1d, array1d ]
 lib.subsample_uniform_spline.restype   = None

@@ -36,7 +36,7 @@ params={
 'plotSliceBy'  :  1,
 'imageInterpolation': 'bicubic',
 'colorscale'   : 'gray',
-
+'ddisp'        :  0.05
 }
 
 # ==============================

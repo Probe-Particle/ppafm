@@ -65,6 +65,7 @@ def computeCoulomb( Rs, Qs, FFel=None , Vpot=False ):
 	#core.setFF( gridF=FFel, gridE=Vel )
 	core.getCoulombFF ( Rs, Qs * PPU.CoulombConst )
 	return FFel, Vel
+
 """
 def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFparams=None ):
 	newEl = False
@@ -111,27 +112,25 @@ def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFpara
 			GU.saveVecFieldXsf( 'FFel', FF, lvecEl, head = head )
 	return FFLJ, FFel
 """		
+
 def relaxedScan3D( xTips, yTips, zTips ):
-	ntips = len(zTips); 
-	print " zTips : ",zTips
-	rTips = np.zeros((ntips,3))
-	rs    = np.zeros((ntips,3))
-	fs    = np.zeros((ntips,3))
-	rTips[:,0] = 1.0
-	rTips[:,1] = 1.0
-	rTips[:,2] = zTips[::-1]  
+	nstroke = len(zTips); 
+	rTip_ = np.zeros((nstroke,3))
+	rPP_  = np.zeros((nstroke,3))
+	F_    = np.zeros((nstroke,3))
+	rTip_[:,2] = zTips[::-1]  
 	nx = len(zTips); ny = len(yTips ); nz = len(xTips);
-	fzs    = np.zeros( ( nx,ny,nz ) );
-	PPpos  = np.zeros( ( nx,ny,nz,3 ) );
+	Fs     = np.zeros( ( nx,ny,nz,3 ) );
+	rPPs   = np.zeros( ( nx,ny,nz,3 ) );
+	rTips  = np.zeros( ( nx,ny,nz,3 ) );
 	for ix,x in enumerate( xTips  ):
 		print "relax ix:", ix
-		rTips[:,0] = x
+		rTip_[:,0] = x
 		for iy,y in enumerate( yTips  ):
-			rTips[:,1] = y
-			itrav = core.relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
-			fzs[:,iy,ix] = (fs[:,2].copy()) [::-1]
-			PPpos[:,iy,ix,0] = rs[::-1,0] # - rTips[:,0]
-			PPpos[:,iy,ix,1] = rs[::-1,1] # - rTips[:,1]
-			PPpos[:,iy,ix,2] = rs[::-1,2] # - rTips[:,2]
-	return fzs,PPpos
+			rTip_[:,1] = y
+			itrav = core.relaxTipStroke( rTip_, rPP_, F_ ) / float( nstroke )
+			Fs   [:,iy,ix,:] = F_   [::-1,:]
+			rPPs [:,iy,ix,:] = rPP_ [::-1,:] 
+			rTips[:,iy,ix,:] = rTip_[::-1,:] 
+	return Fs,rPPs,rTips
 
