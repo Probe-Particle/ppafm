@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
-import numpy as np
 import os
+import sys
+import numpy as np
 import GridUtils as GU
 import fieldFFT
 import common as PPU
@@ -124,7 +125,10 @@ def relaxedScan3D( xTips, yTips, zTips ):
 	fzs    = np.zeros( ( nx,ny,nz ) );
 	PPpos  = np.zeros( ( nx,ny,nz,3 ) );
 	for ix,x in enumerate( xTips  ):
-		print "relax ix: {}\r".format(ix),
+		sys.stdout.write('\033[K')
+		sys.stdout.flush()
+		sys.stdout.write("\rrelax ix: {}".format(ix))
+		sys.stdout.flush()
 		rTips[:,0] = x
 		for iy,y in enumerate( yTips  ):
 			rTips[:,1] = y

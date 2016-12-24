@@ -39,7 +39,6 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
     del Fel_x,Fel_y,Fel_z
     return FFel
 
-
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
     """+os.path.basename(main.__file__) +""" -i <filename> [ --sigma <value> ]
