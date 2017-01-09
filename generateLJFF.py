@@ -17,7 +17,7 @@ def computeLJFF(iZs, Rs, FFparams, Fmax=None, computeVpot=False, Vmax=None):
     print "--- Compute Lennard-Jones Force-filed ---"
     FFLJ, VLJ=PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams,   # This function computes the LJ forces experienced 
                             Vpot=computeVpot)                        # by the ProbeParticle
-    if Fmax != None:
+    if Fmax is not  None:
         print "Limit vector field"
         GU.limit_vec_field( FFLJ, Fmax=Fmax )
         # remove too large values; keeps the same
@@ -60,18 +60,14 @@ if __name__=="__main__":
     print " >> APPLYING options to the SETTINGS"
     # TODO: introduce a class "Parameters", add a new function
     PPU.apply_options(opt_dict)
-
     atoms,nDim,lvec=basUtils.loadGeometry(options.input, params=PPU.params)
     # The function automatically load the geometry from the file of any
     # supported format. The desigion about the file format is based on the
     # filename extension
-
     PPU.params['gridN'] = nDim
     PPU.params['gridA'] = lvec[1]
     PPU.params['gridB'] = lvec[2]
     PPU.params['gridC'] = lvec[3]
-
-        
     iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'],
                              FFparams=FFparams )
     # The function returns the following information:
