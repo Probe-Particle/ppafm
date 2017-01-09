@@ -45,21 +45,10 @@ def perform_relaxation (FFLJ,FFel,FFboltz,tipspline,lvec):
     nx=PPdisp.shape[2]
     ny=PPdisp.shape[1]
     nz=PPdisp.shape[0]
-    test=np.meshgrid(xTips,yTips,zTips)
+    init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
+    PPdisp-=init_pos
 #    print "TEST SHAPE", np.array(test).shape
 #    print nx,ny,nz
-    i=0
-    while i<nx:
-        j=0
-        while j<ny:
-            k=0
-            while k<nz:
-#                print i,j,k, "TYT", nx,ny,nz
-                PPdisp[k][j][i]-=np.array([xTips[i],yTips[j],zTips[k]])+ np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
-                k+=1
-            j+=1
-        i+=1
-
     return fzs,PPpos,PPdisp,lvecScan
 
 
