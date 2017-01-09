@@ -118,7 +118,7 @@ def set_fit_dict(opt=None):
                 for val in value:
                     fit_dict['atom'].append(list(val))
             elif (key is "charge"):
-                constr.append((-0.2,0.2))
+                constr.append((-0.5,0.5))
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
             elif (key is "sigma"):
@@ -127,6 +127,10 @@ def set_fit_dict(opt=None):
                 x.append(opt[key])
             elif (key is "klat"):
                 constr.append( (0.01,2) )
+                fit_dict[key]=opt[key]
+                x.append(opt[key])
+            elif (key is "krad"):
+                constr.append( (0.01,100) )
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
             else:
@@ -175,6 +179,8 @@ if __name__=="__main__":
     "the gaussian width of the charge distribution", default=None)
     parser.add_option( "-k","--klat", action="store", type="float", help="Fit "
     "the lateral stiffness of the PP", default=None)
+    parser.add_option( "--krad", action="store", type="float", help="Fit "
+    "the radial stiffness of the PP", default=None)
     parser.add_option( "-a","--atom", action="append", type="string",help="Fit "
     "the LJ parameters of the given atom", default=None, nargs=3)
     parser.add_option( "--nobounds", action="store_true",
@@ -189,16 +195,21 @@ if __name__=="__main__":
 #    x=np.zeros(x_new.shape)
     it=0
     if opt_dict['nobounds'] is not True:
-        while   it == 0 or np.max(np.abs((x-x_new)/x)) > 0.1:
+        while   it == 0 or np.max(np.abs((x-x_new)/x)) > 0.10:
             x=x_new.copy()
             print "Starting bounded optimization"
             result=minimize(comp_msd,x,bounds=bounds)
             x_new=result.x.copy()
             it+=1
-    while   it == 0 or np.max(np.abs((x-x_new)/x)) > 0.01:
+    print "Bounded optimization is finished"
+#    print "x:",x
+#    print "x_new:",x_new
+    it=0
+    while   it == 0 or np.max(np.abs((x-x_new)/x)) > 0.001:
         print "Starting non-bounded optimization"
         x=x_new.copy()
         result=minimize(comp_msd,x,method='Nelder-Mead')
         x_new=result.x.copy()
         it+=1
+    print "Non-bounded optimization is finished"
 
