@@ -9,19 +9,9 @@ import pyProbeParticle                as PPU
 from   pyProbeParticle            import basUtils
 from   pyProbeParticle            import elements   
 import pyProbeParticle.GridUtils      as GU
-#import pyProbeParticle.core          as PPC
 import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.fieldFFT       as fFFT
 import pyProbeParticle.cpp_utils      as cpp_utils
-
-def computeELFF_pc(iZs,Rs,Qs,computeVpot):
-    print " ========= get electrostatic forcefiled from the point charges "
-    FFel, V = PPH.computeCoulomb( Rs, Qs, FFel=None, Vpot=computeVpot  )
-    if computeVpot :
-        Vmax = 10.0; V[ V>Vmax ] = Vmax
-    return FFel,V
-
-
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
@@ -62,8 +52,7 @@ if __name__=="__main__":
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
     iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC =PPU.params['PBC'],FFparams=FFparams )
-#    FFel,V=computeElFF_pc(iZs,Rs,Qs)
-    FFel,V=computeELFF_pc(iZs,Rs,Qs,False)
+    FFel,V=PPH.computeELFF_pch(iZs,Rs,Qs,False)
     print " saving electrostatic forcefiled "
     GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format)
     if options.energy :

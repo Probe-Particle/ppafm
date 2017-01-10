@@ -10,27 +10,8 @@ from   pyProbeParticle            import basUtils
 from   pyProbeParticle            import elements   
 import pyProbeParticle.GridUtils      as GU
 import pyProbeParticle.HighLevel      as PPH
-import pyProbeParticle.fieldFFT       as fFFT
 import pyProbeParticle.cpp_utils      as cpp_utils
 
-
-def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
-    print " ========= get electrostatic forcefiled from hartree "
-    rho = None
-    multipole = None
-    if tip in {'s','px','py','pz','dx2','dy2','dz2','dxy','dxz','dyz'}:
-        rho = None
-        multipole={tip:1.0}
-    elif tip.endswith(".xsf"):
-        rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(tip)
-        if any(nDim_tip != nDim):
-            sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")    
-    print " computing convolution with tip by FFT "
-    Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, 
-    sigma=PPU.params['sigma'], multipole = multipole)
-    FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
-    del Fel_x,Fel_y,Fel_z
-    return FFel
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
@@ -55,14 +36,17 @@ if __name__=="__main__":
     (options, args) = parser.parse_args()
     print options
     opt_dict = vars(options)
+    
     if options.input==None:
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
     print " >> OVEWRITING SETTINGS by params.ini  "
+
     if os.path.isfile( 'atomtypes.ini' ):
         print ">> LOADING LOCAL atomtypes.ini"  
         FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+
     PPU.loadParams( 'params.ini', FFparams=FFparams)
     PPU.apply_options(opt_dict)
     iZs,Rs,Qs=None,None,None
@@ -81,8 +65,10 @@ if __name__=="__main__":
                                  FFparams=FFparams )
     else:
         sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
-    FFel=computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10)
-    print " saving electrostatic forcefiled "
+    
+    FFel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10)
+   
+   print " saving electrostatic forcefiled "
     GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format)
     if options.energy :
         GU.save_scal_field( 'Vel', V, lvec, data_format=options.data_format)

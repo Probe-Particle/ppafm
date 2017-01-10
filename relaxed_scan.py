@@ -7,7 +7,6 @@ import sys
 
 import pyProbeParticle                as PPU     
 import pyProbeParticle.GridUtils      as GU
-import pyProbeParticle.core           as PPC
 import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.cpp_utils      as cpp_utils
 
@@ -15,41 +14,6 @@ import pyProbeParticle.cpp_utils      as cpp_utils
 print "Amplitude ", PPU.params['Amplitude']
 
 # =============== arguments definition
-def perform_relaxation (FFLJ,FFel,FFboltz,tipspline,lvec):
-    if tipspline is not None :
-        try:
-            S = np.genfromtxt(options.tipspline )
-            print " loading tip spline from "+tipspline
-            xs   = S[:,0].copy();  print "xs: ",   xs
-            ydys = S[:,1:].copy(); print "ydys: ", ydys
-            PPC.setTipSpline( xs, ydys )
-            #Ks   = [0.0]
-        except:
-            print "cannot load tip spline from "+tipspline
-            sys.exit()
-    PPC.setFF( FFLJ )
-    FF=None
-    xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
-    FF = FFLJ.copy()
-    if ( FFel is not None):
-        FF += FFel * PPU.params['charge']
-        print "adding charge:", PPU.params['charge']
-    if FFboltz != None :
-        FF += FFboltz
-#    GU.save_vec_field( 'FF', FF, lvec)
-    PPC.setFF_Fpointer( FF )
-    print "stiffness:", PPU.params['klat']
-    PPC.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
-    fzs,PPpos = PPH.relaxedScan3D( xTips, yTips, zTips )
-    PPdisp=PPpos.copy()
-    nx=PPdisp.shape[2]
-    ny=PPdisp.shape[1]
-    nz=PPdisp.shape[0]
-    init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
-    PPdisp-=init_pos
-#    print "TEST SHAPE", np.array(test).shape
-#    print nx,ny,nz
-    return fzs,PPpos,PPdisp,lvecScan
 
 
 if __name__=="__main__":
@@ -59,10 +23,6 @@ if __name__=="__main__":
     parser.add_option( "--krange", action="store", type="float", help="tip stiffenss range (min,max,n) [N/m]", nargs=3)
     parser.add_option( "-q","--charge",       action="store", type="float", help="tip charge [e]" )
     parser.add_option( "--qrange", action="store", type="float", help="tip charge range (min,max,n) [e]", nargs=3)
-    #parser.add_option( "-a",       action="store", type="float", help="oscilation amplitude [A]" )
-    #parser.add_option( "--arange", action="store", type="float", help="oscilation amplitude range (min,max,n) [A]", nargs=3)
-    #parser.add_option( "--img",    action="store_true", default=False, help="save images for dfz " )
-    #parser.add_option( "--df" ,    action="store_true", default=False, help="save frequency shift as df.xsf " )
     parser.add_option( "-b", "--boltzmann" ,action="store_true", default=False, help="calculate forces with boltzmann particle" )
     parser.add_option( "--bI" ,action="store_true", default=False, help="calculate current between boltzmann particle and tip" )
     parser.add_option( "--pos",       action="store_true", default=False, help="save probe particle positions" )
@@ -125,7 +85,7 @@ if __name__=="__main__":
             print " relaxed_scan for ", dirname
             if not os.path.exists( dirname ):
             	os.makedirs( dirname )
-            fzs,PPpos,PPdisp,lvecScan=perform_relaxation(FFLJ, FFel, FFboltz,
+            fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(FFLJ, FFel, FFboltz,
             options.tipspline,lvec)
             GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan,
                                 data_format=options.data_format )

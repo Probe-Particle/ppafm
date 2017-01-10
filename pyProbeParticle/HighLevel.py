@@ -4,7 +4,8 @@ import os
 import sys
 import numpy as np
 import GridUtils as GU
-import fieldFFT
+#import fieldFFT
+import fieldFFT       as fFFT
 import common as PPU
 
 import core
@@ -140,3 +141,80 @@ def relaxedScan3D( xTips, yTips, zTips ):
         print ""
 	return fzs,PPpos
 
+def computeLJFF(iZs, Rs, FFparams, Fmax=None, computeVpot=False, Vmax=None):
+    print "--- Compute Lennard-Jones Force-filed ---"
+    FFLJ, VLJ=computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams,   # This function computes the LJ forces experienced 
+                            Vpot=computeVpot)                        # by the ProbeParticle
+    if Fmax is not  None:
+        print "Limit vector field"
+        GU.limit_vec_field( FFLJ, Fmax=Fmax )
+        # remove too large values; keeps the same
+        # direction; good for the visualization 
+    if  Vmax != None and VLJ != None:
+    	VLJ[ VLJ > Vmax ] =  Vmax # remove too large values
+    return FFLJ,VLJ
+
+
+def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
+    print " ========= get electrostatic forcefiled from hartree "
+    rho = None
+    multipole = None
+    if tip in {'s','px','py','pz','dx2','dy2','dz2','dxy','dxz','dyz'}:
+        rho = None
+        multipole={tip:1.0}
+    elif tip.endswith(".xsf"):
+        rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(tip)
+        if any(nDim_tip != nDim):
+            sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")    
+    print " computing convolution with tip by FFT "
+    Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, 
+    sigma=PPU.params['sigma'], multipole = multipole)
+    FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
+    del Fel_x,Fel_y,Fel_z
+    return FFel
+
+
+
+def perform_relaxation (FFLJ,FFel,FFboltz,tipspline,lvec):
+    if tipspline is not None :
+        try:
+            print " loading tip spline from "+tipspline
+            S = np.genfromtxt(tipspline )
+            xs   = S[:,0].copy();  print "xs: ",   xs
+            ydys = S[:,1:].copy(); print "ydys: ", ydys
+            core.setTipSpline( xs, ydys )
+            #Ks   = [0.0]
+        except:
+            print "cannot load tip spline from "+tipspline
+            sys.exit()
+    core.setFF( FFLJ )
+    FF=None
+    xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
+    FF = FFLJ.copy()
+    if ( FFel is not None):
+        FF += FFel * PPU.params['charge']
+        print "adding charge:", PPU.params['charge']
+    if FFboltz != None :
+        FF += FFboltz
+#    GU.save_vec_field( 'FF', FF, lvec)
+    core.setFF_Fpointer( FF )
+    print "stiffness:", PPU.params['klat']
+    core.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
+    fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )
+    PPdisp=PPpos.copy()
+    nx=PPdisp.shape[2]
+    ny=PPdisp.shape[1]
+    nz=PPdisp.shape[0]
+    init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
+    PPdisp-=init_pos
+#    print "TEST SHAPE", np.array(test).shape
+#    print nx,ny,nz
+    return fzs,PPpos,PPdisp,lvecScan
+
+
+def computeELFF_pch(iZs,Rs,Qs,computeVpot):
+    print " ========= get electrostatic forcefiled from the point charges "
+    FFel, V = computeCoulomb( Rs, Qs, FFel=None, Vpot=computeVpot  )
+    if computeVpot :
+        Vmax = 10.0; V[ V>Vmax ] = Vmax
+    return FFel,V

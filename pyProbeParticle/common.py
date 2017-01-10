@@ -72,6 +72,10 @@ def loadParams( fname,FFparams=None ):
 		if len(words)>=2:
 			key = words[0]
 			if key in params:
+				if key == 'stiffness':
+                                    raise ValueError("Attention!!! Parameter stifness is "
+                                    "deprecated, please define krad and klat "
+                                    "instead")
 				val = params[key]
 				print key,' is class ', val.__class__
 				if   isinstance( val, bool ):
@@ -98,6 +102,9 @@ def loadParams( fname,FFparams=None ):
 						print key
 						params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
 						print key, params[key], words[1], words[2], words[3]
+			else :
+				raise ValueError("Parameter {} is not "
+                                "known".format(key))
 	fin.close()
 	if (params["gridN"][0]<=0):
 		params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)

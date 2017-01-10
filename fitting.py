@@ -7,10 +7,10 @@ from optparse import OptionParser
 from scipy.interpolate import RegularGridInterpolator
 from scipy.optimize import minimize,basinhopping
 
-from generateLJFF import computeLJFF
-from relaxed_scan import perform_relaxation
+#from generateLJFF import computeLJFF
+#from relaxed_scan import perform_relaxation
+#from generateElFF import computeElFF
 from pyProbeParticle import basUtils
-from generateElFF import computeElFF
 import pyProbeParticle.GridUtils as GU
 import pyProbeParticle  as PPU     
 import pyProbeParticle.HighLevel as PPH
@@ -162,10 +162,10 @@ def comp_msd(x=[]):
                                 # current values
     update_atoms(atms=fit_dict['atom'])
     print FFparams
-    FFLJ,VLJ=computeLJFF(iZs,Rs,FFparams)
-    FFel=computeElFF(V,lvec_bak,nDim_bak,PPU.params['tip'])
+    FFLJ,VLJ=PPH.computeLJFF(iZs,Rs,FFparams)
+    FFel=PPH.computeElFF(V,lvec_bak,nDim_bak,PPU.params['tip'])
     FFboltz=None
-    fzs,PPpos,PPdisp,lvecScan=perform_relaxation(FFLJ, FFel,FFboltz,tipspline=None,lvec=lvec)
+    fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(FFLJ, FFel,FFboltz,tipspline=None,lvec=lvec)
     Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
     rmsd=np.sum((loaded_forces[:,3]-Fzlist*1.60217733e3)**2) /len(Fzlist)
     with open ("iteration.txt", "a") as myfile:

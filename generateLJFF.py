@@ -12,21 +12,6 @@ import pyProbeParticle.fieldFFT       as fFFT
 import pyProbeParticle.GridUtils as GU
 import pyProbeParticle  as PPU     
 
-
-def computeLJFF(iZs, Rs, FFparams, Fmax=None, computeVpot=False, Vmax=None):
-    print "--- Compute Lennard-Jones Force-filed ---"
-    FFLJ, VLJ=PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams,   # This function computes the LJ forces experienced 
-                            Vpot=computeVpot)                        # by the ProbeParticle
-    if Fmax is not  None:
-        print "Limit vector field"
-        GU.limit_vec_field( FFLJ, Fmax=Fmax )
-        # remove too large values; keeps the same
-        # direction; good for the visualization 
-    if  Vmax != None and VLJ != None:
-    	VLJ[ VLJ > Vmax ] =  Vmax # remove too large values
-    return FFLJ,VLJ
-
-
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
     %s -i <filename> 
@@ -80,7 +65,7 @@ if __name__=="__main__":
     #         [xn,yn,zn]]
     # Qs  - 1D array, containing the atomic charges
     #FFLJ,VLJ=computeLJFF(iZs,Rs,FFparams,Fmax=10.0,computeVpot=options.energy,Vmax=10.0)
-    FFLJ,VLJ=computeLJFF(iZs,Rs,FFparams)
+    FFLJ,VLJ=PPH.computeLJFF(iZs,Rs,FFparams)
     print "--- Save  ---"
     GU.save_vec_field( 'FFLJ', FFLJ, lvec,data_format=options.data_format)
     if options.energy :
