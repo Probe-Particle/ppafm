@@ -188,7 +188,7 @@ def loadGeometry(fname=None,params=None):
     	lvec  = loadCellCUBE(fname)
     	nDim  = loadNCUBE(fname)
     elif(is_xsf):
-    	atoms, nDim, lvec = basUtils.loadXSFGeom( fname)
+    	atoms, nDim, lvec = loadXSFGeom( fname)
     elif(is_npy):
         raise ValueError("reading the geometry from the .npy file is not yet "
         "implemented")
