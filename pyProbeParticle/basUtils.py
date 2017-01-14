@@ -205,7 +205,7 @@ def findBondsSimple( xyz, rmax ):
 def getAtomColors( iZs, ELEMENTS = elements.ELEMENTS, FFparams=None ):
 	colors=[]
 	for e in iZs: 
-		colors.append( ELEMENTS[ FFparams[e - 1][2] -1 ][7] )
+		colors.append( ELEMENTS[ FFparams[e - 1][2] -1 ][8] )
 	return colors
 
 def multCell( xyz, cel, m=(2,2,1) ):

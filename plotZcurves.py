@@ -58,7 +58,7 @@ plt.grid()
 plt.savefig( options.i+'_zcurves.png', bbox_inches='tight')
 
 plt.ylim( 1.1*vmin, -2*vmin )
-np.savetxt( options.i+'_zcurves.dat', curves )
+np.savetxt( options.i+'_zcurves.dat', np.transpose(curves) )
 
 #dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
                     
