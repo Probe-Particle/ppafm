@@ -1,4 +1,4 @@
-
+#include <iostream>
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -361,7 +361,10 @@ void getLenardJonesFF( int natom, double * Rs_, double * C6, double * C12 ){
 	int nxy = ny * nx;
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	for ( int ia=0; ia<nx; ia++ ){ 
-		printf( " ia %i \n", ia );
+//		printf( " ia %i \r", ia );
+        std::cout << "ia " << ia;
+        std::cout.flush();
+        std::cout << '\r';
 
 		for ( int ib=0; ib<ny; ib++ ){ 
 			for ( int ic=0; ic<nz; ic++ ){
@@ -380,6 +383,7 @@ void getLenardJonesFF( int natom, double * Rs_, double * C6, double * C12 ){
 		rProbe.add_mul( FF::dCell.b, -ny );
 		rProbe.add( FF::dCell.a );  
 	}
+    printf ("\n");
 }
 
 // sample Coulomb Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with constant kQQs  =  - k_coulomb * Q_ProbeParticle * Q[i] 
@@ -393,7 +397,10 @@ void getCoulombFF( int natom, double * Rs_, double * kQQs ){
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	//for ( int i=0; i<natom; i++ ){ 		printf( " atom %i   q=  %f \n", i, kQQs[i] );	}
 	for ( int ia=0; ia<nx; ia++ ){ 
-		printf( " ia %i \n", ia );  
+//		printf( " ia %i \r", ia );  
+        std::cout << "ia " << ia;
+        std::cout.flush();
+        std::cout << '\r';
 		for ( int ib=0; ib<ny; ib++ ){
 			for ( int ic=0; ic<nz; ic++ ){
 				Vec3d f; double E;
@@ -411,6 +418,7 @@ void getCoulombFF( int natom, double * Rs_, double * kQQs ){
 		rProbe.add_mul( FF::dCell.b, -ny );
 		rProbe.add( FF::dCell.a );
 	}
+    printf ("\n");
 }
 
 // relax one stroke of tip positions ( stored in 1D array "rTips_" ) using precomputed 3D force-field on grid

@@ -67,7 +67,7 @@ if opt_dict['krange'] is not None:
 elif opt_dict['k'] is not None:
 	Ks = [ opt_dict['k'] ]
 else:
-	Ks = [ PPU.params['stiffness'][0] ]
+	Ks = [ PPU.params['klat'] ]
 # Qs
 if opt_dict['qrange'] is not None:
 	Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )

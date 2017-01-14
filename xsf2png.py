@@ -56,11 +56,11 @@ atomSize = 0.15
 
 
 if options.npy:
-    format ="npy"
+    data_format = "npy"
 else:
-    format ="xsf"
+    data_format = "xsf"
 
-data,lvec,nDim=GU.load_scal_field( options.i ,format=format)
+data,lvec,nDim=GU.load_scal_field( options.i ,data_format=data_format)
 #print lvec
 #print nDim
 

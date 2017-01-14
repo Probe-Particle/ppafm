@@ -11,7 +11,7 @@ CoulombConst         = -14.3996448915;
 
 # default parameters of simulation
 params={
-'PBC': False,
+'PBC': True,
 'nPBC' :       np.array( [      1,        1,        1 ] ),
 'gridN':       np.array( [ -1,     -1,   -1   ] ).astype(np.int),
 'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
@@ -23,6 +23,8 @@ params={
 'useLJ':True,
 'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
 'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
+'klat': 0.5,
+'krad': 20.00,
 'tip':'s',
 'sigma':1.0,
 'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
@@ -70,6 +72,10 @@ def loadParams( fname,FFparams=None ):
 		if len(words)>=2:
 			key = words[0]
 			if key in params:
+				if key == 'stiffness':
+                                    raise ValueError("Attention!!! Parameter stifness is "
+                                    "deprecated, please define krad and klat "
+                                    "instead")
 				val = params[key]
 				print key,' is class ', val.__class__
 				if   isinstance( val, bool ):
@@ -96,6 +102,9 @@ def loadParams( fname,FFparams=None ):
 						print key
 						params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
 						print key, params[key], words[1], words[2], words[3]
+			else :
+				raise ValueError("Parameter {} is not "
+                                "known".format(key))
 	fin.close()
 	if (params["gridN"][0]<=0):
 		params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
@@ -118,7 +127,22 @@ def loadParams( fname,FFparams=None ):
                 except:
                         raise ValueError("The element {} for the ProbeParticle "
                         "was not found".format(params['probeType']))
-                    
+def apply_options(opt=None):
+        print "!!!!!In apply options!!!!"
+        print opt
+        if opt is None:
+                raise ValueError("Please specify the dictionary containing all the "
+                                 "options")
+        for key,value in opt.iteritems():
+                if opt[key] is None:
+                    continue
+                try:
+                        x=params[key]
+                        params[key]=value
+                        print key,value," applied"
+                except:
+                        pass
+
 
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )

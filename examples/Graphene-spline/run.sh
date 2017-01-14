@@ -28,15 +28,15 @@ echo "!!! Now trying the same with saving to npy !!!:"
 echo ""
 
 
-python ../../generateLJFF.py -i Gr6x6N3hole.xyz --npy
-python ../../relaxed_scan.py -k 0.2 -q -0.00 --tipspline TipRSpline.ini --npy
+python ../../generateLJFF.py -i Gr6x6N3hole.xyz -f npy
+python ../../relaxed_scan.py -k 0.2 -q -0.00 --tipspline TipRSpline.ini -f npy
 mv Q-0.00K0.20 Q-0.00K0.20-spline
-python ../../relaxed_scan.py -k 0.2 -q -0.00 --npy
+python ../../relaxed_scan.py -k 0.2 -q -0.00 -f npy
 cd Q-0.00K0.20
-../../../plotZcurves.py -p ../curve_points.ini --npy
+../../../plotZcurves.py -p ../curve_points.ini -f npy
 cd ..
 cd Q-0.00K0.20-spline
-../../../plotZcurves.py -p ../curve_points.ini --npy
+../../../plotZcurves.py -p ../curve_points.ini -f npy
 cd ..
 
 
