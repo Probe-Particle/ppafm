@@ -85,8 +85,8 @@ if __name__=="__main__":
             print " relaxed_scan for ", dirname
             if not os.path.exists( dirname ):
             	os.makedirs( dirname )
-            fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(FFLJ, FFel, FFboltz,
-            options.tipspline,lvec)
+            fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJ, FFel,
+            FFboltz,options.tipspline)
             GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan,
                                 data_format=options.data_format )
 	    if opt_dict['disp']:

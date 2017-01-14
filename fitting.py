@@ -7,9 +7,6 @@ from optparse import OptionParser
 from scipy.interpolate import RegularGridInterpolator
 from scipy.optimize import minimize,basinhopping
 
-#from generateLJFF import computeLJFF
-#from relaxed_scan import perform_relaxation
-#from generateElFF import computeElFF
 from pyProbeParticle import basUtils
 import pyProbeParticle.GridUtils as GU
 import pyProbeParticle  as PPU     
@@ -192,7 +189,6 @@ if __name__=="__main__":
     x_new,bounds=set_fit_dict(opt=opt_dict)
     print "params", x_new
     print "bounds", bounds
-#    x=np.zeros(x_new.shape)
     it=0
     if opt_dict['nobounds'] is not True:
         while   it == 0 or np.max(np.abs((x-x_new)/x)) > 0.10:
@@ -202,8 +198,6 @@ if __name__=="__main__":
             x_new=result.x.copy()
             it+=1
     print "Bounded optimization is finished"
-#    print "x:",x
-#    print "x_new:",x_new
     it=0
     while   it == 0 or np.max(np.abs((x-x_new)/x)) > 0.001:
         print "Starting non-bounded optimization"

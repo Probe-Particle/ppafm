@@ -175,7 +175,7 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
 
 
 
-def perform_relaxation (FFLJ,FFel,FFboltz,tipspline,lvec):
+def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None):
     if tipspline is not None :
         try:
             print " loading tip spline from "+tipspline
@@ -202,13 +202,8 @@ def perform_relaxation (FFLJ,FFel,FFboltz,tipspline,lvec):
     core.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
     fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )
     PPdisp=PPpos.copy()
-    nx=PPdisp.shape[2]
-    ny=PPdisp.shape[1]
-    nz=PPdisp.shape[0]
     init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
     PPdisp-=init_pos
-#    print "TEST SHAPE", np.array(test).shape
-#    print nx,ny,nz
     return fzs,PPpos,PPdisp,lvecScan
 
 
