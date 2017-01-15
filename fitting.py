@@ -162,7 +162,7 @@ def comp_msd(x=[]):
     FFLJ,VLJ=PPH.computeLJFF(iZs,Rs,FFparams)
     FFel=PPH.computeElFF(V,lvec_bak,nDim_bak,PPU.params['tip'])
     FFboltz=None
-    fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(FFLJ, FFel,FFboltz,tipspline=None,lvec=lvec)
+    fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec=lvec,FFLJ, FFel,FFboltz,tipspline=None)
     Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
     rmsd=np.sum((loaded_forces[:,3]-Fzlist*1.60217733e3)**2) /len(Fzlist)
     with open ("iteration.txt", "a") as myfile:
