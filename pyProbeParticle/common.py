@@ -128,7 +128,7 @@ def loadParams( fname,FFparams=None ):
                         raise ValueError("The element {} for the ProbeParticle "
                         "was not found".format(params['probeType']))
 def apply_options(opt=None):
-        print "!!!!!In apply options!!!!"
+        print "In apply options:"
         print opt
         if opt is None:
                 raise ValueError("Please specify the dictionary containing all the "
@@ -137,7 +137,9 @@ def apply_options(opt=None):
                 if opt[key] is None:
                     continue
                 try:
-                        x=params[key]
+                        x=params[key]     # to make sure that such a key exists
+                                          # in the list. If not it will be
+                                          # skipped
                         params[key]=value
                         print key,value," applied"
                 except:

@@ -19,7 +19,7 @@ print "Amplitude ", PPU.params['Amplitude']
 if __name__=="__main__":
     from optparse import OptionParser
     parser = OptionParser()
-    parser.add_option( "-k",       action="store", type="float", help="tip stiffenss [N/m]" )
+    parser.add_option( "-k", "--klat",  action="store", type="float", help="tip stiffenss [N/m]" )
     parser.add_option( "--krange", action="store", type="float", help="tip stiffenss range (min,max,n) [N/m]", nargs=3)
     parser.add_option( "-q","--charge",       action="store", type="float", help="tip charge [e]" )
     parser.add_option( "--qrange", action="store", type="float", help="tip charge range (min,max,n) [e]", nargs=3)
@@ -28,7 +28,6 @@ if __name__=="__main__":
     parser.add_option( "--pos",       action="store_true", default=False, help="save probe particle positions" )
     parser.add_option( "--disp",      action="store_true", default=False, help="save probe particle displacements")
     parser.add_option( "--tipspline", action="store", type="string", help="file where spline is stored", default=None )
-    parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
     parser.add_option("-f","--data_format" , action="store" , type="string",help="Specify the input/output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
