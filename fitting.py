@@ -77,8 +77,8 @@ loaded_forces=np.loadtxt("frc_tip.txt",
                          skiprows=2, usecols=(0,1,2,5))
 points=loaded_forces[:,:3]
 iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'], FFparams=FFparams )
-
-fit_dict={}
+from collections import OrderedDict
+fit_dict=OrderedDict()
 def update_atoms(atms=None):
 #    print "UPDATING ATOMS"
 #    print atms
@@ -103,11 +103,12 @@ def set_fit_dict(opt=None):
     i=0
     x=[]
     constr=[]
-    fit_dict['atom']=[]
     for key,value in opt.iteritems():
             if opt[key] is None:
                 continue
             if key is "atom":
+                if key not in fit_dict:
+                    fit_dict['atom']=[]
                 print opt[key]
                 x_tmp,constr_tmp=update_atoms(value)
                 x+=x_tmp
@@ -162,7 +163,7 @@ def comp_msd(x=[]):
     FFLJ,VLJ=PPH.computeLJFF(iZs,Rs,FFparams)
     FFel=PPH.computeElFF(V,lvec_bak,nDim_bak,PPU.params['tip'])
     FFboltz=None
-    fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec=lvec,FFLJ, FFel,FFboltz,tipspline=None)
+    fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec,FFLJ, FFel,FFboltz,tipspline=None)
     Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
     rmsd=np.sum((loaded_forces[:,3]-Fzlist*1.60217733e3)**2) /len(Fzlist)
     with open ("iteration.txt", "a") as myfile:
@@ -189,6 +190,7 @@ if __name__=="__main__":
     x_new,bounds=set_fit_dict(opt=opt_dict)
     print "params", x_new
     print "bounds", bounds
+#    print "fit_dict", fit_dict
     it=0
     if opt_dict['nobounds'] is not True:
         while   it == 0 or np.max(np.abs((x-x_new)/x)) > 0.10:
