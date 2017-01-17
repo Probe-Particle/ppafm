@@ -40,30 +40,39 @@ def parseAtoms( atoms, autogeom = False, PBC = True, FFparams=None ):
 	return iZs,Rs,Qs
 
 
-def perpareArrays( FF, Vpot ):
-	if ( FF is None ):
+def prepareArrays( FFC, FFO, Vpot ):
+	if ( FFC is None ):
 		gridN = PPU.params['gridN']
-		FF = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
+		FFC = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
 	else:
-		PPU.params['gridN'] = np.shape( FF )	
+		PPU.params['gridN'] = np.shape( FFC )	
+	if ( FFO is None ):
+		gridN = PPU.params['gridN']
+		FFO = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
+	else:
+		PPU.params['gridN'] = np.shape( FFO )	
 	if ( Vpot ):
-		V = np.zeros( (gridN[2],gridN[1],gridN[0])    )
+		VC = np.zeros( (gridN[2],gridN[1],gridN[0])    )
+		VO = np.zeros( (gridN[2],gridN[1],gridN[0])    )
 	else:
-		V=None
-	core.setFF( gridF=FF, gridE=V )
-	return FF, V 
+		VC=None
+		VO=None
+	core.setFFC( gridF=FFC, gridE=VC )
+	core.setFFO( gridF=FFO, gridE=VO )
+	return FFC,VC,FFO,VO 
 
-def computeLJ( Rs, iZs, FFLJ=None, FFparams=None, Vpot=False ):
+def computeLJ( Rs, iZs, FFLJC=None,FFLJO=None,FFparams=None, Vpot=False ):
 	if FFparams is None:
 		raise ValueError("You should provide a list of LJ parameters!")
-	FFLJ,VLJ = perpareArrays( FFLJ, Vpot )
-	C6,C12   = PPU.getAtomsLJ( PPU.params['probeType'], iZs, FFparams )
-	#core.setFF( gridF=FFLJ, gridE=VLJ )
-	core.getLenardJonesFF( Rs, C6, C12 )
-	return FFLJ, VLJ
+	FFLJC,VLJC,FFLJO,VLJO = prepareArrays( FFLJC,FFLJO, Vpot )
+	C6,C12   = PPU.getAtomsLJ( PPU.params['Catom'], iZs, FFparams )
+	core.getCLenardJonesFF( Rs, C6, C12 )
+	C6,C12   = PPU.getAtomsLJ( PPU.params['Oatom'], iZs, FFparams )
+	core.getOLenardJonesFF( Rs, C6, C12 )
+	return FFLJC,VLJC,FFLJO,VLJO
 
 def computeCoulomb( Rs, Qs, FFel=None , Vpot=False ):
-	FFel,Vel = perpareArrays( FFel, Vpot )
+	FFel,Vel = prepareArrays( FFel, Vpot )
 	#core.setFF( gridF=FFel, gridE=Vel )
 	core.getCoulombFF ( Rs, Qs * PPU.CoulombConst )
 	return FFel, Vel
@@ -117,8 +126,10 @@ def relaxedScan3D( xTips, yTips, zTips ):
 	ntips = len(zTips); 
 	print " zTips : ",zTips
 	rTips = np.zeros((ntips,3))
-	rs    = np.zeros((ntips,3))
-	fs    = np.zeros((ntips,3))
+	rCs    = np.zeros((ntips,3))
+	rOs    = np.zeros((ntips,3))
+	fCs    = np.zeros((ntips,3))
+	fOs    = np.zeros((ntips,3))
 	rTips[:,0] = 1.0
 	rTips[:,1] = 1.0
 	rTips[:,2] = zTips[::-1]  
@@ -133,17 +144,17 @@ def relaxedScan3D( xTips, yTips, zTips ):
 		rTips[:,0] = x
 		for iy,y in enumerate( yTips  ):
 			rTips[:,1] = y
-			itrav = core.relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
-			fzs[:,iy,ix] = (fs[:,2].copy()) [::-1]
-			PPpos[:,iy,ix,0] = rs[::-1,0] # - rTips[:,0]
-			PPpos[:,iy,ix,1] = rs[::-1,1] # - rTips[:,1]
-			PPpos[:,iy,ix,2] = rs[::-1,2] # - rTips[:,2]
+			itrav = core.relaxTipStroke( rTips, rCs, rOs, fCs, fOs) / float( len(zTips) )
+			fzs[:,iy,ix] = ((fCs+fOs)[:,2].copy()) [::-1]
+			PPpos[:,iy,ix,0] = rOs[::-1,0] # - rTips[:,0]
+			PPpos[:,iy,ix,1] = rOs[::-1,1] # - rTips[:,1]
+			PPpos[:,iy,ix,2] = rOs[::-1,2] # - rTips[:,2]
         print ""
 	return fzs,PPpos
 
 def computeLJFF(iZs, Rs, FFparams, Fmax=None, computeVpot=False, Vmax=None):
     print "--- Compute Lennard-Jones Force-filed ---"
-    FFLJ, VLJ=computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams,   # This function computes the LJ forces experienced 
+    FFLJC,VLJC,FFLJO,VLJO=computeLJ( Rs, iZs, FFLJC=None, FFLJO=None, FFparams=FFparams,   # This function computes the LJ forces experienced 
                             Vpot=computeVpot)                        # by the ProbeParticle
     if Fmax is not  None:
         print "Limit vector field"
@@ -152,7 +163,7 @@ def computeLJFF(iZs, Rs, FFparams, Fmax=None, computeVpot=False, Vmax=None):
         # direction; good for the visualization 
     if  Vmax != None and VLJ != None:
     	VLJ[ VLJ > Vmax ] =  Vmax # remove too large values
-    return FFLJ,VLJ
+    return FFLJC,VLJC,FFLJO,VLJO
 
 
 def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
@@ -175,7 +186,7 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
 
 
 
-def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None):
+def perform_relaxation (lvec,FFLJC,FFelC=None,FFLJO=None,FFelO=None,FFboltz=None,tipspline=None):
     if tipspline is not None :
         try:
             print " loading tip spline from "+tipspline
@@ -187,23 +198,31 @@ def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None):
         except:
             print "cannot load tip spline from "+tipspline
             sys.exit()
-    core.setFF( FFLJ )
-    FF=None
+    core.setFFC( FFLJC )
+    core.setFFO( FFLJO )
+    FFC=None
+    FFO=None
     xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
-    FF = FFLJ.copy()
-    if ( FFel is not None):
-        FF += FFel * PPU.params['charge']
-        print "adding charge:", PPU.params['charge']
-    if FFboltz != None :
-        FF += FFboltz
-#    GU.save_vec_field( 'FF', FF, lvec)
-    core.setFF_Fpointer( FF )
-    print "stiffness:", PPU.params['klat']
-    core.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
+    FFC = FFLJC.copy()
+    FFO = FFLJO.copy()
+    if ( FFelC is not None):
+        FFC += FFelC * PPU.params['Ccharge']
+        print "adding charge:", PPU.params['Ccharge']
+    if ( FFelO is not None):
+        FFO += FFelO * PPU.params['Ocharge']
+        print "adding charge:", PPU.params['Ocharge']
+    core.setFFC_Fpointer( FFC )
+    core.setFFO_Fpointer( FFO )
+    print "stiffness:", PPU.params['Cklat']
+    print "stiffness:", PPU.params['Oklat']
+    core.setTip( CkSpring =
+    np.array((PPU.params['Cklat'],PPU.params['Cklat'],0.0))/-PPU.eVA_Nm,
+    OkSpring =
+    np.array((PPU.params['Oklat'],PPU.params['Oklat'],0.0))/-PPU.eVA_Nm )
     fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )
     PPdisp=PPpos.copy()
-    init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
-    PPdisp-=init_pos
+#    init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
+#    PPdisp-=init_pos
     return fzs,PPpos,PPdisp,lvecScan
 
 

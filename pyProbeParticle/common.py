@@ -18,13 +18,18 @@ params={
 'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
 'gridC':       np.array( [      0,        0,      5.0 ] ),
 'moleculeShift':  np.array( [  0.0,      0.0,    0.0 ] ),
-'probeType':   '8',
-'charge':      0.00,
+'Catom':   '6',
+'Oatom':   '8',
+'Ccharge':      0.00,
+'Ocharge':      0.00,
 'useLJ':True,
-'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
+'rC0'  :  np.array( [ 0.00, 0.00, 1.85] ),
+'rO0'  :  np.array( [ 0.00, 0.00, 1.15] ),
 'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
-'klat': 0.5,
-'krad': 20.00,
+'Cklat': 5.0,
+'Oklat': 5.0,
+'Ckrad': 20.00,
+'Okrad': 20.00,
 'tip':'s',
 'sigma':1.0,
 'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
@@ -113,7 +118,7 @@ def loadParams( fname,FFparams=None ):
 
 
         try:
-                params['probeType'] = int(params['probeType'])
+                params['Catom'] = int(params['Catom'])
         except:
                 if FFparams is None:
                     raise ValueError("if the ProbeParticle type is defined as "
@@ -123,10 +128,25 @@ def loadParams( fname,FFparams=None ):
                 for i,ff in enumerate(FFparams):
                         elem_dict[ff[3]] = i+1
                 try:
-                        params['probeType']=elem_dict[params['probeType']]
+                        params['Catom']=elem_dict[params['Catom']]
                 except:
                         raise ValueError("The element {} for the ProbeParticle "
-                        "was not found".format(params['probeType']))
+                        "was not found".format(params['Catom']))
+        try:
+                params['Oatom'] = int(params['Catom'])
+        except:
+                if FFparams is None:
+                    raise ValueError("if the ProbeParticle type is defined as "
+                    "string, you have to provide parameter FFparams to the "
+                    "loadParams function")
+                elem_dict={}
+                for i,ff in enumerate(FFparams):
+                        elem_dict[ff[3]] = i+1
+                try:
+                        params['Oatom']=elem_dict[params['Oatom']]
+                except:
+                        raise ValueError("The element {} for the ProbeParticle "
+                        "was not found".format(params['Oatom']))
 def apply_options(opt=None):
         print "In apply options:"
         print opt
@@ -236,9 +256,9 @@ def prepareScanGrids( ):
 	yTips  = np.arange( params['scanMin'][1], params['scanMax'][1]+0.00001, params['scanStep'][1] )
 	extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
 	lvecScan =np.array([
-	[(params['scanMin'] + params['r0Probe'])[0],
-	 (params['scanMin'] + params['r0Probe'])[1],
-	 (params['scanMin'] - params['r0Probe'])[2] ] ,
+	[(params['scanMin'] + params['rC0']+params['rO0'])[0],
+	 (params['scanMin'] + params['rC0']+params['rO0'])[1],
+	 (params['scanMin'] - params['rC0']-params['rO0'])[2] ] ,
 	[        (params['scanMax']-params['scanMin'])[0],0.0,0.0],
 	[0.0,    (params['scanMax']-params['scanMin'])[1],0.0    ],
 	[0.0,0.0,(params['scanMax']-params['scanMin'])[2]        ]

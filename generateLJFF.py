@@ -65,8 +65,10 @@ if __name__=="__main__":
     #         [xn,yn,zn]]
     # Qs  - 1D array, containing the atomic charges
     #FFLJ,VLJ=computeLJFF(iZs,Rs,FFparams,Fmax=10.0,computeVpot=options.energy,Vmax=10.0)
-    FFLJ,VLJ=PPH.computeLJFF(iZs,Rs,FFparams)
+    FFLJC,VLJC,FFLJO,VLJO=PPH.computeLJFF(iZs,Rs,FFparams)
     print "--- Save  ---"
-    GU.save_vec_field( 'FFLJ', FFLJ, lvec,data_format=options.data_format)
+    GU.save_vec_field( 'FFLJC', FFLJC, lvec,data_format=options.data_format)
+    GU.save_vec_field( 'FFLJO', FFLJO, lvec,data_format=options.data_format)
     if options.energy :
-        GU.save_scal_field( 'VLJ', VLJ, lvec,data_format=options.data_format)
+        GU.save_scal_field( 'VLJC', VLJC, lvec,data_format=options.data_format)
+        GU.save_scal_field( 'VLJO', VLJO, lvec,data_format=options.data_format)

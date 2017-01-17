@@ -51,31 +51,49 @@ def setFF_Pointer( grid ):
 '''
 
 # void .setFF_shape( int * n, double * step  )
-lib.setFF_shape.argtypes = [array1i,array2d]
-lib.setFF_shape.restype  = None
-def setFF_shape( n_, cell ):
+lib.setFFC_shape.argtypes = [array1i,array2d]
+lib.setFFC_shape.restype  = None
+def setFFC_shape( n_, cell ):
 	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
-	lib.setFF_shape( n, cell )
+	lib.setFFC_shape( n, cell )
+lib.setFFO_shape.argtypes = [array1i,array2d]
+lib.setFFO_shape.restype  = None
+def setFFO_shape( n_, cell ):
+	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
+	lib.setFFO_shape( n, cell )
 
-# void setFF_pointer( double * gridF, double * gridE  )
-lib.setFF_Fpointer.argtypes = [array4d]
-lib.setFF_Fpointer.restype  = None
-def setFF_Fpointer( gridF ):
-	lib.setFF_Fpointer( gridF )
+# void setFFC_pointer( double * gridF, double * gridE  )
+lib.setFFC_Fpointer.argtypes = [array4d]
+lib.setFFC_Fpointer.restype  = None
+def setFFC_Fpointer( gridF ):
+	lib.setFFC_Fpointer( gridF )
+# void setFFO_pointer( double * gridF, double * gridE  )
+lib.setFFO_Fpointer.argtypes = [array4d]
+lib.setFFO_Fpointer.restype  = None
+def setFFO_Fpointer( gridF ):
+	lib.setFFO_Fpointer( gridF )
 
-# void setFF_pointer( double * gridF, double * gridE  )
-lib.setFF_Epointer.argtypes = [array3d]
-lib.setFF_Epointer.restype  = None
-def setFF_Epointer( gridE ):
-	lib.setFF_Epointer( gridE )
+# void setFFC_pointer( double * gridF, double * gridE  )
+lib.setFFC_Epointer.argtypes = [array3d]
+lib.setFFC_Epointer.restype  = None
+def setFFC_Epointer( gridE ):
+	lib.setFFC_Epointer( gridE )
 
-def setFF( gridF=None, cell=None, gridE=None ):
+# void setFFO_pointer( double * gridF, double * gridE  )
+lib.setFFO_Epointer.argtypes = [array3d]
+lib.setFFO_Epointer.restype  = None
+def setFFO_Epointer( gridE ):
+	lib.setFFO_Epointer( gridE )
+
+
+
+def setFFC( gridF=None, cell=None, gridE=None ):
 	n_ = None
 	if gridF is not None:
-		setFF_Fpointer( gridF )
+		setFFC_Fpointer( gridF )
 		n_    = np.shape(gridF)
 	if gridE is not None:
-		setFF_Epointer( gridE )
+		setFFC_Epointer( gridE )
 		n_    = np.shape(gridF)
 	if cell is None:
 		cell = np.array([
@@ -84,10 +102,28 @@ def setFF( gridF=None, cell=None, gridE=None ):
 		PPU.params['gridC'],
 		]).copy() 	
 	if n_ is not None:
-		setFF_shape( n_, cell )
+		setFFC_shape( n_, cell )
 	else:
-		"Warrning : setFF shape not set !!! "
+		"Warrning : setFFC shape not set !!! "
 
+def setFFO( gridF=None, cell=None, gridE=None ):
+	n_ = None
+	if gridF is not None:
+		setFFO_Fpointer( gridF )
+		n_    = np.shape(gridF)
+	if gridE is not None:
+		setFFO_Epointer( gridE )
+		n_    = np.shape(gridF)
+	if cell is None:
+		cell = np.array([
+		PPU.params['gridA'],
+		PPU.params['gridB'],
+		PPU.params['gridC'],
+		]).copy() 	
+	if n_ is not None:
+		setFFO_shape( n_, cell )
+	else:
+		"Warrning : setFFC shape not set !!! "
 
 #void setRelax( int maxIters, double convF2, double dt, double damping )
 lib.setRelax.argtypes = [ c_int, c_double, c_double, c_double ]
@@ -103,23 +139,38 @@ def setFIRE( finc = 1.1, fdec = 0.5, falpha  = 0.99 ):
 
 
 #void setTip( double lRad, double kRad, double * rPP0, double * kSpring )
-lib.setTip.argtypes = [ c_double, c_double, array1d, array1d ]
+#void setTip( double TClRad, double COlRad, double TCkRad, double COkRad, double * rC0, double *rO0, double * CkSpring, double * OkSpring ){  
+lib.setTip.argtypes = [ c_double, c_double, c_double, c_double, array1d, array1d, array1d, array1d  ]
 lib.setTip.restype  = None
-def setTip( lRadial=None, kRadial=None, rPP0=None, kSpring=None	):
-	if lRadial is None:
-		lRadial=PPU.params['r0Probe'][2]
-	if kRadial is  None:
-		kRadial=PPU.params['krad']/-PPU.eVA_Nm
-	if rPP0 is  None:
-		rPP0=np.array((PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],0.0))
-	if kSpring is  None: 
-		kSpring=np.array((PPU.params['klat'],PPU.params['klat'][1],0.0))/-PPU.eVA_Nm 
+def setTip(ClRadial=None, OlRadial=None, CkRadial=None, OkRadial=None,
+           rC0=None, rO0=None, CkSpring=None, OkSpring=None):
+	if ClRadial is None:
+		ClRadial=PPU.params['rC0'][2]
+	if OlRadial is None:
+		OlRadial=PPU.params['rO0'][2]
+	if CkRadial is  None:
+		CkRadial=PPU.params['Ckrad']/-PPU.eVA_Nm
+	if OkRadial is  None:
+		OkRadial=PPU.params['Okrad']/-PPU.eVA_Nm
+	if rC0 is  None:
+		rC0=np.array((PPU.params['rC0'][0],PPU.params['rC0'][1],0.0))
+	if rO0 is  None:
+		rO0=np.array((PPU.params['rO0'][0],PPU.params['rO0'][1],0.0))
+	if CkSpring is  None: 
+		CkSpring=np.array((PPU.params['Cklat'],PPU.params['Cklat'][1],0.0))/-PPU.eVA_Nm 
+	if OkSpring is  None: 
+		OkSpring=np.array((PPU.params['Oklat'],PPU.params['Oklat'][1],0.0))/-PPU.eVA_Nm 
 	print " IN setTip !!!!!!!!!!!!!! "
-	print " lRadial ", lRadial
-	print " kRadial ", kRadial
-	print " rPP0 ", rPP0
-	print " kSpring ", kSpring
-	lib.setTip( lRadial, kRadial, rPP0, kSpring )
+	print " ClRadial ", ClRadial
+	print " OlRadial ", OlRadial
+	print " CkRadial ", CkRadial
+	print " ORadial ", OkRadial
+	print " rC0 ", rC0
+	print " rO0 ", rO0
+	print " CkSpring ", CkSpring
+	print " OkSpring ", OkSpring
+	lib.setTip(ClRadial,OlRadial, CkRadial, OkRadial, rC0,rO0,
+                   CkSpring, OkSpring )
 
 #void setTipSpline( int n, double * xs, double * ydys ){  
 lib.setTipSpline.argtypes = [ c_int, array1d, array2d ]
@@ -129,25 +180,37 @@ def setTipSpline( xs, ydys	):
 	lib.setTipSpline( n, xs, ydys )
 
 # void getClassicalFF       (    int natom,   double * Rs_, double * C6, double * C12 )
-lib.getLenardJonesFF.argtypes  = [ c_int,       array2d,      array1d,     array1d     ]
-lib.getLenardJonesFF.restype   = None
-def getLenardJonesFF( Rs, C6, C12 ):
+lib.getCLenardJonesFF.argtypes  = [ c_int,       array2d,      array1d,     array1d     ]
+lib.getCLenardJonesFF.restype   = None
+def getCLenardJonesFF( Rs, C6, C12 ):
 	natom = len(Rs) 
-	lib.getLenardJonesFF( natom, Rs, C6, C12 )
-
-# void getCoulombFF       (    int natom,   double * Rs_, double * C6, double * C12 )
-lib.getCoulombFF.argtypes  = [ c_int,       array2d,      array1d   ]
-lib.getCoulombFF.restype   = None
-def getCoulombFF( Rs, kQQs ):
+	lib.getCLenardJonesFF( natom, Rs, C6, C12 )
+lib.getOLenardJonesFF.argtypes  = [ c_int,       array2d,      array1d,     array1d     ]
+lib.getOLenardJonesFF.restype   = None
+def getOLenardJonesFF( Rs, C6, C12 ):
 	natom = len(Rs) 
-	lib.getCoulombFF( natom, Rs, kQQs )
+	lib.getOLenardJonesFF( natom, Rs, C6, C12 )
 
-# int relaxTipStroke ( int probeStart, int nstep, double * rTips_, double * rs_, double * fs_ )
-lib.relaxTipStroke.argtypes  = [ c_int, c_int, c_int,  array2d, array2d, array2d ]
+# void getCCoulombFF       (    int natom,   double * Rs_, double * C6, double * C12 )
+lib.getCCoulombFF.argtypes  = [ c_int,       array2d,      array1d   ]
+lib.getCCoulombFF.restype   = None
+def getCCoulombFF( Rs, kQQs ):
+	natom = len(Rs) 
+	lib.getCCoulombFF( natom, Rs, kQQs )
+# void getOCoulombFF       (    int natom,   double * Rs_, double * C6, double * C12 )
+lib.getOCoulombFF.argtypes  = [ c_int,       array2d,      array1d   ]
+lib.getOCoulombFF.restype   = None
+def getOCoulombFF( Rs, kQQs ):
+	natom = len(Rs) 
+	lib.getOCoulombFF( natom, Rs, kQQs )
+
+#int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rC_,  double * rO_, double * fC_ , double *fO_){
+lib.relaxTipStroke.argtypes  = [ c_int, c_int, c_int,  array2d, array2d,
+        array2d, array2d, array2d ]
 lib.relaxTipStroke.restype   = c_int
-def relaxTipStroke( rTips, rs, fs, probeStart=1, relaxAlg=1 ):
+def relaxTipStroke( rTips, rCs, rOs, fCs, fOs, probeStart=1, relaxAlg=1 ):
 	n = len(rTips) 
-	return lib.relaxTipStroke( probeStart, relaxAlg, n, rTips, rs, fs )
+	return lib.relaxTipStroke( probeStart, relaxAlg, n, rTips, rCs, rOs, fCs,fOs )
 
 # void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ )
 lib.subsample_uniform_spline.argtypes  = [ c_double, c_double, c_int, array2d, c_int, array1d, array1d ]
@@ -170,13 +233,13 @@ def subsample_nonuniform_spline( xs, ydys, xs_, ys_=None ):
 		ys_ = np.zeros(m)
 	lib.subsample_nonuniform_spline( n, xs, ydys, m, xs_, ys_ );
 	return ys_;
-
+#
 # void test_force( int type, int n, double * r0_, double * dr_, double * R_, double * fs_ ){
-lib.test_force.argtypes  = [ c_int, c_int, array1d, array1d, array1d, array2d ]
-lib.test_force.restype   = None
-def test_force( typ, r0, dr, R, fs ):
-	n = len( fs )
-	lib.test_force( typ, n, r0, dr, R, fs );
-	return fs;
+#lib.test_force.argtypes  = [ c_int, c_int, array1d, array1d, array1d, array2d ]
+#lib.test_force.restype   = None
+#def test_force( typ, r0, dr, R, fs ):
+#	n = len( fs )
+#	lib.test_force( typ, n, r0, dr, R, fs );
+#	return fs;
 
 
