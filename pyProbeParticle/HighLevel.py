@@ -186,7 +186,7 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
 
 
 
-def perform_relaxation (lvec,FFLJC,FFelC=None,FFLJO=None,FFelO=None,FFboltz=None,tipspline=None):
+def perform_relaxation (lvec,FFLJC,FFLJO=None,FFel=None,FFboltz=None,tipspline=None):
     if tipspline is not None :
         try:
             print " loading tip spline from "+tipspline
@@ -205,16 +205,15 @@ def perform_relaxation (lvec,FFLJC,FFelC=None,FFLJO=None,FFelO=None,FFboltz=None
     xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
     FFC = FFLJC.copy()
     FFO = FFLJO.copy()
-    if ( FFelC is not None):
-        FFC += FFelC * PPU.params['Ccharge']
-        print "adding charge:", PPU.params['Ccharge']
-    if ( FFelO is not None):
-        FFO += FFelO * PPU.params['Ocharge']
-        print "adding charge:", PPU.params['Ocharge']
+    if ( FFel is not None):
+        FFC += FFel * PPU.params['Ccharge']
+        print "adding C charge:", PPU.params['Ccharge']
+        FFO += FFel * PPU.params['Ocharge']
+        print "adding O charge:", PPU.params['Ocharge']
     core.setFFC_Fpointer( FFC )
     core.setFFO_Fpointer( FFO )
-    print "stiffness:", PPU.params['Cklat']
-    print "stiffness:", PPU.params['Oklat']
+    print "C stiffness:", PPU.params['Cklat']
+    print "O stiffness:", PPU.params['Oklat']
     core.setTip( CkSpring =
     np.array((PPU.params['Cklat'],PPU.params['Cklat'],0.0))/-PPU.eVA_Nm,
     OkSpring =

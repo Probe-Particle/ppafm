@@ -72,6 +72,7 @@ PPU.params['gridA'] = lvec[1]
 PPU.params['gridB'] = lvec[2]
 PPU.params['gridC'] = lvec[3]
 V, lvec_bak, nDim_bak, head = GU.loadCUBE("hartree.cube")
+FFel=PPH.computeElFF(V,lvec_bak,nDim_bak,PPU.params['tip'])
 loaded_forces=np.loadtxt("frc_tip.txt",
                          converters={0:pm2a,1:pm2a,2:pm2a},
                          skiprows=2, usecols=(0,1,2,5))
@@ -115,16 +116,24 @@ def set_fit_dict(opt=None):
                 constr+=constr_tmp
                 for val in value:
                     fit_dict['atom'].append(list(val))
-            elif (key is "charge"):
-                constr.append((-0.5,0.5))
+            elif (key is "Ccharge"):
+                constr.append((-1,1))
+                fit_dict[key]=opt[key]
+                x.append(opt[key])
+            elif (key is "Ocharge"):
+                constr.append((-1,1))
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
             elif (key is "sigma"):
-                constr.append((0.01,2))
+                constr.append((0.001,3))
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
-            elif (key is "klat"):
-                constr.append( (0.01,2) )
+            elif (key is "Cklat"):
+                constr.append( (1,20) )
+                fit_dict[key]=opt[key]
+                x.append(opt[key])
+            elif (key is "Oklat"):
+                constr.append( (1,20) )
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
             elif (key is "krad"):
@@ -160,10 +169,9 @@ def comp_msd(x=[]):
                                 # current values
     update_atoms(atms=fit_dict['atom'])
     print FFparams
-    FFLJ,VLJ=PPH.computeLJFF(iZs,Rs,FFparams)
-    FFel=PPH.computeElFF(V,lvec_bak,nDim_bak,PPU.params['tip'])
+    FFLJC,VLJC,FFLJO,VLJO=PPH.computeLJFF(iZs,Rs,FFparams)
     FFboltz=None
-    fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec,FFLJ, FFel,FFboltz,tipspline=None)
+    fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec,FFLJC,FFLJO,FFel,FFboltz,tipspline=None)
     Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
     rmsd=np.sum((loaded_forces[:,3]-Fzlist*1.60217733e3)**2) /len(Fzlist)
     with open ("iteration.txt", "a") as myfile:
@@ -172,13 +180,20 @@ def comp_msd(x=[]):
 
 if __name__=="__main__":
     parser = OptionParser()
-    parser.add_option( "-q","--charge", action="store", type="float", help="fit tip charge ", default=None)
+    parser.add_option( "--Ccharge", action="store", type="float", help="fit "
+    "Carbon charge ", default=None)
+    parser.add_option( "--Ocharge", action="store", type="float", help="fit "
+    "Oxygen charge ", default=None)
     parser.add_option( "-s","--sigma", action="store", type="float", help="Fit "
     "the gaussian width of the charge distribution", default=None)
-    parser.add_option( "-k","--klat", action="store", type="float", help="Fit "
-    "the lateral stiffness of the PP", default=None)
-    parser.add_option( "--krad", action="store", type="float", help="Fit "
-    "the radial stiffness of the PP", default=None)
+    parser.add_option( "--Cklat", action="store", type="float", help="Fit "
+    "the lateral stiffness of the Carbon atom", default=None)
+    parser.add_option( "--Oklat", action="store", type="float", help="Fit "
+    "the lateral stiffness of the Oxygen atom", default=None)
+    parser.add_option( "--Ckrad", action="store", type="float", help="Fit "
+    "the radial stiffness of the Carbon atom", default=None)
+    parser.add_option( "--Okrad", action="store", type="float", help="Fit "
+    "the radial stiffness of the Oxygen atom", default=None)
     parser.add_option( "-a","--atom", action="append", type="string",help="Fit "
     "the LJ parameters of the given atom", default=None, nargs=3)
     parser.add_option( "--nobounds", action="store_true",

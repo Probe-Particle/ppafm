@@ -73,14 +73,14 @@ if opt_dict['krange'] is not None:
 elif opt_dict['k'] is not None:
 	Ks = [ opt_dict['k'] ]
 else:
-	Ks = [ PPU.params['klat'] ]
+	Ks = [ PPU.params['Oklat'] ]
 # Qs
 if opt_dict['qrange'] is not None:
 	Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
 elif opt_dict['q'] is not None:
 	Qs = [ opt_dict['q'] ]
 else:
-	Qs = [ PPU.params['charge'] ]
+	Qs = [ PPU.params['Ocharge'] ]
 # Amps
 if opt_dict['arange'] is not None:
 	Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], opt_dict['arange'][2] )
