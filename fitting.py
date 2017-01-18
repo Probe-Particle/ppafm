@@ -165,9 +165,13 @@ def comp_msd(x=[]):
     FFboltz=None
     fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec,FFLJ, FFel,FFboltz,tipspline=None)
     Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
-    rmsd=np.sum((loaded_forces[:,3]-Fzlist*1.60217733e3)**2) /len(Fzlist)
+    dev_arr=np.abs(loaded_forces[:,3]-Fzlist*1.60217733e3)
+    max_dev=np.max(dev_arr)
+    min_dev=np.min(dev_arr)
+    rmsd=np.sum(dev_arr**2) /len(Fzlist)
     with open ("iteration.txt", "a") as myfile:
-        myfile.write( "iteration {}: {} rmsd: {}\n".format(iteration, x, rmsd))
+        myfile.write( "iteration {}: {} rmsd: {} max dev: {} min dev: "
+        "{}\n".format(iteration, x, rmsd, max_dev, min_dev))
     return rmsd
 
 if __name__=="__main__":
