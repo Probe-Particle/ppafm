@@ -7,6 +7,7 @@
 #include "spline_hermite.h"
 #include <string.h>
 #include <iostream>
+#include <fstream>
 // ================= MACROS
 
 #define fast_floor( x )    ( ((int)(x+1000))-1000 )
@@ -264,19 +265,32 @@ inline void getCforce( const Vec3d& rTip, const Vec3d& rC, Vec3d& fC ){
 	fC.add_mul( drTC, TIP::CkSpring );      // spring force                                // force from tip - lateral bending force
 }
 
-inline void getOforce( const Vec3d& rC, const Vec3d& rO, Vec3d& fO ){
-	Vec3d rGrid,drCO; 
+inline void getCOforce( const Vec3d& rTip, const Vec3d& rC, Vec3d& fC, const Vec3d& rO, Vec3d& fO ){
+	Vec3d rCGrid, rOGrid, drTC,drTCnorm,drCO,posO0; 
+    Vec3d test;
 	//rGrid.set_mul(r, FF::invStep );                                                     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled (     orthogonal cell )
-	rGrid.set( rO.dot( FFC::diCell.a ), rO.dot( FFC::diCell.b ), rO.dot( FFC::diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
+	rCGrid.set( rC.dot( FFC::diCell.a ), rC.dot( FFC::diCell.b ), rC.dot( FFC::diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
+	rOGrid.set( rO.dot( FFC::diCell.a ), rO.dot( FFC::diCell.b ), rO.dot( FFC::diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
+	drTC.set_sub( rC, rTip );                                                             // vector between tip apex and Carbon atom
 	drCO.set_sub( rO, rC );                                                             // vector between Carbon and Oxygen
-	fO.set    ( interpolate3DvecWrap( FFO::gridF, FFO::n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
+	fC.set    ( interpolate3DvecWrap( FFC::gridF, FFC::n, rCGrid ) );                          // force from surface, interpolated from Force-Field data array
+	fO.set    ( interpolate3DvecWrap( FFO::gridF, FFO::n, rOGrid ) );                          // force from surface, interpolated from Force-Field data array
 	if( TIP::rff_xs ){
+		fC.add( forceRSpline( drTC, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
 		fO.add( forceRSpline( drCO, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
 	}else{		
+		fC.add( forceRSpring( drTC, TIP::TCkRadial, TIP::TClRadial ) );                       // force from tip - radial component harmonic		
 		fO.add( forceRSpring( drCO, TIP::COkRadial, TIP::COlRadial ) );                       // force from tip - radial component harmonic		
-	}		
-	drCO.sub( TIP::rC0 );
+		fC.add( forceRSpring( drCO, -TIP::COkRadial, TIP::COlRadial ) );                       // force from tip - radial component harmonic		
+	}
+    drTCnorm=drTC;
+    drTCnorm.normalize();
+    posO0.set_sub(drTCnorm*drCO.norm(),TIP::rO0);               //be aware - z component of posO0 here is meaningless. But it does not matter since to compute the lateral force only x and y components are required
+	drTC.sub( TIP::rC0 );
+	fC.add_mul( drTC, TIP::CkSpring );      // spring force                                // force from tip - lateral bending force
+	drCO.sub( posO0 );
 	fO.add_mul( drCO, TIP::OkSpring );      // spring force                                // force from tip - lateral bending force
+	fC.sub_mul( drCO, TIP::OkSpring );      // spring force                                // force from tip - lateral bending force
 }
 
 // relax probe particle position "r" given on particular position of tip (rTip) and initial position "r" 
@@ -286,8 +300,8 @@ int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& rC, Vec3d& rO ){
 	//printf( " alg %i r  %f %f %f  rTip  %f %f %f \n", relaxAlg, r.x,r.y,r.z,  rTip.x, rTip.y, rTip.z );
 	for( iter=0; iter<RELAX::maxIters; iter++ ){
 		Vec3d fC, fO;  
-        getCforce( rTip, rC, fC );
-        getOforce( rC, rO, fO );
+//        getCforce( rTip, rC, fC, rO);
+        getCOforce( rTip, rC, fC, rO, fO );
 		if( relaxAlg == 1 ){                                                                  // move by either damped-leap-frog ( 0 ) or by FIRE ( 1 )
 			FIRE::move( fC, rC, vC );
 			FIRE::move( fO, rO, vO );
@@ -571,9 +585,20 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
 		// relax Probe Particle postion
 //        std::cout << "Relax CO" << std::endl;
 //	    std::cout << " rTip0: "<<rTip.x<<" "<<rTip.y<<" "<<rTip.z<<" rC0: "<<rC.x<<" "<<rC.y<<" "<<rC.z<<" rO0: "<<rO.x<<" "<<" "<<rO.y<<" "<<rO.z<<std::endl;
+
 		int itr = relaxProbe( relaxAlg, rTip, rC, rO );
+
+        std::ofstream myfile;
+        myfile.open("tipCO.xyz",std::ios::app);
+        myfile <<3<<std::endl<<std::endl;
+        myfile <<"Cu "<<rTip.x<<" "<<rTip.y<<" "<<rTip.z<<std::endl;
+        myfile <<"C "<<rC.x<<" "<<rC.y<<" "<<rC.z<<std::endl;
+        myfile <<"O "<<rO.x<<" "<<" "<<rO.y<<" "<<rO.z<<std::endl;
+        myfile.close();
+
 //        std::cout<< "CO relaxed"<<std::endl;
 //	    std::cout << " rTip0: "<<rTip.x<<" "<<rTip.y<<" "<<rTip.z<<" rC0: "<<rC.x<<" "<<rC.y<<" "<<rC.z<<" rO0: "<<rO.x<<" "<<" "<<rO.y<<" "<<rO.z<<std::endl;
+
 //        std::cout << "Niter: "<< itr << std::endl;
 		if( itr>RELAX::maxIters ){
 			printf( " not converged in %i iterations \n", RELAX::maxIters );

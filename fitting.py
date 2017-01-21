@@ -129,11 +129,11 @@ def set_fit_dict(opt=None):
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
             elif (key is "Cklat"):
-                constr.append( (1,20) )
+                constr.append( (0.1,20) )
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
             elif (key is "Oklat"):
-                constr.append( (1,20) )
+                constr.append( (0.1,20) )
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
             elif (key is "krad"):

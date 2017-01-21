@@ -41,6 +41,7 @@ class Vec3TYPE{
 	inline void set_div( const VEC& a, const VEC& b ){ x=a.x/b.x; y=a.y/b.y; z=a.z/b.z; };
 
 	inline void add_mul( const VEC& a, TYPE f                  ){ x+=a.x*f;     y+=a.y*f;     z+=a.z*f;   };
+	inline void sub_mul( const VEC& a, TYPE f                  ){ x-=a.x*f;     y-=a.y*f;     z-=a.z*f;   };
 	inline void add_mul( const VEC& a, const VEC& b          ){ x+=a.x*b.x;   y+=a.y*b.y;   z+=a.z*b.z; };
 	inline void sub_mul( const VEC& a, const VEC& b          ){ x-=a.x*b.x;   y-=a.y*b.y;   z-=a.z*b.z; };
 	inline void add_mul( const VEC& a, const VEC& b, TYPE f  ){ x+=a.x*b.x*f; y+=a.y*b.y*f; z+=a.z*b.z*f;   };
