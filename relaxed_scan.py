@@ -38,9 +38,9 @@ if __name__=="__main__":
     print opt_dict
     charged_system=False
     KC =  PPU.params['Cklat']
+    QC =  PPU.params['Ccharge'] 
     KO =  PPU.params['Oklat']
-    QC =  PPU.params['Ocharge'] 
-    QO =  PPU.params['Ccharge'] 
+    QO =  PPU.params['Ocharge'] 
     if (abs(QC)>1e-5):
         charged_system=True
     FFLJC, FFel, FFboltzC=None,None,None 
@@ -49,18 +49,19 @@ if __name__=="__main__":
     if ( charged_system == True):
         print " load Electrostatic Force-field "
         FFel, lvec, nDim = GU.load_vec_field( "FFel" ,data_format=options.data_format)
+        FFelTip, lvec, nDim = GU.load_vec_field( "FFelTip" ,data_format=options.data_format)
     print " load Lenard-Jones Force-field "
     FFLJC, lvec, nDim = GU.load_vec_field( "FFLJC" , data_format=options.data_format)
     FFLJO, lvec, nDim = GU.load_vec_field( "FFLJO" , data_format=options.data_format)
     PPU.lvec2params( lvec )
 
 
-    dirname = "Q%1.2fK%1.2f" %(QC,KC)
+    dirname = "Q%1.2fK%1.2f" %(QO,KO)
     print " relaxed_scan for ", dirname
     if not os.path.exists( dirname ):
     	os.makedirs( dirname )
     fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJC,
-    FFLJO,FFel,None,options.tipspline)
+    FFLJO,FFel,FFTip=FFelTip[:,:,:,2].copy(),FFboltz=None,tipspline=options.tipspline)
     GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan,
                         data_format=options.data_format )
     if opt_dict['disp']:

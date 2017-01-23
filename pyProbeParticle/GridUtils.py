@@ -21,6 +21,7 @@ lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )
 # define used numpy array types for interfacing with C++
 
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
+array1i64 = np.ctypeslib.ndpointer(dtype=np.int64,ndim=1, flags='CONTIGUOUS')
 array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
 array2d = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
 array3d = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
@@ -63,8 +64,8 @@ lib.interpolate_cartesian.argtypes  = [ c_int, array4d, array3d, array3d  ]
 lib.interpolate_cartesian.restype   = None
 #interpolate_cartesian               = lib.interpolate_cartesian
 
-#	void setGridCell( double * cell )
-lib.setGridCell.argtypes  = [array2d]
+#	void setGridCell( int *, double * cell )
+lib.setGridCell.argtypes  = [array1i, array2d]
 lib.setGridCell.restype   = None
 setGridCell = lib.setGridCell
 	
@@ -92,11 +93,11 @@ def interpolateQuad( F, p00, p01, p10, p11, sz=(500,500) ):
 	return result
 
 def interpolate_cartesian( F, pos, cell=None, result=None ):
+        gridCell=np.array(F.shape, dtype='int32' )[::-1].copy()
 	if cell is not None:
-		#print np.array(F.shape)
-		setGridCell( cell )
-	nDim = np.array(pos.shape)
-	print nDim
+		print gridCell
+		setGridCell( gridCell, cell )
+	nDim = np.array(pos.shape,dtype='int32')
 	if result is None:
 		result = np.zeros( (nDim[0],nDim[1],nDim[2]) )
 	n  = nDim[0]*nDim[1]*nDim[2]

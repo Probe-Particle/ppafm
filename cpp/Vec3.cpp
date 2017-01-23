@@ -20,8 +20,9 @@ class Vec3TYPE{
 	// ===== methods
 	inline void set( TYPE f                    ) { x=f;   y=f;   z=f;   };
     inline void set( TYPE fx, TYPE fy, TYPE fz ) { x=fx;  y=fy;  z=fz;  };
-    inline void set( const VEC& v            ) { x=v.x; y=v.y; z=v.z; };
+    inline void set( const VEC& v              ) { x=v.x; y=v.y; z=v.z; };
 	inline void set( TYPE* arr                 ) {  x = arr[0]; y = arr[1]; z = arr[2]; };
+	inline void set( const TYPE* arr                 ) {  x = arr[0]; y = arr[1]; z = arr[2]; };
 
     inline void add( TYPE f ) { x+=f; y+=f; z+=f; };
     inline void mul( TYPE f ) { x*=f; y*=f; z*=f; };
@@ -40,11 +41,11 @@ class Vec3TYPE{
 	inline void set_mul( const VEC& a, const VEC& b ){ x=a.x*b.x; y=a.y*b.y; z=a.z*b.z; };
 	inline void set_div( const VEC& a, const VEC& b ){ x=a.x/b.x; y=a.y/b.y; z=a.z/b.z; };
 
-	inline void add_mul( const VEC& a, TYPE f                  ){ x+=a.x*f;     y+=a.y*f;     z+=a.z*f;   };
-	inline void sub_mul( const VEC& a, TYPE f                  ){ x-=a.x*f;     y-=a.y*f;     z-=a.z*f;   };
-	inline void add_mul( const VEC& a, const VEC& b          ){ x+=a.x*b.x;   y+=a.y*b.y;   z+=a.z*b.z; };
-	inline void sub_mul( const VEC& a, const VEC& b          ){ x-=a.x*b.x;   y-=a.y*b.y;   z-=a.z*b.z; };
-	inline void add_mul( const VEC& a, const VEC& b, TYPE f  ){ x+=a.x*b.x*f; y+=a.y*b.y*f; z+=a.z*b.z*f;   };
+	inline void add_mul( const VEC& a, TYPE f                  ){ x+=a.x*f;     y+=a.y*f;     z+=a.z*f;       };
+	inline void sub_mul( const VEC& a, TYPE f                  ){ x-=a.x*f;     y-=a.y*f;     z-=a.z*f;       };
+	inline void add_mul( const VEC& a, const VEC& b            ){ x+=a.x*b.x;   y+=a.y*b.y;   z+=a.z*b.z;     };
+	inline void sub_mul( const VEC& a, const VEC& b            ){ x-=a.x*b.x;   y-=a.y*b.y;   z-=a.z*b.z;     };
+	inline void add_mul( const VEC& a, const VEC& b, TYPE f    ){ x+=a.x*b.x*f; y+=a.y*b.y*f; z+=a.z*b.z*f;   };
 
 	inline void set_add_mul( const VEC& a, const VEC& b, TYPE f ){ x= a.x + f*b.x;     y= a.y + f*b.y;     z= a.z + f*b.z;  };
 

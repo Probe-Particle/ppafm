@@ -7,6 +7,7 @@ import GridUtils as GU
 #import fieldFFT
 import fieldFFT       as fFFT
 import common as PPU
+from scipy.interpolate import RegularGridInterpolator
 
 import core
 import cpp_utils
@@ -166,7 +167,7 @@ def computeLJFF(iZs, Rs, FFparams, Fmax=None, computeVpot=False, Vmax=None):
     return FFLJC,VLJC,FFLJO,VLJO
 
 
-def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
+def computeElFF(V,lvec,nDim,tip,sigma,Fmax=None,computeVpot=False,Vmax=None):
     print " ========= get electrostatic forcefiled from hartree "
     rho = None
     multipole = None
@@ -179,14 +180,23 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
             sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")    
     print " computing convolution with tip by FFT "
     Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, 
-    sigma=PPU.params['sigma'], multipole = multipole)
+    sigma=sigma, multipole = multipole)
     FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
     del Fel_x,Fel_y,Fel_z
     return FFel
 
 
+def getZTipForce(xTips, yTips, zTips, FFtipZ):
+    scangrid=np.array(np.meshgrid(xTips, yTips,
+                      zTips)).transpose([3,1,2,0]).copy()
+    cell=np.array([PPU.params['gridA'],PPU.params['gridB'],PPU.params['gridC']]).copy()
+    FtipRes=GU.interpolate_cartesian(FFtipZ,scangrid,cell)
 
-def perform_relaxation (lvec,FFLJC,FFLJO=None,FFel=None,FFboltz=None,tipspline=None):
+    return FtipRes
+
+
+
+def perform_relaxation (lvec,FFLJC,FFLJO=None,FFel=None,FFTip=None,FFboltz=None,tipspline=None):
     if tipspline is not None :
         try:
             print " loading tip spline from "+tipspline
@@ -218,7 +228,17 @@ def perform_relaxation (lvec,FFLJC,FFLJO=None,FFel=None,FFboltz=None,tipspline=N
     np.array((PPU.params['Cklat'],PPU.params['Cklat'],0.0))/-PPU.eVA_Nm,
     OkSpring =
     np.array((PPU.params['Oklat'],PPU.params['Oklat'],0.0))/-PPU.eVA_Nm )
+
+
     fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )
+    if FFTip is not None:
+        print "Adding the metallic tip vertical force"
+        fztip = getZTipForce(xTips, yTips, zTips, FFTip)
+        fzs+=fztip.copy()
+#        import matplotlib.pyplot as plt
+#        plt.imshow(fzs[0])
+#        plt.show()
+        print "Finished with adding the metallic tip vertical force"
     PPdisp=PPpos.copy()
 #    init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
 #    PPdisp-=init_pos

@@ -25,8 +25,16 @@ class GridShape {
 	Mat3d   diCell;     // inversion of voxel basis vector
 	Vec3i   n;          // number of pixels along each basis vector
 
-	inline void setCell( const Mat3d& cell_ ){
-		//n.set( n_ );
+	inline void setCell(const int *n_, const double * cell_tmp ){
+		n.set(n_ );
+        Mat3d cell_ ;
+        cell_.xx = cell_tmp[0]; cell_.xy = cell_tmp[1]; cell_.xz = cell_tmp[2];
+        cell_.yx = cell_tmp[3]; cell_.yy = cell_tmp[4]; cell_.yz = cell_tmp[5];
+        cell_.zx = cell_tmp[6]; cell_.zy = cell_tmp[7]; cell_.zz = cell_tmp[8];
+        std::cout<<"Na:"<<n.a<<std::endl;
+        std::cout<<"Nb:"<<n.b<<std::endl;
+        std::cout<<"Nc:"<<n.c<<std::endl;
+
 		cell.set( cell_ ); 
 		dCell.a.set_mul( cell.a, 1.0d/n.a );
 		dCell.b.set_mul( cell.b, 1.0d/n.b );
@@ -44,8 +52,8 @@ class GridShape {
 
 	inline void cartesian2grid( const Vec3d& cpos, Vec3d& gpos ){
 		gpos.x = cpos.dot( diCell.a );
-		gpos.x = cpos.dot( diCell.b );
-		gpos.x = cpos.dot( diCell.c );
+		gpos.y = cpos.dot( diCell.b );
+		gpos.z = cpos.dot( diCell.c );
 	};
 
 };
