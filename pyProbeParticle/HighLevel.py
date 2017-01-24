@@ -233,6 +233,7 @@ def perform_relaxation (lvec,FFLJC,FFLJO=None,FFel=None,FFTip=None,FFboltz=None,
     fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )
     if FFTip is not None:
         print "Adding the metallic tip vertical force"
+        FFTip*=PPU.params['tipcharge']
         fztip = getZTipForce(xTips, yTips, zTips, FFTip)
         fzs+=fztip.copy()
 #        import matplotlib.pyplot as plt

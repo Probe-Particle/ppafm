@@ -278,6 +278,9 @@ inline void getCOforce( const Vec3d& rTip, const Vec3d& rC, Vec3d& fC, const Vec
 	if( TIP::rff_xs ){
 		fC.add( forceRSpline( drTC, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
 		fO.add( forceRSpline( drCO, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
+        std::cerr<<"Spline was not tested with the two-points PP model, Exit!\n"<<std::endl;
+        return ;
+		fC.add( forceRSpline( drTC, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
 	}else{		
 		fC.add( forceRSpring( drTC, TIP::TCkRadial, TIP::TClRadial ) );                       // force from tip - radial component harmonic		
 		fO.add( forceRSpring( drCO, TIP::COkRadial, TIP::COlRadial ) );                       // force from tip - radial component harmonic		
@@ -285,12 +288,12 @@ inline void getCOforce( const Vec3d& rTip, const Vec3d& rC, Vec3d& fC, const Vec
 	}
     drTCnorm=drTC;
     drTCnorm.normalize();
-    posO0.set_sub(drTCnorm*drCO.norm(),TIP::rO0);               //be aware - z component of posO0 here is meaningless. But it does not matter since to compute the lateral force only x and y components are required
+    posO0.set_sub(drTCnorm*drCO.norm(),TIP::rO0);         
 	drTC.sub( TIP::rC0 );
 	fC.add_mul( drTC, TIP::CkSpring );      // spring force                                // force from tip - lateral bending force
 	drCO.sub( posO0 );
 	fO.add_mul( drCO, TIP::OkSpring );      // spring force                                // force from tip - lateral bending force
-	fC.sub_mul( drCO, TIP::OkSpring );      // spring force                                // force from tip - lateral bending force
+	fC.sub_mul( drCO, TIP::OkSpring*(drCO.norm()/drTC.norm()+1.) );         // The lateral contibution to the force acting from the Oxygen to Carbon
 }
 
 // relax probe particle position "r" given on particular position of tip (rTip) and initial position "r" 
@@ -439,7 +442,10 @@ void getCLenardJonesFF( int natom, double * Rs_, double * C6, double * C12 ){
 	int nxy = ny * nx;
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	for ( int ia=0; ia<nx; ia++ ){ 
-		printf( " ia %i \n", ia );
+	//	printf( " ia %i \n", ia );
+        std::cout << "ia " << ia;
+        std::cout.flush();
+        std::cout << '\r';
 
 		for ( int ib=0; ib<ny; ib++ ){ 
 			for ( int ic=0; ic<nz; ic++ ){
@@ -467,7 +473,10 @@ void getOLenardJonesFF( int natom, double * Rs_, double * C6, double * C12 ){
 	int nxy = ny * nx;
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	for ( int ia=0; ia<nx; ia++ ){ 
-		printf( " ia %i \n", ia );
+	//	printf( " ia %i \n", ia );
+        std::cout << "ia " << ia;
+        std::cout.flush();
+        std::cout << '\r';
 
 		for ( int ib=0; ib<ny; ib++ ){ 
 			for ( int ic=0; ic<nz; ic++ ){
@@ -499,7 +508,10 @@ void getCCoulombFF( int natom, double * Rs_, double * kQQs ){
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	//for ( int i=0; i<natom; i++ ){ 		printf( " atom %i   q=  %f \n", i, kQQs[i] );	}
 	for ( int ia=0; ia<nx; ia++ ){ 
-		printf( " ia %i \n", ia );  
+//		printf( " ia %i \n", ia );  
+        std::cout << "ia " << ia;
+        std::cout.flush();
+        std::cout << '\r';
 		for ( int ib=0; ib<ny; ib++ ){
 			for ( int ic=0; ic<nz; ic++ ){
 				Vec3d f; double E;
@@ -527,7 +539,10 @@ void getOCoulombFF( int natom, double * Rs_, double * kQQs ){
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	//for ( int i=0; i<natom; i++ ){ 		printf( " atom %i   q=  %f \n", i, kQQs[i] );	}
 	for ( int ia=0; ia<nx; ia++ ){ 
-		printf( " ia %i \n", ia );  
+	//	printf( " ia %i \n", ia );  
+        std::cout << "ia " << ia;
+        std::cout.flush();
+        std::cout << '\r';
 		for ( int ib=0; ib<ny; ib++ ){
 			for ( int ic=0; ic<nz; ic++ ){
 				Vec3d f; double E;
