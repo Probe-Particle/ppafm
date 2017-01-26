@@ -53,9 +53,9 @@ print "opt_dict: "
 print opt_dict
 
 if options.npy:
-    format ="npy"
+    data_format ="npy"
 else:
-    format ="xsf"
+    data_format ="xsf"
 
 # =============== Setup
 
@@ -132,16 +132,16 @@ for iq,Q in enumerate( Qs ):
 		dirname = "Q%1.2fK%1.2f" %(Q,K)
 		if opt_dict['pos']:
 			try:
-				PPpos, lvec, nDim = GU.load_vec_field( dirname+'/PPpos' ,format=format)
+				PPpos, lvec, nDim = GU.load_vec_field( dirname+'/PPpos' ,data_format=data_format)
 				print " plotting PPpos : "
 				PPPlot.plotDistortions( dirname+"/xy"+atoms_str+cbar_str, PPpos[:,:,:,0], PPpos[:,:,:,1], slices = range( 0, len(PPpos) ), BG=PPpos[:,:,:,2], extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, markersize=2.0, cbar=opt_dict['cbar'] )
 				del PPpos
 			except:
 				print "error: ", sys.exc_info()
-				print "cannot load : " + ( dirname+'/PPpos_?.' + format ) 
+				print "cannot load : " + ( dirname+'/PPpos_?.' + data_format ) 
 		if opt_dict['iets'] is not None:
 			#try:
-				eigvalK, lvec, nDim = GU.load_vec_field( dirname+'/eigvalKs' ,format=format)
+				eigvalK, lvec, nDim = GU.load_vec_field( dirname+'/eigvalKs' ,data_format=data_format)
 				M  = opt_dict['iets'][0]
 				E0 = opt_dict['iets'][1]
 				w  = opt_dict['iets'][2]
@@ -157,10 +157,10 @@ for iq,Q in enumerate( Qs ):
 				del eigvalK; del Evib; del IETS
 			#except:
 			#	print "error: ", sys.exc_info()
-			#	print "cannot load : " + ( dirname+'/eigvalKs_?.' + format ) 
+			#	print "cannot load : " + ( dirname+'/eigvalKs_?.' + data_format ) 
 		if ( ( opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM'] ) ):
 			try :
-				fzs, lvec, nDim = GU.load_scal_field( dirname+'/OutFz' , format=format)
+				fzs, lvec, nDim = GU.load_scal_field( dirname+'/OutFz' , data_format=data_format)
 				for iA,Amp in enumerate( Amps ):
 					AmpStr = "/Amp%2.2f" %Amp
 					print "Amp= ",AmpStr
@@ -169,7 +169,7 @@ for iq,Q in enumerate( Qs ):
 						os.makedirs( dirNameAmp )
 					dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
 					if opt_dict['save_df']:
-						GU.save_scal_field( dirNameAmp+'/df', dfs, lvec, format=format )
+						GU.save_scal_field( dirNameAmp+'/df', dfs, lvec, data_format=data_format )
 					if opt_dict['df']:
 						print " plotting df : "
 						PPPlot.plotImages(
@@ -183,10 +183,10 @@ for iq,Q in enumerate( Qs ):
 				del fzs
 			except:
 				print "error: ", sys.exc_info()
-				print "cannot load : ", dirname+'/OutFz.'+format
+				print "cannot load : ", dirname+'/OutFz.'+data_format
 		if opt_dict['bI']:
 			try:
-				I, lvec, nDim = GU.load_scal_field( dirname+'/OutI_boltzmann', format=format )
+				I, lvec, nDim = GU.load_scal_field( dirname+'/OutI_boltzmann', data_format=data_format )
 				print " plotting Boltzmann current: "
 				PPPlot.plotImages(
                                                 dirname+"/OutI"+atoms_str+cbar_str,
@@ -195,7 +195,7 @@ for iq,Q in enumerate( Qs ):
 				del I
 			except:
 				print "error: ", sys.exc_info()
-				print "cannot load : " + ( dirname+'/OutI_boltzmann.'+format ) 
+				print "cannot load : " + ( dirname+'/OutI_boltzmann.'+data_format ) 
 		
 print " ***** ALL DONE ***** "
 

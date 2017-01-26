@@ -17,7 +17,7 @@ import pyProbeParticle.cpp_utils      as cpp_utils
 HELP_MSG="""Use this program in the following way:
 %s -i <filename> 
 
-Supported file fromats are:
+Supported file formats are:
    * xyz 
 """ %os.path.basename(main.__file__)
 
@@ -35,9 +35,9 @@ opt_dict = vars(options)
     
 print options
 if options.npy:
-    format ="npy"
+    data_format ="npy"
 else:
-    format ="xsf"
+    data_format ="xsf"
 
 if options.input==None:
     sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
@@ -114,17 +114,17 @@ GU.limit_vec_field( FFLJ, Fmax=10.0 ) # remove too large valuesl; keeps the same
 
 
 print "--- Save  ---"
-GU.save_vec_field( 'FFLJ', FFLJ, lvec,format=format)
+GU.save_vec_field( 'FFLJ', FFLJ, lvec,data_format=data_format)
 if options.energy :
 	Vmax = 10.0; VLJ[ VLJ>Vmax ] = Vmax
-	GU.save_scal_field( 'VLJ', VLJ, lvec,format=format)
+	GU.save_scal_field( 'VLJ', VLJ, lvec,data_format=data_format)
 
 
 if opt_dict["charge"]:
     print "Electrostatic Field from xyzq file"
     FFel, VeL = PPH.computeCoulomb( Rs, Qs, FFel=None, Vpot=options.energy  )
     print "--- Save ---"
-    GU.save_vec_field('FFel', FFel, lvec, format=format)
+    GU.save_vec_field('FFel', FFel, lvec, data_format=data_format)
     if options.energy :
 	Vmax = 10.0; Vel[ Vel>Vmax ] = Vmax
-	GU.save_scal_field( 'Vel.xsf', Vel, lvec, format=format)
+	GU.save_scal_field( 'Vel', Vel, lvec, data_format=data_format)

@@ -39,9 +39,9 @@ parser.add_option( "--npy" , action="store_true" ,  help="load and save fields i
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
 if options.npy:
-    format ="npy"
+    data_format ="npy"
 else:
-    format ="xsf"
+    data_format ="xsf"
 
 # =============== Setup
 
@@ -100,14 +100,14 @@ print " ============= RUN  "
 #PPPlot.params = PPU.params 			# now we dont use PPPlot here
 if ( charged_system == True):
         print " load Electrostatic Force-field "
-        FFel, lvec, nDim = GU.load_vec_field( "FFel" ,format=format)
+        FFel, lvec, nDim = GU.load_vec_field( "FFel" ,data_format=data_format)
 
 if (options.boltzmann  or options.bI) :
         print " load Boltzmann Force-field "
-        FFboltz, lvec, nDim = GU.load_vec_field( "FFboltz", format=format)
+        FFboltz, lvec, nDim = GU.load_vec_field( "FFboltz", data_format=data_format)
 
 print " load Lenard-Jones Force-field "
-FFLJ, lvec, nDim = GU.load_vec_field( "FFLJ" , format=format)
+FFLJ, lvec, nDim = GU.load_vec_field( "FFLJ" , data_format=data_format)
 PPU.lvec2params( lvec )
 PPC.setFF( FFLJ )
 
@@ -128,26 +128,26 @@ for iq,Q in enumerate( Qs ):
 			os.makedirs( dirname )
 		PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
 		Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
-		GU.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, format=format )
+		GU.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )
 		if opt_dict['vib'] >= 0:
 			which = opt_dict['vib']
 			print " === computing eigenvectors of dynamical matix which=%i ddisp=%f" %(which,PPU.params['ddisp'])
 			evals,evecs = PPC.stiffnessMatrix( rTips.reshape((-1,3)), rPPs.reshape((-1,3)), which=which, ddisp=PPU.params['ddisp'] )
-			GU.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, format=format )
-			if which > 0: GU.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, format=format )
-			if which > 1: GU.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, format=format )
-			if which > 2: GU.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, format=format )
+			GU.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, data_format=data_format )
+			if which > 0: GU.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=data_format )
+			if which > 1: GU.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=data_format )
+			if which > 2: GU.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=data_format )
 		#print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
 		if opt_dict['disp']:
-			GU.save_vec_field( dirname+'/PPdisp', rPPs-rTips+PPU.params['r0Probe'][0], lvecScan, format=format )
+			GU.save_vec_field( dirname+'/PPdisp', rPPs-rTips+PPU.params['r0Probe'][0], lvecScan, data_format=data_format )
 		if opt_dict['pos']:
-			GU.save_vec_field( dirname+'/PPpos', rPPs, lvecScan, format=format )
+			GU.save_vec_field( dirname+'/PPpos', rPPs, lvecScan, data_format=data_format )
 		if options.bI:
 			print "Calculating current from tip to the Boltzmann particle:"
-			I_in, lvec, nDim = GU.load_scal_field('I_boltzmann', format=format)
+			I_in, lvec, nDim = GU.load_scal_field('I_boltzmann', data_format=data_format)
 			I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None ) 
 			del I_in;
-			GU.save_scal_field( dirname+'/OutI_boltzmann', I_out, lvecScan, format=format)
+			GU.save_scal_field( dirname+'/OutI_boltzmann', I_out, lvecScan, data_format=data_format)
 		# the rest is done in plot_results.py; For df, go to plot_results.py
 
 print " ***** ALL DONE ***** "

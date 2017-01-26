@@ -16,7 +16,7 @@ import pyProbeParticle.fieldFFT       as fFFT
 HELP_MSG="""Use this program in the following way:
 """+os.path.basename(main.__file__) +""" -i <filename> [ --sigma <value> ]
 
-Supported file fromats are:
+Supported file formats are:
    * cube
    * xsf """
 
@@ -31,9 +31,9 @@ parser.add_option( "--npy" , action="store_true" ,  help="load and save fields i
 
 print options
 if options.npy:
-    format ="npy"
+    data_format ="npy"
 else:
-    format ="xsf"
+    data_format ="xsf"
 
 if options.input==None:
     sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
@@ -70,6 +70,6 @@ Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma = option
 FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
 
 print " saving electrostatic forcefiled "
-GU.save_vec_field("FFel",FFel,lvec,format=format)
+GU.save_vec_field("FFel",FFel,lvec,data_format=data_format)
 
 del Fel_x,Fel_y,Fel_z,V, FFel;

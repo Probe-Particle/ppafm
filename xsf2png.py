@@ -18,11 +18,11 @@ parser.add_option( "--npy" , action="store_true" ,  help="load and save fields i
 (options, args) = parser.parse_args()
 
 if options.npy:
-    format ="npy"
+    data_format ="npy"
 else:
-    format ="xsf"
+    data_format ="xsf"
 
-dfs,lvec,nDim=GU.load_scal_field('df',format=format)
+dfs,lvec,nDim=GU.load_scal_field('df',data_format=data_format)
 #print lvec
 #print nDim
 

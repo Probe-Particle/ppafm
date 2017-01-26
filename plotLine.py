@@ -75,9 +75,9 @@ parser.add_option( "--npy" , action="store_true" ,  help="load and save fields i
 opt_dict = vars(options)
 print options
 if options.npy:
-    format ="npy"
+    data_format ="npy"
 else:
-    format ="xsf"
+    data_format ="xsf"
 
 if options.points==[]:
     sys.exit(HELP_MSG)
@@ -132,7 +132,7 @@ for iq,Q in enumerate( Qs ):
 
                 print "Working in {} directory".format(dirname)
 
-                fzs,lvec,nDim=GU.load_scal_field(dirname+'/OutFz',format=format)
+                fzs,lvec,nDim=GU.load_scal_field(dirname+'/OutFz',data_format=data_format)
                 dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
 #                print "TYT", fzs.shape
 

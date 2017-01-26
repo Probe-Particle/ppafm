@@ -177,30 +177,33 @@ BEGIN_BLOCK_DATAGRID_3D
 def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
 	fileout = open(fname, 'w')
 	for line in head:
-		fileout.write(line)
+	    fileout.write(line)
 	nDim = np.shape(data)
-	writeArr (fileout, (nDim[2],nDim[1],nDim[0]) )
+	writeArr (fileout, (nDim[2]+1,nDim[1]+1,nDim[0]+1) )
 	writeArr2D(fileout,lvec)
-	for r in data.flat:
-		fileout.write( "%10.5e\n" % r )
+	data2 = np.zeros(np.array(nDim)+1);   # These crazy 3 lines are here since the first and the last cube
+	data2[:-1,:-1,:-1] = data;  # in XSF in every direction is the same
+	data2[-1,:,:]=data2[0,:,:];data2[:,-1,:]=data2[:,0,:];data2[:,:,-1]=data2[:,:,0];
+	for r in data2.flat:
+	    fileout.write( "%10.5e\n" % r )
 	fileout.write ("   END_DATAGRID_3D\n")
 	fileout.write ("END_BLOCK_DATAGRID_3D\n")
 
 def loadXSF(fname):
 	filein = open(fname )
-        startline, head = readUpTo(filein, "DATAGRID_3D_")              # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
+	startline, head = readUpTo(filein, "DATAGRID_3D_")              # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
 	nDim = [ int(iii) for iii in filein.readline().split() ]        # reading 1 line with dimensions
 	nDim.reverse()
 	nDim = np.array( nDim)
 	lvec = readmat(filein, 4)                                       # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
 	filein.close()
-        print nDim
+	print "nDim xsf (= nDim + [1,1,1] ):", nDim
 	print "GridUtils| Load "+fname+" using readNumsUpTo "    
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(), startline+5)
-
-        print "GridUtils| Done"
+	
+	print "GridUtils| Done"
 	FF = np.reshape (F, nDim )
-	return FF,lvec, nDim, head
+	return FF[:-1,:-1,:-1],lvec, nDim-1, head
 
 def getFromHead_PRIMCOORD( head ): 
 	Zs = None; Rs = None;
@@ -250,6 +253,7 @@ def loadCUBE(fname):
 	head.append("BEGIN_BLOCK_DATAGRID_3D \n")
 	head.append("g98_3D_unknown \n")
 	head.append("DATAGRID_3D_g98Cube \n")
+        FF*=27.211396132
 	return FF,lvec, nDim, head
 #================ WSxM output
 
@@ -340,25 +344,25 @@ def limit_vec_field( FF, Fmax=100.0 ):
 	FF[:,:,:,1].flat[mask] *= Fmax/FR[mask] 
 	FF[:,:,:,2].flat[mask] *= Fmax/FR[mask]
 
-def save_vec_field(fname, data, lvec, format="xsf"):
+def save_vec_field(fname, data, lvec, data_format="xsf"):
 	'''
 	Saving scalar fields into xsf, or npy
 	'''
-	if (format=="xsf"):
+	if (data_format=="xsf"):
 		saveVecFieldXsf(fname, data, lvec)
-	elif (format=="npy"):
+	elif (data_format=="npy"):
 		saveVecFieldNpy(fname, data, lvec)
 	else:
 		print "I cannot save this format!"
 
 
-def load_vec_field(fname, format="xsf"):
+def load_vec_field(fname, data_format="xsf"):
 	'''
 	Loading Vector fields into xsf, or npy
 	'''
-	if (format=="xsf"):
+	if (data_format=="xsf"):
 		data, lvec, ndim, head =loadVecFieldXsf(fname)
-	elif (format=="npy"):
+	elif (data_format=="npy"):
 		data, lvec = loadVecFieldNpy(fname)
 		ndim = np.delete(data.shape,3)
 	else:
@@ -368,25 +372,25 @@ def load_vec_field(fname, format="xsf"):
 
 # =============== Scalar Fields
 
-def save_scal_field(fname, data, lvec, format="xsf"):
+def save_scal_field(fname, data, lvec, data_format="xsf"):
 	'''
 	Saving scalar fields into xsf, or npy
 	'''
-	if (format=="xsf"):
+	if (data_format=="xsf"):
 		saveXSF(fname+".xsf", data, lvec)
-	elif (format=="npy"):
+	elif (data_format=="npy"):
 		saveNpy(fname, data, lvec)
 	else:
 		print "I cannot save this format!"
 
 
-def load_scal_field(fname, format="xsf"):
+def load_scal_field(fname, data_format="xsf"):
 	'''
 	Loading scalar fields into xsf, or npy
 	'''
-	if (format=="xsf"):
+	if (data_format=="xsf"):
 		data, lvec, ndim, head =loadXSF(fname+".xsf")
-	elif (format=="npy"):
+	elif (data_format=="npy"):
 		data, lvec = loadNpy(fname)
 		ndim = data.shape
 	else:

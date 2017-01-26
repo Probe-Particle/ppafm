@@ -24,11 +24,11 @@ except:
 	sys.exit()
 
 if options.npy:
-    format ="npy"
+    data_format ="npy"
 else:
-    format ="xsf"
+    data_format ="xsf"
 
-fzs,lvec,nDim=GU.load_scal_field(options.i,format=format)
+fzs,lvec,nDim=GU.load_scal_field(options.i,data_format=data_format)
 #xs = lvec[3,2]/*np.array( range(nDim[0]) )
 xs = np.linspace( 0, lvec[3,2], nDim[0] )
 
