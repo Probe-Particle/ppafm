@@ -67,6 +67,7 @@ def loadAtoms( name ):
 				print " skipped line : ", line
 	f.close()
 	return [ e,x,y,z,q ]
+
 def loadXSFGeom( fname ):
 	f = open(fname )
 	e=[];x=[];y=[]; z=[]; q=[]
@@ -85,7 +86,8 @@ def loadXSFGeom( fname ):
 	for j in range(4):
 		ws = f.readline().split(); lvec.append( [float(ws[0]),float(ws[1]),float(ws[2])] )
 	f.close()
-	print "nDim", nDim
+	print "nDim+1", nDim
+	nDim = np.array(nDim)-1
 	print "lvec", lvec
 	print "e,x,y,z", e,x,y,z
 	return [ e,x,y,z,q ], nDim, lvec
