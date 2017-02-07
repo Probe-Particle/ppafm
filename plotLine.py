@@ -78,8 +78,8 @@ gridC=PPU.params['gridC'][2]
 
 MAX=[gridA, gridB, gridC]
 
-K=PPU.params['klat']
-Q=PPU.params['charge']
+K=PPU.params['Oklat']
+Q=PPU.params['Ocharge']
 dirname = "Q%1.2fK%1.2f" %(Q,K)
 
 print "Working in {} directory".format(dirname)

@@ -65,16 +65,21 @@ def plotImages(
 	for ii,i in enumerate(slices):
 		print " plotting ", i
 		plt.figure( figsize=figsize )
-		plt.imshow( F[i], origin='image', interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax )
-		if cbar:
-			plt.colorbar();
-		plotGeom( atoms, bonds, atomSize=atomSize )
-		plt.xlabel(r' Tip_x $\AA$')
-		plt.ylabel(r' Tip_y $\AA$')
+		plt.imshow( F[i], origin='lower', interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax )
 		if zs is None:
 			plt.title( r"iz = %i" %i  )
 		else:
 			plt.title( r"Tip_z = %2.2f $\AA$" %zs[i]  )
+		plt.xlabel(r' Tip_x $\AA$')
+		plt.ylabel(r' Tip_y $\AA$')
+		if cbar:
+                        from mpl_toolkits.axes_grid1 import make_axes_locatable
+                        import math
+                        divider = make_axes_locatable(plt.gca())
+                        cax = divider.append_axes("right", "5%", pad="2%")
+                        clrbar=plt.colorbar(cax=cax);
+		        clrbar.set_label('$\Delta$f [Hz]', labelpad=0)#, rotation=360)
+		plotGeom( atoms, bonds, atomSize=atomSize )
 		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
 		plt.close()
 

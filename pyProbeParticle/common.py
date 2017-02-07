@@ -99,7 +99,10 @@ def loadParams( fname,FFparams=None ):
 					params[key] = int( words[1] )
 					print key, params[key], words[1]
 				elif isinstance( val, str ):
-					params[key] = words[1]
+                                        if words[1] == "None":
+                                            params[key]=None
+                                        else:
+					    params[key] = words[1]
 					print key, params[key], words[1]
 				elif isinstance(val, np.ndarray ):
 					if val.dtype == np.float:

@@ -208,6 +208,24 @@ class Mat3TYPE{
         Mout.zz = xx * yy - xy * yx;
     };
 
+
+   	inline void fromDirUp( const VEC&  dir, const VEC&  up ){
+		// c will become a new z vector. Same as dir, but normalized:
+		// c=dirr/|dir|
+		// b will become a new y vector. perpendicular to dir, but in the same plane as dir and up
+		// b=up-<up|c>*c/|c|, since |c|=1, then b=up-<up|c>*c, 
+		// b=b/|b|
+		// a will become a new x vector, perpendicular to both c and b 
+		// a=(c x b)/|a|;
+		c.set(dir);
+		c.normalize(); 
+		b.set(up);
+		b.add_mul( c, -b.dot(c) );   // 
+		b.normalize();
+		a.set_cross(b,c);
+		a.normalize();
+		};
+
 };
 
 class Mat3i : public Mat3TYPE< int     , Vec3i, Mat3i >{};

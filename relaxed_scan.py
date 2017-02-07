@@ -44,12 +44,13 @@ if __name__=="__main__":
     if (abs(QC)>1e-5):
         charged_system=True
     FFLJC, FFel, FFboltzC=None,None,None 
-    FFLJO, FFboltzO=None,None 
+    FFLJO, FFelTip,FFboltzO=None,None,None 
     #PPPlot.params = PPU.params 			# now we dont use PPPlot here
     if ( charged_system == True):
         print " load Electrostatic Force-field "
         FFel, lvec, nDim = GU.load_vec_field( "FFel" ,data_format=options.data_format)
-        FFelTip, lvec, nDim = GU.load_vec_field( "FFelTip" ,data_format=options.data_format)
+        if PPU.params['tip'] is not None:
+            FFelTip, lvec, nDim = GU.load_vec_field( "FFelTip" ,data_format=options.data_format)
     print " load Lenard-Jones Force-field "
     FFLJC, lvec, nDim = GU.load_vec_field( "FFLJC" , data_format=options.data_format)
     FFLJO, lvec, nDim = GU.load_vec_field( "FFLJO" , data_format=options.data_format)
@@ -60,8 +61,14 @@ if __name__=="__main__":
     print " relaxed_scan for ", dirname
     if not os.path.exists( dirname ):
     	os.makedirs( dirname )
-    fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJC,
-    FFLJO,FFel,FFTip=FFelTip[:,:,:,2].copy(),FFboltz=None,tipspline=options.tipspline)
+    if PPU.params['tip'] is not None:
+        fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJC,
+        FFLJO,FFel,FFTip=FFelTip[:,:,:,2].copy(),FFboltz=None,tipspline=options.tipspline)
+    else:
+        fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJC,
+        FFLJO,FFel,FFTip=None,FFboltz=None,tipspline=options.tipspline)
+
+
     GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan,
                         data_format=options.data_format )
     if opt_dict['disp']:

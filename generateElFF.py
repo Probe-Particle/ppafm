@@ -67,11 +67,13 @@ if __name__=="__main__":
         sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
     
     FFel=PPH.computeElFF(V,lvec,nDim,'s',sigma=PPU.params['sigma'], Fmax=10.0,computeVpot=options.energy,Vmax=10)
-    FFelTip=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],sigma=PPU.params['tipsigma'],Fmax=10.0,computeVpot=options.energy,Vmax=10)
-   
     print " saving electrostatic forcefiled "
     GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format)
-    GU.save_vec_field('FFelTip',FFelTip,lvec,data_format=options.data_format)
+    if PPU.params['tip'] is not None:
+        print " saving tip electrostatic forcefiled "
+        FFelTip=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],sigma=PPU.params['tipsigma'],Fmax=10.0,computeVpot=options.energy,Vmax=10)
+        GU.save_vec_field('FFelTip',FFelTip,lvec,data_format=options.data_format)
+   
     if options.energy :
         GU.save_scal_field( 'Vel', V, lvec, data_format=options.data_format)
     del FFel,V;

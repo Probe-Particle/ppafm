@@ -35,14 +35,16 @@ namespace FFO {
 
 // Tip namespace 
 namespace TIP{
-	Vec3d   rC0;       // equilibirum bending position of the Carbon atom
-	Vec3d   rO0;       // equilibirum bending position of the Oxygen atom
+	Vec3d   rC0;         // equilibirum bending position of the Carbon atom
+	Vec3d   rO0;         // equilibirum bending position of the Oxygen atom
+	Vec3d   upVector;    // 
+	Vec3d   posO0local;  // equilibrium bending position of the Oxygen atom in local coordinates
 	Vec3d   CkSpring;    // bending stiffness ( z component usually zero )
 	Vec3d   OkSpring;    // bending stiffness ( z component usually zero )
-	double  TClRadial;    // radial tip-C distance
-	double  COlRadial;    // radial C-O distance
-	double  TCkRadial;    // radial tip-C stiffness
-	double  COkRadial;    // radial C-O stiffness
+	double  TClRadial;   // radial tip-C distance
+	double  COlRadial;   // radial C-O distance
+	double  TCkRadial;   // radial tip-C stiffness
+	double  COkRadial;   // radial C-O stiffness
 
 	// tip forcefiled spline
 	int      rff_n    = 0;
@@ -264,10 +266,32 @@ inline void getCforce( const Vec3d& rTip, const Vec3d& rC, Vec3d& fC ){
 	drTC.sub( TIP::rC0 );
 	fC.add_mul( drTC, TIP::CkSpring );      // spring force                                // force from tip - lateral bending force
 }
+inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& Up, const Vec3d& R0, const Vec3d& K ){
+	// dR - vector between actual PPpos and anchor point (in global coords)
+	// Fw - forward diraction of anchor coordinate system (previous bond direction; e.g. Tip->C for C->O) (in global coords)
+	// Up - Up vector --,,-- ; e.g. x axis (1,0,0), defines rotation of your tip (in global coords)
+    // R0 - equlibirum position of PP (in local coords)
+    // K  - stiffness (ka,kb,kc) along local coords
+	// return force (in global coords)
+	Mat3d rot; Vec3d dR_,f_,f;
+	rot.fromDirUp( Fw, Up );  // build orthonormal rotation matrix
+
+	rot.dot_to  ( dR, dR_   );              // transform dR to rotated coordinate system
+//	std::cout << ":"<<" dR "<<dR.x<<" "<<dR.y<<" "<<dR.z<<" rRnew: "<<dR_.x<<" "<<" "<<dR_.y<<" "<<dR_.z<<std::endl;
+//	std::cout << ":"<<" R0 "<<R0.x<<" "<<R0.y<<" "<<R0.z<<std::endl;
+	f_ .set_mul ( dR_-R0, K );              // spring force (in rotated system)
+    // here you can easily put also other forces - e.g. Torsion etc. 
+	rot.dot_to_T( f_, f );                 // transform force back to world system
+	return f;
+}
+
+
+
 
 inline void getCOforce( const Vec3d& rTip, const Vec3d& rC, Vec3d& fC, const Vec3d& rO, Vec3d& fO ){
 	Vec3d rCGrid, rOGrid, drTC,drTCnorm,drCO,posO0; 
-    Vec3d test;
+    Vec3d latOforce;
+//    std::cout << "Getting force"<<std::endl;
 	//rGrid.set_mul(r, FF::invStep );                                                     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled (     orthogonal cell )
 	rCGrid.set( rC.dot( FFC::diCell.a ), rC.dot( FFC::diCell.b ), rC.dot( FFC::diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
 	rOGrid.set( rO.dot( FFC::diCell.a ), rO.dot( FFC::diCell.b ), rO.dot( FFC::diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
@@ -275,6 +299,7 @@ inline void getCOforce( const Vec3d& rTip, const Vec3d& rC, Vec3d& fC, const Vec
 	drCO.set_sub( rO, rC );                                                             // vector between Carbon and Oxygen
 	fC.set    ( interpolate3DvecWrap( FFC::gridF, FFC::n, rCGrid ) );                          // force from surface, interpolated from Force-Field data array
 	fO.set    ( interpolate3DvecWrap( FFO::gridF, FFO::n, rOGrid ) );                          // force from surface, interpolated from Force-Field data array
+//	std::cout << "Grid force:"<<" rC0: "<<fC.x<<" "<<fC.y<<" "<<fC.z<<" rO0: "<<fO.x<<" "<<" "<<fO.y<<" "<<fO.z<<std::endl;
 	if( TIP::rff_xs ){
 		fC.add( forceRSpline( drTC, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
 		fO.add( forceRSpline( drCO, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
@@ -286,14 +311,36 @@ inline void getCOforce( const Vec3d& rTip, const Vec3d& rC, Vec3d& fC, const Vec
 		fO.add( forceRSpring( drCO, TIP::COkRadial, TIP::COlRadial ) );                       // force from tip - radial component harmonic		
 		fC.add( forceRSpring( drCO, -TIP::COkRadial, TIP::COlRadial ) );                       // force from tip - radial component harmonic		
 	}
+
+//	std::cout << "Grid force + rad force:"<<" rC0: "<<fC.x<<" "<<fC.y<<" "<<fC.z<<" rO0: "<<fO.x<<" "<<" "<<fO.y<<" "<<fO.z<<std::endl;
+    latOforce=forceSpringRotated( drCO , drTC,  TIP::upVector , TIP::posO0local, TIP::OkSpring );
+//	std::cout << "Lat O force"<<latOforce.x<<" "<<" "<<latOforce.y<<" "<<latOforce.z<<std::endl;
+	drTC.sub( TIP::rC0 );
+	fC.add_mul( drTC, TIP::CkSpring );        // force from tip - lateral bending force
+	fC.add_mul(latOforce, -1.0);
+	fO.add(latOforce);
+//	std::cout << "Grid force + rad force:+lat force"<<" rC0: "<<fC.x<<" "<<fC.y<<" "<<fC.z<<" rO0: "<<fO.x<<" "<<" "<<fO.y<<" "<<fO.z<<std::endl;
+//   exit(1);
+	// dR - vector between actual PPpos and anchor point (in global coords)
+	// Fw - forward diraction of anchor coordinate system (previous bond direction; e.g. Tip->C for C->O) (in global coords)
+	// Up - Up vector --,,-- ; e.g. x axis (1,0,0), defines rotation of your tip (in global coords)
+    // R0 - equlibirum position of PP (in local coords)
+    // K  - stiffness (ka,kb,kc) along local coords
+	// return force (in global coords)
+/*
     drTCnorm=drTC;
     drTCnorm.normalize();
     posO0.set_sub(drTCnorm*drCO.norm(),TIP::rO0);         
 	drTC.sub( TIP::rC0 );
+    std::cout << "drTCx:" << drTC.x<< "drTCy:" << drTC.y<< "drTCz:" << drTC.z<<std::endl;
 	fC.add_mul( drTC, TIP::CkSpring );      // spring force                                // force from tip - lateral bending force
 	drCO.sub( posO0 );
 	fO.add_mul( drCO, TIP::OkSpring );      // spring force                                // force from tip - lateral bending force
 	fC.sub_mul( drCO, TIP::OkSpring*(drCO.norm()/drTC.norm()+1.) );         // The lateral contibution to the force acting from the Oxygen to Carbon
+    std::cout << "drCO.norm()" << drCO.norm() << std::endl;
+    std::cout << "drTC.norm()" << drTC.norm() << std::endl;
+	std::cout << "Returning Lateral bend force:"<<" rC0: "<<fC.x<<" "<<fC.y<<" "<<fC.z<<" rO0: "<<fO.x<<" "<<" "<<fO.y<<" "<<fO.z<<std::endl;
+*/
 }
 
 // relax probe particle position "r" given on particular position of tip (rTip) and initial position "r" 
@@ -312,6 +359,8 @@ int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& rC, Vec3d& rO ){
 			RELAX::move( fC, rC, vC );
 			RELAX::move( fO, rO, vO );
 		}			
+	    //std::cout << "force:"<<" rC0: "<<fC.x<<" "<<fC.y<<" "<<fC.z<<" rO0: "<<fO.x<<" "<<" "<<fO.y<<" "<<fO.z<<std::endl;
+	    //std::cout << "MOVED:"<<" rTip0: "<<rTip.x<<" "<<rTip.y<<" "<<rTip.z<<" rC0: "<<rC.x<<" "<<rC.y<<" "<<rC.z<<" rO0: "<<rO.x<<" "<<" "<<rO.y<<" "<<rO.z<<std::endl;
 		//printf( "     %i r  %f %f %f  f  %f %f %f \n", iter, r.x,r.y,r.z,  f.x,f.y,f.z );
 		if( (fC.norm2() < RELAX::convF2 ) && (fO.norm2() < RELAX::convF2 )) break;                                                // check force convergence
 	}
@@ -414,6 +463,7 @@ void setFF( int * n, double * grid, double * cell ){
 
 // set parameters of the tip like stiffness and equlibirum position in radial and lateral direction
 void setTip( double TClRad, double COlRad, double TCkRad, double COkRad, double * rC0, double *rO0, double * CkSpring, double * OkSpring ){  
+	TIP::upVector.set(1.0,0.0,0.0);
 	TIP::TClRadial=TClRad; 
 	TIP::COlRadial=COlRad; 
 	TIP::TCkRadial=TCkRad;  
@@ -423,6 +473,9 @@ void setTip( double TClRad, double COlRad, double TCkRad, double COkRad, double 
 	TIP::CkSpring.set(CkSpring); 
 	TIP::OkSpring.set(OkSpring); 
 	TIP::makeConsistent();  // rC0 and rO0 to be consistent with  lRadial
+	Mat3d rot;
+	rot.fromDirUp(TIP::rC0, TIP::upVector);
+	rot.dot_to (TIP::rO0, TIP::posO0local);
 }
 
 // set parameters of the tip like stiffness and equlibirum position in radial and lateral direction
@@ -610,6 +663,7 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
         myfile <<"C "<<rC.x<<" "<<rC.y<<" "<<rC.z<<std::endl;
         myfile <<"O "<<rO.x<<" "<<" "<<rO.y<<" "<<rO.z<<std::endl;
         myfile.close();
+        //exit(1);
 
 //        std::cout<< "CO relaxed"<<std::endl;
 //	    std::cout << " rTip0: "<<rTip.x<<" "<<rTip.y<<" "<<rTip.z<<" rC0: "<<rC.x<<" "<<rC.y<<" "<<rC.z<<" rO0: "<<rO.x<<" "<<" "<<rO.y<<" "<<rO.z<<std::endl;
