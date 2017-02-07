@@ -222,7 +222,7 @@ class Mat3TYPE{
 		b.add_mul( c, -b.dot(c) );   // 
 		b.normalize();
 		a.set_cross(b,c);
-		a.normalize();
+		//a.normalize(); // we don't need this since b,c are orthonormal
 	}
 
 };
