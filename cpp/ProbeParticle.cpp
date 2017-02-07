@@ -133,6 +133,26 @@ Vec3d forceRSpline( const Vec3d& dR, int n, double * xs, double * ydys ){
 	return f;
 }
 
+inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& Up, const Vec3d& R0, const Vec3d& K ){
+	// dR - vector between actual PPpos and anchor point (in global coords)
+	// Fw - forward diraction of anchor coordinate system (previous bond direction; e.g. Tip->C for C->O) (in global coords)
+	// Up - Up vector --,,-- ; e.g. x axis (1,0,0), defines rotation of your tip (in global coords)
+    // R0 - equlibirum position of PP (in local coords)
+    // K  - stiffness (ka,kb,kc) along local coords
+	// return force (in global coords)
+	Mat3d rot; Vec3d dR_,f_,f;
+	rot.fromDirUp( Fw*(1/Fw.norm()), Up );  // build orthonormal rotation matrix
+	rot.dot_to  ( dR, dR_   );              // transform dR to rotated coordinate system
+	f_ .set_mul ( dR_-R0, K );              // spring force (in rotated system)
+    // here you can easily put also other forces - e.g. Torsion etc. 
+	rot.dot_to_T( dR_, f );                 // transform force back to world system
+	return f;
+}
+
+
+
+
+
 /*
 // Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
 inline Vec3d forceLJ( const Vec3d& dR, double c6, double c12 ){

@@ -110,6 +110,12 @@ class Mat3TYPE{
 		vout.z = xz*v.x + yz*v.y + zz*v.z;  
 	};
 
+
+
+
+
+
+
 // ====== matrix multiplication
 
 	inline void set_mmul( const MAT& A, const MAT& B ){
@@ -207,6 +213,17 @@ class Mat3TYPE{
         Mout.zy = xy * zx - xx * zy;
         Mout.zz = xx * yy - xy * yx;
     };
+
+	inline void fromDirUp( const VEC&  dir, const VEC&  up ){
+		// make orthonormal rotation matrix c=dir; b=(up-<b|c>c)/|b|; a=(c x b)/|a|;
+		c.set(dir);
+		//c.normalize(); // we assume dir is already normalized
+		b.set(up);
+		b.add_mul( c, -b.dot(c) );   // 
+		b.normalize();
+		a.set_cross(b,c);
+		a.normalize();
+	}
 
 };
 
