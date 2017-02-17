@@ -34,55 +34,18 @@ parser.add_option( "--npy" , action="store_true" ,  help="load and save fields i
 opt_dict = vars(options)
     
 print options
-if options.npy:
-    data_format ="npy"
-else:
-    data_format ="xsf"
+
+data_format ="npy" if options.npy else "xsf"
 
 if options.input==None:
     sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
 
-is_xyz  = options.input.lower().endswith(".xyz")
-is_cube = options.input.lower().endswith(".cube")
-is_xsf  = options.input.lower().endswith(".xsf")
-if not (is_xyz or is_cube or is_xsf ):
-    sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
-
-
 print " >> OVEWRITING SETTINGS by params.ini  "
 PPU.loadParams( 'params.ini' )
 
-
-lvec=np.zeros((4,3))
-
-lvec[ 1,:  ] =    PPU.params['gridA'].copy() 
-lvec[ 2,:  ] =    PPU.params['gridB'].copy()
-lvec[ 3,:  ] =    PPU.params['gridC'].copy()
-#PPU.params['gridN'] = nDim.copy()
-
 print "--- Compute Lennard-Jones Force-filed ---"
-if(is_xyz):
-	atoms = basUtils.loadAtoms(options.input)
-elif(is_cube):
-	atoms = basUtils.loadAtomsCUBE(options.input)
-	lvec  = basUtils.loadCellCUBE(options.input)
-	nDim  = basUtils.loadNCUBE(options.input)
-	PPU.params['gridN'] = nDim
-	PPU.params['gridA'] = lvec[1]
-	PPU.params['gridB'] = lvec[2]
-	PPU.params['gridC'] = lvec[3]
-elif(is_xsf):
-	atoms, nDim, lvec = basUtils.loadXSFGeom( options.input )
-	PPU.params['gridN'] = nDim
-	PPU.params['gridA'] = lvec[1]
-	PPU.params['gridB'] = lvec[2]
-	PPU.params['gridC'] = lvec[3]
-else:
-	sys.exit("ERROR!!! Unknown format of geometry system. Supported "
-                 "formats are: .xyz, .cube, .xsf \n\n")
 
-
-
+atoms, lvec = PPH.importGeometries( options.input )
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):

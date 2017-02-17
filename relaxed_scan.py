@@ -35,17 +35,15 @@ parser.add_option( "--disp",      action="store_true", default=False, help="save
 parser.add_option( "--tipspline", action="store", type="string", help="file where spline is stored", default=None )
 parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
 
+parser.add_option( "--stm" , action="store_true" ,  help="load and save data for the PPSTM code"     , default=False)
+
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
-if options.npy:
-    data_format ="npy"
-else:
-    data_format ="xsf"
+
+data_format ="npy" if options.npy else "xsf"
 
 # =============== Setup
-
-# dgdfgdfg
 
 PPU.loadParams( 'params.ini' )
 
@@ -141,7 +139,8 @@ for iq,Q in enumerate( Qs ):
 		if opt_dict['disp']:
 			GU.save_vec_field( dirname+'/PPdisp', rPPs-rTips+PPU.params['r0Probe'][0], lvecScan, data_format=data_format )
 		if opt_dict['pos']:
-			GU.save_vec_field( dirname+'/PPpos', rPPs, lvecScan, data_format=data_format )
+			GU.save_vec_field( dirname+'/PPpos', rPPs, lvecScan, data_format=data_format ) 
+			# Please do not change this procedure, especialy the lvecScan - it is important for the STM calculations!
 		if options.bI:
 			print "Calculating current from tip to the Boltzmann particle:"
 			I_in, lvec, nDim = GU.load_scal_field('I_boltzmann', data_format=data_format)

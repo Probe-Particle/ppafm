@@ -3,12 +3,39 @@
 import numpy as np
 import os
 import GridUtils as GU
+import basUtils as bU
 import fieldFFT
 import common as PPU
 
 import core
 import cpp_utils
 
+# overall procedure for importing the sample geometry:
+
+def importGeometries( fname ):
+	if (fname.lower().endswith(".xyz") or fname.lower().endswith(".bas")): 
+		atoms, nDim, lvec = bU.loadAtoms( fname )
+	elif fname.lower().endswith(".xsf"):
+		atoms, nDim, lvec = bU.loadXSFGeom( fname )
+	elif fname.lower().endswith(".cube"):
+		atoms, nDim, lvec = bU.loadAtomsCUBE(options.input)
+	elif fname.lower().endswith(".in"):
+		atoms, nDim, lvec = bU.loadGeometryIN(options.input)
+	else:
+		sys.exit("ERROR!!! Unknown format of geometry system. Supported "
+                 "formats are: .xyz, .bas., .xsf, .cube, .in \n\n")
+	if (nDim != []):
+		PPU.params['gridN'] = nDim
+	if (lvec != []):
+		PPU.params['gridA'] = lvec[1]
+		PPU.params['gridB'] = lvec[2]
+		PPU.params['gridC'] = lvec[3]
+	else:
+		lvec=np.zeros((4,3))
+		lvec[ 1,:  ] =    PPU.params['gridA'].copy() 
+		lvec[ 2,:  ] =    PPU.params['gridB'].copy()
+		lvec[ 3,:  ] =    PPU.params['gridC'].copy()
+	return atoms, lvec;
 
 def parseAtoms( atoms, autogeom = False, PBC = True, FFparams=None ):
 	if FFparams is None:

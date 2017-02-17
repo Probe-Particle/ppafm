@@ -4,34 +4,59 @@ import numpy as np
 import elements
 import math
 
-def loadBas(name):
-	xyzs = []
-	f = open(name,"r")
-	while True:
-		n=0;
-		l = f.readline()
-		#print "--",l,"--"
-		try:
-			n=int(l)
-		except ValueError:
-			break
-		if (n>0):
-			n=int(l)
-			#f.readline()
-			e=[];x=[];y=[]; z=[];
-			for i in xrange(n):
-				l=f.readline().split()
-				#print l
-				e.append( int(l[0]) )
-	   			x.append( float(l[1]) )
-	   			y.append( float(l[2]) )
-	   			z.append( float(l[3]) )
-			xyzs.append( [e,x,y,z] )
-		else:
-			break
-		f.readline()
+# constants: 
+
+bohrRadius2angstroem = 0.5291772109217 # find a good place for this
+
+# additional procedures for CUBE files:
+
+def loadNCUBE( fname ):
+	f = open(fname )
+	#First two lines of the header are comments
+	header1=f.readline()
+	header2=f.readline()
+	#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
+	sth0 = f.readline().split()
+	#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
+	sth1 = f.readline().split()
+	sth2 = f.readline().split()
+	sth3 = f.readline().split()
 	f.close()
-	return xyzs
+	return [ int(sth1[0]), int(sth2[0]), int(sth3[0]) ];
+
+def loadCellCUBE( fname ):
+	f = open(fname )
+	#First two lines of the header are comments
+	header1=f.readline()
+	header2=f.readline()
+	#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
+	line = f.readline().split()
+	n0 = int(line[0])
+	c0 =[ float(s) for s in line[1:4] ]
+
+	#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
+	line = f.readline().split()
+	n1 = int(line[0])
+	c1 =[ float(s) for s in line[1:4] ]
+
+	line = f.readline().split()
+	n2 = int(line[0])
+	c2 =[ float(s) for s in line[1:4] ]
+
+	line = f.readline().split()
+	n3 = int(line[0])
+	c3 =[ float(s) for s in line[1:4] ]
+
+#	cell0 = [c0[0]*   bohrRadius2angstroem, c0[1]   *bohrRadius2angstroem, c0[2]   *bohrRadius2angstroem]
+	cell0 = [0.0, 0.0, 0.0]
+	cell1 = [c1[0]*n1*bohrRadius2angstroem, c1[1]*n1*bohrRadius2angstroem, c1[2]*n1*bohrRadius2angstroem]
+	cell2 = [c2[0]*n2*bohrRadius2angstroem, c2[1]*n2*bohrRadius2angstroem, c2[2]*n2*bohrRadius2angstroem]
+	cell3 = [c3[0]*n3*bohrRadius2angstroem, c3[1]*n3*bohrRadius2angstroem, c3[2]*n3*bohrRadius2angstroem]
+	f.close()
+	return [ cell0, cell1, cell2, cell3 ];
+
+
+# procedures for loading geometry from different files:
 
 def loadAtoms( name ):
 	f = open(name,"r")
@@ -66,7 +91,9 @@ def loadAtoms( name ):
 			else:
 				print " skipped line : ", line
 	f.close()
-	return [ e,x,y,z,q ]
+	nDim = []
+	lvec = [] 
+	return [ e,x,y,z,q ], nDim, lvec
 
 def loadXSFGeom( fname ):
 	f = open(fname )
@@ -93,7 +120,6 @@ def loadXSFGeom( fname ):
 	return [ e,x,y,z,q ], nDim, lvec
 
 def loadAtomsCUBE( fname ):
-	bohrRadius2angstroem = 0.5291772109217 # find a good place for this
 	e=[];x=[];y=[]; z=[]; q=[]
 	f = open(fname )
 	#First two lines of the header are comments
@@ -119,56 +145,31 @@ def loadAtomsCUBE( fname ):
 		e.append( int(  l[0]) )
 		q.append(0.0)
 	f.close()
-	return [ e,x,y,z,q ]
+	nDim = loadNCUBE( fname )
+	lvec = loadCellCUBE( fname )
+	return [ e,x,y,z,q ], nDim, lvec
 
-
-def loadCellCUBE( fname ):
-	bohrRadius2angstroem = 0.5291772109217 # find a good place for this
+def loadGeometryIN( fname ):
+	print "importin atoms from FHI-AIMS input"
 	f = open(fname )
-	#First two lines of the header are comments
-	header1=f.readline()
-	header2=f.readline()
-	#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
-	line = f.readline().split()
-	n0 = int(line[0])
-	c0 =[ float(s) for s in line[1:4] ]
-
-	#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
-	line = f.readline().split()
-	n1 = int(line[0])
-	c1 =[ float(s) for s in line[1:4] ]
-
-	line = f.readline().split()
-	n2 = int(line[0])
-	c2 =[ float(s) for s in line[1:4] ]
-
-	line = f.readline().split()
-	n3 = int(line[0])
-	c3 =[ float(s) for s in line[1:4] ]
-
-#	cell0 = [c0[0]*   bohrRadius2angstroem, c0[1]   *bohrRadius2angstroem, c0[2]   *bohrRadius2angstroem]
-	cell0 = [0.0, 0.0, 0.0]
-	cell1 = [c1[0]*n1*bohrRadius2angstroem, c1[1]*n1*bohrRadius2angstroem, c1[2]*n1*bohrRadius2angstroem]
-	cell2 = [c2[0]*n2*bohrRadius2angstroem, c2[1]*n2*bohrRadius2angstroem, c2[2]*n2*bohrRadius2angstroem]
-	cell3 = [c3[0]*n3*bohrRadius2angstroem, c3[1]*n3*bohrRadius2angstroem, c3[2]*n3*bohrRadius2angstroem]
+	e=[];x=[];y=[]; z=[]; q=[]
+	lvec = [] 
+	for i in range(10000):
+		ws = f.readline().split()
+		if (len(ws)>0):
+			if (ws[0]=='atom'):
+				e.append(ws[4]); x.append(float(ws[1])); y.append(float(ws[2])); z.append(float(ws[3])); q.append(0);
+			elif (ws[0]=='lattice_vector'):
+				lvec.append([float(ws[1]),float(ws[2]),float(ws[3])])
+			elif (ws[0]=='trust_radius'):
+				break
 	f.close()
-	return [ cell0, cell1, cell2, cell3 ]
+	print "lvec", lvec
+	print "e,x,y,z", e,x,y,z
+	nDim = []
+	return [ e,x,y,z,q ], nDim, lvec
 
-def loadNCUBE( fname ):
-	bohrRadius2angstroem = 0.5291772109217 # find a good place for this
-	f = open(fname )
-	#First two lines of the header are comments
-	header1=f.readline()
-	header2=f.readline()
-	#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
-	sth0 = f.readline().split()
-	#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
-	sth1 = f.readline().split()
-	sth2 = f.readline().split()
-	sth3 = f.readline().split()
-	f.close()
-	return [ int(sth1[0]), int(sth2[0]), int(sth3[0]) ]
-
+# procedures for plotting:
 
 def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
 	bonds = []
@@ -211,6 +212,8 @@ def getAtomColors( iZs, ELEMENTS = elements.ELEMENTS, FFparams=None ):
 		colors.append( ELEMENTS[ FFparams[e - 1][2] -1 ][7] )
 	return colors
 
+# other procedures for operating with geometries:
+
 def multCell( xyz, cel, m=(2,2,1) ):
 	n = len(xyz[0])
 	mtot = m[0]*m[1]*m[2]*n
@@ -234,5 +237,34 @@ def multCell( xyz, cel, m=(2,2,1) ):
 	return [es,xs,ys,zs]
 
 
+# old procedure for loading geometry from bas: 
 
+def loadBas(name):
+	xyzs = []
+	f = open(name,"r")
+	while True:
+		n=0;
+		l = f.readline()
+		#print "--",l,"--"
+		try:
+			n=int(l)
+		except ValueError:
+			break
+		if (n>0):
+			n=int(l)
+			#f.readline()
+			e=[];x=[];y=[]; z=[];
+			for i in xrange(n):
+				l=f.readline().split()
+				#print l
+				e.append( int(l[0]) )
+	   			x.append( float(l[1]) )
+	   			y.append( float(l[2]) )
+	   			z.append( float(l[3]) )
+			xyzs.append( [e,x,y,z] )
+		else:
+			break
+		f.readline()
+	f.close()
+	return xyzs
 
