@@ -164,6 +164,8 @@ def loadGeometryIN( fname ):
 			elif (ws[0]=='trust_radius'):
 				break
 	f.close()
+	if (lvec != []):
+		lvec = np.insert(lvec, 0., 0,  axis=0 )
 	print "lvec", lvec
 	print "e,x,y,z", e,x,y,z
 	nDim = []

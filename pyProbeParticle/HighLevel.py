@@ -18,9 +18,9 @@ def importGeometries( fname ):
 	elif fname.lower().endswith(".xsf"):
 		atoms, nDim, lvec = bU.loadXSFGeom( fname )
 	elif fname.lower().endswith(".cube"):
-		atoms, nDim, lvec = bU.loadAtomsCUBE(options.input)
+		atoms, nDim, lvec = bU.loadAtomsCUBE( fname )
 	elif fname.lower().endswith(".in"):
-		atoms, nDim, lvec = bU.loadGeometryIN(options.input)
+		atoms, nDim, lvec = bU.loadGeometryIN( fname )
 	else:
 		sys.exit("ERROR!!! Unknown format of geometry system. Supported "
                  "formats are: .xyz, .bas., .xsf, .cube, .in \n\n")
