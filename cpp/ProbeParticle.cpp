@@ -266,31 +266,76 @@ inline void getCforce( const Vec3d& rTip, const Vec3d& rC, Vec3d& fC ){
 	drTC.sub( TIP::rC0 );
 	fC.add_mul( drTC, TIP::CkSpring );      // spring force                                // force from tip - lateral bending force
 }
-inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& Up, const Vec3d& R0, const Vec3d& K ){
+
+void force_bend ( const Vec3d& r12, const Vec3d &  r23, const double k, Vec3d& f1, Vec3d& f2, Vec3d& f3)
+// spring force calculations
+{
+//    testing only
+//    r12.set(0,0.1,-1.85);
+//    r23.set(0,0.3,-1.15);
+//	std::cout <<"r12 : "<<r12.x<<" "<<r12.y<<" "<<r12.z<<std::endl;
+//	std::cout <<"r23 : "<<r23.x<<" "<<r23.y<<" "<<r23.z<<std::endl;
+    
+    double len12 = r12.norm();
+    double len23 = r23.norm();
+    f1.set(r23);
+    f1.sub_mul(r12,r12.dot(r23)/len12/len12);
+    f3.set_mul(r23,r12.dot(r23)/len23/len23);
+    f3.sub(r12);
+    f1.mul(k/len12/len23);
+    f3.mul(k/len12/len23);
+    f2.set_mul(f1,-1.0);
+    f2.sub(f3);
+//	std::cout << "Lat T force: "<<f1.x<<" "<<" "<<f1.y<<" "<<f1.z<<std::endl;
+//	std::cout << "Lat C force: "<<f2.x<<" "<<" "<<f2.y<<" "<<f2.z<<std::endl;
+//	std::cout << "Lat O force: "<<f3.x<<" "<<" "<<f3.y<<" "<<f3.z<<std::endl;
+//    exit(0);
+
+}
+
+void forceSpringRotated( const Vec3d& Fw, const Vec3d& dR, const  Vec3d& Up,  const Vec3d& R0, const double K, Vec3d& f1, Vec3d& f2, Vec3d& f3 ){
 	// dR - vector between actual PPpos and anchor point (in global coords)
 	// Fw - forward diraction of anchor coordinate system (previous bond direction; e.g. Tip->C for C->O) (in global coords)
 	// Up - Up vector --,,-- ; e.g. x axis (1,0,0), defines rotation of your tip (in global coords)
     // R0 - equlibirum position of PP (in local coords)
     // K  - stiffness (ka,kb,kc) along local coords
 	// return force (in global coords)
-	Mat3d rot; Vec3d dR_,f_,f;
+	Mat3d rot; Vec3d dR_, R0_,f1_,f2_, f3_;
 	rot.fromDirUp( Fw, Up );  // build orthonormal rotation matrix
 
 	rot.dot_to  ( dR, dR_   );              // transform dR to rotated coordinate system
+    R0_.set(R0);
+    R0_.mul(Fw.norm()/R0.norm());
 //	std::cout << ":"<<" dR "<<dR.x<<" "<<dR.y<<" "<<dR.z<<" rRnew: "<<dR_.x<<" "<<" "<<dR_.y<<" "<<dR_.z<<std::endl;
 //	std::cout << ":"<<" R0 "<<R0.x<<" "<<R0.y<<" "<<R0.z<<std::endl;
-	f_ .set_mul ( dR_-R0, K );              // spring force (in rotated system)
+	//f_ .set_mul ( dR_-R0, K );              // spring force (in rotated system)
+    force_bend (R0_, dR_,K, f1_, f2_, f3_);
     // here you can easily put also other forces - e.g. Torsion etc. 
-	rot.dot_to_T( f_, f );                 // transform force back to world system
-	return f;
+	rot.dot_to_T( f1_, f1 );                 // transform force back to world system
+	rot.dot_to_T( f2_, f2 );                 // transform force back to world system
+	rot.dot_to_T( f3_, f3 );                 // transform force back to world system
 }
 
 
 
 
-inline void getCOforce( const Vec3d& rTip, const Vec3d& rC, Vec3d& fC, const Vec3d& rO, Vec3d& fO ){
-	Vec3d rCGrid, rOGrid, drTC,drTCnorm,drCO,posO0; 
-    Vec3d latOforce;
+inline void getCOforce( const Vec3d& rTip, Vec3d& rC, Vec3d& fC, Vec3d& rO, Vec3d& fO ){
+	Vec3d rCGrid, rOGrid, drTC,drTCnorm,drCO,posO0,drFake; 
+    Vec3d latTforce, latCforce, latOforce, latFakeForce;
+    
+    drFake.set(0,0,1);
+    //!!!!!!!! remove after testing
+    /*
+    rC.set(4.0, 2.1,15.15);
+    rO.set(4.0, 2.5,14.0);
+    std::cout<<"C K sprint" << TIP::CkSpring.x << std::endl;
+    std::cout<<"O K sprint" << TIP::OkSpring.x << std::endl;
+    TIP::OkSpring.x=-1.0;
+    TIP::CkSpring.x=-1.0;
+    std::cout<<"T C rad sprint" << TIP::TCkRadial << std::endl;
+    std::cout<<"C O rad sprint" << TIP::COkRadial << std::endl;
+    */
+    //!!!!!!!!
 //    std::cout << "Getting force"<<std::endl;
 	//rGrid.set_mul(r, FF::invStep );                                                     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled (     orthogonal cell )
 	rCGrid.set( rC.dot( FFC::diCell.a ), rC.dot( FFC::diCell.b ), rC.dot( FFC::diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
@@ -299,28 +344,43 @@ inline void getCOforce( const Vec3d& rTip, const Vec3d& rC, Vec3d& fC, const Vec
 	drCO.set_sub( rO, rC );                                                             // vector between Carbon and Oxygen
 	fC.set    ( interpolate3DvecWrap( FFC::gridF, FFC::n, rCGrid ) );                          // force from surface, interpolated from Force-Field data array
 	fO.set    ( interpolate3DvecWrap( FFO::gridF, FFO::n, rOGrid ) );                          // force from surface, interpolated from Force-Field data array
-//	std::cout << "Grid force:"<<" rC0: "<<fC.x<<" "<<fC.y<<" "<<fC.z<<" rO0: "<<fO.x<<" "<<" "<<fO.y<<" "<<fO.z<<std::endl;
+//	std::cout << "drTC: "<<drTC.x<<" "<<drTC.y<<" "<<drTC.z<<std::endl;
+//	std::cout << "drCO: "<<drCO.x<<" "<<drCO.y<<" "<<drCO.z<<std::endl;
 	if( TIP::rff_xs ){
 		fC.add( forceRSpline( drTC, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
 		fO.add( forceRSpline( drCO, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
         std::cerr<<"Spline was not tested with the two-points PP model, Exit!\n"<<std::endl;
-        return ;
+        exit (1) ;
 		fC.add( forceRSpline( drTC, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
 	}else{		
 		fC.add( forceRSpring( drTC, TIP::TCkRadial, TIP::TClRadial ) );                       // force from tip - radial component harmonic		
 		fO.add( forceRSpring( drCO, TIP::COkRadial, TIP::COlRadial ) );                       // force from tip - radial component harmonic		
-		fC.add( forceRSpring( drCO, -TIP::COkRadial, TIP::COlRadial ) );                       // force from tip - radial component harmonic		
+		fC.sub( forceRSpring( drCO, TIP::COkRadial, TIP::COlRadial ) );                       // force from tip - radial component harmonic		
 	}
-
+    
 //	std::cout << "Grid force + rad force:"<<" rC0: "<<fC.x<<" "<<fC.y<<" "<<fC.z<<" rO0: "<<fO.x<<" "<<" "<<fO.y<<" "<<fO.z<<std::endl;
-    latOforce=forceSpringRotated( drCO , drTC,  TIP::upVector , TIP::posO0local, TIP::OkSpring );
-//	std::cout << "Lat O force"<<latOforce.x<<" "<<" "<<latOforce.y<<" "<<latOforce.z<<std::endl;
-	drTC.sub( TIP::rC0 );
-	fC.add_mul( drTC, TIP::CkSpring );        // force from tip - lateral bending force
-	fC.add_mul(latOforce, -1.0);
+//    std::cout << std::endl;
+//    std::cout << "T position:" <<rTip.x<<" "<<rTip.y<<" "<<rTip.z<<std::endl;
+//    std::cout << "C position:" <<rC.x<<" "<<rC.y<<" "<<rC.z<<std::endl;
+//    std::cout << "C0 position:" <<TIP::rC0.x<<" "<<TIP::rC0.y<<" "<<TIP::rC0.z<<std::endl;
+
+//    std::cout << "O position:" <<rO.x<<" "<<rO.y<<" "<<rO.z<<std::endl;
+
+    
+	//drTC.sub( TIP::rC0 );
+    forceSpringRotated(drFake, drTC, TIP::upVector , TIP::rC0, TIP::CkSpring.x, latFakeForce, latTforce, latCforce );
+	fC.add(latCforce );        // force from tip - lateral bending force
+//	std::cout << "Lat C force: "<<latCforce.x<<" "<<" "<<latCforce.y<<" "<<latCforce.z<<std::endl;
+    //exit(1);
+    forceSpringRotated(drTC, drCO , TIP::upVector , TIP::posO0local, TIP::OkSpring.x, latTforce, latCforce, latOforce );
+//	std::cout << "Lat T force: "<<latTforce.x<<" "<<" "<<latTforce.y<<" "<<latTforce.z<<std::endl;
+//	std::cout << "Lat C force: "<<latCforce.x<<" "<<" "<<latCforce.y<<" "<<latCforce.z<<std::endl;
+//	std::cout << "Lat O force: "<<latOforce.x<<" "<<" "<<latOforce.y<<" "<<latOforce.z<<std::endl;
+    //exit(1);
+	fC.add(latCforce);
 	fO.add(latOforce);
 //	std::cout << "Grid force + rad force:+lat force"<<" rC0: "<<fC.x<<" "<<fC.y<<" "<<fC.z<<" rO0: "<<fO.x<<" "<<" "<<fO.y<<" "<<fO.z<<std::endl;
-//   exit(1);
+   //exit(1);
 	// dR - vector between actual PPpos and anchor point (in global coords)
 	// Fw - forward diraction of anchor coordinate system (previous bond direction; e.g. Tip->C for C->O) (in global coords)
 	// Up - Up vector --,,-- ; e.g. x axis (1,0,0), defines rotation of your tip (in global coords)

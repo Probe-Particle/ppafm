@@ -49,6 +49,8 @@ parser.add_option("-f","--data_format" , action="store" , type="string",
                   "field. Supported formats are: xsf,npy", default="xsf")
 parser.add_option("--nodisp" , action="store_true" ,  help="Do NOT show the "
                   "plots on the screen"     , default=False)
+parser.add_option("--nodf", action="store_true", help="Do Not compute the "
+                  "frequency shift plots", default=False)
 
 
 (options, args) = parser.parse_args()
@@ -85,7 +87,9 @@ dirname = "Q%1.2fK%1.2f" %(Q,K)
 print "Working in {} directory".format(dirname)
 
 fzs,lvec,nDim=GU.load_scal_field(dirname+'/OutFz',data_format=options.data_format)
-dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
+dfs=None
+if  opt_dict['nodf'] is False:
+    dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
 for p in options.points:
     xmin=float(p[0].split('x')[0])
     ymin=float(p[0].split('x')[1])
@@ -133,20 +137,18 @@ for p in options.points:
 #    print "Amplitude", Amp
     scan_min[2]+=Amp[0]/2.0
     scan_max[2]-=Amp[0]/2.0
-    DFplot=selectLine(BIGarray=dfs, MIN=scan_min,
-               MAX=scan_max,startingPoint=np.array([xmin,ymin,zmin]),
-               endPoint=np.array([xmax,ymax,zmax]),
-               nsteps=npoints)
-    print scan_min,scan_max
-    DFplt=np.transpose(DFplot)[1].copy()
-    Lplot=np.transpose(DFplot)[0].copy()
+    if dfs is not None:
+        DFplot=selectLine(BIGarray=dfs, MIN=scan_min,
+                   MAX=scan_max,startingPoint=np.array([xmin,ymin,zmin]),
+                   endPoint=np.array([xmax,ymax,zmax]),
+                   nsteps=npoints)
+        print scan_min,scan_max
+        DFplt=np.transpose(DFplot)[1].copy()
+        Lplot=np.transpose(DFplot)[0].copy()
+        POSplot=np.transpose(DFplot)[2:5].copy()
+        DF_interp=interp1d(Lplot, DFplt,kind='cubic')
 
-    POSplot=np.transpose(DFplot)[2:5].copy()
-#                    print POSplot
-#                    for k in range(0,dfs.shape[0]-1):
- #                           DFplot[k+(int)(Amp/scan_step[2]/2)]=dfs[-k-1][y_pos][x_pos]
 
-    DF_interp=interp1d(Lplot, DFplt,kind='cubic')
     with open ("x{}-y{}-z{}.dat".format(xmin,ymin,zmin),'w') as f:
         for val in Fplot :
             f.write("{} {} {} {} {} \n".format(val[0],val[1]*1.60217733e3,val[2],val[3],val[4]))
@@ -159,23 +161,24 @@ for p in options.points:
         ax1.set_ylabel('Force (eV/$\AA$)', color='black')
         for tl in ax1.get_yticklabels():
             tl.set_color('black')
-        ax2=ax1.twinx()
-        print DFplot
-        ax2.plot(Lplot, DFplt,'bo', Lplot, DF_interp(Lplot), 'b--')
-        axes = plt.gca()
-        ax2.set_ylabel('Frequency shift (Hz)', color='b')
-        for tl in ax2.get_yticklabels():
-            tl.set_color('b')
-        plt.axhline(y=0, color='black', ls='-.')
-        perplane=fig.add_axes([opt_dict['image'][1], opt_dict['image'][2], 0.25, 0.25])
-        zindex=int((opt_dict['image'][0]-scan_min[2]+Amp[0]/2.0)/scan_step[2])
-        perplane.imshow(dfs[zindex,:, :], origin='image', cmap='gray')
-        i=0
-        while i<len(POSplot[0]):
-            perplane.scatter(x=int((POSplot[0][i]-scan_min[0])/scan_step[0]),
-                             y=int((POSplot[1][i]-scan_min[1])/scan_step[1]), s=50, c='red', alpha=0.8)
-            x_pos=int(xmin/scan_step[0])
-            y_pos=int(ymin/scan_step[1])
-            i+=1
-        perplane.axis('off')
+        if dfs is not None:
+            ax2=ax1.twinx()
+            print DFplot
+            ax2.plot(Lplot, DFplt,'bo', Lplot, DF_interp(Lplot), 'b--')
+            axes = plt.gca()
+            ax2.set_ylabel('Frequency shift (Hz)', color='b')
+            for tl in ax2.get_yticklabels():
+                tl.set_color('b')
+            plt.axhline(y=0, color='black', ls='-.')
+            perplane=fig.add_axes([opt_dict['image'][1], opt_dict['image'][2], 0.25, 0.25])
+            zindex=int((opt_dict['image'][0]-scan_min[2]+Amp[0]/2.0)/scan_step[2])
+            perplane.imshow(dfs[zindex,:, :], origin='image', cmap='gray')
+            perplane.axis('off')
+            i=0
+            while i<len(POSplot[0]):
+                perplane.scatter(x=int((POSplot[0][i]-scan_min[0])/scan_step[0]),
+                                 y=int((POSplot[1][i]-scan_min[1])/scan_step[1]), s=50, c='red', alpha=0.8)
+                x_pos=int(xmin/scan_step[0])
+                y_pos=int(ymin/scan_step[1])
+                i+=1
         plt.show()
