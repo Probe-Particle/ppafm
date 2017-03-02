@@ -150,7 +150,7 @@ for iq,Q in enumerate( Qs ):
 				aumass     = 1.66053904020e-27 # [kg] 
 				eVA2_to_Nm = 16.0217662        # [eV/A^2] / [N/m] 
 				Evib = hbar * np.sqrt( ( eVA2_to_Nm * eigvalK )/( M * aumass ) )
-				IETS = np.exp( -((Evib[:,:,:,0]-E0)/w)**2 ) + np.exp( -((Evib[:,:,:,1]-E0)/w)**2 ) + np.exp( -((Evib[:,:,:,2]-E0)/w)**2 )
+				IETS = PPH.symGauss(Evib[:,:,:,0], E0, w) + PPH.symGauss(Evib[:,:,:,1], E0, w) + PPH.symGauss(Evib[:,:,:,2], E0, w)
 				PPPlot.plotImages( dirname+"/IETS"+atoms_str+cbar_str, IETS, slices = range(0,len(IETS)), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
 				PPPlot.plotImages( dirname+"/Evib"+atoms_str+cbar_str, Evib[:,:,:,0], slices = range(0,len(IETS)), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
 				PPPlot.plotImages( dirname+"/Kvib"+atoms_str+cbar_str, 16.0217662 * eigvalK[:,:,:,0], slices = range(0,len(IETS)), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )

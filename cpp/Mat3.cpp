@@ -220,6 +220,7 @@ class Mat3TYPE{
 		double c0 = xx*yy*zz + 2*xy*xz*yz -  xx*yz*yz   - yy*xz*xz   -  zz*xy*xy;
 		double c1 = xx*yy - xy*xy + xx*zz - xz*xz + yy*zz - yz*yz;
 		double c2 = xx + yy + zz;
+		double amax2 = amax*amax; c2/=amax; c1/=amax2; c0/=(amax2*amax);
 		double c2Div3 = c2*inv3;
 		double aDiv3  = (c1 - c2*c2Div3)*inv3;
 		if (aDiv3 > 0.0d) aDiv3 = 0.0d;

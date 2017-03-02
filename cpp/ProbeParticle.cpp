@@ -489,19 +489,36 @@ void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * 
 		tmp = 0.5*(dynmat.yz + dynmat.zy); dynmat.yz = tmp; dynmat.zy = tmp;
 		tmp = 0.5*(dynmat.zx + dynmat.xz); dynmat.zx = tmp; dynmat.xz = tmp;
 		// solve mat
-		Vec3d evals; dynmat.eigenvals( evals );
+		Vec3d evals; dynmat.eigenvals( evals ); Vec3d temp;
+		/*if ( i == 0){
+		    dynmat.a.set(14.0, 6.0, 13.4 );
+		    dynmat.b.set( 6.0, 2.7,  4.5 );
+		    dynmat.c.set(13.4, 4.5, 53.64);
+		    dynmat.eigenvals( evals );
+		    printf( "dynmat.a %f %f %f \n", dynmat.a.x, dynmat.a.y, dynmat.a.z ); 
+		    printf( "dynmat.b %f %f %f \n", dynmat.b.x, dynmat.b.y, dynmat.b.z ); 
+		    printf( "dynmat.c %f %f %f \n", dynmat.c.x, dynmat.c.y, dynmat.c.z ); 
+		    printf( "evals    %f %f %f \n", evals.a, evals.b, evals.c ); 
+		    dynmat.eigenvec( evals.a, evec1[i] );
+		    dynmat.eigenvec( evals.b, evec2[i] );
+		    dynmat.eigenvec( evals.c, evec3[i] );
+		    printf( "evec1 %f %f %f \n", evec1[i].x,evec1[i].y,evec1[i].z ); 
+		    printf( "evec2 %f %f %f \n", evec2[i].x,evec2[i].y,evec2[i].z ); 
+		    printf( "evec3 %f %f %f \n", evec3[i].x,evec3[i].y,evec3[i].z ); 
+		    exit(0);
+		}*/
 		// sort eigenvalues
 		if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; } 
 		if( evals.b > evals.c ){ tmp=evals.b; evals.b=evals.c; evals.c=tmp; }
 		if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; } 
 		// output eigenvalues and eigenvectors
 		eigenvals[i] = evals;
-		//if(which>0) dynmat.eigenvec( evals.a, evec1[i] );
-		//if(which>1) dynmat.eigenvec( evals.b, evec2[i] );
-		//if(which>2) dynmat.eigenvec( evals.c, evec3[i] );
-		evec1[i] = dynmat.a;
-		evec2[i] = dynmat.b;
-		evec3[i] = dynmat.c;
+		if(which>0) dynmat.eigenvec( evals.a, evec1[i] );
+		if(which>1) dynmat.eigenvec( evals.b, evec2[i] );
+		if(which>2) dynmat.eigenvec( evals.c, evec3[i] );
+		//evec1[i] = dynmat.a;
+		//evec2[i] = dynmat.b;
+		//evec3[i] = dynmat.c;
 	}
 }
 

@@ -161,3 +161,10 @@ def relaxedScan3D( xTips, yTips, zTips ):
 			rTips[:,iy,ix,:] = rTip_[::-1,:] 
 	return Fs,rPPs,rTips
 
+def Gauss(Evib, E0, w):
+	return np.exp( -0.5*((Evib - E0)/w)**2);
+
+def symGauss( Evib, E0, w):
+	return Gauss(Evib, E0, w) - Gauss(Evib, -E0, w);
+	
+
