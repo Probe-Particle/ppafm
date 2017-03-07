@@ -157,9 +157,9 @@ def setTip(ClRadial=None, OlRadial=None, CkRadial=None, OkRadial=None,
 	if rO0 is  None:
 		rO0=np.array((PPU.params['rO0'][0],PPU.params['rO0'][1],0.0))
 	if CkSpring is  None: 
-		CkSpring=np.array((PPU.params['Cklat'],PPU.params['Cklat'][1],0.0))/-PPU.eVA_Nm 
+		CkSpring=np.array(PPU.params['Cklat'],PPU.params['Cklat'][1],0.0) 
 	if OkSpring is  None: 
-		OkSpring=np.array((PPU.params['Oklat'],PPU.params['Oklat'][1],0.0))/-PPU.eVA_Nm 
+		OkSpring=np.array(PPU.params['Oklat'],PPU.params['Oklat'][1],0.0)
 	print " IN setTip !!!!!!!!!!!!!! "
 	print " ClRadial ", ClRadial
 	print " OlRadial ", OlRadial

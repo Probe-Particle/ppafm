@@ -225,9 +225,9 @@ def perform_relaxation (lvec,FFLJC,FFLJO=None,FFel=None,FFTip=None,FFboltz=None,
     print "C stiffness:", PPU.params['Cklat']
     print "O stiffness:", PPU.params['Oklat']
     core.setTip( CkSpring =
-    np.array((PPU.params['Cklat'],PPU.params['Cklat'],0.0))/-PPU.eVA_Nm,
+    np.array((PPU.params['Cklat'],PPU.params['Cklat'],0.0))*-1.0,
     OkSpring =
-    np.array((PPU.params['Oklat'],PPU.params['Oklat'],0.0))/-PPU.eVA_Nm )
+    np.array((PPU.params['Oklat'],PPU.params['Oklat'],0.0))*-1.0 )
 
 
     fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )

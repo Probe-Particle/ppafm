@@ -718,7 +718,8 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
 
         std::ofstream myfile;
         myfile.open("tipCO.xyz",std::ios::app);
-        myfile <<3<<std::endl<<std::endl;
+        myfile <<4<<std::endl<<std::endl;
+        myfile <<"Cu "<<rTip.x<<" "<<rTip.y<<" "<<rTip.z-1.0<<std::endl;
         myfile <<"Cu "<<rTip.x<<" "<<rTip.y<<" "<<rTip.z<<std::endl;
         myfile <<"C "<<rC.x<<" "<<rC.y<<" "<<rC.z<<std::endl;
         myfile <<"O "<<rO.x<<" "<<" "<<rO.y<<" "<<rO.z<<std::endl;
