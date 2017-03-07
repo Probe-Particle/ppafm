@@ -31,6 +31,7 @@ params={
 'Oklat': 5.0,
 'Ckrad': 20.00,
 'Okrad': 20.00,
+'tipZdisp': 0.0,
 'tip':'s',
 'tipsigma':1.0,
 'sigma':1.0,

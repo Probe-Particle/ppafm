@@ -135,12 +135,16 @@ def set_fit_dict(opt=None):
                 constr.append((0.001,3))
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
+            elif (key is "tipZdisp"):
+                constr.append((-2,2))
+                fit_dict[key]=opt[key]
+                x.append(opt[key])
             elif (key is "Cklat"):
-                constr.append( (0.1,20) )
+                constr.append( (0.001,5) )
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
             elif (key is "Oklat"):
-                constr.append( (0.1,20) )
+                constr.append( (0.001,5) )
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
             elif (key is "krad"):
@@ -184,11 +188,10 @@ def comp_msd(x=[]):
     Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
     dev_arr=np.abs(loaded_forces[:,3]-Fzlist*1.60217733e3)
     max_dev=np.max(dev_arr)
-    min_dev=np.min(dev_arr)
     msd=np.sum(dev_arr**2) /len(Fzlist)
     with open ("iteration.txt", "a") as myfile:
-        myfile.write( "iteration {}: {} max dev: min dev: {} max dev: {} sigma^2: {} "
-        "\n".format(iteration, x, min_dev, max_dev, msd))
+        myfile.write( "iteration {}: {} max dev: {} sigma^2: {} "
+        "\n".format(iteration, x, max_dev, msd))
     return msd
 
 if __name__=="__main__":
@@ -215,6 +218,8 @@ if __name__=="__main__":
     "the LJ parameters of the given atom", default=None, nargs=3)
     parser.add_option( "--nobounds", action="store_true",
     help="Skipf the first optimization step with bounds", default=False)
+    parser.add_option( "--tipZdisp", action="store",type="float",
+    help="Displace the metallic tip dipole along Z axis", default=None)
 
     (options, args) = parser.parse_args()
     opt_dict = vars(options)

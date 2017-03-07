@@ -186,9 +186,12 @@ def computeElFF(V,lvec,nDim,tip,sigma,Fmax=None,computeVpot=False,Vmax=None):
     return FFel
 
 
-def getZTipForce(xTips, yTips, zTips, FFtipZ):
+def getZTipForce(xTips, yTips, zTips, FFtipZ,shiftTz=0.0):
+    zTips+=shiftTz
+#    print zTips
     scangrid=np.array(np.meshgrid(xTips, yTips,
                       zTips)).transpose([3,1,2,0]).copy()
+#    print scangrid
     cell=np.array([PPU.params['gridA'],PPU.params['gridB'],PPU.params['gridC']]).copy()
     FtipRes=GU.interpolate_cartesian(FFtipZ,scangrid,cell)
 
@@ -196,7 +199,8 @@ def getZTipForce(xTips, yTips, zTips, FFtipZ):
 
 
 
-def perform_relaxation (lvec,FFLJC,FFLJO=None,FFel=None,FFTip=None,FFboltz=None,tipspline=None):
+def perform_relaxation(lvec,FFLJC,FFLJO=None,FFel=None,FFTip=None,
+    FFboltz=None,tipspline=None):
     if tipspline is not None :
         try:
             print " loading tip spline from "+tipspline
@@ -234,7 +238,8 @@ def perform_relaxation (lvec,FFLJC,FFLJO=None,FFel=None,FFTip=None,FFboltz=None,
     if FFTip is not None:
         print "Adding the metallic tip vertical force"
         FFTip*=PPU.params['tipcharge']
-        fztip = getZTipForce(xTips, yTips, zTips, FFTip)
+        fztip = getZTipForce(xTips, yTips, zTips,
+        FFTip,shiftTz=PPU.params['tipZdisp'])
         fzs+=fztip.copy()
 #        import matplotlib.pyplot as plt
 #        plt.imshow(fzs[0])
