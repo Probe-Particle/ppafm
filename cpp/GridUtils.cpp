@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+//#include <string.h>
 
 #include "Grid.h"
 
@@ -94,12 +94,9 @@ extern "C" {
 
 	void setGridCell( double * cell ){
 		gridShape.setCell( *(Mat3d*)cell );
-		printf( " a     %f %f %f \n", gridShape. dCell.a.x,  gridShape. dCell.a.y,  gridShape. dCell.a.z );
-		printf( " b     %f %f %f \n", gridShape. dCell.b.x,  gridShape. dCell.b.y,  gridShape. dCell.b.z );
-		printf( " c     %f %f %f \n", gridShape. dCell.c.x,  gridShape. dCell.c.y,  gridShape. dCell.c.z );
-		printf( " inv_a %f %f %f \n", gridShape.diCell.a.x,  gridShape. diCell.a.y, gridShape.diCell.a.z );
-		printf( " inv_b %f %f %f \n", gridShape.diCell.b.x,  gridShape.diCell.b.y,  gridShape.diCell.b.z );
-		printf( " inv_c %f %f %f \n", gridShape.diCell.c.x,  gridShape.diCell.c.y,  gridShape.diCell.c.z );
+        gridShape.printCell();
 	}
 
 }
+
+

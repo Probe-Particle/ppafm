@@ -51,11 +51,22 @@ def setFF_Pointer( grid ):
 '''
 
 # void .setFF_shape( int * n, double * step  )
-lib.setFF_shape.argtypes = [array1i,array2d]
-lib.setFF_shape.restype  = None
+#lib.setFF_shape.argtypes = [array1i,array2d]
+#lib.setFF_shape.restype  = None
+
+#void setGridN( int * n ){
+lib.setGridN.argtypes = [array1i]
+lib.setGridN.restype  = None
+
+#void setGridCell( double * cell ){
+lib.setGridCell.argtypes = [array2d]
+lib.setGridCell.restype  = None
+
 def setFF_shape( n_, cell ):
 	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
-	lib.setFF_shape( n, cell )
+	#lib.setFF_shape( n, cell )
+	lib.setGridN    ( n    )
+	lib.setGridCell ( cell )
 
 # void setFF_pointer( double * gridF, double * gridE  )
 lib.setFF_Fpointer.argtypes = [array4d]

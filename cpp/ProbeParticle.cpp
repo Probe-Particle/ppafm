@@ -1,29 +1,33 @@
-#include <iostream>
+
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "Vec3.cpp"
-#include "Mat3.cpp"
+#include <iostream>
+#include "Vec3.h"
+#include "Mat3.h"
 #include "spline_hermite.h"
-#include <string.h>
+//#include <string.h>
+
+#include "Grid.h"
 
 // ================= MACROS
 
-#define fast_floor( x )    ( ((int)(x+1000))-1000 )
-#define i3D( ix, iy, iz )  ( iz*nxy + iy*nx + ix  ) 
-
 // ================= CONSTANTS
+
+const double kcoulomb   = 14.3996448915; 
 
 // ================= GLOBAL VARIABLES
 
-// Force-Field namespace 
-namespace FF {		    
-	Vec3d   * gridF = NULL;       // pointer to data array (3D)
-	double  * gridE = NULL;
-	Mat3d   dCell;      // basis vector of each voxel ( lattice vectors divided by number of points )
-	Mat3d   diCell;     // inversion of voxel basis vector
-	Vec3i   n;          // number of pixels along each basis vector
-}
+GridShape gridShape;
+
+Vec3d   * gridF = NULL;       // pointer to data    ( 3D vector array [nx,ny,nz,3] )
+double  * gridE = NULL;       // pointer to data    ( 3D scalar array [nx,ny,nz]   )
+
+int      natoms;
+Vec3d  * Ratoms; 
+double * C6s;
+double * C12s;
+double * kQQs;
 
 // Tip namespace 
 namespace TIP{
@@ -149,45 +153,6 @@ inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& 
 	return f;
 }
 
-
-
-
-
-/*
-// Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
-inline Vec3d forceLJ( const Vec3d& dR, double c6, double c12 ){
-	double ir2  = 1.0d/ dR.norm2( ); 
-	double ir6  = ir2*ir2*ir2;
-	double ir12 = ir6*ir6;
-	return dR * ( ( 6*ir6*c6 -12*ir12*c12 ) * ir2  );
-}
-
-// coulomb force between two atoms a,b separated by vector dR = R1 - R2, with constant kqq should be set to kqq = - k_coulomb * Qa * Qb 
-inline Vec3d forceCoulomb( const Vec3d& dR, double kqq ){
-	//const double kcoulomb   = 14.3996448915; 
-	double ir2  = 1.0d/ dR.norm2( ); 
-	double ir   = sqrt( ir2 );
-	return dR * kqq * ir * ir2;
-}
-
-// Lenard-Jones force between Probe-Particle (rProbe) and n other atoms
-inline Vec3d getAtomsForceLJ( const Vec3d& rProbe, int n, Vec3d * Rs, double * C6, double * C12 ){
-	Vec3d f; f.set(0.0d);
-	for(int i=0; i<n; i++){
-		f.add( forceLJ( Rs[i] - rProbe, C6[i], C12[i] ) );
-	}
-	return f;
-}
-
-// Coulomb force between Probe-Particle (rProbe) and n other atoms
-inline Vec3d getAtomsForceCoulomb( const Vec3d& rProbe, int n, Vec3d * Rs, double * kQQs ){
-	Vec3d f; f.set(0.0d);
-	for(int i=0; i<n; i++){	f.add( forceCoulomb( Rs[i] - rProbe, kQQs[i] ) );	}
-	//for(int i=0; i<n; i++){	f.add( kQQs[i]  );	}
-	return f;
-}
-*/
-
 // Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
 inline double evalLJ( const Vec3d& dR, double c6, double c12, Vec3d& fout ){
 	double ir2  = 1.0d/ dR.norm2( ); 
@@ -235,24 +200,7 @@ inline double evalAtomsForceCoulomb( const Vec3d& rProbe, int n, Vec3d * Rs, dou
 	return E;
 }
 
-
 // ========== Interpolations
-
-// interpolation of vector force-field Vec3d[ix,iy,iz] in periodic boundary condition
-inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r ){
-	int xoff = n.x<<3; int imx = r.x +xoff;	double tx = r.x - imx +xoff;	double mx = 1 - tx;		int itx = (imx+1)%n.x;  imx=imx%n.x;
-	int yoff = n.y<<3; int imy = r.y +yoff;	double ty = r.y - imy +yoff;	double my = 1 - ty;		int ity = (imy+1)%n.y;  imy=imy%n.y;
-	int zoff = n.z<<3; int imz = r.z +zoff;	double tz = r.z - imz +zoff;	double mz = 1 - tz;		int itz = (imz+1)%n.z;  imz=imz%n.z;
-	int nxy = n.x * n.y; int nx = n.x;
-	//printf( " %f %f %f   %i %i %i \n", r.x, r.y, r.z, imx, imy, imz );
-	double mymx = my*mx; double mytx = my*tx; double tymx = ty*mx; double tytx = ty*tx;
-	Vec3d out;
-	out.set_mul( grid[ i3D( imx, imy, imz ) ], mz*mymx );   out.add_mul( grid[ i3D( itx, imy, imz ) ], mz*mytx );
-	out.add_mul( grid[ i3D( imx, ity, imz ) ], mz*tymx );   out.add_mul( grid[ i3D( itx, ity, imz ) ], mz*tytx );    
-	out.add_mul( grid[ i3D( imx, ity, itz ) ], tz*tymx );   out.add_mul( grid[ i3D( itx, ity, itz ) ], tz*tytx );
-	out.add_mul( grid[ i3D( imx, imy, itz ) ], tz*mymx );   out.add_mul( grid[ i3D( itx, imy, itz ) ], tz*mytx );
-	return out;
-}
 
 // relax probe particle position "r" given on particular position of tip (rTip) and initial position "r" 
 int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
@@ -262,10 +210,10 @@ int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
 
 	for( iter=0; iter<RELAX::maxIters; iter++ ){
 		Vec3d rGrid,f,drTip; 
-		//rGrid.set_mul(r, FF::invStep );                                                     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled (     orthogonal cell )
-		rGrid.set( r.dot( FF::diCell.a ), r.dot( FF::diCell.b ), r.dot( FF::diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
+		//rGrid.set_mul(r, gridShape::invStep );                                                     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled (     orthogonal cell )
+		rGrid.set( r.dot( gridShape.diCell.a ), r.dot( gridShape.diCell.b ), r.dot( gridShape.diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
 		drTip.set_sub( r, rTip );                                                             // vector between Probe-particle and tip apex
-		f.set    ( interpolate3DvecWrap( FF::gridF, FF::n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
+		f.set    ( interpolate3DvecWrap( gridF, gridShape.n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
 		if( TIP::rff_xs ){
 			f.add( forceRSpline( drTip, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
 		}else{		
@@ -308,52 +256,27 @@ void setFIRE( double finc, double fdec, double falpha ){
 }
 
 // set pointer to force field array ( the array is usually allocated in python, we can flexibely switch betweeen different precomputed forcefields )
-void setFF_Fpointer( double * gridF ){
-	FF::gridF = (Vec3d *)gridF;
+void setFF_Fpointer( double * gridF_ ){
+	gridF = (Vec3d *)gridF_;
 }
 
 // set pointer to force field array ( the array is usually allocated in python, we can flexibely switch betweeen different precomputed forcefields )
-void setFF_Epointer( double * gridE ){
-	FF::gridE = gridE;
+void setFF_Epointer( double * gridE_ ){
+	gridE = gridE_;
 }
 
-// set parameters of forcefield like dimension "n", and lattice vectors "cell"
-void setFF_shape( int * n, double * cell ){
-	//FF::grid = (Vec3d *)grid;
-	FF::n.set(n);
-	FF::dCell.a.set( cell[0], cell[1], cell[2] );   FF::dCell.a.mul( 1.0d/FF::n.a );
-	FF::dCell.b.set( cell[3], cell[4], cell[5] );   FF::dCell.b.mul( 1.0d/FF::n.b );
-	FF::dCell.c.set( cell[6], cell[7], cell[8] );   FF::dCell.c.mul( 1.0d/FF::n.c );
-	FF::dCell.invert_T_to( FF::diCell );	
-
-	printf( " nxyz  %i %i %i \n", FF::n.x, FF::n.y, FF::n.z );
-	printf( " a     %f %f %f \n", FF::dCell.a.x,FF::dCell.a.y,FF::dCell.a.z );
-	printf( " b     %f %f %f \n", FF::dCell.b.x,FF::dCell.b.y,FF::dCell.b.z );
-	printf( " c     %f %f %f \n", FF::dCell.c.x,FF::dCell.c.y,FF::dCell.c.z );
-	printf( " inv_a %f %f %f \n", FF::diCell.a.x,FF::diCell.a.y,FF::diCell.a.z );
-	printf( " inv_b %f %f %f \n", FF::diCell.b.x,FF::diCell.b.y,FF::diCell.b.z );
-	printf( " inv_c %f %f %f \n", FF::diCell.c.x,FF::diCell.c.y,FF::diCell.c.z );
+// set forcefield grid dimension "n"
+void setGridN( int * n ){
+	//gridShape.n.set( *(Vec3i*)n );
+	gridShape.n.set( n[2], n[1], n[0] );
+	printf( " nxyz  %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
 }
 
-/*
-// set parameters of forcefield like dimension "n", and lattice vectors "cell"
-void setFF( int * n, double * grid, double * cell ){
-	FF::grid = (Vec3d *)grid;
-	FF::n.set(n);
-	FF::dCell.a.set( cell[0], cell[1], cell[2] );   FF::dCell.a.mul( 1.0d/FF::n.a );
-	FF::dCell.b.set( cell[3], cell[4], cell[5] );   FF::dCell.b.mul( 1.0d/FF::n.b );
-	FF::dCell.c.set( cell[6], cell[7], cell[8] );   FF::dCell.c.mul( 1.0d/FF::n.c );
-	FF::dCell.invert_T_to( FF::diCell );	
-
-	printf( " nxyz  %i %i %i \n", FF::n.x, FF::n.y, FF::n.z );
-	printf( " a     %f %f %f \n", FF::dCell.a.x,FF::dCell.a.y,FF::dCell.a.z );
-	printf( " b     %f %f %f \n", FF::dCell.b.x,FF::dCell.b.y,FF::dCell.b.z );
-	printf( " c     %f %f %f \n", FF::dCell.c.x,FF::dCell.c.y,FF::dCell.c.z );
-	printf( " inv_a %f %f %f \n", FF::diCell.a.x,FF::diCell.a.y,FF::diCell.a.z );
-	printf( " inv_b %f %f %f \n", FF::diCell.b.x,FF::diCell.b.y,FF::diCell.b.z );
-	printf( " inv_c %f %f %f \n", FF::diCell.c.x,FF::diCell.c.y,FF::diCell.c.z );
+// set forcefield grid lattice vectors "cell"
+void setGridCell( double * cell ){
+	gridShape.setCell( *(Mat3d*)cell );
+    gridShape.printCell();
 }
-*/
 
 // set parameters of the tip like stiffness and equlibirum position in radial and lateral direction
 void setTip( double lRad, double kRad, double * rPP0, double * kSpring ){  
@@ -373,73 +296,38 @@ void setTipSpline( int n, double * xs, double * ydys ){
 
 // sample Lenard-Jones Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with given C6 and C12 parameters; 
 // results are sampled according to grid parameters defined in "namespace FF" and stored in array to which points by "double * FF::grid"
-void getLenardJonesFF( int natom, double * Rs_, double * C6, double * C12 ){
-	Vec3d * Rs = (Vec3d*) Rs_;
-	int nx  = FF::n.x;
-	int ny  = FF::n.y;
-	int nz  = FF::n.z;
-	int nxy = ny * nx;
-	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
-	for ( int ia=0; ia<nx; ia++ ){ 
-//		printf( " ia %i \r", ia );
-        std::cout << "ia " << ia;
-        std::cout.flush();
-        std::cout << '\r';
-
-		for ( int ib=0; ib<ny; ib++ ){ 
-			for ( int ic=0; ic<nz; ic++ ){
-				Vec3d f; double E;
-				E = evalAtomsForceLJ( rProbe, natom, Rs, C6, C12,   f );
-				if( FF::gridF ) FF::gridF[ i3D( ia, ib, ic ) ]   .add( f );
-				if( FF::gridE ) FF::gridE[ i3D( ia, ib, ic ) ] +=      E  ;
-				//FF::grid[ i3D( ia, ib, ic ) ].add( getAtomsForceLJ( rProbe, natom, Rs, C6, C12 ) );
-				//printf(  " %i %i %i     %f %f %f  \n", ia, ib, ic,     rProbe.x, rProbe.y, rProbe.z  );
-				//FF[ i3D( ix, iy, iz ) ].set( rProbe );
-				rProbe.add( FF::dCell.c );
-			} 
-			rProbe.add_mul( FF::dCell.c, -nz );
-			rProbe.add( FF::dCell.b );
-		} 
-		rProbe.add_mul( FF::dCell.b, -ny );
-		rProbe.add( FF::dCell.a );  
-	}
-    printf ("\n");
+inline void evalCell_LJ( int ibuff, const Vec3d& rProbe, void * args ){
+	Vec3d f; double E;
+	E = evalAtomsForceLJ( rProbe, natoms, Ratoms, C6s, C12s,  f );
+	if( gridF ) gridF[ ibuff ]   .add( f );
+	if( gridE ) gridE[ ibuff ] +=      E  ;
+	//FF::grid[ ibuff ].add( getAtomsForceLJ( rProbe, natom, Rs, C6, C12 ) );
+	//printf(  " %i %i %i     %f %f %f  \n", ia, ib, ic,     rProbe.x, rProbe.y, rProbe.z  );
+	//FF[ ibuff ].set( rProbe );
+}
+void getLenardJonesFF( int natoms_, double * Ratoms_, double * C6s_, double * C12s_ ){
+    natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; C6s=C6s_; C12s=C12s_;
+    Vec3d r0; r0.set(0.0,0.0,0.0);
+    interateGrid3D<evalCell_LJ>( r0, gridShape.n, gridShape.dCell, NULL );
 }
 
 // sample Coulomb Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with constant kQQs  =  - k_coulomb * Q_ProbeParticle * Q[i] 
 // results are sampled according to grid parameters defined in "namespace FF" and stored in array to which points by "double * FF::grid"
-void getCoulombFF( int natom, double * Rs_, double * kQQs ){
-	Vec3d * Rs = (Vec3d*) Rs_;
-	int nx  = FF::n.x;
-	int ny  = FF::n.y;
-	int nz  = FF::n.z;
-	int nxy = ny * nx;
-	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
-	//for ( int i=0; i<natom; i++ ){ 		printf( " atom %i   q=  %f \n", i, kQQs[i] );	}
-	for ( int ia=0; ia<nx; ia++ ){ 
-//		printf( " ia %i \r", ia );  
-        std::cout << "ia " << ia;
-        std::cout.flush();
-        std::cout << '\r';
-		for ( int ib=0; ib<ny; ib++ ){
-			for ( int ic=0; ic<nz; ic++ ){
-				Vec3d f; double E;
-				E = evalAtomsForceCoulomb( rProbe, natom, Rs, kQQs, f );
-				if( FF::gridF ) FF::gridF[ i3D( ia, ib, ic ) ]   .add( f );
-				if( FF::gridE ) FF::gridE[ i3D( ia, ib, ic ) ] +=      E  ;
-				//FF::grid[ i3D( ia, ib, ic ) ].add( getAtomsForceCoulomb( rProbe, natom, Rs, kQQs ) );
-				//printf(  " %i %i %i     %f %f %f  \n", ia, ib, ic,     rProbe.x, rProbe.y, rProbe.z  );
-				//FF[ i3D( ix, iy, iz ) ].set( rProbe );
-				rProbe.add( FF::dCell.c );
-			} 
-			rProbe.add_mul( FF::dCell.c, -nz ); 
-			rProbe.add( FF::dCell.b );
-		} 
-		rProbe.add_mul( FF::dCell.b, -ny );
-		rProbe.add( FF::dCell.a );
-	}
-    printf ("\n");
+inline void evalCell_Coulomb( int ibuff, const Vec3d& rProbe, void * args ){
+	Vec3d f; double E;
+	E = evalAtomsForceCoulomb( rProbe, natoms, Ratoms, kQQs, f );
+	if( gridF ) gridF[ ibuff ]   .add( f );
+	if( gridE ) gridE[ ibuff ] +=      E  ;
+	//FF::grid[ i3D( ia, ib, ic ) ].add( getAtomsForceCoulomb( rProbe, natom, Rs, kQQs ) );
+	//printf(  " %i %i %i     %f %f %f  \n", ia, ib, ic,     rProbe.x, rProbe.y, rProbe.z  );
+	//FF[ i3D( ix, iy, iz ) ].set( rProbe );
 }
+void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs_ ){
+    natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; kQQs=kQQs_;
+    Vec3d r0; r0.set(0.0,0.0,0.0);
+    interateGrid3D<evalCell_Coulomb>( r0, gridShape.n, gridShape.dCell, NULL );
+}
+
 
 // relax one stroke of tip positions ( stored in 1D array "rTips_" ) using precomputed 3D force-field on grid
 // returns position of probe-particle after relaxation in 1D array "rs_" and force between surface probe particle in this relaxed position in 1D array "fs_"
@@ -476,9 +364,9 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
 		//printf( " %i  %i    %f %f %f   %f %f %f \n", i, itr, rTip.x, rTip.y, rTip.z, rProbe.x, rProbe.y, rProbe.z  );
 		// compute force in relaxed position
 		Vec3d rGrid; 
-		rGrid.set( rProbe.dot( FF::diCell.a ), rProbe.dot( FF::diCell.b ), rProbe.dot( FF::diCell.c ) ); 
+		rGrid.set( rProbe.dot( gridShape.diCell.a ), rProbe.dot( gridShape.diCell.b ), rProbe.dot( gridShape.diCell.c ) ); 
 		rs[i].set( rProbe                               );
-		fs[i].set( interpolate3DvecWrap( FF::gridF, FF::n, rGrid ) );
+		fs[i].set( interpolate3DvecWrap( gridF, gridShape.n, rGrid ) );
 		// count some statistics about number of iterations required; just for testing
 		itrsum += itr;
 		//itrmin  = ( itr < itrmin ) ? itr : itrmin;
@@ -542,12 +430,6 @@ void test_force( int type, int n, double * r0_, double * dr_, double * R_, doubl
 }
 
 }
-
-
-
-
-
-
 
 
 

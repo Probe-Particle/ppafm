@@ -2,17 +2,24 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "Vec3.cpp"
-#include "Mat3.cpp"
-#include <string.h>
+#include "Vec3.h"
+#include "Mat3.h"
+//#include <string.h>
+
+#include "Grid.h"
 
 // ================= MACROS
 
-#define i3D( ix, iy, iz )  ( iz*nxy + iy*nx + ix  ) 
+//#define i3D( ix, iy, iz )  ( iz*nxy + iy*nx + ix  ) 
 
 // ================= CONSTANTS
 
-// Force-Field namespace 
+// ================= GLOBAL VARIABLES
+
+GridShape gridShape;
+double *  gridV;
+
+/*
 namespace GRID {		    
 	double * grid;      // pointer to data array (3D)
 	Mat3d   cell;
@@ -20,6 +27,7 @@ namespace GRID {
 	Mat3d   diCell;     // inversion of voxel basis vector
 	Vec3i   n;          // number of pixels along each basis vector
 }
+*/
 
 const static int images [27][3] = {
 	{ 0, 0, 0}, {-1, 0, 0}, {+1, 0, 0},
@@ -40,30 +48,22 @@ const static int images [27][3] = {
 extern "C"{
 
 // set pointer to force field array ( the array is usually allocated in python, we can flexibely switch betweeen different precomputed forcefields )
-void setGrid_Pointer( double * grid ){
-	GRID::grid = grid;
+void setGrid_Pointer( double * data ){
+	gridV = data;
 }
 
-// set parameters of forcefield like dimension "n", and lattice vectors "cell"
-void setGrid( int * n, double * grid, double * cell ){
-	GRID::grid = grid;
-	GRID::n.set(n);
-	GRID::cell.a.set ( cell[0], cell[1], cell[2] );  
-	GRID::cell.b.set ( cell[3], cell[4], cell[5] );   
-	GRID::cell.c.set ( cell[6], cell[7], cell[8] );
-	GRID::dCell.a.set( cell[0], cell[1], cell[2] );   GRID::dCell.a.mul( 1.0d/GRID::n.a );
-	GRID::dCell.b.set( cell[3], cell[4], cell[5] );   GRID::dCell.b.mul( 1.0d/GRID::n.b );
-	GRID::dCell.c.set( cell[6], cell[7], cell[8] );   GRID::dCell.c.mul( 1.0d/GRID::n.c );
-	GRID::dCell.invert_T_to( GRID::diCell );	
-	printf( " nxyz  %i %i %i \n", GRID::n.x, GRID::n.y, GRID::n.z );
-	printf( " a     %f %f %f \n", GRID::dCell.a.x,GRID::dCell.a.y,GRID::dCell.a.z );
-	printf( " b     %f %f %f \n", GRID::dCell.b.x,GRID::dCell.b.y,GRID::dCell.b.z );
-	printf( " c     %f %f %f \n", GRID::dCell.c.x,GRID::dCell.c.y,GRID::dCell.c.z );
-	printf( " inv_a %f %f %f \n", GRID::diCell.a.x,GRID::diCell.a.y,GRID::diCell.a.z );
-	printf( " inv_b %f %f %f \n", GRID::diCell.b.x,GRID::diCell.b.y,GRID::diCell.b.z );
-	printf( " inv_c %f %f %f \n", GRID::diCell.c.x,GRID::diCell.c.y,GRID::diCell.c.z );
+// set forcefield grid dimension "n"
+void setGridN( int * n ){
+	//gridShape.n.set( *(Vec3i*)n );
+	gridShape.n.set( n[2], n[1], n[0] );
+	printf( " nxyz  %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
 }
 
+// set forcefield grid lattice vectors "cell"
+void setGridCell( double * cell ){
+	gridShape.setCell( *(Mat3d*)cell );
+    gridShape.printCell();
+}
 
 /*
 inline atom_sphere( rProbe  const Vec3d& pos,    bool &withinRmax, bool withinRmin  ){
@@ -88,25 +88,25 @@ int sampleGridArroundAtoms(
 ){
 	Vec3d * atom_pos    = (Vec3d*) atom_pos_;
 	Vec3d * sampled_pos = (Vec3d*) sampled_pos_;
-	int nx  = GRID::n.x;
-	int ny  = GRID::n.y;
-	int nz  = GRID::n.z;
+	int nx  = gridShape.n.x;
+	int ny  = gridShape.n.y;
+	int nz  = gridShape.n.z;
 	int nxy = ny * nx; // used in macro i3D( ia, ib, ic )
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	int points_found = 0;
 	int nimg = 1; if (pbc) nimg = 27; // PBC ?
 	for ( int ia=0; ia<nx; ia++ ){ 
 		//printf( " ia %i \n", ia );
-		rProbe.add( GRID::dCell.a );  
+		rProbe.add( gridShape.dCell.a );  
 		for ( int ib=0; ib<ny; ib++ ){ 
-			rProbe.add( GRID::dCell.b );
+			rProbe.add( gridShape.dCell.b );
 			for ( int ic=0; ic<nz; ic++ ){
-				rProbe.add( GRID::dCell.c );
+				rProbe.add( gridShape.dCell.c );
 				bool withinRmin = false; 
 				bool withinRmax = false; 
 				for ( int iimg=0; iimg<nimg; iimg++ ){
 					Vec3d cell_shift;
-					cell_shift.set_lincomb( images[iimg][0], images[iimg][1], images[iimg][2], GRID::cell.a, GRID::cell.b, GRID::cell.c );
+					cell_shift.set_lincomb( images[iimg][0], images[iimg][1], images[iimg][2], gridShape.cell.a, gridShape.cell.b, gridShape.cell.c );
 					for ( int iatom=0; iatom<natoms; iatom++ ){
 						Vec3d dr;
 						dr.set_sub( rProbe, atom_pos[iatom] );
@@ -122,30 +122,21 @@ int sampleGridArroundAtoms(
 				}
 				if( withinRmax && (!withinRmin) ){
 					if( canStore ){
-						sampled_val[points_found] = GRID::grid[ i3D( ia, ib, ic ) ];
-						if( show_where ) GRID::grid[ i3D( ia, ib, ic ) ] = +100.0d;
+						sampled_val[points_found] = gridV[ i3D( ia, ib, ic ) ];
+						if( show_where ) gridV[ i3D( ia, ib, ic ) ] = +100.0d;
 						sampled_pos[points_found].set( rProbe );
 					}
 					points_found++;
 				}
 			} 
-			rProbe.add_mul( GRID::dCell.c, -nz );
+			rProbe.add_mul( gridShape.dCell.c, -nz );
 		} 
-		rProbe.add_mul( GRID::dCell.b, -ny );
+		rProbe.add_mul( gridShape.dCell.b, -ny );
 	}
 	return points_found;
 }
 
 }
-
-
-
-
-
-
-
-
-
 
 
 

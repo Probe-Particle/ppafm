@@ -5,9 +5,10 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "Vec3.cpp"
-#include "Mat3.cpp"
-#include <string.h>
+#include <iostream>
+#include "Vec3.h"
+#include "Mat3.h"
+//#include <string.h>
 
 // ================= MACROS
 
@@ -43,10 +44,19 @@ class GridShape {
 	};
 
 	inline void cartesian2grid( const Vec3d& cpos, Vec3d& gpos ){
-		gpos.x = cpos.dot( diCell.a );
-		gpos.x = cpos.dot( diCell.b );
-		gpos.x = cpos.dot( diCell.c );
+		gpos.a = cpos.dot( diCell.a );
+		gpos.b = cpos.dot( diCell.b );
+		gpos.c = cpos.dot( diCell.c );
 	};
+	
+	void printCell(){
+	    printf( " a     %f %f %f \n", dCell.a.x,  dCell.a.y,  dCell.a.z  );
+	    printf( " b     %f %f %f \n", dCell.b.x,  dCell.b.y,  dCell.b.z  );
+	    printf( " c     %f %f %f \n", dCell.c.x,  dCell.c.y,  dCell.c.z  );
+	    printf( " inv_a %f %f %f \n", diCell.a.x, diCell.a.y, diCell.a.z );
+	    printf( " inv_b %f %f %f \n", diCell.b.x, diCell.b.y, diCell.b.z );
+	    printf( " inv_c %f %f %f \n", diCell.c.x, diCell.c.y, diCell.c.z );
+    }
 
 };
 
@@ -85,6 +95,37 @@ inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r 
 	out.add_mul( grid[ i3D( imx, imy, itz ) ], tz*mymx );   out.add_mul( grid[ i3D( itx, imy, itz ) ], tz*mytx );
 	return out;
 }
+
+
+// iterate over field
+template< void FUNC( int ibuff, const Vec3d& pos_, void * args ) >
+void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void * args ){
+	int nx  = n.x;
+	int ny  = n.y;
+	int nz  = n.z;
+	int nxy = ny * nx;
+	Vec3d pos;  pos.set( pos0 );
+	for ( int ia=0; ia<nx; ia++ ){ 
+        std::cout << "ia " << ia;
+        std::cout.flush();
+        std::cout << '\r';
+		for ( int ib=0; ib<ny; ib++ ){
+			for ( int ic=0; ic<nz; ic++ ){
+			    int ibuff = i3D( ia, ib, ic );
+                //FUNC( ibuff, {ia,ib,ic}, pos );
+                FUNC( ibuff, pos, args );
+				pos.add( dCell.c );
+			} 
+			pos.add_mul( dCell.c, -nz ); 
+			pos.add( dCell.b );
+		} 
+		pos.add_mul( dCell.b, -ny );
+		pos.add( dCell.a );
+	}
+    printf ("\n");
+}
+
+
 
 #endif
 
