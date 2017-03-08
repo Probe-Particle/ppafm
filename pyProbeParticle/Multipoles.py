@@ -6,6 +6,29 @@ import ctypes
 import os
 
 import cpp_utils
+#import fieldFFT as SH
+
+
+'''
+
+Approximates potential using small number of basis-functions of multipole kind
+
+derivation:
+
+Err = Integral_r{ ( V(r) - Sum_i{ a_i phi_i(r) } )**2 }
+
+dErr_{a_j}      =  Integral_r{   -2*( V(r) - Sum_i{ a_i phi_i(r) } )   phi_j(r)        }
+dErr_{a_j}/(-2) =  Integral_r{ V(r)*phi_j(r) }  - Integral_r{ phi_j(r) Sum_i{ a_i phi_i(r) } }
+
+dErr_{a_j}/(-2) = <V|phi_j> - Sum_i{<phi_i|phi_j(r)>}
+
+b_j     = <V|phi_j>
+A_{i,j} = <phi_i|phi_j(r)>
+
+A a = b
+
+'''
+
 
 # ====================== constants
 
@@ -16,6 +39,7 @@ import cpp_utils
 LIB_PATH = os.path.dirname( os.path.realpath(__file__) )
 print " ProbeParticle Library DIR = ", LIB_PATH
 
+# NOTE : !!!! spherical harmonic for potential is not necessarily the same as for denisty !!!!!
 def getSphericalHarmonic( X, Y, Z, R, kind='1' ):
 	# TODO: renormalization should be probaby here
 	# TODO: radial dependence of multipole is probably wrong
@@ -71,7 +95,7 @@ def sample_basis( atom_pos, atom_bas, atom_mask, X, Y, Z, radial_func = None, be
 			if radial_func is not None:
 				radial = radial_func( R, beta )	# TODO: problem is that radial function is different for  monopole, dipole, quadrupole ... 
 			for kind in atom_bas[iatom]:
-				basis_func = radial * getSphericalHarmonic( X, Y, Z, R, kind=kind )
+				basis_func = radial * SH.getSphericalHarmonic( X, Y, Z, R, kind=kind )
 				basis_set.append( basis_func )
 				basis_assignment.append( ( iatom, kind ) )
 	return np.array( basis_set ), basis_assignment
@@ -124,12 +148,26 @@ array3d = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
 # ========
 
 # void setFF( int * n, double * grid, double * step,  )
-lib.setGrid.argtypes = [array1i,array3d,array2d]
-lib.setGrid.restype  = None
-def setGrid( grid, cell ):
-	n_    = np.shape(grid)
+#lib.setGrid.argtypes = [array1i,array3d,array2d]
+#lib.setGrid.restype  = None
+#def setGrid( grid, cell ):
+#	n_    = np.shape(grid)
+#	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
+#	lib.setGrid( n, grid, cell )
+
+#void setGridN( int * n ){
+lib.setGridN.argtypes = [array1i]
+lib.setGridN.restype  = None
+
+#void setGridCell( double * cell ){
+lib.setGridCell.argtypes = [array2d]
+lib.setGridCell.restype  = None
+
+def setGrid_shape( n_, cell ):
 	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
-	lib.setGrid( n, grid, cell )
+	#lib.setFF_shape( n, cell )
+	lib.setGridN    ( n    )
+	lib.setGridCell ( cell )	
 
 # void setGrid_Pointer( int * n, double * grid, double * step,  )
 lib.setGrid_Pointer.argtypes = [array3d]

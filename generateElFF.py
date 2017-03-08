@@ -7,7 +7,7 @@ import __main__ as main
 
 import pyProbeParticle                as PPU     
 from   pyProbeParticle            import basUtils
-from   pyProbeParticle            import elements   
+#from   pyProbeParticle            import elements   
 import pyProbeParticle.GridUtils      as GU
 import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.cpp_utils      as cpp_utils
