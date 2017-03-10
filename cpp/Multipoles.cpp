@@ -7,6 +7,7 @@
 //#include <string.h>
 
 #include "Grid.h"
+#include "DynamicOpt.h"
 
 // ================= MACROS
 
@@ -18,6 +19,18 @@
 
 GridShape gridShape;
 double *  gridV;
+
+int         nCenters;  
+Vec3d    *  centers; 
+uint32_t *  types;
+
+int nbasis;     
+//double   * basis; 
+double * coefs; // 
+double * BV;    //   <Bi,V>     [nbasis]
+double * BB;    //   <Bi,Bi>    [nbasis**2]
+
+DynamicOpt optimizer;
 
 const static int images [27][3] = {
 	{ 0, 0, 0}, {-1, 0, 0}, {+1, 0, 0},
@@ -33,7 +46,7 @@ const static int images [27][3] = {
 
 
 //#define   NEXTBIT( index, OPERATION ) { if(bitmask_&bitmask){ OPERATION; index++; bitmask_=bitmask_<<1; } }
-#define   NEXTBIT( index, OPERATION ) { if(bitmask&1){ OPERATION; index++; bitmask=bitmask>>1; } }
+#define   NEXTBIT( index, OPERATION ) { if(bitmask&1){ OPERATION; index++; bitmask=bitmask>>1; }else if(bitmask==0){return index;} }
 
 inline int getMultipoleBasis( Vec3d pos, double * bas, uint32_t bitmask ){
     // https://en.wikipedia.org/wiki/Multipole_expansion#Expansion_in_Cartesian_coordinates
@@ -41,7 +54,7 @@ inline int getMultipoleBasis( Vec3d pos, double * bas, uint32_t bitmask ){
     int i = 0;
     double ir2 = 1/pos.norm2();
     double ir  = sqrt(ir2);
-    bas[i]     = ir;              
+    NEXTBIT( i, bas[i]     = ir; )            
     double ir3 = ir *ir2;
     NEXTBIT( i, bas[i] = ir3*pos.z; )    
     NEXTBIT( i, bas[i] = ir3*pos.y; )    
@@ -88,12 +101,25 @@ inline getMultipoleBasis( Vec3d pos, double * bas, uint32_t mask ){
 }
 */
 
-void addOuterSymProduct( int n, double * B, double * BB ){
+void addUpperOuterProduct( int n, double * B, double * BB, double Wi ){
     int ii = 0;
     for(int i=0; i<n; i++){
-        double bi = B[i];
+        double bi = B[i]*Wi;
         for(int j=i; j>=0; j--){
             BB[ii]+=bi*B[j];
+            ii++;
+        }
+    }
+}
+
+void upper2Sym( int n, double * U, double * S ){
+    int ii = 0;
+    for( int i=0; i<n; i++ ){
+        S[i*n+i] = U[ii]; ii++; 
+        for(int j=i-1; j>=0; j--){
+            double Ui=U[ii];
+            S[i*n+j] = Ui;
+            S[j*n+i] = Ui;
             ii++;
         }
     }
@@ -194,27 +220,97 @@ int sampleGridArroundAtoms(
 	return points_found;
 }
 
-int buildLinearSystemMultipole(
-    int npos,     double * poss_, double * V,
-    int ncenter,  double * centers_, uint32_t * type, 
-    double * bas, double * BB 
+
+int setCenters( int nCenters_, double * centers_, uint32_t * types_ ){
+    nCenters = nCenters_;
+    centers  = (Vec3d*)centers_;
+    types    = types_;
+    int ibas=0;
+    Vec3d pos; pos.set(1.0,1.0,1.0); 
+    double bas[32*nCenters];
+    for(int icenter=0; icenter<nCenters; icenter++ ){ ibas += getMultipoleBasis( pos, bas+ibas, types[icenter] ); }
+    nbasis = ibas;
+    return nbasis;
+}
+
+void evalMultipoleCombCell( int ibuff, const Vec3d& pos, void * args ){
+    double bas[nbasis];
+    int ibas=0;
+    for(int i=0; i<nCenters; i++){
+        ibas += getMultipoleBasis( pos - centers[i], bas+ibas, types[i] );
+    }
+    double V = 0;
+    for(int i=0; i<nbasis; i++){
+        V += bas[i] * coefs[i];
+        //V += bas[i];
+        //printf("%f \n", bas[i]);
+    }
+    gridV[ibuff] = V;
+    //exit(0);
+}
+int evalMultipoleComb( double * coefs_, double * gridV_ ){
+    coefs = coefs_;
+    gridV = gridV_;
+    Vec3d pos0; pos0.set(0.0);
+    interateGrid3D<evalMultipoleCombCell>( pos0, gridShape.n, gridShape.dCell, NULL );
+}
+
+
+double buildLinearSystemMultipole(
+    int npos,     double * poss_, double * V, double * W,
+    //int ncenter,  double * centers_, uint32_t * type, 
+    int nbas,     double * B,    double * BB 
 ){    
     Vec3d* poss    = (Vec3d*)poss_;
-    Vec3d* centers = (Vec3d*)centers_;
-    int nbas; 
+    //Vec3d* centers = (Vec3d*)centers_;
+    //if( ibas != nbas ){ printf( "ERROR: inconsistent nbas %i %i \n", nbas, ibas ); return -ibas; }
+    double    bas[nbasis];
+    const int nbb = (nbasis*(nbasis+1))/2;   // number of uper nU = nbas*(nbas-1)/2 ; diagonal n; n+nU =  nbas*(nbas+1)/2
+    double    uBB[nbb]; for(int i=0; i<nbb; i++ ){ uBB[i]=0;}  
+    int ibas=0;
+    double Wsum=0;
     for(int ipos=0; ipos<npos; ipos++){
         Vec3d pos = poss[ipos];
-        int ibas = 0;
-        for(int icenter=0; icenter<ncenter; icenter++ ){
-            int nbi =  getMultipoleBasis( pos - centers[icenter], bas+ibas, type[icenter] );
-            ibas+=nbi;
+        ibas = 0;
+        for(int icenter=0; icenter<nCenters; icenter++ ){
+            ibas += getMultipoleBasis( pos - centers[icenter], bas+ibas, types[icenter] );
         }
-        nbas=ibas;
-        addOuterSymProduct( nbas, bas, BB );   // we need this since off-site multipoles are not orthogonal to each other
-        for( int i=0; i<nbas; i++ ){ bas[i] *= V[ipos];  }
+        double Wi = W[ipos]; Wsum+=Wi;
+        addUpperOuterProduct( ibas, bas, uBB, Wi );   // we need this since off-site multipoles are not orthogonal to each other
+        double Vi = V[ipos]                  *Wi;
+        for( int i=0; i<ibas; i++ ){ B[i] += bas[i]*Vi;  }
     }
-    return nbas;
+    for(int i=0; i<nbb; i++ ){ printf("%f \n", uBB[i] );  };
+    upper2Sym( nbas, uBB, BB );
+    //for(int i=0; i<nbas; i++){ BB[i*nbas+i] *=2; } //    diagonal is d(a_i**2) = 2*a_i  // seems better without it ... why ?
+    return Wsum;
 }
+
+//  Performs iterative optimization (FIRE) of fit expansion "coefs" with "kReg" regularization stiffness 
+int regularizedLinearFit( 
+    int nbas,  double * coefs,  double * kReg, double * B, double * BB, 
+    double dt, double damp, double convF, int nMaxSteps 
+){
+    optimizer.bindArrays( nbas, coefs, NULL, NULL, NULL );
+    optimizer.initOpt( dt, damp );
+    int iter=0;
+    for( int iter=0; iter<nMaxSteps; iter++ ){
+        //optimizer.cleanForce();
+        // --- eval force derivs
+        int ii=0;
+        for(int i=0;i<nbas;i++){
+            double fcross=0;
+            for(int j=0; j<nbas; j++){ fcross+=BB[ii]*optimizer.pos[j]; ii++; } 
+            optimizer.force[i] = fcross - B[i] - kReg[i]*optimizer.pos[i];
+        }
+		optimizer.move_FIRE();
+		double f = optimizer.getFmaxAbs( );
+		printf("iter %i f %8.16f dt %f \n", iter, f, optimizer.dt );
+		if( f < convF ) break;
+	}
+    return iter;
+}
+
 
 }
 

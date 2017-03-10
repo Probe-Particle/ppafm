@@ -200,10 +200,10 @@ def loadXSF(fname):
 	print "nDim xsf (= nDim + [1,1,1] ):", nDim
 	print "GridUtils| Load "+fname+" using readNumsUpTo "    
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(), startline+5)
-	
 	print "GridUtils| Done"
 	FF = np.reshape (F, nDim )
-	return FF[:-1,:-1,:-1],lvec, nDim-1, head
+    #   FF is not C_CONTIGUOUS without copy
+	return FF[:-1,:-1,:-1].copy(),lvec, nDim-1, head
 
 def getFromHead_PRIMCOORD( head ): 
 	Zs = None; Rs = None;

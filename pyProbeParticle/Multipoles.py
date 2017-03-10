@@ -27,6 +27,9 @@ A_{i,j} = <phi_i|phi_j(r)>
 
 A a = b
 
+with regularization Err = <V-a.phi|V-a.phi> - a.a
+dErr_{a_j}/(-2) = <V|phi_j> - Sum_i{<phi_i|phi_j(r)>} - 2*aj
+
 '''
 
 
@@ -38,44 +41,6 @@ A a = b
 
 LIB_PATH = os.path.dirname( os.path.realpath(__file__) )
 print " ProbeParticle Library DIR = ", LIB_PATH
-
-# NOTE : !!!! spherical harmonic for potential is not necessarily the same as for denisty !!!!!
-def getSphericalHarmonic( X, Y, Z, R, kind='1' ):
-	# TODO: renormalization should be probaby here
-	# TODO: radial dependence of multipole is probably wrong
-	if    kind=='s':
-		return 1.0/R
-	# p-functions
-	elif  kind=='px':
-		return Z/(R**2)
-	elif  kind=='py':
-		return Y/(R**2)
-	elif  kind=='pz':
-		return Z/(R**2)
-	# d-functions
-	if    kind=='dz2' :
-		return ( X**2 + Y**2 - 2*Z**2 )/( R**4 )
-	else:
-		return 0.0
-
-def getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=None ):
-	'returns probe particle potential'
-	mat = getNormalizedBasisMatrix(sampleSize).getT()
-	rx = X*mat[0, 0] + Y*mat[0, 1] + Z*mat[0, 2]
-	ry = X*mat[1, 0] + Y*mat[1, 1] + Z*mat[1, 2]
-	rz = X*mat[2, 0] + Y*mat[2, 1] + Z*mat[2, 2]
-	rquad  = rx**2 + ry**2 + rz**2
-	radial       = np.exp( -(rquad)/(1*sigma**2) )
-	radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]   # TODO analytical renormalization may save some time ?
-	radial      /= radial_renom
-	if multipole_dict is not None:	   # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
-		rho = np.zeros( np.shape(radial) )
-		for kind, coef in multipole_dict.iteritems():
-			rho += radial * coef * getSphericalHarmonic( X, Y, Z, kind=kind )    # TODO renormalization should be probaby inside getSphericalHarmonic if possible ?
-	else:
-		rho = radial
-	return rho
-
 
 # make_matrix 
 #	compute values of analytic basis functions set at given points in space and store in matrix "basis_set"  
@@ -122,9 +87,14 @@ def make_Ratoms( atom_types, type_R,  fmin = 0.9 , fmax = 1.3 ):
 '''
 
 # make_Ratoms
-def make_Ratoms( atom_types, type_R,  fmin = 0.9 , fmax = 1.3 ):
+def make_Ratoms( atom_types, type_R,  fmin = 0.9 , fmax = 2.0 ):
 	atom_R = type_R[atom_types]
 	return atom_R*fmin,atom_R*fmax
+	
+	
+def BB2symMat( nbas, BB ):
+    M = np.zeros(nbas,nbas)
+    return
 
 # ==============================
 # ============================== interface to C++ core 
@@ -133,15 +103,17 @@ def make_Ratoms( atom_types, type_R,  fmin = 0.9 , fmax = 1.3 ):
 cpp_name='Multipoles'
 #cpp_utils.compile_lib( cpp_name  )
 cpp_utils.make("MP")
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/lib" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes 
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
 
-array1b = np.ctypeslib.ndpointer(dtype=np.bool  , ndim=1, flags='CONTIGUOUS')
-array1i = np.ctypeslib.ndpointer(dtype=np.int32 , ndim=1, flags='CONTIGUOUS')
-array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
-array2d = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
-array3d = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
+array1b  = np.ctypeslib.ndpointer(dtype=np.bool  , ndim=1, flags='CONTIGUOUS')
+array1i  = np.ctypeslib.ndpointer(dtype=np.int32 , ndim=1, flags='CONTIGUOUS')
+array1ui = np.ctypeslib.ndpointer(dtype=np.uint32, ndim=1, flags='CONTIGUOUS')
+array1d  = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
+array2d  = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
+array3d  = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
+
 
 # ========
 # ======== Python warper function for C++ functions
@@ -174,6 +146,12 @@ lib.setGrid_Pointer.argtypes = [array3d]
 lib.setGrid_Pointer.restype  = None
 def setGrid_Pointer( grid ):
 	lib.setGrid_Pointer( grid )
+	
+# int setCenters( int nCenters_, double * centers_, uint32_t * types_ )
+lib.setCenters.argtypes = [ c_int, array2d, array1ui ]
+lib.setCenters.restype  = c_int
+def setCenters( centers, types ):
+	return lib.setCenters( len(centers), centers, types  )
 
 # int sampleGridArroundAtoms( 
 # 	int natoms, double * atom_pos, double * atom_Rmin, double * atom_Rmax, bool * atom_mask, 
@@ -192,6 +170,52 @@ def sampleGridArroundAtoms( atom_pos, atom_Rmin, atom_Rmax, atom_mask, pbc = Fal
 	points_found = lib.sampleGridArroundAtoms( natom, atom_pos, atom_Rmin, atom_Rmax, atom_mask, sampled_val, sampled_pos, True, pbc, show_where )
 	return sampled_val, sampled_pos
 
+# int buildLinearSystemMultipole(
+#    int npos,     double * poss_, double * V,
+#    int ncenter,  double * centers_, uint32_t * type, 
+#    double * bas, double * BB 
+lib.buildLinearSystemMultipole.argtypes  = [ c_int, array2d, array1d, array1d,  c_int, array1d, array2d ]
+lib.buildLinearSystemMultipole.restype   = c_double
+def buildLinearSystemMultipole( poss, vals, centers, types, Ws=None ):
+    nbas = setCenters(centers, types)
+    B=np.zeros(nbas)
+    BB=np.zeros((nbas,nbas))
+    if Ws is None:
+        Ws = np.ones(vals.shape)
+    Wsum = lib.buildLinearSystemMultipole(len(poss),poss,vals,Ws, nbas, B, BB )
+    print "Wsum = ", Wsum
+    return B/Wsum,BB/Wsum
+    
+    
+# int regularizedLinearFit( 
+#    int nbas,  double * coefs,  double * kReg, double * B, double * BB, 
+#    double dt, double damp, double convF, int nMaxSteps 
+lib.regularizedLinearFit.argtypes = [c_int,array1d,array1d,array1d,array2d,   c_double, c_double, c_double, c_int ]
+lib.regularizedLinearFit.restype  = c_int
+def regularizedLinearFit(B, BB, coefs=None, kReg=1.0,  dt=0.1, damp=0.1, convF=1e-6, nMaxSteps=1000):
+    n = len(B)
+    if not isinstance(kReg,np.ndarray): 
+        try:
+            kReg = np.ones(n) * kReg 
+            print "kReg",kReg
+        except:
+            try:
+                kReg = np.array(kReg)
+                print "kReg",kReg
+            except:
+                print " kReg must be either array,list,scalar"
+                return
+    if coefs is None: 
+        coefs = np.zeros(n)
+    print "kReg",kReg
+    lib.regularizedLinearFit( n, coefs, kReg, B, BB,    dt, damp, convF, nMaxSteps )
+    return coefs
+
+#int evalMultipoleComb( double * coefs_, double * gridV_ )
+lib.evalMultipoleComb.argtypes = [array1d,array3d]
+lib.evalMultipoleComb.restype  = None
+def evalMultipoleComb( coefs, V ):
+	lib.evalMultipoleComb( coefs, V )
 
 # ============= Hi-Level Macros
 
