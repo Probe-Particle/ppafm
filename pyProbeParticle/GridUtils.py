@@ -344,12 +344,12 @@ def limit_vec_field( FF, Fmax=100.0 ):
 	FF[:,:,:,1].flat[mask] *= Fmax/FR[mask] 
 	FF[:,:,:,2].flat[mask] *= Fmax/FR[mask]
 
-def save_vec_field(fname, data, lvec, data_format="xsf"):
+def save_vec_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT ):
 	'''
 	Saving scalar fields into xsf, or npy
 	'''
 	if (data_format=="xsf"):
-		saveVecFieldXsf(fname, data, lvec)
+		saveVecFieldXsf(fname, data, lvec, head = head )
 	elif (data_format=="npy"):
 		saveVecFieldNpy(fname, data, lvec)
 	else:
