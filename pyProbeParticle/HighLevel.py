@@ -11,6 +11,10 @@ import common as PPU
 import core
 import cpp_utils
 
+# ===== constants 
+Fmax_DEFAULT = 100.0
+
+
 
 def parseAtoms( atoms, autogeom = False, PBC = True, FFparams=None ):
 	if FFparams is None:
@@ -67,6 +71,7 @@ def computeCoulomb( Rs, Qs, FFel=None , Vpot=False ):
 	#core.setFF( gridF=FFel, gridE=Vel )
 	core.getCoulombFF ( Rs, Qs * PPU.CoulombConst )
 	return FFel, Vel
+
 """
 def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFparams=None ):
 	newEl = False
@@ -113,6 +118,7 @@ def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFpara
 			GU.saveVecFieldXsf( 'FFel', FF, lvecEl, head = head )
 	return FFLJ, FFel
 """		
+
 def relaxedScan3D( xTips, yTips, zTips ):
 	ntips = len(zTips); 
 	print " zTips : ",zTips
@@ -141,10 +147,9 @@ def relaxedScan3D( xTips, yTips, zTips ):
         print ""
 	return fzs,PPpos
 
-def computeLJFF(iZs, Rs, FFparams, Fmax=None, computeVpot=False, Vmax=None):
+def computeLJFF(iZs, Rs, FFparams, Fmax=Fmax_DEFAULT, computeVpot=False, Vmax=None):
     print "--- Compute Lennard-Jones Force-filed ---"
-    FFLJ, VLJ=computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams,   # This function computes the LJ forces experienced 
-                            Vpot=computeVpot)                        # by the ProbeParticle
+    FFLJ, VLJ=computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams, Vpot=computeVpot)     # This function computes the LJ forces experienced  by the ProbeParticle                                              
     if Fmax is not  None:
         print "Limit vector field"
         GU.limit_vec_field( FFLJ, Fmax=Fmax )
@@ -153,7 +158,6 @@ def computeLJFF(iZs, Rs, FFparams, Fmax=None, computeVpot=False, Vmax=None):
     if  Vmax != None and VLJ != None:
     	VLJ[ VLJ > Vmax ] =  Vmax # remove too large values
     return FFLJ,VLJ
-
 
 def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
     print " ========= get electrostatic forcefiled from hartree "
@@ -172,8 +176,6 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
     FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
     del Fel_x,Fel_y,Fel_z
     return FFel
-
-
 
 def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None):
     if tipspline is not None :
@@ -206,10 +208,12 @@ def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None):
     PPdisp-=init_pos
     return fzs,PPpos,PPdisp,lvecScan
 
-
-def computeELFF_pch(iZs,Rs,Qs,computeVpot):
+def computeELFF_pch(iZs,Rs,Qs,computeVpot, Fmax=Fmax_DEFAULT ):
     print " ========= get electrostatic forcefiled from the point charges "
     FFel, V = computeCoulomb( Rs, Qs, FFel=None, Vpot=computeVpot  )
+    if Fmax is not  None:
+        print "Limit vector field"
+        GU.limit_vec_field( FFLJ, Fmax=Fmax )
     if computeVpot :
         Vmax = 10.0; V[ V>Vmax ] = Vmax
     return FFel,V

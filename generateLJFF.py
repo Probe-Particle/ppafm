@@ -21,13 +21,10 @@ if __name__=="__main__":
     """ %os.path.basename(main.__file__)
     from optparse import OptionParser
     parser = OptionParser()
-    parser.add_option( "-i", "--input", action="store", type="string",
-    help="Input file, supported formats are:\n.xyz\n.cube,.xsf")
+    parser.add_option( "-i", "--input", action="store", type="string", help="Input file, supported formats are:\n.xyz\n.cube,.xsf")
     parser.add_option( "--noPBC", action="store_false",  help="pbc False", dest="PBC", default=None)
     parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
-    parser.add_option("-f","--data_format" , action="store" , type="string",
-                      help="Specify the output format of the vector and scalar "
-                      "field. Supported formats are: xsf,npy", default="xsf")
+    parser.add_option("-f","--data_format" , action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
     print options
@@ -53,8 +50,7 @@ if __name__=="__main__":
     PPU.params['gridA'] = lvec[1]
     PPU.params['gridB'] = lvec[2]
     PPU.params['gridC'] = lvec[3]
-    iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'],
-                             FFparams=FFparams )
+    iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'], FFparams=FFparams )
     # The function returns the following information:
     # iZs - 1D array, containing the numbers of the elements, which corresponds to
     # their position in the atomtypes.ini file (Number of line - 1)
@@ -66,6 +62,9 @@ if __name__=="__main__":
     # Qs  - 1D array, containing the atomic charges
     #FFLJ,VLJ=computeLJFF(iZs,Rs,FFparams,Fmax=10.0,computeVpot=options.energy,Vmax=10.0)
     FFLJ,VLJ=PPH.computeLJFF(iZs,Rs,FFparams)
+    
+    #from pyProbeParticle.PPPlot import checkVecField; checkVecField(FFLJ); print "FFLJ.shape", FFLJ.shape
+    
     print "--- Save  ---"
     GU.save_vec_field( 'FFLJ', FFLJ, lvec,data_format=options.data_format)
     if options.energy :

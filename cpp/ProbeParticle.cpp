@@ -301,6 +301,7 @@ inline void evalCell_LJ( int ibuff, const Vec3d& rProbe, void * args ){
 	E = evalAtomsForceLJ( rProbe, natoms, Ratoms, C6s, C12s,  f );
 	if( gridF ) gridF[ ibuff ]   .add( f );
 	if( gridE ) gridE[ ibuff ] +=      E  ;
+	//gridF[ ibuff ]   .set( rProbe );
 	//FF::grid[ ibuff ].add( getAtomsForceLJ( rProbe, natom, Rs, C6, C12 ) );
 	//printf(  " %i %i %i     %f %f %f  \n", ia, ib, ic,     rProbe.x, rProbe.y, rProbe.z  );
 	//FF[ ibuff ].set( rProbe );

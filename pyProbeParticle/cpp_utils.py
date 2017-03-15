@@ -37,14 +37,18 @@ def compile_lib( name,
 	if path is not None:
 		os.chdir( dir_bak )
 
-def make( what="" ):
-	current_directory = os.getcwd()
-	os.chdir ( CPP_PATH          )
-	os.system( "make "+what       )
-	os.chdir ( current_directory )
-
 def makeclean( ):
 	CWD=os.getcwd()
 	os.chdir( CPP_PATH )
 	os.system("make clean")
 	os.chdir(CWD)
+
+def make( what="" ):
+	current_directory = os.getcwd()
+	os.chdir ( CPP_PATH          )
+	if recompile:
+	    os.system("make clean")
+	os.system( "make "+what      )
+	os.chdir ( current_directory )
+
+

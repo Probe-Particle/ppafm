@@ -61,7 +61,7 @@ if __name__=="__main__":
         sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
     
     FFel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10)
-   
+    
     print " saving electrostatic forcefiled "
     GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format, head=head)
     if options.energy :

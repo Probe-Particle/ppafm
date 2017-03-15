@@ -149,6 +149,20 @@ def plotArrows(
 		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
 		plt.close()
 
+def checkVecField(FF):
+    plt.figure(figsize=(15,15))
+    plt.subplot(3,3,1); plt.imshow(FF[FF.shape[0]/2,:,:,0], interpolation='nearest'); plt.title("FF_x(y,x)")
+    plt.subplot(3,3,2); plt.imshow(FF[FF.shape[0]/2,:,:,1], interpolation='nearest'); plt.title("FF_y(y,x)") 
+    plt.subplot(3,3,3); plt.imshow(FF[FF.shape[0]/2,:,:,2], interpolation='nearest'); plt.title("FF_z(y,x)") 
+    plt.subplot(3,3,4); plt.imshow(FF[:,FF.shape[1]/2,:,0], interpolation='nearest'); plt.title("FF_x(z,x)") 
+    plt.subplot(3,3,5); plt.imshow(FF[:,FF.shape[1]/2,:,1], interpolation='nearest'); plt.title("FF_y(z,x)") 
+    plt.subplot(3,3,6); plt.imshow(FF[:,FF.shape[1]/2,:,2], interpolation='nearest'); plt.title("FF_z(z,x)") 
+    plt.subplot(3,3,7); plt.imshow(FF[:,:,FF.shape[2]/2,0], interpolation='nearest'); plt.title("FF_x(z,y)") 
+    plt.subplot(3,3,8); plt.imshow(FF[:,:,FF.shape[2]/2,1], interpolation='nearest'); plt.title("FF_y(z,y)") 
+    plt.subplot(3,3,9); plt.imshow(FF[:,:,FF.shape[2]/2,2], interpolation='nearest'); plt.title("FF_z(z,y)") 
+    plt.savefig("checkfield.png", bbox_inches='tight')
+    #plt.show()
+
 # ================
 
 def makeCmap_Blue1( vals=( 0.25, 0.5, 0.75 ) ):

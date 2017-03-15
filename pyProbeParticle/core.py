@@ -63,7 +63,8 @@ lib.setGridCell.argtypes = [array2d]
 lib.setGridCell.restype  = None
 
 def setFF_shape( n_, cell ):
-	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
+	#n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)  # this now done inside C
+	n = np.array(n_).astype(np.int32)
 	#lib.setFF_shape( n, cell )
 	lib.setGridN    ( n    )
 	lib.setGridCell ( cell )
@@ -81,23 +82,24 @@ def setFF_Epointer( gridE ):
 	lib.setFF_Epointer( gridE )
 
 def setFF( gridF=None, cell=None, gridE=None ):
-	n_ = None
-	if gridF is not None:
-		setFF_Fpointer( gridF )
-		n_    = np.shape(gridF)
-	if gridE is not None:
-		setFF_Epointer( gridE )
-		n_    = np.shape(gridF)
-	if cell is None:
-		cell = np.array([
-		PPU.params['gridA'],
-		PPU.params['gridB'],
-		PPU.params['gridC'],
-		]).copy() 	
-	if n_ is not None:
-		setFF_shape( n_, cell )
-	else:
-		"Warrning : setFF shape not set !!! "
+    n_ = None
+    if gridF is not None:
+        setFF_Fpointer( gridF )
+        n_    = np.shape(gridF)
+    if gridE is not None:
+        setFF_Epointer( gridE )
+        n_    = np.shape(gridF)
+    if cell is None:
+        cell = np.array([
+        PPU.params['gridA'],
+        PPU.params['gridB'],
+        PPU.params['gridC'],
+        ]).copy() 	
+    if n_ is not None:
+        print "setFF() n_ : ", n_
+        setFF_shape( n_, cell )
+    else:
+        "Warrning : setFF shape not set !!! "
 
 
 #void setRelax( int maxIters, double convF2, double dt, double damping )

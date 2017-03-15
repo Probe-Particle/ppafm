@@ -100,10 +100,10 @@ inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r 
 // iterate over field
 template< void FUNC( int ibuff, const Vec3d& pos_, void * args ) >
 void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void * args ){
-	int nx  = n.x;
-	int ny  = n.y;
-	int nz  = n.z;
+	int nx  = n.x; 	int ny  = n.y; 	int nz  = n.z;
+	//int nx  = n.z; 	int ny  = n.y; 	int nz  = n.x;
 	int nxy = ny * nx;
+	printf( "interateGrid3D nx,y,z (%i,%i,%i) nxy %i\n", nx,ny,nz, nxy );
 	Vec3d pos;  pos.set( pos0 );
 	for ( int ia=0; ia<nx; ia++ ){ 
         std::cout << "ia " << ia;
@@ -113,12 +113,15 @@ void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void
 			for ( int ic=0; ic<nz; ic++ ){
 			    int ibuff = i3D( ia, ib, ic );
                 //FUNC( ibuff, {ia,ib,ic}, pos );
+                //pos = pos0 + dCell.c*ic + dCell.b*ib + dCell.a*ia;
                 FUNC( ibuff, pos, args );
+                //printf("(%i,%i,%i)(%3.3f,%3.3f,%3.3f)\n",ia,ib,ic,pos.x,pos.y,pos.z);
 				pos.add( dCell.c );
 			} 
 			pos.add_mul( dCell.c, -nz ); 
 			pos.add( dCell.b );
 		} 
+		//exit(0);
 		pos.add_mul( dCell.b, -ny );
 		pos.add( dCell.a );
 	}
