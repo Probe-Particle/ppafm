@@ -68,17 +68,15 @@ def loadAtoms( name ):
 	except:
                 raise ValueError("First line of a xyz file should contain the "
                 "number of atoms. Aborting...")
-	line = f.readline() 
 	if (n>0):
 		n=int(l)
 		e=[];x=[];y=[]; z=[]; q=[]
 		i = 0;
-		while( i<n ):
-			line = f.readline() 
+		for line in f:
 			words=line.split()
 			nw = len( words)
 			ie = None
-			if( nw >=4 ):
+			try:
 				e.append( words[0] )
 	   			x.append( float(words[1]) )
 	   			y.append( float(words[2]) )
@@ -86,9 +84,8 @@ def loadAtoms( name ):
 				if ( nw >=5 ):
 					q.append( float(words[4]) )
 				else:
-					q.append( 0.0 )				
-				i+=1
-			else:
+					q.append( 0.0 )
+			except:
 				print " skipped line : ", line
 	f.close()
 	nDim = []
@@ -115,8 +112,8 @@ def loadXSFGeom( fname ):
 	f.close()
 	print "nDim+1", nDim
 	nDim = np.array(nDim)-1
-	print "lvec", lvec
-	print "e,x,y,z", e,x,y,z
+	#print "lvec", lvec
+	#print "e,x,y,z", e,x,y,z
 	return [ e,x,y,z,q ], nDim, lvec
 
 def loadAtomsCUBE( fname ):
@@ -166,8 +163,8 @@ def loadGeometryIN( fname ):
 	f.close()
 	if (lvec != []):
 		lvec = np.insert(lvec, 0., 0,  axis=0 )
-	print "lvec", lvec
-	print "e,x,y,z", e,x,y,z
+	#print "lvec", lvec
+	#print "e,x,y,z", e,x,y,z
 	nDim = []
 	return [ e,x,y,z,q ], nDim, lvec
 
