@@ -159,6 +159,16 @@ def computeLJFF(iZs, Rs, FFparams, Fmax=Fmax_DEFAULT, computeVpot=False, Vmax=No
     	VLJ[ VLJ > Vmax ] =  Vmax # remove too large values
     return FFLJ,VLJ
 
+def computeELFF_pch(iZs,Rs,Qs,computeVpot, Fmax=Fmax_DEFAULT ):
+    print " ========= get electrostatic forcefiled from the point charges "
+    FFel, V = computeCoulomb( Rs, Qs, FFel=None, Vpot=computeVpot  )
+    if Fmax is not  None:
+        print "Limit vector field"
+        GU.limit_vec_field( FFel, Fmax=Fmax )
+    if computeVpot :
+        Vmax = 10.0; V[ V>Vmax ] = Vmax
+    return FFel,V
+
 def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
     print " ========= get electrostatic forcefiled from hartree "
     rho = None
@@ -171,8 +181,8 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
         if any(nDim_tip != nDim):
             sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")    
     print " computing convolution with tip by FFT "
-    Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, 
-    sigma=PPU.params['sigma'], multipole = multipole)
+    #Fel_x,Fel_y,Fel_z      = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole)
+    Fel_x,Fel_y,Fel_z, Vout = fFFT.potential2forces_mem( V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole )
     FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
     del Fel_x,Fel_y,Fel_z
     return FFel
@@ -208,12 +218,4 @@ def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None):
     PPdisp-=init_pos
     return fzs,PPpos,PPdisp,lvecScan
 
-def computeELFF_pch(iZs,Rs,Qs,computeVpot, Fmax=Fmax_DEFAULT ):
-    print " ========= get electrostatic forcefiled from the point charges "
-    FFel, V = computeCoulomb( Rs, Qs, FFel=None, Vpot=computeVpot  )
-    if Fmax is not  None:
-        print "Limit vector field"
-        GU.limit_vec_field( FFLJ, Fmax=Fmax )
-    if computeVpot :
-        Vmax = 10.0; V[ V>Vmax ] = Vmax
-    return FFel,V
+

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import numpy as np
+
+import gc
    
 def getSampleDimensions(lvec):
 	'returns lvec without the first row'
@@ -122,6 +124,8 @@ def getForces(V, rho, sampleSize, dims, dd, X, Y, Z):
 		zeta[axis]  = LmatInv[axis,0]*dzetax*X 
 		zeta[axis] += LmatInv[axis,1]*dzetay*Y
 		zeta[axis] += LmatInv[axis,2]*dzetaz*Z   
+	print "Ftrans :   ", detLmatInv, zeta[0].sum(), zeta[1].sum(), zeta[2].sum()
+	print "derConvFFT ", derConvFFT.sum(),derConvFFT.min(),derConvFFT.max()
 	forceSkewFFTx = zeta[0]*derConvFFT
 	forceSkewFFTy = zeta[1]*derConvFFT
 	forceSkewFFTz = zeta[2]*derConvFFT
@@ -129,6 +133,37 @@ def getForces(V, rho, sampleSize, dims, dd, X, Y, Z):
 	forceSkewy = np.real(np.fft.ifftn(forceSkewFFTy))
 	forceSkewz = np.real(np.fft.ifftn(forceSkewFFTz))
 	return forceSkewx, forceSkewy, forceSkewz    
+	
+
+def getForceTransform(sampleSize, dims, dd, X, Y, Z ):
+	LmatInv     = getNormalizedBasisMatrix(sampleSize).getI()
+	detLmatInv  = np.abs(np.linalg.det(LmatInv))
+	dzetax = 1/(dims[0]*dd[0]*dd[0])
+	dzetay = 1/(dims[1]*dd[1]*dd[1])
+	dzetaz = 1/(dims[2]*dd[2]*dd[2])
+	zeta = [0, 0, 0]
+	for axis in range(3):
+		zeta[axis]  = LmatInv[axis,0]*dzetax*X 
+		zeta[axis] += LmatInv[axis,1]*dzetay*Y
+		zeta[axis] += LmatInv[axis,2]*dzetaz*Z  
+	print "Ftrans :   ", zeta[0].sum(), zeta[1].sum(), zeta[2].sum()
+	return zeta[0],zeta[1],zeta[2], detLmatInv
+
+'''	
+def getForceEnergy(V, rho, sampleSize, dims, dd, X, Y, Z):
+	'returns forces for all axes, calculation performed \
+	in orthogonal coordinates, but results are expressed in skew coord.'
+    zeta, detLmatInv = getForceTransform(sampleSize, dims, dd)
+	VFFT          = np.fft.fftn(V)
+	rhoFFT        = np.fft.fftn(rho) 
+	convFFT       = VFFT*rhoFFT;          del VFFT,rhoFFT
+	E             = forceSkewx = np.real(np.fft.ifftn(convFFT))
+	derConvFFT    = 2*(np.pi)*1j*convFFT * (dd[0]*dd[1]*dd[2]) / (detLmatInv)   
+	forceSkewx = np.real(np.fft.ifftn(zeta[0]*derConvFFT))
+	forceSkewy = np.real(np.fft.ifftn(zeta[1]*derConvFFT))
+	forceSkewz = np.real(np.fft.ifftn(zeta[2]*derConvFFT))
+	return forceSkewx, forceSkewy, forceSkewz, E 	
+'''
 
 def getNormalizedBasisMatrix(sampleSize):
 	'returns transformation matrix from OG basis to skew basis'
@@ -182,6 +217,51 @@ def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None):
 	Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
 	print 'Fz.max(), Fz.min() = ', Fz.max(), Fz.min()
 	return Fx,Fy,Fz
+	
+	
+def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, doForce=True, doPot=False, deleteV=True):
+	print '--- Preprocessing ---'
+	sampleSize = getSampleDimensions( lvec )
+	dims = (nDim[2], nDim[1], nDim[0])
+	xsize, dx = getSize('x', dims, sampleSize)
+	ysize, dy = getSize('y', dims, sampleSize)
+	zsize, dz = getSize('z', dims, sampleSize)
+	dd = (dx, dy, dz)
+	print '--- X, Y, Z ---'
+	X, Y, Z = getMGrid(dims, dd)
+	if rho == None:
+		print '--- Get Probe Density ---'
+		rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole)
+	else:
+		rho[:,:,:] = rho[::-1,::-1,::-1].copy()
+	if doForce:
+	    print '--- prepare Force transforms ---'
+	    zetaX,zetaY,zetaZ,detLmatInv = getForceTransform(sampleSize, dims, dd, X, Y, Z )
+	del X,Y,Z
+	E=None;Fx=None;Fy=None;Fz=None;
+	print '--- forward FFT ---'
+	#VFFT      =  
+	#if deleteV: del V
+	#rhoFFT    =    del rho
+	#convFFT   = VFFT*rhoFFT;        del VFFT,rhoFFT
+	gc.collect()
+	convFFT    = np.fft.fftn(V) * np.fft.fftn(rho);   
+	if deleteV: del V
+	gc.collect()
+	if doPot:
+	    print '--- Get Potential ---'
+	    E         = np.real(np.fft.ifftn(convFFT))
+	if doForce:
+	    print '--- Get Forces ---'
+	    convFFT  *= 2*np.pi*1j*(dd[0]*dd[1]*dd[2]) / (detLmatInv)   
+	    print "derConvFFT ", convFFT.sum(),convFFT.min(),convFFT.max()
+	    Fx        = np.real(np.fft.ifftn(zetaX*convFFT)); del zetaX; gc.collect()
+	    Fy        = np.real(np.fft.ifftn(zetaY*convFFT)); del zetaY; gc.collect()
+	    Fz        = np.real(np.fft.ifftn(zetaZ*convFFT)); del zetaZ; gc.collect()
+	print 'Fz.max(), Fz.min() = ', Fz.max(), Fz.min()
+	return Fx,Fy,Fz, E	
+	
+	
 
 
 def Average_surf( Val_surf, W_surf, W_tip ):

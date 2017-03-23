@@ -149,6 +149,13 @@ def plotArrows(
 		plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
 		plt.close()
 
+def checkField(F):
+    plt.figure(figsize=(15,5))
+    plt.subplot(1,3,1); plt.imshow(F[F.shape[0]/2,:,:], interpolation='nearest'); plt.title("F(y,x)")
+    plt.subplot(1,3,2); plt.imshow(F[:,F.shape[1]/2,:], interpolation='nearest'); plt.title("F(z,x)") 
+    plt.subplot(1,3,3); plt.imshow(F[:,:,F.shape[2]/2], interpolation='nearest'); plt.title("F(z,y)") 
+    plt.show()
+
 def checkVecField(FF):
     plt.figure(figsize=(15,15))
     plt.subplot(3,3,1); plt.imshow(FF[FF.shape[0]/2,:,:,0], interpolation='nearest'); plt.title("FF_x(y,x)")

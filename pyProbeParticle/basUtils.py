@@ -41,15 +41,13 @@ def loadAtoms( name ):
 	try:
 		n=int(l)
 	except:
-                raise ValueError("First line of a xyz file should contain the "
-                "number of atoms. Aborting...")
+                raise ValueError("First line of a xyz file should contain the number of atoms. Aborting...")
 	line = f.readline() 
 	if (n>0):
 		n=int(l)
 		e=[];x=[];y=[]; z=[]; q=[]
 		i = 0;
-		while( i<n ):
-			line = f.readline() 
+		for line in f:
 			words=line.split()
 			nw = len( words)
 			ie = None

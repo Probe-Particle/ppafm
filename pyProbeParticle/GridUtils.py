@@ -113,6 +113,24 @@ def verticalCut( F, p1, p2, sz=(500,500) ):
 	lib.interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
 	return result
 
+
+#double cog( double * data_, double* center ){ 	
+lib.cog.argtypes = [ array3d, array1d ]
+lib.cog.restype  = c_double
+def cog( data ):
+    center = np.zeros(3)
+    Hsum = lib.cog( data, center );
+    return center, Hsum
+	
+#sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){ 	
+lib.sphericalHist.argtypes = [ array3d, array1d, c_double, c_int, array1d, array1d ]
+lib.sphericalHist.restype  = None
+def sphericalHist( data, center, dr, n ):
+    Hs = np.zeros(n); Ws = np.zeros(n);
+    rs = np.arange( 0, n ) * dr
+    lib.sphericalHist( data, center, dr, n, Hs, Ws );
+    return rs, Hs, Ws
+    	
 # ==============  String / File IO utils
 
 def readUpTo( filein, keyword ):

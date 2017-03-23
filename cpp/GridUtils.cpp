@@ -6,6 +6,20 @@
 
 GridShape gridShape;
 
+
+// ==== teporary global for functions
+double * data;
+
+// for histogram ... would be better not make it global
+namespace Histogram{
+    Vec3d  center;
+    double Htot;
+    int    n;
+    double dx;
+    double * Hs;   
+    double * Ws;
+}
+
 extern "C" {
 
     int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline) {
@@ -76,6 +90,49 @@ extern "C" {
 			pi0.add( dpi0 );
 			pi1.add( dpi1 );
 		}
+	}
+	
+	// ---------  1D radial histogram
+	inline void acum_sphere_hist( int ibuff, const Vec3d& pos, void * args ){
+	    Vec3d dr;
+	    dr.set_sub(pos, Histogram::center);
+	    double r = dr.norm();
+	    double u = r/Histogram::dx;
+	    int i = (int)(u);
+	    #if 0
+        Histogram::Hs[i] += data[ibuff];
+        Histogram::Ws[i] += 1;
+        #else
+        u = u-i;
+        double h = data[ibuff];
+        double mu = 1-u;
+        Histogram::Hs[i  ] += mu*h;
+        Histogram::Hs[i+1] += u*h;
+        Histogram::Ws[i  ] += mu;
+        Histogram::Ws[i+1] += u;
+        #endif
+    }
+	void sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){ 
+	    data = data_; Histogram::n = n; Histogram::Hs=Hs; Histogram::Ws=Ws; Histogram::dx = dr; Histogram::center.set(center[0],center[1],center[2]); 
+        Vec3d r0; r0.set(0.0,0.0,0.0);
+        interateGrid3D<acum_sphere_hist>( r0, gridShape.n, gridShape.dCell, NULL );
+	}
+	
+	// ---------  find center of mass 
+	inline void acum_cog( int ibuff, const Vec3d& pos, void * args ){
+	    double h = fabs( data[ibuff] );
+	    Histogram::Htot +=  h; 
+	    Histogram::center.add_mul( pos, h );
+	    //printf("acum_cog %i (%g,%g,%g) %g \n", ibuff, pos.x, pos.y, pos.z, h );
+	    //if( ibuff > 100 ) exit(0);
+    }
+	double cog( double * data_, double* center ){ 
+	    data = data_; Histogram::Htot += 0;  Histogram::center.set(0.0);
+        Vec3d r0; r0.set(0.0,0.0,0.0);
+        interateGrid3D<acum_cog>( r0, gridShape.n, gridShape.dCell, NULL );
+        Histogram::center.mul( 1/Histogram::Htot  );
+        ((Vec3d*)center)->set(Histogram::center);
+        return Histogram::Htot;
 	}
 
 	void interpolate_cartesian( int n, Vec3d * pos_list, double * data, double * out ){

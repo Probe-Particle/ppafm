@@ -105,25 +105,25 @@ void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void
 	int nxy = ny * nx;
 	printf( "interateGrid3D nx,y,z (%i,%i,%i) nxy %i\n", nx,ny,nz, nxy );
 	Vec3d pos;  pos.set( pos0 );
-	for ( int ia=0; ia<nx; ia++ ){ 
-        std::cout << "ia " << ia;
+	for ( int ic=0; ic<nz; ic++ ){
+        std::cout << "ic " << ic;
         std::cout.flush();
         std::cout << '\r';
 		for ( int ib=0; ib<ny; ib++ ){
-			for ( int ic=0; ic<nz; ic++ ){
+	        for ( int ia=0; ia<nx; ia++ ){ 
 			    int ibuff = i3D( ia, ib, ic );
                 //FUNC( ibuff, {ia,ib,ic}, pos );
                 //pos = pos0 + dCell.c*ic + dCell.b*ib + dCell.a*ia;
                 FUNC( ibuff, pos, args );
                 //printf("(%i,%i,%i)(%3.3f,%3.3f,%3.3f)\n",ia,ib,ic,pos.x,pos.y,pos.z);
-				pos.add( dCell.c );
+				pos.add( dCell.a );
 			} 
-			pos.add_mul( dCell.c, -nz ); 
+			pos.add_mul( dCell.a, -nx ); 
 			pos.add( dCell.b );
 		} 
 		//exit(0);
 		pos.add_mul( dCell.b, -ny );
-		pos.add( dCell.a );
+		pos.add( dCell.c );
 	}
     printf ("\n");
 }
