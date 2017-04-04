@@ -14,8 +14,6 @@ import cpp_utils
 # ===== constants 
 Fmax_DEFAULT = 100.0
 
-
-
 def parseAtoms( atoms, autogeom = False, PBC = True, FFparams=None ):
 	if FFparams is None:
 		raise ValueError("You should provide a list of LJ parameters!")
@@ -31,8 +29,7 @@ def parseAtoms( atoms, autogeom = False, PBC = True, FFparams=None ):
                         try:
                                 Natoms.append(elem_dict[atm])
                         except:
-                                raise ValueError("Did not find atomkind: "
-                                "{}".format(atm))
+                                raise ValueError("Did not find atomkind: {}".format(atm))
 	iZs=np.array( Natoms )
 	if autogeom:
 		print " autoGeom "

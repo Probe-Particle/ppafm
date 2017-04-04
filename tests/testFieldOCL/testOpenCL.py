@@ -5,60 +5,72 @@ import pyopencl as cl
 import numpy    as np 
 import time
 
+
 sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
-import pyProbeParticle.fieldOCL as FFcl 
+
 from   pyProbeParticle import basUtils
 from   pyProbeParticle import PPPlot 
 import pyProbeParticle.GridUtils as GU
-
-def getCoulombNP(X,Y,Z,atoms):
-    E = np.zeros(X.shape)
-    for i in range(len(atoms[0])):
-        x = atoms[1][i]
-        y = atoms[2][i]
-        z = atoms[3][i]
-        q = atoms[4][i]
-        print "atom %i (%f,%f,%f) %f" %(i,x,y,z,q)
-        dX = X-x;
-        dY = Y-y;
-        dZ = Z-z;
-        R  = np.sqrt( dX**2 + dY**2 + dZ**2 + 1e-8)
-        E += q/R
-    return E
-
-atoms    = basUtils.loadAtoms( 'input.xyz' )
-#print atoms
-lvec = np.genfromtxt('cel.lvs')
-#print lvec
-
-atoms_ = FFcl.atoms2float4(atoms)
-X,Y,Z  = FFcl.getPos( lvec ); 
-nDim = X.shape
-poss   = FFcl.XYZ2float4(X,Y,Z)
-
-#E = getCoulombNP(X,Y,Z,atoms)
-#GU.saveXSF( 'V_np.xsf', E, lvec );
+import pyProbeParticle.common as PPU
+import pyProbeParticle.cpp_utils as cpp_utils
 
 t1 = time.clock() 
-#FFcl.initCL()
-kargs = FFcl.initArgs(atoms_,poss)
-#FE   = FFcl.run( kargs, global_size=(X.size), local_size=(16) )
-FE    = FFcl.run( kargs, nDim )
+FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+t2 = time.clock(); print "loadSpecies time %f [s]" %(t2-t1) 
+
+t1 = time.clock() 
+xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input_wrap.xyz' )
+t2 = time.clock(); print "loadAtomsNP time %f [s]" %(t2-t1) 
+
+lvec              = np.genfromtxt('cel.lvs')
+
+#PPU.wrapAtomsCell( xyzs, -0.001, -0.001, avec=lvec[1], bvec=lvec[2] )
+#basUtils.saveXyz( "input_wrap.xyz",enames,xyzs)
+#exit()
+
+Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=lvec[1], bvec=lvec[2] )
+
+#t1 = time.clock() 
+#C6,C12   = PPU.getAtomsLJ_fast( 8, Zs, FFparams ); #print "C6,C12",C6,C12
+#t2 = time.clock(); print "getAtomsLJ_fast %f [s]" %(t2-t1) 
+
+t1 = time.clock() 
+C6,C12 = PPU.getAtomsLJ     ( 8, Zs, FFparams ); #print "C6_,C12_",C6_,C12_
+t2 = time.clock(); print "getAtomsLJ time %f [s]" %(t2-t1) 
+
+
+#print "qs ", qs; exit()
+
+import pyProbeParticle.fieldOCL as FFcl 
+
+
+#atoms_ = FFcl.atoms2float4(atoms)
+atoms_  = FFcl.xyzq2float4(xyzs,qs); #print atoms_
+cLJs    = FFcl.CLJ2float2(C6,C12)
+
+X,Y,Z  = FFcl.getPos( lvec ); 
+nDim   = X.shape
+poss   = FFcl.XYZ2float4(X,Y,Z)
+
+t1 = time.clock() 
+#kargs = FFcl.initArgsCoulomb(atoms_,poss)
+#FE    = FFcl.runCoulomb( kargs, nDim )
+kargs = FFcl.initArgsLJC(atoms_,cLJs,poss)
+FE    = FFcl.runLJC( kargs, nDim )
 t2 = time.clock()
 print "OpenCL kernell time: %f [s]" %(t2-t1) 
 
-print "saving ... "
-
 PPPlot.checkVecField(FE)
-E =np.zeros(nDim); E[:,:,:] = FE[:,:,:,0]
-Fx=np.zeros(nDim); Fx[:,:,:] = FE[:,:,:,1]
-Fy=np.zeros(nDim); Fy[:,:,:] = FE[:,:,:,2]
-Fz=np.zeros(nDim); Fz[:,:,:] = FE[:,:,:,3]
+Ftmp=np.zeros(nDim);
+Ftmp[:,:,:] = FE[:,:,:,0]; GU.saveXSF( 'ELJ_cl.xsf',  Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,1]; GU.saveXSF( 'FLJx_cl.xsf', Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,2]; GU.saveXSF( 'FLJy_cl.xsf', Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,3]; GU.saveXSF( 'FLJz_cl.xsf', Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,4]; GU.saveXSF( 'Eel_cl.xsf',  Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,5]; GU.saveXSF( 'Felx_cl.xsf', Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,6]; GU.saveXSF( 'Fely_cl.xsf', Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,7]; GU.saveXSF( 'Felz_cl.xsf', Ftmp, lvec );
 
-GU.saveXSF( 'E_cl.xsf',  E, lvec );
-GU.saveXSF( 'Fx_cl.xsf', Fx, lvec );
-GU.saveXSF( 'Fy_cl.xsf', Fy, lvec );
-GU.saveXSF( 'Fz_cl.xsf', Fz, lvec );
 
 print "==== ALL DONE === "
 

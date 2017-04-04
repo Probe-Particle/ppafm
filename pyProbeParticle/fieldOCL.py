@@ -22,17 +22,16 @@ def initCl():
 
 ctx,queue,program = initCl()
 
-def initArgs(atoms, poss ):
+def initArgsCoulomb(atoms, poss ):
     nAtoms     = np.int32( len(atoms) ) 
     mf         = cl.mem_flags
     cl_FE      = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   )
     cl_atoms   = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
     cl_poss    = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  )
     kargs = ( nAtoms, cl_atoms, cl_poss, cl_FE )
-    #kargs = ( 'dsfjhsjkdfhk', cl_atoms, cl_poss, cl_FE )
     return kargs 
-	
-def run( kargs, nDim, local_size=(16,) ):
+    	
+def runCoulomb( kargs, nDim, local_size=(16,) ):
     print "run opencl kernel ..."
     global_size = (nDim[0]*nDim[1]*nDim[2],)
     #global_size = (1,);  local_size=(1,)
@@ -41,13 +40,42 @@ def run( kargs, nDim, local_size=(16,) ):
     print "global_size: ", global_size
     print "local_size:  ", local_size
     #print kargs
-    program.evalCoulomb( queue, global_size, local_size, *(kargs))
+    #program.evalCoulomb( queue, global_size, local_size, *(kargs))
+    program.evalLJC( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy    ( queue, FE, kargs[3] );
     queue.finish()
     print "... opencl kernel DONE"
     #print FE[:,60,60,:]; print "================"
     #print FE[100,:,60,:]; print "================"
     #print FE[100,60,:,:]; print "================"
+    return FE
+
+def initArgsLJC(atoms,cLJs, poss ):
+    nAtoms     = np.int32( len(atoms) ) 
+    mf         = cl.mem_flags
+    cl_atoms   = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
+    cl_cLJs    = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  )
+    cl_poss    = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ) # float4
+    cl_FE     = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ) # float8
+    kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
+    return kargs 
+
+def runLJC( kargs, nDim, local_size=(16,) ):
+    print "run opencl kernel ..."
+    global_size = (nDim[0]*nDim[1]*nDim[2],)
+    #global_size = (1,);  local_size=(1,)
+    FE          = np.zeros( nDim+(8,) , dtype=np.float32 ) # float8
+    print "FE.shape",      FE.shape
+    print "global_size: ", global_size
+    print "local_size:  ", local_size
+    print kargs
+    program.evalLJC( queue, global_size, local_size, *(kargs))
+    cl.enqueue_copy( queue, FE, kargs[4] )
+    queue.finish()
+    #print FE[:,60,60,:]; print "================"
+    #print FE[100,:,60,:]; print "================"
+    #print FE[100,60,:,:]; print "================"
+    print "... opencl kernel DONE"
     return FE
 
 def getPos(lvec, nDim=None, step=(0.1,0.1,0.1) ):
@@ -79,6 +107,18 @@ def atoms2float4(atoms):
     atoms_[:,2] = np.array( atoms[3] )
     atoms_[:,3] = np.array( atoms[4] )
     return atoms_
+    
+def xyzq2float4(xyzs,qs):
+    atoms_      = np.zeros( (len(qs),4), dtype=np.float32)
+    atoms_[:,:3] = xyzs[:,:]
+    atoms_[:, 3] = qs[:]      
+    return atoms_
+
+def CLJ2float2(C6s,C12s):
+    cLJs      = np.zeros( (len(C6s),2), dtype=np.float32)
+    cLJs[:,0] = C6s
+    cLJs[:,1] = C12s      
+    return cLJs
 	
 	
 	

@@ -1,13 +1,33 @@
 
-#define R2SAFE 1e-8
+#define R2SAFE          1e-4f
+#define COULOMB_CONST   14.399644f  // [eV/e]
 
 float4 getCoulomb( float4 atom, float3 pos ){
      float3  dp  =  pos - atom.xyz;
-     //float  ir = 1.0/length(dp);
-     float   ir2 = 1.0/( dp.x*dp.x + dp.y*dp.y + dp.z*dp.z +   R2SAFE  );
+     float   ir2 = 1.0f/( dp.x*dp.x + dp.y*dp.y + dp.z*dp.z +  R2SAFE );
      float   ir  = sqrt(ir2);
      float   E   = atom.w*sqrt(ir2);
      return (float4)(E, dp*(E*ir2));
+}
+
+float4 getLJ( float3 apos, float2 cLJ, float3 pos ){
+     float3  dp  =  pos - apos;
+     float   ir2 = 1.0f/( dp.x*dp.x + dp.y*dp.y + dp.z*dp.z + R2SAFE );
+     float   ir6 = ir2*ir2*ir2;
+     float   E   =  (    cLJ.y*ir6 -   cLJ.x )*ir6;
+     float3  F   = (( 12.0f*cLJ.y*ir6 - 6.0f*cLJ.x )*ir6*ir2)*dp;
+     return (float4)(E, F);
+}
+
+float8 getLJC( float4 atom, float2 cLJ, float3 pos ){
+     float3  dp  =  pos - atom.xyz;
+     float   ir2 = 1.0/( dp.x*dp.x + dp.y*dp.y + dp.z*dp.z +  R2SAFE );
+     float   ir6 = ir2*ir2*ir2;
+     float   ELJ =  (    cLJ.y*ir6 -   cLJ.x )*ir6;
+     float3  FLJ = (( 12.0f*cLJ.y*ir6 - 6.0f*cLJ.x )*ir6*ir2)*dp;
+     float   ir  = sqrt(ir2);
+     float   Eel = atom.w*sqrt(ir2);
+     return (float8)(ELJ, FLJ, Eel, dp*(Eel*ir2) );
 }
 
 __kernel void evalCoulomb(
@@ -38,3 +58,74 @@ __kernel void evalCoulomb(
     FE[iG] = fe;
     //FE[iG] = poss[iG];
 }
+
+__kernel void evalLJ(
+    int nAtoms, 
+    __global float4* atoms,
+    __global float2*  cLJs,
+    __global float4*  poss,
+    __global float4*    FE
+){
+    __local float4 LATOMS[32];
+    __local float2 LCLJS  [32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    float3 pos = poss[iG].xyz;
+    float4 fe  = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        if(i>=nAtoms) break;
+        //if(iL==0) printf("%i (%f,%f,%f)  %f \n", i, atoms[i].x, atoms[i].y, atoms[i].z, atoms[i].w );
+        LATOMS[iL] = atoms[i];
+        LCLJS [iL] = cLJs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            fe += getLJ( LATOMS[j].xyz, LCLJS [j], pos );
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    FE[iG] = fe;
+    //FE[iG] = poss[iG];
+}
+
+
+__kernel void evalLJC(
+    int nAtoms, 
+    __global float4*   atoms,
+    __global float2*    cLJs,
+    __global float4*    poss,
+    __global float8*    FE
+){
+    __local float4 LATOMS[32];
+    __local float2 LCLJS [32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    float3 pos = poss[iG].xyz;
+    float8 fe  = (float8) (0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        if(i>=nAtoms) break;
+        LATOMS[iL] = atoms[i];
+        LCLJS [iL] = cLJs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            fe += getLJC( LATOMS[j], LCLJS[j], pos );
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    // http://www.informit.com/articles/article.aspx?p=1732873&seqNum=3
+    //FELJ[iG] = fe.lo;
+    //FEel[iG] = fe.hi;
+    //FE[iG] = (float8)(fe.lo,fe.lo);
+    //FE[iG] = (float8)(fe.lo,atoms[0]);
+    
+    fe.hi  = fe.hi*COULOMB_CONST;
+    FE[iG] = fe;
+}
+
+
+

@@ -145,15 +145,10 @@ def apply_options(opt=None):
                 except:
                         pass
 
-
-
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
 def loadSpecies( fname ):
-        FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),
-                                            ('atom',np.int),('symbol', '|S10')],
-                                            usecols=[0,1,2,3])
-	return FFparams 
-
+    FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',np.int),('symbol', '|S10')],usecols=[0,1,2,3])
+    return FFparams 
 
 def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
 	'''
@@ -178,6 +173,17 @@ def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
 		dx = -0.5*(xmin+xmax) + 0.5*( params[ 'gridA' ][0] + params[ 'gridB' ][0] ); Rs[0] += dx
 		dy = -0.5*(ymin+ymax) + 0.5*( params[ 'gridA' ][1] + params[ 'gridB' ][1] ); Rs[1] += dy;
 		print " autoGeom moved geometry by ",dx,dy
+
+def wrapAtomsCell( Rs, da, db, avec, bvec ):
+    M    = np.array( (avec[:2],bvec[:2]) )
+    invM = np.linalg.inv(M)
+    print M
+    print invM
+    ABs = np.dot( Rs[:,:2], invM )
+    print "ABs.shape", ABs.shape
+    ABs[:,0] = (ABs[:,0] +10+da)%1.0
+    ABs[:,1] = (ABs[:,1] +10+db)%1.0
+    Rs[:,:2] = np.dot( ABs, M )   
 
 def PBCAtoms( Zs, Rs, Qs, avec, bvec, na=None, nb=None ):
 	'''
@@ -221,6 +227,19 @@ def getAtomsLJ(  iZprobe, iZs,  FFparams ):
 	for i in range(n):
 		C6[i],C12[i] = get_C612( iZprobe-1, iZs[i]-1, FFparams )
 	return C6,C12
+	
+def getAtomsLJ_fast( iZprobe, iZs,  FFparams ):
+    #Rs  = FFparams[:,0]
+    #Es  = FFparams[:,1]
+    #np.array( [ (FFparams[i][0],FFparams[i][1]) for i in iZs ] )
+    R = np.array( [ FFparams[i-1][0] for i in iZs ] )
+    E = np.array( [ FFparams[i-1][1] for i in iZs ] )
+    #R   = Rs[iZs];  E   = Es[iZs]; 
+    R+=FFparams[iZprobe-1][0]
+    E=np.sqrt(E*FFparams[iZprobe-1][1]); 
+    R6  = R**6
+    C6  = E*R6 
+    return 2*C6,C6*R6 
 
 # ============= Hi-Level Macros
 

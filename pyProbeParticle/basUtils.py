@@ -66,6 +66,46 @@ def loadAtoms( name ):
 	f.close()
 	return [ e,x,y,z,q ]
 
+def loadAtomsNP(fname):
+    xyzs   = [] 
+    Zs     = []
+    enames = []
+    qs     = []
+    with open(fname, 'r') as f:
+        for line in f:
+            wds = line.split()
+            try:
+                xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
+                try:
+                    iz    = int(wds[0]) 
+                    Zs    .append(iz)
+                    enames.append( elements.ELEMENTS[iz] )
+                except:
+                    ename = wds[0]
+                    enames.append( ename )
+                    Zs    .append( elements.ELEMENT_DICT[ename][0] )
+                try:
+                    q = float(wds[4])
+                except:
+                    q = 0
+                qs.append(q)
+            except:
+                print "cannot interpet line: ", line
+                continue
+    xyzs = np.array( xyzs )
+    Zs   = np.array( Zs, dtype=np.int32 )
+    qs   = np.array(qs)
+    return xyzs,Zs,enames,qs
+
+def saveXyz(fname,elems,xyzs):
+    with open(fname,'w') as f:
+        n = len(elems)
+        f.write( "%i\n" %n )
+        f.write( "#comment\n" )
+        for i in range(n):
+            f.write( "%s %10.10f %10.10f %10.10f\n" %(elems[i], xyzs[i][0], xyzs[i][1], xyzs[i][2] )  )
+
+
 def loadXSFGeom( fname ):
 	f = open(fname )
 	e=[];x=[];y=[]; z=[]; q=[]
