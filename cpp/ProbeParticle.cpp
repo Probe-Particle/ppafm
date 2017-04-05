@@ -24,6 +24,7 @@ Vec3d   * gridF = NULL;       // pointer to data    ( 3D vector array [nx,ny,nz,
 double  * gridE = NULL;       // pointer to data    ( 3D scalar array [nx,ny,nz]   )
 
 int      natoms;
+int      nCoefPerAtom;
 Vec3d  * Ratoms; 
 double * C6s;
 double * C12s;
@@ -200,6 +201,73 @@ inline double evalAtomsForceCoulomb( const Vec3d& rProbe, int n, Vec3d * Rs, dou
 	return E;
 }
 
+// ========= eval force templates
+
+inline double force_LJ( const Vec3d& dR, Vec3d& fout, double * coefs  ){
+	double ir2  = 1.0d/ dR.norm2( ); 
+	double ir6  = ir2*ir2*ir2;
+	double E6   = coefs[0] * ir6;
+	double E12  = coefs[1] * ir6*ir6;
+	fout.set_mul( dR , ( 6*E6 -12*E12 ) * ir2 );
+	return E12 - E6;
+}
+
+inline double force_Coulomb_s( const Vec3d& dR, Vec3d& fout, double * coefs ){
+    //printf(" force_Coulomb_s  dR (%g,%g,%g)  kQQ %i \n", dR.x, dR.y, dR.z, coefs );
+    //printf(" force_Coulomb_s  dR (%g,%g,%g)  kQQ %g \n", dR.x, dR.y, dR.z, coefs[0] );
+	double ir2  = 1.0d/ dR.norm2( ); 
+	double E    = sqrt( ir2 ) * coefs[0];
+	fout.set_mul( dR , E * ir2 );
+	return E;
+}
+inline double force_Coulomb_pz( const Vec3d& dR, Vec3d& fout, double * coefs ){
+	double ir2  = 1.0d/ dR.norm2( ); 
+	double E    = sqrt( ir2 ) * coefs[0];
+	fout.set_mul( dR , E * ir2 );
+	return E;
+}
+inline double force_Coulomb_dz2( const Vec3d& dR, Vec3d& fout, double * coefs ){
+	double ir2  = 1.0d/ dR.norm2( ); 
+	double E    = sqrt( ir2 ) * coefs[0];
+	fout.set_mul( dR , E * ir2 );
+	return E;
+}
+
+/*
+// coefs is array of coefficient for each atom; nc is number of coefs for each atom
+template<double force_func(const Vec3d& dR, Vec3d& fout, double * coefs)>
+inline double evalAtomsForce( const Vec3d& rProbe, Vec3d& fout, int natoms, Vec3d * Rs, int nc, double * coefs ){
+	double E=0;
+	Vec3d fsum; fsum.set(0.0d);
+	for(int i=0; i<n; i++){	
+		Vec3d f;
+		E += force_func( Rs[i] - rProbe, f, coefs );	
+		fsum.add(f);
+		coefs+=nc;
+	}
+	fout.set( fsum );
+	return E;
+}
+*/
+
+// coefs is array of coefficient for each atom; nc is number of coefs for each atom
+template<double force_func(const Vec3d& dR, Vec3d& fout, double * coefs)>
+inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
+	double * coefs = (double*)args; 
+	//printf(" evalCell : args %i \n", args );
+	//printf(" natoms %i nCoefPerAtom %i \n", natoms, nCoefPerAtom );
+	double E=0;
+	Vec3d f; f.set(0.0d);
+	for(int i=0; i<natoms; i++){	
+		Vec3d fi;
+		E += force_func( Ratoms[i] - rProbe, fi, coefs );	
+		f.add(fi);
+		coefs+=nCoefPerAtom;
+	}
+	if(gridF) gridF[ibuff].add(f); 
+	if(gridE) gridE[ibuff] += E;
+}
+
 // ========== Interpolations
 
 // relax probe particle position "r" given on particular position of tip (rTip) and initial position "r" 
@@ -314,21 +382,19 @@ void getLenardJonesFF( int natoms_, double * Ratoms_, double * C6s_, double * C1
 
 // sample Coulomb Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with constant kQQs  =  - k_coulomb * Q_ProbeParticle * Q[i] 
 // results are sampled according to grid parameters defined in "namespace FF" and stored in array to which points by "double * FF::grid"
-inline void evalCell_Coulomb( int ibuff, const Vec3d& rProbe, void * args ){
-	Vec3d f; double E;
-	E = evalAtomsForceCoulomb( rProbe, natoms, Ratoms, kQQs, f );
-	if( gridF ) gridF[ ibuff ]   .add( f );
-	if( gridE ) gridE[ ibuff ] +=      E  ;
-	//FF::grid[ i3D( ia, ib, ic ) ].add( getAtomsForceCoulomb( rProbe, natom, Rs, kQQs ) );
-	//printf(  " %i %i %i     %f %f %f  \n", ia, ib, ic,     rProbe.x, rProbe.y, rProbe.z  );
-	//FF[ i3D( ix, iy, iz ) ].set( rProbe );
-}
-void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs_ ){
-    natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; kQQs=kQQs_;
+void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs_, int kind ){
+    natoms=natoms_; 
+    Ratoms=(Vec3d*)Ratoms_;
+    nCoefPerAtom = 1;
+    //printf(" kind %i natoms %i nCoefPerAtom %i \n", kind, natoms, nCoefPerAtom );
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    interateGrid3D<evalCell_Coulomb>( r0, gridShape.n, gridShape.dCell, NULL );
+    switch(kind){
+        //case 0: interateGrid3D < evalCell < foo  > >( r0, gridShape.n, gridShape.dCell, kQQs_ );
+        case 0: interateGrid3D < evalCell < force_Coulomb_s   > >( r0, gridShape.n, gridShape.dCell, kQQs_ );
+        case 1: interateGrid3D < evalCell < force_Coulomb_pz  > >( r0, gridShape.n, gridShape.dCell, kQQs_ );
+        case 2: interateGrid3D < evalCell < force_Coulomb_dz2 > >( r0, gridShape.n, gridShape.dCell, kQQs_ );
+    }
 }
-
 
 // relax one stroke of tip positions ( stored in 1D array "rTips_" ) using precomputed 3D force-field on grid
 // returns position of probe-particle after relaxation in 1D array "rs_" and force between surface probe particle in this relaxed position in 1D array "fs_"

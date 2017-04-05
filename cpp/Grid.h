@@ -105,6 +105,7 @@ void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void
 	int nxy = ny * nx;
 	printf( "interateGrid3D nx,y,z (%i,%i,%i) nxy %i\n", nx,ny,nz, nxy );
 	Vec3d pos;  pos.set( pos0 );
+	//printf(" interateGrid3D : args %i \n", args );
 	for ( int ic=0; ic<nz; ic++ ){
         std::cout << "ic " << ic;
         std::cout.flush();

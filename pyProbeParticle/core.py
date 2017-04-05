@@ -149,11 +149,11 @@ def getLenardJonesFF( Rs, C6, C12 ):
 	lib.getLenardJonesFF( natom, Rs, C6, C12 )
 
 # void getCoulombFF       (    int natom,   double * Rs_, double * C6, double * C12 )
-lib.getCoulombFF.argtypes  = [ c_int,       array2d,      array1d   ]
+lib.getCoulombFF.argtypes  = [ c_int,       array2d,      array1d, c_int   ]
 lib.getCoulombFF.restype   = None
-def getCoulombFF( Rs, kQQs ):
+def getCoulombFF( Rs, kQQs, kind=0 ):
 	natom = len(Rs) 
-	lib.getCoulombFF( natom, Rs, kQQs )
+	lib.getCoulombFF( natom, Rs, kQQs, kind )
 
 # int relaxTipStroke ( int probeStart, int nstep, double * rTips_, double * rs_, double * fs_ )
 lib.relaxTipStroke.argtypes  = [ c_int, c_int, c_int,  array2d, array2d, array2d ]
