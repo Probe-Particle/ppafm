@@ -79,27 +79,25 @@ if __name__=="__main__":
 
 
     for iq,Q in enumerate( Qs ):
+        PPU.params['charge'] = Q
         for ik,K in enumerate( Ks ):
+            PPU.params['klat'] = K
             dirname = "Q%1.2fK%1.2f" %(Q,K)
             print " relaxed_scan for ", dirname
             if not os.path.exists( dirname ):
             	os.makedirs( dirname )
             fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJ, FFel,
             FFboltz,options.tipspline)
-            GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan,
-                                data_format=options.data_format )
+            GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan,data_format=options.data_format )
 	    if opt_dict['disp']:
-                GU.save_vec_field( dirname+'/PPdisp', PPdisp,
-                                   lvecScan,data_format=options.data_format)
+                GU.save_vec_field( dirname+'/PPdisp', PPdisp,lvecScan,data_format=options.data_format)
             if opt_dict['pos']:
-                GU.save_vec_field(dirname+'/PPpos', PPpos, lvecScan,
-                                  data_format=options.data_format )
+                GU.save_vec_field(dirname+'/PPpos', PPpos, lvecScan,data_format=options.data_format )
             if options.bI:
                 print "Calculating current from tip to the Boltzmann particle:"
                 I_in, lvec, nDim = GU.load_scal_field('I_boltzmann',
                 data_format=iptions.data_format)
                 I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None ) 
                 del I_in;
-                GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,
-                                   data_format=options.data_format)
+                GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,data_format=options.data_format)
 
