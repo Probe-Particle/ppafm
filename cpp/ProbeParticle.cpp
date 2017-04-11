@@ -26,9 +26,9 @@ double  * gridE = NULL;       // pointer to data    ( 3D scalar array [nx,ny,nz]
 int      natoms;
 int      nCoefPerAtom;
 Vec3d  * Ratoms; 
-double * C6s;
-double * C12s;
-double * kQQs;
+//double * C6s;
+//double * C12s;
+//double * kQQs;
 
 // Tip namespace 
 namespace TIP{
@@ -155,103 +155,55 @@ inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& 
 }
 
 // Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
-inline double evalLJ( const Vec3d& dR, double c6, double c12, Vec3d& fout ){
+inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
 	double ir2  = 1.0d/ dR.norm2( ); 
 	double ir6  = ir2*ir2*ir2;
 	double E6   = c6  * ir6;
 	double E12  = c12 * ir6*ir6;
 	//return dR * ( ( 6*ir6*c6 -12*ir12*c12 ) * ir2  );
-	fout.set_mul( dR , ( 6*E6 -12*E12 ) * ir2 );
+	fout.add_mul( dR , ( 6*E6 -12*E12 ) * ir2 );
+	//printf(" (%g,%g,%g)  %f %f  (%g,%g,%g) \n", dR.x,dR.y,dR.z, c6, c12,  fout.x,fout.y,fout.z);
 	return E12 - E6;
 }
 
 // coulomb force between two atoms a,b separated by vector dR = R1 - R2, with constant kqq should be set to kqq = - k_coulomb * Qa * Qb 
-inline double evalCoulomb( const Vec3d& dR, double kqq, Vec3d& fout ){
-	//const double kcoulomb   = 14.3996448915; 
-	double ir2  = 1.0d/ dR.norm2( ); 
-	double E    = sqrt( ir2 ) * kqq;
-	//return dR * ir * ir2;
-	fout.set_mul( dR , E * ir2 );
-	return E;
-}
-
-// Lenard-Jones force between Probe-Particle (rProbe) and n other atoms
-inline double evalAtomsForceLJ( const Vec3d& rProbe, int n, Vec3d * Rs, double * C6, double * C12, Vec3d& fout ){
-	double E=0;
-	Vec3d fsum; fsum.set(0.0d);
-	for(int i=0; i<n; i++){		
-		Vec3d f;
-		E += evalLJ( Rs[i] - rProbe, C6[i], C12[i], f );
-		fsum.add(f);	
-	}
-	fout.set( fsum );
-	return E;
-}
-
-// Coulomb force between Probe-Particle (rProbe) and n other atoms
-inline double evalAtomsForceCoulomb( const Vec3d& rProbe, int n, Vec3d * Rs, double * kQQs, Vec3d& fout ){
-	double E=0;
-	Vec3d fsum; fsum.set(0.0d);
-	for(int i=0; i<n; i++){	
-		Vec3d f;
-		E += evalCoulomb( Rs[i] - rProbe, kQQs[i], f );	
-		fsum.add(f);
-	}
-	fout.set( fsum );
+inline double addAtomCoulomb( const Vec3d& dR, Vec3d& fout, double kqq ){
+    double ir2   = 1.0d/dR.norm2();
+    double ir    = sqrt(ir2); 
+	double E     = ir * kqq;
+	fout.add_mul( dR , E * ir2 );
+	//printf("(%g,%g,%g) %g %g (%g,%g,%g)", dR.x,dR.y,dR.z, kqq, ir, fout.x,fout.y,fout.z );
 	return E;
 }
 
 // ========= eval force templates
 
-inline double force_LJ( const Vec3d& dR, Vec3d& fout, double * coefs  ){
-	double ir2  = 1.0d/ dR.norm2( ); 
-	double ir6  = ir2*ir2*ir2;
-	double E6   = coefs[0] * ir6;
-	double E12  = coefs[1] * ir6*ir6;
-	fout.set_mul( dR , ( 6*E6 -12*E12 ) * ir2 );
-	return E12 - E6;
-}
+#define dstep       0.1d
+#define inv_dstep   10.0d 
+#define inv_ddstep  100.0d
 
-inline double force_Coulomb_s( const Vec3d& dR, Vec3d& fout, double * coefs ){
-    //printf(" force_Coulomb_s  dR (%g,%g,%g)  kQQ %i \n", dR.x, dR.y, dR.z, coefs );
-    //printf(" force_Coulomb_s  dR (%g,%g,%g)  kQQ %g \n", dR.x, dR.y, dR.z, coefs[0] );
-	double ir2  = 1.0d/ dR.norm2( ); 
-	double E    = sqrt( ir2 ) * coefs[0];
-	fout.set_mul( dR , E * ir2 );
-	return E;
+inline double addAtom_LJ        ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ     ( dR, fout, coefs[0], coefs[1] ); }
+inline double addAtom_Coulomb_s ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomCoulomb( dR, fout, coefs[0]           ); }
+inline double addAtom_Coulomb_pz( Vec3d dR, Vec3d& fout, double * coefs ){
+    double kqq=coefs[0], E=0;
+    Vec3d f; f.set(0.0);
+    dR.z -=   dstep; E += addAtomCoulomb( dR, f, -kqq );
+    dR.z += 2*dstep; E += addAtomCoulomb( dR, f, +kqq );
+    fout.add_mul(f,inv_dstep);
+	return    E*inv_dstep;
 }
-inline double force_Coulomb_pz( const Vec3d& dR, Vec3d& fout, double * coefs ){
-	double ir2  = 1.0d/ dR.norm2( ); 
-	double E    = sqrt( ir2 ) * coefs[0];
-	fout.set_mul( dR , E * ir2 );
-	return E;
+inline double addAtom_Coulomb_dz2( Vec3d dR, Vec3d& fout, double * coefs ){
+    double kqq=coefs[0], E=0;
+    Vec3d f; f.set(0.0);
+                     E += addAtomCoulomb( dR, f, -2*kqq );
+    dR.z -=   dstep; E += addAtomCoulomb( dR, f,    kqq );
+    dR.z += 2*dstep; E += addAtomCoulomb( dR, f,    kqq );
+    fout.add_mul(f,inv_ddstep);
+	return    E*inv_ddstep;
 }
-inline double force_Coulomb_dz2( const Vec3d& dR, Vec3d& fout, double * coefs ){
-	double ir2  = 1.0d/ dR.norm2( ); 
-	double E    = sqrt( ir2 ) * coefs[0];
-	fout.set_mul( dR , E * ir2 );
-	return E;
-}
-
-/*
-// coefs is array of coefficient for each atom; nc is number of coefs for each atom
-template<double force_func(const Vec3d& dR, Vec3d& fout, double * coefs)>
-inline double evalAtomsForce( const Vec3d& rProbe, Vec3d& fout, int natoms, Vec3d * Rs, int nc, double * coefs ){
-	double E=0;
-	Vec3d fsum; fsum.set(0.0d);
-	for(int i=0; i<n; i++){	
-		Vec3d f;
-		E += force_func( Rs[i] - rProbe, f, coefs );	
-		fsum.add(f);
-		coefs+=nc;
-	}
-	fout.set( fsum );
-	return E;
-}
-*/
 
 // coefs is array of coefficient for each atom; nc is number of coefs for each atom
-template<double force_func(const Vec3d& dR, Vec3d& fout, double * coefs)>
+template<double addAtom_func(Vec3d dR, Vec3d& fout, double * coefs)>
 inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
 	double * coefs = (double*)args; 
 	//printf(" evalCell : args %i \n", args );
@@ -259,13 +211,13 @@ inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
 	double E=0;
 	Vec3d f; f.set(0.0d);
 	for(int i=0; i<natoms; i++){	
-		Vec3d fi;
-		E += force_func( Ratoms[i] - rProbe, fi, coefs );	
-		f.add(fi);
-		coefs+=nCoefPerAtom;
+	    //printf(" %i ", i);
+		E     += addAtom_func( Ratoms[i]-rProbe, f, coefs );	
+		coefs += nCoefPerAtom;
 	}
 	if(gridF) gridF[ibuff].add(f); 
 	if(gridE) gridE[ibuff] += E;
+	//exit(0);
 }
 
 // ========== Interpolations
@@ -362,37 +314,23 @@ void setTipSpline( int n, double * xs, double * ydys ){
 	TIP::rff_ydys = ydys;   
 }
 
-// sample Lenard-Jones Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with given C6 and C12 parameters; 
-// results are sampled according to grid parameters defined in "namespace FF" and stored in array to which points by "double * FF::grid"
-inline void evalCell_LJ( int ibuff, const Vec3d& rProbe, void * args ){
-	Vec3d f; double E;
-	E = evalAtomsForceLJ( rProbe, natoms, Ratoms, C6s, C12s,  f );
-	if( gridF ) gridF[ ibuff ]   .add( f );
-	if( gridE ) gridE[ ibuff ] +=      E  ;
-	//gridF[ ibuff ]   .set( rProbe );
-	//FF::grid[ ibuff ].add( getAtomsForceLJ( rProbe, natom, Rs, C6, C12 ) );
-	//printf(  " %i %i %i     %f %f %f  \n", ia, ib, ic,     rProbe.x, rProbe.y, rProbe.z  );
-	//FF[ ibuff ].set( rProbe );
-}
-void getLenardJonesFF( int natoms_, double * Ratoms_, double * C6s_, double * C12s_ ){
-    natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; C6s=C6s_; C12s=C12s_;
+void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
+    natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    interateGrid3D<evalCell_LJ>( r0, gridShape.n, gridShape.dCell, NULL );
+    interateGrid3D < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
 }
 
 // sample Coulomb Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with constant kQQs  =  - k_coulomb * Q_ProbeParticle * Q[i] 
 // results are sampled according to grid parameters defined in "namespace FF" and stored in array to which points by "double * FF::grid"
-void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs_, int kind ){
-    natoms=natoms_; 
-    Ratoms=(Vec3d*)Ratoms_;
-    nCoefPerAtom = 1;
-    //printf(" kind %i natoms %i nCoefPerAtom %i \n", kind, natoms, nCoefPerAtom );
+void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs, int kind ){
+    natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 1;
     Vec3d r0; r0.set(0.0,0.0,0.0);
+    printf(" kind %i \n", kind );
     switch(kind){
         //case 0: interateGrid3D < evalCell < foo  > >( r0, gridShape.n, gridShape.dCell, kQQs_ );
-        case 0: interateGrid3D < evalCell < force_Coulomb_s   > >( r0, gridShape.n, gridShape.dCell, kQQs_ );
-        case 1: interateGrid3D < evalCell < force_Coulomb_pz  > >( r0, gridShape.n, gridShape.dCell, kQQs_ );
-        case 2: interateGrid3D < evalCell < force_Coulomb_dz2 > >( r0, gridShape.n, gridShape.dCell, kQQs_ );
+        case 0: interateGrid3D < evalCell < addAtom_Coulomb_s   > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        case 1: interateGrid3D < evalCell < addAtom_Coulomb_pz  > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        case 2: interateGrid3D < evalCell < addAtom_Coulomb_dz2 > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
     }
 }
 

@@ -22,7 +22,7 @@ if __name__=="__main__":
     from optparse import OptionParser
     parser = OptionParser()
     parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
-    parser.add_option( "-t", "--tip", action="store", type="string", help="tip model (multipole)", default=None)
+    parser.add_option( "-t", "--tip", action="store", type="string", help="tip model (multipole)", default='s')
     parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
     parser.add_option("--noPBC", action="store_false",  help="pbc False",dest="PBC", default=None)
     parser.add_option( "-w", "--sigma", action="store", type="float",help="gaussian width for convolution in Electrostatics [Angstroem]", default=None)

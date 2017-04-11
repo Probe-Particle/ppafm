@@ -58,63 +58,10 @@ def computeLJ( Rs, iZs, FFLJ=None, FFparams=None, Vpot=False ):
 	if FFparams is None:
 		raise ValueError("You should provide a list of LJ parameters!")
 	FFLJ,VLJ = perpareArrays( FFLJ, Vpot )
-	C6,C12   = PPU.getAtomsLJ( PPU.params['probeType'], iZs, FFparams )
+	cLJs     = PPU.getAtomsLJ( PPU.params['probeType'], iZs, FFparams )
 	#core.setFF( gridF=FFLJ, gridE=VLJ )
-	core.getLenardJonesFF( Rs, C6, C12 )
+	core.getLenardJonesFF( Rs, cLJs )
 	return FFLJ, VLJ
-
-def computeCoulomb( Rs, Qs, FFel=None , Vpot=False ):
-	FFel,Vel = perpareArrays( FFel, Vpot )
-	#core.setFF( gridF=FFel, gridE=Vel )
-	core.getCoulombFF ( Rs, Qs * PPU.CoulombConst )
-	return FFel, Vel
-
-"""
-def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFparams=None ):
-	newEl = False
-	newLJ = False
-	head = None
-	# --- try to load FFel or compute it from LOCPOT.xsf
-	if ( os.path.isfile('FFel_x.xsf') ):
-		print " FFel_x.xsf found "
-		FFel, lvecEl, nDim, head = GU.loadVecField('FFel', FFel)
-		PPU.lvec2params( lvecEl )
-	else:
-		print "F Fel_x.xsf not found "
-		if ( xsfLJ  and os.path.isfile('LOCPOT.xsf') ):
-			print " LOCPOT.xsf found "
-			V, lvecEl, nDim, head = GU.loadXSF('LOCPOT.xsf')
-			PPU.lvec2params( lvecEl )
-			FFel_x,FFel_y,FFel_z = fieldFFT.potential2forces( V, lvecEl, nDim, sigma = 1.0 )
-			FFel = GU.packVecGrid( FFel_x,FFel_y,FFel_z )
-			del FFel_x,FFel_y,FFel_z
-			GU.saveVecFieldXsf( 'FFel', FF, lvecEl, head = head )
-		else:
-			print " LOCPOT.xsf not found "
-			newEl = True
-	# --- try to load FFLJ 
-	if ( os.path.isfile('FFLJ_x.xsf') ):
-		print " FFLJ_x.xsf found "
-		FFLJ, lvecLJ, nDim, head = GU.loadVecFieldXsf( 'FFLJ' )
-		PPU.lvec2params( lvecLJ )
-	else: 
-		newLJ = True
-	# --- compute Forcefield by atom-wise interactions 
-	if ( newEl or newEl ):
-                atoms     = basUtils.loadAtoms('geom.bas')
-		iZs,Rs,Qs = parseAtoms( atoms, autogeom = autogeom, PBC =
-                PPU.params['PBC'], FFparams = FFparams )
-		lvec = PPU.params2lvec( )
-		if head is None:
-			head = GU.XSF_HEAD_DEFAULT
-		if newLJ:
-			FFLJ = computeLJ     ( Rs, iZs, FFparams=FFparams )
-			GU.saveVecFieldXsf( 'FFLJ', FF, lvecEl, head = head )
-		if newEl:
-			FFel = computeCoulomb( Rs, Qs, FFel )
-			GU.saveVecFieldXsf( 'FFel', FF, lvecEl, head = head )
-	return FFLJ, FFel
-"""		
 
 def relaxedScan3D( xTips, yTips, zTips ):
 	ntips = len(zTips); 
@@ -156,9 +103,12 @@ def computeLJFF(iZs, Rs, FFparams, Fmax=Fmax_DEFAULT, computeVpot=False, Vmax=No
     	VLJ[ VLJ > Vmax ] =  Vmax # remove too large values
     return FFLJ,VLJ
 
-def computeELFF_pch(iZs,Rs,Qs,computeVpot, Fmax=Fmax_DEFAULT ):
-    print " ========= get electrostatic forcefiled from the point charges "
-    FFel, V = computeCoulomb( Rs, Qs, FFel=None, Vpot=computeVpot  )
+def computeELFF_pch(iZs,Rs,Qs,computeVpot, tip='s', Fmax=Fmax_DEFAULT ):
+    tipKinds = {'s':0,'pz':1,'dz2':2}
+    tipKind  = tipKinds[tip]
+    print " ========= get electrostatic forcefiled from the point charges tip=%s %i " %(tip,tipKind)
+    FFel,V = perpareArrays( None, computeVpot )
+    core.getCoulombFF( Rs, Qs*PPU.CoulombConst, kind=tipKind )
     if Fmax is not  None:
         print "Limit vector field"
         GU.limit_vec_field( FFel, Fmax=Fmax )

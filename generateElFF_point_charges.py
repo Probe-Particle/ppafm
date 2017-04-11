@@ -21,12 +21,12 @@ if __name__=="__main__":
        * xsf """
     from optparse import OptionParser
     parser = OptionParser()
-    parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
-    parser.add_option( "-t", "--tip", action="store", type="string", help="tip model (multipole)", default=None)
-    parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
-    parser.add_option("--noPBC", action="store_false",  help="pbc False",dest="PBC", default=None)
-    parser.add_option( "-w", "--sigma", action="store", type="float", help="gaussian width for convolution in Electrostatics [Angstroem]", default=None)
-    parser.add_option("-f","--data_format" , action="store" , type="string",help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
+    parser.add_option( "-i", "--input" , action="store", type="string", help="format of input file")
+    parser.add_option( "-t", "--tip"   , action="store", type="string", help="tip model (multipole)", default='s')
+    parser.add_option( "-E", "--energy", action="store_true",           help="pbc False",             default=False)
+    parser.add_option( "--noPBC"       , action="store_false",          help="pbc False", dest="PBC", default=None)
+    parser.add_option( "-w", "--sigma"      , action="store", type="float", help="gaussian width for convolution in Electrostatics [Angstroem]", default=None)
+    parser.add_option( "-f","--data_format" , action="store" , type="string",help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     (options, args) = parser.parse_args()
     print options
     opt_dict = vars(options)
@@ -46,7 +46,7 @@ if __name__=="__main__":
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
     iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC =PPU.params['PBC'],FFparams=FFparams )
-    FFel,V=PPH.computeELFF_pch(iZs,Rs,Qs,False)
+    FFel,V=PPH.computeELFF_pch(iZs,Rs,Qs,False, tip=options.tip)
     print " saving electrostatic forcefiled "
     GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format)
     if options.energy :

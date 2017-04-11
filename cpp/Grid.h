@@ -96,7 +96,6 @@ inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r 
 	return out;
 }
 
-
 // iterate over field
 template< void FUNC( int ibuff, const Vec3d& pos_, void * args ) >
 void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void * args ){

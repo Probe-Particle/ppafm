@@ -11,34 +11,33 @@ CoulombConst         = -14.3996448915;
 
 # default parameters of simulation
 params={
-'PBC': True,
-'nPBC' :       np.array( [      1,        1,        1 ] ),
-'gridN':       np.array( [ -1,     -1,   -1   ] ).astype(np.int),
-'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
-'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
-'gridC':       np.array( [      0,        0,      5.0 ] ),
-'moleculeShift':  np.array( [  0.0,      0.0,    0.0 ] ),
-'probeType':   '8',
-'charge':      0.00,
-'useLJ':True,
-'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
-'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
-'klat': 0.5,
-'krad': 20.00,
-'tip':'s',
-'sigma':1.0,
-'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
-'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
-'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
-'kCantilever'  :  1800.0, 
-'f0Cantilever' :  30300.0,
-'Amplitude'    :  1.0,
-'plotSliceFrom':  16,
-'plotSliceTo'  :  22,
-'plotSliceBy'  :  1,
-'imageInterpolation': 'bicubic',
-'colorscale'   : 'gray',
-
+    'PBC': True,
+    'nPBC' :       np.array( [      1,        1,        1 ] ),
+    'gridN':       np.array( [ -1,     -1,   -1   ] ).astype(np.int),
+    'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
+    'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
+    'gridC':       np.array( [      0,        0,      5.0 ] ),
+    'moleculeShift':  np.array( [  0.0,      0.0,    0.0 ] ),
+    'probeType':   '8',
+    'charge':      0.00,
+    'useLJ':True,
+    'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
+    'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
+    'klat': 0.5,
+    'krad': 20.00,
+    'tip':'s',
+    'sigma':1.0,
+    'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
+    'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
+    'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
+    'kCantilever'  :  1800.0, 
+    'f0Cantilever' :  30300.0,
+    'Amplitude'    :  1.0,
+    'plotSliceFrom':  16,
+    'plotSliceTo'  :  22,
+    'plotSliceBy'  :  1,
+    'imageInterpolation': 'bicubic',
+    'colorscale'   : 'gray',
 }
 
 # ==============================
@@ -110,8 +109,6 @@ def loadParams( fname,FFparams=None ):
 		params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
 		params["gridN"][1]=round(np.linalg.norm(params["gridB"])*10)
 		params["gridN"][2]=round(np.linalg.norm(params["gridC"])*10)
-
-
         try:
                 params['probeType'] = int(params['probeType'])
         except:
@@ -127,6 +124,7 @@ def loadParams( fname,FFparams=None ):
                 except:
                         raise ValueError("The element {} for the ProbeParticle "
                         "was not found".format(params['probeType']))
+                        
 def apply_options(opt=None):
         print "In apply options:"
         print opt
@@ -222,11 +220,10 @@ def getAtomsLJ(  iZprobe, iZs,  FFparams ):
 	compute Lenard-Jones coefitioens C6 and C12 for interaction between atoms in list "iZs" and probe-particle "iZprobe"
 	'''
 	n   = len(iZs)
-	C6  = np.zeros(n)
-	C12 = np.zeros(n)
+	cLJs  = np.zeros((n,2))
 	for i in range(n):
-		C6[i],C12[i] = get_C612( iZprobe-1, iZs[i]-1, FFparams )
-	return C6,C12
+		cLJs[i,0],cLJs[i,1] = get_C612( iZprobe-1, iZs[i]-1, FFparams )
+	return cLJs
 	
 def getAtomsLJ_fast( iZprobe, iZs,  FFparams ):
     #Rs  = FFparams[:,0]
@@ -237,9 +234,10 @@ def getAtomsLJ_fast( iZprobe, iZs,  FFparams ):
     #R   = Rs[iZs];  E   = Es[iZs]; 
     R+=FFparams[iZprobe-1][0]
     E=np.sqrt(E*FFparams[iZprobe-1][1]); 
-    R6  = R**6
-    C6  = E*R6 
-    return 2*C6,C6*R6 
+    cLJs = np.zeros((len(E),2))
+    cLJs[:,0] = E         * R6
+    cLJs[:,1] = cLJs[:,0] * R6 
+    return cLJs 
 
 # ============= Hi-Level Macros
 
@@ -249,18 +247,18 @@ def prepareScanGrids( ):
 	The origin of the grid is going to be shifted (from scanMin) by the bond length between the "Probe Particle"
 	and the "Apex", so that while the point of reference on the tip used to interpret scanMin  was the Apex,
 	the new point of reference used in the XSF output will be the Probe Particle.
-'''
+    '''
 	zTips  = np.arange( params['scanMin'][2], params['scanMax'][2]+0.00001, params['scanStep'][2] )
 	xTips  = np.arange( params['scanMin'][0], params['scanMax'][0]+0.00001, params['scanStep'][0] )
 	yTips  = np.arange( params['scanMin'][1], params['scanMax'][1]+0.00001, params['scanStep'][1] )
 	extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
 	lvecScan =np.array([
-	[(params['scanMin'] + params['r0Probe'])[0],
-	 (params['scanMin'] + params['r0Probe'])[1],
-	 (params['scanMin'] - params['r0Probe'])[2] ] ,
-	[        (params['scanMax']-params['scanMin'])[0],0.0,0.0],
-	[0.0,    (params['scanMax']-params['scanMin'])[1],0.0    ],
-	[0.0,0.0,(params['scanMax']-params['scanMin'])[2]        ]
+	    [(params['scanMin'] + params['r0Probe'])[0],
+	     (params['scanMin'] + params['r0Probe'])[1],
+	     (params['scanMin'] - params['r0Probe'])[2] ] ,
+	    [        (params['scanMax']-params['scanMin'])[0],0.0,0.0],
+	    [0.0,    (params['scanMax']-params['scanMin'])[1],0.0    ],
+	    [0.0,0.0,(params['scanMax']-params['scanMin'])[2]        ]
 	]).copy() 
 	return xTips,yTips,zTips,lvecScan
 
@@ -271,9 +269,9 @@ def lvec2params( lvec ):
 
 def params2lvec( ):
 	lvec = np.array([
-	[ 0.0, 0.0, 0.0 ],
-	params['gridA'],
-	params['gridB'],
-	params['gridC'],
+	    [ 0.0, 0.0, 0.0 ],
+	    params['gridA'],
+	    params['gridB'],
+	    params['gridC'],
 	]).copy
 	return lvec

@@ -28,32 +28,6 @@ array4d = np.ctypeslib.ndpointer(dtype=np.double, ndim=4, flags='CONTIGUOUS')
 # ======== Python warper function for C++ functions
 # ========
 
-'''
-# void setFF( int * n, double * grid, double * step,  )
-lib.setFF.argtypes = [array1i,array4d,array2d]
-lib.setFF.restype  = None
-def setFF( grid, cell = None ):
-	n_    = np.shape(grid)
-	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
-	if cell is None:
-		cell = np.array([
-		PPU.params['gridA'],
-		PPU.params['gridB'],
-		PPU.params['gridC'],
-		]).copy() 
-	lib.setFF( n, grid, cell )
-
-# void setFF( int * n, double * grid, double * step,  )
-lib.setFF_Pointer.argtypes = [array4d]
-lib.setFF_Pointer.restype  = None
-def setFF_Pointer( grid ):
-	lib.setFF_Pointer( grid )
-'''
-
-# void .setFF_shape( int * n, double * step  )
-#lib.setFF_shape.argtypes = [array1i,array2d]
-#lib.setFF_shape.restype  = None
-
 #void setGridN( int * n ){
 lib.setGridN.argtypes = [array1i]
 lib.setGridN.restype  = None
@@ -141,12 +115,12 @@ def setTipSpline( xs, ydys	):
 	n = len(xs)
 	lib.setTipSpline( n, xs, ydys )
 
-# void getClassicalFF       (    int natom,   double * Rs_, double * C6, double * C12 )
-lib.getLenardJonesFF.argtypes  = [ c_int,       array2d,      array1d,     array1d     ]
+# void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
+lib.getLenardJonesFF.argtypes  = [ c_int,       array2d,      array2d     ]
 lib.getLenardJonesFF.restype   = None
-def getLenardJonesFF( Rs, C6, C12 ):
+def getLenardJonesFF( Rs, cLJs ):
 	natom = len(Rs) 
-	lib.getLenardJonesFF( natom, Rs, C6, C12 )
+	lib.getLenardJonesFF( natom, Rs, cLJs )
 
 # void getCoulombFF       (    int natom,   double * Rs_, double * C6, double * C12 )
 lib.getCoulombFF.argtypes  = [ c_int,       array2d,      array1d, c_int   ]
