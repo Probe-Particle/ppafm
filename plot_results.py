@@ -106,7 +106,8 @@ atoms = None
 bonds = None
 if opt_dict['atoms'] or opt_dict['bonds']:
 	atoms_str="_atoms"
-	atoms = basUtils.loadAtoms( 'input_plot.xyz' )
+	atoms, tmp1, tmp2 = basUtils.loadAtoms( 'input_plot.xyz' )
+	del tmp1, tmp2;
 #	print "atoms ", atoms
         if os.path.isfile( 'atomtypes.ini' ):
         	print ">> LOADING LOCAL atomtypes.ini"  
