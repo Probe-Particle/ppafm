@@ -134,7 +134,12 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
     del Fel_x,Fel_y,Fel_z
     return FFel
 
-def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None):
+
+def meshgrid3d(xs,ys,zs):
+    Xs,Ys,Zs = np.zeros()
+    Xs,Ys = np.meshgrid(xs,ys)
+    
+def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None,bPPdisp=False):
     if tipspline is not None :
         try:
             print " loading tip spline from "+tipspline
@@ -160,9 +165,11 @@ def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None):
     print "stiffness:", PPU.params['klat']
     core.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
     fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )
-    PPdisp=PPpos.copy()
-    init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
-    PPdisp-=init_pos
+    if bPPdisp:
+        PPdisp=PPpos.copy()
+        init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
+        PPdisp-=init_pos
+    else:
+        PPdisp = None
     return fzs,PPpos,PPdisp,lvecScan
-
 
