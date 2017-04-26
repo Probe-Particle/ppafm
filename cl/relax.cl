@@ -5,13 +5,14 @@ __constant sampler_t sampler_1 = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT
 
 float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
     float r = sqrt( dot( dpos,dpos) );
-    return dpos.xyz *   stiffness.xyz                 // harmonic 3D
-         + dpos.xyz * ( stiffness.w *(r-dpos.w)/r );  // radial
+    return  (dpos-dpos0.xyz) *   stiffness.xyz              // harmonic 3D
+         + dpos * ( stiffness.w *(r-dpos0.w)/r );  // radial
 }
 
-float4 interpFE( float3 pos, float3 dinvC, float3 dinvC, float3 dinvC, __read_only image3d_t imgIn ){
-    const float4 coord = (float4)( dot(pos,dinvA),dot(pos,dinvB),dot(pos,dinvC) );
+float4 interpFE( float3 pos, float3 dinvA, float3 dinvB, float3 dinvC, __read_only image3d_t imgIn ){
+    const float4 coord = (float4)( dot(pos,dinvA),dot(pos,dinvB),dot(pos,dinvC), 0.0f );
     return read_imagef( imgIn, sampler_1, coord );
+    //return coord;
 }
 
 // this should be macro, to pass values by reference
@@ -47,38 +48,63 @@ void move_FIRE( float3 f, float3 p, float3 v, float2 RP, float4 RP0 ){
 __kernel void getFEinPoints(
     __read_only image3d_t  imgIn,
     __global  float4*      points,
-    __global  float *      FEs,
+    __global  float4*      FEs,
+    float4 dinvA,
+    float4 dinvB,
+    float4 dinvC
 ){
-    const float4 coord     = points[get_global_id(0)];
-    vals[get_global_id(0)] = read_imagef(imgIn, sampler_1, coord);
+    //const float4 coord     = points[get_global_id(0)];
+    //vals[get_global_id(0)] = read_imagef(imgIn, sampler_1, coord);
+    FEs[get_global_id(0)]    = interpFE( points[get_global_id(0)].xyz, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+}
+
+
+__kernel void getFEinStrokes(
+    __read_only image3d_t  imgIn,
+    __global  float4*      points,
+    __global  float4*      FEs,
+    float4 dinvA,
+    float4 dinvB,
+    float4 dinvC,
+    float4 dTip,
+    int nz
+){
+    float3 pos    =  points[get_global_id(0)].xyz; 
+    for(int iz=0; iz<nz; iz++){
+        float4 fe;
+        //printf( " %li %i (%f,%f,%f) \n", get_global_id(0), iz, pos.x, pos.y, pos.z );
+        FEs[get_global_id(0)*nz + iz]    = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+        pos    += dTip.xyz;
+    }
 }
 
 __kernel void relaxPoints(
     __read_only image3d_t  imgIn,
     __global  float4*      points,
-    __global  float *      FEs,
+    __global  float4*      FEs,
     float4 stiffness,
     float4 dpos0,
     float4 relax_params  // (dt,damp,tmin,tmax)
 ){
-    float4 tipPos = points[get_global_id(0)];
+    float3 tipPos = points[get_global_id(0)].xyz;
     float3 pos    =  tipPos.xyz + dpos0.xyz; 
     float4 fe;
     float3 vel    = 0.0f;
     for(int i=0; i<1000; i++){
-       fe        = read_imagef( imgIn, sampler_1, pos ); /// this would work only for unitary cell
+       fe        = read_imagef( imgIn, sampler_1, (float4)(pos,0.0f) ); /// this would work only for unitary cell
        float3 f  = fe.xyz;
-       float3 f += tipForce( pos-tipPos, stiffness, dpos0 );       
-       vel      += f   * dt;
-       pos.xyz  += vel * dt;
+       f        += tipForce( pos-tipPos, stiffness, dpos0 );    
+       vel      *=       relax_params.y;   
+       vel      += f   * relax_params.x;
+       pos.xyz  += vel * relax_params.x;
     }
-    vals[get_global_id(0)] = fe;
+    FEs[get_global_id(0)] = fe;
 }
 
 __kernel void relaxStrokes(
     __read_only image3d_t  imgIn,
     __global  float4*      points,
-    __global  float *      FEs,
+    __global  float4*      FEs,
     float4 dinvA,
     float4 dinvB,
     float4 dinvC,
@@ -88,21 +114,22 @@ __kernel void relaxStrokes(
     float4 relax_params,
     int nz
 ){
-    float4 tipPos = points[get_global_id(0)];
+    float3 tipPos = points[get_global_id(0)].xyz;
     float3 pos    = tipPos.xyz + dpos0.xyz; 
     for(int iz=0; iz<nz; iz++){
         float4 fe;
         float3 vel   = 0.0f;
         for(int i=0; i<100; i++){
-           fe        = interpFE( , sampler_1, imgIn );
+           fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
            float3 f  = fe.xyz;
-           float3 f += tipForce( pos-tipPos, stiffness, dpos0 );       
-           vel      += f   * dt;
-           pos.xyz  += vel * dt;
+           f        += tipForce( pos-tipPos, stiffness, dpos0 );
+           vel      *=       relax_params.y;       
+           vel      += f   * relax_params.y;
+           pos.xyz  += vel * relax_params.x;
         }
-        vals[get_global_id(0)] = fe;
-        tipPos += dpos0;
-        pos    += dpos0;
+        FEs[get_global_id(0)*nz + iz] = fe;
+        tipPos += dTip.xyz;
+        pos    += dTip.xyz;
     }
 }
 

@@ -35,7 +35,8 @@ Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=lvec[1], bvec=lvec[2] )
 #t2 = time.clock(); print "getAtomsLJ_fast %f [s]" %(t2-t1) 
 
 t1 = time.clock() 
-C6,C12 = PPU.getAtomsLJ     ( 8, Zs, FFparams ); #print "C6_,C12_",C6_,C12_
+cLJs_ = PPU.getAtomsLJ     ( 8, Zs, FFparams ); #print "C6_,C12_",C6_,C12_
+
 t2 = time.clock(); print "getAtomsLJ time %f [s]" %(t2-t1) 
 
 
@@ -46,7 +47,8 @@ import pyProbeParticle.fieldOCL as FFcl
 
 #atoms_ = FFcl.atoms2float4(atoms)
 atoms_  = FFcl.xyzq2float4(xyzs,qs); #print atoms_
-cLJs    = FFcl.CLJ2float2(C6,C12)
+#cLJs    = FFcl.CLJ2float2(C6,C12)
+cLJs    = cLJs_.astype(np.float32)
 
 X,Y,Z  = FFcl.getPos( lvec ); 
 nDim   = X.shape
