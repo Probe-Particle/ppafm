@@ -4,6 +4,8 @@
 
 #include "Grid.h"
 
+#include <locale.h> 
+
 GridShape gridShape;
 
 
@@ -23,6 +25,11 @@ namespace Histogram{
 extern "C" {
 
     int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline) {
+    
+        setlocale( LC_ALL, "C" ); // https://msdn.microsoft.com/en-us/library/x99tb11d(v=vs.71).aspx
+        //setlocale( LC_ALL, "" );
+        //setlocale( LC_ALL, "En_US" );  // to sove problem with ',' vs '.' caused by PyQt
+        
         FILE *f;
         char line[5000]; // define a length which is long enough to store a line
         char *waste;
@@ -46,7 +53,8 @@ extern "C" {
             for (j=0; j<dims[1]; j++){   
                 for (i=0; i<dims[0]; i++){
                     waste2=fscanf(f,"%lf",&numbers[tot]);
-//                    printf ("%20.20lf ", numbers[tot]);
+                    //printf ("%20.20lf ", numbers[tot]);
+                    //printf ("%i %i %i %f \n", k, j, i, numbers[tot] );
                     tot++;
 //                    if (tot > 5 ) exit(1);
                 }

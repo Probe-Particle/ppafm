@@ -209,8 +209,9 @@ def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
     fileout.write ("END_BLOCK_DATAGRID_3D\n")
 
 def loadXSF(fname):
-	filein = open(fname )
+	filein = open( fname )
 	startline, head = readUpTo(filein, "DATAGRID_3D_")              # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
+	#print head
 	nDim = [ int(iii) for iii in filein.readline().split() ]        # reading 1 line with dimensions
 	nDim.reverse()
 	nDim = np.array( nDim)

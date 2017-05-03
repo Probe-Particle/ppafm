@@ -116,6 +116,9 @@ __kernel void relaxStrokes(
 ){
     float3 tipPos = points[get_global_id(0)].xyz;
     float3 pos    = tipPos.xyz + dpos0.xyz; 
+    
+    //printf( " %li (%f,%f,%f)  \n",  get_global_id(0), tipPos.x, tipPos.y, tipPos.z);
+    
     for(int iz=0; iz<nz; iz++){
         float4 fe;
         float3 vel   = 0.0f;
