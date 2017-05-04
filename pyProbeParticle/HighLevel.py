@@ -7,7 +7,7 @@ import GridUtils as GU
 #import fieldFFT
 import fieldFFT       as fFFT
 import common as PPU
-from scipy.interpolate import RegularGridInterpolator
+#from scipy.interpolate import RegularGridInterpolator
 
 import core
 import cpp_utils
@@ -62,6 +62,20 @@ def prepareArrays( FFC, FFO, Vpot ):
 	core.setFFO( gridF=FFO, gridE=VO )
 	return FFC,VC,FFO,VO 
 
+def prepareArraysTwo( FF, Vpot ):
+	if ( FF is None ):
+		gridN = PPU.params['gridN']
+		FF = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
+	else:
+		PPU.params['gridN'] = np.shape( FF )    
+	if ( Vpot ):
+		V = np.zeros( (gridN[2],gridN[1],gridN[0])    )
+	else:
+		V=None
+	core.setFFC( gridF=FF, gridE=V )
+	return FF, V 
+
+
 def computeLJ( Rs, iZs, FFLJC=None,FFLJO=None,FFparams=None, Vpot=False ):
 	if FFparams is None:
 		raise ValueError("You should provide a list of LJ parameters!")
@@ -73,9 +87,9 @@ def computeLJ( Rs, iZs, FFLJC=None,FFLJO=None,FFparams=None, Vpot=False ):
 	return FFLJC,VLJC,FFLJO,VLJO
 
 def computeCoulomb( Rs, Qs, FFel=None , Vpot=False ):
-	FFel,Vel = prepareArrays( FFel, Vpot )
+	FFel,Vel = prepareArraysTwo( FFel, Vpot )
 	#core.setFF( gridF=FFel, gridE=Vel )
-	core.getCoulombFF ( Rs, Qs * PPU.CoulombConst )
+	core.getCCoulombFF ( Rs, Qs * PPU.CoulombConst )
 	return FFel, Vel
 """
 def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFparams=None ):

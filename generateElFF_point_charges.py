@@ -52,9 +52,15 @@ if __name__=="__main__":
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
     iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC =PPU.params['PBC'],FFparams=FFparams )
-    FFel,V=PPH.computeELFF_pch(iZs,Rs,Qs,False)
+    FFel,V=PPH.computeELFF_pch(iZs,Rs,Qs,True)
     print " saving electrostatic forcefiled "
     GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format)
     if options.energy :
         GU.save_scal_field( 'Vel', V, lvec, data_format=options.data_format)
-    del FFel,V;
+    del FFel;
+    if PPU.params['tip'] is not None:
+        print " saving tip electrostatic forcefiled "
+        FFelTip=PPH.computeElFF(V,lvec,V.shape,PPU.params['tip'],sigma=PPU.params['tipsigma'],Fmax=10.0,computeVpot=options.energy,Vmax=10)
+        GU.save_vec_field('FFelTip',FFelTip,lvec,data_format=options.data_format)
+    print "done"
+
