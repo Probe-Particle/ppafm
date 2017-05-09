@@ -7,6 +7,7 @@
 from __future__ import unicode_literals
 import sys
 import os
+import time
 import random
 import matplotlib; matplotlib.use('Qt5Agg')
 from PyQt5 import QtCore, QtWidgets
@@ -53,6 +54,9 @@ class MyDynamicMplCanvas(FigureCanvas):
         self.draw()
 
 class ApplicationWindow(QtWidgets.QMainWindow):
+
+    df = None
+
     def __init__(self):
     
         print "oclu.ctx    ", oclu.ctx
@@ -71,28 +75,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         l0.addWidget(self.mplc1)
         
         # --- bxZ
-        self.bxZ = QtWidgets.QSpinBox()
-        self.bxZ.setRange(0, 300)
-        self.bxZ.setSingleStep(1)
-        self.bxZ.setValue(90)
-        self.bxZ.valueChanged.connect(self.plotSlice)
-        
-        self.bxY = QtWidgets.QSpinBox()
-        vb = QtWidgets.QHBoxLayout()
-        vb.addWidget( QtWidgets.QLabel("iz,iy") )
-        vb.addWidget( self.bxZ )
-        vb.addWidget( self.bxY )
-        l0.addLayout(vb)
-        #l = QtWidgets.QFormLayout(); l0.addLayout(l); l.addRow( QtWidgets.QLabel("iz"), vb )
-        
-
-        '''
-        DEFAULT_dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
-        DEFAULT_stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
-        DEFAULT_dpos0        = np.array( [ 0.0 , 0.0 ,  4.0 , 4.0 ], dtype=np.float32 );
-        DEFAULT_relax_params = np.array( [ 0.01 , 0.9 , 0.01, 0.3 ], dtype=np.float32 );
-        '''
-        
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{ iz, nAmp }") )
+        bx = QtWidgets.QSpinBox();bx.setRange(0,300); bx.setSingleStep(1); bx.setValue(90); bx.valueChanged.connect(self.plotSlice); vb.addWidget(bx); self.bxZ=bx
+        bx = QtWidgets.QSpinBox();bx.setRange(0,50 ); bx.setSingleStep(1); bx.setValue(10); bx.valueChanged.connect(self.F2df); vb.addWidget(bx); self.bxA=bx
+ 
         # === tip params
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("K {x,y,R} [N/m]") )
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKx=bx
@@ -107,7 +93,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange( 0.0, 10.0); bx.setValue(4.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0r=bx
    
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax {dt,damp}") )
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,10.0); bx.setValue(0.01);  bx.setSingleStep(0.005); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bx_dt=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,10.0); bx.setValue(0.1);  bx.setSingleStep(0.005); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bx_dt=bx
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,1.0); bx.setValue(0.9);   bx.setSingleStep(0.05);  bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bx_damp=bx     
         
         # === buttons
@@ -140,11 +126,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.FEin = self.FF[:,:,:,:4] + self.Q*self.FF[:,:,:,4:] 
         
         self.invCell     = oclr.getInvCell(self.lvec)
-        self.relax_dim   = (100,100,60)
-        self.relax_poss  = oclr.preparePoss( self.relax_dim, z0=16.0, start=(0.0,0.0), end=(10.0,10.0) )
+        self.relax_dim   = (120,120,60)
+        self.relax_poss  = oclr.preparePoss( self.relax_dim, z0=16.0, start=(0.0,0.0), end=(12.0,12.0) )
         self.relax_args  = oclr.prepareBuffers( self.FEin, self.relax_dim )
-        
-        
+          
     def loadInputs(self):
         self.TypeParams   = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
         xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input_wrap.xyz' )
@@ -161,27 +146,45 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.ff_args = FFcl.initArgsLJC( self.atoms, self.cLJs, poss )
 
     def getFF(self):
+        t1 = time.clock() 
         self.FF    = FFcl.runLJC( self.ff_args, self.ff_nDim )
         self.plot_FF = True
+        t2 = time.clock(); print "FFcl.runLJC time %f [s]" %(t2-t1)
         self.plotSlice()
         
     def relax(self):
-        stiffness    = np.array([self.bxKx.value(),self.bxKy.value(),0.0,self.bxKr.value()], dtype=np.float32 ); stiffness/=-16.0217662; print "stiffness", stiffness
-        dpos0        = np.array([self.bxP0x.value(),self.bxP0y.value(),0.0,self.bxP0r.value()], dtype=np.float32 ); dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 );  print "dpos0", dpos0
-        relax_params = np.array([self.bx_dt.value(),self.bx_damp.value(),self.bx_dt.value()*0.2,self.bx_dt.value()*5.0], dtype=np.float32 ); print "relax_params", relax_params
+        t1 = time.clock() 
+        stiffness    = np.array([self.bxKx.value(),self.bxKy.value(),0.0,self.bxKr.value()], dtype=np.float32 ); stiffness/=-16.0217662; #print "stiffness", stiffness
+        dpos0        = np.array([self.bxP0x.value(),self.bxP0y.value(),0.0,self.bxP0r.value()], dtype=np.float32 ); dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); #print "dpos0", dpos0
+        relax_params = np.array([self.bx_dt.value(),self.bx_damp.value(),self.bx_dt.value()*0.2,self.bx_dt.value()*5.0], dtype=np.float32 ); #print "relax_params", relax_params
         self.FEout = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
         #self.FEout = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss )
         #oclr.saveResults()
+        t2 = time.clock(); print "oclr.relax time %f [s]" %(t2-t1)
+        self.F2df()
+        
+    def F2df(self):
+        nAmp = self.bxA.value()
+        if nAmp > 0:
+            t1 = time.clock() 
+            self.df = -PPU.Fz2df( np.transpose( self.FEout[:,:,:,2], (2,0,1) ), dz=0.1, k0=1800.0, f0=30300.0, n=nAmp )
+            t2 = time.clock(); print "F2df time %f [s]" %(t2-t1)
+        else:
+            self.df = None
         self.plot_FF = False
         self.plotSlice()
         
     def plotSlice(self):
+        t1 = time.clock() 
         val = int( self.bxZ.value() )
         if self.plot_FF:
             Fslice = self.FF[val,:,:,2]
+        elif self.df is not None:
+            Fslice = self.df[self.df.shape[0]-val-1,:,:]
         else:
             Fslice = self.FEout[:,:,self.FEout.shape[2]-val-1,2]
         self.mplc1.plotSlice( Fslice )
+        t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
         
     def fileQuit(self):
         self.close()

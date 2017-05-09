@@ -2,7 +2,6 @@
 
 import sys
 import os
-import time
 import pyopencl as cl
 import numpy as np
 
@@ -23,7 +22,7 @@ FEout      = None
 DEFAULT_dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
 DEFAULT_stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
 DEFAULT_dpos0        = np.array( [ 0.0 , 0.0 , -4.0 , 4.0 ], dtype=np.float32 );
-DEFAULT_relax_params = np.array( [ 0.01 , 0.9 , 0.01, 0.3 ], dtype=np.float32 );
+DEFAULT_relax_params = np.array( [ 0.1 , 0.9 ,  0.02, 0.5 ], dtype=np.float32 );
 
 # ========== Functions
 
@@ -39,12 +38,8 @@ def loadFEcl( Q = None ):
         Fz,lvec, nDim, head = GU.loadXSF('Felz_cl.xsf'); FE[:,:,:,2] += Q*Fz    
     return FE, lvec
 
-# --- prepare cl program
-
 def init( cl_context=oclu.ctx):
     global cl_program
-    #cl_program  = cl.Program(cl_context, CL_CODE).build()
-    #cl_program  = cl.Program(cl_context, CL_CODE).build()
     cl_program  = oclu.loadProgram(oclu.CL_PATH+"/relax.cl")
 
 def getInvCell( lvec ):
@@ -69,7 +64,6 @@ def preparePoss( relax_dim, z0, start=(0.0,0.0), end=(10.0,10.0) ):
 def prepareBuffers( FE, relax_dim, ctx=oclu.ctx ):
     mf       = cl.mem_flags
     cl_ImgIn = cl.image_from_array(ctx,FE,num_channels=4,mode='r')               # TODO make this re-uploadable
-    #cl_poss = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss   ) # float4
     bsz=np.dtype(np.float32).itemsize * 4 * relax_dim[0] * relax_dim[1]
     cl_poss  = cl.Buffer(ctx, mf.READ_ONLY , bsz                ) # float4
     cl_FEout = cl.Buffer(ctx, mf.WRITE_ONLY, bsz * relax_dim[2] ) # float4
@@ -80,17 +74,14 @@ def prepareBuffers( FE, relax_dim, ctx=oclu.ctx ):
 def relax( kargs, relax_dim, invCell, poss=None, FEout=None, dTip=DEFAULT_dTip, stiffness=DEFAULT_stiffness, dpos0=DEFAULT_dpos0, relax_params=DEFAULT_relax_params, queue=oclu.queue):
     nz = np.int32( relax_dim[2] )
     kargs = kargs  + ( invCell[0],invCell[1],invCell[2], dTip, stiffness, dpos0, relax_params, nz )
-    t1 = time.clock() 
     if FEout is None:
         FEout = np.zeros( relax_dim+(4,), dtype=np.float32 )
-        #print "FFout.nbytes : ", FEout.nbytes
     if poss is not None:
         cl.enqueue_copy( queue, kargs[1], poss )
     #print kargs
     cl_program.relaxStrokes( queue, (relax_dim[0]*relax_dim[1],), None, *kargs )
     cl.enqueue_copy( queue, FEout, kargs[2] )
     queue.finish()
-    t2 = time.clock(); print "relaxStrokes time %f [s]" %(t2-t1) 
     return FEout
 
 def saveResults():
@@ -111,6 +102,4 @@ if __name__ == "__main__":
     kargs, relaxShape = prepareBuffers()
     relax( kargs, relaxShape )
     saveResults()
-    #import matplotlib.pyplot as plt
-    #plt.show()
 

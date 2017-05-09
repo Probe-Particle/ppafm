@@ -22,22 +22,11 @@ def initArgsCoulomb( atoms, poss, ctx=oclu.ctx ):
     return kargs 
     	
 def runCoulomb( kargs, nDim, local_size=(16,), ctx=oclu.ctx, queue=oclu.queue  ):
-    print "run opencl kernel ..."
     global_size = (nDim[0]*nDim[1]*nDim[2],)
-    #global_size = (1,);  local_size=(1,)
     FE          = np.zeros( nDim+(4,) , dtype=np.float32 )
-    print "FE.shape",      FE.shape
-    print "global_size: ", global_size
-    print "local_size:  ", local_size
-    #print kargs
-    #program.evalCoulomb( queue, global_size, local_size, *(kargs))
     cl_program.evalLJC ( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy    ( queue, FE, kargs[3] );
     queue.finish()
-    print "... opencl kernel DONE"
-    #print FE[:,60,60,:]; print "================"
-    #print FE[100,:,60,:]; print "================"
-    #print FE[100,60,:,:]; print "================"
     return FE
 
 def initArgsLJC(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
@@ -51,21 +40,11 @@ def initArgsLJC(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     return kargs
 
 def runLJC( kargs, nDim, local_size=(16,), queue=oclu.queue ):
-    print "run opencl kernel ..."
     global_size = (nDim[0]*nDim[1]*nDim[2],)
-    #global_size = (1,);  local_size=(1,)
     FE          = np.zeros( nDim+(8,) , dtype=np.float32 ) # float8
-    #print "FE.shape",      FE.shape
-    #print "global_size: ", global_size
-    #print "local_size:  ", local_size
-    #print kargs
     cl_program.evalLJC( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy( queue, FE, kargs[4] )
     queue.finish()
-    #print FE[:,60,60,:]; print "================"
-    #print FE[100,:,60,:]; print "================"
-    #print FE[100,60,:,:]; print "================"
-    print "... opencl kernel DONE"
     return FE
 
 def getPos(lvec, nDim=None, step=(0.1,0.1,0.1) ):
@@ -75,8 +54,6 @@ def getPos(lvec, nDim=None, step=(0.1,0.1,0.1) ):
                     int(np.linalg.norm(lvec[1,:])/step[0]))
     dCell = np.array( ( lvec[1,:]/nDim[2], lvec[2,:]/nDim[1], lvec[3,:]/nDim[0] ) ) 
     ABC   = np.mgrid[0:nDim[0],0:nDim[1],0:nDim[2]]
-    print "nDim",nDim
-    print "ABC[0].shape ", ABC[0].shape
     X = lvec[0,0] + ABC[2]*dCell[0,0] + ABC[1]*dCell[1,0] + ABC[0]*dCell[2,0]
     Y = lvec[0,1] + ABC[2]*dCell[0,1] + ABC[1]*dCell[1,1] + ABC[0]*dCell[2,1] 
     Z = lvec[0,2] + ABC[2]*dCell[0,2] + ABC[1]*dCell[1,2] + ABC[0]*dCell[2,2] 
