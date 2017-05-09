@@ -22,10 +22,12 @@ sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 from   pyProbeParticle import basUtils
 from   pyProbeParticle import PPPlot 
 import pyProbeParticle.GridUtils as GU
-import pyProbeParticle.common as PPU
+import pyProbeParticle.common    as PPU
 import pyProbeParticle.cpp_utils as cpp_utils
 
-import RelaxOpenCL as oclr
+import pyProbeParticle.oclUtils    as oclu 
+import pyProbeParticle.fieldOCL    as FFcl 
+import pyProbeParticle.RelaxOpenCL as oclr
 
 class MyDynamicMplCanvas(FigureCanvas):
     """A canvas that updates itself every second with a new plot."""
@@ -40,25 +42,24 @@ class MyDynamicMplCanvas(FigureCanvas):
         self.setParent(parent)
         FigureCanvas.setSizePolicy(self,QtWidgets.QSizePolicy.Expanding,QtWidgets.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
-        
-        #E,lvec, nDim, head = GU.loadXSF('mini.xsf' );
-        #self.axes.imshow( E[5,:,:] )
             
     def plotSlice(self, F ):
         self.axes.cla()
-        self.cax = self.axes.imshow( F, origin='image', cmap='gray' )
+        self.img = self.axes.imshow( F, origin='image', cmap='gray' )
         if self.cbar is None:
-            self.cbar = self.fig.colorbar( self.cax )
-        self.cax.set_clim([F.min(), F.max()])
-        #self.fig.colorbar(im, self.axes, orientation='horizontal')
-        #self.axes.colorbar( F )
+            self.cbar = self.fig.colorbar( self.img )
+        self.cbar.set_clim( vmin=F.min(), vmax=F.max() )
+        self.cbar.update_normal(self.img)
         self.draw()
 
 class ApplicationWindow(QtWidgets.QMainWindow):
     def __init__(self):
     
-        # --- init RelaxOpenCL
-        oclr.prepareProgram()
+        print "oclu.ctx    ", oclu.ctx
+        print "oclu.queue  ", oclu.queue
+    
+        FFcl.init()
+        oclr.init()
     
         # --- init QtMain
         QtWidgets.QMainWindow.__init__(self)
@@ -73,11 +74,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         scaleLabel = QtWidgets.QLabel("Frequency <%d .. %d> Hz" %(0.0, 20.0))
         l.addWidget( scaleLabel )
         self.bxZ = QtWidgets.QSpinBox()
-        self.bxZ.setRange(0, 20)
+        self.bxZ.setRange(0, 300)
         self.bxZ.setSingleStep(1)
-        self.bxZ.setValue(0)
+        self.bxZ.setValue(90)
         self.bxZ.valueChanged.connect(self.plotSlice)
         l.addWidget( self.bxZ )
+        
+        # --- btLoad
+        self.btLoad = QtWidgets.QPushButton('Load', self)
+        self.btLoad.setToolTip('Load inputs')
+        self.btLoad.clicked.connect(self.loadInputs)
+        l.addWidget( self.btLoad )
         
         # --- btFF
         self.btFF = QtWidgets.QPushButton('getFF', self)
@@ -93,29 +100,50 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
+        
+        self.loadInputs()
+        self.getFF()
+        
+        self.Q    = -0.25;
+        self.FEin = self.FF[:,:,:,:4] + self.Q*self.FF[:,:,:,4:] 
+        
+        self.invCell     = oclr.getInvCell(self.lvec)
+        self.relax_dim   = (100,100,60)
+        self.relax_poss  = oclr.preparePoss( self.relax_dim, start=(0.0,0.0), end=(10.0,10.0), z0=10.0 )
+        self.relax_args  = oclr.prepareBuffers( self.FEin, self.relax_dim )
+        
+    def loadInputs(self):
+        self.TypeParams   = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+        xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input_wrap.xyz' )
+        self.lvec         = np.genfromtxt('cel.lvs')
+        
+        Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
+        cLJs_        = PPU.getAtomsLJ     ( 8, Zs, self.TypeParams );
+        self.atoms   = FFcl.xyzq2float4(xyzs,qs);
+        self.cLJs    = cLJs_.astype(np.float32)
+        
+        poss         = FFcl.getposs( self.lvec )
+        self.ff_nDim = poss.shape[:3]
+        print "ff_dim", self.ff_nDim
+        self.ff_args = FFcl.initArgsLJC( self.atoms, self.cLJs, poss )
 
     def getFF(self):
-        
-        #self.E,lvec, nDim, head = GU.loadXSF('ELJ_cl.xsf' );
-        #val = self.bxZ.value()
-        #self.mplc1.plotSlice( E[val,:,:] )
-        #self.plotSlice( val)
-        
-        self.kargs, self.relaxShape = oclr.prepareBuffers()
-        val = self.bxZ.value()
-        self.plotSlice( val)
+        self.FF    = FFcl.runLJC( self.ff_args, self.ff_nDim )
+        self.plot_FF = True
+        self.plotSlice()
         
     def relax(self):
-        oclr.relax( self.kargs, self.relaxShape )
-        oclr.saveResults()
-        val = self.bxZ.value()
-        self.plotSlice( val)
+        self.FEout = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss )
+        #oclr.saveResults()
+        self.plot_FF = False
+        self.plotSlice()
         
-    def plotSlice(self, val):
-        val = int(val)
-        print val
-        #Fslice = oclr.FE  [val,:,:,3]
-        Fslice = oclr.FEout[:,:,oclr.FEout.shape[2]-val-1,2]
+    def plotSlice(self):
+        val = int( self.bxZ.value() )
+        if self.plot_FF:
+            Fslice = self.FF[val,:,:,2]
+        else:
+            Fslice = self.FEout[:,:,self.FEout.shape[2]-val-1,2]
         self.mplc1.plotSlice( Fslice )
         
     def fileQuit(self):

@@ -4,30 +4,30 @@
 
 float4 getCoulomb( float4 atom, float3 pos ){
      float3  dp  =  pos - atom.xyz;
-     float   ir2 = 1.0f/( dp.x*dp.x + dp.y*dp.y + dp.z*dp.z +  R2SAFE );
+     float   ir2 = 1.0f/( dot(dp,dp) +  R2SAFE );
      float   ir  = sqrt(ir2);
      float   E   = atom.w*sqrt(ir2);
-     return (float4)(E, dp*(E*ir2));
+     return (float4)(dp*(E*ir2), E );
 }
 
 float4 getLJ( float3 apos, float2 cLJ, float3 pos ){
      float3  dp  =  pos - apos;
-     float   ir2 = 1.0f/( dp.x*dp.x + dp.y*dp.y + dp.z*dp.z + R2SAFE );
+     float   ir2 = 1.0f/( dot(dp,dp) + R2SAFE );
      float   ir6 = ir2*ir2*ir2;
      float   E   =  (    cLJ.y*ir6 -   cLJ.x )*ir6;
      float3  F   = (( 12.0f*cLJ.y*ir6 - 6.0f*cLJ.x )*ir6*ir2)*dp;
-     return (float4)(E, F);
+     return (float4)(F, E);
 }
 
 float8 getLJC( float4 atom, float2 cLJ, float3 pos ){
      float3  dp  =  pos - atom.xyz;
-     float   ir2 = 1.0/( dp.x*dp.x + dp.y*dp.y + dp.z*dp.z +  R2SAFE );
+     float   ir2 = 1.0/( dot(dp,dp) +  R2SAFE );
      float   ir6 = ir2*ir2*ir2;
      float   ELJ =  (    cLJ.y*ir6 -   cLJ.x )*ir6;
      float3  FLJ = (( 12.0f*cLJ.y*ir6 - 6.0f*cLJ.x )*ir6*ir2)*dp;
      float   ir  = sqrt(ir2);
      float   Eel = atom.w*sqrt(ir2);
-     return (float8)(ELJ, FLJ, Eel, dp*(Eel*ir2) );
+     return (float8)(FLJ, ELJ, dp*(Eel*ir2), Eel );
 }
 
 __kernel void evalCoulomb(

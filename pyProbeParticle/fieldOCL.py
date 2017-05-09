@@ -4,8 +4,11 @@ import os
 import pyopencl as cl
 import numpy    as np 
 
+import oclUtils as oclu
+
 # initialize OpenCL
 
+'''
 def initCl():
     PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) ); print PACKAGE_PATH
     #CL_PATH  = os.path.normpath( PACKAGE_PATH + '../../cl/' )
@@ -21,8 +24,16 @@ def initCl():
     return ctx,queue,program
 
 ctx,queue,program = initCl()
+'''
+#cl_program = loadProgram(fname, ctx=ctx, queue=queue):
+cl_program = None
 
-def initArgsCoulomb(atoms, poss ):
+
+def init():
+    global cl_program
+    cl_program = oclu.loadProgram(oclu.CL_PATH+"/PP.cl")
+
+def initArgsCoulomb( atoms, poss, ctx=oclu.ctx ):
     nAtoms     = np.int32( len(atoms) ) 
     mf         = cl.mem_flags
     cl_FE      = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   )
@@ -31,7 +42,7 @@ def initArgsCoulomb(atoms, poss ):
     kargs = ( nAtoms, cl_atoms, cl_poss, cl_FE )
     return kargs 
     	
-def runCoulomb( kargs, nDim, local_size=(16,) ):
+def runCoulomb( kargs, nDim, local_size=(16,), ctx=oclu.ctx, queue=oclu.queue  ):
     print "run opencl kernel ..."
     global_size = (nDim[0]*nDim[1]*nDim[2],)
     #global_size = (1,);  local_size=(1,)
@@ -41,7 +52,7 @@ def runCoulomb( kargs, nDim, local_size=(16,) ):
     print "local_size:  ", local_size
     #print kargs
     #program.evalCoulomb( queue, global_size, local_size, *(kargs))
-    program.evalLJC( queue, global_size, local_size, *(kargs))
+    cl_program.evalLJC ( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy    ( queue, FE, kargs[3] );
     queue.finish()
     print "... opencl kernel DONE"
@@ -50,26 +61,26 @@ def runCoulomb( kargs, nDim, local_size=(16,) ):
     #print FE[100,60,:,:]; print "================"
     return FE
 
-def initArgsLJC(atoms,cLJs, poss ):
-    nAtoms     = np.int32( len(atoms) ) 
-    mf         = cl.mem_flags
-    cl_atoms   = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
-    cl_cLJs    = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  )
-    cl_poss    = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ) # float4
-    cl_FE     = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ) # float8
+def initArgsLJC(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+    nAtoms   = np.int32( len(atoms) ) 
+    mf       = cl.mem_flags
+    cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
+    cl_cLJs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  )
+    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ) # float4
+    cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ) # float8
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
-    return kargs 
+    return kargs
 
-def runLJC( kargs, nDim, local_size=(16,) ):
+def runLJC( kargs, nDim, local_size=(16,), queue=oclu.queue ):
     print "run opencl kernel ..."
     global_size = (nDim[0]*nDim[1]*nDim[2],)
     #global_size = (1,);  local_size=(1,)
     FE          = np.zeros( nDim+(8,) , dtype=np.float32 ) # float8
-    print "FE.shape",      FE.shape
-    print "global_size: ", global_size
-    print "local_size:  ", local_size
-    print kargs
-    program.evalLJC( queue, global_size, local_size, *(kargs))
+    #print "FE.shape",      FE.shape
+    #print "global_size: ", global_size
+    #print "local_size:  ", local_size
+    #print kargs
+    cl_program.evalLJC( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy( queue, FE, kargs[4] )
     queue.finish()
     #print FE[:,60,60,:]; print "================"
@@ -99,6 +110,11 @@ def XYZ2float4(X,Y,Z):
     XYZW[:,:,:,1] = Y
     XYZW[:,:,:,2] = Z
     return XYZW
+
+def getposs( lvec ):
+    X,Y,Z   = getPos( lvec ); 
+    poss    = XYZ2float4(X,Y,Z)
+    return poss
     
 def atoms2float4(atoms):
     atoms_   = np.zeros( (len(atoms[0]),4), dtype=np.float32)
