@@ -11,16 +11,6 @@ import GridUtils as GU
 import common as PPU
 #import cpp_utils as cpp_utils
 
-'''
-sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
-
-from   pyProbeParticle import basUtils
-from   pyProbeParticle import PPPlot 
-import pyProbeParticle.GridUtils as GU
-import pyProbeParticle.common as PPU
-import pyProbeParticle.cpp_utils as cpp_utils
-'''
-
 # ========== Globals
 
 cl_program = None
@@ -32,7 +22,7 @@ FEout      = None
 
 DEFAULT_dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
 DEFAULT_stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
-DEFAULT_dpos0        = np.array( [ 0.0 , 0.0 ,  4.0 , 4.0 ], dtype=np.float32 );
+DEFAULT_dpos0        = np.array( [ 0.0 , 0.0 , -4.0 , 4.0 ], dtype=np.float32 );
 DEFAULT_relax_params = np.array( [ 0.01 , 0.9 , 0.01, 0.3 ], dtype=np.float32 );
 
 # ========== Functions
@@ -51,19 +41,6 @@ def loadFEcl( Q = None ):
 
 # --- prepare cl program
 
-'''
-def prepareProgram():
-    global cl_program,cl_queue, cl_context
-    THIS_FILE_PATH = os.path.dirname( os.path.realpath( __file__ ) )
-    CL_PATH  = os.path.normpath( THIS_FILE_PATH  + '/../../cl' ); print CL_PATH 
-    f        = open(CL_PATH+"/relax.cl", 'r')
-    CL_CODE  = "".join( f.readlines() )
-    plats    = cl.get_platforms()
-    cl_context  = cl.Context(properties=[(cl.context_properties.PLATFORM, plats[0])], devices=None)  
-    cl_queue    = cl.CommandQueue(cl_context)
-    cl_program  = cl.Program(cl_context, CL_CODE).build()
-'''
-
 def init( cl_context=oclu.ctx):
     global cl_program
     #cl_program  = cl.Program(cl_context, CL_CODE).build()
@@ -79,7 +56,7 @@ def getInvCell( lvec ):
     invC = np.zeros( 4, dtype=np.float32); invC[0:3] = invCell[2]
     return (invA, invB, invC)
 
-def preparePoss( relax_dim, start=(0.0,0.0), end=(10.0,10.0), z0=10.0 ):
+def preparePoss( relax_dim, z0, start=(0.0,0.0), end=(10.0,10.0) ):
     xs    = np.linspace(start[0],end[1],relax_dim[0])
     ys    = np.linspace(start[0],end[1],relax_dim[1])
     Xs,Ys = np.meshgrid(xs,ys)
@@ -106,10 +83,10 @@ def relax( kargs, relax_dim, invCell, poss=None, FEout=None, dTip=DEFAULT_dTip, 
     t1 = time.clock() 
     if FEout is None:
         FEout = np.zeros( relax_dim+(4,), dtype=np.float32 )
-        print "FFout.nbytes : ", FEout.nbytes
+        #print "FFout.nbytes : ", FEout.nbytes
     if poss is not None:
         cl.enqueue_copy( queue, kargs[1], poss )
-    print kargs
+    #print kargs
     cl_program.relaxStrokes( queue, (relax_dim[0]*relax_dim[1],), None, *kargs )
     cl.enqueue_copy( queue, FEout, kargs[2] )
     queue.finish()

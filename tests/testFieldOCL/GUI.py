@@ -66,37 +66,69 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle("application main window")
         self.main_widget = QtWidgets.QWidget(self)
-        l = QtWidgets.QVBoxLayout(self.main_widget)
+        l0 = QtWidgets.QVBoxLayout(self.main_widget)
         self.mplc1 = MyDynamicMplCanvas(self.main_widget, width=5, height=4, dpi=100)
-        l.addWidget(self.mplc1)
+        l0.addWidget(self.mplc1)
         
         # --- bxZ
-        scaleLabel = QtWidgets.QLabel("Frequency <%d .. %d> Hz" %(0.0, 20.0))
-        l.addWidget( scaleLabel )
         self.bxZ = QtWidgets.QSpinBox()
         self.bxZ.setRange(0, 300)
         self.bxZ.setSingleStep(1)
         self.bxZ.setValue(90)
         self.bxZ.valueChanged.connect(self.plotSlice)
-        l.addWidget( self.bxZ )
         
+        self.bxY = QtWidgets.QSpinBox()
+        vb = QtWidgets.QHBoxLayout()
+        vb.addWidget( QtWidgets.QLabel("iz,iy") )
+        vb.addWidget( self.bxZ )
+        vb.addWidget( self.bxY )
+        l0.addLayout(vb)
+        #l = QtWidgets.QFormLayout(); l0.addLayout(l); l.addRow( QtWidgets.QLabel("iz"), vb )
+        
+
+        '''
+        DEFAULT_dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
+        DEFAULT_stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
+        DEFAULT_dpos0        = np.array( [ 0.0 , 0.0 ,  4.0 , 4.0 ], dtype=np.float32 );
+        DEFAULT_relax_params = np.array( [ 0.01 , 0.9 , 0.01, 0.3 ], dtype=np.float32 );
+        '''
+        
+        # === tip params
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("K {x,y,R} [N/m]") )
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKx=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKy=bx
+        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,  2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKz=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(30.0); bx.setSingleStep(5.0); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKr=bx
+        
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("eq.pos {x,y,R} [A]") )
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0x=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0y=bx
+        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0z=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange( 0.0, 10.0); bx.setValue(4.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0r=bx
+   
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax {dt,damp}") )
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,10.0); bx.setValue(0.01);  bx.setSingleStep(0.005); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bx_dt=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,1.0); bx.setValue(0.9);   bx.setSingleStep(0.05);  bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bx_damp=bx     
+        
+        # === buttons
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
         # --- btLoad
         self.btLoad = QtWidgets.QPushButton('Load', self)
         self.btLoad.setToolTip('Load inputs')
         self.btLoad.clicked.connect(self.loadInputs)
-        l.addWidget( self.btLoad )
+        vb.addWidget( self.btLoad )
         
         # --- btFF
         self.btFF = QtWidgets.QPushButton('getFF', self)
         self.btFF.setToolTip('Get ForceField')
         self.btFF.clicked.connect(self.getFF)
-        l.addWidget( self.btFF )
+        vb.addWidget( self.btFF )
         
         # --- btRelax
         self.btRelax = QtWidgets.QPushButton('relax', self)
         self.btRelax.setToolTip('relaxed scan')
         self.btRelax.clicked.connect(self.relax)
-        l.addWidget( self.btRelax )
+        vb.addWidget( self.btRelax )
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
@@ -109,8 +141,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         self.invCell     = oclr.getInvCell(self.lvec)
         self.relax_dim   = (100,100,60)
-        self.relax_poss  = oclr.preparePoss( self.relax_dim, start=(0.0,0.0), end=(10.0,10.0), z0=10.0 )
+        self.relax_poss  = oclr.preparePoss( self.relax_dim, z0=16.0, start=(0.0,0.0), end=(10.0,10.0) )
         self.relax_args  = oclr.prepareBuffers( self.FEin, self.relax_dim )
+        
         
     def loadInputs(self):
         self.TypeParams   = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
@@ -133,7 +166,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.plotSlice()
         
     def relax(self):
-        self.FEout = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss )
+        stiffness    = np.array([self.bxKx.value(),self.bxKy.value(),0.0,self.bxKr.value()], dtype=np.float32 ); stiffness/=-16.0217662; print "stiffness", stiffness
+        dpos0        = np.array([self.bxP0x.value(),self.bxP0y.value(),0.0,self.bxP0r.value()], dtype=np.float32 ); dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 );  print "dpos0", dpos0
+        relax_params = np.array([self.bx_dt.value(),self.bx_damp.value(),self.bx_dt.value()*0.2,self.bx_dt.value()*5.0], dtype=np.float32 ); print "relax_params", relax_params
+        self.FEout = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
+        #self.FEout = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss )
         #oclr.saveResults()
         self.plot_FF = False
         self.plotSlice()

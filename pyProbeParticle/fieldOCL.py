@@ -6,32 +6,11 @@ import numpy    as np
 
 import oclUtils as oclu
 
-# initialize OpenCL
-
-'''
-def initCl():
-    PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) ); print PACKAGE_PATH
-    #CL_PATH  = os.path.normpath( PACKAGE_PATH + '../../cl/' )
-    CL_PATH  = os.path.normpath( PACKAGE_PATH + '/../cl' )
-    #CL_PATH = PACKAGE_PATH+"/cl/"
-    print CL_PATH
-    plats   = cl.get_platforms()
-    ctx     = cl.Context(properties=[(cl.context_properties.PLATFORM, plats[0])], devices=None)       
-    queue   = cl.CommandQueue(ctx)
-    f       = open(CL_PATH+"/PP.cl", 'r')
-    fstr    = "".join(f.readlines())
-    program = cl.Program(ctx, fstr).build()
-    return ctx,queue,program
-
-ctx,queue,program = initCl()
-'''
-#cl_program = loadProgram(fname, ctx=ctx, queue=queue):
 cl_program = None
-
 
 def init():
     global cl_program
-    cl_program = oclu.loadProgram(oclu.CL_PATH+"/PP.cl")
+    cl_program = oclu.loadProgram(oclu.CL_PATH+"/FF.cl")
 
 def initArgsCoulomb( atoms, poss, ctx=oclu.ctx ):
     nAtoms     = np.int32( len(atoms) ) 

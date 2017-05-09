@@ -24,6 +24,7 @@ void move_LeapFrog( float3 f, float3 p, float3 v, float2 RP ){
 #define FTDEC 0.5f
 #define FTINC 1.1f
 #define FDAMP 0.99f
+#define N_RELAX_STEP_MAX  32
 
 // this should be macro, to pass values by reference
 void move_FIRE( float3 f, float3 p, float3 v, float2 RP, float4 RP0 ){
@@ -122,7 +123,7 @@ __kernel void relaxStrokes(
     for(int iz=0; iz<nz; iz++){
         float4 fe;
         float3 vel   = 0.0f;
-        for(int i=0; i<100; i++){
+        for(int i=0; i<N_RELAX_STEP_MAX; i++){
            fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
            float3 f  = fe.xyz;
            f        += tipForce( pos-tipPos, stiffness, dpos0 );
