@@ -10,7 +10,7 @@ import os
 import time
 import random
 import matplotlib; matplotlib.use('Qt5Agg')
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 from numpy import arange, sin, pi
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -115,6 +115,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.btRelax.setToolTip('relaxed scan')
         self.btRelax.clicked.connect(self.relax)
         vb.addWidget( self.btRelax )
+        
+        # --- btSave
+        self.btSave = QtWidgets.QPushButton('save fig', self)
+        self.btSave.setToolTip('save current figure')
+        self.btSave.clicked.connect(self.saveFig)
+        vb.addWidget( self.btSave )
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
@@ -186,28 +192,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             Fslice = self.FEout[:,:,self.FEout.shape[2]-val-1,2]
         self.mplc1.plotSlice( Fslice )
         t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
-        
-    def fileQuit(self):
-        self.close()
 
-    def closeEvent(self, ce):
-        self.fileQuit()
-
-    def about(self):
-        QtWidgets.QMessageBox.about(self, "About", " Fucking about !!!")
+    def saveFig(self):
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
+        if fileName:
+            print "saving image to :", fileName
+            self.mplc1.fig.savefig( fileName,bbox_inches='tight')
 
 if __name__ == "__main__":
-
-    #E,lvec, nDim, head = GU.loadXSF('ELJ_cl.xsf' );
-    #import matplotlib.pyplot as plt
-    #plt.imshow( E[50,:,:] )
-    #plt.show()
-    
     qApp = QtWidgets.QApplication(sys.argv)
     aw = ApplicationWindow()
     aw.show()
     sys.exit(qApp.exec_())
-    
-    
-    
 
