@@ -46,7 +46,7 @@ class MyDynamicMplCanvas(FigureCanvas):
             
     def plotSlice(self, F ):
         self.axes.cla()
-        self.img = self.axes.imshow( F, origin='image', cmap='gray' )
+        self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
         if self.cbar is None:
             self.cbar = self.fig.colorbar( self.img )
         self.cbar.set_clim( vmin=F.min(), vmax=F.max() )
@@ -132,7 +132,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
           
     def loadInputs(self):
         self.TypeParams   = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-        xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input_wrap.xyz' )
+        #xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input_wrap.xyz' )
+        xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input.xyz' )
         self.lvec         = np.genfromtxt('cel.lvs')
         
         Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
