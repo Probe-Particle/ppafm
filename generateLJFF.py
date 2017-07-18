@@ -61,7 +61,7 @@ if __name__=="__main__":
     #         [xn,yn,zn]]
     # Qs  - 1D array, containing the atomic charges
     #FFLJ,VLJ=computeLJFF(iZs,Rs,FFparams,Fmax=10.0,computeVpot=options.energy,Vmax=10.0)
-    FFLJ,VLJ=PPH.computeLJFF(iZs,Rs,FFparams)
+    FFLJ,VLJ=PPH.computeLJFF(iZs,Rs,FFparams, computeVpot=options.energy, Vmax=10.0, Fmax=10.0 )
     
     #from pyProbeParticle.PPPlot import checkVecField; checkVecField(FFLJ); print "FFLJ.shape", FFLJ.shape
     

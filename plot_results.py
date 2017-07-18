@@ -108,8 +108,7 @@ if opt_dict['atoms'] or opt_dict['bonds']:
 	atoms_str="_atoms"
 	atoms = basUtils.loadAtoms( 'input_plot.xyz' )
 #	print "atoms ", atoms
-        iZs,Rs,Qs_tmp=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'],
-                             FFparams=FFparams )
+        iZs,Rs,Qs_tmp=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'], FFparams=FFparams )
 	atom_colors = basUtils.getAtomColors(iZs,FFparams=FFparams)
         Rs=Rs.transpose().copy()
 	atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]
@@ -128,8 +127,7 @@ for iq,Q in enumerate( Qs ):
 		dirname = "Q%1.2fK%1.2f" %(Q,K)
 		if opt_dict['pos']:
 			try:
-				PPpos, lvec, nDim = GU.load_vec_field(
-                                dirname+'/PPpos' ,data_format=options.data_format)
+				PPpos, lvec, nDim = GU.load_vec_field( dirname+'/PPpos' ,data_format=options.data_format)
 				print " plotting PPpos : "
 				PPPlot.plotDistortions( dirname+"/xy"+atoms_str+cbar_str, PPpos[:,:,:,0], PPpos[:,:,:,1], slices = range( 0, len(PPpos) ), BG=PPpos[:,:,:,2], extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, markersize=2.0, cbar=opt_dict['cbar'] )
 				del PPpos
@@ -147,8 +145,7 @@ for iq,Q in enumerate( Qs ):
 						os.makedirs( dirNameAmp )
 					dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
 					if opt_dict['save_df']:
-						GU.save_scal_field(
-                                                dirNameAmp+'/df', dfs, lvec,data_format=options.data_format )
+						GU.save_scal_field( dirNameAmp+'/df', dfs, lvec,data_format=options.data_format )
 					if opt_dict['df']:
 						print " plotting df : "
 						PPPlot.plotImages(
@@ -167,8 +164,7 @@ for iq,Q in enumerate( Qs ):
 				print "cannot load : ",dirname+'/OutFz.'+options.data_format
 		if opt_dict['bI']:
 			try:
-				I, lvec, nDim = GU.load_scal_field(
-                                dirname+'/OutI_boltzmann', data_format=options.data_format )
+				I, lvec, nDim = GU.load_scal_field( dirname+'/OutI_boltzmann', data_format=options.data_format )
 				print " plotting Boltzmann current: "
 				PPPlot.plotImages(
                                                 dirname+"/OutI"+atoms_str+cbar_str,

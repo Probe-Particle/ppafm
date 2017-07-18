@@ -193,19 +193,20 @@ BEGIN_BLOCK_DATAGRID_3D
 '''
 
 def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
-	fileout = open(fname, 'w')
-	for line in head:
-	    fileout.write(line)
-	nDim = np.shape(data)
-	writeArr (fileout, (nDim[2]+1,nDim[1]+1,nDim[0]+1) )
-	writeArr2D(fileout,lvec)
-	data2 = np.zeros(np.array(nDim)+1);   # These crazy 3 lines are here since the first and the last cube
-	data2[:-1,:-1,:-1] = data;  # in XSF in every direction is the same
-	data2[-1,:,:]=data2[0,:,:];data2[:,-1,:]=data2[:,0,:];data2[:,:,-1]=data2[:,:,0];
-	for r in data2.flat:
-	    fileout.write( "%10.5e\n" % r )
-	fileout.write ("   END_DATAGRID_3D\n")
-	fileout.write ("END_BLOCK_DATAGRID_3D\n")
+    print "saving ", fname 
+    fileout = open(fname, 'w')
+    for line in head:
+        fileout.write(line)
+    nDim = np.shape(data)
+    writeArr (fileout, (nDim[2]+1,nDim[1]+1,nDim[0]+1) )
+    writeArr2D(fileout,lvec)
+    data2 = np.zeros(np.array(nDim)+1);   # These crazy 3 lines are here since the first and the last cube
+    data2[:-1,:-1,:-1] = data;  # in XSF in every direction is the same
+    data2[-1,:,:]=data2[0,:,:];data2[:,-1,:]=data2[:,0,:];data2[:,:,-1]=data2[:,:,0];
+    for r in data2.flat:
+        fileout.write( "%10.5e\n" % r )
+    fileout.write ("   END_DATAGRID_3D\n")
+    fileout.write ("END_BLOCK_DATAGRID_3D\n")
 
 def loadXSF(fname):
 	filein = open(fname )
