@@ -26,7 +26,7 @@ params={
     'klat': 0.5,
     'krad': 20.00,
     'tip':'s',
-    'sigma':1.0,
+    'sigma': 0.7,
     'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
     'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
     'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),

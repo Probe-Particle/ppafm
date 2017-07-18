@@ -193,11 +193,12 @@ BEGIN_BLOCK_DATAGRID_3D
 '''
 
 def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
-    print "saving ", fname
+    print "saving ", fname 
     fileout = open(fname, 'w')
     for line in head:
         fileout.write(line)
     nDim = np.shape(data)
+    #print nDim
     writeArr (fileout, (nDim[2]+1,nDim[1]+1,nDim[0]+1) )
     writeArr2D(fileout,lvec)
     data2 = np.zeros(np.array(nDim)+1);   # These crazy 3 lines are here since the first and the last cube

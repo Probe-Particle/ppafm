@@ -58,6 +58,7 @@ def computeLJ( Rs, iZs, FFLJ=None, FFparams=None, Vpot=False ):
 	if FFparams is None:
 		raise ValueError("You should provide a list of LJ parameters!")
 	FFLJ,VLJ = perpareArrays( FFLJ, Vpot )
+	#print "FFLJ.shape, VLJ.shape :", FFLJ.shape, VLJ.shape
 	cLJs     = PPU.getAtomsLJ( PPU.params['probeType'], iZs, FFparams )
 	#core.setFF( gridF=FFLJ, gridE=VLJ )
 	core.getLenardJonesFF( Rs, cLJs )
@@ -116,7 +117,7 @@ def computeELFF_pch(iZs,Rs,Qs,computeVpot, tip='s', Fmax=Fmax_DEFAULT ):
         Vmax = 10.0; V[ V>Vmax ] = Vmax
     return FFel,V
 
-def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
+def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None, tilt=0.0 ):
     print " ========= get electrostatic forcefiled from hartree "
     rho = None
     multipole = None
@@ -129,7 +130,7 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None):
             sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")    
     print " computing convolution with tip by FFT "
     #Fel_x,Fel_y,Fel_z      = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole)
-    Fel_x,Fel_y,Fel_z, Vout = fFFT.potential2forces_mem( V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole )
+    Fel_x,Fel_y,Fel_z, Vout = fFFT.potential2forces_mem( V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole, tilt=tilt )
     FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
     del Fel_x,Fel_y,Fel_z
     return FFel

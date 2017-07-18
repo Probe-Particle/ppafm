@@ -3,6 +3,11 @@
 import numpy as np
 
 import gc
+
+import GridUtils as GU
+
+def fieldInfo( F, label="FieldInfo: min max av: " ):
+    print label, np.min(F), np.max(F), np.average(F)
    
 def getSampleDimensions(lvec):
 	'returns lvec without the first row'
@@ -21,47 +26,53 @@ def getMGrid(dims, dd):
 	(dx, dy, dz) = dd
 	nDim = [dims[2], dims[1], dims[0]]
 	XYZ = np.mgrid[0:nDim[0],0:nDim[1],0:nDim[2]].astype(float)
-	X = dx*np.roll( XYZ[2] - nDim[2]/2 -1, nDim[2]/2 , axis=2)
-	Y = dy*np.roll( XYZ[1] - nDim[1]/2 -1, nDim[1]/2 , axis=1)
-	Z = dz*np.roll( XYZ[0] - nDim[0]/2 -1, nDim[0]/2 , axis=0)
+	X = dx*np.roll( XYZ[2] - nDim[2]/2, nDim[2]/2 , axis=2)
+	Y = dy*np.roll( XYZ[1] - nDim[1]/2, nDim[1]/2 , axis=1)
+	Z = dz*np.roll( XYZ[0] - nDim[0]/2, nDim[0]/2 , axis=0)
 	return X, Y, Z
 
-def getSphericalHarmonic( X, Y, Z, kind='dz2' ):
-	# TODO: renormalization should be probaby here
-	if    kind=='s':
-		print 'Spherical harmonic: s'
-		return 1.0
-	# p-functions
-	elif  kind=='px':
-		print 'Spherical harmonic: px'
-		return X
-	elif  kind=='py':
-		print 'Spherical harmonic: py'
-		return Y
-	elif  kind=='pz':
-		print 'Spherical harmonic: pz'
-		return Z
-	# d-functions
-	if    kind=='dz2' :
-		print 'Spherical harmonic: dz2'
-		return 0.25*(2*Z**2 - X**2 - Y**2) #quadrupole normalized to get 3 times the quadrpole in the standard (cartesian) tensor normalization of Qzz. Also, 3D integral of rho_dz2(x,y,z)*(z/sigma)**2 gives 1 in the normalization use here.
-	elif    kind=='dx2' :
-		print 'Spherical harmonic: dx2'
-		return 0.25*(2*X**2 - Y**2 - Z**2)
-	elif    kind=='dy2' :
-		print 'Spherical harmonic: dy2'
-		return 0.25*(2*Y**2 - X**2 - Z**2)
-	elif    kind=='dxy' :
-		print 'Spherical harmonic: dxy'
-		return X*Y
-	elif    kind=='dxz' :
-		print 'Spherical harmonic: dxz'
-		return X*Z
-	elif    kind=='dyz' :
-		print 'Spherical harmonic: dyz'
-		return Y*Z
-	else:
-		return 0.0
+def rotZX( Z, X, tilt = 0.0 ):
+    ca = np.cos(tilt)
+    sa = np.sin(tilt)
+    return (ca*Z -sa*X), (sa*Z +ca*X) 
+
+def getSphericalHarmonic( X, Y, Z, kind='dz2', tilt = 0.0 ):
+    Z,X = rotZX(Z,X, tilt=tilt)
+    # TODO: renormalization should be probaby here
+    if    kind=='s':
+        print 'Spherical harmonic: s'
+        return 1.0
+    # p-functions
+    elif  kind=='px':
+        print 'Spherical harmonic: px'
+        return X
+    elif  kind=='py':
+        print 'Spherical harmonic: py'
+        return Y
+    elif  kind=='pz':
+        print 'Spherical harmonic: pz'
+        return Z
+    # d-functions
+    if    kind=='dz2' :
+        print 'Spherical harmonic: dz2'
+        return 0.25*(2*Z**2 - X**2 - Y**2) #quadrupole normalized to get 3 times the quadrpole in the standard (cartesian) tensor normalization of Qzz. Also, 3D integral of rho_dz2(x,y,z)*(z/sigma)**2 gives 1 in the normalization use here.
+    elif    kind=='dx2' :
+        print 'Spherical harmonic: dx2'
+        return 0.25*(2*X**2 - Y**2 - Z**2)
+    elif    kind=='dy2' :
+        print 'Spherical harmonic: dy2'
+        return 0.25*(2*Y**2 - X**2 - Z**2)
+    elif    kind=='dxy' :
+        print 'Spherical harmonic: dxy'
+        return X*Y
+    elif    kind=='dxz' :
+        print 'Spherical harmonic: dxz'
+        return X*Z
+    elif    kind=='dyz' :
+        print 'Spherical harmonic: dyz'
+        return Y*Z
+    else:
+        return 0.0
 
 '''
 def getProbeDensity(sampleSize, X, Y, Z, sigma, dd ):
@@ -77,23 +88,24 @@ def getProbeDensity(sampleSize, X, Y, Z, sigma, dd ):
 	return rho
 '''
 	
-def getProbeDensity( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None ):
-	'returns probe particle potential'
-	mat = getNormalizedBasisMatrix(sampleSize).getT()
-	rx = X*mat[0, 0] + Y*mat[0, 1] + Z*mat[0, 2]
-	ry = X*mat[1, 0] + Y*mat[1, 1] + Z*mat[1, 2]
-	rz = X*mat[2, 0] + Y*mat[2, 1] + Z*mat[2, 2]
-	rquad  = rx**2 + ry**2 + rz**2
-	radial       = np.exp( -(rquad)/(2*sigma**2) )
-	radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]  # TODO analytical renormalization may save some time ?
-	radial      /= radial_renom
-	if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
-		rho = np.zeros( np.shape(radial) )
-		for kind, coef in multipole_dict.iteritems():
-			rho += radial * coef * getSphericalHarmonic( X/sigma, Y/sigma, Z/sigma, kind=kind )
-	else:
-		rho = radial
-	return rho
+def getProbeDensity( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None, tilt=0.0 ):
+    'returns probe particle potential'
+    print "sigma: ", sigma; #exit()
+    mat = getNormalizedBasisMatrix(sampleSize).getT()
+    rx = X*mat[0, 0] + Y*mat[0, 1] + Z*mat[0, 2]
+    ry = X*mat[1, 0] + Y*mat[1, 1] + Z*mat[1, 2]
+    rz = X*mat[2, 0] + Y*mat[2, 1] + Z*mat[2, 2]
+    rquad  = rx**2 + ry**2 + rz**2
+    radial       = np.exp( -(rquad)/(2*sigma**2) )
+    radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]  # TODO analytical renormalization may save some time ?
+    radial      /= radial_renom
+    if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
+        rho = np.zeros( np.shape(radial) )
+        for kind, coef in multipole_dict.iteritems():
+            rho += radial * coef * getSphericalHarmonic( X/sigma, Y/sigma, Z/sigma, kind=kind, tilt=tilt )
+    else:
+        rho = radial
+    return rho
    
 def getSkewNormalBasis(sampleSize):
 	'returns normalized basis vectors pertaining to the skew basis'
@@ -199,27 +211,32 @@ def exportPotential(rho, rho_data='rho_data'):
 		#filerho.write(rho)
 	filerho.close()
 
-def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None):
-	print '--- Preprocessing ---'
-	sampleSize = getSampleDimensions( lvec )
-	dims = (nDim[2], nDim[1], nDim[0])
-	xsize, dx = getSize('x', dims, sampleSize)
-	ysize, dy = getSize('y', dims, sampleSize)
-	zsize, dz = getSize('z', dims, sampleSize)
-	dd = (dx, dy, dz)
-	X, Y, Z = getMGrid(dims, dd)
-	if rho == None:
-		print '--- Get Probe Density ---'
-		rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole)
-	else:
-		rho[:,:,:] = rho[::-1,::-1,::-1].copy()
-	print '--- Get Forces ---'
-	Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
-	print 'Fz.max(), Fz.min() = ', Fz.max(), Fz.min()
-	return Fx,Fy,Fz
+def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, tilt=0.0 ):
+    fieldInfo( V, label="fieldInfo V " )
+    print '--- Preprocessing ---'
+    sampleSize = getSampleDimensions( lvec )
+    dims = (nDim[2], nDim[1], nDim[0])
+    xsize, dx = getSize('x', dims, sampleSize)
+    ysize, dy = getSize('y', dims, sampleSize)
+    zsize, dz = getSize('z', dims, sampleSize)
+    dd = (dx, dy, dz)
+    X, Y, Z = getMGrid(dims, dd)
+    fieldInfo( Z, label="fieldInfo Z " )
+    if rho == None:
+        print '--- Get Probe Density ---'
+        rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt)
+    else:
+        rho[:,:,:] = rho[::-1,::-1,::-1].copy()
+    fieldInfo( rho, label="fieldInfo rho " )
+    GU.saveXSF( "DEBUG_rho.xsf", rho, lvec )
+    print '--- Get Forces ---'
+    Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
+    fieldInfo( Fz, label="fieldInfo Fz " )
+    print 'Fz.max(), Fz.min() = ', Fz.max(), Fz.min()
+    return Fx,Fy,Fz
 	
 	
-def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, doForce=True, doPot=False, deleteV=True):
+def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, doForce=True, doPot=False, deleteV=True, tilt=0.0 ):
 	print '--- Preprocessing ---'
 	sampleSize = getSampleDimensions( lvec )
 	dims = (nDim[2], nDim[1], nDim[0])
@@ -231,7 +248,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
 	X, Y, Z = getMGrid(dims, dd)
 	if rho == None:
 		print '--- Get Probe Density ---'
-		rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole)
+		rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt )
 	else:
 		rho[:,:,:] = rho[::-1,::-1,::-1].copy()
 	if doForce:

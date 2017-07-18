@@ -23,9 +23,10 @@ if __name__=="__main__":
     parser = OptionParser()
     parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
     parser.add_option( "-t", "--tip", action="store", type="string", help="tip model (multipole)", default='s')
+    parser.add_option( "--tilt", action="store", type="float", help="tilt of tip electrostatic field (radians)", default=0 )
     parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
     parser.add_option("--noPBC", action="store_false",  help="pbc False",dest="PBC", default=None)
-    parser.add_option( "-w", "--sigma", action="store", type="float",help="gaussian width for convolution in Electrostatics [Angstroem]", default=None)
+    parser.add_option( "-w", "--sigma", action="store", type="float",help="gaussian width for convolution in Electrostatics [Angstroem]", default=0.7)
     parser.add_option("-f","--data_format" , action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     (options, args) = parser.parse_args()
     print options
@@ -60,7 +61,7 @@ if __name__=="__main__":
     else:
         sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
     
-    FFel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10)
+    FFel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
     
     print " saving electrostatic forcefiled "
     GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format, head=head)
