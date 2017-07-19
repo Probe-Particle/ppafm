@@ -222,14 +222,44 @@ inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
 
 // ========== Interpolations
 
+inline void getPPforce( const Vec3d& rTip, const Vec3d& r, Vec3d& f ){
+	Vec3d rGrid,drTip; 
+	/*
+	//rGrid.set_mul(r, FF::invStep );                                                     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled (     orthogonal cell )
+	rGrid.set( r.dot( FF::diCell.a ), r.dot( FF::diCell.b ), r.dot( FF::diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
+	drTip.set_sub( r, rTip );                                                             // vector between Probe-particle and tip apex
+	f.set    ( interpolate3DvecWrap( FF::gridF, FF::n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
+	if( TIP::rff_xs ){
+		f.add( forceRSpline( drTip, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
+	}else{		
+		f.add( forceRSpring( drTip, TIP::kRadial, TIP::lRadial ) );                       // force from tip - radial component harmonic		
+	}		
+	drTip.sub( TIP::rPP0 );
+	f.add_mul( drTip, TIP::kSpring );      // spring force                                // force from tip - lateral bending force
+	*/
+	
+	//rGrid.set_mul(r, gridShape::invStep );                                                     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled (     orthogonal cell )
+	rGrid.set( r.dot( gridShape.diCell.a ), r.dot( gridShape.diCell.b ), r.dot( gridShape.diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
+	drTip.set_sub( r, rTip );                                                             // vector between Probe-particle and tip apex
+	f.set    ( interpolate3DvecWrap( gridF, gridShape.n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
+	if( TIP::rff_xs ){
+		f.add( forceRSpline( drTip, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
+	}else{		
+		f.add( forceRSpring( drTip, TIP::kRadial, TIP::lRadial ) );                       // force from tip - radial component harmonic		
+	}		
+	drTip.sub( TIP::rPP0 );
+	f.add_mul( drTip, TIP::kSpring );      // spring force   
+}
+
 // relax probe particle position "r" given on particular position of tip (rTip) and initial position "r" 
 int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
 	Vec3d v; v.set( 0.0d );
 	int iter;
 	//printf( " alg %i r  %f %f %f  rTip  %f %f %f \n", relaxAlg, r.x,r.y,r.z,  rTip.x, rTip.y, rTip.z );
-
 	for( iter=0; iter<RELAX::maxIters; iter++ ){
-		Vec3d rGrid,f,drTip; 
+		//Vec3d rGrid,f,drTip; 
+		Vec3d f;  getPPforce( rTip, r, f );
+		/*
 		//rGrid.set_mul(r, gridShape::invStep );                                                     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled (     orthogonal cell )
 		rGrid.set( r.dot( gridShape.diCell.a ), r.dot( gridShape.diCell.b ), r.dot( gridShape.diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
 		drTip.set_sub( r, rTip );                                                             // vector between Probe-particle and tip apex
@@ -241,17 +271,17 @@ int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
 		}		
 		drTip.sub( TIP::rPP0 );
 		f.add_mul( drTip, TIP::kSpring );      // spring force                                // force from tip - lateral bending force 
+		*/
 		if( relaxAlg == 1 ){                                                                  // move by either damped-leap-frog ( 0 ) or by FIRE ( 1 )
 			FIRE::move( f, r, v );
 		}else{
 			RELAX::move( f, r, v );
-		}			
+		}
 		//printf( "     %i r  %f %f %f  f  %f %f %f \n", iter, r.x,r.y,r.z,  f.x,f.y,f.z );
 		if( f.norm2() < RELAX::convF2 ) break;                                                // check force convergence
 	}
 	return iter;
 }
-
 
 // =====================================================
 // ==========   Export these functions ( to Python )
@@ -381,6 +411,48 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
 	return itrsum;
 }
 
+void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
+	Vec3d * rTips     = (Vec3d*) rTips_;
+	Vec3d * rPPs      = (Vec3d*) rPPs_;
+	Vec3d * eigenvals = (Vec3d*) eigenvals_;
+	Vec3d * evec1     = (Vec3d*) evec1_;
+	Vec3d * evec2     = (Vec3d*) evec2_;
+	Vec3d * evec3     = (Vec3d*) evec3_;
+	for(int i=0; i<n; i++){
+		Vec3d rTip,rPP,f1,f2;    
+		rTip.set( rTips[i] );    
+		rPP.set ( rPPs[i]  );
+		Mat3d dynmat;     
+		//getPPforce( rTip, rPP, f1 );  eigenvals[i] = f1;   // check if we are converged in f=0
+		//rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp; evec1[i].set_sub(f2,f1);
+		//rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp; evec2[i].set_sub(f2,f1);
+		//rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp; evec3[i].set_sub(f2,f1);
+		// eval dynamical matrix    D_xy = df_y/dx    = ( f(r0+dx).y - f(r0-dx).y ) / (2*dx)                
+		rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp;  dynmat.a.set_sub(f2,f1); dynmat.a.mul(-0.5/ddisp);
+		rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp;  dynmat.b.set_sub(f2,f1); dynmat.b.mul(-0.5/ddisp);
+		rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp;  dynmat.c.set_sub(f2,f1); dynmat.c.mul(-0.5/ddisp);
+		// symmetrize - to make sure that our symmetric matrix solver work properly
+		double tmp;
+		tmp = 0.5*(dynmat.xy + dynmat.yx); dynmat.xy = tmp; dynmat.yx = tmp;
+		tmp = 0.5*(dynmat.yz + dynmat.zy); dynmat.yz = tmp; dynmat.zy = tmp;
+		tmp = 0.5*(dynmat.zx + dynmat.xz); dynmat.zx = tmp; dynmat.xz = tmp;
+		// solve mat
+		Vec3d evals; dynmat.eigenvals( evals ); Vec3d temp;
+		// sort eigenvalues
+		if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; } 
+		if( evals.b > evals.c ){ tmp=evals.b; evals.b=evals.c; evals.c=tmp; }
+		if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; } 
+		// output eigenvalues and eigenvectors
+		eigenvals[i] = evals;
+		if(which>0) dynmat.eigenvec( evals.a, evec1[i] );
+		if(which>1) dynmat.eigenvec( evals.b, evec2[i] );
+		if(which>2) dynmat.eigenvec( evals.c, evec3[i] );
+		//evec1[i] = dynmat.a;
+		//evec2[i] = dynmat.b;
+		//evec3[i] = dynmat.c;
+	}
+}
+
 void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ ){
 	double denom = 1/dx;
 	for( int j=0; j<m; j++ ){
@@ -434,7 +506,19 @@ void test_force( int type, int n, double * r0_, double * dr_, double * R_, doubl
 	}
 }
 
+void test_eigen3x3( double * mat, double * evs ){
+	Mat3d* pmat  = (Mat3d*)mat;
+    Vec3d* es    = (Vec3d*)evs;
+	Vec3d* ev1   = (Vec3d*)(evs+3);
+	Vec3d* ev2   = (Vec3d*)(evs+6);
+	Vec3d* ev3   = (Vec3d*)(evs+9);
+	pmat->eigenvals( *es ); 
+	pmat->eigenvec( es->a, *ev1 );
+	pmat->eigenvec( es->b, *ev2 );
+	pmat->eigenvec( es->c, *ev3 );
 }
+
+} // extern "C"{
 
 
 

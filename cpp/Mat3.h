@@ -110,12 +110,6 @@ class Mat3TYPE{
 		vout.z = xz*v.x + yz*v.y + zz*v.z;  
 	};
 
-
-
-
-
-
-
 // ====== matrix multiplication
 
 	inline void set_mmul( const MAT& A, const MAT& B ){
@@ -214,7 +208,7 @@ class Mat3TYPE{
         Mout.zz = xx * yy - xy * yx;
     };
 
-	inline void fromDirUp( const VEC&  dir, const VEC&  up ){
+    inline void fromDirUp( const VEC&  dir, const VEC&  up ){
 		// make orthonormal rotation matrix c=dir; b=(up-<b|c>c)/|b|; a=(c x b)/|a|;
 		c.set(dir);
 		//c.normalize(); // we assume dir is already normalized
@@ -223,6 +217,52 @@ class Mat3TYPE{
 		b.normalize();
 		a.set_cross(b,c);
 		//a.normalize(); // we don't need this since b,c are orthonormal
+	}
+
+    // took from here 
+    // Smith, Oliver K. (April 1961), "Eigenvalues of a symmetric 3 × 3 matrix.", Communications of the ACM 4 (4): 168
+    // http://www.geometrictools.com/Documentation/EigenSymmetric3x3.pdf
+    // https://www.geometrictools.com/GTEngine/Include/Mathematics/GteSymmetricEigensolver3x3.h
+	inline void eigenvals( VEC& evs ) const {
+		const double inv3  = 0.33333333333d;
+        const double root3 = 1.73205080757d;
+		double amax = array[0];
+		for(int i=1; i<9; i++){ double a=array[i]; if(a>amax)amax=a; }
+		double c0 = xx*yy*zz + 2*xy*xz*yz -  xx*yz*yz   - yy*xz*xz   -  zz*xy*xy;
+		double c1 = xx*yy - xy*xy + xx*zz - xz*xz + yy*zz - yz*yz;
+		double c2 = xx + yy + zz;
+		double amax2 = amax*amax; c2/=amax; c1/=amax2; c0/=(amax2*amax);
+		double c2Div3 = c2*inv3;
+		double aDiv3  = (c1 - c2*c2Div3)*inv3;
+		if (aDiv3 > 0.0d) aDiv3 = 0.0d;
+		double mbDiv2 = 0.5d*( c0 + c2Div3*(2.0d*c2Div3*c2Div3 - c1) );
+		double q = mbDiv2*mbDiv2 + aDiv3*aDiv3*aDiv3;
+		if (q > 0.0) q = 0.0;
+		double magnitude = sqrt(-aDiv3);
+		double angle = atan2( sqrt(-q), mbDiv2 ) * inv3;
+		double cs    = cos(angle);
+		double sn    = sin(angle);
+		evs.a = amax*( c2Div3 + 2.0*magnitude*cs );
+		evs.b = amax*( c2Div3 - magnitude*(cs + root3*sn) );
+		evs.c = amax*( c2Div3 - magnitude*(cs - root3*sn) );
+	}
+	
+	inline void eigenvec( TYPE eval, VEC& evec ) const{
+		VEC row0;  row0.set( ax - eval, ay, az );
+		VEC row1;  row1.set( bx, by - eval, bz );
+		VEC row2;  row2.set( cx, cy,  cz- eval );
+		VEC r0xr1; r0xr1.set_cross(row0, row1);
+		VEC r0xr2; r0xr2.set_cross(row0, row2);
+		VEC r1xr2; r1xr2.set_cross(row1, row2);
+		TYPE d0 = r0xr1.dot( r0xr1);
+		TYPE d1 = r0xr2.dot( r0xr2);
+		TYPE d2 = r1xr2.dot( r1xr2);
+		TYPE dmax = d0; int imax = 0;
+		if (d1 > dmax) { dmax = d1; imax = 1; }
+		if (d2 > dmax) { imax = 2;            }
+		if      (imax == 0) { evec.set_mul( r0xr1, 1/sqrt(d0) ); }
+		else if (imax == 1) { evec.set_mul( r0xr2, 1/sqrt(d1) ); }
+		else                { evec.set_mul( r1xr2, 1/sqrt(d2) ); }
 	}
 
 };

@@ -7,6 +7,7 @@ import sys
 
 import pyProbeParticle                as PPU     
 import pyProbeParticle.GridUtils      as GU
+import pyProbeParticle.core           as PPC
 import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.cpp_utils      as cpp_utils
 
@@ -27,6 +28,7 @@ if __name__=="__main__":
     parser.add_option( "--bI" ,action="store_true", default=False, help="calculate current between boltzmann particle and tip" )
     parser.add_option( "--pos",       action="store_true", default=False, help="save probe particle positions" )
     parser.add_option( "--disp",      action="store_true", default=False, help="save probe particle displacements")
+    parser.add_option( "--vib",       action="store", type="int", default=-1, help="map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs" )
     parser.add_option( "--tipspline", action="store", type="string", help="file where spline is stored", default=None )
     parser.add_option("-f","--data_format" , action="store" , type="string",help="Specify the input/output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     (options, args) = parser.parse_args()
@@ -83,10 +85,24 @@ if __name__=="__main__":
             dirname = "Q%1.2fK%1.2f" %(Q,K)
             print " relaxed_scan for ", dirname
             if not os.path.exists( dirname ):
-            	os.makedirs( dirname )
+                os.makedirs( dirname )
             fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJ, FFel, FFboltz,options.tipspline)
+            #PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
+            #Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
+            #GU.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )
             GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan, data_format=options.data_format )
-	    if opt_dict['disp']:
+            if opt_dict['vib'] >= 0:
+                which = opt_dict['vib']
+                print " === computing eigenvectors of dynamical matix which=%i ddisp=%f" %(which,PPU.params['ddisp'])
+                xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
+                rTips = np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0).copy()
+                evals,evecs = PPC.stiffnessMatrix( rTips.reshape((-1,3)), PPpos.reshape((-1,3)), which=which, ddisp=PPU.params['ddisp'] )
+                GU.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, data_format=data_format )
+                if which > 0: GU.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=data_format )
+                if which > 1: GU.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=data_format )
+                if which > 2: GU.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=data_format )
+                #print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
+            if opt_dict['disp']:
                 GU.save_vec_field( dirname+'/PPdisp', PPdisp, lvecScan,data_format=options.data_format)
             if opt_dict['pos']:
                 GU.save_vec_field(dirname+'/PPpos', PPpos, lvecScan, data_format=options.data_format )

@@ -33,6 +33,7 @@ parser.add_option( "-q",       action="store", type="float", help="tip charge [e
 parser.add_option( "--qrange", action="store", type="float", help="tip charge range (min,max,n) [e]", nargs=3)
 parser.add_option( "-a",       action="store", type="float", help="oscilation amplitude [A]" )
 parser.add_option( "--arange", action="store", type="float", help="oscilation amplitude range (min,max,n) [A]", nargs=3)
+parser.add_option( "--iets",   action="store", type="float", help="mass [a.u.]; bias offset [eV]; peak width [eV] ", nargs=3 )
 
 parser.add_option( "--df",       action="store_true", default=False,  help="plot images for dfz " )
 parser.add_option( "--save_df" , action="store_true", default=False, help="save frequency shift as df.xsf " )
@@ -136,6 +137,25 @@ for iq,Q in enumerate( Qs ):
 			except:
 				print "error: ", sys.exc_info()
 				print "cannot load : " + ( dirname+'/PPpos_?.' + data_format ) 
+		if opt_dict['iets'] is not None:
+			#try:
+				eigvalK, lvec, nDim = GU.load_vec_field( dirname+'/eigvalKs' ,data_format=data_format)
+				M  = opt_dict['iets'][0]
+				E0 = opt_dict['iets'][1]
+				w  = opt_dict['iets'][2]
+				print " plotting IETS M=%f V=%f w=%f " %(M,E0,w)	
+				hbar       = 6.58211951440e-16 # [eV.s]
+				aumass     = 1.66053904020e-27 # [kg] 
+				eVA2_to_Nm = 16.0217662        # [eV/A^2] / [N/m] 
+				Evib = hbar * np.sqrt( ( eVA2_to_Nm * eigvalK )/( M * aumass ) )
+				IETS = PPH.symGauss(Evib[:,:,:,0], E0, w) + PPH.symGauss(Evib[:,:,:,1], E0, w) + PPH.symGauss(Evib[:,:,:,2], E0, w)
+				PPPlot.plotImages( dirname+"/IETS"+atoms_str+cbar_str, IETS, slices = range(0,len(IETS)), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+				PPPlot.plotImages( dirname+"/Evib"+atoms_str+cbar_str, Evib[:,:,:,0], slices = range(0,len(IETS)), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+				PPPlot.plotImages( dirname+"/Kvib"+atoms_str+cbar_str, 16.0217662 * eigvalK[:,:,:,0], slices = range(0,len(IETS)), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+				del eigvalK; del Evib; del IETS
+			#except:
+			#	print "error: ", sys.exc_info()
+			#	print "cannot load : " + ( dirname+'/eigvalKs_?.' + data_format ) 
 		if ( ( opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM'] ) ):
 			try :
 				fzs, lvec, nDim = GU.load_scal_field(dirname+'/OutFz' , data_format=options.data_format)

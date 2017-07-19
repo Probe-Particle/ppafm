@@ -2,11 +2,10 @@
 
 import os
 import sys
-import numpy as np
+import numpy     as np
 import GridUtils as GU
-#import fieldFFT
-import fieldFFT       as fFFT
-import common as PPU
+import fieldFFT  as fFFT
+import common    as PPU
 
 import core
 import cpp_utils
@@ -14,31 +13,58 @@ import cpp_utils
 # ===== constants 
 Fmax_DEFAULT = 100.0
 
+# overall procedure for importing the sample geometry:
+
+def importGeometries( fname ):
+    import basUtils as bU
+    if (fname.lower().endswith(".xyz") or fname.lower().endswith(".bas")): 
+        atoms, nDim, lvec = bU.loadAtoms( fname )
+    elif fname.lower().endswith(".xsf"):
+        atoms, nDim, lvec = bU.loadXSFGeom( fname )
+    elif fname.lower().endswith(".cube"):
+        atoms, nDim, lvec = bU.loadAtomsCUBE( fname )
+    elif fname.lower().endswith(".in"):
+        atoms, nDim, lvec = bU.loadGeometryIN( fname )
+    else:
+        sys.exit("ERROR!!! Unknown format of geometry system. Supported formats are: .xyz, .bas., .xsf, .cube, .in \n\n")
+    if (nDim != []):
+        PPU.params['gridN'] = nDim
+    if (lvec != []):
+        PPU.params['gridA'] = lvec[1]
+        PPU.params['gridB'] = lvec[2]
+        PPU.params['gridC'] = lvec[3]
+    else:
+        lvec=np.zeros((4,3))
+        lvec[ 1,:  ] =    PPU.params['gridA'].copy() 
+        lvec[ 2,:  ] =    PPU.params['gridB'].copy()
+        lvec[ 3,:  ] =    PPU.params['gridC'].copy()
+    return atoms, lvec;
+
 def parseAtoms( atoms, autogeom = False, PBC = True, FFparams=None ):
-	if FFparams is None:
-		raise ValueError("You should provide a list of LJ parameters!")
-	Rs = np.array([atoms[1],atoms[2],atoms[3]]); 
-        Natoms=[]
-        elem_dict={}
-        for i,ff in enumerate(FFparams):
-                elem_dict[ff[3]] = i+1
-        for atm in atoms[0]:
-                try:
-                        Natoms.append(int(atm))
-                except:
-                        try:
-                                Natoms.append(elem_dict[atm])
-                        except:
-                                raise ValueError("Did not find atomkind: {}".format(atm))
-	iZs=np.array( Natoms )
-	if autogeom:
-		print " autoGeom "
-		PPU.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
-	Rs = np.transpose( Rs, (1,0) ).copy()
-	Qs = np.array( atoms[4] )
-	if PBC:
-		iZs,Rs,Qs = PPU.PBCAtoms( iZs, Rs, Qs, avec=PPU.params['gridA'], bvec=PPU.params['gridB'] )
-	return iZs,Rs,Qs
+    if FFparams is None:
+        raise ValueError("You should provide a list of LJ parameters!")
+    Rs = np.array([atoms[1],atoms[2],atoms[3]]); 
+    Natoms=[]
+    elem_dict={}
+    for i,ff in enumerate(FFparams):
+        elem_dict[ff[3]] = i+1
+    for atm in atoms[0]:
+        try:
+            Natoms.append(int(atm))
+        except:
+            try:
+                Natoms.append(elem_dict[atm])
+            except:
+                raise ValueError("Did not find atomkind: {}".format(atm))
+    iZs=np.array( Natoms )
+    if autogeom:
+        print " autoGeom "
+        PPU.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
+    Rs = np.transpose( Rs, (1,0) ).copy()
+    Qs = np.array( atoms[4] )
+    if PBC:
+        iZs,Rs,Qs = PPU.PBCAtoms( iZs, Rs, Qs, avec=PPU.params['gridA'], bvec=PPU.params['gridB'] )
+    return iZs,Rs,Qs
 
 
 def perpareArrays( FF, Vpot ):
@@ -89,8 +115,13 @@ def relaxedScan3D( xTips, yTips, zTips ):
 			PPpos[:,iy,ix,0] = rs[::-1,0] # - rTips[:,0]
 			PPpos[:,iy,ix,1] = rs[::-1,1] # - rTips[:,1]
 			PPpos[:,iy,ix,2] = rs[::-1,2] # - rTips[:,2]
-        print ""
 	return fzs,PPpos
+
+def Gauss(Evib, E0, w):
+    return np.exp( -0.5*((Evib - E0)/w)**2);
+
+def symGauss( Evib, E0, w):
+    return Gauss(Evib, E0, w) - Gauss(Evib, -E0, w);
 
 def computeLJFF(iZs, Rs, FFparams, Fmax=Fmax_DEFAULT, computeVpot=False, Vmax=None):
     print "--- Compute Lennard-Jones Force-filed ---"
@@ -101,7 +132,7 @@ def computeLJFF(iZs, Rs, FFparams, Fmax=Fmax_DEFAULT, computeVpot=False, Vmax=No
         # remove too large values; keeps the same
         # direction; good for the visualization 
     if  Vmax != None and VLJ != None:
-    	VLJ[ VLJ > Vmax ] =  Vmax # remove too large values
+        VLJ[ VLJ > Vmax ] =  Vmax # remove too large values
     return FFLJ,VLJ
 
 def computeELFF_pch(iZs,Rs,Qs,computeVpot, tip='s', Fmax=Fmax_DEFAULT ):
@@ -135,11 +166,10 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None, tilt=0.0 
     del Fel_x,Fel_y,Fel_z
     return FFel
 
-
 def meshgrid3d(xs,ys,zs):
     Xs,Ys,Zs = np.zeros()
     Xs,Ys = np.meshgrid(xs,ys)
-    
+
 def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None,bPPdisp=False):
     if tipspline is not None :
         try:
