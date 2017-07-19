@@ -15,58 +15,6 @@ Fmax_DEFAULT = 100.0
 
 # overall procedure for importing the sample geometry:
 
-def importGeometries( fname ):
-    import basUtils as bU
-    if (fname.lower().endswith(".xyz") or fname.lower().endswith(".bas")): 
-        atoms, nDim, lvec = bU.loadAtoms( fname )
-    elif fname.lower().endswith(".xsf"):
-        atoms, nDim, lvec = bU.loadXSFGeom( fname )
-    elif fname.lower().endswith(".cube"):
-        atoms, nDim, lvec = bU.loadAtomsCUBE( fname )
-    elif fname.lower().endswith(".in"):
-        atoms, nDim, lvec = bU.loadGeometryIN( fname )
-    else:
-        sys.exit("ERROR!!! Unknown format of geometry system. Supported formats are: .xyz, .bas., .xsf, .cube, .in \n\n")
-    if (nDim != []):
-        PPU.params['gridN'] = nDim
-    if (lvec != []):
-        PPU.params['gridA'] = lvec[1]
-        PPU.params['gridB'] = lvec[2]
-        PPU.params['gridC'] = lvec[3]
-    else:
-        lvec=np.zeros((4,3))
-        lvec[ 1,:  ] =    PPU.params['gridA'].copy() 
-        lvec[ 2,:  ] =    PPU.params['gridB'].copy()
-        lvec[ 3,:  ] =    PPU.params['gridC'].copy()
-    return atoms, lvec;
-
-def parseAtoms( atoms, autogeom = False, PBC = True, FFparams=None ):
-    if FFparams is None:
-        raise ValueError("You should provide a list of LJ parameters!")
-    Rs = np.array([atoms[1],atoms[2],atoms[3]]); 
-    Natoms=[]
-    elem_dict={}
-    for i,ff in enumerate(FFparams):
-        elem_dict[ff[3]] = i+1
-    for atm in atoms[0]:
-        try:
-            Natoms.append(int(atm))
-        except:
-            try:
-                Natoms.append(elem_dict[atm])
-            except:
-                raise ValueError("Did not find atomkind: {}".format(atm))
-    iZs=np.array( Natoms )
-    if autogeom:
-        print " autoGeom "
-        PPU.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
-    Rs = np.transpose( Rs, (1,0) ).copy()
-    Qs = np.array( atoms[4] )
-    if PBC:
-        iZs,Rs,Qs = PPU.PBCAtoms( iZs, Rs, Qs, avec=PPU.params['gridA'], bvec=PPU.params['gridB'] )
-    return iZs,Rs,Qs
-
-
 def perpareArrays( FF, Vpot ):
 	if ( FF is None ):
 		gridN = PPU.params['gridN']

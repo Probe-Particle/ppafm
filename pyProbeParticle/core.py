@@ -115,6 +115,16 @@ def setTipSpline( xs, ydys	):
 	n = len(xs)
 	lib.setTipSpline( n, xs, ydys )
 
+#void getInPoints_LJ( int npoints, double * points, double * FEs, int natoms_, double * Ratoms_, double * cLJs ){
+lib.getInPoints_LJ.argtypes = [ c_int, array2d, array2d, c_int, array2d, array2d ]
+lib.getInPoints_LJ.restype  = None
+def getInPoints_LJ( ps, Rs, cLJs, FEs=None ):
+	nats = len(Rs)
+	npts = len(ps)
+	if FEs is None: FEs=np.zeros((npts,4));
+	lib.getInPoints_LJ( npts, ps, FEs, nats, Rs, cLJs)
+	return FEs
+
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
 lib.getLenardJonesFF.argtypes  = [ c_int,       array2d,      array2d     ]
 lib.getLenardJonesFF.restype   = None

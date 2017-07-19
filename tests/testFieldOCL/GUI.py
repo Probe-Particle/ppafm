@@ -138,7 +138,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
           
     def loadInputs(self):
         self.TypeParams   = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-        #xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input_wrap.xyz' )
         xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input.xyz' )
         self.lvec         = np.genfromtxt('cel.lvs')
         

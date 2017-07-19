@@ -18,7 +18,7 @@ params={
     'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
     'gridC':       np.array( [      0,        0,      5.0 ] ),
     'moleculeShift':  np.array( [  0.0,      0.0,    0.0 ] ),
-    'probeType':   '8',
+    'probeType':   8,
     'charge':      0.00,
     'useLJ':True,
     'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
@@ -146,6 +146,7 @@ def apply_options(opt=None):
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
 def loadSpecies( fname ):
+    print " loadSpecies from ", fname
     FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',np.int),('symbol', '|S10')],usecols=[0,1,2,3])
     return FFparams 
 
@@ -207,6 +208,32 @@ def PBCAtoms( Zs, Rs, Qs, avec, bvec, na=None, nb=None ):
 				Qs_.append( Qs[iatom]          )
 	return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy()	
 
+def parseAtoms( atoms, autogeom = False, PBC = True, FFparams=None ):
+    if FFparams is None:
+        raise ValueError("You should provide a list of LJ parameters!")
+    Rs = np.array([atoms[1],atoms[2],atoms[3]]); 
+    Natoms=[]
+    elem_dict={}
+    for i,ff in enumerate(FFparams):
+        elem_dict[ff[3]] = i+1
+    for atm in atoms[0]:
+        try:
+            Natoms.append(int(atm))
+        except:
+            try:
+                Natoms.append(elem_dict[atm])
+            except:
+                raise ValueError("Did not find atomkind: {}".format(atm))
+    iZs=np.array( Natoms )
+    if autogeom:
+        print " autoGeom "
+        autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
+    Rs = np.transpose( Rs, (1,0) ).copy()
+    Qs = np.array( atoms[4] )
+    if PBC:
+        iZs,Rs,Qs = PBCAtoms( iZs, Rs, Qs, avec=params['gridA'], bvec=params['gridB'] )
+    return iZs,Rs,Qs
+
 def get_C612( i, j, FFparams ):
 	'''
 	compute Lenard-Jones coefitioens C6 and C12 pair of atoms i,j
@@ -220,6 +247,8 @@ def getAtomsLJ(  iZprobe, iZs,  FFparams ):
 	'''
 	compute Lenard-Jones coefitioens C6 and C12 for interaction between atoms in list "iZs" and probe-particle "iZprobe"
 	'''
+	print "iZprobe", iZprobe, isinstance(iZprobe, int)
+	print "iZs[0] ", iZs[0] , isinstance(iZs[0] , int)
 	n   = len(iZs)
 	cLJs  = np.zeros((n,2))
 	for i in range(n):

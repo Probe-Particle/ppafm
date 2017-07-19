@@ -224,21 +224,6 @@ inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
 
 inline void getPPforce( const Vec3d& rTip, const Vec3d& r, Vec3d& f ){
 	Vec3d rGrid,drTip; 
-	/*
-	//rGrid.set_mul(r, FF::invStep );                                                     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled (     orthogonal cell )
-	rGrid.set( r.dot( FF::diCell.a ), r.dot( FF::diCell.b ), r.dot( FF::diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
-	drTip.set_sub( r, rTip );                                                             // vector between Probe-particle and tip apex
-	f.set    ( interpolate3DvecWrap( FF::gridF, FF::n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
-	if( TIP::rff_xs ){
-		f.add( forceRSpline( drTip, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
-	}else{		
-		f.add( forceRSpring( drTip, TIP::kRadial, TIP::lRadial ) );                       // force from tip - radial component harmonic		
-	}		
-	drTip.sub( TIP::rPP0 );
-	f.add_mul( drTip, TIP::kSpring );      // spring force                                // force from tip - lateral bending force
-	*/
-	
-	//rGrid.set_mul(r, gridShape::invStep );                                                     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled (     orthogonal cell )
 	rGrid.set( r.dot( gridShape.diCell.a ), r.dot( gridShape.diCell.b ), r.dot( gridShape.diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
 	drTip.set_sub( r, rTip );                                                             // vector between Probe-particle and tip apex
 	f.set    ( interpolate3DvecWrap( gridF, gridShape.n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
@@ -255,29 +240,13 @@ inline void getPPforce( const Vec3d& rTip, const Vec3d& r, Vec3d& f ){
 int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
 	Vec3d v; v.set( 0.0d );
 	int iter;
-	//printf( " alg %i r  %f %f %f  rTip  %f %f %f \n", relaxAlg, r.x,r.y,r.z,  rTip.x, rTip.y, rTip.z );
 	for( iter=0; iter<RELAX::maxIters; iter++ ){
-		//Vec3d rGrid,f,drTip; 
 		Vec3d f;  getPPforce( rTip, r, f );
-		/*
-		//rGrid.set_mul(r, gridShape::invStep );                                                     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled (     orthogonal cell )
-		rGrid.set( r.dot( gridShape.diCell.a ), r.dot( gridShape.diCell.b ), r.dot( gridShape.diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
-		drTip.set_sub( r, rTip );                                                             // vector between Probe-particle and tip apex
-		f.set    ( interpolate3DvecWrap( gridF, gridShape.n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
-		if( TIP::rff_xs ){
-			f.add( forceRSpline( drTip, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
-		}else{		
-			f.add( forceRSpring( drTip, TIP::kRadial, TIP::lRadial ) );                       // force from tip - radial component harmonic		
-		}		
-		drTip.sub( TIP::rPP0 );
-		f.add_mul( drTip, TIP::kSpring );      // spring force                                // force from tip - lateral bending force 
-		*/
 		if( relaxAlg == 1 ){                                                                  // move by either damped-leap-frog ( 0 ) or by FIRE ( 1 )
 			FIRE::move( f, r, v );
 		}else{
 			RELAX::move( f, r, v );
 		}
-		//printf( "     %i r  %f %f %f  f  %f %f %f \n", iter, r.x,r.y,r.z,  f.x,f.y,f.z );
 		if( f.norm2() < RELAX::convF2 ) break;                                                // check force convergence
 	}
 	return iter;
@@ -342,6 +311,22 @@ void setTipSpline( int n, double * xs, double * ydys ){
 	TIP::rff_n    = n;
 	TIP::rff_xs   = xs;  
 	TIP::rff_ydys = ydys;   
+}
+
+void getInPoints_LJ( int npoints, double * points_, double * FEs, int natoms, double * Ratoms_, double * cLJs ){
+    Vec3d * Ratoms=(Vec3d*)Ratoms_; Vec3d * points =(Vec3d*)points_;
+    int i4=0;
+    for( int ip=0; ip<npoints; ip++ ){
+        double E=0;
+        Vec3d f; f.set(0.0d);
+        Vec3d rProbe = points[ip];
+        for(int ia=0; ia<natoms; ia++){
+            E    += addAtomLJ( Ratoms[ia]-rProbe, f, cLJs[0], cLJs[1] );
+            cLJs += 2;
+        }
+        FEs[0] = f.x; FEs[1] = f.y; FEs[2] = f.z; FEs[3] = E;
+        FEs+=4;
+    }
 }
 
 void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){

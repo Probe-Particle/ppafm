@@ -50,7 +50,7 @@ if __name__=="__main__":
     PPU.params['gridA'] = lvec[1]
     PPU.params['gridB'] = lvec[2]
     PPU.params['gridC'] = lvec[3]
-    iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'], FFparams=FFparams )
+    iZs,Rs,Qs=PPU.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'], FFparams=FFparams )
     # The function returns the following information:
     # iZs - 1D array, containing the numbers of the elements, which corresponds to
     # their position in the atomtypes.ini file (Number of line - 1)
