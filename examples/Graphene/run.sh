@@ -6,15 +6,15 @@ PPPATH="../../"
 # ======= STEP 1 : Generate force-field grid 
 
 # calculation without DFT electrostatics using atomic charges
-#python $PPPATH/generateLJFF.py -i Gr6x6N3hole.xyz 
+python $PPPATH/generateLJFF.py -i Gr6x6N3hole.xyz 
 #python $PPPATH/generateElFF_point_charges.py -i Gr6x6N3hole.xyz 
-#python $PPPATH/generateElFF_point_charges.py -i Gr6x6N3hole.xyz --tip s
+python $PPPATH/generateElFF_point_charges.py -i Gr6x6N3hole.xyz --tip s
 
 
 # ======= STEP 2 : Relax Probe Particle using that force-field grid 
 
 #python $PPPATH/relaxed_scan.py -k 0.5 --qrange -0.05 0.0 2 --pos
-#python $PPPATH/relaxed_scan.py -k 0.5 -q -0.05
+python $PPPATH/relaxed_scan.py -k 0.5 -q -0.05
 #python $PPPATH/relaxed_scan.py -k 0.5 -q -10.5
 
 # ======= STEP 3 : Plot the results
