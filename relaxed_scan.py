@@ -33,17 +33,10 @@ if __name__=="__main__":
     parser.add_option("-f","--data_format" , action="store" , type="string",help="Specify the input/output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
+    PPU.loadParams( 'params.ini' )
+    PPU.apply_options(opt_dict)
     # =============== Setup
 
-    FFparams=None
-    if os.path.isfile( 'atomtypes.ini' ):
-    	print ">> LOADING LOCAL atomtypes.ini"  
-        FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
-    else:
-        FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-    
-    PPU.loadParams( 'params.ini',FFparams=FFparams )
-    print opt_dict
     # Ks
     if opt_dict['krange'] is not None:
         Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], opt_dict['krange'][2] )

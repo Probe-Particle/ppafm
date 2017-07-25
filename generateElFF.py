@@ -29,12 +29,12 @@ if __name__=="__main__":
     parser.add_option( "-w", "--sigma", action="store", type="float",help="gaussian width for convolution in Electrostatics [Angstroem]", default=0.7)
     parser.add_option("-f","--data_format" , action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     (options, args) = parser.parse_args()
-    print options
-    opt_dict = vars(options)
-    
     if options.input==None:
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
-    print " >> OVEWRITING SETTINGS by params.ini  "
+    
+    opt_dict = vars(options)
+    PPU.loadParams( 'params.ini' )
+    PPU.apply_options(opt_dict)    
 
     if os.path.isfile( 'atomtypes.ini' ):
         print ">> LOADING LOCAL atomtypes.ini"  
@@ -42,7 +42,8 @@ if __name__=="__main__":
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
-    PPU.loadParams( 'params.ini', FFparams=FFparams)
+    '''
+    PPU.loadParams( 'params.ini')
     PPU.apply_options(opt_dict)
     iZs,Rs,Qs=None,None,None
     V=None
@@ -56,10 +57,22 @@ if __name__=="__main__":
         V, lvec, nDim, head = GU.loadCUBE(options.input)
     elif(options.input.lower().endswith(".xyz") ):
         atoms,nDim,lvec=basUtils.loadGeometry(options.input, params=PPU.params)
-        iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC =PPU.params['PBC'],FFparams=FFparams )
+        iZs,Rs,Qs = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
         head = GU.XSF_HEAD_DEFAULT
     else:
         sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
+    '''
+    
+    
+    V=None
+    if(options.input.lower().endswith(".xsf") ):
+        print " loading Hartree potential from disk "
+        print "Use loadXSF"
+        V, lvec, nDim, head = GU.loadXSF(options.input)
+    elif(options.input.lower().endswith(".cube") ):
+        print " loading Hartree potential from disk "
+        print "Use loadCUBE"
+        V, lvec, nDim, head = GU.loadCUBE(options.input)
     
     FFel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
     
@@ -68,3 +81,7 @@ if __name__=="__main__":
     if options.energy :
         GU.save_scal_field( 'Vel', V, lvec, data_format=options.data_format)
     del FFel,V;
+    
+    
+    
+    

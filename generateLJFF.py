@@ -21,15 +21,21 @@ if __name__=="__main__":
     """ %os.path.basename(main.__file__)
     from optparse import OptionParser
     parser = OptionParser()
-    parser.add_option( "-i", "--input", action="store", type="string", help="Input file, supported formats are:\n.xyz\n.cube,.xsf")
-    parser.add_option( "--noPBC", action="store_false",  help="pbc False", dest="PBC", default=None)
-    parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
-    parser.add_option("-f","--data_format" , action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
+    parser.add_option("-i", "--input",      action="store", type="string",  help="Input file, supported formats are:\n.xyz\n.cube,.xsf")
+    parser.add_option("-f","--data_format", action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
+    parser.add_option("--noPBC",            action="store_false",           help="pbc False", dest="PBC", default=None)
+    parser.add_option("-E", "--energy",     action="store_true",            help="Compue potential energ y(not just Force)", default=False)
     (options, args) = parser.parse_args()
-    opt_dict = vars(options)
-    print options
     if options.input==None:
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
+    opt_dict = vars(options)
+    PPU.loadParams( 'params.ini' )
+    PPU.apply_options(opt_dict)
+    speciesFile = None
+    if os.path.isfile( 'atomtypes.ini' ):
+        speciesFile='atomtypes.ini'
+    PPH.computeLJ( options.input, speciesFile=speciesFile, save_format=options.data_format, computeVpot=options.energy )
+    '''
     FFparams=None
     if os.path.isfile( 'atomtypes.ini' ):
     	print ">> LOADING LOCAL atomtypes.ini"  
@@ -50,7 +56,9 @@ if __name__=="__main__":
     PPU.params['gridA'] = lvec[1]
     PPU.params['gridB'] = lvec[2]
     PPU.params['gridC'] = lvec[3]
-    iZs,Rs,Qs=PPU.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'], FFparams=FFparams )
+    #iZs,Rs,Qs=PPU.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'], FFparams=FFparams )
+    elem_dict = PPU.getFFdict(FFparams); 
+    iZs,Rs,Qs = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
     # The function returns the following information:
     # iZs - 1D array, containing the numbers of the elements, which corresponds to
     # their position in the atomtypes.ini file (Number of line - 1)
@@ -69,3 +77,4 @@ if __name__=="__main__":
     GU.save_vec_field( 'FFLJ', FFLJ, lvec,data_format=options.data_format)
     if options.energy :
         GU.save_scal_field( 'VLJ', VLJ, lvec,data_format=options.data_format)
+    '''

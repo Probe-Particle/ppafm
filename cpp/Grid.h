@@ -50,12 +50,16 @@ class GridShape {
 	};
 	
 	void printCell(){
-	    printf( " a     %f %f %f \n", dCell.a.x,  dCell.a.y,  dCell.a.z  );
-	    printf( " b     %f %f %f \n", dCell.b.x,  dCell.b.y,  dCell.b.z  );
-	    printf( " c     %f %f %f \n", dCell.c.x,  dCell.c.y,  dCell.c.z  );
-	    printf( " inv_a %f %f %f \n", diCell.a.x, diCell.a.y, diCell.a.z );
-	    printf( " inv_b %f %f %f \n", diCell.b.x, diCell.b.y, diCell.b.z );
-	    printf( " inv_c %f %f %f \n", diCell.c.x, diCell.c.y, diCell.c.z );
+	    printf( " n      %i %i %i \n", n.x,        n.y,       n.z        );
+	    printf( " a      %f %f %f \n", cell.a.x,   cell.a.y,   cell.a.z  );
+	    printf( " b      %f %f %f \n", cell.b.x,   cell.b.y,   cell.b.z  );
+	    printf( " c      %f %f %f \n", cell.c.x,   cell.c.y,   cell.c.z  );
+	    printf( " da     %f %f %f \n", dCell.a.x,  dCell.a.y,  dCell.a.z  );
+	    printf( " db     %f %f %f \n", dCell.b.x,  dCell.b.y,  dCell.b.z  );
+	    printf( " dc     %f %f %f \n", dCell.c.x,  dCell.c.y,  dCell.c.z  );
+	    printf( " inv_da %f %f %f \n", diCell.a.x, diCell.a.y, diCell.a.z );
+	    printf( " inv_db %f %f %f \n", diCell.b.x, diCell.b.y, diCell.b.z );
+	    printf( " inv_dc %f %f %f \n", diCell.c.x, diCell.c.y, diCell.c.z );
     }
 
 };

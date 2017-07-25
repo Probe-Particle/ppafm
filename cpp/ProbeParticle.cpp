@@ -162,6 +162,7 @@ inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
 	double E12  = c12 * ir6*ir6;
 	//return dR * ( ( 6*ir6*c6 -12*ir12*c12 ) * ir2  );
 	fout.add_mul( dR , ( 6*E6 -12*E12 ) * ir2 );
+	//printf(" (%g,%g,%g)  (%g,%g)  %g \n", dR.x,dR.y,dR.z, c6, c12,  E12 - E6);
 	//printf(" (%g,%g,%g)  %f %f  (%g,%g,%g) \n", dR.x,dR.y,dR.z, c6, c12,  fout.x,fout.y,fout.z);
 	return E12 - E6;
 }
@@ -212,9 +213,10 @@ inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
 	Vec3d f; f.set(0.0d);
 	for(int i=0; i<natoms; i++){	
 	    //printf(" %i ", i);
-		E     += addAtom_func( Ratoms[i]-rProbe, f, coefs );	
+		E     += addAtom_func( Ratoms[i]-rProbe, f, coefs );
 		coefs += nCoefPerAtom;
 	}
+	//printf( "evalCell[%i] %i (%g,%g,%g) %g\n", ibuff, natoms, rProbe.x, rProbe.y, rProbe.z, E ); exit(0);
 	if(gridF) gridF[ibuff].add(f); 
 	if(gridE) gridE[ibuff] += E;
 	//exit(0);
@@ -315,15 +317,16 @@ void setTipSpline( int n, double * xs, double * ydys ){
 
 void getInPoints_LJ( int npoints, double * points_, double * FEs, int natoms, double * Ratoms_, double * cLJs ){
     Vec3d * Ratoms=(Vec3d*)Ratoms_; Vec3d * points =(Vec3d*)points_;
+    //printf("natoms %i npoints %i \n", natoms, npoints);
     int i4=0;
+    //for(int ia=0; ia<natoms; ia++){ printf( " atom %i (%g,%g,%g) %g %g \n", ia,Ratoms[ia].x,Ratoms[ia].y,Ratoms[ia].z, cLJs[ia*2], cLJs[ia*2+1] ); }
     for( int ip=0; ip<npoints; ip++ ){
         double E=0;
         Vec3d f; f.set(0.0d);
         Vec3d rProbe = points[ip];
-        for(int ia=0; ia<natoms; ia++){
-            E    += addAtomLJ( Ratoms[ia]-rProbe, f, cLJs[0], cLJs[1] );
-            cLJs += 2;
-        }
+        for(int ia=0; ia<natoms; ia++){ E += addAtomLJ( Ratoms[ia]-rProbe, f, cLJs[ia*2], cLJs[ia*2+1] ); }
+        //printf( " point[%i] %i (%g,%g,%g) (%g,%g,%g) %g\n", ip, natoms, rProbe.x,rProbe.y,rProbe.z,  f.x,f.y,f.z, E ); exit(0);
+        // point 0 (14.877,9.09954,3) (-0.000131649,8.35068e-05,-2.8037e+13) 7.70439e+11
         FEs[0] = f.x; FEs[1] = f.y; FEs[2] = f.z; FEs[3] = E;
         FEs+=4;
     }
@@ -332,6 +335,7 @@ void getInPoints_LJ( int npoints, double * points_, double * FEs, int natoms, do
 void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
+    //exit(0);
     interateGrid3D < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
 }
 
@@ -362,6 +366,7 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
 	rTip  .set    ( rTips[0]      );
 	rProbe.set_add( rTip, TIP::rPP0 );
 	//printf( " rTip0: %f %f %f  rProbe0: %f %f %f \n", rTip.x, rTip.y, rTip.z, rProbe.x, rProbe.y, rProbe.z  );
+	//gridShape.printCell(); exit(0);
 	for( int i=0; i<nstep; i++ ){ // for each postion of tip
 		// set starting postion of ProbeParticle
 		if       ( probeStart == -1 ) {	 // rProbe stay from previous step
