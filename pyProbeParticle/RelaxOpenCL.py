@@ -71,13 +71,16 @@ def prepareBuffers( FE, relax_dim, ctx=oclu.ctx ):
     kargs = (cl_ImgIn, cl_poss, cl_FEout )
     return kargs
 
-def relax( kargs, relax_dim, invCell, poss=None, FEout=None, dTip=DEFAULT_dTip, stiffness=DEFAULT_stiffness, dpos0=DEFAULT_dpos0, relax_params=DEFAULT_relax_params, queue=oclu.queue):
+def relax( kargs, relax_dim, invCell, poss=None, FEin=None, FEout=None, dTip=DEFAULT_dTip, stiffness=DEFAULT_stiffness, dpos0=DEFAULT_dpos0, relax_params=DEFAULT_relax_params, queue=oclu.queue):
     nz = np.int32( relax_dim[2] )
     kargs = kargs  + ( invCell[0],invCell[1],invCell[2], dTip, stiffness, dpos0, relax_params, nz )
     if FEout is None:
         FEout = np.zeros( relax_dim+(4,), dtype=np.float32 )
     if poss is not None:
         cl.enqueue_copy( queue, kargs[1], poss )
+    if FEin is not None:
+        region = FEin.shape[:3]; region = region[::-1]; print "region : ", region
+        cl.enqueue_copy( queue, kargs[0], FEin, origin=(0,0,0), region=region )
     #print kargs
     cl_program.relaxStrokes( queue, (relax_dim[0]*relax_dim[1],), None, *kargs )
     cl.enqueue_copy( queue, FEout, kargs[2] )
