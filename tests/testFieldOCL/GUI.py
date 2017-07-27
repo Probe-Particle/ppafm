@@ -54,6 +54,28 @@ class MyDynamicMplCanvas(FigureCanvas):
         self.cbar.update_normal(self.img)
         self.draw()
 
+# TODO : we use now QDialog instead
+class AtomEditor(QtWidgets.QMainWindow):
+    def __init__(self, parent=None):
+        super(AtomEditor, self).__init__(parent)
+        self.parent = parent
+        self.textEdit = QtWidgets.QTextEdit()
+        self.textEdit.setText(parent.str_Atoms)
+        
+        self.setCentralWidget(self.textEdit)
+        self.resize(600, 800)
+        
+        l0 = QtWidgets.QVBoxLayout(self)
+        bt = QtWidgets.QPushButton('Update', self)
+        bt.setToolTip('recalculate using this atomic structure')
+        bt.clicked.connect(parent.updateFF)
+        self.btUpdate = bt; 
+        
+        l0.addWidget( self.textEdit )
+        l0.addWidget( bt )
+        #self.setCentralWidget(l0)
+
+
 class ApplicationWindow(QtWidgets.QMainWindow):
 
     df = None
@@ -108,6 +130,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.btLoad.clicked.connect(self.loadInputs)
         vb.addWidget( self.btLoad )
         
+        # --- EditAtoms
+        bt = QtWidgets.QPushButton('Edit', self)
+        bt.setToolTip('Edit atomic structure')
+        bt.clicked.connect(self.EditAtoms)
+        self.btEdit = bt; vb.addWidget( bt )
+        
         # --- btFF
         self.btFF = QtWidgets.QPushButton('getFF', self)
         self.btFF.setToolTip('Get ForceField')
@@ -132,6 +160,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.loadInputs()
         self.getFF()
         
+        self.editor = AtomEditor(self) # TODO : we use now QDialog instead
+        
         self.Q    = -0.25;
         self.FEin = self.FF[:,:,:,:4] + self.Q*self.FF[:,:,:,4:] 
         
@@ -139,8 +169,49 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.relax_dim   = (120,120,60)
         self.relax_poss  = oclr.preparePoss( self.relax_dim, z0=16.0, start=(0.0,0.0), end=(12.0,12.0) )
         self.relax_args  = oclr.prepareBuffers( self.FEin, self.relax_dim )
-          
+    
+    def EditAtoms(self):
+        '''
+        # from here https://stackoverflow.com/questions/406939/pyqt-getting-widgets-to-resize-automatically-in-a-qdialog
+        # problem: it will block MainWindow (cannot be used simultanously)
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Title")
+        dialog.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+
+        textbox = QtWidgets.QTextEdit(dialog)
+        textbox.setMinimumSize( 400, 400*0.75 )
+        textbox.setText(self.str_Atoms)
+
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.addWidget(textbox)
+        dialog.setLayout(layout)
+        
+        bt = QtWidgets.QPushButton('update', self)
+        bt.setToolTip('update simulation using new atomic structure')
+        bt.clicked.connect( self.updateFF )
+        layout.addWidget( bt )
+
+        dialog.exec_()
+        '''
+        
+        self.editor.show() # TODO : we use now QDialog instead
+    
+    def updateFF(self):
+        #print self.str_Atoms;
+        self.str_Atoms = self.editor.textEdit.toPlainText() 
+        #print self.str_Atoms;
+        xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.str_Atoms.split('\n') )
+        Zs, xyzs, qs      = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
+        self.atoms        = FFcl.xyzq2float4(xyzs,qs);
+        self.ff_args      = FFcl.updateArgsLJC( self.ff_args, atoms=self.atoms )
+        #self.getFF()
+        self.FF           = FFcl.runLJC( self.ff_args, self.ff_nDim )
+        self.upload_and_relax()
+
     def loadInputs(self):
+        
+        self.str_Atoms=open('input.xyz').read()
+        
         self.TypeParams   = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
         xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input.xyz' )
         self.lvec         = np.genfromtxt('cel.lvs')

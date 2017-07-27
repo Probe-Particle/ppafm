@@ -38,6 +38,29 @@ def initArgsLJC(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ) # float8
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
     return kargs
+    
+def updateArgsLJC( kargs_old, atoms=None,cLJs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
+    mf       = cl.mem_flags
+    if atoms is not None:
+        nAtoms   = np.int32( len(atoms) )
+        if (kargs_old[0] != nAtoms):
+            print " NOT IMPLEMENTED :  kargs_old[0] != nAtoms"; exit()
+        else:
+            cl_atoms=kargs_old[1]
+            cl.enqueue_copy( queue, cl_atoms, atoms )
+    else:
+        cl_atoms=kargs_old[1]
+    if cLJs is not None:
+        print " NOT IMPLEMENTED : new cLJs"; exit()
+    else:
+        cl_cLJs=kargs_old[2]
+    if poss is not None:
+        print " NOT IMPLEMENTED : new poss"; exit()
+    else:
+        cl_poss=kargs_old[3]
+    cl_FE=kargs_old[4]
+    kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
+    return kargs
 
 def runLJC( kargs, nDim, local_size=(16,), queue=oclu.queue ):
     global_size = (nDim[0]*nDim[1]*nDim[2],)

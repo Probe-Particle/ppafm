@@ -97,6 +97,37 @@ def loadAtomsNP(fname):
     qs   = np.array(qs)
     return xyzs,Zs,enames,qs
 
+def loadAtomsLines( lines ):
+    xyzs   = [] 
+    Zs     = []
+    enames = []
+    qs     = []
+    for line in lines:
+        wds = line.split()
+        try:
+            xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
+            try:
+                iz    = int(wds[0]) 
+                Zs    .append(iz)
+                enames.append( elements.ELEMENTS[iz] )
+            except:
+                ename = wds[0]
+                enames.append( ename )
+                Zs    .append( elements.ELEMENT_DICT[ename][0] )
+            try:
+                q = float(wds[4])
+            except:
+                q = 0
+            qs.append(q)
+        except:
+            print "cannot interpet line: ", line
+            continue
+    xyzs = np.array( xyzs )
+    Zs   = np.array( Zs, dtype=np.int32 )
+    qs   = np.array(qs)
+    return xyzs,Zs,enames,qs
+
+
 def saveXyz(fname,elems,xyzs):
     with open(fname,'w') as f:
         n = len(elems)
