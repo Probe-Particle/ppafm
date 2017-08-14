@@ -113,7 +113,8 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     FFparams            = PPU.loadSpecies( speciesFile ) 
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
     # --- load atomic geometry
-    atoms,nDim,lvec     = BU .loadGeometry( geomFile, params=PPU.params )
+    atoms,nDim,lvec     = BU.loadGeometry( geomFile, params=PPU.params )
+    atomstring          = BU.primcoords2Xsf( atoms[0], [atoms[1],atoms[2],atoms[3]], lvec );
     PPU      .params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3] # must be before parseAtoms
     print PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC']
     iZs,Rs,Qs           = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
@@ -138,9 +139,9 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     # --- save to files ?
     if save_format is not None:
         print "computeLJ Save ", save_format 
-        GU.save_vec_field( 'FFLJ', FF, lvec,data_format=save_format)
+        GU.save_vec_field( 'FFLJ', FF, lvec,  data_format=save_format, head=atomstring )
         if computeVpot:
-            GU.save_scal_field( 'VLJ', V, lvec,data_format=save_format)
+            GU.save_scal_field( 'VLJ', V, lvec,  data_format=save_format, head=atomstring )
     print "<<<END: computeLJ()"
     return FF, V, nDim, lvec
 
@@ -152,6 +153,7 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     # --- load atomic geometry
     #atoms,nDim,lvec     = BU .loadGeometry(options.input, params=PPU.params)
     atoms,nDim,lvec     = BU .loadGeometry( geomFile, params=PPU.params )
+    atomstring          = BU.primcoords2Xsf( atoms[0], [atoms[1],atoms[2],atoms[3]], lvec );
     elem_dict=None;  print " for FFel we need only Qs => elem_dict=None (ignore next warrning)"
     iZs,Rs,Qs=PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params['PBC'] )
     # --- prepare arrays and compute
@@ -169,9 +171,9 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     # --- save to files ?
     if save_format is not None:
         print "computeLJ Save ", save_format 
-        GU.save_vec_field( 'FFel',FF,lvec,data_format=save_format)
+        GU.save_vec_field( 'FFel',FF,lvec,data_format=save_format, head=atomstring )
         if computeVpot:
-            GU.save_scal_field( 'Vel',V,lvec,data_format=save_format)
+            GU.save_scal_field( 'Vel',V,lvec,data_format=save_format, head=atomstring )
     print "<<<END: computeELFF_pointCharge()"
     return FF, V, nDim, lvec
 

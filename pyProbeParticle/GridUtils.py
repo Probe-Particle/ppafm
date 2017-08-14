@@ -393,7 +393,7 @@ def load_vec_field(fname, data_format="xsf"):
 
 # =============== Scalar Fields
 
-def save_scal_field(fname, data, lvec, data_format="xsf"):
+def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT ):
 	'''
 	Saving scalar fields into xsf, or npy
 	'''

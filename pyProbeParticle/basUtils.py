@@ -190,6 +190,33 @@ def loadAtomsCUBE( fname ):
     f.close()
     return [ e,x,y,z,q ]
 
+def primcoords2Xsf( iZs, xyzs, lvec ):
+    import cStringIO as SIO
+    print "iZs:  ", iZs
+    print "xyzs: ", xyzs
+    print "lvec: ", lvec
+    sio=SIO.StringIO()
+    sio.write("CRYSTAL\n")
+    sio.write("PRIMVEC\n")
+    sio.write("%f %f %f\n" %( lvec[1][0],lvec[1][1],lvec[1][2]) );
+    sio.write("%f %f %f\n" %( lvec[2][0],lvec[2][1],lvec[2][2]) );
+    sio.write("%f %f %f\n" %( lvec[3][0],lvec[3][1],lvec[3][2]) );
+    sio.write("CONVVEC\n")
+    sio.write("%f %f %f\n" %( lvec[1][0],lvec[1][1],lvec[1][2]) );
+    sio.write("%f %f %f\n" %( lvec[2][0],lvec[2][1],lvec[2][2]) );
+    sio.write("%f %f %f\n" %( lvec[3][0],lvec[3][1],lvec[3][2]) );
+    sio.write("PRIMCOORD\n")
+    n = len(iZs)
+    sio.write("%i 1\n" %n )
+    for i in range(n):
+        sio.write("%i %5.6f %5.6f %5.6f\n" %(iZs[i],xyzs[0][i],xyzs[1][i],xyzs[2][i]) )
+    sio.write("\n")
+    sio.write("BEGIN_BLOCK_DATAGRID_3D\n");
+    sio.write("some_datagrid\n");
+    sio.write("BEGIN_DATAGRID_3D_whatever\n");
+    s = sio.getvalue()
+    #print s; exit()
+    return s
 
 def loadCellCUBE( fname ):
     bohrRadius2angstroem = 0.5291772109217 # find a good place for this

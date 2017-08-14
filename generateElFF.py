@@ -6,7 +6,6 @@ import __main__ as main
 
 
 import pyProbeParticle                as PPU     
-from   pyProbeParticle            import basUtils
 #from   pyProbeParticle            import elements   
 import pyProbeParticle.GridUtils      as GU
 import pyProbeParticle.HighLevel      as PPH
@@ -63,7 +62,6 @@ if __name__=="__main__":
         sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
     '''
     
-    
     V=None
     if(options.input.lower().endswith(".xsf") ):
         print " loading Hartree potential from disk "
@@ -77,6 +75,14 @@ if __name__=="__main__":
     FFel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
     
     print " saving electrostatic forcefiled "
+    
+    if options.data_format=='xsf':
+        import pyProbeParticle.basUtils  as BU
+        atoms,nDim,lvec   = BU.loadGeometry( options.input, params=PPU.params )
+        head              = BU.primcoords2Xsf( atoms[0], [atoms[1],atoms[2],atoms[3]], lvec )
+        print "atoms: ", atoms
+        print "head:  ", head
+        
     GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format, head=head)
     if options.energy :
         GU.save_scal_field( 'Vel', V, lvec, data_format=options.data_format)
