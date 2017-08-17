@@ -189,17 +189,12 @@ def printMetadata(sampleSize, dims, dd, xsize, ysize, zsize, V, rho):
     print 'basis transformation matrix:'.rjust(first_col)
     print 'sampleSize = \n', sampleSize
     print 'Lmat = \n', getNormalizedBasisMatrix(sampleSize)
-    print 'number of data points:'.rjust(first_col), ' dims'.rjust(sec_col), \
-    ' = %s' % list(dims)
-    print 'specimen size:'.rjust(first_col), '(xsize, ysize, zsize)'.rjust(sec_col), \
-    ' = (%s, %s, %s)' % (xsize, ysize, zsize)
-    print 'elementary lengths:'.rjust(first_col), '(dx, dy, dz)'.rjust(sec_col), \
-    ' = (%.5f, %.5f, %.5f)' % dd
-    print 'V potential:'.rjust(first_col), '(max, min)'.rjust(sec_col), \
-    ' = (%s, %s)' % (V.max(), V.min())
+    print 'number of data points:'.rjust(first_col), ' dims'.rjust(sec_col), ' = %s' % list(dims)
+    print 'specimen size:'.rjust(first_col), '(xsize, ysize, zsize)'.rjust(sec_col), ' = (%s, %s, %s)' % (xsize, ysize, zsize)
+    print 'elementary lengths:'.rjust(first_col), '(dx, dy, dz)'.rjust(sec_col), ' = (%.5f, %.5f, %.5f)' % dd
+    print 'V potential:'.rjust(first_col), '(max, min)'.rjust(sec_col), ' = (%s, %s)' % (V.max(), V.min())
     print ''.rjust(first_col), 'V.shape'.rjust(sec_col), ' = %s' % list(V.shape)
-    print 'probe potential:'.rjust(first_col), '(max, min)'.rjust(sec_col), \
-    ' = (%s, %s)' % (rho.max(), rho.min())
+    print 'probe potential:'.rjust(first_col), '(max, min)'.rjust(sec_col), ' = (%s, %s)' % (rho.max(), rho.min())
     print ''.rjust(first_col), 'rho.shape'.rjust(sec_col), ' = %s' % list(rho.shape)
     
 def exportPotential(rho, rho_data='rho_data'):
@@ -240,10 +235,18 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     print '--- Preprocessing ---'
     sampleSize = getSampleDimensions( lvec )
     dims = (nDim[2], nDim[1], nDim[0])
+    
     xsize, dx = getSize('x', dims, sampleSize)
     ysize, dy = getSize('y', dims, sampleSize)
     zsize, dz = getSize('z', dims, sampleSize)
     dd = (dx, dy, dz)
+
+    #
+    #potential2forces_mem: dims  (92, 91, 60)
+    #potential2forces_mem: dims  (49.219764194907896, 48.690656801482945, 32.288778971493564)
+    print "potential2forces_mem: dims ", dims 
+    print "potential2forces_mem: dims ", dd 
+
     print '--- X, Y, Z ---'
     X, Y, Z = getMGrid(dims, dd)
     if rho == None:

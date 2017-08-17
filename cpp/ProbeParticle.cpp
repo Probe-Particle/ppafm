@@ -15,6 +15,7 @@
 // ================= CONSTANTS
 
 const double kcoulomb   = 14.3996448915; 
+const double R2SAFE     = 1.0e-8;
 
 // ================= GLOBAL VARIABLES
 
@@ -23,9 +24,10 @@ GridShape gridShape;
 Vec3d   * gridF = NULL;       // pointer to data    ( 3D vector array [nx,ny,nz,3] )
 double  * gridE = NULL;       // pointer to data    ( 3D scalar array [nx,ny,nz]   )
 
-int      natoms;
-int      nCoefPerAtom;
-Vec3d  * Ratoms; 
+int      natoms       = 0;
+double   Morse_alpha  = 0;
+int      nCoefPerAtom = 0;
+Vec3d  * Ratoms       = NULL; 
 //double * C6s;
 //double * C12s;
 //double * kQQs;
@@ -156,7 +158,7 @@ inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& 
 
 // Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
 inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
-	double ir2  = 1.0d/ dR.norm2( ); 
+	double ir2  = 1.0d/ ( dR.norm2( ) + R2SAFE ); 
 	double ir6  = ir2*ir2*ir2;
 	double E6   = c6  * ir6;
 	double E12  = c12 * ir6*ir6;
@@ -167,9 +169,19 @@ inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
 	return E12 - E6;
 }
 
+// Morse force between two atoms a,b separated by vector dR = Ra - Rb
+inline double addAtomMorse( const Vec3d& dR, Vec3d& fout, double r0, double eps, double alpha ){
+    double r     = sqrt( dR.norm2() + R2SAFE );
+    double expar = exp( alpha*(r-r0));
+    double E     = eps*( expar*expar - 2*expar );
+    double fr    = eps*2*alpha*( expar*expar - expar );
+    fout.add_mul( dR, fr/r );
+    return E;
+}
+
 // coulomb force between two atoms a,b separated by vector dR = R1 - R2, with constant kqq should be set to kqq = - k_coulomb * Qa * Qb 
 inline double addAtomCoulomb( const Vec3d& dR, Vec3d& fout, double kqq ){
-    double ir2   = 1.0d/dR.norm2();
+    double ir2   = 1.0d/( dR.norm2() + R2SAFE );
     double ir    = sqrt(ir2); 
 	double E     = ir * kqq;
 	fout.add_mul( dR , E * ir2 );
@@ -184,6 +196,7 @@ inline double addAtomCoulomb( const Vec3d& dR, Vec3d& fout, double kqq ){
 #define inv_ddstep  100.0d
 
 inline double addAtom_LJ        ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ     ( dR, fout, coefs[0], coefs[1] ); }
+inline double addAtom_Morse     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomMorse  ( dR, fout, coefs[0], coefs[1], Morse_alpha ); }
 inline double addAtom_Coulomb_s ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomCoulomb( dR, fout, coefs[0]           ); }
 inline double addAtom_Coulomb_pz( Vec3d dR, Vec3d& fout, double * coefs ){
     double kqq=coefs[0], E=0;
@@ -337,6 +350,13 @@ void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
     Vec3d r0; r0.set(0.0,0.0,0.0);
     //exit(0);
     interateGrid3D < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+}
+
+void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){
+    natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2; Morse_alpha = alpha;
+    Vec3d r0; r0.set(0.0,0.0,0.0);
+    //exit(0);
+    interateGrid3D < evalCell < addAtom_Morse > >( r0, gridShape.n, gridShape.dCell, REs );
 }
 
 // sample Coulomb Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with constant kQQs  =  - k_coulomb * Q_ProbeParticle * Q[i] 

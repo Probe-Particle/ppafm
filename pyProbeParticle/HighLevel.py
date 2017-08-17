@@ -107,7 +107,7 @@ def prepareArrays( FF, Vpot ):
     #core.setFF( gridF=FF, gridE=V )
     return FF, V 
 
-def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT ):
+def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT, ffModel="LJ" ):
     print ">>>BEGIN: computeLJ()"
     # --- load species (LJ potential)
     FFparams            = PPU.loadSpecies( speciesFile ) 
@@ -121,14 +121,18 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     # --- prepare LJ parameters
     print elem_dict
     iPP                 = PPU.atom2iZ( PPU.params['probeType'], elem_dict )
-    cLJs                = PPU.getAtomsLJ( iPP, iZs, FFparams ); # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
     # --- prepare arrays and compute
     FF,V                = prepareArrays( None, computeVpot )
     print "FFLJ.shape",FF.shape 
     #core.setGridN   ( nDim )
     #core.setGridCell( cell=lvec )
     core.setFF_shape( np.shape(FF), lvec )
-    core.getLenardJonesFF( Rs, cLJs ) # THE MAIN STUFF HERE
+    if ffModel=="Morse":
+        REs = PPU.getAtomsRE( iPP, iZs, FFparams ); # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
+        core.getMorseFF( Rs, REs )       # THE MAIN STUFF HERE
+    else:
+        cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams ); # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
+        core.getLenardJonesFF( Rs, cLJs ) # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not  None:
         print "Clamp force >", Fmax

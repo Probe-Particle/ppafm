@@ -262,6 +262,7 @@ def loadCUBE(fname):
 		lvec[1,jj]=float(sth1[jj+1])*int(sth1[0])*bohrRadius2angstroem  # bohr_radius ?
 		lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*bohrRadius2angstroem
 		lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*bohrRadius2angstroem
+
 	print "GridUtils| Load "+fname+" using readNumsUpTo"  
 	noline = 6+int(sth0[0])
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
@@ -269,12 +270,16 @@ def loadCUBE(fname):
 	print "GridUtils| nDim: ",nDim
 	print nDim
 	FF = np.reshape(F, nDim ).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
+
+	#FF [1:,1:,1:] = FF [:-1,:-1,:-1] 
+	#FF [:,1:,:] = FF [:,:-1,:] 
+
 	nDim=[nDim[2],nDim[1],nDim[0]]                          # Setting up the corresponding dimensions. 
 	head = []
 	head.append("BEGIN_BLOCK_DATAGRID_3D \n")
 	head.append("g98_3D_unknown \n")
 	head.append("DATAGRID_3D_g98Cube \n")
-        FF*=27.211396132
+	FF*=27.211396132
 	return FF,lvec, nDim, head
 #================ WSxM output
 

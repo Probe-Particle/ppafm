@@ -41,6 +41,7 @@ params={
     'imageInterpolation': 'bicubic',
     'colorscale'   : 'gray',
     'ddisp'        :  0.05,
+    'aMorse'       :  -1.6,
 }
 
 # ==============================
@@ -237,13 +238,23 @@ def getAtomsLJ(  iZprobe, iZs,  FFparams ):
     '''
     compute Lenard-Jones coefitioens C6 and C12 for interaction between atoms in list "iZs" and probe-particle "iZprobe"
     '''
-    print "iZprobe", iZprobe, isinstance(iZprobe, int)
-    print "iZs[0] ", iZs[0] , isinstance(iZs[0] , int)
     n   = len(iZs)
     cLJs  = np.zeros((n,2))
     for i in range(n):
         cLJs[i,0],cLJs[i,1] = get_C612( iZprobe-1, iZs[i]-1, FFparams )
     return cLJs
+    
+def getAtomsRE(  iZprobe, iZs,  FFparams ):
+    n   = len(iZs)
+    #REs  = np.zeros((n,2))
+    #for i in range(n):
+    #    REs[i,0] = FFparams[i][0] + FFparams[j][0]
+    #    REs[i,1] = np.sqrt( FFparams[i][1] * FFparams[j][1] )
+    Rpp = FFparams[iZprobe-1][0]
+    Epp = FFparams[iZprobe-1][1]
+    REs = np.array( [ ( Rpp+ FFparams[iZs[i]-1][0],  Epp * FFparams[iZs[i]-1][1] )  for i in range(n) ] )
+    REs[:,1] = np.sqrt(REs[:,1])
+    return REs
 
 def getAtomsLJ_fast( iZprobe, iZs,  FFparams ):
     #Rs  = FFparams[:,0]

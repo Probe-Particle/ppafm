@@ -150,6 +150,16 @@ def getLenardJonesFF( Rs, cLJs ):
     natom = len(Rs) 
     lib.getLenardJonesFF( natom, Rs, cLJs )
 
+# void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
+lib.getMorseFF.argtypes  = [ c_int,       array2d,      array2d, c_double ]
+lib.getMorseFF.restype   = None
+def getMorseFF( Rs, REs, alpha=None ):
+    if alpha is None: alpha = PPU.params['aMorse']
+    #print "PPU.params['aMorse']", PPU.params['aMorse']
+    print "getMorseFF: alpha: %g [1/A] ", alpha
+    natom = len(Rs) 
+    lib.getMorseFF( natom, Rs, REs, alpha )
+
 # void getCoulombFF       (    int natom,   double * Rs_, double * C6, double * C12 )
 lib.getCoulombFF.argtypes  = [ c_int,       array2d,      array1d, c_int   ]
 lib.getCoulombFF.restype   = None

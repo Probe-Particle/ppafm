@@ -25,6 +25,7 @@ if __name__=="__main__":
     parser.add_option("-f","--data_format", action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     parser.add_option("--noPBC",            action="store_false",           help="pbc False", dest="PBC", default=None)
     parser.add_option("-E", "--energy",     action="store_true",            help="Compue potential energ y(not just Force)", default=False)
+    parser.add_option("--ffModel",          action="store",                 help="kind of potential 'LJ','Morse' ", default='LJ')
     (options, args) = parser.parse_args()
     if options.input==None:
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
@@ -34,7 +35,7 @@ if __name__=="__main__":
     speciesFile = None
     if os.path.isfile( 'atomtypes.ini' ):
         speciesFile='atomtypes.ini'
-    PPH.computeLJ( options.input, speciesFile=speciesFile, save_format=options.data_format, computeVpot=options.energy )
+    PPH.computeLJ( options.input, speciesFile=speciesFile, save_format=options.data_format, computeVpot=options.energy, ffModel=options.ffModel )
     '''
     FFparams=None
     if os.path.isfile( 'atomtypes.ini' ):
