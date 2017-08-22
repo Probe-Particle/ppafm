@@ -208,6 +208,17 @@ class Mat3TYPE{
         Mout.zz = xx * yy - xy * yx;
     };
 
+    inline void fromDirUp( const VEC&  dir, const VEC&  up ){
+		// make orthonormal rotation matrix c=dir; b=(up-<b|c>c)/|b|; a=(c x b)/|a|;
+		c.set(dir);
+		//c.normalize(); // we assume dir is already normalized
+		b.set(up);
+		b.add_mul( c, -b.dot(c) );   // 
+		b.normalize();
+		a.set_cross(b,c);
+		//a.normalize(); // we don't need this since b,c are orthonormal
+	}
+
     // took from here 
     // Smith, Oliver K. (April 1961), "Eigenvalues of a symmetric 3 × 3 matrix.", Communications of the ACM 4 (4): 168
     // http://www.geometrictools.com/Documentation/EigenSymmetric3x3.pdf
@@ -253,7 +264,6 @@ class Mat3TYPE{
 		else                { evec.set_mul( r1xr2, 1/sqrt(d2) ); }
 	}
 
-				
 };
 
 class Mat3i : public Mat3TYPE< int     , Vec3i, Mat3i >{};

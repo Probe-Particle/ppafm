@@ -11,7 +11,7 @@ CoulombConst         = -14.3996448915;
 
 # default parameters of simulation
 params={
-'PBC': False,
+'PBC': True,
 'nPBC' :       np.array( [      1,        1,        1 ] ),
 'gridN':       np.array( [ -1,     -1,   -1   ] ).astype(np.int),
 'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
@@ -24,7 +24,7 @@ params={
 'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
 'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
 'tip':'s',
-'sigma':1.0,
+'sigma':0.7,
 'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
 'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
 'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
