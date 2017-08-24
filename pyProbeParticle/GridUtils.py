@@ -403,7 +403,7 @@ def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAUL
 	Saving scalar fields into xsf, or npy
 	'''
 	if (data_format=="xsf"):
-		saveXSF(fname+".xsf", data, lvec)
+		saveXSF(fname+".xsf", data, lvec, head = head)
 	elif (data_format=="npy"):
 		saveNpy(fname, data, lvec)
 	else:
