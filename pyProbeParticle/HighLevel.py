@@ -202,7 +202,7 @@ def computeElFF(V,lvec,nDim,tip,sigma,Fmax=None,computeVpot=False,Vmax=None):
 
 def getZTipForce(xTips, yTips, zTips, FFtipZ,shiftTz=0.0):
     zTips+=shiftTz
-#    print zTips
+#    print zTip,s
     scangrid=np.array(np.meshgrid(xTips, yTips,
                       zTips)).transpose([3,1,2,0]).copy()
 #    print scangrid
@@ -251,13 +251,8 @@ def perform_relaxation(lvec,FFLJC,FFLJO=None,FFel=None,FFTip=None,
     fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )
     if FFTip is not None:
         print "Adding the metallic tip vertical force"
-        FFTip*=PPU.params['tipcharge']
-        fztip = getZTipForce(xTips, yTips, zTips,
-        FFTip,shiftTz=PPU.params['tipZdisp'])
-        fzs+=fztip.copy()
-#        import matplotlib.pyplot as plt
-#        plt.imshow(fzs[0])
-#        plt.show()
+        fzs += getZTipForce(xTips, yTips, zTips, FFTip*PPU.params['ChargeCuDown'])
+        fzs += getZTipForce(xTips, yTips, zTips, FFTip*PPU.params['ChargeCuUp'],shiftTz=PPU.params['CuUpshift'] )
         print "Finished with adding the metallic tip vertical force"
     PPdisp=PPpos.copy()
 #    init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])

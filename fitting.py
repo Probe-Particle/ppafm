@@ -72,9 +72,11 @@ PPU.params['gridA'] = lvec[1]
 PPU.params['gridB'] = lvec[2]
 PPU.params['gridC'] = lvec[3]
 V, lvec_bak, nDim_bak, head = GU.loadCUBE("hartree.cube")
+FFel=PPH.computeElFF(V,lvec_bak,nDim_bak,'s',sigma=PPU.params['sigma'])
 loaded_forces=np.loadtxt("frc_tip.txt",
                          converters={0:pm2a,1:pm2a,2:pm2a},
                          skiprows=2, usecols=(0,1,2,5))
+loaded_o_pos=np.loadtxt("co_pos.txt", skiprows=2, usecols=(6,7,8))
 points=loaded_forces[:,:3]
 iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'], FFparams=FFparams )
 from collections import OrderedDict
@@ -96,7 +98,7 @@ def update_atoms(atms=None):
         FFparams[i][1]=float(atm[2])
         x.append(val2)
         constr.append((1e-6,0.1 ) )
-#    print "UPDATING : " ,x    
+    #print "UPDATING : " ,x    
     return x,constr
 
 def set_fit_dict(opt=None):
@@ -123,20 +125,8 @@ def set_fit_dict(opt=None):
                 constr.append((-1,1))
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
-            elif (key is "tipcharge"):
-                constr.append((-1,1))
-                fit_dict[key]=opt[key]
-                x.append(opt[key])
             elif (key is "sigma"):
                 constr.append((0.001,3))
-                fit_dict[key]=opt[key]
-                x.append(opt[key])
-            elif (key is "tipsigma"):
-                constr.append((0.001,3))
-                fit_dict[key]=opt[key]
-                x.append(opt[key])
-            elif (key is "tipZdisp"):
-                constr.append((-2,2))
                 fit_dict[key]=opt[key]
                 x.append(opt[key])
             elif (key is "Cklat"):
@@ -178,21 +168,52 @@ def comp_msd(x=[]):
     update_fit_dict(x) # updating the array with the optimized values
     PPU.apply_options(fit_dict) # setting up all the options according to their
                                 # current values
-    update_atoms(atms=fit_dict['atom'])
+    try:
+        fit_dict['atom']
+        update_atoms(atms=fit_dict['atom'])
+        print "Atom section is defined"
+    except: 
+        print "Atom section is not defined"
+    
     print FFparams
     FFLJC,VLJC,FFLJO,VLJO=PPH.computeLJFF(iZs,Rs,FFparams)
-    FFel=PPH.computeElFF(V,lvec_bak,nDim_bak,'s',sigma=PPU.params['sigma'])
-    FFelTip=PPH.computeElFF(V,lvec_bak,nDim_bak,PPU.params['tip'],sigma=PPU.params['tipsigma'])
     FFboltz=None
-    fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec,FFLJC,FFLJO,FFel,FFTip=FFelTip[:,:,:,2].copy(),FFboltz=None,tipspline=None)
+    fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec,FFLJC,FFLJO,FFel,FFTip=FFel[:,:,:,2].copy())
+    posX=PPpos[:,:,:,0].copy()
+    posY=PPpos[:,:,:,1].copy()
+    posZ=PPpos[:,:,:,2].copy()
+    xTips, yTips, zTips, garbage = PPU.prepareScanGrids()
+    minimum=[min(xTips), min(yTips), min(zTips)]
+    maximum=[max(xTips), max(yTips), max(zTips)]
+#    print minimum
+#    print maximum
+#    print "x shape", posX.shape
+#    print "TYT"
     Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
+    Xlist=getFzlist(BIGarray=posX, MIN=minimum, MAX=maximum, points=points)
+    Ylist=getFzlist(BIGarray=posY, MIN=minimum, MAX=maximum, points=points)
+    Zlist=getFzlist(BIGarray=posZ, MIN=minimum, MAX=maximum, points=points)
+    """
+    pr=0
+    for i,x in enumerate( xTips):
+        for j,y in enumerate( yTips):
+            for k,z in enumerate( zTips):
+                print x, y , z, Xlist[pr], Ylist[pr], Zlist[pr], points[pr], loaded_o_pos[pr,0] , loaded_o_pos[pr,1], loaded_o_pos[pr,2]
+                pr+=1
+    sys.exit()
+    """
     dev_arr=np.abs(loaded_forces[:,3]-Fzlist*1.60217733e3)
     max_dev=np.max(dev_arr)
     msd=np.sum(dev_arr**2) /len(Fzlist)
+
+    dev_O_x=np.sum(Xlist-loaded_o_pos[:,0])**2/len(Fzlist)
+    dev_O_y=np.sum(Ylist-loaded_o_pos[:,1])**2/len(Fzlist)
+    dev_O_z=np.sum(Zlist-loaded_o_pos[:,2])**2/len(Fzlist)
+    print "Deviation: xpos, ypos, zpos, Fz: ", dev_O_x, dev_O_y, dev_O_z, msd
     with open ("iteration.txt", "a") as myfile:
-        myfile.write( "iteration {}: {} max dev: {} sigma^2: {} "
-        "\n".format(iteration, x, max_dev, msd))
-    return msd
+        myfile.write( "iteration {}: {} max dev: {} sigma^2: {} x-disp: {} y-disp: {} z-dizp: {} total: {}"
+        "\n".format(iteration, x, max_dev, msd, dev_O_x, dev_O_y, dev_O_z, msd+dev_O_x+dev_O_y+dev_O_z))
+    return msd + dev_O_z+dev_O_y+dev_O_x
 
 if __name__=="__main__":
     parser = OptionParser()
@@ -200,11 +221,7 @@ if __name__=="__main__":
     "Carbon charge ", default=None)
     parser.add_option( "--Ocharge", action="store", type="float", help="fit "
     "Oxygen charge ", default=None)
-    parser.add_option( "--tipcharge", action="store", type="float", help="fit "
-    "Oxygen charge ", default=None)
     parser.add_option( "-s","--sigma", action="store", type="float", help="Fit "
-    "the gaussian width of the charge distribution", default=None)
-    parser.add_option( "--tipsigma", action="store", type="float", help="Fit "
     "the gaussian width of the charge distribution", default=None)
     parser.add_option( "--Cklat", action="store", type="float", help="Fit "
     "the lateral stiffness of the Carbon atom", default=None)
@@ -218,8 +235,6 @@ if __name__=="__main__":
     "the LJ parameters of the given atom", default=None, nargs=3)
     parser.add_option( "--nobounds", action="store_true",
     help="Skipf the first optimization step with bounds", default=False)
-    parser.add_option( "--tipZdisp", action="store",type="float",
-    help="Displace the metallic tip dipole along Z axis", default=None)
 
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
