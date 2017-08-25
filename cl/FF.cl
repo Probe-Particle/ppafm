@@ -19,6 +19,15 @@ float4 getLJ( float3 apos, float2 cLJ, float3 pos ){
      return (float4)(F, E);
 }
 
+float4 getMorse( float3 dp, float3 REA ){
+    //float3  dp  =  pos - apos;
+    float   r     = sqrt( dot(dp,dp) + R2SAFE );
+    float   expar = exp( REA.z*(r-REA.x) );
+    float   E     = REA.y*expar*( expar - 2 );
+    float   fr    = REA.y*expar*( expar - 1 )*2*REA.z;
+    return (float4)(dp*(fr/r), E);
+}
+
 float8 getLJC( float4 atom, float2 cLJ, float3 pos ){
      float3  dp  =  pos - atom.xyz;
      float   ir2 = 1.0/( dot(dp,dp) +  R2SAFE );
@@ -114,6 +123,38 @@ __kernel void evalLJC(
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
             fe += getLJC( LATOMS[j], LCLJS[j], pos );
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    // http://www.informit.com/articles/article.aspx?p=1732873&seqNum=3
+    fe.hi  = fe.hi*COULOMB_CONST;
+    FE[iG] = fe;
+}
+
+
+__kernel void evalMorse(
+    int nAtoms, 
+    __global float4*   atoms,
+    __global float4*   REAs,
+    __global float4*   poss,
+    __global float4*   FE
+){
+    __local float4 lATOMs[32];
+    __local float4 lREAs [32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    float3 pos = poss[iG].xyz;
+    float4 fe  = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        if(i>=nAtoms) break;
+        lATOMs[iL] = atoms[i];
+        lREAs [iL] = REAs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            fe += getMorse( pos - lATOMs[j].xyz, lREAs[j].xyz );
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
