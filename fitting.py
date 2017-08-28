@@ -177,11 +177,17 @@ def comp_msd(x=[]):
     
     print FFparams
     FFLJC,VLJC,FFLJO,VLJO=PPH.computeLJFF(iZs,Rs,FFparams)
+    #GU.save_vec_field( 'FFLJC', FFLJC, lvec)
+    #GU.save_vec_field( 'FFLJO', FFLJO, lvec)
+#    sys.exit()
     FFboltz=None
-    fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec,FFLJC,FFLJO,FFel,FFTip=FFel[:,:,:,2].copy())
-    posX=PPpos[:,:,:,0].copy()
-    posY=PPpos[:,:,:,1].copy()
-    posZ=PPpos[:,:,:,2].copy()
+    fzs,PPCpos,PPOpos,lvecScan=PPH.perform_relaxation(lvec,FFLJC,FFLJO,FFel,FFTip=FFel[:,:,:,2].copy())
+    posXC=PPCpos[:,:,:,0].copy()
+    posYC=PPCpos[:,:,:,1].copy()
+    posZC=PPCpos[:,:,:,2].copy()
+    posXO=PPOpos[:,:,:,0].copy()
+    posYO=PPOpos[:,:,:,1].copy()
+    posZO=PPOpos[:,:,:,2].copy()
     xTips, yTips, zTips, garbage = PPU.prepareScanGrids()
     minimum=[min(xTips), min(yTips), min(zTips)]
     maximum=[max(xTips), max(yTips), max(zTips)]
@@ -190,9 +196,12 @@ def comp_msd(x=[]):
 #    print "x shape", posX.shape
 #    print "TYT"
     Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
-    Xlist=getFzlist(BIGarray=posX, MIN=minimum, MAX=maximum, points=points)
-    Ylist=getFzlist(BIGarray=posY, MIN=minimum, MAX=maximum, points=points)
-    Zlist=getFzlist(BIGarray=posZ, MIN=minimum, MAX=maximum, points=points)
+    XlistC=getFzlist(BIGarray=posXC, MIN=minimum, MAX=maximum, points=points)
+    YlistC=getFzlist(BIGarray=posYC, MIN=minimum, MAX=maximum, points=points)
+    ZlistC=getFzlist(BIGarray=posZC, MIN=minimum, MAX=maximum, points=points)
+    XlistO=getFzlist(BIGarray=posXO, MIN=minimum, MAX=maximum, points=points)
+    YlistO=getFzlist(BIGarray=posYO, MIN=minimum, MAX=maximum, points=points)
+    ZlistO=getFzlist(BIGarray=posZO, MIN=minimum, MAX=maximum, points=points)
     """
     pr=0
     for i,x in enumerate( xTips):
@@ -206,9 +215,17 @@ def comp_msd(x=[]):
     max_dev=np.max(dev_arr)
     msd=np.sum(dev_arr**2) /len(Fzlist)
 
-    dev_O_x=np.sum(Xlist-loaded_o_pos[:,0])**2/len(Fzlist)
-    dev_O_y=np.sum(Ylist-loaded_o_pos[:,1])**2/len(Fzlist)
-    dev_O_z=np.sum(Zlist-loaded_o_pos[:,2])**2/len(Fzlist)
+    dev_O_x=np.sum((XlistO-loaded_o_pos[:,0])**2)/len(Fzlist)*10000
+    dev_O_y=np.sum((YlistO-loaded_o_pos[:,1])**2)/len(Fzlist)*10000
+    dev_O_z=np.sum((ZlistO-loaded_o_pos[:,2])**2)/len(Fzlist)*10000
+    with open("trajectory.xyz", 'w') as f:
+        for i,elem in enumerate(points):
+            f.write("3\n\n")
+            f.write("Cu {} {} {}\n".format(elem[0],elem[1],elem[2]))
+            f.write("C {} {} {}\n".format(XlistC[i],YlistC[i],ZlistC[i]))
+            f.write("O {} {} {}\n".format(XlistO[i],YlistO[i],ZlistO[i]))
+            
+        
     print "Deviation: xpos, ypos, zpos, Fz: ", dev_O_x, dev_O_y, dev_O_z, msd
     with open ("iteration.txt", "a") as myfile:
         myfile.write( "iteration {}: {} max dev: {} sigma^2: {} x-disp: {} y-disp: {} z-dizp: {} total: {}"

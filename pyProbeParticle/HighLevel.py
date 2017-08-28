@@ -47,11 +47,14 @@ def prepareArrays( FFC, FFO, Vpot ):
 		FFC = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
 	else:
 		PPU.params['gridN'] = np.shape( FFC )	
+
+
 	if ( FFO is None ):
 		gridN = PPU.params['gridN']
 		FFO = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
 	else:
 		PPU.params['gridN'] = np.shape( FFO )	
+
 	if ( Vpot ):
 		VC = np.zeros( (gridN[2],gridN[1],gridN[0])    )
 		VO = np.zeros( (gridN[2],gridN[1],gridN[0])    )
@@ -62,18 +65,6 @@ def prepareArrays( FFC, FFO, Vpot ):
 	core.setFFO( gridF=FFO, gridE=VO )
 	return FFC,VC,FFO,VO 
 
-def prepareArraysTwo( FF, Vpot ):
-	if ( FF is None ):
-		gridN = PPU.params['gridN']
-		FF = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
-	else:
-		PPU.params['gridN'] = np.shape( FF )    
-	if ( Vpot ):
-		V = np.zeros( (gridN[2],gridN[1],gridN[0])    )
-	else:
-		V=None
-	core.setFFC( gridF=FF, gridE=V )
-	return FF, V 
 
 
 def computeLJ( Rs, iZs, FFLJC=None,FFLJO=None,FFparams=None, Vpot=False ):
@@ -81,16 +72,16 @@ def computeLJ( Rs, iZs, FFLJC=None,FFLJO=None,FFparams=None, Vpot=False ):
 		raise ValueError("You should provide a list of LJ parameters!")
 	FFLJC,VLJC,FFLJO,VLJO = prepareArrays( FFLJC,FFLJO, Vpot )
 	C6,C12   = PPU.getAtomsLJ( PPU.params['Catom'], iZs, FFparams )
+	#print "C6", C6
+	#print "Catom", PPU.params['Catom']
 	core.getCLenardJonesFF( Rs, C6, C12 )
 	C6,C12   = PPU.getAtomsLJ( PPU.params['Oatom'], iZs, FFparams )
+	#print "C6", C6
+	#print "Oatom", PPU.params['Oatom']
+	#sys.exit()
 	core.getOLenardJonesFF( Rs, C6, C12 )
 	return FFLJC,VLJC,FFLJO,VLJO
 
-def computeCoulomb( Rs, Qs, FFel=None , Vpot=False ):
-	FFel,Vel = prepareArraysTwo( FFel, Vpot )
-	#core.setFF( gridF=FFel, gridE=Vel )
-	core.getCCoulombFF ( Rs, Qs * PPU.CoulombConst )
-	return FFel, Vel
 """
 def prepareForceFields( store = True, storeXsf = False, autogeom = False, FFparams=None ):
 	newEl = False
@@ -150,7 +141,8 @@ def relaxedScan3D( xTips, yTips, zTips ):
 	rTips[:,2] = zTips[::-1]  
 	nx = len(zTips); ny = len(yTips ); nz = len(xTips);
 	fzs    = np.zeros( ( nx,ny,nz ) );
-	PPpos  = np.zeros( ( nx,ny,nz,3 ) );
+	PPCpos  = np.zeros( ( nx,ny,nz,3 ) );
+	PPOpos  = np.zeros( ( nx,ny,nz,3 ) );
 	for ix,x in enumerate( xTips  ):
 		sys.stdout.write('\033[K')
 		sys.stdout.flush()
@@ -161,11 +153,14 @@ def relaxedScan3D( xTips, yTips, zTips ):
 			rTips[:,1] = y
 			itrav = core.relaxTipStroke( rTips, rCs, rOs, fCs, fOs) / float( len(zTips) )
 			fzs[:,iy,ix] = ((fCs+fOs)[:,2].copy()) [::-1]
-			PPpos[:,iy,ix,0] = rOs[::-1,0] # - rTips[:,0]
-			PPpos[:,iy,ix,1] = rOs[::-1,1] # - rTips[:,1]
-			PPpos[:,iy,ix,2] = rOs[::-1,2] # - rTips[:,2]
+			PPCpos[:,iy,ix,0] = rCs[::-1,0] # - rTips[:,0]
+			PPCpos[:,iy,ix,1] = rCs[::-1,1] # - rTips[:,1]
+			PPCpos[:,iy,ix,2] = rCs[::-1,2] # - rTips[:,2]
+			PPOpos[:,iy,ix,0] = rOs[::-1,0] # - rTips[:,0]
+			PPOpos[:,iy,ix,1] = rOs[::-1,1] # - rTips[:,1]
+			PPOpos[:,iy,ix,2] = rOs[::-1,2] # - rTips[:,2]
         print ""
-	return fzs,PPpos
+	return fzs,PPCpos,PPOpos
 
 def computeLJFF(iZs, Rs, FFparams, Fmax=None, computeVpot=False, Vmax=None):
     print "--- Compute Lennard-Jones Force-filed ---"
@@ -248,21 +243,15 @@ def perform_relaxation(lvec,FFLJC,FFLJO=None,FFel=None,FFTip=None,
     np.array((PPU.params['Oklat'],PPU.params['Oklat'],0.0))*-1.0 )
 
 
-    fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )
+    fzs,PPCpos,PPOpos = relaxedScan3D( xTips, yTips, zTips )
     if FFTip is not None:
         print "Adding the metallic tip vertical force"
         fzs += getZTipForce(xTips, yTips, zTips, FFTip*PPU.params['ChargeCuDown'])
         fzs += getZTipForce(xTips, yTips, zTips, FFTip*PPU.params['ChargeCuUp'],shiftTz=PPU.params['CuUpshift'] )
         print "Finished with adding the metallic tip vertical force"
-    PPdisp=PPpos.copy()
+#    PPdisp=PPpos.copy()
 #    init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])
 #    PPdisp-=init_pos
-    return fzs,PPpos,PPdisp,lvecScan
+    return fzs,PPCpos,PPOpos,lvecScan
 
 
-def computeELFF_pch(iZs,Rs,Qs,computeVpot):
-    print " ========= get electrostatic forcefiled from the point charges "
-    FFel, V = computeCoulomb( Rs, Qs, FFel=None, Vpot=computeVpot  )
-    if computeVpot :
-        Vmax = 10.0; V[ V>Vmax ] = Vmax
-    return FFel,V

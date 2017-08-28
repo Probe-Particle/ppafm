@@ -28,34 +28,13 @@ array4d = np.ctypeslib.ndpointer(dtype=np.double, ndim=4, flags='CONTIGUOUS')
 # ======== Python warper function for C++ functions
 # ========
 
-'''
-# void setFF( int * n, double * grid, double * step,  )
-lib.setFF.argtypes = [array1i,array4d,array2d]
-lib.setFF.restype  = None
-def setFF( grid, cell = None ):
-	n_    = np.shape(grid)
-	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
-	if cell is None:
-		cell = np.array([
-		PPU.params['gridA'],
-		PPU.params['gridB'],
-		PPU.params['gridC'],
-		]).copy() 
-	lib.setFF( n, grid, cell )
 
-# void setFF( int * n, double * grid, double * step,  )
-lib.setFF_Pointer.argtypes = [array4d]
-lib.setFF_Pointer.restype  = None
-def setFF_Pointer( grid ):
-	lib.setFF_Pointer( grid )
-'''
-
-# void .setFF_shape( int * n, double * step  )
 lib.setFFC_shape.argtypes = [array1i,array2d]
 lib.setFFC_shape.restype  = None
 def setFFC_shape( n_, cell ):
 	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
 	lib.setFFC_shape( n, cell )
+
 lib.setFFO_shape.argtypes = [array1i,array2d]
 lib.setFFO_shape.restype  = None
 def setFFO_shape( n_, cell ):
@@ -123,7 +102,7 @@ def setFFO( gridF=None, cell=None, gridE=None ):
 	if n_ is not None:
 		setFFO_shape( n_, cell )
 	else:
-		"Warrning : setFFC shape not set !!! "
+		"Warrning : setFFO shape not set !!! "
 
 #void setRelax( int maxIters, double convF2, double dt, double damping )
 lib.setRelax.argtypes = [ c_int, c_double, c_double, c_double ]
@@ -185,6 +164,7 @@ lib.getCLenardJonesFF.restype   = None
 def getCLenardJonesFF( Rs, C6, C12 ):
 	natom = len(Rs) 
 	lib.getCLenardJonesFF( natom, Rs, C6, C12 )
+
 lib.getOLenardJonesFF.argtypes  = [ c_int,       array2d,      array1d,     array1d     ]
 lib.getOLenardJonesFF.restype   = None
 def getOLenardJonesFF( Rs, C6, C12 ):

@@ -138,7 +138,7 @@ def loadParams( fname,FFparams=None ):
                         raise ValueError("The element {} for the ProbeParticle "
                         "was not found".format(params['Catom']))
         try:
-                params['Oatom'] = int(params['Catom'])
+                params['Oatom'] = int(params['Oatom'])
         except:
                 if FFparams is None:
                     raise ValueError("if the ProbeParticle type is defined as "
