@@ -147,7 +147,7 @@ def loadXSFGeom( fname ):
             break
     n = int(f.readline().split()[0])
     for j in range(n):
-        ws = f.readline().split();  e.append(float(ws[0])); x.append(float(ws[1])); y.append(float(ws[2])); z.append(float(ws[3])); q.append(0);
+        ws = f.readline().split();  e.append(int(ws[0])); x.append(float(ws[1])); y.append(float(ws[2])); z.append(float(ws[3])); q.append(0);
     for i in range(10000):
         if 'BEGIN_DATAGRID_3D' in f.readline():	
             break

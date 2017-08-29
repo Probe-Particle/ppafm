@@ -129,7 +129,8 @@ def loadSpecies( fname=None ):
         print "WARRNING: loadSpecies(None) => load default atomtypes.ini"
         fname=cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini'
     print " loadSpecies from ", fname
-    FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',np.int),('symbol', '|S10')],usecols=[0,1,2,3])
+    #FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',np.int),('symbol', '|S10')],usecols=[0,1,2,3])
+    FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',np.int),('symbol', '|S10')],usecols=(0,1,2,3,4))
     return FFparams 
 
 def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
@@ -194,7 +195,9 @@ def PBCAtoms( Zs, Rs, Qs, avec, bvec, na=None, nb=None ):
 def getFFdict( FFparams ):
     elem_dict={}
     for i,ff in enumerate(FFparams):
-        elem_dict[ff[3]] = i+1
+        print i,ff
+        #elem_dict[ff[3]] = i+1
+        elem_dict[ff[4]] = i+1
     #print " elem_dict ", elem_dict
     return elem_dict
 
@@ -207,13 +210,18 @@ def atom2iZ( atm, elem_dict ):
         except:
             raise ValueError("Did not find atomkind: {}".format(atm))
 
+def atoms2iZs( names, elem_dict ): 
+    return np.array( [atom2iZ(name,elem_dict) for name in names], dtype=np.int32 )
+     
+
 def parseAtoms( atoms, elem_dict, PBC=True, autogeom=False, lvec=None ):
     Rs = np.array([atoms[1],atoms[2],atoms[3]]); 
     if elem_dict is None:
         print "WARRNING: elem_dict is None => iZs are zero"
         iZs=np.zeros( len(atoms[0]) )
     else:
-        iZs=np.array( [atom2iZ(atm,elem_dict) for atm in atoms[0] ], dtype=np.int32 )
+        #iZs=np.array( [atom2iZ(atm,elem_dict) for atm in atoms[0] ], dtype=np.int32 )
+        iZs = atoms2iZs( atoms[0], elem_dict )
     if autogeom:
         print "WARRNING: autoGeom shifts atoms"
         autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
@@ -243,7 +251,22 @@ def getAtomsLJ(  iZprobe, iZs,  FFparams ):
     for i in range(n):
         cLJs[i,0],cLJs[i,1] = get_C612( iZprobe-1, iZs[i]-1, FFparams )
     return cLJs
-    
+
+def getAtomsREA(  iZprobe, iZs,  FFparams, alphaFac=-1.0 ):
+    '''
+    compute Lenard-Jones coefitioens C6 and C12 for interaction between atoms in list "iZs" and probe-particle "iZprobe"
+    '''
+    n   = len(iZs)
+    REAs  = np.zeros( (n,4) )
+    i = iZprobe-1
+    for ii in range(n):
+        j = iZs[ii]-1
+        #print ii, i, j
+        REAs[ii,0] = FFparams[i][0] + FFparams[j][0]
+        REAs[ii,1] = np.sqrt( FFparams[i][1] * FFparams[j][1] )
+        REAs[ii,2] = FFparams[j][2] * alphaFac
+    return REAs     #np.array( REAs, dtype=np.float32 )
+
 def getAtomsRE(  iZprobe, iZs,  FFparams ):
     n   = len(iZs)
     #REs  = np.zeros((n,2))

@@ -38,7 +38,17 @@ def initArgsLJC(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ) # float8
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
     return kargs
-    
+
+def initArgsMorse(atoms,REAs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+    nAtoms   = np.int32( len(atoms) ) 
+    mf       = cl.mem_flags
+    cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
+    cl_cLJs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=REAs  )
+    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ) # float4
+    cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ) # float4
+    kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
+    return kargs
+
 def updateArgsLJC( kargs_old, atoms=None,cLJs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
     mf       = cl.mem_flags
     if atoms is not None:
@@ -62,10 +72,41 @@ def updateArgsLJC( kargs_old, atoms=None,cLJs=None, poss=None, ctx=oclu.ctx, que
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
     return kargs
 
+def updateArgsMorse( kargs_old, atoms=None,REAs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
+    mf       = cl.mem_flags
+    if atoms is not None:
+        nAtoms   = np.int32( len(atoms) )
+        if (kargs_old[0] != nAtoms):
+            print " NOT IMPLEMENTED :  kargs_old[0] != nAtoms"; exit()
+        else:
+            cl_atoms=kargs_old[1]
+            cl.enqueue_copy( queue, cl_atoms, atoms )
+    else:
+        cl_atoms=kargs_old[1]
+    if REAs is not None:
+        print " NOT IMPLEMENTED : new cREAs"; exit()
+    else:
+        cl_cREAs=kargs_old[2]
+    if poss is not None:
+        print " NOT IMPLEMENTED : new poss"; exit()
+    else:
+        cl_poss=kargs_old[3]
+    cl_FE=kargs_old[4]
+    kargs = ( nAtoms, cl_atoms, cl_cREAs, cl_poss, cl_FE )
+    return kargs
+
 def runLJC( kargs, nDim, local_size=(16,), queue=oclu.queue ):
     global_size = (nDim[0]*nDim[1]*nDim[2],)
     FE          = np.zeros( nDim+(8,) , dtype=np.float32 ) # float8
     cl_program.evalLJC( queue, global_size, local_size, *(kargs))
+    cl.enqueue_copy( queue, FE, kargs[4] )
+    queue.finish()
+    return FE
+
+def runMorse( kargs, nDim, local_size=(16,), queue=oclu.queue ):
+    global_size = (nDim[0]*nDim[1]*nDim[2],)
+    FE          = np.zeros( nDim+(4,) , dtype=np.float32 ) # float4
+    cl_program.evalMorse( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy( queue, FE, kargs[4] )
     queue.finish()
     return FE
@@ -108,6 +149,11 @@ def xyzq2float4(xyzs,qs):
     atoms_[:,:3] = xyzs[:,:]
     atoms_[:, 3] = qs[:]      
     return atoms_
+
+#def REA2float4(REAs):
+#    clREAs      = np.zeros( (len(qs),4), dtype=np.float32)
+#    clREAs[:,:3] = REAs[:,:]
+#    return clREAs
 
 def CLJ2float2(C6s,C12s):
     cLJs      = np.zeros( (len(C6s),2), dtype=np.float32)

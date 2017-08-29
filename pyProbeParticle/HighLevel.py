@@ -114,12 +114,13 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
     # --- load atomic geometry
     atoms,nDim,lvec     = BU.loadGeometry( geomFile, params=PPU.params )
-    atomstring          = BU.primcoords2Xsf( atoms[0], [atoms[1],atoms[2],atoms[3]], lvec );
+    #print "DEBUG atoms : ", atoms
+    atomstring          = BU.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
     PPU      .params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3] # must be before parseAtoms
     print PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC']
     iZs,Rs,Qs           = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
     # --- prepare LJ parameters
-    print elem_dict
+    #print elem_dict
     iPP                 = PPU.atom2iZ( PPU.params['probeType'], elem_dict )
     # --- prepare arrays and compute
     FF,V                = prepareArrays( None, computeVpot )
@@ -156,14 +157,18 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     print " ========= get electrostatic forcefiled from the point charges tip=%s %i " %(tip,tipKind)
     # --- load atomic geometry
     #atoms,nDim,lvec     = BU .loadGeometry(options.input, params=PPU.params)
+    FFparams            = PPU.loadSpecies( ) 
+    elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
+
     atoms,nDim,lvec     = BU .loadGeometry( geomFile, params=PPU.params )
-    atomstring          = BU.primcoords2Xsf( atoms[0], [atoms[1],atoms[2],atoms[3]], lvec );
-    elem_dict=None;  print " for FFel we need only Qs => elem_dict=None (ignore next warrning)"
+    atomstring          = BU.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
+    #elem_dict=None;  print " for FFel we need only Qs => elem_dict=None (ignore next warrning)"
     iZs,Rs,Qs=PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params['PBC'] )
     # --- prepare arrays and compute
     PPU.params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3]
     print PPU.params['gridN'], PPU.params['gridA'], PPU.params['gridB'], PPU.params['gridC']
     FF,V = prepareArrays( None, computeVpot )
+    core.setFF_shape( np.shape(FF), lvec )
     core.getCoulombFF( Rs, Qs*PPU.CoulombConst, kind=tipKind ) # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not  None:
