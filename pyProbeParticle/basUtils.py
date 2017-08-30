@@ -127,7 +127,6 @@ def loadAtomsLines( lines ):
     qs   = np.array(qs)
     return xyzs,Zs,enames,qs
 
-
 def saveXyz(fname,elems,xyzs):
     with open(fname,'w') as f:
         n = len(elems)

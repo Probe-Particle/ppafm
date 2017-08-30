@@ -52,6 +52,7 @@ def getInvCell( lvec ):
     return (invA, invB, invC)
 
 def preparePoss( relax_dim, z0, start=(0.0,0.0), end=(10.0,10.0) ):
+    print "DEBUG preparePoss : ", relax_dim, z0, start, end
     xs    = np.linspace(start[0],end[1],relax_dim[0])
     ys    = np.linspace(start[0],end[1],relax_dim[1])
     Xs,Ys = np.meshgrid(xs,ys)
@@ -62,6 +63,7 @@ def preparePoss( relax_dim, z0, start=(0.0,0.0), end=(10.0,10.0) ):
     return poss
 
 def prepareBuffers( FE, relax_dim, ctx=oclu.ctx ):
+    print "prepareBuffers FE.shape", FE.shape
     mf       = cl.mem_flags
     cl_ImgIn = cl.image_from_array(ctx,FE,num_channels=4,mode='r')               # TODO make this re-uploadable
     bsz=np.dtype(np.float32).itemsize * 4 * relax_dim[0] * relax_dim[1]
@@ -76,13 +78,14 @@ def relax( kargs, relax_dim, invCell, poss=None, FEin=None, FEout=None, dTip=DEF
     kargs = kargs  + ( invCell[0],invCell[1],invCell[2], dTip, stiffness, dpos0, relax_params, nz )
     if FEout is None:
         FEout = np.zeros( relax_dim+(4,), dtype=np.float32 )
+        print "FEout.shape", FEout.shape, relax_dim
     if poss is not None:
         cl.enqueue_copy( queue, kargs[1], poss )
     if FEin is not None:
         region = FEin.shape[:3]; region = region[::-1]; print "region : ", region
         cl.enqueue_copy( queue, kargs[0], FEin, origin=(0,0,0), region=region )
     #print kargs
-    cl_program.relaxStrokes( queue, (relax_dim[0]*relax_dim[1],), None, *kargs )
+    cl_program.relaxStrokes( queue, ( int(relax_dim[0]*relax_dim[1]),), None, *kargs )
     cl.enqueue_copy( queue, FEout, kargs[2] )
     queue.finish()
     return FEout

@@ -43,10 +43,10 @@ def initArgsMorse(atoms,REAs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     nAtoms   = np.int32( len(atoms) ) 
     mf       = cl.mem_flags
     cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
-    cl_cLJs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=REAs  )
+    cl_REAs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=REAs  )
     cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ) # float4
     cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ) # float4
-    kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
+    kargs = ( nAtoms, cl_atoms, cl_REAs, cl_poss, cl_FE )
     return kargs
 
 def updateArgsLJC( kargs_old, atoms=None,cLJs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
@@ -103,8 +103,16 @@ def runLJC( kargs, nDim, local_size=(16,), queue=oclu.queue ):
     queue.finish()
     return FE
 
+def makeDivisibleUp( num, divisor ):
+    rest = num % divisor;
+    if rest > 0: num += (divisor-rest)
+    return num
+
 def runMorse( kargs, nDim, local_size=(16,), queue=oclu.queue ):
-    global_size = (nDim[0]*nDim[1]*nDim[2],)
+#def runMorse( kargs, nDim, local_size=(1,), queue=oclu.queue ):
+#def runMorse( kargs, nDim, local_size=None, queue=oclu.queue ):
+    ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+    global_size = (ntot,)
     FE          = np.zeros( nDim+(4,) , dtype=np.float32 ) # float4
     cl_program.evalMorse( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy( queue, FE, kargs[4] )
@@ -131,8 +139,8 @@ def XYZ2float4(X,Y,Z):
     XYZW[:,:,:,2] = Z
     return XYZW
 
-def getposs( lvec ):
-    X,Y,Z   = getPos( lvec ); 
+def getposs( lvec, nDim=None, step=(0.1,0.1,0.1) ):
+    X,Y,Z   = getPos( lvec, nDim=nDim, step=step ); 
     poss    = XYZ2float4(X,Y,Z)
     return poss
     

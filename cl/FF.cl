@@ -159,7 +159,6 @@ __kernel void evalMorse(
         barrier(CLK_LOCAL_MEM_FENCE);
     }
     // http://www.informit.com/articles/article.aspx?p=1732873&seqNum=3
-    fe.hi  = fe.hi*COULOMB_CONST;
     FE[iG] = fe;
 }
 

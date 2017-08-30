@@ -50,7 +50,8 @@ class MyDynamicMplCanvas(FigureCanvas):
             
     def plotSlice(self, F ):
         self.axes.cla()
-        self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
+        #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
+        self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='bicubic' )
         if self.cbar is None:
             self.cbar = self.fig.colorbar( self.img )
         self.cbar.set_clim( vmin=F.min(), vmax=F.max() )
@@ -58,9 +59,9 @@ class MyDynamicMplCanvas(FigureCanvas):
         self.draw()
 
 # TODO : we use now QDialog instead
-class AtomEditor(QtWidgets.QMainWindow):
+class Editor(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
-        super(AtomEditor, self).__init__(parent)
+        super(Editor, self).__init__(parent)
         self.parent = parent
         self.textEdit = QtWidgets.QTextEdit()
         if parent.str_Atoms is not None:
@@ -109,26 +110,27 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.mplc1 = MyDynamicMplCanvas(self.main_widget, width=5, height=4, dpi=100)
         l0.addWidget(self.mplc1)
         
+        # -------------- Potential
         sl = QtWidgets.QComboBox(); self.slMode = sl; l0.addWidget(sl)
         sl.addItem( Modes.LJQ.name       )
         sl.addItem( Modes.MorseFFel.name )
         sl.currentIndexChanged.connect(self.selectMode)
         
-        # --- bxZ
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{ iz, nAmp }") )
-        bx = QtWidgets.QSpinBox();bx.setRange(0,300); bx.setSingleStep(1); bx.setValue(90); bx.valueChanged.connect(self.plotSlice); vb.addWidget(bx); self.bxZ=bx
-        bx = QtWidgets.QSpinBox();bx.setRange(0,50 ); bx.setSingleStep(1); bx.setValue(10); bx.valueChanged.connect(self.F2df); vb.addWidget(bx); self.bxA=bx
- 
-        # === tip params
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("fMorse[1]") )
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.25,   4.0); bx.setValue(1.00);  bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateFF); vb.addWidget(bx); self.bxMorse=bx
+
+        # -------------- Relaxation 
+        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
+
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("K {x,y,R} [N/m]") )
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKx=bx
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKy=bx
         #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,  2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKz=bx
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(30.0); bx.setSingleStep(5.0); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKr=bx
-        
+
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Q [e]") )
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(self.Q); bx.setSingleStep(0.05); bx.valueChanged.connect(self.upload_and_relax); vb.addWidget(bx); self.bxQ=bx
-        
+
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("eq.pos {x,y,R} [A]") )
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0x=bx
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0y=bx
@@ -137,9 +139,33 @@ class ApplicationWindow(QtWidgets.QMainWindow):
    
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax {dt,damp}") )
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,10.0); bx.setValue(0.1);  bx.setSingleStep(0.005); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bx_dt=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,1.0); bx.setValue(0.9);   bx.setSingleStep(0.05);  bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bx_damp=bx     
-        
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,1.0); bx.setValue(0.9);   bx.setSingleStep(0.05);  bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bx_damp=bx  
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax_min {x,y,z}[A]") )
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMinX=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMinY=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMinZ=bx
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax_max {x,y,z}[A]") )
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(20.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMaxX=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(20.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMaxY=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(20.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMaxZ=bx
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax_step {x,y,z}[A]") )
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1);  bx.setSingleStep(0.02); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxStepX=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1);  bx.setSingleStep(0.02); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxStepY=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1);  bx.setSingleStep(0.02); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxStepZ=bx 
+
+        # -------------- df Conversion & plotting
+        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{ iz, nAmp }") )
+        bx = QtWidgets.QSpinBox();bx.setRange(0,300); bx.setSingleStep(1); bx.setValue(90); bx.valueChanged.connect(self.plotSlice); vb.addWidget(bx); self.bxZ=bx
+        bx = QtWidgets.QSpinBox();bx.setRange(0,50 ); bx.setSingleStep(1); bx.setValue(10); bx.valueChanged.connect(self.F2df); vb.addWidget(bx); self.bxA=bx
+
         # === buttons
+        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
+
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
         # --- btLoad
         self.btLoad = QtWidgets.QPushButton('Load', self)
@@ -148,10 +174,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb.addWidget( self.btLoad )
         
         # --- EditAtoms
-        bt = QtWidgets.QPushButton('Edit', self)
+        bt = QtWidgets.QPushButton('Edit Geom', self)
         bt.setToolTip('Edit atomic structure')
-        bt.clicked.connect(self.EditAtoms)
-        self.btEdit = bt; vb.addWidget( bt )
+        bt.clicked.connect(self.editAtoms)
+        self.btEditAtoms = bt; vb.addWidget( bt )
+        
+        # --- EditFFparams
+        bt = QtWidgets.QPushButton('Edit Params', self)
+        bt.setToolTip('Edit atomic structure')
+        bt.clicked.connect(self.editSpecies)
+        self.btEditParams = bt; vb.addWidget( bt )
         
         # --- btFF
         self.btFF = QtWidgets.QPushButton('getFF', self)
@@ -174,35 +206,44 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
         
-        self.editor = AtomEditor(self) # TODO : we use now QDialog instead
-        '''
-        self.loadInputs()
-        self.getFF()
-        
-        self.Q    = -0.25;
-        self.FEin = self.FF[:,:,:,:4] + self.Q*self.FF[:,:,:,4:] 
-        
-        self.invCell     = oclr.getInvCell(self.lvec)
-        self.relax_dim   = (120,120,60)
-        self.relax_poss  = oclr.preparePoss( self.relax_dim, z0=16.0, start=(0.0,0.0), end=(12.0,12.0) )
-        self.relax_args  = oclr.prepareBuffers( self.FEin, self.relax_dim )
-        '''
+        self.geomEditor    = Editor(self)
+        self.speciesEditor = Editor(self)
     
-    def initRelax(self, relax_dim=None, z0=16.0, start=(0.0,0.0), end=(12.0,12.0) ):
-        if relax_dim is not None:
-            self.relax_dim = relax_dim
+    def shapeRelax(self):
+        step = np.array( [ float(self.bxStepX   .value()), float(self.bxStepY   .value()), float(self.bxStepZ   .value()) ] )
+        rmin = np.array( [ float(self.bxSpanMinX.value()), float(self.bxSpanMinY.value()), float(self.bxSpanMinZ.value()) ] )
+        rmax = np.array( [ float(self.bxSpanMaxX.value()), float(self.bxSpanMaxY.value()), float(self.bxSpanMaxZ.value()) ] )
+        self.relax_dim   = tuple( ((rmax-rmin)/step).astype(np.int32) ) 
+        print "shapeRelax", step, rmin, rmax, self.relax_dim
+        self.FEin = np.zeros( self.ff_nDim+(4,), dtype=np.float32)
+        print "self.FEin.shape", self.FEin.shape
+        if self.FF is not None:
+            self.composeTotalFF()
+        self.relax_poss  = oclr.preparePoss   ( self.relax_dim, z0=rmax[2], start=rmin, end=rmax )
+        self.relax_args  = oclr.prepareBuffers( self.FEin, self.relax_dim )
+
+    '''
+    def shapeRelax(self):
+        # DEBUG preparePoss :  (200, 200, 200) 20.0 [ 0.  0.  0.] [ 20.  20.  20.]
+        # DEBUG preparePoss :  (200, 200, 60) 16.0 (0.0, 0.0) (20.0, 20.0)
+        self.relax_dim=(200,200,60); z0=16.0; start=(0.0,0.0); end=(20.0,20.0)
         self.FEin = np.zeros( self.ff_nDim+(4,), dtype=np.float32)  # TODO: what is the point of making empty buffer ?
         if self.FF is not None:
             self.composeTotalFF()
         self.relax_poss  = oclr.preparePoss   ( self.relax_dim, z0=z0, start=start, end=end )
         self.relax_args  = oclr.prepareBuffers( self.FEin, self.relax_dim )
+    '''
 
-    def EditAtoms(self):        
-        self.editor.show() # TODO : we use now QDialog instead
+    def editAtoms(self):        
+        self.geomEditor.show() # TODO : we use now QDialog instead
+    
+    def editSpecies(self):        
+        self.speciesEditor.show() # TODO : we use now QDialog instead
     
     def updateFF(self):
         #print self.str_Atoms;
-        self.str_Atoms = self.editor.textEdit.toPlainText() 
+        self.str_Atoms   = self.geomEditor   .textEdit.toPlainText()
+        self.str_Species = self.speciesEditor.textEdit.toPlainText()
         #print self.str_Atoms;
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.str_Atoms.split('\n') )
         Zs, xyzs, qs      = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
@@ -215,12 +256,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.upload_and_relax()
 
     def loadInputMorseFFel(self):
-
         try:
-            self.TypeParams   = PPU.loadSpecies( 'atomtypes.ini' )
+            with open('atomtypes.ini', 'r') as f:  self.str_Species = f.read(); 
         except:
-            self.TypeParams   = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+            print "failed ..."
+            with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:  self.str_Species = f.read(); 
 
+        self.TypeParams = PPU. loadSpeciesLines( self.str_Species.split('\n') )
         print self.TypeParams; # exit()
 
         atoms, nDim, lvec = basUtils.loadXSFGeom( "FFel_z.xsf" )
@@ -238,13 +280,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.atoms   = FFcl.xyzq2float4(xyzs,qs)
         REAs         = PPU.getAtomsREA( 8, Zs, self.TypeParams )
         self.REAs    = REAs.astype(np.float32)
+        print "self.REAs", self.REAs
         #self.clREAs  = FFcl.REA2float4(REAs);
 
         # load grid
-        #FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
-        #self.FFel = FFcl.XYZ2float4(FFel[:,:,:,0],FFel[:,:,:,1],FFel[:,:,:,2])
+        FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
+        self.FFel = FFcl.XYZ2float4(FFel[:,:,:,0],FFel[:,:,:,1],FFel[:,:,:,2])
 
-        poss         = FFcl.getposs( self.lvec )
+        poss         = FFcl.getposs( self.lvec, nDim )
+        #GU.saveVecFieldXsf( "DEBUG_poscl", poss[:,:,:,:3].astype(np.float32), self.lvec )
         self.ff_nDim = poss.shape[:3]
         print "ff_dim", self.ff_nDim
         self.ff_args = FFcl.initArgsMorse( self.atoms, self.REAs, poss )
@@ -279,11 +323,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
     def relax(self):
         t1 = time.clock() 
+        #self.composeTotalFF(); # does not work;  this is negligible slow-down
         stiffness    = np.array([self.bxKx.value(),self.bxKy.value(),0.0,self.bxKr.value()], dtype=np.float32 ); stiffness/=-16.0217662; #print "stiffness", stiffness
         dpos0        = np.array([self.bxP0x.value(),self.bxP0y.value(),0.0,self.bxP0r.value()], dtype=np.float32 ); dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); #print "dpos0", dpos0
         relax_params = np.array([self.bx_dt.value(),self.bx_damp.value(),self.bx_dt.value()*0.2,self.bx_dt.value()*5.0], dtype=np.float32 ); #print "relax_params", relax_params
         self.FEout = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
         t2 = time.clock(); print "oclr.relax time %f [s]" %(t2-t1)
+        print "self.FEin.shape",  self.FEin.shape
+        print "self.FEout.shape", self.FEout.shape
         self.F2df()
     
     def composeTotalFF(self):
@@ -294,7 +341,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             if self.FFel is None:
                 self.FEin[:,:,:,:] = self.FF[:,:,:,:4] + self.Q*self.FF[:,:,:,4:] 
             else:
-                self.FEin[:,:,:,:] = self.FF[:,:,:,:4] + self.Q*self.FFel[:,:,:,4:]
+                print self.FEin.shape, self.FF.shape, self.FFel.shape
+                self.FEin[:,:,:,:] = self.FF[:,:,:,:] + self.Q*self.FFel[:,:,:,:]
 
     def upload_and_relax(self):
         self.composeTotalFF()
@@ -316,13 +364,24 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def plotSlice(self):
         t1 = time.clock() 
         val = int( self.bxZ.value() )
+        Fslice = None
         if self.plot_FF:
-            Fslice = self.FF[val,:,:,2]
+            try:
+                Fslice = self.FF[val,:,:,2]
+            except:
+                print "cannot get slice: FF[%i]" %val
         elif self.df is not None:
-            Fslice = self.df[self.df.shape[0]-val-1,:,:]
+            try:
+                Fslice = self.df[self.df.shape[0]-val-1,:,:]
+            except:
+                print "cannot get slice: df[%i]" %val
         else:
-            Fslice = self.FEout[:,:,self.FEout.shape[2]-val-1,2]
-        self.mplc1.plotSlice( Fslice )
+            try:
+                Fslice = self.FEout[:,:,self.FEout.shape[2]-val-1,2]
+            except:
+                print "cannot get slice: FEout[%i]" %val
+        if Fslice is not None:
+            self.mplc1.plotSlice( Fslice )
         t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
 
     def saveFig(self):
@@ -345,7 +404,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         else:
             print "No such mode : " , self.mode 
         self.getFF()
-        self.initRelax()
+
+        #GU.saveVecFieldXsf( "DEBUG_FFcl", self.FF[:,:,:,:3].astype(np.float32), self.lvec )
+        #GU.saveXSF( "DEBUG_FFcl_z.xsf", self.FF[:,:,:,2].astype(np.float32), self.lvec )
+        #self.initRelax()
+        self.shapeRelax()
         print self.mode
 
 if __name__ == "__main__":
