@@ -49,7 +49,7 @@ def initArgsMorse(atoms,REAs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     kargs = ( nAtoms, cl_atoms, cl_REAs, cl_poss, cl_FE )
     return kargs
 
-def updateArgsLJC( kargs_old, atoms=None,cLJs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
+def updateArgsLJC( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
     mf       = cl.mem_flags
     if atoms is not None:
         nAtoms   = np.int32( len(atoms) )
@@ -72,28 +72,38 @@ def updateArgsLJC( kargs_old, atoms=None,cLJs=None, poss=None, ctx=oclu.ctx, que
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
     return kargs
 
-def updateArgsMorse( kargs_old, atoms=None,REAs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
+def updateArgsMorse( kargs_old=None, atoms=None, REAs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
     mf       = cl.mem_flags
-    if atoms is not None:
-        nAtoms   = np.int32( len(atoms) )
-        if (kargs_old[0] != nAtoms):
-            print " NOT IMPLEMENTED :  kargs_old[0] != nAtoms"; exit()
+
+    if kargs_old is None:
+        return initArgsMorse( atoms, REAs, poss, ctx=ctx, queue=queue )
+    else:
+        if atoms is not None:
+            nAtoms   = np.int32( len(atoms) )
+            if (kargs_old[0] != nAtoms):
+                print " NOT IMPLEMENTED :  kargs_old[0] != nAtoms"; exit()
+            else:
+                cl_atoms=kargs_old[1]
+                cl.enqueue_copy( queue, cl_atoms, atoms )
         else:
             cl_atoms=kargs_old[1]
-            cl.enqueue_copy( queue, cl_atoms, atoms )
-    else:
-        cl_atoms=kargs_old[1]
-    if REAs is not None:
-        print " NOT IMPLEMENTED : new cREAs"; exit()
-    else:
-        cl_cREAs=kargs_old[2]
-    if poss is not None:
-        print " NOT IMPLEMENTED : new poss"; exit()
-    else:
-        cl_poss=kargs_old[3]
-    cl_FE=kargs_old[4]
-    kargs = ( nAtoms, cl_atoms, cl_cREAs, cl_poss, cl_FE )
-    return kargs
+
+        if REAs is not None:
+            cl_cREAs=kargs_old[2]
+            cl.enqueue_copy( queue, cl_cREAs, REAs )
+        else:
+            cl_cREAs=kargs_old[2]
+
+        if poss is not None:
+            cl_poss=kargs_old[3]
+            cl.enqueue_copy( queue, cl_poss, poss )
+            #print " NOT IMPLEMENTED : new poss"; exit()
+        else:
+            cl_poss=kargs_old[3]
+
+        cl_FE=kargs_old[4]
+        kargs = ( nAtoms, cl_atoms, cl_cREAs, cl_poss, cl_FE )
+        return kargs
 
 def runLJC( kargs, nDim, local_size=(16,), queue=oclu.queue ):
     global_size = (nDim[0]*nDim[1]*nDim[2],)

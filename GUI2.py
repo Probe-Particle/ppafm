@@ -73,7 +73,7 @@ class Editor(QtWidgets.QMainWindow):
         l0 = QtWidgets.QVBoxLayout(self)
         bt = QtWidgets.QPushButton('Update', self)
         bt.setToolTip('recalculate using this atomic structure')
-        bt.clicked.connect(parent.updateFF)
+        bt.clicked.connect(parent.updateFromFF)
         self.btUpdate = bt; 
         
         l0.addWidget( self.textEdit )
@@ -87,6 +87,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     FFel = None
     FF   = None
     FEin = None
+    ff_args = None
     str_Atoms = None
     mode = Modes.LJQ.name
     #Q          = -0.25;
@@ -101,35 +102,42 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         FFcl.init()
         oclr.init()
     
+        #self.resize(600, 800)
+
         # --- init QtMain
         QtWidgets.QMainWindow.__init__(self)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle("application main window")
         self.main_widget = QtWidgets.QWidget(self)
-        l0 = QtWidgets.QVBoxLayout(self.main_widget)
+        #l0 = QtWidgets.QVBoxLayout(self.main_widget)
+        l00 = QtWidgets.QHBoxLayout(self.main_widget)
         self.mplc1 = MyDynamicMplCanvas(self.main_widget, width=5, height=4, dpi=100)
-        l0.addWidget(self.mplc1)
-        
+        l00.addWidget(self.mplc1)
+        l0 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l0);
+
         # -------------- Potential
         sl = QtWidgets.QComboBox(); self.slMode = sl; l0.addWidget(sl)
         sl.addItem( Modes.LJQ.name       )
         sl.addItem( Modes.MorseFFel.name )
+        sl.setCurrentIndex( sl.findText( Modes.MorseFFel.name ) )
         sl.currentIndexChanged.connect(self.selectMode)
         
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("fMorse[1]") )
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.25,   4.0); bx.setValue(1.00);  bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateFF); vb.addWidget(bx); self.bxMorse=bx
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{iZPP, fMorse[1]}") )
+        bx = QtWidgets.QSpinBox();       bx.setRange(0, 200);    bx.setValue(8);                             bx.valueChanged.connect(self.updateFromFF); vb.addWidget(bx); self.bxZPP=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.25, 4.0); bx.setValue(1.00);  bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateFromFF); vb.addWidget(bx); self.bxMorse=bx
+        
 
         # -------------- Relaxation 
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Q [e]") )
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(self.Q); bx.setSingleStep(0.05); bx.valueChanged.connect(self.upload_and_relax); vb.addWidget(bx); self.bxQ=bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("K {x,y,R} [N/m]") )
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKx=bx
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKy=bx
         #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,  2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKz=bx
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(30.0); bx.setSingleStep(5.0); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKr=bx
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Q [e]") )
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(self.Q); bx.setSingleStep(0.05); bx.valueChanged.connect(self.upload_and_relax); vb.addWidget(bx); self.bxQ=bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("eq.pos {x,y,R} [A]") )
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0x=bx
@@ -144,7 +152,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax_min {x,y,z}[A]") )
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMinX=bx
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMinY=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMinZ=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(10.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMinZ=bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax_max {x,y,z}[A]") )
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(20.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMaxX=bx
@@ -163,6 +171,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QSpinBox();bx.setRange(0,300); bx.setSingleStep(1); bx.setValue(90); bx.valueChanged.connect(self.plotSlice); vb.addWidget(bx); self.bxZ=bx
         bx = QtWidgets.QSpinBox();bx.setRange(0,50 ); bx.setSingleStep(1); bx.setValue(10); bx.valueChanged.connect(self.F2df); vb.addWidget(bx); self.bxA=bx
 
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{ k[kN/m], f0 [kHz] }") )
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,1000.0); bx.setSingleStep(0.1); bx.setValue(1.8);  bx.valueChanged.connect(self.F2df); vb.addWidget(bx); self.bxCant_K=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,2000.0); bx.setSingleStep(1.0); bx.setValue(30.3); bx.valueChanged.connect(self.F2df); vb.addWidget(bx); self.bxCant_f0=bx
+
         # === buttons
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
@@ -170,7 +182,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # --- btLoad
         self.btLoad = QtWidgets.QPushButton('Load', self)
         self.btLoad.setToolTip('Load inputs')
-        self.btLoad.clicked.connect(self.loadInputs)
+        self.btLoad.clicked.connect(self.loadInputs_New)
         vb.addWidget( self.btLoad )
         
         # --- EditAtoms
@@ -208,7 +220,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         self.geomEditor    = Editor(self)
         self.speciesEditor = Editor(self)
-    
+
+        self.selectMode()
+
     def shapeRelax(self):
         step = np.array( [ float(self.bxStepX   .value()), float(self.bxStepY   .value()), float(self.bxStepZ   .value()) ] )
         rmin = np.array( [ float(self.bxSpanMinX.value()), float(self.bxSpanMinY.value()), float(self.bxSpanMinZ.value()) ] )
@@ -222,20 +236,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.relax_poss  = oclr.preparePoss   ( self.relax_dim, z0=rmax[2], start=rmin, end=rmax )
         self.relax_args  = oclr.prepareBuffers( self.FEin, self.relax_dim )
 
-    '''
-    def shapeRelax(self):
-        # DEBUG preparePoss :  (200, 200, 200) 20.0 [ 0.  0.  0.] [ 20.  20.  20.]
-        # DEBUG preparePoss :  (200, 200, 60) 16.0 (0.0, 0.0) (20.0, 20.0)
-        self.relax_dim=(200,200,60); z0=16.0; start=(0.0,0.0); end=(20.0,20.0)
-        self.FEin = np.zeros( self.ff_nDim+(4,), dtype=np.float32)  # TODO: what is the point of making empty buffer ?
-        if self.FF is not None:
-            self.composeTotalFF()
-        self.relax_poss  = oclr.preparePoss   ( self.relax_dim, z0=z0, start=start, end=end )
-        self.relax_args  = oclr.prepareBuffers( self.FEin, self.relax_dim )
-    '''
-
     def editAtoms(self):        
-        self.geomEditor.show() # TODO : we use now QDialog instead
+        self.geomEditor.show()    # TODO : we use now QDialog instead
     
     def editSpecies(self):        
         self.speciesEditor.show() # TODO : we use now QDialog instead
@@ -248,69 +250,74 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.str_Atoms.split('\n') )
         Zs, xyzs, qs      = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
         self.atoms        = FFcl.xyzq2float4(xyzs,qs);
-        
-        #self.ff_args      = FFcl.updateArgsLJC( self.ff_args, atoms=self.atoms )
-        self.ff_args      = self.func_updateFFArgs( self.ff_args, atoms=self.atoms )
+
+        iZPP = self.bxZPP.value()
+
+        self.TypeParams = PPU. loadSpeciesLines( self.str_Species.split('\n') )
+        if self.mode   == Modes.LJQ.name:
+            cLJs_        = PPU.getAtomsLJ     ( iZPP, Zs, self.TypeParams );
+            self.cLJs    = cLJs_.astype(np.float32)
+            self.ff_args = FFcl.updateArgsLJC( self.ff_args, self.atoms, self.cLJs, self.poss )
+        elif self.mode == Modes.MorseFFel.name:
+            #FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
+            #self.FFel    = FFcl.XYZ2float4(FFel[:,:,:,0],FFel[:,:,:,1],FFel[:,:,:,2])
+            REAs         = PPU.getAtomsREA( iZPP, Zs, self.TypeParams, alphaFac=-self.bxMorse.value() )
+            self.REAs    = REAs.astype(np.float32)
+            self.ff_args = FFcl.updateArgsMorse( self.ff_args, self.atoms, self.REAs, self.poss )  
+
+    def updateFromFF(self):
+        self.updateFF()
         self.getFF()
-        #self.FF           = FFcl.runLJC( self.ff_args, self.ff_nDim )
         self.upload_and_relax()
 
-    def loadInputMorseFFel(self):
+    def loadInputs_New(self):
+        print "self.mode  ", self.mode 
         try:
             with open('atomtypes.ini', 'r') as f:  self.str_Species = f.read(); 
         except:
             print "failed ..."
             with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:  self.str_Species = f.read(); 
 
+        self.str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in self.str_Species.split('\n')  )
         self.TypeParams = PPU. loadSpeciesLines( self.str_Species.split('\n') )
-        print self.TypeParams; # exit()
+        
+        #print self.TypeParams;
+        self.speciesEditor.textEdit.setText( self.str_Species )
 
-        atoms, nDim, lvec = basUtils.loadXSFGeom( "FFel_z.xsf" )
-        Zs   = atoms[0] 
-        xyzs = np.transpose( np.array( [atoms[1],atoms[2],atoms[3]] ) ).copy()
+        lvec=None; xyzs=None; Zs=None; qs=None; 
+        print self.mode
+        if self.mode == Modes.LJQ.name:
+            print "=> Modes.LJQ"
+            lvec              = np.genfromtxt('cel.lvs')
+            self.str_Atoms    = open('input.xyz').read()
+            #xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input.xyz' )
+            xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.str_Atoms.split('\n') )
+        elif self.mode == Modes.MorseFFel.name:
+            print "=> Modes.MorseFFel"
+            atoms, nDim, lvec = basUtils.loadXSFGeom( "FFel_z.xsf" )
+            lines = [   "%i %f %f %f %f" %(atoms[0][i], atoms[1][i], atoms[2][i], atoms[3][i], atoms[3][i] ) for i in range(len(atoms[0])) ]
+            self.str_Atoms = "\n".join( lines )
+            Zs   = atoms[0]; qs   = atoms[4]; xyzs = np.transpose( np.array( [atoms[1],atoms[2],atoms[3]] ) ).copy()
 
-        print "Zs", Zs
-        print "xyzs", xyzs
-        print "lvec", lvec
+        print nDim
+        print lvec
+        #print self.str_Atoms
+        self.geomEditor.textEdit.setText( self.str_Atoms )
+        #exit()
 
         self.lvec    = np.array( lvec )
         self.invCell = oclr.getInvCell(self.lvec)
-        Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, atoms[4], avec=self.lvec[1], bvec=self.lvec[2] )
-
-        self.atoms   = FFcl.xyzq2float4(xyzs,qs)
-        REAs         = PPU.getAtomsREA( 8, Zs, self.TypeParams )
-        self.REAs    = REAs.astype(np.float32)
-        print "self.REAs", self.REAs
-        #self.clREAs  = FFcl.REA2float4(REAs);
-
-        # load grid
-        FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
-        self.FFel = FFcl.XYZ2float4(FFel[:,:,:,0],FFel[:,:,:,1],FFel[:,:,:,2])
-
-        poss         = FFcl.getposs( self.lvec, nDim )
-        #GU.saveVecFieldXsf( "DEBUG_poscl", poss[:,:,:,:3].astype(np.float32), self.lvec )
-        self.ff_nDim = poss.shape[:3]
-        print "ff_dim", self.ff_nDim
-        self.ff_args = FFcl.initArgsMorse( self.atoms, self.REAs, poss )
-
-    def loadInputs(self):
-        
-        self.str_Atoms=open('input.xyz').read()
-        
-        self.TypeParams   = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-        xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input.xyz' )
-        self.lvec         = np.genfromtxt('cel.lvs')
-        print "self.lvec: ", self.lvec
-        
         Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
-        cLJs_        = PPU.getAtomsLJ     ( 8, Zs, self.TypeParams );
         self.atoms   = FFcl.xyzq2float4(xyzs,qs);
-        self.cLJs    = cLJs_.astype(np.float32)
-        
-        poss         = FFcl.getposs( self.lvec )
-        self.ff_nDim = poss.shape[:3]
-        print "ff_dim", self.ff_nDim
-        self.ff_args = FFcl.initArgsLJC( self.atoms, self.cLJs, poss )
+
+        self.poss         = FFcl.getposs( self.lvec, nDim )
+        self.ff_nDim = self.poss.shape[:3]
+
+        if self.mode   == Modes.MorseFFel.name:
+            FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
+            self.FFel = FFcl.XYZ2float4(FFel[:,:,:,0],FFel[:,:,:,1],FFel[:,:,:,2])
+
+        self.updateFF()
 
     def getFF(self):
         t1 = time.clock() 
@@ -354,7 +361,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         nAmp = self.bxA.value()
         if nAmp > 0:
             t1 = time.clock() 
-            self.df = -PPU.Fz2df( np.transpose( self.FEout[:,:,:,2], (2,0,1) ), dz=0.1, k0=1800.0, f0=30300.0, n=nAmp )
+            self.df = -PPU.Fz2df( np.transpose( self.FEout[:,:,:,2], (2,0,1) ), dz=self.bxStepZ.value(), k0=self.bxCant_K.value()*1e+3, f0= self.bxCant_f0.value()*1e+3, n=nAmp )
             t2 = time.clock(); print "F2df time %f [s]" %(t2-t1)
         else:
             self.df = None
@@ -393,16 +400,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def selectMode(self):
         self.mode = self.slMode.currentText()
         if   self.mode == Modes.LJQ.name:
-            self.func_updateFFArgs = FFcl.updateArgsLJC
+            #self.func_updateFFArgs = FFcl.updateArgsLJC
             self.func_runFF        = FFcl.runLJC
-            self.loadInputs()
+            #self.loadInputs()
         elif self.mode == Modes.MorseFFel.name:
             #self.loadInputMorseFFel()
-            self.func_updateFFArgs = FFcl.updateArgsMorse
+            #self.func_updateFFArgs = FFcl.updateArgsMorse
             self.func_runFF        = FFcl.runMorse
-            self.loadInputMorseFFel()
+            #self.loadInputMorseFFel()
         else:
-            print "No such mode : " , self.mode 
+            print "No such mode : ",self.mode 
+            return
+        self.loadInputs_New()
         self.getFF()
 
         #GU.saveVecFieldXsf( "DEBUG_FFcl", self.FF[:,:,:,:3].astype(np.float32), self.lvec )
