@@ -32,21 +32,26 @@ import pyProbeParticle.oclUtils    as oclu
 import pyProbeParticle.fieldOCL    as FFcl 
 import pyProbeParticle.RelaxOpenCL as oclr
 
-Modes = Enum('Mode', 'MorseFFel  LJQ')
+Modes     = Enum( 'Modes',    'MorseFFel  LJQ' )
+DataViews = Enum( 'DataViews','FFin FFout df FFel FFpl' )
 
-class MyDynamicMplCanvas(FigureCanvas):
+class MyFigCanvas(FigureCanvas):
     """A canvas that updates itself every second with a new plot."""
 
+    data = None
     cbar = None 
     
-    def __init__(self, parent=None, width=5, height=4, dpi=100 ):
+    def __init__(self, parentWiget=None, parentApp=None,  width=5, height=4, dpi=100 ):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
         #self.compute_initial_figure()
         FigureCanvas.__init__(self, self.fig )
-        self.setParent(parent)
+        self.parent = parentApp
+        self.setParent(parentWiget)
         FigureCanvas.setSizePolicy(self,QtWidgets.QSizePolicy.Expanding,QtWidgets.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
+
+        cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
             
     def plotSlice(self, F ):
         self.axes.cla()
@@ -56,30 +61,94 @@ class MyDynamicMplCanvas(FigureCanvas):
             self.cbar = self.fig.colorbar( self.img )
         self.cbar.set_clim( vmin=F.min(), vmax=F.max() )
         self.cbar.update_normal(self.img)
+        self.axes.set_xlim(0,F.shape[0])
+        self.axes.set_ylim(0,F.shape[1])
+        self.fig.tight_layout()
         self.draw()
+
+        self.parent.figCurv.figCan.axes.cla()
+        self.parent.figCurv.figCan.defaultPlotAxis()
+        self.parent.figCurv.figCan.draw()
+    
+    def plotSlice_iz(self, iz ):
+        self.axes.cla()
+        #print "iz", iz
+        #self.plotSlice( self.data[iz] )
+        try:
+            print self.data.shape
+            self.plotSlice( self.data[iz] )
+        except:
+            print "cannot plot slice #", iz
+    
+    def onclick(self, event):
+        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' % (event.button, event.x, event.y, event.xdata, event.ydata))
+
+        if self.data is not None:
+            ix = int(event.xdata)
+            iy = int(event.ydata) 
+            self.axes.plot( [ix], [iy], 'o' )
+            ys = self.data[ :, iy, ix ]
+            self.parent.figCurv.show()
+            self.parent.figCurv.figCan.plotDatalines( ( range(len(ys)), ys, "%i_%i" %(ix,iy) )  )
+            #self.axes.plot( range(len(ys)), ys )
+            self.draw()
+
+    #def updatePlotAxis(self):
+    #    self.axes.grid()
+    #    self.axes.axhline(0.0, ls="--", c="k")
+    
+    def defaultPlotAxis(self):
+        self.axes.grid()
+        self.axes.axhline(0.0, ls="--", c="k")
+
+    def plotDatalines( self, dline ):
+        self.axes.plot( dline[0], dline[1], label=dline[2] )
+        self.draw()  
+        #self.updatePlotAxis()
+    
+    '''
+    def plotDatalines( self, datalines ):
+        self.axes.cla()
+        #for line in 
+        #del ax.lines[1]
+        for dline in datalines:
+            self.axes.plot( dline[0], dline[1] )
+        self.draw()   
+    '''
+
+class PlotWindow(QtWidgets.QMainWindow):
+    def __init__(self, parent=None, title="PlotWindow", width=5, height=4, dpi=100 ):
+        super(PlotWindow, self).__init__(parent)
+        self.parent = parent
+        self.setWindowTitle( title )
+        self.main_widget = QtWidgets.QWidget(self)
+        self.setCentralWidget(self.main_widget)
+        l0 = QtWidgets.QVBoxLayout()
+        self.centralWidget().setLayout(l0)
+
+        self.figCan = MyFigCanvas( parent, width=width, height=height, dpi=dpi )
+        l0.addWidget(self.figCan)
 
 # TODO : we use now QDialog instead
 class Editor(QtWidgets.QMainWindow):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, title="Editor" ):
         super(Editor, self).__init__(parent)
         self.parent = parent
-        self.textEdit = QtWidgets.QTextEdit()
-        if parent.str_Atoms is not None:
-            self.textEdit.setText(parent.str_Atoms)
-        
-        self.setCentralWidget(self.textEdit)
-        self.resize(600, 800)
-        
-        l0 = QtWidgets.QVBoxLayout(self)
-        bt = QtWidgets.QPushButton('Update', self)
-        bt.setToolTip('recalculate using this atomic structure')
+        self.setWindowTitle( title )
+        self.main_widget = QtWidgets.QWidget(self)
+        self.setCentralWidget(self.main_widget)
+        l0 = QtWidgets.QVBoxLayout()
+        self.centralWidget().setLayout(l0)
+
+        bt = QtWidgets.QPushButton('Update', self); 
+        bt.setToolTip('recalculate using this atomic structure'); 
         bt.clicked.connect(parent.updateFromFF)
         self.btUpdate = bt; 
-        
+
+        self.textEdit = QtWidgets.QTextEdit()
+
         l0.addWidget( self.textEdit )
         l0.addWidget( bt )
-        #self.setCentralWidget(l0)
-
 
 class ApplicationWindow(QtWidgets.QMainWindow):
 
@@ -111,22 +180,28 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.main_widget = QtWidgets.QWidget(self)
         #l0 = QtWidgets.QVBoxLayout(self.main_widget)
         l00 = QtWidgets.QHBoxLayout(self.main_widget)
-        self.mplc1 = MyDynamicMplCanvas(self.main_widget, width=5, height=4, dpi=100)
-        l00.addWidget(self.mplc1)
+        self.figCan = MyFigCanvas( parentWiget=self.main_widget, parentApp=self, width=5, height=4, dpi=100)
+        l00.addWidget(self.figCan)
         l0 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l0);
 
         # -------------- Potential
-        sl = QtWidgets.QComboBox(); self.slMode = sl; l0.addWidget(sl)
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb);
+
+        sl = QtWidgets.QComboBox(); self.slMode = sl; vb.addWidget(sl)
         sl.addItem( Modes.LJQ.name       )
         sl.addItem( Modes.MorseFFel.name )
         sl.setCurrentIndex( sl.findText( Modes.MorseFFel.name ) )
         sl.currentIndexChanged.connect(self.selectMode)
+
+        sl = QtWidgets.QComboBox(); self.slDataView = sl; vb.addWidget(sl)
+        sl.addItem( DataViews.FFpl.name ); sl.addItem( DataViews.FFel.name ); sl.addItem( DataViews.FFin.name ); sl.addItem( DataViews.FFout.name ); sl.addItem(DataViews.df.name );
+        sl.setCurrentIndex( sl.findText( DataViews.FFpl.name ) )
+        sl.currentIndexChanged.connect(self.updateDataView)
         
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{iZPP, fMorse[1]}") )
         bx = QtWidgets.QSpinBox();       bx.setRange(0, 200);    bx.setValue(8);                             bx.valueChanged.connect(self.updateFromFF); vb.addWidget(bx); self.bxZPP=bx
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.25, 4.0); bx.setValue(1.00);  bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateFromFF); vb.addWidget(bx); self.bxMorse=bx
         
-
         # -------------- Relaxation 
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
@@ -168,7 +243,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{ iz, nAmp }") )
-        bx = QtWidgets.QSpinBox();bx.setRange(0,300); bx.setSingleStep(1); bx.setValue(90); bx.valueChanged.connect(self.plotSlice); vb.addWidget(bx); self.bxZ=bx
+        bx = QtWidgets.QSpinBox();bx.setRange(0,300); bx.setSingleStep(1); bx.setValue(90); bx.valueChanged.connect(self.updateDataView); vb.addWidget(bx); self.bxZ=bx
         bx = QtWidgets.QSpinBox();bx.setRange(0,50 ); bx.setSingleStep(1); bx.setValue(10); bx.valueChanged.connect(self.F2df); vb.addWidget(bx); self.bxA=bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{ k[kN/m], f0 [kHz] }") )
@@ -218,8 +293,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
         
-        self.geomEditor    = Editor(self)
-        self.speciesEditor = Editor(self)
+        self.geomEditor    = Editor(self,title="Geometry Editor")
+        self.speciesEditor = Editor(self,title="Species Editor")
+
+        #self.figCurv = MyFigCanvas(self.main_widget, width=5, height=4, dpi=100)
+        self.figCurv =  PlotWindow( parent=self, width=5, height=4, dpi=100)
 
         self.selectMode()
 
@@ -326,7 +404,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         print "getFF : self.FF.shape", self.FF.shape;
         self.plot_FF = True
         t2 = time.clock(); print "FFcl.runLJC time %f [s]" %(t2-t1)
-        self.plotSlice()
+        #self.plotSlice()
+        self.updateDataView()
         
     def relax(self):
         t1 = time.clock() 
@@ -388,26 +467,21 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             except:
                 print "cannot get slice: FEout[%i]" %val
         if Fslice is not None:
-            self.mplc1.plotSlice( Fslice )
+            self.figCan.plotSlice( Fslice )
         t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
 
     def saveFig(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
         if fileName:
             print "saving image to :", fileName
-            self.mplc1.fig.savefig( fileName,bbox_inches='tight')
+            self.figCan.fig.savefig( fileName,bbox_inches='tight')
 
     def selectMode(self):
         self.mode = self.slMode.currentText()
         if   self.mode == Modes.LJQ.name:
-            #self.func_updateFFArgs = FFcl.updateArgsLJC
             self.func_runFF        = FFcl.runLJC
-            #self.loadInputs()
         elif self.mode == Modes.MorseFFel.name:
-            #self.loadInputMorseFFel()
-            #self.func_updateFFArgs = FFcl.updateArgsMorse
             self.func_runFF        = FFcl.runMorse
-            #self.loadInputMorseFFel()
         else:
             print "No such mode : ",self.mode 
             return
@@ -419,6 +493,30 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #self.initRelax()
         self.shapeRelax()
         print self.mode
+    
+    def selectDataView(self):
+        dview = self.slDataView.currentText()
+        print "DEBUG dview : ", dview
+        iz    = int( self.bxZ.value() )
+        if   dview == DataViews.df.name:
+            self.figCan.data = self.df
+            iz = self.figCan.data.shape[0]-iz-1
+        elif dview == DataViews.FFout.name:
+            self.figCan.data = np.transpose( self.FEout[:,:,:,2], (2,1,0) )
+            iz = self.figCan.data.shape[0]-iz-1
+        elif dview == DataViews.FFin.name:
+            self.figCan.data = self.FEin[:,:,:,2]
+        elif dview == DataViews.FFpl.name:
+            self.figCan.data = self.FF  [:,:,:,2]
+        elif dview == DataViews.FFel.name:
+            self.figCan.data = self.FFel[:,:,:,2]
+        return iz
+
+    def updateDataView(self):
+        t1 = time.clock() 
+        iz = self.selectDataView()
+        self.figCan.plotSlice_iz(iz)
+        t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
