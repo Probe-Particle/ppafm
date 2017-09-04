@@ -258,6 +258,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         elif self.mode == Modes.MorseFFel.name:
             print "=> Modes.MorseFFel"
             atoms, nDim, lvec = basUtils.loadXSFGeom( "FFel_z.xsf" )
+            nDim = nDim[::-1]
             lines = [   "%i %f %f %f %f" %(atoms[0][i], atoms[1][i], atoms[2][i], atoms[3][i], atoms[3][i] ) for i in range(len(atoms[0])) ]
             self.str_Atoms = "\n".join( lines )
             Zs   = atoms[0]; qs   = atoms[4]; xyzs = np.transpose( np.array( [atoms[1],atoms[2],atoms[3]] ) ).copy()

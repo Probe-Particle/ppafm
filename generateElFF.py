@@ -40,27 +40,6 @@ if __name__=="__main__":
         FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-
-    '''
-    PPU.loadParams( 'params.ini')
-    PPU.apply_options(opt_dict)
-    iZs,Rs,Qs=None,None,None
-    V=None
-    if(options.input.lower().endswith(".xsf") ):
-        print " loading Hartree potential from disk "
-        print "Use loadXSF"
-        V, lvec, nDim, head = GU.loadXSF(options.input)
-    elif(options.input.lower().endswith(".cube") ):
-        print " loading Hartree potential from disk "
-        print "Use loadCUBE"
-        V, lvec, nDim, head = GU.loadCUBE(options.input)
-    elif(options.input.lower().endswith(".xyz") ):
-        atoms,nDim,lvec=basUtils.loadGeometry(options.input, params=PPU.params)
-        iZs,Rs,Qs = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
-        head = GU.XSF_HEAD_DEFAULT
-    else:
-        sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
-    '''
     
     V=None
     if(options.input.lower().endswith(".xsf") ):

@@ -155,8 +155,9 @@ def loadXSFGeom( fname ):
         ws = f.readline().split(); lvec.append( [float(ws[0]),float(ws[1]),float(ws[2])] )
     f.close()
     print "nDim+1", nDim
-    nDim.reverse()
-    nDim = np.array(nDim)-1
+    #nDim.reverse()
+    #nDim = np.array(nDim)-1
+    nDim = (nDim[0]-1,nDim[1]-1,nDim[2]-1)
     print "lvec", lvec
     print "e,x,y,z", e,x,y,z
     return [ e,x,y,z,q ], nDim, lvec
