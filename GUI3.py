@@ -130,7 +130,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{ iz, nAmp }") )
-        bx = QtWidgets.QSpinBox();bx.setRange(0,300); bx.setSingleStep(1); bx.setValue(90); bx.valueChanged.connect(self.updateDataView); vb.addWidget(bx); self.bxZ=bx
+        bx = QtWidgets.QSpinBox();bx.setRange(0,300); bx.setSingleStep(1); bx.setValue(10); bx.valueChanged.connect(self.updateDataView); vb.addWidget(bx); self.bxZ=bx
         bx = QtWidgets.QSpinBox();bx.setRange(0,50 ); bx.setSingleStep(1); bx.setValue(10); bx.valueChanged.connect(self.F2df); vb.addWidget(bx); self.bxA=bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{ k[kN/m], f0 [kHz] }") )
@@ -209,6 +209,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #print self.str_Atoms;
         self.str_Atoms   = self.geomEditor   .textEdit.toPlainText()
         self.str_Species = self.speciesEditor.textEdit.toPlainText()
+        #print self.str_Species
         #print self.str_Atoms;
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.str_Atoms.split('\n') )
         Zs, xyzs, qs      = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
@@ -299,7 +300,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         stiffness    = np.array([self.bxKx.value(),self.bxKy.value(),0.0,self.bxKr.value()], dtype=np.float32 ); stiffness/=-16.0217662; #print "stiffness", stiffness
         dpos0        = np.array([self.bxP0x.value(),self.bxP0y.value(),0.0,self.bxP0r.value()], dtype=np.float32 ); dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); #print "dpos0", dpos0
         relax_params = np.array([self.bx_dt.value(),self.bx_damp.value(),self.bx_dt.value()*0.2,self.bx_dt.value()*5.0], dtype=np.float32 ); #print "relax_params", relax_params
-        self.FEout = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
+        self.FEout   = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
         t2 = time.clock(); print "oclr.relax time %f [s]" %(t2-t1)
         print "self.FEin.shape",  self.FEin.shape
         print "self.FEout.shape", self.FEout.shape
@@ -331,31 +332,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         else:
             self.df = None
         self.plot_FF = False
-        self.plotSlice()
+        #self.plotSlice()
+        self.updateDataView()
         
-    def plotSlice(self):
-        t1 = time.clock() 
-        val = int( self.bxZ.value() )
-        Fslice = None
-        if self.plot_FF:
-            try:
-                Fslice = self.FF[val,:,:,2]
-            except:
-                print "cannot get slice: FF[%i]" %val
-        elif self.df is not None:
-            try:
-                Fslice = self.df[self.df.shape[0]-val-1,:,:]
-            except:
-                print "cannot get slice: df[%i]" %val
-        else:
-            try:
-                Fslice = self.FEout[:,:,self.FEout.shape[2]-val-1,2]
-            except:
-                print "cannot get slice: FEout[%i]" %val
-        if Fslice is not None:
-            self.figCan.plotSlice( Fslice )
-        t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
-
     def saveFig(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
         if fileName:
@@ -407,12 +386,22 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         try:
             print data.shape
             self.figCan.plotSlice( data[iz] )
-            self.figCurv.figCan.axes.cla()
-            self.figCurv.figCan.defaultPlotAxis()
-            self.figCurv.figCan.draw()
         except:
             print "cannot plot slice #", iz
         t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
+
+    '''
+    def plotSlice(self):
+        t1 = time.clock() 
+        val = int( self.bxZ.value() )
+        Fslice = None
+        iz,data = self.selectDataView()
+        print iz, data.shape, self.slDataView.currentText()
+        Fslice = data[iz]
+        if Fslice is not None:
+            self.figCan.plotSlice( Fslice )
+        t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
+    '''
 
     def clickImshow(self,ix,iy):
         ys = self.viewed_data[ :, iy, ix ]

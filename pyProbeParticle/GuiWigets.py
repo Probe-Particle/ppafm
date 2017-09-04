@@ -31,6 +31,7 @@ class FigPlot(FigCanvas):
     
     def __init__(self, parentWiget=None, parentApp=None,  width=5, height=4, dpi=100 ):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp,  width=width, height=height, dpi=dpi )
+        self.defaultPlotAxis()
         #cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
         
     def defaultPlotAxis(self):
@@ -115,6 +116,33 @@ class PlotWindow(SlaveWindow):
         #super(PlotWindow, self).__init__(parent=parent, title=title)
         self.figCan = FigPlot( parent, width=width, height=height, dpi=dpi )
         self.centralLayout.addWidget(self.figCan)
+
+        vb = QtWidgets.QHBoxLayout(); self.centralLayout.addLayout(vb); #vb.addWidget( QtWidgets.QLabel("{iZPP, fMorse[1]}") )
+        bt = QtWidgets.QPushButton('Save.dat', self); bt.setToolTip('Save Curves to .dat file'); bt.clicked.connect(self.save_dat);  self.btSave = bt; vb.addWidget( bt )
+        bt = QtWidgets.QPushButton('Save.png', self); bt.setToolTip('Save Figure to .png file'); bt.clicked.connect(self.save_png);  self.btSave = bt; vb.addWidget( bt )
+        bt = QtWidgets.QPushButton('Clear', self);    bt.setToolTip('Clear figure');             bt.clicked.connect(self.clearFig);  self.btSave = bt; vb.addWidget( bt )
+    
+    def save_dat(self):
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","data files (*.dat)")
+        if fileName:
+            print "saving image to :", fileName
+            data = []
+            for line in self.figCan.axes.lines:
+                data.append( line.get_xdata() )
+            data = np.transpose( np.array(data) )
+            np.savetxt( fileName, data, fmt='%.6e', delimiter='\t', newline='\n', header='', footer='', comments='# ')
+
+    def save_png(self):
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
+        if fileName:
+            print "saving image to :", fileName
+            self.figCan.fig.savefig( fileName,bbox_inches='tight')
+
+    def clearFig(self):
+        self.figCan.axes.cla()
+        self.figCan.defaultPlotAxis()
+        self.figCan.draw()
+
 
 # =======================
 #         Editor
