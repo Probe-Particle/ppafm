@@ -33,10 +33,10 @@ class FigPlot(FigCanvas):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp,  width=width, height=height, dpi=dpi )
         self.defaultPlotAxis()
         #cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
-        
+
     def defaultPlotAxis(self):
         self.axes.grid()
-        self.axes.axhline(0.0, ls="--", c="k")
+        #self.axes.axhline(0.0, ls="--", c="k")
 
     def plotDatalines( self, dline ):
         self.axes.plot( dline[0], dline[1], label=dline[2] )
@@ -118,22 +118,32 @@ class PlotWindow(SlaveWindow):
         self.centralLayout.addWidget(self.figCan)
 
         vb = QtWidgets.QHBoxLayout(); self.centralLayout.addLayout(vb); #vb.addWidget( QtWidgets.QLabel("{iZPP, fMorse[1]}") )
-        bt = QtWidgets.QPushButton('Save.dat', self); bt.setToolTip('Save Curves to .dat file'); bt.clicked.connect(self.save_dat);  self.btSave = bt; vb.addWidget( bt )
-        bt = QtWidgets.QPushButton('Save.png', self); bt.setToolTip('Save Figure to .png file'); bt.clicked.connect(self.save_png);  self.btSave = bt; vb.addWidget( bt )
-        bt = QtWidgets.QPushButton('Clear', self);    bt.setToolTip('Clear figure');             bt.clicked.connect(self.clearFig);  self.btSave = bt; vb.addWidget( bt )
-    
+        self.btSaveDat =bt= QtWidgets.QPushButton('Save.dat', self); bt.setToolTip('Save Curves to .dat file'); bt.clicked.connect(self.save_dat); vb.addWidget( bt )
+        self.btSavePng =bt= QtWidgets.QPushButton('Save.png', self); bt.setToolTip('Save Figure to .png file'); bt.clicked.connect(self.save_png); vb.addWidget( bt )
+        self.btClear   =bt= QtWidgets.QPushButton('Clear', self);    bt.setToolTip('Clear figure');             bt.clicked.connect(self.clearFig); vb.addWidget( bt )
+
+        self.leXmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
+        self.leXmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
+        self.leYmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
+        self.leYmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
+
     def save_dat(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","data files (*.dat)")
         if fileName:
-            print "saving image to :", fileName
+            print "saving data to :", fileName
             data = []
             for line in self.figCan.axes.lines:
-                data.append( line.get_xdata() )
+                #print "for line ", line
+                data.append( line.get_ydata() )
+            #print "data = ", data
             data = np.transpose( np.array(data) )
-            np.savetxt( fileName, data, fmt='%.6e', delimiter='\t', newline='\n', header='', footer='', comments='# ')
+            #print "data = ", data
+            #np.savetxt( fileName, data, fmt='%.6e', delimiter='\t', newline='\n', header='', footer='', comments='# ')
+            np.savetxt( fileName, data )
 
     def save_png(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
+        fileName += ".png"
         if fileName:
             print "saving image to :", fileName
             self.figCan.fig.savefig( fileName,bbox_inches='tight')
@@ -142,7 +152,23 @@ class PlotWindow(SlaveWindow):
         self.figCan.axes.cla()
         self.figCan.defaultPlotAxis()
         self.figCan.draw()
-
+    
+    def setRange(self):
+        xmin=None;xmax=None;ymin=None;ymax=None
+        try:
+            xmin = float( self.leXmin.text() )
+            xmax = float( self.leXmax.text() )
+            self.figCan.axes.set_xlim( xmin, xmax )
+        except:
+            pass
+        try:
+            ymin = float( self.leYmin.text() )
+            ymax = float( self.leYmax.text() )
+            self.figCan.axes.set_ylim( ymin, ymax )
+        except:
+            pass
+        self.figCan.draw()
+        print "range: ", xmin, xmax, ymin, ymax
 
 # =======================
 #         Editor
