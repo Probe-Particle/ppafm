@@ -117,6 +117,14 @@ def set_fit_dict(opt=None):
                 constr+=constr_tmp
                 for val in value:
                     fit_dict['atom'].append(list(val))
+            elif (key is "ChargeCuDown"):
+                constr.append((-1,1))
+                fit_dict[key]=opt[key]
+                x.append(opt[key])
+            elif (key is "ChargeCuUp"):
+                constr.append((-1,1))
+                fit_dict[key]=opt[key]
+                x.append(opt[key])
             elif (key is "Ccharge"):
                 constr.append((-1,1))
                 fit_dict[key]=opt[key]
@@ -182,6 +190,8 @@ def comp_msd(x=[]):
 #    sys.exit()
     FFboltz=None
     fzs,PPCpos,PPOpos,lvecScan=PPH.perform_relaxation(lvec,FFLJC,FFLJO,FFel,FFTip=FFel[:,:,:,2].copy())
+
+    print "Copying PP positions"
     posXC=PPCpos[:,:,:,0].copy()
     posYC=PPCpos[:,:,:,1].copy()
     posZC=PPCpos[:,:,:,2].copy()
@@ -195,6 +205,7 @@ def comp_msd(x=[]):
 #    print maximum
 #    print "x shape", posX.shape
 #    print "TYT"
+    print "Getting interpolated values"
     Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
     XlistC=getFzlist(BIGarray=posXC, MIN=minimum, MAX=maximum, points=points)
     YlistC=getFzlist(BIGarray=posYC, MIN=minimum, MAX=maximum, points=points)
@@ -211,20 +222,28 @@ def comp_msd(x=[]):
                 pr+=1
     sys.exit()
     """
+    print "Computing msd"
+    Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
     dev_arr=np.abs(loaded_forces[:,3]-Fzlist*1.60217733e3)
     max_dev=np.max(dev_arr)
-    msd=np.sum(dev_arr**2) /len(Fzlist)
+    msd=np.sum(dev_arr**4) /len(Fzlist)
+    print "Printing fz pp"
+    with open("fz_pp.dat", 'w') as f:
+        for i,elem in enumerate(points):
+            f.write("{} {} {}".format(elem[0]*100,elem[1]*100,elem[2]*100))
+            f.write(" {} \n".format(Fzlist[i]*1.60217733e3))
 
     dev_O_x=np.sum((XlistO-loaded_o_pos[:,0])**2)/len(Fzlist)*10000
     dev_O_y=np.sum((YlistO-loaded_o_pos[:,1])**2)/len(Fzlist)*10000
     dev_O_z=np.sum((ZlistO-loaded_o_pos[:,2])**2)/len(Fzlist)*10000
+
+    print "Printing tip's trajectory"
     with open("trajectory.xyz", 'w') as f:
         for i,elem in enumerate(points):
             f.write("3\n\n")
             f.write("Cu {} {} {}\n".format(elem[0],elem[1],elem[2]))
             f.write("C {} {} {}\n".format(XlistC[i],YlistC[i],ZlistC[i]))
             f.write("O {} {} {}\n".format(XlistO[i],YlistO[i],ZlistO[i]))
-            
         
     print "Deviation: xpos, ypos, zpos, Fz: ", dev_O_x, dev_O_y, dev_O_z, msd
     with open ("iteration.txt", "a") as myfile:
@@ -238,6 +257,10 @@ if __name__=="__main__":
     "Carbon charge ", default=None)
     parser.add_option( "--Ocharge", action="store", type="float", help="fit "
     "Oxygen charge ", default=None)
+    parser.add_option( "--ChargeCuUp", action="store", type="float", help="fit "
+    "Cu Up charge", default=None)
+    parser.add_option( "--ChargeCuDown", action="store", type="float", help="fit "
+    "Cu Up charge", default=None)
     parser.add_option( "-s","--sigma", action="store", type="float", help="Fit "
     "the gaussian width of the charge distribution", default=None)
     parser.add_option( "--Cklat", action="store", type="float", help="Fit "

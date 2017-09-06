@@ -34,7 +34,6 @@ lib.setFFC_shape.restype  = None
 def setFFC_shape( n_, cell ):
 	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
 	lib.setFFC_shape( n, cell )
-
 lib.setFFO_shape.argtypes = [array1i,array2d]
 lib.setFFO_shape.restype  = None
 def setFFO_shape( n_, cell ):
@@ -164,7 +163,6 @@ lib.getCLenardJonesFF.restype   = None
 def getCLenardJonesFF( Rs, C6, C12 ):
 	natom = len(Rs) 
 	lib.getCLenardJonesFF( natom, Rs, C6, C12 )
-
 lib.getOLenardJonesFF.argtypes  = [ c_int,       array2d,      array1d,     array1d     ]
 lib.getOLenardJonesFF.restype   = None
 def getOLenardJonesFF( Rs, C6, C12 ):

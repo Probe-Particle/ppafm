@@ -47,14 +47,11 @@ def prepareArrays( FFC, FFO, Vpot ):
 		FFC = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
 	else:
 		PPU.params['gridN'] = np.shape( FFC )	
-
-
 	if ( FFO is None ):
 		gridN = PPU.params['gridN']
 		FFO = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
 	else:
 		PPU.params['gridN'] = np.shape( FFO )	
-
 	if ( Vpot ):
 		VC = np.zeros( (gridN[2],gridN[1],gridN[0])    )
 		VO = np.zeros( (gridN[2],gridN[1],gridN[0])    )
@@ -64,8 +61,6 @@ def prepareArrays( FFC, FFO, Vpot ):
 	core.setFFC( gridF=FFC, gridE=VC )
 	core.setFFO( gridF=FFO, gridE=VO )
 	return FFC,VC,FFO,VO 
-
-
 
 def computeLJ( Rs, iZs, FFLJC=None,FFLJO=None,FFparams=None, Vpot=False ):
 	if FFparams is None:
@@ -244,7 +239,12 @@ def perform_relaxation(lvec,FFLJC,FFLJO=None,FFel=None,FFTip=None,
 
 
     fzs,PPCpos,PPOpos = relaxedScan3D( xTips, yTips, zTips )
-    if FFTip is not None:
+    if FFTip is not None and PPU.params['tip'] is not None:
+        print "Adding the metallic tip vertical force"
+        FFTip*=PPU.params['tipcharge']
+        fzs+= getZTipForce(xTips, yTips, zTips, FFTip,shiftTz=PPU.params['tipZdisp'])
+        print "Finished with adding the metallic tip vertical force"
+    elif FFTip is not None:
         print "Adding the metallic tip vertical force"
         fzs += getZTipForce(xTips, yTips, zTips, FFTip*PPU.params['ChargeCuDown'])
         fzs += getZTipForce(xTips, yTips, zTips, FFTip*PPU.params['ChargeCuUp'],shiftTz=PPU.params['CuUpshift'] )

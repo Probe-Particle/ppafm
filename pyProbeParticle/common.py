@@ -22,6 +22,7 @@ params={
 'Oatom':   '8',
 'Ccharge':      0.00,
 'Ocharge':      0.00,
+'tipcharge':      0.00,
 'ChargeCuDown':   0.00,
 'ChargeCuUp':  0.00,
 'CuUpshift': 2.2422001068,
@@ -33,6 +34,9 @@ params={
 'Oklat': 5.0,
 'Ckrad': 20.00,
 'Okrad': 20.00,
+'tipZdisp': 0.0,
+'tip':None,
+'tipsigma':1.0,
 'sigma':1.0,
 'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
 'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
@@ -112,6 +116,8 @@ def loadParams( fname,FFparams=None ):
 						print key
 						params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
 						print key, params[key], words[1], words[2], words[3]
+				elif val is None:
+					params[key]=words[1]
 			else :
 				raise ValueError("Parameter {} is not "
                                 "known".format(key))
