@@ -87,14 +87,19 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def load(self, idata ):
         item  = self.items[ idata ]
         fname = self.leDir.text() + item[2].text()
+        _, fext = os.path.splitext( fname )
         try:
-            F, lvec, nDim, head = GU.loadXSF( fname )
-            #atoms, nDim, lvec = basUtils.loadXSFGeom( fname )
+            if   fext == ".xsf":
+                F, lvec, nDim, head = GU.loadXSF( fname )
+                #atoms, nDim, lvec = basUtils.loadXSFGeom( fname )
+            elif fext == ".cube":
+                F,lvec, nDim, head = GU.loadCUBE(fname)
             item[0] = F
             item[1] = lvec
             self.updateLincomb()
-        except:
+        except Exception as e:
             print "cannot load file: ", fname
+            print e
         
     def updateLincomb(self ):
         self.label = ""
@@ -112,9 +117,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         print "ix, iy", ix,iy
         ys = self.data[ :, iy, ix ]
         self.figCurv.show()
-
         label = self.label + ( "_%i_%i" %(ix,iy) )
-        self.figCurv.figCan.plotDatalines( ( range(len(ys)), ys,  label )  )
+        lvec = self.items[0][1]
+        z0 = lvec[3][0]
+        xs = np.linspace( z0, z0+lvec[3][2], len(ys), endpoint=False )
+        self.figCurv.figCan.plotDatalines( (xs, ys,  label) )
 
     def updateDataView(self):
         if self.data is None:

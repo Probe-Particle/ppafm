@@ -338,6 +338,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def saveFig(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
         if fileName:
+            fileName = guiw.correct_ext( fileName, ".png" )
             print "saving image to :", fileName
             self.figCan.fig.savefig( fileName,bbox_inches='tight')
 

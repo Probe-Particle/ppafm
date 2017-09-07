@@ -4,6 +4,14 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 from PyQt5 import QtCore, QtWidgets, QtGui
+import os
+
+def correct_ext(fname, ext ):
+    _, fext = os.path.splitext( fname )
+    if( fext.capitalize() != ext.capitalize() ):
+        fname += ext
+    return fname
+
 
 # =======================
 #     FigCanvas
@@ -130,8 +138,10 @@ class PlotWindow(SlaveWindow):
     def save_dat(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","data files (*.dat)")
         if fileName:
+            fileName = correct_ext( fileName, ".dat" )
             print "saving data to :", fileName
             data = []
+            data.append( np.array(self.figCan.axes.lines[0].get_xdata()) )
             for line in self.figCan.axes.lines:
                 #print "for line ", line
                 data.append( line.get_ydata() )
@@ -143,8 +153,8 @@ class PlotWindow(SlaveWindow):
 
     def save_png(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
-        fileName += ".png"
         if fileName:
+            fileName = correct_ext( fileName, ".png" )
             print "saving image to :", fileName
             self.figCan.fig.savefig( fileName,bbox_inches='tight')
 
