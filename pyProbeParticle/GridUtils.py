@@ -53,6 +53,11 @@ lib.interpolateLine_gridCoord.argtypes = [ c_int, array1d, array1d, array3d, arr
 lib.interpolateLine_gridCoord.restype  = None
 #interpolateLine_gridCoord                   = lib.interpolateLine_gridCoord
 
+#	void interpolateLine_gridCoord( int n, Vec3d * p1, Vec3d * p2, double * data, double * out )
+lib.interpolateLine_cartes.argtypes = [ c_int, array1d, array1d, array3d, array1d ]
+lib.interpolateLine_cartes.restype  = None
+#interpolateLine_gridCoord                   = lib.interpolateLine_gridCoord
+
 #	void interpolateQuad_gridCoord( int * nij, Vec3d * p00, Vec3d * p01, Vec3d * p10, Vec3d * p11, double * data, double * out )
 lib.interpolateQuad_gridCoord.argtypes = [ array1i, array1d, array1d, array1d, array1d, array3d, array2d ]
 lib.interpolateQuad_gridCoord.restype  = None
@@ -77,8 +82,11 @@ def interpolateLine( F, p1, p2, sz=500, cartesian=False ):
 	result = np.zeros( sz )
 	p00 = np.array ( p1, dtype='float64' )
 	p01 = np.array ( p2, dtype='float64' )
-	setGridN( np.array(F.shape, dtype='int32' ) )
-	lib.interpolateLine_gridCoord( sz, p00, p01, F, result )
+	#setGridN( np.array(F.shape, dtype='int32' ) )
+	if( cartesian ):
+		lib.interpolateLine_cartes   ( sz, p00, p01, F, result )
+	else:
+		lib.interpolateLine_gridCoord( sz, p00, p01, F, result )
 	return result
 
 def interpolateQuad( F, p00, p01, p10, p11, sz=(500,500) ):
@@ -419,6 +427,8 @@ def load_scal_field(fname, data_format="xsf"):
 	elif (data_format=="npy"):
 		data, lvec = loadNpy(fname)
 		ndim = data.shape
+	elif (data_format=="cube"):
+		data,lvec, ndim, head = loadCUBE(fname+".cube")
 	else:
 		print "I cannot load this format!"
 	return data.copy(), lvec, ndim;

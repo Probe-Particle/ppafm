@@ -84,6 +84,21 @@ extern "C" {
 		}
 	}
 
+	void interpolateLine_cartes( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
+		Vec3d dp,p; 
+		dp.set_sub( *p1, *p0 );
+		dp.mul( 1.0d/n );
+		p.set( *p0 );
+		for( int i=0; i<n; i++ ){ 
+			//printf( " i, n  %i %i  pi0  %f %f %f  \n", i, n,  p.x,p.y,p.z );
+			Vec3d gp;
+			gridShape.cartesian2grid( p, gp );
+			//printf( "%i (%g,%g,%g) (%g,%g,%g) \n", i, p.x, p.y, p.z,  gp.x, gp.y, gp.z );
+			out[i] = interpolate3DWrap( data, gridShape.n, gp );
+			p.add( dp );
+		}
+	}
+
 	void interpolateQuad_gridCoord( int * nij, Vec3d * p00, Vec3d * p01, Vec3d * p10, Vec3d * p11, double * data, double * out ){
 		int ni = nij[0];
 		int nj = nij[1];
