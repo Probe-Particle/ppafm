@@ -18,6 +18,10 @@ parser.add_option( "-i",   action="store", type="string", help="input file",    
 fname, fext = os.path.splitext( options.i ); fext = fext[1:]
 
 F,lvec,nDim=GU.load_scal_field(fname,data_format=fext)
+
+if( fext == 'cube' ):
+	F /= GU.Hartree2eV
+
 zs = np.linspace( 0, lvec[3,2], nDim[0] )
 print lvec
 

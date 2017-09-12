@@ -10,6 +10,7 @@ import cpp_utils
 # ============================== 
 
 bohrRadius2angstroem = 0.5291772109217
+Hartree2eV           = 27.211396132 
 
 # ============================== interface to C++ core 
 
@@ -287,7 +288,7 @@ def loadCUBE(fname):
 	head.append("BEGIN_BLOCK_DATAGRID_3D \n")
 	head.append("g98_3D_unknown \n")
 	head.append("DATAGRID_3D_g98Cube \n")
-	FF*=27.211396132
+	FF*=Hartree2eV  
 	return FF,lvec, nDim, head
 #================ WSxM output
 
