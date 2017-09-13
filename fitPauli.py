@@ -51,13 +51,24 @@ data            = np.transpose( np.genfromtxt("atom_density_zlines.dat") )
 
 zs_bare = data[0]
 
-#ilist =  range( len(atoms[0]) )
-#ilist = [0]
-ilist = [0,18,26]
+
 
 zmin = 1.2
 zmax = 2.2
 
+#REAs         = PPU.getAtomsREA( iZPP, Zs, self.TypeParams, alphaFac=-self.bxMorse.value() )
+
+FFparams = PPU.loadSpecies( fname=None )
+
+iZs = atoms[0]
+
+REAs     = PPU.getSampleAtomsREA( iZs, FFparams )
+
+print REAs
+
+ilist =  range( len(atoms[0]) )
+#ilist = [0]
+#ilist = [0,18,26]
 for i in ilist:
     fs = data[1+i]
     zs = zs_bare - atoms_z[i]
@@ -65,7 +76,10 @@ for i in ilist:
 
     Riso = getIsoArg( zs, fs, iso=0.017 )
     plt.axvline(Riso)
-    print " elem %i a_z %f Riso %f " %( atoms_e[i], atoms_z[i], Riso )
+    print " elem %i a_z %f Riso %f alpha %f alpha/2 %f" %( atoms_e[i], atoms_z[i], Riso, alpha, alpha/2.0 ), REAs[i]
+
+    REAs[i][0] = Riso
+    REAs[i][2] = alpha/2.0
 
     '''
     zmid   = (zmin+zmax)*0.5
@@ -88,6 +102,13 @@ plt.ylim(1e-8, 1e+5)
 plt.yscale("log")
 plt.axvline( zmin, ls="--", c="k" ); plt.axvline( zmax, ls="--", c="k" )
 plt.grid()
+
+
+atoms = np.transpose( np.array(atoms) )
+print atoms.shape, REAs.shape
+data =  np.concatenate( ( atoms[:,:4], REAs ), axis=1 )
+np.savetxt( "atom_REAs.xyz", data, header=("%i \n # e,xyz,REA" %len(data) ) )
+
 
 
 '''

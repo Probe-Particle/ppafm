@@ -41,6 +41,7 @@ def initArgsLJC(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
 
 def initArgsMorse(atoms,REAs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     nAtoms   = np.int32( len(atoms) ) 
+    print " initArgsMorse ", nAtoms
     mf       = cl.mem_flags
     cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
     cl_REAs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=REAs  )
@@ -105,7 +106,7 @@ def updateArgsMorse( kargs_old=None, atoms=None, REAs=None, poss=None, ctx=oclu.
         kargs = ( nAtoms, cl_atoms, cl_cREAs, cl_poss, cl_FE )
         return kargs
 
-def runLJC( kargs, nDim, local_size=(16,), queue=oclu.queue ):
+def runLJC( kargs, nDim, local_size=(32,), queue=oclu.queue ):
     global_size = (nDim[0]*nDim[1]*nDim[2],)
     FE          = np.zeros( nDim+(8,) , dtype=np.float32 ) # float8
     cl_program.evalLJC( queue, global_size, local_size, *(kargs))
@@ -118,7 +119,7 @@ def makeDivisibleUp( num, divisor ):
     if rest > 0: num += (divisor-rest)
     return num
 
-def runMorse( kargs, nDim, local_size=(16,), queue=oclu.queue ):
+def runMorse( kargs, nDim, local_size=(32,), queue=oclu.queue ):
 #def runMorse( kargs, nDim, local_size=(1,), queue=oclu.queue ):
 #def runMorse( kargs, nDim, local_size=None, queue=oclu.queue ):
     ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow

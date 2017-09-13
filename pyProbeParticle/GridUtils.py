@@ -288,7 +288,7 @@ def loadCUBE(fname):
 	head.append("BEGIN_BLOCK_DATAGRID_3D \n")
 	head.append("g98_3D_unknown \n")
 	head.append("DATAGRID_3D_g98Cube \n")
-	FF*=Hartree2eV  
+	FF*=Hartree2eV
 	return FF,lvec, nDim, head
 #================ WSxM output
 

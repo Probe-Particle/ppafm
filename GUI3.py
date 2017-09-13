@@ -212,8 +212,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #print self.str_Species
         #print self.str_Atoms;
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.str_Atoms.split('\n') )
-        Zs, xyzs, qs      = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
+        #Zs, xyzs, qs      = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
+        Zs, xyzs, qs      = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2], na=0, nb=0 )
         self.atoms        = FFcl.xyzq2float4(xyzs,qs);
+
+        print Zs
+        print xyzs
+        print qs
+        print self.atoms
 
         iZPP = self.bxZPP.value()
 
@@ -225,8 +231,27 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         elif self.mode == Modes.MorseFFel.name:
             #FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
             #self.FFel    = FFcl.XYZ2float4(FFel[:,:,:,0],FFel[:,:,:,1],FFel[:,:,:,2])
-            REAs         = PPU.getAtomsREA( iZPP, Zs, self.TypeParams, alphaFac=-self.bxMorse.value() )
+
+            self.perAtom = True
+            if self.perAtom:
+                atomREAs  = np.genfromtxt( "atom_REAs.xyz", skip_header=2 )
+                #print atomREAs
+                PP_R = self.TypeParams[iZPP][0]
+                PP_E = self.TypeParams[iZPP][1]
+                print " PP: ", iZPP, PP_R, PP_E
+                REAs = PPU.combineREA( PP_R, PP_E, atomREAs[:,4:7], alphaFac=self.bxMorse.value() )
+                #REAs = np.repeat( REAs, (PPU.params['nPBC'][0]*2+1)*(PPU.params['nPBC'][1]*2+1 ) , axis=0 )
+                #self.REAs = REAs[4:7].astype(np.float32)
+                #REAs[:,0] = 1.8 + 1.8
+                #REAs[:,1] = -0.01
+                #REAs[:,2] = -1.8
+                #REAs[:,3] = 0.0
+            else:
+                REAs     = PPU.getAtomsREA( iZPP, Zs, self.TypeParams, alphaFac=-self.bxMorse.value() )
             self.REAs    = REAs.astype(np.float32)
+            print "self.REAs.shape", self.REAs.shape
+            print "self.perAtom REAs", self.REAs
+
             self.ff_args = FFcl.updateArgsMorse( self.ff_args, self.atoms, self.REAs, self.poss )  
 
     def updateFromFF(self):

@@ -187,10 +187,8 @@ def PBCAtoms( Zs, Rs, Qs, avec, bvec, na=None, nb=None ):
     Zs_ = []
     Rs_ = []
     Qs_ = []
-    if na is None:
-        na=params['nPBC'][0]
-    if nb is None:
-        nb=params['nPBC'][1]
+    if na is None: na=params['nPBC'][0]
+    if nb is None: nb=params['nPBC'][1]
     for i in range(-na,na+1):
         for j in range(-nb,nb+1):
             for iatom in range(len(Zs)):
@@ -224,7 +222,6 @@ def atom2iZ( atm, elem_dict ):
 def atoms2iZs( names, elem_dict ): 
     return np.array( [atom2iZ(name,elem_dict) for name in names], dtype=np.int32 )
      
-
 def parseAtoms( atoms, elem_dict, PBC=True, autogeom=False, lvec=None ):
     Rs = np.array([atoms[1],atoms[2],atoms[3]]); 
     if elem_dict is None:
@@ -277,6 +274,17 @@ def getAtomsREA(  iZprobe, iZs,  FFparams, alphaFac=-1.0 ):
         REAs[ii,1] = -np.sqrt( FFparams[i][1] * FFparams[j][1] )
         REAs[ii,2] = FFparams[j][2] * alphaFac
     return REAs     #np.array( REAs, dtype=np.float32 )
+
+def getSampleAtomsREA( iZs, FFparams ):
+    return np.array( [ ( FFparams[i-1][0],FFparams[i-1][1],FFparams[i-1][2] ) for i in iZs ] )
+
+def combineREA( PP_R, PP_E, atomREAs, alphaFac=-1.0 ):
+    n   = len(atomREAs)
+    REAs  = np.zeros( (n,4) )
+    REAs[:,0] =          atomREAs[:,0] + PP_R;
+    REAs[:,1] = -np.sqrt( atomREAs[:,1] * PP_E );
+    REAs[:,2] = atomREAs[:,2] * alphaFac;
+    return REAs
 
 def getAtomsRE(  iZprobe, iZs,  FFparams ):
     n   = len(iZs)

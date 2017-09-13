@@ -117,12 +117,12 @@ __kernel void evalLJC(
     float8 fe  = (float8) (0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
     for (int i0=0; i0<nAtoms; i0+= nL ){
         int i = i0 + iL;
-        if(i>=nAtoms) break;
+        //if(i>=nAtoms) break;  // wrong !!!!
         LATOMS[iL] = atoms[i];
         LCLJS [iL] = cLJs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            fe += getLJC( LATOMS[j], LCLJS[j], pos );
+            if( (j+i0)<nAtoms ) fe += getLJC( LATOMS[j], LCLJS[j], pos );
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
@@ -131,9 +131,8 @@ __kernel void evalLJC(
     FE[iG] = fe;
 }
 
-
 __kernel void evalMorse(
-    int nAtoms, 
+    const int nAtoms, 
     __global float4*   atoms,
     __global float4*   REAs,
     __global float4*   poss,
@@ -144,17 +143,17 @@ __kernel void evalMorse(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+    
     float3 pos = poss[iG].xyz;
     float4 fe  = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
     for (int i0=0; i0<nAtoms; i0+= nL ){
         int i = i0 + iL;
-        if(i>=nAtoms) break;
+        //if(i>=nAtoms) break; // wrong !!!!
         lATOMs[iL] = atoms[i];
         lREAs [iL] = REAs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            fe += getMorse( pos - lATOMs[j].xyz, lREAs[j].xyz );
+            if( (j+i0)<nAtoms ) fe += getMorse( pos - lATOMs[j].xyz, lREAs[j].xyz );
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
