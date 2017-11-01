@@ -32,7 +32,12 @@ if __name__=="__main__":
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
     
     opt_dict = vars(options)
-    PPU.loadParams( 'params.ini' )
+    if os.path.isfile( 'params.ini' ):
+        FFparams=PPU.loadParams( 'params.ini' ) 
+    else:
+        print ">> LOADING default params.ini >> 's' ="  
+        FFparams = PPU.loadParams( cpp_utils.PACKAGE_PATH+'/defaults/params.ini' )
+    #PPU.loadParams( 'params.ini' )
     PPU.apply_options(opt_dict)    
 
     if os.path.isfile( 'atomtypes.ini' ):

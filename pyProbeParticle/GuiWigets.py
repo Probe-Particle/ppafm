@@ -23,7 +23,7 @@ class FigCanvas(FigureCanvasQTAgg):
     def __init__(self, parentWiget=None, parentApp=None,  width=5, height=4, dpi=100 ):
         self.fig  = Figure( figsize=(width, height), dpi=dpi )
         self.axes = self.fig.add_subplot(111)
-        #super(self.__class__, self).__init__( self.fig )
+                #super(self.__class__, self).__init__( self.fig )
         FigureCanvasQTAgg.__init__(self, self.fig )
         self.parent = parentApp
         self.setParent(parentWiget)
@@ -64,16 +64,18 @@ class FigImshow(FigCanvas):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp,  width=width, height=height, dpi=dpi )
         cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
             
-    def plotSlice(self, F ):
+    def plotSlice(self, F , title=None):
         self.axes.cla()
         #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
         self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='bicubic' )
+
         if self.cbar is None:
             self.cbar = self.fig.colorbar( self.img )
         self.cbar.set_clim( vmin=F.min(), vmax=F.max() )
         self.cbar.update_normal(self.img)
         self.axes.set_xlim(0,F.shape[0])
         self.axes.set_ylim(0,F.shape[1])
+        self.axes.set_title(title)
         self.fig.tight_layout()
         self.draw()
 
@@ -130,10 +132,11 @@ class PlotWindow(SlaveWindow):
         self.btSavePng =bt= QtWidgets.QPushButton('Save.png', self); bt.setToolTip('Save Figure to .png file'); bt.clicked.connect(self.save_png); vb.addWidget( bt )
         self.btClear   =bt= QtWidgets.QPushButton('Clear', self);    bt.setToolTip('Clear figure');             bt.clicked.connect(self.clearFig); vb.addWidget( bt )
 
-        self.leXmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
-        self.leXmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
-        self.leYmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
-        self.leYmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
+        
+        vb.addWidget( QtWidgets.QLabel("Xmin:") ); self.leXmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
+        vb.addWidget( QtWidgets.QLabel("Xmax:") ); self.leXmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
+        vb.addWidget( QtWidgets.QLabel("Ymin:") ); self.leYmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
+        vb.addWidget( QtWidgets.QLabel("Ymax:") ); self.leYmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
 
     def save_dat(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","data files (*.dat)")
