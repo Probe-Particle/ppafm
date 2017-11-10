@@ -148,8 +148,14 @@ def loadXSFGeom( fname ):
     for j in range(n):
         ws = f.readline().split();  e.append(int(ws[0])); x.append(float(ws[1])); y.append(float(ws[2])); z.append(float(ws[3])); q.append(0);
     for i in range(10000):
-        if 'BEGIN_DATAGRID_3D' in f.readline():	
+        if ('BEGIN_DATAGRID_3D') in f.readline():   
             break
+        if ('DATAGRID_3D_DENSITY') in f.readline(): 
+            break
+        if ('BEGIN_BLOCK_DATAGRID_3D') in f.readline():
+            break
+        if ('BEGIN_DATAGRID_3D_CONTCAR_v2xsf') in f.readline():
+            break   
     ws = f.readline().split(); nDim = [int(ws[0]),int(ws[1]),int(ws[2])]
     for j in range(4):
         ws = f.readline().split(); lvec.append( [float(ws[0]),float(ws[1]),float(ws[2])] )

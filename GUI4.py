@@ -155,11 +155,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
-        # --- btLoad
-        self.btLoad = QtWidgets.QPushButton('Load', self)
-        self.btLoad.setToolTip('Load inputs')
-        self.btLoad.clicked.connect(self.loadInputs_New)
-        vb.addWidget( self.btLoad )
         
         # --- EditAtoms
         bt = QtWidgets.QPushButton('Edit Geom', self)
@@ -184,6 +179,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.btRelax.setToolTip('relaxed scan')
         self.btRelax.clicked.connect(self.relax)
         vb.addWidget( self.btRelax )
+
+        self.main_widget.setFocus()
+        self.setCentralWidget(self.main_widget)
+        
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
+        
+        # --- btLoad
+        self.btLoad = QtWidgets.QPushButton('Load', self)
+        self.btLoad.setToolTip('Load inputs')
+        self.btLoad.clicked.connect(self.loadInputs_New)
+        vb.addWidget( self.btLoad )
         
         # --- btSave
         self.btSave = QtWidgets.QPushButton('save fig', self)
@@ -191,9 +198,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.btSave.clicked.connect(self.saveFig)
         vb.addWidget( self.btSave )
 
+        # --- btSaveW (W- wsxm)
+        self.btSaveW = QtWidgets.QPushButton('save data', self)
+        self.btSaveW.setToolTip('save current figure data')
+        self.btSaveW.clicked.connect(self.saveDataW)
+        vb.addWidget( self.btSaveW )
+
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
-        
         self.geomEditor    = guiw.EditorWindow(self,title="Geometry Editor")
         self.speciesEditor = guiw.EditorWindow(self,title="Species Editor")
         self.figCurv       = guiw.PlotWindow( parent=self, width=5, height=4, dpi=100)
@@ -383,6 +395,23 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             fileName = guiw.correct_ext( fileName, ".png" )
             print "saving image to :", fileName
             self.figCan.fig.savefig( fileName,bbox_inches='tight')
+
+    def saveDataW(self):
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","WSxM files (*.xyz)")
+        if fileName:
+            fileName = guiw.correct_ext( fileName, ".xyz" )
+            print "saving data to to :", fileName
+            iz,data = self.selectDataView()
+            npdata=data[iz]
+            xs = np.arange(npdata.shape[0] )
+            ys = np.arange(npdata.shape[1] )
+            Xs, Ys = np.meshgrid(xs,ys)
+            #print "data", npdata.shape #, npdata
+            #print "Xs", Xs.shape #, Xs
+            #print "Ys", Ys.shape #, Ys
+            GU.saveWSxM_2D(fileName, npdata, Xs, Ys)
+            #self.figCan.fig.savefig( fileName,bbox_inches='tight')
+
 
     def selectMode(self):
         self.mode = self.slMode.currentText()
