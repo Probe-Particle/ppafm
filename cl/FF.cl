@@ -69,7 +69,7 @@ __kernel void evalCoulomb(
 }
 
 __kernel void evalLJ(
-    int nAtoms, 
+    const int nAtoms, 
     __global float4* atoms,
     __global float2*  cLJs,
     __global float4*  poss,

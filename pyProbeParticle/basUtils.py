@@ -150,11 +150,11 @@ def loadXSFGeom( fname ):
     for i in range(10000):
         if ('BEGIN_DATAGRID_3D') in f.readline():   
             break
-        if ('DATAGRID_3D_DENSITY') in f.readline(): 
+        elif ('DATAGRID_3D_DENSITY') in f.readline(): 
             break
-        if ('BEGIN_BLOCK_DATAGRID_3D') in f.readline():
-            break
-        if ('BEGIN_DATAGRID_3D_CONTCAR_v2xsf') in f.readline():
+        #elif ('BEGIN_BLOCK_DATAGRID_3D') in f.readline():
+        #     break
+        elif ('BEGIN_DATAGRID_3D_CONTCAR_v2xsf') in f.readline():
             break   
     ws = f.readline().split(); nDim = [int(ws[0]),int(ws[1]),int(ws[2])]
     for j in range(4):
@@ -164,6 +164,23 @@ def loadXSFGeom( fname ):
     #nDim.reverse()
     #nDim = np.array(nDim)-1
     nDim = (nDim[0]-1,nDim[1]-1,nDim[2]-1)
+    print "lvec", lvec
+    #print "e,x,y,z", e,x,y,z
+    print "reading ended"
+    return [ e,x,y,z,q ], nDim, lvec
+
+def loadNPYGeom( fname ):
+    print "loading atoms"
+    tmp = np.load(fname+"_atoms.npy" )
+    e=tmp[0];x=tmp[1];y=tmp[2]; z=tmp[3]; q=tmp[4];
+    del tmp;
+    print "loading lvec"
+    lvec = np.load(fname+"_vec.npy" ) 
+    print "loading nDim"
+    tmp = np.load(fname+"_z.npy")
+    nDim = tmp.shape
+    del tmp;
+    print "nDim", nDim
     print "lvec", lvec
     print "e,x,y,z", e,x,y,z
     return [ e,x,y,z,q ], nDim, lvec
@@ -296,7 +313,8 @@ def loadGeometry(fname=None,params=None):
     elif(is_xsf):
         atoms, nDim, lvec = loadXSFGeom( fname)
     elif(is_npy):
-        raise ValueError("reading the geometry from the .npy file is not yet implemented")
+        atoms, nDim, lvec = loadNPYGeom( fname) # under development
+        #raise ValueError("reading the geometry from the .npy file is not yet implemented")
         #TODO: introduce a function which reads the geometry from the .npy file
     else:
         sys.exit("ERROR!!! Unknown format of geometry system. Supported formats are: .xyz, .cube, .xsf \n\n")

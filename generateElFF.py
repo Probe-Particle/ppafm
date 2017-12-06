@@ -66,6 +66,12 @@ if __name__=="__main__":
         head              = BU.primcoords2Xsf( atoms[0], [atoms[1],atoms[2],atoms[3]], lvec )
         print "atoms: ", atoms
         print "head:  ", head
+    else:
+        import pyProbeParticle.basUtils  as BU
+        atoms,nDim,lvec   = BU.loadGeometry( options.input, params=PPU.params )
+        head              = [ atoms[0], [atoms[1],atoms[2],atoms[3]], lvec ]
+        print "atoms: ", atoms
+        print "head:  ", head
         
     GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format, head=head)
     if options.energy :

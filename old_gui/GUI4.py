@@ -488,4 +488,3 @@ if __name__ == "__main__":
     aw = ApplicationWindow()
     aw.show()
     sys.exit(qApp.exec_())
-

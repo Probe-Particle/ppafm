@@ -31,11 +31,23 @@ def runCoulomb( kargs, nDim, local_size=(16,), ctx=oclu.ctx, queue=oclu.queue  )
 
 def initArgsLJC(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     nAtoms   = np.int32( len(atoms) ) 
+    print " initArgsLJC ", nAtoms
     mf       = cl.mem_flags
     cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
     cl_cLJs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  )
     cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ) # float4
     cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ) # float8
+    kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
+    return kargs
+
+def initArgsLJ(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+    nAtoms   = np.int32( len(atoms) ) 
+    print " initArgsLJ ", nAtoms
+    mf       = cl.mem_flags
+    cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
+    cl_cLJs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  )
+    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ) # float4
+    cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ) # float4
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
     return kargs
 
@@ -50,39 +62,46 @@ def initArgsMorse(atoms,REAs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     kargs = ( nAtoms, cl_atoms, cl_REAs, cl_poss, cl_FE )
     return kargs
 
+
 def updateArgsLJC( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
     mf       = cl.mem_flags
-    if atoms is not None:
-        nAtoms   = np.int32( len(atoms) )
-        if (kargs_old[0] != nAtoms):
-            print " NOT IMPLEMENTED :  kargs_old[0] != nAtoms"; exit()
+    if kargs_old is None:
+        return initArgsLJC( atoms, cLJs, poss, ctx=ctx, queue=queue )
+    else:
+        if atoms is not None:
+            nAtoms   = np.int32( len(atoms) )
+            if (kargs_old[0] != nAtoms):
+                print " kargs_old[0] != nAtoms; TRY only"#; exit()
+                return initArgsLJC( atoms, cLJS, poss, ctx=ctx, queue=queue )
+                #print " NOT IMPLEMENTED :  kargs_old[0] != nAtoms"; exit()
+            else:
+                cl_atoms=kargs_old[1]
+                cl.enqueue_copy( queue, cl_atoms, atoms )
         else:
             cl_atoms=kargs_old[1]
-            cl.enqueue_copy( queue, cl_atoms, atoms )
-    else:
-        cl_atoms=kargs_old[1]
-    if cLJs is not None:
-        print " NOT IMPLEMENTED : new cLJs"; exit()
-    else:
-        cl_cLJs=kargs_old[2]
-    if poss is not None:
-        print " NOT IMPLEMENTED : new poss"; exit()
-    else:
-        cl_poss=kargs_old[3]
+        if cLJs is not None:
+            print " NOT IMPLEMENTED : new cLJs"; exit()
+        else:
+            cl_cLJs=kargs_old[2]
+        if poss is not None:
+            print " NOT IMPLEMENTED : new poss"; exit()
+        else:
+            cl_poss=kargs_old[3]
+
     cl_FE=kargs_old[4]
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
     return kargs
 
 def updateArgsMorse( kargs_old=None, atoms=None, REAs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
     mf       = cl.mem_flags
-
     if kargs_old is None:
         return initArgsMorse( atoms, REAs, poss, ctx=ctx, queue=queue )
     else:
         if atoms is not None:
             nAtoms   = np.int32( len(atoms) )
             if (kargs_old[0] != nAtoms):
-                print " NOT IMPLEMENTED :  kargs_old[0] != nAtoms"; exit()
+                print " kargs_old[0] != nAtoms; TRY only"#; exit()
+                return initArgsMorse( atoms, REAs, poss, ctx=ctx, queue=queue )
             else:
                 cl_atoms=kargs_old[1]
                 cl.enqueue_copy( queue, cl_atoms, atoms )
@@ -98,7 +117,6 @@ def updateArgsMorse( kargs_old=None, atoms=None, REAs=None, poss=None, ctx=oclu.
         if poss is not None:
             cl_poss=kargs_old[3]
             cl.enqueue_copy( queue, cl_poss, poss )
-            #print " NOT IMPLEMENTED : new poss"; exit()
         else:
             cl_poss=kargs_old[3]
 
@@ -106,8 +124,39 @@ def updateArgsMorse( kargs_old=None, atoms=None, REAs=None, poss=None, ctx=oclu.
         kargs = ( nAtoms, cl_atoms, cl_cREAs, cl_poss, cl_FE )
         return kargs
 
+def updateArgsLJ( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
+    mf       = cl.mem_flags
+    if kargs_old is None:
+        return initArgsLJ( atoms, cLJs, poss, ctx=ctx, queue=queue )
+    else:
+        if atoms is not None:
+            nAtoms   = np.int32( len(atoms) )
+            if (kargs_old[0] != nAtoms):
+                print " kargs_old[0] != nAtoms; TRY only"#; exit()
+                return initArgsLJ( atoms, cLJs, poss, ctx=ctx, queue=queue )
+            else:
+                cl_atoms=kargs_old[1]
+                cl.enqueue_copy( queue, cl_atoms, atoms )
+        else:
+            cl_atoms=kargs_old[1]
+        if cLJs is not None:
+            cl_cLJs=kargs_old[2]
+            cl.enqueue_copy( queue, cl_cLJs, cLJs )
+        else:
+            cl_cLJs=kargs_old[2]
+        if poss is not None:
+            cl_poss=kargs_old[3]
+            cl.enqueue_copy( queue, cl_poss, poss )
+        else:
+            cl_poss=kargs_old[3]
+
+    cl_FE=kargs_old[4]
+    kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
+    return kargs
+
 def runLJC( kargs, nDim, local_size=(32,), queue=oclu.queue ):
     global_size = (nDim[0]*nDim[1]*nDim[2],)
+    #print "global_size:", global_size
     FE          = np.zeros( nDim+(8,) , dtype=np.float32 ) # float8
     cl_program.evalLJC( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy( queue, FE, kargs[4] )
@@ -119,11 +168,23 @@ def makeDivisibleUp( num, divisor ):
     if rest > 0: num += (divisor-rest)
     return num
 
+
+def runLJ( kargs, nDim, local_size=(32,), queue=oclu.queue ):
+    ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+    global_size = (ntot,)
+    #print "global_size:", global_size
+    FE          = np.zeros( nDim+(4,) , dtype=np.float32 ) # float4
+    cl_program.evalLJ( queue, global_size, local_size, *(kargs))
+    cl.enqueue_copy( queue, FE, kargs[4] )
+    queue.finish()
+    return FE
+
 def runMorse( kargs, nDim, local_size=(32,), queue=oclu.queue ):
 #def runMorse( kargs, nDim, local_size=(1,), queue=oclu.queue ):
 #def runMorse( kargs, nDim, local_size=None, queue=oclu.queue ):
     ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
     global_size = (ntot,)
+    #print "global_size:", global_size
     FE          = np.zeros( nDim+(4,) , dtype=np.float32 ) # float4
     cl_program.evalMorse( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy( queue, FE, kargs[4] )

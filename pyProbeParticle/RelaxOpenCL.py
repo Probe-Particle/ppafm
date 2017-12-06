@@ -44,7 +44,7 @@ def init( cl_context=oclu.ctx):
 
 def getInvCell( lvec ):
     cell = lvec[1:4,0:3]
-    invCell = np.linalg.inv(cell)
+    invCell = np.transpose( np.linalg.inv(cell) )
     print invCell
     invA = np.zeros( 4, dtype=np.float32); invA[0:3] = invCell[0]
     invB = np.zeros( 4, dtype=np.float32); invB[0:3] = invCell[1]
@@ -52,14 +52,16 @@ def getInvCell( lvec ):
     return (invA, invB, invC)
 
 def preparePoss( relax_dim, z0, start=(0.0,0.0), end=(10.0,10.0) ):
-    print "DEBUG preparePoss : ", relax_dim, z0, start, end
-    xs    = np.linspace(start[0],end[1],relax_dim[0])
-    ys    = np.linspace(start[0],end[1],relax_dim[1])
+    #print "DEBUG preparePoss : ", relax_dim, z0, start, end
+    ys    = np.linspace(start[0],end[0],relax_dim[0])
+    xs    = np.linspace(start[1],end[1],relax_dim[1])
     Xs,Ys = np.meshgrid(xs,ys)
     poss  = np.zeros(Xs.shape+(4,), dtype=np.float32)
-    poss[:,:,0] = Xs
-    poss[:,:,1] = Ys
+    poss[:,:,0] = Ys
+    poss[:,:,1] = Xs
     poss[:,:,2] = z0
+    #print "DEBUG: poss[:,:,0:2]: " , poss[:,:,0:2]
+
     return poss
 
 def prepareBuffers( FE, relax_dim, ctx=oclu.ctx ):

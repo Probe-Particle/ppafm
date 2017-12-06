@@ -363,11 +363,15 @@ def saveVecFieldXsf( fname, FF, lvec, head = XSF_HEAD_DEFAULT ):
 	saveXSF(fname+'_y.xsf', FF[:,:,:,1], lvec, head )
 	saveXSF(fname+'_z.xsf', FF[:,:,:,2], lvec, head )
 
-def saveVecFieldNpy( fname, FF, lvec ):
+def saveVecFieldNpy( fname, FF, lvec , head = XSF_HEAD_DEFAULT ):
 	np.save(fname+'_x.npy', FF[:,:,:,0] )
 	np.save(fname+'_y.npy', FF[:,:,:,1] )
 	np.save(fname+'_z.npy', FF[:,:,:,2] )
 	np.save(fname+'_vec.npy', lvec )
+	if (head != XSF_HEAD_DEFAULT ):
+		print "saving atoms"
+		tmp0=head[0]; q=np.zeros(len(tmp0));    #head: [e,[x,y,z],lvec]
+		np.save(fname+'_atoms.npy',[tmp0,head[1][0],head[1][1],head[1][2],q]) #atoms: [e, x, y, z, q]
 
 def limit_vec_field( FF, Fmax=100.0 ):
 	'''
@@ -386,7 +390,7 @@ def save_vec_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT
 	if (data_format=="xsf"):
 		saveVecFieldXsf(fname, data, lvec, head = head )
 	elif (data_format=="npy"):
-		saveVecFieldNpy(fname, data, lvec)
+		saveVecFieldNpy(fname, data, lvec, head = head )
 	else:
 		print "I cannot save this format!"
 
@@ -414,7 +418,7 @@ def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAUL
 	if (data_format=="xsf"):
 		saveXSF(fname+".xsf", data, lvec, head = head)
 	elif (data_format=="npy"):
-		saveNpy(fname, data, lvec)
+		saveNpy(fname, data, lvec, head = head)
 	else:
 		print "I cannot save this format!"
 

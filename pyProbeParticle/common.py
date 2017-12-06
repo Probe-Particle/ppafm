@@ -140,7 +140,7 @@ def loadSpeciesLines( lines ):
     for l in lines:
         l = l.split()
         if len(l) >= 5:
-            print l
+            # print l
             params.append( ( float(l[0]), float(l[1]), float(l[2]), int(l[3]), l[4] ) )
     return np.array( params, dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',np.int),('symbol', '|S10')])
 

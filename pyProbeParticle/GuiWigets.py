@@ -73,8 +73,8 @@ class FigImshow(FigCanvas):
             self.cbar = self.fig.colorbar( self.img )
         self.cbar.set_clim( vmin=F.min(), vmax=F.max() )
         self.cbar.update_normal(self.img)
-        self.axes.set_xlim(0,F.shape[0])
-        self.axes.set_ylim(0,F.shape[1])
+        self.axes.set_xlim(0,F.shape[1])
+        self.axes.set_ylim(0,F.shape[0])
         self.axes.set_title(title)
         self.fig.tight_layout()
         self.draw()
@@ -87,14 +87,14 @@ class FigImshow(FigCanvas):
         #print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' % (event.button, event.x, event.y, event.xdata, event.ydata))
         ix = int(event.xdata)
         iy = int(event.ydata) 
-        self.axes.plot( [ix], [iy], 'o' )
+        self.axes.plot( [ix] , [iy], 'o' )
         self.draw()
         #ys = self.data[ :, iy, ix ]
         #self.parent.figCurv.show()
         #self.parent.figCurv.figCan.plotDatalines( ( range(len(ys)), ys, "%i_%i" %(ix,iy) )  )
         #self.axes.plot( range(len(ys)), ys )
         self.parent.clickImshow(ix,iy)
-        return ix, iy
+        return iy, ix
 
 # =======================
 #     SlaveWindow
@@ -133,8 +133,8 @@ class PlotWindow(SlaveWindow):
         self.btClear   =bt= QtWidgets.QPushButton('Clear', self);    bt.setToolTip('Clear figure');             bt.clicked.connect(self.clearFig); vb.addWidget( bt )
 
         
-        vb.addWidget( QtWidgets.QLabel("Xmin:") ); self.leXmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
-        vb.addWidget( QtWidgets.QLabel("Xmax:") ); self.leXmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
+        vb.addWidget( QtWidgets.QLabel("Xmin (top):") ); self.leXmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
+        vb.addWidget( QtWidgets.QLabel("Xmax (bottom):") ); self.leXmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
         vb.addWidget( QtWidgets.QLabel("Ymin:") ); self.leYmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
         vb.addWidget( QtWidgets.QLabel("Ymax:") ); self.leYmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
 
