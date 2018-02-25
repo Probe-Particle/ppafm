@@ -34,7 +34,10 @@ parser.add_option( "--qrange", action="store", type="float", help="tip charge ra
 parser.add_option( "-a",       action="store", type="float", help="oscilation amplitude [A]" )
 parser.add_option( "--arange", action="store", type="float", help="oscilation amplitude range (min,max,n) [A]", nargs=3)
 parser.add_option( "--iets",   action="store", type="float", help="mass [a.u.]; bias offset [eV]; peak width [eV] ", nargs=3 )
+parser.add_option( "--tip_base_q",       action="store", type="float", help="tip_base charge [e]" )
+parser.add_option( "--tip_base_qrange",  action="store", type="float", help="tip_base charge range (min,max,n) [e]", nargs=3)
 
+parser.add_option( "--Fz",       action="store_true", default=False,  help="plot images for Fz " )
 parser.add_option( "--df",       action="store_true", default=False,  help="plot images for dfz " )
 parser.add_option( "--save_df" , action="store_true", default=False, help="save frequency shift as df.xsf " )
 parser.add_option( "--pos",      action="store_true", default=False, help="save probe particle positions" )
@@ -88,10 +91,18 @@ elif opt_dict['a'] is not None:
 	Amps = [ opt_dict['a'] ]
 else:
 	Amps = [ PPU.params['Amplitude'] ]
+# TbQs
+if opt_dict['tip_base_qrange'] is not None:
+	TbQs = np.linspace( opt_dict['tip_base_qrange'][0], opt_dict['tip_base_qrange'][1], opt_dict['tip_base_qrange'][2] )
+elif opt_dict['tip_base_q'] is not None:
+	TbQs = [ opt_dict['tip_base_q'] ]
+else:
+	TbQs = [ float(PPU.params['tip_base'][1]) ]
 
 print "Ks   =", Ks 
 print "Qs   =", Qs 
 print "Amps =", Amps 
+print "TbQs =", TbQs 
 
 #sys.exit("  STOPPED ")
 
@@ -114,7 +125,7 @@ if opt_dict['atoms'] or opt_dict['bonds']:
         	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
         else:
 	        FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-        iZs,Rs,Qstmp=PPH.parseAtoms(atoms, autogeom = False,PBC = options.noPBC, FFparams=FFparams)
+        iZs,Rs,Qstmp=PPH.parseAtoms(atoms, autogeom = False,PBC = False, FFparams=FFparams)
 	atom_colors = basUtils.getAtomColors(iZs,FFparams=FFparams)
         Rs=Rs.transpose().copy()
 	atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]
@@ -162,25 +173,55 @@ for iq,Q in enumerate( Qs ):
 		if ( ( opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM'] ) ):
 			try :
 				fzs, lvec, nDim = GU.load_scal_field( dirname+'/OutFz' , data_format=data_format)
+				if not ( (len(TbQs) == 1 ) and ( TbQs[0] == 0.0 ) ):
+					print "loading tip_base forces"
+					try:
+						fzt, lvect, nDimt = GU.load_scal_field( './OutFzTip_base' , data_format=data_format)
+					except:
+						print "error: ", sys.exc_info()
+						print "cannot load : ", './OutFzTip_base.'+data_format
 				for iA,Amp in enumerate( Amps ):
-					AmpStr = "/Amp%2.2f" %Amp
-					print "Amp= ",AmpStr
-					dirNameAmp = dirname+AmpStr
-					if not os.path.exists( dirNameAmp ):
-						os.makedirs( dirNameAmp )
-					dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
-					if opt_dict['save_df']:
-						GU.save_scal_field( dirNameAmp+'/df', dfs, lvec, data_format=data_format )
-					if opt_dict['df']:
-						print " plotting df : "
-						PPPlot.plotImages(
-                                                dirNameAmp+"/df"+atoms_str+cbar_str,
-                                                dfs,  slices = range( 0,
-                                                len(dfs) ), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
-					if opt_dict['WSxM']:
-						print " printing df into WSxM files :"
-						GU.saveWSxM_3D( dirNameAmp+"/df" , dfs , extent , slices=None)
-					del dfs
+					for iT, TbQ in enumerate( TbQs ):
+						if (TbQ == 0.0 ):
+							AmpStr = "/Amp%2.2f" %Amp
+							print "Amp= ",AmpStr
+							dirNameAmp = dirname+AmpStr
+							if not os.path.exists( dirNameAmp ):
+								os.makedirs( dirNameAmp )
+							dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
+						else:
+							AmpStr = "/Amp%2.2f_qTip%2.2f" %(Amp,TbQ)
+							print "Amp= ",AmpStr
+							dirNameAmp = dirname+AmpStr
+							if not os.path.exists( dirNameAmp ):
+								os.makedirs( dirNameAmp )
+							dfs = PPU.Fz2df( fzs + TbQ*fzt, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
+						if opt_dict['save_df']:
+							GU.save_scal_field( dirNameAmp+'/df', dfs, lvec, data_format=data_format )
+						if opt_dict['df']:
+							print " plotting df : "
+							PPPlot.plotImages(
+		                                        dirNameAmp+"/df"+atoms_str+cbar_str,
+		                                        dfs,  slices = range( 0,
+		                                        len(dfs) ), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+						if opt_dict['WSxM']:
+							print " printing df into WSxM files :"
+							GU.saveWSxM_3D( dirNameAmp+"/df" , dfs , extent , slices=None)
+						del dfs
+				del fzs
+			except:
+				print "error: ", sys.exc_info()
+				print "cannot load : ", dirname+'/OutFz.'+data_format
+		if opt_dict['Fz'] :
+			try :
+				fzs, lvec, nDim = GU.load_scal_field( dirname+'/OutFz' , data_format=data_format)
+				print " plotting  Fz : "
+				PPPlot.plotImages(dirname+"/Fz"+atoms_str+cbar_str,
+                                                  fzs,  slices = range( 0,
+                                                  len(fzs) ), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+				if opt_dict['WSxM']:
+					print " printing Fz into WSxM files :"
+					GU.saveWSxM_3D( dirname+"/Fz" , fzs , extent , slices=None)
 				del fzs
 			except:
 				print "error: ", sys.exc_info()

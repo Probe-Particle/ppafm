@@ -44,8 +44,8 @@ class GridShape {
 
 	inline void cartesian2grid( const Vec3d& cpos, Vec3d& gpos ){
 		gpos.x = cpos.dot( diCell.a );
-		gpos.x = cpos.dot( diCell.b );
-		gpos.x = cpos.dot( diCell.c );
+		gpos.y = cpos.dot( diCell.b );
+		gpos.z = cpos.dot( diCell.c );
 	};
 
 };

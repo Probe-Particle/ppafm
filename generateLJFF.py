@@ -54,6 +54,7 @@ if os.path.isfile( 'atomtypes.ini' ):
 else:
 	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
+PBC = False if not options.noPBC else PPU.params['PBC']
 
 iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = options.noPBC,
                          FFparams=FFparams )

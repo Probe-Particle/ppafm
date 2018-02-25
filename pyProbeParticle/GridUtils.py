@@ -91,9 +91,10 @@ def interpolateQuad( F, p00, p01, p10, p11, sz=(500,500) ):
 	lib.interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
 	return result
 
-def interpolate_cartesian( F, pos, cell=None, result=None ):
+def interpolate_cartesian( F, pos, cell=None, result=None ): 
 	if cell is not None:
 		#print np.array(F.shape)
+		setGridN(np.array(F.shape, dtype='int32'))
 		setGridCell( cell )
 	nDim = np.array(pos.shape)
 	print nDim

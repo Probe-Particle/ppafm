@@ -2,17 +2,12 @@
 
 import os
 import numpy as np
-#import matplotlib.pyplot as plt
 import sys
 
 import pyProbeParticle                as PPU     
 import pyProbeParticle.GridUtils      as GU
 import pyProbeParticle.core           as PPC
 import pyProbeParticle.HighLevel      as PPH
-
-#import PPPlot 		# we do not want to make it dempendent on matplotlib
-
-print "Amplitude ", PPU.params['Amplitude']
 
 # =============== arguments definition
 
@@ -22,12 +17,10 @@ parser.add_option( "-k",       action="store", type="float", help="tip stiffenss
 parser.add_option( "--krange", action="store", type="float", help="tip stiffenss range (min,max,n) [N/m]", nargs=3)
 parser.add_option( "-q",       action="store", type="float", help="tip charge [e]" )
 parser.add_option( "--qrange", action="store", type="float", help="tip charge range (min,max,n) [e]", nargs=3)
-#parser.add_option( "-a",       action="store", type="float", help="oscilation amplitude [A]" )
-#parser.add_option( "--arange", action="store", type="float", help="oscilation amplitude range (min,max,n) [A]", nargs=3)
-#parser.add_option( "--img",    action="store_true", default=False, help="save images for dfz " )
-#parser.add_option( "--df" ,    action="store_true", default=False, help="save frequency shift as df.xsf " )
 parser.add_option( "-b", "--boltzmann" ,action="store_true", default=False, help="calculate forces with boltzmann particle" )
 parser.add_option( "--bI" ,action="store_true", default=False, help="calculate current between boltzmann particle and tip" )
+
+parser.add_option( "--tip_base",       action="store_true", default=False, help="interpolates F_z field in the position of the tip_base" )
 
 parser.add_option( "--pos",       action="store_true", default=False, help="save probe particle positions" )
 parser.add_option( "--vib",       action="store", type="int", default=-1, help="map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs" )
@@ -80,22 +73,18 @@ if options.tipspline is not None :
 	except:
 		print "cannot load tip spline from "+options.tipspline
 		sys.exit()
-	
-# Amps
-#if opt_dict['arange'] is not None:
-#	Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], opt_dict['arange'][2] )
-#elif opt_dict['a'] is not None:
-#	Amps = [ opt_dict['a'] ]
-#else:
-#	Amps = [ PPU.params['Amplitude'] ]
+
+tip_base=options.tip_base
+if not tip_base:
+    tip_base = True if ((PPU.params["tip_base"][0]  != 'None') and (PPU.params["tip_base"][0] != None)) else False
+
 
 print "Ks   =", Ks 
 print "Qs   =", Qs 
-#print "Amps =", Amps 
+print "tip_base =", tip_base
 
 print " ============= RUN  "
 
-#PPPlot.params = PPU.params 			# now we dont use PPPlot here
 if ( charged_system == True):
         print " load Electrostatic Force-field "
         FFel, lvec, nDim = GU.load_vec_field( "FFel" ,data_format=data_format)
@@ -138,15 +127,22 @@ for iq,Q in enumerate( Qs ):
 		#print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
 		if opt_dict['disp']:
 			GU.save_vec_field( dirname+'/PPdisp', rPPs-rTips+PPU.params['r0Probe'][0], lvecScan, data_format=data_format )
-		if opt_dict['pos']:
+		if ( opt_dict['pos'] or opt_dict['stm']):
 			GU.save_vec_field( dirname+'/PPpos', rPPs, lvecScan, data_format=data_format ) 
 			# Please do not change this procedure, especialy the lvecScan - it is important for the STM calculations!
 		if options.bI:
 			print "Calculating current from tip to the Boltzmann particle:"
 			I_in, lvec, nDim = GU.load_scal_field('I_boltzmann', data_format=data_format)
-			I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None ) 
+			I_out = GU.interpolate_cartesian( I_in, rPPs, cell=lvec[1:,:], result=None ) 
 			del I_in;
 			GU.save_scal_field( dirname+'/OutI_boltzmann', I_out, lvecScan, data_format=data_format)
+		if tip_base:
+			print "Interpolating FFel_tip_z in position of the tip_base. Beware, this is higher than the PP."
+			Ftip_in, lvec, nDim = GU.load_scal_field('FFel_tip', data_format=data_format)
+			Ftip_out = GU.interpolate_cartesian( Ftip_in, rTips, cell=lvec[1:,:], result=None ) 
+			del Ftip_in;
+			GU.save_scal_field( './OutFzTip_base', Ftip_out, lvecScan, data_format=data_format)
+
 		# the rest is done in plot_results.py; For df, go to plot_results.py
 
 print " ***** ALL DONE ***** "

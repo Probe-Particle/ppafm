@@ -23,7 +23,7 @@ params={
 'useLJ':True,
 'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
 'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
-'tip':'s',
+'tip':         's',
 'sigma':0.7,
 'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
 'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
@@ -36,7 +36,8 @@ params={
 'plotSliceBy'  :  1,
 'imageInterpolation': 'bicubic',
 'colorscale'   : 'gray',
-'ddisp'        :  0.05
+'ddisp'        :  0.05 ,
+'tip_base':  np.array( ['None', 0.00 ]) #.astype(np.string)
 }
 
 # ==============================
@@ -96,6 +97,9 @@ def loadParams( fname,FFparams=None ):
 						print key
 						params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
 						print key, params[key], words[1], words[2], words[3]
+					else: #val.dtype == np.str:
+						params[key] = np.array([ str(words[1]), float(words[2]) ])
+						print key, params[key], words[1], words[2]
 	fin.close()
 	if (params["gridN"][0]<=0):
 		params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
@@ -118,6 +122,8 @@ def loadParams( fname,FFparams=None ):
                 except:
                         raise ValueError("The element {} for the ProbeParticle "
                         "was not found".format(params['probeType']))
+	params["tip"] = params["tip"].replace('"', ''); params["tip"] = params["tip"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
+	params["tip_base"][0] = params["tip_base"][0].replace('"', ''); params["tip_base"][0] = params["tip_base"][0].replace("'", ''); ### necessary for working even with quotemarks in params.ini
                     
 
 
