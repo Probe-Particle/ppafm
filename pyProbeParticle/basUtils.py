@@ -216,8 +216,8 @@ def loadAtomsCUBE( fname ):
 
 def primcoords2Xsf( iZs, xyzs, lvec ):
     import cStringIO as SIO
-    print "iZs:  ", iZs
-    print "xyzs: ", xyzs
+    #print "iZs:  ", iZs
+    #print "xyzs: ", xyzs
     print "lvec: ", lvec
     sio=SIO.StringIO()
     sio.write("CRYSTAL\n")

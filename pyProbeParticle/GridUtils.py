@@ -320,7 +320,7 @@ def saveWSxM_3D( prefix, data, extent, slices=None ):
 
 #================ Npy
 
-def saveNpy(fname, data, lvec ):
+def saveNpy(fname, data, lvec , head=None):
 	np.save(fname+'.npy', data)
 	np.save(fname+'_vec.npy',lvec)
 

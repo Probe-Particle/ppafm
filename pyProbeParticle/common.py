@@ -22,12 +22,12 @@ params={
     'moleculeShift':  np.array( [  0.0,      0.0,    0.0 ] ),
     'probeType':   'O',
     'charge':      0.00,
-    'useLJ':True,
+    'ffModel':    'LJ',
     'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
     'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
     'klat': 0.5,
     'krad': 20.00,
-    'tip':'s',
+    'tip':  's',
     'sigma': 0.7,
     'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
     'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
@@ -42,6 +42,8 @@ params={
     'colorscale'   : 'gray',
     'ddisp'        :  0.05,
     'aMorse'       :  -1.6,
+    'tip_base':  np.array( ['None', 0.00 ]),
+    '#' : None
 }
 
 # ==============================
@@ -77,6 +79,7 @@ def loadParams( fname ):
             if key in params:
                 if key == 'stiffness': raise ValueError("Attention!!! Parameter stifness is deprecated, please define krad and klat instead")
                 val = params[key]
+                if key[0][0] == '#' : continue 
                 print key,' is class ', val.__class__
                 if   isinstance( val, bool ):
                     word=words[1].strip()
@@ -102,6 +105,9 @@ def loadParams( fname ):
                         print key
                         params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
                         print key, params[key], words[1], words[2], words[3]
+                    else: #val.dtype == np.str:
+                        params[key] = np.array([ str(words[1]), float(words[2]) ])
+                        print key, params[key], words[1], words[2]
             else :
                 raise ValueError("Parameter {} is not known".format(key))
     fin.close()
@@ -109,6 +115,9 @@ def loadParams( fname ):
         params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
         params["gridN"][1]=round(np.linalg.norm(params["gridB"])*10)
         params["gridN"][2]=round(np.linalg.norm(params["gridC"])*10)
+
+    params["tip"] = params["tip"].replace('"', ''); params["tip"] = params["tip"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
+    params["tip_base"][0] = params["tip_base"][0].replace('"', ''); params["tip_base"][0] = params["tip_base"][0].replace("'", ''); ### necessary for working even with quotemarks in params.ini
 
 def apply_options(opt):
     print "!!!! OVERRIDE params !!!! in Apply options:"
