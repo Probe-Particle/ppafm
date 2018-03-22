@@ -56,26 +56,22 @@ elif(options.input.lower().endswith(".cube") ):
 else:
     sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
 rho = None
-multipole = {PPU.params['tip']:1.0}
-sigma = PPU.params['sigma']
+sigma = options.sigma if ( options.sigma > 0.0) else PPU.params['sigma']
+multipole = None
 
 if options.tip.endswith(".xsf"):
     rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(options.tip)
     if any(nDim_tip != nDim):
         sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")    
 else:
-    rho = None
-    multipole = {options.tip:1.0} if ( options.tip in {'s','px','py','pz','dx2','dy2','dz2','dxy','dxz','dyz'} ) else multipole
-    sigma = options.sigma if ( options.sigma > 0.0) else sigma
+    multipole = {options.tip:1.0} if ( options.tip in {'s','px','py','pz','dx2','dy2','dz2','dxy','dxz','dyz'} ) else {PPU.params['tip']:1.0}
 
 print " computing convolution with tip by FFT "
-Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma = sigma, multipole = multipole)
-FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
+Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma = sigma, multipole = multipole); del rho, multipole;
+FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z); del Fel_x,Fel_y,Fel_z;
 
 print " saving electrostatic forcefield "
-GU.save_vec_field("FFel",FFel,lvec,data_format=data_format)
-
-del Fel_x,Fel_y,Fel_z, FFel, rho, multipole;
+GU.save_vec_field("FFel",FFel,lvec,data_format=data_format); del FFel;
 
 tip_base = options.tip_base if ( options.tip_base is not 'None') else PPU.params["tip_base"][0]
 
@@ -84,7 +80,7 @@ if ((tip_base  != 'None') and (tip_base != None)):
     print " chosen tip_base multipole: ", tip_base
     print " computing convolution with tip_base by FFT "
     rho = None
-    Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma = sigma, multipole = {tip_base:1.0} )
+    Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma = sigma, multipole = {tip_base:1.0} ); del rho;
     #FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
     print " saving z-electrostatic forcefield of the tip_base"
     GU.save_scal_field("FFel_tip",Fel_z,lvec,data_format=data_format)

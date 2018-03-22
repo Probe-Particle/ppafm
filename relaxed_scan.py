@@ -142,6 +142,7 @@ for iq,Q in enumerate( Qs ):
 			Ftip_out = GU.interpolate_cartesian( Ftip_in, rTips, cell=lvec[1:,:], result=None ) 
 			del Ftip_in;
 			GU.save_scal_field( './OutFzTip_base', Ftip_out, lvecScan, data_format=data_format)
+			tip_base = False
 
 		# the rest is done in plot_results.py; For df, go to plot_results.py
 
