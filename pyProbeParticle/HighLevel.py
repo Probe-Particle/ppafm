@@ -201,7 +201,7 @@ def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None):
             sys.exit()
     core.setFF( FFLJ )
     FF=None
-    xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
+    xTips,yTips,zTips,lvecScan,extent = PPU.prepareScanGrids( )
     FF = FFLJ.copy()
     if ( FFel is not None):
         FF += FFel * PPU.params['charge']

@@ -230,20 +230,20 @@ def prepareScanGrids( ):
 	The origin of the grid is going to be shifted (from scanMin) by the bond length between the "Probe Particle"
 	and the "Apex", so that while the point of reference on the tip used to interpret scanMin  was the Apex,
 	the new point of reference used in the XSF output will be the Probe Particle.
-'''
+	'''
 	zTips  = np.arange( params['scanMin'][2], params['scanMax'][2]+0.00001, params['scanStep'][2] )
 	xTips  = np.arange( params['scanMin'][0], params['scanMax'][0]+0.00001, params['scanStep'][0] )
 	yTips  = np.arange( params['scanMin'][1], params['scanMax'][1]+0.00001, params['scanStep'][1] )
 	extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
 	lvecScan =np.array([
-	[(params['scanMin'] + params['r0Probe'])[0],
-	 (params['scanMin'] + params['r0Probe'])[1],
-	 (params['scanMin'] - params['r0Probe'])[2] ] ,
+	[(params['scanMin'] + 0*params['r0Probe'])[0], #shift by r0Probe - a inconsistent way to implement coordinates
+	 (params['scanMin'] + 0*params['r0Probe'])[1], #with respect to the unperturbed probe particle position
+	 (params['scanMin'] - 0*params['r0Probe'])[2] ] ,
 	[        (params['scanMax']-params['scanMin'])[0],0.0,0.0],
 	[0.0,    (params['scanMax']-params['scanMin'])[1],0.0    ],
 	[0.0,0.0,(params['scanMax']-params['scanMin'])[2]        ]
 	]).copy() 
-	return xTips,yTips,zTips,lvecScan
+	return xTips,yTips,zTips,lvecScan,extent
 
 def lvec2params( lvec ):
 	params['gridA'] = lvec[ 1,: ].copy()

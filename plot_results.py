@@ -98,8 +98,7 @@ print "Amps =", Amps
 print " ============= RUN  "
 
 dz  = PPU.params['scanStep'][2]
-xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
-extent = ( xTips[0], xTips[-1], yTips[0], yTips[-1] )
+xTips,yTips,zTips,lvecScan,extent = PPU.prepareScanGrids( )
 
 atoms_str=""
 atoms = None
@@ -129,7 +128,7 @@ for iq,Q in enumerate( Qs ):
 			try:
 				PPpos, lvec, nDim = GU.load_vec_field( dirname+'/PPpos' ,data_format=options.data_format)
 				print " plotting PPpos : "
-				PPPlot.plotDistortions( dirname+"/xy"+atoms_str+cbar_str, PPpos[:,:,:,0], PPpos[:,:,:,1], slices = range( 0, len(PPpos) ), BG=PPpos[:,:,:,2], extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, markersize=2.0, cbar=opt_dict['cbar'] )
+				PPPlot.plotDistortions( dirname+"/xy"+atoms_str+cbar_str, PPpos[:,:,:,0], PPpos[:,:,:,1], slices = range( 0, len(PPpos) ), BG=PPpos[:,:,:,2], zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, markersize=2.0, cbar=opt_dict['cbar'] )
 				del PPpos
 			except:
 				print "error: ", sys.exc_info()
@@ -145,15 +144,14 @@ for iq,Q in enumerate( Qs ):
 						os.makedirs( dirNameAmp )
 					dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
 					if opt_dict['save_df']:
+						lvec[0][2]+= Amp/2.0
+						lvec[3][2]-= Amp
 						GU.save_scal_field( dirNameAmp+'/df', dfs, lvec,data_format=options.data_format )
 					if opt_dict['df']:
 						print " plotting df : "
 						PPPlot.plotImages(
-                                                dirNameAmp+"/df"+atoms_str+cbar_str,
-                                                dfs,  slices = range( 0,
-                                                len(dfs) ),
-                                                zs=zTips+PPU.params['Amplitude']/2.0,
-                                                extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+							dirNameAmp+"/df"+atoms_str+cbar_str,dfs,  slices = range( 0,len(dfs) ), zs=zTips+Amp/2.0,
+							extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
 					if opt_dict['WSxM']:
 						print " printing df into WSxM files :"
 						GU.saveWSxM_3D( dirNameAmp+"/df" , dfs , extent , slices=None)
@@ -167,9 +165,8 @@ for iq,Q in enumerate( Qs ):
 				I, lvec, nDim = GU.load_scal_field( dirname+'/OutI_boltzmann', data_format=options.data_format )
 				print " plotting Boltzmann current: "
 				PPPlot.plotImages(
-                                                dirname+"/OutI"+atoms_str+cbar_str,
-                                                I,  slices = range( 0,
-                                                len(I) ), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+					dirname+"/OutI"+atoms_str+cbar_str,I,  slices = range( 0,
+					len(I) ), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
 				del I
 			except:
 				print "error: ", sys.exc_info()
