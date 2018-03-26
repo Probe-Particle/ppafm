@@ -44,7 +44,7 @@ def parseAtoms( atoms, autogeom = False, PBC = True, FFparams=None ):
 	return iZs,Rs,Qs
 
 
-def perpareArrays( FF, Vpot ):
+def prepareArrays( FF, Vpot ):
 	if ( FF is None ):
 		gridN = PPU.params['gridN']
 		FF = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
@@ -60,14 +60,14 @@ def perpareArrays( FF, Vpot ):
 def computeLJ( Rs, iZs, FFLJ=None, FFparams=None, Vpot=False ):
 	if FFparams is None:
 		raise ValueError("You should provide a list of LJ parameters!")
-	FFLJ,VLJ = perpareArrays( FFLJ, Vpot )
+	FFLJ,VLJ = prepareArrays( FFLJ, Vpot )
 	C6,C12   = PPU.getAtomsLJ( PPU.params['probeType'], iZs, FFparams )
 	#core.setFF( gridF=FFLJ, gridE=VLJ )
 	core.getLenardJonesFF( Rs, C6, C12 )
 	return FFLJ, VLJ
 
 def computeCoulomb( Rs, Qs, FFel=None , Vpot=False ):
-	FFel,Vel = perpareArrays( FFel, Vpot )
+	FFel,Vel = prepareArrays( FFel, Vpot )
 	#core.setFF( gridF=FFel, gridE=Vel )
 	core.getCoulombFF ( Rs, Qs * PPU.CoulombConst )
 	return FFel, Vel
