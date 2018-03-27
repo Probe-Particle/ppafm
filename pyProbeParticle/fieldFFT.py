@@ -208,7 +208,7 @@ def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None):
 	zsize, dz = getSize('z', dims, sampleSize)
 	dd = (dx, dy, dz)
 	X, Y, Z = getMGrid(dims, dd)
-	if rho == None:
+	if rho is None:
 		print '--- Get Probe Density ---'
 		rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole)
 	else:
@@ -229,7 +229,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
 	dd = (dx, dy, dz)
 	print '--- X, Y, Z ---'
 	X, Y, Z = getMGrid(dims, dd)
-	if rho == None:
+	if rho is None:
 		print '--- Get Probe Density ---'
 		rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole)
 	else:
