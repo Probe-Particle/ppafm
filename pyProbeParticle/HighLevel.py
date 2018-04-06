@@ -190,13 +190,16 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None, tilt=0.0 
     print " ========= get electrostatic forcefiled from hartree "
     rho = None
     multipole = None
-    if tip in {'s','px','py','pz','dx2','dy2','dz2','dxy','dxz','dyz'}:
-        rho = None
-        multipole={tip:1.0}
-    elif tip.endswith(".xsf"):
-        rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(tip)
-        if any(nDim_tip != nDim):
-            sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")    
+    if type(tip) is dict:
+        multipole = tip
+    else:
+        if tip in {'s','px','py','pz','dx2','dy2','dz2','dxy','dxz','dyz'}:
+            rho = None
+            multipole={tip:1.0}
+        elif tip.endswith(".xsf"):
+            rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(tip)
+            if any(nDim_tip != nDim):
+                sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")
     print " computing convolution with tip by FFT "
     #Fel_x,Fel_y,Fel_z      = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole)
     Fel_x,Fel_y,Fel_z, Vout = fFFT.potential2forces_mem( V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole, tilt=tilt )

@@ -14,8 +14,19 @@ import pyProbeParticle.cpp_utils      as cpp_utils
 #import PPPlot 		# we do not want to make it dempendent on matplotlib
 print "Amplitude ", PPU.params['Amplitude']
 
-# =============== arguments definition
+def rotVec( v, a ):
+    ca=np.cos(a);      sa=np.sin(a)
+    x=ca*v[0]-sa*v[1]; y=sa*v[0]+ca*v[1];
+    v[0]=x; v[1]=y;
+    return v
 
+def rotFF( Fx,Fy, a ):
+    ca=np.cos(a);      sa=np.sin(a)
+    Fx_=ca*Fx-sa*Fy; Fy_=sa*Fx+ca*Fy;
+    return Fx_,Fy_
+
+
+# =============== arguments definition
 
 if __name__=="__main__":
     from optparse import OptionParser
@@ -30,6 +41,7 @@ if __name__=="__main__":
     parser.add_option( "--disp",      action="store_true", default=False, help="save probe particle displacements")
     parser.add_option( "--vib",       action="store", type="int", default=-1, help="map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs" )
     parser.add_option( "--tipspline", action="store", type="string", help="file where spline is stored", default=None )
+    parser.add_option( "--rotate", action="store", type="float", help="rotates sampling in xy-plane", default=0.0 )
     parser.add_option("-f","--data_format" , action="store" , type="string",help="Specify the input/output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
@@ -64,11 +76,17 @@ if __name__=="__main__":
     if ( charged_system == True):
         print " load Electrostatic Force-field "
         FFel, lvec, nDim = GU.load_vec_field( "FFel" ,data_format=options.data_format)
+        FFel[0,:,:,:],FFel[1,:,:,:] = rotFF( FFel[0,:,:,:],FFel[1,:,:,:], opt_dict['rotate'] )
     if (options.boltzmann  or options.bI) :
         print " load Boltzmann Force-field "
         FFboltz, lvec, nDim = GU.load_vec_field( "FFboltz", data_format=options.data_format)
+        FFboltz[0,:,:,:],FFboltz[1,:,:,:] = rotFF( FFboltz[0,:,:,:],FFboltz[1,:,:,:], opt_dict['rotate'] )
     print " load Lenard-Jones Force-field "
     FFLJ, lvec, nDim = GU.load_vec_field( "FFLJ" , data_format=options.data_format)
+    FFLJ[0,:,:,:],FFLJ[1,:,:,:] = rotFF( FFLJ[0,:,:,:],FFLJ[1,:,:,:], opt_dict['rotate'] )
+    lvec[1,:] = rotVec( lvec[1,:], opt_dict['rotate'] ) 
+    lvec[2,:] = rotVec( lvec[2,:], opt_dict['rotate'] ) 
+    print lvec
     PPU.lvec2params( lvec )
 
     for iq,Q in enumerate( Qs ):

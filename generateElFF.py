@@ -56,6 +56,13 @@ if __name__=="__main__":
         print "Use loadCUBE"
         V, lvec, nDim, head = GU.loadCUBE(options.input)
     
+    if PPU.params['tip']==".py":
+        #import tip
+        execfile("tip.py")
+        print tipMultipole
+        PPU.params['tip'] = tipMultipole
+        print " PPU.params['tip'] ", PPU.params['tip']
+    
     FFel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
     
     print " saving electrostatic forcefiled "

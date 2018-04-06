@@ -261,6 +261,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     if rho == None:
         print '--- Get Probe Density ---'
         rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt )
+        GU.saveXSF( "rhoTip.xsf", rho, lvec )
     else:
         rho[:,:,:] = rho[::-1,::-1,::-1].copy()
     if doForce:
