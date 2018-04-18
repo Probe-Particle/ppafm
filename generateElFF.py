@@ -59,9 +59,9 @@ rho = None
 sigma = options.sigma if ( options.sigma > 0.0) else PPU.params['sigma']
 multipole = None
 
-if options.tip.endswith(".xsf"):
-    rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(options.tip)
-    if any(nDim_tip != nDim):
+if (options.tip.endswith(".xsf") or options.tip.endswith(".cube") ) :
+    rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(options.tip) if (options.tip.endswith(".xsf")) else GU.loadCUBE(options.tip)
+    if (nDim_tip != nDim):
         sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")    
 else:
     multipole = {options.tip:1.0} if ( options.tip in {'s','px','py','pz','dx2','dy2','dz2','dxy','dxz','dyz'} ) else {PPU.params['tip']:1.0}
