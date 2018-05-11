@@ -267,7 +267,7 @@ def loadCUBE(fname):
 	nDim = np.array( [int(sth1[0]),int(sth2[0]),int(sth3[0])] )
 	lvec = np.zeros((4, 3))
 	for jj in range(3):
-		lvec[0,jj]=float(sth0[jj+1])
+		lvec[0,jj]=float(sth0[jj+1])*bohrRadius2angstroem
 		lvec[1,jj]=float(sth1[jj+1])*int(sth1[0])*bohrRadius2angstroem  # bohr_radius ?
 		lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*bohrRadius2angstroem
 		lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*bohrRadius2angstroem
