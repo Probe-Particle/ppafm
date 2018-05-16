@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver"; # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 import matplotlib.pyplot as plt
 import sys
+import scipy
 
 '''
 import basUtils
@@ -22,6 +23,7 @@ from   pyProbeParticle            import elements
 #import pyProbeParticle.core           as PPC
 import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.cpp_utils      as cpp_utils
+from scipy.ndimage import laplace
 
 # =============== arguments definition
 
@@ -37,6 +39,7 @@ parser.add_option( "--iets",   action="store", type="float", help="mass [a.u.]; 
 
 parser.add_option( "--df",       action="store_true", default=False,  help="plot images for dfz " )
 parser.add_option( "--save_df" , action="store_true", default=False, help="save frequency shift as df.xsf " )
+parser.add_option( "--Laplace",  action="store_true", default=False,  help="plot Laplace-filtered images and save them " )
 parser.add_option( "--pos",      action="store_true", default=False, help="save probe particle positions" )
 parser.add_option( "--atoms",    action="store_true", default=False, help="plot atoms to images" )
 parser.add_option( "--bonds",    action="store_true", default=False, help="plot bonds to images" )
@@ -167,6 +170,15 @@ for iq,Q in enumerate( Qs ):
                         print " plotting df : "
                         PPPlot.plotImages(
                             dirNameAmp+"/df"+atoms_str+cbar_str, dfs,  slices = range( 0, len(dfs) ), zs=zTips+PPU.params['Amplitude']/2.0,
+                            extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] 
+                        )
+                    if opt_dict['Laplace']:
+                        print "plotting Laplace-filtered df : "
+                        df_LaplaceFiltered = dfs.copy()
+                        laplace(dfs,output = df_LaplaceFiltered)
+                        GU.save_scal_field(dirNameAmp+'/df_laplace', df_LaplaceFiltered, lvec,data_format=options.data_format )
+                        PPPlot.plotImages(
+                            dirNameAmp+"/df_laplace"+atoms_str+cbar_str, df_LaplaceFiltered, slices = range( 0, len(dfs) ), zs=zTips+PPU.params['Amplitude']/2.0,
                             extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] 
                         )
                     if opt_dict['WSxM']:
