@@ -111,7 +111,6 @@ def loadParams( fname,FFparams=None ):
 		params["gridN"][1]=round(np.linalg.norm(params["gridB"])*10)
 		params["gridN"][2]=round(np.linalg.norm(params["gridC"])*10)
 
-
         try:
                 params['probeType'] = int(params['probeType'])
         except:
@@ -127,6 +126,8 @@ def loadParams( fname,FFparams=None ):
                 except:
                         raise ValueError("The element {} for the ProbeParticle "
                         "was not found".format(params['probeType']))
+        params["tip"] = params["tip"].replace('"', ''); params["tip"] = params["tip"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
+
 def apply_options(opt=None):
         print "In apply options:"
         print opt
