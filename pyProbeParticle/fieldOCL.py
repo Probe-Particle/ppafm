@@ -80,11 +80,16 @@ def updateArgsLJC( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, qu
         else:
             cl_atoms=kargs_old[1]
         if cLJs is not None:
-            print " NOT IMPLEMENTED : new cLJs"; exit()
+            cl_cLJs=kargs_old[2]
+            cl.enqueue_copy( queue, cl_cLJs, cLJs )
+            #print " NOT IMPLEMENTED : new cLJs"; exit()
         else:
             cl_cLJs=kargs_old[2]
         if poss is not None:
-            print " NOT IMPLEMENTED : new poss"; exit()
+            cl_poss=kargs_old[3]
+            cl.enqueue_copy( queue, cl_poss, poss )
+            #print " NOT IMPLEMENTED : new poss"; exit()
+
         else:
             cl_poss=kargs_old[3]
 
@@ -169,7 +174,7 @@ def makeDivisibleUp( num, divisor ):
     return num
 
 
-def runLJ( kargs, nDim, local_size=(32,), queue=oclu.queue ):
+def runLJ( kargs, nDim, local_size=(1,), queue=oclu.queue ):  # slowed down, because of problems with the field far away
     ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
     global_size = (ntot,)
     #print "global_size:", global_size

@@ -280,10 +280,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         print self.mode
         if self.mode == Modes.LJQ.name:
             print "=> Modes.LJQ"
-            lvec              = np.genfromtxt('cel.lvs')
+            lvec              = np.genfromtxt('cel.lvs'); lvec = np.insert(lvec, 0, 0. , axis=0); print lvec
             self.str_Atoms    = open('input.xyz').read()
             #xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input.xyz' )
             xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.str_Atoms.split('\n') )
+            nDim              = np.array([int(round(10*(lvec[1][0]+lvec[1][1]))),int(round(10*(lvec[2][0]+lvec[2][1]))),int(round(10*(lvec[3][2])))])
         else: # self.mode == Modes.LJel.name:        elif self.mode == Modes.LJel_pbc.name:
             print "=> Modes.LJel or Modes.LJel_pbc"
             #atoms, nDim, lvec = basUtils.loadXSFGeom( "FFel_z.xsf" )
