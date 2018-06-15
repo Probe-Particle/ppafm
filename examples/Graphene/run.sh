@@ -21,4 +21,3 @@ python $PPPATH/plot_results.py -k 0.5 --qrange -0.05 0.0 2 --arange 0.5 2.0 2 --
 #python $PPPATH/plot_results.py -k 0.5 -q -0.05 -a 2.0 --df
 #python $PPPATH/plot_results.py -k 0.5 -q -0.5 -a 2.0 --df
 
- 

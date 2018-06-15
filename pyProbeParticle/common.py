@@ -236,13 +236,14 @@ def prepareScanGrids( ):
 	xTips  = np.arange( params['scanMin'][0], params['scanMax'][0]+0.00001, params['scanStep'][0] )
 	yTips  = np.arange( params['scanMin'][1], params['scanMax'][1]+0.00001, params['scanStep'][1] )
 	extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
+	tmp_diff=np.array(params['scanMax'])-np.array(params['scanMin'])
 	lvecScan =np.array([
 	[(params['scanMin'] + 0*params['r0Probe'])[0], #shift by r0Probe - a inconsistent way to implement coordinates
 	 (params['scanMin'] + 0*params['r0Probe'])[1], #with respect to the unperturbed probe particle position
 	 (params['scanMin'] - 0*params['r0Probe'])[2] ] ,
-	[        (params['scanMax']-params['scanMin'])[0],0.0,0.0],
-	[0.0,    (params['scanMax']-params['scanMin'])[1],0.0    ],
-	[0.0,0.0,(params['scanMax']-params['scanMin'])[2]        ]
+	[        tmp_diff[0],0.0,0.0],
+	[0.0,    tmp_diff[1],0.0    ],
+	[0.0,0.0,tmp_diff[2]        ]
 	]).copy() 
 	return xTips,yTips,zTips,lvecScan,extent
 
