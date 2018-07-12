@@ -29,7 +29,7 @@ def runCoulomb( kargs, nDim, local_size=(16,), ctx=oclu.ctx, queue=oclu.queue  )
     queue.finish()
     return FE
 
-def initArgsLJC(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+def initArgsLJC( atoms, cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     nAtoms   = np.int32( len(atoms) ) 
     print " initArgsLJC ", nAtoms
     mf       = cl.mem_flags
@@ -39,6 +39,12 @@ def initArgsLJC(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ) # float8
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
     return kargs
+
+def releaseArgs( kargs ):
+    kargs[1].release()
+    kargs[2].release()
+    kargs[3].release()
+    kargs[4].release()
 
 def initArgsLJ(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     nAtoms   = np.int32( len(atoms) ) 
@@ -72,7 +78,7 @@ def updateArgsLJC( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, qu
             nAtoms   = np.int32( len(atoms) )
             if (kargs_old[0] != nAtoms):
                 print " kargs_old[0] != nAtoms; TRY only"#; exit()
-                return initArgsLJC( atoms, cLJS, poss, ctx=ctx, queue=queue )
+                return initArgsLJC( atoms, cLJs, poss, ctx=ctx, queue=queue )
                 #print " NOT IMPLEMENTED :  kargs_old[0] != nAtoms"; exit()
             else:
                 cl_atoms=kargs_old[1]
@@ -160,9 +166,13 @@ def updateArgsLJ( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, que
     return kargs
 
 def runLJC( kargs, nDim, local_size=(32,), queue=oclu.queue ):
-    global_size = (nDim[0]*nDim[1]*nDim[2],)
+    ntot = nDim[0]*nDim[1]*nDim[2]; 
+    ntot=makeDivisibleUp(ntot,local_size[0])
+    global_size = (ntot,) # TODO make sure divisible by local_size
+    ntot=makeDivisibleUp(ntot,local_size[0]) 
     #print "global_size:", global_size
-    FE          = np.zeros( nDim+(8,) , dtype=np.float32 ) # float8
+    FE = np.zeros( nDim+(8,), dtype=np.float32 ) # float8
+    print "FE.shape ", FE.shape
     cl_program.evalLJC( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy( queue, FE, kargs[4] )
     queue.finish()
