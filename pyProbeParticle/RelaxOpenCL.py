@@ -61,7 +61,17 @@ def preparePoss( relax_dim, z0, start=(0.0,0.0), end=(10.0,10.0) ):
     poss[:,:,1] = Xs
     poss[:,:,2] = z0
     #print "DEBUG: poss[:,:,0:2]: " , poss[:,:,0:2]
+    return poss
 
+def preparePossRot( relax_dim, pos0, avec, bvec, start=(-5.0,-5.0), end=(5.0,5.0) ):
+    ys    = np.linspace(start[0],end[0],relax_dim[0])
+    xs    = np.linspace(start[1],end[1],relax_dim[1])
+    As,Bs = np.meshgrid(xs,ys)
+    poss  = np.zeros(As.shape+(4,), dtype=np.float32)
+    poss[:,:,0] = pos0[0] + As*avec[0] + Bs*bvec[0]
+    poss[:,:,1] = pos0[1] + As*avec[1] + Bs*bvec[1]
+    poss[:,:,2] = pos0[2] + As*avec[2] + Bs*bvec[2]
+    #print "DEBUG: poss[:,:,0:2]: " , poss[:,:,0:2]
     return poss
 
 def prepareBuffers( FE, relax_dim, ctx=oclu.ctx ):

@@ -5,8 +5,8 @@ __constant sampler_t sampler_1 = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT
 
 float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
     float r = sqrt( dot( dpos,dpos) );
-    return  (dpos-dpos0.xyz) *   stiffness.xyz              // harmonic 3D
-         + dpos * ( stiffness.w *(r-dpos0.w)/r );  // radial
+    return  (dpos-dpos0.xyz) * stiffness.xyz              // harmonic 3D
+         + dpos * ( stiffness.w * (r-dpos0.w)/r );  // radial
 }
 
 float4 interpFE( float3 pos, float3 dinvA, float3 dinvB, float3 dinvC, __read_only image3d_t imgIn ){
@@ -134,6 +134,7 @@ __kernel void relaxStrokes(
            if(dot(f,f)<F2CONV) break;
         }
         FEs[get_global_id(0)*nz + iz] = fe;
+        //FEs[get_global_id(0)*nz + iz].xyz = pos;
         tipPos += dTip.xyz;
         pos    += dTip.xyz;
     }
