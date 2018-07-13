@@ -240,7 +240,7 @@ def atoms2float4(atoms):
     return atoms_
     
 def xyzq2float4(xyzs,qs):
-    atoms_      = np.zeros( (len(qs),4), dtype=np.float32)
+    atoms_       = np.zeros( (len(qs),4), dtype=np.float32)
     atoms_[:,:3] = xyzs[:,:]
     atoms_[:, 3] = qs[:]      
     return atoms_

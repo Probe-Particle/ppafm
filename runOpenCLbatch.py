@@ -13,6 +13,9 @@ import matplotlib;
 import numpy as np
 from enum import Enum
 
+import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver";
+import matplotlib.pyplot as plt
+
 #sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
 #import pyProbeParticle.GridUtils as GU
 
@@ -49,6 +52,9 @@ step = np.array( [ 0.1, 0.1, 0.1 ] )
 rmin = np.array( [ 0.0, 0.0, 0.0 ] )
 rmax = np.array( [ 20.0, 20.0, 20.0 ] )
 
+rSliceAbove = np.array( [ 0.0, 0.0, 7.0 ] )
+islices = [-2,0,+2,+4,+6,+8]
+
 stiffness    = np.array([0.24,0.24,0.0, 30.0 ], dtype=np.float32 ); 
 stiffness/=-16.0217662;
 print "stiffness ", stiffness
@@ -58,6 +64,16 @@ dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 );
 print "dpos0 ", dpos0
 
 # === Functions
+
+def maxAlongDir(atoms, hdir):
+    #print atoms[:,:3]
+    xdir = np.dot( atoms[:,:3], hdir[:,None] )
+    #print xdir
+    imin = np.argmax(xdir)
+    return imin, xdir[imin][0]
+
+#def getOptSlice( atoms, hdir ):
+#    
 
 def loadSpecies(fname):
     try:
@@ -72,33 +88,32 @@ def loadSpecies(fname):
     print str_Species
     return PPU.loadSpeciesLines( str_Species.split('\n') )
 
-def updateFF_LJC( ff_args, iZPP, xyzs, Zs, qs, TypeParams, pbcnx=0, func_runFF=FFcl.runLJC ):
+def updateFF_LJC( ff_args, iZPP, xyzs, Zs, qs, typeParams, pbcnx=0, func_runFF=FFcl.runLJC ):
     atoms   = FFcl.xyzq2float4( xyzs, qs )
-    cLJs_   = PPU.getAtomsLJ( iZPP, Zs, TypeParams )
+    cLJs_   = PPU.getAtomsLJ( iZPP, Zs, typeParams )
     cLJs    = cLJs_.astype(np.float32)
     ff_args = FFcl.updateArgsLJC( ff_args, atoms, cLJs, poss )
     ff_nDim = poss.shape
     return func_runFF( ff_args, ff_nDim )
 
-def updateFF_Morse( ff_args, iZPP, xyzs, Zs, qs, TypeParams, pbcnx=0, func_runFF=FFcl.runLJ, alphaFac=1.0 ):
+def updateFF_Morse( ff_args, iZPP, xyzs, Zs, qs, typeParams, pbcnx=0, func_runFF=FFcl.runLJ, alphaFac=1.0 ):
     atoms   = FFcl.xyzq2float4(xyzs,qs);
-    REAs    = PPU.getAtomsREA( iZPP, Zs, TypeParams, alphaFac=alphaFac )
+    REAs    = PPU.getAtomsREA( iZPP, Zs, typeParams, alphaFac=alphaFac )
     REAs    = REAs.astype(np.float32)
     ff_args = FFcl.updateArgsMorse( ff_args, atoms, REAs, poss ) 
 
-def evalFF_LJC( iZPP, xyzs, Zs, qs, poss, TypeParams, pbcnx=0, func_runFF=FFcl.runLJC ):
-    atoms   = FFcl.xyzq2float4(xyzs,qs);
-    cLJs_   = PPU.getAtomsLJ( iZPP, Zs, TypeParams )
-    cLJs    = cLJs_.astype(np.float32)
-    #ff_args = FFcl.updateArgsLJC( ff_args, atoms, cLJs, poss )
+def evalFFatoms_LJC( atoms, cLJs, poss, func_runFF=FFcl.runLJC ):
     ff_args = FFcl.initArgsLJC( atoms, cLJs, poss )
-    #ff_nDim = (poss.shape[0],poss.shape[1],poss.shape[2])
     ff_nDim = poss.shape[:3]
-    print "evalFF_LJC ff_nDim", ff_nDim
-    #FF = func_runFF( ff_args, ff_nDim )
-    FF =  FFcl.runLJC( ff_args, ff_nDim )
+    FF      = func_runFF( ff_args, ff_nDim )
     FFcl.releaseArgs(ff_args)
     return FF
+
+def evalFF_LJC( iZPP, xyzs, Zs, qs, poss, typeParams, func_runFF=FFcl.runLJC ):
+    atoms   = FFcl.xyzq2float4(xyzs,qs);
+    cLJs_   = PPU.getAtomsLJ( iZPP, Zs, typeParams )
+    cLJs    = cLJs_.astype(np.float32)
+    return evalFF_LJC( atoms, cLJs, poss, func_runFF=FFcl.runLJC )
 
 # === Main
 
@@ -114,8 +129,6 @@ if __name__ == "__main__":
                 int(round(10*(lvec[2][0]+lvec[2][1]))),
                 int(round(10*(lvec[3][2]           )))
             ])
-    #print "", lvec[1], lvec[2],lvec[3]
-    #print "", lvec[1][0], lvec[2][1],lvec[3][2]
     print "ff_nDim ", ff_nDim
     poss       = FFcl.getposs( lvec, ff_nDim )
     print "poss.shape", poss.shape
@@ -125,23 +138,49 @@ if __name__ == "__main__":
     #relax_args  = oclr.prepareBuffers( FEin, relax_dim )   # TODO
 
     for geomFileName in geomFileNames:
-        print geomFileName
-        #str_Atoms    = open( geomFileName ).read()
-        #xyzs,Zs,enames,qs = basUtils.loadAtomsLines( str_Atoms.split('\n') )
+        t1tot = time.clock()
+        print " ==================", geomFileName
+        t1prepare = time.clock();
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( open( geomFileName ).readlines() )
 
         if(bPBC):
             Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
+        atoms = FFcl.xyzq2float4(xyzs,qs)
+        
+        hdir  = np.array([0.0,0.0,1.0])
+        imax,xdirmax  = maxAlongDir(atoms, hdir)
+        izslice = int( round( ( rmax[2] - xdirmax - rSliceAbove[2] )/-oclr.DEFAULT_dTip[2] ) )
+        print "izslice ", izslice, " xdirmax ", xdirmax, rmax[2], rmax[2] - xdirmax - rSliceAbove[2]
 
-        #FEin = updateFF_LJC(ff_args, iZPP, xyzs, Zs, qs, typeParams, pbcnx=0, func_runFF=FFcl.runLJC )
-        FF   = evalFF_LJC( iZPP, xyzs, Zs, qs, poss, typeParams, pbcnx=0, func_runFF=FFcl.runLJC )
+        cLJs  = PPU.getAtomsLJ( iZPP, Zs, typeParams ).astype(np.float32)
+        Tprepare = time.clock()-t1prepare;
 
+        t1ff = time.clock();
+        FF    = evalFFatoms_LJC( atoms, cLJs, poss, func_runFF=FFcl.runLJC )
         FEin =  FF[:,:,:,:4] + Q*FF[:,:,:,4:] 
+        Tff = time.clock()-t1ff;
+        #GU.saveXSF( geomFileName+'_Fin_z.xsf',  FEin[:,:,:,2], lvec ); 
+        
         print "FEin.shape ", FEin.shape;
+
+        t1relax = time.clock();
         region = FEin.shape[:3]
         relax_args  = oclr.prepareBuffers( FEin, relax_dim )
         cl.enqueue_copy( oclr.oclu.queue, relax_args[0], FEin, origin=(0,0,0), region=region)
         FEout = oclr.relax( relax_args, relax_dim, invCell, poss=relax_poss, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
-        GU.saveXSF( geomFileName+'.xsf',  FEout[:,:,:,2], lvec ); 
+        Trelax = time.clock() - t1relax;
+        
+        #GU.saveXSF( geomFileName+'_Fout_z.xsf',  FEout[:,:,:,2], lvec );
+        t1plot = time.clock();
+        for isl in islices:
+            isl += izslice
+            plt.imshow( FEout[:,:,isl,2] )
+            plt.savefig( geomFileName+("_FoutZ%03i.png" %isl ), bbox_inches="tight"  ); 
+            plt.close()
+        Tplot = time.clock()-t1plot;
 
+        Ttot = time.clock()-t1tot;
+        print "Timing[s] Ttot %f Tff %f Trelax %f Tprepare %f Tplot %f " %(Ttot, Tff, Trelax, Tprepare, Tplot)
+
+#plt.show()
 
