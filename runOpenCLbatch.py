@@ -38,15 +38,16 @@ oclr.init()
 
 # ==== Setup
 
-geomFileNames = ["out0/pos.xyz", "out1/pos.xyz", "out2/pos.xyz", "out3/pos.xyz", "out4/pos.xyz", "out5/pos.xyz", "out6/pos.xyz" ]
-
+#geomFileNames = ["out0/pos.xyz", "out1/pos.xyz", "out2/pos.xyz", "out3/pos.xyz", "out4/pos.xyz", "out5/pos.xyz", "out6/pos.xyz" ]
+geomFileNames = ["out0/pos.xyz" ]
 relax_params = np.array([0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 );
 
 mode = Modes.LJQ.name
 Q    = 0.0;
 iZPP = 8
 
-bPBC = False
+#bPBC = False
+bPBC = True
 
 step = np.array( [ 0.1, 0.1, 0.1 ] )
 rmin = np.array( [ 0.0, 0.0, 0.0 ] )
@@ -144,7 +145,8 @@ if __name__ == "__main__":
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( open( geomFileName ).readlines() )
 
         if(bPBC):
-            Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
+            Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=lvec[1], bvec=lvec[2] )
+            #Zs, xyzs, qs = PBCAtoms3D( Zs, xyzs, qs, lvec[1:], npbc=[1,1,1] )
         atoms = FFcl.xyzq2float4(xyzs,qs)
         
         hdir  = np.array([0.0,0.0,1.0])
@@ -159,7 +161,8 @@ if __name__ == "__main__":
         FF    = evalFFatoms_LJC( atoms, cLJs, poss, func_runFF=FFcl.runLJC )
         FEin =  FF[:,:,:,:4] + Q*FF[:,:,:,4:] 
         Tff = time.clock()-t1ff;
-        #GU.saveXSF( geomFileName+'_Fin_z.xsf',  FEin[:,:,:,2], lvec ); 
+        #GU.saveXSF( geomFileName+'_Fin_z.xsf',  FEin[:,:,:,2], lvec );
+        np.save( geomFileName+'_Fin_z.npy', FEin[:,:,:,2] )
         
         print "FEin.shape ", FEin.shape;
 
@@ -171,6 +174,7 @@ if __name__ == "__main__":
         Trelax = time.clock() - t1relax;
         
         #GU.saveXSF( geomFileName+'_Fout_z.xsf',  FEout[:,:,:,2], lvec );
+        np.save( geomFileName+'_Fout_z.npy', FEout[:,:,:,2] )
         t1plot = time.clock();
         for isl in islices:
             isl += izslice

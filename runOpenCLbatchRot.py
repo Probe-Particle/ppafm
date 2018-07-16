@@ -196,7 +196,8 @@ def gridPBC( F ):
 
 if __name__ == "__main__":
     rotations = genRotations( np.array([1.0,0.0,0.0]) , np.linspace(-np.pi/2,np.pi/2, 8) )
-    print rotations
+    #rotations = genRotations( np.array([1.0,0.0,0.0]) , np.linspace(-np.pi/2,np.pi/2, 1) )
+    print "rotations: ", rotations
     #exit()
 
     typeParams = loadSpecies('atomtypes.ini')
@@ -244,6 +245,7 @@ if __name__ == "__main__":
         print "FEin.shape ", FEin.shape;
 
         for irot,rot in enumerate(rotations):
+            print "rotation #",irot, rot
             subDirName = dirName + ("/rot%02i" %irot)
             if os.path.isdir(subDirName):
                 #os.rm(subDirName)
@@ -273,6 +275,8 @@ if __name__ == "__main__":
             #writeDebugXYZ( subDirName + "/debugPosRlaxed.xyz", atom_lines, FEout[::10,::10,:,:].reshape(-1,4) )
             
             #GU.saveXSF( geomFileName+'_Fout_z.xsf',  FEout[:,:,:,2], lvec );
+            #print "FEout.shape ", FEout.shape
+            #np.save( subDirName+'/Fout_z.npy', FEout[:,:,:,2] )
             t1plot = time.clock();
             for isl in islices:
                 plt.imshow( FEout[:,:,isl,2] )
