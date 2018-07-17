@@ -75,15 +75,22 @@ def preparePossRot( relax_dim, pos0, avec, bvec, start=(-5.0,-5.0), end=(5.0,5.0
     return poss
 
 def prepareBuffers( FE, relax_dim, ctx=oclu.ctx ):
+    nbytes = 0
     print "prepareBuffers FE.shape", FE.shape
     mf       = cl.mem_flags
-    cl_ImgIn = cl.image_from_array(ctx,FE,num_channels=4,mode='r')               # TODO make this re-uploadable
+    cl_ImgIn = cl.image_from_array(ctx,FE,num_channels=4,mode='r');  nbytes+=FE.nbytes        # TODO make this re-uploadable
     bsz=np.dtype(np.float32).itemsize * 4 * relax_dim[0] * relax_dim[1]
-    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY , bsz                ) # float4
-    cl_FEout = cl.Buffer(ctx, mf.WRITE_ONLY, bsz * relax_dim[2] ) # float4
+    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY , bsz                );   nbytes+=bsz              # float4
+    cl_FEout = cl.Buffer(ctx, mf.WRITE_ONLY, bsz * relax_dim[2] );   nbytes+=bsz*relax_dim[2] # float4
     print "FFout.nbytes : ", bsz * relax_dim[2]
+    print "prepareBuffers.nbytes: ", nbytes
     kargs = (cl_ImgIn, cl_poss, cl_FEout )
     return kargs
+
+def releaseArgs( kargs ):
+    kargs[0].release() # cl_ImgIn
+    kargs[1].release() # cl_poss
+    kargs[2].release() # cl_FEout
 
 def relax( kargs, relax_dim, invCell, poss=None, FEin=None, FEout=None, dTip=DEFAULT_dTip, stiffness=DEFAULT_stiffness, dpos0=DEFAULT_dpos0, relax_params=DEFAULT_relax_params, queue=oclu.queue):
     nz = np.int32( relax_dim[2] )

@@ -39,34 +39,34 @@ oclr.init()
 
 # ==== Setup
 
+# --- Input files
 dirNames  = ["out0"]
 #dirNames  = ["out0", "out1", "out2", "out3", "out4", "out5", "out6" ] 
 #geomFileNames = ["out0/pos.xyz", "out1/pos.xyz", "out2/pos.xyz", "out3/pos.xyz", "out4/pos.xyz", "out5/pos.xyz", "out6/pos.xyz" ]
 
-relax_params = np.array( [0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 );
-dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
-stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
-dpos0        = np.array( [ 0.0 , 0.0 , -4.0 , 4.0 ], dtype=np.float32 );
-
+# --- ForceField
 mode = Modes.LJQ.name
-Q    = -0.1;
+pixPerAngstrome = 10
 iZPP = 8
-
-#bPBC = False
+Q    = -0.1;
 bPBC = True
 
-#step = np.array( [ 0.1, 0.1, 0.1 ] )
-#rmin = np.array( [ 0.0, 0.0, 0.0 ] )
-#rmax = np.array( [ 20.0, 20.0, 20.0 ] )
+# --- Relaction
 
-#rSliceAbove = np.array( [ 0.0, 0.0, 7.0 ] )
+relax_dim   = ( 100, 100, 20)
+lvec = np.array([
+    [ 0.0,  0.0,  0.0],
+    [19.0,  0.0,  0.0],
+    [ 0.0, 20.0,  0.0],
+    [ 0.0,  0.0, 21.0]
+])
+
 distAbove = 7.5
-islices = [0,+2,+4,+6,+8]
+islices   = [0,+2,+4,+6,+8]
 
-stiffness    = np.array([0.24,0.24,0.0, 30.0 ], dtype=np.float32 ); 
-stiffness/=-16.0217662;
-print "stiffness ", stiffness
-
+relax_params = np.array( [ 0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 );
+dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
+stiffness    = np.array( [0.24,0.24,0.0, 30.0     ], dtype=np.float32 ); stiffness/=-16.0217662;
 dpos0    = np.array([0.0,0.0,0.0,4.0], dtype=np.float32 ); 
 dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); 
 print "dpos0 ", dpos0
@@ -142,32 +142,12 @@ def loadSpecies(fname):
     print str_Species
     return PPU.loadSpeciesLines( str_Species.split('\n') )
 
-def updateFF_LJC( ff_args, iZPP, xyzs, Zs, qs, typeParams, pbcnx=0, func_runFF=FFcl.runLJC ):
-    atoms   = FFcl.xyzq2float4( xyzs, qs )
-    cLJs_   = PPU.getAtomsLJ( iZPP, Zs, typeParams )
-    cLJs    = cLJs_.astype(np.float32)
-    ff_args = FFcl.updateArgsLJC( ff_args, atoms, cLJs, poss )
-    ff_nDim = poss.shape
-    return func_runFF( ff_args, ff_nDim )
-
-def updateFF_Morse( ff_args, iZPP, xyzs, Zs, qs, typeParams, pbcnx=0, func_runFF=FFcl.runLJ, alphaFac=1.0 ):
-    atoms   = FFcl.xyzq2float4(xyzs,qs);
-    REAs    = PPU.getAtomsREA( iZPP, Zs, typeParams, alphaFac=alphaFac )
-    REAs    = REAs.astype(np.float32)
-    ff_args = FFcl.updateArgsMorse( ff_args, atoms, REAs, poss ) 
-
 def evalFFatoms_LJC( atoms, cLJs, poss, func_runFF=FFcl.runLJC ):
     ff_args = FFcl.initArgsLJC( atoms, cLJs, poss )
     ff_nDim = poss.shape[:3]
     FF      = func_runFF( ff_args, ff_nDim )
     FFcl.releaseArgs(ff_args)
     return FF
-
-def evalFF_LJC( iZPP, xyzs, Zs, qs, poss, typeParams, func_runFF=FFcl.runLJC ):
-    atoms   = FFcl.xyzq2float4(xyzs,qs);
-    cLJs_   = PPU.getAtomsLJ( iZPP, Zs, typeParams )
-    cLJs    = cLJs_.astype(np.float32)
-    return evalFF_LJC( atoms, cLJs, poss, func_runFF=FFcl.runLJC )
 
 def writeDebugXYZ( fname, lines, poss ):
     fout  = open(fname,"w")
@@ -181,17 +161,6 @@ def writeDebugXYZ( fname, lines, poss ):
         fout.write( "He %f %f %f\n" %(pos[0], pos[1], pos[2]) )
     fout.write( "\n" )
 
-"""
-def gridPBC( F ):
-    ns = F.shape
-    xs = np.linspace(0.0,1.0,ns[0])
-    ys = np.linspace(0.0,1.0,ns[1])
-    zs = np.linspace(0.0,1.0,ns[2])
-    dxs = F[0,:,:] - F[-1,:,:]
-    dys = F[:,0,:] - F[:,-1,:]
-    dzs = F[:,:,0] - F[:,:,-1]
-"""
-
 # === Main
 
 if __name__ == "__main__":
@@ -201,25 +170,19 @@ if __name__ == "__main__":
     #exit()
 
     typeParams = loadSpecies('atomtypes.ini')
-    lvec       = np.genfromtxt('cel.lvs') 
-    lvec       = np.insert( lvec, 0, 0.0, axis=0); 
+    #lvec       = np.genfromtxt('cel.lvs') 
+    #lvec       = np.insert( lvec, 0, 0.0, axis=0); 
     print "lvec ", lvec
     invCell = oclr.getInvCell(lvec)
     print "invCell ", invCell
     ff_nDim       = np.array([
-                int(round(10*(lvec[1][0]+lvec[1][1]))),
-                int(round(10*(lvec[2][0]+lvec[2][1]))),
-                int(round(10*(lvec[3][2]           )))
+                int(round(pixPerAngstrome*(lvec[1][0]+lvec[1][1]))),
+                int(round(pixPerAngstrome*(lvec[2][0]+lvec[2][1]))),
+                int(round(pixPerAngstrome*(lvec[3][2]           )))
             ])
     print "ff_nDim ", ff_nDim
     poss       = FFcl.getposs( lvec, ff_nDim )
     print "poss.shape", poss.shape
-
-    relax_dim   = ( 100, 100, 20)
-    #relax_dim   = ( 10, 10, 20)
-    #relax_dim  = tuple( ((rmax-rmin)/step).astype(np.int32) )
-    #relax_poss = oclr.preparePoss( relax_dim, z0=rmax[2], start=rmin, end=rmax )
-    #relax_args  = oclr.prepareBuffers( FEin, relax_dim )   # TODO
 
     for dirName in dirNames:
         t1tot = time.clock()
@@ -238,11 +201,14 @@ if __name__ == "__main__":
 
         t1ff = time.clock();
         FF    = evalFFatoms_LJC( atoms, cLJs, poss, func_runFF=FFcl.runLJC )
-        FEin =  FF[:,:,:,:4] + Q*FF[:,:,:,4:] 
+        FEin =  FF[:,:,:,:4] + Q*FF[:,:,:,4:]
+
         Tff = time.clock()-t1ff;
-        #GU.saveXSF( geomFileName+'_Fin_z.xsf',  FEin[:,:,:,2], lvec ); 
-        
+        #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec ); 
+
         print "FEin.shape ", FEin.shape;
+        relax_args  = oclr.prepareBuffers( FEin, relax_dim )
+        cl.enqueue_copy( oclr.oclu.queue, relax_args[0], FEin, origin=(0,0,0), region=FEin.shape[:3][::-1] )
 
         for irot,rot in enumerate(rotations):
             print "rotation #",irot, rot
@@ -264,16 +230,16 @@ if __name__ == "__main__":
             print "relax_poss.shape ",relax_poss.shape
             writeDebugXYZ( subDirName + "/debugPos0.xyz", atom_lines, relax_poss[::10,::10,:].reshape(-1,4) )
             #continue
+            #exit()
 
             t1relax = time.clock();
-            region = FEin.shape[:3]
-            relax_args  = oclr.prepareBuffers( FEin, relax_dim )
-            cl.enqueue_copy( oclr.oclu.queue, relax_args[0], FEin, origin=(0,0,0), region=region)
+            #region = FEin.shape[:3][::-1]
+            #cl.enqueue_copy( oclr.oclu.queue, relax_args[0], FEin, origin=(0,0,0), region=region)
+            #FEout = oclr.relax( relax_args, relax_dim, invCell, poss=relax_poss, FEin=FEin, dTip=dTip, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
             FEout = oclr.relax( relax_args, relax_dim, invCell, poss=relax_poss, dTip=dTip, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
             Trelax = time.clock() - t1relax;
 
             #writeDebugXYZ( subDirName + "/debugPosRlaxed.xyz", atom_lines, FEout[::10,::10,:,:].reshape(-1,4) )
-            
             #GU.saveXSF( geomFileName+'_Fout_z.xsf',  FEout[:,:,:,2], lvec );
             #print "FEout.shape ", FEout.shape
             #np.save( subDirName+'/Fout_z.npy', FEout[:,:,:,2] )
@@ -286,6 +252,8 @@ if __name__ == "__main__":
 
             Ttot = time.clock()-t1tot;
             print "Timing[s] Ttot %f Tff %f Trelax %f Tprepare %f Tplot %f " %(Ttot, Tff, Trelax, Tprepare, Tplot)
+        
+        oclr.releaseArgs(relax_args)
 
 #plt.show()
 

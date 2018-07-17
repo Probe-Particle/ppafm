@@ -12,66 +12,79 @@ def init():
     global cl_program
     cl_program = oclu.loadProgram(oclu.CL_PATH+"/FF.cl")
 
+# TODO: this is clearly candidate form Object Oriented desing
+#
+#  Class FFCalculator:
+#       init()
+#       update()
+#       run()
+
+# ========= init Args 
+
 def initArgsCoulomb( atoms, poss, ctx=oclu.ctx ):
+    nbytes     =  0;
     nAtoms     = np.int32( len(atoms) ) 
     mf         = cl.mem_flags
-    cl_FE      = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   )
-    cl_atoms   = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
-    cl_poss    = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  )
+    cl_atoms   = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
+    cl_poss    = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes
+    cl_FE      = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ); nbytes+=poss.nbytes
     kargs = ( nAtoms, cl_atoms, cl_poss, cl_FE )
+    print "initArgsCoulomb.nbytes ", nbytes
     return kargs 
-    	
-def runCoulomb( kargs, nDim, local_size=(16,), ctx=oclu.ctx, queue=oclu.queue  ):
-    global_size = (nDim[0]*nDim[1]*nDim[2],)
-    FE          = np.zeros( nDim+(4,) , dtype=np.float32 )
-    cl_program.evalLJC ( queue, global_size, local_size, *(kargs))
-    cl.enqueue_copy    ( queue, FE, kargs[3] );
-    queue.finish()
-    return FE
 
 def initArgsLJC( atoms, cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+    nbytes     =  0;
     nAtoms   = np.int32( len(atoms) ) 
-    print " initArgsLJC ", nAtoms
+    #print " initArgsLJC ", nAtoms
     mf       = cl.mem_flags
-    cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
-    cl_cLJs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  )
-    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ) # float4
-    cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ) # float8
+    cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
+    cl_cLJs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  ); nbytes+=cLJs.nbytes
+    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
+    cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ); nbytes+=poss.nbytes*2 # float8
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
+    print "initArgsLJC.nbytes ", nbytes
     return kargs
 
-def releaseArgs( kargs ):
-    kargs[1].release()
-    kargs[2].release()
-    kargs[3].release()
-    kargs[4].release()
-
 def initArgsLJ(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+    nbytes     =  0;
     nAtoms   = np.int32( len(atoms) ) 
-    print " initArgsLJ ", nAtoms
+    #print "initArgsLJ ", nAtoms
     mf       = cl.mem_flags
-    cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
-    cl_cLJs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  )
-    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ) # float4
-    cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ) # float4
+    cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
+    cl_cLJs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  ); nbytes+=cLJs.nbytes
+    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
+    cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ); nbytes+=poss.nbytes   # float4
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
+    print "initArgsLJ.nbytes ", nbytes
     return kargs
 
 def initArgsMorse(atoms,REAs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+    nbytes     =  0;
     nAtoms   = np.int32( len(atoms) ) 
-    print " initArgsMorse ", nAtoms
+    #print "initArgsMorse ", nAtoms
     mf       = cl.mem_flags
-    cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms )
-    cl_REAs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=REAs  )
-    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ) # float4
-    cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ) # float4
+    cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
+    cl_REAs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=REAs  ); nbytes+=REAs.nbytes
+    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes # float4
+    cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ); nbytes+=poss.nbytes # float4
     kargs = ( nAtoms, cl_atoms, cl_REAs, cl_poss, cl_FE )
+    print "initArgsMorse.nbytes ", nbytes
     return kargs
 
+def releaseArgs( kargs ):
+    for karg in kargs[1:]:
+        karg.release()
+    #kargs[1].release() # cl_atoms
+    #kargs[2].release() # cl_cLJs
+    #kargs[3].release() # cl_poss
+    #kargs[4].release() # cl_FE
+
+# ========= Update Args 
 
 def updateArgsLJC( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
     mf       = cl.mem_flags
     if kargs_old is None:
+        
         return initArgsLJC( atoms, cLJs, poss, ctx=ctx, queue=queue )
     else:
         if atoms is not None:
@@ -165,11 +178,25 @@ def updateArgsLJ( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, que
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
     return kargs
 
+def makeDivisibleUp( num, divisor ):
+    rest = num % divisor;
+    if rest > 0: num += (divisor-rest)
+    return num
+
+# ========= Run Job
+
+def runCoulomb( kargs, nDim, local_size=(32,), ctx=oclu.ctx, queue=oclu.queue  ):
+    ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+    global_size = (ntot,) 
+    FE          = np.zeros( nDim+(4,) , dtype=np.float32 )
+    cl_program.evalLJC ( queue, global_size, local_size, *(kargs))
+    cl.enqueue_copy    ( queue, FE, kargs[3] );
+    queue.finish()
+    return FE
+
 def runLJC( kargs, nDim, local_size=(32,), queue=oclu.queue ):
-    ntot = nDim[0]*nDim[1]*nDim[2]; 
-    ntot=makeDivisibleUp(ntot,local_size[0])
+    ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
     global_size = (ntot,) # TODO make sure divisible by local_size
-    ntot=makeDivisibleUp(ntot,local_size[0]) 
     #print "global_size:", global_size
     FE = np.zeros( nDim+(8,), dtype=np.float32 ) # float8
     print "FE.shape ", FE.shape
@@ -178,13 +205,7 @@ def runLJC( kargs, nDim, local_size=(32,), queue=oclu.queue ):
     queue.finish()
     return FE
 
-def makeDivisibleUp( num, divisor ):
-    rest = num % divisor;
-    if rest > 0: num += (divisor-rest)
-    return num
-
-
-def runLJ( kargs, nDim, local_size=(1,), queue=oclu.queue ):  # slowed down, because of problems with the field far away
+def runLJ( kargs, nDim, local_size=(32,), queue=oclu.queue ):  # slowed down, because of problems with the field far away
     ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
     global_size = (ntot,)
     #print "global_size:", global_size
@@ -205,6 +226,8 @@ def runMorse( kargs, nDim, local_size=(32,), queue=oclu.queue ):
     cl.enqueue_copy( queue, FE, kargs[4] )
     queue.finish()
     return FE
+
+# ========= getPos
 
 def getPos(lvec, nDim=None, step=(0.1,0.1,0.1) ):
     if nDim is None:
