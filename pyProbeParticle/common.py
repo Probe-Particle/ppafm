@@ -64,6 +64,31 @@ def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4
     dFconv = -prefactor * np.apply_along_axis( lambda m: np.convolve(m, dy, mode='valid'), axis=0, arr=F )
     return dFconv*units*f0/k0
 
+def rotation_matrix(axis, theta):
+    """
+    Return the rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis    =  np.asarray(axis)
+    axis    =  axis/np.sqrt(np.dot(axis, axis))
+    a       =  np.cos(theta/2.0)
+    b, c, d = -axis*np.sin(theta/2.0)
+    aa, bb, cc, dd = a*a, b*b, c*c, d*d
+    bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
+    return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
+                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
+                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
+
+def genRotations( axis, thetas ):
+    return np.array( [ rotation_matrix(axis, theta) for theta in thetas ] )
+
+def maxAlongDir(atoms, hdir):
+    #print atoms[:,:3]
+    xdir = np.dot( atoms[:,:3], hdir[:,None] )
+    #print xdir
+    imin = np.argmax(xdir)
+    return imin, xdir[imin][0]
+
 # ==============================
 # ==============================  server interface file I/O
 # ==============================
@@ -209,6 +234,34 @@ def PBCAtoms( Zs, Rs, Qs, avec, bvec, na=None, nb=None ):
                 Qs_.append( Qs[iatom]          )
                 #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
     return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy()	
+
+def PBCAtoms3D( Zs, Rs, Qs, lvec, npbc=[1,1,1] ):
+    '''
+    multiply atoms of sample along supercell vectors
+    the multiplied sample geometry is used for evaluation of forcefield in Periodic-boundary-Conditions ( PBC )
+    '''
+    Zs_ = []
+    Rs_ = []
+    Qs_ = []
+    for iatom in range(len(Zs)):
+        Zs_.append( Zs[iatom] )
+        Rs_.append( Rs[iatom] )
+        Qs_.append( Qs[iatom] )
+    for ia in range(-npbc[0],npbc[0]+1):
+        for ib in range(-npbc[1],npbc[1]+1):
+            for ic in range(-npbc[2],npbc[2]+1):
+                if (ia==0) and (ib==0) and (ic==0) :
+                    continue
+                for iatom in range(len(Zs)):
+                    x = Rs[iatom][0] + ia*lvec[0][0] + ib*lvec[1][0] + ic*lvec[2][0]
+                    y = Rs[iatom][1] + ia*lvec[0][1] + ib*lvec[1][1] + ic*lvec[2][1]
+                    z = Rs[iatom][2] + ia*lvec[0][2] + ib*lvec[1][2] + ic*lvec[2][2]
+                    #if (x>xmin) and (x<xmax) and (y>ymin) and (y<ymax):
+                    Zs_.append( Zs[iatom] )
+                    Rs_.append( (x,y,z)   )
+                    Qs_.append( Qs[iatom] )
+                    #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
+    return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy()
 
 def getFFdict( FFparams ):
     elem_dict={}

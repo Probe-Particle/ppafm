@@ -51,7 +51,7 @@ iZPP = 8
 Q    = -0.1;
 bPBC = True
 
-# --- Relaction
+# --- Relaxation
 
 relax_dim   = ( 100, 100, 20)
 lvec = np.array([
