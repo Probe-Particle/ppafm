@@ -229,6 +229,14 @@ def runMorse( kargs, nDim, local_size=(32,), queue=oclu.queue ):
 
 # ========= getPos
 
+def genFFSampling( lvec, pixPerAngstrome=10 ):
+    nDim = np.array([
+        int(round(pixPerAngstrome*( np.sqrt( np.dot( lvec[1] ) ) ))),
+        int(round(pixPerAngstrome*( np.sqrt( np.dot( lvec[2] ) ) ))),
+        int(round(pixPerAngstrome*( np.sqrt( np.dot( lvec[3] ) ) )))
+    ])
+    return nDim
+
 def getPos(lvec, nDim=None, step=(0.1,0.1,0.1) ):
     if nDim is None:
         nDim = (    int(np.linalg.norm(lvec[3,:])/step[2]),
@@ -276,9 +284,77 @@ def xyzq2float4(xyzs,qs):
 def CLJ2float2(C6s,C12s):
     cLJs      = np.zeros( (len(C6s),2), dtype=np.float32)
     cLJs[:,0] = C6s
-    cLJs[:,1] = C12s      
+    cLJs[:,1] = C12s
     return cLJs
-	
-	
-	
+
+# ========= classes
+
+class ForceField_LJC:
+
+    def __init__( self ):
+        self.ctx   = oclu.ctx; 
+        self.queue = oclu.queue
+
+    def prepareBuffers(self, atoms, cLJs, poss ):
+        self.nDim = poss.shape
+        nbytes   =  0;
+        self.nAtoms   = np.int32( len(atoms) ) 
+        #print " initArgsLJC ", nAtoms
+        mf       = cl.mem_flags
+        self.cl_atoms = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
+        self.cl_cLJs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  ); nbytes+=cLJs.nbytes
+        self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
+        self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ); nbytes+=poss.nbytes*2 # float8
+        #kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
+        print "initArgsLJC.nbytes ", nbytes
+        #return kargs
+
+    def updateBuffers(self, atoms=None, cLJs=None, poss=None ):
+        oclu.updateBuffer(atoms, self.cl_atoms )
+        oclu.updateBuffer(cLJs,  self.cl_cLJs  )
+        oclu.updateBuffer(poss,  self.cl_poss  )
+
+    def releaseBuffers(self):
+        self.cl_atoms.release()
+        self.cl_cLJs.release()
+        self.cl_poss.release()
+        self.cl_FE.release()
+
+    def run(self, FE=None, local_size=(32,) ):
+        if FE is None:
+            FE = np.zeros( self.nDim[:3]+(8,), dtype=np.float32 )
+            print "FE.shape", FE.shape, self.nDim
+        ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        global_size = (ntot,) # TODO make sure divisible by local_size
+        #print "global_size:", global_size
+        kargs = (  
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cLJs,
+            self.cl_poss,
+            self.cl_FE,
+        )
+        cl_program.evalLJC( self.queue, global_size, local_size, *(kargs) )
+        cl.enqueue_copy( self.queue, FE, kargs[4] )
+        self.queue.finish()
+        return FE
+
+    def makeFF(self, xyzs, qs, cLJs, poss=None, nDim=None, lvec=None, pixPerAngstrome=10 ):
+        if poss is None:
+            if nDim is None:
+                nDim = genFFSampling( lvec, pixPerAngstrome=pixPerAngstrome )
+            poss  = getposs( lvec, nDim )
+        #xyzs,Zs,enames,qs = basUtils.loadAtomsLines( atom_lines )
+        #natoms0 = len(Zs)
+        #if( npbc is not None ):
+        #    Zs, xyzs, qs = PPU.PBCAtoms3D( Zs, xyzs, qs, lvec[1:], npbc=npbc )
+        atoms = xyzq2float4(xyzs,qs)
+        cLJs  = cLJs.astype(np.float32)
+        self.prepareBuffers(atoms, cLJs, poss )
+        FF = self.run()
+        self.releaseBuffers()
+        return FF, atoms
+
+
+
 
