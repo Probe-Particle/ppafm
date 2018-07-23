@@ -19,6 +19,8 @@ def init():
 #       update()
 #       run()
 
+verbose = 0
+
 # ========= init Args 
 
 def initArgsCoulomb( atoms, poss, ctx=oclu.ctx ):
@@ -29,7 +31,8 @@ def initArgsCoulomb( atoms, poss, ctx=oclu.ctx ):
     cl_poss    = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes
     cl_FE      = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ); nbytes+=poss.nbytes
     kargs = ( nAtoms, cl_atoms, cl_poss, cl_FE )
-    print "initArgsCoulomb.nbytes ", nbytes
+    if(verbose>0):
+        print "initArgsCoulomb.nbytes ", nbytes
     return kargs 
 
 def initArgsLJC( atoms, cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
@@ -42,7 +45,8 @@ def initArgsLJC( atoms, cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
     cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ); nbytes+=poss.nbytes*2 # float8
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
-    print "initArgsLJC.nbytes ", nbytes
+    if(verbose>0):
+        print "initArgsLJC.nbytes ", nbytes
     return kargs
 
 def initArgsLJ(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
@@ -55,7 +59,8 @@ def initArgsLJ(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
     cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ); nbytes+=poss.nbytes   # float4
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
-    print "initArgsLJ.nbytes ", nbytes
+    if(verbose>0):
+        print "initArgsLJ.nbytes ", nbytes
     return kargs
 
 def initArgsMorse(atoms,REAs, poss, ctx=oclu.ctx, queue=oclu.queue ):
@@ -68,7 +73,8 @@ def initArgsMorse(atoms,REAs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes # float4
     cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ); nbytes+=poss.nbytes # float4
     kargs = ( nAtoms, cl_atoms, cl_REAs, cl_poss, cl_FE )
-    print "initArgsMorse.nbytes ", nbytes
+    if(verbose>0):
+        print "initArgsMorse.nbytes ", nbytes
     return kargs
 
 def releaseArgs( kargs ):
@@ -199,7 +205,7 @@ def runLJC( kargs, nDim, local_size=(32,), queue=oclu.queue ):
     global_size = (ntot,) # TODO make sure divisible by local_size
     #print "global_size:", global_size
     FE = np.zeros( nDim+(8,), dtype=np.float32 ) # float8
-    print "FE.shape ", FE.shape
+    if(verbose>0): print "FE.shape ", FE.shape
     cl_program.evalLJC( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy( queue, FE, kargs[4] )
     queue.finish()
@@ -231,9 +237,9 @@ def runMorse( kargs, nDim, local_size=(32,), queue=oclu.queue ):
 
 def genFFSampling( lvec, pixPerAngstrome=10 ):
     nDim = np.array([
-        int(round(pixPerAngstrome*( np.sqrt( np.dot( lvec[1] ) ) ))),
-        int(round(pixPerAngstrome*( np.sqrt( np.dot( lvec[2] ) ) ))),
-        int(round(pixPerAngstrome*( np.sqrt( np.dot( lvec[3] ) ) )))
+        int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[1],lvec[1])) )),
+        int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[2],lvec[2])) )),
+        int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[3],lvec[3])) ))
     ])
     return nDim
 
@@ -291,6 +297,8 @@ def CLJ2float2(C6s,C12s):
 
 class ForceField_LJC:
 
+    #verbose=0  # this is global for now
+
     def __init__( self ):
         self.ctx   = oclu.ctx; 
         self.queue = oclu.queue
@@ -306,7 +314,7 @@ class ForceField_LJC:
         self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
         self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ); nbytes+=poss.nbytes*2 # float8
         #kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
-        print "initArgsLJC.nbytes ", nbytes
+        if(verbose>0): print "initArgsLJC.nbytes ", nbytes
         #return kargs
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None ):
@@ -323,7 +331,7 @@ class ForceField_LJC:
     def run(self, FE=None, local_size=(32,) ):
         if FE is None:
             FE = np.zeros( self.nDim[:3]+(8,), dtype=np.float32 )
-            print "FE.shape", FE.shape, self.nDim
+            if(verbose>0): print "FE.shape", FE.shape, self.nDim
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size

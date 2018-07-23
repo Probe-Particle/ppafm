@@ -1,20 +1,10 @@
 #!/usr/bin/python
 
-from __future__ import unicode_literals
-import sys
-import os
-import shutil
-import time
-import random
-import matplotlib;
 import numpy as np
-from enum import Enum
 
-import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver";
-import matplotlib.pyplot as plt
-
-#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
-#import pyProbeParticle.GridUtils as GU
+#import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver";
+#import matplotlib.pyplot as plt
+#import GridUtils as GU
 
 import basUtils
 #from   import PPPlot 
@@ -46,8 +36,6 @@ def loadSpecies(fname):
         with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:  
             str_Species = f.read();
     str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in str_Species.split('\n')  )
-    #print "str_Species"
-    #print str_Species
     return PPU.loadSpeciesLines( str_Species.split('\n') )
 
 def evalFFatoms_LJC( atoms, cLJs, poss ):

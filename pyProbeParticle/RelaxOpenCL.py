@@ -6,7 +6,7 @@ import pyopencl as cl
 import numpy as np
 
 import oclUtils as oclu
-import GridUtils as GU
+
 import common as PPU
 #import cpp_utils as cpp_utils
 
@@ -24,9 +24,14 @@ DEFAULT_stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
 DEFAULT_dpos0        = np.array( [ 0.0 , 0.0 , -4.0 , 4.0 ], dtype=np.float32 );
 DEFAULT_relax_params = np.array( [ 0.1 , 0.9 ,  0.02, 0.5 ], dtype=np.float32 );
 
+verbose = 0
+
 # ========== Functions
 
+'''
+# this should be elsewhere - we do not want dependnece on GridUtils
 def loadFEcl( Q = None ):
+    import GridUtils as GU 
     E ,lvec, nDim, head = GU.loadXSF('ELJ_cl.xsf' ); FE = np.zeros( E.shape+(4,), dtype=np.float32 ); FE.shape; FE[:,:,:,3] = E
     Fx,lvec, nDim, head = GU.loadXSF('FLJx_cl.xsf'); FE[:,:,:,0] = Fx   
     Fy,lvec, nDim, head = GU.loadXSF('FLJy_cl.xsf'); FE[:,:,:,1] = Fy
@@ -37,6 +42,7 @@ def loadFEcl( Q = None ):
         Fy,lvec, nDim, head = GU.loadXSF('Fely_cl.xsf'); FE[:,:,:,1] += Q*Fy
         Fz,lvec, nDim, head = GU.loadXSF('Felz_cl.xsf'); FE[:,:,:,2] += Q*Fz    
     return FE, lvec
+'''
 
 def init( cl_context=oclu.ctx):
     global cl_program
@@ -45,7 +51,7 @@ def init( cl_context=oclu.ctx):
 def getInvCell( lvec ):
     cell = lvec[1:4,0:3]
     invCell = np.transpose( np.linalg.inv(cell) )
-    print invCell
+    if(verbose>0): print invCell
     invA = np.zeros( 4, dtype=np.float32); invA[0:3] = invCell[0]
     invB = np.zeros( 4, dtype=np.float32); invB[0:3] = invCell[1]
     invC = np.zeros( 4, dtype=np.float32); invC[0:3] = invCell[2]
@@ -97,11 +103,12 @@ def relax( kargs, scan_dim, invCell, poss=None, FEin=None, FEout=None, dTip=DEFA
     kargs = kargs  + ( invCell[0],invCell[1],invCell[2], dTip, stiffness, dpos0, relax_params, nz )
     if FEout is None:
         FEout = np.zeros( scan_dim+(4,), dtype=np.float32 )
-        print "FEout.shape", FEout.shape, scan_dim
+        if(verbose>0): print "FEout.shape", FEout.shape, scan_dim
     if poss is not None:
         cl.enqueue_copy( queue, kargs[1], poss )
     if FEin is not None:
-        region = FEin.shape[:3]; region = region[::-1]; print "region : ", region
+        region = FEin.shape[:3]; region = region[::-1]; 
+        if(verbose>0): print "region : ", region
         cl.enqueue_copy( queue, kargs[0], FEin, origin=(0,0,0), region=region )
     #print kargs
     cl_program.relaxStrokes( queue, ( int(scan_dim[0]*scan_dim[1]),), None, *kargs )
@@ -131,6 +138,8 @@ if __name__ == "__main__":
 ## ============= Relax Class:
 
 class RelaxedScanner:
+
+    #verbose=0  # this is global for now
 
     def __init__( self ):
         self.queue  = oclu.queue
@@ -163,7 +172,7 @@ class RelaxedScanner:
         self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz                     );  nbytes+=bsz                  # float4
         self.cl_FEout = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz * self.scan_dim[2] );   nbytes+=bsz*self.scan_dim[2] # float4
         #print "FFout.nbytes : ", bsz * scan_dim[2]
-        print "prepareBuffers.nbytes: ", nbytes
+        if(verbose>0): print "prepareBuffers.nbytes: ", nbytes
 
     def releaseBuffers(self):
         self.cl_ImgIn.release()
@@ -204,11 +213,12 @@ class RelaxedScanner:
             nz )
         if FEout is None:
             FEout = np.zeros( self.scan_dim+(4,), dtype=np.float32 )
-            print "FEout.shape", FEout.shape, self.scan_dim
+            if(verbose>0): print "FEout.shape", FEout.shape, self.scan_dim
         if lvec is not None:
             self.invCell = getInvCell(lvec)
         if FEin is not None:
-            region = FEin.shape[:3]; region = region[::-1]; print "region : ", region
+            region = FEin.shape[:3]; region = region[::-1]; 
+            if(verbose>0): print "region : ", region
             cl.enqueue_copy( self.queue, self.cl_ImgIn, FEin, origin=(0,0,0), region=region )
         #print kargs
         cl_program.relaxStrokes( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )

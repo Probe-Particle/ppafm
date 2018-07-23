@@ -4,6 +4,8 @@ import elements
 import math
 import numpy as np
 
+verbose = 0
+
 def loadBas(name):
     xyzs = []
     f = open(name,"r")
@@ -120,7 +122,8 @@ def loadAtomsLines( lines ):
                 q = 0
             qs.append(q)
         except:
-            print "cannot interpet line: ", line
+            if(verbose>0):
+                print "cannot interpet line: ", line
             continue
     xyzs = np.array( xyzs )
     Zs   = np.array( Zs, dtype=np.int32 )
