@@ -155,7 +155,6 @@ class Generator():
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty
 
-        """
         if(self.debugPlots):
             import matplotlib as mpl;  mpl.use('Agg');
             import matplotlib.pyplot as plt
@@ -167,7 +166,6 @@ class Generator():
                 plt.imshow( FEout[:,:,isl,2] )
                 plt.savefig(  fname+( "_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                 plt.close()
-        """
 
     def getDistDens(self, atoms, poss, F):
         rFunc = self.rFunc
