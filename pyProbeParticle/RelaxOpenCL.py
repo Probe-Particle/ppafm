@@ -186,6 +186,7 @@ class RelaxedScanner:
         #poss[:,:,:] = pos0[None,None,:] + As[:,:,None] * rot[0][None,None,:]   + As[:,:,None] * rot[1][None,None,:]
         #self.poss = poss
         cl.enqueue_copy( self.queue, self.cl_poss, poss )
+        return poss
 
     def run(self, FEout=None, FEin=None, lvec=None ):
         nz = np.int32( self.scan_dim[2] )
