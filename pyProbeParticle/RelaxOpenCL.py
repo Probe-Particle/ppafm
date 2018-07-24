@@ -16,8 +16,8 @@ cl_program = None
 #cl_queue   = None 
 #cl_context = None
 
-FE         = None
-FEout      = None
+#FE         = None
+#FEout      = None
 
 DEFAULT_dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
 DEFAULT_stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
@@ -48,14 +48,20 @@ def init( cl_context=oclu.ctx):
     global cl_program
     cl_program  = oclu.loadProgram(oclu.CL_PATH+"/relax.cl")
 
+def mat3x3to4f( M ):
+    a = np.zeros( 4, dtype=np.float32); a[0:3] = M[0]
+    b = np.zeros( 4, dtype=np.float32); b[0:3] = M[1]
+    c = np.zeros( 4, dtype=np.float32); c[0:3] = M[2]
+    return (a, b, c)
+
 def getInvCell( lvec ):
     cell = lvec[1:4,0:3]
     invCell = np.transpose( np.linalg.inv(cell) )
     if(verbose>0): print invCell
-    invA = np.zeros( 4, dtype=np.float32); invA[0:3] = invCell[0]
-    invB = np.zeros( 4, dtype=np.float32); invB[0:3] = invCell[1]
-    invC = np.zeros( 4, dtype=np.float32); invC[0:3] = invCell[2]
-    return (invA, invB, invC)
+    #invA = np.zeros( 4, dtype=np.float32); invA[0:3] = invCell[0]
+    #invB = np.zeros( 4, dtype=np.float32); invB[0:3] = invCell[1]
+    #invC = np.zeros( 4, dtype=np.float32); invC[0:3] = invCell[2]
+    return mat3x3to4f( invCell )
 
 def preparePoss( scan_dim, z0, start=(0.0,0.0), end=(10.0,10.0) ):
     #print "DEBUG preparePoss : ", scan_dim, z0, start, end
@@ -144,19 +150,8 @@ class RelaxedScanner:
     def __init__( self ):
         self.queue  = oclu.queue
         self.ctx    = oclu.ctx
-        #self.ndim   = ( 100, 100, 20)
-        #distAbove  = 7.5
-        #islices    = [0,+2,+4,+6,+8]
-        #self.relax_params = np.array( [ 0.1, 0.9, 0.1*0.2, 0.1*5.0 ], dtype=np.float32 );
-        #self.dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
-        #self.stiffness    = np.array( [ 0.24,0.24,0.0, 30.0    ], dtype=np.float32 ); stiffness/=-16.0217662;
-        #self.dpos0        = np.array( [ 0.0,0.0,0.0,4.0        ], dtype=np.float32 ); 
-        #self.dpos0[2]     = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 );
         self.stiffness    = DEFAULT_stiffness.copy()
         self.relax_params = DEFAULT_relax_params.copy()
-        #self.dTip         = DEFAULT_dTip.copy()
-        #self.dpos0        = DEFAULT_dpos0.copy()
-        #print "dpos0 ", dpos0
 
     def prepareBuffers(self, FEin, lvec, scan_dim=(100,100,20) ):
         self.scan_dim = scan_dim
@@ -182,8 +177,11 @@ class RelaxedScanner:
     def setScanRot(self, pos0, rot=None, start=(-5.0,-5.0), end=(5.0,5.0), zstep=0.1, tipR0=4.0 ):
         if rot is None:
             rot = np.identity()
-        self.dTip =np.zeros(4,dtype=np.float32); self.dTip [:3] = rot[2]*-zstep
-        self.dpos0=np.zeros(4,dtype=np.float32); self.dpos0[:3] = rot[2]*-tipR0;  self.dpos0[3] = tipR0
+        self.dTip     = np.zeros(4,dtype=np.float32); self.dTip [:3] = rot[2]*-zstep
+        self.dpos0    = np.zeros(4,dtype=np.float32); self.dpos0[:3] = rot[2]*-tipR0;  self.dpos0[3] = tipR0
+        self.tipRot = mat3x3to4f( rot )
+        self.tipRot[2][3] = -zstep
+        self.dpos0Tip = np.zeros(4,dtype=np.float32); self.dpos0Tip[2]  = -tipR0; self.dpos0Tip[3] = tipR0
         ys    = np.linspace(start[0],end[0],self.scan_dim[0])
         xs    = np.linspace(start[1],end[1],self.scan_dim[1])
         As,Bs = np.meshgrid(xs,ys)
@@ -197,20 +195,7 @@ class RelaxedScanner:
         cl.enqueue_copy( self.queue, self.cl_poss, poss )
         return poss
 
-    def run(self, FEout=None, FEin=None, lvec=None ):
-        nz = np.int32( self.scan_dim[2] )
-        kargs = ( 
-            self.cl_ImgIn, 
-            self.cl_poss, 
-            self.cl_FEout, 
-            self.invCell[0], 
-            self.invCell[1],
-            self.invCell[2], 
-            self.dTip, 
-            self.stiffness, 
-            self.dpos0, 
-            self.relax_params, 
-            nz )
+    def updateBuffers(self, FEout=None, FEin=None, lvec=None ):
         if FEout is None:
             FEout = np.zeros( self.scan_dim+(4,), dtype=np.float32 )
             if(verbose>0): print "FEout.shape", FEout.shape, self.scan_dim
@@ -220,8 +205,66 @@ class RelaxedScanner:
             region = FEin.shape[:3]; region = region[::-1]; 
             if(verbose>0): print "region : ", region
             cl.enqueue_copy( self.queue, self.cl_ImgIn, FEin, origin=(0,0,0), region=region )
+        return FEout
+
+    def run(self, FEout=None, FEin=None, lvec=None, nz=None ):
+        if nz is None: nz=self.scan_dim[2] 
+        #print "FEout ", FEout
+        #FEout = self.updateBuffers( FEout=FEout )
+        FEout = self.updateBuffers( FEout=FEout, FEin=FEin, lvec=lvec )
+        kargs = ( 
+            self.cl_ImgIn, 
+            self.cl_poss, 
+            self.cl_FEout, 
+            self.invCell[0], self.invCell[1], self.invCell[2], 
+            self.dTip, 
+            self.stiffness, 
+            self.dpos0, 
+            self.relax_params, 
+            np.int32(nz) )
         #print kargs
         cl_program.relaxStrokes( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+        cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
+        self.queue.finish()
+        return FEout
+
+    def runTilted(self, FEout=None, FEin=None, lvec=None, nz=None ):
+        if nz is None: nz=self.scan_dim[2] 
+        #print "FEout ", FEout
+        #FEout = self.updateBuffers( FEout=FEout )
+        FEout = self.updateBuffers( FEout=FEout, FEin=FEin, lvec=lvec )
+        #print " >>> FEout.shape", FEout.shape
+        kargs = ( 
+            self.cl_ImgIn, 
+            self.cl_poss, 
+            self.cl_FEout, 
+            self.invCell[0], self.invCell[1], self.invCell[2], 
+            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            self.stiffness, 
+            self.dpos0Tip, 
+            self.relax_params, 
+            np.int32(nz) )
+        #print kargs
+        cl_program.relaxStrokesTilted( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+        cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
+        self.queue.finish()
+        #print " !!!! FEout.shape", FEout.shape
+        return FEout
+
+    def runFixed(self, FEout=None, FEin=None, lvec=None, nz=None ):
+        if nz is None: nz=self.scan_dim[2] 
+        #FEout = self.updateBuffers( FEout=FEout )
+        FEout = self.updateBuffers( FEout=FEout, FEin=FEin, lvec=lvec )
+        kargs = ( 
+            self.cl_ImgIn, 
+            self.cl_poss, 
+            self.cl_FEout, 
+            self.invCell[0], self.invCell[1], self.invCell[2], 
+            self.dTip,
+            self.dpos0, 
+            np.int32(nz) )
+        #print kargs
+        cl_program.getFEinStrokes( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
         self.queue.finish()
         return FEout

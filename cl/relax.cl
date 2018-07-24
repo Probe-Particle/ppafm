@@ -3,6 +3,18 @@
 
 __constant sampler_t sampler_1 = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
 
+/*
+float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
+    float r = sqrt( dot( dpos,dpos) );
+    return  (dpos-dpos0.xyz) * stiffness.xyz              // harmonic 3D
+         + dpos * ( stiffness.w * (r-dpos0.w)/r );  // radial
+}
+
+*/
+
+inline float3 rotMat( float3 v, float3 a, float3 b, float3 c ){ return (float3)(dot(v,a),dot(v,b),dot(v,c)); }
+inline float3 rotMatT( float3 v,  float3 a, float3 b, float3 c  ){ return a*v.x + b*v.y + c*v.z; }
+
 float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
     float r = sqrt( dot( dpos,dpos) );
     return  (dpos-dpos0.xyz) * stiffness.xyz              // harmonic 3D
@@ -17,8 +29,8 @@ float4 interpFE( float3 pos, float3 dinvA, float3 dinvB, float3 dinvC, __read_on
 
 // this should be macro, to pass values by reference
 void move_LeapFrog( float3 f, float3 p, float3 v, float2 RP ){
-	v  =  f * RP.x + v*RP.y;
-	p +=  v * RP.x;	
+    v  =  f * RP.x + v*RP.y;
+    p +=  v * RP.x;
 }
 
 #define FTDEC 0.5f
@@ -30,21 +42,21 @@ void move_LeapFrog( float3 f, float3 p, float3 v, float2 RP ){
 // this should be macro, to pass values by reference
 void move_FIRE( float3 f, float3 p, float3 v, float2 RP, float4 RP0 ){
     // RP0 = (t?,damp0,tmin,tmax)
-	float ff   = dot(f,f);
-	float vv   = dot(v,v);
-	float vf   = dot(v,f);
-	if( vf < 0 ){
-		v      = 0.0f;
-		RP.x   = max( RP.x*FTDEC, RP0.z );    // dt
-	  	RP.y   = RP0.y;                      // damp
-	}else{     		
-		v      = v*(1-RP.y) + f*RP.y * sqrt(vv/ff);
-		RP.x   = min( RP.x*FTINC, RP0.w );   // dt
-		RP.y  *= FDAMP;                     // damp
-	}
-	// normal leap-frog times step
-	v +=  f * RP.x;
-	p +=  v * RP.x;	
+    float ff   = dot(f,f);
+    float vv   = dot(v,v);
+    float vf   = dot(v,f);
+    if( vf < 0 ){
+        v      = 0.0f;
+        RP.x   = max( RP.x*FTDEC, RP0.z );    // dt
+        RP.y   = RP0.y;                      // damp
+    }else{
+        v      = v*(1-RP.y) + f*RP.y * sqrt(vv/ff);
+        RP.x   = min( RP.x*FTINC, RP0.w );   // dt
+        RP.y  *= FDAMP;                     // damp
+    }
+    // normal leap-frog times step
+    v +=  f * RP.x;
+    p +=  v * RP.x;
 }
 
 __kernel void getFEinPoints(
@@ -60,6 +72,17 @@ __kernel void getFEinPoints(
     FEs[get_global_id(0)]    = interpFE( points[get_global_id(0)].xyz, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
 }
 
+__kernel void getFEinPointsShifted(
+    __read_only image3d_t  imgIn,
+    __global  float4*      points,
+    __global  float4*      FEs,
+    float4 dinvA,
+    float4 dinvB,
+    float4 dinvC,
+    float4 dpos0
+){
+    FEs[get_global_id(0)] = interpFE( points[get_global_id(0)].xyz+dpos0.xyz, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+}
 
 __kernel void getFEinStrokes(
     __read_only image3d_t  imgIn,
@@ -69,9 +92,10 @@ __kernel void getFEinStrokes(
     float4 dinvB,
     float4 dinvC,
     float4 dTip,
+    float4 dpos0,
     int nz
 ){
-    float3 pos    =  points[get_global_id(0)].xyz; 
+    float3 pos    =  points[get_global_id(0)].xyz + dpos0.xyz; 
     for(int iz=0; iz<nz; iz++){
         float4 fe;
         //printf( " %li %i (%f,%f,%f) \n", get_global_id(0), iz, pos.x, pos.y, pos.z );
@@ -93,12 +117,12 @@ __kernel void relaxPoints(
     float4 fe;
     float3 vel    = 0.0f;
     for(int i=0; i<1000; i++){
-       fe        = read_imagef( imgIn, sampler_1, (float4)(pos,0.0f) ); /// this would work only for unitary cell
-       float3 f  = fe.xyz;
-       f        += tipForce( pos-tipPos, stiffness, dpos0 );    
-       vel      *=       relax_params.y;   
-       vel      += f   * relax_params.x;
-       pos.xyz  += vel * relax_params.x;
+        fe        = read_imagef( imgIn, sampler_1, (float4)(pos,0.0f) ); /// this would work only for unitary cell
+        float3 f  = fe.xyz;
+        f        += tipForce( pos-tipPos, stiffness, dpos0 );    
+        vel      *=       relax_params.y;   
+        vel      += f   * relax_params.x;
+        pos.xyz  += vel * relax_params.x;
     }
     FEs[get_global_id(0)] = fe;
 }
@@ -125,16 +149,63 @@ __kernel void relaxStrokes(
         float4 fe;
         float3 vel   = 0.0f;
         for(int i=0; i<N_RELAX_STEP_MAX; i++){
-           fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
-           float3 f  = fe.xyz;
-           f        += tipForce( pos-tipPos, stiffness, dpos0 );
-           vel      *=       relax_params.y;       
-           vel      += f   * relax_params.y;
-           pos.xyz  += vel * relax_params.x;
-           if(dot(f,f)<F2CONV) break;
+            fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+            float3 f  = fe.xyz;
+            f        += tipForce( pos-tipPos, stiffness, dpos0 );
+            vel      *=       relax_params.y;       
+            vel      += f   * relax_params.y;
+            pos.xyz  += vel * relax_params.x;
+            if(dot(f,f)<F2CONV) break;
         }
-        FEs[get_global_id(0)*nz + iz] = fe;
-        //FEs[get_global_id(0)*nz + iz].xyz = pos;
+        //FEs[get_global_id(0)*nz + iz] = fe;
+        FEs[get_global_id(0)*nz + iz].xyz = pos;
+        tipPos += dTip.xyz;
+        pos    += dTip.xyz;
+    }
+}
+
+
+
+__kernel void relaxStrokesTilted(
+    __read_only image3d_t  imgIn,
+    __global  float4*      points,
+    __global  float4*      FEs,
+    float4 dinvA,
+    float4 dinvB,
+    float4 dinvC,
+    float4 tipA,
+    float4 tipB,
+    float4 tipC,
+    float4 stiffness,
+    float4 dpos0,
+    float4 relax_params,
+    int nz
+){
+    float3 dTip   = tipC.xyz * tipC.w;
+    float3 tipPos = points[get_global_id(0)].xyz;
+
+    float3 dpos0_  = rotMatT( dpos0_ , tipA.xyz, tipB.xyz, tipC.xyz );
+    float3 pos     = tipPos.xyz + dpos0_.xyz; 
+
+    //printf( " %li (%f,%f,%f)  \n",  get_global_id(0), tipPos.x, tipPos.y, tipPos.z);
+    
+    for(int iz=0; iz<nz; iz++){
+        float4 fe;
+        float3 vel   = 0.0f;
+        for(int i=0; i<N_RELAX_STEP_MAX; i++){
+            fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+            float3 f  = fe.xyz;
+            float3 dpos  = pos-tipPos;
+            float3 dpos_ = rotMat( dpos, tipA.xyz, tipB.xyz, tipC.xyz );    // to tip-coordinates
+            float3 ftip  = tipForce( dpos_, stiffness, dpos0 );
+            f        += rotMatT( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
+            vel      *=       relax_params.y;
+            vel      += f   * relax_params.y;
+            pos.xyz  += vel * relax_params.x;
+            if(dot(f,f)<F2CONV) break;
+        }
+        //FEs[get_global_id(0)*nz + iz] = fe;
+        FEs[get_global_id(0)*nz + iz].xyz = pos;
         tipPos += dTip.xyz;
         pos    += dTip.xyz;
     }

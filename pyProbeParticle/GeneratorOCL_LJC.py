@@ -43,7 +43,7 @@ class Generator():
     # --- ForceField
     pixPerAngstrome = 10
     iZPP = 8
-    Q    = -0.1;
+    Q    = 0.0;
     bPBC = True
     lvec = np.array([
         [ 0.0,  0.0,  0.0],
@@ -56,15 +56,19 @@ class Generator():
     npbc       = (1,1,1)
     scan_dim   = ( 100, 100, 20)
     distAbove  =  7.5
-    planeShift =  4.0
+    planeShift =  -4.0
     
     # ---- Atom Distance Density
     wr = 1.0
     wz = 1.0
-    rFunc = staticmethod( lambda x : 1/(1.0+x*x) )
-    zFunc = staticmethod( lambda x : np.exp(-x)  )
+    r2Func = staticmethod( lambda r2 : 1/(1.0+r2) )
+    zFunc  = staticmethod( lambda x  : np.exp(-x)  )
+
+    isliceY = -1
 
     debugPlots = False
+    debugPlotSlices   = [0,+2,+4,+6,+8,+10,+12,+14,+16]
+    #debugPlotSlices   = [-1]
 
     'Generates data for Keras'
     def __init__(self, molecules, rotations, batch_size=32 ):
@@ -139,40 +143,65 @@ class Generator():
         Tff = time.clock()-t1ff;   
         if(verbose>1): print "Tff %f [s]" %Tff
 
+    def plot(self,X,Y,Y_=None):
+        import matplotlib as mpl;  mpl.use('Agg');
+        import matplotlib.pyplot as plt
+        iepoch, imol, irot = self.getMolRotIndex( self.counter )
+        fname    = self.preName + self.molecules[imol] + ("/rot%03i_" % irot)
+        print " plot to file : ", fname
+
+        plt.imshow( Y )
+        plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
+        plt.close()
+
+        for isl in self.debugPlotSlices:
+            #plt.imshow( FEout[:,:,isl,2] )
+            plt.imshow(  X[:,:,isl] )
+            plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
+            plt.close()
+
+            if Y_ is not None:
+                plt.imshow ( Y_[:,:,isl] )
+                plt.savefig( fname+( "FzFix_iz%03i.png" %isl ), bbox_inches="tight"  ); 
+                plt.close()
+
     def nextRotation(self, rot, X,Y ):
         t1scan = time.clock();
-        pos0  = hl.posAboveTopAtom( self.atoms[:self.natoms0], rot[2], distAbove=self.distAbove )
+        zDir = rot[2].flat.copy()
+        pos0  = hl.posAboveTopAtom( self.atoms[:self.natoms0], zDir, distAbove=self.distAbove )
         poss  = self.scanner.setScanRot( pos0, rot=rot, start=(-10.0,-10.0), end=(10.0,10.0) )
         FEout = self.scanner.run()
+        #FEout = self.scanner.runTilted()
+        #X[:,:,:] = FEout[:,:,:,2]
+        print "rot.shape, zDir.shape", rot.shape, zDir
+        print "FEout.shape ", FEout.shape
+        X[:,:,:] = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
         Tscan = time.clock()-t1scan;  
         if(verbose>1): print "Tscan %f [s]" %Tscan
-        X[:,:,:] = FEout[:,:,:,2]
         
         t1y = time.clock();
+        '''
         if(verbose>1): print "relax poss.shape", poss.shape
         poss[:,:,:3] += ( rot[2] * self.planeShift )[None,None,:]   # shift toward surface
         self.getDistDens( self.atoms[:,:3], poss[:,:,:3], Y )
+        '''
+        self.scanner.runFixed( FEout=FEout )
+        #Y[:,:] = FEout[:,:,-1,2]
+        Y[:,:] =  FEout[:,:,self.isliceY,0]*zDir[0] + FEout[:,:,self.isliceY,1]*zDir[1] + FEout[:,:,self.isliceY,2]*zDir[2]
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty
 
         if(self.debugPlots):
-            import matplotlib as mpl;  mpl.use('Agg');
-            import matplotlib.pyplot as plt
-            islices   = [0,+2,+4,+6,+8,+10,+12,+14,+16]
-            iepoch, imol, irot = self.getMolRotIndex( self.counter )
-            fname    = self.preName + self.molecules[imol] + ("/rot%03i_Fz_" % irot)
-            print " plot to file : ", fname
-            for isl in islices:
-                plt.imshow( FEout[:,:,isl,2] )
-                plt.savefig(  fname+( "_iz%03i.png" %isl ), bbox_inches="tight"  ); 
-                plt.close()
+            Y_ = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
+            self.plot(X,Y, Y_ )
 
     def getDistDens(self, atoms, poss, F):
-        rFunc = self.rFunc
-        zFunc = self.zFunc
-        for atom in atoms:
-            dposs =  ( poss - atom[None,None,:] )**2
-            F += rFunc( (dposs[:,:,0]**2 + dposs[:,:,1]**2)/self.wr ) + zFunc( dposs[:,:,2]/self.wz )
+        F[:,:] = 0
+        for atom in atoms[:1]:
+            ## TODO - we should project it with respect to rotation
+            dposs =  poss - atom[None,None,:]
+            #F[:,:] += self.r2Func( (dposs[:,:,0]**2 + dposs[:,:,1]**2)/self.wr ) # * self.zFunc( dposs[:,:,2]/self.wz )
+            F[:,:] += self.r2Func( (dposs[:,:,0]**2 + dposs[:,:,1]**2 + dposs[:,:,2]**2 )/self.wr )
 
 
 
