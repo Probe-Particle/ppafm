@@ -184,11 +184,9 @@ __kernel void relaxStrokesTilted(
     float3 dTip   = tipC.xyz * tipC.w;
     float3 tipPos = points[get_global_id(0)].xyz;
 
-    float3 dpos0_  = rotMatT( dpos0_ , tipA.xyz, tipB.xyz, tipC.xyz );
+    float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
     float3 pos     = tipPos.xyz + dpos0_.xyz; 
 
-    //printf( " %li (%f,%f,%f)  \n",  get_global_id(0), tipPos.x, tipPos.y, tipPos.z);
-    
     for(int iz=0; iz<nz; iz++){
         float4 fe;
         float3 vel   = 0.0f;
@@ -196,16 +194,19 @@ __kernel void relaxStrokesTilted(
             fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
             float3 f  = fe.xyz;
             float3 dpos  = pos-tipPos;
+
             float3 dpos_ = rotMat( dpos, tipA.xyz, tipB.xyz, tipC.xyz );    // to tip-coordinates
-            float3 ftip  = tipForce( dpos_, stiffness, dpos0 );
-            f        += rotMatT( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
+            float3 ftip = tipForce( dpos_, stiffness, dpos0 );
+            f      += rotMatT( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
+            
+            //f        +=  tipForce( dpos, stiffness, dpos0_ );  // Not rotated
             vel      *=       relax_params.y;
             vel      += f   * relax_params.y;
             pos.xyz  += vel * relax_params.x;
             if(dot(f,f)<F2CONV) break;
         }
-        //FEs[get_global_id(0)*nz + iz] = fe;
-        FEs[get_global_id(0)*nz + iz].xyz = pos;
+        FEs[get_global_id(0)*nz + iz] = fe;
+        //FEs[get_global_id(0)*nz + iz].xyz = pos;
         tipPos += dTip.xyz;
         pos    += dTip.xyz;
     }

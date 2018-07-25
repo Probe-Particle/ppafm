@@ -43,7 +43,7 @@ class Generator():
     # --- ForceField
     pixPerAngstrome = 10
     iZPP = 8
-    Q    = 0.0;
+    Q    = 0.0
     bPBC = True
     lvec = np.array([
         [ 0.0,  0.0,  0.0],
@@ -150,28 +150,37 @@ class Generator():
         fname    = self.preName + self.molecules[imol] + ("/rot%03i_" % irot)
         print " plot to file : ", fname
 
-        plt.imshow( Y )
-        plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
-        plt.close()
+        if Y is not None:
+            plt.imshow( Y )
+            plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
+            plt.close()
 
         for isl in self.debugPlotSlices:
             #plt.imshow( FEout[:,:,isl,2] )
-            plt.imshow(  X[:,:,isl] )
-            plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
-            plt.close()
-
-            if Y_ is not None:
-                plt.imshow ( Y_[:,:,isl] )
-                plt.savefig( fname+( "FzFix_iz%03i.png" %isl ), bbox_inches="tight"  ); 
+            if (X is not None) and (Y_ is not None):
+                plt.figure(figsize=(10,5))
+                plt.subplot(1,2,2); plt.imshow (X [:,:,isl] );
+                #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl] );
+                plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]) );
+                plt.savefig( fname+( "FzFixRelax_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                 plt.close()
+            else:
+                if X is not None:
+                    plt.imshow(  X[:,:,isl] )
+                    plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
+                    plt.close()
+                if Y_ is not None:
+                    plt.imshow ( Y_[:,:,isl] )
+                    plt.savefig( fname+( "FzFix_iz%03i.png" %isl ), bbox_inches="tight"  ); 
+                    plt.close()
 
     def nextRotation(self, rot, X,Y ):
         t1scan = time.clock();
         zDir = rot[2].flat.copy()
         pos0  = hl.posAboveTopAtom( self.atoms[:self.natoms0], zDir, distAbove=self.distAbove )
         poss  = self.scanner.setScanRot( pos0, rot=rot, start=(-10.0,-10.0), end=(10.0,10.0) )
-        FEout = self.scanner.run()
-        #FEout = self.scanner.runTilted()
+        #FEout = self.scanner.run()
+        FEout = self.scanner.runTilted()
         #X[:,:,:] = FEout[:,:,:,2]
         print "rot.shape, zDir.shape", rot.shape, zDir
         print "FEout.shape ", FEout.shape
