@@ -28,12 +28,12 @@ import RelaxOpenCL  as oclr
 import HighLevelOCL as hl
 
 import numpy as np
-#from keras.utils import Sequence
+from keras.utils import Sequence
 
 verbose=1
 
-#class Generator(Sequence):
-class Generator():
+class Generator(Sequence):
+#class Generator():
     preName  = ""
     postName = ""
 
@@ -98,23 +98,20 @@ class Generator():
         self.scanner.relax_params = np.array( [ 0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 );
         self.scanner.stiffness    = np.array( [0.24,0.24,0.0, 30.0     ], dtype=np.float32 )/ -16.0217662
 
-    def __len__(self):
-        'Denotes the number of batches per epoch'
-        return int(np.floor(len(self.list_IDs) / self.batch_size))
-
     def getMolRotIndex(self, i):
         nrot = len(self.rotations)
         nmol = len(self.molecules)
         return i/(nrot*nmol), (i/nrot)%nmol, i%nrot
 
-    def __getitem__(self, index):
+    def __iter__(self):
+        return self
+
+    def next(self):
         'Generate one batch of data'
-        if(verbose>0): print "index ", index
         n  = self.batch_size
         Xs = np.empty( (n,)+ self.scan_dim     )
         Ys = np.empty( (n,)+ self.scan_dim[:2] )
         for i in range(n):
-            ioff = index*n
             iepoch, imol, irot = self.getMolRotIndex( self.counter )
             if(verbose>0): print " imol, irot ", imol, irot
             if( irot == 0 ):# recalc FF
@@ -126,6 +123,15 @@ class Generator():
             self.nextRotation( self.rotations[irot], Xs[i], Ys[i] )
             self.counter +=1
         return Xs, Ys
+
+    def __len__(self):
+        'Denotes the number of batches per epoch'
+        return 10
+        #return int(np.floor(len(self.list_IDs) / self.batch_size))
+
+    def __getitem__(self, index):
+        if(verbose>0): print "index ", index
+        return self.next()
 
     def nextMolecule(self, fname ):
         fullname = self.preName+fname+self.postName
@@ -184,6 +190,7 @@ class Generator():
         #X[:,:,:] = FEout[:,:,:,2]
         print "rot.shape, zDir.shape", rot.shape, zDir
         print "FEout.shape ", FEout.shape
+
         X[:,:,:] = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
         Tscan = time.clock()-t1scan;  
         if(verbose>1): print "Tscan %f [s]" %Tscan
