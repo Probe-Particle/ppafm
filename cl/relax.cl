@@ -164,8 +164,6 @@ __kernel void relaxStrokes(
     }
 }
 
-
-
 __kernel void relaxStrokesTilted(
     __read_only image3d_t  imgIn,
     __global  float4*      points,
@@ -209,6 +207,24 @@ __kernel void relaxStrokesTilted(
         //FEs[get_global_id(0)*nz + iz].xyz = pos;
         tipPos += dTip.xyz;
         pos    += dTip.xyz;
+    }
+}
+
+__kernel void convolveZ(
+    __global  float4* Fin,
+    __global  float4* Fout,
+    __global  float*  weighs,
+    int nzin, int nzout
+){
+    int ioffi = get_global_id(0)*nzin;
+    int ioffo = get_global_id(0)*nzout;
+    for(int izo=0; izo<nzout; izo++){
+        float4 fe = 0.0f;
+        for(int izi=0; izi<(nzin-izo); izi++){
+            //fe += Fin[ ioffo + izi ] * weighs[ izi - izo ];
+            fe +=  tanh( Fin[ ioffo + izi ] ) * weighs[ izi - izo ];
+        }
+        Fout[ ioffo + izo ] = fe;
     }
 }
 

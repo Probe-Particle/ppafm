@@ -138,6 +138,17 @@ def saveXyz(fname,elems,xyzs):
         for i in range(n):
             f.write( "%s %10.10f %10.10f %10.10f\n" %(elems[i], xyzs[i][0], xyzs[i][1], xyzs[i][2] )  )
 
+def writeDebugXYZ( fname, lines, poss ):
+    fout  = open(fname,"w")
+    natom = int(lines[0])
+    npos  = len(poss)
+    fout.write( "%i\n" %(natom + npos) )
+    fout.write( "\n" )
+    for line in lines[2:natom+1]:
+        fout.write( line )
+    for pos in poss:
+        fout.write( "He %f %f %f\n" %(pos[0], pos[1], pos[2]) )
+    fout.write( "\n" )
 
 def loadXSFGeom( fname ):
     f = open(fname )

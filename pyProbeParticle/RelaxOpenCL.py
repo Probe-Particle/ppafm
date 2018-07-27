@@ -153,7 +153,13 @@ class RelaxedScanner:
         self.stiffness    = DEFAULT_stiffness.copy()
         self.relax_params = DEFAULT_relax_params.copy()
 
-    def prepareBuffers(self, FEin, lvec, scan_dim=(100,100,20) ):
+        #self.pos0  = pos0; 
+        self.zstep = 0.1
+        self.start = (-5.0,-5.0)
+        self.end   = ( 5.0, 5.0)
+        self.tipR0 = 4.0
+
+    def prepareBuffers(self, FEin, lvec, scan_dim=(100,100,20), nDimConv=None ):
         self.scan_dim = scan_dim
         self.invCell  = getInvCell(lvec)
         nbytes = 0
@@ -163,10 +169,14 @@ class RelaxedScanner:
         # see:    https://stackoverflow.com/questions/39533635/pyopencl-3d-rgba-image-from-numpy-array
         #img_format = cl.ImageFormat( cl.channel_order.RGBA, channel_type)
         #self.cl_ImgIn =  cl.Image(self.ctx, mf.READ_ONLY, img_format, shape=None, pitches=None, is_array=False, buffer=None)
-        bsz=np.dtype(np.float32).itemsize * 4 * self.scan_dim[0] * self.scan_dim[1]
-        self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz                     );  nbytes+=bsz                  # float4
-        self.cl_FEout = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz * self.scan_dim[2] );   nbytes+=bsz*self.scan_dim[2] # float4
-        #print "FFout.nbytes : ", bsz * scan_dim[2]
+        f4size = np.dtype(np.float32).itemsize * 4
+        bsz= f4size * self.scan_dim[0] * self.scan_dim[1]
+        self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz                     );    nbytes+=bsz                  # float4
+        self.cl_FEout   = cl.Buffer(self.ctx, mf.READ_WRITE, bsz * self.scan_dim[2] );   nbytes+=bsz*self.scan_dim[2]
+        if nDimConv is not None:
+            self.nDimConv = nDimConv
+            self.cl_FEconv  = cl.Buffer(self.ctx, mf.READ_WRITE, bsz * self.nDimConv );      nbytes+=bsz*self.nDimConv
+            self.cl_WZconv  = cl.Buffer(self.ctx, mf.READ_WRITE, f4size * self.nDimConv );   nbytes+=f4size*self.nDimConv
         if(verbose>0): print "prepareBuffers.nbytes: ", nbytes
 
     def releaseBuffers(self):
@@ -177,6 +187,7 @@ class RelaxedScanner:
     def setScanRot(self, pos0, rot=None, start=(-5.0,-5.0), end=(5.0,5.0), zstep=0.1, tipR0=4.0 ):
         if rot is None:
             rot = np.identity()
+        self.pos0=pos0; self.zstep=zstep; self.start= start; self.end=end
         self.dTip     = np.zeros(4,dtype=np.float32); self.dTip [:3] = rot[2]*-zstep
         self.dpos0    = np.zeros(4,dtype=np.float32); self.dpos0[:3] = rot[2]*-tipR0;  self.dpos0[3] = tipR0
         self.tipRot = mat3x3to4f( rot )
@@ -191,27 +202,24 @@ class RelaxedScanner:
         poss[:,:,2] = pos0[2] + As*rot[0,2] + Bs*rot[1,2]
         #print "DEBUG: poss[:,:,0:2]: " , poss[:,:,0:2]
         #poss[:,:,:] = pos0[None,None,:] + As[:,:,None] * rot[0][None,None,:]   + As[:,:,None] * rot[1][None,None,:]
-        #self.poss = poss
+        #self.pos0s = poss
         cl.enqueue_copy( self.queue, self.cl_poss, poss )
         return poss
 
-    def updateBuffers(self, FEout=None, FEin=None, lvec=None ):
-        if FEout is None:
-            FEout = np.zeros( self.scan_dim+(4,), dtype=np.float32 )
-            if(verbose>0): print "FEout.shape", FEout.shape, self.scan_dim
-        if lvec is not None:
-            self.invCell = getInvCell(lvec)
+    def updateBuffers(self, FEin=None, lvec=None, WZconv=None ):
+        #if FEout is None:    FEout = np.zeros( self.scan_dim+(4,), dtype=np.float32 )
+        if lvec is not None: self.invCell = getInvCell(lvec)
         if FEin is not None:
             region = FEin.shape[:3]; region = region[::-1]; 
             if(verbose>0): print "region : ", region
             cl.enqueue_copy( self.queue, self.cl_ImgIn, FEin, origin=(0,0,0), region=region )
-        return FEout
+        if WZconv is not None:
+            cl.enqueue_copy( self.queue, WZconv, self.cl_WZconv )
 
     def run(self, FEout=None, FEin=None, lvec=None, nz=None ):
         if nz is None: nz=self.scan_dim[2] 
-        #print "FEout ", FEout
-        #FEout = self.updateBuffers( FEout=FEout )
-        FEout = self.updateBuffers( FEout=FEout, FEin=FEin, lvec=lvec )
+        self.updateBuffers( FEin=FEin, lvec=lvec )
+        if FEout is None:    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
         kargs = ( 
             self.cl_ImgIn, 
             self.cl_poss, 
@@ -230,10 +238,8 @@ class RelaxedScanner:
 
     def runTilted(self, FEout=None, FEin=None, lvec=None, nz=None ):
         if nz is None: nz=self.scan_dim[2] 
-        #print "FEout ", FEout
-        #FEout = self.updateBuffers( FEout=FEout )
-        FEout = self.updateBuffers( FEout=FEout, FEin=FEin, lvec=lvec )
-        #print " >>> FEout.shape", FEout.shape
+        if FEout is None:    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
+        self.updateBuffers( FEin=FEin, lvec=lvec )
         kargs = ( 
             self.cl_ImgIn, 
             self.cl_poss, 
@@ -251,10 +257,9 @@ class RelaxedScanner:
         #print " !!!! FEout.shape", FEout.shape
         return FEout
 
-    def runFixed(self, FEout=None, FEin=None, lvec=None, nz=None ):
+    def runFixed(self, FEout=None, FEconv=None, FEin=None, lvec=None, nz=None, WZconv=None, bDoConv=False ):
         if nz is None: nz=self.scan_dim[2] 
-        #FEout = self.updateBuffers( FEout=FEout )
-        FEout = self.updateBuffers( FEout=FEout, FEin=FEin, lvec=lvec )
+        self.updateBuffers( FEin=FEin, lvec=lvec, WZconv=WZconv )
         kargs = ( 
             self.cl_ImgIn, 
             self.cl_poss, 
@@ -263,11 +268,26 @@ class RelaxedScanner:
             self.dTip,
             self.dpos0, 
             np.int32(nz) )
-        #print kargs
         cl_program.getFEinStrokes( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
-        cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
+        if bDoConv:
+            FEout = runZConv(self, FEconv=FEconv, nz=nz )
+        else:
+            if FEout is None:    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
+            cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
         self.queue.finish()
         return FEout
+
+    def runZConv(self, FEconv=None, nz=None ):
+        if nz is None: nz=self.scan_dim[2]
+        if FEconv is None: FEconv = np.empty( self.scan_dim[:2]+(self.nDimConv,4,), dtype=np.float32 )
+        kargs = ( 
+            self.cl_FEout,
+            self.cl_FEconv,
+            self.cl_WZconvout, 
+            np.int32(nz), np.int32( self.nDimConv ) )
+        cl_program.convolveZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+        cl.enqueue_copy( self.queue, FEconv, self.cl_FEconv )
+        return FEconv
 
 
 

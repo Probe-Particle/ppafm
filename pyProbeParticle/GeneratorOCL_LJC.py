@@ -32,6 +32,12 @@ from keras.utils import Sequence
 
 verbose=1
 
+def applyZWeith( F, zWeight ):
+    #F_ = np.apply_along_axis( lambda m: np.convolve(m, zWeight, mode='valid'), axis=0, arr=F )
+    #print "F.shape, zWeight.shape ", F.shape, zWeight.shape
+    F_ = np.average( F, axis=2, weights=zWeight )
+    return F_
+
 class Generator(Sequence):
 #class Generator():
     preName  = ""
@@ -54,7 +60,7 @@ class Generator(Sequence):
 
     # --- Relaxation
     npbc       = (1,1,1)
-    scan_dim   = ( 100, 100, 20)
+    scan_dim   = ( 100, 100, 30)
     distAbove  =  7.5
     planeShift =  -4.0
     
@@ -97,6 +103,8 @@ class Generator(Sequence):
         self.scanner = oclr.RelaxedScanner()
         self.scanner.relax_params = np.array( [ 0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 );
         self.scanner.stiffness    = np.array( [0.24,0.24,0.0, 30.0     ], dtype=np.float32 )/ -16.0217662
+        #self.zWeight =  np.ones( self.scan_dim[2] )
+        self.zWeight =  self.getZWeights();
 
     def getMolRotIndex(self, i):
         nrot = len(self.rotations)
@@ -137,8 +145,8 @@ class Generator(Sequence):
         fullname = self.preName+fname+self.postName
         if(verbose>0): print " ===== nextMolecule: ", fullname
         t1ff = time.clock();
-        atom_lines = open( fullname ).readlines()
-        xyzs,Zs,enames,qs = basUtils.loadAtomsLines( atom_lines )
+        self.atom_lines = open( fullname ).readlines()
+        xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.atom_lines )
         self.natoms0 = len(Zs)
         if( self.npbc is not None ):
             Zs, xyzs, qs = PPU.PBCAtoms3D( Zs, xyzs, qs, self.lvec[1:], npbc=self.npbc )
@@ -149,44 +157,14 @@ class Generator(Sequence):
         Tff = time.clock()-t1ff;   
         if(verbose>1): print "Tff %f [s]" %Tff
 
-    def plot(self,X,Y,Y_=None):
-        import matplotlib as mpl;  mpl.use('Agg');
-        import matplotlib.pyplot as plt
-        iepoch, imol, irot = self.getMolRotIndex( self.counter )
-        fname    = self.preName + self.molecules[imol] + ("/rot%03i_" % irot)
-        print " plot to file : ", fname
-
-        if Y is not None:
-            plt.imshow( Y )
-            plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
-            plt.close()
-
-        for isl in self.debugPlotSlices:
-            #plt.imshow( FEout[:,:,isl,2] )
-            if (X is not None) and (Y_ is not None):
-                plt.figure(figsize=(10,5))
-                plt.subplot(1,2,2); plt.imshow (X [:,:,isl] );
-                #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl] );
-                plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]) );
-                plt.savefig( fname+( "FzFixRelax_iz%03i.png" %isl ), bbox_inches="tight"  ); 
-                plt.close()
-            else:
-                if X is not None:
-                    plt.imshow(  X[:,:,isl] )
-                    plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
-                    plt.close()
-                if Y_ is not None:
-                    plt.imshow ( Y_[:,:,isl] )
-                    plt.savefig( fname+( "FzFix_iz%03i.png" %isl ), bbox_inches="tight"  ); 
-                    plt.close()
-
     def nextRotation(self, rot, X,Y ):
         t1scan = time.clock();
         zDir = rot[2].flat.copy()
         pos0  = hl.posAboveTopAtom( self.atoms[:self.natoms0], zDir, distAbove=self.distAbove )
-        poss  = self.scanner.setScanRot( pos0, rot=rot, start=(-10.0,-10.0), end=(10.0,10.0) )
+        self.scan_pos0s  = self.scanner.setScanRot( pos0, rot=rot, start=(-10.0,-10.0), end=(10.0,10.0) )
         #FEout = self.scanner.run()
         FEout = self.scanner.runTilted()
+        # Perhaps we should convert it to df using PPU.Fz2df(), but that is rather slow - maybe to it on GPU?
         #X[:,:,:] = FEout[:,:,:,2]
         print "rot.shape, zDir.shape", rot.shape, zDir
         print "FEout.shape ", FEout.shape
@@ -196,20 +174,70 @@ class Generator(Sequence):
         if(verbose>1): print "Tscan %f [s]" %Tscan
         
         t1y = time.clock();
-        '''
-        if(verbose>1): print "relax poss.shape", poss.shape
-        poss[:,:,:3] += ( rot[2] * self.planeShift )[None,None,:]   # shift toward surface
-        self.getDistDens( self.atoms[:,:3], poss[:,:,:3], Y )
-        '''
         self.scanner.runFixed( FEout=FEout )
         #Y[:,:] = FEout[:,:,-1,2]
-        Y[:,:] =  FEout[:,:,self.isliceY,0]*zDir[0] + FEout[:,:,self.isliceY,1]*zDir[1] + FEout[:,:,self.isliceY,2]*zDir[2]
+        #Y[:,:] =  FEout[:,:,self.isliceY,0]*zDir[0] + FEout[:,:,self.isliceY,1]*zDir[1] + FEout[:,:,self.isliceY,2]*zDir[2]
+        #self.zWeight =  self.getZWeights(); print self.zWeight
+        Y_ = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
+
+        #Y_ = np.tanh( Y_ )
+        #Y[:,:] = applyZWeith( Y_, self.zWeight )
+
+        Y[:,:] = -np.nanargmin( ( Y_+1.0 )**2, axis=2 )
+
+        '''
+        import GridUtils as GU
+        #self.lvec_scan = np.array( [ [0.0,0.0,0.0],[self.scan_dim[0],0.0,0.0],[0.0,self.scan_dim[1],0.0],[0.0,0.0,self.scan_dim[2]] ] )
+        self.lvec_scan = np.array( [ [0.0,0.0,0.0],[self.scan_dim[0],0.0,0.0],[0.0,self.scan_dim[1],0.0],[0.0,0.0,self.scan_dim[2]] ] )
+        GU.saveXSF( "Y_.xsf", Y_.transpose((2,1,0)), self.lvec_scan )
+        GU.saveXSF( "X.xsf",  X .transpose((2,1,0)),  self.lvec_scan )
+        exit()
+        '''
+
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty
 
         if(self.debugPlots):
-            Y_ = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
             self.plot(X,Y, Y_ )
+            #self.plot(Y=Y)
+
+    def plot(self,X=None,Y=None,Y_=None):
+        import matplotlib as mpl;  mpl.use('Agg');
+        import matplotlib.pyplot as plt
+        iepoch, imol, irot = self.getMolRotIndex( self.counter )
+        fname    = self.preName + self.molecules[imol] + ("/rot%03i_" % irot)
+        print " plot to file : ", fname
+
+        basUtils.writeDebugXYZ( self.preName + self.molecules[imol] + ("/rot%03i.xyz" %irot), self.atom_lines, self.scan_pos0s[::10,::10,:].reshape(-1,4) )
+
+        if Y is not None:
+            plt.imshow( Y );             plt.colorbar()
+            plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
+            plt.close()
+
+        for isl in self.debugPlotSlices:
+            #plt.imshow( FEout[:,:,isl,2] )
+            if (X is not None) and (Y_ is not None):
+                plt.figure(figsize=(10,5))
+                plt.subplot(1,2,2); plt.imshow (X [:,:,isl] );            plt.colorbar()
+                #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl] );
+                plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]) );   plt.colorbar()
+                plt.savefig( fname+( "FzFixRelax_iz%03i.png" %isl ), bbox_inches="tight"  ); 
+                plt.close()
+            else:
+                if X is not None:
+                    plt.imshow(  X[:,:,isl] );    plt.colorbar()
+                    plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
+                    plt.close()
+                if Y_ is not None:
+                    plt.imshow ( Y_[:,:,isl] );   plt.colorbar()
+                    plt.savefig( fname+( "FzFix_iz%03i.png" %isl ), bbox_inches="tight"  ); 
+                    plt.close()
+
+    def getZWeights(self):
+        zs = np.mgrid[0:self.scan_dim[2]] * self.scanner.zstep * self.wz
+        print zs
+        return self.zFunc( zs )
 
     def getDistDens(self, atoms, poss, F):
         F[:,:] = 0
