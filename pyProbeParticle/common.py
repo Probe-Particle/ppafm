@@ -81,8 +81,24 @@ def rotation_matrix(axis, theta):
                      [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
                      [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
 
-def genRotations( axis, thetas ):
+def genRotations( axis, thetas ):  # DEPRECATED use sphereTangentSpace instead
     return np.array( [ rotation_matrix(axis, theta) for theta in thetas ] )
+
+def sphereTangentSpace(n=100):
+    golden_angle = np.pi * ( 3.0 - np.sqrt(5.0) )
+    theta  = golden_angle * np.arange(n)
+    z      = np.linspace(1.0 - 1.0/n, 1.0/n - 1.0, n)
+    radius = np.sqrt( 1.0 - z*z )
+    cas  = np.cos(theta)
+    sas  = np.sin(theta)
+    rots = np.zeros( (n,3,3) )
+    rots[:,2,0] = radius * cas
+    rots[:,2,1] = radius * sas
+    rots[:,2,2] = z
+    rots[:,0,0] = -sas
+    rots[:,0,1] =  cas
+    rots[:,1,:] =  np.cross( rots[:,2,:], rots[:,0,:] )
+    return rots
 
 def maxAlongDir(atoms, hdir):
     #print atoms[:,:3]
@@ -90,6 +106,15 @@ def maxAlongDir(atoms, hdir):
     #print xdir
     imin = np.argmax(xdir)
     return imin, xdir[imin][0]
+
+def maxAlongDirEntropy(atoms, hdir, beta=1.0 ):
+    xdir = np.dot( atoms[:,:3], hdir[:,None] )
+    imin = np.argmax(xdir)
+    #entropy = np.sum( 1.0/( 1.0 + ( beta*(xdir - xdir[imin]) )**2  )
+    #print (xdir - xdir[imin])
+    entropy = np.sum( np.exp( beta*(xdir - xdir[imin]) ) )
+    return imin, xdir[imin][0], entropy
+
 
 # ==============================
 # ==============================  server interface file I/O

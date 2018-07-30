@@ -72,9 +72,14 @@ class Generator(Sequence):
 
     isliceY = -1
 
+    minEntropy = 4.5
+
     debugPlots = False
-    debugPlotSlices   = [0,+2,+4,+6,+8,+10,+12,+14,+16]
+    #debugPlotSlices   = [0,+2,+4,+6,+8,+10,+12,+14,+16]
     #debugPlotSlices   = [-1]
+    #debugPlotSlices   = [-5]
+    #debugPlotSlices   = [-10]
+    debugPlotSlices   = [-15]
 
     'Generates data for Keras'
     def __init__(self, molecules, rotations, batch_size=32 ):
@@ -114,21 +119,35 @@ class Generator(Sequence):
     def __iter__(self):
         return self
 
+    def evalRotation(self, rot ):
+        zDir = rot[2].flat.copy()
+        imax,xdirmax,entropy = PPU.maxAlongDirEntropy( self.atomsNonPBC, zDir )
+        pos0 = self.atomsNonPBC[imax,:3] + zDir*self.distAbove
+        return pos0, entropy
+
     def next(self):
         'Generate one batch of data'
         n  = self.batch_size
         Xs = np.empty( (n,)+ self.scan_dim     )
         Ys = np.empty( (n,)+ self.scan_dim[:2] )
         for i in range(n):
-            iepoch, imol, irot = self.getMolRotIndex( self.counter )
-            if(verbose>0): print " imol, irot ", imol, irot
-            if( irot == 0 ):# recalc FF
-                self.nextMolecule( self.molecules[imol] ) 
-                if(self.counter>0): # not first step
-                    if(verbose>1): print "scanner.releaseBuffers()"
-                    self.scanner.releaseBuffers()
-                self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim )
-            self.nextRotation( self.rotations[irot], Xs[i], Ys[i] )
+            while(True):
+                iepoch, imol, irot = self.getMolRotIndex( self.counter )
+                if(verbose>0): print " imol, irot ", imol, irot
+                if( irot == 0 ):# recalc FF
+                    self.nextMolecule( self.molecules[imol] ) 
+                    if(self.counter>0): # not first step
+                        if(verbose>1): print "scanner.releaseBuffers()"
+                        self.scanner.releaseBuffers()
+                    self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim )
+                rot = self.rotations[irot]
+                pos0, entropy = self.evalRotation( rot )
+                print "rot entropy:", entropy
+                if( entropy > self.minEntropy ): break
+                print "skiped"
+                self.counter +=1
+            self.nextRotation( rot, pos0, entropy, Xs[i], Ys[i] )
+            #self.nextRotation( self.rotations[irot], Xs[i], Ys[i] )
             self.counter +=1
         return Xs, Ys
 
@@ -153,15 +172,24 @@ class Generator(Sequence):
         cLJs  = PPU.getAtomsLJ( self.iZPP, Zs, self.typeParams ).astype(np.float32)
         #FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, poss=self.ff_poss )
         FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
+        self.atomsNonPBC = self.atoms[:self.natoms0].copy()
         self.FEin  = FF[:,:,:,:4] + self.Q*FF[:,:,:,4:];
         Tff = time.clock()-t1ff;   
         if(verbose>1): print "Tff %f [s]" %Tff
 
-    def nextRotation(self, rot, X,Y ):
+    #def nextRotation(self, rot, X,Y ):
+    def nextRotation(self, rot, pos0, entropy, X,Y ):
         t1scan = time.clock();
         zDir = rot[2].flat.copy()
-        pos0  = hl.posAboveTopAtom( self.atoms[:self.natoms0], zDir, distAbove=self.distAbove )
+        '''
+        #pos0  = hl.posAboveTopAtom( self.atoms[:self.natoms0], zDir, distAbove=self.distAbove )
+        imax,xdirmax,entropy = PPU.maxAlongDirEntropy( self.atomsNonPBC, zDir )
+        pos0 = self.atomsNonPBC[imax,:3] + zDir*self.distAbove
+        print entropy
+        '''
+
         self.scan_pos0s  = self.scanner.setScanRot( pos0, rot=rot, start=(-10.0,-10.0), end=(10.0,10.0) )
+
         #FEout = self.scanner.run()
         FEout = self.scanner.runTilted()
         # Perhaps we should convert it to df using PPU.Fz2df(), but that is rather slow - maybe to it on GPU?
@@ -180,10 +208,10 @@ class Generator(Sequence):
         #self.zWeight =  self.getZWeights(); print self.zWeight
         Y_ = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
 
-        #Y_ = np.tanh( Y_ )
-        #Y[:,:] = applyZWeith( Y_, self.zWeight )
+        Y_ = np.tanh( Y_ )
+        Y[:,:] = applyZWeith( Y_, self.zWeight )
 
-        Y[:,:] = -np.nanargmin( ( Y_+1.0 )**2, axis=2 )
+        #Y[:,:] = -np.nanargmin( ( Y_+1.0 )**2, axis=2 )
 
         '''
         import GridUtils as GU
@@ -198,10 +226,10 @@ class Generator(Sequence):
         if(verbose>1): print "Ty %f [s]" %Ty
 
         if(self.debugPlots):
-            self.plot(X,Y, Y_ )
-            #self.plot(Y=Y)
+            self.plot(X,Y, Y_, entropy )
+            #self.plot(Y=Y, entropy=entropy )
 
-    def plot(self,X=None,Y=None,Y_=None):
+    def plot(self,X=None,Y=None,Y_=None, entropy=None):
         import matplotlib as mpl;  mpl.use('Agg');
         import matplotlib.pyplot as plt
         iepoch, imol, irot = self.getMolRotIndex( self.counter )
@@ -210,11 +238,14 @@ class Generator(Sequence):
 
         basUtils.writeDebugXYZ( self.preName + self.molecules[imol] + ("/rot%03i.xyz" %irot), self.atom_lines, self.scan_pos0s[::10,::10,:].reshape(-1,4) )
 
+        title = "entropy %f" %entropy
         if Y is not None:
             plt.imshow( Y );             plt.colorbar()
+            plt.title(entropy)
             plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
             plt.close()
 
+        
         for isl in self.debugPlotSlices:
             #plt.imshow( FEout[:,:,isl,2] )
             if (X is not None) and (Y_ is not None):
@@ -222,6 +253,7 @@ class Generator(Sequence):
                 plt.subplot(1,2,2); plt.imshow (X [:,:,isl] );            plt.colorbar()
                 #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl] );
                 plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]) );   plt.colorbar()
+                plt.title(entropy)
                 plt.savefig( fname+( "FzFixRelax_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                 plt.close()
             else:
