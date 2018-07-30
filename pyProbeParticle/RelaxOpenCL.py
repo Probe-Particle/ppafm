@@ -159,7 +159,7 @@ class RelaxedScanner:
         self.end   = ( 5.0, 5.0)
         self.tipR0 = 4.0
 
-    def prepareBuffers(self, FEin, lvec, scan_dim=(100,100,20), nDimConv=None ):
+    def prepareBuffers(self, FEin, lvec, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None ):
         self.scan_dim = scan_dim
         self.invCell  = getInvCell(lvec)
         nbytes = 0
@@ -169,14 +169,17 @@ class RelaxedScanner:
         # see:    https://stackoverflow.com/questions/39533635/pyopencl-3d-rgba-image-from-numpy-array
         #img_format = cl.ImageFormat( cl.channel_order.RGBA, channel_type)
         #self.cl_ImgIn =  cl.Image(self.ctx, mf.READ_ONLY, img_format, shape=None, pitches=None, is_array=False, buffer=None)
+        fsize  = np.dtype(np.float32).itemsize
         f4size = np.dtype(np.float32).itemsize * 4
         bsz= f4size * self.scan_dim[0] * self.scan_dim[1]
-        self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz                     );    nbytes+=bsz                  # float4
-        self.cl_FEout   = cl.Buffer(self.ctx, mf.READ_WRITE, bsz * self.scan_dim[2] );   nbytes+=bsz*self.scan_dim[2]
+        self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz                    );   nbytes+=bsz                  # float4
+        self.cl_FEout = cl.Buffer(self.ctx, mf.READ_WRITE, bsz * self.scan_dim[2] );   nbytes+=bsz*self.scan_dim[2]
         if nDimConv is not None:
-            self.nDimConv = nDimConv
-            self.cl_FEconv  = cl.Buffer(self.ctx, mf.READ_WRITE, bsz * self.nDimConv );      nbytes+=bsz*self.nDimConv
-            self.cl_WZconv  = cl.Buffer(self.ctx, mf.READ_WRITE, f4size * self.nDimConv );   nbytes+=f4size*self.nDimConv
+            self.nDimConv    = nDimConv
+            self.nDimConvOut = nDimConvOut
+            print "nDimConv %i nDimConvOut %i" %( nDimConv, nDimConvOut )
+            self.cl_FEconv  = cl.Buffer(self.ctx, mf.READ_WRITE, bsz   * self.nDimConvOut ); nbytes+=bsz  *self.nDimConvOut
+            self.cl_WZconv  = cl.Buffer(self.ctx, mf.READ_ONLY,  fsize * self.nDimConv    ); nbytes+=fsize*self.nDimConv
         if(verbose>0): print "prepareBuffers.nbytes: ", nbytes
 
     def releaseBuffers(self):
@@ -214,7 +217,10 @@ class RelaxedScanner:
             if(verbose>0): print "region : ", region
             cl.enqueue_copy( self.queue, self.cl_ImgIn, FEin, origin=(0,0,0), region=region )
         if WZconv is not None:
-            cl.enqueue_copy( self.queue, WZconv, self.cl_WZconv )
+            #print "WZconv: ", WZconv.dtype, WZconv
+            #cl.enqueue_copy( self.queue, WZconv, self.cl_WZconv )
+            cl.enqueue_copy( self.queue, self.cl_WZconv, WZconv )
+            #self.queue.finish()
 
     def run(self, FEout=None, FEin=None, lvec=None, nz=None ):
         if nz is None: nz=self.scan_dim[2] 
@@ -279,12 +285,13 @@ class RelaxedScanner:
 
     def runZConv(self, FEconv=None, nz=None ):
         if nz is None: nz=self.scan_dim[2]
-        if FEconv is None: FEconv = np.empty( self.scan_dim[:2]+(self.nDimConv,4,), dtype=np.float32 )
+        #print " runZConv  nz %i nDimConv %i "  %(nz, self.nDimConvOut)
+        if FEconv is None: FEconv = np.empty( self.scan_dim[:2]+(self.nDimConvOut,4,), dtype=np.float32 )
         kargs = ( 
             self.cl_FEout,
             self.cl_FEconv,
-            self.cl_WZconvout, 
-            np.int32(nz), np.int32( self.nDimConv ) )
+            self.cl_WZconv, 
+            np.int32(nz), np.int32( self.nDimConvOut ) )
         cl_program.convolveZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl.enqueue_copy( self.queue, FEconv, self.cl_FEconv )
         return FEconv

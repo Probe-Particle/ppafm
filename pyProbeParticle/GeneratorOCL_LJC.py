@@ -77,9 +77,9 @@ class Generator(Sequence):
     debugPlots = False
     #debugPlotSlices   = [0,+2,+4,+6,+8,+10,+12,+14,+16]
     #debugPlotSlices   = [-1]
-    #debugPlotSlices   = [-5]
+    debugPlotSlices    = [-5,5]
     #debugPlotSlices   = [-10]
-    debugPlotSlices   = [-15]
+    #debugPlotSlices   = [-15]
 
     'Generates data for Keras'
     def __init__(self, molecules, rotations, batch_size=32 ):
@@ -139,7 +139,7 @@ class Generator(Sequence):
                     if(self.counter>0): # not first step
                         if(verbose>1): print "scanner.releaseBuffers()"
                         self.scanner.releaseBuffers()
-                    self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim )
+                    self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=20  )
                 rot = self.rotations[irot]
                 pos0, entropy = self.evalRotation( rot )
                 print "rot entropy:", entropy
@@ -181,21 +181,20 @@ class Generator(Sequence):
     def nextRotation(self, rot, pos0, entropy, X,Y ):
         t1scan = time.clock();
         zDir = rot[2].flat.copy()
-        '''
-        #pos0  = hl.posAboveTopAtom( self.atoms[:self.natoms0], zDir, distAbove=self.distAbove )
-        imax,xdirmax,entropy = PPU.maxAlongDirEntropy( self.atomsNonPBC, zDir )
-        pos0 = self.atomsNonPBC[imax,:3] + zDir*self.distAbove
-        print entropy
-        '''
 
         self.scan_pos0s  = self.scanner.setScanRot( pos0, rot=rot, start=(-10.0,-10.0), end=(10.0,10.0) )
 
-        #FEout = self.scanner.run()
-        FEout = self.scanner.runTilted()
+        FEout  = self.scanner.runTilted()
+
+        self.scanner.updateBuffers( WZconv=self.dfWeight )
+        FEconv = self.scanner.runZConv()
+        XX = FEconv[:,:,:,0]*zDir[0] + FEconv[:,:,:,1]*zDir[1] + FEconv[:,:,:,2]*zDir[2]
+        #self.saveDebugXSF( "df.xsf", XX )
+
         # Perhaps we should convert it to df using PPU.Fz2df(), but that is rather slow - maybe to it on GPU?
         #X[:,:,:] = FEout[:,:,:,2]
-        print "rot.shape, zDir.shape", rot.shape, zDir
-        print "FEout.shape ", FEout.shape
+        #print "rot.shape, zDir.shape", rot.shape, zDir
+        #print "FEout.shape ", FEout.shape
 
         X[:,:,:] = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
         Tscan = time.clock()-t1scan;  
@@ -206,28 +205,38 @@ class Generator(Sequence):
         #Y[:,:] = FEout[:,:,-1,2]
         #Y[:,:] =  FEout[:,:,self.isliceY,0]*zDir[0] + FEout[:,:,self.isliceY,1]*zDir[1] + FEout[:,:,self.isliceY,2]*zDir[2]
         #self.zWeight =  self.getZWeights(); print self.zWeight
-        Y_ = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
+        #Y_ = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
 
-        Y_ = np.tanh( Y_ )
-        Y[:,:] = applyZWeith( Y_, self.zWeight )
-
+        # strategy 1  CPU saturated Weighted average
+        #Y_ = np.tanh( Y_ )
+        #Y[:,:] = applyZWeith( Y_, self.zWeight )
+        # strategy 1  CPU zMin
         #Y[:,:] = -np.nanargmin( ( Y_+1.0 )**2, axis=2 )
 
-        '''
-        import GridUtils as GU
-        #self.lvec_scan = np.array( [ [0.0,0.0,0.0],[self.scan_dim[0],0.0,0.0],[0.0,self.scan_dim[1],0.0],[0.0,0.0,self.scan_dim[2]] ] )
-        self.lvec_scan = np.array( [ [0.0,0.0,0.0],[self.scan_dim[0],0.0,0.0],[0.0,self.scan_dim[1],0.0],[0.0,0.0,self.scan_dim[2]] ] )
-        GU.saveXSF( "Y_.xsf", Y_.transpose((2,1,0)), self.lvec_scan )
-        GU.saveXSF( "X.xsf",  X .transpose((2,1,0)),  self.lvec_scan )
-        exit()
-        '''
+        self.scanner.updateBuffers( WZconv=self.zWeight )
+        FEconv = self.scanner.runZConv()
+        YY = FEconv[:,:,:,0]*zDir[0] + FEconv[:,:,:,1]*zDir[1] + FEconv[:,:,:,2]*zDir[2]
+        #self.saveDebugXSF( "FixedConv.xsf", YY )
 
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty
 
         if(self.debugPlots):
-            self.plot(X,Y, Y_, entropy )
+            #self.plot(X,Y, Y_, entropy )
+            self.plot( X=XX, Y_=YY, entropy=entropy )
             #self.plot(Y=Y, entropy=entropy )
+
+    def saveDebugXSF(self, fname, F, d=(0.1,0.1,0.1) ):
+        if hasattr(self, 'GridUtils'):
+            GU = self.GridUtils
+        else:
+            import GridUtils as GU
+            self.GridUtils = GU
+        sh = F.shape
+        #self.lvec_scan = np.array( [ [0.0,0.0,0.0],[self.scan_dim[0],0.0,0.0],[0.0,self.scan_dim[1],0.0],0.0,0.0, ] ] )
+        lvec = np.array( [ [0.0,0.0,0.0],[sh[0]*d[0],0.0,0.0],[0.0,sh[1]*d[1],0.0], [ 0.0,0.0,sh[2]*d[2] ] ] )
+        print "saveDebugXSF : ", fname
+        GU.saveXSF( fname, F.transpose((2,1,0)), lvec )
 
     def plot(self,X=None,Y=None,Y_=None, entropy=None):
         import matplotlib as mpl;  mpl.use('Agg');
@@ -245,7 +254,6 @@ class Generator(Sequence):
             plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
             plt.close()
 
-        
         for isl in self.debugPlotSlices:
             #plt.imshow( FEout[:,:,isl,2] )
             if (X is not None) and (Y_ is not None):
@@ -268,8 +276,9 @@ class Generator(Sequence):
 
     def getZWeights(self):
         zs = np.mgrid[0:self.scan_dim[2]] * self.scanner.zstep * self.wz
-        print zs
-        return self.zFunc( zs )
+        zWeights = self.zFunc( zs )
+        zWeights = zWeights.astype(np.float32)
+        return zWeights
 
     def getDistDens(self, atoms, poss, F):
         F[:,:] = 0

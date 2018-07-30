@@ -52,7 +52,7 @@ params={
 # ============================== Pure python functions
 # ==============================
 
-def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4, units=16.0217656 ):
+def getDfWeight( n, dz=0.1 ):
     '''
     conversion of vertical force Fz to frequency shift 
     according to:
@@ -62,8 +62,19 @@ def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4
     x  = np.linspace(-1,1,n+1)
     y  = np.sqrt(1-x*x)
     dy =  ( y[1:] - y[:-1] )/(dz*n)
-    fpi    = (n-2)**2; prefactor = ( 1 + fpi*(2/np.pi) ) / (fpi+1) # correction for small n
-    dFconv = -prefactor * np.apply_along_axis( lambda m: np.convolve(m, dy, mode='valid'), axis=0, arr=F )
+    fpi    = (n-2)**2 
+    prefactor = -1 * ( 1 + fpi*(2/np.pi) ) / (fpi+1) # correction for small n
+    return dy*prefactor
+
+def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4, units=16.0217656 ):
+    '''
+    conversion of vertical force Fz to frequency shift 
+    according to:
+    Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
+    oscialltion amplitude of cantilever is A = n * dz
+    '''
+    W = getDfWeight( n, dz=0.1 )
+    dFconv = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F )
     return dFconv*units*f0/k0
 
 def rotation_matrix(axis, theta):

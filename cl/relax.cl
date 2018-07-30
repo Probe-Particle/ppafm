@@ -221,10 +221,14 @@ __kernel void convolveZ(
     for(int izo=0; izo<nzout; izo++){
         float4 fe = 0.0f;
         for(int izi=0; izi<(nzin-izo); izi++){
-            //fe += Fin[ ioffo + izi ] * weighs[ izi - izo ];
-            fe +=  tanh( Fin[ ioffo + izi ] ) * weighs[ izi - izo ];
+            fe += Fin[ ioffi + izi ] * weighs[ izi + izo ];
+            //fe +=  tanh( Fin[ ioffi + izi ] ) * weighs[ izi - izo ];
         }
+        //if( ioffi == 0 ){ printf( "izo %i w[i] %e \n", izo, weighs[ izo ] ); }
         Fout[ ioffo + izo ] = fe;
+        //Fout[ ioffo + izo ] = weighs[ izo ];
+        //Fout[ ioffo + izo ] = (float4) izo;
+        //Fout[ ioffo + izo ] = Fin[ ioffi + izo ];
     }
 }
 
