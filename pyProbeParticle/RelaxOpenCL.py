@@ -159,7 +159,7 @@ class RelaxedScanner:
         self.end   = ( 5.0, 5.0)
         self.tipR0 = 4.0
 
-    def prepareBuffers(self, FEin, lvec, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None ):
+    def prepareBuffers(self, FEin, lvec, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False ):
         self.scan_dim = scan_dim
         self.invCell  = getInvCell(lvec)
         nbytes = 0
@@ -170,16 +170,19 @@ class RelaxedScanner:
         #img_format = cl.ImageFormat( cl.channel_order.RGBA, channel_type)
         #self.cl_ImgIn =  cl.Image(self.ctx, mf.READ_ONLY, img_format, shape=None, pitches=None, is_array=False, buffer=None)
         fsize  = np.dtype(np.float32).itemsize
-        f4size = np.dtype(np.float32).itemsize * 4
-        bsz= f4size * self.scan_dim[0] * self.scan_dim[1]
+        f4size = fsize * 4
+        nxy    =  self.scan_dim[0] * self.scan_dim[1]
+        bsz    = f4size * nxy
         self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz                    );   nbytes+=bsz                  # float4
         self.cl_FEout = cl.Buffer(self.ctx, mf.READ_WRITE, bsz * self.scan_dim[2] );   nbytes+=bsz*self.scan_dim[2]
         if nDimConv is not None:
             self.nDimConv    = nDimConv
             self.nDimConvOut = nDimConvOut
             print "nDimConv %i nDimConvOut %i" %( nDimConv, nDimConvOut )
-            self.cl_FEconv  = cl.Buffer(self.ctx, mf.READ_WRITE, bsz   * self.nDimConvOut ); nbytes+=bsz  *self.nDimConvOut
-            self.cl_WZconv  = cl.Buffer(self.ctx, mf.READ_ONLY,  fsize * self.nDimConv    ); nbytes+=fsize*self.nDimConv
+            self.cl_FEconv  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz       * self.nDimConvOut ); nbytes += bsz  *self.nDimConvOut
+            self.cl_WZconv  = cl.Buffer(self.ctx, mf.READ_ONLY,  fsize     * self.nDimConv    ); nbytes += fsize*self.nDimConv
+        if bZMap:
+            self.cl_zMap    = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize  ); nbytes += nxy*fsize
         if(verbose>0): print "prepareBuffers.nbytes: ", nbytes
 
     def releaseBuffers(self):
@@ -270,7 +273,7 @@ class RelaxedScanner:
             self.cl_ImgIn, 
             self.cl_poss, 
             self.cl_FEout, 
-            self.invCell[0], self.invCell[1], self.invCell[2], 
+            self.invCell[0], self.invCell[1], self.invCell[2],
             self.dTip,
             self.dpos0, 
             np.int32(nz) )
@@ -280,6 +283,23 @@ class RelaxedScanner:
         else:
             if FEout is None:    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
             cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
+        self.queue.finish()
+        return FEout
+
+    def runFixTilted(self, FEout=None, FEin=None, lvec=None, nz=None ):
+        if nz is None: nz=self.scan_dim[2] 
+        self.updateBuffers( FEin=FEin, lvec=lvec )
+        kargs = ( 
+            self.cl_ImgIn, 
+            self.cl_poss, 
+            self.cl_FEout, 
+            self.invCell[0], self.invCell[1], self.invCell[2], 
+            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            self.dTip,
+            self.dpos0, 
+            np.int32(nz) )
+        cl_program.getFEinStrokesTilted( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+        cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
         self.queue.finish()
         return FEout
 
@@ -295,6 +315,17 @@ class RelaxedScanner:
         cl_program.convolveZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl.enqueue_copy( self.queue, FEconv, self.cl_FEconv )
         return FEconv
+
+    def runIzoZ(self, zMap=None, iso=0.0, nz=None ):
+        if nz is None: nz=self.scan_dim[2]
+        if zMap is None: zMap = np.empty( self.scan_dim[:2], dtype=np.float32 )
+        kargs = ( 
+            self.cl_FEout,
+            self.cl_zMap, 
+            np.int32(nz), np.float32( self.nDimConvOut ) )
+        cl_program.izoZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+        cl.enqueue_copy( self.queue, zMap, self.cl_zMap )
+        return zMap
 
 
 

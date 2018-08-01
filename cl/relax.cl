@@ -104,6 +104,62 @@ __kernel void getFEinStrokes(
     }
 }
 
+
+__kernel void getFEinStrokesTilted(
+    __read_only image3d_t  imgIn,
+    __global  float4*      points,
+    __global  float4*      FEs,
+    float4 dinvA,
+    float4 dinvB,
+    float4 dinvC,
+    float4 tipA,
+    float4 tipB,
+    float4 tipC,
+    float4 dTip,
+    float4 dpos0,
+    int nz
+){
+    float3 pos    =  points[get_global_id(0)].xyz + dpos0.xyz; 
+    for(int iz=0; iz<nz; iz++){
+        //printf( " %li %i (%f,%f,%f) \n", get_global_id(0), iz, pos.x, pos.y, pos.z );
+        float4 fe   = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+        float4 fe_  = fe;
+        fe_.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
+        FEs[get_global_id(0)*nz + iz]    = fe_;
+        pos    += dTip.xyz;
+    }
+}
+
+/*
+__kernel void getZisoTilted(
+    __read_only image3d_t  imgIn,
+    __global  float4*      points,
+    __global  float4*      zIso,
+    float4 dinvA,
+    float4 dinvB,
+    float4 dinvC,
+    float4 tipA,
+    float4 tipB,
+    float4 tipC,
+    float4 dTip,
+    float4 dpos0,
+    int nz, float iso
+){
+    float3 pos    =  points[get_global_id(0)].xyz + dpos0.xyz; 
+    float4 ofe = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+    float4 ofe = ofe_.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
+    float4 fe;
+    for(int iz=1; iz<nz; iz++){
+        //printf( " %li %i (%f,%f,%f) \n", get_global_id(0), iz, pos.x, pos.y, pos.z );
+        fe = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+        if( fe.z ) break;
+        ofe      = fe;
+        pos    += dTip.xyz;
+    }
+    FEs[ get_global_id(0)]
+}
+*/
+
 __kernel void relaxPoints(
     __read_only image3d_t  imgIn,
     __global  float4*      points,
@@ -194,17 +250,25 @@ __kernel void relaxStrokesTilted(
             float3 dpos  = pos-tipPos;
 
             float3 dpos_ = rotMat( dpos, tipA.xyz, tipB.xyz, tipC.xyz );    // to tip-coordinates
-            float3 ftip = tipForce( dpos_, stiffness, dpos0 );
-            f      += rotMatT( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
+            float3 ftip  = tipForce( dpos_, stiffness, dpos0 );
+            f            += rotMatT( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
             
-            //f        +=  tipForce( dpos, stiffness, dpos0_ );  // Not rotated
+            //f      +=  tipForce( dpos, stiffness, dpos0_ );  // Not rotated
             vel      *=       relax_params.y;
             vel      += f   * relax_params.y;
             pos.xyz  += vel * relax_params.x;
             if(dot(f,f)<F2CONV) break;
         }
-        FEs[get_global_id(0)*nz + iz] = fe;
-        //FEs[get_global_id(0)*nz + iz].xyz = pos;
+        
+        if(1){ // output tip-rotated force
+            float4 fe_  = fe;
+            fe_.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
+            fe_.w   = fe.w;
+            FEs[get_global_id(0)*nz + iz] = fe_;
+        }else{ // output molecule-rotated force 
+            FEs[get_global_id(0)*nz + iz] = fe;
+            //FEs[get_global_id(0)*nz + iz].xyz = pos;
+        }
         tipPos += dTip.xyz;
         pos    += dTip.xyz;
     }
@@ -232,5 +296,24 @@ __kernel void convolveZ(
     }
 }
 
+__kernel void izoZ(
+    __global  float4* Fin,
+    __global  float*  zMap,
+    int nz,   float iso
+){
+    int ioffi = get_global_id(0)*nz;
+    float4 ofe = Fin[ ioffi ];
+    for(int iz=1; iz<nz; iz++){
+        float4 fe = Fin[ ioffi + iz ];
+        // zMap[get_global_id(0)] = i;
+        if( fe.z > iso ){
+            float t = (iso - ofe.z)/(fe.z - ofe.z);
+            zMap[get_global_id(0)] = iz + t;
+            return;
+        }
+        ofe = fe;
+    }
+    zMap[get_global_id(0)] = -1;
+}
 
 

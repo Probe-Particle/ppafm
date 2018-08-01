@@ -77,7 +77,8 @@ class Generator(Sequence):
     debugPlots = False
     #debugPlotSlices   = [0,+2,+4,+6,+8,+10,+12,+14,+16]
     #debugPlotSlices   = [-1]
-    debugPlotSlices    = [-5,5]
+    #debugPlotSlices    = [-5,5]
+    debugPlotSlices    = [-5,5,10,15]
     #debugPlotSlices   = [-10]
     #debugPlotSlices   = [-15]
 
@@ -139,7 +140,7 @@ class Generator(Sequence):
                     if(self.counter>0): # not first step
                         if(verbose>1): print "scanner.releaseBuffers()"
                         self.scanner.releaseBuffers()
-                    self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=20  )
+                    self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=20, bZMap=True  )
                 rot = self.rotations[irot]
                 pos0, entropy = self.evalRotation( rot )
                 print "rot entropy:", entropy
@@ -186,9 +187,9 @@ class Generator(Sequence):
 
         FEout  = self.scanner.runTilted()
 
-        self.scanner.updateBuffers( WZconv=self.dfWeight )
-        FEconv = self.scanner.runZConv()
-        XX = FEconv[:,:,:,0]*zDir[0] + FEconv[:,:,:,1]*zDir[1] + FEconv[:,:,:,2]*zDir[2]
+        #self.scanner.updateBuffers( WZconv=self.dfWeight )
+        #FEconv = self.scanner.runZConv()
+        #XX = FEconv[:,:,:,0]*zDir[0] + FEconv[:,:,:,1]*zDir[1] + FEconv[:,:,:,2]*zDir[2]
         #self.saveDebugXSF( "df.xsf", XX )
 
         # Perhaps we should convert it to df using PPU.Fz2df(), but that is rather slow - maybe to it on GPU?
@@ -196,34 +197,44 @@ class Generator(Sequence):
         #print "rot.shape, zDir.shape", rot.shape, zDir
         #print "FEout.shape ", FEout.shape
 
-        X[:,:,:] = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
+        #X[:,:,:] = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
+        X = FEout[:,:,:,2].copy()  # Rotation is now done in kernel
         Tscan = time.clock()-t1scan;  
         if(verbose>1): print "Tscan %f [s]" %Tscan
         
         t1y = time.clock();
-        self.scanner.runFixed( FEout=FEout )
+        #self.scanner.runFixed( FEout=FEout )
+        self.scanner.runFixTilted( FEout=FEout )
         #Y[:,:] = FEout[:,:,-1,2]
         #Y[:,:] =  FEout[:,:,self.isliceY,0]*zDir[0] + FEout[:,:,self.isliceY,1]*zDir[1] + FEout[:,:,self.isliceY,2]*zDir[2]
         #self.zWeight =  self.getZWeights(); print self.zWeight
         #Y_ = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
+        Y_  = FEout[:,:,:,2].copy()
 
-        # strategy 1  CPU saturated Weighted average
+        # -- strategy 1  CPU saturated Weighted average
         #Y_ = np.tanh( Y_ )
         #Y[:,:] = applyZWeith( Y_, self.zWeight )
-        # strategy 1  CPU zMin
-        #Y[:,:] = -np.nanargmin( ( Y_+1.0 )**2, axis=2 )
-
-        self.scanner.updateBuffers( WZconv=self.zWeight )
-        FEconv = self.scanner.runZConv()
-        YY = FEconv[:,:,:,0]*zDir[0] + FEconv[:,:,:,1]*zDir[1] + FEconv[:,:,:,2]*zDir[2]
+        # -- strategy 1  CPU zMin
+        #Y[:,:] = np.nanargmin( ( Y_-1.0 )**2, axis=2 )
+        #Yf = Y.flat; Yf[Yf<5] = Y_.shape[2]
+        #Yf = Y.flat; Yf[Yf<5] = np.NaN
+        #Yf = Y.flat; Yf[Y.fla_] = np.NaN
+        # -- strategy 3  GPU convolve
+        #self.scanner.updateBuffers( WZconv=self.zWeight )
+        #FEconv = self.scanner.runZConv()
+        #YY = FEconv[:,:,:,0]*zDir[0] + FEconv[:,:,:,1]*zDir[1] + FEconv[:,:,:,2]*zDir[2]
         #self.saveDebugXSF( "FixedConv.xsf", YY )
+        # -- strategy 4  GPU izoZ
+        Y[:,:] = self.scanner.runIzoZ( iso=0.1 )
+        Yf=Y.flat; Yf[Yf<0]=np.NaN
+        Y *= (-self.scanner.zstep)
 
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty
 
         if(self.debugPlots):
-            #self.plot(X,Y, Y_, entropy )
-            self.plot( X=XX, Y_=YY, entropy=entropy )
+            self.plot(X,Y, Y_, entropy )
+            #self.plot( X=XX, Y_=YY, entropy=entropy )
             #self.plot(Y=Y, entropy=entropy )
 
     def saveDebugXSF(self, fname, F, d=(0.1,0.1,0.1) ):
@@ -245,6 +256,7 @@ class Generator(Sequence):
         fname    = self.preName + self.molecules[imol] + ("/rot%03i_" % irot)
         print " plot to file : ", fname
 
+        #self.saveDebugXSF( self.preName + self.molecules[imol] + ("/rot%03i_Y.xsf" %irot), Y_ )
         basUtils.writeDebugXYZ( self.preName + self.molecules[imol] + ("/rot%03i.xyz" %irot), self.atom_lines, self.scan_pos0s[::10,::10,:].reshape(-1,4) )
 
         title = "entropy %f" %entropy
