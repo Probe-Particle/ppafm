@@ -1,7 +1,10 @@
 
 // https://www.khronos.org/registry/OpenCL/sdk/1.1/docs/man/xhtml/sampler_t.html
 
-__constant sampler_t sampler_1 = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
+// see https://gist.github.com/likr/3735779
+// https://www.khronos.org/registry/OpenCL/sdk/1.1/docs/man/xhtml/sampler_t.html
+__constant sampler_t sampler_1 =  CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_MIRRORED_REPEAT | CLK_FILTER_LINEAR;
+//__constant sampler_t sampler_1 = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
 
 /*
 float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
@@ -235,6 +238,7 @@ __kernel void relaxStrokesTilted(
     float4 relax_params,
     int nz
 ){
+
     float3 dTip   = tipC.xyz * tipC.w;
     float3 tipPos = points[get_global_id(0)].xyz;
 

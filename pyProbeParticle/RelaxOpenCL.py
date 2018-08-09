@@ -324,7 +324,9 @@ class RelaxedScanner:
             self.cl_zMap, 
             np.int32(nz), np.float32( self.nDimConvOut ) )
         cl_program.izoZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+        print "DBG 1 "
         cl.enqueue_copy( self.queue, zMap, self.cl_zMap )
+        print "DBG 2 "
         return zMap
 
 
