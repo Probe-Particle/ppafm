@@ -107,7 +107,6 @@ __kernel void getFEinStrokes(
     }
 }
 
-
 __kernel void getFEinStrokesTilted(
     __read_only image3d_t  imgIn,
     __global  float4*      points,
@@ -133,11 +132,10 @@ __kernel void getFEinStrokesTilted(
     }
 }
 
-/*
 __kernel void getZisoTilted(
     __read_only image3d_t  imgIn,
     __global  float4*      points,
-    __global  float4*      zIso,
+    __global  float*       zMap,
     float4 dinvA,
     float4 dinvB,
     float4 dinvC,
@@ -148,20 +146,24 @@ __kernel void getZisoTilted(
     float4 dpos0,
     int nz, float iso
 ){
-    float3 pos    =  points[get_global_id(0)].xyz + dpos0.xyz; 
-    float4 ofe = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
-    float4 ofe = ofe_.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
-    float4 fe;
+    float3 pos     = points[get_global_id(0)].xyz + dpos0.xyz; 
+    float4 ofe,fe;
+    ofe     = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+    ofe.xyz = rotMat( ofe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
     for(int iz=1; iz<nz; iz++){
-        //printf( " %li %i (%f,%f,%f) \n", get_global_id(0), iz, pos.x, pos.y, pos.z );
-        fe = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
-        if( fe.z ) break;
-        ofe      = fe;
         pos    += dTip.xyz;
+        fe     = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+        fe.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
+        //if( get_global_id(0) == 6050 ) printf( "iz %i fe %g iso %g \n", iz, fe.z, iso );
+        if( fe.z/iso > 1.0 ){
+            float t = (iso - ofe.z)/(fe.z - ofe.z);
+            zMap[get_global_id(0)] = iz + t;
+            return;
+        }
+        ofe      = fe;
     }
-    FEs[ get_global_id(0)]
+    zMap[get_global_id(0)] = -1;
 }
-*/
 
 __kernel void relaxPoints(
     __read_only image3d_t  imgIn,

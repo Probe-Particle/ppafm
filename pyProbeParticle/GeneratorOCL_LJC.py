@@ -71,10 +71,11 @@ class Generator(Sequence,):
     Q    = 0.0
 
     # --- Relaxation
-    
+    scan_start = (-8.0,-8.0) 
+    scan_end   = ( 8.0, 8.0)
     scan_dim   = ( 100, 100, 30)
     distAbove  =  7.5
-    planeShift =  -4.0
+    planeShift = -4.0
     
     # ---- Atom Distance Density
     wr = 1.0
@@ -82,8 +83,12 @@ class Generator(Sequence,):
     r2Func = staticmethod( lambda r2 : 1/(1.0+r2) )
     zFunc  = staticmethod( lambda x  : np.exp(-x)  )
 
-    isliceY = -1
-    minEntropy = 4.5
+    isliceY        = -1
+    minEntropy     = 4.5
+    nBestRotations = 30
+
+    #npbc = None
+    npbc = (1,1,1)
 
     debugPlots = False
     #debugPlotSlices   = [0,+2,+4,+6,+8,+10,+12,+14,+16]
@@ -93,7 +98,7 @@ class Generator(Sequence,):
     #debugPlotSlices   = [-10]
     #debugPlotSlices   = [-15]
 
-    def __init__(self, molecules, rotations, batch_size=32, pixPerAngstrome=10, lvec=None, npbc = None ):
+    def __init__(self, molecules, rotations, batch_size=32, pixPerAngstrome=10, lvec=None ):
         'Initialization'
 
         if lvec is None:
@@ -111,7 +116,6 @@ class Generator(Sequence,):
         self.rotations = rotations
         self.batch_size = batch_size
 
-        #self.dim = dim
         #self.labels = labels
         #self.n_channels = n_channels
         #self.n_classes  = n_classes
@@ -134,7 +138,8 @@ class Generator(Sequence,):
         self.zWeight =  self.getZWeights();
 
     def getMolRotIndex(self, i):
-        nrot = len(self.rotations)
+        #nrot = len(self.rotations)
+        nrot = self.nBestRotations
         nmol = len(self.molecules)
         return i/(nrot*nmol), (i/nrot)%nmol, i%nrot
 
@@ -144,8 +149,16 @@ class Generator(Sequence,):
     def evalRotation(self, rot ):
         zDir = rot[2].flat.copy()
         imax,xdirmax,entropy = PPU.maxAlongDirEntropy( self.atomsNonPBC, zDir )
-        pos0 = self.atomsNonPBC[imax,:3] + zDir*self.distAbove
+        pos0 = self.atomsNonPBC[imax,:3] 
         return pos0, entropy
+
+    def sortRotationsByEntropy(self):
+        rots = []
+        for rot in self.rotations:
+            pos0, entropy = self.evalRotation( rot )
+            rots.append( (entropy, pos0, rot) )
+        rots.sort(  key=lambda item: -item[0] )
+        return rots
 
     def next(self):
         'Generate one batch of data'
@@ -153,23 +166,24 @@ class Generator(Sequence,):
         Xs = np.empty( (n,)+ self.scan_dim     )
         Ys = np.empty( (n,)+ self.scan_dim[:2] )
         for i in range(n):
-            while(True):
-                self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
-                if(verbose>0): print " imol, irot ", self.imol, self.irot
-                if( self.irot == 0 ):# recalc FF
-                    self.molName =  self.molecules[self.imol]
-                    self.nextMolecule( self.molName ) 
-                    if(self.counter>0): # not first step
-                        if(verbose>1): print "scanner.releaseBuffers()"
-                        self.scanner.releaseBuffers()
-                    self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=20, bZMap=True  )
-                rot = self.rotations[self.irot]
-                pos0, entropy = self.evalRotation( rot )
-                print "rot entropy:", entropy
-                if( entropy > self.minEntropy ): break
-                print "skiped"
-                self.counter +=1
-            self.nextRotation( rot, pos0, entropy, Xs[i], Ys[i] )
+            self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
+            if( self.irot == 0 ):# recalc FF
+                self.molName =  self.molecules[self.imol]
+                self.nextMolecule( self.molName ) 
+                if(self.counter>0): # not first step
+                    if(verbose>1): print "scanner.releaseBuffers()"
+                    self.scanner.releaseBuffers()
+                self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=20, bZMap=True  )
+                self.rotations_sorted = self.sortRotationsByEntropy()
+                self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
+
+            ##rot = self.rotations[self.irot]
+            ##pos0, entropy = self.evalRotation( rot )
+            ##print "rot entropy:", entropy
+            ##if( entropy > self.minEntropy ): break
+            ##print "skiped"
+            rot = self.rotations_sorted[self.irot]
+            self.nextRotation( Xs[i], Ys[i] )
             #self.nextRotation( self.rotations[self.irot], Xs[i], Ys[i] )
             self.counter +=1
         return Xs, Ys
@@ -191,27 +205,31 @@ class Generator(Sequence,):
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.atom_lines )
         setBBoxCenter( xyzs, (self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5) )
         self.natoms0 = len(Zs)
-        #if( self.npbc is not None ):
-        #    Zs, xyzs, qs = PPU.PBCAtoms3D( Zs, xyzs, qs, self.lvec[1:], npbc=self.npbc )
+        if( self.npbc is not None ):
+            Zs, xyzs, qs = PPU.PBCAtoms3D( Zs, xyzs, qs, self.lvec[1:], npbc=self.npbc )
+        self.Zs = Zs
         cLJs  = PPU.getAtomsLJ( self.iZPP, Zs, self.typeParams ).astype(np.float32)
         #FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, poss=self.ff_poss )
         FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
         self.FEin  = FF[:,:,:,:4] + self.Q*FF[:,:,:,4:];
 
-        self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
+        #self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
 
         Tff = time.clock()-t1ff;   
         if(verbose>1): print "Tff %f [s]" %Tff
 
     #def nextRotation(self, rot, X,Y ):
-    def nextRotation(self, rot, pos0, entropy, X,Y ):
+    def nextRotation(self, X,Y ):
         t1scan = time.clock();
+        (entropy, self.pos0, rot) = self.rotations_sorted[self.irot]
+
+        if(verbose>0): print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = rot[2].flat.copy()
 
-        self.scan_pos0s  = self.scanner.setScanRot( pos0, rot=rot, start=(-10.0,-10.0), end=(10.0,10.0) )
+        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAbove, rot=rot, start=self.scan_start, end=self.scan_end )
 
-        FEout  = self.scanner.runTilted()
+        FEout  = self.scanner.run_relaxStrokesTilted()
 
         #self.scanner.updateBuffers( WZconv=self.dfWeight )
         #FEconv = self.scanner.runZConv()
@@ -230,12 +248,12 @@ class Generator(Sequence,):
         
         t1y = time.clock();
         #self.scanner.runFixed( FEout=FEout )
-        self.scanner.runFixTilted( FEout=FEout )
+        #self.scanner.run_getFEinStrokesTilted( FEout=FEout )
         #Y[:,:] = FEout[:,:,-1,2]
         #Y[:,:] =  FEout[:,:,self.isliceY,0]*zDir[0] + FEout[:,:,self.isliceY,1]*zDir[1] + FEout[:,:,self.isliceY,2]*zDir[2]
         #self.zWeight =  self.getZWeights(); print self.zWeight
         #Y_ = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
-        Y_  = FEout[:,:,:,2].copy()
+        #Y_ = FEout[:,:,:,2].copy()
 
         # -- strategy 1  CPU saturated Weighted average
         #Y_ = np.tanh( Y_ )
@@ -251,18 +269,23 @@ class Generator(Sequence,):
         #YY = FEconv[:,:,:,0]*zDir[0] + FEconv[:,:,:,1]*zDir[1] + FEconv[:,:,:,2]*zDir[2]
         #self.saveDebugXSF( "FixedConv.xsf", YY )
         # -- strategy 4  GPU izoZ
-        Y[:,:] = self.scanner.runIzoZ( iso=0.1 )
+        #Y[:,:] = self.scanner.runIzoZ( iso=0.1 )
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1, nz=40 )
+        Y[:,:] = self.scanner.run_getZisoTilted( iso=0.1, nz=100 )
         Yf=Y.flat; Yf[Yf<0]=np.NaN
         Y *= (-self.scanner.zstep)
 
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty
 
+        #print "Y.shape", Y.shape
+        #print "X.shape", X.shape
+
         if(self.debugPlots):
-            self.plot(X,Y, Y_, entropy )
+            #self.plot(X,Y, Y_, entropy )
             #self.plot( X=XX, Y_=YY, entropy=entropy )
             #self.plot(Y=Y, entropy=entropy )
+            self.plot(X=X, Y=Y, entropy=entropy )
 
     def saveDebugXSF(self, fname, F, d=(0.1,0.1,0.1) ):
         if hasattr(self, 'GridUtils'):
@@ -284,7 +307,8 @@ class Generator(Sequence,):
         print " plot to file : ", fname
 
         #self.saveDebugXSF( self.preName + self.molecules[imol] + ("/rot%03i_Y.xsf" %irot), Y_ )
-        basUtils.writeDebugXYZ( self.preName + self.molName + ("/rot%03i.xyz" %self.irot), self.atom_lines, self.scan_pos0s[::10,::10,:].reshape(-1,4) )
+        basUtils.writeDebugXYZ_2( self.preName + self.molName + ("/rot%03i.xyz" %self.irot), self.atoms, self.Zs, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
+        #basUtils.writeDebugXYZ( self.preName + self.molName + ("/rot%03i.xyz" %self.irot), self.atom_lines, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
 
         title = "entropy %f" %entropy
         if Y is not None:
