@@ -94,7 +94,8 @@ class Generator(Sequence,):
     #debugPlotSlices   = [0,+2,+4,+6,+8,+10,+12,+14,+16]
     #debugPlotSlices   = [-1]
     #debugPlotSlices    = [-5,5]
-    debugPlotSlices    = [-5,5,10,15]
+    #debugPlotSlices    = [-5,5,10,15]
+    debugPlotSlices    = [5,10,15]
     #debugPlotSlices   = [-10]
     #debugPlotSlices   = [-15]
 
@@ -164,6 +165,7 @@ class Generator(Sequence,):
         'Generate one batch of data'
         n  = self.batch_size
         Xs = np.empty( (n,)+ self.scan_dim     )
+        #Xs = np.empty( (n,)+ self.scan_dim[:2]+(20,)  )
         Ys = np.empty( (n,)+ self.scan_dim[:2] )
         for i in range(n):
             self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
@@ -176,7 +178,6 @@ class Generator(Sequence,):
                 self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=20, bZMap=True  )
                 self.rotations_sorted = self.sortRotationsByEntropy()
                 self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
-
             ##rot = self.rotations[self.irot]
             ##pos0, entropy = self.evalRotation( rot )
             ##print "rot entropy:", entropy
@@ -231,8 +232,10 @@ class Generator(Sequence,):
 
         FEout  = self.scanner.run_relaxStrokesTilted()
 
-        #self.scanner.updateBuffers( WZconv=self.dfWeight )
+        self.scanner.updateBuffers( WZconv=self.dfWeight )
         #FEconv = self.scanner.runZConv()
+        FEout = self.scanner.run_convolveZ()
+
         #XX = FEconv[:,:,:,0]*zDir[0] + FEconv[:,:,:,1]*zDir[1] + FEconv[:,:,:,2]*zDir[2]
         #self.saveDebugXSF( "df.xsf", XX )
 
@@ -242,7 +245,11 @@ class Generator(Sequence,):
         #print "FEout.shape ", FEout.shape
 
         #X[:,:,:] = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
-        X = FEout[:,:,:,2].copy()  # Rotation is now done in kernel
+        #X[:,:,:] = FEout[:,:,:,2].copy()  # Rotation is now done in kernel
+        X[:,:,:FEout.shape[2]] = FEout[:,:,:,2].copy()
+        #print "FEout.z min max ", np.min(FEout[:,:,:,2]), np.max(FEout[:,:,:,2])
+        #print "X shape min max ", X[:,:,:FEout.shape[2]].shape,   np.min(X[:,:,:FEout.shape[2]]), np.max(X[:,:,:FEout.shape[2]])
+
         Tscan = time.clock()-t1scan;  
         if(verbose>1): print "Tscan %f [s]" %Tscan
         
@@ -271,9 +278,9 @@ class Generator(Sequence,):
         # -- strategy 4  GPU izoZ
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1 )
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1, nz=40 )
-        Y[:,:] = self.scanner.run_getZisoTilted( iso=0.1, nz=100 )
-        Yf=Y.flat; Yf[Yf<0]=np.NaN
-        Y *= (-self.scanner.zstep)
+        Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
+        #Yf=Y.flat; Yf[Yf<0]=np.NaN
+        #Y *= (-self.scanner.zstep)
 
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty
@@ -285,7 +292,7 @@ class Generator(Sequence,):
             #self.plot(X,Y, Y_, entropy )
             #self.plot( X=XX, Y_=YY, entropy=entropy )
             #self.plot(Y=Y, entropy=entropy )
-            self.plot(X=X, Y=Y, entropy=entropy )
+            self.plot( ("/rot%03i_" % irot), self.molName, X=X, Y=Y, entropy=entropy )
 
     def saveDebugXSF(self, fname, F, d=(0.1,0.1,0.1) ):
         if hasattr(self, 'GridUtils'):
@@ -299,16 +306,18 @@ class Generator(Sequence,):
         print "saveDebugXSF : ", fname
         GU.saveXSF( fname, F.transpose((2,1,0)), lvec )
 
-    def plot(self,X=None,Y=None,Y_=None, entropy=None):
+    def plot(self, rotName, molName, X=None,Y=None,Y_=None, entropy=None ):
         import matplotlib as mpl;  mpl.use('Agg');
         import matplotlib.pyplot as plt
-        #iepoch, imol, irot = self.getMolRotIndex( self.counter )
-        fname    = self.preName + self.molName + ("/rot%03i_" % self.irot)
+
+        fname    = self.preName + molName + rotName
         print " plot to file : ", fname
 
         #self.saveDebugXSF( self.preName + self.molecules[imol] + ("/rot%03i_Y.xsf" %irot), Y_ )
-        basUtils.writeDebugXYZ_2( self.preName + self.molName + ("/rot%03i.xyz" %self.irot), self.atoms, self.Zs, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
-        #basUtils.writeDebugXYZ( self.preName + self.molName + ("/rot%03i.xyz" %self.irot), self.atom_lines, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
+        basUtils.writeDebugXYZ_2( self.preName + molName + rotName+".xyz", self.atoms, self.Zs, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
+        #basUtils.writeDebugXYZ( self.preName + molName + rotName, self.atom_lines, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
+
+        #self.saveDebugXSF(  self.preName + molName + rotName+"_Fz.xsf", X, d=(0.1,0.1,0.1) )
 
         title = "entropy %f" %entropy
         if Y is not None:
@@ -321,6 +330,7 @@ class Generator(Sequence,):
             #plt.imshow( FEout[:,:,isl,2] )
             if (X is not None) and (Y_ is not None):
                 plt.figure(figsize=(10,5))
+                #print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
                 plt.subplot(1,2,2); plt.imshow (X [:,:,isl] );            plt.colorbar()
                 #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl] );
                 plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]) );   plt.colorbar()
@@ -329,6 +339,7 @@ class Generator(Sequence,):
                 plt.close()
             else:
                 if X is not None:
+                    print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
                     plt.imshow(  X[:,:,isl] );    plt.colorbar()
                     plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                     plt.close()
