@@ -44,6 +44,9 @@ void move_LeapFrog( float3 f, float3 p, float3 v, float2 RP ){
 
 // this should be macro, to pass values by reference
 void move_FIRE( float3 f, float3 p, float3 v, float2 RP, float4 RP0 ){
+    // Bitzek, E., Koskinen, P., Gähler, F., Moseler, M., & Gumbsch, P. (2006). Structural Relaxation Made Simple. Physical Review Letters, 97(17), 170201. 
+    // https://doi.org/10.1103/PhysRevLett.97.170201
+    // http://users.jyu.fi/~pekkosk/resources/pdf/FIRE.pdf
     // RP0 = (t?,damp0,tmin,tmax)
     float ff   = dot(f,f);
     float vv   = dot(v,v);
@@ -173,17 +176,24 @@ __kernel void relaxPoints(
     float4 dpos0,
     float4 relax_params  // (dt,damp,tmin,tmax)
 ){
+
+    const float dt   = relax_params.x;
+    const float damp = relax_params.y;
+
     float3 tipPos = points[get_global_id(0)].xyz;
-    float3 pos    =  tipPos.xyz + dpos0.xyz; 
+    float3 pos    = tipPos.xyz + dpos0.xyz; 
     float4 fe;
     float3 vel    = 0.0f;
     for(int i=0; i<1000; i++){
         fe        = read_imagef( imgIn, sampler_1, (float4)(pos,0.0f) ); /// this would work only for unitary cell
         float3 f  = fe.xyz;
         f        += tipForce( pos-tipPos, stiffness, dpos0 );    
-        vel      *=       relax_params.y;   
-        vel      += f   * relax_params.x;
-        pos.xyz  += vel * relax_params.x;
+        //vel      *=       relax_params.y;   
+        //vel      += f   * relax_params.x;
+        //pos.xyz  += vel * relax_params.x;
+        vel      *=       damp;
+        vel      += f   * dt;
+        pos.xyz  += vel * dt;
     }
     FEs[get_global_id(0)] = fe;
 }
@@ -204,6 +214,8 @@ __kernel void relaxStrokes(
     float3 tipPos = points[get_global_id(0)].xyz;
     float3 pos    = tipPos.xyz + dpos0.xyz; 
     
+    const float dt   = relax_params.x;
+    const float damp = relax_params.y;
     //printf( " %li (%f,%f,%f)  \n",  get_global_id(0), tipPos.x, tipPos.y, tipPos.z);
     
     for(int iz=0; iz<nz; iz++){
@@ -213,9 +225,12 @@ __kernel void relaxStrokes(
             fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
             float3 f  = fe.xyz;
             f        += tipForce( pos-tipPos, stiffness, dpos0 );
-            vel      *=       relax_params.y;       
-            vel      += f   * relax_params.y;
-            pos.xyz  += vel * relax_params.x;
+            //vel      *=       relax_params.y;       
+            //vel      += f   * relax_params.y;
+            //pos.xyz  += vel * relax_params.x;
+            vel      *=       damp;
+            vel      += f   * dt;
+            pos.xyz  += vel * dt;
             if(dot(f,f)<F2CONV) break;
         }
         //FEs[get_global_id(0)*nz + iz] = fe;
@@ -241,11 +256,14 @@ __kernel void relaxStrokesTilted(
     int nz
 ){
 
-    float3 dTip   = tipC.xyz * tipC.w;
-    float3 tipPos = points[get_global_id(0)].xyz;
+    const float3 dTip   = tipC.xyz * tipC.w;
+    const float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
 
-    float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
-    float3 pos     = tipPos.xyz + dpos0_.xyz; 
+    float3 tipPos = points[get_global_id(0)].xyz;
+    float3 pos    = tipPos.xyz + dpos0_.xyz; 
+
+    const float dt   = relax_params.x;
+    const float damp = relax_params.y;
 
     for(int iz=0; iz<nz; iz++){
         float4 fe;
@@ -258,11 +276,14 @@ __kernel void relaxStrokesTilted(
             float3 dpos_ = rotMat( dpos, tipA.xyz, tipB.xyz, tipC.xyz );    // to tip-coordinates
             float3 ftip  = tipForce( dpos_, stiffness, dpos0 );
             f            += rotMatT( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
-            
             //f      +=  tipForce( dpos, stiffness, dpos0_ );  // Not rotated
-            vel      *=       relax_params.y;
-            vel      += f   * relax_params.y;
-            pos.xyz  += vel * relax_params.x;
+            
+            //vel      *=       relax_params.y;
+            //vel      += f   * relax_params.y;
+            //pos.xyz  += vel * relax_params.x;
+            vel      *=       damp;
+            vel      += f   * dt;
+            pos.xyz  += vel * dt;
             if(dot(f,f)<F2CONV) break;
         }
         
