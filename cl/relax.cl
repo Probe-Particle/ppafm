@@ -284,13 +284,15 @@ __kernel void convolveZ(
     __global  float4* Fin,
     __global  float4* Fout,
     __global  float*  weighs,
-    int nzin, int nzout
+    const int nzin, const int nzout
 ){
-    int ioffi = get_global_id(0)*nzin;
-    int ioffo = get_global_id(0)*nzout;
+    const int ioffi = get_global_id(0)*nzin;
+    const int ioffo = get_global_id(0)*nzout;
+    const int nzw   = nzin-nzout;
+    //if( get_global_id(0)==0 ) printf( "izo %i izi %i Fz %g W %g \n", nzin, nzout, nzw );
     for(int izo=0; izo<nzout; izo++){
         float4 fe = 0.0f;
-        for(int jz=0; jz<(nzin-izo); jz++){
+        for(int jz=0; jz<nzw; jz++){
             fe += Fin[ ioffi + izo + jz ] * weighs[ jz ];
             //if( get_global_id(0)==0 ) printf( "izo %i izi %i Fz %g W %g \n", izo, jz, Fin[ ioffi + izo + jz ].z, weighs[ jz ] );
             //fe +=  tanh( Fin[ ioffi + izi ] ) * weighs[ izi - izo ];

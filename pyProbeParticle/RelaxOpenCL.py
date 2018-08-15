@@ -317,6 +317,7 @@ class RelaxedScanner:
             np.int32(nz), np.int32( self.nDimConvOut ) )
         cl_program.convolveZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl.enqueue_copy( self.queue, FEconv, self.cl_FEconv )
+        self.queue.finish()
         return FEconv
 
     def run_izoZ(self, zMap=None, iso=0.0, nz=None ):
@@ -328,6 +329,7 @@ class RelaxedScanner:
             np.int32(nz), np.float32( iso ) )
         cl_program.izoZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl.enqueue_copy( self.queue, zMap, self.cl_zMap )
+        self.queue.finish()
         return zMap
 
     def run_getZisoTilted(self, zMap=None, iso=0.0, nz=None ):

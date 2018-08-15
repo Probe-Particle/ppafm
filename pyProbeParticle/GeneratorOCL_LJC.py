@@ -86,6 +86,7 @@ class Generator(Sequence,):
     isliceY        = -1
     minEntropy     = 4.5
     nBestRotations = 30
+    shuffle_rot    = True
 
     #npbc = None
     npbc = (1,1,1)
@@ -138,14 +139,23 @@ class Generator(Sequence,):
         #self.zWeight =  np.ones( self.scan_dim[2] )
         self.zWeight =  self.getZWeights();
 
+    def __iter__(self):
+        return self
+
+    def __len__(self):
+        'Denotes the number of batches per epoch'
+        return 10
+        #return int(np.floor(len(self.list_IDs) / self.batch_size))
+
+    def __getitem__(self, index):
+        if(verbose>0): print "index ", index
+        return self.next()
+
     def getMolRotIndex(self, i):
         #nrot = len(self.rotations)
         nrot = self.nBestRotations
         nmol = len(self.molecules)
         return i/(nrot*nmol), (i/nrot)%nmol, i%nrot
-
-    def __iter__(self):
-        return self
 
     def evalRotation(self, rot ):
         zDir = rot[2].flat.copy()
@@ -167,7 +177,7 @@ class Generator(Sequence,):
         Xs = np.empty( (n,)+ self.scan_dim     )
         #Xs = np.empty( (n,)+ self.scan_dim[:2]+(20,)  )
         Ys = np.empty( (n,)+ self.scan_dim[:2] )
-        for i in range(n):
+        for ibatch in range(n):
             self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
             if( self.irot == 0 ):# recalc FF
                 self.molName =  self.molecules[self.imol]
@@ -178,25 +188,24 @@ class Generator(Sequence,):
                 self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=20, bZMap=True  )
                 self.rotations_sorted = self.sortRotationsByEntropy()
                 self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
+                if self.shuffle_rot:
+                    permut = np.array( range(len(self.rotations_sorted)) )
+                    np.random.shuffle( permut )
+                    #print permut
+                    self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
+                    #self.rotations_sorted = self.rotations_sorted[permut]
+                    #print self.rotations_sorted
             ##rot = self.rotations[self.irot]
             ##pos0, entropy = self.evalRotation( rot )
             ##print "rot entropy:", entropy
             ##if( entropy > self.minEntropy ): break
             ##print "skiped"
+            #print "batch i : ", ibatch
             rot = self.rotations_sorted[self.irot]
-            self.nextRotation( Xs[i], Ys[i] )
-            #self.nextRotation( self.rotations[self.irot], Xs[i], Ys[i] )
+            self.nextRotation( Xs[ibatch], Ys[ibatch] )
+            #self.nextRotation( self.rotations[self.irot], Xs[ibatch], Ys[ibatch] )
             self.counter +=1
         return Xs, Ys
-
-    def __len__(self):
-        'Denotes the number of batches per epoch'
-        return 10
-        #return int(np.floor(len(self.list_IDs) / self.batch_size))
-
-    def __getitem__(self, index):
-        if(verbose>0): print "index ", index
-        return self.next()
 
     def nextMolecule(self, fname ):
         fullname = self.preName+fname+self.postName
@@ -232,9 +241,13 @@ class Generator(Sequence,):
 
         FEout  = self.scanner.run_relaxStrokesTilted()
 
+
+        #print "self.dfWeight ", self.dfWeight
         self.scanner.updateBuffers( WZconv=self.dfWeight )
         #FEconv = self.scanner.runZConv()
         FEout = self.scanner.run_convolveZ()
+
+        #exit(0);
 
         #XX = FEconv[:,:,:,0]*zDir[0] + FEconv[:,:,:,1]*zDir[1] + FEconv[:,:,:,2]*zDir[2]
         #self.saveDebugXSF( "df.xsf", XX )
@@ -292,7 +305,7 @@ class Generator(Sequence,):
             #self.plot(X,Y, Y_, entropy )
             #self.plot( X=XX, Y_=YY, entropy=entropy )
             #self.plot(Y=Y, entropy=entropy )
-            self.plot( ("/rot%03i_" % irot), self.molName, X=X, Y=Y, entropy=entropy )
+            self.plot( ("/rot%03i_" % self.irot), self.molName, X=X, Y=Y, entropy=entropy )
 
     def saveDebugXSF(self, fname, F, d=(0.1,0.1,0.1) ):
         if hasattr(self, 'GridUtils'):
