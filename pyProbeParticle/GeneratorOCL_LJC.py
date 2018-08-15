@@ -86,7 +86,8 @@ class Generator(Sequence,):
     isliceY        = -1
     minEntropy     = 4.5
     nBestRotations = 30
-    shuffle_rot    = True
+    shuffle_rotations = True
+    shuffle_molecules = True
 
     #npbc = None
     npbc = (1,1,1)
@@ -144,12 +145,17 @@ class Generator(Sequence,):
 
     def __len__(self):
         'Denotes the number of batches per epoch'
-        return 10
-        #return int(np.floor(len(self.list_IDs) / self.batch_size))
+        return int( np.ceil( len(self.molecules) * self.nBestRotations / float(self.batch_size) ) )
 
     def __getitem__(self, index):
         if(verbose>0): print "index ", index
         return self.next()
+
+    def on_epoch_end(self):
+        if self.shuffle_molecules:
+            permut = np.array( range(len(self.molecules)) )
+            np.random.shuffle( permut )
+            self.molecules = [ self.molecules[i] for i in permut ]
 
     def getMolRotIndex(self, i):
         #nrot = len(self.rotations)
@@ -174,7 +180,8 @@ class Generator(Sequence,):
     def next(self):
         'Generate one batch of data'
         n  = self.batch_size
-        Xs = np.empty( (n,)+ self.scan_dim     )
+        Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
+        #Xs = np.empty( (n,)+ self.scan_dim     )
         #Xs = np.empty( (n,)+ self.scan_dim[:2]+(20,)  )
         Ys = np.empty( (n,)+ self.scan_dim[:2] )
         for ibatch in range(n):
@@ -188,7 +195,7 @@ class Generator(Sequence,):
                 self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=20, bZMap=True  )
                 self.rotations_sorted = self.sortRotationsByEntropy()
                 self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
-                if self.shuffle_rot:
+                if self.shuffle_rotations:
                     permut = np.array( range(len(self.rotations_sorted)) )
                     np.random.shuffle( permut )
                     #print permut
@@ -241,7 +248,9 @@ class Generator(Sequence,):
 
         FEout  = self.scanner.run_relaxStrokesTilted()
 
-
+        if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
+            print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
+            exit()
         #print "self.dfWeight ", self.dfWeight
         self.scanner.updateBuffers( WZconv=self.dfWeight )
         #FEconv = self.scanner.runZConv()
