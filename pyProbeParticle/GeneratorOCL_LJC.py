@@ -88,6 +88,7 @@ class Generator(Sequence,):
     nBestRotations = 30
     shuffle_rotations = True
     shuffle_molecules = True
+    Yrange = 2
 
     #npbc = None
     npbc = (1,1,1)
@@ -301,6 +302,11 @@ class Generator(Sequence,):
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1 )
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1, nz=40 )
         Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
+        Y *= (self.scanner.zstep)
+        Ymin = max(Y[Y<=0].flatten().max() - self.Yrange, Y.flatten().min())
+        Y[Y>0] = Ymin
+        Y[Y<Ymin] = Ymin
+        Y -= Ymin
         #Yf=Y.flat; Yf[Yf<0]=np.NaN
         #Y *= (-self.scanner.zstep)
 
