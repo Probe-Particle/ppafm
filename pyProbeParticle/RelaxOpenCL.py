@@ -178,11 +178,11 @@ class RelaxedScanner:
         if nDimConv is not None:
             self.nDimConv    = nDimConv
             self.nDimConvOut = nDimConvOut
-            print "nDimConv %i nDimConvOut %i" %( nDimConv, nDimConvOut )
+#            print "nDimConv %i nDimConvOut %i" %( nDimConv, nDimConvOut )
             self.cl_FEconv  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz       * self.nDimConvOut ); nbytes += bsz  *self.nDimConvOut
             self.cl_WZconv  = cl.Buffer(self.ctx, mf.READ_ONLY,  fsize     * self.nDimConv    ); nbytes += fsize*self.nDimConv
         if bZMap:
-            print "nxy ", nxy
+#            print "nxy ", nxy
             self.cl_zMap    = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize  ); nbytes += nxy*fsize
         if(verbose>0): print "prepareBuffers.nbytes: ", nbytes
 

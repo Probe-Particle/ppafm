@@ -30,7 +30,7 @@ import HighLevelOCL as hl
 import numpy as np
 from keras.utils import Sequence
 
-verbose=1
+verbose=0
 
 def applyZWeith( F, zWeight ):
     #F_ = np.apply_along_axis( lambda m: np.convolve(m, zWeight, mode='valid'), axis=0, arr=F )
@@ -39,15 +39,15 @@ def applyZWeith( F, zWeight ):
     return F_
 
 def setBBoxCenter( xyzs, cog ):
-    print "xyzs.shape ", xyzs.shape
-    print "cog ", cog
+#    print "xyzs.shape ", xyzs.shape
+#    print "cog ", cog
     xmin = np.min( xyzs[:,0] )
     xmax = np.max( xyzs[:,0] )
     ymin = np.min( xyzs[:,1] )
     ymax = np.max( xyzs[:,1] )
     zmin = np.min( xyzs[:,2] )
     zmax = np.max( xyzs[:,2] )
-    print "xmin ", xmin
+#    print "xmin ", xmin
     xc = 0.5*(xmin+xmax); 
     yc = 0.5*(ymin+ymax); 
     zc = 0.5*(zmin+zmax)
@@ -55,7 +55,7 @@ def setBBoxCenter( xyzs, cog ):
     xyzs[:,0] += (cog[0]-xc)
     xyzs[:,1] += (cog[1]-yc)
     xyzs[:,2] += (cog[2]-zc)
-    print "min", (xmin,ymin,zmin), "max", (xmax,ymax,zmax), "cog ", (xc,yc,zc)
+#    print "min", (xmin,ymin,zmin), "max", (xmax,ymax,zmax), "cog ", (xc,yc,zc)
     return (xmin,ymin,zmin), (xmax,ymax,zmax), (xc,yc,zc)
 
 class Generator(Sequence,):
@@ -130,7 +130,7 @@ class Generator(Sequence,):
         self.counter = 0
 
         self.typeParams = hl.loadSpecies('atomtypes.ini')
-        self.ff_dim     = hl.genFFSampling( self.lvec, self.pixPerAngstrome );  print "ff_dim ",     self.ff_dim
+        self.ff_dim     = hl.genFFSampling( self.lvec, self.pixPerAngstrome );  #print "ff_dim ",     self.ff_dim
         #self.ff_poss    = FFcl.getposs    ( self.lvec, self.ff_dim );           print "poss.shape ", self.ff_poss.shape  # should we store this?
 
         self.forcefield = FFcl.ForceField_LJC()
