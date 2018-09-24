@@ -106,7 +106,9 @@ if opt_dict['atoms'] or opt_dict['bonds']:
     atoms_str="_atoms"
     atoms = basUtils.loadAtoms( 'input_plot.xyz' )
     #print "atoms ", atoms
-    iZs,Rs,Qs_tmp=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'],FFparams=FFparams )
+    FFparams            = PPU.loadSpecies( ) 
+    elem_dict           = PPU.getFFdict(FFparams);  #print "elem_dict ", elem_dict
+    iZs,Rs,Qs_tmp=PPU.parseAtoms(atoms, elem_dict, autogeom = False, PBC = PPU.params['PBC'] )
     atom_colors = basUtils.getAtomColors(iZs,FFparams=FFparams)
     Rs=Rs.transpose().copy()
     atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]

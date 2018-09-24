@@ -300,9 +300,10 @@ class Generator(Sequence,):
         # -- strategy 4  GPU izoZ
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1 )
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1, nz=40 )
-        Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
-        #Yf=Y.flat; Yf[Yf<0]=np.NaN
-        #Y *= (-self.scanner.zstep)
+        #Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
+        Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) ) . copy()
+        Yf=Y.flat; Yf[Yf<0]=+39+5; Yf[:]-=39
+        Y *= (-self.scanner.zstep)
 
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty
