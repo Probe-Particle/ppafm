@@ -56,7 +56,7 @@ def relaxedScan3D( xTips, yTips, zTips ):
     print "<<<END: relaxedScan3D()"
     return fzs,PPpos
 
-def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None,bPPdisp=False):
+def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipspline=None,bPPdisp=False,bFFtotDebug=False):
     print ">>>BEGIN: perform_relaxation()"
     if tipspline is not None :
         try:
@@ -74,8 +74,12 @@ def perform_relaxation (lvec,FFLJ,FFel=None,FFboltz=None,tipspline=None,bPPdisp=
     if ( FFel is not None):
         FF += FFel * PPU.params['charge']
         print "adding charge:", PPU.params['charge']
+    if ( FFpauli is not None ):
+        FF += FFpauli * PPU.params['Apauli']
     if FFboltz != None :
         FF += FFboltz
+    if bFFtotDebug:
+        GU.save_vec_field( 'FFtotDebug', FF, lvec )
     core.setFF_shape( np.shape(FF), lvec )
     core.setFF_Fpointer( FF )
     print "stiffness:", PPU.params['klat']
@@ -131,6 +135,9 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     if ffModel=="Morse":
         REs = PPU.getAtomsRE( iPP, iZs, FFparams ); # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
         core.getMorseFF( Rs, REs )       # THE MAIN STUFF HERE
+    elif ffModel=="vdW":
+        cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams ); # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
+        core.getVdWFF( Rs, cLJs )       # THE MAIN STUFF HERE
     else:
         cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams ); # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
         core.getLenardJonesFF( Rs, cLJs ) # THE MAIN STUFF HERE

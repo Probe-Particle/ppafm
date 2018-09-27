@@ -126,6 +126,9 @@ def getSkewNormalBasis(sampleSize):
     az = np.copy(az.flat)
     return ax, ay, az
 
+def conv3DFFT( F2, F1 ):
+    return  np.fft.ifftn( np.fft.fftn(F1) * np.fft.fftn(F2) )
+
 def getForces(V, rho, sampleSize, dims, dd, X, Y, Z):
     'returns forces for all axes, calculation performed \
     in orthogonal coordinates, but results are expressed in skew coord.'
@@ -258,12 +261,14 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
 
     print '--- X, Y, Z ---'
     X, Y, Z = getMGrid(dims, dd)
-    if rho == None:
+    if rho is None:
         print '--- Get Probe Density ---'
         rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt )
         GU.saveXSF( "rhoTip.xsf", rho, lvec )
     else:
+        print "rho backward (rho[::-1,::-1,::-1]) "
         rho[:,:,:] = rho[::-1,::-1,::-1].copy()
+        GU.saveXSF( "rho.xsf",   rho, lvec )
     if doForce:
         print '--- prepare Force transforms ---'
         zetaX,zetaY,zetaZ,detLmatInv = getForceTransform(sampleSize, dims, dd, X, Y, Z )
@@ -275,7 +280,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     #rhoFFT    =    del rho
     #convFFT   = VFFT*rhoFFT;        del VFFT,rhoFFT
     gc.collect()
-    convFFT    = np.fft.fftn(V) * np.fft.fftn(rho);   
+    convFFT    = np.fft.fftn(V) * np.fft.fftn(rho);
     if deleteV: del V
     gc.collect()
     if doPot:

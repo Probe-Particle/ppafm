@@ -151,6 +151,13 @@ def getLenardJonesFF( Rs, cLJs ):
     lib.getLenardJonesFF( natom, Rs, cLJs )
 
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
+lib.getVdWFF.argtypes  = [ c_int,       array2d,      array2d     ]
+lib.getVdWFF.restype   = None
+def getVdWFF( Rs, cLJs ):
+    natom = len(Rs) 
+    lib.getVdWFF( natom, Rs, cLJs )
+
+# void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
 lib.getMorseFF.argtypes  = [ c_int,       array2d,      array2d, c_double ]
 lib.getMorseFF.restype   = None
 def getMorseFF( Rs, REs, alpha=None ):
