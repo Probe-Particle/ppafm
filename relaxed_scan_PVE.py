@@ -37,6 +37,7 @@ if __name__=="__main__":
     parser.add_option( "--qrange", action="store", type="float", help="tip charge range (min,max,n) [e]", nargs=3)
     parser.add_option( "-b", "--boltzmann" ,action="store_true", default=False, help="calculate forces with boltzmann particle" )
     parser.add_option( "--bI" ,action="store_true", default=False, help="calculate current between boltzmann particle and tip" )
+    parser.add_option( "--bDebugFFtot" ,action="store_true", default=False, help="store total Force-Field for debuging" )
     parser.add_option( "--pos",       action="store_true", default=False, help="save probe particle positions" )
     parser.add_option( "--disp",      action="store_true", default=False, help="save probe particle displacements")
     parser.add_option( "--vib",       action="store", type="int", default=-1, help="map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs" )
@@ -102,9 +103,8 @@ if __name__=="__main__":
             print " relaxed_scan for ", dirname
             if not os.path.exists( dirname ):
                 os.makedirs( dirname )
-            #fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,tipspline=options.tipspline, bFFtotDebug=True)
-            fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,tipspline=options.tipspline)
-
+            fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,tipspline=options.tipspline, bFFtotDebug=options.bDebugFFtot)
+            #fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,tipspline=options.tipspline)
             #PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
             #Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
             #GU.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )

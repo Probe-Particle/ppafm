@@ -44,16 +44,16 @@ curves[0] = xs
 
 vmin = 0
 for i,point in enumerate(points):
-	ys = fzs[:,point[1],point[0]]
+	ys = fzs[:,int(point[1]),int(point[0])]
 	vmin=min(ys.min(),vmin)
 	print point, vmin
-	#print ys
+	print ys
 	curves[i+1] = ys
 	plt.plot( xs, ys )
 plt.grid()
 plt.savefig( options.i+'_zcurves.png', bbox_inches='tight')
 
-plt.ylim( 1.1*vmin, -2*vmin )
+#plt.ylim( 1.1*vmin, -2*vmin )
 np.savetxt( options.i+'_zcurves.dat', np.transpose(curves) )
 
 #dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )

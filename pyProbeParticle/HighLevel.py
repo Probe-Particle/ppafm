@@ -76,6 +76,7 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipsplin
         print "adding charge:", PPU.params['charge']
     if ( FFpauli is not None ):
         FF += FFpauli * PPU.params['Apauli']
+        #FF = FFpauli * PPU.params['Apauli']
     if FFboltz != None :
         FF += FFboltz
     if bFFtotDebug:
@@ -151,9 +152,9 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     # --- save to files ?
     if save_format is not None:
         print "computeLJ Save ", save_format 
-        GU.save_vec_field( 'FFLJ', FF, lvec,  data_format=save_format, head=atomstring )
+        GU.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring )
         if computeVpot:
-            GU.save_scal_field( 'VLJ', V, lvec,  data_format=save_format, head=atomstring )
+            GU.save_scal_field( 'V'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
     print "<<<END: computeLJ()"
     return FF, V, nDim, lvec
 

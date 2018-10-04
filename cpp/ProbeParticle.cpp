@@ -57,7 +57,10 @@ namespace RELAX{
 	// parameters
 	int    maxIters  = 1000;          // maximum iterations steps for each pixel
 	double convF2    = 1.0e-8;        // square of convergence criterium ( convergence achieved when |F|^2 < convF2 )
-	double dt        = 0.5;           // time step [ abritrary units ]
+//	double dt        = 0.5;           // time step [ abritrary units ]
+
+double dt        = 0.1;           // time step [ abritrary units ]
+
 	double damping   = 0.1;           // velocity damping ( like friction )  v_(i+1) = v_i * ( 1- damping )
 
 	// relaxation step for simple damped-leap-frog molecular dynamics ( just for testing, less efficinet than FIRE )

@@ -24,6 +24,7 @@ params={
     'moleculeShift':  np.array( [  0.0,      0.0,    0.0 ] ),
     'probeType':   'O',
     'charge':      0.00,
+    #'Apauli':     0.0,
     'Apauli':    18.0,
     #'Apauli':   0.00600,
     #'Apauli':   0.60,

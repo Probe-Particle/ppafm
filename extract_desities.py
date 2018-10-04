@@ -12,7 +12,7 @@ import pyProbeParticle.basUtils      as BU
 from   optparse import OptionParser
 
 parser = OptionParser()
-parser.add_option( "-i",   action="store", type="string", help="input file",                   default='OutFz'        )
+parser.add_option( "-i",   action="store", type="string", help="input file",                   default='CHGCAR.xsf'        )
 (options, args) = parser.parse_args()
 
 fname, fext = os.path.splitext( options.i ); fext = fext[1:]
@@ -31,8 +31,8 @@ print lvec
 print atoms
 print zs
 
-GU.lib.setGridN   ( np.array( nDim[::-1],     dtype=np.int32 ) )
-GU.lib.setGridCell( np.array( lvec[1:], dtype=np.float64 ) )
+GU.lib.setGridN   ( np.array( nDim[::-1], dtype=np.int32 )   )
+GU.lib.setGridCell( np.array( lvec[1:],   dtype=np.float64 ) )
 
 dlines = [ zs, ]
 
@@ -62,4 +62,4 @@ for i in range( len(atoms[0]) ):
 
 
 
-np.savetxt( "atom_density_zlines.dat", np.transpose( np.array(dlines) ) )
+np.savetxt( fname+"_zlines.dat", np.transpose( np.array(dlines) ) )

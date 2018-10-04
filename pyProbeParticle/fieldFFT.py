@@ -235,7 +235,7 @@ def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, tilt
     else:
         rho[:,:,:] = rho[::-1,::-1,::-1].copy()
     fieldInfo( rho, label="fieldInfo rho " )
-    GU.saveXSF( "DEBUG_rho.xsf", rho, lvec )
+    #GU.saveXSF( "DEBUG_rho.xsf", rho, lvec )
     print '--- Get Forces ---'
     Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
     fieldInfo( Fz, label="fieldInfo Fz " )
@@ -268,7 +268,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     else:
         print "rho backward (rho[::-1,::-1,::-1]) "
         rho[:,:,:] = rho[::-1,::-1,::-1].copy()
-        GU.saveXSF( "rho.xsf",   rho, lvec )
+        #GU.saveXSF( "rho.xsf",   rho, lvec )
     if doForce:
         print '--- prepare Force transforms ---'
         zetaX,zetaY,zetaZ,detLmatInv = getForceTransform(sampleSize, dims, dd, X, Y, Z )

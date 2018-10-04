@@ -14,8 +14,17 @@ import pyProbeParticle.GridUtils      as GU
 import pyProbeParticle.fieldFFT       as fFFT
 from optparse import OptionParser
 
-rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
-rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO/CHGCAR.xsf")
+parser = OptionParser()
+parser.add_option( "-s", "--sample", action="store", type="string", default="CHGCAR.xsf", help="sample 3D data-file (.xsf)")
+parser.add_option( "-t", "--tip",    action="store", type="string", default="./tip/CHGCAR.xsf", help="tip 3D data-file (.xsf)")
+parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
+(options, args) = parser.parse_args()
+
+#rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
+#rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO_/CHGCAR.xsf")
+
+rho1, lvec1, nDim1, head1 = GU.loadXSF( options.sample )
+rho2, lvec2, nDim2, head2 = GU.loadXSF( options.tip    )
 
 #fFFT.conv3DFFT( F2, F1 )
 #GU.saveXSF( "Fpauli_x.xsf", Fx*PQ, lvec1, head=head1 )
@@ -27,11 +36,14 @@ Fx,Fy,Fz,E = fFFT.potential2forces_mem( rho1, lvec1, nDim1, rho=rho2, doForce=Tr
 
 PQ = -1.0
 
+namestr = options.output
+print "save to ", namestr
+
 # Density Overlap Model
-GU.saveXSF( "Epauli.xsf",    E*(PQ*-1.0), lvec1, head=head1 )
-GU.saveXSF( "FFpauli_x.xsf", Fx*PQ,       lvec1, head=head1 )
-GU.saveXSF( "FFpauli_y.xsf", Fy*PQ,       lvec1, head=head1 )
-GU.saveXSF( "FFpauli_z.xsf", Fz*PQ,       lvec1, head=head1 )
+GU.saveXSF( "E"+namestr+".xsf",    E*(PQ*-1.0), lvec1, head=head1 )
+GU.saveXSF( "FF"+namestr+"_x.xsf", Fx*PQ,       lvec1, head=head1 )
+GU.saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ,       lvec1, head=head1 )
+GU.saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ,       lvec1, head=head1 )
 
 #Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
 
