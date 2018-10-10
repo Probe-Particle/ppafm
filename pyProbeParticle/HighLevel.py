@@ -198,7 +198,9 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None, tilt=0.0 
     print " ========= get electrostatic forcefiled from hartree "
     rho = None
     multipole = None
-    if type(tip) is dict:
+    if type(tip) is np.ndarray:
+        rho = tip
+    elif type(tip) is dict:
         multipole = tip
     else:
         if tip in {'s','px','py','pz','dx2','dy2','dz2','dxy','dxz','dyz'}:

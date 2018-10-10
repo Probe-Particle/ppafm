@@ -173,7 +173,7 @@ def getForceTransform(sampleSize, dims, dd, X, Y, Z ):
     print "Ftrans :   ", zeta[0].sum(), zeta[1].sum(), zeta[2].sum()
     return zeta[0],zeta[1],zeta[2], detLmatInv
 
-'''	
+'''
 def getForceEnergy(V, rho, sampleSize, dims, dd, X, Y, Z):
     'returns forces for all axes, calculation performed \
     in orthogonal coordinates, but results are expressed in skew coord.'
@@ -194,7 +194,7 @@ def getNormalizedBasisMatrix(sampleSize):
     ax, ay, az = getSkewNormalBasis(sampleSize)
     Lmat = [ax, ay, az]
     return np.matrix(Lmat)
-  
+
 def printMetadata(sampleSize, dims, dd, xsize, ysize, zsize, V, rho):
     first_col = 30    
     sec_col = 25
@@ -208,7 +208,7 @@ def printMetadata(sampleSize, dims, dd, xsize, ysize, zsize, V, rho):
     print ''.rjust(first_col), 'V.shape'.rjust(sec_col), ' = %s' % list(V.shape)
     print 'probe potential:'.rjust(first_col), '(max, min)'.rjust(sec_col), ' = (%s, %s)' % (rho.max(), rho.min())
     print ''.rjust(first_col), 'rho.shape'.rjust(sec_col), ' = %s' % list(rho.shape)
-    
+
 def exportPotential(rho, rho_data='rho_data'):
     filerho = open(rho_data, 'w')
     dimRho = rho.shape
@@ -253,7 +253,6 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     zsize, dz = getSize('z', dims, sampleSize)
     dd = (dx, dy, dz)
 
-    #
     #potential2forces_mem: dims  (92, 91, 60)
     #potential2forces_mem: dims  (49.219764194907896, 48.690656801482945, 32.288778971493564)
     print "potential2forces_mem: dims ", dims 
@@ -264,7 +263,17 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     if rho is None:
         print '--- Get Probe Density ---'
         rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt )
+        '''
+        NO NEED TO RENORMALIZE : This is already density
+        print "rho.abs().sum() ", np.sum(np.abs(rho))
+        scQ2dens = 1.0/GU.dens2Q_CHGCARxsf(rho,lvec)
+        print " scQ2dens ", scQ2dens
+        print "rho.abs().sum()*scQ2dens ", np.sum(np.abs(rho*scQ2dens))
+        print "rho.abs().sum()/scQ2dens ", np.sum(np.abs(rho/scQ2dens))
+        exit()
+        '''
         GU.saveXSF( "rhoTip.xsf", rho, lvec )
+
     else:
         print "rho backward (rho[::-1,::-1,::-1]) "
         rho[:,:,:] = rho[::-1,::-1,::-1].copy()
@@ -294,7 +303,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
         Fy        = np.real(np.fft.ifftn(zetaY*convFFT)); del zetaY; gc.collect()
         Fz        = np.real(np.fft.ifftn(zetaZ*convFFT)); del zetaZ; gc.collect()
     print 'Fz.max(), Fz.min() = ', Fz.max(), Fz.min()
-    return Fx,Fy,Fz, E	
+    return Fx,Fy,Fz, E
 
 
 

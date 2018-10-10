@@ -83,6 +83,7 @@ class Generator(Sequence,):
     r2Func = staticmethod( lambda r2 : 1/(1.0+r2) )
     zFunc  = staticmethod( lambda x  : np.exp(-x)  )
 
+
     isliceY        = -1
     minEntropy     = 4.5
     nBestRotations = 30
@@ -193,7 +194,7 @@ class Generator(Sequence,):
                 if(self.counter>0): # not first step
                     if(verbose>1): print "scanner.releaseBuffers()"
                     self.scanner.releaseBuffers()
-                self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=20, bZMap=True  )
+                self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=True  )
                 self.rotations_sorted = self.sortRotationsByEntropy()
                 self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
                 if self.shuffle_rotations:
@@ -302,18 +303,20 @@ class Generator(Sequence,):
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1 )
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1, nz=40 )
         #Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
+        
+        '''
         Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) ) . copy()
         Yf=Y.flat; Yf[Yf<0]=+39+5; Yf[:]-=39
         Y *= (-self.scanner.zstep)
-
         '''
+        
         Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
         Y *= (self.scanner.zstep)
         Ymin = max(Y[Y<=0].flatten().max() - self.Yrange, Y.flatten().min())
         Y[Y>0] = Ymin
         Y[Y<Ymin] = Ymin
         Y -= Ymin
-        '''
+        
 
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty

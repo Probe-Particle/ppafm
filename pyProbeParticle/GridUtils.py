@@ -122,6 +122,15 @@ def verticalCut( F, p1, p2, sz=(500,500) ):
 	lib.interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
 	return result
 
+def dens2Q_CHGCARxsf(data, lvec):
+    nDim = data.shape
+    Ntot = nDim[0]*nDim[1]*nDim[2]
+    Vtot = np.linalg.det( lvec[1:] )
+    print "dens2Q Volume    : ", Vtot
+    print "dens2Q Ntot      : ", Ntot
+    print "dens2Q Vtot/Ntot : ", Vtot/Ntot
+    #Qsum = rho1.sum()
+    return Vtot/Ntot
 
 #double cog( double * data_, double* center ){ 	
 lib.cog.argtypes = [ array3d, array1d ]

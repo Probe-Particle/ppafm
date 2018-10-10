@@ -21,6 +21,7 @@ if __name__=="__main__":
     from optparse import OptionParser
     parser = OptionParser()
     parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
+    parser.add_option( "--tip_dens", action="store", type="string",  help="tip enisty file (.xsf)")
     parser.add_option( "-t", "--tip", action="store", type="string", help="tip model (multipole) {s,pz,dz2,..}", default=None)
     parser.add_option( "--tilt", action="store", type="float", help="tilt of tip electrostatic field (radians)", default=0 )
     parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
@@ -28,9 +29,8 @@ if __name__=="__main__":
     parser.add_option( "-w", "--sigma", action="store", type="float",help="gaussian width for convolution in Electrostatics [Angstroem]", default=None)
     parser.add_option("-f","--data_format" , action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     (options, args) = parser.parse_args()
-    if options.input==None:
+    if options.input is None:
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
-    
     opt_dict = vars(options)
     if os.path.isfile( 'params.ini' ):
         FFparams=PPU.loadParams( 'params.ini' ) 
@@ -45,7 +45,7 @@ if __name__=="__main__":
         FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-    
+
     V=None
     if(options.input.lower().endswith(".xsf") ):
         print " loading Hartree potential from disk "
@@ -62,7 +62,18 @@ if __name__=="__main__":
         print tipMultipole
         PPU.params['tip'] = tipMultipole
         print " PPU.params['tip'] ", PPU.params['tip']
-    
+
+    if options.tip_dens:
+        '''
+        ###  NO NEED TO RENORMALIZE : fieldFFT already works with density
+        rho_tip, lvec_tip, nDim_tip, head_tip = GU.loadXSF( options.tip_dens )
+        rho_tip *= GU.dens2Q_CHGCARxsf(rho_tip, lvec_tip)
+        PPU.params['tip'] = rho_tip
+        print " dens_tip check_sum Q =  ", np.sum( rho_tip )
+        '''
+        rho_tip, lvec_tip, nDim_tip, head_tip = GU.loadXSF( options.tip_dens )
+        PPU.params['tip'] = rho_tip
+
     FFel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
     
     print " saving electrostatic forcefiled "
