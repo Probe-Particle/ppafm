@@ -66,6 +66,7 @@ class FigImshow(FigCanvas):
             
     def plotSlice(self, F , title=None):
         self.axes.cla()
+        #print "plotSlice F.shape, F.min(), F.max() ", F.shape, F.min(), F.max()
         #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
         self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='bicubic' )
 
