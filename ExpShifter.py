@@ -14,6 +14,7 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 import numpy as np
 from enum import Enum
 import glob
+import pickle
 
 import pyProbeParticle.GuiWigets   as guiw
 import pyProbeParticle.file_dat    as file_dat
@@ -37,10 +38,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # -------------- Potential
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("path") )
         el = QtWidgets.QLineEdit(); el.setText(self.path); vb.addWidget(el);  self.txPath=el
-        bt = QtWidgets.QPushButton('Load', self); bt.setToolTip('load file from dir'); bt.clicked.connect(self.loadData); vb.addWidget( bt ); self.btLoad = bt
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("load") )
+        bt = QtWidgets.QPushButton('Load dat', self); bt.setToolTip('load .dat files from dir'); bt.clicked.connect(self.loadData); vb.addWidget( bt ); self.btLoad = bt
+        bt = QtWidgets.QPushButton('Load npy', self); bt.setToolTip('load .npy file  from dir'); bt.clicked.connect(self.loadNPY ); vb.addWidget( bt ); self.btLoad = bt
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("slice ") )
-        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.valueChanged.connect(self.updateDataView); vb.addWidget(bx); self.bxZ=bx
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.valueChanged.connect(self.selectDataView); vb.addWidget(bx); self.bxZ=bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("shift ix,iy") )
         bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx); self.bxX=bx
@@ -79,10 +82,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def loadData(self):
         #print file_list
         #fnames
-
         self.path = self.txPath.text()
         print self.path
-
         '''
         https://www.tutorialspoint.com/pyqt/pyqt_qfiledialog_widget.htm
         dlg = QtWidgets.QFileDialog()
@@ -94,7 +95,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.path = 
         '''
-
         self.fnames   = glob.glob(self.path+'*.dat')
         self.fnames.sort()
         #self.data = self.loadData();
@@ -110,11 +110,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.fnames = fnames
         #return data
         self.data = data
-        self.shifts = [[0,0]]*len(self.data)
+        self.shifts = [ [0,0] for i in range(len(self.data)) ]
         self.bxZ.setRange( 0, len(self.data)-1 );
-        self.bxX.setRange( -1000, +1000);
-        self.bxY.setRange( -1000, +1000);
-
+        #self.bxX.setRange( -1000, +1000);
+        #self.bxY.setRange( -1000, +1000);
         self.updateDataView()
 
     def interpolate(self):
@@ -137,31 +136,49 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         arr = np.array(self.data)
         print arr.shape 
         np.save( self.path+"data.npy", arr)
+        with open(self.path+'data.pickle', 'wb') as fp:
+            pickle.dump( self.fnames, fp)
+            pickle.dump( self.shifts, fp)
+
+    def loadNPY(self):
+        with open ( self.path+'data.pickle', 'rb') as fp:
+            self.fnames = pickle.load(fp)
+            self.shifts = pickle.load(fp)
+        for item in zip(self.fnames,self.shifts):
+            print item[0], " : ", item[1]
+        data = np.load(self.path+'data.npy')
+        self.data = [ s for s in data ]
+        self.bxZ.setRange( 0, len(self.data)-1 );
+        self.updateDataView()
 
     def shiftData(self):
+        print "shiftData"
         iz = int(self.bxZ.value())
         ix = int(self.bxX.value()); dix = ix - self.shifts[iz][0]; self.shifts[iz][0] = ix
         iy = int(self.bxY.value()); diy = iy - self.shifts[iz][1]; self.shifts[iz][1] = iy
         print ix,iy
+        print self.shifts
         self.data[iz] = np.roll( self.data[iz], dix, axis=0 )
         self.data[iz] = np.roll( self.data[iz], diy, axis=1 )
         self.updateDataView()
 
     def selectDataView(self):
         iz    = int( self.bxZ.value() )
-        self.bxX.setValue( self.shifts[iz][0] )
-        self.bxY.setValue( self.shifts[iz][1] )
-        #print "iz : ", iz
-        return iz
+        print " selectDataView iz,ix,iy ", iz, self.shifts[iz][0], self.shifts[iz][1]
+        self.bxX.blockSignals(True); self.bxX.setValue( self.shifts[iz][0] ); self.bxX.blockSignals(False);
+        self.bxY.blockSignals(True); self.bxY.setValue( self.shifts[iz][1] ); self.bxY.blockSignals(False);
+        print "selectDataView bxXY      ", self.bxX.value(), self.bxY.value()
+        self.updateDataView()
 
     def updateDataView(self):
-        t1 = time.clock() 
-        iz = self.selectDataView()
+        iz    = int( self.bxZ.value() )
+        #t1 = time.clock() 
+        #iz = self.selectDataView()
         try:
             self.figCan.plotSlice( self.data[iz], self.fnames[iz] )
         except:
             print "cannot plot slice #", iz
-        t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
+        #t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
