@@ -166,6 +166,26 @@ for iq,Q in enumerate( Qs ):
 				PPPlot.plotImages( dirname+"/IETS"+atoms_str+cbar_str, IETS, slices = range(0,len(IETS)), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
 				PPPlot.plotImages( dirname+"/Evib"+atoms_str+cbar_str, Evib[:,:,:,0], slices = range(0,len(IETS)), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
 				PPPlot.plotImages( dirname+"/Kvib"+atoms_str+cbar_str, 16.0217662 * eigvalK[:,:,:,0], slices = range(0,len(IETS)), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+				print "Preparing data for plotting denominators: avoidning negative frequencies via nearest neighbours Uniform Filter"
+				from scipy.ndimage import uniform_filter
+				for i in range(len(eigvalK)):
+					for l in [0]: #range(len(eigvalK[0,0,0])):
+						eigvalK[i,:,:,l]=uniform_filter(eigvalK[i,:,:,l].copy(), size=3, mode='nearest')
+				tmp_bool=False
+				for i in range(len(eigvalK)):
+					for j in range(len(eigvalK[0])):
+						for k in range(len(eigvalK[0,0])):
+							for l in [0]: #range(len(eigvalK[0,0,0])):
+								if (eigvalK[i,j,k,l] < 0):
+									print "BEWARE: Negative value at: i,j,k,l:",i,j,k,l
+									tmp_bool = True
+				if tmp_bool:
+					print "if many negative values appear change FF grid or scanning grid"
+				denomin = 1/(hbar * np.sqrt( ( eVA2_to_Nm * eigvalK )/( M * aumass ) ))
+				print "plotting denominators fpr frustrated translation: 1/w1 + 1/w2"
+				PPPlot.plotImages( dirname+"/denomin"+atoms_str+cbar_str, denomin[:,:,:,0]+denomin[:,:,:,1] , slices = range(0,len(denomin)), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+				if opt_dict['WSxM']:
+					GU.saveWSxM_3D(dirname+"/denomin" ,               denomin[:,:,:,0]+denomin[:,:,:,1] , extent, slices = range(0,len(denomin)) )
 				del eigvalK; del Evib; del IETS
 			#except:
 			#	print "error: ", sys.exc_info()
@@ -181,7 +201,7 @@ for iq,Q in enumerate( Qs ):
 						print "error: ", sys.exc_info()
 						print "cannot load : ", './OutFzTip_base.'+data_format
 				for iA,Amp in enumerate( Amps ):
-					for iT, TbQ in enumerate( TbQs ):
+    					for iT, TbQ in enumerate( TbQs ):
 						if (TbQ == 0.0 ):
 							AmpStr = "/Amp%2.2f" %Amp
 							print "Amp= ",AmpStr
