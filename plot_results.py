@@ -186,7 +186,8 @@ for iq,Q in enumerate( Qs ):
 				PPPlot.plotImages( dirname+"/denomin"+atoms_str+cbar_str, denomin[:,:,:,0]+denomin[:,:,:,1] , slices = range(0,len(denomin)), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
 				if opt_dict['WSxM']:
 					GU.saveWSxM_3D(dirname+"/denomin" ,               denomin[:,:,:,0]+denomin[:,:,:,1] , extent, slices = range(0,len(denomin)) )
-				del eigvalK; del Evib; del IETS
+					GU.saveWSxM_3D(dirname+"/IETS"    ,               IETS                              , extent, slices = range(0,len(IETS)) )
+				del eigvalK; del Evib; del IETS; del denomin;
 			#except:
 			#	print "error: ", sys.exc_info()
 			#	print "cannot load : " + ( dirname+'/eigvalKs_?.' + data_format ) 
