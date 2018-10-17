@@ -46,8 +46,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.valueChanged.connect(self.selectDataView); vb.addWidget(bx); self.bxZ=bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("shift ix,iy") )
-        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx); self.bxX=bx
-        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx); self.bxY=bx
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(-1000,1000); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx); self.bxX=bx
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(-1000,1000); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx); self.bxY=bx
+
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Ninter ") )
         bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(1); vb.addWidget(bx); self.bxNi=bx
@@ -112,8 +113,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.data = data
         self.shifts = [ [0,0] for i in range(len(self.data)) ]
         self.bxZ.setRange( 0, len(self.data)-1 );
-        #self.bxX.setRange( -1000, +1000);
-        #self.bxY.setRange( -1000, +1000);
         self.updateDataView()
 
     def interpolate(self):
