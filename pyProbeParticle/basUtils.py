@@ -162,7 +162,7 @@ def loadGeometryIN( fname ):
 				break
 	f.close()
 	if (lvec != []):
-		lvec = np.insert(lvec, 0., 0,  axis=0 )
+		lvec = np.append([[0.,0.,0.]],lvec,  axis=0 )
 	#print "lvec", lvec
 	#print "e,x,y,z", e,x,y,z
 	nDim = []
