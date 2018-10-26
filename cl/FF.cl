@@ -39,6 +39,13 @@ float8 getLJC( float4 atom, float2 cLJ, float3 pos ){
      return (float8)(FLJ, ELJ, dp*(Eel*ir2), Eel );
 }
 
+float getLorenz( float4 atom, float4 coefs, float3 pos ){
+     float3  dp  =  pos - atom.xyz;
+     return coefs.x/( dot(dp,dp) +  coefs.y*coefs.y );
+     //return 1.0/( dot(dp,dp) +  0.000 );
+}
+
+
 __kernel void evalCoulomb(
     int nAtoms, 
     __global float4* atoms, 
@@ -159,6 +166,42 @@ __kernel void evalMorse(
     }
     // http://www.informit.com/articles/article.aspx?p=1732873&seqNum=3
     FE[iG] = fe;
+}
+
+
+__kernel void evalLorenz(
+    int nAtoms, 
+    __global float4*    atoms,
+    __global float4*    coefs,
+    __global float4*    poss,
+    __global float*     FE
+){
+    __local float4 LATOMS[32];
+    __local float4 LCOEFS[32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    float3 pos = poss[iG].xyz;
+    float fe = 0.0f;
+
+    //if(iG==0){ 
+    //    printf( "nAtoms %i \n", nAtoms );
+    //}
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        LATOMS[iL] = atoms[i];
+        LCOEFS[iL] = coefs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+
+            //if(iG==64*128 + 64) printf( "iatom %i atom (%g,%g,%g) pos(%g,%g,%g) \n", i0+j, LATOMS[j].x, LATOMS[j].y, LATOMS[j].z, pos.x,pos.y,pos.z );
+            if( (j+i0)<nAtoms ) fe += getLorenz( LATOMS[j], coefs[j], pos );
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    FE[iG] = fe;
+    //FE[iG] = pos.z;
 }
 
 

@@ -65,6 +65,8 @@ class Generator(Sequence,):
     n_channels = 1
     n_classes  = 10
 
+    #Ymode = 'HeightMap'
+
     # --- ForceField
     #pixPerAngstrome = 10
     iZPP = 8
@@ -103,7 +105,7 @@ class Generator(Sequence,):
     #debugPlotSlices   = [-10]
     #debugPlotSlices   = [-15]
 
-    def __init__(self, molecules, rotations, batch_size=32, pixPerAngstrome=10, lvec=None ):
+    def __init__(self, molecules, rotations, batch_size=32, pixPerAngstrome=10, lvec=None, Ymode='HeightMap' ):
         'Initialization'
 
         if lvec is None:
@@ -135,6 +137,12 @@ class Generator(Sequence,):
         #self.ff_poss    = FFcl.getposs    ( self.lvec, self.ff_dim );           print "poss.shape ", self.ff_poss.shape  # should we store this?
 
         self.forcefield = FFcl.ForceField_LJC()
+
+        self.Ymode     = Ymode
+        self.projector = None
+        print "Ymode", self.Ymode
+        if self.Ymode == 'Lorenzian':
+            self.projector  = FFcl.AtomProcjetion()
 
         self.scanner = oclr.RelaxedScanner()
         self.scanner.relax_params = np.array( [ 0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 );
@@ -189,6 +197,8 @@ class Generator(Sequence,):
         for ibatch in range(n):
             self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
             if( self.irot == 0 ):# recalc FF
+                if self.projector is not None:
+                    self.projector.tryReleaseBuffers()
                 self.molName =  self.molecules[self.imol]
                 self.nextMolecule( self.molName ) 
                 if(self.counter>0): # not first step
@@ -232,6 +242,9 @@ class Generator(Sequence,):
         FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
         self.FEin  = FF[:,:,:,:4] + self.Q*FF[:,:,:,4:];
+
+        if self.projector is not None:
+            self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,) )
 
         #self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
 
@@ -304,19 +317,27 @@ class Generator(Sequence,):
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1, nz=40 )
         #Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
         
-        '''
-        Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) ) . copy()
-        Yf=Y.flat; Yf[Yf<0]=+39+5; Yf[:]-=39
-        Y *= (-self.scanner.zstep)
-        '''
-        
-        Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
-        Y *= (self.scanner.zstep)
-        Ymin = max(Y[Y<=0].flatten().max() - self.Yrange, Y.flatten().min())
-        Y[Y>0] = Ymin
-        Y[Y<Ymin] = Ymin
-        Y -= Ymin
-        
+
+        if self.Ymode == 'HeightMap':
+            '''
+            Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) ) . copy()
+            Yf=Y.flat; Yf[Yf<0]=+39+5; Yf[:]-=39
+            Y *= (-self.scanner.zstep)
+            '''
+            Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
+            Y *= (self.scanner.zstep)
+            Ymin = max(Y[Y<=0].flatten().max() - self.Yrange, Y.flatten().min())
+            Y[Y>0] = Ymin
+            Y[Y<Ymin] = Ymin
+            Y -= Ymin
+        elif self.Ymode == 'Lorenzian':
+            #print "self.scan_pos0s.shape ",self.scan_pos0s.shape
+            dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+            Y[:,:] =  self.projector.run_evalLorenz( poss = poss_ )[:,:,0]
+            #print "poss_", poss_[:,:,2]
+            #print "Y    ", Y
+            #print "shape: poss_, Y : ", poss_.shape, Y.shape
 
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty
@@ -358,6 +379,8 @@ class Generator(Sequence,):
         title = "entropy %f" %entropy
         if Y is not None:
             plt.imshow( Y );             plt.colorbar()
+            #print "Y = ", Y
+            #plt.imshow( Y, vmin=-5, vmax=5 );  
             plt.title(entropy)
             plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
             plt.close()

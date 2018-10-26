@@ -307,15 +307,12 @@ class ForceField_LJC:
         self.nDim = poss.shape
         nbytes   =  0;
         self.nAtoms   = np.int32( len(atoms) ) 
-        #print " initArgsLJC ", nAtoms
         mf       = cl.mem_flags
         self.cl_atoms = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
         self.cl_cLJs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  ); nbytes+=cLJs.nbytes
         self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
         self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ); nbytes+=poss.nbytes*2 # float8
-        #kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
         if(verbose>0): print "initArgsLJC.nbytes ", nbytes
-        #return kargs
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None ):
         oclu.updateBuffer(atoms, self.cl_atoms )
@@ -356,13 +353,100 @@ class ForceField_LJC:
         #natoms0 = len(Zs)
         #if( npbc is not None ):
         #    Zs, xyzs, qs = PPU.PBCAtoms3D( Zs, xyzs, qs, lvec[1:], npbc=npbc )
-        atoms = xyzq2float4(xyzs,qs)
-        cLJs  = cLJs.astype(np.float32)
+        atoms = xyzq2float4(xyzs,qs);      self.atoms = atoms
+        cLJs  = cLJs.astype(np.float32);   
         self.prepareBuffers(atoms, cLJs, poss )
         FF = self.run()
         self.releaseBuffers()
         return FF, atoms
 
+
+class AtomProcjetion:
+
+    def __init__( self ):
+        self.ctx   = oclu.ctx; 
+        self.queue = oclu.queue
+
+    def prepareBuffers(self, atoms, prj_dim, coefs=None ):
+        print "AtomProcjetion.prepareBuffers prj_dim", prj_dim
+        self.prj_dim = prj_dim
+        nbytes   =  0;
+        self.nAtoms   = np.int32( len(atoms) ) 
+        #print " initArgsLJC ", nAtoms
+        mf       = cl.mem_flags
+        self.cl_atoms = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
+
+        if coefs is None:
+            coefs = np.zeros( (self.nAtoms,4), dtype=np.float32 )
+            coefs[:,0] = 1.0 # amplitude
+            coefs[:,1] = 0.1 # width
+
+        self.cl_coefs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=coefs  ); nbytes+=coefs.nbytes
+        #self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
+        #self.cl_Eout  = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes/4 ); nbytes+=poss.nbytes/4 # float
+
+        npostot = prj_dim[0] * prj_dim[1] * prj_dim[2]
+        
+        bsz=np.dtype(np.float32).itemsize * npostot
+        print prj_dim, npostot, " nbytes : = ", bsz*4
+        self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz*4   );   nbytes+=bsz*4  # float4
+        self.cl_Eout  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz     );   nbytes+=bsz    # float
+
+        #kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
+        if(verbose>0): print "AtomProcjetion.prepareBuffers.nbytes ", nbytes
+        #return kargs
+
+    def updateBuffers(self, atoms=None, coefs=None, poss=None ):
+        #print "updateBuffers poss.shape: ", poss.shape
+        oclu.updateBuffer(atoms, self.cl_atoms )
+        oclu.updateBuffer(coefs, self.cl_coefs  )
+        oclu.updateBuffer(poss,  self.cl_poss  )
+
+    def releaseBuffers(self):
+        self.cl_atoms.release()
+        self.cl_coefs.release()
+        self.cl_poss.release()
+        self.cl_FE.release()
+
+    def tryReleaseBuffers(self):
+        try:
+            self.cl_atoms.release()
+        except:
+            pass
+        try:
+            self.cl_coefs.release()
+        except:
+            pass
+        try:
+            self.cl_poss.release()
+        except:
+            pass
+        try:
+            self.cl_FE.release()
+        except:
+            pass
+
+    def run_evalLorenz(self, poss=None,  Eout=None, local_size=(32,) ):
+        if Eout is None:
+            Eout = np.zeros( self.prj_dim, dtype=np.float32 )
+            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+        if poss is not None:
+            print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            oclu.updateBuffer(poss, self.cl_poss )
+        ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        global_size = (ntot,) # TODO make sure divisible by local_size
+        #print "global_size:", global_size
+        kargs = (  
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_coefs,
+            self.cl_poss,
+            self.cl_Eout,
+        )
+        cl_program.evalLorenz( self.queue, global_size, local_size, *(kargs) )
+        cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        self.queue.finish()
+        return Eout
 
 
 

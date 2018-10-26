@@ -301,6 +301,7 @@ __kernel void relaxStrokesTilted(
     }
 }
 
+
 __kernel void convolveZ(
     __global  float4* Fin,
     __global  float4* Fout,
