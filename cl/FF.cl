@@ -206,3 +206,49 @@ __kernel void evalLorenz(
 
 
 
+__kernel void evalDisk(
+    int nAtoms, 
+    __global float4*    atoms,
+    __global float4*    coefs,
+    __global float4*    poss,
+    __global float*     FE,
+    float dzmax,
+    float4 rotA,
+    float4 rotB,
+    float4 rotC
+){
+    __local float4 LATOMS[32];
+    __local float4 LCOEFS[32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    float3 pos = poss[iG].xyz;
+    float fe = 0.0f;
+    //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf( " xyzq (%g,%g,%g,%g) coef (%g,%g,%g,%g) \n", atoms[i].x,atoms[i].y,atoms[i].z,atoms[i].w,   coefs[i].x,coefs[i].y,coefs[i].z,coefs[i].w );  } }
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        LATOMS[iL] = atoms[i];
+        LCOEFS[iL] = coefs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nAtoms ){ 
+                float3 dp  =  pos - LATOMS[j].xyz;
+                float3 abc = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
+                float   R  = coefs[j].z;
+                float   r2 = dot(abc.xy,abc.xy);
+                float dxy2 = r2/( (R*R) );
+                if( ( dxy2 < 1 ) && ( abc.z < dzmax ) ){
+                    //fe += 1-dxy2;
+                    fe += ( 1-(abc.z/dzmax) ) * ( 1- dxy2 );
+                    //fe += coefs[j].w;
+                }
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    FE[iG] = fe;
+}
+
+
+

@@ -21,6 +21,7 @@ import basUtils
 import common    as PPU
 #import cpp_utils as cpp_utils
 
+import elements
 import pyopencl     as cl
 import oclUtils     as oclu 
 import fieldOCL     as FFcl 
@@ -141,7 +142,7 @@ class Generator(Sequence,):
         self.Ymode     = Ymode
         self.projector = None
         print "Ymode", self.Ymode
-        if self.Ymode == 'Lorenzian':
+        if self.Ymode == 'Lorenzian' or self.Ymode == 'Disks':
             self.projector  = FFcl.AtomProcjetion()
 
         self.scanner = oclr.RelaxedScanner()
@@ -244,7 +245,11 @@ class Generator(Sequence,):
         self.FEin  = FF[:,:,:,:4] + self.Q*FF[:,:,:,4:];
 
         if self.projector is not None:
-            self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,) )
+            na = len(self.atomsNonPBC)
+            #print "self.atomsNonPBC", self.atomsNonPBC
+            #print "Zs[:self.atomsNonPBC]", Zs[:self.atomsNonPBC]
+            coefs=self.projector.makeCoefsZR( Zs[:na], elements.ELEMENTS )
+            self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs )
 
         #self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
 
@@ -331,13 +336,13 @@ class Generator(Sequence,):
             Y[Y<Ymin] = Ymin
             Y -= Ymin
         elif self.Ymode == 'Lorenzian':
-            #print "self.scan_pos0s.shape ",self.scan_pos0s.shape
             dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] =  self.projector.run_evalLorenz( poss = poss_ )[:,:,0]
-            #print "poss_", poss_[:,:,2]
-            #print "Y    ", Y
-            #print "shape: poss_, Y : ", poss_.shape, Y.shape
+        elif self.Ymode == 'Disks':
+            dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+            Y[:,:] = self.projector.run_evaldisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
 
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty

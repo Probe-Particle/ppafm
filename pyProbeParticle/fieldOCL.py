@@ -363,9 +363,24 @@ class ForceField_LJC:
 
 class AtomProcjetion:
 
+    dzmax = 2.0
+
     def __init__( self ):
         self.ctx   = oclu.ctx; 
         self.queue = oclu.queue
+
+    def makeCoefsZR(self, Zs, ELEMENTS ):
+        na = len(Zs)
+        coefs = np.zeros( (na,4), dtype=np.float32 )
+        print "Zs", Zs
+        for i,ie in enumerate(Zs):
+            coefs[i,0] = 1.0
+            coefs[i,1] = 1.0
+            coefs[i,2] = ELEMENTS[ie-1][6]
+            #coefs[i,3] = ELEMENTS[ie-1][7]
+            coefs[i,3] = ie
+        print "coefs[:,2]", coefs[:,2]
+        return coefs
 
     def prepareBuffers(self, atoms, prj_dim, coefs=None ):
         print "AtomProcjetion.prepareBuffers prj_dim", prj_dim
@@ -444,6 +459,32 @@ class AtomProcjetion:
             self.cl_Eout,
         )
         cl_program.evalLorenz( self.queue, global_size, local_size, *(kargs) )
+        cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        self.queue.finish()
+        return Eout
+
+    def run_evaldisks(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+        if tipRot is not None:
+            self.tipRot=tipRot
+        if Eout is None:
+            Eout = np.zeros( self.prj_dim, dtype=np.float32 )
+            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+        if poss is not None:
+            print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            oclu.updateBuffer(poss, self.cl_poss )
+        ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        global_size = (ntot,) # TODO make sure divisible by local_size
+        #print "global_size:", global_size
+        kargs = (  
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_coefs,
+            self.cl_poss,
+            self.cl_Eout,
+            np.float32( self.dzmax ),
+            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+        )
+        cl_program.evalDisk( self.queue, global_size, local_size, *(kargs) )
         cl.enqueue_copy( self.queue, Eout, kargs[4] )
         self.queue.finish()
         return Eout
