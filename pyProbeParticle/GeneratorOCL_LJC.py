@@ -140,10 +140,16 @@ class Generator(Sequence,):
         self.forcefield = FFcl.ForceField_LJC()
 
         self.Ymode     = Ymode
-        self.projector = None
+        self.projector = None; self.FE2in=None
+        self.bZMap = False; self.bFEmap = False;
         print "Ymode", self.Ymode
         if self.Ymode == 'Lorenzian' or self.Ymode == 'Disks':
             self.projector  = FFcl.AtomProcjetion()
+        if self.Ymode == 'HeightMap': 
+            self.bZMap = True
+        if self.Ymode == 'ElectrostaticMap':
+            self.bZMap  = True
+            self.bFEmap = True
 
         self.scanner = oclr.RelaxedScanner()
         self.scanner.relax_params = np.array( [ 0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 );
@@ -205,7 +211,8 @@ class Generator(Sequence,):
                 if(self.counter>0): # not first step
                     if(verbose>1): print "scanner.releaseBuffers()"
                     self.scanner.releaseBuffers()
-                self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=True  )
+
+                self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
                 self.rotations_sorted = self.sortRotationsByEntropy()
                 self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
                 if self.shuffle_rotations:
@@ -243,6 +250,9 @@ class Generator(Sequence,):
         FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
         self.FEin  = FF[:,:,:,:4] + self.Q*FF[:,:,:,4:];
+        
+        if self.Ymode == 'ElectrostaticMap':
+            self.FE2in = FF[:,:,:,4:].copy();
 
         if self.projector is not None:
             na = len(self.atomsNonPBC)
@@ -335,6 +345,19 @@ class Generator(Sequence,):
             Y[Y>0] = Ymin
             Y[Y<Ymin] = Ymin
             Y -= Ymin
+        elif self.Ymode == 'ElectrostaticMap':
+            zMap, feMap = self.scanner.run_getZisoFETilted( iso=0.1, nz=100 )
+            #Y[:,:] = ( feMap[:,:,0] ).copy() # Fel_x
+            #Y[:,:] = ( feMap[:,:,1] ).copy() # Fel_y
+            Y[:,:] = ( feMap[:,:,2] ).copy() # Fel_z
+            #Y[:,:]  = ( feMap[:,:,3] ).copy() # Vel
+            '''
+            Y *= (self.scanner.zstep)
+            Ymin = max(Y[Y<=0].flatten().max() - self.Yrange, Y.flatten().min())
+            Y[Y>0] = Ymin
+            Y[Y<Ymin] = Ymin
+            Y -= Ymin
+            '''
         elif self.Ymode == 'Lorenzian':
             dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
@@ -383,11 +406,18 @@ class Generator(Sequence,):
 
         title = "entropy %f" %entropy
         if Y is not None:
-            plt.imshow( Y );             plt.colorbar()
+            if self.Ymode == 'ElectrostaticMap':
+                vmax = max( Y.max(), -Y.min() )
+                #plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='seismic' );
+                plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='bwr' );
+            else:
+                plt.imshow( Y );
+            plt.colorbar()
             #print "Y = ", Y
             #plt.imshow( Y, vmin=-5, vmax=5 );  
             plt.title(entropy)
-            plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
+            plt.savefig(  fname+"Dens.png", bbox_inches="tight"  );
+            #plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
             plt.close()
 
         for isl in self.debugPlotSlices:

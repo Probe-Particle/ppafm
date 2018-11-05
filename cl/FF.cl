@@ -240,7 +240,8 @@ __kernel void evalDisk(
                 float dxy2 = r2/( (R*R) );
                 if( ( dxy2 < 1 ) && ( abc.z < dzmax ) ){
                     //fe += 1-dxy2;
-                    fe += ( 1-(abc.z/dzmax) ) * ( 1- dxy2 );
+                    //fe += ( 1-(abc.z/dzmax) ) * sqrt( 1- dxy2 );
+                    fe += ( 1-(abc.z/dzmax) ) * ( 1- sqrt(dxy2) );
                     //fe += coefs[j].w;
                 }
             }
