@@ -27,6 +27,8 @@ from optparse import OptionParser
 parser = OptionParser()
 parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
 parser.add_option( "-q", "--charge" , action="store_true", default=False, help="Electrostatic forcefield from Q nearby charges ")
+parser.add_option( "-t", "--tip",   action="store", type="string", help="tip model (multipole)"      , default='None')
+parser.add_option( "-w", "--sigma", action="store", type="float",  help="gaussian width for convolution in Electrostatics [Angstroem]", default=-1.0)
 parser.add_option( "--noPBC", action="store_false",  help="pbc False", default=True)
 parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
 parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
@@ -86,7 +88,16 @@ if options.energy :
 
 if opt_dict["charge"]:
     print "Electrostatic Field from xyzq file"
-    FFel, VeL = PPH.computeCoulomb( Rs, Qs, FFel=None, Vpot=options.energy  )
+    multipole = {options.tip:1.0} if ( options.tip in {'s','px','py','pz','dx2','dy2','dz2','dxy','dxz','dyz'} ) else {PPU.params['tip']:1.0} 
+    sigma = options.sigma if ( options.sigma > 0.0) else PPU.params['sigma']
+    print "DEBUG: multipole, sigma", multipole, sigma
+    Vpot = options.energy if (multipole == {'s':1.0}) else True
+    print "DEBUG: Vpot", Vpot
+    FFel, Vel = PPH.computeCoulomb( Rs, Qs, FFel=None, Vpot=Vpot  )
+    if (multipole != {'s':1.0}):
+	print " computing convolution with tip by FFT "
+	Fel_x,Fel_y,Fel_z = fFFT.potential2forces(Vel, lvec,PPU.params['gridN'][::-1], rho=None, sigma = sigma, multipole = multipole); del multipole;
+	FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z); del Fel_x,Fel_y,Fel_z;
     print "--- Save ---"
     GU.save_vec_field('FFel', FFel, lvec, data_format=data_format)
     if options.energy :

@@ -17,7 +17,7 @@ parser.add_option( "--npy" , action="store_true" ,  help="load and save fields i
 (options, args) = parser.parse_args()
 
 try:
-	points = np.genfromtxt( options.p )
+	points = np.genfromtxt( options.p ,dtype='int')
 	print "plotting in points", points
 except:
 	print options.p+" not found => exiting ..."
