@@ -80,6 +80,11 @@ class Generator(Sequence,):
     distAbove  =  7.5
     planeShift = -4.0
     
+    #maxTilt0 = 0.5
+    #maxTilt0 = 1.5
+    maxTilt0 = 0.0
+    tipR0    = 4.0
+    
     # ---- Atom Distance Density
     wr = 1.0
     wz = 1.0
@@ -274,7 +279,11 @@ class Generator(Sequence,):
         if(verbose>0): print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = rot[2].flat.copy()
 
-        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAbove, rot=rot, start=self.scan_start, end=self.scan_end )
+        tipR0 = self.maxTilt0 * (np.random.rand(3) - 0.5); 
+        #tipR0[2] += self.tipR0 # augumentation of data by varying tip
+        tipR0[2]   = self.tipR0 # augumentation of data by varying tip
+
+        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAbove, rot=rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
 
         FEout  = self.scanner.run_relaxStrokesTilted()
 

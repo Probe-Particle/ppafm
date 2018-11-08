@@ -159,6 +159,8 @@ class RelaxedScanner:
         self.end   = ( 5.0, 5.0)
         self.tipR0 = 4.0
 
+        self.surfFF = np.zeros(4,dtype=np.float32);
+
     def prepareBuffers(self, FEin, lvec, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, FE2in=None ):
         self.scan_dim = scan_dim
         self.invCell  = getInvCell(lvec)
@@ -199,18 +201,28 @@ class RelaxedScanner:
         if self.cl_zMap  is not None: self.cl_zMap.release()
         if self.cl_feMap is not None: self.cl_feMap.release()
 
-
-    def setScanRot(self, pos0, rot=None, start=(-5.0,-5.0), end=(5.0,5.0), zstep=0.1, tipR0=4.0 ):
+    def setScanRot(self, pos0, rot=None, start=(-5.0,-5.0), end=(5.0,5.0), zstep=0.1, tipR0=[0.0,0.0,4.0] ):
         if rot is None:
             rot = np.identity()
         #self.pos0=pos0; 
         self.zstep=zstep; self.start= start; self.end=end
         #pos0 += rot[2]*self.distAbove
         self.dTip     = np.zeros(4,dtype=np.float32); self.dTip [:3] = rot[2]*-zstep
-        self.dpos0    = np.zeros(4,dtype=np.float32); self.dpos0[:3] = rot[2]*-tipR0;  self.dpos0[3] = tipR0
         self.tipRot = mat3x3to4f( rot )
         self.tipRot[2][3] = -zstep
-        self.dpos0Tip = np.zeros(4,dtype=np.float32); self.dpos0Tip[2]  = -tipR0; self.dpos0Tip[3] = tipR0
+
+        self.dpos0Tip = np.zeros(4,dtype=np.float32);
+        self.dpos0Tip[0]  =   tipR0[0];
+        self.dpos0Tip[1]  =   tipR0[1];
+        self.dpos0Tip[2]  =  -np.sqrt(tipR0[2]**2 - tipR0[0]**2 - tipR0[1]**2);
+        self.dpos0Tip[3]  =   tipR0[2]
+
+        self.dpos0    = np.zeros(4,dtype=np.float32); 
+        #self.dpos0[:3] = rot[2]*-tipR0;  self.dpos0[3] = tipR0
+        self.dpos0[:3]  = np.dot( rot, self.dpos0Tip[:3] );  self.dpos0[3] = tipR0[2]
+        print " self.dpos0Tip: ", self.dpos0Tip, " self.dpos0 ", self.dpos0
+
+
         ys    = np.linspace(start[0],end[0],self.scan_dim[0])
         xs    = np.linspace(start[1],end[1],self.scan_dim[1])
         As,Bs = np.meshgrid(xs,ys)
@@ -274,6 +286,7 @@ class RelaxedScanner:
             self.stiffness, 
             self.dpos0Tip, 
             self.relax_params, 
+            self.surfFF,
             np.int32(nz) )
         #print kargs
         cl_program.relaxStrokesTilted( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )

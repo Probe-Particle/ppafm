@@ -292,6 +292,7 @@ __kernel void relaxStrokesTilted(
     float4 stiffness,
     float4 dpos0,
     float4 relax_params,
+    float4 surfFF,
     int nz
 ){
 
@@ -315,6 +316,9 @@ __kernel void relaxStrokesTilted(
             float3 dpos_ = rotMat( dpos, tipA.xyz, tipB.xyz, tipC.xyz );    // to tip-coordinates
             float3 ftip  = tipForce( dpos_, stiffness, dpos0 );
             f            += rotMatT( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
+
+            //f            +=  tipC.xyz * surfFF.x; // TODO: more sophisticated model of surface potential? Like Hamaker ?
+
             //f      +=  tipForce( dpos, stiffness, dpos0_ );  // Not rotated
             
             //vel      *=       relax_params.y;
