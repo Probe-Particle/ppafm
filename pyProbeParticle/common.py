@@ -71,6 +71,7 @@ def loadParams( fname,FFparams=None ):
 		words=line.split()
 		if len(words)>=2:
 			key = words[0]
+			if key[0][0] == '#' : continue 
 			if key in params:
 				if key == 'stiffness':
                                     raise ValueError("Attention!!! Parameter stifness is "

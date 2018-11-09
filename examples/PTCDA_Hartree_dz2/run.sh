@@ -3,8 +3,8 @@
 #PPPATH="/home/prokop/git/ProbeParticleModel"
 PPPATH="../../"
 
-wget --no-check-certificate "https://www.dropbox.com/s/18eg89l89npll8x/LOCPOT.xsf.zip"
-unzip LOCPOT.xsf.zip
+#wget --no-check-certificate "https://www.dropbox.com/s/18eg89l89npll8x/LOCPOT.xsf.zip"
+#unzip LOCPOT.xsf.zip
 
 # ======= STEP 1 : Generate force-field grid 
 

@@ -3,6 +3,7 @@
 import numpy as np
 
 import gc
+import GridUtils
    
 def getSampleDimensions(lvec):
 	'returns lvec without the first row'
@@ -90,7 +91,7 @@ def getProbeDensity( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None ):
 	if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
 		rho = np.zeros( np.shape(radial) )
 		for kind, coef in multipole_dict.iteritems():
-			rho += radial * coef * getSphericalHarmonic( X/sigma, Y/sigma, Z/sigma, kind=kind )
+			rho += radial * coef * getSphericalHarmonic( rx/sigma, ry/sigma, rz/sigma, kind=kind )
 	else:
 		rho = radial
 	return rho
@@ -211,6 +212,7 @@ def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None):
 	if rho is None:
 		print '--- Get Probe Density ---'
 		rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole)
+		#GridUtils.saveXSF("rho_tip.xsf", rho, lvec )
 	else:
 		rho[:,:,:] = rho[::-1,::-1,::-1].copy()
 	print '--- Get Forces ---'
@@ -232,6 +234,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
 	if rho is None:
 		print '--- Get Probe Density ---'
 		rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole)
+		#GridUtils.saveXSF("rho_tip.xsf", rho, lvec )
 	else:
 		rho[:,:,:] = rho[::-1,::-1,::-1].copy()
 	if doForce:
