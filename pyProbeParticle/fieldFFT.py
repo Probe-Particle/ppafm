@@ -22,9 +22,17 @@ def getMGrid(dims, dd):
 	(dx, dy, dz) = dd
 	nDim = [dims[2], dims[1], dims[0]]
 	XYZ = np.mgrid[0:nDim[0],0:nDim[1],0:nDim[2]].astype(float)
-	X = dx*np.roll( XYZ[2] - nDim[2]/2, nDim[2]/2 , axis=2)
-	Y = dy*np.roll( XYZ[1] - nDim[1]/2, nDim[1]/2 , axis=1)
-	Z = dz*np.roll( XYZ[0] - nDim[0]/2, nDim[0]/2 , axis=0)
+	xshift = nDim[2]/2;  xshift_ = xshift;
+	yshift = nDim[1]/2;  yshift_ = yshift;
+	zshift = nDim[0]/2;  zshift_ = zshift;
+	
+	if( nDim[2]%2 != 0 ):  xshift_ += 1.0
+	if( nDim[1]%2 != 0 ):  yshift_ += 1.0
+	if( nDim[0]%2 != 0 ):  zshift_ += 1.0
+	
+	X = dx*np.roll( XYZ[2] - xshift_, xshift, axis=2)
+	Y = dy*np.roll( XYZ[1] - yshift_, yshift, axis=1)
+	Z = dz*np.roll( XYZ[0] - zshift_, zshift, axis=0)
 	return X, Y, Z
 
 def getSphericalHarmonic( X, Y, Z, kind='dz2' ):
