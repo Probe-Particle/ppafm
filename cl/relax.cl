@@ -317,7 +317,7 @@ __kernel void relaxStrokesTilted(
             float3 ftip  = tipForce( dpos_, stiffness, dpos0 );
             f            += rotMatT( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
 
-            //f            +=  tipC.xyz * surfFF.x; // TODO: more sophisticated model of surface potential? Like Hamaker ?
+            f            +=  tipC.xyz * surfFF.x; // TODO: more sophisticated model of surface potential? Like Hamaker ?
 
             //f      +=  tipForce( dpos, stiffness, dpos0_ );  // Not rotated
             

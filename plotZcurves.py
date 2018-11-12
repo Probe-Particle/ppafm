@@ -33,7 +33,8 @@ print xs
 
 plt.imshow( fzs[options.iz], origin='imgage', cmap='gray' )
 for point in points:
-	plt.plot(point[0],point[1],'o')
+    print "point", point
+    plt.plot([point[0]],[point[1]],'o')
 plt.xlim(0,nDim[2])
 plt.ylim(0,nDim[1])
 plt.savefig( options.i+'_zcurves_legend.png', bbox_inches='tight')

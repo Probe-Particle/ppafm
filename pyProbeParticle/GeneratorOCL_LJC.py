@@ -39,6 +39,17 @@ def applyZWeith( F, zWeight ):
     F_ = np.average( F, axis=2, weights=zWeight )
     return F_
 
+def modMolParams_def( Zs, qs, xyzs, REAs, rndQmax, rndRmax, rndEmax, rndAlphaMax ):
+    if rndQmax > 0:
+        qs[:]     += rndQmax * ( np.random.rand( len(qs) ) - 0.5 )
+    if rndRmax > 0:
+        REAs[:,0] += rndRmax * ( np.random.rand( len(qs) ) - 0.5 )
+    if rndEmax > 0:
+        REAs[:,1] *= ( 1 + rndEmax * ( np.random.rand( len(qs) ) - 0.5 ) )
+    if rndAlphaMax > 0:
+        REAs[:,2] *= ( 1 + rndAlphaMax * ( np.random.rand( len(qs) ) - 0.5 ) )
+    return Zs, qs, xyzs, REAs
+
 def setBBoxCenter( xyzs, cog ):
 #    print "xyzs.shape ", xyzs.shape
 #    print "cog ", cog
@@ -91,7 +102,6 @@ class Generator(Sequence,):
     r2Func = staticmethod( lambda r2 : 1/(1.0+r2) )
     zFunc  = staticmethod( lambda x  : np.exp(-x)  )
 
-
     isliceY        = -1
     minEntropy     = 4.5
     nBestRotations = 30
@@ -113,6 +123,14 @@ class Generator(Sequence,):
 
     def __init__(self, molecules, rotations, batch_size=32, pixPerAngstrome=10, lvec=None, Ymode='HeightMap' ):
         'Initialization'
+
+        # --- params randomization
+        self.rndQmax  = 0.1 
+        self.rndRmax  = 0.2
+        self.rndEmax  = 0.5
+        self.rndAlphaMax = -0.1
+        #self.modMolParams = staticmethod(modMolParams_def)
+        self.modMolParams = modMolParams_def
 
         if lvec is None:
             self.lvec = np.array([
@@ -247,10 +265,23 @@ class Generator(Sequence,):
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.atom_lines )
         setBBoxCenter( xyzs, (self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5) )
         self.natoms0 = len(Zs)
+        #cLJs  = PPU.getAtomsLJ( self.iZPP, Zs, self.typeParams )
+        #print "cLJs ref : ", cLJs
+        
+        REAs = PPU.getAtomsREA(  self.iZPP, Zs, self.typeParams, alphaFac=-1.0 )
+        self.modMolParams( Zs, qs, xyzs, REAs, self.rndQmax, self.rndRmax, self.rndEmax, self.rndAlphaMax )
+        cLJs = PPU.REA2LJ( REAs )
+
+        #print "Qs   : ", qs
+        #print "REAs : ", REAs
+        #print "cLJs : ", cLJs
+
         if( self.npbc is not None ):
-            Zs, xyzs, qs = PPU.PBCAtoms3D( Zs, xyzs, qs, self.lvec[1:], npbc=self.npbc )
+            Zs, xyzs, qs, cLJs = PPU.PBCAtoms3D( Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc )
         self.Zs = Zs
-        cLJs  = PPU.getAtomsLJ( self.iZPP, Zs, self.typeParams ).astype(np.float32)
+
+        #print "cLJs : ", cLJs
+
         #FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, poss=self.ff_poss )
         FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()

@@ -277,14 +277,15 @@ def PBCAtoms( Zs, Rs, Qs, avec, bvec, na=None, nb=None ):
                 #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
     return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy()	
 
-def PBCAtoms3D( Zs, Rs, Qs, lvec, npbc=[1,1,1] ):
+def PBCAtoms3D( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
     '''
     multiply atoms of sample along supercell vectors
     the multiplied sample geometry is used for evaluation of forcefield in Periodic-boundary-Conditions ( PBC )
     '''
-    Zs_ = []
-    Rs_ = []
-    Qs_ = []
+    Zs_   = []
+    Rs_   = []
+    Qs_   = []
+    cLJs_ = []
     for iatom in range(len(Zs)):
         Zs_.append( Zs[iatom] )
         Rs_.append( Rs[iatom] )
@@ -302,8 +303,9 @@ def PBCAtoms3D( Zs, Rs, Qs, lvec, npbc=[1,1,1] ):
                     Zs_.append( Zs[iatom] )
                     Rs_.append( (x,y,z)   )
                     Qs_.append( Qs[iatom] )
+                    cLJs_.append( cLJs[iatom,:] )
                     #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
-    return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy()
+    return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy(), np.array(cLJs_).copy()
 
 def getFFdict( FFparams ):
     elem_dict={}
@@ -354,7 +356,7 @@ def get_C612( i, j, FFparams ):
     Eij = np.sqrt( FFparams[i][1] * FFparams[j][1] )
     return 2*Eij*(Rij**6), Eij*(Rij**12)
 
-def getAtomsLJ(  iZprobe, iZs,  FFparams ):
+def getAtomsLJ( iZprobe, iZs,  FFparams ):
     '''
     compute Lenard-Jones coefitioens C6 and C12 for interaction between atoms in list "iZs" and probe-particle "iZprobe"
     '''
@@ -362,6 +364,14 @@ def getAtomsLJ(  iZprobe, iZs,  FFparams ):
     cLJs  = np.zeros((n,2))
     for i in range(n):
         cLJs[i,0],cLJs[i,1] = get_C612( iZprobe-1, iZs[i]-1, FFparams )
+    return cLJs
+
+def REA2LJ( cREAs, cLJs=None ):
+    if cLJs is None:
+        cLJs = np.zeros((len(cREAs),2))
+    R6   = cREAs[:,0]**6
+    cLJs[:,0] = -2*cREAs[:,1] *  R6
+    cLJs[:,1] =  - cREAs[:,1] * (R6**2)
     return cLJs
 
 def getAtomsREA(  iZprobe, iZs,  FFparams, alphaFac=-1.0 ):
