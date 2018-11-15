@@ -180,9 +180,12 @@ def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
 	for line in head:
 		fileout.write(line)
 	nDim = np.shape(data)
-	writeArr (fileout, (nDim[2],nDim[1],nDim[0]) )
+	writeArr (fileout, (nDim[2]+1,nDim[1]+1,nDim[0]+1) )
 	writeArr2D(fileout,lvec)
-	for r in data.flat:
+	data2 = np.zeros(np.array(nDim)+1);   # These crazy 3 lines are here since the first and the last cube
+	data2[:-1,:-1,:-1] = data;  # in XSF in every direction is the same
+	data2[-1,:,:]=data2[0,:,:];data2[:,-1,:]=data2[:,0,:];data2[:,:,-1]=data2[:,:,0];
+	for r in data2.flat:
 		fileout.write( "%10.5e\n" % r )
 	fileout.write ("   END_DATAGRID_3D\n")
 	fileout.write ("END_BLOCK_DATAGRID_3D\n")
@@ -195,13 +198,13 @@ def loadXSF(fname):
 	nDim = np.array( nDim)
 	lvec = readmat(filein, 4)                                       # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
 	filein.close()
-        print nDim
+	print "nDim xsf (= nDim + [1,1,1] ):", nDim
 	print "GridUtils| Load "+fname+" using readNumsUpTo "    
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(), startline+5)
 
         print "GridUtils| Done"
 	FF = np.reshape (F, nDim )
-	return FF,lvec, nDim, head
+	return FF[:-1,:-1,:-1],lvec, nDim-1, head
 
 def getFromHead_PRIMCOORD( head ): 
 	Zs = None; Rs = None;

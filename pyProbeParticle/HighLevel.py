@@ -189,6 +189,22 @@ def computeElFF(V,lvec,nDim,tip,sigma,Fmax=None,computeVpot=False,Vmax=None):
     del Fel_x,Fel_y,Fel_z
     return FFel
 
+def computeCoulomb( Rs, Qs, FFel=None , Vpot=False ):
+	tmp1, tmp2, FFel,Vel = prepareArrays( FFel, FFel, Vpot ); del tmp1, tmp2;
+	#core.setFF( gridF=FFel, gridE=Vel )
+	core.getOCoulombFF ( Rs, Qs * PPU.CoulombConst )
+	return FFel, Vel
+
+def computeELFF_pch(iZs,Rs,Qs,computeVpot, Fmax=10.0 ):
+    print " ========= get electrostatic forcefiled from the point charges "
+    FFel, V = computeCoulomb( Rs, Qs, FFel=None, Vpot=computeVpot  )
+    if Fmax is not  None:
+        print "Limit vector field"
+        GU.limit_vec_field( FFel, Fmax=Fmax )
+    if computeVpot :
+        Vmax = 10.0; V[ V>Vmax ] = Vmax
+    return FFel,V
+
 
 def getZTipForce(xTips, yTips, zTips, FFtipZ,shiftTz=0.0):
     zTips+=shiftTz
@@ -239,13 +255,13 @@ def perform_relaxation(lvec,FFLJC,FFLJO=None,FFel=None,FFTip=None,
 
 
     fzs,PPCpos,PPOpos = relaxedScan3D( xTips, yTips, zTips )
-    if FFTip is not None and PPU.params['tip'] is not None:
-        print "Adding the metallic tip vertical force"
+    if FFTip is not None and ((PPU.params['tip'] != None)and(PPU.params['tip'] != 'None')and(PPU.params['tip'] != "None")):
+        print "Adding the metallic tip vertical force according to tipcharge "
         FFTip*=PPU.params['tipcharge']
         fzs+= getZTipForce(xTips, yTips, zTips, FFTip,shiftTz=PPU.params['tipZdisp'])
         print "Finished with adding the metallic tip vertical force"
     elif FFTip is not None:
-        print "Adding the metallic tip vertical force"
+        print "Adding the metallic tip vertical force from Cu charges"
         fzs += getZTipForce(xTips, yTips, zTips, FFTip*PPU.params['ChargeCuDown'])
         fzs += getZTipForce(xTips, yTips, zTips, FFTip*PPU.params['ChargeCuUp'],shiftTz=PPU.params['CuUpshift'] )
         print "Finished with adding the metallic tip vertical force"

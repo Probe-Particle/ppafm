@@ -408,13 +408,13 @@ int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& rC, Vec3d& rO ){
 	Vec3d vC, vO; vC.set( 0.0d ), vO.set(0.0d);
 	int iter;
 	//printf( " alg %i r  %f %f %f  rTip  %f %f %f \n", relaxAlg, r.x,r.y,r.z,  rTip.x, rTip.y, rTip.z );
-	for( iter=0; iter<RELAX::maxIters; iter++ ){
+	for( iter=0; iter<RELAX::maxIters; iter++ ){ //printf(" iter %i",iter);
 		Vec3d fC, fO;  
 //        getCforce( rTip, rC, fC, rO);
-        getCOforce( rTip, rC, fC, rO, fO );
+        getCOforce( rTip, rC, fC, rO, fO ); //printf(" CO force obrained");
 		if( relaxAlg == 1 ){                                                                  // move by either damped-leap-frog ( 0 ) or by FIRE ( 1 )
-			FIRE::move( fC, rC, vC );
-			FIRE::move( fO, rO, vO );
+			FIRE::move( fC, rC, vC ); //printf(" C moved (%g,%g,%g)", rC.x, rC.y, rC.z);
+			FIRE::move( fO, rO, vO ); //printf(" O moved (%g,%g,%g) \n", rO.x, rO.y, rO.z);
 		}else{
 			RELAX::move( fC, rC, vC );
 			RELAX::move( fO, rO, vO );
@@ -652,7 +652,7 @@ void getOCoulombFF( int natom, double * Rs_, double * kQQs ){
 	Vec3d rProbe;  rProbe.set( 0.0, 0.0, 0.0 ); // we may shift here
 	//for ( int i=0; i<natom; i++ ){ 		printf( " atom %i   q=  %f \n", i, kQQs[i] );	}
 	for ( int ia=0; ia<nx; ia++ ){ 
-	//	printf( " ia %i \n", ia );  
+		//printf( " ia %i \n", ia );  
         std::cout << "ia " << ia;
         std::cout.flush();
         std::cout << '\r';
@@ -690,7 +690,7 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
 	rTip  .set    ( rTips[0]      );
 	rC.set_add( rTip, TIP::rC0 );
 	rO.set_add( rC, TIP::rO0 );
-//	printf( " rTip0: %f %f %f  rC0: %f %f %f  rO0: %f %f %f\n", rTip.x, rTip.y, rTip.z, rC.x, rC.y, rC.z, rO.x, rO.y, rO.z  );
+	//printf( " rTip0: %f %f %f  rC0: %f %f %f  rO0: %f %f %f\n", rTip.x, rTip.y, rTip.z, rC.x, rC.y, rC.z, rO.x, rO.y, rO.z  );
 	for( int i=0; i<nstep; i++ ){ // for each postion of tip
 		// set starting postion of ProbeParticle
 		if       ( probeStart == -1 ) {	 // rProbe stay from previous step
@@ -738,7 +738,7 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
 		// compute force in relaxed position
 //		std::cout<<"Compute force in relaxed position"<< std::endl;
 		Vec3d rCGrid,rOGrid; 
-		rCGrid.set( rC.dot( FFC::diCell.a ), rC.dot( FFC::diCell.b ), rC.dot( FFC::diCell.c ) ); 
+		rCGrid.set( rC.dot( FFC::diCell.a ), rC.dot( FFC::diCell.b ), rC.dot( FFC::diCell.c ) );
 //		std::cout<<"rCGrid.set"<< std::endl;
 		rOGrid.set( rO.dot( FFO::diCell.a ), rO.dot( FFO::diCell.b ), rO.dot( FFO::diCell.c ) ); 
 //		std::cout<<"rOGrid.set"<< std::endl;

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+import GridUtils
    
 def getSampleDimensions(lvec):
 	'returns lvec without the first row'
@@ -19,9 +20,18 @@ def getMGrid(dims, dd):
 	(dx, dy, dz) = dd
 	nDim = [dims[2], dims[1], dims[0]]
 	XYZ = np.mgrid[0:nDim[0],0:nDim[1],0:nDim[2]].astype(float)
-	X = dx*np.roll( XYZ[2] - nDim[2]/2 -1, nDim[2]/2 , axis=2)
-	Y = dy*np.roll( XYZ[1] - nDim[1]/2 -1, nDim[1]/2 , axis=1)
-	Z = dz*np.roll( XYZ[0] - nDim[0]/2 -1, nDim[0]/2 , axis=0)
+	
+	xshift = nDim[2]/2;  xshift_ = xshift;
+	yshift = nDim[1]/2;  yshift_ = yshift;
+	zshift = nDim[0]/2;  zshift_ = zshift;
+	
+	if( nDim[2]%2 != 0 ):  xshift_ += 1.0
+	if( nDim[1]%2 != 0 ):  yshift_ += 1.0
+	if( nDim[0]%2 != 0 ):  zshift_ += 1.0
+	
+	X = dx*np.roll( XYZ[2] - xshift_, xshift, axis=2)
+	Y = dy*np.roll( XYZ[1] - yshift_, yshift, axis=1)
+	Z = dz*np.roll( XYZ[0] - zshift_, zshift, axis=0)
 	return X, Y, Z
 
 def getSphericalHarmonic( X, Y, Z, kind='dz2' ):
@@ -88,7 +98,7 @@ def getProbeDensity( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None ):
 	if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
 		rho = np.zeros( np.shape(radial) )
 		for kind, coef in multipole_dict.iteritems():
-			rho += radial * coef * getSphericalHarmonic( X/sigma, Y/sigma, Z/sigma, kind=kind )
+			rho += radial * coef * getSphericalHarmonic( rx/sigma, ry/sigma, rz/sigma, kind=kind )
 	else:
 		rho = radial
 	return rho
@@ -176,6 +186,7 @@ def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None):
 	if rho == None:
 		print '--- Get Probe Density ---'
 		rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole)
+		#GridUtils.saveXSF("rho_tip.xsf", rho, lvec)
 	else:
 		rho[:,:,:] = rho[::-1,::-1,::-1].copy()
 	print '--- Get Forces ---'

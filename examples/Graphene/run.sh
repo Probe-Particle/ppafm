@@ -18,7 +18,7 @@ python ../../relaxed_scan.py #-k 0.5 -q -0.05
 # ======= STEP 3 : Plot the results
 
 #python ../../plot_results.py -k 0.5 --qrange -0.05 0.0 2 --arange 0.5 2.0 2 --pos --df 
-python ../../plot_results.py --df #-k 0.5 -q -0.05 -a 2.0 --df
+python ../../plot_results.py --df --cbar #-k 0.5 -q -0.05 -a 2.0 --df
 
 #echo ""
 #echo "!!! Now trying the same with saving to npy !!!:"

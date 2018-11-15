@@ -34,6 +34,7 @@ parser.add_option( "--qrange", action="store", type="float", help="tip charge ra
 parser.add_option( "-a",       action="store", type="float", help="oscilation amplitude [A]" )
 parser.add_option( "--arange", action="store", type="float", help="oscilation amplitude range (min,max,n) [A]", nargs=3)
 
+parser.add_option( "--Fz",       action="store_true", default=False,  help="plot images for Fz " )
 parser.add_option( "--df",       action="store_true", default=False,  help="plot images for dfz " )
 parser.add_option( "--save_df" , action="store_true", default=False, help="save frequency shift as df.xsf " )
 parser.add_option( "--pos",      action="store_true", default=False, help="save probe particle positions" )
@@ -89,9 +90,14 @@ elif opt_dict['a'] is not None:
 else:
 	Amps = [ PPU.params['Amplitude'] ]
 
+
+
 print "Ks   =", Ks 
 print "Qs   =", Qs 
 print "Amps =", Amps 
+print
+Qc = PPU.params['Ccharge']
+print "Qc   =", Qc
 
 #sys.exit("  STOPPED ")
 
@@ -125,7 +131,7 @@ if opt_dict['cbar']:
 
 for iq,Q in enumerate( Qs ):
 	for ik,K in enumerate( Ks ):
-		dirname = "Q%1.2fK%1.2f" %(Q,K)
+		dirname = "Qo%1.2fQc%1.2fK%1.2f" %(Q,Qc, K)
 		if opt_dict['pos']:
 			try:
 				PPpos, lvec, nDim = GU.load_vec_field(
@@ -178,6 +184,20 @@ for iq,Q in enumerate( Qs ):
 			except:
 				print "error: ", sys.exc_info()
 				print "cannot load : " + (dirname+'/OutI_boltzmann.'+data_format ) 
+		if opt_dict['Fz'] :
+			try :
+				fzs, lvec, nDim = GU.load_scal_field( dirname+'/OutFz' , data_format=options.data_format)
+				print " plotting  Fz : "
+				PPPlot.plotImages(dirname+"/Fz"+atoms_str+cbar_str,
+                                                  fzs,  slices = range( 0,
+                                                  len(fzs) ), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+				if opt_dict['WSxM']:
+					print " printing Fz into WSxM files :"
+					GU.saveWSxM_3D( dirname+"/Fz" , fzs , extent , slices=None)
+				del fzs
+			except:
+				print "error: ", sys.exc_info()
+				print "cannot load : ", dirname+'/OutFz.'+data_format
 		
 print " ***** ALL DONE ***** "
 

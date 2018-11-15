@@ -66,6 +66,8 @@ if __name__=="__main__":
     # Qs  - 1D array, containing the atomic charges
     #FFLJ,VLJ=computeLJFF(iZs,Rs,FFparams,Fmax=10.0,computeVpot=options.energy,Vmax=10.0)
     FFLJC,VLJC,FFLJO,VLJO=PPH.computeLJFF(iZs,Rs,FFparams)
+    GU.limit_vec_field( FFLJC, Fmax=10.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
+    GU.limit_vec_field( FFLJO, Fmax=10.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
     print "--- Save  ---"
     GU.save_vec_field( 'FFLJC', FFLJC, lvec,data_format=options.data_format)
     GU.save_vec_field( 'FFLJO', FFLJO, lvec,data_format=options.data_format)

@@ -54,12 +54,15 @@ if __name__=="__main__":
     iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC =PPU.params['PBC'],FFparams=FFparams )
     FFel,V=PPH.computeELFF_pch(iZs,Rs,Qs,True)
     print " saving electrostatic forcefiled "
+    if (PPU.params['Omultipole'] != 's') and (PPU.params['tip'] != "s"):
+        print " recalculating PP electrostatic forcefield for different multipole"
+        FFel=PPH.computeElFF(V,lvec,V.shape,PPU.params['Omultipole'],sigma=PPU.params['sigma'],Fmax=10.0,computeVpot=options.energy,Vmax=10)
     GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format)
     if options.energy :
         GU.save_scal_field( 'Vel', V, lvec, data_format=options.data_format)
     del FFel;
-    if PPU.params['tip'] is not None:
-        print " saving tip electrostatic forcefiled "
+    if (PPU.params['tip'] != None) and (PPU.params['tip'] != 'None') and (PPU.params['tip'] != "None"):
+        print " saving tip electrostatic forcefield "
         FFelTip=PPH.computeElFF(V,lvec,V.shape,PPU.params['tip'],sigma=PPU.params['tipsigma'],Fmax=10.0,computeVpot=options.energy,Vmax=10)
         GU.save_vec_field('FFelTip',FFelTip,lvec,data_format=options.data_format)
     print "done"

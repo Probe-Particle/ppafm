@@ -81,7 +81,7 @@ def loadXSFGeom( fname ):
 	for i in range(10000):
 		if 'BEGIN_DATAGRID_3D' in f.readline():	
 			break
-	ws = f.readline().split(); nDim = [int(ws[0]),int(ws[1]),int(ws[2])]
+	ws = f.readline().split(); nDim = np.array([int(ws[0]),int(ws[1]),int(ws[2])])-1 # first and the last XSF layer are coppied
 	for j in range(4):
 		ws = f.readline().split(); lvec.append( [float(ws[0]),float(ws[1]),float(ws[2])] )
 	f.close()

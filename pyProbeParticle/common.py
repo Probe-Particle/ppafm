@@ -30,14 +30,15 @@ params={
 'rC0'  :  np.array( [ 0.00, 0.00, 1.85] ),
 'rO0'  :  np.array( [ 0.00, 0.00, 1.15] ),
 'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
-'Cklat': 5.0,
-'Oklat': 5.0,
+'Cklat': 0.5,
+'Oklat': 0.6,
 'Ckrad': 20.00,
 'Okrad': 20.00,
+'Omultipole': "s",
+'tip': None,
+'tipsigma':0.71,
+'sigma':0.71,
 'tipZdisp': 0.0,
-'tip':None,
-'tipsigma':1.0,
-'sigma':1.0,
 'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
 'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
 'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
@@ -82,6 +83,7 @@ def loadParams( fname,FFparams=None ):
 		words=line.split()
 		if len(words)>=2:
 			key = words[0]
+			if key[0][0] == '#' : continue 
 			if key in params:
 				if key == 'stiffness':
                                     raise ValueError("Attention!!! Parameter stifness is "
@@ -158,6 +160,10 @@ def loadParams( fname,FFparams=None ):
                 except:
                         raise ValueError("The element {} for the ProbeParticle "
                         "was not found".format(params['Oatom']))
+
+        params["tip"] = params["tip"].replace('"', ''); params["tip"] = params["tip"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
+        params["Omultipole"] = params["Omultipole"].replace('"', ''); params["Omultipole"] = params["Omultipole"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
+
 def apply_options(opt=None):
         print "In apply options:"
         print opt

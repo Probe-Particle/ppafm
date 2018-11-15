@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+1#!/usr/bin/python 
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
@@ -11,16 +11,15 @@ from   optparse import OptionParser
 
 parser = OptionParser()
 parser.add_option( "-p",   action="store", type="string", help="pixels (ix,iy) to take curve", default='curve_points.ini' )
-parser.add_option( "-i",   action="store", type="string", help="input file",                   default='OutFz'        )
-parser.add_option( "--iz", action="store", type="int",    help="z-slice index to plot legend", default=15                 )
-parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
+parser.add_option( "-i",   action="store", type="string", help="input file",                   default='OutFz'            )
+parser.add_option( "--iz", action="store", type="int",    help="z-slice index to plot legend", default=5                  )
 parser.add_option("-f","--data_format" , action="store" , type="string",
                   help="Specify the output format of the vector and scalar "
                   "field. Supported formats are: xsf,npy", default="xsf")
 (options, args) = parser.parse_args()
 
 try:
-	points = np.genfromtxt( options.p )
+	points = np.genfromtxt( options.p , dtype='int' )
 	print "plotting in points", points
 except:
 	print options.p+" not found => exiting ..."
