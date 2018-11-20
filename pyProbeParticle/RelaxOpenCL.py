@@ -219,12 +219,18 @@ class RelaxedScanner:
 
         self.dpos0    = np.zeros(4,dtype=np.float32); 
         #self.dpos0[:3] = rot[2]*-tipR0;  self.dpos0[3] = tipR0
-        self.dpos0[:3]  = np.dot( rot, self.dpos0Tip[:3] );  self.dpos0[3] = tipR0[2]
+        #self.dpos0[:3]  = np.dot( rot, self.dpos0Tip[:3] );  self.dpos0[3] = tipR0[2]
+        self.dpos0[:3]  = np.dot( rot.transpose(), self.dpos0Tip[:3] );  self.dpos0[3] = tipR0[2]
         print " self.dpos0Tip: ", self.dpos0Tip, " self.dpos0 ", self.dpos0
 
 
         ys    = np.linspace(start[0],end[0],self.scan_dim[0])
         xs    = np.linspace(start[1],end[1],self.scan_dim[1])
+
+        #if correctTilt:
+        #    ys += ;
+        #    ys += ;
+
         As,Bs = np.meshgrid(xs,ys)
         poss  = np.zeros(As.shape+(4,), dtype=np.float32)
         poss[:,:,0] = pos0[0] + As*rot[0,0] + Bs*rot[1,0]

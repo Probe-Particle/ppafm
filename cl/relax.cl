@@ -20,7 +20,7 @@ inline float3 rotMatT( float3 v,  float3 a, float3 b, float3 c  ){ return a*v.x 
 
 float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
     float r = sqrt( dot( dpos,dpos) );
-    return  (dpos-dpos0.xyz) * stiffness.xyz              // harmonic 3D
+    return  (dpos-dpos0.xyz) * stiffness.xyz        // harmonic 3D
          + dpos * ( stiffness.w * (r-dpos0.w)/r );  // radial
 }
 
@@ -309,14 +309,21 @@ __kernel void relaxStrokesTilted(
         float4 fe;
         float3 vel   = 0.0f;
         for(int i=0; i<N_RELAX_STEP_MAX; i++){
-            fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
-            float3 f  = fe.xyz;
-            float3 dpos  = pos-tipPos;
-
-            float3 dpos_ = rotMat( dpos, tipA.xyz, tipB.xyz, tipC.xyz );    // to tip-coordinates
-            float3 ftip  = tipForce( dpos_, stiffness, dpos0 );
-            f            += rotMatT( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
-
+            fe            = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+            float3 f      = fe.xyz;
+            float3 dpos   = pos-tipPos;
+            float3 dpos_  = rotMat  ( dpos, tipA.xyz, tipB.xyz, tipC.xyz );    // to tip-coordinates
+            float3 ftip   = tipForce( dpos_, stiffness, dpos0 );
+            /*
+            // DEBUG
+            if( (get_global_id(0)==0) && (iz==0) && (i==0) ){ 
+                float3 dpos__  = rotMatT ( dpos_, tipA.xyz, tipB.xyz, tipC.xyz );
+                float3 dpos0__ = rotMat  ( dpos0_.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
+                printf( " tipC(%f,%f,%f) dp (%f,%f,%f) dp rot(%f,%f,%f) dp _(%f,%f,%f)  \n", tipC.x,tipC.y,tipC.z,    dpos.x, dpos.y, dpos.z,    dpos_.x, dpos_.y, dpos_.z, dpos__.x, dpos__.y, dpos__.z  ); 
+                printf( " tipC(%f,%f,%f) dp0(%f,%f,%f) dp0rot(%f,%f,%f) dp0_(%f,%f,%f)  \n", tipC.x,tipC.y,tipC.z,    dpos0.x, dpos0.y, dpos0.z,    dpos0_.x, dpos0_.y, dpos0_.z, dpos0__.x, dpos0__.y, dpos0__.z  ); 
+            };
+            */
+            f            += rotMatT ( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
             f            +=  tipC.xyz * surfFF.x; // TODO: more sophisticated model of surface potential? Like Hamaker ?
 
             //f      +=  tipForce( dpos, stiffness, dpos0_ );  // Not rotated

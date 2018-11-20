@@ -135,9 +135,9 @@ class Generator(Sequence,):
         if lvec is None:
             self.lvec = np.array([
                 [ 0.0,  0.0,  0.0],
-                [20.0,  0.0,  0.0],
-                [ 0.0, 20.0,  0.0],
-                [ 0.0,  0.0, 20.0]
+                [30.0,  0.0,  0.0],
+                [ 0.0, 30.0,  0.0],
+                [ 0.0,  0.0, 30.0]
             ])
         else:
             self.lvec = lvec
@@ -166,7 +166,7 @@ class Generator(Sequence,):
         self.projector = None; self.FE2in=None
         self.bZMap = False; self.bFEmap = False;
         print "Ymode", self.Ymode
-        if self.Ymode == 'Lorenzian' or self.Ymode == 'Disks':
+        if self.Ymode == 'Lorenzian' or self.Ymode == 'Disks' or self.Ymode == 'QDisks':
             self.projector  = FFcl.AtomProcjetion()
         if self.Ymode == 'HeightMap': 
             self.bZMap = True
@@ -310,9 +310,13 @@ class Generator(Sequence,):
         if(verbose>0): print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = rot[2].flat.copy()
 
-        tipR0 = self.maxTilt0 * (np.random.rand(3) - 0.5); 
+        '''
+        tipR0      = self.maxTilt0 * (np.random.rand(3) - 0.5); 
         #tipR0[2] += self.tipR0 # augumentation of data by varying tip
         tipR0[2]   = self.tipR0 # augumentation of data by varying tip
+        '''
+        tipR0 = np.array( [0.5,0.0,self.tipR0] )
+
 
         self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAbove, rot=rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
 
@@ -406,6 +410,10 @@ class Generator(Sequence,):
             dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evaldisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+        elif self.Ymode == 'QDisks':
+            dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+            Y[:,:] = self.projector.run_evalQdisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
 
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty
@@ -418,6 +426,26 @@ class Generator(Sequence,):
             #self.plot( X=XX, Y_=YY, entropy=entropy )
             #self.plot(Y=Y, entropy=entropy )
             self.plot( ("/rot%03i_" % self.irot), self.molName, X=X, Y=Y, entropy=entropy )
+
+    def getAFMinRot(self, rot, X ):
+        t1scan = time.clock();
+
+        tipR0 = self.maxTilt0 * (np.random.rand(3) - 0.5); 
+        tipR0[2]   = self.tipR0 # augumentation of data by varying tip
+
+        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAbove, rot=rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
+
+        FEout  = self.scanner.run_relaxStrokesTilted()
+
+        if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
+            print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
+            exit()
+        self.scanner.updateBuffers( WZconv=self.dfWeight )
+        FEout = self.scanner.run_convolveZ()
+        X[:,:,:FEout.shape[2]] = FEout[:,:,:,2].copy()
+
+    def match(self, Xref ):
+        return
 
     def saveDebugXSF(self, fname, F, d=(0.1,0.1,0.1) ):
         if hasattr(self, 'GridUtils'):

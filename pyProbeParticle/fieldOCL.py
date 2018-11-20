@@ -489,5 +489,31 @@ class AtomProcjetion:
         self.queue.finish()
         return Eout
 
+    def run_evalQdisks(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+        if tipRot is not None:
+            self.tipRot=tipRot
+        if Eout is None:
+            Eout = np.zeros( self.prj_dim, dtype=np.float32 )
+            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+        if poss is not None:
+            print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            oclu.updateBuffer(poss, self.cl_poss )
+        ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        global_size = (ntot,) # TODO make sure divisible by local_size
+        #print "global_size:", global_size
+        kargs = (  
+            self.nAtoms,
+            self.cl_atoms,
+            #self.cl_coefs,
+            self.cl_poss,
+            self.cl_Eout,
+            np.float32( self.dzmax ),
+            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+        )
+        cl_program.evalQDisk( self.queue, global_size, local_size, *(kargs) )
+        cl.enqueue_copy( self.queue, Eout, kargs[3] )
+        self.queue.finish()
+        return Eout
+
 
 
