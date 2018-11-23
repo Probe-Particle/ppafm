@@ -251,6 +251,149 @@ __kernel void evalDisk(
     FE[iG] = fe;
 }
 
+__kernel void evalSpheres(
+    int nAtoms, 
+    __global float4*    atoms,
+    __global float4*    coefs,
+    __global float4*    poss,
+    __global float*     FE,
+    float Rpp,
+    float zmin,
+    float4 rotA,
+    float4 rotB,
+    float4 rotC
+){
+    __local float4 LATOMS[32];
+    __local float4 LCOEFS[32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    float3 pos = poss[iG].xyz;
+
+    //float Rpp  =  1.0;
+    //float Rpp  =  0.0;
+    //float Rpp  = -0.7;
+
+    float mask = 1.0;
+    //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf( " xyzq (%g,%g,%g,%g) coef (%g,%g,%g,%g) \n", atoms[i].x,atoms[i].y,atoms[i].z,atoms[i].w,   coefs[i].x,coefs[i].y,coefs[i].z,coefs[i].w );  } }
+
+    float ztop = zmin;
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        LATOMS[iL] = atoms[i];
+        LCOEFS[iL] = coefs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nAtoms ){ 
+                float3 dp    = pos - LATOMS[j].xyz;
+                float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
+                float  Rvdw  = coefs[j].w + Rpp;
+                //float  Rvdw  = coefs[j].w;
+                //float  Rvdw  = coefs[j].z;
+                float r2xy   =  dot(abc.xy,abc.xy);
+                float  z     = -abc.z + sqrt( Rvdw*Rvdw - r2xy );
+                if(z>ztop){
+                    ztop=z;
+                }
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    FE[iG] = ztop;
+}
+
+
+__kernel void evalDisk_occlusion(
+    int nAtoms, 
+    __global float4*    atoms,
+    __global float4*    coefs,
+    __global float4*    poss,
+    __global float*     FE,
+    float Rpp,
+    float zmin,
+    float zmargin,
+    float dzmax,
+    float4 rotA,
+    float4 rotB,
+    float4 rotC
+){
+    __local float4 LATOMS[32];
+    __local float4 LCOEFS[32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    float3 pos = poss[iG].xyz;
+
+    //float dzmax = 0.2;
+    //float Rpp  =  1.0;
+    //float Rpp  =  0.0;
+    //float Rpp  = -0.7;
+
+    float mask = 1.0;
+    //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf( " xyzq (%g,%g,%g,%g) coef (%g,%g,%g,%g) \n", atoms[i].x,atoms[i].y,atoms[i].z,atoms[i].w,   coefs[i].x,coefs[i].y,coefs[i].z,coefs[i].w );  } }
+
+    float ztop = zmin;
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        LATOMS[iL] = atoms[i];
+        LCOEFS[iL] = coefs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nAtoms ){ 
+                float3 dp    = pos - LATOMS[j].xyz;
+                float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
+                float  Rvdw  = coefs[j].w + Rpp;
+                float  r2xy   =  dot(abc.xy,abc.xy);
+                float z = 2.0*Rvdw - r2xy/(Rvdw*Rvdw) - abc.z; // osculation parabola to atom
+                if(z>ztop){
+                    ztop=z;
+                }
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    //FE[iG] = ztop;
+
+    float fe   = 0.0f;
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        LATOMS[iL] = atoms[i];
+        LCOEFS[iL] = coefs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nAtoms ){ 
+                float3 dp    = pos - LATOMS[j].xyz;
+                float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
+                float  Rvdw  = coefs[j].w + Rpp;
+                float  r2xy   =  dot(abc.xy,abc.xy);
+                float z   = 2.0f*Rvdw - r2xy/(Rvdw*Rvdw) - abc.z; // osculation parabola to atom
+                float cdz = 1.0 - ((ztop-z)/zmargin);
+                //fe += cdz;
+                //fe = fmax(ztop,z);
+                //fe = fmax(cdz,fe);
+                if( cdz>0.0f ){
+                    float   R     = coefs[j].z * 2.0;
+                    float dxy2 = r2xy/( R*R );
+                    if( ( dxy2 < 1.0f ) && ( abc.z < dzmax ) ){
+                        //fe += 1-dxy2;
+                        //fe += ( 1-(abc.z/dzmax) ) * sqrt( 1- dxy2 );
+                        fe += ( 1.0f-(abc.z/dzmax) ) * ( 1.0f- sqrt(dxy2) ) * cdz;
+                        //fe += coefs[j].w;
+                    }
+                }
+            }
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    FE[iG] = fe;
+
+
+}
+
+
 
 __kernel void evalQDisk(
     int nAtoms, 

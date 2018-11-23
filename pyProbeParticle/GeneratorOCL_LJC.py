@@ -166,7 +166,7 @@ class Generator(Sequence,):
         self.projector = None; self.FE2in=None
         self.bZMap = False; self.bFEmap = False;
         print "Ymode", self.Ymode
-        if self.Ymode == 'Lorenzian' or self.Ymode == 'Disks' or self.Ymode == 'QDisks':
+        if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks':
             self.projector  = FFcl.AtomProcjetion()
         if self.Ymode == 'HeightMap': 
             self.bZMap = True
@@ -406,10 +406,18 @@ class Generator(Sequence,):
             dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] =  self.projector.run_evalLorenz( poss = poss_ )[:,:,0]
+        elif self.Ymode == 'Spheres':
+            dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+            Y[:,:] = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'Disks':
             dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evaldisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+        elif self.Ymode == 'DisksOcclusion':
+            dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+            Y[:,:] = self.projector.run_evaldisks_occlusion( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'QDisks':
             dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
