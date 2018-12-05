@@ -304,6 +304,64 @@ __kernel void evalSpheres(
 }
 
 
+__kernel void evalSphereCaps(
+    int nAtoms, 
+    __global float4*    atoms,
+    __global float4*    coefs,
+    __global float4*    poss,
+    __global float*     FE,
+    float Rpp,
+    float zmin,
+    float tgMax,
+    float4 rotA,
+    float4 rotB,
+    float4 rotC
+){
+    __local float4 LATOMS[32];
+    __local float4 LCOEFS[32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    float3 pos = poss[iG].xyz;
+
+    //float Rpp  =  1.0;
+    //float Rpp  =  0.0;
+    //float Rpp  = -0.7;
+
+    float mask = 1.0;
+    //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf( " xyzq (%g,%g,%g,%g) coef (%g,%g,%g,%g) \n", atoms[i].x,atoms[i].y,atoms[i].z,atoms[i].w,   coefs[i].x,coefs[i].y,coefs[i].z,coefs[i].w );  } }
+
+    float ztop  = zmin;
+    float tgtop = -1.0;
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        LATOMS[iL] = atoms[i];
+        LCOEFS[iL] = coefs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nAtoms ){ 
+                float3 dp    = pos - LATOMS[j].xyz;
+                float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
+                float  Rvdw  = coefs[j].w + Rpp;
+                float r2xy   =  dot(abc.xy,abc.xy);
+
+                float dz     =  sqrt( Rvdw*Rvdw - r2xy );
+                float  z     = -abc.z + dz;
+                if(z>ztop){
+                    ztop  = z;
+                    tgtop = sqrt(r2xy)/Rvdw;
+                }
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    if( tgtop > tgMax ){ ztop = zmin; } // mask outer parts of spheres
+    FE[iG] = ztop;
+    
+}
+
+
 __kernel void evalDisk_occlusion(
     int nAtoms, 
     __global float4*    atoms,

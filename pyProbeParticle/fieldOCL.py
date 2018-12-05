@@ -365,7 +365,8 @@ class AtomProcjetion:
     Rpp     =  2.0
     zmin    = -3.0
     dzmax   =  2.0
-    zmargin = 0.2
+    zmargin =  0.2
+    tgMax   =  0.5
 
     def __init__( self ):
         self.ctx   = oclu.ctx; 
@@ -543,6 +544,34 @@ class AtomProcjetion:
             self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
         )
         cl_program.evalSpheres( self.queue, global_size, local_size, *(kargs) )
+        cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        self.queue.finish()
+        return Eout
+
+    def run_evalSphereCaps(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+        if tipRot is not None:
+            self.tipRot=tipRot
+        if Eout is None:
+            Eout = np.zeros( self.prj_dim, dtype=np.float32 )
+            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+        if poss is not None:
+            print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            oclu.updateBuffer(poss, self.cl_poss )
+        ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        global_size = (ntot,) # TODO make sure divisible by local_size
+        #print "global_size:", global_size
+        kargs = (  
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_coefs,
+            self.cl_poss,
+            self.cl_Eout,
+            np.float32( self.Rpp   ),
+            np.float32( self.zmin  ),
+            np.float32( self.tgMax ),
+            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+        )
+        cl_program.evalSphereCaps( self.queue, global_size, local_size, *(kargs) )
         cl.enqueue_copy( self.queue, Eout, kargs[4] )
         self.queue.finish()
         return Eout
