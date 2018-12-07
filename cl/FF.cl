@@ -313,6 +313,7 @@ __kernel void evalSphereCaps(
     float Rpp,
     float zmin,
     float tgMax,
+    float tgWidth,
     float4 rotA,
     float4 rotB,
     float4 rotC
@@ -329,10 +330,11 @@ __kernel void evalSphereCaps(
     //float Rpp  =  0.0;
     //float Rpp  = -0.7;
 
-    float mask = 1.0;
+    //float mask = 1.0;
     //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf( " xyzq (%g,%g,%g,%g) coef (%g,%g,%g,%g) \n", atoms[i].x,atoms[i].y,atoms[i].z,atoms[i].w,   coefs[i].x,coefs[i].y,coefs[i].z,coefs[i].w );  } }
 
     float ztop  = zmin;
+    //float ztop  = 0;
     float tgtop = -1.0;
     for (int i0=0; i0<nAtoms; i0+= nL ){
         int i = i0 + iL;
@@ -348,15 +350,15 @@ __kernel void evalSphereCaps(
 
                 float dz     =  sqrt( Rvdw*Rvdw - r2xy );
                 float  z     = -abc.z + dz;
-                if(z>ztop){
-                    ztop  = z;
-                    tgtop = sqrt(r2xy)/Rvdw;
-                }
+
+                //float tgWidth = 0.1f;
+                float tg      = sqrt(r2xy)/Rvdw;
+                z  = zmin + (z-zmin)*(1.0f-smoothstep( tgMax-tgWidth, tgMax, tg ));
+                ztop = fmax( z, ztop );
             }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
-    if( tgtop > tgMax ){ ztop = zmin; } // mask outer parts of spheres
     FE[iG] = ztop;
     
 }

@@ -367,6 +367,7 @@ class AtomProcjetion:
     dzmax   =  2.0
     zmargin =  0.2
     tgMax   =  0.5
+    tgWidth   =  0.1
 
     def __init__( self ):
         self.ctx   = oclu.ctx; 
@@ -569,6 +570,7 @@ class AtomProcjetion:
             np.float32( self.Rpp   ),
             np.float32( self.zmin  ),
             np.float32( self.tgMax ),
+            np.float32( self.tgWidth ),
             self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
         )
         cl_program.evalSphereCaps( self.queue, global_size, local_size, *(kargs) )
