@@ -165,7 +165,7 @@ class Generator(Sequence,):
         self.Ymode     = Ymode
         self.projector = None; self.FE2in=None
         self.bZMap = False; self.bFEmap = False;
-        print "Ymode", self.Ymode
+        if(verbose>0): print "Ymode", self.Ymode
         if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'SphereCaps' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks':
             self.projector  = FFcl.AtomProcjetion()
         if self.Ymode == 'HeightMap': 
@@ -323,7 +323,7 @@ class Generator(Sequence,):
         FEout  = self.scanner.run_relaxStrokesTilted()
 
         if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
-            print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
+            if(verbose>0): print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
             exit()
         #print "self.dfWeight ", self.dfWeight
         self.scanner.updateBuffers( WZconv=self.dfWeight )
@@ -403,23 +403,28 @@ class Generator(Sequence,):
             Y -= Ymin
             '''
         elif self.Ymode == 'Lorenzian':
-            dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
+            dirFw = np.append( rot[2], [0] ); 
+            if(verbose>0):  print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] =  self.projector.run_evalLorenz( poss = poss_ )[:,:,0]
         elif self.Ymode == 'Spheres':
-            dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
+            dirFw = np.append( rot[2], [0] ); 
+            if(verbose>0): print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'SphereCaps':
-            dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
+            dirFw = np.append( rot[2], [0] ); 
+            if(verbose>0): print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalSphereCaps( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'Disks':
-            dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
+            dirFw = np.append( rot[2], [0] ); 
+            if(verbose>0): print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evaldisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'DisksOcclusion':
-            dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
+            dirFw = np.append( rot[2], [0] ); 
+            if(verbose>0): print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evaldisks_occlusion( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'QDisks':
@@ -450,7 +455,7 @@ class Generator(Sequence,):
         FEout  = self.scanner.run_relaxStrokesTilted()
 
         if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
-            print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
+            if(verbose>0): print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
             exit()
         self.scanner.updateBuffers( WZconv=self.dfWeight )
         FEout = self.scanner.run_convolveZ()
@@ -468,7 +473,7 @@ class Generator(Sequence,):
         sh = F.shape
         #self.lvec_scan = np.array( [ [0.0,0.0,0.0],[self.scan_dim[0],0.0,0.0],[0.0,self.scan_dim[1],0.0],0.0,0.0, ] ] )
         lvec = np.array( [ [0.0,0.0,0.0],[sh[0]*d[0],0.0,0.0],[0.0,sh[1]*d[1],0.0], [ 0.0,0.0,sh[2]*d[2] ] ] )
-        print "saveDebugXSF : ", fname
+        if(verbose>0): print "saveDebugXSF : ", fname
         GU.saveXSF( fname, F.transpose((2,1,0)), lvec )
 
     def plot(self, rotName, molName, X=None,Y=None,Y_=None, entropy=None ):
@@ -513,7 +518,7 @@ class Generator(Sequence,):
                 plt.close()
             else:
                 if X is not None:
-                    print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
+                    if(verbose>0): print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
                     plt.imshow(  X[:,:,isl] );    plt.colorbar()
                     plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                     plt.close()

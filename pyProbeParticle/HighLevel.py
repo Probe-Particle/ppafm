@@ -28,8 +28,8 @@ def meshgrid3d(xs,ys,zs):
     Xs,Ys = np.meshgrid(xs,ys)
 
 def relaxedScan3D( xTips, yTips, zTips ):
-    print ">>BEGIN: relaxedScan3D()"
-    print " zTips : ",zTips
+    if(verbose>0): print ">>BEGIN: relaxedScan3D()"
+    if(verbose>0): print " zTips : ",zTips
     ntips = len(zTips); 
     rTips = np.zeros((ntips,3))
     rs    = np.zeros((ntips,3))
@@ -53,27 +53,27 @@ def relaxedScan3D( xTips, yTips, zTips ):
             PPpos[:,iy,ix,0] = rs[::-1,0] # - rTips[:,0]
             PPpos[:,iy,ix,1] = rs[::-1,1] # - rTips[:,1]
             PPpos[:,iy,ix,2] = rs[::-1,2] # - rTips[:,2]
-    print "<<<END: relaxedScan3D()"
+    if(verbose>0): print "<<<END: relaxedScan3D()"
     return fzs,PPpos
 
 def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipspline=None,bPPdisp=False,bFFtotDebug=False):
-    print ">>>BEGIN: perform_relaxation()"
+    if(verbose>0): print ">>>BEGIN: perform_relaxation()"
     if tipspline is not None :
         try:
-            print " loading tip spline from "+tipspline
+            if(verbose>0): print " loading tip spline from "+tipspline
             S    = np.genfromtxt(tipspline )
-            xs   = S[:,0].copy();  print "xs: ",   xs
-            ydys = S[:,1:].copy(); print "ydys: ", ydys
+            xs   = S[:,0].copy(); if(verbose>0):  print "xs: ",   xs
+            ydys = S[:,1:].copy(); if(verbose>0): print "ydys: ", ydys
             core.setTipSpline( xs, ydys )
             #Ks   = [0.0]
         except:
-            print "cannot load tip spline from "+tipspline
+            if(verbose>0): print "cannot load tip spline from "+tipspline
             sys.exit()
     xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
     FF = FFLJ.copy()
     if ( FFel is not None):
         FF += FFel * PPU.params['charge']
-        print "adding charge:", PPU.params['charge']
+        if(verbose>0): print "adding charge:", PPU.params['charge']
     if ( FFpauli is not None ):
         FF += FFpauli * PPU.params['Apauli']
         #FF = FFpauli * PPU.params['Apauli']
@@ -83,7 +83,7 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipsplin
         GU.save_vec_field( 'FFtotDebug', FF, lvec )
     core.setFF_shape( np.shape(FF), lvec )
     core.setFF_Fpointer( FF )
-    print "stiffness:", PPU.params['klat']
+    if(verbose>0): print "stiffness:", PPU.params['klat']
     core.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
     fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )
     if bPPdisp:
@@ -92,7 +92,7 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipsplin
         PPdisp-=init_pos
     else:
         PPdisp = None
-    print "<<<END: perform_relaxation()"
+    if(verbose>0): print "<<<END: perform_relaxation()"
     return fzs,PPpos,PPdisp,lvecScan
 
 # ==== Forcefield grid generation
@@ -113,7 +113,7 @@ def prepareArrays( FF, Vpot ):
     return FF, V 
 
 def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT, ffModel="LJ" ):
-    print ">>>BEGIN: computeLJ()"
+    if(verbose>0): print ">>>BEGIN: computeLJ()"
     # --- load species (LJ potential)
     FFparams            = PPU.loadSpecies( speciesFile ) 
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
@@ -122,14 +122,14 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     #print "DEBUG atoms : ", atoms
     atomstring          = BU.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
     PPU      .params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3] # must be before parseAtoms
-    print PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC']
+    if(verbose>0): print PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC']
     iZs,Rs,Qs           = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
     # --- prepare LJ parameters
     #print elem_dict
     iPP                 = PPU.atom2iZ( PPU.params['probeType'], elem_dict )
     # --- prepare arrays and compute
     FF,V                = prepareArrays( None, computeVpot )
-    print "FFLJ.shape",FF.shape 
+    if(verbose>0): print "FFLJ.shape",FF.shape 
     #core.setGridN   ( nDim )
     #core.setGridCell( cell=lvec )
     core.setFF_shape( np.shape(FF), lvec )
@@ -144,25 +144,25 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
         core.getLenardJonesFF( Rs, cLJs ) # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not  None:
-        print "Clamp force >", Fmax
+        if(verbose>0): print "Clamp force >", Fmax
         GU.limit_vec_field( FF, Fmax=Fmax )
     if (Vmax is not None) and computeVpot:
-        print "Clamp potential >", Vmax
+        if(verbose>0): print "Clamp potential >", Vmax
         V[ V > Vmax ] =  Vmax # remove too large values
     # --- save to files ?
     if save_format is not None:
-        print "computeLJ Save ", save_format 
+        if(verbose>0): print "computeLJ Save ", save_format 
         GU.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring )
         if computeVpot:
             GU.save_scal_field( 'V'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
-    print "<<<END: computeLJ()"
+    if(verbose>0): print "<<<END: computeLJ()"
     return FF, V, nDim, lvec
 
 def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT ):
-    print ">>>BEGIN: computeELFF_pointCharge()"
+    if(verbose>0): print ">>>BEGIN: computeELFF_pointCharge()"
     tipKinds = {'s':0,'pz':1,'dz2':2}
     tipKind  = tipKinds[tip]
-    print " ========= get electrostatic forcefiled from the point charges tip=%s %i " %(tip,tipKind)
+    if(verbose>0): print " ========= get electrostatic forcefiled from the point charges tip=%s %i " %(tip,tipKind)
     # --- load atomic geometry
     #atoms,nDim,lvec     = BU .loadGeometry(options.input, params=PPU.params)
     FFparams            = PPU.loadSpecies( ) 
@@ -174,28 +174,28 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     iZs,Rs,Qs=PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params['PBC'] )
     # --- prepare arrays and compute
     PPU.params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3]
-    print PPU.params['gridN'], PPU.params['gridA'], PPU.params['gridB'], PPU.params['gridC']
+    if(verbose>0): print PPU.params['gridN'], PPU.params['gridA'], PPU.params['gridB'], PPU.params['gridC']
     FF,V = prepareArrays( None, computeVpot )
     core.setFF_shape( np.shape(FF), lvec )
     core.getCoulombFF( Rs, Qs*PPU.CoulombConst, kind=tipKind ) # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not  None:
-        print "Clamp force >", Fmax
+        if(verbose>0): print "Clamp force >", Fmax
         GU.limit_vec_field( FF, Fmax=Fmax )
     if (Vmax is not None) and computeVpot:
-        print "Clamp potential >", Vmax
+        if(verbose>0): print "Clamp potential >", Vmax
         V[ V > Vmax ] =  Vmax # remove too large values
     # --- save to files ?
     if save_format is not None:
-        print "computeLJ Save ", save_format 
+        if(verbose>0): print "computeLJ Save ", save_format 
         GU.save_vec_field( 'FFel',FF,lvec,data_format=save_format, head=atomstring )
         if computeVpot:
             GU.save_scal_field( 'Vel',V,lvec,data_format=save_format, head=atomstring )
-    print "<<<END: computeELFF_pointCharge()"
+    if(verbose>0): print "<<<END: computeELFF_pointCharge()"
     return FF, V, nDim, lvec
 
 def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None, tilt=0.0 ):
-    print " ========= get electrostatic forcefiled from hartree "
+    if(verbose>0): print " ========= get electrostatic forcefiled from hartree "
     rho = None
     multipole = None
     if type(tip) is np.ndarray:
@@ -210,7 +210,7 @@ def computeElFF(V,lvec,nDim,tip,Fmax=None,computeVpot=False,Vmax=None, tilt=0.0 
             rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(tip)
             if any(nDim_tip != nDim):
                 sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")
-    print " computing convolution with tip by FFT "
+    if(verbose>0): print " computing convolution with tip by FFT "
     #Fel_x,Fel_y,Fel_z      = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole)
     Fel_x,Fel_y,Fel_z, Vout = fFFT.potential2forces_mem( V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole, tilt=tilt )
     FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)

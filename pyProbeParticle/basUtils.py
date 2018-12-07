@@ -190,29 +190,29 @@ def loadXSFGeom( fname ):
     for j in range(4):
         ws = f.readline().split(); lvec.append( [float(ws[0]),float(ws[1]),float(ws[2])] )
     f.close()
-    print "nDim+1", nDim
+    if(verbose>0): print "nDim+1", nDim
     #nDim.reverse()
     #nDim = np.array(nDim)-1
     nDim = (nDim[0]-1,nDim[1]-1,nDim[2]-1)
-    print "lvec", lvec
+    if(verbose>0): print "lvec", lvec
     #print "e,x,y,z", e,x,y,z
-    print "reading ended"
+    if(verbose>0): print "reading ended"
     return [ e,x,y,z,q ], nDim, lvec
 
 def loadNPYGeom( fname ):
-    print "loading atoms"
+    if(verbose>0): print "loading atoms"
     tmp = np.load(fname+"_atoms.npy" )
     e=tmp[0];x=tmp[1];y=tmp[2]; z=tmp[3]; q=tmp[4];
     del tmp;
-    print "loading lvec"
+    if(verbose>0): print "loading lvec"
     lvec = np.load(fname+"_vec.npy" ) 
-    print "loading nDim"
+    if(verbose>0): print "loading nDim"
     tmp = np.load(fname+"_z.npy")
     nDim = tmp.shape
     del tmp;
-    print "nDim", nDim
-    print "lvec", lvec
-    print "e,x,y,z", e,x,y,z
+    if(verbose>0): print "nDim", nDim
+    if(verbose>0): print "lvec", lvec
+    if(verbose>0): print "e,x,y,z", e,x,y,z
     return [ e,x,y,z,q ], nDim, lvec
 
 def loadAtomsCUBE( fname ):
@@ -248,7 +248,7 @@ def primcoords2Xsf( iZs, xyzs, lvec ):
     import cStringIO as SIO
     #print "iZs:  ", iZs
     #print "xyzs: ", xyzs
-    print "lvec: ", lvec
+    if(verbose>0): print "lvec: ", lvec
     sio=SIO.StringIO()
     sio.write("CRYSTAL\n")
     sio.write("PRIMVEC\n")
@@ -320,7 +320,7 @@ def loadNCUBE( fname ):
     return [ int(sth1[0]), int(sth2[0]), int(sth3[0]) ]
 
 def loadGeometry(fname=None,params=None):
-    print "loadGeometry ", fname
+    if(verbose>0): print "loadGeometry ", fname
     if fname == None:
         raise ValueError("Please provide the name of the file with coordinates")
     if params == None:

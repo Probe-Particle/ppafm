@@ -32,7 +32,7 @@ def loadSpecies(fname):
         with open(fname, 'r') as f:  
             str_Species = f.read(); 
     except:
-        print "defaul atomtypes.ini"
+        if(verbose>0): print "defaul atomtypes.ini"
         with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:  
             str_Species = f.read();
     str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in str_Species.split('\n')  )
