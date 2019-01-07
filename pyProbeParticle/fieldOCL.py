@@ -96,7 +96,7 @@ def updateArgsLJC( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, qu
         if atoms is not None:
             nAtoms   = np.int32( len(atoms) )
             if (kargs_old[0] != nAtoms):
-                print " kargs_old[0] != nAtoms; TRY only"#; exit()
+                if(verbose>0): print " kargs_old[0] != nAtoms; TRY only"#; exit()
                 return initArgsLJC( atoms, cLJs, poss, ctx=ctx, queue=queue )
                 #print " NOT IMPLEMENTED :  kargs_old[0] != nAtoms"; exit()
             else:
@@ -130,7 +130,7 @@ def updateArgsMorse( kargs_old=None, atoms=None, REAs=None, poss=None, ctx=oclu.
         if atoms is not None:
             nAtoms   = np.int32( len(atoms) )
             if (kargs_old[0] != nAtoms):
-                print " kargs_old[0] != nAtoms; TRY only"#; exit()
+                if(verbose>0): print " kargs_old[0] != nAtoms; TRY only"#; exit()
                 return initArgsMorse( atoms, REAs, poss, ctx=ctx, queue=queue )
             else:
                 cl_atoms=kargs_old[1]
@@ -162,7 +162,7 @@ def updateArgsLJ( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, que
         if atoms is not None:
             nAtoms   = np.int32( len(atoms) )
             if (kargs_old[0] != nAtoms):
-                print " kargs_old[0] != nAtoms; TRY only"#; exit()
+                if(verbose>0): print " kargs_old[0] != nAtoms; TRY only"#; exit()
                 return initArgsLJ( atoms, cLJs, poss, ctx=ctx, queue=queue )
             else:
                 cl_atoms=kargs_old[1]
@@ -376,18 +376,18 @@ class AtomProcjetion:
     def makeCoefsZR(self, Zs, ELEMENTS ):
         na = len(Zs)
         coefs = np.zeros( (na,4), dtype=np.float32 )
-        print "Zs", Zs
+        if(verbose>0): print "Zs", Zs
         for i,ie in enumerate(Zs):
             coefs[i,0] = 1.0
             coefs[i,1] = ie
             coefs[i,2] = ELEMENTS[ie-1][6]
             coefs[i,3] = ELEMENTS[ie-1][7]
             #coefs[i,3] = ie
-        print "coefs[:,2]", coefs[:,2]
+        if(verbose>0): print "coefs[:,2]", coefs[:,2]
         return coefs
 
     def prepareBuffers(self, atoms, prj_dim, coefs=None ):
-        print "AtomProcjetion.prepareBuffers prj_dim", prj_dim
+        if(verbose>0): print "AtomProcjetion.prepareBuffers prj_dim", prj_dim
         self.prj_dim = prj_dim
         nbytes   =  0;
         self.nAtoms   = np.int32( len(atoms) ) 
@@ -407,7 +407,7 @@ class AtomProcjetion:
         npostot = prj_dim[0] * prj_dim[1] * prj_dim[2]
         
         bsz=np.dtype(np.float32).itemsize * npostot
-        print prj_dim, npostot, " nbytes : = ", bsz*4
+        if(verbose>0): print prj_dim, npostot, " nbytes : = ", bsz*4
         self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz*4   );   nbytes+=bsz*4  # float4
         self.cl_Eout  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz     );   nbytes+=bsz    # float
 
@@ -450,7 +450,7 @@ class AtomProcjetion:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
             if(verbose>0): print "FE.shape", Eout.shape, self.nDim
         if poss is not None:
-            print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -474,7 +474,7 @@ class AtomProcjetion:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
             if(verbose>0): print "FE.shape", Eout.shape, self.nDim
         if poss is not None:
-            print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -500,7 +500,7 @@ class AtomProcjetion:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
             if(verbose>0): print "FE.shape", Eout.shape, self.nDim
         if poss is not None:
-            print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -529,7 +529,7 @@ class AtomProcjetion:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
             if(verbose>0): print "FE.shape", Eout.shape, self.nDim
         if poss is not None:
-            print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -556,7 +556,7 @@ class AtomProcjetion:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
             if(verbose>0): print "FE.shape", Eout.shape, self.nDim
         if poss is not None:
-            print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -585,7 +585,7 @@ class AtomProcjetion:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
             if(verbose>0): print "FE.shape", Eout.shape, self.nDim
         if poss is not None:
-            print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
