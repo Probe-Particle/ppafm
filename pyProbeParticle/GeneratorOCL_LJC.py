@@ -471,16 +471,28 @@ class Generator(Sequence,):
         print "saveDebugXSF : ", fname
         GU.saveXSF( fname, F.transpose((2,1,0)), lvec )
 
-    def plot(self, rotName, molName, X=None,Y=None,Y_=None, entropy=None ):
+    def plot(self, rotName, molName, X=None,Y=None,Y_=None, entropy=None, bXYZ=False, bPOVray=False ):
         import matplotlib as mpl;  mpl.use('Agg');
         import matplotlib.pyplot as plt
 
         fname    = self.preName + molName + rotName
         print " plot to file : ", fname
 
-        #self.saveDebugXSF( self.preName + self.molecules[imol] + ("/rot%03i_Y.xsf" %irot), Y_ )
-        basUtils.writeDebugXYZ_2( self.preName + molName + rotName+".xyz", self.atoms, self.Zs, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
-        #basUtils.writeDebugXYZ( self.preName + molName + rotName, self.atom_lines, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
+        if bXYZ:
+            #self.saveDebugXSF( self.preName + self.molecules[imol] + ("/rot%03i_Y.xsf" %irot), Y_ )
+            basUtils.writeDebugXYZ_2( self.preName + molName + rotName+".xyz", self.atoms, self.Zs, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
+
+        if bPOVray:
+            #basUtils.writeDebugXYZ__( self.preName + molName + rotName+".xyz", self.atomsNonPBC, self.Zs )
+            bonds = basUtils.findBonds_( self.atomsNonPBC, self.Zs, 1.2, ELEMENTS=elements.ELEMENTS )
+            #bonds = None
+            #basUtils.writePov( self.preName + molName + rotName+".pov", self.atoms, self.Zs )
+            cam  = basUtils.makePovCam( [15,15,15], up=[0.0,10.0,0.0], rg=[-10.0, 0.0, 0.0])
+            cam += basUtils.DEFAULT_POV_HEAD_NO_CAM
+            #print "makePovCam", cam
+            #print "self.atomsNonPBC ", self.atomsNonPBC
+            basUtils.writePov( self.preName + molName + rotName+".pov", self.atomsNonPBC, self.Zs, HEAD=cam, bonds=bonds )
+            #basUtils.writeDebugXYZ( self.preName + molName + rotName, self.atom_lines, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
 
         #self.saveDebugXSF(  self.preName + molName + rotName+"_Fz.xsf", X, d=(0.1,0.1,0.1) )
 
