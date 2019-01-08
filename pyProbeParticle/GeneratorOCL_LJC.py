@@ -305,10 +305,10 @@ class Generator(Sequence,):
     #def nextRotation(self, rot, X,Y ):
     def nextRotation(self, X,Y ):
         t1scan = time.clock();
-        (entropy, self.pos0, rot) = self.rotations_sorted[self.irot]
+        (entropy, self.pos0, self.rot) = self.rotations_sorted[self.irot]
 
         if(verbose>0): print " imol, irot, entropy ", self.imol, self.irot, entropy
-        zDir = rot[2].flat.copy()
+        zDir = self.rot[2].flat.copy()
 
         '''
         tipR0      = self.maxTilt0 * (np.random.rand(3) - 0.5); 
@@ -317,8 +317,7 @@ class Generator(Sequence,):
         '''
         tipR0 = np.array( [0.5,0.0,self.tipR0] )
 
-
-        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAbove, rot=rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
+        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*self.distAbove, rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
 
         FEout  = self.scanner.run_relaxStrokesTilted()
 
@@ -337,7 +336,7 @@ class Generator(Sequence,):
 
         # Perhaps we should convert it to df using PPU.Fz2df(), but that is rather slow - maybe to it on GPU?
         #X[:,:,:] = FEout[:,:,:,2]
-        #print "rot.shape, zDir.shape", rot.shape, zDir
+        #print "rot.shape, zDir.shape", self.rot.shape, zDir
         #print "FEout.shape ", FEout.shape
 
         #X[:,:,:] = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
@@ -403,32 +402,32 @@ class Generator(Sequence,):
             Y -= Ymin
             '''
         elif self.Ymode == 'Lorenzian':
-            dirFw = np.append( rot[2], [0] ); 
+            dirFw = np.append( self.rot[2], [0] ); 
             if(verbose>0):  print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] =  self.projector.run_evalLorenz( poss = poss_ )[:,:,0]
         elif self.Ymode == 'Spheres':
-            dirFw = np.append( rot[2], [0] ); 
+            dirFw = np.append( self.rot[2], [0] ); 
             if(verbose>0): print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'SphereCaps':
-            dirFw = np.append( rot[2], [0] ); 
+            dirFw = np.append( self.rot[2], [0] ); 
             if(verbose>0): print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalSphereCaps( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'Disks':
-            dirFw = np.append( rot[2], [0] ); 
+            dirFw = np.append( self.rot[2], [0] ); 
             if(verbose>0): print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evaldisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'DisksOcclusion':
-            dirFw = np.append( rot[2], [0] ); 
+            dirFw = np.append( self.rot[2], [0] ); 
             if(verbose>0): print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evaldisks_occlusion( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'QDisks':
-            dirFw = np.append( rot[2], [0] ); print "dirFw ", dirFw
+            dirFw = np.append( self.rot[2], [0] ); print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalQdisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
 
@@ -485,18 +484,20 @@ class Generator(Sequence,):
 
         if bXYZ:
             #self.saveDebugXSF( self.preName + self.molecules[imol] + ("/rot%03i_Y.xsf" %irot), Y_ )
-            basUtils.writeDebugXYZ_2( self.preName + molName + rotName+".xyz", self.atoms, self.Zs, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
+            basUtils.writeDebugXYZ_2( self.preName + molName + rotName+".xyz", self.atoms, self.Zs, self.scan_pos0s[::40,::40,:].reshape(-1,4), pos0=self.pos0 )
 
         if bPOVray:
             #basUtils.writeDebugXYZ__( self.preName + molName + rotName+".xyz", self.atomsNonPBC, self.Zs )
             bonds = basUtils.findBonds_( self.atomsNonPBC, self.Zs, 1.2, ELEMENTS=elements.ELEMENTS )
             #bonds = None
             #basUtils.writePov( self.preName + molName + rotName+".pov", self.atoms, self.Zs )
-            cam  = basUtils.makePovCam( [15,15,15], up=[0.0,10.0,0.0], rg=[-10.0, 0.0, 0.0])
+            #cam  = basUtils.makePovCam( [15,15,15], up=[0.0,10.0,0.0], rg=[-10.0, 0.0, 0.0])
+
+            cam  = basUtils.makePovCam( self.pos0, rg=self.rot[0]*10.0, up= self.rot[1]*10.0, fw=self.rot[2]*-100.0, lpos = self.rot[2]*100.0 )
             cam += basUtils.DEFAULT_POV_HEAD_NO_CAM
             #print "makePovCam", cam
             #print "self.atomsNonPBC ", self.atomsNonPBC
-            basUtils.writePov( self.preName + molName + rotName+".pov", self.atomsNonPBC, self.Zs, HEAD=cam, bonds=bonds )
+            basUtils.writePov( self.preName + molName + rotName+".pov", self.atomsNonPBC, self.Zs, HEAD=cam, bonds=bonds, spherescale=0.5 )
             #basUtils.writeDebugXYZ( self.preName + molName + rotName, self.atom_lines, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
 
         #self.saveDebugXSF(  self.preName + molName + rotName+"_Fz.xsf", X, d=(0.1,0.1,0.1) )
@@ -505,13 +506,13 @@ class Generator(Sequence,):
         if Y is not None:
             if self.Ymode == 'ElectrostaticMap':
                 vmax = max( Y.max(), -Y.min() )
-                #plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='seismic' );
-                plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='bwr' );
+                #plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='seismic', origin='image' );
+                plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='bwr', origin='image' );
             else:
-                plt.imshow( Y );
+                plt.imshow( Y, origin='image' );
             plt.colorbar()
             #print "Y = ", Y
-            #plt.imshow( Y, vmin=-5, vmax=5 );  
+            #plt.imshow( Y, vmin=-5, vmax=5, origin='image' );  
             plt.title(entropy)
             plt.savefig(  fname+"Dens.png", bbox_inches="tight"  );
             #plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
@@ -522,20 +523,20 @@ class Generator(Sequence,):
             if (X is not None) and (Y_ is not None):
                 plt.figure(figsize=(10,5))
                 #print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
-                plt.subplot(1,2,2); plt.imshow (X [:,:,isl] );            plt.colorbar()
-                #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl] );
-                plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]) );   plt.colorbar()
+                plt.subplot(1,2,2); plt.imshow (X [:,:,isl], origin='image' );            plt.colorbar()
+                #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl], origin='image' );
+                plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]), origin='image' );   plt.colorbar()
                 plt.title(entropy)
                 plt.savefig( fname+( "FzFixRelax_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                 plt.close()
             else:
                 if X is not None:
                     if(verbose>0): print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
-                    plt.imshow(  X[:,:,isl] );    plt.colorbar()
+                    plt.imshow(  X[:,:,isl], origin='image' );    plt.colorbar()
                     plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                     plt.close()
                 if Y_ is not None:
-                    plt.imshow ( Y_[:,:,isl] );   plt.colorbar()
+                    plt.imshow ( Y_[:,:,isl], origin='image' );   plt.colorbar()
                     plt.savefig( fname+( "FzFix_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                     plt.close()
 

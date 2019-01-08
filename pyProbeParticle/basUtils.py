@@ -431,7 +431,6 @@ def getAtomColors( iZs, ELEMENTS = elements.ELEMENTS, FFparams=None ):
 DEFAULT_POV_HEAD_NO_CAM='''
 background      { color rgb <1.0,1.0,1.0> }
 //background      { color rgb <0.5,0.5,0.5> }
-light_source    { < -1000,-2000,-3000>  rgb <0.5,0.5,0.5> }
 //global_settings { ambient_light rgb< 0.2, 0.2, 0.2> }
 // ***********************************************
 // macros for common shapes
@@ -491,7 +490,7 @@ camera{
 
 
 
-def makePovCam( pos, up=[0.0,1.0,0.0], rg=[-1.0, 0.0, 0.0], fw=[0.0, 0.0, 100.0] ):
+def makePovCam( pos, up=[0.0,1.0,0.0], rg=[-1.0, 0.0, 0.0], fw=[0.0, 0.0, 100.0], lpos=[0.0, 0.0,-100.0], W=10.0, H=10.0 ):
     return '''
     // ***********************************************
     // Camera & other global settings
@@ -501,13 +500,15 @@ def makePovCam( pos, up=[0.0,1.0,0.0], rg=[-1.0, 0.0, 0.0], fw=[0.0, 0.0, 100.0]
     #declare Height = 800;
     camera{
       orthographic
-      sky      < 0, -1,   0 >
-      right    < %f, %f, %f >
-      up       < %f, %f, %f >
+      right    %f
+      up       %f
+      sky      < %f, %f, %f >
       location < %f, %f, %f >
       look_at  < %f, %f, %f >
     }
-    ''' %(   up[0],up[1],up[2],   rg[0],rg[1],rg[2],   pos[0]-fw[0],pos[1]-fw[1],pos[2]-fw[2],  pos[0],pos[1],pos[2]  )
+    light_source    { < %f,%f,%f>  rgb <0.5,0.5,0.5> }
+    ''' %(  W,H, up[0],up[1],up[2],      pos[0]-fw[0],pos[1]-fw[1],pos[2]-fw[2],    pos[0],pos[1],pos[2],    lpos[0],lpos[1],lpos[2]    )
+    #''' %( rg[0],rg[1],rg[2],   up[0],up[1],up[2],  pos[0]-fw[0],pos[1]-fw[1],pos[2]-fw[2],  pos[0],pos[1],pos[2], lpos[0],lpos[1],lpos[2]  )
     #''' %(   up[0]*600,up[1]*600,up[2]*600,   rg[0]*800,rg[1]*800,rg[2]*800,   pos[0]-fw[0],pos[1]-fw[1],pos[2]-fw[2],  pos[0],pos[1],pos[2]  )
 
 
