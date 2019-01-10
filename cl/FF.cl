@@ -196,7 +196,8 @@ __kernel void evalLorenz(
         for (int j=0; j<nL; j++){
 
             //if(iG==64*128 + 64) printf( "iatom %i atom (%g,%g,%g) pos(%g,%g,%g) \n", i0+j, LATOMS[j].x, LATOMS[j].y, LATOMS[j].z, pos.x,pos.y,pos.z );
-            if( (j+i0)<nAtoms ) fe += getLorenz( LATOMS[j], coefs[j], pos );
+            //if( (j+i0)<nAtoms ) fe += getLorenz( LATOMS[j], coefs[j], pos );
+            if( (j+i0)<nAtoms ) fe += getLorenz( LATOMS[j], LCOEFS[j], pos );
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
@@ -235,7 +236,8 @@ __kernel void evalDisk(
             if( (j+i0)<nAtoms ){ 
                 float3 dp  =  pos - LATOMS[j].xyz;
                 float3 abc = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
-                float   R  = coefs[j].z;
+                //float   R  = coefs[j].z;
+                float   R  = LCOEFS[j].z;
                 float   r2 = dot(abc.xy,abc.xy);
                 float dxy2 = r2/( (R*R) );
                 if( ( dxy2 < 1.0f ) && ( abc.z < dzmax ) ){
@@ -288,7 +290,8 @@ __kernel void evalSpheres(
             if( (j+i0)<nAtoms ){ 
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
-                float  Rvdw  = coefs[j].w + Rpp;
+                //float  Rvdw  = coefs[j].w + Rpp;
+                float  Rvdw  = LCOEFS[j].w + Rpp;
                 //float  Rvdw  = coefs[j].w;
                 //float  Rvdw  = coefs[j].z;
                 float r2xy   =  dot(abc.xy,abc.xy);
@@ -345,7 +348,8 @@ __kernel void evalSphereCaps(
             if( (j+i0)<nAtoms ){ 
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
-                float  Rvdw  = coefs[j].w + Rpp;
+                //float  Rvdw  = coefs[j].w + Rpp;
+                float  Rvdw  = LCOEFS[j].w + Rpp;
                 float r2xy   =  dot(abc.xy,abc.xy);
 
                 float dz     =  sqrt( Rvdw*Rvdw - r2xy );
@@ -404,7 +408,8 @@ __kernel void evalDisk_occlusion(
             if( (j+i0)<nAtoms ){ 
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
-                float  Rvdw  = coefs[j].w + Rpp;
+                //float  Rvdw  = coefs[j].w + Rpp;
+                float  Rvdw  = LCOEFS[j].w + Rpp;
                 float  r2xy   =  dot(abc.xy,abc.xy);
                 float z = 2.0*Rvdw - r2xy/(Rvdw*Rvdw) - abc.z; // osculation parabola to atom
                 if(z>ztop){
@@ -426,7 +431,8 @@ __kernel void evalDisk_occlusion(
             if( (j+i0)<nAtoms ){ 
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
-                float  Rvdw  = coefs[j].w + Rpp;
+                //float  Rvdw  = coefs[j].w + Rpp;
+                float  Rvdw  = LCOEFS[j].w + Rpp;
                 float  r2xy   =  dot(abc.xy,abc.xy);
                 float z   = 2.0f*Rvdw - r2xy/(Rvdw*Rvdw) - abc.z; // osculation parabola to atom
                 float cdz = 1.0 - ((ztop-z)/zmargin);
@@ -434,7 +440,8 @@ __kernel void evalDisk_occlusion(
                 //fe = fmax(ztop,z);
                 //fe = fmax(cdz,fe);
                 if( cdz>0.0f ){
-                    float   R     = coefs[j].z * 2.0;
+                    //float   R     = coefs[j].z * 2.0;
+                    float   R     = LCOEFS[j].z * 2.0;
                     float dxy2 = r2xy/( R*R );
                     if( ( dxy2 < 1.0f ) && ( abc.z < dzmax ) ){
                         //fe += 1-dxy2;
