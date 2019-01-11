@@ -33,6 +33,17 @@ from keras.utils import Sequence
 
 verbose=0
 
+
+def rotAtoms(rot, atoms):
+    print "atoms.shape ", atoms.shape
+    atoms_ = np.zeros(atoms.shape)
+    atoms_[:,0] =  rot[0,0] * atoms[:,0]   +  rot[0,1] * atoms[:,1]   +    rot[0,2] * atoms[:,2]
+    atoms_[:,1] =  rot[1,0] * atoms[:,0]   +  rot[1,1] * atoms[:,1]   +    rot[1,2] * atoms[:,2]
+    atoms_[:,2] =  rot[2,0] * atoms[:,0]   +  rot[2,1] * atoms[:,1]   +    rot[2,2] * atoms[:,2]
+    return atoms_
+
+
+
 def applyZWeith( F, zWeight ):
     #F_ = np.apply_along_axis( lambda m: np.convolve(m, zWeight, mode='valid'), axis=0, arr=F )
     #print "F.shape, zWeight.shape ", F.shape, zWeight.shape
@@ -475,7 +486,7 @@ class Generator(Sequence,):
         if(verbose>0): print "saveDebugXSF : ", fname
         GU.saveXSF( fname, F.transpose((2,1,0)), lvec )
 
-    def plot(self, rotName, molName, X=None,Y=None,Y_=None, entropy=None, bXYZ=False, bPOVray=False ):
+    def plot(self, rotName, molName, X=None,Y=None,Y_=None, entropy=None, bXYZ=False, bPOVray=False, bRot=False ):
         import matplotlib as mpl;  mpl.use('Agg');
         import matplotlib.pyplot as plt
 
@@ -484,7 +495,12 @@ class Generator(Sequence,):
 
         if bXYZ:
             #self.saveDebugXSF( self.preName + self.molecules[imol] + ("/rot%03i_Y.xsf" %irot), Y_ )
-            basUtils.writeDebugXYZ_2( self.preName + molName + rotName+".xyz", self.atoms, self.Zs, self.scan_pos0s[::40,::40,:].reshape(-1,4), pos0=self.pos0 )
+            if bRot:
+                atomsRot = rotAtoms(self.rot, self.atomsNonPBC)
+                basUtils.writeDebugXYZ__( self.preName + molName + rotName+".xyz", atomsRot, self.Zs )
+                #exit()
+            else:
+                basUtils.writeDebugXYZ_2( self.preName + molName + rotName+".xyz", self.atoms, self.Zs, self.scan_pos0s[::40,::40,:].reshape(-1,4), pos0=self.pos0 )
 
         if bPOVray:
             #basUtils.writeDebugXYZ__( self.preName + molName + rotName+".xyz", self.atomsNonPBC, self.Zs )

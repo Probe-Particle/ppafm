@@ -91,14 +91,16 @@ def interpolateLine( F, p1, p2, sz=500, cartesian=False ):
 	return result
 
 def interpolateQuad( F, p00, p01, p10, p11, sz=(500,500) ):
-	result = np.zeros( sz )
-	npxy   = np.array( sz, dtype='int32' )
-	p00 = np.array ( p00, dtype='float64' )
-	p01 = np.array ( p01, dtype='float64' )
-	p10 = np.array ( p10, dtype='float64' )
-	p11 = np.array ( p11, dtype='float64' )
-	lib.interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
-	return result
+    result = np.zeros( sz )
+    #print "DEBUG 2.1 "
+    npxy   = np.array( sz, dtype='int32' )
+    p00 = np.array ( p00, dtype='float64' )
+    p01 = np.array ( p01, dtype='float64' )
+    p10 = np.array ( p10, dtype='float64' )
+    p11 = np.array ( p11, dtype='float64' )
+    #print "DEBUG 2.2 "
+    lib.interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
+    return result
 
 def interpolate_cartesian( F, pos, cell=None, result=None ):
 	if cell is not None:
