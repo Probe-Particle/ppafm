@@ -6,6 +6,9 @@ import gc
 
 import GridUtils as GU
 
+verbose = 1
+
+
 def fieldInfo( F, label="FieldInfo: min max av: " ):
     print label, np.min(F), np.max(F), np.average(F)
    

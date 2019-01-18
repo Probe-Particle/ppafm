@@ -43,7 +43,6 @@ def rotAtoms(rot, atoms):
     return atoms_
 
 
-
 def applyZWeith( F, zWeight ):
     #F_ = np.apply_along_axis( lambda m: np.convolve(m, zWeight, mode='valid'), axis=0, arr=F )
     #print "F.shape, zWeight.shape ", F.shape, zWeight.shape

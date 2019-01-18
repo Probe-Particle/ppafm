@@ -11,6 +11,8 @@ import basUtils  as BU
 import core
 import cpp_utils
 
+verbose = 1
+
 # ===== constants 
 Fmax_DEFAULT = 10.0
 Vmax_DEFAULT = 10.0
@@ -62,8 +64,10 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipsplin
         try:
             if(verbose>0): print " loading tip spline from "+tipspline
             S    = np.genfromtxt(tipspline )
-            xs   = S[:,0].copy(); if(verbose>0):  print "xs: ",   xs
-            ydys = S[:,1:].copy(); if(verbose>0): print "ydys: ", ydys
+            xs   = S[:,0].copy();  
+            if(verbose>0): print "xs: ",   xs
+            ydys = S[:,1:].copy(); 
+            if(verbose>0): print "ydys: ", ydys
             core.setTipSpline( xs, ydys )
             #Ks   = [0.0]
         except:
