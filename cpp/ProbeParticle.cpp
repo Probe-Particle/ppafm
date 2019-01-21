@@ -176,9 +176,11 @@ inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
 
 // Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
 inline double addAtomVdW( const Vec3d& dR, Vec3d& fout, double c6 ){
-	double r2 = dR.norm2(); r2*=r2; r2*=r2;
-	fout.add_mul( dR , 6*c6 /( r2 + 1.0 ) );
-	return 0;
+    double r2 = dR.norm2(); r2*=r2; r2*=r2;
+    //fout.add_mul( dR , 6*c6 /( r2 + 1.0 ) );
+    //fout.add_mul( dR , 6*c6 /( r2 + 60*c6 ) );
+    fout.add_mul( dR , 6*c6 /( r2 + 180*c6 ) );
+    return 0;
 }
 
 // Morse force between two atoms a,b separated by vector dR = Ra - Rb

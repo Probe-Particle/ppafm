@@ -33,7 +33,8 @@ if __name__=="__main__":
     parser = OptionParser()
     parser.add_option( "-k", "--klat",  action="store", type="float", help="tip stiffenss [N/m]" )
     parser.add_option( "--krange", action="store", type="float", help="tip stiffenss range (min,max,n) [N/m]", nargs=3)
-    parser.add_option( "-q","--charge",       action="store", type="float", help="tip charge [e]" )
+    parser.add_option( "-q","--charge",       action="store", type="float", help="tip charge  [e]" )
+    parser.add_option( "--Apauli",   default=PPU.params["Apauli"],    action="store", type="float", help="FFpauli  scaling [1]" )
     parser.add_option( "--qrange", action="store", type="float", help="tip charge range (min,max,n) [e]", nargs=3)
     parser.add_option( "-b", "--boltzmann" ,action="store_true", default=False, help="calculate forces with boltzmann particle" )
     parser.add_option( "--bI" ,action="store_true", default=False, help="calculate current between boltzmann particle and tip" )
@@ -71,7 +72,9 @@ if __name__=="__main__":
     print "Ks   =", Ks 
     print "Qs   =", Qs 
     #print "Amps =", Amps 
-    
+    PPU.params["Apauli"] = options.Apauli
+    print "Apauli",PPU.params["Apauli"]
+
     print " ============= RUN  "
     FFvdW, FFpauli, FFel, FFboltz=None,None,None,None
 
@@ -90,10 +93,16 @@ if __name__=="__main__":
     FFvdW, lvec, nDim = GU.load_vec_field( "FFvdW" , data_format=options.data_format)
     FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )
 
+    #FFvdW*=0
+    #FFpauli *= 0.25
+    #FFpauli *= 0.15
+
     lvec[1,:] = rotVec( lvec[1,:], opt_dict['rotate'] ) 
     lvec[2,:] = rotVec( lvec[2,:], opt_dict['rotate'] ) 
     print lvec
     PPU.lvec2params( lvec )
+
+
 
     for iq,Q in enumerate( Qs ):
         PPU.params['charge'] = Q
