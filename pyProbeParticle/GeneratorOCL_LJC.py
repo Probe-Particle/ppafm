@@ -117,6 +117,7 @@ class Generator(Sequence,):
     nBestRotations = 30
     shuffle_rotations = True
     shuffle_molecules = True
+    randomize_parameters = False
     Yrange = 2
 
     #npbc = None
@@ -233,7 +234,10 @@ class Generator(Sequence,):
         Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
         #Xs = np.empty( (n,)+ self.scan_dim     )
         #Xs = np.empty( (n,)+ self.scan_dim[:2]+(20,)  )
-        Ys = np.empty( (n,)+ self.scan_dim[:2] )
+        if self.Ymode == 'ElectrostaticMap': 
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
+        else:
+            Ys = np.empty( (n,)+ self.scan_dim[:2] )
         for ibatch in range(n):
             self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
             if( self.irot == 0 ):# recalc FF
@@ -279,7 +283,8 @@ class Generator(Sequence,):
         #print "cLJs ref : ", cLJs
         
         REAs = PPU.getAtomsREA(  self.iZPP, Zs, self.typeParams, alphaFac=-1.0 )
-        self.modMolParams( Zs, qs, xyzs, REAs, self.rndQmax, self.rndRmax, self.rndEmax, self.rndAlphaMax )
+        if self.randomize_parameters:
+            self.modMolParams( Zs, qs, xyzs, REAs, self.rndQmax, self.rndRmax, self.rndEmax, self.rndAlphaMax )
         cLJs = PPU.REA2LJ( REAs )
 
         #print "Qs   : ", qs
@@ -402,8 +407,11 @@ class Generator(Sequence,):
             zMap, feMap = self.scanner.run_getZisoFETilted( iso=0.1, nz=100 )
             #Y[:,:] = ( feMap[:,:,0] ).copy() # Fel_x
             #Y[:,:] = ( feMap[:,:,1] ).copy() # Fel_y
-            Y[:,:] = ( feMap[:,:,2] ).copy() # Fel_z
+#            Y[:,:] = ( feMap[:,:,2] ).copy() # Fel_z
             #Y[:,:]  = ( feMap[:,:,3] ).copy() # Vel
+
+            Ye = ( feMap[:,:,2] ).copy() # Fel_z
+
             '''
             Y *= (self.scanner.zstep)
             Ymin = max(Y[Y<=0].flatten().max() - self.Yrange, Y.flatten().min())
@@ -411,6 +419,16 @@ class Generator(Sequence,):
             Y[Y<Ymin] = Ymin
             Y -= Ymin
             '''
+            zMap *= -(self.scanner.zstep)
+            zMin = max(zMap[zMap<=0].flatten().max() - self.Yrange, zMap.flatten().min())
+            zMap[zMap>0] = zMin
+            zMap[zMap<zMin] = zMin
+            zMap -= zMin
+            Ye[zMap == 0] = 0
+
+            Y[:,:,0] = Ye
+            Y[:,:,1] = zMap
+
         elif self.Ymode == 'Lorenzian':
             dirFw = np.append( self.rot[2], [0] ); 
             if(verbose>0):  print "dirFw ", dirFw
