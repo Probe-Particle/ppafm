@@ -15,9 +15,40 @@ import numpy as np
 from enum import Enum
 import glob
 import pickle
-
+import scipy.ndimage as nimg
 import pyProbeParticle.GuiWigets   as guiw
 import pyProbeParticle.file_dat    as file_dat
+import copy
+
+def crosscorel_2d_fft(im0,im1):
+    f0 = np.fft.fft2(im0)
+    f1 = np.fft.fft2(im1)
+    renorm = 1/( np.std(f0)*np.std(f1) )
+    #return abs(np.fft.ifft2((f0 * f1.conjugate()) / (abs(f0) * abs(f1))))
+    #return np.abs( np.fft.ifft2( (    f0 * f1.conjugate() / ( np.abs(f0) * np.abs(f1) )  ) ) )
+    return abs(np.fft.ifft2( f0 * f1.conjugate() ) ) * renorm
+
+def trans_match_fft(im0, im1):
+    """Return translation vector to register images."""
+    print 'we are in trans_match_fft'
+    shape = im0.shape
+    '''
+    f0 = fft2(im0)
+    f1 = fft2(im1)
+    ir = abs(ifft2((f0 * f1.conjugate()) / (abs(f0) * abs(f1))))
+    '''
+    ir = crosscorel_2d_fft(im0,im1)
+    t0, t1 = np.unravel_index(np.argmax(ir), shape)
+    #if t0 > shape[0] // 2:
+    #    t0 -= shape[0]
+    #if t1 > shape[1] // 2:
+    #    t1 -= shape[1]
+    return [t0, t1]
+
+
+def roll2d( a , shift=(10,10) ):
+    a_ =np.roll( a, shift[0], axis=0 )
+    return np.roll( a_, shift[1], axis=1 )
 
 class ApplicationWindow(QtWidgets.QMainWindow):
     #path='./'
@@ -49,6 +80,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(-1000,1000); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx); self.bxX=bx
         bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(-1000,1000); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx); self.bxY=bx
 
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) ; bt = QtWidgets.QPushButton('Magic fit', self); bt.setToolTip('Fit to colser slice'); bt.clicked.connect(self.magicFit); vb.addWidget( bt ); self.btLoad = bt
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Ninter ") )
         bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(1); vb.addWidget(bx); self.bxNi=bx
@@ -63,6 +95,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #sl.currentIndexChanged.connect(self.updateDataView)
 
         # === buttons
+
+
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
@@ -75,10 +109,46 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
-
         #self.geomEditor    = guiw.EditorWindow(self,title="Geometry Editor")
         #self.speciesEditor = guiw.EditorWindow(self,title="Species Editor")
         #self.figCurv       = guiw.PlotWindow( parent=self, width=5, height=4, dpi=100)
+
+    def magicFit(self):
+        print 'magic fit'
+        iz = int(self.bxZ.value())
+        print 'iz=',iz  
+        if (iz<len(self.data)-1 ):
+            print 'we are in if'            
+            '''    
+            image=np.float32(self.data2[iz])
+            image-=image.mean()
+            vmax=image.max()
+            if vmax>0:
+                image /= vmax
+            image_target=np.float32(self.data2[iz+1])
+            image_target-=image_target.mean()
+            vmax=image_target.max()
+            if vmax>0:
+                image_target /= vmax
+            '''
+            [ix,iy] = trans_match_fft(self.data2[iz],self.data[iz+1]) 
+            print 'ix,iy=',-ix,-iy
+            if abs(int(ix))>self.data[iz].shape[0]:
+                ix=ix/abs(int(ix))*(abs(int(ix))-self.data[iz].shape[0])
+            if abs(int(iy))>self.data[iz].shape[1]:
+                iy=iy/abs(int(iy))*(abs(int(iy))-self.data[iz].shape[1])
+            if abs(int(ix))>self.data[iz].shape[0]//2:
+                ix=ix/abs(int(ix))*(abs(int(ix))-self.data[iz].shape[0])
+            if abs(int(iy))>self.data[iz].shape[1]//2:
+                iy=iy/abs(int(iy))*(abs(int(iy))-self.data[iz].shape[1])
+
+            self.data[iz]=nimg.shift (self.data[iz], (-ix-self.shifts[iz][0],-iy-self.shifts[iz][1]), order=3,mode='mirror' )   
+            self.shifts[iz][0] =  -ix
+            self.shifts[iz][1] =  -iy
+            print self.shifts
+            self.updateDataView()
+
+        
 
     def loadData(self):
         #print file_list
@@ -101,6 +171,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #self.data = self.loadData();
         print self.fnames
         data = []
+        data2 = []
         fnames  = []
         for fname in self.fnames:
             #print fname
@@ -108,9 +179,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             #print os.path.basename(fname)
             imgs = file_dat.readDat(fname)
             data.append( imgs[1] )
+            #data2.append( imgs[1] )
         self.fnames = fnames
         #return data
         self.data = data
+        #z=np.arange(25)
+        data2=copy.copy(data)        
+        self.data2= data2 #np.reshape(z, (5,5)) #data
+        print 'data dat loaded'
         self.shifts = [ [0,0] for i in range(len(self.data)) ]
         self.bxZ.setRange( 0, len(self.data)-1 );
         self.updateDataView()
@@ -127,6 +203,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             #dat[:100,:] = dat1[:100,:]
             #dat[100:,:] = dat2[100:,:]
             self.data  .insert( iz+1, dat )
+            self.data2  .insert( iz+1, dat )
             self.shifts.insert( iz+1, [0,0] )
             self.fnames.insert( iz+1, "c%1.3f" %c )
         self.bxZ.setRange( 0, len(self.data)-1 )
@@ -155,10 +232,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         iz = int(self.bxZ.value())
         ix = int(self.bxX.value()); dix = ix - self.shifts[iz][0]; self.shifts[iz][0] = ix
         iy = int(self.bxY.value()); diy = iy - self.shifts[iz][1]; self.shifts[iz][1] = iy
-        print ix,iy
+        print 'self.original[iz]=',self.data2[iz][:3,:3]
+        print 'dix,diy=', dix,diy
+
         print self.shifts
-        self.data[iz] = np.roll( self.data[iz], dix, axis=0 )
-        self.data[iz] = np.roll( self.data[iz], diy, axis=1 )
+        image=self.data2[iz]
+        self.data[iz]=nimg.shift (image, (iy,ix), order=3,mode='mirror' )   
+        #self.data[iz] = np.roll( self.data[iz], dix, axis=0 )
+        
+
+        #self.data[iz] = np.roll( self.data[iz], diy, axis=1 )
+
         self.updateDataView()
 
     def selectDataView(self):
