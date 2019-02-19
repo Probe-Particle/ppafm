@@ -177,9 +177,9 @@ class Generator(Sequence,):
         self.projector = None; self.FE2in=None
         self.bZMap = False; self.bFEmap = False;
         if(verbose>0): print "Ymode", self.Ymode
-        if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'SphereCaps' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks':
+        if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'SphereCaps' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks' or self.Ymode == 'D-S-H':
             self.projector  = FFcl.AtomProcjetion()
-        if self.Ymode == 'HeightMap': 
+        if self.Ymode == 'HeightMap' or self.Ymode == 'D-S-H' : 
             self.bZMap = True
         if self.Ymode == 'ElectrostaticMap':
             self.bZMap  = True
@@ -234,7 +234,10 @@ class Generator(Sequence,):
         Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
         #Xs = np.empty( (n,)+ self.scan_dim     )
         #Xs = np.empty( (n,)+ self.scan_dim[:2]+(20,)  )
-        if self.Ymode == 'ElectrostaticMap': 
+
+        if self.Ymode == 'D-S-H':
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
+        elif self.Ymode == 'ElectrostaticMap': 
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
         else:
             Ys = np.empty( (n,)+ self.scan_dim[:2] )
@@ -458,6 +461,23 @@ class Generator(Sequence,):
             dirFw = np.append( self.rot[2], [0] ); print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalQdisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+        elif self.Ymode == 'D-S-H':
+            dirFw = np.append( self.rot[2], [0] ); 
+            if(verbose>0): print "dirFw ", dirFw
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+            # Disks
+            Y[:,:,0] = self.projector.run_evaldisks  ( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+            # Spheres
+            Y[:,:,1] = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+            # Height
+            Y_  = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
+            Y_ *= (self.scanner.zstep)
+            Ymin = max(Y_[Y_<=0].flatten().max() - self.Yrange, Y_.flatten().min())
+            Y_[Y_>0] = Ymin
+            Y_[Y_<Ymin] = Ymin
+            Y_ -= Ymin
+            Y[:,:,2] = Y_
+
 
         Ty =  time.clock()-t1scan;  
         if(verbose>1): print "Ty %f [s]" %Ty
@@ -541,6 +561,12 @@ class Generator(Sequence,):
                 vmax = max( Y.max(), -Y.min() )
                 #plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='seismic', origin='image' );
                 plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='bwr', origin='image' );
+            if self.Ymode == 'D-S-H':
+                print "plot  D-S-H mode", fname, Y.shape
+                plt.figure(figsize=(15,5))
+                plt.subplot(1,3,1); plt.imshow( Y[:,:,0], origin='image' ); plt.title("Spheres");
+                plt.subplot(1,3,2); plt.imshow( Y[:,:,1], origin='image' ); plt.title("Disks");
+                plt.subplot(1,3,3); plt.imshow( Y[:,:,2], origin='image' ); plt.title("Height");
             else:
                 plt.imshow( Y, origin='image' );
             plt.colorbar()

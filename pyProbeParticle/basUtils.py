@@ -138,6 +138,14 @@ def saveXyz(fname,elems,xyzs):
         for i in range(n):
             f.write( "%s %10.10f %10.10f %10.10f\n" %(elems[i], xyzs[i][0], xyzs[i][1], xyzs[i][2] )  )
 
+def saveXyzq(fname,elems,xyzqs):
+    with open(fname,'w') as f:
+        n = len(elems)
+        f.write( "%i\n" %n )
+        f.write( "#comment\n" )
+        for i in range(n):
+            f.write( "%s %10.10f %10.10f %10.10f %10.10f\n" %(elems[i], xyzs[i][0], xyzs[i][1], xyzs[i][2], xyzs[i][3] )  )
+
 def writeDebugXYZ( fname, lines, poss, pos0=None ):
     fout  = open(fname,"w")
     natom = int(lines[0])
