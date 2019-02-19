@@ -564,15 +564,15 @@ class Generator(Sequence,):
             if self.Ymode == 'D-S-H':
                 print "plot  D-S-H mode", fname, Y.shape
                 plt.figure(figsize=(15,5))
-                plt.subplot(1,3,1); plt.imshow( Y[:,:,0], origin='image' ); plt.title("Spheres");
-                plt.subplot(1,3,2); plt.imshow( Y[:,:,1], origin='image' ); plt.title("Disks");
-                plt.subplot(1,3,3); plt.imshow( Y[:,:,2], origin='image' ); plt.title("Height");
+                plt.subplot(1,3,1); plt.imshow( Y[:,:,0], origin='image' ); plt.title("Disks");     plt.colorbar()
+                plt.subplot(1,3,2); plt.imshow( Y[:,:,1], origin='image' ); plt.title("Spheres");   plt.colorbar()
+                plt.subplot(1,3,3); plt.imshow( Y[:,:,2], origin='image' ); plt.title("HeightMap"); plt.colorbar()
             else:
                 plt.imshow( Y, origin='image' );
-            plt.colorbar()
+                plt.title(entropy)
+                plt.colorbar()
             #print "Y = ", Y
             #plt.imshow( Y, vmin=-5, vmax=5, origin='image' );  
-            plt.title(entropy)
             plt.savefig(  fname+"Dens.png", bbox_inches="tight"  );
             #plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
             plt.close()
