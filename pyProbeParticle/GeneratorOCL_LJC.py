@@ -561,6 +561,8 @@ class Generator(Sequence,):
                 vmax = max( Y.max(), -Y.min() )
                 #plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='seismic', origin='image' );
                 plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='bwr', origin='image' );
+                plt.title(entropy)
+                plt.colorbar()
             if self.Ymode == 'D-S-H':
                 print "plot  D-S-H mode", fname, Y.shape
                 plt.figure(figsize=(15,5))
