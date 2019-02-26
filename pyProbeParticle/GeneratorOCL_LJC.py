@@ -33,6 +33,13 @@ from keras.utils import Sequence
 
 verbose=0
 
+def getRandomUniformDisk():
+    # see: http://mathworld.wolfram.com/DiskPointPicking.html
+    rnd = np.random.rand(2)
+    rnd[0]    = np.sqrt( rnd[0] ) 
+    rnd[1]   *= 2.0*np.pi
+    return  rnd[0]*np.cos(rnd[1]), rnd[0]*np.sin(rnd[1])
+
 
 def rotAtoms(rot, atoms):
     print "atoms.shape ", atoms.shape
@@ -304,7 +311,7 @@ class Generator(Sequence,):
         FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
         self.FEin  = FF[:,:,:,:4] + self.Q*FF[:,:,:,4:];
-        
+
         if self.Ymode == 'ElectrostaticMap':
             self.FE2in = FF[:,:,:,4:].copy();
 
@@ -328,14 +335,21 @@ class Generator(Sequence,):
         if(verbose>0): print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
 
-        '''
-        tipR0      = self.maxTilt0 * (np.random.rand(3) - 0.5); 
-        #tipR0[2] += self.tipR0 # augumentation of data by varying tip
-        tipR0[2]   = self.tipR0 # augumentation of data by varying tip
-        '''
-        tipR0 = np.array( [0.5,0.0,self.tipR0] )
+        vtipR0    = np.zeros(3)
+        
+        #rnd       = np.random.rand(2)
+        #rnd[0]    = np.sqrt( rnd[0] ) 
+        #rnd[1]   *= 2.0*np.pi
+        vtipR0[0],vtipR0[1] = getRandomUniformDisk()
+        vtipR0    *= self.maxTilt0
+        #vtipR0      = self.maxTilt0 * (np.random.rand(3) - 0.5);
+        #vtipR0[2] += self.tipR0 # augumentation of data by varying tip
+        vtipR0[2]   = self.tipR0 # augumentation of data by varying tip
+        #vtipR0 = np.array( [0.5,0.0,self.tipR0] )
+        #vtipR0 = np.array( [0.0,0.0,self.tipR0] )
+        #print " >>>>>>>>  vtipR0 ", vtipR0
 
-        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*self.distAbove, rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
+        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*self.distAbove, rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
 
         FEout  = self.scanner.run_relaxStrokesTilted()
 
@@ -499,6 +513,9 @@ class Generator(Sequence,):
 
         self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAbove, rot=rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
 
+
+        print  " >>>>>>> maxTilt0 ", self.maxTilt0, "tipR0 ", tipR0
+
         FEout  = self.scanner.run_relaxStrokesTilted()
 
         if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
@@ -555,13 +572,15 @@ class Generator(Sequence,):
 
         #self.saveDebugXSF(  self.preName + molName + rotName+"_Fz.xsf", X, d=(0.1,0.1,0.1) )
 
-        title = "entropy %f" %entropy
+        title = "entropy  NA"
+        if entropy is not None:
+            title = "entropy %f" %entropy
         if Y is not None:
             if self.Ymode == 'ElectrostaticMap':
                 vmax = max( Y.max(), -Y.min() )
                 #plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='seismic', origin='image' );
                 plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='bwr', origin='image' );
-                plt.title(entropy)
+                plt.title(title)
                 plt.colorbar()
             if self.Ymode == 'D-S-H':
                 print "plot  D-S-H mode", fname, Y.shape
@@ -571,7 +590,7 @@ class Generator(Sequence,):
                 plt.subplot(1,3,3); plt.imshow( Y[:,:,2], origin='image' ); plt.title("HeightMap"); plt.colorbar()
             else:
                 plt.imshow( Y, origin='image' );
-                plt.title(entropy)
+                plt.title(title)
                 plt.colorbar()
             #print "Y = ", Y
             #plt.imshow( Y, vmin=-5, vmax=5, origin='image' );  
@@ -587,7 +606,7 @@ class Generator(Sequence,):
                 plt.subplot(1,2,2); plt.imshow (X [:,:,isl], origin='image' );            plt.colorbar()
                 #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl], origin='image' );
                 plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]), origin='image' );   plt.colorbar()
-                plt.title(entropy)
+                plt.title(title)
                 plt.savefig( fname+( "FzFixRelax_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                 plt.close()
             else:

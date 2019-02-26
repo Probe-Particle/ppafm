@@ -217,11 +217,13 @@ class RelaxedScanner:
         self.dpos0Tip[2]  =  -np.sqrt(tipR0[2]**2 - tipR0[0]**2 - tipR0[1]**2);
         self.dpos0Tip[3]  =   tipR0[2]
 
+        #print "setScanRot RelaxedScanner.dpos0Tip ", self.dpos0Tip
+
         self.dpos0    = np.zeros(4,dtype=np.float32); 
         #self.dpos0[:3] = rot[2]*-tipR0;  self.dpos0[3] = tipR0
         #self.dpos0[:3]  = np.dot( rot, self.dpos0Tip[:3] );  self.dpos0[3] = tipR0[2]
         self.dpos0[:3]  = np.dot( rot.transpose(), self.dpos0Tip[:3] );  self.dpos0[3] = tipR0[2]
-        print " self.dpos0Tip: ", self.dpos0Tip, " self.dpos0 ", self.dpos0
+        #print " self.dpos0Tip: ", self.dpos0Tip, " self.dpos0 ", self.dpos0
 
 
         ys    = np.linspace(start[0],end[0],self.scan_dim[0])
@@ -283,6 +285,8 @@ class RelaxedScanner:
         if nz is None: nz=self.scan_dim[2] 
         if FEout is None:    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
         self.updateBuffers( FEin=FEin, lvec=lvec )
+
+        #print ">>>>>> run_relaxStrokesTilted : tipRot ", self.tipRot
         kargs = ( 
             self.cl_ImgIn, 
             self.cl_poss, 

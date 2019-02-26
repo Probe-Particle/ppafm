@@ -305,6 +305,8 @@ __kernel void relaxStrokesTilted(
     const float dt   = relax_params.x;
     const float damp = relax_params.y;
 
+    //if( (get_global_id(0)==0) ){          printf( " dpos0_ (%g,%g,%g) \n", dpos0_.x, dpos0_.y, dpos0_.z );}
+
     for(int iz=0; iz<nz; iz++){
         float4 fe;
         float3 vel   = 0.0f;
@@ -324,7 +326,7 @@ __kernel void relaxStrokesTilted(
             };
             */
             f            += rotMatT ( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
-            f            +=  tipC.xyz * surfFF.x; // TODO: more sophisticated model of surface potential? Like Hamaker ?
+            f            +=  tipC.xyz * surfFF.x;                                // TODO: more sophisticated model of surface potential? Like Hamaker ?
 
             //f      +=  tipForce( dpos, stiffness, dpos0_ );  // Not rotated
             

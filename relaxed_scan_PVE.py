@@ -94,6 +94,7 @@ if __name__=="__main__":
     FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )
 
     #FFvdW*=0
+    #FFvdW*=0.25
     #FFpauli *= 0.25
     #FFpauli *= 0.15
 
@@ -101,8 +102,6 @@ if __name__=="__main__":
     lvec[2,:] = rotVec( lvec[2,:], opt_dict['rotate'] ) 
     print lvec
     PPU.lvec2params( lvec )
-
-
 
     for iq,Q in enumerate( Qs ):
         PPU.params['charge'] = Q

@@ -19,6 +19,8 @@ import RelaxOpenCL as oclr
 
 # ============= Functions
 
+verbose = 0
+
 def genFFSampling( lvec, pixPerAngstrome=10 ):
     ff_nDim = np.array([
         int(round(pixPerAngstrome*(lvec[1][0]+lvec[1][1]))),
