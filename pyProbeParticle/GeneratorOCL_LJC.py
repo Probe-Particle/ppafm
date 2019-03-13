@@ -349,6 +349,8 @@ class Generator(Sequence,):
         #vtipR0 = np.array( [0.0,0.0,self.tipR0] )
         #print " >>>>>>>>  vtipR0 ", vtipR0
 
+        #vtipR0 = np.array( [0.5,0.0,self.tipR0] )
+
         self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*self.distAbove, rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
 
         FEout  = self.scanner.run_relaxStrokesTilted()

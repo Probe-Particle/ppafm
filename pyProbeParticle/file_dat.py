@@ -9,7 +9,7 @@ import zlib
 #from PIL import Image
 #import matplotlib.pyplot as plt
 
-def readDat( fname ):
+def readDat( fname, Header=None ):
     ndir, nfile  = os.path.split( fname )
     ndir=ndir+'/'
     try:
@@ -39,11 +39,17 @@ def readDat( fname ):
 
     d = []
     for i in range(1,ind):
-        tmp=header_binary[i].split(b'=');
-        d.append((tmp[0],tmp[1]))
+        #try:
+            tmp=header_binary[i].split(b'=');
+            d.append((tmp[0],tmp[1]))
+        #except:
+        #    pass
     SplittedLine=pd.DataFrame(d, columns=('parameter', 'value'))
 
-    Header={}
+
+    if Header is None:
+        Header = {}
+    
     Header['ScanPixels_X'] = int(SplittedLine.loc[SplittedLine['parameter'] == b'Num.X / Num.X'].value.item())
     Header['ScanPixels_Y'] = int(SplittedLine.loc[SplittedLine['parameter'] == b'Num.Y / Num.Y'].value.item())
     Header['GainX'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'GainX / GainX'].value.item())
@@ -65,6 +71,23 @@ def readDat( fname ):
     Header['ZControllerIntegralGain'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'FBIntegral'].value.item())
     Header['ZControllerProportionalGain'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'FBProp'].value.item())
     Header['PiezoX'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Xpiezoconst'].value.item())
+    
+
+    #print " int(SplittedLine.loc[SplittedLine['parameter'] ", int(SplittedLine.loc[SplittedLine['parameter'] == b'Num.X / Num.X'].value.item())
+    '''
+    keyws = [ b'Num.X / Num.X', b'Num.Y / Num.Y', b'GainX / GainX', b'GainY / GainY', b'GainZ / GainZ', b'Gainpreamp / GainPre 10^', b'Channels / Channels'
+        b'Dacto[A]z', b'Dacto[A]xy', b'Length x[A]', b'Length y[A]', b'Scanrotoffx / OffsetX', b'Scanrotoffy / OffsetY', b'Biasvolt[mV]', b'Current[A]', b'Sec/Image:'
+         b'Rotation / Rotation', b'FBLogIset', b'FBIntegral', b'FBProp', b'Xpiezoconst'
+     ]
+    for keyw in keyws:
+        try:
+            print "keyw", keyw
+            val = SplittedLine.loc[SplittedLine['parameter'] ==  keyw ].value.item()
+            Header[ keyw.decode('ascii') ] = val
+        except:
+            print "keyw WRONG:", keyw
+            pass
+    '''
 
     if STMAFMVersion == 1:
         BytePerPixel = 2

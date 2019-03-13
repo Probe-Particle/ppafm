@@ -10,6 +10,7 @@ import os
 import time
 import random
 import matplotlib; matplotlib.use('Qt5Agg')
+import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtWidgets, QtGui
 import numpy as np
 from enum import Enum
@@ -54,6 +55,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     #path='./'
     path="/u/25/prokoph1/unix/Desktop/CATAM/Exp_Data/Camphor/Orientation_4/"
 
+    divNX = 8
+    divNY = 8
+    bSaveDivisible = True
+
     def __init__(self):
 
         # --- init QtMain
@@ -81,6 +86,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(-1000,1000); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx); self.bxY=bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) ; bt = QtWidgets.QPushButton('Magic fit', self); bt.setToolTip('Fit to colser slice'); bt.clicked.connect(self.magicFit); vb.addWidget( bt ); self.btLoad = bt
+
+        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('MagicAll', self); bt.setToolTip('Fit all slices'); bt.clicked.connect(self.magicFitAll);      vb.addWidget( bt ); self.btLoad = bt
+        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('SaveImgs', self); bt.setToolTip('save images'); bt.clicked.connect(self.saveImg);      vb.addWidget( bt ); self.btLoad = bt
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Ninter ") )
         bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(1); vb.addWidget(bx); self.bxNi=bx
@@ -148,7 +156,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             print self.shifts
             self.updateDataView()
 
-        
+    def magicFitAll(self):
+        izs = range( len(self.data)-1 )
+        for iz in izs[::-1]:
+            self.bxZ.setValue(iz);
+            self.magicFit()
 
     def loadData(self):
         #print file_list
@@ -177,7 +189,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             #print fname
             fname_ = os.path.basename(fname); fnames.append( fname_ )
             #print os.path.basename(fname)
-            imgs = file_dat.readDat(fname)
+            Header = {}
+            imgs = file_dat.readDat(fname, Header=Header )
+            print fname, "Size ", Header['ScanRange_Y'],Header['ScanRange_X']," N ", imgs[0].shape," dxy ",  Header['ScanRange_Y']/imgs[0].shape[0], Header['ScanRange_X']/imgs[0].shape[1]
             data.append( imgs[1] )
             #data2.append( imgs[1] )
         self.fnames = fnames
@@ -210,8 +224,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def saveData(self):
         arr = np.array(self.data)
-        print arr.shape 
-        np.save( self.path+"data.npy", arr)
+        print "saveData: arr.shape ", arr.shape 
+        if ( self.bSaveDivisible ):
+            print "dat.shape ", arr.shape
+            nx=arr.shape[1]/self.divNX * self.divNX
+            ny=arr.shape[2]/self.divNY * self.divNY
+            arr_ = arr[:,:nx,:ny]
+            arr_ = arr_.transpose((1,2,0))
+            print "saveData: arr_.shape ", arr_.shape
+            np.save( self.path+"data.npy", arr_)
+        else:
+            np.save( self.path+"data.npy", arr  )
+
         with open(self.path+'data.pickle', 'wb') as fp:
             pickle.dump( self.fnames, fp)
             pickle.dump( self.shifts, fp)
@@ -226,6 +250,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.data = [ s for s in data ]
         self.bxZ.setRange( 0, len(self.data)-1 );
         self.updateDataView()
+
+    def saveImg(self):
+        n = len(self.data)
+        plt.figure( figsize=(n*5,5) )
+        for i in range(n):
+            #print i
+            plt.subplot(1,n,i+1)
+            plt.imshow(self.data[i], origin='image')
+        plt.savefig(self.path+"data.png", bbox_inches='tight')
 
     def shiftData(self):
         print "shiftData"
