@@ -201,6 +201,32 @@ class RelaxedScanner:
         if self.cl_zMap  is not None: self.cl_zMap.release()
         if self.cl_feMap is not None: self.cl_feMap.release()
 
+    def tryReleaseBuffers(self):
+        try:
+            self.cl_ImgIn.release()
+        except:
+            pass
+        try:
+            self.cl_poss.release()
+        except:
+            pass
+        try:
+            self.cl_FEout.release()
+        except:
+            pass
+        try:
+            self.cl_ImgFE.release()
+        except:
+            pass
+        try:
+            self.cl_zMap.release()
+        except:
+            pass
+        try:
+            self.cl_feMap.release()
+        except:
+            pass
+
     def setScanRot(self, pos0, rot=None, start=(-5.0,-5.0), end=(5.0,5.0), zstep=0.1, tipR0=[0.0,0.0,4.0] ):
         if rot is None:
             rot = np.identity()
