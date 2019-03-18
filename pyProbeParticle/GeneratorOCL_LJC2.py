@@ -342,7 +342,9 @@ class Generator(Sequence,):
         self.scanner.updateBuffers( FEin=self.FEin )
         Xs2,Ys2   = self.nextRotBatch()
 
-        self.imol +=1
+        self.imol += 1
+        self.imol =  self.imol % len(  self.molecules )
+        
         return Xs1,Ys1,Xs2,Ys2
 
     def nextMolecule(self, fname ):
