@@ -300,10 +300,13 @@ class Generator(Sequence,):
         else:
             Ys = np.empty( (n,)+ self.scan_dim[:2] )
 
+        self.irot = 0
         for irot in range(n):
-            print irot, self.nBestRotations
+            #print irot, self.nBestRotations
+            self.irot = irot
             #self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
             rot = self.rotations_sorted[irot]
+            #print rot
             self.nextRotation( Xs[irot], Ys[irot] )
         return Xs,Ys
 
@@ -390,6 +393,8 @@ class Generator(Sequence,):
     def nextRotation(self, X,Y ):
         t1scan = time.clock();
         (entropy, self.pos0, self.rot) = self.rotations_sorted[self.irot]
+        #print "  self.irot ", self.irot, self.rotations_sorted[self.irot]
+        #print "  self.irot ", self.irot
 
         if(verbose>0): print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
@@ -600,7 +605,7 @@ class Generator(Sequence,):
                 plt.title(title)
                 plt.colorbar()
             if self.Ymode == 'D-S-H':
-                print "plot  D-S-H mode", fname, Y.shape
+                #print "plot  D-S-H mode", fname, Y.shape
                 plt.figure(figsize=(15,5))
                 plt.subplot(1,3,1); plt.imshow( Y[:,:,0], origin='image' ); plt.title("Disks");     plt.colorbar()
                 plt.subplot(1,3,2); plt.imshow( Y[:,:,1], origin='image' ); plt.title("Spheres");   plt.colorbar()
