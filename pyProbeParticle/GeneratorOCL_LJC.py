@@ -184,7 +184,7 @@ class Generator(Sequence,):
         self.projector = None; self.FE2in=None
         self.bZMap = False; self.bFEmap = False;
         if(verbose>0): print "Ymode", self.Ymode
-        if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'SphereCaps' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks' or self.Ymode == 'D-S-H':
+        if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'SphereCaps' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks' or self.Ymode == 'D-S-H' or self.Ymode == 'MultiMapSpheres':
             self.projector  = FFcl.AtomProcjetion()
         if self.Ymode == 'HeightMap' or self.Ymode == 'D-S-H' : 
             self.bZMap = True
@@ -244,10 +244,13 @@ class Generator(Sequence,):
 
         if self.Ymode == 'D-S-H':
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
+        elif self.Ymode == 'MultiMapSpheres': 
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (8,) )
         elif self.Ymode == 'ElectrostaticMap': 
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
         else:
             Ys = np.empty( (n,)+ self.scan_dim[:2] )
+
         for ibatch in range(n):
             self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
             if( self.irot == 0 ):# recalc FF
@@ -320,7 +323,10 @@ class Generator(Sequence,):
             #print "self.atomsNonPBC", self.atomsNonPBC
             #print "Zs[:self.atomsNonPBC]", Zs[:self.atomsNonPBC]
             coefs=self.projector.makeCoefsZR( Zs[:na], elements.ELEMENTS )
-            self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs )
+            if( self.Ymode == 'MultiMapSpheres' ):
+                self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(8,), coefs=coefs )
+            else:
+                self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs )
 
         #self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
 
@@ -447,6 +453,12 @@ class Generator(Sequence,):
 
             Y[:,:,0] = Ye
             Y[:,:,1] = zMap
+
+        elif self.Ymode == 'MultiMapSpheres':
+            dirFw = np.append( self.rot[2], [0] ); 
+            if(verbose>0): print "dirFw ", dirFw
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+            Y[:,:,:] = self.projector.run_evalMultiMapSpheres( poss = poss_, tipRot=self.scanner.tipRot )
 
         elif self.Ymode == 'Lorenzian':
             dirFw = np.append( self.rot[2], [0] ); 

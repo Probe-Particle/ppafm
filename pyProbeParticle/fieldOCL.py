@@ -404,12 +404,15 @@ class AtomProcjetion:
         #self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
         #self.cl_Eout  = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes/4 ); nbytes+=poss.nbytes/4 # float
 
-        npostot = prj_dim[0] * prj_dim[1] * prj_dim[2]
+        npostot = prj_dim[0] * prj_dim[1]
         
         bsz=np.dtype(np.float32).itemsize * npostot
-        if(verbose>0): print prj_dim, npostot, " nbytes : = ", bsz*4
-        self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz*4   );   nbytes+=bsz*4  # float4
-        self.cl_Eout  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz     );   nbytes+=bsz    # float
+        #if(verbose>0): 
+        print prj_dim, npostot, " nbytes : = ", bsz*4
+        self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz*4           );   nbytes+=bsz*4  # float4
+        self.cl_Eout  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz*prj_dim[2]  );   nbytes+=bsz    # float
+
+        #self.cl_MultiMap  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz*8     );   nbytes+=bsz    # float
 
         #kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
         if(verbose>0): print "AtomProcjetion.prepareBuffers.nbytes ", nbytes
@@ -452,7 +455,7 @@ class AtomProcjetion:
         if poss is not None:
             if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
-        ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size
         kargs = (  
@@ -476,7 +479,7 @@ class AtomProcjetion:
         if poss is not None:
             if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
-        ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size
         kargs = (  
@@ -502,7 +505,7 @@ class AtomProcjetion:
         if poss is not None:
             if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
-        ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size
         kargs = (  
@@ -531,7 +534,7 @@ class AtomProcjetion:
         if poss is not None:
             if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
-        ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size
         kargs = (  
@@ -558,7 +561,7 @@ class AtomProcjetion:
         if poss is not None:
             if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
-        ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size
         kargs = (  
@@ -587,7 +590,7 @@ class AtomProcjetion:
         if poss is not None:
             if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
-        ntot = self.prj_dim[0]*self.prj_dim[1]*self.prj_dim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size
         kargs = (  
@@ -605,4 +608,31 @@ class AtomProcjetion:
         return Eout
 
 
+    def run_evalMultiMapSpheres(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+        if tipRot is not None:
+            self.tipRot=tipRot
+        if Eout is None:
+            Eout = np.zeros( self.prj_dim, dtype=np.float32 )
+            #if(verbose>0): 
+            print "FE.shape", Eout.shape
+        if poss is not None:
+            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            oclu.updateBuffer(poss, self.cl_poss )
+        ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        global_size = (ntot,) # TODO make sure divisible by local_size
+        #print "global_size:", global_size
+        kargs = (  
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_coefs,
+            self.cl_poss,
+            self.cl_Eout,
+            np.float32( self.Rpp   ),
+            np.float32( self.zmin  ),
+            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+        )
+        cl_program.evalMultiMapSpheres( self.queue, global_size, local_size, *(kargs) )
+        cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        self.queue.finish()
+        return Eout
 

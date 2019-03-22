@@ -462,46 +462,62 @@ __kernel void evalDisk_occlusion(
 
 
 
-__kernel void evalQDisk(
+__kernel void evalMultiMapSpheres(
     int nAtoms, 
     __global float4*    atoms,
-    //__global float4*    coefs,
+    __global float4*    coefs,
     __global float4*    poss,
-    __global float*     FE,
-    float dzmax,
+    __global float*     MultMap,
+    float Rpp,
+    float zmin,
     float4 rotA,
     float4 rotB,
     float4 rotC
 ){
     __local float4 LATOMS[32];
-    //__local float4 LCOEFS[32];
+    __local float4 LCOEFS[32];
+    float ztops[8];
+
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
    
     float3 pos = poss[iG].xyz;
-    float fe = 0.0f;
+
+    float mask = 1.0;
     //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf( " xyzq (%g,%g,%g,%g) coef (%g,%g,%g,%g) \n", atoms[i].x,atoms[i].y,atoms[i].z,atoms[i].w,   coefs[i].x,coefs[i].y,coefs[i].z,coefs[i].w );  } }
+
+    //float ztop = zmin;
+    for (int i=0; i<8; i++){
+        ztops[i]=zmin;
+    }
+
     for (int i0=0; i0<nAtoms; i0+= nL ){
         int i = i0 + iL;
         LATOMS[iL] = atoms[i];
-        //LCOEFS[iL] = coefs[i];
+        LCOEFS[iL] = coefs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
             if( (j+i0)<nAtoms ){ 
-                float3 dp  =  pos - LATOMS[j].xyz;
-                float3 abc = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
-                float   R  = 1.0f-(abc.z/dzmax);
-                float   r2 = dot(abc.xy,abc.xy);
-                float dxy2 = r2/(R*R);
-                if( (R>0.0) && (dxy2<1.0) ){
-                    fe +=  LATOMS[j].w * ( 1.0f- sqrt(dxy2) );
+                float3 dp    = pos - LATOMS[j].xyz;
+                float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
+                float  Rvdw  = LCOEFS[j].w + Rpp;
+                float r2xy   =  dot(abc.xy,abc.xy);
+                float  z     = -abc.z + sqrt( Rvdw*Rvdw - r2xy );
+
+                int ityp = (int)((LCOEFS[j].w - 1.4)*10.0);
+                if(z>ztops[ityp]){
+                    ztops[ityp  ]=z;
+                    //ztops[ityp+4]=z;
                 }
             }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
-    FE[iG] = fe;
+    for (int i=0; i<8; i++){
+        //ztops[i]=zmin;
+        MultMap[iG*8+i] = ztops[i];
+    }
 }
 
 
