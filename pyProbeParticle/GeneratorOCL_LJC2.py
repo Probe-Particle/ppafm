@@ -327,7 +327,7 @@ class Generator(Sequence,):
 
         self.Q    = self.Q1
         self.iZPP = self.iZPP1
-        print self.imol
+        #print self.imol
         self.molName =  self.molecules[self.imol]
         self.nextMolecule( self.molName ) 
         self.handleRotations()
