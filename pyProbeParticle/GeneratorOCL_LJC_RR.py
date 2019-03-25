@@ -134,6 +134,7 @@ class Generator(Sequence,):
     npbc = (1,1,1)
 
     use_rff = True
+    save_rff_xyz = False
 
     debugPlots = False
     #debugPlotSlices   = [0,+2,+4,+6,+8,+10,+12,+14,+16]
@@ -313,7 +314,7 @@ class Generator(Sequence,):
     def genMolRffRandom(self):
         #itypes  = np.random.randint( 2, size=natom, dtype=np.int32 ); print "itypes", itypes
         rff.clean()
-        self.rff_itypes  = (np.random.rand( self.rff_natom )*1.3 ).astype(np.int32); print "itypes", self.rff_itypes
+        self.rff_itypes  = (np.random.rand( self.rff_natom )*1.3 ).astype(np.int32); # print "itypes", self.rff_itypes
         rff.setTypes( self.rff_natom, self.rff_itypes )
         self.rff_poss [:,:]  = ( np.random.rand(self.rff_natom,3)-0.5 ) * 10.0
         self.rff_poss [:,2]  = 0.15
@@ -335,7 +336,7 @@ class Generator(Sequence,):
             #    xyzs, itypes_ = rff.removeSaturatedBonds(self.rff_caps, self.rff_itypes_, xyzs )
             #    au.writeToXYZ( fout, itypes_, xyzs  )
         rff.passivateBonds( -0.1 );
-        print "passivation ", self.rff_caps
+        #print "passivation ", self.rff_caps
         for itr in range(30):
             F2 = rff.relaxNsteps( nsteps=50, F2conf=0.0, dt=0.05, damp=0.9 )
             #print ">> itr ", itr," F2 ", F2 #, self.rff_caps
@@ -353,17 +354,17 @@ class Generator(Sequence,):
 
         if(self.use_rff):
             path = self.preName + self.molecules[self.imol]
-            print path
+            #print path
             os.makedirs( path )
-            self.genMolRffRandom()    ;print "DEBUG 1 "
-            self.relaxMolRff()        ;print "DEBUG 2 "
-            xyzs, itypes_ = rff.h2bonds( self.rff_itypes, self.rff_poss, self.rff_hbonds, bsc=1.1 ) ;print "DEBUG 3 "
-            xyzs, itypes_ = rff.removeSaturatedBonds(self.rff_caps, itypes_, xyzs )        ;print "DEBUG 4 "
+            self.genMolRffRandom()    
+            self.relaxMolRff()        
+            xyzs, itypes_ = rff.h2bonds( self.rff_itypes, self.rff_poss, self.rff_hbonds, bsc=1.1 ) 
+            xyzs, itypes_ = rff.removeSaturatedBonds(self.rff_caps, itypes_, xyzs )        
             self.atom_lines = []
             for i,xyz in enumerate( xyzs ):
                 self.atom_lines.append( "%s %f %f %f\n"  %( itypes_[i], xyz[0], xyz[1], xyz[2] ) )
                 #print self.atom_lines[-1]
-            au.saveXYZ( itypes_, xyzs, path+"/pos.xyz" )
+            if(self.save_rff_xyz): au.saveXYZ( itypes_, xyzs, path+"/pos.xyz" )
         else:
             self.atom_lines = open( fullname ).readlines()
 
@@ -435,6 +436,9 @@ class Generator(Sequence,):
 
         #vtipR0 = np.array( [0.5,0.0,self.tipR0] )
 
+        #self.pos0[0] = 0.0
+        #self.pos0[1] = 0.0
+
         self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*self.distAbove, rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
 
         FEout  = self.scanner.run_relaxStrokesTilted()
@@ -447,52 +451,14 @@ class Generator(Sequence,):
         #FEconv = self.scanner.runZConv()
         FEout = self.scanner.run_convolveZ()
 
-        #exit(0);
-
-        #XX = FEconv[:,:,:,0]*zDir[0] + FEconv[:,:,:,1]*zDir[1] + FEconv[:,:,:,2]*zDir[2]
-        #self.saveDebugXSF( "df.xsf", XX )
-
-        # Perhaps we should convert it to df using PPU.Fz2df(), but that is rather slow - maybe to it on GPU?
-        #X[:,:,:] = FEout[:,:,:,2]
-        #print "rot.shape, zDir.shape", self.rot.shape, zDir
-        #print "FEout.shape ", FEout.shape
-
-        #X[:,:,:] = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
-        #X[:,:,:] = FEout[:,:,:,2].copy()  # Rotation is now done in kernel
         X[:,:,:FEout.shape[2]] = FEout[:,:,:,2].copy()
-        #print "FEout.z min max ", np.min(FEout[:,:,:,2]), np.max(FEout[:,:,:,2])
-        #print "X shape min max ", X[:,:,:FEout.shape[2]].shape,   np.min(X[:,:,:FEout.shape[2]]), np.max(X[:,:,:FEout.shape[2]])
+
 
         Tscan = time.clock()-t1scan;  
         if(verbose>1): print "Tscan %f [s]" %Tscan
         
         t1y = time.clock();
-        #self.scanner.runFixed( FEout=FEout )
-        #self.scanner.run_getFEinStrokesTilted( FEout=FEout )
-        #Y[:,:] = FEout[:,:,-1,2]
-        #Y[:,:] =  FEout[:,:,self.isliceY,0]*zDir[0] + FEout[:,:,self.isliceY,1]*zDir[1] + FEout[:,:,self.isliceY,2]*zDir[2]
-        #self.zWeight =  self.getZWeights(); print self.zWeight
-        #Y_ = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
-        #Y_ = FEout[:,:,:,2].copy()
 
-        # -- strategy 1  CPU saturated Weighted average
-        #Y_ = np.tanh( Y_ )
-        #Y[:,:] = applyZWeith( Y_, self.zWeight )
-        # -- strategy 1  CPU zMin
-        #Y[:,:] = np.nanargmin( ( Y_-1.0 )**2, axis=2 )
-        #Yf = Y.flat; Yf[Yf<5] = Y_.shape[2]
-        #Yf = Y.flat; Yf[Yf<5] = np.NaN
-        #Yf = Y.flat; Yf[Y.fla_] = np.NaN
-        # -- strategy 3  GPU convolve
-        #self.scanner.updateBuffers( WZconv=self.zWeight )
-        #FEconv = self.scanner.runZConv()
-        #YY = FEconv[:,:,:,0]*zDir[0] + FEconv[:,:,:,1]*zDir[1] + FEconv[:,:,:,2]*zDir[2]
-        #self.saveDebugXSF( "FixedConv.xsf", YY )
-        # -- strategy 4  GPU izoZ
-        #Y[:,:] = self.scanner.runIzoZ( iso=0.1 )
-        #Y[:,:] = self.scanner.runIzoZ( iso=0.1, nz=40 )
-        #Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
-        
 
         if self.Ymode == 'HeightMap':
             '''

@@ -407,8 +407,7 @@ class AtomProcjetion:
         npostot = prj_dim[0] * prj_dim[1]
         
         bsz=np.dtype(np.float32).itemsize * npostot
-        #if(verbose>0): 
-        print prj_dim, npostot, " nbytes : = ", bsz*4
+        #if(verbose>0): print prj_dim, npostot, " nbytes : = ", bsz*4
         self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz*4           );   nbytes+=bsz*4  # float4
         self.cl_Eout  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz*prj_dim[2]  );   nbytes+=bsz    # float
 

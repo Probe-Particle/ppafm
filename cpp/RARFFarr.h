@@ -460,7 +460,7 @@ class RARFF2arr{ public:
     }
 
     int passivateBonds( double Ecut ){
-        printf( " c6cap, c12cap %g %g \n", c6cap, c12cap );
+        //printf( " c6cap, c12cap %g %g \n", c6cap, c12cap );
         for(int i=0; i<natom*N_BOND_MAX; i++){ bondCaps[i]=-1; };
         for(int ia=0; ia<natom; ia++){
             int nbi =  types[ia]->nbond;
