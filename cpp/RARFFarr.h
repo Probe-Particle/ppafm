@@ -264,10 +264,30 @@ class RARFF2arr{ public:
 
             bool capi = ( capis[ib] >= 0 );
 
+
+            if( capi ){ // repulsion of capping atoms and normal atoms
+                Vec3d pi = poss[ia] + hi*lcap;
+                Vec3d pj = poss[ja];
+
+                Vec3d  dij   = pi-pj;
+                double r2    = dij.norm2() + R2SAFE;
+
+                // Lenard-Jones
+                double ir2 = 1/(r2+0.1);
+                double ir6 = ir2*ir2*ir2;
+                Vec3d  f   = dij * ( ( 6*c6cap - 12*c12cap*ir6 ) * ir6 * -ir2 );
+
+                force.add(f);
+                f.mul(1.0/lcap);
+                fi.add(f);
+                //fj.sub(f);
+                continue;
+            }
+
+
             for(int jb=0; jb<nbj; jb++){
                 const Vec3d& hj = hjs[jb];
                 Vec3d& fj = fjs[jb];
-
 
                 if( capi && (capjs[jb]>=0) ){ // repulsion of capping atoms
                     Vec3d pi = poss[ia] + hi*lcap;
@@ -277,14 +297,14 @@ class RARFF2arr{ public:
                     double r2    = dij.norm2() + R2SAFE;
                     
                     // Morse
-                    double rij   = sqrt( r2 );
-                    double e     = aMorseCap * exp( bMorseCap*rij );
-                    Vec3d  f     = dij * (-bMorseCap * e / rij);
+                    //double rij   = sqrt( r2 );
+                    //double e     = aMorseCap * exp( bMorseCap*rij );
+                    //Vec3d  f     = dij * (-bMorseCap * e / rij);
 
                     // Lenard-Jones
-                    //double ir2 = 1/r2;
-                    //double ir6 = r2*r2*r2;
-                    //Vec3d  f   = dij * ( ( 6*c6cap - 12*c12cap*ir6 ) * ir6 * -ir2 );
+                    double ir2 = 1/(r2+0.1);
+                    double ir6 = ir2*ir2*ir2;
+                    Vec3d  f   = dij * ( ( 6*c6cap - 12*c12cap*ir6 ) * ir6 * -ir2 );
 
                     force.add(f);
                     f.mul(1.0/lcap);

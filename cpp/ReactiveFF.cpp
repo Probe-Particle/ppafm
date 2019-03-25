@@ -143,6 +143,7 @@ double relaxNsteps( int nsteps, double F2conf, double dt, double damp ){
         //printf( "itr %i F2 %g \n", itr, F2 ); 
         if(F2<F2conf) break;
         ff.moveMDdamp(dt, damp);
+        //exit(0);
     }
     return F2;
 }

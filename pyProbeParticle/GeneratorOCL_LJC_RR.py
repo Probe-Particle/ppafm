@@ -346,6 +346,7 @@ class Generator(Sequence,):
             #    au.writeToXYZ( fout, itypes_, xyzs  )
         #if (rff_debug_xyz): fout.close()
         t2 = time.clock();
+        print " molecule gen time ", t2-t1 
 
     def nextMolecule(self, fname ):
         fullname = self.preName+fname+self.postName
@@ -412,6 +413,7 @@ class Generator(Sequence,):
 
         Tff = time.clock()-t1ff;   
         if(verbose>1): print "Tff %f [s]" %Tff
+        print " force field ", Tff 
 
     #def nextRotation(self, rot, X,Y ):
     def nextRotation(self, X,Y ):
