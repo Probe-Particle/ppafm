@@ -354,8 +354,7 @@ class Generator(Sequence,):
 
         if(self.use_rff):
             path = self.preName + self.molecules[self.imol]
-            #print path
-            os.makedirs( path )
+
             self.genMolRffRandom()    
             self.relaxMolRff()        
             xyzs, itypes_ = rff.h2bonds( self.rff_itypes, self.rff_poss, self.rff_hbonds, bsc=1.1 ) 
@@ -364,7 +363,9 @@ class Generator(Sequence,):
             for i,xyz in enumerate( xyzs ):
                 self.atom_lines.append( "%s %f %f %f\n"  %( itypes_[i], xyz[0], xyz[1], xyz[2] ) )
                 #print self.atom_lines[-1]
-            if(self.save_rff_xyz): au.saveXYZ( itypes_, xyzs, path+"/pos.xyz" )
+            if(self.save_rff_xyz): 
+                os.makedirs( path )
+                au.saveXYZ( itypes_, xyzs, path+"/pos.xyz" )
         else:
             self.atom_lines = open( fullname ).readlines()
 
