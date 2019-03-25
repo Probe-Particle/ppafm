@@ -487,7 +487,7 @@ __kernel void evalMultiMapSpheres(
     float mask = 1.0;
     //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf( " xyzq (%g,%g,%g,%g) coef (%g,%g,%g,%g) \n", atoms[i].x,atoms[i].y,atoms[i].z,atoms[i].w,   coefs[i].x,coefs[i].y,coefs[i].z,coefs[i].w );  } }
 
-    //float ztop = zmin;
+    float ztop = zmin;
     for (int i=0; i<8; i++){
         ztops[i]=zmin;
     }
@@ -506,6 +506,9 @@ __kernel void evalMultiMapSpheres(
                 float  z     = -abc.z + sqrt( Rvdw*Rvdw - r2xy );
 
                 int ityp = (int)((LCOEFS[j].w - 1.4)*10.0);
+                if(z>ztop){
+                    ztop=z;
+                }
                 if(z>ztops[ityp]){
                     ztops[ityp  ]=z;
                     //ztops[ityp+4]=z;
@@ -516,7 +519,7 @@ __kernel void evalMultiMapSpheres(
     }
     for (int i=0; i<8; i++){
         //ztops[i]=zmin;
-        MultMap[iG*8+i] = ztops[i];
+        if( ztop-ztops[i] < 0.02 ){ MultMap[iG*8+i] = ztops[i]; } else { MultMap[iG*8+i] = zmin; };
     }
 }
 
