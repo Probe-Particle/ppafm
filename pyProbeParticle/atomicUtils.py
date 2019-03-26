@@ -207,16 +207,20 @@ def saveAtoms( atoms, fname, xyz=True ):
             fout.write("%i %f %f %f\n"  %( atom[0], atom[1], atom[2], atom[3] ) )
     fout.close() 
 
-def writeToXYZ( fout, es, xyzs ):
+def writeToXYZ( fout, es, xyzs, qs=None ):
     fout.write("%i\n"  %len(xyzs) )
-    fout.write("\n") 
-    for i,xyz in enumerate( xyzs ):
-        fout.write("%s %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2] ) )
+    fout.write("\n")
+    if (qs is not None):
+        for i,xyz in enumerate( xyzs ):
+            fout.write("%s %f %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2], qs[i] ) )
+    else:
+        for i,xyz in enumerate( xyzs ):
+            fout.write("%s %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2] ) )
 
-def saveXYZ( es, xyzs, fname ):
+def saveXYZ( es, xyzs, fname, qs=None ):
     print ">>>>>",fname,"<<<<<"
     fout = open(fname, "w")
-    writeToXYZ( fout, es, xyzs )
+    writeToXYZ( fout, es, xyzs, qs )
     fout.close() 
 
 def loadAtoms( name ):

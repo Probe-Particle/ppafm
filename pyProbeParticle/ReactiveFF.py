@@ -124,6 +124,64 @@ lib.relaxNsteps.restype  = c_double
 def relaxNsteps( nsteps=10, F2conf=0.0, dt=0.05, damp=0.9, ):
     return lib.relaxNsteps( nsteps, F2conf, dt, damp )
 
+
+# === Charge
+
+# double* getChargeJ        ()
+lib.getChargeJ.argtypes = []
+lib.getChargeJ.restype  = ctypes.POINTER(c_double)
+def getChargeJ(natom):
+    return np.ctypeslib.as_array( lib.getChargeJ( ), shape=(natom,natom) )
+
+#double* getChargeQs       ()
+lib.getChargeQs.argtypes = []
+lib.getChargeQs.restype  = ctypes.POINTER(c_double)
+def getChargeQs(natom):
+    return np.ctypeslib.as_array( lib.getChargeQs( ), shape=(natom,) )
+
+#double* getChargeFs       ()
+lib.getChargeFs.argtypes = []
+lib.getChargeFs.restype  = ctypes.POINTER(c_double)
+def getChargeFs(natom):
+    return np.ctypeslib.as_array( lib.getChargeFs( ), shape=(natom,) )
+
+#double* getChargeAffinitis()
+lib.getChargeAffinitis.argtypes = []
+lib.getChargeAffinitis.restype  = ctypes.POINTER(c_double)
+def getChargeAffinitis(natom):
+    return np.ctypeslib.as_array( lib.getChargeAffinitis( ), shape=(natom,) )
+
+#double* getChargeHardness ()
+lib.getChargeHardness.argtypes = []
+lib.getChargeHardness.restype  = ctypes.POINTER(c_double)
+def getChargeHardness(natom):
+    return np.ctypeslib.as_array( lib.getChargeHardness( ), shape=(natom,) )
+
+'''
+#void setupCharge( int* itypes, double* taffins, double* thards ){
+lib.setupCharge.argtypes = [ array1i, array1d, array1d ]
+lib.setupCharge.restype  = None
+def setupCharge( itypes, taffins, thards  ):
+    return lib.setupCharge( itypes, taffins, thards )
+'''
+#void    setTotalCharge(double q)
+lib.setTotalCharge.argtypes = [ c_double ]
+lib.setTotalCharge.restype  = None
+def setTotalCharge( q ):
+    return lib.setTotalCharge( q )
+
+#void setupChargePos( int natom, double* pos, int* itypes, double* taffins, double* thards ){
+lib.setupChargePos.argtypes = [ c_int, array2d, array1i, array1d, array1d ]
+lib.setupChargePos.restype  = None
+def setupChargePos( pos, itypes, taffins, thards  ):
+    return lib.setupChargePos( len(itypes), pos, itypes, taffins, thards )
+
+#double relaxCharge( int nsteps, double F2conf, double dt, double damp ){
+lib.relaxCharge.argtypes = [ c_int, c_double, c_double, c_double ]
+lib.relaxCharge.restype  = c_double
+def relaxCharge( nsteps=10, F2conf=0.0, dt=0.05, damp=0.9, ):
+    return lib.relaxCharge( nsteps, F2conf, dt, damp )
+
 # ========= Python Functions
 
 def h2bonds( itypes, poss, hbonds, bsc=1.1 ):

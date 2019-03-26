@@ -18,6 +18,11 @@ N2 = int(sys.argv[2])
 predir = "gen_"
 
 
+#                   H        He       Li      Be     B       C       N         O       F
+taffins = np.array([-4.5280,-4.5280, -3.006,-3.006, -5.343, -5.343, -6.899, -8.741, -10.874] )
+thards  = np.array([13.8904, 13.8904, 4.772,  4.772, 10.126, 10.126, 11.760, 13.364,  14.948] )
+
+
 if __name__ == "__main__":
     print " ================ START "
     print " ================ START "
@@ -27,6 +32,7 @@ if __name__ == "__main__":
     R2vdW = 8.0
     rff.insertAtomType( 3, 1, 0.65,  1.0, -0.7, c6, R2vdW, 0.2 )
     rff.insertAtomType( 4, 2, 0.8 ,  1.0, -0.7, c6, R2vdW, 0.0 )
+
 
     # --- prepare system (resize buffers)
     natom = 20
@@ -83,10 +89,33 @@ if __name__ == "__main__":
         t2 = time.clock();
         print " molecule gen time ", t2-t1 
 
+
         # ---- store result
         xyzs, itypes_ = rff.h2bonds( itypes, poss, hbonds, bsc=1.1 ) 
         xyzs, itypes_ = rff.removeSaturatedBonds(caps, itypes_, xyzs )
-        au.saveXYZ( itypes_, xyzs, dname+"/pos.xyz" )
+
+        # --- charge equlibraion
+        #print itypes_
+        #print xyzs
+        #itypes_[0] = 7  # test other elements
+        #itypes_[1] = 8
+        rff.setupChargePos( xyzs, itypes_, taffins, thards )
+        n = len(itypes_)
+        #print "Affinitis ", rff.getChargeAffinitis(n)
+        #print "Hardness  ", rff.getChargeHardness(n)
+        #print "J ",         rff.getChargeJ(n)
+        rff.setTotalCharge(0.0);
+        rff.relaxCharge( nsteps=100, F2conf=0.0, dt=0.05, damp=0.9 )
+        qs = rff.getChargeQs(n) * -1
+        print "Qs        ", qs
+
+        au.saveXYZ( itypes_, xyzs, dname+"/pos.xyz", qs=qs )
+
+        import matplotlib.pyplot as plt
+        plt.scatter(xyzs[:,0], xyzs[:,1], c=qs, alpha=1.0, vmin=-0.5,vmax=0.5, cmap='bwr')
+        plt.colorbar()
+        plt.show()
+
 
 
 

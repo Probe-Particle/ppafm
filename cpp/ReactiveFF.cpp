@@ -37,6 +37,7 @@
 //#include "RARFF.h"
 //#include "RARFF2.h"
 #include "RARFFarr.h"
+#include "QEq.h"
 
 #define R2SAFE  1.0e-8f
 
@@ -44,6 +45,7 @@
 
 //RARFF2     ff;
 RARFF2arr  ff;
+QEq       qeq;
 //std::list<RigidAtomType>  atomTypes;
 std::vector<RigidAtomType*> atomTypes;
 
@@ -144,6 +146,65 @@ double relaxNsteps( int nsteps, double F2conf, double dt, double damp ){
         if(F2<F2conf) break;
         ff.moveMDdamp(dt, damp);
         //exit(0);
+    }
+    return F2;
+}
+
+
+//double* J    = 0;
+//double* qs   = 0;
+//double* fqs  = 0;
+//double* vqs  = 0;
+//double* affins = 0;
+//double* hards  = 0;
+
+void    setTotalCharge(double q){ qeq.Qtarget = q; }
+double* getChargeJ        (){ return (double*)qeq.J;   }
+double* getChargeQs       (){ return (double*)qeq.qs;  }
+double* getChargeFs       (){ return (double*)qeq.fqs; }
+double* getChargeAffinitis(){ return (double*)qeq.affins; }
+double* getChargeHardness (){ return (double*)qeq.hards;  }
+
+/*
+void setupCharge( int* itypes, double* taffins, double* thards ){
+    qeq.realloc( ff.natom );
+    for(int i=0;i<ff.natom; i++){
+        int ityp  = itypes[i];
+        affins[i] = taffins[ityp];
+        hards [i] = thards [ityp];
+    }
+}
+*/
+
+void setupChargePos( int natom, double* pos, int* itypes, double* taffins, double* thards ){
+    //printf( "to realloc \n"  );
+    qeq.realloc( natom );
+    //printf( "to realloc Done \n"  );
+    for(int i=0;i<natom; i++){
+        int ityp  = itypes[i] - 1;
+        //printf( "types %i %i %g %g \n", i, ityp, taffins[ityp], thards [ityp] );
+        qeq.affins[i] = taffins[ityp];
+        qeq.hards [i] = thards [ityp];
+    }
+    //printf( "to makeCoulombMatrix \n"  );
+    makeCoulombMatrix( natom, (Vec3d*)pos, qeq.J );
+    for(int i=0; i<natom; i++ ){  
+        qeq.qs [i] = 0.0;
+        qeq.vqs[i] = 0.0;
+        qeq.fqs[i] = 0.0;
+    }
+    //printf( "makeCoulombMatrix DONE ! \n"  );
+}
+
+double relaxCharge( int nsteps, double F2conf, double dt, double damp ){
+    //makeCoulombMatrix( ff.natom, ff.poss, qeq.J){
+    double F2=1.0;
+    for(int itr=0; itr<nsteps; itr++){
+        //printf( "to getQvars \n" );
+        F2 = qeq.getQvars();
+        if(F2<F2conf) break;
+        //printf( "F2 %g \n", F2 );
+        qeq.moveMDdamp(dt, damp);
     }
     return F2;
 }
