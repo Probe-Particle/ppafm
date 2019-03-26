@@ -175,6 +175,7 @@ class Generator(Sequence,):
         self.counter = 0
 
         self.typeParams = hl.loadSpecies('atomtypes.ini')
+
         self.ff_dim     = hl.genFFSampling( self.lvec, self.pixPerAngstrome );  #print "ff_dim ",     self.ff_dim
         #self.ff_poss    = FFcl.getposs    ( self.lvec, self.ff_dim );           print "poss.shape ", self.ff_poss.shape  # should we store this?
 

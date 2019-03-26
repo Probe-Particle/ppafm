@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import numpy as np
-
+import os
 #import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver";
 #import matplotlib.pyplot as plt
 #import GridUtils as GU
@@ -35,7 +35,9 @@ def loadSpecies(fname):
             str_Species = f.read(); 
     except:
         if(verbose>0): print "defaul atomtypes.ini"
-        with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:  
+        fpath = os.path.dirname( os.path.realpath( __file__ ) ) + '/defaults/atomtypes.ini'
+        print "loadSpecies from : ", fpath
+        with open(fpath, 'r') as f:
             str_Species = f.read();
     str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in str_Species.split('\n')  )
     return PPU.loadSpeciesLines( str_Species.split('\n') )
