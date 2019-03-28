@@ -87,6 +87,21 @@ def setBBoxCenter( xyzs, cog ):
 #    print "min", (xmin,ymin,zmin), "max", (xmax,ymax,zmax), "cog ", (xc,yc,zc)
     return (xmin,ymin,zmin), (xmax,ymax,zmax), (xc,yc,zc)
 
+def getAtomsRotZmin( rot, xyzs, zmin, Zs=None ):
+    #xdir = np.dot( atoms[:,:3], hdir[:,None] )
+    #print xyzs.shape
+    xyzs_ = np.empty(xyzs.shape)
+    xyzs_[:,0]  = rot[0,0]*xyzs[:,0] + rot[0,1]*xyzs[:,1] + rot[0,2]*xyzs[:,2]
+    xyzs_[:,1]  = rot[1,0]*xyzs[:,0] + rot[1,1]*xyzs[:,1] + rot[1,2]*xyzs[:,2]
+    xyzs_[:,2]  = rot[2,0]*xyzs[:,0] + rot[2,1]*xyzs[:,1] + rot[2,2]*xyzs[:,2]
+    mask  =  xyzs_[:,2] > zmin
+    #print xyzs_.shape, mask.shape
+    #print xyzs_
+    #print mask
+    if Zs is not None:
+        Zs = Zs[mask]
+    return xyzs_[mask,:], Zs
+
 class Generator(Sequence,):
     preName  = ""
     postName = ""
@@ -126,6 +141,9 @@ class Generator(Sequence,):
     shuffle_molecules = True
     randomize_parameters = False
     Yrange = 2
+
+    zmin_xyz = -2.0
+    Nmax_xyz = 30
 
     #npbc = None
     npbc = (1,1,1)
@@ -249,6 +267,8 @@ class Generator(Sequence,):
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (8,) )
         elif self.Ymode == 'ElectrostaticMap': 
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
+        elif self.Ymode == 'xyz': 
+            Ys = np.empty( (n,)+(self.Nmax_xyz,3) )
         else:
             Ys = np.empty( (n,)+ self.scan_dim[:2] )
 
@@ -334,12 +354,15 @@ class Generator(Sequence,):
         Tff = time.clock()-t1ff;   
         if(verbose>1): print "Tff %f [s]" %Tff
 
+
+
     #def nextRotation(self, rot, X,Y ):
     def nextRotation(self, X,Y ):
         t1scan = time.clock();
         (entropy, self.pos0, self.rot) = self.rotations_sorted[self.irot]
 
-        if(verbose>0): print " imol, irot, entropy ", self.imol, self.irot, entropy
+#        if(verbose>0): 
+        print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
 
         vtipR0    = np.zeros(3)
@@ -506,6 +529,20 @@ class Generator(Sequence,):
             Y_[Y_<Ymin] = Ymin
             Y_ -= Ymin
             Y[:,:,2] = Y_
+        elif self.Ymode == 'xyz':
+            Y[:,:] = 0.0
+            Y[:,2] = self.zmin_xyz - 100.0
+            #print " ::: ",self.natoms0,  self.atomsNonPBC.shape, self.pos0.shape,  (self.atomsNonPBC - self.pos0).shape
+            xyzs = self.atomsNonPBC[:,:3] - self.pos0[None,:]
+            #print self.atoms
+            #print "xyzs ", xyzs
+            xyzs_, Zs = getAtomsRotZmin( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0] )
+            #print Y.shape,  xyzs_.shape
+            Y[:len(xyzs_),:] = xyzs_[:,:]
+            #basUtils.writeDebugXYZ__( self.preName + self.molName +("/rot_%i03.xyz" %self.irot ), atomsRot, self.Zs )
+            #basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),   [1]*len(xyzs_),   xyzs_   )
+            #basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),  Zs ,   xyzs_   )
+            #print Y[:,:]
 
 
         Ty =  time.clock()-t1scan;  
