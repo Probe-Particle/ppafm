@@ -268,7 +268,7 @@ class Generator(Sequence,):
         elif self.Ymode == 'ElectrostaticMap': 
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
         elif self.Ymode == 'xyz': 
-            Ys = np.empty( (n,)+(self.Nmax_xyz,3) )
+            Ys = np.empty( (n,)+(self.Nmax_xyz,4) )
         else:
             Ys = np.empty( (n,)+ self.scan_dim[:2] )
 
@@ -538,7 +538,8 @@ class Generator(Sequence,):
             #print "xyzs ", xyzs
             xyzs_, Zs = getAtomsRotZmin( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0] )
             #print Y.shape,  xyzs_.shape
-            Y[:len(xyzs_),:] = xyzs_[:,:]
+            Y[:len(xyzs_),:3] = xyzs_[:,:]
+            Y[:len(xyzs_), 3] = Zs
             #basUtils.writeDebugXYZ__( self.preName + self.molName +("/rot_%i03.xyz" %self.irot ), atomsRot, self.Zs )
             #basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),   [1]*len(xyzs_),   xyzs_   )
             #basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),  Zs ,   xyzs_   )
