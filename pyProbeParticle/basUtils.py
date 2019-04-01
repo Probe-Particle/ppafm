@@ -119,7 +119,7 @@ def loadAtomsLines( lines ):
             try:
                 q = float(wds[4])
             except:
-                q = 0
+                q = 0.0
             qs.append(q)
         except:
             if(verbose>0):

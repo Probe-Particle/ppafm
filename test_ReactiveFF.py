@@ -109,6 +109,7 @@ if __name__ == "__main__":
         qs = rff.getChargeQs(n) * -1
         print "Qs        ", qs
 
+        #itypes_[itypes_==5] = 6 # replace borons by carbons
         au.saveXYZ( itypes_, xyzs, dname+"/pos.xyz", qs=qs )
 
         import matplotlib.pyplot as plt
