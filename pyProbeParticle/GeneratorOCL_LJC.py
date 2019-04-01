@@ -157,6 +157,8 @@ class Generator(Sequence,):
     #debugPlotSlices   = [-10]
     #debugPlotSlices   = [-15]
 
+    typeSelection =  [1,6,8]
+
     def __init__(self, molecules, rotations, batch_size=32, pixPerAngstrome=10, lvec=None, Ymode='HeightMap' ):
         'Initialization'
 
@@ -203,7 +205,8 @@ class Generator(Sequence,):
         self.projector = None; self.FE2in=None
         self.bZMap = False; self.bFEmap = False;
         if(verbose>0): print "Ymode", self.Ymode
-        if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'SphereCaps' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks' or self.Ymode == 'D-S-H' or self.Ymode == 'MultiMapSpheres':
+        #if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'SphereCaps' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks' or self.Ymode == 'D-S-H' or self.Ymode == 'MultiMapSpheres' or self.Ymode == 'SpheresType':
+        if self.Ymode in {'Lorenzian','Spheres','SphereCaps','Disks','DisksOcclusion','QDisks','D-S-H','MultiMapSpheres','SpheresType'}:
             self.projector  = FFcl.AtomProcjetion()
         if self.Ymode == 'HeightMap' or self.Ymode == 'D-S-H' : 
             self.bZMap = True
@@ -265,6 +268,8 @@ class Generator(Sequence,):
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
         elif self.Ymode == 'MultiMapSpheres': 
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (8,) )
+        elif self.Ymode == 'SpheresType': 
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (len(self.typeSelection),) )
         elif self.Ymode == 'ElectrostaticMap': 
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
         elif self.Ymode == 'xyz': 
@@ -344,8 +349,11 @@ class Generator(Sequence,):
             #print "self.atomsNonPBC", self.atomsNonPBC
             #print "Zs[:self.atomsNonPBC]", Zs[:self.atomsNonPBC]
             coefs=self.projector.makeCoefsZR( Zs[:na], elements.ELEMENTS )
-            if( self.Ymode == 'MultiMapSpheres' ):
+            if   ( self.Ymode == 'MultiMapSpheres' ):
                 self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(8,), coefs=coefs )
+            elif ( self.Ymode == 'SpheresType' ):
+                self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(len(self.typeSelection),), coefs=coefs )
+                self.projector.setAtomTypes( self.Zs[:na], sel = self.typeSelection )
             else:
                 self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs )
 
@@ -478,6 +486,13 @@ class Generator(Sequence,):
             Y[:,:,0] = Ye
             Y[:,:,1] = zMap
 
+        elif self.Ymode == 'SpheresType':
+            dirFw = np.append( self.rot[2], [0] ); 
+            if(verbose>0): print "dirFw ", dirFw
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+            Y[:,:,:] = self.projector.run_evalSpheresType( poss = poss_, tipRot=self.scanner.tipRot )
+            #print Y
+            #exit(0)
         elif self.Ymode == 'MultiMapSpheres':
             dirFw = np.append( self.rot[2], [0] ); 
             if(verbose>0): print "dirFw ", dirFw
@@ -565,7 +580,6 @@ class Generator(Sequence,):
         tipR0[2]   = self.tipR0 # augumentation of data by varying tip
 
         self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAbove, rot=rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
-
 
         print  " >>>>>>> maxTilt0 ", self.maxTilt0, "tipR0 ", tipR0
 

@@ -524,4 +524,65 @@ __kernel void evalMultiMapSpheres(
 }
 
 
+__kernel void evalSpheresType(
+    int nAtoms,
+    int nType,
+    __global float4*    atoms,
+    __global int*       itypes,
+    __global float4*    coefs,
+    __global float4*    poss,
+    __global float*     MultMap,
+    float Rpp,
+    float zmin,
+    float4 rotA,
+    float4 rotB,
+    float4 rotC
+){
+    __local float4 LATOMS[32];
+    __local float4 LCOEFS[32];
+    float ztops[8];
+
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+    float3 pos = poss[iG].xyz;
+    float mask = 1.0;
+    //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf( " xyzq (%g,%g,%g,%g) coef (%g,%g,%g,%g) \n", atoms[i].x,atoms[i].y,atoms[i].z,atoms[i].w,   coefs[i].x,coefs[i].y,coefs[i].z,coefs[i].w );  } }
+    //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf("itypes[%i] = %i \n" , i, itypes[i] ); } }
+    
+    float ztop = zmin;
+    for (int i=0; i<nType; i++){
+        ztops[i]=zmin;
+    }
+
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        LATOMS[iL] = atoms[i];
+        LCOEFS[iL] = coefs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nAtoms ){ 
+                float3 dp    = pos - LATOMS[j].xyz;
+                float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
+                float  Rvdw  = LCOEFS[j].w + Rpp;
+                float r2xy   =  dot(abc.xy,abc.xy);
+                float  z     = -abc.z + sqrt( Rvdw*Rvdw - r2xy );
+
+                int ityp = itypes[j+i0];
+                //ityp = 0;
+                if(z>ztop){
+                    ztop=z;
+                }
+                if(z>ztops[ityp]){
+                    ztops[ityp]=z;
+                }
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    for (int i=0; i<nType; i++){
+        if( ztop-ztops[i] < 0.02 ){ MultMap[iG*nType+i] = ztops[i]; } else { MultMap[iG*nType+i] = zmin; };
+    }
+}
+
 
