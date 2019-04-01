@@ -463,7 +463,7 @@ __kernel void evalDisk_occlusion(
 
 
 __kernel void evalMultiMapSpheres(
-    int nAtoms, 
+    int nAtoms,
     __global float4*    atoms,
     __global float4*    coefs,
     __global float4*    poss,
@@ -472,11 +472,15 @@ __kernel void evalMultiMapSpheres(
     float zmin,
     float4 rotA,
     float4 rotB,
-    float4 rotC
+    float4 rotC,
+    int bOccl,
+    int   nChan,
+    float Rmin,
+    float Rstep
 ){
     __local float4 LATOMS[32];
     __local float4 LCOEFS[32];
-    float ztops[8];
+    float ztops[20];
 
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
@@ -488,7 +492,7 @@ __kernel void evalMultiMapSpheres(
     //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf( " xyzq (%g,%g,%g,%g) coef (%g,%g,%g,%g) \n", atoms[i].x,atoms[i].y,atoms[i].z,atoms[i].w,   coefs[i].x,coefs[i].y,coefs[i].z,coefs[i].w );  } }
 
     float ztop = zmin;
-    for (int i=0; i<8; i++){
+    for (int i=0; i<nChan; i++){
         ztops[i]=zmin;
     }
 
@@ -505,7 +509,8 @@ __kernel void evalMultiMapSpheres(
                 float r2xy   =  dot(abc.xy,abc.xy);
                 float  z     = -abc.z + sqrt( Rvdw*Rvdw - r2xy );
 
-                int ityp = (int)((LCOEFS[j].w - 1.4)*10.0);
+                int ityp = (int)( (LCOEFS[j].w - Rmin)/Rstep );
+                if(ityp>=nChan)ityp=nChan-1;
                 if(z>ztop){
                     ztop=z;
                 }
@@ -517,12 +522,12 @@ __kernel void evalMultiMapSpheres(
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
-    for (int i=0; i<8; i++){
+    for (int i=0; i<nChan; i++){
         //ztops[i]=zmin;
-        if( ztop-ztops[i] < 0.02 ){ MultMap[iG*8+i] = ztops[i]; } else { MultMap[iG*8+i] = zmin; };
+        if(bOccl>0){ if( ztop-ztops[i] < 0.02 ){ MultMap[iG*nChan+i] = ztops[i]; } else { MultMap[iG*nChan+i] = zmin; }; }
+        else       { MultMap[iG*nChan+i] = ztops[i]; }
     }
 }
-
 
 __kernel void evalSpheresType(
     int nAtoms,
@@ -536,11 +541,12 @@ __kernel void evalSpheresType(
     float zmin,
     float4 rotA,
     float4 rotB,
-    float4 rotC
+    float4 rotC,
+    int bOccl
 ){
     __local float4 LATOMS[32];
     __local float4 LCOEFS[32];
-    float ztops[8];
+    float ztops[20];
 
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
@@ -581,7 +587,8 @@ __kernel void evalSpheresType(
         barrier(CLK_LOCAL_MEM_FENCE);
     }
     for (int i=0; i<nType; i++){
-        if( ztop-ztops[i] < 0.02 ){ MultMap[iG*nType+i] = ztops[i]; } else { MultMap[iG*nType+i] = zmin; };
+        if(bOccl>0){ if( ztop-ztops[i] < 0.02 ){ MultMap[iG*nType+i] = ztops[i]; } else { MultMap[iG*nType+i] = zmin; }; }
+        else       { MultMap[iG*nType+i] = ztops[i]; }
     }
 }
 

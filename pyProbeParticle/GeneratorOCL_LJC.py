@@ -157,7 +157,11 @@ class Generator(Sequence,):
     #debugPlotSlices   = [-10]
     #debugPlotSlices   = [-15]
 
+    bOccl         = 0
     typeSelection =  [1,6,8]
+    nChan = 8
+    Rmin  = 1.4
+    Rstep = 0.1
 
     def __init__(self, molecules, rotations, batch_size=32, pixPerAngstrome=10, lvec=None, Ymode='HeightMap' ):
         'Initialization'
@@ -267,7 +271,7 @@ class Generator(Sequence,):
         if self.Ymode == 'D-S-H':
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
         elif self.Ymode == 'MultiMapSpheres': 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (8,) )
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (self.nChan,) )
         elif self.Ymode == 'SpheresType': 
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (len(self.typeSelection),) )
         elif self.Ymode == 'ElectrostaticMap': 
@@ -350,7 +354,7 @@ class Generator(Sequence,):
             #print "Zs[:self.atomsNonPBC]", Zs[:self.atomsNonPBC]
             coefs=self.projector.makeCoefsZR( Zs[:na], elements.ELEMENTS )
             if   ( self.Ymode == 'MultiMapSpheres' ):
-                self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(8,), coefs=coefs )
+                self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(self.nChan,), coefs=coefs )
             elif ( self.Ymode == 'SpheresType' ):
                 self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(len(self.typeSelection),), coefs=coefs )
                 self.projector.setAtomTypes( self.Zs[:na], sel = self.typeSelection )
@@ -490,14 +494,14 @@ class Generator(Sequence,):
             dirFw = np.append( self.rot[2], [0] ); 
             if(verbose>0): print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
-            Y[:,:,:] = self.projector.run_evalSpheresType( poss = poss_, tipRot=self.scanner.tipRot )
+            Y[:,:,:] = self.projector.run_evalSpheresType( poss = poss_, tipRot=self.scanner.tipRot, bOccl=self.bOccl )
             #print Y
             #exit(0)
         elif self.Ymode == 'MultiMapSpheres':
             dirFw = np.append( self.rot[2], [0] ); 
             if(verbose>0): print "dirFw ", dirFw
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
-            Y[:,:,:] = self.projector.run_evalMultiMapSpheres( poss = poss_, tipRot=self.scanner.tipRot )
+            Y[:,:,:] = self.projector.run_evalMultiMapSpheres( poss = poss_, tipRot=self.scanner.tipRot, bOccl=self.bOccl, Rmin=self.Rmin, Rstep=self.Rstep )
 
         elif self.Ymode == 'Lorenzian':
             dirFw = np.append( self.rot[2], [0] ); 

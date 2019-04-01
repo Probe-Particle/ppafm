@@ -618,7 +618,7 @@ class AtomProcjetion:
         self.queue.finish()
         return Eout
 
-    def run_evalMultiMapSpheres(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+    def run_evalMultiMapSpheres(self, poss=None, Eout=None, tipRot=None, bOccl=0, Rmin=1.4, Rstep=0.1, local_size=(32,) ):
         if tipRot is not None:
             self.tipRot=tipRot
         if Eout is None:
@@ -639,14 +639,18 @@ class AtomProcjetion:
             self.cl_Eout,
             np.float32( self.Rpp   ),
             np.float32( self.zmin  ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            np.int32(bOccl),
+            np.int32( self.prj_dim[2] ),
+            np.float32(Rmin),
+            np.float32(Rstep)
         )
         cl_program.evalMultiMapSpheres( self.queue, global_size, local_size, *(kargs) )
         cl.enqueue_copy( self.queue, Eout, kargs[4] )
         self.queue.finish()
         return Eout
 
-    def run_evalSpheresType(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+    def run_evalSpheresType(self, poss=None, Eout=None, tipRot=None, bOccl=0,  local_size=(32,) ):
         if tipRot is not None:
             self.tipRot=tipRot
         if Eout is None:
@@ -669,7 +673,8 @@ class AtomProcjetion:
             self.cl_Eout,
             np.float32( self.Rpp   ),
             np.float32( self.zmin  ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            np.int32(bOccl),
         )
         cl_program.evalSpheresType( self.queue, global_size, local_size, *(kargs) )
         cl.enqueue_copy( self.queue, Eout, kargs[6] )
