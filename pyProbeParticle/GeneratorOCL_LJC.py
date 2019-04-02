@@ -102,6 +102,26 @@ def getAtomsRotZmin( rot, xyzs, zmin, Zs=None ):
         Zs = Zs[mask]
     return xyzs_[mask,:], Zs
 
+
+def getAtomsRotZminNsort( rot, xyzs, zmin, Zs=None, Nmax=30 ):
+    #xdir = np.dot( atoms[:,:3], hdir[:,None] )
+    #print xyzs.shape
+    xyzs_ = np.empty(xyzs.shape)
+    xyzs_[:,0]  = rot[0,0]*xyzs[:,0] + rot[0,1]*xyzs[:,1] + rot[0,2]*xyzs[:,2]
+    xyzs_[:,1]  = rot[1,0]*xyzs[:,0] + rot[1,1]*xyzs[:,1] + rot[1,2]*xyzs[:,2]
+    xyzs_[:,2]  = rot[2,0]*xyzs[:,0] + rot[2,1]*xyzs[:,1] + rot[2,2]*xyzs[:,2]
+    inds = np.argsort( -xyzs_[:,2] )
+    xyzs_[:,:] = xyzs_[inds,:]
+    mask  = xyzs_[:,2] > zmin
+    xyzs_ = xyzs_[mask,:]
+    #print xyzs_.shape, mask.shape
+    #print xyzs_
+    #print mask
+    if Zs is not None:
+        Zs = Zs[inds]
+        Zs = Zs[mask]
+    return xyzs_[:Nmax,:], Zs[:Nmax]
+
 class Generator(Sequence,):
     preName  = ""
     postName = ""
@@ -374,7 +394,7 @@ class Generator(Sequence,):
         (entropy, self.pos0, self.rot) = self.rotations_sorted[self.irot]
 
 #        if(verbose>0): 
-        print " imol, irot, entropy ", self.imol, self.irot, entropy
+        #print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
 
         vtipR0    = np.zeros(3)
@@ -555,13 +575,14 @@ class Generator(Sequence,):
             xyzs = self.atomsNonPBC[:,:3] - self.pos0[None,:]
             #print self.atoms
             #print "xyzs ", xyzs
-            xyzs_, Zs = getAtomsRotZmin( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0] )
-            #print Y.shape,  xyzs_.shape
+            #xyzs_, Zs = getAtomsRotZmin( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0] )
+            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz )
+            print Y.shape,  xyzs_.shape, Y[:len(xyzs_),:3].shape
             Y[:len(xyzs_),:3] = xyzs_[:,:]
             Y[:len(xyzs_), 3] = Zs
             #basUtils.writeDebugXYZ__( self.preName + self.molName +("/rot_%i03.xyz" %self.irot ), atomsRot, self.Zs )
             #basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),   [1]*len(xyzs_),   xyzs_   )
-            #basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),  Zs ,   xyzs_   )
+            basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),  Zs ,   xyzs_   )
             #print Y[:,:]
 
 
