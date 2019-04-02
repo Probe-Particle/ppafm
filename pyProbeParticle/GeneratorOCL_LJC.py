@@ -577,12 +577,12 @@ class Generator(Sequence,):
             #print "xyzs ", xyzs
             #xyzs_, Zs = getAtomsRotZmin( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0] )
             xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz )
-            print Y.shape,  xyzs_.shape, Y[:len(xyzs_),:3].shape
+            #print Y.shape,  xyzs_.shape, Y[:len(xyzs_),:3].shape
             Y[:len(xyzs_),:3] = xyzs_[:,:]
             Y[:len(xyzs_), 3] = Zs
             #basUtils.writeDebugXYZ__( self.preName + self.molName +("/rot_%i03.xyz" %self.irot ), atomsRot, self.Zs )
             #basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),   [1]*len(xyzs_),   xyzs_   )
-            basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),  Zs ,   xyzs_   )
+            #basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),  Zs ,   xyzs_   )
             #print Y[:,:]
 
 
