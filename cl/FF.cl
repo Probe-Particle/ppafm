@@ -575,7 +575,7 @@ __kernel void evalSpheresType(
                 float  z     = -abc.z + sqrt( Rvdw*Rvdw - r2xy );
 
                 int ityp = itypes[j+i0];
-                if( iG==0 ){ printf( " %i : %i ityp %i \n", j+i0, itypes[j+i0], ityp ); }
+                //if( iG==0 ){ printf( " %i : %i ityp %i \n", j+i0, itypes[j+i0], ityp ); }
                 //ityp = 0;
                 if(z>ztop){
                     ztop=z;

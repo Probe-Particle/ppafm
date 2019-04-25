@@ -438,7 +438,7 @@ class AtomProcjetion:
         #itypes = np.array( itypes, dtype=np.int32)
         #for ii,i in enumerate(types):
         #    itypes[i] = ii
-        print itypes
+        #print itypes
         cl.enqueue_copy( self.queue, self.cl_itypes, itypes )
         return itypes, dct
 
