@@ -188,9 +188,9 @@ inline void convert( const Vec2d& from, Vec2f& to ){ to.x=(float)from.x; to.y=(f
 
 inline Vec2f toFloat( const Vec2d& from){ return (Vec2f){(float)from.x,(float)from.y}; }
 
-inline int print( const Vec2f&  v){ return printf( "%lg %g", v.x, v.y ); };
-inline int print( const Vec2d&  v){ return printf( "%lg %g", v.x, v.y ); };
-inline int print( const Vec2i&  v){ return printf( "%li %i", v.x, v.y ); };
+inline int print( const Vec2f&  v){ return printf( "%g %g", v.x, v.y ); };
+inline int print( const Vec2d&  v){ return printf( "%g %g", v.x, v.y ); };
+inline int print( const Vec2i&  v){ return printf( "%i %i", v.x, v.y ); };
 
 #endif
 

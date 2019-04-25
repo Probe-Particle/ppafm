@@ -411,7 +411,7 @@ class AtomProcjetion:
         self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz*4           );   nbytes+=bsz*4  # float4
         self.cl_Eout  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz*prj_dim[2]  );   nbytes+=bsz    # float
 
-        self.cl_itypes  = cl.Buffer(self.ctx, mf.READ_ONLY, len(atoms)*np.dtype(np.float32).itemsize );   nbytes+=bsz    # float
+        self.cl_itypes  = cl.Buffer(self.ctx, mf.READ_ONLY, 200*np.dtype(np.int32).itemsize );   nbytes+=bsz    # float
         #self.cl_MultiMap  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz*8     );   nbytes+=bsz    # float
 
         #kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
@@ -426,12 +426,19 @@ class AtomProcjetion:
 
     def setAtomTypes(self, types, sel=[1,6,8]):
         #print types
-        self.nTypes   = np.int32( len(sel) ) 
+        self.nTypes   = np.int32( len(sel) )
         dct = { typ:i for i,typ in enumerate(sel) }
+        itypes = np.ones( 200, dtype=np.int32); itypes[:]*=-1 
         #print dct
-        itypes = [ dct[typ] for i,typ in enumerate(types) if typ in dct ]
-        #print itypes
-        itypes = np.array( itypes, dtype=np.int32)
+        #print dct
+        #itypes = [ dct[typ] for i,typ in enumerate(types) if typ in dct ]
+        for i,typ in enumerate(types):
+            if typ in dct:
+                itypes[i] = dct[typ]
+        #itypes = np.array( itypes, dtype=np.int32)
+        #for ii,i in enumerate(types):
+        #    itypes[i] = ii
+        print itypes
         cl.enqueue_copy( self.queue, self.cl_itypes, itypes )
         return itypes, dct
 

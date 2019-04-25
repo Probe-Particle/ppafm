@@ -183,6 +183,16 @@ class Generator(Sequence,):
     Rmin  = 1.4
     Rstep = 0.1
 
+    nextMode =  1
+    iZPP1    =  8
+    Q1       = -0.5
+    iZPP2    =  54
+    Q2       = +0.5
+
+    iepoch=0
+    imol=0
+    irot=0
+
     def __init__(self, molecules, rotations, batch_size=32, pixPerAngstrome=10, lvec=None, Ymode='HeightMap' ):
         'Initialization'
 
@@ -281,6 +291,120 @@ class Generator(Sequence,):
         rots.sort(  key=lambda item: -item[0] )
         return rots
 
+    def handleRotations(self):
+        self.rotations_sorted = self.sortRotationsByEntropy()
+        self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
+        if self.shuffle_rotations:
+            permut = np.array( range(len(self.rotations_sorted)) )
+            np.random.shuffle( permut )
+            self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
+
+    def next(self):
+        if   self.nextMode == 1:
+            return self.next1()
+        elif self.nextMode == 2:
+            return self.next2()
+
+    def next1(self):
+        'Generate one batch of data'
+        n  = self.batch_size
+        Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
+        #Xs = np.empty( (n,)+ self.scan_dim     )
+        #Xs = np.empty( (n,)+ self.scan_dim[:2]+(20,)  )
+
+        if self.Ymode == 'D-S-H':
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
+        elif self.Ymode == 'MultiMapSpheres': 
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (self.nChan,) )
+        elif self.Ymode == 'SpheresType': 
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (len(self.typeSelection),) )
+        elif self.Ymode == 'ElectrostaticMap': 
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
+        elif self.Ymode == 'xyz': 
+            Ys = np.empty( (n,)+(self.Nmax_xyz,4) )
+        else:
+            Ys = np.empty( (n,)+ self.scan_dim[:2] )
+
+        for ibatch in range(n):
+            self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
+            if( self.irot == 0 ):# recalc FF
+                if self.projector is not None:
+                    self.projector.tryReleaseBuffers()
+                self.molName =  self.molecules[self.imol]
+                self.nextMolecule( self.molName ) 
+                if(self.counter>0): # not first step
+                    if(verbose>1): print "scanner.releaseBuffers()"
+                    self.scanner.releaseBuffers()
+
+                self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+                self.rotations_sorted = self.sortRotationsByEntropy()
+                self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
+                if self.shuffle_rotations:
+                    permut = np.array( range(len(self.rotations_sorted)) )
+                    np.random.shuffle( permut )
+                    #print permut
+                    self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
+            rot = self.rotations_sorted[self.irot]
+            self.nextRotation( Xs[ibatch], Ys[ibatch] )
+            #self.nextRotation( self.rotations[self.irot], Xs[ibatch], Ys[ibatch] )
+            self.counter +=1
+        return Xs, Ys
+
+    def next2(self):
+
+        if self.projector is not None:
+            self.projector.tryReleaseBuffers()
+
+        self.Q    = self.Q1
+        self.iZPP = self.iZPP1
+        #print self.imol
+        self.molName =  self.molecules[self.imol]
+        self.nextMolecule( self.molName ) 
+        self.handleRotations()
+        #self.scanner.releaseBuffers()
+        self.scanner.tryReleaseBuffers()
+        self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+        Xs1,Ys1   = self.nextRotBatch()
+
+        self.iZPP = self.iZPP2
+        self.Q    = self.Q2
+        self.nextMolecule( self.molName ) 
+        self.scanner.updateBuffers( FEin=self.FEin )
+        Xs2,Ys2   = self.nextRotBatch()
+
+        self.imol += 1
+        self.imol =  self.imol % len(  self.molecules )
+        
+        return Xs1,Ys1,Xs2,Ys2
+
+    def nextRotBatch(self):
+        n  = self.nBestRotations
+        Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
+
+        if self.Ymode == 'D-S-H':
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
+        elif self.Ymode == 'MultiMapSpheres': 
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (self.nChan,) )
+        elif self.Ymode == 'SpheresType': 
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (len(self.typeSelection),) )
+        elif self.Ymode == 'ElectrostaticMap': 
+            Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
+        elif self.Ymode == 'xyz': 
+            Ys = np.empty( (n,)+(self.Nmax_xyz,4) )
+        else:
+            Ys = np.empty( (n,)+ self.scan_dim[:2] )
+
+        self.irot = 0
+        for irot in range(n):
+            #print irot, self.nBestRotations
+            self.irot = irot
+            #self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
+            rot = self.rotations_sorted[irot]
+            #print rot
+            self.nextRotation( Xs[irot], Ys[irot] )
+        return Xs,Ys
+
+    '''
     def next(self):
         'Generate one batch of data'
         n  = self.batch_size
@@ -333,6 +457,7 @@ class Generator(Sequence,):
             #self.nextRotation( self.rotations[self.irot], Xs[ibatch], Ys[ibatch] )
             self.counter +=1
         return Xs, Ys
+    '''
 
     def nextMolecule(self, fname ):
         fullname = self.preName+fname+self.postName
@@ -385,7 +510,6 @@ class Generator(Sequence,):
 
         Tff = time.clock()-t1ff;   
         if(verbose>1): print "Tff %f [s]" %Tff
-
 
 
     #def nextRotation(self, rot, X,Y ):
@@ -470,7 +594,6 @@ class Generator(Sequence,):
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1 )
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1, nz=40 )
         #Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
-        
 
         if self.Ymode == 'HeightMap':
             '''
