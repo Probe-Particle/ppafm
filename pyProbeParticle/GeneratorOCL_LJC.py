@@ -193,6 +193,13 @@ class Generator(Sequence,):
     imol=0
     irot=0
 
+    preHeight = False
+
+
+    bDfPerMol = False
+    nDfMin = 5
+    nDfMax = 15
+
     def __init__(self, molecules, rotations, batch_size=32, pixPerAngstrome=10, lvec=None, Ymode='HeightMap' ):
         'Initialization'
 
@@ -300,6 +307,8 @@ class Generator(Sequence,):
             self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
 
     def next(self):
+        if self.preHeight:
+            self.bZMap  = True
         if   self.nextMode == 1:
             return self.next1()
         elif self.nextMode == 2:
@@ -335,6 +344,11 @@ class Generator(Sequence,):
                 if(self.counter>0): # not first step
                     if(verbose>1): print "scanner.releaseBuffers()"
                     self.scanner.releaseBuffers()
+
+                if self.bDfPerMol:
+                    ndf = np.random.randint( self.nDfMin, self.nDfMax )
+                    print " ============= ndf ", ndf 
+                    self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep ).astype(np.float32)
 
                 self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
                 self.rotations_sorted = self.sortRotationsByEntropy()
@@ -539,10 +553,58 @@ class Generator(Sequence,):
 
         self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*self.distAbove, rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
 
-        FEout  = self.scanner.run_relaxStrokesTilted()
+        if self.preHeight:
+            #print " self.scanner.tipRot ", self.scanner.tipRot
+            #Hs = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ).copy()
+            dirFw = np.append( self.rot[2], [0] ); 
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+            Hs = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0].copy()
+            #Hs *= 1.0
+            Hs = np.clip( Hs, -3.0, 0.0 )
+            Hs -= 1.0
+            #self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*(self.distAbove+Hs), rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
+            #zcut = -5.0
+            #mask = Hs<zcut
+            #Hs[mask]= zcut
+
+            #mask = Hs < -0.1
+            #Hs[mask] *= -1.0
+            #print "Hs[64,64] :",  Hs[64,64]
+            #Hs *= 0
+            #Hs = np.clip( Hs, -1.0, 1.0 )
+
+            #Hs*=-1.0
+            #Zmin = Hs.min()
+            #Hs -= Zmin
+            #Hs = np.clip( Hs, 0.0, 3.0 )
+            #Hs = np.clip( Hs, -6.0, -0.0 )
+            
+            #Hs = Hs*-1.0 - 3.0
+            #Hs *= 0.5
+            #Hs -= 1.0
+            #ns = Hs.shape
+            #Xs,Ys = np.mgrid[:ns[0],:ns[1]]
+            #Hs = (Xs-64)*0.05
+            #print Hs
+
+            import matplotlib as mpl;  mpl.use('Agg');
+            import matplotlib.pyplot as plt
+            plt.imshow( Hs )
+            plt.colorbar()
+            plt.savefig( "Hs.png" )
+
+            self.scan_pos0s[:,:,0] += self.rot[2,0] * Hs
+            self.scan_pos0s[:,:,1] += self.rot[2,1] * Hs
+            self.scan_pos0s[:,:,2] += self.rot[2,2] * Hs
+            cl.enqueue_copy( self.scanner.queue, self.scanner.cl_poss, self.scan_pos0s )
+            FEout  = self.scanner.run_relaxStrokesTilted()
+        else:
+            FEout  = self.scanner.run_relaxStrokesTilted()
+
 
         if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
-            if(verbose>0): print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
+            #if(verbose>0): 
+            print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
             exit()
         #print "self.dfWeight ", self.dfWeight
         self.scanner.updateBuffers( WZconv=self.dfWeight )
@@ -561,7 +623,14 @@ class Generator(Sequence,):
 
         #X[:,:,:] = FEout[:,:,:,0]*zDir[0] + FEout[:,:,:,1]*zDir[1] + FEout[:,:,:,2]*zDir[2]
         #X[:,:,:] = FEout[:,:,:,2].copy()  # Rotation is now done in kernel
-        X[:,:,:FEout.shape[2]] = FEout[:,:,:,2].copy()
+
+        X[:,:,:] = 0
+        nz = min( FEout.shape[2], X.shape[2] )
+        #print "FEout.shape ", FEout.shape , X.shape, X[:,:,:FEout.shape[2]].shape
+        #print "  --- ", nz, X[:,:,:FEout.shape[2]].shape, FEout[:,:,:FEout.shape[2],2].shape
+        #X[:,:,:FEout.shape[2]] = FEout[:,:,:,2].copy()
+        X[:,:,:nz] = FEout[:,:,:nz,2].copy()
+
         #print "FEout.z min max ", np.min(FEout[:,:,:,2]), np.max(FEout[:,:,:,2])
         #print "X shape min max ", X[:,:,:FEout.shape[2]].shape,   np.min(X[:,:,:FEout.shape[2]]), np.max(X[:,:,:FEout.shape[2]])
 
@@ -607,6 +676,8 @@ class Generator(Sequence,):
             Y[Y>0] = Ymin
             Y[Y<Ymin] = Ymin
             Y -= Ymin
+
+            
         elif self.Ymode == 'ElectrostaticMap':
             zMap, feMap = self.scanner.run_getZisoFETilted( iso=0.1, nz=100 )
             #Y[:,:] = ( feMap[:,:,0] ).copy() # Fel_x

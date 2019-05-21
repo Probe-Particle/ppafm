@@ -162,6 +162,7 @@ class RelaxedScanner:
         self.surfFF = np.zeros(4,dtype=np.float32);
 
     def prepareBuffers(self, FEin, lvec, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, FE2in=None ):
+        #print " ========= prepareBuffers ", bZMap
         self.scan_dim = scan_dim
         self.invCell  = getInvCell(lvec)
         nbytes = 0
@@ -186,6 +187,7 @@ class RelaxedScanner:
         self.cl_zMap = None; self.cl_feMap=None; self.cl_ImgFE = None
         if bZMap:
 #            print "nxy ", nxy
+            print "allocate zMap"
             self.cl_zMap    = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize   ); nbytes += nxy*fsize
         if bFEmap:
             self.cl_feMap  = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize*4  ); nbytes += nxy*fsize*4
