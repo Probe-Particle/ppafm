@@ -379,6 +379,11 @@ class RelaxedScanner:
             self.cl_FEconv,
             self.cl_WZconv, 
             np.int32(nz), np.int32( self.nDimConvOut ) )
+
+        # delete buffers
+        cl.enqueue_fill_buffer( self.queue, self.cl_FEconv, np.float32(0), 0, self.nDimConvOut )
+        FEconv[:,:,:] = 0.0
+
         cl_program.convolveZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl.enqueue_copy( self.queue, FEconv, self.cl_FEconv )
         self.queue.finish()

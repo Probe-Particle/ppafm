@@ -296,7 +296,9 @@ def CLJ2float2(C6s,C12s):
 # ========= classes
 
 class ForceField_LJC:
-
+    '''
+        to evaluate ForceField on GPU
+    '''
     #verbose=0  # this is global for now
 
     def __init__( self ):
@@ -362,6 +364,9 @@ class ForceField_LJC:
 
 
 class AtomProcjetion:
+    '''
+        to generate reference output maps ( Ys )  in generator for Neural Network training
+    '''
     Rpp     =  2.0
     zmin    = -3.0
     dzmax   =  2.0

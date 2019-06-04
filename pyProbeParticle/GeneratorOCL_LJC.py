@@ -34,7 +34,10 @@ from keras.utils import Sequence
 verbose=0
 
 def getRandomUniformDisk():
+    '''
+    generate points unifromly distributed over disk
     # see: http://mathworld.wolfram.com/DiskPointPicking.html
+    '''
     rnd = np.random.rand(2)
     rnd[0]    = np.sqrt( rnd[0] ) 
     rnd[1]   *= 2.0*np.pi
@@ -42,6 +45,9 @@ def getRandomUniformDisk():
 
 
 def rotAtoms(rot, atoms):
+    '''
+    rotate atoms by matrix "rot"
+    '''
     print "atoms.shape ", atoms.shape
     atoms_ = np.zeros(atoms.shape)
     atoms_[:,0] =  rot[0,0] * atoms[:,0]   +  rot[0,1] * atoms[:,1]   +    rot[0,2] * atoms[:,2]
@@ -51,12 +57,18 @@ def rotAtoms(rot, atoms):
 
 
 def applyZWeith( F, zWeight ):
+    '''
+    Weighted average of 1D array
+    '''
     #F_ = np.apply_along_axis( lambda m: np.convolve(m, zWeight, mode='valid'), axis=0, arr=F )
     #print "F.shape, zWeight.shape ", F.shape, zWeight.shape
     F_ = np.average( F, axis=2, weights=zWeight )
     return F_
 
 def modMolParams_def( Zs, qs, xyzs, REAs, rndQmax, rndRmax, rndEmax, rndAlphaMax ):
+    '''
+    random vaiation of molecular parameters
+    '''
     if rndQmax > 0:
         qs[:]     += rndQmax * ( np.random.rand( len(qs) ) - 0.5 )
     if rndRmax > 0:
@@ -68,6 +80,9 @@ def modMolParams_def( Zs, qs, xyzs, REAs, rndQmax, rndRmax, rndEmax, rndAlphaMax
     return Zs, qs, xyzs, REAs
 
 def setBBoxCenter( xyzs, cog ):
+    '''
+    find bounding box for set of xyz points
+    '''
 #    print "xyzs.shape ", xyzs.shape
 #    print "cog ", cog
     xmin = np.min( xyzs[:,0] )
@@ -88,6 +103,9 @@ def setBBoxCenter( xyzs, cog ):
     return (xmin,ymin,zmin), (xmax,ymax,zmax), (xc,yc,zc)
 
 def getAtomsRotZmin( rot, xyzs, zmin, Zs=None ):
+    '''
+    get all atoms closer to camera than "zmin"
+    '''
     #xdir = np.dot( atoms[:,:3], hdir[:,None] )
     #print xyzs.shape
     xyzs_ = np.empty(xyzs.shape)
@@ -104,6 +122,9 @@ def getAtomsRotZmin( rot, xyzs, zmin, Zs=None ):
 
 
 def getAtomsRotZminNsort( rot, xyzs, zmin, Zs=None, Nmax=30 ):
+    '''
+    get <=Nmax atoms closer to camera than "zmin" and sort by distance from camera
+    '''
     #xdir = np.dot( atoms[:,:3], hdir[:,None] )
     #print xyzs.shape
     xyzs_ = np.empty(xyzs.shape)
@@ -123,6 +144,7 @@ def getAtomsRotZminNsort( rot, xyzs, zmin, Zs=None, Nmax=30 ):
     return xyzs_[:Nmax,:], Zs[:Nmax]
 
 class Generator(Sequence,):
+
     preName  = ""
     postName = ""
 
@@ -279,12 +301,18 @@ class Generator(Sequence,):
             self.molecules = [ self.molecules[i] for i in permut ]
 
     def getMolRotIndex(self, i):
+        '''
+        unfold iteration index to epoch, molecule, rotation
+        '''
         #nrot = len(self.rotations)
         nrot = self.nBestRotations
         nmol = len(self.molecules)
         return i/(nrot*nmol), (i/nrot)%nmol, i%nrot
 
     def evalRotation(self, rot ):
+        '''
+        find closest atom of molecule with respect to camera rotation and respective entropy of the configuration
+        '''
         zDir = rot[2].flat.copy()
         imax,xdirmax,entropy = PPU.maxAlongDirEntropy( self.atomsNonPBC, zDir )
         pos0 = self.atomsNonPBC[imax,:3] 
@@ -307,6 +335,9 @@ class Generator(Sequence,):
             self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
 
     def next(self):
+        '''
+        callback for each iteration of generator
+        '''
         if self.preHeight:
             self.bZMap  = True
         if   self.nextMode == 1:
@@ -315,7 +346,10 @@ class Generator(Sequence,):
             return self.next2()
 
     def next1(self):
-        'Generate one batch of data'
+        '''
+        Generate one batch of data
+        for one input
+        '''
         n  = self.batch_size
         Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
         #Xs = np.empty( (n,)+ self.scan_dim     )
@@ -358,6 +392,7 @@ class Generator(Sequence,):
                     np.random.shuffle( permut )
                     #print permut
                     self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
+            print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
             rot = self.rotations_sorted[self.irot]
             self.nextRotation( Xs[ibatch], Ys[ibatch] )
             #self.nextRotation( self.rotations[self.irot], Xs[ibatch], Ys[ibatch] )
@@ -365,7 +400,9 @@ class Generator(Sequence,):
         return Xs, Ys
 
     def next2(self):
-
+        '''
+        callback for each iteration of generator
+        '''
         if self.projector is not None:
             self.projector.tryReleaseBuffers()
 
@@ -392,6 +429,9 @@ class Generator(Sequence,):
         return Xs1,Ys1,Xs2,Ys2
 
     def nextRotBatch(self):
+        '''
+        call per each batch
+        '''
         n  = self.nBestRotations
         Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
 
@@ -418,62 +458,10 @@ class Generator(Sequence,):
             self.nextRotation( Xs[irot], Ys[irot] )
         return Xs,Ys
 
-    '''
-    def next(self):
-        'Generate one batch of data'
-        n  = self.batch_size
-        Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
-        #Xs = np.empty( (n,)+ self.scan_dim     )
-        #Xs = np.empty( (n,)+ self.scan_dim[:2]+(20,)  )
-
-        if self.Ymode == 'D-S-H':
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
-        elif self.Ymode == 'MultiMapSpheres': 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (self.nChan,) )
-        elif self.Ymode == 'SpheresType': 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (len(self.typeSelection),) )
-        elif self.Ymode == 'ElectrostaticMap': 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
-        elif self.Ymode == 'xyz': 
-            Ys = np.empty( (n,)+(self.Nmax_xyz,4) )
-        else:
-            Ys = np.empty( (n,)+ self.scan_dim[:2] )
-
-        for ibatch in range(n):
-            self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
-            if( self.irot == 0 ):# recalc FF
-                if self.projector is not None:
-                    self.projector.tryReleaseBuffers()
-                self.molName =  self.molecules[self.imol]
-                self.nextMolecule( self.molName ) 
-                if(self.counter>0): # not first step
-                    if(verbose>1): print "scanner.releaseBuffers()"
-                    self.scanner.releaseBuffers()
-
-                self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
-                self.rotations_sorted = self.sortRotationsByEntropy()
-                self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
-                if self.shuffle_rotations:
-                    permut = np.array( range(len(self.rotations_sorted)) )
-                    np.random.shuffle( permut )
-                    #print permut
-                    self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
-                    #self.rotations_sorted = self.rotations_sorted[permut]
-                    #print self.rotations_sorted
-            ##rot = self.rotations[self.irot]
-            ##pos0, entropy = self.evalRotation( rot )
-            ##print "rot entropy:", entropy
-            ##if( entropy > self.minEntropy ): break
-            ##print "skiped"
-            #print "batch i : ", ibatch
-            rot = self.rotations_sorted[self.irot]
-            self.nextRotation( Xs[ibatch], Ys[ibatch] )
-            #self.nextRotation( self.rotations[self.irot], Xs[ibatch], Ys[ibatch] )
-            self.counter +=1
-        return Xs, Ys
-    '''
-
     def nextMolecule(self, fname ):
+        '''
+        call for each molecule
+        '''
         fullname = self.preName+fname+self.postName
         if(verbose>0): print " ===== nextMolecule: ", fullname
         t1ff = time.clock();
@@ -528,12 +516,18 @@ class Generator(Sequence,):
 
     #def nextRotation(self, rot, X,Y ):
     def nextRotation(self, X,Y ):
+        '''
+        for each rotation
+        '''
         t1scan = time.clock();
         (entropy, self.pos0, self.rot) = self.rotations_sorted[self.irot]
 
 #        if(verbose>0): 
         #print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
+
+
+        print  self.rot
 
         vtipR0    = np.zeros(3)
         
@@ -553,7 +547,13 @@ class Generator(Sequence,):
 
         self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*self.distAbove, rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
 
-        if self.preHeight:
+        if self.preHeight: 
+            ''' 
+                special where AFM tip follows path of pre-calculated heigh-map at equdistance
+                should emulate https://pubs.acs.org/doi/pdf/10.1021/nl504182w 
+                Imaging Three-Dimensional Surface Objects with SubmolecularResolution by Atomic Force Microscopy
+                César Moreno, Oleksandr Stetsovych, Tomoko K. Shimizu, Oscar Custance
+            '''
             #print " self.scanner.tipRot ", self.scanner.tipRot
             #Hs = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ).copy()
             dirFw = np.append( self.rot[2], [0] ); 
@@ -601,6 +601,7 @@ class Generator(Sequence,):
         else:
             FEout  = self.scanner.run_relaxStrokesTilted()
 
+        ' # DO SCAN : '
 
         if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
             #if(verbose>0): 
@@ -664,6 +665,7 @@ class Generator(Sequence,):
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1, nz=40 )
         #Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
 
+        # --- Different modes of output map
         if self.Ymode == 'HeightMap':
             '''
             Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) ) . copy()
@@ -682,11 +684,9 @@ class Generator(Sequence,):
             zMap, feMap = self.scanner.run_getZisoFETilted( iso=0.1, nz=100 )
             #Y[:,:] = ( feMap[:,:,0] ).copy() # Fel_x
             #Y[:,:] = ( feMap[:,:,1] ).copy() # Fel_y
-#            Y[:,:] = ( feMap[:,:,2] ).copy() # Fel_z
+            #Y[:,:] = ( feMap[:,:,2] ).copy() # Fel_z
             #Y[:,:]  = ( feMap[:,:,3] ).copy() # Vel
-
             Ye = ( feMap[:,:,2] ).copy() # Fel_z
-
             '''
             Y *= (self.scanner.zstep)
             Ymin = max(Y[Y<=0].flatten().max() - self.Yrange, Y.flatten().min())
@@ -779,10 +779,8 @@ class Generator(Sequence,):
             #basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),  Zs ,   xyzs_   )
             #print Y[:,:]
 
-
-        Ty =  time.clock()-t1scan;  
+        Ty =  time.clock()-t1scan;
         if(verbose>1): print "Ty %f [s]" %Ty
-
         #print "Y.shape", Y.shape
         #print "X.shape", X.shape
 
@@ -792,7 +790,10 @@ class Generator(Sequence,):
             #self.plot(Y=Y, entropy=entropy )
             self.plot( ("/rot%03i_" % self.irot), self.molName, X=X, Y=Y, entropy=entropy )
 
-    def getAFMinRot(self, rot, X ):
+    def getAFMinRot( self, rot, X ):
+        '''
+        getAFMinRot - currently not used
+        '''
         t1scan = time.clock();
 
         tipR0 = self.maxTilt0 * (np.random.rand(3) - 0.5); 
@@ -811,10 +812,10 @@ class Generator(Sequence,):
         FEout = self.scanner.run_convolveZ()
         X[:,:,:FEout.shape[2]] = FEout[:,:,:,2].copy()
 
-    def match(self, Xref ):
+    def match( self, Xref ):
         return
 
-    def saveDebugXSF(self, fname, F, d=(0.1,0.1,0.1) ):
+    def saveDebugXSF( self, fname, F, d=(0.1,0.1,0.1) ):
         if hasattr(self, 'GridUtils'):
             GU = self.GridUtils
         else:
@@ -907,12 +908,18 @@ class Generator(Sequence,):
                     plt.close()
 
     def getZWeights(self):
+        '''
+        generate mask for weighted average
+        '''
         zs = np.mgrid[0:self.scan_dim[2]] * self.scanner.zstep * self.wz
         zWeights = self.zFunc( zs )
         zWeights = zWeights.astype(np.float32)
         return zWeights
 
     def getDistDens(self, atoms, poss, F):
+        '''
+        CPU calculation of distance density map ( used before OpenCL )
+        '''
         F[:,:] = 0
         for atom in atoms[:1]:
             ## TODO - we should project it with respect to rotation
