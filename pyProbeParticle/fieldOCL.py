@@ -379,6 +379,9 @@ class AtomProcjetion:
         self.queue = oclu.queue
 
     def makeCoefsZR(self, Zs, ELEMENTS ):
+        '''
+        
+        '''
         na = len(Zs)
         coefs = np.zeros( (na,4), dtype=np.float32 )
         if(verbose>0): print "Zs", Zs
@@ -392,6 +395,9 @@ class AtomProcjetion:
         return coefs
 
     def prepareBuffers(self, atoms, prj_dim, coefs=None ):
+        '''
+        allocate GPU buffers
+        '''
         if(verbose>0): print "AtomProcjetion.prepareBuffers prj_dim", prj_dim
         self.prj_dim = prj_dim
         nbytes   =  0;
@@ -424,12 +430,18 @@ class AtomProcjetion:
         #return kargs
 
     def updateBuffers(self, atoms=None, coefs=None, poss=None ):
+        '''
+        upload data to GPU
+        '''
         #print "updateBuffers poss.shape: ", poss.shape
         oclu.updateBuffer(atoms, self.cl_atoms )
         oclu.updateBuffer(coefs, self.cl_coefs  )
         oclu.updateBuffer(poss,  self.cl_poss  )
 
     def setAtomTypes(self, types, sel=[1,6,8]):
+        '''
+        setup selection of atomic types for SpheresType kernel and upload them to GPU
+        '''
         #print types
         self.nTypes   = np.int32( len(sel) )
         dct = { typ:i for i,typ in enumerate(sel) }
@@ -448,12 +460,18 @@ class AtomProcjetion:
         return itypes, dct
 
     def releaseBuffers(self):
+        '''
+        deallocated all GPU buffers
+        '''
         self.cl_atoms.release()
         self.cl_coefs.release()
         self.cl_poss.release()
         self.cl_FE.release()
 
     def tryReleaseBuffers(self):
+        '''
+        deallocated all GPU buffers (those which exists)
+        '''
         try:
             self.cl_atoms.release()
         except:
@@ -472,6 +490,9 @@ class AtomProcjetion:
             pass
 
     def run_evalLorenz(self, poss=None,  Eout=None, local_size=(32,) ):
+        '''
+        kernel producing lorenzian function around each atom
+        '''
         if Eout is None:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
             if(verbose>0): print "FE.shape", Eout.shape, self.nDim
@@ -494,6 +515,9 @@ class AtomProcjetion:
         return Eout
 
     def run_evaldisks(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+        '''
+        kernel producing atomic disks with conical profile
+        '''
         if tipRot is not None:
             self.tipRot=tipRot
         if Eout is None:
@@ -520,6 +544,9 @@ class AtomProcjetion:
         return Eout
 
     def run_evaldisks_occlusion(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+        '''
+        kernel producing atomic disks occluded by higher nearby atoms
+        '''
         if tipRot is not None:
             self.tipRot=tipRot
         if Eout is None:
@@ -549,6 +576,9 @@ class AtomProcjetion:
         return Eout
 
     def run_evalSpheres(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+        '''
+        kernel producing van der Waals spheres
+        '''
         if tipRot is not None:
             self.tipRot=tipRot
         if Eout is None:
@@ -576,6 +606,9 @@ class AtomProcjetion:
         return Eout
 
     def run_evalSphereCaps(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+        '''
+        kernel producing spherical caps (just to top most part of vdW sphere)
+        '''
         if tipRot is not None:
             self.tipRot=tipRot
         if Eout is None:
@@ -605,6 +638,9 @@ class AtomProcjetion:
         return Eout
 
     def run_evalQdisks(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+        '''
+        kernel producing atoms disks with positive and negative value encoding charge
+        '''
         if tipRot is not None:
             self.tipRot=tipRot
         if Eout is None:
@@ -631,6 +667,9 @@ class AtomProcjetion:
         return Eout
 
     def run_evalMultiMapSpheres(self, poss=None, Eout=None, tipRot=None, bOccl=0, Rmin=1.4, Rstep=0.1, local_size=(32,) ):
+        '''
+         kernel to produce multiple channels of vdW Sphere maps each containing atoms with different vdW radius
+        '''
         if tipRot is not None:
             self.tipRot=tipRot
         if Eout is None:
@@ -663,6 +702,9 @@ class AtomProcjetion:
         return Eout
 
     def run_evalSpheresType(self, poss=None, Eout=None, tipRot=None, bOccl=0,  local_size=(32,) ):
+        '''
+         kernel to produce multiple channels of vdW Sphere maps each coresponding to different atom type
+        '''
         if tipRot is not None:
             self.tipRot=tipRot
         if Eout is None:
