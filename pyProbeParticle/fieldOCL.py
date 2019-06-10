@@ -306,6 +306,9 @@ class ForceField_LJC:
         self.queue = oclu.queue
 
     def prepareBuffers(self, atoms, cLJs, poss ):
+        '''
+        allocate all necessary buffers in GPU memory
+        '''
         self.nDim = poss.shape
         nbytes   =  0;
         self.nAtoms   = np.int32( len(atoms) ) 
@@ -317,17 +320,26 @@ class ForceField_LJC:
         if(verbose>0): print "initArgsLJC.nbytes ", nbytes
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None ):
+        '''
+        update content of all buffers
+        '''
         oclu.updateBuffer(atoms, self.cl_atoms )
         oclu.updateBuffer(cLJs,  self.cl_cLJs  )
         oclu.updateBuffer(poss,  self.cl_poss  )
 
     def releaseBuffers(self):
+        '''
+        release all buffers
+        '''
         self.cl_atoms.release()
         self.cl_cLJs.release()
         self.cl_poss.release()
         self.cl_FE.release()
 
     def run(self, FE=None, local_size=(32,) ):
+        '''
+        
+        '''
         if FE is None:
             FE = np.zeros( self.nDim[:3]+(8,), dtype=np.float32 )
             if(verbose>0): print "FE.shape", FE.shape, self.nDim
@@ -347,6 +359,9 @@ class ForceField_LJC:
         return FE
 
     def makeFF(self, xyzs, qs, cLJs, poss=None, nDim=None, lvec=None, pixPerAngstrome=10 ):
+        '''
+        generate force-field from given posions(xyzs), chagres(qs), Leanrd-Jones parameters (cLJs) etc.
+        '''
         if poss is None:
             if nDim is None:
                 nDim = genFFSampling( lvec, pixPerAngstrome=pixPerAngstrome )
@@ -367,12 +382,14 @@ class AtomProcjetion:
     '''
         to generate reference output maps ( Ys )  in generator for Neural Network training
     '''
-    Rpp     =  2.0
-    zmin    = -3.0
-    dzmax   =  2.0
-    zmargin =  0.2
-    tgMax   =  0.5
-    tgWidth   =  0.1
+    Rpp     =  2.0   #  probe-particle radius
+    zmin    = -3.0   #  minim position of pixels sampled in SphereMaps
+    dzmax   =  2.0   #  maximum distance of atoms from sampling screen for Atomic Disk maps ( similar )
+    
+    # occlusion
+    zmargin =  0.2   #  zmargin 
+    tgMax   =  0.5   #  tangens of angle limiting occlusion for SphereCaps
+    tgWidth =  0.1   #  tangens of angle for limiting rendered area for SphereCaps
 
     def __init__( self ):
         self.ctx   = oclu.ctx; 
@@ -380,7 +397,7 @@ class AtomProcjetion:
 
     def makeCoefsZR(self, Zs, ELEMENTS ):
         '''
-        
+        make atomic coeficients used e.g. in MultiMap
         '''
         na = len(Zs)
         coefs = np.zeros( (na,4), dtype=np.float32 )

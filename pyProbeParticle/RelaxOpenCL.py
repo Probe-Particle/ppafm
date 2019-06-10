@@ -154,10 +154,10 @@ class RelaxedScanner:
         self.relax_params = DEFAULT_relax_params.copy()
 
         #self.pos0  = pos0; 
-        self.zstep = 0.1
-        self.start = (-5.0,-5.0)
-        self.end   = ( 5.0, 5.0)
-        self.tipR0 = 4.0
+        self.zstep = 0.1              # step of tip approach in scan [Angstroem]
+        self.start = (-5.0,-5.0)      # scan region start
+        self.end   = ( 5.0, 5.0)      # scan region end
+        self.tipR0 = 4.0              # equlibirum distance of ProbeParticle form ancoring point
 
         self.surfFF = np.zeros(4,dtype=np.float32);
 
@@ -290,6 +290,9 @@ class RelaxedScanner:
             #self.queue.finish()
 
     def run(self, FEout=None, FEin=None, lvec=None, nz=None ):
+        '''
+        calculate force on relaxing probe particle approaching from top (z-direction)
+        '''
         if nz is None: nz=self.scan_dim[2] 
         self.updateBuffers( FEin=FEin, lvec=lvec )
         if FEout is None:    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
@@ -310,6 +313,9 @@ class RelaxedScanner:
         return FEout
 
     def run_relaxStrokesTilted(self, FEout=None, FEin=None, lvec=None, nz=None ):
+        '''
+        calculate force on relaxing probe particle approaching from particular direction
+        '''
         if nz is None: nz=self.scan_dim[2] 
         if FEout is None:    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
         self.updateBuffers( FEin=FEin, lvec=lvec )
@@ -334,6 +340,9 @@ class RelaxedScanner:
         return FEout
 
     def run_getFEinStrokes(self, FEout=None, FEconv=None, FEin=None, lvec=None, nz=None, WZconv=None, bDoConv=False ):
+        '''
+        un-relaxed sampling of FE values from input Force-field (cl_ImgIn) store to cl_FEout
+        '''
         if nz is None: nz=self.scan_dim[2] 
         self.updateBuffers( FEin=FEin, lvec=lvec, WZconv=WZconv )
         kargs = ( 
@@ -354,6 +363,10 @@ class RelaxedScanner:
         return FEout
 
     def run_getFEinStrokesTilted(self, FEout=None, FEin=None, lvec=None, nz=None ):
+        '''
+        un-relaxed sampling of FE values from input Force-field (cl_ImgIn) store to cl_FEout
+        operates in coordinates rotated by tipRot
+        '''
         if nz is None: nz=self.scan_dim[2] 
         self.updateBuffers( FEin=FEin, lvec=lvec )
         kargs = ( 
@@ -371,6 +384,9 @@ class RelaxedScanner:
         return FEout
 
     def run_convolveZ(self, FEconv=None, nz=None ):
+        '''
+        convolve 3D forcefield in FEout with 1D weight mask WZconv
+        '''
         if nz is None: nz=self.scan_dim[2]
         #print " runZConv  nz %i nDimConv %i "  %(nz, self.nDimConvOut)
         if FEconv is None: FEconv = np.empty( self.scan_dim[:2]+(self.nDimConvOut,4,), dtype=np.float32 )
@@ -390,6 +406,11 @@ class RelaxedScanner:
         return FEconv
 
     def run_izoZ(self, zMap=None, iso=0.0, nz=None ):
+        '''
+        get isosurface of input 3D field from top (z)
+        used to generate HeightMap 
+        if cl_FEout is Forcefield it takes "z" where ( F(z) > iso )
+        '''
         if nz is None: nz=self.scan_dim[2]
         if zMap is None: zMap = np.empty( self.scan_dim[:2], dtype=np.float32 )
         kargs = ( 
@@ -402,6 +423,11 @@ class RelaxedScanner:
         return zMap
 
     def run_getZisoTilted(self, zMap=None, iso=0.0, nz=None ):
+        '''
+        get isosurface of input 3D field from given direction
+        used to generate HeightMap 
+        operates in coordinates rotated by tipRot
+        '''
         if nz is None: nz=self.scan_dim[2]
         if zMap is None: zMap = np.empty( self.scan_dim[:2], dtype=np.float32 )
         kargs = (
@@ -420,6 +446,13 @@ class RelaxedScanner:
         return zMap
 
     def run_getZisoFETilted(self, zMap=None, feMap=None, iso=0.0, nz=None ):
+        '''
+        get isosurface of input 3D field from given direction
+        get map of 3D volume FE (e.g. electrostatic field) maped on 2D isosurface 
+        used to generate ElectrostaticMap
+        returns zMap, feMap
+        operates in coordinates rotated by tipRot
+        '''
         if nz is None: nz=self.scan_dim[2]
         if zMap is None:  zMap  = np.empty( self.scan_dim[:2], dtype=np.float32 )
         if feMap is None: feMap = np.empty( self.scan_dim[:2]+(4,), dtype=np.float32 )
