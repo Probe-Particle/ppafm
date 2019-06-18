@@ -222,6 +222,8 @@ class Generator(Sequence,):
     nDfMin = 5
     nDfMax = 15
 
+    rotJitter = None
+
     def __init__(self, molecules, rotations, batch_size=32, pixPerAngstrome=10, lvec=None, Ymode='HeightMap' ):
         'Initialization'
 
@@ -467,7 +469,9 @@ class Generator(Sequence,):
         t1ff = time.clock();
         self.atom_lines = open( fullname ).readlines()
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.atom_lines )
-        setBBoxCenter( xyzs, (self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5) )
+        cog = (self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5)
+        setBBoxCenter( xyzs, cog )
+
         self.natoms0 = len(Zs)
         #cLJs  = PPU.getAtomsLJ( self.iZPP, Zs, self.typeParams )
         #print "cLJs ref : ", cLJs
@@ -481,16 +485,36 @@ class Generator(Sequence,):
         #print "REAs : ", REAs
         #print "cLJs : ", cLJs
 
+
+        #self.bRotJitter = True
+        if( self.rotJitter is not None ):
+            #rots = PPU.sphereTangentSpace(n=100)[:10]
+            #print "rots ", len(rots)
+            #print "len(Zs)",len(Zs)
+            Zs, xyzs, qs, cLJs = PPU.multRot( Zs, xyzs, qs, cLJs, self.rotJitter, cog )
+            #print "len(Zs)", len(Zs)
+            #print xyzs
+            basUtils.saveXyz( "test_____.xyz", Zs,  xyzs )
+
         if( self.npbc is not None ):
             Zs, xyzs, qs, cLJs = PPU.PBCAtoms3D( Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc )
+            #print "len(Zs)", len(Zs)
         self.Zs = Zs
+
+
 
         #print "cLJs : ", cLJs
 
         #FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, poss=self.ff_poss )
         FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
+
+        if( self.rotJitter is not None ):
+            FF[:,:,:,:] *= (1.0/ len(self.rotJitter) )
+
         self.FEin  = FF[:,:,:,:4] + self.Q*FF[:,:,:,4:];
+
+
 
         if self.Ymode == 'ElectrostaticMap':
             self.FE2in = FF[:,:,:,4:].copy();
@@ -552,7 +576,7 @@ class Generator(Sequence,):
                 special where AFM tip follows path of pre-calculated heigh-map at equdistance
                 should emulate https://pubs.acs.org/doi/pdf/10.1021/nl504182w 
                 Imaging Three-Dimensional Surface Objects with SubmolecularResolution by Atomic Force Microscopy
-                César Moreno, Oleksandr Stetsovych, Tomoko K. Shimizu, Oscar Custance
+                Cesar Moreno, Oleksandr Stetsovych, Tomoko K. Shimizu, Oscar Custance
             '''
             #print " self.scanner.tipRot ", self.scanner.tipRot
             #Hs = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ).copy()

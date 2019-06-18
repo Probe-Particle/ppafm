@@ -338,7 +338,7 @@ class ForceField_LJC:
 
     def run(self, FE=None, local_size=(32,) ):
         '''
-        
+        generate force-field
         '''
         if FE is None:
             FE = np.zeros( self.nDim[:3]+(8,), dtype=np.float32 )
@@ -346,6 +346,7 @@ class ForceField_LJC:
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size
+        #print "self.nAtoms ", self.nAtoms
         kargs = (  
             self.nAtoms,
             self.cl_atoms,

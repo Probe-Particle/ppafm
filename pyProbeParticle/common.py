@@ -90,12 +90,22 @@ def rotation_matrix(axis, theta):
     axis    =  np.asarray(axis)
     axis    =  axis/np.sqrt(np.dot(axis, axis))
     a       =  np.cos(theta/2.0)
+    #print  "axis, theta ", axis, theta
     b, c, d = -axis*np.sin(theta/2.0)
     aa, bb, cc, dd = a*a, b*b, c*c, d*d
     bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
     return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
                      [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
                      [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
+
+def makeRotJitter( n=10, maxAngle=0.3 ):
+    rotJitter = []
+    nrn = 50
+    rnjit = (np.random.rand(nrn,4) - 0.5) * 2
+    for i in range(nrn):
+        axis = rnjit[i,:3] /np.sqrt( np.dot(rnjit[i,:3],rnjit[i,:3]) )
+        rotJitter.append( rotation_matrix(axis, rnjit[i,3]*maxAngle  ) )
+    return rotJitter
 
 def genRotations( axis, thetas ):  # DEPRECATED use sphereTangentSpace instead
     return np.array( [ rotation_matrix(axis, theta) for theta in thetas ] )
@@ -307,6 +317,31 @@ def PBCAtoms3D( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
                     cLJs_.append( cLJs[iatom,:] )
                     #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
     return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy(), np.array(cLJs_).copy()
+
+def multRot( Zs, Rs, Qs, cLJs, rots, cog = (0,0,0) ):
+    '''
+    multiply atoms of sample along supercell vectors
+    the multiplied sample geometry is used for evaluation of forcefield in Periodic-boundary-Conditions ( PBC )
+    '''
+    Zs_   = []
+    Rs_   = []
+    Qs_   = []
+    cLJs_ = []
+    for rot in rots:
+        for iatom in range(len(Zs)):
+            #xyz = Rs[iatom]
+            xyz = ( Rs[iatom][0] -cog[0],  Rs[iatom][1] -cog[1], Rs[iatom][2] -cog[2] )
+            #print iatom, xyz[0], xyz[1], xyz[2]
+            x = xyz[0]*rot[0][0] + xyz[1]*rot[0][1] + xyz[2]*rot[0][2]    + cog[0]
+            y = xyz[0]*rot[1][0] + xyz[1]*rot[1][1] + xyz[2]*rot[1][2]    + cog[1]
+            z = xyz[0]*rot[2][0] + xyz[1]*rot[2][1] + xyz[2]*rot[2][2]    + cog[2]
+            Zs_.append( Zs[iatom] )
+            Rs_.append( (x,y,z)   )
+            Qs_.append( Qs[iatom] )
+            cLJs_.append( cLJs[iatom,:] )
+            #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
+    return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy(), np.array(cLJs_).copy()
+
 
 def getFFdict( FFparams ):
     elem_dict={}
