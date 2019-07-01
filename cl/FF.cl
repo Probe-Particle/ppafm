@@ -2,6 +2,9 @@
 #define R2SAFE          1e-4f
 #define COULOMB_CONST   14.399644f  // [eV/e]
 
+#define N_RELAX_STEP_MAX  64
+#define F2CONV  1e-8
+
 float4 getCoulomb( float4 atom, float3 pos ){
      float3  dp  =  pos - atom.xyz;
      float   ir2 = 1.0f/( dot(dp,dp) +  R2SAFE );
@@ -137,6 +140,86 @@ __kernel void evalLJC(
     fe.hi  = fe.hi*COULOMB_CONST;
     FE[iG] = fe;
 }
+
+
+
+float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
+    float r = sqrt( dot( dpos,dpos) );
+    return  (dpos-dpos0.xyz) * stiffness.xyz        // harmonic 3D
+         + dpos * ( stiffness.w * (r-dpos0.w)/r );  // radial
+}
+
+
+__kernel void relaxStrokesDirect(
+    int nAtoms, 
+    __global float4*    atoms,
+    __global float2*    cLJs,
+    __global float4*    points,
+    __global float4*    FEs,
+    float4 dTip,
+    float4 stiffness,
+    float4 dpos0,
+    float4 relax_params,
+    int nz
+){
+
+    __local float4 LATOMS[32];
+    __local float2 LCLJS [32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+
+
+    float3 tipPos = points[get_global_id(0)].xyz;
+    float3 pos    = tipPos.xyz + dpos0.xyz; 
+    
+    const float dt   = relax_params.x;
+    const float damp = relax_params.y;
+    //printf( " %li (%f,%f,%f)  \n",  get_global_id(0), tipPos.x, tipPos.y, tipPos.z);
+
+
+    for(int iz=0; iz<nz; iz++){
+        float4 fe;
+        float3 vel   = 0.0f;
+
+        for(int i=0; i<N_RELAX_STEP_MAX; i++){
+            //fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+
+            // Get Atomic Forces
+            float8 fe  = (float8) (0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+
+            for (int i0=0; i0<nAtoms; i0+= nL ){
+                int i = i0 + iL;
+                //if(i>=nAtoms) break;  // wrong !!!!
+                LATOMS[iL] = atoms[i];
+                LCLJS [iL] = cLJs[i];
+                barrier(CLK_LOCAL_MEM_FENCE);
+                for (int j=0; j<nL; j++){
+                    if( (j+i0)<nAtoms ) fe += getLJC( LATOMS[j], LCLJS[j], pos );
+                }
+                barrier(CLK_LOCAL_MEM_FENCE);
+            }
+
+            float3 f  = fe.xyz;
+            f        += tipForce( pos-tipPos, stiffness, dpos0 );
+            vel      *=       damp;
+            vel      += f   * dt;
+            pos.xyz  += vel * dt;
+            if(dot(f,f)<F2CONV) break;
+
+        }
+
+        //FEs[get_global_id(0)*nz + iz] = fe;
+        FEs[get_global_id(0)*nz + iz].xyz = pos;
+        tipPos += dTip.xyz;
+        pos    += dTip.xyz;
+    }
+
+
+}
+
+
+
 
 __kernel void evalMorse(
     const int nAtoms, 

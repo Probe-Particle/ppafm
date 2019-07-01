@@ -305,7 +305,7 @@ class ForceField_LJC:
         self.ctx   = oclu.ctx; 
         self.queue = oclu.queue
 
-    def prepareBuffers(self, atoms, cLJs, poss ):
+    def prepareBuffers(self, atoms, cLJs, poss, bDirect=False, nz=20 ):
         '''
         allocate all necessary buffers in GPU memory
         '''
@@ -313,10 +313,14 @@ class ForceField_LJC:
         nbytes   =  0;
         self.nAtoms   = np.int32( len(atoms) ) 
         mf       = cl.mem_flags
+
         self.cl_atoms = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
         self.cl_cLJs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  ); nbytes+=cLJs.nbytes
         self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
-        self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ); nbytes+=poss.nbytes*2 # float8
+        if(bDirect):
+            self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*nz ); nbytes+=poss.nbytes*nz # float8
+        else:
+            self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*2  ); nbytes+=poss.nbytes*2 # float8
         if(verbose>0): print "initArgsLJC.nbytes ", nbytes
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None ):
@@ -355,6 +359,40 @@ class ForceField_LJC:
             self.cl_FE,
         )
         cl_program.evalLJC( self.queue, global_size, local_size, *(kargs) )
+        cl.enqueue_copy( self.queue, FE, kargs[4] )
+        self.queue.finish()
+        return FE
+
+    def runrelaxStrokesDirect(self, FE=None, local_size=(32,), nz=10 ):
+        '''
+        generate force-field
+        '''
+        if FE is None:
+            FE = np.zeros( self.nDim[:3]+(4,), dtype=np.float32 )
+            if(verbose>0): print "FE.shape", FE.shape, self.nDim
+        ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        global_size = (ntot,) # TODO make sure divisible by local_size
+        #print "global_size:", global_size
+        #print "self.nAtoms ", self.nAtoms
+
+        dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
+        stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
+        dpos0        = np.array( [ 0.0 , 0.0 , -4.0 , 4.0 ], dtype=np.float32 );
+        relax_params = np.array( [ 0.1 , 0.9 ,  0.02, 0.5 ], dtype=np.float32 );
+
+        kargs = (  
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cLJs,
+            self.cl_points,
+            self.cl_FE,
+            dTip,
+            stiffness,
+            dpos0,
+            relax_params,
+            np.int32(nz),
+        )
+        cl_program.relaxStrokesDirect( self.queue, global_size, local_size, *(kargs) )
         cl.enqueue_copy( self.queue, FE, kargs[4] )
         self.queue.finish()
         return FE
