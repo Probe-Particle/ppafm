@@ -272,8 +272,8 @@ __kernel void relaxStrokes(
             pos.xyz  += vel * dt;
             if(dot(f,f)<F2CONV) break;
         }
-        //FEs[get_global_id(0)*nz + iz] = fe;
-        FEs[get_global_id(0)*nz + iz].xyz = pos;
+        FEs[get_global_id(0)*nz + iz] = fe;
+        //FEs[get_global_id(0)*nz + iz].xyz = pos;
         tipPos += dTip.xyz;
         pos    += dTip.xyz;
     }

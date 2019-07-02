@@ -2,7 +2,8 @@
 #define R2SAFE          1e-4f
 #define COULOMB_CONST   14.399644f  // [eV/e]
 
-#define N_RELAX_STEP_MAX  64
+//#define N_RELAX_STEP_MAX  64
+#define N_RELAX_STEP_MAX  16
 #define F2CONV  1e-8
 
 float4 getCoulomb( float4 atom, float3 pos ){
@@ -160,6 +161,7 @@ __kernel void relaxStrokesDirect(
     float4 stiffness,
     float4 dpos0,
     float4 relax_params,
+    float Q,
     int nz
 ){
 
@@ -177,11 +179,11 @@ __kernel void relaxStrokesDirect(
     const float damp = relax_params.y;
     //printf( " %li (%f,%f,%f)  \n",  get_global_id(0), tipPos.x, tipPos.y, tipPos.z);
 
-
     for(int iz=0; iz<nz; iz++){
-        float4 fe;
+        float4 fe_;
         float3 vel   = 0.0f;
 
+        
         for(int i=0; i<N_RELAX_STEP_MAX; i++){
             //fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
 
@@ -199,8 +201,10 @@ __kernel void relaxStrokesDirect(
                 }
                 barrier(CLK_LOCAL_MEM_FENCE);
             }
+            fe_ = fe.lo + fe.hi * Q;
 
-            float3 f  = fe.xyz;
+
+            float3 f  = fe_.xyz;
             f        += tipForce( pos-tipPos, stiffness, dpos0 );
             vel      *=       damp;
             vel      += f   * dt;
@@ -209,11 +213,31 @@ __kernel void relaxStrokesDirect(
 
         }
 
-        //FEs[get_global_id(0)*nz + iz] = fe;
-        FEs[get_global_id(0)*nz + iz].xyz = pos;
+        /*
+            // Get Atomic Forces
+            float8 fe  = (float8) (0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+
+            for (int i0=0; i0<nAtoms; i0+= nL ){
+                int i = i0 + iL;
+                //if(i>=nAtoms) break;  // wrong !!!!
+                LATOMS[iL] = atoms[i];
+                LCLJS [iL] = cLJs[i];
+                barrier(CLK_LOCAL_MEM_FENCE);
+                for (int j=0; j<nL; j++){
+                    if( (j+i0)<nAtoms ) fe += getLJC( LATOMS[j], LCLJS[j], pos );
+                }
+                barrier(CLK_LOCAL_MEM_FENCE);
+            }
+        fe_ = fe.lo + fe.hi * -0.1f;
+        */
+
+        FEs[get_global_id(0)*nz + iz] = fe_;
+        //FEs[get_global_id(0)*nz + iz].xyz = pos;
         tipPos += dTip.xyz;
         pos    += dTip.xyz;
+
     }
+    
 
 
 }

@@ -86,6 +86,29 @@ def preparePossRot( scan_dim, pos0, avec, bvec, start=(-5.0,-5.0), end=(5.0,5.0)
     #print "DEBUG: poss[:,:,0:2]: " , poss[:,:,0:2]
     return poss
 
+def rotTip(rot,zstep,tipR0=[0.0,0.0,4.0]):
+    #pos0 += rot[2]*self.distAbove
+    dTip         = np.zeros(4,dtype=np.float32); 
+    dTip [:3]    = rot[2]*-zstep
+    tipRot       = mat3x3to4f( rot )
+    tipRot[2][3] = -zstep
+
+    dpos0Tip = np.zeros(4,dtype=np.float32);
+    dpos0Tip[0]  =   tipR0[0];
+    dpos0Tip[1]  =   tipR0[1];
+    dpos0Tip[2]  =  -np.sqrt(tipR0[2]**2 - tipR0[0]**2 - tipR0[1]**2);
+    dpos0Tip[3]  =   tipR0[2]
+
+    #print "setScanRot RelaxedScanner.dpos0Tip ", self.dpos0Tip
+
+    dpos0    = np.zeros(4,dtype=np.float32); 
+    #self.dpos0[:3] = rot[2]*-tipR0;  self.dpos0[3] = tipR0
+    #self.dpos0[:3]  = np.dot( rot, self.dpos0Tip[:3] );  self.dpos0[3] = tipR0[2]
+    dpos0[:3] = np.dot( rot.transpose(), dpos0Tip[:3] );  
+    dpos0[3]  = tipR0[2]
+    #print " self.dpos0Tip: ", self.dpos0Tip, " self.dpos0 ", self.dpos0
+    return dTip, tipRot,dpos0Tip,dpos0
+
 def prepareBuffers( FE, scan_dim, ctx=oclu.ctx ):
     nbytes = 0
     print "prepareBuffers FE.shape", FE.shape
@@ -161,14 +184,16 @@ class RelaxedScanner:
 
         self.surfFF = np.zeros(4,dtype=np.float32);
 
-    def prepareBuffers(self, FEin, lvec, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, FE2in=None ):
+    def prepareBuffers(self, FEin=None, lvec=None, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, FE2in=None ):
         #print " ========= prepareBuffers ", bZMap
         self.scan_dim = scan_dim
-        self.invCell  = getInvCell(lvec)
+        if lvec is not None:
+            self.invCell  = getInvCell(lvec)
         nbytes = 0
         #print "prepareBuffers FE.shape", FE.shape
         mf       = cl.mem_flags
-        self.cl_ImgIn = cl.image_from_array(self.ctx,FEin,num_channels=4,mode='r');  nbytes+=FEin.nbytes        # TODO make this re-uploadable
+        if FEin is not None:
+            self.cl_ImgIn = cl.image_from_array(self.ctx,FEin,num_channels=4,mode='r');  nbytes+=FEin.nbytes        # TODO make this re-uploadable
         # see:    https://stackoverflow.com/questions/39533635/pyopencl-3d-rgba-image-from-numpy-array
         #img_format = cl.ImageFormat( cl.channel_order.RGBA, channel_type)
         #self.cl_ImgIn =  cl.Image(self.ctx, mf.READ_ONLY, img_format, shape=None, pitches=None, is_array=False, buffer=None)
@@ -232,9 +257,11 @@ class RelaxedScanner:
     def setScanRot(self, pos0, rot=None, start=(-5.0,-5.0), end=(5.0,5.0), zstep=0.1, tipR0=[0.0,0.0,4.0] ):
         if rot is None:
             rot = np.identity()
+        
         #self.pos0=pos0; 
         self.zstep=zstep; self.start= start; self.end=end
         #pos0 += rot[2]*self.distAbove
+        '''
         self.dTip     = np.zeros(4,dtype=np.float32); self.dTip [:3] = rot[2]*-zstep
         self.tipRot = mat3x3to4f( rot )
         self.tipRot[2][3] = -zstep
@@ -252,20 +279,21 @@ class RelaxedScanner:
         #self.dpos0[:3]  = np.dot( rot, self.dpos0Tip[:3] );  self.dpos0[3] = tipR0[2]
         self.dpos0[:3]  = np.dot( rot.transpose(), self.dpos0Tip[:3] );  self.dpos0[3] = tipR0[2]
         #print " self.dpos0Tip: ", self.dpos0Tip, " self.dpos0 ", self.dpos0
+        '''
+        self.dTip, self.tipRot, self.dpos0Tip, self.dpos0 = rotTip(rot,self.zstep,tipR0)
 
-
+        '''
         ys    = np.linspace(start[0],end[0],self.scan_dim[0])
         xs    = np.linspace(start[1],end[1],self.scan_dim[1])
-
-        #if correctTilt:
-        #    ys += ;
-        #    ys += ;
-
         As,Bs = np.meshgrid(xs,ys)
         poss  = np.zeros(As.shape+(4,), dtype=np.float32)
         poss[:,:,0] = pos0[0] + As*rot[0,0] + Bs*rot[1,0]
         poss[:,:,1] = pos0[1] + As*rot[0,1] + Bs*rot[1,1]
         poss[:,:,2] = pos0[2] + As*rot[0,2] + Bs*rot[1,2]
+        '''
+        poss = preparePossRot( self.scan_dim, pos0, rot[0], rot[1], start=start, end=end )
+        #poss = preparePoss( self.scan_dim, z0, start=start, end=end )
+
         #print "DEBUG: poss[:,:,0:2]: " , poss[:,:,0:2]
         #poss[:,:,:] = pos0[None,None,:] + As[:,:,None] * rot[0][None,None,:]   + As[:,:,None] * rot[1][None,None,:]
         #self.pos0s = poss

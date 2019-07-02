@@ -386,7 +386,7 @@ class Generator(Sequence,):
                     print " ============= ndf ", ndf 
                     self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep ).astype(np.float32)
 
-                self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+                self.scanner.prepareBuffers( FEin=None, lvec=self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
                 self.rotations_sorted = self.sortRotationsByEntropy()
                 self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
                 if self.shuffle_rotations:
@@ -416,7 +416,7 @@ class Generator(Sequence,):
         self.handleRotations()
         #self.scanner.releaseBuffers()
         self.scanner.tryReleaseBuffers()
-        self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+        self.scanner.prepareBuffers( FEin=None, lvec=self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
         Xs1,Ys1   = self.nextRotBatch()
 
         self.iZPP = self.iZPP2
@@ -505,9 +505,12 @@ class Generator(Sequence,):
 
         #cLJs = self.forcefield.prepareParams(xyzs,qs)
         #self.forcefield.prepareBuffers(atoms, cLJs, poss )
-        atoms = FFcl.xyzq2float4(xyzs,qs);      self.atoms = atoms
-        cLJs  = cLJs.astype(np.float32);   
-        self.forcefield.prepareBuffers( atoms, cLJs, self.ff_poss, bDirect=True )
+        self.atoms = FFcl.xyzq2float4(xyzs,qs);
+        cLJs  = cLJs.astype(np.float32);
+        self.forcefield.nDim = FFcl.genFFSampling( self.lvec, self.pixPerAngstrome )
+        self.forcefield.prepareBuffers( self.atoms, cLJs, poss=None, bDirect=True )
+
+        self.atomsNonPBC = self.atoms[:self.natoms0].copy()
 
         if self.projector is not None:
             na = len(self.atomsNonPBC)
@@ -562,8 +565,13 @@ class Generator(Sequence,):
         self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*self.distAbove, rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
         #self.forcefield.prepareBuffers( atoms, cLJs, poss, bDirect=True, nz=20 )
 
-        self.forcefield.cl_points = self.scanner.cl_poss  # starting positions -> forcefield 
-        FE = self.forcefield.runrelaxStrokesDirect(FE=None, local_size=(32,), nz=self.scanner.scan_dim[2] )
+        #self.dTip, self.tipRot, self.dpos0Tip, self.dpos0 = rotTip(rot,self.zstep,tipR0)
+        #poss = preparePossRot( self.scan_dim, pos0, rot[0], rot[1], start=start, end=end )
+
+        self.forcefield.cl_points = self.scanner.cl_poss  # starting positions -> forcefield
+        self.forcefield.cl_FE     = self.scanner.cl_FEout
+        self.forcefield.scan_dim  = self.scanner.scan_dim
+        FE = self.forcefield.runRelaxStrokesDirect(  self.Q, self.scanner.cl_FEout,  FE=None, local_size=(32,), nz=self.scanner.scan_dim[2] )
         self.scanner.cl_FEout = self.forcefield.cl_FE     #   Forces -> scanner
 
         #FEout  = self.scanner.run_relaxStrokesTilted()
