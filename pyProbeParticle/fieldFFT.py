@@ -301,7 +301,8 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     gc.collect()
     if doPot:
         if(verbose>0): print '--- Get Potential ---'
-        E         = np.real(np.fft.ifftn(convFFT))
+        #E         = np.real(np.fft.ifftn(convFFT))
+        E         = np.real(np.fft.ifftn(convFFT * (dd[0]*dd[1]*dd[2]) / (detLmatInv) ) )
     if doForce:
         if(verbose>0): print '--- Get Forces ---'
         convFFT  *= 2*np.pi*1j*(dd[0]*dd[1]*dd[2]) / (detLmatInv)   

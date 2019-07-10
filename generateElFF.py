@@ -74,7 +74,8 @@ if __name__=="__main__":
         rho_tip, lvec_tip, nDim_tip, head_tip = GU.loadXSF( options.tip_dens )
         PPU.params['tip'] = rho_tip
 
-    FFel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
+    #FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
+    FFel,Vel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],computeVpot=options.energy , tilt=opt_dict['tilt'] )
     
     print " saving electrostatic forcefiled "
     
@@ -93,7 +94,7 @@ if __name__=="__main__":
         
     GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format, head=head)
     if options.energy :
-        GU.save_scal_field( 'Vel', V, lvec, data_format=options.data_format)
+        GU.save_scal_field( 'Vel', Vel, lvec, data_format=options.data_format)
     del FFel,V;
     
     
