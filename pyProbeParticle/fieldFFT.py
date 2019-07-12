@@ -122,7 +122,42 @@ def getProbeDensity( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None, ti
     else:
         rho = radial
     return rho
-   
+
+def addCoreDensity( rho, val, x,y,z, sigma=0.1 ):
+    rquad        = x**2 + y**2 + z**2
+    radial       = np.exp( -rquad/(2*sigma**2) )
+    radial_renom = np.sum(radial)  # TODO analytical renormalization may save some time ?
+    radial      *= val/float(radial_renom)
+    print "radial.sum()", radial.sum(), val
+    rho         += radial
+
+def addCoreDensities( atoms, valElDict, rho, lvec, sigma=0.1 ):
+
+    sampleSize = getSampleDimensions( lvec )
+    nDim = rho.shape 
+    dims = (nDim[2], nDim[1], nDim[0])
+    xsize, dx = getSize('x', dims, sampleSize)
+    ysize, dy = getSize('y', dims, sampleSize)
+    zsize, dz = getSize('z', dims, sampleSize)
+    dd = (dx, dy, dz)
+    X, Y, Z = getMGrid(dims, dd)
+
+    mat = getNormalizedBasisMatrix(sampleSize).getT()
+    
+    dV = np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]
+    rx = X*mat[0, 0] + Y*mat[0, 1] + Z*mat[0, 2]
+    ry = X*mat[1, 0] + Y*mat[1, 1] + Z*mat[1, 2]
+    rz = X*mat[2, 0] + Y*mat[2, 1] + Z*mat[2, 2]
+
+    for ia in range(len(atoms[0])):
+        nel = valElDict[atoms[0,ia]]
+        xyz = atoms[1:4,ia]
+        addCoreDensity( rho, -nel/dV, rx-xyz[0],ry-xyz[1],rz-xyz[2], sigma=sigma )
+
+    return rho
+
+
+
 def getSkewNormalBasis(sampleSize):
     'returns normalized basis vectors pertaining to the skew basis'
     ax = sampleSize[0]/(np.linalg.norm(sampleSize[0]))

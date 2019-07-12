@@ -5,9 +5,10 @@ import os
 import __main__ as main
 
 
-import pyProbeParticle                as PPU     
+import pyProbeParticle                as PPU
 #from   pyProbeParticle            import elements   
 import pyProbeParticle.GridUtils      as GU
+import pyProbeParticle.fieldFFT       as fFFT
 import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.cpp_utils      as cpp_utils
 
@@ -22,6 +23,7 @@ if __name__=="__main__":
     parser = OptionParser()
     parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
     parser.add_option( "--tip_dens", action="store", type="string",  help="tip enisty file (.xsf)")
+    parser.add_option( "--sub_core",  action="store_true",  help="subtract core density", default=False )
     parser.add_option( "-t", "--tip", action="store", type="string", help="tip model (multipole) {s,pz,dz2,..}", default=None)
     parser.add_option( "--tilt", action="store", type="float", help="tilt of tip electrostatic field (radians)", default=0 )
     parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
@@ -72,6 +74,16 @@ if __name__=="__main__":
         print " dens_tip check_sum Q =  ", np.sum( rho_tip )
         '''
         rho_tip, lvec_tip, nDim_tip, head_tip = GU.loadXSF( options.tip_dens )
+
+        if options.sub_core:
+            import pyProbeParticle.basUtils                as BU
+            atoms,nDim,lvec     = BU.loadGeometry( options.tip_dens, params=PPU.params )
+            valElDict = { iZ:float(iZ) for iZ in atoms[0] }
+            print valElDict
+            atoms_ = np.array(atoms)
+            print "sum(RHO), Nelec",  rho_tip.sum()
+            fFFT.addCoreDensities( atoms_, valElDict, rho_tip, lvec_tip, sigma=0.1 )
+            print "sum(RHO), Nelec",  rho_tip.sum()
         PPU.params['tip'] = rho_tip
 
     #FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )

@@ -49,8 +49,15 @@ valElDict = { 6:4.0, 8:6.0}
 atoms,nDim,lvec     = BU.loadGeometry( options.sample, params=PPU.params )
 atoms_ = np.array(atoms)
 
+rho1, lvec1, nDim1, head1 = GU.loadXSF( options.sample )
+V = lvec1[1,0]*lvec1[2,1]*lvec1[3,2]
+N = nDim1[0]*nDim1[1]*nDim1[2]
+dV = (V/N)
+
 print atoms
 print atoms_
+
+'''
 
 lvec_ = lvec[1:]
 invLvec = np.linalg.inv( lvec_ )
@@ -59,11 +66,6 @@ invLvec[:,1] *= nDim[1]
 invLvec[:,2] *= nDim[2]
 print invLvec
 
-rho1, lvec1, nDim1, head1 = GU.loadXSF( options.sample )
-V = lvec1[1,0]*lvec1[2,1]*lvec1[3,2]
-N = nDim1[0]*nDim1[1]*nDim1[2]
-
-dV = (V/N)
 
 #rho1[:,:,:] = 0
 
@@ -77,6 +79,12 @@ for ia in range(len(atoms[0])):
     iabc, fabc = triLin(abc + pixOff)
     addDeInterp( -nel/dV, rho1, iabc, fabc)
 
+'''
+
+import pyProbeParticle.fieldFFT  as ffft
+
+print "sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV
+ffft.addCoreDensities( atoms_, valElDict, rho1, lvec1, sigma=0.1 )
 print "sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV
 
 GU.saveXSF( "rho_core.xsf", rho1,       lvec1, head=head1 )
