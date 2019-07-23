@@ -26,6 +26,14 @@ parser.add_option( "-o", "--output", action="store", type="string", default="pau
 rho1, lvec1, nDim1, head1 = GU.loadXSF( options.sample )
 rho2, lvec2, nDim2, head2 = GU.loadXSF( options.tip    )
 
+if "AECCAR" in options.sample:
+    V1 = np.abs( np.linalg.det(lvec1[1:]) )
+    rho1 /= V1
+
+if "AECCAR" in options.sample:
+    V2 = np.abs( np.linalg.det(lvec2[1:]) )
+    rho2 /= V2
+
 #fFFT.conv3DFFT( F2, F1 )
 #GU.saveXSF( "Fpauli_x.xsf", Fx*PQ, lvec1, head=head1 )
 

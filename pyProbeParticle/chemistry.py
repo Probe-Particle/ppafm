@@ -9,7 +9,9 @@ import numpy as np
 #exclude_default = set(1)
 
 def findBonds( xyzs, Zs, ELEMENTS=elements.ELEMENTS, Rcut=2.0, fRvdw=1.3 ):
-    n     = len(Zs)
+    #n     = len(Zs)
+    n     = len(xyzs)
+    #print "len(xyzs)", n
     bonds = []
     R2cut = Rcut*Rcut
     inds  = np.indices((n,))[0]
@@ -36,13 +38,16 @@ def bonds2neighs( bonds, Zs ):
         ngs[j].append((i,Zs[i]))
     return ngs
 
-def neighs2str( Zs, neighs, ELEMENTS=elements.ELEMENTS ):
+def neighs2str( Zs, neighs, ELEMENTS=elements.ELEMENTS, bPreText=False ):
     groups = [ '' for i in Zs ]
     for i,ngs in enumerate(neighs):
         nng = len(ngs)
         if nng > 1:
             #s = ELEMENTS[Zs[i]-1][1] + ("(%i):" %nng)
-            s = ELEMENTS[Zs[i]-1][1]+":"
+            if bPreText:
+                s = ELEMENTS[Zs[i]-1][1]+":"
+            else:
+                s = ""
             dct = {}
             for j,jz in ngs:
                 if jz in dct:

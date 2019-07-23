@@ -48,13 +48,12 @@ def rotAtoms(rot, atoms):
     '''
     rotate atoms by matrix "rot"
     '''
-    print "atoms.shape ", atoms.shape
+    #print "atoms.shape ", atoms.shape
     atoms_ = np.zeros(atoms.shape)
     atoms_[:,0] =  rot[0,0] * atoms[:,0]   +  rot[0,1] * atoms[:,1]   +    rot[0,2] * atoms[:,2]
     atoms_[:,1] =  rot[1,0] * atoms[:,0]   +  rot[1,1] * atoms[:,1]   +    rot[1,2] * atoms[:,2]
     atoms_[:,2] =  rot[2,0] * atoms[:,0]   +  rot[2,1] * atoms[:,1]   +    rot[2,2] * atoms[:,2]
     return atoms_
-
 
 def applyZWeith( F, zWeight ):
     '''
@@ -108,10 +107,11 @@ def getAtomsRotZmin( rot, xyzs, zmin, Zs=None ):
     '''
     #xdir = np.dot( atoms[:,:3], hdir[:,None] )
     #print xyzs.shape
-    xyzs_ = np.empty(xyzs.shape)
-    xyzs_[:,0]  = rot[0,0]*xyzs[:,0] + rot[0,1]*xyzs[:,1] + rot[0,2]*xyzs[:,2]
-    xyzs_[:,1]  = rot[1,0]*xyzs[:,0] + rot[1,1]*xyzs[:,1] + rot[1,2]*xyzs[:,2]
-    xyzs_[:,2]  = rot[2,0]*xyzs[:,0] + rot[2,1]*xyzs[:,1] + rot[2,2]*xyzs[:,2]
+    #xyzs_ = np.empty(xyzs.shape)
+    #xyzs_[:,0]  = rot[0,0]*xyzs[:,0] + rot[0,1]*xyzs[:,1] + rot[0,2]*xyzs[:,2]
+    #xyzs_[:,1]  = rot[1,0]*xyzs[:,0] + rot[1,1]*xyzs[:,1] + rot[1,2]*xyzs[:,2]
+    #xyzs_[:,2]  = rot[2,0]*xyzs[:,0] + rot[2,1]*xyzs[:,1] + rot[2,2]*xyzs[:,2]
+    xyzs_ = rotAtoms(rot, xyzs )
     mask  =  xyzs_[:,2] > zmin
     #print xyzs_.shape, mask.shape
     #print xyzs_
@@ -127,10 +127,11 @@ def getAtomsRotZminNsort( rot, xyzs, zmin, Zs=None, Nmax=30 ):
     '''
     #xdir = np.dot( atoms[:,:3], hdir[:,None] )
     #print xyzs.shape
-    xyzs_ = np.empty(xyzs.shape)
-    xyzs_[:,0]  = rot[0,0]*xyzs[:,0] + rot[0,1]*xyzs[:,1] + rot[0,2]*xyzs[:,2]
-    xyzs_[:,1]  = rot[1,0]*xyzs[:,0] + rot[1,1]*xyzs[:,1] + rot[1,2]*xyzs[:,2]
-    xyzs_[:,2]  = rot[2,0]*xyzs[:,0] + rot[2,1]*xyzs[:,1] + rot[2,2]*xyzs[:,2]
+    #xyzs_ = np.empty(xyzs.shape)
+    #xyzs_[:,0]  = rot[0,0]*xyzs[:,0] + rot[0,1]*xyzs[:,1] + rot[0,2]*xyzs[:,2]
+    #xyzs_[:,1]  = rot[1,0]*xyzs[:,0] + rot[1,1]*xyzs[:,1] + rot[1,2]*xyzs[:,2]
+    #xyzs_[:,2]  = rot[2,0]*xyzs[:,0] + rot[2,1]*xyzs[:,1] + rot[2,2]*xyzs[:,2]
+    xyzs_ = rotAtoms(rot, xyzs )
     inds = np.argsort( -xyzs_[:,2] )
     xyzs_[:,:] = xyzs_[inds,:]
     mask  = xyzs_[:,2] > zmin
@@ -851,9 +852,30 @@ class Generator(Sequence,):
         if(verbose>0): print "saveDebugXSF : ", fname
         GU.saveXSF( fname, F.transpose((2,1,0)), lvec )
 
-    def plot(self, rotName, molName, X=None,Y=None,Y_=None, entropy=None, bXYZ=False, bPOVray=False, bRot=False ):
+    def plotGroups(self, plt, groups, xys):
+        #print " >>> INSIDE :  plotGroups ", len(groups)
+        plt.scatter(xys[:,0],xys[:,1],s=0.1,c="#ffffff",marker="X")
+        #plt.plot(xys[:,0],xys[:,1],"o-w")
+        
+        for i in range(len(groups)):
+            label = groups[i]
+            if label != '':
+                xy = xys[i]
+                #print "annotate ", i, xy, label 
+                plt.annotate(label, # this is the text
+                    xy, # this is the point to label
+                    textcoords="offset points", # how to position the text
+                    xytext=(0,0), # distance from text to points (x,y)
+                    ha='center')
+        
+
+    def plot(self, rotName, molName, X=None,Y=None,Y_=None, entropy=None, bXYZ=False, bPOVray=False, bRot=False, bGroups=False ):
         import matplotlib as mpl;  mpl.use('Agg');
         import matplotlib.pyplot as plt
+
+        #extent=(self.scan_start + self.scan_end )
+        extent=(self.scan_start[0],self.scan_end[0], self.scan_start[1],self.scan_end[1] )
+        #print "extent: ", extent
 
         fname    = self.preName + molName + rotName
         print " plot to file : ", fname
@@ -887,47 +909,63 @@ class Generator(Sequence,):
         if entropy is not None:
             title = "entropy %f" %entropy
         if Y is not None:
+            plt.figure()
             if self.Ymode == 'ElectrostaticMap':
                 vmax = max( Y.max(), -Y.min() )
                 #plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='seismic', origin='image' );
-                plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='bwr', origin='image' );
+                plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='bwr', origin='image', extent=extent );
                 plt.title(title)
                 plt.colorbar()
             if self.Ymode == 'D-S-H':
                 print "plot  D-S-H mode", fname, Y.shape
                 plt.figure(figsize=(15,5))
-                plt.subplot(1,3,1); plt.imshow( Y[:,:,0], origin='image' ); plt.title("Disks");     plt.colorbar()
-                plt.subplot(1,3,2); plt.imshow( Y[:,:,1], origin='image' ); plt.title("Spheres");   plt.colorbar()
-                plt.subplot(1,3,3); plt.imshow( Y[:,:,2], origin='image' ); plt.title("HeightMap"); plt.colorbar()
+                plt.subplot(1,3,1); plt.imshow( Y[:,:,0], origin='image', extent=extent ); plt.title("Disks");     plt.colorbar()
+                plt.subplot(1,3,2); plt.imshow( Y[:,:,1], origin='image', extent=extent ); plt.title("Spheres");   plt.colorbar()
+                plt.subplot(1,3,3); plt.imshow( Y[:,:,2], origin='image', extent=extent ); plt.title("HeightMap"); plt.colorbar()
             else:
-                plt.imshow( Y, origin='image' );
+                plt.imshow( Y, origin='image', extent=extent );
                 plt.title(title)
                 plt.colorbar()
+
+            if bGroups:
+                import chemistry as chem
+                Zs = self.Zs[:self.natoms0]
+                xyzs  = self.atomsNonPBC[:,:3] - self.pos0[None,:]
+                xyzs_ = rotAtoms(self.rot,xyzs)
+                #print "xyzs_.shape", xyzs_.shape
+                bonds  = chem.findBonds( xyzs_, Zs, Rcut=2.0, fRvdw=1.3 )
+                #print bonds
+                neighs = chem.bonds2neighs(bonds, Zs )
+                #print neighs
+                groups = chem.neighs2str( Zs, neighs, bPreText=True )
+                #print  groups
+                self.plotGroups(plt, groups, xyzs_[:,:2] )
+
             #print "Y = ", Y
-            #plt.imshow( Y, vmin=-5, vmax=5, origin='image' );  
+            #plt.imshow( Y, vmin=-5, vmax=5, origin='image', extent=extent );  
             plt.savefig(  fname+"Dens.png", bbox_inches="tight"  );
             #plt.savefig(  fname+"Dens.png", bbox_inches="tight"  ); 
             plt.close()
 
         for isl in self.debugPlotSlices:
-            #plt.imshow( FEout[:,:,isl,2] )
+            #plt.imshow( FEout[:,:,isl,2], extent=extent )
             if (X is not None) and (Y_ is not None):
                 plt.figure(figsize=(10,5))
                 #print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
-                plt.subplot(1,2,2); plt.imshow (X [:,:,isl], origin='image' );            plt.colorbar()
-                #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl], origin='image' );
-                plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]), origin='image' );   plt.colorbar()
+                plt.subplot(1,2,2); plt.imshow (X [:,:,isl], origin='image', extent=extent );            plt.colorbar()
+                #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl], origin='image', extent=extent );
+                plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]), origin='image', extent=extent );   plt.colorbar()
                 plt.title(title)
                 plt.savefig( fname+( "FzFixRelax_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                 plt.close()
             else:
                 if X is not None:
                     if(verbose>0): print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
-                    plt.imshow(  X[:,:,isl], origin='image' );    plt.colorbar()
+                    plt.imshow(  X[:,:,isl], origin='image', extent=extent );    plt.colorbar()
                     plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                     plt.close()
                 if Y_ is not None:
-                    plt.imshow ( Y_[:,:,isl], origin='image' );   plt.colorbar()
+                    plt.imshow ( Y_[:,:,isl], origin='image', extent=extent );   plt.colorbar()
                     plt.savefig( fname+( "FzFix_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                     plt.close()
 

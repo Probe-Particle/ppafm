@@ -12,6 +12,13 @@ import pyProbeParticle.fieldFFT       as fFFT
 import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.cpp_utils      as cpp_utils
 
+valElDict = {
+1:1.0, 2:2.0, 
+3:1.0, 4:2.0, 5:3.0, 6:4.0, 7:5.0, 8:6.0, 
+9:7.0, 10:8.0, 11:1.0, 12:2.0, 13:3.0, 14:4.0, 15:5.0, 16:6.0, 17:7.0, 18:8.0,
+35:7.0, 36:8.0,
+53:7.0,  54:8.0
+}
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
@@ -75,15 +82,24 @@ if __name__=="__main__":
         '''
         rho_tip, lvec_tip, nDim_tip, head_tip = GU.loadXSF( options.tip_dens )
 
+        #if "AECCAR" in options.tip_dens:
+        #    Vol = np.abs( np.linalg.det(lvec_tip[1:]) )
+        #    rho_, lvec_, nDim_, head_ = GU.loadXSF( "../tip/AECCAR0.xsf" )
+        #    rho_tip += rho_
+        #    rho_tip /= Vol
+
         if options.sub_core:
             import pyProbeParticle.basUtils                as BU
             atoms,nDim,lvec     = BU.loadGeometry( options.tip_dens, params=PPU.params )
-            valElDict = { iZ:float(iZ) for iZ in atoms[0] }
-            print valElDict
+            #valElDict = { iZ:float(iZ) for iZ in atoms[0] }
+            #print valElDict
             atoms_ = np.array(atoms)
-            print "sum(RHO), Nelec",  rho_tip.sum()
+
+            dV = np.abs(np.linalg.det(lvec_tip[1:]))/(nDim_tip[0]*nDim_tip[1]*nDim_tip[2])
+            print "sum(RHO), Nelec",  rho_tip.sum(), dV, rho_tip.sum()*dV
             fFFT.addCoreDensities( atoms_, valElDict, rho_tip, lvec_tip, sigma=0.1 )
-            print "sum(RHO), Nelec",  rho_tip.sum()
+            print "sum(RHO), Nelec",  rho_tip.sum(), dV, rho_tip.sum()*dV
+            #exit()
         PPU.params['tip'] = rho_tip
 
     #FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
