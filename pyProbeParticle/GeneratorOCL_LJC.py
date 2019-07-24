@@ -125,7 +125,9 @@ def getAtomsRotZminNsort( rot, xyzs, zmin, RvdWs=None, Zs=None, Nmax=30 ):
     get <=Nmax atoms closer to camera than "zmin" and sort by distance from camera
     '''
     xyzs_ = rotAtoms(rot, xyzs )
-    zs = xyzs_[:,2]
+    #print " np.dot( rot, rot.transpse() ) ", np.dot( rot, rot.transpose() )
+    #zs = xyzs_[:,2]
+    zs = xyzs_[:,2].copy()
     if RvdWs is not None:
         #print " :::: xyzs_.shape, RvdWs.shape :: ", xyzs_.shape, RvdWs.shape
         #print " :::: RvdW      ", RvdWs
@@ -133,11 +135,35 @@ def getAtomsRotZminNsort( rot, xyzs, zmin, RvdWs=None, Zs=None, Nmax=30 ):
         zs += RvdWs
         #print " :::: zs+Rvdw ", zs
 
-    inds = np.argsort( -zs )
+    inds = np.argsort( -zs ) #.copy()
     #print " :::: inds ", inds
-    xyzs_[:,:] = xyzs_[inds,:]
-    zs   [:]   = zs   [inds]
+    xyzs_ = xyzs_[inds,:].copy()
+    zs    = zs   [inds  ].copy()
+    #zs         = zs   [inds]
+    #mask =  xyzs_[:,2] > zmin
     mask  = zs > zmin
+    xyzs_ = xyzs_[mask,:]
+    #print  "inds new ", inds
+    #print  "mask new ", mask
+    #print  "xyzs_[:,:] new ", xyzs_[:,2]
+    #print  "zs   new ", zs
+    #print xyzs_.shape, mask.shape
+    #print xyzs_
+    #print mask
+    if Zs is not None:
+        Zs = Zs[inds]
+        Zs = Zs[mask]
+    return xyzs_[:Nmax,:], Zs[:Nmax] 
+
+def getAtomsRotZminNsort_old( rot, xyzs, zmin, RvdWs=None, Zs=None, Nmax=30 ):
+    xyzs_ = rotAtoms(rot, xyzs )
+    inds = np.argsort( -xyzs_[:,2] )
+    xyzs_[:,:] = xyzs_[inds,:]
+    mask  = xyzs_[:,2] > zmin
+
+    print  "inds old ", inds
+    print  "mask old ", mask
+    print  "zs   old ", xyzs_[:,2]
     xyzs_ = xyzs_[mask,:]
     #print xyzs_.shape, mask.shape
     #print xyzs_
@@ -195,6 +221,7 @@ class Generator(Sequence,):
     npbc = (1,1,1)
 
     debugPlots = False
+    #debugPlots = True
     #debugPlotSlices   = [0,+2,+4,+6,+8,+10,+12,+14,+16]
     #debugPlotSlices   = [-1]
     #debugPlotSlices    = [-5,5]
@@ -398,7 +425,7 @@ class Generator(Sequence,):
                     np.random.shuffle( permut )
                     #print permut
                     self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
-            print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
+            #print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
             rot = self.rotations_sorted[self.irot]
             self.nextRotation( Xs[ibatch], Ys[ibatch] )
             #self.nextRotation( self.rotations[self.irot], Xs[ibatch], Ys[ibatch] )
@@ -553,9 +580,6 @@ class Generator(Sequence,):
 #        if(verbose>0): 
         #print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
-
-
-        print  self.rot
 
         vtipR0    = np.zeros(3)
         
@@ -798,7 +822,8 @@ class Generator(Sequence,):
             #print self.atoms
             #print "xyzs ", xyzs
             #xyzs_, Zs = getAtomsRotZmin( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0] )
-            #xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz  )
+            #xyzs_, Zs = getAtomsRotZminNsort    ( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz  )
+            #xyzs_, Zs = getAtomsRotZminNsort_old( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz  )
             xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz, RvdWs = self.REAs[:,0] - 1.66 - 1.4 )
             #print Y.shape,  xyzs_.shape, Y[:len(xyzs_),:3].shape
             Y[:len(xyzs_),:3] = xyzs_[:,:]
@@ -814,10 +839,15 @@ class Generator(Sequence,):
         #print "X.shape", X.shape
 
         if(self.debugPlots):
+            #print 'debugPlots started to work!'
             #self.plot(X,Y, Y_, entropy )
             #self.plot( X=XX, Y_=YY, entropy=entropy )
             #self.plot(Y=Y, entropy=entropy )
-            self.plot( ("/rot%03i_" % self.irot), self.molName, X=X, Y=Y, entropy=entropy )
+            #self.plot( ("/rot%03i_" % self.irot), self.molName, X=X, Y=Y, entropy=entropy )
+            list = os.listdir('model/predictions/') # dir is your directory path
+            number_files = len(list)
+            if (number_files < 100):
+                self.plot( ("_rot%03i" % self.irot), self.molName ,  bPOVray=False, bXYZ=True , bRot=True)
 
     def getAFMinRot( self, rot, X ):
         '''
@@ -882,17 +912,19 @@ class Generator(Sequence,):
         #print "extent: ", extent
 
         fname    = self.preName + molName + rotName
-        print " plot to file : ", fname
+        #print " plot to file : ", fname
 
         if bXYZ:
             #self.saveDebugXSF( self.preName + self.molecules[imol] + ("/rot%03i_Y.xsf" %irot), Y_ )
+             
             if bRot:
                 atomsRot = rotAtoms(self.rot, self.atomsNonPBC)
-                basUtils.writeDebugXYZ__( self.preName + molName + rotName+".xyz", atomsRot, self.Zs )
+                basUtils.writeDebugXYZ__('model/predictions/'+ molName[6:] + rotName+'.xyz', atomsRot, self.Zs )
+                #print 'XYZ file: ', './predictions/'+ molName[6:] + rotName+'.xyz',' saved'
                 #exit()
             else:
-                basUtils.writeDebugXYZ_2( self.preName + molName + rotName+".xyz", self.atoms, self.Zs, self.scan_pos0s[::40,::40,:].reshape(-1,4), pos0=self.pos0 )
-
+                basUtils.writeDebugXYZ_2('model/predictions/'+ molName[6:] + rotName+'.xyz', self.atoms, self.Zs, self.scan_pos0s[::40,::40,:].reshape(-1,4), pos0=self.pos0 )
+                #print 'XYZ file: ', './model/predictions/'+ molName[6:] + rotName+'.xyz',' saved'
         if bPOVray:
             #basUtils.writeDebugXYZ__( self.preName + molName + rotName+".xyz", self.atomsNonPBC, self.Zs )
             bonds = basUtils.findBonds_( self.atomsNonPBC, self.Zs, 1.2, ELEMENTS=elements.ELEMENTS )
