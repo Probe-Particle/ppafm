@@ -120,21 +120,24 @@ def getAtomsRotZmin( rot, xyzs, zmin, Zs=None ):
         Zs = Zs[mask]
     return xyzs_[mask,:], Zs
 
-
-def getAtomsRotZminNsort( rot, xyzs, zmin, Zs=None, Nmax=30 ):
+def getAtomsRotZminNsort( rot, xyzs, zmin, RvdWs=None, Zs=None, Nmax=30 ):
     '''
     get <=Nmax atoms closer to camera than "zmin" and sort by distance from camera
     '''
-    #xdir = np.dot( atoms[:,:3], hdir[:,None] )
-    #print xyzs.shape
-    #xyzs_ = np.empty(xyzs.shape)
-    #xyzs_[:,0]  = rot[0,0]*xyzs[:,0] + rot[0,1]*xyzs[:,1] + rot[0,2]*xyzs[:,2]
-    #xyzs_[:,1]  = rot[1,0]*xyzs[:,0] + rot[1,1]*xyzs[:,1] + rot[1,2]*xyzs[:,2]
-    #xyzs_[:,2]  = rot[2,0]*xyzs[:,0] + rot[2,1]*xyzs[:,1] + rot[2,2]*xyzs[:,2]
     xyzs_ = rotAtoms(rot, xyzs )
-    inds = np.argsort( -xyzs_[:,2] )
+    zs = xyzs_[:,2]
+    if RvdWs is not None:
+        #print " :::: xyzs_.shape, RvdWs.shape :: ", xyzs_.shape, RvdWs.shape
+        #print " :::: RvdW      ", RvdWs
+        #print " :::: zs      ", zs
+        zs += RvdWs
+        #print " :::: zs+Rvdw ", zs
+
+    inds = np.argsort( -zs )
+    #print " :::: inds ", inds
     xyzs_[:,:] = xyzs_[inds,:]
-    mask  = xyzs_[:,2] > zmin
+    zs   [:]   = zs   [inds]
+    mask  = zs > zmin
     xyzs_ = xyzs_[mask,:]
     #print xyzs_.shape, mask.shape
     #print xyzs_
@@ -477,13 +480,13 @@ class Generator(Sequence,):
         #cLJs  = PPU.getAtomsLJ( self.iZPP, Zs, self.typeParams )
         #print "cLJs ref : ", cLJs
         
-        REAs = PPU.getAtomsREA(  self.iZPP, Zs, self.typeParams, alphaFac=-1.0 )
+        self.REAs = PPU.getAtomsREA(  self.iZPP, Zs, self.typeParams, alphaFac=-1.0 )
         if self.randomize_parameters:
-            self.modMolParams( Zs, qs, xyzs, REAs, self.rndQmax, self.rndRmax, self.rndEmax, self.rndAlphaMax )
-        cLJs = PPU.REA2LJ( REAs )
+            self.modMolParams( Zs, qs, xyzs, self.REAs, self.rndQmax, self.rndRmax, self.rndEmax, self.rndAlphaMax )
+        cLJs = PPU.REA2LJ( self.REAs )
 
         #print "Qs   : ", qs
-        #print "REAs : ", REAs
+        #print "REAs : ", self.REAs
         #print "cLJs : ", cLJs
 
 
@@ -795,7 +798,8 @@ class Generator(Sequence,):
             #print self.atoms
             #print "xyzs ", xyzs
             #xyzs_, Zs = getAtomsRotZmin( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0] )
-            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz )
+            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz  )
+            #xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz, RvdWs = self.REAs[:,0] - 1.66 - 1.4 )
             #print Y.shape,  xyzs_.shape, Y[:len(xyzs_),:3].shape
             Y[:len(xyzs_),:3] = xyzs_[:,:]
             Y[:len(xyzs_), 3] = Zs
