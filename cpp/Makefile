@@ -3,7 +3,7 @@ LD=g++
 CPPFLAGS= -std=c++11 -O3 -ffast-math -ftree-vectorize -fPIC
 LDFLAGS= -shared
 
-all: PP GU MP RR
+all: PP GU MP RR PolyCycles atomfit 
 
 PP: ProbeParticle.o
 
@@ -12,6 +12,10 @@ GU: GridUtils.o
 MP: Multipoles.o
 
 RR: ReactiveFF.o
+
+PolyCycles: PolyCycles.o
+
+atomfit: atomfit.o
 
 # .o files depend on .cpp files with same prefix
 # $@ target, $< prerequisite, $* matched stencil
