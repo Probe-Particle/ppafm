@@ -32,6 +32,13 @@ Es = {
 "C3": [20.,0,-1,3,10,20],
 }
 
+typeEs = [
+ [20.,0,0, 1,10,20],
+ [20.,0,0, 2,10,20],
+ [20.,0,-1,3,10,20],
+]
+
+'''
 colors=["k","b","r"]
 
 
@@ -66,7 +73,7 @@ plt.plot(xs,ys,"-",c="m", label="BO")
 
 plt.show()
 #exit()
-
+'''
 
 
 
@@ -214,6 +221,9 @@ if __name__ == "__main__":
     xyzs = np.append(ops, np.zeros((len(ops),1)), axis=1)
     #print "xyzs", xyzs
     au.saveXYZ( elist,xyzs*1.3, "test_PolyCycles.xyz" )
+    
+    
+    bo,ao = ch.relaxBondOrder( nngs, tbonds_, typeEs, Nstep=100, EboMax=100 )
     
     for b in tbonds_:
         pb=ops[b,:]

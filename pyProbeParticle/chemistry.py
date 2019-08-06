@@ -263,16 +263,50 @@ def bondOrders( nngs, bonds, Nstep=100 ):
     for itr in xrange(Nstep):
 '''
 
-
-
-def bondOSmooth( nngs, bonds, Nstep=100, EboMax=100 ):
+def relaxBondOrder( nngs, bonds, typeEs, Nstep=100, EboMax=100, dt=0.1 ):
+    from scipy.interpolate import Akima1DInterpolator
     #ao=np.zeros(len(nngs ),dtype=np.int)
-    ae=np.zeros(len(nngs ))
-    ao=nngs.copy()
-    bo=np.zeros(len(bonds),dtype=np.int)
+    na=len(nngs)
+    nb=len(bonds)
+    nt=3
+    ao=np.zeros(na)
+    bo=np.zeros(nb)
+    fa=np.empty(na)
+    fb=np.empty(nb)
+    masks = np.empty((3,na),dtype=np.bool)
+    typeSelects = []
+    typeFs = []
+    Xs = np.array([-1,0,1,2,3,4])
+    for it in range(nt):
+        # -- Type selection
+        masks[it,:] = (nngs == it+1)
+        #typeSelects.append( np.select( , masks[it,:] ) )
+        # -- Energy interpolators
+        Efunc = Akima1DInterpolator(Xs,typeEs[it])
+        Ffunc = Efunc.derivative()
+        typeFs.append(Ffunc) 
     for itr in xrange(Nstep):
         E = 0
-
+        # -- Eval Atom derivs
+        for it in range(3):
+            #typeFs[mask]
+            Ffunc    = typeFs[it]
+            mask     = masks [it] 
+            #sel      = typeSelects[it]
+            fa[mask] = Ffunc( ao[mask] )
+        # -- Eval Bond derivs
+        for ib,(i,j) in enumerate(bonds):
+            fb[ib] = fa[i] + fa[j]
+        # -- move
+        bo -= fb*dt
+        # -- update Atoms
+        ao[:] = 0
+        for ib,(i,j) in enumerate(bonds):
+            boi = bo[ib]
+            ao[i] += boi
+            ao[j] += boi
+        #print ao
+    return bo,ao
 
 #def tris2skelet(tris,):
 
