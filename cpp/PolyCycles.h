@@ -50,17 +50,18 @@ class PolyCycleFF{ public:
     int ncycles  =0;
     //Cyclus* cycles;
     int*   nvs    =0;
+    int*   ivs    =0;
     Vec2d* cpos   =0;
     Vec2d* cvel   =0;
     Vec2d* cforce =0;
     
     int voffset = 0;
     
-    double Ecc      =1.0;
-    double Kvert    =0.5;
-    double Kbond    =1.0;
-    double Kcenter  =1.0;
-    double RvertMax =0.2; 
+    double Ecc      =0.2;
+    double Kvert    =4.0;
+    double Kbond    =5.0;
+    double Kcenter  =5.0;
+    double RvertMax =0.5; 
     
     int realloc(int ncycles_, int* nvs_ ){
         ncycles=ncycles_;
@@ -71,9 +72,11 @@ class PolyCycleFF{ public:
         //_realloc(nvs);
         */
         nvs=nvs_;
+        _realloc(ivs, ncycles );
         int iv=0;
         for(int i=0; i<ncycles; i++){
             //printf( "i %i nvi %i \n", i, nvs[i] );
+            ivs[i]=iv;
             iv+=nvs[i];
         }
         nvert=iv;
@@ -123,6 +126,7 @@ class PolyCycleFF{ public:
         }
     }
     
+    
     void forceVV(){
         double RvertMax2 = RvertMax*RvertMax;
         double K = Kvert/RvertMax2;
@@ -146,11 +150,11 @@ class PolyCycleFF{ public:
     
     void forceCC(){
         for(int i=1; i<ncycles; i++){
-            const Vec2d& pi=cpos  [i];
-            Vec2d&       fi=cforce[i];
+            const Vec2d& pi= cpos  [i];
+            Vec2d&       fi= cforce[i];
             double Ri      = rcyc[nvs[i]]; 
             for(int j=0; j<i; j++){
-                double R = Ri + rcyc[nvs[j]];
+                double R = (Ri + rcyc[nvs[j]])*1.2;
                 //R=2.0;
                 double R2 = R*R;
                 Vec2d d=cpos[j]-pi;
@@ -166,7 +170,104 @@ class PolyCycleFF{ public:
                 fi       .add(d);
                 cforce[j].sub(d);
                 
+                if(r2<(2*R2)){
+                    forceCpair(i,j);
+                }
             }
+        }
+    }
+    
+    void forceCpair(int ic, int jc){
+        int nvi = nvs[ic];
+        int nvj = nvs[jc];
+        int i0  = ivs[ic];
+        int j0  = ivs[jc];
+        
+        double RvertMax2 = RvertMax*RvertMax;
+        double K = Kvert/RvertMax2;
+        //double K = Kvert;
+        
+        // verts
+        /*
+        for(int i=0; i<nvi; i++){
+            int iv=i0+i;
+            const Vec2d& pi=vpos  [iv];
+            for(int j=0; j<nvj; j++){
+                int jv=j0+j;
+                Vec2d d=vpos[jv]-pi;
+                double r2 = d.norm2();
+                if(r2<RvertMax2){
+                    double fr = K*(RvertMax2-r2);
+                    printf( "%i,%i %g %g \n", iv, jv, sqrt(r2), fr*sqrt(r2) );
+                    d.mul( fr );
+                    vforce[iv].add(d);
+                    vforce[jv].sub(d);
+                }
+            }
+        }
+        */
+        
+        // edges
+        /*
+        int oiv=i0+nvi-1;
+        for(int i=0; i<nvi; i++){
+            int iv =i0+i;
+            int ojv=j0+nvj-1;
+            Vec2d pi = (vpos[iv]+vpos[oiv])*0.5;
+            for(int j=0; j<nvj; j++){
+                int jv=j0+j;
+                Vec2d d=(vpos[jv]+vpos[ojv])*0.5-pi;
+                double r2 = d.norm2();
+                if(r2<RvertMax2){
+                    double fr = K*(RvertMax2-r2);
+                    //printf( "%i,%i %g %g \n", iv, jv, sqrt(r2), fr*sqrt(r2) );
+                    d.mul( fr );
+                    vforce[ iv].add(d);
+                    vforce[oiv].add(d);
+                    vforce[ jv].sub(d);
+                    vforce[ojv].sub(d);
+                }
+                ojv=jv;
+            }
+            oiv=iv;
+        }
+        */
+        
+        // Edge+Vert
+        int oiv=i0+nvi-1;
+        for(int i=0; i<nvi; i++){
+            int iv =i0+i;
+            int ojv=j0+nvj-1;
+            const Vec2d& pi = vpos[iv];
+            Vec2d pie = (pi+vpos[oiv])*0.5;
+            for(int j=0; j<nvj; j++){
+                int jv=j0+j;
+                Vec2d d;
+                double r2;
+                const Vec2d& pj = vpos[jv];
+                d=pj-pi;
+                r2 = d.norm2();
+                if(r2<RvertMax2){
+                    double fr = K*sq(RvertMax2-r2);
+                    //printf( "%i,%i %g %g \n", iv, jv, sqrt(r2), fr*sqrt(r2) );
+                    d.mul( fr );
+                    vforce[ iv].add(d);
+                    vforce[ jv].sub(d);
+                }
+                d=(pj+vpos[ojv])*0.5-pie;
+                r2 = d.norm2();
+                if(r2<RvertMax2){
+                    double fr = K*sq(RvertMax2-r2);
+                    //printf( "%i,%i %g %g \n", iv, jv, sqrt(r2), fr*sqrt(r2) );
+                    d.mul( fr );
+                    vforce[ iv].add(d);
+                    vforce[oiv].add(d);
+                    vforce[ jv].sub(d);
+                    vforce[ojv].sub(d);
+                }
+                ojv=jv;
+            }
+            oiv=iv;
         }
     }
 

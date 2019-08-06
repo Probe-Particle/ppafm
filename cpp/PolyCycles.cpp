@@ -58,9 +58,9 @@ double relaxNsteps( int kind, int nsteps, double F2conf ){
                 cff.opt.cleanForce();
                 cff.forceCC();
                 //double f = cff.opt.move_GD_safe(cff.opt.dt);
-                double f = cff.opt.move_MD_safe(cff.opt.dt);
-                //double f = cff.opt.move_FIRE(); f=sqrt(f);
-                printf( "itr %i dt %g scale_dt %g f %g \n", itr, cff.opt.dt, cff.opt.scale_dt, f );
+                //double f = cff.opt.move_MD_safe(cff.opt.dt);
+                double f = cff.opt.move_FIRE(); f=sqrt(f);
+                //printf( "itr %i dt %g scale_dt %g f %g \n", itr, cff.opt.dt, cff.opt.scale_dt, f );
             }
         }
         break;
@@ -83,11 +83,12 @@ double relaxNsteps( int kind, int nsteps, double F2conf ){
                 
                 cff.opt.cleanForce();
                 cff.forceCC();
-                cff.forceVV();
+                //cff.forceVV();
                 cff.forceVC();
                 //double f = cff.opt.move_GD_safe(cff.opt.dt);
-                double f = cff.opt.move_MD_safe(cff.opt.dt);
-                printf( "itr %i dt %g scale_dt %g f %g \n", itr, cff.opt.dt, cff.opt.scale_dt, f );
+                //double f = cff.opt.move_MD_safe(cff.opt.dt);
+                double f = cff.opt.move_FIRE(); f=sqrt(f);
+                //printf( "itr %i dt %g scale_dt %g f %g \n", itr, cff.opt.dt, cff.opt.scale_dt, f );
             }
         }
         

@@ -30,10 +30,12 @@ def plotCycles(cpos=None,vpos=None,nvs=None):
                 iv+=ni
     plt.axis("equal")
 
+iframe=0
 
 def make_anim(getData,fig,nframes,interval=200):
     from matplotlib.animation import FuncAnimation
     #scat = None
+    
     def init():
         #global scat
         cpos,sz,vpos = getData(0)
@@ -49,7 +51,9 @@ def make_anim(getData,fig,nframes,interval=200):
         return scat,vplot,
     scat,vplot, = init()
     def update(frame):
-        print "FRAME ", frame
+        global iframe
+        iframe +=1
+        print "FRAME ", iframe
         #xs,ys,sz = getData(frame)
         #ln.set_data(xs,ys)
         cpos,sz,vpos = getData(frame)
@@ -61,8 +65,9 @@ def make_anim(getData,fig,nframes,interval=200):
     return ani
 
 if __name__ == "__main__":
-    N    = 5
-    nvs  = np.random.randint( 3,8, N, dtype=np.int32 );       print "nvs:   ", nvs
+    N    = 6
+    #nvs  = np.random.randint( 3,8, N, dtype=np.int32 );       print "nvs:   ", nvs
+    nvs  = np.random.randint( 5,8, N, dtype=np.int32 );       print "nvs:   ", nvs
     rots = np.random.rand    ( N ) * np.pi*2;                 print "rots:  ", rots
     nv = pcff.setup(nvs)
     #print "nv: ", nv
@@ -80,8 +85,8 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     #plt.figure(); plotCycles(cpos=cpos)
     
-    pcff.setupOpt(dt=0.1, damping=0.05, f_limit=1.0,v_limit=1.0 )
-    #pcff.relaxNsteps(kind=0, nsteps=100)
+    pcff.setupOpt(dt=0.2, damping=0.05, f_limit=1.0,v_limit=1.0 )
+    pcff.relaxNsteps(kind=0, nsteps=500)
     #for i in range(3000):
     #    pcff.relaxNsteps(kind=0, nsteps=1)
     #    #print cpos
@@ -91,7 +96,7 @@ if __name__ == "__main__":
     Rs = 1/np.sin(np.pi/nvs)
     
     def getDate(frame):
-        pcff.relaxNsteps(kind=1, nsteps=1)
+        pcff.relaxNsteps(kind=1, nsteps=5)
         return cpos, Rs, vpos
     
     ani = make_anim(getDate, plt.gcf(), 10, interval=10 )
