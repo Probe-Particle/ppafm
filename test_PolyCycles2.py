@@ -5,13 +5,124 @@ import os
 import numpy as np
 import time
 
-import pyProbeParticle.PolyCycles  as pcff
-import pyProbeParticle.atomicUtils as au
+
+
 
 #import matplotlib.pyplot as plt
 #from mpl_toolkits.mplot3d import Axes3D
 #import common    as PPU
 #from optparse import OptionParser
+
+import matplotlib.pyplot as plt
+
+#from scipy.interpolate import CubicSpline
+
+#import scipy.interpolate as interp #.CubicSpline as CS
+#from scipy.interpolate import interp1d #.CubicSpline as CS
+from scipy.interpolate import Akima1DInterpolator
+
+xs = np.linspace(-1,4,200)
+Xs = np.array([-1 , 0, 1,2, 3, 4])
+Ys = np.array([20.,-1,-2,3,10,20])
+
+
+Es = {
+"C1": [20.,0,0, 1,10,20],
+"C2": [20.,0,0, 2,10,20],
+"C3": [20.,0,-1,3,10,20],
+}
+
+colors=["k","b","r"]
+
+
+def plotInterp(Xs,Ys,label,c):
+    #sp = interp.CubicSpline( xs, ys )
+    #f = interp1d(xs,ys)
+    f  = Akima1DInterpolator(Xs,Ys)
+    df = f.derivative()
+    ys  = f (xs)
+    dys = df(xs)
+    plt.subplot(2,1,1); plt.axhline(0,c="k",ls='--')
+    plt.plot(xs,ys,"-",c=c)
+    plt.plot(Xs,Ys,"+",c=c)
+    plt.subplot(2,1,2); plt.axhline(0,c="k",ls='--')
+    plt.plot(xs,dys,"-",c=c,label=label)
+
+plt.figure(figsize=(5,10))
+
+i=0
+for name,Ys in Es.iteritems():
+    plotInterp(Xs,Ys,name,colors[i])
+    i+=1
+
+#ys = (xs-np.round(xs))**2 * 10
+ys = np.cos(2*np.pi*xs) * -10
+
+plt.legend(loc=4)
+
+plt.subplot(2,1,1);
+plt.plot(xs,ys,"-",c="m", label="BO")
+
+
+plt.show()
+#exit()
+
+
+
+
+
+import pyProbeParticle.PolyCycles  as pcff
+import pyProbeParticle.atomicUtils as au
+import pyProbeParticle.chemistry   as ch
+
+
+
+
+
+
+'''
+species = [
+[("-CH3" ,1), ("=CH2",1),("=NH" ,1),("-NH2",1),("-OH",1),("=O",1),("-Cl",1) ],  # 1 bond
+[("-CH2-",1), ("=CH-",1),("-NH-",1),("=NH-",1),("-O-" ,1) ],                    # 2 bond
+[("C",1),("N",1)],                                                              # 3 bond
+]
+'''
+
+'''
+species = [
+[("C",1),("N",1),("N",1),("O",1),("Cl",1) ],  # 1 bond
+[("C",1),("N",1),("N",1),("O",1) ],                    # 2 bond
+[("C",1),("N",1)],                                                              # 3 bond
+]
+'''
+
+species = [
+[("C",2),("N",1),("O",1),("F",1),("Cl",1), ],  # 1 bond
+[("C",4),("N",1),("O",1) ],                    # 2 bond
+[("C",8),("N",0.5)],                                                              # 3 bond
+]
+
+
+'''
+species = [
+[("F",1),("Cl",1),("Br",1),("I",1) ],  # 1 bond
+[("O",1),("S",1),("Se",1) ],                    # 2 bond
+[("C",1),("N",1)],                                                              # 3 bond
+]
+'''
+
+'''
+species = [
+[("Cl",1),], # 1 bond
+[("O",1),],  # 2 bond
+[("C",1),]   # 3 bond
+]
+'''
+
+#species = normalizeSpeciesProbs(species)
+plevels = ch.speciesToPLevels(species)
+print "plevels", plevels
+#exit()
 
 def plotCycles(cpos=None,vpos=None,nvs=None):
     if cpos is not None:
@@ -28,71 +139,6 @@ def plotCycles(cpos=None,vpos=None,nvs=None):
                 plt.plot(vs[:,0],vs[:,1],".-")
                 iv+=ni
     plt.axis("equal")
-
-
-def findBonds(ps,Rs,fc=1.5):
-    n=len(ps)
-    bonds  = []
-    neighs = [ [] for i in range(n) ]
-    for i in range(n):
-        for j in range(i+1,n):
-            d=ps[j]-ps[i]
-            R=((Rs[i]+Rs[j])*1.5)
-            r2=np.dot(d,d) 
-            if(r2<(R*R)):
-                #print i,j,R,np.sqrt(r2)
-                bonds.append((i,j))
-                neighs[i].append(j)
-                neighs[j].append(i)
-    #print bonds
-    return bonds, neighs
-
-#def orderTriple(a,b,c):
-#    if a>b:
-#        
-
-def tryInsertTri_i(tris,tri,i):
-    if tri in tris:
-        tris[tri].append(i)
-    else:
-        tris[tri] = [i]
-
-def tryInsertTri(tris,tri):
-    #print "tri ", tri
-    if not (tri in tris):
-        tris[tri] = []
-
-def findTris(bonds,neighs):
-    tris = {};
-    for b in bonds:
-        a_ngs = neighs[b[0]]
-        b_ngs = neighs[b[1]]
-        common = []
-        for i in a_ngs:
-            if i in b_ngs:
-                common.append(i)
-        #print "bond ",b," common ",common
-        if len(common)>2:
-            print "WARRNING: bond ", b, " share these neighbors ", common
-        else:
-            tri0 = tuple(sorted(b+(common[0],)))
-            if len(common)==2:
-                tri1 = tuple(sorted(b+(common[1],)))
-                #print tri0, tri1
-                tryInsertTri_i(tris,tri0,common[1])
-                tryInsertTri_i(tris,tri1,common[0])
-            else:
-                tryInsertTri(tris,tri0)
-    return tris
-
-
-def trisToPoints(tris,ps):
-    ops=np.empty((len(tris),2))
-    for i,tri in enumerate(tris.keys()):
-        ops[i,:] = (ps[tri[0],:] + ps[tri[1],:] + ps[tri[2],:])/3.0
-        #ops.append()
-    return ops
-
 
 if __name__ == "__main__":
     N    = 20
@@ -112,7 +158,6 @@ if __name__ == "__main__":
     print "cpos: ", cpos
     #print "vpos: ", vpos
 
-    import matplotlib.pyplot as plt
     #plt.figure(); plotCycles(cpos=cpos)
     
     pcff.setupOpt(dt=0.3, damping=0.05, f_limit=1.0,v_limit=1.0 )
@@ -122,25 +167,63 @@ if __name__ == "__main__":
     
     Rs = 0.5/np.sin(np.pi/nvs)
     plt.scatter(cpos[:,0], cpos[:,1], s=(Rs*60)**2, c='none' )
-    print "nvs ",nvs
-    print "Rs ",Rs
+    #print "nvs ",nvs
+    #print "Rs ",Rs
     
-    bonds, neighs  = findBonds(cpos,Rs,fc=1.0)
-    print "neighs ", neighs
+    bonds  = ch.findBonds(cpos,Rs,fR=1.2)
+    neighs = ch.bonds2neighs(bonds,N)
+    #print "neighs ", neighs
 
-    tris = findTris(bonds,neighs)
-    print "tris ",tris
+    tris,tbonds = ch.findTris_(bonds,neighs)
+    #print "tris  ",tris
+    #print "tbonds   ",tbonds 
     
-    ops = trisToPoints(tris,cpos)
-    print "ops", ops
+    tbonds_,_ = ch.tris2num_(tris, tbonds)
+    #print "tbonds_  ",tbonds_ 
     
+    tneighs = ch.bonds2neighs( tbonds_, len(tris) )
+    print tneighs
+    
+    #tris_ = ch.tris2num(tris)
+    #print "tris_ ", tris_
+    
+    ops = ch.trisToPoints(tris,cpos)
+    #print "ops", ops
     plt.plot( ops[:,0],ops[:,1], "*" )
+    
+    '''
+    fout = open("test_PolyCycles.xyz","w")
+    n=len(tneighs)
+    fout.write("%i \n" %n )
+    fout.write("#comment \n" )
+    enames = ["Cl","O","C"]
+    fbl = 1.3
+    for i in range(n):
+        nng = len(tneighs[i])-1
+        ename=enames[nng]
+        fout.write("%s %f %f %f \n" %(ename,ops[i,0]*fbl,ops[i,1]*fbl,0) )
+    fout.close()
+    '''
+    
+    #elem_names = [ s[0]     for s   in species ]
+    nngs       = [ len(ngs) for ngs in tneighs ] 
+    elist = ch.selectRandomElements( nngs, species, plevels )
+    print "elist", elist
+    
+    #print ops.shape, np.zeros(len(ops)).shape
+    xyzs = np.append(ops, np.zeros((len(ops),1)), axis=1)
+    #print "xyzs", xyzs
+    au.saveXYZ( elist,xyzs*1.3, "test_PolyCycles.xyz" )
+    
+    for b in tbonds_:
+        pb=ops[b,:]
+        plt.plot( pb[:,0],pb[:,1],'-r' )
     
     #exit()
     for b in bonds:
         pb=cpos[b,:]
         plt.plot( pb[:,0],pb[:,1],'-b' )
-    
+    plt.axis('equal')
     plt.show()
     #pcff.relaxNsteps(nsteps=10, F2conf=-1.0, dt=0.1, damp=0.9)
 
