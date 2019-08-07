@@ -263,31 +263,44 @@ def bondOrders( nngs, bonds, Nstep=100 ):
     for itr in xrange(Nstep):
 '''
 
-def relaxBondOrder( nngs, bonds, typeEs, Nstep=100, EboMax=100, dt=0.1 ):
+def relaxBondOrder( nngs, bonds, typeEs, Nstep=100, dt=0.1, damping=0.1, EboStart=0.0, EboEnd=10.0, boStart=None ):
     from scipy.interpolate import Akima1DInterpolator
     #ao=np.zeros(len(nngs ),dtype=np.int)
+    nngs=np.array(nngs)
     na=len(nngs)
     nb=len(bonds)
     nt=3
-    ao=np.zeros(na)
-    bo=np.zeros(nb)
+    ao=np.zeros(na)        # + 0.5 # initial guess
+    if boStart is None:
+        bo=np.zeros(nb) + 0.33 # initial guess
+    else:
+        bo=boStart.copy()
     fa=np.empty(na)
     fb=np.empty(nb)
+    vb=np.zeros(nb)
     masks = np.empty((3,na),dtype=np.bool)
     typeSelects = []
     typeFs = []
     Xs = np.array([-1,0,1,2,3,4])
+    print "nngs ",nngs
     for it in range(nt):
         # -- Type selection
-        masks[it,:] = (nngs == it+1)
+        #print it+1, ( nngs[:] == (it+1) )
+        masks[it,:] = ( nngs[:] == (it+1) )
         #typeSelects.append( np.select( , masks[it,:] ) )
         # -- Energy interpolators
         Efunc = Akima1DInterpolator(Xs,typeEs[it])
         Ffunc = Efunc.derivative()
         typeFs.append(Ffunc) 
+        
+        print  "mask[%i]" %it, masks[it,:]
+        
+    #exit(0)
     for itr in xrange(Nstep):
         E = 0
         # -- Eval Atom derivs
+        #fa[:] = 0
+        #fb[:] = 0
         for it in range(3):
             #typeFs[mask]
             Ffunc    = typeFs[it]
@@ -297,15 +310,25 @@ def relaxBondOrder( nngs, bonds, typeEs, Nstep=100, EboMax=100, dt=0.1 ):
         # -- Eval Bond derivs
         for ib,(i,j) in enumerate(bonds):
             fb[ib] = fa[i] + fa[j]
+        Ebo = (EboEnd-EboStart)*(itr/float(Nstep)) + EboStart
+        fb += Ebo*np.sin(bo*np.pi*2)   # force integer forces
         # -- move
-        bo -= fb*dt
+        #bo -= fb*dt
+        vb[:]  = vb[:]*(1-damping) - fb[:]*dt
+        bo[:] += vb[:]*dt
         # -- update Atoms
         ao[:] = 0
         for ib,(i,j) in enumerate(bonds):
             boi = bo[ib]
             ao[i] += boi
             ao[j] += boi
-        #print ao
+        #print "bo ", bo,"\n fb ", fb
+        nview=6
+        print "---- itr --- ", itr
+        print "ao ", ao[:nview]
+        print "bo ", bo[:nview]
+        print "vb ", vb[:nview]
+        print "fb ", fb[:nview]
     return bo,ao
 
 #def tris2skelet(tris,):

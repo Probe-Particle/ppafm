@@ -32,13 +32,25 @@ Es = {
 "C3": [20.,0,-1,3,10,20],
 }
 
+Es = {
+"C1": [20.,1,-2,1,10,20],
+"C2": [20.,1,-2,2,10,20],
+"C3": [20.,1,-2,3,10,20],
+}
+
 typeEs = [
  [20.,0,0, 1,10,20],
  [20.,0,0, 2,10,20],
  [20.,0,-1,3,10,20],
 ]
 
-'''
+typeEs = [
+ [20.,1,-1,1,10,20],
+ [20.,1,-1,2,10,20],
+ [20.,1,-1,3,10,20],
+]
+
+
 colors=["k","b","r"]
 
 
@@ -73,7 +85,6 @@ plt.plot(xs,ys,"-",c="m", label="BO")
 
 plt.show()
 #exit()
-'''
 
 
 
@@ -222,12 +233,13 @@ if __name__ == "__main__":
     #print "xyzs", xyzs
     au.saveXYZ( elist,xyzs*1.3, "test_PolyCycles.xyz" )
     
+    bo,ao = ch.relaxBondOrder( nngs, tbonds_, typeEs, Nstep=50, dt=0.1, EboStart=0.0,  EboEnd=0.0,             )
+    bo,ao = ch.relaxBondOrder( nngs, tbonds_, typeEs, Nstep=50, dt=0.1, EboStart=0.0,  EboEnd=10.0, boStart=bo )
+    #bo,ao = ch.relaxBondOrder( nngs, tbonds_, typeEs, Nstep=50, dt=0.1, EboStart=10.0, EboEnd=10.0, boStart=bo )
     
-    bo,ao = ch.relaxBondOrder( nngs, tbonds_, typeEs, Nstep=100, EboMax=100 )
-    
-    for b in tbonds_:
+    for i,b in enumerate(tbonds_):
         pb=ops[b,:]
-        plt.plot( pb[:,0],pb[:,1],'-r' )
+        plt.plot( pb[:,0],pb[:,1], '-r', lw=1+bo[i]*5 )
     
     #exit()
     for b in bonds:
