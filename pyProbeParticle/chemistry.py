@@ -135,11 +135,12 @@ def tryInsertTri(tris,tri):
         tris[tri] = []
 '''
 
-def findTris(bonds,neighs):
-    tris = {};
-    for b in bonds:
-        a_ngs  = neighs[b[0]]
-        b_ngs  = neighs[b[1]]
+'''
+def findTrisRings(bonds,neighs):
+    tris = {}
+    for ia,ib in bonds:
+        a_ngs  = neighs[ia]
+        b_ngs  = neighs[ib]
         common = []
         for i in a_ngs:
             if i in b_ngs:
@@ -167,8 +168,9 @@ def findTris(bonds,neighs):
             tris.setdefault(tri0,[])
             #tryInsertTri(tris,tri0)
     return tris
+'''
 
-def findTris_(bonds,neighs):
+def findTris(bonds,neighs):
     tris   = set()
     tbonds = []
     for b in bonds:
@@ -194,6 +196,77 @@ def findTris_(bonds,neighs):
             tbonds.append((tri0,tri1))
     return tris, tbonds
 
+
+def findTris_(bonds,neighs):
+    tris   = set()
+    tbonds = []
+    #bset = set(bonds)
+    #bset = { tuple(sorted(b)) for b in bonds }
+    #print "bset ", bset
+    #exit()
+    for b in bonds:
+    #for b in bset:
+        a_ngs  = neighs[b[0]]
+        b_ngs  = neighs[b[1]]
+        common = []
+        for i in a_ngs:
+            if i in b_ngs:
+                common.append(i)
+        #print "bond ",b," common ",common
+        ncm = len(common)
+        if   ncm>2:
+            #print "WARRNING: bond ", b, " common neighbors ", common
+            continue
+        elif ncm<1:
+            #print "WARRNING: bond ", b, " common neighbors ", common
+            continue
+        '''
+        elif (len(common)==2):
+            cmn  = tuple(sorted(common)) 
+            #print cmn
+            if cmn in bset :
+                print "WARRNING: bond ", b, " corss bond ", cmn
+                if cmn[0] > b[0]:
+                    print "removed "
+                    continue
+        '''
+        tri0 = tuple(sorted(b+(common[0],)))
+        tris.add(tri0)
+        if len(common)==2:
+            tri1 = tuple(sorted(b+(common[1],)))
+            tris.add(tri1)
+            tbonds.append((tri0,tri1))
+    return tris, tbonds
+
+def getRingNatom(atom2ring,nr):
+    #nr = len(ringNeighs)
+    nra=np.zeros(nr,dtype=np.int)
+    for r1,r2,r3 in atom2ring:
+        nra[r1]+=1
+        nra[r2]+=1
+        nra[r3]+=1
+    return nra
+
+'''
+def selectNringAtoms(atom2ring,ringNeighs,N=6):
+    na=len(atom2ring)
+    mask=np.empty(na,dtype=np.bool)
+    for ia in xrange(na):
+        a1,a2,a3=atom2ring[ia]
+        n1=len(ringNeighs[a1])
+        n2=len(ringNeighs[a2])
+        n3=len(ringNeighs[a3])
+        #print n1,n2,n3
+        mask[ia]=((n1==N)or(n2==N)or(n3==N))
+    #print "N6mask ", mask ; exit()
+    return mask
+'''
+
+def tris2num_(tris, tbonds):
+    t2i     = { k:i for i,k in enumerate(tris) }
+    tbonds_ = [ (t2i[i],t2i[j]) for i,j in tbonds ]
+    return tbonds_,t2i
+
 def trisToPoints(tris,ps):
     ops=np.empty((len(tris),2))
     for i,t in enumerate(tris):
@@ -201,10 +274,23 @@ def trisToPoints(tris,ps):
         #ops.append()
     return ops
 
-def tris2num_(tris, tbonds):
-    t2i     = { k:i for i,k in enumerate(tris) }
-    tbonds_ = [ (t2i[i],t2i[j]) for i,j in tbonds ]
-    return tbonds_,t2i
+def removeBorderAtoms(ps,cog,R):
+    rnds = np.random.rand(len(ps))
+    r2s  = np.sum((ps-cog[None,:])**2, axis=1)
+    #damp=(R*R-r2s)**2
+    print "r2s ", r2s, R*R 
+    mask = rnds > r2s/(R*R)
+    return mask
+
+def validBonds( bonds, mask, na ):
+    a2a = np.cumsum(mask)-1
+    bonds_ = []
+    #print mask
+    for i,j in bonds:
+        #print i,j
+        if( mask[i] and mask[j] ):
+            bonds_.append( (a2a[i],a2a[j]) )
+    return bonds_
 
 '''
 def tris2num(tris):
@@ -244,15 +330,44 @@ def speciesToPLevels( species ):
 def selectRandomElements( nngs, species, levels ):
     rnds=np.random.rand(len(nngs))
     elist = []
-    print "levels", levels
+    #print "levels", levels
     for i,nng in enumerate(nngs):
         #print i,nng
         ing = nng-1
         il = np.searchsorted( levels[ing], rnds[i]  )
-        print i, nng, il, rnds[i], levels[ing]  #, levels[nng][il]
+        #print i, nng, il, rnds[i], levels[ing]  #, levels[nng][il]
         elist.append(species[ing][il][0])
     return elist
 
+
+def makeGroupLevels(groupDict):
+    for k,groups in groupDict.iteritems():
+        vsum=0
+        #print "k,groups ", k,groups
+        l = np.empty(len(groups))
+        for i,(g,v) in enumerate(groups):
+            vsum+=v
+            l[i] =vsum
+        l/=vsum
+        #print l
+        groupDict[k] = [l,] + groups
+    return groupDict
+
+def selectRandomGroups( an, ao, groupDict ):
+    na = len(an)
+    rnds=np.random.rand(na)
+    out = []
+    #print "levels", levels
+    atoms = []
+    for i in xrange(na):
+        k = (an[i],ao[i])
+        if k in groupDict:
+            groups = groupDict[k]
+            levels = groups[0]
+            #print levels
+            il     = np.searchsorted( levels, rnds[i] )
+            out.append( groups[il+1][0] )
+    return out
 
 '''
 def bondOrders( nngs, bonds, Nstep=100 ):
@@ -263,73 +378,211 @@ def bondOrders( nngs, bonds, Nstep=100 ):
     for itr in xrange(Nstep):
 '''
 
-def relaxBondOrder( nngs, bonds, typeEs, Nstep=100, dt=0.1, damping=0.1, EboStart=0.0, EboEnd=10.0, boStart=None ):
+def simpleAromTypes(  Eh2=-4,Eh3=4,   E12=0,E13=0,   E22=0,E23=1,   E32=0,E33=4,  Ex1=0., Ex4=10., Ebound=20. ):
+    typeEs = np.array([
+     [Ebound,Ex1,E12,E13,Ex4,Ebound], # nng=1
+     [Ebound,Ex1,E22,E23,Ex4,Ebound], # nng=2
+     [Ebound,Ex1,E32,E33,Ex4,Ebound], # nng=3
+     [Ebound,Ex1,Eh2,Eh3,Ex4,Ebound], # hex
+    ])
+    return typeEs
+
+class FIRE:
+    v = None
+    minLastNeg   = 5
+    t_inc        = 1.1
+    t_dec        = 0.5
+    falpha       = 0.98
+    kickStart    = 1.0
+    
+    def __init__(self, dt_max=0.2, dt_min=0.01, damp_max=0.2, f_limit=10.0, v_limit=10.0 ):
+        self.dt       = dt_max
+        self.dt_max   = dt_max
+        self.dt_min   = dt_min
+        self.damp     = damp_max
+        self.damp_max = damp_max
+        self.v_limit  = v_limit
+        self.f_limit  = f_limit
+        self.bFIRE    = True
+        #self.bFIRE    = False
+        
+        self.lastNeg = 0
+    
+    def move(self,p,f):
+        if self.v is None:
+            self.v=np.zeros(len(p))
+        v=self.v
+        
+        f_norm = np.sqrt( np.dot(f,f) )
+        v_norm = np.sqrt( np.dot(v,v) )
+        vf     =          np.dot(v,f)
+        dt_sc  = min( min(1.0,self.f_limit/(f_norm+1e-32)), min(1.0,self.v_limit/(v_norm+1e-32)) )
+        
+        if self.bFIRE:
+            if ( vf < 0.0 ) or ( dt_sc < 0.0 ):
+                self.dt      = max( self.dt * self.t_dec, self.dt_min );
+                self.damp    = self.damp_max
+                self.lastNeg = 0
+                v[:] = f[:]* self.dt * dt_sc
+            else:
+                v[:] = v[:]*(1-self.damp) +  f[:]*( self.damp * v_norm/(f_norm+1e-32) )
+                if self.lastNeg > self.minLastNeg:
+                    self.dt   = min( self.dt * self.t_inc, self.dt_max );
+                    self.damp = self.damp  * self.falpha;
+                self.lastNeg+=1
+        else:
+            v[:] *= (1-self.damp_max)
+        
+        dt_ = self.dt * dt_sc
+        v[:] += f[:]*dt_
+        p[:] += v[:]*dt_
+        #print "|f|,dt,damp,cvf,dt_sc", f_norm, self.dt, self.damp, vf/(v_norm*f_norm), dt_sc
+        return f_norm
+
+def assignAtomBOFF(atypes, typeEs):
     from scipy.interpolate import Akima1DInterpolator
+    nt=len(typeEs)
+    na=len(atypes)
+    typeMasks = np.empty((nt,na),dtype=np.bool)
+    #typeSelects = []
+    typeFFs = []
+    Xs = np.array([-1,0,1,2,3,4])
+    #print "typeEs ",typeEs
+    #print "atypes ",atypes
+    for it in range(nt):
+        typeMasks[it,:] = ( atypes[:] == it )
+        Efunc = Akima1DInterpolator(Xs,typeEs[it])
+        Ffunc = Efunc.derivative()
+        typeFFs.append(Ffunc) 
+        #print  "mask[%i]" %it, masks[it,:]
+    return typeMasks, typeFFs 
+
+def relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.01, nMaxStep=1000, EboStart=0.0, EboEnd=10.0, boStart=None, optimizer=None ):
+    print " ==== ", EboStart, EboEnd
     #ao=np.zeros(len(nngs ),dtype=np.int)
-    nngs=np.array(nngs)
-    na=len(nngs)
+    #nngs=np.array(nngs)
+    nt=typeMasks.shape[0]
+    na=typeMasks.shape[1]
     nb=len(bonds)
-    nt=3
-    ao=np.zeros(na)        # + 0.5 # initial guess
     if boStart is None:
         bo=np.zeros(nb) + 0.33 # initial guess
     else:
         bo=boStart.copy()
-    fa=np.empty(na)
     fb=np.empty(nb)
-    vb=np.zeros(nb)
-    masks = np.empty((3,na),dtype=np.bool)
-    typeSelects = []
-    typeFs = []
-    Xs = np.array([-1,0,1,2,3,4])
-    print "nngs ",nngs
-    for it in range(nt):
-        # -- Type selection
-        #print it+1, ( nngs[:] == (it+1) )
-        masks[it,:] = ( nngs[:] == (it+1) )
-        #typeSelects.append( np.select( , masks[it,:] ) )
-        # -- Energy interpolators
-        Efunc = Akima1DInterpolator(Xs,typeEs[it])
-        Ffunc = Efunc.derivative()
-        typeFs.append(Ffunc) 
-        
-        print  "mask[%i]" %it, masks[it,:]
-        
+    #vb=np.zeros(nb)
+    fa=np.empty(na)
+    ao=np.empty(na)        # + 0.5 # initial guess
     #exit(0)
-    for itr in xrange(Nstep):
-        E = 0
+    
+    if optimizer is None:
+        optimizer = FIRE()
+    
+    #print "bo0 ", bo[:6]
+    
+    #f_debug = []
+    for itr in xrange(nMaxStep):
         # -- Eval Atom derivs
         #fa[:] = 0
         #fb[:] = 0
-        for it in range(3):
-            #typeFs[mask]
-            Ffunc    = typeFs[it]
-            mask     = masks [it] 
-            #sel      = typeSelects[it]
-            fa[mask] = Ffunc( ao[mask] )
-        # -- Eval Bond derivs
-        for ib,(i,j) in enumerate(bonds):
-            fb[ib] = fa[i] + fa[j]
-        Ebo = (EboEnd-EboStart)*(itr/float(Nstep)) + EboStart
-        fb += Ebo*np.sin(bo*np.pi*2)   # force integer forces
-        # -- move
-        #bo -= fb*dt
-        vb[:]  = vb[:]*(1-damping) - fb[:]*dt
-        bo[:] += vb[:]*dt
+        
         # -- update Atoms
         ao[:] = 0
         for ib,(i,j) in enumerate(bonds):
             boi = bo[ib]
             ao[i] += boi
             ao[j] += boi
+        
+        for it in range(nt):
+            #typeFs[mask]
+            Ffunc     = typeFFs[it]
+            mask      = typeMasks [it] 
+            #sel      = typeSelects[it]
+            fa[mask]  = Ffunc( ao[mask] )
+        # -- Eval Bond derivs
+        #for ib,(i,j) in enumerate(bonds):
+        #    fb[ib] = fa[i] + fa[j]
+        fb  = fa[bonds[:,0]] + fa[bonds[:,1]]
+        Ebo = (EboEnd-EboStart)*(itr/float(nMaxStep-1)) + EboStart
+        fb += Ebo*np.sin(bo*np.pi*2)   # force integer forces
+        # -- move
+        #bo -= fb*dt
+        #vb[:]  = vb[:]*(1-damping) - fb[:]*dt
+        #bo[:] += vb[:]*dt
+        
+        #print "bo[:6]", bo[:6]
+        #print "fb[:6]", fb[:6]
+        #print itr,Ebo,
+        fb[:]*=-1
+        f_norm = optimizer.move(bo,fb)
+        
+        if f_norm < fConv:
+            break
+        
+        #f_debug.append(f_norm)
+        
+        #print itr,f_norm
+        #print " bo[:6]", bo[:6]
+        #print " fb[:6]", fb[:6]
+        
+        #ao[bonds[:,0]] += bo
+        #ao[bonds[:,1]] += bo
+        
         #print "bo ", bo,"\n fb ", fb
+        '''
         nview=6
         print "---- itr --- ", itr
         print "ao ", ao[:nview]
         print "bo ", bo[:nview]
         print "vb ", vb[:nview]
         print "fb ", fb[:nview]
+        '''
+    
+    #print "f_debug", f_debug
+    #import matplotlib.pyplot as plt 
+    #plt.figure()
+    #plt.plot(f_debug); plt.yscale('log')
+    
+    #print "boEnd ", bo[:6]
     return bo,ao
 
+def getForceIvnR24( ps, Rs ):
+    r2safe = 1e-4
+    #if fs is None:
+    #    fs = np.zeros(ps.shape)
+    #if ds is None:
+    #    ds = np.zeros(ps.shape)
+    na    = len(ps)
+    ds    = np.zeros(ps.shape)
+    fs    = np.zeros(ps.shape)
+    ir2s  = np.zeros(na    )
+    R2ijs = np.zeros(na    )
+    for i in xrange(na):
+        R2ijs      = Rs[:]+Rs[i]
+        R2ijs[:]  *= R2ijs[:]
+        ds[:,:]    = ps - ps[i][None,:]
+        ir2s[:]    = 1/(np.sum(ds**2,axis=1) + r2safe)
+        ir2s[i]    = 0
+        fs  [:,:] += ds[:,:]*((R2ijs*ir2s-1)*R2ijs*ir2s*ir2s)[:,None]
+    return fs
 #def tris2skelet(tris,):
+
+def relaxAtoms( ps, aParams, FFfunc=getForceIvnR24, fConv=0.001, nMaxStep=1000, optimizer=None ):
+    if optimizer is None:
+        optimizer = FIRE()
+    
+    f_debug = []
+    for itr in xrange(nMaxStep):
+        fs = FFfunc(ps,aParams)
+        f_norm = optimizer.move(ps.flat,fs.flat)
+        #print fs[:6]
+        #print itr, f_norm
+        if f_norm < fConv:
+            break
+        f_debug.append(f_norm)
+        
+    import matplotlib.pyplot as plt 
+    plt.figure()
+    plt.plot(f_debug); plt.yscale('log')
+    
+    return ps
 
