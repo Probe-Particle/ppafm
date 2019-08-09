@@ -8,6 +8,11 @@ import numpy as np
 
 #exclude_default = set(1)
 
+# ===========================
+#      Molecular Topology
+# ===========================
+
+
 def findBonds( xyzs, Rs, fR=1.3 ):
     n     = len(xyzs)
     bonds = []
@@ -301,6 +306,10 @@ def tris2num(tris):
     return out
 '''
 
+# ===========================
+#   Atom Types and groups
+# ===========================
+
 def normalizeSpeciesProbs( species ):
     out = []
     
@@ -339,7 +348,6 @@ def selectRandomElements( nngs, species, levels ):
         elist.append(species[ing][il][0])
     return elist
 
-
 def makeGroupLevels(groupDict):
     for k,groups in groupDict.iteritems():
         vsum=0
@@ -367,25 +375,172 @@ def selectRandomGroups( an, ao, groupDict ):
             #print levels
             il     = np.searchsorted( levels, rnds[i] )
             out.append( groups[il+1][0] )
+        else:
+            out.append( None )
+        print k, out[-1]
     return out
 
+
+group_definition = {
+# name   Center,  ndir,  nb,nsigma,npi  nt,nH,ne
+#         0   1  2 3 4  5 6 7
+"-CH3" :("C" ,4, 1,1,0, 3,3,0),
+"-NH2" :("N" ,4, 1,1,0, 3,2,1),
+"-OH"  :("O" ,4, 1,1,0, 3,1,2),
+"-F"   :("F" ,4, 1,1,0, 3,0,3),
+"-Cl"  :("Cl",4, 1,1,0, 3,0,3),
+
+"-CH2-":("C", 4, 2,2,0, 2,2,0),
+"-NH-" :("N", 4, 2,2,0, 2,1,1),
+"-O-"  :("O", 4, 2,2,0, 2,0,2),
+
+"*CH"  :("C", 4, 3,3,0, 1,1,0),
+"*N"   :("N", 4, 3,3,0, 1,0,1),   # what about N+ ?
+
+"=CH-" :("C", 3, 3,2,1, 1,1,0),
+"=N-"  :("N", 3, 3,2,1, 1,0,1),
+
+"=CH2" :("C" ,3, 2,1,1, 2,2,0),
+"=NH"  :("N" ,3, 2,1,1, 2,1,1),
+"=O"   :("O" ,3, 2,1,1, 2,0,2),
+
+"*C"   :("C", 3, 4,3,1, 0,0,0),
+"*N+"  :("N", 3, 4,3,1, 0,0,0), 
+
+"#CH"  :("C", 2, 3,1,2, 1,1,0),
+"#N"   :("N", 2, 3,1,2, 1,0,1),
+}
+
 '''
-def bondOrders( nngs, bonds, Nstep=100 ):
-    #ao=np.zeros(len(nngs ),dtype=np.int)
-    ae=np.zeros(len(nngs ))
-    ao=nngs.copy()
-    bo=np.zeros(len(bonds),dtype=np.int)
-    for itr in xrange(Nstep):
+Simplified
+
+nt = nH
+nb = nsigma + npi
+
+4 = nb + nt
+4 = nsigma + npi + nH + ne
+
+ndir = nsigma + nH + ne
+ndir = nsigma + nt
+
 '''
 
-def simpleAromTypes(  Eh2=-4,Eh3=4,   E12=0,E13=0,   E22=0,E23=1,   E32=0,E33=4,  Ex1=0., Ex4=10., Ebound=20. ):
-    typeEs = np.array([
-     [Ebound,Ex1,E12,E13,Ex4,Ebound], # nng=1
-     [Ebound,Ex1,E22,E23,Ex4,Ebound], # nng=2
-     [Ebound,Ex1,E32,E33,Ex4,Ebound], # nng=3
-     [Ebound,Ex1,Eh2,Eh3,Ex4,Ebound], # hex
-    ])
-    return typeEs
+def normalize(v):
+    l  = np.sqrt(np.dot(v,v))
+    v/=l 
+    return v,l
+
+def makeTetrahedron(db,up):
+    #phi = np.random()
+    normalize(db)
+    side = np.cross(db,up)
+    # https://en.wikipedia.org/wiki/Tetrahedron#Formulas_for_a_regular_tetrahedron
+    a = 0.81649658092  # sqrt(2/3)
+    b = 0.47140452079  # sqrt(2/9)
+    c = 0.33333333333  # 1/3
+    return np.array([ db*c + up*(b*2)     ,
+                      db*c - up*b - side*a,
+                      db*c - up*b + side*a, ])
+
+def makeTetrahedronFork(d1,d2):
+    up   = np.cross(d1,d2);  normalize(up)
+    db   = d1+d2;            normalize(db)
+    #side = np.cross(d,up)
+    #a = 0.5           # 1/2
+    #b = 0.35355339059 # sqrt(1/8)
+    a = 0.81649658092  # sqrt(2/3)
+    b = 0.57735026919  # sqrt(1/3)
+    return np.array([ db*b + up*a,
+                      db*b - up*a, ])
+
+def makeTriFork(db,up):
+    normalize(db)
+    side = np.cross(db,up)
+    a = 0.87758256189  # 1/2
+    b = 0.5            # sqrt(1/8)
+    return np.array([ db*b + side*a,
+                      db*b - side*a, ])
+
+def groups2atoms( groupNames, neighs, ps ):
+
+    def appendHs( txyz, Hmask, elems, xyzs, e1="H", e2="He" ):
+        Hm = Hmask[ np.random.randint(len(Hmask)) ]
+        #print Hm
+        #if len(Hm) == 1:
+        #    print Hm, txyz 
+        for ih in xrange(len(Hm)):
+            if Hm[ih] == 1:
+                elems.append( e1     )
+                xyzs .append( txyz[ih] )
+            else:
+                elems.append( e2     )
+                xyzs .append( txyz[ih] )
+
+    up=np.array((0.,0.,1.))
+    Hmasks3=[ [(0,0,0)],
+              [(1,0,0),(0,1,0),(0,0,1)],
+              [(0,1,1),(1,0,1),(1,1,0)],
+              [(1,1,1)]]
+    Hmasks2=[[(0,0)],
+             [(1,0),(1,0)],
+             [(1,1)]]
+    elems=[]; xyzs=[]
+    for ia,name in enumerate(groupNames):
+        if name in group_definition:
+            ngs = neighs[ia]
+            pi  = ps[ia]
+            g   = group_definition[name]
+            ndir   = g[1]
+            nsigma = g[3]
+            nH     = g[6]
+            elems.append(g[0])
+            xyzs.append(pi.copy())
+            
+            #print name, ndir, nsigma, nH
+            
+            if      ( ndir==4 ):  # ==== tetrahedral
+                flip = np.random.randint(2)*2-1
+                #print "---------- flip ", flip
+                if   (nsigma==1):     # like -CH3
+                    print name, ndir, nsigma, nH
+                    txyz = makeTetrahedron( pi-ps[ngs[0]] , up*flip ) + pi[None,:]
+                    appendHs( txyz, Hmasks3[nH], elems, xyzs )
+                elif (nsigma==2):     # like -CH2-
+                    txyz = makeTetrahedronFork( pi-ps[ngs[0]], pi-ps[ngs[1]] ) + pi[None,:]
+                    appendHs( txyz, Hmasks2[nH], elems, xyzs )
+                elif (nsigma==3):     # like *CH
+                    if nH==1:
+                        elems.append("H")
+                        xyzs.append(pi+up*flip)
+                    
+            elif ( ndir==3 ):  # ==== triangular
+                if   (nsigma==1):     # like =CH2
+                    txyz  = makeTriFork(pi-ps[ngs[0]],up) + pi[None,:]
+                    appendHs( txyz, Hmasks2[nH], elems, xyzs )
+                elif (nsigma==2):    # like  =CH-
+                    appendHs(  normalize( pi*2 - ps[ngs[0]] - ps[ngs[1]] )[0] + pi[None,:] , [(1,)], elems, xyzs )
+                    #if nH==1:
+                    #    elems.append("H")
+                    #    xyzs.append( pi + ( normalize( pi*2 - ps[ngs[0]] - ps[ngs[1]] )[0] ) )
+                    
+            elif ( ndir==2 ):  # ==== linear
+                appendHs( normalize( pi-ps[ngs[0]] )[0] + pi[None,:], [(1,) ], elems, xyzs ) 
+                #if   (nsigma==1):
+                #    elems.append("H")
+                #    xyzs.append( pi + ( normalize( pi-ps[ngs[0]] )[0] ) )
+            
+        else:
+            print "Group >>%s<< not known" %name
+    print "len(xyzs), len(elems) ", len(xyzs), len(elems)
+    for xyz in xyzs: 
+        print len(xyz),
+        if len(xyz) != 3:
+            print xyz
+    return np.array(xyzs), elems
+
+# ===========================
+#           FIRE
+# ===========================
 
 class FIRE:
     v = None
@@ -438,6 +593,19 @@ class FIRE:
         p[:] += v[:]*dt_
         #print "|f|,dt,damp,cvf,dt_sc", f_norm, self.dt, self.damp, vf/(v_norm*f_norm), dt_sc
         return f_norm
+
+# ===========================
+#           Bond-Order Opt
+# ===========================
+
+def simpleAOEnergies(  Eh2=-4,Eh3=4,   E12=0,E13=0,   E22=0,E23=1,   E32=0,E33=4,  Ex1=0., Ex4=10., Ebound=20. ):
+    typeEs = np.array([
+     [Ebound,Ex1,E12,E13,Ex4,Ebound], # nng=1
+     [Ebound,Ex1,E22,E23,Ex4,Ebound], # nng=2
+     [Ebound,Ex1,E32,E33,Ex4,Ebound], # nng=3
+     [Ebound,Ex1,Eh2,Eh3,Ex4,Ebound], # hex
+    ])
+    return typeEs
 
 def assignAtomBOFF(atypes, typeEs):
     from scipy.interpolate import Akima1DInterpolator
@@ -544,6 +712,10 @@ def relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.01, nMaxStep=1000, EboSta
     
     #print "boEnd ", bo[:6]
     return bo,ao
+
+# ===========================
+#       Geometry Opt
+# ===========================
 
 def getForceIvnR24( ps, Rs ):
     r2safe = 1e-4

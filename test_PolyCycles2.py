@@ -129,10 +129,7 @@ species = [
 ]
 '''
 
-
-
-
-
+'''
 groupDict   = {
 #  an,ao
  ( 1,1 ): [ ("-CH3" ,1),("-NH2",1),("-OH",1),("-F"   ,1),("-Cl",1) ],
@@ -143,6 +140,7 @@ groupDict   = {
  ( 3,3 ): [ ("C*H"  ,1),("N"   ,1)                                 ],
  ( 3,4 ): [ ("C"    ,1)                                            ],
 }
+'''
 
 groupDict   = {
 #  an,ao
@@ -151,8 +149,8 @@ groupDict   = {
  ( 1,2 ): [ ("#CH"  ,1),("#N"  ,1)                                 ],
  ( 2,0 ): [ ("-CH2-",1),("-NH-",1),("-O-",1)                       ],
  ( 2,1 ): [ ("=CH-" ,1),("=N-" ,1)                                 ],
- ( 3,0 ): [ ("C*H"  ,1),("N"   ,1)                                 ],
- ( 3,1 ): [ ("C"    ,1)                                            ],
+ ( 3,0 ): [ ("*CH"  ,1),("*N"  ,1)                                 ],
+ ( 3,1 ): [ ("*C"   ,1)                                            ],
 }
 
 
@@ -180,11 +178,11 @@ def plotCycles(cpos=None,vpos=None,nvs=None):
     plt.axis("equal")
 
 if __name__ == "__main__":
-    np.random.seed(6465)
+    np.random.seed(26465)
     Nring    = 30
     #nvs  = np.random.randint( 5,8, Nring, dtype=np.int32 );       #print "nvs:   ", nvs
-    #nvs=np.random.choice([5,6,7],size=Nring,p=[0.2,0.6,0.2] )
-    nvs=np.random.choice([4,5,6,7],size=Nring,p=[0.05,0.2,0.65,0.1] )
+    nvs=np.random.choice([5,6,7],size=Nring,p=[0.2,0.6,0.2] )
+    #nvs=np.random.choice([4,5,6,7],size=Nring,p=[0.05,0.2,0.65,0.1] )
     #nvs = np.ones()*6
     print "nvs: " ,nvs
     
@@ -301,7 +299,7 @@ if __name__ == "__main__":
     
     print " ================= Reax BO "
     
-    typeEs = ch.simpleAromTypes( E12=0.5, E22=+0.5, E32=+0.5 )
+    typeEs = ch.simpleAOEnergies( E12=0.5, E22=+0.5, E32=+0.5 )
     
     typeMasks, typeFFs = ch.assignAtomBOFF(atypes, typeEs)
     opt = ch.FIRE(dt_max=0.1,damp_max=0.25)
@@ -319,18 +317,30 @@ if __name__ == "__main__":
     
     # ======== save XYZ
     
+    # --- simple elements
+    xyzs = np.append(atom_pos, np.zeros((len(atom_pos),1)), axis=1)*1.4
+    '''
+    #elem_names = [ s[0]     for s   in species ]
+    elist = ch.selectRandomElements( nngs, species, plevels )
+    #print "elist", elist
+    #print "xyzs", xyzs
+    au.saveXYZ( elist,xyzs, "test_PolyCycles.xyz" )
+    '''
+    
+    # --- groups -> atoms
     groupDict = ch.makeGroupLevels(groupDict)
     aoi = np.round(ao).astype(np.int)
     groups = ch.selectRandomGroups( nngs, aoi, groupDict )
+    
+    #for i in range(len(groups)):
+    #    if(groups[i]=="-NH2"):
+    #        groups[i]="#CH"
+    
     print "groups ", groups
-    
-    #elem_names = [ s[0]     for s   in species ]
-    elist = ch.selectRandomElements( nngs, species, plevels )
-    print "elist", elist
-    
-    xyzs = np.append(atom_pos, np.zeros((len(atom_pos),1)), axis=1)
-    #print "xyzs", xyzs
-    au.saveXYZ( elist,xyzs*1.3, "test_PolyCycles.xyz" )
+    xyzs_g, elems_g = ch.groups2atoms( groups, neighs, xyzs )
+    print "elems ", elems_g
+    print "elems ", xyzs_g
+    au.saveXYZ( elems_g,xyzs_g, "test_PolyCycles_g.xyz" )
     
     # ======== Plot
     
