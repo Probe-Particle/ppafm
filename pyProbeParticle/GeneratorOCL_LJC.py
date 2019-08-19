@@ -120,7 +120,7 @@ def getAtomsRotZmin( rot, xyzs, zmin, Zs=None ):
         Zs = Zs[mask]
     return xyzs_[mask,:], Zs
 
-def getAtomsRotZminNsort( rot, xyzs, zmin, RvdWs=None, Zs=None, Nmax=30 ):
+def getAtomsRotZminNsort( rot, xyzs, zmin, RvdWs=None, Zs=None, Nmax=30, RvdW_H = 1.4870 ):
     '''
     get <=Nmax atoms closer to camera than "zmin" and sort by distance from camera
     '''
@@ -134,7 +134,7 @@ def getAtomsRotZminNsort( rot, xyzs, zmin, RvdWs=None, Zs=None, Nmax=30 ):
         #print " :::: zs      ", zs
         zs += RvdWs
         #print " :::: zs+Rvdw ", zs
-
+    zs = zs - RvdW_H
     inds = np.argsort( -zs ) #.copy()
     #print " :::: inds ", inds
     xyzs_ = xyzs_[inds,:].copy()
@@ -193,8 +193,11 @@ class Generator(Sequence,):
     scan_end   = ( 8.0, 8.0)
     scan_dim   = ( 100, 100, 30)
     distAbove  =  7.5
+    distAboveRange = (7.2,7.8)
+    molCenterAfm = False
     planeShift = -4.0
     
+
     #maxTilt0 = 0.5
     #maxTilt0 = 1.5
     maxTilt0 = 0.0
@@ -581,6 +584,37 @@ class Generator(Sequence,):
         #print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
 
+
+        # random uniform select distAbove in range distAboveRange and shift it up to radius vdW of top atom
+        if self.distAboveRange is not None:
+            self.distAbove=np.random.uniform(self.distAboveRange[0],self.distAboveRange[1])
+
+        atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]
+        atoms_rotated_to_pos0 = rotAtoms(self.rot, atoms_shifted_to_pos0)
+        if(verbose>1): print " :::: atoms_rotated_to_pos0 ", atoms_rotated_to_pos0
+        RvdWs = self.REAs[:,0] - 1.6612
+        if(verbose>1): print " :::: RvdWs ", RvdWs
+        zs = atoms_rotated_to_pos0[:,2].copy()
+        zs += RvdWs
+        if(verbose>1): print " :::: zs ", zs
+        imax = np.argmax( zs ) 
+
+        if(verbose>1): print " :::: imax ", imax
+        self.distAbove = self.distAbove + RvdWs[imax]
+        if(verbose>1): print " :::: distAbove ", self.distAbove
+        
+        AFM_window_shift=(0,0)
+        if self.molCenterAfm:
+            # shift projection to molecule center but leave top atom still in the center
+            average_mol_pos = [np.mean(atoms_rotated_to_pos0[:,0]),np.mean(atoms_rotated_to_pos0[:,1])]
+            if(verbose>1): print " : average_mol_pos", average_mol_pos
+            top_atom_pos = atoms_rotated_to_pos0[:,[0,1]][atoms_rotated_to_pos0[:,2] == np.max(atoms_rotated_to_pos0[:,2]) ]
+            if(verbose>1): print " : top_atom_pos", top_atom_pos
+            #now we will move AFM window to the molecule center but still leave top atom inside window 
+            AFM_window_shift = np.clip(average_mol_pos[:], a_min = top_atom_pos[:] + self.scan_start[:], a_max = top_atom_pos[:] + self.scan_end[:]) [0]
+            if(verbose>1): print " : AFM_window_shift", AFM_window_shift
+      
+
         vtipR0    = np.zeros(3)
         
         #rnd       = np.random.rand(2)
@@ -597,7 +631,7 @@ class Generator(Sequence,):
 
         #vtipR0 = np.array( [0.5,0.0,self.tipR0] )
 
-        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*self.distAbove, rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
+        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*self.distAbove+np.dot((AFM_window_shift[0],AFM_window_shift[1],0),self.rot), rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
 
         if self.preHeight: 
             ''' 
@@ -824,9 +858,15 @@ class Generator(Sequence,):
             #xyzs_, Zs = getAtomsRotZmin( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0] )
             #xyzs_, Zs = getAtomsRotZminNsort    ( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz  )
             #xyzs_, Zs = getAtomsRotZminNsort_old( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz  )
-            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz, RvdWs = self.REAs[:,0] - 1.66 - 1.4 )
+            #xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz, RvdWs = self.REAs[:,0] - 1.66 - 1.4 )
+            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz, RvdWs = self.REAs[:,0] - 1.6612  )
             #print Y.shape,  xyzs_.shape, Y[:len(xyzs_),:3].shape
             Y[:len(xyzs_),:3] = xyzs_[:,:]
+            
+            if self.molCenterAfm:    
+                # shifts reference to molecule center            
+                Y[:len(xyzs_),:3] -= (AFM_window_shift[0],AFM_window_shift[1],0)
+                
             Y[:len(xyzs_), 3] = Zs
             #basUtils.writeDebugXYZ__( self.preName + self.molName +("/rot_%i03.xyz" %self.irot ), atomsRot, self.Zs )
             #basUtils.saveXyz(self.preName + self.molName +("/rot_%03i.xyz" %self.irot ),   [1]*len(xyzs_),   xyzs_   )
