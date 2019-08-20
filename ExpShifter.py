@@ -233,8 +233,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def saveData(self):        
         self.slices_to_save = str(self.txSliceSave.text())
-        if self.slices_to_save is not None:
-            #print 'slices_to_save = ', self.slices_to_save
+        if self.slices_to_save:
+            print 'slices_to_save = ', self.slices_to_save
             slices_nums = [s.strip() for s in re.split(r'[,;]+| ,', self.slices_to_save) if s]
             #print 'slices_nums = ', slices_nums
             linearrframes = [int(i) for i in slices_nums if '-' not in i]
@@ -248,7 +248,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
             print('slices_to_save = ',slices_indexes)
             
-            arr = np.array(self.data)  
+            arr = np.array(self.data)
+            arr = arr[:,:,slices_indexes]  
             
  
         else:
@@ -259,7 +260,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             print "dat.shape ", arr.shape
             nx=arr.shape[1]/self.divNX * self.divNX
             ny=arr.shape[2]/self.divNY * self.divNY
-            arr_ = arr[slices_indexes,:nx,:ny]
+            arr_ = arr[:,:nx,:ny]
             arr_ = arr_.transpose((1,2,0))
             print "saveData: arr_.shape ", arr_.shape
             np.save( self.path+"data.npy", arr_)
