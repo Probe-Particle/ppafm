@@ -327,7 +327,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #iz = self.selectDataView()
         try:
             self.figCan.plotSlice( self.data[iz], self.fnames[iz] )
-            print 'self.data[iz].shape = ', self.data[iz].shape
+            #print 'self.data[iz].shape = ', self.data[iz].shape
         except:
             print "cannot plot slice #", iz
         #t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
