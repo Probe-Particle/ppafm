@@ -12,6 +12,7 @@ class Vec2TYPE{
 	union{
 		struct{ TYPE x,y; };
 		struct{ TYPE a,b; };
+		struct{ TYPE i,j; };
 		TYPE array[2];
 	};
 

@@ -18,6 +18,7 @@ class Vec3TYPE{
 	union{
 		struct{ TYPE x,y,z; };
 		struct{ TYPE a,b,c; };
+		struct{ TYPE i,j,k; };
 		TYPE array[3];
 	};
 
@@ -438,6 +439,41 @@ inline Vec3f toFloat( const Vec3d& from){ return (Vec3f){(float)from.x,(float)fr
 inline int print( const Vec3f&  v){ return printf( "%g %g %g", v.x, v.y, v.z ); };
 inline int print( const Vec3d&  v){ return printf( "%g %g %g", v.x, v.y, v.z ); };
 inline int print( const Vec3i&  v){ return printf( "%i %i %i", v.x, v.y, v.z ); };
+
+
+
+struct Mat3Sd{ // symmetric 3x3 matrix
+
+    double xx,yy,zz,
+           yz,xz,xy;
+
+    inline void from_dhat(const Vec3d& h){
+        // derivatives of normalized vector
+        //double ir  = irs[i];
+        double hxx = h.x*h.x;
+        double hyy = h.y*h.y;
+        double hzz = h.z*h.z;
+        xy=-h.x*h.y;
+        xz=-h.x*h.z;
+        yz=-h.y*h.z;
+        xx=(hyy+hzz);
+        yy=(hxx+hzz);
+        zz=(hxx+hyy);
+    }
+
+    inline void dhat_dot( const Vec3d& h, Vec3d& f ){
+        f.x += h.x*xx + h.y*xy + h.z*xz;
+        f.y += h.x*xy + h.y*yy + h.z*yz;
+        f.z += h.x*xz + h.y*yz + h.z*zz;
+    }
+
+    inline void mad_ddot( const Vec3d& h, Vec3d& f, double k ){
+        f.x += ( h.x*xx + h.y*xy + h.z*xz )*k;
+        f.y += ( h.x*xy + h.y*yy + h.z*yz )*k;
+        f.z += ( h.x*xz + h.y*yz + h.z*zz )*k;
+    }
+
+};
 
 #endif
 

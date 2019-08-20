@@ -3,7 +3,7 @@ LD=g++
 CPPFLAGS= -std=c++11 -O3 -ffast-math -ftree-vectorize -fPIC
 LDFLAGS= -shared
 
-all: PP GU MP RR PolyCycles atomfit 
+all: PP GU MP RR PolyCycles atomfit MMFF
 
 PP: ProbeParticle.o
 
@@ -14,6 +14,8 @@ MP: Multipoles.o
 RR: ReactiveFF.o
 
 PolyCycles: PolyCycles.o
+
+MMFF: MMFF.o
 
 atomfit: atomfit.o
 

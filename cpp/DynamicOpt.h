@@ -21,7 +21,8 @@ class DynamicOpt{ public:
     double damping      = 0.1d;
 
     double f_limit      = 10.0;
-    double v_limit      = 1.0;
+    //double v_limit      = 1.0;
+    double l_limit      = 0.2;
     //double fscale_safe  = 1;
     double scale_dt  = 1;
     double ff_safety    = 1e-32;
@@ -63,14 +64,30 @@ class DynamicOpt{ public:
 
     // ==== inline functions
 
+/*
     inline void initMass(double invM){ for(int i=0;i<n;i++){invMasses[i]=invM;} };
-
     inline void bindArrays( int n_, double * pos_, double * vel_, double * force_, double * invMasses_ ){
         n = n_;     
         if(pos_  ==0){ _realloc(pos  ,n); }else{ pos   = pos_;   };
         if(vel_  ==0){ _realloc(vel  ,n); }else{ vel   = vel_;   };
         if(force_==0){ _realloc(force,n); }else{ force = force_; };
         if(invMasses_==0) { _realloc(invMasses,n); initMass(1.0); }else{ invMasses=invMasses_; }
+    }
+*/
+    
+    inline void setInvMass(double invM){  if(invMasses==0){ _realloc(invMasses,n);}  for(int i=0;i<n;i++){invMasses[i]=invM;} };
+
+    inline void bindArrays( int n_, double * pos_, double * vel_, double * force_, double * invMasses_ ){
+        n = n_; pos=pos_;  vel=vel_; force=force_; invMasses=invMasses_;
+    }
+
+    inline void bindOrAlloc( int n_, double * pos_, double * vel_, double * force_, double * invMasses_ ){
+        n = n_;
+        if(pos_  ==0){ _realloc(pos  ,n); }else{ pos   = pos_;   };
+        if(vel_  ==0){ _realloc(vel  ,n); }else{ vel   = vel_;   };
+        if(force_==0){ _realloc(force,n); }else{ force = force_; };
+        //if(invMasses_==0) { _realloc(invMasses,n); setInvMass(1.0); }else{ invMasses=invMasses_; }
+        if(invMasses_==0) setInvMass(1.0);
     }
 
     inline void realloc( int n_ ){
@@ -91,8 +108,8 @@ class DynamicOpt{ public:
     inline void cleanForce( ){  for(int i=0; i<n; i++){ force[i]=0; } }
     inline void cleanVel  ( ){  for(int i=0; i<n; i++){ vel  [i]=0; } }
 
-    inline double limit_dt_x2 (double xx,double xmax){ double sc=1.0; if( xx > (xmax*xmax) ){ sc= fmin( sc, xmax/sqrt(xx) ); }; return sc;       }
-    inline double limit_dt_vf2(double ff, double vv ){ scale_dt=fmin(limit_dt_x2(ff,f_limit),limit_dt_x2(vv,v_limit));         return scale_dt; }
+    //inline double limit_dt_x2 (double xx,double xmax){ double sc=1.0; if( xx > (xmax*xmax) ){ sc= fmin( sc, xmax/sqrt(xx) ); }; return sc;       }
+    //inline double limit_dt_vf2(double ff, double vv ){ scale_dt=fmin(limit_dt_x2(ff,f_limit),limit_dt_x2(vv,v_limit));         return scale_dt; }
 
     inline void initOpt( double dt_, double damp_ ){
         dt      = dt_max   = dt_;  dt_min=0.1*dt_max;
@@ -172,14 +189,17 @@ void DynamicOpt::move_MD(double dt_loc){
     t += dt;
 }
 
+/*
 double DynamicOpt::move_MD_safe(double dt_loc){
     double fmax = VecN::absmax(n,force);
-    scale_dt = fmin(1,fmin( v_limit/VecN::absmax(n,vel), f_limit/fmax ));
+    //scale_dt = fmin(1,fmin( v_limit/VecN::absmax(n,vel), f_limit/fmax ));
     dt_loc*=scale_dt;
     move_MD(dt_loc);
     return fmax;
 }
+*/
 
+/*
 double DynamicOpt::move_FIRE(){
     double ff=0,vv=0,vf=0;
     for(int i=0; i<n; i++){
@@ -217,6 +237,72 @@ double DynamicOpt::move_FIRE(){
     //stepsDone++;
     return ff;
 }
+*/
+
+double DynamicOpt::move_FIRE(){
+	double ff=0,vv=0,vf=0;
+	//printf( "DEBUG 5.5.1: %i\n", n  );
+	for(int i=0; i<n; i++){
+		double fi = force[i];
+		double vi = vel[i];
+		ff += fi*fi;
+		vv += vi*vi;
+		vf += vi*fi;
+        //printf( "move_FIRE %i f %g v %g p %g \n", i, force[i], vel[i], pos[i] );
+	}
+	//printf( "DEBUG 5.5.2 \n" );
+	if( vf < 0.0 ){
+	//if( (vf<0.0)||bOverLimit){
+		//dt       = dt * fdec;
+		dt       = fmax( dt * fdec, dt_min );
+	  	damping  = damp_max;
+		lastNeg  = 0;
+		cleanVel  ( );
+		//for(int i=0; i<n; i++){ vel[i] = kickStart*dt*force[i]; }
+		//for(int i=0; i<n; i++){ vel[i] = force[i] * 0.5*sqrt(vv/(ff+ff_safety)); }
+		//for(int i=0; i<n; i++){ vel[i] = dmax*force[i]*sqrt(1/ff)/dt_var; }
+	}else{
+		double cf  =      damping * sqrt(vv/(ff+ff_safety));
+		//double cf     =     damping * sqrt(vv/ff);
+		double cv     = 1 - damping;
+		for(int i=0; i<n; i++){
+			vel[i]    = cv * vel[i]  + cf * force[i];
+		}
+		if( lastNeg > minLastNeg ){
+			dt        = fmin( dt * finc, dt_max );
+			damping   = damping  * falpha;
+		}
+		lastNeg++;
+	}
+	//printf( "DEBUG 5.5.3 \n" );
+
+	double dt_=dt;
+
+    if( ff>(f_limit*f_limit) ){
+        double f = sqrt(ff);
+        if( ff>(100*f_limit*f_limit) ){ // Gradient descent for extremely high forces
+            cleanVel();
+            move_GD( l_limit/f ); // do GD step of length == l_limit 
+            return ff;
+        }
+        //printf( "force too large: %g => limit dt: %g \n", f, dt_ );
+        dt_*=sqrt( f_limit/f );
+    };
+
+    move_LeapFrog( dt_ );
+	//move_LeapFrog();
+	//move_LeapFrog_vlimit();  // this does not seem to help
+	//printf( " %i f v vf  %f %f %f   dt damp  %f %f \n",  stepsDone,   sqrt(ff), sqrt(vv), vf/sqrt(vv*ff),   dt_var, damp_var  );
+	//stepsDone++;
+	return ff;
+}
+
+
+
+
+
+
+
 
 double DynamicOpt::optStep(){
     //cleanForce( );

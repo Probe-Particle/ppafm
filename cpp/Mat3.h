@@ -362,6 +362,18 @@ class Mat3TYPE{
 		//a.normalize(); // we don't need this since b,c are orthonormal
 	};
 
+	inline void fromCrossSafe( const Vec3d& v1, const Vec3d& v2 ){
+        b.set_cross( v1, v2 );
+        a.set_sub(v2,v1); a.normalize();
+        double r2b = b.norm2();
+        if( r2b<1e-15 ){
+            a.getSomeOrtho(b,c);
+        }else{
+            b.mul( 1/sqrt(r2b) );
+            c.set_cross(b,a);
+        }
+	}
+
 	inline void fromEuler( TYPE phi, TYPE theta, TYPE psi ){
         // http://mathworld.wolfram.com/EulerAngles.html
         TYPE ca=1,sa=0, cb=1,sb=0, cc=1,sc=0;
