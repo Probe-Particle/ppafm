@@ -249,7 +249,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             print('slices_to_save = ',slices_indexes)
             
             arr = np.array(self.data)
-            arr = arr[:,:,slices_indexes]  
+
+            arr = arr[slices_indexes,:,:]  
             
  
         else:
