@@ -588,24 +588,23 @@ class Generator(Sequence,):
         # random uniform select distAbove in range distAboveRange and shift it up to radius vdW of top atom
         if self.distAboveRange is not None:
             self.distAbove=np.random.uniform(self.distAboveRange[0],self.distAboveRange[1])
+            atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]           #shift atoms coord to rotation center point of view            
+            atoms_rotated_to_pos0 = rotAtoms(self.rot, atoms_shifted_to_pos0)            #rotate atoms coord to rotation center point of view
+            if(verbose>1): print " :::: atoms_rotated_to_pos0 ", atoms_rotated_to_pos0
+            RvdWs = self.REAs[:,0] - 1.6612  # real RvdWs of atoms after substraction of RvdW(O)
+            if(verbose>1): print " :::: RvdWs ", RvdWs
+            zs = atoms_rotated_to_pos0[:,2].copy()
+            zs += RvdWs  # z-coord of each atom with it's RvdW
+            if(verbose>1): print " :::: zs ", zs
+            imax = np.argmax( zs ) 
 
-        atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]
-        atoms_rotated_to_pos0 = rotAtoms(self.rot, atoms_shifted_to_pos0)
-        if(verbose>1): print " :::: atoms_rotated_to_pos0 ", atoms_rotated_to_pos0
-        RvdWs = self.REAs[:,0] - 1.6612
-        if(verbose>1): print " :::: RvdWs ", RvdWs
-        zs = atoms_rotated_to_pos0[:,2].copy()
-        zs += RvdWs
-        if(verbose>1): print " :::: zs ", zs
-        imax = np.argmax( zs ) 
-
-        if(verbose>1): print " :::: imax ", imax
-        self.distAbove = self.distAbove + RvdWs[imax]
-        if(verbose>1): print " :::: distAbove ", self.distAbove
+            if(verbose>1): print " :::: imax ", imax
+            self.distAbove = self.distAbove + RvdWs[imax] # shifts distAbove for vdW-Radius of top atomic shell
+            if(verbose>1): print " :::: distAbove ", self.distAbove
         
+        # shift projection to molecule center but leave top atom still in the center
         AFM_window_shift=(0,0)
         if self.molCenterAfm:
-            # shift projection to molecule center but leave top atom still in the center
             average_mol_pos = [np.mean(atoms_rotated_to_pos0[:,0]),np.mean(atoms_rotated_to_pos0[:,1])]
             if(verbose>1): print " : average_mol_pos", average_mol_pos
             top_atom_pos = atoms_rotated_to_pos0[:,[0,1]][atoms_rotated_to_pos0[:,2] == np.max(atoms_rotated_to_pos0[:,2]) ]
