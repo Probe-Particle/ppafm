@@ -7,6 +7,7 @@
 from __future__ import unicode_literals
 import sys
 import os
+import re
 import time
 import random
 import matplotlib; matplotlib.use('Qt5Agg')
@@ -87,8 +88,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) ; bt = QtWidgets.QPushButton('Magic fit', self); bt.setToolTip('Fit to colser slice'); bt.clicked.connect(self.magicFit); vb.addWidget( bt ); self.btLoad = bt
 
-        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('MagicAll', self); bt.setToolTip('Fit all slices'); bt.clicked.connect(self.magicFitAll);      vb.addWidget( bt ); self.btLoad = bt
-        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('SaveImgs', self); bt.setToolTip('save images'); bt.clicked.connect(self.saveImg);      vb.addWidget( bt ); self.btLoad = bt
+        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('MagicAll', self); bt.setToolTip('Fit all slices'); bt.clicked.connect(self.magicFitAll);      vb.addWidget( bt ); 
+        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('SaveImgs', self); bt.setToolTip('save images'); bt.clicked.connect(self.saveImg);      vb.addWidget( bt );
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Ninter ") )
         bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(1); vb.addWidget(bx); self.bxNi=bx
@@ -109,7 +110,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
 
+
         # --- btSave
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("slices") )
+        selSliceSave = QtWidgets.QLineEdit(); vb.addWidget(selSliceSave);   self.txSliceSave=selSliceSave
+        vb = QtWidgets.QHBoxLayout();        l0.addLayout(vb);
         self.btSave = QtWidgets.QPushButton('Save', self)
         self.btSave.setToolTip('save data stack to .npy')
         self.btSave.clicked.connect(self.saveData)
@@ -178,6 +183,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.path = 
         '''
+
+        if self.path[-1] is not u'/':
+            self.path   += u'/'
+                
         self.fnames   = glob.glob(self.path+'*.dat')
         self.fnames.sort()
         #self.data = self.loadData();
@@ -222,8 +231,31 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.fnames.insert( iz+1, "c%1.3f" %c )
         self.bxZ.setRange( 0, len(self.data)-1 )
 
-    def saveData(self):
-        arr = np.array(self.data)
+    def saveData(self):        
+        self.slices_to_save = str(self.txSliceSave.text())
+        if self.slices_to_save:
+            print 'slices_to_save = ', self.slices_to_save
+            slices_nums = [s.strip() for s in re.split(r'[,;]+| ,', self.slices_to_save) if s]
+            #print 'slices_nums = ', slices_nums
+            linearrframes = [int(i) for i in slices_nums if '-' not in i]
+            linearrdiapasones = sum([list(range(int(i.split('-')[0]), int(i.split('-')[1]) + 1)) for i in slices_nums if '-' in i], [])
+            #print 'linearrframes = ', linearrframes
+            #print 'linearrdiapasones = ', linearrdiapasones
+
+            linearrframes.extend(linearrdiapasones)
+            linearrframes = list(set(linearrframes))
+            slices_indexes = [int(i) for i in linearrframes]
+
+            print('slices_to_save = ',slices_indexes)
+            
+            arr = np.array(self.data)
+
+            arr = arr[slices_indexes,:,:]  
+            
+ 
+        else:
+            arr = np.array(self.data)
+
         print "saveData: arr.shape ", arr.shape 
         if ( self.bSaveDivisible ):
             print "dat.shape ", arr.shape
@@ -236,10 +268,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         else:
             np.save( self.path+"data.npy", arr  )
 
+
         with open(self.path+'data.pickle', 'wb') as fp:
             pickle.dump( self.fnames, fp)
             pickle.dump( self.shifts, fp)
-
+   
     def loadNPY(self):
         with open ( self.path+'data.pickle', 'rb') as fp:
             self.fnames = pickle.load(fp)
@@ -247,17 +280,21 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         for item in zip(self.fnames,self.shifts):
             print item[0], " : ", item[1]
         data = np.load(self.path+'data.npy')
+        data = data.transpose((2,0,1))
         self.data = [ s for s in data ]
+ 
         self.bxZ.setRange( 0, len(self.data)-1 );
+ 
         self.updateDataView()
 
     def saveImg(self):
         n = len(self.data)
         plt.figure( figsize=(n*5,5) )
         for i in range(n):
-            #print i
+            print i
             plt.subplot(1,n,i+1)
             plt.imshow(self.data[i], origin='image')
+            print 'image path = ' , self.path+'data.png'
         plt.savefig(self.path+"data.png", bbox_inches='tight')
 
     def shiftData(self):
@@ -292,6 +329,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #iz = self.selectDataView()
         try:
             self.figCan.plotSlice( self.data[iz], self.fnames[iz] )
+            #print 'self.data[iz].shape = ', self.data[iz].shape
         except:
             print "cannot plot slice #", iz
         #t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
