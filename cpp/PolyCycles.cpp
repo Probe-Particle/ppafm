@@ -1,4 +1,6 @@
 
+static int iDebug = 0;
+
 #include "PolyCycles.h"
 
 
