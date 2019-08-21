@@ -9,6 +9,9 @@
 typedef void (*ForceFunction)( int n, double * xs, double * dfs );
 
 class DynamicOpt{ public:
+
+    //static int iDebug = 0;
+
     // variables
     int n=0;
     double * pos       = 0;
@@ -32,7 +35,7 @@ class DynamicOpt{ public:
     double finc         = 1.1d;
     double fdec         = 0.5d;
     double falpha       = 0.98d;
-    double kickStart    = 1.0d;
+    double kickStart    = 5.0d;
 
     double dt_max       = dt;
     double dt_min       = 0.1 * dt;
@@ -51,7 +54,7 @@ class DynamicOpt{ public:
 
     void   move_LeapFrog( double dt_loc );
     //void   move_LeapFrog_vlimit();
-    void   move_GD      ( double dt_loc );
+    double move_GD      ( double dt_loc );
     double move_GD_safe ( double dt_loc );
     void   move_MD      ( double dt_loc );
     double move_MD_safe ( double dt_loc );
@@ -160,13 +163,18 @@ void DynamicOpt::move_LeapFrog_vlimit(){
 }
 */
 
-void DynamicOpt::move_GD(double dt_loc){
+double DynamicOpt::move_GD(double dt_loc){
     //double dt_ = dt*fscale_safe;
+    double dr2 = 0;
     for ( int i=0; i<n; i++ ){
-        pos[i] += force[i]*dt_loc;
+        double dri = force[i]*dt_loc;
+        pos[i] += dri; dr2+=dri*dri;
+        //pos[i] += force[i]*dt_loc;
     }
+    if(iDebug>0) printf( " move_GD dt %g dr %g \n", dt_loc, sqrt(dr2) );
     stepsDone++;
     t += dt_loc;
+    return dr2;
 }
 
 double DynamicOpt::move_GD_safe(double dt_loc){
@@ -257,7 +265,8 @@ double DynamicOpt::move_FIRE(){
 		dt       = fmax( dt * fdec, dt_min );
 	  	damping  = damp_max;
 		lastNeg  = 0;
-		cleanVel  ( );
+		cleanVel( );
+		//move_GD(dt);
 		//for(int i=0; i<n; i++){ vel[i] = kickStart*dt*force[i]; }
 		//for(int i=0; i<n; i++){ vel[i] = force[i] * 0.5*sqrt(vv/(ff+ff_safety)); }
 		//for(int i=0; i<n; i++){ vel[i] = dmax*force[i]*sqrt(1/ff)/dt_var; }
@@ -280,14 +289,18 @@ double DynamicOpt::move_FIRE(){
 
     if( ff>(f_limit*f_limit) ){
         double f = sqrt(ff);
-        if( ff>(100*f_limit*f_limit) ){ // Gradient descent for extremely high forces
+        //printf( "f %g f_limit %g \n ", f, f_limit );
+        //if( ff>(100*f_limit*f_limit) ){ // Gradient descent for extremely high forces
+        if( f>(f_limit) ){ // Gradient descent for extremely high forces
+            if(iDebug>0) printf( "f(%g)>(%g) => GradinentDescent dt %g \n", f, f_limit, l_limit/f );
             cleanVel();
             move_GD( l_limit/f ); // do GD step of length == l_limit 
             return ff;
         }
-        //printf( "force too large: %g => limit dt: %g \n", f, dt_ );
         dt_*=sqrt( f_limit/f );
+        if(iDebug>0) printf( "force too large: %g => limit dt: %g \n", f, dt_ );
     };
+    
 
     move_LeapFrog( dt_ );
 	//move_LeapFrog();
@@ -296,12 +309,6 @@ double DynamicOpt::move_FIRE(){
 	//stepsDone++;
 	return ff;
 }
-
-
-
-
-
-
 
 
 double DynamicOpt::optStep(){

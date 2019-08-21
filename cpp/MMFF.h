@@ -19,7 +19,7 @@ namespace MMFF{
 
 #define SIGN_MASK 2147483648
 
-inline void pairs2triple( const  Vec2i b1, const Vec2i b2, Vec3i& tri, bool& flip1, bool& flip2 ){
+inline void pairs2triple( const Vec2i& b1, const Vec2i& b2, Vec3i& tri, bool& flip1, bool& flip2 ){
     if     ( b1.y == b2.x ){ tri.set( b1.x, b1.y, b2.y ); flip1=false; flip2=false;  }
     else if( b1.y == b2.y ){ tri.set( b1.x, b1.y, b2.x ); flip1=false; flip2=true;   }
     else if( b1.x == b2.x ){ tri.set( b1.y, b1.x, b2.y ); flip1=true;  flip2=false;  }
@@ -30,10 +30,11 @@ void sum(int n, Vec3d* ps, Vec3d& psum){ for(int i=0;i<n;i++){ psum.add(ps[i]); 
 
 void sumTroq(int n, Vec3d* fs, Vec3d* ps, const Vec3d& cog, const Vec3d& fav, Vec3d& torq){
     for(int i=0;i<n;i++){  torq.add_cross(ps[i]-cog,fs[i]-fav);  }
+    //for(int i=0;i<n;i++){  torq.add_cross(ps[i],fs[i]);  }
 };
 
 void checkForceInvariatns( int n, Vec3d* fs, Vec3d* ps, Vec3d& cog, Vec3d& fsum, Vec3d& torq ){
-    cog=Vec3dZero;
+    cog =Vec3dZero;
     fsum=Vec3dZero;
     torq=Vec3dZero;
     double dw = 1.d/n;
@@ -43,8 +44,13 @@ void checkForceInvariatns( int n, Vec3d* fs, Vec3d* ps, Vec3d& cog, Vec3d& fsum,
 }
 
 class ForceField{ public:
+
+    //static int iDebug = 0;
+    
     int  natoms=0, nbonds=0, nang=0, ntors=0;
 
+
+    double Ea=0,Eb=0,Et=0;
     // --- Parameters
 
     Vec2i  * bond2atom = 0;
@@ -138,7 +144,7 @@ inline void setTorsParam(int i, int     n, double k){ tors_n [i] =  n; tors_k[i]
 
 inline void readSignedBond(int& i, Vec3d& h){ if(i&SIGN_MASK){ i&=0xFFFF; h = hbond[i]; h.mul(-1.0d); }else{ h = hbond[i]; }; };
 
-void cleanAtomForce(){ for(int i=0; i<natoms; i++){ aforce[i].set(0.0); } }
+void cleanAtomForce(){ for(int i=0; i<natoms; i++){ aforce[i].set(0.0d); } }
 
 // ============== Evaluation
 
@@ -154,6 +160,7 @@ double eval_bond(int ib){
     hbond [ib] = f;
     const double k = bond_k[ib];
     double dl = (l-bond_l0[ib]);
+   // printf( "bond[%i] l %g dl %g k %g fr %g \n", ib, l, dl, k,  dl*k*2 );
     f.mul( dl*k*2 );
     aforce[iat.x].add( f );
     aforce[iat.y].sub( f );
@@ -186,6 +193,8 @@ double eval_angle(int ig){
     cs.udiv_cmplx({c,s});
     double E         =  k*( 1 - cs.x );  // just for debug ?
     double fr        = -k*(     cs.y );
+
+    //printf( "angle[%i] bs(%i,%i) as(%i,%i,%i) c %g fr %g \n", ig,  ib.i,ib.j,  ia.a,ia.b,ia.c,   c,  fr );
 
     // project to per leaver
     c2 *=-2;
@@ -287,33 +296,16 @@ double eval_torsion(int it){
     return E;
 }
 
+double eval_bonds   (){ Eb=0; for(int i=0; i<nbonds; i++){ Eb+= eval_bond(i);    } return Eb; }
+double eval_angles  (){ Ea=0; for(int i=0; i<nang;   i++){ Ea+= eval_angle(i);   } return Ea; }
+double eval_torsions(){ Et=0; for(int i=0; i<ntors;  i++){ Et+= eval_torsion(i); } return Et; }
 
-
-
-double eval_bonds(){
-    double E=0;
-    for(int ib=0; ib<nbonds; ib++){  E+=eval_bond(ib); }
-    return E;
-}
-
-double eval_angles(){
-    double E=0;
-    for(int ig=0; ig<nang; ig++){ E+= eval_angle(ig); }
-    return E;
-}
-
-double eval_torsions(){
-    double E=0;
-    for(int it=0; it<ntors; it++){ E+= eval_torsion(it); }
-    return E;
-}
-
-double eval(){
-    cleanAtomForce();
-    double Eb = eval_bonds();
-    double Ea = eval_angles();
-    double Et = eval_torsions();
-    printf( "Eb %g Ea %g Et %g\n", Eb, Ea, Et );
+double eval(){                
+    //cleanAtomForce();   //    move this outside     
+    eval_bonds();              
+    eval_angles();   
+    eval_torsions(); 
+    //printf( "Eb %g Ea %g Et %g\n", Eb, Ea, Et );
     return Eb+Ea+Et;
 };
 
@@ -327,6 +319,7 @@ void angles_bond2atom(){
         b1 = bond2atom[ib.i];
         b2 = bond2atom[ib.j];
         bool flip1,flip2;
+        //ang2atom[i]={0,0,0};
         pairs2triple( b1, b2, ang2atom[i], flip1, flip2 );
         if(!flip1){ ang2bond[i].i|=SIGN_MASK; };
         if( flip2){ ang2bond[i].j|=SIGN_MASK; };

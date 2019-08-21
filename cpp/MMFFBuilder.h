@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <memory>
 
 //#include "Molecule.h"
 #include "MMFF.h"
@@ -52,6 +53,8 @@ inline int selectMinHigher(int a0, int n, int* as){
 
 
 namespace MMFF{
+
+static const double const_eVA2_Nm = 16.0217662;
 
 struct Atom{
     constexpr const static Vec3d defaultREQ = (Vec3d){ 1.7d, sqrt(0.0037292524), 0 };
@@ -187,6 +190,8 @@ struct Fragment{
 
 class Builder{  public:
 
+    //static int iDebug = 0;
+
     //MMFFparams*  params = 0;
     std::unordered_map<std::string,int> molTypeDict;
     std::vector<Molecule*> molTypes;
@@ -206,11 +211,11 @@ class Builder{  public:
 
     Bond  defaultBond;
     Angle defaultAngle;
-
-    Atom capAtom; // = (Atom){,,};
-    Atom capAtomEpair;
-    Atom capAtomPi;
-    Bond capBond;
+    
+    Atom capAtom      = (Atom){-1,-1,-1, {0,0,0}, Atom::defaultREQ };
+    Atom capAtomEpair = (Atom){-1,-1,-1, {0,0,0}, Atom::defaultREQ };;
+    Atom capAtomPi    = (Atom){-1,-1,-1, {0,0,0}, Atom::defaultREQ };;
+    Bond capBond      = (Bond)Bond{ -1,  -1,-1,  1.07, 100/const_eVA2_Nm };
     Vec3d    capUp   = (Vec3d){0.0d,0.0d,1.0d};
     bool bDummyPi    = false;
     bool bDummyEpair = false;
@@ -226,14 +231,12 @@ class Builder{  public:
     }
 
     void toForceField( ForceField& ff ){
-        //printf( "na %i nb %i nA %i \n", atoms.size(), bonds.size(), dihedrals.size() );
+        if(iDebug>0) printf( " MMFFbuilder.toForceField na %li nb %li nA %li nd %li \n", atoms.size(), bonds.size(), angles.size(), dihedrals.size() );
         //mmff->deallocate();
         ff.realloc( atoms.size(), bonds.size(), angles.size(), dihedrals.size() );
         for(int i=0; i<atoms.size(); i++){
             ff.apos [i]  = atoms[i].pos;
-
-            //println(atoms[i]);
-            //if( atoms[i].iconf>=0 ) println(confs[atoms[i].iconf]);
+            if(iDebug>0){ printf("[%i]", i); atoms[i].print(); if( atoms[i].iconf>=0){confs[atoms[i].iconf].print();} puts(""); }
         }
         for(int i=0; i<bonds.size(); i++){
             const Bond& b  = bonds[i];
@@ -245,20 +248,21 @@ class Builder{  public:
             //    //printf( "no params \n" );
             //    ff.setBondParam(i, b.l0, b.k );
             //}
-            //printf( "bond[%i] (%i,%i) %g %g | %g %g\n", i, ff.bond2atom[i].i, ff.bond2atom[i].j, ff.bond_l0[i], ff.bond_k[i], b.l0, b.k );
+            ff.setBondParam(i, b.l0, b.k );
+            if(iDebug>0){  printf( "bond[%i] (%i,%i) %g %g | %g %g\n", i, ff.bond2atom[i].i, ff.bond2atom[i].j, ff.bond_l0[i], ff.bond_k[i], b.l0, b.k ); }
             //bondTypes[i]       = bonds[i].type;
         }
         for(int i=0; i<angles.size(); i++){
             const Angle& a  = angles[i];
             ff.ang2bond[i] = a.bonds;
             ff.setAngleParam(i, a.a0, a.k );
-            //printf( "angle[%i] (%i,%i) (%g,%g) %g\n", i, ff.ang2bond[i].i, ff.ang2bond[i].j, ff.ang_cs0[i].x, ff.ang_cs0[i].y, ff.ang_k[i] );
+            if(iDebug>0){  printf( "angle[%i] (%i,%i) (%g,%g) %g\n", i, ff.ang2bond[i].i, ff.ang2bond[i].j, ff.ang_cs0[i].x, ff.ang_cs0[i].y, ff.ang_k[i] ); }
         }
         for(int i=0; i<dihedrals.size(); i++){
             const Dihedral& d  = dihedrals[i];
             ff.tors2bond[i] = d.bonds;
             ff.setTorsParam( i, d.n, d.k );
-            //printf( "dihedrals[%i] (%i,%i,%i) %i %g\n", i, ff.tors2bond[i].a, ff.tors2bond[i].b, ff.tors2bond[i].c, ff.tors_n[i], ff.tors_k[i] );
+            if(iDebug>0){ printf( "dihedrals[%i] (%i,%i,%i) %i %g\n", i, ff.tors2bond[i].a, ff.tors2bond[i].b, ff.tors2bond[i].c, ff.tors_n[i], ff.tors_k[i] ); }
         }
         ff.angles_bond2atom();
         ff.torsions_bond2atom();
@@ -269,6 +273,7 @@ class Builder{  public:
 
     const AtomConf* getAtomConf(int ia)const{
         int ic=atoms[ia].iconf;
+        //printf( "getAtomConf ic %i\n", ic );
         if(ic>=0){ return &confs[ic]; }
         return 0;
     }
@@ -320,7 +325,8 @@ class Builder{  public:
         if(jc>=0){ confs[jc].addBond(ib); }
     }
 
-    void addCap(int ia,Vec3d& hdir, Atom* atomj, int btype){
+    //void addCap(int ia,Vec3d& hdir, Atom* atomj, int btype){
+    void addCap(int ia,Vec3d& hdir, Atom* atomj ){
         int ja=atoms.size();
         //capAtom;
         Atom atom_tmp;
@@ -328,13 +334,14 @@ class Builder{  public:
             atom_tmp=capAtom;
             atomj=&atom_tmp;
         }
-        if(btype<0) btype=capBond.type;
+        //if(btype<0) btype=capBond.type;
         atomj->pos = atoms[ia].pos + hdir;
         //atoms.push_back( *atomj );
         insertAtom(*atomj,false);
         //bonds.push_back( (Bond){btype,{ia,ja}} );
         capBond.atoms.set(ia,ja);
         insertBond( capBond );
+        //printf("addCap %i \n", ia );
         //int ic = atoms[ia].iconf;
         //confs[ic].addBond(ja);
         //confs[ic].addBond(bonds.size());
@@ -414,25 +421,33 @@ class Builder{  public:
         if(nH!=n) Hmask[rand()%n]=0;
         bool breverse = (nH==2)&&(n==3);
         for(int i=0; i<n; i++){
-            if     (Hmask[i])   { addCap(ia,hs[i+nb],&capAtom       ,0); }
-            else if(bDummyEpair){ addCap(ia,hs[i+nb],&capAtomEpair  ,0); }
+            if     (Hmask[i])   { addCap(ia,hs[i+nb],&capAtom       ); }
+            else if(bDummyEpair){ addCap(ia,hs[i+nb],&capAtomEpair  ); }
         }
         if(bDummyPi){
-            for(int i=0; i<npi; i++){ addCap(ia,hs[i+n+nb],&capAtomPi,0); }
+            for(int i=0; i<npi; i++){ addCap(ia,hs[i+n+nb],&capAtomPi); }
         }
         //printf("-> "); println(conf);
     }
 
     bool tryMakeSPConf(int ia){
         const AtomConf* conf = getAtomConf(ia);
+        //printf("tryMakeSPConf %i conf %li\n", ia, (long)conf  );
         if(conf){
+            //printf("tryMakeSPConf: proceed !!! \n"  );
             makeSPConf(ia,conf->npi,conf->ne);
             return true;
         }
         return false;
     }
 
-    int makeAllConfsSP(){ int n=0; for(int i=0;i<atoms.size();i++){ if(tryMakeSPConf(i)){n++;} return n; } }
+    int makeAllConfsSP(){ 
+        int n=0,na=atoms.size(); 
+        for(int i=0;i<na;i++){ 
+            if(tryMakeSPConf(i)){n++;} 
+        } 
+        return n; 
+    }
 
     // ============= Angles
 
@@ -481,6 +496,7 @@ class Builder{  public:
 
     bool checkBondsSorted()const{
         int ia=-1,ja=-1;
+        //printf("checkBondsSorted %li \n", bonds.size() );
         for(int i=0;i<bonds.size(); i++){
             const Vec2i& b = bonds[i].atoms;
             //printf( "pair[%i] %i,%i | %i %i  | %i %i %i \n", i, b.i, b.j,   ia,ja ,   b.i>=b.j,  b.i<ia, b.j<=ja );
@@ -490,6 +506,7 @@ class Builder{  public:
             if(b.j<=ja){ return false; }
             ja=b.j;
         }
+        //printf("checkBondsSorted DONE !\n");
         return true;
     }
 
@@ -501,8 +518,12 @@ class Builder{  public:
         //   1) (b.i<b.j)
 
         //int bsort    = new[bonds.size()];
-        Bond * bback = new Bond[bonds.size()];
-        int *   invBsort = new int     [bonds.size()];
+        //Bond * bback = new Bond[bonds.size()];
+        //int *   invBsort = new int     [bonds.size()];
+        
+        // use smart pointer to solve problems with delete[] when return on fail 
+        std::unique_ptr<Bond[]> bback   (new Bond[bonds.size()]);
+        std::unique_ptr<int []> invBsort(new int [bonds.size()]);
 
         int nga[N_NEIGH_MAX];
         int ngb[N_NEIGH_MAX];
@@ -515,7 +536,8 @@ class Builder{  public:
             if(!conf){
                 if(nb<bonds.size()){
                     printf( " This algorithm assumes all atoms with conf precede atoms without confs in the array \n" );
-                    goto _GOTO_failed;
+                    return false;
+                    //goto _GOTO_failed;
                 }
                 break;
             }
@@ -523,7 +545,7 @@ class Builder{  public:
             int * neighs = conf->neighs;
             for(int i=0;i<nbconf;i++ ){
                 int ib=neighs[i];
-                if(ib<0){ printf("atom[%i].condf inconsistent nbond=%i neigh[%i]<0 \n", ia, conf->nbond, i ); goto _GOTO_failed; }
+                if(ib<0){ printf("atom[%i].condf inconsistent nbond=%i neigh[%i]<0 \n", ia, conf->nbond, i ); return false; }
                 int ja = bonds[ib].getNeighborAtom(ia);
                 //if(ja<ia)continue; // this bond was processed before
                 nga[i]=ja;
@@ -533,7 +555,7 @@ class Builder{  public:
             for(int i=0;i<nbconf;i++ ){      // take bonds on atom in order
                 int ipick = selectMinHigher(ja, nbconf, nga );
                 ja=nga[ipick];
-                neighs[i] = ngb[ipick]; // make conf sorted
+                //neighs[i] = ngb[ipick]; // make conf sorted
                 //printf( " atom[%i].neigh[%i] %i \n", ia, i, ja  );
                 if(ja<ia)continue;      // this bond was processed before (Hopefully)
                 int ib = ngb[ipick];
@@ -541,14 +563,18 @@ class Builder{  public:
                 //bsort   [nb]=ib;
                 bback[nb]   = bonds[ib];
                 invBsort[ib]=nb;
-
                 //printf( " bond[%i] -> bond[%i] \n", ib, nb );
                 nb++;
             }
+            // clean conf so it can be re-inserted
+            conf->nbond=0;
+            conf->n-=nbconf;
         }
+        bonds.clear();
         for(int i=0; i<nb;i++){
             bback[i].atoms.order();
-            bonds[i]=bback[i];
+            //bonds[i]=bback[i];
+            insertBond( bback[i] );
             //printf( " bond[%i] (%i,%i) \n", i, bback[i].atoms.i, bback[i].atoms.j );
         }
         for(int i=0; i<angles.size();i++){
@@ -561,12 +587,6 @@ class Builder{  public:
             bs.a = invBsort[bs.a];
             bs.b = invBsort[bs.b];
             bs.c = invBsort[bs.c];
-        }
-        delete [] bback;
-        delete [] invBsort;
-        if(false){
-        _GOTO_failed:
-            return false;
         }
         return true;
     }

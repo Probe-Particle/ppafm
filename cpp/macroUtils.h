@@ -40,6 +40,10 @@
 #define _template_TN     template<typename T,size_t N>
 #define _inline_T        template<typename T> inline
 
+#define DEBUG printf( "DEBUG LINE %i %s %s \n", __LINE__, __FUNCTION__, __FILE__ );
+#define println(A)       A.print(); puts("");
+
+
 _inline_T const T& _min  (const T& a, const T& b) { return !(a>b)?a:b; }
 _inline_T const T& _max  (const T& a, const T& b) { return !(a<b)?a:b; }
 _inline_T const T& _clamp(const T& a, const T& amax, const T& amin){ return _max(amin,_min(amax,a)); }
@@ -62,6 +66,7 @@ _inline_T bool _set( int i0, int imax, const T& from, T*& arr, int n){
     _allocIfNull(arr,n);
     for(int i=i0; i<imax; i++){ arr[i]=from; }
 }
+
 
 
 #endif

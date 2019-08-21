@@ -1,10 +1,12 @@
 
-#ifndef MMFFmini_h
-#define MMFFmini_h
+#include "macroUtils.h"
 
 #include "fastmath.h"
 #include "Vec2.h"
 #include "Vec3.h"
+
+static int  iDebug = 0;
+
 #include "MMFF.h"
 #include "NBFF.h"
 #include "MMFFBuilder.h"
@@ -12,14 +14,6 @@
 #include "DynamicOpt.h"
 
 using namespace MMFF;
-
-static const double const_eVA2_Nm = 16.0217662;
-
-
-
-
-
-
 
 // ========= data
 
@@ -29,6 +23,11 @@ Builder      builder;
 DynamicOpt   opt;
 
 bool bNonBonded = false;
+
+//ForceField::iDebug =iDebug;
+//NBFF      ::iDebug =iDebug;
+//Builder   ::iDebug =iDebug;
+//DynamicOpt::iDebug =iDebug;
 
 struct{
     //                     R           eps     Q
@@ -44,6 +43,9 @@ struct{
 // ========= Export Fucntions to Python
 
 extern "C"{
+
+double* getPos  (){ return (double*)ff.apos;   }
+double* getForce(){ return (double*)ff.aforce; }
 
 double setupOpt( double dt, double damp, double f_limit, double l_limit ){
     opt.initOpt( dt, damp );
@@ -70,6 +72,7 @@ void addBonds( int n, int* bond2atom_, double* l0s, double* ks ){
         brushBond.atoms=bond2atom[i];
         if(l0s){ brushBond.l0 = l0s[i]; }
         if(ks ){ brushBond.k  = ks [i]; }
+        //printf("[%i/%i] ",i,n);   println(brushBond); //brushBond.print();
         builder.insertBond(brushBond);
     }
 }
@@ -98,56 +101,57 @@ double* setSomeNonBonded( int n, double* REQs ){
 }
 
 double* setNonBonded( int n, double* REQs){
-    if(n<nff.n  ){ printf( "realocate REQs\n" ); return setSomeNonBonded( n, REQs ); }
-    else         { setAllNonBonded( REQs );                                  }
+    //printf( "setNonBonded REQs %li  %i<?%i \n", (long)REQs, n,ff.natoms );
+    if(n<ff.natoms){ if(iDebug>0)printf( "realocate REQs\n" ); return setSomeNonBonded( n, REQs ); }
+    else           { setAllNonBonded( REQs );                                  }
     return (double*)nff.REQs;
 }
 
-bool buildSystem( bool bAutoHydrogens, bool bAutoAngles, bool bSortBonds ){
+int buildFF( bool bAutoHydrogens, bool bAutoAngles, bool bSortBonds ){
 
     builder.capBond  = Bond{ -1, -1,-1, defaults.hydrogen_l0, defaults.hydrogen_k };        // C-H bond ?
 
     if( bAutoHydrogens){ builder.makeAllConfsSP(); }
+
     if( bSortBonds && ( !builder.checkBondsSorted() ) ){
-        if( !builder.sortBonds() ){ printf( " ERROR in builder.sortBonds() => exit \n" ); return false; }
+        if( !builder.sortBonds() ){ printf( " ERROR in builder.sortBonds() => exit \n" ); return -1; }
     }
+
     if( bAutoAngles   ){ builder.autoAngles( defaults.angle_ksigma, defaults.angle_kpi ); }
     builder.toForceField( ff );
-    
+
     opt.bindOrAlloc( 3*ff.natoms, (double*)ff.apos, 0, (double*)ff.aforce, 0 );
     //opt.setInvMass( 1.0 );
     opt.cleanVel( );
-    
-    return true;
+
+    return ff.natoms;
 }
 
-double relaxNsteps( int ialg, int nsteps, double F2conf ){
-    double F2=1.0;
-    double E =0;
+double relaxNsteps( int ialg, int nsteps, double Fconv ){
+    double F2=1.0,E =0;
+    double F2conv=Fconv*Fconv;
     for(int itr=0; itr<nsteps; itr++){
-        E=0;
+        E=0,F2=1;
+        ff.cleanAtomForce();
         E += ff.eval();
         E += nff.evalLJQ_sortedMask();
-        
-        // just for DEBUG
-        Vec3d cog,fsum,torq;
-        checkForceInvariatns( ff.natoms, ff.aforce, ff.apos, cog, fsum, torq );
-        printf( "fsum %g torq %g   cog (%g,%g,%g) \n", fsum.norm(), torq.norm(), cog.x, cog.y, cog.z );
-        
-        F2=1.0;
+        if(iDebug>0){
+            Vec3d cog,fsum,torq;
+            checkForceInvariatns( ff.natoms, ff.aforce, ff.apos, cog, fsum, torq );
+            //printf( "DEBUG CHECK INVARIANTS  fsum %g torq %g   cog (%g,%g,%g) \n", fsum.norm(), torq.norm(), cog.x, cog.y, cog.z );
+        }
         switch(ialg){
             case 0: F2 = opt.move_FIRE();  break;
             case 1: opt.move_GD(opt.dt);   break;
             case 3: opt.move_MD(opt.dt);   break;
         }
-        if(F2<F2conf) break;
+        //printf( "F2 %g F %g F2conv %g Fconv %g \n", F2, sqrt(F2), F2conv, Fconv );
+        if(iDebug>0){ printf("relaxNsteps[%i] |F| %g Fconf %g E %g dt %g(%g..%g) damp %g %g \n", itr, sqrt(F2), Fconv, E, opt.dt, opt.dt_min, opt.dt_max, opt.damping, opt.f_limit ); }
+        if(F2<F2conv) break;
     }
-    
     return sqrt(F2);
-
 }
 
 
 }
 
-#endif

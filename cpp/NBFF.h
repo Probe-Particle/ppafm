@@ -107,6 +107,9 @@ inline double addForceR2mix( const Vec3d& dp, Vec3d& f, double R2, double K, dou
 
 
 class NBFF{ public:
+
+    //static int iDebug = 0;
+
 // non bonded forcefield
     int n       = 0;
     int nmask   = 0;
@@ -173,7 +176,7 @@ double evalLJQs(){
 }
 
 double evalLJQ_sortedMask(){
-
+    //printf("evalLJQ_sortedMask n %i nmask %i \n", n, nmask );
     int im=0;
     const int N=n;
     double E=0;
@@ -187,22 +190,26 @@ double evalLJQ_sortedMask(){
             }
             Vec3d fij = Vec3dZero;
             Vec3d REQij; combineREQ( REQs[j], REQi, REQij );
-            double E = addAtomicForceLJQ( ps[j]-pi, fij, REQij );
-
-            /*
-            if(E>100.0){
-                printf( "%i %i  %g \n", i, j, E );
+            E += addAtomicForceLJQ( ps[j]-pi, fij, REQij );
+            //double Eij = addAtomicForceLJQ( ps[j]-pi, fij, REQij ); E+=Eij;
+            //Vec3d torq = Vec3dZero; torq.add_cross(fij,pi); torq.add_cross(fij*-1,ps[j]);
+            //printf( "[%i,%i] torq %g |fij| %g \n", i,j, torq.norm(), fij.norm() );
+            //if(E>100.0){
+                //printf( "[%i,%i] Eij %g REQ(%g,%g,%g)\n", i, j, Eij, REQij.x,REQij.y,REQij.z );
+                //printf( "%i %i  %g \n", i, j, E );
                 //glColor3f(0.0,1.0,0.0); Draw3D::drawLine( ps[j],pi);
-                //printf("%i %i %g \n", i, j, fij.norm());
+                //printf("[%i,%i] |Fij| %g \n", i, j, fij.norm() );
+                //printf("[%i,%i] |Fij| %g Eij %g \n", i, j, fij.norm(), Eij );
                 //glColor3f(1.0,0.0,0.0); Draw3D::drawVecInPos( fij*-1000,ps[j]);
                 //glColor3f(1.0,0.0,0.0); Draw3D::drawVecInPos( fij*1000 ,ps[i]);
-            }
-            */
+            //}
+            
             fs[j].sub(fij);
+            fs[i].add(fij);
             fi   .add(fij);
-
+            
         }
-        fs[i].add(fi);
+        //fs[i].add(fi);
     }
     //exit(0);
     return E;

@@ -26,12 +26,6 @@ https://github.com/michellab/Sire
 
 
 '''
-
-
-
-
-
-
 '''
 
 # ===== To generate Interfaces automatically from headers call:
@@ -40,13 +34,14 @@ cpp_utils.writeFuncInterfaces([
 "void addAtoms( int n, double* pos_, int* npe_ ){",
 "void addBonds( int n, int* bond2atom_, double* l0s, double* ks ){",
 "double* setNonBonded( int n, double* REQs){",
-"bool buildSystem( bool bAutoHydrogens, bool bAutoAngles, bool bSortBonds ){",
+"bool buildFF( bool bAutoHydrogens, bool bAutoAngles, bool bSortBonds ){",
 "double setupOpt( double dt, double damp, double f_limit, double l_limit ){",
 "double relaxNsteps( int ialg, int nsteps, double F2conf ){",
 ])
 '''
 
 #exit()
+
 
 cpp_name='MMFF'
 #cpp_utils.compile_lib( cpp_name  )
@@ -55,6 +50,17 @@ lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )
 
 # ========= C functions
 
+#double* getPos  (){ 
+lib.getPos.argtypes = []
+lib.getPos.restype  = ctypes.POINTER(c_double)
+def getPos(n):
+    return np.ctypeslib.as_array( lib.getPos(), shape=(n,3) )  
+
+#double* getForce  (){ 
+lib.getForce.argtypes = []
+lib.getForce.restype  = ctypes.POINTER(c_double)
+def getForce(n):
+    return np.ctypeslib.as_array( lib.getForce(), shape=(n,3) ) 
 
 
 #  void addAtoms( int n, double* pos_, int* npe_ ){
@@ -83,27 +89,27 @@ def setNonBonded(REQs):
 
 
 
-#  bool buildSystem( bool bAutoHydrogens, bool bAutoAngles, bool bSortBonds ){
-lib.buildSystem.argtypes  = [c_bool, c_bool, c_bool] 
-lib.buildSystem.restype   =  c_bool
-def buildSystem(bAutoHydrogens, bAutoAngles, bSortBonds):
-    return lib.buildSystem(bAutoHydrogens, bAutoAngles, bSortBonds) 
+#  bool buildFF( bool bAutoHydrogens, bool bAutoAngles, bool bSortBonds ){
+lib.buildFF.argtypes  = [c_bool, c_bool, c_bool] 
+lib.buildFF.restype   =  c_int
+def buildFF(bAutoHydrogens, bAutoAngles, bSortBonds):
+    return lib.buildFF(bAutoHydrogens, bAutoAngles, bSortBonds) 
 
 
 
 #  double setupOpt( double dt, double damp, double f_limit, double l_limit ){
 lib.setupOpt.argtypes  = [c_double, c_double, c_double, c_double] 
 lib.setupOpt.restype   =  c_double
-def setupOpt(dt=0.25, damp=0.1, f_limit=20.0, l_limit=0.2 ):
+def setupOpt(dt=0.2, damp=0.2, f_limit=10.0, l_limit=0.2 ):
     return lib.setupOpt(dt, damp, f_limit, l_limit) 
 
 
 
-#  double relaxNsteps( int ialg, int nsteps, double F2conf ){
+#  double relaxNsteps( int ialg, int nsteps, double Fconv ){
 lib.relaxNsteps.argtypes  = [c_int, c_int, c_double] 
 lib.relaxNsteps.restype   =  c_double
-def relaxNsteps(nsteps, F2conf=1e-6, ialg=0 ):
-    return lib.relaxNsteps(ialg, nsteps, F2conf)
+def relaxNsteps(nsteps, Fconv=1e-6, ialg=0 ):
+    return lib.relaxNsteps(ialg, nsteps, Fconv)
 
 
 #addAtoms( np.array([[1,2,3],[4,5,6]],dtype=np.float), None  )
