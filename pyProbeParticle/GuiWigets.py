@@ -64,12 +64,16 @@ class FigImshow(FigCanvas):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp,  width=width, height=height, dpi=dpi )
         cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
             
-    def plotSlice(self, F , title=None):
+    def plotSlice(self, F , title=None, margins=None):
         self.axes.cla()
-        #print "plotSlice F.shape, F.min(), F.max() ", F.shape, F.min(), F.max()
+        print "plotSlice F.shape, F.min(), F.max() ", F.shape, F.min(), F.max()
+        print 'self.margins', margins
         #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
         self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='bicubic' )
-
+        if margins:
+            self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),F.shape[1]-margins[2]-margins[0], F.shape[0]-margins[3]-margins[1], linewidth=2,edgecolor='r',facecolor='none')) 
+            textRes = str(F.shape[1]-margins[2]-margins[0])+ 'x'+ str(F.shape[0]-margins[3]-margins[1])
+            self.axes.set_xlabel(textRes)
         if self.cbar is None:
             self.cbar = self.fig.colorbar( self.img )
         self.cbar.set_clim( vmin=F.min(), vmax=F.max() )

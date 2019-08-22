@@ -53,12 +53,12 @@ def roll2d( a , shift=(10,10) ):
     return np.roll( a_, shift[1], axis=1 )
 
 class ApplicationWindow(QtWidgets.QMainWindow):
-    #path='./'
-    path="/u/25/prokoph1/unix/Desktop/CATAM/Exp_Data/Camphor/Orientation_4/"
-
+    path='./'
+    #path="/u/25/prokoph1/unix/Desktop/CATAM/Exp_Data/Camphor/Orientation_4/"
+    #path="/u/85/urtevf1/unix/Documents/19august/PTCDA + Cu(111)/AFM/CO"
     divNX = 8
     divNY = 8
-    bSaveDivisible = True
+    bSaveDivisible = False
 
     def __init__(self):
 
@@ -110,7 +110,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
 
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("margins") )
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(0,1000); bx.valueChanged.connect(self.marginData); vb.addWidget(bx); self.marginX0=bx
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(0,1000); bx.valueChanged.connect(self.marginData); vb.addWidget(bx); self.marginY0=bx
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(0,1000); bx.valueChanged.connect(self.marginData); vb.addWidget(bx); self.marginX1=bx
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(0,1000); bx.valueChanged.connect(self.marginData); vb.addWidget(bx); self.marginY1=bx
 
+        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
         # --- btSave
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("slices") )
         selSliceSave = QtWidgets.QLineEdit(); vb.addWidget(selSliceSave);   self.txSliceSave=selSliceSave
@@ -163,6 +169,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def magicFitAll(self):
         izs = range( len(self.data)-1 )
+        print 'izs = ', izs
         for iz in izs[::-1]:
             self.bxZ.setValue(iz);
             self.magicFit()
@@ -211,7 +218,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.data2= data2 #np.reshape(z, (5,5)) #data
         print 'data dat loaded'
         self.shifts = [ [0,0] for i in range(len(self.data)) ]
+        self.margins = [0,0,0,0] 
         self.bxZ.setRange( 0, len(self.data)-1 );
+
+        self.marginX0.blockSignals(True); self.marginX0.setValue( self.margins[0]); self.marginX0.blockSignals(False);
+        self.marginX1.blockSignals(True); self.marginX1.setValue( self.margins[2]); self.marginX1.blockSignals(False);
+        self.marginY0.blockSignals(True); self.marginY0.setValue( self.margins[1]); self.marginY0.blockSignals(False);
+        self.marginY1.blockSignals(True); self.marginY1.setValue( self.margins[3]); self.marginY1.blockSignals(False);
+        iz    = int( self.bxZ.value() )
+        self.bxX.blockSignals(True); self.bxX.setValue( self.shifts[iz][0] ); self.bxX.blockSignals(False);
+        self.bxY.blockSignals(True); self.bxY.setValue( self.shifts[iz][1] ); self.bxY.blockSignals(False);
+        
         self.updateDataView()
 
     def interpolate(self):
@@ -249,12 +266,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             print('slices_to_save = ',slices_indexes)
             
             arr = np.array(self.data)
-
-            arr = arr[slices_indexes,:,:]  
+            endx = arr.shape[2]-self.margins[2]
+            endy = arr.shape[1]-self.margins[3]
+            arr = arr[slices_indexes,self.margins[1]:endy,self.margins[0]:endx]  
             
  
         else:
             arr = np.array(self.data)
+            print "dat.shape ", arr.shape
+            endx = arr.shape[2]-self.margins[2]
+            endy = arr.shape[1]-self.margins[3]
+            arr = arr[:,self.margins[1]:endy,self.margins[0]:endx]  
+            print "arr.shape ", arr.shape
 
         print "saveData: arr.shape ", arr.shape 
         if ( self.bSaveDivisible ):
@@ -266,25 +289,46 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             print "saveData: arr_.shape ", arr_.shape
             np.save( self.path+"data.npy", arr_)
         else:
+            arr = arr.transpose((1,2,0))
             np.save( self.path+"data.npy", arr  )
 
 
         with open(self.path+'data.pickle', 'wb') as fp:
-            pickle.dump( self.fnames, fp)
-            pickle.dump( self.shifts, fp)
-   
+            if self.slices_to_save:
+                pickle.dump( [self.fnames[i] for i in slices_indexes], fp)
+                pickle.dump( [self.shifts[i] for i in slices_indexes], fp)
+                pickle.dump( [self.margins[i] for i in range(4)], fp)
+            else:
+                pickle.dump( self.fnames, fp)
+                pickle.dump( self.shifts, fp)
+ 
     def loadNPY(self):
+        self.path = self.txPath.text()
+        if self.path[-1] is not u'/':
+            self.path   += u'/'
         with open ( self.path+'data.pickle', 'rb') as fp:
             self.fnames = pickle.load(fp)
             self.shifts = pickle.load(fp)
         for item in zip(self.fnames,self.shifts):
             print item[0], " : ", item[1]
+        data = []
+        data2 = []
         data = np.load(self.path+'data.npy')
         data = data.transpose((2,0,1))
+        print "loaded Data: shape ", data.shape
         self.data = [ s for s in data ]
- 
+
+        data2=copy.copy(data)        
+        self.data2= data2 #np.reshape(z, (5,5)) #data
+        print 'data npy loaded'
+        self.shifts = [ [0,0] for i in range(len(self.data)) ]
+        self.margins = [0,0,0,0]  
         self.bxZ.setRange( 0, len(self.data)-1 );
- 
+        
+        self.marginX0.blockSignals(True); self.marginX0.setValue( self.margins[0]); self.marginX0.blockSignals(False);
+        self.marginX1.blockSignals(True); self.marginX1.setValue( self.margins[2]); self.marginX1.blockSignals(False);
+        self.marginY0.blockSignals(True); self.marginY0.setValue( self.margins[1]); self.marginY0.blockSignals(False);
+        self.marginY1.blockSignals(True); self.marginY1.setValue( self.margins[3]); self.marginY1.blockSignals(False);
         self.updateDataView()
 
     def saveImg(self):
@@ -293,7 +337,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         for i in range(n):
             print i
             plt.subplot(1,n,i+1)
-            plt.imshow(self.data[i], origin='image')
+            plt.imshow(self.data[i], origin='image') #,cmap='gray')
             print 'image path = ' , self.path+'data.png'
         plt.savefig(self.path+"data.png", bbox_inches='tight')
 
@@ -315,11 +359,26 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.updateDataView()
 
+    def marginData(self):
+ 
+        imarginx0 = int(self.marginX0.value()); self.margins[0] = imarginx0
+        imarginx1 = int(self.marginX1.value()); self.margins[2] = imarginx1
+        imarginy0 = int(self.marginY0.value()); self.margins[1] = imarginy0
+        imarginy1 = int(self.marginY1.value()); self.margins[3] = imarginy1
+
+ 
+        print self.margins
+ 
+        self.updateDataView()
+
+
     def selectDataView(self):
         iz    = int( self.bxZ.value() )
         print " selectDataView iz,ix,iy ", iz, self.shifts[iz][0], self.shifts[iz][1]
         self.bxX.blockSignals(True); self.bxX.setValue( self.shifts[iz][0] ); self.bxX.blockSignals(False);
         self.bxY.blockSignals(True); self.bxY.setValue( self.shifts[iz][1] ); self.bxY.blockSignals(False);
+
+
         print "selectDataView bxXY      ", self.bxX.value(), self.bxY.value()
         self.updateDataView()
 
@@ -327,8 +386,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         iz    = int( self.bxZ.value() )
         #t1 = time.clock() 
         #iz = self.selectDataView()
+        #print 'self.margins', self.margins
         try:
-            self.figCan.plotSlice( self.data[iz], self.fnames[iz] )
+            self.figCan.plotSlice( self.data[iz], self.fnames[iz], self.margins )
             #print 'self.data[iz].shape = ', self.data[iz].shape
         except:
             print "cannot plot slice #", iz
