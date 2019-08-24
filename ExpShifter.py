@@ -54,11 +54,11 @@ def roll2d( a , shift=(10,10) ):
 
 class ApplicationWindow(QtWidgets.QMainWindow):
     #path='./'
-    path="/u/25/prokoph1/unix/Desktop/CATAM/Exp_Data/Camphor/Orientation_4/"
-
+    #path="/u/25/prokoph1/unix/Desktop/CATAM/Exp_Data/Camphor/Orientation_4/"
+    path="/u/85/urtevf1/unix/Documents/19august/PTCDA + Cu(111)/AFM/CO"
     divNX = 8
     divNY = 8
-    bSaveDivisible = True
+    bSaveDivisible = False
 
     def __init__(self):
 
@@ -74,26 +74,28 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         # -------------- Potential
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("path") )
-        el = QtWidgets.QLineEdit(); el.setText(self.path); vb.addWidget(el);  self.txPath=el
+        el = QtWidgets.QLineEdit(); el.setText(self.path); vb.addWidget(el);el.setToolTip('path to folder with .dat files');  self.txPath=el
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("load") )
-        bt = QtWidgets.QPushButton('Load dat', self); bt.setToolTip('load .dat files from dir'); bt.clicked.connect(self.loadData); vb.addWidget( bt ); self.btLoad = bt
-        bt = QtWidgets.QPushButton('Load npy', self); bt.setToolTip('load .npy file  from dir'); bt.clicked.connect(self.loadNPY ); vb.addWidget( bt ); self.btLoad = bt
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("slice ") )
-        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.valueChanged.connect(self.selectDataView); vb.addWidget(bx); self.bxZ=bx
+        bt = QtWidgets.QPushButton('Load all *.dat', self); bt.setToolTip('load .dat files from dir'); bt.clicked.connect(self.loadData); vb.addWidget( bt ); self.btLoad = bt
+        vb.addWidget( QtWidgets.QLabel("channel") )
+        bx = QtWidgets.QSpinBox();  bx.setSingleStep(1); bx.setValue(1); bx.valueChanged.connect(self.selectDataChannel); vb.addWidget(bx); bx.setToolTip('select available channels with data'); bx.setEnabled(False); self.bxChannel=bx
+        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb);
+        vb.addWidget( QtWidgets.QLabel("slice ") ) 
+        bx = QtWidgets.QSpinBox();bx.setToolTip('select available slices from stack'); bx.setSingleStep(1); bx.setValue(0); bx.valueChanged.connect(self.selectDataView); vb.addWidget(bx);bx.setEnabled(False); self.bxZ=bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("shift ix,iy") )
-        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(-1000,1000); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx); self.bxX=bx
-        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(-1000,1000); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx); self.bxY=bx
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setToolTip('adjust vertical shift');bx.setValue(0); bx.setRange(-1000,1000); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx);bx.setEnabled(False); self.bxX=bx
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setToolTip('adjust horizontal shift'); bx.setRange(-1000,1000); bx.valueChanged.connect(self.shiftData); vb.addWidget(bx); bx.setEnabled(False);self.bxY=bx
 
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) ; bt = QtWidgets.QPushButton('Magic fit', self); bt.setToolTip('Fit to colser slice'); bt.clicked.connect(self.magicFit); vb.addWidget( bt ); self.btLoad = bt
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) ; bt = QtWidgets.QPushButton('Magic fit', self); bt.setToolTip('Fit to colser slice'); bt.clicked.connect(self.magicFit); vb.addWidget( bt ); bt.setEnabled(False); self.btMagic = bt
 
-        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('MagicAll', self); bt.setToolTip('Fit all slices'); bt.clicked.connect(self.magicFitAll);      vb.addWidget( bt ); 
-        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('SaveImgs', self); bt.setToolTip('save images'); bt.clicked.connect(self.saveImg);      vb.addWidget( bt );
-
+        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('MagicAll', self); bt.setToolTip('Fit all slices');bt.setEnabled(False); bt.clicked.connect(self.magicFitAll);      vb.addWidget( bt ); self.btMagicAll = bt 
+        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('SaveImgs', self); bt.setToolTip('save images'); bt.setEnabled(False); bt.clicked.connect(self.saveImg);      vb.addWidget( bt ); self.btSaveImg = bt 
+        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Ninter ") )
-        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(1); vb.addWidget(bx); self.bxNi=bx
-        bt = QtWidgets.QPushButton('interpolate', self); bt.setToolTip('interpolate'); bt.clicked.connect(self.interpolate); vb.addWidget( bt ); self.btLoad = bt
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(1); vb.addWidget(bx); bx.setEnabled(False); self.bxNi=bx
+        bt = QtWidgets.QPushButton('interpolate', self); bt.setToolTip('select amount of slices to add before slice'); bt.clicked.connect(self.interpolate); bt.setEnabled(False); vb.addWidget( bt ); self.btInterp = bt
 
         #sl = QtWidgets.QComboBox(); self.slMode = sl; vb.addWidget(sl)
         #sl.currentIndexChanged.connect(self.selectMode)
@@ -110,15 +112,24 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
 
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("margins") )
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(0,1000); bx.valueChanged.connect(self.marginData); bx.setToolTip('trim left border'); vb.addWidget(bx); bx.setEnabled(False);self.marginX0=bx
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(0,1000); bx.valueChanged.connect(self.marginData); bx.setToolTip('trim bottom border'); vb.addWidget(bx); bx.setEnabled(False);self.marginY0=bx
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(0,1000); bx.valueChanged.connect(self.marginData); bx.setToolTip('trim right border'); vb.addWidget(bx); bx.setEnabled(False); self.marginX1=bx
+        bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(0,1000); bx.valueChanged.connect(self.marginData); vb.addWidget(bx); bx.setToolTip('trim top border'); bx.setEnabled(False);self.marginY1=bx
 
+        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
         # --- btSave
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("slices") )
-        selSliceSave = QtWidgets.QLineEdit(); vb.addWidget(selSliceSave);   self.txSliceSave=selSliceSave
+        selSliceSave = QtWidgets.QLineEdit(); vb.addWidget(selSliceSave); selSliceSave.setToolTip('select slices to save, i.e.: 1,3-11'); selSliceSave.setEnabled(False);  self.txSliceSave = selSliceSave
         vb = QtWidgets.QHBoxLayout();        l0.addLayout(vb);
-        self.btSave = QtWidgets.QPushButton('Save', self)
+        self.btSave = QtWidgets.QPushButton('Save .npy', self)
         self.btSave.setToolTip('save data stack to .npy')
         self.btSave.clicked.connect(self.saveData)
+        self.btSave.setEnabled(False);
         vb.addWidget( self.btSave )
+        vb = QtWidgets.QHBoxLayout();        l0.addLayout(vb);
+        bt = QtWidgets.QPushButton('Load .npy', self); bt.setToolTip('load .npy file  from dir'); bt.clicked.connect(self.loadNPY ); vb.addWidget( bt ); self.btLoad = bt
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
@@ -163,6 +174,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def magicFitAll(self):
         izs = range( len(self.data)-1 )
+        print 'izs = ', izs
         for iz in izs[::-1]:
             self.bxZ.setValue(iz);
             self.magicFit()
@@ -171,6 +183,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #print file_list
         #fnames
         self.path = self.txPath.text()
+        self.channel = int(self.bxChannel.value())
         print self.path
         '''
         https://www.tutorialspoint.com/pyqt/pyqt_qfiledialog_widget.htm
@@ -200,8 +213,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             #print os.path.basename(fname)
             Header = {}
             imgs = file_dat.readDat(fname, Header=Header )
+            amountCh = len(imgs)
             print fname, "Size ", Header['ScanRange_Y'],Header['ScanRange_X']," N ", imgs[0].shape," dxy ",  Header['ScanRange_Y']/imgs[0].shape[0], Header['ScanRange_X']/imgs[0].shape[1]
-            data.append( imgs[1] )
+            data.append( imgs[self.channel] )
             #data2.append( imgs[1] )
         self.fnames = fnames
         #return data
@@ -211,9 +225,34 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.data2= data2 #np.reshape(z, (5,5)) #data
         print 'data dat loaded'
         self.shifts = [ [0,0] for i in range(len(self.data)) ]
+        self.margins = [0,0,0,0] 
         self.bxZ.setRange( 0, len(self.data)-1 );
+        #print 'amountCh = ', amountCh
+        self.bxChannel.setRange( 0, amountCh -1 )   
+        self.marginX0.blockSignals(True); self.marginX0.setValue( self.margins[0]); self.marginX0.blockSignals(False);
+        self.marginX1.blockSignals(True); self.marginX1.setValue( self.margins[2]); self.marginX1.blockSignals(False);
+        self.marginY0.blockSignals(True); self.marginY0.setValue( self.margins[1]); self.marginY0.blockSignals(False);
+        self.marginY1.blockSignals(True); self.marginY1.setValue( self.margins[3]); self.marginY1.blockSignals(False);
+        iz    = int( self.bxZ.value() )
+        self.bxX.blockSignals(True); self.bxX.setValue( self.shifts[iz][0] ); self.bxX.blockSignals(False);
+        self.bxY.blockSignals(True); self.bxY.setValue( self.shifts[iz][1] ); self.bxY.blockSignals(False);
+        
         self.updateDataView()
-
+        self.bxChannel.setEnabled(True)
+        self.bxZ.setEnabled(True)
+        self.bxX.setEnabled(True) 
+        self.bxY.setEnabled(True) 
+        self.btMagicAll.setEnabled(True) 
+        self.btMagic.setEnabled(True) 
+        self.btSaveImg.setEnabled(True)
+        self.bxNi.setEnabled(True)
+        self.btInterp.setEnabled(True)
+        self.marginX0.setEnabled(True)
+        self.marginX1.setEnabled(True)
+        self.marginY0.setEnabled(True)
+        self.marginY1.setEnabled(True)
+        self.btSave.setEnabled(True)
+        self.txSliceSave.setEnabled(True)
     def interpolate(self):
         iz    = int( self.bxZ.value() )
         ni    = int( self.bxNi.value() )
@@ -249,12 +288,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             print('slices_to_save = ',slices_indexes)
             
             arr = np.array(self.data)
-
-            arr = arr[slices_indexes,:,:]  
+            endx = arr.shape[2]-self.margins[2]
+            endy = arr.shape[1]-self.margins[3]
+            arr = arr[slices_indexes,self.margins[1]:endy,self.margins[0]:endx]  
             
  
         else:
             arr = np.array(self.data)
+            print "dat.shape ", arr.shape
+            endx = arr.shape[2]-self.margins[2]
+            endy = arr.shape[1]-self.margins[3]
+            arr = arr[:,self.margins[1]:endy,self.margins[0]:endx]  
+            print "arr.shape ", arr.shape
 
         print "saveData: arr.shape ", arr.shape 
         if ( self.bSaveDivisible ):
@@ -266,25 +311,47 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             print "saveData: arr_.shape ", arr_.shape
             np.save( self.path+"data.npy", arr_)
         else:
+            arr = arr.transpose((1,2,0))
             np.save( self.path+"data.npy", arr  )
 
 
         with open(self.path+'data.pickle', 'wb') as fp:
-            pickle.dump( self.fnames, fp)
-            pickle.dump( self.shifts, fp)
-   
+            if self.slices_to_save:
+                pickle.dump( [self.fnames[i] for i in slices_indexes], fp)
+                pickle.dump( [self.shifts[i] for i in slices_indexes], fp)
+                pickle.dump( [self.margins[i] for i in range(4)], fp)
+            else:
+                pickle.dump( self.fnames, fp)
+                pickle.dump( self.shifts, fp)
+ 
     def loadNPY(self):
+        self.path = self.txPath.text()
+        if self.path[-1] is not u'/':
+            self.path   += u'/'
         with open ( self.path+'data.pickle', 'rb') as fp:
             self.fnames = pickle.load(fp)
             self.shifts = pickle.load(fp)
         for item in zip(self.fnames,self.shifts):
             print item[0], " : ", item[1]
+        data = []
+        data2 = []
         data = np.load(self.path+'data.npy')
         data = data.transpose((2,0,1))
+        print "loaded Data: shape ", data.shape
         self.data = [ s for s in data ]
- 
+
+        data2=copy.copy(data)        
+        self.data2= data2 #np.reshape(z, (5,5)) #data
+        print 'data npy loaded'
+        self.shifts = [ [0,0] for i in range(len(self.data)) ]
+        self.margins = [0,0,0,0]  
         self.bxZ.setRange( 0, len(self.data)-1 );
- 
+        self.bxChannel.setEnabled(False)
+        
+        self.marginX0.blockSignals(True); self.marginX0.setValue( self.margins[0]); self.marginX0.blockSignals(False);
+        self.marginX1.blockSignals(True); self.marginX1.setValue( self.margins[2]); self.marginX1.blockSignals(False);
+        self.marginY0.blockSignals(True); self.marginY0.setValue( self.margins[1]); self.marginY0.blockSignals(False);
+        self.marginY1.blockSignals(True); self.marginY1.setValue( self.margins[3]); self.marginY1.blockSignals(False);
         self.updateDataView()
 
     def saveImg(self):
@@ -293,7 +360,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         for i in range(n):
             print i
             plt.subplot(1,n,i+1)
-            plt.imshow(self.data[i], origin='image')
+            plt.imshow(self.data[i], origin='image') #,cmap='gray')
             print 'image path = ' , self.path+'data.png'
         plt.savefig(self.path+"data.png", bbox_inches='tight')
 
@@ -315,20 +382,44 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.updateDataView()
 
+    def marginData(self):
+ 
+        imarginx0 = int(self.marginX0.value()); self.margins[0] = imarginx0
+        imarginx1 = int(self.marginX1.value()); self.margins[2] = imarginx1
+        imarginy0 = int(self.marginY0.value()); self.margins[1] = imarginy0
+        imarginy1 = int(self.marginY1.value()); self.margins[3] = imarginy1
+
+ 
+        print self.margins
+ 
+        self.updateDataView()
+
+
     def selectDataView(self):
         iz    = int( self.bxZ.value() )
         print " selectDataView iz,ix,iy ", iz, self.shifts[iz][0], self.shifts[iz][1]
         self.bxX.blockSignals(True); self.bxX.setValue( self.shifts[iz][0] ); self.bxX.blockSignals(False);
         self.bxY.blockSignals(True); self.bxY.setValue( self.shifts[iz][1] ); self.bxY.blockSignals(False);
+
+
         print "selectDataView bxXY      ", self.bxX.value(), self.bxY.value()
         self.updateDataView()
+
+    def selectDataChannel(self):
+        ichannel = int( self.bxChannel.value())
+        self.loadData()
+        print " selectDataChannel ", ichannel 
+
+        self.updateDataView()
+
 
     def updateDataView(self):
         iz    = int( self.bxZ.value() )
         #t1 = time.clock() 
         #iz = self.selectDataView()
+        #print 'self.margins', self.margins
         try:
-            self.figCan.plotSlice( self.data[iz], self.fnames[iz] )
+            self.figCan.plotSlice( self.data[iz], self.fnames[iz], self.margins )
             #print 'self.data[iz].shape = ', self.data[iz].shape
         except:
             print "cannot plot slice #", iz
