@@ -74,36 +74,36 @@ struct Atom{
     
     //Atom() = default;
     
-    void print()const{ printf( "Atom{ t %i c %i f %i REQ(%g,%g,%g) pos(%g,%g,%g)}", type, iconf, frag, REQ.x, REQ.y, REQ.z, pos.x,pos.y,pos.z ); }
+    void print()const{ printf( " Atom{ t %i c %i f %i REQ(%g,%g,%g) pos(%g,%g,%g)}", type, iconf, frag, REQ.x, REQ.y, REQ.z, pos.x,pos.y,pos.z ); }
 
 };
 
 #define N_NEIGH_MAX 8
 enum class NeighType: int {
-    pi    = -1,
-    epair = -2,
-    H     = -3
+    pi    = -2,
+    epair = -3,
+    H     = -4
 };
 
 
 struct AtomConf{
 
     int iatom=-1;
-    int n     =0;
-    int nbond =0;
-    int npi   =0; // pi bonds
-    int ne    =0; // electron pairs
-    int nH    =0; //
+    uint8_t n     =0;
+    uint8_t nbond =0;
+    uint8_t npi   =0; // pi bonds
+    uint8_t ne    =0; // electron pairs
+    uint8_t nH    =0; //
     int neighs[N_NEIGH_MAX]; // neighs  - NOTE: bonds not atoms !!!!
 
     //AtomConf() = default;
 
-    inline bool addNeigh(int ia, int& ninc ){
+    inline bool addNeigh(int ia, uint8_t& ninc ){
         if(n>=N_NEIGH_MAX)return false;
-        neighs[n]=ia;
+        if(ia>=0){ neighs[nbond]=ia; }else{ neighs[N_NEIGH_MAX-(n-nbond)-1]=ia; };
         ninc++;
         n++;
-        //printf( "bond.addNeigh %i %i\n", n, ninc );
+        //printf( "bond.addNeigh n==%i ninc==%i\n", n, ninc );
         return true;
     };
 
@@ -111,10 +111,12 @@ struct AtomConf{
     inline bool addH    (     ){ return addNeigh((int)NeighType::H    ,nH ); };
     inline bool addPi   (     ){ return addNeigh((int)NeighType::pi   ,npi); };
     inline bool addEpair(     ){ return addNeigh((int)NeighType::epair,ne ); };
+    
     inline int  clearNonBond(){ n=nbond; npi=0;ne=0;nH=0; };
     inline bool setNonBond(int npi_,int ne_){ npi=npi_; int ne=ne_; n=nbond+npi+ne+nH; }
+    inline bool init0(){ for(int i=0; i<N_NEIGH_MAX; i++)neighs[i]=-1; nbond=0; clearNonBond(); }
 
-    void print()const{ printf( "AtomConf{ ia %i, n %i nb %i np %i ne %i nH %i (%i,%i,%i,%i) }", iatom, n, nbond, npi, ne, nH , neighs[0],neighs[1],neighs[2],neighs[3] ); }
+    void print()const{ printf( " AtomConf{ ia %i, n %i nb %i np %i ne %i nH %i (%i,%i,%i,%i) }", iatom, n, nbond, npi, ne, nH , neighs[0],neighs[1],neighs[2],neighs[3] ); }
 };
 
 struct Bond{
@@ -273,7 +275,6 @@ class Builder{  public:
 
     const AtomConf* getAtomConf(int ia)const{
         int ic=atoms[ia].iconf;
-        //printf( "getAtomConf ic %i\n", ic );
         if(ic>=0){ return &confs[ic]; }
         return 0;
     }
@@ -307,7 +308,9 @@ class Builder{  public:
             atoms.back().iconf = ic;
             confs.push_back(AtomConf());
             AtomConf& c = confs.back();
+            c.init0();
             c.iatom = ia;
+            //printf("insertAtom[%i] ", ia); println(c);
             return &c;
         }
         return 0;
@@ -321,8 +324,14 @@ class Builder{  public:
         //if(ic>=0){ confs[ic].addBond(bond.atoms.j); }
         //if(jc>=0){ confs[jc].addBond(bond.atoms.i); }
         //printf( "insertBond %i(%i,%i) to c(%i,%i) l0 %g k %g\n", ib, bond.atoms.i,bond.atoms.j, ic, jc, bond.l0, bond.k );
-        if(ic>=0){ confs[ic].addBond(ib); }
-        if(jc>=0){ confs[jc].addBond(ib); }
+        if(ic>=0){ 
+            confs[ic].addBond(ib); 
+            //printf( "   i.conf " ); println(confs[ic]);
+        }
+        if(jc>=0){ 
+            confs[jc].addBond(ib); 
+            //printf( "   j.conf " ); println(confs[jc]);
+        }
     }
 
     //void addCap(int ia,Vec3d& hdir, Atom* atomj, int btype){
@@ -394,6 +403,18 @@ class Builder{  public:
                 hs[nb  ] = m.c*-1;
                 hs[nb+1] = m.b;
                 hs[nb+2] = m.a;
+            }
+        }else if(nb==0){
+            m.c = hs[0]; m.c.normalize();
+            m.c.getSomeOrtho(m.b,m.a);
+            if      (npi==0){ //  CH4 like sp3 no-pi
+                const double ca = 0.81649658092;  // sqrt(2/3)
+                const double cb = 0.47140452079;  // sqrt(2/9)
+                const double cc =-0.33333333333;  // 1/3
+                hs[nb  ] = m.c*cc + m.b*(cb*2) ;
+                hs[nb+1] = m.c*cc - m.b* cb    + m.a*ca;
+                hs[nb+2] = m.c*cc - m.b* cb    - m.a*ca;
+                hs[nb+3] = m.c;
             }
         }
     }
@@ -494,19 +515,75 @@ class Builder{  public:
         return true;
     }
 
-    bool checkBondsSorted()const{
+    int checkBond2Conf(bool bPrint)const{
+        for(int i=0;i<bonds.size(); i++){
+            //printf("checkBond2Conf b[%i]\n", i );
+            const Bond& b = bonds[i];
+            int i_ = getBondByAtoms(b.atoms.i,b.atoms.j);
+            if(i_!= i){ 
+                if(bPrint){
+                    printf( "MMFFbuilder.checkBond2Conf: getBondByAtoms(bond[%i/%li]) returned %i \n", i,bonds.size(), i_ ); 
+                } 
+                return i; 
+            }
+        }
+        return -1;
+    }
+    
+    int checkConf2Bond(bool bPrint)const{
+        int nb=0;
+        std::vector<int> ng(atoms.size(), 0);
+        for(const Bond& b: bonds){ ng[b.atoms.i]++; ng[b.atoms.j]++; };
+        for(int ia=0;ia<atoms.size(); ia++){
+            //printf("checkConf2Bond[%i] \n", ia );
+            const AtomConf* conf = getAtomConf(ia); // we need to modify it
+            if(conf==0){ 
+                if( nb<bonds.size() ){ 
+                    if(bPrint){
+                        printf( "MMFFbuilder.checkConf2Bond: atom[%i/%li].conf==null nb(%i)<bonds.size(%li) \n", ia, atoms.size(), nb,bonds.size()  );
+                    }
+                    return ia; 
+                } else continue;
+            }
+            int nbconf = conf->nbond;
+            if(nbconf != ng[ia] ){
+                    if(bPrint){
+                        printf( "MMFFbuilder.checkConf2Bond: atom[%i/%li].conf.nbond==%i but counted %i bonds \n", ia, atoms.size(), nbconf, ng[ia] );
+                        println( (*conf) );
+                    }
+                    return ia;
+            }
+            for(int j=0; j<nbconf; j++){ 
+                int ib = conf->neighs[j];
+                int ja = bonds[ib].getNeighborAtom(ia);
+                if(ja<0){ 
+                    if(bPrint){
+                        printf( "MMFFbuilder.checkConf2Bond: atom[%i/%li].neighs[%i/%i]->bonds[%i/%li].getNeighborAtom(%i) returned %i \n", ia,atoms.size(), j,nbconf, ib,bonds.size(), ia, ja ); 
+                        println( (*conf)   ); 
+                        println( bonds[ib] ); 
+                    }
+                    return ia;
+                } 
+            }
+            //printf("checkConf2Bond[%i] nb %i \n", ia, nb );
+            nb+=nbconf;
+        }
+        return -1;
+    }
+
+    bool checkBondsSorted( int iPrint )const{
         int ia=-1,ja=-1;
-        //printf("checkBondsSorted %li \n", bonds.size() );
+        if(iPrint>1)printf("checkBondsSorted %li \n", bonds.size() );
         for(int i=0;i<bonds.size(); i++){
             const Vec2i& b = bonds[i].atoms;
-            //printf( "pair[%i] %i,%i | %i %i  | %i %i %i \n", i, b.i, b.j,   ia,ja ,   b.i>=b.j,  b.i<ia, b.j<=ja );
-            if(b.i>=b.j){ return false; }
-            if(b.i<ia)  { return false; }
+            if(iPrint>1)printf( "pair[%i] %i,%i | %i %i  | %i %i %i \n", i, b.i, b.j,   ia,ja ,   b.i>=b.j,  b.i<ia, b.j<=ja );
+            if(b.i>=b.j){ if(iPrint>0){ printf("b.i>=b.j b[%i](%i,%i) ia,ja(%i,%i)\n", i,b.i,b.j,ia,ja); }; return false; }
+            if(b.i<ia)  { if(iPrint>0){ printf("b.i<ia   b[%i](%i,%i) ia,ja(%i,%i)\n", i,b.i,b.j,ia,ja); }; return false; }
             else if (b.i>ia){ia=b.i; ja=-1; };
-            if(b.j<=ja){ return false; }
+            if(b.j<=ja){  if(iPrint>0){ printf("b.j<=ja  b[%i](%i,%i) ia,ja(%i,%i)\n", i,b.i,b.j,ia,ja); }; return false; }
             ja=b.j;
         }
-        //printf("checkBondsSorted DONE !\n");
+        if(iPrint>1)printf("checkBondsSorted DONE !\n");
         return true;
     }
 
@@ -532,20 +609,20 @@ class Builder{  public:
         for(int ia=0; ia<atoms.size(); ia++ ){
             // assume atoms with conf are first, capping are later
             //const AtomConf* conf = getAtomConf(ia);
+            if(nb>=bonds.size())break;
             AtomConf* conf = (AtomConf*)getAtomConf(ia); // we need to modify it
             if(!conf){
-                if(nb<bonds.size()){
-                    printf( " This algorithm assumes all atoms with conf precede atoms without confs in the array \n" );
-                    return false;
-                    //goto _GOTO_failed;
-                }
-                break;
+                printf( "ERROR in MMFF.sortBonds(): atom[%i/%li] without conf (confs.size(%li)) met before all bonds enumerated nb(%i)<bonds.size(%li) \n", ia, atoms.size(), confs.size(), nb, bonds.size() );
+                printf( " This algorithm assumes all atoms with conf precede atoms without confs in the array \n" );
+                printf( " => return \n" );
+                return false;
             }
             int nbconf=conf->nbond;
             int * neighs = conf->neighs;
+            //printf( "ia %i nb %i conf.nb %i\n", ia, nb, nbconf );
             for(int i=0;i<nbconf;i++ ){
                 int ib=neighs[i];
-                if(ib<0){ printf("atom[%i].condf inconsistent nbond=%i neigh[%i]<0 \n", ia, conf->nbond, i ); return false; }
+                if(ib<0){ printf("ERROR in MMFF.sortBonds(): atom[%i].condf inconsistent nbond=%i neigh[%i]<0 \n", ia, conf->nbond, i ); return false; }
                 int ja = bonds[ib].getNeighborAtom(ia);
                 //if(ja<ia)continue; // this bond was processed before
                 nga[i]=ja;

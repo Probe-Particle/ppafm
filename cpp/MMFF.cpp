@@ -5,7 +5,7 @@
 #include "Vec2.h"
 #include "Vec3.h"
 
-static int  iDebug = 0;
+static int  iDebug = 1;
 
 #include "MMFF.h"
 #include "NBFF.h"
@@ -113,7 +113,13 @@ int buildFF( bool bAutoHydrogens, bool bAutoAngles, bool bSortBonds ){
 
     if( bAutoHydrogens){ builder.makeAllConfsSP(); }
 
-    if( bSortBonds && ( !builder.checkBondsSorted() ) ){
+    if(iDebug>0){
+        int ia = builder.checkConf2Bond(true); if(ia>=0){ printf( "Inconsistent atoms[%i]->bonds \n", ia ); }
+        int ib = builder.checkBond2Conf(true); if(ib>=0){ printf( "Inconsistent bonds[%i]->atom  \n", ib ); }
+        if((ib>=0)||(ia>=0)) return -1;
+    }
+
+    if( bSortBonds && ( !builder.checkBondsSorted(iDebug) ) ){
         if( !builder.sortBonds() ){ printf( " ERROR in builder.sortBonds() => exit \n" ); return -1; }
     }
 
@@ -146,7 +152,7 @@ double relaxNsteps( int ialg, int nsteps, double Fconv ){
             case 3: opt.move_MD(opt.dt);   break;
         }
         //printf( "F2 %g F %g F2conv %g Fconv %g \n", F2, sqrt(F2), F2conv, Fconv );
-        if(iDebug>0){ printf("relaxNsteps[%i] |F| %g Fconf %g E %g dt %g(%g..%g) damp %g %g \n", itr, sqrt(F2), Fconv, E, opt.dt, opt.dt_min, opt.dt_max, opt.damping, opt.f_limit ); }
+        if(iDebug>0){ printf("relaxNsteps[%i] |F| %g(>%g) E %g dt %g(%g..%g) damp %g \n", itr, sqrt(F2), Fconv, E, opt.dt, opt.dt_min, opt.dt_max, opt.damping ); }
         if(F2<F2conv) break;
     }
     return sqrt(F2);
