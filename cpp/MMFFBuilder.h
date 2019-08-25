@@ -57,7 +57,8 @@ namespace MMFF{
 static const double const_eVA2_Nm = 16.0217662;
 
 struct Atom{
-    constexpr const static Vec3d defaultREQ = (Vec3d){ 1.7d, sqrt(0.0037292524), 0 };
+    constexpr const static Vec3d HcapREQ    = (Vec3d){ 1.4870, sqrt(0.000681    ), 0 };
+    constexpr const static Vec3d defaultREQ = (Vec3d){ 1.7,    sqrt(0.0037292524), 0 };
     
     // this breaks {<brace-enclosed initializer list>} in C++11
     //int type  = -1;
@@ -78,7 +79,7 @@ struct Atom{
 
 };
 
-#define N_NEIGH_MAX 8
+#define N_NEIGH_MAX 4
 enum class NeighType: int {
     pi    = -2,
     epair = -3,
@@ -113,7 +114,7 @@ struct AtomConf{
     inline bool addEpair(     ){ return addNeigh((int)NeighType::epair,ne ); };
     
     inline int  clearNonBond(){ n=nbond; npi=0;ne=0;nH=0; };
-    inline bool setNonBond(int npi_,int ne_){ npi=npi_; int ne=ne_; n=nbond+npi+ne+nH; }
+    inline bool setNonBond(int npi_,int ne_){ npi=npi_; ne=ne_; n=nbond+npi+ne+nH; printf("setNonBond npi %i ne %i \n", npi, ne ); }
     inline bool init0(){ for(int i=0; i<N_NEIGH_MAX; i++)neighs[i]=-1; nbond=0; clearNonBond(); }
 
     void print()const{ printf( " AtomConf{ ia %i, n %i nb %i np %i ne %i nH %i (%i,%i,%i,%i) }", iatom, n, nbond, npi, ne, nH , neighs[0],neighs[1],neighs[2],neighs[3] ); }
@@ -214,14 +215,13 @@ class Builder{  public:
     Bond  defaultBond;
     Angle defaultAngle;
     
-    Atom capAtom      = (Atom){-1,-1,-1, {0,0,0}, Atom::defaultREQ };
-    Atom capAtomEpair = (Atom){-1,-1,-1, {0,0,0}, Atom::defaultREQ };;
-    Atom capAtomPi    = (Atom){-1,-1,-1, {0,0,0}, Atom::defaultREQ };;
+    Atom capAtom      = (Atom){ (int)NeighType::H,     -1,-1, {0,0,0}, Atom::HcapREQ };
+    Atom capAtomEpair = (Atom){ (int)NeighType::epair, -1,-1, {0,0,0}, {0,0,0} };
+    Atom capAtomPi    = (Atom){ (int)NeighType::pi,    -1,-1, {0,0,0}, {0,0,0} };
     Bond capBond      = (Bond)Bond{ -1,  -1,-1,  1.07, 100/const_eVA2_Nm };
     Vec3d    capUp   = (Vec3d){0.0d,0.0d,1.0d};
     bool bDummyPi    = false;
     bool bDummyEpair = false;
-
 
     void clear(){
         atoms.clear(); //printf("DEBUG a.1 \n");
@@ -424,9 +424,9 @@ class Builder{  public:
         int ic = atoms[ia].iconf;
         AtomConf& conf = confs[ic];
         conf.clearNonBond();
-        int nb = conf.nbond;
-        int n  = 4-nb-npi;   // number
-        int nH = n-ne;
+        int nb   = conf.nbond;
+        int ncap = 4-nb-npi;   // number of possible caps
+        int nH   = ncap-ne;
         //printf("-- "); println(conf);
         //printf( "ia %i nb,npi %i,%i   n,nH,ne %i,%i,%i \n", ia,   nb,npi,  n,nH,ne );
         //Mat3d m;
@@ -438,16 +438,25 @@ class Builder{  public:
             hs[i].normalize();
         }
         makeConfGeom(conf.nbond, npi, hs);
-        bool Hmask[]{1,1,1};
-        if(nH!=n) Hmask[rand()%n]=0;
-        bool breverse = (nH==2)&&(n==3);
-        for(int i=0; i<n; i++){
-            if     (Hmask[i])   { addCap(ia,hs[i+nb],&capAtom       ); }
-            else if(bDummyEpair){ addCap(ia,hs[i+nb],&capAtomEpair  ); }
+        bool Hmask[]{1,1,1,1};
+        //if(nH!=ncap) Hmask[rand()%ncap]=0;
+        //bool breverse = (nH==2)&&(ncap==3);
+        bool breverse;
+        if(ncap<4){
+            if(ne>0) Hmask[rand()%ncap]=0;
+            breverse = (ne>1);
+        }else{
+            for(int i=0;i<ne;i++)Hmask[3-i]=0;
+            breverse = 0;
         }
-        if(bDummyPi){
-            for(int i=0; i<npi; i++){ addCap(ia,hs[i+n+nb],&capAtomPi); }
+        printf( "makeSPConf: atom[%i] ncap %i nH %i nb %i npi %i ne %i Hmask{%i,%i,%i,%i}  \n", ia, ncap, nH, nb,npi,ne,  (int)Hmask[0],(int)Hmask[1],(int)Hmask[2],(int)Hmask[3] );
+        for(int i=0; i<ncap; i++){
+            if     (Hmask[i]!=breverse){ addCap(ia,hs[i+nb],&capAtom       ); }
+            else if(bDummyEpair       ){ addCap(ia,hs[i+nb],&capAtomEpair  ); }
         }
+        if(bDummyPi){ for(int i=0; i<npi; i++){ addCap(ia,hs[i+ncap+nb],&capAtomPi); } }
+        conf.npi=npi;
+        conf.ne =ne;
         //printf("-> "); println(conf);
     }
 
@@ -472,28 +481,32 @@ class Builder{  public:
 
     // ============= Angles
 
-    void addAnglesToBond( int ib, int n, int* neighs, double a0, double k ){
+    void addAnglesToBond( int ib, int n,const int* neighs, double a0, double k ){
         for(int j=0; j<n; j++){
             angles.push_back( (Angle){-1,  (Vec2i){ neighs[ib], neighs[j]}, a0,k} );
+            printf("[%li]",angles.size()); println(angles.back());
         }
     }
 
-    void addAnglesUpToN( int n, int* neighs, double a0, double k ){
+    void addAnglesUpToN( int n, const int* neighs, double a0, double k ){
         for(int i=0; i<n; i++){ addAnglesToBond( i, i, neighs, a0, k ); }
     }
 
-    void addAnglesToAtom( int ia, double ksigma, double kpi ){
-        AtomConf& conf = confs[ atoms[ia].iconf ];
-        int nsigma = conf.nbond;
-        if(bDummyPi && (conf.npi>0)){
-            nsigma -= conf.npi;
-            for(int i=0;i<conf.npi;i++){ addAnglesToBond( i+nsigma, i+nsigma, conf.neighs, M_PI_2, kpi ); }
+    bool addAnglesToAtom( int ia, double ksigma, double kpi ){
+        const AtomConf* conf = getAtomConf(ia);
+        if(conf==0) return false;
+        int nsigma = conf->nbond;
+        //printf("addAnglesToAtom[%i] nsigma %i npi %i \n", ia, nsigma, conf->npi  );
+        if(bDummyPi && (conf->npi>0)){
+            nsigma -= conf->npi;
+            for(int i=0;i<conf->npi;i++){ addAnglesToBond( i+nsigma, i+nsigma, conf->neighs, M_PI_2, kpi ); }
         }
         //constexpr
         static const double a0s[]{ 0.0d, 0.0d, M_PI, 120*M_PI/180, 109.5*M_PI/180 };
-        double a0 = a0s[nsigma];
-        //printf( "atom[%i] ns %i a0,ks %g %g   {%g,%g,%g,%g} %g \n", ia, nsigma, a0, ksigma, a0s[0],a0s[1],a0s[2],a0s[3] , a0s[nsigma] );
-        addAnglesUpToN( nsigma, conf.neighs, a0, ksigma );
+        double a0 = a0s[nsigma+conf->ne];
+        printf( "atom[%i] ns %i npi %i a0,ks %g %g   {%g,%g,%g,%g} %g \n", ia, nsigma, conf->npi, a0, ksigma, a0s[0],a0s[1],a0s[2],a0s[3] , a0s[nsigma] );
+        addAnglesUpToN( nsigma, conf->neighs, a0, ksigma );
+        return true;
     }
 
     void autoAngles(double ksigma, double kpi){

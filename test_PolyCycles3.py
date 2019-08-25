@@ -262,11 +262,11 @@ if __name__ == "__main__":
     aconf = np.zeros( (len(apos),2), dtype=np.int32 )
     bonds = bonds.astype(np.int32).copy()
 
-    nng = np.zeros(len(apos), dtype=np.int)
-    for b in bonds: 
-        nng[b[0]]+=1; nng[b[1]]+=1;
-    print "nng", nng
-    for i in range(len(nng)): print i,nng[i]
+    #nng = np.zeros(len(apos), dtype=np.int)
+    #for b in bonds: 
+    #    nng[b[0]]+=1; nng[b[1]]+=1;
+    #print "nng", nng
+    #for i in range(len(nng)): print i,nng[i]
 
 
     aoi       = np.round(ao).astype(np.int32).copy()
@@ -278,19 +278,31 @@ if __name__ == "__main__":
     aconf[:,0] = aoi                                                   # pi
     aconf[:,1] = np.round(  nemax*ne_rnd ) # epairs
     
-    print "aoi   ", aoi
-    print "nngs  ", nngs
-    print "ne_max", nemax
+    # nitrogen fix 1
+    mask_N = np.logical_and( (nngs==3) , (aconf[:,0]==0) )
+    aconf[mask_N,1] = 1
+    
+    #print "aoi   ", aoi
+    #print "nngs  ", nngs
+    #print "ne_max", nemax
     
     #            0    1    2
     ne2elem = [ 'C', 'N', 'O' ]
     elems = [   ne2elem[ne] for ne in aconf[:,1] ]
     print "elems ", elems
     
+    # nitrogen fix 2
+    aconf[mask_N,0] = 1
+    aconf[mask_N,1] = 0
+    
+    
+    
     print "aconf \n", aconf.T
     
     mmff.addAtoms(apos, aconf )
     mmff.addBonds(bonds, l0s=None, ks=None)   ;print "DEBUG 2"
+
+    mmff.setBox([0.,0,0], [0.,0,0], [0.,0.,0.05])
 
     natom = mmff.buildFF(True,True,True)           ;print "DEBUG 4"
     #natom = mmff.buildFF(False,True,True)           ;print "DEBUG 4"
@@ -298,6 +310,20 @@ if __name__ == "__main__":
     mmff.setupOpt()                                ;print "DEBUG 5"
     pos = mmff.getPos(natom)
 
+    types = mmff.getAtomTypes(natom)            ;print types
+
+    #              0!  -1!   -2=pi   -3=e   -4=H
+    type2elem = [ 'U', 'U'  , 'He',  'Ne', 'H'  ]
+    elems += [  type2elem[-t] for t in types[len(elems):] ]  ;print elems
+    
+    #elems += ['H']*(natom-len(elems))
+    
+    elems = np.array(elems)
+    
+    mask_pi = (elems != 'He')
+    print "mask_pi", mask_pi
+    
+    
     def runMMFF( Fconv=1e-6, Nmax=1000, perSave=10 ):
         pos = mmff.getPos(natom)
         for i in xrange(Nmax/perSave):
@@ -305,27 +331,17 @@ if __name__ == "__main__":
             if(f<1e-6): raise StopIteration
             yield pos,f
 
-    elems += ['H']*(natom-len(elems))
-
-    '''
-    perSave=10
-    errs = []
-    fout = open("test_MMFF_movie.xyz", "w")
-    for i in range(1000):
-        print i," ",
-        errs.append( f )
-        au.writeToXYZ( fout, es, pos )
-    fout.close()
-    '''
-    
     with open("test_PolyCyclesMMFF_movie.xyz", "w") as fout:
         for i,(pos,f) in enumerate(runMMFF()):
             #print i, f, pos
             print ">> save xyz", i, f
-            au.writeToXYZ( fout, elems, pos )
-
-    mmff.relaxNsteps(100)
-    au.saveXYZ( elems, apos, "test_PolyCyclesMMFF.xyz", qs=None )
+            #au.writeToXYZ( fout, elems, pos )
+            au.writeToXYZ( fout, elems[mask_pi], pos[mask_pi] )
+    
+    
+    #mmff.relaxNsteps(100)
+    
+    au.saveXYZ( elems, pos, "test_PolyCyclesMMFF.xyz", qs=None )
     
     exit()
     
