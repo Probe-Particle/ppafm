@@ -5,7 +5,7 @@
 #include "Vec2.h"
 #include "Vec3.h"
 
-static int  iDebug = 1;
+static int  iDebug = 0;
 
 #include "MMFF.h"
 #include "NBFF.h"
@@ -59,6 +59,20 @@ inline bool boxForce(const Vec3d p, Vec3d& f,const Vec3d& pmin, const Vec3d& pma
 
 extern "C"{
 
+
+void clear(){ 
+    builder.clear();
+    ff.dealloc();
+    
+    _dealloc( nff.REQs);
+    nff.unbindAll();
+    
+    _dealloc( opt.vel       );
+    _dealloc( opt.invMasses );
+    opt.unbindAll();
+}
+
+
 double* getPos  (){ return (double*)ff.apos;   }
 double* getForce(){ return (double*)ff.aforce; }
 
@@ -81,11 +95,10 @@ void addAtoms( int n, double* pos_, int* npe_ ){
     for(int i=0;i<n;i++){
         //printf( "atom[%i] (%g,%g,%g) &npe_ %i \n", i, pos[i].x, pos[i].y, pos[i].z, npe_ );
         brushAtom.pos = pos[i];
-        if( npe ){ builder.insertAtom(brushAtom, true )->setNonBond( npe[i].a, npe[i].b );  println( (*(builder.getAtomConf(builder.atoms.size()-1)) )); }
+        if( npe ){ builder.insertAtom(brushAtom, true )->setNonBond( npe[i].a, npe[i].b ); }
         else     { builder.insertAtom(brushAtom, false);  }   // atom without configuration set
     }
-    
-    for(auto c: builder.confs){ println(c); }
+    //for(auto c: builder.confs){ println(c); }
 }
 
 void addBonds( int n, int* bond2atom_, double* l0s, double* ks ){
@@ -141,9 +154,9 @@ int getAtomTypes( int nmax, int* types ){
 }
 
 
-int buildFF( bool bAutoHydrogens, bool bAutoAngles, bool bSortBonds ){
+int buildFF( bool bAutoHydrogens, bool bAutoAngles, bool bSortBonds, bool bDummyPi, bool bDummyEpair ){
 
-    builder.bDummyPi    = true;
+    builder.bDummyPi    = bDummyPi;
     //builder.bDummyEpair = true;
 
     builder.capBond  = Bond{ -1, -1,-1, defaults.hydrogen_l0, defaults.hydrogen_k };        // C-H bond ?

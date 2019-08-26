@@ -114,7 +114,7 @@ struct AtomConf{
     inline bool addEpair(     ){ return addNeigh((int)NeighType::epair,ne ); };
     
     inline int  clearNonBond(){ n=nbond; npi=0;ne=0;nH=0; };
-    inline bool setNonBond(int npi_,int ne_){ npi=npi_; ne=ne_; n=nbond+npi+ne+nH; printf("setNonBond npi %i ne %i \n", npi, ne ); }
+    inline bool setNonBond(int npi_,int ne_){ npi=npi_; ne=ne_; n=nbond+npi+ne+nH;  }
     inline bool init0(){ for(int i=0; i<N_NEIGH_MAX; i++)neighs[i]=-1; nbond=0; clearNonBond(); }
 
     void print()const{ printf( " AtomConf{ ia %i, n %i nb %i np %i ne %i nH %i (%i,%i,%i,%i) }", iatom, n, nbond, npi, ne, nH , neighs[0],neighs[1],neighs[2],neighs[3] ); }
@@ -227,6 +227,7 @@ class Builder{  public:
         atoms.clear(); //printf("DEBUG a.1 \n");
         bonds.clear(); //printf("DEBUG a.2 \n");
         angles.clear();
+        dihedrals.clear();
         mols .clear(); //printf("DEBUG a.3 \n");
         frags.clear(); //printf("DEBUG a.4 \n");
         fragTypes.clear();
@@ -449,7 +450,7 @@ class Builder{  public:
             for(int i=0;i<ne;i++)Hmask[3-i]=0;
             breverse = 0;
         }
-        printf( "makeSPConf: atom[%i] ncap %i nH %i nb %i npi %i ne %i Hmask{%i,%i,%i,%i}  \n", ia, ncap, nH, nb,npi,ne,  (int)Hmask[0],(int)Hmask[1],(int)Hmask[2],(int)Hmask[3] );
+        //printf( "makeSPConf: atom[%i] ncap %i nH %i nb %i npi %i ne %i Hmask{%i,%i,%i,%i}  \n", ia, ncap, nH, nb,npi,ne,  (int)Hmask[0],(int)Hmask[1],(int)Hmask[2],(int)Hmask[3] );
         for(int i=0; i<ncap; i++){
             if     (Hmask[i]!=breverse){ addCap(ia,hs[i+nb],&capAtom       ); }
             else if(bDummyEpair       ){ addCap(ia,hs[i+nb],&capAtomEpair  ); }
@@ -484,7 +485,7 @@ class Builder{  public:
     void addAnglesToBond( int ib, int n,const int* neighs, double a0, double k ){
         for(int j=0; j<n; j++){
             angles.push_back( (Angle){-1,  (Vec2i){ neighs[ib], neighs[j]}, a0,k} );
-            printf("[%li]",angles.size()); println(angles.back());
+            //printf("[%li]",angles.size()); println(angles.back());
         }
     }
 
@@ -504,7 +505,7 @@ class Builder{  public:
         //constexpr
         static const double a0s[]{ 0.0d, 0.0d, M_PI, 120*M_PI/180, 109.5*M_PI/180 };
         double a0 = a0s[nsigma+conf->ne];
-        printf( "atom[%i] ns %i npi %i a0,ks %g %g   {%g,%g,%g,%g} %g \n", ia, nsigma, conf->npi, a0, ksigma, a0s[0],a0s[1],a0s[2],a0s[3] , a0s[nsigma] );
+        //printf( "atom[%i] ns %i npi %i a0,ks %g %g   {%g,%g,%g,%g} %g \n", ia, nsigma, conf->npi, a0, ksigma, a0s[0],a0s[1],a0s[2],a0s[3] , a0s[nsigma] );
         addAnglesUpToN( nsigma, conf->neighs, a0, ksigma );
         return true;
     }

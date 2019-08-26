@@ -112,6 +112,7 @@ void realloc( int natoms_, int nbonds_, int nang_, int ntors_ ){
 }
 
 void dealloc(){
+    natoms=0; nbonds=0; nang=0; ntors=0;
     _dealloc( apos      );
     _dealloc( aforce    );
 

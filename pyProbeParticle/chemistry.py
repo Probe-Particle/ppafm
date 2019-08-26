@@ -12,6 +12,7 @@ import numpy as np
 #      Molecular Topology
 # ===========================
 
+iDebug=0
 
 def findBonds( xyzs, Rs, fR=1.3 ):
     n     = len(xyzs)
@@ -188,10 +189,10 @@ def findTris(bonds,neighs):
         #print "bond ",b," common ",common
         ncm = len(common)
         if   ncm>2:
-            print "WARRNING: bond ", b, " common neighbors ", common
+            if(iDebug>0): print "WARRNING: bond ", b, " common neighbors ", common
             continue
         elif ncm<1:
-            print "WARRNING: bond ", b, " common neighbors ", common
+            if(iDebug>0): print "WARRNING: bond ", b, " common neighbors ", common
             continue
         tri0 = tuple(sorted(b+(common[0],)))
         tris.add(tri0)
@@ -281,9 +282,7 @@ def trisToPoints(tris,ps):
 
 def removeBorderAtoms(ps,cog,R):
     rnds = np.random.rand(len(ps))
-    r2s  = np.sum((ps-cog[None,:])**2, axis=1)
-    #damp=(R*R-r2s)**2
-    print "r2s ", r2s, R*R 
+    r2s  = np.sum((ps-cog[None,:])**2, axis=1)  #;print "r2s ", r2s, R*R 
     mask = rnds > r2s/(R*R)
     return mask
 
@@ -305,6 +304,55 @@ def tris2num(tris):
         out.append( [ t2i[t] for t in v] )
     return out
 '''
+
+
+# ===========================
+#
+# ==========================
+
+def removeAtoms( atom_pos, bonds, atom2ring, cog, Lrange=10 ):
+    # --- remove some atoms
+    mask      = removeBorderAtoms(atom_pos,cog,Lrange)          # ;print "remove atom mask ", mask
+    bonds     = validBonds( bonds, mask, len(atom_pos) )   # ;print "rm:bonds ", bonds
+    atom_pos  = atom_pos [mask,:]                             # ;print "rm:atom_pos ", atom_pos
+    atom2ring = atom2ring[mask,:]                             # ;print "rm:atom2ring ", atom2ring
+    return atom_pos, bonds, atom2ring
+
+def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
+    Nring = len( ring_pos )
+    cog = np.sum(ring_pos,axis=0)/Nring
+    ring_bonds  = findBonds(ring_pos,ring_Rs,fR=1.0)
+    ring_neighs = bonds2neighs(ring_bonds,Nring)
+    ring_nngs   = np.array([ len(ng) for ng in ring_neighs ],dtype=np.int) # print "ring_nngs ", ring_nngs
+
+    # --- atoms are centers of triangles with vertexes in ring center
+    tris,bonds_ = findTris(ring_bonds,ring_neighs)
+    atom2ring   = np.array( list(tris), dtype=np.int )     #; print "atom2ring ", atom2ring
+
+    atom_pos = ( ring_pos[atom2ring[:,0]] + ring_pos[atom2ring[:,1]] + ring_pos[atom2ring[:,2]] )/3.0
+    bonds,_  = tris2num_(tris, bonds_)
+    
+    atom_pos, bonds, atom2ring, = removeAtoms( atom_pos, bonds, atom2ring, cog, Lrange )
+    bonds = np.array(bonds)
+    
+    # --- select aromatic hexagons as they have more pi-character 
+    ring_natm   = getRingNatom(atom2ring,len(ring_neighs))          # ;print "ring_natm ", ring_natm
+    ring_N6mask = np.logical_and( ring_natm[:]==6, ring_nngs[:]==6 )   # ;print "ring_N6mask", len(ring_N6mask), ring_N6mask 
+    atom_N6mask = np.logical_or( ring_N6mask[atom2ring[:,0]], 
+                  np.logical_or( ring_N6mask[atom2ring[:,1]], 
+                                 ring_N6mask[atom2ring[:,2]]  ) )      # ;print "atom_N6mask", len(atom_N6mask), atom_N6mask
+
+    neighs  = bonds2neighs( bonds, len(atom_pos) )    # ;print neighs
+    nngs    = np.array([ len(ngs) for ngs in neighs ],dtype=np.int) 
+    
+    atypes=nngs.copy()-1
+    atypes[atom_N6mask]=3       #; print "atypes ", atypes
+    
+    return atom_pos,bonds, atypes, nngs, neighs, ring_bonds, atom_N6mask
+
+
+
+
 
 # ===========================
 #   Atom Types and groups
@@ -626,7 +674,7 @@ def assignAtomBOFF(atypes, typeEs):
     return typeMasks, typeFFs 
 
 def relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.01, nMaxStep=1000, EboStart=0.0, EboEnd=10.0, boStart=None, optimizer=None ):
-    print " ==== ", EboStart, EboEnd
+    # print " ==== ", EboStart, EboEnd
     #ao=np.zeros(len(nngs ),dtype=np.int)
     #nngs=np.array(nngs)
     nt=typeMasks.shape[0]
@@ -713,6 +761,15 @@ def relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.01, nMaxStep=1000, EboSta
     #print "boEnd ", bo[:6]
     return bo,ao
 
+def estimateBondOrder( atypes, bonds, E12=0.5, E22=+0.5, E32=+0.5 ):
+    typeEs = simpleAOEnergies( E12=E12, E22=E22, E32=E32 )
+    typeMasks, typeFFs = assignAtomBOFF(atypes, typeEs)
+    opt   = FIRE(dt_max=0.1,damp_max=0.25)
+    bo,ao = relaxBondOrder( bonds, typeMasks, typeFFs, fConv= 0.0001          , optimizer=opt, EboStart=0.0,  EboEnd=0.0                ) # relax delocalized pi-bond superposition
+    bo,ao = relaxBondOrder( bonds, typeMasks, typeFFs, fConv=-1., nMaxStep=100, optimizer=opt, EboStart=0.0,  EboEnd=10.0 , boStart=bo  ) # gradually increase integer-discretization strenght 'Ebo'
+    bo,ao = relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.0001           , optimizer=opt, EboStart=10.0, EboEnd=10.0 , boStart=bo  ) # relax finaly with maximum discretization strenght 'Ebo'
+    return bo,ao, typeEs
+
 # ===========================
 #       Geometry Opt
 # ===========================
@@ -752,9 +809,9 @@ def relaxAtoms( ps, aParams, FFfunc=getForceIvnR24, fConv=0.001, nMaxStep=1000, 
             break
         f_debug.append(f_norm)
         
-    import matplotlib.pyplot as plt 
-    plt.figure()
-    plt.plot(f_debug); plt.yscale('log')
+    #import matplotlib.pyplot as plt 
+    #plt.figure()
+    #plt.plot(f_debug); plt.yscale('log')
     
     return ps
 

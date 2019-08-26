@@ -107,6 +107,10 @@ class DynamicOpt{ public:
         _dealloc(force);
         _dealloc(invMasses);
     }
+    
+    inline void unbindAll(){
+        n=0; pos=0; vel=0; force=0; invMasses=0;
+    }
 
     inline void cleanForce( ){  for(int i=0; i<n; i++){ force[i]=0; } }
     inline void cleanVel  ( ){  for(int i=0; i<n; i++){ vel  [i]=0; } }

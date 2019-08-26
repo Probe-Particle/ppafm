@@ -138,13 +138,29 @@ void realloc(int n_, int nmask_){
     _realloc(pairMask ,nmask);
 }
 
+void dealloc(){
+    _dealloc(REQs);
+    _dealloc(ps  );
+    _dealloc(fs  );
+    _dealloc(pairMask);
+}
+
+
+void unbindAll(){
+    int n       = 0;
+    int nmask   = 0;
+    Vec3d* REQs = 0;
+    Vec3d* ps   = 0;
+    Vec3d* fs   = 0;
+    Vec2i* pairMask = 0;
+}
+
 void bindOrRealloc(int n_, int nmask_, Vec3d* ps_, Vec3d* fs_, Vec3d* REQs_, Vec2i* pairMask_ ){
     n=n_;
     nmask=nmask_;
     _bindOrRealloc(n,ps_  ,ps  );
     _bindOrRealloc(n,fs_  ,fs  );
     _bindOrRealloc(n,REQs_,REQs);
-
     _bindOrRealloc(nmask,pairMask_,pairMask);
 }
 
