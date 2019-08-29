@@ -584,9 +584,6 @@ class Generator(Sequence,):
         #print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
 
-        print 'molCenterAfm = ', self.molCenterAfm
-        print 'distAboveRange = ', self.distAboveRange
-        print 'distAbove = ', self.distAbove
         # random uniform select distAbove in range distAboveRange and shift it up to radius vdW of top atom
 
         atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]           #shift atoms coord to rotation center point of view            
@@ -603,7 +600,6 @@ class Generator(Sequence,):
 
             if(verbose>1): print " :::: imax ", imax
             self.distAbove = self.distAbove + RvdWs[imax] # shifts distAbove for vdW-Radius of top atomic shell
-            print '::::: i changed distance above and distAboveRange =', self.distAboveRange
             
             if(verbose>1): print " :::: distAbove ", self.distAbove
         
