@@ -104,7 +104,7 @@ if __name__ == "__main__":
     bTime = True
     
     
-    '''
+    
     t1 = time.clock()
     mol3d,mol2d,rings,atom_conf1,atom_conf2 = generateAromaticMolecule( )
     print "Time to generate molecule [s]: ", time.clock() - t1
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     plotMolecule( atom_pos, bonds, bondOrder, atom_N6mask )
     plt.axis('equal')
     plt.show()
-    '''
+    
     
     
     bTime = False

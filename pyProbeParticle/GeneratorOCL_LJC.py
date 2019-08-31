@@ -29,9 +29,12 @@ import RelaxOpenCL  as oclr
 import HighLevelOCL as hl
 
 import numpy as np
-from keras.utils import Sequence
+#from keras.utils import Sequence
 
 verbose=0
+
+class Sequence:
+    pass
 
 def getRandomUniformDisk():
     '''
@@ -305,7 +308,7 @@ class Generator(Sequence,):
         self.bZMap = False; self.bFEmap = False;
         if(verbose>0): print "Ymode", self.Ymode
         #if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'SphereCaps' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks' or self.Ymode == 'D-S-H' or self.Ymode == 'MultiMapSpheres' or self.Ymode == 'SpheresType':
-        if self.Ymode in {'Lorenzian','Spheres','SphereCaps','Disks','DisksOcclusion','QDisks','D-S-H','MultiMapSpheres','SpheresType'}:
+        if self.Ymode in {'Lorenzian','Spheres','SphereCaps','Disks','DisksOcclusion','QDisks','D-S-H','MultiMapSpheres','SpheresType','Bonds','AtomRfunc','AtomsAndBonds'}:
             self.projector  = FFcl.AtomProcjetion()
         if self.Ymode == 'HeightMap' or self.Ymode == 'D-S-H' : 
             self.bZMap = True
@@ -397,7 +400,7 @@ class Generator(Sequence,):
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (self.nChan,) )
         elif self.Ymode == 'SpheresType': 
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (len(self.typeSelection),) )
-        elif self.Ymode == 'ElectrostaticMap': 
+        elif self.Ymode in {'ElectrostaticMap','AtomsAndBonds'}: 
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
         elif self.Ymode == 'xyz': 
             Ys = np.empty( (n,)+(self.Nmax_xyz,4) )
@@ -417,7 +420,7 @@ class Generator(Sequence,):
 
                 if self.bDfPerMol:
                     ndf = np.random.randint( self.nDfMin, self.nDfMax )
-                    print " ============= ndf ", ndf 
+                    if(verbose>0): print " ============= ndf ", ndf 
                     self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep ).astype(np.float32)
 
                 self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
@@ -477,7 +480,7 @@ class Generator(Sequence,):
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (self.nChan,) )
         elif self.Ymode == 'SpheresType': 
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (len(self.typeSelection),) )
-        elif self.Ymode == 'ElectrostaticMap': 
+        elif self.Ymode in {'ElectrostaticMap','AtomsAndBonds'}: 
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
         elif self.Ymode == 'xyz': 
             Ys = np.empty( (n,)+(self.Nmax_xyz,4) )
@@ -563,6 +566,10 @@ class Generator(Sequence,):
             elif ( self.Ymode == 'SpheresType' ):
                 self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(len(self.typeSelection),), coefs=coefs )
                 self.projector.setAtomTypes( self.Zs[:na], sel = self.typeSelection )
+            elif ( self.Ymode in {'Bonds','AtomsAndBonds'} ):
+                bonds2atoms = np.array( basUtils.findBonds_( self.atomsNonPBC, self.Zs, 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
+                # bonds = findBondsNP( atoms, fRcut=0.7, ELEMENTS=elements.ELEMENTS ) 
+                self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs, bonds2atoms=bonds2atoms )
             else:
                 self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs )
 
@@ -750,6 +757,10 @@ class Generator(Sequence,):
         #Y[:,:] = self.scanner.runIzoZ( iso=0.1, nz=40 )
         #Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
 
+        dirFw = np.append( self.rot[2], [0] ); 
+        if(verbose>0): print "dirFw ", dirFw
+        poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+
         # --- Different modes of output map
         if self.Ymode == 'HeightMap':
             '''
@@ -790,51 +801,29 @@ class Generator(Sequence,):
             Y[:,:,1] = zMap
 
         elif self.Ymode == 'SpheresType':
-            dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
-            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:,:] = self.projector.run_evalSpheresType( poss = poss_, tipRot=self.scanner.tipRot, bOccl=self.bOccl )
-            #print Y
-            #exit(0)
         elif self.Ymode == 'MultiMapSpheres':
-            dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
-            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:,:] = self.projector.run_evalMultiMapSpheres( poss = poss_, tipRot=self.scanner.tipRot, bOccl=self.bOccl, Rmin=self.Rmin, Rstep=self.Rstep )
-
         elif self.Ymode == 'Lorenzian':
-            dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0):  print "dirFw ", dirFw
-            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] =  self.projector.run_evalLorenz( poss = poss_ )[:,:,0]
         elif self.Ymode == 'Spheres':
-            dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
-            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+        elif self.Ymode == 'Bonds':
+            Y[:,:] = self.projector.run_evalBondEllipses( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]   
+        elif self.Ymode == 'AtomRfunc':
+            Y[:,:] = self.projector.run_evalAtomRfunc( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]  
         elif self.Ymode == 'SphereCaps':
-            dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
-            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalSphereCaps( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'Disks':
-            dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
-            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evaldisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'DisksOcclusion':
-            dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
-            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evaldisks_occlusion( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'QDisks':
-            dirFw = np.append( self.rot[2], [0] ); print "dirFw ", dirFw
-            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalQdisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+        elif self.Ymode == 'AtomsAndBonds':
+            Y[:,:,0] = self.projector.run_evalAtomRfunc   ( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+            Y[:,:,1] = self.projector.run_evalBondEllipses( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'D-S-H':
-            dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
-            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             # Disks
             Y[:,:,0] = self.projector.run_evaldisks  ( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
             # Spheres
@@ -899,7 +888,7 @@ class Generator(Sequence,):
 
         self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAbove, rot=rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
 
-        print  " >>>>>>> maxTilt0 ", self.maxTilt0, "tipR0 ", tipR0
+        if(verbose>0): print  " >>>>>>> maxTilt0 ", self.maxTilt0, "tipR0 ", tipR0
 
         FEout  = self.scanner.run_relaxStrokesTilted()
 
@@ -927,7 +916,7 @@ class Generator(Sequence,):
 
     def plotGroups(self, plt, groups, xys):
         #print " >>> INSIDE :  plotGroups ", len(groups)
-        plt.scatter(xys[:,0],xys[:,1],s=0.1,c="#ffffff",marker="X")
+        plt.scatter(xys[:,0],xys[:,1],s=0.1,c="#ffffff",marker="x")
         #plt.plot(xys[:,0],xys[:,1],"o-w")
         
         for i in range(len(groups)):
@@ -980,6 +969,8 @@ class Generator(Sequence,):
 
         #self.saveDebugXSF(  self.preName + molName + rotName+"_Fz.xsf", X, d=(0.1,0.1,0.1) )
 
+        cmap = 'viridis'
+
         title = "entropy  NA"
         if entropy is not None:
             title = "entropy %f" %entropy
@@ -992,13 +983,17 @@ class Generator(Sequence,):
                 plt.title(title)
                 plt.colorbar()
             if self.Ymode == 'D-S-H':
-                print "plot  D-S-H mode", fname, Y.shape
+                if(verbose>0):print "plot  D-S-H mode", fname, Y.shape
                 plt.figure(figsize=(15,5))
-                plt.subplot(1,3,1); plt.imshow( Y[:,:,0], origin='image', extent=extent ); plt.title("Disks");     plt.colorbar()
-                plt.subplot(1,3,2); plt.imshow( Y[:,:,1], origin='image', extent=extent ); plt.title("Spheres");   plt.colorbar()
-                plt.subplot(1,3,3); plt.imshow( Y[:,:,2], origin='image', extent=extent ); plt.title("HeightMap"); plt.colorbar()
+                plt.subplot(1,3,1); plt.imshow( Y[:,:,0], origin='image', extent=extent, cmap=cmap ); plt.title("Disks");     plt.colorbar()
+                plt.subplot(1,3,2); plt.imshow( Y[:,:,1], origin='image', extent=extent, cmap=cmap ); plt.title("Spheres");   plt.colorbar()
+                plt.subplot(1,3,3); plt.imshow( Y[:,:,2], origin='image', extent=extent, cmap=cmap ); plt.title("HeightMap"); plt.colorbar()
+            if self.Ymode == 'AtomsAndBonds':
+                plt.figure(figsize=(15,5))
+                plt.subplot(1,2,1); plt.imshow( Y[:,:,0], origin='image', extent=extent, cmap=cmap ); plt.title("AtomRfunc");     plt.colorbar()
+                plt.subplot(1,2,2); plt.imshow( Y[:,:,1], origin='image', extent=extent, cmap=cmap ); plt.title("BondElipses");   plt.colorbar()
             else:
-                plt.imshow( Y, origin='image', extent=extent );
+                plt.imshow( Y, origin='image', extent=extent, cmap=cmap );
                 plt.title(title)
                 plt.colorbar()
 
@@ -1008,9 +1003,9 @@ class Generator(Sequence,):
                 xyzs  = self.atomsNonPBC[:,:3] - self.pos0[None,:]
                 xyzs_ = rotAtoms(self.rot,xyzs)
                 #print "xyzs_.shape", xyzs_.shape
-                bonds  = chem.findBonds( xyzs_, Zs, Rcut=2.0, fRvdw=1.3 )
+                bonds  = chem.findBonds( xyzs_, Zs, fR=1.3 )
                 #print bonds
-                neighs = chem.bonds2neighs(bonds, Zs )
+                neighs = chem.bonds2neighsZs(bonds, Zs )
                 #print neighs
                 groups = chem.neighs2str( Zs, neighs, bPreText=True )
                 #print  groups
@@ -1027,20 +1022,20 @@ class Generator(Sequence,):
             if (X is not None) and (Y_ is not None):
                 plt.figure(figsize=(10,5))
                 #print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
-                plt.subplot(1,2,2); plt.imshow (X [:,:,isl], origin='image', extent=extent );            plt.colorbar()
-                #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl], origin='image', extent=extent );
-                plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]), origin='image', extent=extent );   plt.colorbar()
+                plt.subplot(1,2,2); plt.imshow (X [:,:,isl], origin='image', extent=extent, cmap=cmap );            plt.colorbar()
+                #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl], origin='image', extent=extent, cmap=cmap );
+                plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]), origin='image', extent=extent, cmap=cmap );   plt.colorbar()
                 plt.title(title)
                 plt.savefig( fname+( "FzFixRelax_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                 plt.close()
             else:
                 if X is not None:
                     if(verbose>0): print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
-                    plt.imshow(  X[:,:,isl], origin='image', extent=extent );    plt.colorbar()
+                    plt.imshow(  X[:,:,isl], origin='image', extent=extent, cmap=cmap );    plt.colorbar()
                     plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                     plt.close()
                 if Y_ is not None:
-                    plt.imshow ( Y_[:,:,isl], origin='image', extent=extent );   plt.colorbar()
+                    plt.imshow ( Y_[:,:,isl], origin='image', extent=extent, cmap=cmap );   plt.colorbar()
                     plt.savefig( fname+( "FzFix_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                     plt.close()
 
@@ -1066,3 +1061,259 @@ class Generator(Sequence,):
 
 
 
+
+# ==========================================================
+# ==========================================================
+# ====================== TEST RUN ==========================
+# ==========================================================
+# ==========================================================
+
+
+
+if __name__ == "__main__":
+    import matplotlib as mpl;  mpl.use('Agg');
+    import matplotlib.pyplot as plt
+    #import argparse
+    #import datetime
+    import os
+    #from shutil import copyfile
+    import subprocess
+    from optparse import OptionParser
+
+    #import sys
+    #sys.path.append("/u/21/oinonen1/unix/PPMOpenCL")
+    #sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
+    #sys.path.append("/home/prokop/git/ProbeParticleModel")
+    #from   pyProbeParticle import basUtils
+    #import pyProbeParticle.common    as PPU
+    #import pyProbeParticle.GridUtils as GU
+    #import pyopencl as cl
+    #import pyProbeParticle.HighLevelOCL as hl
+    #import pyProbeParticle.GeneratorOCL_LJC as PPGen
+    #import pyProbeParticle.GeneratorOCL_LJC_RR as PPGen
+    #from pyProbeParticle.GeneratorOCL_LJC import Generator
+    PPGen = current_module = sys.modules[__name__]
+
+    # ============ Setup Probe Particle
+
+    batch_size = 1
+    nRot       = 100
+    nBestRotations = 1
+
+    molecules = ["out2"]
+
+    parser = OptionParser()
+    parser.add_option( "-Y", "--Ymode", default='D-S-H', action="store", type="string", help="tip stiffenss [N/m]" )
+    (options, args) = parser.parse_args()
+
+    print "options.Ymode: ", options.Ymode
+
+    #molecules = ["BOSS/A1","BOSS/A2","BOSS/A3","BOSS/B1","BOSS/B2","BOSS/B3"]
+    #molecules = ["BOSS2/A1","BOSS2/A2","BOSS2/A3","BOSS2/A4","BOSS2/A5","BOSS2/B1","BOSS2/B2","BOSS2/B3"]
+    #molecules = ["BOSS2/A3"]
+    #molecules = ["tercbutyl", "adamantane",  "antracene",  "ferocene"   ]
+    #molecules = ["gen1","gen2","gen3","gen4","gen5","gen6","gen7","gen8","gen9","gen10"]
+    #molecules = ["gen4"]
+    #molecules = ["out2","out3"]
+    #molecules = ["type_test"]
+    #molecules = ["out34"]
+    #molecules = ["outCampher2"]
+    #molecules = ["../Molecules/0"]
+    #rotations = PPU.genRotations( np.array([1.0,0.0,0.0]) , np.linspace(-np.pi/2,np.pi/2, nRot) )
+
+    #make rotations
+    #rotations = PPU.sphereTangentSpace(n=nRot) # http://blog.marmakoide.org/?p=1
+    #print rotations
+    rotations = np.array( [ [[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]], ] )
+
+    #rotations = rotations[85:87]
+    #print "rotations", rotations
+    # initialize OpenCL kernels and stuff
+    FFcl.init()
+    oclr.init()
+    #make data generator
+    #data_generator = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='HeightMap' )
+    #data_generator = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='ElectrostaticMap' )
+    #data_generator = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Lorenzian' )
+    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Disks' )
+    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='QDisks' )
+    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='DisksOcclusion' )
+    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Spheres' )
+    #data_generator   = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Spheres' )
+    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='SphereCaps' )
+    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='D-S-H' )
+    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='xyz' )
+    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='MultiMapSpheres' )
+    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='SpheresType' )
+
+    data_generator   = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode=options.Ymode  )
+
+    #data_generator.use_rff      = True
+    #data_generator.save_rff_xyz = True
+
+    # --- 'MultiMapSpheres' and 'SpheresType' settings
+    data_generator.bOccl = 1   # switch occlusion of atoms 0=off 1=on
+
+    # --- 'SpheresType' setting
+    #data_generator.typeSelection =  [1,6,8,16]  # select atom types for each output channel
+    data_generator.typeSelection =  [1,6,7,8,16,33]  # select atom types for each output channel
+
+    # --- 'MultiMapSpheres' settings  ztop[ichan] = (R - Rmin)/Rstep
+    data_generator.nChan = 5      # number of channels, resp. atom size bins
+    data_generator.Rmin  = 1.4    # minimum atom radius
+    data_generator.Rstep = 0.2    # size range per bin (resp. channel)
+
+    data_generator.zmin_xyz = -2.0  # max depth for visible atoms
+    data_generator.Nmax_xyz = 3    # max number of visible atoms
+
+    #data_generator.preHeight = True
+
+    data_generator.projector.Rpp  = -0.5
+    '''
+    #data_generator.projector.zmin = -3.0
+    data_generator.projector.zmin  = -1.5
+    data_generator.projector.dzmax = 2.0
+    data_generator.projector.tgMax = 0.6
+    data_generator.projector.tgWidth = 0.1
+    '''
+
+    xs = np.linspace(0.0,10.0,100)
+    dx = xs[1]-xs[0];
+    xs -= dx
+    ys = np.exp( -5*xs )
+
+    data_generator.projector.Rfunc   = ys.astype(np.float32)
+    data_generator.projector.invStep = dx
+    data_generator.projector.Rmax    = xs[-1] - 3*dx
+    plt.figure()
+    plt.plot(xs,data_generator.projector.Rfunc); plt.grid()
+    plt.savefig( "Rfunc.png" )
+    plt.close()
+    
+
+    #data_generator.rotJitter = PPU.makeRotJitter(10, 0.3)
+
+    # --- params randomization 
+    data_generator.randomize_parameters = False
+    data_generator.rndQmax     = 0.1    # charge += rndQmax * ( rand()-0.5 )  (negative is off)
+    data_generator.rndRmax     = 0.2    # charge += rndRmax * ( rand()-0.5 )  (negative is off)
+    data_generator.rndEmax     = 0.5    # charge *= (1 + rndEmax     * ( rand()-0.5 )) (negative is off)
+    data_generator.rndAlphaMax = -0.1   # charge *= (1 + rndAlphaMax * ( rand()-0.5 )) (negative is off)
+    #data_generator.modMolParams = modMolParams_def   # custom function to modify parameters
+
+    #data_generator.debugPlots = True
+    data_generator.distAbove = 7.0
+    #data_generator.distAbove = 8.0
+    #data_generator.distAbove = 8.5
+    #data_generator.distAbove = 9.0
+
+    #data_generator.maxTilt0 = 0.0    # symmetric tip
+    data_generator.maxTilt0 = 0.5     # asymetric tip  tilted max +/-1.0 Angstreom in random direction
+    #data_generator.maxTilt0 = 2.0     # asymetric tip  tilted max +/-1.0 Angstreom in random direction
+
+    data_generator.shuffle_rotations = False
+    data_generator.shuffle_molecules = False
+    data_generator.nBestRotations    = nBestRotations
+
+    # molecule are read from filename =  preName + molecules[imol] + postName
+    data_generator.preName    = ""           # appended befroe path filename
+    data_generator.postName   = "/pos.xyz"
+
+    #data_generator.debugPlots = True   # plotting dubug images? much slower when True
+    #data_generator.Q = -0.5;
+    #data_generator.Q = -0.3;
+    data_generator.Q = -0.1;
+
+    # z-weight exp(-wz*z)
+    data_generator.wz      = 1.0    # deacay
+    data_generator.zWeight =  data_generator.getZWeights();
+
+    # weight-function for Fz -> df conversion ( oscilation amplitude 1.0Angstroem = 10 * 0.1 ( 10 n steps, dz=0.1 Angstroem step lenght ) )
+    dfWeight = PPU.getDfWeight( 10, dz=0.1 ).astype(np.float32)
+    data_generator.dfWeight = dfWeight
+
+    # plot zWeights
+    plt.figure()
+    plt.plot(data_generator.zWeight);
+    plt.savefig( "zWeights.png" )
+    plt.close()
+
+    # plot dfWeights
+    plt.figure()
+    plt.plot(data_generator.dfWeight);
+    plt.savefig( "dfWeights.png" )
+    plt.close()
+    #plt.show()
+
+    # print
+    #data_generator.bDfPerMol = True
+    #data_generator.nDfMin    = 5
+    #data_generator.nDfMax    = 15
+
+
+    #data_generator.scan_dim = ( 100, 100, 20)
+    data_generator.scan_dim = ( 128, 128, 30)
+
+
+
+    # generate 10 batches
+    for i in range(1):
+        Xs,Ys = data_generator[i]
+        #Xs=Xs[::2]; Ys=Ys[::2]
+
+        '''
+        print "Ys.shape ", Ys.shape
+
+        for i in range( Ys[0].shape[2] ):
+            plt.figure()
+            plt.imshow( Ys[0][:,:,i] )
+            plt.title( "img[%i]" %i )
+
+        plt.show()
+        '''
+        #exit()
+
+        #print "_0"
+
+        data_generator.debugPlotSlices = range(0,Xs[0].shape[2],2)
+        for j in range( len(Xs) ):
+            #print "_1"
+            print "j ", j
+            #np.save( "X_i%03i_j%03i.npy" %(i,j), Xs[j] )
+            #np.save( "Y_i%03i_j%03i.npy" %(i,j), Ys[j] )
+            print "Ys[j].shape", Ys[j].shape
+            fname = "batch_%03i_%03i_" %(i,j)
+
+            #for ichan in range( Ys[j].shape[2] ):
+            #    plt.figure()
+            #    plt.imshow( Ys[j][:,:,ichan] )
+            #    plt.title( "i %i j %i ichan %i" %(i,j,ichan) )
+
+            #nch = Ys[j].shape[2]
+            #plt.figure(figsize=(5*nch,5))
+            #for ichan in range( nch ):
+            #    plt.subplot(  1, nch, ichan+1 )
+            #    plt.imshow( Ys[j][:,:,ichan] )
+            #    plt.title( "i %i j %i ichan %i" %(i,j,ichan) )
+
+            #data_generator.plot( "/"+fname, molecules[i*batch_size+j], X=Xs[j], Y=Ys[j], entropy=0.0, bXYZ=True )
+            #data_generator.plot( "/"+fname, molecules[data_generator.imol], X=Xs[j], Y=Ys[j], entropy=0.0, bXYZ=True, bGroups=True )
+            data_generator.plot( "/"+fname, molecules[data_generator.imol], X=Xs[j], Y=Ys[j], entropy=0.0, bXYZ=True, bGroups=False )
+            #print "_2"
+            #data_generator.plot( "/"+fname, molecules[data_generator.imol], X=None, Y=Ys[j], entropy=0.0, bXYZ=True )
+
+            #print Ys[j]
+
+            '''
+            fname = "batch_%03i_%03i_" %(i,j)
+            data_generator.plot( "/"+fname, molecules[0], Y=Ys[j], entropy=0.0, bPOVray=True, bXYZ=True, bRot=True )
+            #subprocess.run("povray Width=800 Height=800 Antialias=On Antialias_Threshold=0.3 Output_Alpha=true %s" %(fname+'.pov') )
+            subprocess.call("povray Width=800 Height=800 Antialias=On Antialias_Threshold=0.3 Output_Alpha=true %s" %(fname+'.pov') )
+            povname = "./"+molecules[0]+"/"+fname+'.pov'
+            cwd = os.getcwd()
+            print ">>>>> cwd = os.getcwd() ", cwd
+            print ">>>>> povname : ", povname
+            os.system( "povray Width=800 Height=800 Antialias=On Antialias_Threshold=0.3 Output_Alpha=true %s" %povname )
+            '''
+
+    plt.show()

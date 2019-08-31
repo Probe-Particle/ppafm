@@ -393,6 +393,36 @@ def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
                 bonds.append( (i,j) )
     return bonds
 
+def findBondsNP( atoms, fRcut=0.7, ELEMENTS = elements.ELEMENTS ):
+    bonds     = []
+    bondsVecs = []
+    ps     = atoms[:,1:]
+    iatoms = np.arange( len(atoms), dtype=int )
+
+    Ratoms = np.array( [ ELEMENTS[ int(ei) ][7] for ei in atoms[:,0] ] ) * frCut
+
+    subs = []
+    for i,atom in enumerate(atoms):
+        p    = atom[1:]
+        dp   = ps - p
+        r2s  = np.sum( dp**2, axis=1 )
+        mask = ( (Ratoms + Ratoms[i])**2 - r2s) > 0
+        ni   = np.nonzero(mask)
+        ijs  = np.empty( (ni,2), np.int32 )
+        ijs[:,0] = i
+        ijs[:,1] = iatoms[mask]
+        subs.append( ijs  )
+        #for j in iatoms[:i][ rs[:i] < Rcut2 ]:
+        #    #ei = int( atoms[i,0] )
+        #    #ej = int( atoms[j,0] )
+        #    #Rcut_ij =  elements.ELEMENTS[ ei ][7] + elements.ELEMENTS[ ej ][7]
+        #    #print ( i, j, ei, ej, Rcut_ij )
+        #    rij =  np.sqrt( rs[j] )
+        #    if ( rij < ( RvdwCut * Rcut_ij ) ):
+        #        bonds.append( (i,j) )
+        #        bondsVecs.append( ( rij, dp[j]/rij ) )
+    bonds = np.concatenate( subs )
+    return bonds    #, bondsVecs
 
 def findBonds_( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS):
     bonds = []

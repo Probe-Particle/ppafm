@@ -6,6 +6,11 @@
 #define N_RELAX_STEP_MAX  16
 #define F2CONV  1e-8
 
+#include "splines.cl"
+
+inline float3 rotMat ( float3 v,  float3 a, float3 b, float3 c  ){ return (float3)(dot(v,a),dot(v,b),dot(v,c)); }
+inline float3 rotMatT( float3 v,  float3 a, float3 b, float3 c  ){ return a*v.x + b*v.y + c*v.z; }
+
 float4 getCoulomb( float4 atom, float3 pos ){
      float3  dp  =  pos - atom.xyz;
      float   ir2 = 1.0f/( dot(dp,dp) +  R2SAFE );
@@ -702,4 +707,138 @@ __kernel void evalSpheresType(
     }
 }
 
+__kernel void evalBondEllipses(
+    int nBonds,
+    __global float8*    bondPoints,
+    __global float4*    poss,
+    __global float*     out,
+    __constant float*   Rfunc,     // definition of radial function
+    float drStep,
+    float Rmax,
+    float elipticity,
+    float zmin,
+    float4 rotA,
+    float4 rotB,
+    float4 rotC
+){
+    #define  nFuncMax    128
+    __local float  RFUNC [nFuncMax];
+    __local float8 LATOMS[32];
 
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+
+    //float3 pos = poss[iG].xyz;
+    float3 pos = rotMat ( poss[iG].xyz,  rotA.xyz, rotB.xyz, rotC.xyz );
+    float invStep = 1/drStep;
+    //if( iG==0 ){ for(int i=0; i<nBonds; i++){ printf( " a1(%g,%g,%g,%g) a2(%g,%g,%g,%g) \n", bondPoints[i].lo.x,bondPoints[i].lo.y,bondPoints[i].lo.z,bondPoints[i].lo.w,   bondPoints[i].hi.x,bondPoints[i].hi.y,bondPoints[i].hi.z,bondPoints[i].hi.w );  } }
+    //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf("itypes[%i] = %i \n" , i, itypes[i] ); } }
+
+    // local copy of Rfunc
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int i0=0; i0<nFuncMax; i0+= nL ){ int i = i0+iL; RFUNC[i] = Rfunc[i]; }
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    float R2max = Rmax*Rmax;
+    float ftot=0;
+    //nBonds = 1;
+    for (int i0=0; i0<nBonds; i0+= nL ){
+        int i = i0 + iL;
+        LATOMS[iL] = bondPoints[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nBonds ){ 
+                float3 p1 = rotMat ( LATOMS[j].lo.xyz,  rotA.xyz, rotB.xyz, rotC.xyz );
+                float3 p2 = rotMat ( LATOMS[j].hi.xyz,  rotA.xyz, rotB.xyz, rotC.xyz );
+                float2 hbond   = p2.xy - p1.xy;
+                float  rbond  = length(hbond);
+                hbond /= rbond;
+                float2 d  = pos.xy - p1.xy;
+                float  c  = dot(d,hbond);
+                float2 dT = d   - hbond*c;
+                //float dl = ( fabs(c) + fabs(rbond-c) - rbond )*0.5;
+                //float r2 = dot(dT,dT) + dl*dl;
+                //float r2 = dot(dT,dT)* max(0.0, 4.0*c*(rbond-c)/(rbond*rbond)   );
+                float c_ = (c-0.5*rbond)*elipticity;
+                float r2 = dot(dT,dT) + c_*c_ ;
+                float r  = sqrt(r2); 
+                //float z       = reciprocalInterp( p1.z, p2.z, r2xy1, r2xy2  );
+                float z =  mix ( p1.z, p2.z, c/rbond ) - pos.z;
+                if( (r < Rmax) && (z>zmin) ){
+                    float fi   = spline_Hermite_y_arr( r*invStep, RFUNC );
+                    float zfunc = max( (zmin-z)/zmin, 0.0f );
+                    fi*=zfunc;
+                    //if( iG==0 ){ printf( " i0 %i j %i   fi %g   r2xy %g  beta %g   dp1(%g,%g,%g), dp1(%g,%g,%g) \n", i0, j,  fi, r2xy,    beta,   dp1.x,dp1.y,dp1.z, dp2.x,dp2.y,dp2.z ); }
+                    //if( iG==0 ){ printf( " i0 %i j %i   z,zmin(%g,%g) zfunc %g    fi %g  fi*zfunc %g  rxy %g   sx %g  \n", i0, j,  z, zmin,  zfunc,  fi, zfunc*fi, r, r*invStep ); }
+                    //ftot += fi  ;
+                    ftot = fmax( fi, ftot );
+                }
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    out[iG] = ftot;
+}
+
+
+__kernel void evalAtomRfunc(
+    int nAtoms, 
+    __global float4*    atoms,
+    __global float4*    coefs,
+    __global float4*    poss,
+    __global float*     FE,
+    __constant float*   Rfunc,     // definition of radial function
+    float drStep,
+    float Rmax,
+    float zmin,
+    float4 rotA,
+    float4 rotB,
+    float4 rotC
+){
+    #define  nFuncMax    128
+    __local float  RFUNC [nFuncMax];
+    __local float4 LATOMS[32];
+    __local float4 LCOEFS[32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    float3 pos = poss[iG].xyz;
+    float invStep = 1/drStep;
+
+    // local copy of Rfunc
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int i0=0; i0<nFuncMax; i0+= nL ){ int i = i0+iL; RFUNC[i] = Rfunc[i]; }
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    float ftot = 0;
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        LATOMS[iL] = atoms[i];
+        LCOEFS[iL] = coefs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nAtoms ){ 
+                float3 dp    = pos - LATOMS[j].xyz;
+                float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
+                float  RvdW  = LCOEFS[j].w;
+                float r2xy   =  dot(abc.xy,abc.xy);
+                float r      = sqrt(r2xy);
+                float  z     = -dp.z + RvdW - 1.4;  // subtract hydrogen ?
+                if( (r < Rmax) && (z>zmin) ){
+                    //float fi = exp( beta*rxy );
+                    float fi   = spline_Hermite_y_arr( r*invStep, RFUNC );
+                    float zfunc = max( (zmin-z)/zmin, 0.0f );
+                    fi*=zfunc;
+                    //if( iG==0 ){ printf( " i0 %i j %i   fi %g   r2xy %g  beta %g   dp1(%g,%g,%g), dp1(%g,%g,%g) \n", i0, j,  fi, r2xy,    beta,   dp1.x,dp1.y,dp1.z, dp2.x,dp2.y,dp2.z ); }
+                    //if( iG==0 ){ printf( " i0 %i j %i   z,zmin(%g,%g) zfunc %g    fi %g  fi*zfunc %g  r %g   sx %g  \n", i0, j,  z, zmin,  zfunc,  fi, zfunc*fi, r, r*invStep ); }
+                    //ftot += fi  ;
+                    ftot = fmax( fi, ftot );
+                }
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    FE[iG] = ftot;
+}
