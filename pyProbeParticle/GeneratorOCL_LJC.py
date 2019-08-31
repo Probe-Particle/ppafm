@@ -195,9 +195,9 @@ class Generator(Sequence,):
     scan_start = (-8.0,-8.0) 
     scan_end   = ( 8.0, 8.0)
     scan_dim   = ( 100, 100, 30)
-    distAbove  =  7.5
-    distAboveRange = (7.2,7.8)
-    molCenterAfm = False
+    distAbove  =  6.5       # if only distAbove specified when calling generator it starts from center of top atom
+    distAboveRange = None   # example of range: (6.0,6.4). If distAboveRange specified it starts from top sphere's shell: distAbove = distAbove + RvdW_top  
+    molCenterAfm = False    # if setted molecule will appear not by top atom in center, but avereged center
     planeShift = -4.0
     
 
@@ -591,13 +591,13 @@ class Generator(Sequence,):
         #print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
 
-
         # random uniform select distAbove in range distAboveRange and shift it up to radius vdW of top atom
+
+        atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]           #shift atoms coord to rotation center point of view            
+        atoms_rotated_to_pos0 = rotAtoms(self.rot, atoms_shifted_to_pos0)            #rotate atoms coord to rotation center point of view
+        if(verbose>1): print " :::: atoms_rotated_to_pos0 ", atoms_rotated_to_pos0
         if self.distAboveRange is not None:
-            self.distAbove=np.random.uniform(self.distAboveRange[0],self.distAboveRange[1])
-            atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]           #shift atoms coord to rotation center point of view            
-            atoms_rotated_to_pos0 = rotAtoms(self.rot, atoms_shifted_to_pos0)            #rotate atoms coord to rotation center point of view
-            if(verbose>1): print " :::: atoms_rotated_to_pos0 ", atoms_rotated_to_pos0
+            self.distAbove=np.random.uniform(self.distAboveRange[0],self.distAboveRange[1])            
             RvdWs = self.REAs[:,0] - 1.6612  # real RvdWs of atoms after substraction of RvdW(O)
             if(verbose>1): print " :::: RvdWs ", RvdWs
             zs = atoms_rotated_to_pos0[:,2].copy()
@@ -607,6 +607,7 @@ class Generator(Sequence,):
 
             if(verbose>1): print " :::: imax ", imax
             self.distAbove = self.distAbove + RvdWs[imax] # shifts distAbove for vdW-Radius of top atomic shell
+            
             if(verbose>1): print " :::: distAbove ", self.distAbove
         
         # shift projection to molecule center but leave top atom still in the center
@@ -619,6 +620,7 @@ class Generator(Sequence,):
             #now we will move AFM window to the molecule center but still leave top atom inside window 
             AFM_window_shift = np.clip(average_mol_pos[:], a_min = top_atom_pos[:] + self.scan_start[:], a_max = top_atom_pos[:] + self.scan_end[:]) [0]
             if(verbose>1): print " : AFM_window_shift", AFM_window_shift
+      
       
 
         vtipR0    = np.zeros(3)
