@@ -4,13 +4,22 @@ import os
 import pyopencl as cl
 import numpy    as np 
 
-import oclUtils as oclu
+import time
+#import oclUtils as oclu
+
 
 cl_program = None
+oclu       = None
 
-def init():
+def init(env):
     global cl_program
-    cl_program = oclu.loadProgram(oclu.CL_PATH+"/FF.cl")
+    global oclu
+    cl_program = env.loadProgram(env.CL_PATH+"/FF.cl")
+    oclu = env
+
+#def init():
+#    global cl_program
+#    cl_program = oclu.loadProgram(oclu.CL_PATH+"/FF.cl")
 
 # TODO: this is clearly candidate form Object Oriented desing
 #
@@ -19,11 +28,17 @@ def init():
 #       update()
 #       run()
 
-verbose = 0
+verbose    = 0
+bRuntime   = False
 
 # ========= init Args 
 
-def initArgsCoulomb( atoms, poss, ctx=oclu.ctx ):
+def getCtxQueue():
+    return oclu.ctx, oclu.queue
+
+#def initArgsCoulomb( atoms, poss, ctx=oclu.ctx ):
+def initArgsCoulomb( atoms, poss ):
+    ctx,queue = getCtxQueue()
     nbytes     =  0;
     nAtoms     = np.int32( len(atoms) ) 
     mf         = cl.mem_flags
@@ -31,10 +46,12 @@ def initArgsCoulomb( atoms, poss, ctx=oclu.ctx ):
     cl_poss    = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes
     cl_FE      = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ); nbytes+=poss.nbytes
     kargs = ( nAtoms, cl_atoms, cl_poss, cl_FE )
-    if(verbose>0):print "initArgsCoulomb.nbytes ", nbytes
+    if(verbose>0): print "initArgsCoulomb.nbytes ", nbytes
     return kargs 
 
-def initArgsLJC( atoms, cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+#def initArgsLJC( atoms, cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+def initArgsLJC( atoms, cLJs, poss ):
+    ctx,queue = getCtxQueue()
     nbytes     =  0;
     nAtoms   = np.int32( len(atoms) ) 
     #print " initArgsLJC ", nAtoms
@@ -42,12 +59,15 @@ def initArgsLJC( atoms, cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     cl_atoms = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
     cl_cLJs  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  ); nbytes+=cLJs.nbytes
     cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
-    cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ); nbytes+=poss.nbytes*2 # float8
+    #cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ); nbytes+=poss.nbytes*2 # float8
+    cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes ); nbytes+=poss.nbytes # float4     # we are using Qmix now
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
     if(verbose>0):print "initArgsLJC.nbytes ", nbytes
     return kargs
 
-def initArgsLJ(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+#def initArgsLJ(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+def initArgsLJ(atoms,cLJs, poss ):
+    ctx,queue = getCtxQueue()
     nbytes     =  0;
     nAtoms   = np.int32( len(atoms) ) 
     #print "initArgsLJ ", nAtoms
@@ -60,7 +80,8 @@ def initArgsLJ(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
     if(verbose>0):print "initArgsLJ.nbytes ", nbytes
     return kargs
 
-def initArgsMorse(atoms,REAs, poss, ctx=oclu.ctx, queue=oclu.queue ):
+def initArgsMorse(atoms,REAs, poss ):
+    ctx,queue = getCtxQueue()
     nbytes     =  0;
     nAtoms   = np.int32( len(atoms) ) 
     #print "initArgsMorse ", nAtoms
@@ -83,17 +104,17 @@ def releaseArgs( kargs ):
 
 # ========= Update Args 
 
-def updateArgsLJC( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
+def updateArgsLJC( kargs_old, atoms=None, cLJs=None, poss=None ):
+    ctx,queue = getCtxQueue()
     mf       = cl.mem_flags
     if kargs_old is None:
-        
-        return initArgsLJC( atoms, cLJs, poss, ctx=ctx, queue=queue )
+        return initArgsLJC( atoms, cLJs, poss )
     else:
         if atoms is not None:
             nAtoms   = np.int32( len(atoms) )
             if (kargs_old[0] != nAtoms):
                 if(verbose>0): print " kargs_old[0] != nAtoms; TRY only"#; exit()
-                return initArgsLJC( atoms, cLJs, poss, ctx=ctx, queue=queue )
+                return initArgsLJC( atoms, cLJs, poss )
                 #print " NOT IMPLEMENTED :  kargs_old[0] != nAtoms"; exit()
             else:
                 cl_atoms=kargs_old[1]
@@ -118,16 +139,17 @@ def updateArgsLJC( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, qu
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
     return kargs
 
-def updateArgsMorse( kargs_old=None, atoms=None, REAs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
+def updateArgsMorse( kargs_old=None, atoms=None, REAs=None, poss=None ):
+    ctx,queue = getCtxQueue()
     mf       = cl.mem_flags
     if kargs_old is None:
-        return initArgsMorse( atoms, REAs, poss, ctx=ctx, queue=queue )
+        return initArgsMorse( atoms, REAs, poss )
     else:
         if atoms is not None:
             nAtoms   = np.int32( len(atoms) )
             if (kargs_old[0] != nAtoms):
                 if(verbose>0): print " kargs_old[0] != nAtoms; TRY only"#; exit()
-                return initArgsMorse( atoms, REAs, poss, ctx=ctx, queue=queue )
+                return initArgsMorse( atoms, REAs, poss )
             else:
                 cl_atoms=kargs_old[1]
                 cl.enqueue_copy( queue, cl_atoms, atoms )
@@ -150,7 +172,8 @@ def updateArgsMorse( kargs_old=None, atoms=None, REAs=None, poss=None, ctx=oclu.
         kargs = ( nAtoms, cl_atoms, cl_cREAs, cl_poss, cl_FE )
         return kargs
 
-def updateArgsLJ( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, queue=oclu.queue ):
+def updateArgsLJ( kargs_old, atoms=None, cLJs=None, poss=None ):
+    ctx,queue = getCtxQueue()
     mf       = cl.mem_flags
     if kargs_old is None:
         return initArgsLJ( atoms, cLJs, poss, ctx=ctx, queue=queue )
@@ -159,7 +182,7 @@ def updateArgsLJ( kargs_old, atoms=None, cLJs=None, poss=None, ctx=oclu.ctx, que
             nAtoms   = np.int32( len(atoms) )
             if (kargs_old[0] != nAtoms):
                 if(verbose>0): print " kargs_old[0] != nAtoms; TRY only"#; exit()
-                return initArgsLJ( atoms, cLJs, poss, ctx=ctx, queue=queue )
+                return initArgsLJ( atoms, cLJs, poss )
             else:
                 cl_atoms=kargs_old[1]
                 cl.enqueue_copy( queue, cl_atoms, atoms )
@@ -187,7 +210,8 @@ def makeDivisibleUp( num, divisor ):
 
 # ========= Run Job
 
-def runCoulomb( kargs, nDim, local_size=(32,), ctx=oclu.ctx, queue=oclu.queue  ):
+def runCoulomb( kargs, nDim, local_size=(32,) ):
+    ctx,queue = getCtxQueue()
     ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
     global_size = (ntot,) 
     FE          = np.zeros( nDim+(4,) , dtype=np.float32 )
@@ -196,7 +220,8 @@ def runCoulomb( kargs, nDim, local_size=(32,), ctx=oclu.ctx, queue=oclu.queue  )
     queue.finish()
     return FE
 
-def runLJC( kargs, nDim, local_size=(32,), queue=oclu.queue ):
+def runLJC( kargs, nDim, local_size=(32,) ):
+    ctx,queue = getCtxQueue()
     ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
     global_size = (ntot,) # TODO make sure divisible by local_size
     #print "global_size:", global_size
@@ -207,7 +232,8 @@ def runLJC( kargs, nDim, local_size=(32,), queue=oclu.queue ):
     queue.finish()
     return FE
 
-def runLJ( kargs, nDim, local_size=(32,), queue=oclu.queue ):  # slowed down, because of problems with the field far away
+def runLJ( kargs, nDim, local_size=(32,) ):  # slowed down, because of problems with the field far away
+    ctx,queue = getCtxQueue()
     ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
     global_size = (ntot,)
     #print "global_size:", global_size
@@ -217,9 +243,10 @@ def runLJ( kargs, nDim, local_size=(32,), queue=oclu.queue ):  # slowed down, be
     queue.finish()
     return FE
 
-def runMorse( kargs, nDim, local_size=(32,), queue=oclu.queue ):
+def runMorse( kargs, nDim, local_size=(32,) ):
 #def runMorse( kargs, nDim, local_size=(1,), queue=oclu.queue ):
 #def runMorse( kargs, nDim, local_size=None, queue=oclu.queue ):
+    ctx,queue = getCtxQueue()
     ntot = nDim[0]*nDim[1]*nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
     global_size = (ntot,)
     #print "global_size:", global_size
@@ -301,22 +328,24 @@ class ForceField_LJC:
         self.ctx   = oclu.ctx; 
         self.queue = oclu.queue
 
-    def prepareBuffers(self, atoms, cLJs, poss=None, bDirect=False, nz=20 ):
+    def prepareBuffers(self, atoms=None, cLJs=None, poss=None, bDirect=False, nz=20 ):
         '''
         allocate all necessary buffers in GPU memory
         '''
         nbytes   =  0;
-        self.nAtoms   = np.int32( len(atoms) ) 
         mf       = cl.mem_flags
-        self.cl_atoms = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
-        self.cl_cLJs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  ); nbytes+=cLJs.nbytes
+        if atoms is not None:
+            self.nAtoms   = np.int32( len(atoms) ) 
+            self.cl_atoms = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
+        if cLJs is not None:
+            self.cl_cLJs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  ); nbytes+=cLJs.nbytes
         if poss is not None:
             self.nDim = poss.shape
             self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
-        if(not bDirect):
-            self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*2  ); nbytes+=poss.nbytes*2 # float8
-        #else:
-        #    self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*nz ); nbytes+=poss.nbytes*nz # float8
+            if(not bDirect):
+                self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*2  ); nbytes+=poss.nbytes*2 # float8
+            #else:
+            #    self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*nz ); nbytes+=poss.nbytes*nz # float8
         if(verbose>0): print "initArgsLJC.nbytes ", nbytes
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None ):
@@ -354,9 +383,37 @@ class ForceField_LJC:
             self.cl_poss,
             self.cl_FE,
         )
+        if(bRuntime): t0 = time.clock()
         cl_program.evalLJC( self.queue, global_size, local_size, *(kargs) )
         cl.enqueue_copy( self.queue, FE, kargs[4] )
         self.queue.finish()
+        if(bRuntime): print "time(ForceField_LJC.evalLJC) [s]: ", time.clock() - t0
+        return FE
+
+    def run_evalLJC_Q(self, FE=None, Qmix=0.0, local_size=(32,) ):
+        '''
+        generate force-field
+        '''
+        if FE is None:
+            FE = np.zeros( self.nDim[:3]+(8,), dtype=np.float32 )
+            if(verbose>0): print "FE.shape", FE.shape, self.nDim
+        ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        global_size = (ntot,) # TODO make sure divisible by local_size
+        #print "global_size:", global_size
+        #print "self.nAtoms ", self.nAtoms
+        kargs = (  
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cLJs,
+            self.cl_poss,
+            self.cl_FE,
+            np.float32(Qmix),
+        )
+        if(bRuntime): t0 = time.clock()
+        cl_program.evalLJC_Q( self.queue, global_size, local_size, *(kargs) )
+        cl.enqueue_copy( self.queue, FE, kargs[4] )
+        self.queue.finish()
+        if(bRuntime): print "time(ForceField_LJC.evalLJC) [s]: ", time.clock() - t0
         return FE
 
     def runRelaxStrokesDirect(self, Q, cl_FE, FE=None, local_size=(32,), nz=10 ):
@@ -396,25 +453,33 @@ class ForceField_LJC:
         self.queue.finish()
         return FE
 
-    def makeFF(self, xyzs, qs, cLJs, bonds2atoms=None, poss=None, nDim=None, lvec=None, pixPerAngstrome=10 ):
-        '''
-        generate force-field from given posions(xyzs), chagres(qs), Leanrd-Jones parameters (cLJs) etc.
-        '''
+    def initPoss(self, poss=None, nDim=None, lvec=None, pixPerAngstrome=10 ):
         if poss is None:
             if nDim is None:
                 nDim = genFFSampling( lvec, pixPerAngstrome=pixPerAngstrome )
             poss  = getposs( lvec, nDim )
-        #xyzs,Zs,enames,qs = basUtils.loadAtomsLines( atom_lines )
-        #natoms0 = len(Zs)
-        #if( npbc is not None ):
-        #    Zs, xyzs, qs = PPU.PBCAtoms3D( Zs, xyzs, qs, lvec[1:], npbc=npbc )
+        self.nDim =nDim
+        self.prepareBuffers(poss=poss)
+
+    def makeFF(self, xyzs, qs, cLJs, Qmix=0.0, FE=None ):
+        '''
+        generate force-field from given posions(xyzs), chagres(qs), Leanrd-Jones parameters (cLJs) etc.
+        '''
+        if(bRuntime): t0 = time.clock()
+        #if poss is None:
+        #    if nDim is None:
+        #        nDim = genFFSampling( lvec, pixPerAngstrome=pixPerAngstrome )
+        #    poss  = getposs( lvec, nDim )
 
         atoms = xyzq2float4(xyzs,qs);      self.atoms = atoms
-
         cLJs  = cLJs.astype(np.float32);   
-        self.prepareBuffers(atoms, cLJs, poss )
-        FF = self.run()
+        #self.prepareBuffers(atoms, cLJs, poss )
+        self.prepareBuffers(atoms, cLJs )
+        if(bRuntime): print "time(ForceField_LJC.makeFF.pre) [s]: ", time.clock() - t0
+        #FF = self.run( FE=FE, Qmix=Qmix )
+        FF = self.run_evalLJC_Q( FE=FE, Qmix=Qmix, local_size=(32,) )
         self.releaseBuffers()
+        if(bRuntime): print "time(ForceField_LJC.makeFF.tot) [s]: ", time.clock() - t0
         return FF, atoms
 
 
@@ -435,6 +500,7 @@ class AtomProcjetion:
     zmargin =  0.2   #  zmargin 
     tgMax   =  0.5   #  tangens of angle limiting occlusion for SphereCaps
     tgWidth =  0.1   #  tangens of angle for limiting rendered area for SphereCaps
+    Rfunc   = None
 
     def __init__( self ):
         self.ctx   = oclu.ctx; 
@@ -883,3 +949,4 @@ class AtomProcjetion:
         #print "Eout: \n", Eout
         #print " run_evalBondEllipses DONE "
         return Eout
+

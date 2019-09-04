@@ -5,7 +5,7 @@ import os
 import pyopencl as cl
 import numpy as np
 
-import oclUtils as oclu
+#import oclUtils as oclu
 
 import common as PPU
 #import cpp_utils as cpp_utils
@@ -15,9 +15,10 @@ import common as PPU
 cl_program = None
 #cl_queue   = None 
 #cl_context = None
-
 #FE         = None
 #FEout      = None
+oclu = None
+
 
 DEFAULT_dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
 DEFAULT_stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
@@ -44,9 +45,19 @@ def loadFEcl( Q = None ):
     return FE, lvec
 '''
 
-def init( cl_context=oclu.ctx):
+#def init( cl_context=oclu.ctx):
+def init(env):
     global cl_program
-    cl_program  = oclu.loadProgram(oclu.CL_PATH+"/relax.cl")
+    global oclu
+    cl_program  = env.loadProgram(env.CL_PATH+"/relax.cl")
+    oclu = env
+
+def getCtxQueue():
+    return oclu.ctx, oclu.queue
+
+#def init(oclu):
+#    global cl_program
+#    cl_program  = oclu.loadProgram(oclu.CL_PATH+"/relax.cl")
 
 def mat3x3to4f( M ):
     a = np.zeros( 4, dtype=np.float32); a[0:3] = M[0]
@@ -109,7 +120,8 @@ def rotTip(rot,zstep,tipR0=[0.0,0.0,4.0]):
     #print " self.dpos0Tip: ", self.dpos0Tip, " self.dpos0 ", self.dpos0
     return dTip, tipRot,dpos0Tip,dpos0
 
-def prepareBuffers( FE, scan_dim, ctx=oclu.ctx ):
+def prepareBuffers( FE, scan_dim ):
+    ctx,queue = getCtxQueue()
     nbytes = 0
     print "prepareBuffers FE.shape", FE.shape
     mf       = cl.mem_flags
@@ -127,7 +139,8 @@ def releaseArgs( kargs ):
     kargs[1].release() # cl_poss
     kargs[2].release() # cl_FEout
 
-def relax( kargs, scan_dim, invCell, poss=None, FEin=None, FEout=None, dTip=DEFAULT_dTip, stiffness=DEFAULT_stiffness, dpos0=DEFAULT_dpos0, relax_params=DEFAULT_relax_params, queue=oclu.queue):
+def relax( kargs, scan_dim, invCell, poss=None, FEin=None, FEout=None, dTip=DEFAULT_dTip, stiffness=DEFAULT_stiffness, dpos0=DEFAULT_dpos0, relax_params=DEFAULT_relax_params):
+    ctx,queue = getCtxQueue()
     nz = np.int32( scan_dim[2] )
     kargs = kargs  + ( invCell[0],invCell[1],invCell[2], dTip, stiffness, dpos0, relax_params, nz )
     if FEout is None:
@@ -171,6 +184,7 @@ class RelaxedScanner:
     #verbose=0  # this is global for now
 
     def __init__( self ):
+        #ctx,queue = getCtxQueue()
         self.queue  = oclu.queue
         self.ctx    = oclu.ctx
         self.stiffness    = DEFAULT_stiffness.copy()
@@ -347,7 +361,6 @@ class RelaxedScanner:
         if nz is None: nz=self.scan_dim[2] 
         if FEout is None:    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
         self.updateBuffers( FEin=FEin, lvec=lvec )
-
         #print ">>>>>> run_relaxStrokesTilted : tipRot ", self.tipRot
         kargs = ( 
             self.cl_ImgIn, 
@@ -361,6 +374,7 @@ class RelaxedScanner:
             self.surfFF,
             np.int32(nz) )
         #print kargs
+        #cl_program.relaxStrokesTilted_debug( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl_program.relaxStrokesTilted( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
         self.queue.finish()
@@ -422,11 +436,11 @@ class RelaxedScanner:
             self.cl_FEout,
             self.cl_FEconv,
             self.cl_WZconv, 
-            np.int32(nz), np.int32( self.nDimConvOut ) )
-
+            np.int32(nz), np.int32( self.nDimConvOut ) 
+        )
         # delete buffers
-        cl.enqueue_fill_buffer( self.queue, self.cl_FEconv, np.float32(0), 0, self.nDimConvOut )
-        FEconv[:,:,:] = 0.0
+        #cl.enqueue_fill_buffer( self.queue, self.cl_FEconv, np.float32(0.0), 0, self.nDimConvOut )
+        #FEconv[:,:,:] = 0.0
 
         cl_program.convolveZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl.enqueue_copy( self.queue, FEconv, self.cl_FEconv )
@@ -496,7 +510,7 @@ class RelaxedScanner:
             self.dpos0,
             np.int32(nz), np.float32( iso ) )
         local_size = (1,)
-        cl_program.getZisoFETilted( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), local_size, *kargs )
+        cl_program.getZisoFETilted( self.queue, ( np.int32(self.scan_dim[0]*self.scan_dim[1]),), local_size, *kargs )
         cl.enqueue_copy( self.queue,  zMap, self.cl_zMap  )
         cl.enqueue_copy( self.queue, feMap, self.cl_feMap )
         self.queue.finish()

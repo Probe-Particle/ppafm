@@ -12,8 +12,12 @@ float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
     return  (dpos-dpos0.xyz) * stiffness.xyz              // harmonic 3D
          + dpos * ( stiffness.w * (r-dpos0.w)/r );  // radial
 }
-
 */
+
+//#pragma OPENCL EXTENSION cl_amd_printf : enable
+//#pragma OPENCL EXTENSION cl_intel_printf : enable
+//#pragma OPENCL EXTENSION cl_amd_printf : enable
+
 
 inline float3 rotMat( float3 v, float3 a, float3 b, float3 c ){ return (float3)(dot(v,a),dot(v,b),dot(v,c)); }
 inline float3 rotMatT( float3 v,  float3 a, float3 b, float3 c  ){ return a*v.x + b*v.y + c*v.z; }
@@ -279,6 +283,41 @@ __kernel void relaxStrokes(
     }
 }
 
+
+
+
+
+
+
+
+
+
+__kernel void relaxStrokesTilted_debug(
+    __read_only image3d_t  imgIn,
+    __global  float4*      points,
+    __global  float4*      FEs,
+    float4 dinvA,
+    float4 dinvB,
+    float4 dinvC,
+    float4 tipA,
+    float4 tipB,
+    float4 tipC,
+    float4 stiffness,
+    float4 dpos0,
+    float4 relax_params,
+    float4 surfFF,
+    int nz
+){
+    const float3 dTip   = tipC.xyz * tipC.w;
+    const float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
+    float3 tipPos = points[get_global_id(0)].xyz;
+    float3 pos    = tipPos.xyz + dpos0_.xyz; 
+    for(int iz=0; iz<nz; iz++){
+        FEs[get_global_id(0)*nz + iz] = 1.0f;
+    }
+}
+
+
 __kernel void relaxStrokesTilted(
     __read_only image3d_t  imgIn,
     __global  float4*      points,
@@ -316,15 +355,7 @@ __kernel void relaxStrokesTilted(
             float3 dpos   = pos-tipPos;
             float3 dpos_  = rotMat  ( dpos, tipA.xyz, tipB.xyz, tipC.xyz );    // to tip-coordinates
             float3 ftip   = tipForce( dpos_, stiffness, dpos0 );
-            /*
-            // DEBUG
-            if( (get_global_id(0)==0) && (iz==0) && (i==0) ){ 
-                float3 dpos__  = rotMatT ( dpos_, tipA.xyz, tipB.xyz, tipC.xyz );
-                float3 dpos0__ = rotMat  ( dpos0_.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
-                printf( " tipC(%f,%f,%f) dp (%f,%f,%f) dp rot(%f,%f,%f) dp _(%f,%f,%f)  \n", tipC.x,tipC.y,tipC.z,    dpos.x, dpos.y, dpos.z,    dpos_.x, dpos_.y, dpos_.z, dpos__.x, dpos__.y, dpos__.z  ); 
-                printf( " tipC(%f,%f,%f) dp0(%f,%f,%f) dp0rot(%f,%f,%f) dp0_(%f,%f,%f)  \n", tipC.x,tipC.y,tipC.z,    dpos0.x, dpos0.y, dpos0.z,    dpos0_.x, dpos0_.y, dpos0_.z, dpos0__.x, dpos0__.y, dpos0__.z  ); 
-            };
-            */
+
             f            += rotMatT ( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
             f            +=  tipC.xyz * surfFF.x;                                // TODO: more sophisticated model of surface potential? Like Hamaker ?
 
@@ -354,6 +385,102 @@ __kernel void relaxStrokesTilted(
 }
 
 
+/*
+
+__kernel void relaxStrokesTilted(
+    __read_only image3d_t  imgIn,
+    __global  float4*      points,
+    __global  float4*      FEs,
+    float4 dinvA,
+    float4 dinvB,
+    float4 dinvC,
+    float4 tipA,
+    float4 tipB,
+    float4 tipC,
+    float4 stiffness,
+    float4 dpos0,
+    float4 relax_params,
+    float4 surfFF,
+    int nz
+){
+
+    if(get_global_id(0)==0){ printf("relaxStrokesTilted!!!!! %i \n", get_global_id(0) ); }
+
+    const float3 dTip   = tipC.xyz * tipC.w;
+    const float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
+
+    float3 tipPos = points[get_global_id(0)].xyz;
+    float3 pos    = tipPos.xyz + dpos0_.xyz; 
+
+    const float dt   = relax_params.x;
+    const float damp = relax_params.y;
+
+    //const int NMAX = 64;
+
+    //if( (get_global_id(0)==0) ){          printf( "relaxStrokesTilted dpos0_ (%g,%g,%g) \n", dpos0_.x, dpos0_.y, dpos0_.z );}
+    //if( (get_global_id(0)==0) ){          printf( "relaxStrokesTilted  nz %li NMAX %li \n", NMAX, nz  );}
+
+    //FEs[get_global_id(0)] = N_RELAX_STEP_MAX * 1.0f;
+
+    for(int iz=0; iz<nz; iz++){
+        float4 fe   = 0.0f;
+        float3 vel  = 0.0f;
+        for(int i=0; i<N_RELAX_STEP_MAX; i++){
+
+            //fe            = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+            //FEs[get_global_id(0)] += interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
+
+            //FEs[get_global_id(0)] = 1.0f;
+
+            //if( (get_global_id(0)==0) ){   printf( "iG[p][%i,%i] fe(%g,%g,%g,%g) pos(%g,%g,%g) \n", iz,i, fe.x, fe.y, fe.z, fe.w, pos.x,pos.y,pos.z ); }
+
+
+            float3 f      = fe.xyz;
+            float3 dpos   = pos-tipPos;
+            float3 dpos_  = rotMat  ( dpos, tipA.xyz, tipB.xyz, tipC.xyz );    // to tip-coordinates
+            float3 ftip   = tipForce( dpos_, stiffness, dpos0 );
+  
+            f            += rotMatT ( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
+            f            +=  tipC.xyz * surfFF.x;                                // TODO: more sophisticated model of surface potential? Like Hamaker ?
+
+            //f      +=  tipForce( dpos, stiffness, dpos0_ );  // Not rotated
+            
+            //vel      *=       relax_params.y;
+            //vel      += f   * relax_params.y;
+            //pos.xyz  += vel * relax_params.x;
+            vel      *=       damp;
+            vel      += f   * dt;
+            pos.xyz  += vel * dt;
+            if(dot(f,f)<F2CONV) break;
+
+        }
+        
+
+        if(1){ // output tip-rotated force
+            float4 fe_  = fe;
+            fe_.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
+            fe_.w   = fe.w;
+            //fe_ = get_global_id(0)*1.0f;
+            //if( (get_global_id(0)==0) ){          printf( "relaxStrokesTilted FE(%g,%g,%g,%g) \n", fe_.x, fe_.y, fe_.z, fe_.w );}
+            FEs[get_global_id(0)*nz + iz] = fe_;
+        }else{ // output molecule-rotated force 
+            FEs[get_global_id(0)*nz + iz] = fe;
+            //FEs[get_global_id(0)*nz + iz].xyz = pos;
+        }
+        tipPos += dTip.xyz;
+        pos    += dTip.xyz;
+
+    }
+
+//if(get_global_id(0)==16383){ printf("reached !!!!! %i \n", get_global_id(0) ); }
+//if(get_global_id(0)==0){ printf("global_size %i %i \n", get_global_size(0),get_global_size(1)); }
+//FEs[get_global_id(0)] = -3.0f;
+
+}
+*/
+
+
+
 __kernel void convolveZ(
     __global  float4* Fin,
     __global  float4* Fout,
@@ -372,6 +499,7 @@ __kernel void convolveZ(
             //fe +=  tanh( Fin[ ioffi + izi ] ) * weighs[ izi - izo ];
         }
         //if( ioffi == 0 ){ printf( "izo %i w[i] %e \n", izo, weighs[ izo ] ); }
+        //fe = (float)ioffo; // DEBUG
         Fout[ ioffo + izo ] = fe;
         //Fout[ ioffo + izo ] = weighs[ izo ];
         //Fout[ ioffo + izo ] = (float4) izo;
