@@ -198,7 +198,7 @@ class RelaxedScanner:
 
         self.surfFF = np.zeros(4,dtype=np.float32);
 
-    def prepareBuffers(self, FEin=None, lvec=None, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, FE2in=None ):
+    def prepareBuffers(self, FEin_np=None, lvec=None, FEin_cl=None, FEin_shape=None, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, FE2in=None ):
         #print " ========= prepareBuffers ", bZMap
         self.scan_dim = scan_dim
         if lvec is not None:
@@ -206,8 +206,32 @@ class RelaxedScanner:
         nbytes = 0
         #print "prepareBuffers FE.shape", FE.shape
         mf       = cl.mem_flags
-        if FEin is not None:
-            self.cl_ImgIn = cl.image_from_array(self.ctx,FEin,num_channels=4,mode='r');  nbytes+=FEin.nbytes        # TODO make this re-uploadable
+
+        # to learn how to copy GPU-hosted buffer to image:
+        #   https://github.com/inducer/pyopencl/blob/9a9c093d437ee10f7b9593cac90c0f9c0fd54ff5/pyopencl/__init__.py
+        print "RelaxedScanner.prepareBuffers"
+        if FEin_cl is not None:
+            print "FEin_shape : ", FEin_shape
+            format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
+            self.cl_ImgIn = cl.Image(self.ctx, mf.READ_ONLY, format, shape=FEin_shape[:3], pitches=None, hostbuf=None, is_array=False, buffer=None)
+            print "self.cl_ImgIn", self.cl_ImgIn
+            cl.enqueue_copy( queue=self.queue, src=FEin_cl, dest=self.cl_ImgIn, offset=0, origin=(0,0,0), region=FEin_shape[:3] )
+            '''
+            #  see here : https://github.com/inducer/pyopencl/blob/4bfb2d65d31c8132de46bbb007cfebd3b934328d/src/wrap_cl_part_2.cpp
+              m.def("_enqueue_copy_buffer_to_image", enqueue_copy_buffer_to_image,
+            py::arg("queue"),
+            py::arg("src"),
+            py::arg("dest"),
+            py::arg("offset"),
+            py::arg("origin"),
+            py::arg("region"),
+            py::arg("wait_for")=py::none()
+            );
+            '''
+            #cl.enqueue_copy( self.queue, self.cl_ImgIn, self.FEin_cl, origin=(0,0,0), region=region )
+            self.FEin_cl=FEin_cl
+        elif FEin_np is not None:
+            self.cl_ImgIn = cl.image_from_array(self.ctx,FEin_np,num_channels=4,mode='r');  nbytes+=FEin_np.nbytes        # TODO make this re-uploadable
         # see:    https://stackoverflow.com/questions/39533635/pyopencl-3d-rgba-image-from-numpy-array
         #img_format = cl.ImageFormat( cl.channel_order.RGBA, channel_type)
         #self.cl_ImgIn =  cl.Image(self.ctx, mf.READ_ONLY, img_format, shape=None, pitches=None, is_array=False, buffer=None)

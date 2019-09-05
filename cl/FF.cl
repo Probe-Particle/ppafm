@@ -150,6 +150,59 @@ __kernel void evalLJC_Q(
     //FE[iG] = poss[iG];
 }
 
+__kernel void evalLJC_Q_noPos(
+    const int nAtoms, 
+    __global float4* atoms,
+    __global float2*  cLJs,
+    __global float4*    FE,
+    int4 nGrid,
+    float4 grid_p0,
+    float4 grid_dA,
+    float4 grid_dB,
+    float4 grid_dC,
+    float Qmix
+){
+    __local float4 LATOMS[32];
+    __local float2 LCLJS [32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    //float3 pos = poss[iG].xyz;
+    //float3 pos = grid_p0 + grid_dA*get_global_id(0) + grid_dA*get_global_id(1)  + grid_dA*get_global_id (2);      // there would be more problematic local_id optimization
+
+    if(iG==0){ printf("evalLJC_Q_noPos: nAtom %i nGrid(%i,%i,%i,%i)   nL %i  nG %i nG_ %i  \n", nAtoms, nGrid.x, nGrid.y, nGrid.z, nGrid.w, nL, get_global_size(0), nGrid.x*nGrid.y*nGrid.z ); }
+
+    const int nab = nGrid.x*nGrid.y;
+    const int ia  = iG%nGrid.x; 
+    const int ib  = (iG%nab)/nGrid.x;
+    const int ic  = iG/nab; 
+    const int nMax = nab*nGrid.z;
+
+    if(iG>nMax) return;
+
+    float3 pos    = grid_p0.xyz + grid_dA.xyz*ia + grid_dA.xyz*ib  + grid_dA.xyz*ic;
+
+    float8 fe  = (float8) (0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        //if(i>=nAtoms) break;  // wrong !!!!
+        LATOMS[iL] = atoms[i];
+        LCLJS [iL] = cLJs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nAtoms ) fe += getLJC( LATOMS[j], LCLJS[j], pos );
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    // http://www.informit.com/articles/article.aspx?p=1732873&seqNum=3
+    //fe.hi  = fe.hi*COULOMB_CONST;
+    Qmix *= COULOMB_CONST;
+    FE[iG] = fe.lo + Qmix * fe.hi;
+    //FE[iG] = poss[iG];
+}
+
 __kernel void evalLJC(
     int nAtoms, 
     __global float4*   atoms,

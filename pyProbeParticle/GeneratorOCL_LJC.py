@@ -179,6 +179,9 @@ def getAtomsRotZminNsort_old( rot, xyzs, zmin, RvdWs=None, Zs=None, Nmax=30 ):
 
 class Generator(Sequence,):
 
+    bNoPoss   = True   # use algorithm which does not need to store array of FF_grid-sampling positions in memory (neither GPU-memory nor main-memory)
+    bNoFFCopy = True
+
     preName  = ""
     postName = ""
 
@@ -259,7 +262,6 @@ class Generator(Sequence,):
 
     preHeight = False
 
-
     bDfPerMol = False
     nDfMin = 5
     nDfMax = 15
@@ -330,13 +332,15 @@ class Generator(Sequence,):
         self.zWeight =  self.getZWeights();
 
     def initFF(self):
-        #atoms = forcefield.xyzq2float4(xyzs,qs);      self.atoms = atoms
-        #cLJs  = forcefield.cLJs.astype(np.float32);
-        #nDim = genFFSampling( self.lvec, pixPerAngstrome=self.pixPerAngstrome )
-        #poss = getposs( lvec, nDim )
-        #self.prepareBuffers(atoms, cLJs, poss )
-        self.forcefield.initPoss( lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
-        self.FEin = np.empty( self.forcefield.nDim, np.float32 )
+        if self.bNoPoss:
+            self.forcefield.initSampling( self.lvec, pixPerAngstrome=self.pixPerAngstrome )
+            #nDim = genFFSampling( self.lvec, pixPerAngstrome=self.pixPerAngstrome )
+            #self.forcefield.setLvec(self.lvec, nDim=nDim )
+        else:
+            self.forcefield.initPoss( lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
+        if not self.bNoFFCopy:
+            self.FEin = np.empty( self.forcefield.nDim, np.float32 )
+            #print "self.FEin.shape() ", self.FEin.shape
 
     def __iter__(self):
         return self
@@ -411,8 +415,6 @@ class Generator(Sequence,):
         if(bRunTime): t0=time.clock()
         n  = self.batch_size
         Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
-        #Xs = np.empty( (n,)+ self.scan_dim     )
-        #Xs = np.empty( (n,)+ self.scan_dim[:2]+(20,)  )
 
         if self.Ymode == 'D-S-H':
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
@@ -430,8 +432,14 @@ class Generator(Sequence,):
         for ibatch in range(n):
             self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
             if( self.irot == 0 ):# recalc FF
+
                 if self.projector is not None:
                     self.projector.tryReleaseBuffers()
+                
+                if(self.counter>0): # not first step
+                    if(verbose>1): print "scanner.releaseBuffers()"
+                    self.scanner.releaseBuffers()
+                
                 self.molName =  self.molecules[self.imol]
                 self.nextMolecule( self.molName ) 
 
@@ -443,12 +451,15 @@ class Generator(Sequence,):
                     if(verbose>0): print " ============= ndf ", ndf 
                     self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep ).astype(np.float32)
 
-                if(self.counter>0): # not first step
-                    if(verbose>1): print "scanner.releaseBuffers()"
-                    self.scanner.releaseBuffers()
+                print "self.forcefield.cl_FE ", self.forcefield.cl_FE
 
-                self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
-                
+                #exit()
+                if self.bNoFFCopy:
+                    self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim, 
+                        scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+                else:
+                    self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+
                 self.handleRotations()
             #print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
             rot = self.rotations_sorted[self.irot]
@@ -532,36 +543,6 @@ class Generator(Sequence,):
         #Hs *= 1.0
         Hs = np.clip( Hs, -3.0, 0.0 )
         Hs -= 1.0
-        #self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*(self.distAbove+Hs), rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
-        #zcut = -5.0
-        #mask = Hs<zcut
-        #Hs[mask]= zcut
-
-        #mask = Hs < -0.1
-        #Hs[mask] *= -1.0
-        #print "Hs[64,64] :",  Hs[64,64]
-        #Hs *= 0
-        #Hs = np.clip( Hs, -1.0, 1.0 )
-
-        #Hs*=-1.0
-        #Zmin = Hs.min()
-        #Hs -= Zmin
-        #Hs = np.clip( Hs, 0.0, 3.0 )
-        #Hs = np.clip( Hs, -6.0, -0.0 )
-        
-        #Hs = Hs*-1.0 - 3.0
-        #Hs *= 0.5
-        #Hs -= 1.0
-        #ns = Hs.shape
-        #Xs,Ys = np.mgrid[:ns[0],:ns[1]]
-        #Hs = (Xs-64)*0.05
-        #print Hs
-
-        #import matplotlib as mpl;  mpl.use('Agg');
-        #import matplotlib.pyplot as plt
-        #plt.imshow( Hs )
-        #plt.colorbar()
-        #plt.savefig( "Hs.png" )
 
         self.scan_pos0s[:,:,0] += self.rot[2,0] * Hs
         self.scan_pos0s[:,:,1] += self.rot[2,1] * Hs
@@ -598,19 +579,27 @@ class Generator(Sequence,):
         self.Zs = Zs
         if(bRunTime): print "runTime(Generator_LJC.nextMolecule().3) [s]: ", time.clock()-t0    # ---- up to here it takes    ~0.012 second  for size=(150, 150, 150)
         
-        FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, FE=self.FEin, Qmix=self.Q )       # ---- this takes   ~0.03 second  for size=(150, 150, 150)
+        if self.bNoFFCopy:
+            self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True )
+            self.atoms = self.forcefield.atoms
+        else:
+            #FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q )       # ---- this takes   ~0.03 second  for size=(150, 150, 150)
+            self.forcefield.makeFF( xyzs, qs, cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
+
         if(bRunTime): print "runTime(Generator_LJC.nextMolecule().4) [s]: ", time.clock()-t0
         if(bRunTime): t1 = time.clock()
         
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
 
         if( self.rotJitter is not None ):
+            if self.bNoFFCopy: print "ERROR bNoFFCopy==True  is not compactible with rotJitter==True "
             FF[:,:,:,:] *= (1.0/len(self.rotJitter) )
 
         #self.FEin  = FF[:,:,:,:4] + self.Q*FF[:,:,:,4:];               # ---- this takes   0.05 second  for size=(150, 150, 150)
         #if(bRunTime): print "runTime(Generator_LJC.nextMolecule().5) [s]: ", time.clock()-t1
 
         if self.Ymode == 'ElectrostaticMap':
+            if self.bNoFFCopy: print "ERROR bNoFFCopy==True is not compactible with Ymode=='ElectrostaticMap' "
             self.FE2in = FF[:,:,:,4:].copy();
 
         if self.projector is not None:
@@ -630,7 +619,7 @@ class Generator(Sequence,):
 
         #self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
         if(bRunTime): print "runTime(Generator_LJC.nextMolecule().6) [s]: ", time.clock()-t1
-        if(bRunTime): print "runTime(Generator.nextMolecule().tot) [s]: ", time.clock()-t0, "    size ", self.FEin.shape
+        if(bRunTime): print "runTime(Generator.nextMolecule().tot) [s]: ", time.clock()-t0, "    size ", self.forcefield.nDim
 
     #def nextRotation(self, rot, X,Y ):
     def nextRotation(self, X,Y ):
@@ -691,6 +680,10 @@ class Generator(Sequence,):
             self.scan_pos0s = self.calcPreHeight(self.scan_pos0s)
 
         FEout  = self.scanner.run_relaxStrokesTilted()
+
+        print "FEout shape,min,max", FEout.shape, FEout.min(), FEout.max()
+
+
 
         if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
             print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
@@ -1050,7 +1043,7 @@ if __name__ == "__main__":
     # initialize OpenCL kernels and stuff
 
     #import os
-    i_platform = 0
+    i_platform = 1
     env = oclu.OCLEnvironment( i_platform = i_platform )
     FFcl.init(env)
     oclr.init(env)
@@ -1058,31 +1051,31 @@ if __name__ == "__main__":
     bPlatformInfo = False
     if bPlatformInfo:
         os.environ['PYOPENCL_COMPILER_OUTPUT'] = '1'
-        
+        print "######################################################################"
+        print 
         env.printInfo()
         print 
+        print "######################################################################"
         print 
         env.printPlatformInfo()
         print 
-        print
-        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        print "######################################################################"
 
     #make data generator
-    #data_generator = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='HeightMap' )
-    #data_generator = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='ElectrostaticMap' )
-    #data_generator = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Lorenzian' )
-    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Disks' )
-    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='QDisks' )
-    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='DisksOcclusion' )
-    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Spheres' )
-    #data_generator   = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Spheres' )
-    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='SphereCaps' )
-    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='D-S-H' )
-    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='xyz' )
-    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='MultiMapSpheres' )
-    #data_generator  = PPGen.Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='SpheresType' )
-
-    data_generator   = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode=options.Ymode  )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='HeightMap' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='ElectrostaticMap' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Lorenzian' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Disks' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='QDisks' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='DisksOcclusion' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Spheres' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='Spheres' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='SphereCaps' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='D-S-H' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='xyz' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='MultiMapSpheres' )
+    #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='SpheresType' )
+    data_generator  = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode=options.Ymode  )
 
 
     #data_generator.use_rff      = True
@@ -1200,6 +1193,10 @@ if __name__ == "__main__":
 
     #bRunTime      = True
     #FFcl.bRuntime = True
+
+    data_generator            .verbose  = 1
+    data_generator.forcefield .verbose  = 1
+    data_generator.scanner    .verbose  = 1
 
     data_generator.initFF()
 

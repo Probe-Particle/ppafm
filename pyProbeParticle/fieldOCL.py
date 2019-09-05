@@ -262,8 +262,9 @@ def genFFSampling( lvec, pixPerAngstrome=10 ):
     nDim = np.array([
         int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[1],lvec[1])) )),
         int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[2],lvec[2])) )),
-        int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[3],lvec[3])) ))
-    ])
+        int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[3],lvec[3])) )),
+        4,
+    ], np.int32 )
     return nDim
 
 def getPos(lvec, nDim=None, step=(0.1,0.1,0.1) ):
@@ -327,6 +328,42 @@ class ForceField_LJC:
     def __init__( self ):
         self.ctx   = oclu.ctx; 
         self.queue = oclu.queue
+        self.cl_poss = None
+        self.cl_FE   = None
+
+    def initSampling(self, lvec, pixPerAngstrome=10, nDim=None ):
+        if nDim is None:
+            nDim = genFFSampling( lvec, pixPerAngstrome=pixPerAngstrome )
+        self.nDim = nDim
+        print "ForceField_LJC.initSampling nDim ", nDim
+        self.setLvec(lvec, nDim=nDim )
+
+    def initPoss(self, poss=None, nDim=None, lvec=None, pixPerAngstrome=10 ):
+        if poss is None:
+            initSampling(self, lvec, pixPerAngstrome=10, nDim=None )
+            #if nDim is None:
+            #    nDim = genFFSampling( lvec, pixPerAngstrome=pixPerAngstrome )
+            #poss  = getposs( lvec, nDim )
+            #self.nDim =nDim
+        self.prepareBuffers(poss=poss)
+
+    def setLvec(self, lvec, nDim = None ):
+        if nDim is not None:
+            self.nDim = np.array([nDim[0],nDim[1],nDim[2],4], dtype=np.int32)
+            print " setLvec self.nDim ", self.nDim
+        elif self.nDim is not None:
+            nDim = self.nDim
+        else:
+            print "ERROR : nDim must be set somewhere"; exit()
+        self.lvec0       = np.zeros( 4, dtype=np.float32 ) 
+        self.lvec        = np.zeros( (3,4), dtype=np.float32 ) 
+        self.lvec0       = lvec[  0,:3]
+        self.lvec[:,:3]  = lvec[1:4,:3]
+        self.dlvec       = np.zeros( (3,4), dtype=np.float32 )
+        print "ForceField_LJC.setLvec self.lvec", self.lvec.shape , self.dlvec.shape
+        self.dlvec[0,:]  =  self.lvec[0,:] * nDim[0]
+        self.dlvec[1,:]  =  self.lvec[1,:] * nDim[1]
+        self.dlvec[2,:]  =  self.lvec[2,:] * nDim[2]
 
     def prepareBuffers(self, atoms=None, cLJs=None, poss=None, bDirect=False, nz=20 ):
         '''
@@ -334,42 +371,56 @@ class ForceField_LJC:
         '''
         nbytes   =  0;
         mf       = cl.mem_flags
+        nb_float = np.dtype(np.float32).itemsize
         if atoms is not None:
             self.nAtoms   = np.int32( len(atoms) ) 
             self.cl_atoms = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
         if cLJs is not None:
             self.cl_cLJs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  ); nbytes+=cLJs.nbytes
         if poss is not None:
-            self.nDim = poss.shape
+            self.nDim = np.array( poss.shape, dtype=np.int32 )
             self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
-            if(not bDirect):
-                self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*2  ); nbytes+=poss.nbytes*2 # float8
-            #else:
-            #    self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY                   , poss.nbytes*nz ); nbytes+=poss.nbytes*nz # float8
+        if not bDirect:
+            nb = self.nDim[0]*self.nDim[1]*self.nDim[2] * 4 * nb_float
+            self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY , nb ); nbytes+=nb # float8
         if(verbose>0): print "initArgsLJC.nbytes ", nbytes
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None ):
         '''
         update content of all buffers
         '''
+        if(verbose>0): print " ForceField_LJC.updateBuffers "
         oclu.updateBuffer(atoms, self.cl_atoms )
         oclu.updateBuffer(cLJs,  self.cl_cLJs  )
         oclu.updateBuffer(poss,  self.cl_poss  )
 
-    def releaseBuffers(self):
+    def tryReleaseBuffers(self):
         '''
         release all buffers
         '''
-        self.cl_atoms.release()
-        self.cl_cLJs.release()
-        self.cl_poss.release()
-        self.cl_FE.release()
+        if(verbose>0): print " ForceField_LJC.releaseBuffers "
+        try: 
+            self.cl_atoms.release() 
+        except: 
+            pass
+        try: 
+            self.cl_cLJs.release() 
+        except: 
+            pass
+        try: 
+            self.cl_poss.release() 
+        except: 
+            pass
+        try: 
+            self.cl_FE.release() 
+        except: 
+            pass
 
-    def run(self, FE=None, local_size=(32,) ):
+    def run(self, FE=None, local_size=(32,), bCopy=True, bFinish=True ):
         '''
         generate force-field
         '''
-        if FE is None:
+        if bCopy and (FE is None):
             FE = np.zeros( self.nDim[:3]+(8,), dtype=np.float32 )
             if(verbose>0): print "FE.shape", FE.shape, self.nDim
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
@@ -385,17 +436,17 @@ class ForceField_LJC:
         )
         if(bRuntime): t0 = time.clock()
         cl_program.evalLJC( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, FE, kargs[4] )
-        self.queue.finish()
+        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[4] )
+        if bFinish: self.queue.finish()
         if(bRuntime): print "time(ForceField_LJC.evalLJC) [s]: ", time.clock() - t0
         return FE
 
-    def run_evalLJC_Q(self, FE=None, Qmix=0.0, local_size=(32,) ):
+    def run_evalLJC_Q(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
         '''
         generate force-field
         '''
-        if FE is None:
-            FE = np.zeros( self.nDim[:3]+(8,), dtype=np.float32 )
+        if bCopy and (FE is None):
+            FE = np.zeros( self.nDim[:3]+(4,), dtype=np.float32 )
             if(verbose>0): print "FE.shape", FE.shape, self.nDim
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -411,8 +462,37 @@ class ForceField_LJC:
         )
         if(bRuntime): t0 = time.clock()
         cl_program.evalLJC_Q( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, FE, kargs[4] )
-        self.queue.finish()
+        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[4] )
+        if bFinish: self.queue.finish()
+        if(bRuntime): print "time(ForceField_LJC.evalLJC) [s]: ", time.clock() - t0
+        return FE
+
+    def run_evalLJC_Q_noPos(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
+        '''
+        generate force-field
+        '''
+        if bCopy and (FE is None):
+            FE = np.zeros( self.nDim[:3]+(4,), dtype=np.float32 )
+            if(verbose>0): print "FE.shape", FE.shape, self.nDim
+        ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        global_size = (ntot,) # TODO make sure divisible by local_size
+        print "run_evalLJC_Q_noPos self.nDim ",self.nDim," bCopy, bFinish: ", bCopy, bFinish
+        kargs = (  
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cLJs,
+            self.cl_FE,
+            self.nDim,
+            self. lvec[0],
+            self.dlvec[0],
+            self.dlvec[1],
+            self.dlvec[2],
+            np.float32(Qmix),
+        )
+        if(bRuntime): t0 = time.clock()
+        cl_program.evalLJC_Q_noPos( self.queue, global_size, local_size, *(kargs) )
+        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[3] )
+        if bFinish: self.queue.finish()
         if(bRuntime): print "time(ForceField_LJC.evalLJC) [s]: ", time.clock() - t0
         return FE
 
@@ -453,34 +533,25 @@ class ForceField_LJC:
         self.queue.finish()
         return FE
 
-    def initPoss(self, poss=None, nDim=None, lvec=None, pixPerAngstrome=10 ):
-        if poss is None:
-            if nDim is None:
-                nDim = genFFSampling( lvec, pixPerAngstrome=pixPerAngstrome )
-            poss  = getposs( lvec, nDim )
-        self.nDim =nDim
-        self.prepareBuffers(poss=poss)
-
-    def makeFF(self, xyzs, qs, cLJs, Qmix=0.0, FE=None ):
+    def makeFF(self, xyzs, qs, cLJs, Qmix=0.0, FE=None, bRelease=True, bCopy=True, bFinish=True ):
         '''
         generate force-field from given posions(xyzs), chagres(qs), Leanrd-Jones parameters (cLJs) etc.
         '''
         if(bRuntime): t0 = time.clock()
-        #if poss is None:
-        #    if nDim is None:
-        #        nDim = genFFSampling( lvec, pixPerAngstrome=pixPerAngstrome )
-        #    poss  = getposs( lvec, nDim )
-
         atoms = xyzq2float4(xyzs,qs);      self.atoms = atoms
         cLJs  = cLJs.astype(np.float32);   
         #self.prepareBuffers(atoms, cLJs, poss )
         self.prepareBuffers(atoms, cLJs )
         if(bRuntime): print "time(ForceField_LJC.makeFF.pre) [s]: ", time.clock() - t0
-        #FF = self.run( FE=FE, Qmix=Qmix )
-        FF = self.run_evalLJC_Q( FE=FE, Qmix=Qmix, local_size=(32,) )
-        self.releaseBuffers()
+        #FF = self.run( FE=FE, Qmix=Qmix, bCopy=bCopy, bFinish=bFinish )
+        if self.cl_poss is not None:
+            FF = self.run_evalLJC_Q( FE=FE,       Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
+        else:
+            FF = self.run_evalLJC_Q_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
+        if(bRelease): self.releaseBuffers()
         if(bRuntime): print "time(ForceField_LJC.makeFF.tot) [s]: ", time.clock() - t0
         return FF, atoms
+
 
 
 class AtomProcjetion:
@@ -608,6 +679,7 @@ class AtomProcjetion:
         '''
         deallocated all GPU buffers
         '''
+        if(verbose>0): print " AtomProjection.releaseBuffers "
         self.cl_atoms.release()
         self.cl_coefs.release()
         self.cl_poss.release()
@@ -617,6 +689,7 @@ class AtomProcjetion:
         '''
         deallocated all GPU buffers (those which exists)
         '''
+        if(verbose>0): print " AtomProjection.releaseBuffers "
         try:
             self.cl_atoms.release()
         except:

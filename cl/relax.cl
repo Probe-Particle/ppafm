@@ -344,7 +344,7 @@ __kernel void relaxStrokesTilted(
     const float dt   = relax_params.x;
     const float damp = relax_params.y;
 
-    //if( (get_global_id(0)==0) ){          printf( " dpos0_ (%g,%g,%g) \n", dpos0_.x, dpos0_.y, dpos0_.z );}
+    if( (get_global_id(0)==0) ){     float4 fe = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );  printf( " pos (%g,%g,%g) feImg(%g,%g,%g,%g) \n", pos.x, pos.y, pos.z, fe.x,fe.y,fe.z,fe.w );}
 
     for(int iz=0; iz<nz; iz++){
         float4 fe;
