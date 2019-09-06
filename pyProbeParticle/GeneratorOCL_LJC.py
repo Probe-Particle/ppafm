@@ -179,8 +179,11 @@ def getAtomsRotZminNsort_old( rot, xyzs, zmin, RvdWs=None, Zs=None, Nmax=30 ):
 
 class Generator(Sequence,):
 
-    bNoPoss   = True   # use algorithm which does not need to store array of FF_grid-sampling positions in memory (neither GPU-memory nor main-memory)
-    bNoFFCopy = True
+    bNoPoss   = True    # use algorithm which does not need to store array of FF_grid-sampling positions in memory (neither GPU-memory nor main-memory)
+    bNoFFCopy = True    # should we copy Force-Field grid from GPU  to main_mem ?  ( Or we just copy it just internally withing GPU directly to image/texture used by RelaxedScanner )
+    #bNoFFCopy = False
+    bFEoutCopy = False  # should we copy un-convolved FEout from GPU to main_mem ? ( Or we should copy oly final convolved FEconv? ) 
+    bMergeConv = False  # should we use merged kernel relaxStrokesTilted_convZ or two separated kernells  ( relaxStrokesTilted, convolveZ  )
 
     preName  = ""
     postName = ""
@@ -342,6 +345,15 @@ class Generator(Sequence,):
             self.FEin = np.empty( self.forcefield.nDim, np.float32 )
             #print "self.FEin.shape() ", self.FEin.shape
 
+        if self.bNoFFCopy:
+            self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim,  scan_dim=self.scan_dim, 
+                                         nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), 
+                                         bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in 
+                                        )
+            self.scanner.preparePosBasis( start=self.scan_start, end=self.scan_end )
+        
+        self.scanner.updateBuffers( WZconv=self.dfWeight )
+
     def __iter__(self):
         return self
 
@@ -451,14 +463,17 @@ class Generator(Sequence,):
                     if(verbose>0): print " ============= ndf ", ndf 
                     self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep ).astype(np.float32)
 
-                print "self.forcefield.cl_FE ", self.forcefield.cl_FE
+                #print "self.forcefield.cl_FE ", self.forcefield.cl_FE
 
                 #exit()
                 if self.bNoFFCopy:
-                    self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim, 
-                        scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+                    #self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim, 
+                    #    scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+                    #print "NO COPY scanner.upadateFEin "
+                    self.scanner.upadateFEin( self.forcefield.cl_FE )
                 else:
                     self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+                    self.scanner.preparePosBasis(self, start=self.scan_start, end=self.scan_end )
 
                 self.handleRotations()
             #print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
@@ -466,7 +481,7 @@ class Generator(Sequence,):
             self.nextRotation( Xs[ibatch], Ys[ibatch] )
             #self.nextRotation( self.rotations[self.irot], Xs[ibatch], Ys[ibatch] )
             self.counter +=1
-        if(bRunTime): print "runTime(Generator.next1()) [s]: ", time.clock()-t0
+        if(bRunTime): print "runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0
         return Xs, Ys
 
     def next2(self):
@@ -557,40 +572,52 @@ class Generator(Sequence,):
         if(bRunTime): t0=time.clock()
         fullname = self.preName+fname+self.postName
         if(verbose>0): print " ===== nextMolecule: ", fullname
-        t1ff = time.clock();
         self.atom_lines = open( fullname ).readlines()
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.atom_lines )
+        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().1   ) [s]:  %0.6f" %(time.clock()-t0)    ," load atoms" 
         cog = (self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5)
         setBBoxCenter( xyzs, cog )
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().1) [s]: ", time.clock()-t0
+        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().2   ) [s]:  %0.6f" %(time.clock()-t0)    ," box,cog" 
         self.natoms0 = len(Zs)
-        
         self.REAs = PPU.getAtomsREA(  self.iZPP, Zs, self.typeParams, alphaFac=-1.0 )
+        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().3   ) [s]:  %0.6f" %(time.clock()-t0)   ," REAs = getAtomsREA " 
         if self.randomize_parameters and self.randomize_enabled:
             self.modMolParams( Zs, qs, xyzs, self.REAs, self.rndQmax, self.rndRmax, self.rndEmax, self.rndAlphaMax )
+        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().4   ) [s]:  %0.6f" %(time.clock()-t0)    ," modMolParams  if randomize_parameters " 
         cLJs = PPU.REA2LJ( self.REAs )
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().2) [s]: ", time.clock()-t0
+        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().5   ) [s]:  %0.6f" %(time.clock()-t0)    ," cLJs = REA2LJ(REAs) " 
         if( self.rotJitter is not None ):
             Zs, xyzs, qs, cLJs = PPU.multRot( Zs, xyzs, qs, cLJs, self.rotJitter, cog )
             basUtils.saveXyz( "test_____.xyz", Zs,  xyzs )
-
+        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().6   ) [s]:  %0.6f" %(time.clock()-t0)    ," rotJitter " 
         if( self.npbc is not None ):
-            Zs, xyzs, qs, cLJs = PPU.PBCAtoms3D( Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc )
+            #Zs, xyzs, qs, cLJs = PPU.PBCAtoms3D( Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc )
+            Zs, xyzqs, cLJs =  PPU.PBCAtoms3D_np( Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc )
         self.Zs = Zs
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().3) [s]: ", time.clock()-t0    # ---- up to here it takes    ~0.012 second  for size=(150, 150, 150)
+        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().7   ) [s]:  %0.6f" %(time.clock()-t0)    ," pbc, PBCAtoms3D_np "    # ---- up to here it takes    ~0.012 second  for size=(150, 150, 150)
         
         if self.bNoFFCopy:
-            self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True )
+            #self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True )
+            self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=None, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True )
             self.atoms = self.forcefield.atoms
         else:
             #FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q )       # ---- this takes   ~0.03 second  for size=(150, 150, 150)
-            self.forcefield.makeFF( xyzs, qs, cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
+            #FF,self.atoms  = self.forcefield.makeFF( xyzs, qs, cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
+            FF,self.atoms  = self.forcefield.makeFF( xyzqs, cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
 
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().4) [s]: ", time.clock()-t0
-        if(bRunTime): t1 = time.clock()
-        
+            #import matplotlib.pyplot as plt
+            #for i in range(0,150,5):
+            #    print "save fig %i" %i, "  min,max  ",     FF[:,:,i,2].min(), FF[:,:,i,2].max()
+            #    plt.imshow( FF[i,:,:,2] )
+            #    plt.colorbar()
+            #    plt.savefig("FF_%i.png" %i )
+            #    plt.close()
+
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
 
+        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().8   ) [s]:  %0.6f" %(time.clock()-t0)    ," forcefield.makeFF "
+        if(bRunTime): t1 = time.clock()
+                
         if( self.rotJitter is not None ):
             if self.bNoFFCopy: print "ERROR bNoFFCopy==True  is not compactible with rotJitter==True "
             FF[:,:,:,:] *= (1.0/len(self.rotJitter) )
@@ -618,8 +645,8 @@ class Generator(Sequence,):
                 self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs )
 
         #self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().6) [s]: ", time.clock()-t1
-        if(bRunTime): print "runTime(Generator.nextMolecule().tot) [s]: ", time.clock()-t0, "    size ", self.forcefield.nDim
+        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().8-9 ) [s]: ", time.clock()-t1    ," projector.prepareBuffers  "
+        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().tot ) [s]: ", time.clock()-t0,    " size ", self.forcefield.nDim
 
     #def nextRotation(self, rot, X,Y ):
     def nextRotation(self, X,Y ):
@@ -629,15 +656,16 @@ class Generator(Sequence,):
         if(bRunTime): t0=time.clock()
         (entropy, self.pos0, self.rot) = self.rotations_sorted[self.irot]
 
-#        if(verbose>0): 
-        #print " imol, irot, entropy ", self.imol, self.irot, entropy
+        if(verbose>0):  print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
-
-        # random uniform select distAbove in range distAboveRange and shift it up to radius vdW of top atom
 
         atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]           #shift atoms coord to rotation center point of view            
         atoms_rotated_to_pos0 = rotAtoms(self.rot, atoms_shifted_to_pos0)            #rotate atoms coord to rotation center point of view
         if(verbose>1): print " :::: atoms_rotated_to_pos0 ", atoms_rotated_to_pos0
+
+        if(bRunTime): print "runTime(Generator_LJC.nextRotation().1   ) [s]:  %0.6f" %(time.clock()-t0)   ," atoms transform(shift,rot)  "
+
+        # random uniform select distAbove in range distAboveRange and shift it up to radius vdW of top atom
         if self.distAboveRange is not None:
             if self.randomize_distance and self.randomize_enabled:
                 self.distAbove=np.random.uniform(self.distAboveRange[0],self.distAboveRange[1])
@@ -649,12 +677,12 @@ class Generator(Sequence,):
             zs += RvdWs  # z-coord of each atom with it's RvdW
             if(verbose>1): print " :::: zs ", zs
             imax = np.argmax( zs ) 
-
             if(verbose>1): print " :::: imax ", imax
             self.distAbove = self.distAbove + RvdWs[imax] # shifts distAbove for vdW-Radius of top atomic shell
-            
             if(verbose>1): print " :::: distAbove ", self.distAbove
         
+        if(bRunTime): print "runTime(Generator_LJC.nextRotation().2   ) [s]:  %0.6f" %(time.clock()-t0)  ," top atom "
+
         # shift projection to molecule center but leave top atom still in the center
         AFM_window_shift=(0,0)
         if self.molCenterAfm:
@@ -666,6 +694,8 @@ class Generator(Sequence,):
             AFM_window_shift = np.clip(average_mol_pos[:], a_min = top_atom_pos[:] + self.scan_start[:], a_max = top_atom_pos[:] + self.scan_end[:]) [0]
             if(verbose>1): print " : AFM_window_shift", AFM_window_shift
       
+        if(bRunTime): print "runTime(Generator_LJC.nextRotation().3   ) [s]:  %0.6f" %(time.clock()-t0)   ," molCenterAfm  "
+
         vtipR0    = np.zeros(3)
         if self.randomize_tip_tilt and self.randomize_enabled:
             vtipR0[0],vtipR0[1] = getRandomUniformDisk()
@@ -674,31 +704,48 @@ class Generator(Sequence,):
         vtipR0    *= self.maxTilt0
         vtipR0[2]  = self.tipR0 
 
-        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+self.rot[2]*self.distAbove+np.dot((AFM_window_shift[0],AFM_window_shift[1],0),self.rot), rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
+        if(bRunTime): print "runTime(Generator_LJC.nextRotation().4   ) [s]:  %0.6f" %(time.clock()-t0)   ," vtipR0  "
+
+        #self.scanner.setScanRot( , rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
+        pos0             = self.pos0+self.rot[2]*self.distAbove+np.dot((AFM_window_shift[0],AFM_window_shift[1],0),self.rot)
+        self.scan_pos0s  = self.scanner.setScanRot(pos0, rot=self.rot, zstep=0.1, tipR0=vtipR0 )
+        
+        if(bRunTime): print "runTime(Generator_LJC.nextRotation().5   ) [s]:  %0.6f" %(time.clock()-t0)  ," scan_pos0s = scanner.setScanRot() "
 
         if self.preHeight: 
             self.scan_pos0s = self.calcPreHeight(self.scan_pos0s)
 
-        FEout  = self.scanner.run_relaxStrokesTilted()
+        if(bRunTime): print "runTime(Generator_LJC.nextRotation().6   ) [s]:  %0.6f" %(time.clock()-t0)  ," preHeight "
 
-        print "FEout shape,min,max", FEout.shape, FEout.min(), FEout.max()
+        if self.bMergeConv:
+            FEout = self.scanner.run_relaxStrokesTilted_convZ()
+            if(bRunTime): print "runTime(Generator_LJC.nextRotation().8   ) [s]:  %0.6f" %(time.clock()-t0)  ," scanner.run_relaxStrokesTilted_convZ() "
+        else:
+            if self.bFEoutCopy:
+                FEout  = self.scanner.run_relaxStrokesTilted( bCopy=True, bFinish=True )
+            else:
+                #print "NO COPY scanner.run_relaxStrokesTilted "
+                self.scanner.run_relaxStrokesTilted( bCopy=False, bFinish=True )
+            if(bRunTime): print "runTime(Generator_LJC.nextRotation().7   ) [s]:  %0.6f" %(time.clock()-t0)  ," scanner.run_relaxStrokesTilted() "
+            #print "FEout shape,min,max", FEout.shape, FEout.min(), FEout.max()
+            if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
+                print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
+                exit()
+            #self.scanner.updateBuffers( WZconv=self.dfWeight )
+            FEout = self.scanner.run_convolveZ()
+            if(bRunTime): print "runTime(Generator_LJC.nextRotation().8   ) [s]:  %0.6f" %(time.clock()-t0)  ," scanner.run_convolveZ() "
 
-
-
-        if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
-            print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
-            exit()
-        
-        self.scanner.updateBuffers( WZconv=self.dfWeight )
-        FEout = self.scanner.run_convolveZ()
-        
-        X[:,:,:] = 0
         nz = min( FEout.shape[2], X.shape[2] )
-        X[:,:,:nz] = FEout[:,:,:nz,2].copy()
+        X[:,:,:nz] = FEout[:,:,:nz,2]     #.copy()
+        X[:,:,nz:] = 0
+
+        if(bRunTime): print "runTime(Generator_LJC.nextRotation().9   ) [s]:  %0.6f" %(time.clock()-t0)  ," X = Fout.z  "
 
         dirFw = np.append( self.rot[2], [0] ); 
         if(verbose>0): print "dirFw ", dirFw
         poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+
+        if(bRunTime): print "runTime(Generator_LJC.nextRotation().10  ) [s]:  %0.6f" %(time.clock()-t0)  ," poss_ <- scan_pos0s  "
 
         # --- Different modes of output map
         if self.Ymode == 'HeightMap':
@@ -772,7 +819,7 @@ class Generator(Sequence,):
 
         if(verbose>1): print "Ty %f [s]" %Ty
 
-        if(bRunTime): print "runTime(Generator.nextRotation()) [s]: ", time.clock()-t0
+        if(bRunTime): print "runTime(Generator_LJC.nextRotation().tot ) [s]:  %0.6f" %(time.clock()-t0)  ," size ", FEout.shape
 
         if(self.debugPlots):
             list = os.listdir('model/predictions/') # dir is your directory path
@@ -1043,12 +1090,12 @@ if __name__ == "__main__":
     # initialize OpenCL kernels and stuff
 
     #import os
-    i_platform = 1
+    i_platform = 0
     env = oclu.OCLEnvironment( i_platform = i_platform )
     FFcl.init(env)
     oclr.init(env)
 
-    bPlatformInfo = False
+    bPlatformInfo = True
     if bPlatformInfo:
         os.environ['PYOPENCL_COMPILER_OUTPUT'] = '1'
         print "######################################################################"
@@ -1091,10 +1138,10 @@ if __name__ == "__main__":
     # --- 'MultiMapSpheres' settings  ztop[ichan] = (R - Rmin)/Rstep
     data_generator.nChan = 5      # number of channels, resp. atom size bins
     data_generator.Rmin  = 1.4    # minimum atom radius
-    data_generator.Rstep = 0.2    # size range per bin (resp. channel)
+    data_generator.Rstep = 0.2    # size range per bin (resp. cGenerator.nextRotationnel)
 
-    data_generator.zmin_xyz = -2.0  # max depth for visible atoms
-    data_generator.Nmax_xyz = 3    # max number of visible atoms
+    data_generator.zmin_xyz = -2.0  # max depth for visible atoGenerator.nextRotation
+    data_generator.Nmax_xyz = 3    # max number of visible atomGenerator.nextRotation
 
     #data_generator.preHeight = True
 
@@ -1191,7 +1238,7 @@ if __name__ == "__main__":
     #data_generator.scan_dim = ( 100, 100, 20)
     data_generator.scan_dim = ( 128, 128, 30)
 
-    #bRunTime      = True
+    bRunTime      = True
     #FFcl.bRuntime = True
 
     data_generator            .verbose  = 1
@@ -1259,5 +1306,30 @@ if __name__ == "__main__":
             print ">>>>> povname : ", povname
             os.system( "povray Width=800 Height=800 Antialias=On Antialias_Threshold=0.3 Output_Alpha=true %s" %povname )
             '''
-
     plt.show()
+
+    '''
+    ====== Timing Results ======== ( Machine: GPU:   |  CPU: Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz )
+    runTime(Generator_LJC.nextMolecule().1   ) [s]:  0.000192  load atoms
+    runTime(Generator_LJC.nextMolecule().2   ) [s]:  0.000264  box,cog
+    runTime(Generator_LJC.nextMolecule().3   ) [s]:  0.000633  REAs = getAtomsREA 
+    runTime(Generator_LJC.nextMolecule().4   ) [s]:  0.000640  modMolParams  if randomize_parameters 
+    runTime(Generator_LJC.nextMolecule().5   ) [s]:  0.000684  cLJs = REA2LJ(REAs) 
+    runTime(Generator_LJC.nextMolecule().6   ) [s]:  0.000690  rotJitter 
+    runTime(Generator_LJC.nextMolecule().7   ) [s]:  0.000981  pbc, PBCAtoms3D_np 
+    runTime(Generator_LJC.nextMolecule().8   ) [s]:  0.002383  forcefield.makeFF                 !!!!!!!!!!!!!!    
+    runTime(Generator_LJC.nextMolecule().8-9 ) [s]:  0.001321  projector.prepareBuffers  
+    runTime(Generator_LJC.nextMolecule().tot ) [s]:  0.003778  size  [150 150 150   4]
+    runTime(Generator_LJC.nextRotation().1   ) [s]:  0.000124  atoms transform(shift,rot)  
+    runTime(Generator_LJC.nextRotation().2   ) [s]:  0.000206  top atom 
+    runTime(Generator_LJC.nextRotation().3   ) [s]:  0.000229  molCenterAfm  
+    runTime(Generator_LJC.nextRotation().4   ) [s]:  0.000267  vtipR0  
+    runTime(Generator_LJC.nextRotation().5   ) [s]:  0.002020  scan_pos0s = scanner.setScanRot() 
+    runTime(Generator_LJC.nextRotation().6   ) [s]:  0.002110  preHeight 
+    runTime(Generator_LJC.nextRotation().7   ) [s]:  0.003439  scanner.run_relaxStrokesTilted()  !!!!!!!!!!!!!!
+    runTime(Generator_LJC.nextRotation().8   ) [s]:  0.007660  scanner.run_convolveZ()           !!!!!!!!!!!!!!
+    runTime(Generator_LJC.nextRotation().9   ) [s]:  0.010177  X = Fout.z  
+    runTime(Generator_LJC.nextRotation().10  ) [s]:  0.011105  poss_ <- scan_pos0s  
+    runTime(Generator_LJC.nextRotation().tot ) [s]:  0.013272  size  (128, 128, 20, 4)
+    runTime(Generator_LJC.next1().tot        ) [s]:  0.017792
+    '''

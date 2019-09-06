@@ -171,8 +171,6 @@ __kernel void evalLJC_Q_noPos(
     //float3 pos = poss[iG].xyz;
     //float3 pos = grid_p0 + grid_dA*get_global_id(0) + grid_dA*get_global_id(1)  + grid_dA*get_global_id (2);      // there would be more problematic local_id optimization
 
-    if(iG==0){ printf("evalLJC_Q_noPos: nAtom %i nGrid(%i,%i,%i,%i)   nL %i  nG %i nG_ %i  \n", nAtoms, nGrid.x, nGrid.y, nGrid.z, nGrid.w, nL, get_global_size(0), nGrid.x*nGrid.y*nGrid.z ); }
-
     const int nab = nGrid.x*nGrid.y;
     const int ia  = iG%nGrid.x; 
     const int ib  = (iG%nab)/nGrid.x;
@@ -181,7 +179,17 @@ __kernel void evalLJC_Q_noPos(
 
     if(iG>nMax) return;
 
-    float3 pos    = grid_p0.xyz + grid_dA.xyz*ia + grid_dA.xyz*ib  + grid_dA.xyz*ic;
+    float3 pos    = grid_p0.xyz + grid_dA.xyz*ia + grid_dB.xyz*ib  + grid_dC.xyz*ic;
+
+    // if(iG==430662){ 
+    //     printf("evalLJC_Q_noPos: nAtom %i nGrid(%i,%i,%i,%i)   nL %i  nG %i nG_ %i  \n", nAtoms, nGrid.x, nGrid.y, nGrid.z, nGrid.w, nL, get_global_size(0), nGrid.x*nGrid.y*nGrid.z ); 
+    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_p0.x, grid_p0.y, grid_p0.z ); 
+    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_dA.x, grid_dA.y, grid_dA.z ); 
+    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_dB.x, grid_dB.y, grid_dB.z ); 
+    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_dC.x, grid_dC.y, grid_dC.z ); 
+    //     // 150*150*19 + 150*21 + 12 = 430662
+    //     printf("evalLJC_Q_noPos: iG %i ia,ib,ic(%i,%i,%i)   pos(%g,%g,%g) \n", iG, ia, ib, ic,   pos.x,pos.y,pos.z  ); 
+    // }
 
     float8 fe  = (float8) (0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 
@@ -198,6 +206,9 @@ __kernel void evalLJC_Q_noPos(
     }
     // http://www.informit.com/articles/article.aspx?p=1732873&seqNum=3
     //fe.hi  = fe.hi*COULOMB_CONST;
+
+    //if(iG==430662){      printf("evalLJC_Q_noPos: iG %i ia,ib,ic(%i,%i,%i)   pos(%g,%g,%g) Qmix %g fe.lo(%g,%g,%g)  fe.hi(%g,%g,%g) \n", iG, ia, ib, ic,   pos.x,pos.y,pos.z,   Qmix,   fe.lo.x,fe.lo.y,fe.lo.z,   fe.hi.x,fe.hi.y,fe.hi.z  ); }
+
     Qmix *= COULOMB_CONST;
     FE[iG] = fe.lo + Qmix * fe.hi;
     //FE[iG] = poss[iG];

@@ -344,7 +344,7 @@ __kernel void relaxStrokesTilted(
     const float dt   = relax_params.x;
     const float damp = relax_params.y;
 
-    if( (get_global_id(0)==0) ){     float4 fe = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );  printf( " pos (%g,%g,%g) feImg(%g,%g,%g,%g) \n", pos.x, pos.y, pos.z, fe.x,fe.y,fe.z,fe.w );}
+    //if( (get_global_id(0)==0) ){     float4 fe = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );  printf( " pos (%g,%g,%g) feImg(%g,%g,%g,%g) \n", pos.x, pos.y, pos.z, fe.x,fe.y,fe.z,fe.w );}
 
     for(int iz=0; iz<nz; iz++){
         float4 fe;
@@ -385,11 +385,11 @@ __kernel void relaxStrokesTilted(
 }
 
 
-/*
 
-__kernel void relaxStrokesTilted(
+__kernel void relaxStrokesTilted_convZ(
     __read_only image3d_t  imgIn,
     __global  float4*      points,
+    __constant  float*     weighs,
     __global  float4*      FEs,
     float4 dinvA,
     float4 dinvB,
@@ -401,10 +401,10 @@ __kernel void relaxStrokesTilted(
     float4 dpos0,
     float4 relax_params,
     float4 surfFF,
-    int nz
+    const int nz, const int nzout
 ){
 
-    if(get_global_id(0)==0){ printf("relaxStrokesTilted!!!!! %i \n", get_global_id(0) ); }
+    __local float  WEIGHTS[64];
 
     const float3 dTip   = tipC.xyz * tipC.w;
     const float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
@@ -415,31 +415,32 @@ __kernel void relaxStrokesTilted(
     const float dt   = relax_params.x;
     const float damp = relax_params.y;
 
-    //const int NMAX = 64;
+    //if( (get_global_id(0)==0) ){     float4 fe = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );  printf( " pos (%g,%g,%g) feImg(%g,%g,%g,%g) \n", pos.x, pos.y, pos.z, fe.x,fe.y,fe.z,fe.w );}
 
-    //if( (get_global_id(0)==0) ){          printf( "relaxStrokesTilted dpos0_ (%g,%g,%g) \n", dpos0_.x, dpos0_.y, dpos0_.z );}
-    //if( (get_global_id(0)==0) ){          printf( "relaxStrokesTilted  nz %li NMAX %li \n", NMAX, nz  );}
+    const int ioff = get_global_id(0)*nzout;
+    const int nzw   = nz-nzout;
+    const int iL=get_local_id(0);
+    const int nL=get_local_size(0);
+    for (int i=iL; i<nzw; i+=nL ){
+        WEIGHTS[i] = weighs[i];
+    }
+    for (int i=iL; i<nzout; i+=nL ){
+        FEs[i] = 0.0f;
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
 
-    //FEs[get_global_id(0)] = N_RELAX_STEP_MAX * 1.0f;
+    float4 fe_conv = 0.0f;
 
     for(int iz=0; iz<nz; iz++){
-        float4 fe   = 0.0f;
-        float3 vel  = 0.0f;
+        float4 fe;
+        float3 vel   = 0.0f;
         for(int i=0; i<N_RELAX_STEP_MAX; i++){
-
-            //fe            = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
-            //FEs[get_global_id(0)] += interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
-
-            //FEs[get_global_id(0)] = 1.0f;
-
-            //if( (get_global_id(0)==0) ){   printf( "iG[p][%i,%i] fe(%g,%g,%g,%g) pos(%g,%g,%g) \n", iz,i, fe.x, fe.y, fe.z, fe.w, pos.x,pos.y,pos.z ); }
-
-
+            fe            = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
             float3 f      = fe.xyz;
             float3 dpos   = pos-tipPos;
             float3 dpos_  = rotMat  ( dpos, tipA.xyz, tipB.xyz, tipC.xyz );    // to tip-coordinates
             float3 ftip   = tipForce( dpos_, stiffness, dpos0 );
-  
+
             f            += rotMatT ( ftip, tipA.xyz, tipB.xyz, tipC.xyz );      // from tip-coordinates
             f            +=  tipC.xyz * surfFF.x;                                // TODO: more sophisticated model of surface potential? Like Hamaker ?
 
@@ -452,49 +453,54 @@ __kernel void relaxStrokesTilted(
             vel      += f   * dt;
             pos.xyz  += vel * dt;
             if(dot(f,f)<F2CONV) break;
-
         }
         
-
         if(1){ // output tip-rotated force
-            float4 fe_  = fe;
-            fe_.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
-            fe_.w   = fe.w;
-            //fe_ = get_global_id(0)*1.0f;
-            //if( (get_global_id(0)==0) ){          printf( "relaxStrokesTilted FE(%g,%g,%g,%g) \n", fe_.x, fe_.y, fe_.z, fe_.w );}
-            FEs[get_global_id(0)*nz + iz] = fe_;
-        }else{ // output molecule-rotated force 
-            FEs[get_global_id(0)*nz + iz] = fe;
-            //FEs[get_global_id(0)*nz + iz].xyz = pos;
+            fe.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
         }
+
+        // do the convolution
+        for(int izout=0;izout<nzout;izout++){
+            int jzw = iz - izout;
+            if((jzw<nzw)&&(jzw>0)){
+                FEs[ ioff + izout] += fe * WEIGHTS[jzw];
+            }
+        }
+
         tipPos += dTip.xyz;
         pos    += dTip.xyz;
-
     }
 
-//if(get_global_id(0)==16383){ printf("reached !!!!! %i \n", get_global_id(0) ); }
-//if(get_global_id(0)==0){ printf("global_size %i %i \n", get_global_size(0),get_global_size(1)); }
-//FEs[get_global_id(0)] = -3.0f;
-
 }
-*/
-
 
 
 __kernel void convolveZ(
     __global  float4* Fin,
     __global  float4* Fout,
-    __global  float*  weighs,
+    //__global  float*  weighs,
+    __constant  float*  weighs,
     const int nzin, const int nzout
 ){
     const int ioffi = get_global_id(0)*nzin;
     const int ioffo = get_global_id(0)*nzout;
     const int nzw   = nzin-nzout;
+    //if( get_global_id(0)==0 ) printf( "local size %i \n", get_local_size(0) );
     //if( get_global_id(0)==0 ) printf( "izo %i izi %i Fz %g W %g \n", nzin, nzout, nzw );
+
+    __local float WEIGHTS[64];
+
+    const int iL=get_local_id(0);
+    const int nL=get_local_size(0);
+    for (int i=iL; i<nzw; i+=nL ){
+        if( i<nzw ) WEIGHTS[i] = weighs[i];
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
     for(int izo=0; izo<nzout; izo++){
         float4 fe = 0.0f;
         for(int jz=0; jz<nzw; jz++){
-            fe += Fin[ ioffi + izo + jz ] * weighs[ jz ];
+            //fe += Fin[ ioffi + izo + jz ] * weighs[ jz ];
+            fe += Fin[ ioffi + izo + jz ] * WEIGHTS[ jz ];
             //if( get_global_id(0)==0 ) printf( "izo %i izi %i Fz %g W %g \n", izo, jz, Fin[ ioffi + izo + jz ].z, weighs[ jz ] );
             //fe +=  tanh( Fin[ ioffi + izi ] ) * weighs[ izi - izo ];
         }
