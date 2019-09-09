@@ -184,10 +184,6 @@ def writeDebugXYZ__( fname, atoms, Zs ):
         fout.write( "%i %f %f %f\n" %( Zs[i],atoms[i][0], atoms[i][1], atoms[i][2]) )
     fout.write( "\n" )
 
-
-
-
-
 def loadXSFGeom( fname ):
     f = open(fname )
     e=[];x=[];y=[]; z=[]; q=[]

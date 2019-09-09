@@ -10,8 +10,9 @@ static int  iDebug = 0;
 #include "MMFF.h"
 #include "NBFF.h"
 #include "MMFFBuilder.h"
-#include "MMFFBuilder.h"
 #include "DynamicOpt.h"
+
+#include "Forces.h"
 
 using namespace MMFF;
 
@@ -43,22 +44,7 @@ struct{
 
 // ========= Export Fucntions to Python
 
-inline double boxForce1D(double x, double xmin, double xmax, double k){
-    double f=0;
-    if(k<0) return 0;
-    if(x>xmax){ f+=k*(xmax-x); }
-    if(x<xmin){ f+=k*(xmin-x); }
-    return f;
-}
-
-inline bool boxForce(const Vec3d p, Vec3d& f,const Vec3d& pmin, const Vec3d& pmax, const Vec3d& k){
-    f.x+=boxForce1D( p.x, pmin.x, pmax.x, k.x);
-    f.y+=boxForce1D( p.y, pmin.y, pmax.y, k.y);
-    f.z+=boxForce1D( p.z, pmin.z, pmax.z, k.z);
-}
-
 extern "C"{
-
 
 void clear(){ 
     builder.clear();
@@ -71,7 +57,6 @@ void clear(){
     _dealloc( opt.invMasses );
     opt.unbindAll();
 }
-
 
 double* getPos  (){ return (double*)ff.apos;   }
 double* getForce(){ return (double*)ff.aforce; }

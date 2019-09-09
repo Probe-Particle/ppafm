@@ -29,9 +29,9 @@ class GridShape {
 	inline void setCell( const Mat3d& cell_ ){
 		//n.set( n_ );
 		cell.set( cell_ ); 
-		dCell.a.set_mul( cell.a, 1.0d/n.a );
-		dCell.b.set_mul( cell.b, 1.0d/n.b );
-		dCell.c.set_mul( cell.c, 1.0d/n.c );
+		dCell.a.set_mul( cell.a, 1.0/n.a );
+		dCell.b.set_mul( cell.b, 1.0/n.b );
+		dCell.c.set_mul( cell.c, 1.0/n.c );
 		dCell.invert_T_to( diCell );	
 	};
 

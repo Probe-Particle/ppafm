@@ -87,7 +87,7 @@ int insertAtomType( int nbond, int ihyb, double rbond0, double aMorse, double bM
     return atomTypes.size()-1;
 }
 
-void ralloc(int natom){
+void reallocFF(int natom){
     ff.realloc(natom);
     ff.cleanAux();
 }

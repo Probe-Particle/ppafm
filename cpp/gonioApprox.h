@@ -6,26 +6,26 @@
 
 template <class TYPE>
 inline TYPE sin_taylor2( TYPE a ){
-	constexpr TYPE c3 = 1.0d/6;
-	constexpr TYPE c5 = 1.0d/120;
+	constexpr TYPE c3 = 1.0/6;
+	constexpr TYPE c5 = 1.0/120;
 	TYPE a2 = a*a;
 	return    a * ( 1 - a2*( c3 - c5*a2 ) );
 }
 
 template <class TYPE>
 inline TYPE cos_taylor2( TYPE a ){
-	constexpr TYPE c2 = 1.0d/2;
-	constexpr TYPE c4 = 1.0d/24;
+	constexpr TYPE c2 = 1.0/2;
+	constexpr TYPE c4 = 1.0/24;
 	TYPE a2 = a*a;
 	return    1 - a2*( c2 - c4*a2 );
 }
 
 template <class TYPE>
 inline void sincos_taylor2( TYPE a, TYPE& sa, TYPE& ca ){
-	constexpr TYPE c2 = 1.0d/2;
-	constexpr TYPE c3 = 1.0d/6;
-	constexpr TYPE c4 = 1.0d/24;
-	constexpr TYPE c5 = 1.0d/120;
+	constexpr TYPE c2 = 1.0/2;
+	constexpr TYPE c3 = 1.0/6;
+	constexpr TYPE c4 = 1.0/24;
+	constexpr TYPE c5 = 1.0/120;
 	TYPE a2 = a*a;
 	sa   = a * ( 1 - a2*( c3 - c5*a2 ) ) ;
 	ca   =       1 - a2*( c2 - c4*a2 )   ;
@@ -33,11 +33,11 @@ inline void sincos_taylor2( TYPE a, TYPE& sa, TYPE& ca ){
 
 template <class TYPE>
 inline void sincosR2_taylor( TYPE r2, TYPE& sa, TYPE& ca ){
-    constexpr TYPE c2 = -1.0d/2;
-    constexpr TYPE c3 = -1.0d/6;
-    constexpr TYPE c4 =  1.0d/24;
-    constexpr TYPE c5 =  1.0d/120;
-    constexpr TYPE c6 = -1.0d/720;
+    constexpr TYPE c2 = -1.0/2;
+    constexpr TYPE c3 = -1.0/6;
+    constexpr TYPE c4 =  1.0/24;
+    constexpr TYPE c5 =  1.0/120;
+    constexpr TYPE c6 = -1.0/720;
     //TYPE r2  = w.x*w.x + w.y*w.y + w.z*w.z;
     sa  =   1 + r2*( c3 + c5*r2 );
     ca  =  c2 + r2*( c4 + c6*r2 );
@@ -69,10 +69,10 @@ inline double atan2_a1( double y, double x ){
   double abs_y = fabs(y) + 1e-10f;      // kludge to prevent 0/0 condition
   if ( x < 0 ){
     a     = ( x + abs_y ) / ( abs_y - x );
-    angle = 2.35619449019d;
+    angle = 2.35619449019;
   }else{
     a     = ( x - abs_y ) / ( x + abs_y );
-    angle = 0.78539816339d;
+    angle = 0.78539816339;
   }
   double aa = a * a;
   //angle += a * ( -0.9817d + 0.1963d * aa );

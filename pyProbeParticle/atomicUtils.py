@@ -99,8 +99,8 @@ def pairsNotShareNeigh( pairs, neighs ):
                 break
         if not share_ng:
             pairs_.append( pair )
-    return pairs_    
-    
+    return pairs_
+
 def makeRotMat( fw, up ):
     fw   = fw/np.linalg.norm(fw)
     up   = up - fw*np.dot(up,fw)
@@ -146,8 +146,6 @@ def replacePairs( pairs, atoms, group, up_vec=(np.array((0.0,0.0,0.0)),1) ):
         #break
     return atoms_
 
-        
-            
 def findNearest( p, ps, rcut=1e+9 ):
 	rs = np.sum( (ps - p)**2, axis=1 )
 	imin = np.argmin(rs)
@@ -207,9 +205,9 @@ def saveAtoms( atoms, fname, xyz=True ):
             fout.write("%i %f %f %f\n"  %( atom[0], atom[1], atom[2], atom[3] ) )
     fout.close() 
 
-def writeToXYZ( fout, es, xyzs, qs=None ):
+def writeToXYZ( fout, es, xyzs, qs=None, commet="" ):
     fout.write("%i\n"  %len(xyzs) )
-    fout.write("\n")
+    fout.write(commet+"\n")
     if (qs is not None):
         for i,xyz in enumerate( xyzs ):
             fout.write("%s %f %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2], qs[i] ) )
@@ -222,6 +220,44 @@ def saveXYZ( es, xyzs, fname, qs=None ):
     fout = open(fname, "w")
     writeToXYZ( fout, es, xyzs, qs )
     fout.close() 
+
+def makeMovie( fname, n, es, func ):
+    fout = open(fname, "w")
+    for i in range(n):
+        xyzs, qs = func(i)
+        writeToXYZ( fout, es, xyzs, qs, commet=("frame %i " %i) )
+    fout.close() 
+
+def loadAtomsNP(fname):
+    xyzs   = [] 
+    Zs     = []
+    enames = []
+    qs     = []
+    with open(fname, 'r') as f:
+        for line in f:
+            wds = line.split()
+            try:
+                xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
+                try:
+                    iz    = int(wds[0]) 
+                    Zs    .append(iz)
+                    enames.append( elements.ELEMENTS[iz] )
+                except:
+                    ename = wds[0]
+                    enames.append( ename )
+                    Zs    .append( elements.ELEMENT_DICT[ename][0] )
+                try:
+                    q = float(wds[4])
+                except:
+                    q = 0
+                qs.append(q)
+            except:
+                print "cannot interpet line: ", line
+                continue
+    xyzs = np.array( xyzs )
+    Zs   = np.array( Zs, dtype=np.int32 )
+    qs   = np.array(qs)
+    return xyzs,Zs,enames,qs
 
 def loadAtoms( name ):
     f = open(name,"r")

@@ -7,7 +7,7 @@ LD=g++
 CPPFLAGS= -fPIC -std=c++11 -Ofast -march=native -mtune=native
 LDFLAGS= -shared
 
-all: PP GU MP RR PolyCycles atomfit MMFF
+all: PP GU MP RR PolyCycles_ atomfit_ MMFF_ FARFF_
 
 PP: ProbeParticle.o
 
@@ -17,11 +17,13 @@ MP: Multipoles.o
 
 RR: ReactiveFF.o
 
-PolyCycles: PolyCycles.o
+PolyCycles_: PolyCycles.o
 
-MMFF: MMFF.o
+MMFF_: MMFF.o
 
-atomfit: atomfit.o
+FARFF_: FARFF.o
+
+atomfit_: atomfit.o
 
 # .o files depend on .cpp files with same prefix
 # $@ target, $< prerequisite, $* matched stencil

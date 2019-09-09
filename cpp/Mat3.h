@@ -9,42 +9,42 @@
 #include "fastmath.h"
 #include "Vec3.h"
 
-//template <class TYPE, class VEC, class MAT>
-//template <class TYPE, class VEC>
-template <class TYPE>
-class Mat3TYPE{
-	using VEC = Vec3TYPE<TYPE>;
-	using MAT = Mat3TYPE<TYPE>;
+//template <class T, class VEC, class MAT>
+//template <class T, class VEC>
+template <class T>
+class Mat3T{
+	using VEC = Vec3T<T>;
+	using MAT = Mat3T<T>;
 	public:
 	union{
 		struct{
-			TYPE xx,xy,xz;
-			TYPE yx,yy,yz;
-			TYPE zx,zy,zz;
+			T xx,xy,xz;
+			T yx,yy,yz;
+			T zx,zy,zz;
 		};
 		struct{
-			TYPE ax,ay,az;
-			TYPE bx,by,bz;
-			TYPE cx,cy,cz;
+			T ax,ay,az;
+			T bx,by,bz;
+			T cx,cy,cz;
 		};
 		struct{	VEC a,b,c; };
-		TYPE array[9];
+		T array[9];
 		VEC  vecs [3];
 	};
 
 
 // ====== initialization
 
-	inline explicit operator Mat3TYPE<double>()const{ return (Mat3TYPE<double>){ (double)xx,(double)xy,(double)xz, (double)yx,(double)yy,(double)yz, (double)zx,(double)zy,(double)zz }; }
-	inline explicit operator Mat3TYPE<float >()const{ return (Mat3TYPE<float >){ (float)xx,(float)xy,(float)xz,    (float)yx,(float)yy,(float)yz,    (float)zx,(float)zy,(float)zz }; }
-	inline explicit operator Mat3TYPE<int >()  const{ return (Mat3TYPE<int   >){ (int)xx,(int)xy,(int)xz,          (int)yx,(int)yy,(int)yz,          (int)zx,(int)zy,(int)zz }; }
+	inline explicit operator Mat3T<double>()const{ return (Mat3T<double>){ (double)xx,(double)xy,(double)xz, (double)yx,(double)yy,(double)yz, (double)zx,(double)zy,(double)zz }; }
+	inline explicit operator Mat3T<float >()const{ return (Mat3T<float >){ (float)xx,(float)xy,(float)xz,    (float)yx,(float)yy,(float)yz,    (float)zx,(float)zy,(float)zz }; }
+	inline explicit operator Mat3T<int >()  const{ return (Mat3T<int   >){ (int)xx,(int)xy,(int)xz,          (int)yx,(int)yy,(int)yz,          (int)zx,(int)zy,(int)zz }; }
 
-	//inline Mat3TYPE<double> toDouble()const{ return (Mat3TYPE<double>){ (double)xx,(double)xy,(double)xz, (double)yx,(double)yy,(double)yz, (double)zx,(double)zy,(double)zz }; }
-	//inline Mat3TYPE<float > toFloat ()const{ return (Mat3TYPE<float >){ (float)xx,(float)xy,(float)xz,    (float)yx,(float)yy,(float)yz,    (float)zx,(float)zy,(float)zz }; }
-	//inline Mat3TYPE<int >   toInt   ()const{ return (Mat3TYPE<int   >){ (int)xx,(int)xy,(int)xz,          (int)yx,(int)yy,(int)yz,          (int)zx,(int)zy,(int)zz }; }
+	//inline Mat3T<double> toDouble()const{ return (Mat3T<double>){ (double)xx,(double)xy,(double)xz, (double)yx,(double)yy,(double)yz, (double)zx,(double)zy,(double)zz }; }
+	//inline Mat3T<float > toFloat ()const{ return (Mat3T<float >){ (float)xx,(float)xy,(float)xz,    (float)yx,(float)yy,(float)yz,    (float)zx,(float)zy,(float)zz }; }
+	//inline Mat3T<int >   toInt   ()const{ return (Mat3T<int   >){ (int)xx,(int)xy,(int)xz,          (int)yx,(int)yy,(int)yz,          (int)zx,(int)zy,(int)zz }; }
 
 	inline void setOne(        ){ xx=yy=zz=1; xy=xz=yx=yz=zx=zy=0; };
-	inline void set   ( TYPE f ){ xx=yy=zz=f; xy=xz=yx=yz=zx=zy=0; };
+	inline void set   ( T f ){ xx=yy=zz=f; xy=xz=yx=yz=zx=zy=0; };
 
 	inline void set  ( const VEC& va, const VEC& vb, const VEC& vc ){ a.set(va); b.set(vb); c.set(vc); }
 	inline void set  ( const MAT& M ){
@@ -59,7 +59,7 @@ class Mat3TYPE{
 		zx=a.z*b.x; zy=a.z*b.y; zz=a.z*b.z;
 	};
 
-	inline void diag_add( TYPE f ){ xx+=f; yy+=f; zz+=f; };
+	inline void diag_add( T f ){ xx+=f; yy+=f; zz+=f; };
 
 	inline VEC getColx(){ VEC out; out.x = xx; out.y = yx; out.z = zx; return out; };
     inline VEC getColy(){ VEC out; out.x = xy; out.y = yy; out.z = zy; return out; };
@@ -86,10 +86,10 @@ class Mat3TYPE{
 
 // ====== transpose
 
-	inline void T(){
-		TYPE t1=yx; yx=xy; xy=t1;
-		TYPE t2=zx; zx=xz; xz=t2;
-		TYPE t3=zy; zy=yz; yz=t3;
+	inline void makeT(){
+		T t1=yx; yx=xy; xy=t1;
+		T t2=zx; zx=xz; xz=t2;
+		T t3=zy; zy=yz; yz=t3;
 	};
 
 	inline void setT  ( const MAT& M ){
@@ -104,9 +104,9 @@ class Mat3TYPE{
 		c.set( va.z, vb.z, vc.z );
 	};
 
-	inline MAT operator* ( TYPE f   ) const { MAT m; m.a.set_mul(a,f); m.b.set_mul(b,f); m.c.set_mul(c,f); return m; };
+	inline MAT operator* ( T f   ) const { MAT m; m.a.set_mul(a,f); m.b.set_mul(b,f); m.c.set_mul(c,f); return m; };
 
-    inline void mul ( TYPE f        ){ a.mul(f);    b.mul(f);    c.mul(f);    };
+    inline void mul ( T f        ){ a.mul(f);    b.mul(f);    c.mul(f);    };
     inline void mul ( const VEC& va ){ a.mul(va.a); b.mul(va.b); c.mul(va.c); };
 
     inline void div ( const VEC& va ){ a.mul(1/va.a); b.mul(1/va.b); c.mul(1/va.c); };
@@ -118,7 +118,7 @@ class Mat3TYPE{
 	};
 
     inline void divT ( const VEC& va ){
-        TYPE fx=1/va.x,fy=1/va.y,fz=1/va.z;
+        T fx=1/va.x,fy=1/va.y,fz=1/va.z;
 		ax*=fx; ay*=fy; az*=fz;
 		bx*=fx; by*=fy; bz*=fz;
 		cx*=fx; cy*=fy; cz*=fz;
@@ -144,14 +144,14 @@ class Mat3TYPE{
 	}
 
 	inline void dot_to( const VEC&  v, VEC&  vout ) const {
-        TYPE vx=v.x,vy=v.y,vz=v.z; // to make it safe use inplace
+        T vx=v.x,vy=v.y,vz=v.z; // to make it safe use inplace
 		vout.x = xx*vx + xy*vy + xz*vz;
 		vout.y = yx*vx + yy*vy + yz*vz;
 		vout.z = zx*vx + zy*vy + zz*vz;
 	};
 
 	inline void dot_to_T( const VEC&  v, VEC&  vout ) const {
-        TYPE vx=v.x,vy=v.y,vz=v.z;
+        T vx=v.x,vy=v.y,vz=v.z;
 		vout.x = xx*vx + yx*vy + zx*vz;
 		vout.y = xy*vx + yy*vy + zy*vz;
 		vout.z = xz*vx + yz*vy + zz*vz;
@@ -182,7 +182,7 @@ class Mat3TYPE{
         c.makeOrthoU(b);
         c.normalize();
 	};
-	
+
 	inline bool orthogonalize_taylor3( int ia, int ib, int ic ){
         VEC& a = vecs[ia];
         VEC& b = vecs[ib];
@@ -194,7 +194,7 @@ class Mat3TYPE{
         c.makeOrthoU(b);
         c.normalize_taylor3();
 	};
-	
+
 
 // ====== matrix multiplication
 
@@ -248,16 +248,16 @@ class Mat3TYPE{
 
 // ====== matrix solver
 
-   inline TYPE determinant() {
-        TYPE fCoxx = yy * zz - yz * zy;
-        TYPE fCoyx = yz * zx - yx * zz;
-        TYPE fCozx = yx * zy - yy * zx;
-        TYPE fDet = xx * fCoxx + xy * fCoyx + xz * fCozx;
+   inline T determinant() {
+        T fCoxx = yy * zz - yz * zy;
+        T fCoyx = yz * zx - yx * zz;
+        T fCozx = yx * zy - yy * zx;
+        T fDet = xx * fCoxx + xy * fCoyx + xz * fCozx;
         return fDet;
     };
 
 	inline void invert_to( MAT& Mout ) {
-        TYPE idet = 1/determinant(); // we dont check det|M|=0
+        T idet = 1/determinant(); // we dont check det|M|=0
         Mout.xx = ( yy * zz - yz * zy ) * idet;
         Mout.xy = ( xz * zy - xy * zz ) * idet;
         Mout.xz = ( xy * yz - xz * yy ) * idet;
@@ -270,7 +270,7 @@ class Mat3TYPE{
     };
 
     inline void invert_T_to( MAT& Mout ) {
-        TYPE idet = 1/determinant(); // we dont check det|M|=0
+        T idet = 1/determinant(); // we dont check det|M|=0
         Mout.xx = ( yy * zz - yz * zy ) * idet;
         Mout.yx = ( xz * zy - xy * zz ) * idet;
         Mout.zx = ( xy * yz - xz * yy ) * idet;
@@ -296,16 +296,16 @@ class Mat3TYPE{
 
 // ======= Rotation
 
-	inline void rotate( TYPE angle, VEC axis  ){
+	inline void rotate( T angle, VEC axis  ){
 		//VEC uaxis;
 		//uaxis.set( axis * axis.norm() );
 		axis.normalize();
-		TYPE ca   = cos(angle);
-		TYPE sa   = sin(angle);
+		T ca   = cos(angle);
+		T sa   = sin(angle);
  		rotate_csa( ca, sa, axis );
 	};
 
-	inline void rotate_csa( TYPE ca, TYPE sa, const VEC& uaxis ){
+	inline void rotate_csa( T ca, T sa, const VEC& uaxis ){
 		a.rotate_csa( ca, sa, uaxis );
 		b.rotate_csa( ca, sa, uaxis );
 		c.rotate_csa( ca, sa, uaxis );
@@ -313,22 +313,22 @@ class Mat3TYPE{
 		//b.set(2);
 		//c.set(3);
 	};
-	
+
 	inline void drotate_omega6( const VEC& w ){
         // consider not-normalized vector omega
-        TYPE ca,sa;
+        T ca,sa;
         sincosR2_taylor(w.norm2(), sa, ca );
         a.drotate_omega_csa(w,ca,sa);
         b.drotate_omega_csa(w,ca,sa);
         c.drotate_omega_csa(w,ca,sa);
 	};
-	
-	void dRotateToward( int pivot, const MAT& rot0, TYPE dPhi ){
+
+	void dRotateToward( int pivot, const MAT& rot0, T dPhi ){
         int i3 = pivot*3;
         VEC& piv  = *(VEC*)(     array+i3);
         VEC& piv0 = *(VEC*)(rot0.array+i3);
         VEC ax; ax.set_cross(piv,piv0);
-        TYPE sa = ax.norm();
+        T sa = ax.norm();
         if( sa > dPhi ){
             ax.mul(1.0/sa);
             Vec2d csa; csa.fromAngle( dPhi );
@@ -374,9 +374,9 @@ class Mat3TYPE{
         }
 	}
 
-	inline void fromEuler( TYPE phi, TYPE theta, TYPE psi ){
+	inline void fromEuler( T phi, T theta, T psi ){
         // http://mathworld.wolfram.com/EulerAngles.html
-        TYPE ca=1,sa=0, cb=1,sb=0, cc=1,sc=0;
+        T ca=1,sa=0, cb=1,sb=0, cc=1,sc=0;
         //if(phi*phi    >1e-16){ ca=cos(phi);   sa=sin(phi); }
         //if(theta*theta>1e-16){ cb=cos(theta); sb=sin(theta); }
         //if(psi*psi    >1e-16){ cc=cos(psi);   sc=sin(psi); }
@@ -423,25 +423,25 @@ class Mat3TYPE{
      // even distribution.
      //=========================================================================
 	inline void fromRand( const VEC& vrand  ){
-        TYPE theta = vrand.x * M_TWO_PI; // Rotation about the pole (Z).
-        TYPE phi   = vrand.y * M_TWO_PI; // For direction of pole deflection.
-        TYPE z     = vrand.z * 2.0;      // For magnitude of pole deflection.
+        T theta = vrand.x * M_TWO_PI; // Rotation about the pole (Z).
+        T phi   = vrand.y * M_TWO_PI; // For direction of pole deflection.
+        T z     = vrand.z * 2.0;      // For magnitude of pole deflection.
         // Compute a vector V used for distributing points over the sphere
         // via the reflection I - V Transpose(V).  This formulation of V
         // will guarantee that if x[1] and x[2] are uniformly distributed,
         // the reflected points will be uniform on the sphere.  Note that V
         // has length sqrt(2) to eliminate the 2 in the Householder matrix.
-        TYPE r  = sqrt( z );
-        TYPE Vx = sin ( phi ) * r;
-        TYPE Vy = cos ( phi ) * r;
-        TYPE Vz = sqrt( 2.0 - z );
+        T r  = sqrt( z );
+        T Vx = sin ( phi ) * r;
+        T Vy = cos ( phi ) * r;
+        T Vz = sqrt( 2.0 - z );
         // Compute the row vector S = Transpose(V) * R, where R is a simple
         // rotation by theta about the z-axis.  No need to compute Sz since
         // it's just Vz.
-        TYPE st = sin( theta );
-        TYPE ct = cos( theta );
-        TYPE Sx = Vx * ct - Vy * st;
-        TYPE Sy = Vx * st + Vy * ct;
+        T st = sin( theta );
+        T ct = cos( theta );
+        T Sx = Vx * ct - Vy * st;
+        T Sy = Vx * st + Vy * ct;
         // Construct the rotation matrix  ( V Transpose(V) - I ) R, which
         // is equivalent to V S - R.
         xx = Vx * Sx - ct;   xy = Vx * Sy - st;   xz = Vx * Vz;
@@ -454,40 +454,40 @@ class Mat3TYPE{
     // http://www.geometrictools.com/Documentation/EigenSymmetric3x3.pdf
     // https://www.geometrictools.com/GTEngine/Include/Mathematics/GteSymmetricEigensolver3x3.h
 	inline void eigenvals( VEC& evs ) const {
-		const TYPE inv3  = 0.33333333333d;
-        const TYPE root3 = 1.73205080757d;
-		TYPE amax = array[0];
+		const T inv3  = 0.33333333333d;
+        const T root3 = 1.73205080757d;
+		T amax = array[0];
 		for(int i=1; i<9; i++){ double a=array[i]; if(a>amax)amax=a; }
-		TYPE c0 = xx*yy*zz + 2*xy*xz*yz -  xx*yz*yz   - yy*xz*xz   -  zz*xy*xy;
-		TYPE c1 = xx*yy - xy*xy + xx*zz - xz*xz + yy*zz - yz*yz;
-		TYPE c2 = xx + yy + zz;
-		TYPE amax2 = amax*amax; c2/=amax; c1/=amax2; c0/=(amax2*amax);
-		TYPE c2Div3 = c2*inv3;
-		TYPE aDiv3  = (c1 - c2*c2Div3)*inv3;
+		T c0 = xx*yy*zz + 2*xy*xz*yz -  xx*yz*yz   - yy*xz*xz   -  zz*xy*xy;
+		T c1 = xx*yy - xy*xy + xx*zz - xz*xz + yy*zz - yz*yz;
+		T c2 = xx + yy + zz;
+		T amax2 = amax*amax; c2/=amax; c1/=amax2; c0/=(amax2*amax);
+		T c2Div3 = c2*inv3;
+		T aDiv3  = (c1 - c2*c2Div3)*inv3;
 		if (aDiv3 > 0.0d) aDiv3 = 0.0d;
-		TYPE mbDiv2 = 0.5d*( c0 + c2Div3*(2.0d*c2Div3*c2Div3 - c1) );
-		TYPE q = mbDiv2*mbDiv2 + aDiv3*aDiv3*aDiv3;
+		T mbDiv2 = 0.5d*( c0 + c2Div3*(2.0d*c2Div3*c2Div3 - c1) );
+		T q = mbDiv2*mbDiv2 + aDiv3*aDiv3*aDiv3;
 		if (q > 0.0) q = 0.0;
-		TYPE magnitude = sqrt(-aDiv3);
-		TYPE angle = atan2( sqrt(-q), mbDiv2 ) * inv3;
-		TYPE cs    = cos(angle);
-		TYPE sn    = sin(angle);
+		T magnitude = sqrt(-aDiv3);
+		T angle = atan2( sqrt(-q), mbDiv2 ) * inv3;
+		T cs    = cos(angle);
+		T sn    = sin(angle);
 		evs.a = amax*( c2Div3 + 2.0*magnitude*cs );
 		evs.b = amax*( c2Div3 - magnitude*(cs + root3*sn) );
 		evs.c = amax*( c2Div3 - magnitude*(cs - root3*sn) );
 	}
 
-	inline void eigenvec( TYPE eval, VEC& evec ) const{
+	inline void eigenvec( T eval, VEC& evec ) const{
 		VEC row0;  row0.set( ax - eval, ay, az );
 		VEC row1;  row1.set( bx, by - eval, bz );
 		VEC row2;  row2.set( cx, cy,  cz- eval );
 		VEC r0xr1; r0xr1.set_cross(row0, row1);
 		VEC r0xr2; r0xr2.set_cross(row0, row2);
 		VEC r1xr2; r1xr2.set_cross(row1, row2);
-		TYPE d0 = r0xr1.dot( r0xr1);
-		TYPE d1 = r0xr2.dot( r0xr2);
-		TYPE d2 = r1xr2.dot( r1xr2);
-		TYPE dmax = d0; int imax = 0;
+		T d0 = r0xr1.dot( r0xr1);
+		T d1 = r0xr2.dot( r0xr2);
+		T d2 = r1xr2.dot( r1xr2);
+		T dmax = d0; int imax = 0;
 		if (d1 > dmax) { dmax = d1; imax = 1; }
 		if (d2 > dmax) { imax = 2;            }
 		if      (imax == 0) { evec.set_mul( r0xr1, 1/sqrt(d0) ); }
@@ -504,6 +504,38 @@ class Mat3TYPE{
     void printOrtho() const { printf( " %f %f %f   %e %e %e \n", a.norm2(),b.norm2(),c.norm2(),   a.dot(b),a.dot(c),b.dot(c) ); }
     void printOrthoErr() const { printf( " %e %e %e   %e %e %e \n", a.norm()-1,b.norm()-1,c.norm()-1,   a.dot(b),a.dot(c),b.dot(c) ); }
 
+    void transformVectors( int n, Vec3T<T>* v0s, Vec3T<T>* vs )const{
+        for( int j=0; j<n; j++ ){
+            Vec3T<T> v;
+            //mrot.dot_to_T( h0s[j], h );
+            dot_to( v0s[j], v );
+            vs[j] = v;
+            //ps[j].set_add_mul( pos, p_, r0 );
+        }
+    }
+
+    void transformPoints0( int n, Vec3T<T>* v0s, Vec3T<T>* ps, const Vec3T<T>& toPos )const{
+        for( int j=0; j<n; j++ ){
+            Vec3T<T> v;
+            //mrot.dot_to_T( apos0[j], v );
+            dot_to( v0s[j], v );
+            ps[j].set_add( v, toPos );
+            //printf( "frag2atoms[%i]  (%g,%g,%g) (%g,%g,%g) \n", j,  apos0[j].x, apos0[j].y, apos0[j].z,   apos[j].x, apos[j].y, apos[j].z  );
+            //printf( "%i %i  (%g,%g,%g) (%g,%g,%g) \n", ifrag, j,  m_apos[j].x, m_apos[j].y, m_apos[j].z,   Tp.x, Tp.y, Tp.z  );
+        }
+    }
+
+    void transformPoints( int n, Vec3T<T>* p0s, Vec3T<T>* ps, const Vec3T<T>& pos0 )const{
+        for( int j=0; j<n; j++ ){
+            Vec3T<T> v0,v;
+            v0.set_sub( p0s[j], pos0 );
+            dot_to( v0, v );
+            ps[j].set_add( pos0, v );
+            //printf( "frag2atoms[%i]  (%g,%g,%g) (%g,%g,%g) \n", j,  apos0[j].x, apos0[j].y, apos0[j].z,   apos[j].x, apos[j].y, apos[j].z  );
+            //printf( "%i %i  (%g,%g,%g) (%g,%g,%g) \n", ifrag, j,  m_apos[j].x, m_apos[j].y, m_apos[j].z,   Tp.x, Tp.y, Tp.z  );
+        }
+    }
+
 };
 
 
@@ -511,14 +543,14 @@ class Mat3TYPE{
 
 
 /*
-class Mat3i : public Mat3TYPE< int   , Vec3i, Mat3i >{};
-class Mat3f : public Mat3TYPE< float , Vec3f, Mat3f >{};
-class MAT : public Mat3TYPE< TYPE, VEC, MAT >{};
+class Mat3i : public Mat3T< int   , Vec3i, Mat3i >{};
+class Mat3f : public Mat3T< float , Vec3f, Mat3f >{};
+class MAT : public Mat3T< T, VEC, MAT >{};
 */
 
-using Mat3i = Mat3TYPE< int   >;
-using Mat3f = Mat3TYPE< float >;
-using Mat3d = Mat3TYPE< double>;
+using Mat3i = Mat3T< int   >;
+using Mat3f = Mat3T< float >;
+using Mat3d = Mat3T< double>;
 
 static constexpr Mat3d Mat3dIdentity = (Mat3d){1.0d,0.0d,0.0d, 0.0d,1.0d,0.0d,  0.0d,0.0d,1.0d};
 static constexpr Mat3d Mat3dZero     = (Mat3d){0.0d,0.0d,0.0d, 0.0d,0.0d,0.0d,  0.0d,0.0d,0.0d};

@@ -26,23 +26,6 @@ inline void pairs2triple( const Vec2i& b1, const Vec2i& b2, Vec3i& tri, bool& fl
     else if( b1.x == b2.y ){ tri.set( b1.y, b1.x, b2.x ); flip1=true;  flip2=true;   }
 }
 
-void sum(int n, Vec3d* ps, Vec3d& psum){ for(int i=0;i<n;i++){ psum.add(ps[i]); } };
-
-void sumTroq(int n, Vec3d* fs, Vec3d* ps, const Vec3d& cog, const Vec3d& fav, Vec3d& torq){
-    for(int i=0;i<n;i++){  torq.add_cross(ps[i]-cog,fs[i]-fav);  }
-    //for(int i=0;i<n;i++){  torq.add_cross(ps[i],fs[i]);  }
-};
-
-void checkForceInvariatns( int n, Vec3d* fs, Vec3d* ps, Vec3d& cog, Vec3d& fsum, Vec3d& torq ){
-    cog =Vec3dZero;
-    fsum=Vec3dZero;
-    torq=Vec3dZero;
-    double dw = 1.d/n;
-    sum(n, ps, cog ); cog.mul(dw);
-    sum(n, fs, fsum); //cog.mul(dw);
-    sumTroq(n, fs, ps, cog, fsum*dw, torq );
-}
-
 class ForceField{ public:
 
     //static int iDebug = 0;
@@ -213,8 +196,6 @@ double eval_angle(int ig){
     return E;
 }
 
-
-
 double eval_torsion(int it){
 
     Vec3i  ib = tors2bond[it];
@@ -311,7 +292,6 @@ double eval(){
 };
 
 // ============== Preparation
-
 
 void angles_bond2atom(){
     for(int i=0; i<nang; i++){

@@ -80,11 +80,11 @@ inline void overlapFE(double r, double amp, double beta, double& e, double& fr )
 }
 
 template<typename T>
-void rotateVectors(int n, const Quat4TYPE<T>& qrot, Vec3TYPE<T>* h0s, Vec3TYPE<T>* hs ){
-    Mat3TYPE<T> mrot;
+void rotateVectors(int n, const Quat4T<T>& qrot, Vec3T<T>* h0s, Vec3T<T>* hs ){
+    Mat3T<T> mrot;
     qrot.toMatrix(mrot);
     for( int j=0; j<n; j++ ){
-        Vec3TYPE<T> h;
+        Vec3T<T> h;
         //mrot.dot_to_T    ( h0s[j], h );
         mrot.dot_to      ( h0s[j], h );
         hs[j] = h;
