@@ -127,4 +127,15 @@ double relaxNsteps( int nsteps, double Fconv, int ialg ){
     return F2;
 }
 
+int main(){
+    int natom = 2;
+    reallocFF(natom);
+    ff.apos[0] = (Vec3d){0.0,0.0,0.0};
+    ff.apos[0] = (Vec3d){0.0,2.0,0.0};
+    int itypes[] = {0,0};
+    setupFF( natom, itypes );
+    relaxNsteps( 10, 1e-6, 0 );
 }
+
+}
+

@@ -131,4 +131,4 @@ if __name__ == "__main__":
     def animRelax(i, perFrame=1):
         fff.relaxNsteps(perFrame, Fconv=1e-6, ialg=0)
         return apos,None
-    au.makeMovie( "movie.xyz", 100, elems, animRelaxs )
+    au.makeMovie( "movie.xyz", 100, elems, animRelax )
