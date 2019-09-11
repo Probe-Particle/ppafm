@@ -107,7 +107,7 @@ def makeRotJitter( n=10, maxAngle=0.3 ):
         rotJitter.append( rotation_matrix(axis, rnjit[i,3]*maxAngle  ) )
     return rotJitter
 
-def genRotations( axis, thetas ):  # DEPRECATED use sphereTangentSpace instead
+def genRotations( axis, thetas ):
     return np.array( [ rotation_matrix(axis, theta) for theta in thetas ] )
 
 def sphereTangentSpace(n=100):

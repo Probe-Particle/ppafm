@@ -82,28 +82,27 @@ def modMolParams_def( Zs, qs, xyzs, REAs, rndQmax, rndRmax, rndEmax, rndAlphaMax
         REAs[:,2] *= ( 1 + rndAlphaMax * ( np.random.rand( len(qs) ) - 0.5 ) )
     return Zs, qs, xyzs, REAs
 
-def setBBoxCenter( xyzs, cog ):
-    '''
-    find bounding box for set of xyz points
-    '''
-#    print "xyzs.shape ", xyzs.shape
-#    print "cog ", cog
+def getBBox( xyzs ):
     xmin = np.min( xyzs[:,0] )
     xmax = np.max( xyzs[:,0] )
     ymin = np.min( xyzs[:,1] )
     ymax = np.max( xyzs[:,1] )
     zmin = np.min( xyzs[:,2] )
     zmax = np.max( xyzs[:,2] )
-#    print "xmin ", xmin
-    xc = 0.5*(xmin+xmax); 
-    yc = 0.5*(ymin+ymax); 
-    zc = 0.5*(zmin+zmax)
+    return np.array([xmin,ymin,zmin]), np.array([xmax,ymax,zmax])
+
+def setBBoxCenter( xyzs, cog ):
+    '''
+    find bounding box for set of xyz points
+    '''
+    pmin,pmax = getBBox( xyzs )
+    pc = (pmin+pmax)*0.5
     #print xyzs[:,0].shape, len(cog[0]), xc, (cog[0]-xc)
-    xyzs[:,0] += (cog[0]-xc)
-    xyzs[:,1] += (cog[1]-yc)
-    xyzs[:,2] += (cog[2]-zc)
+    xyzs[:,0] += (cog[0]-pc[0])
+    xyzs[:,1] += (cog[1]-pc[1])
+    xyzs[:,2] += (cog[2]-pc[2])
 #    print "min", (xmin,ymin,zmin), "max", (xmax,ymax,zmax), "cog ", (xc,yc,zc)
-    return (xmin,ymin,zmin), (xmax,ymax,zmax), (xc,yc,zc)
+    return pmin, pmax, pc
 
 def getAtomsRotZmin( rot, xyzs, zmin, Zs=None ):
     '''
@@ -204,7 +203,10 @@ class Generator(Sequence,):
     scan_dim   = ( 100, 100, 30)
     distAbove  =  6.5       # if only distAbove specified when calling generator it starts from center of top atom
     distAboveRange = None   # example of range: (6.0,6.4). If distAboveRange specified it starts from top sphere's shell: distAbove = distAbove + RvdW_top  
-    molCenterAfm   = False  # if setted molecule will appear not by top atom in center, but avereged center
+    #molCenterTopAtom   = False  # if setted molecule will appear not by top atom in center, but avereged center
+    #molCenterBox       
+    molCentering = 'topAtom'
+    molCentering = 'box'
     planeShift = -4.0
     
 
@@ -341,17 +343,17 @@ class Generator(Sequence,):
             #self.forcefield.setLvec(self.lvec, nDim=nDim )
         else:
             self.forcefield.initPoss( lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
-        if not self.bNoFFCopy:
-            self.FEin = np.empty( self.forcefield.nDim, np.float32 )
-            #print "self.FEin.shape() ", self.FEin.shape
 
         if self.bNoFFCopy:
             self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim,  scan_dim=self.scan_dim, 
                                          nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), 
                                          bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in 
-                                        )
+                                       )
             self.scanner.preparePosBasis( start=self.scan_start, end=self.scan_end )
-        
+        else:
+            self.FEin = np.empty( self.forcefield.nDim, np.float32 )
+            #print "self.FEin.shape() ", self.FEin.shape
+
         self.scanner.updateBuffers( WZconv=self.dfWeight )
 
     def __iter__(self):
@@ -447,11 +449,7 @@ class Generator(Sequence,):
 
                 if self.projector is not None:
                     self.projector.tryReleaseBuffers()
-                
-                if(self.counter>0): # not first step
-                    if(verbose>1): print "scanner.releaseBuffers()"
-                    self.scanner.releaseBuffers()
-                
+
                 self.molName =  self.molecules[self.imol]
                 self.nextMolecule( self.molName ) 
 
@@ -463,20 +461,21 @@ class Generator(Sequence,):
                     if(verbose>0): print " ============= ndf ", ndf 
                     self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep ).astype(np.float32)
 
-                #print "self.forcefield.cl_FE ", self.forcefield.cl_FE
-
-                #exit()
                 if self.bNoFFCopy:
                     #self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim, 
                     #    scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
-                    #print "NO COPY scanner.upadateFEin "
-                    self.scanner.upadateFEin( self.forcefield.cl_FE )
+                    #print "NO COPY scanner.updateFEin "
+                    self.scanner.updateFEin( self.forcefield.cl_FE )
                 else:
+                    if(self.counter>0): # not first step
+                        if(verbose>1): print "scanner.releaseBuffers()"
+                        self.scanner.releaseBuffers()
                     self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
                     self.scanner.preparePosBasis(self, start=self.scan_start, end=self.scan_end )
 
                 self.handleRotations()
             #print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
+
             rot = self.rotations_sorted[self.irot]
             self.nextRotation( Xs[ibatch], Ys[ibatch] )
             #self.nextRotation( self.rotations[self.irot], Xs[ibatch], Ys[ibatch] )
@@ -598,12 +597,12 @@ class Generator(Sequence,):
         
         if self.bNoFFCopy:
             #self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True )
-            self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=None, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True )
+            self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=False, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True )
             self.atoms = self.forcefield.atoms
         else:
             #FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q )       # ---- this takes   ~0.03 second  for size=(150, 150, 150)
             #FF,self.atoms  = self.forcefield.makeFF( xyzs, qs, cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
-            FF,self.atoms  = self.forcefield.makeFF( xyzqs, cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
+            FF,self.atoms  = self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
 
             #import matplotlib.pyplot as plt
             #for i in range(0,150,5):
@@ -653,6 +652,7 @@ class Generator(Sequence,):
         '''
         for each rotation
         '''
+        if(verbose>0): print " ----- nextRotation ", self.irot
         if(bRunTime): t0=time.clock()
         (entropy, self.pos0, self.rot) = self.rotations_sorted[self.irot]
 
@@ -661,7 +661,7 @@ class Generator(Sequence,):
 
         atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]           #shift atoms coord to rotation center point of view            
         atoms_rotated_to_pos0 = rotAtoms(self.rot, atoms_shifted_to_pos0)            #rotate atoms coord to rotation center point of view
-        if(verbose>1): print " :::: atoms_rotated_to_pos0 ", atoms_rotated_to_pos0
+        if(verbose>1): print " atoms_rotated_to_pos0 ", atoms_rotated_to_pos0
 
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().1   ) [s]:  %0.6f" %(time.clock()-t0)   ," atoms transform(shift,rot)  "
 
@@ -672,20 +672,17 @@ class Generator(Sequence,):
             else:
                 self.distAbove=  0.5*( self.distAboveRange[0] + self.distAboveRange[1] )
             RvdWs = self.REAs[:,0] - 1.6612  # real RvdWs of atoms after substraction of RvdW(O)
-            if(verbose>1): print " :::: RvdWs ", RvdWs
             zs = atoms_rotated_to_pos0[:,2].copy()
             zs += RvdWs  # z-coord of each atom with it's RvdW
-            if(verbose>1): print " :::: zs ", zs
             imax = np.argmax( zs ) 
-            if(verbose>1): print " :::: imax ", imax
             self.distAbove = self.distAbove + RvdWs[imax] # shifts distAbove for vdW-Radius of top atomic shell
-            if(verbose>1): print " :::: distAbove ", self.distAbove
+            if(verbose>1): print "imax,distAbove ", imax, self.distAbove
         
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().2   ) [s]:  %0.6f" %(time.clock()-t0)  ," top atom "
 
         # shift projection to molecule center but leave top atom still in the center
         AFM_window_shift=(0,0)
-        if self.molCenterAfm:
+        if self.molCentering == 'topAtom':
             average_mol_pos = [np.mean(atoms_rotated_to_pos0[:,0]),np.mean(atoms_rotated_to_pos0[:,1])]
             if(verbose>1): print " : average_mol_pos", average_mol_pos
             top_atom_pos = atoms_rotated_to_pos0[:,[0,1]][atoms_rotated_to_pos0[:,2] == np.max(atoms_rotated_to_pos0[:,2]) ]
@@ -693,6 +690,9 @@ class Generator(Sequence,):
             #now we will move AFM window to the molecule center but still leave top atom inside window 
             AFM_window_shift = np.clip(average_mol_pos[:], a_min = top_atom_pos[:] + self.scan_start[:], a_max = top_atom_pos[:] + self.scan_end[:]) [0]
             if(verbose>1): print " : AFM_window_shift", AFM_window_shift
+        elif self.molCentering == 'box':
+            pmin,pmax = getBBox( atoms_rotated_to_pos0 )
+            AFM_window_shift = (pmin+pmax)*0.5
       
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().3   ) [s]:  %0.6f" %(time.clock()-t0)   ," molCenterAfm  "
 
@@ -816,8 +816,6 @@ class Generator(Sequence,):
                 Y[:len(xyzs_),:3] -= (AFM_window_shift[0],AFM_window_shift[1],0)
                 
             Y[:len(xyzs_), 3] = Zs
-
-        if(verbose>1): print "Ty %f [s]" %Ty
 
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().tot ) [s]:  %0.6f" %(time.clock()-t0)  ," size ", FEout.shape
 
@@ -1056,10 +1054,10 @@ if __name__ == "__main__":
     # ============ Setup Probe Particle
 
     batch_size = 1
-    nRot       = 100
-    nBestRotations = 1
+    nRot           = 5
+    nBestRotations = 5
 
-    molecules = ["out2"]
+    molecules = ["out2", "out3"]
 
     parser = OptionParser()
     parser.add_option( "-Y", "--Ymode", default='D-S-H', action="store", type="string", help="tip stiffenss [N/m]" )
@@ -1067,27 +1065,12 @@ if __name__ == "__main__":
 
     print "options.Ymode: ", options.Ymode
 
-    #molecules = ["BOSS/A1","BOSS/A2","BOSS/A3","BOSS/B1","BOSS/B2","BOSS/B3"]
-    #molecules = ["BOSS2/A1","BOSS2/A2","BOSS2/A3","BOSS2/A4","BOSS2/A5","BOSS2/B1","BOSS2/B2","BOSS2/B3"]
-    #molecules = ["BOSS2/A3"]
-    #molecules = ["tercbutyl", "adamantane",  "antracene",  "ferocene"   ]
-    #molecules = ["gen1","gen2","gen3","gen4","gen5","gen6","gen7","gen8","gen9","gen10"]
-    #molecules = ["gen4"]
-    #molecules = ["out2","out3"]
-    #molecules = ["type_test"]
-    #molecules = ["out34"]
-    #molecules = ["outCampher2"]
-    #molecules = ["../Molecules/0"]
     #rotations = PPU.genRotations( np.array([1.0,0.0,0.0]) , np.linspace(-np.pi/2,np.pi/2, nRot) )
 
-    #make rotations
     #rotations = PPU.sphereTangentSpace(n=nRot) # http://blog.marmakoide.org/?p=1
-    #print rotations
-    rotations = np.array( [ [[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]], ] )
+    rotations  = PPU.genRotations( np.array([0.,0.,1.]), np.arange( -np.pi, np.pi, 2*np.pi/nRot ) )
+    #rotations = np.array( [ [[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]], ] )
 
-    #rotations = rotations[85:87]
-    #print "rotations", rotations
-    # initialize OpenCL kernels and stuff
 
     #import os
     i_platform = 0
@@ -1186,10 +1169,14 @@ if __name__ == "__main__":
     #data_generator.modMolParams = modMolParams_def   # custom function to modify parameters
 
     #data_generator.debugPlots = True
-    data_generator.distAbove = 7.0
+    #data_generator.distAbove = 7.5
     #data_generator.distAbove = 8.0
     #data_generator.distAbove = 8.5
     #data_generator.distAbove = 9.0
+    #data_generator.distAbove = 8.5
+    #data_generator.distAbove = 9.0
+    data_generator.distAboveRange = [7.0,7.01]
+
 
     #data_generator.maxTilt0 = 0.0    # symmetric tip
     data_generator.maxTilt0 = 0.5     # asymetric tip  tilted max +/-1.0 Angstreom in random direction
@@ -1236,9 +1223,12 @@ if __name__ == "__main__":
 
 
     #data_generator.scan_dim = ( 100, 100, 20)
-    data_generator.scan_dim = ( 128, 128, 30)
+    #data_generator.scan_dim = ( 128, 128, 30)
+    data_generator.scan_dim   = ( 256, 256, 30)
+    data_generator.scan_start = (-12.5,-12.5) 
+    data_generator.scan_end   = ( 12.5, 12.5)
 
-    bRunTime      = True
+    #bRunTime      = True
     #FFcl.bRuntime = True
 
     data_generator            .verbose  = 1
@@ -1248,8 +1238,15 @@ if __name__ == "__main__":
     data_generator.initFF()
 
     # generate 10 batches
-    for i in range(1):
+    for i in range(10):
+
+        print "#### generate ", i 
+        t1 = time.clock()
         Xs,Ys = data_generator[i]
+        print "runTime(data_generator.next()) [s] : ", time.clock() - t1
+        
+        #continue
+
         #Xs=Xs[::2]; Ys=Ys[::2]
 
         '''
@@ -1265,8 +1262,9 @@ if __name__ == "__main__":
         #exit()
 
         #print "_0"
-
+        
         data_generator.debugPlotSlices = range(0,Xs[0].shape[2],2)
+
         for j in range( len(Xs) ):
             #print "_1"
             #print "j ", j
@@ -1293,7 +1291,7 @@ if __name__ == "__main__":
             #print "_2"
             #data_generator.plot( "/"+fname, molecules[data_generator.imol], X=None, Y=Ys[j], entropy=0.0, bXYZ=True )
 
-            #print Ys[j]
+            #print Ys[j]if __name__ == "__main__":
 
             '''
             fname = "batch_%03i_%03i_" %(i,j)

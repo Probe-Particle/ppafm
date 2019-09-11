@@ -198,9 +198,9 @@ class RelaxedScanner:
 
         self.surfFF = np.zeros(4,dtype=np.float32);
 
-    def upadateFEin(self, FEin_cl ):
+    def updateFEin(self, FEin_cl, bFinish=False ):
         '''
-        #  see here : https://github.com/inducer/pyopencl/blob/4bfb2d65d31c8132de46bbb007cfebd3b934328d/src/wrap_cl_part_2.cpp
+        see here : https://github.com/inducer/pyopencl/blob/4bfb2d65d31c8132de46bbb007cfebd3b934328d/src/wrap_cl_part_2.cpp
             m.def("_enqueue_copy_buffer_to_image", enqueue_copy_buffer_to_image,
         py::arg("queue"),
         py::arg("src"),
@@ -211,13 +211,21 @@ class RelaxedScanner:
         py::arg("wait_for")=py::none()
         );
         '''
+        if(verbose>0): print " updateFEin ", FEin_cl, self.cl_ImgIn, self.FEin_shape
+
+        #mf       = cl.mem_flags
+        #self.cl_ImgIn.release()
+        #self.image_format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
+        #self.cl_ImgIn     = cl.Image(self.ctx, mf.READ_ONLY, self.image_format, shape=self.FEin_shape[:3], pitches=None, hostbuf=None, is_array=False, buffer=None)
+
+        if(bFinish): self.queue.finish()
         cl.enqueue_copy( queue=self.queue, src=FEin_cl, dest=self.cl_ImgIn, offset=0, origin=(0,0,0), region=self.FEin_shape[:3] )
-        #cl.enqueue_copy( self.queue, self.cl_ImgIn, self.FEin_cl, origin=(0,0,0), region=region )
+        if(bFinish): self.queue.finish()
+        #cl.enqueue_copy( self.queue, self.clprepareBuffers_ImgIn, self.FEin_cl, origin=(0,0,0), region=region )
         self.FEin_cl=FEin_cl
 
-
     def prepareBuffers(self, FEin_np=None, lvec=None, FEin_cl=None, FEin_shape=None, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, FE2in=None ):
-        #print " ========= prepareBuffers ", bZMap
+        #print " ========= prepareBuffers ", prepareBuffersbZMap
         self.scan_dim = scan_dim
         if lvec is not None:
             self.invCell  = getInvCell(lvec)
@@ -230,11 +238,13 @@ class RelaxedScanner:
         #print "RelaxedScanner.prepareBuffers"
         if FEin_np is not None:
             self.cl_ImgIn = cl.image_from_array(self.ctx,FEin_np,num_channels=4,mode='r');  nbytes+=FEin_np.nbytes        # TODO make this re-uploadable
+            if(verbose>0): print "prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn 
         else:
             if  FEin_shape is not None:
                 self.FEin_shape   = FEin_shape
                 self.image_format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
                 self.cl_ImgIn     = cl.Image(self.ctx, mf.READ_ONLY, self.image_format, shape=FEin_shape[:3], pitches=None, hostbuf=None, is_array=False, buffer=None)
+                if(verbose>0): print "prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn 
             if FEin_cl is not None:
                 #print "FEin_shape : ", FEin_shape
                 #self.image_format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
@@ -273,6 +283,7 @@ class RelaxedScanner:
         if(verbose>0): print "prepareBuffers.nbytes: ", nbytes
 
     def releaseBuffers(self):
+        if(verbose>0): print "tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn 
         self.cl_ImgIn.release()
         self.cl_poss.release()
         self.cl_FEout.release()
@@ -281,6 +292,7 @@ class RelaxedScanner:
         if self.cl_feMap is not None: self.cl_feMap.release()
 
     def tryReleaseBuffers(self):
+        if(verbose>0): print "tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn 
         try:
             self.cl_ImgIn.release()
         except:

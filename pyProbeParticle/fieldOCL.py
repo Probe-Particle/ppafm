@@ -379,9 +379,10 @@ class ForceField_LJC:
         if poss is not None:
             self.nDim = np.array( poss.shape, dtype=np.int32 )
             self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
-        if not bDirect:
+        if (self.cl_FE is None) and not bDirect:
             nb = self.nDim[0]*self.nDim[1]*self.nDim[2] * 4 * nb_float
             self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY , nb ); nbytes+=nb # float8
+            if(verbose>0): print " forcefield.prepareBuffers() :  self.cl_FE  ", self.cl_FE 
         if(verbose>0): print "initArgsLJC.nbytes ", nbytes
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None ):
@@ -397,7 +398,7 @@ class ForceField_LJC:
         '''
         release all buffers
         '''
-        if(verbose>0): print " ForceField_LJC.releaseBuffers "
+        if(verbose>0): print " ForceField_LJC.tryReleaseBuffers "
         try: 
             self.cl_atoms.release() 
         except: 
