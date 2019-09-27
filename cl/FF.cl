@@ -214,6 +214,62 @@ __kernel void evalLJC_Q_noPos(
     //FE[iG] = poss[iG];
 }
 
+__kernel void evalLJC_QZs_noPos(
+    const int nAtoms, 
+    __global float4* atoms,
+    __global float2*  cLJs,
+    __global float4*    FE,
+    int4 nGrid,
+    float4 grid_p0,
+    float4 grid_dA,
+    float4 grid_dB,
+    float4 grid_dC,
+    float4 Qs,
+    float4 QZs
+){
+    __local float4 LATOMS[32];
+    __local float2 LCLJS [32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    const int nab = nGrid.x*nGrid.y;
+    const int ia  = iG%nGrid.x; 
+    const int ib  = (iG%nab)/nGrid.x;
+    const int ic  = iG/nab; 
+    const int nMax = nab*nGrid.z;
+
+    if(iG>nMax) return;
+
+    float3 pos    = grid_p0.xyz + grid_dA.xyz*ia + grid_dB.xyz*ib  + grid_dC.xyz*ic;
+
+    float4 fe  = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
+
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        //if(i>=nAtoms) break;  // wrong !!!!
+        LATOMS[iL] = atoms[i];
+        LCLJS [iL] = cLJs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nAtoms ){ 
+                //fe += getLJC( LATOMS[j], LCLJS[j], pos );
+                float4 xyzq = LATOMS[j];
+                fe += getLJ     ( xyzq.xyz, LCLJS[j], pos );
+                fe += getCoulomb( xyzq, pos+(float3)(0,0,QZs.x) ) * Qs.x;
+                fe += getCoulomb( xyzq, pos+(float3)(0,0,QZs.y) ) * Qs.y;
+                fe += getCoulomb( xyzq, pos+(float3)(0,0,QZs.z) ) * Qs.z;
+                fe += getCoulomb( xyzq, pos+(float3)(0,0,QZs.w) ) * Qs.w;
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    FE[iG] = fe;
+}
+
+
+
+
 __kernel void evalLJC(
     int nAtoms, 
     __global float4*   atoms,
@@ -245,6 +301,49 @@ __kernel void evalLJC(
     fe.hi  = fe.hi*COULOMB_CONST;
     FE[iG] = fe;
 }
+
+__kernel void evalLJC_QZs(
+    int nAtoms, 
+    __global float4*   atoms,
+    __global float2*    cLJs,
+    __global float4*    poss,
+    __global float8*    FE,
+    float4 Qs,
+    float4 QZs
+){
+    __local float4 LATOMS[32];
+    __local float2 LCLJS [32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    float3 pos = poss[iG].xyz;
+    float8 fe  = (float8) (0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    //if(iG==0){ printf("evalLJC: nAtoms: %i \n", nAtoms ); }
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        //if(i>=nAtoms) break;  // wrong !!!!
+        LATOMS[iL] = atoms[i];
+        LCLJS [iL] = cLJs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            //if( (j+i0)<nAtoms ) fe += getLJC( LATOMS[j], LCLJS[j], pos );
+            if( (j+i0)<nAtoms ){
+                float4 xyzq = LATOMS[j];
+                fe.lo += getLJ     ( xyzq.xyz, LCLJS[j], pos );
+                fe.hi += getCoulomb( xyzq, pos+(float3)(0,0,QZs.x) ) * Qs.x;
+                fe.hi += getCoulomb( xyzq, pos+(float3)(0,0,QZs.y) ) * Qs.y;
+                fe.hi += getCoulomb( xyzq, pos+(float3)(0,0,QZs.z) ) * Qs.z;
+                fe.hi += getCoulomb( xyzq, pos+(float3)(0,0,QZs.w) ) * Qs.w;
+            } 
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    // http://www.informit.com/articles/article.aspx?p=1732873&seqNum=3
+    fe.hi  = fe.hi*COULOMB_CONST;
+    FE[iG] = fe;
+}
+
 
 
 

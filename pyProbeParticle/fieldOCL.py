@@ -364,6 +364,13 @@ class ForceField_LJC:
         self.dlvec[1,:]  =  self.lvec[1,:] / nDim[1]
         self.dlvec[2,:]  =  self.lvec[2,:] / nDim[2]
 
+    def setQs(self, Qs=[100,-200,100,0],QZs=[0.1,0,-0.1,0]):
+        if ( len(Qs) != 4 ) or ( len(QZs) != 4 ):
+            print "Qs and Qzs must have length 4 " 
+            exit()
+        self.Qs  = np.array(Qs ,dtype=np.float32)
+        self.QZs = np.array(QZs,dtype=np.float32)
+
     def prepareBuffers(self, atoms=None, cLJs=None, poss=None, bDirect=False, nz=20 ):
         '''
         allocate all necessary buffers in GPU memory
@@ -469,6 +476,38 @@ class ForceField_LJC:
         if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_Q) [s]: ", time.clock() - t0
         return FE
 
+    def run_evalLJC_QZs_noPos(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
+        '''
+        generate force-field
+        '''
+        if(bRuntime): t0 = time.clock()
+        if bCopy and (FE is None):
+            FE = np.zeros( self.nDim[:3]+(4,), dtype=np.float32 )
+            if(verbose>0): print "FE.shape", FE.shape, self.nDim
+        ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        global_size = (ntot,) # TODO make sure divisible by local_size
+        #print "run_evalLJC_Q_noPos self.nDim ",self.nDim," bCopy, bFinish: ", bCopy, bFinish
+        #print self.lvec0, self.dlvec[0],self.dlvec[1],self.dlvec[2]
+        kargs = (  
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cLJs,
+            self.cl_FE,
+            self.nDim,
+            self.lvec0   ,
+            self.dlvec[0],
+            self.dlvec[1],
+            self.dlvec[2],
+            self.Qs,
+            self.QZs
+        )
+        if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_QZs_noPos.pre) [s]: ", time.clock() - t0
+        cl_program.evalLJC_QZs_noPos( self.queue, global_size, local_size, *(kargs) )
+        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[3] )
+        if bFinish: self.queue.finish()
+        if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_QZs_noPos) [s]: ", time.clock() - t0
+        return FE
+
     def run_evalLJC_Q_noPos(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
         '''
         generate force-field
@@ -537,7 +576,7 @@ class ForceField_LJC:
         self.queue.finish()
         return FE
 
-    def makeFF(self, atoms=None, qs=None, cLJs=None, xyzqs=None, Qmix=0.0, FE=None, bRelease=True, bCopy=True, bFinish=True ):
+    def makeFF(self, atoms=None, qs=None, cLJs=None, xyzqs=None, Qmix=0.0, FE=None, bRelease=True, bCopy=True, bFinish=True, bQZ=False ):
         '''
         generate force-field from given posions(xyzs), chagres(qs), Leanrd-Jones parameters (cLJs) etc.
         '''
@@ -553,7 +592,11 @@ class ForceField_LJC:
         if self.cl_poss is not None:
             FF = self.run_evalLJC_Q( FE=FE,       Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
         else:
-            FF = self.run_evalLJC_Q_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
+            if bQZ:
+                FF = self.run_evalLJC_QZs_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
+            else:
+                FF = self.run_evalLJC_Q_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
+
         if(bRelease): self.tryReleaseBuffers()
         if(bRuntime): print "runtime(ForceField_LJC.makeFF.tot) [s]: ", time.clock() - t0
         return FF, atoms

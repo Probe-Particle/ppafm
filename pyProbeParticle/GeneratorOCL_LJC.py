@@ -197,6 +197,10 @@ class Generator(Sequence,):
     iZPP = 8
     Q    = 0.0
 
+    bQZ = False
+    Qs  = [100,-200,100,0]
+    QZs = [0.1,0,-0.1,0]  
+
     # --- Relaxation
     scan_start = (-8.0,-8.0) 
     scan_end   = ( 8.0, 8.0)
@@ -355,6 +359,8 @@ class Generator(Sequence,):
             #print "self.FEin.shape() ", self.FEin.shape
 
         self.scanner.updateBuffers( WZconv=self.dfWeight )
+
+        self.forcefield.setQs( Qs=[100,-200,100,0], QZs=[0.1,0,-0.1,0] )
 
     def __iter__(self):
         return self
@@ -597,7 +603,7 @@ class Generator(Sequence,):
         
         if self.bNoFFCopy:
             #self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True )
-            self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=False, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True )
+            self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=False, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True, bQZ=self.bQZ )
             self.atoms = self.forcefield.atoms
         else:
             #FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q )       # ---- this takes   ~0.03 second  for size=(150, 150, 150)
@@ -1176,6 +1182,11 @@ if __name__ == "__main__":
     #data_generator.distAbove = 8.5
     #data_generator.distAbove = 9.0
     data_generator.distAboveRange = [7.0,7.01]
+
+
+    data_generator.bQZ = True
+    data_generator.Qs  = [100,-200,100,0]
+    data_generator.QZs = [0.1,0,-0.1,0]  
 
 
     #data_generator.maxTilt0 = 0.0    # symmetric tip
