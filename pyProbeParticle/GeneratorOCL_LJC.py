@@ -826,6 +826,7 @@ class Generator(Sequence,):
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().tot ) [s]:  %0.6f" %(time.clock()-t0)  ," size ", FEout.shape
 
         if(self.debugPlots):
+            print  "self.molName ", self.molName 
             list = os.listdir('model/predictions/') # dir is your directory path
             number_files = len(list)
             if (number_files < 100):
@@ -904,11 +905,11 @@ class Generator(Sequence,):
              
             if bRot:
                 atomsRot = rotAtoms(self.rot, self.atomsNonPBC)
-                basUtils.writeDebugXYZ__('model/predictions/'+ molName[6:] + rotName+'.xyz', atomsRot, self.Zs )
+                basUtils.writeDebugXYZ__('model/predictions/'+ molName + rotName+'.xyz', atomsRot, self.Zs )
                 #print 'XYZ file: ', './predictions/'+ molName[6:] + rotName+'.xyz',' saved'
                 #exit()
             else:
-                basUtils.writeDebugXYZ_2('model/predictions/'+ molName[6:] + rotName+'.xyz', self.atoms, self.Zs, self.scan_pos0s[::40,::40,:].reshape(-1,4), pos0=self.pos0 )
+                basUtils.writeDebugXYZ_2('model/predictions/'+ molName + rotName+'.xyz', self.atoms, self.Zs, self.scan_pos0s[::40,::40,:].reshape(-1,4), pos0=self.pos0 )
                 #print 'XYZ file: ', './model/predictions/'+ molName[6:] + rotName+'.xyz',' saved'
         if bPOVray:
             #basUtils.writeDebugXYZ__( self.preName + molName + rotName+".xyz", self.atomsNonPBC, self.Zs )
@@ -1060,10 +1061,11 @@ if __name__ == "__main__":
     # ============ Setup Probe Particle
 
     batch_size = 1
-    nRot           = 5
-    nBestRotations = 5
+    nRot           = 1
+    nBestRotations = 1
 
-    molecules = ["out2", "out3"]
+    #molecules = ["out2", "out3","benzeneBrCl2"]
+    molecules = ["benzeneBrCl2"]
 
     parser = OptionParser()
     parser.add_option( "-Y", "--Ymode", default='D-S-H', action="store", type="string", help="tip stiffenss [N/m]" )
@@ -1184,9 +1186,9 @@ if __name__ == "__main__":
     data_generator.distAboveRange = [7.0,7.01]
 
 
-    data_generator.bQZ = True
-    data_generator.Qs  = [100,-200,100,0]
-    data_generator.QZs = [0.1,0,-0.1,0]  
+    data_generator.bQZ = False
+    data_generator.Qs  = np.array([100,-200,100,0])*-0.2
+    data_generator.QZs = [0.1,0.0,-0.1,0]  
 
 
     #data_generator.maxTilt0 = 0.0    # symmetric tip
@@ -1239,8 +1241,8 @@ if __name__ == "__main__":
     data_generator.scan_start = (-12.5,-12.5) 
     data_generator.scan_end   = ( 12.5, 12.5)
 
-    #bRunTime      = True
-    #FFcl.bRuntime = True
+    bRunTime      = True
+    FFcl.bRuntime = True
 
     data_generator            .verbose  = 1
     data_generator.forcefield .verbose  = 1
@@ -1249,7 +1251,7 @@ if __name__ == "__main__":
     data_generator.initFF()
 
     # generate 10 batches
-    for i in range(10):
+    for i in range(1):
 
         print "#### generate ", i 
         t1 = time.clock()
@@ -1298,7 +1300,7 @@ if __name__ == "__main__":
 
             #data_generator.plot( "/"+fname, molecules[i*batch_size+j], X=Xs[j], Y=Ys[j], entropy=0.0, bXYZ=True )
             #data_generator.plot( "/"+fname, molecules[data_generator.imol], X=Xs[j], Y=Ys[j], entropy=0.0, bXYZ=True, bGroups=True )
-            data_generator.plot( "/"+fname, molecules[data_generator.imol], X=Xs[j], Y=Ys[j], entropy=0.0, bXYZ=True, bGroups=False )
+            data_generator.plot( "/"+fname, molecules[data_generator.imol], X=Xs[j], Y=Ys[j], entropy=0.0, bXYZ=False, bGroups=False )
             #print "_2"
             #data_generator.plot( "/"+fname, molecules[data_generator.imol], X=None, Y=Ys[j], entropy=0.0, bXYZ=True )
 

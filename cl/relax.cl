@@ -43,7 +43,8 @@ void move_LeapFrog( float3 f, float3 p, float3 v, float2 RP ){
 #define FTDEC 0.5f
 #define FTINC 1.1f
 #define FDAMP 0.99f
-#define N_RELAX_STEP_MAX  64
+//#define N_RELAX_STEP_MAX  64
+#define N_RELAX_STEP_MAX  128
 #define F2CONV  1e-8
 
 // this should be macro, to pass values by reference
@@ -226,17 +227,17 @@ __kernel void relaxPoints(
     float3 tipPos = points[get_global_id(0)].xyz;
     float3 pos    = tipPos.xyz + dpos0.xyz; 
     float4 fe;
-    float3 vel    = 0.0f;
+    float3 v    = 0.0f;
     for(int i=0; i<1000; i++){
         fe        = read_imagef( imgIn, sampler_1, (float4)(pos,0.0f) ); /// this would work only for unitary cell
         float3 f  = fe.xyz;
         f        += tipForce( pos-tipPos, stiffness, dpos0 );    
-        //vel      *=       relax_params.y;   
-        //vel      += f   * relax_params.x;
-        //pos.xyz  += vel * relax_params.x;
-        vel      *=       damp;
-        vel      += f   * dt;
-        pos.xyz  += vel * dt;
+        //v      *=       relax_params.y;   
+        //v      += f   * relax_params.x;
+        //pos.xyz  += v * relax_params.x;
+        v      *=       damp;
+        v      += f   * dt;
+        pos.xyz  += v * dt;
     }
     FEs[get_global_id(0)] = fe;
 }
@@ -412,8 +413,12 @@ __kernel void relaxStrokesTilted_convZ(
     float3 tipPos = points[get_global_id(0)].xyz;
     float3 pos    = tipPos.xyz + dpos0_.xyz; 
 
-    const float dt   = relax_params.x;
-    const float damp = relax_params.y;
+    float dt   = relax_params.x;
+    float damp = relax_params.y;
+
+    float dtmax = dt;
+    float dtmin = dtmax*0.1;
+    float damp0 = damp;
 
     //if( (get_global_id(0)==0) ){     float4 fe = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );  printf( " pos (%g,%g,%g) feImg(%g,%g,%g,%g) \n", pos.x, pos.y, pos.z, fe.x,fe.y,fe.z,fe.w );}
 
@@ -429,11 +434,9 @@ __kernel void relaxStrokesTilted_convZ(
     }
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    float4 fe_conv = 0.0f;
-
     for(int iz=0; iz<nz; iz++){
         float4 fe;
-        float3 vel   = 0.0f;
+        float3 v   = 0.0f;
         for(int i=0; i<N_RELAX_STEP_MAX; i++){
             fe            = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
             float3 f      = fe.xyz;
@@ -446,12 +449,30 @@ __kernel void relaxStrokesTilted_convZ(
 
             //f      +=  tipForce( dpos, stiffness, dpos0_ );  // Not rotated
             
+            // ======== FIRE
+            float ff = dot(f,f);
+            float vv = dot(v,v);
+            float vf = dot(v,f);
+            if( vf < 0 ){ // if velocity along direction of force
+                v = (float3) 0.0 ;
+                dt    = fmax( dtmin, dt * FTDEC );
+                damp = damp0;
+            }else{       // if velocity against direction of force
+                // v = cV * v  + cF * F
+                v *= (1 - damp);
+                v += damp * sqrt(vv/ff); 
+                dt    = fmin( dtmax, dt * FTINC );
+                damp *= FDAMP;
+            }
+
+            // ============== MD_leapfrog
             //vel      *=       relax_params.y;
             //vel      += f   * relax_params.y;
             //pos.xyz  += vel * relax_params.x;
-            vel      *=       damp;
-            vel      += f   * dt;
-            pos.xyz  += vel * dt;
+            //vel      *=       damp;
+            v        += f   * dt;
+            pos.xyz  += v * dt;
+
             if(dot(f,f)<F2CONV) break;
         }
         
