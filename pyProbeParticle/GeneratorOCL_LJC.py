@@ -205,8 +205,8 @@ class Generator(Sequence,):
     scan_start = (-8.0,-8.0) 
     scan_end   = ( 8.0, 8.0)
     scan_dim   = ( 100, 100, 30)
-    distAbove  =  6.5       # if only distAbove specified when calling generator it starts from center of top atom
-    distAboveRange = None   # example of range: (6.0,6.4). If distAboveRange specified it starts from top sphere's shell: distAbove = distAbove + RvdW_top  
+    distAbove =  7.0       # distAbove starts from top sphere's shell: distAbove = distAbove + RvdW_top  
+    distAboveDelta = None   # in example distAbovedelta=0.1 makes distAbove: rand(distAbove - 0.1,distAbove + starts from top sphere's shell: distAbove = distAbove + RvdW_top  
     #molCenterTopAtom   = False  # if setted molecule will appear not by top atom in center, but avereged center
     #molCenterBox       
     molCentering = 'topAtom'
@@ -558,7 +558,7 @@ class Generator(Sequence,):
         #print " self.scanner.tipRot ", self.scanner.tipRot
         #Hs = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ).copy()
         dirFw = np.append( self.rot[2], [0] ); 
-        poss_ = np.float32(  scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+        poss_ = np.float32(  scan_pos0s - (dirFw*(self.distAboveActive-1.0))[None,None,:] )
         Hs = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0].copy()
         #Hs *= 1.0
         Hs = np.clip( Hs, -3.0, 0.0 )
@@ -671,19 +671,20 @@ class Generator(Sequence,):
 
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().1   ) [s]:  %0.6f" %(time.clock()-t0)   ," atoms transform(shift,rot)  "
 
-        # random uniform select distAbove in range distAboveRange and shift it up to radius vdW of top atom
-        if self.distAboveRange is not None:
-            if self.randomize_distance and self.randomize_enabled:
-                self.distAbove=np.random.uniform(self.distAboveRange[0],self.distAboveRange[1])
-            else:
-                self.distAbove=  0.5*( self.distAboveRange[0] + self.distAboveRange[1] )
-            RvdWs = self.REAs[:,0] - 1.6612  # real RvdWs of atoms after substraction of RvdW(O)
-            zs = atoms_rotated_to_pos0[:,2].copy()
-            zs += RvdWs  # z-coord of each atom with it's RvdW
-            imax = np.argmax( zs ) 
-            self.distAbove = self.distAbove + RvdWs[imax] # shifts distAbove for vdW-Radius of top atomic shell
-            if(verbose>1): print "imax,distAbove ", imax, self.distAbove
-        
+        # select distAboveActive randomly uniform in range [distAbove-distAboveDelta,distAbove+distAboveDelta] and shift it up to radius vdW of top atom
+        if self.randomize_distance and self.randomize_enabled and self.distAboveDelta:
+            self.distAboveActive=np.random.uniform(self.distAbove - self.distAboveDelta,self.distAbove + self.distAboveDelta)
+        else:
+            self.distAboveActive = self.distAbove
+         
+        RvdWs = self.REAs[:,0] - 1.6612  # real RvdWs of atoms after substraction of RvdW(O)
+        zs = atoms_rotated_to_pos0[:,2].copy()
+        zs += RvdWs  # z-coord of each atom with it's RvdW
+        imax = np.argmax( zs ) 
+        self.distAboveActive = self.distAboveActive + RvdWs[imax] # shifts distAboveActive for vdW-Radius of top atomic shell
+        if(verbose>1): print "imax,distAboveActive ", imax, self.distAboveActive
+
+
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().2   ) [s]:  %0.6f" %(time.clock()-t0)  ," top atom "
 
         # shift projection to molecule center but leave top atom still in the center
@@ -713,7 +714,7 @@ class Generator(Sequence,):
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().4   ) [s]:  %0.6f" %(time.clock()-t0)   ," vtipR0  "
 
         #self.scanner.setScanRot( , rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
-        pos0             = self.pos0+self.rot[2]*self.distAbove+np.dot((AFM_window_shift[0],AFM_window_shift[1],0),self.rot)
+        pos0             = self.pos0+self.rot[2]*self.distAboveActive+np.dot((AFM_window_shift[0],AFM_window_shift[1],0),self.rot)
         self.scan_pos0s  = self.scanner.setScanRot(pos0, rot=self.rot, zstep=0.1, tipR0=vtipR0 )
         
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().5   ) [s]:  %0.6f" %(time.clock()-t0)  ," scan_pos0s = scanner.setScanRot() "
@@ -749,7 +750,7 @@ class Generator(Sequence,):
 
         dirFw = np.append( self.rot[2], [0] ); 
         if(verbose>0): print "dirFw ", dirFw
-        poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
+        poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAboveActive-1.0))[None,None,:] )
 
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().10  ) [s]:  %0.6f" %(time.clock()-t0)  ," poss_ <- scan_pos0s  "
 
@@ -843,7 +844,7 @@ class Generator(Sequence,):
         tipR0 = self.maxTilt0 * (np.random.rand(3) - 0.5); 
         tipR0[2]   = self.tipR0 # augumentation of data by varying tip
 
-        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAbove, rot=rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
+        self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAboveActive, rot=rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
 
         if(verbose>0): print  " >>>>>>> maxTilt0 ", self.maxTilt0, "tipR0 ", tipR0
 
@@ -1177,13 +1178,13 @@ if __name__ == "__main__":
     #data_generator.modMolParams = modMolParams_def   # custom function to modify parameters
 
     #data_generator.debugPlots = True
-    #data_generator.distAbove = 7.5
+    data_generator.distAbove = 7.0
     #data_generator.distAbove = 8.0
     #data_generator.distAbove = 8.5
     #data_generator.distAbove = 9.0
     #data_generator.distAbove = 8.5
     #data_generator.distAbove = 9.0
-    data_generator.distAboveRange = [7.0,7.01]
+    data_generator.distAboveDelta = None  
 
 
     data_generator.bQZ = False
