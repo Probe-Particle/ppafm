@@ -25,6 +25,10 @@ FARFF_: FARFF.o
 
 atomfit_: atomfit.o
 
+GLV: GLView.o Draw3D.o
+	$(LD) $(LDFLAGS) GLView.o Draw3D.o -o GLV_lib.so
+
+
 # .o files depend on .cpp files with same prefix
 # $@ target, $< prerequisite, $* matched stencil
 %.o:: %.cpp
