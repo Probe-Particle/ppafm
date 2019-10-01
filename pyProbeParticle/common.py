@@ -69,7 +69,7 @@ def getDfWeight( n, dz=0.1 ):
     dy =  ( y[1:] - y[:-1] )/(dz*n)
     fpi    = (n-2)**2 
     prefactor = -1 * ( 1 + fpi*(2/np.pi) ) / (fpi+1) # correction for small n
-    return dy*prefactor
+    return dy*prefactor, (x[1:]+x[:-1])*0.5
 
 def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4, units=16.0217656 ):
     '''

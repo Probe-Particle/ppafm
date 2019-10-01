@@ -482,7 +482,8 @@ class ForceField_LJC:
         '''
         if(bRuntime): t0 = time.clock()
         if bCopy and (FE is None):
-            FE = np.zeros( self.nDim[:3]+(4,), dtype=np.float32 )
+            ns = ( tuple(self.nDim[:3])+(4,) )
+            FE = np.zeros( ns, dtype=np.float32 )
             if(verbose>0): print "FE.shape", FE.shape, self.nDim
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -508,13 +509,23 @@ class ForceField_LJC:
         if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_QZs_noPos) [s]: ", time.clock() - t0
         return FE
 
+    def downloadFF(self, FE=None ):
+        ns = ( tuple(self.nDim[:3])+(4,) )
+        #print self.nDim, self.nDim[:3], ns
+        FE = np.zeros( ns, dtype=np.float32 )
+        print "FE.shape ",  FE.shape
+        cl.enqueue_copy( self.queue, FE, self.cl_FE )
+        self.queue.finish()
+        return FE
+
     def run_evalLJC_Q_noPos(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
         '''
         generate force-field
         '''
         if(bRuntime): t0 = time.clock()
         if bCopy and (FE is None):
-            FE = np.zeros( self.nDim[:3]+(4,), dtype=np.float32 )
+            ns = ( tuple(self.nDim[:3])+(4,) )
+            FE = np.zeros( ns, dtype=np.float32 )
             if(verbose>0): print "FE.shape", FE.shape, self.nDim
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -534,7 +545,7 @@ class ForceField_LJC:
         )
         if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_Q_noPos.pre) [s]: ", time.clock() - t0
         cl_program.evalLJC_Q_noPos( self.queue, global_size, local_size, *(kargs) )
-        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[3] )
+        if bCopy:   cl.enqueue_copy( self.queue, FE, self.cl_FE )
         if bFinish: self.queue.finish()
         if(bRuntime): print "runtime(ForceField_LJC.evalLJC_Q_noPos) [s]: ", time.clock() - t0
         return FE
@@ -544,8 +555,9 @@ class ForceField_LJC:
         generate force-field
         '''
         if FE is None:
-            #FE    = np.zeros( self.nDim[:3]+(4,), dtype=np.float32 )
-            FE     = np.empty( self.scan_dim+(4,), dtype=np.float32 )
+            ns = ( tuple(self.nDim[:3])+(4,) )
+            FE    = np.zeros( ns, dtype=np.float32 )
+            #FE     = np.empty( self.scan_dim+(4,), dtype=np.float32 )
             if(verbose>0): print "FE.shape", FE.shape, self.nDim
         ntot = int( self.scan_dim[0]*self.scan_dim[1] ) 
         ntot=makeDivisibleUp(ntot,local_size[0])

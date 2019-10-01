@@ -197,15 +197,22 @@ class Generator(Sequence,):
     iZPP = 8
     Q    = 0.0
 
-    bQZ = False
-    Qs  = [100,-200,100,0]
-    QZs = [0.1,0,-0.1,0]  
+    bQZ = True
+    QZs = [0.1,0,-0.1,0]                            #  position tip charges along z-axis relative to probe-particle center
+    Qs  = [100,-200,100,0]                          #  values of tip charges in electrons, len()==4, some can be zero, 
+    # examples of charge models 
+    #   * Monopole +0.3e :     Qs=[+0.3,0.0,0.0,0.0];      QZs=[+0.0,0.0,0.0,0.0 ]   
+    #   * pz  Dipole 0.25 :    Qs=[10,-10,0,0] * 0.25;     QZs=[+0.1,-0.1,0.0,0.0]  ;   # Note: factor 10 is due to renormalization 1/dz = 1/0.1
+    #   * dz2 Quadrupole 0.2 : Qs=[100,-200,100,0] * 0.2;  QZs=[+0.1,0.0,-0.1,0.0]  ;   # Note: factor 100 is due to renormalization 1/(dz^2) = 1/(0.1^2)
+
+    tipStiffness = [ 0.25, 0.25, 0.0, 30.0     ]    # [N/m]  (x,y,z,R) stiffness of harmonic springs anchoring probe-particle to the metalic tip-apex 
+    relaxParams  = [ 0.5,0.1,  0.1*0.2,0.1*5.0 ]    # (dt,damp, .., .. ) parameters of relaxation, in the moment just dt and damp are used 
 
     # --- Relaxation
     scan_start = (-8.0,-8.0) 
     scan_end   = ( 8.0, 8.0)
     scan_dim   = ( 100, 100, 30)
-    distAbove  =  6.5       # if only distAbove specified when calling generator it starts from center of top atom
+    distAbove  =  7.0       # if only distAbove specified when calling generator it starts from center of top atom
     distAboveRange = None   # example of range: (6.0,6.4). If distAboveRange specified it starts from top sphere's shell: distAbove = distAbove + RvdW_top  
     #molCenterTopAtom   = False  # if setted molecule will appear not by top atom in center, but avereged center
     #molCenterBox       
@@ -243,6 +250,7 @@ class Generator(Sequence,):
     #npbc = None
     npbc = (1,1,1)
 
+    bSaveFF    = False
     debugPlots = False
     #debugPlots = True
     #debugPlotSlices   = [0,+2,+4,+6,+8,+10,+12,+14,+16]
@@ -335,8 +343,8 @@ class Generator(Sequence,):
             self.bFEmap = True
 
         self.scanner = oclr.RelaxedScanner()
-        self.scanner.relax_params = np.array( [ 0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 );
-        self.scanner.stiffness    = np.array( [0.24,0.24,0.0, 30.0     ], dtype=np.float32 )/ -16.0217662
+        self.scanner.relax_params = np.array( self.relaxParams, dtype=np.float32 );
+        self.scanner.stiffness    = np.array( self.tipStiffness, dtype=np.float32 )/ -16.0217662
         #self.zWeight =  np.ones( self.scan_dim[2] )
         self.zWeight =  self.getZWeights();
 
@@ -360,7 +368,7 @@ class Generator(Sequence,):
 
         self.scanner.updateBuffers( WZconv=self.dfWeight )
 
-        self.forcefield.setQs( Qs=[100,-200,100,0], QZs=[0.1,0,-0.1,0] )
+        self.forcefield.setQs( Qs=self.Qs, QZs=self.QZs )
 
     def __iter__(self):
         return self
@@ -465,7 +473,7 @@ class Generator(Sequence,):
                     else:                      
                         ndf = self.nDfMax
                     if(verbose>0): print " ============= ndf ", ndf 
-                    self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep ).astype(np.float32)
+                    self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep )[0].astype(np.float32)
 
                 if self.bNoFFCopy:
                     #self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim, 
@@ -605,6 +613,24 @@ class Generator(Sequence,):
             #self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True )
             self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=False, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True, bQZ=self.bQZ )
             self.atoms = self.forcefield.atoms
+
+            if self.bSaveFF:
+                FF = self.forcefield.downloadFF( )
+                FFx=FF[:,:,:,0]
+                FFy=FF[:,:,:,1]
+                FFz=FF[:,:,:,2]
+                Fr = np.sqrt( FFx**2 + FFy**2 + FFz**2 )
+                Fbound = 10.0
+                mask = Fr.flat > Fbound
+                FFx.flat[mask] *= (Fbound/Fr).flat[mask]
+                FFy.flat[mask] *= (Fbound/Fr).flat[mask]
+                FFz.flat[mask] *= (Fbound/Fr).flat[mask]
+                print "FF.shape ", FF.shape
+                self.saveDebugXSF_FF( "FF_x.xsf", FFx )
+                self.saveDebugXSF_FF( "FF_y.xsf", FFy )
+                self.saveDebugXSF_FF( "FF_z.xsf", FFz )
+                #self.saveDebugXSF_FF( "FF_E.xsf", FF[:,:,:,3] )
+
         else:
             #FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q )       # ---- this takes   ~0.03 second  for size=(150, 150, 150)
             #FF,self.atoms  = self.forcefield.makeFF( xyzs, qs, cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
@@ -741,6 +767,8 @@ class Generator(Sequence,):
             FEout = self.scanner.run_convolveZ()
             if(bRunTime): print "runTime(Generator_LJC.nextRotation().8   ) [s]:  %0.6f" %(time.clock()-t0)  ," scanner.run_convolveZ() "
 
+        #print "DEBUG FEout.max,min ", FEout[:,:,:,:3].max(), FEout[:,:,:,:3].min() 
+
         nz = min( FEout.shape[2], X.shape[2] )
         X[:,:,:nz] = FEout[:,:,:nz,2]     #.copy()
         X[:,:,nz:] = 0
@@ -871,6 +899,20 @@ class Generator(Sequence,):
         lvec = np.array( [ [0.0,0.0,0.0],[sh[0]*d[0],0.0,0.0],[0.0,sh[1]*d[1],0.0], [ 0.0,0.0,sh[2]*d[2] ] ] )
         if(verbose>0): print "saveDebugXSF : ", fname
         GU.saveXSF( fname, F.transpose((2,1,0)), lvec )
+
+    def saveDebugXSF_FF( self, fname, F ):
+        if hasattr(self, 'GridUtils'):
+            GU = self.GridUtils
+        else:
+            import GridUtils as GU
+            self.GridUtils = GU
+        sh = F.shape
+        #self.lvec_scan = np.array( [ [0.0,0.0,0.0],[self.scan_dim[0],0.0,0.0],[0.0,self.scan_dim[1],0.0],0.0,0.0, ] ] )
+        #lvec = np.array( [ [0.0,0.0,0.0],[sh[0]*d[0],0.0,0.0],[0.0,sh[1]*d[1],0.0], [ 0.0,0.0,sh[2]*d[2] ] ] )
+        if(verbose>0): print "saveDebugXSF : ", fname
+        #GU.saveXSF( fname, F.transpose((2,1,0)), self.lvec )
+        GU.saveXSF( fname, F, self.lvec )
+
 
     def plotGroups(self, plt, groups, xys):
         #print " >>> INSIDE :  plotGroups ", len(groups)
@@ -1061,11 +1103,11 @@ if __name__ == "__main__":
     # ============ Setup Probe Particle
 
     batch_size = 1
-    nRot           = 1
-    nBestRotations = 1
+    nRot           = 3
+    nBestRotations = 3
 
-    #molecules = ["out2", "out3","benzeneBrCl2"]
-    molecules = ["benzeneBrCl2"]
+    molecules = ["out2", "out3","benzeneBrCl2"]
+    #molecules = ["benzeneBrCl2"]
 
     parser = OptionParser()
     parser.add_option( "-Y", "--Ymode", default='D-S-H', action="store", type="string", help="tip stiffenss [N/m]" )
@@ -1081,7 +1123,7 @@ if __name__ == "__main__":
 
 
     #import os
-    i_platform = 0
+    i_platform = 1
     env = oclu.OCLEnvironment( i_platform = i_platform )
     FFcl.init(env)
     oclr.init(env)
@@ -1099,6 +1141,17 @@ if __name__ == "__main__":
         print 
         print "######################################################################"
 
+    '''
+    lvec = np.array([
+        [0.0,0.0,0.0],
+        [15.0,0.0,0.0],
+        [0.0,15.0,0.0],
+        [0.0,0.0,15.0],
+    ])
+    '''
+    lvec=None
+
+
     #make data generator
     #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='HeightMap' )
     #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='ElectrostaticMap' )
@@ -1113,7 +1166,8 @@ if __name__ == "__main__":
     #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='xyz' )
     #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='MultiMapSpheres' )
     #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='SpheresType' )
-    data_generator  = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode=options.Ymode  )
+    data_generator  = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode=options.Ymode, lvec=lvec  )
+    #data_generator  = Generator( molecules, rotations, batch_size, pixPerAngstrome=10, Ymode=options.Ymode, lvec=lvec  )
 
 
     #data_generator.use_rff      = True
@@ -1185,11 +1239,11 @@ if __name__ == "__main__":
     #data_generator.distAbove = 9.0
     data_generator.distAboveRange = [7.0,7.01]
 
-
-    data_generator.bQZ = False
-    data_generator.Qs  = np.array([100,-200,100,0])*-0.2
-    data_generator.QZs = [0.1,0.0,-0.1,0]  
-
+    data_generator.bQZ = True
+    #data_generator.QZs = [0.1,0.0,-0.1,0]
+    #data_generator.Qs  = np.array([0,1,0,0]) * -1.0         # Monopole   Qs-1.0[e]
+    #data_generator.Qs  = np.array([10,0,-10,0]) * +1.0      # Dipole     Qpz-1.0[e*A]
+    data_generator.Qs  = np.array([100,-200,100,0]) * -0.2   # Quadrupole Qdz2-1.0[e*A^2]
 
     #data_generator.maxTilt0 = 0.0    # symmetric tip
     data_generator.maxTilt0 = 0.5     # asymetric tip  tilted max +/-1.0 Angstreom in random direction
@@ -1206,25 +1260,31 @@ if __name__ == "__main__":
     #data_generator.debugPlots = True   # plotting dubug images? much slower when True
     #data_generator.Q = -0.5;
     #data_generator.Q = -0.3;
-    data_generator.Q = -0.1;
+    data_generator.Q = 0.0
 
     # z-weight exp(-wz*z)
     data_generator.wz      = 1.0    # deacay
     data_generator.zWeight =  data_generator.getZWeights();
 
+    dz=0.1
+
     # weight-function for Fz -> df conversion ( oscilation amplitude 1.0Angstroem = 10 * 0.1 ( 10 n steps, dz=0.1 Angstroem step lenght ) )
-    dfWeight = PPU.getDfWeight( 10, dz=0.1 ).astype(np.float32)
+    dfWeight = PPU.getDfWeight( 10, dz=dz )[0].astype(np.float32)
+    #dfWeight, xs = PPU.getDfWeight( 10, dz=dz )
+    #print " xs ", xs
     data_generator.dfWeight = dfWeight
 
     # plot zWeights
     plt.figure()
-    plt.plot(data_generator.zWeight);
+    plt.plot(data_generator.zWeight, '.-');
+    plt.grid()
     plt.savefig( "zWeights.png" )
     plt.close()
 
     # plot dfWeights
     plt.figure()
-    plt.plot(data_generator.dfWeight);
+    plt.plot( np.arange(len(data_generator.dfWeight))*dz , data_generator.dfWeight, '.-');
+    plt.grid()
     plt.savefig( "dfWeights.png" )
     plt.close()
     #plt.show()
@@ -1234,6 +1294,8 @@ if __name__ == "__main__":
     #data_generator.nDfMin    = 5
     #data_generator.nDfMax    = 15
 
+    data_generator.bSaveFF = False
+    data_generator.bMergeConv = True
 
     #data_generator.scan_dim = ( 100, 100, 20)
     #data_generator.scan_dim = ( 128, 128, 30)
@@ -1241,8 +1303,8 @@ if __name__ == "__main__":
     data_generator.scan_start = (-12.5,-12.5) 
     data_generator.scan_end   = ( 12.5, 12.5)
 
-    bRunTime      = True
-    FFcl.bRuntime = True
+    #bRunTime      = True
+    #FFcl.bRuntime = True
 
     data_generator            .verbose  = 1
     data_generator.forcefield .verbose  = 1
@@ -1251,7 +1313,7 @@ if __name__ == "__main__":
     data_generator.initFF()
 
     # generate 10 batches
-    for i in range(1):
+    for i in range(9):
 
         print "#### generate ", i 
         t1 = time.clock()
@@ -1276,7 +1338,8 @@ if __name__ == "__main__":
 
         #print "_0"
         
-        data_generator.debugPlotSlices = range(0,Xs[0].shape[2],2)
+        #data_generator.debugPlotSlices = range(0,Xs[0].shape[2],2)
+        data_generator.debugPlotSlices = range(0,Xs[0].shape[2],1)
 
         for j in range( len(Xs) ):
             #print "_1"

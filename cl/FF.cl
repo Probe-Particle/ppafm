@@ -240,6 +240,7 @@ __kernel void evalLJC_QZs_noPos(
     const int nMax = nab*nGrid.z;
 
     if(iG>nMax) return;
+    //if(iG==0) printf( " Qs (%g,%g,%g,%g) QZs (%g,%g,%g,%g) \n", Qs.x,Qs.y,Qs.z,Qs.w,   QZs.x,QZs.y,QZs.z,QZs.w   );
 
     float3 pos    = grid_p0.xyz + grid_dA.xyz*ia + grid_dB.xyz*ib  + grid_dC.xyz*ic;
 
@@ -264,6 +265,9 @@ __kernel void evalLJC_QZs_noPos(
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
+
+    //if ( (ia==75)&&(ib==75) ) { printf(" iz %i fe %g,%g,%g,%g \n", ic, fe.x, fe.y, fe.z, fe.w ); }
+
     FE[iG] = fe;
 }
 
