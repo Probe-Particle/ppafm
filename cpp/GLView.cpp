@@ -13,6 +13,42 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 
+namespace Cam{
+
+inline void ortho( const Camera& cam, bool zsym ){
+    glMatrixMode( GL_PROJECTION );
+    glLoadIdentity();
+    float zmin = cam.zmin; if(zsym) zmin=-cam.zmax;
+	glOrtho( -cam.zoom*cam.aspect, cam.zoom*cam.aspect, -cam.zoom, cam.zoom, zmin, cam.zmax );
+	float glMat[16];
+	Draw3D::toGLMatCam( { 0.0f, 0.0f, 0.0f}, cam.rot, glMat );
+	glMultMatrixf( glMat );
+
+	glMatrixMode ( GL_MODELVIEW );
+	glLoadIdentity();
+	glTranslatef(-cam.pos.x,-cam.pos.y,-cam.pos.z);
+}
+
+inline void perspective( const Camera& cam ){
+    glMatrixMode( GL_PROJECTION );
+    glLoadIdentity();
+    //glFrustum( -ASPECT_RATIO, ASPECT_RATIO, -1, 1, camDist/zoom, VIEW_DEPTH );
+    glFrustum( -cam.aspect*cam.zoom, cam.aspect*cam.zoom, -cam.zoom, cam.zoom, cam.zmin, cam.zmax );
+    //glFrustum( -cam.zoom*cam.aspect, cam.zoom*cam.aspect, -cam.zoom, cam.zoom, cam.zmin, cam.zmax );
+	float glMat[16];
+	Draw3D::toGLMatCam( { 0.0f, 0.0f, 0.0f}, cam.rot, glMat );
+	glMultMatrixf( glMat );
+
+	glMatrixMode ( GL_MODELVIEW );
+	glLoadIdentity();
+	glTranslatef(-cam.pos.x,-cam.pos.y,-cam.pos.z);
+    //glTranslatef ( -camPos.x+camMat.cx*camDist, -camPos.y+camMat.cy*camDist, -camPos.z+camMat.cz*camDist );
+    //glTranslatef ( -cam.pos.x+camMat.cx*camDist, -camPos.y+camMat.cy*camDist, -camPos.z+camMat.cz*camDist );
+}
+
+}; // namespace Cam
+
+
 class GLView{ public:
 
     constexpr static const float	VIEW_ZOOM_STEP       = 1.2f;
@@ -25,11 +61,10 @@ class GLView{ public:
     float ASPECT_RATIO=8.f/6.f;
     float zoom=10.f;
 
-    float camX0=0.0f,camY0=0.0f;
+    //float camX0=0.0f,camY0=0.0f;
+    //float fWIDTH, fHEIGHT, camXmin, camYmin, camXmax, camYmax;
 
-    float fWIDTH, fHEIGHT, camXmin, camYmin, camXmax, camYmax;
-
-    int   mouseX=0, mouseY=0;
+    int   mouseX=0,mouseY=0;
     float mouse_begin_x=0;
     float mouse_begin_y=0;
 
@@ -107,10 +142,10 @@ class GLView{ public:
     void drawCrosshair( float sz );
 
     // ---- Camera
-    void camera_FPS       ( const Vec3d& pos, const Mat3d& rotMat );
-    void camera_FwUp      ( const Vec3d& pos, const Vec3d& fw, const Vec3d& up, bool upDominant );
-    void camera_FreeLook  ( const Vec3d& pos );
-    void camera_OrthoInset( const Vec2d& p1, const Vec2d& p2, const Vec2d& zrange, const Vec3d& fw, const Vec3d& up, bool upDominant );
+    //void camera_FPS       ( const Vec3d& pos, const Mat3d& rotMat );
+    //void camera_FwUp      ( const Vec3d& pos, const Vec3d& fw, const Vec3d& up, bool upDominant );
+    //void camera_FreeLook  ( const Vec3d& pos );
+    //void camera_OrthoInset( const Vec2d& p1, const Vec2d& p2, const Vec2d& zrange, const Vec3d& fw, const Vec3d& up, bool upDominant );
 
     bool update( );
     bool pre_draw ( );
@@ -233,25 +268,39 @@ bool GLView::pre_draw(){
     inputHanding();
     GL_LOCK = true;
     camera();
-    printf( "DEBUG pre_draw[fame=%i] \n", frameCount );
+
+    glClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
+	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+	glEnable    ( GL_LIGHTING );
+	glShadeModel( GL_FLAT     );
+
+    //printf( "DEBUG pre_draw[fame=%i] \n", frameCount );
     return GL_LOCK;
 }
 
 bool GLView::post_draw(){
-    printf( "DEBUG post_draw[fame=%i] \n", frameCount );
+    //printf( "DEBUG post_draw[fame=%i] \n", frameCount );
     SDL_RenderPresent(renderer);
     frameCount++;
     GL_LOCK = false;
-    return GL_LOCK;
+    return loopEnd;
 }
 
+// void GLView::camera(){
+//     glMatrixMode( GL_PROJECTION );
+//     glLoadIdentity();
+//     glOrtho ( -zoom*ASPECT_RATIO, zoom*ASPECT_RATIO, -zoom, zoom, -VIEW_DEPTH, +VIEW_DEPTH );
+//     glTranslatef( -camX0, -camY0, 0.0f );
+//     glMatrixMode (GL_MODELVIEW);
+// }
 
 void GLView::camera(){
-    glMatrixMode( GL_PROJECTION );
-    glLoadIdentity();
-    glOrtho ( -zoom*ASPECT_RATIO, zoom*ASPECT_RATIO, -zoom, zoom, -VIEW_DEPTH, +VIEW_DEPTH );
-    glTranslatef( -camX0, -camY0, 0.0f );
-    glMatrixMode (GL_MODELVIEW);
+    ((Quat4f)qCamera).toMatrix(cam.rot);
+    cam.zoom   = zoom;
+    cam.aspect = ASPECT_RATIO;
+    if (perspective){ Cam::perspective( cam ); }
+    else            { Cam::ortho( cam, true ); }
 }
 
 void GLView::cameraHUD(){
@@ -350,8 +399,8 @@ void GLView::eventHandling ( const SDL_Event& event  ){
                 case SDL_BUTTON_LEFT:  LMB = false; break;
                 case SDL_BUTTON_RIGHT: RMB = false; break;
             }; break;
+        case SDL_QUIT: quit(); break;
     };
-    //AppSDL2OGL::eventHandling( event );
 }
 
 void GLView::keyStateHandling( const Uint8 *keys ){
@@ -367,6 +416,8 @@ void GLView::keyStateHandling( const Uint8 *keys ){
     if( keys[ SDL_SCANCODE_S ] ){ cam.pos.add_mul( cam.rot.b, -cameraMoveSpeed ); }
     if( keys[ SDL_SCANCODE_Q ] ){ cam.pos.add_mul( cam.rot.c, -cameraMoveSpeed ); }
     if( keys[ SDL_SCANCODE_E ] ){ cam.pos.add_mul( cam.rot.c,  cameraMoveSpeed ); }
+
+    printf( "frame %i keyStateHandling cam.pos (%g,%g,%g) \n", frameCount, cam.pos.x, cam.pos.y, cam.pos.z );
 
 }
 
@@ -523,7 +574,6 @@ extern "C"{
 void init( int w, int h ){
     //world = (FlightWorld*)world_;
     //work_dir = work_dir_;
-
     SDL_Init(SDL_INIT_VIDEO);
     SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
     //SDL_SetRelativeMouseMode( SDL_TRUE );
@@ -531,47 +581,20 @@ void init( int w, int h ){
     int junk;
     thisApp = new GLView( junk , w, h );
     SDL_SetWindowPosition(thisApp->window, 100, 0 );
+    thisApp->loopEnd = false;
 
 }
 
 bool draw(){
-    /*
-    //thisApp->update();
-    if( thisApp->GL_LOCK ) return true;
-    thisApp->inputHanding();
-    thisApp->GL_LOCK = true;
-    thisApp->camera();
-    thisApp->draw();
-    thisApp->cameraHUD();
-    thisApp->drawHUD();
-    SDL_RenderPresent(thisApp->renderer);
-    thisApp->GL_LOCK = false;
-    return thisApp->GL_LOCK;
-    */
    return thisApp->update();
 }
 
 bool pre_draw(){
     return thisApp->pre_draw();
-    /*
-    if( thisApp->GL_LOCK ) return true;
-    thisApp->inputHanding();
-    thisApp->GL_LOCK = true;
-    thisApp->camera();
-    return thisApp->GL_LOCK;
-    printf( "pre_draw[fame=%i] \n", thisApp->frameCount );
-    */
 }
 
 bool post_draw(){
     return thisApp->post_draw();
-    /*
-    printf( "post_draw[fame=%i] \n", thisApp->frameCount );
-    SDL_RenderPresent(thisApp->renderer);
-    frameCount++;
-    thisApp->GL_LOCK = false;
-    return thisApp->GL_LOCK;
-    */
 }
 
 } // extern "C"{

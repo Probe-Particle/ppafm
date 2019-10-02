@@ -18,8 +18,8 @@ class Vec2T{
 
 	// ===== methods
 
-	inline void order       (){ if(a>b){ SWAP(a,b,T); }; }
-	inline void orderReverse(){ if(a<b){ SWAP(a,b,T); }; }
+	inline void order       (){ if(a>b){ _swap(a,b,T); }; }
+	inline void orderReverse(){ if(a<b){ _swap(a,b,T); }; }
 
     inline explicit operator Vec2T<float >()const{ return (Vec2T<float >){(float)x,(float)y}; }
 	inline explicit operator Vec2T<double>()const{ return (Vec2T<double>){(double)x,(double)y}; }

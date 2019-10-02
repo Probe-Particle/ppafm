@@ -12,6 +12,8 @@ class DynamicOpt{ public:
 
     //static int iDebug = 0;
 
+    double ff=0,vv=0,vf=0;
+
     // variables
     int n=0;
     double * pos       = 0;
@@ -252,7 +254,7 @@ double DynamicOpt::move_FIRE(){
 */
 
 double DynamicOpt::move_FIRE(){
-	double ff=0,vv=0,vf=0;
+	ff=0,vv=0,vf=0;
 	//printf( "DEBUG 5.5.1: %i\n", n  );
 	for(int i=0; i<n; i++){
 		double fi = force[i];

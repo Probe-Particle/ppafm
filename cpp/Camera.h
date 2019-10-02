@@ -64,8 +64,8 @@ class Camera{ public:
         rot.dot_to( p, p );
         float resc = zmin/(2*p.z*zoom);
         return (Vec2f){
-            resolution.x*( 0.5 + p.x*resc/aspect ),
-            resolution.y*( 0.5 + p.y*resc        ) };
+            resolution.x*( 0.5f + p.x*resc/aspect ),
+            resolution.y*( 0.5f + p.y*resc        ) };
     }
 
     inline void pix2rayOrtho( const Vec2f& pix, Vec3f& ro ) const {

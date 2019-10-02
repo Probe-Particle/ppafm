@@ -78,7 +78,8 @@ void setupFF( int natom, int* itypes ){
         ff.atypes[i]=atomTypes[itypes[i]];
         ff.aconf [i]=ff.atypes[i]->conf; 
     };
-    ff.normalizeOrbs();
+    ff.guessBonds();
+    //ff.normalizeOrbs();
     opt.bindOrAlloc( ff.nDOF, ff.dofs, 0, ff.fdofs, 0 );
     opt.cleanVel( );
 }
@@ -98,9 +99,9 @@ void setBox(double* pmin, double* pmax, double* k){
 double relaxNsteps( int nsteps, double Fconv, int ialg ){
     double F2conv = Fconv*Fconv;
     double F2=1.0,E =0;
-     printf( "relaxNsteps nsteps %i \n", nsteps );
+     //printf( "relaxNsteps nsteps %i \n", nsteps );
     for(int itr=0; itr<nsteps; itr++){
-        printf( "relaxNsteps itr %i \n", itr );
+        //printf( "relaxNsteps itr %i \n", itr );
         ff.cleanForce(); 
         E = ff.eval();   
         //nff.eval();
@@ -114,14 +115,18 @@ double relaxNsteps( int nsteps, double Fconv, int ialg ){
         if(iDebug>0){
             Vec3d cog,fsum,torq;
             checkForceInvariatns( ff.natom, ff.aforce, ff.apos, cog, fsum, torq );
-            printf( "DEBUG CHECK INVARIANTS  fsum %g torq %g   cog (%g,%g,%g) \n", fsum.norm(), torq.norm(), cog.x, cog.y, cog.z );
+            //printf( "DEBUG CHECK INVARIANTS  fsum %g torq %g   cog (%g,%g,%g) \n", fsum.norm(), torq.norm(), cog.x, cog.y, cog.z );
         }
+        
+        //for(int i=0; i<ff.natom; i++) ff.aforce[i].set(0.);
+        
         switch(ialg){
             case 0: F2 = opt.move_FIRE();  break;
             case 1: opt.move_GD(opt.dt);   break;
             case 3: opt.move_MD(opt.dt);   break;
         }
-        if(iDebug>0){ printf("relaxNsteps[%i] |F| %g(>%g) E %g dt %g(%g..%g) damp %g \n", itr, sqrt(F2), Fconv, E, opt.dt, opt.dt_min, opt.dt_max, opt.damping ); }
+        
+        if(iDebug>0){ printf("relaxNsteps[%i] |F| %g(>%g) E %g  <v|f> %g dt %g(%g..%g) damp %g \n", itr, sqrt(F2), Fconv, E, opt.vf, opt.dt, opt.dt_min, opt.dt_max, opt.damping ); }
         if(F2<F2conv) break;
     }
     return F2;

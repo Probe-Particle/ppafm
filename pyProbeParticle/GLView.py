@@ -57,14 +57,20 @@ class GLView():
         self.lib.draw.argtypes = []
         self.lib.draw.restype  = None
 
+        self.lib.pre_draw.argtypes = []
+        self.lib.pre_draw.restype  = c_bool
+
+        self.lib.post_draw.argtypes = []
+        self.lib.post_draw.restype  = c_bool
+
     def draw(self):
         self.lib.draw()
 
     def pre_draw(self):
-        self.lib.pre_draw()
+        return self.lib.pre_draw()
 
     def post_draw(self):
-        self.lib.post_draw()
+        return  self.lib.post_draw()
 
 if __name__ == "__main__":
     glview = GLView()

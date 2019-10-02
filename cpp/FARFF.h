@@ -27,8 +27,24 @@ TODO:
 #include "Vec3.h"
 #include "Forces.h"
 
+#include "macroUtils.h"
+
 #define N_BOND_MAX 4
 
+
+
+#define DEBUG_GL
+
+#ifdef  DEBUG_GL
+#include "Draw3D.cpp" // DEBUG
+#endif
+
+struct AtomRating{
+    int ia; 
+    double val;
+    inline bool operator<(const AtomRating& rhs){ return val<rhs.val; }
+    inline bool operator>(const AtomRating& rhs){ return val>rhs.val; }
+};
 
 namespace FlexibleAtomReactive{
 
@@ -54,7 +70,7 @@ struct FlexibleAtomType{
     double Wee  =  1.0;   // electon-electron width
     double Kee  = 10.0;  // electon-electron strenght
     double Kpp  = 10.0;  // onsite  p-p orthogonalization strenght
-    double Kpi  =  2.0;   // offsite p-p alignment         strenght
+    double Kpi  =  1.0;   // offsite p-p alignment         strenght
 
     void print(){
         printf( "aMorse %g bMorse %g\n", aMorse, bMorse );
@@ -167,6 +183,7 @@ double evalAtom(int ia){
     int    nsigma = conf.a;
     Vec2d cs0 = sp_cs0s[nsigma];
     // -- repulsion between sigma bonds
+    
     for(int i=1; i<nsigma; i++){
         const Vec3d& hi = hs[i];
         Vec3d&       fi = fs[i];
@@ -174,6 +191,7 @@ double evalAtom(int ia){
             E += evalCos2  (hi,hs[j],fi,fs[j],type.Kee,cs0.x);
         }
     }
+    
     // -- orthogonalization with p-orbitals
     for(int i=nsigma; i<N_BOND_MAX; i++){
         const Vec3d& hi = hs[i];
@@ -182,6 +200,7 @@ double evalAtom(int ia){
             E += evalCos2   ( hi, hs[j], fi, fs[j], type.Kpp, 0);
         }
     }
+
     return E;
 }
 
@@ -301,12 +320,29 @@ double evalPair( int ia, int ja, const FlexiblePairType& type){
     if( (nbi==3)&&(nbj==3) ){ // align pz-pz in sp2-sp2 pair
         const Vec3d& hi = his[3];
         const Vec3d& hj = hjs[3];
-        Vec3d&       fi = fis[3];
-        Vec3d&       fj = fjs[3];
+        //Vec3d&       fi = fis[3];
+        //Vec3d&       fj = fjs[3];
         double c = hi.dot(hj);
         double de = -2*c*type.Kpi*Eb;
-        fi.add_mul(hj,de);
-        fj.add_mul(hi,de);
+        //if(fabs(Eb)>0.1){ printf( "pi-pi %g %g %g %g \n", de, c, Eb, type.Kpi ); }
+        if(fabs(Eb)>0.1 && fabs(c)<0.95 ){ printf( "pi-pi %g %g %g %g \n", de, c, Eb, type.Kpi ); }
+
+        Vec3d dfi,dfj;
+        dfi.set_lincomb( -c*de, hi,    de, hj );
+        dfj.set_lincomb(    de, hi, -c*de, hj );
+
+        glColor3f(1.0,1.0,0.0);
+        Draw3D::vecInPos(  dfi, apos[ia]+hi*0.5 );
+        Draw3D::vecInPos(  dfj, apos[ja]+hj*0.5 );
+
+        fis[3].add(dfi);
+        fjs[3].add(dfj);
+
+        //fi.add_mul(hj,de);
+        //fj.add_mul(hi,de);
+
+        //fi.add_mul(hi,-hi.dot(fi));
+        //fj.add_mul(hj,-hj.dot(fj));
     }
 
     //printf( "force[%i,%i] (%g,%g,%g) \n", ia, ja, force.x,force.y,force.z );
@@ -356,6 +392,11 @@ double eval(){
     Epairs=evalPairs();
     //transferOrbRecoil();
     removeNormalForces();
+
+    #ifdef  DEBUG_GL
+    debug_draw(1.0);
+    #endif
+
     return Eatoms + Epairs;
 }
 
@@ -365,9 +406,106 @@ void moveGD(double dt, bool bAtom, bool bOrbital ){
     if(bOrbital)for(int i=0; i<norb;  i++){ opos[i].add_mul( oforce[i], dt ); }
 }
 
+double guessBonds(){
+    AtomRating neighs[natom*N_BOND_MAX];
+    for(int i=0; i<natom*N_BOND_MAX; i++){ 
+        //neighs[i]=-1; neighr2s[i]=+1e+300;
+        neighs[i].ia  = -1;
+        neighs[i].val = +1e+300;
+    }
+    for(int ia=0; ia<natom; ia++){
+        int ioff = ia*N_BOND_MAX;
+        const Vec3d& pi = apos[ia];
+        for(int ja=0; ja<ia; ja++){
+            int joff = ja*N_BOND_MAX;
+            Vec3d d; d.set_sub(apos[ja],pi);
+            double r2 = d.norm2();
+            insertSorted(N_BOND_MAX,{ja,r2},neighs+ioff);
+            insertSorted(N_BOND_MAX,{ia,r2},neighs+joff);
+        }
+    }
+    //Quat4d sps[N_BOND_MAX];
+    for(int ia=0; ia<natom; ia++){
+        const Vec3d& pi = apos[ia];
+        int ioff = ia*N_BOND_MAX;
+        int nsigma = aconf[ia].a;
+
+        // for(int j=0;j<nsigma;j++){
+        //     int  i= ioff+j;
+        //     int ja = neighs[i].ia;
+        //     //Vec3d d; d.set_sub(apos[ja],pi);
+        //     sps[j].p.set_sub(apos[ja],pi);
+        //     sps[j].p.normalize();
+        //     sps[j].s = M_SQRT1_2;
+        //     for(int k=0; k<j; k++){
+        //         double c = sps[j].dot( sps[k] ) * 0.66666666666;
+        //         sps[j].add_mul(sps[j],-c);
+        //     }
+        //     opos[i] = sps[j].p;
+        //     printf( "atom[%i] orb[%i] sp(%g,%g,%g|%g) \n", ia, j, sps[j].x, sps[j].y, sps[j].z, sps[j].s );
+        // }
+       Vec3d fw,up,lf; 
+       fw.set_sub(apos[neighs[ioff].ia],pi);
+       fw.normalize();
+       //if      (nsigma==1){
+       //     opos[ioff] = fw;
+       if(nsigma==2) {
+            opos[ioff+0] = fw;
+            opos[ioff+1] = fw*-1.0;
+            fw.getSomeOrtho( opos[ioff+2],opos[ioff+3] );
+       }else if(nsigma==3){
+            up.set_sub(apos[neighs[ioff+1].ia],pi);
+            up.makeOrthoU(fw); up.normalize();
+            opos[ioff+0] = fw;
+            opos[ioff+1] = fw*-0.5 + up*0.86602540378;
+            opos[ioff+2] = fw*-0.5 + up*-0.86602540378;
+            opos[ioff+3].set_cross( fw,up );
+       }else if(nsigma==4){
+            up.set_sub(apos[neighs[ioff+1].ia],pi);
+            up.makeOrthoU(fw);  up.normalize();
+            lf.set_cross(fw,up);
+            opos[ioff+0] = fw;
+            opos[ioff+1] = fw*-0.33333333333 + up* 0.94280904158;
+            opos[ioff+2] = fw*-0.33333333333 + up*-0.47140452079 + lf*0.81649658092;
+            opos[ioff+3] = fw*-0.33333333333 + up*-0.47140452079 + lf*0.81649658092;
+       }
+    }
+
+    //for(int io=0; io<norb; io++){ 
+    //    double d = 0.1;
+    //    opos[io].add(randf(-d,d),randf(-d,d),randf(-d,d));
+    //}
+}
+
+#ifdef  DEBUG_GL
+void debug_draw(double fscale){
+    for(int ia=0;ia<natom;ia++){
+        const Vec3d& pa = apos[ia];
+        int ioff = ia*N_BOND_MAX;
+        int nsigma = aconf[ia].a;
+        glColor3f(1,0.5,0); Draw3D::vecInPos( aforce[ia]*fscale, pa );
+        for(int io=0;io<N_BOND_MAX; io++){
+            const Vec3d& hi = opos  [ioff+io];
+            const Vec3d& fi = oforce[ioff+io];
+            if(io<nsigma){
+                glColor3f(0,0,1); Draw3D::vecInPos(hi,pa);
+                glColor3f(1,0,0.5); Draw3D::vecInPos( fi*fscale, pa+hi*0.5 );
+            }else{
+                glColor3f(0,1  ,0); Draw3D::line(pa+hi*0.5,pa+hi*-0.5);
+                glColor3f(1,0.5,0); Draw3D::vecInPos( fi*fscale, pa+hi*0.5 );
+            }
+        }
+    }
+}
+#endif
+
 }; // class FF
 
 
 }; // namespace FARFF
+
+
+
+
 
 #endif

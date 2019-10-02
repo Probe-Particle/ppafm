@@ -30,6 +30,13 @@ header_strings = [
 ]
 # cpp_utils.writeFuncInterfaces( header_strings );        exit()     #   uncomment this to re-generate C-python interfaces
 
+
+
+libSDL = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libSDL2.so", ctypes.RTLD_GLOBAL )
+libGL  = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libGL.so",   ctypes.RTLD_GLOBAL )
+
+
+
 cpp_name='FARFF'
 cpp_utils.make(cpp_name)
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
@@ -99,13 +106,17 @@ def setBox(pmin, pmax, k):
 lib.relaxNsteps.argtypes  = [c_int, c_double, c_int ] 
 lib.relaxNsteps.restype   =  c_double
 def relaxNsteps(nsteps, Fconv=1e-6, ialg=0):
-    print nsteps
+    #print nsteps
     return lib.relaxNsteps( nsteps, Fconv, ialg) 
 
 if __name__ == "__main__":
     #import basUtils as bu
     import atomicUtils as au
     import sys
+    import GLView as glv
+    import time
+
+
     fff = sys.modules[__name__]
     xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")     #; print xyzs
 
@@ -119,16 +130,31 @@ if __name__ == "__main__":
     apos   = dofs[:natom]            ; print "apos.shape ", apos.shape
     opos   = dofs[natom:]            ; print "opos.shape ", opos.shape
 
+
     #atypes[:] = 0         # use default atom type
     apos[:,:] = xyzs[:,:] #
-    opos[:,:] = np.random.rand( norb, 3 ); print "opos.shape ", opos #   exit()
+    #opos[:,:] = np.random.rand( norb, 3 ); print "opos.shape ", opos #   exit()
+
+    cog = np.sum( apos, axis=0 )
+    cog*=(1./natom)
+    apos -= cog[None,:]
 
     fff.setupFF(n=natom)   # use default atom type
 
-    fff.setupOpt(dt=0.2, damp=0.2, f_limit=10.0, l_limit=0.2 )
+    fff.setupOpt(dt=0.05, damp=0.2, f_limit=100.0, l_limit=0.2 )
     #fff.relaxNsteps(50, Fconv=1e-6, ialg=0)
 
+    glview = glv.GLView()
+    for i in range(1000000):
+        glview.pre_draw()
+        F2err = fff.relaxNsteps(1, Fconv=1e-6, ialg=0)
+        print "|F| ", np.sqrt(F2err)
+        if glview.post_draw(): break
+        time.sleep(.05)
+
+    '''
     def animRelax(i, perFrame=1):
         fff.relaxNsteps(perFrame, Fconv=1e-6, ialg=0)
         return apos,None
     au.makeMovie( "movie.xyz", 100, elems, animRelax )
+    '''
