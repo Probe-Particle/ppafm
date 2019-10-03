@@ -1104,10 +1104,12 @@ if __name__ == "__main__":
     # ============ Setup Probe Particle
 
     batch_size = 1
-    nRot           = 3
-    nBestRotations = 3
+    nRot           = 1
+    nBestRotations = 1
 
-    molecules = ["out2", "out3","benzeneBrCl2"]
+    molecules = ["formic_acid"]
+    #molecules = ["out3"]
+    #molecules = ["out2", "out3","benzeneBrCl2"]
     #molecules = ["benzeneBrCl2"]
 
     parser = OptionParser()
@@ -1119,8 +1121,8 @@ if __name__ == "__main__":
     #rotations = PPU.genRotations( np.array([1.0,0.0,0.0]) , np.linspace(-np.pi/2,np.pi/2, nRot) )
 
     #rotations = PPU.sphereTangentSpace(n=nRot) # http://blog.marmakoide.org/?p=1
-    rotations  = PPU.genRotations( np.array([0.,0.,1.]), np.arange( -np.pi, np.pi, 2*np.pi/nRot ) )
-    #rotations = np.array( [ [[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]], ] )
+    #rotations  = PPU.genRotations( np.array([0.,0.,1.]), np.arange( -np.pi, np.pi, 2*np.pi/nRot ) )
+    rotations = np.array( [ [[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]], ] )
 
 
     #import os
@@ -1361,6 +1363,13 @@ if __name__ == "__main__":
             #    plt.subplot(  1, nch, ichan+1 )
             #    plt.imshow( Ys[j][:,:,ichan] )
             #    plt.title( "i %i j %i ichan %i" %(i,j,ichan) )
+
+            print  " Ys[j].shape",  Ys[j].shape
+
+            np.save(  "./"+molecules[data_generator.imol]+"/Atoms.npy", Ys[j][:,:,0] )
+            np.save(  "./"+molecules[data_generator.imol]+"/Bonds.npy", Ys[j][:,:,1] )
+
+            continue
 
             #data_generator.plot( "/"+fname, molecules[i*batch_size+j], X=Xs[j], Y=Ys[j], entropy=0.0, bXYZ=True )
             #data_generator.plot( "/"+fname, molecules[data_generator.imol], X=Xs[j], Y=Ys[j], entropy=0.0, bXYZ=True, bGroups=True )

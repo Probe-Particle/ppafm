@@ -24,11 +24,13 @@ header_strings = [
     "double* getFDofs (){",
     "double* getEDofs (){",
     "void setupFF( int natom, int* types ){",
+    "void setGridShape( int* n, double* cell ){",
+    "void bindGrids( double* atomMap, double*  bondMap ){",
     "double setupOpt( double dt, double damp, double f_limit, double l_limit ){",
     "void setBox(double* pmin, double* pmax, double* k){",
     "double relaxNsteps( int nsteps, double Fconv, int ialg ){",
 ]
-# cpp_utils.writeFuncInterfaces( header_strings );        exit()     #   uncomment this to re-generate C-python interfaces
+#cpp_utils.writeFuncInterfaces( header_strings );        exit()     #   uncomment this to re-generate C-python interfaces
 
 
 
@@ -79,7 +81,7 @@ lib.getEDofs .restype   =  c_double_p
 def getEDofs (ndofs):
     return np.ctypeslib.as_array( lib.getEDofs(), shape=(ndofs,)) 
 
-#  double setupOpt( double dt, double damp, double f_limit, double l_limit ){
+#  void setupFF( int natom, int* types ){
 lib.setupFF.argtypes  = [c_int, c_int_p] 
 lib.setupFF.restype   =  None
 def setupFF( n=None, itypes=None ):
@@ -89,6 +91,19 @@ def setupFF( n=None, itypes=None ):
         n = len(itypes)
     print "type(itypes)",type(itypes),"itypes",itypes
     return lib.setupFF( n, _np_as(itypes,c_int_p) ) 
+
+#  void setGridShape( int * n, double * cell ){
+lib.setGridShape.argtypes  = [c_int_p, c_double_p] 
+lib.setGridShape.restype   =  None
+def setGridShape(n, cell):
+    n=np.array(n,dtype=np.int32)
+    return lib.setGridShape(_np_as(n,c_int_p), _np_as(cell,c_double_p)) 
+
+#  void bindGrids( double* atomMap, double*  bondMap ){
+lib.bindGrids.argtypes  = [c_double_p, c_double_p] 
+lib.bindGrids.restype   =  None
+def bindGrids(atomMap, bondMap):
+    return lib.bindGrids(_np_as(atomMap,c_double_p), _np_as(bondMap,c_double_p)) 
 
 #  double setupOpt( double dt, double damp, double f_limit, double l_limit ){
 lib.setupOpt.argtypes  = [c_double, c_double, c_double, c_double] 
@@ -108,6 +123,63 @@ lib.relaxNsteps.restype   =  c_double
 def relaxNsteps(nsteps, Fconv=1e-6, ialg=0):
     #print nsteps
     return lib.relaxNsteps( nsteps, Fconv, ialg) 
+
+# ================= Python Functions
+
+def blur( E ):
+    return (E[:-1,:-1] + E[1:,:-1] + E[:-1,1:] + E[1:,1:])*0.25
+
+def derivGrid_25D( E, F, dx, dy ):
+    F[:,:,:,1] = ( E[2:,1:-1,None] - E[:-2,1:-1,None] )*(.5/dx)
+    F[:,:,:,0] = ( E[1:-1,2:,None] - E[1:-1,:-2,None] )*(.5/dy)
+    F[:,:,:,2] = 0
+    return F
+
+def makeGridFF( fff, dx=0.1, dy=0.1 ):
+    #try:
+    atomMap = np.load('./Atoms.npy')
+    bondMap = np.load('./Bonds.npy')
+
+    atomMap = blur( atomMap )
+    bondMap = blur( bondMap )
+
+    atomMapF = np.empty( (atomMap.shape[0]-2,atomMap.shape[1]-2,1, 3), dtype=np.float64 )
+    bondMapF = np.empty( (bondMap.shape[0]-2,bondMap.shape[1]-2,1, 3), dtype=np.float64 )
+    atomMapF*=-1
+    bondMapF*=-1
+    derivGrid_25D( atomMap, atomMapF, dx, dy )
+    derivGrid_25D( bondMap, bondMapF, dx, dy )
+
+    lvec = np.array( [[atomMap.shape[0]*dx,0.0,0.0],[0.0,atomMap.shape[1]*dy,0.0],[0.0,0.0,2.0]] )
+
+    print " shape atomMap, bondMap ", atomMapF.shape, bondMapF.shape
+
+    '''
+    import matplotlib.pyplot as plt
+    plt.figure(); plt.imshow(atomMap); plt.colorbar()
+    plt.figure(); plt.imshow(bondMap); plt.colorbar()
+
+    plt.figure(); plt.imshow(atomMapF[:,:,0,0], cmap='jet'); plt.colorbar()
+    plt.figure(); plt.imshow(bondMapF[:,:,0,0], cmap='jet'); plt.colorbar()
+
+    plt.figure(); plt.imshow(atomMapF[:,:,0,1], cmap='jet'); plt.colorbar()
+    plt.figure(); plt.imshow(bondMapF[:,:,0,1], cmap='jet'); plt.colorbar()
+
+    fw2 = 0.1
+    plt.figure(); plt.imshow(1/(fw2 + atomMapF[:,:,0,0]**2 + atomMapF[:,:,0,1]**2) ); plt.colorbar()
+    plt.figure(); plt.imshow(1/(fw2 + bondMapF[:,:,0,0]**2 + bondMapF[:,:,0,1]**2) ); plt.colorbar()
+    plt.show()
+    '''
+
+    fff.setGridShape( atomMapF.shape[:3], lvec )
+    fff.bindGrids( atomMapF, bondMapF )
+
+    #except Exception as e:
+    #    raise Exception(e) 
+    #    print(e)
+    #    print " cannot load ./Atoms.npy or ./Bonds.npy "
+
+    return atomMapF, bondMapF
 
 if __name__ == "__main__":
     #import basUtils as bu
@@ -131,7 +203,7 @@ if __name__ == "__main__":
     opos   = dofs[natom:]            ; print "opos.shape ", opos.shape
 
 
-    #atypes[:] = 0         # use default atom type
+    #atypes[:] = 0        # use default atom type
     apos[:,:] = xyzs[:,:] #
     #opos[:,:] = np.random.rand( norb, 3 ); print "opos.shape ", opos #   exit()
 
@@ -140,6 +212,8 @@ if __name__ == "__main__":
     apos -= cog[None,:]
 
     fff.setupFF(n=natom)   # use default atom type
+
+    atomMapF, bondMapF = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF
 
     fff.setupOpt(dt=0.05, damp=0.2, f_limit=100.0, l_limit=0.2 )
     #fff.relaxNsteps(50, Fconv=1e-6, ialg=0)

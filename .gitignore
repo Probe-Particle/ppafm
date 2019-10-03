@@ -7,5 +7,6 @@
 *_backup
 
 *.npy
+*.npz
 *.xsf
 *.png

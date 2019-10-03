@@ -20,7 +20,8 @@
 
 // Force-Field namespace 
 class GridShape {	
-	public:	    
+	public:
+	Vec3d   pos0;
 	Mat3d   cell;       // lattice vector
 	Mat3d   dCell;      // basis vector of each voxel ( lattice vectors divided by number of points )
 	Mat3d   diCell;     // inversion of voxel basis vector

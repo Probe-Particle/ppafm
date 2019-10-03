@@ -32,9 +32,7 @@ TODO:
 #define N_BOND_MAX 4
 
 
-
 #define DEBUG_GL
-
 #ifdef  DEBUG_GL
 #include "Draw3D.cpp" // DEBUG
 #endif
@@ -325,15 +323,17 @@ double evalPair( int ia, int ja, const FlexiblePairType& type){
         double c = hi.dot(hj);
         double de = -2*c*type.Kpi*Eb;
         //if(fabs(Eb)>0.1){ printf( "pi-pi %g %g %g %g \n", de, c, Eb, type.Kpi ); }
-        if(fabs(Eb)>0.1 && fabs(c)<0.95 ){ printf( "pi-pi %g %g %g %g \n", de, c, Eb, type.Kpi ); }
+        //if(fabs(Eb)>0.1 && fabs(c)<0.95 ){ printf( "pi-pi %g %g %g %g \n", de, c, Eb, type.Kpi ); }
 
         Vec3d dfi,dfj;
         dfi.set_lincomb( -c*de, hi,    de, hj );
         dfj.set_lincomb(    de, hi, -c*de, hj );
 
+        #ifdef DEBUG_GL 
         glColor3f(1.0,1.0,0.0);
         Draw3D::vecInPos(  dfi, apos[ia]+hi*0.5 );
         Draw3D::vecInPos(  dfj, apos[ja]+hj*0.5 );
+        #endif
 
         fis[3].add(dfi);
         fjs[3].add(dfj);
