@@ -174,6 +174,20 @@ def getCoulombFF( Rs, kQQs, kind=0 ):
     natom = len(Rs) 
     lib.getCoulombFF( natom, Rs, kQQs, kind )
 
+# void getGaussDensity( int natoms_, double * Ratoms_, double * cRAs ){
+lib.getGaussDensity.argtypes  = [ c_int,       array2d,      array2d  ]
+lib.getGaussDensity.restype   = None
+def getGaussDensity( Rs, cRAs ):
+    natom = len(Rs) 
+    lib.getGaussDensity( natom, Rs, cRAs )
+
+# void getSlaterDensity( int natoms_, double * Ratoms_, double * cRAs ){
+lib.getSlaterDensity.argtypes  = [ c_int,       array2d,      array2d  ]
+lib.getSlaterDensity.restype   = None
+def getSlaterDensity( Rs, cRAs ):
+    natom = len(Rs) 
+    lib.getSlaterDensity( natom, Rs, cRAs )
+
 # int relaxTipStroke ( int probeStart, int nstep, double * rTips_, double * rs_, double * fs_ )
 lib.relaxTipStroke.argtypes  = [ c_int, c_int, c_int,  array2d, array2d, array2d ]
 lib.relaxTipStroke.restype   = c_int

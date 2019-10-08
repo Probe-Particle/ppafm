@@ -84,10 +84,11 @@ for ia in range(len(atoms[0])):
 import pyProbeParticle.fieldFFT  as ffft
 
 print "sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV
-ffft.addCoreDensities( atoms_, valElDict, rho1, lvec1, sigma=0.1 )
+ffft.addCoreDensities( atoms_, valElDict, rho1, lvec1, sigma=0.25 )
 print "sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV
 
-GU.saveXSF( "rho_core.xsf", rho1,       lvec1, head=head1 )
+#GU.saveXSF( "rho_core.xsf", rho1,       lvec1, head=head1 )
+GU.saveXSF( "rho_diff.xsf", rho1,       lvec1, head=head1 )
 
 
 

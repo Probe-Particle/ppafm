@@ -147,14 +147,14 @@ inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& 
 	// dR - vector between actual PPpos and anchor point (in global coords)
 	// Fw - forward diraction of anchor coordinate system (previous bond direction; e.g. Tip->C for C->O) (in global coords)
 	// Up - Up vector --,,-- ; e.g. x axis (1,0,0), defines rotation of your tip (in global coords)
-    // R0 - equlibirum position of PP (in local coords)
-    // K  - stiffness (ka,kb,kc) along local coords
+	// R0 - equlibirum position of PP (in local coords)
+	// K  - stiffness (ka,kb,kc) along local coords
 	// return force (in global coords)
 	Mat3d rot; Vec3d dR_,f_,f;
 	rot.fromDirUp( Fw*(1/Fw.norm()), Up );  // build orthonormal rotation matrix
 	rot.dot_to  ( dR, dR_   );              // transform dR to rotated coordinate system
 	f_ .set_mul ( dR_-R0, K );              // spring force (in rotated system)
-    // here you can easily put also other forces - e.g. Torsion etc. 
+	// here you can easily put also other forces - e.g. Torsion etc. 
 	rot.dot_to_T( dR_, f );                 // transform force back to world system
 	return f;
 }
@@ -167,8 +167,8 @@ inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
 	double E12  = c12 * ir6*ir6;
 	//return dR * ( ( 6*ir6*c6 -12*ir12*c12 ) * ir2  );
 	fout.add_mul( dR , ( 6*E6 -12*E12 ) * ir2 );
-    //fout.add_mul( dR , -12*E12 * ir2 );
-    //fout.add_mul( dR , 6*E6 * ir2 );
+	//fout.add_mul( dR , -12*E12 * ir2 );
+	//fout.add_mul( dR , 6*E6 * ir2 );
 	//printf(" (%g,%g,%g)  (%g,%g)  %g \n", dR.x,dR.y,dR.z, c6, c12,  E12 - E6);
 	//printf(" (%g,%g,%g)  %f %f  (%g,%g,%g) \n", dR.x,dR.y,dR.z, c6, c12,  fout.x,fout.y,fout.z);
 	return E12 - E6;
@@ -228,8 +228,29 @@ inline double addAtom_Coulomb_dz2( Vec3d dR, Vec3d& fout, double * coefs ){
     dR.z -=   dstep; E += addAtomCoulomb( dR, f,    kqq );
     dR.z += 2*dstep; E += addAtomCoulomb( dR, f,    kqq );
     fout.add_mul(f,inv_ddstep);
-	return    E*inv_ddstep;
+    return    E*inv_ddstep;
 }
+
+inline double addAtom_Gauss( Vec3d dR, Vec3d& fout, double * coefs ){
+	//constexpr static const double invSqrt2pi = 1/sqrt(2*M_PI); 
+	double amp      =   coefs[0];
+	double invSigma = 1/coefs[1];
+	double r2    = dR.norm2();
+	double E = amp * exp( -0.5*sq(r2*invSigma) ); // * invSqrt2pi * invSigma; // normalization should be done in python - rescale amp
+	// fout =  TODO
+    return E; 
+}
+
+inline double addAtom_Slater( Vec3d dR, Vec3d& fout, double * coefs ){ 
+	double amp  =   coefs[0];
+	double beta = 1/coefs[1];
+	double r    = dR.norm();
+	double E = amp * exp( -beta*r );
+	// fout =  TODO
+    return E; 
+}
+
+
 
 // coefs is array of coefficient for each atom; nc is number of coefs for each atom
 template<double addAtom_func(Vec3d dR, Vec3d& fout, double * coefs)>
@@ -363,21 +384,18 @@ void getInPoints_LJ( int npoints, double * points_, double * FEs, int natoms, do
 void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    //exit(0);
     interateGrid3D < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
 }
 
 void getVdWFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    //exit(0);
     interateGrid3D < evalCell < addAtom_VdW  > >( r0, gridShape.n, gridShape.dCell, cLJs );
 }
 
 void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2; Morse_alpha = alpha;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    //exit(0);
     interateGrid3D < evalCell < addAtom_Morse > >( r0, gridShape.n, gridShape.dCell, REs );
 }
 
@@ -386,13 +404,29 @@ void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){
 void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs, int kind ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 1;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    printf(" kind %i \n", kind );
+    //printf(" kind %i \n", kind );
     switch(kind){
         //case 0: interateGrid3D < evalCell < foo  > >( r0, gridShape.n, gridShape.dCell, kQQs_ );
         case 0: interateGrid3D < evalCell < addAtom_Coulomb_s   > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
         case 1: interateGrid3D < evalCell < addAtom_Coulomb_pz  > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
         case 2: interateGrid3D < evalCell < addAtom_Coulomb_dz2 > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
     }
+}
+
+void getGaussDensity( int natoms_, double * Ratoms_, double * cRAs ){
+	natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
+	Vec3d r0; r0.set(0.0,0.0,0.0);
+	Vec3d* gridF_=gridF; gridF=0;
+	interateGrid3D < evalCell < addAtom_Gauss  > >( r0, gridShape.n, gridShape.dCell, cRAs );
+	gridF=gridF_;
+}
+
+void getSlaterDensity( int natoms_, double * Ratoms_, double * cRAs ){
+	natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
+	Vec3d r0; r0.set(0.0,0.0,0.0);
+	Vec3d* gridF_=gridF; gridF=0;
+	interateGrid3D < evalCell < addAtom_Slater > >( r0, gridShape.n, gridShape.dCell, cRAs );
+	gridF=gridF_;
 }
 
 // relax one stroke of tip positions ( stored in 1D array "rTips_" ) using precomputed 3D force-field on grid

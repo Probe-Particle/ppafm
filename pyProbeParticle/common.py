@@ -331,14 +331,18 @@ def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
     matom = mtot * natom
     Zs_    = np.empty(  matom   , np.int32  )
     xyzqs_ = np.empty( (matom,4), np.float32)
-    cLJs_  = np.empty( (matom,2), np.float32)
+    if cLJs is not None:
+        cLJs_  = np.empty( (matom,2), np.float32)
+    else:
+        cLJs_=None
     i0 = 0
     i1 = i0 + natom
     # we want to have cell=(0,0,0) first
     Zs_   [i0:i1   ] = Zs  [:  ]
     xyzqs_[i0:i1,:3] = Rs  [:,:]
     xyzqs_[i0:i1, 3] = Qs  [:  ]
-    cLJs_ [i0:i1,: ] = cLJs[:,:]
+    if cLJs is not None:
+        cLJs_ [i0:i1,: ] = cLJs[:,:]
     i0 += natom
     for ia in range(-npbc[0],npbc[0]+1):
         for ib in range(-npbc[1],npbc[1]+1):
@@ -349,7 +353,8 @@ def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
                 Zs_   [i0:i1   ] = Zs  [:  ]
                 xyzqs_[i0:i1,:3] = Rs  [:,:] + v_shift[None,:]
                 xyzqs_[i0:i1, 3] = Qs  [:  ]
-                cLJs_ [i0:i1,: ] = cLJs[:,:]
+                if cLJs is not None:
+                    cLJs_ [i0:i1,: ] = cLJs[:,:]
                 i0 += natom
                 #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
     return Zs_, xyzqs_, cLJs_
