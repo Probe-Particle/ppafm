@@ -622,6 +622,7 @@ class AtomProcjetion:
     Rpp     =  2.0   #  probe-particle radius
     zmin    = -3.0   #  minim position of pixels sampled in SphereMaps
     dzmax   =  2.0   #  maximum distance of atoms from sampling screen for Atomic Disk maps ( similar )
+    dzmax_s = np.Inf #  maximum depth of vdW shell in Atomic Disks
     #beta    = -1.0  #  decay of exponetial radial function (used e.g. for Bonds)
 
     Rmax       =  10.0  #  Radial function of bonds&atoms potential  ; used in Bonds
@@ -793,7 +794,7 @@ class AtomProcjetion:
         self.queue.finish()
         return Eout
 
-    def run_evaldisks(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
+    def run_evaldisks(self, poss=None, Eout=None, tipRot=None, offset=0.0, local_size=(32,) ):
         '''
         kernel producing atomic disks with conical profile
         '''
@@ -815,6 +816,9 @@ class AtomProcjetion:
             self.cl_poss,
             self.cl_Eout,
             np.float32( self.dzmax   ),
+            np.float32( self.dzmax_s ),
+            np.float32( offset ),
+            np.float32( self.Rpp ),
             self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
         )
         cl_program.evalDisk( self.queue, global_size, local_size, *(kargs) )

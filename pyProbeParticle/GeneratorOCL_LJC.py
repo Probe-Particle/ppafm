@@ -287,6 +287,8 @@ class Generator(Sequence,):
 
     bRunTime = False
 
+    diskMode = 'center' # or 'sphere'
+
     def __init__(self, molecules, rotations, batch_size=32, pixPerAngstrome=10, lvec=None, Ymode='HeightMap' ):
         'Initialization'
 
@@ -708,9 +710,9 @@ class Generator(Sequence,):
         zs += RvdWs  # z-coord of each atom with it's RvdW
         imax = np.argmax( zs ) 
         self.distAboveActive = self.distAboveActive + RvdWs[imax] # shifts distAboveActive for vdW-Radius of top atomic shell
-        if(verbose>1): print "imax,distAboveActive ", imax, self.distAboveActive
-
-
+        if(verbose>1): print "imax,distAboveActive ", imax, self.distAboveActive        
+        atoms_rotated_to_pos0 = rotAtoms(self.rot, self.atomsNonPBC[:,:3] - self.atomsNonPBC[imax,:3])  #New top atom
+        
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().2   ) [s]:  %0.6f" %(time.clock()-t0)  ," top atom "
 
         # shift projection to molecule center but leave top atom still in the center
@@ -740,7 +742,7 @@ class Generator(Sequence,):
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().4   ) [s]:  %0.6f" %(time.clock()-t0)   ," vtipR0  "
 
         #self.scanner.setScanRot( , rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
-        pos0             = self.pos0+self.rot[2]*self.distAboveActive+np.dot((AFM_window_shift[0],AFM_window_shift[1],0),self.rot)
+        pos0             = self.atomsNonPBC[imax,:3]+self.rot[2]*self.distAboveActive+np.dot((AFM_window_shift[0],AFM_window_shift[1],0),self.rot)
         self.scan_pos0s  = self.scanner.setScanRot(pos0, rot=self.rot, zstep=0.1, tipR0=vtipR0 )
         
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().5   ) [s]:  %0.6f" %(time.clock()-t0)  ," scan_pos0s = scanner.setScanRot() "
@@ -778,7 +780,7 @@ class Generator(Sequence,):
 
         dirFw = np.append( self.rot[2], [0] ); 
         if(verbose>0): print "dirFw ", dirFw
-        poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAboveActive-1.0))[None,None,:] )
+        poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAboveActive-RvdWs[imax]-self.projector.Rpp))[None,None,:] )
 
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().10  ) [s]:  %0.6f" %(time.clock()-t0)  ," poss_ <- scan_pos0s  "
 
@@ -829,7 +831,13 @@ class Generator(Sequence,):
             Y[:,:,1] = self.projector.run_evalBondEllipses( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'D-S-H':
             # Disks
-            Y[:,:,0] = self.projector.run_evaldisks  ( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+            if self.diskMode == 'sphere':
+                offset = np.dot(poss_[0,0,:3]-self.atomsNonPBC[np.argmax(atoms_rotated_to_pos0[:,2]),:3], self.rot[2]) # Distance from top atom to screen
+                Y[:,:,0] = self.projector.run_evaldisks  ( poss = poss_, tipRot=self.scanner.tipRot, offset=offset )[:,:,0]
+            elif self.diskMode == 'center':
+                self.projector.dzmax_s = np.Inf
+                offset = np.dot(poss_[0,0,:3]-self.atomsNonPBC[np.argmax(atoms_rotated_to_pos0[:,2]),:3], self.rot[2]) - 1.0
+                Y[:,:,0] = self.projector.run_evaldisks  ( poss = poss_, tipRot=self.scanner.tipRot, offset=offset )[:,:,0]
             # Spheres
             Y[:,:,1] = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
             # Height
