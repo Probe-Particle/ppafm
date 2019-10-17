@@ -780,7 +780,8 @@ class Generator(Sequence,):
 
         dirFw = np.append( self.rot[2], [0] ); 
         if(verbose>0): print "dirFw ", dirFw
-        poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAboveActive-RvdWs[imax]-self.projector.Rpp))[None,None,:] )
+        if self.Ymode not in ['HeightMap', 'ElectrostaticMap', 'xyz']:
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAboveActive-RvdWs[imax]-self.projector.Rpp))[None,None,:] )
 
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().10  ) [s]:  %0.6f" %(time.clock()-t0)  ," poss_ <- scan_pos0s  "
 
