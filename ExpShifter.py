@@ -169,6 +169,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.data[iz]=nimg.shift (self.data[iz], (-ix-self.shifts[iz][0],-iy-self.shifts[iz][1]), order=3,mode='mirror' )   
             self.shifts[iz][0] =  -ix
             self.shifts[iz][1] =  -iy
+            self.bxX.setValue( self.shifts[iz][0] )
+            self.bxY.setValue( self.shifts[iz][1] ) 
+
             print self.shifts
             self.updateDataView()
 
