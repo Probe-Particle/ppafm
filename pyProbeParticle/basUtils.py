@@ -130,13 +130,61 @@ def loadAtomsLines( lines ):
     qs   = np.array(qs)
     return xyzs,Zs,enames,qs
 
+def writeMatrix( fout, mat ):
+    for v in mat:
+        for num in v: fout.write(' %f ' %num )
+        fout.write('\n')
+
+def writeAtoms( f, elems, xyzs ):
+    for i in range(len(elems)):
+        xyzsi = xyzs[i]
+        f.write( str(elems[i] ) ); 
+        f.write( " %10.10f %10.10f %10.10f\n" %(xyzsi[0], xyzsi[1], xyzsi[2]) )
+
+def writeAtomsTransposed( f, elems, xyzs ):
+    xs = xyzs[0]
+    ys = xyzs[1]
+    zs = xyzs[2]
+    for i in range(len(elems)):
+        f.write( str(elems[i] ) ); 
+        f.write( " %10.10f %10.10f %10.10f\n" %(xs[i], ys[i], zs[i]) )
+
+def saveGeomXSF( fname,elems,xyzs, primvec, convvec=None, bTransposed=False ):
+    if convvec is None:
+        primvec = convvec
+    with open(fname,'w') as f:
+        f.write( 'CRYSTAL\n' )
+        f.write( 'PRIMVEC\n' )
+        writeMatrix( f, primvec )
+        f.write( 'CONVVEC\n' )
+        writeMatrix( f, convvec )
+        f.write( 'PRIMCOORD\n' )
+        f.write( '%i %i\n' %(len(elems),1) )
+        if bTransposed:
+            writeAtomsTransposed( f, elems, xyzs )
+        else:
+            writeAtoms( f, elems, xyzs )
+        f.write( '\n' )
+
+def saveXyz_Transposed(fname,elems,xyzs):
+    with open(fname,'w') as f:
+        n = len(elems)
+        f.write( "%i\n" %n )
+        f.write( "#comment\n" )
+        xs = xyzs[0]
+        ys = xyzs[1]
+        zs = xyzs[2]
+        for i in range(n):
+            f.write( "%s %10.10f %10.10f %10.10f\n" %(elems[i], xs[i], ys[i], zs[i] )  )
+
 def saveXyz(fname,elems,xyzs):
     with open(fname,'w') as f:
         n = len(elems)
         f.write( "%i\n" %n )
         f.write( "#comment\n" )
         for i in range(n):
-            f.write( "%s %10.10f %10.10f %10.10f\n" %(elems[i], xyzs[i][0], xyzs[i][1], xyzs[i][2] )  )
+            xyzsi = xyzs[i]
+            f.write( "%s %10.10f %10.10f %10.10f\n" %(elems[i], xyzsi[0], xyzsi[1], xyzsi[2] )  )
 
 def saveXyzq(fname,elems,xyzqs):
     with open(fname,'w') as f:
@@ -174,7 +222,6 @@ def writeDebugXYZ_2( fname, atoms, Zs, poss, pos0 ):
         fout.write( "He %f %f %f\n" %(pos[0], pos[1], pos[2]) )
     fout.write( "\n" )
 
-
 def writeDebugXYZ__( fname, atoms, Zs ):
     fout  = open(fname,"w")
     natom = len(atoms)
@@ -194,7 +241,8 @@ def loadXSFGeom( fname ):
             break
     n = int(f.readline().split()[0])
     for j in range(n):
-        ws = f.readline().split();  e.append(int(ws[0])); x.append(float(ws[1])); y.append(float(ws[2])); z.append(float(ws[3])); q.append(0);
+        ws = f.readline().split();  
+        e.append(int(ws[0])); x.append(float(ws[1])); y.append(float(ws[2])); z.append(float(ws[3])); q.append(0);
     for i in range(10000):
         if ('BEGIN_DATAGRID_3D') in f.readline():   
             break

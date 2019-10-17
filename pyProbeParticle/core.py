@@ -188,6 +188,16 @@ def getSlaterDensity( Rs, cRAs ):
     natom = len(Rs) 
     lib.getSlaterDensity( natom, Rs, cRAs )
 
+# void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs ){
+lib.getDensityR4spline.argtypes  = [ c_int,       array2d,      array2d  ]
+lib.getDensityR4spline.restype   = None
+def getDensityR4spline( Rs, cRAs, bNormalize=True ):
+    if bNormalize:
+        cRAs[:,0] /= ((np.pi*32)/105)*cRAs[:,1]**3     # see https://www.wolframalpha.com/input/?i=4*pi*x%5E2*%281-x%5E2%29%5E2+integrate+from+0+to+1
+    #print cRAs
+    natom = len(Rs) 
+    lib.getDensityR4spline( natom, Rs, cRAs )
+
 # int relaxTipStroke ( int probeStart, int nstep, double * rTips_, double * rs_, double * fs_ )
 lib.relaxTipStroke.argtypes  = [ c_int, c_int, c_int,  array2d, array2d, array2d ]
 lib.relaxTipStroke.restype   = c_int

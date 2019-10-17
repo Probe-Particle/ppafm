@@ -18,6 +18,7 @@ class OCLEnvironment:
         self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH + '/../cl' )
         #self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH )
         platforms         = cl.get_platforms()
+        print " i_platform ", i_platform
         self.platform     = platforms[i_platform]
         self.ctx          = cl.Context(properties=[(cl.context_properties.PLATFORM, self.platform)], devices=None)
         self.queue        = cl.CommandQueue(self.ctx)

@@ -318,6 +318,65 @@ def PBCAtoms3D( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
                     #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
     return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy(), np.array(cLJs_).copy()
 
+def findPBCAtoms3D_cutoff( Rs, lvec, Rcut=1.0, corners=None ):
+    '''
+    find which atoms with positions 'Rs' and radius 'Rcut' thouch rhombic cell defined by 3x3 matrix 'lvec';
+       or more precisely which points 'Rs' belong to a rhombic cell enlarged by margin Rcut on each side
+    all assuming that 'Rcut' is smaller than the rhombic cell (in all directions)  
+    '''
+    #print "lvec ", lvec
+    invLvec = np.linalg.inv(lvec) ; #print "invLvec ", invLvec
+    abc = np.dot( invLvec, Rs )  # atoms in grid coordinates
+    # calculate margin on each side in grid coordinates
+    ra  = np.sqrt(np.dot(invLvec[0],invLvec[0]));   mA = ra*Rcut
+    rb  = np.sqrt(np.dot(invLvec[1],invLvec[1]));   mB = rb*Rcut
+    rc  = np.sqrt(np.dot(invLvec[2],invLvec[2]));   mC = rc*Rcut
+    #print "margins ", mA, mB, mC
+    cells = [-1,0,1]
+    inds  = []
+    Rs_   = []
+    a = abc[0];
+    b = abc[1];
+    c = abc[2];
+    #print "Rs.shape ", Rs.shape
+    i = 0
+    for ia in cells:
+        mask_a  = (a>(-mA-ia)) & (a<(mA+1-ia)) 
+        shift_a = ia*lvec[0,:]
+        for ib in cells:
+            mask_ab  = (b>(-mB-ib)) & (b<(mB+1-ib)) & mask_a
+            shift_ab = ib*lvec[1,:] + shift_a
+            for ic in cells:
+                v_shift  = ic*lvec[2,:] + shift_ab
+                mask = mask_ab & (c>(-mC-ic)) & (c<(mC+1-ic))
+                inds_abc = np.nonzero( mask )[0]
+                if len(inds_abc)==0: continue
+                Rs_abc   = Rs[:,inds_abc] 
+                #print i,(ia,ib,ic), "Rs.shape ", Rs.shape, "  Rs_abc.shape ", Rs_abc.shape
+                Rs_abc  += v_shift[:,None]
+                inds.append( inds_abc )
+                Rs_ .append( Rs_abc   )
+                i+=1
+    #print "Rs_\n", Rs_
+    inds = np.concatenate( inds )
+    Rs_  = np.hstack( Rs_  )
+
+    if corners is not None:
+        corns = np.array([
+            [ -mA, -mB, -mC],
+            [ -mA, -mB,1+mC],
+            [ -mA,1+mB, -mC],
+            [ -mA,1+mB,1+mC],
+            [1+mA, -mB, -mC],
+            [1+mA, -mB,1+mC],
+            [1+mA,1+mB, -mC],
+            [1+mA,1+mB,1+mC],
+        ]).transpose()
+        corners.append( np.dot(lvec,corns) )
+
+    return inds, Rs_
+
+
 def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
     '''
     multiply atoms of sample along supercell vectors

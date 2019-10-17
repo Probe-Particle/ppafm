@@ -1126,11 +1126,12 @@ if __name__ == "__main__":
 
 
     #import os
-    i_platform = 1
+    i_platform = 0
     env = oclu.OCLEnvironment( i_platform = i_platform )
     FFcl.init(env)
     oclr.init(env)
 
+    '''
     bPlatformInfo = True
     if bPlatformInfo:
         os.environ['PYOPENCL_COMPILER_OUTPUT'] = '1'
@@ -1143,6 +1144,7 @@ if __name__ == "__main__":
         env.printPlatformInfo()
         print 
         print "######################################################################"
+    '''
 
     '''
     lvec = np.array([
@@ -1306,8 +1308,8 @@ if __name__ == "__main__":
     data_generator.scan_start = (-12.5,-12.5) 
     data_generator.scan_end   = ( 12.5, 12.5)
 
-    #bRunTime      = True
-    #FFcl.bRuntime = True
+    bRunTime      = True
+    FFcl.bRuntime = True
 
     data_generator            .verbose  = 1
     data_generator.forcefield .verbose  = 1
@@ -1366,10 +1368,10 @@ if __name__ == "__main__":
 
             print  " Ys[j].shape",  Ys[j].shape
 
-            np.save(  "./"+molecules[data_generator.imol]+"/Atoms.npy", Ys[j][:,:,0] )
-            np.save(  "./"+molecules[data_generator.imol]+"/Bonds.npy", Ys[j][:,:,1] )
+            #np.save(  "./"+molecules[data_generator.imol]+"/Atoms.npy", Ys[j][:,:,0] )
+            #np.save(  "./"+molecules[data_generator.imol]+"/Bonds.npy", Ys[j][:,:,1] )
 
-            continue
+            #continue
 
             #data_generator.plot( "/"+fname, molecules[i*batch_size+j], X=Xs[j], Y=Ys[j], entropy=0.0, bXYZ=True )
             #data_generator.plot( "/"+fname, molecules[data_generator.imol], X=Xs[j], Y=Ys[j], entropy=0.0, bXYZ=True, bGroups=True )
