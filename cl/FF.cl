@@ -528,6 +528,9 @@ __kernel void evalDisk(
     __global float4*    poss,
     __global float*     FE,
     float dzmax,
+    float dzmax_s,
+    float offset,
+    float Rpp,
     float4 rotA,
     float4 rotB,
     float4 rotC
@@ -554,10 +557,12 @@ __kernel void evalDisk(
                 float   R  = LCOEFS[j].z;
                 float   r2 = dot(abc.xy,abc.xy);
                 float dxy2 = r2/( (R*R) );
-                if( ( dxy2 < 1.0f ) && ( abc.z < dzmax ) ){
+                float  z   = abc.z - offset;
+                float  z_s = abc.z - LCOEFS[j].w - Rpp;
+                if( ( dxy2 < 1.0f ) && ( z < dzmax ) && ( z_s < dzmax_s ) ){
                     //fe += 1-dxy2;
                     //fe += ( 1-(abc.z/dzmax) ) * sqrt( 1- dxy2 );
-                    fe += ( 1.0f-(abc.z/dzmax) ) * ( 1.0f- sqrt(dxy2) );
+                    fe += ( 1.0f-(z/dzmax) ) * ( 1.0f- sqrt(dxy2) );
                     //fe += coefs[j].w;
                 }
             }
