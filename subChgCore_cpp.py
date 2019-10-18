@@ -16,11 +16,11 @@ from optparse import OptionParser
 
 parser = OptionParser()
 parser.add_option( "-s", "--sample", action="store", type="string", default="CHGCAR.xsf", help="sample 3D data-file (.xsf)")
-parser.add_option( "-R", "--radius", action="store", type="float", default="0.7", help="width of the core density radial function")
+parser.add_option( "-R", "--Rcore", action="store", type="float", default="0.7", help="width of the core density radial function")
 (options, args) = parser.parse_args()
 
 valElDict = { 6:4.0, 8:6.0}   # number of valence electrons for each atomic number,   TODO: should read form external dictionary for every atoms
-Rcut = options.radius
+Rcut = options.Rcore
 
 atoms,nDim,lvec = BU.loadGeometry( options.sample, params=PPU.params )
 Rs = np.array(atoms[1:4])                     # get just positions x,y,z
@@ -53,7 +53,8 @@ cRAs = np.array([ (-valElDict[elem],Rcut) for elem in elems ])     #   parameter
 
 print ">>> Loading ... "
 rho1, lvec1, nDim1, head1 = GU.loadXSF( options.sample )
-V = lvec1[1,0]*lvec1[2,1]*lvec1[3,2]
+#V = lvec1[1,0]*lvec1[2,1]*lvec1[3,2]
+V  = np.linalg.det( lvec )
 N = nDim1[0]*nDim1[1]*nDim1[2]
 dV = (V/N)  # volume of one voxel
 #cRAs[:,0] *= dV    # Debugging
@@ -70,4 +71,4 @@ core.getDensityR4spline( Rs_, cRAs.copy() )  # Do the job ( the Projection of at
 print "sum(RHO), Nelec: ",  rho1.sum(),  rho1.sum()*dV   # check sum
 
 print ">>> Saving ... "
-GU.saveXSF( "rho_core.xsf", rho1, lvec1, head=head1 )
+GU.saveXSF( "rho_subCoreChg.xsf", rho1, lvec1, head=head1 )

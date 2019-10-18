@@ -34,7 +34,7 @@ if __name__=="__main__":
     parser.add_option( "-k", "--klat",  action="store", type="float", help="tip stiffenss [N/m]" )
     parser.add_option( "--krange", action="store", type="float", help="tip stiffenss range (min,max,n) [N/m]", nargs=3)
     parser.add_option( "-q","--charge",       action="store", type="float", help="tip charge  [e]" )
-    parser.add_option( "--Apauli",   default=PPU.params["Apauli"],    action="store", type="float", help="FFpauli  scaling [1]" )
+    parser.add_option( "--Apauli",  default=PPU.params["Apauli"],    action="store", type="float", help="FFpauli scaling; i.e. prefactor A in formula E = A*Integral( rho_tip^B * rho_sample^B ) " )
     parser.add_option( "--qrange", action="store", type="float", help="tip charge range (min,max,n) [e]", nargs=3)
     parser.add_option( "-b", "--boltzmann" ,action="store_true", default=False, help="calculate forces with boltzmann particle" )
     parser.add_option( "--bI" ,action="store_true", default=False, help="calculate current between boltzmann particle and tip" )
@@ -45,6 +45,7 @@ if __name__=="__main__":
     parser.add_option( "--tipspline", action="store", type="string", help="file where spline is stored", default=None )
     parser.add_option( "--rotate", action="store", type="float", help="rotates sampling in xy-plane", default=0.0 )
     parser.add_option("-f","--data_format" , action="store" , type="string",help="Specify the input/output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
+
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
     PPU.loadParams( 'params.ini' )

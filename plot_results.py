@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver"; # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 import matplotlib.pyplot as plt
 import sys
-import scipy
+
 
 '''
 import basUtils
@@ -23,7 +23,10 @@ from   pyProbeParticle            import elements
 #import pyProbeParticle.core           as PPC
 import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.cpp_utils      as cpp_utils
-from scipy.ndimage import laplace
+
+
+#import scipy                        # don't introduce unnecessary dependence on scipy
+#from scipy.ndimage import laplace   # don't introduce unnecessary dependence on scipy
 
 # =============== arguments definition
 
@@ -56,6 +59,9 @@ PPU.loadParams( 'params.ini' )
 PPU.apply_options(opt_dict)
 
 # =============== Setup
+
+if opt_dict['Laplace']:
+    from scipy.ndimage import laplace
 
 #PPPlot.params = PPU.params
 
@@ -177,7 +183,7 @@ for iq,Q in enumerate( Qs ):
                     if opt_dict['Laplace']:
                         print "plotting Laplace-filtered df : "
                         df_LaplaceFiltered = dfs.copy()
-                        laplace(dfs,output = df_LaplaceFiltered)
+                        laplace( dfs, output = df_LaplaceFiltered )
                         GU.save_scal_field(dirNameAmp+'/df_laplace', df_LaplaceFiltered, lvec,data_format=options.data_format )
                         PPPlot.plotImages(
                             dirNameAmp+"/df_laplace"+atoms_str+cbar_str, df_LaplaceFiltered, slices = range( 0, len(dfs) ), zs=zTips+PPU.params['Amplitude']/2.0,

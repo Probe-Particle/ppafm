@@ -158,7 +158,7 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
         if(verbose>0): print "computeLJ Save ", save_format 
         GU.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring )
         if computeVpot:
-            GU.save_scal_field( 'V'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
+            GU.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
     if(verbose>0): print "<<<END: computeLJ()"
     return FF, V, nDim, lvec
 
@@ -221,5 +221,62 @@ def computeElFF(V,lvec,nDim,tip,computeVpot=False, tilt=0.0 ):
     del Fel_x,Fel_y,Fel_z
     return FFel, Vout
 
+def loadValenceElectronDict():
+    valElDict_ = None
+    try:
+        fname_valelec_dict = 'valelec_dict.py'
+        #execfile( fname_valelec_dict )
+        exec(open(fname_valelec_dict).read())
+        valElDict_ = valElDict
+        print "Valence electrons loaded from local file : ", fname_valelec_dict
+    except:
+        pass
+    if valElDict_ is None:
+        fname_valelec_dict = cpp_utils.PACKAGE_PATH+'/defaults/valelec_dict.py'
+        #execfile( fname_valelec_dict )
+        exec(open(fname_valelec_dict).read())
+        #print "outside  valelec_dict.py valElDict=", valElDict
+        valElDict_ = valElDict
+        print "Valence electrons loaded from default location : ", fname_valelec_dict
+    #if valElDict_ is None: raise Exception( " valElDict was not loaded ! " )
+    if(verbose>0): print " Valence Electron Dict : \n", valElDict_
+    return valElDict_
 
+def getAtomsWhichTouchPBCcell( fname, Rcut=1.0, bSaveDebug=True ):
+    atoms, nDim, lvec = BU.loadGeometry( fname, params=PPU.params )
+    Rs = np.array(atoms[1:4])                     # get just positions x,y,z
+    #corners   = []   # corners of the unit cell with margins - just for debugging
+    #inds, Rs_ = PPU.findPBCAtoms3D_cutoff( Rs, np.array(lvec[1:]), Rcut=Rcut, corners=corners )  # find periodic images of PBC images of atom of radius Rcut which touch our cell 
+    inds, Rs_ = PPU.findPBCAtoms3D_cutoff( Rs, np.array(lvec[1:]), Rcut=Rcut )  # find periodic images of PBC images of atom of radius Rcut which touch our cell 
+    #corners=corners[0]
+    elems = [ atoms[0][i] for i in inds ]   # atomic number of all relevant peridic images of atoms   
+    if bSaveDebug:
+        BU.saveGeomXSF( fname+"_TouchCell_debug.xsf",elems,Rs_, lvec[1:], convvec=lvec[1:], bTransposed=True )    # for debugging - mapping PBC images of atoms to the cell
+    Rs_ = Rs_.transpose().copy()
+    return Rs_, elems
 
+def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDict=None, Rcore=0.7, bSaveDebugDens=False, bSaveDebugGeom=True, head=GU.XSF_HEAD_DEFAULT ):
+    lvec = lvec_[1:]
+    nDim = rho.shape
+    if fname is not None:
+        elems,Rs = getAtomsWhichTouchPBCcell( fname, Rcut=Rcore, bSaveDebug=bSaveDebugDens )
+    if valElDict is None:
+        valElDict = loadValenceElectronDict()
+    print "subtractCoreDensities valElDict ", valElDict
+    print "subtractCoreDensities elems ", elems
+    cRAs = np.array( [ (-valElDict[elem],Rcore) for elem in elems ] ) 
+    #V  = lvec[1,0]*lvec[2,1]*lvec[3,2]
+    V  = np.linalg.det( lvec )   # volume of triclinic cell
+    N  = nDim[0]*nDim[1]*nDim[2]
+    dV = (V/N)  # volume of one voxel
+    if(verbose>0): print "V : ",V," N: ",N," dV: ", dV  
+    if(verbose>0): print "sum(RHO): ",rho.sum()," Nelec: ",rho.sum()*dV," voxel volume: ", dV   # check sum 
+    #rho1[:,:,:] *= 0   # Debugging
+    #Rs = Rs.transpose().copy()
+    core.setFF_shape   ( rho.shape, lvec )     # set grid sampling dimension and shape
+    core.setFF_Epointer( rho )                  # set pointer to array with density data (to write into)
+    if(verbose>0): print ">>> Projecting Core Densities ... "
+    core.getDensityR4spline( Rs, cRAs.copy() )  # Do the job ( the Projection of atoms onto grid )
+    if(verbose>0): print "sum(RHO), Nelec: ",  rho.sum(),  rho.sum()*dV   # check sum
+    if bSaveDebugDens:
+        GU.saveXSF( "rho_subCoreChg.xsf", rho, lvec_, head=head )

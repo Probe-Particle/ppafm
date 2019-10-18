@@ -1,5 +1,10 @@
 #!/usr/bin/python 
-# This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
+
+'''
+Version of conv_rho.py ( i.e. convolution of electron densities density ) which is optimized to minimize size of datafiles and therefore also run-time of hard-disk I/O operations. 
+The goal is achieve efficient calculation of AFM images with density-overlap for thousands of molecules (e.g. fr Machine-Learning application).
+'''
+
 
 import os
 import sys
