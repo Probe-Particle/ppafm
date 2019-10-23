@@ -1377,8 +1377,8 @@ if __name__ == "__main__":
 
             print  " Ys[j].shape",  Ys[j].shape
 
-            #np.save(  "./"+molecules[data_generator.imol]+"/Atoms.npy", Ys[j][:,:,0] )
-            #np.save(  "./"+molecules[data_generator.imol]+"/Bonds.npy", Ys[j][:,:,1] )
+            np.save(  "./"+molecules[data_generator.imol]+"/Atoms.npy", Ys[j][:,:,0] )
+            np.save(  "./"+molecules[data_generator.imol]+"/Bonds.npy", Ys[j][:,:,1] )
 
             #continue
 

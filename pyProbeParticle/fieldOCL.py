@@ -340,7 +340,7 @@ class ForceField_LJC:
 
     def initPoss(self, poss=None, nDim=None, lvec=None, pixPerAngstrome=10 ):
         if poss is None:
-            initSampling(self, lvec, pixPerAngstrome=10, nDim=None )
+            self.initSampling( lvec, pixPerAngstrome=10, nDim=None )
             #if nDim is None:
             #    nDim = genFFSampling( lvec, pixPerAngstrome=pixPerAngstrome )
             #poss  = getposs( lvec, nDim )

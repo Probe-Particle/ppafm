@@ -7,7 +7,7 @@ LD=g++
 CPPFLAGS= -fPIC -std=c++11 -Ofast -march=native -mtune=native
 LDFLAGS= -shared
 
-all: PP GU MP RR PolyCycles_ atomfit_ MMFF_ FARFF_
+all: PP GU MP RR PolyCycles_ atomfit_ fitting_ MMFF_ FARFF_
 
 PP: ProbeParticle.o
 
@@ -24,6 +24,8 @@ MMFF_: MMFF.o
 FARFF_: FARFF.o
 
 atomfit_: atomfit.o
+
+fitting_: fitting.o
 
 GLV: GLView.o Draw3D.o
 	$(LD) $(LDFLAGS) GLView.o Draw3D.o -o GLV_lib.so

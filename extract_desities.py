@@ -5,61 +5,72 @@ import os
 import sys
 
 import numpy as np
-import matplotlib.pyplot as plt   
 import pyProbeParticle               as PPU
 import pyProbeParticle.GridUtils     as GU
 import pyProbeParticle.basUtils      as BU
 from   optparse import OptionParser
 
 parser = OptionParser()
-parser.add_option( "-i",   action="store", type="string", help="input file",                   default='CHGCAR.xsf'        )
+parser.add_option( "-i",     action="store", type="string", help="input file",                   default='CHGCAR.xsf'    )
+parser.add_option( "--zmin", action="store", type="float", help="tilt of tip electrostatic field (radians)", default=0.0 )
+parser.add_option( "--zmax", action="store", type="float", help="tilt of tip electrostatic field (radians)", default=6.0 )
+parser.add_option( "--dz",   action="store", type="float", help="tilt of tip electrostatic field (radians)", default=0.1 )
+parser.add_option("--plot", action="store_false",  help="plot extracted ?", default=True )
 (options, args) = parser.parse_args()
 
 fname, fext = os.path.splitext( options.i ); fext = fext[1:]
+
+
+atoms,nDim,lvec     = BU.loadGeometry( options.i, params=PPU.params )
+GU.lib.setGridN   ( np.array( nDim[::-1], dtype=np.int32 )   )
+GU.lib.setGridCell( np.array( lvec[1:],   dtype=np.float64 ) )
+
+#zs = np.linspace( 0, lvec[3,2], nDim[0] )
+zs = np.arange( options.zmin, options.zmax, options.dz )
+#print lvec
 
 F,lvec,nDim=GU.load_scal_field(fname,data_format=fext)
 
 if( fext == 'cube' ):
 	F /= GU.Hartree2eV
 
-zs = np.linspace( 0, lvec[3,2], nDim[0] )
-print lvec
-
-atoms,nDim,lvec     = BU.loadGeometry( options.i, params=PPU.params )
-
-print lvec
-print atoms
-print zs
-
-GU.lib.setGridN   ( np.array( nDim[::-1], dtype=np.int32 )   )
-GU.lib.setGridCell( np.array( lvec[1:],   dtype=np.float64 ) )
-
 dlines = [ zs, ]
 
-'''
-ipivot = 0
-print "============="
-print atoms[0][ipivot]
-x = atoms[1][ipivot]
-y = atoms[2][ipivot]
-p1   = ( x,y, zs[ 0] )
-p2   = ( x,y, zs[-1] )
-print p1, p2
-vals = GU.interpolateLine( F, p1, p2, sz=nDim[2], cartesian=True )
-print vals
-dlines.append(vals)
-#vals = F[ :, ix, iy ]
-'''
+byType = {}
 
-
-for i in range( len(atoms[0]) ):
-	x = atoms[1][i]
-	y = atoms[2][i]
+natoms = len(atoms[0])
+for i in range( natoms ):
+	elem = atoms[0][i]
+	x    = atoms[1][i]
+	y    = atoms[2][i]
 	p1   = ( x,y, zs[0]  )
 	p2   = ( x,y, zs[-1] )
-	vals = GU.interpolateLine( F, p1, p2, sz=nDim[2], cartesian=True )
+	vals = GU.interpolateLine( F, p1, p2, sz=len(zs), cartesian=True )
+	rec = byType.get(elem,[np.zeros(vals.shape),1])
+	rec[0] += vals
+	rec[1] += 1
+	byType[elem] = rec 
 	dlines.append(vals)
 
+#byType = zip(byType.items())
+#byType =  zip(*byType.items())
+byType = list(map(list, zip(*byType.items())))
+ntypes = len(byType[0])
+for i in range(ntypes):   byType[1][i] = byType[1][i][0] / byType[1][i][1]
+np.savetxt( fname+"_zlines_type.dat", np.transpose( np.array([zs,]+byType[1]) ), header="# types "+str(byType[0]) )
+np.savetxt( fname+"_zlines.dat", np.transpose( np.array(dlines) ), header="# types "+str(atoms[0]) )
 
+if options.plot:
+	import matplotlib.pyplot as plt
+	plt.figure()
+	for i in range(ntypes):
+		plt.plot( zs, byType[1][i], label=str( byType[0][i]) )
+	plt.yscale('log')
+	plt.legend()
+	plt.figure()
+	for i in range(natoms):
+		plt.plot( zs, dlines[i+1], label=str(atoms[0][i])+"_"+str(i) )
+	plt.yscale('log')
+	plt.legend()
 
-np.savetxt( fname+"_zlines.dat", np.transpose( np.array(dlines) ) )
+	plt.show()
