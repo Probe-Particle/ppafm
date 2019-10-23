@@ -71,7 +71,8 @@ def readDat( fname, Header=None ):
     Header['ZControllerIntegralGain'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'FBIntegral'].value.item())
     Header['ZControllerProportionalGain'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'FBProp'].value.item())
     Header['PiezoX'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Xpiezoconst'].value.item())
-    
+    Header['LengthX'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Length x[A]'].value.item())
+    Header['LengthY'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Length y[A]'].value.item())    
 
     #print " int(SplittedLine.loc[SplittedLine['parameter'] ", int(SplittedLine.loc[SplittedLine['parameter'] == b'Num.X / Num.X'].value.item())
     '''

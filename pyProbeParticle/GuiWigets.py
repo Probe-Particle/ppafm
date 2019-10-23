@@ -64,15 +64,30 @@ class FigImshow(FigCanvas):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp,  width=width, height=height, dpi=dpi )
         cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
             
-    def plotSlice(self, F , title=None, margins=None):
+    def plotSlice(self, F_stack , z_slice, title=None, margins=None, grid_selector = 0, slice_length = None):
         self.axes.cla()
+        
+        F = F_stack[z_slice]
         print "plotSlice F.shape, F.min(), F.max() ", F.shape, F.min(), F.max()
+
+
         print 'self.margins', margins
         #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
         self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='bicubic' )
+       
+        j_min,i_min = np.unravel_index(F.argmin(), F.shape)  
+        j_max,i_max = np.unravel_index(F.argmax(), F.shape)  
+
+        #self.axes.scatter(i_min,j_min,color='r')
+        #self.axes.scatter(i_max,j_max,color='g')
+
         if margins:
             self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),F.shape[1]-margins[2]-margins[0], F.shape[0]-margins[3]-margins[1], linewidth=2,edgecolor='r',facecolor='none')) 
-            textRes = str(F.shape[1]-margins[2]-margins[0])+ 'x'+ str(F.shape[0]-margins[3]-margins[1])
+            textRes = 'output size: '+str(F.shape[1]-margins[2]-margins[0])+ 'x'+ str(F.shape[0]-margins[3]-margins[1])
+            if slice_length:
+                textRes += '     length [A] ='+'{:03.4f}, {:03.4f}'.format(slice_length[0], slice_length[1])  
+
+
             self.axes.set_xlabel(textRes)
         if self.cbar is None:
             self.cbar = self.fig.colorbar( self.img )
@@ -81,6 +96,21 @@ class FigImshow(FigCanvas):
         self.axes.set_xlim(0,F.shape[1])
         self.axes.set_ylim(0,F.shape[0])
         self.axes.set_title(title)
+        #self.axes.set_yticks([10.5, 20.5, 30.5], minor='True')
+        #self.axes.set_xticks([10.5, 20.5, 30.5], minor='True')
+        #axes = plt.gca()
+        if (grid_selector > 0):
+            self.axes.grid(True,  linestyle='dotted', color='blue')
+        else:
+            self.axes.grid(False)
+        if (z_slice > 0):
+            dim = np.zeros(F_stack[z_slice-1].shape)
+            alpha = 0.5*np.ones(F_stack[z_slice-1].shape)
+            img_prev = F_stack[z_slice-1] 
+            img_prev_spice_extent = np.stack((img_prev,dim, dim,alpha), axis=2)
+            #self.axes.imshow( img_prev_spice_extent,  origin='image', interpolation='bicubic' )
+
+
         self.fig.tight_layout()
         self.draw()
 
