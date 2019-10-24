@@ -20,6 +20,8 @@ header_strings = [
     "void setPBC( int* npbc_, double* cell ){",
     "void setSplines( int ntypes, int npts, double invStep, double Rcut, double* RFuncs  ){",
     "void getProjections( int nps, int ncenters, double*  ps, double* yrefs, double* centers, int* types, int* ncomps,double* By, double* BB ){",
+    "void project( int nps, int ncenters, double*  ps, double* Youts, double* centers, int* types, int* ncomps, double* coefs ){",
+    "void debugGeomPBC_xsf( int ncenters, double* centers )",
 ]
 #cpp_utils.writeFuncInterfaces( header_strings );        exit()     #   uncomment this to re-generate C-python interfaces
 
@@ -49,9 +51,9 @@ def setSplines( step, Rcut, RFuncs ):
 #  void getProjections( int nps, int ncenters, double*  ps, double* yrefs, double* centers, int* types, int* ncomps,double * By, double * BB ){
 lib.getProjections.argtypes  = [c_int, c_int, c_double_p, c_double_p, c_double_p, c_int_p, c_int_p, c_double_p, c_double_p] 
 lib.getProjections.restype   =  None
-def getProjections( ps, yrefs, centers, types, ncomps, By=None, BB=None ):
+def getProjections( ps, Yrefs, centers, types, ncomps, By=None, BB=None ):
     #nps      = len(ps)
-    ndim = yrefs.shape
+    ndim = Yrefs.shape
     nps=1
     if( len(ndim)>1):
         print "ndim ", ndim
@@ -63,13 +65,35 @@ def getProjections( ps, yrefs, centers, types, ncomps, By=None, BB=None ):
         nbas  = ncomps.sum()
         By = np.zeros( nbas )
         BB = np.zeros( (nbas,nbas) )
-    lib.getProjections(nps, ncenters, _np_as(ps,c_double_p), _np_as(yrefs,c_double_p), _np_as(centers,c_double_p), _np_as(types,c_int_p), _np_as(ncomps,c_int_p), _np_as(By,c_double_p), _np_as(BB,c_double_p)) 
+    lib.getProjections(nps, ncenters, _np_as(ps,c_double_p), _np_as(Yrefs,c_double_p), _np_as(centers,c_double_p), _np_as(types,c_int_p), _np_as(ncomps,c_int_p), _np_as(By,c_double_p), _np_as(BB,c_double_p)) 
     return By, BB
+
+#  void project( int nps, int ncenters, double*  ps, double* Youts, double* centers, int* types, int* ncomps, double* coefs ){
+lib.project.argtypes  = [c_int, c_int, c_double_p, c_double_p, c_double_p, c_int_p, c_int_p, c_double_p] 
+lib.project.restype   =  None
+def project( ps, Youts, centers, types, ncomps, coefs):
+    ndim = Youts.shape
+    nps=1
+    if( len(ndim)>1):
+        print "ndim ", ndim
+        for ni in ndim: nps*=ni
+    else:
+        nps=ndim[0]
+    ncenters = len(centers)
+    return lib.project(nps, ncenters, _np_as(ps,c_double_p), _np_as(Youts,c_double_p), _np_as(centers,c_double_p), _np_as(types,c_int_p), _np_as(ncomps,c_int_p), _np_as(coefs,c_double_p)) 
+
+#  void debugGeomPBC_xsf( int ncenters, double* centers )
+lib.debugGeomPBC_xsf.argtypes  = [c_int, c_double_p] 
+lib.debugGeomPBC_xsf.restype   =  None
+def debugGeomPBC_xsf(centers):
+    ncenters = len(centers)
+    return lib.debugGeomPBC_xsf(ncenters, _np_as(centers,c_double_p)) 
 
 # ========= Python
 
-
 if __name__ == "__main__":
+
+    np.set_printoptions( precision=None, linewidth=200 )
 
     import GridUtils  as GU 
     import basUtils   as BU
@@ -81,6 +105,8 @@ if __name__ == "__main__":
 
     atoms,nDim,lvec = BU.loadGeometry   ( fname_ext, params=PPU.params )
     #F,lvec,nDim     = GU.load_scal_field( fname, data_format=fext )
+    centers = np.array( atoms[1:4] ).transpose().copy()
+    print "centers \n", centers
 
     import sys
     fitting = sys.modules[__name__]
@@ -89,28 +115,69 @@ if __name__ == "__main__":
 
     zs     = data[0, :]
     RFuncs = data[1:,:].copy()
+    #for i in range(len(RFuncs)): RFuncs[i] *= ( 1/RFuncs[i,0] )
 
     rfsh   = RFuncs.shape
     print "RFunc.shape() ", rfsh
     fitting.setSplines( zs[1]-zs[0], 5.0, RFuncs )
 
     print "nDim ", nDim
-    fitting.setPBC(lvec, npbc=[1,1,1])
+    fitting.setPBC(lvec[1:], npbc=[1,1,1])
+    #fitting.setPBC(lvec[1:], npbc=[0,0,0])
 
     types_header = [1, 6, 7]
     typedict     = { k:i for i,k in enumerate(types_header) }
-    #types  = np.array( [ typedict[elem] for elem in atoms[0] ], dtype=np.int32)
+    types  = np.array( [ typedict[elem] for elem in atoms[0] ], dtype=np.int32)
+
+    print "types ", types    #;exit() 
     ncomps = np.ones( len(types), dtype=np.int32  )
 
+    #fitting.debugGeomPBC_xsf(centers);
+    #exit();
+
+
+    #yrefs,lvec,nDim = GU.load_scal_field( fname, data_format=fext )
+    Yrefs,lvec,nDim,head = GU.loadXSF( fname_ext )
     gridPoss = PPU.getPos_Vec3d( np.array(lvec), nDim )
-    yrefs,lvec,nDim = GU.load_scal_field( fname, data_format=fext )
-    centers = np.array( atoms[1:] ).transpose().copy()
 
-    print "gridPoss.shape, yrefs.shape, centers.shape ", gridPoss.shape, yrefs.shape, centers.shape
+    #gridPoss = gridPoss[::8,::8,::8,:].copy()
+    #Yrefs    = Yrefs   [::8,::8,::8].copy()
 
-    print "GOTO getProjections "
-    By,BB = fitting.getProjections( gridPoss, yrefs, centers, types, ncomps )
+    #DEBUG 2 nbas 11 nsel 11 ps[42437](9.71429,12.5714,19.4286)
+    #DEBUG 2 nbas 11 nsel 7 ps[42443](13.1429,12.5714,19.4286) 
+
+    #gridPoss = np.array( [ [9.71429,12.5714,19.4286], [13.1429,12.5714,19.4286] ] )
+    #Yrefs    = np.array( [ 1.0, 1.5 ] )
+
+    print "gridPoss.shape, yrefs.shape, centers.shape ", gridPoss.shape, Yrefs.shape, centers.shape
+
+    #fitting.debugGeomPBC_xsf(centers);
+
+    '''
+    Youts = np.zeros( Yrefs.shape )
+    coefs = np.ones( len(centers) )
+    fitting.project( gridPoss, Youts, centers, types, ncomps, coefs );
+    GU.saveXSF( "Youts.xsf", Youts, lvec )
+    exit();
+    '''
+
+    '''
+    print ">>>>>> By,BB = getProjections( Yref ) "
+    By,BB = fitting.getProjections( gridPoss, Yrefs, centers, types, ncomps )
     print "By   ", By
     print "BB \n", BB
+    print ">>>>>> Solve(   BB c = B y ) "
+    coefs = np.linalg.solve( BB, By )
+    print "coefs = ", coefs
+    '''
+
+    coefs = np.ones( len(centers) )*1.2
+
+    print ">>>>>> Yrefs -= project( coefs ) "
+    #Youts = np.zeros( Yrefs.shape )
+    fitting.project( gridPoss, Yrefs, centers, types, ncomps, coefs*-1.0 );
+    GU.saveXSF( "Yresidual.xsf", Yrefs, lvec )
+    exit();
+
     print " **** ALL DONE *** "
 
