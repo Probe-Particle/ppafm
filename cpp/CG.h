@@ -10,7 +10,7 @@ typedef  void (*DotFunc)( int n, const double * x, double * Ax );
 
 class CG{ public:
 
-    int n;
+    int n=0;
     int    istep = 0;
     double *  r  = 0;
     double *  r2 = 0;
@@ -22,16 +22,17 @@ class CG{ public:
     // to solve
     double* x = 0;
     double* b = 0;
-    double* M = 0;
+    double* A = 0;
 
     DotFunc dotFunc=0;
+
 
     void realloc(int n_){
         if(n_!=n){
             n = n_;
-            _realloc(r,n);
+            _realloc(r ,n);
             _realloc(r2,n);
-            _realloc(p,n);
+            _realloc(p ,n);
             _realloc(Ap,n);
         }
     };
@@ -43,19 +44,27 @@ class CG{ public:
         _dealloc( Ap);
     };
 
-    void setLinearProblem(int n_, double* x_, double* b_, double* M_ = 0 ){
+    void setLinearProblem(int n_, double* x_, double* b_, double* A_ = 0 ){
         realloc(n_);
-        x=x_; b=b_; M=M_;
+        x=x_; b=b_; A=A_;
     }
 
     CG() = default;
-    CG( int n_, double* x_, double* b_, double* M_ = 0 ){
-        setLinearProblem(n_,x_,b_, M_ );
+    CG( int n_, double* x_, double* b_, double* A_ = 0 ){
+        setLinearProblem(n_,x_,b_, A_ );
     };
     ~CG(){ dealloc(); }
 
+    inline void dotA(int n, const double * x, double * Ax){
+        if(A){ mdot   (n,n,A,x,Ax); }
+        else { 
+            if(!dotFunc){ printf( "ERROR in CG : dotFunc not defined !!! \n" ); exit(0); }
+            dotFunc(n    ,x,Ax); 
+        }
+    }
+
     double step_GD(double dt){
-        dotFunc  ( n, x, r );
+        dotA( n, x, r );
         VecN::sub( n, b, r, r );
         //VecN::add( n, b, r, r );
         VecN::fma( n, x, r, dt, x );
@@ -68,7 +77,7 @@ class CG{ public:
         //printf( "step_CG %i \n", istep );
         if(istep==0){
             //printf( " istep == 0 \n" );
-            dotFunc  ( n, x, r );     //printf( "DEBUG 1 \n" );
+            dotA( n, x, r );     //printf( "DEBUG 1 \n" );
             //printf("r   "); VecN::print_vector(n, r);
             VecN::sub( n, b, r, r );  //printf( "DEBUG 2 \n" ); // r = b - A*x
             //printf("r_  "); VecN::print_vector(n, r);
@@ -86,7 +95,7 @@ class CG{ public:
         //printf( "to dotFunc \n" );
         // NOTE : BCQ can be done if (A.T()*A) is applied instead of A in dotFunc
         //printf("p  "); VecN::print_vector(n, p);
-        dotFunc( n, p, Ap);
+        dotA( n, p, Ap);
         //printf("Ap "); VecN::print_vector(n, Ap);
         alpha = rho / VecN::dot(n, p, Ap);    // a  = <r|r>/<p|A|p>
         //printf( "rho %f alpha %f \n", rho, alpha );

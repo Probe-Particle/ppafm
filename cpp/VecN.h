@@ -13,7 +13,8 @@ namespace VecN{
 
     // =======  iterration over array
 
-	inline double dot    (int n,const double* a,const double* b ){ double sum =0; for (int i=0; i<n; i++ ){ sum+= a[i]*b[i];             } return sum; }
+	inline double dot     (int n,const double* a,const double* b ){ double sum =0; for (int i=0; i<n; i++ ){ sum+= a[i]*b[i];       } return sum; }
+	inline double dot_back(int n,const double* a,const double* b ){ double sum =0; for (int i=0; i<n; i++ ){ sum+= a[i]*b[-i];      } return sum; }
 	inline double sum    (int n,const double* a            ){ double sum =0; for (int i=0; i<n; i++ ){ sum+= a[i];                  } return sum; };
     inline double sum2   (int n,const double* a            ){ double sum =0; for (int i=0; i<n; i++ ){ double ai=a[i]; sum+=ai*ai;  } return sum; };
     inline double min    (int n,const double* a            ){ double amax=-1e+300; for (int i=0; i<n; i++ ){ double ai=a[i]; amax=fmax(amax,ai); } return amax; };
@@ -33,6 +34,7 @@ namespace VecN{
 	inline void set( int n,const double  f,            double* out ){  	for (int i=0; i<n; i++ ){ out[i] = f;	      } }
 	inline void add( int n,const double  f,const double* b, double* out ){  	for (int i=0; i<n; i++ ){ out[i] = f+b[i];    } }
 	inline void mul( int n,const double  f,const double* b, double* out ){  	for (int i=0; i<n; i++ ){ out[i] = f*b[i];    } }
+	inline void add_mul( int n,const double  f,const double* b, double* out ){  for (int i=0; i<n; i++ ){ out[i] += f*b[i];    } }
 
 	inline void set( int n,const double* a,            double* out ){  	for (int i=0; i<n; i++ ){ out[i] = a[i];      } }
 	inline void add( int n,const double* a,const double* b, double* out ){  	for (int i=0; i<n; i++ ){ out[i] = a[i]+b[i]; } }
@@ -74,5 +76,59 @@ namespace VecN{
 //	}
 
 }
+
+void mdot( int n, int m, const double* A, const double* x, double* Ax ){
+	for(int i=0; i<m; i++){
+		Ax[i] = VecN::dot( n, A, x );
+		A+=n;
+	}
+}
+
+/*
+double dotSparse(int n, double* dens, double* sparse, int* jumps ){
+	double sum = 0;
+	for(int i=0;i<n;i++){
+		const int ni = jumps[i];
+		if(ni>0){
+			for(int j=0; j<ni; j++){ 
+				sum += (*dens)*(*sparse);
+				dens  ++;
+				sparse++;
+			}
+		}else{
+			dens += -ni;
+		}
+	}
+}
+
+int compressVec(int n, double* dens, double* sparse, int* jumps0, double eps){
+	int  jump=0;
+	int* jumps=jumps0;
+	for(int i=0; i<n; i++){
+		double xi = dens[i];
+		if( fabs(xi)>eps ){
+			*sparse = xi;
+			sparse++;
+			if(jump<0){ (*jumps)=jump; jumps++; jump=0; }
+			jump++;
+		}else{
+			if(jump>0){ (*jumps)=jump; jumps++; jump=0; }
+			jump--;
+		}
+	}
+	return jumps-jumps0;
+}
+
+int compressMat(int n, double* Adens, double* Asparse, int* jumps, int* ns, double eps){
+	for(int i=0;i<n;i++){
+		compressVec(int n, double* dens, double* sparse, int* jumps0, double eps);
+	}
+}
+
+double dotSparse(int n, int ns, int* jumps, int M, ){
+
+
+}
+*/
 
 #endif
