@@ -26,8 +26,9 @@ parser = OptionParser()
 parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
 parser.add_option( "-t", "--tip",   action="store", type="string", help="tip model (multipole)"      , default='None')
 parser.add_option( "-w", "--sigma", action="store", type="float",  help="gaussian width for convolution in Electrostatics [Angstroem]", default=-1.0)
-parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf", default=False)
+parser.add_option( "--npy" , action="store_true"  , help="load and save fields in npy instead of xsf", default=False)
 parser.add_option( "--tip_base",    action="store", type="string", help="tip_base model (multipole)" , default='None')
+parser.add_option( "--prolongez",   action="store", type="float",  help="prolonge cell in z (where,how) [A]", nargs=2, default=[-1,-1])
 (options, args) = parser.parse_args()
 
 print options
@@ -55,6 +56,35 @@ elif(options.input.lower().endswith(".cube") ):
     V*=27.211396132
 else:
     sys.exit("ERROR!!! Unknown format of the input file\n\n"+HELP_MSG)
+
+
+if options.prolongez[0] > 0.0:
+    V=np.array(V)
+    assert options.prolongez[0] < lvec[3,2] , "prolongez is higher than height of the cell"
+    print "prolonging_z at height %f by appr. %f" %(options.prolongez[0],options.prolongez[1])
+    #print "Debug: nDim", nDim
+    nz = int(nDim[0]*options.prolongez[0]/lvec[3,2])
+    nn = int(nDim[0]*options.prolongez[1]/lvec[3,2])
+    print "this means adding %i new z-voxels in between above z-voxel %i" %(nn, nz)
+    lvec[3,2] = lvec[3,2]+nn*lvec[3,2]/nDim[0];
+    nDim[0]=nDim[0]+nn;
+    print "lvec:", lvec
+    print "nDim:", nDim
+    Vnew = np.zeros((nDim[0],nDim[1],nDim[2]))
+    print V.shape
+    print Vnew.shape
+    for i in range(nDim[0]):
+        if i < nz: # i starts from 0
+            Vnew[i] = V[i]
+        elif i >= nz+nn:
+            Vnew[i] = V[i-nn]
+        else:
+            for j in range(nDim[1]):
+                for k in range(nDim[2]):
+                    Vnew[i,j,k] = (i-nz)*(V[nz-1,j,k]-V[nz,j,k])/nn+V[nz,j,k]
+    V = Vnew;
+    GU.save_scal_field("V_prolonged",Vnew,lvec,data_format=data_format)
+
 rho = None
 sigma = options.sigma if ( options.sigma > 0.0) else PPU.params['sigma']
 multipole = None
