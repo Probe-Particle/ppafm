@@ -59,25 +59,31 @@ def solveCG( A, b, x=None, maxIters=100, maxErr=1e-6 ):
     return x
 
 #  void fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, double* Yref, double* Ycoefs, int maxIters, double maxErr2 )
-lib.fit_tensorProd.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, c_double_p, c_int, c_double] 
+lib.fit_tensorProd.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, c_double_p, c_int, c_double, c_int ] 
 lib.fit_tensorProd.restype   =  None
-def fit_tensorProd( kernel_coefs, BYref=None, Yref=None, basis_coefs=None, Ycoefs=None, maxIters=100, maxErr=1e-6 ):
+def fit_tensorProd( BYref=None, Yref=None, basis_coefs=None, kernel_coefs=None, Ycoefs=None, maxIters=100, maxErr=1e-6 ):
     if BYref is None:
         print " fit_tensorProd BYref = Basis * Yref "
         BYref = convolve2D_tensorProduct( basis_coefs, Yref )
     if Ycoefs is None: Ycoefs = np.zeros(BYref.shape)
     nx,ny=BYref.shape
     print " >> fit_tensorProd ... "
-    lib.fit_tensorProd( len(kernel_coefs)/2, nx, ny, _np_as(kernel_coefs,c_double_p), _np_as(BYref,c_double_p), _np_as(Ycoefs,c_double_p), maxIters, maxErr )
+    if kernel_coefs is None:
+        print " NO KERNEL => use basis with nConvPerCG==2"
+        lib.fit_tensorProd( len(basis_coefs)/2, nx, ny, _np_as(basis_coefs,c_double_p), _np_as(BYref,c_double_p), _np_as(Ycoefs,c_double_p), maxIters, maxErr, 2 )
+    else:
+        lib.fit_tensorProd( len(kernel_coefs)/2, nx, ny, _np_as(kernel_coefs,c_double_p), _np_as(BYref,c_double_p), _np_as(Ycoefs,c_double_p), maxIters, maxErr, 1 )
     print "... DONE "
     return Ycoefs 
 
 #  void setup_fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, double* BYref, double* Ycoefs ){
-lib.setup_fit_tensorProd.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, c_double_p, c_int ] 
+lib.setup_fit_tensorProd.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_int ] 
 lib.setup_fit_tensorProd.restype   =  None
-def setup_fit_tensorProd( kernel_coefs, BYref, Ycoefs, nConvPerCG=1 ):
+def setup_fit_tensorProd( kernel_coefs, BYref, Ycoefs, Wprecond=None, nConvPerCG=1 ):
     nx,ny=BYref.shape
-    return lib.setup_fit_tensorProd( len(kernel_coefs)/2, nx, ny, _np_as(kernel_coefs,c_double_p), _np_as(BYref,c_double_p), _np_as(Ycoefs,c_double_p), nConvPerCG ) 
+    if Wprecond is not None:
+        Wprecond = _np_as(Wprecond,c_double_p)
+    return lib.setup_fit_tensorProd( len(kernel_coefs)/2, nx, ny, _np_as(kernel_coefs,c_double_p), _np_as(BYref,c_double_p), _np_as(Ycoefs,c_double_p), Wprecond, nConvPerCG ) 
 
 #  void step_fit_tensorProd( ){
 lib.step_fit_tensorProd.argtypes  = [] 
@@ -128,6 +134,13 @@ def BsplineCubic(x):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+
+    def imfig( data, title ):
+        plt.figure()
+        plt.imshow(data)
+        plt.title( title )
+        plt.colorbar()
+
     np.set_printoptions( precision=None, linewidth=200 )
 
     coefs3 = np.array([1.,4.,1.])/6
@@ -210,29 +223,48 @@ if __name__ == "__main__":
     exit()
     '''
 
-    N = 20
-    xs    = np.linspace(-np.pi,np.pi)
+    N = 30
+    xs    = np.linspace(-np.pi,np.pi,N)
     Xs,Ys = np.meshgrid( xs, xs )
 
     #Yref = 1 +  0.5* np.sin(Xs*2) * np.cos(Ys*3) * (1+np.cos(Ys))*(1+np.cos(Xs))
 
     Yref = Xs*0;
     green = np.outer( coefs3, coefs3 )
+
+    '''
+    Yref[0:3,0:3]    += green
+    Yref[N-3:N,N-3:] += green
+    Yref[0:3,9:12]   += green
+    Yref[16:19,16:19] += green
     Yref[10:13,9:12] += green
-    Yref[6:9,9:12] += green
+    Yref[6:9,9:12]   += green
     Yref[12:15,9:12] += green
+    '''
+
+    Yref[5:10,5:10] = 1.0
 
 
     #Ycoefs = fit_tensorProd( kernel_coefs=coefs6, Yref=Yref, basis_coefs=coefs3, maxIters=50, maxErr=1e-6 )
+    Ycoefs = fit_tensorProd( Yref=Yref, basis_coefs=coefs3, maxIters=50, maxErr=1e-6 )
+    Yfit   = convolve2D_tensorProduct( coefs3, Ycoefs )
 
+    imfig( Yref,   "Yref"   )
+    imfig( Ycoefs, "Ycoefs" )
+    imfig( Yfit,   "Yfit"   )
+
+    '''
     BYref = convolve2D_tensorProduct( coefs3, Yref )
-
     plt.figure(); plt.imshow(Yref);  plt.title( 'Yref  ' ); plt.colorbar()
     plt.figure(); plt.imshow(BYref); plt.title( 'BYref ' ); plt.colorbar()
-
+    Wprecond = None
+    #c = coefs3[1]
+    #K = 0.99
+    #print " coefs3[1], coefs3 ", c, K, coefs3
+    #Wprecond = np.ones( BYref.shape ) * K
     Ycoefs = np.zeros(BYref.shape)
     #setup_fit_tensorProd( coefs6, BYref, Ycoefs, nConvPerCG=1 )
-    setup_fit_tensorProd( coefs3, BYref, Ycoefs, nConvPerCG=2 )
+    setup_fit_tensorProd( coefs3, BYref, Ycoefs, Wprecond, nConvPerCG=2 )
     for iter in range(50):
         step_fit_tensorProd ()
         if iter%10==0:
@@ -240,6 +272,7 @@ if __name__ == "__main__":
             plt.imshow(Ycoefs)
             plt.title( 'x CG[%i]' %iter )
             plt.colorbar()
+    '''
 
     plt.show()
 

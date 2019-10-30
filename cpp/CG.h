@@ -23,6 +23,7 @@ class CG{ public:
     double* x = 0;
     double* b = 0;
     double* A = 0;
+    double* w = 0; // Diagonal Preconditioner
 
     DotFunc dotFunc=0;
 
@@ -72,6 +73,11 @@ class CG{ public:
         return VecN::dot(n, r,r);
     }
 
+    double inline getErr2( double * rs ){
+        if(w){ return VecN::wnorm2( n, rs, w ); }
+        else { return VecN:: norm2( n, rs    ); }
+    }
+
     double step_CG(){
         // see https://en.wikipedia.org/wiki/Conjugate_gradient_method
         //printf( "step_CG %i \n", istep );
@@ -82,11 +88,13 @@ class CG{ public:
             VecN::sub( n, b, r, r );  //printf( "DEBUG 2 \n" ); // r = b - A*x
             //printf("r_  "); VecN::print_vector(n, r);
             VecN::set( n, r, p );     //printf( "DEBUG 3 \n" ); // p = r
-            rho = VecN::dot(n, r,r);  //printf( "DEBUG 4 \n" );
+            //rho = VecN::dot(n, r,r);  
+            rho = getErr2(r);
             alpha = 0;
             //printf( "rho %f alpha %f \n", rho, alpha );
         }else{
-            double rho2 = VecN::dot(n, r2,r2);
+            //double rho2 = VecN::dot(n, r2,r2);
+            double rho2 =getErr2(r2);
             double beta = rho2 / rho;
             VecN::fma( n, r2, p, beta, p );
             rho = rho2;

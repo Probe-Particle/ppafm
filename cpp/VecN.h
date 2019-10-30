@@ -13,7 +13,11 @@ namespace VecN{
 
     // =======  iterration over array
 
-	inline double dot     (int n,const double* a,const double* b ){ double sum =0; for (int i=0; i<n; i++ ){ sum+= a[i]*b[i];       } return sum; }
+	inline double norm2 (int n,const double* a                 ){ double sum =0; for (int i=0; i<n; i++ ){ double ai=a[i]; sum+=ai*ai;          } return sum; }
+	inline double wnorm2(int n,const double* a,const double* w ){ double sum =0; for (int i=0; i<n; i++ ){ double ai=a[i]; sum+= (ai*ai)*w[i];  } return sum; }
+	inline double wdot   (int n,const double* a,const double* b,const double* w){ double sum =0; for (int i=0; i<n; i++ ){ sum+= a[i]*b[i]*w[i];  } return sum; }
+
+	inline double dot    (int n,const double* a,const double* b ){ double sum =0; for (int i=0; i<n; i++ ){ sum+= a[i]*b[i];       } return sum; }
 	inline double dot_back(int n,const double* a,const double* b ){ double sum =0; for (int i=0; i<n; i++ ){ sum+= a[i]*b[-i];      } return sum; }
 	inline double sum    (int n,const double* a            ){ double sum =0; for (int i=0; i<n; i++ ){ sum+= a[i];                  } return sum; };
     inline double sum2   (int n,const double* a            ){ double sum =0; for (int i=0; i<n; i++ ){ double ai=a[i]; sum+=ai*ai;  } return sum; };
