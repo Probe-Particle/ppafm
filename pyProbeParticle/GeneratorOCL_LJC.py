@@ -743,6 +743,7 @@ class Generator(Sequence,):
 
         #self.scanner.setScanRot( , rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
         pos0             = self.atomsNonPBC[imax,:3]+self.rot[2]*self.distAboveActive+np.dot((AFM_window_shift[0],AFM_window_shift[1],0),self.rot)
+        self.pos0 = pos0
         self.scan_pos0s  = self.scanner.setScanRot(pos0, rot=self.rot, zstep=0.1, tipR0=vtipR0 )
         
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().5   ) [s]:  %0.6f" %(time.clock()-t0)  ," scan_pos0s = scanner.setScanRot() "
