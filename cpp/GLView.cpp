@@ -1,6 +1,6 @@
 
-#ifndef  GLView_h
-#define  GLView_h
+#ifndef  GLView_cpp
+#define  GLView_cpp
 
 #include "Vec3.h"
 #include "Vec2.h"
@@ -12,6 +12,8 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
+
+#include "GLView.h"  // THE HEADER
 
 namespace Cam{
 
@@ -47,6 +49,25 @@ inline void perspective( const Camera& cam ){
 }
 
 }; // namespace Cam
+
+
+
+void default_draw(){
+    //printf( "default_draw \n" );
+    glClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
+    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+    glEnable    ( GL_LIGHTING );
+    glShadeModel( GL_FLAT     );
+
+    Draw3D::box       ( -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 0.8f, 0.8f, 0.8f );
+
+    glShadeModel( GL_SMOOTH     );
+    Draw3D::sphere_oct( 5, 1.0f, (Vec3f){3.0,3.0,3.0} );
+
+    glDisable ( GL_LIGHTING );
+    Draw3D::axis ( 3.0f );
+}
 
 
 class GLView{ public:
@@ -105,7 +126,7 @@ class GLView{ public:
     void wait        (float ms);
     virtual void quit(       );
     void         wait(int ms);
-    virtual void loop( int n );
+    virtual int loop( int n );
     void defaultMouseHandling    ( const int& mouseX, const int& mouseY );
 
     // ==== Functions Virtual
@@ -127,6 +148,9 @@ class GLView{ public:
     virtual void cameraHUD   ();
     virtual void draw        ();
     virtual void drawHUD     ();
+    
+    
+    ProcedurePointer draw_func_ptr = default_draw;
 
     // ==== Functions
 
@@ -163,10 +187,6 @@ class GLView{ public:
 // ================================
 // ======== Implementation 
 // =================================
-
-
-
-
 
 // ===================== INIT
 
@@ -254,7 +274,9 @@ bool GLView::update( ){
 */
 
 bool GLView::update( ){
-    if ( pre_draw() ) return true;
+    //printf( "GLView::update %i \n", GL_LOCK );
+    if( GL_LOCK ) return true;
+    pre_draw();
     draw();
     cameraHUD();
     drawHUD();
@@ -325,6 +347,10 @@ void GLView::drawHUD(){
 }
 
 void GLView::draw   (){
+    //printf( "GLView::draw \n" );
+    draw_func_ptr();
+
+/*
     glClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
@@ -338,7 +364,7 @@ void GLView::draw   (){
 
 	glDisable ( GL_LIGHTING );
 	Draw3D::axis ( 3.0f );
-
+*/
 }
 
 
@@ -354,9 +380,11 @@ void GLView::wait(int ms){
     }
 }
 
-void GLView::loop( int n ){
+int GLView::loop( int n ){
     loopEnd = false;
-    for( int iframe=0; iframe<n; iframe++ ){
+    int iframe=0;
+    for( ; iframe<n; iframe++ ){
+        //printf( "GLView::loop[%i] \n", iframe );
         inputHanding();
         //if(!STOP){update();} // DEPRECATED: usually we want to stop physics, not drawing
         update();
@@ -365,6 +393,7 @@ void GLView::loop( int n ){
         //if( delay>0 ) SDL_Delay( delay );
         if(loopEnd) break;
     }
+    return iframe;
 }
 
 void GLView::inputHanding(){
@@ -417,7 +446,7 @@ void GLView::keyStateHandling( const Uint8 *keys ){
     if( keys[ SDL_SCANCODE_Q ] ){ cam.pos.add_mul( cam.rot.c, -cameraMoveSpeed ); }
     if( keys[ SDL_SCANCODE_E ] ){ cam.pos.add_mul( cam.rot.c,  cameraMoveSpeed ); }
 
-    printf( "frame %i keyStateHandling cam.pos (%g,%g,%g) \n", frameCount, cam.pos.x, cam.pos.y, cam.pos.z );
+    //printf( "frame %i keyStateHandling cam.pos (%g,%g,%g) \n", frameCount, cam.pos.x, cam.pos.y, cam.pos.z );
 
 }
 
@@ -582,7 +611,6 @@ void init( int w, int h ){
     thisApp = new GLView( junk , w, h );
     SDL_SetWindowPosition(thisApp->window, 100, 0 );
     thisApp->loopEnd = false;
-
 }
 
 bool draw(){
@@ -595,6 +623,14 @@ bool pre_draw(){
 
 bool post_draw(){
     return thisApp->post_draw();
+}
+
+int run_Nframes(int nframes){
+    thisApp->loop( nframes );
+}
+
+void set_draw_function( ProcedurePointer draw_func ){
+    thisApp->draw_func_ptr = draw_func;
 }
 
 } // extern "C"{
