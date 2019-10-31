@@ -59,17 +59,21 @@ inline void conv1D_down( const int m, const int n, const int di, const double* c
     //printf( "\n" );
 }
 
-inline void conv1D_up( const int m, const int di, const int n, const double* coefs, const double* x, double* y ){
-    const int mtot=2*m-1;
+inline void conv1D_up( int m, const int di, const int n, const double* coefs, const double* x, double* y ){
+    //const int mtot=2*m+1;
+    //m = 2;
+    const int mtot=2*m;
     const int my=m*di;
     const int ny=n*di;
     const int n_=ny-my;
-    int ic = 0;
-    int icmax= di*mtot;
-    printf( "  m %i di %i mtot %i my %i ny %i n_ %i icmax %i \n", m, di, mtot, my, ny, n_, icmax );
-    //for(int i=0;  i<my;  i++){ y[i] = dot_rbcL ( coefs+ic, x, i-m, mtot    ); ic+=mtot; ic=(ic>=icmax)?0:ic; }
-    for(int i=m;  i<n_;  i++){ y[i] = VecN::dot( mtot,  x +i-m, coefs+ic   ); ic+=mtot; ic=(ic>=icmax)?0:ic; }
-    //for(int i=n_; i<ny;  i++){ y[i] = dot_rbcR ( coefs+ic, x, i-m, mtot, n ); ic+=mtot; ic=(ic>=icmax)?0:ic; }
+    int ic    = mtot;
+    int icmax = mtot*di;
+    //printf( "  m %i di %i mtot %i my %i ny %i n_ %i icmax %i \n", m, di, mtot, my, ny, n_, icmax );
+    int ix=-m-1;
+    for(int i=0;  i<ny;  i++){ y[i] = 0.0; }
+    for(int i=0;  i<my;  i++){ y[i] = dot_rbcL ( coefs+ic, x, ix, mtot    ); ic+=mtot; if(ic>=icmax){ic=0;ix++;}; }
+    for(int i=m;  i<n_;  i++){ y[i] = VecN::dot( mtot, x +ix, coefs+ic    ); ic+=mtot; if(ic>=icmax){ic=0;ix++;}; }
+    for(int i=n_; i<ny;  i++){ y[i] = dot_rbcR ( coefs+ic, x, ix, mtot, n ); ic+=mtot; if(ic>=icmax){ic=0;ix++;}; }
     //printf( "\n" );
 }
 
@@ -92,15 +96,15 @@ void conv2D_tensorProd_down( const int ord, const int di, const Vec2i& ns, const
     const int ordsym = ord*2 + 1; 
     const int nx_in = ns.x*di;
     const int ny_in = ns.y*di;
-    printf( " conv2D_tensorProd_down %i %i %i %i \n",  ord, di, ns.x, nx_in );
+    //printf( " conv2D_tensorProd_down %i %i %i %i \n",  ord, di, ns.x, nx_in );
     if(work==0){ work = new double[nx_in]; }
     int j = -ord;
     for(int iy=0; iy<ns.y; iy++){
-        printf( "iy  %i | %i %i \n", iy, ns.x, nx_in  );
+        //printf( "iy  %i | %i %i \n", iy, ns.x, nx_in  );
         VecN::set( nx_in, 0.0, work );
         for(int ky=0; ky<ordsym; ky++ ){
             int jx = rbc(j+ky, ny_in )*nx_in;
-            printf( " iy,ky %i,%i (%i,%i) -> [%i]: %g \n", iy, ky, j, j+ky, rbc(j+ky, ny_in ), coefs[ky] );
+            //printf( " iy,ky %i,%i (%i,%i) -> [%i]: %g \n", iy, ky, j, j+ky, rbc(j+ky, ny_in ), coefs[ky] );
             VecN::add_mul( nx_in, coefs[ky], x+jx, work );
         }
         j+=di;
@@ -111,7 +115,39 @@ void conv2D_tensorProd_down( const int ord, const int di, const Vec2i& ns, const
         conv1D_down( ord, ns.x, di, coefs, work, yi );
         //printf( "   -2 iy  %i | %i %i \n", iy, ns.x, nx_in  );
     }
-    printf( "DONE \n" );
+    //printf( "DONE \n" );
+}
+
+void conv2D_tensorProd_up( const int m, const int di, const Vec2i& ns, const double* coefs, const double* x, double* y ){
+    //const int ordsym = ord*2 + 1; 
+    const int nx_out = ns.x*di;
+    const int ny_out = ns.y*di;
+    const int mtot=2*m;
+    const int my=m*di;
+    const int ny=ns.y*di;
+    const int n_=ny-my;
+    int ic    = mtot;
+    int icmax = mtot*di;
+    //printf( "  m %i di %i mtot %i my %i ny %i n_ %i icmax %i \n", m, di, mtot, my, ny, n_, icmax );
+    int ix=-m;
+    //printf( " conv2D_tensorProd_down %i %i %i \n",  m, di, ns.x );
+    if(work==0){ work = new double[ns.x]; }
+    //int j = -ord;
+    for(int iy=0; iy<nx_out; iy++){
+        //printf( "iy  %i | %i \n", iy, ns.x );
+        VecN::set( ns.x, 0.0, work );
+        const double* ciy = coefs+ic;
+        for(int ky=0; ky<mtot; ky++ ){
+            int jx = rbc(ix+ky, ns.y )*ns.x;
+            //printf( " iy,ky %i,%i (%i,%i) -> [%i]: %g \n", iy, ky,   ix, ix+ky,    rbc(ix+ky, ns.y ), ciy[ky] );
+            VecN::add_mul( ns.x, ciy[ky], x+jx, work );
+        }
+        ic+=mtot; if(ic>=icmax){ic=0;ix++;};
+        double* yi = y + iy*(ns.x*di);
+        //for(int ix=0;ix<nx_out;ix++){ yi[ix]=work[ix/di]; }
+        conv1D_up( m, di, ns.x, coefs, work, yi );
+    }
+    //printf( "DONE \n" );
 }
 
 void dotFunc_conv2D_tensorProd( int n,const double * x, double * Ax ){
@@ -146,11 +182,11 @@ void convolve1D(int m,int di,int n,double* coefs, double* x, double* y ){
 
 void convolve2D_tensorProduct( int ord, int di, int nx, int ny, double* coefs, double* x, double* y ){
     if(di== 1){ conv2D_tensorProd     ( ord,     (Vec2i){nx,ny}, coefs, x, y ); }
-    //if(di==-1){ conv2D_tensorProd_up  ( ord, di, (Vec2i){nx,ny}, coefs, x, y ); }
+    if(di<0  ){ conv2D_tensorProd_up  ( ord,-di, (Vec2i){nx,ny}, coefs, x, y ); }
     else      { conv2D_tensorProd_down( ord, di, (Vec2i){nx,ny}, coefs, x, y ); }
-    printf( "DONE 1\n" );
+    //printf( "DONE 1\n" );
     delete [] work; work=0;
-    printf( "DONE 2\n" ); 
+    //printf( "DONE 2\n" ); 
 }
 
 void solveCG( int n, double* A, double* b, double* x, int maxIters, double maxErr ){
@@ -164,7 +200,7 @@ void fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, double* BYr
     nkernel = ord;
     ns_2d   = (Vec2i){nx,ny};
     kernel_coefs = kernel_coefs_;
-    printf( " ns_2d %i,%i \n", ns_2d.x, ns_2d.y );
+    //printf( " ns_2d %i,%i \n", ns_2d.x, ns_2d.y );
     CG cg( nx*ny, Ycoefs, BYref );
     cg.dotFunc = dotFunc_conv2D_tensorProd;
     //cg.step_CG();
@@ -181,9 +217,9 @@ void setup_fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, doubl
     nkernel = ord;
     ns_2d   = (Vec2i){nx,ny};
     kernel_coefs = kernel_coefs_;
-    printf( " ns_2d %i,%i \n", ns_2d.x, ns_2d.y );
+    //printf( " ns_2d %i,%i \n", ns_2d.x, ns_2d.y );
     cg_glob.setLinearProblem( nx*ny, Ycoefs, BYref );
-    printf( "Wprecond %li \n", (long)Wprecond );
+    //printf( "Wprecond %li \n", (long)Wprecond );
     if(Wprecond) cg_glob.w = Wprecond;
     cg_glob.dotFunc = dotFunc_conv2D_tensorProd;
     //delete [] work; work=0;
@@ -191,7 +227,7 @@ void setup_fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, doubl
 
 void step_fit_tensorProd( ){
     double err2 = cg_glob.step_CG();
-    printf( "CG[%i] err %g \n", cg_glob.istep, sqrt(err2) );
+    //printf( "CG[%i] err %g \n", cg_glob.istep, sqrt(err2) );
 }
 
 

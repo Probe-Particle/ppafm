@@ -36,25 +36,34 @@ lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )
 lib.convolve1D.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, c_double_p] 
 lib.convolve1D.restype   =  None
 def convolve1D(coefs, x, y=None, di=1 ):
+    m = len(coefs)/2
     nx=len(x)
     if y is None:
         if di<0:
             y = np.zeros( nx*-di )
+            m /= -di
         else: 
             nx/=di
             y = np.zeros( nx )
-    print "di ", di, len(coefs)/2
-    lib.convolve1D( len(coefs)/2, di, nx, _np_as(coefs,c_double_p), _np_as(x,c_double_p), _np_as(y,c_double_p)) 
+    print "di ", di, m
+    lib.convolve1D( m, di, nx, _np_as(coefs,c_double_p), _np_as(x,c_double_p), _np_as(y,c_double_p)) 
     return y
 
 #  void convolve2D_tensorProduct( int nx, int ny, int ord, double* x, double* y, const double* coefs )
 lib.convolve2D_tensorProduct.argtypes  = [c_int, c_int, c_int, c_int, c_double_p, c_double_p, c_double_p] 
 lib.convolve2D_tensorProduct.restype   =  None
 def convolve2D_tensorProduct( coefs, x, y=None, di=1 ):
-    nx,ny=x.shape;   nx/=di; ny/=di;
-    if y is None: y = np.zeros( (nx,ny) )
-    lib.convolve2D_tensorProduct( len(coefs)/2, di, nx, ny, _np_as(coefs,c_double_p), _np_as(x,c_double_p), _np_as(y,c_double_p) )
-    print ( "DONE 3 \n" );
+    m = len(coefs)/2
+    nx,ny=x.shape;   
+    if y is None: 
+        if di<0:
+            y = np.zeros( (nx*-di,ny*-di) )
+            m /= -di 
+        else:
+            nx/=di; ny/=di;
+            y = np.zeros( (nx,ny) )
+    lib.convolve2D_tensorProduct( m, di, nx, ny, _np_as(coefs,c_double_p), _np_as(x,c_double_p), _np_as(y,c_double_p) )
+    #print ( "DONE 3 \n" );
     return y
 
 #  void solveCG( int n, double* A, double* b, double* x, int maxIters, double maxErr ){
@@ -82,7 +91,7 @@ def fit_tensorProd( BYref=None, Yref=None, basis_coefs=None, kernel_coefs=None, 
     else:
         nker = len(kernel_coefs)
         lib.fit_tensorProd( nker/2, nx, ny, _np_as(kernel_coefs,c_double_p), _np_as(BYref,c_double_p), _np_as(Ycoefs,c_double_p), maxIters, maxErr, nConvPerCG )
-    print "... DONE "
+    #print "... DONE "
     return Ycoefs 
 
 #  void setup_fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, double* BYref, double* Ycoefs ){
@@ -108,8 +117,8 @@ def upSwizzle( coefs, di ):
     print "cs.shape ", cs.shape
     for i in range(di):
         csi     = coefs[i::di]
-        cs[i,:len(csi)] = csi 
-    return cs #.flat.copy()
+        cs[i,-len(csi):] = csi 
+    return cs.flat.copy()
 
 '''
 https://math.stackexchange.com/questions/746939/2d-cubic-b-splines
@@ -149,6 +158,27 @@ def BsplineCubic(x):
     mask=absx>2; y[mask] = 0
     return y
 
+def conv1D(xs,ys):
+    nx=len(xs)
+    ny=len(ys)
+    #dn=(nx-ny)/2
+    #res = np.emppty(nx+ny)
+    ntot=nx+ny+2    
+    xs_ = np.zeros(ntot)
+    ys_ = np.zeros(ntot)
+    dnx=(nx/2)+1
+    dny=(ny/2)+1
+    print nx,ny,ntot, dnx, dny, len(xs_[dny:-dny])
+    xs_[dny:-dny-1] = xs
+    ys_[dnx:-dnx-1] = ys
+    conv = np.real(np.fft.ifft((np.fft.fft(xs_)*np.fft.fft(ys_))))  # Keep it Real !
+    conv = np.roll(conv,ntot/2)
+    #for i in range(nx,ny):
+    #    res[i] = np.dot( xs[dn:-dn], ys[] )
+    return conv
+
+
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -161,7 +191,7 @@ if __name__ == "__main__":
 
     #sp=BsplineCubic(np.array([-2,-1.,0.,1.,2.])); print sp, sp.sum()
     sp=BsplineCubic(np.array([-2.0,-1.5,-1.0,-0.5,0.,0.5,1.,1.5,2.])) ; print sp/sp.sum()
-    coefs3_2 = np.array([ 0.01041667, 0.08333333, 0.23958333, 0.33333333, 0.23958333, 0.08333333, 0.01041667 ])
+    coefs3_2 = np.array([ 0.01041667, 0.08333333, 0.23958333, 0.33333333, 0.23958333, 0.08333333, 0.01041667 ])  # *2
     print "np.outer(coefs3_2,coefs3_2).sum() ", np.outer(coefs3_2,coefs3_2).sum()
     #coefs3_2 = sp/sp.sum()
 
@@ -174,61 +204,86 @@ if __name__ == "__main__":
     coefs5 = np.array( [0.1, 0.2, 0.4, 0.2, 0.1] );
     
     
+
+
+    coefs3_ker = conv1D(coefs3_2,coefs3_2)    ; print coefs3_ker ; 
+    coefs3_ker_down = coefs3_ker[:-2:2].copy()
+    plt.plot( coefs3_2  ,'.-' )
+    plt.plot( coefs3_ker,'.-' )
+    plt.plot( coefs3_ker_down,'.-' )
+    #plt.show()
+    #exit()
+
+
+
+
+    '''
     # ====== 1D
     y1d      = np.zeros(10)
     #y1d[5]   = 1    
     #y1d[8]   = 1
     #y1d[1]   = 1
     #y1d[4]   = 1
+    y1d[0]   = 1
     y1d[5]   = 1
+    y1d[-1]  = 1
 
     #print "y1d  ", y1d
 
     coefs3_2_up = upSwizzle( coefs3_2, di=2 )
 
     print "coefs3_2    ", len(coefs3_2   ), coefs3_2
-    print "coefs3_2_up ", len(coefs3_2_up), coefs3_2_up
+    print "coefs3_2_up ", len(coefs3_2_up),"\n", coefs3_2_up
 
-    #y1d_conv  = convolve1D( coefs3, y1d,     )  ;print "y1d_conv  ", y1d_conv
+    y1d_conv  = convolve1D( coefs3, y1d,     )  ;print "y1d_conv  ", y1d_conv
     #y1d_conv  = convolve1D( coefs5, y1d,     )  ;print "y1d_conv  ", y1d_conv
-    y1d_conv  = convolve1D( coefs3_2_up, y1d,  di=-2   )  ;print "y1d_conv  ", y1d_conv
+    y1d_conv2  = convolve1D( coefs3_2_up, y1d,  di=-2   )  ;print "y1d_conv2  ", y1d_conv2
     #y1d_conv2 = convolve1D( coefs3, y1d_conv )  ;print "y1d_conv2 ", y1d_conv2
     #y1d_conv3 = convolve1D( coefs6, y1d      )  ;print "y1d_conv3 ", y1d_conv3
 
-    plt.plot( np.arange(0,len(y1d),1  ),y1d     ,  "o-", label='y1d' )
-    plt.plot( np.arange(0,len(y1d),0.5),y1d_conv,  ".-", label='y1d_conv' )
+    plt.plot( np.arange(0,len(y1d),1),y1d     ,  "o-", label='y1d' )
+    plt.plot( np.arange(0,len(y1d),1),y1d_conv,  ".-", label='y1d_conv' )
+    plt.plot( np.arange(0,len(y1d),0.5),y1d_conv2,  ".-", label='y1d_conv2' )
     #plt.plot( y1d_conv2, ".-", label='y1d_conv2' )
     #plt.plot( y1d_conv3, ".-", label='y1d_conv3' )
     
     plt.show(); exit()
-    
-
     '''
+
+    
     # ======  2D
     y2d = np.zeros((20,20))
-    y2d[:,:] = 1
-    y2d[0,10] = 0
-    y2d[10,10] = 0
-    y2d[19,10] = 0
+    y2d[:,:]   = 1
 
-    y2d[0,0] = 0
-    y2d[19,19] = 0
+    
+    y2d[15,16] = 0
+    y2d[10:13,10] = 0
+    y2d[13,11] = 0
+    y2d[5:7,6:8] = 0
+
+    #y2d[0,10]  = 0
+    #y2d[19,10] = 0
+
+    #y2d[0,0]   = 0
+    #y2d[19,19] = 0
 
     #y2d_conv = convolve2D_tensorProduct( coefs3, y2d )
     #y2d_conv = convolve2D_tensorProduct( coefs6, y2d )
     #y2d_conv  = convolve2D_tensorProduct( coefs5, y2d, di=2 )
-    y2d_conv  = convolve2D_tensorProduct( coefs3_2, y2d, di=2 )
-    print "DONE 4 "
+    #y2d_conv  = convolve2D_tensorProduct( coefs3_2, y2d, di=2 )
+
+    coefs3_2_up = upSwizzle( coefs3_2, di=2 )
+    y2d_conv  = convolve2D_tensorProduct( coefs3_2_up, y2d, di=-2 )
+    #print "DONE 4 "
     print  y2d_conv 
 
     interp = 'nearest'
-
     plt.figure(figsize=(10,5))
-    plt.subplot(1,2,1); plt.imshow( y2d     , interpolation=interp ); plt.colorbar()
-    plt.subplot(1,2,2); plt.imshow( y2d_conv, interpolation=interp ); plt.colorbar()
+    plt.subplot(1,2,1); plt.imshow( y2d     , interpolation=interp ); plt.title("input: coefs"); plt.colorbar()
+    plt.subplot(1,2,2); plt.imshow( y2d_conv, interpolation=interp );plt.title("input: Yfunc");  plt.colorbar()
     
-    plt.show();    exit()
-    '''
+    #plt.show();    exit()
+    
 
     '''
     import CG
@@ -256,7 +311,7 @@ if __name__ == "__main__":
     exit()
     '''
 
-    N = 30
+    N = 20
     xs    = np.linspace(-np.pi,np.pi,N)
     Xs,Ys = np.meshgrid( xs, xs )
 
@@ -275,16 +330,24 @@ if __name__ == "__main__":
     Yref[12:15,9:12] += green
     '''
 
-    Yref[5:10,5:10] = 1.0
+    #Yref[5:10,5:10] = 1.0
 
     #Ycoefs = fit_tensorProd( kernel_coefs=coefs6, Yref=Yref, basis_coefs=coefs3, maxIters=50, maxErr=1e-6 )
     #Ycoefs = fit_tensorProd( Yref=Yref, basis_coefs=coefs3, maxIters=50, maxErr=1e-6 )
-    Ycoefs = fit_tensorProd( Yref=Yref, basis_coefs=coefs3, maxIters=50, maxErr=1e-6, di=2 )
+
+    #Ycoefs = fit_tensorProd( Yref=y2d_conv, basis_coefs=coefs3_2, kernel_coefs=coefs3,  maxIters=50, maxErr=1e-6, di=2, nConvPerCG=2 )
+    Ycoefs = fit_tensorProd( Yref=y2d_conv, basis_coefs=coefs3_2, kernel_coefs=coefs3_ker_down,  maxIters=50, maxErr=1e-6, di=2, nConvPerCG=1 )
+    Yfit  = convolve2D_tensorProduct( coefs3_2_up, Ycoefs, di=-2 )
+
+    #Ycoefs = fit_tensorProd( Yref=Yref, basis_coefs=coefs3, maxIters=50, maxErr=1e-6, di=2 )
     #Yfit   = convolve2D_tensorProduct( coefs3, Ycoefs )
 
-    imfig( Yref,   "Yref"   )
-    imfig( Ycoefs, "Ycoefs" )
+    #imfig( Yref,   "Yref"   )
+    #imfig( Yref,   "Yref"   )
+    imfig( Ycoefs, "Fitted: Ycoefs" )
     #imfig( Yfit,   "Yfit"   )
+    imfig( Yfit, "Fitted: Yfit" )
+    
 
     '''
     BYref = convolve2D_tensorProduct( coefs3, Yref )
