@@ -1,6 +1,8 @@
 #ifndef  integerOps_h
 #define  integerOps_h
 
+#include <stdint.h>
+
 // ========= index poerations and modulo-math ===========
 
 inline int wrap_index_fast( int i, int n){

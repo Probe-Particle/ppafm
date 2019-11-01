@@ -1,6 +1,8 @@
 #ifndef  GLView_h
 #define  GLView_h
 
+#include <stdbool.h> 
+
 extern "C" {
 typedef void (*ProcedurePointer)();
 

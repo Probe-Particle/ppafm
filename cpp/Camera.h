@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <stdint.h>
 
-#include "fastmath.h"
+#include "fastmath_light.h"
 #include "Vec3.h"
 #include "Mat3.h"
 #include "quaternion.h"

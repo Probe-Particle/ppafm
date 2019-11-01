@@ -2,7 +2,7 @@
 #ifndef PolyCycles_h
 #define PolyCycles_h
 
-#include "fastmath.h"
+#include "fastmath_light.h"
 #include "Vec2.h"
 #include "DynamicOpt.h"
 

@@ -2,7 +2,11 @@
 #ifndef  Vec2_h
 #define  Vec2_h
 
-#include "fastmath.h"
+#include <stdint.h>
+//#include "fastmath.h"
+#include "fastmath_light.h"
+#include "macroUtils.h"
+#include "gonioApprox.h"
 
 //template <class T,class VEC>
 template <class T>
@@ -18,8 +22,8 @@ class Vec2T{
 
 	// ===== methods
 
-	inline void order       (){ if(a>b){ _swap(a,b,T); }; }
-	inline void orderReverse(){ if(a<b){ _swap(a,b,T); }; }
+	inline void order       (){ if(a>b){ _swap(a,b); }; }
+	inline void orderReverse(){ if(a<b){ _swap(a,b); }; }
 
     inline explicit operator Vec2T<float >()const{ return (Vec2T<float >){(float)x,(float)y}; }
 	inline explicit operator Vec2T<double>()const{ return (Vec2T<double>){(double)x,(double)y}; }
@@ -189,9 +193,9 @@ inline void convert( const Vec2d& from, Vec2f& to ){ to.x=(float)from.x; to.y=(f
 
 inline Vec2f toFloat( const Vec2d& from){ return (Vec2f){(float)from.x,(float)from.y}; }
 
-inline int print( const Vec2f&  v){ return printf( "%lg %g", v.x, v.y ); };
-inline int print( const Vec2d&  v){ return printf( "%lg %g", v.x, v.y ); };
-inline int print( const Vec2i&  v){ return printf( "%i %i", v.x, v.y ); };
+//inline int print( const Vec2f&  v){ return printf( "%lg %g", v.x, v.y ); };
+//inline int print( const Vec2d&  v){ return printf( "%lg %g", v.x, v.y ); };
+//inline int print( const Vec2i&  v){ return printf( "%i %i", v.x, v.y ); };
 
 #endif
 

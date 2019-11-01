@@ -1,5 +1,5 @@
 
-#include "fastmath.h"
+#include "fastmath_light.h"
 #include "Vec3.h"
 #include "Mat3.h"
 

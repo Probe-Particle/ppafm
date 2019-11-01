@@ -22,6 +22,7 @@ TODO:
 #ifndef FARFF_h
 #define FARFF_h
 
+//#include "fastmath_light.h"
 #include "fastmath.h"
 #include "Vec2.h"
 #include "Vec3.h"

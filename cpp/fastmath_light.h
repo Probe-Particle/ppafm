@@ -11,7 +11,6 @@
 
 constexpr double M_TWO_PI = M_PI * 2;
 
-
 //#define sq(a) a*a
 template <class TYPE> inline TYPE sq   (TYPE a){ return a*a; }
 template <class TYPE> inline TYPE clip(TYPE x, TYPE xmin, TYPE xmax ){ if( x<xmin ) return xmin; if( x>xmax ) return xmax; return x; }

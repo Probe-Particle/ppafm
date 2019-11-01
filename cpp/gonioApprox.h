@@ -2,6 +2,8 @@
 #ifndef  gonioApprox_h
 #define  gonioApprox_h
 
+#include <math.h>
+
 // ========= Polar -> Cartesian ===========
 
 template <class TYPE>
@@ -150,10 +152,10 @@ inline double atan2_a3( double y, double x ){
 inline float atan2_nvidia( float y, float x ){
   float t0, t1, t2, t3, t4;
 
-  t3 = _abs(x);
-  t1 = _abs(y);
-  t0 = _max(t3, t1);
-  t1 = _min(t3, t1);
+  t3 = fabs(x);
+  t1 = fabs(y);
+  t0 = fmax(t3, t1);
+  t1 = fmin(t3, t1);
   t3 = 1 / t0;
   t3 = t1 * t3;
 
@@ -166,7 +168,7 @@ inline float atan2_nvidia( float y, float x ){
   t0 = t0 * t4 + 0.999995630;
   t3 = t0 * t3;
 
-  t3 = ( _abs(y) > _abs(x) ) ? 1.570796327 - t3 : t3;
+  t3 = ( fabs(y) > fabs(x) ) ? 1.570796327 - t3 : t3;
   t3 = (x < 0) ?  3.141592654 - t3 : t3;
   t3 = (y < 0) ? -t3 : t3;
 

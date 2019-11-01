@@ -2,7 +2,7 @@
 #ifndef MMFF_h
 #define MMFF_h
 
-#include "fastmath.h"
+#include "fastmath_light.h"
 #include "Vec2.h"
 #include "Vec3.h"
 #include "quaternion.h"

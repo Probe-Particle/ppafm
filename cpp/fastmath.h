@@ -7,9 +7,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include <stdint.h>
-#include <stdint.h>
-
 #include "macroUtils.h"
 #include "integerOps.h"
 #include "fastmath_light.h"

@@ -3,8 +3,7 @@
 #ifndef  macroUtils_h
 #define  macroUtils_h
 
-#define _swap( a, b, TYPE ) { TYPE t = a; a = b; b = t; }
-
+//#define _swap( a, b, TYPE ) { TYPE t = a; a = b; b = t; }
 //#define _max(a,b)      ((a>b)?a:b)
 //#define _min(a,b)      ((a<b)?a:b)
 //#define _abs(a)        ((a>0)?a:-a)
@@ -44,6 +43,7 @@
 #define println(A)       A.print(); puts("");
 
 
+template <typename T> inline void _swap(T& a,T& b){const T t=a; a=b; b=t; }
 _inline_T const T& _min  (const T& a, const T& b) { return !(a>b)?a:b; }
 _inline_T const T& _max  (const T& a, const T& b) { return !(a<b)?a:b; }
 _inline_T const T& _clamp(const T& a, const T& amax, const T& amin){ return _max(amin,_min(amax,a)); }

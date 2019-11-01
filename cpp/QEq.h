@@ -2,7 +2,7 @@
 #ifndef QEq_h
 #define QEq_h
 
-#include "fastmath.h"
+#include "fastmath_light.h"
 #include "Vec3.h"
 
 // implementation of "ChargeEquilibrationforMolecularDynamicsSimulations" 

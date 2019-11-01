@@ -4,9 +4,11 @@
 
 #include <math.h>
 #include <cstdlib>
+#include <cstdio>
 #include <stdint.h>
 
-#include "fastmath.h"
+//#include "fastmath.h"
+#include "fastmath_light.h"
 #include "Vec3.h"
 
 //template <class T, class VEC, class MAT>

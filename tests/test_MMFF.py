@@ -10,6 +10,9 @@ import time
 #import common    as PPU
 #from optparse import OptionParser
 
+
+sys.path.append("../")
+
 #import pyProbeParticle.PolyCycles  as pcff
 import pyProbeParticle.atomicUtils as au
 #import pyProbeParticle.chemistry   as ch
@@ -57,7 +60,7 @@ if __name__ == "__main__":
     t1=time.clock()
     mmff.addAtoms(apos, aconf )                    #;print "DEBUG 1"
     mmff.addBonds(bonds2atom, l0s=None, ks=None)   #;print "DEBUG 2"
-    natom = mmff.buildFF(True,True,True)           #;print "DEBUG 4"
+    natom = mmff.buildFF(True,True,True,True)           #;print "DEBUG 4"
     #mmff.setNonBonded(None)                        #;print "DEBUG 3"   # this activate NBFF with default atom params
     mmff.setupOpt()                                #;print "DEBUG 5"
     pos = mmff.getPos(natom)
