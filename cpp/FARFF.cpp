@@ -58,16 +58,18 @@ class GridFF_AtomBond{ public:
 
     // ========== Functions 
 
-    void bindDOFs( int natom_, int norb_, Vec3d* apos_, Vec3d* aforce_, Vec3d* opos_, Vec3d* oforce_ ){
+    void bindDOFs( int natom_, int norb_, Vec3d* apos_, Vec3d* aforce_, Vec3d* opos_, Vec3d* oforce_, Vec3ui8* aconf_ ){
         natom=natom_; norb=norb_;
         apos=apos_;   aforce=aforce_;
         opos=opos_;   oforce=oforce_;
+        aconf = aconf_;
     }
 
     double eval( ){
         double invLbond = 1/lbond;
         //double cbondF   = orbFroceStrenght * invLbond; // lever length
         if(atomMap){
+            printf( "DEBUG atomMap \n" );
             for(int i=0; i<natom; i++){
                 Vec3d gpos;
                 Vec3d pa  = apos[i]-gridShape.pos0;
@@ -82,10 +84,12 @@ class GridFF_AtomBond{ public:
         }
         
         if(bondMap){
+            printf( "DEBUG bondMap \n" );
             for(int ia=0; ia<natom; ia++){
                 const Vec3d& pa = apos[ia] - gridShape.pos0;
                 int ioff = ia*N_BOND_MAX;
-                for(int io=0; io<N_BOND_MAX; io++){
+                int nsigma = aconf[ia].a;
+                for(int io=0; io<nsigma; io++){  // just bonding orbitals
                     Vec3d gpos; 
                     int i = ioff+io;
                     Vec3d p = pa + opos[i]*lbond;
@@ -99,7 +103,7 @@ class GridFF_AtomBond{ public:
 
                     #ifdef DEBUG_GL 
                     p.add(gridShape.pos0);
-                    glColor3f(1.0,1.0,1.0); Draw3D::pointCross(p,0.1); Draw3D::vecInPos( fg*100.0, p );
+                    glColor3f(0.0,1.0,1.0); Draw3D::pointCross(p,0.1); Draw3D::vecInPos( fg*100.0, p );
                     #endif
                 }
             }
@@ -111,7 +115,6 @@ class GridFF_AtomBond{ public:
 };
 
 GridFF_AtomBond gridff;
-
 
 
 #ifdef  DEBUG_GL
@@ -208,7 +211,7 @@ void setupFF( int natom, int* itypes ){
     //ff.normalizeOrbs();
     opt.bindOrAlloc( ff.nDOF, ff.dofs, 0, ff.fdofs, 0 );
     opt.cleanVel( );
-    gridff.bindDOFs(ff.natom,ff.norb, ff.apos, ff.aforce, ff.opos, ff.oforce );
+    gridff.bindDOFs( ff.natom, ff.norb, ff.apos, ff.aforce, ff.opos, ff.oforce, ff.aconf );
 }
 
 void setGridShape( int * n, double * cell ){
@@ -261,8 +264,8 @@ double relaxNsteps( int nsteps, double Fconv, int ialg ){
         }
         
         #ifdef DEBUG_GL
-        debug_draw_GridFF(gridff.gridShape, gridff.atomMap, true, false );
-        //debug_draw_GridFF(gridff.gridShape, gridff.bondMap, true, false );
+        //debug_draw_GridFF(gridff.gridShape, gridff.atomMap, true, false );
+        debug_draw_GridFF(gridff.gridShape, gridff.bondMap, true, false );
         #endif 
 
         //for(int i=0; i<ff.natom; i++) ff.aforce[i].set(0.);
