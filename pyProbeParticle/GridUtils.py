@@ -10,6 +10,7 @@ import cpp_utils
 # ============================== 
 
 bohrRadius2angstroem = 0.5291772109217
+Hartree2eV           = 27.211396132 
 
 # ============================== interface to C++ core 
 
@@ -53,6 +54,11 @@ lib.interpolateLine_gridCoord.argtypes = [ c_int, array1d, array1d, array3d, arr
 lib.interpolateLine_gridCoord.restype  = None
 #interpolateLine_gridCoord                   = lib.interpolateLine_gridCoord
 
+#	void interpolateLine_gridCoord( int n, Vec3d * p1, Vec3d * p2, double * data, double * out )
+lib.interpolateLine_cartes.argtypes = [ c_int, array1d, array1d, array3d, array1d ]
+lib.interpolateLine_cartes.restype  = None
+#interpolateLine_gridCoord                   = lib.interpolateLine_gridCoord
+
 #	void interpolateQuad_gridCoord( int * nij, Vec3d * p00, Vec3d * p01, Vec3d * p10, Vec3d * p11, double * data, double * out )
 lib.interpolateQuad_gridCoord.argtypes = [ array1i, array1d, array1d, array1d, array1d, array3d, array2d ]
 lib.interpolateQuad_gridCoord.restype  = None
@@ -77,19 +83,24 @@ def interpolateLine( F, p1, p2, sz=500, cartesian=False ):
 	result = np.zeros( sz )
 	p00 = np.array ( p1, dtype='float64' )
 	p01 = np.array ( p2, dtype='float64' )
-	setGridN( np.array(F.shape, dtype='int32' ) )
-	lib.interpolateLine_gridCoord( sz, p00, p01, F, result )
+	#setGridN( np.array(F.shape, dtype='int32' ) )
+	if( cartesian ):
+		lib.interpolateLine_cartes   ( sz, p00, p01, F, result )
+	else:
+		lib.interpolateLine_gridCoord( sz, p00, p01, F, result )
 	return result
 
 def interpolateQuad( F, p00, p01, p10, p11, sz=(500,500) ):
-	result = np.zeros( sz )
-	npxy   = np.array( sz, dtype='int32' )
-	p00 = np.array ( p00, dtype='float64' )
-	p01 = np.array ( p01, dtype='float64' )
-	p10 = np.array ( p10, dtype='float64' )
-	p11 = np.array ( p11, dtype='float64' )
-	lib.interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
-	return result
+    result = np.zeros( sz )
+    #print "DEBUG 2.1 "
+    npxy   = np.array( sz, dtype='int32' )
+    p00 = np.array ( p00, dtype='float64' )
+    p01 = np.array ( p01, dtype='float64' )
+    p10 = np.array ( p10, dtype='float64' )
+    p11 = np.array ( p11, dtype='float64' )
+    #print "DEBUG 2.2 "
+    lib.interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
+    return result
 
 def interpolate_cartesian( F, pos, cell=None, result=None ):
 	if cell is not None:
@@ -113,6 +124,15 @@ def verticalCut( F, p1, p2, sz=(500,500) ):
 	lib.interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
 	return result
 
+def dens2Q_CHGCARxsf(data, lvec):
+    nDim = data.shape
+    Ntot = nDim[0]*nDim[1]*nDim[2]
+    Vtot = np.linalg.det( lvec[1:] )
+    print "dens2Q Volume    : ", Vtot
+    print "dens2Q Ntot      : ", Ntot
+    print "dens2Q Vtot/Ntot : ", Vtot/Ntot
+    #Qsum = rho1.sum()
+    return Vtot/Ntot
 
 #double cog( double * data_, double* center ){ 	
 lib.cog.argtypes = [ array3d, array1d ]
@@ -209,8 +229,9 @@ def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
     fileout.write ("END_BLOCK_DATAGRID_3D\n")
 
 def loadXSF(fname):
-	filein = open(fname )
+	filein = open( fname )
 	startline, head = readUpTo(filein, "DATAGRID_3D_")              # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
+	#print head
 	nDim = [ int(iii) for iii in filein.readline().split() ]        # reading 1 line with dimensions
 	nDim.reverse()
 	nDim = np.array( nDim)
@@ -256,10 +277,11 @@ def loadCUBE(fname):
 	nDim = np.array( [int(sth1[0]),int(sth2[0]),int(sth3[0])] )
 	lvec = np.zeros((4, 3))
 	for jj in range(3):
-		lvec[0,jj]=float(sth0[jj+1])
+		lvec[0,jj]=float(sth0[jj+1])*bohrRadius2angstroem
 		lvec[1,jj]=float(sth1[jj+1])*int(sth1[0])*bohrRadius2angstroem  # bohr_radius ?
 		lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*bohrRadius2angstroem
 		lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*bohrRadius2angstroem
+
 	print "GridUtils| Load "+fname+" using readNumsUpTo"  
 	noline = 6+int(sth0[0])
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
@@ -272,7 +294,7 @@ def loadCUBE(fname):
 	head.append("BEGIN_BLOCK_DATAGRID_3D \n")
 	head.append("g98_3D_unknown \n")
 	head.append("DATAGRID_3D_g98Cube \n")
-        FF*=27.211396132
+	FF*=Hartree2eV
 	return FF,lvec, nDim, head
 #================ WSxM output
 
@@ -304,7 +326,7 @@ def saveWSxM_3D( prefix, data, extent, slices=None ):
 
 #================ Npy
 
-def saveNpy(fname, data, lvec ):
+def saveNpy(fname, data, lvec , head=None):
 	np.save(fname+'.npy', data)
 	np.save(fname+'_vec.npy',lvec)
 
@@ -347,11 +369,15 @@ def saveVecFieldXsf( fname, FF, lvec, head = XSF_HEAD_DEFAULT ):
 	saveXSF(fname+'_y.xsf', FF[:,:,:,1], lvec, head )
 	saveXSF(fname+'_z.xsf', FF[:,:,:,2], lvec, head )
 
-def saveVecFieldNpy( fname, FF, lvec ):
+def saveVecFieldNpy( fname, FF, lvec , head = XSF_HEAD_DEFAULT ):
 	np.save(fname+'_x.npy', FF[:,:,:,0] )
 	np.save(fname+'_y.npy', FF[:,:,:,1] )
 	np.save(fname+'_z.npy', FF[:,:,:,2] )
 	np.save(fname+'_vec.npy', lvec )
+	if (head != XSF_HEAD_DEFAULT ):
+		print "saving atoms"
+		tmp0=head[0]; q=np.zeros(len(tmp0));    #head: [e,[x,y,z],lvec]
+		np.save(fname+'_atoms.npy',[tmp0,head[1][0],head[1][1],head[1][2],q]) #atoms: [e, x, y, z, q]
 
 def limit_vec_field( FF, Fmax=100.0 ):
 	'''
@@ -370,7 +396,7 @@ def save_vec_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT
 	if (data_format=="xsf"):
 		saveVecFieldXsf(fname, data, lvec, head = head )
 	elif (data_format=="npy"):
-		saveVecFieldNpy(fname, data, lvec)
+		saveVecFieldNpy(fname, data, lvec, head = head )
 	else:
 		print "I cannot save this format!"
 
@@ -391,14 +417,14 @@ def load_vec_field(fname, data_format="xsf"):
 
 # =============== Scalar Fields
 
-def save_scal_field(fname, data, lvec, data_format="xsf"):
+def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT ):
 	'''
 	Saving scalar fields into xsf, or npy
 	'''
 	if (data_format=="xsf"):
-		saveXSF(fname+".xsf", data, lvec)
+		saveXSF(fname+".xsf", data, lvec, head = head)
 	elif (data_format=="npy"):
-		saveNpy(fname, data, lvec)
+		saveNpy(fname, data, lvec, head = head)
 	else:
 		print "I cannot save this format!"
 
@@ -412,6 +438,8 @@ def load_scal_field(fname, data_format="xsf"):
 	elif (data_format=="npy"):
 		data, lvec = loadNpy(fname)
 		ndim = data.shape
+	elif (data_format=="cube"):
+		data,lvec, ndim, head = loadCUBE(fname+".cube")
 	else:
 		print "I cannot load this format!"
 	return data.copy(), lvec, ndim;

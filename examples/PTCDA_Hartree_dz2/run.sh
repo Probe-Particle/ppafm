@@ -13,13 +13,13 @@ python $PPPATH/generateLJFF.py -i LOCPOT.xsf
 
 # ======= STEP 2 : Relax Probe Particle using that force-field grid 
 
-python $PPPATH/relaxed_scan.py -k 0.5 --qrange -0.20 0.20 3 --pos
-#python $PPPATH/relaxed_scan.py -k 0.5 -q -0.10 --pos
+#python $PPPATH/relaxed_scan.py -k 0.5 --qrange -0.20 0.20 3 --pos
+python $PPPATH/relaxed_scan.py -k 0.5 -q -0.10
 
 # ======= STEP 3 : Plot the results
 
-python $PPPATH/plot_results.py -k 0.5 --qrange -0.20 0.20 3 --arange 0.5 2.0 2 --pos --df
-#python $PPPATH/plot_results.py -k 0.5 -q -0.10 --arange 0.5 2.0 2 --pos --df
+#python $PPPATH/plot_results.py -k 0.5 --qrange -0.20 0.20 3 --arange 0.5 2.0 2 --pos --df
+python $PPPATH/plot_results.py -k 0.5 -q -0.10 -a 2.0 2 --df
 
 
  

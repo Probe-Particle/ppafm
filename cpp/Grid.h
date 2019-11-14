@@ -20,7 +20,8 @@
 
 // Force-Field namespace 
 class GridShape {	
-	public:	    
+	public:
+	Vec3d   pos0;
 	Mat3d   cell;       // lattice vector
 	Mat3d   dCell;      // basis vector of each voxel ( lattice vectors divided by number of points )
 	Mat3d   diCell;     // inversion of voxel basis vector
@@ -29,9 +30,9 @@ class GridShape {
 	inline void setCell( const Mat3d& cell_ ){
 		//n.set( n_ );
 		cell.set( cell_ ); 
-		dCell.a.set_mul( cell.a, 1.0d/n.a );
-		dCell.b.set_mul( cell.b, 1.0d/n.b );
-		dCell.c.set_mul( cell.c, 1.0d/n.c );
+		dCell.a.set_mul( cell.a, 1.0/n.a );
+		dCell.b.set_mul( cell.b, 1.0/n.b );
+		dCell.c.set_mul( cell.c, 1.0/n.c );
 		dCell.invert_T_to( diCell );	
 	};
 
@@ -50,12 +51,16 @@ class GridShape {
 	};
 	
 	void printCell(){
-	    printf( " a     %f %f %f \n", dCell.a.x,  dCell.a.y,  dCell.a.z  );
-	    printf( " b     %f %f %f \n", dCell.b.x,  dCell.b.y,  dCell.b.z  );
-	    printf( " c     %f %f %f \n", dCell.c.x,  dCell.c.y,  dCell.c.z  );
-	    printf( " inv_a %f %f %f \n", diCell.a.x, diCell.a.y, diCell.a.z );
-	    printf( " inv_b %f %f %f \n", diCell.b.x, diCell.b.y, diCell.b.z );
-	    printf( " inv_c %f %f %f \n", diCell.c.x, diCell.c.y, diCell.c.z );
+	    printf( " n      %i %i %i \n", n.x,        n.y,       n.z        );
+	    printf( " a      %f %f %f \n", cell.a.x,   cell.a.y,   cell.a.z  );
+	    printf( " b      %f %f %f \n", cell.b.x,   cell.b.y,   cell.b.z  );
+	    printf( " c      %f %f %f \n", cell.c.x,   cell.c.y,   cell.c.z  );
+	    printf( " da     %f %f %f \n", dCell.a.x,  dCell.a.y,  dCell.a.z  );
+	    printf( " db     %f %f %f \n", dCell.b.x,  dCell.b.y,  dCell.b.z  );
+	    printf( " dc     %f %f %f \n", dCell.c.x,  dCell.c.y,  dCell.c.z  );
+	    printf( " inv_da %f %f %f \n", diCell.a.x, diCell.a.y, diCell.a.z );
+	    printf( " inv_db %f %f %f \n", diCell.b.x, diCell.b.y, diCell.b.z );
+	    printf( " inv_dc %f %f %f \n", diCell.c.x, diCell.c.y, diCell.c.z );
     }
 
 };
@@ -96,7 +101,6 @@ inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r 
 	return out;
 }
 
-
 // iterate over field
 template< void FUNC( int ibuff, const Vec3d& pos_, void * args ) >
 void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void * args ){
@@ -105,6 +109,7 @@ void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void
 	int nxy = ny * nx;
 	printf( "interateGrid3D nx,y,z (%i,%i,%i) nxy %i\n", nx,ny,nz, nxy );
 	Vec3d pos;  pos.set( pos0 );
+	//printf(" interateGrid3D : args %i \n", args );
 	for ( int ic=0; ic<nz; ic++ ){
         std::cout << "ic " << ic;
         std::cout.flush();

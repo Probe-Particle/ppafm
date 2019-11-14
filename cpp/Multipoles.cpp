@@ -6,6 +6,8 @@
 #include "Mat3.h"
 //#include <string.h>
 
+static int iDebug = 0;
+
 #include "Grid.h"
 #include "DynamicOpt.h"
 

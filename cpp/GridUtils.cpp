@@ -4,6 +4,8 @@
 
 #include "Grid.h"
 
+#include <locale.h> 
+
 GridShape gridShape;
 
 
@@ -23,6 +25,11 @@ namespace Histogram{
 extern "C" {
 
     int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline) {
+    
+        setlocale( LC_ALL, "C" ); // https://msdn.microsoft.com/en-us/library/x99tb11d(v=vs.71).aspx
+        //setlocale( LC_ALL, "" );
+        //setlocale( LC_ALL, "En_US" );  // to sove problem with ',' vs '.' caused by PyQt
+        
         FILE *f;
         char line[5000]; // define a length which is long enough to store a line
         char *waste;
@@ -46,7 +53,8 @@ extern "C" {
             for (j=0; j<dims[1]; j++){   
                 for (i=0; i<dims[0]; i++){
                     waste2=fscanf(f,"%lf",&numbers[tot]);
-//                    printf ("%20.20lf ", numbers[tot]);
+                    //printf ("%20.20lf ", numbers[tot]);
+                    //printf ("%i %i %i %f \n", k, j, i, numbers[tot] );
                     tot++;
 //                    if (tot > 5 ) exit(1);
                 }
@@ -65,10 +73,12 @@ extern "C" {
 	}
 
 	void interpolateLine_gridCoord( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
+        //printf( " interpolateLine n %i  p0 (%g,%g,%g) p1 (%g,%g,%g) \n", n,   p0->x,p0->y,p0->z, p1->x,p1->y,p1->z );
 		Vec3d dp,p; 
 		dp.set_sub( *p1, *p0 );
 		dp.mul( 1.0d/n );
 		p.set( *p0 );
+        //printf( " interpolateLine n %i  p (%g,%g,%g) dp (%g,%g,%g) \n", n,   p.x,p.y,p.z, dp.x,dp.y,dp.z );
 		for( int i=0; i<n; i++ ){ 
 			//printf( " i, n  %i %i  pi0  %f %f %f  \n", i, n,  p.x,p.y,p.z );
 			out[i] = interpolate3DWrap( data, gridShape.n, p );
@@ -76,16 +86,34 @@ extern "C" {
 		}
 	}
 
+	void interpolateLine_cartes( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
+		Vec3d dp,p; 
+		dp.set_sub( *p1, *p0 );
+		dp.mul( 1.0d/n );
+		p.set( *p0 );
+		for( int i=0; i<n; i++ ){ 
+			//printf( " i, n  %i %i  pi0  %f %f %f  \n", i, n,  p.x,p.y,p.z );
+			Vec3d gp;
+			gridShape.cartesian2grid( p, gp );
+			//printf( "%i (%g,%g,%g) (%g,%g,%g) \n", i, p.x, p.y, p.z,  gp.x, gp.y, gp.z );
+			out[i] = interpolate3DWrap( data, gridShape.n, gp );
+			p.add( dp );
+		}
+	}
+
 	void interpolateQuad_gridCoord( int * nij, Vec3d * p00, Vec3d * p01, Vec3d * p10, Vec3d * p11, double * data, double * out ){
 		int ni = nij[0];
 		int nj = nij[1];
+        //printf( "gridShape.n %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
+        //printf( "n (%i,%i) (%g,%g,%g) (%g,%g,%g) (%g,%g,%g) (%g,%g,%g) \n", nij[0],nij[1],   p00->x,p00->y,p00->z,   p01->x,p01->y,p01->z,   p10->x,p10->y,p10->z,   p11->x,p11->y,p11->z );
 		Vec3d dpi0,dpi1,pi0,pi1;
 		dpi0.set_sub( *p10, *p00 ); dpi0.mul( 1.0d/ni );
-		dpi1.set_sub( *p11, *p01 ); dpi1.mul( 1.0d/nj );
+		dpi1.set_sub( *p11, *p01 ); dpi1.mul( 1.0d/ni );
 		pi0.set( *p00 );
 		pi1.set( *p01 );
+        //printf( "(%g,%g,%g) (%g,%g,%g) \n",   dpi0.x,dpi0.y,dpi0.z, dpi1.x,dpi1.y,dpi1.z );
 		for( int i=0; i<ni; i++ ){ 
-			//printf( " i, ni, nj   %i %i %i  pi0  %f %f %f   pi1  %f %f %f \n", i, ni, nj,     pi0.x,pi0.y,pi0.z,     pi1.x,pi1.y,pi1.z );
+			//printf( " i,ni,nj   %i %i %i  pi0  %f %f %f   pi1  %f %f %f \n", i, ni, nj,     pi0.x,pi0.y,pi0.z,     pi1.x,pi1.y,pi1.z );
 			interpolateLine_gridCoord( nj, &pi0, &pi1, data, out + ( i * nj ) );
 			pi0.add( dpi0 );
 			pi1.add( dpi1 );
