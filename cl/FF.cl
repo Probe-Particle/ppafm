@@ -1,6 +1,6 @@
 
 #define R2SAFE          1e-4f
-#define COULOMB_CONST   14.399644f  // [eV/e]
+#define COULOMB_CONST   14.399644f  // [eV*Ang/e^2]
 
 //#define N_RELAX_STEP_MAX  64
 #define N_RELAX_STEP_MAX  16
@@ -245,6 +245,8 @@ __kernel void evalLJC_QZs_noPos(
     float3 pos    = grid_p0.xyz + grid_dA.xyz*ia + grid_dB.xyz*ib  + grid_dC.xyz*ic;
 
     float4 fe  = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
+    
+    Qs *= COULOMB_CONST;
 
     for (int i0=0; i0<nAtoms; i0+= nL ){
         int i = i0 + iL;
