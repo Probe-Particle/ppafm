@@ -388,8 +388,8 @@ class ForceField_LJC:
             self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
         if (self.cl_FE is None) and not bDirect:
             nb = self.nDim[0]*self.nDim[1]*self.nDim[2] * 4 * nb_float
-            self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY , nb ); nbytes+=nb # float8
-            if(verbose>0): print " forcefield.prepareBuffers() :  self.cl_FE  ", self.cl_FE 
+            self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY , nb ); nbytes+=nb # float4
+            if(verbose>0): print " forcefield.prepareBuffers() :  self.cl_FE  ", self.cl_FE
         if(verbose>0): print "initArgsLJC.nbytes ", nbytes
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None ):
@@ -504,7 +504,8 @@ class ForceField_LJC:
         )
         if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_QZs_noPos.pre) [s]: ", time.clock() - t0
         cl_program.evalLJC_QZs_noPos( self.queue, global_size, local_size, *(kargs) )
-        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[3] )
+        if bCopy:
+            cl.enqueue_copy( self.queue, FE, kargs[3] )
         if bFinish: self.queue.finish()
         if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_QZs_noPos) [s]: ", time.clock() - t0
         return FE
@@ -802,7 +803,7 @@ class AtomProcjetion:
             self.tipRot=tipRot
         if Eout is None:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
-            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+            if(verbose>0): print "FE.shape", Eout.shape
         if poss is not None:
             if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )
@@ -866,7 +867,7 @@ class AtomProcjetion:
             self.tipRot=tipRot
         if Eout is None:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
-            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+            if(verbose>0): print "FE.shape", Eout.shape
         if poss is not None:
             if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
             oclu.updateBuffer(poss, self.cl_poss )

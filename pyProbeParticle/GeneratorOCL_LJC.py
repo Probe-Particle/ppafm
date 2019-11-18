@@ -332,8 +332,9 @@ class Generator(Sequence,):
         self.forcefield = FFcl.ForceField_LJC()
 
         self.Ymode     = Ymode
-        self.projector = None; self.FE2in=None
+        self.projector = None
         self.bZMap = False; self.bFEmap = False;
+        self.atoms = None
         if(verbose>0): print "Ymode", self.Ymode
         #if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'SphereCaps' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks' or self.Ymode == 'D-S-H' or self.Ymode == 'MultiMapSpheres' or self.Ymode == 'SpheresType':
         if self.Ymode in {'Lorenzian','Spheres','SphereCaps','Disks','DisksOcclusion','QDisks','D-S-H','MultiMapSpheres','SpheresType','Bonds','AtomRfunc','AtomsAndBonds'}:
@@ -361,12 +362,13 @@ class Generator(Sequence,):
         if self.bNoFFCopy:
             self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim,  scan_dim=self.scan_dim, 
                                          nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), 
-                                         bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in 
+                                         bZMap=self.bZMap, bFEmap=self.bFEmap, atoms=self.atoms
                                        )
-            self.scanner.preparePosBasis( start=self.scan_start, end=self.scan_end )
         else:
             self.FEin = np.empty( self.forcefield.nDim, np.float32 )
-            #print "self.FEin.shape() ", self.FEin.shape
+            self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, atoms=self.atoms )
+
+        self.scanner.preparePosBasis( start=self.scan_start, end=self.scan_end )
 
         self.scanner.updateBuffers( WZconv=self.dfWeight )
 
@@ -478,16 +480,16 @@ class Generator(Sequence,):
                     self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep )[0].astype(np.float32)
 
                 if self.bNoFFCopy:
-                    #self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim, 
-                    #    scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+                    self.scanner.prepareBuffers( FEin_cl=self.forcefield.cl_FE, scan_dim=self.scan_dim, bZMap=self.bZMap, 
+                        bFEmap=self.bFEmap, atoms=self.atoms )
                     #print "NO COPY scanner.updateFEin "
-                    self.scanner.updateFEin( self.forcefield.cl_FE )
+#                    self.scanner.updateFEin( self.forcefield.cl_FE )
                 else:
                     if(self.counter>0): # not first step
                         if(verbose>1): print "scanner.releaseBuffers()"
                         self.scanner.releaseBuffers()
-                    self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
-                    self.scanner.preparePosBasis(self, start=self.scan_start, end=self.scan_end )
+                    self.scanner.prepareBuffers( self.FEin, scan_dim=self.scan_dim, bZMap=self.bZMap, bFEmap=self.bFEmap, atoms=self.atoms )
+                    self.scanner.preparePosBasis(start=self.scan_start, end=self.scan_end )
 
                 self.handleRotations()
             #print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
@@ -515,7 +517,7 @@ class Generator(Sequence,):
         self.handleRotations()
         #self.scanner.releaseBuffers()
         self.scanner.tryReleaseBuffers()
-        self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+        self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap )
         Xs1,Ys1   = self.nextRotBatch()
 
         self.iZPP = self.iZPP2
@@ -636,7 +638,7 @@ class Generator(Sequence,):
         else:
             #FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q )       # ---- this takes   ~0.03 second  for size=(150, 150, 150)
             #FF,self.atoms  = self.forcefield.makeFF( xyzs, qs, cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
-            FF,self.atoms  = self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
+            FF, self.atoms  = self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True, bQZ=self.bQZ )
 
             #import matplotlib.pyplot as plt
             #for i in range(0,150,5):
@@ -652,15 +654,11 @@ class Generator(Sequence,):
         if(bRunTime): t1 = time.clock()
                 
         if( self.rotJitter is not None ):
-            if self.bNoFFCopy: print "ERROR bNoFFCopy==True  is not compactible with rotJitter==True "
+            if self.bNoFFCopy: raise ValueError("bNoFFCopy==True  is not compactible with rotJitter==True ")
             FF[:,:,:,:] *= (1.0/len(self.rotJitter) )
 
         #self.FEin  = FF[:,:,:,:4] + self.Q*FF[:,:,:,4:];               # ---- this takes   0.05 second  for size=(150, 150, 150)
         #if(bRunTime): print "runTime(Generator_LJC.nextMolecule().5) [s]: ", time.clock()-t1
-
-        if self.Ymode == 'ElectrostaticMap':
-            if self.bNoFFCopy: print "ERROR bNoFFCopy==True is not compactible with Ymode=='ElectrostaticMap' "
-            self.FE2in = FF[:,:,:,4:].copy();
 
         if self.projector is not None:
             na = len(self.atomsNonPBC)
@@ -752,7 +750,7 @@ class Generator(Sequence,):
             self.scan_pos0s = self.calcPreHeight(self.scan_pos0s)
 
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().6   ) [s]:  %0.6f" %(time.clock()-t0)  ," preHeight "
-
+        
         if self.bMergeConv:
             FEout = self.scanner.run_relaxStrokesTilted_convZ()
             if(bRunTime): print "runTime(Generator_LJC.nextRotation().8   ) [s]:  %0.6f" %(time.clock()-t0)  ," scanner.run_relaxStrokesTilted_convZ() "
@@ -776,6 +774,7 @@ class Generator(Sequence,):
         nz = min( FEout.shape[2], X.shape[2] )
         X[:,:,:nz] = FEout[:,:,:nz,2]     #.copy()
         X[:,:,nz:] = 0
+        
 
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().9   ) [s]:  %0.6f" %(time.clock()-t0)  ," X = Fout.z  "
 
