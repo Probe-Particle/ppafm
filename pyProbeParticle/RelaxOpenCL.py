@@ -224,11 +224,17 @@ class RelaxedScanner:
         #cl.enqueue_copy( self.queue, self.clprepareBuffers_ImgIn, self.FEin_cl, origin=(0,0,0), region=region )
         self.FEin_cl=FEin_cl
 
+    def updateAtoms(self, atoms):
+        if self.cl_atoms:
+            self.cl_atoms.release()
+        self.nAtoms   = np.int32( len(atoms) )
+        self.cl_atoms = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY  | cl.mem_flags.COPY_HOST_PTR, hostbuf=atoms );
+
     def prepareBuffers(self, FEin_np=None, lvec=None, FEin_cl=None, FEin_shape=None, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, atoms=None ):
         #print " ========= prepareBuffers ", prepareBuffersbZMap
         self.scan_dim = scan_dim
         if lvec is not None:
-            self.invCell  = getInvCell(lvec)
+            self.invCell = getInvCell(lvec)
         nbytes = 0
         #print "prepareBuffers FE.shape", FE.shape
         mf       = cl.mem_flags
@@ -273,14 +279,11 @@ class RelaxedScanner:
 
         self.cl_zMap = None; self.cl_feMap=None; self.cl_atoms=None
         if bZMap:
-#            print "nxy ", nxy
-            print "allocate zMap"
             self.cl_zMap    = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize   ); nbytes += nxy*fsize
         if bFEmap:
             self.cl_feMap  = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize*4  ); nbytes += nxy*fsize*4
         if atoms is not None:
-            self.nAtoms   = np.int32( len(atoms) )
-            self.cl_atoms = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
+            self.updateAtoms(atoms); nbytes+=atoms.nbytes
         if(verbose>0): print "prepareBuffers.nbytes: ", nbytes
 
     def releaseBuffers(self):
@@ -563,10 +566,11 @@ class RelaxedScanner:
         returns zMap, feMap
         operates in coordinates rotated by tipRot
         '''
+        if self.cl_atoms is None:
+            raise ValueError('Atoms must be set with prepareBuffers before calculating the Electrostatic Map')
         if nz is None: nz=self.scan_dim[2]
         if zMap is None:  zMap  = np.empty( self.scan_dim[:2], dtype=np.float32 )
         if feMap is None: feMap = np.empty( self.scan_dim[:2]+(4,), dtype=np.float32 )
-        
         kargs = (
             self.cl_ImgIn,
             self.cl_poss,

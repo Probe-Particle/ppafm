@@ -366,8 +366,7 @@ class ForceField_LJC:
 
     def setQs(self, Qs=[100,-200,100,0],QZs=[0.1,0,-0.1,0]):
         if ( len(Qs) != 4 ) or ( len(QZs) != 4 ):
-            print "Qs and Qzs must have length 4 " 
-            exit()
+            raise ValueError("Qs and Qzs must have length 4. Got len(Qs) == %d and len(QZs) == %d" % (len(Qs), len(QZs)))
         self.Qs  = np.array(Qs ,dtype=np.float32)
         self.QZs = np.array(QZs,dtype=np.float32)
 

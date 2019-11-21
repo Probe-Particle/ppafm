@@ -194,16 +194,18 @@ class Generator(Sequence,):
 
     # --- ForceField
     #pixPerAngstrome = 10
-    iZPP = 8
+    iZPPs = [8]
     Q    = 0.0
 
     bQZ = True
-    QZs = [0.1,0,-0.1,0]                            #  position tip charges along z-axis relative to probe-particle center
-    Qs  = [100,-200,100,0]                          #  values of tip charges in electrons, len()==4, some can be zero, 
+    QZs = np.array([0.1,0,-0.1,0])                  #  position tip charges along z-axis relative to probe-particle center
+    Qs  = -0.1*np.array([100,-200,100,0])           #  values of tip charges in electrons, len()==4, some can be zero, 
     # examples of charge models 
     #   * Monopole +0.3e :     Qs=[+0.3,0.0,0.0,0.0];      QZs=[+0.0,0.0,0.0,0.0 ]   
     #   * pz  Dipole 0.25 :    Qs=[10,-10,0,0] * 0.25;     QZs=[+0.1,-0.1,0.0,0.0]  ;   # Note: factor 10 is due to renormalization 1/dz = 1/0.1
     #   * dz2 Quadrupole 0.2 : Qs=[100,-200,100,0] * 0.2;  QZs=[+0.1,0.0,-0.1,0.0]  ;   # Note: factor 100 is due to renormalization 1/(dz^2) = 1/(0.1^2)
+
+    rot_tolerance = 5   # With dipole or quadrupole tip, force field is recalculated if rotation changes more than rot_tolerance degrees
 
     tipStiffness = [ 0.25, 0.25, 0.0, 30.0     ]    # [N/m]  (x,y,z,R) stiffness of harmonic springs anchoring probe-particle to the metalic tip-apex 
     relaxParams  = [ 0.5,0.1,  0.1*0.2,0.1*5.0 ]    # (dt,damp, .., .. ) parameters of relaxation, in the moment just dt and damp are used 
@@ -266,12 +268,6 @@ class Generator(Sequence,):
     nChan = 8
     Rmin  = 1.4
     Rstep = 0.1
-
-    nextMode =  1
-    iZPP1    =  8
-    Q1       = -0.5
-    iZPP2    =  54
-    Q2       = +0.5
 
     iepoch=0
     imol=0
@@ -369,10 +365,7 @@ class Generator(Sequence,):
             self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, atoms=self.atoms )
 
         self.scanner.preparePosBasis( start=self.scan_start, end=self.scan_end )
-
         self.scanner.updateBuffers( WZconv=self.dfWeight )
-
-        self.forcefield.setQs( Qs=self.Qs, QZs=self.QZs )
 
     def __iter__(self):
         return self
@@ -426,28 +419,42 @@ class Generator(Sequence,):
             np.random.shuffle( permut )
             self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
 
-    def next(self):
-        '''
-        callback for each iteration of generator
-        '''
+    def prepareScanner(self):
         if(bRunTime): t0=time.clock()
-        if self.preHeight:
-            self.bZMap  = True
-        if   self.nextMode == 1:
-            return self.next1()
-        elif self.nextMode == 2:
-            return self.next2()
-        if(bRunTime): print "runTime(Generator.next()) [s]: ", time.clock()-t0
+        if self.bNoFFCopy:
+            self.scanner.updateFEin( self.forcefield.cl_FE )
+            if self.bFEmap:
+                self.scanner.updateAtoms(self.atoms)
+#            self.scanner.prepareBuffers( FEin_cl=self.forcefield.cl_FE, scan_dim=self.scan_dim, bZMap=self.bZMap, 
+#                bFEmap=self.bFEmap, atoms=self.atoms )
+        else:
+            # Not sure if this side is working. Does it need to be?
+            if(self.counter>0): # not first step
+                if(verbose>1): print "scanner.releaseBuffers()"
+                self.scanner.releaseBuffers()
+            self.scanner.prepareBuffers( self.FEin, scan_dim=self.scan_dim, bZMap=self.bZMap, bFEmap=self.bFEmap, atoms=self.atoms )
+            self.scanner.preparePosBasis( start=self.scan_start, end=self.scan_end )
+        if(bRunTime): print "runTime(prepareScanner) [s]: ", time.clock()-t0
 
-    def next1(self):
-        '''
-        Generate one batch of data
-        for one input
-        '''
+    def prepareProjector(self):
         if(bRunTime): t0=time.clock()
-        n  = self.batch_size
+        self.projector.tryReleaseBuffers()
+        na = len(self.atomsNonPBC)
+        coefs=self.projector.makeCoefsZR( self.ZsNonPBC, elements.ELEMENTS )
+        if   ( self.Ymode == 'MultiMapSpheres' ):
+            self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(self.nChan,), coefs=coefs )
+        elif ( self.Ymode == 'SpheresType' ):
+            self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(len(self.typeSelection),), coefs=coefs )
+            self.projector.setAtomTypes( self.ZsNonPBC, sel = self.typeSelection )
+        elif ( self.Ymode in {'Bonds','AtomsAndBonds'} ):
+            bonds2atoms = np.array( basUtils.findBonds_( self.atomsNonPBC, self.ZsNonPBC, 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
+            self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs, bonds2atoms=bonds2atoms )
+        else:
+            self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs )
+        if(bRunTime): print "runTime(prepareProjector) [s]: ", time.clock()-t0
+
+    def makeEmptyBatch(self, n):
         Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
-
         if self.Ymode == 'D-S-H':
             Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
         elif self.Ymode == 'MultiMapSpheres': 
@@ -460,102 +467,80 @@ class Generator(Sequence,):
             Ys = np.empty( (n,)+(self.Nmax_xyz,4) )
         else:
             Ys = np.empty( (n,)+ self.scan_dim[:2] )
-
-        for ibatch in range(n):
-            self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
-            if( self.irot == 0 ):# recalc FF
-
-                if self.projector is not None:
-                    self.projector.tryReleaseBuffers()
-
-                self.molName =  self.molecules[self.imol]
-                self.nextMolecule( self.molName ) 
-
-                if self.bDfPerMol:
-                    if self.randomize_nz and self.randomize_enabled : 
-                        ndf = np.random.randint( self.nDfMin, self.nDfMax ) 
-                    else:                      
-                        ndf = self.nDfMax
-                    if(verbose>0): print " ============= ndf ", ndf 
-                    self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep )[0].astype(np.float32)
-
-                if self.bNoFFCopy:
-                    self.scanner.prepareBuffers( FEin_cl=self.forcefield.cl_FE, scan_dim=self.scan_dim, bZMap=self.bZMap, 
-                        bFEmap=self.bFEmap, atoms=self.atoms )
-                    #print "NO COPY scanner.updateFEin "
-#                    self.scanner.updateFEin( self.forcefield.cl_FE )
-                else:
-                    if(self.counter>0): # not first step
-                        if(verbose>1): print "scanner.releaseBuffers()"
-                        self.scanner.releaseBuffers()
-                    self.scanner.prepareBuffers( self.FEin, scan_dim=self.scan_dim, bZMap=self.bZMap, bFEmap=self.bFEmap, atoms=self.atoms )
-                    self.scanner.preparePosBasis(start=self.scan_start, end=self.scan_end )
-
-                self.handleRotations()
-            #print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
-
-            rot = self.rotations_sorted[self.irot]
-            self.nextRotation( Xs[ibatch], Ys[ibatch] )
-            #self.nextRotation( self.rotations[self.irot], Xs[ibatch], Ys[ibatch] )
-            self.counter +=1
-        if(bRunTime): print "runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0
         return Xs, Ys
 
-    def next2(self):
+    def next(self):
         '''
         callback for each iteration of generator
         '''
+
         if(bRunTime): t0=time.clock()
-        if self.projector is not None:
-            self.projector.tryReleaseBuffers()
 
-        self.Q    = self.Q1
-        self.iZPP = self.iZPP1
-        #print self.imol
-        self.molName =  self.molecules[self.imol]
-        self.nextMolecule( self.molName ) 
-        self.handleRotations()
-        #self.scanner.releaseBuffers()
-        self.scanner.tryReleaseBuffers()
-        self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap )
-        Xs1,Ys1   = self.nextRotBatch()
+        if isinstance(self.Qs, np.ndarray):
+            self.Qs = [self.Qs]
+        if isinstance(self.QZs, np.ndarray):
+            self.QZs = [self.QZs]
+        if not isinstance(self.iZPPs, list):
+            self.iZPPs = [self.iZPPs]
+        if not hasattr(self, 'batchXs'):
+            self.batchXs = [[] for _ in range(len(self.Qs))]
+            self.batchYs = [[] for _ in range(len(self.Qs))]
+        
+        if self.preHeight:
+            self.bZMap  = True
 
-        self.iZPP = self.iZPP2
-        self.Q    = self.Q2
-        self.nextMolecule( self.molName ) 
-        self.scanner.updateBuffers( FEin=self.FEin )
-        Xs2,Ys2   = self.nextRotBatch()
+        b = len(self.batchXs[0])
+        Xs = []; Ys = []
+        for i in range(len(self.Qs)):
+            x, y = self.makeEmptyBatch(self.batch_size)
+            if b > 0:
+                x[:b] = self.batchXs[:b]
+                y[:b] = self.batchYs[:b]
+            Xs.append(x); Ys.append(y)
 
-        self.imol += 1
-        self.imol =  self.imol % len(  self.molecules )
-        if(bRunTime): print "runTime(Generator.next1()) [s]: ", time.clock()-t0
-        return Xs1,Ys1,Xs2,Ys2
+        while b < self.batch_size:
+        
+            self.molName = self.molecules[self.imol]
+            self.loadMolecule()
+            self.handleRotations()
+            
+            if self.projector is not None:
+                self.prepareProjector()
+            
+            max_ind = min(self.batch_size - b, self.nBestRotations)
+            b_new = b + max_ind
+            for i in range(len(self.Qs)):
+                self.iZPP = self.iZPPs[i]
+                self.forcefield.setQs( Qs=self.Qs[i], QZs=self.QZs[i] )
+                self.calculateFF()
+                self.prepareScanner()
+                X, Y = self.nextRotBatch()
+                Xs[i][b:b_new] = X[:max_ind]
+                Ys[i][b:b_new] = Y[:max_ind]
+                if b_new == self.batch_size:
+                    self.batchXs[i] = X[max_ind:]
+                    self.batchYs[i] = Y[max_ind:]
+            
+            b = b_new
+            self.imol += 1
+            self.imol %= len( self.molecules )
+
+        if len(Xs) == 1:
+            Xs = Xs[0]
+            Ys = Ys[0]
+
+        if(bRunTime): print "runTime(Generator.next()) [s]: ", time.clock()-t0
+
+        return Xs, Ys
 
     def nextRotBatch(self):
         '''
         call per each batch
         '''
         if(bRunTime): t0=time.clock()
-        n  = self.nBestRotations
-        Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
-
-        if self.Ymode == 'D-S-H':
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
-        elif self.Ymode == 'MultiMapSpheres': 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (self.nChan,) )
-        elif self.Ymode == 'SpheresType': 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (len(self.typeSelection),) )
-        elif self.Ymode in {'ElectrostaticMap','AtomsAndBonds'}: 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
-        elif self.Ymode == 'xyz': 
-            Ys = np.empty( (n,)+(self.Nmax_xyz,4) )
-        else:
-            Ys = np.empty( (n,)+ self.scan_dim[:2] )
-
-        self.irot = 0
-        for irot in range(n):
+        Xs, Ys = self.makeEmptyBatch(self.nBestRotations)
+        for irot in range(self.nBestRotations):
             self.irot = irot
-            rot = self.rotations_sorted[irot]
             self.nextRotation( Xs[irot], Ys[irot] )
         if(bRunTime): print "runTime(Generator.next2()) [s]: ", time.clock()-t0
         return Xs,Ys
@@ -582,41 +567,59 @@ class Generator(Sequence,):
         cl.enqueue_copy( self.scanner.queue, self.scanner.cl_poss, self.scan_pos0s )
         return self.scan_pos0s
 
-    def nextMolecule(self, fname ):
+    def loadMolecule(self):
         '''
-        call for each molecule
+        Load molecule geometry from self.preName+self.molName+self.postName
         '''
         if(bRunTime): t0=time.clock()
-        fullname = self.preName+fname+self.postName
+        fullname = self.preName+self.molName+self.postName
         if(verbose>0): print " ===== nextMolecule: ", fullname
         self.atom_lines = open( fullname ).readlines()
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.atom_lines )
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().1   ) [s]:  %0.6f" %(time.clock()-t0)    ," load atoms" 
-        cog = (self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5)
-        setBBoxCenter( xyzs, cog )
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().2   ) [s]:  %0.6f" %(time.clock()-t0)    ," box,cog" 
+        if(bRunTime): print "runTime(Generator_LJC.loadMolecule().1   ) [s]:  %0.6f" %(time.clock()-t0)    ," load atoms" 
+        self.cog = (self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5)
+        setBBoxCenter( xyzs, self.cog )
+
+        if self.bDfPerMol:
+            if self.randomize_nz and self.randomize_enabled:
+                ndf = np.random.randint( self.nDfMin, self.nDfMax ) 
+            else:
+                ndf = self.nDfMax
+            if(verbose>0): print " ============= ndf ", ndf 
+            self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep )[0].astype(np.float32)
+        
         self.natoms0 = len(Zs)
-        self.REAs = PPU.getAtomsREA(  self.iZPP, Zs, self.typeParams, alphaFac=-1.0 )
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().3   ) [s]:  %0.6f" %(time.clock()-t0)   ," REAs = getAtomsREA " 
+        self.ZsNonPBC = Zs
+        self.atomsNonPBC = FFcl.xyzq2float4(xyzs, qs)
+
+        if(bRunTime): print "runTime(Generator_LJC.loadMolecule().2   ) [s]:  %0.6f" %(time.clock()-t0)    ," box,cog" 
+        
+    def calculateFF(self):
+        '''
+        Calculate force field for currently loaded molecule
+        '''
+        xyzs = self.atomsNonPBC[:,:3].copy()
+        qs = self.atomsNonPBC[:,3].copy()
+        Zs = self.ZsNonPBC.copy()
+        cog = self.cog
+        if(bRunTime): t0=time.clock()
+        self.REAs = PPU.getAtomsREA(  self.iZPP, self.ZsNonPBC, self.typeParams, alphaFac=-1.0 )
+        if(bRunTime): print "runTime(Generator_LJC.calculateFF().1   ) [s]:  %0.6f" %(time.clock()-t0)   ," REAs = getAtomsREA " 
         if self.randomize_parameters and self.randomize_enabled:
             self.modMolParams( Zs, qs, xyzs, self.REAs, self.rndQmax, self.rndRmax, self.rndEmax, self.rndAlphaMax )
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().4   ) [s]:  %0.6f" %(time.clock()-t0)    ," modMolParams  if randomize_parameters " 
+        if(bRunTime): print "runTime(Generator_LJC.calculateFF().2   ) [s]:  %0.6f" %(time.clock()-t0)    ," modMolParams  if randomize_parameters " 
         cLJs = PPU.REA2LJ( self.REAs )
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().5   ) [s]:  %0.6f" %(time.clock()-t0)    ," cLJs = REA2LJ(REAs) " 
+        if(bRunTime): print "runTime(Generator_LJC.calculateFF().3   ) [s]:  %0.6f" %(time.clock()-t0)    ," cLJs = REA2LJ(REAs) " 
         if( self.rotJitter is not None ):
-            Zs, xyzs, qs, cLJs = PPU.multRot( Zs, xyzs, qs, cLJs, self.rotJitter, cog )
+            Zs, xyzs, qs, cLJs = PPU.multRot( self.ZsNonPBC, xyzs, qs, cLJs, self.rotJitter, cog )
             basUtils.saveXyz( "test_____.xyz", Zs,  xyzs )
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().6   ) [s]:  %0.6f" %(time.clock()-t0)    ," rotJitter " 
+        if(bRunTime): print "runTime(Generator_LJC.calculateFF().4   ) [s]:  %0.6f" %(time.clock()-t0)    ," rotJitter " 
         if( self.npbc is not None ):
-            #Zs, xyzs, qs, cLJs = PPU.PBCAtoms3D( Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc )
-            Zs, xyzqs, cLJs =  PPU.PBCAtoms3D_np( Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc )
-        self.Zs = Zs
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().7   ) [s]:  %0.6f" %(time.clock()-t0)    ," pbc, PBCAtoms3D_np "    # ---- up to here it takes    ~0.012 second  for size=(150, 150, 150)
-        
+            self.Zs, self.atoms, cLJs =  PPU.PBCAtoms3D_np( Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc )
+        if(bRunTime): print "runTime(Generator_LJC.calculateFF().5   ) [s]:  %0.6f" %(time.clock()-t0)    ," pbc, PBCAtoms3D_np "
+
         if self.bNoFFCopy:
-            #self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True )
-            self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=False, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True, bQZ=self.bQZ )
-            self.atoms = self.forcefield.atoms
+            self.forcefield.makeFF( atoms=self.atoms, cLJs=cLJs, FE=False, Qmix=self.Q, bRelease=False, bCopy=False, bFinish=True, bQZ=self.bQZ )
 
             if self.bSaveFF:
                 FF = self.forcefield.downloadFF( )
@@ -633,60 +636,56 @@ class Generator(Sequence,):
                 self.saveDebugXSF_FF( "FF_x.xsf", FFx )
                 self.saveDebugXSF_FF( "FF_y.xsf", FFy )
                 self.saveDebugXSF_FF( "FF_z.xsf", FFz )
-                #self.saveDebugXSF_FF( "FF_E.xsf", FF[:,:,:,3] )
 
         else:
-            #FF,self.atoms = self.forcefield.makeFF( xyzs, qs, cLJs, FE=None, Qmix=self.Q )       # ---- this takes   ~0.03 second  for size=(150, 150, 150)
-            #FF,self.atoms  = self.forcefield.makeFF( xyzs, qs, cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
-            FF, self.atoms  = self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True, bQZ=self.bQZ )
+            FF, self.atoms  = self.forcefield.makeFF( atoms=self.atoms, cLJs=cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True, bQZ=self.bQZ )
 
-            #import matplotlib.pyplot as plt
-            #for i in range(0,150,5):
-            #    print "save fig %i" %i, "  min,max  ",     FF[:,:,i,2].min(), FF[:,:,i,2].max()
-            #    plt.imshow( FF[i,:,:,2] )
-            #    plt.colorbar()
-            #    plt.savefig("FF_%i.png" %i )
-            #    plt.close()
-
-        self.atomsNonPBC = self.atoms[:self.natoms0].copy()
-
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().8   ) [s]:  %0.6f" %(time.clock()-t0)    ," forcefield.makeFF "
-        if(bRunTime): t1 = time.clock()
+        if(bRunTime): print "runTime(Generator_LJC.calculateFF().6   ) [s]:  %0.6f" %(time.clock()-t0)    ," forcefield.makeFF "
                 
         if( self.rotJitter is not None ):
             if self.bNoFFCopy: raise ValueError("bNoFFCopy==True  is not compactible with rotJitter==True ")
             FF[:,:,:,:] *= (1.0/len(self.rotJitter) )
+        
+        if(bRunTime): print "runTime(Generator_LJC.calculateFF().tot ) [s]: ", time.clock()-t0,    " size ", self.forcefield.nDim
 
-        #self.FEin  = FF[:,:,:,:4] + self.Q*FF[:,:,:,4:];               # ---- this takes   0.05 second  for size=(150, 150, 150)
-        #if(bRunTime): print "runTime(Generator_LJC.nextMolecule().5) [s]: ", time.clock()-t1
+    def checkRotFF(self):
+        '''
+        Check if using dipole or quadrupole, and recalculate force field if rotation has changed too much
+        '''
+        if(bRunTime): t0=time.clock()
+        if self.bQZ and len(set(self.forcefield.QZs[self.forcefield.Qs != 0])) > 1:
+            zDir = self.rot[:,2]
+            angle = np.arccos(np.clip(np.dot([0,0,1], zDir), -1.0, 1.0)) / (2*np.pi) * 360.0
+            if angle >= self.rot_tolerance and angle <= (180 - self.rot_tolerance):
+                if(verbose>0): print "Recalculating force field due to changed rotation"
+                xyzs = np.dot(self.atomsNonPBC[:,:3], self.rot.T)
+                pmin, pmax, pc = setBBoxCenter( xyzs, self.cog )
+                self.atomsNonPBC = FFcl.xyzq2float4(xyzs, self.atomsNonPBC[:,3])
+                if self.projector is not None:
+                    self.prepareProjector()
+                self.calculateFF()
+                self.prepareScanner()
+                for i in range(self.nBestRotations):
+                    entropy, pos0, rot = self.rotations_sorted[i]
+                    pos0 = np.dot(self.rot, pos0) + self.cog - pc
+                    rot = np.dot(rot, self.rot.T)
+                    self.rotations_sorted[i] = (entropy, pos0, rot)
+                (entropy, self.pos0, self.rot) = self.rotations_sorted[self.irot]
+                assert (self.rot - np.eye(3)).mean() < 1e-15
+        if(bRunTime): print "runTime(checkRotFF) [s]: ", time.clock()-t0
 
-        if self.projector is not None:
-            na = len(self.atomsNonPBC)
-            coefs=self.projector.makeCoefsZR( Zs[:na], elements.ELEMENTS )
-            if   ( self.Ymode == 'MultiMapSpheres' ):
-                self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(self.nChan,), coefs=coefs )
-            elif ( self.Ymode == 'SpheresType' ):
-                self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(len(self.typeSelection),), coefs=coefs )
-                self.projector.setAtomTypes( self.Zs[:na], sel = self.typeSelection )
-            elif ( self.Ymode in {'Bonds','AtomsAndBonds'} ):
-                bonds2atoms = np.array( basUtils.findBonds_( self.atomsNonPBC, self.Zs, 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
-                # bonds = findBondsNP( atoms, fRcut=0.7, ELEMENTS=elements.ELEMENTS ) 
-                self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs, bonds2atoms=bonds2atoms )
-            else:
-                self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs )
-
-        #self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().8-9 ) [s]: ", time.clock()-t1    ," projector.prepareBuffers  "
-        if(bRunTime): print "runTime(Generator_LJC.nextMolecule().tot ) [s]: ", time.clock()-t0,    " size ", self.forcefield.nDim
-
-    #def nextRotation(self, rot, X,Y ):
-    def nextRotation(self, X,Y ):
+    def nextRotation(self, X, Y ):
         '''
         for each rotation
         '''
         if(verbose>0): print " ----- nextRotation ", self.irot
         if(bRunTime): t0=time.clock()
         (entropy, self.pos0, self.rot) = self.rotations_sorted[self.irot]
+
+        # If using dipole or quadrupole, check if force field needs to be recalculated due to rotation
+        self.checkRotFF()
+
+        if(bRunTime): print "runTime(Generator_LJC.nextRotation().0   ) [s]:  %0.6f" %(time.clock()-t0)   ," checkRotFF  "
 
         if(verbose>0):  print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
@@ -853,7 +852,7 @@ class Generator(Sequence,):
             Y[:,:] = 0.0
             Y[:,2] = self.zmin_xyz - 100.0
             xyzs = self.atomsNonPBC[:,:3] - self.pos0[None,:]
-            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz, RvdWs = self.REAs[:,0] - 1.6612  )
+            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.ZsNonPBC, Nmax=self.Nmax_xyz, RvdWs = self.REAs[:,0] - 1.6612  )
             Y[:len(xyzs_),:3] = xyzs_[:,:]
             
             if self.molCenterAfm:    # shifts reference to molecule center            
