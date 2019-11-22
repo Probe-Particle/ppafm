@@ -506,6 +506,7 @@ class Generator(Sequence,):
             self.molName = self.molecules[self.imol]
             self.loadMolecule()
             self.handleRotations()
+            self.original_rotations = self.rotations_sorted[:]
             
             if self.projector is not None:
                 self.prepareProjector()
@@ -668,10 +669,11 @@ class Generator(Sequence,):
                     self.prepareProjector()
                 self.calculateFF()
                 self.prepareScanner()
+                new_rot = self.original_rotations[self.irot][2]
                 for i in range(self.nBestRotations):
-                    entropy, pos0, rot = self.rotations_sorted[i]
-                    pos0 = np.dot(self.rot, pos0) + self.cog - pc
-                    rot = np.dot(rot, self.rot.T)
+                    entropy, pos0, rot = self.original_rotations[i]
+                    pos0 = np.dot(new_rot, pos0) + self.cog - pc
+                    rot = np.dot(rot, new_rot.T)
                     self.rotations_sorted[i] = (entropy, pos0, rot)
                 (entropy, self.pos0, self.rot) = self.rotations_sorted[self.irot]
                 assert (self.rot - np.eye(3)).mean() < 1e-15
