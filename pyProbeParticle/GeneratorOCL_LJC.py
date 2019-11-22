@@ -692,7 +692,7 @@ class Generator(Sequence,):
 
         if(verbose>0):  print " imol, irot, entropy ", self.imol, self.irot, entropy
         zDir = self.rot[2].flat.copy()
-
+        
         atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]           #shift atoms coord to rotation center point of view            
         atoms_rotated_to_pos0 = rotAtoms(self.rot, atoms_shifted_to_pos0)            #rotate atoms coord to rotation center point of view
         if(verbose>1): print " atoms_rotated_to_pos0 ", atoms_rotated_to_pos0
@@ -704,12 +704,13 @@ class Generator(Sequence,):
             self.distAboveActive=np.random.uniform(self.distAbove - self.distAboveDelta,self.distAbove + self.distAboveDelta)
         else:
             self.distAboveActive = self.distAbove
-         
-        RvdWs = self.REAs[:,0] - 1.6612  # real RvdWs of atoms after substraction of RvdW(O)
+        
+        RvdWPP = self.typeParams[self.iZPP-1][0]
+        RvdWs = self.REAs[:,0] - RvdWPP  # real RvdWs of atoms after substraction of RvdW(iZPP)
         zs = atoms_rotated_to_pos0[:,2].copy()
         zs += RvdWs  # z-coord of each atom with it's RvdW
         imax = np.argmax( zs ) 
-        self.distAboveActive = self.distAboveActive + RvdWs[imax] # shifts distAboveActive for vdW-Radius of top atomic shell
+        self.distAboveActive = self.distAboveActive + RvdWs[imax] + RvdWPP # shifts distAboveActive for vdW-Radius of top atomic shell
         if(verbose>1): print "imax,distAboveActive ", imax, self.distAboveActive        
         atoms_rotated_to_pos0 = rotAtoms(self.rot, self.atomsNonPBC[:,:3] - self.atomsNonPBC[imax,:3])  #New top atom
         
@@ -855,7 +856,7 @@ class Generator(Sequence,):
             Y[:,:] = 0.0
             Y[:,2] = self.zmin_xyz - 100.0
             xyzs = self.atomsNonPBC[:,:3] - self.pos0[None,:]
-            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.ZsNonPBC, Nmax=self.Nmax_xyz, RvdWs = self.REAs[:,0] - 1.6612  )
+            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.ZsNonPBC, Nmax=self.Nmax_xyz, RvdWs=RvdWs  )
             Y[:len(xyzs_),:3] = xyzs_[:,:]
             
             if self.molCenterAfm:    # shifts reference to molecule center            
