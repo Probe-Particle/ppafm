@@ -476,6 +476,9 @@ class Generator(Sequence,):
 
         if(bRunTime): t0=time.clock()
 
+        if self.nBestRotations > len(self.rotations):
+            raise ValueError('nBestRotations(%d) cannot be greater than len(rotations)(%d)' % (self.nBestRotations, len(self.rotations)))
+
         if isinstance(self.Qs, np.ndarray):
             self.Qs = [self.Qs]
         if isinstance(self.QZs, np.ndarray):
@@ -494,8 +497,8 @@ class Generator(Sequence,):
         for i in range(len(self.Qs)):
             x, y = self.makeEmptyBatch(self.batch_size)
             if b > 0:
-                x[:b] = self.batchXs[:b]
-                y[:b] = self.batchYs[:b]
+                x[:b] = self.batchXs[i]
+                y[:b] = self.batchYs[i]
             Xs.append(x); Ys.append(y)
 
         while b < self.batch_size:
