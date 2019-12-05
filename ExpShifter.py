@@ -240,15 +240,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # set proper scale for all slices depends from parameters:  Header['LengthX']; Header['LengthY']
         slice_lengths = [[x['LengthX'],x['LengthY']] for x in headers]
         print 'slice_lengths = ', slice_lengths 
-        max_length = np.max(slice_lengths[:][0])
+        max_length = [np.max(np.array(slice_lengths)[:,0]),np.max(np.array(slice_lengths)[:,1])]
         print 'max slice_length = ', max_length 
         image_shape = self.data[0].shape        
         print 'image_shape = ', image_shape
         for z_slice in range(len(self.data)):
             
-            if slice_lengths[z_slice][0] != max_length :
-                print 'slice_lengths/max_lengths = ',slice_lengths[z_slice][0]/max_length
-                scaled_size = int(image_shape[0]*slice_lengths[z_slice][0]/max_length)
+            if slice_lengths[z_slice][0] != max_length[0] :
+                print 'slice_lengths/max_lengths = ',slice_lengths[z_slice][0]/max_length[0]
+                scaled_size = int(image_shape[0]*slice_lengths[z_slice][0]/max_length[0])
                 scaled_image_slice = np.zeros_like(data[z_slice]) 
                 start_xy = int((image_shape[0] -  scaled_size)/2)
                 scaled_image_slice[start_xy:start_xy+scaled_size, start_xy:start_xy+scaled_size] =  np.array(scipy.misc.imresize (self.data[z_slice], (scaled_size,scaled_size) )  )
@@ -262,9 +262,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         for z_slice in range(len(self.data)):
             marged_size = (image_shape[0]-imarginx0-imarginx1, image_shape[1]-imarginy0-imarginy1)
-            #print 'marged_size =',marged_size
+            print 'marged_size =',marged_size
             #print 'self.max_length  =', max_length 
-            slice_lengths[z_slice] = [marged_size[0]*  max_length/image_shape[0]   , marged_size[1]*  max_length/image_shape[1] ]
+            slice_lengths[z_slice] = [marged_size[1]*  max_length[1]/image_shape[0]   , marged_size[0]*  max_length[0]/image_shape[1] ]
  
         print 'margins = ', self.margins
         print 'slice_lengths = ',  slice_lengths 
@@ -360,10 +360,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             ny=arr.shape[2]/self.divNY * self.divNY
             arr_ = arr[:,:nx,:ny]
             arr_ = arr_.transpose((1,2,0))
+            arr_ = arr_[::-1,:,:]
             print "saveData: arr_.shape ", arr_.shape
             np.save( self.path+"data.npy", arr_)
         else:
             arr = arr.transpose((1,2,0))
+            arr = arr[::-1,:,:]
             np.save( self.path+"data.npy", arr  )
 
 
@@ -484,10 +486,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         print 'image_shape =',image_shape
         for z_slice in range(len(self.data)):
             marged_size = (image_shape[0]-imarginx0-imarginx1, image_shape[1]-imarginy0-imarginy1)
-            #print 'marged_size =',marged_size
+            print 'marged_size =',marged_size
             #print 'self.max_length  =', self.max_length 
            
-            self.slice_lengths[z_slice] = [marged_size[0]*  self.max_length/image_shape[0]   , marged_size[1]*  self.max_length/image_shape[1] ]
+            self.slice_lengths[z_slice] = [marged_size[0]*  self.max_length[0]/image_shape[0]   , marged_size[1]*  self.max_length[1]/image_shape[1] ]
             #print 'self.slice_lengths[z_slice]  =', self.slice_lengths[z_slice]
    
         #self.margins = [start_xy,image_shape[0] -scaled_size - start_xy ,image_shape[1] -scaled_size - start_xy ,start_xy]    
@@ -534,6 +536,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #f_img = 255 * f_bounded / np.max(f_bounded)
         #f_img = f_img.astype(np.uint8)
         try:
+            print 'self.slice_lengths[iz]  =', self.slice_lengths[iz]
             self.figCan.plotSlice( self.data, iz, self.fnames[iz], self.margins,grid_selector,self.slice_lengths[iz] )
 
             #self.figCan.plotSlice(f_img, self.fnames[iz], self.margins )

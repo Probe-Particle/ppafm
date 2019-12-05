@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib; matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-
+from matplotlib import cm, colors
 from PyQt5 import QtCore, QtWidgets, QtGui
 import os
 
@@ -73,7 +73,13 @@ class FigImshow(FigCanvas):
 
         print 'self.margins', margins
         #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
-        self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='bicubic' )
+        mean=np.mean(F)            
+        sigma=np.std(F)          
+        F-= mean
+        F = F / sigma
+        vmin = F.min()
+        vmax = F.max()
+        self.img = self.axes.imshow( F,  cmap=cm.viridis, vmin = vmin, vmax = vmax,  interpolation='bicubic' )
        
         j_min,i_min = np.unravel_index(F.argmin(), F.shape)  
         j_max,i_max = np.unravel_index(F.argmax(), F.shape)  
@@ -85,7 +91,7 @@ class FigImshow(FigCanvas):
             self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),F.shape[1]-margins[2]-margins[0], F.shape[0]-margins[3]-margins[1], linewidth=2,edgecolor='r',facecolor='none')) 
             textRes = 'output size: '+str(F.shape[1]-margins[2]-margins[0])+ 'x'+ str(F.shape[0]-margins[3]-margins[1])
             if slice_length:
-                textRes += '     length [A] ='+'{:03.4f}, {:03.4f}'.format(slice_length[0], slice_length[1])  
+                textRes += '   length [A] ='+'{:03.4f}, {:03.4f}'.format(slice_length[0], slice_length[1])  
 
 
             self.axes.set_xlabel(textRes)
@@ -100,7 +106,7 @@ class FigImshow(FigCanvas):
         #self.axes.set_xticks([10.5, 20.5, 30.5], minor='True')
         #axes = plt.gca()
         if (grid_selector > 0):
-            self.axes.grid(True,  linestyle='dotted', color='blue')
+            self.axes.grid(True,  linestyle='dotted', color='white')
         else:
             self.axes.grid(False)
         if (z_slice > 0):
