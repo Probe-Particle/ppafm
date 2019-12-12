@@ -492,17 +492,19 @@ class Generator(Sequence,):
         if self.preHeight:
             self.bZMap  = True
 
-        b = len(self.batchXs[0])
+        b = min(len(self.batchXs[0]), self.batch_size)
         Xs = []; Ys = []
         for i in range(len(self.Qs)):
             x, y = self.makeEmptyBatch(self.batch_size)
             if b > 0:
-                x[:b] = self.batchXs[i]
-                y[:b] = self.batchYs[i]
+                x[:b] = self.batchXs[i][:b]
+                y[:b] = self.batchYs[i][:b]
+                self.batchXs[i] = self.batchXs[i][b:]
+                self.batchYs[i] = self.batchYs[i][b:]
             Xs.append(x); Ys.append(y)
 
         while b < self.batch_size:
-        
+            
             self.molName = self.molecules[self.imol]
             self.loadMolecule()
             self.handleRotations()
