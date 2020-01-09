@@ -47,6 +47,7 @@ parser.add_option( "--cbar",     action="store_true", default=False, help="plot 
 parser.add_option( "--WSxM",     action="store_true", default=False, help="save frequency shift into WsXM *.dat files" )
 parser.add_option( "--bI",       action="store_true", default=False, help="plot images for Boltzmann current" )
 parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
+parser.add_option( "--2Dnp" , action="store_true" ,  help="save fields in 2D npy instead of array"     , default=False)
 
 parser.add_option( "--noPBC", action="store_false",  help="pbc False", default=True)
 
@@ -191,7 +192,7 @@ for iq,Q in enumerate( Qs ):
 			#except:
 			#	print "error: ", sys.exc_info()
 			#	print "cannot load : " + ( dirname+'/eigvalKs_?.' + data_format ) 
-		if ( ( opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM'] ) ):
+		if ( ( opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM'] or opt_dict['2Dnp']) ):
 			try :
 				fzs, lvec, nDim = GU.load_scal_field( dirname+'/OutFz' , data_format=data_format)
 				if not ( (len(TbQs) == 1 ) and ( TbQs[0] == 0.0 ) ):
@@ -228,6 +229,10 @@ for iq,Q in enumerate( Qs ):
 						if opt_dict['WSxM']:
 							print " printing df into WSxM files :"
 							GU.saveWSxM_3D( dirNameAmp+"/df" , dfs , extent , slices=None)
+						if opt_dict['2Dnp']:
+							print " printing df into separate np files :"
+							for iz in range(len(dfs)):
+								np.save(dirNameAmp+"/df_%03d.npy" %iz ,dfs[iz])
 						del dfs
 				del fzs
 			except:
