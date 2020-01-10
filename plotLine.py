@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/python3 
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
@@ -22,7 +22,7 @@ def find_minimum(array,precision=0.0001):
         i+=1
 
 def selectLine(BIGarray,MIN,MAX,startingPoint, endPoint, nsteps):
-    print "Hello world"
+    print("Hello world")
     x=np.linspace(MIN[0],MAX[0],BIGarray.shape[2])
     y=np.linspace(MIN[1],MAX[1],BIGarray.shape[1])
     z=np.linspace(MIN[2],MAX[2],BIGarray.shape[0])
@@ -34,8 +34,8 @@ def selectLine(BIGarray,MIN,MAX,startingPoint, endPoint, nsteps):
     i=0
     direct=(endPoint-startingPoint)/nsteps
     norm_direction=np.linalg.norm(direct)
-    print "io", direct
-    print "norm", norm_direction
+    print("io", direct)
+    print("norm", norm_direction)
     while i < nsteps :
         current_pos+=direct
 #        print current_pos, interp([current_pos[2], current_pos[1],
@@ -73,7 +73,7 @@ parser.add_option( "--npy" , action="store_true" ,  help="load and save fields i
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
-print options
+print(options)
 if options.npy:
     data_format ="npy"
 else:
@@ -82,7 +82,7 @@ else:
 if options.points==[]:
     sys.exit(HELP_MSG)
 
-print " >> OVEWRITING SETTINGS by params.ini  "
+print(" >> OVEWRITING SETTINGS by params.ini  ")
 PPU.loadParams( 'params.ini' )
 dz  = PPU.params['scanStep'][2]
 Amp = [ PPU.params['Amplitude'] ]
@@ -101,36 +101,36 @@ gridC=PPU.params['gridC'][2]
 
 MAX=[gridA, gridB, gridC]
 
-print " >> OVEWRITING SETTINGS by command line arguments  "
+print(" >> OVEWRITING SETTINGS by command line arguments  ")
 
 if opt_dict['krange'] is not None:
-	Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], opt_dict['krange'][2] )
+    Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], opt_dict['krange'][2] )
 elif opt_dict['k'] is not None:
-	Ks = [ opt_dict['k'] ]
+    Ks = [ opt_dict['k'] ]
 else:
-	Ks = [ PPU.params['stiffness'][0] ]
+    Ks = [ PPU.params['stiffness'][0] ]
 # Qs
 if opt_dict['qrange'] is not None:
-	Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
+    Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
 elif opt_dict['q'] is not None:
-	Qs = [ opt_dict['q'] ]
+    Qs = [ opt_dict['q'] ]
 else:
-	Qs = [ PPU.params['charge'] ]
+    Qs = [ PPU.params['charge'] ]
 # Amps
 if opt_dict['arange'] is not None:
-	Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], opt_dict['arange'][2] )
+    Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], opt_dict['arange'][2] )
 elif opt_dict['a'] is not None:
-	Amps = [ opt_dict['a'] ]
+    Amps = [ opt_dict['a'] ]
 else:
-	Amps = [ PPU.params['Amplitude'] ]
+    Amps = [ PPU.params['Amplitude'] ]
 
 
 
 for iq,Q in enumerate( Qs ):
-	for ik,K in enumerate( Ks ):
-		dirname = "Q%1.2fK%1.2f" %(Q,K)
+    for ik,K in enumerate( Ks ):
+        dirname = "Q%1.2fK%1.2f" %(Q,K)
 
-                print "Working in {} directory".format(dirname)
+                print("Working in {} directory".format(dirname))
 
                 fzs,lvec,nDim=GU.load_scal_field(dirname+'/OutFz',data_format=data_format)
                 dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
@@ -145,9 +145,9 @@ for iq,Q in enumerate( Qs ):
                     zmax=float(p[1].split('x')[2])
                     npoints=float(p[2])
                     
-                    print opt_dict['disp']
+                    print(opt_dict['disp'])
                     if opt_dict['disp'] :
-                        print "Displacment {}".format(opt_dict['disp'][0])
+                        print("Displacment {}".format(opt_dict['disp'][0]))
                         disp_all,lvec,nDim,head=GU.load_vec_field(dirname+'/PPdisp_')
                         disp_x,disp_y,disp_z = GU.unpackVecGrid( disp_all ); del disp_all;
                         if (opt_dict['disp'][0]=='x'):

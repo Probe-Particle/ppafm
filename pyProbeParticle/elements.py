@@ -116,10 +116,10 @@ ELEMENTS = [
 ]
 
 def elementDict( ELEMENTS ):
-	dic = { }
-	for elem in  ELEMENTS:
-		dic[ elem[1] ] = elem
-	return dic
+    dic = { }
+    for elem in  ELEMENTS:
+        dic[ elem[1] ] = elem
+    return dic
 
 ELEMENT_DICT = elementDict( ELEMENTS )
 

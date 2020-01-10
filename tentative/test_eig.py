@@ -18,9 +18,9 @@ mat = np.array([
 
 evas, evcs = np.linalg.eig( mat )
 
-print evas
-print evcs
+print(evas)
+print(evcs)
 
 evas = PPC.test_eigen3x3(mat)
 
-print evas
+print(evas)

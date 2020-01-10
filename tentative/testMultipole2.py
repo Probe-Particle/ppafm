@@ -12,12 +12,12 @@ import elements
 # ============== recompile & load C++ libraries
 
 def makeclean( ):
-	LIB_PATH = os.path.dirname( os.path.realpath(__file__) )
-	print " ProbeParticle Library DIR = ", LIB_PATH
-	CWD=os.getcwd()
-	os.chdir(LIB_PATH)
-	os.system("make clean")
-	os.chdir(CWD)
+    LIB_PATH = os.path.dirname( os.path.realpath(__file__) )
+    print(" ProbeParticle Library DIR = ", LIB_PATH)
+    CWD=os.getcwd()
+    os.chdir(LIB_PATH)
+    os.system("make clean")
+    os.chdir(CWD)
 
 makeclean( )
 
@@ -68,9 +68,9 @@ coefs, basis_assignment   =   MP.fitMultipolesPotential( atom_pos, atom_basis, a
 # ============== output results
 
 for i in range( len( coefs ) ):
-	print basis_assignment[i], coefs[i]
+    print(basis_assignment[i], coefs[i])
 
-print "saving LOCPOT_debug.xsf "
+print("saving LOCPOT_debug.xsf ")
 GU.saveXSF( WORK_DIR + 'LOCPOT_debug.xsf', V, lvec, head );
 
 

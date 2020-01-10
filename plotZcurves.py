@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/python3 
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
@@ -17,11 +17,11 @@ parser.add_option( "--npy" , action="store_true" ,  help="load and save fields i
 (options, args) = parser.parse_args()
 
 try:
-	points = np.genfromtxt( options.p ,dtype='int')
-	print "plotting in points", points
+    points = np.genfromtxt( options.p ,dtype='int')
+    print("plotting in points", points)
 except:
-	print options.p+" not found => exiting ..."
-	sys.exit()
+    print(options.p+" not found => exiting ...")
+    sys.exit()
 
 if options.npy:
     data_format ="npy"
@@ -33,11 +33,11 @@ fzs,lvec,nDim=GU.load_scal_field(options.i,data_format=data_format)
 xs = np.linspace( 0, lvec[3,2], nDim[0] )
 
 #print nDim
-print xs
+print(xs)
 
 plt.imshow( fzs[options.iz], origin='imgage', cmap='gray' )
 for point in points:
-	plt.plot(point[0],point[1],'o')
+    plt.plot(point[0],point[1],'o')
 plt.xlim(0,nDim[2])
 plt.ylim(0,nDim[1])
 plt.savefig( options.i+'_zcurves_legend.png', bbox_inches='tight')
@@ -48,12 +48,12 @@ curves[0] = xs
 
 vmin = 0
 for i,point in enumerate(points):
-	ys = fzs[:,point[1],point[0]]
-	vmin=min(ys.min(),vmin)
-	print point, vmin
-	#print ys
-	curves[i+1] = ys
-	plt.plot( xs, ys )
+    ys = fzs[:,point[1],point[0]]
+    vmin=min(ys.min(),vmin)
+    print(point, vmin)
+    #print ys
+    curves[i+1] = ys
+    plt.plot( xs, ys )
 plt.grid()
 plt.savefig( options.i+'_zcurves.png', bbox_inches='tight')
 
