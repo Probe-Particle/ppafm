@@ -21,7 +21,7 @@ ydys = np.transpose( np.array([ys, dys]) ).copy()
 
 x0  =-0.9; dx = 0.5;
 ys_ = PPC.subsample_uniform_spline( x0, dx, ydys, xs_ )
-xs  = np.array( range(len(ys)) )*dx + x0
+xs  = np.array( list(range(len(ys))) )*dx + x0
 
 plt.figure()
 plt.plot( xs,  ys ,        'o'   );

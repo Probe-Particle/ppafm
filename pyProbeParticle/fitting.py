@@ -2,7 +2,8 @@ import numpy as np
 from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
-import cpp_utils
+from . import cpp_utils
+#import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)
@@ -56,7 +57,7 @@ def getProjections( ps, Yrefs, centers, types, ncomps, By=None, BB=None ):
     ndim = Yrefs.shape
     nps=1
     if( len(ndim)>1):
-        print "ndim ", ndim
+        print("ndim ", ndim)
         for ni in ndim: nps*=ni
     else:
         nps=ndim[0]
@@ -75,7 +76,7 @@ def project( ps, Youts, centers, types, ncomps, coefs):
     ndim = Youts.shape
     nps=1
     if( len(ndim)>1):
-        print "ndim ", ndim
+        print("ndim ", ndim)
         for ni in ndim: nps*=ni
     else:
         nps=ndim[0]
@@ -95,9 +96,9 @@ if __name__ == "__main__":
 
     np.set_printoptions( precision=None, linewidth=200 )
 
-    import GridUtils  as GU 
-    import basUtils   as BU
-    import common     as PPU
+    from . import GridUtils  as GU 
+    from . import basUtils   as BU
+    from . import common     as PPU
 
     fext  = "xsf" 
     fname = "CHGCAR"
@@ -106,7 +107,7 @@ if __name__ == "__main__":
     atoms,nDim,lvec = BU.loadGeometry   ( fname_ext, params=PPU.params )
     #F,lvec,nDim     = GU.load_scal_field( fname, data_format=fext )
     centers = np.array( atoms[1:4] ).transpose().copy()
-    print "centers \n", centers
+    print("centers \n", centers)
 
     import sys
     fitting = sys.modules[__name__]
@@ -118,10 +119,10 @@ if __name__ == "__main__":
     #for i in range(len(RFuncs)): RFuncs[i] *= ( 1/RFuncs[i,0] )
 
     rfsh   = RFuncs.shape
-    print "RFunc.shape() ", rfsh
+    print("RFunc.shape() ", rfsh)
     fitting.setSplines( zs[1]-zs[0], 5.0, RFuncs )
 
-    print "nDim ", nDim
+    print("nDim ", nDim)
     fitting.setPBC(lvec[1:], npbc=[1,1,1])
     #fitting.setPBC(lvec[1:], npbc=[0,0,0])
 
@@ -129,7 +130,7 @@ if __name__ == "__main__":
     typedict     = { k:i for i,k in enumerate(types_header) }
     types  = np.array( [ typedict[elem] for elem in atoms[0] ], dtype=np.int32)
 
-    print "types ", types    #;exit() 
+    print("types ", types)    #;exit() 
     ncomps = np.ones( len(types), dtype=np.int32  )
 
     #fitting.debugGeomPBC_xsf(centers);
@@ -149,7 +150,7 @@ if __name__ == "__main__":
     #gridPoss = np.array( [ [9.71429,12.5714,19.4286], [13.1429,12.5714,19.4286] ] )
     #Yrefs    = np.array( [ 1.0, 1.5 ] )
 
-    print "gridPoss.shape, yrefs.shape, centers.shape ", gridPoss.shape, Yrefs.shape, centers.shape
+    print("gridPoss.shape, yrefs.shape, centers.shape ", gridPoss.shape, Yrefs.shape, centers.shape)
 
     #fitting.debugGeomPBC_xsf(centers);
 
@@ -173,11 +174,11 @@ if __name__ == "__main__":
 
     coefs = np.ones( len(centers) )*1.2
 
-    print ">>>>>> Yrefs -= project( coefs ) "
+    print(">>>>>> Yrefs -= project( coefs ) ")
     #Youts = np.zeros( Yrefs.shape )
     fitting.project( gridPoss, Yrefs, centers, types, ncomps, coefs*-1.0 );
     GU.saveXSF( "Yresidual.xsf", Yrefs, lvec )
     exit();
 
-    print " **** ALL DONE *** "
+    print(" **** ALL DONE *** ")
 

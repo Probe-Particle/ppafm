@@ -42,11 +42,11 @@ def getIsoArg( zs_, fs, iso=0.01, atom_z=0.0 ):
     dx = (zs[zi+i] - x0 )
     df = (fs[zi+i] - f0)
     if options.debug or x0 +  dx*( iso - f0 )/df >= 5.0 or x0 +  dx*( iso - f0 )/df <= 1.0:
-        print "atom_z", atom_z
-        print "zs_[0]", zs_[0]
-        print "(atom_z -zs_[0])", (zs_[1]-zs_[0])
-        print "(zs_[1]-zs_[0])", (zs_[1]-zs_[0])
-        print(x0, f0, dx, df, i, zi, ai)
+        print("atom_z", atom_z)
+        print("zs_[0]", zs_[0])
+        print("(atom_z -zs_[0])", (zs_[1]-zs_[0]))
+        print("(zs_[1]-zs_[0])", (zs_[1]-zs_[0]))
+        print((x0, f0, dx, df, i, zi, ai))
         plt.plot(zs_[zi:ai],fs[zi:ai],[zs_[zi],zs_[ai]],[iso,iso])
         plt.show()
     return x0 +  dx*( iso - f0 )/df
@@ -87,9 +87,9 @@ iZs = atoms[0]
 
 REAs     = PPU.getSampleAtomsREA( iZs, FFparams )
 
-print "REAs:"
-print REAs
-print
+print("REAs:")
+print(REAs)
+print()
 
 mask = np.append([True], mask)
 
@@ -101,7 +101,7 @@ if options.plot:
     import matplotlib.pyplot as plt
 
 # f1 . pseudo-xyz file with all atoms about z-cut
-ilist =  range( len(atoms[0]) )
+ilist =  list(range( len(atoms[0])))
 f1 = open(options.o,"w")
 f1.write(str(len(atoms[0])) + '\n')
 f1.write('\n')
@@ -114,7 +114,7 @@ for i in ilist:
 
     Riso = getIsoArg( zs, fs, iso=0.017, atom_z=atoms_z[i] )
     if not (0.5 < Riso < 5.0) :
-        print "!!! Problem with Riso for atom no. %i : Riso %f, we will use tabled number." %(i,Riso)
+        print("!!! Problem with Riso for atom no. %i : Riso %f, we will use tabled number." %(i,Riso))
         Riso = REAs[i][0]
     f1.write(str(i+1)+' '+str(atoms[1][i])+' '+str(atoms[2][i])+' '+str(atoms[3][i])+'\n')
     if options.old: # old verison of atomtypes.inis
@@ -123,7 +123,7 @@ for i in ilist:
         f2.write(str(Riso)+' '+str(REAs[i][1])+' '+str(alpha/2)+' '+str(i+1)+' '+FFparams[iZs[i]-1][4]+str(i)+'\n')
     #plt.axvline(Riso)
     #print " elem %i a_z %f Riso %f alpha %f alpha/2 %f" %( atoms_e[i], atoms_z[i], Riso, alpha, alpha/2.0 ), REAs[i]
-    print " elem %i a_z %f Riso %f " %( atoms_e[i], atoms_z[i], Riso ), REAs[i]
+    print(" elem %i a_z %f Riso %f " %( atoms_e[i], atoms_z[i], Riso ), REAs[i])
 
     REAs[i][0] = Riso
     REAs[i][2] = alpha/2.0
@@ -157,7 +157,7 @@ if options.plot:
     plt.grid()
 
 atoms = np.transpose( np.array(atoms) )
-print atoms.shape, REAs.shape
+print(atoms.shape, REAs.shape)
 data =  np.concatenate( ( atoms[:,:4], REAs ), axis=1 )
 np.savetxt( "atom_REAs.xyz", data, header=("%i \n # e,xyz,REA" %len(data) ) )
 

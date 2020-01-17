@@ -43,9 +43,9 @@ parser.add_option( "--densityMayBeNegative", action="store_false", help="input d
 #rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
 #rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO_/CHGCAR.xsf")
 
-print ">>> Loading sample from ", options.sample, " ... "
+print(">>> Loading sample from ", options.sample, " ... ")
 rhoS, lvecS, nDimS, headS = GU.loadXSF( options.sample )
-print ">>> Loading tip from ", options.tip, " ... "
+print(">>> Loading tip from ", options.tip, " ... ")
 rhoT, lvecT, nDimT, headT = GU.loadXSF( options.tip    )
 
 if np.any( nDimS != nDimT ): raise Exception( "Tip and Sample grids has different dimensions! - sample: "+str(nDimS)+" tip: "+str(nDimT) )
@@ -56,7 +56,7 @@ handleAECCAR( options.tip,    lvecT, rhoT )
 
 if options.Bpower > 0.0:
     B = options.Bpower
-    print ">>> computing rho^B where B = ", B
+    print(">>> computing rho^B where B = ", B)
     #print " rhoS.min,max ",rhoS.min(), rhoS.max(), " rhoT.min,max ",rhoT.min(), rhoT.max()
     # NOTE: due to round-off error the density from DFT code is often negative in some voxels which produce NaNs after exponentiation; we need to correct this 
     if options.densityMayBeNegative:
@@ -69,13 +69,13 @@ if options.Bpower > 0.0:
         GU.saveXSF( "sample_density_pow_%03.3f.xsf" %B, rhoS, lvecS, head=headS )
         GU.saveXSF( "tip_density_pow_%03.3f.xsf" %B, rhoT, lvecT, head=headT )
 
-print ">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... "
+print(">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... ")
 Fx,Fy,Fz,E = fFFT.potential2forces_mem( rhoS, lvecS, nDimS, rho=rhoT, doForce=True, doPot=True, deleteV=True )
 
 PQ = options.Apauli
 
 namestr = options.output
-print ">>> Saving result of convolution to FF_",namestr,"_?.xsf ... "
+print(">>> Saving result of convolution to FF_",namestr,"_?.xsf ... ")
 
 # Density Overlap Model
 if options.energy:

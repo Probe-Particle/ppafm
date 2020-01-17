@@ -4,8 +4,8 @@ import numpy as np
 from   ctypes import c_int, c_double, c_char_p
 import ctypes
 import os
-import cpp_utils
-
+from . import cpp_utils
+#import cpp_utils
 
 # ============================== 
 
@@ -107,7 +107,7 @@ def interpolate_cartesian( F, pos, cell=None, result=None ):
 		#print np.array(F.shape)
 		setGridCell( cell )
 	nDim = np.array(pos.shape)
-	print nDim
+	print(nDim)
 	if result is None:
 		result = np.zeros( (nDim[0],nDim[1],nDim[2]) )
 	n  = nDim[0]*nDim[1]*nDim[2]
@@ -128,9 +128,9 @@ def dens2Q_CHGCARxsf(data, lvec):
     nDim = data.shape
     Ntot = nDim[0]*nDim[1]*nDim[2]
     Vtot = np.linalg.det( lvec[1:] )
-    print "dens2Q Volume    : ", Vtot
-    print "dens2Q Ntot      : ", Ntot
-    print "dens2Q Vtot/Ntot : ", Vtot/Ntot
+    print("dens2Q Volume    : ", Vtot)
+    print("dens2Q Ntot      : ", Ntot)
+    print("dens2Q Vtot/Ntot : ", Vtot/Ntot)
     #Qsum = rho1.sum()
     return Vtot/Ntot
 
@@ -181,7 +181,7 @@ lib.ReadNumsUpTo_C.argtypes  = [c_char_p, array1d, array1i, c_int]
 lib.ReadNumsUpTo_C.restype   = c_int
 def readNumsUpTo(filename, dimensions, noline):
 	N_arry=np.zeros( (dimensions[0]*dimensions[1]*dimensions[2]), dtype = np.double )
-	lib.ReadNumsUpTo_C( filename, N_arry, dimensions, noline )
+	lib.ReadNumsUpTo_C( filename.encode(), N_arry, dimensions, noline )
 	return N_arry
 
 # =================== binary dbl (double)
@@ -213,7 +213,7 @@ BEGIN_BLOCK_DATAGRID_3D
 '''
 
 def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
-    print "saving ", fname 
+    print("saving ", fname) 
     fileout = open(fname, 'w')
     for line in head:
         fileout.write(line)
@@ -238,10 +238,10 @@ def loadXSF(fname):
 	nDim = np.array( nDim)
 	lvec = readmat(filein, 4)                                       # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
 	filein.close()
-	print "nDim xsf (= nDim + [1,1,1] ):", nDim
-	print "GridUtils| Load "+fname+" using readNumsUpTo "    
+	print("nDim xsf (= nDim + [1,1,1] ):", nDim)
+	print("GridUtils| Load "+fname+" using readNumsUpTo ")    
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(), startline+5)
-	print "GridUtils| Done"
+	print("GridUtils| Done")
 	FF = np.reshape (F, nDim )
     #   FF is not C_CONTIGUOUS without copy
 	return FF[:-1,:-1,:-1].copy(),lvec, nDim-1, head
@@ -283,12 +283,12 @@ def loadCUBE(fname):
 		lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*bohrRadius2angstroem
 		lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*bohrRadius2angstroem
 
-	print "GridUtils| Load "+fname+" using readNumsUpTo"  
+	print("GridUtils| Load "+fname+" using readNumsUpTo")  
 	noline = 6+int(sth0[0])
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
-	print "GridUtils| np.shape(F): ",np.shape(F)
-	print "GridUtils| nDim: ",nDim
-	print nDim
+	print("GridUtils| np.shape(F): ",np.shape(F))
+	print("GridUtils| nDim: ",nDim)
+	print(nDim)
 	FF = np.reshape(F, nDim ).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
 
 	#FF [1:,1:,1:] = FF [:-1,:-1,:-1] 
@@ -310,22 +310,22 @@ def saveWSxM_2D(name_file, data, Xs, Ys):
 	out_data[:,1]=Ys.flatten()
 	out_data[:,2]=tmp_data	#.copy()
 	f=open(name_file,'w')
-	print >> f, "WSxM file copyright Nanotec Electronica"
-	print >> f, "WSxM ASCII XYZ file"
-	print >> f, "X[A]  Y[A]  df[Hz]"
-	print >> f, ""
+	print("WSxM file copyright Nanotec Electronica", file=f)
+	print("WSxM ASCII XYZ file", file=f)
+	print("X[A]  Y[A]  df[Hz]", file=f)
+	print("", file=f)
 	np.savetxt(f, out_data)
 	f.close()
 
 def saveWSxM_3D( prefix, data, extent, slices=None ):
 	nDim=np.shape(data)
 	if slices is None:
-		slices=range( nDim[0] )
+		slices=list(range( nDim[0]))
 	xs=np.linspace( extent[0], extent[1], nDim[2] )
 	ys=np.linspace( extent[2], extent[3], nDim[1] )
 	Xs, Ys = np.meshgrid(xs,ys)
 	for i in slices:
-		print "slice no: ", i
+		print("slice no: ", i)
 		fname = prefix+'_%03d.xyz' %i
 		saveWSxM_2D(fname, data[i], Xs, Ys)
 
@@ -380,7 +380,7 @@ def saveVecFieldNpy( fname, FF, lvec , head = XSF_HEAD_DEFAULT ):
 	np.save(fname+'_z.npy', FF[:,:,:,2] )
 	np.save(fname+'_vec.npy', lvec )
 	if (head != XSF_HEAD_DEFAULT ):
-		print "saving atoms"
+		print("saving atoms")
 		tmp0=head[0]; q=np.zeros(len(tmp0));    #head: [e,[x,y,z],lvec]
 		np.save(fname+'_atoms.npy',[tmp0,head[1][0],head[1][1],head[1][2],q]) #atoms: [e, x, y, z, q]
 
@@ -403,7 +403,7 @@ def save_vec_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT
 	elif (data_format=="npy"):
 		saveVecFieldNpy(fname, data, lvec, head = head )
 	else:
-		print "I cannot save this format!"
+		print("I cannot save this format!")
 
 
 def load_vec_field(fname, data_format="xsf"):
@@ -416,7 +416,7 @@ def load_vec_field(fname, data_format="xsf"):
 		data, lvec = loadVecFieldNpy(fname)
 		ndim = np.delete(data.shape,3)
 	else:
-		print "I cannot load this format!"
+		print("I cannot load this format!")
 	return data, lvec, ndim;
 
 
@@ -431,7 +431,7 @@ def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAUL
 	elif (data_format=="npy"):
 		saveNpy(fname, data, lvec, head = head)
 	else:
-		print "I cannot save this format!"
+		print("I cannot save this format!")
 
 
 def load_scal_field(fname, data_format="xsf"):
@@ -446,7 +446,7 @@ def load_scal_field(fname, data_format="xsf"):
 	elif (data_format=="cube"):
 		data,lvec, ndim, head = loadCUBE(fname+".cube")
 	else:
-		print "I cannot load this format!"
+		print("I cannot load this format!")
 	return data.copy(), lvec, ndim;
 
 # =============== Other Utils
@@ -457,7 +457,7 @@ def multArray( F, nx=2,ny=2 ):
 	it is usefull to visualization of images computed in periodic supercell ( PBC )
 	'''
 	nF = np.shape(F)
-	print "nF: ",nF
+	print("nF: ",nF)
 	F_ = np.zeros( (nF[0],nF[1]*ny,nF[2]*nx) )
 	for iy in range(ny):
 		for ix in range(nx):

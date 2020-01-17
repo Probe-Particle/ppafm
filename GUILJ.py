@@ -4,7 +4,7 @@
 # https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
-from __future__ import unicode_literals
+
 import sys
 import os
 import time
@@ -42,8 +42,8 @@ zmin = 1.0; zmax = 20.0; ymax = 20.0; xmax =20.0;
 atoms0, nDim0, lvec0 = basUtils.loadXSFGeom( "FFel_z.xsf" )
 zmin = round(max(atoms0[3]),1); zmax=round(lvec0[3][2],1); ymax=round(lvec0[1][1]+lvec0[2][1],1); xmax=round(lvec0[1][0]+lvec0[2][0],1)
 
-print "zmin, zmax, ymax, xmax"
-print zmin, zmax, ymax, xmax
+print("zmin, zmax, ymax, xmax")
+print(zmin, zmax, ymax, xmax)
 
 class ApplicationWindow(QtWidgets.QMainWindow):
 
@@ -60,8 +60,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
 
-        print "oclu.ctx    ", oclu.ctx
-        print "oclu.queue  ", oclu.queue
+        print("oclu.ctx    ", oclu.ctx)
+        print("oclu.queue  ", oclu.queue)
     
         FFcl.init()
         oclr.init()
@@ -211,9 +211,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         rmin = np.array( [ float(self.bxSpanMinX.value()), float(self.bxSpanMinY.value()), float(self.bxSpanMinZ.value()) ] )
         rmax = np.array( [ float(self.bxSpanMaxX.value()), float(self.bxSpanMaxY.value()), float(self.bxSpanMaxZ.value()) ] )
         self.relax_dim   = tuple( ((rmax-rmin)/step).astype(np.int32) ) 
-        print "shapeRelax", step, rmin, rmax, self.relax_dim
+        print("shapeRelax", step, rmin, rmax, self.relax_dim)
         self.FEin = np.zeros( self.ff_nDim+(4,), dtype=np.float32)
-        print "self.FEin.shape", self.FEin.shape
+        print("self.FEin.shape", self.FEin.shape)
         if self.FF is not None:
             self.composeTotalFF()
         self.relax_poss  = oclr.preparePoss   ( self.relax_dim, z0=rmax[2], start=rmin, end=rmax )
@@ -252,8 +252,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         else: #self.mode == Modes.LJel.name: # and LJel_pbc
             cLJs_        = PPU.getAtomsLJ     ( iZPP, Zs, self.TypeParams ); #REAs     = PPU.getAtomsREA( iZPP, Zs, self.TypeParams, alphaFac=-self.bxMorse.value() )
             self.cLJs    = cLJs_.astype(np.float32)#            self.REAs    = REAs.astype(np.float32)
-            print "self.cLJs.shape", self.cLJs.shape
-            print "self.atoms.shape", self.atoms.shape
+            print("self.cLJs.shape", self.cLJs.shape)
+            print("self.atoms.shape", self.atoms.shape)
  
             self.ff_args = FFcl.updateArgsLJ( self.ff_args, self.atoms, self.cLJs, self.poss )#            self.ff_args = FFcl.updateArgsMorse( self.ff_args, self.atoms, self.REAs, self.poss )  
 
@@ -263,11 +263,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.upload_and_relax()
 
     def loadInputs_New(self):
-        print "self.mode  ", self.mode 
+        print("self.mode  ", self.mode) 
         try:
             with open('atomtypes.ini', 'r') as f:  self.str_Species = f.read(); 
         except:
-            print "defaul atomtypes.ini"
+            print("defaul atomtypes.ini")
             with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:  self.str_Species = f.read();
 
         self.str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in self.str_Species.split('\n')  );
@@ -277,16 +277,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.speciesEditor.textEdit.setText( self.str_Species )
 
         lvec=None; xyzs=None; Zs=None; qs=None; 
-        print self.mode
+        print(self.mode)
         if self.mode == Modes.LJQ.name:
-            print "=> Modes.LJQ"
-            lvec              = np.genfromtxt('cel.lvs'); lvec = np.insert(lvec, 0, 0. , axis=0); print lvec
+            print("=> Modes.LJQ")
+            lvec              = np.genfromtxt('cel.lvs'); lvec = np.insert(lvec, 0, 0. , axis=0); print(lvec)
             self.str_Atoms    = open('input.xyz').read()
             #xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input.xyz' )
             xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.str_Atoms.split('\n') )
             nDim              = np.array([int(round(10*(lvec[1][0]+lvec[1][1]))),int(round(10*(lvec[2][0]+lvec[2][1]))),int(round(10*(lvec[3][2])))])
         else: # self.mode == Modes.LJel.name:        elif self.mode == Modes.LJel_pbc.name:
-            print "=> Modes.LJel or Modes.LJel_pbc"
+            print("=> Modes.LJel or Modes.LJel_pbc")
             #atoms, nDim, lvec = basUtils.loadXSFGeom( "FFel_z.xsf" )
             atoms = atoms0; nDim = nDim0; lvec = lvec0;
             nDim = nDim[::-1]
@@ -294,8 +294,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.str_Atoms = "\n".join( lines )
             Zs   = atoms[0]; qs   = atoms[4]; xyzs = np.transpose( np.array( [atoms[1],atoms[2],atoms[3]] ) ).copy()
 
-        print nDim
-        print lvec
+        print(nDim)
+        print(lvec)
         #print self.str_Atoms
         self.geomEditor.textEdit.setText( self.str_Atoms )
 
@@ -317,9 +317,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         t1 = time.clock() 
         #self.FF    = FFcl.runLJC( self.ff_args, self.ff_nDim )
         self.FF    = self.func_runFF( self.ff_args, self.ff_nDim )
-        print "getFF : self.FF.shape", self.FF.shape;
+        print("getFF : self.FF.shape", self.FF.shape);
         self.plot_FF = True
-        t2 = time.clock(); print "FFcl.func_runFF time %f [s]" %(t2-t1)
+        t2 = time.clock(); print("FFcl.func_runFF time %f [s]" %(t2-t1))
         #self.plotSlice()
         self.updateDataView()
         
@@ -330,9 +330,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         dpos0        = np.array([self.bxP0x.value(),self.bxP0y.value(),0.0,self.bxP0r.value()], dtype=np.float32 ); dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); #print "dpos0", dpos0
         relax_params = np.array([0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 ); #print "relax_params", relax_params
         self.FEout   = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
-        t2 = time.clock(); print "oclr.relax time %f [s]" %(t2-t1)
-        print "self.FEin.shape",  self.FEin.shape
-        print "self.FEout.shape", self.FEout.shape
+        t2 = time.clock(); print("oclr.relax time %f [s]" %(t2-t1))
+        print("self.FEin.shape",  self.FEin.shape)
+        print("self.FEout.shape", self.FEout.shape)
         self.F2df()
     
     def composeTotalFF(self):
@@ -343,12 +343,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             if self.FFel is None:
                 self.FEin[:,:,:,:] = self.FF[:,:,:,:4] + self.Q*self.FF[:,:,:,4:] 
             else:
-                print self.FEin.shape, self.FF.shape, self.FFel.shape
+                print(self.FEin.shape, self.FF.shape, self.FFel.shape)
                 self.FEin[:,:,:,:] = self.FF[:,:,:,:] + self.Q*self.FFel[:,:,:,:]
 
     def upload_and_relax(self):
         self.composeTotalFF()
-        region = self.FEin.shape[:3]; region = region[::-1]; print "upload FEin : ", region
+        region = self.FEin.shape[:3]; region = region[::-1]; print("upload FEin : ", region)
         cl.enqueue_copy( oclr.oclu.queue, self.relax_args[0], self.FEin, origin=(0,0,0), region=region  )
         self.relax()
         
@@ -357,7 +357,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if nAmp > 0:
             t1 = time.clock()
             self.df = -PPU.Fz2df( np.transpose( self.FEout[:,:,:,2], (2,1,0) ), dz=self.bxStepZ.value(), k0=self.bxCant_K.value()*1e+3, f0= self.bxCant_f0.value()*1e+3, n=nAmp )
-            t2 = time.clock(); print "F2df time %f [s]" %(t2-t1)
+            t2 = time.clock(); print("F2df time %f [s]" %(t2-t1))
         else:
             self.df = None
         self.plot_FF = False
@@ -368,14 +368,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
         if fileName:
             fileName = guiw.correct_ext( fileName, ".png" )
-            print "saving image to :", fileName
+            print("saving image to :", fileName)
             self.figCan.fig.savefig( fileName,bbox_inches='tight')
 
     def saveDataW(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","WSxM files (*.xyz)")
         if fileName:
             fileName = guiw.correct_ext( fileName, ".xyz" )
-            print "saving data to to :", fileName
+            print("saving data to to :", fileName)
             iz,data = self.selectDataView()
             npdata=data[iz]
             xs = np.arange(npdata.shape[1] )
@@ -393,7 +393,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         elif self.mode == Modes.LJel_pbc.name:
             self.func_runFF        = FFcl.runLJ #runMorse
         else:
-            print "No such mode : ",self.mode 
+            print("No such mode : ",self.mode) 
             return
         self.loadInputs_New()
         self.getFF()
@@ -402,7 +402,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #GU.saveXSF( "DEBUG_FFcl_z.xsf", self.FF[:,:,:,2].astype(np.float32), self.lvec )
         #self.initRelax()
         self.shapeRelax()
-        print self.mode
+        print(self.mode)
     
     def selectDataView(self):   # !!! Everything from TOP now !!! #
         dview = self.slDataView.currentText()
@@ -429,11 +429,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.viewed_data = data 
         #self.figCan.plotSlice_iz(iz)
         try:
-            print data.shape
+            print(data.shape)
             self.figCan.plotSlice( data[iz], title=self.slDataView.currentText()+':iz= '+str(int( self.bxZ.value() )) )
         except:
-            print "cannot plot slice #", iz
-        t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
+            print("cannot plot slice #", iz)
+        t2 = time.clock(); print("plotSlice time %f [s]" %(t2-t1))
 
     '''
     def plotSlice(self):
@@ -451,7 +451,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def clickImshow(self,ix,iy):
         ys = self.viewed_data[ :, iy, ix ]
         self.figCurv.show()
-        self.figCurv.figCan.plotDatalines( ( range(len(ys)), ys, "%i_%i" %(ix,iy) )  )
+        self.figCurv.figCan.plotDatalines( ( list(range(len(ys))), ys, "%i_%i" %(ix,iy) )  )
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)

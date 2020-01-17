@@ -55,7 +55,7 @@ def T1():
 
 def T2(s):
     if bTime:
-        print "Time spend in : "+s+" [s]: ", time.clock() - t1
+        print("Time spend in : "+s+" [s]: ", time.clock() - t1)
 
 def generateAromaticMolecule( 
         N=30, ngons=[5,6,7], ngon_rates=[0.2,0.6,0.2], sz=2.5, bondLenght=1.4,
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     
     t1 = time.clock()
     mol3d,mol2d,rings,atom_conf1,atom_conf2 = generateAromaticMolecule( )
-    print "Time to generate molecule [s]: ", time.clock() - t1
+    print("Time to generate molecule [s]: ", time.clock() - t1)
     
     (ring_pos, ring_Rs, ring_bonds) = rings 
     (atom_pos,bonds)                      = mol2d
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     bTime = False
     
     for i in range(20):
-        print "Generated molecule [%i] " %i
+        print("Generated molecule [%i] " %i)
         generateAromaticMolecule( fname="mol_out/mol_mmff_%04i.xyz" %i )
 
 

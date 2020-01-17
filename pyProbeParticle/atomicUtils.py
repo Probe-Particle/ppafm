@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
 import numpy as np
-import elements
+from . import elements
+#import elements
 
 def findAllBonds( atoms, Rcut=3.0, RvdwCut=0.7 ):
     bonds     = []
@@ -45,7 +46,7 @@ def findTypeNeigh( atoms, neighs, typ, neighTyps=[(1,2,2)] ):
         for jatom in neighs[ iatom ]:
             jtyp = atoms[jatom,0]
             count[jtyp] = count.get(jtyp, 0) + 1
-        for jtyp, (nmin,nmax) in neighTyps.items():
+        for jtyp, (nmin,nmax) in list(neighTyps.items()):
             n = count.get(jtyp,0)
             if( (n>=nmin)and(n<=nmax) ):
                 selected.append( iatom )
@@ -216,7 +217,7 @@ def writeToXYZ( fout, es, xyzs, qs=None, commet="" ):
             fout.write("%s %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2] ) )
 
 def saveXYZ( es, xyzs, fname, qs=None ):
-    print ">>>>>",fname,"<<<<<"
+    print(">>>>>",fname,"<<<<<")
     fout = open(fname, "w")
     writeToXYZ( fout, es, xyzs, qs )
     fout.close() 
@@ -252,7 +253,7 @@ def loadAtomsNP(fname):
                     q = 0
                 qs.append(q)
             except:
-                print "cannot interpet line: ", line
+                print("cannot interpet line: ", line)
                 continue
     xyzs = np.array( xyzs )
     Zs   = np.array( Zs, dtype=np.int32 )
@@ -287,7 +288,7 @@ def loadAtoms( name ):
                     q.append( 0.0 )
                 i+=1
             else:
-                print " skipped line : ", line
+                print(" skipped line : ", line)
     f.close()
     return [ e,x,y,z,q ]
 
@@ -303,7 +304,7 @@ def loadCoefs( characters=['s'] ):
         Es  = raw[:,0]
         cs  = raw[:,1:]
         sh  = cs.shape
-        print( "shape : ", sh )
+        print(( "shape : ", sh ))
         cs  = cs.reshape(sh[0],sh[1]//2,2)
         d   = cs[:,:,0]**2 + cs[:,:,1]**2
         coefs.append( cs[:,:,0] + 1j*cs[:,:,1] )
@@ -333,7 +334,7 @@ def histR( ps, dbin=None, Rmax=None, weights=None ):
         if Rmax is None:
             Rmax = rs.max()+0.5
         bins = np.linspace( 0,Rmax, int(Rmax/(dbin))+1 )
-    print( rs.shape, weights.shape )
+    print(( rs.shape, weights.shape ))
     return np.histogram(rs, bins, weights=weights)
 
 

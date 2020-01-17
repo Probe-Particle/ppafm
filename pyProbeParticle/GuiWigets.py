@@ -68,10 +68,10 @@ class FigImshow(FigCanvas):
         self.axes.cla()
         
         F = F_stack[z_slice]
-        print "plotSlice F.shape, F.min(), F.max() ", F.shape, F.min(), F.max()
+        print("plotSlice F.shape, F.min(), F.max() ", F.shape, F.min(), F.max())
 
 
-        print 'self.margins', margins
+        print('self.margins', margins)
         #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
         self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='bicubic' )
        
@@ -177,7 +177,7 @@ class PlotWindow(SlaveWindow):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","data files (*.dat)")
         if fileName:
             fileName = correct_ext( fileName, ".dat" )
-            print "saving data to :", fileName
+            print("saving data to :", fileName)
             data = []
             data.append( np.array(self.figCan.axes.lines[0].get_xdata()) )
             for line in self.figCan.axes.lines:
@@ -193,7 +193,7 @@ class PlotWindow(SlaveWindow):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
         if fileName:
             fileName = correct_ext( fileName, ".png" )
-            print "saving image to :", fileName
+            print("saving image to :", fileName)
             self.figCan.fig.savefig( fileName,bbox_inches='tight')
 
     def clearFig(self):
@@ -216,7 +216,7 @@ class PlotWindow(SlaveWindow):
         except:
             pass
         self.figCan.draw()
-        print "range: ", xmin, xmax, ymin, ymax
+        print("range: ", xmin, xmax, ymin, ymax)
 
 # =======================
 #         Editor

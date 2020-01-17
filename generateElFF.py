@@ -22,7 +22,7 @@ if __name__=="__main__":
     from optparse import OptionParser
     parser = OptionParser()
     parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
-    parser.add_option( "--tip_dens", action="store", type="string", default=None, help="tip enisty file (.xsf)" )
+    parser.add_option( "--tip_dens", action="store", type="string", default=None, help="tip denisty file (.xsf)" )
     #parser.add_option( "--sub_core",  action="store_true",  help="subtract core density", default=False )
     parser.add_option( "--Rcore",   default=PPU.params["Rcore"],    action="store", type="float", help="Width of nuclear charge density blob to achieve charge neutrality [Angstroem]" )
     parser.add_option( "-t", "--tip", action="store", type="string", help="tip model (multipole) {s,pz,dz2,..}", default=None)
@@ -42,18 +42,18 @@ if __name__=="__main__":
     if os.path.isfile( 'params.ini' ):
         FFparams=PPU.loadParams( 'params.ini' ) 
     else:
-        print ">> LOADING default params.ini >> 's' ="  
+        print(">> LOADING default params.ini >> 's' =")  
         FFparams = PPU.loadParams( cpp_utils.PACKAGE_PATH+'/defaults/params.ini' )
     #PPU.loadParams( 'params.ini' )
     PPU.apply_options(opt_dict)    
 
     if os.path.isfile( 'atomtypes.ini' ):
-        print ">> LOADING LOCAL atomtypes.ini"  
+        print(">> LOADING LOCAL atomtypes.ini")  
         FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
-    if options.Rcore > 0.0:  # We do it here, in case it crash we don't want to wait for all the huge density files to load
+    if ((options.Rcore > 0.0) and (options.tip is None) ):  # We do it here, in case it crash we don't want to wait for all the huge density files to load
         if options.tip_dens is None: raise Exception( " Rcore>0 but no tip density provided ! " )
         valElDict        = PPH.loadValenceElectronDict()
         Rs_tip,elems_tip = PPH.getAtomsWhichTouchPBCcell( options.tip_dens, Rcut=options.Rcore )
@@ -63,20 +63,20 @@ if __name__=="__main__":
 
     V=None
     if(options.input.lower().endswith(".xsf") ):
-        print ">>> loading Hartree potential from  ",options.input,"..."
-        print "Use loadXSF"
+        print(">>> loading Hartree potential from  ",options.input,"...")
+        print("Use loadXSF")
         V, lvec, nDim, head = GU.loadXSF(options.input)
     elif(options.input.lower().endswith(".cube") ):
-        print " loading Hartree potential from ",options.input,"..."
-        print "Use loadCUBE"
+        print(" loading Hartree potential from ",options.input,"...")
+        print("Use loadCUBE")
         V, lvec, nDim, head = GU.loadCUBE(options.input)
     
     if PPU.params['tip']==".py":
         #import tip
-        execfile("tip.py")
-        print tipMultipole
+        exec(compile(open("tip.py", "rb").read(), "tip.py", 'exec'))
+        print(tipMultipole)
         PPU.params['tip'] = tipMultipole
-        print " PPU.params['tip'] ", PPU.params['tip']
+        print(" PPU.params['tip'] ", PPU.params['tip'])
 
     if options.tip_dens is not None:
         '''
@@ -86,21 +86,21 @@ if __name__=="__main__":
         PPU.params['tip'] = rho_tip
         print " dens_tip check_sum Q =  ", np.sum( rho_tip )
         '''
-        print ">>> loading tip density from ",options.tip_dens,"..."
+        print(">>> loading tip density from ",options.tip_dens,"...")
         rho_tip, lvec_tip, nDim_tip, head_tip = GU.loadXSF( options.tip_dens )
 
         if options.Rcore > 0.0:
-            print ">>> subtracting core densities from rho_tip ... "
+            print(">>> subtracting core densities from rho_tip ... ")
             #subtractCoreDensities( rho_tip, lvec_tip, fname=options.tip_dens, valElDict=valElDict, Rcore=options.Rcore )
             PPH.subtractCoreDensities( rho_tip, lvec_tip, elems=elems_tip, Rs=Rs_tip, valElDict=valElDict, Rcore=options.Rcore, head=head_tip )
 
         PPU.params['tip'] = rho_tip
 
-    print ">>> calculating electrostatic forcefiled with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... "
+    print(">>> calculating electrostatic forcefiled with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
     #FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
     FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],computeVpot=options.energy , tilt=opt_dict['tilt'] )
     
-    print ">>> saving electrostatic forcefiled ... "
+    print(">>> saving electrostatic forcefiled ... ")
     
     GU.save_vec_field('FFel',FFel,lvec_samp ,data_format=options.data_format, head=head_samp)
     if options.energy:

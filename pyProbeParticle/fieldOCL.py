@@ -46,7 +46,7 @@ def initArgsCoulomb( atoms, poss ):
     cl_poss    = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes
     cl_FE      = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ); nbytes+=poss.nbytes
     kargs = ( nAtoms, cl_atoms, cl_poss, cl_FE )
-    if(verbose>0): print "initArgsCoulomb.nbytes ", nbytes
+    if(verbose>0): print("initArgsCoulomb.nbytes ", nbytes)
     return kargs 
 
 #def initArgsLJC( atoms, cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
@@ -62,7 +62,7 @@ def initArgsLJC( atoms, cLJs, poss ):
     #cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*2 ); nbytes+=poss.nbytes*2 # float8
     cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes ); nbytes+=poss.nbytes # float4     # we are using Qmix now
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
-    if(verbose>0):print "initArgsLJC.nbytes ", nbytes
+    if(verbose>0):print("initArgsLJC.nbytes ", nbytes)
     return kargs
 
 #def initArgsLJ(atoms,cLJs, poss, ctx=oclu.ctx, queue=oclu.queue ):
@@ -77,7 +77,7 @@ def initArgsLJ(atoms,cLJs, poss ):
     cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
     cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ); nbytes+=poss.nbytes   # float4
     kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
-    if(verbose>0):print "initArgsLJ.nbytes ", nbytes
+    if(verbose>0):print("initArgsLJ.nbytes ", nbytes)
     return kargs
 
 def initArgsMorse(atoms,REAs, poss ):
@@ -91,7 +91,7 @@ def initArgsMorse(atoms,REAs, poss ):
     cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes # float4
     cl_FE    = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes   ); nbytes+=poss.nbytes # float4
     kargs = ( nAtoms, cl_atoms, cl_REAs, cl_poss, cl_FE )
-    if(verbose>0):print "initArgsMorse.nbytes ", nbytes
+    if(verbose>0):print("initArgsMorse.nbytes ", nbytes)
     return kargs
 
 def releaseArgs( kargs ):
@@ -113,7 +113,7 @@ def updateArgsLJC( kargs_old, atoms=None, cLJs=None, poss=None ):
         if atoms is not None:
             nAtoms   = np.int32( len(atoms) )
             if (kargs_old[0] != nAtoms):
-                if(verbose>0): print " kargs_old[0] != nAtoms; TRY only"#; exit()
+                if(verbose>0): print(" kargs_old[0] != nAtoms; TRY only")#; exit()
                 return initArgsLJC( atoms, cLJs, poss )
                 #print " NOT IMPLEMENTED :  kargs_old[0] != nAtoms"; exit()
             else:
@@ -148,7 +148,7 @@ def updateArgsMorse( kargs_old=None, atoms=None, REAs=None, poss=None ):
         if atoms is not None:
             nAtoms   = np.int32( len(atoms) )
             if (kargs_old[0] != nAtoms):
-                if(verbose>0): print " kargs_old[0] != nAtoms; TRY only"#; exit()
+                if(verbose>0): print(" kargs_old[0] != nAtoms; TRY only")#; exit()
                 return initArgsMorse( atoms, REAs, poss )
             else:
                 cl_atoms=kargs_old[1]
@@ -181,7 +181,7 @@ def updateArgsLJ( kargs_old, atoms=None, cLJs=None, poss=None ):
         if atoms is not None:
             nAtoms   = np.int32( len(atoms) )
             if (kargs_old[0] != nAtoms):
-                if(verbose>0): print " kargs_old[0] != nAtoms; TRY only"#; exit()
+                if(verbose>0): print(" kargs_old[0] != nAtoms; TRY only")#; exit()
                 return initArgsLJ( atoms, cLJs, poss )
             else:
                 cl_atoms=kargs_old[1]
@@ -226,7 +226,7 @@ def runLJC( kargs, nDim, local_size=(32,) ):
     global_size = (ntot,) # TODO make sure divisible by local_size
     #print "global_size:", global_size
     FE = np.zeros( nDim+(8,), dtype=np.float32 ) # float8
-    if(verbose>0): print "FE.shape ", FE.shape
+    if(verbose>0): print("FE.shape ", FE.shape)
     cl_program.evalLJC( queue, global_size, local_size, *(kargs))
     cl.enqueue_copy( queue, FE, kargs[4] )
     queue.finish()
@@ -354,7 +354,7 @@ class ForceField_LJC:
         elif self.nDim is not None:
             nDim = self.nDim
         else:
-            print "ERROR : nDim must be set somewhere"; exit()
+            print("ERROR : nDim must be set somewhere"); exit()
         self.lvec0       = np.zeros( 4, dtype=np.float32 ) 
         self.lvec        = np.zeros( (3,4), dtype=np.float32 ) 
         self.dlvec       = np.zeros( (3,4), dtype=np.float32 )
@@ -366,7 +366,7 @@ class ForceField_LJC:
 
     def setQs(self, Qs=[100,-200,100,0],QZs=[0.1,0,-0.1,0]):
         if ( len(Qs) != 4 ) or ( len(QZs) != 4 ):
-            print "Qs and Qzs must have length 4 " 
+            print("Qs and Qzs must have length 4 ") 
             exit()
         self.Qs  = np.array(Qs ,dtype=np.float32)
         self.QZs = np.array(QZs,dtype=np.float32)
@@ -389,14 +389,14 @@ class ForceField_LJC:
         if (self.cl_FE is None) and not bDirect:
             nb = self.nDim[0]*self.nDim[1]*self.nDim[2] * 4 * nb_float
             self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY , nb ); nbytes+=nb # float8
-            if(verbose>0): print " forcefield.prepareBuffers() :  self.cl_FE  ", self.cl_FE 
-        if(verbose>0): print "initArgsLJC.nbytes ", nbytes
+            if(verbose>0): print(" forcefield.prepareBuffers() :  self.cl_FE  ", self.cl_FE) 
+        if(verbose>0): print("initArgsLJC.nbytes ", nbytes)
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None ):
         '''
         update content of all buffers
         '''
-        if(verbose>0): print " ForceField_LJC.updateBuffers "
+        if(verbose>0): print(" ForceField_LJC.updateBuffers ")
         oclu.updateBuffer(atoms, self.cl_atoms )
         oclu.updateBuffer(cLJs,  self.cl_cLJs  )
         oclu.updateBuffer(poss,  self.cl_poss  )
@@ -405,7 +405,7 @@ class ForceField_LJC:
         '''
         release all buffers
         '''
-        if(verbose>0): print " ForceField_LJC.tryReleaseBuffers "
+        if(verbose>0): print(" ForceField_LJC.tryReleaseBuffers ")
         try: 
             self.cl_atoms.release() 
         except: 
@@ -430,7 +430,7 @@ class ForceField_LJC:
         if(bRuntime): t0 = time.clock()
         if bCopy and (FE is None):
             FE = np.zeros( self.nDim[:3]+(8,), dtype=np.float32 )
-            if(verbose>0): print "FE.shape", FE.shape, self.nDim
+            if(verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size
@@ -442,11 +442,11 @@ class ForceField_LJC:
             self.cl_poss,
             self.cl_FE,
         )
-        if(bRuntime): print "runtime(ForceField_LJC.evalLJC.pre) [s]: ", time.clock() - t0
+        if(bRuntime): print("runtime(ForceField_LJC.evalLJC.pre) [s]: ", time.clock() - t0)
         cl_program.evalLJC( self.queue, global_size, local_size, *(kargs) )
         if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[4] )
         if bFinish: self.queue.finish()
-        if(bRuntime): print "runtime(ForceField_LJC.evalLJC) [s]: ", time.clock() - t0
+        if(bRuntime): print("runtime(ForceField_LJC.evalLJC) [s]: ", time.clock() - t0)
         return FE
 
     def run_evalLJC_Q(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
@@ -456,7 +456,7 @@ class ForceField_LJC:
         if(bRuntime): t0 = time.clock()
         if bCopy and (FE is None):
             FE = np.zeros( self.nDim[:3]+(4,), dtype=np.float32 )
-            if(verbose>0): print "FE.shape", FE.shape, self.nDim
+            if(verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size
@@ -469,11 +469,11 @@ class ForceField_LJC:
             self.cl_FE,
             np.float32(Qmix),
         )
-        if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_Q.pre) [s]: ", time.clock() - t0
+        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_Q.pre) [s]: ", time.clock() - t0)
         cl_program.evalLJC_Q( self.queue, global_size, local_size, *(kargs) )
         if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[4] )
         if bFinish: self.queue.finish()
-        if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_Q) [s]: ", time.clock() - t0
+        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_Q) [s]: ", time.clock() - t0)
         return FE
 
     def run_evalLJC_QZs_noPos(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
@@ -484,7 +484,7 @@ class ForceField_LJC:
         if bCopy and (FE is None):
             ns = ( tuple(self.nDim[:3])+(4,) )
             FE = np.zeros( ns, dtype=np.float32 )
-            if(verbose>0): print "FE.shape", FE.shape, self.nDim
+            if(verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "run_evalLJC_Q_noPos self.nDim ",self.nDim," bCopy, bFinish: ", bCopy, bFinish
@@ -502,18 +502,18 @@ class ForceField_LJC:
             self.Qs,
             self.QZs
         )
-        if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_QZs_noPos.pre) [s]: ", time.clock() - t0
+        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos.pre) [s]: ", time.clock() - t0)
         cl_program.evalLJC_QZs_noPos( self.queue, global_size, local_size, *(kargs) )
         if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[3] )
         if bFinish: self.queue.finish()
-        if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_QZs_noPos) [s]: ", time.clock() - t0
+        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos) [s]: ", time.clock() - t0)
         return FE
 
     def downloadFF(self, FE=None ):
         ns = ( tuple(self.nDim[:3])+(4,) )
         #print self.nDim, self.nDim[:3], ns
         FE = np.zeros( ns, dtype=np.float32 )
-        print "FE.shape ",  FE.shape
+        print("FE.shape ",  FE.shape)
         cl.enqueue_copy( self.queue, FE, self.cl_FE )
         self.queue.finish()
         return FE
@@ -526,7 +526,7 @@ class ForceField_LJC:
         if bCopy and (FE is None):
             ns = ( tuple(self.nDim[:3])+(4,) )
             FE = np.zeros( ns, dtype=np.float32 )
-            if(verbose>0): print "FE.shape", FE.shape, self.nDim
+            if(verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "run_evalLJC_Q_noPos self.nDim ",self.nDim," bCopy, bFinish: ", bCopy, bFinish
@@ -543,11 +543,11 @@ class ForceField_LJC:
             self.dlvec[2],
             np.float32(Qmix),
         )
-        if(bRuntime): print "runtime(ForceField_LJC.run_evalLJC_Q_noPos.pre) [s]: ", time.clock() - t0
+        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_Q_noPos.pre) [s]: ", time.clock() - t0)
         cl_program.evalLJC_Q_noPos( self.queue, global_size, local_size, *(kargs) )
         if bCopy:   cl.enqueue_copy( self.queue, FE, self.cl_FE )
         if bFinish: self.queue.finish()
-        if(bRuntime): print "runtime(ForceField_LJC.evalLJC_Q_noPos) [s]: ", time.clock() - t0
+        if(bRuntime): print("runtime(ForceField_LJC.evalLJC_Q_noPos) [s]: ", time.clock() - t0)
         return FE
 
     def runRelaxStrokesDirect(self, Q, cl_FE, FE=None, local_size=(32,), nz=10 ):
@@ -558,7 +558,7 @@ class ForceField_LJC:
             ns = ( tuple(self.nDim[:3])+(4,) )
             FE    = np.zeros( ns, dtype=np.float32 )
             #FE     = np.empty( self.scan_dim+(4,), dtype=np.float32 )
-            if(verbose>0): print "FE.shape", FE.shape, self.nDim
+            if(verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = int( self.scan_dim[0]*self.scan_dim[1] ) 
         ntot=makeDivisibleUp(ntot,local_size[0])
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -599,7 +599,7 @@ class ForceField_LJC:
         cLJs  = cLJs.astype(np.float32, copy=False)   
         #self.prepareBuffers(atoms, cLJs, poss )
         self.prepareBuffers(atoms, cLJs )
-        if(bRuntime): print "runtime(ForceField_LJC.makeFF.pre) [s]: ", time.clock() - t0
+        if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.clock() - t0)
         #FF = self.run( FE=FE, Qmix=Qmix, bCopy=bCopy, bFinish=bFinish )
         if self.cl_poss is not None:
             FF = self.run_evalLJC_Q( FE=FE,       Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
@@ -610,7 +610,7 @@ class ForceField_LJC:
                 FF = self.run_evalLJC_Q_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
 
         if(bRelease): self.tryReleaseBuffers()
-        if(bRuntime): print "runtime(ForceField_LJC.makeFF.tot) [s]: ", time.clock() - t0
+        if(bRuntime): print("runtime(ForceField_LJC.makeFF.tot) [s]: ", time.clock() - t0)
         return FF, atoms
 
 
@@ -645,21 +645,21 @@ class AtomProcjetion:
         '''
         na = len(Zs)
         coefs = np.zeros( (na,4), dtype=np.float32 )
-        if(verbose>0): print "Zs", Zs
+        if(verbose>0): print("Zs", Zs)
         for i,ie in enumerate(Zs):
             coefs[i,0] = 1.0
             coefs[i,1] = ie
             coefs[i,2] = ELEMENTS[ie-1][6]
             coefs[i,3] = ELEMENTS[ie-1][7]
             #coefs[i,3] = ie
-        if(verbose>0): print "coefs[:,2]", coefs[:,2]
+        if(verbose>0): print("coefs[:,2]", coefs[:,2])
         return coefs
 
     def prepareBuffers(self, atoms, prj_dim, coefs=None, bonds2atoms=None, Rfunc=None ):
         '''
         allocate GPU buffers
         '''
-        if(verbose>0): print "AtomProcjetion.prepareBuffers prj_dim", prj_dim
+        if(verbose>0): print("AtomProcjetion.prepareBuffers prj_dim", prj_dim)
         self.prj_dim = prj_dim
         nbytes   =  0;
         self.nAtoms   = np.int32( len(atoms) ) 
@@ -704,7 +704,7 @@ class AtomProcjetion:
         #self.cl_MultiMap  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz*8     );   nbytes+=bsz    # float
 
         #kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
-        if(verbose>0): print "AtomProcjetion.prepareBuffers.nbytes ", nbytes
+        if(verbose>0): print("AtomProcjetion.prepareBuffers.nbytes ", nbytes)
         #return kargs
 
     def updateBuffers(self, atoms=None, coefs=None, poss=None ):
@@ -741,7 +741,7 @@ class AtomProcjetion:
         '''
         deallocated all GPU buffers
         '''
-        if(verbose>0): print " AtomProjection.releaseBuffers "
+        if(verbose>0): print(" AtomProjection.releaseBuffers ")
         self.cl_atoms.release()
         self.cl_coefs.release()
         self.cl_poss.release()
@@ -751,7 +751,7 @@ class AtomProcjetion:
         '''
         deallocated all GPU buffers (those which exists)
         '''
-        if(verbose>0): print " AtomProjection.releaseBuffers "
+        if(verbose>0): print(" AtomProjection.releaseBuffers ")
         try:
             self.cl_atoms.release()
         except:
@@ -775,9 +775,9 @@ class AtomProcjetion:
         '''
         if Eout is None:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
-            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+            if(verbose>0): print("FE.shape", Eout.shape, self.nDim)
         if poss is not None:
-            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -802,9 +802,9 @@ class AtomProcjetion:
             self.tipRot=tipRot
         if Eout is None:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
-            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+            if(verbose>0): print("FE.shape", Eout.shape, self.nDim)
         if poss is not None:
-            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -834,9 +834,9 @@ class AtomProcjetion:
             self.tipRot=tipRot
         if Eout is None:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
-            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+            if(verbose>0): print("FE.shape", Eout.shape, self.nDim)
         if poss is not None:
-            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -866,9 +866,9 @@ class AtomProcjetion:
             self.tipRot=tipRot
         if Eout is None:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
-            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+            if(verbose>0): print("FE.shape", Eout.shape, self.nDim)
         if poss is not None:
-            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -896,9 +896,9 @@ class AtomProcjetion:
             self.tipRot=tipRot
         if Eout is None:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
-            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+            if(verbose>0): print("FE.shape", Eout.shape, self.nDim)
         if poss is not None:
-            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -928,9 +928,9 @@ class AtomProcjetion:
             self.tipRot=tipRot
         if Eout is None:
             Eout = np.zeros( self.prj_dim, dtype=np.float32 )
-            if(verbose>0): print "FE.shape", Eout.shape, self.nDim
+            if(verbose>0): print("FE.shape", Eout.shape, self.nDim)
         if poss is not None:
-            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -960,7 +960,7 @@ class AtomProcjetion:
             #if(verbose>0): 
             #print "FE.shape", Eout.shape
         if poss is not None:
-            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -995,7 +995,7 @@ class AtomProcjetion:
             #if(verbose>0): 
             #print "FE.shape", Eout.shape
         if poss is not None:
-            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -1029,7 +1029,7 @@ class AtomProcjetion:
             #if(verbose>0): 
             #print "FE.shape", Eout.shape
         if poss is not None:
-            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
@@ -1064,7 +1064,7 @@ class AtomProcjetion:
             #if(verbose>0): 
             #print "FE.shape", Eout.shape
         if poss is not None:
-            if(verbose>0): print "poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size

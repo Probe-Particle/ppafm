@@ -26,14 +26,14 @@ mv CHGCAR.xsf tip
 
 echo "======= STEP 1 : Generate force-field grid "
 
-python $PPPATH/conv_rho.py     -s sample/CHGCAR.xsf -t tip/CHGCAR.xsf --Bpower 1.2 -E
-python $PPPATH/generateElFF.py -i sample/LOCPOT.xsf --tip_dens tip/CHGCAR.xsf --Rcore 0.7 -E
-python $PPPATH/generateLJFF.py -i sample/CHGCAR.xsf --ffModel vdW  -E
+python3 $PPPATH/conv_rho.py     -s sample/CHGCAR.xsf -t tip/CHGCAR.xsf --Bpower 1.2 -E
+python3 $PPPATH/generateElFF.py -i sample/LOCPOT.xsf --tip_dens tip/CHGCAR.xsf --Rcore 0.7 -E
+python3 $PPPATH/generateLJFF.py -i sample/CHGCAR.xsf --ffModel vdW  -E
 
 echo "======= STEP 2 : Relax Probe Particle using that force-field grid "
 
-python $PPPATH/relaxed_scan_PVE.py -k 0.25 -q 1.0 --Apauli 1.0 --bDebugFFtot
+python3 $PPPATH/relaxed_scan_PVE.py -k 0.25 -q 1.0 --Apauli 1.0 --bDebugFFtot
 
 echo "======= STEP 3 : Plot the results "
 
-python $PPPATH/plot_results.py -k 0.25 -q 1.0 -a 2.0 --df
+python3 $PPPATH/plot_results.py -k 0.25 -q 1.0 -a 2.0 --df

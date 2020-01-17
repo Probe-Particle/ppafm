@@ -2,8 +2,8 @@ import numpy as np
 from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
-import cpp_utils
-
+from . import cpp_utils
+#import cpp_utils
 
 '''
 LIB_PATH      = os.path.dirname( os.path.realpath(__file__) )
@@ -61,7 +61,7 @@ lib.getTypes.argtypes = []
 lib.getTypes.restype  = ctypes.POINTER(c_int)
 def getTypes(natom):
     ptr = lib.getTypes( )
-    print ptr 
+    print(ptr) 
     return np.ctypeslib.as_array( ptr, shape=(natom,))
 
 #double* getPoss (){ 
@@ -238,7 +238,7 @@ class RFF():
 
     def genRandom():
         #itypes  = np.random.randint( 2, size=natom, dtype=np.int32 ); print "itypes", itypes
-        self.itypes  = (np.random.rand( self.natom )*1.3 ).astype(np.int32); print "itypes", itypes
+        self.itypes  = (np.random.rand( self.natom )*1.3 ).astype(np.int32); print("itypes", itypes)
         setTypes( natom, self.itypes )
         self.poss [:,:]  = ( np.random.rand(self.natom,3)-0.5 ) * 10.0
         self.poss [:,2]  = 0.15
@@ -266,7 +266,7 @@ class RFF():
         self.relax( nstep )
         #fout.close()
         t2 = time.clock();
-        print "Relaxation time ", t2-t1
+        print("Relaxation time ", t2-t1)
 
 
 

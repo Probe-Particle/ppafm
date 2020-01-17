@@ -5,7 +5,8 @@ from   ctypes import c_int, c_double, c_char_p, c_bool
 import ctypes
 import os
 
-import cpp_utils
+from . import cpp_utils
+#import cpp_utils
 #import fieldFFT as SH
 
 
@@ -40,7 +41,7 @@ dErr_{a_j}/(-2) = <V|phi_j> - Sum_i{<phi_i|phi_j(r)>} - 2*aj
 # ==============================
 
 LIB_PATH = os.path.dirname( os.path.realpath(__file__) )
-if(verbose>0): print " ProbeParticle Library DIR = ", LIB_PATH
+if(verbose>0): print(" ProbeParticle Library DIR = ", LIB_PATH)
 
 # make_matrix 
 #	compute values of analytic basis functions set at given points in space and store in matrix "basis_set"  
@@ -164,7 +165,7 @@ def sampleGridArroundAtoms( atom_pos, atom_Rmin, atom_Rmax, atom_mask, pbc = Fal
     sampled_val  = np.zeros(  1    )
     sampled_pos  = np.zeros( (1,3) )
     points_found = lib.sampleGridArroundAtoms( natom, atom_pos, atom_Rmin, atom_Rmax, atom_mask, sampled_val, sampled_pos, False, pbc, False  )
-    if(verbose>0): print " found ",points_found," points "  
+    if(verbose>0): print(" found ",points_found," points ")  
     sampled_val  = np.zeros(  points_found    )
     sampled_pos  = np.zeros( (points_found,3) )
     points_found = lib.sampleGridArroundAtoms( natom, atom_pos, atom_Rmin, atom_Rmax, atom_mask, sampled_val, sampled_pos, True, pbc, show_where )
@@ -183,7 +184,7 @@ def buildLinearSystemMultipole( poss, vals, centers, types, Ws=None ):
     if Ws is None:
         Ws = np.ones(vals.shape)
     Wsum = lib.buildLinearSystemMultipole(len(poss),poss,vals,Ws, nbas, B, BB )
-    if(verbose>0): print "Wsum = ", Wsum
+    if(verbose>0): print("Wsum = ", Wsum)
     return B/Wsum,BB/Wsum
     
     
@@ -197,17 +198,17 @@ def regularizedLinearFit(B, BB, coefs=None, kReg=1.0,  dt=0.1, damp=0.1, convF=1
     if not isinstance(kReg,np.ndarray): 
         try:
             kReg = np.ones(n) * kReg 
-            if(verbose>0): print "kReg",kReg
+            if(verbose>0): print("kReg",kReg)
         except:
             try:
                 kReg = np.array(kReg)
-                if(verbose>0): print "kReg",kReg
+                if(verbose>0): print("kReg",kReg)
             except:
-                if(verbose>0): print " kReg must be either array,list,scalar"
+                if(verbose>0): print(" kReg must be either array,list,scalar")
                 return
     if coefs is None: 
         coefs = np.zeros(n)
-    if(verbose>0): print "kReg",kReg
+    if(verbose>0): print("kReg",kReg)
     lib.regularizedLinearFit( n, coefs, kReg, B, BB,    dt, damp, convF, nMaxSteps )
     return coefs
 

@@ -158,7 +158,7 @@ groupDict   = {
 
 #species = normalizeSpeciesProbs(species)
 plevels = ch.speciesToPLevels(species)
-print "plevels", plevels
+print("plevels", plevels)
 #exit()
 
 def plotCycles(cpos=None,vpos=None,nvs=None):
@@ -184,7 +184,7 @@ if __name__ == "__main__":
     nvs=np.random.choice([5,6,7],size=Nring,p=[0.2,0.6,0.2] )
     #nvs=np.random.choice([4,5,6,7],size=Nring,p=[0.05,0.2,0.65,0.1] )
     #nvs = np.ones()*6
-    print "nvs: " ,nvs
+    print("nvs: " ,nvs)
     
     #nv = pcff.setup( np.array(nvs,np.int32) )
     #ring_pos,vpos=pcff.getPos(Nring,nv)
@@ -245,16 +245,16 @@ if __name__ == "__main__":
     bonds,_ = ch.tris2num_(tris, bonds_)
     
     # ------ remove some atoms
-    print "pre:len ", len(atom_pos)
+    print("pre:len ", len(atom_pos))
     mask    = ch.removeBorderAtoms(atom_pos,cog,L)
-    print "remove atom mask ", mask
+    print("remove atom mask ", mask)
     bonds   = ch.validBonds( bonds, mask, len(atom_pos) )
-    print "rm:bonds ", bonds
+    print("rm:bonds ", bonds)
     atom2ring = atom2ring[mask,:]
     #print "rm:atom2ring ", atom2ring
     atom_pos  = atom_pos [mask,:]
     #print "rm:atom_pos ", atom_pos
-    print "rm:len ", len(atom_pos)
+    print("rm:len ", len(atom_pos))
     
     # ----- Hex mask
     #N6mask = (ring_natm[:]==ring_nngs[:])
@@ -264,17 +264,17 @@ if __name__ == "__main__":
                   np.logical_or( ring_N6mask[atom2ring[:,1]], 
                                  ring_N6mask[atom2ring[:,2]]  ) )
     
-    print "ring_natm ", ring_natm
-    print "ring_nngs ", ring_nngs
+    print("ring_natm ", ring_natm)
+    print("ring_nngs ", ring_nngs)
     #print "N6mask    ", N6mask   #;exit()
-    print "ring_N6mask", len(ring_N6mask), ring_N6mask
-    print "atom_N6mask", len(atom_N6mask), atom_N6mask
+    print("ring_N6mask", len(ring_N6mask), ring_N6mask)
+    print("atom_N6mask", len(atom_N6mask), atom_N6mask)
 
     bonds = np.array(bonds)
     #print "tbonds_  ",tbonds_ 
     
     neighs  = ch.bonds2neighs( bonds, len(atom_pos) )
-    print neighs
+    print(neighs)
     
     #tris_ = ch.tris2num(tris)
     #print "tris_ ", tris_
@@ -285,7 +285,7 @@ if __name__ == "__main__":
     atypes=nngs.copy()-1
     #atypes[atom_N6mask]=0
     atypes[atom_N6mask]=3
-    print "atypes ", atypes
+    print("atypes ", atypes)
     
     '''
     Eb2=+0.1
@@ -297,7 +297,7 @@ if __name__ == "__main__":
     ])
     '''
     
-    print " ================= Reax BO "
+    print(" ================= Reax BO ")
     
     typeEs = ch.simpleAOEnergies( E12=0.5, E22=+0.5, E32=+0.5 )
     
@@ -313,7 +313,7 @@ if __name__ == "__main__":
     #bo,ao = ch.relaxBondOrder( bonds, typeMasks, typeFFs, Nstep=50, dt=0.1, EboStart=0.0,  EboEnd=10.0,boStart=bo )
     #bo,ao = ch.relaxBondOrder( bonds, typeMasks, typeFFs, Nstep=20, dt=0.1, EboStart=10.0, EboEnd=10.0,boStart=bo )
     
-    print "ao ", ao[:6]
+    print("ao ", ao[:6])
     
     # ======== save XYZ
     
@@ -336,10 +336,10 @@ if __name__ == "__main__":
     #    if(groups[i]=="-NH2"):
     #        groups[i]="#CH"
     
-    print "groups ", groups
+    print("groups ", groups)
     xyzs_g, elems_g = ch.groups2atoms( groups, neighs, xyzs )
-    print "elems ", elems_g
-    print "elems ", xyzs_g
+    print("elems ", elems_g)
+    print("elems ", xyzs_g)
     au.saveXYZ( elems_g,xyzs_g, "test_PolyCycles_g.xyz" )
     
     # ======== Plot
@@ -357,7 +357,7 @@ if __name__ == "__main__":
         pb=ring_pos[b,:]
         plt.plot( pb[:,0],pb[:,1],'-b' )
     
-    print atom_pos.shape, atom_N6mask.shape
+    print(atom_pos.shape, atom_N6mask.shape)
     plt.plot(atom_pos[atom_N6mask,0],atom_pos[atom_N6mask,1],"ow")
     
     

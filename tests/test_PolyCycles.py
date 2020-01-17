@@ -53,7 +53,7 @@ def make_anim(getData,fig,nframes,interval=200):
     def update(frame):
         global iframe
         iframe +=1
-        print "FRAME ", iframe
+        print("FRAME ", iframe)
         #xs,ys,sz = getData(frame)
         #ln.set_data(xs,ys)
         cpos,sz,vpos = getData(frame)
@@ -61,14 +61,14 @@ def make_anim(getData,fig,nframes,interval=200):
         vplot.set_data(vpos[:,0],vpos[:,1])
         return scat,vplot,
     #ani = FuncAnimation(fig, update, frames=range(nframes), init_func=init, blit=True, interval=interval)
-    ani = FuncAnimation(fig, update, frames=range(nframes), blit=True, interval=interval)
+    ani = FuncAnimation(fig, update, frames=list(range(nframes)), blit=True, interval=interval)
     return ani
 
 if __name__ == "__main__":
     N    = 6
     #nvs  = np.random.randint( 3,8, N, dtype=np.int32 );       print "nvs:   ", nvs
-    nvs  = np.random.randint( 5,8, N, dtype=np.int32 );       print "nvs:   ", nvs
-    rots = np.random.rand    ( N ) * np.pi*2;                 print "rots:  ", rots
+    nvs  = np.random.randint( 5,8, N, dtype=np.int32 );       print("nvs:   ", nvs)
+    rots = np.random.rand    ( N ) * np.pi*2;                 print("rots:  ", rots)
     nv = pcff.setup(nvs)
     #print "nv: ", nv
     #cpos = pcff.getCpos(N)
@@ -79,8 +79,8 @@ if __name__ == "__main__":
     #cpos[:,1]*=20.0;
     cpos[:,0]=np.arange(N)*2.5
     cpos[:,1]=np.sin(cpos[:,0]*0.3)
-    print "cpos: ", cpos
-    print "vpos: ", vpos
+    print("cpos: ", cpos)
+    print("vpos: ", vpos)
 
     import matplotlib.pyplot as plt
     #plt.figure(); plotCycles(cpos=cpos)
@@ -100,7 +100,7 @@ if __name__ == "__main__":
         return cpos, Rs, vpos
     
     ani = make_anim(getDate, plt.gcf(), 10, interval=10 )
-    print "vpos: ", vpos
+    print("vpos: ", vpos)
     #print "vpos: ", vpos
     
     #plt.figure(); plotCycles(cpos=cpos,vpos=vpos,nvs=nvs)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-masks="*.pyc *.pyd *.o *.so *.x      *.png *.jpg *.jpeg *.eps *.ps *.pdf    *.out   *~"
+masks="*.pyc *.pyd *.o *.so *.x *.xsf      *.png *.jpg *.jpeg *.eps *.ps *.pdf    *.out   *~"
 
 if [[ $1 = "y" ]]; then
     echo "find, print, delete" 

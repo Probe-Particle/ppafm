@@ -31,10 +31,10 @@ def CG( A, b, x, nMaxIter=10, Econv=1e-10, bPrint=True ):
     Eold  = np.dot( r, r )
     Ap, a = CGx( A, x, p, Eold )
     Enew  = CGr( r, Ap, a )
-    for itr in xrange(nMaxIter):
+    for itr in range(nMaxIter):
         Enew,Eold = CGstep( A, x, p, r, Enew, Eold )
         if bPrint:
-            print " CG[%i] error:  " %itr, np.sqrt(Enew)
+            print(" CG[%i] error:  " %itr, np.sqrt(Enew))
         if Enew < E2conv:
               break
     return x

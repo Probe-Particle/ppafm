@@ -7,7 +7,7 @@
 
 # https://stackoverflow.com/questions/22508593/numpy-polyfit-or-any-fitting-to-x-and-y-multidimensional-arrays
 
-from __future__ import unicode_literals
+
 import sys
 import os
 import time
@@ -40,7 +40,7 @@ def evalPoly(xs, coefs):
 #Fdata = np.load("pos.xyz_Fout_z.npy")
 Fdata = np.load("Fout_z.npy")
 sh = Fdata.shape
-print "Fdata.shape ", Fdata.shape
+print("Fdata.shape ", Fdata.shape)
 
 iz0 = 5
 
@@ -66,11 +66,11 @@ ps = np.array([
 xs = np.linspace(0.0,1.0,sh[2])
 ys = Fdata.reshape( -1,sh[2])
 coefs = np.polynomial.polynomial.polyfit(xs, ys.T, npoly )
-print "coefs.shape", coefs.shape
+print("coefs.shape", coefs.shape)
 ys_ = evalPoly(xs, coefs)
 
-print "ys .shape ", ys .shape
-print "ys_.shape ", ys_.shape
+print("ys .shape ", ys .shape)
+print("ys_.shape ", ys_.shape)
 
 Fdata_ = ys_.reshape(sh[0],sh[1],-1)
 
@@ -88,7 +88,7 @@ plt.savefig( "polyfit_curves.png", bbox_inchjes = 'tight' )
 
 #for iz in [0,4,8,12,16]:
 for iz in range(sh[2]):
-    print "plot slice", iz
+    print("plot slice", iz)
     plt.figure(figsize=(10,5))
     plt.subplot(1,2,1); plt.imshow( Fdata [:,:,iz] ); plt.colorbar()
     plt.subplot(1,2,2); plt.imshow( Fdata_[:,:,iz] ); plt.colorbar()

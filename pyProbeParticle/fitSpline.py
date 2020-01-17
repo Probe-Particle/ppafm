@@ -2,7 +2,8 @@ import numpy as np
 from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
-import cpp_utils
+from . import cpp_utils
+#import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)
@@ -47,7 +48,7 @@ def convolve1D(coefs, x, y=None, di=1 ):
         else: 
             nx/=di
             y = np.zeros( nx )
-    print "di ", di, m
+    print("di ", di, m)
     lib.convolve1D( m, di, nx, _np_as(coefs,c_double_p), _np_as(x,c_double_p), _np_as(y,c_double_p)) 
     return y
 
@@ -98,13 +99,13 @@ lib.fit_tensorProd_2D.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, 
 lib.fit_tensorProd_2D.restype   =  None
 def fit_tensorProd_2D( BYref=None, Yref=None, basis_coefs=None, kernel_coefs=None, Ycoefs=None, maxIters=100, maxErr=1e-6, di=1, nConvPerCG=1 ):
     if BYref is None:
-        print " fit_tensorProd BYref = Basis * Yref "
+        print(" fit_tensorProd BYref = Basis * Yref ")
         BYref = convolve2D_tensorProduct( basis_coefs, Yref, di=di )
     if Ycoefs is None: Ycoefs = np.zeros(BYref.shape)
     nx,ny=BYref.shape
-    print " >> fit_tensorProd ... "
+    print(" >> fit_tensorProd ... ")
     if kernel_coefs is None:
-        print " NO KERNEL => use basis with nConvPerCG==2"
+        print(" NO KERNEL => use basis with nConvPerCG==2")
         lib.fit_tensorProd_2D( len(basis_coefs)/2, nx, ny, _np_as(basis_coefs,c_double_p), _np_as(BYref,c_double_p), _np_as(Ycoefs,c_double_p), maxIters, maxErr, 2 )
     else:
         nker = len(kernel_coefs)
@@ -117,13 +118,13 @@ lib.fit_tensorProd_3D.argtypes  = [c_int, c_int, c_int, c_int, c_double_p, c_dou
 lib.fit_tensorProd_3D.restype   =  None
 def fit_tensorProd_3D( BYref=None, Yref=None, basis_coefs=None, kernel_coefs=None, Ycoefs=None, maxIters=100, maxErr=1e-6, di=1, nConvPerCG=1  ):
     if BYref is None:
-        print " fit_tensorProd BYref = Basis * Yref "
+        print(" fit_tensorProd BYref = Basis * Yref ")
         BYref = convolve3D_tensorProduct( basis_coefs, Yref, di=di )
     if Ycoefs is None: Ycoefs = np.zeros(BYref.shape)
     nx,ny,nz=BYref.shape
-    print " >> fit_tensorProd ... "
+    print(" >> fit_tensorProd ... ")
     if kernel_coefs is None:
-        print " NO KERNEL => use basis with nConvPerCG==2"
+        print(" NO KERNEL => use basis with nConvPerCG==2")
         lib.fit_tensorProd_3D( len(basis_coefs)/2, nx, ny, nz, _np_as(basis_coefs,c_double_p), _np_as(BYref,c_double_p), _np_as(Ycoefs,c_double_p), maxIters, maxErr, 2 )
     else:
         nker = len(kernel_coefs)
@@ -151,7 +152,7 @@ def step_fit_tensorProd():
 def upSwizzle( coefs, di ):
     n = int( np.ceil(float(len(coefs))/di) )
     cs = np.zeros((di,n))
-    print "cs.shape ", cs.shape
+    print("cs.shape ", cs.shape)
     for i in range(di):
         csi     = coefs[i::di]
         cs[i,-len(csi):] = csi 
@@ -205,7 +206,7 @@ def conv1D(xs,ys):
     ys_ = np.zeros(ntot)
     dnx=(nx/2)+1
     dny=(ny/2)+1
-    print nx,ny,ntot, dnx, dny, len(xs_[dny:-dny])
+    print(nx,ny,ntot, dnx, dny, len(xs_[dny:-dny]))
     xs_[dny:-dny-1] = xs
     ys_[dnx:-dnx-1] = ys
     conv = np.real(np.fft.ifft((np.fft.fft(xs_)*np.fft.fft(ys_))))  # Keep it Real !
@@ -227,9 +228,9 @@ if __name__ == "__main__":
         plt.colorbar()
 
     #sp=BsplineCubic(np.array([-2,-1.,0.,1.,2.])); print sp, sp.sum()
-    sp=BsplineCubic(np.array([-2.0,-1.5,-1.0,-0.5,0.,0.5,1.,1.5,2.])) ; print sp/sp.sum()
+    sp=BsplineCubic(np.array([-2.0,-1.5,-1.0,-0.5,0.,0.5,1.,1.5,2.])) ; print(sp/sp.sum())
     coefs3_2 = np.array([ 0.01041667, 0.08333333, 0.23958333, 0.33333333, 0.23958333, 0.08333333, 0.01041667 ])  # *2
-    print "np.outer(coefs3_2,coefs3_2).sum() ", np.outer(coefs3_2,coefs3_2).sum()
+    print("np.outer(coefs3_2,coefs3_2).sum() ", np.outer(coefs3_2,coefs3_2).sum())
     #coefs3_2 = sp/sp.sum()
 
     np.set_printoptions( precision=None, linewidth=200 )
@@ -243,7 +244,7 @@ if __name__ == "__main__":
     
 
 
-    coefs3_ker = conv1D(coefs3_2,coefs3_2)    ; print coefs3_ker ; 
+    coefs3_ker = conv1D(coefs3_2,coefs3_2)    ; print(coefs3_ker) ; 
     coefs3_ker_down = coefs3_ker[:-2:2].copy()
     plt.plot( coefs3_2  ,'.-' )
     plt.plot( coefs3_ker,'.-' )
@@ -331,9 +332,9 @@ if __name__ == "__main__":
     y3D[5  ,7,  2] = 0
     y3D[3:5,3,4:7] = 0
 
-    print "coefs3 ", coefs3
+    print("coefs3 ", coefs3)
     y3D_conv  = convolve3D_tensorProduct( coefs3, y3D, di=1 )
-    print "min,max y3d_conv ", y3D_conv.min(), y3D_conv.max()
+    print("min,max y3d_conv ", y3D_conv.min(), y3D_conv.max())
 
 
     iz_view = 4 
@@ -343,7 +344,7 @@ if __name__ == "__main__":
     plt.subplot(1,2,1); plt.imshow( y3D     [iz_view], interpolation=interp ); plt.title("input: coefs"); plt.colorbar()
     plt.subplot(1,2,2); plt.imshow( y3D_conv[iz_view], interpolation=interp ); plt.title("input: Yfunc"); plt.colorbar()
     
-    import GridUtils as GU
+    from . import GridUtils as GU
     lvec0 = [[0.,0,0],[1.,0,0],[0.,1,0],[0.,0,1]]
     GU.saveXSF( "y2d.xsf",      y3D, lvec0 )
     GU.saveXSF( "y2d_conv.xsf", y3D_conv, lvec0 )

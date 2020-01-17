@@ -60,7 +60,7 @@ def getLines( lst, atoms ):
 PPU.loadParams( 'params.ini' )
 FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
 #FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-elem_dict       = PPU.getFFdict(FFparams); print elem_dict
+elem_dict       = PPU.getFFdict(FFparams); print(elem_dict)
 
 atoms,nDim,lvec = basUtils.loadGeometry("input_plot_mod0.xyz", params=PPU.params)
 #atoms,nDim,lvec = basUtils.loadGeometry("Ag1.xyz", params=PPU.params)
@@ -74,7 +74,7 @@ lines = getLines( lst, atoms );  #print lines
 PPU.params['probeType'] = "Xe"; #print "PPU.params['probeType'] : ", PPU.params['probeType']
 cLJs    = PPU.getAtomsLJ( PPU.atom2iZ( PPU.params['probeType'], elem_dict ),  iZs, FFparams )
 
-print "cLJs",cLJs; np.savetxt("cLJs_2D.dat", cLJs); 
+print("cLJs",cLJs); np.savetxt("cLJs_2D.dat", cLJs); 
 
 
 
@@ -96,7 +96,7 @@ for i,(p1,p2,nps,label) in enumerate(lines):
     plt.subplot(2,1,1); plt.plot( ps[:,2], FEs[:,2], ls=lss[i][0], c=lss[i][1], label=label ); #vminF = min( vminF, np.nanmin(FEs[:,2]) )
     #plt.subplot(2,1,1); plt.plot( (ps[1:,2]+ps[:-1,2])*0.5, -(FEs[1:,3]-FEs[:-1,3])/(ps[1:,2]-ps[:-1,2]) );
     plt.subplot(2,1,2); plt.plot( ps[:,2], FEs[:,3], ls=lss[i][0], c=lss[i][1], label=label ); #vminE = min( vminE, np.nanmin(FEs[:,3]) )
-    print "vminF, vminE : ", vminF, vminE
+    print("vminF, vminE : ", vminF, vminE)
 
 plt.subplot(2,1,1); plt.ylim( vminF*scy, -vminF*scy ); plt.axhline(0,ls='--',c='k'); plt.xlabel("z [A]"); plt.ylabel("fz [eV/A]"); plt.legend()
 plt.subplot(2,1,2); plt.ylim( vminE*scy, -vminE*scy ); plt.axhline(0,ls='--',c='k'); plt.xlabel("z [A]"); plt.ylabel("E  [eV]")

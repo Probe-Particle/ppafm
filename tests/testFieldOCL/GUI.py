@@ -4,7 +4,7 @@
 # https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
-from __future__ import unicode_literals
+
 import sys
 import os
 import time
@@ -82,8 +82,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
     
-        print "oclu.ctx    ", oclu.ctx
-        print "oclu.queue  ", oclu.queue
+        print("oclu.ctx    ", oclu.ctx)
+        print("oclu.queue  ", oclu.queue)
     
         FFcl.init()
         oclr.init()
@@ -223,14 +223,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         poss         = FFcl.getposs( self.lvec )
         self.ff_nDim = poss.shape[:3]
-        print "ff_dim", self.ff_nDim
+        print("ff_dim", self.ff_nDim)
         self.ff_args = FFcl.initArgsLJC( self.atoms, self.cLJs, poss )
 
     def getFF(self):
         t1 = time.clock() 
         self.FF    = FFcl.runLJC( self.ff_args, self.ff_nDim )
         self.plot_FF = True
-        t2 = time.clock(); print "FFcl.runLJC time %f [s]" %(t2-t1)
+        t2 = time.clock(); print("FFcl.runLJC time %f [s]" %(t2-t1))
         self.plotSlice()
         
     def relax(self):
@@ -242,13 +242,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #self.FEout = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss, FEin=self.FEin, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
         #self.FEout = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss )
         #oclr.saveResults()
-        t2 = time.clock(); print "oclr.relax time %f [s]" %(t2-t1)
+        t2 = time.clock(); print("oclr.relax time %f [s]" %(t2-t1))
         self.F2df()
     
     def upload_and_relax(self):
         self.Q  = self.bxQ.value()
         self.FEin[:,:,:,:] = self.FF[:,:,:,:4] + self.Q*self.FF[:,:,:,4:] 
-        region = self.FEin.shape[:3]; region = region[::-1]; print "upload FEin : ", region
+        region = self.FEin.shape[:3]; region = region[::-1]; print("upload FEin : ", region)
         cl.enqueue_copy( oclr.oclu.queue, self.relax_args[0], self.FEin, origin=(0,0,0), region=region  )
         self.relax()
         
@@ -257,7 +257,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if nAmp > 0:
             t1 = time.clock() 
             self.df = -PPU.Fz2df( np.transpose( self.FEout[:,:,:,2], (2,0,1) ), dz=0.1, k0=1800.0, f0=30300.0, n=nAmp )
-            t2 = time.clock(); print "F2df time %f [s]" %(t2-t1)
+            t2 = time.clock(); print("F2df time %f [s]" %(t2-t1))
         else:
             self.df = None
         self.plot_FF = False
@@ -273,12 +273,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         else:
             Fslice = self.FEout[:,:,self.FEout.shape[2]-val-1,2]
         self.mplc1.plotSlice( Fslice )
-        t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
+        t2 = time.clock(); print("plotSlice time %f [s]" %(t2-t1))
 
     def saveFig(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
         if fileName:
-            print "saving image to :", fileName
+            print("saving image to :", fileName)
             self.mplc1.fig.savefig( fileName,bbox_inches='tight')
 
 if __name__ == "__main__":

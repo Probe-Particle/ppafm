@@ -5,7 +5,7 @@
 import os
 import sys
 import numpy as np
-import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver"; # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
+import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 import matplotlib.pyplot as plt
 #import GridUtils as GU
 import pyProbeParticle.GridUtils      as GU
@@ -39,7 +39,7 @@ bonds = None
 if options.atoms:
     atoms = basUtils.loadAtoms( options.atoms )
     if os.path.isfile( 'atomtypes.ini' ):
-        print ">> LOADING LOCAL atomtypes.ini"  
+        print(">> LOADING LOCAL atomtypes.ini")  
         FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
@@ -64,16 +64,16 @@ data,lvec,nDim=GU.load_scal_field( options.i ,data_format=data_format)
 #print lvec
 #print nDim
 
-print " # ============  Plot Relaxed Scan 3D "
+print(" # ============  Plot Relaxed Scan 3D ")
 if options.izs:
-    slices = range( options.izs[0], options.izs[1], options.izs[2] )
+    slices = list(range( options.izs[0], options.izs[1], options.izs[2]))
 else:
-    slices = range( 0, len(data) )
+    slices = list(range( 0, len(data)))
 #print slices
 extent=( 0.0, lvec[1][0], 0.0, lvec[2][1])
 
 for ii,i in enumerate(slices):
-    print " plotting ", i
+    print(" plotting ", i)
     plt.figure( figsize=( 10,10 ) )
     if options.vrange:
         plt.imshow( data[i], origin='image', interpolation='bicubic', cmap=options.cmap, extent=extent, vmin=options.vrange[0], vmax=options.vrange[1])
@@ -88,4 +88,4 @@ for ii,i in enumerate(slices):
     plt.savefig( options.i+'_%04i.png' %i, bbox_inches='tight' )
 
 
-print " ***** ALL DONE ***** "
+print(" ***** ALL DONE ***** ")

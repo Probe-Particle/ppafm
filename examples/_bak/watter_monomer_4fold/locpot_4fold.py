@@ -7,7 +7,7 @@ import sys
 
 LWD = '/home/prokop/git/ProbeParticleModel/code' 
 
-print " # ========== make & load  ProbeParticle C++ library " 
+print(" # ========== make & load  ProbeParticle C++ library ") 
 
 def makeclean( ):
 	import os
@@ -16,14 +16,14 @@ def makeclean( ):
 	[ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
 
 CWD = os.getcwd()
-os.chdir(LWD);       print " >> WORKDIR: ", os.getcwd()
+os.chdir(LWD);       print(" >> WORKDIR: ", os.getcwd())
 makeclean( )
 sys.path.insert(0, "./")
 import GridUtils as GU
 import ProbeParticle as PP
-os.chdir(CWD);  print " >> WORKDIR: ", os.getcwd()
+os.chdir(CWD);  print(" >> WORKDIR: ", os.getcwd())
 
-print " ============= RUN  "
+print(" ============= RUN  ")
 
 F,lvec,nDim,head=GU.loadXSF('LOCPOT.xsf')
 

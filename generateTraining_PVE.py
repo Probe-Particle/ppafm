@@ -21,7 +21,7 @@ file_format = "xsf"
 PPU.loadParams( 'params.ini' )
 
 if os.path.isfile( 'atomtypes.ini' ):
-    print ">> LOADING LOCAL atomtypes.ini"  
+    print(">> LOADING LOCAL atomtypes.ini")  
     FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
 else:
     FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
@@ -36,11 +36,11 @@ rho_tip ,lvec_t,  ndim_t  = GU.load_scal_field( "rho_tip" ,data_format=file_form
 #PPU      .params['gridN'] = ndim_t 
 PPU      .params['gridN'] = ndim_t[::-1]; 
 PPU.params['gridA'] = lvec_t[1]; PPU.params['gridB'] = lvec_t[2]; PPU.params['gridC'] = lvec_t[3] # must be before parseAtoms
-print PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC']
+print(PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC'])
 
 FF,V                = PPH.prepareArrays( None, False )
 
-print "FFLJ.shape",FF.shape 
+print("FFLJ.shape",FF.shape) 
 PPC.setFF_shape( np.shape(FF), lvec_t )
 
 base_dir = os.getcwd()

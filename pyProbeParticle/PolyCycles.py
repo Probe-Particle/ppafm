@@ -2,7 +2,8 @@ import numpy as np
 from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
-import cpp_utils
+from . import cpp_utils
+#import cpp_utils
 
 cpp_name='PolyCycles'
 #cpp_utils.compile_lib( cpp_name  )

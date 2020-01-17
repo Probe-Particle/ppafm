@@ -11,7 +11,7 @@ import elements
 
 def makeclean( ):
 	LIB_PATH = os.path.dirname( os.path.realpath(__file__) )
-	print " ProbeParticle Library DIR = ", LIB_PATH
+	print(" ProbeParticle Library DIR = ", LIB_PATH)
 	CWD=os.getcwd()
 	os.chdir(LIB_PATH)
 	os.system("make clean")
@@ -39,7 +39,7 @@ atom_bas = [
 '''
 
 atom_bas = MP.make_bas_list( [ len( atom_pos ) ] )
-print "bas_list:", atom_bas
+print("bas_list:", atom_bas)
 
 atom_Rmin = np.array( [ 1.0,   1.0,  1.0,   1.0 ] );
 atom_Rmax = np.array( [ 2.0,   2.0,  2.0,   2.0 ] ); 

@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-print " # ========== make & load  ProbeParticle C++ library " 
+print(" # ========== make & load  ProbeParticle C++ library ") 
 
 LWD = '/home/prokop/git/ProbeParticleModel/code' 
 sys.path = [ LWD ]
@@ -16,17 +16,17 @@ import GridUtils as GU
 import ProbeParticle as PP
 import PPPlot
 
-print " ============= RUN  "
+print(" ============= RUN  ")
 
-print " >> WARNING!!! OVEWRITING SETTINGS by params.ini  "
+print(" >> WARNING!!! OVEWRITING SETTINGS by params.ini  ")
 
 PP.loadParams( 'params.ini' )
 
 PPPlot.params = PP.params
 
-print " load Electrostatic Force-field "
+print(" load Electrostatic Force-field ")
 FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
-print " load Lenard-Jones Force-field "
+print(" load Lenard-Jones Force-field ")
 FFLJ, lvec, nDim, head = GU.loadVecFieldXsf( "FFLJ" )
 PP.lvec2params( lvec )
 PP.setFF( FFel )
@@ -53,14 +53,14 @@ for iq,Q in enumerate( Qs ):
 		GU.saveXSF( dirname+'/OutFz.xsf', fzs, lvecScan, GU.XSF_HEAD_DEFAULT )
 		for iA,Amp in enumerate( Amps ):
 			AmpStr = "/Amp%2.2f" %Amp
-			print "Amp= ",AmpStr
+			print("Amp= ",AmpStr)
 			os.makedirs( dirname+AmpStr )
 			dz  = PP.params['scanStep'][2]
 			dfs = PP.Fz2df( fzs, dz = dz, k0 = PP.params['kCantilever'], f0=PP.params['f0Cantilever'], n=Amp/dz )
 			extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
-			PPPlot.plotImages( dirname+AmpStr+"/df", dfs, slices = range( 0, len(dfs) ), extent=extent )
+			PPPlot.plotImages( dirname+AmpStr+"/df", dfs, slices = list(range( 0, len(dfs))), extent=extent )
 
-print " ***** ALL DONE ***** "
+print(" ***** ALL DONE ***** ")
 
 #plt.show()
 

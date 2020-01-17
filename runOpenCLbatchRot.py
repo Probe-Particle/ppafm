@@ -4,7 +4,7 @@
 # https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
-from __future__ import unicode_literals
+
 import sys
 import os
 import shutil
@@ -14,7 +14,7 @@ import matplotlib;
 import numpy as np
 from enum import Enum
 
-import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver";
+import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 import matplotlib.pyplot as plt
 
 #sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
@@ -69,7 +69,7 @@ dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
 stiffness    = np.array( [0.24,0.24,0.0, 30.0     ], dtype=np.float32 ); stiffness/=-16.0217662;
 dpos0    = np.array([0.0,0.0,0.0,4.0], dtype=np.float32 ); 
 dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); 
-print "dpos0 ", dpos0
+print("dpos0 ", dpos0)
 
 # === Functions
 
@@ -134,12 +134,12 @@ def loadSpecies(fname):
         with open(fname, 'r') as f:  
             str_Species = f.read(); 
     except:
-        print "defaul atomtypes.ini"
+        print("defaul atomtypes.ini")
         with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:  
             str_Species = f.read();
     str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in str_Species.split('\n')  )
-    print "str_Species"
-    print str_Species
+    print("str_Species")
+    print(str_Species)
     return PPU.loadSpeciesLines( str_Species.split('\n') )
 
 def evalFFatoms_LJC( atoms, cLJs, poss, func_runFF=FFcl.runLJC ):
@@ -166,27 +166,27 @@ def writeDebugXYZ( fname, lines, poss ):
 if __name__ == "__main__":
     rotations = genRotations( np.array([1.0,0.0,0.0]) , np.linspace(-np.pi/2,np.pi/2, 8) )
     #rotations = genRotations( np.array([1.0,0.0,0.0]) , np.linspace(-np.pi/2,np.pi/2, 1) )
-    print "rotations: ", rotations
+    print("rotations: ", rotations)
     #exit()
 
     typeParams = loadSpecies('atomtypes.ini')
     #lvec       = np.genfromtxt('cel.lvs') 
     #lvec       = np.insert( lvec, 0, 0.0, axis=0); 
-    print "lvec ", lvec
+    print("lvec ", lvec)
     invCell = oclr.getInvCell(lvec)
-    print "invCell ", invCell
+    print("invCell ", invCell)
     ff_nDim       = np.array([
                 int(round(pixPerAngstrome*(lvec[1][0]+lvec[1][1]))),
                 int(round(pixPerAngstrome*(lvec[2][0]+lvec[2][1]))),
                 int(round(pixPerAngstrome*(lvec[3][2]           )))
             ])
-    print "ff_nDim ", ff_nDim
+    print("ff_nDim ", ff_nDim)
     poss       = FFcl.getposs( lvec, ff_nDim )
-    print "poss.shape", poss.shape
+    print("poss.shape", poss.shape)
 
     for dirName in dirNames:
         t1tot = time.clock()
-        print " ==================", dirName
+        print(" ==================", dirName)
         t1prepare = time.clock();
         atom_lines =  open( dirName+"/pos.xyz" ).readlines()
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( atom_lines )
@@ -206,12 +206,12 @@ if __name__ == "__main__":
         Tff = time.clock()-t1ff;
         #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec ); 
 
-        print "FEin.shape ", FEin.shape;
+        print("FEin.shape ", FEin.shape);
         relax_args  = oclr.prepareBuffers( FEin, relax_dim )
         cl.enqueue_copy( oclr.oclu.queue, relax_args[0], FEin, origin=(0,0,0), region=FEin.shape[:3][::-1] )
 
         for irot,rot in enumerate(rotations):
-            print "rotation #",irot, rot
+            print("rotation #",irot, rot)
             subDirName = dirName + ("/rot%02i" %irot)
             if os.path.isdir(subDirName):
                 #os.rm(subDirName)
@@ -219,15 +219,15 @@ if __name__ == "__main__":
             os.makedirs( subDirName )
 
             imax,xdirmax  = maxAlongDir(atoms[:natoms], rot[2] )
-            print "imax ", imax, " xdirmax ", xdirmax
+            print("imax ", imax, " xdirmax ", xdirmax)
 
             pos0 = atoms[imax,:3] + rot[2] * distAbove;
             dTip [:3] = rot[2]*-0.1
             dpos0[:3] = rot[2]*-dpos0[3]
-            print "dots ", np.dot(rot[0],rot[1]), np.dot(rot[0],rot[2]), np.dot(rot[1],rot[2])
-            print "pos0", pos0, "\nrot", rot, "\ndTip", dTip, "\ndpos0", dpos0
+            print("dots ", np.dot(rot[0],rot[1]), np.dot(rot[0],rot[2]), np.dot(rot[1],rot[2]))
+            print("pos0", pos0, "\nrot", rot, "\ndTip", dTip, "\ndpos0", dpos0)
             relax_poss = oclr.preparePossRot( relax_dim, pos0, rot[0], rot[1], start=(-10.0,-10.0), end=(10.0,10.0) )
-            print "relax_poss.shape ",relax_poss.shape
+            print("relax_poss.shape ",relax_poss.shape)
             writeDebugXYZ( subDirName + "/debugPos0.xyz", atom_lines, relax_poss[::10,::10,:].reshape(-1,4) )
             #continue
             #exit()
@@ -251,7 +251,7 @@ if __name__ == "__main__":
             Tplot = time.clock()-t1plot;
 
             Ttot = time.clock()-t1tot;
-            print "Timing[s] Ttot %f Tff %f Trelax %f Tprepare %f Tplot %f " %(Ttot, Tff, Trelax, Tprepare, Tplot)
+            print("Timing[s] Ttot %f Tff %f Trelax %f Tprepare %f Tplot %f " %(Ttot, Tff, Trelax, Tprepare, Tplot))
         
         oclr.releaseArgs(relax_args)
 

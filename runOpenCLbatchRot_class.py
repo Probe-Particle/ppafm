@@ -4,7 +4,7 @@
 # https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
-from __future__ import unicode_literals
+
 import sys
 import os
 import shutil
@@ -14,7 +14,7 @@ import matplotlib;
 import numpy as np
 from enum import Enum
 
-import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver";
+import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 import matplotlib.pyplot as plt
 
 from   pyProbeParticle import basUtils
@@ -63,8 +63,8 @@ if __name__ == "__main__":
     #print "rotations: ", rotations
 
     typeParams = hl.loadSpecies('atomtypes.ini')
-    ff_dim     = hl.genFFSampling(lvec, pixPerAngstrome );  print "ff_dim ", ff_dim
-    poss       = FFcl.getposs( lvec, ff_dim );              print "poss.shape ", poss.shape
+    ff_dim     = hl.genFFSampling(lvec, pixPerAngstrome );  print("ff_dim ", ff_dim)
+    poss       = FFcl.getposs( lvec, ff_dim );              print("poss.shape ", poss.shape)
 
     forcefield = FFcl.ForceField_LJC()
 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     scanner.stiffness    = stiffness
 
     for dirName in dirNames:
-        print " ==================", dirName
+        print(" ==================", dirName)
         t1ff = time.clock();
         atom_lines = open( dirName+"/pos.xyz" ).readlines()
         #FF, atoms, natoms0 =  hl.makeFF_LJC( poss, atom_lines, typeParams, iZPP, lvec, npbc=(1,1,1) )
@@ -91,7 +91,7 @@ if __name__ == "__main__":
         #forcefield..releaseBuffers()
 
         FEin  = FF[:,:,:,:4] + Q*FF[:,:,:,4:];   del FF
-        Tff = time.clock()-t1ff;   print "Tff %f [s]" %Tff
+        Tff = time.clock()-t1ff;   print("Tff %f [s]" %Tff)
         #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec ); 
 
         scanner.prepareBuffers( FEin, lvec, scan_dim=scan_dim )
@@ -108,7 +108,7 @@ if __name__ == "__main__":
             pos0  = hl.posAboveTopAtom( atoms[:natoms0], rot[2], distAbove=distAbove )
             scanner.setScanRot( pos0, rot=rot, start=(-10.0,-10.0), end=(10.0,10.0) )
             FEout = scanner.run()
-            Tscan = time.clock()-t1scan;  print "Tscan %f [s]" %Tscan
+            Tscan = time.clock()-t1scan;  print("Tscan %f [s]" %Tscan)
 
             for isl in islices:
                 plt.imshow( FEout[:,:,isl,2] )
