@@ -235,7 +235,6 @@ def loadValenceElectronDict():
         #execfile( fname_valelec_dict )
         #print(" ==== Exec : " )
         namespace = {}
-        s = 
         #print( "s ==== ", s )
         exec( open(fname_valelec_dict).read(), namespace )
         #print(" ==== Valence electrons : " )

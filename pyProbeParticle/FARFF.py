@@ -1,8 +1,41 @@
+'''
+
+Flexible Atom sp-hybridization forcefield
+ - each atom has 4 atomic orbitals of 3 types { sigma-bond, election-pair, pi-pond }
+ - there are two kinds of interaction "onsite" and "bond"
+ - "onsite" interaction
+    - sigma and e-pair try to maximize angle between them ( leadign to tetrahedral configuration )
+    - pi orbitals try to orhogonalize
+ - "bond" interaction
+    - spring constant for bonds
+    - pi-pi alignment
+
+see.
+
+cpp/FARFF.h
+cpp/FARFF.cpp
+
+
+# === problem with relative imports in python-3     see :  https://stackoverflow.com/questions/11536764/how-to-fix-attempted-relative-import-in-non-package-even-with-init-py/27876800#27876800
+'''
+
+
 import numpy as np
 from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
-from . import cpp_utils
+import sys
+
+if __name__ == '__main__':
+    if __package__ is None:
+        sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) ) )
+        #from components.core import GameLoopEvents
+        import cpp_utils
+    else:
+        #from ..components.core import GameLoopEvents
+        from . import cpp_utils
+
+#from . import cpp_utils
 #import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
@@ -184,11 +217,14 @@ def makeGridFF( fff, dx=0.1, dy=0.1 ):
 
 if __name__ == "__main__":
     #import basUtils as bu
-    from . import atomicUtils as au
-    import sys
-    from . import GLView as glv
-    import time
 
+    import time
+    if __package__ is None:
+        import atomicUtils as au
+        import GLView as glv
+    else:
+        from . import atomicUtils as au
+        from . import GLView as glv
 
     fff = sys.modules[__name__]
     xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")     #; print xyzs

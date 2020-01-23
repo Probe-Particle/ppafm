@@ -5,7 +5,7 @@ Flexible Atom sp-hybridization forcefield
  - each atom has 4 atomic orbitals of 3 types { sigma-bond, election-pair, pi-pond }
  - there are two kinds of interaction "onsite" and "bond"
  - "onsite" interaction
-    - sigma and epair try to maximize angle between them ( leadign to tetrahedral configuration )
+    - sigma and e-pair try to maximize angle between them ( leadign to tetrahedral configuration )
     - pi orbitals try to orhogonalize
  - "bond" interaction
     - spring constant for bonds
