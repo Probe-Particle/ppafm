@@ -316,8 +316,8 @@ class Generator(Sequence,):
             self.lvec = lvec
         self.pixPerAngstrome=pixPerAngstrome
 
-        self.molecules = molecules
-        self.rotations = rotations
+        self.molecules  = molecules
+        self.rotations  = rotations
         self.batch_size = batch_size
 
         #self.labels = labels
@@ -429,6 +429,11 @@ class Generator(Sequence,):
             np.random.shuffle( permut )
             self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
 
+
+    def perform_imaging( geom ):
+        self.initFF()
+        return self.next1()
+
     def __next__(self):
         '''
         callback for each iteration of generator
@@ -442,6 +447,63 @@ class Generator(Sequence,):
             return self.next2()
         if(bRunTime): print("runTime(Generator.next()) [s]: ", time.clock()-t0)
 
+    def getTsDim(self, Ymode=None):
+        if Ymode is None:
+            Ymode=self.Ymode 
+        if Ymode == 'D-S-H':
+            return self.scan_dim[:2] + (3,)
+        elif Ymode == 'MultiMapSpheres':
+            return self.scan_dim[:2] + (self.nChan,)
+        elif Ymode == 'SpheresType': 
+            return self.scan_dim[:2] + (len(self.typeSelection),)
+        elif Ymode in {'ElectrostaticMap','AtomsAndBonds'}: 
+            return self.scan_dim[:2] + (2,)
+        elif Ymode == 'xyz': 
+            return (self.Nmax_xyz,4) )
+        else:
+            return self.scan_dim[:2]
+
+    def next_simple(self):
+        if(bRunTime): t0=time.clock()
+        Xs = np.empty( self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
+        Ys = np.empty( self.getTsDim() )
+
+        self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
+
+        # ------ Make Force-Field
+        if self.projector is not None:
+            self.projector.tryReleaseBuffers()
+
+        print( "self.molecules[self.imol] ", self.molecules, self.imol )
+        self.molName =  self.molecules[self.imol]
+        self.nextMolecule( self.molName ) 
+
+        if self.bDfPerMol:
+            if self.randomize_nz and self.randomize_enabled : 
+                ndf = np.random.randint( self.nDfMin, self.nDfMax ) 
+            else:                      
+                ndf = self.nDfMax
+            if(verbose>0): print(" ============= ndf ", ndf) 
+            self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep )[0].astype(np.float32)
+
+        if self.bNoFFCopy:
+            self.scanner.updateFEin( self.forcefield.cl_FE )
+        else:
+            if(self.counter>0): # not first step
+                if(verbose>1): print("scanner.releaseBuffers()")
+                self.scanner.releaseBuffers()
+            self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+            self.scanner.preparePosBasis(self, start=self.scan_start, end=self.scan_end )
+
+        self.handleRotations()
+
+        # ------- Next-Rotation
+        self.nextRotation( Xs, Ys )
+        self.counter +=1
+
+        if(bRunTime): print("runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0)
+        return Xs, Ys
+    
     def next1(self):
         '''
         Generate one batch of data
@@ -450,19 +512,7 @@ class Generator(Sequence,):
         if(bRunTime): t0=time.clock()
         n  = self.batch_size
         Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
-
-        if self.Ymode == 'D-S-H':
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
-        elif self.Ymode == 'MultiMapSpheres': 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (self.nChan,) )
-        elif self.Ymode == 'SpheresType': 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (len(self.typeSelection),) )
-        elif self.Ymode in {'ElectrostaticMap','AtomsAndBonds'}: 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
-        elif self.Ymode == 'xyz': 
-            Ys = np.empty( (n,)+(self.Nmax_xyz,4) )
-        else:
-            Ys = np.empty( (n,)+ self.scan_dim[:2] )
+        Ys = np.empty( (n,) + self.getTsDim() )
 
         for ibatch in range(n):
             self.iepoch, self.imol, self.irot = self.getMolRotIndex( self.counter )
@@ -470,7 +520,6 @@ class Generator(Sequence,):
 
                 if self.projector is not None:
                     self.projector.tryReleaseBuffers()
-
 
                 print( "self.molecules[self.imol] ", self.molecules, self.imol )
                 self.molName =  self.molecules[self.imol]
@@ -543,19 +592,7 @@ class Generator(Sequence,):
         if(bRunTime): t0=time.clock()
         n  = self.nBestRotations
         Xs = np.empty( (n,)+ self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
-
-        if self.Ymode == 'D-S-H':
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (3,) )
-        elif self.Ymode == 'MultiMapSpheres': 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (self.nChan,) )
-        elif self.Ymode == 'SpheresType': 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (len(self.typeSelection),) )
-        elif self.Ymode in {'ElectrostaticMap','AtomsAndBonds'}: 
-            Ys = np.empty( (n,)+ self.scan_dim[:2] + (2,) )
-        elif self.Ymode == 'xyz': 
-            Ys = np.empty( (n,)+(self.Nmax_xyz,4) )
-        else:
-            Ys = np.empty( (n,)+ self.scan_dim[:2] )
+        Ys = np.empty( (n,) + self.getTsDim() )
 
         self.irot = 0
         for irot in range(n):

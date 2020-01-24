@@ -215,6 +215,59 @@ def makeGridFF( fff, dx=0.1, dy=0.1 ):
 
     return atomMapF, bondMapF
 
+class EngineFARFF():
+
+    NmaxIter      = 10000
+    NstepPerCheck = 10
+    Fconv         = 1.-6
+
+    # --- optimizer params
+    dt      = 0.05 
+    damp    = 0.2
+    f_limit = 100.0
+    l_limit = 0.2
+
+    def __init__(self):
+        pass
+
+    def preform_relaxation( self, geomIn, AtomMap, BondMap ):
+
+        fff = sys.modules[__name__]
+        self.natom  = len(geomIn)
+        self.ndof   = fff.reallocFF(natom)
+        self.norb   = ndof - natom
+        #atypes = fff.getTypes (natom)    ; print "atypes.shape ", atypes.shape
+        self.dofs   = fff.getDofs(self.ndof)       ; print("dofs.shape ", dofs.shape)
+        self.apos   = self.dofs[:natom]            ; print("apos.shape ", apos.shape)
+        self.opos   = self.dofs[natom:]            ; print("opos.shape ", opos.shape)
+
+        self.apos[:,:] = geomIn[:,:] #
+
+        # --- subtract center of mass
+        cog = np.sum( self.apos, axis=0 )
+        cog*=(1./natom)
+        self.apos -= cog[None,:]
+
+        fff.setupFF(n=natom)   # use default atom type
+        fff.setGridShape( atomMapF.shape[:3], lvec )
+        fff.bindGrids( atomMapF, bondMapF )
+
+        #atomMapF, bondMapF = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF
+        fff.setupOpt(dt=self.dt, damp=selt.damp, f_limit=self.f_limit, l_limit=self.l_limit )
+
+        #glview = glv.GLView()
+        for i in range(NmaxIter/NstepPerCheck):
+            #glview.pre_draw()
+            F2err = fff.relaxNsteps( NstepPerCheck, Fconv=Fconv, ialg=0 )
+            print("[%i]|F| %g " %(i*NstepPerCheck, np.sqrt(F2err) )
+            #if glview.post_draw(): break
+            #time.sleep(.05)
+            if( F2err<Fconv*Fconv ):
+                break
+        
+        return apos[:,:].copy()
+
+
 if __name__ == "__main__":
     #import basUtils as bu
 
@@ -238,7 +291,6 @@ if __name__ == "__main__":
     dofs   = fff.getDofs(ndof)       ; print("dofs.shape ", dofs.shape)
     apos   = dofs[:natom]            ; print("apos.shape ", apos.shape)
     opos   = dofs[natom:]            ; print("opos.shape ", opos.shape)
-
 
     #atypes[:] = 0        # use default atom type
     apos[:,:] = xyzs[:,:] #
