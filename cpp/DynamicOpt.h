@@ -175,6 +175,7 @@ double DynamicOpt::move_GD(double dt_loc){
     for ( int i=0; i<n; i++ ){
         double dri = force[i]*dt_loc;
         pos[i] += dri; dr2+=dri*dri;
+        //printf(  "move_GD[%i] p %g f %g \n", i, pos[i], force[i] );
         //pos[i] += force[i]*dt_loc;
     }
     if(iDebug>0) printf( " move_GD dt %g dr %g \n", dt_loc, sqrt(dr2) );
@@ -256,6 +257,7 @@ double DynamicOpt::move_FIRE(){
 double DynamicOpt::move_FIRE(){
 	ff=0,vv=0,vf=0;
 	//printf( "DEBUG 5.5.1: %i\n", n  );
+    //printf( "move_FIRE  n %i \n", n );
 	for(int i=0; i<n; i++){
 		double fi = force[i];
 		double vi = vel[i];
@@ -306,7 +308,6 @@ double DynamicOpt::move_FIRE(){
         dt_*=sqrt( f_limit/f );
         if(iDebug>0) printf( "force too large: %g => limit dt: %g \n", f, dt_ );
     };
-    
 
     move_LeapFrog( dt_ );
 	//move_LeapFrog();

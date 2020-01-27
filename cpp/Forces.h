@@ -8,6 +8,9 @@
 
 #define COULOMB_CONST  14.3996448915f
 
+//const double kcoulomb   = 14.3996448915; 
+//const double R2SAFE     = 1.0e-8;
+
 #define RSAFE   1.0e-4f
 #define R2SAFE  1.0e-8f
 #define F2MAX   10.0f
@@ -76,6 +79,80 @@ inline double evalCosHalf(const Vec3d& hi, const Vec3d& hj, Vec3d& fi, Vec3d& fj
     fj.set_lincomb( fr,h,  c2,hj );
     return E;
 }
+
+
+// ================= BEGIN:  From ProbeParticle.cpp
+
+// radial spring constrain - force length of vector |dR| to be l0
+inline Vec3d forceRSpring( const Vec3d& dR, double k, double l0 ){
+    double l = sqrt( dR.norm2() );
+    Vec3d f; f.set_mul( dR, k*( l - l0 )/l );
+    return f;
+}
+
+inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& Up, const Vec3d& R0, const Vec3d& K ){
+    // dR - vector between actual PPpos and anchor point (in global coords)
+    // Fw - forward diraction of anchor coordinate system (previous bond direction; e.g. Tip->C for C->O) (in global coords)
+    // Up - Up vector --,,-- ; e.g. x axis (1,0,0), defines rotation of your tip (in global coords)
+    // R0 - equlibirum position of PP (in local coords)
+    // K  - stiffness (ka,kb,kc) along local coords
+    // return force (in global coords)
+    Mat3d rot; Vec3d dR_,f_,f;
+    rot.fromDirUp( Fw*(1/Fw.norm()), Up );  // build orthonormal rotation matrix
+    rot.dot_to  ( dR, dR_   );              // transform dR to rotated coordinate system
+    f_ .set_mul ( dR_-R0, K );              // spring force (in rotated system)
+    // here you can easily put also other forces - e.g. Torsion etc. 
+    rot.dot_to_T( dR_, f );                 // transform force back to world system
+    return f;
+}
+
+// Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
+inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
+    double ir2  = 1.0/ ( dR.norm2( ) + R2SAFE ); 
+    double ir6  = ir2*ir2*ir2;
+    double E6   = c6  * ir6;
+    double E12  = c12 * ir6*ir6;
+    //return dR * ( ( 6*ir6*c6 -12*ir12*c12 ) * ir2  );
+    fout.add_mul( dR , ( 6*E6 -12*E12 ) * ir2 );
+    //fout.add_mul( dR , -12*E12 * ir2 );
+    //fout.add_mul( dR , 6*E6 * ir2 );
+    //printf(" (%g,%g,%g)  (%g,%g)  %g \n", dR.x,dR.y,dR.z, c6, c12,  E12 - E6);
+    //printf(" (%g,%g,%g)  %f %f  (%g,%g,%g) \n", dR.x,dR.y,dR.z, c6, c12,  fout.x,fout.y,fout.z);
+    return E12 - E6;
+}
+
+// Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
+inline double addAtomVdW( const Vec3d& dR, Vec3d& fout, double c6 ){
+    double r2 = dR.norm2(); r2*=r2; r2*=r2;
+    //fout.add_mul( dR , 6*c6 /( r2 + 1.0 ) );
+    //fout.add_mul( dR , 6*c6 /( r2 + 60*c6 ) );
+    fout.add_mul( dR , 6*c6 /( r2 + 180*c6 ) );
+    return 0;
+}
+
+// Morse force between two atoms a,b separated by vector dR = Ra - Rb
+inline double addAtomMorse( const Vec3d& dR, Vec3d& fout, double r0, double eps, double alpha ){
+    double r     = sqrt( dR.norm2() + R2SAFE );
+    double expar = exp( alpha*(r-r0));
+    double E     = eps*( expar*expar - 2*expar );
+    double fr    = eps*2*alpha*( expar*expar - expar );
+    fout.add_mul( dR, fr/r );
+    return E;
+}
+
+// coulomb force between two atoms a,b separated by vector dR = R1 - R2, with constant kqq should be set to kqq = - k_coulomb * Qa * Qb 
+inline double addAtomCoulomb( const Vec3d& dR, Vec3d& fout, double kqq ){
+    double ir2   = 1.0/( dR.norm2() + R2SAFE );
+    double ir    = sqrt(ir2); 
+    double E     = ir * kqq;
+    fout.add_mul( dR , E * ir2 );
+    //printf("(%g,%g,%g) %g %g (%g,%g,%g)", dR.x,dR.y,dR.z, kqq, ir, fout.x,fout.y,fout.z );
+    return E;
+}
+
+// ================= END: From ProbeParticle.cpp
+
+
 
 inline void addAtomicForceLJQ( const Vec3d& dp, Vec3d& f, double r0, double eps, double qq ){
     double ir2  = 1/( dp.norm2() + R2SAFE );
