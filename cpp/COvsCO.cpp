@@ -125,7 +125,7 @@ class COCOFF{ public:
         
         Quat4d  PPcoefs;
         if(bZRot){   // rotate orbital from z-direction
-            PPcoefs.s=PPcoefs.s;
+            PPcoefs.s=STMcoefs[nCOs].s;
             rotateZBond( PPdir, STMcoefs[nCOs].p, PPcoefs.p );
         }else{ PPcoefs=STMcoefs[nCOs]; }
 
@@ -157,7 +157,7 @@ class COCOFF{ public:
             //double cosa = COdir.dot( PPdir );
             //const Quat4d& COcoefs  = STMcoefs[i];
 
-            //printf( "evalSTM  r %g Yr %g (%g,%g,%g,%g) | (%g,%g,%g) (%g,%g,%g) \n",  r, radial,   PPcoefs.s*STMcoefs[i].s,   pPP.x*pCO.x, pPP.y*pCO.y, pPP.z*pCO.z,   pPP.x,pPP.y,pPP.z,   pCO.x,pCO.y,pCO.z );
+            printf( "evalSTM  r %g Yr %g (%g,%g,%g,%g) | (%g,%g,%g) (%g,%g,%g) \n",  r, radial,   PPcoefs.s*STMcoefs[i].s,   pPP.x*pCO.x, pPP.y*pCO.y, pPP.z*pCO.z,   pPP.x,pPP.y,pPP.z,   pCO.x,pCO.y,pCO.z );
             
             double ss = COcoefs.s*PPcoefs.s;
             double zz = pCO.z*pPP.z;

@@ -131,9 +131,9 @@ def scan( tip_pos, PP_pos=None, tip_forces=None, STMamp=None, nsteps=100, Fconv=
     N = len(tip_pos)
     if PP_pos     is None: PP_pos     = np.zeros(tip_pos.shape)
     if tip_forces is None: tip_forces = np.zeros(tip_pos.shape) 
-    if STMamp     is None: STMamp     = np.zeros(tip_pos.shape) 
+    if STMamp     is None: STMamp     = np.zeros( (tip_pos.shape[0],) ) 
     lib.scan(N, _np_as(tip_pos,c_double_p), _np_as(PP_pos,c_double_p), _np_as(tip_forces,c_double_p),  _np_as(STMamp,c_double_p),  nsteps, Fconv, ialg)
-    return tip_forces, PP_pos
+    return tip_forces, PP_pos, STMamp
 
 def scan2D( Xs, Ys, z0, dz=0.2, nz=20, nsteps=100, Fconv=1e-6, ialg=-1 ):
     sh = Xs.shape
@@ -142,9 +142,11 @@ def scan2D( Xs, Ys, z0, dz=0.2, nz=20, nsteps=100, Fconv=1e-6, ialg=-1 ):
     tip_pos[:,2] = np.arange( z0, z0-dz*nz, -dz )    ; print( "tip_pos ", tip_pos )
     PP_pos     = np.zeros(tip_pos.shape)
     tip_forces = np.zeros(tip_pos.shape) 
-    STMamp     = np.zeros(tip_pos.shape) 
+    STMamp     = np.zeros( (tip_pos.shape[0],) ) 
     #print( "tip_forces ", tip_forces ); exit()
     AFM = np.zeros( sh + (len(tip_pos),) )
+    STM = np.zeros( sh + (len(tip_pos),) )
+    PPz = np.zeros( sh + (len(tip_pos),) )
     print( "AFM.shape ", AFM.shape )
     for ix in range(sh[0]):
         print( "ix ", ix )
@@ -155,7 +157,9 @@ def scan2D( Xs, Ys, z0, dz=0.2, nz=20, nsteps=100, Fconv=1e-6, ialg=-1 ):
             #tip_pos[-,2] = z0
             scan( tip_pos, PP_pos=PP_pos, tip_forces=tip_forces, STMamp=STMamp, nsteps=nsteps, Fconv=Fconv, ialg=ialg )
             AFM[ix,iy,:] = tip_forces[:,2]
-    return AFM
+            STM[ix,iy,:] = STMamp[:]
+            PPz[ix,iy,:] = PP_pos[:,2]
+    return AFM, STM, PPz
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -201,8 +205,10 @@ if __name__ == "__main__":
     STMCoefs = ff.getSTMCoefs( nCO )
 
     STMCoefs[:,:] = 0.0
-    #STMCoefs[:,3] = 1.0 # s 
-    STMCoefs[:,2] = 1.0  # pz
+    #STMCoefs[:,0] = 1.0 # px
+    #STMCoefs[:,1] = 1.0 # py 
+    #STMCoefs[:,2] = 1.0  # pz
+    STMCoefs[:,3] = 1.0 # s
 
     poss[:,:]    = COpos[:,:]
     anchors[:,:] = COpos[:,:]
@@ -224,7 +230,7 @@ if __name__ == "__main__":
     '''
 
 
-    '''
+    
     #ff.relaxNsteps( nsteps=150, ialg=0 )
 
     beta = 1.0
@@ -242,31 +248,52 @@ if __name__ == "__main__":
         amp_STM[iz] = ff.getSTM()
         #print( " ff.getSTM() ", ff.getSTM() )
         #R = np.sqrt( np.sum( (poss[0,:] - poss[nCO-1,:])**2 ) )
-        #current[iz] = np.exp(-beta*R)*100
+        #current[iz] = np.exp(-beta*RPP_pos)*100
 
     #print( current )
+
+    print( amp_STM  )
+
+    A = 25.0
+    STMsamp = A*np.exp(  -beta * PPpos[:,2]  )
+    STMtot  = amp_STM - STMsamp 
 
     plt.plot( Zs, PPpos[:,0], label="X" )
     #plt.plot( Zs, PPpos[:,1], label="Y" )
     plt.plot( Zs, PPpos[:,2], label="Z" )
     plt.plot(Zs[[0,-1]],PPpos[[0,-1],2], '--k' )
-    plt.plot( Zs, (amp_STM[:]   )*50.5,  'g', label="STMamp" )
-    plt.plot( Zs, (amp_STM[:]**2)*500.0, 'm', label="I" )
+    plt.plot( Zs, np.log(amp_STM[:]**2), 'g', label="STMamp" )
+    plt.plot( Zs, np.log(STMtot [:]**2), 'm', label="STMtot" )
+    plt.plot( Zs, np.log(STMsamp[:]**2), 'y', label="STMsamp" )
+    #plt.plot( Zs, (amp_STM[:]**2)*500.0, 'm', label="I" )
     plt.grid()
+    plt.legend()
     plt.show()
-    '''
+    
 
+    '''
     xs = np.linspace( -5, 10.0, 75  )
     ys = np.linspace( -4, 16.0, 100 )
     Xs,Ys = np.meshgrid( xs, ys )
-    AFM = ff.scan2D(  Xs, Ys, z0=14.0, dz=0.2, nz=20, ialg=0 )
+    AFM, STM, PPz = ff.scan2D(  Xs, Ys, z0=14.0, dz=0.2, nz=20, ialg=0 )
+
+    beta= 1.0
+    STM -= np.exp( -beta*PPz )
+
+    I = STM**2
+
 
     print( "plotting .... " )
     for iz in range(AFM.shape[2]):
         fname = "AFM_%03i.png" %iz
         print( "plotting ", fname )
-        #plt.figure()
         plt.imshow( AFM[:,:, iz] )
+        plt.savefig( fname , bbox_inches='tight' )
+
+        fname = "STM_%03i.png" %iz
+        print( "plotting ", fname )
+        plt.imshow( I[:,:, iz] )
         plt.savefig( fname , bbox_inches='tight' )
         #plt.close()
     print( "ALL DONE!!! " )
+    '''
