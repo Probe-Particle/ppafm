@@ -38,6 +38,12 @@ header_strings = [
     "double* getForces ()",
     "double* getVels   ()",
     "double* getSTMcoefs ()",
+
+    "double* getLRadials()",
+    "double* getKRadials()",
+    "double* getKSprings()",
+    "double* getREQs    ()",
+
     "void init(int natom){",
     "double setFF(double R0, double E0, double kR, double kxy, double beta ){",
     "int relaxNsteps( int nsteps, double Fconv, int ialg ){",
@@ -94,6 +100,36 @@ def getSTMCoefs(n):
     #return lib.getVels   () 
     return np.ctypeslib.as_array( lib.getSTMCoefs(), shape=(n,4))
 
+#  double* getLRadials()
+lib.getLRadials.argtypes  = [] 
+lib.getLRadials.restype   =  c_double_p
+def getLRadials(n):
+    return np.ctypeslib.as_array( lib.getLRadials() , shape=(n,))
+
+#  double* getKRadials()
+lib.getKRadials.argtypes  = [] 
+lib.getKRadials.restype   =  c_double_p
+def getKRadials(n):
+    return np.ctypeslib.as_array( lib.getKRadials() , shape=(n,))
+
+#  double* getKSprings()
+lib.getKSprings.argtypes  = [] 
+lib.getKSprings.restype   =  c_double_p
+def getKSprings(n):
+    return np.ctypeslib.as_array( lib.getKSprings() , shape=(n,3))
+
+#  double* getKSprings()
+lib.getPos0s.argtypes  = [] 
+lib.getPos0s.restype   =  c_double_p
+def getPos0s(n):
+    return np.ctypeslib.as_array( lib.getPos0s() , shape=(n,3))
+
+#  double* getREQs    ()
+lib.getREQs    .argtypes  = [] 
+lib.getREQs    .restype   =  c_double_p
+def getREQs    (n):
+    return np.ctypeslib.as_array(  lib.getREQs    () , shape=(n,3))
+
 #  void init(int natom){
 lib.init.argtypes  = [c_int] 
 lib.init.restype   =  None
@@ -107,10 +143,10 @@ def getSTM():
     return lib.getSTM() 
 
 #  double setFF(double R0, double E0, double kR, double kxy ){
-lib.setFF.argtypes  = [c_double, c_double, c_double, c_double, c_double, c_double] 
-lib.setFF.restype   =  None
-def setFF( R0=1.6612 * 2, E0=0.009106, lR=4.0, kR=30.0/const_eVA_SI, kxy=0.25/const_eVA_SI, beta=-1.0 ):
-    return lib.setFF(R0, E0, lR, kR, kxy, beta) 
+#lib.setFF.argtypes  = [c_double, c_double, c_double, c_double, c_double, c_double] 
+#lib.setFF.restype   =  None
+#def setFF( R0=1.6612 * 2, E0=0.009106, lR=4.0, kR=30.0/const_eVA_SI, kxy=0.25/const_eVA_SI, beta=-1.0 ):
+#    return lib.setFF(R0, E0, lR, kR, kxy, beta) 
 
 #  double setupOpt( double dt, double damp, double f_limit, double l_limit ){
 lib.setupOpt.argtypes  = [c_double, c_double, c_double, c_double] 
@@ -164,8 +200,9 @@ def scan2D( Xs, Ys, z0, dz=0.2, nz=20, nsteps=100, Fconv=1e-6, ialg=-1 ):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
+    # COs in surface lattice coordinates
     COs = [[0,0],[1,0],[0,1],[1,1],[2,0],]
-    alat = 4.3
+    alat = 4.3 # [A]
     avec = np.array( [0.0,1.0,0.0] )*alat
     bvec = np.array( [np.sqrt(3)/2,-0.5,0.0] )*alat
     '''
@@ -197,18 +234,34 @@ if __name__ == "__main__":
     ff = sys.modules[__name__]
     print( " ff.init( nCO-1 ) " )
     ff.init( nCO-1 )
-    ff.setFF( )
+    ##ff.setFF( )
     ff.setupOpt(dt=0.4, damp=0.1, f_limit=10.0, l_limit=0.2 )
 
     poss     = ff.getPoss    ( nCO )
     anchors  = ff.getAnchors ( nCO )
     STMCoefs = ff.getSTMCoefs( nCO )
 
+    lRadials = ff.getLRadials(nCO)
+    kRadials = ff.getKRadials(nCO)
+    pos0s    = ff.getPos0s   (nCO)
+    kSprings = ff.getKSprings(nCO)
+    REQs     = ff.getREQs    (nCO)
+
+    lRadials[:] = 4.0
+    kRadials[:] = 30.0/const_eVA_SI
+    kSprings[:,0] = 0.5/const_eVA_SI
+    kSprings[:,1] = 0.5/const_eVA_SI
+    kSprings[:,2] = 0.0
+    pos0s   [:] = 0.0
+    REQs    [:,0] = 1.6612     # Rii
+    REQs    [:,1] = np.sqrt(0.009106)   # Eii
+    REQs    [:,2] = 0          # Q
+
     STMCoefs[:,:] = 0.0
     #STMCoefs[:,0] = 1.0 # px
     #STMCoefs[:,1] = 1.0 # py 
-    #STMCoefs[:,2] = 1.0  # pz
-    STMCoefs[:,3] = 1.0 # s
+    STMCoefs[:,2] = 1.0  # pz
+    #STMCoefs[:,3] = 1.0 # s
 
     poss[:,:]    = COpos[:,:]
     anchors[:,:] = COpos[:,:]
@@ -229,12 +282,9 @@ if __name__ == "__main__":
     plt.legend()
     '''
 
-
-    
     #ff.relaxNsteps( nsteps=150, ialg=0 )
 
     beta = 1.0
-
     dz = 0.2
     for iz in range(nz):
         print( "iz ====== ", iz )
@@ -252,9 +302,9 @@ if __name__ == "__main__":
 
     #print( current )
 
-    print( amp_STM  )
+    print( amp_STM )
 
-    A = 25.0
+    A = 10.0
     STMsamp = A*np.exp(  -beta * PPpos[:,2]  )
     STMtot  = amp_STM - STMsamp 
 
@@ -269,9 +319,10 @@ if __name__ == "__main__":
     plt.grid()
     plt.legend()
     plt.show()
-    
+    plt.close()
 
-    '''
+    #exit()
+
     xs = np.linspace( -5, 10.0, 75  )
     ys = np.linspace( -4, 16.0, 100 )
     Xs,Ys = np.meshgrid( xs, ys )
@@ -281,7 +332,6 @@ if __name__ == "__main__":
     STM -= np.exp( -beta*PPz )
 
     I = STM**2
-
 
     print( "plotting .... " )
     for iz in range(AFM.shape[2]):
@@ -296,4 +346,4 @@ if __name__ == "__main__":
         plt.savefig( fname , bbox_inches='tight' )
         #plt.close()
     print( "ALL DONE!!! " )
-    '''
+    

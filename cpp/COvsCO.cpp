@@ -38,14 +38,20 @@ class COCOFF{ public:
     bool bInterSample = false;
     bool bZRot        = true;
 
-    double C6  = 0;
-    double C12 = 0;
+    //double C6  = 0;
+    //double C12 = 0;
 
     double beta = -1.0;
 
-    double lRadial = 4.0;
-    double kRadial = 30.0 * const_eVA_SI;
-    Vec3d  kSpring = (Vec3d){0.25*const_eVA_SI, 0.25*const_eVA_SI, 0};
+    //double lRadial = 4.0;
+    //double kRadial = 30.0 * const_eVA_SI;
+    //Vec3d  kSpring = (Vec3d){0.25*const_eVA_SI, 0.25*const_eVA_SI, 0};
+
+    double* lRadials=0;
+    double* kRadials=0;
+    Vec3d*  kSprings=0; 
+    Vec3d*  pos0s   =0;
+    Vec3d*  REQs    =0;
 
     //Vec3d PPanchor;
     //Vec3d PPpos;
@@ -57,9 +63,11 @@ class COCOFF{ public:
     Vec3d* poss    = 0;
     Vec3d* vels    = 0;
     Vec3d* forces  = 0;
+    
 
     Quat4d* STMcoefs = 0;
 
+    /*
     void setC612(double R0, double E0){
         double r3 = R0*R0*R0;
         double r6 = r3*r3;
@@ -67,6 +75,7 @@ class COCOFF{ public:
         C12       =   E0*r6*r6;
         printf( " R0 %g E0 %g -> C6 %g C12 %g \n", R0, E0, C6, C12 );
     }
+    */
 
     void realloc(int nCOs_){
         nCOs = nCOs_;
@@ -76,7 +85,13 @@ class COCOFF{ public:
         _realloc( poss,     nCOs_ );
         _realloc( vels,     nCOs_ );
         _realloc( forces,   nCOs_ );
+        // ---------------
         _realloc( STMcoefs, nCOs_ );
+        _realloc( REQs,     nCOs_ );
+        _realloc( lRadials, nCOs_ );
+        _realloc( kRadials, nCOs_ );
+        _realloc( kSprings, nCOs_ );
+        _realloc( pos0s,    nCOs_ );
     }
 
     double evalFF( bool bSprings ){
@@ -84,12 +99,13 @@ class COCOFF{ public:
         Vec3d& PPanchor = anchors[nCOs];
         Vec3d& PPpos    = poss   [nCOs];
         Vec3d& PPforce  = forces [nCOs];
+        Vec3d& REQpp    = REQs   [nCOs]; 
         PPforce = Vec3dZero;
         Vec3d dR;
         if(bSprings){
             dR.set_sub( PPanchor, PPpos );
-            PPforce.add( forceRSpring( dR, kRadial, lRadial ) );
-            PPforce.add_mul     ( dR, kSpring );
+            PPforce.add( forceRSpring( dR, kRadials[nCOs], lRadials[nCOs] ) );
+            PPforce.add_mul     ( dR,      kSprings[nCOs] );
         }
         //printf( "PP %i p(%g,%g,%g) anchor(%g,%g,%g)\n", PPpos.x,PPpos.y,PPpos.z, nCOs,  PPanchor.x,PPanchor.y,PPanchor.z );
         for(int i=0; i<nCOs; i++){
@@ -97,13 +113,15 @@ class COCOFF{ public:
             //Vec3d& f = COforces[i]; f=Vec3dZero; 
             dR.set_sub( PPpos, poss[i] );
             //printf( "|dR| %g \n", dR.norm() );
-            E += addAtomLJ ( dR, f, C6, C12 );
+            //E += addAtomLJ ( dR, f, C6, C12 );
+            //E += 
+            addAtomicForceLJQ( dR, f, REQs[i].x+REQpp.x, REQs[i].y*REQpp.y, REQs[i].z*REQpp.z );
             //printf( "CO[%i] p(%g,%g,%g) dR(%g,%g,%g) f(%g,%g,%g)\n",   i,   poss[i].x,poss[i].y,poss[i].z,   dR.x,dR.y,dR.z,   f.x,f.y,f.z );
             PPforce.sub(f);
             if(bSprings){
                 dR.set_sub( anchors[i], poss[i] );
-                f.add( forceRSpring( dR, kRadial, lRadial ) );
-                f.add_mul          ( dR, kSpring );
+                f.add( forceRSpring( dR, kRadials[i], lRadials[i] ) );
+                f.add_mul          ( dR, kSprings[i] );
             }
             forces[i] = f;
             // ToDo : spring energy is missing
@@ -113,10 +131,7 @@ class COCOFF{ public:
         return E;
     }
 
-
-
     double evalSTM(){
-
         const Vec3d&  PPanchor = anchors [nCOs];
         const Vec3d&  PPpos    = poss    [nCOs];
         Vec3d PPdir; PPdir.set_sub( PPpos, PPanchor );
@@ -157,7 +172,7 @@ class COCOFF{ public:
             //double cosa = COdir.dot( PPdir );
             //const Quat4d& COcoefs  = STMcoefs[i];
 
-            printf( "evalSTM  r %g Yr %g (%g,%g,%g,%g) | (%g,%g,%g) (%g,%g,%g) \n",  r, radial,   PPcoefs.s*STMcoefs[i].s,   pPP.x*pCO.x, pPP.y*pCO.y, pPP.z*pCO.z,   pPP.x,pPP.y,pPP.z,   pCO.x,pCO.y,pCO.z );
+            //printf( "evalSTM  r %g Yr %g (%g,%g,%g,%g) | (%g,%g,%g) (%g,%g,%g) \n",  r, radial,   PPcoefs.s*STMcoefs[i].s,   pPP.x*pCO.x, pPP.y*pCO.y, pPP.z*pCO.z,   pPP.x,pPP.y,pPP.z,   pCO.x,pCO.y,pCO.z );
             
             double ss = COcoefs.s*PPcoefs.s;
             double zz = pCO.z*pPP.z;
@@ -194,13 +209,21 @@ extern "C"{
     double* getVels   (){ return (double*)ff.vels;    }
     double* getSTMCoefs  (){ return (double*)ff.STMcoefs;  }
 
+    double* getLRadials(){ return (double*)ff.lRadials; }
+    double* getKRadials(){ return (double*)ff.kRadials; }
+    double* getPos0s   (){ return (double*)ff.pos0s;    }
+    double* getKSprings(){ return (double*)ff.kSprings; }
+    double* getREQs    (){ return (double*)ff.REQs;     }
+
+/*
     double setFF( double R0, double E0, double lR, double kR, double kxy, double beta ){
-        ff.kSpring = (Vec3d){kxy,kxy,0};
-        ff.kRadial = kR;
-        ff.lRadial = lR;
+        //ff.kSpring = (Vec3d){kxy,kxy,0};
+        //ff.kRadial = kR;
+        //ff.lRadial = lR;
         ff.beta    = beta;
         ff.setC612( R0, E0 ); 
     }
+*/
 
     double setupOpt( double dt, double damp, double f_limit, double l_limit ){
         opt.initOpt( dt, damp );
