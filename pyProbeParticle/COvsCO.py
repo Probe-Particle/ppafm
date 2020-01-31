@@ -57,10 +57,7 @@ libGL  = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libGL.so",   ctypes.RTLD_GLOBAL
 
 cpp_name='COvsCO'
 cpp_utils.make(cpp_name)
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
-
-
-
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext ) 
 const_eVA_SI = 16.0217662;
 
 # ========= C functions
@@ -161,15 +158,16 @@ def relaxNsteps( nsteps=100, Fconv=1e-5, ialg=0):
     return lib.relaxNsteps(nsteps, Fconv, ialg) 
 
 #  void scan( int np, double* tip_pos_, double* PP_pos_, double* tip_forces_, double* STMamp, int nsteps, double Fconv, int ialg ){
-lib.scan.argtypes  = [c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_int, c_double, c_int] 
+lib.scan.argtypes  = [c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_double_p, c_int, c_double, c_int] 
 lib.scan.restype   =  None
-def scan( tip_pos, PP_pos=None, tip_forces=None, STMamp=None, nsteps=100, Fconv=1e-6, ialg=-1 ):
+def scan( tip_pos, PP_pos=None, tip_forces=None, STMamp=None, STMchans=None, nsteps=100, Fconv=1e-6, ialg=-1 ):
     N = len(tip_pos)
     if PP_pos     is None: PP_pos     = np.zeros(tip_pos.shape)
     if tip_forces is None: tip_forces = np.zeros(tip_pos.shape) 
     if STMamp     is None: STMamp     = np.zeros( (tip_pos.shape[0],) ) 
-    lib.scan(N, _np_as(tip_pos,c_double_p), _np_as(PP_pos,c_double_p), _np_as(tip_forces,c_double_p),  _np_as(STMamp,c_double_p),  nsteps, Fconv, ialg)
-    return tip_forces, PP_pos, STMamp
+    if STMchans   is None: STMchans   = np.zeros( (tip_pos.shape[0],5) )
+    lib.scan(N, _np_as(tip_pos,c_double_p), _np_as(PP_pos,c_double_p), _np_as(tip_forces,c_double_p),  _np_as(STMamp,c_double_p), _np_as(STMchans,c_double_p),  nsteps, Fconv, ialg)
+    return tip_forces, PP_pos, STMamp, STMchans
 
 def scan2D( Xs, Ys, z0, dz=0.2, nz=20, nsteps=100, Fconv=1e-6, ialg=-1 ):
     sh = Xs.shape
@@ -179,9 +177,11 @@ def scan2D( Xs, Ys, z0, dz=0.2, nz=20, nsteps=100, Fconv=1e-6, ialg=-1 ):
     PP_pos     = np.zeros(tip_pos.shape)
     tip_forces = np.zeros(tip_pos.shape) 
     STMamp     = np.zeros( (tip_pos.shape[0],) ) 
+    STMchans     = np.zeros( (tip_pos.shape[0],5) ) 
     #print( "tip_forces ", tip_forces ); exit()
     AFM = np.zeros( sh + (len(tip_pos),) )
     STM = np.zeros( sh + (len(tip_pos),) )
+    STMch = np.zeros( sh + (len(tip_pos),5) )
     PPz = np.zeros( sh + (len(tip_pos),) )
     print( "AFM.shape ", AFM.shape )
     for ix in range(sh[0]):
@@ -191,11 +191,12 @@ def scan2D( Xs, Ys, z0, dz=0.2, nz=20, nsteps=100, Fconv=1e-6, ialg=-1 ):
             tip_pos[:,0] = Xs[ix,iy]
             tip_pos[:,1] = Ys[ix,iy]
             #tip_pos[-,2] = z0
-            scan( tip_pos, PP_pos=PP_pos, tip_forces=tip_forces, STMamp=STMamp, nsteps=nsteps, Fconv=Fconv, ialg=ialg )
+            scan( tip_pos, PP_pos=PP_pos, tip_forces=tip_forces, STMamp=STMamp, STMchans=STMchans, nsteps=nsteps, Fconv=Fconv, ialg=ialg )
             AFM[ix,iy,:] = tip_forces[:,2]
             STM[ix,iy,:] = STMamp[:]
+            STMch[ix,iy,:,:] = STMchans[:,:]
             PPz[ix,iy,:] = PP_pos[:,2]
-    return AFM, STM, PPz
+    return AFM, STM, PPz, STMch
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -225,11 +226,6 @@ if __name__ == "__main__":
     plt.axis('equal'); plt.grid()
     plt.show(); exit()
     '''
-
-    nz    = 40 
-    Zs      = np.zeros( nz )
-    amp_STM  = np.zeros( nz )
-    PPpos = np.zeros( (nz,3) )  
 
     ff = sys.modules[__name__]
     print( " ff.init( nCO-1 ) " )
@@ -284,6 +280,11 @@ if __name__ == "__main__":
 
     #ff.relaxNsteps( nsteps=150, ialg=0 )
 
+    '''
+    nz    = 40 
+    Zs      = np.zeros( nz )
+    amp_STM  = np.zeros( nz )
+    PPpos = np.zeros( (nz,3) )  
     beta = 1.0
     dz = 0.2
     for iz in range(nz):
@@ -299,25 +300,44 @@ if __name__ == "__main__":
         #print( " ff.getSTM() ", ff.getSTM() )
         #R = np.sqrt( np.sum( (poss[0,:] - poss[nCO-1,:])**2 ) )
         #current[iz] = np.exp(-beta*RPP_pos)*100
-
     #print( current )
+    '''
+    beta = 1
+    Zs  = np.linspace( 14, 8, 60 )
+    tip_pos = np.zeros( (60,3) )
+    tip_pos[:,2] = Zs
+    tip_forces, PPpos, amp_STM, STMchans = ff.scan( tip_pos, nsteps=100, Fconv=1e-6, ialg=0 )
 
-    print( amp_STM )
+    print( "shape { tip_forces, PPpos, amp_STM, STMchans  }: \n", tip_forces.shape, PPpos.shape, amp_STM.shape, STMchans.shape )
+
+    print( "amp_STM ", amp_STM )
+    print( "STMchans ", STMchans )
 
     A = 10.0
     STMsamp = A*np.exp(  -beta * PPpos[:,2]  )
     STMtot  = amp_STM - STMsamp 
 
-    plt.plot( Zs, PPpos[:,0], label="X" )
+    #plt.plot( Zs, PPpos[:,0], label="X" )
     #plt.plot( Zs, PPpos[:,1], label="Y" )
-    plt.plot( Zs, PPpos[:,2], label="Z" )
-    plt.plot(Zs[[0,-1]],PPpos[[0,-1],2], '--k' )
-    plt.plot( Zs, np.log(amp_STM[:]**2), 'g', label="STMamp" )
-    plt.plot( Zs, np.log(STMtot [:]**2), 'm', label="STMtot" )
-    plt.plot( Zs, np.log(STMsamp[:]**2), 'y', label="STMsamp" )
+    #plt.plot( Zs, PPpos[:,2], label="Z" )
+    #plt.plot(Zs[[0,-1]],PPpos[[0,-1],2], '--k' )
+    #plt.plot( Zs, np.log(amp_STM[:]**2), 'g', label="STMamp" )
+
+    plt.figure(figsize=(5,10))
+    plt.subplot(2,1,1)
+    plt.plot( Zs, PPpos[:,0],'g', label="X" )
+    plt.plot( Zs, tip_forces[:,2]*100.0, label="Fz" )
+    plt.grid(); plt.legend()
+    plt.subplot(2,1,2)
+    plt.plot( Zs, np.log(STMchans[:,0]**2), ':r', label="chan_px" )
+    plt.plot( Zs, np.log(STMchans[:,1]**2), ':g', label="chan_py" )
+    plt.plot( Zs, np.log(STMchans[:,2]**2), ':b', label="chan_pz" )
+    plt.plot( Zs, np.log(STMchans[:,3]**2), ':k', label="chan_s" )
+    #plt.plot( Zs, np.log(STMtot [:]**2), 'm', label="STMtot" )
+    #plt.plot( Zs, np.log(STMsamp[:]**2), 'y', label="STMsamp" )
     #plt.plot( Zs, (amp_STM[:]**2)*500.0, 'm', label="I" )
-    plt.grid()
-    plt.legend()
+    plt.grid(); plt.legend()
+    plt.savefig( 'STM_1D.png', bbox_inches='tight' )
     plt.show()
     plt.close()
 
@@ -326,7 +346,7 @@ if __name__ == "__main__":
     xs = np.linspace( -5, 10.0, 75  )
     ys = np.linspace( -4, 16.0, 100 )
     Xs,Ys = np.meshgrid( xs, ys )
-    AFM, STM, PPz = ff.scan2D(  Xs, Ys, z0=14.0, dz=0.2, nz=20, ialg=0 )
+    AFM, STM, PPz, STMchs = ff.scan2D(  Xs, Ys, z0=13.0, dz=0.2, nz=20, ialg=0 )
 
     beta= 1.0
     STM -= np.exp( -beta*PPz )
@@ -344,6 +364,18 @@ if __name__ == "__main__":
         print( "plotting ", fname )
         plt.imshow( I[:,:, iz] )
         plt.savefig( fname , bbox_inches='tight' )
+
+        plt.imshow( STMchs[:,:,iz,0]**2 + STMchs[:,:,iz,1]**2  ); plt.savefig( "STM_xy_%03i.png" %iz , bbox_inches='tight' )
+        plt.imshow( STMchs[:,:,iz,2]**2 ); plt.savefig( "STM_pz_%03i.png" %iz , bbox_inches='tight' )
+        plt.imshow( STMchs[:,:,iz,3]**2 ); plt.savefig( "STM_s_%03i.png"  %iz , bbox_inches='tight' )
+
+        '''
+        for j,ch in enumerate(['px','py','pz','s']):
+            fname = "STM_%s_%03i.png" %(ch,iz)
+            print( "plotting ", fname )
+            plt.imshow( STMchs[:,:,iz,j]**2 )
+            plt.savefig( fname , bbox_inches='tight' )
         #plt.close()
+        '''
     print( "ALL DONE!!! " )
     

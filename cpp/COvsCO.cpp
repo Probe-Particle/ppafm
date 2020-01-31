@@ -67,6 +67,10 @@ class COCOFF{ public:
 
     Quat4d* STMcoefs = 0;
 
+    //double STM_r;
+    const static int nChanMax = 5;
+    double STMdecomp[nChanMax];
+
     /*
     void setC612(double R0, double E0){
         double r3 = R0*R0*R0;
@@ -144,6 +148,7 @@ class COCOFF{ public:
             rotateZBond( PPdir, STMcoefs[nCOs].p, PPcoefs.p );
         }else{ PPcoefs=STMcoefs[nCOs]; }
 
+        //for(int i=0; i<nChanMax; i++){ STMdecomp[i]=0; }
         for(int i=0; i<nCOs; i++){
             //const Quat4d& COcoefs  = STMcoefs[i];
 
@@ -174,16 +179,26 @@ class COCOFF{ public:
 
             //printf( "evalSTM  r %g Yr %g (%g,%g,%g,%g) | (%g,%g,%g) (%g,%g,%g) \n",  r, radial,   PPcoefs.s*STMcoefs[i].s,   pPP.x*pCO.x, pPP.y*pCO.y, pPP.z*pCO.z,   pPP.x,pPP.y,pPP.z,   pCO.x,pCO.y,pCO.z );
             
-            double ss = COcoefs.s*PPcoefs.s;
-            double zz = pCO.z*pPP.z;
-            double sz = COcoefs.s*pPP.z - pCO.z*PPcoefs.s;
-            double yy = pCO.y*pPP.y;
-            double xx = pCO.x*pPP.x;
-            double ang = ss + xx + yy - zz;
+            double ss  = COcoefs.s*PPcoefs.s;
+            double zz  = pCO.z*pPP.z;
+            double sz  =  COcoefs.s*pPP.z; 
+            double zs  = pCO.z*PPcoefs.s;
+            double yy  = pCO.y*pPP.y;
+            double xx  = pCO.x*pPP.x;
+            double ang = ss + xx + yy - zz   + sz-zs;
             
             //printf( "evalSTM  Y %g | (%g,%g,%g) (%g,%g,%g) \n", ang,  pPP.x,pPP.y,pPP.z,  pCO.x,pCO.y,pCO.z );
             amp +=  radial * ang;
             //amp += ang;
+
+            /*
+            STMdecomp[0] += radial * ss;
+            STMdecomp[1] += radial * xx;
+            STMdecomp[2] += radial * yy;
+            STMdecomp[3] += radial * zz;
+            STMdecomp[4] += radial * sz;
+            STMdecomp[5] += radial * zs;
+            */
         }
         //printf( " amp %g  \n", amp );
         return amp;
@@ -258,7 +273,7 @@ extern "C"{
 
     double getSTM(){ return ff.evalSTM(); }
 
-    void scan( int np, double* tip_pos_, double* PP_pos_, double* tip_forces_, double* STMamp, int nsteps, double Fconv, int ialg ){
+    void scan( int np, double* tip_pos_, double* PP_pos_, double* tip_forces_, double* STMamp, double* STMchans, int nsteps, double Fconv, int ialg ){
         Vec3d* tip_pos    = (Vec3d*)tip_pos_;
         Vec3d* PP_pos     = (Vec3d*)PP_pos_;
         Vec3d* tip_forces = (Vec3d*)tip_forces_;
@@ -270,7 +285,21 @@ extern "C"{
             ff.evalFF(false);
             PP_pos    [ip] = ff.poss  [ff.nCOs];
             tip_forces[ip] = ff.forces[ff.nCOs];
-            STMamp[ip] = ff.evalSTM(); 
+
+            /*
+            STMamp  [ip] = ff.evalSTM();
+            int i0 = ip*nChanMax;
+            for(int j=0; j<ff.nChanMax; j++){
+                   STMchans[i0+j] = ff.STMdecomp[j];
+            } 
+            */
+
+            int i0 = ip*ff.nChanMax;
+            for(int j=0; j<4; j++){
+                for(int ia=0; ia<=ff.nCOs; ia++){  ff.STMcoefs[ia]=Quat4dZero; ff.STMcoefs[ia].array[j]=1.0; }
+                STMchans[i0+j] = ff.evalSTM();
+            } 
+
         }
 
     }
