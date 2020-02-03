@@ -27,6 +27,7 @@ from enum import Enum
 
 import pyopencl     as cl
 
+from . import atomicUtils as au
 from . import basUtils
 from . import common    as PPU
 from . import elements
@@ -65,15 +66,22 @@ class CorrectionLoop():
     def init(self):
         pass
 
+    def startLoop(self, guess, atomMap, bondMap, lvecMap ):
+        self.guess   = guess
+        self.atomMap = atomMap
+        self.bondMap = bondMap
+        self.mapLvec = lvecMap
+
     def iteration(self):
-        self.relaxed = self.relaxator.preform_relaxation ( self.guess, AtomMap, BondMap )
+        self.relaxed = self.relaxator.preform_relaxation ( self.guess, self.mapLvec, self.atomMap, self.bondMap )
         AFMs,AuxMap  = self.simulator.perform_imaging    ( self.relaxed )
-        Err, self.guess   = self.critique.try_improve         ( self.relaxed, AFMs, AFMRef )
+        Err, self.guess   = self.critique.try_improve    ( self.relaxed, AFMs, AFMRef )
         return Err
         #Xs,Ys      = simulator.next1( self )
 
 if __name__ == "__main__":
     print( " UNIT_TEST START : CorrectionLoop ... " )
+    #import atomicUtils as au
 
     # ------ Init Generator
 
@@ -82,11 +90,12 @@ if __name__ == "__main__":
     FFcl.init(env)
     oclr.init(env)
 
+    lvec=None
     simulator  = GeneratorOCL_LJC.Generator( [], [], 1, pixPerAngstrome=5, Ymode='AtomsAndBonds', lvec=lvec  )
 
     # ------ Init Relaxator
 
-    relaxator = FARFF.CEngineFARFF()
+    relaxator = FARFF.EngineFARFF()
 
     # ------ Init Critique
 
@@ -95,7 +104,9 @@ if __name__ == "__main__":
     # ------ Init Looper
 
     looper = CorrectionLoop(relaxator,simulator,critique)
-
+    xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")
+    atomMap, bondMap, lvecMap = FARFF.makeGridFF( FARFF,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 )
+    looper.startLoop( xyzs, atomMap, bondMap, lvecMap )
     ErrConv = 1.0
     for itr in range(1000):
         Err = looper.iteration()

@@ -459,7 +459,7 @@ class Generator(Sequence,):
         elif Ymode in {'ElectrostaticMap','AtomsAndBonds'}: 
             return self.scan_dim[:2] + (2,)
         elif Ymode == 'xyz': 
-            return (self.Nmax_xyz,4) )
+            return (self.Nmax_xyz, 4 )
         else:
             return self.scan_dim[:2]
 

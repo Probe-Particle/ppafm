@@ -26,14 +26,15 @@ import ctypes
 import os
 import sys
 
-if __name__ == '__main__':
-    if __package__ is None:
-        sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) ) )
-        #from components.core import GameLoopEvents
-        import cpp_utils
-    else:
-        #from ..components.core import GameLoopEvents
-        from . import cpp_utils
+if __package__ is None:
+    print( " #### DEBUG #### import cpp_utils " )
+    sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) ) )
+    #from components.core import GameLoopEvents
+    import cpp_utils
+else:
+    print( " #### DEBUG #### from . import cpp_utils " )
+    #from ..components.core import GameLoopEvents
+    from . import cpp_utils
 
 #from . import cpp_utils
 #import cpp_utils
@@ -169,10 +170,10 @@ def derivGrid_25D( E, F, dx, dy ):
     F[:,:,:,2] = 0
     return F
 
-def makeGridFF( fff, dx=0.1, dy=0.1 ):
+def makeGridFF( fff,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 ):
     #try:
-    atomMap = np.load('./Atoms.npy')
-    bondMap = np.load('./Bonds.npy')
+    atomMap = np.load( fname_atom )
+    bondMap = np.load( fname_bond )
 
     atomMap = blur( atomMap )
     bondMap = blur( bondMap )
@@ -205,15 +206,15 @@ def makeGridFF( fff, dx=0.1, dy=0.1 ):
     plt.show()
     '''
 
-    fff.setGridShape( atomMapF.shape[:3], lvec )
-    fff.bindGrids( atomMapF, bondMapF )
+    fff.setGridShape( atomMap.shape[:3], lvec )
+    fff.bindGrids( atomMap, bondMap )
 
     #except Exception as e:
     #    raise Exception(e) 
     #    print(e)
     #    print " cannot load ./Atoms.npy or ./Bonds.npy "
 
-    return atomMapF, bondMapF
+    return atomMap, bondMap, lvec
 
 class EngineFARFF():
 
@@ -230,17 +231,17 @@ class EngineFARFF():
     def __init__(self):
         pass
 
-    def preform_relaxation( self, geomIn, AtomMap, BondMap ):
+    def preform_relaxation( self, geomIn, lvec, atomMap, bondMap, Fconv=-1e-5 ):
 
-        fff = sys.modules[__name__]
-        self.natom  = len(geomIn)
-        self.ndof   = fff.reallocFF(natom)
-        self.norb   = ndof - natom
+        #fff = sys.modules[__name__]
+        natom  = len(geomIn)
+        ndof   = reallocFF(natom)
+        norb   = ndof - natom
+        self.natom = natom; self.ndof = ndof; self.norb = norb; 
         #atypes = fff.getTypes (natom)    ; print "atypes.shape ", atypes.shape
-        self.dofs   = fff.getDofs(self.ndof)       ; print("dofs.shape ", dofs.shape)
-        self.apos   = self.dofs[:natom]            ; print("apos.shape ", apos.shape)
-        self.opos   = self.dofs[natom:]            ; print("opos.shape ", opos.shape)
-
+        self.dofs   = getDofs(self.ndof)       ; print("dofs.shape ", self.dofs.shape)
+        self.apos   = self.dofs[:natom]        ; print("apos.shape ", self.apos.shape)
+        self.opos   = self.dofs[natom:]        ; print("opos.shape ", self.opos.shape)
         self.apos[:,:] = geomIn[:,:] #
 
         # --- subtract center of mass
@@ -248,23 +249,22 @@ class EngineFARFF():
         cog*=(1./natom)
         self.apos -= cog[None,:]
 
-        fff.setupFF(n=natom)   # use default atom type
-        fff.setGridShape( atomMapF.shape[:3], lvec )
-        fff.bindGrids( atomMapF, bondMapF )
+        setupFF     (n=natom)   # use default atom type
+        setGridShape( atomMap.shape[:3], lvec )
+        bindGrids   ( atomMap, bondMap )
 
         #atomMapF, bondMapF = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF
-        fff.setupOpt(dt=self.dt, damp=selt.damp, f_limit=self.f_limit, l_limit=self.l_limit )
+        setupOpt(dt=self.dt, damp=self.damp, f_limit=self.f_limit, l_limit=self.l_limit )
 
         #glview = glv.GLView()
-        for i in range(NmaxIter/NstepPerCheck):
+        for i in range( int( self.NmaxIter/self.NstepPerCheck )+1 ):
             #glview.pre_draw()
-            F2err = fff.relaxNsteps( NstepPerCheck, Fconv=Fconv, ialg=0 )
-            print("[%i]|F| %g " %(i*NstepPerCheck, np.sqrt(F2err) )
+            F2err = relaxNsteps( self.NstepPerCheck, Fconv=Fconv, ialg=0 )
+            print("[%i]|F| %g " %(i*self.NstepPerCheck, np.sqrt(F2err) ) )
             #if glview.post_draw(): break
             #time.sleep(.05)
-            if( F2err<Fconv*Fconv ):
+            if F2err<(Fconv*Fconv): 
                 break
-        
         return apos[:,:].copy()
 
 
@@ -302,7 +302,7 @@ if __name__ == "__main__":
 
     fff.setupFF(n=natom)   # use default atom type
 
-    atomMapF, bondMapF = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF
+    atomMapF, bondMapF, lvecMap = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF
 
     fff.setupOpt(dt=0.05, damp=0.2, f_limit=100.0, l_limit=0.2 )
     #fff.relaxNsteps(50, Fconv=1e-6, ialg=0)
