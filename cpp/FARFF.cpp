@@ -3,7 +3,7 @@
 #include "Vec3.h"
 #include "Mat3.h"
 
-static int  iDebug = 1;
+static int  iDebug = 0;
 
 #include "Forces.h"
 #include "FARFF.h"
@@ -41,14 +41,17 @@ class GridFF_AtomBond{ public:
     Vec3d    * atomMap = 0;
     Vec3d    * bondMap = 0;
 
-    double lbond             = 0.8;  // bond lever length
-    double atomFroceStrenght = 0.5;  // ToDo - this may ne more sophisticated - specific for each atom-type or so
-    double orbFroceStrenght  = 0.1;  // ToDo - this may ne more sophisticated - specific for each atom-type or so
+    double lbond             = 0.8;  // bond lever length ???
+    //double atomFroceStrenght = 0.5;  // ToDo - this may ne more sophisticated - specific for each atom-type or so
+    //double orbFroceStrenght  = 0.1;  // ToDo - this may ne more sophisticated - specific for each atom-type or so
 
     int natom   = 0;
     int norb    = 0;
 
     Vec3ui8 * aconf  = 0;
+
+    double*  atomFroceStrenght = 0; // This is based on credibility of the map
+    double*  orbFroceStrenght  = 0; 
 
     Vec3d  * apos    = 0;      // atomic position // ALIAS
     Vec3d  * aforce  = 0;      // atomic forces   // ALIAS
@@ -63,28 +66,54 @@ class GridFF_AtomBond{ public:
         apos=apos_;   aforce=aforce_;
         opos=opos_;   oforce=oforce_;
         aconf = aconf_;
+        int i=0;
+        //printf( "DEBUG apos  [%i] (%g,%g,%g) \n", i, apos  [i].x, apos  [i].y, apos  [i].z );
+        //printf( "DEBUG opos  [%i] (%g,%g,%g) \n", i, opos  [i].x, opos  [i].y, opos  [i].z );
+        //printf( "DEBUG aforce[%i] (%g,%g,%g) \n", i, aforce[i].x, aforce[i].y, aforce[i].z );
+        //printf( "DEBUG oforce[%i] (%g,%g,%g) \n", i, oforce[i].x, oforce[i].y, oforce[i].z );
+    }
+
+    void reallocAux(){
+        _realloc( atomFroceStrenght, natom );
+        _realloc( orbFroceStrenght,  norb  );
     }
 
     double eval( ){
         double invLbond = 1/lbond;
         //double cbondF   = orbFroceStrenght * invLbond; // lever length
+        int i=0;
+        //printf( "DEBUG eval ... \n" );
+        //printf( "DEBUG apos  [%i] (%g,%g,%g) \n", i, apos  [i].x, apos  [i].y, apos  [i].z );
+        //printf( "DEBUG opos  [%i] (%g,%g,%g) \n", i, opos  [i].x, opos  [i].y, opos  [i].z );
+        //printf( "DEBUG aforce[%i] (%g,%g,%g) \n", i, aforce[i].x, aforce[i].y, aforce[i].z );
+        //printf( "DEBUG oforce[%i] (%g,%g,%g) \n", i, oforce[i].x, oforce[i].y, oforce[i].z );
+        //printf( "DEBUG ... eval \n" );
         if(atomMap){
-            printf( "DEBUG atomMap \n" );
+            //printf( "DEBUG atomMap \n" );
             for(int i=0; i<natom; i++){
+                //printf( "DEBUG atom[%i] \n", i );
+                //printf( "DEBUG aforce[%i] (%g,%g,%g) \n", i, aforce[i].x, aforce[i].y, aforce[i].z );
                 Vec3d gpos;
                 Vec3d pa  = apos[i]-gridShape.pos0;
+                //printf( "DEBUG pa (%g,%g,%g) \n", pa.x, pa.y, pa.z );
                 gridShape.cartesian2grid( pa, gpos );
+                //printf( "DEBUG gpos (%g,%g,%g) \n", gpos.x, gpos.y, gpos.z );
                 Vec3d fg = interpolate3DvecWrap( atomMap, gridShape.n, gpos );
-                aforce[i].add_mul( fg , atomFroceStrenght );
+                //printf( "DEBUG fg (%g,%g,%g) \n", fg.x, fg.y, fg.z );
+                //printf( "DEBUG aforce[%i] (%g,%g,%g) \n", i, aforce[i].x, aforce[i].y, aforce[i].z );
+                aforce[i].add_mul( fg , atomFroceStrenght[i] );
+                //printf( "DEBUG aforce[%i] (%g,%g,%g) \n", i, aforce[i].x, aforce[i].y, aforce[i].z );
+                /*
                 #ifdef DEBUG_GL 
-                //printf( "gridFF atom[%i] fg(%g,%g,%g)    gpos(%g,%g,%g)      pa(%g,%g,%g)  \n", i,   fg.x,fg.y,fg.z,   gpos.x,gpos.y,gpos.z,     pa.x, pa.y, pa.z );
+                printf( "gridFF atom[%i] fg(%g,%g,%g)    gpos(%g,%g,%g)      pa(%g,%g,%g)  \n", i,   fg.x,fg.y,fg.z,   gpos.x,gpos.y,gpos.z,     pa.x, pa.y, pa.z );
                 glColor3f(1.0,0.0,0.0); Draw3D::pointCross(apos[i],0.1); Draw3D::vecInPos( fg*100.0, apos[i] );
-                #endif 
+                #endif
+                */ 
             }
         }
         
         if(bondMap){
-            printf( "DEBUG bondMap \n" );
+            //printf( "DEBUG bondMap \n" );
             for(int ia=0; ia<natom; ia++){
                 const Vec3d& pa = apos[ia] - gridShape.pos0;
                 int ioff = ia*N_BOND_MAX;
@@ -96,7 +125,7 @@ class GridFF_AtomBond{ public:
                     gridShape.cartesian2grid( p, gpos );
                     Vec3d fg = interpolate3DvecWrap( bondMap, gridShape.n, gpos );
 
-                    fg.mul( orbFroceStrenght );
+                    fg.mul( orbFroceStrenght[i] );
                     //aforce[i].add( fg );
                     fg.mul( invLbond );
                     oforce[i].add( fg );
@@ -202,6 +231,9 @@ double* getDofs  (){ return (double*)ff.dofs;   }
 double* getFDofs (){ return (double*)ff.fdofs;  }
 double* getEDofs (){ return (double*)ff.edofs;  }
 
+double* getAtomMapStrenghs(){ return (double*)gridff.atomFroceStrenght; }
+double* getBondMapStrenghs(){ return (double*)gridff.orbFroceStrenght; }
+
 void setupFF( int natom, int* itypes ){
     for(int i=0; i<natom; i++){ 
         ff.atypes[i]=atomTypes[itypes[i]];
@@ -211,13 +243,15 @@ void setupFF( int natom, int* itypes ){
     //ff.normalizeOrbs();
     opt.bindOrAlloc( ff.nDOF, ff.dofs, 0, ff.fdofs, 0 );
     opt.cleanVel( );
+    //printf( "DEBUG  setupFF %i,%i,%i \n", ff.natom, ff.norb, ff.nDOF );
     gridff.bindDOFs( ff.natom, ff.norb, ff.apos, ff.aforce, ff.opos, ff.oforce, ff.aconf );
+    gridff.reallocAux();
 }
 
 void setGridShape( int * n, double * cell ){
     //gridff.gridShape.n.set( n[2], n[1], n[0] );
     gridff.gridShape.n.set( n[0], n[1], n[2] );
-    printf( " nxyz  %i %i %i \n", gridff.gridShape.n.x, gridff.gridShape.n.y, gridff.gridShape.n.z );
+    //printf( " nxyz  %i %i %i \n", gridff.gridShape.n.x, gridff.gridShape.n.y, gridff.gridShape.n.z );
     gridff.gridShape.setCell( *(Mat3d*)cell );
     gridff.gridShape.pos0 = gridff.gridShape.cell.a*-0.5 + gridff.gridShape.cell.b*-0.5 + gridff.gridShape.cell.c*-0.5;
     gridff.gridShape.printCell();
@@ -243,31 +277,35 @@ void setBox(double* pmin, double* pmax, double* k){
 double relaxNsteps( int nsteps, double Fconv, int ialg ){
     double F2conv = Fconv*Fconv;
     double F2=1.0,E =0;
-     //printf( "relaxNsteps nsteps %i \n", nsteps );
+    //printf( "relaxNsteps nsteps %i \n", nsteps );
     for(int itr=0; itr<nsteps; itr++){
         //printf( "relaxNsteps itr %i \n", itr );
         ff.cleanForce(); 
+        //printf( "DEBUG relaxNsteps 0.1 \n" );
         gridff.eval();
+        //printf( "DEBUG relaxNsteps 0.2 \n" );
         E = ff.eval();
         //nff.eval();
         //if( surf.K < 0.0 ){ ff.applyForceHarmonic1D( surf.h, surf.x0, surf.K); }
         //if( box .K < 0.0 ){ ff.applyForceBox       ( box.p0, box.p1, box.K, box.fmax); }
+        //printf( "DEBUG relaxNsteps 1 \n" );
         if((box.k.x>0)||(box.k.y>0)||(box.k.z>0)){ 
             for(int i=0; i<ff.natom; i++){
                  boxForce( ff.apos[i], ff.aforce[i], box.pmin, box.pmax, box.k );
             }
         }
+        //printf( "DEBUG relaxNsteps 2 \n" );
         if(iDebug>0){
             Vec3d cog,fsum,torq;
             checkForceInvariatns( ff.natom, ff.aforce, ff.apos, cog, fsum, torq );
             //printf( "DEBUG CHECK INVARIANTS  fsum %g torq %g   cog (%g,%g,%g) \n", fsum.norm(), torq.norm(), cog.x, cog.y, cog.z );
         }
-        
+        //printf( "DEBUG relaxNsteps 3 \n" );
         #ifdef DEBUG_GL
         //debug_draw_GridFF(gridff.gridShape, gridff.atomMap, true, false );
         debug_draw_GridFF(gridff.gridShape, gridff.bondMap, true, false );
         #endif 
-
+        //printf( "DEBUG relaxNsteps 4 \n" );
         //for(int i=0; i<ff.natom; i++) ff.aforce[i].set(0.);
         
         switch(ialg){
@@ -275,7 +313,7 @@ double relaxNsteps( int nsteps, double Fconv, int ialg ){
             case 1: opt.move_GD(opt.dt);   break;
             case 3: opt.move_MD(opt.dt);   break;
         }
-        
+        //printf( "DEBUG relaxNsteps 5 \n" );
         if(iDebug>0){ printf("relaxNsteps[%i] |F| %g(>%g) E %g  <v|f> %g dt %g(%g..%g) damp %g \n", itr, sqrt(F2), Fconv, E, opt.vf, opt.dt, opt.dt_min, opt.dt_max, opt.damping ); }
         if(F2<F2conv) break;
     }

@@ -402,6 +402,7 @@ class Generator(Sequence,):
         #nrot = len(self.rotations)
         nrot = self.nBestRotations
         nmol = len(self.molecules)
+        if (nrot*nmol) == 0 : return 0,0,0
         return i//(nrot*nmol), (i//nrot)%nmol, i%nrot
 
     def evalRotation(self, rot ):
@@ -429,10 +430,38 @@ class Generator(Sequence,):
             np.random.shuffle( permut )
             self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
 
+    def perform_imaging(self, xyzs, Zs, qs, rotMat ):
 
-    def perform_imaging( geom ):
+        # ToDp : should it be here ?
         self.initFF()
-        return self.next1()
+
+        X = np.empty( self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
+        Y = np.empty( self.getTsDim() )
+
+        if self.projector is not None:
+            self.projector.tryReleaseBuffers()
+
+        #self.nextMolecule( self.molName ) 
+        self.prepareMolecule( xyzs, Zs, qs )
+
+        if self.bDfPerMol: 
+            self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep )[0].astype(np.float32)
+
+        if self.bNoFFCopy:
+            self.scanner.updateFEin( self.forcefield.cl_FE )
+        else:
+            if(self.counter>0): # not first step
+                if(verbose>1): print("scanner.releaseBuffers()")
+                self.scanner.releaseBuffers()
+            self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+            self.scanner.preparePosBasis(self, start=self.scan_start, end=self.scan_end )
+
+            self.handleRotations()
+            #print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
+
+        self.imageRotation( X, Y, rotMat )
+        if(bRunTime): print("runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0)
+        return X, Y
 
     def __next__(self):
         '''
@@ -633,6 +662,11 @@ class Generator(Sequence,):
         if(verbose>0): print(" ===== nextMolecule: ", fullname)
         self.atom_lines = open( fullname ).readlines()
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.atom_lines )
+
+        self.prepareMolecule( xyzs,Zs,qs )
+        if(bRunTime): print("runTime(Generator_LJC.nextMolecule().tot ) [s]: ", time.clock()-t0,    " size ", self.forcefield.nDim)
+
+    def prepareMolecule(self, xyzs,Zs,qs ):
         if(bRunTime): print("runTime(Generator_LJC.nextMolecule().1   ) [s]:  %0.6f" %(time.clock()-t0)    ," load atoms") 
         cog = (self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5)
         setBBoxCenter( xyzs, cog )
@@ -723,22 +757,23 @@ class Generator(Sequence,):
 
         #self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
         if(bRunTime): print("runTime(Generator_LJC.nextMolecule().8-9 ) [s]: ", time.clock()-t1    ," projector.prepareBuffers  ")
-        if(bRunTime): print("runTime(Generator_LJC.nextMolecule().tot ) [s]: ", time.clock()-t0,    " size ", self.forcefield.nDim)
 
     #def nextRotation(self, rot, X,Y ):
     def nextRotation(self, X,Y ):
         '''
         for each rotation
         '''
-        if(verbose>0): print(" ----- nextRotation ", self.irot)
-        if(bRunTime): t0=time.clock()
         (entropy, self.pos0, self.rot) = self.rotations_sorted[self.irot]
-
         if(verbose>0):  print(" imol, irot, entropy ", self.imol, self.irot, entropy)
-        zDir = self.rot[2].flat.copy()
+        return self.imageRotation(self, X,Y, self.rot )
+
+    def imageRotation(self, X,Y, rot ):
+        if(verbose>0): print(" ----- imageRotation ", self.irot)
+        if(bRunTime): t0=time.clock()
+        zDir = rot[2].flat.copy()
 
         atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]           #shift atoms coord to rotation center point of view            
-        atoms_rotated_to_pos0 = rotAtoms(self.rot, atoms_shifted_to_pos0)            #rotate atoms coord to rotation center point of view
+        atoms_rotated_to_pos0 = rotAtoms(rot, atoms_shifted_to_pos0)            #rotate atoms coord to rotation center point of view
         if(verbose>1): print(" atoms_rotated_to_pos0 ", atoms_rotated_to_pos0)
 
         if(bRunTime): print("runTime(Generator_LJC.nextRotation().1   ) [s]:  %0.6f" %(time.clock()-t0)   ," atoms transform(shift,rot)  ")
@@ -755,7 +790,7 @@ class Generator(Sequence,):
         imax = np.argmax( zs ) 
         self.distAboveActive = self.distAboveActive + RvdWs[imax] # shifts distAboveActive for vdW-Radius of top atomic shell
         if(verbose>1): print("imax,distAboveActive ", imax, self.distAboveActive)        
-        atoms_rotated_to_pos0 = rotAtoms(self.rot, self.atomsNonPBC[:,:3] - self.atomsNonPBC[imax,:3])  #New top atom
+        atoms_rotated_to_pos0 = rotAtoms(rot, self.atomsNonPBC[:,:3] - self.atomsNonPBC[imax,:3])  #New top atom
         
         if(bRunTime): print("runTime(Generator_LJC.nextRotation().2   ) [s]:  %0.6f" %(time.clock()-t0)  ," top atom ")
 
@@ -785,10 +820,10 @@ class Generator(Sequence,):
 
         if(bRunTime): print("runTime(Generator_LJC.nextRotation().4   ) [s]:  %0.6f" %(time.clock()-t0)   ," vtipR0  ")
 
-        #self.scanner.setScanRot( , rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
-        pos0             = self.atomsNonPBC[imax,:3]+self.rot[2]*self.distAboveActive+np.dot((AFM_window_shift[0],AFM_window_shift[1],0),self.rot)
+        #self.scanner.setScanRot( , rot=rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
+        pos0             = self.atomsNonPBC[imax,:3]+rot[2]*self.distAboveActive+np.dot((AFM_window_shift[0],AFM_window_shift[1],0),rot)
         self.pos0 = pos0
-        self.scan_pos0s  = self.scanner.setScanRot(pos0, rot=self.rot, zstep=0.1, tipR0=vtipR0 )
+        self.scan_pos0s  = self.scanner.setScanRot(pos0, rot=rot, zstep=0.1, tipR0=vtipR0 )
         
         if(bRunTime): print("runTime(Generator_LJC.nextRotation().5   ) [s]:  %0.6f" %(time.clock()-t0)  ," scan_pos0s = scanner.setScanRot() ")
 
@@ -823,7 +858,7 @@ class Generator(Sequence,):
 
         if(bRunTime): print("runTime(Generator_LJC.nextRotation().9   ) [s]:  %0.6f" %(time.clock()-t0)  ," X = Fout.z  ")
 
-        dirFw = np.append( self.rot[2], [0] ); 
+        dirFw = np.append( rot[2], [0] ); 
         if(verbose>0): print("dirFw ", dirFw)
         if self.Ymode not in ['HeightMap', 'ElectrostaticMap', 'xyz']:
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAboveActive-RvdWs[imax]-self.projector.Rpp))[None,None,:] )
@@ -878,11 +913,11 @@ class Generator(Sequence,):
         elif self.Ymode == 'D-S-H':
             # Disks
             if self.diskMode == 'sphere':
-                offset = np.dot(poss_[0,0,:3]-self.atomsNonPBC[np.argmax(atoms_rotated_to_pos0[:,2]),:3], self.rot[2]) # Distance from top atom to screen
+                offset = np.dot(poss_[0,0,:3]-self.atomsNonPBC[np.argmax(atoms_rotated_to_pos0[:,2]),:3], rot[2]) # Distance from top atom to screen
                 Y[:,:,0] = self.projector.run_evaldisks  ( poss = poss_, tipRot=self.scanner.tipRot, offset=offset )[:,:,0]
             elif self.diskMode == 'center':
                 self.projector.dzmax_s = np.Inf
-                offset = np.dot(poss_[0,0,:3]-self.atomsNonPBC[np.argmax(atoms_rotated_to_pos0[:,2]),:3], self.rot[2]) - 1.0
+                offset = np.dot(poss_[0,0,:3]-self.atomsNonPBC[np.argmax(atoms_rotated_to_pos0[:,2]),:3], rot[2]) - 1.0
                 Y[:,:,0] = self.projector.run_evaldisks  ( poss = poss_, tipRot=self.scanner.tipRot, offset=offset )[:,:,0]
             # Spheres
             Y[:,:,1] = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
@@ -898,7 +933,7 @@ class Generator(Sequence,):
             Y[:,:] = 0.0
             Y[:,2] = self.zmin_xyz - 100.0
             xyzs = self.atomsNonPBC[:,:3] - self.pos0[None,:]
-            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz, RvdWs = self.REAs[:,0] - 1.6612  )
+            xyzs_, Zs = getAtomsRotZminNsort( rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz, RvdWs = self.REAs[:,0] - 1.6612  )
             Y[:len(xyzs_),:3] = xyzs_[:,:]
             
             if self.molCenterAfm:    # shifts reference to molecule center            
@@ -939,6 +974,8 @@ class Generator(Sequence,):
         FEout = self.scanner.run_convolveZ()
         X[:,:,:FEout.shape[2]] = FEout[:,:,:,2].copy()
     """
+
+
 
     def match( self, Xref ):
         return

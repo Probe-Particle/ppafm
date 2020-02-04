@@ -91,7 +91,7 @@ inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r 
 	int yoff = n.y<<3; int imy = r.y +yoff;	double ty = r.y - imy +yoff;	double my = 1 - ty;		int ity = (imy+1)%n.y;  imy=imy%n.y;
 	int zoff = n.z<<3; int imz = r.z +zoff;	double tz = r.z - imz +zoff;	double mz = 1 - tz;		int itz = (imz+1)%n.z;  imz=imz%n.z;
 	int nxy = n.x * n.y; int nx = n.x;
-	//printf( " %f %f %f   %i %i %i \n", r.x, r.y, r.z, imx, imy, imz );
+	//printf( "DEBUG interpolate3DvecWrap gp(%f,%f,%f) igp(%i,%i,%i) \n", r.x, r.y, r.z, imx, imy, imz );
 	double mymx = my*mx; double mytx = my*tx; double tymx = ty*mx; double tytx = ty*tx;
 	Vec3d out;
 	out.set_mul( grid[ i3D( imx, imy, imz ) ], mz*mymx );   out.add_mul( grid[ i3D( itx, imy, imz ) ], mz*mytx );

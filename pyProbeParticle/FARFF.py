@@ -58,6 +58,8 @@ header_strings = [
     "double* getDofs  (){",
     "double* getFDofs (){",
     "double* getEDofs (){",
+    "double* getAtomMapStrenghs(){",
+    "double* getBondMapStrenghs(){",
     "void setupFF( int natom, int* types ){",
     "void setGridShape( int* n, double* cell ){",
     "void bindGrids( double* atomMap, double*  bondMap ){",
@@ -116,6 +118,18 @@ lib.getEDofs .restype   =  c_double_p
 def getEDofs (ndofs):
     return np.ctypeslib.as_array( lib.getEDofs(), shape=(ndofs,)) 
 
+#  double* getAtomMapStrenghs(){
+lib.getAtomMapStrenghs.argtypes  = [] 
+lib.getAtomMapStrenghs.restype   =  c_double_p
+def getAtomMapStrenghs(natom):
+    return np.ctypeslib.as_array(  lib.getAtomMapStrenghs(), shape=(natom,)) 
+
+#  double* getBondMapStrenghs(){
+lib.getBondMapStrenghs.argtypes  = [] 
+lib.getBondMapStrenghs.restype   =  c_double_p
+def getBondMapStrenghs(nbond):
+    return np.ctypeslib.as_array(  lib.getBondMapStrenghs(), shape=(nbond,)) 
+
 #  void setupFF( int natom, int* types ){
 lib.setupFF.argtypes  = [c_int, c_int_p] 
 lib.setupFF.restype   =  None
@@ -131,7 +145,7 @@ def setupFF( n=None, itypes=None ):
 lib.setGridShape.argtypes  = [c_int_p, c_double_p] 
 lib.setGridShape.restype   =  None
 def setGridShape(n, cell):
-    n=np.array(n,dtype=np.int32)
+    n=np.array(n,dtype=np.int32); print( "setGridShape n : ", n  )
     return lib.setGridShape(_np_as(n,c_int_p), _np_as(cell,c_double_p)) 
 
 #  void bindGrids( double* atomMap, double*  bondMap ){
@@ -204,11 +218,11 @@ def makeGridFF( fff,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0
     plt.figure(); plt.imshow(1/(fw2 + atomMapF[:,:,0,0]**2 + atomMapF[:,:,0,1]**2) ); plt.colorbar()
     plt.figure(); plt.imshow(1/(fw2 + bondMapF[:,:,0,0]**2 + bondMapF[:,:,0,1]**2) ); plt.colorbar()
     plt.show()
-    '''
 
-    fff.setGridShape( atomMap.shape[:3], lvec )
+    print( " atomMap.shape[:3]+(1,) ",  atomMap.shape[:3],  atomMap.shape[:3]+(1,) )
+    fff.setGridShape( atomMap.shape[:3]+(1,), lvec )
     fff.bindGrids( atomMap, bondMap )
-
+    '''
     #except Exception as e:
     #    raise Exception(e) 
     #    print(e)
@@ -231,30 +245,46 @@ class EngineFARFF():
     def __init__(self):
         pass
 
-    def preform_relaxation( self, geomIn, lvec, atomMap, bondMap, Fconv=-1e-5 ):
+    def preform_relaxation( self, geomIn, Zs, qs, lvec, atomMap, bondMap, Fconv=-1e-5 ):
 
         #fff = sys.modules[__name__]
+        print( " # preform_relaxation - init " )
+
         natom  = len(geomIn)
         ndof   = reallocFF(natom)
         norb   = ndof - natom
         self.natom = natom; self.ndof = ndof; self.norb = norb; 
         #atypes = fff.getTypes (natom)    ; print "atypes.shape ", atypes.shape
-        self.dofs   = getDofs(self.ndof)       ; print("dofs.shape ", self.dofs.shape)
-        self.apos   = self.dofs[:natom]        ; print("apos.shape ", self.apos.shape)
-        self.opos   = self.dofs[natom:]        ; print("opos.shape ", self.opos.shape)
+        self.dofs   = getDofs(self.ndof)   ; print("dofs.shape ", self.dofs.shape)
+        self.apos   = self.dofs[:natom]    ; print("apos.shape ", self.apos.shape)
+        self.opos   = self.dofs[natom:]    ; print("opos.shape ", self.opos.shape)
         self.apos[:,:] = geomIn[:,:] #
+
+        print( " # preform_relaxation - set DOFs " )
 
         # --- subtract center of mass
         cog = np.sum( self.apos, axis=0 )
         cog*=(1./natom)
         self.apos -= cog[None,:]
-
+        print( " # preform_relaxation - set DOFs [1] " )
         setupFF     (n=natom)   # use default atom type
-        setGridShape( atomMap.shape[:3], lvec )
+        print( " # preform_relaxation - set DOFs [2]" )
+        setGridShape( atomMap.shape[:3]+(1,), lvec )     # ToDo :    this should change if 3D force-field is used
+        print( " # preform_relaxation - set DOFs [3]" )
         bindGrids   ( atomMap, bondMap )
-
+        print( " # preform_relaxation - set DOFs [4]" )
         #atomMapF, bondMapF = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF
         setupOpt(dt=self.dt, damp=self.damp, f_limit=self.f_limit, l_limit=self.l_limit )
+
+        # ! this must be done after setupFF 
+        self.atomMapStrenghs = getAtomMapStrenghs(natom)
+        self.bondMapStrenghs = getBondMapStrenghs(norb)
+        #atomMapStrenghs[:] = 0.5
+        #bondMapStrenghs[:] = 0.1
+        self.atomMapStrenghs[:] = 0.0
+        self.bondMapStrenghs[:] = 0.0
+
+        print( " # preform_relaxation - to Loop " )
 
         #glview = glv.GLView()
         for i in range( int( self.NmaxIter/self.NstepPerCheck )+1 ):
@@ -265,7 +295,7 @@ class EngineFARFF():
             #time.sleep(.05)
             if F2err<(Fconv*Fconv): 
                 break
-        return apos[:,:].copy()
+        return self.apos[:,:].copy()
 
 
 if __name__ == "__main__":
