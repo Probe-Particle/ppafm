@@ -758,6 +758,7 @@ class Generator(Sequence,):
         #self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
         if(bRunTime): print("runTime(Generator_LJC.nextMolecule().8-9 ) [s]: ", time.clock()-t1    ," projector.prepareBuffers  ")
 
+
     #def nextRotation(self, rot, X,Y ):
     def nextRotation(self, X,Y ):
         '''
