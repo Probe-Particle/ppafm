@@ -456,8 +456,10 @@ class Generator(Sequence,):
             self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
             self.scanner.preparePosBasis(self, start=self.scan_start, end=self.scan_end )
 
-            self.handleRotations()
+            #self.handleRotations()
             #print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
+
+        self.pos0, entropy = self.evalRotation( rotMat )
 
         self.imageRotation( X, Y, rotMat )
         if(bRunTime): print("runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0)

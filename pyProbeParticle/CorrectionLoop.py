@@ -51,10 +51,13 @@ class Critique():
         pass
     
     def try_improve(self, geomIn, AFMs, AFMRef ):
+        #print( " AFMs ", AFMs.shape, " AFMRef ", AFMRef.shape )
         AFMdiff = AFMs - AFMRef
+        Err  = np.sqrt( np.sum(AFMdiff**2) )  # root mean square error
         # ToDo : identify are of most difference and make random changes in that area
+        print( "Critique.try_improve Err2 ", Err  )
         geomOut = geomIn.copy()
-        return geomOut
+        return Err, geomOut
 
 class CorrectionLoop():
 
@@ -68,13 +71,14 @@ class CorrectionLoop():
     def init(self):
         pass
 
-    def startLoop(self, guess, Zs, qs, atomMap, bondMap, lvecMap ):
+    def startLoop(self, guess, Zs, qs, atomMap, bondMap, lvecMap, AFMRef ):
         self.guess   = guess
         self.Zs      = qs
         self.qs      = qs
         self.atomMap = atomMap
         self.bondMap = bondMap
         self.mapLvec = lvecMap
+        self.AFMRef = AFMRef
 
     def iteration(self):
         print( "### CorrectionLoop.iteration [1]" )
@@ -82,7 +86,7 @@ class CorrectionLoop():
         print( "### CorrectionLoop.iteration [2]" )
         AFMs,AuxMap     = self.simulator.perform_imaging( self.relaxed, self.Zs, self.qs, self.rotMat )
         print( "### CorrectionLoop.iteration [3]" )
-        Err, self.guess = self.critique.try_improve     ( self.relaxed, AFMs, AFMRef )
+        Err, self.guess = self.critique.try_improve     ( self.relaxed, AFMs, self.AFMRef )
         print( "### CorrectionLoop.iteration [4]" )
         return Err
         #Xs,Ys      = simulator.next1( self )
@@ -162,15 +166,20 @@ if __name__ == "__main__":
 
     print( "# ------ Init Looper     ")
 
+    nscan = simulator.scan_dim; nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
+    np.save( 'AFMref.npy', np.zeros(nscan) )
+    AFMRef = np.load('AFMref.npy')
+
     looper = CorrectionLoop(relaxator,simulator,critique)
     xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")
     atomMap, bondMap, lvecMap = FARFF.makeGridFF( FARFF,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 )
-    looper.startLoop( xyzs, Zs, qs, atomMap, bondMap, lvecMap )
+    looper.startLoop( xyzs, Zs, qs, atomMap, bondMap, lvecMap, AFMRef )
     ErrConv = 1.0
     print( "# ------ To Loop    ")
     for itr in range(1000):
+        print( "# ======= CorrectionLoop[ %i ] ", itr )
         Err = looper.iteration()
-        if Err > ErrConv:
+        if Err < ErrConv:
             break
 
     #print( "UNIT_TEST is not yet written :-( " )

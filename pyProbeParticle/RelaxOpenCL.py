@@ -250,7 +250,7 @@ class RelaxedScanner:
                 #self.image_format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
                 #format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
                 #print "self.cl_ImgIn", self.cl_ImgIn
-                self.upadateFEin( FEin_cl )
+                self.updateFEin( FEin_cl )
                 self.FEin_cl=FEin_cl
             
         # see:    https://stackoverflow.com/questions/39533635/pyopencl-3d-rgba-image-from-numpy-array
