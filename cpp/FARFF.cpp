@@ -3,7 +3,7 @@
 #include "Vec3.h"
 #include "Mat3.h"
 
-static int  iDebug = 0;
+static int  iDebug = 2;
 
 #include "Forces.h"
 #include "FARFF.h"
@@ -277,6 +277,11 @@ void setBox(double* pmin, double* pmax, double* k){
 double relaxNsteps( int nsteps, double Fconv, int ialg ){
     double F2conv = Fconv*Fconv;
     double F2=1.0,E =0;
+    if(iDebug>0){
+        for(int ia=0; ia<ff.natom; ia++){
+            printf( "atom[%i] (%g,%g,%g) \n", ia, ff.apos[ia].x,ff.apos[ia].y,ff.apos[ia].z );
+        }
+    }
     //printf( "relaxNsteps nsteps %i \n", nsteps );
     for(int itr=0; itr<nsteps; itr++){
         //printf( "relaxNsteps itr %i \n", itr );
@@ -300,6 +305,11 @@ double relaxNsteps( int nsteps, double Fconv, int ialg ){
             checkForceInvariatns( ff.natom, ff.aforce, ff.apos, cog, fsum, torq );
             //printf( "DEBUG CHECK INVARIANTS  fsum %g torq %g   cog (%g,%g,%g) \n", fsum.norm(), torq.norm(), cog.x, cog.y, cog.z );
         }
+        if(iDebug>=2){
+            for(int ia=0; ia<ff.natom; ia++){
+                printf( "atom[%i] p(%g,%g,%g) f(%g,%g,%g) \n", ia, ff.apos[ia].x,ff.apos[ia].y,ff.apos[ia].z,  ff.aforce[ia].x,ff.aforce[ia].y,ff.aforce[ia].z  );
+            }
+        }
         //printf( "DEBUG relaxNsteps 3 \n" );
         #ifdef DEBUG_GL
         //debug_draw_GridFF(gridff.gridShape, gridff.atomMap, true, false );
@@ -314,7 +324,10 @@ double relaxNsteps( int nsteps, double Fconv, int ialg ){
             case 3: opt.move_MD(opt.dt);   break;
         }
         //printf( "DEBUG relaxNsteps 5 \n" );
-        if(iDebug>0){ printf("relaxNsteps[%i] |F| %g(>%g) E %g  <v|f> %g dt %g(%g..%g) damp %g \n", itr, sqrt(F2), Fconv, E, opt.vf, opt.dt, opt.dt_min, opt.dt_max, opt.damping ); }
+        if(iDebug>0){ 
+            printf("relaxNsteps[%i] |F| %g(>%g) E %g  <v|f> %g dt %g(%g..%g) damp %g \n", itr, sqrt(F2), Fconv, E, opt.vf, opt.dt, opt.dt_min, opt.dt_max, opt.damping ); 
+            if( !isfinite(F2) ){ printf("Force is not Finite=>exit \n"); exit(0); }
+        }
         if(F2<F2conv) break;
     }
     return F2;

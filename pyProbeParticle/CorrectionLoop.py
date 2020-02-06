@@ -52,12 +52,14 @@ class SampleStructure():
 class Critique():
 
     def __init__(self ):
-        self.best= None
+        self.best = None
         pass
 
     def modifyStructure(self, geomIn ):
         geom = geomIn.copy()
-        geom[0,0] += 0.2
+        geom[0,0] += 0.1
+        geom[1,0] -= 0.1
+        # --- ToDo: Relaxation Should be possible part of relaxation ????
         return geom
 
     def try_improve(self, geomIn, AFMs, AFMRef ):
@@ -104,7 +106,7 @@ class CorrectionLoop():
            au.writeToXYZ( self.xyzLogFile, self.Zs, self.xyzs, qs=self.qs, commet=("CorrectionLoop.iteration [%i] " %itr) )
 
         print( "### CorrectionLoop.iteration [%i]" %itr )
-        AFMs,AuxMap     = self.simulator.perform_imaging( self.relaxed, self.Zs, self.qs, self.rotMat )
+        AFMs,AuxMap     = self.simulator.perform_imaging( self.relaxed.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
         if self.logImgName is not None:
             nz = len(self.logImgIzs)
             plt.figure(figsize=(5*nz,5))
