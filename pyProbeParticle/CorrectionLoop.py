@@ -45,21 +45,36 @@ bRunTime = False
 class Sequence:
     pass
 
+class SampleStructure():
+    def __init__(self ):
+        pass
+
 class Critique():
 
     def __init__(self ):
+        self.best= None
         pass
-    
+
+    def modifyStructure(self, geomIn ):
+        geom = geomIn.copy()
+        geom[0,0] += 0.2
+        return geom
+
     def try_improve(self, geomIn, AFMs, AFMRef ):
         #print( " AFMs ", AFMs.shape, " AFMRef ", AFMRef.shape )
         AFMdiff = AFMs - AFMRef
         Err  = np.sqrt( np.sum(AFMdiff**2) )  # root mean square error
         # ToDo : identify are of most difference and make random changes in that area
+        if ( self.best is None ) or ( self.best.Err > Err ):
+            self.best_structure = geomIn
         print( "Critique.try_improve Err2 ", Err  )
-        geomOut = geomIn.copy()
+        geomOut = self.modifyStructure( self.best_structure )
         return Err, geomOut
 
 class CorrectionLoop():
+
+    logImgName = None
+    logImgIzs  = [0,-5,-1] 
 
     rotMat = np.array([[1.,0,0],[0.,1.,0],[0.,0,1.]])
 
@@ -67,31 +82,47 @@ class CorrectionLoop():
         self.simulator = simulator
         self.relaxator = relaxator
         self.critique  = critique
+        self.xyzLogName = None
 
     def init(self):
         pass
 
     def startLoop(self, guess, Zs, qs, atomMap, bondMap, lvecMap, AFMRef ):
-        self.guess   = guess
-        self.Zs      = qs
+        self.xyzs    = xyzs
+        self.Zs      = Zs
         self.qs      = qs
         self.atomMap = atomMap
         self.bondMap = bondMap
         self.mapLvec = lvecMap
         self.AFMRef = AFMRef
 
-    def iteration(self):
+    def iteration(self, itr=0 ):
         print( "### CorrectionLoop.iteration [1]" )
-        self.relaxed    = self.relaxator.preform_relaxation ( self.guess, self.Zs, self.qs, self.mapLvec, self.atomMap, self.bondMap )
-        print( "### CorrectionLoop.iteration [2]" )
+        self.relaxed    = self.relaxator.preform_relaxation ( self.xyzs, self.Zs, self.qs, self.mapLvec, self.atomMap, self.bondMap )
+        if self.xyzLogFile is not None:
+           # au.saveXYZ( self.Zs, self.xyzs, self.xyzLogName, qs=self.qs )
+           au.writeToXYZ( self.xyzLogFile, self.Zs, self.xyzs, qs=self.qs, commet=("CorrectionLoop.iteration [%i] " %itr) )
+
+        print( "### CorrectionLoop.iteration [%i]" %itr )
         AFMs,AuxMap     = self.simulator.perform_imaging( self.relaxed, self.Zs, self.qs, self.rotMat )
+        if self.logImgName is not None:
+            nz = len(self.logImgIzs)
+            plt.figure(figsize=(5*nz,5))
+            for iiz, iz in enumerate(self.logImgIzs):
+                plt.subplot(1,nz,iiz+1); plt.imshow ( AFMs[:,:,iz] )
+                plt.title( "iz %i" %iz )
+            plt.savefig( self.logImgName+("_%03i.png" %itr), bbox_inches='tight')
+            plt.close  ()
+
         print( "### CorrectionLoop.iteration [3]" )
-        Err, self.guess = self.critique.try_improve     ( self.relaxed, AFMs, self.AFMRef )
+        Err, self.xyzs = self.critique.try_improve( self.relaxed, AFMs, self.AFMRef )
         print( "### CorrectionLoop.iteration [4]" )
         return Err
         #Xs,Ys      = simulator.next1( self )
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
     print( " UNIT_TEST START : CorrectionLoop ... " )
     #import atomicUtils as au
 
@@ -171,6 +202,8 @@ if __name__ == "__main__":
     AFMRef = np.load('AFMref.npy')
 
     looper = CorrectionLoop(relaxator,simulator,critique)
+    looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
+    looper.logImgName = "CorrectionLoopAFMLog"
     xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")
     atomMap, bondMap, lvecMap = FARFF.makeGridFF( FARFF,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 )
     looper.startLoop( xyzs, Zs, qs, atomMap, bondMap, lvecMap, AFMRef )
@@ -181,6 +214,8 @@ if __name__ == "__main__":
         Err = looper.iteration()
         if Err < ErrConv:
             break
+
+    looper.xyzLogFile.close()
 
     #print( "UNIT_TEST is not yet written :-( " )
     print( " UNIT_TEST CorrectionLoop DONE !!! " )

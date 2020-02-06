@@ -169,7 +169,8 @@ def saveResults():
     nd_ = (nd[2],nd[0],nd[1])
     #print nd_
     Ftmp=np.zeros(nd_);
-    Ftmp[:,:,:] = np.transpose( FEout[:,:,:,2], (2,0,1) ); GU.saveXSF( 'OutFz_cl.xsf',  Ftmp, lvec_OUT );
+    Ftmp[:,:,:] = np.transpose( FEout[:,:,:,2], (2,0,1) ); 
+    GU.saveXSF( 'OutFz_cl.xsf',  Ftmp, lvec_OUT );
 
 if __name__ == "__main__":
     prepareProgram()
