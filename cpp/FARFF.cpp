@@ -3,7 +3,7 @@
 #include "Vec3.h"
 #include "Mat3.h"
 
-static int  iDebug = 2;
+static int  iDebug = 0;
 
 #include "Forces.h"
 #include "FARFF.h"
@@ -88,6 +88,18 @@ class GridFF_AtomBond{ public:
         //printf( "DEBUG aforce[%i] (%g,%g,%g) \n", i, aforce[i].x, aforce[i].y, aforce[i].z );
         //printf( "DEBUG oforce[%i] (%g,%g,%g) \n", i, oforce[i].x, oforce[i].y, oforce[i].z );
         //printf( "DEBUG ... eval \n" );
+        /*
+        if(iDebug>0){
+            for(int iy=0; iy<gridShape.n.y; iy++){
+                for(int ix=0; ix<gridShape.n.x; ix++){    
+                    int i = iy*gridShape.n.x+ix;
+                    if( !isfinite( atomMap[i].x + atomMap[i].y + atomMap[i].z ) ){ printf( "atomMap[%i,%i]=(%g,%g,%g) \n", ix,iy, atomMap[i].x,atomMap[i].y,atomMap[i].z ); exit(0); }
+                    if( !isfinite( bondMap[i].x + bondMap[i].y + bondMap[i].z ) ){ printf( "bondMap[%i,%i]=(%g,%g,%g) \n", ix,iy, bondMap[i].x,bondMap[i].y,bondMap[i].z ); exit(0); }
+                }
+            }
+        }
+        printf( "GridFF (%i,%i,%i)\n", gridShape.n.x,gridShape.n.y,gridShape.n.z );
+        */
         if(atomMap){
             //printf( "DEBUG atomMap \n" );
             for(int i=0; i<natom; i++){
@@ -100,6 +112,7 @@ class GridFF_AtomBond{ public:
                 //printf( "DEBUG gpos (%g,%g,%g) \n", gpos.x, gpos.y, gpos.z );
                 Vec3d fg = interpolate3DvecWrap( atomMap, gridShape.n, gpos );
                 //printf( "DEBUG fg (%g,%g,%g) \n", fg.x, fg.y, fg.z );
+                //printf( "DEBUG pa(%g,%g,%g) gpos(%g,%g,%g) fg(%g,%g,%g) atomMap %li \n",  apos[i].x,apos[i].y,apos[i].z,   gpos.x,gpos.y,gpos.z,   fg.x,fg.y,fg.z, (long)(atomMap)  );
                 //printf( "DEBUG aforce[%i] (%g,%g,%g) \n", i, aforce[i].x, aforce[i].y, aforce[i].z );
                 aforce[i].add_mul( fg , atomFroceStrenght[i] );
                 //printf( "DEBUG aforce[%i] (%g,%g,%g) \n", i, aforce[i].x, aforce[i].y, aforce[i].z );

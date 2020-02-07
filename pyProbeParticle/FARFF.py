@@ -152,6 +152,7 @@ def setGridShape(n, cell):
 lib.bindGrids.argtypes  = [c_double_p, c_double_p] 
 lib.bindGrids.restype   =  None
 def bindGrids(atomMap, bondMap):
+    print( " bindGrids atomMap bondMap ", atomMap.min(), bondMap.min() )
     return lib.bindGrids(_np_as(atomMap,c_double_p), _np_as(bondMap,c_double_p)) 
 
 #  double setupOpt( double dt, double damp, double f_limit, double l_limit ){
@@ -228,7 +229,7 @@ def makeGridFF( fff,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0
     #    print(e)
     #    print " cannot load ./Atoms.npy or ./Bonds.npy "
 
-    return atomMap, bondMap, lvec
+    return atomMapF, bondMapF, lvec
 
 class EngineFARFF():
 
@@ -271,6 +272,8 @@ class EngineFARFF():
         print( " # preform_relaxation - set DOFs [2]" )
         setGridShape( atomMap.shape[:3]+(1,), lvec )     # ToDo :    this should change if 3D force-field is used
         print( " # preform_relaxation - set DOFs [3]" )
+        self.atomMap = atomMap # we have to keep it so it is not garbage collected
+        self.bondMap = bondMap
         bindGrids   ( atomMap, bondMap )
         print( " # preform_relaxation - set DOFs [4]" )
         #atomMapF, bondMapF = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF

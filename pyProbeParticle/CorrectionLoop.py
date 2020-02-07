@@ -96,10 +96,11 @@ class CorrectionLoop():
         self.atomMap = atomMap
         self.bondMap = bondMap
         self.mapLvec = lvecMap
-        self.AFMRef = AFMRef
+        self.AFMRef  = AFMRef
 
     def iteration(self, itr=0 ):
         print( "### CorrectionLoop.iteration [1]" )
+        print( "########### bond atom ---- min min ", self.atomMap.min(), self.bondMap.min() )
         self.relaxed    = self.relaxator.preform_relaxation ( self.xyzs, self.Zs, self.qs, self.mapLvec, self.atomMap, self.bondMap )
         if self.xyzLogFile is not None:
            # au.saveXYZ( self.Zs, self.xyzs, self.xyzLogName, qs=self.qs )
@@ -208,12 +209,20 @@ if __name__ == "__main__":
     looper.logImgName = "CorrectionLoopAFMLog"
     xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")
     atomMap, bondMap, lvecMap = FARFF.makeGridFF( FARFF,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 )
+
+    '''
+    plt.figure(figsize=(10,5))
+    plt.subplot(1,2,1); plt.imshow(atomMap)
+    plt.subplot(1,2,2); plt.imshow(bondMap)
+    plt.show()
+    '''
+
     looper.startLoop( xyzs, Zs, qs, atomMap, bondMap, lvecMap, AFMRef )
     ErrConv = 1.0
     print( "# ------ To Loop    ")
     for itr in range(1000):
         print( "# ======= CorrectionLoop[ %i ] ", itr )
-        Err = looper.iteration()
+        Err = looper.iteration(itr=itr)
         if Err < ErrConv:
             break
 
