@@ -51,6 +51,9 @@ class SampleStructure():
 
 class Critique():
 
+    izPlot = -8
+    logImgName = None
+
     def __init__(self ):
         self.best = None
         pass
@@ -62,9 +65,18 @@ class Critique():
         # --- ToDo: Relaxation Should be possible part of relaxation ????
         return geom
 
-    def try_improve(self, geomIn, AFMs, AFMRef ):
+    def try_improve(self, geomIn, AFMs, AFMRef, itr=0 ):
         #print( " AFMs ", AFMs.shape, " AFMRef ", AFMRef.shape )
         AFMdiff = AFMs - AFMRef
+
+        if self.logImgName is not None:
+            plt.figure(figsize=(5*3,5))
+            plt.subplot(1,3,1); plt.imshow( AFMs   [:,:,self.izPlot] ); plt.title("AFM[]"  )
+            plt.subplot(1,3,2); plt.imshow( AFMRef [:,:,self.izPlot] ); plt.title("AFMref" )
+            plt.subplot(1,3,3); plt.imshow( AFMdiff[:,:,self.izPlot] ); plt.title("AFMdiff")
+            plt.savefig( self.logImgName+("_%03i.png" %itr), bbox_inches='tight')
+            plt.close  ()
+
         Err  = np.sqrt( np.sum(AFMdiff**2) )  # root mean square error
         # ToDo : identify are of most difference and make random changes in that area
         if ( self.best is None ) or ( self.best.Err > Err ):
@@ -75,8 +87,9 @@ class Critique():
 
 class CorrectionLoop():
 
+    logAFMdataName = None
     logImgName = None
-    logImgIzs  = [0,-5,-1] 
+    logImgIzs  = [0,-8,-1] 
 
     rotMat = np.array([[1.,0,0],[0.,1.,0],[0.,0,1.]])
 
@@ -108,6 +121,8 @@ class CorrectionLoop():
 
         print( "### CorrectionLoop.iteration [%i]" %itr )
         AFMs,AuxMap     = self.simulator.perform_imaging( self.relaxed.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        if self.logAFMdataName:
+            np.save( self.logAFMdataName+("%03i.dat" %itr), AFMs )
         if self.logImgName is not None:
             nz = len(self.logImgIzs)
             plt.figure(figsize=(5*nz,5))
@@ -118,7 +133,7 @@ class CorrectionLoop():
             plt.close  ()
 
         print( "### CorrectionLoop.iteration [3]" )
-        Err, self.xyzs = self.critique.try_improve( self.relaxed, AFMs, self.AFMRef )
+        Err, self.xyzs = self.critique.try_improve( self.relaxed, AFMs, self.AFMRef, itr=itr )
         print( "### CorrectionLoop.iteration [4]" )
         return Err
         #Xs,Ys      = simulator.next1( self )
@@ -197,17 +212,22 @@ if __name__ == "__main__":
     print( "# ------ Init Critique   ")
 
     critique = Critique()
+    critique.logImgName = "AFM_Err"
 
     print( "# ------ Init Looper     ")
 
     nscan = simulator.scan_dim; nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
     np.save( 'AFMref.npy', np.zeros(nscan) )
     AFMRef = np.load('AFMref.npy')
+    AFMRef = np.roll( AFMRef, 5, axis=0 );
+    AFMRef = np.roll( AFMRef, -6, axis=1 ); 
 
     looper = CorrectionLoop(relaxator,simulator,critique)
     looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
     looper.logImgName = "CorrectionLoopAFMLog"
-    xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")
+    looper.logAFMdataName = "AFMs"
+    #xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")
+    xyzs,Zs,elems,qs = au.loadAtomsNP("pos_out3.xyz")
     atomMap, bondMap, lvecMap = FARFF.makeGridFF( FARFF,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 )
 
     '''
@@ -218,7 +238,7 @@ if __name__ == "__main__":
     '''
 
     looper.startLoop( xyzs, Zs, qs, atomMap, bondMap, lvecMap, AFMRef )
-    ErrConv = 1.0
+    ErrConv = 0.1
     print( "# ------ To Loop    ")
     for itr in range(1000):
         print( "# ======= CorrectionLoop[ %i ] ", itr )
