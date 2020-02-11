@@ -42,6 +42,7 @@ from . import FARFF            #as Relaxer
 verbose  = 0
 bRunTime = False
 
+# ========================================================================
 class Sequence:
     pass
 
@@ -84,6 +85,124 @@ class Critique():
         print( "Critique.try_improve Err2 ", Err  )
         geomOut = self.modifyStructure( self.best_structure )
         return Err, geomOut
+
+# ========================================================================
+
+def removeAtoms( xyzs, Zs, qs, p0, R=3.0, nmax=1 ):
+    rs   = (xyzs[0]-p0[0])**2 + (xyzs[1]-p0[1])**2
+    #mask = rs<R
+    sel = rs.argsort()[-3:] # [::-1]
+    #print( "removeAtom.sel ", sel )
+    #xyzs_ = xyzs[sel].copy()
+    #Zs_   = Zs  [mask].copy()
+    #qs_   = qs  [mask].copy()
+    xyzs_ = np.delete( xyzs, sel, axis=0 )
+    Zs_   = np.delete( Zs,   sel )
+    qs_   = np.delete( qs,   sel )
+    return xyzs_, Zs_, qs_
+
+def addAtom( xyzs, Zs, qs, box, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
+    dp    = (np.random.rand(3)-0.5)*R
+    dp[2] = 0
+    Zs_   = np.append( Zs,   np.array([Z0,]),      axis=0 )
+    xyzs_ = np.append( xyzs, np.array([p0 + dp,]),  axis=0 )
+    qs_   = np.append( qs,   np.array([q0 + (np.random.rand(1)-0.5)*dq,]), axis=0 )
+    return xyzs_, Zs_, qs_
+
+class Mutator():
+    '''
+    strategy of mutation:
+    - change one atom
+        - position
+        - radius
+        - height
+    - change many atoms
+    '''
+    strategies = [ removeAtoms, addAtom ]
+    probs      = np.array([ 0.5, 0.5 ])
+
+    def __init__(self ):
+        self.best = None
+        self.setProbs()
+        pass
+
+    #def modAtom():
+
+    def setProbs(self, probs=None ):
+        if probs is not None:
+            probs = np.array(probs)
+            self.probs    = probs
+        self.cumProbs = np.cumsum( self.probs )
+
+    '''
+    def randCarge(self, xyzs, sc=[0.2,0.2,0.1], sel=None ):
+
+    def randXyzs(self, xyzs, sc=[0.2,0.2,0.1], sel=None ):
+        if sel is not None:
+            dxyzs = np.random.rand( xyzs.shape ) - 0.5
+        else:
+            dxyzs      = np.zeros( xyzs.shape ) - 0.5
+            dxyzs[sel] = np.random.rand( xyzs[sel].shape ) - 0.5
+        dxyzs[:,0] *= sc[0]
+        dxyzs[:,1] *= sc[1]
+        dxyzs[:,2] *= sc[2]
+        return xyzs + dxyzs
+    '''
+
+    def mutate_local(self, xyzs, Zs, qs, p0, R ):
+        toss = np.random.rand()
+        i = np.searchsorted( self.cumProbs, toss )
+        return self.strategies[i]( xyzs, Zs, qs,     p0, R )
+
+
+class CorrectorTrainer():
+
+    restartProb = 0.1
+    maxIndex    = 10000
+    rotMat = np.array([[1.,0,0],[0.,1.,0],[0.,0,1.]])
+
+    def __init__(self, simulator, mutator, molCreator=None ):
+        self.index = 0
+        self.simulator  = simulator
+        self.mutator    = mutator
+        self.molCreator = molCreator
+
+    def start(self, xyzs=None, Zs=None, qs=None ):
+        if xyzs is None:
+            self.xyzs, self.Zs, self.qs = self.molCreator.create()
+        else:
+            self.xyzs = xyzs
+            self.Zs   = Zs
+            self.qs   = qs
+
+    def generatePair(self):
+        Xs1,Ys1      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        p0 = (np.random.rand() - 0.5) * 10.0 #
+        R  = 3.0   
+        self.xyzs, self.Zs, self.qs = self.mutator.mutate_local( xyzs, Zs, qs, p0, R )
+        Xs2,Ys2      = self.simulatorself.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        if self.molCreator is not None:
+            if np.random.rand(1) < self.restartProb:
+                self.xyzs, self.Zs, self.qs = self.molCreator.create()
+        return Xs1, Xs2
+
+    def __getitem__(self, index):
+        self.index = index
+        if(verbose>0): print("index ", index)
+        return next(self)
+
+    def __iter__(self):
+        self.index = 0
+        return self
+
+    def __next__(self):
+        if self.index <= self.maxIndex:
+            self.index += 1
+            return self.generatePair()
+        else:
+            raise StopIteration
+
+# ========================================================================
 
 class CorrectionLoop():
 
@@ -137,6 +256,8 @@ class CorrectionLoop():
         print( "### CorrectionLoop.iteration [4]" )
         return Err
         #Xs,Ys      = simulator.next1( self )
+
+# ========================================================================
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -205,6 +326,21 @@ if __name__ == "__main__":
     dfWeight = PPU.getDfWeight( 10, dz=dz )[0].astype(np.float32)
     simulator.dfWeight = dfWeight
 
+    iz = -8
+    mutator = Mutator()
+    trainer = CorrectorTrainer( simulator, mutator, molCreator=None )
+    xyzs,Zs,elems,qs = au.loadAtomsNP("pos_out3.xyz")
+    trainer.start( xyzs=xyzs, Zs=Zs, qs=qs )
+    for itr in range(10):
+        Xs1,Xs2  = trainer[itr]
+        plt.figure(figsize=(10,5))
+        plt.subplot(1,2,1); plt.imshow(Xs1[:,:,iz])
+        plt.subplot(1,2,2); plt.imshow(Xs2[:,:,iz])
+        plt.savefig( "CorrectorTrainAFM_%03i.png" %itr )
+        plt.close()
+
+
+    '''
     print( "# ------ Init Relaxator  ")
 
     relaxator = FARFF.EngineFARFF()
@@ -230,13 +366,6 @@ if __name__ == "__main__":
     xyzs,Zs,elems,qs = au.loadAtomsNP("pos_out3.xyz")
     atomMap, bondMap, lvecMap = FARFF.makeGridFF( FARFF,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 )
 
-    '''
-    plt.figure(figsize=(10,5))
-    plt.subplot(1,2,1); plt.imshow(atomMap)
-    plt.subplot(1,2,2); plt.imshow(bondMap)
-    plt.show()
-    '''
-
     looper.startLoop( xyzs, Zs, qs, atomMap, bondMap, lvecMap, AFMRef )
     ErrConv = 0.1
     print( "# ------ To Loop    ")
@@ -247,7 +376,8 @@ if __name__ == "__main__":
             break
 
     looper.xyzLogFile.close()
+    '''
 
     #print( "UNIT_TEST is not yet written :-( " )
     print( " UNIT_TEST CorrectionLoop DONE !!! " )
-    pass
+    p
