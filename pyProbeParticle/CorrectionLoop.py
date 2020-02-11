@@ -89,7 +89,8 @@ class Critique():
 # ========================================================================
 
 def removeAtoms( xyzs, Zs, qs, p0, R=3.0, nmax=1 ):
-    rs   = (xyzs[0]-p0[0])**2 + (xyzs[1]-p0[1])**2
+    print( "----- removeAtoms  p0 ", p0 )
+    rs   = (xyzs[:,0]-p0[0])**2 + (xyzs[:,1]-p0[1])**2
     #mask = rs<R
     sel = rs.argsort()[-3:] # [::-1]
     #print( "removeAtom.sel ", sel )
@@ -101,12 +102,13 @@ def removeAtoms( xyzs, Zs, qs, p0, R=3.0, nmax=1 ):
     qs_   = np.delete( qs,   sel )
     return xyzs_, Zs_, qs_
 
-def addAtom( xyzs, Zs, qs, box, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
+def addAtom( xyzs, Zs, qs, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
+    print( "----- addAtom  p0 ", p0 )
     dp    = (np.random.rand(3)-0.5)*R
     dp[2] = 0
     Zs_   = np.append( Zs,   np.array([Z0,]),      axis=0 )
-    xyzs_ = np.append( xyzs, np.array([p0 + dp,]),  axis=0 )
-    qs_   = np.append( qs,   np.array([q0 + (np.random.rand(1)-0.5)*dq,]), axis=0 )
+    xyzs_ = np.append( xyzs, np.array([p0 + dp,]), axis=0 )
+    qs_   = np.append( qs,   np.array([q0 + (np.random.rand()-0.5)*dq,]), axis=0 )
     return xyzs_, Zs_, qs_
 
 class Mutator():
@@ -152,7 +154,7 @@ class Mutator():
     def mutate_local(self, xyzs, Zs, qs, p0, R ):
         toss = np.random.rand()
         i = np.searchsorted( self.cumProbs, toss )
-        return self.strategies[i]( xyzs, Zs, qs,     p0, R )
+        return self.strategies[i]( xyzs, Zs, qs,  p0, R )
 
 
 class CorrectorTrainer():
@@ -177,10 +179,10 @@ class CorrectorTrainer():
 
     def generatePair(self):
         Xs1,Ys1      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
-        p0 = (np.random.rand() - 0.5) * 10.0 #
+        p0 = (np.random.rand(3) - 0.5) * 10.0 #
         R  = 3.0   
         self.xyzs, self.Zs, self.qs = self.mutator.mutate_local( xyzs, Zs, qs, p0, R )
-        Xs2,Ys2      = self.simulatorself.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        Xs2,Ys2      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
         if self.molCreator is not None:
             if np.random.rand(1) < self.restartProb:
                 self.xyzs, self.Zs, self.qs = self.molCreator.create()
@@ -380,4 +382,3 @@ if __name__ == "__main__":
 
     #print( "UNIT_TEST is not yet written :-( " )
     print( " UNIT_TEST CorrectionLoop DONE !!! " )
-    p
