@@ -306,6 +306,12 @@ if __name__ == "__main__":
     #simulator.rndAlphaMax = -0.1   # charge *= (1 + rndAlphaMax * ( rand()-0.5 )) (negative is off)
     #simulator.modMolParams = modMolParams_def   # custom function to modify parameters
 
+    simulator.randomize_enabled    = False
+    simulator.randomize_nz         = False 
+    simulator.randomize_parameters = False
+    simulator.randomize_tip_tilt   = False
+    simulator.randomize_distance   = False
+
     #simulator.debugPlots = True
     simulator.distAbove = 7.0
     simulator.distAboveDelta = None  
@@ -327,6 +333,9 @@ if __name__ == "__main__":
     dz=0.1
     dfWeight = PPU.getDfWeight( 10, dz=dz )[0].astype(np.float32)
     simulator.dfWeight = dfWeight
+
+    simulator.pos0 = np.array([0.0,0.0,0.0])
+
 
     iz = -8
     mutator = Mutator()

@@ -459,9 +459,10 @@ class Generator(Sequence,):
             #self.handleRotations()
             #print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
 
-        self.pos0, entropy = self.evalRotation( rotMat )
+        #self.pos0, entropy = self.evalRotation( rotMat )
 
-        self.imageRotation( X, Y, rotMat )
+        #self.imageRotation( X, Y, rotMat )
+        self.imageRotation_simple( X, Y, rotMat )
         if(bRunTime): print("runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0)
         return X, Y
 
@@ -978,7 +979,156 @@ class Generator(Sequence,):
         X[:,:,:FEout.shape[2]] = FEout[:,:,:,2].copy()
     """
 
+    def imageRotation_simple(self, X,Y, rot ):
+        if(verbose>0): print(" ----- imageRotation ", self.irot)
+        if(bRunTime): t0=time.clock()
+        zDir = rot[2].flat.copy()
 
+        #atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]           #shift atoms coord to rotation center point of view            
+        #atoms_rotated_to_pos0 = rotAtoms(rot, atoms_shifted_to_pos0)            #rotate atoms coord to rotation center point of view
+        #atoms_shifted_to_pos0 = atoms_rotated_to_pos0
+        #self.distAbove = 12.0
+        #self.distAboveActive = self.distAbove
+        #print( " self.distAboveActive ", self.distAboveActive )
+
+        #atoms_rotated_to_pos0[:,2] += self.distAboveActive 
+
+        self.distAbove = 7.0
+        self.distAboveActive = self.distAbove
+        print( " self.distAboveActive ", self.distAboveActive )
+
+        if(bRunTime): print("runTime(Generator_LJC.nextRotation().3   ) [s]:  %0.6f" %(time.clock()-t0)   ," molCenterAfm  ")
+
+        vtipR0  = np.zeros(3)
+        #vtipR0[0],vtipR0[1] = 0.0 , 0.0
+        #vtipR0    *= self.maxTilt0
+        vtipR0[2]  = self.tipR0 
+
+        pos0 = self.pos0
+
+        if(bRunTime): print("runTime(Generator_LJC.nextRotation().4   ) [s]:  %0.6f" %(time.clock()-t0)   ," vtipR0  ")
+
+        self.scan_pos0s  = self.scanner.setScanRot(pos0, rot=rot, zstep=0.1, tipR0=vtipR0 )
+        
+        if(bRunTime): print("runTime(Generator_LJC.nextRotation().6   ) [s]:  %0.6f" %(time.clock()-t0)  ," preHeight ")
+
+        if self.bMergeConv:
+            FEout = self.scanner.run_relaxStrokesTilted_convZ()
+            if(bRunTime): print("runTime(Generator_LJC.nextRotation().8   ) [s]:  %0.6f" %(time.clock()-t0)  ," scanner.run_relaxStrokesTilted_convZ() ")
+        else:
+            if self.bFEoutCopy:
+                FEout  = self.scanner.run_relaxStrokesTilted( bCopy=True, bFinish=True )
+            else:
+                #print "NO COPY scanner.run_relaxStrokesTilted "
+                self.scanner.run_relaxStrokesTilted( bCopy=False, bFinish=True )
+            if(bRunTime): print("runTime(Generator_LJC.nextRotation().7   ) [s]:  %0.6f" %(time.clock()-t0)  ," scanner.run_relaxStrokesTilted() ")
+            #print "FEout shape,min,max", FEout.shape, FEout.min(), FEout.max()
+            if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
+                print("len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut)
+                exit()
+            #self.scanner.updateBuffers( WZconv=self.dfWeight )
+            FEout = self.scanner.run_convolveZ()
+            if(bRunTime): print("runTime(Generator_LJC.nextRotation().8   ) [s]:  %0.6f" %(time.clock()-t0)  ," scanner.run_convolveZ() ")
+
+        #print "DEBUG FEout.max,min ", FEout[:,:,:,:3].max(), FEout[:,:,:,:3].min() 
+
+        nz = min( FEout.shape[2], X.shape[2] )
+        X[:,:,:nz] = FEout[:,:,:nz,2]     #.copy()
+        X[:,:,nz:] = 0
+
+        if(bRunTime): print("runTime(Generator_LJC.nextRotation().9   ) [s]:  %0.6f" %(time.clock()-t0)  ," X = Fout.z  ")
+
+        dirFw = np.append( rot[2], [0] ); 
+        if(verbose>0): print("dirFw ", dirFw)
+        if self.Ymode not in ['HeightMap', 'ElectrostaticMap', 'xyz']:
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*self.distAboveActive)[None,None,:] )
+
+        if(bRunTime): print("runTime(Generator_LJC.nextRotation().10  ) [s]:  %0.6f" %(time.clock()-t0)  ," poss_ <- scan_pos0s  ")
+
+        # --- Different modes of output map
+        if self.Ymode == 'HeightMap':
+            Y[:,:] = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
+            Y *= (self.scanner.zstep)
+            Ymin = max(Y[Y<=0].flatten().max() - self.Yrange, Y.flatten().min())
+            Y[Y>0] = Ymin
+            Y[Y<Ymin] = Ymin
+            Y -= Ymin
+
+        elif self.Ymode == 'ElectrostaticMap':
+            zMap, feMap = self.scanner.run_getZisoFETilted( iso=0.1, nz=100 )
+            Ye = ( feMap[:,:,2] ).copy() # Fel_z
+            zMap *= -(self.scanner.zstep)
+            zMin = max(zMap[zMap<=0].flatten().max() - self.Yrange, zMap.flatten().min())
+            zMap[zMap>0] = zMin
+            zMap[zMap<zMin] = zMin
+            zMap -= zMin
+            Ye[zMap == 0] = 0
+
+            Y[:,:,0] = Ye
+            Y[:,:,1] = zMap
+
+        elif self.Ymode == 'SpheresType':
+            Y[:,:,:] = self.projector.run_evalSpheresType( poss = poss_, tipRot=self.scanner.tipRot, bOccl=self.bOccl )
+        elif self.Ymode == 'MultiMapSpheres':
+            Y[:,:,:] = self.projector.run_evalMultiMapSpheres( poss = poss_, tipRot=self.scanner.tipRot, bOccl=self.bOccl, Rmin=self.Rmin, Rstep=self.Rstep )
+        elif self.Ymode == 'Lorenzian':
+            Y[:,:] =  self.projector.run_evalLorenz( poss = poss_ )[:,:,0]
+        elif self.Ymode == 'Spheres':
+            Y[:,:] = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+        elif self.Ymode == 'Bonds':
+            Y[:,:] = self.projector.run_evalBondEllipses( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]   
+        elif self.Ymode == 'AtomRfunc':
+            Y[:,:] = self.projector.run_evalAtomRfunc( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]  
+        elif self.Ymode == 'SphereCaps':
+            Y[:,:] = self.projector.run_evalSphereCaps( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+        elif self.Ymode == 'Disks':
+            Y[:,:] = self.projector.run_evaldisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+        elif self.Ymode == 'DisksOcclusion':
+            Y[:,:] = self.projector.run_evaldisks_occlusion( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+        elif self.Ymode == 'QDisks':
+            Y[:,:] = self.projector.run_evalQdisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+        elif self.Ymode == 'AtomsAndBonds':
+            Y[:,:,0] = self.projector.run_evalAtomRfunc   ( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+            Y[:,:,1] = self.projector.run_evalBondEllipses( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+        elif self.Ymode == 'D-S-H':
+            # Disks
+            if self.diskMode == 'sphere':
+                offset = np.dot(poss_[0,0,:3]-self.atomsNonPBC[np.argmax(atoms_rotated_to_pos0[:,2]),:3], rot[2]) # Distance from top atom to screen
+                Y[:,:,0] = self.projector.run_evaldisks  ( poss = poss_, tipRot=self.scanner.tipRot, offset=offset )[:,:,0]
+            elif self.diskMode == 'center':
+                self.projector.dzmax_s = np.Inf
+                offset = np.dot(poss_[0,0,:3]-self.atomsNonPBC[np.argmax(atoms_rotated_to_pos0[:,2]),:3], rot[2]) - 1.0
+                Y[:,:,0] = self.projector.run_evaldisks  ( poss = poss_, tipRot=self.scanner.tipRot, offset=offset )[:,:,0]
+            # Spheres
+            Y[:,:,1] = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
+            # Height
+            Y_  = ( self.scanner.run_getZisoTilted( iso=0.1, nz=100 ) *-1 ) . copy()
+            Y_ *= (self.scanner.zstep)
+            Ymin = max(Y_[Y_<=0].flatten().max() - self.Yrange, Y_.flatten().min())
+            Y_[Y_>0] = Ymin
+            Y_[Y_<Ymin] = Ymin
+            Y_ -= Ymin
+            Y[:,:,2] = Y_
+        elif self.Ymode == 'xyz':
+            Y[:,:] = 0.0
+            Y[:,2] = self.zmin_xyz - 100.0
+            xyzs = self.atomsNonPBC[:,:3] - self.pos0[None,:]
+            xyzs_, Zs = getAtomsRotZminNsort( rot, xyzs, zmin=self.zmin_xyz, Zs=self.Zs[:self.natoms0], Nmax=self.Nmax_xyz, RvdWs = self.REAs[:,0] - 1.6612  )
+            Y[:len(xyzs_),:3] = xyzs_[:,:]
+            
+            if self.molCenterAfm:    # shifts reference to molecule center            
+                Y[:len(xyzs_),:3] -= (AFM_window_shift[0],AFM_window_shift[1],0)
+                
+            Y[:len(xyzs_), 3] = Zs
+
+        if(bRunTime): print("runTime(Generator_LJC.nextRotation().tot ) [s]:  %0.6f" %(time.clock()-t0)  ," size ", FEout.shape)
+
+        if(self.debugPlots):
+            print("self.molName ", self.molName) 
+            list = os.listdir('model/predictions/') # dir is your directory path
+            number_files = len(list)
+            if (number_files < 100):
+                self.plot( ("_rot%03i" % self.irot), self.molName ,  bPOVray=False, bXYZ=True , bRot=True)
 
     def match( self, Xref ):
         return
