@@ -155,7 +155,7 @@ class Mutator():
         toss = np.random.rand()
         i = np.searchsorted( self.cumProbs, toss )
         return self.strategies[i]( xyzs, Zs, qs,  p0, R )
-
+        #return xyzs.copy(), Zs.copy(), qs.copy()
 
 class CorrectorTrainer():
 
@@ -178,11 +178,13 @@ class CorrectorTrainer():
             self.qs   = qs
 
     def generatePair(self):
-        Xs1,Ys1      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        #Xs1,Ys1      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        Xs1      = self.simulator.perform_just_AFM( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
         p0 = (np.random.rand(3) - 0.5) * 10.0 #
         R  = 3.0   
         self.xyzs, self.Zs, self.qs = self.mutator.mutate_local( xyzs, Zs, qs, p0, R )
-        Xs2,Ys2      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        #Xs2,Ys2      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        Xs2     = self.simulator.perform_just_AFM( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
         if self.molCreator is not None:
             if np.random.rand(1) < self.restartProb:
                 self.xyzs, self.Zs, self.qs = self.molCreator.create()
@@ -274,6 +276,8 @@ if __name__ == "__main__":
     FFcl.init(env)
     oclr.init(env)
 
+    #GeneratorOCL_LJC.bRunTime = True
+
     lvec=None
     simulator  = GeneratorOCL_LJC.Generator( [], [], 1, pixPerAngstrome=5, Ymode='AtomsAndBonds', lvec=lvec  )
 
@@ -334,13 +338,15 @@ if __name__ == "__main__":
     dfWeight = PPU.getDfWeight( 10, dz=dz )[0].astype(np.float32)
     simulator.dfWeight = dfWeight
 
-    simulator.pos0 = np.array([0.0,0.0,0.0])
-
+    #simulator.pos0 = np.array([0.0,0.0,0.0])
+    simulator.pos0 = np.array([14.0, 18.0, 24.0])
 
     iz = -8
     mutator = Mutator()
     trainer = CorrectorTrainer( simulator, mutator, molCreator=None )
     xyzs,Zs,elems,qs = au.loadAtomsNP("pos_out3.xyz")
+    xyzs[:,0] -= 10.0 
+    print("xyzs ", xyzs) 
     trainer.start( xyzs=xyzs, Zs=Zs, qs=qs )
     for itr in range(10):
         Xs1,Xs2  = trainer[itr]
