@@ -466,7 +466,11 @@ class Generator(Sequence,):
         if(bRunTime): print("runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0)
         return X, Y
 
-    def perform_just_AFM(self, xyzs, Zs, qs, rotMat ):
+    def perform_just_AFM(self, molecule, rotMat ):
+        xyzs = molecule.xyzs
+        Zs   = molecule.Zs
+        qs   = molecule.qs
+
         if(bRunTime):  t0=time.clock()
         # ToDp : should it be here ?
         self.initFF()

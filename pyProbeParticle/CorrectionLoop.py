@@ -46,9 +46,18 @@ bRunTime = False
 class Sequence:
     pass
 
-class SampleStructure():
-    def __init__(self ):
-        pass
+class Molecule():
+
+    def __init__(self, xyzs, Zs, qs ):
+        self.xyzs = xyzs
+        self.Zs   = Zs
+        self.qs   = qs
+
+    def clone(self):
+        xyzs = self.xyzs 
+        Zs   = self.Zs
+        qs   = self.qs
+        return Molecule(xyzs,Zs,qs)
 
 class Critique():
 
@@ -88,8 +97,11 @@ class Critique():
 
 # ========================================================================
 
-def removeAtoms( xyzs, Zs, qs, p0, R=3.0, nmax=1 ):
+def removeAtoms( molecule, p0, R=3.0, nmax=1 ):
     print( "----- removeAtoms  p0 ", p0 )
+    xyzs = molecule.xyzs 
+    Zs   = molecule.Zs
+    qs   = molecule.qs
     rs   = (xyzs[:,0]-p0[0])**2 + (xyzs[:,1]-p0[1])**2
     #mask = rs<R
     sel = rs.argsort()[-3:] # [::-1]
@@ -100,16 +112,19 @@ def removeAtoms( xyzs, Zs, qs, p0, R=3.0, nmax=1 ):
     xyzs_ = np.delete( xyzs, sel, axis=0 )
     Zs_   = np.delete( Zs,   sel )
     qs_   = np.delete( qs,   sel )
-    return xyzs_, Zs_, qs_
+    return Molecule(xyzs_, Zs_, qs_)
 
-def addAtom( xyzs, Zs, qs, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
+def addAtom( molecule, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
+    xyzs = molecule.xyzs 
+    Zs   = molecule.Zs
+    qs   = molecule.qs
     print( "----- addAtom  p0 ", p0 )
     dp    = (np.random.rand(3)-0.5)*R
     dp[2] = 0
     Zs_   = np.append( Zs,   np.array([Z0,]),      axis=0 )
     xyzs_ = np.append( xyzs, np.array([p0 + dp,]), axis=0 )
     qs_   = np.append( qs,   np.array([q0 + (np.random.rand()-0.5)*dq,]), axis=0 )
-    return xyzs_, Zs_, qs_
+    return Molecule(xyzs_, Zs_, qs_)
 
 class Mutator():
     '''
@@ -151,10 +166,10 @@ class Mutator():
         return xyzs + dxyzs
     '''
 
-    def mutate_local(self, xyzs, Zs, qs, p0, R ):
+    def mutate_local(self, molecule, p0, R ):
         toss = np.random.rand()
         i = np.searchsorted( self.cumProbs, toss )
-        return self.strategies[i]( xyzs, Zs, qs,  p0, R )
+        return self.strategies[i]( molecule,  p0, R )
         #return xyzs.copy(), Zs.copy(), qs.copy()
 
 class CorrectorTrainer():
@@ -169,26 +184,35 @@ class CorrectorTrainer():
         self.mutator    = mutator
         self.molCreator = molCreator
 
-    def start(self, xyzs=None, Zs=None, qs=None ):
-        if xyzs is None:
-            self.xyzs, self.Zs, self.qs = self.molCreator.create()
+    #def start(self, xyzs=None, Zs=None, qs=None ):
+    def start(self, molecule=None ):
+        if molecule is None:
+            #self.xyzs, self.Zs, self.qs = self.molCreator.create()
+            self.molecule = self.molCreator.create()
         else:
-            self.xyzs = xyzs
-            self.Zs   = Zs
-            self.qs   = qs
+            self.molecule = molecule
+            #self.xyzs = xyzs
+            #self.Zs   = Zs
+            #self.qs   = qs
 
     def generatePair(self):
-        #Xs1,Ys1      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
-        Xs1      = self.simulator.perform_just_AFM( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
-        p0 = (np.random.rand(3) - 0.5) * 10.0 #
-        R  = 3.0   
-        self.xyzs, self.Zs, self.qs = self.mutator.mutate_local( xyzs, Zs, qs, p0, R )
-        #Xs2,Ys2      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
-        Xs2     = self.simulator.perform_just_AFM( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
         if self.molCreator is not None:
             if np.random.rand(1) < self.restartProb:
-                self.xyzs, self.Zs, self.qs = self.molCreator.create()
-        return Xs1, Xs2
+                #self.xyzs, self.Zs, self.qs = self.molCreator.create()
+                self.molecule = self.molCreator.create()
+        #Xs1,Ys1      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        #Xs1      = self.simulator.perform_just_AFM( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        mol1     = self.molecule
+        Xs1      = self.simulator.perform_just_AFM( mol1, self.rotMat )
+        p0 = (np.random.rand(3) - 0.5) * 10.0 #
+        R  = 3.0   
+        #self.xyzs, self.Zs, self.qs = self.mutator.mutate_local( self.xyzs, self.Zs, self.qs, p0, R )
+        mol2 = self.mutator.mutate_local( self.molecule, p0, R )
+        #Xs2,Ys2      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        #Xs2     = self.simulator.perform_just_AFM( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        Xs2     = self.simulator.perform_just_AFM( mol2, self.rotMat )
+        self.molecule = mol2
+        return Xs1, Xs2, mol1, mol2
 
     def __getitem__(self, index):
         self.index = index
@@ -225,10 +249,11 @@ class CorrectionLoop():
     def init(self):
         pass
 
-    def startLoop(self, guess, Zs, qs, atomMap, bondMap, lvecMap, AFMRef ):
-        self.xyzs    = xyzs
-        self.Zs      = Zs
-        self.qs      = qs
+    def startLoop(self, molecule, bondMap, lvecMap, AFMRef ):
+        #self.xyzs    = xyzs
+        #self.Zs      = Zs
+        #self.qs      = qs
+        self.molecule = molecule
         self.atomMap = atomMap
         self.bondMap = bondMap
         self.mapLvec = lvecMap
@@ -237,13 +262,13 @@ class CorrectionLoop():
     def iteration(self, itr=0 ):
         print( "### CorrectionLoop.iteration [1]" )
         print( "########### bond atom ---- min min ", self.atomMap.min(), self.bondMap.min() )
-        self.relaxed    = self.relaxator.preform_relaxation ( self.xyzs, self.Zs, self.qs, self.mapLvec, self.atomMap, self.bondMap )
+        self.relaxed    = self.relaxator.preform_relaxation ( self.molecule, self.mapLvec, self.atomMap, self.bondMap )
         if self.xyzLogFile is not None:
            # au.saveXYZ( self.Zs, self.xyzs, self.xyzLogName, qs=self.qs )
-           au.writeToXYZ( self.xyzLogFile, self.Zs, self.xyzs, qs=self.qs, commet=("CorrectionLoop.iteration [%i] " %itr) )
+           au.writeToXYZ( self.xyzLogFile, self.molecule.Zs, self.molecule.xyzs, qs=self.molecule.qs, commet=("CorrectionLoop.iteration [%i] " %itr) )
 
         print( "### CorrectionLoop.iteration [%i]" %itr )
-        AFMs,AuxMap     = self.simulator.perform_imaging( self.relaxed.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
+        AFMs,AuxMap     = self.simulator.perform_imaging( self.molecule, self.qs.copy(), self.rotMat )
         if self.logAFMdataName:
             np.save( self.logAFMdataName+("%03i.dat" %itr), AFMs )
         if self.logImgName is not None:
@@ -256,15 +281,75 @@ class CorrectionLoop():
             plt.close  ()
 
         print( "### CorrectionLoop.iteration [3]" )
-        Err, self.xyzs = self.critique.try_improve( self.relaxed, AFMs, self.AFMRef, itr=itr )
+        Err, self.molecule = self.critique.try_improve( self.molecule, AFMs, self.AFMRef, itr=itr )
         print( "### CorrectionLoop.iteration [4]" )
         return Err
         #Xs,Ys      = simulator.next1( self )
+
+def Job_trainCorrector( simulator, geom_fname="input.xyz" ):
+    iz = -8
+    mutator = Mutator()
+    trainer = CorrectorTrainer( simulator, mutator, molCreator=None )
+    xyzs,Zs,elems,qs = au.loadAtomsNP(geom_fname)
+    mol = Molecule(xyzs,Zs,qs)
+
+    GeneratorOCL_LJC.setBBoxCenter( xyzs, [0.0,0.0,0.0] )
+    #xyzs[:,0] -= 10.0 
+    print("xyzs ", xyzs) 
+    trainer.start( mol )
+    #extent = ( simulator.scan_start, simulator.scan_end, simulator.scan_start, simulator.scan_end )
+    extent=( simulator.scan_start[0], simulator.scan_end[0], simulator.scan_start[1], simulator.scan_end[1] )
+    sc = 3.0
+    for itr in range(10):
+        Xs1,Xs2,mol1,mol2  = trainer[itr]
+        #print( " mol1 ", mol1.xyzs, "\n mol2 ", mol2.xyzs)
+        plt.figure(figsize=(10,5))
+        plt.subplot(1,2,1); plt.imshow(Xs1[:,:,iz], origin='image', extent=extent); plt.scatter( mol1.xyzs[:,0], mol1.xyzs[:,1], s=mol1.Zs*sc, c=cm.rainbow( mol1.xyzs[:,2] )  )
+        plt.subplot(1,2,2); plt.imshow(Xs2[:,:,iz], origin='image', extent=extent); plt.scatter( mol2.xyzs[:,0], mol2.xyzs[:,1], s=mol2.Zs*sc, c=cm.rainbow( mol2.xyzs[:,2] ) )
+        plt.savefig( "CorrectorTrainAFM_%03i.png" %itr )
+        plt.close()
+
+def Job_CorrectionLoop( simulator, geom_fname="input.xyz" ):
+    relaxator = FARFF.EngineFARFF()
+    critique = Critique()
+    critique.logImgName = "AFM_Err"
+    nscan = simulator.scan_dim; nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
+    np.save( 'AFMref.npy', np.zeros(nscan) )
+    AFMRef = np.load('AFMref.npy')
+    AFMRef = np.roll( AFMRef, 5, axis=0 );
+    AFMRef = np.roll( AFMRef, -6, axis=1 ); 
+
+    looper = CorrectionLoop(relaxator,simulator,critique)
+    looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
+    looper.logImgName = "CorrectionLoopAFMLog"
+    looper.logAFMdataName = "AFMs"
+    #xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")
+    xyzs,Zs,elems,qs = au.loadAtomsNP(geom_fname)
+    molecule = Molecule(xyzs,Zs,qs)
+    atomMap, bondMap, lvecMap = FARFF.makeGridFF( FARFF,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 )
+
+    looper.startLoop( molecule, atomMap, bondMap, lvecMap, AFMRef )
+    ErrConv = 0.1
+    print( "# ------ To Loop    ")
+    for itr in range(1000):
+        print( "# ======= CorrectionLoop[ %i ] ", itr )
+        Err = looper.iteration(itr=itr)
+        if Err < ErrConv:
+            break
+
+    looper.xyzLogFile.close()
+
 
 # ========================================================================
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+    import matplotlib.cm as cm
+
+    from optparse import OptionParser
+    parser = OptionParser()
+    parser.add_option( "-j", "--job", action="store", type="string", help="[train/loop]")
+    (options, args) = parser.parse_args()
 
     print( " UNIT_TEST START : CorrectionLoop ... " )
     #import atomicUtils as au
@@ -339,61 +424,15 @@ if __name__ == "__main__":
     simulator.dfWeight = dfWeight
 
     #simulator.pos0 = np.array([0.0,0.0,0.0])
-    simulator.pos0 = np.array([14.0, 18.0, 24.0])
+    #simulator.pos0 = np.array([14.0, 18.0, 24.0])
+    simulator.pos0 = np.array([15.0, 15.0, 24.0])
 
-    iz = -8
-    mutator = Mutator()
-    trainer = CorrectorTrainer( simulator, mutator, molCreator=None )
-    xyzs,Zs,elems,qs = au.loadAtomsNP("pos_out3.xyz")
-    xyzs[:,0] -= 10.0 
-    print("xyzs ", xyzs) 
-    trainer.start( xyzs=xyzs, Zs=Zs, qs=qs )
-    for itr in range(10):
-        Xs1,Xs2  = trainer[itr]
-        plt.figure(figsize=(10,5))
-        plt.subplot(1,2,1); plt.imshow(Xs1[:,:,iz])
-        plt.subplot(1,2,2); plt.imshow(Xs2[:,:,iz])
-        plt.savefig( "CorrectorTrainAFM_%03i.png" %itr )
-        plt.close()
-
-
-    '''
-    print( "# ------ Init Relaxator  ")
-
-    relaxator = FARFF.EngineFARFF()
-
-    print( "# ------ Init Critique   ")
-
-    critique = Critique()
-    critique.logImgName = "AFM_Err"
-
-    print( "# ------ Init Looper     ")
-
-    nscan = simulator.scan_dim; nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
-    np.save( 'AFMref.npy', np.zeros(nscan) )
-    AFMRef = np.load('AFMref.npy')
-    AFMRef = np.roll( AFMRef, 5, axis=0 );
-    AFMRef = np.roll( AFMRef, -6, axis=1 ); 
-
-    looper = CorrectionLoop(relaxator,simulator,critique)
-    looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
-    looper.logImgName = "CorrectionLoopAFMLog"
-    looper.logAFMdataName = "AFMs"
-    #xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")
-    xyzs,Zs,elems,qs = au.loadAtomsNP("pos_out3.xyz")
-    atomMap, bondMap, lvecMap = FARFF.makeGridFF( FARFF,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 )
-
-    looper.startLoop( xyzs, Zs, qs, atomMap, bondMap, lvecMap, AFMRef )
-    ErrConv = 0.1
-    print( "# ------ To Loop    ")
-    for itr in range(1000):
-        print( "# ======= CorrectionLoop[ %i ] ", itr )
-        Err = looper.iteration(itr=itr)
-        if Err < ErrConv:
-            break
-
-    looper.xyzLogFile.close()
-    '''
+    if options.job == "loop":
+        Job_CorrectionLoop( simulator, geom_fname="pos_out3.xyz" )
+    elif options.job == "train":
+        Job_trainCorrector( simulator, geom_fname="pos_out3.xyz" )        
+    else:
+        print("ERROR : invalid job ", options.job )
 
     #print( "UNIT_TEST is not yet written :-( " )
     print( " UNIT_TEST CorrectionLoop DONE !!! " )
