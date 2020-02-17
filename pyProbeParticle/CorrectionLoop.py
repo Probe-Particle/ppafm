@@ -300,14 +300,19 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz" ):
     #extent = ( simulator.scan_start, simulator.scan_end, simulator.scan_start, simulator.scan_end )
     extent=( simulator.scan_start[0], simulator.scan_end[0], simulator.scan_start[1], simulator.scan_end[1] )
     sc = 3.0
+
+    xyzfile = open("geomMutations.xyz","w")
+    au.writeToXYZ( xyzfile, mol.Zs, mol.xyzs, qs=mol.qs, commet="# start " )
     for itr in range(10):
         Xs1,Xs2,mol1,mol2  = trainer[itr]
+        au.writeToXYZ( xyzfile, mol2.Zs,  mol2.xyzs, qs=mol2.qs, commet=("# mutation %i " %itr) )
         #print( " mol1 ", mol1.xyzs, "\n mol2 ", mol2.xyzs)
         plt.figure(figsize=(10,5))
         plt.subplot(1,2,1); plt.imshow(Xs1[:,:,iz], origin='image', extent=extent); plt.scatter( mol1.xyzs[:,0], mol1.xyzs[:,1], s=mol1.Zs*sc, c=cm.rainbow( mol1.xyzs[:,2] )  )
         plt.subplot(1,2,2); plt.imshow(Xs2[:,:,iz], origin='image', extent=extent); plt.scatter( mol2.xyzs[:,0], mol2.xyzs[:,1], s=mol2.Zs*sc, c=cm.rainbow( mol2.xyzs[:,2] ) )
         plt.savefig( "CorrectorTrainAFM_%03i.png" %itr )
         plt.close()
+    xyzfile.close()
 
 def Job_CorrectionLoop( simulator, geom_fname="input.xyz" ):
     relaxator = FARFF.EngineFARFF()
