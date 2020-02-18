@@ -98,27 +98,24 @@ class Critique():
 # ========================================================================
 
 def removeAtoms( molecule, p0, R=3.0, nmax=1 ):
-    print( "----- removeAtoms  p0 ", p0 )
+    #print( "----- removeAtoms  p0 ", p0 )
     xyzs = molecule.xyzs 
     Zs   = molecule.Zs
     qs   = molecule.qs
     rs   = (xyzs[:,0]-p0[0])**2 + (xyzs[:,1]-p0[1])**2
-    #mask = rs<R
-    sel = rs.argsort()[-3:] # [::-1]
-    #print( "removeAtom.sel ", sel )
-    #xyzs_ = xyzs[sel].copy()
-    #Zs_   = Zs  [mask].copy()
-    #qs_   = qs  [mask].copy()
+    sel = rs.argsort()[:nmax] # [::-1]
     xyzs_ = np.delete( xyzs, sel, axis=0 )
     Zs_   = np.delete( Zs,   sel )
     qs_   = np.delete( qs,   sel )
     return Molecule(xyzs_, Zs_, qs_)
 
 def addAtom( molecule, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
+    # ToDo : it would be nice to add atoms in a more physicaly reasonable way - not overlaping, proper bond-order etc.
+    # ToDo : currently we add always hydrogen - should we somewhere randomly pick different atom types ?
     xyzs = molecule.xyzs 
     Zs   = molecule.Zs
     qs   = molecule.qs
-    print( "----- addAtom  p0 ", p0 )
+    #print( "----- addAtom  p0 ", p0 )
     dp    = (np.random.rand(3)-0.5)*R
     dp[2] = 0
     Zs_   = np.append( Zs,   np.array([Z0,]),      axis=0 )
@@ -126,50 +123,42 @@ def addAtom( molecule, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
     qs_   = np.append( qs,   np.array([q0 + (np.random.rand()-0.5)*dq,]), axis=0 )
     return Molecule(xyzs_, Zs_, qs_)
 
+def moveAtom( molecule, p0, R=0.0, dpMax=np.array([1.0,1.0,0.25]), nmax=1 ):
+    # ToDo : it would be nice to add atoms in a more physicaly reasonable way - not overlaping, proper bond-order etc.
+    # ToDo : currently we add always hydrogen - should we somewhere randomly pick different atom types ?
+    xyzs         = molecule.xyzs.copy() 
+    Zs           = molecule.Zs.copy()
+    qs           = molecule.qs.copy()
+    rs           = (xyzs[:,0]-p0[0])**2 + (xyzs[:,1]-p0[1])**2
+    sel          = rs.argsort()[:nmax] # [::-1]
+    xyzs[sel,:] += (np.random.rand(len(sel),3)-0.5)*dpMax[None,:]
+    return Molecule(xyzs, Zs, qs)
+
 class Mutator():
-    '''
-    strategy of mutation:
-    - change one atom
-        - position
-        - radius
-        - height
-    - change many atoms
-    '''
-    strategies = [ removeAtoms, addAtom ]
-    probs      = np.array([ 0.5, 0.5 ])
+    # Strtegies contain 
+    strategies = [ 
+        (0.1,removeAtoms,{}), 
+        (0.1,addAtom,{}), 
+        (0.5,moveAtom,{}) 
+    ]
 
     def __init__(self ):
-        self.best = None
-        self.setProbs()
+        self.setStrategies()
         pass
 
     #def modAtom():
-
-    def setProbs(self, probs=None ):
-        if probs is not None:
-            probs = np.array(probs)
-            self.probs    = probs
-        self.cumProbs = np.cumsum( self.probs )
-
-    '''
-    def randCarge(self, xyzs, sc=[0.2,0.2,0.1], sel=None ):
-
-    def randXyzs(self, xyzs, sc=[0.2,0.2,0.1], sel=None ):
-        if sel is not None:
-            dxyzs = np.random.rand( xyzs.shape ) - 0.5
-        else:
-            dxyzs      = np.zeros( xyzs.shape ) - 0.5
-            dxyzs[sel] = np.random.rand( xyzs[sel].shape ) - 0.5
-        dxyzs[:,0] *= sc[0]
-        dxyzs[:,1] *= sc[1]
-        dxyzs[:,2] *= sc[2]
-        return xyzs + dxyzs
-    '''
+    def setStrategies(self, strategies=None):
+        if strategies is not None: self.strategies = strategies
+        self.cumProbs = np.cumsum( [ it[0] for it in self.strategies ] )
+        #print( self.cumProbs ); exit()  
 
     def mutate_local(self, molecule, p0, R ):
-        toss = np.random.rand()
+        toss = np.random.rand()*self.cumProbs[-1]
         i = np.searchsorted( self.cumProbs, toss )
-        return self.strategies[i]( molecule,  p0, R )
+        print( "mutate_local ", i, toss, self.cumProbs[-1] )
+        args = self.strategies[i][2]
+        args['R'] = R
+        return self.strategies[i][1]( molecule, p0, **args )
         #return xyzs.copy(), Zs.copy(), qs.copy()
 
 class CorrectorTrainer():
@@ -204,7 +193,9 @@ class CorrectorTrainer():
         #Xs1      = self.simulator.perform_just_AFM( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
         mol1     = self.molecule
         Xs1      = self.simulator.perform_just_AFM( mol1, self.rotMat )
-        p0 = (np.random.rand(3) - 0.5) * 10.0 #
+        p0 = (np.random.rand(3) - 0.5)
+        p0[0:2] *= 10.0
+        p0[  2] *= 1.0
         R  = 3.0   
         #self.xyzs, self.Zs, self.qs = self.mutator.mutate_local( self.xyzs, self.Zs, self.qs, p0, R )
         mol2 = self.mutator.mutate_local( self.molecule, p0, R )
@@ -286,8 +277,8 @@ class CorrectionLoop():
         return Err
         #Xs,Ys      = simulator.next1( self )
 
-def Job_trainCorrector( simulator, geom_fname="input.xyz" ):
-    iz = -8
+def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
+    iz = -10
     mutator = Mutator()
     trainer = CorrectorTrainer( simulator, mutator, molCreator=None )
     xyzs,Zs,elems,qs = au.loadAtomsNP(geom_fname)
@@ -303,7 +294,7 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz" ):
 
     xyzfile = open("geomMutations.xyz","w")
     au.writeToXYZ( xyzfile, mol.Zs, mol.xyzs, qs=mol.qs, commet="# start " )
-    for itr in range(10):
+    for itr in range(nstep):
         Xs1,Xs2,mol1,mol2  = trainer[itr]
         au.writeToXYZ( xyzfile, mol2.Zs,  mol2.xyzs, qs=mol2.qs, commet=("# mutation %i " %itr) )
         #print( " mol1 ", mol1.xyzs, "\n mol2 ", mol2.xyzs)
@@ -314,7 +305,7 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz" ):
         plt.close()
     xyzfile.close()
 
-def Job_CorrectionLoop( simulator, geom_fname="input.xyz" ):
+def Job_CorrectionLoop( simulator, geom_fname="input.xyz", nstep=10 ):
     relaxator = FARFF.EngineFARFF()
     critique = Critique()
     critique.logImgName = "AFM_Err"
@@ -336,7 +327,7 @@ def Job_CorrectionLoop( simulator, geom_fname="input.xyz" ):
     looper.startLoop( molecule, atomMap, bondMap, lvecMap, AFMRef )
     ErrConv = 0.1
     print( "# ------ To Loop    ")
-    for itr in range(1000):
+    for itr in range(nstep):
         print( "# ======= CorrectionLoop[ %i ] ", itr )
         Err = looper.iteration(itr=itr)
         if Err < ErrConv:
@@ -435,7 +426,7 @@ if __name__ == "__main__":
     if options.job == "loop":
         Job_CorrectionLoop( simulator, geom_fname="pos_out3.xyz" )
     elif options.job == "train":
-        Job_trainCorrector( simulator, geom_fname="pos_out3.xyz" )        
+        Job_trainCorrector( simulator, geom_fname="pos_out3.xyz", nstep=50 )        
     else:
         print("ERROR : invalid job ", options.job )
 
