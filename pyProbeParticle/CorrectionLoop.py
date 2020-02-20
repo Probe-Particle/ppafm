@@ -37,6 +37,7 @@ from . import RelaxOpenCL  as oclr
 from . import HighLevelOCL as hl
 
 from . import GeneratorOCL_LJC #as Imager
+from . import AFMulatorOCL
 from . import FARFF            #as Relaxer
 
 verbose  = 0
@@ -192,7 +193,7 @@ class CorrectorTrainer():
         #Xs1,Ys1      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
         #Xs1      = self.simulator.perform_just_AFM( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
         mol1     = self.molecule
-        Xs1      = self.simulator.perform_just_AFM( mol1, self.rotMat )
+        Xs1      = self.simulator.performImaging_AFM_( mol1, self.rotMat )
         p0 = (np.random.rand(3) - 0.5)
         p0[0:2] *= 10.0
         p0[  2] *= 1.0
@@ -201,7 +202,7 @@ class CorrectorTrainer():
         mol2 = self.mutator.mutate_local( self.molecule, p0, R )
         #Xs2,Ys2      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
         #Xs2     = self.simulator.perform_just_AFM( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
-        Xs2     = self.simulator.perform_just_AFM( mol2, self.rotMat )
+        Xs2     = self.simulator.performImaging_AFM_( mol2, self.rotMat )
         self.molecule = mol2
         return Xs1, Xs2, mol1, mol2
 
@@ -360,7 +361,9 @@ if __name__ == "__main__":
     #GeneratorOCL_LJC.bRunTime = True
 
     lvec=None
-    simulator  = GeneratorOCL_LJC.Generator( [], [], 1, pixPerAngstrome=5, Ymode='AtomsAndBonds', lvec=lvec  )
+    #simulator  = GeneratorOCL_LJC.Generator( [], [], 1, pixPerAngstrome=5, Ymode='AtomsAndBonds', lvec=lvec  )
+    #simulator  = AFMulatorOCL( pixPerAngstrome=5, lvec=lvec, Ymode='AtomsAndBonds' )
+    simulator  = AFMulatorOCL.AFMulator( pixPerAngstrome=5, lvec=lvec, Ymode=None )
 
     simulator.bOccl = 1   # switch occlusion of atoms 0=off 1=on
     simulator.typeSelection =  [1,6,7,8,16,33]  # select atom types for each output channel
@@ -370,26 +373,26 @@ if __name__ == "__main__":
     simulator.zmin_xyz = -2.0  # max depth for visible atoGenerator.nextRotation
     simulator.Nmax_xyz = 3    # max number of visible atomGenerator.nextRotation
 
-    simulator.projector.Rpp  = -0.5
-    xs = np.linspace(0.0,10.0,100)
-    dx = xs[1]-xs[0];
-    xs -= dx
-    ys = np.exp( -5*xs )
-
-    simulator.projector.Rfunc   = ys.astype(np.float32)
-    simulator.projector.invStep = dx
-    simulator.projector.Rmax    = xs[-1] - 3*dx
-    # --- params randomization 
-    #simulator.randomize_enabled    = False
-    #simulator.randomize_nz         = True 
-    #simulator.randomize_parameters = True
-    #simulator.randomize_tip_tilt   = True
-    #simulator.randomize_distance   = True
-    #simulator.rndQmax     = 0.1    # charge += rndQmax * ( rand()-0.5 )  (negative is off)
-    #simulator.rndRmax     = 0.2    # charge += rndRmax * ( rand()-0.5 )  (negative is off)
-    #simulator.rndEmax     = 0.5    # charge *= (1 + rndEmax     * ( rand()-0.5 )) (negative is off)
-    #simulator.rndAlphaMax = -0.1   # charge *= (1 + rndAlphaMax * ( rand()-0.5 )) (negative is off)
-    #simulator.modMolParams = modMolParams_def   # custom function to modify parameters
+    if simulator.projector is not None:
+        simulator.projector.Rpp  = -0.5
+        xs = np.linspace(0.0,10.0,100)
+        dx = xs[1]-xs[0];
+        xs -= dx
+        ys = np.exp( -5*xs )
+        simulator.projector.Rfunc   = ys.astype(np.float32)
+        simulator.projector.invStep = dx
+        simulator.projector.Rmax    = xs[-1] - 3*dx
+        # --- params randomization 
+        #simulator.randomize_enabled    = False
+        #simulator.randomize_nz         = True 
+        #simulator.randomize_parameters = True
+        #simulator.randomize_tip_tilt   = True
+        #simulator.randomize_distance   = True
+        #simulator.rndQmax     = 0.1    # charge += rndQmax * ( rand()-0.5 )  (negative is off)
+        #simulator.rndRmax     = 0.2    # charge += rndRmax * ( rand()-0.5 )  (negative is off)
+        #simulator.rndEmax     = 0.5    # charge *= (1 + rndEmax     * ( rand()-0.5 )) (negative is off)
+        #simulator.rndAlphaMax = -0.1   # charge *= (1 + rndAlphaMax * ( rand()-0.5 )) (negative is off)
+        #simulator.modMolParams = modMolParams_def   # custom function to modify parameters
 
     simulator.randomize_enabled    = False
     simulator.randomize_nz         = False 
@@ -413,8 +416,8 @@ if __name__ == "__main__":
     #simulator.postName   = "/pos.xyz"
     simulator.Q = 0.0
     # z-weight exp(-wz*z)
-    simulator.wz      = 1.0    # deacay
-    simulator.zWeight =  simulator.getZWeights();
+    #simulator.wz      = 1.0    # deacay
+    #simulator.zWeight =  simulator.getZWeights();
     dz=0.1
     dfWeight = PPU.getDfWeight( 10, dz=dz )[0].astype(np.float32)
     simulator.dfWeight = dfWeight
@@ -426,7 +429,7 @@ if __name__ == "__main__":
     if options.job == "loop":
         Job_CorrectionLoop( simulator, geom_fname="pos_out3.xyz" )
     elif options.job == "train":
-        Job_trainCorrector( simulator, geom_fname="pos_out3.xyz", nstep=50 )        
+        Job_trainCorrector( simulator, geom_fname="pos_out3.xyz", nstep=10 )        
     else:
         print("ERROR : invalid job ", options.job )
 

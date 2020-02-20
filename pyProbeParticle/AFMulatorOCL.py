@@ -143,7 +143,7 @@ class AFMulator(Sequence,):
 
     # ==================== Methods =====================
 
-    def __init__(self, pixPerAngstrome=10, lvec=None, Ymode=None ):
+    def __init__( self, pixPerAngstrome=10, lvec=None, Ymode=None ):
         'Initialization'
         if lvec is None:
             self.lvec = np.array([
@@ -179,8 +179,7 @@ class AFMulator(Sequence,):
         self.scanner = oclr.RelaxedScanner()
         self.scanner.relax_params = np.array( self.relaxParams, dtype=np.float32 );
         self.scanner.stiffness    = np.array( self.tipStiffness, dtype=np.float32 )/ -16.0217662
-        self.zWeight =  self.getZWeights();
-
+        #self.zWeight =  self.getZWeights();
         self.counter = 0
 
     def initFF(self):
@@ -190,7 +189,7 @@ class AFMulator(Sequence,):
             self.forcefield.initPoss( lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
         if self.bNoFFCopy:
             self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim,  scan_dim=self.scan_dim, 
-                                         nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), 
+                                         nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), 
                                          bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in 
                                        )
             self.scanner.preparePosBasis( start=self.scan_start, end=self.scan_end )
@@ -304,7 +303,7 @@ class AFMulator(Sequence,):
             if(self.counter>0): # not first step
                 if(verbose>1): print("scanner.releaseBuffers()")
                 self.scanner.releaseBuffers()
-            self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+            self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
             self.scanner.preparePosBasis(self, start=self.scan_start, end=self.scan_end )
 
     def evalAFM( self, rot, X=None ):
@@ -459,31 +458,22 @@ class AFMulator(Sequence,):
 
     #def performImaging_AFM(self, molecule, rotMat ):
     def performImaging_AFM(self, xyzs,Zs,qs, rotMat ):
-        #xyzs = molecule.xyzs
-        #Zs   = molecule.Zs
-        #qs   = molecule.qs
-
         X = np.empty( self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
-
-        self.prepareImaging()
-
+        self.prepareImaging(  xyzs,Zs,qs )
         #self.imageRotation_simple( X, Y, rotMat )
-        self.evalAFM( X, rotMat )
+        self.evalAFM( rotMat, X )
         if(bRunTime): print("runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0)
         return X
+    
+    def performImaging_AFM_(self, mol, rotMat ):
+        return self.performImaging_AFM( mol.xyzs,mol.Zs,mol.qs, rotMat )
 
     #def performImaging_AFMandAuxMap(self, molecule, rotMat ):
     def performImaging_AFMandAuxMap(self, xyzs,Zs,qs, rotMat ):
-        #xyzs = molecule.xyzs
-        #Zs   = molecule.Zs
-        #qs   = molecule.qs
-
         X = np.empty( self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
         Y = np.empty( self.getTsDim() )
-
-        self.prepareImaging()
-
-        self.evalAFMandAuxMap( X, Y, rotMat )
+        self.prepareImaging(  xyzs,Zs,qs )
+        self.evalAFMandAuxMap( rotMat, X, Y )
         #self.imageRotation_simple( X, Y, rotMat )
         if(bRunTime): print("runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0)
         return X, Y
@@ -516,7 +506,7 @@ class AFMulator(Sequence,):
         #GU.saveXSF( fname, F.transpose((2,1,0)), self.lvec )
         GU.saveXSF( fname, F, self.lvec )
 
-
+    """
     def getZWeights(self):
         '''
         generate mask for weighted average (convolution), e.g. for Fz -> df conversion 
@@ -525,6 +515,7 @@ class AFMulator(Sequence,):
         zWeights = self.zFunc( zs )
         zWeights = zWeights.astype(np.float32)
         return zWeights
+    """
 
 # ==========================================================
 # ==========================================================
@@ -603,9 +594,11 @@ if __name__ == "__main__":
 
     afmulator.Q = 0.0
 
+    '''
     # z-weight exp(-wz*z)
     afmulator.wz      = 1.0    # deacay
     afmulator.zWeight =  afmulator.getZWeights();
+    '''
 
     dz=0.1
 

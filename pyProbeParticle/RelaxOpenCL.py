@@ -99,7 +99,8 @@ def preparePossRot( scan_dim, pos0, avec, bvec, start=(-5.0,-5.0), end=(5.0,5.0)
 
 def rotTip(rot,zstep,tipR0=[0.0,0.0,4.0]):
     #pos0 += rot[2]*self.distAbove
-    dTip         = np.zeros(4,dtype=np.float32); 
+    dTip         = np.zeros(4,dtype=np.float32)
+    #print( "DEBUG dTip.shape, rot.shape ", dTip.shape, rot.shape  )
     dTip [:3]    = rot[2]*-zstep
     tipRot       = mat3x3to4f( rot )
     tipRot[2][3] = -zstep
