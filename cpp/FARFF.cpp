@@ -100,6 +100,8 @@ class GridFF_AtomBond{ public:
         }
         printf( "GridFF (%i,%i,%i)\n", gridShape.n.x,gridShape.n.y,gridShape.n.z );
         */
+
+        //printf( "FARFF eval atomMap %li bondMap %li \n", atomMap, bondMap );
         if(atomMap){
             //printf( "DEBUG atomMap \n" );
             for(int i=0; i<natom; i++){

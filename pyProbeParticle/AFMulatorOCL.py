@@ -305,23 +305,24 @@ class AFMulator(Sequence,):
                 self.scanner.releaseBuffers()
             self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
             self.scanner.preparePosBasis(self, start=self.scan_start, end=self.scan_end )
+        
+        self.scan_pos0s = None
+
+    def prepare_Rotation( self, rot ):
+        #if(verbose>0): print(" ----- imageRotation ", self.irot)
+        if(bRunTime): t0=time.clock()
+        zDir = rot[2].flat.copy()
+        self.distAboveActive  = self.distAbove
+        print( "self.pos0 ", self.pos0 )
+        if(bRunTime): print("runTime(Generator_LJC.nextRotation().2   ) [s]:  %0.6f" %(time.clock()-t0)  ," top atom ")
+        vtipR0    = np.zeros(3)
+        vtipR0[2]  = self.tipR0 
+        self.scan_pos0s  = self.scanner.setScanRot(self.pos0, rot=rot, zstep=0.1, tipR0=vtipR0 )
 
     def evalAFM( self, rot, X=None ):
 
-        if(verbose>0): print(" ----- imageRotation ", self.irot)
-        if(bRunTime): t0=time.clock()
-        zDir = rot[2].flat.copy()
-
-        self.distAboveActive  = self.distAbove
-
-        print( "self.pos0 ", self.pos0 )
-
-        if(bRunTime): print("runTime(Generator_LJC.nextRotation().2   ) [s]:  %0.6f" %(time.clock()-t0)  ," top atom ")
-
-        vtipR0    = np.zeros(3)
-        vtipR0[2]  = self.tipR0 
-
-        self.scan_pos0s  = self.scanner.setScanRot(self.pos0, rot=rot, zstep=0.1, tipR0=vtipR0 )
+        if self.scan_pos0s is None:
+            self.prepare_Rotation(rot)
 
         if self.bMergeConv:
             FEout = self.scanner.run_relaxStrokesTilted_convZ()
@@ -352,6 +353,9 @@ class AFMulator(Sequence,):
     def evalAuxMap(self, rot, Y=None ):
         if(bRunTime): print("runTime(Generator_LJC.nextRotation().9   ) [s]:  %0.6f" %(time.clock()-t0)  ," X = Fout.z  ")
 
+        if self.scan_pos0s is None:
+            self.prepare_Rotation(rot)
+
         # shift projection to molecule center but leave top atom still in the center
         AFM_window_shift=(0,0)
         self.RvdWs = self.REAs[:,0] - 1.6612
@@ -359,7 +363,8 @@ class AFMulator(Sequence,):
         dirFw = np.append( rot[2], [0] ); 
         if(verbose>0): print("dirFw ", dirFw)
         if self.Ymode not in ['HeightMap', 'ElectrostaticMap', 'xyz']:
-            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAboveActive-self.RvdWs[imax]-self.projector.Rpp))[None,None,:] )
+            #poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAboveActive-self.RvdWs[imax]-self.projector.Rpp))[None,None,:] )
+            poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAboveActive))[None,None,:] )
 
         if(bRunTime): print("runTime(Generator_LJC.nextRotation().10  ) [s]:  %0.6f" %(time.clock()-t0)  ," poss_ <- scan_pos0s  ")
 
@@ -452,8 +457,8 @@ class AFMulator(Sequence,):
         return Y
 
     def evalAFMandAuxMap(self, rot, X=None, Y=None ):
-        X = self.evalAFM( self, rot, X=None )
-        Y = self.evalProjection(self, rot, Y=None )
+        X = self.evalAFM   ( self, rot, X=None )
+        Y = self.evalAuxMap( self, rot, Y=None )
         return X, Y
 
     #def performImaging_AFM(self, molecule, rotMat ):
@@ -463,6 +468,7 @@ class AFMulator(Sequence,):
         #self.imageRotation_simple( X, Y, rotMat )
         self.evalAFM( rotMat, X )
         if(bRunTime): print("runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0)
+        self.scan_pos0s = None
         return X
     
     def performImaging_AFM_(self, mol, rotMat ):
@@ -473,11 +479,16 @@ class AFMulator(Sequence,):
         X = np.empty( self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),) )
         Y = np.empty( self.getTsDim() )
         self.prepareImaging(  xyzs,Zs,qs )
-        self.evalAFMandAuxMap( rotMat, X, Y )
+        #self.evalAFMandAuxMap( rotMat, X, Y )
+        self.evalAFM   ( rotMat, X=X )
+        self.evalAuxMap( rotMat, Y=Y )
         #self.imageRotation_simple( X, Y, rotMat )
         if(bRunTime): print("runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0)
+        self.scan_pos0s = None
         return X, Y
 
+    def performImaging_AFMandAuxMap_(self, mol, rotMat ):
+        return self.performImaging_AFMandAuxMap( mol.xyzs,mol.Zs,mol.qs, rotMat )
 
     # ================== Debug/Plot Misc.
 

@@ -152,7 +152,7 @@ def setGridShape(n, cell):
 lib.bindGrids.argtypes  = [c_double_p, c_double_p] 
 lib.bindGrids.restype   =  None
 def bindGrids(atomMap, bondMap):
-    print( " bindGrids atomMap bondMap ", atomMap.min(), bondMap.min() )
+    #print( " bindGrids atomMap bondMap ", atomMap.min(), bondMap.min() )
     return lib.bindGrids(_np_as(atomMap,c_double_p), _np_as(bondMap,c_double_p)) 
 
 #  double setupOpt( double dt, double damp, double f_limit, double l_limit ){
@@ -246,12 +246,15 @@ class EngineFARFF():
     def __init__(self):
         pass
 
-    def preform_relaxation( self, geomIn, Zs, qs, lvec, atomMap, bondMap, Fconv=-1e-5 ):
-
+    def preform_relaxation( self, molecule=None, xyzs=None, Zs=None, qs=None, lvec=None, atomMap=None, bondMap=None, Fconv=-1e-5 ):
+        if molecule is not None:
+            xyzs = molecule.xyzs
+            Zs   = molecule.Zs
+            qs   = molecule.qs
         #fff = sys.modules[__name__]
         print( " # preform_relaxation - init " )
 
-        natom  = len(geomIn)
+        natom  = len(xyzs)
         ndof   = reallocFF(natom)
         norb   = ndof - natom
         self.natom = natom; self.ndof = ndof; self.norb = norb; 
@@ -259,7 +262,8 @@ class EngineFARFF():
         self.dofs   = getDofs(self.ndof)   ; print("dofs.shape ", self.dofs.shape)
         self.apos   = self.dofs[:natom]    ; print("apos.shape ", self.apos.shape)
         self.opos   = self.dofs[natom:]    ; print("opos.shape ", self.opos.shape)
-        self.apos[:,:] = geomIn[:,:] #
+        #self.apos[:,:] = xyzs[:,:] #
+        self.apos   = xyzs.copy()
 
         print( " # preform_relaxation - set DOFs " )
 
@@ -270,10 +274,11 @@ class EngineFARFF():
         print( " # preform_relaxation - set DOFs [1] " )
         setupFF     (n=natom)   # use default atom type
         print( " # preform_relaxation - set DOFs [2]" )
-        setGridShape( atomMap.shape[:3]+(1,), lvec )     # ToDo :    this should change if 3D force-field is used
         print( " # preform_relaxation - set DOFs [3]" )
         self.atomMap = atomMap # we have to keep it so it is not garbage collected
         self.bondMap = bondMap
+        if atomMap is not None:
+            setGridShape( atomMap.shape[:3]+(1,), lvec )     # ToDo :    this should change if 3D force-field is used
         bindGrids   ( atomMap, bondMap )
         print( " # preform_relaxation - set DOFs [4]" )
         #atomMapF, bondMapF = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF
@@ -290,6 +295,7 @@ class EngineFARFF():
         print( " # preform_relaxation - to Loop " )
 
         #glview = glv.GLView()
+        self.NmaxIter = 10; print( "DEBUG self.NmaxIter = 10; " )
         for i in range( int( self.NmaxIter/self.NstepPerCheck )+1 ):
             #glview.pre_draw()
             F2err = relaxNsteps( self.NstepPerCheck, Fconv=Fconv, ialg=0 )
