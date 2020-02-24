@@ -215,14 +215,11 @@ class AFMulator(Sequence,):
             return self.scan_dim[:2]
 
     def prepareMolecule_AFM(self, xyzs, Zs, qs ):
-        if(bRunTime): t0 = time.clock() 
-        if(bRunTime): print("runTime(Generator_LJC.prepareMolecule().1   ) [s]:  %0.6f" %(time.clock()-t0)    ," load atoms") 
         cog = np.array([self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5])
         print( " prepareMolecule cog ", cog )
         #setBBoxCenter( xyzs, cog ) #    ToDo : This introduces jitter !!!!!!
         xyzs = xyzs[:,:] + cog[None,:]
 
-        if(bRunTime): print("runTime(Generator_LJC.prepareMolecule().2   ) [s]:  %0.6f" %(time.clock()-t0)    ," box,cog") 
         self.natoms0 = len(Zs)
         self.REAs    = PPU.getAtomsREA(  self.iZPP, Zs, self.typeParams, alphaFac=-1.0 )
         cLJs = PPU.REA2LJ( self.REAs )
@@ -253,8 +250,6 @@ class AFMulator(Sequence,):
         else:
             FF,self.atoms  = self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=self.FEin, Qmix=self.Q, bRelease=True, bCopy=True, bFinish=True )
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
-        if(bRunTime): print("runTime(Generator_LJC.nextMolecule().8   ) [s]:  %0.6f" %(time.clock()-t0)    ," forcefield.makeFF ")
-        if(bRunTime): t1 = time.clock()
 
         if self.Ymode == 'ElectrostaticMap':
             if self.bNoFFCopy: print("ERROR bNoFFCopy==True is not compactible with Ymode=='ElectrostaticMap' ")
@@ -278,7 +273,6 @@ class AFMulator(Sequence,):
                 self.projector.prepareBuffers( self.atomsNonPBC, self.scan_dim[:2]+(1,), coefs=coefs )
 
         #self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
-        if(bRunTime): print("runTime(Generator_LJC.nextMolecule().8-9 ) [s]: ", time.clock()-t1    ," projector.prepareBuffers  ")
 
     #def prepareMolecule_AFMandAuxMap(self, xyzs, Zs, qs ):
     #    self.prepareMolecule_AFM    ( xyzs, Zs, qs )
@@ -310,11 +304,8 @@ class AFMulator(Sequence,):
 
     def prepare_Rotation( self, rot ):
         #if(verbose>0): print(" ----- imageRotation ", self.irot)
-        if(bRunTime): t0=time.clock()
         zDir = rot[2].flat.copy()
         self.distAboveActive  = self.distAbove
-        print( "self.pos0 ", self.pos0 )
-        if(bRunTime): print("runTime(Generator_LJC.nextRotation().2   ) [s]:  %0.6f" %(time.clock()-t0)  ," top atom ")
         vtipR0    = np.zeros(3)
         vtipR0[2]  = self.tipR0 
         self.scan_pos0s  = self.scanner.setScanRot(self.pos0, rot=rot, zstep=0.1, tipR0=vtipR0 )
@@ -326,21 +317,18 @@ class AFMulator(Sequence,):
 
         if self.bMergeConv:
             FEout = self.scanner.run_relaxStrokesTilted_convZ()
-            if(bRunTime): print("runTime(Generator_LJC.nextRotation().8   ) [s]:  %0.6f" %(time.clock()-t0)  ," scanner.run_relaxStrokesTilted_convZ() ")
         else:
             if self.bFEoutCopy:
                 FEout  = self.scanner.run_relaxStrokesTilted( bCopy=True, bFinish=True )
             else:
                 #print "NO COPY scanner.run_relaxStrokesTilted "
                 self.scanner.run_relaxStrokesTilted( bCopy=False, bFinish=True )
-            if(bRunTime): print("runTime(Generator_LJC.nextRotation().7   ) [s]:  %0.6f" %(time.clock()-t0)  ," scanner.run_relaxStrokesTilted() ")
             #print "FEout shape,min,max", FEout.shape, FEout.min(), FEout.max()
             if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
                 print("len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut)
                 exit()
             #self.scanner.updateBuffers( WZconv=self.dfWeight )
             FEout = self.scanner.run_convolveZ()
-            if(bRunTime): print("runTime(Generator_LJC.nextRotation().8   ) [s]:  %0.6f" %(time.clock()-t0)  ," scanner.run_convolveZ() ")
 
         #print "DEBUG FEout.max,min ", FEout[:,:,:,:3].max(), FEout[:,:,:,:3].min() 
 
@@ -351,7 +339,8 @@ class AFMulator(Sequence,):
         return X
 
     def evalAuxMap(self, rot, Y=None ):
-        if(bRunTime): print("runTime(Generator_LJC.nextRotation().9   ) [s]:  %0.6f" %(time.clock()-t0)  ," X = Fout.z  ")
+
+        if(bRunTime): print(  " evalAuxMap Ymode = ", self.Ymode )
 
         if self.scan_pos0s is None:
             self.prepare_Rotation(rot)
@@ -365,8 +354,6 @@ class AFMulator(Sequence,):
         if self.Ymode not in ['HeightMap', 'ElectrostaticMap', 'xyz']:
             #poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAboveActive-self.RvdWs[imax]-self.projector.Rpp))[None,None,:] )
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAboveActive))[None,None,:] )
-
-        if(bRunTime): print("runTime(Generator_LJC.nextRotation().10  ) [s]:  %0.6f" %(time.clock()-t0)  ," poss_ <- scan_pos0s  ")
 
         # --- Different modes of output map
         if self.Ymode == 'HeightMap':
@@ -445,8 +432,6 @@ class AFMulator(Sequence,):
                 
             Y[:len(xyzs_), 3] = Zs
 
-        if(bRunTime): print("runTime(Generator_LJC.nextRotation().tot ) [s]:  %0.6f" %(time.clock()-t0)  ," size ", FEout.shape)
-
         if(self.debugPlots):
             print("self.molName ", self.molName) 
             list = os.listdir('model/predictions/') # dir is your directory path
@@ -467,7 +452,6 @@ class AFMulator(Sequence,):
         self.prepareImaging(  xyzs,Zs,qs )
         #self.imageRotation_simple( X, Y, rotMat )
         self.evalAFM( rotMat, X )
-        if(bRunTime): print("runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0)
         self.scan_pos0s = None
         return X
     
@@ -483,7 +467,6 @@ class AFMulator(Sequence,):
         self.evalAFM   ( rotMat, X=X )
         self.evalAuxMap( rotMat, Y=Y )
         #self.imageRotation_simple( X, Y, rotMat )
-        if(bRunTime): print("runTime(Generator_LJC.next1().tot        ) [s]: ", time.clock()-t0)
         self.scan_pos0s = None
         return X, Y
 

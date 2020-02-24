@@ -264,15 +264,19 @@ class CorrectionLoop():
 
         print( "### CorrectionLoop.iteration [%i]" %itr )
         AFMs,AuxMap     = self.simulator.performImaging_AFMandAuxMap_( self.molecule, self.rotMat )
-        print( "AuxMap.shape ", AuxMap.shape )
+        #print( "AuxMap.shape ", AuxMap.shape )
         if self.logAFMdataName:
             np.save( self.logAFMdataName+("%03i.dat" %itr), AFMs )
         if self.logImgName is not None:
-            nz = len(self.logImgIzs)
-            plt.figure(figsize=(5*nz,5))
-            plt.subplot(1,nz+1,1); plt.imshow ( AuxMap )
+            nz  = len(self.logImgIzs)
+            nch = AuxMap.shape[2]
+            #print( "DEBUG nz nch ", nz, nch )
+            plt.figure(figsize=(5*(nz+nch),5))
+            for ich in range(nch):
+                #print( "DEBUG ich ", ich )
+                plt.subplot(1,nz+nch,ich+1); plt.imshow ( AuxMap[:,:,ich] )
             for iiz, iz in enumerate(self.logImgIzs):
-                plt.subplot(1,nz+1,iiz+2); plt.imshow ( AFMs[:,:,iz] )
+                plt.subplot(1,nz+nch,iiz+nch+1); plt.imshow ( AFMs[:,:,iz] )
                 plt.title( "iz %i" %iz )
             plt.savefig( self.logImgName+("_%03i.png" %itr), bbox_inches='tight')
             plt.close  ()
@@ -370,8 +374,8 @@ if __name__ == "__main__":
 
     lvec=None
     #simulator  = GeneratorOCL_LJC.Generator( [], [], 1, pixPerAngstrome=5, Ymode='AtomsAndBonds', lvec=lvec  )
-    #simulator  = AFMulatorOCL( pixPerAngstrome=5, lvec=lvec, Ymode='AtomsAndBonds' )
-    simulator  = AFMulatorOCL.AFMulator( pixPerAngstrome=5, lvec=lvec, Ymode=None )
+    simulator  = AFMulatorOCL.AFMulator( pixPerAngstrome=5, lvec=lvec, Ymode='AtomsAndBonds' )
+    #simulator  = AFMulatorOCL.AFMulator( pixPerAngstrome=5, lvec=lvec, Ymode=None )
 
     simulator.bOccl = 1   # switch occlusion of atoms 0=off 1=on
     simulator.typeSelection =  [1,6,7,8,16,33]  # select atom types for each output channel
