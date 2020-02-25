@@ -117,6 +117,7 @@ class AFMulator(Sequence,):
     scan_end     = ( 8.0, 8.0)
     scan_dim     = ( 100, 100, 30)
     distAbove    =  7.0       # distAbove starts from top sphere's shell: distAbove = distAbove + RvdW_top  
+    Yrange       = 2
 
     # ---- Y-Modes (AuxMaps) specific
     zmin_xyz = -2.0
@@ -214,14 +215,16 @@ class AFMulator(Sequence,):
         else:
             return self.scan_dim[:2]
 
-    def prepareMolecule_AFM(self, xyzs, Zs, qs ):
-        cog = np.array([self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5])
-        print( " prepareMolecule cog ", cog )
+    def prepareMolecule_AFM(self, xyzs, Zs, qs, REAs=None, ):
+        half_cell = np.array([self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5])
         #setBBoxCenter( xyzs, cog ) #    ToDo : This introduces jitter !!!!!!
-        xyzs = xyzs[:,:] + cog[None,:]
+        xyzs = xyzs[:,:] + half_cell[None,:]
 
         self.natoms0 = len(Zs)
-        self.REAs    = PPU.getAtomsREA(  self.iZPP, Zs, self.typeParams, alphaFac=-1.0 )
+        if REAs is None:
+            self.REAs    = PPU.getAtomsREA(  self.iZPP, Zs, self.typeParams, alphaFac=-1.0 )
+        else:
+            self.REAs = REAs
         cLJs = PPU.REA2LJ( self.REAs )
         if( self.npbc is not None ):
             #Zs, xyzs, qs, cLJs = PPU.PBCAtoms3D( Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc )
@@ -288,17 +291,14 @@ class AFMulator(Sequence,):
         if self.Ymode is not None:
             self.prepareMolecule_AuxMap( xyzs, Zs, qs )
 
-        if self.bDfPerMol: 
-            self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep )[0].astype(np.float32)
-
         if self.bNoFFCopy:
             self.scanner.updateFEin( self.forcefield.cl_FE )
         else:
             if(self.counter>0): # not first step
                 if(verbose>1): print("scanner.releaseBuffers()")
                 self.scanner.releaseBuffers()
-            self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
-            self.scanner.preparePosBasis(self, start=self.scan_start, end=self.scan_end )
+            self.scanner.prepareBuffers (self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+            self.scanner.preparePosBasis( start=self.scan_start, end=self.scan_end )
         
         self.scan_pos0s = None
 
@@ -306,7 +306,7 @@ class AFMulator(Sequence,):
         #if(verbose>0): print(" ----- imageRotation ", self.irot)
         zDir = rot[2].flat.copy()
         self.distAboveActive  = self.distAbove
-        vtipR0    = np.zeros(3)
+        vtipR0     = np.zeros(3)
         vtipR0[2]  = self.tipR0 
         self.scan_pos0s  = self.scanner.setScanRot(self.pos0, rot=rot, zstep=0.1, tipR0=vtipR0 )
 
