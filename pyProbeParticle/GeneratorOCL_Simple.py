@@ -236,9 +236,6 @@ class InverseAFMtrainer(AFMulatorOCL.AFMulator,):
                     self.dfWeight = PPU.getDfWeight( ndf, dz=self.scanner.zstep )[0].astype(np.float32)
 
                 if self.bNoFFCopy:
-                    #self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim, 
-                    #    scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
-                    #print "NO COPY scanner.updateFEin "
                     self.scanner.updateFEin( self.forcefield.cl_FE )
                 else:
                     if(self.counter>0): # not first step
@@ -248,9 +245,9 @@ class InverseAFMtrainer(AFMulatorOCL.AFMulator,):
                     self.scanner.preparePosBasis(self, start=self.scan_start, end=self.scan_end )
 
                 self.handleRotations()
+
             #print " self.irot ", self.irot, len(self.rotations_sorted), self.nBestRotations
 
-            rot = self.rotations_sorted[self.irot]
             self.nextRotation( Xs[ibatch], Ys[ibatch] )
             #self.nextRotation( self.rotations[self.irot], Xs[ibatch], Ys[ibatch] )
             self.counter +=1
@@ -342,7 +339,9 @@ class InverseAFMtrainer(AFMulatorOCL.AFMulator,):
             if self.bNoFFCopy: print("ERROR bNoFFCopy==True  is not compactible with rotJitter==True ")
             FF[:,:,:,:] *= (1.0/len(self.rotJitter) )
 
-        self.prepareMolecule( xyzs,Zs,qs, REAs=REAs  )
+        #self.prepareMolecule( xyzs,Zs,qs, REAs=REAs  )
+        self.prepareMolecule_AFM   ( xyzs, Zs, qs )
+        self.prepareMolecule_AuxMap( xyzs, Zs, qs )
 
     #def nextRotation(self, rot, X,Y ):
     def nextRotation(self, X,Y ):
