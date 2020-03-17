@@ -124,13 +124,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("slices") )
         selSliceSave = QtWidgets.QLineEdit(); vb.addWidget(selSliceSave); selSliceSave.setToolTip('select slices to save, i.e.: 1,3-11'); selSliceSave.setEnabled(False);  self.txSliceSave = selSliceSave
         vb = QtWidgets.QHBoxLayout();        l0.addLayout(vb);
-        self.btSave = QtWidgets.QPushButton('Save .npy', self)
-        self.btSave.setToolTip('save data stack to .npy')
+        self.btSave = QtWidgets.QPushButton('Save .npz', self)
+        self.btSave.setToolTip('save data stack to .npz')
         self.btSave.clicked.connect(self.saveData)
         self.btSave.setEnabled(False);
         vb.addWidget( self.btSave )
         vb = QtWidgets.QHBoxLayout();        l0.addLayout(vb);
-        bt = QtWidgets.QPushButton('Load .npy', self); bt.setToolTip('load .npy file  from dir'); bt.clicked.connect(self.loadNPY ); vb.addWidget( bt ); self.btLoad = bt
+        bt = QtWidgets.QPushButton('Load .npz', self); bt.setToolTip('load .npz file  from dir'); bt.clicked.connect(self.loadNPZ ); vb.addWidget( bt ); self.btLoad = bt
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
@@ -206,8 +206,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 
         self.fnames   = glob.glob(self.path+'*.dat')
         self.fnames.sort()
-        #self.data = self.loadData();
+
+ 
         print self.fnames
+
         data = []
         data2 = []
         headers = []
@@ -227,7 +229,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             #data2.append( imgs[1] )
         self.fnames = fnames
         #return data
+        data = [d[::-1,:] for d in data]
+ 
         self.data = data
+        
         #z=np.arange(25)
         data2=copy.copy(data)        
         self.data2= data2 #np.reshape(z, (5,5)) #data
@@ -352,21 +357,28 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             endy = arr.shape[1]-self.margins[3]
             arr = arr[:,self.margins[1]:endy,self.margins[0]:endx]  
             print "arr.shape ", arr.shape
+            
 
         print "saveData: arr.shape ", arr.shape 
+
+        lengthX = self.slice_lengths[0][0]
+        lengthY = self.slice_lengths[0][1]
+        print "lnegth yx:  ", lengthX, lengthY
         if ( self.bSaveDivisible ):
             print "dat.shape ", arr.shape
             nx=arr.shape[1]/self.divNX * self.divNX
             ny=arr.shape[2]/self.divNY * self.divNY
             arr_ = arr[:,:nx,:ny]
             arr_ = arr_.transpose((1,2,0))
-            arr_ = arr_[::-1,:,:]
+            
             print "saveData: arr_.shape ", arr_.shape
-            np.save( self.path+"data.npy", arr_)
+ 
+
+            np.savez_compressed( self.path+"data.npz", data = arr_, lengthX = lengthX, lengthY = lengthY)
         else:
             arr = arr.transpose((1,2,0))
-            arr = arr[::-1,:,:]
-            np.save( self.path+"data.npy", arr  )
+            
+            np.savez_compressed( self.path+"data.npz", data = arr, lengthX = lengthX, lengthY = lengthY)
 
 
         with open(self.path+'data.pickle', 'wb') as fp:
@@ -382,22 +394,26 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 pickle.dump( self.slice_lengths, fp)
 
  
-    def loadNPY(self):
+    def loadNPZ(self):
         self.path = self.txPath.text()
         if self.path[-1] is not u'/':
             self.path   += u'/'
         
-        # load image data from data.npy
+        # load image data from data.npz
         data = []
         data2 = []
-        data = np.load(self.path+'data.npy')
+        npzfile = np.load(self.path+'data.npz')
+        data =npzfile['data'] 
+        self.slice_lengths = [npzfile['lengthX'].astype(float) ,npzfile['lengthY'].astype(float) ]
+        print '...::: self.slice_lengths loaded from npz!'
+        print 'self.slice_lengths = ', self.slice_lengths
         data = data.transpose((2,0,1))
         print "loaded Data: shape ", data.shape
         self.data = [ s for s in data ]
 
         data2=copy.copy(self.data)        
         self.data2= data2 #np.reshape(z, (5,5)) #data
-        print 'data npy loaded'
+        print 'data npz loaded'
 
         # load meta data from data.pickle about file names, shifts, lengths
         with open ( self.path+'data.pickle', 'rb') as fp:
