@@ -58,7 +58,7 @@ else:
 
 PBC = False if not options.noPBC else PPU.params['PBC']
 
-iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = options.noPBC,
+iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = PBC,
                          FFparams=FFparams )
 # This function returns the following information:
 # iZs - 1D array, containing the numbers of the elements, which corresponds to
@@ -78,7 +78,7 @@ FFLJ, VLJ=PPH.computeLJ( Rs, iZs, FFLJ=None, FFparams=FFparams, Vpot=options.ene
 
 GU.limit_vec_field( FFLJ, Fmax=10.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
 
-xsfHead=basUtils.bas2xsf(iZs,Rs,PPU.params['nPBC'] if PBC else [0,0,0] )
+xsfHead=basUtils.bas2xsf(iZs,Rs,PPU.params['nPBC'] if PBC else [0,0,0],PPU.params['gridA'],PPU.params['gridB'],PPU.params['gridC'] )
 
 print("--- Save  ---")
 GU.save_vec_field( 'FFLJ', FFLJ, lvec,data_format=data_format, xsfHead=xsfHead)

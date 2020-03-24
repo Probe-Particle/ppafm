@@ -63,21 +63,21 @@ scan_step=PPU.params['scanStep'][2]
 print(" >> OVEWRITING SETTINGS by command line arguments  ")
 
 if opt_dict['krange'] is not None:
-    Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], opt_dict['krange'][2] )
+    Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], int(opt_dict['krange'][2] ) )
 elif opt_dict['k'] is not None:
     Ks = [ opt_dict['k'] ]
 else:
     Ks = [ PPU.params['stiffness'][0] ]
 # Qs
 if opt_dict['qrange'] is not None:
-    Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
+    Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], int(opt_dict['qrange'][2] ) )
 elif opt_dict['q'] is not None:
     Qs = [ opt_dict['q'] ]
 else:
     Qs = [ PPU.params['charge'] ]
 # Amps
 if opt_dict['arange'] is not None:
-    Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], opt_dict['arange'][2] )
+    Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], int(opt_dict['arange'][2] ) )
 elif opt_dict['a'] is not None:
     Amps = [ opt_dict['a'] ]
 else:
@@ -92,7 +92,7 @@ for iq,Q in enumerate( Qs ):
                 print("Working in {} directory".format(dirname))
 
                 fzs,lvec,nDim,head=GU.load_scal_field(dirname+'/OutFz', data_format=data_format)
-                dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
+                dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n= int(Amp/dz) )
                 for p in options.points:
                     x=float(p.split('x')[0])
                     y=float(p.split('x')[1])

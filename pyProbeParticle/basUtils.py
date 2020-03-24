@@ -267,12 +267,22 @@ def loadBas(name):
     f.close()
     return xyzs
 
-def bas2xsf(iZs,Rs,nPBC):
+def bas2xsf(iZs,Rs,nPBC,gA,gB,gC):
     div=(nPBC[0]*2+1)*(nPBC[1]*2+1) # amount of single unit cells
     li=int(len(iZs)/div)            # amount of atoms in single cell
-    sa=li*(nPBC[0]*2+1)+li*nPBC[1]        # starting atom to plot
+    sa=  (li*nPBC[1]*(nPBC[0]*2+1)+li*nPBC[1]    if((nPBC[0]!=0)and(nPBC[1]!=0)) else li*nPBC[0]+li*nPBC[1]  ) # starting atom to plot
     ea=sa+li                         # ending atom to plot
-    header1='''ATOMS \n'''
+    header1='''CRYSTAL
+PRIMVEC \n'''
+    header1+=str(gA[0])+' '+str(gA[1])+' '+str(gA[2])+' \n'
+    header1+=str(gB[0])+' '+str(gB[1])+' '+str(gB[2])+' \n'
+    header1+=str(gC[0])+' '+str(gC[1])+' '+str(gC[2])+' \n'
+    header1+='''CONVVEC \n'''
+    header1+=str(gA[0])+' '+str(gA[1])+' '+str(gA[2])+' \n'
+    header1+=str(gB[0])+' '+str(gB[1])+' '+str(gB[2])+' \n'
+    header1+=str(gC[0])+' '+str(gC[1])+' '+str(gC[2])+' \n'
+    header1+='''PRIMCOORD \n'''
+    header1+=str(li)+' 1 \n'
     header2=''
     for ia in range(sa,ea):
         header2+=str(iZs[ia])+' '+str(Rs[ia][0])+' '+str(Rs[ia][1])+' '+str(Rs[ia][2])+' \n'

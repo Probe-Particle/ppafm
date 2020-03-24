@@ -51,7 +51,7 @@ def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4
     Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
     oscialltion amplitude of cantilever is A = n * dz
     '''
-    x  = np.linspace(-1,1,n+1)
+    x  = np.linspace(-1,1,int(n+1) )
     y  = np.sqrt(1-x*x)
     dy =  ( y[1:] - y[:-1] )/(dz*n)
     fpi    = (n-2)**2; prefactor = ( 1 + fpi*(2/np.pi) ) / (fpi+1) # correction for small n

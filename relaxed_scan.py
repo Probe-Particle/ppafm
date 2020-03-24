@@ -43,7 +43,7 @@ PPU.loadParams( 'params.ini' )
 print(opt_dict)
 # Ks
 if opt_dict['krange'] is not None:
-    Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], opt_dict['krange'][2] )
+    Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], int( opt_dict['krange'][2] ) )
 elif opt_dict['k'] is not None:
     Ks = [ opt_dict['k'] ]
 else:
@@ -52,7 +52,7 @@ else:
 
 charged_system=False
 if opt_dict['qrange'] is not None:
-    Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
+    Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], int( opt_dict['qrange'][2] ) )
 elif opt_dict['q'] is not None:
     Qs = [ opt_dict['q'] ]
 else:

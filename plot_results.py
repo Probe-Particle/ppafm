@@ -73,28 +73,28 @@ PPU.loadParams( 'params.ini' )
 print(" >> OVEWRITING SETTINGS by command line arguments  ")
 # Ks
 if opt_dict['krange'] is not None:
-    Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], opt_dict['krange'][2] )
+    Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], int( opt_dict['krange'][2] ) )
 elif opt_dict['k'] is not None:
     Ks = [ opt_dict['k'] ]
 else:
     Ks = [ PPU.params['stiffness'][0] ]
 # Qs
 if opt_dict['qrange'] is not None:
-    Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
+    Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], int( opt_dict['qrange'][2] ) )
 elif opt_dict['q'] is not None:
     Qs = [ opt_dict['q'] ]
 else:
     Qs = [ PPU.params['charge'] ]
 # Amps
 if opt_dict['arange'] is not None:
-    Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], opt_dict['arange'][2] )
+    Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], int( opt_dict['arange'][2] ) )
 elif opt_dict['a'] is not None:
     Amps = [ opt_dict['a'] ]
 else:
     Amps = [ PPU.params['Amplitude'] ]
 # TbQs
 if opt_dict['tip_base_qrange'] is not None:
-    TbQs = np.linspace( opt_dict['tip_base_qrange'][0], opt_dict['tip_base_qrange'][1], opt_dict['tip_base_qrange'][2] )
+    TbQs = np.linspace( opt_dict['tip_base_qrange'][0], opt_dict['tip_base_qrange'][1], int( opt_dict['tip_base_qrange'][2] ) )
 elif opt_dict['tip_base_q'] is not None:
     TbQs = [ opt_dict['tip_base_q'] ]
 else:
@@ -210,14 +210,14 @@ for iq,Q in enumerate( Qs ):
                             dirNameAmp = dirname+AmpStr
                             if not os.path.exists( dirNameAmp ):
                                 os.makedirs( dirNameAmp )
-                            dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
+                            dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n= int(Amp/dz) )
                         else:
                             AmpStr = "/Amp%2.2f_qTip%2.2f" %(Amp,TbQ)
                             print("Amp= ",AmpStr)
                             dirNameAmp = dirname+AmpStr
                             if not os.path.exists( dirNameAmp ):
                                 os.makedirs( dirNameAmp )
-                            dfs = PPU.Fz2df( fzs + TbQ*fzt, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
+                            dfs = PPU.Fz2df( fzs + TbQ*fzt, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n= int(Amp/dz) )
                         if opt_dict['save_df']:
                             GU.save_scal_field( dirNameAmp+'/df', dfs, lvec, data_format=data_format )
                         if opt_dict['df']:

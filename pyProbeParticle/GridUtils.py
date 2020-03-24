@@ -276,8 +276,8 @@ def saveWSxM_3D( prefix, data, extent, slices=None ):
     nDim=np.shape(data)
     if slices is None:
         slices=list(range( nDim[0]))
-    xs=np.linspace( extent[0], extent[1], nDim[2] )
-    ys=np.linspace( extent[2], extent[3], nDim[1] )
+    xs=np.linspace( extent[0], extent[1], int(nDim[2]) )
+    ys=np.linspace( extent[2], extent[3], int(nDim[1]) )
     Xs, Ys = np.meshgrid(xs,ys)
     for i in slices:
         print("slice no: ", i)

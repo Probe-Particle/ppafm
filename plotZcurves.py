@@ -30,7 +30,7 @@ else:
 
 fzs,lvec,nDim=GU.load_scal_field(options.i,data_format=data_format)
 #xs = lvec[3,2]/*np.array( range(nDim[0]) )
-xs = np.linspace( 0, lvec[3,2], nDim[0] )
+xs = np.linspace( 0, lvec[3,2], int(nDim[0]) )
 
 #print nDim
 print(xs)
@@ -60,6 +60,6 @@ plt.savefig( options.i+'_zcurves.png', bbox_inches='tight')
 plt.ylim( 1.1*vmin, -2*vmin )
 np.savetxt( options.i+'_zcurves.dat', curves )
 
-#dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
+#dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n= int(Amp/dz) )
                     
 plt.show()
