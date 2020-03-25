@@ -345,6 +345,8 @@ void setTip( double lRad, double kRad, double * rPP0, double * kSpring ){
 	TIP::rPP0.set(rPP0);   
 	TIP::kSpring.set(kSpring); 
 	TIP::makeConsistent();  // rPP0 to be consistent with  lRadial
+	//printf(" kSpring %f %f %f kRadial %f \n", kSpring[0], kSpring[1], kSpring[2] , kRad); // for debugging
+
 }
 
 // set parameters of the tip like stiffness and equlibirum position in radial and lateral direction

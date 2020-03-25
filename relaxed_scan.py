@@ -42,12 +42,13 @@ PPU.loadParams( 'params.ini' )
 
 print(opt_dict)
 # Ks
+Bds = False # Boolean double stiffness - possible double stifnness in params.ini
 if opt_dict['krange'] is not None:
     Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], int( opt_dict['krange'][2] ) )
 elif opt_dict['k'] is not None:
     Ks = [ opt_dict['k'] ]
 else:
-    Ks = [ PPU.params['stiffness'][0] ]
+    Ks = [ PPU.params['stiffness'][0] ] ; Bds = True # Boolean double stiffness - possible double stifnness in params.ini
 # Qs
 
 charged_system=False
@@ -113,7 +114,10 @@ for iq,Q in enumerate( Qs ):
         print(" relaxed_scan for ", dirname)
         if not os.path.exists( dirname ):
             os.makedirs( dirname )
-        PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
+        if Bds:
+            PPC.setTip( kSpring = np.array((PPU.params['stiffness'][0],PPU.params['stiffness'][1],0.0))/-PPU.eVA_Nm  )
+        else:
+            PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm  )
         Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
         GU.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )
         if opt_dict['vib'] >= 0:
