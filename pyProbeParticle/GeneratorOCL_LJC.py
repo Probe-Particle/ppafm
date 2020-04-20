@@ -871,11 +871,14 @@ class Generator(Sequence,):
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().tot ) [s]:  %0.6f" %(time.clock()-t0)  ," size ", FEout.shape
 
         if(self.debugPlots):
-            print  "self.molName ", self.molName 
-            list = os.listdir('model/predictions/') # dir is your directory path
+            # output xyz and povray for each rotation
+            fname = './'+self.molName+'/'+"%01i_rot" %self.irot
+            list = os.listdir(self.molName+'/') # dir is your directory path
             number_files = len(list)
-            if (number_files < 100):
-                self.plot( ("_rot%03i" % self.irot), self.molName ,  bPOVray=False, bXYZ=True , bRot=True)
+            if (number_files < 100): 
+                print 'fname = ', fname 
+                self.plot( fname, self.molName, Y=None, bPOVray=True, bXYZ=True, bRot=True )
+                
 
     """
     # ============= Curently not used
@@ -956,7 +959,7 @@ class Generator(Sequence,):
         extent=(self.scan_start[0],self.scan_end[0], self.scan_start[1],self.scan_end[1] )
         #print "extent: ", extent
 
-        fname    = self.preName + molName + rotName
+        fname    = rotName
         #print " plot to file : ", fname
 
         if bXYZ:
@@ -964,12 +967,13 @@ class Generator(Sequence,):
              
             if bRot:
                 atomsRot = rotAtoms(self.rot, self.atomsNonPBC)
-                basUtils.writeDebugXYZ__('model/predictions/'+ molName + rotName+'.xyz', atomsRot, self.Zs )
-                #print 'XYZ file: ', './predictions/'+ molName[6:] + rotName+'.xyz',' saved'
+                basUtils.writeDebugXYZ__( fname+'.xyz', atomsRot, self.Zs )
+                print 'XYZ file: ', fname+'.xyz',' saved'
                 #exit()
+
             else:
-                basUtils.writeDebugXYZ_2('model/predictions/'+ molName + rotName+'.xyz', self.atoms, self.Zs, self.scan_pos0s[::40,::40,:].reshape(-1,4), pos0=self.pos0 )
-                #print 'XYZ file: ', './model/predictions/'+ molName[6:] + rotName+'.xyz',' saved'
+                basUtils.writeDebugXYZ_2( fname+'.xyz', self.atoms, self.Zs, self.scan_pos0s[::40,::40,:].reshape(-1,4), pos0=self.pos0 )
+                print 'XYZ file: ',  fname+'.xyz',' saved'
         if bPOVray:
             #basUtils.writeDebugXYZ__( self.preName + molName + rotName+".xyz", self.atomsNonPBC, self.Zs )
             bonds = basUtils.findBonds_( self.atomsNonPBC, self.Zs, 1.2, ELEMENTS=elements.ELEMENTS )
@@ -980,10 +984,12 @@ class Generator(Sequence,):
             cam  = basUtils.makePovCam( self.pos0, rg=self.rot[0]*10.0, up= self.rot[1]*10.0, fw=self.rot[2]*-100.0, lpos = self.rot[2]*100.0 )
             cam += basUtils.DEFAULT_POV_HEAD_NO_CAM
             #print "makePovCam", cam
+            
             #print "self.atomsNonPBC ", self.atomsNonPBC
-            basUtils.writePov( self.preName + molName + rotName+".pov", self.atomsNonPBC, self.Zs, HEAD=cam, bonds=bonds, spherescale=0.5 )
+            basUtils.writePov( fname+".pov", self.atomsNonPBC, self.Zs, HEAD=cam, bonds=bonds, spherescale=0.5 )
+            #print 'Pov file: ',  fname+".pov",' saved'
             #basUtils.writeDebugXYZ( self.preName + molName + rotName, self.atom_lines, self.scan_pos0s[::10,::10,:].reshape(-1,4), pos0=self.pos0 )
-
+            os.system( "povray Width=512 Height=512 Antialias=On Antialias_Threshold=0.3 Display=off Output_Alpha=true %s" %(fname+".pov") )
         #self.saveDebugXSF(  self.preName + molName + rotName+"_Fz.xsf", X, d=(0.1,0.1,0.1) )
 
         cmap = 'viridis'
