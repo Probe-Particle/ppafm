@@ -875,7 +875,7 @@ class Generator(Sequence,):
             fname = './'+self.molName+'/'+"%01i_rot" %self.irot
             list = os.listdir(self.molName+'/') # dir is your directory path
             number_files = len(list)
-            if (number_files < 100): 
+            if (number_files < 300): 
                 print 'fname = ', fname 
                 self.plot( fname, self.molName, Y=None, bPOVray=True, bXYZ=True, bRot=True )
                 
