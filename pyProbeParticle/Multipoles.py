@@ -5,7 +5,7 @@ from   ctypes import c_int, c_double, c_char_p, c_bool
 import ctypes
 import os
 
-import cpp_utils
+from . import cpp_utils
 
 # ====================== constants
 
@@ -14,7 +14,7 @@ import cpp_utils
 # ==============================
 
 LIB_PATH = os.path.dirname( os.path.realpath(__file__) )
-print " ProbeParticle Library DIR = ", LIB_PATH
+print(" ProbeParticle Library DIR = ", LIB_PATH)
 
 def getSphericalHarmonic( X, Y, Z, R, kind='1' ):
 	# TODO: renormalization should be probaby here
@@ -46,7 +46,7 @@ def getProbeDensity(sampleSize, X, Y, Z, sigma, dd, multipole_dict=None ):
 	radial      /= radial_renom
 	if multipole_dict is not None:	   # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
 		rho = np.zeros( np.shape(radial) )
-		for kind, coef in multipole_dict.iteritems():
+		for kind, coef in multipole_dict.items():
 			rho += radial * coef * getSphericalHarmonic( X, Y, Z, kind=kind )    # TODO renormalization should be probaby inside getSphericalHarmonic if possible ?
 	else:
 		rho = radial
@@ -148,7 +148,7 @@ def sampleGridArroundAtoms( atom_pos, atom_Rmin, atom_Rmax, atom_mask, pbc = Fal
 	sampled_val  = np.zeros(  1    )
 	sampled_pos  = np.zeros( (1,3) )
 	points_found = lib.sampleGridArroundAtoms( natom, atom_pos, atom_Rmin, atom_Rmax, atom_mask, sampled_val, sampled_pos, False, pbc, False  )
-	print " found ",points_found," points "  
+	print(" found ",points_found," points ")  
 	sampled_val  = np.zeros(  points_found    )
 	sampled_pos  = np.zeros( (points_found,3) )
 	points_found = lib.sampleGridArroundAtoms( natom, atom_pos, atom_Rmin, atom_Rmax, atom_mask, sampled_val, sampled_pos, True, pbc, show_where )

@@ -6,18 +6,18 @@ import __main__ as main
 
 
 from   pyProbeParticle            import basUtils
-from   pyProbeParticle            import elements   
+from   pyProbeParticle            import elements
 import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.fieldFFT       as fFFT
-import pyProbeParticle.GridUtils as GU
-import pyProbeParticle  as PPU     
+import pyProbeParticle.GridUtils      as GU
+import pyProbeParticle                as PPU
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
-    %s -i <filename> 
+    %s -i <filename>
     
     Supported file fromats are:
-       * xyz 
+       * xyz
     """ %os.path.basename(main.__file__)
     from optparse import OptionParser
     parser = OptionParser()
@@ -30,19 +30,19 @@ if __name__=="__main__":
                       "field. Supported formats are: xsf,npy", default="xsf")
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
-    print options
+    print(options)
     if options.input==None:
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
     FFparams=None
     if os.path.isfile( 'atomtypes.ini' ):
-    	print ">> LOADING LOCAL atomtypes.ini"  
-    	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+        print(">> LOADING LOCAL atomtypes.ini")
+        FFparams=PPU.loadSpecies( 'atomtypes.ini' )
     else:
         import pyProbeParticle.cpp_utils as cpp_utils
-    	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-    print " >> OVEWRITING SETTINGS by params.ini  "
+        FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+    print(" >> OVEWRITING SETTINGS by params.ini  ")
     PPU.loadParams( 'params.ini',FFparams=FFparams )
-    print " >> APPLYING options to the SETTINGS"
+    print(" >> APPLYING options to the SETTINGS")
     # TODO: introduce a class "Parameters", add a new function
     PPU.apply_options(opt_dict)
     atoms,nDim,lvec=basUtils.loadGeometry(options.input, params=PPU.params)
@@ -61,14 +61,14 @@ if __name__=="__main__":
     # Rs  - 2D array, containing the coordinates of the atoms:
     #       [ [x1,y1,z1],
     #         [x2,y2,z2],
-    #          ... 
+    #          ...
     #         [xn,yn,zn]]
     # Qs  - 1D array, containing the atomic charges
     #FFLJ,VLJ=computeLJFF(iZs,Rs,FFparams,Fmax=10.0,computeVpot=options.energy,Vmax=10.0)
     FFLJC,VLJC,FFLJO,VLJO=PPH.computeLJFF(iZs,Rs,FFparams)
-    GU.limit_vec_field( FFLJC, Fmax=10.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
-    GU.limit_vec_field( FFLJO, Fmax=10.0 ) # remove too large valuesl; keeps the same direction; good for visualization 
-    print "--- Save  ---"
+    GU.limit_vec_field( FFLJC, Fmax=10.0 ) # remove too large valuesl; keeps the same direction; good for visualization
+    GU.limit_vec_field( FFLJO, Fmax=10.0 ) # remove too large valuesl; keeps the same direction; good for visualization
+    print("--- Save  ---")
     GU.save_vec_field( 'FFLJC', FFLJC, lvec,data_format=options.data_format)
     GU.save_vec_field( 'FFLJO', FFLJO, lvec,data_format=options.data_format)
     if options.energy :

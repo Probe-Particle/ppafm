@@ -4,8 +4,8 @@ import numpy as np
 from   ctypes import c_int, c_double, c_char_p
 import ctypes
 import os
-import common as PPU
-import cpp_utils
+from . import common as PPU
+from . import cpp_utils
 
 # ==============================
 # ============================== interface to C++ core 
@@ -138,15 +138,15 @@ def setTip(ClRadial=None, OlRadial=None, CkRadial=None, OkRadial=None,
 		CkSpring=np.array(PPU.params['Cklat'],PPU.params['Cklat'][1],0.0) 
 	if OkSpring is  None: 
 		OkSpring=np.array(PPU.params['Oklat'],PPU.params['Oklat'][1],0.0)
-	print " IN setTip !!!!!!!!!!!!!! "
-	print " ClRadial ", ClRadial
-	print " OlRadial ", OlRadial
-	print " CkRadial ", CkRadial
-	print " ORadial ", OkRadial
-	print " rC0 ", rC0
-	print " rO0 ", rO0
-	print " CkSpring ", CkSpring
-	print " OkSpring ", OkSpring
+	print(" IN setTip !!!!!!!!!!!!!! ")
+	print(" ClRadial ", ClRadial)
+	print(" OlRadial ", OlRadial)
+	print(" CkRadial ", CkRadial)
+	print(" ORadial ", OkRadial)
+	print(" rC0 ", rC0)
+	print(" rO0 ", rO0)
+	print(" CkSpring ", CkSpring)
+	print(" OkSpring ", OkSpring)
 	lib.setTip(ClRadial,OlRadial, CkRadial, OkRadial, rC0,rO0,
                    CkSpring, OkSpring )
 

@@ -9,7 +9,7 @@ from scipy.optimize import minimize,basinhopping
 
 from pyProbeParticle import basUtils
 import pyProbeParticle.GridUtils as GU
-import pyProbeParticle  as PPU     
+import pyProbeParticle  as PPU
 import pyProbeParticle.HighLevel as PPH
 
 
@@ -32,12 +32,12 @@ def pN2ev_o_a(val):
 def getFzlist(BIGarray,MIN,MAX,points):
     """
     Function makes an interpolation of a function stored in the BIGarray and finds its values in the "points"
-    BIGarray - a 3d array containing a grid of function values 
+    BIGarray - a 3d array containing a grid of function values
     MIN,MAX  - 1d array containing the minimum and maximum values of x,y,z
     """
-    x=np.linspace(MIN[0],MAX[0],BIGarray.shape[2])
-    y=np.linspace(MIN[1],MAX[1],BIGarray.shape[1])
-    z=np.linspace(MIN[2],MAX[2],BIGarray.shape[0])
+    x=np.linspace(MIN[0],MAX[0],int(BIGarray.shape[2]))
+    y=np.linspace(MIN[1],MAX[1],int(BIGarray.shape[1]))
+    z=np.linspace(MIN[2],MAX[2],int(BIGarray.shape[0]))
     result=[]
     interp = RegularGridInterpolator((z, y, x), BIGarray)
 #    print BIGarray.shape
@@ -50,16 +50,16 @@ def getFzlist(BIGarray,MIN,MAX,points):
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
-	print ">> LOADING LOCAL atomtypes.ini"  
+	print(">> LOADING LOCAL atomtypes.ini")  
 	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
-        print FFparams
+        print(FFparams)
         elem_dict={}
         for i,ff in enumerate(FFparams):
             elem_dict[ff[3]] = i
 else:
     raise ValueError('Please provide the file "atomtypes.ini"')
 
-print " >> OVEWRITING SETTINGS by params.ini  "
+print(" >> OVEWRITING SETTINGS by params.ini  ")
 PPU.loadParams( 'params.ini',FFparams=FFparams )
 scan_min=PPU.params['scanMin']
 scan_max=PPU.params['scanMax']
@@ -98,20 +98,20 @@ def update_atoms(atms=None):
         FFparams[i][1]=float(atm[2])
         x.append(val2)
         constr.append((1e-6,0.1 ) )
-    #print "UPDATING : " ,x    
+    #print "UPDATING : " ,x
     return x,constr
 
 def set_fit_dict(opt=None):
     i=0
     x=[]
     constr=[]
-    for key,value in opt.iteritems():
+    for key,value in opt.items():
             if opt[key] is None:
                 continue
             if key is "atom":
                 if key not in fit_dict:
                     fit_dict['atom']=[]
-                print opt[key]
+                print(opt[key])
                 x_tmp,constr_tmp=update_atoms(value)
                 x+=x_tmp
                 constr+=constr_tmp
@@ -155,7 +155,7 @@ def set_fit_dict(opt=None):
     return np.array(x),constr
 def update_fit_dict(x=[]):
     i=0
-    for key,value in fit_dict.iteritems():
+    for key,value in fit_dict.items():
         if key is "atom":
             for atm in value:
 #                print atm
@@ -168,9 +168,9 @@ def update_fit_dict(x=[]):
 
 
 def comp_msd(x=[]):
-    """ Function computes the Mean Square Deviation of DFT forces (provided in the file frc_tip.ini) 
-    and forces computed with the ProbeParticle approach" 
-    """ 
+    """ Function computes the Mean Square Deviation of DFT forces (provided in the file frc_tip.ini)
+    and forces computed with the ProbeParticle approach"
+    """
     global iteration
     iteration+=1
     update_fit_dict(x) # updating the array with the optimized values
@@ -179,11 +179,11 @@ def comp_msd(x=[]):
     try:
         fit_dict['atom']
         update_atoms(atms=fit_dict['atom'])
-        print "Atom section is defined"
-    except: 
-        print "Atom section is not defined"
-    
-    print FFparams
+        print("Atom section is defined")
+    except:
+        print("Atom section is not defined")
+
+    print(FFparams)
     FFLJC,VLJC,FFLJO,VLJO=PPH.computeLJFF(iZs,Rs,FFparams)
     #GU.save_vec_field( 'FFLJC', FFLJC, lvec)
     #GU.save_vec_field( 'FFLJO', FFLJO, lvec)
@@ -191,7 +191,7 @@ def comp_msd(x=[]):
     FFboltz=None
     fzs,PPCpos,PPOpos,lvecScan=PPH.perform_relaxation(lvec,FFLJC,FFLJO,FFel,FFTip=FFel[:,:,:,2].copy())
 
-    print "Copying PP positions"
+    print("Copying PP positions")
     posXC=PPCpos[:,:,:,0].copy()
     posYC=PPCpos[:,:,:,1].copy()
     posZC=PPCpos[:,:,:,2].copy()
@@ -205,7 +205,7 @@ def comp_msd(x=[]):
 #    print maximum
 #    print "x shape", posX.shape
 #    print "TYT"
-    print "Getting interpolated values"
+    print("Getting interpolated values")
     Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
     XlistC=getFzlist(BIGarray=posXC, MIN=minimum, MAX=maximum, points=points)
     YlistC=getFzlist(BIGarray=posYC, MIN=minimum, MAX=maximum, points=points)
@@ -222,12 +222,12 @@ def comp_msd(x=[]):
                 pr+=1
     sys.exit()
     """
-    print "Computing msd"
+    print("Computing msd")
     Fzlist=getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
     dev_arr=np.abs(loaded_forces[:,3]-Fzlist*1.60217733e3)
     max_dev=np.max(dev_arr)
     msd=np.sum(dev_arr**4) /len(Fzlist)
-    print "Printing fz pp"
+    print("Printing fz pp")
     with open("fz_pp.dat", 'w') as f:
         for i,elem in enumerate(points):
             f.write("{} {} {}".format(elem[0]*100,elem[1]*100,elem[2]*100))
@@ -237,15 +237,15 @@ def comp_msd(x=[]):
     dev_O_y=np.sum((YlistO-loaded_o_pos[:,1])**2)/len(Fzlist)*10000
     dev_O_z=np.sum((ZlistO-loaded_o_pos[:,2])**2)/len(Fzlist)*10000
 
-    print "Printing tip's trajectory"
+    print("Printing tip's trajectory")
     with open("trajectory.xyz", 'w') as f:
         for i,elem in enumerate(points):
             f.write("3\n\n")
             f.write("Cu {} {} {}\n".format(elem[0],elem[1],elem[2]))
             f.write("C {} {} {}\n".format(XlistC[i],YlistC[i],ZlistC[i]))
             f.write("O {} {} {}\n".format(XlistO[i],YlistO[i],ZlistO[i]))
-        
-    print "Deviation: xpos, ypos, zpos, Fz: ", dev_O_x, dev_O_y, dev_O_z, msd
+
+    print("Deviation: xpos, ypos, zpos, Fz: ", dev_O_x, dev_O_y, dev_O_z, msd)
     with open ("iteration.txt", "a") as myfile:
         myfile.write( "iteration {}: {} max dev: {} sigma^2: {} x-disp: {} y-disp: {} z-dizp: {} total: {}"
         "\n".format(iteration, x, max_dev, msd, dev_O_x, dev_O_y, dev_O_z, msd+dev_O_x+dev_O_y+dev_O_z))
@@ -280,24 +280,24 @@ if __name__=="__main__":
     opt_dict = vars(options)
     PPU.apply_options(opt_dict) # setting up all the options according to their
     x_new,bounds=set_fit_dict(opt=opt_dict)
-    print "params", x_new
-    print "bounds", bounds
+    print("params", x_new)
+    print("bounds", bounds)
 #    print "fit_dict", fit_dict
     it=0
     if opt_dict['nobounds'] is not True:
         while   it == 0 or np.max(np.abs((x-x_new)/x)) > 0.10:
             x=x_new.copy()
-            print "Starting bounded optimization"
+            print("Starting bounded optimization")
             result=minimize(comp_msd,x,bounds=bounds)
             x_new=result.x.copy()
             it+=1
-    print "Bounded optimization is finished"
+    print("Bounded optimization is finished")
     it=0
     while   it == 0 or np.max(np.abs((x-x_new)/x)) > 0.001:
-        print "Starting non-bounded optimization"
+        print("Starting non-bounded optimization")
         x=x_new.copy()
         result=minimize(comp_msd,x,method='Nelder-Mead')
         x_new=result.x.copy()
         it+=1
-    print "Non-bounded optimization is finished"
+    print("Non-bounded optimization is finished")
 

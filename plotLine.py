@@ -5,7 +5,7 @@ import __main__ as main
 import numpy as np
 import matplotlib.pyplot as plt
 #import GridUtils as GU
-import pyProbeParticle                as PPU     
+import pyProbeParticle                as PPU
 import pyProbeParticle.GridUtils      as GU
 from scipy.interpolate import interp1d
 from optparse import OptionParser
@@ -13,9 +13,9 @@ from scipy.interpolate import RegularGridInterpolator
 import pyProbeParticle.cpp_utils      as cpp_utils
 
 def selectLine(BIGarray,MIN,MAX,startingPoint, endPoint, nsteps):
-    x=np.linspace(MIN[0],MAX[0],BIGarray.shape[2])
-    y=np.linspace(MIN[1],MAX[1],BIGarray.shape[1])
-    z=np.linspace(MIN[2],MAX[2],BIGarray.shape[0])
+    x=np.linspace(MIN[0],MAX[0],int(BIGarray.shape[2]))
+    y=np.linspace(MIN[1],MAX[1],int(BIGarray.shape[1]))
+    z=np.linspace(MIN[2],MAX[2],int(BIGarray.shape[0]))
     result=[]
     interp = RegularGridInterpolator((z, y, x), BIGarray)
 #    print BIGarray.shape
@@ -23,8 +23,8 @@ def selectLine(BIGarray,MIN,MAX,startingPoint, endPoint, nsteps):
     i=0
     direct=(endPoint-startingPoint)/nsteps
     norm_direction=np.linalg.norm(direct)
-    print "io", direct
-    print "norm", norm_direction
+    print("io", direct)
+    print("norm", norm_direction)
     while i < nsteps :
         current_pos+=direct
 #        print current_pos, interp([current_pos[2], current_pos[1],
@@ -37,7 +37,7 @@ def selectLine(BIGarray,MIN,MAX,startingPoint, endPoint, nsteps):
 #    print "TEST", interp([MAX[2], current_pos[1],current_pos[0]])
 #    print "TEST", interp([8.0, current_pos[1],current_pos[0]])
     return np.array(result)
-    
+
 parser = OptionParser()
 parser.add_option("--image",   action="store", type="float", help="position of "
                   "the 2D image (z, xScreen, yScreen)", nargs=3)
@@ -60,12 +60,12 @@ if options.points==[]:
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
-    print ">> LOADING LOCAL atomtypes.ini"  
-    FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+    print(">> LOADING LOCAL atomtypes.ini")
+    FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 else:
     import pyProbeParticle.cpp_utils as cpp_utils
     FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-print " >> OVEWRITING SETTINGS by params.ini  "
+print(" >> OVEWRITING SETTINGS by params.ini  ")
 PPU.loadParams( 'params.ini',FFparams=FFparams )
 dz  = PPU.params['scanStep'][2]
 Amp = [ PPU.params['Amplitude'] ]
@@ -84,7 +84,7 @@ K=PPU.params['Oklat']
 Q=PPU.params['Ocharge']
 dirname = "Q%1.2fK%1.2f" %(Q,K)
 
-print "Working in {} directory".format(dirname)
+print("Working in {} directory".format(dirname))
 
 fzs,lvec,nDim=GU.load_scal_field(dirname+'/OutFz',data_format=options.data_format)
 dfs=None
@@ -99,9 +99,9 @@ for p in options.points:
     zmax=float(p[1].split('x')[2])
     npoints=float(p[2])
     
-    print opt_dict['disp']
+    print(opt_dict['disp'])
     if opt_dict['disp'] :
-        print "Displacment {}".format(opt_dict['disp'][0])
+        print("Displacment {}".format(opt_dict['disp'][0]))
         disp_all,lvec,nDim,head=GU.load_vec_field(dirname+'/PPdisp_')
         disp_x,disp_y,disp_z = GU.unpackVecGrid( disp_all ); del disp_all;
         if (opt_dict['disp'][0]=='x'):
@@ -132,8 +132,8 @@ for p in options.points:
     Fplt=np.transpose(Fplot)[1].copy()
     Lplot=np.transpose(Fplot)[0].copy()
     F_interp=interp1d(Lplot, Fplt,kind='cubic')
-    # shifting the df plot 
-        
+    # shifting the df plot
+
 #    print "Amplitude", Amp
     scan_min[2]+=Amp[0]/2.0
     scan_max[2]-=Amp[0]/2.0
@@ -142,7 +142,7 @@ for p in options.points:
                    MAX=scan_max,startingPoint=np.array([xmin,ymin,zmin]),
                    endPoint=np.array([xmax,ymax,zmax]),
                    nsteps=npoints)
-        print scan_min,scan_max
+        print(scan_min,scan_max)
         DFplt=np.transpose(DFplot)[1].copy()
         Lplot=np.transpose(DFplot)[0].copy()
         POSplot=np.transpose(DFplot)[2:5].copy()
@@ -163,7 +163,7 @@ for p in options.points:
             tl.set_color('black')
         if dfs is not None:
             ax2=ax1.twinx()
-            print DFplot
+            print(DFplot)
             ax2.plot(Lplot, DFplt,'bo', Lplot, DF_interp(Lplot), 'b--')
             axes = plt.gca()
             ax2.set_ylabel('Frequency shift (Hz)', color='b')

@@ -43,7 +43,7 @@ parser.add_option( "--npy" , action="store_true" ,  help="load and save fields i
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
-print options
+print(options)
 if options.npy:
     format ="npy"
 else:
@@ -52,7 +52,7 @@ else:
 if options.points==[]:
     sys.exit(HELP_MSG)
 
-print " >> OVEWRITING SETTINGS by params.ini  "
+print(" >> OVEWRITING SETTINGS by params.ini  ")
 PPU.loadParams( 'params.ini' )
 dz  = PPU.params['scanStep'][2]
 Amp = [ PPU.params['Amplitude'] ]
@@ -60,36 +60,36 @@ scan_max=PPU.params['scanMax'][2]
 scan_min=PPU.params['scanMin'][2]
 scan_step=PPU.params['scanStep'][2]
 
-print " >> OVEWRITING SETTINGS by command line arguments  "
+print(" >> OVEWRITING SETTINGS by command line arguments  ")
 
 if opt_dict['krange'] is not None:
-	Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], opt_dict['krange'][2] )
+    Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], opt_dict['krange'][2] )
 elif opt_dict['k'] is not None:
-	Ks = [ opt_dict['k'] ]
+    Ks = [ opt_dict['k'] ]
 else:
-	Ks = [ PPU.params['klat'] ]
+    Ks = [ PPU.params['klat'] ]
 # Qs
 if opt_dict['qrange'] is not None:
-	Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
+    Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
 elif opt_dict['q'] is not None:
-	Qs = [ opt_dict['q'] ]
+    Qs = [ opt_dict['q'] ]
 else:
-	Qs = [ PPU.params['charge'] ]
+    Qs = [ PPU.params['charge'] ]
 # Amps
 if opt_dict['arange'] is not None:
-	Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], opt_dict['arange'][2] )
+    Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], opt_dict['arange'][2] )
 elif opt_dict['a'] is not None:
-	Amps = [ opt_dict['a'] ]
+    Amps = [ opt_dict['a'] ]
 else:
-	Amps = [ PPU.params['Amplitude'] ]
+    Amps = [ PPU.params['Amplitude'] ]
 
 
 
 for iq,Q in enumerate( Qs ):
-	for ik,K in enumerate( Ks ):
-		dirname = "Q%1.2fK%1.2f" %(Q,K)
+    for ik,K in enumerate( Ks ):
+        dirname = "Q%1.2fK%1.2f" %(Q,K)
 
-                print "Working in {} directory".format(dirname)
+                print("Working in {} directory".format(dirname))
 
                 fzs,lvec,nDim,head=GU.load_scal_field(dirname+'/OutFz', format=format)
                 dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )

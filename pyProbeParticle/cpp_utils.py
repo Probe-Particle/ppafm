@@ -10,8 +10,8 @@ def work_dir( v__file__ ):
 PACKAGE_PATH = work_dir( __file__ )
 CPP_PATH     = os.path.normpath( PACKAGE_PATH + '../../cpp/' )
 
-print " PACKAGE_PATH = ", PACKAGE_PATH
-print " CPP_PATH     = ", CPP_PATH
+print(" PACKAGE_PATH = ", PACKAGE_PATH)
+print(" CPP_PATH     = ", CPP_PATH)
 
 def compile_lib( name,
 		#FFLAGS = "-std=c++11 -Og -g -Wall",
@@ -21,11 +21,11 @@ def compile_lib( name,
 		clean  = True,
 	):
 	lib_name = name+lib_ext
-	print " COMPILATION OF : "+name
+	print(" COMPILATION OF : "+name)
 	if path is not None:
 		dir_bak = os.getcwd()
 		os.chdir( path );
-	print os.getcwd()
+	print(os.getcwd())
 	if clean:
 		try:
 			os.remove( lib_name  )

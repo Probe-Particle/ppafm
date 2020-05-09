@@ -32,7 +32,7 @@ def query_yes_no(question, default="yes"):
 
     while True:
         sys.stdout.write(question + prompt)
-        choice = raw_input().lower()
+        choice = input().lower()
         if default is not None and choice == '':
             return valid[default]
         elif choice in valid:
@@ -49,7 +49,7 @@ FFformatList={"xsf":".xsf", "cube":".cube","numpy":".npy"}
 try:
     sys.argv[1]
 except IndexError:
-    print "Please specify a file with coordinates"
+    print("Please specify a file with coordinates")
     exit(1)
 
 
@@ -60,7 +60,7 @@ except IndexError:
 filename = sys.argv[1]
 
 if not os.path.exists(filename):
-    print "File {} with coordinates doesn't exist!!! Exiting".format(filename)
+    print("File {} with coordinates doesn't exist!!! Exiting".format(filename))
     exit(1)
 
 
@@ -78,7 +78,7 @@ ParamFilename=ProjName+".ini"
 if os.path.exists(ParamFilename):
     PP.loadParams(ParamFilename) 
 else:
-    print "File {} with parameters doesn't exist!!! Using defaults".format(ParamFilename)
+    print("File {} with parameters doesn't exist!!! Using defaults".format(ParamFilename))
 
 
 cell =np.array([
@@ -95,7 +95,7 @@ atoms    = basUtils.loadAtoms(filename )
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
-	print ">> LOADING LOCAL atomtypes.ini"  
+	print(">> LOADING LOCAL atomtypes.ini")  
 	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
 else:
 	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
@@ -119,7 +119,7 @@ if PP.params['useLJ']:
         else:
             todoLJ='compute'
     else:
-        print "I haven't found files containing LJ forcefields. Therefore I will recompute them from scratch"
+        print("I haven't found files containing LJ forcefields. Therefore I will recompute them from scratch")
         todoLJ='compute'
 
 
@@ -128,10 +128,10 @@ if PP.params['charge'] != 0.00 :
 #checking if files exist
     exists=True
     for el_file in ["x", "y", "z"]:
-        print el_file
-        print ProjName
+        print(el_file)
+        print(ProjName)
         el_file=ProjName+"_EL_F_"+el_file+".xsf"
-        print el_file
+        print(el_file)
         if not os.path.exists(el_file):
             exists=False
     if exists:
@@ -140,7 +140,7 @@ if PP.params['charge'] != 0.00 :
         else:
             todoEL='compute'
     else:
-        print "I haven't found files containing electrostatic forcefields. Therefore I will recompute them from scratch"
+        print("I haven't found files containing electrostatic forcefields. Therefore I will recompute them from scratch")
         todoEL='compute'
 
 
@@ -162,7 +162,7 @@ PP.lvec2params( lvec )
 
 
 xTips,yTips,zTips,lvecScan = PP.prepareScanGrids( )
-print xTips,yTips,zTips
+print(xTips,yTips,zTips)
 
 if todoEL == 'read':
     FFEL, lvec, nDim, head = GU.loadVecFieldXsf( ProjName+"_EL_F" )

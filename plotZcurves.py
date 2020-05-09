@@ -19,22 +19,22 @@ parser.add_option("-f","--data_format" , action="store" , type="string",
 (options, args) = parser.parse_args()
 
 try:
-	points = np.genfromtxt( options.p , dtype='int' )
-	print "plotting in points", points
+    points = np.genfromtxt( options.p , dtype='int' )
+    print("plotting in points", points)
 except:
-	print options.p+" not found => exiting ..."
-	sys.exit()
+    print(options.p+" not found => exiting ...")
+    sys.exit()
 
 fzs,lvec,nDim=GU.load_scal_field(options.i,data_format=options.data_format)
 #xs = lvec[3,2]/*np.array( range(nDim[0]) )
 xs = np.linspace( 0, lvec[3,2], nDim[0] )
 
 #print nDim
-print xs
+print(xs)
 
 plt.imshow( fzs[options.iz], origin='imgage', cmap='gray' )
 for point in points:
-	plt.plot(point[0],point[1],'o')
+    plt.plot(point[0],point[1],'o')
 plt.xlim(0,nDim[2])
 plt.ylim(0,nDim[1])
 plt.savefig( options.i+'_zcurves_legend.png', bbox_inches='tight')
@@ -45,12 +45,12 @@ curves[0] = xs
 
 vmin = 0
 for i,point in enumerate(points):
-	ys = fzs[:,point[1],point[0]]
-	vmin=min(ys.min(),vmin)
-	print point, vmin
-	#print ys
-	curves[i+1] = ys
-	plt.plot( xs, ys )
+    ys = fzs[:,point[1],point[0]]
+    vmin=min(ys.min(),vmin)
+    print(point, vmin)
+    #print ys
+    curves[i+1] = ys
+    plt.plot( xs, ys )
 plt.grid()
 plt.savefig( options.i+'_zcurves.png', bbox_inches='tight')
 
@@ -58,5 +58,5 @@ plt.ylim( 1.1*vmin, -2*vmin )
 np.savetxt( options.i+'_zcurves.dat', np.transpose(curves) )
 
 #dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
-                    
+
 plt.show()

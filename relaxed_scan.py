@@ -5,13 +5,13 @@ import numpy as np
 #import matplotlib.pyplot as plt
 import sys
 
-import pyProbeParticle                as PPU     
+import pyProbeParticle                as PPU
 import pyProbeParticle.GridUtils      as GU
 import pyProbeParticle.HighLevel      as PPH
 import pyProbeParticle.cpp_utils      as cpp_utils
 
-#import PPPlot 		# we do not want to make it dempendent on matplotlib
-print "Amplitude ", PPU.params['Amplitude']
+#import PPPlot         # we do not want to make it dempendent on matplotlib
+print("Amplitude ", PPU.params['Amplitude'])
 
 # =============== arguments definition
 
@@ -29,39 +29,40 @@ if __name__=="__main__":
 
     FFparams=None
     if os.path.isfile( 'atomtypes.ini' ):
-    	print ">> LOADING LOCAL atomtypes.ini"  
-        FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+        print(">> LOADING LOCAL atomtypes.ini")
+        FFparams=PPU.loadSpecies( 'atomtypes.ini' )
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-    
+
     PPU.loadParams( 'params.ini',FFparams=FFparams )
-    print opt_dict
+    print(opt_dict)
     charged_system=False
     KC =  PPU.params['Cklat']
-    QC =  PPU.params['Ccharge'] 
+    QC =  PPU.params['Ccharge']
     KO =  PPU.params['Oklat']
-    QO =  PPU.params['Ocharge'] 
+    QO =  PPU.params['Ocharge']
     if (abs(QC)>1e-5 or abs(QO)>1e-5):
         charged_system=True
-    FFLJC, FFel, FFboltzC=None,None,None 
-    FFLJO, FFelTip,FFboltzO=None,None,None 
-    #PPPlot.params = PPU.params 			# now we dont use PPPlot here
+    charged_system=True
+    FFLJC, FFel, FFboltzC=None,None,None
+    FFLJO, FFelTip,FFboltzO=None,None,None
+    #PPPlot.params = PPU.params             # now we dont use PPPlot here
     if ( charged_system == True):
-        print " load Electrostatic Force-field "
+        print(" load Electrostatic Force-field ")
         FFel, lvec, nDim = GU.load_vec_field( "FFel" ,data_format=options.data_format)
         if (PPU.params['tip'] != None) and (PPU.params['tip'] != 'None') and (PPU.params['tip'] != "None"):
-            print "DEBUG: PPU.params['tip']",PPU.params['tip']
-            FFelTip, lvec, nDim = GU.load_vec_field( "FFelTip" ,data_format=options.data_format)
-    print " load Lenard-Jones Force-field "
+            print("DEBUG: PPU.params['tip']",PPU.params['tip'])
+    FFelTip, lvec, nDim = GU.load_vec_field( "FFelTip" ,data_format=options.data_format)
+    print(" load Lenard-Jones Force-field ")
     FFLJC, lvec, nDim = GU.load_vec_field( "FFLJC" , data_format=options.data_format)
     FFLJO, lvec, nDim = GU.load_vec_field( "FFLJO" , data_format=options.data_format)
     PPU.lvec2params( lvec )
 
 
     dirname = "Qo%1.2fQc%1.2fK%1.2f" %(QO,QC,KO)
-    print " relaxed_scan for ", dirname
+    print(" relaxed_scan for ", dirname)
     if not os.path.exists( dirname ):
-    	os.makedirs( dirname )
+        os.makedirs( dirname )
     if (PPU.params['tip'] == None) or (PPU.params['tip'] == 'None') or (PPU.params['tip'] == "None"):
         fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJC,
         FFLJO,FFel,FFTip=FFel[:,:,:,2].copy()   ,FFboltz=None)
