@@ -3,6 +3,7 @@
 from . import elements
 import math
 import numpy as np
+import sys
 
 def loadBas(name):
     xyzs = []
@@ -177,11 +178,13 @@ def loadGeometry(fname=None,params=None):
     lvec[ 2,:  ] = params['gridB'].copy()
     lvec[ 3,:  ] = params['gridC'].copy()
     nDim=params['gridN'].copy()
+    #print("DEBUG: endswith:", fname.lower().endswith(".xyz"))
     is_xyz  = fname.lower().endswith(".xyz")
+    is_bas  = fname.lower().endswith(".bas")
     is_cube = fname.lower().endswith(".cube")
     is_xsf  = fname.lower().endswith(".xsf")
     is_npy  = fname.lower().endswith(".npy")
-    if(is_xyz):
+    if((is_xyz) or (is_bas)):
         atoms = loadAtoms(fname)
     elif(is_cube):
         atoms = loadAtomsCUBE(fname)

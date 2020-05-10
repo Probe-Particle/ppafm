@@ -17,8 +17,8 @@ if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
     """+os.path.basename(main.__file__) +""" -i <filename> [ --sigma <value> ]
     Supported file fromats are:
-       * cube
-       * xsf """
+       * xyz (2nd line empty, last column are charges)
+       * bas (last column are charges) )"""
     from optparse import OptionParser
     parser = OptionParser()
     parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
