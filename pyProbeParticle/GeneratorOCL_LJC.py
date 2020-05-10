@@ -97,6 +97,13 @@ def setBBoxCenter( xyzs, cog ):
     '''
     pmin,pmax = getBBox( xyzs )
     pc = (pmin+pmax)*0.5
+    #print 'pmin = ', pmin
+    #print 'pmax = ', pmax
+    #print 'pc = ', pc
+    #print 'cog = ', cog
+    #print 'cog[0]-pc[0] = ', cog[0]-pc[0]
+    #print 'cog[1]-pc[1] = ', cog[1]-pc[1]
+    #print 'cog[2]-pc[2] = ', cog[2]-pc[2]
     #print xyzs[:,0].shape, len(cog[0]), xc, (cog[0]-xc)
     xyzs[:,0] += (cog[0]-pc[0])
     xyzs[:,1] += (cog[1]-pc[1])
@@ -115,6 +122,8 @@ def getAtomsRotZmin( rot, xyzs, zmin, Zs=None ):
     #xyzs_[:,1]  = rot[1,0]*xyzs[:,0] + rot[1,1]*xyzs[:,1] + rot[1,2]*xyzs[:,2]
     #xyzs_[:,2]  = rot[2,0]*xyzs[:,0] + rot[2,1]*xyzs[:,1] + rot[2,2]*xyzs[:,2]
     xyzs_ = rotAtoms(rot, xyzs )
+    #print ('xyzs = ', xyzs)
+    #print ('xyzs_ = ', xyzs_)
     mask  =  xyzs_[:,2] > zmin
     #print xyzs_.shape, mask.shape
     #print xyzs_
@@ -137,13 +146,15 @@ def getAtomsRotZminNsort( rot, xyzs, zmin, RvdWs=None, Zs=None, Nmax=30, RvdW_H 
         #print " :::: zs      ", zs
         zs += RvdWs
         #print " :::: zs+Rvdw ", zs
-    zs = zs - RvdW_H
+    zs = zs  - RvdW_H
     inds = np.argsort( -zs ) #.copy()
     #print " :::: inds ", inds
     xyzs_ = xyzs_[inds,:].copy()
     zs    = zs   [inds  ].copy()
     #zs         = zs   [inds]
     #mask =  xyzs_[:,2] > zmin
+    #print  "zs =", zs
+    #print  "zmin =", zmin
     mask  = zs > zmin
     xyzs_ = xyzs_[mask,:]
     #print  "inds new ", inds
@@ -164,9 +175,9 @@ def getAtomsRotZminNsort_old( rot, xyzs, zmin, RvdWs=None, Zs=None, Nmax=30 ):
     xyzs_[:,:] = xyzs_[inds,:]
     mask  = xyzs_[:,2] > zmin
 
-    print  "inds old ", inds
-    print  "mask old ", mask
-    print  "zs   old ", xyzs_[:,2]
+    #print  "inds old ", inds
+    #print  "mask old ", mask
+    #print  "zs   old ", xyzs_[:,2]
     xyzs_ = xyzs_[mask,:]
     #print xyzs_.shape, mask.shape
     #print xyzs_
@@ -214,7 +225,7 @@ class Generator(Sequence,):
     scan_start = (-8.0,-8.0) 
     scan_end   = ( 8.0, 8.0)
     scan_dim   = ( 100, 100, 30)
-    distAbove =  7.0       # distAbove starts from top sphere's shell: distAbove = distAbove + RvdW_top  
+    distAbove =  5.0       # distAbove starts from top sphere's shell: distAbove = distAbove + RvdW_top  
     distAboveDelta = None   # in example distAbovedelta=0.1 makes distAbove: rand(distAbove - 0.1,distAbove + starts from top sphere's shell: distAbove = distAbove + RvdW_top  
     #molCenterTopAtom   = False  # if setted molecule will appear not by top atom in center, but avereged center
     #molCenterBox       
@@ -400,6 +411,8 @@ class Generator(Sequence,):
         '''
         zDir = rot[2].flat.copy()
         imax,xdirmax,entropy = PPU.maxAlongDirEntropy( self.atomsNonPBC, zDir )
+        
+         
         pos0 = self.atomsNonPBC[imax,:3] 
         return pos0, entropy
 
@@ -582,6 +595,7 @@ class Generator(Sequence,):
         if(verbose>0): print " ===== nextMolecule: ", fullname
         self.atom_lines = open( fullname ).readlines()
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.atom_lines )
+
         if(bRunTime): print "runTime(Generator_LJC.loadMolecule().1   ) [s]:  %0.6f" %(time.clock()-t0)    ," load atoms" 
         self.cog = (self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5)
         setBBoxCenter( xyzs, self.cog )
@@ -598,6 +612,7 @@ class Generator(Sequence,):
         self.ZsNonPBC = Zs
         self.atomsNonPBC = FFcl.xyzq2float4(xyzs, qs)
 
+        
         if(bRunTime): print "runTime(Generator_LJC.loadMolecule().2   ) [s]:  %0.6f" %(time.clock()-t0)    ," box,cog" 
         
     def calculateFF(self):
@@ -638,7 +653,6 @@ class Generator(Sequence,):
                 FFx.flat[mask] *= (Fbound/Fr).flat[mask]
                 FFy.flat[mask] *= (Fbound/Fr).flat[mask]
                 FFz.flat[mask] *= (Fbound/Fr).flat[mask]
-                print "FF.shape ", FF.shape
                 self.saveDebugXSF_FF( "FF_x.xsf", FFx )
                 self.saveDebugXSF_FF( "FF_y.xsf", FFy )
                 self.saveDebugXSF_FF( "FF_z.xsf", FFz )
@@ -699,6 +713,8 @@ class Generator(Sequence,):
         
         atoms_shifted_to_pos0 = self.atomsNonPBC[:,:3] - self.pos0[None,:]           #shift atoms coord to rotation center point of view            
         atoms_rotated_to_pos0 = rotAtoms(self.rot, atoms_shifted_to_pos0)            #rotate atoms coord to rotation center point of view
+
+
         if(verbose>1): print " atoms_rotated_to_pos0 ", atoms_rotated_to_pos0
 
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().1   ) [s]:  %0.6f" %(time.clock()-t0)   ," atoms transform(shift,rot)  "
@@ -714,10 +730,11 @@ class Generator(Sequence,):
         zs = atoms_rotated_to_pos0[:,2].copy()
         zs += RvdWs  # z-coord of each atom with it's RvdW
         imax = np.argmax( zs ) 
+
         self.distAboveActive = self.distAboveActive + RvdWs[imax] + RvdWPP # shifts distAboveActive for vdW-Radius of top atomic shell
+
         if(verbose>1): print "imax,distAboveActive ", imax, self.distAboveActive        
         atoms_rotated_to_pos0 = rotAtoms(self.rot, self.atomsNonPBC[:,:3] - self.atomsNonPBC[imax,:3])  #New top atom
-        
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().2   ) [s]:  %0.6f" %(time.clock()-t0)  ," top atom "
 
         # shift projection to molecule center but leave top atom still in the center
@@ -730,6 +747,7 @@ class Generator(Sequence,):
             #now we will move AFM window to the molecule center but still leave top atom inside window 
             AFM_window_shift = np.clip(average_mol_pos[:], a_min = top_atom_pos[:] + self.scan_start[:], a_max = top_atom_pos[:] + self.scan_end[:]) [0]
             if(verbose>1): print " : AFM_window_shift", AFM_window_shift
+
         elif self.molCentering == 'box':
             pmin,pmax = getBBox( atoms_rotated_to_pos0 )
             AFM_window_shift = (pmin+pmax)*0.5
@@ -747,10 +765,12 @@ class Generator(Sequence,):
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().4   ) [s]:  %0.6f" %(time.clock()-t0)   ," vtipR0  "
 
         #self.scanner.setScanRot( , rot=self.rot, start=self.scan_start, end=self.scan_end, tipR0=vtipR0  )
+
+
         pos0             = self.atomsNonPBC[imax,:3]+self.rot[2]*self.distAboveActive+np.dot((AFM_window_shift[0],AFM_window_shift[1],0),self.rot)
         self.pos0 = pos0
         self.scan_pos0s  = self.scanner.setScanRot(pos0, rot=self.rot, zstep=0.1, tipR0=vtipR0 )
-        
+
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().5   ) [s]:  %0.6f" %(time.clock()-t0)  ," scan_pos0s = scanner.setScanRot() "
 
         if self.preHeight: 
@@ -859,14 +879,18 @@ class Generator(Sequence,):
         elif self.Ymode == 'xyz':
             Y[:,:] = 0.0
             Y[:,2] = self.zmin_xyz - 100.0
-            xyzs = self.atomsNonPBC[:,:3] - self.pos0[None,:]
-            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.ZsNonPBC, Nmax=self.Nmax_xyz, RvdWs=RvdWs  )
+
+
+            xyzs = self.atomsNonPBC[:,:3] - self.atomsNonPBC[imax,:3]
+
+            xyzs_, Zs = getAtomsRotZminNsort( self.rot, xyzs, zmin=self.zmin_xyz, Zs=self.ZsNonPBC, Nmax=self.Nmax_xyz, RvdWs=RvdWs, RvdW_H = RvdWs[imax] )
             Y[:len(xyzs_),:3] = xyzs_[:,:]
             
+
             if self.molCenterAfm:    # shifts reference to molecule center            
                 Y[:len(xyzs_),:3] -= (AFM_window_shift[0],AFM_window_shift[1],0)
                 
-            Y[:len(xyzs_), 3] = Zs
+            Y[:len(xyzs_), 3] = Zs 
 
         if(bRunTime): print "runTime(Generator_LJC.nextRotation().tot ) [s]:  %0.6f" %(time.clock()-t0)  ," size ", FEout.shape
 
@@ -875,11 +899,12 @@ class Generator(Sequence,):
             fname = './'+self.molName+'/'+"%01i_rot" %self.irot
             list = os.listdir(self.molName+'/') # dir is your directory path
             number_files = len(list)
-            if (number_files < 300): 
+            if (number_files < 100): 
                 print 'fname = ', fname 
                 self.plot( fname, self.molName, Y=None, bPOVray=True, bXYZ=True, bRot=True )
                 
 
+  
     """
     # ============= Curently not used
     def getAFMinRot( self, rot, X ):
@@ -959,6 +984,7 @@ class Generator(Sequence,):
         extent=(self.scan_start[0],self.scan_end[0], self.scan_start[1],self.scan_end[1] )
         #print "extent: ", extent
 
+        #fname    = self.preName + molName + rotName
         fname    = rotName
         #print " plot to file : ", fname
 
@@ -1257,8 +1283,8 @@ if __name__ == "__main__":
     data_generator.rndAlphaMax = -0.1   # charge *= (1 + rndAlphaMax * ( rand()-0.5 )) (negative is off)
     #data_generator.modMolParams = modMolParams_def   # custom function to modify parameters
 
-    #data_generator.debugPlots = True
-    data_generator.distAbove = 7.0
+    data_generator.debugPlots = False
+    data_generator.distAbove  = 5.0
     #data_generator.distAbove = 8.0
     #data_generator.distAbove = 8.5
     #data_generator.distAbove = 9.0
