@@ -78,11 +78,16 @@ if __name__=="__main__":
         print("No FFelTip calculated - but linking is still necessary")
         nameend = ".xsf" if options.data_format == "xsf" else ".npy"; print("tip parameters are the same as for oxygen")
         os.symlink("FFel_x"+nameend, "FFelTip_x"+nameend); os.symlink("FFel_y"+nameend, "FFelTip_y"+nameend); os.symlink("FFel_z"+nameend, "FFelTip_z"+nameend);
+        if nameend==".npy":
+            os.symlink("FFel_vec"+nameend, "FFelTip_vec"+nameend)
+
     else:
         if (PPU.params['tip']==PPU.params['Omultipole'])and(PPU.params['tipsigma']==PPU.params['sigma']):
             print("FFelTip params are the same as O, we are just linking")
             nameend = ".xsf" if options.data_format == "xsf" else ".npy"; print("tip parameters are the same as for oxygen")
             os.symlink("FFel_x"+nameend, "FFelTip_x"+nameend); os.symlink("FFel_y"+nameend, "FFelTip_y"+nameend); os.symlink("FFel_z"+nameend, "FFelTip_z"+nameend);
+            if nameend==".npy":
+                os.symlink("FFel_vec"+nameend, "FFelTip_vec"+nameend)
         else:
             print(" saving tip electrostatic forcefield ")
             FFelTip=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],sigma=PPU.params['tipsigma'],Fmax=10.0,computeVpot=options.energy,Vmax=10)
