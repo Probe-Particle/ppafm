@@ -14,6 +14,10 @@ class AuxMapBase:
         scan_dim: tuple of two ints. Indicates the pixel size of the scan in x and y.
         scan_window: tuple ((start_x, start_y), (end_x, end_y)). The start and end coordinates of scan region in angstroms.
         zmin: float. Deepest coordinate that is still included. Top is defined to be at 0.
+        
+    Each subclass implements the method eval with the input arguments:
+        xyzqs: numpy.ndarray of floats. xyz coordinates and charges of atoms in molecule
+        Zs: numpy.ndarray of ints. Elements of atoms in molecule.
     '''
     def __init__(self, scan_dim, scan_window, zmin=None):
         if not FFcl.oclu:
@@ -24,6 +28,11 @@ class AuxMapBase:
         if zmin:
             self.projector.zmin = zmin
         self.nChan = 1
+        
+    def __call__(self, xyzqs=None, Zs=None):
+        if xyzqs is not None:
+            assert xyzqs.shape[1] == 4
+        return self.eval(xyzqs, Zs)
         
     def prepare_projector(self, xyzqs, Zs, pos0, bonds2atoms=None):
         rot = np.eye(3)
@@ -39,13 +48,11 @@ class vdwSpheres(AuxMapBase):
     Arguments:
         Rpp: float. A constant that is added to the vdW radius of each atom.
     '''
-
     def __init__(self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), zmin=-1.5, Rpp=-0.5):
         super().__init__(scan_dim, scan_window, zmin)
         self.projector.Rpp = Rpp
                 
     def eval(self, xyzqs, Zs):
-        assert xyzqs.shape[1] == 4
         coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
         pos0 = [0, 0, (xyzqs[:,2]+coefs[:,3]).max()+self.projector.Rpp]
         poss = self.prepare_projector(xyzqs, Zs, pos0)
@@ -75,10 +82,71 @@ class AtomicDisks(AuxMapBase):
             raise ValueError(f'Unknown diskMode {diskMode}. Should be either sphere or center')
                 
     def eval(self, xyzqs, Zs):
-        assert xyzqs.shape[1] == 4
         pos0 = [0, 0, xyzqs[:,2].max()]
         poss = self.prepare_projector(xyzqs, Zs, pos0)
         return self.projector.run_evaldisks( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)), offset=self.offset )[:,:,0]
+        
+class HeightMap(AuxMapBase):
+    '''
+    Generate HeightMap descriptors for molecules. Represents the combined interaction of probe with atoms
+    in molecule as a isosurface of the z-component of the forcefield around the molecule.
+    
+    The HeightMap and ESMap descriptors are different from the other ones in that they depend on the simulation parameters.
+    Before calling HeightMap, first do a scan of the molecule with the scanner to get the forces. Giving the atoms xyzqs and
+    elements Zs as input arguments for eval is optional, since they are not used for anything.
+    
+    Arguments:
+        scanner: Instance of oclr.RelaxedScanner.
+        iso: float. The value of the isosurface.
+    '''
+    def __init__(self, scanner, zmin=-2.0, iso=0.1):
+        self.scanner = scanner
+        self.zrange = -zmin
+        self.iso = iso
+        self.nz = 100 # Number of steps in downwards scan
+    
+    def eval(self, xyzqs=None, Zs=None):
+        self.scanner.prepareAuxMapBuffers(bZMap=True, bFEmap=False)
+        Y = ( self.scanner.run_getZisoTilted( iso=self.iso, nz=self.nz ) *-1 ).copy()
+        Y *= (self.scanner.zstep)
+        Ymin = max(Y[Y<=0].max() - self.zrange, Y.min())
+        Y[Y>0] = Ymin
+        Y[Y<Ymin] = Ymin
+        Y -= Ymin
+        return Y
+
+class ESMap(AuxMapBase):
+    '''
+    Generate ESMap and HeightMap descriptors for molecules. Represents the charge distribution around
+    the molecule as the z-component of the electrostatic field calculated on the surface defined by
+    the HeightMap.
+    
+    The HeightMap and ESMap descriptors are different from the other ones in that they depend on the simulation parameters.
+    Before calling ESMap, first do a scan of the molecule with the scanner to get the forces. Giving the elements Zs
+    as an input argument for eval is optional, since it is not used for anything.
+    
+    Arguments:
+        scanner: Instance of oclr.RelaxedScanner.
+        iso: float. The value of the isosurface.
+    '''
+    def __init__(self, scanner, zmin=-2.0, iso=0.1):
+        self.scanner = scanner
+        self.zrange = -zmin
+        self.iso = iso
+        self.nz = 100 # Number of steps in downwards scan
+
+    def eval(self, xyzqs, Zs=None):
+        self.scanner.prepareAuxMapBuffers(bZMap=True, bFEmap=True, atoms=xyzqs.astype(np.float32))
+        zMap, feMap = self.scanner.run_getZisoFETilted( iso=self.iso, nz=self.nz )
+        Ye = ( feMap[:,:,2] ).copy() # Fel_z
+        zMap *= -(self.scanner.zstep)
+        zMin = max(zMap[zMap<=0].max() - self.zrange, zMap.min())
+        zMap[zMap>0] = zMin
+        zMap[zMap<zMin] = zMin
+        zMap -= zMin
+        Ye[zMap == 0] = 0
+        Y = np.stack([Ye, zMap], axis=2)
+        return Y
         
 class MultiMapSpheres(AuxMapBase):
     '''
@@ -102,7 +170,6 @@ class MultiMapSpheres(AuxMapBase):
         self.bOccl = bOccl
                 
     def eval(self, xyzqs, Zs):
-        assert xyzqs.shape[1] == 4
         coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
         pos0 = [0, 0, (xyzqs[:,2]+coefs[:,3]).max()+self.projector.Rpp]
         poss = self.prepare_projector(xyzqs, Zs, pos0)
@@ -112,7 +179,7 @@ class Bonds(AuxMapBase):
     '''
     Generate Bonds descriptors for molecules. Bonds between atoms are represented by ellipses.
     Arguments:
-        Rfunc: numpy array of numpy.float32. Radial function of bonds&atoms potential.
+        Rfunc: numpy.ndarray. Radial function of bonds&atoms potential. Converted to numpy.float32
         Rmax: float. Cutoff for radial function.
         drStep: float. Step dx (dr) for sampling of radial function.
         ellipticity: float. Ratio between major and minor semiaxis.
@@ -124,16 +191,14 @@ class Bonds(AuxMapBase):
         self.projector.elipticity = ellipticity
         if not Rfunc:
             xs = np.linspace(0.0,10.0,100)
-            dx = xs[1]-xs[0];
+            dx = xs[1]-xs[0]
             xs -= dx
             ys = np.exp( -5*xs )
             self.projector.Rfunc = ys.astype(np.float32)
         else:
-            assert Rfunc.dtype == np.float32
-            self.projector.Rfunc = Rfunc
+            self.projector.Rfunc = Rfunc.astype(np.float32)
                 
     def eval(self, xyzqs, Zs):
-        assert xyzqs.shape[1] == 4
         pos0 = [0, 0, xyzqs[:,2].max()]
         bonds2atoms = np.array( basUtils.findBonds_( xyzqs, Zs, 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
@@ -143,7 +208,7 @@ class AtomRfunc(AuxMapBase):
     '''
     Generate AtomRfunc descriptors for molecules. Atoms are represented by disks with decay determined by Rfunc.
     Arguments:
-        Rfunc: numpy.ndarray of numpy.float32. Radial function of bonds&atoms potential.
+        Rfunc: numpy.ndarray. Radial function of bonds&atoms potential. Converted to numpy.float32
         Rmax: float. Cutoff for radial function.
         drStep: float. Step dx (dr) for sampling of radial function.
     '''
@@ -158,11 +223,9 @@ class AtomRfunc(AuxMapBase):
             ys = np.exp( -5*xs )
             self.projector.Rfunc = ys.astype(np.float32)
         else:
-            assert Rfunc.dtype == np.float32
-            self.projector.Rfunc = Rfunc
+            self.projector.Rfunc = Rfunc.astype(np.float32)
                 
     def eval(self, xyzqs, Zs):
-        assert xyzqs.shape[1] == 4
         pos0 = [0, 0, xyzqs[:,2].max()]
         bonds2atoms = np.array( basUtils.findBonds_( xyzqs, Zs, 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
@@ -171,6 +234,8 @@ class AtomRfunc(AuxMapBase):
 aux_map_dict = {
     'vdwSpheres': vdwSpheres,
     'AtomicDisks': AtomicDisks,
+    'HeightMap': HeightMap,
+    'ESMap': ESMap,
     'MultiMapSpheres': MultiMapSpheres,
     'Bonds': Bonds,
     'AtomRfunc': AtomRfunc

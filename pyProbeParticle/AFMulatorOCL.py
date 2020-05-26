@@ -165,9 +165,9 @@ class AFMulator(Sequence,):
 
         self.Ymode     = Ymode
         self.projector = None; 
-        self.FE2in     = None
         self.bZMap     = False; 
         self.bFEmap    = False;
+        self.atoms     = None
         if(verbose>0): print("Ymode", self.Ymode)
         #if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'SphereCaps' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks' or self.Ymode == 'D-S-H' or self.Ymode == 'MultiMapSpheres' or self.Ymode == 'SpheresType':
         if self.Ymode in {'Lorenzian','Spheres','SphereCaps','Disks','DisksOcclusion','QDisks','D-S-H','MultiMapSpheres','SpheresType','Bonds','AtomRfunc','AtomsAndBonds'}:
@@ -191,7 +191,7 @@ class AFMulator(Sequence,):
         if self.bNoFFCopy:
             self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim,  scan_dim=self.scan_dim, 
                                          nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), 
-                                         bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in 
+                                         bZMap=self.bZMap, bFEmap=self.bFEmap, atoms=self.atoms 
                                        )
             self.scanner.preparePosBasis( start=self.scan_start, end=self.scan_end )
         else:
@@ -297,7 +297,7 @@ class AFMulator(Sequence,):
             if(self.counter>0): # not first step
                 if(verbose>1): print("scanner.releaseBuffers()")
                 self.scanner.releaseBuffers()
-            self.scanner.prepareBuffers (self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
+            self.scanner.prepareBuffers (self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, atoms=self.atoms )
             self.scanner.preparePosBasis( start=self.scan_start, end=self.scan_end )
         
         self.scan_pos0s = None

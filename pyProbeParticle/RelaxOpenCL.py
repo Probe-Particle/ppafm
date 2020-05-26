@@ -200,6 +200,10 @@ class RelaxedScanner:
 
         self.surfFF = np.zeros(4,dtype=np.float32);
 
+        self.cl_atoms = None
+        self.cl_zMap = None
+        self.cl_feMap = None
+
     def updateFEin(self, FEin_cl, bFinish=False ):
         '''
         see here : https://github.com/inducer/pyopencl/blob/4bfb2d65d31c8132de46bbb007cfebd3b934328d/src/wrap_cl_part_2.cpp
@@ -226,7 +230,34 @@ class RelaxedScanner:
         #cl.enqueue_copy( self.queue, self.clprepareBuffers_ImgIn, self.FEin_cl, origin=(0,0,0), region=region )
         self.FEin_cl=FEin_cl
 
-    def prepareBuffers(self, FEin_np=None, lvec=None, FEin_cl=None, FEin_shape=None, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, FE2in=None ):
+    def updateAtoms(self, atoms):
+        if self.cl_atoms:
+            self.cl_atoms.release()
+        self.nAtoms   = np.int32( len(atoms) )
+        self.cl_atoms = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY  | cl.mem_flags.COPY_HOST_PTR, hostbuf=atoms );
+    
+    def prepareAuxMapBuffers(self, bZMap=False, bFEmap=False, atoms=None):
+        nbytes = 0
+        mf     = cl.mem_flags
+        fsize  = np.dtype(np.float32).itemsize
+        nxy    =  self.scan_dim[0] * self.scan_dim[1]
+        if bZMap:
+            if self.cl_zMap:
+                self.cl_zMap.release()
+            self.cl_zMap  = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize   ); nbytes += nxy*fsize
+        if bFEmap:
+            if self.cl_feMap:
+                self.cl_feMap.release()
+            self.cl_feMap = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize*4 ); nbytes += nxy*fsize*4
+        if atoms is not None:
+            if self.cl_atoms:
+                self.cl_atoms.release()
+            self.nAtoms   = np.int32( len(atoms) )
+            self.cl_atoms = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY  | cl.mem_flags.COPY_HOST_PTR, hostbuf=atoms )
+            nbytes+=atoms.nbytes
+        if(verbose>0): print("prepareAuxMapBuffers.nbytes: ", nbytes)
+
+    def prepareBuffers(self, FEin_np=None, lvec=None, FEin_cl=None, FEin_shape=None, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, atoms=None ):
         #print " ========= prepareBuffers ", prepareBuffersbZMap
         self.scan_dim = scan_dim
         if lvec is not None:
@@ -273,15 +304,15 @@ class RelaxedScanner:
             #self.FEconv = np.zeros( (self.scan_dim[0],self.scan_dim[1],self.nDimConvOut) )
             self.FEconv  = np.empty(  self.scan_dim[:2]+(self.nDimConvOut,4,), dtype=np.float32 )
 
-        self.cl_zMap = None; self.cl_feMap=None; self.cl_ImgFE = None
+        self.cl_zMap = None; self.cl_feMap=None;
         if bZMap:
 #            print "nxy ", nxy
-            print("allocate zMap")
+            # print("allocate zMap")
             self.cl_zMap    = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize   ); nbytes += nxy*fsize
         if bFEmap:
             self.cl_feMap  = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize*4  ); nbytes += nxy*fsize*4
-            if FE2in is not None:
-                self.cl_ImgFE = cl.image_from_array(self.ctx,FE2in,num_channels=4,mode='r');  nbytes+=FE2in.nbytes
+        if atoms is not None:
+            self.updateAtoms(atoms); nbytes+=atoms.nbytes
         if(verbose>0): print("prepareBuffers.nbytes: ", nbytes)
 
     def releaseBuffers(self):
@@ -289,9 +320,9 @@ class RelaxedScanner:
         self.cl_ImgIn.release()
         self.cl_poss.release()
         self.cl_FEout.release()
-        if self.cl_ImgFE is not None: self.cl_ImgFE.release()
         if self.cl_zMap  is not None: self.cl_zMap.release()
         if self.cl_feMap is not None: self.cl_feMap.release()
+        if self.cl_atoms is not None: self.cl_atoms.release()
 
     def tryReleaseBuffers(self):
         if(verbose>0): print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn) 
@@ -308,15 +339,15 @@ class RelaxedScanner:
         except:
             pass
         try:
-            self.cl_ImgFE.release()
-        except:
-            pass
-        try:
             self.cl_zMap.release()
         except:
             pass
         try:
             self.cl_feMap.release()
+        except:
+            pass
+        try:
+            self.cl_atoms.release()
         except:
             pass
 
@@ -343,17 +374,13 @@ class RelaxedScanner:
         cl.enqueue_copy( self.queue, self.cl_poss, poss  )
         return poss
 
-    def updateBuffers(self, FEin=None, FE2in=None, lvec=None, WZconv=None ):
+    def updateBuffers(self, FEin=None, lvec=None, WZconv=None ):
         #if FEout is None:    FEout = np.zeros( self.scan_dim+(4,), dtype=np.float32 )
         if lvec is not None: self.invCell = getInvCell(lvec)
         if FEin is not None:
             region = FEin.shape[:3]; region = region[::-1]; 
             if(verbose>0): print("region : ", region)
             cl.enqueue_copy( self.queue, self.cl_ImgIn, FEin, origin=(0,0,0), region=region )
-        if FE2in is not None:
-            region = FE2in.shape[:3]; region = region[::-1]; 
-            if(verbose>0): print("region : ", region)
-            cl.enqueue_copy( self.queue, self.cl_ImgFE, FE2in, origin=(0,0,0), region=region )
         if WZconv is not None:
             #print "WZconv: ", WZconv.dtype, WZconv
             #cl.enqueue_copy( self.queue, WZconv, self.cl_WZconv )
@@ -568,15 +595,18 @@ class RelaxedScanner:
         returns zMap, feMap
         operates in coordinates rotated by tipRot
         '''
+        if self.cl_atoms is None:
+            raise ValueError('Atoms must be set before calculating the Electrostatic Map')
         if nz is None: nz=self.scan_dim[2]
         if zMap is None:  zMap  = np.empty( self.scan_dim[:2], dtype=np.float32 )
         if feMap is None: feMap = np.empty( self.scan_dim[:2]+(4,), dtype=np.float32 )
         kargs = (
             self.cl_ImgIn,
-            self.cl_ImgFE,
             self.cl_poss,
             self.cl_zMap,
             self.cl_feMap,
+            self.nAtoms,
+            self.cl_atoms,
             self.invCell[0], self.invCell[1], self.invCell[2],
             self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
             self.dTip,

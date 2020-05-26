@@ -1,4 +1,7 @@
 
+#define R2SAFE          1e-4f
+#define COULOMB_CONST   14.399644f  // [eV*Ang/e^2]
+
 // https://www.khronos.org/registry/OpenCL/sdk/1.1/docs/man/xhtml/sampler_t.html
 
 // see https://gist.github.com/likr/3735779
@@ -23,6 +26,13 @@ float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
 
 inline float3 rotMat( float3 v, float3 a, float3 b, float3 c ){ return (float3)(dot(v,a),dot(v,b),dot(v,c)); }
 inline float3 rotMatT( float3 v,  float3 a, float3 b, float3 c  ){ return a*v.x + b*v.y + c*v.z; }
+
+float4 getCoulomb( float4 atom, float3 pos ){
+     float3  dp  =  pos - atom.xyz;
+     float   ir2 = 1.0f/( dot(dp,dp) +  R2SAFE );
+     float   E   = atom.w*sqrt(ir2);
+     return (float4)(dp*(E*ir2), E );
+}
 
 float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
     float r = sqrt( dot( dpos,dpos) );
@@ -215,10 +225,11 @@ __kernel void getZisoTilted(
 
 __kernel void getZisoFETilted(
     __read_only image3d_t  imgIn,
-    __read_only image3d_t  imgFE,
     __global  float4*      points,
     __global  float*       zMap,
     __global  float4*      feMap,
+    const int nAtoms,
+    __global float4* atoms,
     float4 dinvA,
     float4 dinvB,
     float4 dinvC,
@@ -229,7 +240,8 @@ __kernel void getZisoFETilted(
     float4 dpos0,
     int nz, float iso
 ){
-    float3 pos     = points[get_global_id(0)].xyz + dpos0.xyz; 
+    const int iG = get_global_id (0);
+    float3 pos     = points[iG].xyz + dpos0.xyz; 
     float4 ofe,fe;
     ofe     = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
     ofe.xyz = rotMat( ofe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
@@ -237,19 +249,24 @@ __kernel void getZisoFETilted(
         pos    += dTip.xyz;
         fe     = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
         fe.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
-        //if( get_global_id(0) == 6050 ) printf( "iz %i fe %g iso %g \n", iz, fe.z, iso );
         if( fe.z/iso > 1.0 ){
             float t = (iso - ofe.z)/(fe.z - ofe.z);
-            zMap [get_global_id(0)] = iz + t;
-            fe     = interpFE( pos+dTip.xyz*t, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgFE );
+            zMap[iG] = iz + t;
+            pos += dTip.xyz*t;
+            fe = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+            for( int ia=0; ia<nAtoms; ia++ ) {
+                fe += getCoulomb( atoms[ia], pos );
+            }
             fe.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
-            feMap[get_global_id(0)] = fe;
+            feMap[iG] = fe * COULOMB_CONST;
+            // printf( "iz %i fe %g iso %g \n", iz, fe.z, iso );
             return;
         }
+        // if( iG == 6050 ) printf( "iz %i fe %g iso %g \n", iz, fe.z, iso );
         ofe      = fe;
     }
-    zMap [get_global_id(0)] = -1;
-    feMap[get_global_id(0)] = (float4)(0.0f,0.0f,0.0f,0.0f);
+    zMap [iG] = -1;
+    feMap[iG] = (float4)(0.0f,0.0f,0.0f,0.0f);
 }
 
 __kernel void relaxPoints(
