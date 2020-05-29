@@ -33,7 +33,7 @@ class AFMulator():
     npbc = (1,1,0)
 
     # --- Relaxation
-    tipR0        = [ 0.0, 0.0, 4.0 ]                # Tip equilibrium position
+    tipR0        = np.array([ 0.0, 0.0, 4.0 ])      # Tip equilibrium position
     tipStiffness = [ 0.25, 0.25, 0.0, 30.0     ]    # [N/m]  (x,y,z,R) stiffness of harmonic springs anchoring probe-particle to the metalic tip-apex 
     relaxParams  = [ 0.5, 0.1, 0.1*0.2,0.1*5.0 ]    # (dt,damp, .., .. ) parameters of relaxation, in the moment just dt and damp are used
     distAbove    = 10.0                             # Height of starting position of scan.
@@ -93,6 +93,32 @@ class AFMulator():
             self.initFF()
 
         self.counter = 0
+    
+    def eval( self, xyzs, Zs, qs, REAs=None, X=None ):
+        '''
+        Prepare and evaluate AFM image.
+        Arguments:
+            xyzs: np.ndarray of shape (num_atoms, 3). Positions of atoms in x, y, and z.
+            Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
+            qs: np.ndarray of shape (num_atoms,). Charges of atoms.
+            REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
+            X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-len(self.dfWeight)).
+               Array where AFM image will be saved. If None, will be created automatically.
+        Returns: np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
+        '''
+        self.prepareFF(xyzs, Zs, qs, REAs)
+        self.prepareScanner()
+        X = self.evalAFM(X)
+        return X
+    
+    def __call__( self, xyzs, Zs, qs, X=None ):
+        '''
+        Makes object callable. See eval for input arguments.
+        '''
+        return self.eval( xyzs, Zs, qs, X )
+
+    def eval_( self, mol ):
+        return self.eval( mol.xyzs, mol.Zs, mol.qs )
 
     def initFF(self):
         '''
@@ -205,7 +231,7 @@ class AFMulator():
             FEout = self.scanner.run_convolveZ()
 
         if X is None:
-            X = FEout[:,:,:,2]
+            X = FEout[:,:,:,2].copy()
         else:
             if X.shape != self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),):
                 raise ValueError(
@@ -215,31 +241,6 @@ class AFMulator():
             X[:,:,:] = FEout[:,:,:,2]
 
         return X
-
-    def eval( self, xyzs, Zs, qs, X=None ):
-        '''
-        Prepare and evaluate AFM image.
-        Arguments:
-            xyzs: np.ndarray of shape (num_atoms, 3). Positions of atoms in x, y, and z.
-            Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
-            qs: np.ndarray of shape (num_atoms,). Charges of atoms.
-            X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-len(self.dfWeight)).
-               Array where AFM image will be saved. If None, will be created automatically.
-        Returns: np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
-        '''
-        self.prepareFF(xyzs, Zs, qs)
-        self.prepareScanner()
-        X = self.evalAFM(X)
-        return X
-    
-    def __call__( self, xyzs, Zs, qs, X=None ):
-        '''
-        Makes object callable. See eval for input arguments.
-        '''
-        return self.eval( xyzs, Zs, qs, X )
-
-    def eval_( self, mol ):
-        return self.eval( mol.xyzs, mol.Zs, mol.qs )
 
     # ================== Debug/Plot Misc.
 
