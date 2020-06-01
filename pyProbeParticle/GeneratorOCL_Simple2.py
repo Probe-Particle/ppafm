@@ -115,6 +115,12 @@ class InverseAFMtrainer:
         self.counter = 0
         return self
 
+    def __len__(self):
+        '''
+        Returns the number of batches that will be generated with the current molecules.
+        '''
+        return int(np.floor(len(self.molecules)/self.batch_size))
+
     def read_xyzs(self):
         self.molecules = []
         for path in self.paths:
