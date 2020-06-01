@@ -36,7 +36,7 @@ class AuxMapBase:
         
     def prepare_projector(self, xyzqs, Zs, pos0, bonds2atoms=None):
         rot = np.eye(3)
-        coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
+        coefs = self.projector.makeCoefsZR( Zs.astype(np.int32), elements.ELEMENTS )
         self.projector.tryReleaseBuffers()
         self.projector.prepareBuffers( xyzqs.astype(np.float32), self.scan_dim[:2]+(self.nChan,), coefs=coefs, bonds2atoms=bonds2atoms )
         return oclr.preparePossRot( self.scan_dim, pos0, rot[0], rot[1], self.scan_window[0], self.scan_window[1] )
@@ -160,7 +160,6 @@ class MultiMapSpheres(AuxMapBase):
         Rstep: float. Size range per bin.
         bOccl: 0 or 1. Switch occlusion of atoms 0=off 1=on.
     '''
-
     def __init__(self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), zmin=-1.5, Rpp=-0.5, nChan=3, Rmin=1.4, Rstep=0.3, bOccl=0):
         super().__init__(scan_dim, scan_window, zmin)
         self.projector.Rpp = Rpp
@@ -180,8 +179,9 @@ class Bonds(AuxMapBase):
     Generate Bonds descriptors for molecules. Bonds between atoms are represented by ellipses.
     Arguments:
         Rfunc: numpy.ndarray. Radial function of bonds&atoms potential. Converted to numpy.float32
-        Rmax: float. Cutoff for radial function.
-        drStep: float. Step dx (dr) for sampling of radial function.
+        Rmax: float. Cutoff in angstroms for radial function. Make sure is smaller than maximum range of Rfunc - 3*drStep.
+              The additional three steps are for spline interpolation.
+        drStep: float. Step dx (dr) in angstroms for sampling of radial function Rfunc.
         ellipticity: float. Ratio between major and minor semiaxis.
     '''
     def __init__(self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), zmin=-1.5, Rfunc=None, Rmax=10.0, drStep=0.1, ellipticity=0.5):
@@ -190,17 +190,18 @@ class Bonds(AuxMapBase):
         self.projector.drStep = drStep
         self.projector.elipticity = ellipticity
         if not Rfunc:
-            xs = np.linspace(0.0,10.0,100)
+            xs = np.linspace(0.0,Rmax+3*drStep,int(Rmax/drStep)+3+1)
             dx = xs[1]-xs[0]
             xs -= dx
             ys = np.exp( -5*xs )
             self.projector.Rfunc = ys.astype(np.float32)
         else:
+            assert len(Rfunc)*drStep >= Rmax+3*drStep
             self.projector.Rfunc = Rfunc.astype(np.float32)
                 
     def eval(self, xyzqs, Zs):
         pos0 = [0, 0, xyzqs[:,2].max()]
-        bonds2atoms = np.array( basUtils.findBonds_( xyzqs, Zs, 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
+        bonds2atoms = np.array( basUtils.findBonds_( xyzqs, Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
         return self.projector.run_evalBondEllipses( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)) )[:,:,0]
         
@@ -209,25 +210,27 @@ class AtomRfunc(AuxMapBase):
     Generate AtomRfunc descriptors for molecules. Atoms are represented by disks with decay determined by Rfunc.
     Arguments:
         Rfunc: numpy.ndarray. Radial function of bonds&atoms potential. Converted to numpy.float32
-        Rmax: float. Cutoff for radial function.
-        drStep: float. Step dx (dr) for sampling of radial function.
+        Rmax: float. Cutoff in angstroms for radial function. Make sure is smaller than maximum range of Rfunc - 3*drStep.
+              The additional three steps are for spline interpolation.
+        drStep: float. Step dx (dr) in angstroms for sampling of radial function Rfunc.
     '''
     def __init__(self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), zmin=-1.5, Rfunc=None, Rmax=10.0, drStep=0.1):
         super().__init__(scan_dim, scan_window, zmin)
         self.projector.Rmax = Rmax
         self.projector.drStep = drStep
         if not Rfunc:
-            xs = np.linspace(0.0,10.0,100)
-            dx = xs[1]-xs[0];
+            xs = np.linspace(0.0,Rmax+3*drStep,int(Rmax/drStep)+3+1)
+            dx = xs[1]-xs[0]
             xs -= dx
             ys = np.exp( -5*xs )
             self.projector.Rfunc = ys.astype(np.float32)
         else:
+            assert len(Rfunc)*drStep >= Rmax+3*drStep
             self.projector.Rfunc = Rfunc.astype(np.float32)
                 
     def eval(self, xyzqs, Zs):
         pos0 = [0, 0, xyzqs[:,2].max()]
-        bonds2atoms = np.array( basUtils.findBonds_( xyzqs, Zs, 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
+        bonds2atoms = np.array( basUtils.findBonds_( xyzqs, Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
         return self.projector.run_evalAtomRfunc( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)) )[:,:,0]
 

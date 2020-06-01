@@ -95,7 +95,7 @@ class InverseAFMtrainer:
                 # Get AuxMaps
                 for i, aux_map in enumerate(self.aux_maps):
                     xyzqs = np.concatenate([self.xyzs, self.qs[:,None]], axis=1)
-                    Ys[i].append(a := aux_map(xyzqs, self.Zs))
+                    Ys[i].append(aux_map(xyzqs, self.Zs))
 
                 self.counter += 1
 
