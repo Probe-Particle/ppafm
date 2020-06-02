@@ -1,9 +1,10 @@
 
+import time
 import random
 import numpy as np
 
 from . import basUtils
-from . import common       as PPU
+from . import common as PPU
 
 import numpy as np
 
@@ -22,6 +23,9 @@ class InverseAFMtrainer:
         Qs: list of arrays of length 4. Charges for tips.
         QZS list of arrays of length 4. Positions of tip charges.
     '''
+
+    # Print timings during excecution
+    bRuntime = False
 
     def __init__(self, 
         afmulator, aux_maps, paths,
@@ -60,7 +64,11 @@ class InverseAFMtrainer:
             Ys = [[] for _ in range(len(self.aux_maps))]
             batch_size = min(self.batch_size, len(self.molecules) - self.counter)
 
-            for _ in range(batch_size):
+            if self.bRuntime: batch_start = time.time()
+
+            for s in range(batch_size):
+
+                if self.bRuntime: sample_start = time.time()
 
                 # Load molecule
                 mol = self.molecules[self.counter]
@@ -90,21 +98,28 @@ class InverseAFMtrainer:
                     self.on_afm_start()
 
                     # Evaluate AFM
+                    if self.bRuntime: afm_start = time.time()
                     Xs[i].append(self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs))
+                    if self.bRuntime: print(f'AFM {i} runtime [s]: {time.time() - afm_start}')
 
                 # Get AuxMaps
                 for i, aux_map in enumerate(self.aux_maps):
+                    if self.bRuntime: aux_start = time.time()
                     xyzqs = np.concatenate([self.xyzs, self.qs[:,None]], axis=1)
                     Ys[i].append(aux_map(xyzqs, self.Zs))
+                    if self.bRuntime: print(f'AuxMap {i} runtime [s]: {time.time() - aux_start}')
+
+                if self.bRuntime: print(f'Sample {s} runtime [s]: {time.time() - sample_start}')
 
                 self.counter += 1
 
             for i in range(len(self.iZPPs)):
-                X = np.stack(Xs[i], axis=0)
                 Xs[i] = np.stack(Xs[i], axis=0)
 
             for i in range(len(self.aux_maps)):
                 Ys[i] = np.stack(Ys[i], axis=0)
+
+            if self.bRuntime: print(f'Batch runtime [s]: {time.time() - batch_start}')
 
         else:
             raise StopIteration
@@ -122,6 +137,9 @@ class InverseAFMtrainer:
         return int(np.floor(len(self.molecules)/self.batch_size))
 
     def read_xyzs(self):
+        '''
+        Read molecule xyz files from selected paths.
+        '''
         self.molecules = []
         for path in self.paths:
             with open(path, 'r') as f:
@@ -129,14 +147,23 @@ class InverseAFMtrainer:
                 self.molecules.append(np.concatenate([xyzs, qs[:,None], Zs[:,None]], axis=1))
     
     def handle_positions(self):
-        self.xyzs -= self.xyzs.mean(axis=0)
+        '''
+        Set current molecule to the center of the scan window.
+        '''
+        sw = self.afmulator.scan_window
+        scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
+        self.xyzs[:,:2] += scan_center - self.xyzs[:,:2].mean(axis=0)
 
     def handle_distance(self):
+        '''
+        Set correct distance from scan region for the current molecule.
+        '''
         RvdwPP = self.afmulator.typeParams[self.afmulator.iZPP-1][0]
         Rvdw = self.REAs[:,0] - RvdwPP
         zs = self.xyzs[:,2]
         imax = np.argmax(zs + Rvdw)
-        self.afmulator.distAbove = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
+        total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
+        self.xyzs[:,2] += (self.afmulator.scan_window[1][2] - total_distance) - zs.max()
 
     # ======== Augmentation =========
 

@@ -14,8 +14,9 @@ class AFMulator():
         pixPerAngstrome: int. Number of pixels (voxels) per angstrom in force field grid.
         lvec: np.ndarray of shape (4,3). Unit cell boundaries for force field. First (row) vector specifies the origin,
               and the remaining three vectors specify the edge vectors of the unit cell.
-        scan_dim: tuple of two ints. Indicates the pixel size of the scan in x and y.
-        scan_window: tuple ((start_x, start_y), (end_x, end_y)). The start and end coordinates of scan region in angstroms.
+        scan_dim: tuple of three ints. Indicates the pixel size of the scan in x, y, and z.
+        scan_window: tuple ((x_min, y_min, z_min), (x_max, y_max, z_max)). The minimum and maximum coordinates of scan region in angstroms.
+                     The scan region is a rectangular box with the opposing corners defined by the coordinates in scan_window.
         iZPPs: int. Element of probe particle.
         QZs: Array of lenght 4. Position tip charges along z-axis relative to probe-particle center in angstroms.
         Qs: Array of lenght 4. Values of tip charges in units of e/A^dim. Some can be zero.
@@ -36,7 +37,6 @@ class AFMulator():
     tipR0        = np.array([ 0.0, 0.0, 4.0 ])      # Tip equilibrium position
     tipStiffness = [ 0.25, 0.25, 0.0, 30.0     ]    # [N/m]  (x,y,z,R) stiffness of harmonic springs anchoring probe-particle to the metalic tip-apex 
     relaxParams  = [ 0.5, 0.1, 0.1*0.2,0.1*5.0 ]    # (dt,damp, .., .. ) parameters of relaxation, in the moment just dt and damp are used
-    distAbove    = 10.0                             # Height of starting position of scan.
 
     # --- Output
     bSaveFF  = False    # Save debug ForceField as .xsf
@@ -46,9 +46,14 @@ class AFMulator():
 
     def __init__( self, 
         pixPerAngstrome = 10,
-        lvec            = None,
+        lvec            = np.array([
+                            [ 0.0,  0.0, 0.0],
+                            [20.0,  0.0, 0.0],
+                            [ 0.0, 20.0, 0.0],
+                            [ 0.0,  0.0, 7.0]
+                          ]),
         scan_dim        = (128, 128, 30),
-        scan_window     = ((-8.0,-8.0), ( 8.0, 8.0)),
+        scan_window     = ((2.0, 2.0, 7.0), ( 18.0, 18.0, 10.0)),
         iZPP            = 8,
         QZs             = [ 0.1,  0, -0.1, 0 ],
         Qs              = [ -10, 20,  -10, 0 ],
@@ -61,18 +66,9 @@ class AFMulator():
             raise RuntimeError('Force field OpenCL context not initialized. Initialize with FFcl.init before creating an AFMulator object.')
         elif not oclr.oclu:
             raise RuntimeError('Scanner OpenCL context not initialized. Initialize with oclr.init before creating an AFMulator object.')
-
-        if lvec is None:
-            self.lvec = np.array([
-                [ 0.0,  0.0,  0.0],
-                [30.0,  0.0,  0.0],
-                [ 0.0, 30.0,  0.0],
-                [ 0.0,  0.0, 30.0]
-            ])
-        else:
-            self.lvec = lvec
         
         self.pixPerAngstrome = pixPerAngstrome
+        self.lvec = lvec
         self.scan_dim = scan_dim
         self.scan_window = scan_window
         self.iZPP = iZPP
@@ -102,7 +98,7 @@ class AFMulator():
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
             qs: np.ndarray of shape (num_atoms,). Charges of atoms.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
-            X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-len(self.dfWeight)).
+            X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps)).
                Array where AFM image will be saved. If None, will be created automatically.
         Returns: np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
         '''
@@ -120,9 +116,12 @@ class AFMulator():
     def eval_( self, mol ):
         return self.eval( mol.xyzs, mol.Zs, mol.qs )
 
+    # ========= Setup =========
+
     def initFF(self):
         '''
-        Initialize force field and scanner buffers.
+        Initialize force field and scanner buffers. Call this method after changing parameters in the scanner or forcefield
+        or after modifying any of the following attributes: lvec, pixPerAngstrome, scan_dim, scan_window, dfWeight.
         '''
         if self.bNoPoss:
             self.forcefield.initSampling( self.lvec, pixPerAngstrome=self.pixPerAngstrome )
@@ -132,9 +131,11 @@ class AFMulator():
             self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim, scan_dim=self.scan_dim,
                                          nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight)
                                        )
-            self.scanner.preparePosBasis( start=self.scan_window[0], end=self.scan_window[1] )
+            self.scanner.preparePosBasis( start=self.scan_window[0][:2], end=self.scan_window[1][:2] )
         else:
             self.FEin = np.empty( self.forcefield.nDim, np.float32 )
+        self.pos0 = [0, 0, self.scan_window[1][2]]
+        self.scanner.zstep = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
         self.scanner.updateBuffers( WZconv=self.dfWeight )
 
     def setQs(self, Qs, QZs):
@@ -145,18 +146,17 @@ class AFMulator():
         self.QZs = QZs
         self.forcefield.setQs( Qs=Qs, QZs=QZs )
 
+    # ========= Imaging =========
+
     def prepareFF(self, xyzs, Zs, qs, REAs=None, ):
         '''
-        Prepare molecule position, get parameters and calculate force field.
+        Prepare molecule parameters and calculate force field.
         Arguments:
             xyzs: np.ndarray of shape (num_atoms, 3). Positions of atoms in x, y, and z.
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
             qs: np.ndarray of shape (num_atoms,). Charges of atoms.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
         '''
-        half_cell = np.array([self.lvec[1,0]*0.5,self.lvec[2,1]*0.5,self.lvec[3,2]*0.5])
-        xyzs = xyzs[:,:] + half_cell[None,:]
-
         self.natoms0 = len(Zs)
         if REAs is None:
             self.REAs = PPU.getAtomsREA(  self.iZPP, Zs, self.typeParams, alphaFac=-1.0 )
@@ -200,20 +200,18 @@ class AFMulator():
                 if(self.verbose > 1): print("scanner.releaseBuffers()")
                 self.scanner.releaseBuffers()
             self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight) )
-            self.scanner.preparePosBasis( start=self.scan_window[0], end=self.scan_window[1] )
+            self.scanner.preparePosBasis( start=self.scan_window[0][:2], end=self.scan_window[1][:2] )
         
-        pos0 = list(self.atomsNonPBC[:,:2].mean(axis=0)) + [self.atomsNonPBC[:,2].max() + self.distAbove]
-        self.scan_pos0s = self.scanner.setScanRot( pos0, rot=np.eye(3), tipR0=self.tipR0 )
+        self.scanner.setScanRot( self.pos0, rot=np.eye(3), tipR0=self.tipR0 )
 
     def evalAFM( self, X=None ):
         '''
         Evaluate AFM image. Run after preparing force field and scanner.
         Arguments:
-            X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-len(self.dfWeight)).
+            X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps)).
                Array where AFM image will be saved. If None, will be created automatically.
         Returns: np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
         '''
-        
         if self.bMergeConv:
             FEout = self.scanner.run_relaxStrokesTilted_convZ()
         else:
@@ -242,7 +240,7 @@ class AFMulator():
 
         return X
 
-    # ================== Debug/Plot Misc.
+    # ========= Debug/Plot Misc. =========
 
     def saveDebugXSF_FF( self, fname, F ):
         if hasattr(self, 'GridUtils'):
@@ -273,13 +271,13 @@ if __name__ == "__main__":
     args = {
         'pixPerAngstrome'   : 8,
         'lvec'              : np.array([
-                                [ 0.0,  0.0,  0.0],
-                                [30.0,  0.0,  0.0],
-                                [ 0.0, 30.0,  0.0],
-                                [ 0.0,  0.0, 30.0]
+                                [ 0.0,  0.0, 0.0],
+                                [20.0,  0.0, 0.0],
+                                [ 0.0, 20.0, 0.0],
+                                [ 0.0,  0.0, 5.0]
                               ]),
         'scan_dim'          : (128, 128, 30),
-        'scan_window'       : ((-8.0,-8.0), ( 8.0, 8.0)),
+        'scan_window'       : ((2.0, 2.0, 5.0), (18.0, 18.0, 8.0)),
         'iZPP'              : 8,
         'QZs'               : [ 0.1,  0, -0.1, 0 ],
         'Qs'                : [ -10, 20,  -10, 0 ],
@@ -294,8 +292,7 @@ if __name__ == "__main__":
     oclr.init(env)
 
     afmulator = AFMulator(**args)
-    afmulator.distAbove = 9.5
-    afmulator.npbc = (0,0,0)
+    afmulator.npbc = (1,1,0)
 
     afmulator            .verbose  = 1
     afmulator.forcefield .verbose  = 1
@@ -308,7 +305,8 @@ if __name__ == "__main__":
         filename = f'{mol}/pos.xyz'
         atom_lines = open( filename ).readlines()
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( atom_lines )
-        xyzs -= xyzs.mean(axis=0)
+        xyzs[:,:2] = xyzs[:,:2] - xyzs[:,:2].mean(axis=0) + np.array([10, 10]) 
+        xyzs[:,2] = xyzs[:,2] - xyzs[:,2].max() - 1.5
 
         t0 = time.time()
         X = afmulator(xyzs, Zs, qs)
