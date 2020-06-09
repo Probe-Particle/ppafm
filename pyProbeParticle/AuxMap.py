@@ -65,14 +65,15 @@ class AtomicDisks(AuxMapBase):
         zmax_s: float. The maximum depth of vdW sphere shell when diskMode='sphere'.
         Rpp: float. A constant that is added to the vdW radius of each atom.
         diskMode: 'sphere' or 'center'. With 'center' only the center coordinates are considered, when deciding
-                  whether an atom is too deep. With 'sphere' also the effective size of the atom is take into
+                  whether an atom is too deep. With 'sphere' also the effective size of the atom is taken into
                   account.
     '''
-    def __init__(self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), zmin=-1.5, zmax_s=2.0, Rpp=-0.5, diskMode='sphere'):
+    def __init__(self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), zmin=-1.2, zmax_s=-1.2, Rpp=-0.5, diskMode='sphere'):
         super().__init__(scan_dim, scan_window)
         self.projector.dzmax = -zmin
-        self.projector.dzmax_s = zmax_s
+        self.projector.dzmax_s = -zmax_s
         self.projector.Rpp = Rpp
+        self.diskMode = diskMode
         if diskMode == 'sphere':
             self.offset = 0.0
         elif diskMode == 'center':
@@ -82,9 +83,12 @@ class AtomicDisks(AuxMapBase):
             raise ValueError(f'Unknown diskMode {diskMode}. Should be either sphere or center')
                 
     def eval(self, xyzqs, Zs):
-        pos0 = [0, 0, xyzqs[:,2].max()]
+        coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
+        coords_sphere = xyzqs[:,2]+coefs[:,3]+self.projector.Rpp
+        offset = coords_sphere.max() - xyzqs[:,2].max() + self.offset
+        pos0 = [0, 0, coords_sphere.max()]
         poss = self.prepare_projector(xyzqs, Zs, pos0)
-        return self.projector.run_evaldisks( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)), offset=self.offset )[:,:,0]
+        return self.projector.run_evaldisks( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)), offset=offset )[:,:,0]
         
 class HeightMap(AuxMapBase):
     '''
