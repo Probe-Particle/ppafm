@@ -259,7 +259,7 @@ class AFMulator():
 
 if __name__ == "__main__":
 
-    import matplotlib as mpl; mpl.use('Agg')
+    import matplotlib as mpl #; mpl.use('Agg')
     import matplotlib.pyplot as plt
     import time
     import os
@@ -311,13 +311,15 @@ if __name__ == "__main__":
         t0 = time.time()
         X = afmulator(xyzs, Zs, qs)
         print(f'Simulation time for {mol}: {time.time() - t0}')
+        print(X.shape)
 
         rows, cols = 4, 5
         fig = plt.figure(figsize=(3.2*cols,2.5*rows))
         for k in range(X.shape[-1]):
             fig.add_subplot(rows, cols, k+1)
-            plt.imshow(X[:,:,k], cmap='afmhot', origin="lower")
+            plt.imshow(X[:,:,k].T, cmap='afmhot', origin="lower")
             plt.colorbar()
         plt.tight_layout()
         plt.savefig(f'{mol}/afm.png')
+        plt.show()
         plt.close()

@@ -352,12 +352,12 @@ class RelaxedScanner:
             pass
 
     def preparePosBasis(self, start=(-5.0,-5.0), end=(5.0,5.0) ):
-        self.start = start
-        self.end   = end
-        self.ys         = np.linspace(start[0],end[0],self.scan_dim[0])
-        self.xs         = np.linspace(start[1],end[1],self.scan_dim[1])
-        self.As,self.Bs = np.meshgrid(self.xs,self.ys)
-        self.poss       = np.zeros(self.As.shape+(4,), dtype=np.float32)
+        self.start       = start
+        self.end         = end
+        self.xs          = np.linspace(start[0], end[0], self.scan_dim[0])
+        self.ys          = np.linspace(start[1], end[1], self.scan_dim[1])
+        self.As, self.Bs = np.meshgrid(self.xs, self.ys, indexing='ij')
+        self.poss        = np.zeros(self.As.shape+(4,), dtype=np.float32)
 
     def preparePossRot(self, pos0, avec, bvec ):
         #self.poss[:,:,:3] = pos0[None,None:] + self.As[:,:,None]*avec[None,None,:] + self.Bs[:,:,None]*bvec[None,None,:]
