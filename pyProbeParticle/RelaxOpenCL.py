@@ -87,9 +87,9 @@ def preparePoss( scan_dim, z0, start=(0.0,0.0), end=(10.0,10.0) ):
     return poss
 
 def preparePossRot( scan_dim, pos0, avec, bvec, start=(-5.0,-5.0), end=(5.0,5.0) ):
-    ys    = np.linspace(start[0],end[0],scan_dim[0])
-    xs    = np.linspace(start[1],end[1],scan_dim[1])
-    As,Bs = np.meshgrid(xs,ys)
+    xs    = np.linspace(start[0],end[0],scan_dim[0])
+    ys    = np.linspace(start[1],end[1],scan_dim[1])
+    As,Bs = np.meshgrid(xs,ys, indexing='ij')
     poss  = np.zeros(As.shape+(4,), dtype=np.float32)
     poss[:,:,0] = pos0[0] + As*avec[0] + Bs*bvec[0]
     poss[:,:,1] = pos0[1] + As*avec[1] + Bs*bvec[1]

@@ -35,8 +35,8 @@ args = {
                             [ 0.0, 20.0, 0.0],
                             [ 0.0,  0.0, 4.0]
                             ]),
-    'scan_dim'          : (128, 128, 20),
-    'scan_window'       : ((2.0, 2.0, 5.0), (18.0, 18.0, 7.0)),
+    'scan_dim'          : (128, 64, 20),
+    'scan_window'       : ((2.0, 2.0, 5.0), (18.0, 10.0, 7.0)),
     'iZPP'              : 8,
     'QZs'               : [ 0.1,  0, -0.1, 0 ],
     'Qs'                : [ -10, 20,  -10, 0 ],
@@ -48,14 +48,14 @@ args = {
 afmulator = AFMulator(**args)
 afmulator.npbc = (0,0,0)
 
-auxmap_args = {'scan_window': ((2.0, 2.0), (18.0, 18.0))}
+auxmap_args = {'scan_window': ((2.0, 2.0), (18.0, 10.0)), 'scan_dim': (128, 64)}
 spheres = AuxMaps('vdwSpheres', auxmap_args)
 disks = AuxMaps('AtomicDisks', auxmap_args)
 height_map = AuxMaps('HeightMap', {'scanner': afmulator.scanner})
 bonds = AuxMaps('Bonds', auxmap_args)
 atomrfunc = AuxMaps('AtomRfunc', auxmap_args)
-# aux_maps = [spheres, disks, height_map, bonds, atomrfunc]
-aux_maps = [bonds, atomrfunc]
+aux_maps = [spheres, disks, height_map, bonds, atomrfunc]
+# aux_maps = [bonds, atomrfunc]
 
 molecules = ['out2', 'benzeneBrCl2', 'out3']
 paths = [f'{mol}/pos.xyz' for mol in molecules]
@@ -84,7 +84,7 @@ for Xs, Ys, mols in trainer:
             fig = plt.figure(figsize=(3.2*cols,2.5*rows))
             for k in range(X.shape[-1]):
                 fig.add_subplot(rows, cols, k+1)
-                plt.imshow(X[j,:,:,k], cmap='afmhot', origin="lower")
+                plt.imshow(X[j,:,:,k].T, cmap='afmhot', origin="lower")
                 plt.colorbar()
             plt.tight_layout()
             plt.savefig(os.path.join(save_dir, f'{counter}_afm{i}.png'))
@@ -94,7 +94,7 @@ for Xs, Ys, mols in trainer:
         fig.subplots_adjust(left=0.02, bottom=0.06, right=0.95, top=0.94, wspace=0.05)
         fig.set_size_inches(3*len(aux_maps), 3)
         for i, ax in enumerate(axes):
-            im = ax.imshow(Ys[i][j], origin='lower')
+            im = ax.imshow(Ys[i][j].T, origin='lower')
             fig.colorbar(im, ax=ax)
         plt.tight_layout()
         plt.savefig(os.path.join(save_dir, f'{counter}_auxmaps.png'))
