@@ -36,8 +36,8 @@ from . import fieldOCL     as FFcl
 from . import RelaxOpenCL  as oclr
 from . import HighLevelOCL as hl
 
-from . import GeneratorOCL_LJC #as Imager
-from . import AFMulatorOCL
+from . import AFMulatorOCL_Simple
+from . import AuxMap
 from . import FARFF            #as Relaxer
 
 verbose  = 0
@@ -130,7 +130,6 @@ class CorrectorTrainer():
 
     restartProb = 0.1
     maxIndex    = 10000
-    rotMat = np.array([[1.,0,0],[0.,1.,0],[0.,0,1.]])
 
     def __init__(self, simulator, mutator, molCreator=None ):
         self.index = 0
@@ -138,36 +137,32 @@ class CorrectorTrainer():
         self.mutator    = mutator
         self.molCreator = molCreator
 
-    #def start(self, xyzs=None, Zs=None, qs=None ):
     def start(self, molecule=None ):
         if molecule is None:
-            #self.xyzs, self.Zs, self.qs = self.molCreator.create()
             self.molecule = self.molCreator.create()
         else:
             self.molecule = molecule
-            #self.xyzs = xyzs
-            #self.Zs   = Zs
-            #self.qs   = qs
 
     def generatePair(self):
+        
         if self.molCreator is not None:
             if np.random.rand(1) < self.restartProb:
-                #self.xyzs, self.Zs, self.qs = self.molCreator.create()
                 self.molecule = self.molCreator.create()
-        #Xs1,Ys1      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
-        #Xs1      = self.simulator.perform_just_AFM( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
-        mol1     = self.molecule
-        Xs1      = self.simulator.performImaging_AFM_( mol1, self.rotMat )
-        p0 = (np.random.rand(3) - 0.5)
-        p0[0:2] *= 10.0
+
+        # Get AFM
+        mol1 = self.molecule
+        Xs1 = self.simulator.eval_(mol1)
+
+        # Mutate and get new AFM
+        p0       = (np.random.rand(3))
+        p0[0:2] *= 20.0
         p0[  2] *= 1.0
-        R  = 3.0   
-        #self.xyzs, self.Zs, self.qs = self.mutator.mutate_local( self.xyzs, self.Zs, self.qs, p0, R )
-        mol2 = self.mutator.mutate_local( self.molecule, p0, R )
-        #Xs2,Ys2      = self.simulator.perform_imaging( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
-        #Xs2     = self.simulator.perform_just_AFM( self.xyzs.copy(), self.Zs.copy(), self.qs.copy(), self.rotMat )
-        Xs2     = self.simulator.performImaging_AFM_( mol2, self.rotMat )
+        R        = 3.0   
+        mol2     = self.mutator.mutate_local( self.molecule, p0, R )
+        Xs2      = self.simulator.eval_(mol2)
+
         self.molecule = mol2
+
         return Xs1, Xs2, mol1, mol2
 
     def __getitem__(self, index):
@@ -199,8 +194,8 @@ class Corrector():
         mol = molIn.clone()
         #molOut.xyzs[0,0] += 0.1
         #molOut.xyzs[1,0] -= 0.1
-        p0 = (np.random.rand(3) - 0.5)
-        p0[0:2] *= 10.0
+        p0 = (np.random.rand(3))
+        p0[0:2] *= 20.0
         p0[  2] *= 1.0
         R  = 3.0   
         molOut = moveAtom( molIn, p0, R=0.0, nmax=1 )   # ToDo : This is just token example - later need more sophisticated Correction strategy
@@ -237,9 +232,11 @@ class CorrectionLoop():
 
     rotMat = np.array([[1.,0,0],[0.,1.,0],[0.,0,1.]])
 
-    def __init__(self, relaxator, simulator, corrector ):
+    def __init__(self, relaxator, simulator, atoms, bonds, corrector ):
         self.simulator  = simulator
         self.relaxator  = relaxator
+        self.atoms      = atoms
+        self.bonds      = bonds
         self.corrector  = corrector
         self.xyzLogName = None
 
@@ -263,18 +260,27 @@ class CorrectionLoop():
            au.writeToXYZ( self.xyzLogFile, self.molecule.Zs, self.molecule.xyzs, qs=self.molecule.qs, commet=("CorrectionLoop.iteration [%i] " %itr) )
 
         print( "### CorrectionLoop.iteration [%i]" %itr )
-        AFMs,AuxMap     = self.simulator.performImaging_AFMandAuxMap_( self.molecule, self.rotMat )
-        #print( "AuxMap.shape ", AuxMap.shape )
+
+        # Get AFM
+        xyzs, qs, Zs = self.molecule.xyzs, self.molecule.qs, self.molecule.Zs
+        AFMs = self.simulator(xyzs, Zs, qs)
+
+        # Get Atoms and Bonds AuxMaps
+        xyzqs = np.concatenate([xyzs, qs[:,None]], axis=1)
+        atoms_map = self.atoms(xyzqs, Zs)
+        bonds_map = self.bonds(xyzqs, Zs)
+        AuxMaps = np.stack([atoms_map, bonds_map], axis=-1)
+
         if self.logAFMdataName:
             np.save( self.logAFMdataName+("%03i.dat" %itr), AFMs )
         if self.logImgName is not None:
             nz  = len(self.logImgIzs)
-            nch = AuxMap.shape[2]
+            nch = AuxMaps.shape[2]
             #print( "DEBUG nz nch ", nz, nch )
             plt.figure(figsize=(5*(nz+nch),5))
             for ich in range(nch):
                 #print( "DEBUG ich ", ich )
-                plt.subplot(1,nz+nch,ich+1); plt.imshow ( AuxMap[:,:,ich] )
+                plt.subplot(1,nz+nch,ich+1); plt.imshow ( AuxMaps[:,:,ich] )
             for iiz, iz in enumerate(self.logImgIzs):
                 plt.subplot(1,nz+nch,iiz+nch+1); plt.imshow ( AFMs[:,:,iz] )
                 plt.title( "iz %i" %iz )
@@ -292,14 +298,18 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
     mutator = Mutator()
     trainer = CorrectorTrainer( simulator, mutator, molCreator=None )
     xyzs,Zs,elems,qs = au.loadAtomsNP(geom_fname)
+
+    # AFMulatorOCL.setBBoxCenter( xyzs, [0.0,0.0,0.0] )
+    sw = simulator.scan_window
+    scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
+    xyzs[:,:2] += scan_center - xyzs[:,:2].mean(axis=0)
+    xyzs[:,2] += (sw[1][2] - 9.0) - xyzs[:,2].max()
+    print("xyzs ", xyzs) 
     mol = Molecule(xyzs,Zs,qs)
 
-    AFMulatorOCL.setBBoxCenter( xyzs, [0.0,0.0,0.0] )
     #xyzs[:,0] -= 10.0 
-    print("xyzs ", xyzs) 
     trainer.start( mol )
-    #extent = ( simulator.scan_start, simulator.scan_end, simulator.scan_start, simulator.scan_end )
-    extent=( simulator.scan_start[0], simulator.scan_end[0], simulator.scan_start[1], simulator.scan_end[1] )
+    extent=( simulator.scan_window[0][0], simulator.scan_window[1][0], simulator.scan_window[0][1], simulator.scan_window[1][1] )
     sc = 3.0
 
     xyzfile = open("geomMutations.xyz","w")
@@ -315,7 +325,7 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
         plt.close()
     xyzfile.close()
 
-def Job_CorrectionLoop( simulator, geom_fname="input.xyz", nstep=10 ):
+def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=10 ):
     relaxator = FARFF.EngineFARFF()
     corrector = Corrector()
     corrector.logImgName = "AFM_Err"
@@ -325,16 +335,25 @@ def Job_CorrectionLoop( simulator, geom_fname="input.xyz", nstep=10 ):
     AFMRef = np.roll( AFMRef,  5, axis=0 );
     AFMRef = np.roll( AFMRef, -6, axis=1 ); 
 
-    looper = CorrectionLoop(relaxator,simulator,corrector)
+    looper = CorrectionLoop(relaxator, simulator, atoms, bonds, corrector)
     looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
     looper.logImgName = "CorrectionLoopAFMLog"
     looper.logAFMdataName = "AFMs"
     #xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")
     xyzs,Zs,elems,qs = au.loadAtomsNP(geom_fname)
-    AFMulatorOCL.setBBoxCenter( xyzs, [0.0,0.0,0.0] )
-    print("xyzs ", xyzs) 
-    molecule = Molecule(xyzs,Zs,qs)
 
+    # AFMulatorOCL.setBBoxCenter( xyzs, [0.0,0.0,0.0] )
+    sw = simulator.scan_window
+    scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
+    xyzs[:,:2] += scan_center - xyzs[:,:2].mean(axis=0)
+    xyzs[:,2] += (sw[1][2] - 9.0) - xyzs[:,2].max()
+    print("xyzs ", xyzs) 
+
+    xyzqs = np.concatenate([xyzs, qs[:,None]], axis=1)
+    np.save('./Atoms.npy', atoms(xyzqs, Zs))
+    np.save('./Bonds.npy', bonds(xyzqs, Zs))
+
+    molecule = Molecule(xyzs,Zs,qs)
     atomMap, bondMap, lvecMap = FARFF.makeGridFF( FARFF,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 )
 
     looper.startLoop( molecule, atomMap, bondMap, lvecMap, AFMRef )
@@ -370,78 +389,24 @@ if __name__ == "__main__":
     FFcl.init(env)
     oclr.init(env)
 
-    #GeneratorOCL_LJC.bRunTime = True
+    afmulator = AFMulatorOCL_Simple.AFMulator(
+        pixPerAngstrome = 10,
+        lvec            = np.array([
+                            [ 0.0,  0.0, 0.0],
+                            [20.0,  0.0, 0.0],
+                            [ 0.0, 20.0, 0.0],
+                            [ 0.0,  0.0, 5.0]
+                          ]),
+        scan_window     = ((2.0, 2.0, 5.0), (18.0, 18.0, 8.0)),
+    )
 
-    lvec=None
-    #simulator  = GeneratorOCL_LJC.Generator( [], [], 1, pixPerAngstrome=5, Ymode='AtomsAndBonds', lvec=lvec  )
-    simulator  = AFMulatorOCL.AFMulator( pixPerAngstrome=5, lvec=lvec, Ymode='AtomsAndBonds' )
-    #simulator  = AFMulatorOCL.AFMulator( pixPerAngstrome=5, lvec=lvec, Ymode=None )
-
-    simulator.bOccl = 1   # switch occlusion of atoms 0=off 1=on
-    simulator.typeSelection =  [1,6,7,8,16,33]  # select atom types for each output channel
-    simulator.nChan = 5      # number of channels, resp. atom size bins
-    simulator.Rmin  = 1.4    # minimum atom radius
-    simulator.Rstep = 0.2    # size range per bin (resp. cGenerator.nextRotationnel)
-    simulator.zmin_xyz = -2.0  # max depth for visible atoGenerator.nextRotation
-    simulator.Nmax_xyz = 3    # max number of visible atomGenerator.nextRotation
-
-    if simulator.projector is not None:
-        simulator.projector.Rpp  = -0.5
-        xs = np.linspace(0.0,10.0,100)
-        dx = xs[1]-xs[0];
-        xs -= dx
-        ys = np.exp( -5*xs )
-        simulator.projector.Rfunc   = ys.astype(np.float32)
-        simulator.projector.invStep = dx
-        simulator.projector.Rmax    = xs[-1] - 3*dx
-        # --- params randomization 
-        #simulator.randomize_enabled    = False
-        #simulator.randomize_nz         = True 
-        #simulator.randomize_parameters = True
-        #simulator.randomize_tip_tilt   = True
-        #simulator.randomize_distance   = True
-        #simulator.rndQmax     = 0.1    # charge += rndQmax * ( rand()-0.5 )  (negative is off)
-        #simulator.rndRmax     = 0.2    # charge += rndRmax * ( rand()-0.5 )  (negative is off)
-        #simulator.rndEmax     = 0.5    # charge *= (1 + rndEmax     * ( rand()-0.5 )) (negative is off)
-        #simulator.rndAlphaMax = -0.1   # charge *= (1 + rndAlphaMax * ( rand()-0.5 )) (negative is off)
-        #simulator.modMolParams = modMolParams_def   # custom function to modify parameters
-
-    simulator.randomize_enabled    = False
-    simulator.randomize_nz         = False 
-    simulator.randomize_parameters = False
-    simulator.randomize_tip_tilt   = False
-    simulator.randomize_distance   = False
-
-    #simulator.debugPlots = True
-    simulator.distAbove = 7.0
-    simulator.distAboveDelta = None  
-
-    simulator.bQZ = True
-    simulator.Qs  = np.array([100,-200,100,0]) * -0.2   # Quadrupole Qdz2-1.0[e*A^2]
-    simulator.maxTilt0 = 0.5     # asymetric tip  tilted max +/-1.0 Angstreom in random direction
-
-    #simulator.shuffle_rotations = False
-    #simulator.shuffle_molecules = False
-    #simulator.nBestRotations    = 0
-
-    #simulator.preName    = ""           # appended befroe path filename
-    #simulator.postName   = "/pos.xyz"
-    simulator.Q = 0.0
-    # z-weight exp(-wz*z)
-    #simulator.wz      = 1.0    # deacay
-    #simulator.zWeight =  simulator.getZWeights();
-    dz=0.1
-    dfWeight = PPU.getDfWeight( 10, dz=dz )[0].astype(np.float32)
-    simulator.dfWeight = dfWeight
-
-    #simulator.pos0 = np.array([0.0,0.0,0.0])
-    #simulator.pos0 = np.array([14.0, 18.0, 24.0])
-    simulator.pos0 = np.array([15.0, 15.0, 24.0])
+    atoms = AuxMap.AtomRfunc(scan_dim=(128, 128), scan_window=((2,2),(18,18)))
+    bonds = AuxMap.Bonds(scan_dim=(128, 128), scan_window=((2,2),(18,18)))
 
     if options.job == "loop":
-        Job_CorrectionLoop( simulator, geom_fname="pos_out3.xyz" )
+        Job_CorrectionLoop( afmulator, atoms, bonds, geom_fname="pos_out3.xyz" )
     elif options.job == "train":
-        Job_trainCorrector( simulator, geom_fname="pos_out3.xyz", nstep=10 )        
+        Job_trainCorrector( afmulator, geom_fname="pos_out3.xyz", nstep=10 )        
     else:
         print("ERROR : invalid job ", options.job )
 

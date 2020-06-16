@@ -107,11 +107,11 @@ class AFMulator():
         X = self.evalAFM(X)
         return X
     
-    def __call__( self, xyzs, Zs, qs, X=None ):
+    def __call__( self, xyzs, Zs, qs, REAs=None, X=None ):
         '''
         Makes object callable. See eval for input arguments.
         '''
-        return self.eval( xyzs, Zs, qs, X )
+        return self.eval( xyzs, Zs, qs, REAs=REAs, X=X )
 
     def eval_( self, mol ):
         return self.eval( mol.xyzs, mol.Zs, mol.qs )
