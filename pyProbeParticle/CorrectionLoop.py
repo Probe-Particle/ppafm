@@ -38,7 +38,8 @@ from . import HighLevelOCL as hl
 
 from . import AFMulatorOCL_Simple
 from . import AuxMap
-from . import FARFF            #as Relaxer
+#from . import FARFF            #as Relaxer
+from . import GeneratorOCL_Simple2
 
 verbose  = 0
 bRunTime = False
@@ -126,29 +127,34 @@ class Mutator():
         return self.strategies[i][1]( molecule, p0, **args )
         #return xyzs.copy(), Zs.copy(), qs.copy()
 
-class CorrectorTrainer():
+class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
+    """
+    A class for creating data set for the eventual CorrectionLoop. Iterable.
+    Arguments:
+        simulator: instance of AFMulatorOCL_Simple.AFMulator
+        mutator:   instance of CorrectionLoop.Mutator
+        paths: array, paths to the molecules
+        nMutants: integer, number of different mutants per molecule
+        maxMutations: integer, maximum number of mutations per mutant molecule
+    """
 
     restartProb = 0.1
     maxIndex    = 10000
 
-    def __init__(self, simulator, mutator, molCreator=None ):
-        self.index = 0
-        self.simulator  = simulator
-        self.mutator    = mutator
-        self.molCreator = molCreator
+    def __init__(self, simulator, mutator, paths, nMutants, maxMutations, **super_arguments):
+        self.index        = 0
+        self.simulator    = simulator
+        self.mutator      = mutator
+        self.paths        = paths
+        self.nMutants     = nMutants
+        self.maxMutations = maxMutations
+        super().__init__(simulator, None, paths, **super_arguments)
 
-    def start(self, molecule=None ):
-        if molecule is None:
-            self.molecule = self.molCreator.create()
-        else:
-            self.molecule = molecule
+        self.read_xyzs()
+
 
     def generatePair(self):
         
-        if self.molCreator is not None:
-            if np.random.rand(1) < self.restartProb:
-                self.molecule = self.molCreator.create()
-
         # Get AFM
         mol1 = self.molecule
         Xs1 = self.simulator.eval_(mol1)
