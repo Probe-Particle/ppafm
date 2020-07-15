@@ -44,13 +44,13 @@ lib.insertAtomType.restype  = c_int
 def insertAtomType( nbond, ihyb, rbond0, aMorse, bMorse, c6, R2vdW, Epz ):
     return lib.insertAtomType( nbond, ihyb, rbond0, aMorse, bMorse, c6, R2vdW, Epz )
 
-#void ralloc(int natom){
-lib.ralloc.argtypes = [c_int]
-lib.ralloc.restype  = None
-def ralloc(natom):
-    lib.ralloc(natom)
+#void reallocFF(int natom){
+lib.reallocFF.argtypes = [c_int]
+lib.reallocFF.restype  = None
+def reallocFF(natom):
+    lib.reallocFF(natom)
 
-#void ralloc(int natom){
+#void reallocFF(int natom){
 lib.clean.argtypes = []
 lib.clean.restype  = None
 def clean():
@@ -228,7 +228,7 @@ class RFF():
 
     def prepare(self,n):
         self.natom = 20
-        ralloc(natom)
+        reallocFF(natom)
         self.types  = getTypes(natom)
         self.poss   = getPoss(natom)
         self.qrots  = getQrots(natom)
