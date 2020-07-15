@@ -49,6 +49,13 @@ class Sequence:
     pass
 
 class Molecule():
+    """
+    A simple class for Molecule data containing atom xyz positions, element types and charges.
+    Arguments:
+        xyzs: list, xyz positions of atoms in the molecule
+        Zs: list, element types
+        qs: list, charges
+    """
 
     def __init__(self, xyzs, Zs, qs ):
         self.xyzs = xyzs
@@ -60,6 +67,9 @@ class Molecule():
         Zs   = self.Zs
         qs   = self.qs
         return Molecule(xyzs,Zs,qs)
+
+    def __str__(self):
+        return np.c_[self.xyzs, self.Zs, self.qs].__str__
 
 # ========================================================================
 
@@ -101,16 +111,23 @@ def moveAtom( molecule, p0, R=0.0, dpMax=np.array([1.0,1.0,0.25]), nmax=1 ):
     return Molecule(xyzs, Zs, qs)
 
 class Mutator():
+    """
+    A class for creating simple mutations to a molecule. The current state of the class allows for adding,
+    removing and moving atoms. The mutations are not necessarily physically sensible at this point.
+    Parameters:
+        maxMutations: Integer. Maximum number of mutations per mutant. The number of mutations is chosen
+        randomly between [1, maxMutations].
+    """
     # Strtegies contain 
     strategies = [ 
         (0.1,removeAtoms,{}), 
         (0.1,addAtom,{}), 
-        (0.5,moveAtom,{}) 
+        (0.1,moveAtom,{})
     ]
 
-    def __init__(self ):
+    def __init__(self, maxMutations):
         self.setStrategies()
-        pass
+        self.maxMutations = maxMutations
 
     #def modAtom():
     def setStrategies(self, strategies=None):
@@ -119,57 +136,72 @@ class Mutator():
         #print( self.cumProbs ); exit()  
 
     def mutate_local(self, molecule, p0, R ):
-        toss = np.random.rand()*self.cumProbs[-1]
+        n_mutations = np.random.randint(1,self.maxMutations+1)
+
+        toss = np.random.rand(n_mutations)*self.cumProbs[-1]
         i = np.searchsorted( self.cumProbs, toss )
-        print( "mutate_local ", i, toss, self.cumProbs[-1] )
-        args = self.strategies[i][2]
-        args['R'] = R
-        return self.strategies[i][1]( molecule, p0, **args )
+        #print( "mutate_local ", i, toss, self.cumProbs[-1] )
+
+        for strat_nr in i:
+            args = self.strategies[strat_nr][2]
+            args['R'] = R
+            molecule = self.strategies[strat_nr][1](molecule, p0, **args)
+            #print(n_mutations, "mutations: ", self.strategies[strat_nr][1].__name__)
+
+        return molecule
+
+        #args = self.strategies[i][2]
+        #args['R'] = R
+        #return self.strategies[i][1]( molecule, p0, **args )
         #return xyzs.copy(), Zs.copy(), qs.copy()
 
 class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
     """
-    A class for creating data set for the eventual CorrectionLoop. Iterable.
+    A class for creating a batch of a data set for the CorrectionLoop. Iterable.
     Arguments:
-        simulator: instance of AFMulatorOCL_Simple.AFMulator
-        mutator:   instance of CorrectionLoop.Mutator
-        paths: array, paths to the molecules
-        nMutants: integer, number of different mutants per molecule
-        maxMutations: integer, maximum number of mutations per mutant molecule
+        :param afmulator: instance of AFMulatorOCL_Simple.AFMulator
+        :param mutator:   instance of CorrectionLoop.Mutator
+        :param paths: array, paths to the molecules
+        :param nMutants: integer, number of different mutants per molecule
     """
 
-    restartProb = 0.1
-    maxIndex    = 10000
-
-    def __init__(self, simulator, mutator, paths, nMutants, maxMutations, **super_arguments):
+    def __init__(self, afmulator, mutator, paths, nMutants, **gen_args):
         self.index        = 0
-        self.simulator    = simulator
+        self.molIndex     = 0
+        self.afmulator    = afmulator
         self.mutator      = mutator
         self.paths        = paths
         self.nMutants     = nMutants
-        self.maxMutations = maxMutations
-        super().__init__(simulator, None, paths, **super_arguments)
+        super().__init__(afmulator, None, paths, **gen_args)
 
-        self.read_xyzs()
+        self.extend_molecules_with_mutants()
+        self.check_empty_paths()
 
 
     def generatePair(self):
-        
-        # Get AFM
-        mol1 = self.molecule
-        Xs1 = self.simulator.eval_(mol1)
+        """
+        Generates a mutant of the current molecule.
+        :return: Two molecules in np array format
+        """
 
-        # Mutate and get new AFM
+        # Get current molecule
+        mol1_xyz = self.molecules[self.index]
+        xyzs = mol1_xyz[:, :3]
+        qs = mol1_xyz[:, 3]
+        Zs = mol1_xyz[:, 4].astype(np.int32)
+
+        mol1 = Molecule(xyzs, Zs, qs)
+
+        # Mutate
+        # TODO: change multipliers of p0 to middle of afm scan window
         p0       = (np.random.rand(3))
-        p0[0:2] *= 20.0
-        p0[  2] *= 1.0
-        R        = 3.0   
-        mol2     = self.mutator.mutate_local( self.molecule, p0, R )
-        Xs2      = self.simulator.eval_(mol2)
+        p0[0] *= self.afmulator.lvec[1][0]
+        p0[1] *= self.afmulator.lvec[2][1]
+        p0[2] *= 1.0
+        R        = 3.0
+        mol2     = self.mutator.mutate_local( mol1, p0, R )
 
-        self.molecule = mol2
-
-        return Xs1, Xs2, mol1, mol2
+        return mol1, mol2
 
     def __getitem__(self, index):
         self.index = index
@@ -180,12 +212,106 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         self.index = 0
         return self
 
+    def __len__(self):
+        return len(self.molecules)//self.batch_size
+
     def __next__(self):
-        if self.index <= self.maxIndex:
-            self.index += 1
-            return self.generatePair()
+        if self.index < len(self.molecules):
+
+            # Callback
+            self.on_batch_start()
+
+            mol1s = []
+            mol2s = []
+            X1s   = [[] for _ in self.iZPPs]
+            X2s   = [[] for _ in self.iZPPs]
+
+            for b in range(self.batch_size):
+                # Get original and mutant
+                mol1, mol2 = self.generatePair()
+                self.xyzs = mol1.xyzs
+                self.qs   = mol1.qs
+                self.Zs   = mol1.Zs
+
+                # Callback
+                self.on_sample_start()
+
+                # Make sure the molecule is in right position
+                self.handle_positions()
+
+                # Get AFM images
+                for i, (iZPP, Q, Qz) in enumerate(zip(self.iZPPs, self.Qs, self.QZs)):  # Loop over different tips
+                    # Set tip parameters
+                    self.afmulator.iZPP = iZPP
+                    self.afmulator.setQs(Q, Qz)
+                    self.REAs = PPU.getAtomsREA(self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0)
+
+                    # Make sure tip-sample distance is right
+                    self.handle_distance()
+
+                    # Callback
+                    self.on_afm_start()
+
+                    # Evaluate 1st AFM
+                    X1 = self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs)
+                    X1s[i].append(X1)
+
+                    # Set mutant as current molecule
+                    self.xyzs = mol2.xyzs
+                    self.qs   = mol2.qs
+                    self.Zs   = mol2.Zs
+
+                    # Make sure the molecule is in right position
+                    self.handle_positions()
+
+                    # Calculate new interaction parameters for the mutant
+                    self.REAs = PPU.getAtomsREA(self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0)
+
+                    # Make sure tip-sample distance is right
+                    self.handle_distance()
+
+                    # Evaluate 2nd AFM
+                    X2 = self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs)
+                    X2s[i].append(X2)
+
+
+                mol1s.append(mol1)
+                mol2s.append(mol2)
+
+                self.index += 1
+
+
+            for i in range(len(self.iZPPs)):
+                X1s[i] = np.stack(X1s[i], axis=0)
+                X2s[i] = np.stack(X2s[i], axis=0)
+
         else:
             raise StopIteration
+
+        mol1s = [np.c_[(mol1.xyzs, mol1.qs, mol1.Zs)] for mol1 in mol1s]
+        mol2s = [np.c_[(mol2.xyzs, mol2.qs, mol2.Zs)] for mol2 in mol2s]
+        return X1s, X2s, mol1s, mol2s
+
+    def extend_molecules_with_mutants(self):
+        """
+        Replicate each molecule in self.molecules 'nMutants' times
+        """
+        self.molecules *= self.nMutants
+
+    def match_batch_size(self):
+        """
+        Select random molecules to extend the list of molecules to make batch sizes even.
+        This should be called after augmenting data with rotations.
+        """
+        remainder = self.batch_size - len(self.molecules) % self.batch_size
+        self.molecules.extend(np.random.choice(self.molecules, remainder))
+
+    def check_empty_paths(self):
+        """
+        If self.paths is empty, raise ValueError
+        """
+        if not self.paths: raise ValueError("No molecules selected")
+
 
 class Corrector():
 
