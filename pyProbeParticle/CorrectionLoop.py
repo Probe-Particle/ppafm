@@ -193,10 +193,9 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         mol1 = Molecule(xyzs, Zs, qs)
 
         # Mutate
-        # TODO: change multipliers of p0 to middle of afm scan window
         p0       = (np.random.rand(3))
-        p0[0] *= self.afmulator.lvec[1][0]
-        p0[1] *= self.afmulator.lvec[2][1]
+        p0[0] *= (self.afmulator.scan_window[1][0]+self.afmulator.scan_window[0][0])*0.5
+        p0[1] *= (self.afmulator.scan_window[1][1]+self.afmulator.scan_window[0][1])*0.5
         p0[2] *= 1.0
         R        = 3.0
         mol2     = self.mutator.mutate_local( mol1, p0, R )
