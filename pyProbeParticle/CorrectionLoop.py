@@ -69,7 +69,10 @@ class Molecule():
         return Molecule(xyzs,Zs,qs)
 
     def __str__(self):
-        return np.c_[self.xyzs, self.Zs, self.qs].__str__
+        return np.c_[self.xyzs, self.Zs, self.qs].__str__()
+
+    def __len__(self):
+        return len(self.xyzs)
 
 # ========================================================================
 
@@ -110,6 +113,24 @@ def moveAtom( molecule, p0, R=0.0, dpMax=np.array([1.0,1.0,0.25]), nmax=1 ):
     xyzs[sel,:] += (np.random.rand(len(sel),3)-0.5)*dpMax[None,:]
     return Molecule(xyzs, Zs, qs)
 
+def moveMultipleAtoms(molecule: Molecule, scale=0.5, nmax=10):
+    """
+    A function for slightly shifting multiple atoms in the molecule.
+    """
+    nmax = nmax if nmax < len(molecule) else len(molecule)
+
+    move_n = np.random.randint(nmax+1)
+    to_be_moved = np.random.choice(len(molecule), move_n, replace=False)
+    magnitudes = np.random.uniform(-scale, scale, (move_n, 3))
+
+    xyzs_ = molecule.xyzs.copy()
+    Zs_   = molecule.Zs.copy()
+    qs_   = molecule.qs.copy()
+
+    xyzs_[to_be_moved] = xyzs_[to_be_moved] + magnitudes
+
+    return Molecule(xyzs_, Zs_, qs_)
+
 class Mutator():
     """
     A class for creating simple mutations to a molecule. The current state of the class allows for adding,
@@ -122,7 +143,7 @@ class Mutator():
     strategies = [ 
         (0.1,removeAtoms,{}), 
         (0.1,addAtom,{}), 
-        (0.1,moveAtom,{})
+        (0.0,moveAtom,{})
     ]
 
     def __init__(self, maxMutations):
@@ -136,12 +157,13 @@ class Mutator():
         #print( self.cumProbs ); exit()  
 
     def mutate_local(self, molecule, p0, R ):
-        n_mutations = np.random.randint(1,self.maxMutations+1)
+        n_mutations = np.random.randint(self.maxMutations+1)
 
         toss = np.random.rand(n_mutations)*self.cumProbs[-1]
         i = np.searchsorted( self.cumProbs, toss )
         #print( "mutate_local ", i, toss, self.cumProbs[-1] )
 
+        molecule = moveMultipleAtoms(molecule, 1.0, 10)
         for strat_nr in i:
             args = self.strategies[strat_nr][2]
             args['R'] = R
@@ -197,7 +219,7 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         p0[0] *= (self.afmulator.scan_window[1][0]+self.afmulator.scan_window[0][0])*0.5
         p0[1] *= (self.afmulator.scan_window[1][1]+self.afmulator.scan_window[0][1])*0.5
         p0[2] *= 1.0
-        R        = 3.0
+        R        = 1.0
         mol2     = self.mutator.mutate_local( mol1, p0, R )
 
         return mol1, mol2
