@@ -158,19 +158,20 @@ class Mutator():
 
     def mutate_local(self, molecule, p0, R ):
         n_mutations = np.random.randint(self.maxMutations+1)
+        n_mutations = min(n_mutations, len(molecule)//2)
 
         toss = np.random.rand(n_mutations)*self.cumProbs[-1]
         i = np.searchsorted( self.cumProbs, toss )
         #print( "mutate_local ", i, toss, self.cumProbs[-1] )
 
-        molecule = moveMultipleAtoms(molecule, 1.0, 10)
+        mutant = moveMultipleAtoms(molecule, 1.0, 10)
         for strat_nr in i:
             args = self.strategies[strat_nr][2]
             args['R'] = R
-            molecule = self.strategies[strat_nr][1](molecule, p0, **args)
+            mutant = self.strategies[strat_nr][1](mutant, p0, **args)
             #print(n_mutations, "mutations: ", self.strategies[strat_nr][1].__name__)
 
-        return molecule
+        return mutant
 
         #args = self.strategies[i][2]
         #args['R'] = R
