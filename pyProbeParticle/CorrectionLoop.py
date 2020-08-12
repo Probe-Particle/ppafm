@@ -95,11 +95,14 @@ def addAtom( molecule, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
     Zs   = molecule.Zs
     qs   = molecule.qs
     #print( "----- addAtom  p0 ", p0 )
+
+    rq = np.random.uniform(qs.min(), qs.max())
+
     dp    = (np.random.rand(3)-0.5)*R
     dp[2] = 0
     Zs_   = np.append( Zs,   np.array([Z0,]),      axis=0 )
     xyzs_ = np.append( xyzs, np.array([p0 + dp,]), axis=0 )
-    qs_   = np.append( qs,   np.array([q0 + (np.random.rand()-0.5)*dq,]), axis=0 )
+    qs_   = np.append( qs,   np.array([rq,]), axis=0 )
     return Molecule(xyzs_, Zs_, qs_)
 
 def moveAtom( molecule, p0, R=0.0, dpMax=np.array([1.0,1.0,0.25]), nmax=1 ):
@@ -117,11 +120,12 @@ def moveMultipleAtoms(molecule: Molecule, scale=0.5, nmax=10):
     """
     A function for slightly shifting multiple atoms in the molecule.
     """
-    nmax = nmax if nmax < len(molecule) else len(molecule)
 
     move_n = np.random.randint(nmax+1)
     to_be_moved = np.random.choice(len(molecule), move_n, replace=False)
     magnitudes = np.random.uniform(-scale, scale, (move_n, 3))
+
+    magnitudes[:, 2] *= 0.1
 
     xyzs_ = molecule.xyzs.copy()
     Zs_   = molecule.Zs.copy()
@@ -158,13 +162,15 @@ class Mutator():
 
     def mutate_local(self, molecule, p0, R ):
         n_mutations = np.random.randint(self.maxMutations+1)
-        n_mutations = min(n_mutations, len(molecule)//2)
+        n_mutations = min(n_mutations, len(molecule)//3)
+
+        print(n_mutations)
 
         toss = np.random.rand(n_mutations)*self.cumProbs[-1]
         i = np.searchsorted( self.cumProbs, toss )
         #print( "mutate_local ", i, toss, self.cumProbs[-1] )
 
-        mutant = moveMultipleAtoms(molecule, 1.0, 10)
+        mutant = moveMultipleAtoms(molecule, scale=0.5, nmax=len(molecule))
         for strat_nr in i:
             args = self.strategies[strat_nr][2]
             args['R'] = R
@@ -190,7 +196,6 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
 
     def __init__(self, afmulator, mutator, paths, nMutants, **gen_args):
         self.index        = 0
-        self.molIndex     = 0
         self.afmulator    = afmulator
         self.mutator      = mutator
         self.paths        = paths
@@ -215,12 +220,15 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
 
         mol1 = Molecule(xyzs, Zs, qs)
 
-        # Mutate
         p0       = (np.random.rand(3))
+        # mutation is centered to scan window in xy plane
         p0[0] *= (self.afmulator.scan_window[1][0]+self.afmulator.scan_window[0][0])*0.5
         p0[1] *= (self.afmulator.scan_window[1][1]+self.afmulator.scan_window[0][1])*0.5
-        p0[2] *= 1.0
+        # mutation is in the range of current atoms in z direction
+        p0[2] = np.random.uniform(xyzs[:,2].max()-1.0, xyzs[:,2].max()+0.1)
         R        = 1.0
+
+        # Mutate
         mol2     = self.mutator.mutate_local( mol1, p0, R )
 
         return mol1, mol2
@@ -258,11 +266,11 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                 # Callback
                 self.on_sample_start()
 
-                # Make sure the molecule is in right position
-                self.handle_positions()
-
                 # Get AFM images
                 for i, (iZPP, Q, Qz) in enumerate(zip(self.iZPPs, self.Qs, self.QZs)):  # Loop over different tips
+                    # Make sure the molecule is in right position
+                    self.handle_positions()
+
                     # Set tip parameters
                     self.afmulator.iZPP = iZPP
                     self.afmulator.setQs(Q, Qz)
