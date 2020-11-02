@@ -89,10 +89,10 @@ class FigImshow(FigCanvas):
 
 
             self.axes.set_xlabel(textRes)
-        if self.cbar is None:
-            self.cbar = self.fig.colorbar( self.img )
-        self.cbar.set_clim( vmin=F.min(), vmax=F.max() )
-        self.cbar.update_normal(self.img)
+        #if self.cbar is None:
+        #    self.cbar = self.fig.colorbar( self.img )
+        #self.cbar.set_clim( vmin=F.min(), vmax=F.max() )
+        #self.cbar.update_normal(self.img)
         self.axes.set_xlim(0,F.shape[1])
         self.axes.set_ylim(0,F.shape[0])
         self.axes.set_title(title)

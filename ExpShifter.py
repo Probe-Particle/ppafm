@@ -21,7 +21,8 @@ import scipy.ndimage as nimg
 import pyProbeParticle.GuiWigets   as guiw
 import pyProbeParticle.file_dat    as file_dat
 import copy
-import scipy.misc 
+
+from PIL import Image    
 def crosscorel_2d_fft(im0,im1):
     f0 = np.fft.fft2(im0)
     f1 = np.fft.fft2(im1)
@@ -256,8 +257,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 print ('slice_lengths/max_lengths = ',slice_lengths[z_slice][0]/max_length[0])
                 scaled_size = int(image_shape[0]*slice_lengths[z_slice][0]/max_length[0])
                 scaled_image_slice = np.zeros_like(data[z_slice]) 
-                start_xy = int((image_shape[0] -  scaled_size)/2)
-                scaled_image_slice[start_xy:start_xy+scaled_size, start_xy:start_xy+scaled_size] =  np.array(scipy.misc.imresize (self.data[z_slice], (scaled_size,scaled_size) )  )
+                start_xy = int((image_shape[0] -  scaled_size)/2) 
+                scaled_image_slice[start_xy:start_xy+scaled_size, start_xy:start_xy+scaled_size] =  np.array(Image.fromarray(self.data[z_slice]).resize((scaled_size,scaled_size) , Image.BILINEAR))
                 self.data[z_slice]=scaled_image_slice
                 self.margins = [start_xy,image_shape[0] -scaled_size - start_xy ,image_shape[1] -scaled_size - start_xy ,start_xy] 
 
@@ -370,18 +371,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             nx=arr.shape[1]/self.divNX * self.divNX
             ny=arr.shape[2]/self.divNY * self.divNY
             arr_ = arr[:,:nx,:ny]
-            arr_ = arr_.transpose((1,2,0))
+            arr_ = arr_.transpose((2,1,0)) # save array with AFM data in (x,y,z) format
             
             print ("saveData: arr_.shape ", arr_.shape)
  
 
             np.savez_compressed( self.path+"data.npz", data = arr_, lengthX = lengthX, lengthY = lengthY)
         else:
-            arr = arr.transpose((1,2,0))
+            arr = arr.transpose((2,1,0)) # save array with AFM data in (x,y,z) format
             
             np.savez_compressed( self.path+"data.npz", data = arr, lengthX = lengthX, lengthY = lengthY)
 
-
+        '''    
         with open(self.path+'data.pickle', 'wb') as fp:
             if self.slices_to_save:
                 pickle.dump( [self.fnames[i] for i in slices_indexes], fp)
@@ -394,7 +395,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 pickle.dump( [self.margins[i] for i in range(4)], fp)
                 pickle.dump( self.slice_lengths, fp)
 
- 
+        '''
+        
     def loadNPZ(self):
         self.path = self.txPath.text()
         if self.path[-1] is not '/':
@@ -405,11 +407,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         data2 = []
         npzfile = np.load(self.path+'data.npz')
         data =npzfile['data'] 
-        self.slice_lengths = [npzfile['lengthX'].astype(float) ,npzfile['lengthY'].astype(float) ]
-        print ('...::: self.slice_lengths loaded from npz!')
-        print ('self.slice_lengths = ', self.slice_lengths)
-        data = data.transpose((2,0,1))
-        print ('loaded Data: shape ', data.shape)
+        lenX = npzfile['lengthX'].astype(float).item()
+        lenY = npzfile['lengthY'].astype(float).item()
+        self.slice_lengths = [[lenX ,lenY ]]*data.shape[2]
+        self.fnames = ['' ]*data.shape[2]
+        print ('self.slice_lengths loaded from npz')
+
+        data = data.transpose((2,1,0))
+
         self.data = [ s for s in data ]
 
         data2=copy.copy(self.data)        
@@ -417,18 +422,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         print ('data npz loaded')
 
         # load meta data from data.pickle about file names, shifts, lengths
-        with open ( self.path+'data.pickle', 'rb') as fp:
-            self.fnames = pickle.load(fp)
-            self.shifts = pickle.load(fp)
-            self.margins = pickle.load(fp)
-            try: 
-                self.slice_lengths = pickle.load(fp)
-                print ('...::: self.slice_lengths loaded!')
-                print ('self.slice_lengths = ', self.slice_lengths)
-            except:
-                print ('...::: self.slice_lengths were not loaded!')
-                self.slice_lengths  = [ [0,0] for i in range(len(self.data)) ]
-
+        
 
         
         self.shifts = [ [0,0] for i in range(len(self.data)) ]
