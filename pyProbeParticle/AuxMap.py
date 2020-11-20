@@ -205,7 +205,7 @@ class Bonds(AuxMapBase):
                 
     def eval(self, xyzqs, Zs):
         pos0 = [0, 0, xyzqs[:,2].max()]
-        bonds2atoms = np.array( basUtils.findBonds_( xyzqs, Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
+        bonds2atoms = np.array( basUtils.findBonds_( xyzqs[:,:3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
         return self.projector.run_evalBondEllipses( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)) )[:,:,0]
         
@@ -234,7 +234,7 @@ class AtomRfunc(AuxMapBase):
                 
     def eval(self, xyzqs, Zs):
         pos0 = [0, 0, xyzqs[:,2].max()]
-        bonds2atoms = np.array( basUtils.findBonds_( xyzqs, Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
+        bonds2atoms = np.array( basUtils.findBonds_( xyzqs[:,:3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
         return self.projector.run_evalAtomRfunc( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)) )[:,:,0]
 
