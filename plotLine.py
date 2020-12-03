@@ -223,10 +223,10 @@ for iq,Q in enumerate( Qs ):
                     
                     plt.axhline(y=0, color='black', ls='-.')
                     perplane=fig.add_axes([opt_dict['image'][1], opt_dict['image'][2], 0.25, 0.25])
-#                    perplane.imshow(dfs[min_index,:, :], origin='image', cmap='gray')
+#                    perplane.imshow(dfs[min_index,:, :], origin='lower', cmap='gray')
 
                     zindex=int((opt_dict['image'][0]-scan_min[2]+Amp[0]/2.0)/scan_step[2])
-                    perplane.imshow(dfs[zindex,:, :], origin='image', cmap='gray')
+                    perplane.imshow(dfs[zindex,:, :], origin='lower', cmap='gray')
                     i=0
                     while i<len(POSplot[0]):
                         perplane.scatter(x=int(POSplot[0][i]/scan_step[0]),

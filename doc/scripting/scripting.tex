@@ -230,7 +230,7 @@ PP.getLenardJonesFF( Rs, C6, C12 )
 plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF LJ ' )
 for i in range(nslice):
     plt.subplot( 1, nslice, i+1 )
-    plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
+    plt.imshow( FF[i,:,:,2], origin='lower', interpolation='nearest' )
 
 
 withElectrostatics = ( abs( PP.params['charge'] )>0.001 )
@@ -245,7 +245,7 @@ if withElectrostatics:
     plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FFel ' )
     for i in range(nslice):
         plt.subplot( 1, nslice, i+1 )
-        plt.imshow( FFel[i,:,:,2], origin='image', interpolation='nearest' )
+        plt.imshow( FFel[i,:,:,2], origin='lower', interpolation='nearest' )
     FF += FFel*PP.params['charge']
     PP.setFF_Pointer( FF )
     del FFel
@@ -253,7 +253,7 @@ if withElectrostatics:
 plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF total ' )
 for i in range(nslice):
     plt.subplot( 1, nslice, i+1 )
-    plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
+    plt.imshow( FF[i,:,:,2], origin='lower', interpolation='nearest' )
    \end{lstlisting}
 \end{shadedbox}
 
@@ -296,7 +296,7 @@ slices = range( 0, len(dfs) )
 for ii,i in enumerate(slices):
     print " plotting ", i
     plt.figure( figsize=( 10,10 ) )
-    plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
+    plt.imshow( dfs[i], origin='lower', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
     z = zTips[i] - PP.params['moleculeShift' ][2]
     plt.colorbar();
     plt.xlabel(r' Tip_x $\AA$')

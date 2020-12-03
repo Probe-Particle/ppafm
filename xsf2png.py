@@ -37,9 +37,9 @@ for ii,i in enumerate(slices):
     if(options.dfrange != None):
         fmin = options.dfrange[0]
         fmax = options.dfrange[1]
-        plt.imshow( dfs[i], origin='image', interpolation='bicubic', vmin=fmin, vmax=fmax,  cmap='gray', extent=extent)
+        plt.imshow( dfs[i], origin='lower', interpolation='bicubic', vmin=fmin, vmax=fmax,  cmap='gray', extent=extent)
     else:
-        plt.imshow( dfs[i], origin='image', interpolation='bicubic', cmap='gray', extent=extent)
+        plt.imshow( dfs[i], origin='lower', interpolation='bicubic', cmap='gray', extent=extent)
 
     z=float(i)*(lvec[3][2]/nDim[0])
     plt.colorbar();
