@@ -33,7 +33,7 @@ print xs
 
 plt.imshow( fzs[options.iz], origin='imgage', cmap='gray' )
 for point in points:
-    print "point", point
+    print "point ", point
     plt.plot([point[0]],[point[1]],'o')
 plt.xlim(0,nDim[2])
 plt.ylim(0,nDim[1])
@@ -45,6 +45,7 @@ curves[0] = xs
 
 vmin = 0
 for i,point in enumerate(points):
+	print "i,point ", i,point
 	ys = fzs[:,int(point[1]),int(point[0])]
 	vmin=min(ys.min(),vmin)
 	print point, vmin

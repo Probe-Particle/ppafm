@@ -51,6 +51,28 @@ rhoT, lvecT, nDimT, headT = GU.loadXSF( options.tip    )
 if np.any( nDimS != nDimT ): raise Exception( "Tip and Sample grids has different dimensions! - sample: "+str(nDimS)+" tip: "+str(nDimT) )
 if np.any( lvecS != lvecT ): raise Exception( "Tip and Sample grids has different shap! - sample: "+str(lvecS )+" tip: "+str(lvecT) )
 
+# -------- Check basics
+# -- does it still work if we change cell size ?
+#lvecS[1,0]=10.0
+#lvecS[2,1]=25.0
+#lvecS[3,2]=30.0
+print "lvecS ", lvecS[1:,:]
+V  = np.linalg.det( lvecS[1:,:] )
+N = nDimS[0]*nDimS[1]*nDimS[2]
+dV = (V/N)  # volume of one voxel
+#cRAs[:,0] *= dV    # Debugging
+print "V ",V," N ",N," dV ",dV
+Qtip = rhoT.sum(); Qsam = rhoS.sum()
+print "Total Charge Tip %g Sample %g [unnorm] " %(Qtip,Qsam); 
+print "Total Charge Tip %g Sample %g [norm  ] " %(Qtip*dV,Qsam*dV); 
+#exit()
+
+# -------- Example Trial values : Unitary Homogenous Potential And Density  
+#rhoT[:,:,:] = 1.0/V     #  Constant electron density  1 electron/cell_volume [e/A^3]
+#rhoS[:,:,:] = 1.0       #  Constant potential         1 [eV]
+
+
+
 handleAECCAR( options.sample, lvecS, rhoS )
 handleAECCAR( options.tip,    lvecT, rhoT )
 
@@ -71,6 +93,11 @@ if options.Bpower > 0.0:
 
 print ">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... "
 Fx,Fy,Fz,E = fFFT.potential2forces_mem( rhoS, lvecS, nDimS, rho=rhoT, doForce=True, doPot=True, deleteV=True )
+
+print " E samples : ", E[0,0,0],    E[50,50,50]   , np.mean(E)
+#print " E samples : ", E[0,0,0]/N,  E[50,50,50]/N , np.mean(E)/N
+print " E samples : ", E[0,0,0]*dV, E[50,50,50]*dV, np.mean(E)*dV
+#exit()
 
 PQ = options.Apauli
 

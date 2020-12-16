@@ -9,4 +9,6 @@
 *.npy
 *.npz
 *.xsf
+*.cub
+*.cube
 *.png

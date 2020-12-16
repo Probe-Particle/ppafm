@@ -22,7 +22,8 @@ def getSize(inp_axis, dims, sampleSize):
     axes = {'x':0, 'y':1, 'z':2} # !!!
     if inp_axis in axes.keys(): axis = axes[inp_axis]
     size = np.linalg.norm(sampleSize[axis])   
-    return size, size/(dims[axis] - 1)
+    #return size, size/(dims[axis] - 1)  # This was walid befor we cut replicated last slice in .xsf
+    return size, size/dims[axis]
 
 def getMGrid(dims, dd):
     'returns coordinate arrays X, Y, Z'
@@ -334,13 +335,17 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     convFFT    = np.fft.fftn(V) * np.fft.fftn(rho);
     if deleteV: del V
     gc.collect()
+    #cRenorm = detLmatInv/(dd[0]*dd[1]*dd[2]); print " cRenorm ", cRenorm, 1/cRenorm, detLmatInv, dd[0], dd[1], dd[2]   #  det(invM)/(dx*dy*dz) = 1/( dx*dy*dz*det(M) ) =   N/( det(M)*det(M) ) 
+    dV = (dd[0]*dd[1]*dd[2])/detLmatInv; print " dV ", dV
     if doPot:
         if(verbose>0): print '--- Get Potential ---'
         #E         = np.real(np.fft.ifftn(convFFT))
-        E         = np.real(np.fft.ifftn(convFFT * (dd[0]*dd[1]*dd[2]) / (detLmatInv) ) )
+        #E          = np.real(np.fft.ifftn(convFFT))
+        E         = np.real(np.fft.ifftn(convFFT)) * dV
+        #E         = np.real(np.fft.ifftn(convFFT * (dd[0]*dd[1]*dd[2]) / (detLmatInv) ) )
     if doForce:
         if(verbose>0): print '--- Get Forces ---'
-        convFFT  *= 2*np.pi*1j*(dd[0]*dd[1]*dd[2]) / (detLmatInv)   
+        convFFT  *= 2*np.pi*1j  *dV             # * (dd[0]*dd[1]*dd[2])/(detLmatInv)   
         if(verbose>0): print "derConvFFT ", convFFT.sum(),convFFT.min(),convFFT.max()
         Fx        = np.real(np.fft.ifftn(zetaX*convFFT)); del zetaX; gc.collect()
         Fy        = np.real(np.fft.ifftn(zetaY*convFFT)); del zetaY; gc.collect()
