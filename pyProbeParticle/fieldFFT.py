@@ -17,8 +17,7 @@ def getSampleDimensions(lvec):
     return np.matrix(lvec[1:])
     
 def getSize(inp_axis, dims, sampleSize):
-    'returns size of data set in dimension inp_axis \
-    together with the length element in the given dimension'
+    'returns size of data set in dimension inp_axis  together with the length element in the given dimension'
     axes = {'x':0, 'y':1, 'z':2} # !!!
     if inp_axis in axes.keys(): axis = axes[inp_axis]
     size = np.linalg.norm(sampleSize[axis])   
@@ -101,6 +100,54 @@ def getProbeDensity(sampleSize, X, Y, Z, sigma, dd ):
     return rho
 '''
 
+def getSampleSizes( lvec, nDim ):
+    sampleSize = getSampleDimensions( lvec )
+    dims = (nDim[2], nDim[1], nDim[0])
+    xsize, dx = getSize('x', dims, sampleSize)
+    ysize, dy = getSize('y', dims, sampleSize)
+    zsize, dz = getSize('z', dims, sampleSize)
+    dd = (dx, dy, dz)
+    return sampleSize, dd, dims
+
+
+def getMultiploleGrid( lvec, nDim, sigma=0.7, multipole_dict=None, tilt=0.0 ):
+    '''
+    sampleSize = getSampleDimensions( lvec )
+    dims = (nDim[2], nDim[1], nDim[0])
+    xsize, dx = getSize('x', dims, sampleSize)
+    ysize, dy = getSize('y', dims, sampleSize)
+    zsize, dz = getSize('z', dims, sampleSize)
+    dd = (dx, dy, dz)
+    '''
+    sampleSize, dd, dims = getSampleSizes( lvec, nDim )
+    X, Y, Z = getMGrid(dims, dd)
+    rho = getMultiplole( sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole_dict, tilt=tilt )
+    return rho
+
+def getMultiplole( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None, tilt=0.0 ):
+    'returns probe particle potential'
+    if(verbose>0): print "sigma: ", sigma; #exit()
+    mat = getNormalizedBasisMatrix(sampleSize).getT()
+    rx = X*mat[0, 0] + Y*mat[0, 1] + Z*mat[0, 2]
+    ry = X*mat[1, 0] + Y*mat[1, 1] + Z*mat[1, 2]
+    rz = X*mat[2, 0] + Y*mat[2, 1] + Z*mat[2, 2]
+    r2  = rx**2 + ry**2 + rz**2
+    radial       = 1/( sigma**2  +  r2  )
+    #radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]  # TODO analytical renormalization may save some time ?
+    #radial      /= radial_renom
+    invR = 1/np.sqrt(r2)
+    rx*=invR
+    ry*=invR
+    ry*=invR
+    if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
+        rho = np.zeros( np.shape(radial) )
+        for kind, coef in multipole_dict.iteritems():
+            rho += radial * coef * getSphericalHarmonic( rx, ry, rz, kind=kind, tilt=tilt )
+    else:
+        rho = radial
+    return rho
+
+
 def getProbeDensity( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None, tilt=0.0 ):
     'returns probe particle potential'
     if(verbose>0): print "sigma: ", sigma; #exit()
@@ -133,7 +180,7 @@ def addCoreDensity( rho, val, x,y,z, sigma=0.1 ):
     rho         += radial
 
 def addCoreDensities( atoms, valElDict, rho, lvec, sigma=0.1 ):
-
+    '''
     sampleSize = getSampleDimensions( lvec )
     nDim = rho.shape 
     dims = (nDim[2], nDim[1], nDim[0])
@@ -141,6 +188,9 @@ def addCoreDensities( atoms, valElDict, rho, lvec, sigma=0.1 ):
     ysize, dy = getSize('y', dims, sampleSize)
     zsize, dz = getSize('z', dims, sampleSize)
     dd = (dx, dy, dz)
+    '''
+    sampleSize, dd, dims = getSampleSizes( lvec, nDim )
+
     X, Y, Z = getMGrid(dims, dd)
 
     mat = getNormalizedBasisMatrix(sampleSize).getT()
@@ -264,12 +314,15 @@ def exportPotential(rho, rho_data='rho_data'):
 def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, tilt=0.0 ):
     fieldInfo( V, label="fieldInfo V " )
     if(verbose>0): print '--- Preprocessing ---'
+    '''
     sampleSize = getSampleDimensions( lvec )
     dims = (nDim[2], nDim[1], nDim[0])
     xsize, dx = getSize('x', dims, sampleSize)
     ysize, dy = getSize('y', dims, sampleSize)
     zsize, dz = getSize('z', dims, sampleSize)
     dd = (dx, dy, dz)
+    '''
+    sampleSize, dd, dims = getSampleSizes( lvec, nDim )
     X, Y, Z = getMGrid(dims, dd)
     fieldInfo( Z, label="fieldInfo Z " )
     if rho == None:
@@ -288,14 +341,15 @@ def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, tilt
 
 def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, doForce=True, doPot=False, deleteV=True, tilt=0.0 ):
     print '--- Preprocessing ---'
+    '''
     sampleSize = getSampleDimensions( lvec )
     dims = (nDim[2], nDim[1], nDim[0])
-    
     xsize, dx = getSize('x', dims, sampleSize)
     ysize, dy = getSize('y', dims, sampleSize)
     zsize, dz = getSize('z', dims, sampleSize)
     dd = (dx, dy, dz)
-
+    '''
+    sampleSize, dd, dims = getSampleSizes( lvec, nDim )
     #potential2forces_mem: dims  (92, 91, 60)
     #potential2forces_mem: dims  (49.219764194907896, 48.690656801482945, 32.288778971493564)
     if(verbose>0): print "potential2forces_mem: dims ", dims 
@@ -353,8 +407,18 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     if(verbose>0): print 'Fz.max(), Fz.min() = ', Fz.max(), Fz.min()
     return Fx,Fy,Fz, E
 
-
-
+def convolveFFT( F1, F2, lvec, nDim ):
+    print '--- Preprocessing ---'
+    #sampleSize = getSampleDimensions( lvec )
+    #dims = (nDim[2], nDim[1], nDim[0])
+    sampleSize, dd, dims = getSampleSizes( lvec, nDim )
+    LmatInv     = getNormalizedBasisMatrix(sampleSize).getI()
+    detLmatInv  = np.abs(np.linalg.det(LmatInv))
+    F12w        = np.fft.fftn(F1) * np.fft.fftn(F2)
+    gc.collect()
+    dV          = (dd[0]*dd[1]*dd[2])/detLmatInv; print " dV ", dV
+    F12         = np.real(np.fft.ifftn(F12w)) * dV
+    return F12
 
 def Average_surf( Val_surf, W_surf, W_tip ):
     '''

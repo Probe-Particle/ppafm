@@ -150,7 +150,21 @@ def sphericalHist( data, center, dr, n ):
     rs = np.arange( 0, n ) * dr
     lib.sphericalHist( data, center, dr, n, Hs, Ws );
     return rs, Hs, Ws
-    	
+
+#void interpolateLine_gridCoord( int n, Vec3d * p1, Vec3d * p2, double * data, double * out )
+#void stampToGrid2D( int* ns1_, int* ns2_, Vec2d* p0_, Vec2d* a_, Vec2d* b_, double* g1, double* g2 ){
+lib.stampToGrid2D.argtypes = [ array1i, array1i, array1d, array1d, array1d, array2d, array2d, c_double ]
+lib.stampToGrid2D.restype  = None
+def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0 ):
+	p0=np.array(p0)
+	ca=np.cos(angle)
+	sa=np.sin(angle)
+	a =np.array([ca,-sa])*dd[0]
+	b =np.array([sa, ca])*dd[1]
+	ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
+	ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
+	lib.stampToGrid2D( ns1, ns2, p0, a, b, stamp, canvas, coef )
+
 # ==============  String / File IO utils
 
 def readUpTo( filein, keyword ):
@@ -283,12 +297,11 @@ def loadCUBE(fname):
 		lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*bohrRadius2angstroem
 		lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*bohrRadius2angstroem
 
-	print "GridUtils| Load "+fname+" using readNumsUpTo"  
-	noline = 6+int(sth0[0])
+	#print "GridUtils| Load "+fname+" using readNumsUpTo"  
+	noline = 6+abs(int(sth0[0])) + 1
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
-	print "GridUtils| np.shape(F): ",np.shape(F)
-	print "GridUtils| nDim: ",nDim
-	print nDim
+	#print "GridUtils| np.shape(F): ",np.shape(F)
+	#print "GridUtils| nDim: ",nDim
 	FF = np.reshape(F, nDim ).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
 
 	#FF [1:,1:,1:] = FF [:-1,:-1,:-1] 

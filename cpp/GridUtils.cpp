@@ -34,34 +34,47 @@ extern "C" {
         char line[5000]; // define a length which is long enough to store a line
         char *waste;
         int waste2;
-        long i=0, j=0, k=0, tot=0; 
-        int nx=dims[0];
-        int ny=dims[1];
-        int nz=dims[2];
-        printf ("FileRead program: reading %s file\n", fname);
-        printf ("XYZ dimensions are %d %d %d\n", dims[0], dims[1], dims[2]);
+        //int i=0, j=0, k=0, tot=0; 
+        //int nx=dims[0];
+        //int ny=dims[1];
+        //int nz=dims[2];
+        //printf ("FileRead program: reading %s file\n", fname);
+        //printf ("XYZ dimensions are %i %i %i  noline %i \n", dims[0], dims[1], dims[2], noline );
         f=fopen(fname, "r");
         if (f==NULL)        {
             fprintf(stderr, "Can't open the file %s", fname);
             exit (1); 
         }
-        for (i=0; i<noline; i++) {   
+        for (int i=0; i<noline; i++) {   
             waste=fgets(line,5000, f);
+			//printf ("waste[%i]: %s",i, line );	
         }
-//       printf ("Line: %s", line);
-        for  (tot=0, k=0; k<dims[2]; k++){
-            for (j=0; j<dims[1]; j++){   
-                for (i=0; i<dims[0]; i++){
-                    waste2=fscanf(f,"%lf",&numbers[tot]);
-                    //printf ("%20.20lf ", numbers[tot]);
-                    //printf ("%i %i %i %f \n", k, j, i, numbers[tot] );
-                    tot++;
-//                    if (tot > 5 ) exit(1);
-                }
-            }
+        //printf ("Line: %s", line);
+		//int i=0;
+		double nums[8];
+		int ntot = dims[0] * dims[1] * dims[2]; 
+		int itot=0;
+		for(int il=0; il<ntot; il++){
+			//waste=fgets(line,5000, f);
+			//printf( "[%i,%i] >>%s<<\n", il, itot, line );
+			int ngot = fscanf(f,"%lf %lf %lf %lf %lf %lf %lf %lf", &nums[0],&nums[1],&nums[2],&nums[3],&nums[4],&nums[5],&nums[6],&nums[7] );
+			//int ngot = sscanf(line,"%lf %lf %lf %lf %lf %lf %lf %lf",              &nums[0],&nums[1],&nums[2],&nums[3],&nums[4],&nums[5],&nums[6],&nums[7] );
+			//printf       ( "ngot %i \n", ngot );
+			//printf       ( "[%i,%i] %g %g %g %g %g %g %g %g \n", il, itot, nums[0],nums[1],nums[2],nums[3],nums[4],nums[5],nums[6],nums[7] );
+			for(int j=0; j<ngot; j++ ){
+				numbers[itot]=nums[j];
+				itot++;
+			}
+			if(itot>=ntot) break;
+			//waste=fgets(line,5000, f);
+			//waste2=fscanf(f,"%lf",&numbers[tot]);
+			//printf ("line[%i] %s", i, line );
+			//printf ("%20.20lf ", numbers[tot]);
+			//printf ("%i %i %i %f \n", k, j, i, numbers[tot] );
+			//if (il > 50 ) exit(1);
         }
 //       printf ("%lf %lf %lf %lf %lf\n", numbers[tot-1], numbers[tot-2], numbers[tot-3], numbers[tot-4], numbers[tot-5]);
-        printf("Reading DONE\n");
+        //printf("Reading DONE\n");
         fclose(f);
         return 0;
     }
@@ -118,6 +131,38 @@ extern "C" {
 			pi0.add( dpi0 );
 			pi1.add( dpi1 );
 		}
+	}
+
+	void stampToGrid2D( int* ns1_, int* ns2_, Vec2d* p0_, Vec2d* a_, Vec2d* b_, double* stamp, double* canvas, double coef ){
+		Vec2i ns1 = *(Vec2i*)ns1_;
+		Vec2i ns2 = *(Vec2i*)ns2_;
+		Vec2d p0  = *(Vec2d*)p0_;
+		Vec2d a   = *(Vec2d*)a_;
+		Vec2d b   = *(Vec2d*)b_;
+		printf( "stampToGrid2D \n");
+		for(int iy=0; iy<ns1.y; iy++){
+			for(int ix=0; ix<ns1.x; ix++){
+				double x = p0.x + a.x*ix + b.x*iy;
+				double y = p0.y + a.y*ix + b.y*iy;
+				int jx  = (int)x; 
+				int jy  = (int)y; 
+				double dx=x-jx; double mx=1.-dx;
+				double dy=y-jy; double my=1.-dy;
+				jx=wrap(jx,ns2.x);
+				jy=wrap(jy,ns2.y);
+				int jx1 = wrap(jx+1,ns2.x);
+				int jy1 = wrap(jy+1,ns2.y);
+				double v = stamp[iy*ns1.x+ix] * coef;
+				//if( (jx<0)||(jx>=ns2.x)||(jy<0)||(jy>=ns2.y) ){
+				//	printf( " %i %i -> %i %i %i %i  %g | %i %i \n", ix,iy, jx,jy,jx1,jy1, v,  ns2.x, ns2.y );
+				//}
+				canvas[jy *ns2.x+jx ] += v*mx*my;
+				canvas[jy *ns2.x+jx1] += v*dx*my;
+				canvas[jy1*ns2.x+jx ] += v*mx*dy;
+				canvas[jy1*ns2.x+jx1] += v*dx*dy; 
+			}
+		}
+		printf( "stampToGrid2D DONE \n");
 	}
 	
 	// ---------  1D radial histogram
