@@ -68,7 +68,7 @@ def photonMap2D( rhoTrans, tipDict, lvec, z=10.0, sigma=1.0, multipole_dict={'s'
 
 
 
-def photonMap2D_stamp( rhoTrans, tipDict, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[1.0], ncanv=(300,300) ):
+def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[1.0], ncanv=(300,300) ):
     sh = rhoTrans.shape
     print "shape: ", sh
     #rho  = np.zeros( (sh[:2]) )
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     rots =[0.0]
     poss =[ [200.0,200.0] ]
     coefs=[1.0]
-    phmap, Vtip, rho =  photonMap2D_stamp( rhoTrans, tipDict, lvecH, z=0.5, sigma=1.0, multipole_dict={'s':1.0}, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+    phmap, Vtip, rho =  photonMap2D_stamp( rhoTrans, lvecH, z=0.5, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
 
     plt.figure(figsize=(15,5))
     plt.subplot(1,3,1); plt.imshow( rho      ); plt.colorbar(); plt.title('Transient Density')
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     rots =[0.0,0.0]
     poss =[ [200.0,50.0] ,  [200.0,200.0] ]
     coefs=[1.0,1.0]
-    phmap, Vtip, rho =  photonMap2D_stamp( rhoTrans, tipDict, lvecH, z=0.5, sigma=1.0, multipole_dict={'s':1.0}, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+    phmap, Vtip, rho =  photonMap2D_stamp( rhoTrans, lvecH, z=0.5, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
 
     plt.figure(figsize=(15,5))
     plt.subplot(1,3,1); plt.imshow( rho      ); plt.colorbar(); plt.title('Transient Density')

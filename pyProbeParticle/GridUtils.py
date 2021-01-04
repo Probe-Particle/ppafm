@@ -447,20 +447,24 @@ def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAUL
 		print "I cannot save this format!"
 
 
-def load_scal_field(fname, data_format="xsf"):
+def load_scal_field(fname, data_format=None):
 	'''
 	Loading scalar fields into xsf, or npy
 	'''
+	if data_format is None:
+		ws = fname.split(".")
+		fname      =ws[0]
+		data_format=ws[1]
 	if (data_format=="xsf"):
-		data, lvec, ndim, head =loadXSF(fname+".xsf")
+		data, lvec, ndim, head = loadXSF(fname+"."+data_format)
 	elif (data_format=="npy"):
 		data, lvec = loadNpy(fname)
 		ndim = data.shape
-	elif (data_format=="cube"):
-		data,lvec, ndim, head = loadCUBE(fname+".cube")
+	elif (data_format=="cube" or data_format=="cub" ):
+		data,lvec, ndim, head = loadCUBE(fname+"."+data_format)
 	else:
 		print "I cannot load this format!"
-	return data.copy(), lvec, ndim;
+	return data.copy(), lvec, ndim
 
 # =============== Other Utils
 

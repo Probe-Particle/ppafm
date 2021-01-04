@@ -64,10 +64,11 @@ class FigImshow(FigCanvas):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp,  width=width, height=height, dpi=dpi )
         cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
             
-    def plotSlice(self, F_stack , z_slice, title=None, margins=None, grid_selector = 0, slice_length = None):
+    #def plotSlice(self, F_stack , z_slice, title=None, margins=None, grid_selector = 0, slice_length = None):
+    def plotSlice(self, F, title=None, margins=None, grid_selector = 0, slice_length = None):
         self.axes.cla()
         
-        F = F_stack[z_slice]
+        #F = F_stack[z_slice]
         print "plotSlice F.shape, F.min(), F.max() ", F.shape, F.min(), F.max()
 
 
@@ -103,13 +104,14 @@ class FigImshow(FigCanvas):
             self.axes.grid(True,  linestyle='dotted', color='blue')
         else:
             self.axes.grid(False)
+        '''
         if (z_slice > 0):
             dim = np.zeros(F_stack[z_slice-1].shape)
             alpha = 0.5*np.ones(F_stack[z_slice-1].shape)
             img_prev = F_stack[z_slice-1] 
             img_prev_spice_extent = np.stack((img_prev,dim, dim,alpha), axis=2)
             #self.axes.imshow( img_prev_spice_extent,  origin='image', interpolation='bicubic' )
-
+        '''
 
         self.fig.tight_layout()
         self.draw()
