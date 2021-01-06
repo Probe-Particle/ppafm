@@ -27,6 +27,12 @@ import pyProbeParticle.GuiWigets   as guiw
 
 import photonMap as phmap
 
+def makeBox( pos, rot, a=10.0,b=20.0 ):
+    ca=np.cos(rot)
+    sa=np.sin(rot)
+    xs=[pos,pos-ca*a,pos-ca*a+sa*b,pos+sa*b,pos]
+    ys=[pos,pos+sa*a,pos+sa*a+ca*b,pos+ca*b,pos]
+    return xs,ys
 
 class ApplicationWindow(QtWidgets.QMainWindow):
 
@@ -56,67 +62,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # -------------- Potential
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb);
 
-        # --- Mode select
-        #sl = QtWidgets.QComboBox(); self.slMode = sl; vb.addWidget(sl)
-        #sl.addItem( Modes.LJQ.name       )
-        #sl.addItem( Modes.MorseFFel.name )
-        #sl.setCurrentIndex( sl.findText( Modes.MorseFFel.name ) )
-        #sl.currentIndexChanged.connect(self.selectMode)
-
-        # --- Data View selection
-        #sl = QtWidgets.QComboBox(); self.slDataView = sl; vb.addWidget(sl)
-        #sl.addItem( DataViews.FFpl.name ); sl.addItem( DataViews.FFel.name ); sl.addItem( DataViews.FFin.name ); sl.addItem( DataViews.FFout.name ); sl.addItem(DataViews.df.name );
-        #sl.setCurrentIndex( sl.findText( DataViews.FFpl.name ) )
-        #sl.currentIndexChanged.connect(self.updateDataView)
-        
-        # --- Parameters  iZPP, fMorse
-        #vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{iZPP, fMorse[1]}") )
-        #bx = QtWidgets.QSpinBox();       bx.setRange(0, 200);    bx.setValue(8);                             bx.valueChanged.connect(self.updateFromFF); vb.addWidget(bx); self.bxZPP=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.25, 4.0); bx.setValue(1.00);  bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateFromFF); vb.addWidget(bx); self.bxMorse=bx
-        
-        # -------------- Relaxation 
-        #ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
-
-        #vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Q [e]") )
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(self.Q); bx.setSingleStep(0.05); bx.valueChanged.connect(self.upload_and_relax); vb.addWidget(bx); self.bxQ=bx
-
-        #vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("K {x,y,R} [N/m]") )
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.24);  bx.setSingleStep(0.05); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKx=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.24);  bx.setSingleStep(0.05); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKy=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(30.0); bx.setSingleStep(5.0); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxKr=bx
-
-        #vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("eq.pos {x,y,R} [A]") )
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0x=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0y=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 2.0); bx.setValue(0.5);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0z=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange( 0.0, 10.0); bx.setValue(4.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bxP0r=bx
-   
-        #vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax {dt,damp}") )
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,10.0); bx.setValue(0.1);  bx.setSingleStep(0.005); bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bx_dt=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,1.0); bx.setValue(0.9);   bx.setSingleStep(0.05);  bx.valueChanged.connect(self.relax); vb.addWidget(bx); self.bx_damp=bx  
-
-        #vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax_min {x,y,z}[A]") )
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMinX=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMinY=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(zmin);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMinZ=bx
-
-        #vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax_max {x,y,z}[A]") )
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,100.0); bx.setValue(xmax);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMaxX=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,100.0); bx.setValue(ymax);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMaxY=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,100.0); bx.setValue(zmax);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxSpanMaxZ=bx
-
-        #vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("relax_step {x,y,z}[A]") )
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1);  bx.setSingleStep(0.02); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxStepX=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1);  bx.setSingleStep(0.02); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxStepY=bx
-        #bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1);  bx.setSingleStep(0.02); bx.valueChanged.connect(self.shapeRelax); vb.addWidget(bx); self.bxStepZ=bx 
-
-        #vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("In the beginning & after chaging anything rather push relax") )
-
-        # -------------- df Conversion & plotting
-        #ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
-
-
-
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel(" z_tip[A], sigma[A] ") )
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,10.0); bx.setSingleStep(0.1); bx.setValue(0.5); bx.valueChanged.connect(self.eval); vb.addWidget(bx); self.bx_z=bx
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,10.0); bx.setSingleStep(0.1); bx.setValue(1.0); bx.valueChanged.connect(self.eval); vb.addWidget(bx); self.bx_w=bx
@@ -132,24 +77,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
         
         # --- EditAtoms
-        #bt = QtWidgets.QPushButton('Edit Geom', self)
-        #bt.setToolTip('Edit atomic structure')
-        #bt.clicked.connect(self.editAtoms)
-        #self.btEditAtoms = bt; vb.addWidget( bt )
+        #bt = QtWidgets.QPushButton('Edit Geom', self); bt.setToolTip('Edit atomic structure'); bt.clicked.connect(self.editAtoms); self.btEditAtoms = bt; vb.addWidget( bt )
+        #bt = QtWidgets.QPushButton('Edit Params', self); bt.setToolTip('Edit atomic structure'); bt.clicked.connect(self.editSpecies); self.btEditParams = bt; vb.addWidget( bt )
+        #bt = QtWidgets.QPushButton('getFF', self); bt.setToolTip('Get ForceField'); bt.clicked.connect(self.getFF); self.btFF=bt; vb.addWidget( self.btFF )
         
-        # --- EditFFparams
-        #bt = QtWidgets.QPushButton('Edit Params', self)
-        #bt.setToolTip('Edit atomic structure')
-        #bt.clicked.connect(self.editSpecies)
-        #self.btEditParams = bt; vb.addWidget( bt )
-        
-        # --- btFF
-        #self.btFF = QtWidgets.QPushButton('getFF', self)
-        #self.btFF.setToolTip('Get ForceField')
-        #self.btFF.clicked.connect(self.getFF)
-        #vb.addWidget( self.btFF )
-        
-        # --- btRelax
+        # --- btRun
         bt = QtWidgets.QPushButton('Run', self)
         bt.setToolTip('evaluate convolution')
         bt.clicked.connect(self.eval)
@@ -159,35 +91,19 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #self.main_widget.setFocus()
         #self.setCentralWidget(self.main_widget)
 
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
-        
-        # --- btLoad
-        #self.btLoad = QtWidgets.QPushButton('Load', self)
-        #self.btLoad.setToolTip('Load inputs')
-        #self.btLoad.clicked.connect(self.loadInputs_New)
-        #vb.addWidget( self.btLoad )
-        
-        # --- btSave
-        #self.btSave = QtWidgets.QPushButton('save fig', self)
-        #self.btSave.setToolTip('save current figure')
-        #self.btSave.clicked.connect(self.saveFig)
-        #vb.addWidget( self.btSave )
-
-        # --- btSaveW (W- wsxm)
-        #self.btSaveW = QtWidgets.QPushButton('save data', self)
-        #self.btSaveW.setToolTip('save current figure data')
-        #self.btSaveW.clicked.connect(self.saveDataW)
-        #vb.addWidget( self.btSaveW )
+        #vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
+        #self.btLoad = QtWidgets.QPushButton('Load', self); self.btLoad.setToolTip('Load inputs'); self.btLoad.clicked.connect(self.loadInputs_New); vb.addWidget( self.btLoad )
+        #self.btSave = QtWidgets.QPushButton('save fig', self); self.btSave.setToolTip('save current figure'); self.btSave.clicked.connect(self.saveFig); vb.addWidget( self.btSave )
+        #self.btSaveW = QtWidgets.QPushButton('save data', self); self.btSaveW.setToolTip('save current figure data'); self.btSaveW.clicked.connect(self.saveDataW); vb.addWidget( self.btSaveW )
 
 
         vb = QtWidgets.QVBoxLayout(); l0.addLayout(vb) 
+        vb.addWidget( QtWidgets.QLabel("x y [A]  rot[deg]  coef {Re,Im}") )
         tx = QtWidgets.QTextEdit()
         vb.addWidget( tx )
         tx.setText('''200.0 200.0      0.0     1.0\n280.0 300.0     90.0     -1.0''')
         self.txPoses = tx
         #self.centralLayout.addWidget( bt )
-
-
 
         # ==========  Child Windows
         self.main_widget.setFocus()
@@ -236,6 +152,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             return True
         return False
 
+    def drawPoses(self, fig, d=10.0):
+        n = len( self.poss )
+        for i in range(n):
+            #fig.axes.plot( self.poss[i][0], self.poss[i][0], 'o' )
+            #x  = self.poss[i][0]
+            #y  = self.poss[i][1]
+            #dx = np.cos(self.rots[i])*d
+            #dy = np.sin(self.rots[i])*d
+            xs,ys = makeBox( self.poss[i], self.rots[i], a=10.0,b=20.0 )
+            fig.axes.plot( xs, ys, '-' )
+        fig.draw()
+
     def eval(self):
         self.parsePoses()
 
@@ -251,9 +179,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         tipDict =  { 's': 1.0  }
         pho, Vtip, rho =  phmap.photonMap2D_stamp( self.rhoTrans, self.lvec, z=self.bx_z.value(), sigma=self.bx_w.value(), multipole_dict=tipDict, rots=self.rots, poss=self.poss, coefs=self.coefs, ncanv=(self.bx_nx.value(),self.bx_ny.value()) )
         #self.figCan.plotSlice( pho, title="photon map" )
-        self.fig1.plotSlice( pho,   title="photon map" )
-        self.fig2.plotSlice( rho,   title="rhoTrans" )
-        self.fig3.plotSlice( Vtip,  title="Vtip" )
+        self.fig1.plotSlice( pho**2, title="photon map" )
+        self.fig2.plotSlice( rho,    title="rhoTrans" )
+        self.fig3.plotSlice( Vtip,   title="Vtip" )
+
+        self.drawPoses( self.fig1 )
+        self.drawPoses( self.fig2 )
+        self.drawPoses( self.fig3 )
 
     def loadHOMO(self):
         pass
@@ -312,9 +244,9 @@ if __name__ == "__main__":
     #parser.add_option( "-L", "--lumo",   action="store", type="string", default="lumo.xsf", help="orbital of excited electron; 3D data-file (.xsf,.cube)")
     #parser.add_option( "-T", "--transdens",   action="store", type="string", default="transRho.xsf", help="transition density; 3D data-file (.xsf,.cube)")
         
-    parser.add_option( "-H", "--homo",   action="store", type="string", default="", help="orbital of electron hole;    3D data-file (.xsf,.cube)")
-    parser.add_option( "-L", "--lumo",   action="store", type="string", default="", help="orbital of excited electron; 3D data-file (.xsf,.cube)")
-    parser.add_option( "-T", "--transdens",   action="store", type="string", default="", help="transition density; 3D data-file (.xsf,.cube)")
+    parser.add_option( "-H", "--homo",       action="store", type="string", default="", help="orbital of electron hole;    3D data-file (.xsf,.cube)")
+    parser.add_option( "-L", "--lumo",       action="store", type="string", default="", help="orbital of excited electron; 3D data-file (.xsf,.cube)")
+    parser.add_option( "-T", "--transdens",  action="store", type="string", default="", help="transition density; 3D data-file (.xsf,.cube)")
 
     parser.add_option( "-R", "--radius", action="store", type="float",  default="1.0", help="tip radius")
     parser.add_option( "-z", "--ztip",   action="store", type="float",  default="5.0", help="tip above substrate")

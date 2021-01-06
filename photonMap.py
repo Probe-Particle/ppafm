@@ -1,6 +1,20 @@
 #!/usr/bin/python 
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
+'''
+TODO:
+ * Check units of tip size 
+ * try 3D effects (not flatened z-axis)
+ * complex coeficients for molecular orbital phase
+ * draw position and orientaion of molecules
+ * move molecules by mouse
+
+'''
+
+
+
+
+
 import os
 import sys
 import __main__ as main
@@ -44,6 +58,24 @@ def makeTipField2d( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     Vtip = radial
     return Vtip, shifts
 
+def coordConv(poss,rots,center,nn):
+    #poss - center positions of rhoTrans in canvas with respect to canvas center in points
+    #rots - rotations in RAD
+    #center - indexes of rhoTrans center (point of rotation)
+    #nn - array defining the canvas size, in points
+    a = center[0]
+    b = center[1]
+    for i in range(len(rots)):
+        nposs = poss
+        ph = rots[i]
+        x  = poss[i][0]
+        y  = poss[i][1]
+        ca = np.cos(ph)
+        sa = np.sin(ph)
+        nposs[i][0] = x - ca*a + sa*b + nn[0]/2.
+        nposs[i][1] = y + sa*a + ca*b + nn[1]/2.
+    return nposs
+
 def convFFT(F1,F2):
     return np.fft.ifftn( np.fft.fftn(F1) * np.fft.fftn(F2) )
 
@@ -68,15 +100,22 @@ def photonMap2D( rhoTrans, tipDict, lvec, z=10.0, sigma=1.0, multipole_dict={'s'
 
 
 
-def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[1.0], ncanv=(300,300) ):
+def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], ncanv=(300,300) ):
     sh = rhoTrans.shape
     print "shape: ", sh
-    #rho  = np.zeros( (sh[:2]) )
-    rho    = np.sum(  rhoTrans, axis=2) 
-    canvas = np.zeros(ncanv)
+    #rho   = np.zeros( (sh[:2]) )
+    rho    = np.sum  (  rhoTrans, axis=2 ) 
+    rho    = rho.astype( np.complex128 ) 
+    canvas = np.zeros( ncanv, dtype=np.complex128 ) 
+    
+    #rho    = np.ascontiguousarray( rho,    dtype=np.complex128 )
+    #canvas = np.ascontiguousarray( canvas, dtype=np.complex128 )
 
     for i in range(len(rots)):
-        GU.stampToGrid2D( canvas, rho, poss[i], rots[i], dd=[1.0,1.0], coef=coefs[i] )
+        #GU.stampToGrid2D( canvas, rho, poss[i], rots[i], dd=[1.0,1.0], coef=coefs[i] )
+        coef = complex( coefs[i][0], coefs[i][1] )
+        print  i,poss[i], rots[i],  coef
+        GU.stampToGrid2D_complex( canvas, rho, poss[i], rots[i], dd=[1.0,1.0], coef=coef )
 
     #Vtip = np.zeros( (sh[:2]) )
     print lvec
@@ -88,7 +127,7 @@ def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
     #canvas = np.zeros((300,300))
 
     Vtip, shifts = makeTipField2d( ncanv[:2], dd, z=z, sigma=sigma, multipole_dict=multipole_dict )
-    phmap  = convFFT(Vtip,canvas).real
+    phmap  = convFFT(Vtip,canvas)
     print "rho  ", rho.shape  
     print "Vtip ", Vtip.shape  
     Vtip = np.roll( Vtip, -shifts[1], axis=1)
@@ -136,6 +175,7 @@ if __name__ == "__main__":
 
     #phmap, Vtip, rho =  photonMap2D( rhoTrans, tipDict, lvecH, z=0.5, sigma=0.0, multipole_dict=tipDict )
 
+    '''
     rots =[0.0]
     poss =[ [200.0,200.0] ]
     coefs=[1.0]
@@ -145,16 +185,25 @@ if __name__ == "__main__":
     plt.subplot(1,3,1); plt.imshow( rho      ); plt.colorbar(); plt.title('Transient Density')
     plt.subplot(1,3,2); plt.imshow( Vtip     ); plt.colorbar(); plt.title('Tip Field')
     plt.subplot(1,3,3); plt.imshow( phmap**2 ); plt.colorbar(); plt.title('Photon Map')
+    '''
 
     rots =[0.0,0.0]
     poss =[ [200.0,50.0] ,  [200.0,200.0] ]
-    coefs=[1.0,1.0]
+    #poss =[ [200.0,50.0] ,  [50.0,50.0] ]
+    coefs=[ [1.0,0.0],      [0.0,1.0]     ]
+
+
+    #rots =[0.0]
+    #poss =[ [300.0,50.0]]
+    #coefs=[ [1.0,0.0]   ]
+
     phmap, Vtip, rho =  photonMap2D_stamp( rhoTrans, lvecH, z=0.5, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
 
     plt.figure(figsize=(15,5))
-    plt.subplot(1,3,1); plt.imshow( rho      ); plt.colorbar(); plt.title('Transient Density')
-    plt.subplot(1,3,2); plt.imshow( Vtip     ); plt.colorbar(); plt.title('Tip Field')
-    plt.subplot(1,3,3); plt.imshow( phmap**2 ); plt.colorbar(); plt.title('Photon Map')
+    plt.subplot(1,3,2); plt.imshow( Vtip.real                     ); plt.colorbar(); plt.title('Tip Field')
+    #plt.subplot(1,3,1); plt.imshow( rho.real  **2 + rho.imag  **2 ); plt.colorbar(); plt.title('Transient Density')
+    plt.subplot(1,3,1); plt.imshow( rho.real                      ); plt.colorbar(); plt.title('Transient Density')
+    plt.subplot(1,3,3); plt.imshow( phmap.real**2 + phmap.imag**2 ); plt.colorbar(); plt.title('Photon Map')
     plt.show()
     
 

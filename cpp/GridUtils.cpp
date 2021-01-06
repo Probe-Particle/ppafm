@@ -139,7 +139,7 @@ extern "C" {
 		Vec2d p0  = *(Vec2d*)p0_;
 		Vec2d a   = *(Vec2d*)a_;
 		Vec2d b   = *(Vec2d*)b_;
-		printf( "stampToGrid2D \n");
+		//printf( "stampToGrid2D \n");
 		for(int iy=0; iy<ns1.y; iy++){
 			for(int ix=0; ix<ns1.x; ix++){
 				double x = p0.x + a.x*ix + b.x*iy;
@@ -162,7 +162,54 @@ extern "C" {
 				canvas[jy1*ns2.x+jx1] += v*dx*dy; 
 			}
 		}
-		printf( "stampToGrid2D DONE \n");
+		//printf( "stampToGrid2D DONE \n");
+	}
+
+    void stampToGrid2D_complex( int* ns1_, int* ns2_, Vec2d* p0_, Vec2d* a_, Vec2d* b_, double* stamp_, double* canvas_, Vec2d* coef_ ){
+		Vec2i ns1  = *(Vec2i*)ns1_;
+		Vec2i ns2  = *(Vec2i*)ns2_;
+		Vec2d p0   = *(Vec2d*)p0_;
+		Vec2d a    = *(Vec2d*)a_;
+		Vec2d b    = *(Vec2d*)b_;
+        Vec2d coef = *(Vec2d*)coef_;
+        printf( " sizeof(double) %i sizeof(Vec2d) %i \n", sizeof(double), sizeof(Vec2d) );
+		printf( "stampToGrid2D_complex START\n");
+        Vec2d* stamp  = (Vec2d*)stamp_;
+        Vec2d* canvas = (Vec2d*)canvas_;
+        
+		for(int iy=0; iy<ns1.y; iy++){
+			for(int ix=0; ix<ns1.x; ix++){
+				double x = p0.x + a.x*ix + b.x*iy;
+				double y = p0.y + a.y*ix + b.y*iy;
+				int jx  = (int)x; 
+				int jy  = (int)y; 
+				double dx=x-jx; double mx=1.-dx;
+				double dy=y-jy; double my=1.-dy;
+				jx=wrap(jx,ns2.x);
+				jy=wrap(jy,ns2.y);
+				int jx1 = wrap(jx+1,ns2.x);
+				int jy1 = wrap(jy+1,ns2.y);
+				Vec2d v = stamp[iy*ns1.x+ix];
+                v.mul_cmplx(coef);
+				//if( (jx<0)||(jx>=ns2.x)||(jy<0)||(jy>=ns2.y) ){
+				//	printf( " %i %i -> %i %i %i %i  %g | %i %i \n", ix,iy, jx,jy,jx1,jy1, v,  ns2.x, ns2.y );
+				//}
+				
+                //canvas[jy *ns2.x+jx ].x += v.x;
+                //canvas[jy *ns2.x+jx ].y += v.y;
+				canvas[jy *ns2.x+jx ].add_mul( v, mx*my );
+				canvas[jy *ns2.x+jx1].add_mul( v, dx*my );
+				canvas[jy1*ns2.x+jx ].add_mul( v, mx*dy );
+				canvas[jy1*ns2.x+jx1].add_mul( v, dx*dy ); 
+			}
+		}
+        
+        /*
+        int j;
+        j=100; for(int i=0;i<ns2.x/2;i++){ canvas[i*ns2.x+j].x=1.0; canvas[i*ns2.x+j].y=2.0; };
+        j=100; for(int i=0;i<ns2.x;i++){ canvas[j*ns2.x+i].x=1.0; canvas[j*ns2.x+i].y=2.0; };
+		*/
+        printf( "stampToGrid2D_complex DONE \n");
 	}
 	
 	// ---------  1D radial histogram
