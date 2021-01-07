@@ -172,8 +172,8 @@ extern "C" {
 		Vec2d a    = *(Vec2d*)a_;
 		Vec2d b    = *(Vec2d*)b_;
         Vec2d coef = *(Vec2d*)coef_;
-        printf( " sizeof(double) %i sizeof(Vec2d) %i \n", sizeof(double), sizeof(Vec2d) );
-		printf( "stampToGrid2D_complex START\n");
+        //printf( " sizeof(double) %i sizeof(Vec2d) %i \n", sizeof(double), sizeof(Vec2d) );
+		//printf( "stampToGrid2D_complex START\n");
         Vec2d* stamp  = (Vec2d*)stamp_;
         Vec2d* canvas = (Vec2d*)canvas_;
         
@@ -209,7 +209,7 @@ extern "C" {
         j=100; for(int i=0;i<ns2.x/2;i++){ canvas[i*ns2.x+j].x=1.0; canvas[i*ns2.x+j].y=2.0; };
         j=100; for(int i=0;i<ns2.x;i++){ canvas[j*ns2.x+i].x=1.0; canvas[j*ns2.x+i].y=2.0; };
 		*/
-        printf( "stampToGrid2D_complex DONE \n");
+        //printf( "stampToGrid2D_complex DONE \n");
 	}
 	
 	// ---------  1D radial histogram

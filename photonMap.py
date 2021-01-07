@@ -28,6 +28,14 @@ import pyProbeParticle.fieldFFT       as fFFT
 
 # ======== Main
 
+def makeBox( pos, rot, a=10.0,b=20.0 ):
+    ca=np.cos(rot)
+    sa=np.sin(rot)
+    x=pos[0]; y=pos[1]
+    xs=[x,x-ca*a,x-ca*a+sa*b,x+sa*b,x]
+    ys=[y,y+sa*a,y+sa*a+ca*b,y+ca*b,y]
+    return xs,ys
+
 def getMGrid2D(nDim, dd):
     'returns coordinate arrays X, Y, Z'
     (dx, dy) = dd
@@ -38,16 +46,19 @@ def getMGrid2D(nDim, dd):
     if( nDim[0]%2 != 0 ):  xshift_ += 1.0
     X = XY[0] - xshift_;
     Y = XY[1] - yshift_;
-    Y = dy*np.roll( Y, yshift, axis=1)
-    X = dx*np.roll( X, xshift, axis=0)
+    Y = dy * np.roll( Y, yshift, axis=1)
+    X = dx * np.roll( X, xshift, axis=0)
+    #print X[:,0]
     return X, Y, (xshift, yshift)
 
 def makeTipField2d( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     Vtip = np.zeros( (sh[:2]) )
     X,Y,shifts  = getMGrid2D( sh, dd )
-    X *= dd[0]; Y *= dd[1];
-    print "Z = ", z
-    radial = 1/np.sqrt( X**2 + Y**2 + sigma**2  + z**2 ) 
+    #X *= dd[0]; Y *= dd[1];  # this is already done in getMGrid
+    #print "Z = ", z
+    #print "(xmax,ymax) = ", X[-1,-1],Y[-1,-1],  X[0,0],Y[0,0]
+    radial = 1/np.sqrt( X**2 + Y**2  + z**2 + sigma**2  ) 
+    #print "radial ", radial[:,radial.shape[1]/2]
     if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         Vtip = np.zeros( np.shape(radial) )
         for kind, coef in multipole_dict.iteritems():
@@ -55,7 +66,8 @@ def makeTipField2d( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     else:
         Vtip = radial
     #Vtip = X
-    Vtip = radial
+    #Vtip = radial
+    #print "Vtip ", Vtip[:,Vtip.shape[1]/2]
     return Vtip, shifts
 
 def coordConv(poss,rots,center,nn):
@@ -89,20 +101,27 @@ def photonMap2D( rhoTrans, tipDict, lvec, z=10.0, sigma=1.0, multipole_dict={'s'
     dx   = lvec[3][2]/sh[0]; print lvec[3][2],sh[0]
     dy   = lvec[2][1]/sh[1]; print lvec[2][1],sh[1]
     dd = (dx,dy)
-    print dd
+    print " (dx,dy) ", dd
     Vtip, shifts = makeTipField2d( sh[:2], dd, z=z, sigma=sigma, multipole_dict=multipole_dict )
-    phmap  = convFFT(Vtip,rho).real
+    renorm = 1./( (Vtip**2).sum() * (rho**2).sum() )
+    phmap  = convFFT(Vtip,rho).real * renorm
     print "rho  ", rho.shape  
     print "Vtip ", Vtip.shape  
     Vtip = np.roll( Vtip, -shifts[1], axis=1)
     Vtip = np.roll( Vtip, -shifts[0], axis=0)
-    return phmap, Vtip, rho 
+    return phmap, Vtip, rho , dd
 
 
 
 def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], ncanv=(300,300) ):
     sh = rhoTrans.shape
     print "shape: ", sh
+    print lvec
+    dx   = lvec[3][2]/sh[0]; print lvec[3][2],sh[0]
+    dy   = lvec[2][1]/sh[1]; print lvec[2][1],sh[1]
+    dd = (dx,dy)
+    print " (dx,dy) ", dd
+
     #rho   = np.zeros( (sh[:2]) )
     rho    = np.sum  (  rhoTrans, axis=2 ) 
     rho    = rho.astype( np.complex128 ) 
@@ -114,25 +133,20 @@ def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
     for i in range(len(rots)):
         #GU.stampToGrid2D( canvas, rho, poss[i], rots[i], dd=[1.0,1.0], coef=coefs[i] )
         coef = complex( coefs[i][0], coefs[i][1] )
-        print  i,poss[i], rots[i],  coef
-        GU.stampToGrid2D_complex( canvas, rho, poss[i], rots[i], dd=[1.0,1.0], coef=coef )
-
-    #Vtip = np.zeros( (sh[:2]) )
-    print lvec
-    dx   = lvec[3][2]/sh[0]; print lvec[3][2],sh[0]
-    dy   = lvec[2][1]/sh[1]; print lvec[2][1],sh[1]
-    dd = (dx,dy)
-    print dd
+        #print  i,poss[i], rots[i],  coef
+        GU.stampToGrid2D_complex( canvas, rho, poss[i], rots[i], dd=dd, coef=coef )
 
     #canvas = np.zeros((300,300))
 
     Vtip, shifts = makeTipField2d( ncanv[:2], dd, z=z, sigma=sigma, multipole_dict=multipole_dict )
-    phmap  = convFFT(Vtip,canvas)
+    #renorm = 1./( (Vtip**2).sum() * (rho.real**2+rho.imag**2).sum() )
+    renorm = 1./( (Vtip**2).sum() )
+    phmap  = convFFT(Vtip,canvas) * renorm
     print "rho  ", rho.shape  
     print "Vtip ", Vtip.shape  
     Vtip = np.roll( Vtip, -shifts[1], axis=1)
     Vtip = np.roll( Vtip, -shifts[0], axis=0)
-    return phmap, Vtip, canvas
+    return phmap, Vtip, canvas, dd
 
 
 if __name__ == "__main__":
@@ -188,22 +202,45 @@ if __name__ == "__main__":
     '''
 
     rots =[0.0,0.0]
-    poss =[ [200.0,50.0] ,  [200.0,200.0] ]
+    #poss =[ [10.0,5.0] ,  [10.0,10.0] ]
+    poss =[ [0.0,0.0] ,  [10.0,10.0] ]
     #poss =[ [200.0,50.0] ,  [50.0,50.0] ]
-    coefs=[ [1.0,0.0],      [0.0,1.0]     ]
+    #coefs=[ [1.0,0.0],      [0.0,1.0]     ]
+    coefs=[ [1.0,0.0],      [-1.0,0.0]     ]
 
 
     #rots =[0.0]
     #poss =[ [300.0,50.0]]
     #coefs=[ [1.0,0.0]   ]
 
-    phmap, Vtip, rho =  photonMap2D_stamp( rhoTrans, lvecH, z=0.5, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+    phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvecH, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+
+
+    print "dd ",  dd
+    
+    (dx,dy)=dd
+
+    sh=phmap.shape
+    extent=( -sh[0]*dd[0]*0.5,sh[0]*dd[0]*0.5,   -sh[1]*dd[1]*0.5, sh[1]*dd[1]*0.5   )
+
+
+    xs,ys = makeBox( poss[0], rots[0], a=10.0,b=20.0 )
+    print "xs ", xs
+    print "ys ", ys
+
 
     plt.figure(figsize=(15,5))
-    plt.subplot(1,3,2); plt.imshow( Vtip.real                     ); plt.colorbar(); plt.title('Tip Field')
+    plt.subplot(1,3,2); plt.imshow( Vtip.real, extent=extent                     ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Tip Field')
     #plt.subplot(1,3,1); plt.imshow( rho.real  **2 + rho.imag  **2 ); plt.colorbar(); plt.title('Transient Density')
-    plt.subplot(1,3,1); plt.imshow( rho.real                      ); plt.colorbar(); plt.title('Transient Density')
-    plt.subplot(1,3,3); plt.imshow( phmap.real**2 + phmap.imag**2 ); plt.colorbar(); plt.title('Photon Map')
+    plt.subplot(1,3,1); plt.imshow( rho.real   ,extent=extent                    ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Transient Density')
+    plt.plot(xs,ys)
+    plt.subplot(1,3,3); plt.imshow( phmap.real**2 + phmap.imag**2, extent=extent ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Photon Map')
+    
+    
+    plt.figure()
+    plt.plot( np.arange(Vtip.shape[0])*dx, Vtip[:,Vtip.shape[1]/2] ); plt.grid(); # plt.ylim(0.,1.);
+    #print "Vtip outside: ", Vtip[:,Vtip.shape[1]/2]
+    
     plt.show()
     
 

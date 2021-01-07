@@ -160,11 +160,11 @@ def sphericalHist( data, center, dr, n ):
 lib.stampToGrid2D.argtypes = [ array1i, array1i, array1d, array1d, array1d, array2d, array2d, c_double ]
 lib.stampToGrid2D.restype  = None
 def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0 ):
-	p0=np.array(p0)
+	p0=np.array(p0)/np.array(dd)
 	ca=np.cos(angle)
 	sa=np.sin(angle)
-	a =np.array([ca,-sa])*dd[0]
-	b =np.array([sa, ca])*dd[1]
+	a =np.array([ca,-sa]) #*dd[0]
+	b =np.array([sa, ca]) #*dd[1]
 	ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
 	ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
 	lib.stampToGrid2D( ns1, ns2, p0, a, b, stamp, canvas, coef )
@@ -174,11 +174,11 @@ def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0 ):
 lib.stampToGrid2D_complex.argtypes = [ array1i, array1i, array1d, array1d, array1d, array2c, array2c, array1d ]
 lib.stampToGrid2D_complex.restype  = None
 def stampToGrid2D_complex( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=complex(1.0,0.0) ):
-	p0=np.array(p0)
+	p0=np.array(p0)/np.array(dd)
 	ca=np.cos(angle)
 	sa=np.sin(angle)
-	a    = np.array([ca,-sa])*dd[0]
-	b    = np.array([sa, ca])*dd[1]
+	a    = np.array([ca,-sa]) #*dd[0]
+	b    = np.array([sa, ca]) #*dd[1]
 	if  isinstance(coef, float):
 		coef_ = np.array([coef, 0.0])
 	else:
