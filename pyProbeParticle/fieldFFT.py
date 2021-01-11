@@ -50,6 +50,7 @@ def rotZX( Z, X, tilt = 0.0 ):
 
 def getSphericalHarmonic( X, Y, Z, kind='dz2', tilt = 0.0 ):
     Z,X = rotZX(Z,X, tilt=tilt)
+    invrR = 1/np.sqrt( X**2 + Y**2 + Z**2 + 1e-8 )
     # TODO: renormalization should be probaby here
     if    kind=='s':
         if(verbose>0): print 'Spherical harmonic: s'
@@ -57,32 +58,38 @@ def getSphericalHarmonic( X, Y, Z, kind='dz2', tilt = 0.0 ):
     # p-functions
     elif  kind=='px':
         if(verbose>0): print 'Spherical harmonic: px'
-        return X
+        return X*invrR
     elif  kind=='py':
         if(verbose>0): print 'Spherical harmonic: py'
-        return Y
+        return Y*invrR
     elif  kind=='pz':
         if(verbose>0): print 'Spherical harmonic: pz'
-        return Z
+        return Z*invrR
     # d-functions
-    if    kind=='dz2' :
+    elif    kind=='dz2' :
         if(verbose>0): print 'Spherical harmonic: dz2'
-        return 0.25*(2*Z**2 - X**2 - Y**2) #quadrupole normalized to get 3 times the quadrpole in the standard (cartesian) tensor normalization of Qzz. Also, 3D integral of rho_dz2(x,y,z)*(z/sigma)**2 gives 1 in the normalization use here.
+        return 0.25*(2*Z**2 - X**2 - Y**2)*(invrR**2) #quadrupole normalized to get 3 times the quadrpole in the standard (cartesian) tensor normalization of Qzz. Also, 3D integral of rho_dz2(x,y,z)*(z/sigma)**2 gives 1 in the normalization use here.
+    elif    kind=='dx2' :
+        if(verbose>0): print 'Spherical harmonic: dz2'
+        return 0.25*(2*X**2 - Y**2 - Z**2)*(invrR**2) 
+    elif    kind=='dy2' :
+        if(verbose>0): print 'Spherical harmonic: dz2'
+        return 0.25*(2*Y**2 - X**2 - Z**2)*(invrR**2) 
     elif    kind=='dx2' :
         if(verbose>0): print 'Spherical harmonic: dx2'
-        return 0.25*(2*X**2 - Y**2 - Z**2)
+        return 0.25*(2*X**2 - Y**2 - Z**2)*(invrR**2)
     elif    kind=='dy2' :
         if(verbose>0): print 'Spherical harmonic: dy2'
-        return 0.25*(2*Y**2 - X**2 - Z**2)
+        return 0.25*(2*Y**2 - X**2 - Z**2)*(invrR**2)
     elif    kind=='dxy' :
         if(verbose>0): print 'Spherical harmonic: dxy'
-        return X*Y
+        return X*Y*(invrR**2)
     elif    kind=='dxz' :
         if(verbose>0): print 'Spherical harmonic: dxz'
-        return X*Z
+        return X*Z*(invrR**2)
     elif    kind=='dyz' :
         if(verbose>0): print 'Spherical harmonic: dyz'
-        return Y*Z
+        return Y*Z*(invrR**2)
     else:
         return 0.0
 

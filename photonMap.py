@@ -59,7 +59,8 @@ def getMGrid2D(nDim, dd):
 
 def makeTipField2d( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     Vtip = np.zeros( (sh[:2]) )
-    X,Y,shifts  = getMGrid2D( sh, dd )
+    #X,Y,shifts  = getMGrid2D( sh, dd )
+    Y,X,shifts  = getMGrid2D( sh, dd )
     #X *= dd[0]; Y *= dd[1];  # this is already done in getMGrid
     #print "Z = ", z
     #print "(xmax,ymax) = ", X[-1,-1],Y[-1,-1],  X[0,0],Y[0,0]
@@ -193,8 +194,12 @@ if __name__ == "__main__":
     '''
 
     
-    #tip =  { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
-    tipDict =  { 's': 1.0  }
+    #tipDict =  { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
+    #tipDict =  { 's': 1.0, 'py':1.0  }
+    tipDict =  { 's': 1.0, 'dy2':1.0  }
+    #tipDict =  { 's': 1.0 }
+    #tipDict =  { 'px': 1.0  }
+    #tipDict =  { 'py': 1.0  }
 
     #phmap, Vtip, rho =  photonMap2D( rhoTrans, tipDict, lvecH, z=0.5, sigma=0.0, multipole_dict=tipDict )
 
@@ -210,10 +215,12 @@ if __name__ == "__main__":
     plt.subplot(1,3,3); plt.imshow( phmap**2 ); plt.colorbar(); plt.title('Photon Map')
     '''
 
-    rots =[np.pi/10.0,0.0]
+    fromDeg = np.pi/180.
+
+    rots =[-45.0*fromDeg,45.0*fromDeg]
     #poss =[ [10.0,5.0] ,  [10.0,10.0] ]
-    #poss =[ [0.0,0.0] ,  [10.0,10.0] ]
-    poss =[ [0.0,10.0]  ]
+    poss =[ [-5.0,10.0] ,  [5.0,-5.0] ]
+    #poss =[ [0.0,10.0]  ]
     #poss =[ [200.0,50.0] ,  [50.0,50.0] ]
     #coefs=[ [1.0,0.0],      [0.0,1.0]     ]
     coefs=[ [1.0,0.0],      [-1.0,0.0]     ]
