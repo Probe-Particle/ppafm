@@ -194,7 +194,6 @@ extern "C" {
 				//if( (jx<0)||(jx>=ns2.x)||(jy<0)||(jy>=ns2.y) ){
 				//	printf( " %i %i -> %i %i %i %i  %g | %i %i \n", ix,iy, jx,jy,jx1,jy1, v,  ns2.x, ns2.y );
 				//}
-				
                 //canvas[jy *ns2.x+jx ].x += v.x;
                 //canvas[jy *ns2.x+jx ].y += v.y;
 				canvas[jy *ns2.x+jx ].add_mul( v, mx*my );
