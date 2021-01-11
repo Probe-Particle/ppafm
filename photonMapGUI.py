@@ -63,8 +63,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb);
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel(" z_tip[A], sigma[A] ") )
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,10.0); bx.setSingleStep(0.1); bx.setValue(0.5); bx.valueChanged.connect(self.eval); vb.addWidget(bx); self.bx_z=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,10.0); bx.setSingleStep(0.1); bx.setValue(1.0); bx.valueChanged.connect(self.eval); vb.addWidget(bx); self.bx_w=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,10.0); bx.setSingleStep(0.1); bx.setValue(5.0); bx.valueChanged.connect(self.eval); vb.addWidget(bx); self.bx_z=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,10.0); bx.setSingleStep(0.1); bx.setValue(3.0); bx.valueChanged.connect(self.eval); vb.addWidget(bx); self.bx_w=bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("canvas {nx,ny} pix") )
         bx = QtWidgets.QSpinBox();bx.setRange(0,2000); bx.setSingleStep(50); bx.setValue(500); bx.valueChanged.connect(self.eval); vb.addWidget(bx); self.bx_nx=bx
@@ -101,7 +101,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb.addWidget( QtWidgets.QLabel("x y [A]  rot[deg]  coef {Re,Im}") )
         tx = QtWidgets.QTextEdit()
         vb.addWidget( tx )
-        tx.setText('''200.0 200.0      0.0     1.0\n280.0 300.0     90.0     -1.0''')
+        tx.setText('''-5.0 -10.0      0.0     1.0 0.0\n10.0 5.0     90.0     -1.0 0.0''')
         self.txPoses = tx
         #self.centralLayout.addWidget( bt )
 
@@ -131,9 +131,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         coefs = [ ]
         for i in range(n):
             ws = text[i].split()
+            print "ws ", ws
             poss .append( [float(ws[0]),float(ws[1])] )
             rots .append(  float(ws[2])*np.pi/180.0 )
-            coefs.append(  float(ws[3]) )
+            coefs.append(  [float(ws[3]),float(ws[4])] )
         self.rots  = rots
         self.poss  = poss
         self.coefs = coefs
@@ -152,7 +153,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             return True
         return False
 
+
     def drawPoses(self, fig, d=10.0):
+        '''
         n = len( self.poss )
         for i in range(n):
             #fig.axes.plot( self.poss[i][0], self.poss[i][0], 'o' )
@@ -162,6 +165,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             #dy = np.sin(self.rots[i])*d
             xs,ys = makeBox( self.poss[i], self.rots[i], a=10.0,b=20.0 )
             fig.axes.plot( xs, ys, '-' )
+        '''
+        phmap.plotBoxes( self.poss, self.rots, self.lvec, ax=fig.axes )
         fig.draw()
 
     def eval(self):
@@ -177,11 +182,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #coefs=[1.0]
         #tip =  { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         tipDict =  { 's': 1.0  }
-        pho, Vtip, rho =  phmap.photonMap2D_stamp( self.rhoTrans, self.lvec, z=self.bx_z.value(), sigma=self.bx_w.value(), multipole_dict=tipDict, rots=self.rots, poss=self.poss, coefs=self.coefs, ncanv=(self.bx_nx.value(),self.bx_ny.value()) )
+        pho, Vtip, rho, dd =  phmap.photonMap2D_stamp( self.rhoTrans, self.lvec, z=self.bx_z.value(), sigma=self.bx_w.value(), multipole_dict=tipDict, rots=self.rots, poss=self.poss, coefs=self.coefs, ncanv=(self.bx_nx.value(),self.bx_ny.value()) )
         #self.figCan.plotSlice( pho, title="photon map" )
-        self.fig1.plotSlice( pho**2, title="photon map" )
-        self.fig2.plotSlice( rho,    title="rhoTrans" )
-        self.fig3.plotSlice( Vtip,   title="Vtip" )
+        #self.fig1.plotSlice( pho.real**2+pho.imag**2, title="photon map" )
+        #self.fig2.plotSlice( rho.real**2+rho.imag**2, title="rhoTrans"   )
+
+        sh    =pho.shape
+        extent=( -sh[0]*dd[0]*0.5,sh[0]*dd[0]*0.5,   -sh[1]*dd[1]*0.5, sh[1]*dd[1]*0.5   )
+
+        self.fig1.plotSlice( pho.real**2+pho.imag**2,extent=extent, title="photon map" )
+        self.fig2.plotSlice( rho.real,               extent=extent, title="rhoTrans"   )
+        self.fig3.plotSlice( Vtip.real,              extent=extent, title="Vtip" )
 
         self.drawPoses( self.fig1 )
         self.drawPoses( self.fig2 )

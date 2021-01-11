@@ -42,6 +42,15 @@ def makeBox( pos, rot, a=10.0,b=20.0, byCenter=True ):
         ys=[y,y+s*a,y+s*a+c*b,y+c*b,y]
     return xs,ys
 
+def plotBoxes( poss, rots, lvec, ax=None ):
+    if ax is None:
+        ax = plt.gca()
+    #print "lvec ", lvecH
+    for i in range(len(poss)):
+        xs,ys = makeBox( poss[i], rots[i], a=lvec[2][1],b=lvec[3][2] )
+        ax.plot(xs,ys)
+        #plt.plot(xs[0],ys[0],'o')
+
 def getMGrid2D(nDim, dd):
     'returns coordinate arrays X, Y, Z'
     (dx, dy) = dd
@@ -249,11 +258,13 @@ if __name__ == "__main__":
     #plt.subplot(1,3,1); plt.imshow( rho.real  **2 + rho.imag  **2, origin='image' ); plt.colorbar(); plt.title('Transient Density')
     plt.subplot(1,3,1); plt.imshow( rho.real   ,extent=extent, origin='image'                    ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Transient Density')
     
-    print "lvec ", lvecH
-    for i in range(len(poss)):
-        xs,ys = makeBox( poss[i], rots[i], a=lvecH[2][1],b=lvecH[3][2] )
-        plt.plot(xs,ys)
-        #plt.plot(xs[0],ys[0],'o')
+    #print "lvec ", lvecH
+    #for i in range(len(poss)):
+    #    xs,ys = makeBox( poss[i], rots[i], a=lvecH[2][1],b=lvecH[3][2] )
+    #    plt.plot(xs,ys)
+    #    #plt.plot(xs[0],ys[0],'o')
+
+    plotBoxes( poss, rots, lvecH )
 
     plt.subplot(1,3,3); plt.imshow( phmap.real**2 + phmap.imag**2, extent=extent, origin='image' ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Photon Map')
     
