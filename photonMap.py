@@ -29,7 +29,7 @@ import pyProbeParticle.fieldFFT       as fFFT
 # ======== Main
 
 def makeBox( pos, rot, a=10.0,b=20.0, byCenter=True ):
-    c=np.cos(rot)
+    c= np.cos(rot)
     s=-np.sin(rot)
     x=pos[0]; y=pos[1]
     if byCenter:
@@ -47,9 +47,16 @@ def plotBoxes( poss, rots, lvec, ax=None ):
         ax = plt.gca()
     #print "lvec ", lvecH
     for i in range(len(poss)):
-        xs,ys = makeBox( poss[i], rots[i], a=lvec[2][1],b=lvec[3][2] )
+        #xs,ys = makeBox( poss[i], rots[i], a=lvec[2][1],b=lvec[3][2] )
+        xs,ys = makeBox( poss[i], rots[i], a=lvec[3][2],b=lvec[2][1] )
         ax.plot(xs,ys)
         #plt.plot(xs[0],ys[0],'o')
+
+def shiftHalfAxis( X, d, n, ax=1 ):
+    shift = n/2; 
+    if( n%2 != 0 ):  shift += 1
+    X -= shift
+    return np.roll( X, shift, axis=ax), shift
 
 def getMGrid2D(nDim, dd):
     'returns coordinate arrays X, Y, Z'
@@ -66,8 +73,20 @@ def getMGrid2D(nDim, dd):
     #print X[:,0]
     return X, Y, (xshift, yshift)
 
-def makeTipField2d( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
-    Vtip = np.zeros( (sh[:2]) )
+def getMGrid3D( nDim, dd ):
+    'returns coordinate arrays X, Y, Z'
+    (dx,dy,dz) = dd
+    (nx,ny,nz) = nDim[:3]
+    #print dd,nDim
+    XYZ = np.mgrid[0:nx,0:ny,0:nz].astype(float)
+    X,xshift = shiftHalfAxis( XYZ[0], dx, nx, ax=0 )
+    Y,yshift = shiftHalfAxis( XYZ[1], dy, ny, ax=1 )
+    #Z,zshift = shiftHalfAxis( XYZ[2], dz, nz, ax=2 )
+    Z = XYZ[2]
+    return X*dx, Y*dy, Z*dz, (xshift, yshift, 0)
+
+def makeTipField2D( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
+    Vtip = np.zeros( sh[:2] )
     #X,Y,shifts  = getMGrid2D( sh, dd )
     Y,X,shifts  = getMGrid2D( sh, dd )
     #X *= dd[0]; Y *= dd[1];  # this is already done in getMGrid
@@ -84,6 +103,27 @@ def makeTipField2d( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     #Vtip = X
     #Vtip = radial
     #print "Vtip ", Vtip[:,Vtip.shape[1]/2]
+    return Vtip, shifts
+
+def makeTipField3D( sh, dd, z0=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
+    Vtip = np.zeros( sh )
+    X,Y,Z,shifts  = getMGrid3D( sh, dd )
+    Z += z0
+    #X *= dd[0]; Y *= dd[1];  # this is already done in getMGrid
+    #print "Z = ", z
+    #print "(xmax,ymax) = ", X[-1,-1],Y[-1,-1],  X[0,0],Y[0,0]
+    radial = 1/np.sqrt( X**2 + Y**2  + Z**2 + sigma**2 ) 
+    #print "radial ", radial[:,radial.shape[1]/2]
+    if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
+        Vtip = np.zeros( np.shape(radial) )
+        for kind, coef in multipole_dict.iteritems():
+            Vtip += radial * coef * fFFT.getSphericalHarmonic( X, Y, Z, kind=kind, tilt=0 )
+    else:
+        Vtip = radial
+    #print "Vtip.shape     ", Vtip.shape
+    Vtip = Vtip.transpose((2,1,0)).copy()
+    #print " -> Vtip.shape ", Vtip.shape
+    #print "shifts ", shifts
     return Vtip, shifts
 
 '''
@@ -115,12 +155,12 @@ def photonMap2D( rhoTrans, tipDict, lvec, z=10.0, sigma=1.0, multipole_dict={'s'
     #rho  = np.zeros( (sh[:2]) )
     rho  = np.sum(  rhoTrans, axis=2) 
     #Vtip = np.zeros( (sh[:2]) )
-    print lvec
-    dx   = lvec[3][2]/sh[0]; print lvec[3][2],sh[0]
-    dy   = lvec[2][1]/sh[1]; print lvec[2][1],sh[1]
+    #print lvec
+    dx   = lvec[3][2]/sh[0]; #print lvec[3][2],sh[0]
+    dy   = lvec[2][1]/sh[1]; #print lvec[2][1],sh[1]
     dd = (dx,dy)
     #print " (dx,dy) ", dd
-    Vtip, shifts = makeTipField2d( sh[:2], dd, z=z, sigma=sigma, multipole_dict=multipole_dict )
+    Vtip, shifts = makeTipField2D( sh[:2], dd, z=z, sigma=sigma, multipole_dict=multipole_dict )
     renorm = 1./( (Vtip**2).sum() * (rho**2).sum() )
     phmap  = convFFT(Vtip,rho).real * renorm
     #print "rho  ", rho.shape  
@@ -134,9 +174,9 @@ def photonMap2D( rhoTrans, tipDict, lvec, z=10.0, sigma=1.0, multipole_dict={'s'
 def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], ncanv=(300,300) ):
     sh = rhoTrans.shape
     #print "shape: ", sh
-    print lvec
-    dx   = lvec[3][2]/sh[0]; print lvec[3][2],sh[0]
-    dy   = lvec[2][1]/sh[1]; print lvec[2][1],sh[1]
+    #print lvec
+    dx   = lvec[3][2]/sh[0]; #print lvec[3][2],sh[0]
+    dy   = lvec[2][1]/sh[1]; #print lvec[2][1],sh[1]
     dd = (dx,dy)
     #print " (dx,dy) ", dd
 
@@ -157,7 +197,7 @@ def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
 
     #canvas = np.zeros((300,300))
 
-    Vtip, shifts = makeTipField2d( ncanv[:2], dd, z=z, sigma=sigma, multipole_dict=multipole_dict )
+    Vtip, shifts = makeTipField2D( ncanv[:2], dd, z=z, sigma=sigma, multipole_dict=multipole_dict )
     #renorm = 1./( (Vtip**2).sum() * (rho.real**2+rho.imag**2).sum() )
     renorm = 1./( (Vtip**2).sum() )
     phmap  = convFFT(Vtip,canvas) * renorm
@@ -165,6 +205,39 @@ def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
     #print "Vtip ", Vtip.shape  
     Vtip = np.roll( Vtip, -shifts[1], axis=1)
     Vtip = np.roll( Vtip, -shifts[0], axis=0)
+    return phmap, Vtip, canvas, dd
+
+
+def photonMap3D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], ncanv=(300,300),  ):
+    sh  = rhoTrans.shape
+    if len(ncanv)<3:
+        ncanv = ( (ncanv[0],ncanv[1],sh[2]) )
+    canvas = np.zeros( ncanv[::-1], dtype=np.complex128 )
+    rho    = rhoTrans.transpose((2,1,0)).astype( np.complex128 ).copy()
+    #print "shape: stamp ", rho.shape, " canvas ", canvas.shape
+    #print lvec
+    dx   = lvec[3][2]/sh[0]; #print lvec[3][2],sh[0]
+    dy   = lvec[2][1]/sh[1]; #print lvec[2][1],sh[1]
+    dz   = lvec[1][0]/sh[2]; #print lvec[1][0],sh[2]
+    dd = (dx,dy,dz);    #print " dd ", dd
+ 
+    for i in range(len(poss)):
+        coef = complex( coefs[i][0], coefs[i][1] )
+        pos_ = poss[i]
+        if len(pos_)<3:
+            pos_.append(0.0)
+        pos = [ pos_[0]+ncanv[0]*0.5*dx,   pos_[1]+ncanv[1]*0.5*dy, pos_[2] ]
+        GU.stampToGrid3D_complex( canvas, rho, pos, rots[i], dd=dd, coef=coef )
+
+    Vtip, shifts = makeTipField3D( ncanv, dd, z0=z, sigma=sigma, multipole_dict=multipole_dict )
+    #renorm = 1./( (Vtip**2).sum() * (rho.real**2+rho.imag**2).sum() )
+    renorm = 1./( (Vtip**2).sum() )
+    phmap  = convFFT(Vtip,canvas) * renorm
+    #print "rho  ", rho.shape  
+    #print "Vtip ", Vtip.shape  
+    #Vtip = np.roll( Vtip, -shifts[2], axis=2)
+    Vtip = np.roll( Vtip, -shifts[1], axis=1)
+    Vtip = np.roll( Vtip, -shifts[0], axis=2)
     return phmap, Vtip, canvas, dd
 
 
@@ -226,46 +299,47 @@ if __name__ == "__main__":
 
     fromDeg = np.pi/180.
 
-    rots =[-45.0*fromDeg,45.0*fromDeg]
+    rots  =[-30.0*fromDeg,45.0*fromDeg]
     #poss =[ [10.0,5.0] ,  [10.0,10.0] ]
-    poss =[ [-5.0,10.0] ,  [5.0,-5.0] ]
+    poss  =[ [-5.0,10.0] ,  [5.0,-5.0] ]
     #poss =[ [0.0,10.0]  ]
     #poss =[ [200.0,50.0] ,  [50.0,50.0] ]
     #coefs=[ [1.0,0.0],      [0.0,1.0]     ]
     coefs=[ [1.0,0.0],      [-1.0,0.0]     ]
 
-
     #rots =[0.0]
     #poss =[ [300.0,50.0]]
     #coefs=[ [1.0,0.0]   ]
 
-    phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvecH, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+    b2D = False
+    #b2D = True
+
+    if b2D:
+        phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvecH, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+        (dx,dy)=dd
+    else:
+        phmap_, Vtip_, rho_, dd =  photonMap3D_stamp( rhoTrans, lvecH, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+        phmap = np.sum(phmap_,axis=0)
+        Vtip  = np.sum(Vtip_ ,axis=0)
+        rho   = np.sum(rho_  ,axis=0)
+        (dx,dy,dz)=dd
 
     print "dd ",  dd
-    
-    (dx,dy)=dd
-
     sh=phmap.shape
     extent=( -sh[0]*dd[0]*0.5,sh[0]*dd[0]*0.5,   -sh[1]*dd[1]*0.5, sh[1]*dd[1]*0.5   )
-
     
     #print "xs ", xs
     #print "ys ", ys
-
-
     plt.figure(figsize=(15,5))
     plt.subplot(1,3,2); plt.imshow( Vtip.real, extent=extent , origin='image'                    ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Tip Field')
     #plt.subplot(1,3,1); plt.imshow( rho.real  **2 + rho.imag  **2, origin='image' ); plt.colorbar(); plt.title('Transient Density')
     plt.subplot(1,3,1); plt.imshow( rho.real   ,extent=extent, origin='image'                    ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Transient Density')
-    
     #print "lvec ", lvecH
     #for i in range(len(poss)):
     #    xs,ys = makeBox( poss[i], rots[i], a=lvecH[2][1],b=lvecH[3][2] )
     #    plt.plot(xs,ys)
     #    #plt.plot(xs[0],ys[0],'o')
-
     plotBoxes( poss, rots, lvecH )
-
     plt.subplot(1,3,3); plt.imshow( phmap.real**2 + phmap.imag**2, extent=extent, origin='image' ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Photon Map')
     
     

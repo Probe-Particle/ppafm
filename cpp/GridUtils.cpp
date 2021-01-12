@@ -210,6 +210,152 @@ extern "C" {
 		*/
         //printf( "stampToGrid2D_complex DONE \n");
 	}
+
+    /*
+    inline void addTrilinar( const Vec3d& p, Vec3i ns, double val ){
+        int jx  = (int)p.x; 
+        int jy  = (int)p.y; 
+        int jy  = (int)p.y;
+        double dx=x-jx; double mx=1.-dx;
+        double dy=y-jy; double my=1.-dy;
+        double dz=z-jz; double mz=1.-dz;
+        jx=wrap(jx,ns.x);
+        jy=wrap(jy,ns.y);
+        jz=wrap(jz,ns.y);
+        int jx1 = wrap(jx+1,ns.x);
+        int jy1 = wrap(jy+1,ns.y);
+        int jy1 = wrap(jy+1,ns.y);
+        //if( (jx<0)||(jx>=ns2.x)||(jy<0)||(jy>=ns2.y) ){
+        //	printf( " %i %i -> %i %i %i %i  %g | %i %i \n", ix,iy, jx,jy,jx1,jy1, v,  ns2.x, ns2.y );
+        //}
+        //canvas[jy *ns2.x+jx ].x += v.x;
+        //canvas[jy *ns2.x+jx ].y += v.y;
+        canvas[jy *ns2.x+jx ].add_mul( v, mx*my );
+        canvas[jy *ns2.x+jx1].add_mul( v, dx*my );
+        canvas[jy1*ns2.x+jx ].add_mul( v, mx*dy );
+        canvas[jy1*ns2.x+jx1].add_mul( v, dx*dy );
+        canvas[jy1*ns2.x+jx ].add_mul( v, mx*dy );
+        canvas[jy1*ns2.x+jx1].add_mul( v, dx*dy );
+    }
+    */
+
+    inline void addTrilinar_v2d( const Vec3d& p, Vec3i ns, Vec2d val, Vec2d* canvas ){
+        int jx  = (int)p.x; int jx1=jx+1; 
+        int jy  = (int)p.y; int jy1=jy+1;
+        int jz  = (int)p.z; int jz1=jz+1; 
+        /*
+        jx=wrap(jx,ns.x); int jx1 = wrap(jx+1,ns.x);
+        jy=wrap(jy,ns.y); int jy1 = wrap(jy+1,ns.y);
+        jz=wrap(jz,ns.z); int jz1 = wrap(jz+1,ns.z);
+        if( (jx<0)||(jx>=ns.x) || (jy<0)||(jy>=ns.y) || (jz<0)||(jz>=ns.z) ){
+        	printf( " (%i,%i,%i) (%i,%i,%i) \n", jx,jy,jz, ns.x, ns.y, ns.y );
+            exit(0);
+        }
+        int nxy=ns.x*ns.y;
+        int jzn =jz *nxy;
+        int jzn1=jz1*nxy;
+        int jyn =jy *ns.x;
+        int jyn1=jy1*ns.x;
+        */
+        /*
+        //if( (jx<10000) &&  (jy<10000) && (jz<2)  ){
+        if( (jx>=0)&&(jx1<ns.x) &&  (jy>=0)&&(jy1<ns.y) && (jz>=0)&&(jz1<ns.z)  ){
+            //int i=jz*nxy + jy*ns.x + jx;
+            //int ntot = ns.x*ns.y*ns.z;
+            //printf("%i %i %i | %i<%i \n", jx, jy, jz, i, ntot );
+            //canvas[ jzn +jyn +jx ].add_mul( val, mx*my*mz );
+            //canvas[ i ].add_mul( val, mx*my*mz );
+            canvas[ jz*nxy + jy*ns.x + jx ].add_mul( val, mx*my*mz );
+        }
+        */
+        if( (jx>=0)&&(jx1<ns.x) &&  (jy>=0)&&(jy1<ns.y) && (jz>=0)&&(jz1<ns.z)  ){
+            int nxy=ns.x*ns.y;
+            double dx=p.x-jx; double mx=1.-dx; 
+            double dy=p.y-jy; double my=1.-dy;
+            double dz=p.z-jz; double mz=1.-dz;
+            int jzn =jz *nxy;
+            int jzn1=jz1*nxy;
+            int jyn =jy *ns.x;
+            int jyn1=jy1*ns.x;
+            canvas[ jzn +jyn +jx ].add_mul( val, mx*my*mz );
+            canvas[jzn +jyn +jx1].add_mul( val, dx*my*mz );
+            canvas[jzn +jyn1+jx ].add_mul( val, mx*dy*mz );
+            canvas[jzn +jyn1+jx1].add_mul( val, dx*dy*mz );
+            canvas[jzn1+jyn +jx ].add_mul( val, mx*my*dz );
+            canvas[jzn1+jyn +jx1].add_mul( val, dx*my*dz );
+            canvas[jzn1+jyn1+jx ].add_mul( val, mx*dy*dz );
+            canvas[jzn1+jyn1+jx1].add_mul( val, dx*dy*dz );
+        }
+    }
+
+    void stampToGrid3D_complex( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp_, double* canvas_, Vec2d* coef_ ){
+		Vec3i ns1  = *(Vec3i*)ns1_;
+		Vec3i ns2  = *(Vec3i*)ns2_;
+		Vec3d p0   = *(Vec3d*)p0_;
+		Mat3d rot  = *(Mat3d*)rot_;
+        Vec2d coef = *(Vec2d*)coef_;
+        //printf( " sizeof(double) %i sizeof(Vec2d) %i \n", sizeof(double), sizeof(Vec2d) );
+		//printf( "stampToGrid2D_complex START\n");
+        Vec2d* stamp  = (Vec2d*)stamp_;
+        Vec2d* canvas = (Vec2d*)canvas_;
+        //printf( "ns1 %i %i %i \n", ns1.x, ns1.y, ns1.z );
+        //printf( "ns2 %i %i %i \n", ns2.x, ns2.y, ns2.z );
+        //printf( "p0 %g %g %g \n", p0.x, p0.y, p0.z );
+        //printf( "a %g %g %g \n", rot.a.x, rot.a.y, rot.a.z );
+        //printf( "b %g %g %g \n", rot.b.x, rot.b.y, rot.b.z );
+        //printf( "c %g %g %g \n", rot.c.x, rot.c.y, rot.c.z );
+        int nxy1= ns1.x*ns1.y;
+        int nxy2= ns2.x*ns2.y;
+        /*
+        for(int iz=0; iz<ns2.z; iz++){
+            for(int iy=0; iy<ns2.y; iy++){
+                for(int ix=0; ix<ns2.x; ix++){
+                    //int i1 =  iz*(ns1.x*ns1.y) + iy*ns1.x + ix;
+                    int i2 =  iz*(ns2.x*ns2.y) + iy*ns2.x + ix;
+                    //canvas[i2].add( stamp[i1] );
+                    //canvas[i2].add( 1.0 );
+                    //printf("%i %i %i \n", jx, jy, jz );
+                    addTrilinar_v2d( {ix,iy,iz}, ns2, {1.,1.}, canvas );
+                }
+            }
+        }
+        */
+        for(int iz=0; iz<ns1.z; iz++){
+            for(int iy=0; iy<ns1.y; iy++){
+                for(int ix=0; ix<ns1.x; ix++){
+                    Vec3d p; rot.dot_to_T( (Vec3d){ix,iy,iz}, p);
+                    p.add(p0);
+                    Vec2d val = stamp[ iz*nxy1 + iy*ns1.x + ix];
+                    val.mul_cmplx(coef);
+                    addTrilinar_v2d( p, ns2, val, canvas );
+                    //addTrilinar_v2d( p, ns2, {1.,1.}, canvas );
+                } 
+            }
+        }
+        /*
+        for(int iz=0; iz<ns1.z; iz++){
+            for(int iy=0; iy<ns1.y; iy++){
+                for(int ix=0; ix<ns1.x; ix++){
+                    int i1 =  iz*(ns1.x*ns1.y) + iy*ns1.x + ix;
+                    int i2 =  iz*(ns2.x*ns2.y) + iy*ns2.x + ix;
+                    canvas[i2].add( stamp[i1] );
+                    //canvas[i2].add( 1.0 );
+                }
+            }
+        }
+        */
+        //int iy,iz,ix;
+        //int ntot= ns2.x*ns2.y*ns2.z;
+        //for(int i=0;i<ntot;i++){ canvas[i].x=i%ns2.z; canvas[i].y=0; };
+        //for(int i=0;i<ntot;i++){ canvas[i].x=i%(ns2.y*ns2.z); canvas[i].y=0; };
+        //for(int i=0;i<ntot;i++){ canvas[i].x=i%(ns2.y*ns2.z); canvas[i].y=0; };
+        //iy=10; iz=10; for(int ix=0;ix<ns2.x;ix++){ int i= iz*nxy2 + iy*ns2.x + ix; canvas[i].x=1.0; canvas[i].y=2.0; };
+        //ix=10; iz=10; for(int iy=0;iy<ns2.y;iy++){ int i= iz*nxy2 + iy*ns2.x + ix; canvas[i].x=1.0; canvas[i].y=2.0; };
+        //ix=10; iy=10; for(int iz=0;iz<ns2.z;iz++){ int i= iz*nxy + iy*ns2.x + ix; canvas[i].x=1.0; canvas[i].y=2.0; };
+        //j=100; for(int i=0;i<ns2.y;i++){ canvas[j*ns2.x+i].x=1.0; canvas[j*ns2.x+i].y=2.0; };
+        //j=100; for(int i=0;i<ns2.z;i++){ canvas[j*ns2.x+i].x=1.0; canvas[j*ns2.x+i].y=2.0; };
+        //printf( "stampToGrid2D_complex DONE \n");
+	}
 	
 	// ---------  1D radial histogram
 	inline void acum_sphere_hist( int ibuff, const Vec3d& pos, void * args ){

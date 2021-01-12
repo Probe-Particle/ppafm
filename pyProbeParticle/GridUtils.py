@@ -163,8 +163,10 @@ def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0 ):
 	p0=np.array(p0)/np.array(dd)
 	ca=np.cos(angle)
 	sa=np.sin(angle)
-	a =np.array([ca,-sa]) #*dd[0]
-	b =np.array([sa, ca]) #*dd[1]
+	#a =np.array([ca,-sa]) #*dd[0]
+	#b =np.array([sa, ca]) #*dd[1]
+	b    = np.array([ca,-sa]) #*dd[0]   # ToDo : This is just quick fix for the fact that data-array are transposed 
+	a    = np.array([sa, ca]) #*dd[1]
 	ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
 	ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
 	lib.stampToGrid2D( ns1, ns2, p0, a, b, stamp, canvas, coef )
@@ -175,12 +177,13 @@ lib.stampToGrid2D_complex.argtypes = [ array1i, array1i, array1d, array1d, array
 lib.stampToGrid2D_complex.restype  = None
 def stampToGrid2D_complex( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=True ):
 	p0=np.array(p0)/np.array(dd)
-	print "p0 ", p0
+	#print "p0 ", p0
 	ca=np.cos(angle)
 	sa=np.sin(angle)
-	a    = np.array([ca,-sa]) #*dd[0]
-	b    = np.array([sa, ca]) #*dd[1]
-
+	#a    = np.array([ca,-sa]) #*dd[0]
+	#b    = np.array([sa, ca]) #*dd[1]
+	b    = np.array([ca,-sa]) #*dd[0]   # ToDo : This is just quick fix for the fact that data-array are transposed 
+	a    = np.array([sa, ca]) #*dd[1]
 	if  isinstance(coef, float):
 		coef_ = np.array([coef, 0.0])
 	else:
@@ -191,6 +194,33 @@ def stampToGrid2D_complex( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=complex(
 	    p0 = p0 + a*(ns1[0]*-0.5) + b*(ns1[1]*-0.5) 
 	#print "ns1, ns2 ", ns1, ns2
 	lib.stampToGrid2D_complex( ns1, ns2, p0, a, b, stamp, canvas, coef_ )
+	#lib.stampToGrid2D_complex( ns1, ns2, p0, b, a, stamp, canvas, coef_ )
+
+#void stampToGrid3D_complex( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp_, double* canvas_, Vec2d* coef_ ){
+lib.stampToGrid3D_complex.argtypes = [ array1i, array1i, array1d, array2d, array3c, array3c, array1d ]
+lib.stampToGrid3D_complex.restype  = None
+def stampToGrid3D_complex( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=True ):
+	p0=np.array(p0)/np.array(dd)    #; print "p0", p0
+	#print "p0 ", p0
+	ca=np.cos(angle)
+	sa=np.sin(angle)
+	rot  = np.array([
+		[ ca,-sa,0],
+		[ sa, ca,0],
+		[ 0,   0,1],
+	]) #*dd[0]
+	if  isinstance(coef, float):
+		coef_ = np.array([coef, 0.0])
+	else:
+		coef_ = np.array([coef.real, coef.imag])
+	ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
+	ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
+	#ns1=np.array( stamp .shape[:3], dtype=np.int32 )
+	#ns2=np.array( canvas.shape[:3], dtype=np.int32 )
+	if byCenter:
+	    p0 = p0 + rot[0]*(ns1[0]*-0.5) + rot[1]*(ns1[1]*-0.5) #+ rot[2]*(ns1[2]*-0.5)
+        #print " p0 by Center ", p0
+	lib.stampToGrid3D_complex( ns1, ns2, p0, rot, stamp, canvas, coef_ )
 
 # ==============  String / File IO utils
 
