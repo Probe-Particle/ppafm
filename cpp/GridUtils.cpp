@@ -357,6 +357,79 @@ extern "C" {
         //printf( "stampToGrid2D_complex DONE \n");
 	}
 	
+
+	void downSample3D( int* ns1_, int* ns2_, double* Fin, double* Fout ){
+		Vec3i ns1 = *(Vec3i*)ns1_;
+		Vec3i ns2 = *(Vec3i*)ns2_;
+		//printf( "stampToGrid2D \n");
+        Vec3d f   =  (Vec3d){ ns1.x/ns2.x, ns1.y/ns2.y, ns1.z/ns2.z };
+		int nxy1=ns1.x*ns1.y;
+        int nxy2=ns2.x*ns2.y;
+        for(int iz=0; iz<ns1.z; iz++){
+            for(int iy=0; iy<ns1.y; iy++){
+			    for(int ix=0; ix<ns1.x; ix++){
+                    double x = f.x*ix; int jx=(int)x; int jx1=jx+1; double dx=x-jx; double mx=1.-dx;
+                    double y = f.y*iy; int jy=(int)y; int jy1=jy+1; double dy=y-jy; double my=1.-dy;
+                    double z = f.z*iz; int jz=(int)z; int jz1=jz+1; double dz=z-jz; double mz=1.-dz;
+                    double val = Fin[iz*nxy1 + iy*ns1.x + ix];
+                    int jzn =jz *nxy2;
+                    int jzn1=jz1*nxy2;
+                    int jyn =jy *ns2.x;
+                    int jyn1=jy1*ns2.x;
+                    bool end_x = (jx1<ns2.x);
+                    bool end_y = (jy1<ns2.y);
+                             Fout[jzn +jyn +jx ]+= val* mx*my*mz ;
+                    if(end_x)Fout[jzn +jyn +jx1]+= val* dx*my*mz ;
+                    if(jy1<ns2.y){
+                             Fout[jzn +jyn1+jx ]+= val* mx*dy*mz ;
+                    if(end_x)Fout[jzn +jyn1+jx1]+= val* dx*dy*mz ;
+                    }
+                    if(jz1<ns2.z){
+                             Fout[jzn1+jyn +jx ]+= val* mx*my*dz ;
+                    if(end_x)Fout[jzn1+jyn +jx1]+= val* dx*my*dz ;
+                    if(jy1<ns2.y){
+                             Fout[jzn1+jyn1+jx ]+= val* mx*dy*dz ;
+                    if(end_x)Fout[jzn1+jyn1+jx1]+= val* dx*dy*dz ;
+                    }
+                    }
+			    }
+		    }
+        }
+		//printf( "stampToGrid2D DONE \n");
+	}
+
+	double coulombGrid_brute( int* ns1_, int* ns2_, double* dpos_, double* rot1_, double* rot2_, double* rho1, double* rho2 ){
+		Vec3i ns1 = *(Vec3i*)ns1_;
+		Vec3i ns2 = *(Vec3i*)ns2_;
+		Vec3d dpos = *(Vec3d*)dpos_; 
+        Mat3d rot1 = *(Mat3d*)rot1_;
+        Mat3d rot2 = *(Mat3d*)rot2_;
+		int nxy1=ns1.x*ns1.y;
+        int nxy2=ns2.x*ns2.y;
+        double sum = 0;
+        for(int iz=0; iz<ns1.z; iz++){
+            for(int iy=0; iy<ns1.y; iy++){
+			    for(int ix=0; ix<ns1.x; ix++){
+                Vec3d p1;  rot1.dot_to_T({ix,iy,iz},p1);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
+                p1.add(dpos);
+                double q1 = rho1[iz*nxy1 + iy*ns1.x + ix];
+                for(int jz=0; jz<ns2.z; jz++){
+                    for(int jy=0; jy<ns2.y; jy++){
+			            for(int jx=0; ix<ns2.x; jx++){
+                            Vec3d p;  rot2.dot_to_T({jx,jy,jz},p);
+                            p.sub(p1);
+                            double r  = p.norm();
+                            double q2 = rho2[jz*nxy2 + jy*ns2.x + jx];
+                            sum += q1*q2/r;
+			            }
+		            }
+                }
+			    }
+		    }
+        }
+		//printf( "stampToGrid2D DONE \n");
+	}
+
 	// ---------  1D radial histogram
 	inline void acum_sphere_hist( int ibuff, const Vec3d& pos, void * args ){
 	    Vec3d dr;

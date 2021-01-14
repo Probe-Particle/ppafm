@@ -240,6 +240,35 @@ def photonMap3D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
     Vtip = np.roll( Vtip, -shifts[0], axis=2)
     return phmap, Vtip, canvas, dd
 
+def solveExcitonSystem( e, rhoTrans, lvec, poss, rots, ndim=None ):
+    '''
+    Solve coupled excitonic system according to :
+    https://chem.libretexts.org/Bookshelves/Physical_and_Theoretical_Chemistry_Textbook_Maps/Book%3A_Time_Dependent_Quantum_Mechanics_and_Spectroscopy_(Tokmakoff)/15%3A_Energy_and_Charge_Transfer/15.03%3A_Excitons_in_Molecular_Aggregates
+    '''
+    n = range(len(poss))
+    H = np.eye(n)
+    if ndim is not None: # down-sample ?
+        rhoTrans = GU.downSample3D( rhoTrans, ndim=ndim )
+        GU.saveXSF("rhoTrans_donw.xsf", rhoTrans,  )
+    poss = np.array(poss)
+    lvec=np.array(lvec[1:])
+    print "lvec ", lvec
+    for i in range(n):
+        ci = np.cos(rot[i])
+        si = np.sin(rot[i])
+        rot1 = np.array([[ci,-si,0.],[si,ci,0.],[0.,0.,1.]])
+        rot1 = np.dot( rot1, lvec )    # ToDo : check rotation is correct
+        for j in range(i):
+            dpos = poss[i] - poss[j]
+            cj = np.cos(rot[j])
+            sj = np.sin(rot[j])
+            rot2 = np.array([[cj,-sj,0.],[sj,cj,0.],[0.,0.,1.]])
+            rot2 = np.dot( rot2, lvec )
+            eij = GU.coulombGrid_brute( rhoTrans, rhoTrans, dpos=dpos, rot1=rot1, rot2=rot2 )
+            H[i,j]=eij
+            H[j,i]=eij
+    es,vs = np.linalg.eig(H)
+    return es,vs,H
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt

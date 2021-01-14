@@ -222,6 +222,34 @@ def stampToGrid3D_complex( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=complex(
         #print " p0 by Center ", p0
 	lib.stampToGrid3D_complex( ns1, ns2, p0, rot, stamp, canvas, coef_ )
 
+#void downSample3D( int* ns1_, int* ns2_, double* Fin, double* Fout ){
+lib.downSample3D.argtypes = [ array1i, array1i, array3d, array3d ]
+lib.downSample3D.restype  = None
+def downSample3D( Fin, ndim=None, Fout=None ):
+	if Fout is None:
+		Fout = np.zeros(Fout)
+	ns1=np.array( Fin.shape[::-1],  dtype=np.int32 )
+	ns2=np.array( Fout.shape[::-1], dtype=np.int32 )
+	lib.downSample3D( ns1, ns2, Fin, Fout )
+	return Fout
+
+#double coulombGrid_brute( int* ns1_, int* ns2_, double* dpos_, double* rot1_, double* rot2_, double* rho1, double* rho2 ){
+lib.coulombGrid_brute.argtypes = [ array1i, array1i, array1d, array2d, array2d, array3d, array3d ]
+lib.coulombGrid_brute.restype  = c_double
+def coulombGrid_brute( rho1, rho2, dpos=(0.,0.,0.), rot1=None, rot2=None ):
+	ns1=np.array( rho1.shape[::-1], dtype=np.int32 )
+	ns2=np.array( rho2.shape[::-1], dtype=np.int32 )
+	dpos = np.array(dpos)
+	if rot1 is None:
+		rot1 = np.eye(3)
+	else:
+		rot1 = np.array(rot1)
+	if rot2 is None:
+		rot2 = np.eye(3)
+	else:
+		rot2 = np.array(rot2)
+	return lib.coulombGrid_brute( ns1, ns2, dpos, rot1, rot2, rho1, rho2 )
+
 # ==============  String / File IO utils
 
 def readUpTo( filein, keyword ):
