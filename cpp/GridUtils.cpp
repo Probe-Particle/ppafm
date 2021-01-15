@@ -362,40 +362,54 @@ extern "C" {
 		Vec3i ns1 = *(Vec3i*)ns1_;
 		Vec3i ns2 = *(Vec3i*)ns2_;
 		//printf( "stampToGrid2D \n");
-        Vec3d f   =  (Vec3d){ ns1.x/ns2.x, ns1.y/ns2.y, ns1.z/ns2.z };
+        //Vec3d f   =  (Vec3d){ ns1.x/ns2.x, ns1.y/ns2.y, ns1.z/ns2.z };
+        Vec3d f   =  (Vec3d){ ns2.x/(double)ns1.x, ns2.y/(double)ns1.y, ns2.z/(double)ns1.z };
+        //printf( "%g %g %g \n", f.x, f.y, f.z   );
 		int nxy1=ns1.x*ns1.y;
         int nxy2=ns2.x*ns2.y;
         for(int iz=0; iz<ns1.z; iz++){
+            double z = f.z*iz; int jz=(int)z; int jz1=jz+1; double dz=z-jz; double mz=1.-dz;
+            int jzn =jz *nxy2;
+            int jzn1=jz1*nxy2;
             for(int iy=0; iy<ns1.y; iy++){
-			    for(int ix=0; ix<ns1.x; ix++){
+                double y = f.y*iy; int jy=(int)y; int jy1=jy+1; double dy=y-jy; double my=1.-dy;
+                int jyn =jy *ns2.x;
+                int jyn1=jy1*ns2.x;
+                for(int ix=0; ix<ns1.x; ix++){
                     double x = f.x*ix; int jx=(int)x; int jx1=jx+1; double dx=x-jx; double mx=1.-dx;
-                    double y = f.y*iy; int jy=(int)y; int jy1=jy+1; double dy=y-jy; double my=1.-dy;
-                    double z = f.z*iz; int jz=(int)z; int jz1=jz+1; double dz=z-jz; double mz=1.-dz;
                     double val = Fin[iz*nxy1 + iy*ns1.x + ix];
-                    int jzn =jz *nxy2;
-                    int jzn1=jz1*nxy2;
-                    int jyn =jy *ns2.x;
-                    int jyn1=jy1*ns2.x;
+                    if( (jx1<ns2.x)&&(jy1<ns2.y)&&(jz1<ns2.z) ){
+                        Fout[jzn +jyn +jx ]+= val* mx*my*mz ;
+                        Fout[jzn +jyn +jx1]+= val* dx*my*mz ;
+                        Fout[jzn +jyn1+jx ]+= val* mx*dy*mz ;
+                        Fout[jzn +jyn1+jx1]+= val* dx*dy*mz ;
+                        Fout[jzn1+jyn +jx ]+= val* mx*my*dz ;
+                        Fout[jzn1+jyn +jx1]+= val* dx*my*dz ;
+                        Fout[jzn1+jyn1+jx ]+= val* mx*dy*dz ;
+                        Fout[jzn1+jyn1+jx1]+= val* dx*dy*dz ;
+                    }
+                    /*
                     bool end_x = (jx1<ns2.x);
                     bool end_y = (jy1<ns2.y);
-                             Fout[jzn +jyn +jx ]+= val* mx*my*mz ;
-                    if(end_x)Fout[jzn +jyn +jx1]+= val* dx*my*mz ;
-                    if(jy1<ns2.y){
-                             Fout[jzn +jyn1+jx ]+= val* mx*dy*mz ;
-                    if(end_x)Fout[jzn +jyn1+jx1]+= val* dx*dy*mz ;
-                    }
+                                     Fout[jzn +jyn +jx ]+= val* mx*my*mz ;
+                            if(end_x)Fout[jzn +jyn +jx1]+= val* dx*my*mz ;
+                        if(jy1<ns2.y){
+                                     Fout[jzn +jyn1+jx ]+= val* mx*dy*mz ;
+                            if(end_x)Fout[jzn +jyn1+jx1]+= val* dx*dy*mz ;
+                        }
                     if(jz1<ns2.z){
-                             Fout[jzn1+jyn +jx ]+= val* mx*my*dz ;
-                    if(end_x)Fout[jzn1+jyn +jx1]+= val* dx*my*dz ;
-                    if(jy1<ns2.y){
-                             Fout[jzn1+jyn1+jx ]+= val* mx*dy*dz ;
-                    if(end_x)Fout[jzn1+jyn1+jx1]+= val* dx*dy*dz ;
+                                     Fout[jzn1+jyn +jx ]+= val* mx*my*dz ;
+                            if(end_x)Fout[jzn1+jyn +jx1]+= val* dx*my*dz ;
+                        if(jy1<ns2.y){
+                                     Fout[jzn1+jyn1+jx ]+= val* mx*dy*dz ;
+                            if(end_x)Fout[jzn1+jyn1+jx1]+= val* dx*dy*dz ;
+                        }
                     }
-                    }
+                    */
 			    }
 		    }
         }
-		//printf( "stampToGrid2D DONE \n");
+		printf( "downSample3D DONE \n");
 	}
 
 	double coulombGrid_brute( int* ns1_, int* ns2_, double* dpos_, double* rot1_, double* rot2_, double* rho1, double* rho2 ){
@@ -407,6 +421,7 @@ extern "C" {
 		int nxy1=ns1.x*ns1.y;
         int nxy2=ns2.x*ns2.y;
         double sum = 0;
+        int nops=0;
         for(int iz=0; iz<ns1.z; iz++){
             for(int iy=0; iy<ns1.y; iy++){
 			    for(int ix=0; ix<ns1.x; ix++){
@@ -415,19 +430,25 @@ extern "C" {
                 double q1 = rho1[iz*nxy1 + iy*ns1.x + ix];
                 for(int jz=0; jz<ns2.z; jz++){
                     for(int jy=0; jy<ns2.y; jy++){
-			            for(int jx=0; ix<ns2.x; jx++){
+			            for(int jx=0; jx<ns2.x; jx++){
                             Vec3d p;  rot2.dot_to_T({jx,jy,jz},p);
                             p.sub(p1);
                             double r  = p.norm();
                             double q2 = rho2[jz*nxy2 + jy*ns2.x + jx];
                             sum += q1*q2/r;
+                            nops++;
+                            //if( (jz==0)&&(jy==0)&&(jx==0)  &&   (iz==0)&&(iy==0)&&(ix==0) ){   
+                            //    printf( "%g %g,%g  (%g,%g,%g) | %i,%i,%i  %i,%i,%i \n", r,  q1, q2,  p.x,p.y,p.z,  ix,iy,iz,   jx,jy,jz  );
+                            //};
 			            }
 		            }
                 }
 			    }
 		    }
         }
+        printf( "nops %i \n", nops );
 		//printf( "stampToGrid2D DONE \n");
+        return sum;
 	}
 
 	// ---------  1D radial histogram

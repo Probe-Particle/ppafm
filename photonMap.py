@@ -245,28 +245,38 @@ def solveExcitonSystem( e, rhoTrans, lvec, poss, rots, ndim=None ):
     Solve coupled excitonic system according to :
     https://chem.libretexts.org/Bookshelves/Physical_and_Theoretical_Chemistry_Textbook_Maps/Book%3A_Time_Dependent_Quantum_Mechanics_and_Spectroscopy_(Tokmakoff)/15%3A_Energy_and_Charge_Transfer/15.03%3A_Excitons_in_Molecular_Aggregates
     '''
-    n = range(len(poss))
+    n = len(poss)
     H = np.eye(n)
     if ndim is not None: # down-sample ?
+        ndim1 = rhoTrans.shape
+        sum1 = (rhoTrans**2).sum()
         rhoTrans = GU.downSample3D( rhoTrans, ndim=ndim )
-        GU.saveXSF("rhoTrans_donw.xsf", rhoTrans,  )
+        #print rhoTrans.shape
+        sum2 = (rhoTrans**2).sum()
+        ndim2 = rhoTrans.shape 
+        print sum2, sum1
+        print sum2/(ndim2[0]*ndim2[1]*ndim2[2]), sum1/(ndim1[0]*ndim1[1]*ndim1[2])
+        GU.saveXSF("rhoTrans_donw.xsf", rhoTrans, lvec )
+        #exit()
     poss = np.array(poss)
     lvec=np.array(lvec[1:])
     print "lvec ", lvec
     for i in range(n):
-        ci = np.cos(rot[i])
-        si = np.sin(rot[i])
+        ci = np.cos(rots[i])
+        si = np.sin(rots[i])
         rot1 = np.array([[ci,-si,0.],[si,ci,0.],[0.,0.,1.]])
         rot1 = np.dot( rot1, lvec )    # ToDo : check rotation is correct
         for j in range(i):
+            print "eva H[%i,%i] " %(i,j)
             dpos = poss[i] - poss[j]
-            cj = np.cos(rot[j])
-            sj = np.sin(rot[j])
+            cj = np.cos(rots[j])
+            sj = np.sin(rots[j])
             rot2 = np.array([[cj,-sj,0.],[sj,cj,0.],[0.,0.,1.]])
             rot2 = np.dot( rot2, lvec )
             eij = GU.coulombGrid_brute( rhoTrans, rhoTrans, dpos=dpos, rot1=rot1, rot2=rot2 )
             H[i,j]=eij
             H[j,i]=eij
+    print "H  = ", H
     es,vs = np.linalg.eig(H)
     return es,vs,H
 
@@ -277,8 +287,9 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option( "-H", "--homo",   action="store", type="string", default="homo.xsf", help="orbital of electron hole;    3D data-file (.xsf,.cube)")
     parser.add_option( "-L", "--lumo",   action="store", type="string", default="lumo.xsf", help="orbital of excited electron; 3D data-file (.xsf,.cube)")
+    parser.add_option( "-D", "--dens",   action="store", type="string", default="",         help="transition density; 3D data-file (.xsf,.cube)")
     parser.add_option( "-R", "--radius", action="store", type="float",  default="1.0", help="tip radius")
-    parser.add_option( "-z", "--ztip", action="store", type="float",  default="5.0", help="tip above substrate")
+    parser.add_option( "-z", "--ztip",   action="store", type="float",  default="5.0", help="tip above substrate")
     parser.add_option( "-t", "--tip",    action="store", type="string", default="s",   help="tip compositon s,px,py,pz,d...")
 
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
@@ -287,11 +298,15 @@ if __name__ == "__main__":
     #rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
     #rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO_/CHGCAR.xsf")
 
-    print( ">>> Loading HOMO from ", options.homo, " ... " )
-    homo, lvecH, nDimH, headH = GU.loadCUBE( options.homo )
-    print( ">>> Loading LUMO from ", options.lumo, " ... " )
-    lumo, lvecL, nDimL, headL = GU.loadCUBE( options.lumo )
-    rhoTrans = homo*lumo
+    if options.homo != "":
+        rhoTrans, lvec, nDim, head = GU.loadCUBE( options.dens )
+    else: 
+        print( ">>> Loading HOMO from ", options.homo, " ... " )
+        homo, lvecH, nDimH, headH = GU.loadCUBE( options.homo )
+        print( ">>> Loading LUMO from ", options.lumo, " ... " )
+        lumo, lvecL, nDimL, headL = GU.loadCUBE( options.lumo )
+        lvec=lvecH; nDim=nDimH; headH=headH
+        rhoTrans = homo*lumo
 
     '''
     rho  = np.sum(  rhoTrans, axis=2)
@@ -312,13 +327,13 @@ if __name__ == "__main__":
     #tipDict =  { 'px': 1.0  }
     #tipDict =  { 'py': 1.0  }
 
-    #phmap, Vtip, rho =  photonMap2D( rhoTrans, tipDict, lvecH, z=0.5, sigma=0.0, multipole_dict=tipDict )
+    #phmap, Vtip, rho =  photonMap2D( rhoTrans, tipDict, lvec, z=0.5, sigma=0.0, multipole_dict=tipDict )
 
     '''
     rots =[0.0]
     poss =[ [200.0,200.0] ]
     coefs=[1.0]
-    phmap, Vtip, rho =  photonMap2D_stamp( rhoTrans, lvecH, z=0.5, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+    phmap, Vtip, rho =  photonMap2D_stamp( rhoTrans, lvec, z=0.5, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
 
     plt.figure(figsize=(15,5))
     plt.subplot(1,3,1); plt.imshow( rho      ); plt.colorbar(); plt.title('Transient Density')
@@ -340,14 +355,21 @@ if __name__ == "__main__":
     #poss =[ [300.0,50.0]]
     #coefs=[ [1.0,0.0]   ]
 
+
+    print rhoTrans.shape, nDim
+    es,vs,H = solveExcitonSystem( 1.0, rhoTrans, lvec, poss, rots, ndim=(nDim[0]/3,nDim[1]/3,nDim[2]/3) )
+
+    exit()
+
+
     b2D = False
     #b2D = True
 
     if b2D:
-        phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvecH, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+        phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvec, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
         (dx,dy)=dd
     else:
-        phmap_, Vtip_, rho_, dd =  photonMap3D_stamp( rhoTrans, lvecH, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+        phmap_, Vtip_, rho_, dd =  photonMap3D_stamp( rhoTrans, lvec, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
         phmap = np.sum(phmap_,axis=0)
         Vtip  = np.sum(Vtip_ ,axis=0)
         rho   = np.sum(rho_  ,axis=0)
@@ -363,12 +385,12 @@ if __name__ == "__main__":
     plt.subplot(1,3,2); plt.imshow( Vtip.real, extent=extent , origin='image'                    ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Tip Field')
     #plt.subplot(1,3,1); plt.imshow( rho.real  **2 + rho.imag  **2, origin='image' ); plt.colorbar(); plt.title('Transient Density')
     plt.subplot(1,3,1); plt.imshow( rho.real   ,extent=extent, origin='image'                    ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Transient Density')
-    #print "lvec ", lvecH
+    #print "lvec ", lvec
     #for i in range(len(poss)):
-    #    xs,ys = makeBox( poss[i], rots[i], a=lvecH[2][1],b=lvecH[3][2] )
+    #    xs,ys = makeBox( poss[i], rots[i], a=lvec[2][1],b=lvec[3][2] )
     #    plt.plot(xs,ys)
     #    #plt.plot(xs[0],ys[0],'o')
-    plotBoxes( poss, rots, lvecH )
+    plotBoxes( poss, rots, lvec )
     plt.subplot(1,3,3); plt.imshow( phmap.real**2 + phmap.imag**2, extent=extent, origin='image' ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Photon Map')
     
     
@@ -382,18 +404,18 @@ if __name__ == "__main__":
     '''
     
     #print( ">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... " )
-    #Fx,Fy,Fz,E = fFFT.potential2forces_mem( rhoTrans, lvecH, nDimH, rho=tip, doForce=True, doPot=True, deleteV=False )
+    #Fx,Fy,Fz,E = fFFT.potential2forces_mem( rhoTrans, lvec, nDimH, rho=tip, doForce=True, doPot=True, deleteV=False )
 
-    Vtip =  fFFT.getMultiploleGrid( lvecH, nDimH, sigma=1.0, multipole_dict=tip, tilt=0.0 )
+    Vtip =  fFFT.getMultiploleGrid( lvec, nDimH, sigma=1.0, multipole_dict=tip, tilt=0.0 )
     #getMultiplole( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None, tilt=0.0 ):
 
-    couplings = fFFT.convolveFFT( rhoTrans, Vtip, lvecH, nDimH )
+    couplings = fFFT.convolveFFT( rhoTrans, Vtip, lvec, nDimH )
 
-    GU.saveXSF( "couplMap.xsf", couplings, lvecH, head=headH )
-    GU.saveXSF( "Vtip.xsf", Vtip, lvecH, head=headH )
+    GU.saveXSF( "couplMap.xsf", couplings, lvec, head=headH )
+    GU.saveXSF( "Vtip.xsf", Vtip, lvec, head=headH )
 
-    GU.saveXSF( "HOMO.xsf", homo, lvecH, head=headH )
+    GU.saveXSF( "HOMO.xsf", homo, lvec, head=headH )
     GU.saveXSF( "LUMO.xsf", lumo, lvecL, head=headL )
-    GU.saveXSF( "rhoTrans_HOMO_LUMO.xsf", rhoTrans, lvecH, head=headH )
+    GU.saveXSF( "rhoTrans_HOMO_LUMO.xsf", rhoTrans, lvec, head=headH )
     '''
 

@@ -227,7 +227,8 @@ lib.downSample3D.argtypes = [ array1i, array1i, array3d, array3d ]
 lib.downSample3D.restype  = None
 def downSample3D( Fin, ndim=None, Fout=None ):
 	if Fout is None:
-		Fout = np.zeros(Fout)
+		Fout = np.zeros(ndim)
+	print Fin.shape, Fout.shape
 	ns1=np.array( Fin.shape[::-1],  dtype=np.int32 )
 	ns2=np.array( Fout.shape[::-1], dtype=np.int32 )
 	lib.downSample3D( ns1, ns2, Fin, Fout )
