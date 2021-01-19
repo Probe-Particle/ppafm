@@ -298,7 +298,7 @@ if __name__ == "__main__":
     #rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
     #rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO_/CHGCAR.xsf")
 
-    if options.homo != "":
+    if options.dens != "":
         rhoTrans, lvec, nDim, head = GU.loadCUBE( options.dens )
     else: 
         print( ">>> Loading HOMO from ", options.homo, " ... " )
@@ -356,10 +356,9 @@ if __name__ == "__main__":
     #coefs=[ [1.0,0.0]   ]
 
 
-    print rhoTrans.shape, nDim
-    es,vs,H = solveExcitonSystem( 1.0, rhoTrans, lvec, poss, rots, ndim=(nDim[0]/3,nDim[1]/3,nDim[2]/3) )
-
-    exit()
+    #print rhoTrans.shape, nDim
+    #es,vs,H = solveExcitonSystem( 1.0, rhoTrans, lvec, poss, rots, ndim=(nDim[0]/3,nDim[1]/3,nDim[2]/3) )
+    #exit()
 
 
     b2D = False
