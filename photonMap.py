@@ -94,7 +94,7 @@ def makeTipField2D( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     #print "(xmax,ymax) = ", X[-1,-1],Y[-1,-1],  X[0,0],Y[0,0]
     radial = 1/np.sqrt( X**2 + Y**2  + z**2 + sigma**2  ) 
     #print "radial ", radial[:,radial.shape[1]/2]
-    if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
+    if multipole_dict is not None:    # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         Vtip = np.zeros( np.shape(radial) )
         for kind, coef in multipole_dict.iteritems():
             Vtip += radial * coef * fFFT.getSphericalHarmonic( X, Y, z, kind=kind, tilt=0 )
@@ -114,7 +114,7 @@ def makeTipField3D( sh, dd, z0=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     #print "(xmax,ymax) = ", X[-1,-1],Y[-1,-1],  X[0,0],Y[0,0]
     radial = 1/np.sqrt( X**2 + Y**2  + Z**2 + sigma**2 ) 
     #print "radial ", radial[:,radial.shape[1]/2]
-    if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
+    if multipole_dict is not None:    # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         Vtip = np.zeros( np.shape(radial) )
         for kind, coef in multipole_dict.iteritems():
             Vtip += radial * coef * fFFT.getSphericalHarmonic( X, Y, Z, kind=kind, tilt=0 )

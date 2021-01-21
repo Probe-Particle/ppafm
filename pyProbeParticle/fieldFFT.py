@@ -146,7 +146,7 @@ def getMultiplole( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None, tilt
     rx*=invR
     ry*=invR
     ry*=invR
-    if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
+    if multipole_dict is not None:    # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         rho = np.zeros( np.shape(radial) )
         for kind, coef in multipole_dict.iteritems():
             rho += radial * coef * getSphericalHarmonic( rx, ry, rz, kind=kind, tilt=tilt )
@@ -169,7 +169,7 @@ def getProbeDensity( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None, ti
     radial       = np.exp( -(rquad)/(2*sigma**2) )
     radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]  # TODO analytical renormalization may save some time ?
     radial      /= radial_renom
-    if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
+    if multipole_dict is not None:    # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         rho = np.zeros( np.shape(radial) )
         for kind, coef in multipole_dict.iteritems():
             #rho += radial * coef * getSphericalHarmonic( X/sigma, Y/sigma, Z/sigma, kind=kind, tilt=tilt )
@@ -286,7 +286,7 @@ def getForceEnergy(V, rho, sampleSize, dims, dd, X, Y, Z):
     forceSkewx = np.real(np.fft.ifftn(zeta[0]*derConvFFT))
     forceSkewy = np.real(np.fft.ifftn(zeta[1]*derConvFFT))
     forceSkewz = np.real(np.fft.ifftn(zeta[2]*derConvFFT))
-    return forceSkewx, forceSkewy, forceSkewz, E 	
+    return forceSkewx, forceSkewy, forceSkewz, E     
 '''
 
 def getNormalizedBasisMatrix(sampleSize):
