@@ -22,6 +22,105 @@ namespace Histogram{
     double * Ws;
 }
 
+
+template<typename Func>
+void iterRotated3DGrid( Vec3i ns, Vec3d pos0, Mat3d rot, Func func ){
+    int nxy=ns.x*ns.y;
+    for(int iz=0; iz<ns.z; iz++){
+        for(int iy=0; iy<ns.y; iy++){
+            for(int ix=0; ix<ns.x; ix++){
+                Vec3d p;  
+                rot.dot_to_T({ix,iy,iz},p);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
+                p.add(pos0);
+                int i = iz*nxy + iy*ns.x + ix;
+                func( i, p );
+            }
+        }
+    }
+    //printf( "nops %i \n", nops );
+    //printf( "stampToGrid2D DONE \n");
+}
+
+inline void addTrilinar( const Vec3d& p, const Vec3i& ns, double val, double* canvas ){
+    int jx  = (int)p.x; int jx1=jx+1; 
+    int jy  = (int)p.y; int jy1=jy+1;
+    int jz  = (int)p.z; int jz1=jz+1; 
+    if( (jx>=0)&&(jx1<ns.x) &&  (jy>=0)&&(jy1<ns.y) && (jz>=0)&&(jz1<ns.z)  ){
+        int nxy=ns.x*ns.y;
+        double dx=p.x-jx; double mx=1.-dx; 
+        double dy=p.y-jy; double my=1.-dy;
+        double dz=p.z-jz; double mz=1.-dz;
+        int jyn =jy *ns.x;
+        int jyn1=jy1*ns.x;
+        double fyz;
+        int jzn    =jz*nxy;
+        fyz = my*mz;
+        canvas[jzn +jyn +jx ] += val* mx*fyz ;
+        canvas[jzn +jyn +jx1] += val* dx*fyz ;
+        fyz = dy*mz;
+        canvas[jzn +jyn1+jx ] += val* mx*fyz ;
+        canvas[jzn +jyn1+jx1] += val* dx*fyz ;
+        jzn=jz1*nxy;
+        fyz = my*dz;
+        canvas[jzn+jyn +jx ] += val* mx*fyz ;
+        canvas[jzn+jyn +jx1] += val* dx*fyz ;
+        fyz = dy*dz;
+        canvas[jzn+jyn1+jx ] += val* mx*fyz ;
+        canvas[jzn+jyn1+jx1] += val* dx*fyz ;
+    }
+}
+
+inline void addTrilinar_v2d( const Vec3d& p, Vec3i ns, Vec2d val, Vec2d* canvas ){
+    int jx  = (int)p.x; int jx1=jx+1; 
+    int jy  = (int)p.y; int jy1=jy+1;
+    int jz  = (int)p.z; int jz1=jz+1; 
+    /*
+    jx=wrap(jx,ns.x); int jx1 = wrap(jx+1,ns.x);
+    jy=wrap(jy,ns.y); int jy1 = wrap(jy+1,ns.y);
+    jz=wrap(jz,ns.z); int jz1 = wrap(jz+1,ns.z);
+    if( (jx<0)||(jx>=ns.x) || (jy<0)||(jy>=ns.y) || (jz<0)||(jz>=ns.z) ){
+        printf( " (%i,%i,%i) (%i,%i,%i) \n", jx,jy,jz, ns.x, ns.y, ns.y );
+        exit(0);
+    }
+    int nxy=ns.x*ns.y;
+    int jzn =jz *nxy;
+    int jzn1=jz1*nxy;
+    int jyn =jy *ns.x;
+    int jyn1=jy1*ns.x;
+    */
+    /*
+    //if( (jx<10000) &&  (jy<10000) && (jz<2)  ){
+    if( (jx>=0)&&(jx1<ns.x) &&  (jy>=0)&&(jy1<ns.y) && (jz>=0)&&(jz1<ns.z)  ){
+        //int i=jz*nxy + jy*ns.x + jx;
+        //int ntot = ns.x*ns.y*ns.z;
+        //printf("%i %i %i | %i<%i \n", jx, jy, jz, i, ntot );
+        //canvas[ jzn +jyn +jx ].add_mul( val, mx*my*mz );
+        //canvas[ i ].add_mul( val, mx*my*mz );
+        canvas[ jz*nxy + jy*ns.x + jx ].add_mul( val, mx*my*mz );
+    }
+    */
+    if( (jx>=0)&&(jx1<ns.x) &&  (jy>=0)&&(jy1<ns.y) && (jz>=0)&&(jz1<ns.z)  ){
+        int nxy=ns.x*ns.y;
+        double dx=p.x-jx; double mx=1.-dx; 
+        double dy=p.y-jy; double my=1.-dy;
+        double dz=p.z-jz; double mz=1.-dz;
+        int jzn =jz *nxy;
+        int jzn1=jz1*nxy;
+        int jyn =jy *ns.x;
+        int jyn1=jy1*ns.x;
+        canvas[ jzn +jyn +jx ].add_mul( val, mx*my*mz );
+        canvas[jzn +jyn +jx1].add_mul( val, dx*my*mz );
+        canvas[jzn +jyn1+jx ].add_mul( val, mx*dy*mz );
+        canvas[jzn +jyn1+jx1].add_mul( val, dx*dy*mz );
+        canvas[jzn1+jyn +jx ].add_mul( val, mx*my*dz );
+        canvas[jzn1+jyn +jx1].add_mul( val, dx*my*dz );
+        canvas[jzn1+jyn1+jx ].add_mul( val, mx*dy*dz );
+        canvas[jzn1+jyn1+jx1].add_mul( val, dx*dy*dz );
+    }
+}
+
+
+
 extern "C" {
 
     int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline) {
@@ -239,55 +338,6 @@ extern "C" {
     }
     */
 
-    inline void addTrilinar_v2d( const Vec3d& p, Vec3i ns, Vec2d val, Vec2d* canvas ){
-        int jx  = (int)p.x; int jx1=jx+1; 
-        int jy  = (int)p.y; int jy1=jy+1;
-        int jz  = (int)p.z; int jz1=jz+1; 
-        /*
-        jx=wrap(jx,ns.x); int jx1 = wrap(jx+1,ns.x);
-        jy=wrap(jy,ns.y); int jy1 = wrap(jy+1,ns.y);
-        jz=wrap(jz,ns.z); int jz1 = wrap(jz+1,ns.z);
-        if( (jx<0)||(jx>=ns.x) || (jy<0)||(jy>=ns.y) || (jz<0)||(jz>=ns.z) ){
-            printf( " (%i,%i,%i) (%i,%i,%i) \n", jx,jy,jz, ns.x, ns.y, ns.y );
-            exit(0);
-        }
-        int nxy=ns.x*ns.y;
-        int jzn =jz *nxy;
-        int jzn1=jz1*nxy;
-        int jyn =jy *ns.x;
-        int jyn1=jy1*ns.x;
-        */
-        /*
-        //if( (jx<10000) &&  (jy<10000) && (jz<2)  ){
-        if( (jx>=0)&&(jx1<ns.x) &&  (jy>=0)&&(jy1<ns.y) && (jz>=0)&&(jz1<ns.z)  ){
-            //int i=jz*nxy + jy*ns.x + jx;
-            //int ntot = ns.x*ns.y*ns.z;
-            //printf("%i %i %i | %i<%i \n", jx, jy, jz, i, ntot );
-            //canvas[ jzn +jyn +jx ].add_mul( val, mx*my*mz );
-            //canvas[ i ].add_mul( val, mx*my*mz );
-            canvas[ jz*nxy + jy*ns.x + jx ].add_mul( val, mx*my*mz );
-        }
-        */
-        if( (jx>=0)&&(jx1<ns.x) &&  (jy>=0)&&(jy1<ns.y) && (jz>=0)&&(jz1<ns.z)  ){
-            int nxy=ns.x*ns.y;
-            double dx=p.x-jx; double mx=1.-dx; 
-            double dy=p.y-jy; double my=1.-dy;
-            double dz=p.z-jz; double mz=1.-dz;
-            int jzn =jz *nxy;
-            int jzn1=jz1*nxy;
-            int jyn =jy *ns.x;
-            int jyn1=jy1*ns.x;
-            canvas[ jzn +jyn +jx ].add_mul( val, mx*my*mz );
-            canvas[jzn +jyn +jx1].add_mul( val, dx*my*mz );
-            canvas[jzn +jyn1+jx ].add_mul( val, mx*dy*mz );
-            canvas[jzn +jyn1+jx1].add_mul( val, dx*dy*mz );
-            canvas[jzn1+jyn +jx ].add_mul( val, mx*my*dz );
-            canvas[jzn1+jyn +jx1].add_mul( val, dx*my*dz );
-            canvas[jzn1+jyn1+jx ].add_mul( val, mx*dy*dz );
-            canvas[jzn1+jyn1+jx1].add_mul( val, dx*dy*dz );
-        }
-    }
-
     void stampToGrid3D_complex( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp_, double* canvas_, Vec2d* coef_ ){
         Vec3i ns1  = *(Vec3i*)ns1_;
         Vec3i ns2  = *(Vec3i*)ns2_;
@@ -356,7 +406,18 @@ extern "C" {
         //j=100; for(int i=0;i<ns2.z;i++){ canvas[j*ns2.x+i].x=1.0; canvas[j*ns2.x+i].y=2.0; };
         //printf( "stampToGrid2D_complex DONE \n");
     }
-    
+
+    void stampToGrid3D( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp, double* canvas, double coef ){
+        Vec3i ns1  = *(Vec3i*)ns1_;
+        Vec3i ns2  = *(Vec3i*)ns2_;
+        Vec3d p0   = *(Vec3d*)p0_;
+        Mat3d rot  = *(Mat3d*)rot_;
+        iterRotated3DGrid( ns1, p0, rot, [&](int i, const Vec3d& p){
+            double val = stamp[i] * coef;
+            addTrilinar( p, ns2, val, canvas );
+            //addTrilinar( const Vec3d& p, const Vec3i& ns, double val, double* canvas );
+        } );
+    }
 
     void downSample3D( int* ns1_, int* ns2_, double* Fin, double* Fout ){
         Vec3i ns1 = *(Vec3i*)ns1_;
@@ -450,6 +511,59 @@ extern "C" {
         //printf( "stampToGrid2D DONE \n");
         return sum;
     }
+
+    /*
+    void makePositionGrid( int* ns_, double* pos0_, double* rot_, double* poss_ ){
+        Vec3i ns   = *(Vec3i*)ns_;
+        Vec3d pos0  = *(Vec3d*)pos0_; 
+        Mat3d rot   = *(Mat3d*)rot_;
+        Vec3d* poss =  (Vec3d*)poss_;
+        int nxy=ns.x*ns.y;
+        for(int iz=0; iz<ns.z; iz++){
+            for(int iy=0; iy<ns.y; iy++){
+                for(int ix=0; ix<ns.x; ix++){
+                Vec3d p;  rot.dot_to_T({ix,iy,iz},p);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
+                p.add(pos0);
+                poss[iz*nxy + iy*ns.x + ix] = p;
+            }
+        }
+        }
+        //printf( "nops %i \n", nops );
+        //printf( "stampToGrid2D DONE \n");
+    }
+    */
+
+    void makePositionGrid( int* ns_, double* pos0_, double* rot_, double* poss_ ){
+        Vec3i ns    = *(Vec3i*)ns_;
+        Vec3d pos0  = *(Vec3d*)pos0_; 
+        Mat3d rot   = *(Mat3d*)rot_;
+        Vec3d* poss =  (Vec3d*)poss_;
+        int nxy=ns.x*ns.y;
+        iterRotated3DGrid( ns, pos0, rot, [&](int i, const Vec3d& p){
+            poss[i]=p;
+        } );
+    }
+
+    double coulombGrid_brute_pos( int n1, int n2, double* poss1_, double* poss2_, double* rho1, double* rho2 ){
+        Vec3d* poss1 = (Vec3d*)poss1_;
+        Vec3d* poss2 = (Vec3d*)poss2_;
+        double sum = 0;
+        for(int i=0; i<n1; i++){
+            Vec3d pi = poss1[i];
+            double qi=rho1[i];
+            for(int j=0; j<n1; j++){
+                Vec3d p = poss1[j];
+                p.sub(pi);
+                double r  = p.norm();
+                double qj = rho2[j];
+                sum += qi*qj/r;
+                //nops++;
+            }
+        }
+        return sum;
+    }
+
+
 
     // ---------  1D radial histogram
     inline void acum_sphere_hist( int ibuff, const Vec3d& pos, void * args ){

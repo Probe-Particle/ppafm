@@ -21,6 +21,8 @@ lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )
 
 # define used numpy array types for interfacing with C++
 
+c_double_p = ctypes.POINTER(ctypes.c_double)
+
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
 array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
 array2d = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
@@ -45,6 +47,16 @@ def renorSlice( F ):
         F[i] /= ( vmax - vmin )
         vranges.append( (vmin,vmax) )
     return vranges
+
+def rot3DFormAngle(angle):
+    ca=np.cos(angle)
+    sa=np.sin(angle)
+    rot  = np.array([
+        [ ca,-sa,0],
+        [ sa, ca,0],
+        [ 0,   0,1],
+    ]) #*dd[0]
+    return rot
 
 # ==============  Cutting, Sampling, Interpolation ...
 
@@ -199,16 +211,11 @@ def stampToGrid2D_complex( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=complex(
 #void stampToGrid3D_complex( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp_, double* canvas_, Vec2d* coef_ ){
 lib.stampToGrid3D_complex.argtypes = [ array1i, array1i, array1d, array2d, array3c, array3c, array1d ]
 lib.stampToGrid3D_complex.restype  = None
-def stampToGrid3D_complex( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=True ):
+def stampToGrid3D_complex( canvas, stamp, p0, angle=0., dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=True, rot=None ):
     p0=np.array(p0)/np.array(dd)    #; print "p0", p0
     #print "p0 ", p0
-    ca=np.cos(angle)
-    sa=np.sin(angle)
-    rot  = np.array([
-        [ ca,-sa,0],
-        [ sa, ca,0],
-        [ 0,   0,1],
-    ]) #*dd[0]
+    if rot is None:
+        rot = rot3DFormAngle(angle)
     if  isinstance(coef, float):
         coef_ = np.array([coef, 0.0])
     else:
@@ -250,6 +257,49 @@ def coulombGrid_brute( rho1, rho2, dpos=(0.,0.,0.), rot1=None, rot2=None ):
     else:
         rot2 = np.array(rot2)
     return lib.coulombGrid_brute( ns1, ns2, dpos, rot1, rot2, rho1, rho2 )
+
+#lib..argtypes = [ array1i,  array2d,  ]
+#lib..restype  = None
+#def (  ):
+
+#void stampToGrid3D( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp, double* canvas, double coef ){
+lib.stampToGrid3D.argtypes = [ array1i, array1i,  array1d, array2d,  array3d, array3d, c_double  ]
+lib.stampToGrid3D.restype  = None
+def stampToGrid3D( canvas, stamp, p0, angle=0., dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=True, rot=None ):
+    p0=np.array(p0)/np.array(dd)
+    if rot is None:
+        rot = rot3DFormAngle(angle)
+    if  isinstance(coef, float):
+        coef_ = np.array([coef, 0.0])
+    else:
+        coef_ = np.array([coef.real, coef.imag])
+    ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
+    ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
+    if byCenter:
+        p0 = p0 + rot[0]*(ns1[0]*-0.5) + rot[1]*(ns1[1]*-0.5) #+ rot[2]*(ns1[2]*-0.5)
+    lib.stampToGrid3D( ns1, ns2, p0, rot, stamp, canvas, coef )
+
+#void makePositionGrid( int* ns_, double* pos0_, double* rot_, double* poss_ ){
+lib.makePositionGrid.argtypes = [ array1i,  array1d, array2d,  array4d ]
+lib.makePositionGrid.restype  = None
+def makePositionGrid( pos0=[0.,0.,0.], angle=0., rot=None, poss=None, ns=None, dd=[1.0,1.0] ):
+    p0=np.array(p0)/np.array(dd)
+    if poss is None:
+        poss=np.array(ns)
+    if ns is None:
+        ns = np.array( poss.shape[:3][::-1], dtype=np.int32 )
+    if rot is None:
+        rot = rot3DFormAngle(angle)
+    lib.makePositionGrid(ns,pos0,rot,poss)
+
+#double coulombGrid_brute_pos( int n1, int n2, double* poss1_, double* poss2_, double* rho1, double* rho2 ){
+lib.coulombGrid_brute_pos.argtypes = [ array1i, c_double_p, c_double_p,  array2d, array2d, ]
+lib.coulombGrid_brute_pos.restype  = None
+def coulombGrid_brute_pos( rho1, rho2, poss1, poss2 ):
+    ns1 = np.array( poss1.shape[:1], dtype=np.int32 )
+    ns2 = np.array( poss2.shape[:1], dtype=np.int32 )
+    return lib.coulombGrid_brute_pos( ns1, ns2, rho1.data, rho2.data, poss1, poss2  ) 
+
 
 # ==============  String / File IO utils
 
