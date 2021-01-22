@@ -245,8 +245,11 @@ def downSample3D( Fin, ndim=None, Fout=None ):
 lib.coulombGrid_brute.argtypes = [ array1i, array1i, array1d, array2d, array2d, array3d, array3d ]
 lib.coulombGrid_brute.restype  = c_double
 def coulombGrid_brute( rho1, rho2, dpos=(0.,0.,0.), rot1=None, rot2=None ):
-    ns1=np.array( rho1.shape[::-1], dtype=np.int32 )
-    ns2=np.array( rho2.shape[::-1], dtype=np.int32 )
+    #ns1=np.array( rho1.shape[::-1], dtype=np.int32 )
+    #ns2=np.array( rho2.shape[::-1], dtype=np.int32 )
+    ns1=np.array( rho1.shape, dtype=np.int32 )
+    ns2=np.array( rho2.shape, dtype=np.int32 )
+    print "rho1.shape, ns1 ", rho1.shape, ns1
     dpos = np.array(dpos)
     if rot1 is None:
         rot1 = np.eye(3)
