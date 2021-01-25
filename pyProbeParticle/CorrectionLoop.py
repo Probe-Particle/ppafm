@@ -78,18 +78,24 @@ class Molecule():
 
 def removeAtoms( molecule, p0, R=3.0, nmax=1 ):
     #print( "----- removeAtoms  p0 ", p0 )
-    xyzs = molecule.xyzs 
+    xyzs = molecule.xyzs
     Zs   = molecule.Zs
     qs   = molecule.qs
     # rs   = (xyzs[:,0]-p0[0])**2 + (xyzs[:,1]-p0[1])**2
     # sel = rs.argsort()[:nmax] # [::-1]
-    top_atom_idx = np.where(xyzs[:,2] > xyzs[:,2].max()-1.0)[0]
-    sel = np.random.choice(top_atom_idx)
+    top_atom_idx = np.where(np.logical_and(np.greater_equal(xyzs[:,2],xyzs[:,2].max()-0.7), np.less(xyzs[:,2],xyzs[:,2].max())))[0]
+
+    nmax = min(nmax, len(top_atom_idx))
+    sel = np.random.choice(top_atom_idx, nmax)
+
+    if xyzs[sel,2] == xyzs.max(axis=0)[2]:
+        print("asd")
+        exit(1)
 
     xyzs_ = np.delete( xyzs, sel, axis=0 )
     Zs_   = np.delete( Zs,   sel )
     qs_   = np.delete( qs,   sel )
-    return Molecule(xyzs_, Zs_, qs_)
+    return Molecule(xyzs_, Zs_, qs_), sel
 
 def addAtom( molecule, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
     # ToDo : it would be nice to add atoms in a more physicaly reasonable way - not overlaping, proper bond-order etc.
@@ -154,11 +160,11 @@ class Mutator():
     # Strtegies contain 
     strategies = [ 
         (0.1,removeAtoms,{}), 
-        (0.1,addAtom,{}), 
+        (0.0,addAtom,{}),
         (0.0,moveAtom,{})
     ]
 
-    def __init__(self, maxMutations):
+    def __init__(self, maxMutations=5):
         self.setStrategies()
         self.maxMutations = maxMutations
 
@@ -172,18 +178,22 @@ class Mutator():
         #n_mutations = np.random.randint(self.maxMutations+1)
         n_mutations = 1
 
-        toss = np.random.rand(n_mutations)*self.cumProbs[-1]
-        i = np.searchsorted( self.cumProbs, toss )
+        molecule, removed = removeAtoms(molecule, n_mutations)
+        return molecule, removed
+
+        #toss = np.random.rand(n_mutations)*self.cumProbs[-1]
+        #i = np.searchsorted( self.cumProbs, toss )
+
         #print( "mutate_local ", i, toss, self.cumProbs[-1] )
 
         #molecule = moveMultipleAtoms(molecule, 1.0, 10)
-        for strat_nr in i:
-            args = self.strategies[strat_nr][2]
-            args['R'] = R
-            molecule = self.strategies[strat_nr][1](molecule, p0, **args)
-            #print(n_mutations, "mutations: ", self.strategies[strat_nr][1].__name__)
+        #for strat_nr in i:
+        #    args = self.strategies[strat_nr][2]
+        #    args['R'] = R
+        #    molecule = self.strategies[strat_nr][1](molecule, p0, **args)
+        #    #print(n_mutations, "mutations: ", self.strategies[strat_nr][1].__name__)
 
-        return molecule
+        #return molecule
 
         #args = self.strategies[i][2]
         #args['R'] = R
@@ -233,9 +243,9 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         p0[1] *= (self.afmulator.scan_window[1][1]+self.afmulator.scan_window[0][1])*0.5
         p0[2] *= 1.0
         R        = 1.0
-        mol2     = self.mutator.mutate_local( mol1, p0, R )
+        mol2, removed     = self.mutator.mutate_local( mol1, p0, R )
 
-        return mol1, mol2
+        return mol1, mol2, removed
 
     def __getitem__(self, index):
         self.index = index
@@ -257,12 +267,13 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
 
             mol1s = []
             mol2s = []
+            removed = []
             X1s   = [[] for _ in self.iZPPs]
             X2s   = [[] for _ in self.iZPPs]
 
             for b in range(self.batch_size):
                 # Get original and mutant
-                mol1, mol2 = self.generatePair()
+                mol1, mol2, rem = self.generatePair()
                 self.xyzs = mol1.xyzs
                 self.qs   = mol1.qs
                 self.Zs   = mol1.Zs
@@ -311,6 +322,7 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
 
                 mol1s.append(mol1)
                 mol2s.append(mol2)
+                removed.append(rem)
 
                 self.index += 1
 
@@ -324,7 +336,7 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
 
         mol1s = [np.c_[(mol1.xyzs, mol1.qs, mol1.Zs)] for mol1 in mol1s]
         mol2s = [np.c_[(mol2.xyzs, mol2.qs, mol2.Zs)] for mol2 in mol2s]
-        return X1s, X2s, mol1s, mol2s
+        return X1s, X2s, mol1s, mol2s, removed
 
     def extend_molecules_with_mutants(self):
         """
