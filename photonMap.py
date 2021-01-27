@@ -28,9 +28,9 @@ import pyProbeParticle.fieldFFT       as fFFT
 
 # ======== Main
 
-def makeBox( pos, rot, a=10.0,b=20.0, byCenter=True ):
+def makeBox( pos, rot, a=10.0,b=20.0, byCenter=False ):
     c= np.cos(rot)
-    s=-np.sin(rot)
+    s= np.sin(rot)
     x=pos[0]; y=pos[1]
     if byCenter:
         ca=c*a*0.5;sa=s*a*0.5; 
@@ -42,15 +42,15 @@ def makeBox( pos, rot, a=10.0,b=20.0, byCenter=True ):
         ys=[y,y+s*a,y+s*a+c*b,y+c*b,y]
     return xs,ys
 
-def plotBoxes( poss, rots, lvec, ax=None ):
+def plotBoxes( poss, rots, lvec, ax=None, byCenter=False ):
     if ax is None:
         ax = plt.gca()
     #print "lvec ", lvecH
     for i in range(len(poss)):
         #xs,ys = makeBox( poss[i], rots[i], a=lvec[2][1],b=lvec[3][2] )
-        xs,ys = makeBox( poss[i], rots[i], a=lvec[3][2],b=lvec[2][1] )
+        xs,ys = makeBox( poss[i], rots[i], a=lvec[3][2],b=lvec[2][1], byCenter=byCenter )
         ax.plot(xs,ys)
-        #plt.plot(xs[0],ys[0],'o')
+        plt.plot(xs[0],ys[0],'o')
 
 def shiftHalfAxis( X, d, n, ax=1 ):
     shift = n/2; 
@@ -212,7 +212,7 @@ def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
     return phmap, Vtip, canvas, dd
 
 
-def photonMap3D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], ncanv=(300,300),  ):
+def photonMap3D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], ncanv=(300,300), byCenter=False ):
     sh  = rhoTrans.shape
     if len(ncanv)<3:
         ncanv = ( (ncanv[0],ncanv[1],sh[2]) )
@@ -235,11 +235,11 @@ def photonMap3D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
         coef = coefs[i]
         if isinstance(coef, float):
             print "GU.stampToGrid3D()" 
-            GU.stampToGrid3D( canvas, rho, pos, rots[i], dd=dd, coef=coef )
+            GU.stampToGrid3D( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter )
         else:
             print "GU.stampToGrid3D_complex()"
             coef = complex( coef[0], coef[1] )
-            GU.stampToGrid3D_complex( canvas, rho, pos, rots[i], dd=dd, coef=coef )
+            GU.stampToGrid3D_complex( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter )
 
     Vtip, shifts = makeTipField3D( ncanv, dd, z0=z, sigma=sigma, multipole_dict=multipole_dict )
     #renorm = 1./( (Vtip**2).sum() * (rho.real**2+rho.imag**2).sum() )
@@ -256,9 +256,11 @@ def makeTransformMat( ns, lvec, angle=0.0, rot=None ):
     nx,ny,nz=ns
     #nz,ny,nx=ns
     if rot is None:
-        ci = np.cos(angle)
-        si = np.sin(angle)
-        rot = np.array([[ci,-si,0.],[si,ci,0.],[0.,0.,1.]])
+        #ci = np.cos(angle)
+        #si = np.sin(angle)
+        #rot = np.array([[ci,+si,0.],[-si,ci,0.],[0.,0.,1.]])
+        #rot = np.array([[ci,-si,0.],[+si,ci,0.],[0.,0.,1.]])
+        rot = GU.rot3DFormAngle(angle)
     lvec = lvec  + 0.
     lvec[0,:]*=1./nx
     lvec[1,:]*=1./ny
@@ -267,14 +269,14 @@ def makeTransformMat( ns, lvec, angle=0.0, rot=None ):
     print "mat ", mat
     return mat
 
-def solveExcitonSystem( e, rhoTrans, lvec, poss, rots, ndim=None ):
+def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, Ediag=1.0 ):
     '''
     Solve coupled excitonic system according to :
     https://chem.libretexts.org/Bookshelves/Physical_and_Theoretical_Chemistry_Textbook_Maps/Book%3A_Time_Dependent_Quantum_Mechanics_and_Spectroscopy_(Tokmakoff)/15%3A_Energy_and_Charge_Transfer/15.03%3A_Excitons_in_Molecular_Aggregates
     '''
     print " >>>>!!!!! DEBUG : solveExcitonSystem() .... this is WIP, do not take seriously "
     n = len(poss)
-    H = np.eye(n)
+    H = np.eye(n)*Ediag
     if ndim is not None: # down-sample ?
         ndim1 = rhoTrans.shape
         sum1 = (rhoTrans**2).sum()
@@ -289,21 +291,92 @@ def solveExcitonSystem( e, rhoTrans, lvec, poss, rots, ndim=None ):
     poss = np.array(poss)
     lvec=np.array(lvec[1:][::-1,::-1])
     print "lvec ", lvec
+
+    # check 
+
+    # dipole-dipole interaction prefactors 
+    coulomb_const = 14.3996   # [eV*A/e^2]  # https://en.wikipedia.org/wiki/Coulomb_constant
+    #sh = rhoTrans.shape
+    #dV            = (lvec[0,0]*lvec[1,1]*lvec[2,2])/(sh[0]*sh[1]*sh[2])  
+    prefactor     = coulomb_const #/(dV*dV)
+    print "checkSum rhoTrans ", (rhoTrans**2).sum()
+
+    #DEBUG
+    #print "rhoTrans.shape ", rhoTrans.shape
+    #rhoTrans[:,:,:] = 0.0; rhoTrans[-2,-2,-2]=1.0    # NOTE: it is ordered as [nx,ny,nz]
+    #rhoTrans[:,:,:] = 0.0; rhoTrans[0,0,0]=1.0
+
+    ns = rhoTrans.shape
+
     for i in range(n):
-        mat1 = makeTransformMat( rhoTrans.shape, lvec, rots[i] )
+        rot1 = makeTransformMat( rhoTrans.shape, lvec, rots[i] )
+        p1=poss[i]
+        if byCenter: p1 = p1 + rot1[0,:2]*(ns[0]*-0.5) + rot1[1,:2]*(ns[1]*-0.5)
+
+        coefs1 = GU.evalMultipole( rhoTrans, rot=rot1 )
+        print "multipoles coefs ", coefs1
+
         for j in range(i):
-            print "eva H[%i,%i] " %(i,j)
-            dpos = poss[i] - poss[j]
-            mat2 = makeTransformMat( rhoTrans.shape, lvec, rots[j] )
-            eij = GU.coulombGrid_brute( rhoTrans, rhoTrans, dpos=dpos, rot1=mat1, rot2=mat2 )
+            #print "eva H[%i,%i] " %(i,j)
+            #dpos = poss[i] - poss[j]
+            rot2 = makeTransformMat( rhoTrans.shape, lvec, rots[j] )
+            GU.setDebugFileName( "coulombGrid_%03i_%03i_.xyz" %(i,j) )
+            #eij = GU.coulombGrid_brute( rhoTrans, rhoTrans, dpos=dpos, rot1=mat1, rot2=mat2 )
+            p2 = poss[j]
+            if byCenter: p2 = p2 + rot2[0,:2]*(ns[0]*-0.5) + rot2[1,:2]*(ns[1]*-0.5)
+            eij = GU.coulombGrid_brute( rhoTrans, rhoTrans, pos1=p1, pos2=p2, rot1=rot1, rot2=rot2 )
+
+            #coefs2 = GU.evalMultipole( rhoTrans, rot=rot2 )
+
+            eij *= prefactor
             H[i,j]=eij
             H[j,i]=eij
-    print "H  = ", H
+
+            #print "mat1 ", mat1
+            #print "mat2 ", mat2
+            #print "dpos ", dpos
+            #print "eij ",  eij
+            #exit()
+
+    print "H  = \n", H
     es,vs = np.linalg.eig(H)
+    
+    print "eigenvaules    ", es
+    print "eigenvectors \n", vs
+
+    print "!!! ordering Eigen-pairs "
+    idx          = np.argsort(es)
+    es  = es[idx]
+    #vs = (vs[:,idx]).transpose()
+    vs = vs.transpose()
+    vs = vs[idx]
+
     print "eigenvaules  ", es
-    print "eigenvectors ", vs
+    #print "eigenvectors \n", vs
+    for i,v in enumerate(vs):
+        print "E[%i]=%g" %(i,es[i]), " v=",v, " |v|=",(v**2).sum()
     print " <<<<!!!!! DEBUG : solveExcitonSystem() DONE .... this is WIP, do not take seriously "
     return es,vs,H
+
+# ============== presets
+
+def makePreset_row( n, dx=5.0, ang=0.0 ): 
+    rots  = [ ang ] * n
+    poss  = [ [(i-0.5*(n-1))*dx,5,0.0] for i in range(n) ]
+    return poss, rots
+
+def makePreset_cycle( n, R=10.0, ang0=0.0 ):
+    dang = np.pi*2/n
+    rots=[]; poss=[]
+    for i in range(n):
+        a=dang*i 
+        poss.append( [np.cos(a)*R ,np.sin(a)*R ] )
+        rots.append( a+ang0 )
+    return poss, rots
+
+def nomralizeGridWf( F ):
+    q = (F**2).sum()
+    return F/np.sqrt(q)
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -333,7 +406,22 @@ if __name__ == "__main__":
         print( ">>> Loading LUMO from ", options.lumo, " ... " )
         lumo, lvecL, nDimL, headL = GU.loadCUBE( options.lumo )
         lvec=lvecH; nDim=nDimH; headH=headH
+
+        homo = nomralizeGridWf( homo )
+        lumo = nomralizeGridWf( lumo )
         rhoTrans = homo*lumo
+        # ---- check normalization   |Psi^2| = 1
+        #print "lvec", lvec
+        #print "Ls  ", lvec[1,0], lvec[2,1], lvec[3,2]
+        #print "nDim", nDim
+        #dV  = (lvec[1,0]*lvec[2,1]*lvec[3,2])/((nDim[0]+1)*(nDim[1]+1)*(nDim[2]+1))
+        #print "dV ", dV
+        #q = (homo**2).sum(); print "qsum ",q
+        
+        q = (homo**2).sum(); print "q(homo) ",q
+        q = (lumo**2).sum(); print "q(lumo) ",q
+        #q *= dV**2;          print "q    ",q
+        #exit()  
 
     '''
     rho  = np.sum(  rhoTrans, axis=2)
@@ -346,30 +434,20 @@ if __name__ == "__main__":
     plt.show()
     '''
 
-    
+    byCenter = False
+    #byCenter = True
+
     #tipDict =  { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
     #tipDict =  { 's': 1.0, 'py':1.0  }
-    tipDict =  { 's': 1.0, 'dy2':1.0  }
-    #tipDict =  { 's': 1.0 }
+    #tipDict =  { 's': 1.0, 'dy2':1.0  }
+    tipDict =  { 's': 1.0 }
     #tipDict =  { 'px': 1.0  }
     #tipDict =  { 'py': 1.0  }
 
     #phmap, Vtip, rho =  photonMap2D( rhoTrans, tipDict, lvec, z=0.5, sigma=0.0, multipole_dict=tipDict )
 
-    '''
-    rots =[0.0]
-    poss =[ [200.0,200.0] ]
-    coefs=[1.0]
-    phmap, Vtip, rho =  photonMap2D_stamp( rhoTrans, lvec, z=0.5, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
-
-    plt.figure(figsize=(15,5))
-    plt.subplot(1,3,1); plt.imshow( rho      ); plt.colorbar(); plt.title('Transient Density')
-    plt.subplot(1,3,2); plt.imshow( Vtip     ); plt.colorbar(); plt.title('Tip Field')
-    plt.subplot(1,3,3); plt.imshow( phmap**2 ); plt.colorbar(); plt.title('Photon Map')
-    '''
-
     fromDeg = np.pi/180.
-
+    '''
     rots  =[-30.0*fromDeg,45.0*fromDeg]
     #poss =[ [10.0,5.0] ,  [10.0,10.0] ]
     poss  =[ [-5.0,10.0] ,  [5.0,-5.0] ]
@@ -378,22 +456,33 @@ if __name__ == "__main__":
     #coefs=[ [1.0,0.0],      [0.0,1.0]     ]
     #coefs=[ [1.0,0.0],      [-1.0,0.0]     ]
     coefs=[ 1.0,      -1.0     ]
-
     #rots =[0.0]
     #poss =[ [300.0,50.0]]
     #coefs=[ [1.0,0.0]   ]
+    '''
+
+    #poss,rots = makePreset_row  ( 4, dx=10.0, ang=45.*fromDeg ) 
+    #poss,rots = makePreset_cycle( 4, R=10.0, ang0=-45.*fromDeg )
+    poss,rots = makePreset_cycle( 4, R=10.0, ang0=+90.*fromDeg )
+    coefs = np.ones(len(rots))
 
     if options.excitons:
         print rhoTrans.shape, nDim
-        subsamp = 10 
-        es,vs,H = solveExcitonSystem( 1.0, rhoTrans, lvec, poss, rots, ndim=(nDim[0]/subsamp,nDim[1]/subsamp,nDim[2]/subsamp) )
+        subsamp = 10   # seems sufficient to obtain 1e-3 accuracy 
+        #subsamp = 5 
+        es,vs,H = solveExcitonSystem( rhoTrans, lvec, poss, rots, Ediag=1.0, ndim=(nDim[0]/subsamp,nDim[1]/subsamp,nDim[2]/subsamp), byCenter=byCenter )
+
+        #coefs = vs[0]  # Take first eigenvector
+        #coefs = vs[1]
+        #coefs = vs[2]
+
         #exit()
 
     if not options.volumetric:
-        phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvec, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+        phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvec, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500), byCenter=byCenter )
         (dx,dy)=dd
     else:
-        phmap_, Vtip_, rho_, dd =  photonMap3D_stamp( rhoTrans, lvec, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500) )
+        phmap_, Vtip_, rho_, dd =  photonMap3D_stamp( rhoTrans, lvec, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500), byCenter=byCenter )
         phmap = np.sum(phmap_,axis=0)
         Vtip  = np.sum(Vtip_ ,axis=0)
         rho   = np.sum(rho_  ,axis=0)
@@ -414,7 +503,7 @@ if __name__ == "__main__":
     #    xs,ys = makeBox( poss[i], rots[i], a=lvec[2][1],b=lvec[3][2] )
     #    plt.plot(xs,ys)
     #    #plt.plot(xs[0],ys[0],'o')
-    plotBoxes( poss, rots, lvec )
+    plotBoxes( poss, rots, lvec, byCenter=byCenter )
     plt.subplot(1,3,3); plt.imshow( phmap.real**2 + phmap.imag**2, extent=extent, origin='image' ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Photon Map')
     
     

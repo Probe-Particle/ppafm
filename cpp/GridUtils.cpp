@@ -8,6 +8,8 @@
 
 GridShape gridShape;
 
+std::string debug_file_name;
+
 
 // ==== teporary global for functions
 double * data;
@@ -119,7 +121,24 @@ inline void addTrilinar_v2d( const Vec3d& p, Vec3i ns, Vec2d val, Vec2d* canvas 
     }
 }
 
+inline void acumDipole( double val, const Vec3d& p, double* coefs ){
+    coefs[0] +=val*p.x;
+    coefs[1] +=val*p.y;
+    coefs[2] +=val*p.z;
+}
 
+inline void acumQuadrupole( double val, const Vec3d& p, double* coefs ){
+    // https://en.wikipedia.org/wiki/Multipole_expansion#Molecular_moments
+    const double sqrt3=1.73205080757;
+    double xx=p.x*p.x;
+    double yy=p.y*p.y;
+    double zz=p.z*p.z;
+    coefs[0] +=val*p.y*p.z      *sqrt3;
+    coefs[1] +=val*p.x*p.z      *sqrt3;
+    coefs[2] +=val*p.x*p.y      *sqrt3;
+    coefs[3] +=val*(xx-yy)      *(sqrt3/3.);
+    coefs[4] +=val*(zz-(xx+yy)*0.5        );
+}
 
 extern "C" {
 
@@ -473,48 +492,110 @@ extern "C" {
         printf( "downSample3D DONE \n");
     }
 
-    double coulombGrid_brute( int* ns1_, int* ns2_, double* dpos_, double* rot1_, double* rot2_, double* rho1, double* rho2 ){
+void setDebugFileName( const char* fname ){
+    debug_file_name = fname;
+}
+
+void debugPrint(FILE* fdebug, double q, Vec3d p){
+    if(fabs(q)>1e-3){
+        fprintf(fdebug, "He %f %f %f   %f\n", p.x, p.y, p.z, 0.1 );
+    }else{
+        fprintf(fdebug, "H  %f %f %f   %f\n", p.x, p.y, p.z, q );
+    }
+}
+
+    //double coulombGrid_brute( int* ns1_, int* ns2_, double* dpos_, double* rot1_, double* rot2_, double* rho1, double* rho2 ){
+    void evalMultipole( int* ns1_, double* rot1_, double* rho1, double* coefs ){
+        Vec3i ns1  = *(Vec3i*)ns1_; 
+        Mat3d rot1 = *(Mat3d*)rot1_;
+        //int nxy1=ns1.x*ns1.y;
+        //int nxy2=ns2.x*ns2.y;
+        int nyz1=ns1.y*ns1.z;
+        printf("rot1:\n");rot1.print();
+        printf("nxyz: %i %i %i \n", ns1.x, ns1.y, ns1.z); ;
+        //return;
+        for(int ix=0; ix<ns1.x; ix++){
+            for(int iy=0; iy<ns1.y; iy++){
+                for(int iz=0; iz<ns1.z; iz++){
+                    //printf( " ix,iy,iz %i %i %i \n", ix, iy, iz );
+                    Vec3d pi;  rot1.dot_to_T({ix,iy,iz},pi);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
+                    //double qi = rho1[iz*nxy1 + iy*ns1.x + ix];
+                    double qi = rho1[ix*nyz1 + iy*ns1.z + iz];
+                    coefs[0]+=qi;
+                    acumDipole    (qi,pi,coefs+1);
+                    acumQuadrupole(qi,pi,coefs+4);
+                }
+            }
+        }
+        
+    }
+
+
+
+    //double coulombGrid_brute( int* ns1_, int* ns2_, double* dpos_, double* rot1_, double* rot2_, double* rho1, double* rho2 ){
+    double coulombGrid_brute( int* ns1_, int* ns2_, double* pos1_,double* pos2_, double* rot1_, double* rot2_, double* rho1, double* rho2 ){
         Vec3i ns1  = *(Vec3i*)ns1_;
         Vec3i ns2  = *(Vec3i*)ns2_;
-        Vec3d dpos = *(Vec3d*)dpos_; 
+        //Vec3d dpos = *(Vec3d*)dpos_; 
+        Vec3d pos1 = *(Vec3d*)pos1_; 
+        Vec3d pos2 = *(Vec3d*)pos2_; 
         Mat3d rot1 = *(Mat3d*)rot1_;
         Mat3d rot2 = *(Mat3d*)rot2_;
-        int nxy1=ns1.x*ns1.y;
-        int nxy2=ns2.x*ns2.y;
+        //int nxy1=ns1.x*ns1.y;
+        //int nxy2=ns2.x*ns2.y;
+        int nyz1=ns1.y*ns1.z;
+        int nyz2=ns2.y*ns2.z;
         double sum = 0;
+#define DEBUG_FILE 0
+#if DEBUG_FILE
         int nops=0;
-        printf( "nx,ny,nz %i %i %i \n", ns1.x, ns1.y, ns1.z );
-        Vec3d pmax; rot1.dot_to_T({ns1.x,ns1.y,ns1.z},pmax); printf("pmax %g %g %g \n", pmax.x,pmax.y,pmax.z);
-#define DEBUG_FILE 1
-#if DEBUG_FILE
-        printf("nxyz1 %i nxyz2 %i \n", ns1.totprod(), ns2.totprod() );
-        rot1.print();
-        rot2.print();
-        FILE *fdebug = fopen("coulombGrid_brute_poss.xyz", "w");
-        fprintf(fdebug, "%i\n", ns1.totprod()+ns2.totprod() );
+        Vec3d pmax; rot1.dot_to_T({ns1.x,ns1.y,ns1.z},pmax); 
+        printf( "C++ nx,ny,nz %i %i %i \n", ns1.x, ns1.y, ns1.z );
+        printf("C++ pmax %g %g %g \n", pmax.x,pmax.y,pmax.z);
+        printf("C++ nxyz1 %i nxyz2 %i \n", ns1.totprod(), ns2.totprod() );
+        printf("rot1:\n");rot1.print();
+        printf("rot2:\n");rot2.print();
+        printf( "debug output to file '%s'\n", debug_file_name.c_str() );
+        FILE *fdebug = fopen(debug_file_name.c_str(), "w");
+        //FILE *fdebug = fopen("coulombGrid_brute_poss.xyz", "w");
+        fprintf(fdebug, "%i\n", ns1.totprod()+ns2.totprod()+1 );
         fprintf(fdebug, "#comment\n" );
+        fprintf(fdebug, "U 0.0 0.0 0.0\n" );
 #endif
-        for(int iz=0; iz<ns1.z; iz++){
+        //for(int iz=0; iz<ns1.z; iz++){
+        //    for(int iy=0; iy<ns1.y; iy++){
+        //      for(int ix=0; ix<ns1.x; ix++){
+        for(int ix=0; ix<ns1.x; ix++){
             for(int iy=0; iy<ns1.y; iy++){
-                for(int ix=0; ix<ns1.x; ix++){
+                for(int iz=0; iz<ns1.z; iz++){
                     Vec3d pi;  rot1.dot_to_T({ix,iy,iz},pi);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
-                    pi.add(dpos);
-                    double qi = rho1[iz*nxy1 + iy*ns1.x + ix];
+                    //pi.add(dpos);
+                    pi.add(pos1);
+                    //double qi = rho1[iz*nxy1 + iy*ns1.x + ix];
+                    double qi = rho1[ix*nyz1 + iy*ns1.z + iz];
 #if DEBUG_FILE
-                    fprintf(fdebug, "H %f %f %f\n", pi.x, pi.y, pi.z );      
+                    //fprintf(fdebug, "H %f %f %f\n", pi.x, pi.y, pi.z );
+                    debugPrint(fdebug, qi, pi );      
 #endif
-                    for(int jz=0; jz<ns2.z; jz++){
+//                    for(int jz=0; jz<ns2.z; jz++){
+//                       for(int jy=0; jy<ns2.y; jy++){
+//                          for(int jx=0; jx<ns2.x; jx++){
+                    for(int jx=0; jx<ns2.x; jx++){
                         for(int jy=0; jy<ns2.y; jy++){
-                            for(int jx=0; jx<ns2.x; jx++){
-                                Vec3d p;  rot2.dot_to_T({jx,jy,jz},p);
-#if DEBUG_FILE
-                                if((ix==0)&&(iy==0)&&(iz==0)) fprintf(fdebug, "He %f %f %f\n", p.x, p.y, p.z );
-#endif
-                                p.sub(pi);
+                            for(int jz=0; jz<ns2.z; jz++){
+                                Vec3d pj;  rot2.dot_to_T({jx,jy,jz},pj);
+                                pj.add(pos2);
+                                Vec3d p; p.set_sub(pi,pj);
                                 double r  = p.norm();
-                                double qj = rho2[jz*nxy2 + jy*ns2.x + jx];
+                                //double qj = rho2[jz*nxy2 + jy*ns2.x + jx];
+                                double qj = rho2[jx*nyz2 + jy*ns2.z + jz];
                                 sum += qi*qj/r;
+#if DEBUG_FILE
                                 nops++;
+                                if((ix==0)&&(iy==0)&&(iz==0)) debugPrint(fdebug, qj, pj);
+                                //if((ix==0)&&(iy==0)&&(iz==0)) fprintf(fdebug, "He %f %f %f\n", p.x, p.y, p.z );
+                                if( fabs(qi*qj)>1e-3 ) printf( "C++ dE %g r % q(%g,%g) i(%i,%i,%i) j(%i,%i,%i) \n", qi*qj/r, r, qi, qj, ix,iy,iz, jx,jy,jz );
+#endif
                                 //if( (jz==0)&&(jy==0)&&(jx==0)  &&   (iz==0)&&(iy==0)&&(ix==0) ){   
                                 //    printf( "%g %g,%g  (%g,%g,%g) | %i,%i,%i  %i,%i,%i \n", r,  q1, q2,  p.x,p.y,p.z,  ix,iy,iz,   jx,jy,jz  );
                                 //};

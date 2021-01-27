@@ -50,7 +50,7 @@ def renorSlice( F ):
 
 def rot3DFormAngle(angle):
     ca=np.cos(angle)
-    sa=np.sin(angle)
+    sa=np.sin(angle)*-1
     rot  = np.array([
         [ ca,-sa,0],
         [ sa, ca,0],
@@ -242,15 +242,19 @@ def downSample3D( Fin, ndim=None, Fout=None ):
     return Fout
 
 #double coulombGrid_brute( int* ns1_, int* ns2_, double* dpos_, double* rot1_, double* rot2_, double* rho1, double* rho2 ){
-lib.coulombGrid_brute.argtypes = [ array1i, array1i, array1d, array2d, array2d, array3d, array3d ]
+#lib.coulombGrid_brute.argtypes = [ array1i, array1i, array1d, array2d, array2d, array3d, array3d ]
+lib.coulombGrid_brute.argtypes = [ array1i, array1i, array1d, array1d, array2d, array2d, array3d, array3d ]
 lib.coulombGrid_brute.restype  = c_double
-def coulombGrid_brute( rho1, rho2, dpos=(0.,0.,0.), rot1=None, rot2=None ):
+#def coulombGrid_brute( rho1, rho2, dpos=(0.,0.,0.), rot1=None, rot2=None ):
+def coulombGrid_brute( rho1, rho2, pos1=(0.,0.,0.), pos2=(0.,0.,0.), rot1=None, rot2=None ):
     #ns1=np.array( rho1.shape[::-1], dtype=np.int32 )
     #ns2=np.array( rho2.shape[::-1], dtype=np.int32 )
     ns1=np.array( rho1.shape, dtype=np.int32 )
     ns2=np.array( rho2.shape, dtype=np.int32 )
-    print "rho1.shape, ns1 ", rho1.shape, ns1
-    dpos = np.array(dpos)
+    #print "rho1.shape, ns1 ", rho1.shape, ns1
+    #dpos = np.array(dpos)
+    pos1 = np.array(pos1)
+    pos2 = np.array(pos2)
     if rot1 is None:
         rot1 = np.eye(3)
     else:
@@ -259,7 +263,8 @@ def coulombGrid_brute( rho1, rho2, dpos=(0.,0.,0.), rot1=None, rot2=None ):
         rot2 = np.eye(3)
     else:
         rot2 = np.array(rot2)
-    return lib.coulombGrid_brute( ns1, ns2, dpos, rot1, rot2, rho1, rho2 )
+    #return lib.coulombGrid_brute( ns1, ns2, dpos, rot1, rot2, rho1, rho2 )
+    return lib.coulombGrid_brute( ns1, ns2, pos1,pos2, rot1, rot2, rho1, rho2 )
 
 #lib..argtypes = [ array1i,  array2d,  ]
 #lib..restype  = None
@@ -268,7 +273,7 @@ def coulombGrid_brute( rho1, rho2, dpos=(0.,0.,0.), rot1=None, rot2=None ):
 #void stampToGrid3D( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp, double* canvas, double coef ){
 lib.stampToGrid3D.argtypes = [ array1i, array1i,  array1d, array2d,  array3d, array3d, c_double  ]
 lib.stampToGrid3D.restype  = None
-def stampToGrid3D( canvas, stamp, p0, angle=0., dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=True, rot=None ):
+def stampToGrid3D( canvas, stamp, p0, angle=0., dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=False, rot=None ):
     p0=np.array(p0)/np.array(dd)
     if rot is None:
         rot = rot3DFormAngle(angle)
@@ -303,6 +308,26 @@ def coulombGrid_brute_pos( rho1, rho2, poss1, poss2 ):
     ns2 = np.array( poss2.shape[:1], dtype=np.int32 )
     return lib.coulombGrid_brute_pos( ns1, ns2, rho1.data, rho2.data, poss1, poss2  ) 
 
+# double evalMultipole( int* ns1_, double* rot1_, double* rho1, double* coefs ){
+#lib.evalMultipole.argtypes = [ array1i, array2d, c_double_p,  array1d ]
+lib.evalMultipole.argtypes = [ array1i, array2d, array3d,  array1d ]
+lib.evalMultipole.restype  = None
+def evalMultipole( rho, rot=None ):
+    if rot is None:
+        rot = np.eye(3)
+    else:
+        rot = np.array(rot)
+    ns    = np.array( rho.shape, dtype=np.int32 )
+    coefs = np.zeros(10)  # 9 is enough for linearly independent quadrupoles
+    #lib.evalMultipole( ns, rot, rho.data, coefs )
+    lib.evalMultipole( ns, rot, rho, coefs )
+    return coefs
+
+# void setDebugFileName( const char* fname ){
+lib.setDebugFileName.argtypes = [ c_char_p ]
+lib.setDebugFileName.restype  = None
+def setDebugFileName( fname ):
+    return lib.setDebugFileName( fname  ) 
 
 # ==============  String / File IO utils
 
