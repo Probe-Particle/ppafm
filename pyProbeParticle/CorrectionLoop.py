@@ -19,7 +19,7 @@ import os
 import shutil
 import time
 import random
-import matplotlib;
+import matplotlib
 import numpy as np
 from enum import Enum
 
@@ -31,8 +31,8 @@ from . import atomicUtils as au
 from . import basUtils
 from . import common    as PPU
 from . import elements
-from . import oclUtils     as oclu 
-from . import fieldOCL     as FFcl 
+from . import oclUtils     as oclu
+from . import fieldOCL     as FFcl
 from . import RelaxOpenCL  as oclr
 from . import HighLevelOCL as hl
 
@@ -63,7 +63,7 @@ class Molecule():
         self.qs   = qs
 
     def clone(self):
-        xyzs = self.xyzs 
+        xyzs = self.xyzs
         Zs   = self.Zs
         qs   = self.qs
         return Molecule(xyzs,Zs,qs)
@@ -76,21 +76,16 @@ class Molecule():
 
 # ========================================================================
 
-def removeAtoms( molecule, p0, R=3.0, nmax=1 ):
+def removeAtoms( molecule, nmax=1 ):
     #print( "----- removeAtoms  p0 ", p0 )
     xyzs = molecule.xyzs
     Zs   = molecule.Zs
     qs   = molecule.qs
-    # rs   = (xyzs[:,0]-p0[0])**2 + (xyzs[:,1]-p0[1])**2
-    # sel = rs.argsort()[:nmax] # [::-1]
-    top_atom_idx = np.where(np.logical_and(np.greater_equal(xyzs[:,2],xyzs[:,2].max()-0.7), np.less(xyzs[:,2],xyzs[:,2].max())))[0]
+    top_atom_idx = np.where(np.greater_equal(xyzs[:,2],xyzs[:,2].max()-0.7))[0]
 
     nmax = min(nmax, len(top_atom_idx))
-    sel = np.random.choice(top_atom_idx, nmax)
-
-    if xyzs[sel,2] == xyzs.max(axis=0)[2]:
-        print("asd")
-        exit(1)
+    rem_idx = np.random.randint(nmax+1)
+    sel = np.random.choice(top_atom_idx, rem_idx, replace=False)
 
     xyzs_ = np.delete( xyzs, sel, axis=0 )
     Zs_   = np.delete( Zs,   sel )
@@ -100,7 +95,7 @@ def removeAtoms( molecule, p0, R=3.0, nmax=1 ):
 def addAtom( molecule, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
     # ToDo : it would be nice to add atoms in a more physicaly reasonable way - not overlaping, proper bond-order etc.
     # ToDo : currently we add always hydrogen - should we somewhere randomly pick different atom types ?
-    xyzs = molecule.xyzs 
+    xyzs = molecule.xyzs
     Zs   = molecule.Zs
     qs   = molecule.qs
     #print( "----- addAtom  p0 ", p0 )
@@ -123,7 +118,7 @@ def addAtom( molecule, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
 def moveAtom( molecule, p0, R=0.0, dpMax=np.array([1.0,1.0,0.25]), nmax=1 ):
     # ToDo : it would be nice to add atoms in a more physicaly reasonable way - not overlaping, proper bond-order etc.
     # ToDo : currently we add always hydrogen - should we somewhere randomly pick different atom types ?
-    xyzs         = molecule.xyzs.copy() 
+    xyzs         = molecule.xyzs.copy()
     Zs           = molecule.Zs.copy()
     qs           = molecule.qs.copy()
     rs           = (xyzs[:,0]-p0[0])**2 + (xyzs[:,1]-p0[1])**2
@@ -157,9 +152,9 @@ class Mutator():
         maxMutations: Integer. Maximum number of mutations per mutant. The number of mutations is chosen
         randomly between [1, maxMutations].
     """
-    # Strtegies contain 
-    strategies = [ 
-        (0.1,removeAtoms,{}), 
+    # Strtegies contain
+    strategies = [
+        (0.1,removeAtoms,{}),
         (0.0,addAtom,{}),
         (0.0,moveAtom,{})
     ]
@@ -172,13 +167,10 @@ class Mutator():
     def setStrategies(self, strategies=None):
         if strategies is not None: self.strategies = strategies
         self.cumProbs = np.cumsum( [ it[0] for it in self.strategies ] )
-        #print( self.cumProbs ); exit()  
+        #print( self.cumProbs ); exit()
 
     def mutate_local(self, molecule, p0, R ):
-        #n_mutations = np.random.randint(self.maxMutations+1)
-        n_mutations = 1
-
-        molecule, removed = removeAtoms(molecule, n_mutations)
+        molecule, removed = removeAtoms(molecule, nmax=self.maxMutations)
         return molecule, removed
 
         #toss = np.random.rand(n_mutations)*self.cumProbs[-1]
@@ -319,13 +311,11 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                     X2 = self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs)
                     X2s[i].append(X2)
 
-
                 mol1s.append(mol1)
                 mol2s.append(mol2)
                 removed.append(rem)
 
                 self.index += 1
-
 
             for i in range(len(self.iZPPs)):
                 X1s[i] = np.stack(X1s[i], axis=0)
@@ -375,7 +365,7 @@ class Corrector():
         p0 = (np.random.rand(3))
         p0[0:2] *= 20.0
         p0[  2] *= 1.0
-        R  = 3.0   
+        R  = 3.0
         molOut = moveAtom( molIn, p0, R=0.0, nmax=1 )   # ToDo : This is just token example - later need more sophisticated Correction strategy
         # --- ToDo: Relaxation Should be possible part of relaxation ????
         return molOut
@@ -406,7 +396,7 @@ class CorrectionLoop():
 
     logAFMdataName = None
     logImgName = None
-    logImgIzs  = [0,-8,-1] 
+    logImgIzs  = [0,-8,-1]
 
     rotMat = np.array([[1.,0,0],[0.,1.,0],[0.,0,1.]])
 
@@ -431,7 +421,7 @@ class CorrectionLoop():
     def iteration(self, itr=0 ):
         print( "### CorrectionLoop.iteration [1]" )
         print( "########### bond atom ---- min min ", self.atomMap.min(), self.bondMap.min() )
-        
+
         # ToDo : Use relaxation later
         #self.relaxed    = self.relaxator.preform_relaxation( self.molecule, self.mapLvec, self.atomMap, self.bondMap )
         if self.xyzLogFile is not None:
@@ -482,10 +472,10 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
     xyzs[:,:2] += scan_center - xyzs[:,:2].mean(axis=0)
     xyzs[:,2] += (sw[1][2] - 9.0) - xyzs[:,2].max()
-    print("xyzs ", xyzs) 
+    print("xyzs ", xyzs)
     mol = Molecule(xyzs,Zs,qs)
 
-    #xyzs[:,0] -= 10.0 
+    #xyzs[:,0] -= 10.0
     trainer.start( mol )
     extent=( simulator.scan_window[0][0], simulator.scan_window[1][0], simulator.scan_window[0][1], simulator.scan_window[1][1] )
     sc = 3.0
@@ -511,7 +501,7 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
     np.save( 'AFMref.npy', np.zeros(nscan) )
     AFMRef = np.load('AFMref.npy')
     AFMRef = np.roll( AFMRef,  5, axis=0 );
-    AFMRef = np.roll( AFMRef, -6, axis=1 ); 
+    AFMRef = np.roll( AFMRef, -6, axis=1 );
 
     looper = CorrectionLoop(relaxator, simulator, atoms, bonds, corrector)
     looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
@@ -525,7 +515,7 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
     xyzs[:,:2] += scan_center - xyzs[:,:2].mean(axis=0)
     xyzs[:,2] += (sw[1][2] - 9.0) - xyzs[:,2].max()
-    print("xyzs ", xyzs) 
+    print("xyzs ", xyzs)
 
     xyzqs = np.concatenate([xyzs, qs[:,None]], axis=1)
     np.save('./Atoms.npy', atoms(xyzqs, Zs))
