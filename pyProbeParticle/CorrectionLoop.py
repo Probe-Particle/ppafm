@@ -76,12 +76,12 @@ class Molecule():
 
 # ========================================================================
 
-def removeAtoms( molecule, nmax=1 ):
+def removeAtoms( molecule, zmin=0.7, nmax=1 ):
     #print( "----- removeAtoms  p0 ", p0 )
     xyzs = molecule.xyzs
     Zs   = molecule.Zs
     qs   = molecule.qs
-    top_atom_idx = np.where(np.greater_equal(xyzs[:,2],xyzs[:,2].max()-0.7))[0]
+    top_atom_idx = np.where(np.greater_equal(xyzs[:,2],xyzs[:,2].max()+zmin))[0]
 
     nmax = min(nmax, len(top_atom_idx))
     rem_idx = np.random.randint(nmax+1)
@@ -159,18 +159,18 @@ class Mutator():
         (0.0,moveAtom,{})
     ]
 
-    def __init__(self, maxMutations=5):
+    def __init__(self, maxMutations=10, zmin=0.7):
         self.setStrategies()
         self.maxMutations = maxMutations
+        self.zmin = zmin
 
-    #def modAtom():
     def setStrategies(self, strategies=None):
         if strategies is not None: self.strategies = strategies
         self.cumProbs = np.cumsum( [ it[0] for it in self.strategies ] )
         #print( self.cumProbs ); exit()
 
-    def mutate_local(self, molecule, p0, R ):
-        molecule, removed = removeAtoms(molecule, nmax=self.maxMutations)
+    def mutate_local(self, molecule):
+        molecule, removed = removeAtoms(molecule, zmin=self.zmin, nmax=self.maxMutations,)
         return molecule, removed
 
         #toss = np.random.rand(n_mutations)*self.cumProbs[-1]
@@ -214,7 +214,6 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         self.extend_molecules_with_mutants()
         self.check_empty_paths()
 
-
     def generatePair(self):
         """
         Generates a mutant of the current molecule.
@@ -235,7 +234,7 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         p0[1] *= (self.afmulator.scan_window[1][1]+self.afmulator.scan_window[0][1])*0.5
         p0[2] *= 1.0
         R        = 1.0
-        mol2, removed     = self.mutator.mutate_local( mol1, p0, R )
+        mol2, removed     = self.mutator.mutate_local(mol1)
 
         return mol1, mol2, removed
 
@@ -284,7 +283,7 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                     self.REAs = PPU.getAtomsREA(self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0)
 
                     # Make sure tip-sample distance is right
-                    self.handle_distance()
+                    tot_dist, z_max = self.handle_distance_and_return()
 
                     # Callback
                     self.on_afm_start()
@@ -305,7 +304,7 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                     self.REAs = PPU.getAtomsREA(self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0)
 
                     # Make sure tip-sample distance is right
-                    self.handle_distance()
+                    self.handle_distance_mutant(tot_dist, z_max)
 
                     # Evaluate 2nd AFM
                     X2 = self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs)
@@ -327,6 +326,27 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         mol1s = [np.c_[(mol1.xyzs, mol1.qs, mol1.Zs)] for mol1 in mol1s]
         mol2s = [np.c_[(mol2.xyzs, mol2.qs, mol2.Zs)] for mol2 in mol2s]
         return X1s, X2s, mol1s, mol2s, removed
+
+    def handle_distance_mutant(self, total_distance, zs_max):
+        '''
+        Set correct distance from scan region for the current mutant. Get distance information from original molecule
+        Arguments:
+        '''
+        self.xyzs[:,2] += (self.afmulator.scan_window[1][2] - total_distance) - zs_max
+
+    def handle_distance_and_return(self):
+        '''
+        Set correct distance from scan region for the current molecule for the original molecule and return highest atom
+        Returns:
+
+        '''
+        RvdwPP = self.afmulator.typeParams[self.afmulator.iZPP-1][0]
+        Rvdw = self.REAs[:,0] - RvdwPP
+        zs = self.xyzs[:,2].copy()
+        imax = np.argmax(zs + Rvdw)
+        total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
+        self.xyzs[:,2] += (self.afmulator.scan_window[1][2] - total_distance) - zs.max()
+        return total_distance, zs.max()
 
     def extend_molecules_with_mutants(self):
         """
