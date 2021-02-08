@@ -76,16 +76,15 @@ class Molecule():
 
 # ========================================================================
 
-def removeAtoms( molecule, zmin=0.7, nmax=1 ):
+def removeAtoms( molecule, nmax=1 ):
     #print( "----- removeAtoms  p0 ", p0 )
     xyzs = molecule.xyzs
     Zs   = molecule.Zs
     qs   = molecule.qs
-    top_atom_idx = np.where(np.greater_equal(xyzs[:,2],xyzs[:,2].max()+zmin))[0]
 
-    nmax = min(nmax, len(top_atom_idx))
+    nmax = min(nmax, xyzs.shape[0]-1)
     rem_idx = np.random.randint(nmax+1)
-    sel = np.random.choice(top_atom_idx, rem_idx, replace=False)
+    sel = np.random.choice(np.arange(xyzs.shape[0]), rem_idx, replace=False)
 
     xyzs_ = np.delete( xyzs, sel, axis=0 )
     Zs_   = np.delete( Zs,   sel )
@@ -159,10 +158,9 @@ class Mutator():
         (0.0,moveAtom,{})
     ]
 
-    def __init__(self, maxMutations=10, zmin=0.7):
+    def __init__(self, maxMutations=10):
         self.setStrategies()
         self.maxMutations = maxMutations
-        self.zmin = zmin
 
     def setStrategies(self, strategies=None):
         if strategies is not None: self.strategies = strategies
@@ -170,7 +168,7 @@ class Mutator():
         #print( self.cumProbs ); exit()
 
     def mutate_local(self, molecule):
-        molecule, removed = removeAtoms(molecule, zmin=self.zmin, nmax=self.maxMutations,)
+        molecule, removed = removeAtoms(molecule, nmax=self.maxMutations)
         return molecule, removed
 
         #toss = np.random.rand(n_mutations)*self.cumProbs[-1]
@@ -202,13 +200,14 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         :param nMutants: integer, number of different mutants per molecule
     """
 
-    def __init__(self, afmulator, mutator, paths, nMutants, **gen_args):
+    def __init__(self, afmulator, mutator, paths, nMutants, zmin, **gen_args):
         self.index        = 0
         self.molIndex     = 0
         self.afmulator    = afmulator
         self.mutator      = mutator
         self.paths        = paths
         self.nMutants     = nMutants
+        self.zmin         = zmin
         super().__init__(afmulator, None, paths, **gen_args)
 
         self.extend_molecules_with_mutants()
@@ -222,6 +221,7 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
 
         # Get current molecule
         mol1_xyz = self.molecules[self.index]
+        mol1_xyz = mol1_xyz[mol1_xyz[:,2] >= mol1_xyz[:,2].max()-0.7]
         xyzs = mol1_xyz[:, :3]
         qs = mol1_xyz[:, 3]
         Zs = mol1_xyz[:, 4].astype(np.int32)
@@ -272,9 +272,6 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                 # Callback
                 self.on_sample_start()
 
-                # Make sure the molecule is in right position
-                self.handle_positions()
-
                 # Get AFM images
                 for i, (iZPP, Q, Qz) in enumerate(zip(self.iZPPs, self.Qs, self.QZs)):  # Loop over different tips
                     # Set tip parameters
@@ -282,6 +279,8 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                     self.afmulator.setQs(Q, Qz)
                     self.REAs = PPU.getAtomsREA(self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0)
 
+                    # Make sure the molecule is in right position
+                    center = self.handle_positions_and_return()
                     # Make sure tip-sample distance is right
                     tot_dist, z_max = self.handle_distance_and_return()
 
@@ -297,12 +296,11 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                     self.qs   = mol2.qs
                     self.Zs   = mol2.Zs
 
-                    # Make sure the molecule is in right position
-                    self.handle_positions()
-
                     # Calculate new interaction parameters for the mutant
                     self.REAs = PPU.getAtomsREA(self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0)
 
+                    # Make sure the molecule is in right position
+                    self.handle_positions_mutant(center)
                     # Make sure tip-sample distance is right
                     self.handle_distance_mutant(tot_dist, z_max)
 
@@ -347,6 +345,24 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
         self.xyzs[:,2] += (self.afmulator.scan_window[1][2] - total_distance) - zs.max()
         return total_distance, zs.max()
+
+    def handle_positions_and_return(self):
+        '''
+        Set current molecule to the center of the scan window and return center coordinates
+        '''
+        sw = self.afmulator.scan_window
+        scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
+        out = self.xyzs[:,:2].mean(axis=0)
+        self.xyzs[:,:2] += scan_center - self.xyzs[:,:2].mean(axis=0)
+        return out
+
+    def handle_positions_mutant(self, center):
+        '''
+        Set current molecule to the center of the scan window.
+        '''
+        sw = self.afmulator.scan_window
+        scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
+        self.xyzs[:,:2] += scan_center - center
 
     def extend_molecules_with_mutants(self):
         """
