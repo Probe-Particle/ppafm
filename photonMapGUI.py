@@ -4,7 +4,7 @@
 # https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
-from __future__ import unicode_literals
+
 import sys
 import os
 import time
@@ -131,7 +131,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         coefs = [ ]
         for i in range(n):
             ws = text[i].split()
-            print "ws ", ws
+            print("ws ", ws)
             poss .append( [float(ws[0]),float(ws[1])] )
             rots .append(  float(ws[2])*np.pi/180.0 )
             coefs.append(  [float(ws[3]),float(ws[4])] )
@@ -140,13 +140,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.coefs = coefs
 
     def tryLoadInputGrids(self):
-        print self.rhoTransName, self.HOMOname, self.LUMOname 
+        print(self.rhoTransName, self.HOMOname, self.LUMOname) 
         if   len(self.rhoTransName)>0 :
-            print "tryLoadInputGrids  : rhoTransName "
+            print("tryLoadInputGrids  : rhoTransName ")
             self.rhoTrans, self.lvec, self.ndim = GU.load_scal_field(self.rhoTransName)
             return True
         elif len(self.HOMOname)>0 and len(self.LUMOname)>0 :
-            print "tryLoadInputGrids  : HOMO / LUMO "
+            print("tryLoadInputGrids  : HOMO / LUMO ")
             homo, self.lvec, self.ndim = GU.load_scal_field(self.HOMOname)
             lumo, self.lvec, self.ndim = GU.load_scal_field(self.LUMOname)
             self.rhoTrans = homo*lumo
@@ -173,7 +173,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.parsePoses()
 
         if self.rhoTrans is None :
-            print "tryLoadInputGrids " 
+            print("tryLoadInputGrids ") 
             self.tryLoadInputGrids()
         
         # --- ToDo : rots, poss, coefs should be read from input box, and plotted on the picture
@@ -208,7 +208,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
         if fileName:
             fileName = guiw.correct_ext( fileName, ".png" )
-            print( "saving image to :", fileName )
+            print(( "saving image to :", fileName ))
             self.figCan.fig.savefig( fileName,bbox_inches='tight')
             
 

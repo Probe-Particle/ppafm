@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import elements
+from . import elements
 import math
 import numpy as np
 
@@ -57,7 +57,7 @@ def findBondsZs( xyzs, Zs, ELEMENTS=elements.ELEMENTS, Rcut=2.0, fRvdw=1.3 ):
 '''
 
 def bonds2neighs( bonds, na ):
-    ngs = [ [] for i in xrange(na) ]
+    ngs = [ [] for i in range(na) ]
     for i,j in bonds:
         ngs[i].append(j)
         ngs[j].append(i)
@@ -86,7 +86,7 @@ def neighs2str( Zs, neighs, ELEMENTS=elements.ELEMENTS, bPreText=False ):
                     dct[jz] += 1
                 else:
                     dct[jz] =1
-            for k in sorted(dct.iterkeys()):
+            for k in sorted(dct.keys()):
                 s+= ELEMENTS[k-1][1] + str(dct[k])
             groups[i] = s
     return groups
@@ -189,10 +189,10 @@ def findTris(bonds,neighs):
         #print "bond ",b," common ",common
         ncm = len(common)
         if   ncm>2:
-            if(iDebug>0): print "WARRNING: bond ", b, " common neighbors ", common
+            if(iDebug>0): print("WARRNING: bond ", b, " common neighbors ", common)
             continue
         elif ncm<1:
-            if(iDebug>0): print "WARRNING: bond ", b, " common neighbors ", common
+            if(iDebug>0): print("WARRNING: bond ", b, " common neighbors ", common)
             continue
         tri0 = tuple(sorted(b+(common[0],)))
         tris.add(tri0)
@@ -397,7 +397,7 @@ def selectRandomElements( nngs, species, levels ):
     return elist
 
 def makeGroupLevels(groupDict):
-    for k,groups in groupDict.iteritems():
+    for k,groups in groupDict.items():
         vsum=0
         #print "k,groups ", k,groups
         l = np.empty(len(groups))
@@ -415,7 +415,7 @@ def selectRandomGroups( an, ao, groupDict ):
     out = []
     #print "levels", levels
     atoms = []
-    for i in xrange(na):
+    for i in range(na):
         k = (an[i],ao[i])
         if k in groupDict:
             groups = groupDict[k]
@@ -425,7 +425,7 @@ def selectRandomGroups( an, ao, groupDict ):
             out.append( groups[il+1][0] )
         else:
             out.append( None )
-        print k, out[-1]
+        print(k, out[-1])
     return out
 
 
@@ -516,7 +516,7 @@ def groups2atoms( groupNames, neighs, ps ):
         #print Hm
         #if len(Hm) == 1:
         #    print Hm, txyz 
-        for ih in xrange(len(Hm)):
+        for ih in range(len(Hm)):
             if Hm[ih] == 1:
                 elems.append( e1     )
                 xyzs .append( txyz[ih] )
@@ -550,7 +550,7 @@ def groups2atoms( groupNames, neighs, ps ):
                 flip = np.random.randint(2)*2-1
                 #print "---------- flip ", flip
                 if   (nsigma==1):     # like -CH3
-                    print name, ndir, nsigma, nH
+                    print(name, ndir, nsigma, nH)
                     txyz = makeTetrahedron( pi-ps[ngs[0]] , up*flip ) + pi[None,:]
                     appendHs( txyz, Hmasks3[nH], elems, xyzs )
                 elif (nsigma==2):     # like -CH2-
@@ -578,12 +578,12 @@ def groups2atoms( groupNames, neighs, ps ):
                 #    xyzs.append( pi + ( normalize( pi-ps[ngs[0]] )[0] ) )
             
         else:
-            print "Group >>%s<< not known" %name
-    print "len(xyzs), len(elems) ", len(xyzs), len(elems)
+            print("Group >>%s<< not known" %name)
+    print("len(xyzs), len(elems) ", len(xyzs), len(elems))
     for xyz in xyzs: 
-        print len(xyz),
+        print(len(xyz), end=' ')
         if len(xyz) != 3:
-            print xyz
+            print(xyz)
     return np.array(xyzs), elems
 
 # ===========================
@@ -696,7 +696,7 @@ def relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.01, nMaxStep=1000, EboSta
     #print "bo0 ", bo[:6]
     
     #f_debug = []
-    for itr in xrange(nMaxStep):
+    for itr in range(nMaxStep):
         # -- Eval Atom derivs
         #fa[:] = 0
         #fb[:] = 0
@@ -785,7 +785,7 @@ def getForceIvnR24( ps, Rs ):
     fs    = np.zeros(ps.shape)
     ir2s  = np.zeros(na    )
     R2ijs = np.zeros(na    )
-    for i in xrange(na):
+    for i in range(na):
         R2ijs      = Rs[:]+Rs[i]
         R2ijs[:]  *= R2ijs[:]
         ds[:,:]    = ps - ps[i][None,:]
@@ -800,7 +800,7 @@ def relaxAtoms( ps, aParams, FFfunc=getForceIvnR24, fConv=0.001, nMaxStep=1000, 
         optimizer = FIRE()
     
     f_debug = []
-    for itr in xrange(nMaxStep):
+    for itr in range(nMaxStep):
         fs = FFfunc(ps,aParams)
         f_norm = optimizer.move(ps.flat,fs.flat)
         #print fs[:6]

@@ -2,7 +2,7 @@ import numpy as np
 from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
-import cpp_utils
+from . import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)
@@ -188,21 +188,21 @@ def relaxMolecule(
     pos = getPos (natom)
     
     if bMovie:
-        import atomicUtils as au
+        from . import atomicUtils as au
         if fname is None:
             movie_name = "movie_MMFF.xyz"
         else:
             movie_name = "movie_"+fname
         with open( movie_name, "w") as fout:
             #for i,(pos,f) in enumerate(runMMFF(Fconv,Nmax,perSave)):
-            for i in xrange(Nmax/perSave):
+            for i in range(Nmax/perSave):
                 f = relaxNsteps(perSave, Fconv=Fconv)
                 au.writeToXYZ( fout, elems[mask_dummy], pos[mask_dummy] )
                 if(f<1e-6): break
     else:
         relaxNsteps(Nmax,Fconv=Fconv)
     if fname is not None:
-        import atomicUtils as au
+        from . import atomicUtils as au
         au.saveXYZ( elems[mask_dummy], pos[mask_dummy], fname, qs=None )
     return pos.copy(),types.copy(),elems
     

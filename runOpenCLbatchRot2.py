@@ -4,7 +4,7 @@
 # https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
-from __future__ import unicode_literals
+
 import sys
 import os
 import shutil
@@ -14,7 +14,7 @@ import matplotlib;
 import numpy as np
 from enum import Enum
 
-import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver";
+import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 import matplotlib.pyplot as plt
 
 #sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
@@ -66,7 +66,7 @@ dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
 stiffness    = np.array( [0.24,0.24,0.0, 30.0     ], dtype=np.float32 ); stiffness/=-16.0217662;
 dpos0        = np.array([0.0,0.0,0.0,4.0], dtype=np.float32 ); 
 dpos0[2]     = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); 
-print "dpos0 ", dpos0
+print("dpos0 ", dpos0)
 
 # === Main
 
@@ -76,11 +76,11 @@ if __name__ == "__main__":
 
     typeParams = hl.loadSpecies('atomtypes.ini')
     invCell    = hl.oclr.getInvCell(lvec)
-    ff_dim     = hl.genFFSampling(lvec, pixPerAngstrome );     print "ff_dim ", ff_dim
-    poss       = hl.FFcl.getposs( lvec, ff_dim );              print "poss.shape ", poss.shape
+    ff_dim     = hl.genFFSampling(lvec, pixPerAngstrome );     print("ff_dim ", ff_dim)
+    poss       = hl.FFcl.getposs( lvec, ff_dim );              print("poss.shape ", poss.shape)
 
     for dirName in dirNames:
-        print " ==================", dirName
+        print(" ==================", dirName)
         #t1ff = time.clock();
         atom_lines = open( dirName+"/pos.xyz" ).readlines()
         FF, atoms, natoms0 =  hl.makeFF_LJC( poss, atom_lines, typeParams, iZPP, lvec, npbc=(1,1,1) )

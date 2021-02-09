@@ -4,7 +4,7 @@
 # https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
-from __future__ import unicode_literals
+
 import sys
 import os
 import time
@@ -79,7 +79,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.tryLoadEmpty()
 
     def tryLoadEmpty(self):
-        print " tryLoadEmpty "
+        print(" tryLoadEmpty ")
         for i,item in enumerate( self.items ):
             if item[0] is None:
                 self.load( i )
@@ -98,8 +98,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             item[1] = lvec
             self.updateLincomb()
         except Exception as e:
-            print "cannot load file: ", fname
-            print e
+            print("cannot load file: ", fname)
+            print(e)
         
     def updateLincomb(self ):
         self.label = ""
@@ -108,13 +108,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             for item in self.items:
                 if item[0] is not None:
                     coef = item[3].value()
-                    print coef
+                    print(coef)
                     self.data += item[0] * coef
                     self.label += ( " + %g * (%s) " %( coef, item[2].text() ) )
             self.updateDataView()
 
     def clickImshow(self, ix,iy ):
-        print "ix, iy", ix,iy
+        print("ix, iy", ix,iy)
         ys = self.data[ :, iy, ix ]
         self.figCurv.show()
         label = self.label + ( "_%i_%i" %(ix,iy) )
@@ -131,7 +131,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         try:
             self.figCan.plotSlice( self.data[iz] )
         except:
-            print "cannot plot slice #", iz
+            print("cannot plot slice #", iz)
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)

@@ -7,7 +7,7 @@ import numpy as np
 
 #import oclUtils as oclu
 
-import common as PPU
+from . import common as PPU
 #import cpp_utils as cpp_utils
 
 # ========== Globals
@@ -68,7 +68,7 @@ def mat3x3to4f( M ):
 def getInvCell( lvec ):
     cell = lvec[1:4,0:3]
     invCell = np.transpose( np.linalg.inv(cell) )
-    if(verbose>0): print invCell
+    if(verbose>0): print(invCell)
     #invA = np.zeros( 4, dtype=np.float32); invA[0:3] = invCell[0]
     #invB = np.zeros( 4, dtype=np.float32); invB[0:3] = invCell[1]
     #invC = np.zeros( 4, dtype=np.float32); invC[0:3] = invCell[2]
@@ -145,12 +145,12 @@ def relax( kargs, scan_dim, invCell, poss=None, FEin=None, FEout=None, dTip=DEFA
     kargs = kargs  + ( invCell[0],invCell[1],invCell[2], dTip, stiffness, dpos0, relax_params, nz )
     if FEout is None:
         FEout = np.zeros( scan_dim+(4,), dtype=np.float32 )
-        if(verbose>0): print "FEout.shape", FEout.shape, scan_dim
+        if(verbose>0): print("FEout.shape", FEout.shape, scan_dim)
     if poss is not None:
         cl.enqueue_copy( queue, kargs[1], poss )
     if FEin is not None:
         region = FEin.shape[:3]; region = region[::-1]; 
-        if(verbose>0): print "region : ", region
+        if(verbose>0): print("region : ", region)
         cl.enqueue_copy( queue, kargs[0], FEin, origin=(0,0,0), region=region )
     #print kargs
     cl_program.relaxStrokes( queue, ( int(scan_dim[0]*scan_dim[1]),), None, *kargs )
@@ -211,7 +211,7 @@ class RelaxedScanner:
         py::arg("wait_for")=py::none()
         );
         '''
-        if(verbose>0): print " updateFEin ", FEin_cl, self.cl_ImgIn, self.FEin_shape
+        if(verbose>0): print(" updateFEin ", FEin_cl, self.cl_ImgIn, self.FEin_shape)
 
         #mf       = cl.mem_flags
         #self.cl_ImgIn.release()
@@ -238,13 +238,13 @@ class RelaxedScanner:
         #print "RelaxedScanner.prepareBuffers"
         if FEin_np is not None:
             self.cl_ImgIn = cl.image_from_array(self.ctx,FEin_np,num_channels=4,mode='r');  nbytes+=FEin_np.nbytes        # TODO make this re-uploadable
-            if(verbose>0): print "prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn 
+            if(verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn) 
         else:
             if  FEin_shape is not None:
                 self.FEin_shape   = FEin_shape
                 self.image_format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
                 self.cl_ImgIn     = cl.Image(self.ctx, mf.READ_ONLY, self.image_format, shape=FEin_shape[:3], pitches=None, hostbuf=None, is_array=False, buffer=None)
-                if(verbose>0): print "prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn 
+                if(verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn) 
             if FEin_cl is not None:
                 #print "FEin_shape : ", FEin_shape
                 #self.image_format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
@@ -274,16 +274,16 @@ class RelaxedScanner:
         self.cl_zMap = None; self.cl_feMap=None; self.cl_ImgFE = None
         if bZMap:
 #            print "nxy ", nxy
-            print "allocate zMap"
+            print("allocate zMap")
             self.cl_zMap    = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize   ); nbytes += nxy*fsize
         if bFEmap:
             self.cl_feMap  = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize*4  ); nbytes += nxy*fsize*4
             if FE2in is not None:
                 self.cl_ImgFE = cl.image_from_array(self.ctx,FE2in,num_channels=4,mode='r');  nbytes+=FE2in.nbytes
-        if(verbose>0): print "prepareBuffers.nbytes: ", nbytes
+        if(verbose>0): print("prepareBuffers.nbytes: ", nbytes)
 
     def releaseBuffers(self):
-        if(verbose>0): print "tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn 
+        if(verbose>0): print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn) 
         self.cl_ImgIn.release()
         self.cl_poss.release()
         self.cl_FEout.release()
@@ -292,7 +292,7 @@ class RelaxedScanner:
         if self.cl_feMap is not None: self.cl_feMap.release()
 
     def tryReleaseBuffers(self):
-        if(verbose>0): print "tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn 
+        if(verbose>0): print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn) 
         try:
             self.cl_ImgIn.release()
         except:
@@ -346,11 +346,11 @@ class RelaxedScanner:
         if lvec is not None: self.invCell = getInvCell(lvec)
         if FEin is not None:
             region = FEin.shape[:3]; region = region[::-1]; 
-            if(verbose>0): print "region : ", region
+            if(verbose>0): print("region : ", region)
             cl.enqueue_copy( self.queue, self.cl_ImgIn, FEin, origin=(0,0,0), region=region )
         if FE2in is not None:
             region = FE2in.shape[:3]; region = region[::-1]; 
-            if(verbose>0): print "region : ", region
+            if(verbose>0): print("region : ", region)
             cl.enqueue_copy( self.queue, self.cl_ImgFE, FE2in, origin=(0,0,0), region=region )
         if WZconv is not None:
             #print "WZconv: ", WZconv.dtype, WZconv

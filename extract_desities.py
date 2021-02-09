@@ -29,7 +29,7 @@ F,lvec,nDim=GU.load_scal_field(fname,data_format=fext)
 
 #zs = np.linspace( 0, lvec[3,2], nDim[0] )
 zs = np.arange( options.zmin, options.zmax if options.zmax > 0.0 else lvec[3,2], options.dz if options.dz > 0.0 else lvec[3,2]/nDim[0] )
-print lvec
+print(lvec)
 
 
 if( fext == 'cube' ):
@@ -56,7 +56,7 @@ for i in range( natoms ):
 #byType = zip(byType.items())
 #byType =  zip(*byType.items())
 fname = "atom_density" if options.same_name else fname
-byType = list(map(list, zip(*byType.items())))
+byType = list(map(list, list(zip(*list(byType.items())))))
 ntypes = len(byType[0])
 for i in range(ntypes):   byType[1][i] = byType[1][i][0] / byType[1][i][1]
 np.savetxt( fname+"_zlines_type.dat", np.transpose( np.array([zs,]+byType[1]) ), header="# types "+str(byType[0]) )

@@ -2,7 +2,7 @@ import numpy as np
 from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
-import cpp_utils
+from . import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)
@@ -89,7 +89,7 @@ def setupFF( n=None, itypes=None ):
         itypes = np.zeros( n, dtype=np.int32)
     else:
         n = len(itypes)
-    print "type(itypes)",type(itypes),"itypes",itypes
+    print("type(itypes)",type(itypes),"itypes",itypes)
     return lib.setupFF( n, _np_as(itypes,c_int_p) ) 
 
 #  void setGridShape( int * n, double * cell ){
@@ -152,7 +152,7 @@ def makeGridFF( fff, dx=0.1, dy=0.1 ):
 
     lvec = np.array( [[atomMap.shape[0]*dx,0.0,0.0],[0.0,atomMap.shape[1]*dy,0.0],[0.0,0.0,2.0]] )
 
-    print " shape atomMap, bondMap ", atomMapF.shape, bondMapF.shape
+    print(" shape atomMap, bondMap ", atomMapF.shape, bondMapF.shape)
 
     '''
     import matplotlib.pyplot as plt
@@ -183,9 +183,9 @@ def makeGridFF( fff, dx=0.1, dy=0.1 ):
 
 if __name__ == "__main__":
     #import basUtils as bu
-    import atomicUtils as au
+    from . import atomicUtils as au
     import sys
-    import GLView as glv
+    from . import GLView as glv
     import time
 
 
@@ -198,9 +198,9 @@ if __name__ == "__main__":
     ndof   = fff.reallocFF(natom)
     norb   = ndof - natom
     #atypes = fff.getTypes (natom)    ; print "atypes.shape ", atypes.shape
-    dofs   = fff.getDofs(ndof)       ; print "dofs.shape ", dofs.shape
-    apos   = dofs[:natom]            ; print "apos.shape ", apos.shape
-    opos   = dofs[natom:]            ; print "opos.shape ", opos.shape
+    dofs   = fff.getDofs(ndof)       ; print("dofs.shape ", dofs.shape)
+    apos   = dofs[:natom]            ; print("apos.shape ", apos.shape)
+    opos   = dofs[natom:]            ; print("opos.shape ", opos.shape)
 
 
     #atypes[:] = 0        # use default atom type
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     for i in range(1000000):
         glview.pre_draw()
         F2err = fff.relaxNsteps(1, Fconv=1e-6, ialg=0)
-        print "|F| ", np.sqrt(F2err)
+        print("|F| ", np.sqrt(F2err))
         if glview.post_draw(): break
         time.sleep(.05)
 

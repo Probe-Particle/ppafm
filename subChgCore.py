@@ -23,7 +23,7 @@ def triLin(abc):
     ia = int(np.floor(abc[0])); fa=abc[0]-ia; #ma=1.0-fa
     ib = int(np.floor(abc[1])); fb=abc[1]-ib; #mb=1.0-fb
     ic = int(np.floor(abc[2])); fc=abc[2]-ic; #mc=1.0-fc
-    print "::: ", abc , (ia,ib,ic), fa,fb, fc 
+    print("::: ", abc , (ia,ib,ic), fa,fb, fc) 
     return (ia,ib,ic), (fa,fb,fc)
 
 def addDeInterp( val, arr, iabc, fabc):
@@ -54,8 +54,8 @@ V = lvec1[1,0]*lvec1[2,1]*lvec1[3,2]
 N = nDim1[0]*nDim1[1]*nDim1[2]
 dV = (V/N)
 
-print atoms
-print atoms_
+print(atoms)
+print(atoms_)
 
 '''
 
@@ -83,9 +83,9 @@ for ia in range(len(atoms[0])):
 
 import pyProbeParticle.fieldFFT  as ffft
 
-print "sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV
+print("sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV)
 ffft.addCoreDensities( atoms_, valElDict, rho1, lvec1, sigma=0.25 )
-print "sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV
+print("sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV)
 
 #GU.saveXSF( "rho_core.xsf", rho1,       lvec1, head=head1 )
 GU.saveXSF( "rho_diff.xsf", rho1,       lvec1, head=head1 )

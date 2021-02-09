@@ -23,12 +23,12 @@ path = "./"
 
 fnames   = glob.glob( path+'*.dat' )
 fnames.sort()
-print fnames
+print(fnames)
 data = []
 for fname in fnames:
     fname_ = os.path.basename(fname); 
     #fnames.append( fname_ )
-    print fname
+    print(fname)
     imgs = file_dat.readDat(fname)
     data.append( imgs[1] )
 
@@ -45,7 +45,7 @@ plt.figure( figsize=(5*n,5) )
 #slices = np.load("data.npy")
 
 for isl,sl in enumerate(slices):
-    print isl+1
+    print(isl+1)
     #plt.figure()
     plt.subplot(1,n,isl+1)
     plt.imshow(sl)

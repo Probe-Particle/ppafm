@@ -26,7 +26,7 @@ def loadFEcl( Q = None ):
         Fz,lvec, nDim, head = GU.loadXSF('Felz_cl.xsf'); FE[:,:,:,2] += Q*Fz    
     cell = lvec[1:4,0:3]
     invCell = np.linalg.inv(cell)
-    print invCell
+    print(invCell)
     invA = np.zeros( 4, dtype=np.float32); invA[0:3] = invCell[0]
     invB = np.zeros( 4, dtype=np.float32); invB[0:3] = invCell[1]
     invC = np.zeros( 4, dtype=np.float32); invC[0:3] = invCell[2]
@@ -36,7 +36,7 @@ def loadFEcl( Q = None ):
 
 THIS_FILE_PATH = os.path.dirname( os.path.realpath( __file__ ) )
 
-CL_PATH  = os.path.normpath( THIS_FILE_PATH  + '/../../cl' ); print CL_PATH 
+CL_PATH  = os.path.normpath( THIS_FILE_PATH  + '/../../cl' ); print(CL_PATH) 
 f        = open(CL_PATH+"/relax.cl", 'r')
 CL_CODE  = "".join( f.readlines() )
 plats    = cl.get_platforms()
@@ -77,9 +77,9 @@ FEout       = np.zeros( Xs.shape+(nz,4), dtype=np.float32)
 
 FE, (invA, invB, invC) = loadFEcl( Q = -0.2 )
 
-print "invA ", invA
-print "invB ", invB
-print "invC ", invC
+print("invA ", invA)
+print("invB ", invB)
+print("invC ", invC)
 
 cl_ImgIn = cl.image_from_array(ctx,FE,num_channels=4,mode='r')
 cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss   ) # float4
@@ -95,7 +95,7 @@ prg.relaxStrokes( queue, (Xs.size,), None, *(cl_ImgIn, cl_poss, cl_FEout, invA, 
 cl.enqueue_copy( queue, FEout, cl_FEout )
 queue.finish()
 
-t2 = time.clock(); print "relaxStrokes time %f [s]" %(t2-t1) 
+t2 = time.clock(); print("relaxStrokes time %f [s]" %(t2-t1)) 
 
 import matplotlib.pyplot as plt
 

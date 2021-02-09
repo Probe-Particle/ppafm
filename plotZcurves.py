@@ -19,9 +19,9 @@ parser.add_option("-f","--data_format" , action="store" , type="string", help="S
 
 try:
 	points = np.genfromtxt( options.p )
-	print "plotting in points", points
+	print("plotting in points", points)
 except:
-	print options.p+" not found => exiting ..."
+	print(options.p+" not found => exiting ...")
 	sys.exit()
 
 fzs,lvec,nDim=GU.load_scal_field(options.i,data_format=options.data_format)
@@ -29,11 +29,11 @@ fzs,lvec,nDim=GU.load_scal_field(options.i,data_format=options.data_format)
 xs = np.linspace( 0, lvec[3,2], nDim[0] )
 
 #print nDim
-print xs
+print(xs)
 
 plt.imshow( fzs[options.iz], origin='imgage', cmap='gray' )
 for point in points:
-    print "point ", point
+    print("point ", point)
     plt.plot([point[0]],[point[1]],'o')
 plt.xlim(0,nDim[2])
 plt.ylim(0,nDim[1])
@@ -45,11 +45,11 @@ curves[0] = xs
 
 vmin = 0
 for i,point in enumerate(points):
-	print "i,point ", i,point
+	print("i,point ", i,point)
 	ys = fzs[:,int(point[1]),int(point[0])]
 	vmin=min(ys.min(),vmin)
-	print point, vmin
-	print ys
+	print(point, vmin)
+	print(ys)
 	curves[i+1] = ys
 	plt.plot( xs, ys )
 plt.grid()

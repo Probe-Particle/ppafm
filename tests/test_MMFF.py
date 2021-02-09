@@ -64,7 +64,7 @@ if __name__ == "__main__":
     #mmff.setNonBonded(None)                        #;print "DEBUG 3"   # this activate NBFF with default atom params
     mmff.setupOpt()                                #;print "DEBUG 5"
     pos = mmff.getPos(natom)
-    print " Time to build molecule [s] ", time.clock()-t1
+    print(" Time to build molecule [s] ", time.clock()-t1)
     
     natom0 =  len(apos)
     
@@ -72,10 +72,10 @@ if __name__ == "__main__":
     ne2elem = [ 'C', 'N', 'O' ]
     elems   = [   ne2elem[ne] for ne in aconf[:,1] ]
     
-    types = mmff.getAtomTypes(natom)            ;print types
+    types = mmff.getAtomTypes(natom)            ;print(types)
     #              0!  -1!   -2=pi   -3=e   -4=H
     type2elem  = [ 'U', 'U'  , 'He',  'Ne', 'H'  ]
-    elems     +=  [  type2elem[-t] for t in types[natom0:] ]  ;print elems 
+    elems     +=  [  type2elem[-t] for t in types[natom0:] ]  ;print(elems) 
     
     au.saveXYZ( elems, pos, "test_MMFF_start.xyz", qs=None )
     
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     errs = []
     fout = open("test_MMFF_movie.xyz", "w")
     for i in range(1000):
-        print i," ",
+        print(i," ", end=' ')
         f = mmff.relaxNsteps(1)
         errs.append( f )
         au.writeToXYZ( fout, elems, pos )
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     au.saveXYZ( elems, pos, "test_MMFF.xyz", qs=None )
     '''
     
-    print "pos ", pos
+    print("pos ", pos)
 
 
 

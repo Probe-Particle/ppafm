@@ -14,7 +14,7 @@ import elements
 
 import basUtils
 
-print " # ========== make & load  ProbeParticle C++ library " 
+print(" # ========== make & load  ProbeParticle C++ library ") 
 
 def makeclean( ):
 	import os
@@ -26,11 +26,11 @@ def makeclean( ):
 
 import  ProbeParticle as PP
 
-print " # ==========  server interface file I/O "
+print(" # ==========  server interface file I/O ")
 
 PP.loadParams( 'params.ini' )
 
-print " # ============ define atoms "
+print(" # ============ define atoms ")
 
 #bas      = basUtils.loadBas('surf.bas')[0]
 #bas      = basUtils.loadBas('PTCDA_Ruslan_1x1.bas')[0]
@@ -41,13 +41,13 @@ Rs       = np.array([atoms[1],atoms[2],atoms[3]]);
 iZs      = np.array( atoms[0])
 
 if not PP.params['PBC' ]:
-	print " NO PBC => autoGeom "
+	print(" NO PBC => autoGeom ")
 	PP.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
-	print " NO PBC => params[ 'gridA'   ] ", PP.params[ 'gridA' ] 
-	print " NO PBC => params[ 'gridB'   ] ", PP.params[ 'gridB'   ]
-	print " NO PBC => params[ 'gridC'   ] ", PP.params[ 'gridC'   ]
-	print " NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ]
-	print " NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ]
+	print(" NO PBC => params[ 'gridA'   ] ", PP.params[ 'gridA' ]) 
+	print(" NO PBC => params[ 'gridB'   ] ", PP.params[ 'gridB'   ])
+	print(" NO PBC => params[ 'gridC'   ] ", PP.params[ 'gridC'   ])
+	print(" NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ])
+	print(" NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ])
 
 
 #Rs[0] += PP.params['moleculeShift' ][0]          # shift molecule so that we sample reasonable part of potential 
@@ -60,16 +60,16 @@ Qs = np.array( atoms[4] )
 if PP.params['PBC' ]:
 	iZs,Rs,Qs = PP.PBCAtoms( iZs, Rs, Qs, avec=PP.params['gridA'], bvec=PP.params['gridB'] )
 
-print "shape( Rs )", np.shape( Rs ); 
+print("shape( Rs )", np.shape( Rs )); 
 #print "Rs : ",Rs
 
 
-print " # ============ define Scan and allocate arrays   - do this before simulation, in case it will crash "
+print(" # ============ define Scan and allocate arrays   - do this before simulation, in case it will crash ")
 
 dz    = PP.params['scanStep'][2]
 zTips = np.arange( PP.params['scanMin'][2], PP.params['scanMax'][2]+0.00001, dz )[::-1];
 ntips = len(zTips); 
-print " zTips : ",zTips
+print(" zTips : ",zTips)
 rTips = np.zeros((ntips,3))
 rs    = np.zeros((ntips,3))
 fs    = np.zeros((ntips,3))
@@ -91,7 +91,7 @@ atomTypesFile = os.path.dirname(sys.argv[0]) + '/../code/defaults/atomtypes.ini'
 FFparams = PP.loadSpecies( atomTypesFile  )
 C6,C12   = PP.getAtomsLJ( PP.params['probeType'], iZs, FFparams )
 
-print " # ============ define Grid "
+print(" # ============ define Grid ")
 
 cell =np.array([
 PP.params['gridA'],
@@ -109,7 +109,7 @@ FF   = np.zeros( (gridN[2],gridN[1],gridN[0],3) )
 #   The costly part of simulation starts here
 # ==============================================
 
-print " # =========== Sample LenardJones "
+print(" # =========== Sample LenardJones ")
 
 PP.setFF( FF, cell  )
 PP.setFF_Pointer( FF )
@@ -124,7 +124,7 @@ for i in range(nslice):
 
 withElectrostatics = ( abs( PP.params['charge'] )>0.001 )
 if withElectrostatics: 
-	print " # =========== Sample Coulomb "
+	print(" # =========== Sample Coulomb ")
 	FFel = np.zeros( np.shape( FF ) )
 	CoulombConst = -14.3996448915;  # [ e^2 eV/A ]
 	Qs *= CoulombConst
@@ -147,10 +147,10 @@ for i in range(nslice):
 	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
 '''
 
-print " # ============  Relaxed Scan 3D "
+print(" # ============  Relaxed Scan 3D ")
 
 for ix,x in enumerate( xTips  ):
-	print "relax ix:", ix
+	print("relax ix:", ix)
 	rTips[:,0] = x
 	for iy,y in enumerate( yTips  ):
 		rTips[:,1] = y
@@ -163,21 +163,21 @@ for ix,x in enumerate( xTips  ):
 		#	break
 		
 
-print " # ============  convert Fz -> df "
+print(" # ============  convert Fz -> df ")
 
 dfs = PP.Fz2df( fzs, dz = dz, k0 = PP.params['kCantilever'], f0=PP.params['f0Cantilever'], n=int(PP.params['Amplitude']/dz) )
 
-print " # ============  Plot Relaxed Scan 3D "
+print(" # ============  Plot Relaxed Scan 3D ")
 
 #slices = range( PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy'] )
 #print "plotSliceFrom, plotSliceTo, plotSliceBy : ", PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy']
 #print slices 
 #nslice = len( slices )
 
-slices = range( 0, len(dfs) )
+slices = list(range( 0, len(dfs)))
 
 for ii,i in enumerate(slices):
-	print " plotting ", i
+	print(" plotting ", i)
 	plt.figure( figsize=( 10,10 ) )
 	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
 #	z = zTips[i] - PP.params['moleculeShift' ][2]
@@ -189,7 +189,7 @@ for ii,i in enumerate(slices):
 	plt.savefig( 'df_%04i.png' %i, bbox_inches='tight' )
 
 
-print " ***** ALL DONE ***** "
+print(" ***** ALL DONE ***** ")
 
 #plt.show()
 

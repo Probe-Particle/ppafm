@@ -23,8 +23,8 @@ def selectLine(BIGarray,MIN,MAX,startingPoint, endPoint, nsteps):
     i=0
     direct=(endPoint-startingPoint)/nsteps
     norm_direction=np.linalg.norm(direct)
-    print "io", direct
-    print "norm", norm_direction
+    print("io", direct)
+    print("norm", norm_direction)
     while i < nsteps :
         current_pos+=direct
 #        print current_pos, interp([current_pos[2], current_pos[1],
@@ -58,12 +58,12 @@ if options.points==[]:
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
-    print ">> LOADING LOCAL atomtypes.ini"  
+    print(">> LOADING LOCAL atomtypes.ini")  
     FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
 else:
     import pyProbeParticle.cpp_utils as cpp_utils
     FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-print " >> OVEWRITING SETTINGS by params.ini  "
+print(" >> OVEWRITING SETTINGS by params.ini  ")
 PPU.loadParams( 'params.ini',FFparams=FFparams )
 dz  = PPU.params['scanStep'][2]
 Amp = [ PPU.params['Amplitude'] ]
@@ -82,7 +82,7 @@ K=PPU.params['klat']
 Q=PPU.params['charge']
 dirname = "Q%1.2fK%1.2f" %(Q,K)
 
-print "Working in {} directory".format(dirname)
+print("Working in {} directory".format(dirname))
 
 fzs,lvec,nDim=GU.load_scal_field(dirname+'/OutFz',data_format=options.data_format)
 dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
@@ -95,9 +95,9 @@ for p in options.points:
     zmax=float(p[1].split('x')[2])
     npoints=float(p[2])
     
-    print opt_dict['disp']
+    print(opt_dict['disp'])
     if opt_dict['disp'] :
-        print "Displacment {}".format(opt_dict['disp'][0])
+        print("Displacment {}".format(opt_dict['disp'][0]))
         disp_all,lvec,nDim,head=GU.load_vec_field(dirname+'/PPdisp_')
         disp_x,disp_y,disp_z = GU.unpackVecGrid( disp_all ); del disp_all;
         if (opt_dict['disp'][0]=='x'):
@@ -137,7 +137,7 @@ for p in options.points:
                MAX=scan_max,startingPoint=np.array([xmin,ymin,zmin]),
                endPoint=np.array([xmax,ymax,zmax]),
                nsteps=npoints)
-    print scan_min,scan_max
+    print(scan_min,scan_max)
     DFplt=np.transpose(DFplot)[1].copy()
     Lplot=np.transpose(DFplot)[0].copy()
 
@@ -160,7 +160,7 @@ for p in options.points:
         for tl in ax1.get_yticklabels():
             tl.set_color('black')
         ax2=ax1.twinx()
-        print DFplot
+        print(DFplot)
         ax2.plot(Lplot, DFplt,'bo', Lplot, DF_interp(Lplot), 'b--')
         axes = plt.gca()
         ax2.set_ylabel('Frequency shift (Hz)', color='b')

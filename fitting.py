@@ -50,16 +50,16 @@ def getFzlist(BIGarray,MIN,MAX,points):
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
-	print ">> LOADING LOCAL atomtypes.ini"  
+	print(">> LOADING LOCAL atomtypes.ini")  
 	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
-        print FFparams
+        print(FFparams)
         elem_dict={}
         for i,ff in enumerate(FFparams):
             elem_dict[ff[3]] = i
 else:
     raise ValueError('Please provide the file "atomtypes.ini"')
 
-print " >> OVEWRITING SETTINGS by params.ini  "
+print(" >> OVEWRITING SETTINGS by params.ini  ")
 PPU.loadParams( 'params.ini',FFparams=FFparams )
 scan_min=PPU.params['scanMin']
 scan_max=PPU.params['scanMax']
@@ -103,13 +103,13 @@ def set_fit_dict(opt=None):
     i=0
     x=[]
     constr=[]
-    for key,value in opt.iteritems():
+    for key,value in opt.items():
             if opt[key] is None:
                 continue
             if key is "atom":
                 if key not in fit_dict:
                     fit_dict['atom']=[]
-                print opt[key]
+                print(opt[key])
                 x_tmp,constr_tmp=update_atoms(value)
                 x+=x_tmp
                 constr+=constr_tmp
@@ -137,7 +137,7 @@ def set_fit_dict(opt=None):
     return np.array(x),constr
 def update_fit_dict(x=[]):
     i=0
-    for key,value in fit_dict.iteritems():
+    for key,value in fit_dict.items():
         if key is "atom":
             for atm in value:
 #                print atm
@@ -159,7 +159,7 @@ def comp_msd(x=[]):
     PPU.apply_options(fit_dict) # setting up all the options according to their
                                 # current values
     update_atoms(atms=fit_dict['atom'])
-    print FFparams
+    print(FFparams)
     FFLJ,VLJ=PPH.computeLJFF(iZs,Rs,FFparams)
     FFel=PPH.computeElFF(V,lvec_bak,nDim_bak,PPU.params['tip'])
     FFboltz=None
@@ -192,24 +192,24 @@ if __name__=="__main__":
     opt_dict = vars(options)
     PPU.apply_options(opt_dict) # setting up all the options according to their
     x_new,bounds=set_fit_dict(opt=opt_dict)
-    print "params", x_new
-    print "bounds", bounds
+    print("params", x_new)
+    print("bounds", bounds)
 #    print "fit_dict", fit_dict
     it=0
     if opt_dict['nobounds'] is not True:
         while   it == 0 or np.max(np.abs((x-x_new)/x)) > 0.10:
             x=x_new.copy()
-            print "Starting bounded optimization"
+            print("Starting bounded optimization")
             result=minimize(comp_msd,x,bounds=bounds)
             x_new=result.x.copy()
             it+=1
-    print "Bounded optimization is finished"
+    print("Bounded optimization is finished")
     it=0
     while   it == 0 or np.max(np.abs((x-x_new)/x)) > 0.001:
-        print "Starting non-bounded optimization"
+        print("Starting non-bounded optimization")
         x=x_new.copy()
         result=minimize(comp_msd,x,method='Nelder-Mead')
         x_new=result.x.copy()
         it+=1
-    print "Non-bounded optimization is finished"
+    print("Non-bounded optimization is finished")
 

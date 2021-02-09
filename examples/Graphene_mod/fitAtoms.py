@@ -48,8 +48,8 @@ pos = np.empty(Xs.shape+(2,))
 pos[:,:,0]=Xs + 2.0
 pos[:,:,1]=Ys + 2.0
 pos=pos.reshape(-1,2).copy()
-print pos
-print pos.shape
+print(pos)
+print(pos.shape)
 
 dpix=[0.1,0.1]
 npix=F.shape

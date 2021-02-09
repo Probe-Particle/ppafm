@@ -14,11 +14,11 @@ class OCLEnvironment:
 
     def __init__(self,i_platform=0):
         self.PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) ); 
-        print "OCLEnvironment platform[%i]" %i_platform," PACKAGE_PATH: ", self.PACKAGE_PATH
+        print("OCLEnvironment platform[%i]" %i_platform," PACKAGE_PATH: ", self.PACKAGE_PATH)
         self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH + '/../cl' )
         #self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH )
         platforms         = cl.get_platforms()
-        print " i_platform ", i_platform
+        print(" i_platform ", i_platform)
         self.platform     = platforms[i_platform]
         self.ctx          = cl.Context(properties=[(cl.context_properties.PLATFORM, self.platform)], devices=None)
         self.queue        = cl.CommandQueue(self.ctx)
@@ -40,28 +40,28 @@ class OCLEnvironment:
         return 0
 
     def printInfo(self):
-        print "======= DEVICES\n",         self.ctx.get_info(cl.context_info.DEVICES)
-        print "======= PROPERTIES\n",      self.ctx.get_info(cl.context_info.PROPERTIES)
-        print "======= REFERENCE_COUNT\n", self.ctx.get_info(cl.context_info.REFERENCE_COUNT)
+        print("======= DEVICES\n",         self.ctx.get_info(cl.context_info.DEVICES))
+        print("======= PROPERTIES\n",      self.ctx.get_info(cl.context_info.PROPERTIES))
+        print("======= REFERENCE_COUNT\n", self.ctx.get_info(cl.context_info.REFERENCE_COUNT))
 
     def printPlatformInfo(self):
         platform = self.platform
-        print "==============================================================="
-        print " Platform name:",    platform.name
-        print " Platform profile:", platform.profile
-        print " Platform vendor:",  platform.vendor
-        print " Platform version:", platform.version
+        print("===============================================================")
+        print(" Platform name:",    platform.name)
+        print(" Platform profile:", platform.profile)
+        print(" Platform vendor:",  platform.vendor)
+        print(" Platform version:", platform.version)
         for device in platform.get_devices():
-            print "---------------------------------------------------------------"
-            print " Device name:", device.name
-            print " type:", cl.device_type.to_string(device.type)
-            print " memory: ", device.global_mem_size//1024//1024, 'MB'
-            print " max clock speed:", device.max_clock_frequency, 'MHz'
-            print " compute units:", device.max_compute_units
-            print "  GLOBAL_MEM_SIZE          = ", device.get_info( cl.device_info.GLOBAL_MEM_SIZE          )/4," float32"
-            print "  LOCAL_MEM_SIZE           = ", device.get_info( cl.device_info.LOCAL_MEM_SIZE           )/4," float32"
-            print "  MAX_CONSTANT_BUFFER_SIZE = ", device.get_info( cl.device_info.MAX_CONSTANT_BUFFER_SIZE )/4," float32"
-            print "  MAX_WORK_GROUP_SIZE      = ", device.get_info( cl.device_info.MAX_WORK_GROUP_SIZE      )
+            print("---------------------------------------------------------------")
+            print(" Device name:", device.name)
+            print(" type:", cl.device_type.to_string(device.type))
+            print(" memory: ", device.global_mem_size//1024//1024, 'MB')
+            print(" max clock speed:", device.max_clock_frequency, 'MHz')
+            print(" compute units:", device.max_compute_units)
+            print("  GLOBAL_MEM_SIZE          = ", device.get_info( cl.device_info.GLOBAL_MEM_SIZE          )/4," float32")
+            print("  LOCAL_MEM_SIZE           = ", device.get_info( cl.device_info.LOCAL_MEM_SIZE           )/4," float32")
+            print("  MAX_CONSTANT_BUFFER_SIZE = ", device.get_info( cl.device_info.MAX_CONSTANT_BUFFER_SIZE )/4," float32")
+            print("  MAX_WORK_GROUP_SIZE      = ", device.get_info( cl.device_info.MAX_WORK_GROUP_SIZE      ))
 
 
 #def init(i_platform=0):

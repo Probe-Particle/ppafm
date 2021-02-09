@@ -546,7 +546,7 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
         int nyz1=ns1.y*ns1.z;
         int nyz2=ns2.y*ns2.z;
         double sum = 0;
-#define DEBUG_FILE 0
+#define DEBUG_FILE 1
 #if DEBUG_FILE
         int nops=0;
         Vec3d pmax; rot1.dot_to_T({ns1.x,ns1.y,ns1.z},pmax); 

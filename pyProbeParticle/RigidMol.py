@@ -8,12 +8,12 @@ LIB_PATH_CPP  = os.path.normpath(LIB_PATH+'../../../'+'/cpp/Build/libs/Molecular
 LIB_PATH_CPP  = os.path.normpath(LIB_PATH+'/../bin/')
 
 def recompile(path):
-    print( "recompile path :", path )
+    print(( "recompile path :", path ))
     dir_bak = os.getcwd()
     os.chdir( path)
     os.system("make" )
     os.chdir( dir_bak )
-    print( os.getcwd() )
+    print(( os.getcwd() ))
     
 # =========== main
 #recompile(LIB_PATH_CPP)

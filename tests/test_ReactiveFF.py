@@ -24,8 +24,8 @@ thards  = np.array([13.8904, 13.8904, 4.772,  4.772, 10.126, 10.126, 11.760, 13.
 
 
 if __name__ == "__main__":
-    print " ================ START "
-    print " ================ START "
+    print(" ================ START ")
+    print(" ================ START ")
 
     # --- prepare atom-types 
     c6    = -15.0
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     # --- generate set of molecules
     for i in range(N1,N2):
         dname = predir+("%03i" %i )
-        print dname
+        print(dname)
         os.makedirs( dname )
 
         # --- distribute carbond atoms randomly
@@ -87,7 +87,7 @@ if __name__ == "__main__":
             #    au.writeToXYZ( fout, itypes_, xyzs  )
         #if (rff_debug_xyz): fout.close()
         t2 = time.clock();
-        print " molecule gen time ", t2-t1 
+        print(" molecule gen time ", t2-t1) 
 
 
         # ---- store result
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         rff.setTotalCharge(0.0);
         rff.relaxCharge( nsteps=100, F2conf=0.0, dt=0.05, damp=0.9 )
         qs = rff.getChargeQs(n) * -1
-        print "Qs        ", qs
+        print("Qs        ", qs)
 
         #itypes_[itypes_==5] = 6 # replace borons by carbons
         au.saveXYZ( itypes_, xyzs, dname+"/pos.xyz", qs=qs )

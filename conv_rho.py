@@ -43,9 +43,9 @@ parser.add_option( "--densityMayBeNegative", action="store_false", help="input d
 #rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
 #rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO_/CHGCAR.xsf")
 
-print ">>> Loading sample from ", options.sample, " ... "
+print(">>> Loading sample from ", options.sample, " ... ")
 rhoS, lvecS, nDimS, headS = GU.loadXSF( options.sample )
-print ">>> Loading tip from ", options.tip, " ... "
+print(">>> Loading tip from ", options.tip, " ... ")
 rhoT, lvecT, nDimT, headT = GU.loadXSF( options.tip    )
 
 if np.any( nDimS != nDimT ): raise Exception( "Tip and Sample grids has different dimensions! - sample: "+str(nDimS)+" tip: "+str(nDimT) )
@@ -56,15 +56,15 @@ if np.any( lvecS != lvecT ): raise Exception( "Tip and Sample grids has differen
 #lvecS[1,0]=10.0
 #lvecS[2,1]=25.0
 #lvecS[3,2]=30.0
-print "lvecS ", lvecS[1:,:]
+print("lvecS ", lvecS[1:,:])
 V  = np.linalg.det( lvecS[1:,:] )
 N = nDimS[0]*nDimS[1]*nDimS[2]
 dV = (V/N)  # volume of one voxel
 #cRAs[:,0] *= dV    # Debugging
-print "V ",V," N ",N," dV ",dV
+print("V ",V," N ",N," dV ",dV)
 Qtip = rhoT.sum(); Qsam = rhoS.sum()
-print "Total Charge Tip %g Sample %g [unnorm] " %(Qtip,Qsam); 
-print "Total Charge Tip %g Sample %g [norm  ] " %(Qtip*dV,Qsam*dV); 
+print("Total Charge Tip %g Sample %g [unnorm] " %(Qtip,Qsam)); 
+print("Total Charge Tip %g Sample %g [norm  ] " %(Qtip*dV,Qsam*dV)); 
 #exit()
 
 # -------- Example Trial values : Unitary Homogenous Potential And Density  
@@ -78,7 +78,7 @@ handleAECCAR( options.tip,    lvecT, rhoT )
 
 if options.Bpower > 0.0:
     B = options.Bpower
-    print ">>> computing rho^B where B = ", B
+    print(">>> computing rho^B where B = ", B)
     #print " rhoS.min,max ",rhoS.min(), rhoS.max(), " rhoT.min,max ",rhoT.min(), rhoT.max()
     # NOTE: due to round-off error the density from DFT code is often negative in some voxels which produce NaNs after exponentiation; we need to correct this 
     if options.densityMayBeNegative:
@@ -91,18 +91,18 @@ if options.Bpower > 0.0:
         GU.saveXSF( "sample_density_pow_%03.3f.xsf" %B, rhoS, lvecS, head=headS )
         GU.saveXSF( "tip_density_pow_%03.3f.xsf" %B, rhoT, lvecT, head=headT )
 
-print ">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... "
+print(">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... ")
 Fx,Fy,Fz,E = fFFT.potential2forces_mem( rhoS, lvecS, nDimS, rho=rhoT, doForce=True, doPot=True, deleteV=True )
 
-print " E samples : ", E[0,0,0],    E[50,50,50]   , np.mean(E)
+print(" E samples : ", E[0,0,0],    E[50,50,50]   , np.mean(E))
 #print " E samples : ", E[0,0,0]/N,  E[50,50,50]/N , np.mean(E)/N
-print " E samples : ", E[0,0,0]*dV, E[50,50,50]*dV, np.mean(E)*dV
+print(" E samples : ", E[0,0,0]*dV, E[50,50,50]*dV, np.mean(E)*dV)
 #exit()
 
 PQ = options.Apauli
 
 namestr = options.output
-print ">>> Saving result of convolution to FF_",namestr,"_?.xsf ... "
+print(">>> Saving result of convolution to FF_",namestr,"_?.xsf ... ")
 
 # Density Overlap Model
 if options.energy:

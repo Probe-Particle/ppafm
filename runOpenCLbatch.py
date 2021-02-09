@@ -4,7 +4,7 @@
 # https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
-from __future__ import unicode_literals
+
 import sys
 import os
 import time
@@ -13,7 +13,7 @@ import matplotlib;
 import numpy as np
 from enum import Enum
 
-import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver";
+import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 import matplotlib.pyplot as plt
 
 #sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
@@ -58,11 +58,11 @@ islices = [-2,0,+2,+4,+6,+8]
 
 stiffness    = np.array([0.24,0.24,0.0, 30.0 ], dtype=np.float32 ); 
 stiffness/=-16.0217662;
-print "stiffness ", stiffness
+print("stiffness ", stiffness)
 
 dpos0    = np.array([0.0,0.0,0.0,4.0], dtype=np.float32 ); 
 dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); 
-print "dpos0 ", dpos0
+print("dpos0 ", dpos0)
 
 # === Functions
 
@@ -81,12 +81,12 @@ def loadSpecies(fname):
         with open(fname, 'r') as f:  
             str_Species = f.read(); 
     except:
-        print "defaul atomtypes.ini"
+        print("defaul atomtypes.ini")
         with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:  
             str_Species = f.read();
     str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in str_Species.split('\n')  )
-    print "str_Species"
-    print str_Species
+    print("str_Species")
+    print(str_Species)
     return PPU.loadSpeciesLines( str_Species.split('\n') )
 
 def updateFF_LJC( ff_args, iZPP, xyzs, Zs, qs, typeParams, pbcnx=0, func_runFF=FFcl.runLJC ):
@@ -122,17 +122,17 @@ if __name__ == "__main__":
     typeParams = loadSpecies('atomtypes.ini')
     lvec       = np.genfromtxt('cel.lvs') 
     lvec       = np.insert( lvec, 0, 0.0, axis=0); 
-    print "lvec ", lvec
+    print("lvec ", lvec)
     invCell = oclr.getInvCell(lvec)
-    print "invCell ", invCell
+    print("invCell ", invCell)
     ff_nDim       = np.array([
                 int(round(10*(lvec[1][0]+lvec[1][1]))),
                 int(round(10*(lvec[2][0]+lvec[2][1]))),
                 int(round(10*(lvec[3][2]           )))
             ])
-    print "ff_nDim ", ff_nDim
+    print("ff_nDim ", ff_nDim)
     poss       = FFcl.getposs( lvec, ff_nDim )
-    print "poss.shape", poss.shape
+    print("poss.shape", poss.shape)
 
     relax_dim  = tuple( ((rmax-rmin)/step).astype(np.int32) )
     relax_poss = oclr.preparePoss( relax_dim, z0=rmax[2], start=rmin, end=rmax )
@@ -140,7 +140,7 @@ if __name__ == "__main__":
 
     for geomFileName in geomFileNames:
         t1tot = time.clock()
-        print " ==================", geomFileName
+        print(" ==================", geomFileName)
         t1prepare = time.clock();
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( open( geomFileName ).readlines() )
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
         hdir  = np.array([0.0,0.0,1.0])
         imax,xdirmax  = maxAlongDir(atoms, hdir)
         izslice = int( round( ( rmax[2] - xdirmax - rSliceAbove[2] )/-oclr.DEFAULT_dTip[2] ) )
-        print "izslice ", izslice, " xdirmax ", xdirmax, rmax[2], rmax[2] - xdirmax - rSliceAbove[2]
+        print("izslice ", izslice, " xdirmax ", xdirmax, rmax[2], rmax[2] - xdirmax - rSliceAbove[2])
 
         cLJs  = PPU.getAtomsLJ( iZPP, Zs, typeParams ).astype(np.float32)
         Tprepare = time.clock()-t1prepare;
@@ -164,7 +164,7 @@ if __name__ == "__main__":
         #GU.saveXSF( geomFileName+'_Fin_z.xsf',  FEin[:,:,:,2], lvec );
         np.save( geomFileName+'_Fin_z.npy', FEin[:,:,:,2] )
         
-        print "FEin.shape ", FEin.shape;
+        print("FEin.shape ", FEin.shape);
 
         t1relax = time.clock();
         region = FEin.shape[:3]
@@ -184,7 +184,7 @@ if __name__ == "__main__":
         Tplot = time.clock()-t1plot;
 
         Ttot = time.clock()-t1tot;
-        print "Timing[s] Ttot %f Tff %f Trelax %f Tprepare %f Tplot %f " %(Ttot, Tff, Trelax, Tprepare, Tplot)
+        print("Timing[s] Ttot %f Tff %f Trelax %f Tprepare %f Tplot %f " %(Ttot, Tff, Trelax, Tprepare, Tplot))
 
 #plt.show()
 

@@ -5,7 +5,7 @@ from   ctypes import c_int, c_double, c_char_p, c_bool
 import ctypes
 import os
 #import common as PPU
-import cpp_utils
+from . import cpp_utils
 
 # ==============================
 # ============================== interface to C++ core 

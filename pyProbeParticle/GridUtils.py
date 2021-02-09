@@ -4,7 +4,7 @@ import numpy as np
 from   ctypes import c_int, c_double, c_char_p
 import ctypes
 import os
-import cpp_utils
+from . import cpp_utils
 
 
 # ============================== 
@@ -49,8 +49,8 @@ def renorSlice( F ):
     return vranges
 
 def rot3DFormAngle(angle):
-    ca=np.cos(angle)
-    sa=np.sin(angle)*-1
+    ca=np.cos(-angle)
+    sa=np.sin(-angle)#*-1
     rot  = np.array([
         [ ca,-sa,0],
         [ sa, ca,0],
@@ -123,7 +123,7 @@ def interpolate_cartesian( F, pos, cell=None, result=None ):
         #print np.array(F.shape)
         setGridCell( cell )
     nDim = np.array(pos.shape)
-    print nDim
+    print(nDim)
     if result is None:
         result = np.zeros( (nDim[0],nDim[1],nDim[2]) )
     n  = nDim[0]*nDim[1]*nDim[2]
@@ -144,9 +144,9 @@ def dens2Q_CHGCARxsf(data, lvec):
     nDim = data.shape
     Ntot = nDim[0]*nDim[1]*nDim[2]
     Vtot = np.linalg.det( lvec[1:] )
-    print "dens2Q Volume    : ", Vtot
-    print "dens2Q Ntot      : ", Ntot
-    print "dens2Q Vtot/Ntot : ", Vtot/Ntot
+    print("dens2Q Volume    : ", Vtot)
+    print("dens2Q Ntot      : ", Ntot)
+    print("dens2Q Vtot/Ntot : ", Vtot/Ntot)
     #Qsum = rho1.sum()
     return Vtot/Ntot
 
@@ -171,27 +171,29 @@ def sphericalHist( data, center, dr, n ):
 #void stampToGrid2D( int* ns1_, int* ns2_, Vec2d* p0_, Vec2d* a_, Vec2d* b_, double* g1, double* g2 ){
 lib.stampToGrid2D.argtypes = [ array1i, array1i, array1d, array1d, array1d, array2d, array2d, c_double ]
 lib.stampToGrid2D.restype  = None
-def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0 ):
+def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0 ,byCenter=False):
     p0=np.array(p0)/np.array(dd)
-    ca=np.cos(angle)
-    sa=np.sin(angle)
+    ca=np.cos(-angle)
+    sa=np.sin(-angle)
     #a =np.array([ca,-sa]) #*dd[0]
     #b =np.array([sa, ca]) #*dd[1]
     b    = np.array([ca,-sa]) #*dd[0]   # ToDo : This is just quick fix for the fact that data-array are transposed 
     a    = np.array([sa, ca]) #*dd[1]
     ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
     ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
+    if byCenter:
+        p0 = p0 + a*(ns1[0]*-0.5) + b*(ns1[1]*-0.5) 
     lib.stampToGrid2D( ns1, ns2, p0, a, b, stamp, canvas, coef )
 
 
 #void stampToGrid2D_complex( int* ns1_, int* ns2_, Vec2d* p0_, Vec2d* a_, Vec2d* b_, double* stamp_, double* canvas_, Vec2d* coef_ ){
 lib.stampToGrid2D_complex.argtypes = [ array1i, array1i, array1d, array1d, array1d, array2c, array2c, array1d ]
 lib.stampToGrid2D_complex.restype  = None
-def stampToGrid2D_complex( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=True ):
+def stampToGrid2D_complex( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=False ):
     p0=np.array(p0)/np.array(dd)
     #print "p0 ", p0
-    ca=np.cos(angle)
-    sa=np.sin(angle)
+    ca=np.cos(-angle)
+    sa=np.sin(-angle)
     #a    = np.array([ca,-sa]) #*dd[0]
     #b    = np.array([sa, ca]) #*dd[1]
     b    = np.array([ca,-sa]) #*dd[0]   # ToDo : This is just quick fix for the fact that data-array are transposed 
@@ -211,7 +213,7 @@ def stampToGrid2D_complex( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=complex(
 #void stampToGrid3D_complex( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp_, double* canvas_, Vec2d* coef_ ){
 lib.stampToGrid3D_complex.argtypes = [ array1i, array1i, array1d, array2d, array3c, array3c, array1d ]
 lib.stampToGrid3D_complex.restype  = None
-def stampToGrid3D_complex( canvas, stamp, p0, angle=0., dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=True, rot=None ):
+def stampToGrid3D_complex( canvas, stamp, p0, angle=0., dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=False, rot=None ):
     p0=np.array(p0)/np.array(dd)    #; print "p0", p0
     #print "p0 ", p0
     if rot is None:
@@ -235,7 +237,7 @@ lib.downSample3D.restype  = None
 def downSample3D( Fin, ndim=None, Fout=None ):
     if Fout is None:
         Fout = np.zeros(ndim)
-    print Fin.shape, Fout.shape
+    print(Fin.shape, Fout.shape)
     ns1=np.array( Fin.shape[::-1],  dtype=np.int32 )
     ns2=np.array( Fout.shape[::-1], dtype=np.int32 )
     lib.downSample3D( ns1, ns2, Fin, Fout )
@@ -327,7 +329,7 @@ def evalMultipole( rho, rot=None ):
 lib.setDebugFileName.argtypes = [ c_char_p ]
 lib.setDebugFileName.restype  = None
 def setDebugFileName( fname ):
-    return lib.setDebugFileName( fname  ) 
+    return lib.setDebugFileName( fname.encode()  ) 
 
 # ==============  String / File IO utils
 
@@ -359,7 +361,7 @@ lib.ReadNumsUpTo_C.argtypes  = [c_char_p, array1d, array1i, c_int]
 lib.ReadNumsUpTo_C.restype   = c_int
 def readNumsUpTo(filename, dimensions, noline):
     N_arry=np.zeros( (dimensions[0]*dimensions[1]*dimensions[2]), dtype = np.double )
-    lib.ReadNumsUpTo_C( filename, N_arry, dimensions, noline )
+    lib.ReadNumsUpTo_C( filename.encode(), N_arry, dimensions, noline )
     return N_arry
 
 # =================== binary dbl (double)
@@ -391,7 +393,7 @@ BEGIN_BLOCK_DATAGRID_3D
 '''
 
 def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
-    print "saving ", fname 
+    print("saving ", fname) 
     fileout = open(fname, 'w')
     for line in head:
         fileout.write(line)
@@ -416,10 +418,10 @@ def loadXSF(fname):
     nDim = np.array( nDim)
     lvec = readmat(filein, 4)                                       # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
     filein.close()
-    print "nDim xsf (= nDim + [1,1,1] ):", nDim
-    print "GridUtils| Load "+fname+" using readNumsUpTo "    
+    print("nDim xsf (= nDim + [1,1,1] ):", nDim)
+    print("GridUtils| Load "+fname+" using readNumsUpTo ")    
     F = readNumsUpTo(fname,nDim.astype(np.int32).copy(), startline+5)
-    print "GridUtils| Done"
+    print("GridUtils| Done")
     FF = np.reshape (F, nDim )
     #   FF is not C_CONTIGUOUS without copy
     return FF[:-1,:-1,:-1].copy(),lvec, nDim-1, head
@@ -487,22 +489,22 @@ def saveWSxM_2D(name_file, data, Xs, Ys):
     out_data[:,1]=Ys.flatten()
     out_data[:,2]=tmp_data    #.copy()
     f=open(name_file,'w')
-    print >> f, "WSxM file copyright Nanotec Electronica"
-    print >> f, "WSxM ASCII XYZ file"
-    print >> f, "X[A]  Y[A]  df[Hz]"
-    print >> f, ""
+    print("WSxM file copyright Nanotec Electronica", file=f)
+    print("WSxM ASCII XYZ file", file=f)
+    print("X[A]  Y[A]  df[Hz]", file=f)
+    print("", file=f)
     np.savetxt(f, out_data)
     f.close()
 
 def saveWSxM_3D( prefix, data, extent, slices=None ):
     nDim=np.shape(data)
     if slices is None:
-        slices=range( nDim[0] )
+        slices=list(range( nDim[0]))
     xs=np.linspace( extent[0], extent[1], nDim[2] )
     ys=np.linspace( extent[2], extent[3], nDim[1] )
     Xs, Ys = np.meshgrid(xs,ys)
     for i in slices:
-        print "slice no: ", i
+        print("slice no: ", i)
         fname = prefix+'_%03d.xyz' %i
         saveWSxM_2D(fname, data[i], Xs, Ys)
 
@@ -557,7 +559,7 @@ def saveVecFieldNpy( fname, FF, lvec , head = XSF_HEAD_DEFAULT ):
     np.save(fname+'_z.npy', FF[:,:,:,2] )
     np.save(fname+'_vec.npy', lvec )
     if (head != XSF_HEAD_DEFAULT ):
-        print "saving atoms"
+        print("saving atoms")
         tmp0=head[0]; q=np.zeros(len(tmp0));    #head: [e,[x,y,z],lvec]
         np.save(fname+'_atoms.npy',[tmp0,head[1][0],head[1][1],head[1][2],q]) #atoms: [e, x, y, z, q]
 
@@ -580,7 +582,7 @@ def save_vec_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT
     elif (data_format=="npy"):
         saveVecFieldNpy(fname, data, lvec, head = head )
     else:
-        print "I cannot save this format!"
+        print("I cannot save this format!")
 
 
 def load_vec_field(fname, data_format="xsf"):
@@ -593,7 +595,7 @@ def load_vec_field(fname, data_format="xsf"):
         data, lvec = loadVecFieldNpy(fname)
         ndim = np.delete(data.shape,3)
     else:
-        print "I cannot load this format!"
+        print("I cannot load this format!")
     return data, lvec, ndim;
 
 
@@ -608,7 +610,7 @@ def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAUL
     elif (data_format=="npy"):
         saveNpy(fname, data, lvec, head = head)
     else:
-        print "I cannot save this format!"
+        print("I cannot save this format!")
 
 
 def load_scal_field(fname, data_format=None):
@@ -627,7 +629,7 @@ def load_scal_field(fname, data_format=None):
     elif (data_format=="cube" or data_format=="cub" ):
         data,lvec, ndim, head = loadCUBE(fname+"."+data_format)
     else:
-        print "I cannot load this format!"
+        print("I cannot load this format!")
     return data.copy(), lvec, ndim
 
 # =============== Other Utils
@@ -638,7 +640,7 @@ def multArray( F, nx=2,ny=2 ):
     it is usefull to visualization of images computed in periodic supercell ( PBC )
     '''
     nF = np.shape(F)
-    print "nF: ",nF
+    print("nF: ",nF)
     F_ = np.zeros( (nF[0],nF[1]*ny,nF[2]*nx) )
     for iy in range(ny):
         for ix in range(nx):

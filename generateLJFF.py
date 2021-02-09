@@ -33,7 +33,7 @@ if __name__=="__main__":
     try:
         PPU.loadParams( 'params.ini' )
     except:
-        print "no params.ini provided => using default params "
+        print("no params.ini provided => using default params ")
     PPU.apply_options(opt_dict)
     speciesFile = None
     if os.path.isfile( 'atomtypes.ini' ):

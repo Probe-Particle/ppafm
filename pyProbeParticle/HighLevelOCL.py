@@ -6,16 +6,16 @@ import os
 #import matplotlib.pyplot as plt
 #import GridUtils as GU
 
-import basUtils
+from . import basUtils
 #from   import PPPlot 
 #import GridUtils as GU
-import common    as PPU
+from . import common    as PPU
 #import cpp_utils as cpp_utils
 
 import pyopencl as cl
-import oclUtils    as oclu 
-import fieldOCL    as FFcl 
-import RelaxOpenCL as oclr
+from . import oclUtils    as oclu 
+from . import fieldOCL    as FFcl 
+from . import RelaxOpenCL as oclr
 
 # ============= Functions
 
@@ -34,9 +34,9 @@ def loadSpecies(fname):
         with open(fname, 'r') as f:  
             str_Species = f.read(); 
     except:
-        if(verbose>0): print "defaul atomtypes.ini"
+        if(verbose>0): print("defaul atomtypes.ini")
         fpath = os.path.dirname( os.path.realpath( __file__ ) ) + '/defaults/atomtypes.ini'
-        print "loadSpecies from : ", fpath
+        print("loadSpecies from : ", fpath)
         with open(fpath, 'r') as f:
             str_Species = f.read();
     str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in str_Species.split('\n')  )

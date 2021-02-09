@@ -33,7 +33,7 @@ Fx,Fy,Fz,E = fFFT.potential2forces_mem( rho1, lvec1, nDim1, rho=rho2, doForce=Tr
 PQ = -1.0
 
 namestr = options.output
-print "save to ", namestr
+print("save to ", namestr)
 
 zmin = 3.0
 zmax = 7.0
@@ -45,11 +45,11 @@ lvec_ = lvec1.copy()
 lvec_[0,2] = izmin*dz
 lvec_[3,2] = (izmax - izmin)*dz
 
-print "izmin,izmax ", izmin,izmax
+print("izmin,izmax ", izmin,izmax)
 
 Ecut = E[izmin:izmax,:,:]
 
-print Ecut.shape
+print(Ecut.shape)
 
 # Density Overlap Model
 GU.saveXSF( "E"+namestr+"_mini.xsf", Ecut*(PQ*-1.0), lvec_, head=head1 )

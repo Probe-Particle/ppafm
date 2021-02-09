@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import elements
+from . import elements
 import math
 import numpy as np
 
@@ -21,7 +21,7 @@ def loadBas(name):
             n=int(l)
             #f.readline()
             e=[];x=[];y=[]; z=[];
-            for i in xrange(n):
+            for i in range(n):
                 l=f.readline().split()
                 #print l
                 e.append( int(l[0]) )
@@ -64,7 +64,7 @@ def loadAtoms( name ):
                     q.append( 0.0 )				
                 i+=1
             else:
-                print " skipped line : ", line
+                print(" skipped line : ", line)
     f.close()
     return [ e,x,y,z,q ]
 
@@ -92,7 +92,7 @@ def loadAtomsNP(fname):
                     q = 0
                 qs.append(q)
             except:
-                print "cannot interpet line: ", line
+                print("cannot interpet line: ", line)
                 continue
     xyzs = np.array( xyzs )
     Zs   = np.array( Zs, dtype=np.int32 )
@@ -123,7 +123,7 @@ def loadAtomsLines( lines ):
             qs.append(q)
         except:
             if(verbose>0):
-                print "cannot interpet line: ", line
+                print("cannot interpet line: ", line)
             continue
     xyzs = np.array( xyzs )
     Zs   = np.array( Zs, dtype=np.int32 )
@@ -256,29 +256,29 @@ def loadXSFGeom( fname ):
     for j in range(4):
         ws = f.readline().split(); lvec.append( [float(ws[0]),float(ws[1]),float(ws[2])] )
     f.close()
-    if(verbose>0): print "nDim+1", nDim
+    if(verbose>0): print("nDim+1", nDim)
     #nDim.reverse()
     #nDim = np.array(nDim)-1
     nDim = (nDim[0]-1,nDim[1]-1,nDim[2]-1)
-    if(verbose>0): print "lvec", lvec
+    if(verbose>0): print("lvec", lvec)
     #print "e,x,y,z", e,x,y,z
-    if(verbose>0): print "reading ended"
+    if(verbose>0): print("reading ended")
     return [ e,x,y,z,q ], nDim, lvec
 
 def loadNPYGeom( fname ):
-    if(verbose>0): print "loading atoms"
+    if(verbose>0): print("loading atoms")
     tmp = np.load(fname+"_atoms.npy" )
     e=tmp[0];x=tmp[1];y=tmp[2]; z=tmp[3]; q=tmp[4];
     del tmp;
-    if(verbose>0): print "loading lvec"
+    if(verbose>0): print("loading lvec")
     lvec = np.load(fname+"_vec.npy" ) 
-    if(verbose>0): print "loading nDim"
+    if(verbose>0): print("loading nDim")
     tmp = np.load(fname+"_z.npy")
     nDim = tmp.shape
     del tmp;
-    if(verbose>0): print "nDim", nDim
-    if(verbose>0): print "lvec", lvec
-    if(verbose>0): print "e,x,y,z", e,x,y,z
+    if(verbose>0): print("nDim", nDim)
+    if(verbose>0): print("lvec", lvec)
+    if(verbose>0): print("e,x,y,z", e,x,y,z)
     return [ e,x,y,z,q ], nDim, lvec
 
 def loadAtomsCUBE( fname ):
@@ -311,10 +311,10 @@ def loadAtomsCUBE( fname ):
     return [ e,x,y,z,q ]
 
 def primcoords2Xsf( iZs, xyzs, lvec ):
-    import cStringIO as SIO
+    import io as SIO
     #print "iZs:  ", iZs
     #print "xyzs: ", xyzs
-    if(verbose>0): print "lvec: ", lvec
+    if(verbose>0): print("lvec: ", lvec)
     sio=SIO.StringIO()
     sio.write("CRYSTAL\n")
     sio.write("PRIMVEC\n")
@@ -386,7 +386,7 @@ def loadNCUBE( fname ):
     return [ int(sth1[0]), int(sth2[0]), int(sth3[0]) ]
 
 def loadGeometry(fname=None,params=None):
-    if(verbose>0): print "loadGeometry ", fname
+    if(verbose>0): print("loadGeometry ", fname)
     if fname == None:
         raise ValueError("Please provide the name of the file with coordinates")
     if params == None:
@@ -422,8 +422,8 @@ def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
     ys = atoms[2]
     zs = atoms[3]
     n = len( xs )
-    for i in xrange(n):
-        for j in xrange(i):
+    for i in range(n):
+        for j in range(i):
             dx=xs[j]-xs[i]
             dy=ys[j]-ys[i]
             dz=zs[j]-zs[i]
@@ -432,7 +432,7 @@ def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
             jj = iZs[j]-1
             bondlength=ELEMENTS[ii][6]+ELEMENTS[jj][6]
             #bondlength=ELEMENTS[FFparams[ii][2]-1][6]+ELEMENTS[FFparams[jj][2]-1][6]
-            print " find bond ", i, j,   bondlength, r, sc, (xs[i],ys[i],zs[i]), (xs[j],ys[j],zs[j])
+            print(" find bond ", i, j,   bondlength, r, sc, (xs[i],ys[i],zs[i]), (xs[j],ys[j],zs[j]))
             if (r<( sc * bondlength)) :
                 bonds.append( (i,j) )
     return bonds
@@ -471,8 +471,8 @@ def findBondsNP( atoms, fRcut=0.7, ELEMENTS = elements.ELEMENTS ):
 def findBonds_( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS):
     bonds = []
     n = len( atoms )
-    for i in xrange(n):
-        for j in xrange(i):
+    for i in range(n):
+        for j in range(i):
             d  = atoms[i]-atoms[j]
             r  = math.sqrt( np.dot(d,d) )
             ii = iZs[i]-1
@@ -492,8 +492,8 @@ def findBondsSimple( xyz, rmax ):
     ys = atoms[2]
     zs = atoms[3]
     n = len( xs )
-    for i in xrange(n):
-        for j in xrange(i):
+    for i in range(n):
+        for j in range(i):
             dx=xs[j]-xs[i]
             dy=ys[j]-ys[i]
             dz=zs[j]-zs[i]
@@ -631,7 +631,7 @@ def multCell( xyz, cel, m=(2,2,1) ):
                 dx = ia*cel[0][0] + ib*cel[1][0] + ic*cel[2][0]
                 dy = ia*cel[0][1] + ib*cel[1][1] + ic*cel[2][1]
                 dz = ia*cel[0][2] + ib*cel[1][2] + ic*cel[2][2]
-                for i in xrange(n):
+                for i in range(n):
                     es[j]=xyz[0][i]
                     xs[j]=xyz[1][i] + dx
                     ys[j]=xyz[2][i] + dy

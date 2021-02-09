@@ -1,5 +1,5 @@
 
-from __future__ import with_statement
+
 import sys
 import glob
 import os
@@ -16,7 +16,7 @@ def readDat( fname, Header=None ):
         with open(fname, mode='rb') as binary_file:
             data = binary_file.read() 
     except IOError as error:              
-        print('oops! File '+nfile+' can not be read.')     
+        print(('oops! File '+nfile+' can not be read.'))     
     if b'[Parameter]' in data:
         STMAFMVersion = 1
     elif b'[Paramet32]' in data:

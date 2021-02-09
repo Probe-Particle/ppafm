@@ -4,7 +4,7 @@ import numpy as np
 import os
 import sys
 
-import cpp_utils
+from . import cpp_utils
 
 verbose = 0
 
@@ -149,7 +149,7 @@ def maxAlongDirEntropy(atoms, hdir, beta=1.0 ):
 
 # overide default parameters by parameters read from a file 
 def loadParams( fname ):
-    if(verbose>0): print " >> OVERWRITING SETTINGS by "+fname
+    if(verbose>0): print(" >> OVERWRITING SETTINGS by "+fname)
     fin = open(fname,'r')
     for line in fin:
         words=line.split()
@@ -159,34 +159,34 @@ def loadParams( fname ):
                 if key == 'stiffness': raise ValueError("Attention!!! Parameter stifness is deprecated, please define krad and klat instead")
                 val = params[key]
                 if key[0][0] == '#' : continue 
-                if(verbose>0): print key,' is class ', val.__class__
+                if(verbose>0): print(key,' is class ', val.__class__)
                 if   isinstance( val, bool ):
                     word=words[1].strip()
                     if (word[0]=="T") or (word[0]=="t"):
                         params[key] = True
                     else:
                         params[key] = False
-                    if(verbose>0): print key, params[key], ">>",word,"<<"
+                    if(verbose>0): print(key, params[key], ">>",word,"<<")
                 elif isinstance( val, float ):
                     params[key] = float( words[1] )
-                    if(verbose>0): print key, params[key], words[1]
+                    if(verbose>0): print(key, params[key], words[1])
                 elif   isinstance( val, int ):
                     params[key] = int( words[1] )
-                    if(verbose>0): print key, params[key], words[1]
+                    if(verbose>0): print(key, params[key], words[1])
                 elif isinstance( val, str ):
                     params[key] = words[1]
-                    if(verbose>0): print key, params[key], words[1]
+                    if(verbose>0): print(key, params[key], words[1])
                 elif isinstance(val, np.ndarray ):
                     if val.dtype == np.float:
                         params[key] = np.array([ float(words[1]), float(words[2]), float(words[3]) ])
-                        if(verbose>0): print key, params[key], words[1], words[2], words[3]
+                        if(verbose>0): print(key, params[key], words[1], words[2], words[3])
                     elif val.dtype == np.int:
-                        if(verbose>0): print key
+                        if(verbose>0): print(key)
                         params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
-                        if(verbose>0): print key, params[key], words[1], words[2], words[3]
+                        if(verbose>0): print(key, params[key], words[1], words[2], words[3])
                     else: #val.dtype == np.str:
                         params[key] = np.array([ str(words[1]), float(words[2]) ])
-                        if(verbose>0): print key, params[key], words[1], words[2]
+                        if(verbose>0): print(key, params[key], words[1], words[2])
             else :
                 raise ValueError("Parameter {} is not known".format(key))
     fin.close()
@@ -199,24 +199,24 @@ def loadParams( fname ):
     params["tip_base"][0] = params["tip_base"][0].replace('"', ''); params["tip_base"][0] = params["tip_base"][0].replace("'", ''); ### necessary for working even with quotemarks in params.ini
 
 def apply_options(opt):
-    if(verbose>0): print "!!!! OVERRIDE params !!!! in Apply options:"
-    if(verbose>0): print opt
-    for key,value in opt.iteritems():
+    if(verbose>0): print("!!!! OVERRIDE params !!!! in Apply options:")
+    if(verbose>0): print(opt)
+    for key,value in opt.items():
         if opt[key] is None:
             continue
         try:
             x=params[key]     # to make sure that such a key exists in the list. If not it will be skipped
             params[key]=value
-            if(verbose>0): print key,value," applied"
+            if(verbose>0): print(key,value," applied")
         except:
             pass
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
 def loadSpecies( fname=None ):
     if fname is None:
-        if(verbose>0): print "WARRNING: loadSpecies(None) => load default atomtypes.ini"
+        if(verbose>0): print("WARRNING: loadSpecies(None) => load default atomtypes.ini")
         fname=cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini'
-    if(verbose>0): print " loadSpecies from ", fname
+    if(verbose>0): print(" loadSpecies from ", fname)
     #FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',np.int),('symbol', '|S10')],usecols=[0,1,2,3])
     FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',np.int),('symbol', '|S10')],usecols=(0,1,2,3,4))
     return FFparams 
@@ -238,7 +238,7 @@ def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
     then shifts the geometry in the center of the supercell
     '''
     zmax=max(Rs[2]); 	Rs[2] -= zmax
-    if(verbose>0): print " autoGeom substracted zmax = ",zmax
+    if(verbose>0): print(" autoGeom substracted zmax = ",zmax)
     xmin=min(Rs[0]); xmax=max(Rs[0])
     ymin=min(Rs[1]); ymax=max(Rs[1])
     if fitCell:
@@ -250,19 +250,19 @@ def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
         params[ 'scanMin' ][1] = 0
         params[ 'scanMax' ][0] = params[ 'gridA' ][0]
         params[ 'scanMax' ][1] = params[ 'gridB' ][1]
-        if(verbose>0): print " autoGeom changed cell to = ", params[ 'scanMax' ]
+        if(verbose>0): print(" autoGeom changed cell to = ", params[ 'scanMax' ])
     if shiftXY:
         dx = -0.5*(xmin+xmax) + 0.5*( params[ 'gridA' ][0] + params[ 'gridB' ][0] ); Rs[0] += dx
         dy = -0.5*(ymin+ymax) + 0.5*( params[ 'gridA' ][1] + params[ 'gridB' ][1] ); Rs[1] += dy;
-        if(verbose>0): print " autoGeom moved geometry by ",dx,dy
+        if(verbose>0): print(" autoGeom moved geometry by ",dx,dy)
 
 def wrapAtomsCell( Rs, da, db, avec, bvec ):
     M    = np.array( (avec[:2],bvec[:2]) )
     invM = np.linalg.inv(M)
-    if(verbose>0): print M
-    if(verbose>0): print invM
+    if(verbose>0): print(M)
+    if(verbose>0): print(invM)
     ABs = np.dot( Rs[:,:2], invM )
-    if(verbose>0): print "ABs.shape", ABs.shape
+    if(verbose>0): print("ABs.shape", ABs.shape)
     ABs[:,0] = (ABs[:,0] +10+da)%1.0
     ABs[:,1] = (ABs[:,1] +10+db)%1.0
     Rs[:,:2] = np.dot( ABs, M )   
@@ -447,7 +447,7 @@ def multRot( Zs, Rs, Qs, cLJs, rots, cog = (0,0,0) ):
 def getFFdict( FFparams ):
     elem_dict={}
     for i,ff in enumerate(FFparams):
-        if(verbose>0): print i,ff
+        if(verbose>0): print(i,ff)
         #elem_dict[ff[3]] = i+1
         elem_dict[ff[4]] = i+1
     #print " elem_dict ", elem_dict
@@ -468,13 +468,13 @@ def atoms2iZs( names, elem_dict ):
 def parseAtoms( atoms, elem_dict, PBC=True, autogeom=False, lvec=None ):
     Rs = np.array([atoms[1],atoms[2],atoms[3]]); 
     if elem_dict is None:
-        if(verbose>0): print "WARRNING: elem_dict is None => iZs are zero"
+        if(verbose>0): print("WARRNING: elem_dict is None => iZs are zero")
         iZs=np.zeros( len(atoms[0]) )
     else:
         #iZs=np.array( [atom2iZ(atm,elem_dict) for atm in atoms[0] ], dtype=np.int32 )
         iZs = atoms2iZs( atoms[0], elem_dict )
     if autogeom:
-        if(verbose>0): print "WARRNING: autoGeom shifts atoms"
+        if(verbose>0): print("WARRNING: autoGeom shifts atoms")
         autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
     Rs = np.transpose( Rs, (1,0) ).copy()
     Qs = np.array( atoms[4] )

@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/python3 
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 '''
@@ -28,7 +28,7 @@ import pyProbeParticle.fieldFFT       as fFFT
 
 # ======== Main
 
-def makeBox( pos, rot, a=10.0,b=20.0, byCenter=False ):
+def makeBox(pos, rot, a=10.0,b=20.0, byCenter=False):
     c= np.cos(rot)
     s= np.sin(rot)
     x=pos[0]; y=pos[1]
@@ -48,12 +48,16 @@ def plotBoxes( poss, rots, lvec, ax=None, byCenter=False ):
     #print "lvec ", lvecH
     for i in range(len(poss)):
         #xs,ys = makeBox( poss[i], rots[i], a=lvec[2][1],b=lvec[3][2] )
-        xs,ys = makeBox( poss[i], rots[i], a=lvec[3][2],b=lvec[2][1], byCenter=byCenter )
+        if byCenter:
+            xs,ys = makeBox( poss[i], rots[i], a=lvec[3][2],b=lvec[2][1], byCenter=True )
+        else:
+            xs,ys = makeBox( poss[i], rots[i], a=lvec[3][2],b=lvec[2][1], byCenter=False )
+
         ax.plot(xs,ys)
         plt.plot(xs[0],ys[0],'o')
 
 def shiftHalfAxis( X, d, n, ax=1 ):
-    shift = n/2; 
+    shift = n//2;
     if( n%2 != 0 ):  shift += 1
     X -= shift
     return np.roll( X, shift, axis=ax), shift
@@ -62,8 +66,8 @@ def getMGrid2D(nDim, dd):
     'returns coordinate arrays X, Y, Z'
     (dx, dy) = dd
     XY = np.mgrid[0:nDim[0],0:nDim[1]].astype(float)
-    yshift = nDim[1]/2;  yshift_ = yshift;
-    xshift = nDim[0]/2;  xshift_ = xshift;
+    yshift = nDim[1]//2;  yshift_ = yshift;
+    xshift = nDim[0]//2;  xshift_ = xshift;
     if( nDim[1]%2 != 0 ):  yshift_ += 1.0
     if( nDim[0]%2 != 0 ):  xshift_ += 1.0
     X = XY[0] - xshift_;
@@ -77,7 +81,8 @@ def getMGrid3D( nDim, dd ):
     'returns coordinate arrays X, Y, Z'
     (dx,dy,dz) = dd
     (nx,ny,nz) = nDim[:3]
-    #print dd,nDim
+    print (dd)
+    #print (nDim)
     XYZ = np.mgrid[0:nx,0:ny,0:nz].astype(float)
     X,xshift = shiftHalfAxis( XYZ[0], dx, nx, ax=0 )
     Y,yshift = shiftHalfAxis( XYZ[1], dy, ny, ax=1 )
@@ -96,7 +101,7 @@ def makeTipField2D( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     #print "radial ", radial[:,radial.shape[1]/2]
     if multipole_dict is not None:    # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         Vtip = np.zeros( np.shape(radial) )
-        for kind, coef in multipole_dict.iteritems():
+        for kind, coef in multipole_dict.items():
             Vtip += radial * coef * fFFT.getSphericalHarmonic( X, Y, z, kind=kind, tilt=0 )
     else:
         Vtip = radial
@@ -116,7 +121,7 @@ def makeTipField3D( sh, dd, z0=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     #print "radial ", radial[:,radial.shape[1]/2]
     if multipole_dict is not None:    # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         Vtip = np.zeros( np.shape(radial) )
-        for kind, coef in multipole_dict.iteritems():
+        for kind, coef in multipole_dict.items():
             Vtip += radial * coef * fFFT.getSphericalHarmonic( X, Y, Z, kind=kind, tilt=0 )
     else:
         Vtip = radial
@@ -149,7 +154,7 @@ def coordConv(poss,rots,center,nn):
 def convFFT(F1,F2):
     return np.fft.ifftn( np.fft.fftn(F1) * np.fft.fftn(F2) )
 
-def photonMap2D( rhoTrans, tipDict, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
+def photonMap2D( rhoTrans, tipDict, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}):
     sh = rhoTrans.shape
     #print "shape: ", sh
     #rho  = np.zeros( (sh[:2]) )
@@ -169,7 +174,7 @@ def photonMap2D( rhoTrans, tipDict, lvec, z=10.0, sigma=1.0, multipole_dict={'s'
     Vtip = np.roll( Vtip, -shifts[0], axis=0)
     return phmap, Vtip, rho , dd
 
-def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], ncanv=(300,300) ):
+def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], ncanv=(300,300),byCenter=False ):
     sh = rhoTrans.shape
     #print "shape: ", sh
     #print lvec
@@ -180,7 +185,7 @@ def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
 
     dtype=np.complex128
     if isinstance(coefs[0], float): dtype=np.float64    
-    canvas = np.zeros( ncanv[::-1], dtype=dtype )
+    #canvas = np.zeros( ncanv[::-1], dtype=dtype )
     rho    = np.sum  (  rhoTrans, axis=2 )
     rho    = rho.astype( dtype ) 
     canvas = np.zeros( ncanv, dtype=dtype ) 
@@ -192,12 +197,12 @@ def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
         pos = [ poss[i][0]+ncanv[0]*0.5*dx,   poss[i][1]+ncanv[1]*0.5*dy  ]
         coef = coefs[i]
         if isinstance(coef, float):
-            print "GU.stampToGrid2D()" 
-            GU.stampToGrid2D( canvas, rho, pos, rots[i], dd=dd, coef=coef )
+            print("GU.stampToGrid2D()") 
+            GU.stampToGrid2D( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter )
         else:
-            print "GU.stampToGrid2D_complex()"
+            print("GU.stampToGrid2D_complex()")
             coef = complex( coef[0], coef[1] )
-            GU.stampToGrid2D_complex( canvas, rho, pos, rots[i], dd=dd, coef=coef )
+            GU.stampToGrid2D_complex( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter)
 
     #canvas = np.zeros((300,300))
 
@@ -207,8 +212,8 @@ def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
     phmap  = convFFT(Vtip,canvas) * renorm
     #print "rho  ", rho.shape  
     #print "Vtip ", Vtip.shape  
-    Vtip = np.roll( Vtip, -shifts[1], axis=1)
-    Vtip = np.roll( Vtip, -shifts[0], axis=0)
+    Vtip = np.roll( Vtip, (-shifts[1]), axis=1)
+    Vtip = np.roll( Vtip, (-shifts[0]), axis=0)
     return phmap, Vtip, canvas, dd
 
 
@@ -234,10 +239,10 @@ def photonMap3D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
         pos = [ pos_[0]+ncanv[0]*0.5*dx,   pos_[1]+ncanv[1]*0.5*dy, pos_z ]
         coef = coefs[i]
         if isinstance(coef, float):
-            print "GU.stampToGrid3D()" 
+            print("GU.stampToGrid3D()") 
             GU.stampToGrid3D( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter )
         else:
-            print "GU.stampToGrid3D_complex()"
+            print("GU.stampToGrid3D_complex()")
             coef = complex( coef[0], coef[1] )
             GU.stampToGrid3D_complex( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter )
 
@@ -266,7 +271,7 @@ def makeTransformMat( ns, lvec, angle=0.0, rot=None ):
     lvec[1,:]*=1./ny
     lvec[2,:]*=1./nz
     mat = np.dot( lvec, rot )
-    print "mat ", mat
+    print("mat ", mat)
     return mat
 
 def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, Ediag=1.0 ):
@@ -274,7 +279,7 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
     Solve coupled excitonic system according to :
     https://chem.libretexts.org/Bookshelves/Physical_and_Theoretical_Chemistry_Textbook_Maps/Book%3A_Time_Dependent_Quantum_Mechanics_and_Spectroscopy_(Tokmakoff)/15%3A_Energy_and_Charge_Transfer/15.03%3A_Excitons_in_Molecular_Aggregates
     '''
-    print " >>>>!!!!! DEBUG : solveExcitonSystem() .... this is WIP, do not take seriously "
+    print(" >>>>!!!!! DEBUG : solveExcitonSystem() .... this is WIP, do not take seriously ")
     n = len(poss)
     H = np.eye(n)*Ediag
     if ndim is not None: # down-sample ?
@@ -284,13 +289,13 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
         #print rhoTrans.shape
         sum2 = (rhoTrans**2).sum()
         ndim2 = rhoTrans.shape 
-        print sum2, sum1
-        print sum2/(ndim2[0]*ndim2[1]*ndim2[2]), sum1/(ndim1[0]*ndim1[1]*ndim1[2])
+        print(sum2, sum1)
+        print(sum2/(ndim2[0]*ndim2[1]*ndim2[2]), sum1/(ndim1[0]*ndim1[1]*ndim1[2]))
         GU.saveXSF("rhoTrans_donw.xsf", rhoTrans, lvec )
         #exit()
     poss = np.array(poss)
     lvec=np.array(lvec[1:][::-1,::-1])
-    print "lvec ", lvec
+    print("lvec ", lvec)
 
     # check 
 
@@ -299,7 +304,7 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
     #sh = rhoTrans.shape
     #dV            = (lvec[0,0]*lvec[1,1]*lvec[2,2])/(sh[0]*sh[1]*sh[2])  
     prefactor     = coulomb_const #/(dV*dV)
-    print "checkSum rhoTrans ", (rhoTrans**2).sum()
+    print("checkSum rhoTrans ", (rhoTrans**2).sum())
 
     #DEBUG
     #print "rhoTrans.shape ", rhoTrans.shape
@@ -311,10 +316,11 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
     for i in range(n):
         rot1 = makeTransformMat( rhoTrans.shape, lvec, rots[i] )
         p1=poss[i]
-        if byCenter: p1 = p1 + rot1[0,:2]*(ns[0]*-0.5) + rot1[1,:2]*(ns[1]*-0.5)
+        print("p1 shape:",p1.shape)
+        if byCenter: p1 = p1 + rot1[0,:]*(ns[0]*-0.5) + rot1[1,:]*(ns[1]*-0.5)
 
         coefs1 = GU.evalMultipole( rhoTrans, rot=rot1 )
-        print "multipoles coefs ", coefs1
+        print("multipoles coefs ", coefs1)
 
         for j in range(i):
             #print "eva H[%i,%i] " %(i,j)
@@ -323,7 +329,7 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
             GU.setDebugFileName( "coulombGrid_%03i_%03i_.xyz" %(i,j) )
             #eij = GU.coulombGrid_brute( rhoTrans, rhoTrans, dpos=dpos, rot1=mat1, rot2=mat2 )
             p2 = poss[j]
-            if byCenter: p2 = p2 + rot2[0,:2]*(ns[0]*-0.5) + rot2[1,:2]*(ns[1]*-0.5)
+            if byCenter: p2 = p2 + rot2[0,:]*(ns[0]*-0.5) + rot2[1,:]*(ns[1]*-0.5)
             eij = GU.coulombGrid_brute( rhoTrans, rhoTrans, pos1=p1, pos2=p2, rot1=rot1, rot2=rot2 )
 
             #coefs2 = GU.evalMultipole( rhoTrans, rot=rot2 )
@@ -338,31 +344,31 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
             #print "eij ",  eij
             #exit()
 
-    print "H  = \n", H
+    print("H  = \n", H)
     es,vs = np.linalg.eig(H)
     
-    print "eigenvaules    ", es
-    print "eigenvectors \n", vs
+    print("eigenvaules    ", es)
+    print("eigenvectors \n", vs)
 
-    print "!!! ordering Eigen-pairs "
+    print("!!! ordering Eigen-pairs ")
     idx          = np.argsort(es)
     es  = es[idx]
     #vs = (vs[:,idx]).transpose()
     vs = vs.transpose()
     vs = vs[idx]
 
-    print "eigenvaules  ", es
+    print("eigenvaules  ", es)
     #print "eigenvectors \n", vs
     for i,v in enumerate(vs):
-        print "E[%i]=%g" %(i,es[i]), " v=",v, " |v|=",(v**2).sum()
-    print " <<<<!!!!! DEBUG : solveExcitonSystem() DONE .... this is WIP, do not take seriously "
+        print("E[%i]=%g" %(i,es[i]), " v=",v, " |v|=",(v**2).sum())
+    print(" <<<<!!!!! DEBUG : solveExcitonSystem() DONE .... this is WIP, do not take seriously ")
     return es,vs,H
 
 # ============== presets
 
 def makePreset_row( n, dx=5.0, ang=0.0 ): 
     rots  = [ ang ] * n
-    poss  = [ [(i-0.5*(n-1))*dx,5,0.0] for i in range(n) ]
+    poss  = [ [(i-0.5*(n-1))*dx,0.0,0.0] for i in range(n) ]
     return poss, rots
 
 def makePreset_cycle( n, R=10.0, ang0=0.0 ):
@@ -370,11 +376,11 @@ def makePreset_cycle( n, R=10.0, ang0=0.0 ):
     rots=[]; poss=[]
     for i in range(n):
         a=dang*i 
-        poss.append( [np.cos(a)*R ,np.sin(a)*R ] )
-        rots.append( a+ang0 )
+        poss.append( [-np.cos(a)*R ,np.sin(a)*R,0] )
+        rots.append( -a+ang0 )
     return poss, rots
 
-def nomralizeGridWf( F ):
+def normalizeGridWf( F ):
     q = (F**2).sum()
     return F/np.sqrt(q)
 
@@ -383,8 +389,10 @@ if __name__ == "__main__":
     from optparse import OptionParser
 
     parser = OptionParser()
-    parser.add_option( "-H", "--homo",   action="store", type="string", default="homo.xsf", help="orbital of electron hole;    3D data-file (.xsf,.cube)")
-    parser.add_option( "-L", "--lumo",   action="store", type="string", default="lumo.xsf", help="orbital of excited electron; 3D data-file (.xsf,.cube)")
+    parser.add_option( "-y", "--ydim",   action="store", type="int", default="500", help="height of canvas")
+    parser.add_option( "-x", "--xdim",   action="store", type="int", default="500", help="width of canvas")
+    parser.add_option( "-H", "--homo",   action="store", type="string", default="homo.cube", help="orbital of electron hole;    3D data-file (.xsf,.cube)")
+    parser.add_option( "-L", "--lumo",   action="store", type="string", default="lumo.cube", help="orbital of excited electron; 3D data-file (.xsf,.cube)")
     parser.add_option( "-D", "--dens",   action="store", type="string", default="",         help="transition density; 3D data-file (.xsf,.cube)")
     parser.add_option( "-R", "--radius", action="store", type="float",  default="1.0", help="tip radius")
     parser.add_option( "-z", "--ztip",   action="store", type="float",  default="5.0", help="tip above substrate")
@@ -398,17 +406,20 @@ if __name__ == "__main__":
     #rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
     #rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO_/CHGCAR.xsf")
 
+    hcanv = options.ydim
+    wcanv = options.xdim
+
     if options.dens != "":
         rhoTrans, lvec, nDim, head = GU.loadCUBE( options.dens )
     else: 
-        print( ">>> Loading HOMO from ", options.homo, " ... " )
+        print(( ">>> Loading HOMO from ", options.homo, " ... " ))
         homo, lvecH, nDimH, headH = GU.loadCUBE( options.homo )
-        print( ">>> Loading LUMO from ", options.lumo, " ... " )
+        print(( ">>> Loading LUMO from ", options.lumo, " ... " ))
         lumo, lvecL, nDimL, headL = GU.loadCUBE( options.lumo )
         lvec=lvecH; nDim=nDimH; headH=headH
 
-        homo = nomralizeGridWf( homo )
-        lumo = nomralizeGridWf( lumo )
+        homo = normalizeGridWf( homo )
+        lumo = normalizeGridWf( lumo )
         rhoTrans = homo*lumo
         # ---- check normalization   |Psi^2| = 1
         #print "lvec", lvec
@@ -418,8 +429,8 @@ if __name__ == "__main__":
         #print "dV ", dV
         #q = (homo**2).sum(); print "qsum ",q
         
-        q = (homo**2).sum(); print "q(homo) ",q
-        q = (lumo**2).sum(); print "q(lumo) ",q
+        q = (homo**2).sum(); print("q(homo) ",q)
+        q = (lumo**2).sum(); print("q(lumo) ",q)
         #q *= dV**2;          print "q    ",q
         #exit()  
 
@@ -461,56 +472,68 @@ if __name__ == "__main__":
     #coefs=[ [1.0,0.0]   ]
     '''
 
-    #poss,rots = makePreset_row  ( 4, dx=10.0, ang=45.*fromDeg ) 
-    #poss,rots = makePreset_cycle( 4, R=10.0, ang0=-45.*fromDeg )
-    poss,rots = makePreset_cycle( 4, R=10.0, ang0=+90.*fromDeg )
+    #poss,rots = makePreset_row  ( 4, dx=15.9, ang=0*fromDeg ) 
+    poss,rots = makePreset_cycle( 4, R=12.6, ang0=-90.*fromDeg )
+    #poss,rots = makePreset_cycle( 7, R=25.0, ang0=-0.*fromDeg )
+    
+    #poss =[ [0.0,.0]  ]
+
+    #rots =[-10.*180.*3.14]
     coefs = np.ones(len(rots))
+    #coefs = [[0.9,0.1]]
 
     if options.excitons:
-        print rhoTrans.shape, nDim
+        print(rhoTrans.shape, nDim)
         subsamp = 10   # seems sufficient to obtain 1e-3 accuracy 
         #subsamp = 5 
-        es,vs,H = solveExcitonSystem( rhoTrans, lvec, poss, rots, Ediag=1.0, ndim=(nDim[0]/subsamp,nDim[1]/subsamp,nDim[2]/subsamp), byCenter=byCenter )
+        es,vs,H = solveExcitonSystem( rhoTrans, lvec, poss, rots, Ediag=1.0, ndim=(nDim[0]//subsamp,nDim[1]//subsamp,nDim[2]//subsamp), byCenter=byCenter )
 
         #coefs = vs[0]  # Take first eigenvector
         #coefs = vs[1]
         #coefs = vs[2]
-
+    
         #exit()
-
-    if not options.volumetric:
-        phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvec, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500), byCenter=byCenter )
-        (dx,dy)=dd
     else:
-        phmap_, Vtip_, rho_, dd =  photonMap3D_stamp( rhoTrans, lvec, z=5.0, sigma=1.0, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(500,500), byCenter=byCenter )
-        phmap = np.sum(phmap_,axis=0)
-        Vtip  = np.sum(Vtip_ ,axis=0)
-        rho   = np.sum(rho_  ,axis=0)
-        (dx,dy,dz)=dd
+        vs=[coefs]
 
-    print "dd ",  dd
-    sh=phmap.shape
-    extent=( -sh[0]*dd[0]*0.5,sh[0]*dd[0]*0.5,   -sh[1]*dd[1]*0.5, sh[1]*dd[1]*0.5   )
     
-    #print "xs ", xs
-    #print "ys ", ys
-    plt.figure(figsize=(15,5))
-    plt.subplot(1,3,2); plt.imshow( Vtip.real, extent=extent , origin='image'                    ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Tip Field')
-    #plt.subplot(1,3,1); plt.imshow( rho.real  **2 + rho.imag  **2, origin='image' ); plt.colorbar(); plt.title('Transient Density')
-    plt.subplot(1,3,1); plt.imshow( rho.real   ,extent=extent, origin='image'                    ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Transient Density')
-    #print "lvec ", lvec
-    #for i in range(len(poss)):
-    #    xs,ys = makeBox( poss[i], rots[i], a=lvec[2][1],b=lvec[3][2] )
-    #    plt.plot(xs,ys)
-    #    #plt.plot(xs[0],ys[0],'o')
-    plotBoxes( poss, rots, lvec, byCenter=byCenter )
-    plt.subplot(1,3,3); plt.imshow( phmap.real**2 + phmap.imag**2, extent=extent, origin='image' ); plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); plt.title('Photon Map')
+    plt.figure(figsize=(len(vs)*3,6))
+
+    for ipl in range(len(vs)):
+        coefs=vs[ipl]
+
+        if not options.volumetric:
+            phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvec, z=5.0, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter )
+            (dx,dy)=dd
+        else:
+            phmap_, Vtip_, rho_, dd =  photonMap3D_stamp( rhoTrans, lvec, z=5.0, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter )
+            phmap = np.sum(phmap_,axis=0)
+            Vtip  = np.sum(Vtip_ ,axis=0)
+            rho   = np.sum(rho_  ,axis=0)
+            (dx,dy,dz)=dd
+
+        #print("dd ",  dd)
+        sh=phmap.shape
+        extent=( -sh[0]*dd[0]*0.5,sh[0]*dd[0]*0.5,-sh[1]*dd[1]*0.5, sh[1]*dd[1]*0.5)
     
     
-    plt.figure()
-    plt.plot( np.arange(Vtip.shape[0])*dx, Vtip[:,Vtip.shape[1]/2] ); plt.grid(); # plt.ylim(0.,1.);
-    #print "Vtip outside: ", Vtip[:,Vtip.shape[1]/2]
+        #plt.subplot(i+1,3,2); plt.imshow( Vtip.real, extent=extent , origin='image' ,cmap='gray'); 
+        #plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); 
+        #plt.title('Tip Field')
+        #plt.subplot(1,2,1); plt.imshow( rho.real  **2 + rho.imag  **2, origin='image' ); plt.colorbar(); plt.title('Transient Density')
+        plt.subplot(len(vs),2,1+2*ipl); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic');
+        #plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); 
+        #plt.title('Transient Density')
+        
+        plotBoxes( poss, rots, lvec, byCenter=byCenter )
+
+        res=(phmap.real**2+phmap.imag**2)
     
+        plt.subplot(len(vs),2,2+2*ipl); plt.imshow( res, extent=extent, origin='image',cmap='gist_heat'); #plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); 
+        #plt.title('Photon Map')
+    
+    
+    print("Done") 
     plt.show()
     
 

@@ -53,7 +53,7 @@ pos[:,:,0]=Xs + 2.0
 pos[:,:,1]=Ys + 2.0
 pos=pos.reshape(-1,2).copy()
 #print pos
-print pos.shape
+print(pos.shape)
 
 dpix=[0.1,0.1]
 npix=F.shape
@@ -63,8 +63,8 @@ nfound = AF.relaxParticlesUnique( pos, 10, 2.0, 0.9, 1e-4 )
 #nfound = AF.relaxParticlesRepel( pos, 100, 1.0, 0.9, 1e-4 )
 
 pos = pos[:nfound,:]
-print pos
-print pos.shape
+print(pos)
+print(pos.shape)
 
 #plt.imshow(Fx*Fx + Fy*Fy, extent=(0,npix[0]*dpix[0],0,npix[1]*dpix[1]))
 extent=(0,npix[0]*dpix[0],0,npix[1]*dpix[1])

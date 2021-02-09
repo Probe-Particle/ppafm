@@ -51,24 +51,24 @@ BU.saveGeomXSF( "imaged_CO.xsf",elems,Rs_, lvec[1:], convvec=lvec[1:], bTranspos
 cRAs = np.array([ (-valElDict[elem],Rcut) for elem in elems ])     #   parameters of radial functions (amplitude,radius)  WARRNING - renormalized by integral inside getDensityR4spline()
 #print "cRAs ",cRAs.shape, "\n",  cRAs
 
-print ">>> Loading ... "
+print(">>> Loading ... ")
 rho1, lvec1, nDim1, head1 = GU.loadXSF( options.sample )
 #V = lvec1[1,0]*lvec1[2,1]*lvec1[3,2]
 V  = np.linalg.det( lvec )
 N = nDim1[0]*nDim1[1]*nDim1[2]
 dV = (V/N)  # volume of one voxel
 #cRAs[:,0] *= dV    # Debugging
-print " dV ", dV
-print "sum(RHO), Nelec: ",  rho1.sum(),  rho1.sum()*dV   # check sum 
+print(" dV ", dV)
+print("sum(RHO), Nelec: ",  rho1.sum(),  rho1.sum()*dV)   # check sum 
 
 #rho1[:,:,:] *= 0   # Debugging
 
 Rs_ = Rs_.transpose().copy()
 core.setFF_shape   ( rho1.shape, lvec1 )     # set grid sampling dimension and shape
 core.setFF_Epointer( rho1 )                  # set pointer to array with density data (to write into)
-print ">>> Projecting Core Densities ... "
+print(">>> Projecting Core Densities ... ")
 core.getDensityR4spline( Rs_, cRAs.copy() )  # Do the job ( the Projection of atoms onto grid )
-print "sum(RHO), Nelec: ",  rho1.sum(),  rho1.sum()*dV   # check sum
+print("sum(RHO), Nelec: ",  rho1.sum(),  rho1.sum()*dV)   # check sum
 
-print ">>> Saving ... "
+print(">>> Saving ... ")
 GU.saveXSF( "rho_subCoreChg.xsf", rho1, lvec1, head=head1 )

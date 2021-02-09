@@ -24,7 +24,7 @@ def loadInput( ):
 
     t1    = time.clock() 
     cLJs_ = PPU.getAtomsLJ     ( 8, Zs, FFparams ); #print "C6_,C12_",C6_,C12_
-    t2    = time.clock(); print "getAtomsLJ time %f [s]" %(t2-t1) 
+    t2    = time.clock(); print("getAtomsLJ time %f [s]" %(t2-t1)) 
 
     atoms_  = FFcl.xyzq2float4(xyzs,qs); #print atoms_
     cLJs    = cLJs_.astype(np.float32)
@@ -38,7 +38,7 @@ t1 = time.clock()
 kargs = FFcl.initArgsLJC(atoms_,cLJs,poss)
 FE    = FFcl.runLJC( kargs, nDim )
 t2 = time.clock()
-print "OpenCL kernell time: %f [s]" %(t2-t1) 
+print("OpenCL kernell time: %f [s]" %(t2-t1)) 
 
 PPPlot.checkVecField(FE)
 Ftmp=np.zeros(nDim);
@@ -52,5 +52,5 @@ Ftmp[:,:,:] = FE[:,:,:,6]; GU.saveXSF( 'Fely_cl.xsf', Ftmp, lvec );
 Ftmp[:,:,:] = FE[:,:,:,7]; GU.saveXSF( 'Felz_cl.xsf', Ftmp, lvec );
 
 
-print "==== ALL DONE === "
+print("==== ALL DONE === ")
 

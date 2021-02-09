@@ -16,7 +16,7 @@ from memory_profiler import profile
 
 
 
-print " # ========== make & load  ProbeParticle C++ library " 
+print(" # ========== make & load  ProbeParticle C++ library ") 
 
 def makeclean( ):
 	import os
@@ -28,7 +28,7 @@ makeclean( )  # force to recompile
 
 import ProbeParticle as PP
 
-print " >> WARNING!!! OVEWRITING SETTINGS by params.ini  "
+print(" >> WARNING!!! OVEWRITING SETTINGS by params.ini  ")
 
 PP.loadParams( 'params_watter.ini' )
 
@@ -62,24 +62,24 @@ PP.params['gridC'],
 ]).copy() 
 gridN = PP.params['gridN']
 
-print "cell", cell
+print("cell", cell)
 
 PP.setFF( FFLJ, cell  )
 
-print " # ============ define atoms "
+print(" # ============ define atoms ")
 
 atoms    = basUtils.loadAtoms('watter4NaCl-2.xyz')
 Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
 iZs      = np.array( atoms[0])
 
 if not PP.params['PBC' ]:
-	print " NO PBC => autoGeom "
+	print(" NO PBC => autoGeom ")
 	PP.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
-	print " NO PBC => params[ 'gridA'   ] ", PP.params[ 'gridA' ] 
-	print " NO PBC => params[ 'gridB'   ] ", PP.params[ 'gridB'   ]
-	print " NO PBC => params[ 'gridC'   ] ", PP.params[ 'gridC'   ]
-	print " NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ]
-	print " NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ]
+	print(" NO PBC => params[ 'gridA'   ] ", PP.params[ 'gridA' ]) 
+	print(" NO PBC => params[ 'gridB'   ] ", PP.params[ 'gridB'   ])
+	print(" NO PBC => params[ 'gridC'   ] ", PP.params[ 'gridC'   ])
+	print(" NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ])
+	print(" NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ])
 
 Rs = np.transpose( Rs, (1,0) ).copy() 
 Qs = np.array( atoms[4] )
@@ -87,9 +87,9 @@ Qs = np.array( atoms[4] )
 if PP.params['PBC' ]:
 	iZs,Rs,Qs = PP.PBCAtoms( iZs, Rs, Qs, avec=PP.params['gridA'], bvec=PP.params['gridB'] )
 
-print "shape( Rs )", np.shape( Rs ); 
+print("shape( Rs )", np.shape( Rs )); 
 
-print " # ============ define Scan and allocate arrays   - do this before simulation, in case it will crash "
+print(" # ============ define Scan and allocate arrays   - do this before simulation, in case it will crash ")
 
 dz    = PP.params['scanStep'][2]
 zTips = np.arange( PP.params['scanMin'][2], PP.params['scanMax'][2]+0.00001, dz )[::-1];
@@ -130,7 +130,7 @@ nslice = 10;
 #   The costly part of simulation starts here
 # ==============================================
 
-print " # =========== Sample LenardJones "
+print(" # =========== Sample LenardJones ")
 
 #xsfLJ       = True
 xsfLJ       = False
@@ -174,7 +174,7 @@ else:
 #@profile
 def relaxedScan3D( xTips, yTips, zTips ):
 	ntips = len(zTips); 
-	print " zTips : ",zTips
+	print(" zTips : ",zTips)
 	rTips = np.zeros((ntips,3))
 	rs    = np.zeros((ntips,3))
 	fs    = np.zeros((ntips,3))
@@ -183,7 +183,7 @@ def relaxedScan3D( xTips, yTips, zTips ):
 	rTips[:,2] = zTips 
 	fzs    = np.zeros(( len(zTips), len(yTips ), len(xTips ) ));
 	for ix,x in enumerate( xTips  ):
-		print "relax ix:", ix
+		print("relax ix:", ix)
 		rTips[:,0] = x
 		for iy,y in enumerate( yTips  ):
 			rTips[:,1] = y
@@ -194,7 +194,7 @@ def relaxedScan3D( xTips, yTips, zTips ):
 #@profile
 def plotImages( prefix, F, slices ):
 	for ii,i in enumerate(slices):
-		print " plotting ", i
+		print(" plotting ", i)
 		plt.figure( figsize=( 10,10 ) )
 		plt.imshow( F[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
 		z = zTips[i] - PP.params['moleculeShift' ][2]
@@ -227,14 +227,14 @@ def main():
 			PP.saveXSF( dirname+'/OutFz.xsf', headScan, lvecScan, fzs )
 			for iA,Amp in enumerate( Amps ):
 				AmpStr = "/Amp%2.2f" %Amp
-				print "Amp= ",AmpStr
+				print("Amp= ",AmpStr)
 				os.makedirs( dirname+AmpStr )
 				dfs = PP.Fz2df( fzs, dz = dz, k0 = PP.params['kCantilever'], f0=PP.params['f0Cantilever'], n=Amp/dz )
-				plotImages( dirname+AmpStr+"/df", dfs, slices = range( 0, len(dfs) ) )
+				plotImages( dirname+AmpStr+"/df", dfs, slices = list(range( 0, len(dfs))) )
 
 main()
 
-print " ***** ALL DONE ***** "
+print(" ***** ALL DONE ***** ")
 
 #plt.show()
 

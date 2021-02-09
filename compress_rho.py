@@ -33,7 +33,7 @@ parser.add_option( "-s", "--sample", action="store", type="string", default="CHG
 
 (options, args) = parser.parse_args()
 
-print ">>> Loading sample from ", options.sample, " ... "
+print(">>> Loading sample from ", options.sample, " ... ")
 rho, lvec, nDim, head = GU.loadXSF( options.sample )
 
 rho_low = rho.copy()
@@ -55,14 +55,14 @@ rho_low = np.fft.ifftn( rho_fft * mask )
 
 dRho = rho - rho_low
 
-print " rho.max(), rho_low.max(), dRho.max() ", rho.max(), rho_low.max(), dRho.max()
+print(" rho.max(), rho_low.max(), dRho.max() ", rho.max(), rho_low.max(), dRho.max())
 
 namestr = options.sample+"_resudual.xsf"
-print ">>> Saving  residual to  ", namestr, " ... "
+print(">>> Saving  residual to  ", namestr, " ... ")
 GU.saveXSF( namestr, dRho, lvec, head=head )
 
 namestr = options.sample+"_LowPass.xsf"
-print ">>> Saving  LowPass to  ", namestr, " ... "
+print(">>> Saving  LowPass to  ", namestr, " ... ")
 GU.saveXSF( namestr, rho_low, lvec, head=head )
 
 

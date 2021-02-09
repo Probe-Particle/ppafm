@@ -9,4 +9,4 @@ valElDict = {
 53:7.0,  54:8.0
 }
 
-print "inside  valelec_dict.py valElDict=", valElDict
+print("inside  valelec_dict.py valElDict=", valElDict)

@@ -41,7 +41,7 @@ def getXYZ( nDim, cell ):
     X,Y,Z - output: three dimensional arrays with x, y, z coordinates as value
     '''
     dcell = np.array( [ cell[0]/nDim[2], cell[1]/nDim[1], cell[2]/nDim[0] ]  )
-    print " dcell ", dcell 
+    print(" dcell ", dcell) 
     CBA = np.mgrid[0:nDim[0],0:nDim[1],0:nDim[2]].astype(float) # grid going: CBA[z,x,y]
     X = CBA[2]*dcell[0, 0] + CBA[1]*dcell[1, 0] + CBA[0]*dcell[2, 0]
     Y = CBA[2]*dcell[0, 1] + CBA[1]*dcell[1, 1] + CBA[0]*dcell[2, 1]
@@ -91,7 +91,7 @@ def W_cut(W,nz=100,side='up',sm=10):
     sm - smearing = width of the fermi function in number of z segments
     '''
     ndim=W.shape
-    print ndim
+    print(ndim)
     if (side=='up'):
         for iz in range(ndim[0]):
             #print iz, 1/(np.exp((-iz+nz)*1.0/sm) + 1)
@@ -107,7 +107,7 @@ def W_cut(W,nz=100,side='up',sm=10):
 T = 10.0 # [K]
 
 beta = 1/(kBoltz*T)   # [eV]
-print "T= ", T, " [K] => beta ", beta/1000.0, "[meV] " 
+print("T= ", T, " [K] => beta ", beta/1000.0, "[meV] ") 
 
 #E_cutoff = 32.0 * beta
 E_cutoff = 18.0 * beta
@@ -119,7 +119,7 @@ Egauss = -0.01
 # =============== main
 
 if options.noProbab :
-    print " ==== calculating probabilties ===="
+    print(" ==== calculating probabilties ====")
     # --- tip
     V_tip,   lvec, nDim = GU.load_scal_field('tip/VLJ',data_format=options.data_format)
     #cell   = np.array( [ lvec[1],lvec[2],lvec[3] ] ); print "nDim ", nDim, "\ncell ", cell
@@ -142,9 +142,9 @@ if options.noProbab :
 #=================== Force
 
 if options.noForces :
-    print " ==== calculating Forces ====" 
+    print(" ==== calculating Forces ====") 
     if (options.noProbab==False) :
-        print " ==== loading probabilties ====" 
+        print(" ==== loading probabilties ====") 
         # --- tip
         W_tip,   lvec, nDim = GU.load_scal_field('W_tip',data_format=options.data_format)
         # --- sample
@@ -174,7 +174,7 @@ if options.noForces :
     del F1; del F2; del F3; del FF_boltz; del Fz_tip; del Fy_tip; del Fx_tip;
 
 
-    print "x,y & z forces for the Boltzmann distribution of moving particle stored"
+    print("x,y & z forces for the Boltzmann distribution of moving particle stored")
 
 '''
 # surface just for debugging
@@ -187,7 +187,7 @@ if options.noForces :
 
 if options.current :
     if ((options.noProbab==False)and(options.noForces==False)) :
-        print " ==== loading probabilties ====" 
+        print(" ==== loading probabilties ====") 
         # --- tip
         W_tip,   lvec, nDim = GU.load_scal_field('W_tip',data_format=options.data_format)
         W_tip = np.roll(np.roll(np.roll(W_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
@@ -197,15 +197,15 @@ if options.current :
     if ((options.noProbab)and(options.noForces==False)) :
         W_tip = np.roll(np.roll(np.roll(W_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
 
-    print " ==== calculating current ====" 
-    cell   = np.array( [ lvec[1],lvec[2],lvec[3] ] ); print "nDim ", nDim, "\ncell ", cell
+    print(" ==== calculating current ====") 
+    cell   = np.array( [ lvec[1],lvec[2],lvec[3] ] ); print("nDim ", nDim, "\ncell ", cell)
     X,Y,Z  = getXYZ( nDim, cell )
     T_tip = getProbeTunelling( (cell[0,0]/2.+cell[1,0]/2.,cell[1,1]/2,cell[2,2]/2.) ,  X, Y, Z, beta=1.14557 )  #beta decay in eV/Angstom for WF = 5.0 eV;  works for tip (the last flexible tip apex atom) in the middle of the cell
     T_tip = np.roll(np.roll(np.roll(T_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2)
     T=fFFT.Average_tip( (-1)*T_tip, W_surf, W_tip )                  # T stands for hoppings
     del T_tip;
-    print T.shape
-    print (T**2).shape
+    print(T.shape)
+    print((T**2).shape)
     GU.save_scal_field ( 'I_boltzmann', T**2,   lvec, data_format=options.data_format) # I ~ T**2 
 
-print " ***** ALL DONE ***** "
+print(" ***** ALL DONE ***** ")

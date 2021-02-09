@@ -3,7 +3,7 @@
 # Refrences:
 # - Keras Data Generator   https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly.html
 
-from __future__ import unicode_literals
+
 import sys
 import os
 import shutil
@@ -15,18 +15,18 @@ from enum import Enum
 
 #import matplotlib.pyplot as plt
 
-import basUtils
+from . import basUtils
 #from   import PPPlot 
 #import GridUtils as GU
-import common    as PPU
+from . import common    as PPU
 #import cpp_utils as cpp_utils
 
-import elements
+from . import elements
 import pyopencl     as cl
-import oclUtils     as oclu 
-import fieldOCL     as FFcl 
-import RelaxOpenCL  as oclr
-import HighLevelOCL as hl
+from . import oclUtils     as oclu 
+from . import fieldOCL     as FFcl 
+from . import RelaxOpenCL  as oclr
+from . import HighLevelOCL as hl
 
 import numpy as np
 from keras.utils import Sequence
@@ -42,7 +42,7 @@ def getRandomUniformDisk():
 
 
 def rotAtoms(rot, atoms):
-    print "atoms.shape ", atoms.shape
+    print("atoms.shape ", atoms.shape)
     atoms_ = np.zeros(atoms.shape)
     atoms_[:,0] =  rot[0,0] * atoms[:,0]   +  rot[0,1] * atoms[:,1]   +    rot[0,2] * atoms[:,2]
     atoms_[:,1] =  rot[1,0] * atoms[:,0]   +  rot[1,1] * atoms[:,1]   +    rot[1,2] * atoms[:,2]
@@ -193,7 +193,7 @@ class Generator(Sequence,):
         self.Ymode     = Ymode
         self.projector = None; self.FE2in=None
         self.bZMap = False; self.bFEmap = False;
-        if(verbose>0): print "Ymode", self.Ymode
+        if(verbose>0): print("Ymode", self.Ymode)
         if self.Ymode == 'Lorenzian' or self.Ymode == 'Spheres' or self.Ymode == 'SphereCaps' or self.Ymode == 'Disks' or self.Ymode == 'DisksOcclusion' or self.Ymode == 'QDisks' or self.Ymode == 'D-S-H':
             self.projector  = FFcl.AtomProcjetion()
         if self.Ymode == 'HeightMap' or self.Ymode == 'D-S-H' : 
@@ -216,12 +216,12 @@ class Generator(Sequence,):
         return int( np.ceil( len(self.molecules) * self.nBestRotations / float(self.batch_size) ) )
 
     def __getitem__(self, index):
-        if(verbose>0): print "index ", index
-        return self.next()
+        if(verbose>0): print("index ", index)
+        return next(self)
 
     def on_epoch_end(self):
         if self.shuffle_molecules:
-            permut = np.array( range(len(self.molecules)) )
+            permut = np.array( list(range(len(self.molecules))) )
             np.random.shuffle( permut )
             self.molecules = [ self.molecules[i] for i in permut ]
 
@@ -245,7 +245,7 @@ class Generator(Sequence,):
         rots.sort(  key=lambda item: -item[0] )
         return rots
 
-    def next(self):
+    def __next__(self):
         if   self.nextMode == 1:
             return self.next1()
         elif self.nextMode == 2:
@@ -272,14 +272,14 @@ class Generator(Sequence,):
                 self.molName =  self.molecules[self.imol]
                 self.nextMolecule( self.molName ) 
                 if(self.counter>0): # not first step
-                    if(verbose>1): print "scanner.releaseBuffers()"
+                    if(verbose>1): print("scanner.releaseBuffers()")
                     self.scanner.releaseBuffers()
 
                 self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.zWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight), bZMap=self.bZMap, bFEmap=self.bFEmap, FE2in=self.FE2in )
                 self.rotations_sorted = self.sortRotationsByEntropy()
                 self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
                 if self.shuffle_rotations:
-                    permut = np.array( range(len(self.rotations_sorted)) )
+                    permut = np.array( list(range(len(self.rotations_sorted))) )
                     np.random.shuffle( permut )
                     #print permut
                     self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
@@ -315,7 +315,7 @@ class Generator(Sequence,):
         self.rotations_sorted = self.sortRotationsByEntropy()
         self.rotations_sorted = self.rotations_sorted[:self.nBestRotations]
         if self.shuffle_rotations:
-            permut = np.array( range(len(self.rotations_sorted)) )
+            permut = np.array( list(range(len(self.rotations_sorted))) )
             np.random.shuffle( permut )
             self.rotations_sorted = [ self.rotations_sorted[i] for i in permut ]
 
@@ -349,7 +349,7 @@ class Generator(Sequence,):
 
     def nextMolecule(self, fname ):
         fullname = self.preName+fname+self.postName
-        if(verbose>0): print " ===== nextMolecule: ", fullname
+        if(verbose>0): print(" ===== nextMolecule: ", fullname)
         t1ff = time.clock();
         self.atom_lines = open( fullname ).readlines()
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.atom_lines )
@@ -374,7 +374,7 @@ class Generator(Sequence,):
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
 
 
-        print " self.Q, self.iZPP ", self.Q, self.iZPP
+        print(" self.Q, self.iZPP ", self.Q, self.iZPP)
 
         self.FEin  = FF[:,:,:,:4] + self.Q*FF[:,:,:,4:];
 
@@ -389,7 +389,7 @@ class Generator(Sequence,):
         #self.saveDebugXSF( self.preName+fname+"/FF_z.xsf", self.FEin[:,:,:,2], d=(0.1,0.1,0.1) )
 
         Tff = time.clock()-t1ff;   
-        if(verbose>1): print "Tff %f [s]" %Tff
+        if(verbose>1): print("Tff %f [s]" %Tff)
 
     #def nextRotation(self, rot, X,Y ):
     def nextRotation(self, X,Y ):
@@ -398,7 +398,7 @@ class Generator(Sequence,):
         #print "  self.irot ", self.irot, self.rotations_sorted[self.irot]
         #print "  self.irot ", self.irot
 
-        if(verbose>0): print " imol, irot, entropy ", self.imol, self.irot, entropy
+        if(verbose>0): print(" imol, irot, entropy ", self.imol, self.irot, entropy)
         zDir = self.rot[2].flat.copy()
 
         vtipR0    = np.zeros(3)
@@ -416,7 +416,7 @@ class Generator(Sequence,):
         FEout  = self.scanner.run_relaxStrokesTilted()
 
         if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
-            if(verbose>0): print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
+            if(verbose>0): print("len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut)
             exit()
         #print "self.dfWeight ", self.dfWeight
         self.scanner.updateBuffers( WZconv=self.dfWeight )
@@ -428,7 +428,7 @@ class Generator(Sequence,):
         X[:,:,:FEout.shape[2]] = FEout[:,:,:,2].copy()
 
         Tscan = time.clock()-t1scan;  
-        if(verbose>1): print "Tscan %f [s]" %Tscan
+        if(verbose>1): print("Tscan %f [s]" %Tscan)
         
         t1y = time.clock();
 
@@ -472,36 +472,36 @@ class Generator(Sequence,):
 
         elif self.Ymode == 'Lorenzian':
             dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0):  print "dirFw ", dirFw
+            if(verbose>0):  print("dirFw ", dirFw)
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] =  self.projector.run_evalLorenz( poss = poss_ )[:,:,0]
         elif self.Ymode == 'Spheres':
             dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
+            if(verbose>0): print("dirFw ", dirFw)
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalSpheres( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'SphereCaps':
             dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
+            if(verbose>0): print("dirFw ", dirFw)
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalSphereCaps( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'Disks':
             dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
+            if(verbose>0): print("dirFw ", dirFw)
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evaldisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'DisksOcclusion':
             dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
+            if(verbose>0): print("dirFw ", dirFw)
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evaldisks_occlusion( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'QDisks':
-            dirFw = np.append( self.rot[2], [0] ); print "dirFw ", dirFw
+            dirFw = np.append( self.rot[2], [0] ); print("dirFw ", dirFw)
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             Y[:,:] = self.projector.run_evalQdisks( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
         elif self.Ymode == 'D-S-H':
             dirFw = np.append( self.rot[2], [0] ); 
-            if(verbose>0): print "dirFw ", dirFw
+            if(verbose>0): print("dirFw ", dirFw)
             poss_ = np.float32(  self.scan_pos0s - (dirFw*(self.distAbove-1.0))[None,None,:] )
             # Disks
             Y[:,:,0] = self.projector.run_evaldisks  ( poss = poss_, tipRot=self.scanner.tipRot )[:,:,0]
@@ -518,7 +518,7 @@ class Generator(Sequence,):
 
 
         Ty =  time.clock()-t1scan;  
-        if(verbose>1): print "Ty %f [s]" %Ty
+        if(verbose>1): print("Ty %f [s]" %Ty)
 
         #print "Y.shape", Y.shape
         #print "X.shape", X.shape
@@ -538,12 +538,12 @@ class Generator(Sequence,):
         self.scan_pos0s  = self.scanner.setScanRot( self.pos0+rot[2]*self.distAbove, rot=rot, start=self.scan_start, end=self.scan_end, tipR0=tipR0  )
 
 
-        print  " >>>>>>> maxTilt0 ", self.maxTilt0, "tipR0 ", tipR0
+        print(" >>>>>>> maxTilt0 ", self.maxTilt0, "tipR0 ", tipR0)
 
         FEout  = self.scanner.run_relaxStrokesTilted()
 
         if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut   ):
-            if(verbose>0): print "len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut
+            if(verbose>0): print("len(dfWeight) must be scan_dim[2] - nDimConvOut ", len(self.dfWeight),  self.scanner.scan_dim[2], self.scanner.nDimConvOut)
             exit()
         self.scanner.updateBuffers( WZconv=self.dfWeight )
         FEout = self.scanner.run_convolveZ()
@@ -556,12 +556,12 @@ class Generator(Sequence,):
         if hasattr(self, 'GridUtils'):
             GU = self.GridUtils
         else:
-            import GridUtils as GU
+            from . import GridUtils as GU
             self.GridUtils = GU
         sh = F.shape
         #self.lvec_scan = np.array( [ [0.0,0.0,0.0],[self.scan_dim[0],0.0,0.0],[0.0,self.scan_dim[1],0.0],0.0,0.0, ] ] )
         lvec = np.array( [ [0.0,0.0,0.0],[sh[0]*d[0],0.0,0.0],[0.0,sh[1]*d[1],0.0], [ 0.0,0.0,sh[2]*d[2] ] ] )
-        if(verbose>0): print "saveDebugXSF : ", fname
+        if(verbose>0): print("saveDebugXSF : ", fname)
         GU.saveXSF( fname, F.transpose((2,1,0)), lvec )
 
     def plot(self, rotName, molName, X=None,Y=None,Y_=None, entropy=None, bXYZ=False, bPOVray=False, bRot=False ):
@@ -569,7 +569,7 @@ class Generator(Sequence,):
         import matplotlib.pyplot as plt
 
         fname    = self.preName + molName + rotName
-        print " plot to file : ", fname
+        print(" plot to file : ", fname)
 
         if bXYZ:
             #self.saveDebugXSF( self.preName + self.molecules[imol] + ("/rot%03i_Y.xsf" %irot), Y_ )
@@ -635,7 +635,7 @@ class Generator(Sequence,):
                 plt.close()
             else:
                 if X is not None:
-                    if(verbose>0): print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
+                    if(verbose>0): print(isl, np.min(X[:,:,isl]), np.max(X[:,:,isl]))
                     plt.imshow(  X[:,:,isl], origin='image' );    plt.colorbar()
                     plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                     plt.close()

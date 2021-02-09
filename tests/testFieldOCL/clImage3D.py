@@ -54,8 +54,8 @@ mf       = cl.mem_flags
 
 F = makeTestGrid( )
 
-print "F.shape", F.shape
-print F[10,10,:]
+print("F.shape", F.shape)
+print(F[10,10,:])
 import matplotlib.pyplot as plt
 plt.imshow(F[0,:,:]); plt.colorbar(); plt.show()
 
@@ -76,4 +76,4 @@ prg.getValInPoints( queue, (len(ts),), None, *(cl_ImgIn, cl_poss, cl_vals) )
 cl.enqueue_copy( queue, vals, cl_vals )
 queue.finish()
     
-print vals
+print(vals)

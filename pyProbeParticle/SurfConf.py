@@ -4,7 +4,7 @@ import sys
 import os
 import numpy as np
 
-import  RigidMol  as rmol
+from . import  RigidMol  as rmol
 #import yMolecular.atomicUtils as au
 #import common    as PPU
 
@@ -84,25 +84,25 @@ def mat2quat(m):
 def initSurf( surfFile, cell, ns=[60,60,100] ):
     rmol.initRigidSubstrate ( surfFile, np.array(ns,dtype=np.int32), np.array([0.0,0.0,0.0]), np.array(cell) )
     if os.path.isfile("data/FFPauli.bin"):
-        print "gridFF found on disk => loading "
+        print("gridFF found on disk => loading ")
         rmol.loadGridFF()
     else:
-        print "gridFF not found on disk => recalc "
+        print("gridFF not found on disk => recalc ")
         rmol.recalcGridFF( np.array([1,1,1],dtype=np.int32) )
         rmol.saveGridFF()
     #rmol.debugSaveGridFF( "FFtot_z_Na.xsf", np.array([1.3,0.0447214,0.0]) )
 
 def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0.01 ):
 
-    print "DEBUG 0"
+    print("DEBUG 0")
 
     rmol.clear()
 
-    mol   = rmol.loadMolType( molFile )                              ;print "DEBUG 0.1" 
-    rot0  = np.array([[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]])    ;print "DEBUG 0.2"
-    rmol.insertMolecule( mol, np.array(pos), rot0, True )          ;print "DEBUG 0.3"
+    mol   = rmol.loadMolType( molFile )                              ;print("DEBUG 0.1") 
+    rot0  = np.array([[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]])    ;print("DEBUG 0.2")
+    rmol.insertMolecule( mol, np.array(pos), rot0, True )          ;print("DEBUG 0.3")
 
-    print "DEBUG 1"
+    print("DEBUG 1")
 
     #rmol.save2xyz( "world_debug_00.xyz" )
 
@@ -110,9 +110,9 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
 
     rmol.bakeMMFF();   #print "DEBUG 1.1"
     rmol.prepareOpt(); #print "DEBUG 1.2"
-    rmol.setOptFIRE( dt_max=0.2, dt_min=0.01, damp_max=0.1, minLastNeg=5, finc=1.1, fdec=0.5, falpha=0.98, kickStart=1.0 ); print "DEBUG 1.3"
+    rmol.setOptFIRE( dt_max=0.2, dt_min=0.01, damp_max=0.1, minLastNeg=5, finc=1.1, fdec=0.5, falpha=0.98, kickStart=1.0 ); print("DEBUG 1.3")
 
-    print "DEBUG 3"
+    print("DEBUG 3")
 
     poses = rmol.getPoses();    #print "rmol.getPoses() ", poses_
     apos  = rmol.getAtomPos();  #print "rmol.getAtomPos() ", apos
@@ -121,10 +121,10 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
     for irot,rot in enumerate(rots):
         #fout = rmol.openf( "movie.xyz", -1, "w" )
         mol_name = molFile.split("/")[1].split(".")[0]
-        print mol_name
+        print(mol_name)
         fout = open( "movie_%s_%03i.xyz" %(mol_name,irot) ,'w')
         q = mat2quat(rot)
-        print "q ", q
+        print("q ", q)
         poses[0,4:8] = q
         for i in range(nMaxIter):
             #print ">>> i ", i
@@ -138,8 +138,8 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
             writeToXYZ( fout, es, xyzs )
             #rmol.write2xyz( fout )
             #rmol.save2xyz( "world_debug_%03i.xyz" %i )
-        print "rot  ", rot
-        print "rot_ ", rot_
+        print("rot  ", rot)
+        print("rot_ ", rot_)
         fout.close()
 
     del  poses
@@ -152,7 +152,7 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
 
 if __name__ == "__main__":
 
-    import basUtils as au
+    from . import basUtils as au
 
     os.chdir( "/u/25/prokoph1/unix/git/SimpleSimulationEngine/cpp/Build/apps/MolecularEditor2" )
 
@@ -165,20 +165,20 @@ if __name__ == "__main__":
 
     rmol.initParams( "common_resources/AtomTypes.dat", "common_resources/BondTypes.dat" )
     initSurf( "inputs/Cu111_6x6_2L.xyz", cell, ns=[60,60,100] )
-    print "========== water_T5_ax.xyz ==========="
-    print "========== water_T5_ax.xyz ==========="
-    print "========== water_T5_ax.xyz ==========="
+    print("========== water_T5_ax.xyz ===========")
+    print("========== water_T5_ax.xyz ===========")
+    print("========== water_T5_ax.xyz ===========")
     nAtomMol = len(water[0])
     es, xyzs = combineGeoms(water,surf)
     rots_ = getSurfConfs( rots, "inputs/water_T5_ax.xyz", pos=[ 5.78, 6.7, 12.24 ],  nMaxIter=100, Fconv=0 )
-    print "========== Campher.xyz ==========="
-    print "========== Campher.xyz ==========="
-    print "========== Campher.xyz ==========="
+    print("========== Campher.xyz ===========")
+    print("========== Campher.xyz ===========")
+    print("========== Campher.xyz ===========")
     nAtomMol = len(campher[0])
     es, xyzs = combineGeoms(campher,surf)
     rots_ = getSurfConfs( rots, "inputs/Campher.xyz", pos=[ 5.78, 6.7, 12.24 ], nMaxIter=100, Fconv=0 )
     #print "rots_", rots_
-    print ">>>> ALL DONE <<<<"
+    print(">>>> ALL DONE <<<<")
 
 
 
