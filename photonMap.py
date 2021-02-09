@@ -503,10 +503,10 @@ if __name__ == "__main__":
         coefs=vs[ipl]
 
         if not options.volumetric:
-            phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvec, z=5.0, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter )
+            phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvec, z=options.ztip, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter )
             (dx,dy)=dd
         else:
-            phmap_, Vtip_, rho_, dd =  photonMap3D_stamp( rhoTrans, lvec, z=5.0, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter )
+            phmap_, Vtip_, rho_, dd =  photonMap3D_stamp( rhoTrans, lvec, z=options.ztip, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter )
             phmap = np.sum(phmap_,axis=0)
             Vtip  = np.sum(Vtip_ ,axis=0)
             rho   = np.sum(rho_  ,axis=0)
