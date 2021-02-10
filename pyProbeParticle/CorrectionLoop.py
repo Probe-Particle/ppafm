@@ -82,7 +82,7 @@ def removeAtoms( molecule, nmax=1 ):
     Zs   = molecule.Zs
     qs   = molecule.qs
 
-    nmax = min(nmax, xyzs.shape[0]-1)
+    nmax = min(nmax, xyzs.shape[0])
     rem_idx = np.random.randint(nmax+1)
     sel = np.random.choice(np.arange(xyzs.shape[0]), rem_idx, replace=False)
 
@@ -291,22 +291,27 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                     X1 = self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs)
                     X1s[i].append(X1)
 
-                    # Set mutant as current molecule
-                    self.xyzs = mol2.xyzs
-                    self.qs   = mol2.qs
-                    self.Zs   = mol2.Zs
+                    if mol2.xyzs.size > 0:
 
-                    # Calculate new interaction parameters for the mutant
-                    self.REAs = PPU.getAtomsREA(self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0)
+                        # Set mutant as current molecule
+                        self.xyzs = mol2.xyzs
+                        self.qs   = mol2.qs
+                        self.Zs   = mol2.Zs
 
-                    # Make sure the molecule is in right position
-                    self.handle_positions_mutant(center)
-                    # Make sure tip-sample distance is right
-                    self.handle_distance_mutant(tot_dist, z_max)
+                        # Calculate new interaction parameters for the mutant
+                        self.REAs = PPU.getAtomsREA(self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0)
 
-                    # Evaluate 2nd AFM
-                    X2 = self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs)
-                    X2s[i].append(X2)
+                        # Make sure the molecule is in right position
+                        self.handle_positions_mutant(center)
+                        # Make sure tip-sample distance is right
+                        self.handle_distance_mutant(tot_dist, z_max)
+
+                        # Evaluate 2nd AFM
+                        X2 = self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs)
+                        X2s[i].append(X2)
+                    else:
+                        X2 = np.random.normal(0, 1e-7, (128, 128, 10))
+                        X2s[i].append(X2)
 
                 mol1s.append(mol1)
                 mol2s.append(mol2)
