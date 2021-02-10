@@ -49,12 +49,12 @@ def plotBoxes( poss, rots, lvec, ax=None, byCenter=False ):
     for i in range(len(poss)):
         #xs,ys = makeBox( poss[i], rots[i], a=lvec[2][1],b=lvec[3][2] )
         if byCenter:
-            xs,ys = makeBox( poss[i], rots[i], a=lvec[3][2],b=lvec[2][1], byCenter=True )
+            xs,ys = makeBox( poss[i], rots[i], a=float(lvec[3][2]),b=float(lvec[2][1]), byCenter=True )
         else:
-            xs,ys = makeBox( poss[i], rots[i], a=lvec[3][2],b=lvec[2][1], byCenter=False )
+            xs,ys = makeBox( poss[i], rots[i], a=float(lvec[3][2]),b=float(lvec[2][1]), byCenter=False )
 
-        ax.plot(xs,ys)
-        plt.plot(xs[0],ys[0],'o')
+        ax.plot(xs,ys,linewidth=0.5)
+        ax.plot(xs[0],ys[0],'.',markersize=5)
 
 def shiftHalfAxis( X, d, n, ax=1 ):
     shift = n//2;
@@ -197,10 +197,10 @@ def photonMap2D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
         pos = [ poss[i][0]+ncanv[0]*0.5*dx,   poss[i][1]+ncanv[1]*0.5*dy  ]
         coef = coefs[i]
         if isinstance(coef, float):
-            print("GU.stampToGrid2D()") 
+            #print("GU.stampToGrid2D()") 
             GU.stampToGrid2D( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter )
         else:
-            print("GU.stampToGrid2D_complex()")
+            #print("GU.stampToGrid2D_complex()")
             coef = complex( coef[0], coef[1] )
             GU.stampToGrid2D_complex( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter)
 
@@ -239,10 +239,10 @@ def photonMap3D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.
         pos = [ pos_[0]+ncanv[0]*0.5*dx,   pos_[1]+ncanv[1]*0.5*dy, pos_z ]
         coef = coefs[i]
         if isinstance(coef, float):
-            print("GU.stampToGrid3D()") 
+            #print("GU.stampToGrid3D()") 
             GU.stampToGrid3D( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter )
         else:
-            print("GU.stampToGrid3D_complex()")
+            #print("GU.stampToGrid3D_complex()")
             coef = complex( coef[0], coef[1] )
             GU.stampToGrid3D_complex( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter )
 
@@ -342,13 +342,25 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
             #print "mat2 ", mat2
             #print "dpos ", dpos
             #print "eij ",  eij
-            #exit()
+         #exit()
+     
+    #ABAB
+#    H[1,2]*=0; H[2,1]*=0; H[2,3]*=0; H[3,2]*=0; H[3,0]*=0; H[0,3]*=0; H[0,1]*=0; H[1,0]*=0; #H[0,0]*=0.999; H[2,2]*=0.999
+    
+
+     
+    #AAAB
+#    H[0,3]*=0;  H[3,0]*=0;  H[1,3]*=0;  H[3,1]*=0; H[2,3]*=0; H[3,2]*=0; #H[3,3]*=0.999
+
+    
+    #AABB
+#    H[2,0]*=0; H[0,2]*=0; H[1,2]*=0; H[2,1]*=0; H[0,3]*=0; H[3,0]*=0; H[3,1]*=0; H[1,3]*=0; #H[0,0]*=0.999;H[2,2]*=0.999;
 
     print("H  = \n", H)
     es,vs = np.linalg.eig(H)
     
-    print("eigenvaules    ", es)
-    print("eigenvectors \n", vs)
+#    print("eigenvalues    ", es)
+#    print("eigenvectors \n", vs)
 
     print("!!! ordering Eigen-pairs ")
     idx          = np.argsort(es)
@@ -357,11 +369,11 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
     vs = vs.transpose()
     vs = vs[idx]
 
-    print("eigenvaules  ", es)
-    #print "eigenvectors \n", vs
-    for i,v in enumerate(vs):
-        print("E[%i]=%g" %(i,es[i]), " v=",v, " |v|=",(v**2).sum())
-    print(" <<<<!!!!! DEBUG : solveExcitonSystem() DONE .... this is WIP, do not take seriously ")
+    print("eigenvalues  ", es)
+    print("eigenvectors \n", vs)
+#    for i,v in enumerate(vs):
+#        print("E[%i]=%g" %(i,es[i]), " v=",v, " |v|=",(v**2).sum())
+#    print(" <<<<!!!!! DEBUG : solveExcitonSystem() DONE .... this is WIP, do not take seriously ")
     return es,vs,H
 
 # ============== presets
@@ -379,6 +391,19 @@ def makePreset_cycle( n, R=10.0, ang0=0.0 ):
         poss.append( [-np.cos(a)*R ,np.sin(a)*R,0] )
         rots.append( -a+ang0 )
     return poss, rots
+
+def makePreset_arr1( m,n, R=10.0 ):
+    dang = np.pi/2
+    rots=[]; poss=[]
+    for i in range(m):
+        for j in range(n):
+            ii=(i-(m-1)/2.)
+            jj=(j-(n-1)/2.)
+            poss.append( [ii*R ,jj*R,0] )
+            rots.append((j%2+((i+1)%2 * (n+1)%2))*dang )
+    return poss, rots
+
+
 
 def normalizeGridWf( F ):
     q = (F**2).sum()
@@ -405,6 +430,9 @@ if __name__ == "__main__":
 
     #rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
     #rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO_/CHGCAR.xsf")
+
+    np.set_printoptions(linewidth=400)
+
 
     hcanv = options.ydim
     wcanv = options.xdim
@@ -445,8 +473,8 @@ if __name__ == "__main__":
     plt.show()
     '''
 
-    byCenter = False
-    #byCenter = True
+    #byCenter = False
+    byCenter = True
 
     #tipDict =  { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
     #tipDict =  { 's': 1.0, 'py':1.0  }
@@ -472,9 +500,10 @@ if __name__ == "__main__":
     #coefs=[ [1.0,0.0]   ]
     '''
 
-    #poss,rots = makePreset_row  ( 4, dx=15.9, ang=0*fromDeg ) 
-    poss,rots = makePreset_cycle( 4, R=12.6, ang0=-90.*fromDeg )
-    #poss,rots = makePreset_cycle( 7, R=25.0, ang0=-0.*fromDeg )
+    #poss,rots = makePreset_row  ( 3, dx=15.9, ang=0*fromDeg ) 
+    poss,rots = makePreset_cycle( 4, R=8., ang0=30*fromDeg )
+    #poss,rots = makePreset_row( 2, dx=15.9, ang=-0.*fromDeg )
+    #poss,rots = makePreset_arr1( 3,4,R=11.6 )
     
     #poss =[ [0.0,.0]  ]
 
@@ -484,7 +513,7 @@ if __name__ == "__main__":
 
     if options.excitons:
         print(rhoTrans.shape, nDim)
-        subsamp = 10   # seems sufficient to obtain 1e-3 accuracy 
+        subsamp = 6  # seems sufficient to obtain 1e-3 accuracy 
         #subsamp = 5 
         es,vs,H = solveExcitonSystem( rhoTrans, lvec, poss, rots, Ediag=1.0, ndim=(nDim[0]//subsamp,nDim[1]//subsamp,nDim[2]//subsamp), byCenter=byCenter )
 
@@ -497,7 +526,7 @@ if __name__ == "__main__":
         vs=[coefs]
 
     
-    plt.figure(figsize=(len(vs)*3,6))
+    plt.figure(figsize=(6,len(vs)*3))
 
     for ipl in range(len(vs)):
         coefs=vs[ipl]

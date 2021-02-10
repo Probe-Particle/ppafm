@@ -448,15 +448,15 @@ extern "C" {
         int nxy1=ns1.x*ns1.y;
         int nxy2=ns2.x*ns2.y;
         for(int iz=0; iz<ns1.z; iz++){
-            double z = f.z*iz; int jz=(int)z; int jz1=jz+1; double dz=z-jz; double mz=1.-dz;
+            double z = (f.z*(iz+0.5))-0.5; int jz=(int)z; int jz1=jz+1; double dz=z-jz; double mz=1.-dz;
             int jzn =jz *nxy2;
             int jzn1=jz1*nxy2;
             for(int iy=0; iy<ns1.y; iy++){
-                double y = f.y*iy; int jy=(int)y; int jy1=jy+1; double dy=y-jy; double my=1.-dy;
+                double y = (f.y*(iy+0.5))-0.5; int jy=(int)y; int jy1=jy+1; double dy=y-jy; double my=1.-dy;
                 int jyn =jy *ns2.x;
                 int jyn1=jy1*ns2.x;
                 for(int ix=0; ix<ns1.x; ix++){
-                    double x = f.x*ix; int jx=(int)x; int jx1=jx+1; double dx=x-jx; double mx=1.-dx;
+                    double x = (f.x*(ix+0.5))-0.5; int jx=(int)x; int jx1=jx+1; double dx=x-jx; double mx=1.-dx;
                     double val = Fin[iz*nxy1 + iy*ns1.x + ix];
                     if( (jx1<ns2.x)&&(jy1<ns2.y)&&(jz1<ns2.z) ){
                         Fout[jzn +jyn +jx ]+= val* mx*my*mz ;
@@ -568,7 +568,7 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
         for(int ix=0; ix<ns1.x; ix++){
             for(int iy=0; iy<ns1.y; iy++){
                 for(int iz=0; iz<ns1.z; iz++){
-                    Vec3d pi;  rot1.dot_to_T({ix,iy,iz},pi);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
+                    Vec3d pi;  rot1.dot_to_T({ix+0.5,iy+0.5,iz+0.5},pi);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
                     //pi.add(dpos);
                     pi.add(pos1);
                     //double qi = rho1[iz*nxy1 + iy*ns1.x + ix];
@@ -583,7 +583,7 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
                     for(int jx=0; jx<ns2.x; jx++){
                         for(int jy=0; jy<ns2.y; jy++){
                             for(int jz=0; jz<ns2.z; jz++){
-                                Vec3d pj;  rot2.dot_to_T({jx,jy,jz},pj);
+                                Vec3d pj;  rot2.dot_to_T({jx+0.5,jy+0.5,jz+0.5},pj);
                                 pj.add(pos2);
                                 Vec3d p; p.set_sub(pi,pj);
                                 double r  = p.norm();
