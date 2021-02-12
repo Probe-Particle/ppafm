@@ -291,7 +291,7 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
         ndim2 = rhoTrans.shape 
         print(sum2, sum1)
         print(sum2/(ndim2[0]*ndim2[1]*ndim2[2]), sum1/(ndim1[0]*ndim1[1]*ndim1[2]))
-        GU.saveXSF("rhoTrans_donw.xsf", rhoTrans, lvec )
+        GU.saveXSF("rhoTrans_down.xsf", rhoTrans, lvec )
         #exit()
     poss = np.array(poss)
     lvec=np.array(lvec[1:][::-1,::-1])
@@ -343,7 +343,6 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
             #print "dpos ", dpos
             #print "eij ",  eij
          #exit()
-     
     #ABAB
 #    H[1,2]*=0; H[2,1]*=0; H[2,3]*=0; H[3,2]*=0; H[3,0]*=0; H[0,3]*=0; H[0,1]*=0; H[1,0]*=0; #H[0,0]*=0.999; H[2,2]*=0.999
     
@@ -424,6 +423,8 @@ if __name__ == "__main__":
     parser.add_option( "-t", "--tip",    action="store", type="string", default="s",   help="tip compositon s,px,py,pz,d...")
     parser.add_option( "-e", "--excitons",   action="store_true",  default=False, help="callculate deloc. exitons of J-aggregate ( just WIP !!! )")
     parser.add_option( "-v", "--volumetric", action="store_true", default=False,  help="calculate on 2D grid, much faster")
+    parser.add_option( "-f", "--flip", action="store_true", default=False,  help="transpose XYZ xsf/cube file to ZXY")
+    parser.add_option( "-s", "--save", action="store_true", default=False,  help="save txt files with output")
 
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
     (options, args) = parser.parse_args()
@@ -438,6 +439,7 @@ if __name__ == "__main__":
     wcanv = options.xdim
 
     if options.dens != "":
+        print(( ">>> Loading Transition density from ", options.dens, " ... " ))
         rhoTrans, lvec, nDim, head = GU.loadCUBE( options.dens )
     else: 
         print(( ">>> Loading HOMO from ", options.homo, " ... " ))
@@ -460,7 +462,8 @@ if __name__ == "__main__":
         q = (homo**2).sum(); print("q(homo) ",q)
         q = (lumo**2).sum(); print("q(lumo) ",q)
         #q *= dV**2;          print "q    ",q
-        #exit()  
+        #exit() 
+
 
     '''
     rho  = np.sum(  rhoTrans, axis=2)
@@ -472,6 +475,14 @@ if __name__ == "__main__":
     plt.imshow(canvas)
     plt.show()
     '''
+    if options.flip:
+        print("Transposing XYZ->ZXY")
+        lvec=lvec[:,[2,0,1]]
+        lvec=lvec[[0,3,1,2],:]
+        npnDim=np.array(nDim)
+        nDim=npnDim[[2,0,1]]
+        print(lvec)
+        rhoTrans=(np.transpose(rhoTrans,(1,2,0))).copy()
 
     #byCenter = False
     byCenter = True
@@ -500,14 +511,14 @@ if __name__ == "__main__":
     #coefs=[ [1.0,0.0]   ]
     '''
 
-    #poss,rots = makePreset_row  ( 3, dx=15.9, ang=0*fromDeg ) 
-    poss,rots = makePreset_cycle( 4, R=8., ang0=30*fromDeg )
-    #poss,rots = makePreset_row( 2, dx=15.9, ang=-0.*fromDeg )
+    #poss,rots = makePreset_row  ( 2, dx=15.9, ang=0*fromDeg ) 
+    #poss,rots = makePreset_cycle( 4, R=8., ang0=30*fromDeg )
+    #poss,rots = makePreset_row( 5, dx=11., ang=-45.*fromDeg )
     #poss,rots = makePreset_arr1( 3,4,R=11.6 )
     
-    #poss =[ [0.0,.0]  ]
+    poss =[ [0.0,.0]  ]
 
-    #rots =[-10.*180.*3.14]
+    rots =[0.*180.*3.14]
     coefs = np.ones(len(rots))
     #coefs = [[0.9,0.1]]
 
@@ -550,13 +561,29 @@ if __name__ == "__main__":
         #plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); 
         #plt.title('Tip Field')
         #plt.subplot(1,2,1); plt.imshow( rho.real  **2 + rho.imag  **2, origin='image' ); plt.colorbar(); plt.title('Transient Density')
+
+
+            
+
+        res=(phmap.real**2+phmap.imag**2)
+        #res=res+np.rot90(res)
+        if options.save:
+            if options.homo != 'homo.cube':
+                fnm=options.homo
+            else:
+                fnm=options.dens
+            
+            fnm=fnm+str(ipl).zfill(len(str(len(vs))))+'.txt'
+            print("Saving maps as: ",fnm) 
+            np.savetxt(fnm,res,header=str(sh[0])+' '+str(sh[1])+'\n'+str(sh[0]*dd[0]/10.)+' '+str(sh[1]*dd[1]/10.) +'\nEigenvector: '+str(ipl)+ ": " + str(vs[ipl])) 
+        
         plt.subplot(len(vs),2,1+2*ipl); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic');
+#        plt.subplot(len(vs),2,1+2*ipl); plt.imshow( rhoTrans[:,:,0]+rhoTrans[:,:,-1], extent=extent, origin='image',cmap='seismic');
         #plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); 
         #plt.title('Transient Density')
         
         plotBoxes( poss, rots, lvec, byCenter=byCenter )
 
-        res=(phmap.real**2+phmap.imag**2)
     
         plt.subplot(len(vs),2,2+2*ipl); plt.imshow( res, extent=extent, origin='image',cmap='gist_heat'); #plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); 
         #plt.title('Photon Map')

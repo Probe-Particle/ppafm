@@ -454,7 +454,6 @@ def loadCUBE(fname):
     sth1 = filein.readline().split()
     sth2 = filein.readline().split()
     sth3 = filein.readline().split()
-    filein.close()
     nDim = np.array( [int(sth1[0]),int(sth2[0]),int(sth3[0])] )
     lvec = np.zeros((4, 3))
     for jj in range(3):
@@ -464,15 +463,33 @@ def loadCUBE(fname):
         lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*bohrRadius2angstroem
 
     #print "GridUtils| Load "+fname+" using readNumsUpTo"  
-    noline = 6+abs(int(sth0[0])) + 1
+    noline = 6+abs(int(sth0[0]))
+
+
+    for ii in range(noline): #here we fake-read the atoms
+        sthx = filein.readline().split()
+
+    print("***",sth1[0])
+    if((int(sth0[0]) < 0)): #if N-atoms is negative, there will be integers associated with multiple data values
+        sthx = filein.readline().split() #if you don't get why this is so freakin' complicated, RTFM of the .CUBE files
+        noline = noline + 1 #this assumes there is only one extra line
+
+    filein.close()
     F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
     #print "GridUtils| np.shape(F): ",np.shape(F)
     #print "GridUtils| nDim: ",nDim
-    FF = np.reshape(F, nDim ).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
+
+    FF = np.reshape(F, nDim).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
 
     #FF [1:,1:,1:] = FF [:-1,:-1,:-1] 
     #FF [:,1:,:] = FF [:,:-1,:] 
-
+#    FF [0,:,0] = 1. 
+#    FF [-1,:,-1] = 1. 
+ 
+#    FF [0,0,:] = 0.05 
+#    FF [-1,-1,:] = 0.05 
+#    FF [:,-1,-1] = 1. 
+#    FF [:,0,0] = 1. 
     nDim=[nDim[2],nDim[1],nDim[0]]                          # Setting up the corresponding dimensions. 
     head = []
     head.append("BEGIN_BLOCK_DATAGRID_3D \n")

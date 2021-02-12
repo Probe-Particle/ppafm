@@ -179,6 +179,11 @@ extern "C" {
             //int ngot = sscanf(line,"%lf %lf %lf %lf %lf %lf %lf %lf",              &nums[0],&nums[1],&nums[2],&nums[3],&nums[4],&nums[5],&nums[6],&nums[7] );
             //printf       ( "ngot %i \n", ngot );
             //printf       ( "[%i,%i] %g %g %g %g %g %g %g %g \n", il, itot, nums[0],nums[1],nums[2],nums[3],nums[4],nums[5],nums[6],nums[7] );
+
+//	    if (il == 0){
+		    
+//		    printf("****** %lf %lf %lf %lf %lf %lf %lf %lf\n", nums[0],nums[1],nums[2],nums[3],nums[4],nums[5],nums[6],nums[7] );}
+
             for(int j=0; j<ngot; j++ ){
                 numbers[itot]=nums[j];
                 itot++;
