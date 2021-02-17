@@ -469,6 +469,7 @@ def normalizeGridWf( F ):
     return F/np.sqrt(q)
 
 if __name__ == "__main__":
+
     import matplotlib.pyplot as plt
     from optparse import OptionParser
     PARSER_DEFAULTVAL = None
@@ -488,8 +489,8 @@ if __name__ == "__main__":
     parser.add_option( "-s", "--save", action="store_true", default=False,  help="save output as txt files")
     parser.add_option( "-o", "--output", action="store", type="string", default="",  help="filename for output")
     parser.add_option( "-c", "--config", action="store", type="string", default=PARSER_DEFAULTVAL,  help="read from config file")
-#    parser.add_option( "-i", "--images", action="store_true", default=False,  help="save images")
-#    parser.add_option( "-h", "--hide", action="store_true", default=False,  help="do not show output")
+    parser.add_option( "-i", "--images", action="store_true", default=False,  help="save output as images")
+    parser.add_option( "-j", "--hide", action="store_true", default=False,  help="hide any graphical output; causes saved images to split into separate items")
 
 
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
@@ -498,6 +499,9 @@ if __name__ == "__main__":
     #rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO_/CHGCAR.xsf")
     np.set_printoptions(linewidth=400)
 
+    if options.hide:
+        import matplotlib
+        matplotlib.use("Agg")
 
     hcanv = options.ydim
     wcanv = options.xdim
@@ -621,7 +625,15 @@ if __name__ == "__main__":
         nvs=csh[1]
     else:
         nvs=1
-    plt.figure(figsize=(1*csh[0],nvs*2))
+   
+    nnn=csh[0]*nvs # total number of all combinations that will be calculated
+
+    result={"stack":np.zeros([nnn,wcanv,hcanv]),"E":np.zeros(nnn),"Ev":np.zeros([nnn,nvs])} #dictionary with the photon maps, eigenenergies, there is space for more, but I'm too lazy now..
+
+
+    if not(options.hide):
+        fig=plt.figure(figsize=(2*csh[0],4*nvs))
+        plt.tight_layout(pad=3.0)
 
     for cix in range(csh[0]):
         poss=(cposs[cix]).tolist()
@@ -679,39 +691,63 @@ if __name__ == "__main__":
             sh=phmap.shape
             extent=( -sh[0]*dd[0]*0.5,sh[0]*dd[0]*0.5,-sh[1]*dd[1]*0.5, sh[1]*dd[1]*0.5)
         
-        
-            #plt.subplot(i+1,3,2); plt.imshow( Vtip.real, extent=extent , origin='image' ,cmap='gray'); 
-            #plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); 
-            #plt.title('Tip Field')
-            #plt.subplot(1,2,1); plt.imshow( rho.real  **2 + rho.imag  **2, origin='image' ); plt.colorbar(); plt.title('Transient Density')
-    
-    
-                
-    
             res=(phmap.real**2+phmap.imag**2)
-            
-            if (options.save):
+           
+            result["stack"][cix*nvs+ipl,:,:]=res
+            result["E"][cix*nvs+ipl]=es[ipl]
+            result["Ev"][cix*nvs+ipl,:]=vs[ipl]
+
+
+
+            if options.output:
+                fnmb=options.output
+            else:
                 if options.dens!=PARSER_DEFAULTVAL:
-                    fnm=options.dens
+                    fnmb=options.dens
                 else:
-                    fnm=options.homo
+                    fnmb=options.homo
                 
-                fnm=fnm+"_"+str(cix).zfill(len(str(csh[0])))+"_"+str(ipl).zfill(len(str(nvs)))+'.txt'
+                fnm=fnmb+"_"+str(cix).zfill(len(str(csh[0])))+"_"+str(ipl).zfill(len(str(nvs)))
+
+            if (options.save):
                 print("Saving maps as: ",fnm) 
-                np.savetxt(fnm,res,header=str(sh[0])+' '+str(sh[1])+'\n'+str(sh[0]*dd[0]/10.)+' '+str(sh[1]*dd[1]/10.) +'\nCombination: '+str(cix)+'\nSpin combination: '+str(six)+'\nEigennumber: '+str(ipl)+ '\nEnergy: ' + str(es[ipl])+ '\nEigenvector: '+str(vs[ipl])) 
+                np.savetxt(fnm+'.txt',res,header=str(sh[0])+' '+str(sh[1])+'\n'+str(sh[0]*dd[0]/10.)+' '+str(sh[1]*dd[1]/10.) +'\nCombination: '+str(cix)+'\nSpin combination: '+str(six)+'\nEigennumber: '+str(ipl)+ '\nEnergy: ' + str(es[ipl])+ '\nEigenvector: '+str(vs[ipl])) 
             
             print("combination:"+str(cix))
             print("exciton variation:"+str(ipl))
             print("overall index: "+str(1+2*(cix*nvs+ipl)))
-            plt.subplot(csh[0],2*nvs,1+2*(cix*nvs+ipl)); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic');
-            plt.xlabel("E = "+str(es[ipl]))
-            plotBoxes( poss, rots, lvec, byCenter=byCenter )
+           
+            maxval=(np.max(rho.real))
+            minval=abs(np.min(rho.real))
+
+            maxs=np.max(np.array([maxval,minval])) #doing this to set the blue-red diverging scale white to zero in the plots
+
+            if options.hide:
+                fig=plt.figure(figsize=(6,3))
+                plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
+                plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*es[ipl]) )+" meV" )
+                plotBoxes( poss, rots, lvec, byCenter=byCenter )
+                plt.subplot(1,2,2); plt.imshow( res, extent=extent, origin='image',cmap='gist_heat');
+                plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(res)) ))
+
+                if options.images:
+                    print("Saving PNG image as ",fnm )
+                    plt.savefig(fnm+'.png', dpi=fig.dpi)
+            else:
+                plt.subplot(csh[0],2*nvs,1+2*(cix*nvs+ipl)); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
+                plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*es[ipl]) )+" meV" )
+                plotBoxes( poss, rots, lvec, byCenter=byCenter )
+                plt.subplot(csh[0],2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( res, extent=extent, origin='image',cmap='gist_heat');
+                plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(res)) ))
     
-            plt.subplot(csh[0],2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( res, extent=extent, origin='image',cmap='gist_heat'); 
-    
-    print("Done") 
-    plt.show()
-    
+    if not options.hide:
+        if options.images:
+            print("Saving one big PNG image")
+            plt.savefig(fnmb+'.png', dpi=fig.dpi)
+        print("Plotting image")
+        plt.show() #this is here for detaching the window from python and persist
+
+   
 
     '''
     
