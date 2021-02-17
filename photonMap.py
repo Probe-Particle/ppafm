@@ -315,6 +315,7 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
 
     for i in range(n):
         rot1 = makeTransformMat( rhoTrans.shape, lvec, rots[i] )
+        print(rot1)
         p1=poss[i]
         print("p1 shape:",p1.shape)
         if byCenter: p1 = p1 + rot1[0,:]*(ns[0]*-0.5) + rot1[1,:]*(ns[1]*-0.5)
@@ -403,6 +404,65 @@ def makePreset_arr1( m,n, R=10.0 ):
     return poss, rots
 
 
+def combinator(oposs,orots,ocoefs,oents):
+    oents=np.array(oents)
+    oposs=np.array(oposs)
+    orots=np.array(orots)
+    print(oents)
+    isx=np.argsort(oents) #sorting
+    print(isx)
+    ents=oents[isx]
+    poss=oposs[isx]
+    rots=orots[isx]
+    coefs=ocoefs[isx]
+
+    #print(ents)
+
+    funiqs=np.unique(ents, True,False, False) #indices of first uniqs
+    funiqs=funiqs[1]
+
+    #print(funiqs)
+
+    nuniqs=np.unique(ents, False, False, True) #numbers of uniqs
+    nuniqs=nuniqs[1]
+
+    tuniqs=np.copy(nuniqs) #factorization coefs
+
+    for i in range(len(nuniqs)-1): #calculate total number of combinations
+        tuniqs[-i-2]=nuniqs[-i-2]*tuniqs[-i-1]
+
+    #print(nuniqs)
+    #print(tuniqs)
+
+    combos=np.zeros((tuniqs[0],len(nuniqs)),dtype=int)
+
+    for i in range(tuniqs[0]):
+        comb=i
+        for j in range(len(nuniqs)-1):
+            combos[i,j]=comb//tuniqs[j+1]
+            comb-=tuniqs[j+1]*(comb//tuniqs[j+1])
+        combos[i,-1]=comb
+
+    print("Combinations for various molecules:")
+    print(combos)
+
+    s=np.shape(combos)
+    print(s) 
+    nrots=np.zeros((s[0],s[1]))
+    ncoefs=np.zeros((s[0],s[1]))
+    nposs=np.zeros((s[0],s[1],3))
+
+
+    for i in range(s[0]):
+        for j in range(s[1]):
+            ndex=funiqs[j]+combos[i,j]
+            nrots[i,j]=rots[ndex]
+            nposs[i,j]=poss[ndex]
+            ncoefs[i,j]=coefs[ndex]
+
+
+    return nposs,nrots,ncoefs,ents,combos
+
 
 def normalizeGridWf( F ):
     q = (F**2).sum()
@@ -411,46 +471,59 @@ def normalizeGridWf( F ):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from optparse import OptionParser
-
+    PARSER_DEFAULTVAL = None
     parser = OptionParser()
     parser.add_option( "-y", "--ydim",   action="store", type="int", default="500", help="height of canvas")
     parser.add_option( "-x", "--xdim",   action="store", type="int", default="500", help="width of canvas")
     parser.add_option( "-H", "--homo",   action="store", type="string", default="homo.cube", help="orbital of electron hole;    3D data-file (.xsf,.cube)")
     parser.add_option( "-L", "--lumo",   action="store", type="string", default="lumo.cube", help="orbital of excited electron; 3D data-file (.xsf,.cube)")
-    parser.add_option( "-D", "--dens",   action="store", type="string", default="",         help="transition density; 3D data-file (.xsf,.cube)")
+    parser.add_option( "-D", "--dens",   action="store", type="string", default=PARSER_DEFAULTVAL,         help="transition density; 3D data-file (.xsf,.cube)")
     parser.add_option( "-R", "--radius", action="store", type="float",  default="1.0", help="tip radius")
-    parser.add_option( "-z", "--ztip",   action="store", type="float",  default="5.0", help="tip above substrate")
+    parser.add_option( "-n", "--subsampling", action="store", type="int",  default="6", help="subsampling for coupling calculation, recommended setting 5-10, lower is slower")
+    parser.add_option( "-Z", "--ztip",   action="store", type="float",  default="6.0", help="tip above substrate") #need to clarify what it exactly means
     parser.add_option( "-t", "--tip",    action="store", type="string", default="s",   help="tip compositon s,px,py,pz,d...")
     parser.add_option( "-e", "--excitons",   action="store_true",  default=False, help="callculate deloc. exitons of J-aggregate ( just WIP !!! )")
     parser.add_option( "-v", "--volumetric", action="store_true", default=False,  help="calculate on 2D grid, much faster")
     parser.add_option( "-f", "--flip", action="store_true", default=False,  help="transpose XYZ xsf/cube file to ZXY")
-    parser.add_option( "-s", "--save", action="store_true", default=False,  help="save txt files with output")
+    parser.add_option( "-s", "--save", action="store_true", default=False,  help="save output as txt files")
+    parser.add_option( "-o", "--output", action="store", type="string", default="",  help="filename for output")
+    parser.add_option( "-c", "--config", action="store", type="string", default=PARSER_DEFAULTVAL,  help="read from config file")
+#    parser.add_option( "-i", "--images", action="store_true", default=False,  help="save images")
+#    parser.add_option( "-h", "--hide", action="store_true", default=False,  help="do not show output")
+
 
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
     (options, args) = parser.parse_args()
-
     #rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
     #rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO_/CHGCAR.xsf")
-
     np.set_printoptions(linewidth=400)
 
 
     hcanv = options.ydim
     wcanv = options.xdim
 
-    if options.dens != "":
+    if options.dens!=PARSER_DEFAULTVAL:
         print(( ">>> Loading Transition density from ", options.dens, " ... " ))
-        rhoTrans, lvec, nDim, head = GU.loadCUBE( options.dens )
-    else: 
-        print(( ">>> Loading HOMO from ", options.homo, " ... " ))
-        homo, lvecH, nDimH, headH = GU.loadCUBE( options.homo )
-        print(( ">>> Loading LUMO from ", options.lumo, " ... " ))
-        lumo, lvecL, nDimL, headL = GU.loadCUBE( options.lumo )
-        lvec=lvecH; nDim=nDimH; headH=headH
+        rhoTrans, lvec, nDim, head = GU.loadCUBE( options.dens ,trden=True)
 
-        homo = normalizeGridWf( homo )
-        lumo = normalizeGridWf( lumo )
-        rhoTrans = homo*lumo
+#        dV  = (lvec[1,0]*lvec[2,1]*lvec[3,2])/((nDim[0]+1)*(nDim[1]+1)*(nDim[2]+1))
+#        print("*****dV:",dV)
+#        rhoTrans*=(dV)
+    else: 
+        if os.path.exists(options.homo) and os.path.exists(options.lumo):
+            print(( ">>> Loading HOMO from ", options.homo, " ... " ))
+            homo, lvecH, nDimH, headH = GU.loadCUBE( options.homo )
+            print(( ">>> Loading LUMO from ", options.lumo, " ... " ))
+            lumo, lvecL, nDimL, headL = GU.loadCUBE( options.lumo )
+            lvec=lvecH; nDim=nDimH; headH=headH
+
+            homo = normalizeGridWf( homo )
+            lumo = normalizeGridWf( lumo )
+            rhoTrans = homo*lumo
+        else:
+            print("Undefined densities, exiting :,(")
+            quit()
+
         # ---- check normalization   |Psi^2| = 1
         #print "lvec", lvec
         #print "Ls  ", lvec[1,0], lvec[2,1], lvec[3,2]
@@ -516,78 +589,125 @@ if __name__ == "__main__":
     #poss,rots = makePreset_row( 5, dx=11., ang=-45.*fromDeg )
     #poss,rots = makePreset_arr1( 3,4,R=11.6 )
     
-    poss =[ [0.0,.0]  ]
+    oposs =[ [-7.5,.0,0.],[-7.5,0.0,0.],[7.5,0.0,0.],[7.5,0.,0.]  ]
 
-    rots =[0.*180.*3.14]
-    coefs = np.ones(len(rots))
+    orots =[fromDeg*27.,fromDeg*117.,fromDeg*27,fromDeg*117.]
+    ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
+    
+    oents = [0.,0.,1.,1.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
+    '''
+    oposs =[ [-0.0,.0,0.],[-0.0,0.0,0.]  ]
+
+    orots =[fromDeg*0.,fromDeg*90.]
+    ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
+    
+    oents = [0.,0.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
+    '''
+
+    cposs,crots,ccoefs,cents,combos=combinator(oposs,orots,ocoefs,oents)
+
+    #print("positions ",poss)
+    #print("combination ",combos)
+    csh=np.shape(crots)
+    
+
+    #intended for future use
+
     #coefs = [[0.9,0.1]]
+    six=0
 
+    print('combination shape: ',csh)
     if options.excitons:
-        print(rhoTrans.shape, nDim)
-        subsamp = 6  # seems sufficient to obtain 1e-3 accuracy 
-        #subsamp = 5 
-        es,vs,H = solveExcitonSystem( rhoTrans, lvec, poss, rots, Ediag=1.0, ndim=(nDim[0]//subsamp,nDim[1]//subsamp,nDim[2]//subsamp), byCenter=byCenter )
-
-        #coefs = vs[0]  # Take first eigenvector
-        #coefs = vs[1]
-        #coefs = vs[2]
-    
-        #exit()
+        nvs=csh[1]
     else:
-        vs=[coefs]
+        nvs=1
+    plt.figure(figsize=(1*csh[0],nvs*2))
 
-    
-    plt.figure(figsize=(6,len(vs)*3))
+    for cix in range(csh[0]):
+        poss=(cposs[cix]).tolist()
+        rots=(crots[cix]).tolist()
+        coefs=(ccoefs[cix])
+        print("Positions: ",poss)
+        print("Rotations: ",rots)
+        print("Coefs: ",coefs)
 
-    for ipl in range(len(vs)):
-        coefs=vs[ipl]
+        if options.excitons:
+            print(rhoTrans.shape, nDim)
+            if options.subsampling:
+                print("using user subsampling")
+                subsamp=options.subsampling
+                
+                if (subsamp <= 1):
+                    print("adjusting the subsampling to 1")
+                    subsamp=1
 
-        if not options.volumetric:
-            phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvec, z=options.ztip, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter )
-            (dx,dy)=dd
-        else:
-            phmap_, Vtip_, rho_, dd =  photonMap3D_stamp( rhoTrans, lvec, z=options.ztip, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter )
-            phmap = np.sum(phmap_,axis=0)
-            Vtip  = np.sum(Vtip_ ,axis=0)
-            rho   = np.sum(rho_  ,axis=0)
-            (dx,dy,dz)=dd
-
-        #print("dd ",  dd)
-        sh=phmap.shape
-        extent=( -sh[0]*dd[0]*0.5,sh[0]*dd[0]*0.5,-sh[1]*dd[1]*0.5, sh[1]*dd[1]*0.5)
-    
-    
-        #plt.subplot(i+1,3,2); plt.imshow( Vtip.real, extent=extent , origin='image' ,cmap='gray'); 
-        #plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); 
-        #plt.title('Tip Field')
-        #plt.subplot(1,2,1); plt.imshow( rho.real  **2 + rho.imag  **2, origin='image' ); plt.colorbar(); plt.title('Transient Density')
-
-
-            
-
-        res=(phmap.real**2+phmap.imag**2)
-        #res=res+np.rot90(res)
-        if options.save:
-            if options.homo != 'homo.cube':
-                fnm=options.homo
+                if (subsamp >= 10):
+                    print("adjusting the subsampling to 10")
+                    subsamp=10
             else:
-                fnm=options.dens
-            
-            fnm=fnm+str(ipl).zfill(len(str(len(vs))))+'.txt'
-            print("Saving maps as: ",fnm) 
-            np.savetxt(fnm,res,header=str(sh[0])+' '+str(sh[1])+'\n'+str(sh[0]*dd[0]/10.)+' '+str(sh[1]*dd[1]/10.) +'\nEigenvector: '+str(ipl)+ ": " + str(vs[ipl])) 
-        
-        plt.subplot(len(vs),2,1+2*ipl); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic');
-#        plt.subplot(len(vs),2,1+2*ipl); plt.imshow( rhoTrans[:,:,0]+rhoTrans[:,:,-1], extent=extent, origin='image',cmap='seismic');
-        #plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); 
-        #plt.title('Transient Density')
-        
-        plotBoxes( poss, rots, lvec, byCenter=byCenter )
+                subsamp = 6  # seems sufficient to obtain 1e-3 accuracy 
+            #subsamp = 5
+            print("Subsampling: ",subsamp)
 
+            es,vs,H = solveExcitonSystem( rhoTrans, lvec, poss, rots, Ediag=1.0, ndim=(nDim[0]//subsamp,nDim[1]//subsamp,nDim[2]//subsamp), byCenter=byCenter )
     
-        plt.subplot(len(vs),2,2+2*ipl); plt.imshow( res, extent=extent, origin='image',cmap='gist_heat'); #plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); 
-        #plt.title('Photon Map')
+            #coefs = vs[0]  # Take first eigenvector
+            #coefs = vs[1]
+            #coefs = vs[2]
+        
+            #exit()
+        else:
+            vs=[coefs]
+            es=1.
     
+        
+        print("variations:",len(vs),nvs)
+        for ipl in range(nvs):
+            coefs=vs[ipl]
+    
+            if not options.volumetric:
+                phmap, Vtip, rho, dd =  photonMap2D_stamp( rhoTrans, lvec, z=options.ztip, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter )
+                (dx,dy)=dd
+            else:
+                phmap_, Vtip_, rho_, dd =  photonMap3D_stamp( rhoTrans, lvec, z=options.ztip, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter )
+                phmap = np.sum(phmap_,axis=0)
+                Vtip  = np.sum(Vtip_ ,axis=0)
+                rho   = np.sum(rho_  ,axis=0)
+                (dx,dy,dz)=dd
+    
+            #print("dd ",  dd)
+            sh=phmap.shape
+            extent=( -sh[0]*dd[0]*0.5,sh[0]*dd[0]*0.5,-sh[1]*dd[1]*0.5, sh[1]*dd[1]*0.5)
+        
+        
+            #plt.subplot(i+1,3,2); plt.imshow( Vtip.real, extent=extent , origin='image' ,cmap='gray'); 
+            #plt.xlabel('X[A]'); plt.ylabel('Y[A]'); plt.colorbar(); 
+            #plt.title('Tip Field')
+            #plt.subplot(1,2,1); plt.imshow( rho.real  **2 + rho.imag  **2, origin='image' ); plt.colorbar(); plt.title('Transient Density')
+    
+    
+                
+    
+            res=(phmap.real**2+phmap.imag**2)
+            
+            if (options.save):
+                if options.dens!=PARSER_DEFAULTVAL:
+                    fnm=options.dens
+                else:
+                    fnm=options.homo
+                
+                fnm=fnm+"_"+str(cix).zfill(len(str(csh[0])))+"_"+str(ipl).zfill(len(str(nvs)))+'.txt'
+                print("Saving maps as: ",fnm) 
+                np.savetxt(fnm,res,header=str(sh[0])+' '+str(sh[1])+'\n'+str(sh[0]*dd[0]/10.)+' '+str(sh[1]*dd[1]/10.) +'\nCombination: '+str(cix)+'\nSpin combination: '+str(six)+'\nEigennumber: '+str(ipl)+ '\nEnergy: ' + str(es[ipl])+ '\nEigenvector: '+str(vs[ipl])) 
+            
+            print("combination:"+str(cix))
+            print("exciton variation:"+str(ipl))
+            print("overall index: "+str(1+2*(cix*nvs+ipl)))
+            plt.subplot(csh[0],2*nvs,1+2*(cix*nvs+ipl)); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic');
+            plt.xlabel("E = "+str(es[ipl]))
+            plotBoxes( poss, rots, lvec, byCenter=byCenter )
+    
+            plt.subplot(csh[0],2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( res, extent=extent, origin='image',cmap='gist_heat'); 
     
     print("Done") 
     plt.show()

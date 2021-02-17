@@ -443,7 +443,8 @@ def getFromHead_PRIMCOORD( head ):
 
 # =================== Cube
 
-def loadCUBE(fname):
+def loadCUBE(fname,trden=False):
+    #trden is a switch for loading it as transition density
     filein = open(fname )
     #First two lines of the header are comments
     header1=filein.readline()
@@ -471,7 +472,7 @@ def loadCUBE(fname):
 
     print("***",sth1[0])
     if((int(sth0[0]) < 0)): #if N-atoms is negative, there will be integers associated with multiple data values
-        sthx = filein.readline().split() #if you don't get why this is so freakin' complicated, RTFM of the .CUBE files
+        sthx = filein.readline().split() #if you don't get why this is so freakin' complicated, RTFM for .CUBE files
         noline = noline + 1 #this assumes there is only one extra line
 
     filein.close()
@@ -495,7 +496,11 @@ def loadCUBE(fname):
     head.append("BEGIN_BLOCK_DATAGRID_3D \n")
     head.append("g98_3D_unknown \n")
     head.append("DATAGRID_3D_g98Cube \n")
-    FF*=Hartree2eV
+    if trden: #added by MS
+        FF*=float(sth1[1])*float(sth2[2])*float(sth3[3])
+    else:
+        FF*=Hartree2eV
+
     return FF,lvec, nDim, head
 #================ WSxM output
 

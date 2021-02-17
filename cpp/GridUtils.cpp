@@ -599,7 +599,7 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
                                 nops++;
                                 if((ix==0)&&(iy==0)&&(iz==0)) debugPrint(fdebug, qj, pj);
                                 //if((ix==0)&&(iy==0)&&(iz==0)) fprintf(fdebug, "He %f %f %f\n", p.x, p.y, p.z );
-                                if( fabs(qi*qj)>1e-3 ) printf( "C++ dE %g r % q(%g,%g) i(%i,%i,%i) j(%i,%i,%i) \n", qi*qj/r, r, qi, qj, ix,iy,iz, jx,jy,jz );
+                                //if( fabs(qi*qj)>1e-3 ) printf( "C++ dE %g r % q(%g,%g) i(%i,%i,%i) j(%i,%i,%i) \n", qi*qj/r, r, qi, qj, ix,iy,iz, jx,jy,jz );
 #endif
                                 //if( (jz==0)&&(jy==0)&&(jx==0)  &&   (iz==0)&&(iy==0)&&(ix==0) ){   
                                 //    printf( "%g %g,%g  (%g,%g,%g) | %i,%i,%i  %i,%i,%i \n", r,  q1, q2,  p.x,p.y,p.z,  ix,iy,iz,   jx,jy,jz  );
