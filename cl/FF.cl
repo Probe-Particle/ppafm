@@ -70,17 +70,19 @@ __kernel void evalCoulomb(
     float4 fe  = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
     for (int i0=0; i0<nAtoms; i0+= nL ){
         int i = i0 + iL;
-        if(i>=nAtoms) break;
-        //if(iL==0) printf("%i (%f,%f,%f)  %f \n", i, atoms[i].x, atoms[i].y, atoms[i].z, atoms[i].w );
-        
-        LATOMS[iL] = atoms[i];
+        // if(iG==8485) printf("%i (%f,%f,%f)  %f \n", i, atoms[i].x, atoms[i].y, atoms[i].z, atoms[i].w );
+        if(i < nAtoms) {
+            LATOMS[iL] = atoms[i];
+        }
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            fe += getCoulomb( LATOMS[j], pos );
+            if(i0+j < nAtoms) {
+                fe += getCoulomb( LATOMS[j], pos );
+            }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
-    FE[iG] = fe;
+    FE[iG] = fe*COULOMB_CONST;
     //FE[iG] = poss[iG];
 }
 

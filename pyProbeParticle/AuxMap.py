@@ -151,6 +151,24 @@ class ESMap(AuxMapBase):
         Ye[zMap == 0] = 0
         Y = np.stack([Ye, zMap], axis=2)
         return Y
+
+class ESMapConstant(AuxMapBase):
+    '''
+    Generate constant-height ESMap descriptor for molecules. Represents the charge distribution around
+    the molecule as the z-component of the electrostatic field calculated on a constant-height surface.
+    
+    Arguments:
+        height: float. The height of the constant-height slice, counted up from the center of the top atom.
+    '''
+    def __init__(self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), height=4.0):
+        super().__init__(scan_dim, scan_window)
+        self.height = height
+        self.nChan = 4
+
+    def eval(self, xyzqs, Zs=None):
+        pos0 = [0, 0, xyzqs[:,2].max()+self.height]
+        poss = self.prepare_projector(xyzqs, Zs, pos0)
+        return self.projector.run_evalCoulomb(poss=poss)[:,:,2] # Last dim = (E_x, E_y, E_z, V)
         
 class MultiMapSpheres(AuxMapBase):
     '''
@@ -243,6 +261,7 @@ aux_map_dict = {
     'AtomicDisks': AtomicDisks,
     'HeightMap': HeightMap,
     'ESMap': ESMap,
+    'ESMapConstant': ESMapConstant,
     'MultiMapSpheres': MultiMapSpheres,
     'Bonds': Bonds,
     'AtomRfunc': AtomRfunc
