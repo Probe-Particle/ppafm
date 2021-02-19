@@ -48,6 +48,7 @@ def plotBoxes( poss, rots, lvec, ax=None, byCenter=False ):
         ax = plt.gca()
     #print "lvec ", lvecH
     for i in range(len(poss)):
+        lvec = lvecs[i]
         #xs,ys = makeBox( poss[i], rots[i], a=lvec[2][1],b=lvec[3][2] )
         if byCenter:
             xs,ys = makeBox( poss[i], rots[i], a=float(lvec[3][2]),b=float(lvec[2][1]), byCenter=True )
@@ -60,6 +61,106 @@ def plotBoxes( poss, rots, lvec, ax=None, byCenter=False ):
 # ================================================================
 #          Sub task extracted from MAIN
 # ================================================================
+
+def loadDensityFileNames( fname ):
+    fin = open( fname )
+    names = [] 
+    for line in fin:
+        ws = line.split()
+        print( "ws ",  ws )
+        if( len(ws)>1 ):
+            names.append( [w.strip() for w in ws] )
+        else:
+            names.append( ws.strip() ) 
+    print( "cubeNames", names )
+    return names
+
+def loadMolecules( fname ):
+    DATA    = np.genfromtxt( fname, skip_header=1 )
+    print( "DATA.shape ", DATA.shape )
+    oposs   = DATA[:, :3]   # positions
+    orots   = DATA[:,  3]   # rotations
+    ocoefs  = DATA[:,4:6]   # coeficients (complex)
+    oens    = DATA[:,  6]   # excited state energy
+    oirhos  = ( DATA[:,7] +0.5 ).astype(np.int)  # type of transity file
+    if len(DATA)>8:
+        oents = ( DATA[:,8] +0.5 ).astype(np.int)
+        print( " DATA.oents ", oents )
+    else:
+        oents = range( len(oens) )
+    ocoefs  =  ocoefs[:,0]  # TODO: for the moment we take just real part, this may change in future
+    return oposs, orots, ocoefs, oens, oirhos, oents
+
+def makeMoleculesInline( ):
+
+    fromDeg = np.pi/180.
+    #oposs,orots = makePreset_row  ( 2, dx=15.9, ang=0*fromDeg ) 
+    #poss,rots = makePreset_cycle( 4, R=8., ang0=30*fromDeg )
+    #poss,rots = makePreset_row( 5, dx=11., ang=-45.*fromDeg )
+    #poss,rots = makePreset_arr1( 3,4,R=11.6 )
+    
+    oposs  = [ [-7.5,.0,0.],[7.5,0.0,0.]  ]
+    #oposs = [0,0]
+    #orots = [0,0]
+    orots  = [20*fromDeg,15*fromDeg]
+    #orots = [fromDeg*27.,fromDeg*117.,fromDeg*27,fromDeg*117.]
+    #oents = [0.]
+    oents  = [0.,1.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
+    '''
+    oposs  = [ [-0.0,.0,0.],[-0.0,0.0,0.]  ]
+    orots  = [fromDeg*0.,fromDeg*90.]
+    ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
+    oents  = [0.,0.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
+    '''
+    ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
+    oens   = 1.84*np.ones(len(orots)) #diagonal coefficients with the meaning of energy
+    
+    oirhos = [0]*len(oents)  # all molecules use same density file
+    return oposs, orots, ocoefs, oens, oirhos, oents
+
+def loadRhoTrans( cubName=None ):
+    if options.dens!=PARSER_DEFAULTVAL:
+        if cubName is not None:
+            rhoName = cubName
+        else:
+            rhoName = options.dens
+        print(( ">>> Loading Transition density from ", rhoName, " ... " ))
+        rhoTrans, lvec, nDim, head = GU.loadCUBE( rhoName,trden=True)
+        # dV  = (lvec[1,0]*lvec[2,1]*lvec[3,2])/((nDim[0]+1)*(nDim[1]+1)*(nDim[2]+1))
+        # print("*****dV:",dV)
+        # rhoTrans*=(dV)
+    else: 
+        if cubName is not None:
+            print( "cubName ",   cubName )
+            homoName=cubName[0]
+            lumoName=cubName[1]
+        else:
+            homoName = options.homo
+            lumoName = options.lumo
+        if os.path.exists(homoName) and os.path.exists(lumoName):
+            print(( ">>> Loading HOMO from ", homoName, " ... " ))
+            homo, lvecH, nDimH, headH = GU.loadCUBE( homoName )
+            print(( ">>> Loading LUMO from ", lumoName, " ... " ))
+            lumo, lvecL, nDimL, headL = GU.loadCUBE( lumoName )
+            lvec=lvecH; nDim=nDimH; headH=headH
+            homo = photo.normalizeGridWf( homo )
+            lumo = photo.normalizeGridWf( lumo )
+            rhoTrans = homo*lumo
+            #rhoTrans += 1e-5 # Debugging hack
+            qh = (homo**2).sum()   ; print("q(homo) ",qh)
+            ql = (lumo**2).sum()   ; print("q(lumo) ",ql)
+        else:
+            print("Undefined densities, exiting :,(")
+            quit()
+    if options.flip:
+        print("Transposing XYZ->ZXY")
+        lvec=lvec[:,[2,0,1]]
+        lvec=lvec[[0,3,1,2],:]
+        npnDim=np.array(nDim)
+        nDim=npnDim[[2,0,1]]
+        print(lvec)
+        rhoTrans=(np.transpose(rhoTrans,(1,2,0))).copy()
+    return rhoTrans, lvec
 
 def runExcitaionSolver( rhos, lvecs, poss, rots, Ediags ):
     if options.subsampling:
@@ -130,7 +231,7 @@ def plotPhotonMap( rho, phmap, byCenter=False, fname=None, dd=None ):
         fig=plt.figure(figsize=(6,3))
         plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
         plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*es[ipl]) )+" meV" )
-        plotBoxes( poss, rots, lvec, byCenter=byCenter )
+        plotBoxes( poss, rots, lvecs, byCenter=byCenter )
         plt.subplot(1,2,2); plt.imshow( phmap, extent=extent, origin='image',cmap='gist_heat');
         plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phmap)) ))
         if options.images:
@@ -139,7 +240,7 @@ def plotPhotonMap( rho, phmap, byCenter=False, fname=None, dd=None ):
     else:
         plt.subplot(csh[0],2*nvs,1+2*(cix*nvs+ipl)); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
         plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*es[ipl]) )+" meV" )
-        plotBoxes( poss, rots, lvec, byCenter=byCenter )
+        plotBoxes( poss, rots, lvecs, byCenter=byCenter )
         plt.subplot(csh[0],2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( res, extent=extent, origin='image',cmap='gist_heat');
         plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(res)) ))
 
@@ -171,7 +272,6 @@ if __name__ == "__main__":
     parser.add_option( "-i", "--images", action="store_true", default=False,  help="save output as images")
     parser.add_option( "-j", "--hide", action="store_true", default=False,  help="hide any graphical output; causes saved images to split into separate items")
 
-
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
     (options, args) = parser.parse_args()
     #rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
@@ -185,41 +285,6 @@ if __name__ == "__main__":
     hcanv = options.ydim
     wcanv = options.xdim
 
-    if options.dens!=PARSER_DEFAULTVAL:
-        print(( ">>> Loading Transition density from ", options.dens, " ... " ))
-        rhoTrans, lvec, nDim, head = GU.loadCUBE( options.dens ,trden=True)
-
-#        dV  = (lvec[1,0]*lvec[2,1]*lvec[3,2])/((nDim[0]+1)*(nDim[1]+1)*(nDim[2]+1))
-#        print("*****dV:",dV)
-#        rhoTrans*=(dV)
-    else: 
-        if os.path.exists(options.homo) and os.path.exists(options.lumo):
-            print(( ">>> Loading HOMO from ", options.homo, " ... " ))
-            homo, lvecH, nDimH, headH = GU.loadCUBE( options.homo )
-            print(( ">>> Loading LUMO from ", options.lumo, " ... " ))
-            lumo, lvecL, nDimL, headL = GU.loadCUBE( options.lumo )
-            lvec=lvecH; nDim=nDimH; headH=headH
-
-            homo = photo.normalizeGridWf( homo )
-            lumo = photo.normalizeGridWf( lumo )
-            rhoTrans = homo*lumo
-
-            #rhoTrans += 1e-5 # Debugging hack
-            qh = (homo**2).sum()   ; print("q(homo) ",qh)
-            ql = (lumo**2).sum()   ; print("q(lumo) ",ql)
-        else:
-            print("Undefined densities, exiting :,(")
-            quit()
-
-    if options.flip:
-        print("Transposing XYZ->ZXY")
-        lvec=lvec[:,[2,0,1]]
-        lvec=lvec[[0,3,1,2],:]
-        npnDim=np.array(nDim)
-        nDim=npnDim[[2,0,1]]
-        print(lvec)
-        rhoTrans=(np.transpose(rhoTrans,(1,2,0))).copy()
-
     #byCenter = False
     byCenter = True
 
@@ -232,52 +297,42 @@ if __name__ == "__main__":
 
     #phmap, Vtip, rho =  photonMap2D( rhoTrans, tipDict, lvec, z=0.5, sigma=0.0, multipole_dict=tipDict )
 
-    fromDeg = np.pi/180.
-    '''
-    rots  =[-30.0*fromDeg,45.0*fromDeg]
-    #poss =[ [10.0,5.0] ,  [10.0,10.0] ]
-    poss  =[ [-5.0,10.0] ,  [5.0,-5.0] ]
-    #poss =[ [0.0,10.0]  ]
-    #poss =[ [200.0,50.0] ,  [50.0,50.0] ]
-    #coefs=[ [1.0,0.0],      [0.0,1.0]     ]
-    #coefs=[ [1.0,0.0],      [-1.0,0.0]     ]
-    coefs=[ 1.0,      -1.0     ]
-    #rots =[0.0]
-    #poss =[ [300.0,50.0]]
-    #coefs=[ [1.0,0.0]   ]
-    '''
-
-    #oposs,orots = makePreset_row  ( 2, dx=15.9, ang=0*fromDeg ) 
-    #poss,rots = makePreset_cycle( 4, R=8., ang0=30*fromDeg )
-    #poss,rots = makePreset_row( 5, dx=11., ang=-45.*fromDeg )
-    #poss,rots = makePreset_arr1( 3,4,R=11.6 )
+    bMoleculesFromFile = True
+    if(bMoleculesFromFile):
+        cubeNames                                 = loadDensityFileNames( "cubeFiles.ini" )
+        oposs, orots, ocoefs, oens, oirhos, oents = loadMolecules       ( "molecules.ini" )
+        loadedRhos  =[]
+        loadedLvecs =[] 
+        for cubName in cubeNames:
+            rh,lv   = loadRhoTrans( cubName )
+            loadedRhos .append (rh)
+            loadedLvecs.append(lv)
+        orhos =[ loadedRhos [i] for i in oirhos ]
+        olvecs=[ loadedLvecs[i] for i in oirhos ]
+        # ToDo : we should load set of cube files here
+    else:
+        # ---- This is the old way
+        oposs, orots, ocoefs, oens, oirhos, oents = makeMoleculesInline( )
+        rhoTrans, lvec                            = loadRhoTrans()
+        nmol  = len( poss )
+        orhos  = [rhoTrans]*nmol
+        olvecs = [lvec]    *nmol 
     
-    oposs =[ [-7.5,.0,0.],[7.5,0.0,0.]  ]
-    #oposs=[0,0]
-    #orots=[0,0]
-    orots=[20,15]
-
-    #orots =[fromDeg*27.,fromDeg*117.,fromDeg*27,fromDeg*117.]
-#    oents = [0.]
-    oents = [0.,1.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
-    '''
-    oposs =[ [-0.0,.0,0.],[-0.0,0.0,0.]  ]
-
-    orots =[fromDeg*0.,fromDeg*90.]
-    ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
-    
-    oents = [0.,0.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
-    '''
-
-    ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
-    oens   = 1.84*np.ones(len(orots)) #diagonal coefficients with the meaning of energy
-    cposs,crots,ccoefs,cents,cens,combos= photo.combinator(oposs,orots,ocoefs,oents,oens)
+    #cposs,crots,ccoefs,cents,cens,combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
+    funiqs, combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
+    # ToDo : maybe make sence to make class/dict for each molecule?
+    cents  = photo.applyCombinator( oents , funiqs, combos  )
+    cposs  = photo.applyCombinator( oposs , funiqs, combos  )
+    crots  = photo.applyCombinator( orots , funiqs, combos  )
+    ccoefs = photo.applyCombinator( ocoefs, funiqs, combos  )
+    cens   = photo.applyCombinator( oens  , funiqs, combos  )
+    crhos  = photo.applyCombinator( orhos , funiqs, combos  )
+    clvecs = photo.applyCombinator( olvecs, funiqs, combos  )
 
     #print("positions ",poss)
     #print("combination ",combos)
     csh=np.shape(crots)
     
-
     #intended for future use
 
     #coefs = [[0.9,0.1]]
@@ -312,15 +367,12 @@ if __name__ == "__main__":
 
     # ====== Loop over configurations
     for cix in range(csh[0]):
-        poss =(cposs[cix]).tolist()     ; print("Positions: ",poss)   
-        rots =(crots[cix]).tolist()     ; print("Rotations: ",rots)
-        coefs=(ccoefs[cix])             ; print("Coefs:     ",coefs)
-        ens  =(cens[cix])
-        
-        # --- ToDo : in future we can make rhos = [ rho1, rho2, rho3 ]
-        nmol  = len( poss )
-        rhos  = [rhoTrans]*nmol
-        lvecs = [lvec]*nmol 
+        poss  = cposs [cix]     ; print("Positions: ",poss)   
+        rots  = crots [cix]     ; print("Rotations: ",rots)
+        coefs = ccoefs[cix]     ; print("Coefs:     ",coefs)
+        ens   = cens  [cix]
+        rhos  = crhos [cix]  
+        lvecs = clvecs[cix]
         
         vs=[coefs]
         es=1.

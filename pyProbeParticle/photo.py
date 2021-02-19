@@ -419,18 +419,22 @@ def combinator(oposs,orots,ocoefs,oents,oens):
     '''
     This function finds all possible combinations of of excited states on molecule  
     '''
-    oens=np.array(oens)
+    
+    #oposs=np.array(oposs)
+    #orots=np.array(orots)
+    #oens=np.array(oens)
+
     oents=np.array(oents)
-    oposs=np.array(oposs)
-    orots=np.array(orots)
     print(oents)
+
     isx=np.argsort(oents) #sorting
     print(isx)
-    ens=oens[isx]
+    
     ents=oents[isx]   #; print(ents)
-    poss=oposs[isx]
-    rots=orots[isx]
-    coefs=ocoefs[isx]
+    #poss=oposs[isx]
+    #rots=orots[isx]
+    #coefs=ocoefs[isx]
+    #ens=oens[isx]
 
     funiqs=np.unique(ents, True,False, False) #indices of first uniqs
     funiqs=funiqs[1]  #; print(funiqs)
@@ -454,19 +458,28 @@ def combinator(oposs,orots,ocoefs,oents,oens):
     print("Combinations for various molecules:")
     print(combos)
 
+    return funiqs, combos
+    '''
     s=np.shape(combos)
     print(s) 
     nrots=np.zeros((s[0],s[1]))
     ncoefs=np.zeros((s[0],s[1]))
     nposs=np.zeros((s[0],s[1],3))
     nens=np.zeros((s[0],s[1]))
-
     for i in range(s[0]):
         for j in range(s[1]):
             ndex=funiqs[j]+combos[i,j]
-            nrots[i,j]=rots[ndex]
-            nposs[i,j]=poss[ndex]
+            #print( "i,j,ndex", i,j,ndex )
+            nrots [i,j]=rots[ndex]
+            nposs [i,j]=poss[ndex]
             ncoefs[i,j]=coefs[ndex]
-            nens[i,j]=ens[ndex]
-
+            nens  [i,j]=ens[ndex]
     return nposs,nrots,ncoefs,ents,ens,combos
+    '''
+
+def applyCombinator( lst, funiqs, combos  ):
+    (ni,nj)=np.shape(combos)
+    out = []
+    for i in range(ni):
+        out.append( [  lst[ funiqs[j]+combos[i,j] ] for j in range(nj) ] )
+    return out
