@@ -353,7 +353,7 @@ def solveExcitonHamliltonian( H ):
     #        print("E[%i]=%g" %(i,es[i]), " v=",v, " |v|=",(v**2).sum())
     return es,vs
 
-def solveExcitonSystem( rhoTranss, lvecs, poss, rots, nSub=None, byCenter=False, Ediags=1.0, hackHfunc=hackHamiltoian ):
+def solveExcitonSystem( rhoTranss, lvecs, poss, rots, nSub=None, byCenter=False, Ediags=1.0, hackHfunc=hackHamiltoian, bMultipole=True ):
     '''
     Solve coupled excitonic system according to :
     https://chem.libretexts.org/Bookshelves/Physical_and_Theoretical_Chemistry_Textbook_Maps/Book%3A_Time_Dependent_Quantum_Mechanics_and_Spectroscopy_(Tokmakoff)/15%3A_Energy_and_Charge_Transfer/15.03%3A_Excitons_in_Molecular_Aggregates
@@ -374,9 +374,11 @@ def solveExcitonSystem( rhoTranss, lvecs, poss, rots, nSub=None, byCenter=False,
     for i in range(n):
         lvec = lvecs[i]
         lvec = np.array(lvec[1:][::-1,::-1])
-        latMats.append( makeTransformMat( rhos[i].shape, lvec, rots[i] ) )
-        #mpol_coefs = GU.evalMultipole( rhos[i], rot=rots[i] )
-        #print("multipoles coefs ", mpol_coefs )
+        latMat = makeTransformMat( rhos[i].shape, lvec, rots[i] )
+        latMats.append( latMat  )
+        if bMultipole:
+            mpol_coefs = GU.evalMultipole( rhos[i], rot=latMat )
+            print("Mol[%i] multipoles coefs: " %i, mpol_coefs )
 
     H = assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=byCenter )
     if hackHfunc is not None: 
@@ -419,29 +421,16 @@ def combinator(oposs,orots,ocoefs,oents,oens):
     '''
     This function finds all possible combinations of of excited states on molecule  
     '''
-    
-    #oposs=np.array(oposs)
-    #orots=np.array(orots)
-    #oens=np.array(oens)
-
-    oents=np.array(oents)
-    print(oents)
-
-    isx=np.argsort(oents) #sorting
-    print(isx)
-    
+    oents=np.array(oents)   ; print(oents)
+    isx=np.argsort(oents)   ; print(isx)
     ents=oents[isx]   #; print(ents)
-    #poss=oposs[isx]
-    #rots=orots[isx]
-    #coefs=ocoefs[isx]
-    #ens=oens[isx]
 
     funiqs=np.unique(ents, True,False, False) #indices of first uniqs
     funiqs=funiqs[1]  #; print(funiqs)
 
     nuniqs=np.unique(ents, False, False, True) #numbers of uniqs
-    nuniqs=nuniqs[1]  #; print(nuniqs)
-    tuniqs=np.copy(nuniqs) #;print(tuniqs) # factorization coefs
+    nuniqs=nuniqs[1]        #; print(nuniqs)
+    tuniqs=np.copy(nuniqs)  #; print(tuniqs) # factorization coefs
 
     for i in range(len(nuniqs)-1): #calculate total number of combinations
         tuniqs[-i-2]=nuniqs[-i-2]*tuniqs[-i-1]
@@ -458,8 +447,22 @@ def combinator(oposs,orots,ocoefs,oents,oens):
     print("Combinations for various molecules:")
     print(combos)
 
-    return funiqs, combos
+    # --- make 2D list of permutation index to reorder any property
+    inds = []
+    (ni,nj)=np.shape(combos)
+    for i in range(ni):
+        inds.append( [  isx[ funiqs[j]+combos[i,j] ] for j in range(nj) ] )
+    return inds
     '''
+
+    oposs=np.array(oposs)
+    orots=np.array(orots)
+    oens=np.array(oens)
+    poss=oposs[isx]
+    rots=orots[isx]
+    coefs=ocoefs[isx]
+    ens=oens[isx]
+
     s=np.shape(combos)
     print(s) 
     nrots=np.zeros((s[0],s[1]))
@@ -477,9 +480,8 @@ def combinator(oposs,orots,ocoefs,oents,oens):
     return nposs,nrots,ncoefs,ents,ens,combos
     '''
 
-def applyCombinator( lst, funiqs, combos  ):
-    (ni,nj)=np.shape(combos)
+def applyCombinator( lst, inds ):
     out = []
-    for i in range(ni):
-        out.append( [  lst[ funiqs[j]+combos[i,j] ] for j in range(nj) ] )
+    for js in inds:
+        out.append( [  lst[ j ] for j in js ] )
     return out

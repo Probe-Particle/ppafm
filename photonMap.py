@@ -319,15 +319,15 @@ if __name__ == "__main__":
         olvecs = [lvec]    *nmol 
     
     #cposs,crots,ccoefs,cents,cens,combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
-    funiqs, combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
+    inds = photo.combinator(oposs,orots,ocoefs,oents,oens)
     # ToDo : maybe make sence to make class/dict for each molecule?
-    cents  = photo.applyCombinator( oents , funiqs, combos  )
-    cposs  = photo.applyCombinator( oposs , funiqs, combos  )
-    crots  = photo.applyCombinator( orots , funiqs, combos  )
-    ccoefs = photo.applyCombinator( ocoefs, funiqs, combos  )
-    cens   = photo.applyCombinator( oens  , funiqs, combos  )
-    crhos  = photo.applyCombinator( orhos , funiqs, combos  )
-    clvecs = photo.applyCombinator( olvecs, funiqs, combos  )
+    cents  = photo.applyCombinator( oents , inds  )
+    cposs  = photo.applyCombinator( oposs , inds )
+    crots  = photo.applyCombinator( orots , inds )
+    ccoefs = photo.applyCombinator( ocoefs, inds )
+    cens   = photo.applyCombinator( oens  , inds )
+    crhos  = photo.applyCombinator( orhos , inds )
+    clvecs = photo.applyCombinator( olvecs, inds )
 
     #print("positions ",poss)
     #print("combination ",combos)

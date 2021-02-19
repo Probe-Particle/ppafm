@@ -8,8 +8,8 @@
 
 GridShape gridShape;
 
+bool bDebug=false;
 std::string debug_file_name;
-
 
 // ==== teporary global for functions
 double * data;
@@ -499,6 +499,7 @@ extern "C" {
 
 void setDebugFileName( const char* fname ){
     debug_file_name = fname;
+    bDebug = true;
 }
 
 void debugPrint(FILE* fdebug, double q, Vec3d p){
@@ -554,19 +555,22 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
 #define DEBUG_FILE 1
 #if DEBUG_FILE
         int nops=0;
-        Vec3d pmax; rot1.dot_to_T({ns1.x,ns1.y,ns1.z},pmax); 
-        printf( "C++ n1x,y,z %i %i %i \n", ns1.x, ns1.y, ns1.z );
-        printf( "C++ n2x,y,z %i %i %i \n", ns2.x, ns2.y, ns2.z );
-        printf("C++ pmax %g %g %g \n", pmax.x,pmax.y,pmax.z);
-        printf("C++ nxyz1 %i nxyz2 %i \n", ns1.totprod(), ns2.totprod() );
-        printf("rot1:\n");rot1.print();
-        printf("rot2:\n");rot2.print();
-        printf( "debug output to file '%s'\n", debug_file_name.c_str() );
-        FILE *fdebug = fopen(debug_file_name.c_str(), "w");
-        //FILE *fdebug = fopen("coulombGrid_brute_poss.xyz", "w");
-        fprintf(fdebug, "%i\n", ns1.totprod()+ns2.totprod()+1 );
-        fprintf(fdebug, "#comment\n" );
-        fprintf(fdebug, "U 0.0 0.0 0.0\n" );
+        FILE *fdebug;
+        if(bDebug){
+            Vec3d pmax; rot1.dot_to_T({ns1.x,ns1.y,ns1.z},pmax); 
+            printf( "C++ n1x,y,z %i %i %i \n", ns1.x, ns1.y, ns1.z );
+            printf( "C++ n2x,y,z %i %i %i \n", ns2.x, ns2.y, ns2.z );
+            printf("C++ pmax %g %g %g \n", pmax.x,pmax.y,pmax.z);
+            printf("C++ nxyz1 %i nxyz2 %i \n", ns1.totprod(), ns2.totprod() );
+            printf("rot1:\n");rot1.print();
+            printf("rot2:\n");rot2.print();
+            printf( "debug output to file '%s'\n", debug_file_name.c_str() );
+            fdebug = fopen(debug_file_name.c_str(), "w");
+            //FILE *fdebug = fopen("coulombGrid_brute_poss.xyz", "w");
+            fprintf(fdebug, "%i\n", ns1.totprod()+ns2.totprod()+1 );
+            fprintf(fdebug, "#comment\n" );
+            fprintf(fdebug, "U 0.0 0.0 0.0\n" );
+        }
 #endif
         //for(int iz=0; iz<ns1.z; iz++){
         //    for(int iy=0; iy<ns1.y; iy++){
@@ -580,8 +584,10 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
                     //double qi = rho1[iz*nxy1 + iy*ns1.x + ix];
                     double qi = rho1[ix*nyz1 + iy*ns1.z + iz];
 #if DEBUG_FILE
-                    //fprintf(fdebug, "H %f %f %f\n", pi.x, pi.y, pi.z );
-                    debugPrint(fdebug, qi, pi );      
+                    if(bDebug){
+                        //fprintf(fdebug, "H %f %f %f\n", pi.x, pi.y, pi.z );
+                        debugPrint(fdebug, qi, pi );
+                    }      
 #endif
 //                    for(int jz=0; jz<ns2.z; jz++){
 //                       for(int jy=0; jy<ns2.y; jy++){
@@ -597,14 +603,16 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
                                 double qj = rho2[jx*nyz2 + jy*ns2.z + jz];
                                 sum += qi*qj/r;
 #if DEBUG_FILE
-                                nops++;
-                                if((ix==0)&&(iy==0)&&(iz==0)) debugPrint(fdebug, qj, pj);
-                                //if((ix==0)&&(iy==0)&&(iz==0)) fprintf(fdebug, "He %f %f %f\n", p.x, p.y, p.z );
-                                //if( fabs(qi*qj)>1e-3 ) printf( "C++ dE %g r % q(%g,%g) i(%i,%i,%i) j(%i,%i,%i) \n", qi*qj/r, r, qi, qj, ix,iy,iz, jx,jy,jz );
+                                if(bDebug){
+                                    nops++;
+                                    if((ix==0)&&(iy==0)&&(iz==0)) debugPrint(fdebug, qj, pj);
+                                    //if((ix==0)&&(iy==0)&&(iz==0)) fprintf(fdebug, "He %f %f %f\n", p.x, p.y, p.z );
+                                    //if( fabs(qi*qj)>1e-3 ) printf( "C++ dE %g r % q(%g,%g) i(%i,%i,%i) j(%i,%i,%i) \n", qi*qj/r, r, qi, qj, ix,iy,iz, jx,jy,jz );
+                                    //if( (jz==0)&&(jy==0)&&(jx==0)  &&   (iz==0)&&(iy==0)&&(ix==0) ){   
+                                    //    printf( "%g %g,%g  (%g,%g,%g) | %i,%i,%i  %i,%i,%i \n", r,  q1, q2,  p.x,p.y,p.z,  ix,iy,iz,   jx,jy,jz  );
+                                    //};
+                                }
 #endif
-                                //if( (jz==0)&&(jy==0)&&(jx==0)  &&   (iz==0)&&(iy==0)&&(ix==0) ){   
-                                //    printf( "%g %g,%g  (%g,%g,%g) | %i,%i,%i  %i,%i,%i \n", r,  q1, q2,  p.x,p.y,p.z,  ix,iy,iz,   jx,jy,jz  );
-                                //};
                             }
                         }
                     }
@@ -614,7 +622,7 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
         //printf( "nops %i \n", nops );
         //printf( "stampToGrid2D DONE \n");
 #if DEBUG_FILE
-        fclose(fdebug);
+        if(bDebug){ fclose(fdebug); }
 #endif
         return sum;
     }
