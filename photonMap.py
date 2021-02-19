@@ -281,7 +281,9 @@ def solveExcitonSystem( rhoTrans, lvec, poss, rots, ndim=None, byCenter=False, E
     '''
     print(" >>>>!!!!! DEBUG : solveExcitonSystem() .... this is WIP, do not take seriously ")
     n = len(poss)
-    H = np.eye(n)*Ediag
+    H = np.eye(n)
+    for i in range(n):
+        H[i,i]*=Ediag
     if ndim is not None: # down-sample ?
         ndim1 = rhoTrans.shape
         sum1 = (rhoTrans**2).sum()
@@ -404,13 +406,15 @@ def makePreset_arr1( m,n, R=10.0 ):
     return poss, rots
 
 
-def combinator(oposs,orots,ocoefs,oents):
+def combinator(oposs,orots,ocoefs,oents,oens):
+    oens=np.array(oens)
     oents=np.array(oents)
     oposs=np.array(oposs)
     orots=np.array(orots)
     print(oents)
     isx=np.argsort(oents) #sorting
     print(isx)
+    ens=oens[isx]
     ents=oents[isx]
     poss=oposs[isx]
     rots=orots[isx]
@@ -451,6 +455,7 @@ def combinator(oposs,orots,ocoefs,oents):
     nrots=np.zeros((s[0],s[1]))
     ncoefs=np.zeros((s[0],s[1]))
     nposs=np.zeros((s[0],s[1],3))
+    nens=np.zeros((s[0],s[1]))
 
 
     for i in range(s[0]):
@@ -459,9 +464,10 @@ def combinator(oposs,orots,ocoefs,oents):
             nrots[i,j]=rots[ndex]
             nposs[i,j]=poss[ndex]
             ncoefs[i,j]=coefs[ndex]
+            nens[i,j]=ens[ndex]
 
 
-    return nposs,nrots,ncoefs,ents,combos
+    return nposs,nrots,ncoefs,ents,ens,combos
 
 
 def normalizeGridWf( F ):
@@ -588,17 +594,18 @@ if __name__ == "__main__":
     #coefs=[ [1.0,0.0]   ]
     '''
 
-    #poss,rots = makePreset_row  ( 2, dx=15.9, ang=0*fromDeg ) 
+    #oposs,orots = makePreset_row  ( 2, dx=15.9, ang=0*fromDeg ) 
     #poss,rots = makePreset_cycle( 4, R=8., ang0=30*fromDeg )
     #poss,rots = makePreset_row( 5, dx=11., ang=-45.*fromDeg )
     #poss,rots = makePreset_arr1( 3,4,R=11.6 )
     
-    oposs =[ [-7.5,.0,0.],[-7.5,0.0,0.],[7.5,0.0,0.],[7.5,0.,0.]  ]
+    oposs =[ [-7.5,.0,0.],[7.5,0.0,0.]  ]
+    #oposs=[0,0]
+    orots=[0,0]
 
-    orots =[fromDeg*27.,fromDeg*117.,fromDeg*27,fromDeg*117.]
-    ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
-    
-    oents = [0.,0.,1.,1.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
+    #orots =[fromDeg*27.,fromDeg*117.,fromDeg*27,fromDeg*117.]
+#    oents = [0.]
+    oents = [0.,1.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
     '''
     oposs =[ [-0.0,.0,0.],[-0.0,0.0,0.]  ]
 
@@ -608,7 +615,11 @@ if __name__ == "__main__":
     oents = [0.,0.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
     '''
 
-    cposs,crots,ccoefs,cents,combos=combinator(oposs,orots,ocoefs,oents)
+    ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
+    oens = 1.84*np.ones(len(orots)) #diagonal coefficients with the meaning of energy
+
+
+    cposs,crots,ccoefs,cents,cens,combos=combinator(oposs,orots,ocoefs,oents,oens)
 
     #print("positions ",poss)
     #print("combination ",combos)
@@ -628,17 +639,28 @@ if __name__ == "__main__":
    
     nnn=csh[0]*nvs # total number of all combinations that will be calculated
 
-    result={"stack":np.zeros([nnn,wcanv,hcanv]),"E":np.zeros(nnn),"Ev":np.zeros([nnn,nvs])} #dictionary with the photon maps, eigenenergies, there is space for more, but I'm too lazy now..
+    result={"stack":np.zeros([nnn,wcanv,hcanv]),"E":np.zeros(nnn),"Ev":np.zeros([nnn,nvs]),"H":np.zeros([csh[0],nvs,nvs]),"Hi":np.zeros(nnn)} #dictionary with the photon maps, eigenenergies, there is space for more, but I'm too lazy now..
 
 
     if not(options.hide):
         fig=plt.figure(figsize=(2*csh[0],4*nvs))
         plt.tight_layout(pad=3.0)
 
+
+    if options.output:
+        fnmb=options.output
+    else:
+        if options.dens!=PARSER_DEFAULTVAL:
+             fnmb=options.dens
+        else:
+            fnmb=options.homo
+
+
     for cix in range(csh[0]):
         poss=(cposs[cix]).tolist()
         rots=(crots[cix]).tolist()
         coefs=(ccoefs[cix])
+        ens=(cens[cix])
         print("Positions: ",poss)
         print("Rotations: ",rots)
         print("Coefs: ",coefs)
@@ -661,13 +683,20 @@ if __name__ == "__main__":
             #subsamp = 5
             print("Subsampling: ",subsamp)
 
-            es,vs,H = solveExcitonSystem( rhoTrans, lvec, poss, rots, Ediag=1.0, ndim=(nDim[0]//subsamp,nDim[1]//subsamp,nDim[2]//subsamp), byCenter=byCenter )
+            es,vs,H = solveExcitonSystem( rhoTrans, lvec, poss, rots, Ediag=ens, ndim=(nDim[0]//subsamp,nDim[1]//subsamp,nDim[2]//subsamp), byCenter=byCenter )
     
             #coefs = vs[0]  # Take first eigenvector
             #coefs = vs[1]
             #coefs = vs[2]
+            result["H"][cix]=H
+            result["Hi"][cix*nvs:cix*nvs+nvs-1]=cix
+            if options.save:
+                file1 = open(fnmb+"_"+str(cix)+".ham", "w")
+                file1.write(str(H)+"\n")
+                file1.write(str(es)+"\n")
+                file1.write(str(vs)+"\n")
+                file1.close()
         
-            #exit()
         else:
             vs=[coefs]
             es=1.
@@ -699,19 +728,11 @@ if __name__ == "__main__":
 
 
 
-            if options.output:
-                fnmb=options.output
-            else:
-                if options.dens!=PARSER_DEFAULTVAL:
-                    fnmb=options.dens
-                else:
-                    fnmb=options.homo
-                
-                fnm=fnmb+"_"+str(cix).zfill(len(str(csh[0])))+"_"+str(ipl).zfill(len(str(nvs)))
+            fnm=fnmb+"_"+str(cix).zfill(len(str(csh[0])))+"_"+str(ipl).zfill(len(str(nvs)))
 
             if (options.save):
                 print("Saving maps as: ",fnm) 
-                np.savetxt(fnm+'.txt',res,header=str(sh[0])+' '+str(sh[1])+'\n'+str(sh[0]*dd[0]/10.)+' '+str(sh[1]*dd[1]/10.) +'\nCombination: '+str(cix)+'\nSpin combination: '+str(six)+'\nEigennumber: '+str(ipl)+ '\nEnergy: ' + str(es[ipl])+ '\nEigenvector: '+str(vs[ipl])) 
+                np.savetxt(fnm+'.txt',res,header=str(sh[0])+' '+str(sh[1])+'\n'+str(sh[0]*dd[0]/10.)+' '+str(sh[1]*dd[1]/10.) +'\nCombination(Hi): '+str(cix)+'\nSpin combination: '+str(six)+'\nEigennumber: '+str(ipl)+ '\nEnergy: ' + str(es[ipl])+ '\nEigenvector: '+str(vs[ipl])) 
             
             print("combination:"+str(cix))
             print("exciton variation:"+str(ipl))
@@ -721,7 +742,7 @@ if __name__ == "__main__":
             minval=abs(np.min(rho.real))
 
             maxs=np.max(np.array([maxval,minval])) #doing this to set the blue-red diverging scale white to zero in the plots
-
+            print("MAX value of TRDEN: ",maxs)
             if options.hide:
                 fig=plt.figure(figsize=(6,3))
                 plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
@@ -740,6 +761,39 @@ if __name__ == "__main__":
                 plt.subplot(csh[0],2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( res, extent=extent, origin='image',cmap='gist_heat');
                 plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(res)) ))
     
+    print("Sorting and saving stack")
+    print(np.shape(result["stack"]))
+    print(np.shape(result["stack"].astype('float32')))
+   
+    irx=np.argsort(result["E"])
+    result["E"]=result["E"][irx]
+    result["Ev"]=result["Ev"][irx]
+    result["stack"]=result["stack"][irx]
+
+    if options.save:
+
+        file1 = open(fnmb+".hdr", "w")
+        result["stack"].astype('float32').tofile(fnmb+'.stk') #saving stack to file for further processing
+        #result["E"].astype('float32').tofile(fnmb+'.e') #saving stack to file for further processing
+
+        file1.write("#Total_N Solver_N Xdim Ydim\n")
+        file1.write("#"+str(nnn)+" "+str(nvs)+" "+str(wcanv)+" "+str(hcanv)+"\n")
+        file1.write("# EigenEnergy H_index EigenVector\n")
+        for i in range(nnn):
+            ee=result["E"][i]
+            eev=result["Ev"][i]
+            hh=result["Hi"][i]
+            neev=np.shape(eev)
+            file1.write(str(ee)+" ")
+            file1.write(str(hh)+" ")
+            for j in range(neev[0]):
+                file1.write(" ")
+                file1.write(str(eev[j]))
+
+            file1.write("\n")
+        file1.close()
+
+
     if not options.hide:
         if options.images:
             print("Saving one big PNG image")
