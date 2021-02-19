@@ -555,7 +555,8 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
 #if DEBUG_FILE
         int nops=0;
         Vec3d pmax; rot1.dot_to_T({ns1.x,ns1.y,ns1.z},pmax); 
-        printf( "C++ nx,ny,nz %i %i %i \n", ns1.x, ns1.y, ns1.z );
+        printf( "C++ n1x,y,z %i %i %i \n", ns1.x, ns1.y, ns1.z );
+        printf( "C++ n2x,y,z %i %i %i \n", ns2.x, ns2.y, ns2.z );
         printf("C++ pmax %g %g %g \n", pmax.x,pmax.y,pmax.z);
         printf("C++ nxyz1 %i nxyz2 %i \n", ns1.totprod(), ns2.totprod() );
         printf("rot1:\n");rot1.print();

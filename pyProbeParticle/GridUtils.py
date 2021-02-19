@@ -171,8 +171,9 @@ def sphericalHist( data, center, dr, n ):
 #void stampToGrid2D( int* ns1_, int* ns2_, Vec2d* p0_, Vec2d* a_, Vec2d* b_, double* g1, double* g2 ){
 lib.stampToGrid2D.argtypes = [ array1i, array1i, array1d, array1d, array1d, array2d, array2d, c_double ]
 lib.stampToGrid2D.restype  = None
-def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0 ,byCenter=False):
-    p0=np.array(p0)/np.array(dd)
+def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0, byCenter=True ):
+    #print( " p00_0 ", p0  )
+    #p0=np.array(p0)/np.array(dd)
     ca=np.cos(-angle)
     sa=np.sin(-angle)
     #a =np.array([ca,-sa]) #*dd[0]
@@ -182,7 +183,16 @@ def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0 ,byCenter=Fa
     ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
     ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
     if byCenter:
-        p0 = p0 + a*(ns1[0]*-0.5) + b*(ns1[1]*-0.5) 
+        print( " p0_0 ", p0  )
+        #p0  = p0 + a*(ns1[0]*-0.5) + b*(ns1[1]*-0.5)
+        #p0*=0
+        p0+=a*(ns1[0]*-0.5)+b*(ns1[1]*-0.5)
+        p0[0] += ns2[0]*0.5 #+ 100.0 
+        p0[1] += ns2[1]*0.5 #+ 100.0
+    #print( " ns1 ", ns1, " a ",a, " b ",b  )
+    #print( " ns2 ", ns2, " ns1 ", ns1  )
+    #print( " p0 ", p0 )
+    #print( " dd ", dd )
     lib.stampToGrid2D( ns1, ns2, p0, a, b, stamp, canvas, coef )
 
 
@@ -248,7 +258,7 @@ def downSample3D( Fin, ndim=None, Fout=None ):
 lib.coulombGrid_brute.argtypes = [ array1i, array1i, array1d, array1d, array2d, array2d, array3d, array3d ]
 lib.coulombGrid_brute.restype  = c_double
 #def coulombGrid_brute( rho1, rho2, dpos=(0.,0.,0.), rot1=None, rot2=None ):
-def coulombGrid_brute( rho1, rho2, pos1=(0.,0.,0.), pos2=(0.,0.,0.), rot1=None, rot2=None ):
+def coulombGrid_brute( rho1, rho2, pos1=(0.,0.,0.), pos2=(0.,0.,0.), lat1=None, lat2=None ):
     #ns1=np.array( rho1.shape[::-1], dtype=np.int32 )
     #ns2=np.array( rho2.shape[::-1], dtype=np.int32 )
     ns1=np.array( rho1.shape, dtype=np.int32 )
@@ -257,16 +267,16 @@ def coulombGrid_brute( rho1, rho2, pos1=(0.,0.,0.), pos2=(0.,0.,0.), rot1=None, 
     #dpos = np.array(dpos)
     pos1 = np.array(pos1)
     pos2 = np.array(pos2)
-    if rot1 is None:
-        rot1 = np.eye(3)
+    if lat1 is None:
+        lat1 = np.eye(3)
     else:
-        rot1 = np.array(rot1)
-    if rot2 is None:
-        rot2 = np.eye(3)
+        lat1 = np.array(lat1)
+    if lat2 is None:
+        lat2 = np.eye(3)
     else:
-        rot2 = np.array(rot2)
+        lat2 = np.array(lat2)
     #return lib.coulombGrid_brute( ns1, ns2, dpos, rot1, rot2, rho1, rho2 )
-    return lib.coulombGrid_brute( ns1, ns2, pos1,pos2, rot1, rot2, rho1, rho2 )
+    return lib.coulombGrid_brute( ns1, ns2, pos1, pos2, lat1, lat2, rho1, rho2 )
 
 #lib..argtypes = [ array1i,  array2d,  ]
 #lib..restype  = None
