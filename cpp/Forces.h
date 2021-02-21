@@ -37,7 +37,7 @@ inline double boxForce1D(double x, double xmin, double xmax, double k){
     return f;
 }
 
-inline bool boxForce(const Vec3d p, Vec3d& f,const Vec3d& pmin, const Vec3d& pmax, const Vec3d& k){
+inline void boxForce(const Vec3d p, Vec3d& f,const Vec3d& pmin, const Vec3d& pmax, const Vec3d& k){
     f.x+=boxForce1D( p.x, pmin.x, pmax.x, k.x);
     f.y+=boxForce1D( p.y, pmin.y, pmax.y, k.y);
     f.z+=boxForce1D( p.z, pmin.z, pmax.z, k.z);

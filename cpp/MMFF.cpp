@@ -61,7 +61,7 @@ void clear(){
 double* getPos  (){ return (double*)ff.apos;   }
 double* getForce(){ return (double*)ff.aforce; }
 
-double setupOpt( double dt, double damp, double f_limit, double l_limit ){
+void setupOpt( double dt, double damp, double f_limit, double l_limit ){
     opt.initOpt( dt, damp );
     opt.f_limit = f_limit;
     opt.l_limit = l_limit;

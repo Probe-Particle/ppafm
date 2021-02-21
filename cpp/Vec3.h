@@ -73,8 +73,8 @@ class Vec3T{
     inline VEC& set( const VEC& v              ) { x=v.x; y=v.y; z=v.z; return *this; };
 	inline VEC& set( T* arr                 ) { x=arr[0]; y=arr[1]; z=arr[2]; return *this; };
 
-    inline void get( T& fx, T& fy, T& fz ) { fx=x;  fy=y;  fz=z;           return *this; };
-	inline void get( T* arr                    ) { arr[0]=x; arr[1]=y; arr[2]=z; return *this; };
+    inline VEC& get( T& fx, T& fy, T& fz ) { fx=x;  fy=y;  fz=z;           return *this; };
+	inline VEC& get( T* arr                    ) { arr[0]=x; arr[1]=y; arr[2]=z; return *this; };
 
     inline VEC& add( T f ) { x+=f; y+=f; z+=f; return *this;};
     inline VEC& mul( T f ) { x*=f; y*=f; z*=f; return *this;};
@@ -392,7 +392,7 @@ class Vec3T{
         return v;
     }
 
-    static inline void average( int n, int* selection, VEC* vs ){
+    static inline VEC average( int n, int* selection, VEC* vs ){
         VEC v;
         v.set(0.0);
         for(int i=0; i<n; i++){ v.add(vs[selection[i]]); }
