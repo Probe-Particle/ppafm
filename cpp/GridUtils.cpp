@@ -32,7 +32,7 @@ void iterRotated3DGrid( Vec3i ns, Vec3d pos0, Mat3d rot, Func func ){
         for(int iy=0; iy<ns.y; iy++){
             for(int ix=0; ix<ns.x; ix++){
                 Vec3d p;  
-                rot.dot_to_T({ix,iy,iz},p);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
+                rot.dot_to_T({(double)ix,(double)iy,(double)iz},p);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
                 p.add(pos0);
                 int i = iz*nxy + iy*ns.x + ix;
                 func( i, p );
@@ -389,7 +389,7 @@ extern "C" {
                     //canvas[i2].add( stamp[i1] );
                     //canvas[i2].add( 1.0 );
                     //printf("%i %i %i \n", jx, jy, jz );
-                    addTrilinar_v2d( {ix,iy,iz}, ns2, {1.,1.}, canvas );
+                    addTrilinar_v2d( {(double)ix,(double)iy,(double)iz}, ns2, {1.,1.}, canvas );
                 }
             }
         }
@@ -397,7 +397,7 @@ extern "C" {
         for(int iz=0; iz<ns1.z; iz++){
             for(int iy=0; iy<ns1.y; iy++){
                 for(int ix=0; ix<ns1.x; ix++){
-                    Vec3d p; rot.dot_to_T( (Vec3d){ix,iy,iz}, p);
+                    Vec3d p; rot.dot_to_T( (Vec3d){(double)ix,(double)iy,(double)iz}, p);
                     p.add(p0);
                     Vec2d val = stamp[ iz*nxy1 + iy*ns1.x + ix];
                     val.mul_cmplx(coef);
@@ -524,7 +524,7 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
             for(int iy=0; iy<ns1.y; iy++){
                 for(int iz=0; iz<ns1.z; iz++){
                     //printf( " ix,iy,iz %i %i %i \n", ix, iy, iz );
-                    Vec3d pi;  rot1.dot_to_T({ix,iy,iz},pi);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
+                    Vec3d pi;  rot1.dot_to_T({(double)ix,(double)iy,(double)iz},pi);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
                     //double qi = rho1[iz*nxy1 + iy*ns1.x + ix];
                     double qi = rho1[ix*nyz1 + iy*ns1.z + iz];
                     coefs[0]+=qi;
@@ -557,7 +557,7 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
         int nops=0;
         FILE *fdebug;
         if(bDebug){
-            Vec3d pmax; rot1.dot_to_T({ns1.x,ns1.y,ns1.z},pmax); 
+            Vec3d pmax; rot1.dot_to_T({(double)ns1.x,(double)ns1.y,(double)ns1.z},pmax); 
             printf( "C++ n1x,y,z %i %i %i \n", ns1.x, ns1.y, ns1.z );
             printf( "C++ n2x,y,z %i %i %i \n", ns2.x, ns2.y, ns2.z );
             printf("C++ pmax %g %g %g \n", pmax.x,pmax.y,pmax.z);
@@ -637,7 +637,7 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
         for(int iz=0; iz<ns.z; iz++){
             for(int iy=0; iy<ns.y; iy++){
                 for(int ix=0; ix<ns.x; ix++){
-                Vec3d p;  rot.dot_to_T({ix,iy,iz},p);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
+                Vec3d p;  rot.dot_to_T({(double)ix,(double)iy,(double)iz},p);    //= rot.a*ix + rot.c*iy + rot.c*iz ;
                 p.add(pos0);
                 poss[iz*nxy + iy*ns.x + ix] = p;
             }

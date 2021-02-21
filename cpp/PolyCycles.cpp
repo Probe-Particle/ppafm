@@ -32,7 +32,7 @@ void init( double* angles ){
 
 // void initOpt( double dt_, double damp_ )
 
-double setupOpt( double dt, double damp, double f_limit, double l_limit ){
+void setupOpt( double dt, double damp, double f_limit, double l_limit ){
     cff.opt.initOpt( dt, damp );
     cff.opt.f_limit = f_limit;
     cff.opt.l_limit = l_limit;

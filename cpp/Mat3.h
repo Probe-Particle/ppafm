@@ -159,7 +159,7 @@ class Mat3T{
 		vout.z = xz*vx + yz*vy + zz*vz;
 	};
 
-    inline void tryOrthoNormalize( double errMax, int ia, int ib, int ic ){
+    inline bool tryOrthoNormalize( double errMax, int ia, int ib, int ic ){
         VEC& a = vecs[ia];
         VEC& b = vecs[ib];
         VEC& c = vecs[ic];
@@ -170,6 +170,7 @@ class Mat3T{
         res |= c.tryOrthogonalize( errMax, a );
         res |= c.tryOrthogonalize( errMax, b );
         res |= c.tryNormalize    ( errMax );
+        return res;
 	};
 
 

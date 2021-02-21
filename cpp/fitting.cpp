@@ -119,6 +119,7 @@ int acumByBB( double yref, int nbas, const double* Bs, double* By, double* BB ){
             BBij++;
         }
     }
+    return nbas*nbas;
 }
 
 int acumByBB_sparse( double yref, int nbas, int nsel, const int* i0s, const int* il0s, const int* ns, const double* Bs, double* By, double* BB ){
@@ -126,6 +127,7 @@ int acumByBB_sparse( double yref, int nbas, int nsel, const int* i0s, const int*
     //double yref = yrefs[ip];
     int ik = 0;
     double* BBij = BB;
+    int nop=0;
     for(int i=0; i<nsel; i++){
         int ni =  ns[i];
         int i0 = i0s[i];
@@ -136,6 +138,7 @@ int acumByBB_sparse( double yref, int nbas, int nsel, const int* i0s, const int*
             //printf( "   ik %i Bs %g dBy %g \n", ik, Bs[ik], Bs[ik]*yref );
             Byi[ik] += Bs[ik]*yref;
         }
+        nop+=ni;
         for(int j=0; j<=i; j++){
             int j0 = i0s[j];
             int nj =  ns[j];
@@ -148,10 +151,12 @@ int acumByBB_sparse( double yref, int nbas, int nsel, const int* i0s, const int*
                     //printf( " i(%i,%i) j(%i,%i)   fi %g fj %g fifj %g \n",  i,ik, j,jk,  fi, Bsj[jk],  fi*Bsj[jk]  );
                     BBij[jk] += fi*Bsj[jk];
                 }
+                nop+=nj;
                 BBij += nbas;
             }
         }
     }
+    return nop;
 }
 
 void matToFile( FILE* fout, const Mat3d& mat ){

@@ -6,8 +6,13 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-import basUtils
-import elements
+
+sys.path.append("../")
+import pyProbeParticle.basUtils
+import pyProbeParticle.elements
+import pyProbeParticle.GridUtils     as GU
+import pyProbeParticle.Multipoles    as MP
+import pyProbeParticle.common        as PP
 
 # ============== recompile & load C++ libraries
 
@@ -20,10 +25,6 @@ def makeclean( ):
 	os.chdir(CWD)
 
 makeclean( )
-
-import GridUtils     as GU
-import Multipoles    as MP
-import ProbeParticle as PP
 
 # ============== Setup
 

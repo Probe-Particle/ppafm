@@ -6,8 +6,13 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-import basUtils
-import elements
+
+sys.path.append("../")
+import pyProbeParticle.basUtils
+import pyProbeParticle.elements
+import pyProbeParticle.GridUtils     as GU
+import pyProbeParticle.Multipoles    as MP
+import pyProbeParticle.common        as PP
 
 def makeclean( ):
 	LIB_PATH = os.path.dirname( os.path.realpath(__file__) )
@@ -18,9 +23,6 @@ def makeclean( ):
 	os.chdir(CWD)
 
 makeclean( )
-
-import GridUtils  as GU
-import Multipoles as MP
 
 atom_pos = np.array( [ 
 [ 0.0, 0.0, 0.0 ],

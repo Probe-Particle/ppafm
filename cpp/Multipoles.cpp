@@ -250,7 +250,7 @@ void evalMultipoleCombCell( int ibuff, const Vec3d& pos, void * args ){
     gridV[ibuff] = V;
     //exit(0);
 }
-int evalMultipoleComb( double * coefs_, double * gridV_ ){
+void evalMultipoleComb( double * coefs_, double * gridV_ ){
     coefs = coefs_;
     gridV = gridV_;
     Vec3d pos0; pos0.set(0.0);

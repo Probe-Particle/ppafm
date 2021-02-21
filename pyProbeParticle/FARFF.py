@@ -26,7 +26,7 @@ header_strings = [
     "void setupFF( int natom, int* types ){",
     "void setGridShape( int* n, double* cell ){",
     "void bindGrids( double* atomMap, double*  bondMap ){",
-    "double setupOpt( double dt, double damp, double f_limit, double l_limit ){",
+    "void setupOpt( double dt, double damp, double f_limit, double l_limit ){",
     "void setBox(double* pmin, double* pmax, double* k){",
     "double relaxNsteps( int nsteps, double Fconv, int ialg ){",
 ]
@@ -105,11 +105,11 @@ lib.bindGrids.restype   =  None
 def bindGrids(atomMap, bondMap):
     return lib.bindGrids(_np_as(atomMap,c_double_p), _np_as(bondMap,c_double_p)) 
 
-#  double setupOpt( double dt, double damp, double f_limit, double l_limit ){
+#  void setupOpt( double dt, double damp, double f_limit, double l_limit ){
 lib.setupOpt.argtypes  = [c_double, c_double, c_double, c_double] 
-lib.setupOpt.restype   =  c_double
+lib.setupOpt.restype   =  None
 def setupOpt(dt=0.2, damp=0.2, f_limit=10.0, l_limit=0.2 ):
-    return lib.setupOpt(dt, damp, f_limit, l_limit) 
+    lib.setupOpt(dt, damp, f_limit, l_limit) 
 
 #  void setBox(double* pmin, double* pmax, double* k){
 lib.setBox.argtypes  = [c_double_p, c_double_p, c_double_p] 
@@ -180,55 +180,3 @@ def makeGridFF( fff, dx=0.1, dy=0.1 ):
     #    print " cannot load ./Atoms.npy or ./Bonds.npy "
 
     return atomMapF, bondMapF
-
-if __name__ == "__main__":
-    #import basUtils as bu
-    from . import atomicUtils as au
-    import sys
-    from . import GLView as glv
-    import time
-
-
-    fff = sys.modules[__name__]
-    xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")     #; print xyzs
-
-    #fff.insertAtomType(nbond, ihyb, rbond0, aMorse, bMorse, c6, R2vdW, Epz)
-
-    natom  = len(xyzs)
-    ndof   = fff.reallocFF(natom)
-    norb   = ndof - natom
-    #atypes = fff.getTypes (natom)    ; print "atypes.shape ", atypes.shape
-    dofs   = fff.getDofs(ndof)       ; print("dofs.shape ", dofs.shape)
-    apos   = dofs[:natom]            ; print("apos.shape ", apos.shape)
-    opos   = dofs[natom:]            ; print("opos.shape ", opos.shape)
-
-
-    #atypes[:] = 0        # use default atom type
-    apos[:,:] = xyzs[:,:] #
-    #opos[:,:] = np.random.rand( norb, 3 ); print "opos.shape ", opos #   exit()
-
-    cog = np.sum( apos, axis=0 )
-    cog*=(1./natom)
-    apos -= cog[None,:]
-
-    fff.setupFF(n=natom)   # use default atom type
-
-    atomMapF, bondMapF = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF
-
-    fff.setupOpt(dt=0.05, damp=0.2, f_limit=100.0, l_limit=0.2 )
-    #fff.relaxNsteps(50, Fconv=1e-6, ialg=0)
-
-    glview = glv.GLView()
-    for i in range(1000000):
-        glview.pre_draw()
-        F2err = fff.relaxNsteps(1, Fconv=1e-6, ialg=0)
-        print("|F| ", np.sqrt(F2err))
-        if glview.post_draw(): break
-        time.sleep(.05)
-
-    '''
-    def animRelax(i, perFrame=1):
-        fff.relaxNsteps(perFrame, Fconv=1e-6, ialg=0)
-        return apos,None
-    au.makeMovie( "movie.xyz", 100, elems, animRelax )
-    '''

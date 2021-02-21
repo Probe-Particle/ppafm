@@ -45,10 +45,10 @@ def insertAtomType( nbond, ihyb, rbond0, aMorse, bMorse, c6, R2vdW, Epz ):
     return lib.insertAtomType( nbond, ihyb, rbond0, aMorse, bMorse, c6, R2vdW, Epz )
 
 #void ralloc(int natom){
-lib.ralloc.argtypes = [c_int]
-lib.ralloc.restype  = None
-def ralloc(natom):
-    lib.ralloc(natom)
+lib.reallocFF.argtypes = [c_int]
+lib.reallocFF.restype  = None
+def reallocFF(natom):
+    lib.reallocFF(natom)
 
 #void ralloc(int natom){
 lib.clean.argtypes = []

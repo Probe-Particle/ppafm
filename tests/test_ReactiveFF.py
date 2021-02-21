@@ -5,6 +5,7 @@ import os
 import numpy as np
 import time
 
+sys.path.append("../")
 import pyProbeParticle.ReactiveFF  as rff
 import pyProbeParticle.atomicUtils as au
 
@@ -13,19 +14,18 @@ import pyProbeParticle.atomicUtils as au
 #import common    as PPU
 #from optparse import OptionParser
 
-N1 = int(sys.argv[1])
-N2 = int(sys.argv[2])
-predir = "gen_"
-
-
 #                   H        He       Li      Be     B       C       N         O       F
 taffins = np.array([-4.5280,-4.5280, -3.006,-3.006, -5.343, -5.343, -6.899, -8.741, -10.874] )
 thards  = np.array([13.8904, 13.8904, 4.772,  4.772, 10.126, 10.126, 11.760, 13.364,  14.948] )
 
-
 if __name__ == "__main__":
+
     print(" ================ START ")
     print(" ================ START ")
+
+    N1 = int(sys.argv[1])
+    N2 = int(sys.argv[2])
+    predir = "gen_"
 
     # --- prepare atom-types 
     c6    = -15.0
@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     # --- prepare system (resize buffers)
     natom = 20
-    rff.ralloc(natom)
+    rff.reallocFF(natom)
     types  = rff.getTypes(natom)
     poss   = rff.getPoss(natom)
     qrots  = rff.getQrots(natom)

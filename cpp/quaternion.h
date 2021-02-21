@@ -261,6 +261,7 @@ class Quat4T {
         // substract component of *this paralel to q assuming that q is normalized
         double cdot = dot( q );
         add_mul( q, -cdot );
+        return cdot;
     }
 
 

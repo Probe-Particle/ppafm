@@ -5,6 +5,8 @@ import os
 import numpy as np
 import time
 
+sys.path.append("../")
+
 import pyProbeParticle.atomicUtils as au
 import pyProbeParticle.chemistry   as ch
 

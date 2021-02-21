@@ -32,6 +32,7 @@ dErr_{a_j}/(-2) = <V|phi_j> - Sum_i{<phi_i|phi_j(r)>} - 2*aj
 
 '''
 
+verbose = 0 
 
 # ====================== constants
 

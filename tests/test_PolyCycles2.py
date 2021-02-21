@@ -10,6 +10,8 @@ import time
 #import common    as PPU
 #from optparse import OptionParser
 
+sys.path.append("../")
+
 #import pyProbeParticle.PolyCycles  as pcff
 import pyProbeParticle.atomicUtils as au
 import pyProbeParticle.chemistry   as ch
@@ -21,7 +23,7 @@ import matplotlib.pyplot as plt
 
 #import scipy.interpolate as interp #.CubicSpline as CS
 #from scipy.interpolate import interp1d #.CubicSpline as CS
-from scipy.interpolate import Akima1DInterpolator
+#from scipy.interpolate import Akima1DInterpolator
 
 xs = np.linspace(-1,4,200)
 Xs = np.array([-1 , 0, 1,2, 3, 4])

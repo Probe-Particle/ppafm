@@ -626,7 +626,7 @@ bool post_draw(){
 }
 
 int run_Nframes(int nframes){
-    thisApp->loop( nframes );
+    return thisApp->loop( nframes );
 }
 
 void set_draw_function( ProcedurePointer draw_func ){

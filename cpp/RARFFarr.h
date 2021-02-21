@@ -408,7 +408,7 @@ class RARFF2arr{ public:
     double evalF2rot(){ double F2=0; for(int i=0; i<natom; i++){ F2+=torqs [i].norm2(); }; return F2; }
     double evalF2pos(){ double F2=0; for(int i=0; i<natom; i++){ F2+=forces[i].norm2(); }; return F2; }
 
-    double projectBonds(){
+    void projectBonds(){
         for(int i=0; i<natom; i++){
             rotateVectors( N_BOND_MAX, qrots[i], types[i]->bh0s, hbonds + i*N_BOND_MAX );
         }
@@ -482,15 +482,18 @@ class RARFF2arr{ public:
     int passivateBonds( double Ecut ){
         //printf( " c6cap, c12cap %g %g \n", c6cap, c12cap );
         for(int i=0; i<natom*N_BOND_MAX; i++){ bondCaps[i]=-1; };
+        int n=0;
         for(int ia=0; ia<natom; ia++){
             int nbi =  types[ia]->nbond;
             for(int ib=0; ib<nbi; ib++){
                 int i = ia*N_BOND_MAX + ib;
                 if(ebonds[i]>Ecut){
                     bondCaps[i]=1;
+                    n++;
                 };
             }
         }
+        return n;
     }
 
 };

@@ -76,6 +76,7 @@ class Camera{ public:
     inline Vec3f pix2rayPersp( const Vec2f& pix, Vec3f& rd ) const {
         float resc = 1/zoom;
         rd = rot.a*(pix.a*resc) + rot.b*(pix.b*resc);
+        return rd;
     }
 
     inline bool pointInFrustrum( Vec3f p ) const {
