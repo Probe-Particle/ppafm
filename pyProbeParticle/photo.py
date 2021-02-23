@@ -417,12 +417,12 @@ def makePreset_arr1( m,n, R=10.0 ):
     return poss, rots
 
 
-def combinator(oposs,orots,ocoefs,oents,oens):
+def combinator(oents):
     '''
     This function finds all possible combinations of of excited states on molecule  
     '''
-    oents=np.array(oents)   ; print(oents)
-    isx=np.argsort(oents)   ; print(isx)
+    oents=np.array(oents)   ; #print(oents)
+    isx=np.argsort(oents)   ; #print(isx)
     ents=oents[isx]   #; print(ents)
 
     funiqs=np.unique(ents, True,False, False) #indices of first uniqs
@@ -453,32 +453,6 @@ def combinator(oposs,orots,ocoefs,oents,oens):
     for i in range(ni):
         inds.append( [  isx[ funiqs[j]+combos[i,j] ] for j in range(nj) ] )
     return inds
-    '''
-
-    oposs=np.array(oposs)
-    orots=np.array(orots)
-    oens=np.array(oens)
-    poss=oposs[isx]
-    rots=orots[isx]
-    coefs=ocoefs[isx]
-    ens=oens[isx]
-
-    s=np.shape(combos)
-    print(s) 
-    nrots=np.zeros((s[0],s[1]))
-    ncoefs=np.zeros((s[0],s[1]))
-    nposs=np.zeros((s[0],s[1],3))
-    nens=np.zeros((s[0],s[1]))
-    for i in range(s[0]):
-        for j in range(s[1]):
-            ndex=funiqs[j]+combos[i,j]
-            #print( "i,j,ndex", i,j,ndex )
-            nrots [i,j]=rots[ndex]
-            nposs [i,j]=poss[ndex]
-            ncoefs[i,j]=coefs[ndex]
-            nens  [i,j]=ens[ndex]
-    return nposs,nrots,ncoefs,ents,ens,combos
-    '''
 
 def applyCombinator( lst, inds ):
     out = []

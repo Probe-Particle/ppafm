@@ -71,19 +71,21 @@ def loadDensityFileNames( fname ):
         if( len(ws)>1 ):
             names.append( [w.strip() for w in ws] )
         else:
-            names.append( ws.strip() ) 
+            names.append( ws[0].strip() ) 
     print( "cubeNames", names )
     return names
 
 def loadMolecules( fname ):
     DATA    = np.genfromtxt( fname, skip_header=1 )
+    if (len(DATA.shape) == 1):
+        DATA=np.reshape(DATA,(1,DATA.shape[0]))
     print( "DATA.shape ", DATA.shape )
     oposs   = DATA[:, :3]   # positions
     orots   = DATA[:,  3]   # rotations
     ocoefs  = DATA[:,4:6]   # coeficients (complex)
     oens    = DATA[:,  6]   # excited state energy
     oirhos  = ( DATA[:,7] +0.5 ).astype(np.int)  # type of transity file
-    if len(DATA)>8:
+    if len(DATA[0,:])>8:
         oents = ( DATA[:,8] +0.5 ).astype(np.int)
         print( " DATA.oents ", oents )
     else:
@@ -91,6 +93,8 @@ def loadMolecules( fname ):
     ocoefs  =  ocoefs[:,0]  # TODO: for the moment we take just real part, this may change in future
     return oposs, orots, ocoefs, oens, oirhos, oents
 
+#DEPRECATED
+'''
 def makeMoleculesInline( ):
 
     fromDeg = np.pi/180.
@@ -106,24 +110,26 @@ def makeMoleculesInline( ):
     #orots = [fromDeg*27.,fromDeg*117.,fromDeg*27,fromDeg*117.]
     #oents = [0.]
     oents  = [0.,1.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
-    '''
-    oposs  = [ [-0.0,.0,0.],[-0.0,0.0,0.]  ]
-    orots  = [fromDeg*0.,fromDeg*90.]
-    ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
-    oents  = [0.,0.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
-    '''
+    
+    #oposs  = [ [-0.0,.0,0.],[-0.0,0.0,0.]  ]
+    #orots  = [fromDeg*0.,fromDeg*90.]
+    #ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
+    #oents  = [0.,0.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
+    
     ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
     oens   = 1.84*np.ones(len(orots)) #diagonal coefficients with the meaning of energy
     
     oirhos = [0]*len(oents)  # all molecules use same density file
     return oposs, orots, ocoefs, oens, oirhos, oents
+'''
 
-def loadRhoTrans( cubName=None ):
-    if options.dens!=PARSER_DEFAULTVAL:
+'''
+def loadRhoTrans( cubName=None, wdir=""):
+    if os.path.isfile(wdir+options.dens):
         if cubName is not None:
-            rhoName = cubName
+            rhoName = wdir+cubName
         else:
-            rhoName = options.dens
+            rhoName = wdir+options.dens
         print(( ">>> Loading Transition density from ", rhoName, " ... " ))
         rhoTrans, lvec, nDim, head = GU.loadCUBE( rhoName,trden=True)
         # dV  = (lvec[1,0]*lvec[2,1]*lvec[3,2])/((nDim[0]+1)*(nDim[1]+1)*(nDim[2]+1))
@@ -132,12 +138,12 @@ def loadRhoTrans( cubName=None ):
     else: 
         if cubName is not None:
             print( "cubName ",   cubName )
-            homoName=cubName[0]
-            lumoName=cubName[1]
+            homoName=wdir+cubName[0]
+            lumoName=wdir+cubName[1]
         else:
-            homoName = options.homo
-            lumoName = options.lumo
-        if os.path.exists(homoName) and os.path.exists(lumoName):
+            homoName = wdir+options.homo
+            lumoName = wdir+options.lumo
+        if os.path.isfile(homoName) and os.path.isfile(lumoName):
             print(( ">>> Loading HOMO from ", homoName, " ... " ))
             homo, lvecH, nDimH, headH = GU.loadCUBE( homoName )
             print(( ">>> Loading LUMO from ", lumoName, " ... " ))
@@ -150,7 +156,7 @@ def loadRhoTrans( cubName=None ):
             qh = (homo**2).sum()   ; print("q(homo) ",qh)
             ql = (lumo**2).sum()   ; print("q(lumo) ",ql)
         else:
-            print("Undefined densities, exiting :,(")
+            print("Densities really not found, exiting :,(")
             quit()
     if options.flip:
         print("Transposing XYZ->ZXY")
@@ -161,10 +167,43 @@ def loadRhoTrans( cubName=None ):
         print(lvec)
         rhoTrans=(np.transpose(rhoTrans,(1,2,0))).copy()
     return rhoTrans, lvec
+'''
+def loadRhoTrans( cubName=None, wdir=""):
+    if cubName is not None:
+        print(cubName)
+        print(isinstance(cubName,str))
+        if (isinstance(cubName,str)):
+            rhoName = cubName
+            print(( ">>> Loading Transition density from ", rhoName, " ... " ))
+            rhoTrans, lvec, nDim, head = GU.loadCUBE( rhoName,trden=True)
+        else: 
+            print( "cubName ",   cubName )
+            homoName=cubName[0]
+            lumoName=cubName[1]
+            print(( ">>> Loading HOMO from ", homoName, " ... " ))
+            homo, lvecH, nDimH, headH = GU.loadCUBE( homoName )
+            print(( ">>> Loading LUMO from ", lumoName, " ... " ))
+            lumo, lvecL, nDimL, headL = GU.loadCUBE( lumoName )
+            lvec=lvecH; nDim=nDimH; headH=headH
+            homo = photo.normalizeGridWf( homo )
+            lumo = photo.normalizeGridWf( lumo )
+            rhoTrans = homo*lumo
+            #rhoTrans += 1e-5 # Debugging hack
+            qh = (homo**2).sum()   ; print("q(homo) ",qh)
+            ql = (lumo**2).sum()   ; print("q(lumo) ",ql)
+    if options.flip:
+        print("Transposing XYZ->ZXY")
+        lvec=lvec[:,[2,0,1]]
+        lvec=lvec[[0,3,1,2],:]
+        npnDim=np.array(nDim)
+        nDim=npnDim[[2,0,1]]
+        print(lvec)
+        rhoTrans=(np.transpose(rhoTrans,(1,2,0))).copy()
+    return rhoTrans, lvec
 
-def runExcitaionSolver( rhos, lvecs, poss, rots, Ediags ):
+def runExcitationSolver( rhos, lvecs, poss, rots, Ediags ):
     if options.subsampling:
-        print("using user subsampling")
+        print("Using user subsampling")
         subsamp=options.subsampling
         if (subsamp <= 1):
             print("adjusting the subsampling to 1")
@@ -180,6 +219,7 @@ def runExcitaionSolver( rhos, lvecs, poss, rots, Ediags ):
     result["H" ][cix]=H
     result["Hi"][cix*nvs:cix*nvs+nvs-1]=cix
     if options.save:
+        print("Saving Hamiltonian")
         file1 = open(fnmb+"_"+str(cix)+".ham", "w")
         file1.write(str(H)+"\n")
         file1.write(str(es)+"\n")
@@ -205,7 +245,7 @@ def storePhotonMap( res, result, ipl, es, vs ):
         np.savetxt(fname+'.txt',res,header=header) 
     print("combination:"      + str(cix))
     print("exciton variation:"+ str(ipl))
-    print("overall index: "   + str(1+2*(cix*nvs+ipl)))
+#    print("overall index: "   + str(1+2*(cix*nvs+ipl)))
 
 def makePhotonMap( rhoTrans, lvec, tipDict=None, rots=None, poss=None, coefs=None, Es=None, ncanv=None, byCenter=False, fname=None  ):
     if options.volumetric:
@@ -250,37 +290,103 @@ def plotPhotonMap( rho, phmap, byCenter=False, fname=None, dd=None ):
 
 if __name__ == "__main__":
 
-    import matplotlib.pyplot as plt
     from optparse import OptionParser
     PARSER_DEFAULTVAL = None
     parser = OptionParser()
     parser.add_option( "-y", "--ydim",   action="store", type="int", default="500", help="height of canvas")
     parser.add_option( "-x", "--xdim",   action="store", type="int", default="500", help="width of canvas")
-    parser.add_option( "-H", "--homo",   action="store", type="string", default="homo.cube", help="orbital of electron hole;    3D data-file (.xsf,.cube)")
-    parser.add_option( "-L", "--lumo",   action="store", type="string", default="lumo.cube", help="orbital of excited electron; 3D data-file (.xsf,.cube)")
-    parser.add_option( "-D", "--dens",   action="store", type="string", default=PARSER_DEFAULTVAL,         help="transition density; 3D data-file (.xsf,.cube)")
+    parser.add_option( "-H", "--homo",   action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of electron hole;    3D data-file (.xsf,.cube)")
+    parser.add_option( "-L", "--lumo",   action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of excited electron; 3D data-file (.xsf,.cube)")
+    parser.add_option( "-D", "--dens",   action="store", type="string", default=PARSER_DEFAULTVAL, help="transition density; 3D data-file (.xsf,.cube)")
     parser.add_option( "-R", "--radius", action="store", type="float",  default="1.0", help="tip radius")
     parser.add_option( "-n", "--subsampling", action="store", type="int",  default="6", help="subsampling for coupling calculation, recommended setting 5-10, lower is slower")
     parser.add_option( "-Z", "--ztip",   action="store", type="float",  default="6.0", help="tip above substrate") #need to clarify what it exactly means
     parser.add_option( "-t", "--tip",    action="store", type="string", default="s",   help="tip compositon s,px,py,pz,d...")
-    parser.add_option( "-e", "--excitons",   action="store_true",  default=False, help="callculate deloc. exitons of J-aggregate ( just WIP !!! )")
+    parser.add_option( "-e", "--excitons",   action="store_true",  default=False, help="calculate deloc. exitons of J-aggregate ( just WIP !!! )")
     parser.add_option( "-v", "--volumetric", action="store_true", default=False,  help="calculate on 2D grid, much faster")
     parser.add_option( "-f", "--flip", action="store_true", default=False,  help="transpose XYZ xsf/cube file to ZXY")
     parser.add_option( "-s", "--save", action="store_true", default=False,  help="save output as txt files")
-    parser.add_option( "-o", "--output", action="store", type="string", default="",  help="filename for output")
-    parser.add_option( "-c", "--config", action="store", type="string", default=PARSER_DEFAULTVAL,  help="read from config file")
+    parser.add_option( "-o", "--output", action="store", type="string", default=PARSER_DEFAULTVAL,  help="base filename for output")
+    parser.add_option( "-c", "--cubelist", action="store", type="string", default="cubefiles.ini",  help="read trans. density or homo/lumo using a list in a file")
+    parser.add_option( "-w", "--wdir", action="store", type="string", default="",  help="working directory to find tr. densities and all the input files")
+    parser.add_option( "-m", "--molecules", action="store", type="string", default="molecules.ini",  help="filename from which to read excitonic coordinates and other attributes")
     parser.add_option( "-i", "--images", action="store_true", default=False,  help="save output as images")
     parser.add_option( "-j", "--hide", action="store_true", default=False,  help="hide any graphical output; causes saved images to split into separate items")
 
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
     (options, args) = parser.parse_args()
-    #rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
-    #rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO_/CHGCAR.xsf")
-    np.set_printoptions(linewidth=400)
+    
+    if os.path.isdir(options.wdir): #check for working dir directive
+        wdir=options.wdir+"/" #adding slash for sure
+    else:
+        wdir="" #directory where the script runs
+
+    print("WORKING DIRECTORY: '"+wdir+"'")
+
+
+    #with all of this, invalid comand line options situations are eliminated and filename for the output set
+    if(options.homo != PARSER_DEFAULTVAL):
+        if (not os.path.isfile(wdir+options.homo)):
+            print("Specfied HOMO does not exist!")
+            quit()
+        else:
+            fnmb=wdir+options.homo
+    else:
+        options.homo=""
+
+    if(options.lumo != PARSER_DEFAULTVAL):
+        if (not os.path.isfile(wdir+options.lumo)):
+            print("Specfied LUMO does not exist!")
+            quit()
+    else:
+        options.lumo=""
+
+
+    if bool(os.path.isfile(wdir+options.homo)) ^ bool(os.path.isfile(wdir+options.lumo)):
+        print("One HOMO or LUMO has not been specified!")
+        quit()
+
+    if(options.dens != PARSER_DEFAULTVAL):
+        if (not os.path.isfile(wdir+options.dens)):
+            print("Specified DENSITY does not exist!")
+            quit()
+        else:
+            fnmb=wdir+options.dens
+ 
+    else:
+        options.dens=""
+
+    if(options.molecules != PARSER_DEFAULTVAL):
+        if (not os.path.isfile(wdir+options.molecules)):
+            print("Specified parameter INI file does not exist!")
+            quit()
+    else:
+            fnmb=wdir+options.molecules
+    if(options.cubelist != PARSER_DEFAULTVAL):
+        if (not os.path.isfile(wdir+options.cubelist)):
+            print("Specified densities INI file does not exist!")
+            quit()
+        else:
+            fnmb=wdir+options.cubelist
+
+    if options.output != PARSER_DEFAULTVAL:
+        if os.path.isdir(wdir+options.output) or os.path.isdir(os.path.dirname(wdir+options.output)):
+            fnmb=wdir+options.output
+        else:
+            print("Invalid output specified")
+
+
+    print("DEFAULT OUTPUT BASENAME: '"+fnmb+"'")
+
+
+    np.set_printoptions(linewidth=400) #because of the implicit short line output into files
 
     if options.hide:
         import matplotlib
         matplotlib.use("Agg")
+
+
+    import matplotlib.pyplot as plt
 
     hcanv = options.ydim
     wcanv = options.xdim
@@ -297,31 +403,60 @@ if __name__ == "__main__":
 
     #phmap, Vtip, rho =  photonMap2D( rhoTrans, tipDict, lvec, z=0.5, sigma=0.0, multipole_dict=tipDict )
 
-    bMoleculesFromFile = True
-    if(bMoleculesFromFile):
-        cubeNames                                 = loadDensityFileNames( "cubeFiles.ini" )
-        oposs, orots, ocoefs, oens, oirhos, oents = loadMolecules       ( "molecules.ini" )
-        loadedRhos  =[]
-        loadedLvecs =[] 
-        for cubName in cubeNames:
-            rh,lv   = loadRhoTrans( cubName )
-            loadedRhos .append (rh)
-            loadedLvecs.append(lv)
-        orhos =[ loadedRhos [i] for i in oirhos ]
-        olvecs=[ loadedLvecs[i] for i in oirhos ]
-        # ToDo : we should load set of cube files here
+    if os.path.exists(wdir+options.molecules): #check molecule ini file
+        print("Found parameter ini file, loading: "+wdir+options.molecules)
+        cubefname=wdir+options.molecules
+        oposs, orots, ocoefs, oens, oirhos, oents = loadMolecules       ( cubefname )
+
     else:
-        # ---- This is the old way
-        oposs, orots, ocoefs, oens, oirhos, oents = makeMoleculesInline( )
-        rhoTrans, lvec                            = loadRhoTrans()
-        nmol  = len( poss )
+        #without a ini file, resort to simple centered settings
+        print("No input file found or specified, using default center coordinates")
+        oposs=[[0.,0.,0.]];orots=[0.];ocoefs=[1.];oens=[1.];oirhos=[0];oents=[0.];
+
+
+    if ((os.path.isfile(wdir+options.homo) and os.path.isfile(wdir+options.lumo)) or os.path.isfile(wdir+options.dens) ):
+        # ---- This is the old way, without a valid cubelist, script expects a -D or -H and -L directives
+#        oposs, orots, ocoefs, oens, oirhos, oents = makeMoleculesInline( )
+        
+        print("Loading densities from options")
+        if os.path.isfile(wdir+options.dens):
+            cubName=(wdir+options.dens)
+        else:
+            cubName=(wdir+options.homo,wdir+options.lumo)
+        print("CUBENAMES: ",cubName)
+        rhoTrans, lvec                            = loadRhoTrans(cubName)
+        nmol  = len( oposs )
         orhos  = [rhoTrans]*nmol
         olvecs = [lvec]    *nmol 
-    
+    else:
+        if os.path.exists(wdir+options.cubelist): #check for cubelist ini file
+            print("Found density list from: "+wdir+options.cubelist)
+            cubeNames                                 = loadDensityFileNames( wdir+options.cubelist )
+            loadedRhos  =[]
+            loadedLvecs =[] 
+            for cubName in cubeNames:
+                if not(isinstance(cubName,str)):
+                    cubName=(wdir+cubName[0],wdir+cubName[1])
+                else:
+                    cubName=wdir+cubName
+                rh,lv   = loadRhoTrans(cubName)
+                loadedRhos .append (rh)
+                loadedLvecs.append(lv)
+            orhos =[ loadedRhos [i] for i in oirhos ]
+            olvecs=[ loadedLvecs[i] for i in oirhos ]
+            # ToDo : we should load set of cube files here
+        else:
+            print("This is just not going to work without any density")
+            quit()
+ 
+    print(len(orots))
+    for i in range(len(orots)):
+        orots[i]*=np.pi/180. #convert to radians
     #cposs,crots,ccoefs,cents,cens,combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
-    inds = photo.combinator(oposs,orots,ocoefs,oents,oens)
-    # ToDo : maybe make sence to make class/dict for each molecule?
-    cents  = photo.applyCombinator( oents , inds  )
+    inds = photo.combinator(oents)
+    print(inds)
+    # ToDo : maybe make sense to make class/dict for each molecule?
+    cents  = photo.applyCombinator( oents , inds )
     cposs  = photo.applyCombinator( oposs , inds )
     crots  = photo.applyCombinator( orots , inds )
     ccoefs = photo.applyCombinator( ocoefs, inds )
@@ -333,9 +468,7 @@ if __name__ == "__main__":
     #print("combination ",combos)
     csh=np.shape(crots)
     
-    #intended for future use
-
-    #coefs = [[0.9,0.1]]
+    #intended for future use with spin combinations, but could be also done at the level of the combinator
     six=0
 
     print('combination shape: ',csh)
@@ -343,53 +476,49 @@ if __name__ == "__main__":
         nvs=csh[1]
     else:
         nvs=1
-   
+  
+    print("nvs",nvs)
     nnn=csh[0]*nvs # total number of all combinations that will be calculated
 
-    result={ #dictionary with the photon maps, eigenenergies, there is space for more, but I'm too lazy now..
+    result={ #dictionary with the photon maps, eigenenergies, hamiltonians, eigenvectors..
         "stack" : np.zeros([nnn,wcanv,hcanv]),
-        "E"     : np.zeros(nnn),
-        "Ev"    : np.zeros([nnn,nvs]),
+        "E"     : np.zeros([nnn]),
+        "Ev"    : np.zeros([nnn,csh[1]]),
         "H"     : np.zeros([csh[0],nvs,nvs]),
-        "Hi"    : np.zeros(nnn)
+        "Hi"    : np.zeros([nnn])
     }
 
     if not(options.hide):
-        fig=plt.figure(figsize=(2*csh[0],4*nvs))
+        fig=plt.figure(figsize=(4*nvs,2*csh[0]+0.5))
         plt.tight_layout(pad=3.0)
-    if options.output:
-        fnmb=options.output
-    else:
-        if options.dens!=PARSER_DEFAULTVAL:
-            fnmb=options.dens
-        else:
-            fnmb=options.homo
-
     # ====== Loop over configurations
     for cix in range(csh[0]):
         poss  = cposs [cix]     ; print("Positions: ",poss)   
         rots  = crots [cix]     ; print("Rotations: ",rots)
         coefs = ccoefs[cix]     ; print("Coefs:     ",coefs)
-        ens   = cens  [cix]
+        ens   = cens  [cix]     ; print("Energies:     ",cens)
         rhos  = crhos [cix]  
         lvecs = clvecs[cix]
         
         vs=[coefs]
-        es=1.
+        es=[1.]
         if options.excitons:
-            es,vs, H = runExcitaionSolver( rhos, lvecs, poss, rots, ens )
-        print("variations:",len(vs),nvs)
-        for ipl in range(nvs):
+            es,vs, H = runExcitationSolver( rhos, lvecs, poss, rots, ens )
+        print("Variations found:",len(vs))
+        print("Coefs:",coefs)
+
+        for ipl in range(len(vs)):
             coefs=vs[ipl]
             fname=fnmb+"_"+str(cix).zfill(len(str(csh[0])))+"_"+str(ipl).zfill(len(str(nvs)))
             #photonMap2D_stamp( rhoTrans, lvec, z=options.ztip, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=ncanv, byCenter=byCenter )
             rho, res, Vtip, dd = makePhotonMap( rhos, lvecs, tipDict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter, fname=fname )
+            #print("Debug ipl nvs: ",ipl,nvs,result["Ev"][cix*nvs+ipl,:],vs[ipl])
             storePhotonMap( res, result, ipl, es, vs )
             plotPhotonMap( rho, res, byCenter=byCenter, fname=fname, dd=dd )
 
-    print("Sorting and saving stack")
-    print(np.shape(result["stack"]))
-    print(np.shape(result["stack"].astype('float32')))
+    print("Sorting stack")
+#    print(np.shape(result["stack"]))
+#    print(np.shape(result["stack"].astype('float32')))
    
     # --- sort results
     irx=np.argsort(result["E"])
@@ -398,6 +527,7 @@ if __name__ == "__main__":
     result["stack"]=result["stack"][irx]
     # --- save results to file
     if options.save:
+        print("Saving stack")
         file1 = open(fnmb+".hdr", "w")
         result["stack"].astype('float32').tofile(fnmb+'.stk') #saving stack to file for further processing
         #result["E"].astype('float32').tofile(fnmb+'.e') #saving stack to file for further processing

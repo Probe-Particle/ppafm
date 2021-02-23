@@ -183,7 +183,7 @@ def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0, byCenter=Tr
     ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
     ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
     if byCenter:
-        print( " p0_0 ", p0  )
+        #print( " p0_0 ", p0  )
         #p0  = p0 + a*(ns1[0]*-0.5) + b*(ns1[1]*-0.5)
         #p0*=0
         p0+=a*(ns1[0]*-0.5)+b*(ns1[1]*-0.5)
@@ -480,7 +480,7 @@ def loadCUBE(fname,trden=False):
     for ii in range(noline): #here we fake-read the atoms
         sthx = filein.readline().split()
 
-    print("***",sth1[0])
+    #print("***",sth1[0])
     if((int(sth0[0]) < 0)): #if N-atoms is negative, there will be integers associated with multiple data values
         sthx = filein.readline().split() #if you don't get why this is so freakin' complicated, RTFM for .CUBE files
         noline = noline + 1 #this assumes there is only one extra line
