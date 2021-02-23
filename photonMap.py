@@ -325,6 +325,8 @@ if __name__ == "__main__":
 
 
     #with all of this, invalid comand line options situations are eliminated and filename for the output set
+
+    fnmb=wdir+"output"
     if(options.homo != PARSER_DEFAULTVAL):
         if (not os.path.isfile(wdir+options.homo)):
             print("Specfied HOMO does not exist!")
@@ -360,14 +362,13 @@ if __name__ == "__main__":
         if (not os.path.isfile(wdir+options.molecules)):
             print("Specified parameter INI file does not exist!")
             quit()
-    else:
+        else:
             fnmb=wdir+options.molecules
+
     if(options.cubelist != PARSER_DEFAULTVAL):
         if (not os.path.isfile(wdir+options.cubelist)):
             print("Specified densities INI file does not exist!")
             quit()
-        else:
-            fnmb=wdir+options.cubelist
 
     if options.output != PARSER_DEFAULTVAL:
         if os.path.isdir(wdir+options.output) or os.path.isdir(os.path.dirname(wdir+options.output)):
