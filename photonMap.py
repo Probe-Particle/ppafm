@@ -163,7 +163,6 @@ def storePhotonMap( res, result, ipl, es, vs ):
         header =str(sh[0])+' '+str(sh[1])
         header+='\n'+ str(sh[0]*dd[0]/10.)+' '+str(sh[1]*dd[1]/10.)
         header+='\nCombination(Hi): ' + str(cix)
-        header+='\nSpin combination: '+ str(six)
         header+='\nEigennumber: '     + str(ipl) 
         header+='\nEnergy: '          + str(es[ipl]) 
         header+='\nEigenvector: '     + str(vs[ipl])
@@ -178,11 +177,10 @@ def storeRho( rho, ipl, es, vs ):
         header =str(sh[0])+' '+str(sh[1])
         header+='\n'+ str(sh[0]*dd[0]/10.)+' '+str(sh[1]*dd[1]/10.)
         header+='\nCombination(Hi): ' + str(cix)
-        header+='\nSpin combination: '+ str(six)
         header+='\nEigennumber: '     + str(ipl) 
         header+='\nEnergy: '          + str(es[ipl]) 
         header+='\nEigenvector: '     + str(vs[ipl])
-        np.savetxt(fname+'_rho.txt',res,header=header) 
+        np.savetxt(fname+'_rho.txt',rho,header=header) 
     print("combination:"      + str(cix))
     print("exciton variation:"+ str(ipl))
 
@@ -246,6 +244,7 @@ if __name__ == "__main__":
     parser.add_option( "-v", "--volumetric", action="store_true", default=False,  help="calculate on 2D grid, much faster")
     parser.add_option( "-f", "--flip", action="store_true", default=False,  help="transpose XYZ xsf/cube file to ZXY")
     parser.add_option( "-s", "--save", action="store_true", default=False,  help="save output as txt files")
+    parser.add_option( "-u", "--subsys", action="store_true", default=False,  help="enable splitting to subsystems (EXPERIMENTAL)")
     parser.add_option( "-o", "--output", action="store", type="string", default=PARSER_DEFAULTVAL,  help="base filename for output")
     parser.add_option( "-c", "--cubelist", action="store", type="string", default="cubefiles.ini",  help="read trans. density or homo/lumo using a list in a file")
     parser.add_option( "-w", "--wdir", action="store", type="string", default="",  help="working directory to find tr. densities and all the input files")
@@ -394,8 +393,9 @@ if __name__ == "__main__":
     for i in range(len(orots)):
         orots[i]*=np.pi/180. #convert to radians
     #cposs,crots,ccoefs,cents,cens,combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
-    inds = photo.combinator(oents)
+    inds = photo.combinator(oents,subsys=options.subsys)
     print(inds)
+
     # ToDo : maybe make sense to make class/dict for each molecule?
     cents  = photo.applyCombinator( oents , inds )
     cposs  = photo.applyCombinator( oposs , inds )
@@ -405,21 +405,24 @@ if __name__ == "__main__":
     crhos  = photo.applyCombinator( orhos , inds )
     clvecs = photo.applyCombinator( olvecs, inds )
 
-    #print("positions ",poss)
+
+
     #print("combination ",combos)
     csh=np.shape(crots)
+    csh0=len(crots)
     
-    #intended for future use with spin combinations, but could be also done at the level of the combinator
-    six=0
+    print('combinations: ',csh0)
 
-    print('combination shape: ',csh)
-    if options.excitons:
-        nvs=csh[1]
+    
+    if options.excitons: #number of variations
+        nvs=csh[1] 
     else:
         nvs=1
   
     print("nvs",nvs)
+    
     nnn=csh[0]*nvs # total number of all combinations that will be calculated
+    
 
     result={ #dictionary with the photon maps, eigenenergies, hamiltonians, eigenvectors..
         "stack" : np.zeros([nnn,wcanv,hcanv]),
@@ -428,12 +431,25 @@ if __name__ == "__main__":
         "H"     : np.zeros([csh[0],nvs,nvs]),
         "Hi"    : np.zeros([nnn])
     }
+    '''
+    nnn=0
+    for icomb in range(csh0):
+        if not options.excitons:
+            nnn+=len(crots[icomb])
+        else nnn++
 
+    print("Total number of :",nnn)
+    '''
     if not(options.hide):
         fig=plt.figure(figsize=(4*nvs,2*csh[0]+0.5))
         plt.tight_layout(pad=1.0)
     # ====== Loop over configurations
-    for cix in range(csh[0]):
+    for cix in range(csh0):
+       
+        
+        
+        
+        
         poss  = cposs [cix]     ; print("Positions: ",poss)   
         rots  = crots [cix]     ; print("Rotations: ",rots)
         coefs = ccoefs[cix]     ; print("Coefs:     ",coefs)

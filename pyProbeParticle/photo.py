@@ -417,9 +417,10 @@ def makePreset_arr1( m,n, R=10.0 ):
     return poss, rots
 
 
-def combinator(oents):
+def combinator(oents,subsys=False):
     '''
-    This function finds all possible combinations of of excited states on molecule  
+    This function finds all possible combinations of all orthogonoal excited states on various molecules
+    Trying to implement splitting to subsystems (for spin incompatibility reasons)
     '''
     oents=np.array(oents)   ; #print(oents)
     isx=np.argsort(oents)   ; #print(isx)
@@ -430,6 +431,8 @@ def combinator(oents):
 
     nuniqs=np.unique(ents, False, False, True) #numbers of uniqs
     nuniqs=nuniqs[1]        #; print(nuniqs)
+    if subsys:
+        nuniqs=nuniqs+1        #this creates the possibility of empty exciton state for each molecule
     tuniqs=np.copy(nuniqs)  #; print(tuniqs) # factorization coefs
 
     for i in range(len(nuniqs)-1): #calculate total number of combinations
@@ -442,20 +445,42 @@ def combinator(oents):
         for j in range(len(nuniqs)-1):
             combos[i,j]=comb//tuniqs[j+1]
             comb-=tuniqs[j+1]*(comb//tuniqs[j+1])
+            if subsys:
+                if combos[i,j] >= nuniqs[j]-1: #this is for when the molecule will be missing
+                    combos[i,j]=-1
+
         combos[i,-1]=comb
+        if subsys:
+            if comb >= nuniqs[-1]-1: #this is for when the molecule will be missing
+                combos[i,-1]=-1
+        
 
     print("Combinations for various molecules:")
     print(combos)
 
     # --- make 2D list of permutation index to reorder any property
-    inds = []
+    #inds = []
+    #(ni,nj)=np.shape(combos)
+    #for i in range(ni):
+    #    inds.append( [  isx[ funiqs[j]+combos[i,j] ] for j in range(nj) ] )
     (ni,nj)=np.shape(combos)
+    inds = np.zeros((ni,nj))
     for i in range(ni):
-        inds.append( [  isx[ funiqs[j]+combos[i,j] ] for j in range(nj) ] )
+        for j in range(nj):
+            if combos[i,j] == -1:
+                inds[i,j]=-1
+            else:
+                inds[i,j]=  (isx[ funiqs[j]+combos[i,j] ])
+
+
     return inds
 
 def applyCombinator( lst, inds ):
     out = []
     for js in inds:
-        out.append( [  lst[ j ] for j in js ] )
+        outl = []
+        for j in js:
+            if j !=-1:
+                outl.append(lst[int(j)])
+        out.append( outl )
     return out
