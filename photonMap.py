@@ -93,82 +93,7 @@ def loadMolecules( fname ):
     ocoefs  =  ocoefs[:,0]  # TODO: for the moment we take just real part, this may change in future
     return oposs, orots, ocoefs, oens, oirhos, oents
 
-#DEPRECATED
-'''
-def makeMoleculesInline( ):
-
-    fromDeg = np.pi/180.
-    #oposs,orots = makePreset_row  ( 2, dx=15.9, ang=0*fromDeg ) 
-    #poss,rots = makePreset_cycle( 4, R=8., ang0=30*fromDeg )
-    #poss,rots = makePreset_row( 5, dx=11., ang=-45.*fromDeg )
-    #poss,rots = makePreset_arr1( 3,4,R=11.6 )
-    
-    oposs  = [ [-7.5,.0,0.],[7.5,0.0,0.]  ]
-    #oposs = [0,0]
-    #orots = [0,0]
-    orots  = [20*fromDeg,15*fromDeg]
-    #orots = [fromDeg*27.,fromDeg*117.,fromDeg*27,fromDeg*117.]
-    #oents = [0.]
-    oents  = [0.,1.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
-    
-    #oposs  = [ [-0.0,.0,0.],[-0.0,0.0,0.]  ]
-    #orots  = [fromDeg*0.,fromDeg*90.]
-    #ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
-    #oents  = [0.,0.]  #indices of entities, they encode the cases when one molecule has more degenerate transition densities due to symmetry 
-    
-    ocoefs = np.ones(len(orots)) #complex coefficients, one for each tr density
-    oens   = 1.84*np.ones(len(orots)) #diagonal coefficients with the meaning of energy
-    
-    oirhos = [0]*len(oents)  # all molecules use same density file
-    return oposs, orots, ocoefs, oens, oirhos, oents
-'''
-
-'''
-def loadRhoTrans( cubName=None, wdir=""):
-    if os.path.isfile(wdir+options.dens):
-        if cubName is not None:
-            rhoName = wdir+cubName
-        else:
-            rhoName = wdir+options.dens
-        print(( ">>> Loading Transition density from ", rhoName, " ... " ))
-        rhoTrans, lvec, nDim, head = GU.loadCUBE( rhoName,trden=True)
-        # dV  = (lvec[1,0]*lvec[2,1]*lvec[3,2])/((nDim[0]+1)*(nDim[1]+1)*(nDim[2]+1))
-        # print("*****dV:",dV)
-        # rhoTrans*=(dV)
-    else: 
-        if cubName is not None:
-            print( "cubName ",   cubName )
-            homoName=wdir+cubName[0]
-            lumoName=wdir+cubName[1]
-        else:
-            homoName = wdir+options.homo
-            lumoName = wdir+options.lumo
-        if os.path.isfile(homoName) and os.path.isfile(lumoName):
-            print(( ">>> Loading HOMO from ", homoName, " ... " ))
-            homo, lvecH, nDimH, headH = GU.loadCUBE( homoName )
-            print(( ">>> Loading LUMO from ", lumoName, " ... " ))
-            lumo, lvecL, nDimL, headL = GU.loadCUBE( lumoName )
-            lvec=lvecH; nDim=nDimH; headH=headH
-            homo = photo.normalizeGridWf( homo )
-            lumo = photo.normalizeGridWf( lumo )
-            rhoTrans = homo*lumo
-            #rhoTrans += 1e-5 # Debugging hack
-            qh = (homo**2).sum()   ; print("q(homo) ",qh)
-            ql = (lumo**2).sum()   ; print("q(lumo) ",ql)
-        else:
-            print("Densities really not found, exiting :,(")
-            quit()
-    if options.flip:
-        print("Transposing XYZ->ZXY")
-        lvec=lvec[:,[2,0,1]]
-        lvec=lvec[[0,3,1,2],:]
-        npnDim=np.array(nDim)
-        nDim=npnDim[[2,0,1]]
-        print(lvec)
-        rhoTrans=(np.transpose(rhoTrans,(1,2,0))).copy()
-    return rhoTrans, lvec
-'''
-def loadRhoTrans( cubName=None, wdir=""):
+def loadRhoTrans( cubName=None):
     if cubName is not None:
         print(cubName)
         print(isinstance(cubName,str))
@@ -242,10 +167,25 @@ def storePhotonMap( res, result, ipl, es, vs ):
         header+='\nEigennumber: '     + str(ipl) 
         header+='\nEnergy: '          + str(es[ipl]) 
         header+='\nEigenvector: '     + str(vs[ipl])
-        np.savetxt(fname+'.txt',res,header=header) 
+        np.savetxt(fname+'_map.txt',res,header=header) 
     print("combination:"      + str(cix))
     print("exciton variation:"+ str(ipl))
-#    print("overall index: "   + str(1+2*(cix*nvs+ipl)))
+
+def storeRho( rho, ipl, es, vs ):
+    sh  = rho.shape
+    #if (options.save):
+    if fname:
+        header =str(sh[0])+' '+str(sh[1])
+        header+='\n'+ str(sh[0]*dd[0]/10.)+' '+str(sh[1]*dd[1]/10.)
+        header+='\nCombination(Hi): ' + str(cix)
+        header+='\nSpin combination: '+ str(six)
+        header+='\nEigennumber: '     + str(ipl) 
+        header+='\nEnergy: '          + str(es[ipl]) 
+        header+='\nEigenvector: '     + str(vs[ipl])
+        np.savetxt(fname+'_rho.txt',res,header=header) 
+    print("combination:"      + str(cix))
+    print("exciton variation:"+ str(ipl))
+
 
 def makePhotonMap( rhoTrans, lvec, tipDict=None, rots=None, poss=None, coefs=None, Es=None, ncanv=None, byCenter=False, fname=None  ):
     if options.volumetric:
@@ -491,7 +431,7 @@ if __name__ == "__main__":
 
     if not(options.hide):
         fig=plt.figure(figsize=(4*nvs,2*csh[0]+0.5))
-        plt.tight_layout(pad=3.0)
+        plt.tight_layout(pad=1.0)
     # ====== Loop over configurations
     for cix in range(csh[0]):
         poss  = cposs [cix]     ; print("Positions: ",poss)   
@@ -514,6 +454,7 @@ if __name__ == "__main__":
             #photonMap2D_stamp( rhoTrans, lvec, z=options.ztip, sigma=options.radius, multipole_dict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=ncanv, byCenter=byCenter )
             rho, res, Vtip, dd = makePhotonMap( rhos, lvecs, tipDict=tipDict, rots=rots, poss=poss, coefs=coefs, ncanv=(wcanv,hcanv), byCenter=byCenter, fname=fname )
             #print("Debug ipl nvs: ",ipl,nvs,result["Ev"][cix*nvs+ipl,:],vs[ipl])
+            storeRho(rho.real,ipl,es,vs)
             storePhotonMap( res, result, ipl, es, vs )
             plotPhotonMap( rho, res, byCenter=byCenter, fname=fname, dd=dd )
 
@@ -532,8 +473,8 @@ if __name__ == "__main__":
         file1 = open(fnmb+".hdr", "w")
         result["stack"].astype('float32').tofile(fnmb+'.stk') #saving stack to file for further processing
         #result["E"].astype('float32').tofile(fnmb+'.e') #saving stack to file for further processing
-        file1.write("#Total_N Solver_N Xdim Ydim\n")
-        file1.write("#"+str(nnn)+" "+str(nvs)+" "+str(wcanv)+" "+str(hcanv)+"\n")
+        file1.write("#Total_N Solver_N Xdim Ydim Zdim\n")
+        file1.write("#"+str(nnn)+" "+str(nvs)+" "+str(wcanv)+" "+str(hcanv)+"\n"+str())
         file1.write("# EigenEnergy H_index EigenVector\n")
         for i in range(nnn):
             ee =result["E" ][i]
