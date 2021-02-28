@@ -88,7 +88,7 @@ def loadDensityFileNames( fname ):
             names.append( [w.strip() for w in ws] )
         else:
             names.append( ws[0].strip() )
-    print( "cubeNames", names )
+    #print( "cubeNames", names )
     return names
 
 def loadMolecules( fname ):
@@ -132,14 +132,14 @@ def makeCombination( S0, inds ):
 
 def loadRhoTrans( cubName=None):
     if cubName is not None:
-        print(cubName)
-        print(isinstance(cubName,str))
+        #print(cubName)
+        #print(isinstance(cubName,str))
         if (isinstance(cubName,str)):
             rhoName = cubName
             print(( ">>> Loading Transition density from ", rhoName, " ... " ))
             rhoTrans, lvec, nDim, head = GU.loadCUBE( rhoName,trden=True)
         else: 
-            print( "cubName ",   cubName )
+            #print( "cubName ",   cubName )
             homoName=cubName[0]
             lumoName=cubName[1]
             print(( ">>> Loading HOMO from ", homoName, " ... " ))
@@ -150,8 +150,8 @@ def loadRhoTrans( cubName=None):
             homo = photo.normalizeGridWf( homo )
             lumo = photo.normalizeGridWf( lumo )
             rhoTrans = homo*lumo
-            qh = (homo**2).sum()   ; print("q(homo) ",qh)
-            ql = (lumo**2).sum()   ; print("q(lumo) ",ql)
+            qh = (homo**2).sum()   #; print("q(homo) ",qh)
+            ql = (lumo**2).sum()   #; print("q(lumo) ",ql)
     if options.flip:
         print("Transposing XYZ->ZXY")
         lvec=lvec[:,[2,0,1]]
@@ -173,9 +173,9 @@ def loadCubeFiles( S0 ):
             cubName=(wdir+options.homo,wdir+options.lumo)
         print("CUBENAMES: ",cubName)
         rhoTrans, lvec  = loadRhoTrans(cubName)
-        nmol   = len( S0.poss )
-        S0.rhoIns = [rhoTrans]*nmol
-        S0.lvecs   = [lvec]    *nmol 
+        nmol        = len( S0.poss )
+        S0.rhoIns   = [rhoTrans]*nmol
+        S0.lvecs    = [lvec]    *nmol 
         loadedRhos  = [rhoTrans] 
         loadedLvecs = [lvec]
     else:
@@ -192,8 +192,8 @@ def loadCubeFiles( S0 ):
                 rh,lv   = loadRhoTrans(cubName)
                 loadedRhos .append(rh)
                 loadedLvecs.append(lv)
-            S0.rhoIns =[ loadedRhos [i] for i in S0.irhos ]
-            S0.lvecs   =[ loadedLvecs[i] for i in S0.irhos ]
+            S0.rhoIns = [ loadedRhos [i] for i in S0.irhos ]
+            S0.lvecs  = [ loadedLvecs[i] for i in S0.irhos ]
             # ToDo : we should load set of cube files here
         else:
             print("ERROR: This is just not going to work without any input density .cub file !")
@@ -231,16 +231,17 @@ def runExcitationSolver( system ):
     return es,vs,H
 
 def makePhotonMap( S, ipl, coefs, Vtip, dd_canv, byCenter=False  ):
-    print( "Volumetric ", options.volumetric, " dd_canv ", dd_canv )
+    #print( "Volumetric ", options.volumetric, " dd_canv ", dd_canv )
     if options.volumetric:
-        phmap_, rhoCanv_ = photo.photonMap3D_stamp( S.rhoIns, S.lvecs, Vtip,  dd_canv, rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
-        phmap = np.sum(phmap_,axis=0)
+        phmap, rhoCanv_ = photo.photonMap3D_stamp( S.rhoIns, S.lvecs, Vtip,  dd_canv, rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
+        #phmap = np.sum(phmap_,axis=0)   # phmap_ is already 2D
         rhoCanv = np.sum(rhoCanv_  ,axis=0)
         #(dx,dy,dz)=dd
     else:
         phmap, rhoCanv = photo.photonMap2D_stamp( S.rhoIns, S.lvecs, Vtip, dd_canv, rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
         #(dx,dy)=dd
     phmap = (phmap.real**2+phmap.imag**2)
+    #print( "phmap.shape ", phmap.shape  )
     S.phMaps  [ipl] = phmap
     S.rhoCanvs[ipl] = rhoCanv
     return rhoCanv, phmap
@@ -403,7 +404,6 @@ if __name__ == "__main__":
     tipDict =  { 's': 1.0 }
     #tipDict =  { 'px': 1.0  }
     #tipDict =  { 'py': 1.0  }
-    print( "Volumetric ", options.volumetric )
     dcanv = 0.2
     if options.volumetric:
         dd = (dcanv,dcanv,dcanv)
@@ -414,7 +414,7 @@ if __name__ == "__main__":
 
     #cposs,crots,ccoefs,cents,cens,combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
     inds = photo.combinator(S0.ents,subsys=options.subsys)
-    print(inds)
+    print( "combinator.inds ", inds )
     systems = [  makeCombination( S0, jnds ) for jnds in inds  ]
 
     ncomb = len(systems)

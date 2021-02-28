@@ -167,10 +167,13 @@ def sphericalHist( data, center, dr, n ):
     lib.sphericalHist( data, center, dr, n, Hs, Ws );
     return rs, Hs, Ws
 
-#void interpolateLine_gridCoord( int n, Vec3d * p1, Vec3d * p2, double * data, double * out )
+
+#void stampToGrid2D( int* ns1_, int* ns2_, Vec2d* p0_, Vec2d* a_, Vec2d* b_, double* g1, Vec2d*  g2 ){
 #void stampToGrid2D( int* ns1_, int* ns2_, Vec2d* p0_, Vec2d* a_, Vec2d* b_, double* g1, double* g2 ){
-lib.stampToGrid2D.argtypes = [ array1i, array1i, array1d, array1d, array1d, array2d, array2d, c_double ]
-lib.stampToGrid2D.restype  = None
+lib.stampToGrid2D        .argtypes = [ array1i, array1i, array1d, array1d, array1d, array2d, array2d, c_double ]
+lib.stampToGrid2D        .restype  = None
+lib.stampToGrid2D_complex.argtypes = [ array1i, array1i, array1d, array1d, array1d, array2d, array2d, array1d  ]
+lib.stampToGrid2D_complex.restype  = None
 def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0, byCenter=True, bComplex=False ):
     ca=np.cos(-angle)
     sa=np.sin(-angle)
@@ -191,26 +194,36 @@ def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0, byCenter=Tr
     else:
         lib.stampToGrid2D        ( ns1, ns2, p0, a, b, stamp, canvas, coef )
 
+#void stampToGrid3D        ( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp,  double* canvas,  double coef  ){
 #void stampToGrid3D_complex( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp_, double* canvas_, Vec2d* coef_ ){
-lib.stampToGrid3D_complex.argtypes = [ array1i, array1i, array1d, array2d, array3c, array3c, array1d ]
+lib.stampToGrid3D        .argtypes = [ array1i, array1i, array1d, array2d, array3d, array3d, c_double  ]
+lib.stampToGrid3D        .restype  = None
+lib.stampToGrid3D_complex.argtypes = [ array1i, array1i, array1d, array2d, array3c, array3c, array1d   ]
 lib.stampToGrid3D_complex.restype  = None
-def stampToGrid3D_complex( canvas, stamp, p0, angle=0., dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=False, rot=None ):
-    p0=np.array(p0)/np.array(dd)    #; print "p0", p0
-    #print "p0 ", p0
+def stampToGrid3D( canvas, stamp, p0, angle=0., dd=[1.0,1.0], coef=[1.0,0.0], byCenter=False, rot=None, bComplex=False ):
     if rot is None:
         rot = rot3DFormAngle(angle)
+        rot[0,:] *= dd[0] 
+        rot[1,:] *= dd[1]
+        rot[2,:] *= dd[2]
     if  isinstance(coef, float):
         coef_ = np.array([coef, 0.0])
     else:
         coef_ = np.array([coef.real, coef.imag])
     ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
     ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
-    #ns1=np.array( stamp .shape[:3], dtype=np.int32 )
-    #ns2=np.array( canvas.shape[:3], dtype=np.int32 )
     if byCenter:
         p0 = p0 + rot[0]*(ns1[0]*-0.5) + rot[1]*(ns1[1]*-0.5) #+ rot[2]*(ns1[2]*-0.5)
-        #print " p0 by Center ", p0
-    lib.stampToGrid3D_complex( ns1, ns2, p0, rot, stamp, canvas, coef_ )
+        p0[0] += ns2[0]*0.5
+        p0[1] += ns2[1]*0.5
+    if bComplex:
+        if  isinstance(coef, float):
+            coef = np.array([coef, 0.0])
+        else:
+            coef = np.array([coef.real, coef.imag])
+        lib.stampToGrid3D_complex( ns1, ns2, p0, rot, stamp, canvas, coef )
+    else:
+        lib.stampToGrid3D        ( ns1, ns2, p0, rot, stamp, canvas, coef )
 
 #void downSample3D( int* ns1_, int* ns2_, double* Fin, double* Fout ){
 lib.downSample3D.argtypes = [ array1i, array1i, array3d, array3d ]
@@ -218,7 +231,7 @@ lib.downSample3D.restype  = None
 def downSample3D( Fin, ndim=None, Fout=None ):
     if Fout is None:
         Fout = np.zeros(ndim)
-    print(Fin.shape, Fout.shape)
+    #print( "Fin.shape", Fin.shape, "Fout.shape", Fout.shape)
     ns1=np.array( Fin.shape[::-1],  dtype=np.int32 )
     ns2=np.array( Fout.shape[::-1], dtype=np.int32 )
     lib.downSample3D( ns1, ns2, Fin, Fout )
@@ -248,27 +261,6 @@ def coulombGrid_brute( rho1, rho2, pos1=(0.,0.,0.), pos2=(0.,0.,0.), lat1=None, 
         lat2 = np.array(lat2)
     #return lib.coulombGrid_brute( ns1, ns2, dpos, rot1, rot2, rho1, rho2 )
     return lib.coulombGrid_brute( ns1, ns2, pos1, pos2, lat1, lat2, rho1, rho2 )
-
-#lib..argtypes = [ array1i,  array2d,  ]
-#lib..restype  = None
-#def (  ):
-
-#void stampToGrid3D( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp, double* canvas, double coef ){
-lib.stampToGrid3D.argtypes = [ array1i, array1i,  array1d, array2d,  array3d, array3d, c_double  ]
-lib.stampToGrid3D.restype  = None
-def stampToGrid3D( canvas, stamp, p0, angle=0., dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=False, rot=None ):
-    p0=np.array(p0)/np.array(dd)
-    if rot is None:
-        rot = rot3DFormAngle(angle)
-    if  isinstance(coef, float):
-        coef_ = np.array([coef, 0.0])
-    else:
-        coef_ = np.array([coef.real, coef.imag])
-    ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
-    ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
-    if byCenter:
-        p0 = p0 + rot[0]*(ns1[0]*-0.5) + rot[1]*(ns1[1]*-0.5) #+ rot[2]*(ns1[2]*-0.5)
-    lib.stampToGrid3D( ns1, ns2, p0, rot, stamp, canvas, coef )
 
 #void makePositionGrid( int* ns_, double* pos0_, double* rot_, double* poss_ ){
 lib.makePositionGrid.argtypes = [ array1i,  array1d, array2d,  array4d ]

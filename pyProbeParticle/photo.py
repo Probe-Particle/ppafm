@@ -56,15 +56,13 @@ def getMGrid2D(nDim, dd):
     Y = XY[1] - yshift_;
     Y = dy * np.roll( Y, yshift, axis=1)
     X = dx * np.roll( X, xshift, axis=0)
-    #print X[:,0]
     return X, Y, (xshift, yshift)
 
 def getMGrid3D( nDim, dd ):
     'returns coordinate arrays X, Y, Z'
     (dx,dy,dz) = dd
     (nx,ny,nz) = nDim[:3]
-    print (dd)
-    #print (nDim)
+    # print ( "dd ", dd)
     XYZ = np.mgrid[0:nx,0:ny,0:nz].astype(float)
     X,xshift = shiftHalfAxis( XYZ[0], dx, nx, ax=0 )
     Y,yshift = shiftHalfAxis( XYZ[1], dy, ny, ax=1 )
@@ -74,43 +72,29 @@ def getMGrid3D( nDim, dd ):
 
 def makeTipField2D( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     Vtip = np.zeros( sh[:2] )
-    #X,Y,shifts  = getMGrid2D( sh, dd )
     Y,X,shifts  = getMGrid2D( sh, dd )
-    #X *= dd[0]; Y *= dd[1];  # this is already done in getMGrid
-    #print "Z = ", z
-    #print "(xmax,ymax) = ", X[-1,-1],Y[-1,-1],  X[0,0],Y[0,0]
     radial = 1/np.sqrt( X**2 + Y**2  + z**2 + sigma**2  ) 
-    #print "radial ", radial[:,radial.shape[1]/2]
     if multipole_dict is not None:    # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         Vtip = np.zeros( np.shape(radial) )
         for kind, coef in multipole_dict.items():
             Vtip += radial * coef * fFFT.getSphericalHarmonic( X, Y, z, kind=kind, tilt=0 )
     else:
         Vtip = radial
-    #Vtip = X
-    #Vtip = radial
-    #print "Vtip ", Vtip[:,Vtip.shape[1]/2]
     return Vtip, shifts
 
 def makeTipField3D( sh, dd, z0=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     Vtip = np.zeros( sh )
     X,Y,Z,shifts  = getMGrid3D( sh, dd )
+    #print( "X.shape ", X.shape )
     Z += z0
-    #X *= dd[0]; Y *= dd[1];  # this is already done in getMGrid
-    #print "Z = ", z
-    #print "(xmax,ymax) = ", X[-1,-1],Y[-1,-1],  X[0,0],Y[0,0]
     radial = 1/np.sqrt( X**2 + Y**2  + Z**2 + sigma**2 ) 
-    #print "radial ", radial[:,radial.shape[1]/2]
     if multipole_dict is not None:    # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         Vtip = np.zeros( np.shape(radial) )
         for kind, coef in multipole_dict.items():
             Vtip += radial * coef * fFFT.getSphericalHarmonic( X, Y, Z, kind=kind, tilt=0 )
     else:
         Vtip = radial
-    #print "Vtip.shape     ", Vtip.shape
     Vtip = Vtip.transpose((2,1,0)).copy()
-    #print " -> Vtip.shape ", Vtip.shape
-    #print "shifts ", shifts
     return Vtip, shifts
 
 def convFFT(F1,F2):
@@ -121,7 +105,6 @@ def convFFT(F1,F2):
 # ==========================================================================
 
 def evalGridStep2D( sh, lvec ):
-    #print( "lvec", lvec )
     return (
         lvec[3][2]/sh[0],
         lvec[2][1]/sh[1]
@@ -147,13 +130,9 @@ def photonMap2D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] 
         rho  = np.sum    (  rhos[i], axis=2  )
         rho  = rho.astype( dtype                 ) 
         ddi  = np.array(  evalGridStep2D( rhos[i].shape, lvecs[i] ) )
-        #pos = [ poss[i][0]+ncanv[0]*0.5*dd_canv[0],   poss[i][1]+ncanv[1]*0.5*dd_canv[1]  ]
         pos  = np.array( poss[i][:2] ) 
-        #print( "pos.sh ", pos.shape, "dd_canv.sh ", dd_canv.shape )
         pos    /= dd_canv
-        #print( "ddi ", ddi," ddcanv ", dd_canv )
         dd_fac = ddi/dd_canv
-        # ToDo : problem if the two grids does not have the same samplig
         if not isinstance(coef, float):
             coef = complex( coef[0], coef[1] )
         GU.stampToGrid2D( canvas, rho, pos, rots[i], dd=dd_fac, coef=coef, byCenter=byCenter, bComplex=bComplex)
@@ -164,29 +143,26 @@ def photonMap3D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] 
     ncanv = Vtip.shape
     dd_canv = np.array( dd_canv )
     if len(ncanv)<3:
-        ncanv = ( (ncanv[0],ncanv[1],rhos[0].shape[2] ) )
+        ncanv = ( (rhos[0].shape[2],ncanv[0],ncanv[1] ) )
     dtype=np.complex128
     if isinstance(coefs[0], float): dtype=np.float64    
-    canvas = np.zeros( ncanv[::-1],        dtype=dtype )
-
+    canvas = np.zeros( ncanv, dtype=dtype )
+    #print( "Vtip.shape ", Vtip.shape, " canvas.shape ", canvas.shape  )
     for i in range(len(poss)):
         coef = coefs[i]
         rho    = rhos[i].transpose((2,1,0)).astype( dtype ).copy()
-        #print "shape: stamp ", rho.shape, " canvas ", canvas.shape
-        #print lvec
         ddi = evalGridStep3D( rhos[i].shape, lvecs[i] )
-        dd_fac = ddi/dd_canv     # ( ddi[0]/dd_canv[0], ddi[1]/dd_canv[1], ddi[2]/dd_canv[2] )
+        dd_fac = ddi/dd_canv 
         pos  = np.array( poss[i] ) 
         pos    /= dd_canv
         coef = coefs[i]
-        if isinstance(coef, float):
-            #print("GU.stampToGrid3D()") 
-            GU.stampToGrid3D( canvas, rho, pos, rots[i], dd=dd_fac, coef=coef, byCenter=byCenter )
-        else:
-            #print("GU.stampToGrid3D_complex()")
+        if not isinstance(coef, float):
             coef = complex( coef[0], coef[1] )
-            GU.stampToGrid3D_complex( canvas, rho, pos, rots[i], dd=dd_fac, coef=coef, byCenter=byCenter )
-    phmap  = convFFT(Vtip,canvas)
+        GU.stampToGrid3D( canvas, rho, pos, rots[i], dd=dd_fac, coef=coef, byCenter=byCenter )
+    #phmap  = convFFT(Vtip,canvas)   # WARRNING : FFT should not be done in z-direction
+    phmap   = np.zeros( canvas.shape[1:], dtype=np.complex128  )
+    for i in range( canvas.shape[0] ):
+        phmap  += convFFT( Vtip[i,:,:],canvas[i,:,:]) 
     return phmap, canvas
 
 # ================================================================
@@ -245,8 +221,8 @@ def assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=False ):
             rho2 = rhos[j]
             ns2  = rho2.shape
             if byCenter: p2 = p2 + lat2[0,:]*(ns2[0]*-0.5) + lat2[1,:]*(ns2[1]*-0.5)
-            #if bDebug:
-            GU.setDebugFileName( "coulombGrid_%03i_%03i_.xyz" %(i,j) )
+            if bDebug:
+                GU.setDebugFileName( "coulombGrid_%03i_%03i_.xyz" %(i,j) )
             eij = GU.coulombGrid_brute( rho1, rho2, pos1=p1, pos2=p2, lat1=lat1, lat2=lat2 )
             eij *= prefactor
             H[i,j]=eij
@@ -278,7 +254,6 @@ def solveExcitonSystem( rhoTranss, lvecs, poss, rots, nSub=None, byCenter=False,
     poss = np.array(poss)
     if isinstance(Ediags, float ):
         Ediags=[Ediags]*n
-
     if not isinstance(rhoTranss,list):
         rho = prepareRhoTransForCoumpling( rhoTranss, nsub=nSub )
         rhos = [ rho ] * n
@@ -295,7 +270,6 @@ def solveExcitonSystem( rhoTranss, lvecs, poss, rots, nSub=None, byCenter=False,
         if bMultipole:
             mpol_coefs = GU.evalMultipole( rhos[i], rot=latMat )
             print("Mol[%i] multipoles coefs: " %i, mpol_coefs )
-
     H = assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=byCenter )
     if hackHfunc is not None: 
         hackHfunc( H )

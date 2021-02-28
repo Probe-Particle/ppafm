@@ -143,61 +143,32 @@ inline void acumQuadrupole( double val, const Vec3d& p, double* coefs ){
 extern "C" {
 
     int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline) {
-    
         setlocale( LC_ALL, "C" ); // https://msdn.microsoft.com/en-us/library/x99tb11d(v=vs.71).aspx
-        //setlocale( LC_ALL, "" );
-        //setlocale( LC_ALL, "En_US" );  // to sove problem with ',' vs '.' caused by PyQt
-        
         FILE *f;
-        char line[5000]; // define a length which is long enough to store a line
+        const int nbuff = 4096;
+        char line[nbuff]; // define a length which is long enough to store a line
         char *waste;
         int waste2;
-        //int i=0, j=0, k=0, tot=0; 
-        //int nx=dims[0];
-        //int ny=dims[1];
-        //int nz=dims[2];
-        //printf ("FileRead program: reading %s file\n", fname);
-        //printf ("XYZ dimensions are %i %i %i  noline %i \n", dims[0], dims[1], dims[2], noline );
         f=fopen(fname, "r");
         if (f==NULL)        {
-            fprintf(stderr, "Can't open the file %s", fname);
+            //fprintf(stderr, "Can't open the file %s", fname);
+            printf( "Can't open the file %s", fname);
             exit (1); 
         }
         for (int i=0; i<noline; i++) {   
-            waste=fgets(line,5000, f);
-            //printf ("waste[%i]: %s",i, line );    
+            waste=fgets(line,nbuff, f);    
         }
-        //printf ("Line: %s", line);
-        //int i=0;
         double nums[8];
         int ntot = dims[0] * dims[1] * dims[2]; 
         int itot=0;
         for(int il=0; il<ntot; il++){
-            //waste=fgets(line,5000, f);
-            //printf( "[%i,%i] >>%s<<\n", il, itot, line );
             int ngot = fscanf(f,"%lf %lf %lf %lf %lf %lf %lf %lf", &nums[0],&nums[1],&nums[2],&nums[3],&nums[4],&nums[5],&nums[6],&nums[7] );
-            //int ngot = sscanf(line,"%lf %lf %lf %lf %lf %lf %lf %lf",              &nums[0],&nums[1],&nums[2],&nums[3],&nums[4],&nums[5],&nums[6],&nums[7] );
-            //printf       ( "ngot %i \n", ngot );
-            //printf       ( "[%i,%i] %g %g %g %g %g %g %g %g \n", il, itot, nums[0],nums[1],nums[2],nums[3],nums[4],nums[5],nums[6],nums[7] );
-
-//	    if (il == 0){
-		    
-//		    printf("****** %lf %lf %lf %lf %lf %lf %lf %lf\n", nums[0],nums[1],nums[2],nums[3],nums[4],nums[5],nums[6],nums[7] );}
-
             for(int j=0; j<ngot; j++ ){
                 numbers[itot]=nums[j];
                 itot++;
             }
             if(itot>=ntot) break;
-            //waste=fgets(line,5000, f);
-            //waste2=fscanf(f,"%lf",&numbers[tot]);
-            //printf ("line[%i] %s", i, line );
-            //printf ("%20.20lf ", numbers[tot]);
-            //printf ("%i %i %i %f \n", k, j, i, numbers[tot] );
-            //if (il > 50 ) exit(1);
         }
-//       printf ("%lf %lf %lf %lf %lf\n", numbers[tot-1], numbers[tot-2], numbers[tot-3], numbers[tot-4], numbers[tot-5]);
-        //printf("Reading DONE\n");
         fclose(f);
         return 0;
     }
@@ -212,7 +183,7 @@ extern "C" {
         //printf( " interpolateLine n %i  p0 (%g,%g,%g) p1 (%g,%g,%g) \n", n,   p0->x,p0->y,p0->z, p1->x,p1->y,p1->z );
         Vec3d dp,p; 
         dp.set_sub( *p1, *p0 );
-        dp.mul( 1.0d/n );
+        dp.mul( 1.0/n );
         p.set( *p0 );
         //printf( " interpolateLine n %i  p (%g,%g,%g) dp (%g,%g,%g) \n", n,   p.x,p.y,p.z, dp.x,dp.y,dp.z );
         for( int i=0; i<n; i++ ){ 
@@ -225,7 +196,7 @@ extern "C" {
     void interpolateLine_cartes( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
         Vec3d dp,p; 
         dp.set_sub( *p1, *p0 );
-        dp.mul( 1.0d/n );
+        dp.mul( 1.0/n );
         p.set( *p0 );
         for( int i=0; i<n; i++ ){ 
             //printf( " i, n  %i %i  pi0  %f %f %f  \n", i, n,  p.x,p.y,p.z );
@@ -243,8 +214,8 @@ extern "C" {
         //printf( "gridShape.n %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
         //printf( "n (%i,%i) (%g,%g,%g) (%g,%g,%g) (%g,%g,%g) (%g,%g,%g) \n", nij[0],nij[1],   p00->x,p00->y,p00->z,   p01->x,p01->y,p01->z,   p10->x,p10->y,p10->z,   p11->x,p11->y,p11->z );
         Vec3d dpi0,dpi1,pi0,pi1;
-        dpi0.set_sub( *p10, *p00 ); dpi0.mul( 1.0d/ni );
-        dpi1.set_sub( *p11, *p01 ); dpi1.mul( 1.0d/ni );
+        dpi0.set_sub( *p10, *p00 ); dpi0.mul( 1.0/ni );
+        dpi1.set_sub( *p11, *p01 ); dpi1.mul( 1.0/ni );
         pi0.set( *p00 );
         pi1.set( *p01 );
         //printf( "(%g,%g,%g) (%g,%g,%g) \n",   dpi0.x,dpi0.y,dpi0.z, dpi1.x,dpi1.y,dpi1.z );
@@ -494,7 +465,7 @@ extern "C" {
                 }
             }
         }
-        printf( "downSample3D DONE \n");
+        //printf( "downSample3D DONE \n");
     }
 
 void setDebugFileName( const char* fname ){
@@ -517,8 +488,10 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
         //int nxy1=ns1.x*ns1.y;
         //int nxy2=ns2.x*ns2.y;
         int nyz1=ns1.y*ns1.z;
-        printf("rot1:\n");rot1.print();
-        printf("nxyz: %i %i %i \n", ns1.x, ns1.y, ns1.z); ;
+        if(bDebug){
+            printf("C++ rot1:\n");rot1.print();
+            printf("C++ nxyz: %i %i %i \n", ns1.x, ns1.y, ns1.z);
+        }
         //return;
         for(int ix=0; ix<ns1.x; ix++){
             for(int iy=0; iy<ns1.y; iy++){
@@ -558,13 +531,13 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
         FILE *fdebug;
         if(bDebug){
             Vec3d pmax; rot1.dot_to_T({(double)ns1.x,(double)ns1.y,(double)ns1.z},pmax); 
-            printf( "C++ n1x,y,z %i %i %i \n", ns1.x, ns1.y, ns1.z );
-            printf( "C++ n2x,y,z %i %i %i \n", ns2.x, ns2.y, ns2.z );
+            printf("C++ n1x,y,z %i %i %i \n", ns1.x, ns1.y, ns1.z );
+            printf("C++ n2x,y,z %i %i %i \n", ns2.x, ns2.y, ns2.z );
             printf("C++ pmax %g %g %g \n", pmax.x,pmax.y,pmax.z);
             printf("C++ nxyz1 %i nxyz2 %i \n", ns1.totprod(), ns2.totprod() );
-            printf("rot1:\n");rot1.print();
-            printf("rot2:\n");rot2.print();
-            printf( "debug output to file '%s'\n", debug_file_name.c_str() );
+            printf("C++ rot1:\n");rot1.print();
+            printf("C++ rot2:\n");rot2.print();
+            printf( "C++ debug output to file '%s'\n", debug_file_name.c_str() );
             fdebug = fopen(debug_file_name.c_str(), "w");
             //FILE *fdebug = fopen("coulombGrid_brute_poss.xyz", "w");
             fprintf(fdebug, "%i\n", ns1.totprod()+ns2.totprod()+1 );
@@ -734,7 +707,9 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
     void setGridN( int * n ){
         //gridShape.n.set( *(Vec3i*)n );
         gridShape.n.set( n[2], n[1], n[0] );
-        printf( " nxyz  %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
+        if(bDebug){
+            printf( "C++ nxyz  %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
+        }
     }
 
     void setGridCell( double * cell ){
