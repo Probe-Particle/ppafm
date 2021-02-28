@@ -340,7 +340,6 @@ extern "C" {
         Mat3d rot  = *(Mat3d*)rot_;
         Vec2d coef = *(Vec2d*)coef_;
         //printf( " sizeof(double) %i sizeof(Vec2d) %i \n", sizeof(double), sizeof(Vec2d) );
-        //printf( "stampToGrid2D_complex START\n");
         Vec2d* stamp  = (Vec2d*)stamp_;
         Vec2d* canvas = (Vec2d*)canvas_;
         //printf( "ns1 %i %i %i \n", ns1.x, ns1.y, ns1.z );
@@ -399,7 +398,6 @@ extern "C" {
         //ix=10; iy=10; for(int iz=0;iz<ns2.z;iz++){ int i= iz*nxy + iy*ns2.x + ix; canvas[i].x=1.0; canvas[i].y=2.0; };
         //j=100; for(int i=0;i<ns2.y;i++){ canvas[j*ns2.x+i].x=1.0; canvas[j*ns2.x+i].y=2.0; };
         //j=100; for(int i=0;i<ns2.z;i++){ canvas[j*ns2.x+i].x=1.0; canvas[j*ns2.x+i].y=2.0; };
-        //printf( "stampToGrid2D_complex DONE \n");
     }
 
     void stampToGrid3D( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp, double* canvas, double coef ){
@@ -417,7 +415,6 @@ extern "C" {
     void downSample3D( int* ns1_, int* ns2_, double* Fin, double* Fout ){
         Vec3i ns1 = *(Vec3i*)ns1_;
         Vec3i ns2 = *(Vec3i*)ns2_;
-        //printf( "stampToGrid2D \n");
         //Vec3d f   =  (Vec3d){ ns1.x/ns2.x, ns1.y/ns2.y, ns1.z/ns2.z };
         Vec3d f   =  (Vec3d){ ns2.x/(double)ns1.x, ns2.y/(double)ns1.y, ns2.z/(double)ns1.z };
         //printf( "%g %g %g \n", f.x, f.y, f.z   );
@@ -593,7 +590,6 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
             }
         }
         //printf( "nops %i \n", nops );
-        //printf( "stampToGrid2D DONE \n");
 #if DEBUG_FILE
         if(bDebug){ fclose(fdebug); }
 #endif

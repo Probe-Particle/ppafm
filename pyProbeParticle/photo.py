@@ -70,7 +70,8 @@ def getMGrid3D( nDim, dd ):
     Z = XYZ[2]
     return X*dx, Y*dy, Z*dz, (xshift, yshift, 0)
 
-def makeTipField2D( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
+'''
+def makeTipField2D( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, bSTM=False, b3D=False ):
     Vtip = np.zeros( sh[:2] )
     Y,X,shifts  = getMGrid2D( sh, dd )
     radial = 1/np.sqrt( X**2 + Y**2  + z**2 + sigma**2  ) 
@@ -81,20 +82,28 @@ def makeTipField2D( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
     else:
         Vtip = radial
     return Vtip, shifts
+'''
 
-def makeTipField3D( sh, dd, z0=10.0, sigma=1.0, multipole_dict={'s':1.0} ):
+def makeTipField( sh, dd, z0=10.0, sigma=1.0, multipole_dict={'s':1.0}, b3D=False, bSTM=False, beta=1.0 ):
     Vtip = np.zeros( sh )
-    X,Y,Z,shifts  = getMGrid3D( sh, dd )
-    #print( "X.shape ", X.shape )
-    Z += z0
-    radial = 1/np.sqrt( X**2 + Y**2  + Z**2 + sigma**2 ) 
+    if b3D:
+        X,Y,Z,shifts  = getMGrid3D( sh,     dd )
+        Z += z0
+    else:
+        Y,X,shifts    = getMGrid2D( sh[:2], dd[:2] )
+        Z = z0
+    if bSTM:
+        radial = np.exp( -beta * np.sqrt( X**2 + Y**2  + Z**2 )  )
+    else:
+        radial = 1/np.sqrt( X**2 + Y**2  + Z**2 + sigma**2 ) 
     if multipole_dict is not None:    # multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         Vtip = np.zeros( np.shape(radial) )
         for kind, coef in multipole_dict.items():
             Vtip += radial * coef * fFFT.getSphericalHarmonic( X, Y, Z, kind=kind, tilt=0 )
     else:
         Vtip = radial
-    Vtip = Vtip.transpose((2,1,0)).copy()
+    if b3D:
+        Vtip = Vtip.transpose((2,1,0)).copy()
     return Vtip, shifts
 
 def convFFT(F1,F2):

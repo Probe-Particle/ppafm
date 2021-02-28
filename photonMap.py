@@ -37,7 +37,7 @@ bDebug = False
 
 class ExitonSystem:
     # see https://stackoverflow.com/questions/3603502/prevent-creating-new-attributes-outside-init
-    __slots__ = [ 'poss','rots','Ediags','irhos','ents',    'Ham','eigEs','eigVs',    'lvecs','rhoIns','rhoCanvs','Vtip','phMaps'  ]
+    __slots__ = [ 'poss','rots','Ediags','irhos','ents',    'Ham','eigEs','eigVs',    'lvecs','rhoIns','rhoCanvs','Vtip','phMaps', 'STMmap', 'wfIns'  ]
     def __init__(self):
         for at in self.__slots__:
             self.__setattr__( at, None)
@@ -130,18 +130,18 @@ def makeCombination( S0, inds ):
     #system  = ExitonSystem( poss=poss,rots=rots,Ediags=Ediags,irhos=irhos,ents=ents,    Ham=None,eigEs=None,eigVs=eigVs,  lvecs=lvecs,rhosIns=rhosIns,rhoCanvs=None,Vti=None,PhMaps=None  )
     return S
 
-def loadRhoTrans( cubName=None):
+def loadRhoTrans( cubName=None ):
     if cubName is not None:
         #print(cubName)
         #print(isinstance(cubName,str))
         if (isinstance(cubName,str)):
-            rhoName = cubName
+            rhoName = wdir+cubName
             print(( ">>> Loading Transition density from ", rhoName, " ... " ))
             rhoTrans, lvec, nDim, head = GU.loadCUBE( rhoName,trden=True)
         else: 
             #print( "cubName ",   cubName )
-            homoName=cubName[0]
-            lumoName=cubName[1]
+            homoName=wdir+cubName[0]
+            lumoName=wdir+cubName[1]
             print(( ">>> Loading HOMO from ", homoName, " ... " ))
             homo, lvecH, nDimH, headH = GU.loadCUBE( homoName )
             print(( ">>> Loading LUMO from ", lumoName, " ... " ))
@@ -162,44 +162,45 @@ def loadRhoTrans( cubName=None):
         rhoTrans=(np.transpose(rhoTrans,(1,2,0))).copy()
     return rhoTrans, lvec
 
+def loadCubeFilesINI( S0, fname_ini ):
+    print("Found density list from: "+fname_ini)
+    cubeNames   = loadDensityFileNames( wdir+fname_ini )
+    loadedRhos  = []
+    loadedLvecs = [] 
+    for cubName in cubeNames:
+        rh,lv   = loadRhoTrans(cubName)
+        loadedRhos .append(rh)
+        loadedLvecs.append(lv)
+    #S0.rhoIns = [ loadedRhos [i] for i in S0.irhos ]
+    #S0.lvecs  = [ loadedLvecs[i] for i in S0.irhos ]
+    # ToDo : we should load set of cube files here
+    return  loadedRhos, loadedLvecs 
+
 def loadCubeFiles( S0 ):
     if ((os.path.isfile(wdir+options.homo) and os.path.isfile(wdir+options.lumo)) or os.path.isfile(wdir+options.dens) ):
         # ---- This is the old way, without a valid cubelist, script expects a -D or -H and -L directives
         #      oposs, orots, ocoefs, oens, oirhos, oents = makeMoleculesInline( )
         print("Loading densities from comand-line options")
         if os.path.isfile(wdir+options.dens):
-            cubName=(wdir+options.dens)
+            cubName=(options.dens)
         else:
-            cubName=(wdir+options.homo,wdir+options.lumo)
+            cubName=(options.homo,options.lumo)
         print("CUBENAMES: ",cubName)
         rhoTrans, lvec  = loadRhoTrans(cubName)
-        nmol        = len( S0.poss )
-        S0.rhoIns   = [rhoTrans]*nmol
-        S0.lvecs    = [lvec]    *nmol 
         loadedRhos  = [rhoTrans] 
         loadedLvecs = [lvec]
+        nmol = len( S0.rots )
+        S0.rhoIns   = [rhoTrans]*nmol
+        S0.lvecs    = [lvec]    *nmol 
     else:
         if os.path.exists(wdir+options.cubelist): #check for cubelist ini file
-            print("Found density list from: "+wdir+options.cubelist)
-            cubeNames   = loadDensityFileNames( wdir+options.cubelist )
-            loadedRhos  =[]
-            loadedLvecs =[] 
-            for cubName in cubeNames:
-                if not(isinstance(cubName,str)):
-                    cubName=(wdir+cubName[0],wdir+cubName[1])
-                else:
-                    cubName=wdir+cubName
-                rh,lv   = loadRhoTrans(cubName)
-                loadedRhos .append(rh)
-                loadedLvecs.append(lv)
+            loadedRhos, loadedLvecs = loadCubeFilesINI( S0, wdir+options.cubelist )
             S0.rhoIns = [ loadedRhos [i] for i in S0.irhos ]
             S0.lvecs  = [ loadedLvecs[i] for i in S0.irhos ]
-            # ToDo : we should load set of cube files here
         else:
             print("ERROR: This is just not going to work without any input density .cub file !")
-            quit()
+            exit()
     return loadedRhos, loadedLvecs
-
 
 def runExcitationSolver( system ):
     if options.subsampling:
@@ -230,15 +231,20 @@ def runExcitationSolver( system ):
         file1.close()
     return es,vs,H
 
+def makeSTMmap( S, coefs, wfTip, dd_canv, byCenter=False  ):
+    Tmap, wfCanv = photo.photonMap2D_stamp( S.wfIns, S.lvecs, wfTip, dd_canv[:2], rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
+    Imap = ( Tmap.real**2 + Tmap.imag**2 )
+    return Imap, wfCanv
+
 def makePhotonMap( S, ipl, coefs, Vtip, dd_canv, byCenter=False  ):
     #print( "Volumetric ", options.volumetric, " dd_canv ", dd_canv )
     if options.volumetric:
-        phmap, rhoCanv_ = photo.photonMap3D_stamp( S.rhoIns, S.lvecs, Vtip,  dd_canv, rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
+        phmap, rhoCanv_ = photo.photonMap3D_stamp( S.rhoIns, S.lvecs, Vtip, dd_canv, rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
         #phmap = np.sum(phmap_,axis=0)   # phmap_ is already 2D
         rhoCanv = np.sum(rhoCanv_  ,axis=0)
         #(dx,dy,dz)=dd
     else:
-        phmap, rhoCanv = photo.photonMap2D_stamp( S.rhoIns, S.lvecs, Vtip, dd_canv, rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
+        phmap, rhoCanv = photo.photonMap2D_stamp( S.rhoIns, S.lvecs, Vtip, dd_canv[:2], rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
         #(dx,dy)=dd
     phmap = (phmap.real**2+phmap.imag**2)
     #print( "phmap.shape ", phmap.shape  )
@@ -315,6 +321,8 @@ if __name__ == "__main__":
     parser.add_option( "-m", "--molecules", action="store", type="string", default="molecules.ini",  help="filename from which to read excitonic coordinates and other attributes")
     parser.add_option( "-i", "--images", action="store_true", default=False,  help="save output as images")
     parser.add_option( "-j", "--hide", action="store_true", default=False,  help="hide any graphical output; causes saved images to split into separate items")
+    #parser.add_option( "-I", "--current", action="store_true", default=False,  help="tunelling current (STM) modulation beta")
+    parser.add_option( "-b", "--beta", action="store", type="float", default=-1,  help="tunelling current (STM) modulation beta")
 
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
     (options, args) = parser.parse_args()
@@ -401,16 +409,40 @@ if __name__ == "__main__":
     #tipDict =  { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
     #tipDict =  { 's': 1.0, 'py':1.0  }
     #tipDict =  { 's': 1.0, 'dy2':1.0  }
-    tipDict =  { 's': 1.0 }
-    #tipDict =  { 'px': 1.0  }
-    #tipDict =  { 'py': 1.0  }
+    tipDict   =  { 's': 1.0 }
+    #tipDict  =  { 'px': 1.0  }
+    #tipDict  =  { 'py': 1.0  }
+    #tipDictSTM =  { 's': 1.0 }
+    tipDictsSTM =  [{ 'px': 1.0 },{ 'py': 1.0 }]
     dcanv = 0.2
-    if options.volumetric:
-        dd = (dcanv,dcanv,dcanv)
-        Vtip, shifts = photo.makeTipField3D( (wcanv,hcanv,10), dd, z0=options.ztip, sigma=options.radius, multipole_dict=tipDict )
-    else:
-        dd = (dcanv,dcanv)
-        Vtip, shifts = photo.makeTipField2D( (wcanv,hcanv   ), dd, z=options.ztip,  sigma=options.radius, multipole_dict=tipDict )
+    dd = (dcanv,dcanv,dcanv)
+    Vtip, shifts = photo.makeTipField( (wcanv,hcanv,10), dd, z0=options.ztip, sigma=options.radius, multipole_dict=tipDict, b3D=options.volumetric )
+    if not options.hide:
+        if options.volumetric:
+            fig=plt.figure(figsize=(5*2,5))
+            plt.subplot(1,2,1); plt.imshow( np.fft.fftshift(Vtip[-1]), origin='image' ); plt.title( 'Tip Cavity Field[Top]'    )
+            plt.subplot(1,2,2); plt.imshow( np.fft.fftshift(Vtip[ 0]), origin='image' ); plt.title( 'Tip Cavity Field[Bottom]' )
+        else:
+            fig=plt.figure(figsize=(5,5))
+            plt.imshow( Vtip, origin='image' ); plt.title( 'Tip Cavity Field' )
+    if options.beta > 0:
+        loadedWfs, loadedLvecs_ = loadCubeFilesINI( S0, wdir+"wfs.ini" )
+        S0.wfIns = [ loadedWfs[i] for i in S0.irhos ]
+        for i,tipDictSTM in enumerate( tipDictsSTM ):
+            tipWf, shifts_STM = photo.makeTipField( (wcanv,hcanv,10), dd, z0=options.ztip, sigma=options.radius, multipole_dict=tipDictSTM, b3D=False, bSTM=True, beta=options.beta )
+            STMmap_, wfCanv = makeSTMmap( S0, [ 1.0 ]*len(S0.rots), tipWf, dd, byCenter=byCenter )
+            if i==0:
+                tipWf_ = tipWf**2
+                STMmap = STMmap_
+            else:
+                tipWf_ += tipWf**2
+                STMmap += STMmap
+        if not options.hide:
+            tipWf_ = np.fft.fftshift( tipWf_ )
+            fig=plt.figure(figsize=(5*3,5))
+            plt.subplot(1,3,1); plt.imshow( tipWf_, origin='image' ); plt.title( 'Tip Wf'      )
+            plt.subplot(1,3,2); plt.imshow( wfCanv, origin='image' ); plt.title( 'Sample Wf '  )
+            plt.subplot(1,3,3); plt.imshow( STMmap, origin='image' ); plt.title( 'STM current ')
 
     #cposs,crots,ccoefs,cents,cens,combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
     inds = photo.combinator(S0.ents,subsys=options.subsys)
@@ -434,6 +466,9 @@ if __name__ == "__main__":
         for ipl in range(len(S.eigVs)):
             fname=fnmb+("_03%i_03%i" %(cix, ipl) )
             makePhotonMap( S, ipl, S.eigVs[ipl], Vtip, dd, byCenter=byCenter )
+            #rhoCanv, phmap = makePhotonMap( S, S.eigVs[ipl], Vtip, dd, byCenter=byCenter )
+            #S.phMaps  [ipl] = phmap
+            #S.rhoCanvs[ipl] = rhoCanv
             imsaveTxt( fname+'_phMap.txt'  , S.phMaps  [ipl], S )
             imsaveTxt( fname+'_rhoCanv.txt', S.rhoCanvs[ipl], S )
             plotPhotonMap( S, ipl,ncomb,nvs, byCenter=byCenter, fname=fname, dd=dd )
