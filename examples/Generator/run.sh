@@ -7,4 +7,4 @@ PPPATH="../../"
 #python $PPPATH/pyProbeParticle/GeneratorOCL_LJC.py -Y D-S-H
 #python $PPPATH/pyProbeParticle/GeneratorOCL_LJC.py -Y Bonds
 #python $PPPATH/pyProbeParticle/GeneratorOCL_LJC.py -Y AtomRfunc
-python $PPPATH/pyProbeParticle/GeneratorOCL_LJC.py -Y AtomsAndBonds
+python3 $PPPATH/pyProbeParticle/GeneratorOCL_LJC.py -Y AtomsAndBonds

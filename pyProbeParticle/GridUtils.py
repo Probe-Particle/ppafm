@@ -171,54 +171,25 @@ def sphericalHist( data, center, dr, n ):
 #void stampToGrid2D( int* ns1_, int* ns2_, Vec2d* p0_, Vec2d* a_, Vec2d* b_, double* g1, double* g2 ){
 lib.stampToGrid2D.argtypes = [ array1i, array1i, array1d, array1d, array1d, array2d, array2d, c_double ]
 lib.stampToGrid2D.restype  = None
-def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0, byCenter=True ):
-    #print( " p00_0 ", p0  )
-    #p0=np.array(p0)/np.array(dd)
+def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0, byCenter=True, bComplex=False ):
     ca=np.cos(-angle)
     sa=np.sin(-angle)
-    #a =np.array([ca,-sa]) #*dd[0]
-    #b =np.array([sa, ca]) #*dd[1]
-    b    = np.array([ca,-sa]) #*dd[0]   # ToDo : This is just quick fix for the fact that data-array are transposed 
-    a    = np.array([sa, ca]) #*dd[1]
+    b    = np.array([ca,-sa]) *dd[0]   # ToDo : This is just quick fix for the fact that data-array are transposed 
+    a    = np.array([sa, ca]) *dd[1]
     ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
     ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
     if byCenter:
-        #print( " p0_0 ", p0  )
-        #p0  = p0 + a*(ns1[0]*-0.5) + b*(ns1[1]*-0.5)
-        #p0*=0
         p0+=a*(ns1[0]*-0.5)+b*(ns1[1]*-0.5)
-        p0[0] += ns2[0]*0.5 #+ 100.0 
-        p0[1] += ns2[1]*0.5 #+ 100.0
-    #print( " ns1 ", ns1, " a ",a, " b ",b  )
-    #print( " ns2 ", ns2, " ns1 ", ns1  )
-    #print( " p0 ", p0 )
-    #print( " dd ", dd )
-    lib.stampToGrid2D( ns1, ns2, p0, a, b, stamp, canvas, coef )
-
-
-#void stampToGrid2D_complex( int* ns1_, int* ns2_, Vec2d* p0_, Vec2d* a_, Vec2d* b_, double* stamp_, double* canvas_, Vec2d* coef_ ){
-lib.stampToGrid2D_complex.argtypes = [ array1i, array1i, array1d, array1d, array1d, array2c, array2c, array1d ]
-lib.stampToGrid2D_complex.restype  = None
-def stampToGrid2D_complex( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=complex(1.0,0.0), byCenter=False ):
-    p0=np.array(p0)/np.array(dd)
-    #print "p0 ", p0
-    ca=np.cos(-angle)
-    sa=np.sin(-angle)
-    #a    = np.array([ca,-sa]) #*dd[0]
-    #b    = np.array([sa, ca]) #*dd[1]
-    b    = np.array([ca,-sa]) #*dd[0]   # ToDo : This is just quick fix for the fact that data-array are transposed 
-    a    = np.array([sa, ca]) #*dd[1]
-    if  isinstance(coef, float):
-        coef_ = np.array([coef, 0.0])
+        p0[0] += ns2[0]*0.5
+        p0[1] += ns2[1]*0.5
+    if bComplex:
+        if  isinstance(coef, float):
+            coef = np.array([coef, 0.0])
+        else:
+            coef = np.array([coef.real, coef.imag])
+        lib.stampToGrid2D_complex( ns1, ns2, p0, a, b, stamp, canvas, coef )
     else:
-        coef_ = np.array([coef.real, coef.imag])
-    ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
-    ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
-    if byCenter:
-        p0 = p0 + a*(ns1[0]*-0.5) + b*(ns1[1]*-0.5) 
-    #print "ns1, ns2 ", ns1, ns2
-    lib.stampToGrid2D_complex( ns1, ns2, p0, a, b, stamp, canvas, coef_ )
-    #lib.stampToGrid2D_complex( ns1, ns2, p0, b, a, stamp, canvas, coef_ )
+        lib.stampToGrid2D        ( ns1, ns2, p0, a, b, stamp, canvas, coef )
 
 #void stampToGrid3D_complex( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp_, double* canvas_, Vec2d* coef_ ){
 lib.stampToGrid3D_complex.argtypes = [ array1i, array1i, array1d, array2d, array3c, array3c, array1d ]

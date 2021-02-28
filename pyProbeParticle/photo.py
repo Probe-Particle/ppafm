@@ -120,29 +120,6 @@ def convFFT(F1,F2):
 #      Functions to project trasition densities on a common grid (Canvas)
 # ==========================================================================
 
-'''
-# ---- DEPRECATED
-def photonMap2D( rhoTrans, tipDict, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}):
-    sh = rhoTrans.shape
-    #print "shape: ", sh
-    #rho  = np.zeros( (sh[:2]) )
-    rho  = np.sum(  rhoTrans, axis=2) 
-    #Vtip = np.zeros( (sh[:2]) )
-    #print lvec
-    dx   = lvec[3][2]/sh[0]; #print lvec[3][2],sh[0]
-    dy   = lvec[2][1]/sh[1]; #print lvec[2][1],sh[1]
-    dd = (dx,dy)
-    #print " (dx,dy) ", dd
-    Vtip, shifts = makeTipField2D( sh[:2], dd, z=z, sigma=sigma, multipole_dict=multipole_dict )
-    renorm = 1./( (Vtip**2).sum() * (rho**2).sum() )
-    phmap  = convFFT(Vtip,rho).real * renorm
-    #print "rho  ", rho.shape  
-    #print "Vtip ", Vtip.shape  
-    Vtip = np.roll( Vtip, -shifts[1], axis=1)
-    Vtip = np.roll( Vtip, -shifts[0], axis=0)
-    return phmap, Vtip, rho , dd
-'''
-
 def evalGridStep2D( sh, lvec ):
     #print( "lvec", lvec )
     return (
@@ -150,134 +127,73 @@ def evalGridStep2D( sh, lvec ):
         lvec[2][1]/sh[1]
     )
 
-def photonMap2D_stamp( rhos, lvecs, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], ncanv=(300,300),byCenter=False ):
-    
-    dd_canv = evalGridStep2D( rhos[0].shape, lvecs[0] )
-    dtype=np.complex128
-    if isinstance(coefs[0], float): dtype=np.float64    
-    canvas = np.zeros  ( ncanv, dtype=dtype ) 
-    
+def evalGridStep3D( sh, lvec ):
+    return (
+        lvec[3][2]/sh[0],
+        lvec[2][1]/sh[1],
+        lvec[1][0]/sh[2],    
+    )
+
+def photonMap2D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], byCenter=False, bComplex=False ):
+    ncanv = Vtip.shape
+    dd_canv = np.array( dd_canv )
+    if bComplex:
+        dtype=np.complex128
+    else:
+        dtype=np.float64    
+    canvas = np.zeros( ncanv, dtype=dtype )
     for i in range(len(poss)):
-        
         coef = coefs[i]
-        rho = np.sum    (  rhos[i], axis=2  )
-        rho = rho.astype( dtype                 ) 
-        ddi = evalGridStep2D( rhos[i].shape, lvecs[i] )
+        rho  = np.sum    (  rhos[i], axis=2  )
+        rho  = rho.astype( dtype                 ) 
+        ddi  = np.array(  evalGridStep2D( rhos[i].shape, lvecs[i] ) )
         #pos = [ poss[i][0]+ncanv[0]*0.5*dd_canv[0],   poss[i][1]+ncanv[1]*0.5*dd_canv[1]  ]
-        pos  = poss[i][:2]    ; print( "pos ", pos )
-
-        pos   = np.array(pos)/np.array(dd_canv)
-        dd_fac=( ddi[0]/dd_canv[0], ddi[1]/dd_canv[1] )
-
+        pos  = np.array( poss[i][:2] ) 
+        #print( "pos.sh ", pos.shape, "dd_canv.sh ", dd_canv.shape )
+        pos    /= dd_canv
+        #print( "ddi ", ddi," ddcanv ", dd_canv )
+        dd_fac = ddi/dd_canv
         # ToDo : problem if the two grids does not have the same samplig
-        if isinstance(coef, float):
-            #print("GU.stampToGrid2D()") 
-            GU.stampToGrid2D( canvas, rho, pos, rots[i], dd=dd_fac, coef=coef, byCenter=byCenter )
-        else:
-            #print("GU.stampToGrid2D_complex()")
+        if not isinstance(coef, float):
             coef = complex( coef[0], coef[1] )
-            GU.stampToGrid2D_complex( canvas, rho, pos, rots[i], dd=dd_fac, coef=coef, byCenter=byCenter)
+        GU.stampToGrid2D( canvas, rho, pos, rots[i], dd=dd_fac, coef=coef, byCenter=byCenter, bComplex=bComplex)
+    phmap  = convFFT(Vtip,canvas)
+    return phmap, canvas
 
-    #canvas = np.zeros((300,300))
-
-    Vtip, shifts = makeTipField2D( ncanv[:2], dd_canv, z=z, sigma=sigma, multipole_dict=multipole_dict )
-    #renorm = 1./( (Vtip**2).sum() * (rho.real**2+rho.imag**2).sum() )
-    renorm = 1./( (Vtip**2).sum() )
-    phmap  = convFFT(Vtip,canvas) * renorm
-    #print "rho  ", rho.shape  
-    #print "Vtip ", Vtip.shape  
-    Vtip = np.roll( Vtip, (-shifts[1]), axis=1)
-    Vtip = np.roll( Vtip, (-shifts[0]), axis=0)
-    return phmap, Vtip, canvas, dd_canv
-
-def photonMap2D_stamp_old( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], ncanv=(300,300),byCenter=False ):
-    sh = rhoTrans.shape
-    #print "shape: ", sh
-    #print lvec
-    dx   = lvec[3][2]/sh[0]; #print lvec[3][2],sh[0]
-    dy   = lvec[2][1]/sh[1]; #print lvec[2][1],sh[1]
-    dd = (dx,dy)
-    #print " (dx,dy) ", dd
-
-    dtype=np.complex128
-    if isinstance(coefs[0], float): dtype=np.float64    
-    #canvas = np.zeros( ncanv[::-1], dtype=dtype )
-    rho    = np.sum  (  rhoTrans, axis=2 )
-    rho    = rho.astype( dtype ) 
-    canvas = np.zeros( ncanv, dtype=dtype ) 
-    
-    #rho    = np.ascontiguousarray( rho,    dtype=np.complex128 )
-    #canvas = np.ascontiguousarray( canvas, dtype=np.complex128 )
-
-    for i in range(len(poss)):
-        pos = [ poss[i][0]+ncanv[0]*0.5*dx,   poss[i][1]+ncanv[1]*0.5*dy  ]
-        coef = coefs[i]
-        if isinstance(coef, float):
-            #print("GU.stampToGrid2D()") 
-            GU.stampToGrid2D( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter )
-        else:
-            #print("GU.stampToGrid2D_complex()")
-            coef = complex( coef[0], coef[1] )
-            GU.stampToGrid2D_complex( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter)
-
-    #canvas = np.zeros((300,300))
-
-    Vtip, shifts = makeTipField2D( ncanv[:2], dd, z=z, sigma=sigma, multipole_dict=multipole_dict )
-    #renorm = 1./( (Vtip**2).sum() * (rho.real**2+rho.imag**2).sum() )
-    renorm = 1./( (Vtip**2).sum() )
-    phmap  = convFFT(Vtip,canvas) * renorm
-    #print "rho  ", rho.shape  
-    #print "Vtip ", Vtip.shape  
-    Vtip = np.roll( Vtip, (-shifts[1]), axis=1)
-    Vtip = np.roll( Vtip, (-shifts[0]), axis=0)
-    return phmap, Vtip, canvas, dd
-
-
-def photonMap3D_stamp( rhoTrans, lvec, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], ncanv=(300,300), byCenter=False ):
-    sh  = rhoTrans.shape
+def photonMap3D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], byCenter=False ):
+    ncanv = Vtip.shape
+    dd_canv = np.array( dd_canv )
     if len(ncanv)<3:
-        ncanv = ( (ncanv[0],ncanv[1],sh[2]) )
+        ncanv = ( (ncanv[0],ncanv[1],rhos[0].shape[2] ) )
     dtype=np.complex128
     if isinstance(coefs[0], float): dtype=np.float64    
     canvas = np.zeros( ncanv[::-1],        dtype=dtype )
-    rho    = rhoTrans.transpose((2,1,0)).astype( dtype ).copy()
-    #print "shape: stamp ", rho.shape, " canvas ", canvas.shape
-    #print lvec
-    dx   = lvec[3][2]/sh[0]; #print lvec[3][2],sh[0]
-    dy   = lvec[2][1]/sh[1]; #print lvec[2][1],sh[1]
-    dz   = lvec[1][0]/sh[2]; #print lvec[1][0],sh[2]
-    dd = (dx,dy,dz);    #print " dd ", dd
- 
+
     for i in range(len(poss)):
-        pos_ = poss[i]
-        pos_z = 0.0
-        if len(pos_)>2: pos_z=pos_[2]
-        pos = [ pos_[0]+ncanv[0]*0.5*dx,   pos_[1]+ncanv[1]*0.5*dy, pos_z ]
+        coef = coefs[i]
+        rho    = rhos[i].transpose((2,1,0)).astype( dtype ).copy()
+        #print "shape: stamp ", rho.shape, " canvas ", canvas.shape
+        #print lvec
+        ddi = evalGridStep3D( rhos[i].shape, lvecs[i] )
+        dd_fac = ddi/dd_canv     # ( ddi[0]/dd_canv[0], ddi[1]/dd_canv[1], ddi[2]/dd_canv[2] )
+        pos  = np.array( poss[i] ) 
+        pos    /= dd_canv
         coef = coefs[i]
         if isinstance(coef, float):
             #print("GU.stampToGrid3D()") 
-            GU.stampToGrid3D( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter )
+            GU.stampToGrid3D( canvas, rho, pos, rots[i], dd=dd_fac, coef=coef, byCenter=byCenter )
         else:
             #print("GU.stampToGrid3D_complex()")
             coef = complex( coef[0], coef[1] )
-            GU.stampToGrid3D_complex( canvas, rho, pos, rots[i], dd=dd, coef=coef, byCenter=byCenter )
-
-    Vtip, shifts = makeTipField3D( ncanv, dd, z0=z, sigma=sigma, multipole_dict=multipole_dict )
-    #renorm = 1./( (Vtip**2).sum() * (rho.real**2+rho.imag**2).sum() )
-    renorm = 1./( (Vtip**2).sum() )
-    phmap  = convFFT(Vtip,canvas) * renorm
-    #print "rho  ", rho.shape  
-    #print "Vtip ", Vtip.shape  
-    #Vtip = np.roll( Vtip, -shifts[2], axis=2)
-    Vtip = np.roll( Vtip, -shifts[1], axis=1)
-    Vtip = np.roll( Vtip, -shifts[0], axis=2)
-    return phmap, Vtip, canvas, dd
+            GU.stampToGrid3D_complex( canvas, rho, pos, rots[i], dd=dd_fac, coef=coef, byCenter=byCenter )
+    phmap  = convFFT(Vtip,canvas)
+    return phmap, canvas
 
 # ================================================================
 #          Functions to Solve System of Couplet exciton
 # ================================================================
 
-def prepareRhoTransForCoumpling( rhoTrans, nsub=None ):
+def prepareRhoTransForCoumpling( rhoTrans, nsub=None, lvec=None ):
     if nsub is not None: # down-sample ?
         #print( "rhoTrans.shape ", rhoTrans.shape ) 
         ndim1 = rhoTrans.shape
@@ -475,12 +391,22 @@ def combinator(oents,subsys=False):
 
     return inds
 
+def combine( lst, inds ):
+    out = []
+    for j in inds:
+        if j !=-1:
+            out.append(lst[int(j)])
+    return out
+
 def applyCombinator( lst, inds ):
     out = []
     for js in inds:
+        out.append( combine( lst, js ) )
+        '''
         outl = []
         for j in js:
             if j !=-1:
                 outl.append(lst[int(j)])
         out.append( outl )
+        '''
     return out
