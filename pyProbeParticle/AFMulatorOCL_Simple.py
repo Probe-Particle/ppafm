@@ -88,6 +88,8 @@ class AFMulator():
         if initFF:
             self.initFF()
 
+        self.saveFFpre = ""
+
         self.counter = 0
     
     def eval( self, xyzs, Zs, qs, REAs=None, X=None ):
@@ -181,9 +183,9 @@ class AFMulator():
                 FFy.flat[mask] *= (Fbound/Fr).flat[mask]
                 FFz.flat[mask] *= (Fbound/Fr).flat[mask]
                 print("FF.shape ", FF.shape)
-                self.saveDebugXSF_FF( "FF_x.xsf", FFx )
-                self.saveDebugXSF_FF( "FF_y.xsf", FFy )
-                self.saveDebugXSF_FF( "FF_z.xsf", FFz )
+                self.saveDebugXSF_FF( self.saveFFpre+"FF_x.xsf", FFx )
+                self.saveDebugXSF_FF( self.saveFFpre+"FF_y.xsf", FFy )
+                self.saveDebugXSF_FF( self.saveFFpre+"FF_z.xsf", FFz )
                 #self.saveDebugXSF_FF( "FF_E.xsf", FF[:,:,:,3] )
         else:
             FF,self.atoms  = self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=self.FEin, Qmix=None, bRelease=True, bCopy=True, bFinish=True )
@@ -218,6 +220,7 @@ class AFMulator():
             if self.bFEoutCopy:
                 FEout = self.scanner.run_relaxStrokesTilted( bCopy=True, bFinish=True )
             else:
+                #print("DEBUG  HERE !!!! ")
                 self.scanner.run_relaxStrokesTilted( bCopy=False, bFinish=True )
             if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut ):
                 raise ValueError(

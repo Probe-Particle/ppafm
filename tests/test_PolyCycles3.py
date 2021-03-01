@@ -5,10 +5,11 @@ import os
 import numpy as np
 import time
 
+import matplotlib.pyplot as plt
+
+sys.path.append("../")
 import pyProbeParticle.atomicUtils as au
 import pyProbeParticle.chemistry   as ch
-
-import matplotlib.pyplot as plt
 import pyProbeParticle.MMFF as mmff
 
 def plotCycles(cpos=None,vpos=None,nvs=None):

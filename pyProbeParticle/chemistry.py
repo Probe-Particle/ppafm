@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
-#from . import elements
-import elements
+from . import elements
 import math
 import numpy as np
 

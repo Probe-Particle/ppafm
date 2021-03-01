@@ -73,7 +73,7 @@ class Camera{ public:
         ro = rot.a*(pix.a*resc) + rot.b*(pix.b*resc);
     }
 
-    inline Vec3f pix2rayPersp( const Vec2f& pix, Vec3f& rd ) const {
+    inline void pix2rayPersp( const Vec2f& pix, Vec3f& rd ) const {
         float resc = 1/zoom;
         rd = rot.a*(pix.a*resc) + rot.b*(pix.b*resc);
     }

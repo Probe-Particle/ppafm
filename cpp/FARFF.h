@@ -407,7 +407,7 @@ void moveGD(double dt, bool bAtom, bool bOrbital ){
     if(bOrbital)for(int i=0; i<norb;  i++){ opos[i].add_mul( oforce[i], dt ); }
 }
 
-double guessBonds(){
+void guessBonds(){
     AtomRating neighs[natom*N_BOND_MAX];
     for(int i=0; i<natom*N_BOND_MAX; i++){ 
         //neighs[i]=-1; neighr2s[i]=+1e+300;

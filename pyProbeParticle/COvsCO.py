@@ -147,9 +147,9 @@ def getSTM():
 
 #  double setupOpt( double dt, double damp, double f_limit, double l_limit ){
 lib.setupOpt.argtypes  = [c_double, c_double, c_double, c_double] 
-lib.setupOpt.restype   =  c_double
+lib.setupOpt.restype   =  None
 def setupOpt(dt=0.2, damp=0.2, f_limit=10.0, l_limit=0.2 ):
-    return lib.setupOpt(dt, damp, f_limit, l_limit) 
+    lib.setupOpt(dt, damp, f_limit, l_limit) 
 
 #  double relaxNsteps( int nsteps, double Fconv, int ialg ){
 lib.relaxNsteps.argtypes  = [c_int, c_double, c_int] 

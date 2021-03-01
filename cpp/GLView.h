@@ -10,7 +10,7 @@ void init( int w, int h );
 bool draw();
 bool pre_draw();
 bool post_draw();
-int  run_Nframes(int nframes);
+void run_Nframes(int nframes);
 void set_draw_function( ProcedurePointer draw_func );
 
 } // extern "C" {

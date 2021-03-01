@@ -25,7 +25,7 @@ namespace VecN{
     inline double max    (int n,const double* a            ){ double amin=+1e+300; for (int i=0; i<n; i++ ){ double ai=a[i]; amin=fmin(amin,ai); } return amin; };
     inline double absmax (int n,const double* a            ){ double amax=0;       for (int i=0; i<n; i++ ){ double ai=a[i]; amax=fmax(amax,fabs(ai)); } return amax; };
 
-    inline double minmax(int n,const double* a, double& vmin, double& vmax ){ vmin=+1e+300; vmax=-1e+300; for (int i=0; i<n; i++ ){ double ai=a[i]; vmin=_min(vmin,ai); vmax=_max(vmax,ai); } };
+    inline void minmax(int n,const double* a, double& vmin, double& vmax ){ vmin=+1e+300; vmax=-1e+300; for (int i=0; i<n; i++ ){ double ai=a[i]; vmin=_min(vmin,ai); vmax=_max(vmax,ai); } };
 
     inline int    imin(int n,const double* a ){ double amin=+1e+300; int im=-1; for (int i=0; i<n; i++ ){ double ai=a[i]; if(ai<amin){amin=ai;im=i;} } return im;  }
     inline int    imax(int n,const double* a ){ double amax=-1e+300; int im=-1; for (int i=0; i<n; i++ ){ double ai=a[i]; if(ai>amax){amax=ai;im=i;} } return im;  }
@@ -54,7 +54,7 @@ namespace VecN{
     inline double errAbsMax(int n,const double* xs,const double* ys, Func1d func ){ double amax=-1e+300; for (int i=0; i<n; i++ ){ double d=(func(xs[i])-ys[i]); amax=_max(d,amax); } return amax; }
     inline double min (int n, double* a, Func1d func          ){ double amax=-1e+300; for (int i=0; i<n; i++ ){ double ai=a[i]; amax=_max(amax,ai); } return amax; };
 
-    inline double set( int n,const double* xs,             Func1d func, double* out ){ for (int i=0; i<n; i++ ){ out[i] = func(xs[i]);       } };
+    inline void set( int n,const double* xs,             Func1d func, double* out ){ for (int i=0; i<n; i++ ){ out[i] = func(xs[i]);       } };
     //inline void add  ( int n, double* xs, double* ys, Func1d func, double* out ){ for (int i=0; i<n; i++ ){ out[i] = ys[i]+func(xs[i]); } }
 	//inline void sub  ( int n, double* xs, double* ys, Func1d func, double* out ){ for (int i=0; i<n; i++ ){ out[i] = ys[i]-func(xs[i]); } }
 	//inline void mul  ( int n, double* xs, double* ys, Func1d func, double* out ){ for (int i=0; i<n; i++ ){ out[i] = ys[i]*func(xs[i]); } }

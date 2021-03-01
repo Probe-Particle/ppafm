@@ -44,9 +44,9 @@ def getPos(nc,nv):
 
 # double setupOpt( double dt, double damp, double f_limit, double v_limit ){
 lib.setupOpt.argtypes = [c_double,c_double,c_double,c_double]
-lib.setupOpt.restype  = c_int
+lib.setupOpt.restype  = None
 def setupOpt(dt=1.0,damping=0.05,f_limit=10.0,v_limit=10.0):
-    return lib.setupOpt(dt,damping,f_limit,v_limit );
+    lib.setupOpt(dt,damping,f_limit,v_limit );
 
 #void setup( int ncycles, int* nvs ){
 lib.setup.argtypes = [c_int,array1i]

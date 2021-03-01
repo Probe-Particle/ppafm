@@ -5,6 +5,7 @@ import os
 import numpy as np
 import time
 
+sys.path.append("../")
 import pyProbeParticle.PolyCycles  as pcff
 import pyProbeParticle.atomicUtils as au
 

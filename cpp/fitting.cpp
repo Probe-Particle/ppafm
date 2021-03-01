@@ -109,7 +109,7 @@ int pointsInBox( const Vec3d& pmin, const Vec3d& pmax, int nin, const Vec3d* ps,
 int acumByBB( double yref, int nbas, const double* Bs, double* By, double* BB ){
     // accumulate projection    (B^T B)   and  B^T  yref
     //double yref = yrefs[ip];
-    int ik = 0;
+    //int ik = 0;
     double* BBij = BB;
     for(int i=0; i<nbas; i++){
         double fi =  Bs[i]; 
@@ -119,11 +119,13 @@ int acumByBB( double yref, int nbas, const double* Bs, double* By, double* BB ){
             BBij++;
         }
     }
+    return nbas*nbas;
 }
 
 int acumByBB_sparse( double yref, int nbas, int nsel, const int* i0s, const int* il0s, const int* ns, const double* Bs, double* By, double* BB ){
     // accumulate projection    (B^T B)   and  B^T  yref
     //double yref = yrefs[ip];
+    int nop=0;
     int ik = 0;
     double* BBij = BB;
     for(int i=0; i<nsel; i++){
@@ -135,6 +137,7 @@ int acumByBB_sparse( double yref, int nbas, int nsel, const int* i0s, const int*
         for(int ik=0; ik<ni; ik++ ){
             //printf( "   ik %i Bs %g dBy %g \n", ik, Bs[ik], Bs[ik]*yref );
             Byi[ik] += Bs[ik]*yref;
+            nop++;
         }
         for(int j=0; j<=i; j++){
             int j0 = i0s[j];
@@ -147,11 +150,13 @@ int acumByBB_sparse( double yref, int nbas, int nsel, const int* i0s, const int*
                 for(int jk=0; jk<nj; jk++ ){
                     //printf( " i(%i,%i) j(%i,%i)   fi %g fj %g fifj %g \n",  i,ik, j,jk,  fi, Bsj[jk],  fi*Bsj[jk]  );
                     BBij[jk] += fi*Bsj[jk];
+                    nop++;
                 }
                 BBij += nbas;
             }
         }
     }
+    return nop;
 }
 
 void matToFile( FILE* fout, const Mat3d& mat ){

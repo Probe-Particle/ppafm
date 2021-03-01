@@ -63,7 +63,7 @@ header_strings = [
     "void setupFF( int natom, int* types ){",
     "void setGridShape( int* n, double* cell ){",
     "void bindGrids( double* atomMap, double*  bondMap ){",
-    "double setupOpt( double dt, double damp, double f_limit, double l_limit ){",
+    "void setupOpt( double dt, double damp, double f_limit, double l_limit ){",
     "void setBox(double* pmin, double* pmax, double* k){",
     "double relaxNsteps( int nsteps, double Fconv, int ialg ){",
 ]
@@ -157,9 +157,9 @@ def bindGrids(atomMap, bondMap):
 
 #  double setupOpt( double dt, double damp, double f_limit, double l_limit ){
 lib.setupOpt.argtypes  = [c_double, c_double, c_double, c_double] 
-lib.setupOpt.restype   =  c_double
+lib.setupOpt.restype   =  None
 def setupOpt(dt=0.2, damp=0.2, f_limit=10.0, l_limit=0.2 ):
-    return lib.setupOpt(dt, damp, f_limit, l_limit) 
+    lib.setupOpt(dt, damp, f_limit, l_limit) 
 
 #  void setBox(double* pmin, double* pmax, double* k){
 lib.setBox.argtypes  = [c_double_p, c_double_p, c_double_p] 

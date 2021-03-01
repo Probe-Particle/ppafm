@@ -10,10 +10,10 @@ import time
 #import common    as PPU
 #from optparse import OptionParser
 
+sys.path.append("../")
 #import pyProbeParticle.PolyCycles  as pcff
 import pyProbeParticle.atomicUtils as au
 import pyProbeParticle.chemistry   as ch
-
 
 import matplotlib.pyplot as plt
 

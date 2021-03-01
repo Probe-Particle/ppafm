@@ -371,6 +371,7 @@ class RelaxedScanner:
             rot = np.eye(3)
         self.dTip, self.tipRot, self.dpos0Tip, self.dpos0 = rotTip(rot,self.zstep,tipR0)
         poss = self.preparePossRot( pos0, rot[0], rot[1] )
+        #print( "DEBUG ReaxOpenCL.py setScanRot ", poss.shape, poss[0,0,:], poss[-1,-1,:] )
         cl.enqueue_copy( self.queue, self.cl_poss, poss  )
         return poss
 

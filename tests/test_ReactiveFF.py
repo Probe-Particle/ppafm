@@ -5,6 +5,7 @@ import os
 import numpy as np
 import time
 
+sys.path.append("../")
 import pyProbeParticle.ReactiveFF  as rff
 import pyProbeParticle.atomicUtils as au
 
@@ -36,7 +37,7 @@ if __name__ == "__main__":
 
     # --- prepare system (resize buffers)
     natom = 20
-    rff.ralloc(natom)
+    rff.reallocFF(natom)
     types  = rff.getTypes(natom)
     poss   = rff.getPoss(natom)
     qrots  = rff.getQrots(natom)

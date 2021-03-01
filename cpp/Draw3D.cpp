@@ -632,6 +632,7 @@ int sphere_oct( int n, float r, const Vec3f& pos, bool wire ){
 }
 
 int  capsula( Vec3f p0, Vec3f p1, float r1, float r2, float theta1, float theta2, float dTheta, int nPhi, bool capped ){
+    int nvert=0;
     Vec3f ax   = p1-p0;  float L = ax.normalize();
     Vec3f up,left;       ax.getSomeOrtho(up,left);
     Vec2f cph=Vec2fX, dph;
@@ -647,8 +648,8 @@ int  capsula( Vec3f p0, Vec3f p1, float r1, float r2, float theta1, float theta2
         Vec3f pb = p1 + left*(cph.x*r2) + up*(cph.y*r2);
         Vec3f na = (left*(cph.x) + up*(cph.y)*cth.x + ax*cth.y)*-1.0;
         Vec3f nb = (left*(cph.x) + up*(cph.y)*cth.x + ax*cth.y)*-1.0;
-        glNormal3f(na.x,na.y,na.z); glVertex3f(pa.x,pa.y,pa.z);
-        glNormal3f(nb.x,nb.y,nb.z); glVertex3f(pb.x,pb.y,pb.z);
+        glNormal3f(na.x,na.y,na.z); glVertex3f(pa.x,pa.y,pa.z); nvert++;
+        glNormal3f(nb.x,nb.y,nb.z); glVertex3f(pb.x,pb.y,pb.z); nvert++;
         cph.mul_cmplx(dph);
     }
     glEnd();
@@ -675,8 +676,8 @@ int  capsula( Vec3f p0, Vec3f p1, float r1, float r2, float theta1, float theta2
             Vec3f pb = p0 + (left*(cph.x*r1) + up*(cph.y*r1))*cth_.x + ax*(h+cth_.y*r1);
             Vec3f na = (left*(cph.x) + up*(cph.y)*cth.x  + ax*cth.y)*1.0;
             Vec3f nb = (left*(cph.x) + up*(cph.y)*cth_.x + ax*cth_.y)*1.0;
-            glNormal3f(na.x,na.y,na.z); glVertex3f(pa.x,pa.y,pa.z);
-            glNormal3f(nb.x,nb.y,nb.z); glVertex3f(pb.x,pb.y,pb.z);
+            glNormal3f(na.x,na.y,na.z); glVertex3f(pa.x,pa.y,pa.z); nvert++;
+            glNormal3f(nb.x,nb.y,nb.z); glVertex3f(pb.x,pb.y,pb.z); nvert++;
             //na.mul(0.2);
             //glVertex3f(pa.x,pa.y,pa.z);   glVertex3f(pa.x+na.x,pa.y+na.y,pa.z+na.z);
             cph.mul_cmplx(dph);
@@ -705,16 +706,18 @@ int  capsula( Vec3f p0, Vec3f p1, float r1, float r2, float theta1, float theta2
             Vec3f pb = p1 + (left*(cph.x*r2) + up*(cph.y*r2))*cth_.x + ax*(h+cth_.y*r2);
             Vec3f na = (left*(cph.x) + up*(cph.y)*cth.x  + ax*cth.y)*-1.0;
             Vec3f nb = (left*(cph.x) + up*(cph.y)*cth_.x + ax*cth_.y)*-1.0;
-            glNormal3f(na.x,na.y,na.z); glVertex3f(pa.x,pa.y,pa.z);
-            glNormal3f(nb.x,nb.y,nb.z); glVertex3f(pb.x,pb.y,pb.z);
+            glNormal3f(na.x,na.y,na.z); glVertex3f(pa.x,pa.y,pa.z); nvert++;
+            glNormal3f(nb.x,nb.y,nb.z); glVertex3f(pb.x,pb.y,pb.z); nvert++;
             cph.mul_cmplx(dph);
         }
         glEnd();
         cth=cth_;
     }
+    return nvert;
 }
 
 int paraboloid     ( Vec3f p0, Vec3f ax, float r, float l, float nR, int nPhi, bool capped ){
+    int nvert=0;
     float L = ax.normalize();
     Vec3f up,left;       ax.getSomeOrtho(up,left);
     Vec2f cph=Vec2fX, dph;
@@ -734,24 +737,27 @@ int paraboloid     ( Vec3f p0, Vec3f ax, float r, float l, float nR, int nPhi, b
             //Vec3f na = left*(cph.x) + up*(cph.y)*cth.x  + ax*cth.;
             //Vec3f nb = left*(cph.x) + up*(cph.y)*cth_.x + ax*cth_.y;
             //glNormal3f(na.x,na.y,na.z);
-            glVertex3f(pa.x,pa.y,pa.z);
+            glVertex3f(pa.x,pa.y,pa.z);    nvert++;
             //glNormal3f(nb.x,nb.y,nb.z);
-            glVertex3f(pb.x,pb.y,pb.z);
+            glVertex3f(pb.x,pb.y,pb.z);    nvert++;
             cph.mul_cmplx(dph);
         }
         glEnd();
     }
+    return nvert;
 }
 
 int circleAxis( int n, const Vec3f& pos, const Vec3f& v0, const Vec3f& uaxis, float R, float dca, float dsa ){
+    int nvert=0;
     Vec3f v; v.set(v0);
     glBegin( GL_LINE_LOOP );
     for( int i=0; i<n; i++ ){
-        glVertex3f( pos.x+v.x*R, pos.y+v.y*R, pos.z+v.z*R );
+        glVertex3f( pos.x+v.x*R, pos.y+v.y*R, pos.z+v.z*R ); nvert++;
         //printf( " drawCircleAxis %i (%3.3f,%3.3f,%3.3f) \n", i, v.x, v.y, v.z );
         v.rotate_csa( dca, dsa, uaxis );
     }
     glEnd();
+    return nvert;
 }
 
 int circleAxis( int n, const Vec3f& pos, const Vec3f& v0, const Vec3f& uaxis, float R ){

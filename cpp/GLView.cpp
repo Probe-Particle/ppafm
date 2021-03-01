@@ -625,7 +625,7 @@ bool post_draw(){
     return thisApp->post_draw();
 }
 
-int run_Nframes(int nframes){
+void run_Nframes(int nframes){
     thisApp->loop( nframes );
 }
 

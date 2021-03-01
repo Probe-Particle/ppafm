@@ -53,18 +53,20 @@ _inline_T int      signum(T val)      { return (T(0) < val) - (val < T(0)); }
 
 // ======= allocation
 
-_inline_T void _allocIfNull(T*& arr, int n){ if(arr==0){ arr=new T[n];} }
+_inline_T bool _allocIfNull(T*& arr, int n){ if(arr==0){ arr=new T[n]; return true; }; return false; }
 _inline_T void _realloc(T*& arr, int n){ if(arr){ delete [] arr;} arr=new T[n]; }
 _inline_T void _dealloc(T*& arr       ){ if(arr){ delete [] arr;} arr=0;        }
-_inline_T bool _bindOrRealloc(int n, T* from, T*& arr ){ if(from){arr=from;}else{_realloc(arr,n);} }
+_inline_T bool _bindOrRealloc(int n, T* from, T*& arr ){ if(from){arr=from; return false; }else{_realloc(arr,n); return true; } }
 
 _inline_T  bool _clone( int i0, int imax, T* from, T*& arr, int n){
-    _allocIfNull(arr,n);
+    bool bAloc = _allocIfNull(arr,n);
     for(int i=i0; i<imax; i++){ arr[i]=from[i-i0]; } // use mem copy instead ?
+    return bAloc;
 }
 _inline_T bool _set( int i0, int imax, const T& from, T*& arr, int n){
-    _allocIfNull(arr,n);
+    bool bAloc = _allocIfNull(arr,n);
     for(int i=i0; i<imax; i++){ arr[i]=from; }
+    return bAloc;
 }
 
 inline int findHighest(int n, double * vals){

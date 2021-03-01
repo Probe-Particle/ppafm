@@ -60,7 +60,7 @@ class Molecule():
     def __init__(self, xyzs, Zs, qs ):
         self.xyzs = xyzs
         self.Zs   = Zs
-        self.qs   = qs
+        self.qs   = qs 
 
     def clone(self):
         xyzs = self.xyzs
@@ -73,6 +73,16 @@ class Molecule():
 
     def __len__(self):
         return len(self.xyzs)
+
+    def cog(self):
+        n = len(self.xyzs)
+        x = self.xyzs[:,0].sum()
+        y = self.xyzs[:,1].sum()
+        z = self.xyzs[:,2].sum()
+        return np.array( [x,y,z] )/n
+
+    def toXYZ( self, xyzfile, comment="#comment" ):
+        au.writeToXYZ( xyzfile, self.Zs, self.xyzs, qs=self.qs, commet=comment )
 
 # ========================================================================
 
@@ -114,14 +124,23 @@ def addAtom( molecule, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
     qs_   = np.append(qs,   nq, axis=0 )
     return Molecule(xyzs_, Zs_, qs_)
 
-def moveAtom( molecule, p0, R=0.0, dpMax=np.array([1.0,1.0,0.25]), nmax=1 ):
+def moveAtom( molecule, ia, dpMax=np.array([1.0,1.0,0.25]) ):
+    xyzs         = molecule.xyzs.copy()
+    Zs           = molecule.Zs.copy()
+    qs           = molecule.qs.copy()
+    xyzs[ia,:] += (np.random.rand(3)-0.5)*dpMax
+    return Molecule(xyzs, Zs, qs)
+
+def moveAtoms( molecule, p0, R=0.0, dpMax=np.array([1.0,1.0,0.25]), nmax=1 ):
     # ToDo : it would be nice to add atoms in a more physicaly reasonable way - not overlaping, proper bond-order etc.
     # ToDo : currently we add always hydrogen - should we somewhere randomly pick different atom types ?
     xyzs         = molecule.xyzs.copy()
     Zs           = molecule.Zs.copy()
     qs           = molecule.qs.copy()
+    # --- choose nmax closest atoms
     rs           = (xyzs[:,0]-p0[0])**2 + (xyzs[:,1]-p0[1])**2
     sel          = rs.argsort()[:nmax] # [::-1]
+    # --- move them randomly
     xyzs[sel,:] += (np.random.rand(len(sel),3)-0.5)*dpMax[None,:]
     return Molecule(xyzs, Zs, qs)
 
@@ -392,56 +411,72 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
 
 class Corrector():
 
-    izPlot     = -8
-    logImgName = None
-
     def __init__(self ):
-        self.best = None
-        pass
+        self.izPlot     = -8
+        self.logImgName = None
+        self.xyzLogFile = None
+
+        self.best_E   = None
+        self.best_mol = None
 
     def modifyStructure(self, molIn ):
-        mol = molIn.clone()
+        #mol = molIn.clone()
         #molOut.xyzs[0,0] += 0.1
         #molOut.xyzs[1,0] -= 0.1
-        p0 = (np.random.rand(3))
-        p0[0:2] *= 20.0
-        p0[  2] *= 1.0
-        R  = 3.0
-        molOut = moveAtom( molIn, p0, R=0.0, nmax=1 )   # ToDo : This is just token example - later need more sophisticated Correction strategy
+        #p0  = (np.random.rand(3) - 0.5)
+        #p0 += molIn.cog()
+        #p0[0:2] *= 20.0 # scale x,y
+        #p0[  2] *= 1.0  # scale z
+        #R  = 3.0
+        ia = np.random.randint( 0 , len(molIn.Zs) )
+        molOut = moveAtom( molIn, ia )   # ToDo : This is just token example - later need more sophisticated Correction strategy
         # --- ToDo: Relaxation Should be possible part of relaxation ????
         return molOut
+
+    def debug_plot(self, itr, AFMdiff, AFMs, AFMRef, Err ):
+        if self.logImgName is not None:
+            plt = self.plt
+            plt.figure(figsize=(5*3,5))
+            plt.subplot(1,3,1); plt.imshow( AFMs   [:,:,self.izPlot] ); #plt.title("AFM[]"  ); plt.grid()
+            plt.subplot(1,3,2); plt.imshow( AFMRef [:,:,self.izPlot] ); #plt.title("AFMref" ); plt.grid()
+            plt.subplot(1,3,3); plt.imshow( AFMdiff[:,:,self.izPlot] ); #plt.title("AFMdiff"); plt.grid()
+            plt.title( "Error=%g" %Err )
+            plt.savefig( self.logImgName+("_%03i.png" %itr), bbox_inches='tight')
+            plt.close  ()
 
     def try_improve(self, molIn, AFMs, AFMRef, itr=0 ):
         #print( " AFMs ", AFMs.shape, " AFMRef ", AFMRef.shape )
         AFMdiff = AFMs - AFMRef
-
-        if self.logImgName is not None:
-            plt.figure(figsize=(5*3,5))
-            plt.subplot(1,3,1); plt.imshow( AFMs   [:,:,self.izPlot] ); plt.title("AFM[]"  )
-            plt.subplot(1,3,2); plt.imshow( AFMRef [:,:,self.izPlot] ); plt.title("AFMref" )
-            plt.subplot(1,3,3); plt.imshow( AFMdiff[:,:,self.izPlot] ); plt.title("AFMdiff")
-            plt.savefig( self.logImgName+("_%03i.png" %itr), bbox_inches='tight')
-            plt.close  ()
-
-        Err  = np.sqrt( np.sum(AFMdiff**2) )  # root mean square error
+        AFMdiff2=AFMdiff**2 
+        Err  = np.sqrt( AFMdiff2.sum() )  # root mean square error
         # ToDo : identify are of most difference and make random changes in that area
-        if ( self.best is None ) or ( self.best.Err > Err ):
-            self.best_structure = molIn
-        print( "Corrector.try_improve Err2 ", Err  )
-        molOut = self.modifyStructure( self.best_structure )
+        #self.debug_plot( itr, AFMdiff2, AFMs, AFMRef, Err )
+        if( self.best_E is not None ):
+            print( "[%i]Err:" %itr, Err, " best: ", self.best_E  )
+        if ( self.best_E is None ) or ( self.best_E > Err ):
+            print( "[%i]Corrector.try_improve() : SUCCESS : Err:" %itr, Err, " best: ", self.best_E  )
+            self.debug_plot( itr, AFMdiff2, AFMs, AFMRef, Err )
+            self.best_mol =  molIn 
+            self.best_E   = Err
+            if self.xyzLogFile is not None:
+                #best_mol.( au.writeToXYZ( self.xyzLogFile, self.best_mol.Zs, self.best_mol.xyzs, qs=self.best_mol.qs, commet=("CorrectionLoop.iteration [%i] " %itr) )
+                self.best_mol.toXYZ( self.xyzLogFile, comment=("Corrector [%i] Err %g " %(itr,self.best_E) ) )
+        #print( "Corrector.try_improve Err2 ", Err  )
+        molOut = self.modifyStructure( self.best_mol )
         return Err, molOut
 
 # ========================================================================
 
 class CorrectionLoop():
 
-    logAFMdataName = None
-    logImgName = None
-    logImgIzs  = [0,-8,-1]
-
-    rotMat = np.array([[1.,0,0],[0.,1.,0],[0.,0,1.]])
-
     def __init__(self, relaxator, simulator, atoms, bonds, corrector ):
+
+        self.rotMat = np.array([[1.,0,0],[0.,1.,0],[0.,0,1.]])
+        self.logAFMdataName = None
+        self.logImgName = None
+        self.logImgIzs  = [0,-8,-1]
+        self.xyzLogFile = None
+
         self.simulator  = simulator
         self.relaxator  = relaxator
         self.atoms      = atoms
@@ -458,47 +493,49 @@ class CorrectionLoop():
         self.bondMap = bondMap
         self.mapLvec = lvecMap
         self.AFMRef  = AFMRef
+        self.bAuxMap = (self.atomMap is not None) and (self.bondMap is not None)
 
-    def iteration(self, itr=0 ):
-        print( "### CorrectionLoop.iteration [1]" )
-        print( "########### bond atom ---- min min ", self.atomMap.min(), self.bondMap.min() )
-
-        # ToDo : Use relaxation later
-        #self.relaxed    = self.relaxator.preform_relaxation( self.molecule, self.mapLvec, self.atomMap, self.bondMap )
-        if self.xyzLogFile is not None:
-           au.writeToXYZ( self.xyzLogFile, self.molecule.Zs, self.molecule.xyzs, qs=self.molecule.qs, commet=("CorrectionLoop.iteration [%i] " %itr) )
-
-        print( "### CorrectionLoop.iteration [%i]" %itr )
-
-        # Get AFM
-        xyzs, qs, Zs = self.molecule.xyzs, self.molecule.qs, self.molecule.Zs
-        AFMs = self.simulator(xyzs, Zs, qs)
-
-        # Get Atoms and Bonds AuxMaps
-        xyzqs = np.concatenate([xyzs, qs[:,None]], axis=1)
-        atoms_map = self.atoms(xyzqs, Zs)
-        bonds_map = self.bonds(xyzqs, Zs)
-        AuxMaps = np.stack([atoms_map, bonds_map], axis=-1)
-
-        if self.logAFMdataName:
-            np.save( self.logAFMdataName+("%03i.dat" %itr), AFMs )
+    def debug_plot(self, AFMs, AuxMaps=None ):
         if self.logImgName is not None:
+            plt = self.plt
             nz  = len(self.logImgIzs)
-            nch = AuxMaps.shape[2]
-            #print( "DEBUG nz nch ", nz, nch )
-            plt.figure(figsize=(5*(nz+nch),5))
-            for ich in range(nch):
-                #print( "DEBUG ich ", ich )
-                plt.subplot(1,nz+nch,ich+1); plt.imshow ( AuxMaps[:,:,ich] )
+            if self.bAuxMap:
+                nch = AuxMaps.shape[2]
+                plt.figure(figsize=(5*(nz+nch),5))
+                for ich in range(nch):
+                    #print( "DEBUG ich ", ich )
+                    plt.subplot(1,nz+nch,ich+1); plt.imshow ( AuxMaps[:,:,ich] )
+            else:
+                nch = 0
+                plt.figure(figsize=(5*(nz+nch),5))
+
             for iiz, iz in enumerate(self.logImgIzs):
                 plt.subplot(1,nz+nch,iiz+nch+1); plt.imshow ( AFMs[:,:,iz] )
                 plt.title( "iz %i" %iz )
             plt.savefig( self.logImgName+("_%03i.png" %itr), bbox_inches='tight')
             plt.close  ()
 
-        print( "### CorrectionLoop.iteration [3]" )
+    def iteration(self, itr=0 ):
+        #print( "### CorrectionLoop.iteration [%i]", itr )
+        #print( "########### bond atom ---- min min ", self.atomMap.min(), self.bondMap.min() )
+        # ToDo : Use relaxation later
+        #self.relaxed    = self.relaxator.preform_relaxation( self.molecule, self.mapLvec, self.atomMap, self.bondMap )
+        if self.xyzLogFile is not None:
+           au.writeToXYZ( self.xyzLogFile, self.molecule.Zs, self.molecule.xyzs, qs=self.molecule.qs, commet=("CorrectionLoop.iteration [%i] " %itr) )
+        # Get AFM
+        xyzs, qs, Zs = self.molecule.xyzs, self.molecule.qs, self.molecule.Zs
+        AFMs  = self.simulator(xyzs, Zs, qs)
+        xyzqs = np.concatenate([xyzs, qs[:,None]], axis=1)
+        # Get Atoms and Bonds AuxMaps
+        AuxMaps=None
+        if( self.bAuxMap ): 
+            atoms_map = self.atoms(xyzqs, Zs)
+            bonds_map = self.bonds(xyzqs, Zs)
+            AuxMaps = np.stack([atoms_map, bonds_map], axis=-1)
+        if self.logAFMdataName:
+            np.save( self.logAFMdataName+("%03i.dat" %itr), AFMs )
+        self.debug_plot( AFMs, AuxMaps )
         Err, self.molecule = self.corrector.try_improve( self.molecule, AFMs, self.AFMRef, itr=itr )
-        print( "### CorrectionLoop.iteration [4]" )
         return Err
         #Xs,Ys      = simulator.next1( self )
 
@@ -512,7 +549,7 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
     sw = simulator.scan_window
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
     xyzs[:,:2] += scan_center - xyzs[:,:2].mean(axis=0)
-    xyzs[:,2] += (sw[1][2] - 9.0) - xyzs[:,2].max()
+    xyzs[:,2]  += (sw[1][2] - 9.0) - xyzs[:,2].max()
     print("xyzs ", xyzs)
     mol = Molecule(xyzs,Zs,qs)
 
@@ -541,8 +578,8 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
     nscan = simulator.scan_dim; nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
     np.save( 'AFMref.npy', np.zeros(nscan) )
     AFMRef = np.load('AFMref.npy')
-    AFMRef = np.roll( AFMRef,  5, axis=0 );
-    AFMRef = np.roll( AFMRef, -6, axis=1 );
+    #AFMRef = np.roll( AFMRef,  5, axis=0 );
+    #AFMRef = np.roll( AFMRef, -6, axis=1 );
 
     looper = CorrectionLoop(relaxator, simulator, atoms, bonds, corrector)
     looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
@@ -575,6 +612,67 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
             break
 
     looper.xyzLogFile.close()
+
+def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fname_ref="ref.xyz", nstep=10, plt=None ):
+    '''
+    Correction loop which does not use any Force-Field nor AuxMap or Neural-Network
+    it simply randomly add/remove or move atoms
+    '''
+    corrector = Corrector()
+    corrector.logImgName = "AFM_Err"
+    corrector.xyzLogFile = open( "CorrectorLog.xyz", "w")
+    corrector.plt = plt
+    corrector.izPlot = -5
+    nscan = simulator.scan_dim; 
+    nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
+    sw    = simulator.scan_window
+
+    def makeMol( fname ):
+        xyzs,Zs,elems,qs  = au.loadAtomsNP(fname)
+        xyzs[:,1] -= 8
+        xyzs[:,0] -= 2
+        xyzs[:,2] -= 1.8
+        # AFMulatorOCL.setBBoxCenter( xyzs, [0.0,0.0,0.0] )
+        #scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
+        #print( "scan_center ", scan_center )
+        #xyzs[:,:2] += scan_center - xyzs[:,:2].mean(axis=0)
+        #xyzs[:,2]  += (sw[1][2] - 9.0) - xyzs[:,2].max()
+        #print("xyzs ", xyzs)
+        xyzqs = np.concatenate([xyzs, qs[:,None]], axis=1)
+        molecule = Molecule(xyzs,Zs,qs)
+        return molecule
+
+    #xyzs_ref,Zs_ref,elems_ref,qs_ref  = au.loadAtomsNP(geom_fname_ref)
+    mol_ref = makeMol( geom_fname_ref )
+    #simulator.bSaveFF = True                #    DEBUG !!!!!!!!!!!!!!!!!
+    simulator.saveFFpre = "ref_"
+    AFMs = simulator(mol_ref.xyzs, mol_ref.Zs, mol_ref.qs)
+    simulator.saveFFpre = ""
+    np.save( 'AFMref.npy', AFMs )
+
+    AFMRef = np.load('AFMref.npy')
+    #AFMRef = np.roll( AFMRef,  5, axis=0 );
+    #AFMRef = np.roll( AFMRef, -6, axis=1 );
+
+    looper = CorrectionLoop(None, simulator, None, None, corrector)
+    #looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
+    looper.plt = plt
+    #looper.logImgName = "CorrectionLoopAFMLog"
+    #looper.logAFMdataName = "AFMs"
+
+    molecule = makeMol( geom_fname )
+
+    looper.startLoop( molecule, None, None, None, AFMRef )
+    ErrConv = 0.1
+    print( "# ------ To Loop    ")
+    #exit()
+    for itr in range(nstep):
+        #print( "# ======= CorrectionLoop[ %i ] ", itr )
+        Err = looper.iteration(itr=itr)
+        if Err < ErrConv:
+            break
+    corrector.xyzLogFile.close()
+    #looper.xyzLogFile.close()
 
 
 # ========================================================================

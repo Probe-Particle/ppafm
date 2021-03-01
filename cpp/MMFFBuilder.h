@@ -113,9 +113,9 @@ struct AtomConf{
     inline bool addPi   (     ){ return addNeigh((int)NeighType::pi   ,npi); };
     inline bool addEpair(     ){ return addNeigh((int)NeighType::epair,ne ); };
     
-    inline int  clearNonBond(){ n=nbond; npi=0;ne=0;nH=0; };
-    inline bool setNonBond(int npi_,int ne_){ npi=npi_; ne=ne_; n=nbond+npi+ne+nH;  }
-    inline bool init0(){ for(int i=0; i<N_NEIGH_MAX; i++)neighs[i]=-1; nbond=0; clearNonBond(); }
+    inline void  clearNonBond(){ n=nbond; npi=0;ne=0;nH=0; };
+    inline void setNonBond(int npi_,int ne_){ npi=npi_; ne=ne_; n=nbond+npi+ne+nH;  }
+    inline void init0(){ for(int i=0; i<N_NEIGH_MAX; i++)neighs[i]=-1; nbond=0; clearNonBond(); }
 
     void print()const{ printf( " AtomConf{ ia %i, n %i nb %i np %i ne %i nH %i (%i,%i,%i,%i) }", iatom, n, nbond, npi, ne, nH , neighs[0],neighs[1],neighs[2],neighs[3] ); }
 };
