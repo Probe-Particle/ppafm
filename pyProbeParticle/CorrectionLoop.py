@@ -40,6 +40,8 @@ from . import AFMulatorOCL_Simple
 from . import AuxMap
 #from . import FARFF            #as Relaxer
 from . import GeneratorOCL_Simple2
+from .Corrector import Corrector,Molecule
+from .Corrector import Mutator
 
 verbose  = 0
 bRunTime = False
@@ -47,167 +49,6 @@ bRunTime = False
 # ========================================================================
 class Sequence:
     pass
-
-class Molecule():
-    """
-    A simple class for Molecule data containing atom xyz positions, element types and charges.
-    Arguments:
-        xyzs: list, xyz positions of atoms in the molecule
-        Zs: list, element types
-        qs: list, charges
-    """
-
-    def __init__(self, xyzs, Zs, qs ):
-        self.xyzs = xyzs
-        self.Zs   = Zs
-        self.qs   = qs 
-
-    def clone(self):
-        xyzs = self.xyzs
-        Zs   = self.Zs
-        qs   = self.qs
-        return Molecule(xyzs,Zs,qs)
-
-    def __str__(self):
-        return np.c_[self.xyzs, self.Zs, self.qs].__str__()
-
-    def __len__(self):
-        return len(self.xyzs)
-
-    def cog(self):
-        n = len(self.xyzs)
-        x = self.xyzs[:,0].sum()
-        y = self.xyzs[:,1].sum()
-        z = self.xyzs[:,2].sum()
-        return np.array( [x,y,z] )/n
-
-    def toXYZ( self, xyzfile, comment="#comment" ):
-        au.writeToXYZ( xyzfile, self.Zs, self.xyzs, qs=self.qs, commet=comment )
-
-# ========================================================================
-
-def removeAtoms( molecule, nmax=1 ):
-    #print( "----- removeAtoms  p0 ", p0 )
-    xyzs = molecule.xyzs
-    Zs   = molecule.Zs
-    qs   = molecule.qs
-
-    nmax = min(nmax, xyzs.shape[0])
-    rem_idx = np.random.randint(nmax+1)
-    sel = np.random.choice(np.arange(xyzs.shape[0]), rem_idx, replace=False)
-
-    xyzs_ = np.delete( xyzs, sel, axis=0 )
-    Zs_   = np.delete( Zs,   sel )
-    qs_   = np.delete( qs,   sel )
-    return Molecule(xyzs_, Zs_, qs_), sel
-
-def addAtom( molecule, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
-    # ToDo : it would be nice to add atoms in a more physicaly reasonable way - not overlaping, proper bond-order etc.
-    # ToDo : currently we add always hydrogen - should we somewhere randomly pick different atom types ?
-    xyzs = molecule.xyzs
-    Zs   = molecule.Zs
-    qs   = molecule.qs
-    #print( "----- addAtom  p0 ", p0 )
-    #dp    = (np.random.rand(3)-0.5)*R
-    #dp[2] = 0
-    min_x = xyzs.min(axis=0)
-    max_x = xyzs.max(axis=0)
-    min_x[2] = max_x[2]-1.0
-    nx = np.random.uniform(min_x, max_x)[np.newaxis, ...]
-
-    min_q = qs.min(axis=0)
-    max_q = qs.max(axis=0)
-    nq = np.random.uniform(min_q, max_q, (1,))
-
-    Zs_ = np.append(Zs, np.array([Z0,]), axis=0)
-    xyzs_ = np.append(xyzs, nx, axis=0 )
-    qs_   = np.append(qs,   nq, axis=0 )
-    return Molecule(xyzs_, Zs_, qs_)
-
-def moveAtom( molecule, ia, dpMax=np.array([1.0,1.0,0.25]) ):
-    xyzs         = molecule.xyzs.copy()
-    Zs           = molecule.Zs.copy()
-    qs           = molecule.qs.copy()
-    xyzs[ia,:] += (np.random.rand(3)-0.5)*dpMax
-    return Molecule(xyzs, Zs, qs)
-
-def moveAtoms( molecule, p0, R=0.0, dpMax=np.array([1.0,1.0,0.25]), nmax=1 ):
-    # ToDo : it would be nice to add atoms in a more physicaly reasonable way - not overlaping, proper bond-order etc.
-    # ToDo : currently we add always hydrogen - should we somewhere randomly pick different atom types ?
-    xyzs         = molecule.xyzs.copy()
-    Zs           = molecule.Zs.copy()
-    qs           = molecule.qs.copy()
-    # --- choose nmax closest atoms
-    rs           = (xyzs[:,0]-p0[0])**2 + (xyzs[:,1]-p0[1])**2
-    sel          = rs.argsort()[:nmax] # [::-1]
-    # --- move them randomly
-    xyzs[sel,:] += (np.random.rand(len(sel),3)-0.5)*dpMax[None,:]
-    return Molecule(xyzs, Zs, qs)
-
-def moveMultipleAtoms(molecule: Molecule, scale=0.5, nmax=10):
-    """
-    A function for slightly shifting multiple atoms in the molecule.
-    """
-    nmax = nmax if nmax < len(molecule) else len(molecule)
-
-    move_n = np.random.randint(nmax+1)
-    to_be_moved = np.random.choice(len(molecule), move_n, replace=False)
-    magnitudes = np.random.uniform(-scale, scale, (move_n, 3))
-
-    xyzs_ = molecule.xyzs.copy()
-    Zs_   = molecule.Zs.copy()
-    qs_   = molecule.qs.copy()
-
-    xyzs_[to_be_moved] = xyzs_[to_be_moved] + magnitudes
-
-    return Molecule(xyzs_, Zs_, qs_)
-
-class Mutator():
-    """
-    A class for creating simple mutations to a molecule. The current state of the class allows for adding,
-    removing and moving atoms. The mutations are not necessarily physically sensible at this point.
-    Parameters:
-        maxMutations: Integer. Maximum number of mutations per mutant. The number of mutations is chosen
-        randomly between [1, maxMutations].
-    """
-    # Strtegies contain
-    strategies = [
-        (0.1,removeAtoms,{}),
-        (0.0,addAtom,{}),
-        (0.0,moveAtom,{})
-    ]
-
-    def __init__(self, maxMutations=10):
-        self.setStrategies()
-        self.maxMutations = maxMutations
-
-    def setStrategies(self, strategies=None):
-        if strategies is not None: self.strategies = strategies
-        self.cumProbs = np.cumsum( [ it[0] for it in self.strategies ] )
-        #print( self.cumProbs ); exit()
-
-    def mutate_local(self, molecule):
-        molecule, removed = removeAtoms(molecule, nmax=self.maxMutations)
-        return molecule, removed
-
-        #toss = np.random.rand(n_mutations)*self.cumProbs[-1]
-        #i = np.searchsorted( self.cumProbs, toss )
-
-        #print( "mutate_local ", i, toss, self.cumProbs[-1] )
-
-        #molecule = moveMultipleAtoms(molecule, 1.0, 10)
-        #for strat_nr in i:
-        #    args = self.strategies[strat_nr][2]
-        #    args['R'] = R
-        #    molecule = self.strategies[strat_nr][1](molecule, p0, **args)
-        #    #print(n_mutations, "mutations: ", self.strategies[strat_nr][1].__name__)
-
-        #return molecule
-
-        #args = self.strategies[i][2]
-        #args['R'] = R
-        #return self.strategies[i][1]( molecule, p0, **args )
-        #return xyzs.copy(), Zs.copy(), qs.copy()
 
 class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
     """
@@ -408,70 +249,12 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         """
         if not self.paths: raise ValueError("No molecules selected")
 
-
-class Corrector():
-
-    def __init__(self ):
-        self.izPlot     = -8
-        self.logImgName = None
-        self.xyzLogFile = None
-
-        self.best_E   = None
-        self.best_mol = None
-
-    def modifyStructure(self, molIn ):
-        #mol = molIn.clone()
-        #molOut.xyzs[0,0] += 0.1
-        #molOut.xyzs[1,0] -= 0.1
-        #p0  = (np.random.rand(3) - 0.5)
-        #p0 += molIn.cog()
-        #p0[0:2] *= 20.0 # scale x,y
-        #p0[  2] *= 1.0  # scale z
-        #R  = 3.0
-        ia = np.random.randint( 0 , len(molIn.Zs) )
-        molOut = moveAtom( molIn, ia )   # ToDo : This is just token example - later need more sophisticated Correction strategy
-        # --- ToDo: Relaxation Should be possible part of relaxation ????
-        return molOut
-
-    def debug_plot(self, itr, AFMdiff, AFMs, AFMRef, Err ):
-        if self.logImgName is not None:
-            plt = self.plt
-            plt.figure(figsize=(5*3,5))
-            plt.subplot(1,3,1); plt.imshow( AFMs   [:,:,self.izPlot] ); #plt.title("AFM[]"  ); plt.grid()
-            plt.subplot(1,3,2); plt.imshow( AFMRef [:,:,self.izPlot] ); #plt.title("AFMref" ); plt.grid()
-            plt.subplot(1,3,3); plt.imshow( AFMdiff[:,:,self.izPlot] ); #plt.title("AFMdiff"); plt.grid()
-            plt.title( "Error=%g" %Err )
-            plt.savefig( self.logImgName+("_%03i.png" %itr), bbox_inches='tight')
-            plt.close  ()
-
-    def try_improve(self, molIn, AFMs, AFMRef, itr=0 ):
-        #print( " AFMs ", AFMs.shape, " AFMRef ", AFMRef.shape )
-        AFMdiff = AFMs - AFMRef
-        AFMdiff2=AFMdiff**2 
-        Err  = np.sqrt( AFMdiff2.sum() )  # root mean square error
-        # ToDo : identify are of most difference and make random changes in that area
-        #self.debug_plot( itr, AFMdiff2, AFMs, AFMRef, Err )
-        if( self.best_E is not None ):
-            print( "[%i]Err:" %itr, Err, " best: ", self.best_E  )
-        if ( self.best_E is None ) or ( self.best_E > Err ):
-            print( "[%i]Corrector.try_improve() : SUCCESS : Err:" %itr, Err, " best: ", self.best_E  )
-            self.debug_plot( itr, AFMdiff2, AFMs, AFMRef, Err )
-            self.best_mol =  molIn 
-            self.best_E   = Err
-            if self.xyzLogFile is not None:
-                #best_mol.( au.writeToXYZ( self.xyzLogFile, self.best_mol.Zs, self.best_mol.xyzs, qs=self.best_mol.qs, commet=("CorrectionLoop.iteration [%i] " %itr) )
-                self.best_mol.toXYZ( self.xyzLogFile, comment=("Corrector [%i] Err %g " %(itr,self.best_E) ) )
-        #print( "Corrector.try_improve Err2 ", Err  )
-        molOut = self.modifyStructure( self.best_mol )
-        return Err, molOut
-
-# ========================================================================
-
 class CorrectionLoop():
 
     def __init__(self, relaxator, simulator, atoms, bonds, corrector ):
 
         self.rotMat = np.array([[1.,0,0],[0.,1.,0],[0.,0,1.]])
+        #self.rotMat = np.array([[0.,1.,0],[1.,0,0],[0.,0,1.]])
         self.logAFMdataName = None
         self.logImgName = None
         self.logImgIzs  = [0,-8,-1]
@@ -612,68 +395,6 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
             break
 
     looper.xyzLogFile.close()
-
-def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fname_ref="ref.xyz", nstep=10, plt=None ):
-    '''
-    Correction loop which does not use any Force-Field nor AuxMap or Neural-Network
-    it simply randomly add/remove or move atoms
-    '''
-    corrector = Corrector()
-    corrector.logImgName = "AFM_Err"
-    corrector.xyzLogFile = open( "CorrectorLog.xyz", "w")
-    corrector.plt = plt
-    corrector.izPlot = -5
-    nscan = simulator.scan_dim; 
-    nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
-    sw    = simulator.scan_window
-
-    def makeMol( fname ):
-        xyzs,Zs,elems,qs  = au.loadAtomsNP(fname)
-        xyzs[:,1] -= 8
-        xyzs[:,0] -= 2
-        xyzs[:,2] -= 1.8
-        # AFMulatorOCL.setBBoxCenter( xyzs, [0.0,0.0,0.0] )
-        #scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
-        #print( "scan_center ", scan_center )
-        #xyzs[:,:2] += scan_center - xyzs[:,:2].mean(axis=0)
-        #xyzs[:,2]  += (sw[1][2] - 9.0) - xyzs[:,2].max()
-        #print("xyzs ", xyzs)
-        xyzqs = np.concatenate([xyzs, qs[:,None]], axis=1)
-        molecule = Molecule(xyzs,Zs,qs)
-        return molecule
-
-    #xyzs_ref,Zs_ref,elems_ref,qs_ref  = au.loadAtomsNP(geom_fname_ref)
-    mol_ref = makeMol( geom_fname_ref )
-    #simulator.bSaveFF = True                #    DEBUG !!!!!!!!!!!!!!!!!
-    simulator.saveFFpre = "ref_"
-    AFMs = simulator(mol_ref.xyzs, mol_ref.Zs, mol_ref.qs)
-    simulator.saveFFpre = ""
-    np.save( 'AFMref.npy', AFMs )
-
-    AFMRef = np.load('AFMref.npy')
-    #AFMRef = np.roll( AFMRef,  5, axis=0 );
-    #AFMRef = np.roll( AFMRef, -6, axis=1 );
-
-    looper = CorrectionLoop(None, simulator, None, None, corrector)
-    #looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
-    looper.plt = plt
-    #looper.logImgName = "CorrectionLoopAFMLog"
-    #looper.logAFMdataName = "AFMs"
-
-    molecule = makeMol( geom_fname )
-
-    looper.startLoop( molecule, None, None, None, AFMRef )
-    ErrConv = 0.1
-    print( "# ------ To Loop    ")
-    #exit()
-    for itr in range(nstep):
-        #print( "# ======= CorrectionLoop[ %i ] ", itr )
-        Err = looper.iteration(itr=itr)
-        if Err < ErrConv:
-            break
-    corrector.xyzLogFile.close()
-    #looper.xyzLogFile.close()
-
 
 # ========================================================================
 

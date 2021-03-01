@@ -83,7 +83,9 @@ void move_LeapFrog( float3 f, float3 p, float3 v, float2 RP ){
 
 //#define N_RELAX_STEP_MAX  64
 #define N_RELAX_STEP_MAX  128
+//#define N_RELAX_STEP_MAX  256
 #define F2CONV  1e-8f
+//#define F2CONV  1e-10f
 
 #define OPT_FIRE 1
 #if OPT_FIRE 
