@@ -164,7 +164,7 @@ def loadRhoTrans( cubName=None ):
 
 def loadCubeFilesINI( S0, fname_ini ):
     print("Found density list from: "+fname_ini)
-    cubeNames   = loadDensityFileNames( wdir+fname_ini )
+    cubeNames   = loadDensityFileNames( fname_ini )
     loadedRhos  = []
     loadedLvecs = [] 
     for cubName in cubeNames:
@@ -250,6 +250,7 @@ def makePhotonMap( S, ipl, coefs, Vtip, dd_canv, byCenter=False  ):
     #print( "phmap.shape ", phmap.shape  )
     S.phMaps  [ipl] = phmap
     S.rhoCanvs[ipl] = rhoCanv
+    #S.rhoCanvs[0] = rhoCanv
     return rhoCanv, phmap
 
 def makeHeader( system, sh ):
@@ -266,28 +267,34 @@ def imsaveTxt(fname, im, system ):
 
 def plotPhotonMap( system, ipl,ncomb, nvs, byCenter=False, fname=None, dd=None ):
     rho   = system.rhoCanvs[ipl]
+    #rho   = system.rhoCanvs[0]
     phMap = system.phMaps  [ipl]
     sh   = phMap.shape
     extent=( -sh[0]*dd[0]*0.5,sh[0]*dd[0]*0.5,   -sh[1]*dd[1]*0.5, sh[1]*dd[1]*0.5  )
     maxval=(np.max(rho.real))
     minval=abs(np.min(rho.real))
     maxs=np.max(np.array([maxval,minval])) #doing this to set the blue-red diverging scale white to zero in the plots
-    if options.hide:
-        fig=plt.figure(figsize=(6,3))
-        plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
-        plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*system.eigEs[ipl]) )+" meV" )
-        plotBoxes( system.poss, system.rots, system.lvecs, byCenter=byCenter )
-        plt.subplot(1,2,2); plt.imshow( phMap, extent=extent, origin='image',cmap='gist_heat');
-        plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phMap)) ))
-        if options.images:
-            print("Saving PNG image as ",fname )
-            plt.savefig(fname+'.png', dpi=fig.dpi)
+
+#    if options.hide:
+    fig=plt.figure(figsize=(6,3))
+    plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
+    plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*system.eigEs[ipl]) )+" meV" )
+    plotBoxes( system.poss, system.rots, system.lvecs, byCenter=byCenter )
+    plt.subplot(1,2,2); plt.imshow( phMap, extent=extent, origin='image',cmap='gist_heat');
+    plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phMap)) ))
+    if options.images:
+        print("Saving PNG image as ",fname )
+        plt.savefig(fname+'.png', dpi=fig.dpi)
+    plt.close()
+
+'''
     else:
         plt.subplot( ncomb,2*nvs,1+2*(cix*nvs+ipl)); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
         plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*system.eigEs[ipl]) )+" meV" )
         plotBoxes( system.poss, system.rots, system.lvecs, byCenter=byCenter )
         plt.subplot(ncomb,2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( phMap, extent=extent, origin='image',cmap='gist_heat');
         plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phMap)) ))
+'''
 
 # ================================================================
 #              MAIN
@@ -327,9 +334,9 @@ if __name__ == "__main__":
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
     (options, args) = parser.parse_args()
     
-    if options.hide:
-        import matplotlib
-        matplotlib.use("Agg")
+#    if options.hide:
+    import matplotlib
+    matplotlib.use("Agg")
 
     if os.path.isdir(options.wdir): #check for working dir directive
         wdir=options.wdir+"/" #adding slash for sure
@@ -412,8 +419,8 @@ if __name__ == "__main__":
     tipDict   =  { 's': 1.0 }
     #tipDict  =  { 'px': 1.0  }
     #tipDict  =  { 'py': 1.0  }
-    #tipDictSTM =  { 's': 1.0 }
-    tipDictsSTM =  [{ 'px': 1.0 },{ 'py': 1.0 }]
+    tipDictsSTM =  [{ 's': 1.0 }]
+    #tipDictsSTM =  [{ 'px': 1.0 },{ 'py': 1.0 }]
     dcanv = 0.2
     dd = (dcanv,dcanv,dcanv)
     Vtip, shifts = photo.makeTipField( (wcanv,hcanv,10), dd, z0=options.ztip, sigma=options.radius, multipole_dict=tipDict, b3D=options.volumetric )
@@ -464,28 +471,30 @@ if __name__ == "__main__":
         S.rhoCanvs = [None]*nvs 
         # calculation
         for ipl in range(len(S.eigVs)):
-            fname=fnmb+("_03%i_03%i" %(cix, ipl) )
+            fname=fnmb+("_%03i_%03i" %(cix, ipl) )
             makePhotonMap( S, ipl, S.eigVs[ipl], Vtip, dd, byCenter=byCenter )
             #rhoCanv, phmap = makePhotonMap( S, S.eigVs[ipl], Vtip, dd, byCenter=byCenter )
             #S.phMaps  [ipl] = phmap
             #S.rhoCanvs[ipl] = rhoCanv
             imsaveTxt( fname+'_phMap.txt'  , S.phMaps  [ipl], S )
             imsaveTxt( fname+'_rhoCanv.txt', S.rhoCanvs[ipl], S )
+            #imsaveTxt( fname+'_rhoCanv.txt', S.rhoCanvs[0], S )
             plotPhotonMap( S, ipl,ncomb,nvs, byCenter=byCenter, fname=fname, dd=dd )
         if options.save:
-            np.array( S.phMaps ).astype('float32').tofile( fnmb+"_03%i.stk" %cix )
+            np.array( S.phMaps ).astype('float32').tofile( fnmb+"_%03i.stk" %cix )
             file1 = open(fnmb+"_%03i.hdr" %cix, "w")
             file1.write("#N_states Xdim Ydim Zdim\n")
             file1.write("# "+str(nvs)+" "+str(wcanv)+" "+str(hcanv)+"\n"+str() )
             file1.write("# H \n"); file1.write(str(S.Ham))
-            file1.write("# EigenEnergy EigenVector \n")
-            for ie,ei in enumerate( S.eigVs ):
+            file1.write("\n# EigenEnergy EigenVector \n")
+            for ie,ei in enumerate( S.eigEs ):
                 file1.write( str(ei)              )
                 file1.write( str(S.eigVs[ie])+"\n")
             file1.close()
 
-    '''
+    
     # --- save results to file
+'''
     if options.save:
         print("Saving stack")
         file1 = open(fnmb+".hdr", "w")
@@ -506,7 +515,7 @@ if __name__ == "__main__":
                 file1.write(str(eev[j]))
             file1.write("\n")
         file1.close()
-    '''
+    
 
     # --- plotting
     if not options.hide:
@@ -515,3 +524,4 @@ if __name__ == "__main__":
             plt.savefig(fnmb+'.png', dpi=fig.dpi)
         print("Plotting image")
         plt.show() #this is here for detaching the window from python and persist
+'''

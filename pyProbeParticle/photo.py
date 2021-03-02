@@ -85,7 +85,7 @@ def makeTipField2D( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, bSTM=Fa
 '''
 
 def makeTipField( sh, dd, z0=10.0, sigma=1.0, multipole_dict={'s':1.0}, b3D=False, bSTM=False, beta=1.0 ):
-    Vtip = np.zeros( sh )
+    #Vtip = np.zeros( sh )
     if b3D:
         X,Y,Z,shifts  = getMGrid3D( sh,     dd )
         Z += z0
