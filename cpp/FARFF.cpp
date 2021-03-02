@@ -166,6 +166,7 @@ void debug_draw_GridFF(GridShape gsh, Vec3d * data, bool bCmap, bool bLines ){
     //printf( " debug_draw_GridFF \n" );
     double z0  = 1.5;
     double dz0 = 0.1;
+    //printf("in  debug_draw_GridFF gsh.n (%i,%i)  \n", gsh.n.x, gsh.n.y );
     for(int iy=1;iy<gsh.n.y;iy++){
         if(bCmap){
             glShadeModel(GL_SMOOTH);
@@ -329,6 +330,7 @@ double relaxNsteps( int nsteps, double Fconv, int ialg ){
         #ifdef DEBUG_GL
         //debug_draw_GridFF(gridff.gridShape, gridff.atomMap, true, false );
         debug_draw_GridFF(gridff.gridShape, gridff.bondMap, true, false );
+        //debug_draw_GridFF(gridff.gridShape, gridff.bondMap, true, true );
         #endif 
         //printf( "DEBUG relaxNsteps 4 \n" );
         //for(int i=0; i<ff.natom; i++) ff.aforce[i].set(0.);

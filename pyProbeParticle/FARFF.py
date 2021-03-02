@@ -144,8 +144,10 @@ def setupFF( n=None, itypes=None ):
 #  void setGridShape( int * n, double * cell ){
 lib.setGridShape.argtypes  = [c_int_p, c_double_p] 
 lib.setGridShape.restype   =  None
-def setGridShape(n, cell):
-    n=np.array(n,dtype=np.int32); print( "setGridShape n : ", n  )
+def setGridShape( n, cell):
+    #print( "cell ", cell ) ; exit()
+    #cell=np.array(cell)
+    n=np.array(n,dtype=np.int32); #print( "setGridShape n : ", n  )
     return lib.setGridShape(_np_as(n,c_int_p), _np_as(cell,c_double_p)) 
 
 #  void bindGrids( double* atomMap, double*  bondMap ){
@@ -278,6 +280,7 @@ class EngineFARFF():
         self.atomMap = atomMap # we have to keep it so it is not garbage collected
         self.bondMap = bondMap
         if atomMap is not None:
+            print( " atomMap.shape ", atomMap.shape  )
             setGridShape( atomMap.shape[:3]+(1,), lvec )     # ToDo :    this should change if 3D force-field is used
         bindGrids   ( atomMap, bondMap )
         print( " # preform_relaxation - set DOFs [4]" )
@@ -341,7 +344,16 @@ if __name__ == "__main__":
 
     fff.setupFF(n=natom)   # use default atom type
 
-    atomMapF, bondMapF, lvecMap = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF
+    try:
+        print( "loading atomsMap and bondMap ... " )
+        atomMapF, bondMapF, lvecMap = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF
+        if atomMapF is not None:
+            setGridShape( atomMapF.shape[:3]+(1,), lvecMap )     # ToDo :    this should change if 3D force-field is used
+        bindGrids   ( atomMapF, bondMapF )
+    except Exception as e:
+        print( e )
+        print( "CANNOT LOAD atomsMap and bondMap !!!! " )
+        pass
 
     fff.setupOpt(dt=0.05, damp=0.2, f_limit=100.0, l_limit=0.2 )
     #fff.relaxNsteps(50, Fconv=1e-6, ialg=0)
@@ -351,6 +363,9 @@ if __name__ == "__main__":
         glview.pre_draw()
         F2err = fff.relaxNsteps(1, Fconv=1e-6, ialg=0)
         print("|F| ", np.sqrt(F2err))
+        if F2err<1e-12:
+            print( "CONVERGED" )
+            exit()
         if glview.post_draw(): break
         time.sleep(.05)
 
