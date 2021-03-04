@@ -176,6 +176,20 @@ def loadCubeFilesINI( S0, fname_ini ):
     # ToDo : we should load set of cube files here
     return  loadedRhos, loadedLvecs 
 
+def maxshape(arrs):
+    nmaxs=np.array(len(arrs[0].shape),dtype=int)
+    for arr in arrs:
+        nmaxs = np.maximum( nmaxs ,arr.shape )
+    return nmaxs
+
+def lvecMax(lvecs):
+    lmax=np.zeros(3)
+    for i,lvec in enumerate(lvecs):
+        #print("lvec[%i] " %i, lvec)
+        for v in lvec:
+            lmax = np.maximum( lmax, v )
+    return lmax
+
 def loadCubeFiles( S0 ):
     if ((os.path.isfile(wdir+options.homo) and os.path.isfile(wdir+options.lumo)) or os.path.isfile(wdir+options.dens) ):
         # ---- This is the old way, without a valid cubelist, script expects a -D or -H and -L directives
@@ -200,7 +214,8 @@ def loadCubeFiles( S0 ):
         else:
             print("ERROR: This is just not going to work without any input density .cub file !")
             exit()
-    return loadedRhos, loadedLvecs
+
+    return loadedRhos, loadedLvecs, lvecMax(S0.lvecs)  # maxshape(S0.rhoIns)
 
 def runExcitationSolver( system ):
     if options.subsampling:
@@ -231,18 +246,25 @@ def runExcitationSolver( system ):
         file1.close()
     return es,vs,H
 
-def makeSTMmap( S, coefs, wfTip, dd_canv, byCenter=False  ):
+def makeSTMmap_2D( S, coefs, wfTip, dd_canv, byCenter=False  ):
     Tmap, wfCanv = photo.photonMap2D_stamp( S.wfIns, S.lvecs, wfTip, dd_canv[:2], rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
     Imap = ( Tmap.real**2 + Tmap.imag**2 )
     return Imap, wfCanv
 
-def makePhotonMap( S, ipl, coefs, Vtip, dd_canv, byCenter=False  ):
+def makeSTMmap( S, coefs, wfTip, dd_canv, byCenter=False  ):
+    Tmap, wfCanv = photo.photonMap3D_stamp( S.wfIns, S.lvecs, wfTip, dd_canv, rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
+    Imap = ( Tmap.real**2 + Tmap.imag**2 )
+    return Imap, wfCanv
+
+def makePhotonMap( S, ipl, coefs, Vtip, dd_canv, byCenter=False, bDebugXsf=False  ):
     #print( "Volumetric ", options.volumetric, " dd_canv ", dd_canv )
     if options.volumetric:
         phmap, rhoCanv_ = photo.photonMap3D_stamp( S.rhoIns, S.lvecs, Vtip, dd_canv, rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
         #phmap = np.sum(phmap_,axis=0)   # phmap_ is already 2D
         rhoCanv = np.sum(rhoCanv_  ,axis=0)
         #(dx,dy,dz)=dd
+        if (bDebugXsf):
+            GU.saveXSF( "rhoCanv_%03i.xsf" %ipl, rhoCanv_, dd=dd_canv )
     else:
         phmap, rhoCanv = photo.photonMap2D_stamp( S.rhoIns, S.lvecs, Vtip, dd_canv[:2], rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
         #(dx,dy)=dd
@@ -275,26 +297,23 @@ def plotPhotonMap( system, ipl,ncomb, nvs, byCenter=False, fname=None, dd=None )
     minval=abs(np.min(rho.real))
     maxs=np.max(np.array([maxval,minval])) #doing this to set the blue-red diverging scale white to zero in the plots
 
-#    if options.hide:
-    fig=plt.figure(figsize=(6,3))
-    plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
-    plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*system.eigEs[ipl]) )+" meV" )
-    plotBoxes( system.poss, system.rots, system.lvecs, byCenter=byCenter )
-    plt.subplot(1,2,2); plt.imshow( phMap, extent=extent, origin='image',cmap='gist_heat');
-    plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phMap)) ))
-    if options.images:
-        print("Saving PNG image as ",fname )
-        plt.savefig(fname+'.png', dpi=fig.dpi)
-    plt.close()
-
-'''
+    if options.hide:
+        fig=plt.figure(figsize=(6,3))
+        plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
+        plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*system.eigEs[ipl]) )+" meV" )
+        plotBoxes( system.poss, system.rots, system.lvecs, byCenter=byCenter )
+        plt.subplot(1,2,2); plt.imshow( phMap, extent=extent, origin='image',cmap='gist_heat');
+        plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phMap)) ))
+        if options.images:
+            print("Saving PNG image as ",fname )
+            plt.savefig(fname+'.png', dpi=fig.dpi)
+        plt.close()
     else:
         plt.subplot( ncomb,2*nvs,1+2*(cix*nvs+ipl)); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
         plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*system.eigEs[ipl]) )+" meV" )
         plotBoxes( system.poss, system.rots, system.lvecs, byCenter=byCenter )
         plt.subplot(ncomb,2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( phMap, extent=extent, origin='image',cmap='gist_heat');
         plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phMap)) ))
-'''
 
 # ================================================================
 #              MAIN
@@ -331,12 +350,14 @@ if __name__ == "__main__":
     #parser.add_option( "-I", "--current", action="store_true", default=False,  help="tunelling current (STM) modulation beta")
     parser.add_option( "-b", "--beta", action="store", type="float", default=-1,  help="tunelling current (STM) modulation beta")
 
+    bDebugXsf = False
+
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
     (options, args) = parser.parse_args()
     
-#    if options.hide:
-    import matplotlib
-    matplotlib.use("Agg")
+    if options.hide:
+        import matplotlib
+        matplotlib.use("Agg")
 
     if os.path.isdir(options.wdir): #check for working dir directive
         wdir=options.wdir+"/" #adding slash for sure
@@ -406,7 +427,7 @@ if __name__ == "__main__":
         #system0 = ExitonSystem( poss=[[0.,0.,0.]],rots=[0.],Ediags=[1.],irhos=[0],ents=[0],    Ham=None,eigEs=[1.],eigVs=[[1.]],  rhosIn=None,rhoCanv=None,Vti=None,PhMap=None  )
         S0 = ExitonSystem(); S0.poss=[[0.,0.,0.]]; S0.rots=[0.]; S0.Ediags=[1.]; S0.irhos=[0]; S0.ents=[0] #, S0.eigEs=[1.], S0.eigVs=[[1.]]
 
-    loadCubeFiles( S0 )
+    _,_,lmax = loadCubeFiles( S0 )
  
     # -------- make Vtip
     hcanv = options.ydim
@@ -419,11 +440,17 @@ if __name__ == "__main__":
     tipDict   =  { 's': 1.0 }
     #tipDict  =  { 'px': 1.0  }
     #tipDict  =  { 'py': 1.0  }
-    tipDictsSTM =  [{ 's': 1.0 }]
-    #tipDictsSTM =  [{ 'px': 1.0 },{ 'py': 1.0 }]
+    #tipDictsSTM =  [{ 's': 1.0 }]
+    tipDictsSTM =  [{ 'px': 1.0 },{ 'py': 1.0 }]
+    #tipDictsSTM =  [{ 'py': 1.0 }]
+    #tipDictsSTM =  [{ 'px': 1.0 }]
     dcanv = 0.2
     dd = (dcanv,dcanv,dcanv)
-    Vtip, shifts = photo.makeTipField( (wcanv,hcanv,10), dd, z0=options.ztip, sigma=options.radius, multipole_dict=tipDict, b3D=options.volumetric )
+    nz_ph = int( lmax[0]/dd[0]+1 )   # because lvecs are transposed x=z
+    print( "nz_ph ", nz_ph ," lmax ", lmax )
+    Vtip, shifts = photo.makeTipField( (wcanv,hcanv,nz_ph), dd, z0=options.ztip, sigma=options.radius, multipole_dict=tipDict, b3D=options.volumetric )
+    if bDebugXsf and options.volumetric:
+        GU.saveXSF( "Vtip.xsf", Vtip,  dd=dd )
     if not options.hide:
         if options.volumetric:
             fig=plt.figure(figsize=(5*2,5))
@@ -432,24 +459,34 @@ if __name__ == "__main__":
         else:
             fig=plt.figure(figsize=(5,5))
             plt.imshow( Vtip, origin='image' ); plt.title( 'Tip Cavity Field' )
-    if options.beta > 0:
-        loadedWfs, loadedLvecs_ = loadCubeFilesINI( S0, wdir+"wfs.ini" )
+    if options.beta > 0: # ========== STM simulation
+        loadedWfs, loadedLvecs_wf = loadCubeFilesINI( S0, wdir+"wfs.ini" )
+        #nmaxs_wf = maxshape(loadedWfs); print( "nmaxs_wf ", nmaxs_wf )
+        lmax_wf = lvecMax( loadedLvecs_wf )
+        nz_wf = int( lmax_wf[0]/dd[0] +1 )   # because lvecs are transposed x=z
+        print( "nz_wf ", nz_wf ," lmax_wf ", lmax_wf )
         S0.wfIns = [ loadedWfs[i] for i in S0.irhos ]
         for i,tipDictSTM in enumerate( tipDictsSTM ):
-            tipWf, shifts_STM = photo.makeTipField( (wcanv,hcanv,10), dd, z0=options.ztip, sigma=options.radius, multipole_dict=tipDictSTM, b3D=False, bSTM=True, beta=options.beta )
+            tipWf, shifts_STM = photo.makeTipField( (wcanv,hcanv,nz_wf), dd, z0=options.ztip, sigma=options.radius, multipole_dict=tipDictSTM, b3D=True, bSTM=True, beta=options.beta )
             STMmap_, wfCanv = makeSTMmap( S0, [ 1.0 ]*len(S0.rots), tipWf, dd, byCenter=byCenter )
+            #lvecCanv = orthoLvec( tipWf.shape, dd )
+            print( "tipWf.shape ", tipWf.shape, STMmap_.shape )
+            # DEBUG Xsf files
+            if bDebugXsf:
+                GU.saveXSF( "STM_Vtip_%03i.xsf" %i, tipWf,  dd=dd )
+                GU.saveXSF( "STM_wfCanv.xsf"      , wfCanv, dd=dd )
             if i==0:
                 tipWf_ = tipWf**2
                 STMmap = STMmap_
             else:
                 tipWf_ += tipWf**2
-                STMmap += STMmap
+                STMmap += STMmap_
         if not options.hide:
             tipWf_ = np.fft.fftshift( tipWf_ )
             fig=plt.figure(figsize=(5*3,5))
-            plt.subplot(1,3,1); plt.imshow( tipWf_, origin='image' ); plt.title( 'Tip Wf'      )
-            plt.subplot(1,3,2); plt.imshow( wfCanv, origin='image' ); plt.title( 'Sample Wf '  )
-            plt.subplot(1,3,3); plt.imshow( STMmap, origin='image' ); plt.title( 'STM current ')
+            plt.subplot(1,3,1); plt.imshow( tipWf_.sum(axis=0), origin='image' ); plt.title( 'Tip Wf'      )
+            plt.subplot(1,3,2); plt.imshow( wfCanv.sum(axis=0), origin='image' ); plt.title( 'Sample Wf '  )
+            plt.subplot(1,3,3); plt.imshow( STMmap            , origin='image' ); plt.title( 'STM current ')
 
     #cposs,crots,ccoefs,cents,cens,combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
     inds = photo.combinator(S0.ents,subsys=options.subsys)
@@ -472,7 +509,7 @@ if __name__ == "__main__":
         # calculation
         for ipl in range(len(S.eigVs)):
             fname=fnmb+("_%03i_%03i" %(cix, ipl) )
-            makePhotonMap( S, ipl, S.eigVs[ipl], Vtip, dd, byCenter=byCenter )
+            makePhotonMap( S, ipl, S.eigVs[ipl], Vtip, dd, byCenter=byCenter, bDebugXsf=bDebugXsf )
             #rhoCanv, phmap = makePhotonMap( S, S.eigVs[ipl], Vtip, dd, byCenter=byCenter )
             #S.phMaps  [ipl] = phmap
             #S.rhoCanvs[ipl] = rhoCanv
@@ -494,7 +531,7 @@ if __name__ == "__main__":
 
     
     # --- save results to file
-'''
+    '''
     if options.save:
         print("Saving stack")
         file1 = open(fnmb+".hdr", "w")
@@ -515,7 +552,7 @@ if __name__ == "__main__":
                 file1.write(str(eev[j]))
             file1.write("\n")
         file1.close()
-    
+    '''
 
     # --- plotting
     if not options.hide:
@@ -524,4 +561,4 @@ if __name__ == "__main__":
             plt.savefig(fnmb+'.png', dpi=fig.dpi)
         print("Plotting image")
         plt.show() #this is here for detaching the window from python and persist
-'''
+

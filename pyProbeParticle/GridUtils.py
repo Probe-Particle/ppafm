@@ -366,7 +366,19 @@ BEGIN_BLOCK_DATAGRID_3D
    BEGIN_DATAGRID_3D_whatever 
 '''
 
-def saveXSF(fname, data, lvec, head=XSF_HEAD_DEFAULT ):
+def orthoLvec( sh, dd ):
+    return [
+        [0,0,0],
+        [sh[2]*dd[0],0,0],
+        [0,sh[1]*dd[1],0],
+        [0,0,sh[0]*dd[2]]
+    ]
+
+def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT ):
+    if lvec is None:
+        if dd is None:
+            dd=[1.0,1.0,1.0]
+        lvec = orthoLvec( data.shape, dd )
     print("saving ", fname) 
     fileout = open(fname, 'w')
     for line in head:

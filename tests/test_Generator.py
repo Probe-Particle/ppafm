@@ -5,16 +5,13 @@ import os
 import numpy as np
 import time
 
-sys.path.append("../../")
+sys.path.append("../")
 #import pyProbeParticle.basUtils as bu
 #import pyProbeParticle.atomicUtils as au
 #import pyProbeParticle.GLView as glv
 #import pyProbeParticle.FARFF  as fff
 
-print( "DEBUG 1 " )
 import pyopencl     as cl
-
-print( "DEBUG 2 " )
 
 import pyProbeParticle.basUtils
 import pyProbeParticle.GridUtils as GU
@@ -25,6 +22,8 @@ import pyProbeParticle.fieldOCL     as FFcl
 import pyProbeParticle.RelaxOpenCL  as oclr
 import pyProbeParticle.HighLevelOCL as hl
 
+import pyProbeParticle.GeneratorOCL_LJC as gen
+
 # ==========================================================
 # ==========================================================
 # ====================== TEST RUN ==========================
@@ -34,8 +33,6 @@ import pyProbeParticle.HighLevelOCL as hl
 
 
 if __name__ == "__main__":
-    print( "DEBUG 1 " )
-
     import matplotlib as mpl;    mpl.use('Agg');
     import matplotlib.pyplot as plt
     #import argparse
@@ -59,7 +56,6 @@ if __name__ == "__main__":
     #from pyProbeParticle.GeneratorOCL_LJC import Generator
     PPGen = current_module = sys.modules[__name__]
 
-    print( "DEBUG 1 " )
     # ============ Setup Probe Particle
 
     batch_size = 1
@@ -75,8 +71,6 @@ if __name__ == "__main__":
     parser.add_option( "-Y", "--Ymode", default='D-S-H', action="store", type="string", help="tip stiffenss [N/m]" )
     (options, args) = parser.parse_args()
 
-    print( "DEBUG 2 " )
-
     print("options.Ymode: ", options.Ymode)
 
     #rotations = PPU.genRotations( np.array([1.0,0.0,0.0]) , np.linspace(-np.pi/2,np.pi/2, nRot) )
@@ -84,8 +78,6 @@ if __name__ == "__main__":
     #rotations = PPU.sphereTangentSpace(n=nRot) # http://blog.marmakoide.org/?p=1
     #rotations  = PPU.genRotations( np.array([0.,0.,1.]), np.arange( -np.pi, np.pi, 2*np.pi/nRot ) )
     rotations = np.array( [ [[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]], ] )
-
-    print( "DEBUG 3 " )
 
     #import os
     i_platform = 0
@@ -107,7 +99,6 @@ if __name__ == "__main__":
         print 
         print "######################################################################"
     '''
-    print( "DEBUG 4 " )
 
     '''
     lvec = np.array([
@@ -136,8 +127,6 @@ if __name__ == "__main__":
     #data_generator = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode='SpheresType' )
     data_generator  = Generator( molecules, rotations, batch_size, pixPerAngstrome=5, Ymode=options.Ymode, lvec=lvec  )
     #data_generator  = Generator( molecules, rotations, batch_size, pixPerAngstrome=10, Ymode=options.Ymode, lvec=lvec  )
-
-    print( "DEBUG 5 " )
 
     #data_generator.use_rff      = True
     #data_generator.save_rff_xyz = True
