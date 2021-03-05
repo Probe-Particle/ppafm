@@ -284,8 +284,17 @@ def makeHeader( system, sh ):
     header+='\nEigenvector: '     + str(system.eigVs[ipl])
     return header
 
+def makeHeader_generic( system, sh ):
+    header =str(sh[0])+' '+str(sh[1])
+    header+='\n'+ str(sh[0]*dd[0]/10.)+' '+str(sh[1]*dd[1]/10.)
+    return header
+
+
 def imsaveTxt(fname, im, system ):
     np.savetxt(fname, im,header=makeHeader( system, im.shape ) )
+
+def imsaveTxt_generic(fname, im, system ):
+    np.savetxt(fname, im,header=makeHeader_generic( system, im.shape ) )
 
 def plotPhotonMap( system, ipl,ncomb, nvs, byCenter=False, fname=None, dd=None ):
     rho   = system.rhoCanvs[ipl]
@@ -297,7 +306,7 @@ def plotPhotonMap( system, ipl,ncomb, nvs, byCenter=False, fname=None, dd=None )
     minval=abs(np.min(rho.real))
     maxs=np.max(np.array([maxval,minval])) #doing this to set the blue-red diverging scale white to zero in the plots
 
-    if options.hide:
+    if not options.grdebug:
         fig=plt.figure(figsize=(6,3))
         plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
         plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*system.eigEs[ipl]) )+" meV" )
@@ -325,6 +334,11 @@ if __name__ == "__main__":
     from optparse import OptionParser
     np.set_printoptions(linewidth=400) #because of the implicit short line output into files
 
+
+    #TODO: configuration file loading (config.ini)
+    #TODO: custom tip dictionary (tipdict.ini)
+    #TODO: custom coupling matrix (elements identified by their entities?) (coupling.txt)
+
     PARSER_DEFAULTVAL = None
     parser = OptionParser()
     parser.add_option( "-y", "--ydim",   action="store", type="int", default="500", help="height of canvas")
@@ -346,16 +360,17 @@ if __name__ == "__main__":
     parser.add_option( "-w", "--wdir", action="store", type="string", default="",  help="working directory to find tr. densities and all the input files")
     parser.add_option( "-m", "--molecules", action="store", type="string", default="molecules.ini",  help="filename from which to read excitonic coordinates and other attributes")
     parser.add_option( "-i", "--images", action="store_true", default=False,  help="save output as images")
-    parser.add_option( "-j", "--hide", action="store_true", default=False,  help="hide any graphical output; causes saved images to split into separate items")
+    parser.add_option( "-g", "--grdebug", action="store_true", default=False,  help="produce graphical output;")
     #parser.add_option( "-I", "--current", action="store_true", default=False,  help="tunelling current (STM) modulation beta")
     parser.add_option( "-b", "--beta", action="store", type="float", default=-1,  help="tunelling current (STM) modulation beta")
 
     bDebugXsf = False
+    #bDebugXsf = True
 
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
     (options, args) = parser.parse_args()
     
-    if options.hide:
+    if not options.grdebug:
         import matplotlib
         matplotlib.use("Agg")
 
@@ -397,12 +412,13 @@ if __name__ == "__main__":
     else:
         options.dens=""
 
-    if(options.molecules != PARSER_DEFAULTVAL):
-        if (not os.path.isfile(wdir+options.molecules)):
-            print("Specified parameter INI file does not exist!")
-            quit()
-        else:
-            fnmb=wdir+options.molecules
+    if(not os.path.isfile(wdir+options.molecules)):
+        print("Parameter INI file does not exist: ",wdir+options.molecules)
+        S0 = ExitonSystem(); S0.poss=[[0.,0.,0.]]; S0.rots=[0.]; S0.Ediags=[1.]; S0.irhos=[0]; S0.ents=[0] #, S0.eigEs=[1.], S0.eigVs=[[1.]]
+    else:
+        fnmb=wdir+options.molecules
+        S0 = loadMolecules( fnmb )
+
 
     if(options.cubelist != PARSER_DEFAULTVAL):
         if (not os.path.isfile(wdir+options.cubelist)):
@@ -414,8 +430,10 @@ if __name__ == "__main__":
             fnmb=wdir+options.output
         else:
             print("Invalid output specified")
+
     print("DEFAULT OUTPUT BASENAME: '"+fnmb+"'")
 
+    '''
     if os.path.exists(wdir+options.molecules): #check molecule ini file
         print("Found parameter ini file, loading: "+wdir+options.molecules)
         fname_param=wdir+options.molecules
@@ -426,6 +444,7 @@ if __name__ == "__main__":
         #oposs=[[0.,0.,0.]];orots=[0.];ocoefs=[1.];oens=[1.];oirhos=[0];oents=[0.];
         #system0 = ExitonSystem( poss=[[0.,0.,0.]],rots=[0.],Ediags=[1.],irhos=[0],ents=[0],    Ham=None,eigEs=[1.],eigVs=[[1.]],  rhosIn=None,rhoCanv=None,Vti=None,PhMap=None  )
         S0 = ExitonSystem(); S0.poss=[[0.,0.,0.]]; S0.rots=[0.]; S0.Ediags=[1.]; S0.irhos=[0]; S0.ents=[0] #, S0.eigEs=[1.], S0.eigVs=[[1.]]
+    '''
 
     _,_,lmax = loadCubeFiles( S0 )
  
@@ -441,7 +460,8 @@ if __name__ == "__main__":
     #tipDict  =  { 'px': 1.0  }
     #tipDict  =  { 'py': 1.0  }
     #tipDictsSTM =  [{ 's': 1.0 }]
-    tipDictsSTM =  [{ 'px': 1.0 },{ 'py': 1.0 }]
+    #tipDictsSTM =  [{ 'px': 1.0 },{ 'py': 1.0 }]
+    tipDictsSTM =  [{'s':.2},{ 'px': 1.0 },{ 'py': 1.0 }]
     #tipDictsSTM =  [{ 'py': 1.0 }]
     #tipDictsSTM =  [{ 'px': 1.0 }]
     dcanv = 0.2
@@ -450,8 +470,8 @@ if __name__ == "__main__":
     print( "nz_ph ", nz_ph ," lmax ", lmax )
     Vtip, shifts = photo.makeTipField( (wcanv,hcanv,nz_ph), dd, z0=options.ztip, sigma=options.radius, multipole_dict=tipDict, b3D=options.volumetric )
     if bDebugXsf and options.volumetric:
-        GU.saveXSF( "Vtip.xsf", Vtip,  dd=dd )
-    if not options.hide:
+        GU.saveXSF( wdir+"Vtip.xsf", Vtip,  dd=dd )
+    if options.grdebug:
         if options.volumetric:
             fig=plt.figure(figsize=(5*2,5))
             plt.subplot(1,2,1); plt.imshow( np.fft.fftshift(Vtip[-1]), origin='image' ); plt.title( 'Tip Cavity Field[Top]'    )
@@ -473,21 +493,27 @@ if __name__ == "__main__":
             print( "tipWf.shape ", tipWf.shape, STMmap_.shape )
             # DEBUG Xsf files
             if bDebugXsf:
-                GU.saveXSF( "STM_Vtip_%03i.xsf" %i, tipWf,  dd=dd )
-                GU.saveXSF( "STM_wfCanv.xsf"      , wfCanv, dd=dd )
+                GU.saveXSF( wdir+"STM_Vtip_%03i.xsf" %i, tipWf,  dd=dd )
+                GU.saveXSF( wdir+"STM_wfCanv.xsf"      , wfCanv, dd=dd )
             if i==0:
                 tipWf_ = tipWf**2
                 STMmap = STMmap_
             else:
                 tipWf_ += tipWf**2
                 STMmap += STMmap_
-        if not options.hide:
+        #if not options.hide:
             tipWf_ = np.fft.fftshift( tipWf_ )
             fig=plt.figure(figsize=(5*3,5))
             plt.subplot(1,3,1); plt.imshow( tipWf_.sum(axis=0), origin='image' ); plt.title( 'Tip Wf'      )
             plt.subplot(1,3,2); plt.imshow( wfCanv.sum(axis=0), origin='image' ); plt.title( 'Sample Wf '  )
             plt.subplot(1,3,3); plt.imshow( STMmap            , origin='image' ); plt.title( 'STM current ')
 
+        S0.STMmap=STMmap
+        if options.save:
+            imsaveTxt_generic( fnmb+'_current.txt', STMmap, S0 )
+            print("Saving PNG image as ",fnmb+'_current.png' )
+            plt.savefig(fnmb+'_current.png', dpi=fig.dpi)
+ 
     #cposs,crots,ccoefs,cents,cens,combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
     inds = photo.combinator(S0.ents,subsys=options.subsys)
     print( "combinator.inds ", inds )
@@ -500,7 +526,7 @@ if __name__ == "__main__":
             runExcitationSolver( S )
 
         nvs = len(S.eigVs)
-        if ( (cix==0) and not options.hide):   # initialize figures on first combination
+        if ( (cix==0) and options.grdebug):   # initialize figures on first combination
             fig=plt.figure(figsize=(4*nvs,2*ncomb+0.5))
             plt.tight_layout(pad=1.0)
 
@@ -555,7 +581,7 @@ if __name__ == "__main__":
     '''
 
     # --- plotting
-    if not options.hide:
+    if options.grdebug:
         if options.images:
             print("Saving one big PNG image")
             plt.savefig(fnmb+'.png', dpi=fig.dpi)
