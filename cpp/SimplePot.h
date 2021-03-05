@@ -76,7 +76,7 @@ class SimplePot{ public:
                 }
             }
         }
-        printNeighs();
+        //printNeighs();
     }
 
     void printNeighs(){
@@ -125,29 +125,49 @@ class SimplePot{ public:
         return Etot;
     }
 
-    /*
-    void makeBonds(){
-        bonds.clear();
-        for(int i=0; i<natom; i++){ nneighs[i]=0; };
+    int danglingToArray( Vec3d* dangs, double Rcov, Vec3d pmin, Vec3d pmax, int ncircle=6 ){
+        int n=0;
         for(int i=0; i<natom; i++){
-            Vec3d  pi = apos[i];
-            double Ri = Rcov[i];
-            for(int j=i+1; j<natom; j++){
-                Vec3d d  = apos[j] - pi;
-                double R = Rcov[j] + Ri;
-                double r2 = d.nomrm2();
-                if( r2<(R*R) ){
-                    double r = sqrt(r2);
-                    d.mul(1/r);
-                    bonds.push_back( (Bond){i,j,d,r} );
-                    nneighs[i]++;
-                    nneighs[j]++;
-                }
+            Vec3d  pi   = apos [i];
+            double R    = Rcovs[i] + Rcov;
+            //Vec3d  margin; margin.set(R); 
+            //if( ! pi.isBetween( pmin-margin, pmax+margin ) ) continue;
+            int nb = nneighs[i];
+            int j0=i*neighPerAtom;
+            switch(nb){
+                case 0: { // sphere - ToDo later
+                } break;
+                case 1: {    //
+                    Vec3d d = neighs[j0];
+                    Vec3d u,s; d.getSomeOrtho(u,s);
+                    Vec2d rot=Vec2dX;
+                    Vec2d drot; drot.fromAngle( 2*M_PI/ncircle ); 
+                    dangs[n]= pi + d*-R; n++; 
+                    for(int k=0; k<ncircle; k++){
+                        dangs[n] = pi + ( d*0.57714519003 + u*(rot.x*0.81664155516) + s*(rot.y*0.81664155516) )*-R;
+                        n++;
+                        rot.mul_cmplx(drot);
+                    }
+                } break;
+                case 2:{
+                    Vec3d d = (neighs[j0]+neighs[j0+1]); d.normalize();
+                    Vec3d u = (neighs[j0]-neighs[j0+1]); u.normalize();
+                    Vec3d s; s.set_cross(u,d);
+                    dangs[n]= pi+(d*0.57714519003+s*-0.81664155516)*-R; n++; // sp3
+                    dangs[n]= pi+(d*0.57714519003+s*+0.81664155516)*-R; n++; // sp3
+                    dangs[n]= pi+d*-R; n++; // sp2
+                } break;
+                case 3:{
+                    Vec3d d = (neighs[j0]-neighs[j0+1]); d.normalize();
+                    Vec3d u = (neighs[j0]-neighs[j0+2]); u.makeOrthoU(d);  u.normalize();
+                    Vec3d s; s.set_cross(u,d);
+                    dangs[n]=pi+s* R; n++;
+                    dangs[n]=pi+s*-R; n++;
+                } break;
             }
         }
+        return n;
     }
-    */
-
 
 };
 

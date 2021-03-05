@@ -38,6 +38,7 @@ cpp_utils.s_numpy_data_as_call = "_np_as(%s,%s)"
 header_strings = [
 "void init( int natom, int neighPerAtom, double* apos, double* Rcovs ){",
 "void eval( int n, double* Es, double* pos_, double Rcov, double RvdW ){",
+"int danglingToArray( double* dangs, double* pmin, double* pmax ){",
 ]
 #cpp_utils.writeFuncInterfaces( header_strings );        exit()     #   uncomment this to re-generate C-python interfaces
 
@@ -68,6 +69,16 @@ def eval(pos, Es=None, Rcov=0.7, RvdW=1.8 ):
         Es = np.empty(n)
     lib.eval(n, _np_as(Es,c_double_p), _np_as(pos,c_double_p), Rcov, RvdW)
     return Es
+
+#  int danglingToArray( double* dangs, double* pmin, double* pmax ){
+lib.danglingToArray.argtypes  = [c_double_p, c_double_p, c_double_p, c_double] 
+lib.danglingToArray.restype   =  c_int
+def danglingToArray(dangs=None, pmin=None, pmax=None, npmax=1000, Rcov=0.3):
+    if dangs is None: dangs = np.zeros((npmax,3))
+    if pmin is None: pmin=np.array([-1e+300,-1e+300,-1e+300])
+    if pmax is None: pmin=np.array([+1e+300,+1e+300,+1e+300])
+    n = lib.danglingToArray(_np_as(dangs,c_double_p), _np_as(pmin,c_double_p), _np_as(pmax,c_double_p), Rcov ) 
+    return dangs[:n].copy() 
 
 if __name__ == "__main__":
 
@@ -114,6 +125,9 @@ if __name__ == "__main__":
     # ----- Here Call SimplePot
     init( xyzs )     # this will re-allocate auxulary arrays and find neighbors to each atoms (atoms B-C)
     Es = eval( ps )  # evaluates potential for array of points (positions of atom A)
+    dangs = danglingToArray()
+    print( "dangs\n", dangs.shape, xyzs.shape )
+    au.saveXYZ( elems+['H']*len(dangs), np.concatenate( (xyzs, dangs) ), 'dangs.xyz' )
 
     # ----- plot or store result
     if b3D:

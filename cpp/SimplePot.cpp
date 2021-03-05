@@ -25,4 +25,8 @@ void eval( int n, double* Es, double* pos_, double Rcov, double RvdW ){
     }
 }
 
+int danglingToArray( double* dangs, double* pmin, double* pmax, double Rcov ){
+    return pot.danglingToArray( (Vec3d*)dangs, Rcov, *(Vec3d*)pmin, *(Vec3d*)pmax );
+}
+
 }
