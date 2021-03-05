@@ -7,7 +7,7 @@ CPPFLAGS= -fPIC -std=c++11 -O2 -march=native -mtune=native
 #CPPFLAGS= -fPIC -std=c++11 -Ofast -march=native -mtune=native
 LDFLAGS= -shared
 
-all: PP GU MP RR PolyCycles_ atomfit_ fitting_ fitSpline_ MMFF_ FARFF_ COvsCO_
+all: PP GU MP RR PolyCycles_ atomfit_ fitting_ fitSpline_ MMFF_ FARFF_ COvsCO_ SimplePot_
 
 PP: ProbeParticle.o
 
@@ -22,6 +22,8 @@ PolyCycles_: PolyCycles.o
 MMFF_: MMFF.o
 
 FARFF_: FARFF.o
+
+SimplePot_: SimplePot.o
 
 COvsCO_: COvsCO.o
 
