@@ -16,6 +16,9 @@ from . import atomicUtils as au
 from . import basUtils
 from . import common    as PPU
 from . import elements
+
+from . import SimplePot as pot
+
 #from . import oclUtils     as oclu
 #from . import fieldOCL     as FFcl
 #from . import RelaxOpenCL  as oclr
@@ -84,6 +87,12 @@ def removeAtoms( molecule, nmax=1 ):
     Zs_   = np.delete( Zs,   sel )
     qs_   = np.delete( qs,   sel )
     return Molecule(xyzs_, Zs_, qs_), sel
+
+def addAtom_bare( mol,  xyz,Z,q ):
+    Zs_   = np.append(mol.Zs,   np.array([Z,]), axis=0 )
+    xyzs_ = np.append(mol.xyzs, xyz[None,:],            axis=0 )
+    qs_   = np.append(mol.qs,   np.array([q,]), axis=0 )
+    return Molecule(xyzs_, Zs_, qs_)
 
 def addAtom( molecule, p0, R=0.0, Z0=1, q0=0.0, dq=0.0 ):
     # ToDo : it would be nice to add atoms in a more physicaly reasonable way - not overlaping, proper bond-order etc.
@@ -190,6 +199,7 @@ class Corrector():
         self.dpMax=np.array([0.5,0.5,0.15])
 
     def modifyStructure(self, molIn ):
+        '''
         #mol = molIn.clone()
         #molOut.xyzs[0,0] += 0.1
         #molOut.xyzs[1,0] -= 0.1
@@ -207,6 +217,11 @@ class Corrector():
         ia = sel[ipick]-1
         molOut = moveAtom( molIn, ia, dpMax=self.dpMax )   # ToDo : This is just token example - later need more sophisticated Correction strategy
         # --- ToDo: Relaxation Should be possible part of relaxation ????
+        '''
+        #genAtom( p0, Ks=[0.2,0.2,1.0], spread=[1.0,1.0,1.0], Rcov=0.7, RvdW=1.8, ntry=100 )
+        p0 = (np.random.rand(3) - 0.5)
+        p  = pot.genAtom( p0, Ks=[0.0,0.0,0.0], spread=[1.0,1.0,1.0], Rcov=0.7, RvdW=1.8, ntry=100 )
+        molOut = addAtom_bare( molIn,  p, 6,0 )
         return molOut
 
     def debug_plot(self, itr, AFM_Err, AFMs, AFMRef, Err ):
@@ -256,7 +271,7 @@ class Corrector():
             if( self.best_E > Err ):
                 #Ebetter,Eworse = paretoNorm( self.best_diff, AFMdiff2 )
                 ErrB,ErrW = paretoNorm_( self.best_diff, AFMdiff2 ); Eworse = ErrW.sum(); 
-                ErrPar = Err + 10.*Eworse
+                ErrPar = Err + 2.*Eworse
                 #ErrPar = Err + 0.*Eworse
                 print( "\nmaybe better ? ", self.best_E , " <? ", ErrPar, " Eworse ", Eworse  )
                 #self.debug_plot_Worse( itr, AFMs, AFMRef, ErrB, ErrW )
@@ -274,6 +289,7 @@ class Corrector():
             self.best_mol  = molIn 
             self.best_E    = Err
             self.best_diff = AFMdiff2
+            pot.init( self.best_mol.xyzs )
             if self.xyzLogFile is not None:
                 self.best_mol.toXYZ( self.xyzLogFile, comment=("Corrector [%i] Err %g " %(itr,self.best_E) ) )
         #print( "Corrector.try_improve Err2 ", Err  )

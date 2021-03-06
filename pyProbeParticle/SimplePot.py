@@ -39,6 +39,9 @@ header_strings = [
 "void init( int natom, int neighPerAtom, double* apos, double* Rcovs ){",
 "void eval( int n, double* Es, double* pos_, double Rcov, double RvdW ){",
 "int danglingToArray( double* dangs, double* pmin, double* pmax ){",
+"int genNewAtom( int np, double* pos_, double* Ws, double* p0_, double* K_ ){",
+"double randomOptAtom( int ntry, double* pos_, double* spread_, double Rcov, double RvdW ){",
+"void init_random(int seed){",
 ]
 #cpp_utils.writeFuncInterfaces( header_strings );        exit()     #   uncomment this to re-generate C-python interfaces
 
@@ -50,6 +53,12 @@ cpp_utils.make(cpp_name)
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
 
 # ========= C functions
+
+#  void init_random(int seed){
+lib.init_random.argtypes  = [c_int] 
+lib.init_random.restype   =  None
+def init_random(seed):
+    return lib.init_random(seed) 
 
 #  void init( int natom, int neighPerAtom, double* apos, double* Rcovs ){
 lib.init.argtypes  = [c_int, c_int, c_double_p, c_double_p] 
@@ -79,6 +88,33 @@ def danglingToArray(dangs=None, pmin=None, pmax=None, npmax=1000, Rcov=0.3):
     if pmax is None: pmin=np.array([+1e+300,+1e+300,+1e+300])
     n = lib.danglingToArray(_np_as(dangs,c_double_p), _np_as(pmin,c_double_p), _np_as(pmax,c_double_p), Rcov ) 
     return dangs[:n].copy() 
+
+#  int genNewAtom( int np, double* pos_, double* Ws, double* p0_, double* K_ ){
+lib.genNewAtom.argtypes  = [c_int, c_double_p, c_double_p, c_double_p, c_double_p] 
+lib.genNewAtom.restype   =  c_int
+def genNewAtom( poss, p0, Ws=None, Ks=[0.2,0.2,1.0] ):
+    n = len(poss)
+    p0 =np.array(p0).copy()
+    Ks =np.array(Ks).copy()
+    if Ws is None: Ws = np.empty( n )
+    return lib.genNewAtom(n, _np_as(poss,c_double_p), _np_as(Ws,c_double_p), _np_as(p0,c_double_p), _np_as(Ks,c_double_p)) 
+
+#  double randomOptAtom( int ntry, double* pos_, double* spread_, double Rcov, double RvdW ){
+lib.randomOptAtom.argtypes  = [c_int, c_double_p, c_double_p, c_double, c_double] 
+lib.randomOptAtom.restype   =  c_double
+def randomOptAtom( pos, spread=[1.0,1.0,1.0], Rcov=0.7, RvdW=1.8, ntry=100 ):
+    pos   =np.array(pos).copy()
+    spread=np.array(spread).copy()
+    lib.randomOptAtom(ntry, _np_as(pos,c_double_p), _np_as(spread,c_double_p), Rcov, RvdW) 
+    return pos
+
+def genAtom( p0, Ks=[0.2,0.2,1.0], spread=[1.0,1.0,1.0], Rcov=0.7, RvdW=1.8, ntry=100 ):
+    poss  = danglingToArray( Rcov=Rcov )
+    ipick = genNewAtom( poss, p0, Ks=Ks )
+    #p = randomOptAtom( poss[ipick], spread, Rcov=Rcov, RvdW=RvdW, ntry=ntry )
+    p = poss[ipick]
+    #print( "genAtom p ", p ) 
+    return p
 
 if __name__ == "__main__":
 
@@ -118,7 +154,8 @@ if __name__ == "__main__":
     print( ps.shape )
 
     # ---- Load Geometry
-    xyzs,Zs,elems,qs = au.loadAtomsNP( 'simplePotTest.xyz' )
+    #xyzs,Zs,elems,qs = au.loadAtomsNP( 'simplePotTest.xyz' )
+    xyzs,Zs,elems,qs = au.loadAtomsNP( 'fail.xyz' )
     #xyzs,Zs,elems,qs = au.loadAtomsNP( 'simplePotTest-.xyz' )
     Rcovs = np.ones(len(xyzs))*0.7
 

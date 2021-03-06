@@ -14,7 +14,7 @@ import pyProbeParticle.AuxMap as AuxMap
 import pyProbeParticle.atomicUtils as au
 from pyProbeParticle.Corrector import Corrector,Molecule
 from pyProbeParticle.CorrectionLoop import CorrectionLoop
-
+import pyProbeParticle.SimplePot as pot
 
 import os
 import time
@@ -117,6 +117,7 @@ if __name__ == "__main__":
     #atoms = AuxMap.AtomRfunc(scan_dim=(128, 128), scan_window=((2,2),(18,18)))
     #bonds = AuxMap.Bonds(scan_dim=(128, 128), scan_window=((2,2),(18,18)))
 
+    pot.init_random(int(45446*time.time()))
     Job_CorrectionLoop_SimpleRandom( afmulator, geom_fname="input.xyz", geom_fname_ref="ref.xyz", nstep=1000, plt=plt )
 
     #print( "UNIT_TEST is not yet written :-( " )

@@ -7,6 +7,29 @@
 #include "Vec3.h"
 #include <stdio.h>
 
+#include "fastmath.h"
+
+//#define GOLDEN_RATIO 
+
+// https://en.wikipedia.org/wiki/Regular_icosahedron#Cartesian_coordinates
+constexpr double IcosA = 0.52573111211; // 1 / |R|
+constexpr double IcosB = 0.85065080835; // golden_ratio / |R|
+const static int   nIcos = 12;
+const static Vec3d Icosahedron_verts[nIcos] = {
+    {0.,-IcosA,-IcosB}, // 0
+    {0.,-IcosA,+IcosB}, // 1
+    {0.,+IcosA,-IcosB}, // 2
+    {0.,+IcosA,+IcosB}, // 3
+    {-IcosA,-IcosB,0.}, // 4
+    {-IcosA,+IcosB,0.}, // 5
+    {+IcosA,-IcosB,0.}, // 6
+    {+IcosA,+IcosB,0.}, // 7
+    {-IcosB,0.,-IcosA}, // 8
+    {+IcosB,0.,-IcosA}, // 9
+    {-IcosB,0.,+IcosA}, // 10
+    {+IcosB,0.,+IcosA}, // 11
+};
+
 /*
 struct Bond{
     int    i,j;
@@ -136,6 +159,9 @@ class SimplePot{ public:
             int j0=i*neighPerAtom;
             switch(nb){
                 case 0: { // sphere - ToDo later
+                    for(int i=0; i<nIcos; i++){
+                        dangs[n] = pi + Icosahedron_verts[i]*R;
+                    }
                 } break;
                 case 1: {    //
                     Vec3d d = neighs[j0];
