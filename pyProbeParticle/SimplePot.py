@@ -39,9 +39,13 @@ header_strings = [
 "void init( int natom, int neighPerAtom, double* apos, double* Rcovs ){",
 "void eval( int n, double* Es, double* pos_, double Rcov, double RvdW ){",
 "int danglingToArray( double* dangs, double* pmin, double* pmax ){",
-"int genNewAtom( int np, double* pos_, double* Ws, double* p0_, double* K_ ){",
+"void pickAtomWeighted( int npick, int* ipicks, int nps, double* pos_, double* Ws, double* p0_, double* K_, double kT ){",
+#"int pickAtomWeighted( int np, double* pos_, double* Ws, double* p0_, double* K_, double kT ){"
+#"int genNewAtom( int np, double* pos_, double* Ws, double* p0_, double* K_ ){",
 "double randomOptAtom( int ntry, double* pos_, double* spread_, double Rcov, double RvdW ){",
 "void init_random(int seed){",
+"void setGridSize( int* ns_, double* pmin_, double* pmax_){",
+"void setGridPointer(double* data){",
 ]
 #cpp_utils.writeFuncInterfaces( header_strings );        exit()     #   uncomment this to re-generate C-python interfaces
 
@@ -89,15 +93,17 @@ def danglingToArray(dangs=None, pmin=None, pmax=None, npmax=1000, Rcov=0.3):
     n = lib.danglingToArray(_np_as(dangs,c_double_p), _np_as(pmin,c_double_p), _np_as(pmax,c_double_p), Rcov ) 
     return dangs[:n].copy() 
 
-#  int genNewAtom( int np, double* pos_, double* Ws, double* p0_, double* K_ ){
-lib.genNewAtom.argtypes  = [c_int, c_double_p, c_double_p, c_double_p, c_double_p] 
-lib.genNewAtom.restype   =  c_int
-def genNewAtom( poss, p0, Ws=None, Ks=[0.2,0.2,1.0] ):
-    n = len(poss)
+#  void pickAtomWeighted( int npick, int* ipicks, int nps, double* pos_, double* Ws, double* p0_, double* K_, double kT ){
+lib.pickAtomWeighted.argtypes  = [c_int, c_int_p, c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_double] 
+lib.pickAtomWeighted.restype   =  None
+def pickAtomWeighted( poss, npick=1, ipicks=None, Ws=None, p0=[0,0,0], Ks=[0.2,0.2,1.0], kT=1.0 ):
+    nps = len(poss)
     p0 =np.array(p0).copy()
     Ks =np.array(Ks).copy()
-    if Ws is None: Ws = np.empty( n )
-    return lib.genNewAtom(n, _np_as(poss,c_double_p), _np_as(Ws,c_double_p), _np_as(p0,c_double_p), _np_as(Ks,c_double_p)) 
+    if Ws     is None: Ws     = np.empty( nps )
+    if ipicks is None: ipicks = np.empty( npick, dtype=np.int32 )
+    lib.pickAtomWeighted(npick, _np_as(ipicks,c_int_p), nps, _np_as(poss,c_double_p), _np_as(Ws,c_double_p), _np_as(p0,c_double_p), _np_as(Ks,c_double_p), kT) 
+    return ipicks
 
 #  double randomOptAtom( int ntry, double* pos_, double* spread_, double Rcov, double RvdW ){
 lib.randomOptAtom.argtypes  = [c_int, c_double_p, c_double_p, c_double, c_double] 
@@ -108,13 +114,39 @@ def randomOptAtom( pos, spread=[1.0,1.0,1.0], Rcov=0.7, RvdW=1.8, ntry=100 ):
     lib.randomOptAtom(ntry, _np_as(pos,c_double_p), _np_as(spread,c_double_p), Rcov, RvdW) 
     return pos
 
-def genAtom( p0, Ks=[0.2,0.2,1.0], spread=[1.0,1.0,1.0], Rcov=0.7, RvdW=1.8, ntry=100 ):
-    poss  = danglingToArray( Rcov=Rcov )
-    ipick = genNewAtom( poss, p0, Ks=Ks )
+def genAtoms( p0=[0.0,0.0,0.0], kT=1.0, Ks=[0.2,0.2,1.0], spread=[1.0,1.0,1.0], Rcov=0.7, RvdW=1.8, npick=10, ntry=100 ):
+    poss   = danglingToArray( Rcov=Rcov )
+    ipicks     = pickAtomWeighted( poss, npick=npick, p0=p0, Ks=Ks, kT=kT )
     #p = randomOptAtom( poss[ipick], spread, Rcov=Rcov, RvdW=RvdW, ntry=ntry )
-    p = poss[ipick]
+    ps = poss[ipicks]
     #print( "genAtom p ", p ) 
-    return p
+    return ps
+
+def genAtomWs( kT=1.0, Rcov=0.7, npick=10, natom=1000 ):
+    #poss   = danglingToArray( Rcov=Rcov )
+    poss = np.random.rand(natom,3)
+    poss[:,0] *= 16; poss[:,0] += 2.0
+    poss[:,1] *= 16; poss[:,1] += 2.0
+    poss[:,2] *= 10.0; poss[:,2] += -5.0
+    Ws         = np.empty( len(poss) )
+    print( "Ws.shape ", Ws.shape )
+    ipicks     = pickAtomWeighted( poss, Ws=Ws, npick=npick, kT=kT )
+    return poss, Ws
+
+#  void setGridSize( int* ns_, double* pmin_, double* pmax_){
+lib.setGridSize.argtypes  = [c_int_p, c_double_p, c_double_p] 
+lib.setGridSize.restype   =  None
+def setGridSize(ns, pmin, pmax,z0=-7.0):
+    ns=np.array(ns,dtype=np.int32)
+    pmin=np.array(pmin); pmin[2]+=z0
+    pmax=np.array(pmax); pmax[2]+=z0
+    return lib.setGridSize(_np_as(ns,c_int_p), _np_as(pmin,c_double_p), _np_as(pmax,c_double_p)) 
+
+#  void setGridPointer(double* data){
+lib.setGridPointer.argtypes  = [c_double_p] 
+lib.setGridPointer.restype   =  None
+def setGridPointer(data):
+    return lib.setGridPointer(_np_as(data,c_double_p)) 
 
 if __name__ == "__main__":
 

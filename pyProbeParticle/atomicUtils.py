@@ -206,20 +206,23 @@ def saveAtoms( atoms, fname, xyz=True ):
             fout.write("%i %f %f %f\n"  %( atom[0], atom[1], atom[2], atom[3] ) )
     fout.close() 
 
-def writeToXYZ( fout, es, xyzs, qs=None, commet="" ):
+def writeToXYZ( fout, es, xyzs, qs=None, Rs=None, commet="" ):
     fout.write("%i\n"  %len(xyzs) )
     fout.write(commet+"\n")
-    if (qs is not None):
+    if   (Rs is not None):
+        for i,xyz in enumerate( xyzs ):
+            fout.write("%s %f %f %f %f %f \n"  %( es[i], xyz[0], xyz[1], xyz[2], qs[i], Rs[i] ) )
+    elif (qs is not None):
         for i,xyz in enumerate( xyzs ):
             fout.write("%s %f %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2], qs[i] ) )
     else:
         for i,xyz in enumerate( xyzs ):
             fout.write("%s %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2] ) )
 
-def saveXYZ( es, xyzs, fname, qs=None ):
+def saveXYZ( es, xyzs, fname, qs=None, Rs=None ):
     print(">>>>>",fname,"<<<<<")
     fout = open(fname, "w")
-    writeToXYZ( fout, es, xyzs, qs )
+    writeToXYZ( fout, es, xyzs, qs, Rs=Rs )
     fout.close() 
 
 def makeMovie( fname, n, es, func ):

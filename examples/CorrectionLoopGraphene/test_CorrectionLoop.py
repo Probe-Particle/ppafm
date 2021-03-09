@@ -37,9 +37,9 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
 
     def makeMol( fname ):
         xyzs,Zs,elems,qs  = au.loadAtomsNP(fname)
-        xyzs[:,1] -= 8
-        xyzs[:,0] -= 2
-        xyzs[:,2] -= 2.2
+        xyzs[:,0] += -2
+        xyzs[:,1] += -8+20.0
+        xyzs[:,2] += -2.2
         # AFMulatorOCL.setBBoxCenter( xyzs, [0.0,0.0,0.0] )
         #scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
         #print( "scan_center ", scan_center )

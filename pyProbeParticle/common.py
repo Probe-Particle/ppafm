@@ -384,6 +384,7 @@ def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
     multiply atoms of sample along supercell vectors
     the multiplied sample geometry is used for evaluation of forcefield in Periodic-boundary-Conditions ( PBC )
     '''
+    #print( "PBCAtoms3D_np lvec", lvec )
     mx = npbc[0]*2 + 1
     my = npbc[1]*2 + 1
     mz = npbc[2]*2 + 1

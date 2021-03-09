@@ -318,7 +318,9 @@ class CorrectionLoop():
         if self.logAFMdataName:
             np.save( self.logAFMdataName+("%03i.dat" %itr), AFMs )
         self.debug_plot( AFMs, AuxMaps )
-        Err, self.molecule = self.corrector.try_improve( self.molecule, AFMs, self.AFMRef, itr=itr )
+        sw=self.simulator.scan_window
+        #extent=( sw[0][0], sw[1][0], sw[0][1], sw[1][1] )
+        Err, self.molecule = self.corrector.try_improve( self.molecule, AFMs, self.AFMRef, sw, itr=itr )
         return Err
         #Xs,Ys      = simulator.next1( self )
 

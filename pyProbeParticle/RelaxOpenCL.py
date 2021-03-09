@@ -354,6 +354,7 @@ class RelaxedScanner:
     def preparePosBasis(self, start=(-5.0,-5.0), end=(5.0,5.0) ):
         self.start       = start
         self.end         = end
+        #print( " preparePosBasis start,end ", start, end  ); exit()
         self.xs          = np.linspace(start[0], end[0], self.scan_dim[0])
         self.ys          = np.linspace(start[1], end[1], self.scan_dim[1])
         self.As, self.Bs = np.meshgrid(self.xs, self.ys, indexing='ij')

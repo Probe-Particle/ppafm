@@ -182,6 +182,29 @@ def blur( F ):
     #print( "F.shape ", F.shape )
     return ( F[:-1,:-1,:] + F[1:,:-1,:] + F[:-1,1:,:] + F[1:,1:,:] )*0.25
 
+def halfRes( F ):
+    #print( "halfRes  F.shape ", F.shape ) 
+    return ( F[:-1:2,:-1:2,:] + F[:-1:2,1::2,:] + F[1::2,:-1:2,:] + F[1::2,1::2,:] )*0.25
+    #return ( F[:,:,1:] + F[:,:,:-1] )*0.5
+
+'''
+def halfRes( F ):
+    #print( "halfRes  F.shape ", F.shape ) 
+    return ( 
+        F[:-1:2,:-1:2,:-1:2] + F[:-1:2,1::2,:-1:2] + F[1::2,:-1:2,:-1:2] + F[1::2,1::2,:-1:2]
+      + F[:-1:2,:-1:2, 1::2] + F[:-1:2,1::2, 1::2] + F[1::2,:-1:2, 1::2] + F[1::2,1::2, 1::2] 
+    )*0.125
+'''
+
+def lowResErrorMap( Err3D ):
+    Err2D = np.empty( Err3D.shape[:2]+(2,) )
+    Err2D[:,:,0] = Err3D.sum(axis=2)/Err3D.shape[2]
+    Err2D[:,:,1] = Err2D[:,:,0]
+    ErrLo = halfRes( Err2D )
+    ErrLo = halfRes( ErrLo )
+    ErrLo = halfRes( ErrLo )
+    return blur( ErrLo ).astype(np.float64)
+
 # ======================================================
 # ================== Class  Corrector
 # ======================================================
@@ -218,26 +241,32 @@ class Corrector():
         molOut = moveAtom( molIn, ia, dpMax=self.dpMax )   # ToDo : This is just token example - later need more sophisticated Correction strategy
         # --- ToDo: Relaxation Should be possible part of relaxation ????
         '''
-        #genAtom( p0, Ks=[0.2,0.2,1.0], spread=[1.0,1.0,1.0], Rcov=0.7, RvdW=1.8, ntry=100 )
-        p0 = (np.random.rand(3) - 0.5)
-        p  = pot.genAtom( p0, Ks=[0.0,0.0,0.0], spread=[1.0,1.0,1.0], Rcov=0.7, RvdW=1.8, ntry=100 )
+        if( self.best_ps_i<len(self.best_ps) ):
+            p = self.best_ps[self.best_ps_i]
+        else:
+            self.best_ps   = pot.genAtoms( npick=10, Rcov=0.7, kT=self.kT )
+            self.best_ps_i = 1
+            p = self.best_ps[0]
+        self.best_ps_i += 1
         molOut = addAtom_bare( molIn,  p, 6,0 )
         return molOut
 
-    def debug_plot(self, itr, AFM_Err, AFMs, AFMRef, Err ):
+    def debug_plot(self, itr, AFM_Err, AFM_ErrSub, AFMs, AFMRef, Err ):
         if self.logImgName is not None:
             plt = self.plt
-            plt.figure(figsize=(5*3,5))
+            plt.figure(figsize=(5*4,5))
             vmax=AFMRef[:,:,self.izPlot].max()
             vmin=AFMRef[:,:,self.izPlot].min()
             v2max=np.maximum(vmin**2,vmax**2)
-            plt.subplot(1,3,1); plt.imshow( AFMRef[:,:,self.izPlot] ); #plt.title("AFMref" ); plt.grid()
-            plt.subplot(1,3,2); plt.imshow( AFMs  [:,:,self.izPlot], vmin=vmin, vmax=vmax ); #plt.title("AFM[]"  ); plt.grid()
-            plt.subplot(1,3,3); plt.imshow( np.sqrt(AFM_Err[:,:,self.izPlot]), vmin=0, vmax=np.sqrt(v2max)*0.2 ); #plt.title("AFMdiff"); plt.grid()
+            plt.subplot(1,4,1); plt.imshow( AFMRef[:,:,self.izPlot] ); #plt.title("AFMref" ); plt.grid()
+            plt.subplot(1,4,2); plt.imshow( AFMs  [:,:,self.izPlot], vmin=vmin, vmax=vmax ); #plt.title("AFM[]"  ); plt.grid()
+            plt.subplot(1,4,3); plt.imshow( np.sqrt(AFM_Err   [:,:,self.izPlot]), vmin=0, vmax=np.sqrt(v2max)*0.2, interpolation='nearest'  ); #plt.title("AFMdiff"); plt.grid()
+            plt.subplot(1,4,4); plt.imshow( np.sqrt(AFM_ErrSub[:,:,self.izPlot]), vmin=0, vmax=np.sqrt(v2max)*0.2, interpolation='bilinear' );
             plt.title( "Error=%g" %Err )
             plt.savefig( self.logImgName+("_%03i.png" %itr), bbox_inches='tight')
             plt.close  ()
 
+    '''
     def debug_plot_Worse(self, itr, AFMs, AFMRef, ErrB, ErrW ):
         if self.logImgName is not None:
             plt = self.plt
@@ -252,17 +281,33 @@ class Corrector():
             #plt.title( "Error=%g" %Err )
             plt.savefig( self.logImgName+("_%03i.png" %itr), bbox_inches='tight')
             plt.close  ()
+    '''
 
+    def debug_prob_map(self, molIn ):
+        ps,Ws = pot.genAtomWs( kT=2.0e-5, Rcov=0.7, natom=10000 )
+        #Ws = Ws-0.95)*3.0
+        na0   = len(molIn.Zs)
+        mask = Ws>0
+        ps = ps[mask]
+        Ws = Ws[mask]
+        nps   = len(ps) 
+        print( "na0,nps", na0, nps )
+        Zs2   = np.concatenate( [molIn.Zs,np.ones(nps,dtype=np.int32)] )
+        Rs    = np.concatenate( [ np.ones(na0),Ws] )
+        xyzs2 = np.concatenate( [ molIn.xyzs,  ps], axis=0 )
+        print( "xyzs2.shape ", xyzs2.shape ) 
+        au.saveXYZ( Zs2, xyzs2, 'debug_genAtomWs.xyz', qs=([0.0]*(na0+nps)),  Rs=Rs )
+        #exit()
 
-
-    def try_improve(self, molIn, AFMs, AFMRef, itr=0 ):
+    def try_improve(self, molIn, AFMs, AFMRef, span, itr=0 ):
         #print( " AFMs ", AFMs.shape, " AFMRef ", AFMRef.shape )
         AFMdiff = AFMs - AFMRef
         AFMdiff = blur( AFMdiff ); AFMdiff = blur( AFMdiff ) # BLUR
         AFMdiff2=AFMdiff**2 
         Err  = np.sqrt( AFMdiff2.sum() )  # root mean square error
+
         # ToDo : identify are of most difference and make random changes in that area
-        #self.debug_plot( itr, AFMdiff2, AFMs, AFMRef, Err )
+        #self.debug_plot( itr, ErrLo, AFMs, AFMRef, Err )
         Eworse = 0
         bBetter = False
         if( self.best_E is not None ):
@@ -285,11 +330,32 @@ class Corrector():
                 #print( "[%i]Err:" %itr, Err, " best: ", self.best_E  )
 
         if ( self.best_E is None ) or bBetter:
-            self.debug_plot( itr, AFMdiff2, AFMs, AFMRef, Err )
+            ErrLo = lowResErrorMap( AFMdiff2 ).astype(np.float64)
+
+            #ErrLo[:,:,:] = 0
+            #nx,ny,nz = ErrLo.shape
+            #ErrLo[:nx//2,:,:] = 1e-5
+            #ErrLo[:,:ny//2,:]  = 1e-5
+
+            self.debug_plot( itr, AFMdiff2, ErrLo, AFMs, AFMRef, Err )
             self.best_mol  = molIn 
             self.best_E    = Err
             self.best_diff = AFMdiff2
+            self.best_ErrMap = ErrLo
+            pot.setGridSize(ErrLo.shape,span[0],span[1])
+            #ErrLo *= 1e+6
+            #print( "ErrLo.dtype ", ErrLo.dtype )
+            #print( "ErrLo ", ErrLo, ErrLo )
+            pot.setGridPointer(ErrLo)
             pot.init( self.best_mol.xyzs )
+
+            #debug_prob_map(self, molIn )
+
+            #genAtom( p0, Ks=[0.2,0.2,1.0], spread=[1.0,1.0,1.0], Rcov=0.7, RvdW=1.8, ntry=100 )
+            #p0 = (np.random.rand(3) - 0.5)
+            self.kT = 2.0e-5
+            self.best_ps   = pot.genAtoms( npick=10, Rcov=0.7, kT=self.kT )
+            self.best_ps_i = 0
             if self.xyzLogFile is not None:
                 self.best_mol.toXYZ( self.xyzLogFile, comment=("Corrector [%i] Err %g " %(itr,self.best_E) ) )
         #print( "Corrector.try_improve Err2 ", Err  )
