@@ -45,7 +45,8 @@ class Molecule():
     def __init__(self, xyzs, Zs, qs ):
         self.xyzs = xyzs
         self.Zs   = Zs
-        self.qs   = qs 
+        self.qs   = qs
+        self.array = np.c_[self.xyzs, self.Zs, self.qs]
 
     def clone(self):
         xyzs = self.xyzs

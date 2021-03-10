@@ -35,6 +35,7 @@ from . import oclUtils     as oclu
 from . import fieldOCL     as FFcl
 from . import RelaxOpenCL  as oclr
 from . import HighLevelOCL as hl
+from . import SimplePot    as sp
 
 from . import AFMulatorOCL_Simple
 from . import AuxMap
@@ -80,23 +81,22 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         """
 
         # Get current molecule
-        mol1_xyz = self.molecules[self.index]
-        mol1_xyz = mol1_xyz[mol1_xyz[:,2] >= mol1_xyz[:,2].max()-0.7]
-        xyzs = mol1_xyz[:, :3]
-        qs = mol1_xyz[:, 3]
-        Zs = mol1_xyz[:, 4].astype(np.int32)
+        mol1_xyz_all = self.molecules[self.index]
+        mol1_xyz_top = mol1_xyz_all[mol1_xyz_all[:,2] >= mol1_xyz_all[:,2].max()+self.zmin]
 
-        mol1 = Molecule(xyzs, Zs, qs)
+        xyzs = mol1_xyz_top[:, :3]
+        qs = mol1_xyz_top[:, 3]
+        Zs = mol1_xyz_top[:, 4].astype(np.int32)
+        mol1_top = Molecule(xyzs, Zs, qs)
 
-        # Mutate
-        p0       = (np.random.rand(3))
-        p0[0] *= (self.afmulator.scan_window[1][0]+self.afmulator.scan_window[0][0])*0.5
-        p0[1] *= (self.afmulator.scan_window[1][1]+self.afmulator.scan_window[0][1])*0.5
-        p0[2] *= 1.0
-        R        = 1.0
-        mol2, removed     = self.mutator.mutate_local(mol1)
+        xyzs_all = mol1_xyz_all[:, :3]
+        qs_all = mol1_xyz_all[:, 3]
+        Zs_all = mol1_xyz_all[:, 4].astype(np.int32)
+        mol1_all = Molecule(xyzs_all, Zs_all, qs_all)
 
-        return mol1, mol2, removed
+        mol2, removed     = self.mutator.mutate_local(mol1_top)
+
+        return mol1_all, mol2, removed
 
     def __getitem__(self, index):
         self.index = index
@@ -124,16 +124,18 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
 
             for b in range(self.batch_size):
                 # Get original and mutant
-                mol1, mol2, rem = self.generatePair()
-                self.xyzs = mol1.xyzs
-                self.qs   = mol1.qs
-                self.Zs   = mol1.Zs
+                mol1_a, mol2, rem = self.generatePair()
 
                 # Callback
                 self.on_sample_start()
 
                 # Get AFM images
                 for i, (iZPP, Q, Qz) in enumerate(zip(self.iZPPs, self.Qs, self.QZs)):  # Loop over different tips
+
+                    self.xyzs = mol1_a.xyzs
+                    self.qs = mol1_a.qs
+                    self.Zs = mol1_a.Zs
+
                     # Set tip parameters
                     self.afmulator.iZPP = iZPP
                     self.afmulator.setQs(Q, Qz)
@@ -150,6 +152,12 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                     # Evaluate 1st AFM
                     X1 = self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs)
                     X1s[i].append(X1)
+
+                    mol1_tx = self.xyzs[mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin]
+                    mol1_tq = self.qs[mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin]
+                    mol1_tz = self.Zs[mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin]
+
+                    mol1_t = Molecule(mol1_tx, mol1_tz, mol1_tq)
 
                     if mol2.xyzs.size > 0:
 
@@ -169,11 +177,14 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                         # Evaluate 2nd AFM
                         X2 = self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs)
                         X2s[i].append(X2)
+
+                        mol2 = Molecule(self.xyzs, self.Zs, self.qs)
+
                     else:
-                        X2 = np.random.normal(0, 1e-7, (128, 128, 10))
+                        X2 = np.random.normal(0, 1e-7, (128, 128, 10)).astype(np.float32)
                         X2s[i].append(X2)
 
-                mol1s.append(mol1)
+                mol1s.append(mol1_t)
                 mol2s.append(mol2)
                 removed.append(rem)
 
