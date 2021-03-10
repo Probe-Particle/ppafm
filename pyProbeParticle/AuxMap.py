@@ -56,7 +56,7 @@ class vdwSpheres(AuxMapBase):
         coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
         pos0 = [0, 0, (xyzqs[:,2]+coefs[:,3]).max()+self.projector.Rpp]
         poss = self.prepare_projector(xyzqs, Zs, pos0)
-        return self.projector.run_evalSpheres( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)) )[:,:,0]
+        return self.projector.run_evalSpheres( poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3)) )[:,:,0]
 
 class AtomicDisks(AuxMapBase):
     '''
@@ -159,16 +159,31 @@ class ESMapConstant(AuxMapBase):
     
     Arguments:
         height: float. The height of the constant-height slice, counted up from the center of the top atom.
+        vdW_cutoff: float <0.0 or None. Use vdW-Spheres descriptor as a mask to cutoff regions without atoms. The cutoff
+            is the same as zmin for the vdW-Spheres descriptor. If None, don't use cutoff, and calculate
+            the ES Map descriptor for whole slice.
+        Rpp: float. A constant that is added to the vdW radius of each atom if vdW_cutoff is set.
     '''
-    def __init__(self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), height=4.0):
-        super().__init__(scan_dim, scan_window)
+    def __init__(self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), height=4.0, vdW_cutoff=None, Rpp=0.5):
+        super().__init__(scan_dim, scan_window, vdW_cutoff)
         self.height = height
         self.nChan = 4
+        self.vdW_cutoff = vdW_cutoff
+        self.projector.Rpp = Rpp
 
     def eval(self, xyzqs, Zs=None):
         pos0 = [0, 0, xyzqs[:,2].max()+self.height]
         poss = self.prepare_projector(xyzqs, Zs, pos0)
-        return self.projector.run_evalCoulomb(poss=poss)[:,:,2] # Last dim = (E_x, E_y, E_z, V)
+        es = self.projector.run_evalCoulomb(poss=poss)[:,:,2] # Last dim = (E_x, E_y, E_z, V)
+        if self.vdW_cutoff:
+            self.nChan = 1 # Projector needs only one channel for vdW Spheres
+            coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
+            pos0 = [0, 0, (xyzqs[:,2]+coefs[:,3]).max()+self.projector.Rpp]
+            poss = self.prepare_projector(xyzqs, Zs, pos0)
+            vdW = self.projector.run_evalSpheres( poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3)) )[:,:,0]
+            es[vdW == vdW.min()] = 0.0
+            self.nChan = 4 # Set channels back to 4 so that works right for ES Map on next call
+        return es
         
 class MultiMapSpheres(AuxMapBase):
     '''
