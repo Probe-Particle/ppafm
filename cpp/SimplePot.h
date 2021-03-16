@@ -109,6 +109,8 @@ class SimplePot{ public:
     }
 
     double eval( Vec3d pos, double Rcov, double RvdW ){
+        // Rcov = 0.7;
+        // covWidth = 0.4;
         const double invCovWidth = 1/covWidth;
         const double invAngWidth = 1/angWidth;
         double Etot=0;

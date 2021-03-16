@@ -61,7 +61,7 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         :param nMutants: integer, number of different mutants per molecule
     """
 
-    def __init__(self, afmulator, mutator, paths, nMutants, zmin, **gen_args):
+    def __init__(self, afmulator, mutator, paths, nMutants, zmin, potential=True, added_types=[], **gen_args):
         self.index        = 0
         self.molIndex     = 0
         self.afmulator    = afmulator
@@ -69,10 +69,19 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         self.paths        = paths
         self.nMutants     = nMutants
         self.zmin         = zmin
+        self.potential = potential
         super().__init__(afmulator, None, paths, **gen_args)
 
         self.extend_molecules_with_mutants()
         self.check_empty_paths()
+        if self.potential:
+            mins = self.afmulator.scan_window[0][:2] + (self.zmin,)
+            maxs = self.afmulator.scan_window[1][:2] + (0.0,)
+            self.pot_sw = (mins, maxs)
+            self.pot_dim = (100, 100, 20)
+            self.pot = sp.SimplePotential(self.pot_dim,
+                                          self.pot_sw)
+            self.added_types = [added_types] if isinstance(added_types, int) else added_types
 
     def generatePair(self):
         """
@@ -121,6 +130,7 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
             removed = []
             X1s   = [[] for _ in self.iZPPs]
             X2s   = [[] for _ in self.iZPPs]
+            potMaps = []
 
             for b in range(self.batch_size):
                 # Get original and mutant
@@ -184,9 +194,20 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                         X2 = np.random.normal(0, 1e-7, (128, 128, 10)).astype(np.float32)
                         X2s[i].append(X2)
 
+                self.top_atom_to_zero(mol1_t, mol2)
                 mol1s.append(mol1_t)
                 mol2s.append(mol2)
                 removed.append(rem)
+
+                if self.potential:
+                    self.pot.init_molecule(mol2.xyzs, mol2.Zs)
+                    es = []
+                    for z in self.added_types:
+                        e = -self.pot.calc_potential(z_added=z)
+                        e = e.reshape((self.pot_dim[2], self.pot_dim[1], self.pot_dim[0]))
+                        es.append(e)
+
+                    potMaps.append(es)
 
                 self.index += 1
 
@@ -199,7 +220,13 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
 
         mol1s = [np.c_[(mol1.xyzs, mol1.qs, mol1.Zs)] for mol1 in mol1s]
         mol2s = [np.c_[(mol2.xyzs, mol2.qs, mol2.Zs)] for mol2 in mol2s]
-        return X1s, X2s, mol1s, mol2s, removed
+
+        if self.potential:
+            out = X1s, X2s, mol1s, mol2s, removed, potMaps
+        else:
+            out = X1s, X2s, mol1s, mol2s, removed
+
+        return out
 
     def handle_distance_mutant(self, total_distance, zs_max):
         '''
@@ -239,6 +266,14 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         sw = self.afmulator.scan_window
         scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
         self.xyzs[:,:2] += scan_center - center
+
+    def top_atom_to_zero(self, mol1, mol2):
+        '''
+        Set the z coordinate of the highest atom to 0. Keep molecule and mutant in same coordinates
+        '''
+        top = mol1.xyzs[:,2].max()
+        mol1.xyzs[:,2] -= top
+        mol2.xyzs[:,2] -= top
 
     def extend_molecules_with_mutants(self):
         """

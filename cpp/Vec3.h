@@ -3,7 +3,7 @@
 #define  Vec3_h
 
 #include <math.h>
-//#include <cstdlib>
+#include <cstdlib>
 //#include <stdio.h>
 #include <stdint.h>
 

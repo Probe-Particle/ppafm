@@ -12,6 +12,19 @@ import sys
 
 from . import atomicUtils as au
 
+# Covalent radii of few atoms in Å
+# Covalent radii revisited. Dalton Transactions, (21), 2832. doi:10.1039/b801115j
+cov_radii = {1: 0.31,
+             6: 0.70,
+             7: 0.71,
+             8: 0.66,
+             9: 0.57,
+             14: 1.11,
+             15: 1.07,
+             16: 1.05,
+             17: 1.02,
+             35: 1.20}
+
 if __package__ is None:
     print( " #### DEBUG #### import cpp_utils " )
     sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) ) )
@@ -49,6 +62,9 @@ header_strings = [
 ]
 #cpp_utils.writeFuncInterfaces( header_strings );        exit()     #   uncomment this to re-generate C-python interfaces
 
+#libSDL = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libSDL2-2.0.so.0", ctypes.RTLD_GLOBAL )
+#libGL  = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libGLU.so.1",   ctypes.RTLD_GLOBAL )
+
 libSDL = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libSDL2.so", ctypes.RTLD_GLOBAL )
 libGL  = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libGL.so",   ctypes.RTLD_GLOBAL )
 
@@ -77,7 +93,7 @@ def init( apos, Rcovs=0.7, neighPerAtom = 4 ):
 lib.eval.argtypes  = [c_int, c_double_p, c_double_p, c_double, c_double] 
 lib.eval.restype   =  None
 def eval(pos, Es=None, Rcov=0.7, RvdW=1.8 ):
-    n = len(ps)
+    n = len(pos)
     if Es is None:
         Es = np.empty(n)
     lib.eval(n, _np_as(Es,c_double_p), _np_as(pos,c_double_p), Rcov, RvdW)
@@ -147,6 +163,45 @@ lib.setGridPointer.argtypes  = [c_double_p]
 lib.setGridPointer.restype   =  None
 def setGridPointer(data):
     return lib.setGridPointer(_np_as(data,c_double_p)) 
+
+
+class SimplePotential:
+    def __init__(self, grid_size, grid_window):
+        self.grid_size = grid_size
+        self.grid_window = grid_window
+        self.ps, self.nx, self.ny, self.nz = self.make_ps_3d()
+        self.xyzs = None
+
+    def init_molecule(self, xyzs, Zs):
+        self.xyzs = xyzs
+        covr = []
+        for z in Zs:
+            covr.append(cov_radii[z])
+        rcovs = np.ones(len(self.xyzs))*np.array(covr)
+        init(self.xyzs, Rcovs=rcovs)
+
+    def calc_potential(self, z_added=1):
+        e = eval(self.ps, Rcov=cov_radii[z_added])
+        return e
+
+    def handle_positions(self):
+        gw = self.grid_window
+        grid_center = np.array([gw[1][0] + gw[0][0], gw[1][1] + gw[0][1]]) / 2
+        self.xyzs[:,:2] += grid_center - self.xyzs[:,:2].mean(axis=0)
+
+    def make_ps_3d(self):
+        xsi = np.linspace(self.grid_window[0][0], self.grid_window[1][0], self.grid_size[0])
+        ysi = np.linspace(self.grid_window[0][1], self.grid_window[1][1], self.grid_size[1])
+        zsi = np.linspace(self.grid_window[0][2], self.grid_window[1][2], self.grid_size[2])
+        nxi, nyi, nzi = xsi.shape[0], ysi.shape[0], zsi.shape[0]
+        psi = np.zeros((nzi, nyi, nxi, 3))
+        psi[:, :, :, 1], psi[:, :, :, 2], psi[:, :, :, 0] = np.meshgrid(ysi, zsi, xsi)
+        psi = psi.copy().reshape((nzi*nyi*nxi, 3))
+
+        return psi, xsi, ysi, zsi
+
+    def __call__(self, z_added=1):
+        return self.calc_potential(z_added)
 
 if __name__ == "__main__":
 
