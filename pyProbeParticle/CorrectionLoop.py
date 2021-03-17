@@ -205,9 +205,9 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
                     for z in self.added_types:
                         e = -self.pot.calc_potential(z_added=z)
                         e = e.reshape((self.pot_dim[2], self.pot_dim[1], self.pot_dim[0]))
-                        es.append(e)
 
-                    potMaps.append(es)
+                    potMaps.append(e)
+
 
                 self.index += 1
 
@@ -218,6 +218,7 @@ class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
         else:
             raise StopIteration
 
+        potMaps = np.transpose(np.stack(potMaps, axis=0), (0, 2, 3, 1))
         mol1s = [np.c_[(mol1.xyzs, mol1.qs, mol1.Zs)] for mol1 in mol1s]
         mol2s = [np.c_[(mol2.xyzs, mol2.qs, mol2.Zs)] for mol2 in mol2s]
 
