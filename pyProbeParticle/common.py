@@ -147,48 +147,53 @@ def maxAlongDirEntropy(atoms, hdir, beta=1.0 ):
 # ==============================  server interface file I/O
 # ==============================
 
+def parseParamsLine( line, params ):
+    words=line.split()
+    if len(words)>=2:
+        key = words[0]
+        if key in params:
+            if key == 'stiffness': raise ValueError("Attention!!! Parameter stifness is deprecated, please define krad and klat instead")
+            val = params[key]
+            if key[0][0] == '#' : return 
+            if(verbose>0): print(key,' is class ', val.__class__)
+            if   isinstance( val, bool ):
+                word=words[1].strip()
+                if (word[0]=="T") or (word[0]=="t"):
+                    params[key] = True
+                else:
+                    params[key] = False
+                if(verbose>0): print(key, params[key], ">>",word,"<<")
+            elif isinstance( val, float ):
+                params[key] = float( words[1] )
+                if(verbose>0): print(key, params[key], words[1])
+            elif   isinstance( val, int ):
+                params[key] = int( words[1] )
+                if(verbose>0): print(key, params[key], words[1])
+            elif isinstance( val, str ):
+                params[key] = words[1]
+                if(verbose>0): print(key, params[key], words[1])
+            elif isinstance(val, np.ndarray ):
+                if val.dtype == np.float:
+                    params[key] = np.array([ float(words[1]), float(words[2]), float(words[3]) ])
+                    if(verbose>0): print(key, params[key], words[1], words[2], words[3])
+                elif val.dtype == np.int:
+                    if(verbose>0): print(key)
+                    params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
+                    if(verbose>0): print(key, params[key], words[1], words[2], words[3])
+                else: #val.dtype == np.str:
+                    params[key] = np.array([ str(words[1]), float(words[2]) ])
+                    if(verbose>0): print(key, params[key], words[1], words[2])
+        else :
+            print("DEBUG params: ", params )
+            raise ValueError("Parameter {} is not known".format(key))
+
+
 # overide default parameters by parameters read from a file 
 def loadParams( fname ):
     if(verbose>0): print(" >> OVERWRITING SETTINGS by "+fname)
     fin = open(fname,'r')
     for line in fin:
-        words=line.split()
-        if len(words)>=2:
-            key = words[0]
-            if key in params:
-                if key == 'stiffness': raise ValueError("Attention!!! Parameter stifness is deprecated, please define krad and klat instead")
-                val = params[key]
-                if key[0][0] == '#' : continue 
-                if(verbose>0): print(key,' is class ', val.__class__)
-                if   isinstance( val, bool ):
-                    word=words[1].strip()
-                    if (word[0]=="T") or (word[0]=="t"):
-                        params[key] = True
-                    else:
-                        params[key] = False
-                    if(verbose>0): print(key, params[key], ">>",word,"<<")
-                elif isinstance( val, float ):
-                    params[key] = float( words[1] )
-                    if(verbose>0): print(key, params[key], words[1])
-                elif   isinstance( val, int ):
-                    params[key] = int( words[1] )
-                    if(verbose>0): print(key, params[key], words[1])
-                elif isinstance( val, str ):
-                    params[key] = words[1]
-                    if(verbose>0): print(key, params[key], words[1])
-                elif isinstance(val, np.ndarray ):
-                    if val.dtype == np.float:
-                        params[key] = np.array([ float(words[1]), float(words[2]), float(words[3]) ])
-                        if(verbose>0): print(key, params[key], words[1], words[2], words[3])
-                    elif val.dtype == np.int:
-                        if(verbose>0): print(key)
-                        params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
-                        if(verbose>0): print(key, params[key], words[1], words[2], words[3])
-                    else: #val.dtype == np.str:
-                        params[key] = np.array([ str(words[1]), float(words[2]) ])
-                        if(verbose>0): print(key, params[key], words[1], words[2])
-            else :
-                raise ValueError("Parameter {} is not known".format(key))
+        parseParamsLine( line, params )
     fin.close()
     if (params["gridN"][0]<=0):
         params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
@@ -198,7 +203,7 @@ def loadParams( fname ):
     params["tip"] = params["tip"].replace('"', ''); params["tip"] = params["tip"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
     params["tip_base"][0] = params["tip_base"][0].replace('"', ''); params["tip_base"][0] = params["tip_base"][0].replace("'", ''); ### necessary for working even with quotemarks in params.ini
 
-def apply_options(opt):
+def apply_options(opt, params=params):
     if(verbose>0): print("!!!! OVERRIDE params !!!! in Apply options:")
     if(verbose>0): print(opt)
     for key,value in opt.items():
