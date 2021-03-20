@@ -103,6 +103,32 @@ def loadParams( fname ):
         PPU.parseParamsLine( line, params )
     print( params )
 
+def loadDict( fname, convertor=float ):
+    # what about to use AST - https://www.kite.com/python/answers/how-to-read-a-dictionary-from-a-file-in--python#
+    dct = {}
+    with open(fname,'r') as fin:
+        for line in fin:
+            wds = line.split()
+            dct[wds[0]] = convertor( wds[1] )
+    return dct
+
+def loadDicts( fname, convertor=float ):
+    dcts = []
+    with open(fname,'r') as fin:
+        for line in fin:
+            if line[0]=='#':
+                continue
+            wds = line.split()
+            i=0
+            dct={}
+            nw = len(wds)
+            if( nw%2!=0 ): 
+                raise ValueError("odd-number of tokens on line in %s \n => cannot intertpret as (key,value) pairs ", fname )
+            while(i<nw):
+                dct[wds[i+0]] = convertor( wds[i+1] )
+                i+=2
+            dcts.append( dct )
+    return dcts
 
 # ===============================================================================================================
 #      Plotting Functions
@@ -501,6 +527,8 @@ if __name__ == "__main__":
     wcanv = params["xdim"]
     #byCenter = False
     byCenter = True
+    
+    '''
     #tipDict =  { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
     #tipDict =  { 's': 1.0, 'py':1.0  }
     #tipDict =  { 's': 1.0, 'dy2':1.0  }
@@ -512,6 +540,14 @@ if __name__ == "__main__":
     tipDictsSTM =  [{'s':.2},{ 'px': 1.0 },{ 'py': 1.0 }]
     #tipDictsSTM =  [{ 'py': 1.0 }]
     #tipDictsSTM =  [{ 'px': 1.0 }]
+    '''
+
+    tipDict     = loadDicts( "tipDict.ini"     )[0]
+    tipDictsSTM = loadDicts( "tipDictsSTM.ini" )
+
+    print( " tipDict     ", tipDict     )
+    print( " tipDictsSTM ", tipDictsSTM )
+
     dcanv = 0.2
     dd = (dcanv,dcanv,dcanv)
     nz_ph = int( lmax[0]/dd[0]+1 )   # because lvecs are transposed x=z
