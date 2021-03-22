@@ -90,6 +90,8 @@ params={
 "cubelist":"cubefiles.ini",
 "wdir":"",
 "molecules":"molecules.ini",
+"tipDict":"tipdict.ini",
+"tipDictSTM":"tipdictstm.ini",
 "images":True,
 "grdebug":False,
 "current":False,
@@ -226,20 +228,22 @@ def loadRhoTrans( cubName=None ):
             rhoName = wdir+cubName
             print(( ">>> Loading Transition density from ", rhoName, " ... " ))
             rhoTrans, lvec, nDim, head = GU.loadCUBE( rhoName,trden=True)
-        else: 
-            #print( "cubName ",   cubName )
-            homoName=wdir+cubName[0]
-            lumoName=wdir+cubName[1]
-            print(( ">>> Loading HOMO from ", homoName, " ... " ))
-            homo, lvecH, nDimH, headH = GU.loadCUBE( homoName )
-            print(( ">>> Loading LUMO from ", lumoName, " ... " ))
-            lumo, lvecL, nDimL, headL = GU.loadCUBE( lumoName )
-            lvec=lvecH; nDim=nDimH; headH=headH
-            homo = photo.normalizeGridWf( homo )
-            lumo = photo.normalizeGridWf( lumo )
-            rhoTrans = homo*lumo
-            qh = (homo**2).sum()   #; print("q(homo) ",qh)
-            ql = (lumo**2).sum()   #; print("q(lumo) ",ql)
+        #else: 
+        #
+        #print( "cubName ",   cubName )
+        #    homoName=wdir+cubName[0]
+        #    lumoName=wdir+cubName[1]
+        #    print(( ">>> Loading HOMO from ", homoName, " ... " ))
+        #    homo, lvecH, nDimH, headH = GU.loadCUBE( homoName )
+        #    print(( ">>> Loading LUMO from ", lumoName, " ... " ))
+        #    lumo, lvecL, nDimL, headL = GU.loadCUBE( lumoName )
+        #    lvec=lvecH; nDim=nDimH; headH=headH
+        #    homo = photo.normalizeGridWf( homo )
+        #    lumo = photo.normalizeGridWf( lumo )
+        #    rhoTrans = homo*lumo
+        #    qh = (homo**2).sum()   #; print("q(homo) ",qh)
+        #    ql = (lumo**2).sum()   #; print("q(lumo) ",ql)
+        
     if params["flip"]:
         print("Transposing XYZ->ZXY")
         lvec=lvec[:,[2,0,1]]
@@ -279,14 +283,14 @@ def lvecMax(lvecs):
     return lmax
 
 def loadCubeFiles( S0 ):
-    if ((os.path.isfile(wdir+params["homo"]) and os.path.isfile(wdir+params["lumo"])) or os.path.isfile(wdir+params["dens"]) ):
+    #if ((os.path.isfile(wdir+params["homo"]) and os.path.isfile(wdir+params["lumo"])) or os.path.isfile(wdir+params["dens"]) ):
         # ---- This is the old way, without a valid cubelist, script expects a -D or -H and -L directives
         #      oposs, orots, ocoefs, oens, oirhos, oents = makeMoleculesInline( )
-        print("Loading densities from comand-line options")
-        if os.path.isfile(wdir+params["dens"]):
-            cubName=(params["dens"])
-        else:
-            cubName=(params["homo"],params["lumo"])
+    print("Loading densities from command-line options")
+    if os.path.isfile(wdir+params["dens"]):
+        cubName=(params["dens"])
+        #else:
+        #    cubName=(params["homo"],params["lumo"])
         print("CUBENAMES: ",cubName)
         rhoTrans, lvec  = loadRhoTrans(cubName)
         loadedRhos  = [rhoTrans] 
@@ -412,14 +416,25 @@ def plotPhotonMap( system, ipl,ncomb, nvs, byCenter=False, fname=None, dd=None )
         plt.subplot(ncomb,2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( phMap, extent=extent, origin='image',cmap='gist_heat');
         plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phMap)) ))
 
-def setPathIfExist( path, default="" ):
+def setPathIfExistDir( path, default=""):
     if( path != ""):
-        if ( not os.path.isfile(wdir+path ) ):
-            print("Specfied file does not exist! : ", path )
+        if ( not os.path.isdir(path ) ):
+            print("Specfied dir does not exist! : ", path )
             quit()
         else:
             return path
     return default
+
+
+
+def setPathIfExist( path, default=""):
+    if( path != ""):
+        if ( not os.path.isfile(wdir+path ) ):
+            print("Specfied file does not exist! : ", wdir+path )
+            quit()
+        else:
+            return wdir+path
+    return wdir+default
 
 
 # ================================================================
@@ -466,8 +481,8 @@ if __name__ == "__main__":
 
     parser.add_option( "-y", "--ydim",        action="store", type="int",    default=PARSER_DEFAULTVAL, help="height of canvas")
     parser.add_option( "-x", "--xdim",        action="store", type="int",    default=PARSER_DEFAULTVAL, help="width of canvas")
-    parser.add_option( "-H", "--homo",        action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of electron hole;    3D data-file (.xsf,.cube)")
-    parser.add_option( "-L", "--lumo",        action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of excited electron; 3D data-file (.xsf,.cube)")
+#    parser.add_option( "-H", "--homo",        action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of electron hole;    3D data-file (.xsf,.cube)")
+#    parser.add_option( "-L", "--lumo",        action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of excited electron; 3D data-file (.xsf,.cube)")
     parser.add_option( "-D", "--dens",        action="store", type="string", default=PARSER_DEFAULTVAL, help="transition density; 3D data-file (.xsf,.cube)")
     parser.add_option( "-R", "--radius",      action="store", type="float",  default=PARSER_DEFAULTVAL, help="tip radius")
     parser.add_option( "-n", "--subsampling", action="store", type="int",    default=PARSER_DEFAULTVAL, help="subsampling for coupling calculation, recommended setting 5-10, lower is slower")
@@ -503,19 +518,22 @@ if __name__ == "__main__":
         import matplotlib
         matplotlib.use("Agg")
 
-    wdir = setPathIfExist( params["wdir"] )
-
-    fnmb ="output"
-    fnmb = setPathIfExist( params["homo"]      )
-    setPathIfExist       ( params["lumo"]      )
-    fnmb = setPathIfExist( params["dens"], default=fnmb )
-    setPathIfExist       ( params["molecules"] )
-    setPathIfExist       ( params["cubelist"]  )
-    setPathIfExist       ( params["output"]    )
-    fnmb = wdir+fnmb
+    wdir = setPathIfExistDir( params["wdir"])
+    print('Working directory: ', wdir)
+    #fnmb = setPathIfExist( params["homo"],default='output')
+    #print('HOMO cube: ', params["homo"])
+    #print('Default filename for output: ', fnmb)
+    #setPathIfExist       ( params["lumo"])
+    #print('LUMO cube: ', params["lumo"])
+    fnmb = setPathIfExist( params["dens"], default='output')
+    #setPathIfExist       ( params["molecules"] )
+    #setPathIfExist       ( params["cubelist"]  )
+    #setPathIfExist       ( params["output"]  )
+    #fnmb = fnmb
     print("DEFAULT OUTPUT BASENAME: '"+fnmb+"'")
     if(not os.path.isfile(wdir+params["molecules"])):
         print("Parameter INI file does not exist: ",wdir+params["molecules"])
+        print("Using default coordinates.")
         S0 = ExitonSystem(); S0.poss=[[0.,0.,0.]]; S0.rots=[0.]; S0.Ediags=[1.]; S0.irhos=[0]; S0.ents=[0] #, S0.eigEs=[1.], S0.eigVs=[[1.]]
     else:
         S0 = loadMolecules( wdir+params["molecules"] )
@@ -535,18 +553,30 @@ if __name__ == "__main__":
     tipDict   =  { 's': 1.0 }
     #tipDict  =  { 'px': 1.0  }
     #tipDict  =  { 'py': 1.0  }
-    #tipDictsSTM =  [{ 's': 1.0 }]
-    #tipDictsSTM =  [{ 'px': 1.0 },{ 'py': 1.0 }]
-    tipDictsSTM =  [{'s':.2},{ 'px': 1.0 },{ 'py': 1.0 }]
-    #tipDictsSTM =  [{ 'py': 1.0 }]
-    #tipDictsSTM =  [{ 'px': 1.0 }]
+    #tipDictSTM =  [{ 's': 1.0 }]
+    #tipDictSTM =  [{ 'px': 1.0 },{ 'py': 1.0 }]
+    tipDictSTM =  [{'s':.2},{ 'px': 1.0 },{ 'py': 1.0 }]
+    #tipDictSTM =  [{ 'py': 1.0 }]
+    #tipDictSTM =  [{ 'px': 1.0 }]
     '''
 
-    tipDict     = loadDicts( "tipDict.ini"     )[0]
-    tipDictsSTM = loadDicts( "tipDictsSTM.ini" )
+    if os.path.isfile(wdir+params["tipDict"]):
+        tipDict     = loadDicts( "tipDict.ini"     )[0]
+    else:
+        print("tipDict file not recognized or not specified, using default s-tip.")
+        tipDict   =  { 's': 1.0 }
+
+    if os.path.isfile(wdir+params["tipDictSTM"]):
+        tipDictsSTM = loadDicts( "tipdictstm.ini" )
+    else:
+        print("tipDictsSTM file not recognized or not specified, using default s-tip.")
+        tipDictsSTM =  [{'s':.2},{ 'px': 1.0 },{ 'py': 1.0 }]
+
+
+
 
     print( " tipDict     ", tipDict     )
-    print( " tipDictsSTM ", tipDictsSTM )
+    print( " tipDictSTM ", tipDictsSTM )
 
     dcanv = 0.2
     dd = (dcanv,dcanv,dcanv)
@@ -608,15 +638,22 @@ if __name__ == "__main__":
         if params["excitons"]:
             #es,vs, H = runExcitationSolver( S.rhosIn, S.lvecs, S.poss, S.rots, S.ens )
             runExcitationSolver( S )
+            #nvs = len(S.eigVs)
+        else:
+            S.eigVs=[[1.]]
+            S.eigEs=S0.Ediags
 
         nvs = len(S.eigVs)
+        print("nvs: ",nvs)
         if ( (cix==0) and params["grdebug"]):   # initialize figures on first combination
             fig=plt.figure(figsize=(4*nvs,2*ncomb+0.5))
             plt.tight_layout(pad=1.0)
+    
 
         S.phMaps   = [None]*nvs
         S.rhoCanvs = [None]*nvs 
         # calculation
+        print("seigvs:",S.eigVs[0])
         for ipl in range(len(S.eigVs)):
             fname=fnmb+("_%03i_%03i" %(cix, ipl) )
             makePhotonMap( S, ipl, S.eigVs[ipl], Vtip, dd, byCenter=byCenter, bDebugXsf=bDebugXsf )
