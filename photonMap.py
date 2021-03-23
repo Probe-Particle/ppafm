@@ -355,20 +355,20 @@ def plotPhotonMap( system, ipl,ncomb, nvs, byCenter=False, fname=None, dd=None )
 
     if not params["grdebug"]:
         fig=plt.figure(figsize=(6,3))
-        plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, cmap='seismic',vmin=-maxs,vmax=maxs);
+        plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, origin='lower',cmap='seismic',vmin=-maxs,vmax=maxs);
         plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*system.eigEs[ipl]) )+" meV" )
         plotBoxes( system.poss, system.rots, system.lvecs, byCenter=byCenter )
-        plt.subplot(1,2,2); plt.imshow( phMap, extent=extent, cmap='gist_heat');
+        plt.subplot(1,2,2); plt.imshow( phMap, origin='lower',extent=extent, cmap='gist_heat');
         plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phMap)) ))
         if params["images"]:
             print("Saving PNG image as ",fname )
             plt.savefig(fname+'.png', dpi=fig.dpi)
         plt.close()
     else:
-        plt.subplot( ncomb,2*nvs,1+2*(cix*nvs+ipl)); plt.imshow( rho.real, extent=extent, cmap='seismic',vmin=-maxs,vmax=maxs);
+        plt.subplot( ncomb,2*nvs,1+2*(cix*nvs+ipl)); plt.imshow( rho.real, origin='lower',extent=extent, cmap='seismic',vmin=-maxs,vmax=maxs);
         plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*system.eigEs[ipl]) )+" meV" )
         plotBoxes( system.poss, system.rots, system.lvecs, byCenter=byCenter )
-        plt.subplot(ncomb,2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( phMap, extent=extent, cmap='gist_heat');
+        plt.subplot(ncomb,2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( phMap, extent=extent, origin='lower',cmap='gist_heat');
         plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phMap)) ))
 
 def setPathIfExistDir( path, default=""):
