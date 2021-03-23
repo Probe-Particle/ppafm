@@ -241,8 +241,8 @@ def loadCubeFiles( S0 ):
     #if ((os.path.isfile(wdir+params["homo"]) and os.path.isfile(wdir+params["lumo"])) or os.path.isfile(wdir+params["dens"]) ):
         # ---- This is the old way, without a valid cubelist, script expects a -D or -H and -L directives
         #      oposs, orots, ocoefs, oens, oirhos, oents = makeMoleculesInline( )
-    print("Loading densities from command-line options")
     if os.path.isfile(wdir+params["dens"]):
+        print("Loading densities from command-line options")
         cubName=(params["dens"])
         #else:
         #    cubName=(params["homo"],params["lumo"])
@@ -374,7 +374,7 @@ def plotPhotonMap( system, ipl,ncomb, nvs, byCenter=False, fname=None, dd=None )
 def setPathIfExistDir( path, default=""):
     if( path != ""):
         if ( not os.path.isdir(path ) ):
-            print("Specfied dir does not exist! : ", path )
+            print("Specified dir does not exist! : ", path )
             quit()
         else:
             return path
@@ -385,7 +385,7 @@ def setPathIfExistDir( path, default=""):
 def setPathIfExist( path, default=""):
     if( path != ""):
         if ( not os.path.isfile(wdir+path ) ):
-            print("Specfied file does not exist! : ", wdir+path )
+            print("Specified file does not exist! : ", wdir+path )
             quit()
         else:
             return wdir+path
@@ -424,7 +424,7 @@ if __name__ == "__main__":
     parser.add_option( "-s", "--save",        action="store_true",           default=PARSER_DEFAULTVAL, help="save output as txt files")
     parser.add_option( "-u", "--subsys",      action="store_true",           default=PARSER_DEFAULTVAL, help="enable splitting to subsystems (EXPERIMENTAL)")
     parser.add_option( "-o", "--output",      action="store", type="string", default=PARSER_DEFAULTVAL, help="base filename for output")
-    parser.add_option( "-c", "--cubelist",    action="store", type="string", default=PARSER_DEFAULTVAL, help="read trans. density or homo/lumo using a list in a file")
+#    parser.add_option( "-c", "--cubelist",    action="store", type="string", default=PARSER_DEFAULTVAL, help="read trans. density or homo/lumo using a list in a file")
     parser.add_option( "-w", "--wdir",        action="store", type="string", default=PARSER_DEFAULTVAL, help="working directory to find tr. densities and all the input files")
     parser.add_option( "-m", "--molecules",   action="store", type="string", default=PARSER_DEFAULTVAL, help="filename from which to read excitonic coordinates and other attributes")
     parser.add_option( "-i", "--images",      action="store_true",           default=PARSER_DEFAULTVAL, help="save output as images")
@@ -449,7 +449,7 @@ if __name__ == "__main__":
         matplotlib.use("Agg")
 
     import matplotlib.pyplot as plt
-
+    fnmb = "output"
     wdir = setPathIfExistDir( params["wdir"])
     print('WORKING Directory: ', wdir)
     #fnmb = setPathIfExist( params["homo"],default='output')
@@ -457,19 +457,21 @@ if __name__ == "__main__":
     #print('Default filename for output: ', fnmb)
     #setPathIfExist       ( params["lumo"])
     #print('LUMO cube: ', params["lumo"])
-    fnmb = setPathIfExist( params["dens"], default='output')
-    #setPathIfExist       ( params["molecules"] )
-    #setPathIfExist       ( params["cubelist"]  )
-    #setPathIfExist       ( params["output"]  )
+
+    if ( params["molecules"] != "molecules.ini" ):
+        setPathIfExist ( params["molecules"] )
     #fnmb = fnmb
-    print("OUTPUT Basename: '"+fnmb+"'")
     if(not os.path.isfile(wdir+params["molecules"])):
         print("Molecular INI file does not exist in CWD: ",params["molecules"])
         print("Using default coordinates.")
         S0 = ExcitonSystem(); S0.poss=[[0.,0.,0.]]; S0.rots=[0.]; S0.Ediags=[1.]; S0.irhos=[0]; S0.ents=[0] #, S0.eigEs=[1.], S0.eigVs=[[1.]]
     else:
+        print("Loading molecular parameters from: "+params["molecules"])
         S0 = loadMolecules( wdir+params["molecules"] )
+        fnmb = params["molecules"]
 
+    fnmb = setPathIfExist( params["dens"], default=fnmb)
+    print("OUTPUT Basename: '"+fnmb+"'")
     _,_,lmax = loadCubeFiles( S0 )
  
     # -------- make Vtip
@@ -495,13 +497,13 @@ if __name__ == "__main__":
     if os.path.isfile(wdir+params["tipDict"]):
         tipDict     = loadDicts( "tipDict.ini"     )[0]
     else:
-        print("tipDict file not recognized or not specified, using default s-tip. (R=1.0)")
+        print("tipDict file not found, using default s-tip. (R=1.0)")
         tipDict   =  { 's': 1.0 }
 
     if os.path.isfile(wdir+params["tipDictSTM"]):
         tipDictsSTM = loadDicts( "tipdictstm.ini" )
     else:
-        print("tipDictsSTM file not recognized or not specified, using default sp-tip.")
+        print("tipDictsSTM file not found, using default sp-tip.")
         tipDictsSTM =  [{'s':.2},{ 'px': 1.0 },{ 'py': 1.0 }]
 
 
@@ -574,10 +576,10 @@ if __name__ == "__main__":
             print("eigVs",S.eigVs)
         else:
             print("ediags",S.Ediags)
-            S.eigVs=[np.array([1.,0.])]*len(S.Ediags)
+            S.eigVs=[[1.]*len(S.Ediags)]
             print("eigVs",S.eigVs)
-            S.eigEs=S.Ediags
-            nvs = len(S.Ediags)
+            S.eigEs=[S.Ediags[0]]
+            nvs = 1
         print("nvs: ",nvs)
         if ( (cix==0) and params["grdebug"]):   # initialize figures on first combination
             fig=plt.figure(figsize=(4*nvs,2*ncomb+0.5))
