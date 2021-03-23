@@ -1,20 +1,5 @@
 #!/usr/bin/python3 
 
-'''
-TODO:
- * Check FFT along z-axis (should not be periodic in that direction)
- * Save results in uniform structure 
-
-TODO large: 
- * move molecules by mouse
-
-Done:
-* Check units of tip size
-* complex coeficients for molecular orbital phase
-* try 3D effects (not flatened z-axis)
-* draw position and orientaion of molecules
-'''
-
 import os
 import sys
 import __main__ as main
