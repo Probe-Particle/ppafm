@@ -1,5 +1,4 @@
 #!/usr/bin/python3 
-# This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 '''
 TODO:
@@ -20,7 +19,6 @@ import os
 import sys
 import __main__ as main
 import numpy as np
-#import GridUtils as GU
 #sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
 
@@ -31,11 +29,7 @@ import pyProbeParticle.photo          as photo
 
 bDebug = False
 
-#from namedlist import namedlist
-#from collections import  namedtuple   # problem of named tupple is that it is immutable
-#ExitonSystem = namedlist( 'ExitonSystem', [ 'poss','rots','Ediags','irhos','ents',    'Ham','eigEs','eigVs',  'lvecs','rhosIns','rhoCanvs','Vtip','PhMaps'  ]  )
-
-class ExitonSystem:
+class ExcitonSystem:
     # see https://stackoverflow.com/questions/3603502/prevent-creating-new-attributes-outside-init
     __slots__ = [ 'poss','rots','Ediags','irhos','ents',    'Ham','eigEs','eigVs',    'lvecs','rhoIns','rhoCanvs','Vtip','phMaps', 'STMmap', 'wfIns'  ]
     def __init__(self):
@@ -46,30 +40,6 @@ class ExitonSystem:
 #      Config
 # ===============================================================================================================
 
-'''
-    parser.add_option( "-y", "--ydim",   action="store", type="int", default="500", help="height of canvas")
-    parser.add_option( "-x", "--xdim",   action="store", type="int", default="500", help="width of canvas")
-    parser.add_option( "-H", "--homo",   action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of electron hole;    3D data-file (.xsf,.cube)")
-    parser.add_option( "-L", "--lumo",   action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of excited electron; 3D data-file (.xsf,.cube)")
-    parser.add_option( "-D", "--dens",   action="store", type="string", default=PARSER_DEFAULTVAL, help="transition density; 3D data-file (.xsf,.cube)")
-    parser.add_option( "-R", "--radius", action="store", type="float",  default="1.0", help="tip radius")
-    parser.add_option( "-n", "--subsampling", action="store", type="int",  default="6", help="subsampling for coupling calculation, recommended setting 5-10, lower is slower")
-    parser.add_option( "-Z", "--ztip",   action="store", type="float",  default="6.0", help="tip above substrate") #need to clarify what it exactly means
-    parser.add_option( "-t", "--tip",    action="store", type="string", default="s",   help="tip compositon s,px,py,pz,d...")
-    parser.add_option( "-e", "--excitons",   action="store_true",  default=False, help="calculate deloc. exitons of J-aggregate ( just WIP !!! )")
-    parser.add_option( "-v", "--volumetric", action="store_true", default=False,  help="calculate on 2D grid, much faster")
-    parser.add_option( "-f", "--flip", action="store_true", default=False,  help="transpose XYZ xsf/cube file to ZXY")
-    parser.add_option( "-s", "--save", action="store_true", default=False,  help="save output as txt files")
-    parser.add_option( "-u", "--subsys", action="store_true", default=False,  help="enable splitting to subsystems (EXPERIMENTAL)")
-    parser.add_option( "-o", "--output", action="store", type="string", default=PARSER_DEFAULTVAL,  help="base filename for output")
-    parser.add_option( "-c", "--cubelist", action="store", type="string", default="cubefiles.ini",  help="read trans. density or homo/lumo using a list in a file")
-    parser.add_option( "-w", "--wdir", action="store", type="string", default="",  help="working directory to find tr. densities and all the input files")
-    parser.add_option( "-m", "--molecules", action="store", type="string", default="molecules.ini",  help="filename from which to read excitonic coordinates and other attributes")
-    parser.add_option( "-i", "--images", action="store_true", default=False,  help="save output as images")
-    parser.add_option( "-g", "--grdebug", action="store_true", default=False,  help="produce graphical output;")
-    #parser.add_option( "-I", "--current", action="store_true", default=False,  help="tunelling current (STM) modulation beta")
-    parser.add_option( "-b", "--beta", action="store", type="float", default=-1,  help="tunelling current (STM) modulation beta")
-'''
 
 params={
 "ydim": 500,
@@ -79,7 +49,7 @@ params={
 "dens": "",
 "radius":10.0,
 "ztip":6.0,
-"tip":"s",
+#"tip":"s",
 "subsampling":6,
 "excitons":False,
 "volumetric":False,
@@ -94,7 +64,7 @@ params={
 "tipDictSTM":"tipdictstm.ini",
 "images":True,
 "grdebug":False,
-"current":False,
+#"current":False,
 "beta":-1.0,
 }
 
@@ -182,7 +152,7 @@ def loadDensityFileNames( fname ):
     return names
 
 def loadMolecules( fname ):
-    S = ExitonSystem()
+    S = ExcitonSystem()
     DATA    = np.genfromtxt( fname, skip_header=1 )
     if (len(DATA.shape) == 1):
         DATA=np.reshape(DATA,(1,DATA.shape[0]))
@@ -201,13 +171,13 @@ def loadMolecules( fname ):
     S.rots*=np.pi/180. #convert to radians
     S.eigVs = [coefs]
     #S.eigEs = []
-    #system = ExitonSystem( poss,rots,Ediags,irhos,ents,    Ham,eigEs,eigVs,  rhosIn,rhoCanv,Vtip,PhMap  ]  )
-    #system0 = ExitonSystem( poss=poss,rots=rots,Ediags=Ediags,irhos=irhos,ents=ents,    Ham=None,eigEs=None,eigVs=[coefs],  lvecs=None,rhosIns=None,rhoCanvs=None,Vtip=None,PhMaps=None  )
+    #system = ExcitonSystem( poss,rots,Ediags,irhos,ents,    Ham,eigEs,eigVs,  rhosIn,rhoCanv,Vtip,PhMap  ]  )
+    #system0 = ExcitonSystem( poss=poss,rots=rots,Ediags=Ediags,irhos=irhos,ents=ents,    Ham=None,eigEs=None,eigVs=[coefs],  lvecs=None,rhosIns=None,rhoCanvs=None,Vtip=None,PhMaps=None  )
     return S
 
 def makeCombination( S0, inds ):
     print( "makeCombination inds ", inds )
-    S  = ExitonSystem()
+    S  = ExcitonSystem()
     S.ents    = photo.combine( S0.ents  ,  inds )
     S.poss    = photo.combine( S0.poss  ,  inds )
     S.rots    = photo.combine( S0.rots  ,  inds )
@@ -217,7 +187,7 @@ def makeCombination( S0, inds ):
     S.lvecs   = photo.combine( S0.lvecs ,  inds )
     S.irhos   = photo.combine( S0.irhos,   inds )
     S.rhoIns  = photo.combine( S0.rhoIns, inds )
-    #system  = ExitonSystem( poss=poss,rots=rots,Ediags=Ediags,irhos=irhos,ents=ents,    Ham=None,eigEs=None,eigVs=eigVs,  lvecs=lvecs,rhosIns=rhosIns,rhoCanvs=None,Vti=None,PhMaps=None  )
+    #system  = ExcitonSystem( poss=poss,rots=rots,Ediags=Ediags,irhos=irhos,ents=ents,    Ham=None,eigEs=None,eigVs=eigVs,  lvecs=lvecs,rhosIns=rhosIns,rhoCanvs=None,Vti=None,PhMaps=None  )
     return S
 
 def loadRhoTrans( cubName=None ):
@@ -400,20 +370,20 @@ def plotPhotonMap( system, ipl,ncomb, nvs, byCenter=False, fname=None, dd=None )
 
     if not params["grdebug"]:
         fig=plt.figure(figsize=(6,3))
-        plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
+        plt.subplot(1,2,1); plt.imshow( rho.real, extent=extent, cmap='seismic',vmin=-maxs,vmax=maxs);
         plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*system.eigEs[ipl]) )+" meV" )
         plotBoxes( system.poss, system.rots, system.lvecs, byCenter=byCenter )
-        plt.subplot(1,2,2); plt.imshow( phMap, extent=extent, origin='image',cmap='gist_heat');
+        plt.subplot(1,2,2); plt.imshow( phMap, extent=extent, cmap='gist_heat');
         plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phMap)) ))
         if params["images"]:
             print("Saving PNG image as ",fname )
             plt.savefig(fname+'.png', dpi=fig.dpi)
         plt.close()
     else:
-        plt.subplot( ncomb,2*nvs,1+2*(cix*nvs+ipl)); plt.imshow( rho.real, extent=extent, origin='image',cmap='seismic',vmin=-maxs,vmax=maxs);
+        plt.subplot( ncomb,2*nvs,1+2*(cix*nvs+ipl)); plt.imshow( rho.real, extent=extent, cmap='seismic',vmin=-maxs,vmax=maxs);
         plt.axis('off');plt.title("E = "+("{:.1f}".format(1000*system.eigEs[ipl]) )+" meV" )
         plotBoxes( system.poss, system.rots, system.lvecs, byCenter=byCenter )
-        plt.subplot(ncomb,2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( phMap, extent=extent, origin='image',cmap='gist_heat');
+        plt.subplot(ncomb,2*nvs,2+2*(cix*nvs+ipl)); plt.imshow( phMap, extent=extent, cmap='gist_heat');
         plt.axis('off');plt.title("A = "+("{:.2e}".format(np.mean(phMap)) ))
 
 def setPathIfExistDir( path, default=""):
@@ -443,7 +413,7 @@ def setPathIfExist( path, default=""):
 
 if __name__ == "__main__":
     
-    import matplotlib.pyplot as plt
+#   import matplotlib.pyplot as plt
     from optparse import OptionParser
     np.set_printoptions(linewidth=400) #because of the implicit short line output into files
 
@@ -454,31 +424,6 @@ if __name__ == "__main__":
 
     PARSER_DEFAULTVAL = None
     parser = OptionParser()
-    '''
-    parser.add_option( "-y", "--ydim",   action="store", type="int", default="500", help="height of canvas")
-    parser.add_option( "-x", "--xdim",   action="store", type="int", default="500", help="width of canvas")
-    parser.add_option( "-H", "--homo",   action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of electron hole;    3D data-file (.xsf,.cube)")
-    parser.add_option( "-L", "--lumo",   action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of excited electron; 3D data-file (.xsf,.cube)")
-    parser.add_option( "-D", "--dens",   action="store", type="string", default=PARSER_DEFAULTVAL, help="transition density; 3D data-file (.xsf,.cube)")
-    parser.add_option( "-R", "--radius", action="store", type="float",  default="1.0", help="tip radius")
-    parser.add_option( "-n", "--subsampling", action="store", type="int",  default="6", help="subsampling for coupling calculation, recommended setting 5-10, lower is slower")
-    parser.add_option( "-Z", "--ztip",   action="store", type="float",  default="6.0", help="tip above substrate") #need to clarify what it exactly means
-    parser.add_option( "-t", "--tip",    action="store", type="string", default="s",   help="tip compositon s,px,py,pz,d...")
-    parser.add_option( "-e", "--excitons",   action="store_true",  default=False, help="calculate deloc. exitons of J-aggregate ( just WIP !!! )")
-    parser.add_option( "-v", "--volumetric", action="store_true", default=False,  help="calculate on 2D grid, much faster")
-    parser.add_option( "-f", "--flip", action="store_true", default=False,  help="transpose XYZ xsf/cube file to ZXY")
-    parser.add_option( "-s", "--save", action="store_true", default=False,  help="save output as txt files")
-    parser.add_option( "-u", "--subsys", action="store_true", default=False,  help="enable splitting to subsystems (EXPERIMENTAL)")
-    parser.add_option( "-o", "--output", action="store", type="string", default=PARSER_DEFAULTVAL,  help="base filename for output")
-    parser.add_option( "-c", "--cubelist", action="store", type="string", default="cubefiles.ini",  help="read trans. density or homo/lumo using a list in a file")
-    parser.add_option( "-w", "--wdir", action="store", type="string", default="",  help="working directory to find tr. densities and all the input files")
-    parser.add_option( "-m", "--molecules", action="store", type="string", default="molecules.ini",  help="filename from which to read excitonic coordinates and other attributes")
-    parser.add_option( "-i", "--images", action="store_true", default=False,  help="save output as images")
-    parser.add_option( "-g", "--grdebug", action="store_true", default=False,  help="produce graphical output;")
-    #parser.add_option( "-I", "--current", action="store_true", default=False,  help="tunelling current (STM) modulation beta")
-    parser.add_option( "-b", "--beta", action="store", type="float", default=-1,  help="tunelling current (STM) modulation beta")
-    '''
-
     parser.add_option( "-y", "--ydim",        action="store", type="int",    default=PARSER_DEFAULTVAL, help="height of canvas")
     parser.add_option( "-x", "--xdim",        action="store", type="int",    default=PARSER_DEFAULTVAL, help="width of canvas")
 #    parser.add_option( "-H", "--homo",        action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of electron hole;    3D data-file (.xsf,.cube)")
@@ -487,7 +432,7 @@ if __name__ == "__main__":
     parser.add_option( "-R", "--radius",      action="store", type="float",  default=PARSER_DEFAULTVAL, help="tip radius")
     parser.add_option( "-n", "--subsampling", action="store", type="int",    default=PARSER_DEFAULTVAL, help="subsampling for coupling calculation, recommended setting 5-10, lower is slower")
     parser.add_option( "-Z", "--ztip",        action="store", type="float",  default=PARSER_DEFAULTVAL, help="tip above substrate") #need to clarify what it exactly means
-    parser.add_option( "-t", "--tip",         action="store", type="string", default=PARSER_DEFAULTVAL, help="tip compositon s,px,py,pz,d...")
+#    parser.add_option( "-t", "--tip",         action="store", type="string", default=PARSER_DEFAULTVAL, help="tip compositon s,px,py,pz,d...")
     parser.add_option( "-e", "--excitons",    action="store_true",           default=PARSER_DEFAULTVAL, help="calculate deloc. exitons of J-aggregate ( just WIP !!! )")
     parser.add_option( "-v", "--volumetric",  action="store_true",           default=PARSER_DEFAULTVAL, help="calculate on 2D grid, much faster")
     parser.add_option( "-f", "--flip",        action="store_true",           default=PARSER_DEFAULTVAL, help="transpose XYZ xsf/cube file to ZXY")
@@ -518,8 +463,10 @@ if __name__ == "__main__":
         import matplotlib
         matplotlib.use("Agg")
 
+    import matplotlib.pyplot as plt
+
     wdir = setPathIfExistDir( params["wdir"])
-    print('Working directory: ', wdir)
+    print('WORKING Directory: ', wdir)
     #fnmb = setPathIfExist( params["homo"],default='output')
     #print('HOMO cube: ', params["homo"])
     #print('Default filename for output: ', fnmb)
@@ -530,11 +477,11 @@ if __name__ == "__main__":
     #setPathIfExist       ( params["cubelist"]  )
     #setPathIfExist       ( params["output"]  )
     #fnmb = fnmb
-    print("DEFAULT OUTPUT BASENAME: '"+fnmb+"'")
+    print("OUTPUT Basename: '"+fnmb+"'")
     if(not os.path.isfile(wdir+params["molecules"])):
-        print("Parameter INI file does not exist: ",wdir+params["molecules"])
+        print("Molecular INI file does not exist in CWD: ",params["molecules"])
         print("Using default coordinates.")
-        S0 = ExitonSystem(); S0.poss=[[0.,0.,0.]]; S0.rots=[0.]; S0.Ediags=[1.]; S0.irhos=[0]; S0.ents=[0] #, S0.eigEs=[1.], S0.eigVs=[[1.]]
+        S0 = ExcitonSystem(); S0.poss=[[0.,0.,0.]]; S0.rots=[0.]; S0.Ediags=[1.]; S0.irhos=[0]; S0.ents=[0] #, S0.eigEs=[1.], S0.eigVs=[[1.]]
     else:
         S0 = loadMolecules( wdir+params["molecules"] )
 
@@ -563,16 +510,14 @@ if __name__ == "__main__":
     if os.path.isfile(wdir+params["tipDict"]):
         tipDict     = loadDicts( "tipDict.ini"     )[0]
     else:
-        print("tipDict file not recognized or not specified, using default s-tip.")
+        print("tipDict file not recognized or not specified, using default s-tip. (R=1.0)")
         tipDict   =  { 's': 1.0 }
 
     if os.path.isfile(wdir+params["tipDictSTM"]):
         tipDictsSTM = loadDicts( "tipdictstm.ini" )
     else:
-        print("tipDictsSTM file not recognized or not specified, using default s-tip.")
+        print("tipDictsSTM file not recognized or not specified, using default sp-tip.")
         tipDictsSTM =  [{'s':.2},{ 'px': 1.0 },{ 'py': 1.0 }]
-
-
 
 
     print( " tipDict     ", tipDict     )
@@ -588,11 +533,11 @@ if __name__ == "__main__":
     if params["grdebug"]:
         if params["volumetric"]:
             fig=plt.figure(figsize=(5*2,5))
-            plt.subplot(1,2,1); plt.imshow( np.fft.fftshift(Vtip[-1]), origin='image' ); plt.title( 'Tip Cavity Field[Top]'    )
-            plt.subplot(1,2,2); plt.imshow( np.fft.fftshift(Vtip[ 0]), origin='image' ); plt.title( 'Tip Cavity Field[Bottom]' )
+            plt.subplot(1,2,1); plt.imshow( np.fft.fftshift(Vtip[-1]) ); plt.title( 'Tip Cavity Field[Top]'    )
+            plt.subplot(1,2,2); plt.imshow( np.fft.fftshift(Vtip[ 0]) ); plt.title( 'Tip Cavity Field[Bottom]' )
         else:
             fig=plt.figure(figsize=(5,5))
-            plt.imshow( Vtip, origin='image' ); plt.title( 'Tip Cavity Field' )
+            plt.imshow( Vtip ); plt.title( 'Tip Cavity Field' )
     if params["beta"] > 0: # ========== STM simulation
         loadedWfs, loadedLvecs_wf = loadCubeFilesINI( S0, wdir+"wfs.ini" )
         #nmaxs_wf = maxshape(loadedWfs); print( "nmaxs_wf ", nmaxs_wf )
@@ -618,9 +563,9 @@ if __name__ == "__main__":
         #if not params["hide"]:
             tipWf_ = np.fft.fftshift( tipWf_ )
             fig=plt.figure(figsize=(5*3,5))
-            plt.subplot(1,3,1); plt.imshow( tipWf_.sum(axis=0), origin='image' ); plt.title( 'Tip Wf'      )
-            plt.subplot(1,3,2); plt.imshow( wfCanv.sum(axis=0), origin='image' ); plt.title( 'Sample Wf '  )
-            plt.subplot(1,3,3); plt.imshow( STMmap            , origin='image' ); plt.title( 'STM current ')
+            plt.subplot(1,3,1); plt.imshow( tipWf_.sum(axis=0) ); plt.title( 'Tip Wf'      )
+            plt.subplot(1,3,2); plt.imshow( wfCanv.sum(axis=0) ); plt.title( 'Sample Wf '  )
+            plt.subplot(1,3,3); plt.imshow( STMmap             ); plt.title( 'STM current ')
 
         S0.STMmap=STMmap
         if params["save"]:
@@ -630,6 +575,7 @@ if __name__ == "__main__":
  
     #cposs,crots,ccoefs,cents,cens,combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
     inds = photo.combinator(S0.ents,subsys=params["subsys"])
+    print("inds type: ",type(inds))
     print( "combinator.inds ", inds )
     systems = [  makeCombination( S0, jnds ) for jnds in inds  ]
 
@@ -638,12 +584,15 @@ if __name__ == "__main__":
         if params["excitons"]:
             #es,vs, H = runExcitationSolver( S.rhosIn, S.lvecs, S.poss, S.rots, S.ens )
             runExcitationSolver( S )
-            #nvs = len(S.eigVs)
+            nvs = len(S.eigVs)
+            print("ediags",S.Ediags)
+            print("eigVs",S.eigVs)
         else:
-            S.eigVs=[[1.]]
-            S.eigEs=S0.Ediags
-
-        nvs = len(S.eigVs)
+            print("ediags",S.Ediags)
+            S.eigVs=[np.array([1.,0.])]*len(S.Ediags)
+            print("eigVs",S.eigVs)
+            S.eigEs=S.Ediags
+            nvs = len(S.Ediags)
         print("nvs: ",nvs)
         if ( (cix==0) and params["grdebug"]):   # initialize figures on first combination
             fig=plt.figure(figsize=(4*nvs,2*ncomb+0.5))
