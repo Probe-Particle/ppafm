@@ -58,7 +58,7 @@ def loadParams( fname ):
     fin = open(fname,'r')
     for line in fin:
         PPU.parseParamsLine( line, params )
-    print( params )
+    #print( params )
 
 def loadDict( fname, convertor=float ):
     # what about to use AST - https://www.kite.com/python/answers/how-to-read-a-dictionary-from-a-file-in--python#
@@ -436,13 +436,11 @@ if __name__ == "__main__":
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
     (options_, args) = parser.parse_args()
 
-    if os.path.isfile( "params.ini" ):
-        loadParams( "params.ini" )
-    else:
-        print( " there is now params.ini => using default params dict" )
     opt_dict = vars(options_)
+
+    print( "Default values of params: \n", params )
     PPU.apply_options( opt_dict, params=params )
-    print( "params after application of inline options: \n", params )
+    
 
     if not params["grdebug"]:
         import matplotlib
@@ -457,6 +455,15 @@ if __name__ == "__main__":
     #print('Default filename for output: ', fnmb)
     #setPathIfExist       ( params["lumo"])
     #print('LUMO cube: ', params["lumo"])
+    if os.path.isfile( wdir+ "params.ini" ):
+        print('found the params.ini, loading..')
+        loadParams( wdir+"params.ini" )
+    else:
+        print( " there is NO params.ini => using default params dict" )
+
+    PPU.apply_options( opt_dict, params=params )
+    print( "Params after application of both inline and params.ini options: \n", params )
+
 
     if ( params["molecules"] != "molecules.ini" ):
         setPathIfExist ( params["molecules"] )
@@ -495,13 +502,15 @@ if __name__ == "__main__":
     '''
 
     if os.path.isfile(wdir+params["tipDict"]):
-        tipDict     = loadDicts( "tipDict.ini"     )[0]
+        print('Found tipDict, loading...')
+        tipDict     = loadDicts( wdir + params["tipDict"] )[0]
     else:
         print("tipDict file not found, using default s-tip. (R=1.0)")
         tipDict   =  { 's': 1.0 }
 
     if os.path.isfile(wdir+params["tipDictSTM"]):
-        tipDictsSTM = loadDicts( "tipdictstm.ini" )
+        print('Found tipDictSTM, loading...')
+        tipDictsSTM = loadDicts( wdir + params["tipDictSTM"] )
     else:
         print("tipDictsSTM file not found, using default sp-tip.")
         tipDictsSTM =  [{'s':.2},{ 'px': 1.0 },{ 'py': 1.0 }]
