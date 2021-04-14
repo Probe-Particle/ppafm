@@ -118,6 +118,56 @@ class FigImshow(FigCanvas):
         #self.parent.figCurv.figCan.defaultPlotAxis()
         #self.parent.figCurv.figCan.draw()
     
+    def plotSlice2(self, F_stack, title=None , margins=None, grid_selector = 0, slice_length = None, big_len_image = None, alpha = 0.0):
+ 
+        self.axes.cla()
+        
+        F = F_stack
+        print("plotSlice F.shape, F.min(), F.max() ", F.shape, F.min(), F.max())
+
+
+        print('self.margins', margins)
+        #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
+        if alpha>0 and big_len_image is not None:
+            F = F*(1-alpha) + big_len_image*alpha
+        self.img = self.axes.imshow( F, origin='image', cmap='viridis', interpolation='bicubic' )
+       
+        j_min,i_min = np.unravel_index(F.argmin(), F.shape)  
+        j_max,i_max = np.unravel_index(F.argmax(), F.shape)  
+
+        #self.axes.scatter(i_min,j_min,color='r')
+        #self.axes.scatter(i_max,j_max,color='g')
+
+        if margins:
+            self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),margins[2], margins[3], linewidth=2,edgecolor='r',facecolor='none')) 
+            textRes = 'output size: '+str(margins[2])+ 'x'+ str(margins[3])
+            if slice_length:
+                textRes += '     length [A] ='+'{:03.4f}, {:03.4f}'.format(slice_length[0], slice_length[1])  
+
+
+            self.axes.set_xlabel(textRes)
+        #if self.cbar is None:
+        #    self.cbar = self.fig.colorbar( self.img )
+        #self.cbar.set_clim( vmin=F.min(), vmax=F.max() )
+        #self.cbar.update_normal(self.img)
+        self.axes.set_xlim(0,F.shape[1])
+        self.axes.set_ylim(0,F.shape[0])
+        self.axes.set_title(title)
+        #self.axes.set_yticks([10.5, 20.5, 30.5], minor='True')
+        #self.axes.set_xticks([10.5, 20.5, 30.5], minor='True')
+        #axes = plt.gca()
+        if (grid_selector > 0):
+            self.axes.grid(True,  linestyle='dotted', color='blue')
+        else:
+            self.axes.grid(False)
+        
+            #self.axes.imshow( img_prev_spice_extent,  origin='image', interpolation='bicubic' )
+
+
+        self.fig.tight_layout()
+        self.draw()
+
+
     def onclick(self, event):
         #print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' % (event.button, event.x, event.y, event.xdata, event.ydata))
         ix = int(event.xdata)

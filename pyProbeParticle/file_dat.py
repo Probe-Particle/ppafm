@@ -32,16 +32,17 @@ def readDat( fname, Header=None ):
     header_binary =data[0:header_size]
 
     idx = header_binary.index(b'DSP-COMPDATE')
-    header_binary = header_binary[:idx] + b'\r' + header_binary[idx:];
+    header_binary = header_binary[:idx] + b'\r' + header_binary[idx:]
     header_binary=header_binary.splitlines()
-    ind = [i for i, s in enumerate(header_binary) if b'DSP-COMPDATE' in s][0]; header_binary[ind]
+    ind = [i for i, s in enumerate(header_binary) if b'DSP-COMPDATE' in s][0]
 
 
-    d = []
+    d = [] 
     for i in range(1,ind):
         #try:
             tmp=header_binary[i].split(b'=');
-            d.append((tmp[0],tmp[1]))
+            if (len(tmp)> 1):
+                d.append((tmp[0],tmp[1]))
         #except:
         #    pass
     SplittedLine=pd.DataFrame(d, columns=('parameter', 'value'))
@@ -64,32 +65,23 @@ def readDat( fname, Header=None ):
     Header['ScanOffset_X'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Scanrotoffx / OffsetX'].value.item())
     Header['ScanOffset_Y'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Scanrotoffy / OffsetY'].value.item())
     Header['Bias'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Biasvolt[mV]'].value.item())
-    Header['Current'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Current[A]'].value.item())
+    #Header['Current'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Current[A]'].value.item())
     Header['ACQ_Time'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Sec/Image:'].value.item())
     Header['ScanAngle'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Rotation / Rotation'].value.item())
     Header['ZControllerSetpoint'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'FBLogIset'].value.item())
     Header['ZControllerIntegralGain'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'FBIntegral'].value.item())
     Header['ZControllerProportionalGain'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'FBProp'].value.item())
+    Header['PiezoZ'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'ZPiezoconst'].value.item())
     Header['PiezoX'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Xpiezoconst'].value.item())
+    Header['CHOffset'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'CHModeZoff / CHModeZoff'].value.item())
+    Header['CHMode'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'CHMode / CHMode'].value.item())
     Header['LengthX'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Length x[A]'].value.item())
     Header['LengthY'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Length y[A]'].value.item())    
 
-    #print " int(SplittedLine.loc[SplittedLine['parameter'] ", int(SplittedLine.loc[SplittedLine['parameter'] == b'Num.X / Num.X'].value.item())
-    '''
-    keyws = [ b'Num.X / Num.X', b'Num.Y / Num.Y', b'GainX / GainX', b'GainY / GainY', b'GainZ / GainZ', b'Gainpreamp / GainPre 10^', b'Channels / Channels'
-        b'Dacto[A]z', b'Dacto[A]xy', b'Length x[A]', b'Length y[A]', b'Scanrotoffx / OffsetX', b'Scanrotoffy / OffsetY', b'Biasvolt[mV]', b'Current[A]', b'Sec/Image:'
-         b'Rotation / Rotation', b'FBLogIset', b'FBIntegral', b'FBProp', b'Xpiezoconst'
-     ]
-    for keyw in keyws:
-        try:
-            print "keyw", keyw
-            val = SplittedLine.loc[SplittedLine['parameter'] ==  keyw ].value.item()
-            Header[ keyw.decode('ascii') ] = val
-        except:
-            print "keyw WRONG:", keyw
-            pass
-    '''
-
+    # Check if in Constant Height mode
+    #assert Header['CHMode'] == 1 and Header['ChannelCount'] == 4
+    
+    # Check the STMAFM version to determine the number of bytes / pixel
     if STMAFMVersion == 1:
         BytePerPixel = 2
         # Header + 2 unused "NULL"-Bytes
@@ -102,34 +94,62 @@ def readDat( fname, Header=None ):
         BytePerPixel = 4
         data_start=header_size
         # No Seek of additional bytes, since they are compressed:
+
+    # Begin image data extraction
+    # Read data starting after header
     image_data=data[data_start:]
+
+    # Decompress the data with zlib library
     x = zlib.decompress(image_data)
+
+    # Transpose the data so it is oriented from top to bottom
     y = np.frombuffer(x, dtype=np.float32 ).transpose()
+
+    # Skip the first value (zero)
     y=y[1:]
+
+    # Removes 2048 values from the array (extra Createc space)
     y=y[:-4*Header['ScanPixels_X']+1];
-    #because some files have corrupted length we continue it with zeros to obtain coorect reshape to 2D	
+
+    # Fill remaining data with zeros in case of early scan termination
     y_round_size=int(np.ceil(float(len(y))/float(Header['ScanPixels_X']))*Header['ScanPixels_X'])
     y_round=np.zeros(y_round_size);
     y_round[:len(y)]=y
+
+    # Reshape the output image
     mat_image=y_round.reshape(-1,Header['ScanPixels_X']);
+
+    # Set the Y pixel value
     y_size=Header['ScanPixels_Y']
+
+    # Generate output pictures depending on the number of channels
     pic1=mat_image[:y_size,:]
     pic2=mat_image[y_size:2*y_size,:]
     pic3=mat_image[2*y_size:3*y_size,:]
     pic4=mat_image[3*y_size:,:] 
-    return (pic1,pic2,pic3,pic4) 
-'''
-    output_dir=ndir+'npy_png/'
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    file_npy=nfile[:-3]+'npy'
-    file_png=nfile[:-3]+'png'
-    np.save(output_dir+file_npy, pic2)
-    print(output_dir+file_npy)
-    plt.imshow(pic2)
-    plt.colorbar()
-    plt.savefig(output_dir+file_png)
-    plt.close()
-    '''
 
+    # Crop the image if there are rows with zeroes
+    ind_list = np.where(~(pic1 == 0.0).all(axis=1))
+    #print ('ind_list = ', ind_list)
+    #print ('pic1.shape = ', pic1.shape)
+    #print ('pic2.shape = ', pic2.shape)
+    #print ('pic3.shape = ', pic3.shape)
+    #print ('pic4.shape = ', pic4.shape)
+    try:
+        pic1_crop = pic1[ind_list[0], :]
+    except:
+        pic1_crop = pic1
+    try:
+        pic2_crop = pic2[ind_list[0], :]
+    except:
+        pic2_crop = pic2
+    try:
+        pic3_crop = pic3[ind_list[0], :]
+    except:
+        pic3_crop = pic3
+    try:
+        pic4_crop = pic4[ind_list[0], :]
+    except:
+        pic4_crop = pic4
 
+    return (pic1_crop,pic2_crop,pic3_crop,pic4_crop) 

@@ -56,7 +56,7 @@ def roll2d( a , shift=(10,10) ):
 class ApplicationWindow(QtWidgets.QMainWindow):
     #path='./'
     #path="/u/25/prokoph1/unix/Desktop/CATAM/Exp_Data/Camphor/Orientation_4/"
-    path="/u/85/urtevf1/unix/Documents/19august/PTCDA + Cu(111)/AFM/CO"
+    path="/Users/urtevf1/Documents/21april/Xylo/CO/CO 1"
     divNX = 8
     divNY = 8
     bSaveDivisible = False
