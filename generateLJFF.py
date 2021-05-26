@@ -23,7 +23,7 @@ if __name__=="__main__":
     parser = OptionParser()
     parser.add_option( "-i", "--input", action="store", type="string",
     help="Input file, supported formats are:\n.xyz\n.cube,.xsf")
-    parser.add_option( "--noPBC", action="store_false",  help="pbc False", dest="PBC", default=None)
+    parser.add_option( "--noPBC", action="store_false",  help="pbc False", dest="PBC", default=True)
     parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
     parser.add_option("-f","--data_format" , action="store" , type="string",
                       help="Specify the output format of the vector and scalar "
