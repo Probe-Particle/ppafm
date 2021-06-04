@@ -34,11 +34,12 @@ class AuxMapBase:
             assert xyzqs.shape[1] == 4
         return self.eval(xyzqs, Zs)
         
-    def prepare_projector(self, xyzqs, Zs, pos0, bonds2atoms=None):
+    def prepare_projector(self, xyzqs, Zs, pos0, bonds2atoms=None, elem_channels=None):
         rot = np.eye(3)
         coefs = self.projector.makeCoefsZR( Zs.astype(np.int32), elements.ELEMENTS )
         self.projector.tryReleaseBuffers()
-        self.projector.prepareBuffers( xyzqs.astype(np.float32), self.scan_dim[:2]+(self.nChan,), coefs=coefs, bonds2atoms=bonds2atoms )
+        self.projector.prepareBuffers( xyzqs.astype(np.float32), self.scan_dim[:2]+(self.nChan,),
+            coefs=coefs, bonds2atoms=bonds2atoms, elem_channels=elem_channels)
         return oclr.preparePossRot( self.scan_dim, pos0, rot[0], rot[1], self.scan_window[0], self.scan_window[1] )
           
 class vdwSpheres(AuxMapBase):
@@ -211,6 +212,52 @@ class MultiMapSpheres(AuxMapBase):
         poss = self.prepare_projector(xyzqs, Zs, pos0)
         return self.projector.run_evalMultiMapSpheres( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)), bOccl=self.bOccl, Rmin=self.Rmin, Rstep=self.Rstep )
         
+class MultiMapSpheresElements(AuxMapBase):
+    '''
+    Generate Multimap vdW Spheres descriptors for molecules. Each atom is represented by a projection of a sphere
+    with radius equal to the vdW radius of the element. Different elements can be separated arbitrarily into different
+    channels.
+    Arguments:
+        Rpp: float. A constant that is added to the vdW radius of each atom.
+        elems: list of lists of int or str. Lists of elements in each channel as the atomic numbers or symbols.
+        bOccl: 0 or 1. Switch occlusion of atoms 0=off 1=on.
+    '''
+    def __init__(self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), zmin=-1.5, Rpp=-0.5,
+        elems=[['H'], ['N', 'O', 'F'], ['C', 'Si', 'P', 'S', 'Cl', 'Br']], bOccl=0
+    ):
+        super().__init__(scan_dim, scan_window, zmin)
+        self.projector.Rpp = Rpp
+        self.elems = self.convert_elements(elems)
+        self.all_elems = np.concatenate(self.elems)
+        self.bOccl = bOccl
+        self.nChan = len(elems)
+
+    def convert_elements(self, elems):
+        for el_list in elems:
+            for i, e in enumerate(el_list):
+                if isinstance(e, str):
+                    el_list[i] = elements.ELEMENT_DICT[e][0]
+        return elems
+
+    def get_elem_channels(self, Zs):
+        elem_channels = []
+        for Z in Zs:
+            if Z not in self.all_elems:
+                raise RuntimeError(f'Element {Z} was not found in list of elements for any channel.')
+            for i, c in enumerate(self.elems):
+                if Z in c:
+                    elem_channels.append(i)
+        return elem_channels
+                
+    def eval(self, xyzqs, Zs):
+        coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
+        elem_channels = self.get_elem_channels(Zs)
+        pos0 = [0, 0, (xyzqs[:,2]+coefs[:,3]).max()+self.projector.Rpp]
+        poss = self.prepare_projector(xyzqs, Zs, pos0, elem_channels=elem_channels)
+        return self.projector.run_evalMultiMapSpheresElements( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)),
+            bOccl=self.bOccl )
+        
+
 class Bonds(AuxMapBase):
     '''
     Generate Bonds descriptors for molecules. Bonds between atoms are represented by ellipses.

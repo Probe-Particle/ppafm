@@ -656,7 +656,7 @@ class AtomProcjetion:
         if(verbose>0): print("coefs[:,2]", coefs[:,2])
         return coefs
 
-    def prepareBuffers(self, atoms, prj_dim, coefs=None, bonds2atoms=None, Rfunc=None ):
+    def prepareBuffers(self, atoms, prj_dim, coefs=None, bonds2atoms=None, Rfunc=None, elem_channels=None ):
         '''
         allocate GPU buffers
         '''
@@ -703,6 +703,10 @@ class AtomProcjetion:
 
         self.cl_itypes  = cl.Buffer(self.ctx, mf.READ_ONLY, 200*np.dtype(np.int32).itemsize );   nbytes+=bsz    # float
         #self.cl_MultiMap  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz*8     );   nbytes+=bsz    # float
+
+        if elem_channels:
+            elem_channels = np.array(elem_channels).astype(np.int32)
+            self.cl_elem_channels = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=elem_channels ); nbytes+=elem_channels.nbytes
 
         #kargs = ( nAtoms, cl_atoms, cl_cLJs, cl_poss, cl_FE )
         if(verbose>0): print("AtomProcjetion.prepareBuffers.nbytes ", nbytes)
@@ -982,6 +986,40 @@ class AtomProcjetion:
         )
         cl_program.evalMultiMapSpheres( self.queue, global_size, local_size, *(kargs) )
         cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        self.queue.finish()
+        return Eout
+
+    def run_evalMultiMapSpheresElements(self, poss=None, Eout=None, tipRot=None, bOccl=0, Rmin=1.4, Rstep=0.1, local_size=(32,) ):
+        '''
+         kernel to produce multiple channels of vdW Sphere maps each containing atoms with different vdW radius
+        '''
+        if tipRot is not None:
+            self.tipRot=tipRot
+        if Eout is None:
+            Eout = np.zeros( self.prj_dim, dtype=np.float32 )
+            #if(verbose>0): 
+            #print "FE.shape", Eout.shape
+        if poss is not None:
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            oclu.updateBuffer(poss, self.cl_poss )
+        ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
+        global_size = (ntot,) # TODO make sure divisible by local_size
+        #print "global_size:", global_size
+        kargs = (  
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_coefs,
+            self.cl_elem_channels,
+            self.cl_poss,
+            self.cl_Eout,
+            np.float32( self.Rpp   ),
+            np.float32( self.zmin  ),
+            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            np.int32(bOccl),
+            np.int32( self.prj_dim[2] ),
+        )
+        cl_program.evalMultiMapSpheresElements( self.queue, global_size, local_size, *(kargs) )
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
