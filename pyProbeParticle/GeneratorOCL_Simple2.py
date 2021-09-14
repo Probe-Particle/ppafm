@@ -54,7 +54,6 @@ class InverseAFMtrainer:
 
     def __next__(self):
 
-
         if self.counter < len(self.molecules):
 
             # Callback
@@ -107,23 +106,14 @@ class InverseAFMtrainer:
                     # Callback
                     self.on_afm_end()
 
-                    
-                            #cut_x_min = max(px_x - px_radius, 0) 
-                            #cut_x_max = min(px_x + px_radius, scan_dim[0]) 
-                            #cut_y_min = max(px_y - px_radius, 0) 
-                            #cut_y_max = min(px_y + px_radius, scan_dim[1]) 
-                            #Xs[i][-1][cut_y_min: cut_y_max,cut_x_min:cut_x_max,iz] = 0 
                 # Get AuxMaps
                 for i, aux_map in enumerate(self.aux_maps):
                     if self.bRuntime: aux_start = time.time()
                     xyzqs = np.concatenate([self.xyzs, self.qs[:,None]], axis=1)
                     Ys[i].append(aux_map(xyzqs, self.Zs))
                     if self.bRuntime: print(f'AuxMap {i} runtime [s]: {time.time() - aux_start}')
-
-
                 
                 if self.bRuntime: print(f'Sample {s} runtime [s]: {time.time() - sample_start}')
-
                 self.counter += 1
 
             for i in range(len(self.iZPPs)):
