@@ -852,6 +852,68 @@ __kernel void evalMultiMapSpheres(
     }
 }
 
+__kernel void evalMultiMapSpheresElements(
+    int nAtoms,
+    __global float4*    atoms,
+    __global float4*    coefs,
+    __global int*       elemChan,
+    __global float4*    poss,
+    __global float*     MultMap,
+    float Rpp,
+    float zmin,
+    float4 rotA,
+    float4 rotB,
+    float4 rotC,
+    int bOccl,
+    int nChan
+){
+    __local float4 LATOMS[32];
+    __local float4 LCOEFS[32];
+    __local int LELEMCHAN[32];
+    float ztops[20];
+
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    float3 pos = poss[iG].xyz;
+
+    float ztop = zmin;
+    for (int i=0; i<nChan; i++){
+        ztops[i]=zmin;
+    }
+
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        LATOMS[iL] = atoms[i];
+        LCOEFS[iL] = coefs[i];
+        LELEMCHAN[iL] = elemChan[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nAtoms ){ 
+                float3 dp    = pos - LATOMS[j].xyz;
+                float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
+                float  Rvdw  = LCOEFS[j].w + Rpp;
+                float r2xy   =  dot(abc.xy,abc.xy);
+                float  z     = -abc.z + sqrt( Rvdw*Rvdw - r2xy );
+
+                int ityp = LELEMCHAN[j];
+                if(z>ztop){
+                    ztop=z;
+                }
+                if(z>ztops[ityp]){
+                    ztops[ityp] = z;
+                }
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    for (int i=0; i<nChan; i++){
+        if(bOccl>0){ if( ztop-ztops[i] < 0.02 ){ MultMap[iG*nChan+i] = ztops[i]; } else { MultMap[iG*nChan+i] = zmin; }; }
+        else       { MultMap[iG*nChan+i] = ztops[i]; }
+    }
+}
+
 __kernel void evalSpheresType(
     int nAtoms,
     int nType,

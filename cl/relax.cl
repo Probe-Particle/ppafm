@@ -374,7 +374,7 @@ __kernel void relaxStrokesTilted_debug(
     int nz
 ){
     const float3 dTip   = tipC.xyz * tipC.w;
-    const float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
+    float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
     float3 tipPos = points[get_global_id(0)].xyz;
     float3 pos    = tipPos.xyz + dpos0_.xyz; 
     for(int iz=0; iz<nz; iz++){
@@ -401,7 +401,7 @@ __kernel void relaxStrokesTilted(
 ){
 
     const float3 dTip   = tipC.xyz * tipC.w;
-    const float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
+    float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
 
     float3 tipPos = points[get_global_id(0)].xyz;
     float3 pos    = tipPos.xyz + dpos0_.xyz; 
@@ -478,7 +478,7 @@ __kernel void relaxStrokesTilted_convZ(
     __local float  WEIGHTS[64];
 
     const float3 dTip   = tipC.xyz * tipC.w;
-    const float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
+    float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
 
     float3 tipPos = points[get_global_id(0)].xyz;
     float3 pos    = tipPos.xyz + dpos0_.xyz; 

@@ -101,6 +101,10 @@ class InverseAFMtrainer:
                     if self.bRuntime: afm_start = time.time()
                     Xs[i].append(self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs))
                     if self.bRuntime: print(f'AFM {i} runtime [s]: {time.time() - afm_start}')
+                
+                    self.Xs = Xs[i][-1]   
+                    # Callback
+                    self.on_afm_end()
 
                 # Get AuxMaps
                 for i, aux_map in enumerate(self.aux_maps):
@@ -108,9 +112,8 @@ class InverseAFMtrainer:
                     xyzqs = np.concatenate([self.xyzs, self.qs[:,None]], axis=1)
                     Ys[i].append(aux_map(xyzqs, self.Zs))
                     if self.bRuntime: print(f'AuxMap {i} runtime [s]: {time.time() - aux_start}')
-
+                
                 if self.bRuntime: print(f'Sample {s} runtime [s]: {time.time() - sample_start}')
-
                 self.counter += 1
 
             for i in range(len(self.iZPPs)):
@@ -252,6 +255,13 @@ class InverseAFMtrainer:
     def on_afm_start(self):
         '''
         Excecuted right before every AFM image evalution. Override to modify the parameters for each AFM image.
+        '''
+        pass
+
+        
+    def on_afm_end(self):
+        '''
+        Excecuted right after evaluating AFM image. Override to modify the parameters for each sample.
         '''
         pass
     
