@@ -92,18 +92,18 @@ void reallocFF(int natom){
     ff.cleanAux();
 }
 
+void setTypes( int natoms, int* types ){
+    for(int i=0; i<natoms; i++){ ff.types[i]=atomTypes[types[i]]; };
+}
+
 void clean(){ ff.cleanAux(); }
 
 int*    getTypes (){ return (int*)   ff.types;  }
-double* getPoss  (){ return (double*)ff.poss;   }
+double* getPoss  (){ return (double*)ff.apos;   }
 double* getQrots (){ return (double*)ff.qrots;  }
 double* getHbonds(){ return (double*)ff.hbonds; }
 double* getEbonds(){ return (double*)ff.ebonds; }
 double* getBondCaps(){ return (double*)ff.bondCaps; }
-
-void setTypes( int natoms, int* types ){
-    for(int i=0; i<natoms; i++){ ff.types[i]=atomTypes[types[i]]; };
-}
 
 /*
 void setAtoms( int natoms, int* types, double* apos, double* qrots[i]){

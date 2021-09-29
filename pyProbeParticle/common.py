@@ -148,6 +148,13 @@ def maxAlongDirEntropy(atoms, hdir, beta=1.0 ):
 # ==============================  server interface file I/O
 # ==============================
 
+def autoGridN():
+    params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
+    params["gridN"][1]=round(np.linalg.norm(params["gridB"])*10)
+    params["gridN"][2]=round(np.linalg.norm(params["gridC"])*10)
+    return params["gridN"]
+
+
 # overide default parameters by parameters read from a file 
 def loadParams( fname ):
     if(verbose>0): print(" >> OVERWRITING SETTINGS by "+fname)
@@ -192,9 +199,10 @@ def loadParams( fname ):
                 raise ValueError("Parameter {} is not known".format(key))
     fin.close()
     if (params["gridN"][0]<=0):
-        params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
-        params["gridN"][1]=round(np.linalg.norm(params["gridB"])*10)
-        params["gridN"][2]=round(np.linalg.norm(params["gridC"])*10)
+        #params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
+        #params["gridN"][1]=round(np.linalg.norm(params["gridB"])*10)
+        #params["gridN"][2]=round(np.linalg.norm(params["gridC"])*10)
+        autoGridN()
 
     params["tip"] = params["tip"].replace('"', ''); params["tip"] = params["tip"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
     params["tip_base"][0] = params["tip_base"][0].replace('"', ''); params["tip_base"][0] = params["tip_base"][0].replace("'", ''); ### necessary for working even with quotemarks in params.ini

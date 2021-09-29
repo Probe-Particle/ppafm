@@ -32,7 +32,8 @@ if __name__=="__main__":
     opt_dict = vars(options)
     try:
         PPU.loadParams( 'params.ini' )
-    except:
+    except Exception as e:
+        print (e)
         print("no params.ini provided => using default params ")
     PPU.apply_options(opt_dict)
     speciesFile = None

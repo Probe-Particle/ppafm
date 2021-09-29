@@ -108,8 +108,11 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipsplin
 # ==== Forcefield grid generation
 
 def prepareArrays( FF, Vpot ):
+    if (PPU.params["gridN"][0]<=0):
+        PPU.autoGridN()
     if ( FF is None ):
         gridN = PPU.params['gridN']
+        #print( "PPU.params['gridN'] ", gridN )
         FF    = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
     else:
         PPU.params['gridN'] = np.shape( FF )
