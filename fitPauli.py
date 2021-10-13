@@ -113,14 +113,14 @@ for i in ilist:
     alpha, A = fitExp( zs - atoms_z[i] , fs, zmin, zmax )
 
     Riso = getIsoArg( zs, fs, iso=0.017, atom_z=atoms_z[i] )
-    if not (0.5 < Riso < 5.0) :
+    if not (-0.6 < Riso - REAs[i][0] < 0.6) :
         print("!!! Problem with Riso for atom no. %i : Riso %f, we will use tabled number." %(i,Riso))
         Riso = REAs[i][0]
     f1.write(str(i+1)+' '+str(atoms[1][i])+' '+str(atoms[2][i])+' '+str(atoms[3][i])+'\n')
     if options.old: # old verison of atomtypes.inis
-        f2.write(str(Riso)+' '+str(REAs[i][1])+' '+str(i+1)+' '+FFparams[iZs[i]-1][4]+str(i)+'\n')
+        f2.write(str(Riso)+' '+str(REAs[i][1])+' '+str(i+1)+' '+str(FFparams[iZs[i]-1][4])+str(i)+'\n')
     else: # ocl version of params.ini
-        f2.write(str(Riso)+' '+str(REAs[i][1])+' '+str(alpha/2)+' '+str(i+1)+' '+FFparams[iZs[i]-1][4]+str(i)+'\n')
+        f2.write(str(Riso)+' '+str(REAs[i][1])+' '+str(alpha/2)+' '+str(i+1)+' '+str(FFparams[iZs[i]-1][4])+str(i)+'\n')
     #plt.axvline(Riso)
     #print " elem %i a_z %f Riso %f alpha %f alpha/2 %f" %( atoms_e[i], atoms_z[i], Riso, alpha, alpha/2.0 ), REAs[i]
     print(" elem %i a_z %f Riso %f " %( atoms_e[i], atoms_z[i], Riso ), REAs[i])
