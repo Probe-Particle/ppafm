@@ -113,7 +113,7 @@ for i in ilist:
     alpha, A = fitExp( zs - atoms_z[i] , fs, zmin, zmax )
 
     Riso = getIsoArg( zs, fs, iso=0.017, atom_z=atoms_z[i] )
-    if not (-0.6 < Riso - REAs[i][0] < 0.6) :
+    if not (-3.0 < Riso - REAs[i][0] < 0.6) : # prevent oversizing of atoms when on top of each other, but allows to lower down the size of atoms a lot (e.g. Mx+ ions, can be up to 1.5 A smaller) #
         print("!!! Problem with Riso for atom no. %i : Riso %f, we will use tabled number." %(i,Riso))
         Riso = REAs[i][0]
     f1.write(str(i+1)+' '+str(atoms[1][i])+' '+str(atoms[2][i])+' '+str(atoms[3][i])+'\n')
