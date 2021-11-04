@@ -37,19 +37,20 @@ parser.add_option( "--iets",   action="store", type="float", help="mass [a.u.]; 
 parser.add_option( "--tip_base_q",       action="store", type="float", help="tip_base charge [e]" )
 parser.add_option( "--tip_base_qrange",  action="store", type="float", help="tip_base charge range (min,max,n) [e]", nargs=3)
 
-parser.add_option( "--Fz",       action="store_true", default=False,  help="plot images for Fz " )
-parser.add_option( "--df",       action="store_true", default=False,  help="plot images for dfz " )
+parser.add_option( "--Fz",       action="store_true", default=False, help="plot images for Fz "   )
+parser.add_option( "--df",       action="store_true", default=False, help="plot images for dfz "  )
 parser.add_option( "--save_df" , action="store_true", default=False, help="save frequency shift as df.xsf " )
-parser.add_option( "--pos",      action="store_true", default=False, help="save probe particle positions" )
-parser.add_option( "--atoms",    action="store_true", default=False, help="plot atoms to images" )
-parser.add_option( "--bonds",    action="store_true", default=False, help="plot bonds to images" )
-parser.add_option( "--cbar",     action="store_true", default=False, help="plot bonds to images" )
+parser.add_option( "--pos",      action="store_true", default=False, help="save probe particle positions"   )
+parser.add_option( "--atoms",    action="store_true", default=False, help="plot atoms to images"  )
+parser.add_option( "--bonds",    action="store_true", default=False, help="plot bonds to images"  )
+parser.add_option( "--cbar",     action="store_true", default=False, help="plot legend to images" )
 parser.add_option( "--WSxM",     action="store_true", default=False, help="save frequency shift into WsXM *.dat files" )
-parser.add_option( "--bI",       action="store_true", default=False, help="plot images for Boltzmann current" )
-parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
-parser.add_option( "--2Dnp" , action="store_true" ,  help="save fields in 2D npy instead of array"     , default=False)
+parser.add_option( "--bI",       action="store_true", default=False, help="plot images for Boltzmann current"          )
+parser.add_option( "--npy" ,     action="store_true", default=False, help="load and save fields in npy instead of xsf" )
+parser.add_option( "--2Dnp" ,    action="store_true", default=False, help="save fields in 2D npy instead of array"     )
 
-parser.add_option( "--noPBC", action="store_false",  help="pbc False", default=True)
+parser.add_option( "--noPBC",    action="store_false", default=True, help="pbc False" )
+parser.add_option( "--no_int",   action="store_true", default=False, help="plot without interpolation between the points")
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
@@ -112,6 +113,7 @@ print(" ============= RUN  ")
 dz  = PPU.params['scanStep'][2]
 xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
 extent = ( xTips[0], xTips[-1], yTips[0], yTips[-1] )
+interpolation=PPU.params['imageInterpolation'] if not opt_dict['no_int'] else None
 
 atoms_str=""
 atoms = None
@@ -164,9 +166,9 @@ for iq,Q in enumerate( Qs ):
             eVA2_to_Nm = 16.0217662        # [eV/A^2] / [N/m] 
             Evib = hbar * np.sqrt( ( eVA2_to_Nm * eigvalK )/( M * aumass ) )
             IETS = PPH.symGauss(Evib[:,:,:,0], E0, w) + PPH.symGauss(Evib[:,:,:,1], E0, w) + PPH.symGauss(Evib[:,:,:,2], E0, w)
-            PPPlot.plotImages( dirname+"/IETS"+atoms_str+cbar_str, IETS, slices = list(range(0,len(IETS))), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
-            PPPlot.plotImages( dirname+"/Evib"+atoms_str+cbar_str, Evib[:,:,:,0], slices = list(range(0,len(IETS))), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
-            PPPlot.plotImages( dirname+"/Kvib"+atoms_str+cbar_str, 16.0217662 * eigvalK[:,:,:,0], slices = list(range(0,len(IETS))), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+            PPPlot.plotImages( dirname+"/IETS"+atoms_str+cbar_str, IETS, slices = list(range(0,len(IETS))), zs=zTips, extent=extent, interpolation=interpolation, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+            PPPlot.plotImages( dirname+"/Evib"+atoms_str+cbar_str, Evib[:,:,:,0], slices = list(range(0,len(IETS))), zs=zTips, extent=extent, interpolation=interpolation, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+            PPPlot.plotImages( dirname+"/Kvib"+atoms_str+cbar_str, 16.0217662 * eigvalK[:,:,:,0], slices = list(range(0,len(IETS))), zs=zTips, extent=extent, atoms=atoms, interpolation=interpolation, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
             print("Preparing data for plotting denominators: avoidning negative frequencies via nearest neighbours Uniform Filter")
             from scipy.ndimage import uniform_filter
             for i in range(len(eigvalK)):
@@ -184,7 +186,7 @@ for iq,Q in enumerate( Qs ):
                 print("if many negative values appear change FF grid or scanning grid")
             denomin = 1/(hbar * np.sqrt( ( eVA2_to_Nm * eigvalK )/( M * aumass ) ))
             print("plotting denominators fpr frustrated translation: 1/w1 + 1/w2")
-            PPPlot.plotImages( dirname+"/denomin"+atoms_str+cbar_str, denomin[:,:,:,0]+denomin[:,:,:,1] , slices = list(range(0,len(denomin))), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+            PPPlot.plotImages( dirname+"/denomin"+atoms_str+cbar_str, denomin[:,:,:,0]+denomin[:,:,:,1] , slices = list(range(0,len(denomin))), zs=zTips, extent=extent, interpolation=interpolation, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
             if opt_dict['WSxM']:
                 GU.saveWSxM_3D(dirname+"/denomin" ,               denomin[:,:,:,0]+denomin[:,:,:,1] , extent, slices = list(range(0,len(denomin))) )
                 GU.saveWSxM_3D(dirname+"/IETS"    ,               IETS                              , extent, slices = list(range(0,len(IETS))) )
@@ -224,7 +226,7 @@ for iq,Q in enumerate( Qs ):
                            print(" plotting df : ")
                            PPPlot.plotImages(  dirNameAmp+"/df"+atoms_str+cbar_str,
                                                dfs,  slices = list(range( 0,
-                                               len(dfs))), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+                                               len(dfs))), zs=zTips, extent=extent, interpolation=interpolation, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
                         if opt_dict['WSxM']:
                             print(" printing df into WSxM files :")
                             GU.saveWSxM_3D( dirNameAmp+"/df" , dfs , extent , slices=None)
@@ -243,7 +245,7 @@ for iq,Q in enumerate( Qs ):
                 print(" plotting  Fz : ")
                 PPPlot.plotImages(dirname+"/Fz"+atoms_str+cbar_str,
                                                   fzs,  slices = list(range( 0,
-                                                  len(fzs))), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+                                                  len(fzs))), zs=zTips, extent=extent, interpolation=interpolation, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
                 if opt_dict['WSxM']:
                     print(" printing Fz into WSxM files :")
                     GU.saveWSxM_3D( dirname+"/Fz" , fzs , extent , slices=None)
@@ -258,7 +260,7 @@ for iq,Q in enumerate( Qs ):
                 PPPlot.plotImages(
                                                 dirname+"/OutI"+atoms_str+cbar_str,
                                                 I,  slices = list(range( 0,
-                                                len(I))), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
+                                                len(I))), zs=zTips, extent=extent, interpolation=interpolation, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
                 del I
             except:
                 print("error: ", sys.exc_info())

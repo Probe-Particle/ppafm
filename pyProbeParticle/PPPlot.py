@@ -11,9 +11,10 @@ from matplotlib.colors import LinearSegmentedColormap
 # =========== defaults
 
 default_figsize       = (8,8)
-default_cmap          = 'gray'
+default_cmap          = plt.cm.gray
 default_interpolation = 'bicubic'
 default_atom_size     =  0.10
+default_cmap.set_bad(    'r', 1.0  ) # for plotting Inf(s) and Nan(s) as completely different colour #
 
 # =========== Utils
 
