@@ -11,6 +11,45 @@
 inline float3 rotMat ( float3 v,  float3 a, float3 b, float3 c  ){ return (float3)(dot(v,a),dot(v,b),dot(v,c)); }
 inline float3 rotMatT( float3 v,  float3 a, float3 b, float3 c  ){ return a*v.x + b*v.y + c*v.z; }
 
+// Do accurate trilinear interpolation of a buffer array. Buffer should use C memory layout.
+float linearInterpB(float3 pos, float3 origin, float3 step, int3 nGrid, float *buf) {
+    
+    // Find coordinate index (ijk) that is just before the position and figure out
+    // how far past the voxel coordinate we are (d).
+    float3 ijk0;
+    float3 d = fract((pos - origin) / step, &ijk0);
+
+    // Find values at all the corners next to the main voxel (periodic boundary conditions)
+    int nyz = nGrid.y * nGrid.z;
+    int i0 = ijk0.x >= 0 ? (int) ijk0.x : (int) ijk0.x + nGrid.x;
+    int j0 = ijk0.y >= 0 ? (int) ijk0.y : (int) ijk0.y + nGrid.y;
+    int k0 = ijk0.z >= 0 ? (int) ijk0.z : (int) ijk0.z + nGrid.z;
+    int i1 = (i0 + 1) % nGrid.x;
+    int j1 = (j0 + 1) % nGrid.y;
+    int k1 = (k0 + 1) % nGrid.z;
+    float c000 = buf[i0 * nyz + j0 * nGrid.z + k0];
+    float c001 = buf[i0 * nyz + j0 * nGrid.z + k1];
+    float c010 = buf[i0 * nyz + j1 * nGrid.z + k0];
+    float c011 = buf[i0 * nyz + j1 * nGrid.z + k1];
+    float c100 = buf[i1 * nyz + j0 * nGrid.z + k0];
+    float c101 = buf[i1 * nyz + j0 * nGrid.z + k1];
+    float c110 = buf[i1 * nyz + j1 * nGrid.z + k0];
+    float c111 = buf[i1 * nyz + j1 * nGrid.z + k1];
+
+    // Interpolate
+    float c = (1 - d.x) * (1 - d.y) * (1 - d.z) * c000
+            + (1 - d.x) * (1 - d.y) *      d.z  * c001
+            + (1 - d.x) *      d.y  * (1 - d.z) * c010
+            + (1 - d.x) *      d.y  *      d.z  * c011
+            +      d.x  * (1 - d.y) * (1 - d.z) * c100
+            +      d.x  * (1 - d.y) *      d.z  * c101
+            +      d.x  *      d.y  * (1 - d.z) * c110
+            +      d.x  *      d.y  *      d.z  * c111;
+    
+    return c;
+
+}
+
 float4 getCoulomb( float4 atom, float3 pos ){
      float3  dp  =  pos - atom.xyz;
      float   ir2 = 1.0f/( dot(dp,dp) +  R2SAFE );
@@ -352,8 +391,83 @@ __kernel void evalLJC_QZs(
     FE[iG] = fe;
 }
 
+// Obtain electric field as the negative gradient of Hartree potential via centered difference
+__kernel void gradPotential(
+    __global float  *pot,   // Input Hartree potential
+    __global float4 *field, // Output electric field
+    int4            nGrid,  // Size of Hartree potential grid (x, y, z, _)
+    float4          step    // Step size of grid (x, y, z, _)
+) {
 
+    int ind = get_global_id(0);
+    if (ind > nGrid.x * nGrid.y * nGrid.z) return;
 
+    // Get x,y,z indices
+    int nyz = nGrid.y * nGrid.z;
+    int i = ind / nyz;
+    int j = (ind % nyz) / nGrid.z;
+    int k = ind % nGrid.z;
+
+    // Find global indices of adjacent points on each side.
+    // On edges use periodic boundary conditions.
+    int ip = i > 0           ? ind - nyz     : ind + (nGrid.x - 1) * nyz;
+    int jp = j > 0           ? ind - nGrid.z : ind + (nGrid.y - 1) * nGrid.z;
+    int kp = k > 0           ? ind - 1       : ind + (nGrid.z - 1);
+    int in = i < nGrid.x - 1 ? ind + nyz     : ind - (nGrid.x - 1) * nyz;
+    int jn = j < nGrid.y - 1 ? ind + nGrid.z : ind - (nGrid.y - 1) * nGrid.z;
+    int kn = k < nGrid.z - 1 ? ind + 1       : ind - (nGrid.z - 1);
+
+    // Compute value of field as centered difference. Also copy potential to
+    // last place to be consistent with the other Coulomb kernels.
+    field[ind].x = 0.5*(pot[ip] - pot[in]) / step.x;
+    field[ind].y = 0.5*(pot[jp] - pot[jn]) / step.y;
+    field[ind].z = 0.5*(pot[kp] - pot[kn]) / step.z;
+    field[ind].w = pot[ind];
+
+}
+
+// Obtain electric field as the negative gradient of Hartree potential via centered difference
+// on a target grid that may be different from the grid of the Hartree potential
+__kernel void gradPotentialGrid(
+    __global float  *pot,   // Input Hartree potential.
+    __global float4 *field, // Output electric field.
+    int4   nGrid_H,         // Size of Hartree potential grid
+    float4 step_H,          // Real-space step size of Hartree potential grid
+    float4 origin_H,        // Real-space origin of Hartree potential grid
+    int4   nGrid_T,         // Size of target grid
+    float4 step_T,          // Real-space step size of target grid
+    float4 origin_T,        // Real-space origin of target grid
+    float4 h                // Finite-difference step
+) {
+
+    int ind = get_global_id(0);
+    if (ind >= nGrid_T.x * nGrid_T.y * nGrid_T.z) return;
+
+    // Convert linear index to x,y,z indices
+    int i = ind / (nGrid_T.y * nGrid_T.z);
+    int j = (ind / nGrid_T.z) % nGrid_T.y;
+    int k = ind % nGrid_T.z;
+
+    // Calculate position in target grid
+    float3 pos = origin_T.xyz + (float3)(i, j, k) * step_T.xyz;
+
+    // Interpolate potential at points around the center point
+    float pot_   = linearInterpB(pos,                              origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
+    float pot_ip = linearInterpB(pos + (float3)(-h.x,    0,    0), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
+    float pot_jp = linearInterpB(pos + (float3)(   0, -h.y,    0), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
+    float pot_kp = linearInterpB(pos + (float3)(   0,    0, -h.z), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
+    float pot_in = linearInterpB(pos + (float3)( h.x,    0,    0), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
+    float pot_jn = linearInterpB(pos + (float3)(   0,  h.y,    0), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
+    float pot_kn = linearInterpB(pos + (float3)(   0,    0,  h.z), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
+
+    // Compute value of field as centered difference. Also copy potential to
+    // last place to be consistent with the other Coulomb kernels.
+    field[ind].x = 0.5*(pot_ip - pot_in) / h.x;
+    field[ind].y = 0.5*(pot_jp - pot_jn) / h.y;
+    field[ind].z = 0.5*(pot_kp - pot_kn) / h.z;
+    field[ind].w = pot_;
+
+}
 
 float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
     float r = sqrt( dot( dpos,dpos) );

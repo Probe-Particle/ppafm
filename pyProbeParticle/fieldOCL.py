@@ -7,6 +7,7 @@ import numpy    as np
 import time
 #import oclUtils as oclu
 
+DEFAULT_FD_STEP = 0.05
 
 cl_program = None
 oclu       = None
@@ -319,6 +320,25 @@ def CLJ2float2(C6s,C12s):
 
 # ========= classes
 
+class HartreePotential:
+    '''
+    Class for holding data of a Hartree potential on a grid.
+
+    Arguments:
+        array: np.ndarray. Potential values on a 3D grid.
+        origin: array-like of length 3. Origin of grid in angstroms.
+        step: array-like of length 3. Grid step in angstroms.
+    '''
+    def __init__(self, array, origin, step):
+        assert isinstance(array, np.ndarray), 'array should be a numpy.ndarray'
+        self.array = array.astype(np.float32)
+        self.origin = np.array(origin)
+        self.step = np.array(step)
+
+    @property
+    def shape(self):
+        return self.array.shape
+
 class ForceField_LJC:
     '''
         to evaluate ForceField on GPU
@@ -328,8 +348,11 @@ class ForceField_LJC:
     def __init__( self ):
         self.ctx   = oclu.ctx; 
         self.queue = oclu.queue
-        self.cl_poss = None
-        self.cl_FE   = None
+        self.cl_poss   = None
+        self.cl_FE     = None
+        self.pot       = None
+        self.cl_pot    = None
+        self.cl_Efield = None
 
     def initSampling(self, lvec, pixPerAngstrome=10, nDim=None ):
         if nDim is None:
@@ -371,7 +394,7 @@ class ForceField_LJC:
         self.Qs  = np.array(Qs ,dtype=np.float32)
         self.QZs = np.array(QZs,dtype=np.float32)
 
-    def prepareBuffers(self, atoms=None, cLJs=None, poss=None, bDirect=False, nz=20 ):
+    def prepareBuffers(self, atoms=None, cLJs=None, poss=None, bDirect=False, nz=20, pot=None):
         '''
         allocate all necessary buffers in GPU memory
         '''
@@ -389,10 +412,15 @@ class ForceField_LJC:
         if (self.cl_FE is None) and not bDirect:
             nb = self.nDim[0]*self.nDim[1]*self.nDim[2] * 4 * nb_float
             self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY , nb ); nbytes+=nb # float8
-            if(verbose>0): print(" forcefield.prepareBuffers() :  self.cl_FE  ", self.cl_FE) 
+            if(verbose>0): print(" forcefield.prepareBuffers() :  self.cl_FE  ", self.cl_FE)
+        if pot is not None:
+            assert isinstance(pot, HartreePotential), 'pot should be a HartreePotential object'
+            self.pot = pot
+            self.cl_pot = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=pot.array); nbytes += pot.array.nbytes
+            self.cl_Efield = cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.nDim)); nbytes+=4*np.prod(self.nDim)
         if(verbose>0): print("initArgsLJC.nbytes ", nbytes)
 
-    def updateBuffers(self, atoms=None, cLJs=None, poss=None ):
+    def updateBuffers(self, atoms=None, cLJs=None, poss=None, pot=None):
         '''
         update content of all buffers
         '''
@@ -400,6 +428,7 @@ class ForceField_LJC:
         oclu.updateBuffer(atoms, self.cl_atoms )
         oclu.updateBuffer(cLJs,  self.cl_cLJs  )
         oclu.updateBuffer(poss,  self.cl_poss  )
+        oclu.updateBuffer(pot,   self.cl_pot   )
 
     def tryReleaseBuffers(self):
         '''
@@ -549,6 +578,74 @@ class ForceField_LJC:
         if bFinish: self.queue.finish()
         if(bRuntime): print("runtime(ForceField_LJC.evalLJC_Q_noPos) [s]: ", time.time() - t0)
         return FE
+
+    def run_gradPotentialGrid(self, pot=None, E_field=None, h=None, local_size=(32,), bCopy=True, bFinish=True):
+        '''
+        Obtain electric field on the force field grid as the negative gradient of Hartree potential
+        via centered difference.
+
+        Arguments:
+            pot: HartreePotential or None. Hartree potential to differentiate. If None, has to be initialized
+                beforehand with prepareBuffers.
+            E_field: np.ndarray or None. Array where output electric field is copied to if bCopy == True.
+                If None and bCopy == True, will be created automatically.
+            h: float > 0.0 or None. Finite difference step size (one-sided) in angstroms. If None, the default
+                value DEFAULT_FD_STEP is used.
+            local_size: tuple of a single int. Size of local work group on device.
+            bCopy: Bool. Whether to return the calculated electric field to host.
+            bFinish: Bool. Whether to wait for execution to finish.
+
+        Returns: np.ndarray if bCopy == True or None otherwise.
+        '''
+
+        if bRuntime: t0 = time.perf_counter()
+
+        mf = cl.mem_flags
+        if pot:
+            assert isinstance(pot, HartreePotential), 'pot should be a HartreePotential object'
+            if self.cl_pot:
+                if self.cl_pot.size < pot.array.nbytes:
+                    print('Warning: potential grid size larger than existing device buffer. Reallocating.')
+                    self.cl_pot.release()
+                    self.cl_pot = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=pot.array)
+                else:
+                    self.updateBuffers(pot=pot.array)
+            else:
+                self.cl_pot = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=pot.array)
+        elif not self.cl_pot:
+            raise ValueError("Hartree potential not initialized on the device. "
+                "Either initialize it with prepareBuffers or pass it here as a HartreePotential object.")
+        
+        if bCopy:
+            E_field = E_field or np.empty(self.nDim, dtype=np.float32)
+            if not np.allclose(E_field.shape, self.nDim):
+                raise ValueError(f'E_field array dimensions {E_field.shape} do not match with '
+                    f'force field dimensions {self.nDim}.')
+
+        if not self.cl_Efield:
+            self.cl_Efield = cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.nDim))
+
+        h = h or DEFAULT_FD_STEP
+
+        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        cl_program.gradPotentialGrid(self.queue, global_size, local_size,
+            self.cl_pot,
+            self.cl_Efield,
+            np.append(self.pot.shape, 0).astype(np.int32),
+            np.append(self.pot.step, 0).astype(np.float32),
+            np.append(self.pot.origin, 0).astype(np.float32),
+            self.nDim,
+            np.array([self.dlvec[0, 0], self.dlvec[1, 1], self.dlvec[2, 2], 0], dtype=np.float32),
+            self.lvec0,
+            np.array([h, h, h, 0.0], dtype=np.float32)
+        )
+
+        if bRuntime: print("runtime(ForceField_LJC.run_gradPotentialGrid.pre) [s]: ", time.perf_counter() - t0)
+        if bCopy: cl.enqueue_copy(self.queue, E_field, self.cl_Efield)
+        if bFinish: self.queue.finish()
+        if bRuntime: print("runtime(ForceField_LJC.run_gradPotentialGrid) [s]: ", time.perf_counter() - t0)
+
+        return E_field
 
     def runRelaxStrokesDirect(self, Q, cl_FE, FE=None, local_size=(32,), nz=10 ):
         '''
