@@ -50,6 +50,45 @@ float linearInterpB(float3 pos, float3 origin, float3 step, int3 nGrid, float *b
 
 }
 
+// Same as linearInterpB, except for float4 type
+float4 linearInterpB4(float3 pos, float3 origin, float3 step, int3 nGrid, float4 *buf) {
+    
+    // Find coordinate index (ijk) that is just before the position and figure out
+    // how far past the voxel coordinate we are (d).
+    float3 ijk0;
+    float3 d = fract((pos - origin) / step, &ijk0);
+
+    // Find values at all the corners next to the main voxel (periodic boundary conditions)
+    int nyz = nGrid.y * nGrid.z;
+    int i0 = ijk0.x >= 0 ? (int) ijk0.x : (int) ijk0.x + nGrid.x;
+    int j0 = ijk0.y >= 0 ? (int) ijk0.y : (int) ijk0.y + nGrid.y;
+    int k0 = ijk0.z >= 0 ? (int) ijk0.z : (int) ijk0.z + nGrid.z;
+    int i1 = (i0 + 1) % nGrid.x;
+    int j1 = (j0 + 1) % nGrid.y;
+    int k1 = (k0 + 1) % nGrid.z;
+    float4 c000 = buf[i0 * nyz + j0 * nGrid.z + k0];
+    float4 c001 = buf[i0 * nyz + j0 * nGrid.z + k1];
+    float4 c010 = buf[i0 * nyz + j1 * nGrid.z + k0];
+    float4 c011 = buf[i0 * nyz + j1 * nGrid.z + k1];
+    float4 c100 = buf[i1 * nyz + j0 * nGrid.z + k0];
+    float4 c101 = buf[i1 * nyz + j0 * nGrid.z + k1];
+    float4 c110 = buf[i1 * nyz + j1 * nGrid.z + k0];
+    float4 c111 = buf[i1 * nyz + j1 * nGrid.z + k1];
+
+    // Interpolate
+    float4 c = (1 - d.x) * (1 - d.y) * (1 - d.z) * c000
+             + (1 - d.x) * (1 - d.y) *      d.z  * c001
+             + (1 - d.x) *      d.y  * (1 - d.z) * c010
+             + (1 - d.x) *      d.y  *      d.z  * c011
+             +      d.x  * (1 - d.y) * (1 - d.z) * c100
+             +      d.x  * (1 - d.y) *      d.z  * c101
+             +      d.x  *      d.y  * (1 - d.z) * c110
+             +      d.x  *      d.y  *      d.z  * c111;
+    
+    return c;
+
+}
+
 float4 getCoulomb( float4 atom, float3 pos ){
      float3  dp  =  pos - atom.xyz;
      float   ir2 = 1.0f/( dot(dp,dp) +  R2SAFE );
@@ -389,6 +428,66 @@ __kernel void evalLJC_QZs(
     // http://www.informit.com/articles/article.aspx?p=1732873&seqNum=3
     fe.hi  = fe.hi*COULOMB_CONST;
     FE[iG] = fe;
+}
+
+// Compute Lennard Jones force field at grid points and add to it the electrostatic force 
+// from an electric field precomputed from a Hartree potential. The output buffer is
+// written in Fortran memory layout in order to be compatible with OpenCL image
+// read functions in subsequent steps.
+__kernel void evalLJC_Hartree(
+    const int nAtoms,           // Number of atoms
+    __global float4* atoms,     // Positions of atoms
+    __global float2* cLJs,      // Lennard-Jones parameters
+    __global float4* E_field,   // Electric field
+    __global float4* FE,        // Output force and energy
+    int4 nGrid,                 // Size of grid
+    float4 grid_origin,         // Real-space origin of grid
+    float4 grid_stepA,          // Real-space step size of grid lattice vector a
+    float4 grid_stepB,          // Real-space step size of grid lattice vector b
+    float4 grid_stepC,          // Real-space step size of grid lattice vector c
+    float4 Qs,                  // Tip charges
+    float4 QZs                  // Tip charge positions on z axis relative to PP
+){
+
+    __local float4 LATOMS[32];
+    __local float2 LCLJS [32];
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+
+    int ind = get_global_id(0);
+    if (ind > nGrid.x * nGrid.y * nGrid.z) return;
+
+    // Convert linear index to x,y,z indices (C order)
+    int i = ind / (nGrid.y * nGrid.z);
+    int j = (ind / nGrid.z) % nGrid.y;
+    int k = ind % nGrid.z;
+
+    // Calculate position in grid
+    float3 pos = grid_origin.xyz + grid_stepA.xyz*i + grid_stepB.xyz*j  + grid_stepC.xyz*k;
+
+    // Compute Lennard-Jones force from all of the atoms
+    float4 fe = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
+    for (int i0 = 0; i0 < nAtoms; i0 += nL) {
+        int ia = i0 + iL;
+        LATOMS[iL] = atoms[ia];
+        LCLJS [iL] = cLJs[ia];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+            fe += getLJ(LATOMS[ja].xyz, LCLJS[ja], pos);
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    // Add electrostatic contribution
+    const float3 s = (float3)(grid_stepA.x, grid_stepB.y, grid_stepC.z); // Hard-coded rectangular grid
+    fe += Qs.x * linearInterpB4(pos + (float3)(0, 0, QZs.x), grid_origin.xyz, s, nGrid.xyz, E_field);
+    fe += Qs.y * linearInterpB4(pos + (float3)(0, 0, QZs.y), grid_origin.xyz, s, nGrid.xyz, E_field);
+    fe += Qs.z * linearInterpB4(pos + (float3)(0, 0, QZs.z), grid_origin.xyz, s, nGrid.xyz, E_field);
+    fe += Qs.w * linearInterpB4(pos + (float3)(0, 0, QZs.w), grid_origin.xyz, s, nGrid.xyz, E_field);
+
+    // Save to output buffer (Fortran order)
+    FE[i + j * nGrid.x + k * nGrid.x * nGrid.y] = fe;
+
 }
 
 // Obtain electric field as the negative gradient of Hartree potential via centered difference

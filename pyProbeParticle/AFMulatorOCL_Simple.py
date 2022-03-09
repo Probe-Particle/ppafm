@@ -7,6 +7,8 @@ from . import fieldOCL     as FFcl
 from . import RelaxOpenCL  as oclr
 from . import HighLevelOCL as hl
 
+from .fieldOCL import HartreePotential
+
 class AFMulator():
     '''
     Simulate Atomic force microscope images of molecules.
@@ -92,13 +94,13 @@ class AFMulator():
 
         self.counter = 0
     
-    def eval( self, xyzs, Zs, qs, REAs=None, X=None ):
+    def eval(self, xyzs, Zs, qs=None, REAs=None, X=None ):
         '''
         Prepare and evaluate AFM image.
         Arguments:
             xyzs: np.ndarray of shape (num_atoms, 3). Positions of atoms in x, y, and z.
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
-            qs: np.ndarray of shape (num_atoms,). Charges of atoms.
+            qs: np.ndarray of shape (num_atoms,) or HarteePotential. Charges of atoms or hartree potential.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps)).
                Array where AFM image will be saved. If None, will be created automatically.
@@ -150,26 +152,38 @@ class AFMulator():
 
     # ========= Imaging =========
 
-    def prepareFF(self, xyzs, Zs, qs, REAs=None, ):
+    def prepareFF(self, xyzs, Zs, qs, REAs=None):
         '''
         Prepare molecule parameters and calculate force field.
         Arguments:
             xyzs: np.ndarray of shape (num_atoms, 3). Positions of atoms in x, y, and z.
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
-            qs: np.ndarray of shape (num_atoms,). Charges of atoms.
+            qs: np.ndarray of shape (num_atoms,) or HarteePotential. Charges of atoms or hartree potential.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
         '''
+
+        # Check if using point charges or precomputed Hartee potential
+        if isinstance(qs, HartreePotential):
+            pot = qs
+            qs = np.zeros(len(Zs))
+        else:
+            pot = None
+
+        # Get Lennard-Jones parameters
         self.natoms0 = len(Zs)
         if REAs is None:
-            self.REAs = PPU.getAtomsREA(  self.iZPP, Zs, self.typeParams, alphaFac=-1.0 )
+            self.REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
         else:
             self.REAs = REAs
-        cLJs = PPU.REA2LJ( self.REAs )
+        cLJs = PPU.REA2LJ(self.REAs)
         if( self.npbc is not None ):
-            Zs, xyzqs, cLJs = PPU.PBCAtoms3D_np( Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc )
+            Zs, xyzqs, cLJs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc)
         self.Zs = Zs
+            
+        # Compute force field
         if self.bNoFFCopy:
-            self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=False, Qmix=None, bRelease=False, bCopy=False, bFinish=True, bQZ=True )
+            self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, pot=pot, FE=False,
+                Qmix=None, bRelease=False, bCopy=False, bFinish=True, bQZ=True)
             self.atoms = self.forcefield.atoms
             if self.bSaveFF:
                 FF = self.forcefield.downloadFF( )
@@ -204,7 +218,10 @@ class AFMulator():
             self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight) )
             self.scanner.preparePosBasis( start=self.scan_window[0][:2], end=self.scan_window[1][:2] )
         
-        self.scanner.setScanRot( self.pos0, rot=np.eye(3), tipR0=self.tipR0 )
+        # Subtract origin, because OpenCL kernel for tip relaxation does not take the origin of the FF box into account
+        pos0 = np.array(self.pos0) - self.lvec[0]
+
+        self.scanner.setScanRot(pos0, rot=np.eye(3), tipR0=self.tipR0)
 
     def evalAFM( self, X=None ):
         '''

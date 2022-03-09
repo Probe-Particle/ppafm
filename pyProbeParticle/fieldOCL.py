@@ -539,13 +539,11 @@ class ForceField_LJC:
         return FE
 
     def downloadFF(self, FE=None ):
-        ns = ( tuple(self.nDim[:3])+(4,) )
-        #print self.nDim, self.nDim[:3], ns
-        FE = np.zeros( ns, dtype=np.float32 )
-        print("FE.shape ",  FE.shape)
-        cl.enqueue_copy( self.queue, FE, self.cl_FE )
+        FE = np.empty((self.nDim[3],) + tuple(self.nDim[:3]) , dtype=np.float32, order='F')
+        if verbose: print("FE.shape ", FE.shape)
+        cl.enqueue_copy(self.queue, FE, self.cl_FE)
         self.queue.finish()
-        return FE
+        return FE.transpose(1, 2, 3, 0)
 
     def run_evalLJC_Q_noPos(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
         '''
@@ -577,6 +575,65 @@ class ForceField_LJC:
         if bCopy:   cl.enqueue_copy( self.queue, FE, self.cl_FE )
         if bFinish: self.queue.finish()
         if(bRuntime): print("runtime(ForceField_LJC.evalLJC_Q_noPos) [s]: ", time.time() - t0)
+        return FE
+
+    def run_evalLJC_Hartree(self, FE=None, local_size=(32,), bCopy=True, bFinish=True):
+        '''
+        Compute Lennard Jones force field at grid points and add to it the electrostatic force 
+        from an electric field precomputed from a Hartree potential.
+
+        Arguments:
+            FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
+                If None and bCopy == True, will be created automatically.
+            local_size: tuple of a single int. Size of local work group on device.
+            bCopy: Bool. Whether to return the calculated electric field to host.
+            bFinish: Bool. Whether to wait for execution to finish.
+
+        Returns: np.ndarray if bCopy == True or None otherwise.
+        '''
+
+        if bRuntime: t0 = time.perf_counter()
+        
+        if bCopy:
+            if FE:
+
+                if not np.allclose(FE.shape, self.nDim):
+                    raise ValueError(f'FE array dimensions {FE.shape} do not match with '
+                        f'force field dimensions {self.nDim}.')
+
+                # Values are saved in Fortran order with the xyzw dimensions as the first index
+                FE = FE.transpose(3, 0, 1, 2)
+                if not FE.flags['F_CONTIGUOUS']:
+                    FE = np.asfortranarray(FE)
+
+            else:
+                FE = np.empty((self.nDim[3],) + tuple(self.nDim[:3]), dtype=np.float32, order='F')
+            
+
+        if bRuntime: print("runtime(ForceField_LJC.run_evalLJC_Hartree.pre) [s]: ", time.perf_counter() - t0)
+
+        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        cl_program.evalLJC_Hartree(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cLJs,
+            self.cl_Efield,
+            self.cl_FE,
+            self.nDim,
+            self.lvec0,
+            self.dlvec[0],
+            self.dlvec[1],
+            self.dlvec[2],
+            self.Qs,
+            self.QZs
+        )
+
+        if bCopy:
+            cl.enqueue_copy(self.queue, FE, self.cl_FE)
+            FE = FE.transpose(1, 2, 3, 0) # Transpose xyzw dimension back to last index
+        if bFinish: self.queue.finish()
+        if bRuntime: print("runtime(ForceField_LJC.run_evalLJC_Hartree) [s]: ", time.perf_counter() - t0)
+
         return FE
 
     def run_gradPotentialGrid(self, pot=None, E_field=None, h=None, local_size=(32,), bCopy=True, bFinish=True):
@@ -627,6 +684,8 @@ class ForceField_LJC:
 
         h = h or DEFAULT_FD_STEP
 
+        if bRuntime: print("runtime(ForceField_LJC.run_gradPotentialGrid.pre) [s]: ", time.perf_counter() - t0)
+
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
         cl_program.gradPotentialGrid(self.queue, global_size, local_size,
             self.cl_pot,
@@ -640,7 +699,6 @@ class ForceField_LJC:
             np.array([h, h, h, 0.0], dtype=np.float32)
         )
 
-        if bRuntime: print("runtime(ForceField_LJC.run_gradPotentialGrid.pre) [s]: ", time.perf_counter() - t0)
         if bCopy: cl.enqueue_copy(self.queue, E_field, self.cl_Efield)
         if bFinish: self.queue.finish()
         if bRuntime: print("runtime(ForceField_LJC.run_gradPotentialGrid) [s]: ", time.perf_counter() - t0)
@@ -685,33 +743,33 @@ class ForceField_LJC:
         self.queue.finish()
         return FE
 
-    def makeFF(self, atoms=None, qs=None, cLJs=None, xyzqs=None, Qmix=0.0, FE=None, bRelease=True, bCopy=True, bFinish=True, bQZ=False ):
+    def makeFF(self, atoms=None, cLJs=None, Qmix=0.0, FE=None, pot=None, bRelease=True, bCopy=True, bFinish=True, bQZ=False):
         '''
-        generate force-field from given posions(xyzs), chagres(qs), Leanrd-Jones parameters (cLJs) etc.
+        Generate force-field from given positions/charges (atoms), Lennard-Jones parameters (cLJs) etc.
         '''
+        
         if(bRuntime): t0 = time.time()
-        if atoms is None:
-            atoms = xyzq2float4(xyzs,qs);      
+
         self.atoms = atoms
-        cLJs  = cLJs.astype(np.float32, copy=False)   
-        #self.prepareBuffers(atoms, cLJs, poss )
-        #print( "makeFF atoms ", atoms ); exit()
-        self.prepareBuffers(atoms, cLJs )
+        cLJs = cLJs.astype(np.float32, copy=False)
+        self.prepareBuffers(atoms, cLJs, pot=pot)
         if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.time() - t0)
-        #FF = self.run( FE=FE, Qmix=Qmix, bCopy=bCopy, bFinish=bFinish )
+
         if self.cl_poss is not None:
-            FF = self.run_evalLJC_Q( FE=FE,       Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
+            FF = self.run_evalLJC_Q( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
         else:
-            if bQZ:
+            if pot:
+                self.run_gradPotentialGrid(local_size=(32,), bCopy=False, bFinish=bFinish)
+                FF = self.run_evalLJC_Hartree(FE=FE, local_size=(32,), bCopy=bCopy, bFinish=bFinish)
+            elif bQZ:
                 FF = self.run_evalLJC_QZs_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
             else:
                 FF = self.run_evalLJC_Q_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
 
         if(bRelease): self.tryReleaseBuffers()
         if(bRuntime): print("runtime(ForceField_LJC.makeFF.tot) [s]: ", time.time() - t0)
+
         return FF, atoms
-
-
 
 class AtomProcjetion:
     '''
