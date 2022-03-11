@@ -569,7 +569,7 @@ __kernel void convolveZ(
 ){
     const int ioffi = get_global_id(0)*nzin;
     const int ioffo = get_global_id(0)*nzout;
-    const int nzw   = nzin-nzout;
+    const int nzw   = nzin-nzout+1;
     //if( get_global_id(0)==0 ) printf( "local size %i \n", get_local_size(0) );
     //if( get_global_id(0)==0 ) printf( "izo %i izi %i Fz %g W %g \n", nzin, nzout, nzw );
 

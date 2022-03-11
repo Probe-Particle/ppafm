@@ -367,9 +367,11 @@ class RelaxedScanner:
         self.poss[:,:,2] = pos0[2] + self.As*avec[2] + self.Bs*bvec[2]
         return self.poss
 
-    def setScanRot(self, pos0, rot=None, zstep=0.1, tipR0=[0.0,0.0,4.0] ):
+    def setScanRot(self, pos0, rot=None, zstep=None, tipR0=[0.0,0.0,4.0] ):
         if rot is None:
             rot = np.eye(3)
+        if zstep:
+            self.zstep = zstep
         self.dTip, self.tipRot, self.dpos0Tip, self.dpos0 = rotTip(rot,self.zstep,tipR0)
         poss = self.preparePossRot( pos0, rot[0], rot[1] )
         #print( "DEBUG ReaxOpenCL.py setScanRot ", poss.shape, poss[0,0,:], poss[-1,-1,:] )

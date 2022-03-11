@@ -15,16 +15,27 @@ class AFMulator():
     Arguments:
         pixPerAngstrome: int. Number of pixels (voxels) per angstrom in force field grid.
         lvec: np.ndarray of shape (4,3). Unit cell boundaries for force field. First (row) vector specifies the origin,
-              and the remaining three vectors specify the edge vectors of the unit cell.
-        scan_dim: tuple of three ints. Indicates the pixel size of the scan in x, y, and z.
-        scan_window: tuple ((x_min, y_min, z_min), (x_max, y_max, z_max)). The minimum and maximum coordinates of scan region in angstroms.
-                     The scan region is a rectangular box with the opposing corners defined by the coordinates in scan_window.
+            and the remaining three vectors specify the edge vectors of the unit cell.
+        scan_dim: tuple of three ints. Number of scan steps in the (x, y, z) dimensions. The size of the resulting
+            images have a size of scan_dim[0] x scan_dim[1] and the number images at different heights is
+            scan_dim[2] - df_steps + 1.
+        scan_window: tuple ((x_min, y_min, z_min), (x_max, y_max, z_max)). The minimum and maximum coordinates of
+            scan region in angstroms. The scan region is a rectangular box with the opposing corners defined by the
+            coordinates in scan_window. Note that the step size in z dimension is the scan window size in z divided by
+            scan_dim[2], and the scan in z-direction proceeds for scan_dim[2] steps, so the final step is one step short
+            of z_min.
         iZPPs: int. Element of probe particle.
         QZs: Array of lenght 4. Position tip charges along z-axis relative to probe-particle center in angstroms.
-        Qs: Array of lenght 4. Values of tip charges in units of e/A^dim. Some can be zero.
-        amplitude: float. Oscillation amplitude in angstroms for z convolution.
-        df_steps: int. Number of steps in z convolution.
-        initFF: Boolean. Whether to initialize buffers. Set to False to modify force field and scanner parameters before initialization.
+        Qs: Array of lenght 4. Values of tip charges in units of e. Some can be zero.
+        df_steps: int. Number of steps in z convolution. The total amplitude is df_steps times scan z-step size.
+        tipR0: array of length 3. Probe particle equilibrium position (x, y, z) in angstroms.
+        tipStiffness: array of length 4. Harmonic spring constants (x, y, z, r) for holding the probe particle
+            to the tip in N/m.
+        npbc: tuple of three ints. How many periodic images of atoms to use in (x, y, z) dimensions. Used for calculating
+            Lennard-Jones force field and electrostatic field from point charges. Electrostatic field from a Hartree
+            potential defined on a grid is always considered to be periodic.
+        initFF: Bool. Whether to initialize buffers. Set to False to modify force field and scanner parameters
+            before initialization.
     '''
 
     bNoPoss    = True    # Use algorithm which does not need to store array of FF_grid-sampling positions in memory (neither GPU-memory nor main-memory)
@@ -32,12 +43,7 @@ class AFMulator():
     bFEoutCopy = False   # Should we copy un-convolved FEout from GPU to main_mem ? ( Or we should copy oly final convolved FEconv? ) 
     bMergeConv = False   # Should we use merged kernel relaxStrokesTilted_convZ or two separated kernells  ( relaxStrokesTilted, convolveZ  )
 
-    # --- Periodic boundary conditions
-    npbc = (1,1,0)
-
     # --- Relaxation
-    tipR0        = np.array([ 0.0, 0.0, 4.0 ])      # Tip equilibrium position
-    tipStiffness = [ 0.25, 0.25, 0.0, 30.0     ]    # [N/m]  (x,y,z,R) stiffness of harmonic springs anchoring probe-particle to the metalic tip-apex 
     relaxParams  = [ 0.5, 0.1, 0.1*0.2,0.1*5.0 ]    # (dt,damp, .., .. ) parameters of relaxation, in the moment just dt and damp are used
 
     # --- Output
@@ -52,15 +58,17 @@ class AFMulator():
                             [ 0.0,  0.0, 0.0],
                             [20.0,  0.0, 0.0],
                             [ 0.0, 20.0, 0.0],
-                            [ 0.0,  0.0, 7.0]
+                            [ 0.0,  0.0, 8.0]
                           ]),
         scan_dim        = (128, 128, 30),
         scan_window     = ((2.0, 2.0, 7.0), ( 18.0, 18.0, 10.0)),
         iZPP            = 8,
         QZs             = [ 0.1,  0, -0.1, 0 ],
         Qs              = [ -10, 20,  -10, 0 ],
-        amplitude       = 1.0,
         df_steps        = 10,
+        tipR0           = [0.0, 0.0, 3.0],
+        tipStiffness    = [0.25, 0.25, 0.0, 30.0],
+        npbc            = (1, 1, 0),
         initFF          = True 
     ):
 
@@ -74,10 +82,10 @@ class AFMulator():
         self.scan_dim = scan_dim
         self.scan_window = scan_window
         self.iZPP = iZPP
-        self.amplitude = amplitude
         self.df_steps = df_steps
-        self.dz = amplitude / df_steps
-        self.dfWeight = PPU.getDfWeight( self.df_steps, dz=self.dz )[0].astype(np.float32)
+        self.tipR0 = tipR0
+        self.npbc = npbc
+
         self.typeParams = hl.loadSpecies('atomtypes.ini')
 
         self.forcefield = FFcl.ForceField_LJC()
@@ -85,7 +93,7 @@ class AFMulator():
 
         self.scanner = oclr.RelaxedScanner()
         self.scanner.relax_params = np.array( self.relaxParams, dtype=np.float32 )
-        self.scanner.stiffness = np.array( self.tipStiffness, dtype=np.float32 )/ -16.0217662
+        self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -16.0217662
 
         if initFF:
             self.initFF()
@@ -127,20 +135,29 @@ class AFMulator():
         Initialize force field and scanner buffers. Call this method after changing parameters in the scanner or forcefield
         or after modifying any of the following attributes: lvec, pixPerAngstrome, scan_dim, scan_window, dfWeight.
         '''
+
+        # Set df convolution weights
+        self.dz = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
+        self.dfWeight = PPU.getDfWeight(self.df_steps, dz=self.dz)[0].astype(np.float32)
+        self.amplitude = self.dz * len(self.dfWeight)
+
+        # Initialize force field
         if self.bNoPoss:
             self.forcefield.initSampling( self.lvec, pixPerAngstrome=self.pixPerAngstrome )
         else:
             self.forcefield.initPoss( lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
+
+        # Initialize scanner
+        self.scanner.zstep = self.dz
         if self.bNoFFCopy:
-            self.scanner.prepareBuffers( lvec=self.lvec, FEin_cl=self.forcefield.cl_FE, FEin_shape=self.forcefield.nDim, scan_dim=self.scan_dim,
-                                         nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight)
-                                       )
+            self.scanner.prepareBuffers(lvec=self.lvec, FEin_cl=self.forcefield.cl_FE,
+                FEin_shape=self.forcefield.nDim, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight),
+                nDimConvOut=(self.scan_dim[2] - len(self.dfWeight) + 1)
+            )
+            self.scanner.updateBuffers(WZconv=self.dfWeight)
             self.scanner.preparePosBasis( start=self.scan_window[0][:2], end=self.scan_window[1][:2] )
         else:
             self.FEin = np.empty( self.forcefield.nDim, np.float32 )
-        self.pos0 = [0, 0, self.scan_window[1][2]]
-        self.scanner.zstep = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
-        self.scanner.updateBuffers( WZconv=self.dfWeight )
 
     def setQs(self, Qs, QZs):
         '''
@@ -215,13 +232,13 @@ class AFMulator():
             if(self.counter>0): # not first step
                 if(self.verbose > 1): print("scanner.releaseBuffers()")
                 self.scanner.releaseBuffers()
-            self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight) )
+            self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight)+1 )
             self.scanner.preparePosBasis( start=self.scan_window[0][:2], end=self.scan_window[1][:2] )
         
         # Subtract origin, because OpenCL kernel for tip relaxation does not take the origin of the FF box into account
-        pos0 = np.array(self.pos0) - self.lvec[0]
+        self.pos0 = np.array([0, 0, self.scan_window[1][2]]) - self.lvec[0]
 
-        self.scanner.setScanRot(pos0, rot=np.eye(3), tipR0=self.tipR0)
+        self.scanner.setScanRot(self.pos0, rot=np.eye(3), tipR0=self.tipR0)
 
     def evalAFM( self, X=None ):
         '''
@@ -239,9 +256,9 @@ class AFMulator():
             else:
                 #print("DEBUG  HERE !!!! ")
                 self.scanner.run_relaxStrokesTilted( bCopy=False, bFinish=True )
-            if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut ):
+            if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut + 1):
                 raise ValueError(
-                    "len(dfWeight) must be self.scanner.scan_dim[2] - self.scanner.nDimConvOut but got "
+                    "len(dfWeight) must be self.scanner.scan_dim[2] - self.scanner.nDimConvOut + 1 but got "
                     + f"len(self.dfWeight) = {len(self.dfWeight)}, "
                     + f"self.scanner.scan_dim[2] = {self.scanner.scan_dim[2]}, "
                     + f"self.scanner.nDimConvOut = {self.scanner.nDimConvOut}"
@@ -251,9 +268,9 @@ class AFMulator():
         if X is None:
             X = FEout[:,:,:,2].copy()
         else:
-            if X.shape != self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),):
+            if X.shape != self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight) + 1,):
                 raise ValueError(
-                    f"Expected an array of shape {self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight),)} "
+                    f"Expected an array of shape {self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight) + 1,)} "
                     + f"for storing AFM image, but got an array of shape {X.shape} instead."
                 )
             X[:,:,:] = FEout[:,:,:,2]
