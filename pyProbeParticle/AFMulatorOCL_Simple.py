@@ -34,6 +34,8 @@ class AFMulator():
         npbc: tuple of three ints. How many periodic images of atoms to use in (x, y, z) dimensions. Used for calculating
             Lennard-Jones force field and electrostatic field from point charges. Electrostatic field from a Hartree
             potential defined on a grid is always considered to be periodic.
+        f0Cantilever: float. Resonance frequency of cantilever in Hz.
+        kCantilever: float. Harmonic spring constant of cantilever in N/m.
         initFF: Bool. Whether to initialize buffers. Set to False to modify force field and scanner parameters
             before initialization.
     '''
@@ -69,6 +71,8 @@ class AFMulator():
         tipR0           = [0.0, 0.0, 3.0],
         tipStiffness    = [0.25, 0.25, 0.0, 30.0],
         npbc            = (1, 1, 0),
+        f0Cantilever    = 30300,
+        kCantilever     = 1800,
         initFF          = True 
     ):
 
@@ -84,6 +88,8 @@ class AFMulator():
         self.iZPP = iZPP
         self.df_steps = df_steps
         self.tipR0 = tipR0
+        self.f0Cantilever = f0Cantilever
+        self.kCantilever = kCantilever
         self.npbc = npbc
 
         self.typeParams = hl.loadSpecies('atomtypes.ini')
@@ -93,7 +99,7 @@ class AFMulator():
 
         self.scanner = oclr.RelaxedScanner()
         self.scanner.relax_params = np.array( self.relaxParams, dtype=np.float32 )
-        self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -16.0217662
+        self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
 
         if initFF:
             self.initFF()
@@ -139,6 +145,7 @@ class AFMulator():
         # Set df convolution weights
         self.dz = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
         self.dfWeight = PPU.getDfWeight(self.df_steps, dz=self.dz)[0].astype(np.float32)
+        self.dfWeight *= PPU.eVA_Nm * self.f0Cantilever / self.kCantilever
         self.amplitude = self.dz * len(self.dfWeight)
 
         # Initialize force field

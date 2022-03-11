@@ -636,7 +636,7 @@ class ForceField_LJC:
 
         return FE
 
-    def run_gradPotentialGrid(self, pot=None, E_field=None, h=None, local_size=(32,), bCopy=True, bFinish=True):
+    def run_gradPotential(self, pot=None, E_field=None, h=None, local_size=(32,), bCopy=True, bFinish=True):
         '''
         Obtain electric field on the force field grid as the negative gradient of Hartree potential
         via centered difference.
@@ -646,8 +646,6 @@ class ForceField_LJC:
                 beforehand with prepareBuffers.
             E_field: np.ndarray or None. Array where output electric field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.
-            h: float > 0.0 or None. Finite difference step size (one-sided) in angstroms. If None, the default
-                value DEFAULT_FD_STEP is used.
             local_size: tuple of a single int. Size of local work group on device.
             bCopy: Bool. Whether to return the calculated electric field to host.
             bFinish: Bool. Whether to wait for execution to finish.
@@ -698,6 +696,91 @@ class ForceField_LJC:
             self.lvec0,
             np.array([h, h, h, 0.0], dtype=np.float32)
         )
+
+        if bCopy: cl.enqueue_copy(self.queue, E_field, self.cl_Efield)
+        if bFinish: self.queue.finish()
+        if bRuntime: print("runtime(ForceField_LJC.run_gradPotentialGrid) [s]: ", time.perf_counter() - t0)
+
+        return E_field
+
+    def run_gradPotentialGrid(self, pot=None, E_field=None, h=None, local_size=(32,), bCopy=True, bFinish=True):
+        '''
+        Obtain electric field on the force field grid as the negative gradient of Hartree potential
+        via centered difference.
+
+        Arguments:
+            pot: HartreePotential or None. Hartree potential to differentiate. If None, has to be initialized
+                beforehand with prepareBuffers.
+            E_field: np.ndarray or None. Array where output electric field is copied to if bCopy == True.
+                If None and bCopy == True, will be created automatically.
+            h: float > 0.0 or None. Finite difference step size (one-sided) in angstroms. If None, the default
+                value DEFAULT_FD_STEP is used.
+            local_size: tuple of a single int. Size of local work group on device.
+            bCopy: Bool. Whether to return the calculated electric field to host.
+            bFinish: Bool. Whether to wait for execution to finish.
+
+        Returns: np.ndarray if bCopy == True or None otherwise.
+        '''
+
+        if bRuntime: t0 = time.perf_counter()
+
+        mf = cl.mem_flags
+        if pot:
+            assert isinstance(pot, HartreePotential), 'pot should be a HartreePotential object'
+            if self.cl_pot:
+                if self.cl_pot.size < pot.array.nbytes:
+                    print('Warning: potential grid size larger than existing device buffer. Reallocating.')
+                    self.cl_pot.release()
+                    self.cl_pot = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=pot.array)
+                else:
+                    self.updateBuffers(pot=pot.array)
+            else:
+                self.cl_pot = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=pot.array)
+        elif not self.cl_pot:
+            raise ValueError("Hartree potential not initialized on the device. "
+                "Either initialize it with prepareBuffers or pass it here as a HartreePotential object.")
+        
+        if bCopy:
+            E_field = E_field or np.empty(self.nDim, dtype=np.float32)
+            if not np.allclose(E_field.shape, self.nDim):
+                raise ValueError(f'E_field array dimensions {E_field.shape} do not match with '
+                    f'force field dimensions {self.nDim}.')
+
+        if not self.cl_Efield:
+            self.cl_Efield = cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.nDim))
+
+        h = h or DEFAULT_FD_STEP
+
+        # Check if potential grid matches the force field grid. If it does, we don't need to do interpolation.
+        matching_grid = (
+            np.allclose(self.pot.shape, self.nDim[:3]) and
+            (np.abs(self.pot.origin - self.lvec0[:3]) < 1e-3).all() and
+            (np.abs(np.diag(self.pot.step * self.pot.shape) - self.lvec[:, :3]) < 1e-3).all()
+        )
+        print('Matching grid:', matching_grid)
+
+        if bRuntime: print("runtime(ForceField_LJC.run_gradPotentialGrid.pre) [s]: ", time.perf_counter() - t0)
+
+        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        if matching_grid:
+            cl_program.gradPotential(self.queue, global_size, local_size,
+                self.cl_pot,
+                self.cl_Efield,
+                np.append(self.pot.shape, 0).astype(np.int32),
+                np.append(self.pot.step, 0).astype(np.float32)
+            )
+        else:
+            cl_program.gradPotentialGrid(self.queue, global_size, local_size,
+                self.cl_pot,
+                self.cl_Efield,
+                np.append(self.pot.shape, 0).astype(np.int32),
+                np.append(self.pot.step, 0).astype(np.float32),
+                np.append(self.pot.origin, 0).astype(np.float32),
+                self.nDim,
+                np.array([self.dlvec[0, 0], self.dlvec[1, 1], self.dlvec[2, 2], 0], dtype=np.float32),
+                self.lvec0,
+                np.array([h, h, h, 0.0], dtype=np.float32)
+            )
 
         if bCopy: cl.enqueue_copy(self.queue, E_field, self.cl_Efield)
         if bFinish: self.queue.finish()
