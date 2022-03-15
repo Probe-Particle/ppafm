@@ -12,12 +12,16 @@ inline float3 rotMat ( float3 v,  float3 a, float3 b, float3 c  ){ return (float
 inline float3 rotMatT( float3 v,  float3 a, float3 b, float3 c  ){ return a*v.x + b*v.y + c*v.z; }
 
 // Do accurate trilinear interpolation of a buffer array. Buffer should use C memory layout.
-float linearInterpB(float3 pos, float3 origin, float3 step, int3 nGrid, float *buf) {
+// The cartesian position is transformed to the grid coordinate indices using the coordinate transformation
+// matrix whose rows are T_A, T_B, and T_C.
+float linearInterpB(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_C, int3 nGrid, float *buf) {
     
     // Find coordinate index (ijk) that is just before the position and figure out
     // how far past the voxel coordinate we are (d).
     float3 ijk0;
-    float3 d = fract((pos - origin) / step, &ijk0);
+    float3 coord = pos - origin;
+    float3 coordT = (float3)(dot(coord, T_A), dot(coord, T_B), dot(coord, T_C));
+    float3 d = fract(coordT, &ijk0);
 
     // Find values at all the corners next to the main voxel (periodic boundary conditions)
     int nyz = nGrid.y * nGrid.z;
@@ -51,12 +55,14 @@ float linearInterpB(float3 pos, float3 origin, float3 step, int3 nGrid, float *b
 }
 
 // Same as linearInterpB, except for float4 type
-float4 linearInterpB4(float3 pos, float3 origin, float3 step, int3 nGrid, float4 *buf) {
+float4 linearInterpB4(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_C, int3 nGrid, float4 *buf) {
     
     // Find coordinate index (ijk) that is just before the position and figure out
     // how far past the voxel coordinate we are (d).
     float3 ijk0;
-    float3 d = fract((pos - origin) / step, &ijk0);
+    float3 coord = pos - origin;
+    float3 coordT = (float3)(dot(coord, T_A), dot(coord, T_B), dot(coord, T_C));
+    float3 d = fract(coordT, &ijk0);
 
     // Find values at all the corners next to the main voxel (periodic boundary conditions)
     int nyz = nGrid.y * nGrid.z;
@@ -442,9 +448,12 @@ __kernel void evalLJC_Hartree(
     __global float4* FE,        // Output force and energy
     int4 nGrid,                 // Size of grid
     float4 grid_origin,         // Real-space origin of grid
-    float4 grid_stepA,          // Real-space step size of grid lattice vector a
-    float4 grid_stepB,          // Real-space step size of grid lattice vector b
-    float4 grid_stepC,          // Real-space step size of grid lattice vector c
+    float4 grid_stepA,          // Real-space step sizes of grid lattice vectors
+    float4 grid_stepB,
+    float4 grid_stepC,
+    float4 T_A,                 // Rows of the transformation matrix for grid lattice coordinates
+    float4 T_B,
+    float4 T_C,
     float4 Qs,                  // Tip charges
     float4 QZs                  // Tip charge positions on z axis relative to PP
 ){
@@ -479,11 +488,10 @@ __kernel void evalLJC_Hartree(
     }
 
     // Add electrostatic contribution
-    const float3 s = (float3)(grid_stepA.x, grid_stepB.y, grid_stepC.z); // Hard-coded rectangular grid
-    fe += Qs.x * linearInterpB4(pos + (float3)(0, 0, QZs.x), grid_origin.xyz, s, nGrid.xyz, E_field);
-    fe += Qs.y * linearInterpB4(pos + (float3)(0, 0, QZs.y), grid_origin.xyz, s, nGrid.xyz, E_field);
-    fe += Qs.z * linearInterpB4(pos + (float3)(0, 0, QZs.z), grid_origin.xyz, s, nGrid.xyz, E_field);
-    fe += Qs.w * linearInterpB4(pos + (float3)(0, 0, QZs.w), grid_origin.xyz, s, nGrid.xyz, E_field);
+    fe += Qs.x * linearInterpB4(pos + (float3)(0, 0, QZs.x), grid_origin.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid.xyz, E_field);
+    fe += Qs.y * linearInterpB4(pos + (float3)(0, 0, QZs.y), grid_origin.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid.xyz, E_field);
+    fe += Qs.z * linearInterpB4(pos + (float3)(0, 0, QZs.z), grid_origin.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid.xyz, E_field);
+    fe += Qs.w * linearInterpB4(pos + (float3)(0, 0, QZs.w), grid_origin.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid.xyz, E_field);
 
     // Save to output buffer (Fortran order)
     FE[i + j * nGrid.x + k * nGrid.x * nGrid.y] = fe;
@@ -531,10 +539,14 @@ __kernel void gradPotentialGrid(
     __global float  *pot,   // Input Hartree potential.
     __global float4 *field, // Output electric field.
     int4   nGrid_H,         // Size of Hartree potential grid
-    float4 step_H,          // Real-space step size of Hartree potential grid
+    float4 T_A,             // Rows of the transformation matrix for Hartree potential grid lattice coordinates
+    float4 T_B,
+    float4 T_C,
     float4 origin_H,        // Real-space origin of Hartree potential grid
     int4   nGrid_T,         // Size of target grid
-    float4 step_T,          // Real-space step size of target grid
+    float4 step_T_A,        // Real-space step sizes of target grid lattice vectors
+    float4 step_T_B,
+    float4 step_T_C,
     float4 origin_T,        // Real-space origin of target grid
     float4 h                // Finite-difference step
 ) {
@@ -548,16 +560,16 @@ __kernel void gradPotentialGrid(
     int k = ind % nGrid_T.z;
 
     // Calculate position in target grid
-    float3 pos = origin_T.xyz + (float3)(i, j, k) * step_T.xyz;
+    float3 pos = origin_T.xyz + i * step_T_A.xyz + j * step_T_B.xyz + k * step_T_C.xyz;
 
     // Interpolate potential at points around the center point
-    float pot_   = linearInterpB(pos,                              origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
-    float pot_ip = linearInterpB(pos + (float3)(-h.x,    0,    0), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
-    float pot_jp = linearInterpB(pos + (float3)(   0, -h.y,    0), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
-    float pot_kp = linearInterpB(pos + (float3)(   0,    0, -h.z), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
-    float pot_in = linearInterpB(pos + (float3)( h.x,    0,    0), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
-    float pot_jn = linearInterpB(pos + (float3)(   0,  h.y,    0), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
-    float pot_kn = linearInterpB(pos + (float3)(   0,    0,  h.z), origin_H.xyz, step_H.xyz, nGrid_H.xyz, pot);
+    float pot_   = linearInterpB(pos,                              origin_H.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid_H.xyz, pot);
+    float pot_ip = linearInterpB(pos + (float3)(-h.x,    0,    0), origin_H.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid_H.xyz, pot);
+    float pot_jp = linearInterpB(pos + (float3)(   0, -h.y,    0), origin_H.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid_H.xyz, pot);
+    float pot_kp = linearInterpB(pos + (float3)(   0,    0, -h.z), origin_H.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid_H.xyz, pot);
+    float pot_in = linearInterpB(pos + (float3)( h.x,    0,    0), origin_H.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid_H.xyz, pot);
+    float pot_jn = linearInterpB(pos + (float3)(   0,  h.y,    0), origin_H.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid_H.xyz, pot);
+    float pot_kn = linearInterpB(pos + (float3)(   0,    0,  h.z), origin_H.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid_H.xyz, pot);
 
     // Compute value of field as centered difference. Also copy potential to
     // last place to be consistent with the other Coulomb kernels.

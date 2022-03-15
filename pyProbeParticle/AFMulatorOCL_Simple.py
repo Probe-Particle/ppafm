@@ -166,6 +166,9 @@ class AFMulator():
         else:
             self.FEin = np.empty( self.forcefield.nDim, np.float32 )
 
+        # Check if the scan window extends over any non-periodic boundaries and issue a warning if it does
+        self.check_scan_window()
+
     def setQs(self, Qs, QZs):
         '''
         Set tip charges.
@@ -294,6 +297,24 @@ class AFMulator():
             self.GridUtils = GU
         if(self.verbose>0): print("saveDebugXSF : ", fname)
         GU.saveXSF( fname, F, self.lvec )
+
+    def check_scan_window(self):
+        '''Check that scan window does not extend beyond any non-periodic boundaries.'''
+        for i, dim in enumerate('xyz'):
+            if self.npbc[i]: continue
+            lvec_start = self.lvec[0, i]
+            lvec_end = lvec_start + self.lvec[i+1, i]
+            scan_start = self.scan_window[0][i] - 0.3   # Small offsets because being close to the boundary
+            scan_end = self.scan_window[1][i] + 0.3     # is problematic as well because of PP bending.
+            if i == 2:
+                scan_start -= self.tipR0[2]
+                scan_end -= self.tipR0[2]
+            print(f'Check scan {dim}', scan_start, scan_end, lvec_start, lvec_end)
+            if (scan_start < lvec_start) or (scan_end > lvec_end):
+                print(f'Warning: The edge of the scan window in {dim} dimension is very close or extends over '
+                    f'the boundary of the force-field grid which is not periodic in {dim} dimension. '
+                    'If you get artifacts in the images, please check the boundary conditions and '
+                    'the size of the scan window and the force field grid.')
 
 # ==========================================================
 # ==========================================================
