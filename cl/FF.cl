@@ -25,9 +25,9 @@ float linearInterpB(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_
 
     // Find values at all the corners next to the main voxel (periodic boundary conditions)
     int nyz = nGrid.y * nGrid.z;
-    int i0 = ijk0.x >= 0 ? (int) ijk0.x : (int) ijk0.x + nGrid.x;
-    int j0 = ijk0.y >= 0 ? (int) ijk0.y : (int) ijk0.y + nGrid.y;
-    int k0 = ijk0.z >= 0 ? (int) ijk0.z : (int) ijk0.z + nGrid.z;
+    int i0 = (ijk0.x >= 0 ? (int) ijk0.x % nGrid.x : (int) ijk0.x + nGrid.x);
+    int j0 = (ijk0.y >= 0 ? (int) ijk0.y % nGrid.y : (int) ijk0.y + nGrid.y);
+    int k0 = (ijk0.z >= 0 ? (int) ijk0.z % nGrid.z : (int) ijk0.z + nGrid.z);
     int i1 = (i0 + 1) % nGrid.x;
     int j1 = (j0 + 1) % nGrid.y;
     int k1 = (k0 + 1) % nGrid.z;
@@ -66,9 +66,9 @@ float4 linearInterpB4(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 
 
     // Find values at all the corners next to the main voxel (periodic boundary conditions)
     int nyz = nGrid.y * nGrid.z;
-    int i0 = ijk0.x >= 0 ? (int) ijk0.x : (int) ijk0.x + nGrid.x;
-    int j0 = ijk0.y >= 0 ? (int) ijk0.y : (int) ijk0.y + nGrid.y;
-    int k0 = ijk0.z >= 0 ? (int) ijk0.z : (int) ijk0.z + nGrid.z;
+    int i0 = ijk0.x >= 0 ? (int) ijk0.x % nGrid.x : (int) ijk0.x + nGrid.x;
+    int j0 = ijk0.y >= 0 ? (int) ijk0.y % nGrid.y : (int) ijk0.y + nGrid.y;
+    int k0 = ijk0.z >= 0 ? (int) ijk0.z % nGrid.z : (int) ijk0.z + nGrid.z;
     int i1 = (i0 + 1) % nGrid.x;
     int j1 = (j0 + 1) % nGrid.y;
     int k1 = (k0 + 1) % nGrid.z;
@@ -360,8 +360,6 @@ __kernel void evalLJC_QZs_noPos(
 }
 
 
-
-
 __kernel void evalLJC(
     int nAtoms, 
     __global float4*   atoms,
@@ -436,6 +434,62 @@ __kernel void evalLJC_QZs(
     FE[iG] = fe;
 }
 
+// Add Lennard-Jones force to an existing forcefield grid. The forcefield values are saved in
+// Fortran order. Local work group size can be at most 64.
+__kernel void addLJ(
+    const int nAtoms,       // Number of atoms
+    __global float4* atoms, // Atom positions
+    __global float2*  cLJs, // Lennard-Jones parameters for atoms
+    __global float4*    FE, // Forcefield grid
+    int4 nGrid,             // Grid size
+    float4 grid_origin,     // Real-space origin of grid
+    float4 grid_stepA,      // Real-space step sizes of grid lattice vectors
+    float4 grid_stepB,
+    float4 grid_stepC
+){
+
+    __local float4 LATOMS[64];
+    __local float2 LCLJS [64];
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+
+    int ind = get_global_id(0);
+    if (ind > nGrid.x * nGrid.y * nGrid.z) return;
+
+    // Convert linear index to x,y,z indices (Fortran order)
+    int i = ind % nGrid.x;
+    int j = (ind / nGrid.x) % nGrid.y;
+    int k = ind / (nGrid.y * nGrid.x);
+
+    // Calculate position in grid
+    float3 pos = grid_origin.xyz + grid_stepA.xyz*i + grid_stepB.xyz*j  + grid_stepC.xyz*k;
+
+    // Compute Lennard-Jones force from all of the atoms
+    float4 fe = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
+    for (int i0 = 0; i0 < nAtoms; i0 += nL) {
+        int ia = i0 + iL;
+        LATOMS[iL] = atoms[ia];
+        LCLJS [iL] = cLJs[ia];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+            fe += getLJ(LATOMS[ja].xyz, LCLJS[ja], pos);
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    // if (ind == 0) {
+    //     float4 fe_ind = FE[ind];
+    //     printf("ijk (%d, %d, %d), FE[%d] = (%f, %f, %f, %f) + (%f, %f, %f, %f)\n", i, j, k, ind,
+    //         fe_ind.x, fe_ind.y, fe_ind.z, fe_ind.w,
+    //         fe.x, fe.y, fe.z, fe.w);
+    //     printf("nAtoms %d, atoms[0].xyzw = (%f, %f, %f, %f)", nAtoms,
+    //         atoms[0].x, atoms[0].y, atoms[0].z, atoms[0].w);
+    // }
+
+    // Add to forcefield grid
+    FE[ind] += fe;
+}
+
 // Compute Lennard Jones force field at grid points and add to it the electrostatic force 
 // from an electric field precomputed from a Hartree potential. The output buffer is
 // written in Fortran memory layout in order to be compatible with OpenCL image
@@ -503,11 +557,12 @@ __kernel void gradPotential(
     __global float  *pot,   // Input Hartree potential
     __global float4 *field, // Output electric field
     int4            nGrid,  // Size of Hartree potential grid (x, y, z, _)
-    float4          step    // Step size of grid (x, y, z, _)
+    float4          step,   // Step size of grid (x, y, z, _)
+    int             C_order // If non-zeo, values are saved in C order, otherwise Fortran order
 ) {
 
     int ind = get_global_id(0);
-    if (ind > nGrid.x * nGrid.y * nGrid.z) return;
+    if (ind >= nGrid.x * nGrid.y * nGrid.z) return;
 
     // Get x,y,z indices
     int nyz = nGrid.y * nGrid.z;
@@ -526,10 +581,16 @@ __kernel void gradPotential(
 
     // Compute value of field as centered difference. Also copy potential to
     // last place to be consistent with the other Coulomb kernels.
-    field[ind].x = 0.5*(pot[ip] - pot[in]) / step.x;
-    field[ind].y = 0.5*(pot[jp] - pot[jn]) / step.y;
-    field[ind].z = 0.5*(pot[kp] - pot[kn]) / step.z;
-    field[ind].w = pot[ind];
+    float4 f = (float4)(
+        0.5*(pot[ip] - pot[in]) / step.x,
+        0.5*(pot[jp] - pot[jn]) / step.y,
+        0.5*(pot[kp] - pot[kn]) / step.z,
+        pot[ind]
+    );
+
+    // Save to output array
+    int out_ind = C_order ? ind : i + nGrid.x * j + nGrid.x * nGrid.y * k;
+    field[out_ind] = f;
 
 }
 
@@ -577,6 +638,44 @@ __kernel void gradPotentialGrid(
     field[ind].y = 0.5*(pot_jp - pot_jn) / h.y;
     field[ind].z = 0.5*(pot_kp - pot_kn) / h.z;
     field[ind].w = pot_;
+
+}
+
+// Interpolate an array at points specified by a grid. The grid can be rotated around a point.
+__kernel void interp_at(
+    __global float *in,     // Input array
+    __global float *out,    // Output array
+    int4   nGrid_in,        // Size of input array
+    float4 T_A,             // Rows of the transformation matrix for input array lattice coordinates
+    float4 T_B,
+    float4 T_C,
+    float4 origin_in,       // Real-space origin of input array
+    int4   nGrid_out,       // Size of target grid
+    float4 step_out_A,      // Real-space step sizes of output array lattice vectors
+    float4 step_out_B,
+    float4 step_out_C,
+    float4 origin_out,      // Real-space origin of output array
+    float4 rot_A,           // Rows of rotation matrix to apply
+    float4 rot_B,
+    float4 rot_C,
+    float4 rot_center       // Point around which rotation is performed
+){
+
+    int ind = get_global_id(0);
+    if (ind >= nGrid_out.x * nGrid_out.y * nGrid_out.z) return;
+
+    // Convert linear index to x,y,z indices of output array
+    int i = ind / (nGrid_out.y * nGrid_out.z);
+    int j = (ind / nGrid_out.z) % nGrid_out.y;
+    int k = ind % nGrid_out.z;
+
+    // Calculate position in target grid
+    float4 pos = origin_out + i * step_out_A + j * step_out_B + k * step_out_C;
+    float4 d_pos = pos - rot_center;
+    pos = rot_center + (float4)(dot(rot_A, d_pos), dot(rot_B, d_pos), dot(rot_C, d_pos), 0.0f);
+
+    // Interpolate
+    out[ind] = linearInterpB(pos.xyz, origin_in.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid_in.xyz, in);
 
 }
 

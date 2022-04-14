@@ -116,7 +116,7 @@ class AFMulator():
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
             qs: np.ndarray of shape (num_atoms,) or HarteePotential. Charges of atoms or hartree potential.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
-            X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps)).
+            X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
         Returns: np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
         '''
@@ -149,6 +149,7 @@ class AFMulator():
         self.amplitude = self.dz * len(self.dfWeight)
 
         # Initialize force field
+        self.forcefield.tryReleaseBuffers()
         if self.bNoPoss:
             self.forcefield.initSampling( self.lvec, pixPerAngstrome=self.pixPerAngstrome )
         else:
@@ -157,7 +158,7 @@ class AFMulator():
         # Initialize scanner
         self.scanner.zstep = self.dz
         if self.bNoFFCopy:
-            self.scanner.prepareBuffers(lvec=self.lvec, FEin_cl=self.forcefield.cl_FE,
+            self.scanner.prepareBuffers(lvec=self.lvec, FEin_cl=None,
                 FEin_shape=self.forcefield.nDim, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight),
                 nDimConvOut=(self.scan_dim[2] - len(self.dfWeight) + 1)
             )
@@ -254,7 +255,7 @@ class AFMulator():
         '''
         Evaluate AFM image. Run after preparing force field and scanner.
         Arguments:
-            X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps)).
+            X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
         Returns: np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
         '''
@@ -309,7 +310,6 @@ class AFMulator():
             if i == 2:
                 scan_start -= self.tipR0[2]
                 scan_end -= self.tipR0[2]
-            print(f'Check scan {dim}', scan_start, scan_end, lvec_start, lvec_end)
             if (scan_start < lvec_start) or (scan_end > lvec_end):
                 print(f'Warning: The edge of the scan window in {dim} dimension is very close or extends over '
                     f'the boundary of the force-field grid which is not periodic in {dim} dimension. '
