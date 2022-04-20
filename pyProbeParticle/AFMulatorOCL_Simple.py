@@ -7,7 +7,7 @@ from . import fieldOCL     as FFcl
 from . import RelaxOpenCL  as oclr
 from . import HighLevelOCL as hl
 
-from .fieldOCL import HartreePotential
+from .fieldOCL import HartreePotential, MultipoleTipDensity
 
 class AFMulator():
     '''
@@ -25,8 +25,13 @@ class AFMulator():
             scan_dim[2], and the scan in z-direction proceeds for scan_dim[2] steps, so the final step is one step short
             of z_min.
         iZPPs: int. Element of probe particle.
-        QZs: Array of lenght 4. Position tip charges along z-axis relative to probe-particle center in angstroms.
-        Qs: Array of lenght 4. Values of tip charges in units of e. Some can be zero.
+        QZs: Array of length 4. Position tip charges along z-axis relative to probe-particle center in angstroms.
+        Qs: Array of length 4. Values of tip charges in units of e. Some can be zero.
+        rho: Dict or MultipoleTipDensity. Tip charge density. Used with Hartree potentials. Overrides QZs and Qs.
+            The dict should contain float entries for at least of one the following 's', 'px', 'py', 'pz', 'dz2',
+            'dy2', 'dx2', 'dxy', 'dxz', 'dyz'. The tip charge density will be a linear combination of the specified
+            multipole types with the specified weights.
+        sigma: float. Width of tip density distribution if rho is a dict of multipole coefficients.
         df_steps: int. Number of steps in z convolution. The total amplitude is df_steps times scan z-step size.
         tipR0: array of length 3. Probe particle equilibrium position (x, y, z) in angstroms.
         tipStiffness: array of length 4. Harmonic spring constants (x, y, z, r) for holding the probe particle
@@ -67,6 +72,8 @@ class AFMulator():
         iZPP            = 8,
         QZs             = [ 0.1,  0, -0.1, 0 ],
         Qs              = [ -10, 20,  -10, 0 ],
+        rho             = None,
+        sigma           = 0.71,
         df_steps        = 10,
         tipR0           = [0.0, 0.0, 3.0],
         tipStiffness    = [0.25, 0.25, 0.0, 30.0],
@@ -91,6 +98,9 @@ class AFMulator():
         self.f0Cantilever = f0Cantilever
         self.kCantilever = kCantilever
         self.npbc = npbc
+        self.pot = None
+        self.rho = rho
+        self.sigma = sigma
 
         self.typeParams = hl.loadSpecies('atomtypes.ini')
 
@@ -108,35 +118,35 @@ class AFMulator():
 
         self.counter = 0
     
-    def eval(self, xyzs, Zs, qs=None, REAs=None, X=None ):
+    def eval(self, xyzs, Zs, qs, rot=np.eye(3), rot_center=None, REAs=None, X=None ):
         '''
         Prepare and evaluate AFM image.
         Arguments:
             xyzs: np.ndarray of shape (num_atoms, 3). Positions of atoms in x, y, and z.
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
-            qs: np.ndarray of shape (num_atoms,) or HarteePotential. Charges of atoms or hartree potential.
+            qs: np.ndarray of shape (num_atoms,) or HartreePotential. Charges of atoms or hartree potential.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
         Returns: np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
         '''
-        self.prepareFF(xyzs, Zs, qs, REAs)
+        self.prepareFF(xyzs, Zs, qs, rot, rot_center, REAs)
         self.prepareScanner()
         X = self.evalAFM(X)
         return X
     
-    def __call__( self, xyzs, Zs, qs, REAs=None, X=None ):
+    def __call__(self, xyzs, Zs, qs, rot=np.eye(3), rot_center=None, REAs=None, X=None):
         '''
         Makes object callable. See eval for input arguments.
         '''
-        return self.eval( xyzs, Zs, qs, REAs=REAs, X=X )
+        return self.eval(xyzs, Zs, qs, rot, rot_center, REAs=REAs, X=X)
 
     def eval_( self, mol ):
         return self.eval( mol.xyzs, mol.Zs, mol.qs )
 
     # ========= Setup =========
 
-    def initFF(self):
+    def initFF(self, pot=None):
         '''
         Initialize force field and scanner buffers. Call this method after changing parameters in the scanner or forcefield
         or after modifying any of the following attributes: lvec, pixPerAngstrome, scan_dim, scan_window, dfWeight.
@@ -154,6 +164,12 @@ class AFMulator():
             self.forcefield.initSampling( self.lvec, pixPerAngstrome=self.pixPerAngstrome )
         else:
             self.forcefield.initPoss( lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
+        if isinstance(self.rho, dict):
+            tip_density = MultipoleTipDensity(self.forcefield.lvec[:, :3], self.forcefield.nDim[:3], sigma=self.sigma,
+                multipole=self.rho, ctx=self.forcefield.ctx)
+        else:
+            tip_density = self.rho
+        self.forcefield.prepareBuffers(rho=tip_density, pot=pot)
 
         # Initialize scanner
         self.scanner.zstep = self.dz
@@ -180,24 +196,36 @@ class AFMulator():
 
     # ========= Imaging =========
 
-    def prepareFF(self, xyzs, Zs, qs, REAs=None):
+    def prepareFF(self, xyzs, Zs, qs, rot=np.eye(3), rot_center=None, REAs=None):
         '''
         Prepare molecule parameters and calculate force field.
         Arguments:
             xyzs: np.ndarray of shape (num_atoms, 3). Positions of atoms in x, y, and z.
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
-            qs: np.ndarray of shape (num_atoms,) or HarteePotential. Charges of atoms or hartree potential.
+            qs: np.ndarray of shape (num_atoms,) or HartreePotential or None. Charges of atoms or hartree potential.
+                If None, then has to be prepared beforehand with initFF.
+            rot: np.ndarray of shape (3, 3). Rotation matrix to apply to atom positions.
+            rot_center: np.ndarray of shape (3,). Center for rotation. Defaults to center of atom coordinates.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
         '''
 
         # Check if using point charges or precomputed Hartee potential
-        if isinstance(qs, HartreePotential):
+        if qs is None:
+            if self.pot is None:
+                raise ValueError('No sample charge specified. Either pass it here or initialize beforehand '
+                    'with initFF.')
+            pot = self.pot
+            qs = np.zeros(len(Zs))
+        elif isinstance(qs, HartreePotential):
             pot = qs
             qs = np.zeros(len(Zs))
         else:
             pot = None
 
-        # Get Lennard-Jones parameters
+        if rot_center is None: 
+            rot_center = xyzs.mean(axis=0)
+
+        # Get Lennard-Jones parameters apply periodic boundary conditions to atoms
         self.natoms0 = len(Zs)
         if REAs is None:
             self.REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
@@ -210,11 +238,17 @@ class AFMulator():
             
         # Compute force field
         if self.bNoFFCopy:
-            self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, pot=pot, FE=False,
-                Qmix=None, bRelease=False, bCopy=False, bFinish=True, bQZ=True)
+
+            if pot:
+                self.forcefield.makeFFHartree(xyzqs[:, :3], cLJs, pot=pot, rho=None,
+                    rot=rot, rot_center=rot_center, bRelease=False, bFinish=False)
+            else:
+                self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=False,
+                    Qmix=None, bRelease=False, bCopy=False, bFinish=True, bQZ=True)
             self.atoms = self.forcefield.atoms
+
             if self.bSaveFF:
-                FF = self.forcefield.downloadFF( )
+                FF = self.forcefield.downloadFF()
                 FFx=FF[:,:,:,0]
                 FFy=FF[:,:,:,1]
                 FFz=FF[:,:,:,2]
@@ -229,8 +263,10 @@ class AFMulator():
                 self.saveDebugXSF_FF( self.saveFFpre+"FF_y.xsf", FFy )
                 self.saveDebugXSF_FF( self.saveFFpre+"FF_z.xsf", FFz )
                 #self.saveDebugXSF_FF( "FF_E.xsf", FF[:,:,:,3] )
+                
         else:
             FF,self.atoms  = self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=self.FEin, Qmix=None, bRelease=True, bCopy=True, bFinish=True )
+        
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
 
     def prepareScanner(self):

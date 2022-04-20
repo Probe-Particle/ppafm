@@ -470,16 +470,20 @@ class FFTConvolution:
                 COMPLEX_CTR(${output.ctype})(
                     ${input.load_same},
                     0));
-            """)
+            """
+        )
         self.c2r = Transformation(
             [Parameter("output", Annotation(Type(np.float32, self.shape), "o")),
-            Parameter("input", Annotation(Type(np.complex64, self.shape), "i"))],
+            Parameter("input", Annotation(Type(np.complex64, self.shape), "i")),
+            Parameter("scale", Annotation(np.float32))],
             """
-            ${output.store_same}(${input.load_same}.x);
-            """,
+            ${output.store_same}(${input.load_same}.x * ${scale});
+            """
         )
 
     def _make_fft(self):
+
+        if bRuntime: t0 = time.perf_counter()
 
         thr = ocl_api().Thread(self.queue)
         self.pot_hat_cl = array.empty(self.queue, self.shape, dtype=np.complex64)
@@ -491,8 +495,10 @@ class FFTConvolution:
         self.fft_f = fft_f.compile(thr)
 
         fft_i = FFT(self.c2r.input)
-        fft_i.parameter.output.connect(self.c2r, self.c2r.input, new_output=self.c2r.output)
+        fft_i.parameter.output.connect(self.c2r, self.c2r.input, new_output=self.c2r.output, scale=self.c2r.scale)
         self.fft_i = fft_i.compile(thr)
+
+        if(bRuntime): print("runtime(FFTConvolution._make_fft) [s]: ", time.perf_counter() - t0)
 
     def _set_rho(self, rho):
         self.rho = rho
@@ -513,6 +519,8 @@ class FFTConvolution:
         Returns: np.ndarray if bCopy == True or pyopencl.Buffer otherwise.
         '''
 
+        if bRuntime: t0 = time.perf_counter()
+
         if isinstance(pot, HartreePotential):
             assert pot.shape == self.shape, 'pot array shape does not match rho array shape'
             pot = pot.cl_array
@@ -526,12 +534,15 @@ class FFTConvolution:
             E = E or cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.shape))
             E_cl = E
 
+        if(bRuntime): print("runtime(FFTConvolution.convolve.pre) [s]: ", time.perf_counter() - t0)
+
         # Do convolution
-        self.fft_f(self.pot_hat_cl, pot, inverse=0)
-        self.fft_i(E_cl, self.pot_hat_cl * self.rho_hat_cl, inverse=1)
+        self.fft_f(output=self.pot_hat_cl, new_input=pot, inverse=0)
+        self.fft_i(new_output=E_cl, input=self.pot_hat_cl * self.rho_hat_cl, scale=self.rho.step.prod(), inverse=1)
 
         if bCopy: cl.enqueue_copy(self.queue, E, E_cl)
         if bFinish: self.queue.finish()
+        if(bRuntime): print("runtime(FFTConvolution.convolve) [s]: ", time.perf_counter() - t0)
 
         return E
 
@@ -609,7 +620,7 @@ class ForceField_LJC:
             self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
         if (self.cl_FE is None) and not bDirect:
             nb = self.nDim[0]*self.nDim[1]*self.nDim[2] * 4 * nb_float
-            self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY , nb ); nbytes+=nb # float8
+            self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY , nb ); nbytes+=nb
             if(verbose>0): print(" forcefield.prepareBuffers() :  self.cl_FE  ", self.cl_FE)
         if pot is not None:
             assert isinstance(pot, HartreePotential), 'pot should be a HartreePotential object'
@@ -1031,6 +1042,8 @@ class ForceField_LJC:
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
         T = np.append(np.linalg.inv(self.pot.step).T.copy(), np.zeros((3, 1)), axis=1).astype(np.float32)
         rot = np.append(rot, np.zeros((3, 1)), axis=1).astype(np.float32)
+
+        if bRuntime: print("runtime(ForceField_LJC.interp_pot.pre) [s]: ", time.perf_counter() - t0)
         
         cl_program.interp_at(self.queue, global_size, local_size,
             self.pot.cl_array,
@@ -1113,7 +1126,7 @@ class ForceField_LJC:
 
         if bCopy: FE = self.downloadFF(FE)
         if bFinish: self.queue.finish()
-        if bRuntime: print("runtime(ForceField_LJC.calc_force_fft.tot) [s]: ", time.perf_counter() - t0)
+        if bRuntime: print("runtime(ForceField_LJC.calc_force_fft) [s]: ", time.perf_counter() - t0)
 
         return FE
 
