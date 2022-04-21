@@ -7,6 +7,8 @@ import numpy as np
 import pyopencl as cl
 from pyopencl import array
 
+from .GridUtils import loadCUBE, loadXSF
+from .basUtils import loadAtomsCUBE, loadXSFGeom
 from .fieldFFT import getProbeDensity
 
 try:
@@ -328,6 +330,34 @@ def CLJ2float2(C6s,C12s):
     cLJs[:,1] = C12s
     return cLJs
 
+def hartreeFromFile(file_path):
+    '''
+    Load hartree potential and atoms from a .cube or .xsf file.
+
+    Arguments:
+        file_path: str. Path to file to load.
+
+    Returns: tuple (pot, xyzs, Zs)
+        | pot: HartreePotential.
+        | xyzs: np.ndarray of shape (num_atoms, 3). Atom coordinates.
+        | Zs: np.ndarray of shape (num_atoms,). Atomic numbers.
+    '''
+
+    if file_path.endswith('.cube'):
+        FF, lvec, _, _ = loadCUBE(file_path, xyz_order=True, verbose=False)
+        Zs, x, y, z, _ = loadAtomsCUBE(file_path)
+    elif file_path.endswith('.xsf'):
+        FF, lvec, _, _ = loadXSF(file_path, xyz_order=True, verbose=False)
+        (Zs, x, y, z, _), _, _ = loadXSFGeom(file_path)
+    else:
+        raise ValueError(f'Unsupported file format in file `{file_path}`')
+
+    FF *= -1
+    pot = HartreePotential(FF, lvec)
+    xyzs = np.stack([x, y, z], axis=1)
+
+    return pot, xyzs, Zs
+
 # ========= classes
 
 class HartreePotential:
@@ -336,16 +366,16 @@ class HartreePotential:
 
     Arguments:
         array: np.ndarray. Potential values on a 3D grid.
-        origin: array-like of length 3. Origin of grid in angstroms.
-        lvec: array-like of shape (3, 3). Grid lattice vectors in angstroms.
+        lvec: array-like of shape (4, 3). Unit cell boundaries. First (row) vector specifies the origin,
+            and the remaining three vectors specify the edge vectors of the unit cell.
         ctx: pyopencl.Context. OpenCL context for device buffer. Defaults to oclu.ctx.
     '''
-    def __init__(self, array, origin, lvec, ctx=None):
+    def __init__(self, array, lvec, ctx=None):
         assert isinstance(array, np.ndarray), 'array should be a numpy.ndarray'
         self.array = array.astype(np.float32)
-        self.origin = np.array(origin)
         self.lvec = np.array(lvec)
-        assert self.lvec.shape == (3, 3), 'lvec should have shape (3, 3)'
+        self.origin = self.lvec[0]
+        assert self.lvec.shape == (4, 3), 'lvec should have shape (4, 3)'
         self.ctx = ctx or oclu.ctx
         self._cl_array = None
         self.nbytes = 0
@@ -356,7 +386,7 @@ class HartreePotential:
 
     @property
     def step(self):
-        return np.stack([self.lvec[i] / self.array.shape[i] for i in range(3)])
+        return np.stack([self.lvec[i+1] / self.array.shape[i] for i in range(3)])
 
     @property
     def cl_array(self):
@@ -534,14 +564,16 @@ class FFTConvolution:
             E = E or cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.shape))
             E_cl = E
 
-        if(bRuntime): print("runtime(FFTConvolution.convolve.pre) [s]: ", time.perf_counter() - t0)
+        if(bRuntime):
+            self.queue.finish()
+            print("runtime(FFTConvolution.convolve.pre) [s]: ", time.perf_counter() - t0)
 
         # Do convolution
         self.fft_f(output=self.pot_hat_cl, new_input=pot, inverse=0)
         self.fft_i(new_output=E_cl, input=self.pot_hat_cl * self.rho_hat_cl, scale=self.rho.step.prod(), inverse=1)
 
         if bCopy: cl.enqueue_copy(self.queue, E, E_cl)
-        if bFinish: self.queue.finish()
+        if bFinish or bRuntime: self.queue.finish()
         if(bRuntime): print("runtime(FFTConvolution.convolve) [s]: ", time.perf_counter() - t0)
 
         return E
@@ -1089,14 +1121,16 @@ class ForceField_LJC:
 
         # Interpolate Hartree potential onto the correct grid
         pot_interp = self.interp_pot(rot=rot, rot_center=rot_center, local_size=local_size,
-            bCopy=False, bFinish=False)
+            bCopy=False, bFinish=bRuntime)
 
         if bRuntime: print("runtime(ForceField_LJC.calc_force_fft.interpolate) [s]: ", time.perf_counter() - t0)
 
         # Convolve Hartree potential and tip charge density
         E_cl = self.fft_conv.convolve(pot_interp, bCopy=False, bFinish=False)
 
-        if bRuntime: print("runtime(ForceField_LJC.calc_force_fft.convolution) [s]: ", time.perf_counter() - t0)
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_fft.convolution) [s]: ", time.perf_counter() - t0)
 
         # Take gradient to get electrostatic force field
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
@@ -1109,7 +1143,9 @@ class ForceField_LJC:
             np.int32(0)
         )
 
-        if bRuntime: print("runtime(ForceField_LJC.calc_force_fft.gradient) [s]: ", time.perf_counter() - t0)
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_fft.gradient) [s]: ", time.perf_counter() - t0)
 
         # Add Lennard-Jones force
         local_size = (min(local_size[0], 64),)
@@ -1125,7 +1161,7 @@ class ForceField_LJC:
         )
 
         if bCopy: FE = self.downloadFF(FE)
-        if bFinish: self.queue.finish()
+        if bFinish or bRuntime: self.queue.finish()
         if bRuntime: print("runtime(ForceField_LJC.calc_force_fft) [s]: ", time.perf_counter() - t0)
 
         return FE

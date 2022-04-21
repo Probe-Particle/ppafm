@@ -65,7 +65,7 @@ def plotImages(
     for ii,i in enumerate(slices):
         print(" plotting ", i)
         plt.figure( figsize=figsize )
-        plt.imshow( F[i], origin='image', interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax )
+        plt.imshow( F[i], origin='lower', interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax )
         if cbar:
             plt.colorbar();
         plotGeom( atoms, bonds, atomSize=atomSize )

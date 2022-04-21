@@ -4,6 +4,9 @@ import os
 import pyopencl as cl
 import numpy    as np 
 
+from . import fieldOCL    as FFcl
+from . import RelaxOpenCL as oclr
+
 #PACKAGE_PATH = None
 #CL_PATH      = None
 #plats      = None
@@ -13,21 +16,20 @@ import numpy    as np
 class OCLEnvironment:
 
     def __init__(self,i_platform=0):
-        self.PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) ); 
-        print("OCLEnvironment platform[%i]" %i_platform," PACKAGE_PATH: ", self.PACKAGE_PATH)
-        self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH + '/../cl' )
-        #self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH )
-        platforms         = cl.get_platforms()
-        print(" i_platform ", i_platform)
+
+        platforms = get_platforms()
         self.platform     = platforms[i_platform]
+        print(f"Initializing an OpenCL environment on {self.platform.name}")
+
+        self.PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) ); 
+        self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH + '/../cl' )
         self.ctx          = cl.Context(properties=[(cl.context_properties.PLATFORM, self.platform)], devices=None)
         self.queue        = cl.CommandQueue(self.ctx)
 
     def loadProgram(self,fname):
         f       = open(fname, 'r')
         fstr    = "".join(f.readlines())
-        cl._DEFAULT_INCLUDE_OPTIONS.append( "-I"+self.CL_PATH  )  # this is a bit a hack !!!   not sure how to add include dir properly https://documen.tician.de/pyopencl/runtime_program.html#program
-        program = cl.Program(self.ctx, fstr ).build()
+        program = cl.Program(self.ctx, fstr ).build(options=['-I', self.CL_PATH])
         return program
 
     def updateBuffer(self, buff, cl_buff, access=cl.mem_flags ):
@@ -63,6 +65,22 @@ class OCLEnvironment:
             print("  MAX_CONSTANT_BUFFER_SIZE = ", device.get_info( cl.device_info.MAX_CONSTANT_BUFFER_SIZE )/4," float32")
             print("  MAX_WORK_GROUP_SIZE      = ", device.get_info( cl.device_info.MAX_WORK_GROUP_SIZE      ))
 
+def get_platforms():
+    try:
+        platforms = cl.get_platforms()
+    except cl._cl.LogicError:
+        raise RuntimeError('Could not find any OpenCL platforms. Check that the OpenCL ICD for your device is installed.')
+    return platforms
+
+def init_env(i_platform=0):
+    env = OCLEnvironment(i_platform)
+    FFcl.init(env)
+    oclr.init(env)
+
+def print_platforms():
+    platforms = get_platforms()
+    for i, plat in enumerate(platforms):
+        print(f'Platform {i}: {plat.name}')
 
 #def init(i_platform=0):
 #    global PACKAGE_PATH #, CL_PATH, plats, ctx,  queue

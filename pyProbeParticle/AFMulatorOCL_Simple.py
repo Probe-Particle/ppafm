@@ -1,21 +1,28 @@
 #!/usr/bin/python3
 
+import os
 import numpy as np
+import pyopencl as cl
 
 from . import common       as PPU
 from . import fieldOCL     as FFcl
 from . import RelaxOpenCL  as oclr
 from . import HighLevelOCL as hl
+from . import oclUtils     as oclu
 
-from .fieldOCL import HartreePotential, MultipoleTipDensity
+from .fieldOCL import HartreePotential, MultipoleTipDensity, hartreeFromFile
+from .basUtils import loadAtomsLines
+from .PPPlot import plotImages
 
 class AFMulator():
     '''
     Simulate Atomic force microscope images of molecules.
     Arguments:
         pixPerAngstrome: int. Number of pixels (voxels) per angstrom in force field grid.
-        lvec: np.ndarray of shape (4,3). Unit cell boundaries for force field. First (row) vector specifies the origin,
-            and the remaining three vectors specify the edge vectors of the unit cell.
+        lvec: np.ndarray of shape (4, 3) or None. Unit cell boundaries for force field. First (row) vector
+            specifies the origin, and the remaining three vectors specify the edge vectors of the unit cell.
+            If None, will be calculated automatically from scan_window and tipR0, leaving some additional space
+            on each side.
         scan_dim: tuple of three ints. Number of scan steps in the (x, y, z) dimensions. The size of the resulting
             images have a size of scan_dim[0] x scan_dim[1] and the number images at different heights is
             scan_dim[2] - df_steps + 1.
@@ -61,12 +68,7 @@ class AFMulator():
 
     def __init__( self, 
         pixPerAngstrome = 10,
-        lvec            = np.array([
-                            [ 0.0,  0.0, 0.0],
-                            [20.0,  0.0, 0.0],
-                            [ 0.0, 20.0, 0.0],
-                            [ 0.0,  0.0, 8.0]
-                          ]),
+        lvec            = None,
         scan_dim        = (128, 128, 30),
         scan_window     = ((2.0, 2.0, 7.0), ( 18.0, 18.0, 10.0)),
         iZPP            = 8,
@@ -83,13 +85,11 @@ class AFMulator():
         initFF          = True 
     ):
 
-        if not FFcl.oclu:
-            raise RuntimeError('Force field OpenCL context not initialized. Initialize with FFcl.init before creating an AFMulator object.')
-        elif not oclr.oclu:
-            raise RuntimeError('Scanner OpenCL context not initialized. Initialize with oclr.init before creating an AFMulator object.')
-        
+        if not FFcl.oclu or not oclr.oclu:
+            oclu.init_env()
+
         self.pixPerAngstrome = pixPerAngstrome
-        self.lvec = lvec
+        self.lvec = lvec if lvec is not None else get_lvec(scan_window, tipR0=tipR0)
         self.scan_dim = scan_dim
         self.scan_window = scan_window
         self.iZPP = iZPP
@@ -151,6 +151,8 @@ class AFMulator():
         Initialize force field and scanner buffers. Call this method after changing parameters in the scanner or forcefield
         or after modifying any of the following attributes: lvec, pixPerAngstrome, scan_dim, scan_window, dfWeight.
         '''
+
+        self.pot = pot
 
         # Set df convolution weights
         self.dz = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
@@ -351,6 +353,105 @@ class AFMulator():
                     f'the boundary of the force-field grid which is not periodic in {dim} dimension. '
                     'If you get artifacts in the images, please check the boundary conditions and '
                     'the size of the scan window and the force field grid.')
+
+def get_lvec(scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0)):
+    pad = np.array(pad)
+    tipR0 = np.array(tipR0)
+    origin = np.array(scan_window[0]) - pad - tipR0
+    end = np.array(scan_window[1]) + pad - tipR0
+    diff = np.array(end) - np.array(origin)
+    lvec = np.array([
+        origin,
+        [diff[0], 0, 0],
+        [0, diff[1], 0],
+        [0, 0, diff[2]]
+    ])
+    return lvec
+
+def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_step=(0.1, 0.1, 0.1),
+        probe_type=8, charge=-0.1, tip='dz2', sigma=0.71, num_heights=10, amplitude=1.0, out_dir=None):
+    '''
+    Make an AFM simulation from a .cube, .xsf, or .xyz file, and print images to a folder.
+
+    Arguments:
+        file_path: str. Path to input file.
+        scan_size: tuple of length 2. Size of scan region in angstroms.
+        offset: tuple of length 2. Offset to center of scan region in angstroms.
+        distance: float. Furthest distance of probe tip from sample.
+        scan_step: tuple of length 3. Scan steps in x, y, and z dimensions.
+        probe_type: int. Probe particle type.
+        charge: float. Tip charge.
+        tip: str. Tip multipole type.
+        sigma: float. Width of tip charge distribution.
+        num_heights: int. Number of different heights to scan.
+        amplitude: float. Oscillation amplitude in angstroms.
+        out_dir: str or None. Output folder path. If None, defaults to afm_ + input_file_name.
+    '''
+
+    if not FFcl.oclu or not oclr.oclu:
+        oclu.init_env()
+
+    if not out_dir:
+        file_name = os.path.split(file_path)[1]
+        file_name = os.path.splitext(file_name)[0]
+        out_dir = f'afm_{file_name}'.replace(' ', '_')
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    # Load input file
+    if file_path.endswith('.xsf') or file_path.endswith('.cube'):
+        qs, xyzs, Zs = hartreeFromFile(file_path)
+        multipole = {tip: charge}
+        Qs = [0, 0, 0, 0]
+        QZs = [0, 0, 0, 0]
+    elif file_path.endswith('.xyz'):
+        with open(file_path, 'r') as f:
+            xyzs, Zs, _, qs = loadAtomsLines(f.readlines())
+        multipole = {}
+        if tip == 's':
+            Qs = [charge, 0, 0, 0]
+            QZs = [0, 0, 0, 0]
+        elif tip == 'pz':
+            Qs = [10*charge, -10*charge, 0, 0]
+            Qzs = [0.1, -0.1, 0, 0]
+        elif tip == 'dz2':
+            Qs = [100*charge, -200*charge, 100*charge, 0]
+            QZs = [0.1, 0, -0.1, 0]
+        else:
+            raise ValueError(f'Unsupported tip type `{tip}` for point charges.')
+    else:
+        raise ValueError(f'Unsupported file format in file `{file_path}`.')
+
+    # Figure out scan parameters
+    z_max = xyzs[:, 2].max() + distance
+    xy_center = (xyzs[:, :2].min(axis=0) + xyzs[:, :2].max(axis=0)) / 2 + np.array(offset)
+    df_steps = int(amplitude / scan_step[2])
+    z_size = (num_heights + df_steps - 1) * scan_step[2]
+    scan_window = (
+        (xy_center[0] - scan_size[0] / 2, xy_center[1] - scan_size[1] / 2, z_max - z_size),
+        (xy_center[0] + scan_size[0] / 2, xy_center[1] + scan_size[1] / 2, z_max)
+    )
+    scan_dim = (int(scan_size[0] / scan_step[0]), int(scan_size[1] / scan_step[1]), int(z_size / scan_step[2]))
+    print(scan_window, scan_dim)
+
+    # Do scan
+    afmulator = AFMulator(
+        scan_window=scan_window,
+        scan_dim=scan_dim,
+        rho=multipole,
+        iZPP=probe_type,
+        Qs=Qs,
+        QZs=QZs,
+        df_steps=df_steps
+    )
+    X = afmulator(xyzs, Zs, qs)
+
+    # Plot
+    X = X[:, :, ::-1].T
+    extent = [scan_window[0][0], scan_window[1][0], scan_window[0][1], scan_window[1][1]]
+    zs = np.linspace(scan_window[0][2], scan_window[1][2], scan_dim[2]+1)[:num_heights]
+    plotImages(os.path.join(out_dir, 'df'), X, range(len(X)), extent=extent, zs=zs)
 
 # ==========================================================
 # ==========================================================

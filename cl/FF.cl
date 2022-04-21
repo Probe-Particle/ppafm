@@ -14,7 +14,7 @@ inline float3 rotMatT( float3 v,  float3 a, float3 b, float3 c  ){ return a*v.x 
 // Do accurate trilinear interpolation of a buffer array. Buffer should use C memory layout.
 // The cartesian position is transformed to the grid coordinate indices using the coordinate transformation
 // matrix whose rows are T_A, T_B, and T_C.
-float linearInterpB(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_C, int3 nGrid, float *buf) {
+float linearInterpB(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_C, int3 nGrid, __global float *buf) {
     
     // Find coordinate index (ijk) that is just before the position and figure out
     // how far past the voxel coordinate we are (d).
@@ -55,7 +55,7 @@ float linearInterpB(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_
 }
 
 // Same as linearInterpB, except for float4 type
-float4 linearInterpB4(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_C, int3 nGrid, float4 *buf) {
+float4 linearInterpB4(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_C, int3 nGrid, __global float4 *buf) {
     
     // Find coordinate index (ijk) that is just before the position and figure out
     // how far past the voxel coordinate we are (d).
