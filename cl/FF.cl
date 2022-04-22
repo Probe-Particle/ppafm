@@ -1439,3 +1439,39 @@ __kernel void evalAtomRfunc(
     }
     FE[iG] = ftot;
 }
+
+// Get z component of electric field as the negative gradient of a Hartree potential in rotated coordinates.
+__kernel void evalHartreeGradientZ(
+    __global float*  pot,   // Hartree potential
+    __global float4* poss,  // Position grid
+    __global float*  field, // Output electric field
+    int4   nGrid_H,         // Size of Hartree potential grid
+    float4 T_A,             // Rows of the transformation matrix for Hartree potential grid lattice coordinates
+    float4 T_B,
+    float4 T_C,
+    float4 origin_H,        // Real-space origin of Hartree potential grid
+    float4 rotA,            // Rows of rotation matrix
+    float4 rotB,
+    float4 rotC,
+    float4 rot_center,      // Point around which rotation is performed
+    float  h                // Finite-difference step
+) {
+
+    // Get positions
+    int ind = get_global_id(0);
+    float3 pos = poss[ind].xyz;
+    float3 d_pos = pos - rot_center.xyz;
+    pos = rot_center.xyz + (float3)(dot(rotA.xyz, d_pos), dot(rotB.xyz, d_pos), dot(rotC.xyz, d_pos));
+    float3 dh = (float3)(0, 0, h);
+    float3 dh_rot = (float3)(dot(rotA.xyz, dh), dot(rotB.xyz, dh), dot(rotC.xyz, dh));
+    float3 pos_p = pos + dh_rot;
+    float3 pos_n = pos - dh_rot;
+
+    // Interpolate potential at points around the center
+    float pot_p = linearInterpB(pos_p.xyz, origin_H.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid_H.xyz, pot);
+    float pot_n = linearInterpB(pos_n.xyz, origin_H.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid_H.xyz, pot);
+
+    // Compute value of field as centered difference.
+    field[ind] = 0.5*(pot_n - pot_p) / h;
+
+}   

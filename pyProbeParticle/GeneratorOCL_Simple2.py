@@ -6,12 +6,21 @@ import numpy as np
 from . import basUtils
 from . import common as PPU
 
-import numpy as np
+from .AFMulatorOCL_Simple import get_lvec
 
 class InverseAFMtrainer:
     '''
     A data generator for training machine learning models. Generates batches of input/output pairs.
     An iterator.
+
+    Yields batches of samples (Xs, Ys, mols), where Xs are AFM images, Ys are aux map descriptors, and mols
+    are molecules. Xs is a list of np.ndarray of shape (n_batch, sx, sy, sz), Ys is a list of np.ndarray of
+    shape (n_batch, sx, sy), and mols is a list of length n_batch of np.ndarray of shape (n_atoms, 5), where
+    n_batch is the batch size, sx, sy, and sz are the scan sizes in x, y, and z dimensions, respectively,
+    and n_atoms is the number of atoms. The outer lists correspond to the tip number in Xs, the aux map number
+    in Ys. In mols the rows of the arrays correspond to the x, y, and z coordinates, the charge, and the element
+    of each atom.
+
     Arguments:
         afmulator: An instance of AFMulatorOCL_Simple.AFMulator.
         auxmaps: list of AuxMap objects.
@@ -254,6 +263,185 @@ class InverseAFMtrainer:
         Excecuted right before every AFM image evalution. Override to modify the parameters for each AFM image.
         '''
         pass
+
+class HartreeAFMtrainer(InverseAFMtrainer):
+    '''
+    Generate batches of input/output pairs for machine learning based on Hartree potentials. An iterator.
+
+    Arguments:
+        afmulator: An instance of AFMulatorOCL_Simple.AFMulator.
+        auxmaps: list of AuxMap objects.
+        sample_generator: Iterable. An iterable that returns tuples (hartree, xyzs, Zs, rotations), where
+            hartree is a HartreePotential, xyzs is a np.ndarray of shape (n_atoms, 3), Zs is a np.ndarray of
+            shape (n_atoms,), and rotations is a list of np.ndarray of shape (3, 3). Input/output samples will be
+            generated for each rotation in rotations of the molecule specified by the atomic coordinates in
+            xyzs, elements in Zs, and Hartree potential in hartree.
+        batch_size: int. Number of samples per batch.
+        distAbove: float. Tip-sample distance parameter.
+        iZPPs: list of int. Elements for AFM tips. Image is produced with every tip for each sample.
+        rhos: list of dict or MultipoleTipDensity. Tip charge densities.
+    '''
+
+    def __init__(self, 
+            afmulator, aux_maps, sample_generator,
+            batch_size = 30,
+            distAbove  = 5.3,
+            iZPPs      = [8],
+            rhos       = [{'dz2': -0.1}]
+        ):
+
+        assert len(iZPPs) == len(rhos)
+
+        Qs = QZs = [[0, 0, 0, 0] for _ in range(len(iZPPs))]
+        super().__init__(afmulator, aux_maps, [], batch_size, distAbove, iZPPs, Qs, QZs)
+
+        self.sample_generator = sample_generator
+        self._prepareBuffers(rhos)
+
+        sw = self.afmulator.scan_window
+        self.scan_size = (sw[1][0] - sw[0][0], sw[1][1] - sw[0][1], sw[1][2] - sw[0][2])
+
+    def _prepareBuffers(self, rhos):
+        self.rhos = []
+        self.ffts = []
+        for rho in rhos:
+            self.afmulator.rho = rho
+            self.afmulator.initFF()
+            self.rhos.append(self.afmulator.forcefield.rho)
+            self.ffts.append(self.afmulator.forcefield.fft_conv)
+
+    def __next__(self):
+
+        if self.iteration_done:
+            raise StopIteration
+
+        # Callback
+        self.on_batch_start()
+        
+        mols = []
+        Xs = [[] for _ in range(len(self.iZPPs))]
+        Ys = [[] for _ in range(len(self.aux_maps))]
+
+        if self.bRuntime: batch_start = time.time()
+
+        for s in range(self.batch_size):
+
+            if self.bRuntime: sample_start = time.time()
+
+            # Load sample
+            if len(self.rots) == 0:
+                if self.pot:
+                    self.pot.release()
+                try:
+                    self.pot, self.xyzs, self.Zs, self.rots = next(self.sample_iterator)
+                    self.qs = np.zeros(len(self.xyzs))
+                except StopIteration:
+                    self.iteration_done = True
+                    break
+
+            # Get rotation
+            rot = self.rots.pop(0)
+            xyz_center = self.xyzs.mean(axis=0)
+            self.xyzs_rot = np.dot(self.xyzs - xyz_center, rot.T) + xyz_center
+            mol = np.concatenate([self.xyzs_rot, self.qs[:, None], self.Zs[:, None]], axis=1)
+            mols.append(mol)
+
+            # Make sure the molecule is in right position
+            self.handle_positions()
+
+            # Callback
+            self.on_sample_start()
+
+            # Get AFM
+            for i, (iZPP, rho, fft) in enumerate(zip(self.iZPPs, self.rhos, self.ffts)): # Loop over different tips
+
+                # Set interaction parameters
+                self.afmulator.iZPP = iZPP
+                self.afmulator.forcefield.rho = rho
+                self.afmulator.forcefield.fft_conv = fft
+                self.REAs = PPU.getAtomsREA( self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0 )
+
+                # Make sure tip-sample distance is right
+                self.handle_distance()
+                
+                # Callback
+                self.on_afm_start()
+
+                # Evaluate AFM
+                if self.bRuntime: afm_start = time.time()
+                Xs[i].append(self.afmulator(self.xyzs, self.Zs, self.pot, rot=rot, REAs=self.REAs))
+                if self.bRuntime: print(f'AFM {i} runtime [s]: {time.time() - afm_start}')
+
+            # Get AuxMaps
+            for i, aux_map in enumerate(self.aux_maps):
+                if self.bRuntime: aux_start = time.time()
+                xyzqs = np.concatenate([self.xyzs, self.qs[:, None]], axis=1)
+                Ys[i].append(aux_map(xyzqs, self.Zs, self.pot, rot))
+                if self.bRuntime: print(f'AuxMap {i} runtime [s]: {time.time() - aux_start}')
+
+            if self.bRuntime: print(f'Sample {s} runtime [s]: {time.time() - sample_start}')
+
+        if len(mols) == 0: # Sample iterator was empty
+            raise StopIteration
+
+        Xs = [np.stack(x, axis=0) for x in Xs]
+        Ys = [np.stack(y, axis=0) for y in Ys]
+
+        if self.bRuntime: print(f'Batch runtime [s]: {time.time() - batch_start}')
+
+        return Xs, Ys, mols
+    
+    def __iter__(self):
+        self.pot = None
+        self.xyzs = None
+        self.Zs = None
+        self.rots = []
+        self.sample_iterator = iter(self.sample_generator)
+        self.iteration_done = False
+        return self
+    
+    def __len__(self):
+        '''
+        Returns the number of batches that will be generated. Requires for the sample generator
+        to have attribute __len__ that returns the total number of samples (including rotations).
+        '''
+        if not hasattr(self.sample_generator, '__len__'):
+            raise RuntimeError('Cannot infer the number of batches because sample generator does not '
+                'have length attribute.')
+        return int(np.floor(len(self.sample_generator)/self.batch_size))
+
+    def handle_positions(self):
+        '''
+        Shift afmulator and aux map scan windows to center on the molecule.
+        '''
+        ss = self.scan_size
+        sw = self.afmulator.scan_window
+        xy_center = self.xyzs[:, :2].mean(axis=0)
+        self.afmulator.scan_window = (
+            (xy_center[0] - ss[0] / 2, xy_center[1] - ss[1] / 2, sw[0][2]),
+            (xy_center[0] + ss[0] / 2, xy_center[1] + ss[1] / 2, sw[1][2])
+        )
+
+        sw = self.afmulator.scan_window
+        for aux_map in self.aux_maps:
+            aux_map.scan_window = ((sw[0][0], sw[0][1]), (sw[1][0], sw[1][1]))
+
+    def handle_distance(self):
+        '''
+        Set correct distance of the afmulator scan window from the current molecule and readjust lvec of force field.
+        '''
+        RvdwPP = self.afmulator.typeParams[self.afmulator.iZPP-1][0]
+        Rvdw = self.REAs[:,0] - RvdwPP
+        zs = self.xyzs_rot[:,2]
+        imax = np.argmax(zs + Rvdw)
+        total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
+        z_max = self.xyzs_rot[:, 2].max() + total_distance
+        sw = self.afmulator.scan_window
+        self.afmulator.scan_window = (
+            (sw[0][0], sw[0][1], z_max - self.scan_size[2]),
+            (sw[1][0], sw[1][1], z_max)
+        )
+        self.afmulator.forcefield.setLvec(get_lvec(self.afmulator.scan_window, tipR0=self.afmulator.tipR0))
     
 def sortRotationsByEntropy(xyzs, rotations):
     rots = []

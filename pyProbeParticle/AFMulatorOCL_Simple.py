@@ -124,7 +124,8 @@ class AFMulator():
         Arguments:
             xyzs: np.ndarray of shape (num_atoms, 3). Positions of atoms in x, y, and z.
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
-            qs: np.ndarray of shape (num_atoms,) or HartreePotential. Charges of atoms or hartree potential.
+            qs: np.ndarray of shape (num_atoms,) or HartreePotential or None. Charges of atoms or hartree potential.
+                If None, then no electrostatics are used.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
@@ -146,13 +147,11 @@ class AFMulator():
 
     # ========= Setup =========
 
-    def initFF(self, pot=None):
+    def initFF(self):
         '''
         Initialize force field and scanner buffers. Call this method after changing parameters in the scanner or forcefield
         or after modifying any of the following attributes: lvec, pixPerAngstrome, scan_dim, scan_window, dfWeight.
         '''
-
-        self.pot = pot
 
         # Set df convolution weights
         self.dz = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
@@ -171,7 +170,7 @@ class AFMulator():
                 multipole=self.rho, ctx=self.forcefield.ctx)
         else:
             tip_density = self.rho
-        self.forcefield.prepareBuffers(rho=tip_density, pot=pot)
+        self.forcefield.prepareBuffers(rho=tip_density)
 
         # Initialize scanner
         self.scanner.zstep = self.dz
@@ -205,7 +204,7 @@ class AFMulator():
             xyzs: np.ndarray of shape (num_atoms, 3). Positions of atoms in x, y, and z.
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
             qs: np.ndarray of shape (num_atoms,) or HartreePotential or None. Charges of atoms or hartree potential.
-                If None, then has to be prepared beforehand with initFF.
+                If None, then no electrostatics are used.
             rot: np.ndarray of shape (3, 3). Rotation matrix to apply to atom positions.
             rot_center: np.ndarray of shape (3,). Center for rotation. Defaults to center of atom coordinates.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
@@ -213,10 +212,7 @@ class AFMulator():
 
         # Check if using point charges or precomputed Hartee potential
         if qs is None:
-            if self.pot is None:
-                raise ValueError('No sample charge specified. Either pass it here or initialize beforehand '
-                    'with initFF.')
-            pot = self.pot
+            pot = None
             qs = np.zeros(len(Zs))
         elif isinstance(qs, HartreePotential):
             pot = qs
@@ -224,7 +220,7 @@ class AFMulator():
         else:
             pot = None
 
-        if rot_center is None: 
+        if rot_center is None:
             rot_center = xyzs.mean(axis=0)
 
         # Get Lennard-Jones parameters apply periodic boundary conditions to atoms

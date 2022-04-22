@@ -1781,3 +1781,47 @@ class AtomProcjetion:
         self.queue.finish()
         return Eout
 
+    def run_evalHartreeGradient(self, pot, poss=None, Eout=None, h=None, rot=np.eye(3), rot_center=None,
+            local_size=(32,)):
+        '''
+        Get electric field as the negative gradient of a Hartree potential.
+
+        Arguments:
+            pot: HartreePotential. Hartree potential to differentiate.
+            poss: np.ndarray or None. Position grid for points to get the field at.
+            Eout: np.ndarray or None. Output array. If None, will be created automatically.
+            h: float > 0.0 or None. Finite difference step size (one-sided) in angstroms. If None, the default
+                value DEFAULT_FD_STEP is used.
+            rot: np.ndarray of shape (3, 3). Rotation matrix to apply to the position coordinates.
+            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            local_size: tuple of a single int. Size of local work group on device.
+        '''
+
+        if Eout is None:
+            Eout = np.zeros(self.prj_dim[:2], dtype=np.float32)
+            if(verbose>0): print("FE.shape", Eout.shape, self.nDim)
+        if poss is not None:
+            if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            oclu.updateBuffer(poss, self.cl_poss)
+
+        
+        global_size = (int(np.ceil(np.prod(self.prj_dim[:2]) / local_size[0]) * local_size[0]),)
+        T = np.append(np.linalg.inv(pot.step).T.copy(), np.zeros((3, 1)), axis=1).astype(np.float32)
+        rot = np.append(rot, np.zeros((3, 1)), axis=1).astype(np.float32)
+        h = h or DEFAULT_FD_STEP
+
+        cl_program.evalHartreeGradientZ(self.queue, global_size, local_size,
+            pot.cl_array,
+            self.cl_poss,
+            self.cl_Eout,
+            np.append(pot.shape, 0).astype(np.int32),
+            T[0], T[1], T[2],
+            np.append(pot.origin, 0).astype(np.float32),
+            rot[0], rot[1], rot[2],
+            np.append(rot_center, 0).astype(np.float32),
+            np.float32(h),
+        )
+        cl.enqueue_copy(self.queue, Eout, self.cl_Eout)
+        self.queue.finish()
+
+        return Eout
