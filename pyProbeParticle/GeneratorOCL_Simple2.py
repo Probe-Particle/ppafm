@@ -322,11 +322,11 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         Xs = [[] for _ in range(len(self.iZPPs))]
         Ys = [[] for _ in range(len(self.aux_maps))]
 
-        if self.bRuntime: batch_start = time.time()
+        if self.bRuntime: batch_start = time.perf_counter()
 
         for s in range(self.batch_size):
 
-            if self.bRuntime: sample_start = time.time()
+            if self.bRuntime: sample_start = time.perf_counter()
 
             # Load sample
             if len(self.rots) == 0:
@@ -352,6 +352,8 @@ class HartreeAFMtrainer(InverseAFMtrainer):
             # Callback
             self.on_sample_start()
 
+            if self.bRuntime: print(f'Sample {s} preparation time [s]: {time.perf_counter() - sample_start}')
+
             # Get AFM
             for i, (iZPP, rho, fft) in enumerate(zip(self.iZPPs, self.rhos, self.ffts)): # Loop over different tips
 
@@ -368,18 +370,18 @@ class HartreeAFMtrainer(InverseAFMtrainer):
                 self.on_afm_start()
 
                 # Evaluate AFM
-                if self.bRuntime: afm_start = time.time()
+                if self.bRuntime: afm_start = time.perf_counter()
                 Xs[i].append(self.afmulator(self.xyzs, self.Zs, self.pot, rot=rot, REAs=self.REAs))
-                if self.bRuntime: print(f'AFM {i} runtime [s]: {time.time() - afm_start}')
+                if self.bRuntime: print(f'AFM {i} runtime [s]: {time.perf_counter() - afm_start}')
 
             # Get AuxMaps
             for i, aux_map in enumerate(self.aux_maps):
-                if self.bRuntime: aux_start = time.time()
+                if self.bRuntime: aux_start = time.perf_counter()
                 xyzqs = np.concatenate([self.xyzs, self.qs[:, None]], axis=1)
                 Ys[i].append(aux_map(xyzqs, self.Zs, self.pot, rot))
-                if self.bRuntime: print(f'AuxMap {i} runtime [s]: {time.time() - aux_start}')
+                if self.bRuntime: print(f'AuxMap {i} runtime [s]: {time.perf_counter() - aux_start}')
 
-            if self.bRuntime: print(f'Sample {s} runtime [s]: {time.time() - sample_start}')
+            if self.bRuntime: print(f'Sample {s} runtime [s]: {time.perf_counter() - sample_start}')
 
         if len(mols) == 0: # Sample iterator was empty
             raise StopIteration
@@ -387,7 +389,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         Xs = [np.stack(x, axis=0) for x in Xs]
         Ys = [np.stack(y, axis=0) for y in Ys]
 
-        if self.bRuntime: print(f'Batch runtime [s]: {time.time() - batch_start}')
+        if self.bRuntime: print(f'Batch runtime [s]: {time.perf_counter() - batch_start}')
 
         return Xs, Ys, mols
     

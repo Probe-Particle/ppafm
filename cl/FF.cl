@@ -477,15 +477,6 @@ __kernel void addLJ(
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
-    // if (ind == 0) {
-    //     float4 fe_ind = FE[ind];
-    //     printf("ijk (%d, %d, %d), FE[%d] = (%f, %f, %f, %f) + (%f, %f, %f, %f)\n", i, j, k, ind,
-    //         fe_ind.x, fe_ind.y, fe_ind.z, fe_ind.w,
-    //         fe.x, fe.y, fe.z, fe.w);
-    //     printf("nAtoms %d, atoms[0].xyzw = (%f, %f, %f, %f)", nAtoms,
-    //         atoms[0].x, atoms[0].y, atoms[0].z, atoms[0].w);
-    // }
-
     // Add to forcefield grid
     FE[ind] += fe;
 }

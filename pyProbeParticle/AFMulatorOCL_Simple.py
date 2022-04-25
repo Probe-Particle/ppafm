@@ -239,7 +239,7 @@ class AFMulator():
 
             if pot:
                 self.forcefield.makeFFHartree(xyzqs[:, :3], cLJs, pot=pot, rho=None,
-                    rot=rot, rot_center=rot_center, bRelease=False, bFinish=False)
+                    rot=rot, rot_center=rot_center, bRelease=False, bCopy=False, bFinish=False)
             else:
                 self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=False,
                     Qmix=None, bRelease=False, bCopy=False, bFinish=True, bQZ=True)
