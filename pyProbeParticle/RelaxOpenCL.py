@@ -257,62 +257,50 @@ class RelaxedScanner:
             nbytes+=atoms.nbytes
         if(verbose>0): print("prepareAuxMapBuffers.nbytes: ", nbytes)
 
-    def prepareBuffers(self, FEin_np=None, lvec=None, FEin_cl=None, FEin_shape=None, scan_dim=(100,100,20), nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, atoms=None ):
-        #print " ========= prepareBuffers ", prepareBuffersbZMap
-        self.scan_dim = scan_dim
-        if lvec is not None:
-            self.invCell  = getInvCell(lvec)
+    def prepareBuffers(self, FEin_np=None, lvec=None, FEin_cl=None, FEin_shape=None, scan_dim=None, nDimConv=None,
+            nDimConvOut=None, bZMap=False, bFEmap=False, atoms=None):
+        
         nbytes = 0
-        #print "prepareBuffers FE.shape", FE.shape
-        mf       = cl.mem_flags
+        mf = cl.mem_flags
 
-        # to learn how to copy GPU-hosted buffer to image:
-        #   https://github.com/inducer/pyopencl/blob/9a9c093d437ee10f7b9593cac90c0f9c0fd54ff5/pyopencl/__init__.py
-        #print "RelaxedScanner.prepareBuffers"
+        if lvec is not None: self.invCell = getInvCell(lvec)
         if FEin_np is not None:
             self.cl_ImgIn = cl.image_from_array(self.ctx,FEin_np,num_channels=4,mode='r');  nbytes+=FEin_np.nbytes        # TODO make this re-uploadable
             if(verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn) 
         else:
-            if  FEin_shape is not None:
+            if FEin_shape is not None:
                 self.FEin_shape   = FEin_shape
                 self.image_format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
-                self.cl_ImgIn     = cl.Image(self.ctx, mf.READ_ONLY, self.image_format, shape=FEin_shape[:3], pitches=None, hostbuf=None, is_array=False, buffer=None)
+                self.cl_ImgIn     = cl.Image(self.ctx, mf.READ_ONLY, self.image_format, shape=FEin_shape[:3],
+                    pitches=None, hostbuf=None, is_array=False, buffer=None)
                 if(verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn) 
             if FEin_cl is not None:
-                #print "FEin_shape : ", FEin_shape
-                #self.image_format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
-                #format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
-                #print "self.cl_ImgIn", self.cl_ImgIn
                 self.updateFEin( FEin_cl )
                 self.FEin_cl=FEin_cl
             
-        # see:    https://stackoverflow.com/questions/39533635/pyopencl-3d-rgba-image-from-numpy-array
-        #img_format = cl.ImageFormat( cl.channel_order.RGBA, channel_type)
-        #self.cl_ImgIn =  cl.Image(self.ctx, mf.READ_ONLY, img_format, shape=None, pitches=None, is_array=False, buffer=None)
-        fsize  = np.dtype(np.float32).itemsize
-        f4size = fsize * 4
-        nxy    =  self.scan_dim[0] * self.scan_dim[1]
-        bsz    = f4size * nxy
-        self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz                    );   nbytes+=bsz                  # float4
-        self.cl_FEout = cl.Buffer(self.ctx, mf.READ_WRITE, bsz * self.scan_dim[2] );   nbytes+=bsz*self.scan_dim[2]
-        if nDimConv is not None:
-            self.nDimConv    = nDimConv
-            self.nDimConvOut = nDimConvOut
-#            print "nDimConv %i nDimConvOut %i" %( nDimConv, nDimConvOut )
-            self.cl_FEconv  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz       * self.nDimConvOut ); nbytes += bsz  *self.nDimConvOut
-            self.cl_WZconv  = cl.Buffer(self.ctx, mf.READ_ONLY,  fsize     * self.nDimConv    ); nbytes += fsize*self.nDimConv
-            #self.FEconv = np.zeros( (self.scan_dim[0],self.scan_dim[1],self.nDimConvOut) )
-            self.FEconv  = np.empty(  self.scan_dim[:2]+(self.nDimConvOut,4,), dtype=np.float32 )
+        # see: https://stackoverflow.com/questions/39533635/pyopencl-3d-rgba-image-from-numpy-array
+        if scan_dim is not None:
+            self.scan_dim = scan_dim
+            fsize  = np.dtype(np.float32).itemsize
+            f4size = fsize * 4
+            nxy    = self.scan_dim[0] * self.scan_dim[1]
+            bsz    = f4size * nxy
+            self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz                    );   nbytes+=bsz                  # float4
+            self.cl_FEout = cl.Buffer(self.ctx, mf.READ_WRITE, bsz * self.scan_dim[2] );   nbytes+=bsz*self.scan_dim[2]
+            if nDimConv is not None:
+                self.nDimConv    = nDimConv
+                self.nDimConvOut = nDimConvOut
+                self.cl_FEconv = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz   * self.nDimConvOut ); nbytes += bsz   * self.nDimConvOut
+                self.cl_WZconv = cl.Buffer(self.ctx, mf.READ_ONLY,  fsize * self.nDimConv    ); nbytes += fsize * self.nDimConv
+                self.FEconv = np.empty(  self.scan_dim[:2]+(self.nDimConvOut,4,), dtype=np.float32 )
 
-        self.cl_zMap = None; self.cl_feMap=None;
         if bZMap:
-#            print "nxy ", nxy
-            # print("allocate zMap")
             self.cl_zMap    = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize   ); nbytes += nxy*fsize
         if bFEmap:
             self.cl_feMap  = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize*4  ); nbytes += nxy*fsize*4
         if atoms is not None:
             self.updateAtoms(atoms); nbytes+=atoms.nbytes
+        
         if(verbose>0): print("prepareBuffers.nbytes: ", nbytes)
 
     def releaseBuffers(self):
@@ -379,17 +367,13 @@ class RelaxedScanner:
         return poss
 
     def updateBuffers(self, FEin=None, lvec=None, WZconv=None ):
-        #if FEout is None:    FEout = np.zeros( self.scan_dim+(4,), dtype=np.float32 )
         if lvec is not None: self.invCell = getInvCell(lvec)
         if FEin is not None:
             region = FEin.shape[:3]; region = region[::-1]; 
             if(verbose>0): print("region : ", region)
             cl.enqueue_copy( self.queue, self.cl_ImgIn, FEin, origin=(0,0,0), region=region )
         if WZconv is not None:
-            #print "WZconv: ", WZconv.dtype, WZconv
-            #cl.enqueue_copy( self.queue, WZconv, self.cl_WZconv )
             cl.enqueue_copy( self.queue, self.cl_WZconv, WZconv )
-            #self.queue.finish()
 
     def run(self, FEout=None, FEin=None, lvec=None, nz=None ):
         '''

@@ -299,14 +299,14 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         self._prepareBuffers(rhos)
 
         sw = self.afmulator.scan_window
+        self.scan_window = sw
         self.scan_size = (sw[1][0] - sw[0][0], sw[1][1] - sw[0][1], sw[1][2] - sw[0][2])
 
     def _prepareBuffers(self, rhos):
         self.rhos = []
         self.ffts = []
         for rho in rhos:
-            self.afmulator.rho = rho
-            self.afmulator.initFF()
+            self.afmulator.setRho(rho)
             self.rhos.append(self.afmulator.forcefield.rho)
             self.ffts.append(self.afmulator.forcefield.fft_conv)
 
@@ -365,6 +365,10 @@ class HartreeAFMtrainer(InverseAFMtrainer):
 
                 # Make sure tip-sample distance is right
                 self.handle_distance()
+
+                # Set AFMulator scan window and force field lattice vectors
+                self.afmulator.setScanWindow(self.scan_window)
+                self.afmulator.setLvec()
                 
                 # Callback
                 self.on_afm_start()
@@ -414,23 +418,22 @@ class HartreeAFMtrainer(InverseAFMtrainer):
 
     def handle_positions(self):
         '''
-        Shift afmulator and aux map scan windows to center on the molecule.
+        Shift scan window laterally to center on the molecule.
         '''
         ss = self.scan_size
-        sw = self.afmulator.scan_window
+        sw = self.scan_window
         xy_center = self.xyzs[:, :2].mean(axis=0)
-        self.afmulator.scan_window = (
+        sw = (
             (xy_center[0] - ss[0] / 2, xy_center[1] - ss[1] / 2, sw[0][2]),
             (xy_center[0] + ss[0] / 2, xy_center[1] + ss[1] / 2, sw[1][2])
         )
-
-        sw = self.afmulator.scan_window
+        self.scan_window = sw
         for aux_map in self.aux_maps:
             aux_map.scan_window = ((sw[0][0], sw[0][1]), (sw[1][0], sw[1][1]))
 
     def handle_distance(self):
         '''
-        Set correct distance of the afmulator scan window from the current molecule and readjust lvec of force field.
+        Set correct distance of the scan window from the current molecule.
         '''
         RvdwPP = self.afmulator.typeParams[self.afmulator.iZPP-1][0]
         Rvdw = self.REAs[:,0] - RvdwPP
@@ -438,12 +441,11 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         imax = np.argmax(zs + Rvdw)
         total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
         z_max = self.xyzs_rot[:, 2].max() + total_distance
-        sw = self.afmulator.scan_window
-        self.afmulator.scan_window = (
+        sw = self.scan_window
+        self.scan_window = (
             (sw[0][0], sw[0][1], z_max - self.scan_size[2]),
             (sw[1][0], sw[1][1], z_max)
         )
-        self.afmulator.forcefield.setLvec(get_lvec(self.afmulator.scan_window, tipR0=self.afmulator.tipR0))
     
 def sortRotationsByEntropy(xyzs, rotations):
     rots = []

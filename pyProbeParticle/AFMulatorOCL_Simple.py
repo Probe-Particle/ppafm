@@ -54,7 +54,6 @@ class AFMulator():
 
     bNoPoss    = True    # Use algorithm which does not need to store array of FF_grid-sampling positions in memory (neither GPU-memory nor main-memory)
     bNoFFCopy  = True    # Should we copy Force-Field grid from GPU  to main_mem ?  ( Or we just copy it just internally withing GPU directly to image/texture used by RelaxedScanner )
-    bFEoutCopy = False   # Should we copy un-convolved FEout from GPU to main_mem ? ( Or we should copy oly final convolved FEconv? ) 
     bMergeConv = False   # Should we use merged kernel relaxStrokesTilted_convZ or two separated kernells  ( relaxStrokesTilted, convolveZ  )
 
     # --- Relaxation
@@ -81,17 +80,18 @@ class AFMulator():
         tipStiffness    = [0.25, 0.25, 0.0, 30.0],
         npbc            = (1, 1, 0),
         f0Cantilever    = 30300,
-        kCantilever     = 1800,
-        initFF          = True 
+        kCantilever     = 1800
     ):
 
         if not FFcl.oclu or not oclr.oclu:
             oclu.init_env()
 
-        self.pixPerAngstrome = pixPerAngstrome
-        self.lvec = lvec if lvec is not None else get_lvec(scan_window, tipR0=tipR0)
-        self.scan_dim = scan_dim
-        self.scan_window = scan_window
+        self.forcefield = FFcl.ForceField_LJC()
+
+        self.scanner = oclr.RelaxedScanner()
+        self.scanner.relax_params = np.array( self.relaxParams, dtype=np.float32 )
+        self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
+
         self.iZPP = iZPP
         self.df_steps = df_steps
         self.tipR0 = tipR0
@@ -99,23 +99,14 @@ class AFMulator():
         self.kCantilever = kCantilever
         self.npbc = npbc
         self.pot = None
-        self.rho = rho
-        self.sigma = sigma
 
-        self.typeParams = hl.loadSpecies('atomtypes.ini')
-
-        self.forcefield = FFcl.ForceField_LJC()
+        self.setScanWindow(scan_window, scan_dim)
+        self.setLvec(lvec, pixPerAngstrome)
+        self.setRho(rho, sigma)
         self.setQs(Qs, QZs)
 
-        self.scanner = oclr.RelaxedScanner()
-        self.scanner.relax_params = np.array( self.relaxParams, dtype=np.float32 )
-        self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
-
-        if initFF:
-            self.initFF()
-
+        self.typeParams = hl.loadSpecies('atomtypes.ini')
         self.saveFFpre = ""
-
         self.counter = 0
     
     def eval(self, xyzs, Zs, qs, rot=np.eye(3), rot_center=None, REAs=None, X=None ):
@@ -147,53 +138,70 @@ class AFMulator():
 
     # ========= Setup =========
 
-    def initFF(self):
-        '''
-        Initialize force field and scanner buffers. Call this method after changing parameters in the scanner or forcefield
-        or after modifying any of the following attributes: lvec, pixPerAngstrome, scan_dim, scan_window, dfWeight.
-        '''
+    def setLvec(self, lvec=None, pixPerAngstrome=None):
+        ''' Set forcefield lattice vectors. If lvec is not given it is inferred from the scan window.'''
+
+        if lvec is not None:
+            self.lvec = lvec
+        else:
+            self.lvec = get_lvec(self.scan_window, tipR0=self.tipR0)
+        if pixPerAngstrome is not None:
+            self.pixPerAngstrome = pixPerAngstrome
+        
+        # Remember old grid size
+        if hasattr(self.forcefield, 'nDim'):
+            self._old_nDim = self.forcefield.nDim.copy()
+        else:
+            self._old_nDim = np.zeros(4)
+
+        # Set lvec in force field and scanner
+        if self.bNoPoss:
+            self.forcefield.initSampling(self.lvec, pixPerAngstrome=self.pixPerAngstrome)
+        else:
+            self.forcefield.initPoss(lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome)
+        self.scanner.prepareBuffers(lvec=self.lvec, FEin_shape=self.forcefield.nDim)
+
+    def setScanWindow(self, scan_window=None, scan_dim=None):
+        '''Set scanner scan window.'''
+
+        if scan_window is not None:
+            self.scan_window = scan_window
+        if scan_dim is not None:
+            self.scan_dim = scan_dim
 
         # Set df convolution weights
         self.dz = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
         self.dfWeight = PPU.getDfWeight(self.df_steps, dz=self.dz)[0].astype(np.float32)
         self.dfWeight *= PPU.eVA_Nm * self.f0Cantilever / self.kCantilever
         self.amplitude = self.dz * len(self.dfWeight)
-
-        # Initialize force field
-        self.forcefield.tryReleaseBuffers()
-        if self.bNoPoss:
-            self.forcefield.initSampling( self.lvec, pixPerAngstrome=self.pixPerAngstrome )
-        else:
-            self.forcefield.initPoss( lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome )
-        if isinstance(self.rho, dict):
-            tip_density = MultipoleTipDensity(self.forcefield.lvec[:, :3], self.forcefield.nDim[:3], sigma=self.sigma,
-                multipole=self.rho, ctx=self.forcefield.ctx)
-        else:
-            tip_density = self.rho
-        self.forcefield.prepareBuffers(rho=tip_density)
-
-        # Initialize scanner
         self.scanner.zstep = self.dz
-        if self.bNoFFCopy:
-            self.scanner.prepareBuffers(lvec=self.lvec, FEin_cl=None,
-                FEin_shape=self.forcefield.nDim, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight),
-                nDimConvOut=(self.scan_dim[2] - len(self.dfWeight) + 1)
-            )
-            self.scanner.updateBuffers(WZconv=self.dfWeight)
-            self.scanner.preparePosBasis( start=self.scan_window[0][:2], end=self.scan_window[1][:2] )
-        else:
-            self.FEin = np.empty( self.forcefield.nDim, np.float32 )
 
-        # Check if the scan window extends over any non-periodic boundaries and issue a warning if it does
-        self.check_scan_window()
+        # Prepare buffers
+        self.scanner.prepareBuffers(scan_dim=self.scan_dim, nDimConv=len(self.dfWeight),
+            nDimConvOut=(self.scan_dim[2] - len(self.dfWeight) + 1))
+        self.scanner.updateBuffers(WZconv=self.dfWeight)
+        self.scanner.preparePosBasis(start=self.scan_window[0][:2], end=self.scan_window[1][:2] )
+
+    def setRho(self, rho=None, sigma=0.71):
+        '''Set tip charge distribution.'''
+        self.sigma = sigma
+        if rho is not None:
+            self._rho = rho # Remember argument value so that if it's a dict the tip density can be recalculated if necessary
+            if isinstance(rho, dict):
+                self.rho = MultipoleTipDensity(self.forcefield.lvec[:, :3], self.forcefield.nDim[:3], sigma=self.sigma,
+                    multipole=rho, ctx=self.forcefield.ctx)
+            else:
+                self.rho = rho
+            self.forcefield.prepareBuffers(rho=self.rho)
+        else:
+            self._rho = None
+            self.rho = None
 
     def setQs(self, Qs, QZs):
-        '''
-        Set tip charges.
-        '''
+        '''Set tip point charges.'''
         self.Qs = Qs
         self.QZs = QZs
-        self.forcefield.setQs( Qs=Qs, QZs=QZs )
+        self.forcefield.setQs(Qs=Qs, QZs=QZs)
 
     # ========= Imaging =========
 
@@ -210,6 +218,16 @@ class AFMulator():
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
         '''
 
+        # Check if the scan window extends over any non-periodic boundaries and issue a warning if it does
+        self.check_scan_window()
+
+        # (Re)initialize force field if the size of the grid changed since last run.
+        if (self._old_nDim != self.forcefield.nDim).all():
+            if self.verbose > 0: print('(Re)initializing force field buffers.')
+            self.forcefield.tryReleaseBuffers()
+            self.setRho(self._rho, self.sigma)
+            self.forcefield.prepareBuffers()
+        
         # Check if using point charges or precomputed Hartee potential
         if qs is None:
             pot = None
@@ -223,47 +241,31 @@ class AFMulator():
         if rot_center is None:
             rot_center = xyzs.mean(axis=0)
 
-        # Get Lennard-Jones parameters apply periodic boundary conditions to atoms
+        # Get Lennard-Jones parameters and apply periodic boundary conditions to atoms
         self.natoms0 = len(Zs)
         if REAs is None:
             self.REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
         else:
             self.REAs = REAs
         cLJs = PPU.REA2LJ(self.REAs)
-        if( self.npbc is not None ):
-            Zs, xyzqs, cLJs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc)
+        Zs, xyzqs, cLJs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc)
         self.Zs = Zs
             
         # Compute force field
         if self.bNoFFCopy:
-
             if pot:
-                self.forcefield.makeFFHartree(xyzqs[:, :3], cLJs, pot=pot, rho=None,
-                    rot=rot, rot_center=rot_center, bRelease=False, bCopy=False, bFinish=False)
+                self.forcefield.makeFFHartree(xyzqs[:, :3], cLJs, pot=pot, rho=None, rot=rot,
+                    rot_center=rot_center, bRelease=False, bCopy=False, bFinish=False)
             else:
-                self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=False,
-                    Qmix=None, bRelease=False, bCopy=False, bFinish=True, bQZ=True)
+                self.forcefield.makeFF(atoms=xyzqs, cLJs=cLJs, FE=False, Qmix=None,
+                    bRelease=False, bCopy=False, bFinish=True, bQZ=True)
             self.atoms = self.forcefield.atoms
-
             if self.bSaveFF:
-                FF = self.forcefield.downloadFF()
-                FFx=FF[:,:,:,0]
-                FFy=FF[:,:,:,1]
-                FFz=FF[:,:,:,2]
-                Fr = np.sqrt( FFx**2 + FFy**2 + FFz**2 )
-                Fbound = 10.0
-                mask = Fr.flat > Fbound
-                FFx.flat[mask] *= (Fbound/Fr).flat[mask]
-                FFy.flat[mask] *= (Fbound/Fr).flat[mask]
-                FFz.flat[mask] *= (Fbound/Fr).flat[mask]
-                print("FF.shape ", FF.shape)
-                self.saveDebugXSF_FF( self.saveFFpre+"FF_x.xsf", FFx )
-                self.saveDebugXSF_FF( self.saveFFpre+"FF_y.xsf", FFy )
-                self.saveDebugXSF_FF( self.saveFFpre+"FF_z.xsf", FFz )
-                #self.saveDebugXSF_FF( "FF_E.xsf", FF[:,:,:,3] )
-                
+                self.saveFF()
         else:
-            FF,self.atoms  = self.forcefield.makeFF( atoms=xyzqs, cLJs=cLJs, FE=self.FEin, Qmix=None, bRelease=True, bCopy=True, bFinish=True )
+            self.FEin = np.empty(self.forcefield.nDim, np.float32)
+            FF, self.atoms = self.forcefield.makeFF(atoms=xyzqs, cLJs=cLJs, FE=self.FEin, Qmix=None,
+                bRelease=True,bCopy=True, bFinish=True )
         
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
 
@@ -271,21 +273,20 @@ class AFMulator():
         '''
         Prepare scanner. Run after preparing force field.
         '''
+
+        # Copy forcefield array to scanner buffer
         if self.bNoFFCopy:
-            self.scanner.updateFEin( self.forcefield.cl_FE )
+            self.scanner.updateFEin(self.forcefield.cl_FE)
         else:
-            if(self.counter>0): # not first step
-                if(self.verbose > 1): print("scanner.releaseBuffers()")
-                self.scanner.releaseBuffers()
-            self.scanner.prepareBuffers( self.FEin, self.lvec, scan_dim=self.scan_dim, nDimConv=len(self.dfWeight), nDimConvOut=self.scan_dim[2]-len(self.dfWeight)+1 )
-            self.scanner.preparePosBasis( start=self.scan_window[0][:2], end=self.scan_window[1][:2] )
+            self.scanner.prepareBuffers(self.FEin)
         
         # Subtract origin, because OpenCL kernel for tip relaxation does not take the origin of the FF box into account
         self.pos0 = np.array([0, 0, self.scan_window[1][2]]) - self.lvec[0]
 
+        # Prepare tip position array
         self.scanner.setScanRot(self.pos0, rot=np.eye(3), tipR0=self.tipR0)
 
-    def evalAFM( self, X=None ):
+    def evalAFM(self, X=None):
         '''
         Evaluate AFM image. Run after preparing force field and scanner.
         Arguments:
@@ -293,21 +294,11 @@ class AFMulator():
                Array where AFM image will be saved. If None, will be created automatically.
         Returns: np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
         '''
+
         if self.bMergeConv:
             FEout = self.scanner.run_relaxStrokesTilted_convZ()
         else:
-            if self.bFEoutCopy:
-                FEout = self.scanner.run_relaxStrokesTilted( bCopy=True, bFinish=True )
-            else:
-                #print("DEBUG  HERE !!!! ")
-                self.scanner.run_relaxStrokesTilted( bCopy=False, bFinish=True )
-            if( len(self.dfWeight) != self.scanner.scan_dim[2] - self.scanner.nDimConvOut + 1):
-                raise ValueError(
-                    "len(dfWeight) must be self.scanner.scan_dim[2] - self.scanner.nDimConvOut + 1 but got "
-                    + f"len(self.dfWeight) = {len(self.dfWeight)}, "
-                    + f"self.scanner.scan_dim[2] = {self.scanner.scan_dim[2]}, "
-                    + f"self.scanner.nDimConvOut = {self.scanner.nDimConvOut}"
-                )
+            self.scanner.run_relaxStrokesTilted(bCopy=False, bFinish=False)
             FEout = self.scanner.run_convolveZ()
 
         if X is None:
@@ -323,6 +314,22 @@ class AFMulator():
         return X
 
     # ========= Debug/Plot Misc. =========
+
+    def saveFF(self):
+        FF = self.forcefield.downloadFF()
+        FFx=FF[:,:,:,0]
+        FFy=FF[:,:,:,1]
+        FFz=FF[:,:,:,2]
+        Fr = np.sqrt( FFx**2 + FFy**2 + FFz**2 )
+        Fbound = 10.0
+        mask = Fr.flat > Fbound
+        FFx.flat[mask] *= (Fbound/Fr).flat[mask]
+        FFy.flat[mask] *= (Fbound/Fr).flat[mask]
+        FFz.flat[mask] *= (Fbound/Fr).flat[mask]
+        if self.verbose > 0: print("FF.shape ", FF.shape)
+        self.saveDebugXSF_FF( self.saveFFpre+"FF_x.xsf", FFx )
+        self.saveDebugXSF_FF( self.saveFFpre+"FF_y.xsf", FFy )
+        self.saveDebugXSF_FF( self.saveFFpre+"FF_z.xsf", FFz )
 
     def saveDebugXSF_FF( self, fname, F ):
         if hasattr(self, 'GridUtils'):
