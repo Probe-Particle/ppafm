@@ -41,6 +41,9 @@ parser.add_option( "--Fz",       action="store_true", default=False, help="plot 
 parser.add_option( "--df",       action="store_true", default=False, help="plot images for dfz "  )
 parser.add_option( "--save_df" , action="store_true", default=False, help="save frequency shift as df.xsf " )
 parser.add_option( "--pos",      action="store_true", default=False, help="save probe particle positions"   )
+parser.add_option( "--KPFM",     action="store_true", default=False, help="plot KPFM signal(s) for sample, always with colorbars" )
+parser.add_option( "--totalKPFM",action="store_true", default=False, help="plot KPFM signal from all sample's contributions , always with colorbars" )
+parser.add_option( "--tipKPFM",  action="store_true", default=False, help="plot KPFM signal    for tip   , always with colorbars" )
 parser.add_option( "--atoms",    action="store_true", default=False, help="plot atoms to images"  )
 parser.add_option( "--bonds",    action="store_true", default=False, help="plot bonds to images"  )
 parser.add_option( "--cbar",     action="store_true", default=False, help="plot legend to images" )
@@ -265,6 +268,87 @@ for iq,Q in enumerate( Qs ):
             except:
                 print("error: ", sys.exc_info())
                 print("cannot load : " + ( dirname+'/OutI_boltzmann.'+data_format )) 
+        if opt_dict['tipKPFM'] :
+            try:
+                tKPFM, lvec, nDim = GU.load_scal_field( dirname+'/tip_KPFM', data_format=data_format )
+                print(" plotting KPFM due to tip ??? what the hell is that: ")
+                PPPlot.plotImages(
+                                                dirname+"/tipKPFM"+atoms_str,
+                                                tKPFM,  slices = range( 0,
+                                                len(tKPFM) ), zs=zTips, cmap='PiYG', extent=extent, interpolation=interpolation, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=True )
+                if opt_dict['WSxM']:
+                    print(" printing Fz into WSxM files :")
+                    GU.saveWSxM_3D( dirname+"/tipKPFM" , tKPFM , extent , slices=None)
+                    del tKPFM
+            except:
+                print("error: ", sys.exc_info())
+                print("cannot load : " + ( dirname+'/tip_KPFM.'+data_format ) )
+
+        if opt_dict['KPFM'] :
+            try :
+                fzs, lvec, nDim = GU.load_scal_field( './OutEz_KPFM' , data_format=data_format)
+                print(" plotting  KPFM signal of the last atom of Metallic tip : ")
+                PPPlot.plotImages(dirname+"/metalKPFM"+atoms_str,
+                                                  fzs,  slices = range( 0,
+                                                  len(fzs) ), zs=zTips, cmap='PRGn', extent=extent, interpolation=interpolation, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=True )
+                if opt_dict['WSxM']:
+                    print(" printing Fz into WSxM files :")
+                    GU.saveWSxM_3D( dirname+"/metalKPFM" , fzs , extent , slices=None)
+                del fzs
+                try :
+                    fzs, lvec, nDim = GU.load_scal_field( dirname+'/OutEz_KPFM_C' , data_format=data_format)
+                    print(" plotting  KPFM signal for (imaginary) 2nd PP : ")
+                    PPPlot.plotImages(dirname+"/kpfm_C"+atoms_str,
+                                                  fzs,  slices = range( 0,
+                                                  len(fzs) ), zs=zTips, cmap='PRGn', extent=extent, interpolation=interpolation, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=True )
+                    if opt_dict['WSxM']:
+                        print(" printing Fz into WSxM files :")
+                        GU.saveWSxM_3D( dirname+"/kpfm_C" , fzs , extent , slices=None)
+                    del fzs
+                except:
+                    print("no data for 2nd PP KPFM")
+                
+                try :
+                    fzs, lvec, nDim = GU.load_scal_field( dirname+'/OutEz_KPFM_O' , data_format=data_format)
+                    print(" plotting  KPFM signal for PP : ")
+                    PPPlot.plotImages(dirname+"/kpfm_O"+atoms_str,
+                                                  fzs,  slices = range( 0,
+                                                  len(fzs) ), zs=zTips, cmap='PRGn', extent=extent, interpolation=interpolation, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=True )
+                    if opt_dict['WSxM']:
+                        print(" printing Fz into WSxM files :")
+                        GU.saveWSxM_3D( dirname+"/kpfm_O" , fzs , extent , slices=None)
+                    del fzs
+                except:
+                    print("no data for PP KPFM")
+
+            except:
+                print("error: ", sys.exc_info())
+                print("cannot load : ", './OutEz_KPFM.'+data_format)
+        if opt_dict['totalKPFM'] :
+            try :
+                fzsM, lvec, nDim = GU.load_scal_field( './OutEz_KPFM' , data_format=data_format)
+            except:
+                print("error: ", sys.exc_info())
+                print("cannot load : ", './OutEz_KPFM.'+data_format)
+            try :
+                fzsC, lvec, nDim = GU.load_scal_field( dirname+'/OutEz_KPFM_C' , data_format=data_format)
+            except:
+                print("cannot load : ", dirname+'/OutEz_KPFM_C.'+data_format)
+                print("or there is no data for 2nd PP KPFM - I'll put it to 0")
+                fzsC=0.0*fzsM
+            try :
+                fzsPP, lvec, nDim = GU.load_scal_field( dirname+'/OutEz_KPFM_O' , data_format=data_format)
+            except:
+                print("error: ", sys.exc_info())
+                print("cannot load : ", dirname+'/OutEz_KPFM_O.'+data_format)
+            print(" plotting  total KPFM signal from Metallic tip, PP (and second PP if any): ")
+            PPPlot.plotImages(dirname+"/totalKPFM"+atoms_str,
+                                          fzsM+fzsPP+fzsC,  slices = range( 0,
+                                          len(fzsM) ), zs=zTips, cmap='PRGn', extent=extent, interpolation=interpolation, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=True )
+            if opt_dict['WSxM']:
+                print(" printing Fz into WSxM files :")
+                GU.saveWSxM_3D( dirname+"/totalKPFM" , fzs , extentM+fzsPP+fzsC , slices=None)
+            del fzsM, fzsC, fzsPP;
         
 print(" ***** ALL DONE ***** ")
 

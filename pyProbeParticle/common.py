@@ -37,7 +37,10 @@ params={
 'imageInterpolation': 'bicubic',
 'colorscale'   : 'gray',
 'ddisp'        :  0.05 ,
-'tip_base':  np.array( ['None', 0.00 ]) #.astype(np.string)
+'tip_base':  np.array( ['None', 0.00 ]), #.astype(np.string)
+'KPFM'    :  np.array( ['None', 0.71, 0.00, 1.0 ]) , #.astype(np.string) yes/no, sigma, -z-shift (tip-base like) , c3/c1 
+'KPFM_O'  :  'No' ,                                  # Yes/No
+'KPFM_C'  :  np.array( ['No', 1.85, 1.0 ] )          #.astype(np.string) Yes/No, Metal-C distance, C-O angel climbing - <0.0,1.0>; 1.0 - as strong as O, 0.0 - right below metal
 }
 
 # ==============================
@@ -96,10 +99,20 @@ def loadParams( fname,FFparams=None ):
                     elif val.dtype == np.int:
                         print(key)
                         params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
+                        # print(key, params[key], words[1], words[2], words[3])
+                    #else: #val.dtype == np.str:
+                    #    params[key] = np.array([ str(words[1]), float(words[2]) ])
+                    #    print(key, params[key], words[1], words[2])
+                    else: # for tip_base & KPFM__c
+                        tmp = [ str(words[1]) ] + [ float(s) for s in words[2:3]]
+                        if (len(words) > 3) :
+                            for i in range(3,len(words)) :
+                                if (words[i] != "#") or (words[i] != '#'):
+                                    tmp += [ float(words[i]) ]
+                                else: # stop when comming to comment#
+                                    break;
+                        params[key] = np.array( tmp ); del tmp;
                         print(key, params[key], words[1], words[2], words[3])
-                    else: #val.dtype == np.str:
-                        params[key] = np.array([ str(words[1]), float(words[2]) ])
-                        print(key, params[key], words[1], words[2])
     fin.close()
     if (params["gridN"][0]<=0):
         params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)

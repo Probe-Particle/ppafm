@@ -21,6 +21,7 @@ parser.add_option( "-b", "--boltzmann"            , action="store_true", default
 parser.add_option( "--bI"     ,action="store_true", default=False, help="calculate current between boltzmann particle and tip" )
 
 parser.add_option( "--tip_base",       action="store_true", default=False, help="interpolates F_z field in the position of the tip_base" )
+parser.add_option( "--tipKPFM",        action="store", type="float", help="file STH like KPFM because of PP movements, store here heighest sample metal atom /z/ position", nargs=1 )
 
 parser.add_option( "--pos",       action="store_true",      default=False, help="save probe particle positions" )
 parser.add_option( "--vib",       action="store" , type="int", default=-1, help="map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs" )
@@ -78,6 +79,12 @@ if options.tipspline is not None :
 tip_base=options.tip_base
 if not tip_base:
     tip_base = True if ((PPU.params["tip_base"][0]  != 'None') and (PPU.params["tip_base"][0] != None)) else False
+KPFM   = True if ((PPU.params["KPFM"][0]  != 'None') or (PPU.params["KPFM"][0] != None)) else False
+KPFM2  = False
+KPFM_O = True if ((PPU.params["KPFM_O"] == 'Yes') or (PPU.params["KPFM_O"] == "Yes") or (PPU.params["KPFM_O"] == 'yes') or (PPU.params["KPFM_O"] == "yes")) else False
+KPFM_C = True if ((PPU.params["KPFM_C"][0] == 'Yes') or (PPU.params["KPFM_C"][0] == "Yes") or (PPU.params["KPFM_C"][0]  == 'yes') or (PPU.params["KPFM_C"][0] == "yes")) else False
+
+print("DEBUG: KPFM", KPFM, "KPFM2", KPFM2, "KPFM_O", KPFM_O, "KPFM_C", KPFM_C)
 
 
 print("Ks   =", Ks) 
@@ -93,6 +100,13 @@ if ( charged_system == True):
 if (options.boltzmann  or options.bI) :
         print(" load Boltzmann Force-field ")
         FFboltz, lvec, nDim = GU.load_vec_field( "FFboltz", data_format=data_format)
+
+if KPFM_C:
+        print ("calculating alpha and beta for KPFM_C")
+        alpha = float(PPU.params["KPFM_C"][1])/np.sqrt( PPU.params["r0Probe"][0]**2 + PPU.params["r0Probe"][1]**2 + PPU.params["r0Probe"][2]**2 )
+        beta  = alpha*float(PPU.params["KPFM_C"][2])
+        print ("alpha", alpha)
+        print ("beta" , beta)
 
 print(" load Lenard-Jones Force-field ")
 FFLJ, lvec, nDim = GU.load_vec_field( "FFLJ" , data_format=data_format)
@@ -147,6 +161,29 @@ for iq,Q in enumerate( Qs ):
             del Ftip_in;
             GU.save_scal_field( './OutFzTip_base', Ftip_out, lvecScan, data_format=data_format)
             tip_base = False
+        if KPFM:
+            print("Interpolating FFel_KPFM in position of the tip_base. Beware, this is higher than the PP. the z-shift from the tip-base is: ", PPU.params["KPFM"][2])
+            Ftip_in, lvec, nDim = GU.load_scal_field('FFel_kpfm', data_format=data_format)
+            rTMP = rTips; rTMP[:,:,:,2]+=float(PPU.params["KPFM"][2]) ; # shifting z from the tip-base
+            Ftip_out = float(PPU.params["KPFM"][3])*GU.interpolate_cartesian( Ftip_in, rTMP, cell=lvec[1:,:], result=None ) 
+            GU.save_scal_field( './OutEz_KPFM', Ftip_out, lvecScan, data_format=data_format);
+            KPFM = False; KPFM2 = True; del Ftip_out, rTMP;
+        if KPFM2 and (KPFM_O):
+            print("Interpolating FFel_KPFM in position of the PP")
+            Ftip_out = float(PPU.params["KPFM"][3])*GU.interpolate_cartesian( Ftip_in, rPPs, cell=lvec[1:,:], result=None ) 
+            GU.save_scal_field( dirname+'/OutEz_KPFM_O', Ftip_out, lvecScan, data_format=data_format)
+            del Ftip_out;
+        if KPFM2 and (KPFM_C):
+            print("Interpolating FFel_KPFM in position of the imaginary 2ndPP-C")
+            rTMP = (1-beta)*rTips + beta*rPPs ; rTMP[:,:,:,2] = (1-alpha)*rTips[:,:,:,2] + alpha*rPPs[:,:,:,2] ; # x,y 1st term & z 2nd term
+            Ftip_out = float(PPU.params["KPFM"][3])*GU.interpolate_cartesian( Ftip_in, rTMP, cell=lvec[1:,:], result=None ) 
+            GU.save_scal_field( dirname+'/OutEz_KPFM_C', Ftip_out, lvecScan, data_format=data_format)
+            del Ftip_out, rTMP;
+        if opt_dict['tipKPFM'] is not None:
+            print("Trying to kickout something about KPFM if there are changes in positions")
+            tip_kpfm= (rTips[:,:,:,2]-opt_dict['tipKPFM'])/(rPPs[:,:,:,2]-opt_dict['tipKPFM'])
+            GU.save_scal_field( dirname+'/tip_KPFM', tip_kpfm, lvecScan, data_format=data_format)
+            del tip_kpfm;
 
         # the rest is done in plot_results.py; For df, go to plot_results.py
 

@@ -28,6 +28,7 @@ parser.add_option( "-t", "--tip",   action="store", type="string", help="tip mod
 parser.add_option( "-w", "--sigma", action="store", type="float",  help="gaussian width for convolution in Electrostatics [Angstroem]", default=-1.0)
 parser.add_option( "--npy" , action="store_true"  , help="load and save fields in npy instead of xsf", default=False)
 parser.add_option( "--tip_base",    action="store", type="string", help="tip_base model (multipole)" , default='None')
+parser.add_option( "--KPFM",        action="store", type="string", help="KPFM model True/False"      , default='None')
 parser.add_option( "--prolongez",   action="store", type="float",  help="prolonge cell in z (where,how) [A]", nargs=2, default=[-1,-1])
 (options, args) = parser.parse_args()
 
@@ -104,6 +105,7 @@ print(" saving electrostatic forcefield ")
 GU.save_vec_field("FFel",FFel,lvec,data_format=data_format); del FFel;
 
 tip_base = options.tip_base if ( options.tip_base is not 'None') else PPU.params["tip_base"][0]
+KPFM = options.KPFM if ( options.KPFM is not 'None') else PPU.params["KPFM"][0]
 
 if ((tip_base  != 'None') and (tip_base != None)):
     print(" CALCULATING z-force-field for tip_base mono-/multipole ")
@@ -114,6 +116,19 @@ if ((tip_base  != 'None') and (tip_base != None)):
     #FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
     print(" saving z-electrostatic forcefield of the tip_base")
     GU.save_scal_field("FFel_tip",Fel_z,lvec,data_format=data_format)
-    del Fel_x,Fel_y,Fel_z,V;
+    del Fel_x,Fel_y,Fel_z;
+    
+if ((KPFM  != 'None') and (KPFM != None)):
+    sigma=float(PPU.params["KPFM"][1])
+    multipole={'s':1.0}
+    print (" CALCULATING z-force-field for KPFM calculations")
+    print (" chosen KPFM electrostatics is fixed to ",multipole," and only 'z' component; sigma is: " , sigma)
+    print (" computing convolution with tip_base by FFT ")
+    rho = None
+    Fel_x,Fel_y,Fel_z = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma = sigma, multipole = multipole ); del Fel_x,Fel_y,rho;
+    #FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
+    print (" saving z-electrostatic forcefield for KPFM calculations")
+    GU.save_scal_field("FFel_kpfm",Fel_z,lvec,data_format=data_format)
+    del Fel_z, V;
 else:
     del V;

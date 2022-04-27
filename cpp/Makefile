@@ -1,5 +1,5 @@
-CC=g++
-LD=g++
+CC=g++-9
+LD=g++-9
 CPPFLAGS= -std=c++11 -O3 -ffast-math -ftree-vectorize -fPIC
 LDFLAGS= -shared
 
