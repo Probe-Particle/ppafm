@@ -321,6 +321,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         mols = []
         Xs = [[] for _ in range(len(self.iZPPs))]
         Ys = [[] for _ in range(len(self.aux_maps))]
+        scan_windows = [[] for _ in range(len(self.iZPPs))]
 
         if self.bRuntime: batch_start = time.perf_counter()
 
@@ -378,6 +379,8 @@ class HartreeAFMtrainer(InverseAFMtrainer):
                 Xs[i].append(self.afmulator(self.xyzs, self.Zs, self.pot, rot=rot, REAs=self.REAs))
                 if self.bRuntime: print(f'AFM {i} runtime [s]: {time.perf_counter() - afm_start}')
 
+                scan_windows[i].append(np.array(self.scan_window))
+
             # Get AuxMaps
             for i, aux_map in enumerate(self.aux_maps):
                 if self.bRuntime: aux_start = time.perf_counter()
@@ -392,10 +395,11 @@ class HartreeAFMtrainer(InverseAFMtrainer):
 
         Xs = [np.stack(x, axis=0) for x in Xs]
         Ys = [np.stack(y, axis=0) for y in Ys]
+        scan_windows = [np.stack(sw, axis=0) for sw in scan_windows]
 
         if self.bRuntime: print(f'Batch runtime [s]: {time.perf_counter() - batch_start}')
 
-        return Xs, Ys, mols
+        return Xs, Ys, mols, scan_windows
     
     def __iter__(self):
         self.pot = None

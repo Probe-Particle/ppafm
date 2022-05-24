@@ -436,7 +436,6 @@ def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_s
         (xy_center[0] + scan_size[0] / 2, xy_center[1] + scan_size[1] / 2, z_max)
     )
     scan_dim = (int(scan_size[0] / scan_step[0]), int(scan_size[1] / scan_step[1]), int(z_size / scan_step[2]))
-    print(scan_window, scan_dim)
 
     # Do scan
     afmulator = AFMulator(
