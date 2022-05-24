@@ -372,7 +372,9 @@ class HartreePotential:
     '''
     def __init__(self, array, lvec, ctx=None):
         assert isinstance(array, np.ndarray), 'array should be a numpy.ndarray'
-        self.array = array.astype(np.float32)
+        if array.dtype != np.float32 or not array.flags['C_CONTIGUOUS']:
+            array = np.ascontiguousarray(array, dtype=np.float32)
+        self.array = array
         self.lvec = np.array(lvec)
         self.origin = self.lvec[0]
         assert self.lvec.shape == (4, 3), 'lvec should have shape (4, 3)'

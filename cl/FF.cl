@@ -10,6 +10,10 @@
 
 inline float3 rotMat ( float3 v,  float3 a, float3 b, float3 c  ){ return (float3)(dot(v,a),dot(v,b),dot(v,c)); }
 inline float3 rotMatT( float3 v,  float3 a, float3 b, float3 c  ){ return a*v.x + b*v.y + c*v.z; }
+inline int mod(int x, int y) {
+    int rem = (int) x % y;
+    return (rem >= 0 ? rem : rem + y);
+}
 
 // Do accurate trilinear interpolation of a buffer array. Buffer should use C memory layout.
 // The cartesian position is transformed to the grid coordinate indices using the coordinate transformation
@@ -25,9 +29,9 @@ float linearInterpB(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_
 
     // Find values at all the corners next to the main voxel (periodic boundary conditions)
     int nyz = nGrid.y * nGrid.z;
-    int i0 = (ijk0.x >= 0 ? (int) ijk0.x % nGrid.x : (int) ijk0.x + nGrid.x);
-    int j0 = (ijk0.y >= 0 ? (int) ijk0.y % nGrid.y : (int) ijk0.y + nGrid.y);
-    int k0 = (ijk0.z >= 0 ? (int) ijk0.z % nGrid.z : (int) ijk0.z + nGrid.z);
+    int i0 = mod((int) ijk0.x, nGrid.x);
+    int j0 = mod((int) ijk0.y, nGrid.y);
+    int k0 = mod((int) ijk0.z, nGrid.z);
     int i1 = (i0 + 1) % nGrid.x;
     int j1 = (j0 + 1) % nGrid.y;
     int k1 = (k0 + 1) % nGrid.z;
@@ -66,9 +70,9 @@ float4 linearInterpB4(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 
 
     // Find values at all the corners next to the main voxel (periodic boundary conditions)
     int nyz = nGrid.y * nGrid.z;
-    int i0 = ijk0.x >= 0 ? (int) ijk0.x % nGrid.x : (int) ijk0.x + nGrid.x;
-    int j0 = ijk0.y >= 0 ? (int) ijk0.y % nGrid.y : (int) ijk0.y + nGrid.y;
-    int k0 = ijk0.z >= 0 ? (int) ijk0.z % nGrid.z : (int) ijk0.z + nGrid.z;
+    int i0 = mod((int) ijk0.x, nGrid.x);
+    int j0 = mod((int) ijk0.y, nGrid.y);
+    int k0 = mod((int) ijk0.z, nGrid.z);
     int i1 = (i0 + 1) % nGrid.x;
     int j1 = (j0 + 1) % nGrid.y;
     int k1 = (k0 + 1) % nGrid.z;
