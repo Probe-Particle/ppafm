@@ -242,7 +242,7 @@ def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT ):
     fileout.write ("   END_DATAGRID_3D\n")
     fileout.write ("END_BLOCK_DATAGRID_3D\n")
 
-def loadXSF(fname):
+def loadXSF(fname, xyz_order=False, verbose=True):
 	filein = open( fname )
 	startline, head = readUpTo(filein, "DATAGRID_3D_")              # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
 	#print head
@@ -251,13 +251,16 @@ def loadXSF(fname):
 	nDim = np.array( nDim)
 	lvec = readmat(filein, 4)                                       # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
 	filein.close()
-	print("nDim xsf (= nDim + [1,1,1] ):", nDim)
-	print("GridUtils| Load "+fname+" using readNumsUpTo ")    
+	if verbose: print("nDim xsf (= nDim + [1,1,1] ):", nDim)
+	if verbose: print("GridUtils| Load "+fname+" using readNumsUpTo ")    
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(), startline+5)
-	print("GridUtils| Done")
-	FF = np.reshape (F, nDim )
-    #   FF is not C_CONTIGUOUS without copy
-	return FF[:-1,:-1,:-1].copy(),lvec, nDim-1, head
+	if verbose: print("GridUtils| Done")
+	FF = np.reshape(F, nDim)[:-1,:-1,:-1]
+	if xyz_order:
+		FF = FF.transpose((2, 1, 0))
+    # FF is not C_CONTIGUOUS without copy
+	FF = FF.copy()
+	return FF, lvec, nDim-1, head
 
 def getFromHead_PRIMCOORD( head ): 
 	Zs = None; Rs = None;
@@ -276,7 +279,7 @@ def getFromHead_PRIMCOORD( head ):
 
 # =================== Cube
 
-def loadCUBE(fname):
+def loadCUBE(fname, xyz_order=False, verbose=True):
 	filein = open(fname )
 	#First two lines of the header are comments
 	header1=filein.readline()
@@ -296,13 +299,15 @@ def loadCUBE(fname):
 		lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*bohrRadius2angstroem
 		lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*bohrRadius2angstroem
 
-	print("GridUtils| Load "+fname+" using readNumsUpTo")  
+	if verbose: print("GridUtils| Load "+fname+" using readNumsUpTo")  
 	noline = 6+int(sth0[0])
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
-	print("GridUtils| np.shape(F): ",np.shape(F))
-	print("GridUtils| nDim: ",nDim)
-	print(nDim)
-	FF = np.reshape(F, nDim ).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
+	if verbose: print("GridUtils| np.shape(F): ",np.shape(F))
+	if verbose: print("GridUtils| nDim: ", nDim)
+
+	FF = np.reshape(F, nDim)
+	if not xyz_order:
+		FF = FF.transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
 
 	#FF [1:,1:,1:] = FF [:-1,:-1,:-1] 
 	#FF [:,1:,:] = FF [:,:-1,:] 

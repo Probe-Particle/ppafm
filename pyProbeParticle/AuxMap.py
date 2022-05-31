@@ -18,21 +18,26 @@ class AuxMapBase:
     Each subclass implements the method eval with the input arguments:
         xyzqs: numpy.ndarray of floats. xyz coordinates and charges of atoms in molecule
         Zs: numpy.ndarray of ints. Elements of atoms in molecule.
+        pot: HartreePotential. Sample hartree potential.
+        rot: np.ndarray of shape (3, 3). Sample rotation.
     '''
     def __init__(self, scan_dim, scan_window, zmin=None):
         if not FFcl.oclu:
             raise RuntimeError('OpenCL context not initialized. Initialize with fieldOCL.init before creating an AuxMap object.')
         self.scan_dim = scan_dim
-        self.scan_window = scan_window
+        self.scan_window = scan_window 
         self.projector = FFcl.AtomProcjetion()
         if zmin:
             self.projector.zmin = zmin
         self.nChan = 1
         
-    def __call__(self, xyzqs=None, Zs=None):
+    def __call__(self, xyzqs=None, Zs=None, pot=None, rot=np.eye(3)):
         if xyzqs is not None:
             assert xyzqs.shape[1] == 4
-        return self.eval(xyzqs, Zs)
+            xyzqs = xyzqs.copy()
+            xyz_center = xyzqs[:, :3].mean(axis=0)
+            xyzqs[:, :3] = np.dot(xyzqs[:, :3] - xyz_center, rot.T) + xyz_center
+        return self.eval(xyzqs, Zs, pot, rot)
         
     def prepare_projector(self, xyzqs, Zs, pos0, bonds2atoms=None, elem_channels=None):
         rot = np.eye(3)
@@ -53,7 +58,7 @@ class vdwSpheres(AuxMapBase):
         super().__init__(scan_dim, scan_window, zmin)
         self.projector.Rpp = Rpp
                 
-    def eval(self, xyzqs, Zs):
+    def eval(self, xyzqs, Zs, pot=None, rot=None):
         coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
         pos0 = [0, 0, (xyzqs[:,2]+coefs[:,3]).max()+self.projector.Rpp]
         poss = self.prepare_projector(xyzqs, Zs, pos0)
@@ -83,7 +88,7 @@ class AtomicDisks(AuxMapBase):
         else:
             raise ValueError(f'Unknown diskMode {diskMode}. Should be either sphere or center')
                 
-    def eval(self, xyzqs, Zs):
+    def eval(self, xyzqs, Zs, pot=None, rot=None):
         coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
         coords_sphere = xyzqs[:,2]+coefs[:,3]+self.projector.Rpp
         offset = coords_sphere.max() - xyzqs[:,2].max() + self.offset
@@ -110,7 +115,7 @@ class HeightMap(AuxMapBase):
         self.iso = iso
         self.nz = 100 # Number of steps in downwards scan
     
-    def eval(self, xyzqs=None, Zs=None):
+    def eval(self, xyzqs=None, Zs=None, pot=None, rot=None):
         self.scanner.prepareAuxMapBuffers(bZMap=True, bFEmap=False)
         Y = ( self.scanner.run_getZisoTilted( iso=self.iso, nz=self.nz ) *-1 ).copy()
         Y *= (self.scanner.zstep)
@@ -140,7 +145,7 @@ class ESMap(AuxMapBase):
         self.iso = iso
         self.nz = 100 # Number of steps in downwards scan
 
-    def eval(self, xyzqs, Zs=None):
+    def eval(self, xyzqs, Zs=None, pot=None, rot=None):
         self.scanner.prepareAuxMapBuffers(bZMap=True, bFEmap=True, atoms=xyzqs.astype(np.float32))
         zMap, feMap = self.scanner.run_getZisoFETilted( iso=self.iso, nz=self.nz )
         Ye = ( feMap[:,:,2] ).copy() # Fel_z
@@ -172,10 +177,22 @@ class ESMapConstant(AuxMapBase):
         self.vdW_cutoff = vdW_cutoff
         self.projector.Rpp = Rpp
 
-    def eval(self, xyzqs, Zs=None):
-        pos0 = [0, 0, xyzqs[:,2].max()+self.height]
-        poss = self.prepare_projector(xyzqs, Zs, pos0)
-        es = self.projector.run_evalCoulomb(poss=poss)[:,:,2] # Last dim = (E_x, E_y, E_z, V)
+    def eval(self, xyzqs, Zs=None, pot=None, rot=np.eye(3)):
+        
+        pos0 = [0, 0, xyzqs[:,2].max() + self.height]
+        if pot:
+            self.nChan = 1
+            # The scan window for the hartree potential needs to rotate to the opposite
+            # direction compared to the molecule coordinates.
+            rot = np.linalg.inv(rot)
+            rot_center = xyzqs[:, :3].mean(axis=0)
+            poss = self.prepare_projector(xyzqs, Zs, pos0)
+            es = self.projector.run_evalHartreeGradient(pot, poss, rot=rot, rot_center=rot_center)
+        else:
+            self.nChan = 4
+            poss = self.prepare_projector(xyzqs, Zs, pos0)
+            es = self.projector.run_evalCoulomb(poss=poss)[:, :, 2] # Last dim = (E_x, E_y, E_z, V)
+
         if self.vdW_cutoff:
             self.nChan = 1 # Projector needs only one channel for vdW Spheres
             coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
@@ -183,7 +200,7 @@ class ESMapConstant(AuxMapBase):
             poss = self.prepare_projector(xyzqs, Zs, pos0)
             vdW = self.projector.run_evalSpheres( poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3)) )[:,:,0]
             es[vdW == vdW.min()] = 0.0
-            self.nChan = 4 # Set channels back to 4 so that works right for ES Map on next call
+
         return es
         
 class MultiMapSpheres(AuxMapBase):
@@ -206,7 +223,7 @@ class MultiMapSpheres(AuxMapBase):
         self.Rstep = Rstep
         self.bOccl = bOccl
                 
-    def eval(self, xyzqs, Zs):
+    def eval(self, xyzqs, Zs, pot=None, rot=None):
         coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
         pos0 = [0, 0, (xyzqs[:,2]+coefs[:,3]).max()+self.projector.Rpp]
         poss = self.prepare_projector(xyzqs, Zs, pos0)
@@ -249,7 +266,7 @@ class MultiMapSpheresElements(AuxMapBase):
                     elem_channels.append(i)
         return elem_channels
                 
-    def eval(self, xyzqs, Zs):
+    def eval(self, xyzqs, Zs, pot=None, rot=None):
         coefs = self.projector.makeCoefsZR( Zs, elements.ELEMENTS )
         elem_channels = self.get_elem_channels(Zs)
         pos0 = [0, 0, (xyzqs[:,2]+coefs[:,3]).max()+self.projector.Rpp]
@@ -283,7 +300,7 @@ class Bonds(AuxMapBase):
             assert len(Rfunc)*drStep >= Rmax+3*drStep
             self.projector.Rfunc = Rfunc.astype(np.float32)
                 
-    def eval(self, xyzqs, Zs):
+    def eval(self, xyzqs, Zs, pot=None, rot=None):
         pos0 = [0, 0, xyzqs[:,2].max()]
         bonds2atoms = np.array( basUtils.findBonds_( xyzqs[:,:3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
@@ -312,7 +329,7 @@ class AtomRfunc(AuxMapBase):
             assert len(Rfunc)*drStep >= Rmax+3*drStep
             self.projector.Rfunc = Rfunc.astype(np.float32)
                 
-    def eval(self, xyzqs, Zs):
+    def eval(self, xyzqs, Zs, pot=None, rot=None):
         pos0 = [0, 0, xyzqs[:,2].max()]
         bonds2atoms = np.array( basUtils.findBonds_( xyzqs[:,:3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
