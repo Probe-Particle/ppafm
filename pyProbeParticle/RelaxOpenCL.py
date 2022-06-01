@@ -263,7 +263,9 @@ class RelaxedScanner:
         nbytes = 0
         mf = cl.mem_flags
 
-        if lvec is not None: self.invCell = getInvCell(lvec)
+        if lvec is not None:
+            self.lvec = lvec
+            self.invCell = getInvCell(lvec)
         if FEin_np is not None:
             self.cl_ImgIn = cl.image_from_array(self.ctx,FEin_np,num_channels=4,mode='r');  nbytes+=FEin_np.nbytes        # TODO make this re-uploadable
             if(verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn) 
@@ -287,6 +289,7 @@ class RelaxedScanner:
             bsz    = f4size * nxy
             self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz                    );   nbytes+=bsz                  # float4
             self.cl_FEout = cl.Buffer(self.ctx, mf.READ_WRITE, bsz * self.scan_dim[2] );   nbytes+=bsz*self.scan_dim[2]
+            self.cl_paths = cl.Buffer(self.ctx, mf.READ_WRITE, bsz * self.scan_dim[2] );   nbytes+=bsz*self.scan_dim[2]
             if nDimConv is not None:
                 self.nDimConv    = nDimConv
                 self.nDimConvOut = nDimConvOut
@@ -375,6 +378,30 @@ class RelaxedScanner:
         if WZconv is not None:
             cl.enqueue_copy( self.queue, self.cl_WZconv, WZconv )
 
+    def downloadPaths(self):
+        '''
+        Get probe particle path array from device.
+
+        Returns: np.ndarray of shape scan_dim + (3,). xyz positions of probe particle at all scan points.
+        '''
+
+        # Make numpy array. Last axis is bigger by one because OCL aligns to multiples of 4 floats.
+        paths = np.empty(self.scan_dim + (4,), dtype=np.float32, order='C')
+            
+        if verbose: print("paths.shape ", paths.shape)
+
+        # Copy from device to host
+        cl.enqueue_copy(self.queue, paths, self.cl_paths)
+        self.queue.finish()
+
+        # Get rid of extra column
+        paths = paths[:, :, :, :3]
+
+        # Add origin because the OCL kernel does not take it into account
+        paths += self.lvec[0]
+
+        return paths
+
     def run(self, FEout=None, FEin=None, lvec=None, nz=None ):
         '''
         calculate force on relaxing probe particle approaching from top (z-direction)
@@ -409,7 +436,8 @@ class RelaxedScanner:
         kargs = ( 
             self.cl_ImgIn, 
             self.cl_poss, 
-            self.cl_FEout, 
+            self.cl_FEout,
+            self.cl_paths,
             self.invCell[0], self.invCell[1], self.invCell[2], 
             self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
             self.stiffness, 

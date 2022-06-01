@@ -387,6 +387,7 @@ __kernel void relaxStrokesTilted(
     __read_only image3d_t  imgIn,
     __global  float4*      points,
     __global  float4*      FEs,
+    __global  float4*      paths,
     float4 dinvA,
     float4 dinvB,
     float4 dinvC,
@@ -443,9 +444,11 @@ __kernel void relaxStrokesTilted(
         
         if(1){ // output tip-rotated force
             float4 fe_  = fe;
+            int ind = get_global_id(0)*nz + iz;
             fe_.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
             fe_.w   = fe.w;
-            FEs[get_global_id(0)*nz + iz] = fe_;
+            FEs[ind] = fe_;
+            paths[ind] = (float4)(pos, 0.0f);
         }else{ // output molecule-rotated force 
             FEs[get_global_id(0)*nz + iz] = fe;
             //FEs[get_global_id(0)*nz + iz].xyz = pos;
