@@ -189,7 +189,7 @@ def updateArgsLJ( kargs_old, atoms=None, cLJs=None, poss=None ):
     ctx,queue = getCtxQueue()
     mf       = cl.mem_flags
     if kargs_old is None:
-        return initArgsLJ( atoms, cLJs, poss, ctx=ctx, queue=queue )
+        return initArgsLJ( atoms, cLJs, poss )
     else:
         if atoms is not None:
             nAtoms   = np.int32( len(atoms) )

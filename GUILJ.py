@@ -60,11 +60,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
 
-        print("oclu.ctx    ", oclu.ctx)
-        print("oclu.queue  ", oclu.queue)
-    
-        FFcl.init()
-        oclr.init()
+        oclu.init_env()
     
         #self.resize(600, 800)
 
@@ -280,7 +276,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         print(self.mode)
         if self.mode == Modes.LJQ.name:
             print("=> Modes.LJQ")
-            lvec              = np.genfromtxt('cel.lvs'); lvec = np.insert(lvec, 0, 0. , axis=0); print(lvec)
+            lvec              = np.genfromtxt('cel.lvs')
             self.str_Atoms    = open('input.xyz').read()
             #xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input.xyz' )
             xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.str_Atoms.split('\n') )
@@ -314,23 +310,23 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.updateFF()
 
     def getFF(self):
-        t1 = time.clock() 
+        t1 = time.perf_counter() 
         #self.FF    = FFcl.runLJC( self.ff_args, self.ff_nDim )
         self.FF    = self.func_runFF( self.ff_args, self.ff_nDim )
         print("getFF : self.FF.shape", self.FF.shape);
         self.plot_FF = True
-        t2 = time.clock(); print("FFcl.func_runFF time %f [s]" %(t2-t1))
+        t2 = time.perf_counter(); print("FFcl.func_runFF time %f [s]" %(t2-t1))
         #self.plotSlice()
         self.updateDataView()
         
     def relax(self):
-        t1 = time.clock() 
+        t1 = time.perf_counter() 
         #self.composeTotalFF(); # does not work;  this is negligible slow-down
         stiffness    = np.array([self.bxKx.value(),self.bxKy.value(),0.0,self.bxKr.value()], dtype=np.float32 ); stiffness/=-16.0217662; #print "stiffness", stiffness
         dpos0        = np.array([self.bxP0x.value(),self.bxP0y.value(),0.0,self.bxP0r.value()], dtype=np.float32 ); dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); #print "dpos0", dpos0
         relax_params = np.array([0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 ); #print "relax_params", relax_params
         self.FEout   = oclr.relax( self.relax_args, self.relax_dim, self.invCell, poss=self.relax_poss, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
-        t2 = time.clock(); print("oclr.relax time %f [s]" %(t2-t1))
+        t2 = time.perf_counter(); print("oclr.relax time %f [s]" %(t2-t1))
         print("self.FEin.shape",  self.FEin.shape)
         print("self.FEout.shape", self.FEout.shape)
         self.F2df()
@@ -355,9 +351,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def F2df(self):
         nAmp = self.bxA.value()
         if nAmp > 0:
-            t1 = time.clock()
+            t1 = time.perf_counter()
             self.df = -PPU.Fz2df( np.transpose( self.FEout[:,:,:,2], (2,1,0) ), dz=self.bxStepZ.value(), k0=self.bxCant_K.value()*1e+3, f0= self.bxCant_f0.value()*1e+3, n=nAmp )
-            t2 = time.clock(); print("F2df time %f [s]" %(t2-t1))
+            t2 = time.perf_counter(); print("F2df time %f [s]" %(t2-t1))
         else:
             self.df = None
         self.plot_FF = False
@@ -386,6 +382,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def selectMode(self):
         self.mode = self.slMode.currentText()
+        self.mode = Modes.LJQ.name
         if   self.mode == Modes.LJQ.name:
             self.func_runFF        = FFcl.runLJC
         elif self.mode == Modes.LJel.name:
@@ -424,20 +421,20 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         return iz, data
 
     def updateDataView(self):
-        t1 = time.clock() 
+        t1 = time.perf_counter() 
         iz,data = self.selectDataView()
         self.viewed_data = data 
         #self.figCan.plotSlice_iz(iz)
         try:
             print(data.shape)
-            self.figCan.plotSlice( data[iz], title=self.slDataView.currentText()+':iz= '+str(int( self.bxZ.value() )) )
+            self.figCan.plotSlice( data, iz, title=f'iz = {iz}')
         except:
             print("cannot plot slice #", iz)
-        t2 = time.clock(); print("plotSlice time %f [s]" %(t2-t1))
+        t2 = time.perf_counter(); print("plotSlice time %f [s]" %(t2-t1))
 
     '''
     def plotSlice(self):
-        t1 = time.clock() 
+        t1 = time.perf_counter() 
         val = int( self.bxZ.value() )
         Fslice = None
         iz,data = self.selectDataView()
@@ -445,7 +442,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         Fslice = data[iz]
         if Fslice is not None:
             self.figCan.plotSlice( Fslice )
-        t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
+        t2 = time.perf_counter(); print "plotSlice time %f [s]" %(t2-t1)
     '''
 
     def clickImshow(self,ix,iy):

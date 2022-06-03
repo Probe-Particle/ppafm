@@ -73,7 +73,7 @@ class FigImshow(FigCanvas):
 
         print('self.margins', margins)
         #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
-        self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='bicubic' )
+        self.img = self.axes.imshow( F, origin='lower', cmap='gray', interpolation='bicubic' )
        
         j_min,i_min = np.unravel_index(F.argmin(), F.shape)  
         j_max,i_max = np.unravel_index(F.argmax(), F.shape)  
