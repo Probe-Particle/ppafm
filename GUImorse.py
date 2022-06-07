@@ -32,7 +32,7 @@ import pyProbeParticle.oclUtils    as oclu
 import pyProbeParticle.fieldOCL    as FFcl 
 import pyProbeParticle.RelaxOpenCL as oclr
 
-import pyProbeParticle.GuiWigets   as guiw
+import pyProbeParticle.GUIWidgets as guiw
 
 Modes     = Enum( 'Modes',    'MorseFFel MorseFFel_pbc' )
 DataViews = Enum( 'DataViews','FFin FFout df FFel FFpl' )

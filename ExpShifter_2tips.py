@@ -18,7 +18,7 @@ from enum import Enum
 import glob
 import pickle
 import scipy.ndimage as nimg
-import pyProbeParticle.GuiWigets   as guiw
+import pyProbeParticle.GUIWidgets as guiw
 import pyProbeParticle.file_dat    as file_dat
 import copy
 

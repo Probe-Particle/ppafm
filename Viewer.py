@@ -22,7 +22,7 @@ from   pyProbeParticle import    PPPlot
 import pyProbeParticle.GridUtils as GU
 #import pyProbeParticle.common    as PPU
 #import pyProbeParticle.cpp_utils as cpp_utils
-import pyProbeParticle.GuiWigets   as guiw
+import pyProbeParticle.GUIWidgets as guiw
 
 
 class ApplicationWindow(QtWidgets.QMainWindow):
