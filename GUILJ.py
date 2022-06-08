@@ -22,21 +22,28 @@ import pyProbeParticle.common     as PPU
 import pyProbeParticle.oclUtils   as oclu
 import pyProbeParticle.GUIWidgets as guiw
 
-DataViews = Enum( 'DataViews','FFin FFout df FFel FFpl' )
+DataViews = Enum('DataViews','df FFin FFout FFel FFpl')
+Multipoles = Enum('Multipoles', 's pz dz2')
 
-# Pre-autosetting:
-# zmin = 1.0; zmax = 20.0; ymax = 20.0; xmax =20.0;
-# atoms0, nDim0, lvec0 = basUtils.loadXSFGeom( "FFel_z.xsf" )
-# zmin = round(max(atoms0[3]),1); zmax=round(lvec0[3][2],1); ymax=round(lvec0[1][1]+lvec0[2][1],1); xmax=round(lvec0[1][0]+lvec0[2][0],1)
-zmin, zmax, ymax, xmax = 8.0, 10.0, 16.0, 16.0
-
-print("zmin, zmax, ymax, xmax")
-print(zmin, zmax, ymax, xmax)
+TTips = {
+    'Z': 'Z: Probe atomic number. Determines the Lennard-Jones parameters of the force field.',
+    'Multipole': 'Multipole: Probe charge multipole type:\ns: monopole\npz: dipole\ndz2: quadrupole.',
+    'Q': 'Q: Probe charge/multipole magnitude.',
+    'Sigma': 'Sigma: Probe charge distribution width.',
+    'K': 'K: Force constants for harmonic force holding the probe to the tip in x, y, and radial directions.',
+    'EqPos': 'Eq. Pos: Probe equilibrium position with respect to the tip in x, y, and radial directions. Non-zero values for x and y models asymmetry in tip adsorption.',
+    'ScanStep': 'Scan step: Size of pixels in x and y directions and size of oscillation step in z direction.',
+    'ScanSize': 'Scan size: Total size of scan region in x and y directions.',
+    'ScanCenter': 'Scan center: center position of scan region in x and y directions.',
+    'Distance': 'Distance: Average tip distance from the center of the closest atom',
+    'Amplitude': 'Amplitude: Peak-to-peak oscillation amplitude for the tip.',
+    'k': 'k: Cantilever spring constant. Only appears as a scaling constant.',
+    'f0': 'f0: Cantilever eigenfrequency. Only appears as a scaling constant. '
+}
 
 class ApplicationWindow(QtWidgets.QMainWindow):
 
     sw_pad = 4.0 # Default padding for scan window on each side of the molecule in xy plane
-    distance = 6.0 # Distance between the closest atom and the closest approach of the tip
 
     def __init__(self):
 
@@ -51,62 +58,105 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.main_widget = QtWidgets.QWidget(self)
         l00 = QtWidgets.QHBoxLayout(self.main_widget)
         self.figCan = guiw.FigImshow( parentWiget=self.main_widget, parentApp=self, width=5, height=4, dpi=100)
-        l00.addWidget(self.figCan)
-        l0 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l0);
+        l00.addWidget(self.figCan, 2)
+        l0 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l0, 1)
 
-        # -------------- Potential
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb);
+        # -------- Data view
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
 
-        sl = QtWidgets.QComboBox(); self.slDataView = sl; vb.addWidget(sl)
-        sl.addItem( DataViews.FFpl.name ); sl.addItem( DataViews.FFel.name ); sl.addItem( DataViews.FFin.name ); sl.addItem( DataViews.FFout.name ); sl.addItem(DataViews.df.name );
-        sl.setCurrentIndex( sl.findText( DataViews.df.name ) )
-        sl.currentIndexChanged.connect(self.updateDataView)
+        # lb = QtWidgets.QLabel("Data View"); vb.addWidget(lb)
+        # sl = QtWidgets.QComboBox(); self.slDataView = sl; vb.addWidget(sl)
+        # sl.addItems([d.name for d in DataViews])
+        # sl.setCurrentIndex( sl.findText(DataViews.df.name))
+        # sl.currentIndexChanged.connect(self.updateDataView)
+
+        # ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
         
-        
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Z") )
-        bx = QtWidgets.QSpinBox(); bx.setRange(0, 200); bx.setValue(8); bx.valueChanged.connect(self.updateParams); vb.addWidget(bx); self.bxZPP=bx
-        
-        # -------------- Relaxation 
+        # ------- Probe Settings
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Probe settings"); lb.setAlignment(QtCore.Qt.AlignCenter)
+        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
+        vb.addWidget(lb)
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Z"); lb.setToolTip(TTips['Z']); vb.addWidget(lb, 1)
+        bx = QtWidgets.QSpinBox(); bx.setRange(0, 200); bx.setValue(8); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['Z']); vb.addWidget(bx, 2); self.bxZPP=bx
+
+        lb = QtWidgets.QLabel("Multipole"); lb.setToolTip(TTips['Multipole']); vb.addWidget(lb, 2)
+        sl = QtWidgets.QComboBox(); self.slMultipole = sl; sl.addItems([m.name for m in Multipoles]); sl.setCurrentIndex(sl.findText(Multipoles.dz2.name))
+        sl.currentIndexChanged.connect(self.updateParams); bx.setToolTip(TTips['Multipole']); vb.addWidget(sl, 2)
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Q [e]"); lb.setToolTip(TTips['Q']); vb.addWidget(lb, 1)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(-0.1); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['Q']); vb.addWidget(bx, 2); self.bxQ=bx
+        lb = QtWidgets.QLabel("Sigma [Å]"); lb.setToolTip(TTips['Sigma']); vb.addWidget(lb, 2)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 2.0); bx.setValue(0.71); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['Sigma']); vb.addWidget(bx, 2); self.bxS=bx
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
+        bxr = QtWidgets.QVBoxLayout(); vb.addLayout(bxr, 3)
+
+        lb = QtWidgets.QLabel("K (x,y,R) [N/m]"); lb.setToolTip(TTips['K']); bxl.addWidget(lb)
+        lb = QtWidgets.QLabel("Eq. pos (x,y,R) [Å]"); lb.setToolTip(TTips['EqPos']); bxl.addWidget(lb)
+
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.25); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['K']); vb.addWidget(bx); self.bxKx=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.25); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['K']); vb.addWidget(bx); self.bxKy=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(30.0); bx.setSingleStep(5.0); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['K']); vb.addWidget(bx); self.bxKr=bx
+
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['EqPos']); vb.addWidget(bx); self.bxP0x=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['EqPos']); vb.addWidget(bx); self.bxP0y=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange( 0.0, 10.0); bx.setValue(3.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['EqPos']); vb.addWidget(bx); self.bxP0r=bx
+
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Q [e]") )
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(-0.1); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); vb.addWidget(bx); self.bxQ=bx
+        # ------- Scan settings
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Scan settings"); lb.setAlignment(QtCore.Qt.AlignCenter)
+        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
+        vb.addWidget(lb)
 
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("K {x,y,R} [N/m]") )
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.25); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); vb.addWidget(bx); self.bxKx=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.25); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); vb.addWidget(bx); self.bxKy=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(30.0); bx.setSingleStep(5.0); bx.valueChanged.connect(self.updateParams); vb.addWidget(bx); self.bxKr=bx
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
+        bxr = QtWidgets.QVBoxLayout(); vb.addLayout(bxr, 3)
 
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Eq. pos {x,y,R} [A]") )
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateParams); vb.addWidget(bx); self.bxP0x=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateParams); vb.addWidget(bx); self.bxP0y=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange( 0.0, 10.0); bx.setValue(3.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateParams); vb.addWidget(bx); self.bxP0r=bx
-   
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Scan start {x,y,z}[A]") )
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(0.0);   bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); vb.addWidget(bx); self.bxSpanMinX=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(0.0);   bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); vb.addWidget(bx); self.bxSpanMinY=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(zmin);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); vb.addWidget(bx); self.bxSpanMinZ=bx
+        lb = QtWidgets.QLabel("Scan step (x,y,z)[Å]"); lb.setToolTip(TTips['ScanStep']); bxl.addWidget(lb)
+        lb = QtWidgets.QLabel("Scan size (x,y)[Å]"); lb.setToolTip(TTips['ScanSize']); bxl.addWidget(lb)
+        lb = QtWidgets.QLabel("Scan center (x,y)[Å]"); lb.setToolTip(TTips['ScanCenter']); bxl.addWidget(lb)
 
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Scan end {x,y,z}[A]") )
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(xmax);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); vb.addWidget(bx); self.bxSpanMaxX=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(ymax);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); vb.addWidget(bx); self.bxSpanMaxY=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0,100.0); bx.setValue(zmax);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); vb.addWidget(bx); self.bxSpanMaxZ=bx
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1); bx.setSingleStep(0.02); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStep']); vb.addWidget(bx); self.bxStepX=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1); bx.setSingleStep(0.02); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStep']); vb.addWidget(bx); self.bxStepY=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1); bx.setSingleStep(0.02); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStep']); vb.addWidget(bx); self.bxStepZ=bx 
 
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Scan step {x,y,z}[A]") )
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1);  bx.setSingleStep(0.02); bx.valueChanged.connect(self.updateScanWindow); vb.addWidget(bx); self.bxStepX=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1);  bx.setSingleStep(0.02); bx.valueChanged.connect(self.updateScanWindow); vb.addWidget(bx); self.bxStepY=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1);  bx.setSingleStep(0.02); bx.valueChanged.connect(self.updateScanWindow); vb.addWidget(bx); self.bxStepZ=bx 
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(16.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanSize']); vb.addWidget(bx); self.bxSSx=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(16.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanSize']); vb.addWidget(bx); self.bxSSy=bx
 
-        # -------------- df Conversion & plotting
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0, 100.0); bx.setValue(0.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanCenter']); vb.addWidget(bx); self.bxSCx=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0, 100.0); bx.setValue(0.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanCenter']); vb.addWidget(bx); self.bxSCy=bx
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Distance [Å]"); lb.setToolTip(TTips['Distance']); vb.addWidget(lb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(6.5); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Distance']); vb.addWidget(bx); self.bxD=bx
+        lb = QtWidgets.QLabel("Amplitude [Å]"); lb.setToolTip(TTips['Amplitude']); vb.addWidget(lb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(1.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Amplitude']); vb.addWidget(bx); self.bxA=bx
+
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{ iz (down from top), nAmp }") )
-        bx = QtWidgets.QSpinBox();bx.setRange(-300,500); bx.setSingleStep(1); bx.setValue(0); bx.valueChanged.connect(self.updateDataView); vb.addWidget(bx); self.bxZ=bx
-        bx = QtWidgets.QSpinBox();bx.setRange(0,50 ); bx.setSingleStep(1); bx.setValue(10); bx.valueChanged.connect(self.updateScanWindow); vb.addWidget(bx); self.bxA=bx
+        # ------- df Conversion
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        lb = QtWidgets.QLabel("df settings"); lb.setAlignment(QtCore.Qt.AlignCenter)
+        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
+        vb.addWidget(lb)
 
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("{ k[kN/m], f0 [kHz] }") )
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,1000.0); bx.setSingleStep(0.1); bx.setValue(1.8);  bx.valueChanged.connect(self.updateParams); vb.addWidget(bx); self.bxCant_K=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,2000.0); bx.setSingleStep(1.0); bx.setValue(30.3); bx.valueChanged.connect(self.updateParams); vb.addWidget(bx); self.bxCant_f0=bx
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        lb = QtWidgets.QLabel("k [kN/m]"); lb.setToolTip(TTips['k']); vb.addWidget(lb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,1000.0); bx.setSingleStep(0.1); bx.setValue(1.8);  bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['k']); vb.addWidget(bx); self.bxCant_K=bx
+        lb = QtWidgets.QLabel("f0 [kHz]"); lb.setToolTip(TTips['f0']); vb.addWidget(lb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,2000.0); bx.setSingleStep(1.0); bx.setValue(30.3); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['f0']); vb.addWidget(bx); self.bxCant_f0=bx
 
         # === buttons
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
@@ -133,20 +183,20 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
         
         # --- btLoad
-        self.btLoad = QtWidgets.QPushButton('Load', self)
-        self.btLoad.setToolTip('Load inputs')
-        self.btLoad.clicked.connect(self.loadInput)
+        self.btLoad = QtWidgets.QPushButton('Open File...', self)
+        self.btLoad.setToolTip('Open new file.')
+        self.btLoad.clicked.connect(self.openFile)
         vb.addWidget( self.btLoad )
         
         # --- btSave
-        self.btSave = QtWidgets.QPushButton('save fig', self)
-        self.btSave.setToolTip('save current figure')
+        self.btSave = QtWidgets.QPushButton('Save Image...', self)
+        self.btSave.setToolTip('Save current image.')
         self.btSave.clicked.connect(self.saveFig)
         vb.addWidget( self.btSave )
 
         # --- btSaveW (W- wsxm)
-        self.btSaveW = QtWidgets.QPushButton('save data', self)
-        self.btSaveW.setToolTip('save current figure data')
+        self.btSaveW = QtWidgets.QPushButton('Save df...', self)
+        self.btSaveW.setToolTip('Save current frequency shift data.')
         self.btSaveW.clicked.connect(self.saveDataW)
         vb.addWidget( self.btSaveW )
 
@@ -154,62 +204,86 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self.main_widget)
         self.figCurv = guiw.PlotWindow( parent=self, width=5, height=4, dpi=100)
 
-        # Load input file
-        self.loadInput('mol.xyz')
-
-    def setScanWindow(self, rmin, rmax, step, df_steps):
+    def setScanWindow(self, scan_size, scan_center, step, distance, amplitude):
         '''Set scan window in AFMulator and update input fields'''
 
-        # Make scan window be a multiple of the step size
-        scan_dim = np.round((rmax - rmin) / step).astype(np.int32)
-        scan_window = (tuple(rmin), tuple(rmin + step * scan_dim))
-        scan_dim[:2] += 1
-        print("setScanWindow", step, rmin, rmax, scan_dim, scan_window, self.afmulator.lvec)
+        # Make scan size and amplitude multiples of the step size
+        scan_dim = np.round([
+            scan_size[0] / step[0] + 1,
+            scan_size[1] / step[1] + 1,
+            amplitude    / step[2]
+        ]).astype(np.int32)
+        scan_size = (scan_dim[:2] - 1) * step[:2]
+        amplitude = scan_dim[2] * step[2]
+        z = self.xyzs[:, 2].max() + distance
+        scan_window = (
+            (scan_center[0] - scan_size[0] / 2, scan_center[1] - scan_size[1] / 2, z - amplitude / 2),
+            (scan_center[0] + scan_size[0] / 2, scan_center[1] + scan_size[1] / 2, z + amplitude / 2)
+        )
+        print("setScanWindow", step, scan_size, scan_center, scan_dim, scan_window)
 
         # Set new values to the fields. Need to temporarily block the signals to do so.
-        self.bxSpanMinX.blockSignals(True); self.bxSpanMinY.blockSignals(True); self.bxSpanMinZ.blockSignals(True)
-        self.bxSpanMaxX.blockSignals(True); self.bxSpanMaxY.blockSignals(True); self.bxSpanMaxZ.blockSignals(True)
-        self.bxSpanMinX.setValue(scan_window[0][0]); self.bxSpanMinY.setValue(scan_window[0][1]); self.bxSpanMinZ.setValue(scan_window[0][2])
-        self.bxSpanMaxX.setValue(scan_window[1][0]); self.bxSpanMaxY.setValue(scan_window[1][1]); self.bxSpanMaxZ.setValue(scan_window[1][2])
-        self.bxSpanMinX.blockSignals(False); self.bxSpanMinY.blockSignals(False); self.bxSpanMinZ.blockSignals(False)
-        self.bxSpanMaxX.blockSignals(False); self.bxSpanMaxY.blockSignals(False); self.bxSpanMaxZ.blockSignals(False)
+        self.bxSSx.blockSignals(True); self.bxSSx.setValue(scan_size[0]); self.bxSSx.blockSignals(False)
+        self.bxSSy.blockSignals(True); self.bxSSy.setValue(scan_size[1]); self.bxSSy.blockSignals(False)
+        self.bxSCx.blockSignals(True); self.bxSCx.setValue(scan_center[0]); self.bxSCx.blockSignals(False)
+        self.bxSCy.blockSignals(True); self.bxSCy.setValue(scan_center[1]); self.bxSCy.blockSignals(False)
+        self.bxD.blockSignals(True); self.bxD.setValue(distance); self.bxD.blockSignals(False)
+        self.bxA.blockSignals(True); self.bxA.setValue(amplitude); self.bxA.blockSignals(False)
+
+        # Set scan size and amplitude increments to match the set step size
+        self.bxSSx.setSingleStep(step[0])
+        self.bxSSy.setSingleStep(step[1])
+        self.bxA.setSingleStep(step[2])
 
         # Set new scan window and dimension in AFMulator, and infer FF lvec from the scan window
-        self.afmulator.df_steps = df_steps
+        self.afmulator.df_steps = scan_dim[2]
         self.afmulator.setScanWindow(scan_window, tuple(scan_dim))
         self.afmulator.setLvec()
 
+        print(self.afmulator.lvec)
+
     def scanWindowFromGeom(self):
         '''Infer and set scan window from current geometry'''
-        step = np.array( [ float(self.bxStepX.value()), float(self.bxStepY.value()), float(self.bxStepZ.value()) ] )
-        df_steps = int(self.bxA.value())
-        rmin = self.xyzs.min(axis=0)
-        rmax = self.xyzs.max(axis=0)
-        rmin[:2] -= self.sw_pad
-        rmax[:2] += self.sw_pad
-        rmin[2] += self.distance
-        rmax[2] = rmin[2] + df_steps * step[2]
-        self.setScanWindow(rmin, rmax, step, df_steps)
+        scan_size = self.xyzs[:, :2].max(axis=0) - self.xyzs[:, :2].min(axis=0) + 2 * self.sw_pad
+        scan_center = (self.xyzs[:, :2].max(axis=0) + self.xyzs[:, :2].min(axis=0)) / 2
+        step = np.array([self.bxStepX.value(), self.bxStepY.value(), self.bxStepZ.value()])
+        distance = self.bxD.value()
+        amplitude = self.bxA.value()
+        self.setScanWindow(scan_size, scan_center, step, distance, amplitude)
 
     def updateScanWindow(self):
         '''Get scan window from input fields and update'''
-        step = np.array( [ float(self.bxStepX   .value()), float(self.bxStepY   .value()), float(self.bxStepZ   .value()) ] )
-        rmin = np.array( [ float(self.bxSpanMinX.value()), float(self.bxSpanMinY.value()), float(self.bxSpanMinZ.value()) ] )
-        rmax = np.array( [ float(self.bxSpanMaxX.value()), float(self.bxSpanMaxY.value()), float(self.bxSpanMaxZ.value()) ] )
-        df_steps = int(self.bxA.value())
-        self.setScanWindow(rmin, rmax, step, df_steps)
+        scan_size = np.array([self.bxSSx.value(), self.bxSSy.value()])
+        scan_center = np.array([self.bxSCx.value(), self.bxSCy.value()])
+        step = np.array([self.bxStepX.value(), self.bxStepY.value(), self.bxStepZ.value()])
+        distance = self.bxD.value()
+        amplitude = self.bxA.value()
+        self.setScanWindow(scan_size, scan_center, step, distance, amplitude)
         self.update()
 
     def updateParams(self):
         '''Get parameter values from input fields and update'''
 
-        Qs, QZs = [self.bxQ.value(), 0, 0, 0], [0, 0, 0, 0] # TODO allow non-monopole
-        print(Qs, QZs)
+        Q = self.bxQ.value()
+        sigma = self.bxS.value()
+        multipole = self.slMultipole.currentText()
+        print(Q, sigma, multipole)
         tipStiffness = [self.bxKx.value(), self.bxKy.value(), 0.0, self.bxKr.value()]
         tipR0 = [self.bxP0x.value(), self.bxP0y.value(), self.bxP0r.value()]
 
+        if multipole == 's':
+            Qs = [Q, 0, 0, 0]
+            QZs = [0, 0, 0, 0]
+        elif multipole == 'pz':
+            Qs = [Q, -Q, 0, 0]
+            QZs = [sigma, -sigma, 0, 0]
+        elif multipole == 'dz2':
+            Qs = [Q, -2*Q, Q, 0]
+            QZs = [sigma, 0, -sigma, 0]
+
         self.afmulator.iZPP = int(self.bxZPP.value())
         self.afmulator.setQs(Qs, QZs)
+        self.afmulator.setRho({multipole: Q}, sigma)
         self.afmulator.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
         self.afmulator.tipR0 = tipR0
         self.afmulator.kCantilever = self.bxCant_K.value()
@@ -245,56 +319,57 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Infer scan window from loaded geometry and run
         self.scanWindowFromGeom()
         self.updateParams()
+
+    def openFile(self):
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '', '*.xyz *.xsf *.cube')
+        if file_path:
+            self.loadInput(file_path)
         
     def saveFig(self):
-        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"Save image","","Image files (*.png)")
         if fileName:
             fileName = guiw.correct_ext( fileName, ".png" )
             print("saving image to :", fileName)
             self.figCan.fig.savefig( fileName,bbox_inches='tight')
 
     def saveDataW(self):
-        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","WSxM files (*.xyz)")
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"Save df","","WSxM files (*.xyz)")
         if fileName:
             fileName = guiw.correct_ext( fileName, ".xyz" )
             print("saving data to to :", fileName)
-            iz,data = self.selectDataView()
-            npdata=data[iz]
+            npdata = self.selectDataView()
             xs = np.arange(npdata.shape[1] )
             ys = np.arange(npdata.shape[0] )
             Xs, Ys = np.meshgrid(xs,ys)
             GU.saveWSxM_2D(fileName, npdata, Xs, Ys)
     
     def selectDataView(self):   # !!! Everything from TOP now !!! #
-        dview = self.slDataView.currentText()
-        #print "DEBUG dview : ", dview
-        iz    = int( self.bxZ.value() )
-        data = None;
-        if   dview == DataViews.df.name:
-            data = self.df
-        elif dview == DataViews.FFout.name:
-            data = np.transpose( self.FEout[:,:,:,2], (2,1,0) )
-        elif dview == DataViews.FFin.name:
-            data = self.FEin[::-1,:,:,2]
-        elif dview == DataViews.FFpl.name:
-            data = self.FF  [::-1,:,:,2]
-        elif dview == DataViews.FFel.name:
-            data = self.FFel[::-1,:,:,2]
-            #print "data FFel.shape[1:3]", data.shape[1:3]
-            #iz = data.shape[0]-iz-1
-        return iz, data
+        # dview = self.slDataView.currentText()
+        # data = None;
+        # if   dview == DataViews.df.name:
+        #     data = self.df
+        # elif dview == DataViews.FFout.name:
+        #     data = np.transpose( self.FEout[:,:,:,2], (2,1,0) )
+        # elif dview == DataViews.FFin.name:
+        #     data = self.FEin[::-1,:,:,2]
+        # elif dview == DataViews.FFpl.name:
+        #     data = self.FF  [::-1,:,:,2]
+        # elif dview == DataViews.FFel.name:
+        #     data = self.FFel[::-1,:,:,2]
+        #     #print "data FFel.shape[1:3]", data.shape[1:3]
+        #     #iz = data.shape[0]-iz-1
+        return self.df
 
     def updateDataView(self):
         t1 = time.perf_counter()
-        iz, data = self.selectDataView()
-        self.viewed_data = data 
-        #self.figCan.plotSlice_iz(iz)
+        data = self.selectDataView()
+        self.viewed_data = data
         try:
-            data = data.transpose(2, 0, 1)
-            print(data.shape)
-            self.figCan.plotSlice( data, iz, title=f'iz = {iz}')
+            data = data.transpose(2, 1, 0)
+            z = (self.afmulator.scan_window[0][2] + self.afmulator.scan_window[1][2]) / 2
+            self.figCan.plotSlice(data, 0, title=f'z = {z:.2f}Å')
         except:
-            print("cannot plot slice #", iz)
+            print("cannot plot slice #", 0)
         t2 = time.perf_counter(); print("plotSlice time %f [s]" %(t2-t1))
 
     def clickImshow(self,ix,iy):
