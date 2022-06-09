@@ -41,14 +41,23 @@ TTips = {
     'f0': 'f0: Cantilever eigenfrequency. Only appears as a scaling constant. '
 }
 
+def parse_args():
+    from argparse import ArgumentParser
+    parser = ArgumentParser('ppm')
+    parser.add_argument( "-i", "--input", action="store", type=str, help="Input file.")
+    parser.add_argument( "-d", "--device", action="store", type=int, default=0, help="Choose OpenCL device.")
+    parser.add_argument( "-l", "--list-devices", action="store_true", help="List available devices and exit.")
+    args = parser.parse_args()
+    return args.input, args.device, args.list_devices
+
 class ApplicationWindow(QtWidgets.QMainWindow):
 
     sw_pad = 4.0 # Default padding for scan window on each side of the molecule in xy plane
 
-    def __init__(self):
+    def __init__(self, input_file, device):
 
-        # Initialize OpenCL environment on some device and create an afmulator instance to use for simulations
-        oclu.init_env()
+        # Initialize OpenCL environment on chosen device and create an afmulator instance to use for simulations
+        oclu.init_env(device)
         self.afmulator = AFMulator()
 
         # --- init QtMain
@@ -203,6 +212,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
         self.figCurv = guiw.PlotWindow( parent=self, width=5, height=4, dpi=100)
+
+        if input_file:
+            self.loadInput(input_file)
 
     def setScanWindow(self, scan_size, scan_center, step, distance, amplitude):
         '''Set scan window in AFMulator and update input fields'''
@@ -379,7 +391,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
-    aw = ApplicationWindow()
+    input_file, device, list_devices = parse_args()
+    if list_devices:
+        print('\nAvailable OpenCL platforms:')
+        oclu.print_platforms()
+        sys.exit(0)
+    aw = ApplicationWindow(input_file, device)
     aw.show()
     sys.exit(qApp.exec_())
 
