@@ -15,30 +15,35 @@ While C++ core can computed typical 3D stack of ~40 images in ~1 minute, using p
 The OpenGL GUI version si more-or-less finished with most of functionality implemented. The code is however not yet merged to master branch. It can be found in independent branch here: 
 https://github.com/ProkopHapala/ProbeParticleModel/tree/OpenCL
 
+#### Installation:
+
+Install prerequisites (Ubuntu):
+```sh
+sudo apt install git python3-pip python3-pyqt5
+pip install matplotlib numpy pyopencl reikna
+```
+
+Additionally an OpenCL Installable Client Driver (ICD) for your compute device is required:
+* Nvidia GPU: comes with the standard Nvidia driver (nvidia-driver-xxx)
+* AMD GPU: `sudo apt install mesa-opencl-icd`
+* Intel HD Graphics: `sudo apt install intel-opencl-icd`
+* CPU: `sudo apt install pocl-opencl-icd`
+
+Clone the repository and navigate to the cloned directory
+```sh
+git clone https://github.com/ProkopHapala/ProbeParticleModel.git -b gui
+cd ProbeParticleModel
+```
+
+Run the GUI application:
+```sh
+./GUILJ.py
+```
+  
 #### Usage:
+* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument using the `-i` or `--input` option. Give some time for the file to load.
+* Changing any number in any input box will automatically update the image.
+* Hover mouse cursor over any parameter for a tooltip explaining the meaning of the parameter.
+* Save the current image or df data by clicking the `Save Image...` or `Save df...` buttons at the bottom.
+* In case there are multiple OpenCL devices installed on the system, use the `-l` or `--list-devices` option to list available devices and choose the device using the `-d` or `--device` option with the device platform number as the argument.
 
- * go to `ProbeParticleModel/tree/OpenCL/tests/testFieldOCL`
- * run `> python GUI.py`
- 
- Following interface should appear:
- ![GUI interface example](doc/OpenCL/GUI.jpg?raw=true "")
-  
-* When you change any number in input box the image will update. 
-* The initial images is forcefield. Only after update of some relaxation related parameter (e.g. `K`,`Q`) relaxed AFM image (i.e. `df`) is rendered.
-* each update means recalculation of the whole 3D volume Force-field and relaxed `df`. So it may take up to several seconds depending on your GPU (on my *nVidia GT 960M* it takes `~0.1s` )
-* Amplitude for conversion `Fz -> df` is determined by `nAmp` parameter, which is the number of slices used in giesible formula. By default the grid spacing is `0.1A` (`10 pm`) therefore `nAmp=15` means peak-to-peak amplitude `1.5A` (`150pm`).
-
-* You can also interactively change interactively the atomic geometry and charges of sample. To do so click `Edit` button. Following interface window should open:
- ![GUI interface example](doc/OpenCL/edit.jpg?raw=true "")
- 
-after you finish your changes in the geometry click `Update` button.
-
-#### Prerequsities:
- * python 2.7 with packages: 
-    * numpy
-    * PyOpenCL 
- * GPU with OpenCL support and Correctly instaled GPU drivers with OpenCL support
-
-
-
-  
