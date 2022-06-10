@@ -444,6 +444,7 @@ class MultipoleTipDensity:
         self.array = self._make_tip_density()
 
     def _make_tip_density(self):
+        if(bRuntime): t0 = time.perf_counter()
         xyz = []
         for i in range(3):
             c = np.linspace(0, self.lvec_len[i] * (1 - 1/self.nDim[i]), self.nDim[i]) - self.center[i]
@@ -453,6 +454,7 @@ class MultipoleTipDensity:
         X, Y, Z = np.meshgrid(*xyz, indexing='ij')
         rho = getProbeDensity(self.lvec, X, Y, Z, self.step, sigma=self.sigma,
             multipole_dict=self.multipole, tilt=self.tilt)
+        if(bRuntime): print("runtime(FFTConvolution._make_tip_density) [s]: ", time.perf_counter() - t0)
         return rho.astype(np.float32)
 
     @property

@@ -20,6 +20,7 @@ from pyProbeParticle.fieldOCL            import HartreePotential, hartreeFromFil
 import pyProbeParticle.GridUtils  as GU
 import pyProbeParticle.common     as PPU
 import pyProbeParticle.oclUtils   as oclu
+import pyProbeParticle.fieldOCL   as FFcl
 import pyProbeParticle.GUIWidgets as guiw
 
 DataViews = Enum('DataViews','df FFin FFout FFel FFpl')
@@ -67,6 +68,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.afmulator.verbose = verbose
         self.afmulator.forcefield.verbose = verbose
         self.afmulator.scanner.verbose = verbose
+        FFcl.bRuntime = verbose > 1
 
         # --- init QtMain
         QtWidgets.QMainWindow.__init__(self)
@@ -260,7 +262,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.afmulator.setScanWindow(scan_window, tuple(scan_dim))
         self.afmulator.setLvec()
 
-        if self.verbose > 0: print('lvec:\n', self.afmulator.lvec)
+        if self.verbose > 0: print('lvec:\n', self.afmulator.forcefield.nDim, self.afmulator.lvec)
 
     def scanWindowFromGeom(self):
         '''Infer and set scan window from current geometry'''

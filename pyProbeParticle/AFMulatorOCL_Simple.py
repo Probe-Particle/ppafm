@@ -14,6 +14,8 @@ from .fieldOCL import HartreePotential, MultipoleTipDensity, hartreeFromFile
 from .basUtils import loadAtomsLines
 from .PPPlot import plotImages
 
+VALID_SIZES = np.array([16, 32, 64, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048])
+
 class AFMulator():
     '''
     Simulate Atomic force microscope images of molecules.
@@ -141,12 +143,13 @@ class AFMulator():
     def setLvec(self, lvec=None, pixPerAngstrome=None):
         ''' Set forcefield lattice vectors. If lvec is not given it is inferred from the scan window.'''
 
+        if pixPerAngstrome is not None:
+            self.pixPerAngstrome = pixPerAngstrome
         if lvec is not None:
             self.lvec = lvec
         else:
-            self.lvec = get_lvec(self.scan_window, tipR0=self.tipR0)
-        if pixPerAngstrome is not None:
-            self.pixPerAngstrome = pixPerAngstrome
+            self.lvec = get_lvec(self.scan_window, tipR0=self.tipR0,
+                pixPerAngstrome=self.pixPerAngstrome)
         
         # Remember old grid size
         if hasattr(self.forcefield, 'nDim'):
@@ -159,7 +162,8 @@ class AFMulator():
             self.forcefield.initSampling(self.lvec, pixPerAngstrome=self.pixPerAngstrome)
         else:
             self.forcefield.initPoss(lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome)
-        self.scanner.prepareBuffers(lvec=self.lvec, FEin_shape=self.forcefield.nDim)
+        FEin_shape = self.forcefield.nDim if (self._old_nDim != self.forcefield.nDim).any() else None
+        self.scanner.prepareBuffers(lvec=self.lvec, FEin_shape=FEin_shape)
 
     def setScanWindow(self, scan_window=None, scan_dim=None):
         '''Set scanner scan window.'''
@@ -225,6 +229,7 @@ class AFMulator():
         # (Re)initialize force field if the size of the grid changed since last run.
         if (self._old_nDim != self.forcefield.nDim).any():
             if self.verbose > 0: print('(Re)initializing force field buffers.')
+            if self.verbose > 1: print(f'old nDim: {self._old_nDim}, new nDim: {self.forcefield.nDim}')
             self.forcefield.tryReleaseBuffers()
             self.setRho(self._rho, self.sigma)
             self.forcefield.prepareBuffers()
@@ -358,17 +363,21 @@ class AFMulator():
                     'If you get artifacts in the images, please check the boundary conditions and '
                     'the size of the scan window and the force field grid.')
 
-def get_lvec(scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0)):
+def get_lvec(scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrome=10):
+    
     pad = np.array(pad)
     tipR0 = np.array(tipR0)
-    origin = np.array(scan_window[0]) - pad - tipR0
-    end = np.array(scan_window[1]) + pad - tipR0
-    diff = np.array(end) - np.array(origin)
+    center = (np.array(scan_window[0]) + np.array(scan_window[1])) / 2
+    box_size = (np.array(scan_window[1]) - np.array(scan_window[0])) + 2 * pad
+    nDim = (pixPerAngstrome * box_size).round().astype(np.int32)
+    nDim = np.array([VALID_SIZES[VALID_SIZES >= d][0] for d in nDim])
+    box_size = nDim / pixPerAngstrome
+    origin = center - box_size / 2 - tipR0
     lvec = np.array([
         origin,
-        [diff[0], 0, 0],
-        [0, diff[1], 0],
-        [0, 0, diff[2]]
+        [box_size[0], 0, 0],
+        [0, box_size[1], 0],
+        [0, 0, box_size[2]]
     ])
     return lvec
 
