@@ -192,7 +192,8 @@ class AFMulator():
                     multipole=rho, ctx=self.forcefield.ctx)
             else:
                 self.rho = rho
-            self.forcefield.prepareBuffers(rho=self.rho)
+            if self.verbose > 0: print('AFMulator.setRho: Preparing buffers')
+            self.forcefield.prepareBuffers(rho=self.rho, bDirect=True)
         else:
             self._rho = None
             self.rho = None
@@ -222,7 +223,7 @@ class AFMulator():
         self.check_scan_window()
 
         # (Re)initialize force field if the size of the grid changed since last run.
-        if (self._old_nDim != self.forcefield.nDim).all():
+        if (self._old_nDim != self.forcefield.nDim).any():
             if self.verbose > 0: print('(Re)initializing force field buffers.')
             self.forcefield.tryReleaseBuffers()
             self.setRho(self._rho, self.sigma)

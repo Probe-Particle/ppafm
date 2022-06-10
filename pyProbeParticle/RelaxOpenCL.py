@@ -183,7 +183,7 @@ if __name__ == "__main__":
 
 class RelaxedScanner:
 
-    #verbose=0  # this is global for now
+    verbose = 0
 
     def __init__( self ):
         #ctx,queue = getCtxQueue()
@@ -255,7 +255,7 @@ class RelaxedScanner:
             self.nAtoms   = np.int32( len(atoms) )
             self.cl_atoms = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY  | cl.mem_flags.COPY_HOST_PTR, hostbuf=atoms )
             nbytes+=atoms.nbytes
-        if(verbose>0): print("prepareAuxMapBuffers.nbytes: ", nbytes)
+        if(self.verbose>0): print("prepareAuxMapBuffers.nbytes: ", nbytes)
 
     def prepareBuffers(self, FEin_np=None, lvec=None, FEin_cl=None, FEin_shape=None, scan_dim=None, nDimConv=None,
             nDimConvOut=None, bZMap=False, bFEmap=False, atoms=None):
@@ -268,14 +268,14 @@ class RelaxedScanner:
             self.invCell = getInvCell(lvec)
         if FEin_np is not None:
             self.cl_ImgIn = cl.image_from_array(self.ctx,FEin_np,num_channels=4,mode='r');  nbytes+=FEin_np.nbytes        # TODO make this re-uploadable
-            if(verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn) 
+            if(self.verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn) 
         else:
             if FEin_shape is not None:
                 self.FEin_shape   = FEin_shape
                 self.image_format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
                 self.cl_ImgIn     = cl.Image(self.ctx, mf.READ_ONLY, self.image_format, shape=FEin_shape[:3],
                     pitches=None, hostbuf=None, is_array=False, buffer=None)
-                if(verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn) 
+                if(self.verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn) 
             if FEin_cl is not None:
                 self.updateFEin( FEin_cl )
                 self.FEin_cl=FEin_cl
@@ -304,10 +304,10 @@ class RelaxedScanner:
         if atoms is not None:
             self.updateAtoms(atoms); nbytes+=atoms.nbytes
         
-        if(verbose>0): print("prepareBuffers.nbytes: ", nbytes)
+        if(self.verbose>0): print("prepareBuffers.nbytes: ", nbytes)
 
     def releaseBuffers(self):
-        if(verbose>0): print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn) 
+        if(self.verbose>0): print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn) 
         self.cl_ImgIn.release()
         self.cl_poss.release()
         self.cl_FEout.release()
@@ -316,7 +316,7 @@ class RelaxedScanner:
         if self.cl_atoms is not None: self.cl_atoms.release()
 
     def tryReleaseBuffers(self):
-        if(verbose>0): print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn) 
+        if(self.verbose>0): print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn) 
         try:
             self.cl_ImgIn.release()
         except:
@@ -373,7 +373,7 @@ class RelaxedScanner:
         if lvec is not None: self.invCell = getInvCell(lvec)
         if FEin is not None:
             region = FEin.shape[:3]; region = region[::-1]; 
-            if(verbose>0): print("region : ", region)
+            if(self.verbose>0): print("region : ", region)
             cl.enqueue_copy( self.queue, self.cl_ImgIn, FEin, origin=(0,0,0), region=region )
         if WZconv is not None:
             cl.enqueue_copy( self.queue, self.cl_WZconv, WZconv )
@@ -388,7 +388,7 @@ class RelaxedScanner:
         # Make numpy array. Last axis is bigger by one because OCL aligns to multiples of 4 floats.
         paths = np.empty(self.scan_dim + (4,), dtype=np.float32, order='C')
             
-        if verbose: print("paths.shape ", paths.shape)
+        if self.verbose: print("paths.shape ", paths.shape)
 
         # Copy from device to host
         cl.enqueue_copy(self.queue, paths, self.cl_paths)

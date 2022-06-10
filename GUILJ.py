@@ -16,7 +16,7 @@ from enum import Enum
 from pyProbeParticle import basUtils
 from pyProbeParticle import PPPlot 
 from pyProbeParticle.AFMulatorOCL_Simple import AFMulator
-from pyProbeParticle.fieldOCL            import hartreeFromFile
+from pyProbeParticle.fieldOCL            import HartreePotential, hartreeFromFile
 import pyProbeParticle.GridUtils  as GU
 import pyProbeParticle.common     as PPU
 import pyProbeParticle.oclUtils   as oclu
@@ -44,21 +44,29 @@ TTips = {
 def parse_args():
     from argparse import ArgumentParser
     parser = ArgumentParser('ppm')
-    parser.add_argument( "-i", "--input", action="store", type=str, help="Input file.")
-    parser.add_argument( "-d", "--device", action="store", type=int, default=0, help="Choose OpenCL device.")
-    parser.add_argument( "-l", "--list-devices", action="store_true", help="List available devices and exit.")
+    parser.add_argument("-i", "--input", action="store", type=str, help="Input file.")
+    parser.add_argument("-d", "--device", action="store", type=int, default=0, help="Choose OpenCL device.")
+    parser.add_argument("-l", "--list-devices", action="store_true", help="List available devices and exit.")
+    parser.add_argument("-v", '--verbosity', action="store", type=int, default=0, help="Set verbosity level (0-1)")
     args = parser.parse_args()
-    return args.input, args.device, args.list_devices
+    return args.input, args.device, args.list_devices, args.verbosity
 
 class ApplicationWindow(QtWidgets.QMainWindow):
 
     sw_pad = 4.0 # Default padding for scan window on each side of the molecule in xy plane
 
-    def __init__(self, input_file, device):
+    def __init__(self, input_file, device, verbose=0):
 
         # Initialize OpenCL environment on chosen device and create an afmulator instance to use for simulations
         oclu.init_env(device)
         self.afmulator = AFMulator()
+
+        # Set verbosity level to same value everywhere
+        if verbose > 0: print(f'Verbosity level = {verbose}')
+        self.verbose = verbose
+        self.afmulator.verbose = verbose
+        self.afmulator.forcefield.verbose = verbose
+        self.afmulator.scanner.verbose = verbose
 
         # --- init QtMain
         QtWidgets.QMainWindow.__init__(self)
@@ -232,7 +240,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             (scan_center[0] - scan_size[0] / 2, scan_center[1] - scan_size[1] / 2, z - amplitude / 2),
             (scan_center[0] + scan_size[0] / 2, scan_center[1] + scan_size[1] / 2, z + amplitude / 2)
         )
-        print("setScanWindow", step, scan_size, scan_center, scan_dim, scan_window)
+        if self.verbose > 0: print("setScanWindow", step, scan_size, scan_center, scan_dim, scan_window)
 
         # Set new values to the fields. Need to temporarily block the signals to do so.
         self.bxSSx.blockSignals(True); self.bxSSx.setValue(scan_size[0]); self.bxSSx.blockSignals(False)
@@ -252,7 +260,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.afmulator.setScanWindow(scan_window, tuple(scan_dim))
         self.afmulator.setLvec()
 
-        print(self.afmulator.lvec)
+        if self.verbose > 0: print('lvec:\n', self.afmulator.lvec)
 
     def scanWindowFromGeom(self):
         '''Infer and set scan window from current geometry'''
@@ -279,7 +287,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         Q = self.bxQ.value()
         sigma = self.bxS.value()
         multipole = self.slMultipole.currentText()
-        print(Q, sigma, multipole)
         tipStiffness = [self.bxKx.value(), self.bxKy.value(), 0.0, self.bxKr.value()]
         tipR0 = [self.bxP0x.value(), self.bxP0y.value(), self.bxP0r.value()]
 
@@ -295,7 +302,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.afmulator.iZPP = int(self.bxZPP.value())
         self.afmulator.setQs(Qs, QZs)
-        self.afmulator.setRho({multipole: Q}, sigma)
+        if isinstance(self.qs, HartreePotential):
+            self.afmulator.setRho({multipole: Q}, sigma)
         self.afmulator.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
         self.afmulator.tipR0 = tipR0
         self.afmulator.kCantilever = self.bxCant_K.value()
@@ -341,14 +349,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"Save image","","Image files (*.png)")
         if fileName:
             fileName = guiw.correct_ext( fileName, ".png" )
-            print("saving image to :", fileName)
+            if self.verbose > 0: print("Saving image to :", fileName)
             self.figCan.fig.savefig( fileName,bbox_inches='tight')
 
     def saveDataW(self):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"Save df","","WSxM files (*.xyz)")
         if fileName:
             fileName = guiw.correct_ext( fileName, ".xyz" )
-            print("saving data to to :", fileName)
+            if self.verbose > 0: print("Saving data to to :", fileName)
             npdata = self.selectDataView()
             xs = np.arange(npdata.shape[1] )
             ys = np.arange(npdata.shape[0] )
@@ -381,8 +389,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             z = (self.afmulator.scan_window[0][2] + self.afmulator.scan_window[1][2]) / 2
             self.figCan.plotSlice(data, 0, title=f'z = {z:.2f}Å')
         except:
-            print("cannot plot slice #", 0)
-        t2 = time.perf_counter(); print("plotSlice time %f [s]" %(t2-t1))
+            print("Failed to plot df slice")
+        if self.verbose > 1: print(f"plotSlice time {time.perf_counter() - t1:.5f} [s]")
 
     def clickImshow(self,ix,iy):
         ys = self.viewed_data[ :, iy, ix ]
@@ -391,12 +399,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
-    input_file, device, list_devices = parse_args()
+    input_file, device, list_devices, verbosity = parse_args()
     if list_devices:
         print('\nAvailable OpenCL platforms:')
         oclu.print_platforms()
         sys.exit(0)
-    aw = ApplicationWindow(input_file, device)
+    aw = ApplicationWindow(input_file, device, verbosity)
     aw.show()
     sys.exit(qApp.exec_())
 

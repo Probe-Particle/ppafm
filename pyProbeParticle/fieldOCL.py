@@ -584,7 +584,8 @@ class ForceField_LJC:
     '''
         to evaluate ForceField on GPU
     '''
-    #verbose=0  # this is global for now
+
+    verbose = 0
 
     def __init__( self ):
         self.ctx   = oclu.ctx; 
@@ -655,7 +656,7 @@ class ForceField_LJC:
         if (self.cl_FE is None) and not bDirect:
             nb = self.nDim[0]*self.nDim[1]*self.nDim[2] * 4 * nb_float
             self.cl_FE    = cl.Buffer(self.ctx, mf.WRITE_ONLY , nb ); nbytes+=nb
-            if(verbose>0): print(" forcefield.prepareBuffers() :  self.cl_FE  ", self.cl_FE)
+            if(self.verbose>0): print(" forcefield.prepareBuffers() :  self.cl_FE  ", self.cl_FE)
         if pot is not None:
             assert isinstance(pot, HartreePotential), 'pot should be a HartreePotential object'
             self.pot = pot
@@ -666,13 +667,13 @@ class ForceField_LJC:
             assert isinstance(rho, MultipoleTipDensity), 'rho should be a MultipoleTipDensity object'
             self.rho = rho
             self.fft_conv = FFTConvolution(rho)
-        if(verbose>0): print("initArgsLJC.nbytes ", nbytes)
+        if(self.verbose>0): print("initArgsLJC.nbytes ", nbytes)
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None):
         '''
         update content of all buffers
         '''
-        if(verbose>0): print(" ForceField_LJC.updateBuffers ")
+        if(self.verbose>0): print(" ForceField_LJC.updateBuffers ")
         oclu.updateBuffer(atoms, self.cl_atoms )
         oclu.updateBuffer(cLJs,  self.cl_cLJs  )
         oclu.updateBuffer(poss,  self.cl_poss  )
@@ -681,7 +682,7 @@ class ForceField_LJC:
         '''
         release all buffers
         '''
-        if(verbose>0): print(" ForceField_LJC.tryReleaseBuffers ")
+        if(self.verbose>0): print(" ForceField_LJC.tryReleaseBuffers ")
         try: 
             self.cl_atoms.release() 
             self.cl_atoms = None
@@ -723,7 +724,7 @@ class ForceField_LJC:
         if(bRuntime): t0 = time.time()
         if bCopy and (FE is None):
             FE = np.zeros( self.nDim[:3]+(8,), dtype=np.float32 )
-            if(verbose>0): print("FE.shape", FE.shape, self.nDim)
+            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size
@@ -749,7 +750,7 @@ class ForceField_LJC:
         if(bRuntime): t0 = time.time()
         if bCopy and (FE is None):
             FE = np.zeros( self.nDim[:3]+(4,), dtype=np.float32 )
-            if(verbose>0): print("FE.shape", FE.shape, self.nDim)
+            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "global_size:", global_size
@@ -777,7 +778,7 @@ class ForceField_LJC:
         if bCopy and (FE is None):
             ns = ( tuple(self.nDim[:3])+(4,) )
             FE = np.zeros( ns, dtype=np.float32 )
-            if(verbose>0): print("FE.shape", FE.shape, self.nDim)
+            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "run_evalLJC_Q_noPos self.nDim ",self.nDim," bCopy, bFinish: ", bCopy, bFinish
@@ -826,7 +827,7 @@ class ForceField_LJC:
         else:
             FE = np.empty((self.nDim[3],) + tuple(self.nDim[:3]), dtype=np.float32, order='F')
             
-        if verbose: print("FE.shape ", FE.shape)
+        if self.verbose: print("FE.shape ", FE.shape)
 
         # Copy from device to host
         cl.enqueue_copy(self.queue, FE, self.cl_FE)
@@ -845,7 +846,7 @@ class ForceField_LJC:
         if bCopy and (FE is None):
             ns = ( tuple(self.nDim[:3])+(4,) )
             FE = np.zeros( ns, dtype=np.float32 )
-            if(verbose>0): print("FE.shape", FE.shape, self.nDim)
+            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
         #print "run_evalLJC_Q_noPos self.nDim ",self.nDim," bCopy, bFinish: ", bCopy, bFinish
@@ -958,7 +959,7 @@ class ForceField_LJC:
             (np.abs(np.diag(self.pot.step) * self.pot.shape - np.diag(self.lvec[:, :3])) < 1e-3).all() and
             (self.pot.step == np.diag(np.diag(self.pot.step))).all()
         )
-        if verbose > 0: print('Matching grid:', matching_grid)
+        if self.verbose > 0: print('Matching grid:', matching_grid)
 
         if bRuntime: print("runtime(ForceField_LJC.run_gradPotentialGrid.pre) [s]: ", time.perf_counter() - t0)
 
@@ -999,7 +1000,7 @@ class ForceField_LJC:
             ns = ( tuple(self.nDim[:3])+(4,) )
             FE    = np.zeros( ns, dtype=np.float32 )
             #FE     = np.empty( self.scan_dim+(4,), dtype=np.float32 )
-            if(verbose>0): print("FE.shape", FE.shape, self.nDim)
+            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = int( self.scan_dim[0]*self.scan_dim[1] ) 
         ntot=makeDivisibleUp(ntot,local_size[0])
         global_size = (ntot,) # TODO make sure divisible by local_size
