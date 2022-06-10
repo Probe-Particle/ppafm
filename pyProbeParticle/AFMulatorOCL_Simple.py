@@ -364,7 +364,6 @@ class AFMulator():
                     'the size of the scan window and the force field grid.')
 
 def get_lvec(scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrome=10):
-    
     pad = np.array(pad)
     tipR0 = np.array(tipR0)
     center = (np.array(scan_window[0]) + np.array(scan_window[1])) / 2

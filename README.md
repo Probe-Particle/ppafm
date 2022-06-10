@@ -41,8 +41,8 @@ Run the GUI application:
 ```
   
 #### Usage:
-* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument using the `-i` or `--input` option. Give some time for the file to load.
-* Changing any number in any input box will automatically update the image.
+* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument using the `-i` or `--input` option. The input file can be .xyz geometry file (possibly with point charges) or a .xsf or .cube Hartree potential file. Loading large files may take some time.
+* Changing any number in any input box will automatically update the image. There are also presets for some commonly used tip configurations.
 * Hover mouse cursor over any parameter for a tooltip explaining the meaning of the parameter.
 * Save the current image or df data by clicking the `Save Image...` or `Save df...` buttons at the bottom.
 * In case there are multiple OpenCL devices installed on the system, use the `-l` or `--list-devices` option to list available devices and choose the device using the `-d` or `--device` option with the device platform number as the argument.

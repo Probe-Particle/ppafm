@@ -26,7 +26,35 @@ import pyProbeParticle.GUIWidgets as guiw
 DataViews = Enum('DataViews','df FFin FFout FFel FFpl')
 Multipoles = Enum('Multipoles', 's pz dz2')
 
+Presets = {
+    'CO (Z8, dz2, Q-0.1, K0.25)': {
+        'Z': 8,
+        'Multipole': 'dz2',
+        'Q': -0.1,
+        'Sigma': 0.71,
+        'K': [0.25, 0.25, 30.0],
+        'EqPos': [0.0, 0.0, 3.0]
+    },
+    'Xe (Z54, s, Q0.3, K0.25)': {
+        'Z': 54,
+        'Multipole': 's',
+        'Q': 0.3,
+        'Sigma': 0.71,
+        'K': [0.25, 0.25, 30.0],
+        'EqPos': [0.0, 0.0, 3.0]
+    },
+    'Cl (Z17, s, Q-0.3, K0.50)': {
+        'Z': 54,
+        'Multipole': 's',
+        'Q': -0.3,
+        'Sigma': 0.71,
+        'K': [0.50, 0.50, 30.0],
+        'EqPos': [0.0, 0.0, 3.0]
+    }
+}
+
 TTips = {
+    'Preset': 'Preset: Apply a probe parameter oreset.',
     'Z': 'Z: Probe atomic number. Determines the Lennard-Jones parameters of the force field.',
     'Multipole': 'Multipole: Probe charge multipole type:\ns: monopole\npz: dipole\ndz2: quadrupole.',
     'Q': 'Q: Probe charge/multipole magnitude.',
@@ -80,17 +108,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         l00.addWidget(self.figCan, 2)
         l0 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l0, 1)
 
-        # -------- Data view
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-
-        # lb = QtWidgets.QLabel("Data View"); vb.addWidget(lb)
-        # sl = QtWidgets.QComboBox(); self.slDataView = sl; vb.addWidget(sl)
-        # sl.addItems([d.name for d in DataViews])
-        # sl.setCurrentIndex( sl.findText(DataViews.df.name))
-        # sl.currentIndexChanged.connect(self.updateDataView)
-
-        # ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
-        
         # ------- Probe Settings
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
         lb = QtWidgets.QLabel("Probe settings"); lb.setAlignment(QtCore.Qt.AlignCenter)
@@ -98,12 +115,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb.addWidget(lb)
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Preset"); lb.setToolTip(TTips['Preset']); vb.addWidget(lb, 1)
+        sl = QtWidgets.QComboBox(); self.slPreset = sl; sl.addItems(Presets.keys())
+        sl.currentIndexChanged.connect(self.applyPreset); sl.setToolTip(TTips['Preset']); vb.addWidget(sl, 6)
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
         lb = QtWidgets.QLabel("Z"); lb.setToolTip(TTips['Z']); vb.addWidget(lb, 1)
         bx = QtWidgets.QSpinBox(); bx.setRange(0, 200); bx.setValue(8); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['Z']); vb.addWidget(bx, 2); self.bxZPP=bx
 
         lb = QtWidgets.QLabel("Multipole"); lb.setToolTip(TTips['Multipole']); vb.addWidget(lb, 2)
         sl = QtWidgets.QComboBox(); self.slMultipole = sl; sl.addItems([m.name for m in Multipoles]); sl.setCurrentIndex(sl.findText(Multipoles.dz2.name))
-        sl.currentIndexChanged.connect(self.updateParams); bx.setToolTip(TTips['Multipole']); vb.addWidget(sl, 2)
+        sl.currentIndexChanged.connect(self.updateParams); sl.setToolTip(TTips['Multipole']); vb.addWidget(sl, 2)
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
         lb = QtWidgets.QLabel("Q [e]"); lb.setToolTip(TTips['Q']); vb.addWidget(lb, 1)
@@ -244,13 +266,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         )
         if self.verbose > 0: print("setScanWindow", step, scan_size, scan_center, scan_dim, scan_window)
 
-        # Set new values to the fields. Need to temporarily block the signals to do so.
-        self.bxSSx.blockSignals(True); self.bxSSx.setValue(scan_size[0]); self.bxSSx.blockSignals(False)
-        self.bxSSy.blockSignals(True); self.bxSSy.setValue(scan_size[1]); self.bxSSy.blockSignals(False)
-        self.bxSCx.blockSignals(True); self.bxSCx.setValue(scan_center[0]); self.bxSCx.blockSignals(False)
-        self.bxSCy.blockSignals(True); self.bxSCy.setValue(scan_center[1]); self.bxSCy.blockSignals(False)
-        self.bxD.blockSignals(True); self.bxD.setValue(distance); self.bxD.blockSignals(False)
-        self.bxA.blockSignals(True); self.bxA.setValue(amplitude); self.bxA.blockSignals(False)
+        # Set new values to the fields
+        guiw.set_box_value(self.bxSSx, scan_size[0])
+        guiw.set_box_value(self.bxSSy, scan_size[1])
+        guiw.set_box_value(self.bxSCx, scan_center[0])
+        guiw.set_box_value(self.bxSCy, scan_center[1])
+        guiw.set_box_value(self.bxD, distance)
+        guiw.set_box_value(self.bxA, amplitude)
 
         # Set scan size and amplitude increments to match the set step size
         self.bxSSx.setSingleStep(step[0])
@@ -312,6 +334,27 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.afmulator.f0Cantilever = self.bxCant_f0.value()
 
         self.update()
+
+    def applyPreset(self):
+        '''Get current preset, apply parameters, and update'''
+        preset = Presets[self.slPreset.currentText()]
+        if 'Z' in preset: guiw.set_box_value(self.bxZPP, preset['Z'])
+        if 'Q' in preset: guiw.set_box_value(self.bxQ, preset['Q'])
+        if 'Sigma' in preset: guiw.set_box_value(self.bxS, preset['Sigma'])
+        if 'K' in preset:
+            guiw.set_box_value(self.bxKx, preset['K'][0])
+            guiw.set_box_value(self.bxKy, preset['K'][1])
+            guiw.set_box_value(self.bxKr, preset['K'][2])
+        if 'EqPos' in preset:
+            guiw.set_box_value(self.bxP0x, preset['EqPos'][0])
+            guiw.set_box_value(self.bxP0y, preset['EqPos'][1])
+            guiw.set_box_value(self.bxP0r, preset['EqPos'][2])
+        if 'Multipole' in preset:
+            sl = self.slMultipole
+            sl.blockSignals(True)
+            sl.setCurrentIndex(sl.findText(preset['Multipole']))
+            sl.blockSignals(False)
+        self.updateParams()
 
     def update(self):
         '''Run simulation, and show the result'''
