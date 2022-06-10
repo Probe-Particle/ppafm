@@ -199,17 +199,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         lb = QtWidgets.QLabel("f0 [kHz]"); lb.setToolTip(TTips['f0']); vb.addWidget(lb)
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,2000.0); bx.setSingleStep(1.0); bx.setValue(30.3); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['f0']); vb.addWidget(bx); self.bxCant_f0=bx
 
-        # === buttons
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
+        # ------- Buttons
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
         
-        # --- EditAtoms
-        # self.geomEditor = guiw.EditorWindow(self,title="Geometry Editor")
-        # bt = QtWidgets.QPushButton('Edit Geom', self)
-        # bt.setToolTip('Edit atomic structure')
-        # bt.clicked.connect(self.geomEditor.show)
-        # self.btEditAtoms = bt; vb.addWidget( bt )
+        # Geometry editor
+        self.geomEditor = None
+        bt = QtWidgets.QPushButton('Edit Geometry', self)
+        bt.setToolTip('Edit atomic structure')
+        bt.clicked.connect(self.showGeomEditor)
+        self.btEditAtoms = bt; vb.addWidget(bt)
         
         # --- EditFFparams
         # self.speciesEditor = guiw.EditorWindow(self,title="Species Editor")
@@ -381,9 +381,25 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.Zs = Zs
         self.qs = qs
 
+        # Create geometry editor widget
+        self.createGeomEditor()
+
         # Infer scan window from loaded geometry and run
         self.scanWindowFromGeom()
         self.updateParams()
+
+    def createGeomEditor(self):
+        '''Create a new geometry editor. Replace old one if it exists.'''
+        if self.geomEditor:
+            self.geomEditor.deleteLater()
+            self.geomEditor = None
+        enable_qs = not isinstance(self.qs, HartreePotential)
+        self.geomEditor = guiw.GeomEditor(len(self.xyzs), enable_qs=enable_qs, parent=self,
+            title="Geometry Editor")
+
+    def showGeomEditor(self):
+        self.geomEditor.updateValues()
+        self.geomEditor.show()
 
     def openFile(self):
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '', '*.xyz *.xsf *.cube')

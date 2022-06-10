@@ -277,17 +277,68 @@ class PlotWindow(SlaveWindow):
 #         Editor
 # =======================
 
-class EditorWindow(SlaveWindow):
-    def __init__(self, parent=None, title="Editor" ):
-        super(self.__class__, self).__init__( parent=parent, title=title );
-        #super(EditorWindow, self).__init__(parent=parent, title=title)
-        #SlaveWindow.__init__( parent=parent, title=title );
-        bt = QtWidgets.QPushButton('Update', self); 
-        bt.setToolTip('recalculate using this atomic structure'); 
-        bt.clicked.connect(parent.updateFromFF)
-        self.btUpdate = bt; 
+class GeomEditor(SlaveWindow):
 
-        self.textEdit = QtWidgets.QTextEdit()
+    def __init__(self, n_atoms, enable_qs=True, parent=None, title="Geometry editor" ):
 
-        self.centralLayout.addWidget( self.textEdit )
-        self.centralLayout.addWidget( bt )
+        super().__init__(parent=parent, title=title)
+
+        self.n_atoms = n_atoms
+        self.enable_qs = enable_qs
+
+        # Layout everything on a (n_atoms + 1) x 5 grid
+        grid = QtWidgets.QGridLayout()
+        self.centralLayout.addLayout(grid)
+
+        # Labels
+        for j, text in enumerate('Zxyzq'):
+            lb = QtWidgets.QLabel(text)
+            lb.setAlignment(QtCore.Qt.AlignCenter)
+            grid.addWidget(lb, 0, j)
+
+        # Atoms
+        self.input_boxes = []
+        for i in range(n_atoms):
+
+            bZ = QtWidgets.QSpinBox(); bZ.setRange(0, 200)
+            bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setSingleStep(0.1); bx.setDecimals(3)
+            by = QtWidgets.QDoubleSpinBox(); by.setRange(-100, 100); by.setSingleStep(0.1); by.setDecimals(3)
+            bz = QtWidgets.QDoubleSpinBox(); bz.setRange(-100, 100); bz.setSingleStep(0.05); bz.setDecimals(3)
+            bQ = QtWidgets.QDoubleSpinBox(); bQ.setRange(-2.0, 2.0); bQ.setSingleStep(0.02); bQ.setDecimals(3)
+
+            for j, b in enumerate([bZ, bx, by, bz, bQ]):
+                b.valueChanged.connect(self.updateParent)
+                grid.addWidget(b, i+1, j)
+
+            self.input_boxes.append([bZ, bx, by, bz, bQ])
+                
+    def updateValues(self):
+
+        xyzs = self.parent.xyzs
+        Zs = self.parent.Zs
+        
+        if self.enable_qs:
+            qs = self.parent.qs
+        else:
+            qs = np.zeros(len(xyzs))
+            for ab in self.input_boxes:
+                ab[4].setDisabled(True)
+
+        for xyz, Z, q, boxes in zip(xyzs, Zs, qs, self.input_boxes):
+            set_box_value(boxes[0], Z)
+            set_box_value(boxes[1], xyz[0])
+            set_box_value(boxes[2], xyz[1])
+            set_box_value(boxes[3], xyz[2])
+            set_box_value(boxes[4], q)
+    
+    def updateParent(self):
+        xyzs, Zs, qs = [], [], []
+        for boxes in self.input_boxes:
+            xyzs.append([boxes[1].value(), boxes[2].value(), boxes[3].value()])
+            Zs.append(boxes[0].value())
+            qs.append(boxes[4].value())
+        self.parent.xyzs = np.array(xyzs)
+        self.parent.Zs = np.array(Zs, dtype=np.int32)
+        if self.enable_qs:
+            self.parent.qs = np.array(qs)
+        self.parent.update()
