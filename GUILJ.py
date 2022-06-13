@@ -14,7 +14,7 @@ import numpy as np
 from enum import Enum
 
 from pyProbeParticle import basUtils
-from pyProbeParticle import PPPlot 
+from pyProbeParticle import PPPlot
 from pyProbeParticle.AFMulatorOCL_Simple import AFMulator
 from pyProbeParticle.fieldOCL            import HartreePotential, hartreeFromFile
 import pyProbeParticle.GridUtils  as GU
@@ -85,6 +85,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     sw_pad = 4.0 # Default padding for scan window on each side of the molecule in xy plane
 
     def __init__(self, input_file, device, verbose=0):
+
+        self.df = None
+        self.xyzs = None
+        self.Zs = None
+        self.qs = None
 
         # Initialize OpenCL environment on chosen device and create an afmulator instance to use for simulations
         oclu.init_env(device)
@@ -251,6 +256,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def setScanWindow(self, scan_size, scan_center, step, distance, amplitude):
         '''Set scan window in AFMulator and update input fields'''
 
+        if self.xyzs is None: return
+
         # Make scan size and amplitude multiples of the step size
         scan_dim = np.round([
             scan_size[0] / step[0] + 1,
@@ -288,6 +295,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def scanWindowFromGeom(self):
         '''Infer and set scan window from current geometry'''
+        if self.xyzs is None: return
         scan_size = self.xyzs[:, :2].max(axis=0) - self.xyzs[:, :2].min(axis=0) + 2 * self.sw_pad
         scan_center = (self.xyzs[:, :2].max(axis=0) + self.xyzs[:, :2].min(axis=0)) / 2
         step = np.array([self.bxStepX.value(), self.bxStepY.value(), self.bxStepZ.value()])
@@ -297,6 +305,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def updateScanWindow(self):
         '''Get scan window from input fields and update'''
+        if self.xyzs is None: return
         scan_size = np.array([self.bxSSx.value(), self.bxSSy.value()])
         scan_center = np.array([self.bxSCx.value(), self.bxSCy.value()])
         step = np.array([self.bxStepX.value(), self.bxStepY.value(), self.bxStepZ.value()])
@@ -307,6 +316,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def updateParams(self):
         '''Get parameter values from input fields and update'''
+
+        if self.xyzs is None: return
 
         Q = self.bxQ.value()
         sigma = self.bxS.value()
@@ -358,6 +369,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def update(self):
         '''Run simulation, and show the result'''
+        if self.xyzs is None: return
         self.df = self.afmulator(self.xyzs, self.Zs, self.qs)
         self.updateDataView()
 
@@ -398,6 +410,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             title="Geometry Editor")
 
     def showGeomEditor(self):
+        if self.xyzs is None: return
         self.geomEditor.updateValues()
         self.geomEditor.show()
 
@@ -407,6 +420,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.loadInput(file_path)
         
     def saveFig(self):
+        if self.xyzs is None: return
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"Save image","","Image files (*.png)")
         if fileName:
             fileName = guiw.correct_ext( fileName, ".png" )
@@ -414,36 +428,20 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.figCan.fig.savefig( fileName,bbox_inches='tight')
 
     def saveDataW(self):
+        if self.df is None: return
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"Save df","","WSxM files (*.xyz)")
         if fileName:
             fileName = guiw.correct_ext( fileName, ".xyz" )
             if self.verbose > 0: print("Saving data to to :", fileName)
-            npdata = self.selectDataView()
+            npdata = self.df
             xs = np.arange(npdata.shape[1] )
             ys = np.arange(npdata.shape[0] )
             Xs, Ys = np.meshgrid(xs,ys)
             GU.saveWSxM_2D(fileName, npdata, Xs, Ys)
-    
-    def selectDataView(self):   # !!! Everything from TOP now !!! #
-        # dview = self.slDataView.currentText()
-        # data = None;
-        # if   dview == DataViews.df.name:
-        #     data = self.df
-        # elif dview == DataViews.FFout.name:
-        #     data = np.transpose( self.FEout[:,:,:,2], (2,1,0) )
-        # elif dview == DataViews.FFin.name:
-        #     data = self.FEin[::-1,:,:,2]
-        # elif dview == DataViews.FFpl.name:
-        #     data = self.FF  [::-1,:,:,2]
-        # elif dview == DataViews.FFel.name:
-        #     data = self.FFel[::-1,:,:,2]
-        #     #print "data FFel.shape[1:3]", data.shape[1:3]
-        #     #iz = data.shape[0]-iz-1
-        return self.df
 
     def updateDataView(self):
         t1 = time.perf_counter()
-        data = self.selectDataView()
+        data = self.df
         self.viewed_data = data
         try:
             data = data.transpose(2, 1, 0)
