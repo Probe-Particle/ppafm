@@ -66,6 +66,7 @@ TTips = {
     'ScanCenter': 'Scan center: center position of scan region in x and y directions.',
     'Distance': 'Distance: Average tip distance from the center of the closest atom',
     'Amplitude': 'Amplitude: Peak-to-peak oscillation amplitude for the tip.',
+    'PBC': 'Periodic Boundaries: Lattice vectors for periodic images of atoms.',
     'k': 'k: Cantilever spring constant. Only appears as a scaling constant.',
     'f0': 'f0: Cantilever eigenfrequency. Only appears as a scaling constant.',
     'df_steps': 'Number of steps in df approach curve when clicking on image.',
@@ -94,6 +95,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.xyzs = None
         self.Zs = None
         self.qs = None
+        self.pbc_lvec = None
         self.df_points = []
 
         # Initialize OpenCL environment on chosen device and create an afmulator instance to use for simulations
@@ -117,6 +119,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.figCan = guiw.FigImshow( parentWiget=self.main_widget, parentApp=self, width=5, height=4, dpi=100, verbose=verbose)
         l00.addWidget(self.figCan, 2)
         l0 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l0, 1)
+        self.resize(1000, 600)
 
         # ------- Probe Settings
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
@@ -195,9 +198,40 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         lb = QtWidgets.QLabel("Amplitude [Å]"); lb.setToolTip(TTips['Amplitude']); vb.addWidget(lb)
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(1.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Amplitude']); vb.addWidget(bx); self.bxA=bx
 
+        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
+
+        # ------- Periodic Boundaries
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("Periodic boundary conditions"); vb.addWidget(lb)
-        bx = QtWidgets.QCheckBox(); bx.setChecked(True); bx.toggled.connect(self.updateScanWindow); vb.addWidget(bx); self.bxPBC = bx
+        lb = QtWidgets.QLabel("Periodic Boundaries"); lb.setAlignment(QtCore.Qt.AlignCenter)
+        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
+        vb.addWidget(lb)
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Use periodic boundary conditions"); vb.addWidget(lb)
+        bx = QtWidgets.QCheckBox(); bx.setChecked(True); bx.toggled.connect(self.updatePBC); vb.addWidget(bx); self.bxPBC = bx
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
+        bxr = QtWidgets.QVBoxLayout(); vb.addLayout(bxr, 3)
+
+        lb = QtWidgets.QLabel("A (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
+        lb = QtWidgets.QLabel("B (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
+        lb = QtWidgets.QLabel("C (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
+        
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(50); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCAx=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCAy=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCAz=bx
+
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCBx=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(50); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCBy=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCBz=bx
+
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCCx=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCCy=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(100); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCCz=bx
 
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
@@ -362,6 +396,61 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.update()
 
+    def setPBC(self, lvec, enabled):
+        '''Set periodic boundary condition lattice'''
+
+        if self.verbose > 0: print('setPBC', lvec, enabled)
+
+        if enabled:
+            self.pbc_lvec = lvec
+            self.afmulator.npbc = (1, 1, 0)
+        else:
+            self.pbc_lvec = None
+            self.afmulator.npbc = (0, 0, 0)
+
+        # Set check-box state
+        self.bxPBC.blockSignals(True)
+        self.bxPBC.setChecked(enabled)
+        self.bxPBC.blockSignals(False)
+
+        # Set lattice vector values
+        if lvec is not None:
+            guiw.set_box_value(self.bxPBCAx, lvec[0][0])
+            guiw.set_box_value(self.bxPBCAy, lvec[0][1])
+            guiw.set_box_value(self.bxPBCAz, lvec[0][2])
+            guiw.set_box_value(self.bxPBCBx, lvec[1][0])
+            guiw.set_box_value(self.bxPBCBy, lvec[1][1])
+            guiw.set_box_value(self.bxPBCBz, lvec[1][2])
+            guiw.set_box_value(self.bxPBCCx, lvec[2][0])
+            guiw.set_box_value(self.bxPBCCy, lvec[2][1])
+            guiw.set_box_value(self.bxPBCCz, lvec[2][2])
+
+        # Disable lattice vector boxes if PBC not enabled
+        for bx in [
+            self.bxPBCAx, self.bxPBCAy, self.bxPBCAz,
+            self.bxPBCBx, self.bxPBCBy, self.bxPBCBz,
+            self.bxPBCCx, self.bxPBCCy, self.bxPBCCz
+            ]:
+            bx.setDisabled(not enabled)
+
+    def pbcFromGeom(self):
+        '''Get PBC lattice from current geometry'''
+        if isinstance(self.qs, HartreePotential):
+            self.setPBC(self.qs.lvec[1:], True)
+        else:
+            self.setPBC(None, False)
+    
+    def updatePBC(self):
+        '''Get PBC lattice from from input fields and update'''
+        lvec = np.array([
+            [self.bxPBCAx.value(), self.bxPBCAy.value(), self.bxPBCAz.value()],
+            [self.bxPBCBx.value(), self.bxPBCBy.value(), self.bxPBCBz.value()],
+            [self.bxPBCCx.value(), self.bxPBCCy.value(), self.bxPBCCz.value()]
+        ])
+        toggle = self.bxPBC.isChecked()
+        self.setPBC(lvec, toggle)
+        self.update()
+
     def applyPreset(self):
         '''Get current preset, apply parameters, and update'''
         preset = Presets[self.slPreset.currentText()]
@@ -387,7 +476,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         '''Run simulation, and show the result'''
         if self.xyzs is None: return
         if self.verbose > 1: t0 = time.perf_counter()
-        self.df = self.afmulator(self.xyzs, self.Zs, self.qs)
+        self.df = self.afmulator(self.xyzs, self.Zs, self.qs, pbc_lvec=self.pbc_lvec)
         if self.verbose > 1: print(f'AFMulator total time [s]: {time.perf_counter() - t0}')
         self.updateDataView()
 
@@ -417,6 +506,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         # Infer scan window from loaded geometry and run
         self.scanWindowFromGeom()
+        self.pbcFromGeom()
         self.updateParams()
 
     def createGeomEditor(self):

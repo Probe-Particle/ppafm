@@ -111,7 +111,7 @@ class AFMulator():
         self.saveFFpre = ""
         self.counter = 0
     
-    def eval(self, xyzs, Zs, qs, rot=np.eye(3), rot_center=None, REAs=None, X=None ):
+    def eval(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None, X=None ):
         '''
         Prepare and evaluate AFM image.
         Arguments:
@@ -119,21 +119,24 @@ class AFMulator():
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
             qs: np.ndarray of shape (num_atoms,) or HartreePotential or None. Charges of atoms or hartree potential.
                 If None, then no electrostatics are used.
+            pbc_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
+                If None, periodic boundaries are disabled, unless qs is HartreePotential and the lvec from the
+                Hartree potential is used instead. If npbc = (0, 0, 0), then has no function.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
         Returns: np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
         '''
-        self.prepareFF(xyzs, Zs, qs, rot, rot_center, REAs)
+        self.prepareFF(xyzs, Zs, qs, pbc_lvec, rot, rot_center, REAs)
         self.prepareScanner()
         X = self.evalAFM(X)
         return X
     
-    def __call__(self, xyzs, Zs, qs, rot=np.eye(3), rot_center=None, REAs=None, X=None):
+    def __call__(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None, X=None):
         '''
         Makes object callable. See eval for input arguments.
         '''
-        return self.eval(xyzs, Zs, qs, rot, rot_center, REAs=REAs, X=X)
+        return self.eval(xyzs, Zs, qs, pbc_lvec, rot, rot_center, REAs=REAs, X=X)
 
     def eval_( self, mol ):
         return self.eval( mol.xyzs, mol.Zs, mol.qs )
@@ -210,7 +213,7 @@ class AFMulator():
 
     # ========= Imaging =========
 
-    def prepareFF(self, xyzs, Zs, qs, rot=np.eye(3), rot_center=None, REAs=None):
+    def prepareFF(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None):
         '''
         Prepare molecule parameters and calculate force field.
         Arguments:
@@ -218,6 +221,9 @@ class AFMulator():
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
             qs: np.ndarray of shape (num_atoms,) or HartreePotential or None. Charges of atoms or hartree potential.
                 If None, then no electrostatics are used.
+            pbc_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
+                If None, periodic boundaries are disabled, unless qs is HartreePotential and the lvec from the
+                Hartree potential is used instead. If npbc = (0, 0, 0), then has no function.
             rot: np.ndarray of shape (3, 3). Rotation matrix to apply to atom positions.
             rot_center: np.ndarray of shape (3,). Center for rotation. Defaults to center of atom coordinates.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
@@ -241,8 +247,11 @@ class AFMulator():
         elif isinstance(qs, HartreePotential):
             pot = qs
             qs = np.zeros(len(Zs))
+            pbc_lvec = pbc_lvec if pbc_lvec is not None else pot.lvec
         else:
             pot = None
+
+        npbc = self.npbc if pbc_lvec is not None else (0, 0, 0)
 
         if rot_center is None:
             rot_center = xyzs.mean(axis=0)
@@ -254,7 +263,10 @@ class AFMulator():
         else:
             self.REAs = REAs
         cLJs = PPU.REA2LJ(self.REAs)
-        Zs, xyzqs, cLJs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, self.lvec[1:], npbc=self.npbc)
+        if sum(npbc) > 0:
+            Zs, xyzqs, cLJs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, pbc_lvec, npbc=npbc)
+        else:
+            xyzqs = np.concatenate([xyzs, qs[:, None]], axis=1)
         self.Zs = Zs
             
         # Compute force field
