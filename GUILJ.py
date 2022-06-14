@@ -68,7 +68,9 @@ TTips = {
     'Amplitude': 'Amplitude: Peak-to-peak oscillation amplitude for the tip.',
     'k': 'k: Cantilever spring constant. Only appears as a scaling constant.',
     'f0': 'f0: Cantilever eigenfrequency. Only appears as a scaling constant.',
-    'df_steps': 'Number of steps in df approach curve when clicking on image.'
+    'df_steps': 'Number of steps in df approach curve when clicking on image.',
+    'edit_geom': 'Edit Geometry: Edit the positions, atomic numbers, and charges of atoms.',
+    'edit_ff': 'Edit FF: Edit Lennard-Jones parameters of forcefield.'
 }
 
 def parse_args():
@@ -220,16 +222,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Geometry editor
         self.geomEditor = None
         bt = QtWidgets.QPushButton('Edit Geometry', self)
-        bt.setToolTip('Edit atomic structure')
+        bt.setToolTip(TTips['edit_geom'])
         bt.clicked.connect(self.showGeomEditor)
         self.btEditAtoms = bt; vb.addWidget(bt)
         
-        # --- EditFFparams
-        # self.speciesEditor = guiw.EditorWindow(self,title="Species Editor")
-        # bt = QtWidgets.QPushButton('Edit Params', self)
-        # bt.setToolTip('Edit atomic structure')
-        # bt.clicked.connect(self.speciesEditor.show)
-        # self.btEditParams = bt; vb.addWidget( bt )
+        # Forcefield parameter editor
+        self.FFEditor = guiw.LJParamEditor(self.afmulator.typeParams, self)
+        bt = QtWidgets.QPushButton('Edit FF', self)
+        bt.setToolTip(TTips['edit_ff'])
+        bt.clicked.connect(self.FFEditor.show)
+        self.btEditFF = bt; vb.addWidget(bt)
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)

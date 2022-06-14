@@ -329,3 +329,52 @@ class GeomEditor(SlaveWindow):
         if self.enable_qs:
             self.parent.qs = np.array(qs)
         self.parent.update()
+
+class LJParamEditor(QtWidgets.QMainWindow):
+
+    def __init__(self, type_params, parent=None, title="Edit Forcefield"):
+
+        super().__init__(parent)
+        self.parent = parent
+        self.setWindowTitle(title)
+        self.grid = QtWidgets.QGridLayout()
+        self.main_widget = QtWidgets.QWidget(self)
+        self.main_widget.setLayout(self.grid)
+
+        self.type_params = np.array(type_params)
+
+        # Labels
+        for j, text in enumerate(['Z', 'r_0', 'eps_0']):
+            lb = QtWidgets.QLabel(text)
+            lb.setAlignment(QtCore.Qt.AlignCenter)
+            self.grid.addWidget(lb, 0, j)
+
+        # Lennard-Jones parameters
+        self.input_boxes = []
+        for i, (r0, e0, _, _, el) in enumerate(self.type_params):
+
+            lb = QtWidgets.QLabel(f'{i+1}: ' + el.decode('UTF-8')); self.grid.addWidget(lb, i+1, 0)
+            br = QtWidgets.QDoubleSpinBox(); br.setRange(0, 5); br.setSingleStep(0.01); br.setDecimals(4); br.setValue(r0)
+            be = QtWidgets.QDoubleSpinBox(); be.setRange(0, 0.1); be.setSingleStep(0.0002); be.setDecimals(6); be.setValue(e0)
+
+            for j, b in enumerate([br, be]):
+                b.valueChanged.connect(self.updateParent)
+                self.grid.addWidget(b, i+1, j+1)
+
+            self.input_boxes.append([br, be])
+        
+        # Since the box is very tall, make it scrollable
+        self.scroll = QtWidgets.QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setWidget(self.main_widget)
+        self.scroll.setMinimumWidth(250)
+        self.setCentralWidget(self.scroll)
+    
+    def updateParent(self):
+        for i, (br, be) in enumerate(self.input_boxes):
+            p = self.type_params[i]
+            r0 = br.value()
+            e0 = be.value()
+            self.type_params[i] = (r0, e0, p[2], p[3], p[4])
+        self.parent.afmulator.typeParams = [tuple(p) for p in self.type_params]
+        self.parent.update()
