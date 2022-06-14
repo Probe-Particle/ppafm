@@ -77,7 +77,7 @@ def parse_args():
     parser.add_argument("-i", "--input", action="store", type=str, help="Input file.")
     parser.add_argument("-d", "--device", action="store", type=int, default=0, help="Choose OpenCL device.")
     parser.add_argument("-l", "--list-devices", action="store_true", help="List available devices and exit.")
-    parser.add_argument("-v", '--verbosity', action="store", type=int, default=0, help="Set verbosity level (0-1)")
+    parser.add_argument("-v", '--verbosity', action="store", type=int, default=0, help="Set verbosity level (0-2)")
     args = parser.parse_args()
     return args.input, args.device, args.list_devices, args.verbosity
 
@@ -459,22 +459,23 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         t1 = time.perf_counter()
 
+        # Compute current coordinates of df line points
+        points = []
+        for x, y in self.df_points:
+            x_min, y_min = self.afmulator.scan_window[0][:2]
+            x_step, y_step = self.bxStepX.value(), self.bxStepY.value()
+            ix = (x - x_min) / x_step
+            iy = (y - y_min) / y_step
+            points.append((ix, iy))
+
         # Plot df
         try:
             data = self.df.transpose(2, 1, 0)
             z = self.afmulator.scan_window[0][2] + self.afmulator.amplitude / 2
-            self.figCan.plotSlice(data, -1, title=f'z = {z:.2f}Å')
-        except:
+            self.figCan.plotSlice(data, -1, title=f'z = {z:.2f}Å', points=points)
+        except Exception as e:
             print("Failed to plot df slice")
-
-        # Redraw df line points in current data coordinates
-        for x, y in self.df_points:
-            x_min, y_min = self.afmulator.scan_window[0][:2]
-            x_step, y_step = self.bxStepX.value(), self.bxStepY.value()
-            ix = round((x - x_min) / x_step)
-            iy = round((y - y_min) / y_step)
-            self.figCan.axes.plot([ix] ,[iy], 'o')
-            self.figCan.draw()
+            if self.verbose > 1: print(e)
 
         if self.verbose > 1: print(f"plotSlice time {time.perf_counter() - t1:.5f} [s]")
 
@@ -500,6 +501,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def clearPoints(self):
         self.df_points = []
+        self.figCan.point_plots = []
         self.updateDataView()
 
 if __name__ == "__main__":

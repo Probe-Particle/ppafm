@@ -70,8 +70,9 @@ class FigImshow(FigCanvas):
         cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
         self.verbose = verbose
         self.img = None
+        self.point_plots = []
             
-    def plotSlice(self, F_stack , z_slice, title=None, margins=None, grid_selector = 0, slice_length = None):
+    def plotSlice(self, F_stack , z_slice, title=None, margins=None, grid_selector = 0, slice_length = None, points=[]):
         
         F = F_stack[z_slice]
 
@@ -80,9 +81,14 @@ class FigImshow(FigCanvas):
         if self.img is None or self.img.get_array().shape != F.shape:
             self.axes.cla()
             self.img = self.axes.imshow(F, origin='lower', cmap='gray', interpolation='bicubic')
+            self.point_plots = []
+            for ix, iy in points:
+                self.point_plots.append(self.axes.plot([ix] , [iy], 'o')[0])
         else:
             self.img.set_data(F)
             self.img.autoscale()
+            for p, (ix, iy) in zip(self.point_plots, points):
+                p.set_data((ix, iy))
 
         if margins:
             self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),F.shape[1]-margins[2]-margins[0], F.shape[0]-margins[3]-margins[1], linewidth=2,edgecolor='r',facecolor='none')) 
@@ -157,7 +163,7 @@ class FigImshow(FigCanvas):
         #print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' % (event.button, event.x, event.y, event.xdata, event.ydata))
         ix = int(event.xdata)
         iy = int(event.ydata) 
-        self.axes.plot( [ix] , [iy], 'o' )
+        self.point_plots.append(self.axes.plot( [ix] , [iy], 'o' )[0])
         self.draw()
         #ys = self.data[ :, iy, ix ]
         #self.parent.figCurv.show()
