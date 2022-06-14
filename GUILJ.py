@@ -86,6 +86,7 @@ def parse_args():
 class ApplicationWindow(QtWidgets.QMainWindow):
 
     sw_pad = 4.0 # Default padding for scan window on each side of the molecule in xy plane
+    zoom_step = 1.0 # How much to increase/reduce scan size on zoom
 
     def __init__(self, input_file, device, verbose=0):
 
@@ -505,6 +506,29 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.df_points = []
         self.figCan.point_plots = []
         self.updateDataView()
+
+    def zoomTowards(self, ix, iy, zoom_direction):
+
+        if self.verbose > 0: print('zoomTowards', ix, iy, zoom_direction)
+
+        scan_size = np.array([self.bxSSx.value(), self.bxSSy.value()])
+        scan_center = np.array([self.bxSCx.value(), self.bxSCy.value()])
+        frac_coord = np.array([ix, iy]) / (np.array(self.df.shape[:2]) - 1) - 0.5
+        offset = self.zoom_step * frac_coord
+
+        if zoom_direction == 'in':
+            scan_size -= self.zoom_step
+            scan_center += offset
+        elif zoom_direction == 'out':
+            scan_size += self.zoom_step
+            scan_center -= offset
+
+        guiw.set_box_value(self.bxSSx, scan_size[0])
+        guiw.set_box_value(self.bxSSy, scan_size[1])
+        guiw.set_box_value(self.bxSCx, scan_center[0])
+        guiw.set_box_value(self.bxSCy, scan_center[1])
+
+        self.updateScanWindow()
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)

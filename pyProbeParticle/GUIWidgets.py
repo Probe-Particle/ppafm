@@ -67,7 +67,8 @@ class FigImshow(FigCanvas):
     
     def __init__(self, parentWiget=None, parentApp=None,  width=5, height=4, dpi=100, verbose=0):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp,  width=width, height=height, dpi=dpi )
-        cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
+        self.fig.canvas.mpl_connect('button_press_event', self.onclick)
+        self.fig.canvas.mpl_connect('scroll_event', self.onscroll)
         self.verbose = verbose
         self.img = None
         self.point_plots = []
@@ -160,17 +161,32 @@ class FigImshow(FigCanvas):
 
 
     def onclick(self, event):
-        #print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' % (event.button, event.x, event.y, event.xdata, event.ydata))
-        ix = int(event.xdata)
-        iy = int(event.ydata) 
+        try:
+            ix = int(event.xdata)
+            iy = int(event.ydata)
+        except TypeError:
+            if self.verbose > 0: print('Invalid click event.')
+            return
         self.point_plots.append(self.axes.plot( [ix] , [iy], 'o' )[0])
         self.draw()
-        #ys = self.data[ :, iy, ix ]
-        #self.parent.figCurv.show()
-        #self.parent.figCurv.figCan.plotDatalines( ( range(len(ys)), ys, "%i_%i" %(ix,iy) )  )
-        #self.axes.plot( range(len(ys)), ys )
         self.parent.clickImshow(ix,iy)
         return iy, ix
+
+    def onscroll(self, event):
+        try:
+            ix = int(event.xdata)
+            iy = int(event.ydata)
+        except TypeError:
+            if self.verbose > 0: print('Invalid scroll event.')
+            return
+        if event.button == 'up':
+            direction = 'in'
+        elif event.button == 'down':
+            direction = 'out'
+        else:
+            print(f'Invalid scroll direction {event.button}')
+            return
+        self.parent.zoomTowards(ix, iy, direction)
 
 # =======================
 #     SlaveWindow
