@@ -111,7 +111,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("Probe Particle Model")
         self.main_widget = QtWidgets.QWidget(self)
         l00 = QtWidgets.QHBoxLayout(self.main_widget)
-        self.figCan = guiw.FigImshow( parentWiget=self.main_widget, parentApp=self, width=5, height=4, dpi=100)
+        self.figCan = guiw.FigImshow( parentWiget=self.main_widget, parentApp=self, width=5, height=4, dpi=100, verbose=verbose)
         l00.addWidget(self.figCan, 2)
         l0 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l0, 1)
 
@@ -191,6 +191,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(6.5); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Distance']); vb.addWidget(bx); self.bxD=bx
         lb = QtWidgets.QLabel("Amplitude [Å]"); lb.setToolTip(TTips['Amplitude']); vb.addWidget(lb)
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(1.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Amplitude']); vb.addWidget(bx); self.bxA=bx
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Periodic boundary conditions"); vb.addWidget(lb)
+        bx = QtWidgets.QCheckBox(); bx.setChecked(True); bx.toggled.connect(self.updateScanWindow); vb.addWidget(bx); self.bxPBC = bx
 
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
@@ -281,6 +285,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         )
         self.afmulator.kCantilever = self.bxCant_K.value()
         self.afmulator.f0Cantilever = self.bxCant_f0.value()
+        self.afmulator.npbc = (1, 1, 0) if self.bxPBC.isChecked() else (0, 0, 0)
         if self.verbose > 0: print("setScanWindow", step, scan_size, scan_center, scan_dim, scan_window)
 
         # Set new values to the fields
