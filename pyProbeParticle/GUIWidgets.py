@@ -51,8 +51,8 @@ class FigPlot(FigCanvas):
         self.axes.grid()
         #self.axes.axhline(0.0, ls="--", c="k")
 
-    def plotDatalines( self, dline ):
-        self.axes.plot( dline[0], dline[1], label=dline[2] )
+    def plotDatalines(self, x, y, label):
+        self.axes.plot(x, y, 'x-', label=label)
         self.draw()  
         #self.updatePlotAxis()
 
@@ -255,6 +255,7 @@ class PlotWindow(SlaveWindow):
         self.figCan.axes.cla()
         self.figCan.defaultPlotAxis()
         self.figCan.draw()
+        self.parent.clearPoints()
     
     def setRange(self):
         xmin=None;xmax=None;ymin=None;ymax=None

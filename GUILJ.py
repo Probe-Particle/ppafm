@@ -67,7 +67,8 @@ TTips = {
     'Distance': 'Distance: Average tip distance from the center of the closest atom',
     'Amplitude': 'Amplitude: Peak-to-peak oscillation amplitude for the tip.',
     'k': 'k: Cantilever spring constant. Only appears as a scaling constant.',
-    'f0': 'f0: Cantilever eigenfrequency. Only appears as a scaling constant. '
+    'f0': 'f0: Cantilever eigenfrequency. Only appears as a scaling constant.',
+    'df_steps': 'Number of steps in df approach curve when clicking on image.'
 }
 
 def parse_args():
@@ -90,6 +91,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.xyzs = None
         self.Zs = None
         self.qs = None
+        self.df_points = []
 
         # Initialize OpenCL environment on chosen device and create an afmulator instance to use for simulations
         oclu.init_env(device)
@@ -200,9 +202,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
         lb = QtWidgets.QLabel("k [kN/m]"); lb.setToolTip(TTips['k']); vb.addWidget(lb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,1000.0); bx.setSingleStep(0.1); bx.setValue(1.8);  bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['k']); vb.addWidget(bx); self.bxCant_K=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,1000.0); bx.setSingleStep(0.1); bx.setValue(1.8);  bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['k']); vb.addWidget(bx); self.bxCant_K=bx
         lb = QtWidgets.QLabel("f0 [kHz]"); lb.setToolTip(TTips['f0']); vb.addWidget(lb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,2000.0); bx.setSingleStep(1.0); bx.setValue(30.3); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['f0']); vb.addWidget(bx); self.bxCant_f0=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,2000.0); bx.setSingleStep(1.0); bx.setValue(30.3); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['f0']); vb.addWidget(bx); self.bxCant_f0=bx
+        lb = QtWidgets.QLabel("df steps"); lb.setToolTip(TTips['df_steps']); vb.addWidget(lb, 1)
+        bx = QtWidgets.QSpinBox(); bx.setRange(0, 50); bx.setValue(10); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['df_steps']); vb.addWidget(bx, 2); self.bxdfst=bx
 
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
@@ -266,11 +270,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         ]).astype(np.int32)
         scan_size = (scan_dim[:2] - 1) * step[:2]
         amplitude = scan_dim[2] * step[2]
+        z_extra_steps = self.bxdfst.value() - 1
+        scan_dim[2] += z_extra_steps
         z = self.xyzs[:, 2].max() + distance
+        z_min = z - amplitude / 2
+        z_max = z + amplitude / 2 + z_extra_steps * step[2]
         scan_window = (
-            (scan_center[0] - scan_size[0] / 2, scan_center[1] - scan_size[1] / 2, z - amplitude / 2),
-            (scan_center[0] + scan_size[0] / 2, scan_center[1] + scan_size[1] / 2, z + amplitude / 2)
+            (scan_center[0] - scan_size[0] / 2, scan_center[1] - scan_size[1] / 2, z_min),
+            (scan_center[0] + scan_size[0] / 2, scan_center[1] + scan_size[1] / 2, z_max)
         )
+        self.afmulator.kCantilever = self.bxCant_K.value()
+        self.afmulator.f0Cantilever = self.bxCant_f0.value()
         if self.verbose > 0: print("setScanWindow", step, scan_size, scan_center, scan_dim, scan_window)
 
         # Set new values to the fields
@@ -287,7 +297,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.bxA.setSingleStep(step[2])
 
         # Set new scan window and dimension in AFMulator, and infer FF lvec from the scan window
-        self.afmulator.df_steps = scan_dim[2]
+        self.afmulator.df_steps = scan_dim[2] - z_extra_steps
         self.afmulator.setScanWindow(scan_window, tuple(scan_dim))
         self.afmulator.setLvec()
 
@@ -341,8 +351,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.afmulator.setRho({multipole: Q}, sigma)
         self.afmulator.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
         self.afmulator.tipR0 = tipR0
-        self.afmulator.kCantilever = self.bxCant_K.value()
-        self.afmulator.f0Cantilever = self.bxCant_f0.value()
 
         self.update()
 
@@ -370,7 +378,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def update(self):
         '''Run simulation, and show the result'''
         if self.xyzs is None: return
+        if self.verbose > 1: t0 = time.perf_counter()
         self.df = self.afmulator(self.xyzs, self.Zs, self.qs)
+        if self.verbose > 1: print(f'AFMulator total time [s]: {time.perf_counter() - t0}')
         self.updateDataView()
 
     def loadInput(self, file_path):
@@ -392,6 +402,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.xyzs = xyzs
         self.Zs = Zs
         self.qs = qs
+        self.df_points = []
 
         # Create geometry editor widget
         self.createGeomEditor()
@@ -440,21 +451,51 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             GU.saveWSxM_2D(fileName, npdata, Xs, Ys)
 
     def updateDataView(self):
+
         t1 = time.perf_counter()
-        data = self.df
-        self.viewed_data = data
+
+        # Plot df
         try:
-            data = data.transpose(2, 1, 0)
-            z = (self.afmulator.scan_window[0][2] + self.afmulator.scan_window[1][2]) / 2
-            self.figCan.plotSlice(data, 0, title=f'z = {z:.2f}Å')
+            data = self.df.transpose(2, 1, 0)
+            z = self.afmulator.scan_window[0][2] + self.afmulator.amplitude / 2
+            self.figCan.plotSlice(data, -1, title=f'z = {z:.2f}Å')
         except:
             print("Failed to plot df slice")
+
+        # Redraw df line points in current data coordinates
+        for x, y in self.df_points:
+            x_min, y_min = self.afmulator.scan_window[0][:2]
+            x_step, y_step = self.bxStepX.value(), self.bxStepY.value()
+            ix = round((x - x_min) / x_step)
+            iy = round((y - y_min) / y_step)
+            self.figCan.axes.plot([ix] ,[iy], 'o')
+            self.figCan.draw()
+
         if self.verbose > 1: print(f"plotSlice time {time.perf_counter() - t1:.5f} [s]")
 
-    def clickImshow(self,ix,iy):
-        ys = self.viewed_data[ :, iy, ix ]
+    def clickImshow(self, ix, iy):
+        if self.df is None: return
+
+        # Remember x and y coordinates of point
+        x_min, y_min = self.afmulator.scan_window[0][:2]
+        x_step, y_step = self.bxStepX.value(), self.bxStepY.value()
+        x = x_min + ix * x_step
+        y = y_min + iy * y_step
+        self.df_points.append((x, y))
+        if self.verbose > 0: print('clickImshow', ix, iy, x, y)
+
+        # Update line plot
+        z_min = self.afmulator.scan_window[0][2] + self.afmulator.amplitude / 2
+        z_max = self.afmulator.scan_window[1][2] - self.afmulator.amplitude / 2
+        df_steps = self.bxdfst.value()
+        zs = np.linspace(z_max, z_min, df_steps)
+        ys = self.df[ix, iy, :]
         self.figCurv.show()
-        self.figCurv.figCan.plotDatalines( ( list(range(len(ys))), ys, "%i_%i" %(ix,iy) )  )
+        self.figCurv.figCan.plotDatalines(zs, ys, "%i_%i" %(ix,iy))
+
+    def clearPoints(self):
+        self.df_points = []
+        self.updateDataView()
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
