@@ -20,7 +20,7 @@ https://github.com/ProkopHapala/ProbeParticleModel/tree/OpenCL
 Install prerequisites (Ubuntu):
 ```sh
 sudo apt install git python3-pip python3-pyqt5
-pip install matplotlib numpy pyopencl reikna
+pip install matplotlib numpy pyopencl reikna ase
 ```
 
 Additionally an OpenCL Installable Client Driver (ICD) for your compute device is required:
@@ -45,9 +45,11 @@ Run the GUI application:
 * Changing any number in any input box will automatically update the image. There are also presets for some commonly used tip configurations.
 * Hover mouse cursor over any parameter for a tooltip explaining the meaning of the parameter.
 * Click anywhere on the image to bring up a plot of the df approach curve for that point in the image.
-* Scroll anywhere on the image to zoom scan window in/out of that spot.
+* Scroll anywhere on the image to zoom scan window in/out of that spot.'
+* Click on the `View Geometry` button to show the system geometry in ASE GUI.
 * Click on the `Edit Geometry` button to edit the positions, types, and charges of the atoms in the system. Editing charges is disabled for Hartree potential inputs.
-* Click on the `Edit FF` button to edit per-species parameters of Lennard-Jones forcefield.
+* Click on the `View Forcefield` button to view different components of the force field. Note that the forcefield box size is inferred automatically from the scan size and is bigger than the scan size. Take into account the probe particle equilibrium distance when comparing the reported z-coordinates between the forcefield and the df image.
+* Click on the `Edit Forcefield` button to edit per-species parameters of Lennard-Jones forcefield.
 * Save the current image or df data by clicking the `Save Image...` or `Save df...` buttons at the bottom.
 * In case there are multiple OpenCL devices installed on the system, use the `-l` or `--list-devices` option to list available devices and choose the device using the `-d` or `--device` option with the device platform number as the argument.
 

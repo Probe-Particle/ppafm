@@ -70,7 +70,9 @@ TTips = {
     'k': 'k: Cantilever spring constant. Only appears as a scaling constant.',
     'f0': 'f0: Cantilever eigenfrequency. Only appears as a scaling constant.',
     'df_steps': 'Number of steps in df approach curve when clicking on image.',
+    'view_geom': 'View Geometry: Show system geometry in ASE GUI.',
     'edit_geom': 'Edit Geometry: Edit the positions, atomic numbers, and charges of atoms.',
+    'view_ff': 'View FF: View forcefield components in a separate window.',
     'edit_ff': 'Edit FF: Edit Lennard-Jones parameters of forcefield.'
 }
 
@@ -247,12 +249,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         lb = QtWidgets.QLabel("f0 [kHz]"); lb.setToolTip(TTips['f0']); vb.addWidget(lb)
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,2000.0); bx.setSingleStep(1.0); bx.setValue(30.3); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['f0']); vb.addWidget(bx); self.bxCant_f0=bx
         lb = QtWidgets.QLabel("df steps"); lb.setToolTip(TTips['df_steps']); vb.addWidget(lb, 1)
-        bx = QtWidgets.QSpinBox(); bx.setRange(0, 50); bx.setValue(10); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['df_steps']); vb.addWidget(bx, 2); self.bxdfst=bx
+        bx = QtWidgets.QSpinBox(); bx.setRange(1, 50); bx.setValue(10); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['df_steps']); vb.addWidget(bx, 2); self.bxdfst=bx
 
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
         # ------- Buttons
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
+
+        # Geometry viewer
+        bt = QtWidgets.QPushButton('View Geometry', self)
+        bt.setToolTip(TTips['view_geom'])
+        bt.clicked.connect(self.showGeometry)
+        self.btViewGeom = bt; vb.addWidget(bt)
         
         # Geometry editor
         self.geomEditor = None
@@ -260,16 +268,22 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bt.setToolTip(TTips['edit_geom'])
         bt.clicked.connect(self.showGeomEditor)
         self.btEditAtoms = bt; vb.addWidget(bt)
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
+
+        # Forcefield viewer
+        self.FFViewer = guiw.FFViewer(self, verbose=verbose)
+        bt = QtWidgets.QPushButton('View Forcefield', self)
+        bt.setToolTip(TTips['view_ff'])
+        bt.clicked.connect(self.showFFViewer)
+        self.btViewFF = bt; vb.addWidget(bt)
         
         # Forcefield parameter editor
         self.FFEditor = guiw.LJParamEditor(self.afmulator.typeParams, self)
-        bt = QtWidgets.QPushButton('Edit FF', self)
+        bt = QtWidgets.QPushButton('Edit Forcefield', self)
         bt.setToolTip(TTips['edit_ff'])
         bt.clicked.connect(self.FFEditor.show)
         self.btEditFF = bt; vb.addWidget(bt)
-
-        self.main_widget.setFocus()
-        self.setCentralWidget(self.main_widget)
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
         
@@ -294,6 +308,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
         self.figCurv = guiw.PlotWindow( parent=self, width=5, height=4, dpi=100)
+
+        self.main_widget.setFocus()
+        self.setCentralWidget(self.main_widget)
 
         if input_file:
             self.loadInput(input_file)
@@ -479,6 +496,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.df = self.afmulator(self.xyzs, self.Zs, self.qs, pbc_lvec=self.pbc_lvec)
         if self.verbose > 1: print(f'AFMulator total time [s]: {time.perf_counter() - t0}')
         self.updateDataView()
+        if self.FFViewer.isVisible:
+            self.FFViewer.updateFF()
+            self.FFViewer.updateView()
 
     def loadInput(self, file_path):
         '''Load input file and show result
@@ -522,6 +542,23 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.xyzs is None: return
         self.geomEditor.updateValues()
         self.geomEditor.show()
+
+    def showFFViewer(self):
+        if self.xyzs is None: return
+        self.FFViewer.updateFF()
+        self.FFViewer.updateView()
+        self.FFViewer.show()
+
+    def showGeometry(self):
+        try:
+            from ase import Atoms
+            from ase.visualize import view
+        except ModuleNotFoundError as e:
+            print('No ase installation detected. Cannot show molecule geometry.')
+            if verbose > 1: print(e)
+            return
+        atoms = Atoms(positions=self.xyzs, numbers=self.Zs)
+        view(atoms)
 
     def openFile(self):
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '', '*.xyz *.xsf *.cube')

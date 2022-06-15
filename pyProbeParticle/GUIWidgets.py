@@ -1,3 +1,5 @@
+
+import time
 import numpy as np
 import matplotlib; matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -394,3 +396,68 @@ class LJParamEditor(QtWidgets.QMainWindow):
             self.type_params[i] = (r0, e0, p[2], p[3], p[4])
         self.parent.afmulator.typeParams = [tuple(p) for p in self.type_params]
         self.parent.update()
+
+class FFViewer(SlaveWindow):
+
+    def __init__(self, parent=None, title="View Forcefield", width=5, height=4, dpi=100,
+            verbose=0):
+        super().__init__(parent=parent, title=title)
+        self.verbose=verbose
+
+        self.figCan = FigImshow(parent, width=width, height=height, dpi=dpi)
+        self.centralLayout.addWidget(self.figCan)
+
+        tooltips = [
+            'Component: Choose which component of forcefield to view:\nFx: Force x-component'
+                + '\nFy: Force y-component\nFz: Force z-component\nE: Potential Energy',
+            'z index: index of z coordinate to view.'
+        ]
+        components = ['Fx', 'Fy', 'Fz', 'E']
+
+        hb = QtWidgets.QHBoxLayout(); self.centralLayout.addLayout(hb)
+        hbl = QtWidgets.QHBoxLayout(); hb.addLayout(hbl)
+        hbr = QtWidgets.QHBoxLayout(); hb.addLayout(hbr)
+
+        lb = QtWidgets.QLabel('Component:'); lb.setToolTip(tooltips[0]); hbl.addWidget(lb)
+        sl = QtWidgets.QComboBox(); self.slComponent = sl; sl.addItems(components)
+        sl.setCurrentIndex(sl.findText(components[2])); sl.currentIndexChanged.connect(self.updateView)
+        sl.setToolTip(tooltips[0]); hbl.addWidget(sl)
+        hbl.addStretch(1)
+
+        lb = QtWidgets.QLabel('z index:'); lb.setToolTip(tooltips[1]); hbr.addWidget(lb)
+        bx = QtWidgets.QSpinBox(); bx.setRange(0, 200); bx.setValue(0)
+        bx.valueChanged.connect(self.updateView); bx.setToolTip(tooltips[1])
+        hbr.addWidget(bx); self.bxInd = bx
+
+        hb.addStretch(1)
+        hbr.setContentsMargins(25, 0, 0, 0)
+
+    def updateFF(self):
+
+        afmulator = self.parent.afmulator
+
+        self.FE = afmulator.forcefield.downloadFF()
+        self.bxInd.setRange(0, self.FE.shape[2] - 1)
+        
+        self.z_min = afmulator.lvec[0, 2]
+        self.z_step = 1 / afmulator.pixPerAngstrome
+
+        z = afmulator.scan_window[0][2] + afmulator.amplitude / 2 - afmulator.tipR0[2]
+        iz = round((z - self.z_min) / self.z_step)
+        if not self.isVisible():
+            set_box_value(self.bxInd, iz)
+
+        if self.verbose > 0: print('FFViewer.updateFF', self.FE.shape, iz, self.z_step, self.z_min)
+
+    def updateView(self):
+        
+        t0 = time.perf_counter()
+
+        ic = self.slComponent.currentIndex()
+        iz = self.bxInd.value()
+        z = self.z_min + iz * self.z_step
+        data = self.FE[..., ic].transpose(2, 1, 0)
+        self.figCan.plotSlice(data, iz, title=f'z = {z:.2f}Å')
+
+        if self.verbose > 0: print('FFViewer.updateView', ic, iz, data.shape)
+        if self.verbose > 1: print('updateView time [s]', time.perf_counter() - t0)
