@@ -204,6 +204,9 @@ class AFMulator():
         else:
             self._rho = None
             self.rho = None
+            if self.forcefield.rho is not None:
+                self.forcefield.rho.release()
+                self.forcefield.rho = None
 
     def setQs(self, Qs, QZs):
         '''Set tip point charges.'''

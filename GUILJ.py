@@ -59,6 +59,7 @@ TTips = {
     'Multipole': 'Multipole: Probe charge multipole type:\ns: monopole\npz: dipole\ndz2: quadrupole.',
     'Q': 'Q: Probe charge/multipole magnitude.',
     'Sigma': 'Sigma: Probe charge distribution width.',
+    'point_charge': 'Use point-charge approximation for probe charge distribution. Faster but less accurate.',
     'K': 'K: Force constants for harmonic force holding the probe to the tip in x, y, and radial directions.',
     'EqPos': 'Eq. Pos: Probe equilibrium position with respect to the tip in x, y, and radial directions. Non-zero values for x and y models asymmetry in tip adsorption.',
     'ScanStep': 'Scan step: Size of pixels in x and y directions and size of oscillation step in z direction.',
@@ -147,6 +148,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(-0.1); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['Q']); vb.addWidget(bx, 2); self.bxQ=bx
         lb = QtWidgets.QLabel("Sigma [Å]"); lb.setToolTip(TTips['Sigma']); vb.addWidget(lb, 2)
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 2.0); bx.setValue(0.71); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['Sigma']); vb.addWidget(bx, 2); self.bxS=bx
+        lb = QtWidgets.QLabel("Point Charges"); lb.setToolTip(TTips['point_charge']); vb.addWidget(lb)
+        bx = QtWidgets.QCheckBox(); bx.setChecked(True); bx.toggled.connect(self.updateParams); bx.setToolTip(TTips['point_charge']); vb.addWidget(bx); self.bxPC = bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
         bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
@@ -393,6 +396,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         multipole = self.slMultipole.currentText()
         tipStiffness = [self.bxKx.value(), self.bxKy.value(), 0.0, self.bxKr.value()]
         tipR0 = [self.bxP0x.value(), self.bxP0y.value(), self.bxP0r.value()]
+        use_point_charge = self.bxPC.isChecked()
 
         if multipole == 's':
             Qs = [Q, 0, 0, 0]
@@ -404,9 +408,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             Qs = [Q, -2*Q, Q, 0]
             QZs = [sigma, 0, -sigma, 0]
 
+        if self.verbose > 0: print('updateParams', Q, sigma, multipole, tipStiffness, tipR0,
+            use_point_charge, type(self.qs))
+
         self.afmulator.iZPP = int(self.bxZPP.value())
         self.afmulator.setQs(Qs, QZs)
-        if isinstance(self.qs, HartreePotential):
+        if use_point_charge:
+            self.afmulator.setRho(None, sigma)
+        elif isinstance(self.qs, HartreePotential):
             self.afmulator.setRho({multipole: Q}, sigma)
         self.afmulator.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
         self.afmulator.tipR0 = tipR0
@@ -520,6 +529,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.Zs = Zs
         self.qs = qs
         self.df_points = []
+
+        if isinstance(self.qs, HartreePotential):
+            # Default to no point-charge tip for Hartree potentials
+            self.bxPC.setChecked(False)
+            self.bxPC.setDisabled(False)
+        else:
+            # Point-charge systems only support point-charge tips for now
+            self.bxPC.setChecked(True)
+            self.bxPC.setDisabled(True)
 
         # Create geometry editor widget
         self.createGeomEditor()
