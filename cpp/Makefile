@@ -17,6 +17,8 @@ MP: Multipoles.o
 
 RR: ReactiveFF.o
 
+Ram: Ramman.o
+
 PolyCycles_: PolyCycles.o
 
 MMFF_: MMFF.o

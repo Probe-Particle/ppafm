@@ -460,14 +460,16 @@ def getFFdict( FFparams ):
 
 def atom2iZ( atm, elem_dict ):
     try:
+        #print( "atm", atm )
         return int(atm)
     except:
         try:
-            return elem_dict[atm]
+            return elem_dict[atm.encode() ]
         except:
             raise ValueError("Did not find atomkind: {}".format(atm))
 
 def atoms2iZs( names, elem_dict ): 
+    #print( elem_dict ) 
     return np.array( [atom2iZ(name,elem_dict) for name in names], dtype=np.int32 )
      
 def parseAtoms( atoms, elem_dict, PBC=True, autogeom=False, lvec=None ):
@@ -478,6 +480,7 @@ def parseAtoms( atoms, elem_dict, PBC=True, autogeom=False, lvec=None ):
     else:
         #iZs=np.array( [atom2iZ(atm,elem_dict) for atm in atoms[0] ], dtype=np.int32 )
         iZs = atoms2iZs( atoms[0], elem_dict )
+        print("DEBUG parseAtoms: iZs :", iZs )
     if autogeom:
         if(verbose>0): print("WARRNING: autoGeom shifts atoms")
         autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )

@@ -65,7 +65,7 @@ def plotImages(
     for ii,i in enumerate(slices):
         print(" plotting ", i)
         plt.figure( figsize=figsize )
-        plt.imshow( F[i], origin='image', interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax )
+        plt.imshow( F[i], origin='lower', interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax )
         if cbar:
             plt.colorbar();
         plotGeom( atoms, bonds, atomSize=atomSize )
@@ -88,7 +88,7 @@ def plotVecFieldRG(
         print(" plotting ", i)
         plt.figure( figsize=( 10,10 ) )
         HSBs,vmax = colorize_XY2RG(dXs[i],dYs[i])
-        plt.imshow( HSBs, extent=extent, origin='image', interpolation=interpolation ) 
+        plt.imshow( HSBs, extent=extent, origin='lower', interpolation=interpolation ) 
         plotGeom( atoms, bonds, atomSize=atomSize )
         plt.xlabel(r' Tip_x $\AA$')
         plt.ylabel(r' Tip_y $\AA$')
@@ -110,7 +110,7 @@ def plotDistortions(
         plt.figure( figsize=figsize )
         plt.plot  ( X[i,::by,::by].flat, Y[i,::by,::by].flat, 'r.', markersize=markersize )
         if BG is not None:
-            plt.imshow( BG[i,:,:], origin='image', interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax )
+            plt.imshow( BG[i,:,:], origin='lower', interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax )
             if cbar:
                 plt.colorbar()
         plotGeom( atoms, bonds, atomSize=atomSize )
@@ -136,7 +136,7 @@ def plotArrows(
         #plt.plt.quiver( dX, dY, X, Y, C=C, width=width, scale=scale )
         plt.quiver(  Xs[::by,::by], Ys[::by,::by],  dX[::by,::by], dY[::by,::by], color = 'k', headlength=10, headwidth=10, scale=15 )
         if BG is not None:
-            plt.imshow    ( BG[i,:,:], origin='image',  interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax  )
+            plt.imshow    ( BG[i,:,:], origin='lower',  interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax  )
             if cbar:
                 plt.colorbar()
         plotGeom( atoms, bonds, atomSize=atomSize )
