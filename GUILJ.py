@@ -530,6 +530,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.qs = qs
         self.df_points = []
 
+        self.bxPC.blockSignals(True)
         if isinstance(self.qs, HartreePotential):
             # Default to no point-charge tip for Hartree potentials
             self.bxPC.setChecked(False)
@@ -538,6 +539,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             # Point-charge systems only support point-charge tips for now
             self.bxPC.setChecked(True)
             self.bxPC.setDisabled(True)
+        self.bxPC.blockSignals(False)
 
         # Create geometry editor widget
         self.createGeomEditor()
