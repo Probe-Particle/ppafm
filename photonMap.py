@@ -154,7 +154,7 @@ def loadMolecules( fname ):
         S.ents = range( len(S.Ediags) )
     coefs  =  coefs[:,0]  # TODO: for the moment we take just real part, this may change in future
     S.rots*=np.pi/180. #convert to radians
-    S.eigVs = [coefs]
+    S.eigVs = coefs
     #S.eigEs = []
     #system = ExcitonSystem( poss,rots,Ediags,irhos,ents,    Ham,eigEs,eigVs,  rhosIn,rhoCanv,Vtip,PhMap  ]  )
     #system0 = ExcitonSystem( poss=poss,rots=rots,Ediags=Ediags,irhos=irhos,ents=ents,    Ham=None,eigEs=None,eigVs=[coefs],  lvecs=None,rhosIns=None,rhoCanvs=None,Vtip=None,PhMaps=None  )
@@ -168,7 +168,9 @@ def makeCombination( S0, inds ):
     S.rots    = photo.combine( S0.rots  ,  inds )
     #coefs  = photo.combine( S0.coefs ,  inds )
     S.Ediags  = photo.combine( S0.Ediags,  inds )
-    #S.eigVs   = photo.combine( S0.eigVs ,  inds )
+    print("S0.eigVs",S0.eigVs)
+    S.eigVs   = photo.combine( S0.eigVs ,  inds )
+    print("S.eigVs",S.eigVs)
     S.lvecs   = photo.combine( S0.lvecs ,  inds )
     S.irhos   = photo.combine( S0.irhos,   inds )
     S.rhoIns  = photo.combine( S0.rhoIns, inds )
@@ -585,7 +587,8 @@ if __name__ == "__main__":
             print("eigVs",S.eigVs)
         else:
             print("ediags",S.Ediags)
-            S.eigVs=[[1.]*len(S.Ediags)]
+            #S.eigVs=[[1.]*len(S.Ediags)]
+            S.eigVs=[S.eigVs]
             print("eigVs",S.eigVs)
             S.eigEs=[S.Ediags[0]]
             nvs = 1
@@ -601,7 +604,9 @@ if __name__ == "__main__":
         print("seigvs:",S.eigVs[0])
         for ipl in range(len(S.eigVs)):
             fname=fnmb+("_%03i_%03i" %(cix, ipl) )
-            makePhotonMap( S, ipl, S.eigVs[ipl], Vtip, dd, byCenter=byCenter, bDebugXsf=bDebugXsf )
+            cfss=S.eigVs[ipl]
+            print("cfss",cfss)
+            makePhotonMap( S, ipl, cfss, Vtip, dd, byCenter=byCenter, bDebugXsf=bDebugXsf )
             #rhoCanv, phmap = makePhotonMap( S, S.eigVs[ipl], Vtip, dd, byCenter=byCenter )
             #S.phMaps  [ipl] = phmap
             #S.rhoCanvs[ipl] = rhoCanv
