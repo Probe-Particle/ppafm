@@ -505,7 +505,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.df = self.afmulator(self.xyzs, self.Zs, self.qs, pbc_lvec=self.pbc_lvec)
         if self.verbose > 1: print(f'AFMulator total time [s]: {time.perf_counter() - t0}')
         self.updateDataView()
-        if self.FFViewer.isVisible:
+        if self.FFViewer.isVisible():
             self.FFViewer.updateFF()
             self.FFViewer.updateView()
 
@@ -575,9 +575,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             from ase.visualize import view
         except ModuleNotFoundError as e:
             print('No ase installation detected. Cannot show molecule geometry.')
-            if verbose > 1: print(e)
+            if self.verbose > 1: print(e)
             return
-        atoms = Atoms(positions=self.xyzs, numbers=self.Zs)
+        atoms = Atoms(positions=self.xyzs, numbers=self.Zs, cell=self.pbc_lvec, pbc=self.afmulator.npbc)
         view(atoms)
 
     def openFile(self):
@@ -651,7 +651,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def clearPoints(self):
         self.df_points = []
-        self.figCan.point_plots = []
         self.updateDataView()
 
     def zoomTowards(self, ix, iy, zoom_direction):

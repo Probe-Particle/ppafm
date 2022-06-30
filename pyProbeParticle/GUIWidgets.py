@@ -73,9 +73,9 @@ class FigImshow(FigCanvas):
         self.fig.canvas.mpl_connect('scroll_event', self.onscroll)
         self.verbose = verbose
         self.img = None
-        self.point_plots = []
             
-    def plotSlice(self, F_stack , z_slice, title=None, margins=None, grid_selector = 0, slice_length = None, points=[]):
+    def plotSlice(self, F_stack , z_slice, title=None, margins=None, grid_selector = 0,
+            slice_length = None, points=[]):
         
         F = F_stack[z_slice]
 
@@ -84,14 +84,18 @@ class FigImshow(FigCanvas):
         if self.img is None or self.img.get_array().shape != F.shape:
             self.axes.cla()
             self.img = self.axes.imshow(F, origin='lower', cmap='gray', interpolation='bicubic')
-            self.point_plots = []
             for ix, iy in points:
-                self.point_plots.append(self.axes.plot([ix] , [iy], 'o')[0])
+                self.axes.plot([ix] , [iy], 'o')
         else:
             self.img.set_data(F)
             self.img.autoscale()
-            for p, (ix, iy) in zip(self.point_plots, points):
-                p.set_data((ix, iy))
+            if len(points) == 0:
+                self.axes.lines.clear()
+                self.axes.set_prop_cycle(None)
+                if self.verbose > 0: print('plotSlice: reset points')
+            else:
+                for p, (ix, iy) in zip(self.axes.lines, points):
+                    p.set_data((ix, iy))
 
         if margins:
             self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),F.shape[1]-margins[2]-margins[0], F.shape[0]-margins[3]-margins[1], linewidth=2,edgecolor='r',facecolor='none')) 
@@ -163,18 +167,20 @@ class FigImshow(FigCanvas):
 
 
     def onclick(self, event):
+        if not self.parent: return
         try:
             ix = int(event.xdata)
             iy = int(event.ydata)
         except TypeError:
             if self.verbose > 0: print('Invalid click event.')
             return
-        self.point_plots.append(self.axes.plot( [ix] , [iy], 'o' )[0])
+        self.axes.plot([ix] , [iy], 'o')
         self.draw()
         self.parent.clickImshow(ix,iy)
         return iy, ix
 
     def onscroll(self, event):
+        if not self.parent: return
         try:
             ix = int(event.xdata)
             iy = int(event.ydata)
