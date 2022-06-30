@@ -13,7 +13,7 @@ This is implementation of efficient and simple model for simulation of High-reso
 While C++ core can computed typical 3D stack of ~40 images in ~1 minute, using power of modern GPUs additional acceleration by factor of ~100x can be achieved. This makes it feasible to use PPmodel in form of an interactive GUI where simulated images are immediately updated upon change of experimental parameters (e.g. tip charge and striffness) or of input atomic geometry (e.g. positions and atomic charges). This may be very usefull for experimentalist which just want quick idea how an AFM picture they youst measure correspond to the atomistic model they consider.
 
 The OpenGL GUI version si more-or-less finished with most of functionality implemented. The code is however not yet merged to master branch. It can be found in independent branch here: 
-https://github.com/ProkopHapala/ProbeParticleModel/tree/OpenCL
+https://github.com/ProkopHapala/ProbeParticleModel/tree/OpenCL_py3
 
 #### Installation:
 
@@ -31,7 +31,7 @@ Additionally an OpenCL Installable Client Driver (ICD) for your compute device i
 
 Clone the repository and navigate to the cloned directory
 ```sh
-git clone https://github.com/ProkopHapala/ProbeParticleModel.git -b gui
+git clone https://github.com/ProkopHapala/ProbeParticleModel.git -b OpenCL_py3
 cd ProbeParticleModel
 ```
 
@@ -41,15 +41,15 @@ Run the GUI application:
 ```
   
 #### Usage:
-* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument using the `-i` or `--input` option. The input file can be .xyz geometry file (possibly with point charges) or a .xsf or .cube Hartree potential file. Loading large files may take some time.
+* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument using the `-i` or `--input` option. The input file can be a .xyz geometry file (possibly with point charges) or a .xsf or .cube Hartree potential file. Loading large files may take some time.
 * Changing any number in any input box will automatically update the image. There are also presets for some commonly used tip configurations.
 * Hover mouse cursor over any parameter for a tooltip explaining the meaning of the parameter.
 * Click anywhere on the image to bring up a plot of the df approach curve for that point in the image.
 * Scroll anywhere on the image to zoom scan window in/out of that spot.'
 * Click on the `View Geometry` button to show the system geometry in ASE GUI.
-* Click on the `Edit Geometry` button to edit the positions, types, and charges of the atoms in the system. Editing charges is disabled for Hartree potential inputs.
+* Click on the `Edit Geometry` button to edit the positions, types, and charges of the atoms in the system. Note that for Hartree potential inputs editing charges is disabled and editing the geometry only affects the Lennard-Jones force field.
 * Click on the `View Forcefield` button to view different components of the force field. Note that the forcefield box size is inferred automatically from the scan size and is bigger than the scan size. Take into account the probe particle equilibrium distance when comparing the reported z-coordinates between the forcefield and the df image.
-* Click on the `Edit Forcefield` button to edit per-species parameters of Lennard-Jones forcefield.
+* Click on the `Edit Forcefield` button to edit per-species parameters of the Lennard-Jones forcefield.
 * Save the current image or df data by clicking the `Save Image...` or `Save df...` buttons at the bottom.
 * In case there are multiple OpenCL devices installed on the system, use the `-l` or `--list-devices` option to list available devices and choose the device using the `-d` or `--device` option with the device platform number as the argument.
 
