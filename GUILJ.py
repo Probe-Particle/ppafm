@@ -119,10 +119,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("Probe Particle Model")
         self.main_widget = QtWidgets.QWidget(self)
         l00 = QtWidgets.QHBoxLayout(self.main_widget)
+        l1 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l1, 2)
         self.figCan = guiw.FigImshow( parentWiget=self.main_widget, parentApp=self, width=5, height=4, dpi=100, verbose=verbose)
-        l00.addWidget(self.figCan, 2)
+        l1.addWidget(self.figCan)
         l0 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l0, 1)
         self.resize(1000, 600)
+
+        # -------- Status Bar
+        self.status_bar = QtWidgets.QStatusBar()
+        self.status_bar.setSizeGripEnabled(False)
+        self.dim_label = QtWidgets.QLabel('')
+        self.status_bar.addPermanentWidget(self.dim_label)
+        l1.addWidget(self.status_bar)
 
         # ------- Probe Settings
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
@@ -318,6 +326,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if input_file:
             self.loadInput(input_file)
 
+    def status_message(self, msg):
+        self.status_bar.showMessage(msg)
+        self.status_bar.repaint()
+
     def setScanWindow(self, scan_size, scan_center, step, distance, amplitude):
         '''Set scan window in AFMulator and update input fields'''
 
@@ -362,6 +374,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.afmulator.df_steps = scan_dim[2] - z_extra_steps
         self.afmulator.setScanWindow(scan_window, tuple(scan_dim))
         self.afmulator.setLvec()
+
+        # Update status bar info
+        ff_dim = self.afmulator.forcefield.nDim
+        self.dim_label.setText(f'Scan dim: {scan_dim[0]}x{scan_dim[1]}x{scan_dim[2]} | '
+            f'FF dim: {ff_dim[0]}x{ff_dim[1]}x{ff_dim[2]}')
 
         if self.verbose > 0: print('lvec:\n', self.afmulator.forcefield.nDim, self.afmulator.lvec)
 
@@ -502,12 +519,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         '''Run simulation, and show the result'''
         if self.xyzs is None: return
         if self.verbose > 1: t0 = time.perf_counter()
+        self.status_message('Running simulation...')
         self.df = self.afmulator(self.xyzs, self.Zs, self.qs, pbc_lvec=self.pbc_lvec)
         if self.verbose > 1: print(f'AFMulator total time [s]: {time.perf_counter() - t0}')
+        self.status_message('Updating plot...')
         self.updateDataView()
         if self.FFViewer.isVisible():
+            self.status_message('Updating Force field viewer...')
             self.FFViewer.updateFF()
             self.FFViewer.updateView()
+        self.status_message('Ready')
 
     def loadInput(self, file_path):
         '''Load input file and show result
@@ -583,20 +604,24 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def openFile(self):
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '', '*.xyz *.xsf *.cube')
         if file_path:
+            self.status_message('Opening file...')
             self.loadInput(file_path)
         
     def saveFig(self):
         if self.xyzs is None: return
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"Save image","","Image files (*.png)")
         if fileName:
+            self.status_message('Saving image...')
             fileName = guiw.correct_ext( fileName, ".png" )
             if self.verbose > 0: print("Saving image to :", fileName)
             self.figCan.fig.savefig( fileName,bbox_inches='tight')
+            self.status_message('Ready')
 
     def saveDataW(self):
         if self.df is None: return
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"Save df","","WSxM files (*.xyz)")
         if fileName:
+            self.status_message('Saving data...')
             fileName = guiw.correct_ext( fileName, ".xyz" )
             if self.verbose > 0: print("Saving data to to :", fileName)
             npdata = self.df
@@ -604,6 +629,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             ys = np.arange(npdata.shape[0] )
             Xs, Ys = np.meshgrid(xs,ys)
             GU.saveWSxM_2D(fileName, npdata, Xs, Ys)
+            self.status_message('Ready')
 
     def updateDataView(self):
 

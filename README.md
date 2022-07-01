@@ -45,7 +45,7 @@ Run the GUI application:
 * Changing any number in any input box will automatically update the image. There are also presets for some commonly used tip configurations.
 * Hover mouse cursor over any parameter for a tooltip explaining the meaning of the parameter.
 * Click anywhere on the image to bring up a plot of the df approach curve for that point in the image.
-* Scroll anywhere on the image to zoom scan window in/out of that spot.'
+* Scroll anywhere on the image to zoom scan window in/out of that spot.
 * Click on the `View Geometry` button to show the system geometry in ASE GUI.
 * Click on the `Edit Geometry` button to edit the positions, types, and charges of the atoms in the system. Note that for Hartree potential inputs editing charges is disabled and editing the geometry only affects the Lennard-Jones force field.
 * Click on the `View Forcefield` button to view different components of the force field. Note that the forcefield box size is inferred automatically from the scan size and is bigger than the scan size. Take into account the probe particle equilibrium distance when comparing the reported z-coordinates between the forcefield and the df image.
