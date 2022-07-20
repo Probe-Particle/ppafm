@@ -11,11 +11,24 @@
 //#include "CG.h"
 
 int fieldType = 1;
+double  cMonopol = 1;
+Vec3d   cDipol   = Vec3dZ;
+//SMat3d  cQuadrupol;
+
 
 inline void evalField( const Vec3d& p, Vec3d& Efield ){
-    // monopole
-    double r2 = p.norm2();
-    Efield.set_mul( p, 1/r2 ); 
+    // ---- monopole
+    double ir2 = 1/( p.norm2() + 1.0e-6 );
+    double ir  = sqrt(ir2); 
+    double ir3 = ir2*ir;
+    Efield.set_mul( p, cMonopol*ir3 ); 
+    // --- dipole
+    if(fieldType>1){
+        // https://physics.stackexchange.com/questions/173101/find-out-gradient-of-electric-potential-at-bf-r-created-by-eletric-dipole-o
+        //   E= (1/4πϵ0)  ( 3u(p.u)−p ) /r^3
+        Efield.add_mul( cDipol,   ir3 );
+        Efield.add_mul( p     , (-ir3*ir2)*cDipol.dot(p) );
+    }
 }
 
 double ProjectPolarizability( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alphas, int idir, int icomp ){
@@ -79,6 +92,15 @@ void RammanAmplitudes( int npos, double* tpos, double* As, int na, double* apos,
     for(int ip=0; ip<npos; ip++){
         As[ip] = RammanAmplitude( ((Vec3d*)tpos)[ip], na, (Vec3d*)apos, (SMat3d*)alphas, ((Vec3d*)modes)+(imode*na)  );
     }
+}
+
+void setEfieldMultipole( int fieldType_, double* coefs ){
+    fieldType = fieldType_;
+    cMonopol = coefs[0];
+    if( fieldType>1 ){
+        cDipol = *(Vec3d*)(coefs+1);
+    }
+    printf( "C++ setEfieldMultipole(): fieldType %i cMonopol %g cDipol (%g,%g,%g) \n", fieldType, cMonopol, cDipol.x,cDipol.y,cDipol.z );
 }
 
 }
