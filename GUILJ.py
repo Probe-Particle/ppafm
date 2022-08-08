@@ -646,7 +646,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         try:
             data = self.df.transpose(2, 1, 0)
             z = self.afmulator.scan_window[0][2] + self.afmulator.amplitude / 2
-            self.figCan.plotSlice(data, -1, title=f'z = {z:.2f}Å', points=points)
+            title = f'z = {z:.2f}Å'
+            if np.allclose(self.qs, 0):
+                title += ' (No electrostatics)'
+            self.figCan.plotSlice(data, -1, title=title, points=points)
         except Exception as e:
             print("Failed to plot df slice")
             if self.verbose > 1: print(e)

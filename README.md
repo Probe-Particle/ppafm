@@ -41,7 +41,7 @@ Run the GUI application:
 ```
   
 #### Usage:
-* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument using the `-i` or `--input` option. The input file can be a .xyz geometry file (possibly with point charges) or a .xsf or .cube Hartree potential file. Loading large files may take some time.
+* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument using the `-i` or `--input` option. The input file can be a .xyz geometry file (possibly with point charges*) or a .xsf or .cube Hartree potential file. Loading large files may take some time.
 * Changing any number in any input box will automatically update the image. There are also presets for some commonly used tip configurations.
 * Hover mouse cursor over any parameter for a tooltip explaining the meaning of the parameter.
 * Click anywhere on the image to bring up a plot of the df approach curve for that point in the image.
@@ -53,3 +53,4 @@ Run the GUI application:
 * Save the current image or df data by clicking the `Save Image...` or `Save df...` buttons at the bottom.
 * In case there are multiple OpenCL devices installed on the system, use the `-l` or `--list-devices` option to list available devices and choose the device using the `-d` or `--device` option with the device platform number as the argument.
 
+*Note that while .xyz files without charges work, depending on the system, the resulting image may be significantly different from an image with electrostatics, and therefore may not be representative of reality. If no electrostatics are included, this is indicated on the title of the image.
