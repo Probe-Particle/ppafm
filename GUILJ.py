@@ -23,7 +23,6 @@ import pyProbeParticle.oclUtils   as oclu
 import pyProbeParticle.fieldOCL   as FFcl
 import pyProbeParticle.GUIWidgets as guiw
 
-DataViews = Enum('DataViews','df FFin FFout FFel FFpl')
 Multipoles = Enum('Multipoles', 's pz dz2')
 
 Presets = {
@@ -54,7 +53,7 @@ Presets = {
 }
 
 TTips = {
-    'Preset': 'Preset: Apply a probe parameter oreset.',
+    'Preset': 'Preset: Apply a probe parameter preset.',
     'Z': 'Z: Probe atomic number. Determines the Lennard-Jones parameters of the force field.',
     'Multipole': 'Multipole: Probe charge multipole type:\ns: monopole\npz: dipole\ndz2: quadrupole.',
     'Q': 'Q: Probe charge/multipole magnitude.',
@@ -73,8 +72,8 @@ TTips = {
     'df_steps': 'Number of steps in df approach curve when clicking on image.',
     'view_geom': 'View Geometry: Show system geometry in ASE GUI.',
     'edit_geom': 'Edit Geometry: Edit the positions, atomic numbers, and charges of atoms.',
-    'view_ff': 'View FF: View forcefield components in a separate window.',
-    'edit_ff': 'Edit FF: Edit Lennard-Jones parameters of forcefield.'
+    'view_ff': 'View Forcefield: View forcefield components in a separate window.',
+    'edit_ff': 'Edit Forcefield: Edit Lennard-Jones parameters of forcefield.'
 }
 
 def parse_args():
@@ -207,7 +206,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
         lb = QtWidgets.QLabel("Distance [Å]"); lb.setToolTip(TTips['Distance']); vb.addWidget(lb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(6.5); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Distance']); vb.addWidget(bx); self.bxD=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-1000.0, 1000.0); bx.setValue(6.5); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Distance']); vb.addWidget(bx); self.bxD=bx
         lb = QtWidgets.QLabel("Amplitude [Å]"); lb.setToolTip(TTips['Amplitude']); vb.addWidget(lb)
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(1.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Amplitude']); vb.addWidget(bx); self.bxA=bx
 
@@ -354,7 +353,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         )
         self.afmulator.kCantilever = self.bxCant_K.value()
         self.afmulator.f0Cantilever = self.bxCant_f0.value()
-        self.afmulator.npbc = (1, 1, 0) if self.bxPBC.isChecked() else (0, 0, 0)
         if self.verbose > 0: print("setScanWindow", step, scan_size, scan_center, scan_dim, scan_window)
 
         # Set new values to the fields
@@ -446,7 +444,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         if enabled:
             self.pbc_lvec = lvec
-            self.afmulator.npbc = (1, 1, 0)
+            self.afmulator.npbc = (1, 1, 1)
         else:
             self.pbc_lvec = None
             self.afmulator.npbc = (0, 0, 0)
