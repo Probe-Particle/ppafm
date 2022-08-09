@@ -473,13 +473,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.bxPBCCx, self.bxPBCCy, self.bxPBCCz
             ]:
             bx.setDisabled(not enabled)
-
-    def pbcFromGeom(self):
-        '''Get PBC lattice from current geometry'''
-        if isinstance(self.qs, HartreePotential):
-            self.setPBC(self.qs.lvec[1:], True)
-        else:
-            self.setPBC(None, False)
     
     def updatePBC(self):
         '''Get PBC lattice from from input fields and update'''
@@ -532,15 +525,28 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         '''Load input file and show result
         
         Arguments:
-            file_path: str. File to load. Has to be .xsf, .cube, or .xyz.
+            file_path: str. File to load. Has to be POSCAR, .in, .xsf, .cube, or .xyz.
         '''
 
         # Load input file
-        if file_path.endswith('.xsf') or file_path.endswith('.cube'):
+        file_name = os.path.split(file_path)[1].lower()
+        ext = os.path.splitext(file_name)[1]
+        if self.verbose > 0: print(f'loadInput: {file_path}, {file_name}, {ext}')
+        if file_name in ['poscar', 'contcar']:
+            xyzs, Zs, lvec = basUtils.loadPOSCAR(file_path)
+            qs = np.zeros(len(Zs))
+            lvec = lvec[1:]
+        elif ext == '.in':
+            xyzs, Zs, lvec = basUtils.loadGeometryIN(file_path)
+            qs = np.zeros(len(Zs))
+            lvec = lvec[1:] if len(lvec) > 0 else None
+        elif ext in ['.xsf' '.cube']:
             qs, xyzs, Zs = hartreeFromFile(file_path)
-        elif file_path.endswith('.xyz'):
+            lvec = qs.lvec[1:]
+        elif ext == '.xyz':
             with open(file_path, 'r') as f:
                 xyzs, Zs, _, qs = basUtils.loadAtomsLines(f.readlines())
+            lvec = None
         else:
             raise ValueError(f'Unsupported file format for file `{file_path}`.')
 
@@ -565,7 +571,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         # Infer scan window from loaded geometry and run
         self.scanWindowFromGeom()
-        self.pbcFromGeom()
+        self.setPBC(lvec, lvec is not None)
         self.updateParams()
 
     def createGeomEditor(self):
@@ -600,7 +606,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         view(atoms)
 
     def openFile(self):
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '', '*.xyz *.xsf *.cube')
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '',
+            '*.xyz *.in *.xsf *.cube POSCAR CONTCAR')
         if file_path:
             self.status_message('Opening file...')
             self.loadInput(file_path)

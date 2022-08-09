@@ -131,6 +131,68 @@ def loadAtomsLines( lines ):
     qs   = np.array(qs)
     return xyzs,Zs,enames,qs
 
+def loadGeometryIN(fname):
+    Zs = []; xyzs = []; lvec = []
+    with open(fname, 'r') as f:
+        for line in f:
+            ws = line.strip().split()
+            if (len(ws) > 0 and ws[0][0] != '#'):
+                if (ws[0] == 'atom'):
+                    xyzs.append([float(ws[1]), float(ws[2]), float(ws[3])])
+                    Zs.append(elements.ELEMENT_DICT[ws[4]][0])
+                elif (ws[0] == 'lattice_vector'):
+                    lvec.append([float(ws[1]), float(ws[2]), float(ws[3])])
+                elif (ws[0] == 'trust_radius'):
+                    break
+    xyzs = np.array(xyzs)
+    Zs = np.array(Zs, dtype=np.int32)
+    if (lvec != []):
+        lvec = np.stack([[0.,0.,0.]] + lvec, axis=0)
+    return xyzs, Zs, lvec
+
+def loadPOSCAR(file_path):
+
+    with open(file_path, 'r') as f:
+
+        f.readline()                # Comment line
+        scale = float(f.readline()) # Scaling constant
+
+        # Lattice
+        lvec = np.zeros((4, 3))
+        for i in range(3):
+            lvec[i+1] = np.array([float(v) for v in f.readline().strip().split()])
+
+        # Elements
+        elems = [elements.ELEMENT_DICT[e][0] for e in f.readline().strip().split()]
+        Zs = []
+        for e, n in zip(elems, f.readline().strip().split()):
+            Zs += [e] * int(n)
+        Zs = np.array(Zs, dtype=np.int32)
+
+        # Coordinate type
+        line = f.readline()
+        if line[0] in 'Ss':
+            line = f.readline() # Ignore optional selective dynamics line
+        if line[0] in 'CcKk':
+            coord_type = 'cartesian'
+        else:
+            coord_type = 'direct'
+
+        # Atom coordinates
+        xyzs = []
+        for i in range(len(Zs)):
+            xyzs.append([float(v) for v in f.readline().strip().split()[:3]])
+        xyzs = np.array(xyzs)
+
+        # Scale coordinates
+        lvec *= scale
+        if coord_type == 'cartesian':
+            xyzs *= scale
+        else:
+            xyzs = np.outer(xyzs[:, 0], lvec[1]) + np.outer(xyzs[:, 1], lvec[2]) + np.outer(xyzs[:, 2], lvec[3])
+
+    return xyzs, Zs, lvec
+
 def writeMatrix( fout, mat ):
     for v in mat:
         for num in v: fout.write(' %f ' %num )
