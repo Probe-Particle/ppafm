@@ -8,6 +8,7 @@ import sys
 import os
 import time
 import random
+import traceback
 import matplotlib; matplotlib.use('Qt5Agg')
 from PyQt5 import QtCore, QtWidgets, QtGui
 import numpy as np
@@ -600,7 +601,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             from ase.visualize import view
         except ModuleNotFoundError as e:
             print('No ase installation detected. Cannot show molecule geometry.')
-            if self.verbose > 1: print(e)
+            if self.verbose > 1: traceback.print_exc()
             return
         atoms = Atoms(positions=self.xyzs, numbers=self.Zs, cell=self.pbc_lvec, pbc=self.afmulator.npbc)
         view(atoms)
@@ -624,17 +625,43 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def saveDataW(self):
         if self.df is None: return
-        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"Save df","","WSxM files (*.xyz)")
-        if fileName:
-            self.status_message('Saving data...')
-            fileName = guiw.correct_ext( fileName, ".xyz" )
-            if self.verbose > 0: print("Saving data to to :", fileName)
-            npdata = self.df
-            xs = np.arange(npdata.shape[1] )
-            ys = np.arange(npdata.shape[0] )
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save df", "df.xsf",
+            "XCrySDen files (*.xsf);; WSxM files (*.xyz)")
+        if not fileName: return
+        ext = os.path.splitext(fileName)[1]
+        if ext not in ['.xyz', '.xsf']:
+            self.status_message('Unsupported file type in df save file path')
+            print(f'Unsupported file type in df save file path `{fileName}`')
+            return
+        self.status_message('Saving data...')
+        if self.verbose > 0: print(f'Saving df data to {fileName}...')
+        if ext == '.xyz':
+            data = self.df[:, :, -1].T
+            xs = np.linspace(0, self.bxSSx.value(), data.shape[1], endpoint=False)
+            ys = np.linspace(0, self.bxSSy.value(), data.shape[0], endpoint=False)
             Xs, Ys = np.meshgrid(xs,ys)
-            GU.saveWSxM_2D(fileName, npdata, Xs, Ys)
-            self.status_message('Ready')
+            GU.saveWSxM_2D(fileName, data, Xs, Ys)
+        elif ext == '.xsf':
+            data = self.df.transpose(2, 1, 0)[::-1]
+            sw = self.afmulator.scan_window
+            size = np.array(sw[1]) - np.array(sw[0])
+            size[2] -= self.afmulator.amplitude - self.bxStepZ.value()
+            lvecScan = np.array([
+                [sw[0][0], sw[0][1], sw[0][2] - self.bxP0r.value()],
+                [size[0],       0,       0],
+                [      0, size[1],       0],
+                [      0,       0, size[2]],
+            ])
+            if self.pbc_lvec is not None:
+                lvec = np.append([[0, 0, 0]], self.pbc_lvec, axis=0)
+                atomstring = basUtils.primcoords2Xsf(self.Zs, self.xyzs.T, lvec)
+            else:
+                atomstring = GU.XSF_HEAD_DEFAULT
+            GU.saveXSF(fileName, data, lvecScan, head=atomstring, verbose=0)
+        else:
+            raise RuntimeError('This should not happen. Missing file format check?')
+        if self.verbose > 0: print("Done saving df data.")
+        self.status_message('Ready')
 
     def updateDataView(self):
 
@@ -659,7 +686,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.figCan.plotSlice(data, -1, title=title, points=points)
         except Exception as e:
             print("Failed to plot df slice")
-            if self.verbose > 1: print(e)
+            traceback.print_exc()
 
         if self.verbose > 1: print(f"plotSlice time {time.perf_counter() - t1:.5f} [s]")
 

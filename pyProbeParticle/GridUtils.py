@@ -221,8 +221,8 @@ def orthoLvec( sh, dd ):
     ]
 
 
-def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT ):
-    print("saving ", fname) 
+def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1 ):
+    if verbose > 0: print("Saving xsf", fname) 
     fileout = open(fname, 'w')
     if lvec is None:
         if dd is None:
