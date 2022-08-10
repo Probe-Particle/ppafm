@@ -70,7 +70,7 @@ TTips = {
     'PBC': 'Periodic Boundaries: Lattice vectors for periodic images of atoms.',
     'k': 'k: Cantilever spring constant. Only appears as a scaling constant.',
     'f0': 'f0: Cantilever eigenfrequency. Only appears as a scaling constant.',
-    'df_steps': 'Number of steps in df approach curve when clicking on image.',
+    'z_steps': 'z steps: Number of steps in the df approach curve in z direction when clicking on image.',
     'view_geom': 'View Geometry: Show system geometry in ASE GUI.',
     'edit_geom': 'Edit Geometry: Edit the positions, atomic numbers, and charges of atoms.',
     'view_ff': 'View Forcefield: View forcefield components in a separate window.',
@@ -259,8 +259,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,1000.0); bx.setSingleStep(0.1); bx.setValue(1.8);  bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['k']); vb.addWidget(bx); self.bxCant_K=bx
         lb = QtWidgets.QLabel("f0 [kHz]"); lb.setToolTip(TTips['f0']); vb.addWidget(lb)
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,2000.0); bx.setSingleStep(1.0); bx.setValue(30.3); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['f0']); vb.addWidget(bx); self.bxCant_f0=bx
-        lb = QtWidgets.QLabel("df steps"); lb.setToolTip(TTips['df_steps']); vb.addWidget(lb, 1)
-        bx = QtWidgets.QSpinBox(); bx.setRange(1, 50); bx.setValue(10); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['df_steps']); vb.addWidget(bx, 2); self.bxdfst=bx
+        lb = QtWidgets.QLabel("z steps"); lb.setToolTip(TTips['z_steps']); vb.addWidget(lb, 1)
+        bx = QtWidgets.QSpinBox(); bx.setRange(1, 50); bx.setValue(10); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['z_steps']); vb.addWidget(bx, 2); self.bxdfst=bx
 
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
