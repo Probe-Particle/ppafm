@@ -322,7 +322,14 @@ class GeomEditor(SlaveWindow):
                 grid.addWidget(b, i+1, j)
 
             self.input_boxes.append([bZ, bx, by, bz, bQ])
-                
+        
+        # Since the box may be very tall, make it scrollable
+        self.scroll = QtWidgets.QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setWidget(self.main_widget)
+        self.scroll.setMinimumWidth(420)
+        self.setCentralWidget(self.scroll)
+
     def updateValues(self):
 
         xyzs = self.parent.xyzs

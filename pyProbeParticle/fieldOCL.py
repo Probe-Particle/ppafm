@@ -744,6 +744,41 @@ class ForceField_LJC:
         if bFinish: self.queue.finish()
         if(bRuntime): print("runtime(ForceField_LJC.evalLJC) [s]: ", time.time() - t0)
         return FE
+    
+    def run_evalLJ_noPos(self, FE=None, local_size=(32,), bCopy=True, bFinish=True ):
+        '''
+        Compute Lennard-Jones forcefield without charges at grid points.
+
+        Arguments:
+            FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
+                If None and bCopy == True, will be created automatically.
+            local_size: tuple of a single int. Size of local work group on device.
+            bCopy: Bool. Whether to return the calculated electric field to host.
+            bFinish: Bool. Whether to wait for execution to finish.
+
+        Returns: np.ndarray if bCopy == True or None otherwise.
+        '''
+
+        if bRuntime: t0 = time.perf_counter()
+        
+        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        cl_program.evalLJ_noPos(self.queue, global_size, local_size, 
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cLJs,
+            self.cl_FE,
+            self.nDim,
+            self.lvec0   ,
+            self.dlvec[0],
+            self.dlvec[1],
+            self.dlvec[2]
+        )
+
+        if bCopy: FE = self.downloadFF(FE)
+        if bFinish: self.queue.finish()
+        if bRuntime: print("runtime(ForceField_LJC.run_evalLJ_noPos) [s]: ", time.perf_counter() - t0)
+        
+        return FE
 
     def run_evalLJC_Q(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
         '''
@@ -881,7 +916,7 @@ class ForceField_LJC:
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.
             local_size: tuple of a single int. Size of local work group on device.
-            bCopy: Bool. Whether to return the calculated electric field to host.
+            bCopy: Bool. Whether to return the calculated forcefield to host.
             bFinish: Bool. Whether to wait for execution to finish.
 
         Returns: np.ndarray if bCopy == True or None otherwise.
@@ -908,8 +943,7 @@ class ForceField_LJC:
             self.QZs
         )
 
-        if bCopy:
-            FE = self.downloadFF(FE)
+        if bCopy: FE = self.downloadFF(FE)
         if bFinish: self.queue.finish()
         if bRuntime: print("runtime(ForceField_LJC.run_evalLJC_Hartree) [s]: ", time.perf_counter() - t0)
 
@@ -1182,11 +1216,14 @@ class ForceField_LJC:
         cLJs = cLJs.astype(np.float32, copy=False)
         self.prepareBuffers(atoms, cLJs)
         if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.time() - t0)
+        print(len(atoms), atoms)
 
         if self.cl_poss is not None:
             FF = self.run_evalLJC_Q( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
         else:
-            if bQZ:
+            if np.allclose(self.atoms[:, -1], 0): # No charges
+                FF = self.run_evalLJ_noPos()
+            elif bQZ:
                 FF = self.run_evalLJC_QZs_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
             else:
                 FF = self.run_evalLJC_Q_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )

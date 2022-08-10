@@ -205,6 +205,52 @@ __kernel void evalLJ(
     //FE[iG] = poss[iG];
 }
 
+__kernel void evalLJ_noPos(
+    const int nAtoms, 
+    __global float4* atoms,
+    __global float2*  cLJs,
+    __global float4*    FE,
+    int4 nGrid,
+    float4 grid_p0,
+    float4 grid_dA,
+    float4 grid_dB,
+    float4 grid_dC
+){
+    __local float4 LATOMS[32];
+    __local float2 LCLJS [32];
+    const int iG = get_global_id (0);
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+   
+    const int nab = nGrid.x*nGrid.y;
+    const int ia  = iG%nGrid.x; 
+    const int ib  = (iG%nab)/nGrid.x;
+    const int ic  = iG/nab; 
+    const int nMax = nab*nGrid.z;
+
+    if(iG>nMax) return;
+
+    float3 pos = grid_p0.xyz + grid_dA.xyz*ia + grid_dB.xyz*ib  + grid_dC.xyz*ic;
+    float4 fe  = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
+
+    for (int i0=0; i0<nAtoms; i0+= nL ){
+        int i = i0 + iL;
+        LATOMS[iL] = atoms[i];
+        LCLJS [iL] = cLJs[i];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int j=0; j<nL; j++){
+            if( (j+i0)<nAtoms ){ 
+                float4 xyzq = LATOMS[j];
+                fe += getLJ(xyzq.xyz, LCLJS[j], pos);
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    FE[iG] = fe;
+    
+}
+
 __kernel void evalLJC_Q(
     const int nAtoms, 
     __global float4* atoms,
@@ -362,7 +408,6 @@ __kernel void evalLJC_QZs_noPos(
 
     FE[iG] = fe;
 }
-
 
 __kernel void evalLJC(
     int nAtoms, 
