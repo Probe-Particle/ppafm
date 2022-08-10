@@ -20,6 +20,3 @@ python3 $PPPATH/relaxed_scan.py -k 0.5 --qrange -0.10 0.10 3 --pos
 
 python3 $PPPATH/plot_results.py -k 0.5 --qrange -0.10 0.10 3 --arange 0.5 2.0 2 --pos --df
 #python3 $PPPATH/plot_results.py -k 0.5 -q -0.10 --arange 0.5 2.0 2 --pos --df
-
-
- 

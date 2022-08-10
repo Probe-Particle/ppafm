@@ -51,7 +51,7 @@ if __name__=="__main__":
 
     # Ks
     if opt_dict['krange'] is not None:
-        Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], opt_dict['krange'][2] )
+        Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], int(opt_dict['krange'][2]) )
     elif opt_dict['klat'] is not None:
         Ks = [ opt_dict['klat'] ]
     else:
@@ -59,7 +59,7 @@ if __name__=="__main__":
     # Qs
     charged_system=False
     if opt_dict['qrange'] is not None:
-        Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
+        Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], int(opt_dict['qrange'][2]) )
     elif opt_dict['charge'] is not None:
         Qs = [ opt_dict['charge'] ]
     else:
@@ -101,7 +101,10 @@ if __name__=="__main__":
             #PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
             #Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
             #GU.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )
-            GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan, data_format=options.data_format )
+            if PPU.params['tiltedScan']:
+                GU.save_vec_field( dirname+'/OutF', fzs, lvecScan, data_format=options.data_format )
+            else:
+                GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan, data_format=options.data_format )
             if opt_dict['vib'] >= 0:
                 which = opt_dict['vib']
                 print(" === computing eigenvectors of dynamical matix which=%i ddisp=%f" %(which,PPU.params['ddisp']))

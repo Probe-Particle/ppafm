@@ -261,6 +261,6 @@ if __name__ == "__main__":
     else:
         Es = Es.reshape( (ny,nx) )
         vmax=1.5
-        plt.imshow(Es,origin='image', vmin=-vmax, vmax=vmax, cmap='seismic',extent=extent)
+        plt.imshow(Es,origin='upper', vmin=-vmax, vmax=vmax, cmap='seismic',extent=extent)
         plt.grid()
         plt.show()

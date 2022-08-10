@@ -35,29 +35,55 @@ def meshgrid3d(xs,ys,zs):
     Xs,Ys,Zs = np.zeros()
     Xs,Ys = np.meshgrid(xs,ys)
 
-def relaxedScan3D( xTips, yTips, zTips ):
+def trjByDir( n, d=[0.0,0.0,PPU.params['scanStep'][2]], p0=[0,0,PPU.params['scanMin'][2]] ):
+    trj = np.zeros( (n,3) )
+    #print( "DEBUG trjByDir p0 ", p0, "d ", d )
+    trj[:,0] = p0[0] + (np.arange( n )[::-1])*d[0]
+    trj[:,1] = p0[1] + (np.arange( n )[::-1])*d[1]
+    trj[:,2] = p0[2] + (np.arange( n )[::-1])*d[2]
+    #trj[:,0] = np.arange( p0[0], p0[0]+(d[0]*n)+0.00001, d[0] )
+    #trj[:,1] = np.arange( p0[1], p0[1]+(d[1]*n)+0.00001, d[1] )
+    #trj[:,2] = np.arange( p0[2], p0[2]+(d[2]*n)+0.00001, d[2] )
+    return trj
+
+def relaxedScan3D( xTips, yTips, zTips, trj=None, bF3d=False ):
     if(verbose>0): print(">>BEGIN: relaxedScan3D()")
     if(verbose>0): print(" zTips : ",zTips)
     ntips = len(zTips); 
     rTips = np.zeros((ntips,3))
     rs    = np.zeros((ntips,3))
     fs    = np.zeros((ntips,3))
-    rTips[:,0] = 1.0
-    rTips[:,1] = 1.0
-    rTips[:,2] = zTips[::-1]  
+    #Tips[:,0] = 1.0
+    #rTips[:,1] = 1.0
+    #rTips[:,2] = zTips[::-1]  
     nx = len(zTips); ny = len(yTips ); nz = len(xTips);
-    fzs    = np.zeros( ( nx,ny,nz ) );
+    if( bF3d ):
+        fzs    = np.zeros( ( nx,ny,nz,3) );
+    else:
+        fzs    = np.zeros( ( nx,ny,nz   ) );
     PPpos  = np.zeros( ( nx,ny,nz,3 ) );
+    if trj is None:
+        trj=np.zeros((ntips,3))
+        trj[:,2]=zTips[::-1]
     for ix,x in enumerate( xTips  ):
         sys.stdout.write('\033[K')
         sys.stdout.flush()
         sys.stdout.write("\rrelax ix: {}".format(ix))
         sys.stdout.flush()
-        rTips[:,0] = x
         for iy,y in enumerate( yTips  ):
-            rTips[:,1] = y
+            rTips[:,0] = trj[:,0] + x
+            rTips[:,1] = trj[:,1] + y
+            rTips[:,2] = trj[:,2]
+            #if (ix==0) and (iy==0):
+            #    print(  "DEBUG relaxedScan3D rTips \n" )
+            #    print( rTips )
             itrav = core.relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
-            fzs[:,iy,ix] = (fs[:,2].copy()) [::-1]
+            if( bF3d ):
+                fzs[:,iy,ix,0] = (fs[:,0].copy()) [::-1]
+                fzs[:,iy,ix,1] = (fs[:,1].copy()) [::-1]
+                fzs[:,iy,ix,2] = (fs[:,2].copy()) [::-1]
+            else:
+                fzs[:,iy,ix] = (fs[:,2].copy()) [::-1]
             PPpos[:,iy,ix,0] = rs[::-1,0] # - rTips[:,0]
             PPpos[:,iy,ix,1] = rs[::-1,1] # - rTips[:,1]
             PPpos[:,iy,ix,2] = rs[::-1,2] # - rTips[:,2]
@@ -95,7 +121,10 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipsplin
     core.setFF_Fpointer( FF )
     if(verbose>0): print("stiffness:", PPU.params['klat'])
     core.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
-    fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )
+    trj=None
+    if PPU.params['tiltedScan']:
+        trj = trjByDir( len(zTips), d=PPU.params['scanTilt'], p0=PPU.params['scanMin'] )
+    fzs,PPpos = relaxedScan3D( xTips, yTips, zTips, trj=trj, bF3d=PPU.params['tiltedScan'] )
     if bPPdisp:
         PPdisp=PPpos.copy()
         init_pos=np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0)+np.array([PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],-PPU.params['r0Probe'][2]])

@@ -41,6 +41,8 @@ params={
     'scanStep': np.array( [ 0.10, 0.10, 0.10 ] ),
     'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
     'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
+    'scanTilt': np.array( [  0.0,    0.0,   -0.1 ] ),
+    'tiltedScan': False,
     'kCantilever'  :  1800.0, 
     'f0Cantilever' :  30300.0,
     'Amplitude'    :  1.0,
@@ -80,9 +82,24 @@ def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4
     Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
     oscialltion amplitude of cantilever is A = n * dz
     '''
-    W,xs = getDfWeight( n, dz=0.1 )
+    W,xs = getDfWeight( n, dz=dz )
     dFconv = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F )
     return dFconv*units*f0/k0
+
+def Fz2df_tilt( F,  d=params['scanTilt'], k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4, units=16.0217656 ):
+    '''
+    conversion of vertical force Fz to frequency shift 
+    according to:
+    Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
+    oscialltion amplitude of cantilever is A = n * dz
+    '''
+    dr = np.sqrt( d[0]**2 + d[1]**2 + d[2]**2 )
+    hat=np.array(d)/dr
+    W,xs = getDfWeight( n, dz=dr )
+    dFconv_x = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F[:,:,:,0] )
+    dFconv_y = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F[:,:,:,1] )
+    dFconv_z = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F[:,:,:,2] )
+    return (dFconv_x*d[0] + dFconv_y*d[1] + dFconv_z*d[2] )*units*f0/k0
 
 def rotation_matrix(axis, theta):
     """

@@ -24,6 +24,7 @@ if __name__=="__main__":
     parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
     parser.add_option( "--tip_dens", action="store", type="string", default=None, help="tip denisty file (.xsf)" )
     #parser.add_option( "--sub_core",  action="store_true",  help="subtract core density", default=False )
+    parser.add_option("--doDensity", action="store_true",  help="do density overlap", dest="doDensity", default=False)
     parser.add_option( "--Rcore",   default=PPU.params["Rcore"],    action="store", type="float", help="Width of nuclear charge density blob to achieve charge neutrality [Angstroem]" )
     parser.add_option( "-t", "--tip", action="store", type="string", help="tip model (multipole) {s,pz,dz2,..}", default=None)
     parser.add_option( "--tilt", action="store", type="float", help="tilt of tip electrostatic field (radians)", default=0 )
@@ -53,7 +54,7 @@ if __name__=="__main__":
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
-    if ((options.Rcore > 0.0) and (options.tip is None) ):  # We do it here, in case it crash we don't want to wait for all the huge density files to load
+    if ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip is None) ):  # We do it here, in case it crash we don't want to wait for all the huge density files to load
         if options.tip_dens is None: raise Exception( " Rcore>0 but no tip density provided ! " )
         valElDict        = PPH.loadValenceElectronDict()
         Rs_tip,elems_tip = PPH.getAtomsWhichTouchPBCcell( options.tip_dens, Rcut=options.Rcore )

@@ -275,10 +275,10 @@ class Corrector():
             vmax=AFMRef[:,:,self.izPlot].max()
             vmin=AFMRef[:,:,self.izPlot].min()
             v2max=np.maximum(vmin**2,vmax**2)
-            plt.subplot(1,4,1); plt.imshow( AFMRef [:,:,self.izPlot], origin='image' ); #plt.title("AFMref" ); plt.grid()
-            plt.subplot(1,4,2); plt.imshow( AFMs   [:,:,self.izPlot], origin='image', vmin=vmin, vmax=vmax ); #plt.title("AFM[]"  ); plt.grid()
-            plt.subplot(1,4,3); plt.imshow( np.sqrt(ErrB[:,:,self.izPlot]), origin='image', vmin=0, vmax=np.sqrt(v2max)*0.2 ); plt.title("ErrB %g "%(ErrB.sum())  );
-            plt.subplot(1,4,4); plt.imshow( np.sqrt(ErrW[:,:,self.izPlot]), origin='image', vmin=0, vmax=np.sqrt(v2max)*0.2 ); plt.title("ErrW %g "%(ErrW.sum())  );
+            plt.subplot(1,4,1); plt.imshow( AFMRef [:,:,self.izPlot], origin='upper' ); #plt.title("AFMref" ); plt.grid()
+            plt.subplot(1,4,2); plt.imshow( AFMs   [:,:,self.izPlot], origin='upper', vmin=vmin, vmax=vmax ); #plt.title("AFM[]"  ); plt.grid()
+            plt.subplot(1,4,3); plt.imshow( np.sqrt(ErrB[:,:,self.izPlot]), origin='upper', vmin=0, vmax=np.sqrt(v2max)*0.2 ); plt.title("ErrB %g "%(ErrB.sum())  );
+            plt.subplot(1,4,4); plt.imshow( np.sqrt(ErrW[:,:,self.izPlot]), origin='upper', vmin=0, vmax=np.sqrt(v2max)*0.2 ); plt.title("ErrW %g "%(ErrW.sum())  );
             #plt.title( "Error=%g" %Err )
             plt.savefig( self.logImgName+("_%03i.png" %itr), bbox_inches='tight')
             plt.close  ()

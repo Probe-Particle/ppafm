@@ -55,8 +55,8 @@ class MyFigCanvas(FigureCanvas):
             
     def plotSlice(self, F ):
         self.axes.cla()
-        #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
-        self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='bicubic' )
+        #self.img = self.axes.imshow( F, origin='upper', cmap='gray', interpolation='nearest' )
+        self.img = self.axes.imshow( F, origin='upper', cmap='gray', interpolation='bicubic' )
         if self.cbar is None:
             self.cbar = self.fig.colorbar( self.img )
         self.cbar.set_clim( vmin=F.min(), vmax=F.max() )

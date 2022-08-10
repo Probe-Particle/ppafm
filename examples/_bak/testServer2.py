@@ -119,7 +119,7 @@ plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF LJ ' )
 '''
 for i in range(nslice):
 	plt.subplot( 1, nslice, i+1 )
-	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
+	plt.imshow( FF[i,:,:,2], origin='upper', interpolation='nearest' )
 '''
 
 withElectrostatics = ( abs( PP.params['charge'] )>0.001 )
@@ -135,7 +135,7 @@ if withElectrostatics:
 	'''
 	for i in range(nslice):
 		plt.subplot( 1, nslice, i+1 )
-		plt.imshow( FFel[i,:,:,2], origin='image', interpolation='nearest' )
+		plt.imshow( FFel[i,:,:,2], origin='upper', interpolation='nearest' )
 	'''
 	FF += FFel*PP.params['charge']
 	PP.setFF_Pointer( FF )
@@ -144,7 +144,7 @@ if withElectrostatics:
 plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF total ' )
 for i in range(nslice):
 	plt.subplot( 1, nslice, i+1 )
-	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
+	plt.imshow( FF[i,:,:,2], origin='upper', interpolation='nearest' )
 '''
 
 print(" # ============  Relaxed Scan 3D ")
@@ -179,7 +179,7 @@ slices = list(range( 0, len(dfs)))
 for ii,i in enumerate(slices):
 	print(" plotting ", i)
 	plt.figure( figsize=( 10,10 ) )
-	plt.imshow( dfs[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
+	plt.imshow( dfs[i], origin='upper', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
 #	z = zTips[i] - PP.params['moleculeShift' ][2]
 	z = zTips[i] 
 	plt.colorbar();

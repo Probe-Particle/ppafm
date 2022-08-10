@@ -68,21 +68,22 @@ if opt_dict['Laplace']:
 print(" >> OVEWRITING SETTINGS by command line arguments  ")
 # Ks
 if opt_dict['krange'] is not None:
-    Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], opt_dict['krange'][2] )
+    Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], int(opt_dict['krange'][2]) )
 elif opt_dict['k'] is not None:
     Ks = [ opt_dict['k'] ]
 else:
     Ks = [ PPU.params['klat'] ]
 # Qs
 if opt_dict['qrange'] is not None:
-    Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], opt_dict['qrange'][2] )
+    #print( " opt_dict['qrange'] ", opt_dict['qrange'], int(opt_dict['qrange'][2])  )
+    Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], int(opt_dict['qrange'][2]) )
 elif opt_dict['q'] is not None:
     Qs = [ opt_dict['q'] ]
 else:
     Qs = [ PPU.params['charge'] ]
 # Amps
 if opt_dict['arange'] is not None:
-    Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], opt_dict['arange'][2] )
+    Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], int(opt_dict['arange'][2]) )
 elif opt_dict['a'] is not None:
     Amps = [ opt_dict['a'] ]
 else:
@@ -164,18 +165,18 @@ for iq,Q in enumerate( Qs ):
                 print("cannot load : ", dirname+'/PPpos_?.' + options.data_format)
         if ( ( opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM'] ) ):
             try :
-                print("DEBUG 0.0 ")
-                fzs, lvec, nDim = GU.load_scal_field(dirname+'/OutFz' , data_format=options.data_format)
-                print("DEBUG 0 ")
                 for iA,Amp in enumerate( Amps ):
                     AmpStr = "/Amp%2.2f" %Amp
                     print("Amp= ",AmpStr)
                     dirNameAmp = dirname+AmpStr
                     if not os.path.exists( dirNameAmp ):
                         os.makedirs( dirNameAmp )
-                    print("DEBUG 1 ")
-                    dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
-                    print("DEBUG 2 ")
+                    if PPU.params['tiltedScan']:
+                        Fout, lvec, nDim = GU.load_vec_field(dirname+'/OutF' , data_format=options.data_format)
+                        dfs = PPU.Fz2df_tilt( Fout, PPU.params['scanTilt'], k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
+                    else:
+                        fzs, lvec, nDim = GU.load_scal_field(dirname+'/OutFz' , data_format=options.data_format)
+                        dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
                     if opt_dict['save_df']:
                         GU.save_scal_field(dirNameAmp+'/df', dfs, lvec,data_format=options.data_format )
                     if opt_dict['df']:

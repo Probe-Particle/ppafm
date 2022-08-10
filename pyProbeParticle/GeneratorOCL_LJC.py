@@ -1226,8 +1226,8 @@ class Generator(Sequence,):
             if self.Ymode == 'ElectrostaticMap':
                 plt.figure(figsize=(5,5))
                 vmax = max( Y.max(), -Y.min() )
-                #plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='seismic', origin='image' );
-                plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='bwr', origin='image', extent=extent );
+                #plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='seismic', origin='upper' );
+                plt.imshow( Y, vmin=-vmax, vmax=vmax, cmap='bwr', origin='upper', extent=extent );
                 plt.title(title)
                 plt.colorbar()
             elif self.Ymode == 'D-S-H':
@@ -1235,16 +1235,16 @@ class Generator(Sequence,):
                 plt.close()
                 plt.figure(figsize=(15,5))
                 #print "D-S-H Y.shape() ", Y.shape, Y[:,:,0].min(), Y[:,:,0].max(),  "  |  ",  Y[:,:,1].min(), Y[:,:,1].max(), "  |  ",   Y[:,:,2].min(), Y[:,:,2].max(),
-                plt.subplot(1,3,1); plt.imshow( Y[:,:,0], origin='image', extent=extent, cmap=cmap ); plt.title("Disks");     plt.colorbar()
-                plt.subplot(1,3,2); plt.imshow( Y[:,:,1], origin='image', extent=extent, cmap=cmap ); plt.title("Spheres");   plt.colorbar()
-                plt.subplot(1,3,3); plt.imshow( Y[:,:,2], origin='image', extent=extent, cmap=cmap ); plt.title("HeightMap"); plt.colorbar()
+                plt.subplot(1,3,1); plt.imshow( Y[:,:,0], origin='upper', extent=extent, cmap=cmap ); plt.title("Disks");     plt.colorbar()
+                plt.subplot(1,3,2); plt.imshow( Y[:,:,1], origin='upper', extent=extent, cmap=cmap ); plt.title("Spheres");   plt.colorbar()
+                plt.subplot(1,3,3); plt.imshow( Y[:,:,2], origin='upper', extent=extent, cmap=cmap ); plt.title("HeightMap"); plt.colorbar()
             elif self.Ymode == 'AtomsAndBonds':
                 plt.figure(figsize=(10,5))
-                plt.subplot(1,2,1); plt.imshow( Y[:,:,0], origin='image', extent=extent, cmap=cmap ); plt.title("AtomRfunc");     plt.colorbar()
-                plt.subplot(1,2,2); plt.imshow( Y[:,:,1], origin='image', extent=extent, cmap=cmap ); plt.title("BondElipses");   plt.colorbar()
+                plt.subplot(1,2,1); plt.imshow( Y[:,:,0], origin='upper', extent=extent, cmap=cmap ); plt.title("AtomRfunc");     plt.colorbar()
+                plt.subplot(1,2,2); plt.imshow( Y[:,:,1], origin='upper', extent=extent, cmap=cmap ); plt.title("BondElipses");   plt.colorbar()
             else:
                 plt.figure(figsize=(5,5))
-                plt.imshow( Y, origin='image', extent=extent, cmap=cmap );
+                plt.imshow( Y, origin='upper', extent=extent, cmap=cmap );
                 plt.title(title)
                 plt.colorbar()
             
@@ -1263,7 +1263,7 @@ class Generator(Sequence,):
                 self.plotGroups(plt, groups, xyzs_[:,:2] )
             
             #print "Y = ", Y
-            #plt.imshow( Y, vmin=-5, vmax=5, origin='image', extent=extent );  
+            #plt.imshow( Y, vmin=-5, vmax=5, origin='upper', extent=extent );  
             #plt.close()
             #plt.figure()
             plt.savefig(  fname+"Dens.png", bbox_inches="tight"  );
@@ -1275,20 +1275,20 @@ class Generator(Sequence,):
             if (X is not None) and (Y_ is not None):
                 plt.figure(figsize=(10,5))
                 #print isl, np.min(X[:,:,isl]), np.max(X[:,:,isl])
-                plt.subplot(1,2,2); plt.imshow (X [:,:,isl], origin='image', extent=extent, cmap=cmap );            plt.colorbar()
-                #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl], origin='image', extent=extent, cmap=cmap );
-                plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]), origin='image', extent=extent, cmap=cmap );   plt.colorbar()
+                plt.subplot(1,2,2); plt.imshow (X [:,:,isl], origin='upper', extent=extent, cmap=cmap );            plt.colorbar()
+                #plt.subplot(1,2,1); plt.imshow (Y_[:,:,isl], origin='upper', extent=extent, cmap=cmap );
+                plt.subplot(1,2,1); plt.imshow (np.tanh(Y_[:,:,isl]), origin='upper', extent=extent, cmap=cmap );   plt.colorbar()
                 plt.title(title)
                 plt.savefig( fname+( "FzFixRelax_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                 plt.close()
             else:
                 if X is not None:
                     if(verbose>0): print(isl, np.min(X[:,:,isl]), np.max(X[:,:,isl]))
-                    plt.imshow(  X[:,:,isl], origin='image', extent=extent, cmap=cmap );    plt.colorbar()
+                    plt.imshow(  X[:,:,isl], origin='upper', extent=extent, cmap=cmap );    plt.colorbar()
                     plt.savefig(  fname+( "Fz_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                     plt.close()
                 if Y_ is not None:
-                    plt.imshow ( Y_[:,:,isl], origin='image', extent=extent, cmap=cmap );   plt.colorbar()
+                    plt.imshow ( Y_[:,:,isl], origin='upper', extent=extent, cmap=cmap );   plt.colorbar()
                     plt.savefig( fname+( "FzFix_iz%03i.png" %isl ), bbox_inches="tight"  ); 
                     plt.close()
 

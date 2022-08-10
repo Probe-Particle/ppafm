@@ -47,7 +47,7 @@ class MyDynamicMplCanvas(FigureCanvas):
             
     def plotSlice(self, F ):
         self.axes.cla()
-        self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
+        self.img = self.axes.imshow( F, origin='upper', cmap='gray', interpolation='nearest' )
         if self.cbar is None:
             self.cbar = self.fig.colorbar( self.img )
         self.cbar.set_clim( vmin=F.min(), vmax=F.max() )

@@ -145,9 +145,9 @@ for iq,Q in enumerate( Qs ):
                     
                     plt.axhline(y=0, color='black', ls='-.')
                     perplane=fig.add_axes([0.65, 0.6, 0.25, 0.25])
-#                    perplane.imshow(dfs[min_index+int(0.5/scan_step),:, :], origin='image', cmap='gray')
-#                    perplane.imshow(dfs[len(Zplot)-min_index-(int)(Amp/scan_step/2)-5, :, :], origin='image', cmap='gray')
-                    perplane.imshow(dfs[len(Zplot)-min_index-(int)(Amp/scan_step/2)-int(1.0/scan_step), :, :], origin='image', cmap='gray')
+#                    perplane.imshow(dfs[min_index+int(0.5/scan_step),:, :], origin='upper', cmap='gray')
+#                    perplane.imshow(dfs[len(Zplot)-min_index-(int)(Amp/scan_step/2)-5, :, :], origin='upper', cmap='gray')
+                    perplane.imshow(dfs[len(Zplot)-min_index-(int)(Amp/scan_step/2)-int(1.0/scan_step), :, :], origin='upper', cmap='gray')
 
                     perplane.scatter(x=x_pos, y=y_pos, s=50, c='red', alpha=0.8)
                     perplane.axis('off')

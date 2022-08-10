@@ -76,9 +76,9 @@ for ii,i in enumerate(slices):
     print(" plotting ", i)
     plt.figure( figsize=( 10,10 ) )
     if options.vrange:
-        plt.imshow( data[i], origin='image', interpolation='bicubic', cmap=options.cmap, extent=extent, vmin=options.vrange[0], vmax=options.vrange[1])
+        plt.imshow( data[i], origin='upper', interpolation='bicubic', cmap=options.cmap, extent=extent, vmin=options.vrange[0], vmax=options.vrange[1])
     else:
-        plt.imshow( data[i], origin='image', interpolation='bicubic', cmap=options.cmap, extent=extent)
+        plt.imshow( data[i], origin='upper', interpolation='bicubic', cmap=options.cmap, extent=extent)
     PPPlot.plotGeom( atoms, bonds, atomSize=atomSize )
     z=float(i)*(lvec[3][2]/nDim[0])
     plt.colorbar();

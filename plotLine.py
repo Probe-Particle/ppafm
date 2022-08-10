@@ -169,7 +169,7 @@ for p in options.points:
         plt.axhline(y=0, color='black', ls='-.')
         perplane=fig.add_axes([opt_dict['image'][1], opt_dict['image'][2], 0.25, 0.25])
         zindex=int((opt_dict['image'][0]-scan_min[2]+Amp[0]/2.0)/scan_step[2])
-        perplane.imshow(dfs[zindex,:, :], origin='image', cmap='gray')
+        perplane.imshow(dfs[zindex,:, :], origin='upper', cmap='gray')
         i=0
         while i<len(POSplot[0]):
             perplane.scatter(x=int((POSplot[0][i]-scan_min[0])/scan_step[0]),

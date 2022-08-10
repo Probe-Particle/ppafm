@@ -30,7 +30,7 @@ nslice = min( len( Fz ), 10 )
 
 for i in range(nslice):
 	plt.figure()
-	plt.imshow( Fz[i,:,:], origin='image', interpolation='nearest' )
+	plt.imshow( Fz[i,:,:], origin='upper', interpolation='nearest' )
 
 plt.show()
 

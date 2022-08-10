@@ -38,8 +38,8 @@ GU.setGridN( np.array( nDim, dtype='int32' ) )
 print("nDim ", nDim)
 Fquad = GU.interpolateQuad( F, points[0], points[1], points[2], points[3], sz=isz )  # grid coord
 #vmax = 0.01
-#plt.imshow(Fquad, origin='image', vmin=-vmax, vmax=vmax, extent=extent)
-plt.imshow(Fquad, origin='image')
+#plt.imshow(Fquad, origin='upper', vmin=-vmax, vmax=vmax, extent=extent)
+plt.imshow(Fquad, origin='upper')
 plt.axis('equal')
 
 for i,iz in enumerate(izs):

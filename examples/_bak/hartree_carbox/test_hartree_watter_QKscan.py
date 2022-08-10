@@ -169,7 +169,7 @@ else:
 #plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF LJ ' )
 #for i in range(nslice):
 #	plt.subplot( 1, nslice, i+1 )
-#	plt.imshow( FF[i,:,:,2], origin='image', interpolation='nearest' )
+#	plt.imshow( FF[i,:,:,2], origin='upper', interpolation='nearest' )
 
 #@profile
 def relaxedScan3D( xTips, yTips, zTips ):
@@ -196,7 +196,7 @@ def plotImages( prefix, F, slices ):
 	for ii,i in enumerate(slices):
 		print(" plotting ", i)
 		plt.figure( figsize=( 10,10 ) )
-		plt.imshow( F[i], origin='image', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
+		plt.imshow( F[i], origin='upper', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
 		z = zTips[i] - PP.params['moleculeShift' ][2]
 		plt.colorbar();
 		plt.xlabel(r' Tip_x $\AA$')
