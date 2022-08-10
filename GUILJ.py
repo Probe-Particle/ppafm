@@ -540,7 +540,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             xyzs, Zs, lvec = basUtils.loadGeometryIN(file_path)
             qs = np.zeros(len(Zs))
             lvec = lvec[1:] if len(lvec) > 0 else None
-        elif ext in ['.xsf' '.cube']:
+        elif ext in ['.xsf', '.cube']:
             qs, xyzs, Zs = hartreeFromFile(file_path)
             lvec = qs.lvec[1:]
         elif ext == '.xyz':
@@ -654,7 +654,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             data = self.df.transpose(2, 1, 0)
             z = self.afmulator.scan_window[0][2] + self.afmulator.amplitude / 2
             title = f'z = {z:.2f}Å'
-            if np.allclose(self.qs, 0):
+            if not isinstance(self.qs, HartreePotential) and np.allclose(self.qs, 0):
                 title += ' (No electrostatics)'
             self.figCan.plotSlice(data, -1, title=title, points=points)
         except Exception as e:
