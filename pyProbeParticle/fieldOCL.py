@@ -1216,7 +1216,6 @@ class ForceField_LJC:
         cLJs = cLJs.astype(np.float32, copy=False)
         self.prepareBuffers(atoms, cLJs)
         if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.time() - t0)
-        print(len(atoms), atoms)
 
         if self.cl_poss is not None:
             FF = self.run_evalLJC_Q( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
