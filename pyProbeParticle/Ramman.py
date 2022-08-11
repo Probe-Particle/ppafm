@@ -44,6 +44,27 @@ def RammanAmplitudes( tpos, apos, alphas, modes, out=None, imode=0 ):
     lib.RammanAmplitudes( npos, tpos, out,   na,  apos, alphas, modes, imode )
     return out
 
+# double RammanDetails( double* tpos, int na, double* apos, double* alphas, double* modes, int imode, double* E_incident, double* E_induced ){
+lib.RammanDetails.argtypes = [ array1d, c_int, array2d, array2d, array2d, c_int, array2d, array2d ]
+lib.RammanDetails.restype  = c_double
+def RammanDetails( tpos, apos, alphas, modes, out=None, imode=0, Einc=None, Eind=None ):
+    tpos=np.array(tpos)
+    na   = len(apos) 
+    if Einc is None: Einc=np.zeros((na,3))
+    if Eind is None: Eind=np.zeros((na,3))
+    Amp = lib.RammanDetails( tpos, na,  apos, alphas, modes, imode, Einc, Eind )
+    return Amp,Einc, Eind
+
+# void EfieldAtPoints( int npos, double* pos, double* Es_ ){
+lib.EfieldAtPoints.argtypes = [ c_int, array2d, array2d ]
+lib.EfieldAtPoints.restype  = None
+def EfieldAtPoints( pos, Es=None ):
+    npos=len(pos)
+    if Es is None:
+        Es=np.zeros((npos,3))
+    lib.EfieldAtPoints( npos, pos, Es )
+    return Es
+
 # double ProjectPolarizability( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alphas, int idir, int icomp ){
 lib.ProjectPolarizability.argtypes = [ c_int, array2d, array1d, c_int, array2d, array2d, c_int, c_int ]
 lib.ProjectPolarizability.restype  = None
@@ -55,6 +76,12 @@ def ProjectPolarizability( tpos, apos, alphas, out=None, idir=0, icomp=0 ):
     print( " idir, icomp   ", idir, icomp )
     lib.ProjectPolarizability( npos, tpos, out,   na,  apos, alphas, idir, icomp )
     return out
+
+# void setVerbosity(int verbosity_){
+lib.setVerbosity.argtypes = [ c_int ]
+lib.setVerbosity.restype  = None
+def setVerbosity( verbosity ):
+    lib.setVerbosity( verbosity )
 
 def error( s ):
     print( "ERROR: "+s )
@@ -115,7 +142,21 @@ def RunRaman( tpos, wdir='./', imode=0, fname_geom='input.xyz', fname_modes='dat
     return As, apos
 
 
+def write_to_xyz_vecs( f, enames, apos, vecs, comment="# commnet" ):
+    for i in range(na):
+        f.write(  "%s %g %g %g    %g %g %g \n" %(enames[i],apos[i,0],apos[i,1],apos[i,2],  vecs[i,0],vecs[i,1],vecs[i,2])   )
 
+def write_xyz_vecs( fname, enames, apos, vecs, comment="# commnet", tpos=None ):
+    na=len(apos)
+    if tpos is not None:
+        na+=1
+    with open(fname, 'w', encoding='utf-8') as f:
+        f.write("%i\n" %na)
+        f.write(comment+"\n")
+        if tpos is not None:
+            f.write(  "%s %g %g %g    %g %g %g \n" %('U',tpos[0],tpos[1],tpos[2],  0,0,0)   )
+        for i in range(len(apos)):
+            f.write(  "%s %g %g %g    %g %g %g \n" %(enames[i],apos[i,0],apos[i,1],apos[i,2],  vecs[i,0],vecs[i,1],vecs[i,2])   )
 
 #if __name__ == "__main__":
 #    RunRaman( wdir='./home/prokop/Desktop/PROJECT_NOW/PhotonMap_Svec/Raman/Polarizabilities_Sofia/polariz-g16_sofia/2.product_matrices/test_PTCDA/'  )

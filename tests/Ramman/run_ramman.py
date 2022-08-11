@@ -23,9 +23,11 @@ modes  =             np.genfromtxt(wdir+fname_modes).transpose().copy()
 apos,Zs,enames,qs = au.loadAtomsNP(wdir+fname_geom)
 
 #                          s   px  py   pz
-rm.setEfieldMultipole( [1.0              ] )   # monopole tip field
-#rm.setEfieldMultipole(  [0.0, 0.0, 0.0,0.8] )   # field of tip with dipole along z-axis
-#rm.setEfieldMultipole(  [0.9, 0.5,-0.5,0.8] )   # field of general asymmetric tip with dipole/monopole mix
+#rm.setEfieldMultipole( [1.0              ] )   # monopole tip field
+#rm.setEfieldMultipole(  [0.0, 0.0, 0.0,1.0] )   # field of tip with dipole along z-axis
+#rm.setEfieldMultipole(  [0.0, 1.0, 0.0,0.0] )    # field of tip with dipole along x-axis
+#rm.setEfieldMultipole(  [0.0, 0.0, 1.0,0.0] )    # field of tip with dipole along y-axis
+rm.setEfieldMultipole(  [0.9, 0.5,-0.5,0.8] )   # field of general asymmetric tip with dipole/monopole mix
 
 # ----- Generate Tip Position ( 2D for Image Scan)
 xs    = np.linspace(-15.0,15.0,nx) 

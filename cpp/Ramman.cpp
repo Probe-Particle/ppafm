@@ -15,6 +15,7 @@ double  cMonopol = 1;
 Vec3d   cDipol   = Vec3dZ;
 //SMat3d  cQuadrupol;
 
+int verbosity=0; 
 
 inline void evalField( const Vec3d& p, Vec3d& Efield ){
     // ---- monopole
@@ -27,7 +28,7 @@ inline void evalField( const Vec3d& p, Vec3d& Efield ){
         // https://physics.stackexchange.com/questions/173101/find-out-gradient-of-electric-potential-at-bf-r-created-by-eletric-dipole-o
         //   E= (1/4πϵ0)  ( 3u(p.u)−p ) /r^3
         Efield.add_mul( cDipol,   ir3 );
-        Efield.add_mul( p     , (-ir3*ir2)*cDipol.dot(p) );
+        Efield.add_mul( p     , 3.0*(-ir3*ir2)*cDipol.dot(p) );
     }
 }
 
@@ -44,7 +45,13 @@ double ProjectPolarizability( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d
     return Amp;
 }
 
-double RammanAmplitude( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alphas, Vec3d* mode ){
+void printSMat(const SMat3d& A){
+    printf("%g %g %g \n", A.xx, A.xy, A.xz );
+    printf("%g %g %g \n", A.xy, A.yy, A.yz );
+    printf("%g %g %g \n", A.xz, A.yz, A.zz );
+}
+
+double RammanAmplitude( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alphas, Vec3d* mode, Vec3d* E_inc=0, Vec3d* E_ind=0 ){
     //   tip_pos ... tip position
     //   apos   ... atom positions
     //   alphas ... atomic polarizability matrix 
@@ -55,11 +62,11 @@ double RammanAmplitude( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alph
         // -- Evaluate electric fiedl at atomic position 
         Vec3d pos  = apos[ia]-tip_pos;
         Vec3d Efield; evalField( pos, Efield );
+        if(E_inc){E_inc[ia]=Efield;}
         //printf( "atom[%i] pos(%g,%g,%g) Efield(%g,%g,%g)\n", ia, pos.x,pos.y,pos.z,  Efield.x,Efield.y,Efield.z );
         // -- Get atomic polarizability matrix due to vibration along normal mode 
-        SMat3d AA;
         Vec3d dadMi = mode[ia];  // displacement of atom i in mode,  Eq.7 of  10.1002/jrs.5991
-
+        SMat3d AA=SMat3dZero;
         //dadMi=(Vec3d){0.,0.,1.};
         AA.add_mul( alphas[i3+0], dadMi.x );  // TODO : is this OK ?.... can I really combine polarizabilities like this ?
         AA.add_mul( alphas[i3+1], dadMi.y );
@@ -68,6 +75,21 @@ double RammanAmplitude( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alph
         // -- Polarization of the atom by the field
         Vec3d polarization; 
         AA.dot_to( Efield, polarization );     // Eq.9 of 10.1002/jrs.5991
+
+        if(verbosity>1){
+            printf("============ atom[%i]\n", ia);
+            if(verbosity>2){
+                printf(" ### d_X(Alpha)\n"); printSMat(alphas[i3+0]);
+                printf(" ### d_Y(Alpha)\n"); printSMat(alphas[i3+1]);
+                printf(" ### d_Z(Alpha)\n"); printSMat(alphas[i3+2]);
+            }
+            printf(" #### AA(=alpha*dMode): \n"); printSMat(AA);
+            printf("d_mode:       %g %g %g \n", dadMi.x,dadMi.y,dadMi.z );
+            printf("Efield:       %g %g %g \n", Efield.x,Efield.y,Efield.z );
+            printf("polarization: %g %g %g \n", polarization.x,polarization.y,polarization.z );
+        }
+
+        if(E_ind){E_ind[ia]=polarization;}
         double Ampi = Efield.dot( polarization );  // ?Should be Like this ? This is like coupling back to cavity;   Eq.13   10.1002/jrs.5991
         //double Ampi += polarization.norm2();           // ?Or rather like this ? This is like far-field radiation    ;   Eq.16   10.1002/jrs.5991
 
@@ -94,6 +116,17 @@ void RammanAmplitudes( int npos, double* tpos, double* As, int na, double* apos,
     }
 }
 
+double RammanDetails( double* tpos, int na, double* apos, double* alphas, double* modes, int imode, double* E_incident, double* E_induced ){
+    return RammanAmplitude( *((Vec3d*)tpos), na, (Vec3d*)apos, (SMat3d*)alphas, ((Vec3d*)modes)+(imode*na), (Vec3d*)E_incident, (Vec3d*)E_induced );
+}
+
+void EfieldAtPoints( int npos, double* pos, double* Es_ ){
+    Vec3d* Es=(Vec3d*)Es_;
+    for(int ip=0; ip<npos; ip++){
+        Vec3d Efield; evalField( ((Vec3d*)pos)[ip], ((Vec3d*)Es)[ip] );
+    }
+}
+
 void setEfieldMultipole( int fieldType_, double* coefs ){
     fieldType = fieldType_;
     cMonopol = coefs[0];
@@ -102,5 +135,7 @@ void setEfieldMultipole( int fieldType_, double* coefs ){
     }
     printf( "C++ setEfieldMultipole(): fieldType %i cMonopol %g cDipol (%g,%g,%g) \n", fieldType, cMonopol, cDipol.x,cDipol.y,cDipol.z );
 }
+
+void setVerbosity(int verbosity_){ verbosity=verbosity_; }
 
 }

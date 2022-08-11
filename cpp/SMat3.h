@@ -66,11 +66,11 @@ using SMat3i = SMat3< int   >;
 using SMat3f = SMat3< float >;
 using SMat3d = SMat3< double>;
 
-static constexpr SMat3d Mat3dIdentity = (SMat3d){ 1.0,1.0,1.0, 0.0,0.0,0.0 };
-static constexpr SMat3d Mat3dZero     = (SMat3d){ 0.0,0.0,0.0, 0.0,0.0,0.0 };
+static constexpr SMat3d SMat3dIdentity = (SMat3d){ 1.0,1.0,1.0, 0.0,0.0,0.0 };
+static constexpr SMat3d SMat3dZero     = (SMat3d){ 0.0,0.0,0.0, 0.0,0.0,0.0 };
 
-static constexpr SMat3f Mat3fIdentity = (SMat3f){1.0f,1.0f,1.0f, 0.0f,0.0f,0.0f };
-static constexpr SMat3f Mat3fZero     = (SMat3f){0.0f,0.0f,0.0f, 0.0f,0.0f,0.0f };
+static constexpr SMat3f SMat3fIdentity = (SMat3f){1.0f,1.0f,1.0f, 0.0f,0.0f,0.0f };
+static constexpr SMat3f SMat3fZero     = (SMat3f){0.0f,0.0f,0.0f, 0.0f,0.0f,0.0f };
 
 inline void convert( const SMat3f& from, SMat3d& to ){ convert( from.diag, to.diag ); convert( from.offd, to.offd ); };
 inline void convert( const SMat3d& from, SMat3f& to ){ convert( from.diag, to.diag ); convert( from.offd, to.offd ); };
