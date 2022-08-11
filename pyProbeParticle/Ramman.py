@@ -45,15 +45,16 @@ def RammanAmplitudes( tpos, apos, alphas, modes, out=None, imode=0 ):
     return out
 
 # double RammanDetails( double* tpos, int na, double* apos, double* alphas, double* modes, int imode, double* E_incident, double* E_induced ){
-lib.RammanDetails.argtypes = [ array1d, c_int, array2d, array2d, array2d, c_int, array2d, array2d ]
+lib.RammanDetails.argtypes = [ array1d, c_int, array2d, array2d, array2d, c_int, array2d, array2d, array2d ]
 lib.RammanDetails.restype  = c_double
-def RammanDetails( tpos, apos, alphas, modes, out=None, imode=0, Einc=None, Eind=None ):
+def RammanDetails( tpos, apos, alphas, modes, imode=0, Einc=None, Eind=None, modeOut=None ):
     tpos=np.array(tpos)
     na   = len(apos) 
     if Einc is None: Einc=np.zeros((na,3))
     if Eind is None: Eind=np.zeros((na,3))
-    Amp = lib.RammanDetails( tpos, na,  apos, alphas, modes, imode, Einc, Eind )
-    return Amp,Einc, Eind
+    if modeOut is None: modeOut=np.zeros((na,3))
+    Amp = lib.RammanDetails( tpos, na,  apos, alphas, modes, imode, Einc, Eind, modeOut )
+    return Amp,Einc, Eind, modeOut
 
 # void EfieldAtPoints( int npos, double* pos, double* Es_ ){
 lib.EfieldAtPoints.argtypes = [ c_int, array2d, array2d ]

@@ -51,7 +51,7 @@ void printSMat(const SMat3d& A){
     printf("%g %g %g \n", A.xz, A.yz, A.zz );
 }
 
-double RammanAmplitude( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alphas, Vec3d* mode, Vec3d* E_inc=0, Vec3d* E_ind=0 ){
+double RammanAmplitude( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alphas, Vec3d* mode, Vec3d* E_inc=0, Vec3d* E_ind=0, Vec3d* modeOut=0 ){
     //   tip_pos ... tip position
     //   apos   ... atom positions
     //   alphas ... atomic polarizability matrix 
@@ -66,6 +66,7 @@ double RammanAmplitude( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alph
         //printf( "atom[%i] pos(%g,%g,%g) Efield(%g,%g,%g)\n", ia, pos.x,pos.y,pos.z,  Efield.x,Efield.y,Efield.z );
         // -- Get atomic polarizability matrix due to vibration along normal mode 
         Vec3d dadMi = mode[ia];  // displacement of atom i in mode,  Eq.7 of  10.1002/jrs.5991
+        if(modeOut){ modeOut[ia]=dadMi; }
         SMat3d AA=SMat3dZero;
         //dadMi=(Vec3d){0.,0.,1.};
         AA.add_mul( alphas[i3+0], dadMi.x );  // TODO : is this OK ?.... can I really combine polarizabilities like this ?
@@ -116,8 +117,8 @@ void RammanAmplitudes( int npos, double* tpos, double* As, int na, double* apos,
     }
 }
 
-double RammanDetails( double* tpos, int na, double* apos, double* alphas, double* modes, int imode, double* E_incident, double* E_induced ){
-    return RammanAmplitude( *((Vec3d*)tpos), na, (Vec3d*)apos, (SMat3d*)alphas, ((Vec3d*)modes)+(imode*na), (Vec3d*)E_incident, (Vec3d*)E_induced );
+double RammanDetails( double* tpos, int na, double* apos, double* alphas, double* modes, int imode, double* E_incident, double* E_induced, double* modeOut=0 ){
+    return RammanAmplitude( *((Vec3d*)tpos), na, (Vec3d*)apos, (SMat3d*)alphas, ((Vec3d*)modes)+(imode*na), (Vec3d*)E_incident, (Vec3d*)E_induced, (Vec3d*)modeOut );
 }
 
 void EfieldAtPoints( int npos, double* pos, double* Es_ ){
