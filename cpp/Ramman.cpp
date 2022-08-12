@@ -11,8 +11,10 @@
 //#include "CG.h"
 
 int fieldType = 1;
+
 double  cMonopol = 1;
 Vec3d   cDipol   = Vec3dZ;
+Vec3d   Ehomo    = Vec3dZ;
 //SMat3d  cQuadrupol;
 
 int verbosity=0; 
@@ -22,7 +24,8 @@ inline void evalField( const Vec3d& p, Vec3d& Efield ){
     double ir2 = 1/( p.norm2() + 1.0e-6 );
     double ir  = sqrt(ir2); 
     double ir3 = ir2*ir;
-    Efield.set_mul( p, cMonopol*ir3 ); 
+    Efield = Ehomo;
+    Efield.add_mul( p, cMonopol*ir3 ); 
     // --- dipole
     if(fieldType>1){
         // https://physics.stackexchange.com/questions/173101/find-out-gradient-of-electric-potential-at-bf-r-created-by-eletric-dipole-o
@@ -128,7 +131,8 @@ void EfieldAtPoints( int npos, double* pos, double* Es_ ){
     }
 }
 
-void setEfieldMultipole( int fieldType_, double* coefs ){
+void setEfieldMultipole( int fieldType_, double* coefs, double* Ehomo_ ){
+    Ehomo     = *(Vec3d*)Ehomo_;
     fieldType = fieldType_;
     cMonopol = coefs[0];
     if( fieldType>1 ){

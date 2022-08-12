@@ -19,9 +19,10 @@ array3d  = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
 # ========= C functions
 
 # setEfieldMultipole( int fieldType_, double* coefs ){
-lib.setEfieldMultipole.argtypes = [ c_int, array1d ]
+lib.setEfieldMultipole.argtypes = [ c_int, array1d, array1d ]
 lib.setEfieldMultipole.restype  = None
-def setEfieldMultipole( coefs ):
+def setEfieldMultipole( coefs, Ehomo=[0.0,0.0,0.0] ):
+    Ehomo = np.array(Ehomo)
     coefs = np.array(coefs)
     nc = len(coefs)
     imode=-1
@@ -31,7 +32,7 @@ def setEfieldMultipole( coefs ):
         imode=2
     else: 
         print("ERROR in setEfieldMultipole: len(coefs)=%i | must be 1 or 4 " %nc ); exit()
-    lib.setEfieldMultipole( imode, coefs )
+    lib.setEfieldMultipole( imode, coefs, Ehomo )
 
 #  RammanAmplitudes( int npos, double* tpos, double* As, int na, double* apos, double* alphas, double* mode ){
 lib.RammanAmplitudes.argtypes = [ c_int, array2d, array1d, c_int, array2d, array2d, array2d, c_int ]
