@@ -64,8 +64,8 @@ TTips = {
     'EqPos': 'Eq. Pos: Probe equilibrium position with respect to the tip in x, y, and radial directions. Non-zero values for x and y models asymmetry in tip adsorption.',
     'ScanStep': 'Scan step: Size of pixels in x and y directions and size of oscillation step in z direction.',
     'ScanSize': 'Scan size: Total size of scan region in x and y directions.',
-    'ScanCenter': 'Scan center: center position of scan region in x and y directions.',
-    'Distance': 'Distance: Average tip distance from the center of the closest atom',
+    'ScanStart': 'Scan start: bottom left position of scan region in x and y directions.',
+    'Distance': 'Distance: Average tip distance from the nucleus of the closest atom.',
     'Amplitude': 'Amplitude: Peak-to-peak oscillation amplitude for the tip.',
     'PBC': 'Periodic Boundaries: Lattice vectors for periodic images of atoms.',
     'k': 'k: Cantilever spring constant. Only appears as a scaling constant.',
@@ -190,7 +190,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         lb = QtWidgets.QLabel("Scan step (x,y,z)[Å]"); lb.setToolTip(TTips['ScanStep']); bxl.addWidget(lb)
         lb = QtWidgets.QLabel("Scan size (x,y)[Å]"); lb.setToolTip(TTips['ScanSize']); bxl.addWidget(lb)
-        lb = QtWidgets.QLabel("Scan center (x,y)[Å]"); lb.setToolTip(TTips['ScanCenter']); bxl.addWidget(lb)
+        lb = QtWidgets.QLabel("Scan start (x,y)[Å]"); lb.setToolTip(TTips['ScanStart']); bxl.addWidget(lb)
 
         vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1); bx.setSingleStep(0.02); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStep']); vb.addWidget(bx); self.bxStepX=bx
@@ -202,8 +202,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(16.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanSize']); vb.addWidget(bx); self.bxSSy=bx
 
         vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0, 100.0); bx.setValue(0.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanCenter']); vb.addWidget(bx); self.bxSCx=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0, 100.0); bx.setValue(0.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanCenter']); vb.addWidget(bx); self.bxSCy=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0, 100.0); bx.setValue(0.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStart']); vb.addWidget(bx); self.bxSCx=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0, 100.0); bx.setValue(0.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStart']); vb.addWidget(bx); self.bxSCy=bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
         lb = QtWidgets.QLabel("Distance [Å]"); lb.setToolTip(TTips['Distance']); vb.addWidget(lb)
@@ -330,7 +330,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.status_bar.showMessage(msg)
         self.status_bar.repaint()
 
-    def setScanWindow(self, scan_size, scan_center, step, distance, amplitude):
+    def setScanWindow(self, scan_size, scan_start, step, distance, amplitude):
         '''Set scan window in AFMulator and update input fields'''
 
         if self.xyzs is None: return
@@ -349,18 +349,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         z_min = z - amplitude / 2
         z_max = z + amplitude / 2 + z_extra_steps * step[2]
         scan_window = (
-            (scan_center[0] - scan_size[0] / 2, scan_center[1] - scan_size[1] / 2, z_min),
-            (scan_center[0] + scan_size[0] / 2, scan_center[1] + scan_size[1] / 2, z_max)
+            (scan_start[0]               , scan_start[1]               , z_min),
+            (scan_start[0] + scan_size[0], scan_start[1] + scan_size[1], z_max)
         )
         self.afmulator.kCantilever = self.bxCant_K.value()
         self.afmulator.f0Cantilever = self.bxCant_f0.value()
-        if self.verbose > 0: print("setScanWindow", step, scan_size, scan_center, scan_dim, scan_window)
+        if self.verbose > 0: print("setScanWindow", step, scan_size, scan_start, scan_dim, scan_window)
 
         # Set new values to the fields
         guiw.set_box_value(self.bxSSx, scan_size[0])
         guiw.set_box_value(self.bxSSy, scan_size[1])
-        guiw.set_box_value(self.bxSCx, scan_center[0])
-        guiw.set_box_value(self.bxSCy, scan_center[1])
+        guiw.set_box_value(self.bxSCx, scan_start[0])
+        guiw.set_box_value(self.bxSCy, scan_start[1])
         guiw.set_box_value(self.bxD, distance)
         guiw.set_box_value(self.bxA, amplitude)
 
@@ -385,21 +385,21 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         '''Infer and set scan window from current geometry'''
         if self.xyzs is None: return
         scan_size = self.xyzs[:, :2].max(axis=0) - self.xyzs[:, :2].min(axis=0) + 2 * self.sw_pad
-        scan_center = (self.xyzs[:, :2].max(axis=0) + self.xyzs[:, :2].min(axis=0)) / 2
+        scan_start = (self.xyzs[:, :2].max(axis=0) + self.xyzs[:, :2].min(axis=0)) / 2 - scan_size / 2
         step = np.array([self.bxStepX.value(), self.bxStepY.value(), self.bxStepZ.value()])
         distance = self.bxD.value()
         amplitude = self.bxA.value()
-        self.setScanWindow(scan_size, scan_center, step, distance, amplitude)
+        self.setScanWindow(scan_size, scan_start, step, distance, amplitude)
 
     def updateScanWindow(self):
         '''Get scan window from input fields and update'''
         if self.xyzs is None: return
         scan_size = np.array([self.bxSSx.value(), self.bxSSy.value()])
-        scan_center = np.array([self.bxSCx.value(), self.bxSCy.value()])
+        scan_start = np.array([self.bxSCx.value(), self.bxSCy.value()])
         step = np.array([self.bxStepX.value(), self.bxStepY.value(), self.bxStepZ.value()])
         distance = self.bxD.value()
         amplitude = self.bxA.value()
-        self.setScanWindow(scan_size, scan_center, step, distance, amplitude)
+        self.setScanWindow(scan_size, scan_start, step, distance, amplitude)
         self.update()
 
     def updateParams(self):
@@ -719,21 +719,21 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.verbose > 0: print('zoomTowards', ix, iy, zoom_direction)
 
         scan_size = np.array([self.bxSSx.value(), self.bxSSy.value()])
-        scan_center = np.array([self.bxSCx.value(), self.bxSCy.value()])
-        frac_coord = np.array([ix, iy]) / (np.array(self.df.shape[:2]) - 1) - 0.5
+        scan_start = np.array([self.bxSCx.value(), self.bxSCy.value()])
+        frac_coord = np.array([ix, iy]) / (np.array(self.df.shape[:2]) - 1)
         offset = self.zoom_step * frac_coord
 
         if zoom_direction == 'in':
             scan_size -= self.zoom_step
-            scan_center += offset
+            scan_start += offset
         elif zoom_direction == 'out':
             scan_size += self.zoom_step
-            scan_center -= offset
+            scan_start -= offset
 
         guiw.set_box_value(self.bxSSx, scan_size[0])
         guiw.set_box_value(self.bxSSy, scan_size[1])
-        guiw.set_box_value(self.bxSCx, scan_center[0])
-        guiw.set_box_value(self.bxSCy, scan_center[1])
+        guiw.set_box_value(self.bxSCx, scan_start[0])
+        guiw.set_box_value(self.bxSCy, scan_start[1])
 
         self.updateScanWindow()
 
