@@ -73,9 +73,10 @@ class FigImshow(FigCanvas):
         self.fig.canvas.mpl_connect('scroll_event', self.onscroll)
         self.verbose = verbose
         self.img = None
+        self.cbar = None
             
     def plotSlice(self, F_stack , z_slice, title=None, margins=None, grid_selector = 0,
-            slice_length = None, points=[]):
+            slice_length = None, points=[], cbar_range=None):
         
         F = F_stack[z_slice]
 
@@ -88,7 +89,6 @@ class FigImshow(FigCanvas):
                 self.axes.plot([ix] , [iy], 'o')
         else:
             self.img.set_data(F)
-            self.img.autoscale()
             if len(points) == 0:
                 self.axes.lines.clear()
                 self.axes.set_prop_cycle(None)
@@ -96,6 +96,20 @@ class FigImshow(FigCanvas):
             else:
                 for p, (ix, iy) in zip(self.axes.lines, points):
                     p.set_data((ix, iy))
+
+        if cbar_range:
+            if self.cbar == None:
+                self.cbar = self.fig.colorbar(self.img, ax=self.axes)
+                self.cbar.set_label('df (Hz)')
+                if self.verbose > 0: print('plotSlice: added colorbar')
+            self.img.set_clim(vmin=cbar_range[0], vmax=cbar_range[1])
+            self.cbar.mappable.set_clim(vmin=cbar_range[0], vmax=cbar_range[1])
+        else:
+            self.img.autoscale()
+            if self.cbar is not None:
+                self.cbar.remove()
+                self.cbar = None
+                if self.verbose > 0: print('plotSlice: removed colorbar')
 
         if margins:
             self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),F.shape[1]-margins[2]-margins[0], F.shape[0]-margins[3]-margins[1], linewidth=2,edgecolor='r',facecolor='none')) 

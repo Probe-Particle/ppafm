@@ -71,6 +71,9 @@ TTips = {
     'k': 'k: Cantilever spring constant. Only appears as a scaling constant.',
     'f0': 'f0: Cantilever eigenfrequency. Only appears as a scaling constant.',
     'z_steps': 'z steps: Number of steps in the df approach curve in z direction when clicking on image.',
+    'df_colorbar': 'Colorbar: Add a colorbar of df values to plot.',
+    'df_range': 'df range: Minimum and maximum df value in colorbar.',
+    'df_reset': 'Reset Range: Reset df colorbar range.', 
     'view_geom': 'View Geometry: Show system geometry in ASE GUI.',
     'edit_geom': 'Edit Geometry: Edit the positions, atomic numbers, and charges of atoms.',
     'view_ff': 'View Forcefield: View forcefield components in a separate window.',
@@ -91,6 +94,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     sw_pad = 4.0 # Default padding for scan window on each side of the molecule in xy plane
     zoom_step = 1.0 # How much to increase/reduce scan size on zoom
+    df_range = (-1, 1) # min and max df value in colorbar
+    fixed_df_range = False # Keep track if df range was fixed by user or should be set automatically
 
     def __init__(self, input_file, device, verbose=0):
 
@@ -123,7 +128,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.figCan = guiw.FigImshow( parentWiget=self.main_widget, parentApp=self, width=5, height=4, dpi=100, verbose=verbose)
         l1.addWidget(self.figCan)
         l0 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l0, 1)
-        self.resize(1000, 600)
+        self.resize(1100, 600)
 
         # -------- Status Bar
         self.status_bar = QtWidgets.QStatusBar()
@@ -261,6 +266,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,2000.0); bx.setSingleStep(1.0); bx.setValue(30.3); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['f0']); vb.addWidget(bx); self.bxCant_f0=bx
         lb = QtWidgets.QLabel("z steps"); lb.setToolTip(TTips['z_steps']); vb.addWidget(lb, 1)
         bx = QtWidgets.QSpinBox(); bx.setRange(1, 50); bx.setValue(10); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['z_steps']); vb.addWidget(bx, 2); self.bxdfst=bx
+
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Colorbar"); lb.setToolTip(TTips['df_colorbar']); vb.addWidget(lb)
+        bx = QtWidgets.QCheckBox(); bx.setChecked(False); bx.toggled.connect(self.updateDfColorbar); bx.setToolTip(TTips['df_colorbar']); vb.addWidget(bx); self.bxDfCbar = bx
+        lb = QtWidgets.QLabel("df range"); lb.setToolTip(TTips['df_range']); vb.addWidget(lb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-1000, 1000); bx.setSingleStep(0.1); bx.setValue(-1); bx.valueChanged.connect(self.updateDfRange); bx.setDisabled(True); bx.setToolTip(TTips['df_range']); vb.addWidget(bx); self.bxDfMin=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-1000, 1000); bx.setSingleStep(0.1); bx.setValue(1); bx.valueChanged.connect(self.updateDfRange); bx.setDisabled(True); bx.setToolTip(TTips['df_range']); vb.addWidget(bx); self.bxDfMax=bx
+        bt = QtWidgets.QPushButton('Reset', self); bt.setToolTip(TTips['df_reset']); bt.clicked.connect(self.resetDfRange); bt.setDisabled(True); self.btDfReset = bt; vb.addWidget(bt)
 
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
@@ -437,6 +450,43 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.afmulator.tipR0 = tipR0
 
         self.update()
+
+    def setDfRange(self, df_range):
+        '''Set df range in input boxes'''
+        guiw.set_box_value(self.bxDfMin, df_range[0])
+        guiw.set_box_value(self.bxDfMax, df_range[1])
+
+    def dfRangeFromData(self):
+        '''Set colorbar df range from current df data'''
+        if self.df is None: return
+        self.df_range = (self.df[:, :, -1].min(), self.df[:, :, -1].max())
+        self.setDfRange(self.df_range)
+
+    def updateDfRange(self):
+        '''Get df range from input field and update plot'''
+        self.fixed_df_range = True
+        self.df_range = (self.bxDfMin.value(),  self.bxDfMax.value())
+        self.updateDataView()
+
+    def resetDfRange(self):
+        '''Reset df range to min-max values in current image and update plot'''
+        self.fixed_df_range = False
+        self.dfRangeFromData()
+        self.updateDataView()
+
+    def updateDfColorbar(self):
+        '''Get colorbar state and update plot'''
+        if self.bxDfCbar.isChecked():
+            self.bxDfMin.setDisabled(False)
+            self.bxDfMax.setDisabled(False)
+            self.btDfReset.setDisabled(False)
+        else:
+            self.fixed_df_range = False
+            self.dfRangeFromData()
+            self.bxDfMin.setDisabled(True)
+            self.bxDfMax.setDisabled(True)
+            self.btDfReset.setDisabled(True)
+        self.updateDataView()
 
     def setPBC(self, lvec, enabled):
         '''Set periodic boundary condition lattice'''
@@ -665,6 +715,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def updateDataView(self):
 
+        if self.df is None: return
+
         t1 = time.perf_counter()
 
         # Compute current coordinates of df line points
@@ -678,12 +730,23 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         # Plot df
         try:
+
             data = self.df.transpose(2, 1, 0)
+
+            # Colorbar
+            if not self.fixed_df_range:
+                self.dfRangeFromData()
+            cbar_range = self.df_range if self.bxDfCbar.isChecked() else None
+
+            # Title
             z = self.afmulator.scan_window[0][2] + self.afmulator.amplitude / 2
             title = f'z = {z:.2f}Å'
             if not isinstance(self.qs, HartreePotential) and np.allclose(self.qs, 0):
                 title += ' (No electrostatics)'
-            self.figCan.plotSlice(data, -1, title=title, points=points)
+
+            # Plot
+            self.figCan.plotSlice(data, -1, title=title, points=points, cbar_range=cbar_range)
+
         except Exception as e:
             print("Failed to plot df slice")
             traceback.print_exc()
