@@ -76,7 +76,7 @@ class FigImshow(FigCanvas):
         self.cbar = None
             
     def plotSlice(self, F_stack , z_slice, title=None, margins=None, grid_selector = 0,
-            slice_length = None, points=[], cbar_range=None):
+            slice_length = None, points=[], cbar_range=None, extent=None):
         
         F = F_stack[z_slice]
 
@@ -111,6 +111,11 @@ class FigImshow(FigCanvas):
                 self.cbar = None
                 if self.verbose > 0: print('plotSlice: removed colorbar')
 
+        if extent is not None:
+            self.img.set_extent(extent)
+            self.axes.set_xlabel('x (Å)')
+            self.axes.set_ylabel('y (Å)')
+
         if margins:
             self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),F.shape[1]-margins[2]-margins[0], F.shape[0]-margins[3]-margins[1], linewidth=2,edgecolor='r',facecolor='none')) 
             textRes = 'output size: '+str(F.shape[1]-margins[2]-margins[0])+ 'x'+ str(F.shape[0]-margins[3]-margins[1])
@@ -118,8 +123,6 @@ class FigImshow(FigCanvas):
                 textRes += '     length [A] ='+'{:03.4f}, {:03.4f}'.format(slice_length[0], slice_length[1])  
             self.axes.set_xlabel(textRes)
         
-        self.axes.set_xlim(0, F.shape[1])
-        self.axes.set_ylim(0, F.shape[0])
         self.axes.set_title(title)
 
         if (grid_selector > 0):
@@ -183,21 +186,21 @@ class FigImshow(FigCanvas):
     def onclick(self, event):
         if not self.parent: return
         try:
-            ix = int(event.xdata)
-            iy = int(event.ydata)
+            x = float(event.xdata)
+            y = float(event.ydata)
         except TypeError:
             if self.verbose > 0: print('Invalid click event.')
             return
-        self.axes.plot([ix] , [iy], 'o')
+        self.axes.plot([x], [y], 'o', scalex=False, scaley=False)
         self.draw()
-        self.parent.clickImshow(ix,iy)
-        return iy, ix
+        self.parent.clickImshow(x, y)
+        return y, x
 
     def onscroll(self, event):
         if not self.parent: return
         try:
-            ix = int(event.xdata)
-            iy = int(event.ydata)
+            x = float(event.xdata)
+            y = float(event.ydata)
         except TypeError:
             if self.verbose > 0: print('Invalid scroll event.')
             return
@@ -208,7 +211,7 @@ class FigImshow(FigCanvas):
         else:
             print(f'Invalid scroll direction {event.button}')
             return
-        self.parent.zoomTowards(ix, iy, direction)
+        self.parent.zoomTowards(x, y, direction)
 
 # =======================
 #     SlaveWindow

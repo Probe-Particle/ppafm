@@ -203,8 +203,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1); bx.setSingleStep(0.02); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStep']); vb.addWidget(bx); self.bxStepZ=bx 
 
         vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(16.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanSize']); vb.addWidget(bx); self.bxSSx=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(16.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanSize']); vb.addWidget(bx); self.bxSSy=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(1.0, 100.0); bx.setValue(16.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanSize']); vb.addWidget(bx); self.bxSSx=bx
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(1.0, 100.0); bx.setValue(16.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanSize']); vb.addWidget(bx); self.bxSSy=bx
 
         vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0, 100.0); bx.setValue(0.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStart']); vb.addWidget(bx); self.bxSCx=bx
@@ -719,15 +719,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         t1 = time.perf_counter()
 
-        # Compute current coordinates of df line points
-        points = []
-        for x, y in self.df_points:
-            x_min, y_min = self.afmulator.scan_window[0][:2]
-            x_step, y_step = self.bxStepX.value(), self.bxStepY.value()
-            ix = (x - x_min) / x_step
-            iy = (y - y_min) / y_step
-            points.append((ix, iy))
-
         # Plot df
         try:
 
@@ -744,8 +735,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             if not isinstance(self.qs, HartreePotential) and np.allclose(self.qs, 0):
                 title += ' (No electrostatics)'
 
+            # xy limits
+            sw = self.afmulator.scan_window
+            extent = (sw[0][0], sw[1][0], sw[0][1], sw[1][1])
+
             # Plot
-            self.figCan.plotSlice(data, -1, title=title, points=points, cbar_range=cbar_range)
+            self.figCan.plotSlice(data, -1, title=title, points=self.df_points, cbar_range=cbar_range,
+                extent=extent)
 
         except Exception as e:
             print("Failed to plot df slice")
@@ -753,16 +749,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         if self.verbose > 1: print(f"plotSlice time {time.perf_counter() - t1:.5f} [s]")
 
-    def clickImshow(self, ix, iy):
+    def clickImshow(self, x, y):
         if self.df is None: return
 
-        # Remember x and y coordinates of point
+        # Find closest index corresponding to x and y coordinates
         x_min, y_min = self.afmulator.scan_window[0][:2]
         x_step, y_step = self.bxStepX.value(), self.bxStepY.value()
-        x = x_min + ix * x_step
-        y = y_min + iy * y_step
-        self.df_points.append((x, y))
+        ix = round((x - x_min) / x_step)
+        iy = round((y - y_min) / y_step)
         if self.verbose > 0: print('clickImshow', ix, iy, x, y)
+
+        # Remember coordinates in case scan_start changes
+        self.df_points.append((x, y))
 
         # Update line plot
         z_min = self.afmulator.scan_window[0][2] + self.afmulator.amplitude / 2
@@ -771,24 +769,25 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         zs = np.linspace(z_max, z_min, df_steps)
         ys = self.df[ix, iy, :]
         self.figCurv.show()
-        self.figCurv.figCan.plotDatalines(zs, ys, "%i_%i" %(ix,iy))
+        self.figCurv.figCan.plotDatalines(zs, ys, f'{x:.02f}, {y:.02f}')
 
     def clearPoints(self):
         self.df_points = []
         self.updateDataView()
 
-    def zoomTowards(self, ix, iy, zoom_direction):
+    def zoomTowards(self, x, y, zoom_direction):
 
-        if self.verbose > 0: print('zoomTowards', ix, iy, zoom_direction)
+        if self.verbose > 0: print('zoomTowards', x, y, zoom_direction)
 
         scan_size = np.array([self.bxSSx.value(), self.bxSSy.value()])
         scan_start = np.array([self.bxSCx.value(), self.bxSCy.value()])
-        frac_coord = np.array([ix, iy]) / (np.array(self.df.shape[:2]) - 1)
+        frac_coord = (np.array([x, y]) - scan_start) / scan_size
         offset = self.zoom_step * frac_coord
 
         if zoom_direction == 'in':
-            scan_size -= self.zoom_step
-            scan_start += offset
+            if scan_size[0] > 1.0 and scan_size[1] > 1.0:
+                scan_size -= self.zoom_step
+                scan_start += offset
         elif zoom_direction == 'out':
             scan_size += self.zoom_step
             scan_start -= offset
