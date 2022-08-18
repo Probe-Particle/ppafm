@@ -67,7 +67,8 @@ TTips = {
     'ScanStart': 'Scan start: bottom left position of scan region in x and y directions.',
     'Distance': 'Distance: Average tip distance from the nucleus of the closest atom.',
     'Amplitude': 'Amplitude: Peak-to-peak oscillation amplitude for the tip.',
-    'PBC': 'Periodic Boundaries: Lattice vectors for periodic images of atoms.',
+    'PBCz': 'z periodicity: When checked, the lattice is also periodic in z direction. This is usually not required, since the scan is aligned with the xy direction.',
+    'PBC': 'Periodic Boundaries: Lattice vectors for periodic images of atoms. Does not affect electrostatics calculated from a Hartree potential file, which is always assumed to be periodic.',
     'k': 'k: Cantilever spring constant. Only appears as a scaling constant.',
     'f0': 'f0: Cantilever eigenfrequency. Only appears as a scaling constant.',
     'z_steps': 'z steps: Number of steps in the df approach curve in z direction when clicking on image.',
@@ -227,6 +228,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
         lb = QtWidgets.QLabel("Use periodic boundary conditions"); vb.addWidget(lb)
         bx = QtWidgets.QCheckBox(); bx.setChecked(True); bx.toggled.connect(self.updatePBC); vb.addWidget(bx); self.bxPBC = bx
+        lb = QtWidgets.QLabel("z periodicity"); lb.setToolTip(TTips['PBCz']); vb.addWidget(lb)
+        bx = QtWidgets.QCheckBox(); bx.setChecked(False); bx.toggled.connect(self.updatePBC); bx.setToolTip(TTips['PBCz']); vb.addWidget(bx); self.bxPBCz = bx
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
         bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
@@ -495,7 +498,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         if enabled:
             self.pbc_lvec = lvec
-            self.afmulator.npbc = (1, 1, 1)
+            if self.bxPBCz.isChecked():
+                self.afmulator.npbc = (1, 1, 1)
+            else:
+                self.afmulator.npbc = (1, 1, 0)
         else:
             self.pbc_lvec = None
             self.afmulator.npbc = (0, 0, 0)
