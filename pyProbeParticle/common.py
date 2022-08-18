@@ -33,7 +33,7 @@ params={
     'ffModel':     'LJ',
     'Rcore':    0.7,
     'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
-    'stiffness':  np.array( [ 0.5,  0.5, 20.00] ),
+    'stiffness':  np.array( [ -1.0, -1.0, -1.0] ),
     'klat': 0.5,
     'krad': 20.00,
     'tip':  's',
@@ -181,7 +181,6 @@ def loadParams( fname ):
         if len(words)>=2:
             key = words[0]
             if key in params:
-                if key == 'stiffness': raise ValueError("Attention!!! Parameter stifness is deprecated, please define krad and klat instead")
                 val = params[key]
                 if key[0][0] == '#' : continue 
                 if(verbose>0): print(key,' is class ', val.__class__)
@@ -233,6 +232,8 @@ def apply_options(opt):
         try:
             x=params[key]     # to make sure that such a key exists in the list. If not it will be skipped
             params[key]=value
+            if key in ['klat', 'krange']:
+                params['stiffness'] = np.array( [ -1.0, -1.0, -1.0] ) # klat and krange override stiffness
             if(verbose>0): print(key,value," applied")
         except:
             pass

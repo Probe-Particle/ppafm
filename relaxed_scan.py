@@ -54,6 +54,8 @@ if __name__=="__main__":
         Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], int(opt_dict['krange'][2]) )
     elif opt_dict['klat'] is not None:
         Ks = [ opt_dict['klat'] ]
+    elif PPU.params['stiffness'][0] > 0.0:
+        Ks = [PPU.params['stiffness'][0]]
     else:
         Ks = [ PPU.params['klat']]
     # Qs

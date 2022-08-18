@@ -32,7 +32,7 @@ import pyProbeParticle.cpp_utils      as cpp_utils
 
 from optparse import OptionParser
 parser = OptionParser()
-parser.add_option( "-k",       action="store", type="float", help="tip stiffenss [N/m]" )
+parser.add_option( "-k", "--klat", action="store", type="float", help="tip stiffness [N/m]" )
 parser.add_option( "--krange", action="store", type="float", help="tip stiffenss range (min,max,n) [N/m]", nargs=3)
 parser.add_option( "-q",       action="store", type="float", help="tip charge [e]" )
 parser.add_option( "--qrange", action="store", type="float", help="tip charge range (min,max,n) [e]", nargs=3)
@@ -69,10 +69,12 @@ print(" >> OVEWRITING SETTINGS by command line arguments  ")
 # Ks
 if opt_dict['krange'] is not None:
     Ks = np.linspace( opt_dict['krange'][0], opt_dict['krange'][1], int(opt_dict['krange'][2]) )
-elif opt_dict['k'] is not None:
-    Ks = [ opt_dict['k'] ]
+elif opt_dict['klat'] is not None:
+    Ks = [ opt_dict['klat'] ]
+elif PPU.params['stiffness'][0] > 0.0:
+    Ks = [PPU.params['stiffness'][0]]
 else:
-    Ks = [ PPU.params['klat'] ]
+    Ks = [ PPU.params['klat']]
 # Qs
 if opt_dict['qrange'] is not None:
     #print( " opt_dict['qrange'] ", opt_dict['qrange'], int(opt_dict['qrange'][2])  )

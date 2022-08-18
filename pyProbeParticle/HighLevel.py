@@ -119,8 +119,11 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipsplin
         GU.save_vec_field( 'FFtotDebug', FF, lvec )
     core.setFF_shape( np.shape(FF), lvec )
     core.setFF_Fpointer( FF )
-    if(verbose>0): print("stiffness:", PPU.params['klat'])
-    core.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
+    if (PPU.params['stiffness'] < 0.0).any():
+        PPU.params['stiffness'] = np.array([PPU.params['klat'], PPU.params['klat'], PPU.params['krad']])
+    if(verbose>0): print("stiffness:", PPU.params['stiffness'])
+    core.setTip(kSpring=np.array((PPU.params['stiffness'][0], PPU.params['stiffness'][1], 0.0)) / -PPU.eVA_Nm,
+        kRadial=PPU.params['stiffness'][2] / -PPU.eVA_Nm)
     trj=None
     if PPU.params['tiltedScan']:
         trj = trjByDir( len(zTips), d=PPU.params['scanTilt'], p0=PPU.params['scanMin'] )
