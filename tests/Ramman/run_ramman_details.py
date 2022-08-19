@@ -85,7 +85,8 @@ plt.figure(figsize=(20,5))
 plt.subplot(1,4,1); plt.imshow( Es[:,:,0], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_x"); plt.colorbar();
 plt.subplot(1,4,2); plt.imshow( Es[:,:,1], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_y"); plt.colorbar();
 plt.subplot(1,4,3); plt.imshow( Es[:,:,2], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_z"); plt.colorbar();
-plt.subplot(1,4,4); plt.imshow( np.sqrt(Es[:,:,0]**2+Es[:,:,1]**2+Es[:,:,2]**2), extent=extent, vmin=0, vmax=Emax, origin='lower' ); plt.title("|E|"); plt.colorbar();
+Etot = np.sqrt(Es[:,:,0]**2+Es[:,:,1]**2+Es[:,:,2]**2)
+plt.subplot(1,4,4); plt.imshow( Etot, extent=extent, vmin=0, vmax=Emax, origin='lower' ); plt.title("|E|"); plt.colorbar();
 if bPlotFieldOnMod:
     plt.plot  ( apos[:,ax1], apos[:,ax2],'ok')
     vsc=100.0;
@@ -113,7 +114,9 @@ def setPlotExtent(extent):
 
 plt.figure(figsize=(15,5))
 vsc=100.0;
-plt.subplot(1,5,1); plotVecsAtAtoms( apos, Einc   , ax1=ax1, ax2=ax2, vsc=vsc ); setPlotExtent(extent); plt.title('Efield')
+plt.subplot(1,5,1); 
+plt.subplot(1,4,4); plt.imshow( Etot, extent=extent, vmin=0, vmax=Emax, origin='lower' ); plt.title("|E|"); plt.colorbar();
+plotVecsAtAtoms( apos, Einc   , ax1=ax1, ax2=ax2, vsc=vsc ); setPlotExtent(extent); plt.title('Efield')
 plt.subplot(1,5,2); plotVecsAtAtoms( apos, modeOut, ax1=ax1, ax2=ax2, vsc=vsc ); setPlotExtent(extent); plt.title('vib.mode')
 plt.subplot(1,5,3); plotVecsAtAtoms( apos, Eind   , ax1=ax1, ax2=ax2, vsc=vsc ); setPlotExtent(extent); plt.title('polarization')
 vmax=np.max(np.abs(Ampis))
