@@ -12,7 +12,18 @@ wdir='./'
 fname_geom='input-yz.xyz'; 
 fname_modes='data_NModes.dat'; 
 fname_alphas='data_Dalpha-wrt-X.dat'
-nx=150; ny=100     # Image Resolution
+
+# --- Efield imagind setup
+nx=100; ny=150     # Image Resolution
+cutPlaneHeight = 0.0  
+bPlotFieldOnMod = bool
+choosePlane = 1  #   0=(x,yz), 1=(y,xz), 2=(z,xy)
+Emax = 1.0
+
+# --- Detailed raman calculation
+bDefuLog = False
+imode=20
+tip_pos= np.array([0.0,0.0,10.0])
 
 # ============ SETUP
 
@@ -23,12 +34,15 @@ apos,Zs,enames,qs = au.loadAtomsNP(wdir+fname_geom)
 
 #                          s   px  py   pz
 #rm.setEfieldMultipole( [0.0              ], Ehomo=[1.0,0.0,0.0]  ) 
-rm.setEfieldMultipole( [1.0, 0.0,0.0,0.0    ], Ehomo=[0.0,0.0,0.2]  ) 
+#rm.setEfieldMultipole( [1.0, 0.0,0.0,0.0    ], Ehomo=[0.0,0.0,0.2]  ) 
 #rm.setEfieldMultipole( [1.0              ] )   # monopole tip field
 #rm.setEfieldMultipole(  [0.0, 0.0, 0.0,1.0] )   # field of tip with dipole along z-axis
 #rm.setEfieldMultipole(  [0.0, 1.0, 0.0,0.0] )    # field of tip with dipole along x-axis
 #rm.setEfieldMultipole(  [0.0, 0.0, 1.0,0.0] )    # field of tip with dipole along y-axis
 #rm.setEfieldMultipole(  [0.9, 0.5,-0.5,0.8] )   # field of general asymmetric tip with dipole/monopole mix
+
+rm.setEfieldMultipole( [3.5              ], Ehomo=[0.0,0.0,1.0], gaussR=[10.,10.,10.]  ) 
+
 
 '''
 # ----- Plot Electri Field Components 1D
@@ -47,45 +61,66 @@ plt.legend()
 '''
 
 # ----- Plot Electri Field Components 2D
-xs    = np.linspace(-15.0,15.0,nx) 
-ys    = np.linspace(-10.0,10.0,ny) 
-tpos  = np.zeros( (ny,nx,3) )
-#tpos[:,:,0],tpos[:,:,1] = np.meshgrid( xs, ys ); tpos[:,:,2] = 2.0 # z above surface
-tpos[:,:,2],tpos[:,:,1] = np.meshgrid( xs, ys ); tpos[:,:,0] = 3.0 # z above surface
-tippos = tpos.reshape((nx*ny,3))
-extent=(-15.0,15.0, -10.0,10.0)
-Es = rm.EfieldAtPoints( tippos )
+ax0=2;ax1=0;ax2=1  #  2=(z,xy)
+if   choosePlane==0:
+    ax0=1;ax1=0;ax2=2  # 1=(y,xz)
+elif choosePlane==1:   
+    ax0=0;ax1=1;ax2=2      # 0=(x,yz)
+
+extent=(-nx*0.1,nx*0.1, -ny*0.1,ny*0.1)
+xs    = np.linspace(-nx*0.1,nx*0.1,nx) 
+ys    = np.linspace(-ny*0.1,ny*0.1,ny) 
+poss  = np.zeros( (ny,nx,3) )
+poss[:,:,ax1],poss[:,:,ax2] = np.meshgrid( xs, ys ); poss[:,:,ax0] = cutPlaneHeight # z above surface
+poss_mol = poss.copy()
+if bPlotFieldOnMod:
+    poss[:,:,0]-=tip_pos[0]
+    poss[:,:,1]-=tip_pos[1]
+    poss[:,:,2]-=tip_pos[2]
+poss = poss.reshape((nx*ny,3))
+Es = rm.EfieldAtPoints( poss )
 Es = Es.reshape((ny,nx,3))
 
 plt.figure(figsize=(20,5))
-plt.subplot(1,4,1); plt.imshow( Es[:,:,0], extent=extent ); plt.title("E_x"); plt.colorbar();
-plt.subplot(1,4,2); plt.imshow( Es[:,:,1], extent=extent ); plt.title("E_y"); plt.colorbar();
-plt.subplot(1,4,3); plt.imshow( Es[:,:,2], extent=extent ); plt.title("E_z"); plt.colorbar();
-plt.subplot(1,4,4); plt.imshow( np.sqrt(Es[:,:,0]**2+Es[:,:,1]**2+Es[:,:,2]**2), extent=extent ); plt.title("|E|"); plt.colorbar();
-
+plt.subplot(1,4,1); plt.imshow( Es[:,:,0], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_x"); plt.colorbar();
+plt.subplot(1,4,2); plt.imshow( Es[:,:,1], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_y"); plt.colorbar();
+plt.subplot(1,4,3); plt.imshow( Es[:,:,2], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_z"); plt.colorbar();
+plt.subplot(1,4,4); plt.imshow( np.sqrt(Es[:,:,0]**2+Es[:,:,1]**2+Es[:,:,2]**2), extent=extent, vmin=0, vmax=Emax, origin='lower' ); plt.title("|E|"); plt.colorbar();
+if bPlotFieldOnMod:
+    plt.plot  ( apos[:,ax1], apos[:,ax2],'ok')
+    vsc=100.0;
+    #plt.quiver( apos[:,ax1], apos[:,ax2], Es[:,ax1]*vsc,Es[:,ax2]*vsc, width=0.005, headwidth=0.05 ); 
 
 # ----- Electric field and polarization at each atom
-#rm.setVerbosity(3)
-imode=20
-tpos= [0.0,0.0,10.0]
-Amp, Einc, Eind, modeOut = rm.RammanDetails( tpos, apos, alphas, modes, imode ) 
+if bDefuLog:
+    rm.setVerbosity(3) # Uncomment this to get verbous debug log during calculation (this should be off when doing many calculations, very much slower)
+
+Amp, Einc, Eind, modeOut, Ampis = rm.RammanDetails( tip_pos, apos, alphas, modes, imode ) 
 Einc /= np.max(  np.sqrt((Einc**2).sum(axis=1)) ) # Normalize
 Eind /= np.max(  np.sqrt((Eind**2).sum(axis=1)) ) # Normalize
 
-def plotVecsAtAtoms( apos, vecs, axis1=2, axis2=1, width=0.005, headwidth=0.05, vsc=1 ):
-    plt.plot( apos[:,axis1],apos[:,axis2], '.b' ); 
-    plt.quiver( apos[:,axis1],apos[:,axis2], vecs[:,axis1]*vsc,vecs[:,axis2]*vsc, width=width, headwidth=headwidth ); 
+def plotVecsAtAtoms( apos, vecs, ax1=2, ax2=1, width=0.005, headwidth=0.05, vsc=1 ):
+    plt.plot  ( apos[:,ax1],apos[:,ax2], '.b' ); 
+    plt.quiver( apos[:,ax1],apos[:,ax2], vecs[:,ax1]*vsc,vecs[:,ax2]*vsc, width=width, headwidth=headwidth ); 
     plt.axis('equal');
 
-plt.figure(figsize=(15,5))
-vsc=100.0; axis1=1; axis2=2;
-plt.subplot(1,3,1); plotVecsAtAtoms( apos, modeOut, axis1=axis1, axis2=axis2, vsc=vsc ); plt.title('vib.mode')
-plt.subplot(1,3,2); plotVecsAtAtoms( apos, Eind   , axis1=axis1, axis2=axis2, vsc=vsc ); plt.title('polarization')
-plt.subplot(1,3,3); plotVecsAtAtoms( apos, Einc   , axis1=axis1, axis2=axis2, vsc=vsc ); plt.title('Efield')
+def setPlotExtent(extent):
+    plt.xlim(extent[0],extent[1]) 
+    plt.ylim(extent[2],extent[3])
 
-rm.write_xyz_vecs(  "Einc.xyz", enames, apos, Einc, tpos=tpos )
-rm.write_xyz_vecs(  "Eind.xyz", enames, apos, Eind, tpos=tpos )
-rm.write_xyz_vecs(  "modeOut.xyz", enames, apos, modeOut, tpos=tpos )
+plt.figure(figsize=(15,5))
+vsc=100.0;
+plt.subplot(1,5,1); plotVecsAtAtoms( apos, Einc   , ax1=ax1, ax2=ax2, vsc=vsc ); setPlotExtent(extent); plt.title('Efield')
+plt.subplot(1,5,2); plotVecsAtAtoms( apos, modeOut, ax1=ax1, ax2=ax2, vsc=vsc ); setPlotExtent(extent); plt.title('vib.mode')
+plt.subplot(1,5,3); plotVecsAtAtoms( apos, Eind   , ax1=ax1, ax2=ax2, vsc=vsc ); setPlotExtent(extent); plt.title('polarization')
+vmax=np.max(np.abs(Ampis))
+plt.subplot(1,5,4); plt.scatter    ( apos[:,ax1],apos[:,ax2], c=Ampis,    cmap='seismic', vmin=-vmax, vmax=vmax );  plt.title('Ampi');     plt.axis('equal'); setPlotExtent(extent);
+plt.subplot(1,5,5); plt.scatter    ( apos[:,ax1],apos[:,ax2], c=np.abs(Ampis), cmap='binary'); plt.title('|Ampi|'); setPlotExtent(extent); plt.axis('equal');  setPlotExtent(extent);
+
+
+rm.write_xyz_vecs(  "Einc.xyz", enames, apos, Einc, tpos=tip_pos )
+rm.write_xyz_vecs(  "Eind.xyz", enames, apos, Eind, tpos=tip_pos )
+rm.write_xyz_vecs(  "modeOut.xyz", enames, apos, modeOut, tpos=tip_pos )
 
 #f=open("Einc.xyz",'w'); f.write("%i\n\n", len(apos)+1 ); rm.write_to_xyz_vecs( f, enames, apos, Einc ); rm.write_to_xyz_vecs( f, enames, apos, Einc )
 #f=open("Eind.xyz",'w'); f.write("%i\n\n", len(apos)+1 ); rm.write_to_xyz_vecs( f, enames, apos, Einc ); rm.write_to_xyz_vecs( f, enames, apos, Eind )

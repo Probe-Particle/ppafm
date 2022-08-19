@@ -19,11 +19,13 @@ array3d  = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
 # ========= C functions
 
 # setEfieldMultipole( int fieldType_, double* coefs ){
-lib.setEfieldMultipole.argtypes = [ c_int, array1d, array1d ]
+lib.setEfieldMultipole.argtypes = [ c_int, array1d, array1d, array1d ]
 lib.setEfieldMultipole.restype  = None
-def setEfieldMultipole( coefs, Ehomo=[0.0,0.0,0.0] ):
-    Ehomo = np.array(Ehomo)
-    coefs = np.array(coefs)
+def setEfieldMultipole( coefs, Ehomo=[0.0,0.0,0.0], gaussR=[-1.0,-1.0,-1.0] ):
+    Ehomo   = np.array(Ehomo)
+    coefs   = np.array(coefs)
+    gaussR = np.array(gaussR)
+    #if(gaussR[0]<0): gaussR2*=-1
     nc = len(coefs)
     imode=-1
     if  (nc==1):
@@ -32,7 +34,7 @@ def setEfieldMultipole( coefs, Ehomo=[0.0,0.0,0.0] ):
         imode=2
     else: 
         print("ERROR in setEfieldMultipole: len(coefs)=%i | must be 1 or 4 " %nc ); exit()
-    lib.setEfieldMultipole( imode, coefs, Ehomo )
+    lib.setEfieldMultipole( imode, coefs, Ehomo, gaussR )
 
 #  RammanAmplitudes( int npos, double* tpos, double* As, int na, double* apos, double* alphas, double* mode ){
 lib.RammanAmplitudes.argtypes = [ c_int, array2d, array1d, c_int, array2d, array2d, array2d, c_int ]
@@ -46,16 +48,17 @@ def RammanAmplitudes( tpos, apos, alphas, modes, out=None, imode=0 ):
     return out
 
 # double RammanDetails( double* tpos, int na, double* apos, double* alphas, double* modes, int imode, double* E_incident, double* E_induced ){
-lib.RammanDetails.argtypes = [ array1d, c_int, array2d, array2d, array2d, c_int, array2d, array2d, array2d ]
+lib.RammanDetails.argtypes = [ array1d, c_int, array2d, array2d, array2d, c_int, array2d, array2d, array2d, array1d ]
 lib.RammanDetails.restype  = c_double
-def RammanDetails( tpos, apos, alphas, modes, imode=0, Einc=None, Eind=None, modeOut=None ):
+def RammanDetails( tpos, apos, alphas, modes, imode=0, Einc=None, Eind=None, modeOut=None, Ampis=None ):
     tpos=np.array(tpos)
     na   = len(apos) 
     if Einc is None: Einc=np.zeros((na,3))
     if Eind is None: Eind=np.zeros((na,3))
     if modeOut is None: modeOut=np.zeros((na,3))
-    Amp = lib.RammanDetails( tpos, na,  apos, alphas, modes, imode, Einc, Eind, modeOut )
-    return Amp,Einc, Eind, modeOut
+    if Ampis is None: Ampis=np.zeros(na)
+    Amp = lib.RammanDetails( tpos, na,  apos, alphas, modes, imode, Einc, Eind, modeOut, Ampis )
+    return Amp,Einc, Eind, modeOut, Ampis
 
 # void EfieldAtPoints( int npos, double* pos, double* Es_ ){
 lib.EfieldAtPoints.argtypes = [ c_int, array2d, array2d ]

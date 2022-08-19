@@ -15,16 +15,27 @@ int fieldType = 1;
 double  cMonopol = 1;
 Vec3d   cDipol   = Vec3dZ;
 Vec3d   Ehomo    = Vec3dZ;
+Vec3d   gaussR   = (Vec3d){-1.0,-1.0,-1.0};
+
+//double  cMonopol = 1;
+//Vec3d   cDipol   = Vec3dZ;
+//Vec3d   Ehomo    = Vec3dZ;
 //SMat3d  cQuadrupol;
 
 int verbosity=0; 
 
 inline void evalField( const Vec3d& p, Vec3d& Efield ){
     // ---- monopole
-    double ir2 = 1/( p.norm2() + 1.0e-6 );
+    double r2 = p.norm2();
+    double ir2 = 1/( r2 + 1.0e-6 );
     double ir  = sqrt(ir2); 
     double ir3 = ir2*ir;
     Efield = Ehomo;
+    if( gaussR.x>0 ){ 
+        Vec3d earg; earg.set_div( p, gaussR );
+        double gauss = exp( -earg.norm2() );
+        Efield.mul( gauss );
+    }
     Efield.add_mul( p, cMonopol*ir3 ); 
     // --- dipole
     if(fieldType>1){
@@ -54,12 +65,13 @@ void printSMat(const SMat3d& A){
     printf("%g %g %g \n", A.xz, A.yz, A.zz );
 }
 
-double RammanAmplitude( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alphas, Vec3d* mode, Vec3d* E_inc=0, Vec3d* E_ind=0, Vec3d* modeOut=0 ){
+double RammanAmplitude( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alphas, Vec3d* mode, Vec3d* E_inc=0, Vec3d* E_ind=0, Vec3d* modeOut=0, double* Ampis=0 ){
     //   tip_pos ... tip position
     //   apos   ... atom positions
     //   alphas ... atomic polarizability matrix 
     //   mode   ... displacement of atoms along vibration normal mode
     double Amp=0;
+    Vec3d polarization_tot=Vec3dZero;
     for(int ia=0; ia<na; ia++){
         int i3=3*ia;
         // -- Evaluate electric fiedl at atomic position 
@@ -93,16 +105,17 @@ double RammanAmplitude( const Vec3d& tip_pos, int na, Vec3d * apos, SMat3d* alph
             printf("polarization: %g %g %g \n", polarization.x,polarization.y,polarization.z );
         }
 
-        if(E_ind){E_ind[ia]=polarization;}
+        polarization_tot.add(polarization);
         double Ampi = Efield.dot( polarization );  // ?Should be Like this ? This is like coupling back to cavity;   Eq.13   10.1002/jrs.5991
         //double Ampi += polarization.norm2();           // ?Or rather like this ? This is like far-field radiation    ;   Eq.16   10.1002/jrs.5991
-
         Amp+=Ampi;
         //printf( "atom[%i] pos(%g,%g,%g) Ampi %g Amp %g P(%g,%g,%g), Efield(%g,%g,%g)\n", ia, pos.x,pos.y,pos.z,  Ampi, Amp, polarization.x,polarization.y,polarization.z, Efield.x,Efield.y,Efield.z );
+        if(E_ind){E_ind[ia]=polarization;}
+        if(Ampis){Ampis[ia]=Ampi;}
     }
+    //double Amp=polarization_tot.norm2();
     return Amp;
 }
-
 
 extern "C"{
 
@@ -120,8 +133,8 @@ void RammanAmplitudes( int npos, double* tpos, double* As, int na, double* apos,
     }
 }
 
-double RammanDetails( double* tpos, int na, double* apos, double* alphas, double* modes, int imode, double* E_incident, double* E_induced, double* modeOut=0 ){
-    return RammanAmplitude( *((Vec3d*)tpos), na, (Vec3d*)apos, (SMat3d*)alphas, ((Vec3d*)modes)+(imode*na), (Vec3d*)E_incident, (Vec3d*)E_induced, (Vec3d*)modeOut );
+double RammanDetails( double* tpos, int na, double* apos, double* alphas, double* modes, int imode, double* E_incident, double* E_induced, double* modeOut=0, double* Ampis=0 ){
+    return RammanAmplitude( *((Vec3d*)tpos), na, (Vec3d*)apos, (SMat3d*)alphas, ((Vec3d*)modes)+(imode*na), (Vec3d*)E_incident, (Vec3d*)E_induced, (Vec3d*)modeOut, Ampis );
 }
 
 void EfieldAtPoints( int npos, double* pos, double* Es_ ){
@@ -131,14 +144,15 @@ void EfieldAtPoints( int npos, double* pos, double* Es_ ){
     }
 }
 
-void setEfieldMultipole( int fieldType_, double* coefs, double* Ehomo_ ){
+void setEfieldMultipole( int fieldType_, double* coefs, double* Ehomo_, double* gaussR_ ){
     Ehomo     = *(Vec3d*)Ehomo_;
+    gaussR   = *(Vec3d*)gaussR_;
     fieldType = fieldType_;
     cMonopol = coefs[0];
     if( fieldType>1 ){
         cDipol = *(Vec3d*)(coefs+1);
     }
-    printf( "C++ setEfieldMultipole(): fieldType %i cMonopol %g cDipol (%g,%g,%g) \n", fieldType, cMonopol, cDipol.x,cDipol.y,cDipol.z );
+    printf( "C++ setEfieldMultipole(): fieldType %i cMonopol %g cDipol (%g,%g,%g) Ehomo(%g,%g,%g) gaussR(%g,%g,%g) \n", fieldType, cMonopol, cDipol.x,cDipol.y,cDipol.z, Ehomo.x,Ehomo.y,Ehomo.z, gaussR.x,gaussR.y,gaussR.z  );
 }
 
 void setVerbosity(int verbosity_){ verbosity=verbosity_; }
