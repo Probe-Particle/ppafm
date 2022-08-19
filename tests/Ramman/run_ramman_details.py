@@ -90,6 +90,9 @@ if bPlotFieldOnMod:
     plt.plot  ( apos[:,ax1], apos[:,ax2],'ok')
     vsc=100.0;
     #plt.quiver( apos[:,ax1], apos[:,ax2], Es[:,ax1]*vsc,Es[:,ax2]*vsc, width=0.005, headwidth=0.05 ); 
+plt.savefig( "Efield.png", bbox_inches='tight' )
+
+
 
 # ----- Electric field and polarization at each atom
 if bDefuLog:
@@ -116,7 +119,7 @@ plt.subplot(1,5,3); plotVecsAtAtoms( apos, Eind   , ax1=ax1, ax2=ax2, vsc=vsc );
 vmax=np.max(np.abs(Ampis))
 plt.subplot(1,5,4); plt.scatter    ( apos[:,ax1],apos[:,ax2], c=Ampis,    cmap='seismic', vmin=-vmax, vmax=vmax );  plt.title('Ampi');     plt.axis('equal'); setPlotExtent(extent);
 plt.subplot(1,5,5); plt.scatter    ( apos[:,ax1],apos[:,ax2], c=np.abs(Ampis), cmap='binary'); plt.title('|Ampi|'); setPlotExtent(extent); plt.axis('equal');  setPlotExtent(extent);
-
+plt.savefig( "Ramman_details.png", bbox_inches='tight' )
 
 rm.write_xyz_vecs(  "Einc.xyz", enames, apos, Einc, tpos=tip_pos )
 rm.write_xyz_vecs(  "Eind.xyz", enames, apos, Eind, tpos=tip_pos )
