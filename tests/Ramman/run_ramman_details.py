@@ -81,20 +81,6 @@ poss = poss.reshape((nx*ny,3))
 Es = rm.EfieldAtPoints( poss )
 Es = Es.reshape((ny,nx,3))
 
-plt.figure(figsize=(20,5))
-plt.subplot(1,4,1); plt.imshow( Es[:,:,0], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_x"); plt.colorbar();
-plt.subplot(1,4,2); plt.imshow( Es[:,:,1], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_y"); plt.colorbar();
-plt.subplot(1,4,3); plt.imshow( Es[:,:,2], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_z"); plt.colorbar();
-Etot = np.sqrt(Es[:,:,0]**2+Es[:,:,1]**2+Es[:,:,2]**2)
-plt.subplot(1,4,4); plt.imshow( Etot, extent=extent, vmin=0, vmax=Emax, origin='lower' ); plt.title("|E|"); plt.colorbar();
-if bPlotFieldOnMod:
-    plt.plot  ( apos[:,ax1], apos[:,ax2],'ok')
-    vsc=100.0;
-    #plt.quiver( apos[:,ax1], apos[:,ax2], Es[:,ax1]*vsc,Es[:,ax2]*vsc, width=0.005, headwidth=0.05 ); 
-plt.savefig( "Efield.png", bbox_inches='tight' )
-
-
-
 # ----- Electric field and polarization at each atom
 if bDefuLog:
     rm.setVerbosity(3) # Uncomment this to get verbous debug log during calculation (this should be off when doing many calculations, very much slower)
@@ -109,14 +95,28 @@ def plotVecsAtAtoms( apos, vecs, ax1=2, ax2=1, width=0.005, headwidth=0.05, vsc=
     plt.axis('equal');
 
 def setPlotExtent(extent):
-    plt.xlim(extent[0],extent[1]) 
     plt.ylim(extent[2],extent[3])
+    plt.xlim(extent[0],extent[1]) 
 
-plt.figure(figsize=(15,5))
-vsc=100.0;
-plt.subplot(1,5,1); 
+plt.figure(figsize=(20,5))
+plt.subplot(1,4,1); plt.imshow( Es[:,:,0], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_x"); plt.colorbar();
+plt.subplot(1,4,2); plt.imshow( Es[:,:,1], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_y"); plt.colorbar();
+plt.subplot(1,4,3); plt.imshow( Es[:,:,2], extent=extent, vmin=-Emax, vmax=Emax,cmap='seismic', origin='lower' ); plt.title("E_z"); plt.colorbar();
+Etot = np.sqrt(Es[:,:,0]**2+Es[:,:,1]**2+Es[:,:,2]**2)
 plt.subplot(1,4,4); plt.imshow( Etot, extent=extent, vmin=0, vmax=Emax, origin='lower' ); plt.title("|E|"); plt.colorbar();
-plotVecsAtAtoms( apos, Einc   , ax1=ax1, ax2=ax2, vsc=vsc ); setPlotExtent(extent); plt.title('Efield')
+if bPlotFieldOnMod:
+    vsc=100.0;
+    #plt.plot  ( apos[:,ax1], apos[:,ax2],'ok')
+    #plt.quiver( apos[:,ax1], apos[:,ax2], Einc[:,ax1]*vsc,Einc[:,ax2]*vsc, width=0.005, headwidth=0.05 ); 
+    plt.subplot(1,4,1); plotVecsAtAtoms( apos, Einc, ax1=ax1, ax2=ax2, vsc=vsc );
+    plt.subplot(1,4,2); plotVecsAtAtoms( apos, Einc, ax1=ax1, ax2=ax2, vsc=vsc );
+    plt.subplot(1,4,3); plotVecsAtAtoms( apos, Einc, ax1=ax1, ax2=ax2, vsc=vsc );
+    plt.subplot(1,4,4); plotVecsAtAtoms( apos, Einc, ax1=ax1, ax2=ax2, vsc=vsc );
+plt.savefig( "Efield.png", bbox_inches='tight' )
+
+plt.figure(figsize=(20,5))
+vsc=100.0;
+plt.subplot(1,5,1); plotVecsAtAtoms( apos, Einc   , ax1=ax1, ax2=ax2, vsc=vsc ); setPlotExtent(extent); plt.title('Efield')
 plt.subplot(1,5,2); plotVecsAtAtoms( apos, modeOut, ax1=ax1, ax2=ax2, vsc=vsc ); setPlotExtent(extent); plt.title('vib.mode')
 plt.subplot(1,5,3); plotVecsAtAtoms( apos, Eind   , ax1=ax1, ax2=ax2, vsc=vsc ); setPlotExtent(extent); plt.title('polarization')
 vmax=np.max(np.abs(Ampis))
