@@ -63,9 +63,9 @@ plt.legend()
 # ----- Plot Electri Field Components 2D
 ax0=2;ax1=0;ax2=1  #  2=(z,xy)
 if   choosePlane==0:
-    ax0=1;ax1=0;ax2=2  # 1=(y,xz)
-elif choosePlane==1:   
-    ax0=0;ax1=1;ax2=2      # 0=(x,yz)
+    ax0=0;ax1=1;ax2=2  # 0=(x,yz)
+elif choosePlane==1:  
+    ax0=1;ax1=0;ax2=2  # 1=(y,xz) 
 
 extent=(-nx*0.1,nx*0.1, -ny*0.1,ny*0.1)
 xs    = np.linspace(-nx*0.1,nx*0.1,nx) 
@@ -130,9 +130,6 @@ rm.write_xyz_vecs(  "modeOut.xyz", enames, apos, modeOut, tpos=tip_pos )
 
 #f=open("Einc.xyz",'w'); f.write("%i\n\n", len(apos)+1 ); rm.write_to_xyz_vecs( f, enames, apos, Einc ); rm.write_to_xyz_vecs( f, enames, apos, Einc )
 #f=open("Eind.xyz",'w'); f.write("%i\n\n", len(apos)+1 ); rm.write_to_xyz_vecs( f, enames, apos, Einc ); rm.write_to_xyz_vecs( f, enames, apos, Eind )
-
-
-
 #print( Amp )
 
 #plt.plot( tpos[:,0], Amp )
