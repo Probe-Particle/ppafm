@@ -719,6 +719,18 @@ __kernel void interp_at(
 
 }
 
+// Raise all array elements to the same power. Negative values are set to zero.
+__kernel void power(
+    __global float *array_in,   // Input array
+    __global float *array_out,  // Output array
+    int n,                      // Number of elements in array
+    float p                     // Power to raise to
+) {
+    int ind = get_global_id(0);
+    if (ind >= n) return;
+    array_out[ind] = powr(max(0.0f, array_in[ind]), p);
+}
+
 float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
     float r = sqrt( dot( dpos,dpos) );
     return  (dpos-dpos0.xyz) * stiffness.xyz        // harmonic 3D

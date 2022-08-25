@@ -269,6 +269,29 @@ def runMorse( kargs, nDim, local_size=(32,) ):
     queue.finish()
     return FE
 
+def runPower(array, p=2, local_size=(32,), queue=None):
+    '''
+    Raise every element in a opencl array into a power. Negative values are set to zero.
+
+    Arguments:
+        array: pyopencl.Buffer. Array whose elements are raised to the power. Values should
+            be float32.
+        p: float. Power that the array is rised to.
+        local_size: tuple of a single int. Size of local work group on device.
+        queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+            Defaults to oclu.queue.
+
+    Returns: pyopencl.Buffer. New array with result.
+    '''
+    queue = queue or oclu.queue
+    array_out = cl.Buffer(queue.context, cl.mem_flags.READ_WRITE, size=array.size)
+    n = np.int32(array.size / 4)
+    p = np.float32(p)
+    local_size = (32,)
+    global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
+    cl_program.power(queue, global_size, local_size, array, array_out, n, p)
+    return array_out
+
 # ========= getPos
 
 def genFFSampling( lvec, pixPerAngstrome=10 ):
