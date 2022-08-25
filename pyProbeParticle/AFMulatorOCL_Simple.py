@@ -250,7 +250,8 @@ class AFMulator():
         elif isinstance(qs, HartreePotential):
             pot = qs
             qs = np.zeros(len(Zs))
-            pbc_lvec = pbc_lvec if pbc_lvec is not None else pot.lvec
+            pbc_lvec = pbc_lvec if pbc_lvec is not None else pot.lvec[1:]
+            assert pbc_lvec.shape == (3, 3), f'pbc_lvec has shape {pbc_lvec.shape}, but should have shape (3, 3)'
         else:
             pot = None
 
