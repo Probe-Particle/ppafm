@@ -383,35 +383,57 @@ def hartreeFromFile(file_path):
 
 # ========= classes
 
-class HartreePotential:
+class DataGrid:
     '''
-    Class for holding data of a Hartree potential on a grid.
+    Class for holding data on a grid.
 
     Arguments:
-        array: np.ndarray. Potential values on a 3D grid.
+        array: np.ndarray or pyopencl.Buffer. Array values on a 3D grid.
         lvec: array-like of shape (4, 3). Unit cell boundaries. First (row) vector specifies the origin,
             and the remaining three vectors specify the edge vectors of the unit cell.
+        shape: array-like of length 3. Grid shape when array is a pyopencl.Buffer.
         ctx: pyopencl.Context. OpenCL context for device buffer. Defaults to oclu.ctx.
     '''
-    def __init__(self, array, lvec, ctx=None):
-        assert isinstance(array, np.ndarray), 'array should be a numpy.ndarray'
-        if array.dtype != np.float32 or not array.flags['C_CONTIGUOUS']:
-            array = np.ascontiguousarray(array, dtype=np.float32)
-        self.array = array
+    def __init__(self, array, lvec, shape=None, ctx=None):
+        if isinstance(array, np.ndarray):
+            if array.dtype != np.float32 or not array.flags['C_CONTIGUOUS']:
+                array = np.ascontiguousarray(array, dtype=np.float32)
+            self.shape = array.shape
+            self._array = array
+            self._cl_array = None
+            self.nbytes = 0
+        elif isinstance(array, cl.Buffer):
+            if shape is None:
+                raise ValueError('The shape of the grid has to be specified when the array is '
+                   'a pyopencl.Buffer.')
+            self.shape = shape
+            self._array = None
+            self._cl_array = array
+            self.nbytes += 4 * np.prod(self.shape)
+        else:
+            raise ValueError(f'Invalid type `{type(array)}` for array.')
         self.lvec = np.array(lvec)
         self.origin = self.lvec[0]
-        assert self.lvec.shape == (4, 3), 'lvec should have shape (4, 3)'
+        assert self.lvec.shape == (4, 3), f'lvec should have shape (4, 3), but has shape {lvec.shape}'
         self.ctx = ctx or oclu.ctx
-        self._cl_array = None
-        self.nbytes = 0
-
-    @property
-    def shape(self):
-        return self.array.shape
 
     @property
     def step(self):
-        return np.stack([self.lvec[i+1] / self.array.shape[i] for i in range(3)])
+        return np.stack([self.lvec[i+1] / self.shape[i] for i in range(3)])
+
+    @property
+    def cell_vol(self):
+        '''Return the volume of a grid cell in angstrom^3'''
+        a, b, c = self.step
+        vol = abs(np.cross(a, b).dot(c))
+        return vol
+
+    @property
+    def array(self):
+        if self._array is None:
+            self._array = np.empty(self.shape, dtype=np.float32)
+            cl.enqueue_copy(self.ctx, self._array, self._cl_array)
+        return self._array
 
     @property
     def cl_array(self):
@@ -429,13 +451,18 @@ class HartreePotential:
             self._cl_array = None
             self.nbytes -= 4 * np.prod(self.shape)
 
-class MultipoleTipDensity:
+# Aliases for DataGrid
+class HartreePotential(DataGrid): pass
+class ElectronDensity(DataGrid): pass
+class TipDensity(DataGrid): pass
+
+class MultipoleTipDensity(TipDensity):
     '''
     Multipole probe tip charge density on a periodic grid.
 
     Arguments:
         lvec: np.ndarray of shape (3, 3). Grid lattice vectors.
-        nDim: array-like of length 3. Grid shape.
+        shape: array-like of length 3. Grid shape.
         center: array-like of length 3. Center position of charge density in the grid.
         sigma: float. Width of charge distribution.
         multipole: Dict. Charge multipole types. The dict should contain float entries for at least
@@ -446,63 +473,43 @@ class MultipoleTipDensity:
         ctx: pyopencl.Context. OpenCL context for device buffer. Defaults to oclu.ctx.
     '''
 
-    def __init__(self, lvec, nDim, center=[0, 0, 0], sigma=0.71, multipole={'dz2': -0.1}, tilt=0.0, ctx=None):
+    def __init__(self, lvec, shape, center=[0, 0, 0], sigma=0.71, multipole={'dz2': -0.1}, tilt=0.0, ctx=None):
+        array = self._make_tip_density(lvec, shape, center, sigma, multipole, tilt)
+        lvec = np.concatenate([[[0, 0, 0]], lvec], axis=0)
+        super().__init__(array, lvec, ctx)
 
-        self.lvec = lvec
-        self.lvec_len = np.linalg.norm(self.lvec, axis=1)
-        self.nDim = np.array(nDim)
-        self.center = np.array(center)
-        self.step = self.lvec_len / self.nDim
-        self.sigma = sigma
-        self.multipole = multipole
-        self.tilt = tilt
-        self.ctx = ctx or oclu.ctx
-        self._cl_array = None
-        self.nbytes = 0
+    def _make_tip_density(self, lvec, shape, center, sigma, multipole, tilt):
 
-        if (self.center < 0).any() or (self.center > lvec.sum(axis=0)).any():
+        if(bRuntime): t0 = time.perf_counter()
+
+        lvec_len = np.linalg.norm(lvec, axis=1)
+        center = np.array(center)
+        if (center < 0).any() or (center > lvec.sum(axis=0)).any():
             raise ValueError('Center position is outside the grid.')
 
-        # Make tip density grid as a numpy array
-        self.array = self._make_tip_density()
-
-    def _make_tip_density(self):
-        if(bRuntime): t0 = time.perf_counter()
         xyz = []
         for i in range(3):
-            c = np.linspace(0, self.lvec_len[i] * (1 - 1/self.nDim[i]), self.nDim[i]) - self.center[i]
-            c[c >= self.lvec_len[i] / 2] -= self.lvec_len[i]
-            c[c <= -self.lvec_len[i] / 2] += self.lvec_len[i]
+            c = np.linspace(0, lvec_len[i] * (1 - 1/shape[i]), shape[i]) - center[i]
+            c[c >= lvec_len[i] / 2] -= lvec_len[i]
+            c[c <= -lvec_len[i] / 2] += lvec_len[i]
             xyz.append(c)
         X, Y, Z = np.meshgrid(*xyz, indexing='ij')
-        rho = getProbeDensity(self.lvec, X, Y, Z, self.step, sigma=self.sigma,
-            multipole_dict=self.multipole, tilt=self.tilt)
+        step = lvec_len / shape
+        rho = getProbeDensity(lvec, X, Y, Z, step, sigma=sigma, multipole_dict=multipole, tilt=tilt)
+
         if(bRuntime): print("runtime(FFTConvolution._make_tip_density) [s]: ", time.perf_counter() - t0)
+        
         return rho.astype(np.float32)
-
-    @property
-    def cl_array(self):
-        if self._cl_array is None:
-            mf = cl.mem_flags
-            self._cl_array = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.array)
-            self.nbytes += 4 * np.prod(self.nDim)
-            if (verbose > 0): print(f'MultipoleTipDensity.nbytes {self.nbytes}')
-        return self._cl_array
-
-    def release(self):
-        '''Release device buffers.'''
-        if self._cl_array is not None:
-            self._cl_array.release()
-            self._cl_array = None
-            self.nbytes -= 4 * np.prod(self.nDim)
 
 class FFTConvolution:
     '''
-    Do circular convolution of Hartree potential with tip charge density via FFT.
+    Do circular convolution of sample Hartree potential or electron density with tip charge
+    density via FFT.
 
     Arguments:
-        rho: MultipoleTipDensity. Tip charge density.
-        queue: pyopencl.CommandQueue. OpenCL queue on which operations are performed. Defaults to oclu.queue.
+        rho: TipDensity. Tip charge density.
+        queue: pyopencl.CommandQueue. OpenCL queue on which operations are performed.
+            Defaults to oclu.queue.
     '''
 
     def __init__(self, rho, queue=None):
@@ -561,15 +568,17 @@ class FFTConvolution:
         self.rho = rho
         self.fft_f(self.rho_hat_cl, rho.cl_array, inverse=0)
 
-    def convolve(self, pot, E=None, bCopy=True, bFinish=True):
+    def convolve(self, array, E=None, scale=1, bCopy=True, bFinish=True):
         '''
-        Convolve Hartree potential with tip charge density.
+        Convolve input array with tip charge density.
 
         Arguments:
-            pot: HartreePotential or pyopencl.Buffer. Hartree potential to convolve. Has to be same shape as rho.
+            array: HartreePotential or ElectronDensity or pyopencl.Buffer. Sample potential/density
+                to convolve with tip density. Has to be same shape as rho.
             E: np.ndarray, pyopencl.Buffer or None. Output energy. Created automatically,
                 if None. For bCopy==True it is a np.ndarray and for bCopy==False it is a
                 pyopencl.Buffer.
+            scale: float. Additional scaling factor for the output.
             bCopy: Bool. Whether to return the output energy to host.
             bFinish: Bool. Whether to wait for execution to finish.
 
@@ -578,9 +587,9 @@ class FFTConvolution:
 
         if bRuntime: t0 = time.perf_counter()
 
-        if isinstance(pot, HartreePotential):
-            assert pot.shape == self.shape, 'pot array shape does not match rho array shape'
-            pot = pot.cl_array
+        if isinstance(array, HartreePotential):
+            assert array.shape == self.shape, 'array shape does not match rho array shape'
+            array = array.cl_array
         
         mf = cl.mem_flags
         if bCopy:
@@ -596,8 +605,9 @@ class FFTConvolution:
             print("runtime(FFTConvolution.convolve.pre) [s]: ", time.perf_counter() - t0)
 
         # Do convolution
-        self.fft_f(output=self.pot_hat_cl, new_input=pot, inverse=0)
-        self.fft_i(new_output=E_cl, input=self.pot_hat_cl * self.rho_hat_cl, scale=self.rho.step.prod(), inverse=1)
+        self.fft_f(output=self.pot_hat_cl, new_input=array, inverse=0)
+        self.fft_i(new_output=E_cl, input=self.pot_hat_cl * self.rho_hat_cl,
+            scale=scale*self.rho.cell_vol, inverse=1)
 
         if bCopy: cl.enqueue_copy(self.queue, E, E_cl)
         if bFinish or bRuntime: self.queue.finish()
@@ -689,7 +699,7 @@ class ForceField_LJC:
         if E_field:
             self.cl_Efield = cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.nDim)); nbytes+=4*np.prod(self.nDim)
         if rho is not None:
-            assert isinstance(rho, MultipoleTipDensity), 'rho should be a MultipoleTipDensity object'
+            assert isinstance(rho, TipDensity), 'rho should be a TipDensity object'
             self.rho = rho
             self.fft_conv = FFTConvolution(rho)
         if(self.verbose>0): print("initArgsLJC.nbytes ", nbytes)
@@ -1265,7 +1275,7 @@ class ForceField_LJC:
             cLJs: np.ndarray of shape (n_atoms, 2). Lennard-Jones interaction parameters for each atom.
             pot: HartreePotential or None. Hartree potential used for electrostatic interaction.
                 If None, has to be initialized beforehand with prepareBuffers.
-            rho: MultipoleTipDensity or None. Probe tip charge density. If None and one has not been
+            rho: TipDensity or None. Probe tip charge density. If None and one has not been
                 set for the forcefield, point-charge electrostatics for the tip will be used instead.
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.

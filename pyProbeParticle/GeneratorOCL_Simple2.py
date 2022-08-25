@@ -288,7 +288,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         batch_size: int. Number of samples per batch.
         distAbove: float. Tip-sample distance parameter.
         iZPPs: list of int. Elements for AFM tips. Image is produced with every tip for each sample.
-        rhos: list of dict or MultipoleTipDensity. Tip charge densities.
+        rhos: list of dict or TipDensity. Tip charge densities.
     '''
 
     def __init__(self, 

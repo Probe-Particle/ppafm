@@ -36,7 +36,7 @@ class AFMulator():
         iZPPs: int. Element of probe particle.
         QZs: Array of length 4. Position tip charges along z-axis relative to probe-particle center in angstroms.
         Qs: Array of length 4. Values of tip charges in units of e. Some can be zero.
-        rho: Dict or MultipoleTipDensity. Tip charge density. Used with Hartree potentials. Overrides QZs and Qs.
+        rho: Dict or TipDensity. Tip charge density. Used with Hartree potentials. Overrides QZs and Qs.
             The dict should contain float entries for at least of one the following 's', 'px', 'py', 'pz', 'dz2',
             'dy2', 'dx2', 'dxy', 'dxz', 'dyz'. The tip charge density will be a linear combination of the specified
             multipole types with the specified weights.
