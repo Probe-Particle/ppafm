@@ -95,14 +95,13 @@ class AFMulator():
         self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
 
         self.iZPP = iZPP
-        self.df_steps = df_steps
         self.tipR0 = tipR0
         self.f0Cantilever = f0Cantilever
         self.kCantilever = kCantilever
         self.npbc = npbc
         self.pot = None
 
-        self.setScanWindow(scan_window, scan_dim)
+        self.setScanWindow(scan_window, scan_dim, df_steps)
         self.setLvec(lvec, pixPerAngstrome)
         self.setRho(rho, sigma)
         self.setQs(Qs, QZs)
@@ -168,13 +167,17 @@ class AFMulator():
         FEin_shape = self.forcefield.nDim if (self._old_nDim != self.forcefield.nDim).any() else None
         self.scanner.prepareBuffers(lvec=self.lvec, FEin_shape=FEin_shape)
 
-    def setScanWindow(self, scan_window=None, scan_dim=None):
+    def setScanWindow(self, scan_window=None, scan_dim=None, df_steps=None):
         '''Set scanner scan window.'''
 
         if scan_window is not None:
             self.scan_window = scan_window
         if scan_dim is not None:
             self.scan_dim = scan_dim
+        if df_steps is not None:
+            if df_steps <= 0 or df_steps > self.scan_dim[2]:
+                raise ValueError(f'df_steps should be between 1 and scan_dim[2]({scan_dim[2]}), but got {df_steps}.')
+            self.df_steps = df_steps
 
         # Set df convolution weights
         self.dz = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]

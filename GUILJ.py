@@ -386,8 +386,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.bxA.setSingleStep(step[2])
 
         # Set new scan window and dimension in AFMulator, and infer FF lvec from the scan window
-        self.afmulator.df_steps = scan_dim[2] - z_extra_steps
-        self.afmulator.setScanWindow(scan_window, tuple(scan_dim))
+        self.afmulator.setScanWindow(scan_window, tuple(scan_dim), scan_dim[2] - z_extra_steps)
         self.afmulator.setLvec()
 
         # Update status bar info

@@ -310,6 +310,9 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         sw = self.afmulator.scan_window
         self.scan_window = sw
         self.scan_size = (sw[1][0] - sw[0][0], sw[1][1] - sw[0][1], sw[1][2] - sw[0][2])
+        self.scan_dim = self.afmulator.scan_dim
+        self.df_steps = self.afmulator.df_steps
+        self.z_size = self.scan_dim[2] - self.df_steps + 1
 
     def _prepareBuffers(self, rhos):
         self.rhos = []
@@ -377,7 +380,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
                 self.handle_distance()
 
                 # Set AFMulator scan window and force field lattice vectors
-                self.afmulator.setScanWindow(self.scan_window)
+                self.afmulator.setScanWindow(self.scan_window, self.scan_dim, df_steps=self.df_steps)
                 self.afmulator.setLvec()
                 
                 # Callback
@@ -453,12 +456,26 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         zs = self.xyzs_rot[:,2]
         imax = np.argmax(zs + Rvdw)
         total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
-        z_max = self.xyzs_rot[:, 2].max() + total_distance
+        z_min = self.xyzs_rot[:, 2].max() + total_distance
         sw = self.scan_window
         self.scan_window = (
-            (sw[0][0], sw[0][1], z_max - self.scan_size[2]),
-            (sw[1][0], sw[1][1], z_max)
+            (sw[0][0], sw[0][1], z_min),
+            (sw[1][0], sw[1][1], z_min + self.scan_size[2])
         )
+
+    def randomize_df_steps(self, minimum=4, maximum=20):
+        '''Randomize oscillation amplitude by randomizing the number of steps in df convolution.
+
+        Chosen number of df steps is uniform random between minimum and maximum. Modifies self.scan_dim and
+        self.scan_size to retain same output z dimension and same dz step for the chosen number of df steps.
+        
+        Arguments:
+            minimum: int. Minimum number of df steps (inclusive).
+            maximum: int. Maximum number of df steps (inclusive).
+        '''
+        self.df_steps = np.random.randint(minimum, maximum + 1)
+        self.scan_dim = (self.scan_dim[0], self.scan_dim[1], self.z_size + self.df_steps - 1)
+        self.scan_size = (self.scan_size[0], self.scan_size[1], self.afmulator.dz * self.scan_dim[2])
     
 def sortRotationsByEntropy(xyzs, rotations):
     rots = []
