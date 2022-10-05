@@ -760,8 +760,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Find closest index corresponding to x and y coordinates
         x_min, y_min = self.afmulator.scan_window[0][:2]
         x_step, y_step = self.bxStepX.value(), self.bxStepY.value()
-        ix = round((x - x_min) / x_step)
-        iy = round((y - y_min) / y_step)
+        ix = int(round((x - x_min) / x_step))
+        iy = int(round((y - y_min) / y_step))
         if self.verbose > 0: print('clickImshow', ix, iy, x, y)
 
         # Remember coordinates in case scan_start changes
