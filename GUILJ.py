@@ -630,6 +630,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setPBC(lvec, lvec is not None)
         self.updateParams()
 
+        # Set current file path to window title
+        if len(file_path) > 80: file_path = f'...{file_path[-80:]}'
+        self.setWindowTitle(f'{file_path} - Probe Particle Model')
+
     def createGeomEditor(self):
         '''Create a new geometry editor. Replace old one if it exists.'''
         if self.geomEditor:
