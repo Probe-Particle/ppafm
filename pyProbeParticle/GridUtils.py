@@ -244,7 +244,7 @@ def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1 ):
 
 def loadXSF(fname, xyz_order=False, verbose=True):
 	filein = open( fname )
-	startline, head = readUpTo(filein, "DATAGRID_3D_")              # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
+	startline, head = readUpTo(filein, "BEGIN_DATAGRID_3D")              # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
 	#print head
 	nDim = [ int(iii) for iii in filein.readline().split() ]        # reading 1 line with dimensions
 	nDim.reverse()
