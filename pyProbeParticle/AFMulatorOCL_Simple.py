@@ -275,6 +275,12 @@ class AFMulator():
         else:
             xyzqs = np.concatenate([xyzs, qs[:, None]], axis=1)
         self.Zs = Zs
+
+        # Rotate atom positions
+        if pot is None:
+            xyzqs[:, :3] -= rot_center
+            xyzqs[:, :3] = np.dot(xyzqs[:, :3], rot.T)
+            xyzqs[:, :3] += rot_center
             
         # Compute force field
         if self.bNoFFCopy:

@@ -67,6 +67,7 @@ TTips = {
     'ScanStart': 'Scan start: bottom left position of scan region in x and y directions.',
     'Distance': 'Distance: Average tip distance from the nucleus of the closest atom.',
     'Amplitude': 'Amplitude: Peak-to-peak oscillation amplitude for the tip.',
+    'Rotation': 'Rotation: Set sample counter-clockwise rotation angle around center of atom coordinates.',
     'PBCz': 'z periodicity: When checked, the lattice is also periodic in z direction. This is usually not required, since the scan is aligned with the xy direction.',
     'PBC': 'Periodic Boundaries: Lattice vectors for periodic images of atoms. Does not affect electrostatics calculated from a Hartree potential file, which is always assumed to be periodic.',
     'k': 'k: Cantilever spring constant. Only appears as a scaling constant.',
@@ -105,6 +106,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.Zs = None
         self.qs = None
         self.pbc_lvec = None
+        self.rot = np.eye(3)
         self.df_points = []
 
         # Initialize OpenCL environment on chosen device and create an afmulator instance to use for simulations
@@ -216,6 +218,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-1000.0, 1000.0); bx.setValue(6.5); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Distance']); vb.addWidget(bx); self.bxD=bx
         lb = QtWidgets.QLabel("Amplitude [Å]"); lb.setToolTip(TTips['Amplitude']); vb.addWidget(lb)
         bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(1.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Amplitude']); vb.addWidget(bx); self.bxA=bx
+        lb = QtWidgets.QLabel("Rotation"); lb.setToolTip(TTips['Rotation']); vb.addWidget(lb)
+        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-360.0, 360.0); bx.setValue(0.0); bx.setSingleStep(5.0); bx.valueChanged.connect(self.updateRotation); bx.setToolTip(TTips['Rotation']); vb.addWidget(bx); self.bxRot=bx
 
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
@@ -417,6 +421,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setScanWindow(scan_size, scan_start, step, distance, amplitude)
         self.update()
 
+    def updateRotation(self):
+        '''Get rotation from input field and update'''
+        a = self.bxRot.value() / 180 * np.pi
+        self.rot = np.array([
+            [np.cos(a), -np.sin(a), 0],
+            [np.sin(a),  np.cos(a), 0],
+            [        0,          0, 1]
+        ])
+        if self.verbose > 0: print('updateRotation', a, self.rot)
+        self.update()
+
     def updateParams(self):
         '''Get parameter values from input fields and update'''
 
@@ -567,7 +582,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.xyzs is None: return
         if self.verbose > 1: t0 = time.perf_counter()
         self.status_message('Running simulation...')
-        self.df = self.afmulator(self.xyzs, self.Zs, self.qs, pbc_lvec=self.pbc_lvec)
+        self.df = self.afmulator(self.xyzs, self.Zs, self.qs, pbc_lvec=self.pbc_lvec, rot=self.rot)
         if self.verbose > 1: print(f'AFMulator total time [s]: {time.perf_counter() - t0}')
         self.status_message('Updating plot...')
         self.updateDataView()
