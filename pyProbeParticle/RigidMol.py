@@ -14,10 +14,6 @@ def recompile(path):
     os.system("make" )
     os.chdir( dir_bak )
     print(( os.getcwd() ))
-    
-# =========== main
-#recompile(LIB_PATH_CPP)
-#lib = ctypes.CDLL( LIB_PATH_CPP+"/libRigidMol.so" )
 
 lib = ctypes.CDLL( LIB_PATH_CPP+"/libRigidMol.so_" )
 
@@ -141,7 +137,6 @@ lib.getAtomPos.restype  = ctypes.POINTER(c_double)
 def getAtomPos():
     n=c_int(0)
     ptr = lib.getAtomPos(ctypes.byref(n));
-    #print "n",n
     return np.ctypeslib.as_array( ptr, shape=(n.value,3))
 
 #void setOptFIRE( double dt_max, double dt_min, double damp_max, int    minLastNeg, double finc, double fdec, double falpha, double kickStart ){

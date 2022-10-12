@@ -6,8 +6,6 @@ import os
 import pandas as pd
 import numpy as np
 import zlib
-#from PIL import Image
-#import matplotlib.pyplot as plt
 
 def readDat( fname, Header=None ):
     ndir, nfile  = os.path.split( fname )
@@ -39,12 +37,9 @@ def readDat( fname, Header=None ):
 
     d = [] 
     for i in range(1,ind):
-        #try:
             tmp=header_binary[i].split(b'=');
             if (len(tmp)> 1):
                 d.append((tmp[0],tmp[1]))
-        #except:
-        #    pass
     SplittedLine=pd.DataFrame(d, columns=('parameter', 'value'))
 
 
@@ -77,9 +72,6 @@ def readDat( fname, Header=None ):
     Header['CHMode'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'CHMode / CHMode'].value.item())
     Header['LengthX'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Length x[A]'].value.item())
     Header['LengthY'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Length y[A]'].value.item())    
-
-    # Check if in Constant Height mode
-    #assert Header['CHMode'] == 1 and Header['ChannelCount'] == 4
     
     # Check the STMAFM version to determine the number of bytes / pixel
     if STMAFMVersion == 1:
@@ -130,11 +122,6 @@ def readDat( fname, Header=None ):
 
     # Crop the image if there are rows with zeroes
     ind_list = np.where(~(pic1 == 0.0).all(axis=1))
-    #print ('ind_list = ', ind_list)
-    #print ('pic1.shape = ', pic1.shape)
-    #print ('pic2.shape = ', pic2.shape)
-    #print ('pic3.shape = ', pic3.shape)
-    #print ('pic4.shape = ', pic4.shape)
     try:
         pic1_crop = pic1[ind_list[0], :]
     except:

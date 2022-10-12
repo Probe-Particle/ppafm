@@ -4,21 +4,17 @@ import numpy as np
 from   ctypes import c_int, c_double, c_char_p, c_bool
 import ctypes
 import os
-#import common as PPU
 from . import cpp_utils
-#import cpp_utils
 
 # ==============================
 # ============================== interface to C++ core 
 # ==============================
 
 cpp_name='atomfit'
-#cpp_utils.compile_lib( cpp_name  )
 cpp_utils.make( "atomfit"  )
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
-
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
 array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
 array2d = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
@@ -61,10 +57,6 @@ lib.relaxAtoms.restype   = c_bool
 def relaxAtoms( n, dt, damp, F2conv ):
     return lib.relaxAtoms( n, dt, damp, F2conv );
 
-
-# bool relaxParticleNstep( int nstep, double dt, double damp ){
-
-
 # int relaxParticlesUnique( int np, Vec2d* poss, int nstep, double dt, double damp, double F2conv ){
 lib.relaxParticlesUnique.argtypes  = [ c_int, array2d,  c_int,    c_double, c_double, c_double ]
 lib.relaxParticlesUnique.restype   = c_int
@@ -76,7 +68,3 @@ lib.relaxParticlesRepel.argtypes  = [ c_int, array2d,  c_int,    c_double, c_dou
 lib.relaxParticlesRepel.restype   = c_int
 def relaxParticlesRepel( poss, nstep, dt, damp, F2conv ):
     return lib.relaxParticlesRepel( len(poss), poss, nstep, dt, damp, F2conv )
-
-#def distributeAtoms( sz, da, db ):
-#    for ():
-

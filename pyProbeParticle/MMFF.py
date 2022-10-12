@@ -3,7 +3,6 @@ from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_
 import ctypes
 import os
 from . import cpp_utils
-#import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)
@@ -27,23 +26,7 @@ https://github.com/michellab/Sire
 
 '''
 
-# ===== To generate Interfaces automatically from headers call:
-'''
-cpp_utils.writeFuncInterfaces([
-"void addAtoms( int n, double* pos_, int* npe_ ){",
-"void addBonds( int n, int* bond2atom_, double* l0s, double* ks ){",
-"double* setNonBonded( int n, double* REQs){",
-"int getAtomTypes( int nmax, int* types ){",
-"void setBox(double* pmin, double* pmax, double* k){",
-"bool buildFF( bool bAutoHydrogens, bool bAutoAngles, bool bSortBonds ){",
-"double setupOpt( double dt, double damp, double f_limit, double l_limit ){",
-"double relaxNsteps( int ialg, int nsteps, double F2conf ){",
-])
-exit()
-'''
-
 cpp_name='MMFF'
-#cpp_utils.compile_lib( cpp_name  )
 cpp_utils.make(cpp_name)
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
 
@@ -123,26 +106,19 @@ def relaxNsteps(nsteps, Fconv=1e-6, ialg=0 ):
 
 # ============= Pure python
 
-#def runMMFF( Fconv=1e-6, Nmax=1000, perSave=10 ):
-#    pos = getPos(natom)
-#    for i in xrange(Nmax/perSave):
-#        f = relaxNsteps(perSave, Fconv=Fconv)
-#        if(f<1e-6): raise StopIteration
-#        yield pos,f
-
 def assignAtomTypes( ao, nngs, epairProb=0.4, bNitrogenFix=True, ne2elem=[ 'C', 'N', 'O' ] ):
     na=len(ao)
     # --- electron pairs
     npis      = np.round(ao).astype(np.int32).copy()
     nemax     = (4-nngs-npis)
-    ne_rnd    =  epairProb * np.random.rand( na )     #;print " ne_rnd ", ne_rnd
+    ne_rnd    =  epairProb * np.random.rand( na )
     nepairs   =  np.round( nemax*ne_rnd ).astype(np.int32)
     # --- make low-bond order aromatic atoms to nitrogens with pi-orbital (to prevent non-planar wrikles of pi-system)
     if bNitrogenFix:
         mask_N = np.logical_and( (nngs==3) , (npis==0) )
         nepairs[mask_N] = 1
     # select elemtns by number of free electron pairs
-    elems = [ ne2elem[ne] for ne in nepairs ]     # ;print "elems ", elems
+    elems = [ ne2elem[ne] for ne in nepairs ]
     # --- convert electron pairt to pi-orbital for special nitrogens inside pi-system
     if bNitrogenFix:
         npis   [mask_N] = 1
@@ -163,29 +139,29 @@ def relaxMolecule(
     bDummyEpair = False  # not yet tested/implemented
     
     # --- set atomic configurations ( set number of pi-orbitals and electron-pairs for each atom )
-    na    = len(apos)             #;print "natom ",na  
+    na    = len(apos)
     bonds = bonds.astype(np.int32).copy()
     aconf      = np.zeros( (len(apos),2), dtype=np.int32 )
     aconf[:,0] = npis                                                   # pi
     aconf[:,1] = nepairs
     # --- insert atoms, bonds and configurations (npi,nepair)
     addAtoms(apos, aconf )
-    addBonds(bonds, l0s=None, ks=None)        #;print "DEBUG 2"
+    addBonds(bonds, l0s=None, ks=None)
     # --- build the molecule (including hydrogen passivations, pi-bonds and automatically asigned angular force-field )
-    natom = buildFF(bAutoHydrogens,bAutoAngles,bSortBonds, bDummyPi, bDummyEpair )           #;print "DEBUG 4"
+    natom = buildFF(bAutoHydrogens,bAutoAngles,bSortBonds, bDummyPi, bDummyEpair )
     types = getAtomTypes(natom)            #;print types
     # --- assign types for newly created atoms (passivation, dummy-pi, dummy-epair)
     mask_dummy = (types==types)
     if bAutoHydrogens:
         if bMaskDummy:
-            mask_dummy = np.logical_and( (types!=-2), (types!=-3) )  #;print "mask_dummy", mask_dummy
-        elems += [  type2elem[-t] for t in types[len(elems):] ]      #;print elems
+            mask_dummy = np.logical_and( (types!=-2), (types!=-3) )
+        elems += [  type2elem[-t] for t in types[len(elems):] ]
         elems = np.array(elems)
     # --- non covalent force field
-    if(bNonBonded): setNonBonded (None)                        #;print "DEBUG 3"   # this activate NBFF with default atom params
+    if(bNonBonded): setNonBonded (None)
     if bBox:        setBox       ( box_pmin,box_pmax, box_k)
     
-    setupOpt     ()                                            #;print "DEBUG 5"
+    setupOpt()
     pos = getPos (natom)
     
     if bMovie:
@@ -195,7 +171,6 @@ def relaxMolecule(
         else:
             movie_name = "movie_"+fname
         with open( movie_name, "w") as fout:
-            #for i,(pos,f) in enumerate(runMMFF(Fconv,Nmax,perSave)):
             for i in range(Nmax/perSave):
                 f = relaxNsteps(perSave, Fconv=Fconv)
                 au.writeToXYZ( fout, elems[mask_dummy], pos[mask_dummy] )
@@ -206,9 +181,3 @@ def relaxMolecule(
         from . import atomicUtils as au
         au.saveXYZ( elems[mask_dummy], pos[mask_dummy], fname, qs=None )
     return pos.copy(),types.copy(),elems
-    
-    
-    
-    
-    
-    

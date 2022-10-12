@@ -6,20 +6,16 @@ import ctypes
 import os
 from . import common as PPU
 from . import cpp_utils
-#import common as PPU
-#import cpp_utils
 
 # ==============================
 # ============================== interface to C++ core 
 # ==============================
 
 cpp_name='ProbeParticle'
-#cpp_utils.compile_lib( cpp_name  )
 cpp_utils.make( "PP"  )
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
-
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
 array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
 array2d = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
@@ -55,11 +51,8 @@ def setGridCell( cell=None):
     lib.setGridCell( cell )
 
 def setFF_shape( n_, cell ):
-    #n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)  # this now done inside C
     n = np.array(n_).astype(np.int32)
-    #lib.setFF_shape( n, cell )
     lib.setGridN    ( n    )
-    #lib.setGridCell ( cell )
     setGridCell( cell )
     
 # void setFF_pointer( double * gridF, double * gridE  )
@@ -75,7 +68,6 @@ def setFF_Epointer( gridE ):
     lib.setFF_Epointer( gridE )
 
 def setFF( cell=None, gridF=None, gridE=None ):
-    #print "setFF cell %s", cell , "gridF.shape()",gridF.shape, "gridE.shape()",gridE.shape
     n_ = None
     if gridF is not None:
         setFF_Fpointer( gridF )
@@ -140,7 +132,6 @@ lib.getInPoints_LJ.argtypes = [ c_int, array2d, array2d, c_int, array2d, array2d
 lib.getInPoints_LJ.restype  = None
 def getInPoints_LJ( ps, Rs, cLJs, FEs=None ):
     nats = len(Rs); npts = len(ps)
-    #print npts, nats
     if FEs is None: FEs=np.zeros((npts,4));
     lib.getInPoints_LJ( npts, ps, FEs, nats, Rs, cLJs)
     return FEs
@@ -164,7 +155,6 @@ lib.getMorseFF.argtypes  = [ c_int,       array2d,      array2d, c_double ]
 lib.getMorseFF.restype   = None
 def getMorseFF( Rs, REs, alpha=None ):
     if alpha is None: alpha = PPU.params['aMorse']
-    #print "PPU.params['aMorse']", PPU.params['aMorse']
     print("getMorseFF: alpha: %g [1/A] ", alpha)
     natom = len(Rs) 
     lib.getMorseFF( natom, Rs, REs, alpha )
@@ -196,7 +186,6 @@ lib.getDensityR4spline.restype   = None
 def getDensityR4spline( Rs, cRAs, bNormalize=True ):
     if bNormalize:
         cRAs[:,0] /= ((np.pi*32)/105)*cRAs[:,1]**3     # see https://www.wolframalpha.com/input/?i=4*pi*x%5E2*%281-x%5E2%29%5E2+integrate+from+0+to+1
-    #print cRAs
     natom = len(Rs) 
     lib.getDensityR4spline( natom, Rs, cRAs )
 
