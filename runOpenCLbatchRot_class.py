@@ -22,7 +22,7 @@ import pyProbeParticle.common    as PPU
 import pyProbeParticle.GridUtils as GU
 
 import pyopencl as cl
-import pyProbeParticle.HighLevelOCL as hl
+import pyProbeParticle.ocl.HighLevel as hl
 
 # ==== Setup
 

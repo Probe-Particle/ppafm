@@ -8,11 +8,11 @@ import os
 
 import pyopencl as cl
 
-from . import basUtils
-from . import common    as PPU
-from . import oclUtils    as oclu 
-from . import fieldOCL    as FFcl 
-from . import RelaxOpenCL as oclr
+from .. import basUtils
+from .. import common  as PPU
+from . import oclUtils as oclu 
+from . import field    as FFcl 
+from . import relax    as oclr
 
 #import basUtils
 #import common    as PPU
@@ -38,7 +38,7 @@ def loadSpecies(fname):
             str_Species = f.read(); 
     except:
         if(verbose>0): print("defaul atomtypes.ini")
-        fpath = os.path.dirname( os.path.realpath( __file__ ) ) + '/defaults/atomtypes.ini'
+        fpath = os.path.dirname( os.path.realpath( __file__ ) ) + '/../defaults/atomtypes.ini'
         print("loadSpecies from : ", fpath)
         with open(fpath, 'r') as f:
             str_Species = f.read();

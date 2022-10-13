@@ -6,7 +6,7 @@ import pyopencl as cl
 import numpy as np
 
 #import oclUtils as oclu
-from . import common as PPU
+from .. import common as PPU
 #import common as PPU
 #import cpp_utils as cpp_utils
 

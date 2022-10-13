@@ -7,9 +7,9 @@ import numpy as np
 import pyopencl as cl
 from pyopencl import array
 
-from .GridUtils import loadCUBE, loadXSF
-from .basUtils import loadAtomsCUBE, loadXSFGeom
-from .fieldFFT import getProbeDensity
+from ..GridUtils import loadCUBE, loadXSF
+from ..basUtils import loadAtomsCUBE, loadXSFGeom
+from ..fieldFFT import getProbeDensity
 
 try:
     from reikna.cluda import ocl_api, dtypes
