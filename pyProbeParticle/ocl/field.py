@@ -355,31 +355,9 @@ def CLJ2float2(C6s,C12s):
 
 def hartreeFromFile(file_path):
     '''
-    Load hartree potential and atoms from a .cube or .xsf file.
-
-    Arguments:
-        file_path: str. Path to file to load.
-
-    Returns: tuple (pot, xyzs, Zs)
-        | pot: HartreePotential.
-        | xyzs: np.ndarray of shape (num_atoms, 3). Atom coordinates.
-        | Zs: np.ndarray of shape (num_atoms,). Atomic numbers.
+    Load hartree potential and atoms from a .cube or .xsf file. See DataGrid.from_file.
     '''
-
-    if file_path.endswith('.cube'):
-        FF, lvec, _, _ = loadCUBE(file_path, xyz_order=True, verbose=False)
-        Zs, x, y, z, _ = loadAtomsCUBE(file_path)
-    elif file_path.endswith('.xsf'):
-        FF, lvec, _, _ = loadXSF(file_path, xyz_order=True, verbose=False)
-        (Zs, x, y, z, _), _, _ = loadXSFGeom(file_path)
-    else:
-        raise ValueError(f'Unsupported file format in file `{file_path}`')
-
-    FF *= -1
-    pot = HartreePotential(FF, lvec)
-    xyzs = np.stack([x, y, z], axis=1)
-
-    return pot, xyzs, Zs
+    return HartreePotential.from_file(file_path, scale=-1.0)
 
 # ========= classes
 
@@ -406,10 +384,12 @@ class DataGrid:
             if shape is None:
                 raise ValueError('The shape of the grid has to be specified when the array is '
                    'a pyopencl.Buffer.')
+            nbytes = 4 * np.prod(shape)
+            assert array.size == nbytes, f'shape {shape} does not match with buffer size {array.size}'
             self.shape = shape
             self._array = None
             self._cl_array = array
-            self.nbytes += 4 * np.prod(self.shape)
+            self.nbytes = nbytes
         else:
             raise ValueError(f'Invalid type `{type(array)}` for array.')
         self.lvec = np.array(lvec)
@@ -432,7 +412,7 @@ class DataGrid:
     def array(self):
         if self._array is None:
             self._array = np.empty(self.shape, dtype=np.float32)
-            cl.enqueue_copy(self.ctx, self._array, self._cl_array)
+            cl.enqueue_copy(oclu.queue, self._array, self._cl_array)
         return self._array
 
     @property
@@ -450,6 +430,37 @@ class DataGrid:
             self._cl_array.release()
             self._cl_array = None
             self.nbytes -= 4 * np.prod(self.shape)
+
+    @classmethod
+    def from_file(cls, file_path, scale=1.0):
+        '''
+        Load grid data and atoms from a .cube or .xsf file.
+
+        Arguments:
+            file_path: str. Path to file to load.
+            scale: float. Scaling factor for the returned data grid values.
+
+        Returns: tuple (data, xyzs, Zs)
+            | data: class type. Data grid object.
+            | xyzs: np.ndarray of shape (num_atoms, 3). Atom coordinates.
+            | Zs: np.ndarray of shape (num_atoms,). Atomic numbers.
+        '''
+
+        if file_path.endswith('.cube'):
+            data, lvec, _, _ = loadCUBE(file_path, xyz_order=True, verbose=False)
+            Zs, x, y, z, _ = loadAtomsCUBE(file_path)
+        elif file_path.endswith('.xsf'):
+            data, lvec, _, _ = loadXSF(file_path, xyz_order=True, verbose=False)
+            (Zs, x, y, z, _), _, _ = loadXSFGeom(file_path)
+        else:
+            raise ValueError(f'Unsupported file format in file `{file_path}`')
+
+        if not np.allclose(scale, 1.0):
+            data *= scale
+        data = cls(data, lvec)
+        xyzs = np.stack([x, y, z], axis=1)
+
+        return data, xyzs, Zs
 
 # Aliases for DataGrid
 class HartreePotential(DataGrid): pass
