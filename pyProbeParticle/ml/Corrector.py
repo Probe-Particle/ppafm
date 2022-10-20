@@ -12,12 +12,12 @@ from enum import Enum
 
 import pyopencl     as cl
 
-from . import atomicUtils as au
-from . import basUtils
-from . import common    as PPU
-from . import elements
+from .. import atomicUtils as au
+from .. import basUtils
+from .. import common    as PPU
+from .. import elements
 
-from . import SimplePot as pot
+from .. import SimplePot as pot
 
 #from . import oclUtils     as oclu
 #from . import fieldOCL     as FFcl

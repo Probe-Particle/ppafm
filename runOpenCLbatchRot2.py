@@ -30,7 +30,7 @@ import pyopencl as cl
 #import pyProbeParticle.oclUtils     as oclu 
 #import pyProbeParticle.fieldOCL     as FFcl 
 #import pyProbeParticle.RelaxOpenCL  as oclr
-import pyProbeParticle.HighLevelOCL as hl
+import pyProbeParticle.ocl.HighLevel as hl
 
 hl.FFcl.init()
 hl.oclr.init()

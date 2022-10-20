@@ -27,20 +27,20 @@ from enum import Enum
 
 import pyopencl     as cl
 
-from . import atomicUtils as au
-from . import basUtils
-from . import common    as PPU
-from . import elements
-from . import oclUtils     as oclu
-from . import fieldOCL     as FFcl
-from . import RelaxOpenCL  as oclr
-from . import HighLevelOCL as hl
-from . import SimplePot    as sp
+from .. import atomicUtils as au
+from .. import basUtils
+from .. import common    as PPU
+from .. import elements
+from ..ocl import oclUtils as oclu
+from ..ocl import field    as FFcl
+from ..ocl import relax    as oclr
+from .. import SimplePot   as sp
 
-from . import AFMulatorOCL_Simple
+from ..ocl import HighLevel as hl
+from ..ocl import AFMulator
 from . import AuxMap
 #from . import FARFF            #as Relaxer
-from . import GeneratorOCL_Simple2
+from . import Generator
 from .Corrector import Corrector,Molecule
 from .Corrector import Mutator
 
@@ -51,11 +51,11 @@ bRunTime = False
 class Sequence:
     pass
 
-class CorrectorTrainer(GeneratorOCL_Simple2.InverseAFMtrainer):
+class CorrectorTrainer(Generator.InverseAFMtrainer):
     """
     A class for creating a batch of a data set for the CorrectionLoop. Iterable.
     Arguments:
-        :param afmulator: instance of AFMulatorOCL_Simple.AFMulator
+        :param afmulator: instance of AFMulator.AFMulator
         :param mutator:   instance of CorrectionLoop.Mutator
         :param paths: array, paths to the molecules
         :param nMutants: integer, number of different mutants per molecule
@@ -466,7 +466,7 @@ if __name__ == "__main__":
     FFcl.init(env)
     oclr.init(env)
 
-    afmulator = AFMulatorOCL_Simple.AFMulator(
+    afmulator = AFMulator.AFMulator(
         pixPerAngstrome = 10,
         lvec            = np.array([
                             [ 0.0,  0.0, 0.0],

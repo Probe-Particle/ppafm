@@ -5,7 +5,7 @@ import sys
 from subprocess import run
 
 sys.path.append('../..')
-from pyProbeParticle.AFMulatorOCL_Simple import quick_afm
+from pyProbeParticle.ocl.AFMulatorOCL import quick_afm
 
 if not os.path.exists('LOCPOT.xsf'):
     run(['wget', '--no-check-certificate', 'https://www.dropbox.com/s/18eg89l89npll8x/LOCPOT.xsf.zip'])

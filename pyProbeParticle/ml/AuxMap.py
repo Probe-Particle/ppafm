@@ -1,11 +1,11 @@
 
 import numpy as np
 
-from . import basUtils
-from . import elements
-from . import oclUtils     as oclu
-from . import fieldOCL     as FFcl
-from . import RelaxOpenCL  as oclr
+from .. import basUtils
+from .. import elements
+from ..ocl import oclUtils as oclu
+from ..ocl import field    as FFcl
+from ..ocl import relax    as oclr
 
 class AuxMapBase:
     '''
@@ -23,7 +23,7 @@ class AuxMapBase:
     '''
     def __init__(self, scan_dim, scan_window, zmin=None):
         if not FFcl.oclu:
-            raise RuntimeError('OpenCL context not initialized. Initialize with fieldOCL.init before creating an AuxMap object.')
+            raise RuntimeError('OpenCL context not initialized. Initialize with ocl.field.init before creating an AuxMap object.')
         self.scan_dim = scan_dim
         self.scan_window = scan_window 
         self.projector = FFcl.AtomProcjetion()

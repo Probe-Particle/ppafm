@@ -4,15 +4,15 @@ import os
 import numpy as np
 import pyopencl as cl
 
-from . import common       as PPU
-from . import fieldOCL     as FFcl
-from . import RelaxOpenCL  as oclr
-from . import HighLevelOCL as hl
-from . import oclUtils     as oclu
+from .. import common   as PPU
+from . import field     as FFcl
+from . import relax     as oclr
+from . import oclUtils  as oclu
+from . import HighLevel as hl
 
-from .fieldOCL import HartreePotential, MultipoleTipDensity, hartreeFromFile
-from .basUtils import loadAtomsLines
-from .PPPlot import plotImages
+from .field import HartreePotential, MultipoleTipDensity, hartreeFromFile
+from ..basUtils import loadAtomsLines
+from ..PPPlot import plotImages
 
 VALID_SIZES = np.array([16, 32, 64, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048])
 
@@ -95,14 +95,13 @@ class AFMulator():
         self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
 
         self.iZPP = iZPP
-        self.df_steps = df_steps
         self.tipR0 = tipR0
         self.f0Cantilever = f0Cantilever
         self.kCantilever = kCantilever
         self.npbc = npbc
         self.pot = None
 
-        self.setScanWindow(scan_window, scan_dim)
+        self.setScanWindow(scan_window, scan_dim, df_steps)
         self.setLvec(lvec, pixPerAngstrome)
         self.setRho(rho, sigma)
         self.setQs(Qs, QZs)
@@ -168,13 +167,17 @@ class AFMulator():
         FEin_shape = self.forcefield.nDim if (self._old_nDim != self.forcefield.nDim).any() else None
         self.scanner.prepareBuffers(lvec=self.lvec, FEin_shape=FEin_shape)
 
-    def setScanWindow(self, scan_window=None, scan_dim=None):
+    def setScanWindow(self, scan_window=None, scan_dim=None, df_steps=None):
         '''Set scanner scan window.'''
 
         if scan_window is not None:
             self.scan_window = scan_window
         if scan_dim is not None:
             self.scan_dim = scan_dim
+        if df_steps is not None:
+            if df_steps <= 0 or df_steps > self.scan_dim[2]:
+                raise ValueError(f'df_steps should be between 1 and scan_dim[2]({scan_dim[2]}), but got {df_steps}.')
+            self.df_steps = df_steps
 
         # Set df convolution weights
         self.dz = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
@@ -272,6 +275,12 @@ class AFMulator():
         else:
             xyzqs = np.concatenate([xyzs, qs[:, None]], axis=1)
         self.Zs = Zs
+
+        # Rotate atom positions
+        if pot is None:
+            xyzqs[:, :3] -= rot_center
+            xyzqs[:, :3] = np.dot(xyzqs[:, :3], rot.T)
+            xyzqs[:, :3] += rot_center
             
         # Compute force field
         if self.bNoFFCopy:
@@ -494,7 +503,6 @@ if __name__ == "__main__":
     import os
 
     from . import basUtils
-    from . import oclUtils as oclu
 
     molecules = ["out2", "out3","benzeneBrCl2"]
     args = {
