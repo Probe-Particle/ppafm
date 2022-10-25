@@ -28,11 +28,9 @@ cov_radii = {1: 0.31,
 if __package__ is None:
     print( " #### DEBUG #### import cpp_utils " )
     sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) ) )
-    #from components.core import GameLoopEvents
     import cpp_utils
 else:
     print( " #### DEBUG #### from . import cpp_utils " )
-    #from ..components.core import GameLoopEvents
     from . import cpp_utils
 
 
@@ -53,17 +51,11 @@ header_strings = [
 "void eval( int n, double* Es, double* pos_, double Rcov, double RvdW ){",
 "int danglingToArray( double* dangs, double* pmin, double* pmax ){",
 "void pickAtomWeighted( int npick, int* ipicks, int nps, double* pos_, double* Ws, double* p0_, double* K_, double kT ){",
-#"int pickAtomWeighted( int np, double* pos_, double* Ws, double* p0_, double* K_, double kT ){"
-#"int genNewAtom( int np, double* pos_, double* Ws, double* p0_, double* K_ ){",
 "double randomOptAtom( int ntry, double* pos_, double* spread_, double Rcov, double RvdW ){",
 "void init_random(int seed){",
 "void setGridSize( int* ns_, double* pmin_, double* pmax_){",
 "void setGridPointer(double* data){",
 ]
-#cpp_utils.writeFuncInterfaces( header_strings );        exit()     #   uncomment this to re-generate C-python interfaces
-
-#libSDL = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libSDL2-2.0.so.0", ctypes.RTLD_GLOBAL )
-#libGL  = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libGLU.so.1",   ctypes.RTLD_GLOBAL )
 
 libSDL = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libSDL2.so", ctypes.RTLD_GLOBAL )
 libGL  = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libGL.so",   ctypes.RTLD_GLOBAL )
@@ -219,12 +211,9 @@ if __name__ == "__main__":
         xs=np.arange( extent[0],extent[1], dpix )
         ys=np.arange( extent[2],extent[3], dpix )
         zs=np.arange( zmin,zmax, dpix )
-        nz,ny,nx=len(zs),len(ys),len(xs);  # print("nz,ny,nx ", nz,ny,nx)
+        nz,ny,nx=len(zs),len(ys),len(xs)
         ps = np.zeros( (nz,ny,nx,3) )
-        #Xs,Ys,Zs = np.meshgrid(xs,ys,zs)
         ps[:,:,:,1],ps[:,:,:,2],ps[:,:,:,0] = np.meshgrid(ys,zs,xs)
-        #print( "Xs.shape ", Xs.shape )
-        #ps[:,:,0],ps[:,:,1],ps[:,:,2] = np.meshgrid(xs,ys,zs)
         ps=ps.reshape( (nz*ny*nx,3) )
         ps = ps.copy()
         return ps,nx,ny,nz
@@ -233,7 +222,6 @@ if __name__ == "__main__":
     extent=(0.0,20.0,-6.0,6.0)
     b3D = False
     if b3D:
-        #extent=(-10.0,10.0,-10.0,10.0)
         ps,nx,ny,nz = make_ps_3D( extent, dpix=0.1 )
     else:
         import matplotlib.pyplot as plt
@@ -241,9 +229,7 @@ if __name__ == "__main__":
     print( ps.shape )
 
     # ---- Load Geometry
-    #xyzs,Zs,elems,qs = au.loadAtomsNP( 'simplePotTest.xyz' )
     xyzs,Zs,elems,qs = au.loadAtomsNP( 'fail.xyz' )
-    #xyzs,Zs,elems,qs = au.loadAtomsNP( 'simplePotTest-.xyz' )
     Rcovs = np.ones(len(xyzs))*0.7
 
     # ----- Here Call SimplePot

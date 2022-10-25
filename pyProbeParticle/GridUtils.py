@@ -5,7 +5,6 @@ from   ctypes import c_int, c_double, c_char_p
 import ctypes
 import os
 from . import cpp_utils
-#import cpp_utils
 
 # ============================== 
 
@@ -15,12 +14,10 @@ Hartree2eV           = 27.211396132
 # ============================== interface to C++ core 
 
 cpp_name='GridUtils'
-#cpp_utils.compile_lib( cpp_name  )
 cpp_utils.make("GU")
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
-
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
 array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
 array2d = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
@@ -36,7 +33,6 @@ def renorSlice( F ):
 		Fi = F[i]
 		vmin = np.nanmin( Fi )
 		vmax = np.nanmax( Fi )
-		#F[ i ] = ( Fi - vmin ) /( vmax - vmin )
 		F[i] -= vmin;
 		F[i] /= ( vmax - vmin )
 		vranges.append( (vmin,vmax) )
@@ -83,7 +79,6 @@ def interpolateLine( F, p1, p2, sz=500, cartesian=False ):
 	result = np.zeros( sz )
 	p00 = np.array ( p1, dtype='float64' )
 	p01 = np.array ( p2, dtype='float64' )
-	#setGridN( np.array(F.shape, dtype='int32' ) )
 	if( cartesian ):
 		lib.interpolateLine_cartes   ( sz, p00, p01, F, result )
 	else:
@@ -92,19 +87,16 @@ def interpolateLine( F, p1, p2, sz=500, cartesian=False ):
 
 def interpolateQuad( F, p00, p01, p10, p11, sz=(500,500) ):
     result = np.zeros( sz )
-    #print "DEBUG 2.1 "
     npxy   = np.array( sz, dtype='int32' )
     p00 = np.array ( p00, dtype='float64' )
     p01 = np.array ( p01, dtype='float64' )
     p10 = np.array ( p10, dtype='float64' )
     p11 = np.array ( p11, dtype='float64' )
-    #print "DEBUG 2.2 "
     lib.interpolateQuad_gridCoord( npxy, p00, p01, p10, p11, F, result )
     return result
 
 def interpolate_cartesian( F, pos, cell=None, result=None ):
 	if cell is not None:
-		#print np.array(F.shape)
 		setGridCell( cell )
 	nDim = np.array(pos.shape)
 	print(nDim)
@@ -196,7 +188,6 @@ def parseNameString( name ):
 def loadFromDbl( name ):
 	prefix,ndim = parseNameString( name )
 	F = np.fromfile ( name+'.dbl' )
-	#print "ndim", ndim
 	F = np.reshape  ( F, (ndim[2],ndim[1],ndim[0]) )
 	F = np.transpose( F, (2,1,0) )
 	return np.ascontiguousarray( F )
@@ -231,7 +222,6 @@ def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1 ):
     for line in head:
         fileout.write(line)
     nDim = np.shape(data)
-    #print nDim
     writeArr (fileout, (nDim[2]+1,nDim[1]+1,nDim[0]+1) )
     writeArr2D(fileout,lvec)
     data2 = np.zeros(np.array(nDim)+1);   # These crazy 3 lines are here since the first and the last cube
@@ -245,7 +235,6 @@ def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1 ):
 def loadXSF(fname, xyz_order=False, verbose=True):
 	filein = open( fname )
 	startline, head = readUpTo(filein, "BEGIN_DATAGRID_3D")              # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
-	#print head
 	nDim = [ int(iii) for iii in filein.readline().split() ]        # reading 1 line with dimensions
 	nDim.reverse()
 	nDim = np.array( nDim)
@@ -309,9 +298,6 @@ def loadCUBE(fname, xyz_order=False, verbose=True):
 	if not xyz_order:
 		FF = FF.transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
 
-	#FF [1:,1:,1:] = FF [:-1,:-1,:-1] 
-	#FF [:,1:,:] = FF [:,:-1,:] 
-
 	nDim=[nDim[2],nDim[1],nDim[0]]                          # Setting up the corresponding dimensions. 
 	head = []
 	head.append("BEGIN_BLOCK_DATAGRID_3D \n")
@@ -319,6 +305,7 @@ def loadCUBE(fname, xyz_order=False, verbose=True):
 	head.append("DATAGRID_3D_g98Cube \n")
 	FF*=Hartree2eV
 	return FF,lvec, nDim, head
+	
 #================ WSxM output
 
 def saveWSxM_2D(name_file, data, Xs, Ys):

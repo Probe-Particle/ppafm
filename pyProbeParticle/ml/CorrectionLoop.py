@@ -23,8 +23,6 @@ import matplotlib
 import numpy as np
 from enum import Enum
 
-#import matplotlib.pyplot as plt
-
 import pyopencl     as cl
 
 from .. import atomicUtils as au
@@ -39,7 +37,6 @@ from .. import SimplePot   as sp
 from ..ocl import HighLevel as hl
 from ..ocl import AFMulator
 from . import AuxMap
-#from . import FARFF            #as Relaxer
 from . import Generator
 from .Corrector import Corrector,Molecule
 from .Corrector import Mutator
@@ -301,7 +298,6 @@ class CorrectionLoop():
     def __init__(self, relaxator, simulator, atoms, bonds, corrector ):
 
         self.rotMat = np.array([[1.,0,0],[0.,1.,0],[0.,0,1.]])
-        #self.rotMat = np.array([[0.,1.,0],[1.,0,0],[0.,0,1.]])
         self.logAFMdataName = None
         self.logImgName = None
         self.logImgIzs  = [0,-8,-1]
@@ -333,7 +329,6 @@ class CorrectionLoop():
                 nch = AuxMaps.shape[2]
                 plt.figure(figsize=(5*(nz+nch),5))
                 for ich in range(nch):
-                    #print( "DEBUG ich ", ich )
                     plt.subplot(1,nz+nch,ich+1); plt.imshow ( AuxMaps[:,:,ich] )
             else:
                 nch = 0
@@ -346,10 +341,6 @@ class CorrectionLoop():
             plt.close  ()
 
     def iteration(self, itr=0 ):
-        #print( "### CorrectionLoop.iteration [%i]", itr )
-        #print( "########### bond atom ---- min min ", self.atomMap.min(), self.bondMap.min() )
-        # ToDo : Use relaxation later
-        #self.relaxed    = self.relaxator.preform_relaxation( self.molecule, self.mapLvec, self.atomMap, self.bondMap )
         if self.xyzLogFile is not None:
            au.writeToXYZ( self.xyzLogFile, self.molecule.Zs, self.molecule.xyzs, qs=self.molecule.qs, commet=("CorrectionLoop.iteration [%i] " %itr) )
         # Get AFM
@@ -366,10 +357,8 @@ class CorrectionLoop():
             np.save( self.logAFMdataName+("%03i.dat" %itr), AFMs )
         self.debug_plot( AFMs, AuxMaps )
         sw=self.simulator.scan_window
-        #extent=( sw[0][0], sw[1][0], sw[0][1], sw[1][1] )
         Err, self.molecule = self.corrector.try_improve( self.molecule, AFMs, self.AFMRef, sw, itr=itr )
         return Err
-        #Xs,Ys      = simulator.next1( self )
 
 def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
     iz = -10
@@ -377,7 +366,6 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
     trainer = CorrectorTrainer( simulator, mutator, molCreator=None )
     xyzs,Zs,elems,qs = au.loadAtomsNP(geom_fname)
 
-    # AFMulatorOCL.setBBoxCenter( xyzs, [0.0,0.0,0.0] )
     sw = simulator.scan_window
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
     xyzs[:,:2] += scan_center - xyzs[:,:2].mean(axis=0)
@@ -385,7 +373,6 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
     print("xyzs ", xyzs)
     mol = Molecule(xyzs,Zs,qs)
 
-    #xyzs[:,0] -= 10.0
     trainer.start( mol )
     extent=( simulator.scan_window[0][0], simulator.scan_window[1][0], simulator.scan_window[0][1], simulator.scan_window[1][1] )
     sc = 3.0
@@ -395,7 +382,6 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
     for itr in range(nstep):
         Xs1,Xs2,mol1,mol2  = trainer[itr]
         au.writeToXYZ( xyzfile, mol2.Zs,  mol2.xyzs, qs=mol2.qs, commet=("# mutation %i " %itr) )
-        #print( " mol1 ", mol1.xyzs, "\n mol2 ", mol2.xyzs)
         plt.figure(figsize=(10,5))
         plt.subplot(1,2,1); plt.imshow(Xs1[:,:,iz], origin='upper', extent=extent); plt.scatter( mol1.xyzs[:,0], mol1.xyzs[:,1], s=mol1.Zs*sc, c=cm.rainbow( mol1.xyzs[:,2] )  )
         plt.subplot(1,2,2); plt.imshow(Xs2[:,:,iz], origin='upper', extent=extent); plt.scatter( mol2.xyzs[:,0], mol2.xyzs[:,1], s=mol2.Zs*sc, c=cm.rainbow( mol2.xyzs[:,2] ) )
@@ -410,17 +396,13 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
     nscan = simulator.scan_dim; nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
     np.save( 'AFMref.npy', np.zeros(nscan) )
     AFMRef = np.load('AFMref.npy')
-    #AFMRef = np.roll( AFMRef,  5, axis=0 );
-    #AFMRef = np.roll( AFMRef, -6, axis=1 );
 
     looper = CorrectionLoop(relaxator, simulator, atoms, bonds, corrector)
     looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
     looper.logImgName = "CorrectionLoopAFMLog"
     looper.logAFMdataName = "AFMs"
-    #xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")
     xyzs,Zs,elems,qs = au.loadAtomsNP(geom_fname)
 
-    # AFMulatorOCL.setBBoxCenter( xyzs, [0.0,0.0,0.0] )
     sw = simulator.scan_window
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
     xyzs[:,:2] += scan_center - xyzs[:,:2].mean(axis=0)
@@ -457,7 +439,6 @@ if __name__ == "__main__":
     (options, args) = parser.parse_args()
 
     print( " UNIT_TEST START : CorrectionLoop ... " )
-    #import atomicUtils as au
 
     print("# ------ Init Generator   ")
 
@@ -487,5 +468,4 @@ if __name__ == "__main__":
     else:
         print("ERROR : invalid job ", options.job )
 
-    #print( "UNIT_TEST is not yet written :-( " )
     print( " UNIT_TEST CorrectionLoop DONE !!! " )
