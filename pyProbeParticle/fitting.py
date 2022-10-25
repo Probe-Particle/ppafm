@@ -3,7 +3,6 @@ from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_
 import ctypes
 import os
 from . import cpp_utils
-#import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)
@@ -24,7 +23,6 @@ header_strings = [
     "void project( int nps, int ncenters, double*  ps, double* Youts, double* centers, int* types, int* ncomps, double* coefs ){",
     "void debugGeomPBC_xsf( int ncenters, double* centers )",
 ]
-#cpp_utils.writeFuncInterfaces( header_strings );        exit()     #   uncomment this to re-generate C-python interfaces
 
 cpp_name='fitting'
 cpp_utils.make(cpp_name)
@@ -53,7 +51,6 @@ def setSplines( step, Rcut, RFuncs ):
 lib.getProjections.argtypes  = [c_int, c_int, c_double_p, c_double_p, c_double_p, c_int_p, c_int_p, c_double_p, c_double_p] 
 lib.getProjections.restype   =  None
 def getProjections( ps, Yrefs, centers, types, ncomps, By=None, BB=None ):
-    #nps      = len(ps)
     ndim = Yrefs.shape
     nps=1
     if( len(ndim)>1):
@@ -105,7 +102,6 @@ if __name__ == "__main__":
     fname_ext = fname+"."+fext
 
     atoms,nDim,lvec = BU.loadGeometry   ( fname_ext, params=PPU.params )
-    #F,lvec,nDim     = GU.load_scal_field( fname, data_format=fext )
     centers = np.array( atoms[1:4] ).transpose().copy()
     print("centers \n", centers)
 
@@ -116,7 +112,6 @@ if __name__ == "__main__":
 
     zs     = data[0, :]
     RFuncs = data[1:,:].copy()
-    #for i in range(len(RFuncs)): RFuncs[i] *= ( 1/RFuncs[i,0] )
 
     rfsh   = RFuncs.shape
     print("RFunc.shape() ", rfsh)
@@ -124,58 +119,23 @@ if __name__ == "__main__":
 
     print("nDim ", nDim)
     fitting.setPBC(lvec[1:], npbc=[1,1,1])
-    #fitting.setPBC(lvec[1:], npbc=[0,0,0])
 
     types_header = [1, 6, 7]
     typedict     = { k:i for i,k in enumerate(types_header) }
     types  = np.array( [ typedict[elem] for elem in atoms[0] ], dtype=np.int32)
 
-    print("types ", types)    #;exit() 
+    print("types ", types)
     ncomps = np.ones( len(types), dtype=np.int32  )
 
-    #fitting.debugGeomPBC_xsf(centers);
-    #exit();
 
-
-    #yrefs,lvec,nDim = GU.load_scal_field( fname, data_format=fext )
     Yrefs,lvec,nDim,head = GU.loadXSF( fname_ext )
     gridPoss = PPU.getPos_Vec3d( np.array(lvec), nDim )
 
-    #gridPoss = gridPoss[::8,::8,::8,:].copy()
-    #Yrefs    = Yrefs   [::8,::8,::8].copy()
-
-    #DEBUG 2 nbas 11 nsel 11 ps[42437](9.71429,12.5714,19.4286)
-    #DEBUG 2 nbas 11 nsel 7 ps[42443](13.1429,12.5714,19.4286) 
-
-    #gridPoss = np.array( [ [9.71429,12.5714,19.4286], [13.1429,12.5714,19.4286] ] )
-    #Yrefs    = np.array( [ 1.0, 1.5 ] )
-
     print("gridPoss.shape, yrefs.shape, centers.shape ", gridPoss.shape, Yrefs.shape, centers.shape)
-
-    #fitting.debugGeomPBC_xsf(centers);
-
-    '''
-    Youts = np.zeros( Yrefs.shape )
-    coefs = np.ones( len(centers) )
-    fitting.project( gridPoss, Youts, centers, types, ncomps, coefs );
-    GU.saveXSF( "Youts.xsf", Youts, lvec )
-    exit();
-    '''
-
-    '''
-    print ">>>>>> By,BB = getProjections( Yref ) "
-    By,BB = fitting.getProjections( gridPoss, Yrefs, centers, types, ncomps )
-    print "By   ", By
-    print "BB \n", BB
-    print ">>>>>> Solve(   BB c = B y ) "
-    coefs = np.linalg.solve( BB, By )
-    print "coefs = ", coefs
-    '''
 
     coefs = np.ones( len(centers) )*1.2
 
     print(">>>>>> Yrefs -= project( coefs ) ")
-    #Youts = np.zeros( Yrefs.shape )
     fitting.project( gridPoss, Yrefs, centers, types, ncomps, coefs*-1.0 );
     GU.saveXSF( "Yresidual.xsf", Yrefs, lvec )
     exit();

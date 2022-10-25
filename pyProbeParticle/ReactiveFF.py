@@ -3,29 +3,9 @@ from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_
 import ctypes
 import os
 from . import cpp_utils
-#import cpp_utils
 
-'''
-LIB_PATH      = os.path.dirname( os.path.realpath(__file__) )
-LIB_PATH_CPP  = os.path.normpath(LIB_PATH+'../../../'+'/cpp/Build/libs/Molecular')
-#LIB_PATH_CPP  = os.path.normpath(LIB_PATH+'../../../'+'/cpp/Build-debug/libs/Molecular')
-
-def recompile(path):
-    print( "recompile path :", path )
-    dir_bak = os.getcwd()
-    os.chdir( path)
-    os.system("make" )
-    os.chdir( dir_bak )
-    print( os.getcwd() )
-    
-# =========== main
-recompile(LIB_PATH_CPP)
-
-lib = ctypes.CDLL( LIB_PATH_CPP+"/libReactiveFF.so" )
-'''
 
 cpp_name='ReactiveFF'
-#cpp_utils.compile_lib( cpp_name  )
 cpp_utils.make("RR")
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
 
@@ -157,13 +137,6 @@ lib.getChargeHardness.restype  = ctypes.POINTER(c_double)
 def getChargeHardness(natom):
     return np.ctypeslib.as_array( lib.getChargeHardness( ), shape=(natom,) )
 
-'''
-#void setupCharge( int* itypes, double* taffins, double* thards ){
-lib.setupCharge.argtypes = [ array1i, array1d, array1d ]
-lib.setupCharge.restype  = None
-def setupCharge( itypes, taffins, thards  ):
-    return lib.setupCharge( itypes, taffins, thards )
-'''
 #void    setTotalCharge(double q)
 lib.setTotalCharge.argtypes = [ c_double ]
 lib.setTotalCharge.restype  = None
@@ -219,8 +192,6 @@ def removeSaturatedBonds(caps, itypes, xyzs,  ):
     itypes_ = [ itypes[:,0  ], itypes[mask[:,0],1  ], itypes[mask[:,1],2  ], itypes[mask[:,2],3  ], itypes[mask[:,3],4  ] ]
     return np.concatenate(xyzs_), np.concatenate(itypes_)
 
-
-
 class RFF():
 
     def __init__(self, n ):
@@ -237,7 +208,6 @@ class RFF():
         self.caps   = getBondCaps(natom)
 
     def genRandom():
-        #itypes  = np.random.randint( 2, size=natom, dtype=np.int32 ); print "itypes", itypes
         self.itypes  = (np.random.rand( self.natom )*1.3 ).astype(np.int32); print("itypes", itypes)
         setTypes( natom, self.itypes )
         self.poss [:,:]  = ( np.random.rand(self.natom,3)-0.5 ) * 10.0
@@ -252,19 +222,12 @@ class RFF():
     def relax( nstep ):
         for itr in range(10):
             F2 = relaxNsteps( nsteps=50, F2conf=0.0, dt=0.15, damp=0.9 )
-            #print ">> itr ", itr," F2 ", F2 #, caps
-            #xyzs, itypes_ = rff.h2bonds( itypes, poss, hbonds, bsc=1.1 )
-            #xyzs, itypes_ = rff.removeSaturatedBonds(caps, itypes_, xyzs )
-            #au.writeToXYZ( fout, itypes_, xyzs  )
 
     def relaxAndPassivate():
         t1 = time.clock();
-        #fout = open( "rff_movie.xyz",'w')
         self.relax( nstep )
         passivateBonds( -0.1 )
-        #print "passivation ", caps
         self.relax( nstep )
-        #fout.close()
         t2 = time.clock();
         print("Relaxation time ", t2-t1)
 

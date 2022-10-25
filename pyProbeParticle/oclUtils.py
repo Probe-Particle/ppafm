@@ -7,12 +7,6 @@ import numpy    as np
 from . import fieldOCL    as FFcl
 from . import RelaxOpenCL as oclr
 
-#PACKAGE_PATH = None
-#CL_PATH      = None
-#plats      = None
-#ctx        = None
-#queue      = None
-
 class OCLEnvironment:
 
     def __init__(self,i_platform=0):
@@ -81,31 +75,3 @@ def print_platforms():
     platforms = get_platforms()
     for i, plat in enumerate(platforms):
         print(f'Platform {i}: {plat.name}')
-
-#def init(i_platform=0):
-#    global PACKAGE_PATH #, CL_PATH, plats, ctx,  queue
-#    global CL_PATH 
-#    global plats 
-#    global ctx 
-#    global queue
-#    PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) ); print PACKAGE_PATH
-#    CL_PATH      = os.path.normpath( PACKAGE_PATH + '/../cl' )
-#    plats   = cl.get_platforms()
-#    ctx     = cl.Context(properties=[(cl.context_properties.PLATFORM, plats[i_platform])], devices=None)
-#    #print plats; exit()
-#    queue   = cl.CommandQueue(ctx)
-
-#def tryRelease(cl_arr):
-#    try:
-#        cl_arr.release()
-#    except:
-#        pass
-
-#def loadProgram(fname, ctx=ctx, queue=queue):
-#    f       = open(fname, 'r')
-#    fstr    = "".join(f.readlines())
-#    #cl._DEFAULT_INCLUDE_OPTIONS.append( "-I "+CL_PATH  )  # this is a bit a hack !!!   not sure how to add include dir properly https://documen.tician.de/pyopencl/runtime_program.html#program
-#    program = cl.Program(ctx, fstr ).build()
-#    return program
-
-

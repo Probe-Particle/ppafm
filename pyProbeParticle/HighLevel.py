@@ -10,13 +10,6 @@ from . import basUtils  as BU
 from . import core
 from . import cpp_utils
 
-#import GridUtils as GU
-#import fieldFFT  as fFFT
-#import common    as PPU
-#import basUtils  as BU
-#import core
-#import cpp_utils
-
 verbose = 1
 
 # ===== constants 
@@ -37,13 +30,9 @@ def meshgrid3d(xs,ys,zs):
 
 def trjByDir( n, d=[0.0,0.0,PPU.params['scanStep'][2]], p0=[0,0,PPU.params['scanMin'][2]] ):
     trj = np.zeros( (n,3) )
-    #print( "DEBUG trjByDir p0 ", p0, "d ", d )
     trj[:,0] = p0[0] + (np.arange( n )[::-1])*d[0]
     trj[:,1] = p0[1] + (np.arange( n )[::-1])*d[1]
     trj[:,2] = p0[2] + (np.arange( n )[::-1])*d[2]
-    #trj[:,0] = np.arange( p0[0], p0[0]+(d[0]*n)+0.00001, d[0] )
-    #trj[:,1] = np.arange( p0[1], p0[1]+(d[1]*n)+0.00001, d[1] )
-    #trj[:,2] = np.arange( p0[2], p0[2]+(d[2]*n)+0.00001, d[2] )
     return trj
 
 def relaxedScan3D( xTips, yTips, zTips, trj=None, bF3d=False ):
@@ -53,9 +42,6 @@ def relaxedScan3D( xTips, yTips, zTips, trj=None, bF3d=False ):
     rTips = np.zeros((ntips,3))
     rs    = np.zeros((ntips,3))
     fs    = np.zeros((ntips,3))
-    #Tips[:,0] = 1.0
-    #rTips[:,1] = 1.0
-    #rTips[:,2] = zTips[::-1]  
     nx = len(zTips); ny = len(yTips ); nz = len(xTips);
     if( bF3d ):
         fzs    = np.zeros( ( nx,ny,nz,3) );
@@ -74,9 +60,6 @@ def relaxedScan3D( xTips, yTips, zTips, trj=None, bF3d=False ):
             rTips[:,0] = trj[:,0] + x
             rTips[:,1] = trj[:,1] + y
             rTips[:,2] = trj[:,2]
-            #if (ix==0) and (iy==0):
-            #    print(  "DEBUG relaxedScan3D rTips \n" )
-            #    print( rTips )
             itrav = core.relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
             if( bF3d ):
                 fzs[:,iy,ix,0] = (fs[:,0].copy()) [::-1]
@@ -84,9 +67,9 @@ def relaxedScan3D( xTips, yTips, zTips, trj=None, bF3d=False ):
                 fzs[:,iy,ix,2] = (fs[:,2].copy()) [::-1]
             else:
                 fzs[:,iy,ix] = (fs[:,2].copy()) [::-1]
-            PPpos[:,iy,ix,0] = rs[::-1,0] # - rTips[:,0]
-            PPpos[:,iy,ix,1] = rs[::-1,1] # - rTips[:,1]
-            PPpos[:,iy,ix,2] = rs[::-1,2] # - rTips[:,2]
+            PPpos[:,iy,ix,0] = rs[::-1,0]
+            PPpos[:,iy,ix,1] = rs[::-1,1]
+            PPpos[:,iy,ix,2] = rs[::-1,2]
     if(verbose>0): print("<<<END: relaxedScan3D()")
     return fzs,PPpos
 
@@ -101,7 +84,6 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipsplin
             ydys = S[:,1:].copy(); 
             if(verbose>0): print("ydys: ", ydys)
             core.setTipSpline( xs, ydys )
-            #Ks   = [0.0]
         except:
             if(verbose>0): print("cannot load tip spline from "+tipspline)
             sys.exit()
@@ -112,7 +94,6 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipsplin
         if(verbose>0): print("adding charge:", PPU.params['charge'])
     if ( FFpauli is not None ):
         FF += FFpauli * PPU.params['Apauli']
-        #FF = FFpauli * PPU.params['Apauli']
     if FFboltz != None :
         FF += FFboltz
     if bFFtotDebug:
@@ -144,7 +125,6 @@ def prepareArrays( FF, Vpot ):
         PPU.autoGridN()
     if ( FF is None ):
         gridN = PPU.params['gridN']
-        #print( "PPU.params['gridN'] ", gridN )
         FF    = np.zeros( (gridN[2],gridN[1],gridN[0],3)    )
     else:
         PPU.params['gridN'] = np.shape( FF )
@@ -154,7 +134,6 @@ def prepareArrays( FF, Vpot ):
         core.setFF_Epointer( V )
     else:
         V=None
-    #core.setFF( gridF=FF, gridE=V )
     return FF, V 
 
 def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT, ffModel="LJ" ):
@@ -164,28 +143,24 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
     # --- load atomic geometry
     atoms,nDim,lvec     = BU.loadGeometry( geomFile, params=PPU.params )
-    #print "DEBUG atoms : ", atoms
     atomstring          = BU.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
     PPU      .params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3] # must be before parseAtoms
     if(verbose>0): print(PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC'])
     iZs,Rs,Qs           = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
     # --- prepare LJ parameters
-    #print elem_dict
     iPP                 = PPU.atom2iZ( PPU.params['probeType'], elem_dict )
     # --- prepare arrays and compute
     FF,V                = prepareArrays( None, computeVpot )
-    if(verbose>0): print("FFLJ.shape",FF.shape) 
-    #core.setGridN   ( nDim )
-    #core.setGridCell( cell=lvec )
+    if(verbose>0): print("FFLJ.shape",FF.shape)
     core.setFF_shape( np.shape(FF), lvec )
     if ffModel=="Morse":
-        REs = PPU.getAtomsRE( iPP, iZs, FFparams ); # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
+        REs = PPU.getAtomsRE( iPP, iZs, FFparams )
         core.getMorseFF( Rs, REs )       # THE MAIN STUFF HERE
     elif ffModel=="vdW":
-        cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams ); # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
+        cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
         core.getVdWFF( Rs, cLJs )       # THE MAIN STUFF HERE
     else:
-        cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams ); # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
+        cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
         core.getLenardJonesFF( Rs, cLJs ) # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not  None:
@@ -209,13 +184,11 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     tipKind  = tipKinds[tip]
     if(verbose>0): print(" ========= get electrostatic forcefiled from the point charges tip=%s %i " %(tip,tipKind))
     # --- load atomic geometry
-    #atoms,nDim,lvec     = BU .loadGeometry(options.input, params=PPU.params)
     FFparams            = PPU.loadSpecies( ) 
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
 
     atoms,nDim,lvec     = BU .loadGeometry( geomFile, params=PPU.params )
     atomstring          = BU.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
-    #elem_dict=None;  print " for FFel we need only Qs => elem_dict=None (ignore next warrning)"
     iZs,Rs,Qs=PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params['PBC'] )
     # --- prepare arrays and compute
     PPU.params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3]
@@ -256,7 +229,6 @@ def computeElFF(V,lvec,nDim,tip,computeVpot=False, tilt=0.0 ):
             if any(nDim_tip != nDim):
                 sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")
     if(verbose>0): print(" computing convolution with tip by FFT ")
-    #Fel_x,Fel_y,Fel_z      = fFFT.potential2forces(V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole)
     Fel_x,Fel_y,Fel_z, Vout = fFFT.potential2forces_mem( V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole, doPot=computeVpot, tilt=tilt )
     FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
     del Fel_x,Fel_y,Fel_z
@@ -267,12 +239,8 @@ def loadValenceElectronDict():
     namespace = {}
     try:
         fname_valelec_dict = 'valelec_dict.py'
-        #execfile( fname_valelec_dict )
-        #print(" ==== Exec : " )
         namespace = {}
-        #print( "s ==== ", s )
         exec( open(fname_valelec_dict).read(), namespace )
-        #print(" ==== Valence electrons : " )
         print("   : ", namespace['valElDict'] )
         valElDict_ = namespace['valElDict']
         print("Valence electrons loaded from local file : ", fname_valelec_dict)
@@ -281,22 +249,16 @@ def loadValenceElectronDict():
     if valElDict_ is None:
         namespace = {}
         fname_valelec_dict = cpp_utils.PACKAGE_PATH+'/defaults/valelec_dict.py'
-        #execfile( fname_valelec_dict )
         exec(open(fname_valelec_dict).read(), namespace )
-        #print "outside  valelec_dict.py valElDict=", valElDict
         valElDict_ = namespace['valElDict']
         print("Valence electrons loaded from default location : ", fname_valelec_dict)
-    #if valElDict_ is None: raise Exception( " valElDict was not loaded ! " )
     if(verbose>0): print(" Valence Electron Dict : \n", valElDict_)
     return valElDict_
 
 def getAtomsWhichTouchPBCcell( fname, Rcut=1.0, bSaveDebug=True ):
     atoms, nDim, lvec = BU.loadGeometry( fname, params=PPU.params )
     Rs = np.array(atoms[1:4])                     # get just positions x,y,z
-    #corners   = []   # corners of the unit cell with margins - just for debugging
-    #inds, Rs_ = PPU.findPBCAtoms3D_cutoff( Rs, np.array(lvec[1:]), Rcut=Rcut, corners=corners )  # find periodic images of PBC images of atom of radius Rcut which touch our cell 
     inds, Rs_ = PPU.findPBCAtoms3D_cutoff( Rs, np.array(lvec[1:]), Rcut=Rcut )  # find periodic images of PBC images of atom of radius Rcut which touch our cell 
-    #corners=corners[0]
     elems = [ atoms[0][i] for i in inds ]   # atomic number of all relevant peridic images of atoms   
     if bSaveDebug:
         BU.saveGeomXSF( fname+"_TouchCell_debug.xsf",elems,Rs_, lvec[1:], convvec=lvec[1:], bTransposed=True )    # for debugging - mapping PBC images of atoms to the cell
@@ -313,14 +275,11 @@ def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDic
     print("subtractCoreDensities valElDict ", valElDict)
     print("subtractCoreDensities elems ", elems)
     cRAs = np.array( [ (-valElDict[elem],Rcore) for elem in elems ] ) 
-    #V  = lvec[1,0]*lvec[2,1]*lvec[3,2]
     V  = np.linalg.det( lvec )   # volume of triclinic cell
     N  = nDim[0]*nDim[1]*nDim[2]
     dV = (V/N)  # volume of one voxel
     if(verbose>0): print("V : ",V," N: ",N," dV: ", dV)  
     if(verbose>0): print("sum(RHO): ",rho.sum()," Nelec: ",rho.sum()*dV," voxel volume: ", dV)   # check sum 
-    #rho1[:,:,:] *= 0   # Debugging
-    #Rs = Rs.transpose().copy()
     core.setFF_shape   ( rho.shape, lvec )     # set grid sampling dimension and shape
     core.setFF_Epointer( rho )                  # set pointer to array with density data (to write into)
     if(verbose>0): print(">>> Projecting Core Densities ... ")

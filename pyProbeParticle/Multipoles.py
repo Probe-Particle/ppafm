@@ -6,9 +6,6 @@ import ctypes
 import os
 
 from . import cpp_utils
-#import cpp_utils
-#import fieldFFT as SH
-
 
 '''
 
@@ -76,17 +73,6 @@ def make_bas_list( ns, basis=[['s']] ):
             bas_list.append( basis[i] )
     return bas_list
 
-'''
-def make_Ratoms( atom_types, type_R,  fmin = 0.9 , fmax = 1.3 ):
-    natoms =  len( atom_types )
-    R_min = np.zeros( natoms )
-    R_max = np.zeros( natoms )
-    for i,typ in enumerate(atom_types):
-        R_min[i] = type_R[ typ ] * fmin
-        R_max[i] = type_R[ typ ] * fmax
-    return R_min,R_max
-'''
-
 # make_Ratoms
 def make_Ratoms( atom_types, type_R,  fmin = 0.9 , fmax = 2.0 ):
     atom_R = type_R[atom_types]
@@ -102,12 +88,10 @@ def BB2symMat( nbas, BB ):
 # ==============================
 
 cpp_name='Multipoles'
-#cpp_utils.compile_lib( cpp_name  )
 cpp_utils.make("MP")
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes 
 
 # define used numpy array types for interfacing with C++
-
 array1b  = np.ctypeslib.ndpointer(dtype=np.bool  , ndim=1, flags='CONTIGUOUS')
 array1i  = np.ctypeslib.ndpointer(dtype=np.int32 , ndim=1, flags='CONTIGUOUS')
 array1ui = np.ctypeslib.ndpointer(dtype=np.uint32, ndim=1, flags='CONTIGUOUS')
@@ -120,13 +104,6 @@ array3d  = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
 # ======== Python warper function for C++ functions
 # ========
 
-# void setFF( int * n, double * grid, double * step,  )
-#lib.setGrid.argtypes = [array1i,array3d,array2d]
-#lib.setGrid.restype  = None
-#def setGrid( grid, cell ):
-#	n_    = np.shape(grid)
-#	n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
-#	lib.setGrid( n, grid, cell )
 
 #void setGridN( int * n ){
 lib.setGridN.argtypes = [array1i]
@@ -138,7 +115,6 @@ lib.setGridCell.restype  = None
 
 def setGrid_shape( n_, cell ):
     n     = np.array( (n_[2],n_[1],n_[0]) ).astype(np.int32)
-    #lib.setFF_shape( n, cell )
     lib.setGridN    ( n    )
     lib.setGridCell ( cell )	
 
@@ -231,12 +207,10 @@ def fitMultipolesPotential( atom_pos, atom_basis, atom_Rmin, atom_Rmax, atom_mas
     if atom_mask is None:
         atom_mask = np.array( [ True ] * natoms )
     sampled_val, sampled_pos = sampleGridArroundAtoms( atom_pos, atom_Rmin, atom_Rmax, atom_mask, pbc=pbc, show_where=show_where )
-    #print "bas_list:", atom_bas
     X = sampled_pos[:,0]
     Y = sampled_pos[:,1] 
     Z = sampled_pos[:,2] 
     basis_set, basis_assignment = sample_basis( atom_pos, atom_basis, atom_mask, X, Y, Z, radial_func = None, beta=1.0 )
-    #print "basis_assignment: ", basis_assignment
     fit_result = np.linalg.lstsq( np.transpose( basis_set ), sampled_val ) 
     coefs      = fit_result[0]
     return coefs, basis_assignment

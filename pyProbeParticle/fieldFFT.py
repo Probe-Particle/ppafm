@@ -5,7 +5,6 @@ import numpy as np
 import gc
 
 from . import GridUtils as GU
-#import GridUtils as GU
 
 verbose = 1
 
@@ -38,8 +37,6 @@ def getMGrid(dims, dd):
     if( nDim[2]%2 != 0 ):  xshift_ += 1.0
     if( nDim[1]%2 != 0 ):  yshift_ += 1.0
     if( nDim[0]%2 != 0 ):  zshift_ += 1.0
-    
-    #print( "XYZ[2] - xshift_", XYZ,  xshift_, yshift_, yshift_  )
 
     X = dx*np.roll( XYZ[2] - xshift_, xshift, axis=2)
     Y = dy*np.roll( XYZ[1] - yshift_, yshift, axis=1)
@@ -89,20 +86,6 @@ def getSphericalHarmonic( X, Y, Z, kind='dz2', tilt = 0.0 ):
     else:
         return 0.0
 
-'''
-def getProbeDensity(sampleSize, X, Y, Z, sigma, dd ):
-    'returns probe particle potential'
-    mat = getNormalizedBasisMatrix(sampleSize).getT()
-    rx = X*mat[0, 0] + Y*mat[0, 1] + Z*mat[0, 2]
-    ry = X*mat[1, 0] + Y*mat[1, 1] + Z*mat[1, 2]
-    rz = X*mat[2, 0] + Y*mat[2, 1] + Z*mat[2, 2]
-    rquad = rx**2 + ry**2 + rz**2
-    rho = np.exp( -(rquad)/(1*sigma**2) )
-    rho_sum = np.sum(rho)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]
-    rho = rho / rho_sum
-    return rho
-'''
-
 def getProbeDensity( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None, tilt=0.0 ):
     'returns probe particle potential'
     if(verbose>0): print("sigma: ", sigma); #exit()
@@ -113,14 +96,12 @@ def getProbeDensity( sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None, ti
     rz = X*mat[2, 0] + Y*mat[2, 1] + Z*mat[2, 2]
     rquad  = rx**2 + ry**2 + rz**2
     
-    #rquad = X**2 + Y**2 + Z**2
     radial       = np.exp( -(rquad)/(2*sigma**2) )
     radial_renom = np.sum(radial)*np.abs(np.linalg.det(mat))*dd[0]*dd[1]*dd[2]  # TODO analytical renormalization may save some time ?
     radial      /= radial_renom
     if multipole_dict is not None:	# multipole_dict should be dictionary like { 's': 1.0, 'pz':0.1545  , 'dz2':-0.24548  }
         rho = np.zeros( np.shape(radial) )
         for kind, coef in multipole_dict.items():
-            #rho += radial * coef * getSphericalHarmonic( X/sigma, Y/sigma, Z/sigma, kind=kind, tilt=tilt )
             rho += radial * coef * getSphericalHarmonic( rx/sigma, ry/sigma, rz/sigma, kind=kind, tilt=tilt )
     else:
         rho = radial
@@ -182,9 +163,7 @@ def getForces(V, rho, sampleSize, dims, dd, X, Y, Z):
     VFFT = np.fft.fftn(V)
     rhoFFT = np.fft.fftn(rho) 
     derConvFFT = 2*(np.pi)*1j*VFFT*rhoFFT
-    # det(Lmat) = 1 / det(LmatInv) !!!
     derConvFFT = derConvFFT * (dd[0]*dd[1]*dd[2]) / (detLmatInv)   
-    # dd = (dx, dy, dz) !!!
     dzetax = 1/(dims[0]*dd[0]*dd[0])
     dzetay = 1/(dims[1]*dd[1]*dd[1])
     dzetaz = 1/(dims[2]*dd[2]*dd[2])
@@ -218,22 +197,6 @@ def getForceTransform(sampleSize, dims, dd, X, Y, Z ):
     if(verbose>0): print("Ftrans :   ", zeta[0].sum(), zeta[1].sum(), zeta[2].sum())
     return zeta[0],zeta[1],zeta[2], detLmatInv
 
-'''
-def getForceEnergy(V, rho, sampleSize, dims, dd, X, Y, Z):
-    'returns forces for all axes, calculation performed \
-    in orthogonal coordinates, but results are expressed in skew coord.'
-    zeta, detLmatInv = getForceTransform(sampleSize, dims, dd)
-    VFFT          = np.fft.fftn(V)
-    rhoFFT        = np.fft.fftn(rho) 
-    convFFT       = VFFT*rhoFFT;          del VFFT,rhoFFT
-    E             = forceSkewx = np.real(np.fft.ifftn(convFFT))
-    derConvFFT    = 2*(np.pi)*1j*convFFT * (dd[0]*dd[1]*dd[2]) / (detLmatInv)   
-    forceSkewx = np.real(np.fft.ifftn(zeta[0]*derConvFFT))
-    forceSkewy = np.real(np.fft.ifftn(zeta[1]*derConvFFT))
-    forceSkewz = np.real(np.fft.ifftn(zeta[2]*derConvFFT))
-    return forceSkewx, forceSkewy, forceSkewz, E 	
-'''
-
 def getNormalizedBasisMatrix(sampleSize):
     'returns transformation matrix from OG basis to skew basis'
     ax, ay, az = getSkewNormalBasis(sampleSize)
@@ -260,7 +223,6 @@ def exportPotential(rho, rho_data='rho_data'):
     filerho.write(str(dimRho[0]) + " " + str(dimRho[1]) + " " + str(dimRho[2]) + '\n')
     for line in rho.flat:
         filerho.write("%s \n" % line)
-        #filerho.write(rho)
     filerho.close()
 
 def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, tilt=0.0 ):
@@ -280,7 +242,6 @@ def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, tilt
     else:
         rho[:,:,:] = rho[::-1,::-1,::-1].copy()
     fieldInfo( rho, label="fieldInfo rho " )
-    #GU.saveXSF( "DEBUG_rho.xsf", rho, lvec )
     if(verbose>0): print('--- Get Forces ---')
     Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
     fieldInfo( Fz, label="fieldInfo Fz " )
@@ -298,8 +259,6 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     zsize, dz = getSize('z', dims, sampleSize)
     dd = (dx, dy, dz)
 
-    #potential2forces_mem: dims  (92, 91, 60)
-    #potential2forces_mem: dims  (49.219764194907896, 48.690656801482945, 32.288778971493564)
     if(verbose>0): print("potential2forces_mem: dims ", dims) 
     if(verbose>0): print("potential2forces_mem: dims ", dd) 
 
@@ -308,38 +267,23 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     if rho is None:
         if(verbose>0): print('--- Get Probe Density ---')
         rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt )
-        '''
-        NO NEED TO RENORMALIZE : This is already density
-        print "rho.abs().sum() ", np.sum(np.abs(rho))
-        scQ2dens = 1.0/GU.dens2Q_CHGCARxsf(rho,lvec)
-        print " scQ2dens ", scQ2dens
-        print "rho.abs().sum()*scQ2dens ", np.sum(np.abs(rho*scQ2dens))
-        print "rho.abs().sum()/scQ2dens ", np.sum(np.abs(rho/scQ2dens))
-        exit()
-        '''
         GU.saveXSF( "rhoTip.xsf", rho, lvec )
 
     else:
         if(verbose>0): print("rho backward (rho[::-1,::-1,::-1]) ")
         rho[:,:,:] = rho[::-1,::-1,::-1].copy()
-        #GU.saveXSF( "rho.xsf",   rho, lvec )
     if doForce:
         if(verbose>0): print('--- prepare Force transforms ---')
         zetaX,zetaY,zetaZ,detLmatInv = getForceTransform(sampleSize, dims, dd, X, Y, Z )
     del X,Y,Z
     E=None;Fx=None;Fy=None;Fz=None;
     if(verbose>0): print('--- forward FFT ---')
-    #VFFT      =  
-    #if deleteV: del V
-    #rhoFFT    =    del rho
-    #convFFT   = VFFT*rhoFFT;        del VFFT,rhoFFT
     gc.collect()
     convFFT    = np.fft.fftn(V) * np.fft.fftn(rho);
     if deleteV: del V
     gc.collect()
     if doPot:
         if(verbose>0): print('--- Get Potential ---')
-        #E         = np.real(np.fft.ifftn(convFFT))
         E         = np.real(np.fft.ifftn(convFFT * (dd[0]*dd[1]*dd[2]) / (detLmatInv) ) )
     if doForce:
         if(verbose>0): print('--- Get Forces ---')
@@ -350,9 +294,6 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
         Fz        = np.real(np.fft.ifftn(zetaZ*convFFT)); del zetaZ; gc.collect()
     if(verbose>0): print('Fz.max(), Fz.min() = ', Fz.max(), Fz.min())
     return Fx,Fy,Fz, E
-
-
-
 
 def Average_surf( Val_surf, W_surf, W_tip ):
     '''

@@ -29,15 +29,10 @@ import sys
 if __package__ is None:
     print( " #### DEBUG #### import cpp_utils " )
     sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) ) )
-    #from components.core import GameLoopEvents
     import cpp_utils
 else:
     print( " #### DEBUG #### from . import cpp_utils " )
-    #from ..components.core import GameLoopEvents
     from . import cpp_utils
-
-#from . import cpp_utils
-#import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)
@@ -67,14 +62,9 @@ header_strings = [
     "void setBox(double* pmin, double* pmax, double* k){",
     "double relaxNsteps( int nsteps, double Fconv, int ialg ){",
 ]
-#cpp_utils.writeFuncInterfaces( header_strings );        exit()     #   uncomment this to re-generate C-python interfaces
-
-
 
 libSDL = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libSDL2.so", ctypes.RTLD_GLOBAL )
 libGL  = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libGL.so",   ctypes.RTLD_GLOBAL )
-
-
 
 cpp_name='FARFF'
 cpp_utils.make(cpp_name)
@@ -93,12 +83,6 @@ lib.reallocFF.argtypes  = [c_int]
 lib.reallocFF.restype   =  c_int
 def reallocFF(natom):
     return lib.reallocFF(natom) 
-
-#  int*    getTypes (){
-#lib.   getTypes .argtypes  = [] 
-#lib.   getTypes .restype   =  c_int_p
-#def    getTypes (natoms):
-#    return np.ctypeslib.as_array( lib.getTypes(), shape=(natoms,))
 
 #  double* getDofs  (){
 lib.getDofs  .argtypes  = [] 
@@ -145,16 +129,13 @@ def setupFF( n=None, itypes=None ):
 lib.setGridShape.argtypes  = [c_int_p, c_double_p] 
 lib.setGridShape.restype   =  None
 def setGridShape( n, cell):
-    #print( "cell ", cell ) ; exit()
-    #cell=np.array(cell)
-    n=np.array(n,dtype=np.int32); #print( "setGridShape n : ", n  )
+    n=np.array(n,dtype=np.int32);
     return lib.setGridShape(_np_as(n,c_int_p), _np_as(cell,c_double_p)) 
 
 #  void bindGrids( double* atomMap, double*  bondMap ){
 lib.bindGrids.argtypes  = [c_double_p, c_double_p] 
 lib.bindGrids.restype   =  None
 def bindGrids(atomMap, bondMap):
-    #print( " bindGrids atomMap bondMap ", atomMap.min(), bondMap.min() )
     return lib.bindGrids(_np_as(atomMap,c_double_p), _np_as(bondMap,c_double_p)) 
 
 #  double setupOpt( double dt, double damp, double f_limit, double l_limit ){
@@ -173,7 +154,6 @@ def setBox(pmin, pmax, k):
 lib.relaxNsteps.argtypes  = [c_int, c_double, c_int ] 
 lib.relaxNsteps.restype   =  c_double
 def relaxNsteps(nsteps, Fconv=1e-6, ialg=0):
-    #print nsteps
     return lib.relaxNsteps( nsteps, Fconv, ialg) 
 
 # ================= Python Functions
@@ -188,7 +168,7 @@ def derivGrid_25D( E, F, dx, dy ):
     return F
 
 def makeGridFF( fff,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 ):
-    #try:
+
     atomMap = np.load( fname_atom )
     bondMap = np.load( fname_bond )
 
@@ -205,31 +185,6 @@ def makeGridFF( fff,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0
     lvec = np.array( [[atomMap.shape[0]*dx,0.0,0.0],[0.0,atomMap.shape[1]*dy,0.0],[0.0,0.0,2.0]] )
 
     print(" shape atomMap, bondMap ", atomMapF.shape, bondMapF.shape)
-
-    '''
-    import matplotlib.pyplot as plt
-    plt.figure(); plt.imshow(atomMap); plt.colorbar()
-    plt.figure(); plt.imshow(bondMap); plt.colorbar()
-
-    plt.figure(); plt.imshow(atomMapF[:,:,0,0], cmap='jet'); plt.colorbar()
-    plt.figure(); plt.imshow(bondMapF[:,:,0,0], cmap='jet'); plt.colorbar()
-
-    plt.figure(); plt.imshow(atomMapF[:,:,0,1], cmap='jet'); plt.colorbar()
-    plt.figure(); plt.imshow(bondMapF[:,:,0,1], cmap='jet'); plt.colorbar()
-
-    fw2 = 0.1
-    plt.figure(); plt.imshow(1/(fw2 + atomMapF[:,:,0,0]**2 + atomMapF[:,:,0,1]**2) ); plt.colorbar()
-    plt.figure(); plt.imshow(1/(fw2 + bondMapF[:,:,0,0]**2 + bondMapF[:,:,0,1]**2) ); plt.colorbar()
-    plt.show()
-
-    print( " atomMap.shape[:3]+(1,) ",  atomMap.shape[:3],  atomMap.shape[:3]+(1,) )
-    fff.setGridShape( atomMap.shape[:3]+(1,), lvec )
-    fff.bindGrids( atomMap, bondMap )
-    '''
-    #except Exception as e:
-    #    raise Exception(e) 
-    #    print(e)
-    #    print " cannot load ./Atoms.npy or ./Bonds.npy "
 
     return atomMapF, bondMapF, lvec
 
@@ -253,18 +208,15 @@ class EngineFARFF():
             xyzs = molecule.xyzs
             Zs   = molecule.Zs
             qs   = molecule.qs
-        #fff = sys.modules[__name__]
         print( " # preform_relaxation - init " )
 
         natom  = len(xyzs)
         ndof   = reallocFF(natom)
         norb   = ndof - natom
         self.natom = natom; self.ndof = ndof; self.norb = norb; 
-        #atypes = fff.getTypes (natom)    ; print "atypes.shape ", atypes.shape
         self.dofs   = getDofs(self.ndof)   ; print("dofs.shape ", self.dofs.shape)
         self.apos   = self.dofs[:natom]    ; print("apos.shape ", self.apos.shape)
         self.opos   = self.dofs[natom:]    ; print("opos.shape ", self.opos.shape)
-        #self.apos[:,:] = xyzs[:,:] #
         self.apos   = xyzs.copy()
 
         print( " # preform_relaxation - set DOFs " )
@@ -284,34 +236,26 @@ class EngineFARFF():
             setGridShape( atomMap.shape[:3]+(1,), lvec )     # ToDo :    this should change if 3D force-field is used
         bindGrids   ( atomMap, bondMap )
         print( " # preform_relaxation - set DOFs [4]" )
-        #atomMapF, bondMapF = makeGridFF( fff )    # prevent GC from deleting atomMapF, bondMapFF
         setupOpt(dt=self.dt, damp=self.damp, f_limit=self.f_limit, l_limit=self.l_limit )
 
         # ! this must be done after setupFF 
         self.atomMapStrenghs = getAtomMapStrenghs(natom)
         self.bondMapStrenghs = getBondMapStrenghs(norb)
-        #atomMapStrenghs[:] = 0.5
-        #bondMapStrenghs[:] = 0.1
         self.atomMapStrenghs[:] = 0.0
         self.bondMapStrenghs[:] = 0.0
 
         print( " # preform_relaxation - to Loop " )
 
-        #glview = glv.GLView()
         self.NmaxIter = 10; print( "DEBUG self.NmaxIter = 10; " )
         for i in range( int( self.NmaxIter/self.NstepPerCheck )+1 ):
-            #glview.pre_draw()
             F2err = relaxNsteps( self.NstepPerCheck, Fconv=Fconv, ialg=0 )
             print("[%i]|F| %g " %(i*self.NstepPerCheck, np.sqrt(F2err) ) )
-            #if glview.post_draw(): break
-            #time.sleep(.05)
             if F2err<(Fconv*Fconv): 
                 break
         return self.apos[:,:].copy()
 
 
 if __name__ == "__main__":
-    #import basUtils as bu
 
     import time
     if __package__ is None:
@@ -324,19 +268,14 @@ if __name__ == "__main__":
     fff = sys.modules[__name__]
     xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")     #; print xyzs
 
-    #fff.insertAtomType(nbond, ihyb, rbond0, aMorse, bMorse, c6, R2vdW, Epz)
-
     natom  = len(xyzs)
     ndof   = fff.reallocFF(natom)
     norb   = ndof - natom
-    #atypes = fff.getTypes (natom)    ; print "atypes.shape ", atypes.shape
     dofs   = fff.getDofs(ndof)       ; print("dofs.shape ", dofs.shape)
     apos   = dofs[:natom]            ; print("apos.shape ", apos.shape)
     opos   = dofs[natom:]            ; print("opos.shape ", opos.shape)
 
-    #atypes[:] = 0        # use default atom type
     apos[:,:] = xyzs[:,:] #
-    #opos[:,:] = np.random.rand( norb, 3 ); print "opos.shape ", opos #   exit()
 
     cog = np.sum( apos, axis=0 )
     cog*=(1./natom)
@@ -356,7 +295,6 @@ if __name__ == "__main__":
         pass
 
     fff.setupOpt(dt=0.05, damp=0.2, f_limit=100.0, l_limit=0.2 )
-    #fff.relaxNsteps(50, Fconv=1e-6, ialg=0)
 
     glview = glv.GLView()
     for i in range(1000000):
@@ -368,10 +306,3 @@ if __name__ == "__main__":
             exit()
         if glview.post_draw(): break
         time.sleep(.05)
-
-    '''
-    def animRelax(i, perFrame=1):
-        fff.relaxNsteps(perFrame, Fconv=1e-6, ialg=0)
-        return apos,None
-    au.makeMovie( "movie.xyz", 100, elems, animRelax )
-    '''

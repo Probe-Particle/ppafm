@@ -5,7 +5,6 @@ import os
 import sys
 
 from . import cpp_utils
-#import cpp_utils
 
 verbose = 0
 
@@ -25,11 +24,7 @@ params={
     'moleculeShift':  np.array( [  0.0,      0.0,    0.0 ] ),
     'probeType':   'O',
     'charge':      0.00,
-    #'Apauli':     0.0,
     'Apauli':    18.0,
-    #'Apauli':    10.0,
-    #'Apauli':   0.00600,
-    #'Apauli':   0.60,
     'ffModel':     'LJ',
     'Rcore':    0.7,
     'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
@@ -109,7 +104,6 @@ def rotation_matrix(axis, theta):
     axis    =  np.asarray(axis)
     axis    =  axis/np.sqrt(np.dot(axis, axis))
     a       =  np.cos(theta/2.0)
-    #print  "axis, theta ", axis, theta
     b, c, d = -axis*np.sin(theta/2.0)
     aa, bb, cc, dd = a*a, b*b, c*c, d*d
     bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
@@ -146,17 +140,13 @@ def sphereTangentSpace(n=100):
     return rots
 
 def maxAlongDir(atoms, hdir):
-    #print atoms[:,:3]
     xdir = np.dot( atoms[:,:3], hdir[:,None] )
-    #print xdir
     imin = np.argmax(xdir)
     return imin, xdir[imin][0]
 
 def maxAlongDirEntropy(atoms, hdir, beta=1.0 ):
     xdir = np.dot( atoms[:,:3], hdir[:,None] )
     imin = np.argmax(xdir)
-    #entropy = np.sum( 1.0/( 1.0 + ( beta*(xdir - xdir[imin]) )**2  )
-    #print (xdir - xdir[imin])
     entropy = np.sum( np.exp( beta*(xdir - xdir[imin]) ) )
     return imin, xdir[imin][0], entropy
 
@@ -208,16 +198,13 @@ def loadParams( fname ):
                         if(verbose>0): print(key)
                         params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
                         if(verbose>0): print(key, params[key], words[1], words[2], words[3])
-                    else: #val.dtype == np.str:
+                    else:
                         params[key] = np.array([ str(words[1]), float(words[2]) ])
                         if(verbose>0): print(key, params[key], words[1], words[2])
             else :
                 raise ValueError("Parameter {} is not known".format(key))
     fin.close()
     if (params["gridN"][0]<=0):
-        #params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
-        #params["gridN"][1]=round(np.linalg.norm(params["gridB"])*10)
-        #params["gridN"][2]=round(np.linalg.norm(params["gridC"])*10)
         autoGridN()
 
     params["tip"] = params["tip"].replace('"', ''); params["tip"] = params["tip"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
@@ -250,7 +237,6 @@ def loadSpecies( fname=None ):
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
 def loadSpeciesLines( lines ):
-    #params = [ ( float(l[0]), float(l[1]), float(l[2]), int(l[3]), l[4] ) for l in ( l.split() for l in lines )]  
     params = []
     for l in lines:
         l = l.split()
@@ -309,11 +295,9 @@ def PBCAtoms( Zs, Rs, Qs, avec, bvec, na=None, nb=None ):
             for iatom in range(len(Zs)):
                 x = Rs[iatom][0] + i*avec[0] + j*bvec[0]
                 y = Rs[iatom][1] + i*avec[1] + j*bvec[1]
-                #if (x>xmin) and (x<xmax) and (y>ymin) and (y<ymax):
                 Zs_.append( Zs[iatom]          )
                 Rs_.append( (x,y,Rs[iatom][2]) )
                 Qs_.append( Qs[iatom]          )
-                #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
     return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy()	
 
 def PBCAtoms3D( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
@@ -338,12 +322,10 @@ def PBCAtoms3D( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
                     x = Rs[iatom][0] + ia*lvec[0][0] + ib*lvec[1][0] + ic*lvec[2][0]
                     y = Rs[iatom][1] + ia*lvec[0][1] + ib*lvec[1][1] + ic*lvec[2][1]
                     z = Rs[iatom][2] + ia*lvec[0][2] + ib*lvec[1][2] + ic*lvec[2][2]
-                    #if (x>xmin) and (x<xmax) and (y>ymin) and (y<ymax):
                     Zs_.append( Zs[iatom] )
                     Rs_.append( (x,y,z)   )
                     Qs_.append( Qs[iatom] )
                     cLJs_.append( cLJs[iatom,:] )
-                    #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
     return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy(), np.array(cLJs_).copy()
 
 def findPBCAtoms3D_cutoff( Rs, lvec, Rcut=1.0, corners=None ):
@@ -352,21 +334,18 @@ def findPBCAtoms3D_cutoff( Rs, lvec, Rcut=1.0, corners=None ):
        or more precisely which points 'Rs' belong to a rhombic cell enlarged by margin Rcut on each side
     all assuming that 'Rcut' is smaller than the rhombic cell (in all directions)  
     '''
-    #print "lvec ", lvec
-    invLvec = np.linalg.inv(lvec) ; #print "invLvec ", invLvec
+    invLvec = np.linalg.inv(lvec)
     abc = np.dot( invLvec, Rs )  # atoms in grid coordinates
     # calculate margin on each side in grid coordinates
     ra  = np.sqrt(np.dot(invLvec[0],invLvec[0]));   mA = ra*Rcut
     rb  = np.sqrt(np.dot(invLvec[1],invLvec[1]));   mB = rb*Rcut
     rc  = np.sqrt(np.dot(invLvec[2],invLvec[2]));   mC = rc*Rcut
-    #print "margins ", mA, mB, mC
     cells = [-1,0,1]
     inds  = []
     Rs_   = []
     a = abc[0];
     b = abc[1];
     c = abc[2];
-    #print "Rs.shape ", Rs.shape
     i = 0
     for ia in cells:
         mask_a  = (a>(-mA-ia)) & (a<(mA+1-ia)) 
@@ -380,12 +359,10 @@ def findPBCAtoms3D_cutoff( Rs, lvec, Rcut=1.0, corners=None ):
                 inds_abc = np.nonzero( mask )[0]
                 if len(inds_abc)==0: continue
                 Rs_abc   = Rs[:,inds_abc] 
-                #print i,(ia,ib,ic), "Rs.shape ", Rs.shape, "  Rs_abc.shape ", Rs_abc.shape
                 Rs_abc  += v_shift[:,None]
                 inds.append( inds_abc )
                 Rs_ .append( Rs_abc   )
                 i+=1
-    #print "Rs_\n", Rs_
     inds = np.concatenate( inds )
     Rs_  = np.hstack( Rs_  )
 
@@ -444,7 +421,6 @@ def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
                 if cLJs is not None:
                     cLJs_ [i0:i1,: ] = cLJs[:,:]
                 i0 += natom
-                #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
     return Zs_, xyzqs_, cLJs_
 
 def multRot( Zs, Rs, Qs, cLJs, rots, cog = (0,0,0) ):
@@ -458,9 +434,7 @@ def multRot( Zs, Rs, Qs, cLJs, rots, cog = (0,0,0) ):
     cLJs_ = []
     for rot in rots:
         for iatom in range(len(Zs)):
-            #xyz = Rs[iatom]
             xyz = ( Rs[iatom][0] -cog[0],  Rs[iatom][1] -cog[1], Rs[iatom][2] -cog[2] )
-            #print iatom, xyz[0], xyz[1], xyz[2]
             x = xyz[0]*rot[0][0] + xyz[1]*rot[0][1] + xyz[2]*rot[0][2]    + cog[0]
             y = xyz[0]*rot[1][0] + xyz[1]*rot[1][1] + xyz[2]*rot[1][2]    + cog[1]
             z = xyz[0]*rot[2][0] + xyz[1]*rot[2][1] + xyz[2]*rot[2][2]    + cog[2]
@@ -468,7 +442,6 @@ def multRot( Zs, Rs, Qs, cLJs, rots, cog = (0,0,0) ):
             Rs_.append( (x,y,z)   )
             Qs_.append( Qs[iatom] )
             cLJs_.append( cLJs[iatom,:] )
-            #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
     return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy(), np.array(cLJs_).copy()
 
 
@@ -476,9 +449,7 @@ def getFFdict( FFparams ):
     elem_dict={}
     for i,ff in enumerate(FFparams):
         if(verbose>0): print(i,ff)
-        #elem_dict[ff[3]] = i+1
         elem_dict[ff[4]] = i+1
-    #print " elem_dict ", elem_dict
     return elem_dict
 
 def atom2iZ( atm, elem_dict ):
@@ -499,7 +470,6 @@ def parseAtoms( atoms, elem_dict, PBC=True, autogeom=False, lvec=None ):
         if(verbose>0): print("WARRNING: elem_dict is None => iZs are zero")
         iZs=np.zeros( len(atoms[0]) )
     else:
-        #iZs=np.array( [atom2iZ(atm,elem_dict) for atm in atoms[0] ], dtype=np.int32 )
         iZs = atoms2iZs( atoms[0], elem_dict )
     if autogeom:
         if(verbose>0): print("WARRNING: autoGeom shifts atoms")
@@ -516,7 +486,6 @@ def get_C612( i, j, FFparams ):
     '''
     compute Lenard-Jones coefitioens C6 and C12 pair of atoms i,j
     '''
-#	print i, j, FFparams[i], FFparams[j]
     Rij = FFparams[i][0] + FFparams[j][0]
     Eij = np.sqrt( FFparams[i][1] * FFparams[j][1] )
     return 2*Eij*(Rij**6), Eij*(Rij**12)
@@ -548,11 +517,10 @@ def getAtomsREA(  iZprobe, iZs,  FFparams, alphaFac=-1.0 ):
     i = iZprobe-1
     for ii in range(n):
         j = iZs[ii]-1
-        #print ii, i, j
         REAs[ii,0] = FFparams[i][0] + FFparams[j][0]
         REAs[ii,1] = -np.sqrt( FFparams[i][1] * FFparams[j][1] )
         REAs[ii,2] = FFparams[j][2] * alphaFac
-    return REAs     #np.array( REAs, dtype=np.float32 )
+    return REAs
 
 def getSampleAtomsREA( iZs, FFparams ):
     return np.array( [ ( FFparams[i-1][0],FFparams[i-1][1],FFparams[i-1][2] ) for i in iZs ] )
@@ -567,10 +535,6 @@ def combineREA( PP_R, PP_E, atomREAs, alphaFac=-1.0 ):
 
 def getAtomsRE(  iZprobe, iZs,  FFparams ):
     n   = len(iZs)
-    #REs  = np.zeros((n,2))
-    #for i in range(n):
-    #    REs[i,0] = FFparams[i][0] + FFparams[j][0]
-    #    REs[i,1] = np.sqrt( FFparams[i][1] * FFparams[j][1] )
     Rpp = FFparams[iZprobe-1][0]
     Epp = FFparams[iZprobe-1][1]
     REs = np.array( [ ( Rpp+ FFparams[iZs[i]-1][0],  Epp * FFparams[iZs[i]-1][1] )  for i in range(n) ] )
@@ -578,12 +542,8 @@ def getAtomsRE(  iZprobe, iZs,  FFparams ):
     return REs
 
 def getAtomsLJ_fast( iZprobe, iZs,  FFparams ):
-    #Rs  = FFparams[:,0]
-    #Es  = FFparams[:,1]
-    #np.array( [ (FFparams[i][0],FFparams[i][1]) for i in iZs ] )
     R = np.array( [ FFparams[i-1][0] for i in iZs ] )
     E = np.array( [ FFparams[i-1][1] for i in iZs ] )
-    #R   = Rs[iZs];  E   = Es[iZs]; 
     R+=FFparams[iZprobe-1][0]
     E=np.sqrt(E*FFparams[iZprobe-1][1]); 
     cLJs = np.zeros((len(E),2))

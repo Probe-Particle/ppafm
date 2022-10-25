@@ -5,9 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
-#params = None
-
-
 # =========== defaults
 
 default_figsize       = (8,8)
@@ -133,7 +130,6 @@ def plotArrows(
     for ii,i in enumerate(slices):
         print(" plotting ", i)
         plt.figure( figsize=figsize )
-        #plt.plt.quiver( dX, dY, X, Y, C=C, width=width, scale=scale )
         plt.quiver(  Xs[::by,::by], Ys[::by,::by],  dX[::by,::by], dY[::by,::by], color = 'k', headlength=10, headwidth=10, scale=15 )
         if BG is not None:
             plt.imshow    ( BG[i,:,:], origin='image',  interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax  )
@@ -168,7 +164,6 @@ def checkVecField(FF):
     plt.subplot(3,3,8); plt.imshow(FF[:,:,FF.shape[2]/2,1], interpolation='nearest'); plt.title("FF_y(z,y)") 
     plt.subplot(3,3,9); plt.imshow(FF[:,:,FF.shape[2]/2,2], interpolation='nearest'); plt.title("FF_z(z,y)") 
     plt.savefig("checkfield.png", bbox_inches='tight')
-    #plt.show()
 
 # ================
 

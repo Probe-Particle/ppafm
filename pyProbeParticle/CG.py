@@ -39,40 +39,6 @@ def CG( A, b, x, nMaxIter=10, Econv=1e-10, bPrint=True ):
               break
     return x
 
-
-
-
-'''
-def CG( x0, A, C, b, mit, stol=1e-8, bbA, bbC ):
-    x = x0.copy(); ha = 0; hp = 0; hpp = 0; ra = 0; rp = 0; rpp = 0; u = 0; k = 0;
-    ra = b - bbA(A, x0);
-    err = 
-    while norm(ra, inf) > stol:
-        ha = bbC(C, ra);      # <--- ha = C \ ra;
-        k = k + 1;
-        if (k == mit), 
-            print('GCP:MAXIT ', 'mit reached, no conversion.'); 
-            return
-        hpp = hp;
-        rpp = rp;
-        hp  = ha;
-        rp  = ra;
-        t = rp' * hp;
-        if k == 1
-                u = hp;
-        else
-                u = hp + (t / (rpp' * hpp)) * u;
-        end;
-        Au = bbA(A, u); # <--- Au = A * u;
-        a = t / (u' * Au);
-        x = x + a * u;
-        ra = rp - a * Au;
-'''
-
-
-
-
-
 '''
 #https://en.wikipedia.org/wiki/Conjugate_gradient_method
 
