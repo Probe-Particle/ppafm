@@ -4,15 +4,15 @@ import os
 import numpy as np
 import pyopencl as cl
 
-from . import common       as PPU
-from . import fieldOCL     as FFcl
-from . import RelaxOpenCL  as oclr
-from . import HighLevelOCL as hl
-from . import oclUtils     as oclu
+from .. import common   as PPU
+from . import field     as FFcl
+from . import relax     as oclr
+from . import oclUtils  as oclu
+from . import HighLevel as hl
 
-from .fieldOCL import HartreePotential, MultipoleTipDensity, hartreeFromFile
-from .basUtils import loadAtomsLines
-from .PPPlot import plotImages
+from .field import HartreePotential, MultipoleTipDensity, hartreeFromFile
+from ..basUtils import loadAtomsLines
+from ..PPPlot import plotImages
 
 VALID_SIZES = np.array([16, 32, 64, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048])
 

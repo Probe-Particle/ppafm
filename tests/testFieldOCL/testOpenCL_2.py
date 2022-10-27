@@ -13,7 +13,7 @@ import pyProbeParticle.GridUtils as GU
 import pyProbeParticle.common as PPU
 import pyProbeParticle.cpp_utils as cpp_utils
 
-import pyProbeParticle.fieldOCL as FFcl 
+import pyProbeParticle.ocl.field as FFcl 
 
 def loadInput( ):
     FFparams          = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )

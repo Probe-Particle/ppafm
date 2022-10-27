@@ -2,14 +2,14 @@
 import sys
 sys.path.append('../..')
 
-from pyProbeParticle import oclUtils     as oclu 
-from pyProbeParticle import fieldOCL     as FFcl 
-from pyProbeParticle import RelaxOpenCL  as oclr
+from pyProbeParticle.ocl import oclUtils as oclu 
+from pyProbeParticle.ocl import field    as FFcl 
+from pyProbeParticle.ocl import relax    as oclr
 from pyProbeParticle import common       as PPU
 from pyProbeParticle import basUtils
-from pyProbeParticle.AFMulatorOCL_Simple import AFMulator
-from pyProbeParticle.GeneratorOCL_Simple2 import InverseAFMtrainer
-from pyProbeParticle.AuxMap import AuxMaps
+from pyProbeParticle.ocl.AFMulator import AFMulator
+from pyProbeParticle.ml.Generator import InverseAFMtrainer
+from pyProbeParticle.ml.AuxMap import AuxMaps
 
 import os
 import time
@@ -21,32 +21,21 @@ class ExampleTrainer(InverseAFMtrainer):
     def on_sample_start(self):
         self.randomize_distance(delta=0.2)
         self.randomize_tip(max_tilt=0.3)
-        # print('Distance, tipR0:', self.distAboveActive, self.afmulator.tipR0)
 
 env = oclu.OCLEnvironment( i_platform = 0 )
 FFcl.init(env)
 oclr.init(env)
 
-args = {
-    'pixPerAngstrome'   : 8,
-    'lvec'              : np.array([
-                            [ 0.0,  0.0, 0.0],
-                            [20.0,  0.0, 0.0],
-                            [ 0.0, 20.0, 0.0],
-                            [ 0.0,  0.0, 4.0]
-                            ]),
-    'scan_dim'          : (128, 64, 20),
-    'scan_window'       : ((2.0, 2.0, 5.0), (18.0, 10.0, 7.0)),
-    'iZPP'              : 8,
-    'QZs'               : [ 0.1,  0, -0.1, 0 ],
-    'Qs'                : [ -10, 20,  -10, 0 ],
-    'amplitude'         : 1.0,
-    'df_steps'          : 10,
-    'initFF'            : True
-}
-
-afmulator = AFMulator(**args)
-afmulator.npbc = (0,0,0)
+afmulator = AFMulator(
+    pixPerAngstrome=10,
+    scan_dim=(128, 64, 19),
+    scan_window=((2.0, 2.0, 5.0), (18.0, 10.0, 7.0)),
+    iZPP=8,
+    QZs=[ 0.1,  0, -0.1, 0 ],
+    Qs=[ -10, 20,  -10, 0 ],
+    df_steps=10,
+    npbc=(0, 0, 0)
+)
 
 auxmap_args = {'scan_window': ((2.0, 2.0), (18.0, 10.0)), 'scan_dim': (128, 64)}
 spheres = AuxMaps('vdwSpheres', auxmap_args)
@@ -55,17 +44,15 @@ height_map = AuxMaps('HeightMap', {'scanner': afmulator.scanner})
 bonds = AuxMaps('Bonds', auxmap_args)
 atomrfunc = AuxMaps('AtomRfunc', auxmap_args)
 aux_maps = [spheres, disks, height_map, bonds, atomrfunc]
-# aux_maps = [bonds, atomrfunc]
 
 molecules = ['out2', 'benzeneBrCl2', 'out3']
 paths = [f'{mol}/pos.xyz' for mol in molecules]
 
-trainer = ExampleTrainer(afmulator, aux_maps, paths, batch_size=20, distAbove=5.0)
+trainer = ExampleTrainer(afmulator, aux_maps, paths, batch_size=20, distAbove=4.5)
 trainer.bRuntime = True
 
 rotations = PPU.sphereTangentSpace(n=100)
 trainer.augment_with_rotations_entropy(rotations, 30)
-# trainer.augment_with_rotations(rotations[:2])
 trainer.shuffle_molecules()
 
 save_dir = './test_images/'

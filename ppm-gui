@@ -16,13 +16,13 @@ from enum import Enum
 
 from pyProbeParticle import basUtils
 from pyProbeParticle import PPPlot
-from pyProbeParticle.AFMulatorOCL_Simple import AFMulator
-from pyProbeParticle.fieldOCL            import HartreePotential, hartreeFromFile
-import pyProbeParticle.GridUtils  as GU
-import pyProbeParticle.common     as PPU
-import pyProbeParticle.oclUtils   as oclu
-import pyProbeParticle.fieldOCL   as FFcl
-import pyProbeParticle.GUIWidgets as guiw
+from pyProbeParticle.ocl.AFMulator import AFMulator
+from pyProbeParticle.ocl.field     import HartreePotential, hartreeFromFile
+import pyProbeParticle.GridUtils    as GU
+import pyProbeParticle.common       as PPU
+import pyProbeParticle.ocl.oclUtils as oclu
+import pyProbeParticle.ocl.field    as FFcl
+import pyProbeParticle.GUIWidgets   as guiw
 
 Multipoles = Enum('Multipoles', 's pz dz2')
 

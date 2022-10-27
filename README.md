@@ -77,7 +77,7 @@ Additionally an OpenCL Installable Client Driver (ICD) for your compute device i
 
 Run the GUI application:
 ```sh
-./GUILJ.py
+./ppm-gui
 ```
   
 ###### Usage:

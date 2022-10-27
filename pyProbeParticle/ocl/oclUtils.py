@@ -4,8 +4,8 @@ import os
 import pyopencl as cl
 import numpy    as np 
 
-from . import fieldOCL    as FFcl
-from . import RelaxOpenCL as oclr
+from . import field as FFcl
+from . import relax as oclr
 
 class OCLEnvironment:
 
@@ -16,7 +16,7 @@ class OCLEnvironment:
         print(f"Initializing an OpenCL environment on {self.platform.name}")
 
         self.PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) ); 
-        self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH + '/../cl' )
+        self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH + '/../../cl' )
         self.ctx          = cl.Context(properties=[(cl.context_properties.PLATFORM, self.platform)], devices=None)
         self.queue        = cl.CommandQueue(self.ctx)
 

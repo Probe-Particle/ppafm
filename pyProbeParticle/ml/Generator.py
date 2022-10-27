@@ -3,10 +3,8 @@ import time
 import random
 import numpy as np
 
-from . import basUtils
-from . import common as PPU
-
-from .AFMulatorOCL_Simple import get_lvec
+from .. import basUtils
+from .. import common as PPU
 
 class InverseAFMtrainer:
     '''
@@ -22,7 +20,7 @@ class InverseAFMtrainer:
     of each atom.
 
     Arguments:
-        afmulator: An instance of AFMulatorOCL_Simple.AFMulator.
+        afmulator: An instance of AFMulator.
         auxmaps: list of AuxMap objects.
         paths: list of paths to xyz files of molecules. The molecules are saved to the "molecules" attribute
                in np.ndarrays of shape (num_atoms, 5) with [x, y, z, charge, element] for each atom.
@@ -278,7 +276,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
     Generate batches of input/output pairs for machine learning based on Hartree potentials. An iterator.
 
     Arguments:
-        afmulator: An instance of AFMulatorOCL_Simple.AFMulator.
+        afmulator: An instance of AFMulator.
         auxmaps: list of AuxMap objects.
         sample_generator: Iterable. An iterable that returns tuples (hartree, xyzs, Zs, rotations), where
             hartree is a HartreePotential, xyzs is a np.ndarray of shape (n_atoms, 3), Zs is a np.ndarray of

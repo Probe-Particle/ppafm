@@ -5,7 +5,7 @@ import os
 import pyopencl as cl
 import numpy as np
 
-from . import common as PPU
+from .. import common as PPU
 
 # ========== Globals
 
