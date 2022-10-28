@@ -227,7 +227,7 @@ def apply_options(opt):
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
 def loadSpecies( fname=None ):
-    if fname is None:
+    if fname is None or not os.path.exists(fname):
         if(verbose>0): print("WARRNING: loadSpecies(None) => load default atomtypes.ini")
         fname=cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini'
     if(verbose>0): print(" loadSpecies from ", fname)

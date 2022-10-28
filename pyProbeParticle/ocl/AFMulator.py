@@ -8,7 +8,6 @@ from .. import common   as PPU
 from . import field     as FFcl
 from . import relax     as oclr
 from . import oclUtils  as oclu
-from . import HighLevel as hl
 
 from .field import HartreePotential, MultipoleTipDensity, hartreeFromFile
 from ..basUtils import loadAtomsLines
@@ -106,7 +105,7 @@ class AFMulator():
         self.setRho(rho, sigma)
         self.setQs(Qs, QZs)
 
-        self.typeParams = hl.loadSpecies('atomtypes.ini')
+        self.typeParams = PPU.loadSpecies('atomtypes.ini')
         self.saveFFpre = ""
         self.counter = 0
     
