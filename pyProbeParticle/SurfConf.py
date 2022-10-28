@@ -5,9 +5,6 @@ import os
 import numpy as np
 
 from . import  RigidMol  as rmol
-#import  RigidMol  as rmol
-#import yMolecular.atomicUtils as au
-#import common    as PPU
 
 def combineGeoms(mol,surf):
     es   = mol[0] + surf[0]
@@ -91,7 +88,6 @@ def initSurf( surfFile, cell, ns=[60,60,100] ):
         print("gridFF not found on disk => recalc ")
         rmol.recalcGridFF( np.array([1,1,1],dtype=np.int32) )
         rmol.saveGridFF()
-    #rmol.debugSaveGridFF( "FFtot_z_Na.xsf", np.array([1.3,0.0447214,0.0]) )
 
 def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0.01 ):
 
@@ -105,22 +101,19 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
 
     print("DEBUG 1")
 
-    #rmol.save2xyz( "world_debug_00.xyz" )
-
     # ========= Relaxation
 
-    rmol.bakeMMFF();   #print "DEBUG 1.1"
-    rmol.prepareOpt(); #print "DEBUG 1.2"
+    rmol.bakeMMFF()
+    rmol.prepareOpt()
     rmol.setOptFIRE( dt_max=0.2, dt_min=0.01, damp_max=0.1, minLastNeg=5, finc=1.1, fdec=0.5, falpha=0.98, kickStart=1.0 ); print("DEBUG 1.3")
 
     print("DEBUG 3")
 
-    poses = rmol.getPoses();    #print "rmol.getPoses() ", poses_
-    apos  = rmol.getAtomPos();  #print "rmol.getAtomPos() ", apos
+    poses = rmol.getPoses()
+    apos  = rmol.getAtomPos()
 
     rots_ = []
     for irot,rot in enumerate(rots):
-        #fout = rmol.openf( "movie.xyz", -1, "w" )
         mol_name = molFile.split("/")[1].split(".")[0]
         print(mol_name)
         fout = open( "movie_%s_%03i.xyz" %(mol_name,irot) ,'w')
@@ -128,17 +121,11 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
         print("q ", q)
         poses[0,4:8] = q
         for i in range(nMaxIter):
-            #print ">>> i ", i
-            #F2 = rmol.relaxNsteps( nMaxIter, Fconv**2 ); 
             F2 = rmol.relaxNsteps( 1, 0.0 ); 
             rot_ = quat2mat(poses[0,4:8])
             rots_.append(rot_)
-
-            #print "|F| ", np.sqrt(F2)
             xyzs[:nAtomMol,:] = apos[:,:]
             writeToXYZ( fout, es, xyzs )
-            #rmol.write2xyz( fout )
-            #rmol.save2xyz( "world_debug_%03i.xyz" %i )
         print("rot  ", rot)
         print("rot_ ", rot_)
         fout.close()
@@ -146,10 +133,6 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
     del  poses
     del  apos
     return rots_
-
-#  >> itr 0 F2 0.557349 dt 0.05 qrot (-0.353364,-0.352836,-0.612781,0.612486) int 139984312000528 
-
-
 
 if __name__ == "__main__":
 
@@ -178,9 +161,4 @@ if __name__ == "__main__":
     nAtomMol = len(campher[0])
     es, xyzs = combineGeoms(campher,surf)
     rots_ = getSurfConfs( rots, "inputs/Campher.xyz", pos=[ 5.78, 6.7, 12.24 ], nMaxIter=100, Fconv=0 )
-    #print "rots_", rots_
     print(">>>> ALL DONE <<<<")
-
-
-
-

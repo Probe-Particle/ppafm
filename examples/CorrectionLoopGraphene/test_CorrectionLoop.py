@@ -2,18 +2,18 @@
 import sys
 sys.path.append('../../')
 
-from pyProbeParticle import oclUtils     as oclu 
-from pyProbeParticle import fieldOCL     as FFcl 
-from pyProbeParticle import RelaxOpenCL  as oclr
+from pyProbeParticle.ocl import oclUtils as oclu 
+from pyProbeParticle.ocl import field    as FFcl 
+from pyProbeParticle.ocl import relax    as oclr
 from pyProbeParticle import common       as PPU
 from pyProbeParticle import basUtils
-from pyProbeParticle.AFMulatorOCL_Simple  import AFMulator
-from pyProbeParticle.GeneratorOCL_Simple2 import InverseAFMtrainer
-from pyProbeParticle.AuxMap import AuxMaps
-import pyProbeParticle.AuxMap as AuxMap
+from pyProbeParticle.ocl.AFMulator  import AFMulator
+from pyProbeParticle.ml.Generator import InverseAFMtrainer
+from pyProbeParticle.ml.AuxMap import AuxMaps
+import pyProbeParticle.ml.AuxMap as AuxMap
 import pyProbeParticle.atomicUtils as au
-from pyProbeParticle.Corrector import Corrector,Molecule
-from pyProbeParticle.CorrectionLoop import CorrectionLoop
+from pyProbeParticle.ml.Corrector import Corrector,Molecule
+from pyProbeParticle.ml.CorrectionLoop import CorrectionLoop
 import pyProbeParticle.SimplePot as pot
 
 import os

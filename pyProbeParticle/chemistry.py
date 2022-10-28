@@ -4,10 +4,6 @@ from . import elements
 import math
 import numpy as np
 
-#from sortedcontainers import SortedDict
-
-#exclude_default = set(1)
-
 # ===========================
 #      Molecular Topology
 # ===========================
@@ -30,31 +26,6 @@ def findBondsZs( xyzs, Zs, ELEMENTS=elements.ELEMENTS, fR=1.3 ):
     Rs = np.array([ ELEMENTS[iz-1][6]*fRvdw for iz in Zs ])
     findBonds( xyzs, Rs, fR=1.3 )
     return findBonds( xyzs, Rs, fR=fR )
-
-'''
-def findBondsZs( xyzs, Zs, ELEMENTS=elements.ELEMENTS, Rcut=2.0, fRvdw=1.3 ):
-    #n     = len(Zs)
-    n     = len(xyzs)
-    #print "len(xyzs)", n
-    bonds = []
-    R2cut = Rcut*Rcut
-    inds  = np.indices((n,))[0]
-    #print inds
-    Rvdws = np.array([ ELEMENTS[iz-1][6]*fRvdw for iz in Zs ])
-    #print "RvdWs: ",Rvdws
-    for i in range(1,n):
-        ds     = xyzs[:i,:] - xyzs[i,:][None,:]
-        #print "ds.shape ", ds.shape
-        r2s   = np.sum( ds**2, axis=1 ); #print r2s
-        #rs    = np.sqrt( np.sum( ds**2, axis=1 ) ); print rs
-        mask   = r2s < ( Rvdws[:i] + Rvdws[i] )**2
-        #mask   = (rs - Rvdws[:i]) <  + Rvdws[i] 
-        #print "mask.shape ", mask.shape
-        #print "inds.shape ", inds.shape
-        sel    = inds[:i][mask]
-        bonds += [ (i,j) for j in sel ]
-    return bonds
-'''
 
 def bonds2neighs( bonds, na ):
     ngs = [ [] for i in range(na) ]
@@ -91,91 +62,6 @@ def neighs2str( Zs, neighs, ELEMENTS=elements.ELEMENTS, bPreText=False ):
             groups[i] = s
     return groups
 
-'''
-def classifyGroups( Zs, neighs ):
-    groups = [ '' for i in Zs ]
-    for i,iz in enumerate(Zs):
-        nng = len(neighs[i])
-        if   iz==6: # carbon
-            if nng == 4:
-            if nng == 3:
-        elif iz==7: # nitrogen
-            
-        elif iz==8: # oxygen
-'''
-
-
-'''
-def findBonds(ps,Rs,fc=1.5):
-    n=len(ps)
-    bonds  = []
-    neighs = [ [] for i in range(n) ]
-    for i in range(n):
-        for j in range(i+1,n):
-            d=ps[j]-ps[i]
-            R=((Rs[i]+Rs[j])*1.5)
-            r2=np.dot(d,d) 
-            if(r2<(R*R)):
-                #print i,j,R,np.sqrt(r2)
-                bonds.append((i,j))
-                neighs[i].append(j)
-                neighs[j].append(i)
-    #print bonds
-    return bonds, neighs
-'''
-
-#def orderTriple(a,b,c):
-#    if a>b:
-#        
-
-'''
-def tryInsertTri_i(tris,tri,i):
-    if tri in tris:
-        tris[tri].append(i)
-    else:
-        tris[tri] = [i]
-
-def tryInsertTri(tris,tri):
-    #print "tri ", tri
-    if not (tri in tris):
-        tris[tri] = []
-'''
-
-'''
-def findTrisRings(bonds,neighs):
-    tris = {}
-    for ia,ib in bonds:
-        a_ngs  = neighs[ia]
-        b_ngs  = neighs[ib]
-        common = []
-        for i in a_ngs:
-            if i in b_ngs:
-                common.append(i)
-        #print "bond ",b," common ",common
-        ncm = len(common)
-        if   ncm>2:
-            print "WARRNING: bond ", b, " common neighbors ", common
-            continue
-        elif ncm<1:
-            print "WARRNING: bond ", b, " common neighbors ", common
-            continue
-        tri0 = tuple(sorted(b+(common[0],)))
-        if len(common)==2:
-            tri1 = tuple(sorted(b+(common[1],)))
-            tris.setdefault(tri1,[]).append( tri0 )
-            tris.setdefault(tri0,[]).append( tri1 )
-            #print tri0, tri1
-            #tris.setdefault(tri0,[]).append(common[1])
-            #tris.setdefault(tri1,[]).append(common[0])
-            #setdefault()
-            #tryInsertTri_i(tris,tri0,common[1])
-            #tryInsertTri_i(tris,tri1,common[0])
-        else:
-            tris.setdefault(tri0,[])
-            #tryInsertTri(tris,tri0)
-    return tris
-'''
-
 def findTris(bonds,neighs):
     tris   = set()
     tbonds = []
@@ -202,40 +88,21 @@ def findTris(bonds,neighs):
             tbonds.append((tri0,tri1))
     return tris, tbonds
 
-
 def findTris_(bonds,neighs):
     tris   = set()
     tbonds = []
-    #bset = set(bonds)
-    #bset = { tuple(sorted(b)) for b in bonds }
-    #print "bset ", bset
-    #exit()
     for b in bonds:
-    #for b in bset:
         a_ngs  = neighs[b[0]]
         b_ngs  = neighs[b[1]]
         common = []
         for i in a_ngs:
             if i in b_ngs:
                 common.append(i)
-        #print "bond ",b," common ",common
         ncm = len(common)
         if   ncm>2:
-            #print "WARRNING: bond ", b, " common neighbors ", common
             continue
         elif ncm<1:
-            #print "WARRNING: bond ", b, " common neighbors ", common
             continue
-        '''
-        elif (len(common)==2):
-            cmn  = tuple(sorted(common)) 
-            #print cmn
-            if cmn in bset :
-                print "WARRNING: bond ", b, " corss bond ", cmn
-                if cmn[0] > b[0]:
-                    print "removed "
-                    continue
-        '''
         tri0 = tuple(sorted(b+(common[0],)))
         tris.add(tri0)
         if len(common)==2:
@@ -252,21 +119,6 @@ def getRingNatom(atom2ring,nr):
         nra[r2]+=1
         nra[r3]+=1
     return nra
-
-'''
-def selectNringAtoms(atom2ring,ringNeighs,N=6):
-    na=len(atom2ring)
-    mask=np.empty(na,dtype=np.bool)
-    for ia in xrange(na):
-        a1,a2,a3=atom2ring[ia]
-        n1=len(ringNeighs[a1])
-        n2=len(ringNeighs[a2])
-        n3=len(ringNeighs[a3])
-        #print n1,n2,n3
-        mask[ia]=((n1==N)or(n2==N)or(n3==N))
-    #print "N6mask ", mask ; exit()
-    return mask
-'''
 
 def tris2num_(tris, tbonds):
     t2i     = { k:i for i,k in enumerate(tris) }
@@ -296,26 +148,12 @@ def validBonds( bonds, mask, na ):
             bonds_.append( (a2a[i],a2a[j]) )
     return bonds_
 
-'''
-def tris2num(tris):
-    t2i = { k:i for i,k in enumerate(tris) }
-    out = []
-    for k,v in tris:
-        out.append( [ t2i[t] for t in v] )
-    return out
-'''
-
-
-# ===========================
-#
-# ==========================
-
 def removeAtoms( atom_pos, bonds, atom2ring, cog, Lrange=10 ):
     # --- remove some atoms
-    mask      = removeBorderAtoms(atom_pos,cog,Lrange)          # ;print "remove atom mask ", mask
-    bonds     = validBonds( bonds, mask, len(atom_pos) )   # ;print "rm:bonds ", bonds
-    atom_pos  = atom_pos [mask,:]                             # ;print "rm:atom_pos ", atom_pos
-    atom2ring = atom2ring[mask,:]                             # ;print "rm:atom2ring ", atom2ring
+    mask      = removeBorderAtoms(atom_pos,cog,Lrange)
+    bonds     = validBonds( bonds, mask, len(atom_pos) )
+    atom_pos  = atom_pos [mask,:]
+    atom2ring = atom2ring[mask,:]
     return atom_pos, bonds, atom2ring
 
 def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
@@ -323,11 +161,10 @@ def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
     cog = np.sum(ring_pos,axis=0)/Nring
     ring_bonds  = findBonds(ring_pos,ring_Rs,fR=1.0)
     ring_neighs = bonds2neighs(ring_bonds,Nring)
-    ring_nngs   = np.array([ len(ng) for ng in ring_neighs ],dtype=np.int) # print "ring_nngs ", ring_nngs
+    ring_nngs   = np.array([ len(ng) for ng in ring_neighs ],dtype=np.int)
 
-    # --- atoms are centers of triangles with vertexes in ring center
     tris,bonds_ = findTris(ring_bonds,ring_neighs)
-    atom2ring   = np.array( list(tris), dtype=np.int )     #; print "atom2ring ", atom2ring
+    atom2ring   = np.array( list(tris), dtype=np.int )
 
     atom_pos = ( ring_pos[atom2ring[:,0]] + ring_pos[atom2ring[:,1]] + ring_pos[atom2ring[:,2]] )/3.0
     bonds,_  = tris2num_(tris, bonds_)
@@ -336,23 +173,19 @@ def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
     bonds = np.array(bonds)
     
     # --- select aromatic hexagons as they have more pi-character 
-    ring_natm   = getRingNatom(atom2ring,len(ring_neighs))          # ;print "ring_natm ", ring_natm
-    ring_N6mask = np.logical_and( ring_natm[:]==6, ring_nngs[:]==6 )   # ;print "ring_N6mask", len(ring_N6mask), ring_N6mask 
-    atom_N6mask = np.logical_or( ring_N6mask[atom2ring[:,0]], 
-                  np.logical_or( ring_N6mask[atom2ring[:,1]], 
-                                 ring_N6mask[atom2ring[:,2]]  ) )      # ;print "atom_N6mask", len(atom_N6mask), atom_N6mask
+    ring_natm   = getRingNatom(atom2ring,len(ring_neighs))
+    ring_N6mask = np.logical_and( ring_natm[:]==6, ring_nngs[:]==6 )
+    atom_N6mask = np.logical_or( ring_N6mask[atom2ring[:,0]],
+                  np.logical_or( ring_N6mask[atom2ring[:,1]],
+                                 ring_N6mask[atom2ring[:,2]]  ) )
 
     neighs  = bonds2neighs( bonds, len(atom_pos) )    # ;print neighs
     nngs    = np.array([ len(ngs) for ngs in neighs ],dtype=np.int) 
     
     atypes=nngs.copy()-1
-    atypes[atom_N6mask]=3       #; print "atypes ", atypes
+    atypes[atom_N6mask]=3
     
     return atom_pos,bonds, atypes, nngs, neighs, ring_bonds, atom_N6mask
-
-
-
-
 
 # ===========================
 #   Atom Types and groups
@@ -360,13 +193,8 @@ def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
 
 def normalizeSpeciesProbs( species ):
     out = []
-    
     for l in species:
-        #psum = 0
-        #for s in l:
-        #    psum+=s[1]
         renorm=1.0/sum( s[1] for s in l )
-        #out.append([ (s[0],s[1]*renorm) for s in l ])
     return out
 
 def speciesToPLevels( species ):
@@ -376,36 +204,25 @@ def speciesToPLevels( species ):
         l_ = np.cumsum(l_)
         l_*=(1.0/l_[-1])
         levels.append(l_)
-        #psum = 0
-        #for s in l:
-        #    psum+=s[1]
-        #renorm=1.0/sum( s[1] for s in l )
-        #levels.append( np.cumsum(l)*renorm )
-        #out.append([ (s[0],s[1]*renorm) for s in l ])
     return levels
 
 def selectRandomElements( nngs, species, levels ):
     rnds=np.random.rand(len(nngs))
     elist = []
-    #print "levels", levels
     for i,nng in enumerate(nngs):
-        #print i,nng
         ing = nng-1
         il = np.searchsorted( levels[ing], rnds[i]  )
-        #print i, nng, il, rnds[i], levels[ing]  #, levels[nng][il]
         elist.append(species[ing][il][0])
     return elist
 
 def makeGroupLevels(groupDict):
     for k,groups in groupDict.items():
         vsum=0
-        #print "k,groups ", k,groups
         l = np.empty(len(groups))
         for i,(g,v) in enumerate(groups):
             vsum+=v
             l[i] =vsum
         l/=vsum
-        #print l
         groupDict[k] = [l,] + groups
     return groupDict
 
@@ -413,14 +230,12 @@ def selectRandomGroups( an, ao, groupDict ):
     na = len(an)
     rnds=np.random.rand(na)
     out = []
-    #print "levels", levels
     atoms = []
     for i in range(na):
         k = (an[i],ao[i])
         if k in groupDict:
             groups = groupDict[k]
             levels = groups[0]
-            #print levels
             il     = np.searchsorted( levels, rnds[i] )
             out.append( groups[il+1][0] )
         else:
@@ -479,7 +294,6 @@ def normalize(v):
     return v,l
 
 def makeTetrahedron(db,up):
-    #phi = np.random()
     normalize(db)
     side = np.cross(db,up)
     # https://en.wikipedia.org/wiki/Tetrahedron#Formulas_for_a_regular_tetrahedron
@@ -493,9 +307,6 @@ def makeTetrahedron(db,up):
 def makeTetrahedronFork(d1,d2):
     up   = np.cross(d1,d2);  normalize(up)
     db   = d1+d2;            normalize(db)
-    #side = np.cross(d,up)
-    #a = 0.5           # 1/2
-    #b = 0.35355339059 # sqrt(1/8)
     a = 0.81649658092  # sqrt(2/3)
     b = 0.57735026919  # sqrt(1/3)
     return np.array([ db*b + up*a,
@@ -513,9 +324,6 @@ def groups2atoms( groupNames, neighs, ps ):
 
     def appendHs( txyz, Hmask, elems, xyzs, e1="H", e2="He" ):
         Hm = Hmask[ np.random.randint(len(Hmask)) ]
-        #print Hm
-        #if len(Hm) == 1:
-        #    print Hm, txyz 
         for ih in range(len(Hm)):
             if Hm[ih] == 1:
                 elems.append( e1     )
@@ -544,11 +352,8 @@ def groups2atoms( groupNames, neighs, ps ):
             elems.append(g[0])
             xyzs.append(pi.copy())
             
-            #print name, ndir, nsigma, nH
-            
             if      ( ndir==4 ):  # ==== tetrahedral
                 flip = np.random.randint(2)*2-1
-                #print "---------- flip ", flip
                 if   (nsigma==1):     # like -CH3
                     print(name, ndir, nsigma, nH)
                     txyz = makeTetrahedron( pi-ps[ngs[0]] , up*flip ) + pi[None,:]
@@ -567,15 +372,9 @@ def groups2atoms( groupNames, neighs, ps ):
                     appendHs( txyz, Hmasks2[nH], elems, xyzs )
                 elif (nsigma==2):    # like  =CH-
                     appendHs(  normalize( pi*2 - ps[ngs[0]] - ps[ngs[1]] )[0] + pi[None,:] , [(1,)], elems, xyzs )
-                    #if nH==1:
-                    #    elems.append("H")
-                    #    xyzs.append( pi + ( normalize( pi*2 - ps[ngs[0]] - ps[ngs[1]] )[0] ) )
                     
             elif ( ndir==2 ):  # ==== linear
-                appendHs( normalize( pi-ps[ngs[0]] )[0] + pi[None,:], [(1,) ], elems, xyzs ) 
-                #if   (nsigma==1):
-                #    elems.append("H")
-                #    xyzs.append( pi + ( normalize( pi-ps[ngs[0]] )[0] ) )
+                appendHs( normalize( pi-ps[ngs[0]] )[0] + pi[None,:], [(1,) ], elems, xyzs )
             
         else:
             print("Group >>%s<< not known" %name)
@@ -607,7 +406,6 @@ class FIRE:
         self.v_limit  = v_limit
         self.f_limit  = f_limit
         self.bFIRE    = True
-        #self.bFIRE    = False
         
         self.lastNeg = 0
     
@@ -639,7 +437,7 @@ class FIRE:
         dt_ = self.dt * dt_sc
         v[:] += f[:]*dt_
         p[:] += v[:]*dt_
-        #print "|f|,dt,damp,cvf,dt_sc", f_norm, self.dt, self.damp, vf/(v_norm*f_norm), dt_sc
+
         return f_norm
 
 # ===========================
@@ -660,23 +458,16 @@ def assignAtomBOFF(atypes, typeEs):
     nt=len(typeEs)
     na=len(atypes)
     typeMasks = np.empty((nt,na),dtype=np.bool)
-    #typeSelects = []
     typeFFs = []
     Xs = np.array([-1,0,1,2,3,4])
-    #print "typeEs ",typeEs
-    #print "atypes ",atypes
     for it in range(nt):
         typeMasks[it,:] = ( atypes[:] == it )
         Efunc = Akima1DInterpolator(Xs,typeEs[it])
         Ffunc = Efunc.derivative()
         typeFFs.append(Ffunc) 
-        #print  "mask[%i]" %it, masks[it,:]
     return typeMasks, typeFFs 
 
 def relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.01, nMaxStep=1000, EboStart=0.0, EboEnd=10.0, boStart=None, optimizer=None ):
-    # print " ==== ", EboStart, EboEnd
-    #ao=np.zeros(len(nngs ),dtype=np.int)
-    #nngs=np.array(nngs)
     nt=typeMasks.shape[0]
     na=typeMasks.shape[1]
     nb=len(bonds)
@@ -685,21 +476,13 @@ def relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.01, nMaxStep=1000, EboSta
     else:
         bo=boStart.copy()
     fb=np.empty(nb)
-    #vb=np.zeros(nb)
     fa=np.empty(na)
     ao=np.empty(na)        # + 0.5 # initial guess
-    #exit(0)
     
     if optimizer is None:
         optimizer = FIRE()
     
-    #print "bo0 ", bo[:6]
-    
-    #f_debug = []
     for itr in range(nMaxStep):
-        # -- Eval Atom derivs
-        #fa[:] = 0
-        #fb[:] = 0
         
         # -- update Atoms
         ao[:] = 0
@@ -709,56 +492,19 @@ def relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.01, nMaxStep=1000, EboSta
             ao[j] += boi
         
         for it in range(nt):
-            #typeFs[mask]
             Ffunc     = typeFFs[it]
             mask      = typeMasks [it] 
-            #sel      = typeSelects[it]
             fa[mask]  = Ffunc( ao[mask] )
-        # -- Eval Bond derivs
-        #for ib,(i,j) in enumerate(bonds):
-        #    fb[ib] = fa[i] + fa[j]
         fb  = fa[bonds[:,0]] + fa[bonds[:,1]]
         Ebo = (EboEnd-EboStart)*(itr/float(nMaxStep-1)) + EboStart
         fb += Ebo*np.sin(bo*np.pi*2)   # force integer forces
-        # -- move
-        #bo -= fb*dt
-        #vb[:]  = vb[:]*(1-damping) - fb[:]*dt
-        #bo[:] += vb[:]*dt
-        
-        #print "bo[:6]", bo[:6]
-        #print "fb[:6]", fb[:6]
-        #print itr,Ebo,
+
         fb[:]*=-1
         f_norm = optimizer.move(bo,fb)
         
         if f_norm < fConv:
             break
         
-        #f_debug.append(f_norm)
-        
-        #print itr,f_norm
-        #print " bo[:6]", bo[:6]
-        #print " fb[:6]", fb[:6]
-        
-        #ao[bonds[:,0]] += bo
-        #ao[bonds[:,1]] += bo
-        
-        #print "bo ", bo,"\n fb ", fb
-        '''
-        nview=6
-        print "---- itr --- ", itr
-        print "ao ", ao[:nview]
-        print "bo ", bo[:nview]
-        print "vb ", vb[:nview]
-        print "fb ", fb[:nview]
-        '''
-    
-    #print "f_debug", f_debug
-    #import matplotlib.pyplot as plt 
-    #plt.figure()
-    #plt.plot(f_debug); plt.yscale('log')
-    
-    #print "boEnd ", bo[:6]
     return bo,ao
 
 def estimateBondOrder( atypes, bonds, E12=0.5, E22=+0.5, E32=+0.5 ):
@@ -776,10 +522,6 @@ def estimateBondOrder( atypes, bonds, E12=0.5, E22=+0.5, E32=+0.5 ):
 
 def getForceIvnR24( ps, Rs ):
     r2safe = 1e-4
-    #if fs is None:
-    #    fs = np.zeros(ps.shape)
-    #if ds is None:
-    #    ds = np.zeros(ps.shape)
     na    = len(ps)
     ds    = np.zeros(ps.shape)
     fs    = np.zeros(ps.shape)
@@ -793,7 +535,6 @@ def getForceIvnR24( ps, Rs ):
         ir2s[i]    = 0
         fs  [:,:] += ds[:,:]*((R2ijs*ir2s-1)*R2ijs*ir2s*ir2s)[:,None]
     return fs
-#def tris2skelet(tris,):
 
 def relaxAtoms( ps, aParams, FFfunc=getForceIvnR24, fConv=0.001, nMaxStep=1000, optimizer=None ):
     if optimizer is None:
@@ -803,15 +544,9 @@ def relaxAtoms( ps, aParams, FFfunc=getForceIvnR24, fConv=0.001, nMaxStep=1000, 
     for itr in range(nMaxStep):
         fs = FFfunc(ps,aParams)
         f_norm = optimizer.move(ps.flat,fs.flat)
-        #print fs[:6]
-        #print itr, f_norm
         if f_norm < fConv:
             break
         f_debug.append(f_norm)
-        
-    #import matplotlib.pyplot as plt 
-    #plt.figure()
-    #plt.plot(f_debug); plt.yscale('log')
     
     return ps
 

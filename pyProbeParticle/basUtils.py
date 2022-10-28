@@ -13,18 +13,15 @@ def loadBas(name):
     while True:
         n=0;
         l = f.readline()
-        #print "--",l,"--"
         try:
             n=int(l)
         except ValueError:
             break
         if (n>0):
             n=int(l)
-            #f.readline()
             e=[];x=[];y=[]; z=[];
             for i in range(n):
                 l=f.readline().split()
-                #print l
                 e.append( int(l[0]) )
                 x.append( float(l[1]) )
                 y.append( float(l[2]) )
@@ -40,7 +37,6 @@ def loadAtoms( name ):
     f = open(name,"r")
     n=0;
     l = f.readline()
-    #print "--",l,"--"
     try:
         n=int(l)
     except:
@@ -307,24 +303,20 @@ def loadXSFGeom( fname ):
         ws = f.readline().split();  
         e.append(int(ws[0])); x.append(float(ws[1])); y.append(float(ws[2])); z.append(float(ws[3])); q.append(0);
     for i in range(10000):
-        if ('BEGIN_DATAGRID_3D') in f.readline():   
+        line = f.readline()
+        if ('BEGIN_DATAGRID_3D') in line:   
             break
-        elif ('DATAGRID_3D_DENSITY') in f.readline(): 
+        elif ('DATAGRID_3D_DENSITY') in line: 
             break
-        #elif ('BEGIN_BLOCK_DATAGRID_3D') in f.readline():
-        #     break
-        elif ('BEGIN_DATAGRID_3D_CONTCAR_v2xsf') in f.readline():
+        elif ('BEGIN_DATAGRID_3D_CONTCAR_v2xsf') in line:
             break   
     ws = f.readline().split(); nDim = [int(ws[0]),int(ws[1]),int(ws[2])]
     for j in range(4):
         ws = f.readline().split(); lvec.append( [float(ws[0]),float(ws[1]),float(ws[2])] )
     f.close()
     if(verbose>0): print("nDim+1", nDim)
-    #nDim.reverse()
-    #nDim = np.array(nDim)-1
     nDim = (nDim[0]-1,nDim[1]-1,nDim[2]-1)
     if(verbose>0): print("lvec", lvec)
-    #print "e,x,y,z", e,x,y,z
     if(verbose>0): print("reading ended")
     return [ e,x,y,z,q ], nDim, lvec
 
@@ -363,7 +355,6 @@ def loadAtomsCUBE( fname ):
     for i in range(nlines):
         l=f.readline().split()
         r=[float(l[2]),float(l[3]),float(l[4])]
-        #print l
         x.append( (r[0] - shift[0]) * bohrRadius2angstroem )
         y.append( (r[1] - shift[1]) * bohrRadius2angstroem )
         z.append( (r[2] - shift[2]) * bohrRadius2angstroem )
@@ -375,8 +366,6 @@ def loadAtomsCUBE( fname ):
 
 def primcoords2Xsf( iZs, xyzs, lvec ):
     import io as SIO
-    #print "iZs:  ", iZs
-    #print "xyzs: ", xyzs
     if(verbose>0): print("lvec: ", lvec)
     sio=SIO.StringIO()
     sio.write("CRYSTAL\n")
@@ -473,7 +462,6 @@ def loadGeometry(fname=None,params=None):
         atoms, nDim, lvec = loadXSFGeom( fname)
     elif(is_npy):
         atoms, nDim, lvec = loadNPYGeom( fname) # under development
-        #raise ValueError("reading the geometry from the .npy file is not yet implemented")
         #TODO: introduce a function which reads the geometry from the .npy file
     else:
         sys.exit("ERROR!!! Unknown format of geometry system. Supported formats are: .xyz, .cube, .xsf \n\n")
@@ -494,7 +482,6 @@ def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
             ii = iZs[i]-1
             jj = iZs[j]-1
             bondlength=ELEMENTS[ii][6]+ELEMENTS[jj][6]
-            #bondlength=ELEMENTS[FFparams[ii][2]-1][6]+ELEMENTS[FFparams[jj][2]-1][6]
             print(" find bond ", i, j,   bondlength, r, sc, (xs[i],ys[i],zs[i]), (xs[j],ys[j],zs[j]))
             if (r<( sc * bondlength)) :
                 bonds.append( (i,j) )
@@ -519,15 +506,6 @@ def findBondsNP( atoms, fRcut=0.7, ELEMENTS = elements.ELEMENTS ):
         ijs[:,0] = i
         ijs[:,1] = iatoms[mask]
         subs.append( ijs  )
-        #for j in iatoms[:i][ rs[:i] < Rcut2 ]:
-        #    #ei = int( atoms[i,0] )
-        #    #ej = int( atoms[j,0] )
-        #    #Rcut_ij =  elements.ELEMENTS[ ei ][7] + elements.ELEMENTS[ ej ][7]
-        #    #print ( i, j, ei, ej, Rcut_ij )
-        #    rij =  np.sqrt( rs[j] )
-        #    if ( rij < ( RvdwCut * Rcut_ij ) ):
-        #        bonds.append( (i,j) )
-        #        bondsVecs.append( ( rij, dp[j]/rij ) )
     bonds = np.concatenate( subs )
     return bonds    #, bondsVecs
 
@@ -541,8 +519,6 @@ def findBonds_( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS):
             ii = iZs[i]-1
             jj = iZs[j]-1
             bondlength=ELEMENTS[ii][6]+ELEMENTS[jj][6]
-            #bondlength=ELEMENTS[FFparams[ii][2]-1][6]+ELEMENTS[FFparams[jj][2]-1][6]
-            #print " find bond ", i, j,   bondlength, r, sc, atoms[i], atoms[j]
             if (r<( sc * bondlength)) :
                 bonds.append( (i,j) )
     return bonds
@@ -567,7 +543,6 @@ def findBondsSimple( xyz, rmax ):
 
 def getAtomColors( iZs, ELEMENTS = elements.ELEMENTS, FFparams=None ):
     colors=[]
-    #print "getAtomColors iZs : ", iZs
     for e in iZs: 
         colors.append( ELEMENTS[ FFparams[e - 1][3] -1 ][8] )
     return colors
@@ -653,27 +628,17 @@ def makePovCam( pos, up=[0.0,1.0,0.0], rg=[-1.0, 0.0, 0.0], fw=[0.0, 0.0, 100.0]
     }
     light_source    { < %f,%f,%f>  rgb <0.5,0.5,0.5> }
     ''' %(  W,H, up[0],up[1],up[2],      pos[0]-fw[0],pos[1]-fw[1],pos[2]-fw[2],    pos[0],pos[1],pos[2],    lpos[0],lpos[1],lpos[2]    )
-    #''' %( rg[0],rg[1],rg[2],   up[0],up[1],up[2],  pos[0]-fw[0],pos[1]-fw[1],pos[2]-fw[2],  pos[0],pos[1],pos[2], lpos[0],lpos[1],lpos[2]  )
-    #''' %(   up[0]*600,up[1]*600,up[2]*600,   rg[0]*800,rg[1]*800,rg[2]*800,   pos[0]-fw[0],pos[1]-fw[1],pos[2]-fw[2],  pos[0],pos[1],pos[2]  )
-
-
 def writePov( fname, xyzs, Zs, bonds=None, HEAD=DEFAULT_POV_HEAD, bondw=0.1, spherescale=0.25, ELEMENTS = elements.ELEMENTS ):
     fout = open( fname,"w")
     n = len(xyzs)
-    #print n
     fout.write( HEAD )
     for i in range(n):
-        #clr = ELEMENTS[e[i]-1][8]
         clr = ELEMENTS[Zs[i]-1][8]
         R   = ELEMENTS[Zs[i]-1][7] 
-        #a = (z[i] + 1.8)*2.0
         s = 'a( %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f ) \n' %( xyzs[i][0],xyzs[i][1],xyzs[i][2], spherescale*R, clr[0]/255.0,clr[1]/255.0,clr[2]/255.0,0.0 )
-        #s = 'a( %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f ) \n' %( xyzs[i][0],xyzs[i][1],xyzs[i][2], spherescale*ELEMENTS[e[i]-1][7], clr[0]/255.0-a,clr[1]/255.0,clr[2]/255.0+a,0.0 )
         fout.write(s)
     if bonds is not None:
-        #print "BONDS !!!! ", bonds
         for b in bonds:
-            #print "bond ", b
             i = b[0]; j = b[1]
             clr = [128,128,128]
             s   =  'b( %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f,0.0 ) \n' %( xyzs[i][0],xyzs[i][1],xyzs[i][2], bondw, xyzs[j][0],xyzs[j][1],xyzs[j][2], bondw, clr[0]/255.0,clr[1]/255.0,clr[2]/255.0 )

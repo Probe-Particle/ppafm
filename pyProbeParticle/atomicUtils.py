@@ -2,7 +2,6 @@
 
 import numpy as np
 from . import elements
-#import elements
 
 def findAllBonds( atoms, Rcut=3.0, RvdwCut=0.7 ):
     bonds     = []
@@ -18,7 +17,6 @@ def findAllBonds( atoms, Rcut=3.0, RvdwCut=0.7 ):
             ei = int( atoms[i,0] )
             ej = int( atoms[j,0] )
             Rcut_ij =  elements.ELEMENTS[ ei ][7] + elements.ELEMENTS[ ej ][7]
-            #print ( i, j, ei, ej, Rcut_ij )
             rij =  np.sqrt( rs[j] )
             if ( rij < ( RvdwCut * Rcut_ij ) ):
                 bonds.append( (i,j) )
@@ -40,8 +38,6 @@ def findTypeNeigh( atoms, neighs, typ, neighTyps=[(1,2,2)] ):
     selected = []
     for i,atom in enumerate(satoms):
         iatom = iatoms[i]
-        #for jatom in neighs[ iatom ]:
-        #    jtyp = atoms[jatom,0]
         count = {}
         for jatom in neighs[ iatom ]:
             jtyp = atoms[jatom,0]
@@ -83,7 +79,6 @@ def findPairs_one( select1, atoms, Rcut=2.0 ):
     for i,iatom in enumerate(select1):
         p = atoms[iatom,1:]
         rs = np.sum( (ps - p)**2, axis=1 )
-        #print ( i, iatom, rs )
         for jatom in select1[:i][ rs[:i] < Rcut2 ]:
             pairs.append( (iatom,jatom) )
     return pairs  
@@ -117,12 +112,7 @@ def groupToPair( p1, p2, group, up, up_by_cog=False ):
         up  = center - up
     rotmat = makeRotMat( fw, up )
     ps  = group[:,1:]
-    #ps_ = ps
-    #print( "ps=", ps )
-    #print ( rotmat )
-    #ps_ = np.transpose( np.dot( rotmat, np.transpose(ps) ) )
     ps_ = np.dot( ps, rotmat ) 
-    #print( "ps_=", ps_ )
     group[:,1:] = ps_ + center
     return group
     
@@ -131,20 +121,14 @@ def replacePairs( pairs, atoms, group, up_vec=(np.array((0.0,0.0,0.0)),1) ):
     for ipair,pair in enumerate(pairs):
         for iatom in pair:
             replaceDict[iatom] = 1
-            #if( iatom in replaceDict ):
-            #    replaceDict[iatom].append(ipair)
-            #else:
-            #    replaceDict[iatom] = [ipair]
     atoms_ = []
     for iatom,atom in enumerate( atoms ):
         if(iatom in replaceDict): continue
         atoms_.append(atom)
     for pair in pairs:
         group_ = groupToPair( atoms[pair[0],1:], atoms[pair[1],1:], group.copy(), up_vec[0], up_vec[1] )
-        #print( "group = ", group )
         for atom in group_:
             atoms_.append( atom )
-        #break
     return atoms_
 
 def findNearest( p, ps, rcut=1e+9 ):
@@ -185,11 +169,6 @@ def replace( atoms, found, to=17, bond_length=2.0, radial=0.0, prob=0.75 ):
             bvec  = foundi[1]
             rb    = np.linalg.norm(bvec)
             bvec *= ( bond_length - rb )/rb
-            #if radial > 0:
-            #    brad = atoms[iatom,1:]
-            #    brad = brad/np.linalg.norm(brad)
-            #    cdot = np.dot( brad, bvec )
-            #    bvec = (1-radial)*bvec + brad*radial/cdot
             atoms[iatom,0]   = to
             atoms[iatom,1:] += bvec  
     return atoms
@@ -199,7 +178,6 @@ def saveAtoms( atoms, fname, xyz=True ):
     fout.write("%i\n"  %len(atoms) )
     if xyz==True : fout.write("\n") 
     for i,atom in enumerate( atoms ):
-        #print( i, atom )
         if isinstance( atom[0], str ):
             fout.write("%s %f %f %f\n"  %( atom[0], atom[1], atom[2], atom[3] ) )
         else:
@@ -295,8 +273,6 @@ def loadAtoms( name ):
     f.close()
     return [ e,x,y,z,q ]
 
-
-#def loadCoefs( characters=['s','px','py','pz'] ):
 def loadCoefs( characters=['s'] ):
     dens = None
     coefs = []
@@ -316,8 +292,6 @@ def loadCoefs( characters=['s'] ):
         else:
             dens += d
     return dens, coefs, Es
-
-
     
 def findCOG( ps, byBox=False ):
     if(byBox):

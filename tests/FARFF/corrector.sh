@@ -14,6 +14,6 @@ PPPATH="../../"
 export PYTHONPATH=$PYTHONPATH:$PPPATH
 #python -m pyProbeParticle.FARFF
 #python3 -m pyProbeParticle.Corrector
-python3 -m pyProbeParticle.CorrectionLoop --job train
+python3 -m pyProbeParticle.ml.CorrectionLoop --job train
 # python3 -m pyProbeParticle.CorrectionLoop --job loop
 #python3 -m pyProbeParticle.GeneratorOCL_LJC

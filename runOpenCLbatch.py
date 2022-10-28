@@ -26,9 +26,9 @@ import pyProbeParticle.common    as PPU
 import pyProbeParticle.cpp_utils as cpp_utils
 
 import pyopencl as cl
-import pyProbeParticle.oclUtils    as oclu 
-import pyProbeParticle.fieldOCL    as FFcl 
-import pyProbeParticle.RelaxOpenCL as oclr
+import pyProbeParticle.ocl.oclUtils as oclu
+import pyProbeParticle.ocl.field    as FFcl
+import pyProbeParticle.ocl.relax    as oclr
 
 Modes     = Enum( 'Modes',    'LJel LJel_pbc LJQ' )
 DataViews = Enum( 'DataViews','FFin FFout df FFel FFpl' )

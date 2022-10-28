@@ -4,15 +4,15 @@ import os
 import numpy as np
 import pyopencl as cl
 
-from . import common       as PPU
-from . import fieldOCL     as FFcl
-from . import RelaxOpenCL  as oclr
-from . import HighLevelOCL as hl
-from . import oclUtils     as oclu
+from .. import common   as PPU
+from . import field     as FFcl
+from . import relax     as oclr
+from . import oclUtils  as oclu
+from . import HighLevel as hl
 
-from .fieldOCL import HartreePotential, MultipoleTipDensity, hartreeFromFile
-from .basUtils import loadAtomsLines
-from .PPPlot import plotImages
+from .field import HartreePotential, MultipoleTipDensity, hartreeFromFile
+from ..basUtils import loadAtomsLines
+from ..PPPlot import plotImages
 
 VALID_SIZES = np.array([16, 32, 64, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048])
 
@@ -95,14 +95,13 @@ class AFMulator():
         self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
 
         self.iZPP = iZPP
-        self.df_steps = df_steps
         self.tipR0 = tipR0
         self.f0Cantilever = f0Cantilever
         self.kCantilever = kCantilever
         self.npbc = npbc
         self.pot = None
 
-        self.setScanWindow(scan_window, scan_dim)
+        self.setScanWindow(scan_window, scan_dim, df_steps)
         self.setLvec(lvec, pixPerAngstrome)
         self.setRho(rho, sigma)
         self.setQs(Qs, QZs)
@@ -168,13 +167,17 @@ class AFMulator():
         FEin_shape = self.forcefield.nDim if (self._old_nDim != self.forcefield.nDim).any() else None
         self.scanner.prepareBuffers(lvec=self.lvec, FEin_shape=FEin_shape)
 
-    def setScanWindow(self, scan_window=None, scan_dim=None):
+    def setScanWindow(self, scan_window=None, scan_dim=None, df_steps=None):
         '''Set scanner scan window.'''
 
         if scan_window is not None:
             self.scan_window = scan_window
         if scan_dim is not None:
             self.scan_dim = scan_dim
+        if df_steps is not None:
+            if df_steps <= 0 or df_steps > self.scan_dim[2]:
+                raise ValueError(f'df_steps should be between 1 and scan_dim[2]({scan_dim[2]}), but got {df_steps}.')
+            self.df_steps = df_steps
 
         # Set df convolution weights
         self.dz = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
@@ -272,6 +275,12 @@ class AFMulator():
         else:
             xyzqs = np.concatenate([xyzs, qs[:, None]], axis=1)
         self.Zs = Zs
+
+        # Rotate atom positions
+        if pot is None:
+            xyzqs[:, :3] -= rot_center
+            xyzqs[:, :3] = np.dot(xyzqs[:, :3], rot.T)
+            xyzqs[:, :3] += rot_center
             
         # Compute force field
         if self.bNoFFCopy:
@@ -479,76 +488,3 @@ def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_s
     extent = [scan_window[0][0], scan_window[1][0], scan_window[0][1], scan_window[1][1]]
     zs = np.linspace(scan_window[0][2], scan_window[1][2], scan_dim[2]+1)[:num_heights]
     plotImages(os.path.join(out_dir, 'df'), X, range(len(X)), extent=extent, zs=zs)
-
-# ==========================================================
-# ==========================================================
-# ====================== TEST RUN ==========================
-# ==========================================================
-# ==========================================================
-
-if __name__ == "__main__":
-
-    import matplotlib as mpl #; mpl.use('Agg')
-    import matplotlib.pyplot as plt
-    import time
-    import os
-
-    from . import basUtils
-    from . import oclUtils as oclu
-
-    molecules = ["out2", "out3","benzeneBrCl2"]
-    args = {
-        'pixPerAngstrome'   : 8,
-        'lvec'              : np.array([
-                                [ 0.0,  0.0, 0.0],
-                                [20.0,  0.0, 0.0],
-                                [ 0.0, 20.0, 0.0],
-                                [ 0.0,  0.0, 5.0]
-                              ]),
-        'scan_dim'          : (128, 128, 30),
-        'scan_window'       : ((2.0, 2.0, 5.0), (18.0, 18.0, 8.0)),
-        'iZPP'              : 8,
-        'QZs'               : [ 0.1,  0, -0.1, 0 ],
-        'Qs'                : [ -10, 20,  -10, 0 ],
-        'amplitude'         : 1.0,
-        'df_steps'          : 10,
-        'initFF'            : True
-    }
-
-    i_platform = 0
-    env = oclu.OCLEnvironment( i_platform = i_platform )
-    FFcl.init(env)
-    oclr.init(env)
-
-    afmulator = AFMulator(**args)
-    afmulator.npbc = (1,1,0)
-
-    afmulator            .verbose  = 1
-    afmulator.forcefield .verbose  = 1
-    afmulator.scanner    .verbose  = 1
-
-    FFcl.bRuntime = True
-
-    for mol in molecules:
-
-        filename = f'{mol}/pos.xyz'
-        atom_lines = open( filename ).readlines()
-        xyzs,Zs,enames,qs = basUtils.loadAtomsLines( atom_lines )
-        xyzs[:,:2] = xyzs[:,:2] - xyzs[:,:2].mean(axis=0) + np.array([10, 10]) 
-        xyzs[:,2] = xyzs[:,2] - xyzs[:,2].max() - 1.5
-
-        t0 = time.time()
-        X = afmulator(xyzs, Zs, qs)
-        print(f'Simulation time for {mol}: {time.time() - t0}')
-        print(X.shape)
-
-        rows, cols = 4, 5
-        fig = plt.figure(figsize=(3.2*cols,2.5*rows))
-        for k in range(X.shape[-1]):
-            fig.add_subplot(rows, cols, k+1)
-            plt.imshow(X[:,:,k].T, cmap='afmhot', origin="lower")
-            plt.colorbar()
-        plt.tight_layout()
-        plt.savefig(f'{mol}/afm.png')
-        plt.show()
-        plt.close()

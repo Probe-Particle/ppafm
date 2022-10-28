@@ -30,7 +30,6 @@ class FigCanvas(FigureCanvasQTAgg):
     def __init__(self, parentWiget=None, parentApp=None,  width=5, height=4, dpi=100 ):
         self.fig  = Figure( figsize=(width, height), dpi=dpi )
         self.axes = self.fig.add_subplot(111)
-                #super(self.__class__, self).__init__( self.fig )
         FigureCanvasQTAgg.__init__(self, self.fig )
         self.parent = parentApp
         self.setParent(parentWiget)
@@ -47,16 +46,13 @@ class FigPlot(FigCanvas):
     def __init__(self, parentWiget=None, parentApp=None,  width=5, height=4, dpi=100 ):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp,  width=width, height=height, dpi=dpi )
         self.defaultPlotAxis()
-        #cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
 
     def defaultPlotAxis(self):
         self.axes.grid()
-        #self.axes.axhline(0.0, ls="--", c="k")
 
     def plotDatalines(self, x, y, label):
         self.axes.plot(x, y, 'x-', label=label)
-        self.draw()  
-        #self.updatePlotAxis()
+        self.draw()
 
 # =======================
 #      FigLinePlot
@@ -64,7 +60,6 @@ class FigPlot(FigCanvas):
 
 class FigImshow(FigCanvas):
     """A canvas that updates itself every second with a new plot."""
-    #data = None
     cbar = None 
     
     def __init__(self, parentWiget=None, parentApp=None,  width=5, height=4, dpi=100, verbose=0):
@@ -142,42 +137,27 @@ class FigImshow(FigCanvas):
 
 
         print('self.margins', margins)
-        #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest' )
         if alpha>0 and big_len_image is not None:
             F = F*(1-alpha) + big_len_image*alpha
         self.img = self.axes.imshow( F, origin='image', cmap='viridis', interpolation='bicubic' )
        
         j_min,i_min = np.unravel_index(F.argmin(), F.shape)  
-        j_max,i_max = np.unravel_index(F.argmax(), F.shape)  
-
-        #self.axes.scatter(i_min,j_min,color='r')
-        #self.axes.scatter(i_max,j_max,color='g')
+        j_max,i_max = np.unravel_index(F.argmax(), F.shape)
 
         if margins:
             self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),margins[2], margins[3], linewidth=2,edgecolor='r',facecolor='none')) 
             textRes = 'output size: '+str(margins[2])+ 'x'+ str(margins[3])
             if slice_length:
                 textRes += '     length [A] ='+'{:03.4f}, {:03.4f}'.format(slice_length[0], slice_length[1])  
-
-
             self.axes.set_xlabel(textRes)
-        #if self.cbar is None:
-        #    self.cbar = self.fig.colorbar( self.img )
-        #self.cbar.set_clim( vmin=F.min(), vmax=F.max() )
-        #self.cbar.update_normal(self.img)
+        
         self.axes.set_xlim(0,F.shape[1])
         self.axes.set_ylim(0,F.shape[0])
         self.axes.set_title(title)
-        #self.axes.set_yticks([10.5, 20.5, 30.5], minor='True')
-        #self.axes.set_xticks([10.5, 20.5, 30.5], minor='True')
-        #axes = plt.gca()
         if (grid_selector > 0):
             self.axes.grid(True,  linestyle='dotted', color='blue')
         else:
             self.axes.grid(False)
-        
-            #self.axes.imshow( img_prev_spice_extent,  origin='image', interpolation='bicubic' )
-
 
         self.fig.tight_layout()
         self.draw()
@@ -219,8 +199,6 @@ class FigImshow(FigCanvas):
 
 class SlaveWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None, title="SlaveWindow" ):
-        #super(self.__class__, self).__init__(parent)
-        #QtWidgets.QMainWindow.__init__(parent)
         super(SlaveWindow, self).__init__(parent)
         self.parent = parent
         self.setWindowTitle( title )
@@ -229,9 +207,6 @@ class SlaveWindow(QtWidgets.QMainWindow):
         self.centralLayout = QtWidgets.QVBoxLayout()
         self.centralWidget().setLayout(self.centralLayout)
 
-        #self.figCan = MyFigCanvas( parent, width=width, height=height, dpi=dpi )
-        #l0.addWidget(self.figCan)
-
 # =======================
 #      PlotWindow
 # =======================
@@ -239,8 +214,6 @@ class SlaveWindow(QtWidgets.QMainWindow):
 class PlotWindow(SlaveWindow):
     def __init__(self, parent=None, title="PlotWindow", width=5, height=4, dpi=100 ):
         super(self.__class__, self).__init__( parent=parent, title=title );
-        #SlaveWindow.__init__( parent=parent, title=title );
-        #super(PlotWindow, self).__init__(parent=parent, title=title)
         self.figCan = FigPlot( parent, width=width, height=height, dpi=dpi )
         self.centralLayout.addWidget(self.figCan)
 
@@ -248,7 +221,6 @@ class PlotWindow(SlaveWindow):
         self.btSaveDat =bt= QtWidgets.QPushButton('Save.dat', self); bt.setToolTip('Save Curves to .dat file'); bt.clicked.connect(self.save_dat); vb.addWidget( bt )
         self.btSavePng =bt= QtWidgets.QPushButton('Save.png', self); bt.setToolTip('Save Figure to .png file'); bt.clicked.connect(self.save_png); vb.addWidget( bt )
         self.btClear   =bt= QtWidgets.QPushButton('Clear', self);    bt.setToolTip('Clear figure');             bt.clicked.connect(self.clearFig); vb.addWidget( bt )
-
         
         vb.addWidget( QtWidgets.QLabel("Xmin (top):") ); self.leXmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
         vb.addWidget( QtWidgets.QLabel("Xmax (bottom):") ); self.leXmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
@@ -263,12 +235,8 @@ class PlotWindow(SlaveWindow):
             data = []
             data.append( np.array(self.figCan.axes.lines[0].get_xdata()) )
             for line in self.figCan.axes.lines:
-                #print "for line ", line
                 data.append( line.get_ydata() )
-            #print "data = ", data
             data = np.transpose( np.array(data) )
-            #print "data = ", data
-            #np.savetxt( fileName, data, fmt='%.6e', delimiter='\t', newline='\n', header='', footer='', comments='# ')
             np.savetxt( fileName, data )
 
     def save_png(self):
