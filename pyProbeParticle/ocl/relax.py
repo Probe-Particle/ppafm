@@ -27,9 +27,6 @@ def init(env):
     cl_program  = env.loadProgram(env.CL_PATH+"/relax.cl")
     oclu = env
 
-def getCtxQueue():
-    return oclu.ctx, oclu.queue
-
 def mat3x3to4f( M ):
     a = np.zeros( 4, dtype=np.float32); a[0:3] = M[0]
     b = np.zeros( 4, dtype=np.float32); b[0:3] = M[1]
@@ -78,60 +75,6 @@ def rotTip(rot,zstep,tipR0=[0.0,0.0,4.0]):
     dpos0[:3] = np.dot( rot.transpose(), dpos0Tip[:3] );  
     dpos0[3]  = tipR0[2]
     return dTip, tipRot,dpos0Tip,dpos0
-
-def prepareBuffers( FE, scan_dim ):
-    ctx,queue = getCtxQueue()
-    nbytes = 0
-    mf       = cl.mem_flags
-    cl_ImgIn = cl.image_from_array(ctx,FE,num_channels=4,mode='r');  nbytes+=FE.nbytes        # TODO make this re-uploadable
-    bsz=np.dtype(np.float32).itemsize * 4 * scan_dim[0] * scan_dim[1]
-    cl_poss  = cl.Buffer(ctx, mf.READ_ONLY , bsz                );   nbytes+=bsz              # float4
-    cl_FEout = cl.Buffer(ctx, mf.WRITE_ONLY, bsz * scan_dim[2] );   nbytes+=bsz*scan_dim[2] # float4
-    kargs = (cl_ImgIn, cl_poss, cl_FEout )
-    return kargs
-
-def releaseArgs( kargs ):
-    kargs[0].release() # cl_ImgIn
-    kargs[1].release() # cl_poss
-    kargs[2].release() # cl_FEout
-
-def relax( kargs, scan_dim, invCell, poss=None, FEin=None, FEout=None, dTip=DEFAULT_dTip, stiffness=DEFAULT_stiffness, dpos0=DEFAULT_dpos0, relax_params=DEFAULT_relax_params):
-    ctx,queue = getCtxQueue()
-    nz = np.int32( scan_dim[2] )
-    kargs = kargs  + ( invCell[0],invCell[1],invCell[2], dTip, stiffness, dpos0, relax_params, nz )
-    if FEout is None:
-        FEout = np.zeros( scan_dim+(4,), dtype=np.float32 )
-        if(verbose>0): print("FEout.shape", FEout.shape, scan_dim)
-    if poss is not None:
-        cl.enqueue_copy( queue, kargs[1], poss )
-    if FEin is not None:
-        region = FEin.shape[:3]; region = region[::-1]; 
-        if(verbose>0): print("region : ", region)
-        cl.enqueue_copy( queue, kargs[0], FEin, origin=(0,0,0), region=region )
-    #print kargs
-    cl_program.relaxStrokes( queue, ( int(scan_dim[0]*scan_dim[1]),), None, *kargs )
-    cl.enqueue_copy( queue, FEout, kargs[2] )
-    queue.finish()
-    return FEout
-
-def saveResults():
-    lvec_OUT = (
-        [0.0,0.0,0.0],
-        [10.0,0.0,0.0],
-        [0.0,10.0,0.0],
-        [0.0,0.0,6.0]
-    )
-    nd  = FEout.shape
-    nd_ = (nd[2],nd[0],nd[1])
-    Ftmp=np.zeros(nd_);
-    Ftmp[:,:,:] = np.transpose( FEout[:,:,:,2], (2,0,1) ); 
-    GU.saveXSF( 'OutFz_cl.xsf',  Ftmp, lvec_OUT );
-
-if __name__ == "__main__":
-    prepareProgram()
-    kargs, relaxShape = prepareBuffers()
-    relax( kargs, relaxShape )
-    saveResults()
 
 ## ============= Relax Class:
 
