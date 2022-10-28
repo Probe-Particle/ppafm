@@ -6,7 +6,7 @@
 # Path setup
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../../..'))
+sys.path.insert(0, os.path.abspath('../../..')) # Package root relative to this file
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -19,15 +19,13 @@ author = 'Prokop Hapala, Aliaksandr Yakutovich, Ondřej Krejčí'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.viewcode'
+    'sphinx.ext.autodoc',       # Main library for html generation
+    'sphinx.ext.napoleon',      # Understand Google-style doc-strings
+    'sphinx.ext.viewcode'       # Add a [source] button to every function/class
 ]
 
 templates_path = ['_templates']
 exclude_patterns = []
-
-
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

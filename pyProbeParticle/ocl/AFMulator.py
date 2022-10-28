@@ -19,6 +19,7 @@ VALID_SIZES = np.array([16, 32, 64, 128, 192, 256, 384, 512, 768, 1024, 1536, 20
 class AFMulator():
     '''
     Simulate Atomic force microscope images of molecules.
+
     Arguments:
         pixPerAngstrome: int. Number of pixels (voxels) per angstrom in force field grid.
         lvec: np.ndarray of shape (4, 3) or None. Unit cell boundaries for force field. First (row) vector
@@ -36,7 +37,7 @@ class AFMulator():
         iZPPs: int. Element of probe particle.
         QZs: Array of length 4. Position tip charges along z-axis relative to probe-particle center in angstroms.
         Qs: Array of length 4. Values of tip charges in units of e. Some can be zero.
-        rho: Dict or MultipoleTipDensity. Tip charge density. Used with Hartree potentials. Overrides QZs and Qs.
+        rho: Dict or :class:`.MultipoleTipDensity`. Tip charge density. Used with Hartree potentials. Overrides QZs and Qs.
             The dict should contain float entries for at least of one the following 's', 'px', 'py', 'pz', 'dz2',
             'dy2', 'dx2', 'dxy', 'dxz', 'dyz'. The tip charge density will be a linear combination of the specified
             multipole types with the specified weights.
@@ -113,10 +114,11 @@ class AFMulator():
     def eval(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None, X=None ):
         '''
         Prepare and evaluate AFM image.
+
         Arguments:
             xyzs: np.ndarray of shape (num_atoms, 3). Positions of atoms in x, y, and z.
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
-            qs: np.ndarray of shape (num_atoms,) or HartreePotential or None. Charges of atoms or hartree potential.
+            qs: np.ndarray of shape (num_atoms,) or :class:`.HartreePotential` or None. Charges of atoms or hartree potential.
                 If None, then no electrostatics are used.
             pbc_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
                 If None, periodic boundaries are disabled, unless qs is HartreePotential and the lvec from the
@@ -124,7 +126,9 @@ class AFMulator():
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
-        Returns: np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
+        
+        Returns:
+            np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
         '''
         self.prepareFF(xyzs, Zs, qs, pbc_lvec, rot, rot_center, REAs)
         self.prepareScanner()
@@ -133,7 +137,7 @@ class AFMulator():
     
     def __call__(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None, X=None):
         '''
-        Makes object callable. See eval for input arguments.
+        Makes object callable. See :meth:`eval` for input arguments.
         '''
         return self.eval(xyzs, Zs, qs, pbc_lvec, rot, rot_center, REAs=REAs, X=X)
 
@@ -222,10 +226,11 @@ class AFMulator():
     def prepareFF(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None):
         '''
         Prepare molecule parameters and calculate force field.
+
         Arguments:
             xyzs: np.ndarray of shape (num_atoms, 3). Positions of atoms in x, y, and z.
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
-            qs: np.ndarray of shape (num_atoms,) or HartreePotential or None. Charges of atoms or hartree potential.
+            qs: np.ndarray of shape (num_atoms,) or :class:`.HartreePotential` or None. Charges of atoms or hartree potential.
                 If None, then no electrostatics are used.
             pbc_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
                 If None, periodic boundaries are disabled, unless qs is HartreePotential and the lvec from the
@@ -320,10 +325,13 @@ class AFMulator():
     def evalAFM(self, X=None):
         '''
         Evaluate AFM image. Run after preparing force field and scanner.
+
         Arguments:
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
-        Returns: np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
+        
+        Returns:
+            np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
         '''
 
         if self.bMergeConv:
@@ -422,7 +430,7 @@ def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_s
         sigma: float. Width of tip charge distribution.
         num_heights: int. Number of different heights to scan.
         amplitude: float. Oscillation amplitude in angstroms.
-        out_dir: str or None. Output folder path. If None, defaults to afm_ + input_file_name.
+        out_dir: str or None. Output folder path. If None, defaults to "./afm\_" + input_file_name.
     '''
 
     if not FFcl.oclu or not oclr.oclu:

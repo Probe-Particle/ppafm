@@ -1,32 +1,16 @@
-pyProbeParticle package
-=======================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 2
+
+   pyProbeParticle.defaults
+   pyProbeParticle.ml
+   pyProbeParticle.ocl
 
 Submodules
 ----------
-
-pyProbeParticle.AFMulatorOCL module
------------------------------------
-
-.. automodule:: pyProbeParticle.AFMulatorOCL
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.AFMulatorOCL\_Simple module
--------------------------------------------
-
-.. automodule:: pyProbeParticle.AFMulatorOCL_Simple
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.AuxMap module
------------------------------
-
-.. automodule:: pyProbeParticle.AuxMap
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 pyProbeParticle.CG module
 -------------------------
@@ -40,22 +24,6 @@ pyProbeParticle.COvsCO module
 -----------------------------
 
 .. automodule:: pyProbeParticle.COvsCO
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.CorrectionLoop module
--------------------------------------
-
-.. automodule:: pyProbeParticle.CorrectionLoop
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.Corrector module
---------------------------------
-
-.. automodule:: pyProbeParticle.Corrector
    :members:
    :undoc-members:
    :show-inheritance:
@@ -84,54 +52,6 @@ pyProbeParticle.GUIWidgets module
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.GeneratorOCL\_LJC module
-----------------------------------------
-
-.. automodule:: pyProbeParticle.GeneratorOCL_LJC
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.GeneratorOCL\_LJC2 module
------------------------------------------
-
-.. automodule:: pyProbeParticle.GeneratorOCL_LJC2
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.GeneratorOCL\_LJC\_RR module
---------------------------------------------
-
-.. automodule:: pyProbeParticle.GeneratorOCL_LJC_RR
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.GeneratorOCL\_LJC\_direct module
-------------------------------------------------
-
-.. automodule:: pyProbeParticle.GeneratorOCL_LJC_direct
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.GeneratorOCL\_Simple module
--------------------------------------------
-
-.. automodule:: pyProbeParticle.GeneratorOCL_Simple
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.GeneratorOCL\_Simple2 module
---------------------------------------------
-
-.. automodule:: pyProbeParticle.GeneratorOCL_Simple2
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 pyProbeParticle.GridUtils module
 --------------------------------
 
@@ -144,14 +64,6 @@ pyProbeParticle.HighLevel module
 --------------------------------
 
 .. automodule:: pyProbeParticle.HighLevel
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.HighLevelOCL module
------------------------------------
-
-.. automodule:: pyProbeParticle.HighLevelOCL
    :members:
    :undoc-members:
    :show-inheritance:
@@ -192,14 +104,6 @@ pyProbeParticle.ReactiveFF module
 ---------------------------------
 
 .. automodule:: pyProbeParticle.ReactiveFF
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.RelaxOpenCL module
-----------------------------------
-
-.. automodule:: pyProbeParticle.RelaxOpenCL
    :members:
    :undoc-members:
    :show-inheritance:
@@ -300,14 +204,6 @@ pyProbeParticle.fieldFFT module
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.fieldOCL module
--------------------------------
-
-.. automodule:: pyProbeParticle.fieldOCL
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 pyProbeParticle.file\_dat module
 --------------------------------
 
@@ -328,14 +224,6 @@ pyProbeParticle.fitting module
 ------------------------------
 
 .. automodule:: pyProbeParticle.fitting
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pyProbeParticle.oclUtils module
--------------------------------
-
-.. automodule:: pyProbeParticle.oclUtils
    :members:
    :undoc-members:
    :show-inheritance:
