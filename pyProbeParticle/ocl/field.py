@@ -701,11 +701,13 @@ class ForceField_LJC:
     def __init__( self ):
         self.ctx   = oclu.ctx; 
         self.queue = oclu.queue
-        self.cl_poss   = None
-        self.cl_FE     = None
-        self.cl_Efield = None
-        self.pot       = None
-        self.rho       = None
+        self.cl_poss    = None
+        self.cl_FE      = None
+        self.cl_Efield  = None
+        self.pot        = None
+        self.rho        = None
+        self.rho_delta  = None
+        self.rho_sample = None
 
     def initSampling(self, lvec, pixPerAngstrome=10, nDim=None ):
         if nDim is None:
@@ -747,7 +749,8 @@ class ForceField_LJC:
         self.Qs  = np.array(Qs ,dtype=np.float32)
         self.QZs = np.array(QZs,dtype=np.float32)
 
-    def prepareBuffers(self, atoms=None, cLJs=None, poss=None, bDirect=False, nz=20, pot=None, E_field=False, rho=None):
+    def prepareBuffers(self, atoms=None, cLJs=None, poss=None, bDirect=False, nz=20, pot=None,
+        E_field=False, rho=None, rho_delta=None, rho_sample=None):
         '''
         allocate all necessary buffers in GPU memory
         '''
@@ -778,6 +781,14 @@ class ForceField_LJC:
             assert isinstance(rho, TipDensity), 'rho should be a TipDensity object'
             self.rho = rho
             self.fft_conv = FFTConvolution(rho)
+        if rho_delta is not None:
+            assert isinstance(rho_delta, TipDensity), 'rho_delta should be a TipDensity object'
+            self.rho_delta = rho_delta
+            self.fft_conv_delta = FFTConvolution(rho_delta)
+        if rho_sample is not None:
+            assert isinstance(rho_sample, ElectronDensity), 'rho_sample should be a ElectronDensity object'
+            self.rho_sample = rho_sample
+            self.rho_sample.cl_array
         if(self.verbose>0): print("initArgsLJC.nbytes ", nbytes)
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None):
@@ -1316,47 +1327,41 @@ class ForceField_LJC:
 
         return FE
 
-    def makeFF(self, atoms=None, cLJs=None, Qmix=0.0, FE=None, bRelease=True, bCopy=True, bFinish=True, bQZ=False):
-        '''
-        Generate force-field from given positions/charges (atoms), Lennard-Jones parameters (cLJs) etc.
-        '''
-        
-        if(bRuntime): t0 = time.time()
-
-        self.atoms = atoms
-        cLJs = cLJs.astype(np.float32, copy=False)
-        self.prepareBuffers(atoms, cLJs)
-        if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.time() - t0)
-
-        if self.cl_poss is not None:
-            FF = self.run_evalLJC_Q( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
-        else:
-            if np.allclose(self.atoms[:, -1], 0): # No charges
-                FF = self.run_evalLJ_noPos()
-            elif bQZ:
-                FF = self.run_evalLJC_QZs_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
-            else:
-                FF = self.run_evalLJC_Q_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
-
-        if(bRelease): self.tryReleaseBuffers()
-        if(bRuntime): print("runtime(ForceField_LJC.makeFF.tot) [s]: ", time.time() - t0)
-
-        return FF, atoms
-
-    def makeFFHartree(self, atoms, cLJs, pot=None, rho=None, FE=None, rot=np.eye(3), rot_center=np.zeros(3),
+    def makeFF(self, xyzs, cLJs, method='point-charge', FE=None, qs=None, pot=None, rho_sample=None,
+            rho=None, rho_delta=None, A=18.0, B=1.0, rot=np.eye(3), rot_center=np.zeros(3),
             local_size=(32,), bRelease=True, bCopy=True, bFinish=True):
         '''
-        Generate a force field from a list of atoms and a Hartree potential.
+        Generate a force field for the tip-sample interaction.
+
+        There are several methods for generating the force field:
+            'point-charge': Lennard-Jones + point-charge electrostatics for both tip and sample.
+            'hartree': Lennard-Jones + sample hartree potential convolved with tip charge density
+                for electrostatic interaction.
+            'fdbm': Approximated full density-based model. Pauli repulsion is calculated by tip-sample
+                electron density overlap + attractive vdW like in Lennard-Jones. Electrostatic
+                interaction is same as in 'hartree', except tip delta-density is used instead.
+
+        If pot, rho, or rho_delta is None and is required for the specified method, it has to be
+        initialized beforehand with prepareBuffers.
 
         Arguments:
-            atoms: np.ndarray of shape (n_atoms, 3). xyz positions of atoms.
+            xyzs: np.ndarray of shape (n_atoms, 3). xyz positions.
             cLJs: np.ndarray of shape (n_atoms, 2). Lennard-Jones interaction parameters for each atom.
-            pot: HartreePotential or None. Hartree potential used for electrostatic interaction.
-                If None, has to be initialized beforehand with prepareBuffers.
-            rho: TipDensity or None. Probe tip charge density. If None and one has not been
-                set for the forcefield, point-charge electrostatics for the tip will be used instead.
+            method: 'point-charge', 'hartree' or 'fdbm'. Method for generating the force field.
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.
+            qs: np.ndarray of shape (n_atoms,) or None. Point charges of atoms. Used when method
+                is 'point-charge'.
+            pot: HartreePotential or None. Hartree potential used for electrostatic interaction when
+                method is 'hartree' or 'fdbm'.
+            rho_sample: ElectronDensity or None. Sample electron density. Used for Pauli repulsion
+                when method is 'fdbm'.
+            rho: TipDensity or None. Probe tip charge density. Used for electrostatic interaction when
+                method is 'hartree' and Pauli repulsion when method is 'fdbm'.
+            rho_delta: TipDensity or None. Probe tip electron delta-density. Used for electrostatic
+                interaction when method is 'fdbm'.
+            A: float. Prefactor for Pauli repulsion when method is 'fdbm'.
+            B: float. Exponent used for Pauli repulsion when method is 'fdbm'.
             rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
             rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
             local_size: tuple of a single int. Size of local work group on device.
@@ -1364,38 +1369,56 @@ class ForceField_LJC:
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
             bFinish: Bool. Whether to wait for execution to finish.
 
-        Returns: np.ndarray if bCopy==True or None otherwise.
+        Returns:
+            np.ndarray if bCopy==True or None otherwise.
         '''
-
-        if(bRuntime): t0 = time.perf_counter()
+        
+        if(bRuntime): t0 = time.time()
 
         if not hasattr(self, 'nDim') or not hasattr(self, 'lvec'):
             raise RuntimeError('Forcefield position is not initialized. Initialize with initSampling.')
 
         # Rotate atoms
-        atoms = atoms - rot_center
-        atoms = np.dot(atoms, rot.T)
-        atoms += rot_center
+        xyzs = xyzs.copy()
+        xyzs -= rot_center
+        xyzs = np.dot(xyzs, rot.T)
+        xyzs += rot_center
         rot_ff = np.linalg.inv(rot) # Force field rotation is in opposite direction to atoms
 
         # Prepare data on device
-        self.atoms = np.pad(atoms, ((0, 0), (0, 1)))
-        self.prepareBuffers(self.atoms, cLJs, pot=pot, rho=rho)
+        if qs is None:
+            qs = np.zeros(len(xyzs))
+        self.atoms = np.concatenate([xyzs, qs[:, None]], axis=1)
+        self.prepareBuffers(self.atoms, cLJs, pot=pot, rho=rho, rho_delta=rho_delta, rho_sample=rho_sample)
+        if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.time() - t0)
 
-        if(bRuntime): print("runtime(ForceField_LJC.makeFFHartree.pre) [s]: ", time.perf_counter() - t0)
+        if method == 'point-charge':
+
+            if np.allclose(self.atoms[:, -1], 0): # No charges
+                FF = self.run_evalLJ_noPos()
+            else:
+                FF = self.run_evalLJC_QZs_noPos( FE=FE, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
         
-        if rho == None and self.rho is None:
-            if not np.allclose(rot, np.eye(3)):
-                raise NotImplementedError('Force field calculation with rotation for Hartree potential with '
-                    'point charges tip density is not implemented.')
-            self.run_gradPotentialGrid(local_size=local_size, bCopy=False, bFinish=False)
-            FF = self.run_evalLJC_Hartree(FE=FE, local_size=local_size, bCopy=bCopy, bFinish=bFinish)
+        elif method == 'hartree':
+
+            if rho == None and self.rho is None:
+                if not np.allclose(rot, np.eye(3)):
+                    raise NotImplementedError('Force field calculation with rotation for Hartree potential with '
+                        'point charges tip density is not implemented.')
+                self.run_gradPotentialGrid(local_size=local_size, bCopy=False, bFinish=False)
+                FF = self.run_evalLJC_Hartree(FE=FE, local_size=local_size, bCopy=bCopy, bFinish=bFinish)
+            else:
+                FF = self.calc_force_fft(rot=rot_ff, rot_center=rot_center, local_size=local_size,
+                    bCopy=bCopy, bFinish=bFinish)
+
+        elif method == 'fdbm':
+            raise NotImplementedError('FDMB not implemented yet')
+
         else:
-            FF = self.calc_force_fft(rot=rot_ff, rot_center=rot_center, local_size=local_size,
-                bCopy=bCopy, bFinish=bFinish)
+            raise ValueError(f'Unknown method for force field calculation: `{method}`.')
 
         if(bRelease): self.tryReleaseBuffers()
-        if(bRuntime): print("runtime(ForceField_LJC.makeFFHartree.tot) [s]: ", time.perf_counter() - t0)
+        if(bRuntime): print("runtime(ForceField_LJC.makeFF.tot) [s]: ", time.time() - t0)
 
         return FF
 
