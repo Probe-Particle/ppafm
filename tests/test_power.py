@@ -6,43 +6,42 @@ import numpy as np
 import pyopencl as cl
 
 sys.path.append('..')
-import pyProbeParticle.fieldOCL  as FFcl
-import pyProbeParticle.oclUtils  as oclu
+import pyProbeParticle.ocl.field    as FFcl
+import pyProbeParticle.ocl.oclUtils as oclu
 
 def handleNegativeDensity( rho ):
     Q = rho.sum()
     rho[rho<0] = 0
     rho *= ( Q/rho.sum() )
 
-oclu.init_env()
+oclu.init_env(i_platform=1)
 
 p = 1.5
-shape = (350, 350, 350)
-array = np.random.rand(*shape).astype(np.float32)
+data = FFcl.DataGrid(
+    np.random.rand(350, 350, 350).astype(np.float32),
+    np.concatenate([np.zeros((1, 3)), np.eye(3)], axis=0)
+)
+data.cl_array # array to device
 
-array_orig = array.copy()
-
+array2 = data.array.copy()
 t0 = time.perf_counter()
-handleNegativeDensity(array)
-array_exp = array ** p
+handleNegativeDensity(array2)
+array_exp_cpu = array2 ** p
 cpu_time = time.perf_counter() - t0
 print(f'Exponentiation time (CPU): {cpu_time}')
 
-ctx = FFcl.oclu.ctx
-queue = FFcl.oclu.queue
-mf = cl.mem_flags
-array_cl = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=array_orig)
-queue.finish()
-
 t0 = time.perf_counter()
-array_cl = FFcl.runPower(array_cl, p=p, queue=queue)
-queue.finish()
+data_exp_cpu = data.power_positive(p=p, in_place=True)
+FFcl.oclu.queue.finish()
 gpu_time = time.perf_counter() - t0
 print(f'Exponentiation time (GPU): {gpu_time}')
 print(f'Speed-up factor: {cpu_time/gpu_time}')
 
-array_exp2 = np.empty_like(array)
-cl.enqueue_copy(queue, array_exp2, array_cl)
-queue.finish()
+# Test that OCL routine give the same result as numpy
+array_exp_gpu = data_exp_cpu.array
+assert np.allclose(array_exp_cpu, array_exp_gpu)
 
-assert np.allclose(array_exp, array_exp2)
+# Test that the original array is not modified when in_place=False
+array_orig = data.array.copy()
+data.power_positive(p=p, in_place=False)
+assert np.allclose(data.array, array_orig)

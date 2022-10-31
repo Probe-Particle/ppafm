@@ -1,5 +1,5 @@
 
-#define R2SAFE          1e-4f
+#define R2SAFE          1e-6f
 #define COULOMB_CONST   14.399644f  // [eV*Ang/e^2]
 
 //#define N_RELAX_STEP_MAX  64
@@ -113,6 +113,15 @@ float4 getLJ( float3 apos, float2 cLJ, float3 pos ){
      float   ir6 = ir2*ir2*ir2;
      float   E   =  (    cLJ.y*ir6 -   cLJ.x )*ir6;
      float3  F   = (( 12.0f*cLJ.y*ir6 - 6.0f*cLJ.x )*ir6*ir2)*dp;
+     return (float4)(F, E);
+}
+
+float4 getvdW( float3 apos, float cvdW, float3 pos ){
+     float3  dp  = pos - apos;
+     float   ir2 = 1.0f / (dot(dp,dp) + R2SAFE);
+     float   ir6 = ir2 * ir2 * ir2;
+     float   E   = -cvdW * ir6;
+     float3  F   = 6.0f * E * ir2 * dp;
      return (float4)(F, E);
 }
 
@@ -530,6 +539,54 @@ __kernel void addLJ(
     FE[ind] += fe;
 }
 
+// Add van der Waals force to an existing forcefield grid. The forcefield values are saved in
+// Fortran order. Local work group size can be at most 64.
+__kernel void addvdW(
+    const int nAtoms,       // Number of atoms
+    __global float4* atoms, // Atom positions
+    __global float2*  cLJs, // Lennard-Jones parameters for atoms
+    __global float4*    FE, // Forcefield grid
+    int4 nGrid,             // Grid size
+    float4 grid_origin,     // Real-space origin of grid
+    float4 grid_stepA,      // Real-space step sizes of grid lattice vectors
+    float4 grid_stepB,
+    float4 grid_stepC
+){
+
+    __local float4 LATOMS[64];
+    __local float2 LCLJS [64];
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+
+    int ind = get_global_id(0);
+    if (ind > nGrid.x * nGrid.y * nGrid.z) return;
+
+    // Convert linear index to x,y,z indices (Fortran order)
+    int i = ind % nGrid.x;
+    int j = (ind / nGrid.x) % nGrid.y;
+    int k = ind / (nGrid.y * nGrid.x);
+
+    // Calculate position in grid
+    float3 pos = grid_origin.xyz + grid_stepA.xyz*i + grid_stepB.xyz*j  + grid_stepC.xyz*k;
+
+    // Compute Lennard-Jones force from all of the atoms
+    float4 fe = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
+    for (int i0 = 0; i0 < nAtoms; i0 += nL) {
+        int ia = i0 + iL;
+        LATOMS[iL] = atoms[ia];
+        LCLJS [iL] = cLJs[ia];
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+            fe += getvdW(LATOMS[ja].xyz, LCLJS[ja].x, pos);
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    // Add to forcefield grid
+    FE[ind] += fe;
+}
+
+
 // Compute Lennard Jones force field at grid points and add to it the electrostatic force 
 // from an electric field precomputed from a Hartree potential. The output buffer is
 // written in Fortran memory layout in order to be compatible with OpenCL image
@@ -592,13 +649,14 @@ __kernel void evalLJC_Hartree(
 
 }
 
-// Obtain electric field as the negative gradient of Hartree potential via centered difference
-__kernel void gradPotential(
-    __global float  *pot,   // Input Hartree potential
-    __global float4 *field, // Output electric field
-    int4            nGrid,  // Size of Hartree potential grid (x, y, z, _)
-    float4          step,   // Step size of grid (x, y, z, _)
-    int             C_order // If non-zeo, values are saved in C order, otherwise Fortran order
+// Compute the gradient of a scalar field via centered difference
+__kernel void grad(
+    __global float  *array_in,  // Input array
+    __global float4 *array_out, // Output array
+    int4            nGrid,      // Shape of grid (x, y, z, _)
+    float4          step,       // Step size of grid (x, y, z, _)
+    int             C_order,    // If non-zero, values are saved in C order, otherwise Fortran order
+    float4          scale       // Additional scaling factor for the output
 ) {
 
     int ind = get_global_id(0);
@@ -619,18 +677,18 @@ __kernel void gradPotential(
     int jn = j < nGrid.y - 1 ? ind + nGrid.z : ind - (nGrid.y - 1) * nGrid.z;
     int kn = k < nGrid.z - 1 ? ind + 1       : ind - (nGrid.z - 1);
 
-    // Compute value of field as centered difference. Also copy potential to
-    // last place to be consistent with the other Coulomb kernels.
+    // Compute value of gradient as centered difference. Also copy original scalar value to
+    // last place to be consistent with the other kernels.
     float4 f = (float4)(
-        0.5*(pot[ip] - pot[in]) / step.x,
-        0.5*(pot[jp] - pot[jn]) / step.y,
-        0.5*(pot[kp] - pot[kn]) / step.z,
-        pot[ind]
+        0.5 * (array_in[in] - array_in[ip]) / step.x,
+        0.5 * (array_in[jn] - array_in[jp]) / step.y,
+        0.5 * (array_in[kn] - array_in[kp]) / step.z,
+        array_in[ind]
     );
 
     // Save to output array
     int out_ind = C_order ? ind : i + nGrid.x * j + nGrid.x * nGrid.y * k;
-    field[out_ind] = f;
+    array_out[out_ind] = scale * f;
 
 }
 

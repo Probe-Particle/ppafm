@@ -269,29 +269,6 @@ def runMorse( kargs, nDim, local_size=(32,) ):
     queue.finish()
     return FE
 
-def runPower(array, p=2, local_size=(32,), queue=None):
-    '''
-    Raise every element in a opencl array into a power. Negative values are set to zero.
-
-    Arguments:
-        array: pyopencl.Buffer. Array whose elements are raised to the power. Values should
-            be float32.
-        p: float. Power that the array is rised to.
-        local_size: tuple of a single int. Size of local work group on device.
-        queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
-            Defaults to oclu.queue.
-
-    Returns: pyopencl.Buffer. New array with result.
-    '''
-    queue = queue or oclu.queue
-    array_out = cl.Buffer(queue.context, cl.mem_flags.READ_WRITE, size=array.size)
-    n = np.int32(array.size / 4)
-    p = np.float32(p)
-    local_size = (32,)
-    global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
-    cl_program.power(queue, global_size, local_size, array, array_out, n, p)
-    return array_out
-
 # ========= getPos
 
 def genFFSampling( lvec, pixPerAngstrome=10 ):
@@ -366,10 +343,10 @@ class DataGrid:
     Class for holding data on a grid.
 
     Arguments:
-        array: np.ndarray or pyopencl.Buffer. Array values on a 3D grid.
+        array: np.ndarray or pyopencl.Buffer. Array values on a 3D grid with possibly multiple channels.
         lvec: array-like of shape (4, 3). Unit cell boundaries. First (row) vector specifies the origin,
             and the remaining three vectors specify the edge vectors of the unit cell.
-        shape: array-like of length 3. Grid shape when array is a pyopencl.Buffer.
+        shape: array-like of length 3 or 4. Grid shape when array is a pyopencl.Buffer.
         ctx: pyopencl.Context. OpenCL context for device buffer. Defaults to oclu.ctx.
     '''
     def __init__(self, array, lvec, shape=None, ctx=None):
@@ -392,6 +369,8 @@ class DataGrid:
             self.nbytes = nbytes
         else:
             raise ValueError(f'Invalid type `{type(array)}` for array.')
+        if len(self.shape) not in [3, 4]:
+            raise ValueError(f'Dimension of array should be 3 or 4, but got {len(self.shape)}')
         self.lvec = np.array(lvec)
         self.origin = self.lvec[0]
         assert self.lvec.shape == (4, 3), f'lvec should have shape (4, 3), but has shape {lvec.shape}'
@@ -421,7 +400,7 @@ class DataGrid:
             mf = cl.mem_flags
             self._cl_array = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.array)
             self.nbytes += 4 * np.prod(self.shape)
-            if (verbose > 0): print(f'HartreePotential.nbytes {self.nbytes}')
+            if (verbose > 0): print(f'DataGrid.nbytes {self.nbytes}')
         return self._cl_array
 
     def release(self):
@@ -462,10 +441,96 @@ class DataGrid:
 
         return data, xyzs, Zs
 
+    def power_positive(self, p=1.2, in_place=True, local_size=(32,), queue=None):
+        '''
+        Raise every positive element in the grid into a power. Negative values are set to zero.
+
+        Arguments:
+            p: float. Power to rise to.
+            in_place: bool. Whether to do operation in place or to create a new array.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+                Defaults to oclu.queue.
+
+        Returns: same type as self. New data grid with result.
+        '''
+        array_in = self.cl_array
+        queue = queue or oclu.queue
+        if in_place:
+            grid_out = self
+            array_out = array_in
+            self._array = None # The current numpy array will be wrong after operation so reset it
+        else:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size)
+            array_type = type(self) # This way so inherited classes return their own class type
+            grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
+        n = np.int32(array_in.size / 4)
+        p = np.float32(p)
+        global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
+        cl_program.power(queue, global_size, local_size, array_in, array_out, n, p)
+        return grid_out
+
+    def grad(self, scale=1.0, order='C', local_size=(32,), queue=None):
+        '''Get the centered finite difference gradient of the data grid.
+        
+        The datagrid has to be either 3D or 4D with self.shape[3] == 1.
+
+        The resulting array adds a 4th dimension with size 4 to the grid such that at indices
+        0-2 are the partial derivatives in x, y, and z directions, respectively, and at index
+        3 isthe original scalar field.
+
+        Arguments:
+            scale: float or array-like of size 4. Additional scaling factor for the output.
+            order: str, 'C' or 'F'. Whether to save values in C or Fortran order.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+                Defaults to oclu.queue.
+
+        Returns: same type as self. New data grid with result.
+        '''
+
+        if len(self.shape) == 4 and self.shape[3] > 1:
+            raise RuntimeError(f'Can only take gradient of a datagrid with a single channel.')
+
+        if isinstance(scale, float):
+            scale = scale * np.ones(4, dtype=np.float32)
+        else:
+            scale = np.array(scale, dtype=np.float32)
+            if len(scale) != 4:
+                raise ValueError(f'Scale should have length 4, but got {len(scale)}.')
+
+        if not order in ['C', 'F']:
+            raise ValueError(f'Unknown data order `{order}`')
+        order = np.int32(1) if order == 'C' else np.int32(0)
+
+        array_in = self.cl_array
+        queue = queue or oclu.queue
+
+        shape_out = self.shape[:3] + (4,)
+        array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size * 4)
+        array_type = type(self) # This way so inherited classes return their own class type
+        grid_out = array_type(array_out, lvec=self.lvec, shape=shape_out, ctx=self.ctx)
+
+        global_size = [int(np.ceil(np.prod(self.shape) / local_size[0]) * local_size[0])]
+        step = np.append(np.diag(self.step), 0).astype(np.float32)
+        cl_program.grad(queue, global_size, local_size,
+            array_in,
+            array_out,
+            np.array(shape_out, dtype=np.int32),
+            step,
+            order,
+            scale
+        )
+
+        return grid_out
+
 # Aliases for DataGrid
-class HartreePotential(DataGrid): pass
-class ElectronDensity(DataGrid): pass
-class TipDensity(DataGrid): pass
+class HartreePotential(DataGrid):
+    '''Sample Hartree potential. Units should be in Volts.'''
+class ElectronDensity(DataGrid):
+    '''Sample electron density. Units should be in e/Å^3.'''
+class TipDensity(DataGrid):
+    '''Tip electron density. Units should be in e/Å^3.'''
 
 class MultipoleTipDensity(TipDensity):
     '''
@@ -584,7 +649,7 @@ class FFTConvolution:
         Convolve input array with tip charge density.
 
         Arguments:
-            array: HartreePotential or ElectronDensity or pyopencl.Buffer. Sample potential/density
+            array: DataGrid or pyopencl.Buffer. Sample potential/density
                 to convolve with tip density. Has to be same shape as rho.
             E: np.ndarray, pyopencl.Buffer or None. Output energy. Created automatically,
                 if None. For bCopy==True it is a np.ndarray and for bCopy==False it is a
@@ -598,7 +663,7 @@ class FFTConvolution:
 
         if bRuntime: t0 = time.perf_counter()
 
-        if isinstance(array, HartreePotential):
+        if isinstance(array, DataGrid):
             assert array.shape == self.shape, 'array shape does not match rho array shape'
             array = array.cl_array
         
@@ -1045,12 +1110,13 @@ class ForceField_LJC:
 
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
         if matching_grid:
-            cl_program.gradPotential(self.queue, global_size, local_size,
+            cl_program.grad(self.queue, global_size, local_size,
                 self.pot.cl_array,
                 self.cl_Efield,
                 np.append(self.pot.shape, 0).astype(np.int32),
                 np.append(np.diag(self.pot.step), 0).astype(np.float32),
-                np.int32(1)
+                np.int32(1),
+                np.array([-1.0, -1.0, -1.0, 1.0], dtype=np.float32)
             )
         else:
             T = np.append(np.linalg.inv(self.pot.step).T.copy(), np.zeros((3, 1)), axis=1).astype(np.float32)
@@ -1218,12 +1284,13 @@ class ForceField_LJC:
         # Take gradient to get electrostatic force field
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
         step = np.append(np.diag(self.dlvec[:, :3]), 0).astype(np.float32)
-        cl_program.gradPotential(self.queue, global_size, local_size,
+        cl_program.grad(self.queue, global_size, local_size,
             E_cl,
             self.cl_FE,
             self.nDim,
             step,
-            np.int32(0)
+            np.int32(0),
+            np.array([-1.0, -1.0, -1.0, 1.0], dtype=np.float32)
         )
 
         if bRuntime:
