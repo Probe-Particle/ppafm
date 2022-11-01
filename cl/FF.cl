@@ -789,6 +789,19 @@ __kernel void power(
     array_out[ind] = powr(max(0.0f, array_in[ind]), p);
 }
 
+// Multiply and add values in one array with another
+__kernel void addMult(
+    __global float *array_in1,  // Input array 1
+    __global float *array_in2,  // Input array 2 that is scaled
+    __global float *array_out,  // Output array
+    int n,                      // Number of elements in array
+    float A                     // Scaling constant for input array 2
+) {
+    int ind = get_global_id(0);
+    if (ind >= n) return;
+    array_out[ind] = array_in1[ind] + A * array_in2[ind];
+}
+
 float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
     float r = sqrt( dot( dpos,dpos) );
     return  (dpos-dpos0.xyz) * stiffness.xyz        // harmonic 3D

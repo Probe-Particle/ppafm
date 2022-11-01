@@ -40,9 +40,11 @@ class AFMulator():
             The dict should contain float entries for at least of one the following 's', 'px', 'py', 'pz', 'dz2',
             'dy2', 'dx2', 'dxy', 'dxz', 'dyz'. The tip charge density will be a linear combination of the specified
             multipole types with the specified weights.
+        sigma: float. Width of tip density distribution if rho is a dict of multipole coefficients.
         rho_delta: TipDensity. Tip delta charge density. Used in FDBM approximation for calculating the
             electrostatic interaction force.
-        sigma: float. Width of tip density distribution if rho is a dict of multipole coefficients.
+        A_pauli: float. Prefactor for Pauli repulsion in FDBM.
+        B_pauli: float. Exponent for Pauli repulsion in FDBM.
         df_steps: int. Number of steps in z convolution. The total amplitude is df_steps times scan z-step size.
         tipR0: array of length 3. Probe particle equilibrium position (x, y, z) in angstroms.
         tipStiffness: array of length 4. Harmonic spring constants (x, y, z, r) for holding the probe particle
@@ -76,8 +78,10 @@ class AFMulator():
         QZs             = [ 0.1,  0, -0.1, 0 ],
         Qs              = [ -10, 20,  -10, 0 ],
         rho             = None,
-        rho_delta       = None,
         sigma           = 0.71,
+        rho_delta       = None,
+        A_pauli         = 18.0,
+        B_pauli         = 1.0,
         df_steps        = 10,
         tipR0           = [0.0, 0.0, 3.0],
         tipStiffness    = [0.25, 0.25, 0.0, 30.0],
@@ -101,6 +105,8 @@ class AFMulator():
         self.kCantilever = kCantilever
         self.npbc = npbc
         self.pot = None
+        self.A_pauli = A_pauli
+        self.B_pauli = B_pauli
 
         self.setScanWindow(scan_window, scan_dim, df_steps)
         self.setLvec(lvec, pixPerAngstrome)
@@ -310,7 +316,8 @@ class AFMulator():
             
         # Compute force field
         self.forcefield.makeFF(xyzs, cLJs, method=method, qs=qs, pot=pot, rho_sample=rho_sample,
-            rot=rot, rot_center=rot_center, bRelease=False, bCopy=False, bFinish=False)
+            rho_delta=self.rho_delta, A=self.A_pauli, B=self.B_pauli, rot=rot, rot_center=rot_center,
+            bRelease=False, bCopy=False, bFinish=False)
         self.atoms = self.forcefield.atoms
         if self.bSaveFF: self.saveFF()
         

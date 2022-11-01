@@ -7,7 +7,7 @@ import numpy as np
 import pyopencl as cl
 from pyopencl import array
 
-from ..GridUtils import loadCUBE, loadXSF
+from ..GridUtils import loadCUBE, loadXSF, limit_vec_field, save_scal_field, save_vec_field
 from ..basUtils import loadAtomsCUBE, loadXSFGeom
 from ..fieldFFT import getProbeDensity
 
@@ -343,7 +343,7 @@ class DataGrid:
     Class for holding data on a grid.
 
     Arguments:
-        array: np.ndarray or pyopencl.Buffer. Array values on a 3D grid with possibly multiple channels.
+        array: np.ndarray or pyopencl.Buffer. Array values on a 3D grid with possibly multiple components.
         lvec: array-like of shape (4, 3). Unit cell boundaries. First (row) vector specifies the origin,
             and the remaining three vectors specify the edge vectors of the unit cell.
         shape: array-like of length 3 or 4. Grid shape when array is a pyopencl.Buffer.
@@ -353,7 +353,7 @@ class DataGrid:
         if isinstance(array, np.ndarray):
             if array.dtype != np.float32 or not array.flags['C_CONTIGUOUS']:
                 array = np.ascontiguousarray(array, dtype=np.float32)
-            self.shape = array.shape
+            self.shape = tuple(array.shape)
             self._array = array
             self._cl_array = None
             self.nbytes = 0
@@ -363,7 +363,7 @@ class DataGrid:
                    'a pyopencl.Buffer.')
             nbytes = 4 * np.prod(shape)
             assert array.size == nbytes, f'shape {shape} does not match with buffer size {array.size}'
-            self.shape = shape
+            self.shape = tuple(shape)
             self._array = None
             self._cl_array = array
             self.nbytes = nbytes
@@ -441,6 +441,65 @@ class DataGrid:
 
         return data, xyzs, Zs
 
+    def to_file(self, file_path, clamp=None):
+        '''Save data grid to file(s).
+
+        Supported file types are .xsf and .npy.
+        
+        Arguments:
+            file_path: str. Path to saved file. For a 4D data grid, letters x, y, z, w are appended
+                to the file path for each component, respectively.
+            clamp: float or None. If not None, all values greater than this are clamped to this value.
+        '''
+        file_head, ext = os.path.splitext(file_path)
+        if ext not in ['.xsf', '.npy']:
+            raise ValueError(f'Unsupported file extension `{ext}` for saving data grid.')
+        ext = ext[1:]
+        array = self.array.copy()
+        if len(self.shape) == 3:
+            if clamp: array[array > clamp] = clamp
+            save_scal_field(file_head, array.T, self.lvec, data_format=ext)
+        if len(self.shape) == 4:
+            assert self.shape[3] == 4, 'Wrong number of components'
+            if clamp:
+                limit_vec_field(array, Fmax=clamp)
+                array[:, :, :, 3][array[:, :, :, 3] > clamp] = clamp
+            array = array.transpose(2, 1, 0, 3)
+            save_vec_field(file_head, array[:, :, :, :3], self.lvec, data_format=ext)
+            save_scal_field(file_head+'_w', array[:, :, :, 3], self.lvec, data_format=ext)
+
+    def add_mult(self, array, scale=1.0, in_place=True, local_size=(32,), queue=None):
+        '''
+        Multiply the values of another data grid and add them to the values of this data grid.
+
+        Arguments:
+            array: DataGrid. Grid whose values to scale and add.
+            scale: float. Value by which values in array are multiplied.
+            in_place: bool. Whether to do operation in place or to create a new array.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+                Defaults to oclu.queue.
+
+        Returns:
+            Same type as self. New data grid with result.
+        '''
+        array_in1 = self.cl_array
+        array_in2 = array.cl_array
+        queue = queue or oclu.queue
+        if in_place:
+            grid_out = self
+            array_out = array_in1
+            self._array = None # The current numpy array will be wrong after operation so reset it
+        else:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in1.size)
+            array_type = type(self) # This way so inherited classes return their own class type
+            grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
+        n = np.int32(array_in1.size / 4)
+        scale = np.float32(scale)
+        global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
+        cl_program.addMult(queue, global_size, local_size, array_in1, array_in2, array_out, n, scale)
+        return grid_out
+
     def power_positive(self, p=1.2, in_place=True, local_size=(32,), queue=None):
         '''
         Raise every positive element in the grid into a power. Negative values are set to zero.
@@ -452,7 +511,8 @@ class DataGrid:
             queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
                 Defaults to oclu.queue.
 
-        Returns: same type as self. New data grid with result.
+        Returns:
+            Same type as self. New data grid with result.
         '''
         array_in = self.cl_array
         queue = queue or oclu.queue
@@ -470,27 +530,29 @@ class DataGrid:
         cl_program.power(queue, global_size, local_size, array_in, array_out, n, p)
         return grid_out
 
-    def grad(self, scale=1.0, order='C', local_size=(32,), queue=None):
+    def grad(self, scale=1.0, array_out=None, order='C', local_size=(32,), queue=None):
         '''Get the centered finite difference gradient of the data grid.
         
         The datagrid has to be either 3D or 4D with self.shape[3] == 1.
 
         The resulting array adds a 4th dimension with size 4 to the grid such that at indices
         0-2 are the partial derivatives in x, y, and z directions, respectively, and at index
-        3 isthe original scalar field.
+        3 is the original scalar field.
 
         Arguments:
             scale: float or array-like of size 4. Additional scaling factor for the output.
+            array_out: pyopencl.Buffer or None. Output array. If None, then is created automatically.
             order: str, 'C' or 'F'. Whether to save values in C or Fortran order.
             local_size: tuple of a single int. Size of local work group on device.
             queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
                 Defaults to oclu.queue.
 
-        Returns: same type as self. New data grid with result.
+        Returns:
+            Same type as self. New data grid with result.
         '''
 
         if len(self.shape) == 4 and self.shape[3] > 1:
-            raise RuntimeError(f'Can only take gradient of a datagrid with a single channel.')
+            raise RuntimeError(f'Can only take gradient of a datagrid with a single component.')
 
         if isinstance(scale, float):
             scale = scale * np.ones(4, dtype=np.float32)
@@ -507,9 +569,11 @@ class DataGrid:
         queue = queue or oclu.queue
 
         shape_out = self.shape[:3] + (4,)
-        array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size * 4)
-        array_type = type(self) # This way so inherited classes return their own class type
-        grid_out = array_type(array_out, lvec=self.lvec, shape=shape_out, ctx=self.ctx)
+        if array_out is None:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size * 4)
+        else:
+            assert array_out.size == array_in.size * 4, f'array size does not match ({array_out.size} != {array_in.size * 4})'
+        grid_out = type(self)(array_out, lvec=self.lvec, shape=shape_out, ctx=self.ctx)
 
         global_size = [int(np.ceil(np.prod(self.shape) / local_size[0]) * local_size[0])]
         step = np.append(np.diag(self.step), 0).astype(np.float32)
@@ -523,6 +587,57 @@ class DataGrid:
         )
 
         return grid_out
+
+    def interp_at(self, lvec_new, shape_new, array_out=None, rot=np.eye(3), rot_center=np.zeros(3),
+        local_size=(32,), queue=None):
+        '''
+        Interpolate grid values onto another grid. Uses periodic boundary conditions.
+
+        Arguments:
+            lvec_new: array-like of shape (4, 3). Unit cell boundaries for new grid.
+            shape_new: array-like of length 3. New grid shape.
+            array_out: pyopencl.Buffer or None. Output array. If None, then is created automatically.
+            rot: np.ndarray of shape (3, 3). Rotation matrix to apply.
+            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+                Defaults to oclu.queue.
+
+        Returns:
+            Same type as self. New data grid with result.
+        '''
+
+        if len(self.shape) == 4 and self.shape[3] > 1:
+            raise NotImplementedError('Interpolation for 4D grids is not implemented.')
+
+        queue = queue or oclu.queue
+
+        size_new = 4*np.prod(shape_new[:3])
+        if array_out is None:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=size_new)
+        else:
+            assert array_out.size == size_new, f'array size does not match ({array_out.size} != {size_new})'
+        array_out = type(self)(array_out, lvec_new, shape_new, self.ctx)
+
+        global_size = [int(np.ceil(np.prod(shape_new[:3]) / local_size[0]) * local_size[0])]
+        T = np.concatenate([np.linalg.inv(self.step).T.copy(), np.zeros((3, 1))], axis=1, dtype=np.float32)
+        rot = np.concatenate([rot, np.zeros((3, 1))], axis=1, dtype=np.float32)
+        dlvec = np.concatenate([array_out.step, np.zeros((3, 1))], axis=1, dtype=np.float32)
+        
+        cl_program.interp_at(queue, global_size, local_size,
+            self.cl_array,
+            array_out.cl_array,
+            np.append(self.shape, 0).astype(np.int32),
+            T[0], T[1], T[2],
+            np.append(self.origin, 0).astype(np.float32),
+            np.append(shape_new, 0).astype(np.int32),
+            dlvec[0], dlvec[1], dlvec[2],
+            np.append(array_out.origin, 0).astype(np.float32),
+            rot[0], rot[1], rot[2],
+            np.append(rot_center, 0).astype(np.float32)
+        )
+
+        return array_out
 
 # Aliases for DataGrid
 class HartreePotential(DataGrid):
@@ -644,37 +759,33 @@ class FFTConvolution:
         self.rho = rho
         self.fft_f(self.rho_hat_cl, rho.cl_array, inverse=0)
 
-    def convolve(self, array, E=None, scale=1, bCopy=True, bFinish=True):
+    def convolve(self, array, E=None, scale=1):
         '''
         Convolve input array with tip charge density.
 
         Arguments:
             array: DataGrid or pyopencl.Buffer. Sample potential/density
                 to convolve with tip density. Has to be same shape as rho.
-            E: np.ndarray, pyopencl.Buffer or None. Output energy. Created automatically,
-                if None. For bCopy==True it is a np.ndarray and for bCopy==False it is a
-                pyopencl.Buffer.
+            E: DataGrid or None. Output data grid. If None, is created automatically.
+                The automatically created datagrid has the same lvec as self.rho.lvec.
             scale: float. Additional scaling factor for the output.
-            bCopy: Bool. Whether to return the output energy to host.
-            bFinish: Bool. Whether to wait for execution to finish.
 
-        Returns: np.ndarray if bCopy == True or pyopencl.Buffer otherwise.
+        Returns:
+            DataGrid. Result of convolution.
         '''
 
         if bRuntime: t0 = time.perf_counter()
 
         if isinstance(array, DataGrid):
-            assert array.shape == self.shape, 'array shape does not match rho array shape'
             array = array.cl_array
+        assert array.size == np.prod(self.shape) * 4, 'array shape does not match rho array shape'
         
-        mf = cl.mem_flags
-        if bCopy:
-            E = E or np.empty(self.shape, dtype=np.float32)
-            assert E.shape == self.shape, 'E array shape does not match'
-            E_cl = cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.shape))
+        if E is None:
+            E_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=4*np.prod(self.shape))
+            E = DataGrid(E_cl, lvec=self.rho.lvec, shape=self.shape, ctx=self.rho.ctx)
         else:
-            E = E or cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.shape))
-            E_cl = E
+            assert E.shape == self.shape, 'E data grid shape does not match'
+            E_cl = E.cl_array
 
         if(bRuntime):
             self.queue.finish()
@@ -685,8 +796,6 @@ class FFTConvolution:
         self.fft_i(new_output=E_cl, input=self.pot_hat_cl * self.rho_hat_cl,
             scale=scale*self.rho.cell_vol, inverse=1)
 
-        if bCopy: cl.enqueue_copy(self.queue, E, E_cl)
-        if bFinish or bRuntime: self.queue.finish()
         if(bRuntime): print("runtime(FFTConvolution.convolve) [s]: ", time.perf_counter() - t0)
 
         return E
@@ -836,6 +945,14 @@ class ForceField_LJC:
             pass
         try:
             self.rho.release()
+        except:
+            pass
+        try:
+            self.rho_delta.release()
+        except:
+            pass
+        try:
+            self.rho_sample.release()
         except:
             pass
 
@@ -1187,74 +1304,41 @@ class ForceField_LJC:
         self.queue.finish()
         return FE
 
-    def interp_pot(self, pot=None, array_out=None, rot=np.eye(3), rot_center=np.zeros(3),
-            local_size=(32,), bCopy=True, bFinish=True):
-        '''
-        Interpolate Hartree potential on the force field grid with an optional rotation
-        to the output grid coordinates.
-
+    def addLJ(self, local_size=(32,)):
+        '''Add Lennard-Jones force and energy to the current force field grid.
+        
         Arguments:
-            pot: HartreePotential or None. Hartree potential to differentiate. If None, has to be
-                initialized beforehand with prepareBuffers.
-            array_out: np.ndarray, pyopencl.Buffer or None. Output array. Created automatically,
-                if None. For bCopy==True it is a np.ndarray and for bCopy==False it is a
-                pyopencl.Buffer.
-            rot: np.ndarray of shape (3, 3). Rotation matrix to apply.
-            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
             local_size: tuple of a single int. Size of local work group on device.
-            bCopy: Bool. Whether to return the calculated electric field to host.
-            bFinish: Bool. Whether to wait for execution to finish.
-
-        Returns: np.ndarray if bCopy == True or pyopencl.Buffer otherwise.
         '''
-
-        if bRuntime: t0 = time.perf_counter()
-
-        if pot:
-            self.prepareBuffers(pot=pot)
-        elif not self.pot:
-            raise ValueError("Hartree potential not initialized on the device. "
-                "Either initialize it with prepareBuffers or pass it here as a HartreePotential object.")
-        
-        mf = cl.mem_flags
-        if bCopy:
-            array_out = array_out or np.empty(self.nDim[:3], dtype=np.float32)
-            assert isinstance(array_out, np.ndarray), 'array_out should be a numpy array when bCopy==True'
-            cl_array_out = cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.nDim[:3]))
-            if not np.allclose(array_out.shape, self.nDim[:3]):
-                raise ValueError(f'array_out dimensions {array_out.shape} do not match with '
-                    f'force field dimensions {self.nDim}.')
-        else:
-            if array_out:
-                assert isinstance(array_out, cl.Buffer), 'array_out should be an pyopencl.Buffer when bCopy==False'
-            else:
-                array_out = cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.nDim[:3]))
-            cl_array_out = array_out
-
+        local_size = (min(local_size[0], 64),)
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
-        T = np.append(np.linalg.inv(self.pot.step).T.copy(), np.zeros((3, 1)), axis=1).astype(np.float32)
-        rot = np.append(rot, np.zeros((3, 1)), axis=1).astype(np.float32)
-
-        if bRuntime: print("runtime(ForceField_LJC.interp_pot.pre) [s]: ", time.perf_counter() - t0)
-        
-        cl_program.interp_at(self.queue, global_size, local_size,
-            self.pot.cl_array,
-            cl_array_out,
-            np.append(self.pot.shape, 0).astype(np.int32),
-            T[0], T[1], T[2],
-            np.append(self.pot.origin, 0).astype(np.float32),
+        cl_program.addLJ(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cLJs,
+            self.cl_FE,
             self.nDim,
-            self.dlvec[0], self.dlvec[1], self.dlvec[2],
             self.lvec0,
-            rot[0], rot[1], rot[2],
-            np.append(rot_center, 0).astype(np.float32)
+            self.dlvec[0], self.dlvec[1], self.dlvec[2]
         )
 
-        if bCopy: cl.enqueue_copy(self.queue, array_out, cl_array_out)
-        if bFinish: self.queue.finish()
-        if bRuntime: print("runtime(ForceField_LJC.interp_pot) [s]: ", time.perf_counter() - t0)
-
-        return array_out
+    def addvdW(self, local_size=(32,)):
+        '''Add van der Waals force and energy to the current force field grid.
+        
+        Arguments:
+            local_size: tuple of a single int. Size of local work group on device.
+        '''
+        local_size = (min(local_size[0], 64),)
+        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        cl_program.addvdW(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cLJs,
+            self.cl_FE,
+            self.nDim,
+            self.lvec0,
+            self.dlvec[0], self.dlvec[1], self.dlvec[2]
+        )
 
     def calc_force_fft(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
             bCopy=True, bFinish=True):
@@ -1280,50 +1364,102 @@ class ForceField_LJC:
                 'Note that the forcefield grid does not need to match the Hartree potential grid.')
 
         # Interpolate Hartree potential onto the correct grid
-        pot_interp = self.interp_pot(rot=rot, rot_center=rot_center, local_size=local_size,
-            bCopy=False, bFinish=bRuntime)
+        lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
+        pot = self.pot.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center,
+            local_size=local_size, queue=self.queue)
 
         if bRuntime: print("runtime(ForceField_LJC.calc_force_fft.interpolate) [s]: ", time.perf_counter() - t0)
 
         # Convolve Hartree potential and tip charge density
-        E_cl = self.fft_conv.convolve(pot_interp, bCopy=False, bFinish=False)
+        E = self.fft_conv.convolve(pot)
 
         if bRuntime:
             self.queue.finish()
             print("runtime(ForceField_LJC.calc_force_fft.convolution) [s]: ", time.perf_counter() - t0)
 
         # Take gradient to get electrostatic force field
-        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
-        step = np.append(np.diag(self.dlvec[:, :3]), 0).astype(np.float32)
-        cl_program.grad(self.queue, global_size, local_size,
-            E_cl,
-            self.cl_FE,
-            self.nDim,
-            step,
-            np.int32(0),
-            np.array([-1.0, -1.0, -1.0, 1.0], dtype=np.float32)
-        )
+        E.grad(scale=[-1.0, -1.0, -1.0, 1.0], array_out=self.cl_FE, order='F',
+            local_size=local_size, queue=self.queue)
 
         if bRuntime:
             self.queue.finish()
             print("runtime(ForceField_LJC.calc_force_fft.gradient) [s]: ", time.perf_counter() - t0)
 
         # Add Lennard-Jones force
-        local_size = (min(local_size[0], 64),)
-        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
-        cl_program.addLJ(self.queue, global_size, local_size,
-            self.nAtoms,
-            self.cl_atoms,
-            self.cl_cLJs,
-            self.cl_FE,
-            self.nDim,
-            self.lvec0,
-            self.dlvec[0], self.dlvec[1], self.dlvec[2]
-        )
+        self.addLJ(local_size=local_size)
 
         if bCopy: FE = self.downloadFF(FE)
         if bFinish or bRuntime: self.queue.finish()
         if bRuntime: print("runtime(ForceField_LJC.calc_force_fft) [s]: ", time.perf_counter() - t0)
+
+        return FE
+
+    def calc_force_fdbm(self, A=18.0, B=1.0, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
+            bCopy=True, bFinish=True):
+        '''
+        Calculate force field using FDBM.
+
+        Arguments:
+            A: float. Prefactor for Pauli repulsion.
+            B: float. Exponent used for Pauli repulsion.
+            FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
+                If None and bCopy == True, will be created automatically.
+            rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
+            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            local_size: tuple of a single int. Size of local work group on device.
+            bCopy: Bool. Whether to copy the calculated forcefield field to host.
+            bFinish: Bool. Whether to wait for execution to finish.
+
+        Returns:
+            np.ndarray if bCopy==True or None otherwise.
+        '''
+
+        if bRuntime: t0 = time.perf_counter()
+
+        if (self.lvec[:, :3] != np.diag(np.diag(self.lvec[:, :3]))).any():
+            raise NotImplementedError('Forcefield calculation via FFT for non-rectangular grids is not implemented. '
+                'Note that the forcefield grid does not need to match the Hartree potential grid.')
+
+        # Interpolate Hartree potential onto the correct grid
+        # pot_interp = self.interp_pot(rot=rot, rot_center=rot_center, local_size=local_size,
+        #     bCopy=False, bFinish=bRuntime)
+
+        # if bRuntime: print("runtime(ForceField_LJC.calc_force_fdbm.interpolate) [s]: ", time.perf_counter() - t0)
+
+        # Convolve Hartree potential and tip electron delta density for electrostatic energy
+        E_es = self.fft_conv_delta.convolve(self.pot)
+
+        # Convolve sample electron density and tip electron density for Pauli energy
+        assert B == 1.0, 'Powers other than 1 not implemented'
+        E_pauli = self.fft_conv.convolve(self.rho_sample)
+
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_fdbm.add_mult) [s]: ", time.perf_counter() - t0)
+
+        # Add the two energy contributions together
+        E = E_es.add_mult(E_pauli, scale=A, in_place=True, local_size=local_size, queue=self.queue)
+        E_pauli.release()
+
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_fdbm.convolution) [s]: ", time.perf_counter() - t0)
+
+        # Take gradient to get the force field
+        E.grad(scale=[-1.0, -1.0, -1.0, 1.0], array_out=self.cl_FE, order='F',
+            local_size=local_size, queue=self.queue)
+        E.release()
+
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_fdbm.gradient) [s]: ", time.perf_counter() - t0)
+
+        # Add vdW force
+        self.addvdW(local_size=local_size)
+
+        if bCopy: FE = self.downloadFF(FE)
+        if bFinish or bRuntime: self.queue.finish()
+        if bRuntime: print("runtime(ForceField_LJC.calc_force_fdbm) [s]: ", time.perf_counter() - t0)
 
         return FE
 
@@ -1412,7 +1548,10 @@ class ForceField_LJC:
                     bCopy=bCopy, bFinish=bFinish)
 
         elif method == 'fdbm':
-            raise NotImplementedError('FDMB not implemented yet')
+            if not (np.allclose(self.nDim[:3], self.rho_delta.shape) and np.allclose(self.nDim[:3], self.rho.shape) and np.allclose(self.nDim[:3], self.rho_sample.shape)):
+                raise NotImplementedError(f'Non-matching grid dimensions not yet implemented. {self.nDim[:3]}, {self.rho.shape}, {self.rho_delta.shape}, {self.rho_sample.shape}')
+            FF = self.calc_force_fdbm(A=A, B=B, rot=rot_ff, rot_center=rot_center, local_size=local_size,
+                bCopy=bCopy, bFinish=bFinish)
 
         else:
             raise ValueError(f'Unknown method for force field calculation: `{method}`.')
