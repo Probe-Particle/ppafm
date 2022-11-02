@@ -34,7 +34,6 @@ from ..ocl import field    as FFcl
 from ..ocl import relax    as oclr
 from .. import SimplePot   as sp
 
-from ..ocl import HighLevel as hl
 from ..ocl import AFMulator
 from . import AuxMap
 from . import Generator

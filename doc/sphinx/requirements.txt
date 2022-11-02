@@ -1,0 +1,7 @@
+matplotlib
+numpy
+pyopencl
+reikna
+ase
+sphinx
+sphinx_rtd_theme
