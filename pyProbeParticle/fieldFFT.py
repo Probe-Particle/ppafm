@@ -22,7 +22,7 @@ def getSize(inp_axis, dims, sampleSize):
     axes = {'x':0, 'y':1, 'z':2} # !!!
     if inp_axis in list(axes.keys()): axis = axes[inp_axis]
     size = np.linalg.norm(sampleSize[axis])   
-    return size, size/(dims[axis] - 1)
+    return size, size/dims[axis]
 
 def getMGrid(dims, dd):
     'returns coordinate arrays X, Y, Z'
