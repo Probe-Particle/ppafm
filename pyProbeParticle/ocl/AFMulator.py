@@ -54,8 +54,6 @@ class AFMulator():
             potential defined on a grid is always considered to be periodic.
         f0Cantilever: float. Resonance frequency of cantilever in Hz.
         kCantilever: float. Harmonic spring constant of cantilever in N/m.
-        initFF: Bool. Whether to initialize buffers. Set to False to modify force field and scanner parameters
-            before initialization.
     '''
 
     bMergeConv = False   # Should we use merged kernel relaxStrokesTilted_convZ or two separated kernells  ( relaxStrokesTilted, convolveZ  )
@@ -105,12 +103,13 @@ class AFMulator():
         self.kCantilever = kCantilever
         self.npbc = npbc
         self.pot = None
+        self.sigma = sigma
         self.A_pauli = A_pauli
         self.B_pauli = B_pauli
 
         self.setScanWindow(scan_window, scan_dim, df_steps)
         self.setLvec(lvec, pixPerAngstrome)
-        self.setRho(rho, sigma)
+        self.setRho(rho, sigma, B_pauli)
         self.setRhoDelta(rho_delta)
         self.setQs(Qs, QZs)
 
@@ -200,10 +199,17 @@ class AFMulator():
         self.scanner.updateBuffers(WZconv=self.dfWeight)
         self.scanner.preparePosBasis(start=self.scan_window[0][:2], end=self.scan_window[1][:2] )
 
-    def setRho(self, rho=None, sigma=0.71):
-        '''Set tip charge distribution.'''
-        self.sigma = sigma
+    def setRho(self, rho=None, sigma=0.71, B_pauli=1.0):
+        '''Set tip charge distribution.
+        
+        Arguments:
+            rho: Dict, TipDensity, or None. Tip charge density. If None, the existing density is deleted.
+            sigma: float. Tip charge density distribution, when rho is a dict.
+            B_pauli: float. Pauli repulsion exponent for tip density when using FDBM.
+        '''
         if rho is not None:
+            self.sigma = sigma
+            self.B_pauli = B_pauli
             self._rho = rho # Remember argument value so that if it's a dict the tip density can be recalculated if necessary
             if isinstance(rho, dict):
                 self.rho = MultipoleTipDensity(self.forcefield.lvec[:, :3], self.forcefield.nDim[:3], sigma=self.sigma,
@@ -211,6 +217,8 @@ class AFMulator():
             else:
                 self.rho = rho
             if self.verbose > 0: print('AFMulator.setRho: Preparing buffers')
+            if not np.allclose(B_pauli, 1.0):
+                self.rho = self.rho.power_positive(p=self.B_pauli, in_place=False)
             self.forcefield.prepareBuffers(rho=self.rho, bDirect=True)
         else:
             self._rho = None
@@ -219,9 +227,17 @@ class AFMulator():
                 if self.verbose > 0: print('AFMulator.setRho: Releasing buffers')
                 self.forcefield.rho.release()
                 self.forcefield.rho = None
+
+    def setBPauli(self, B_pauli=1.0):
+        '''Set Pauli repulsion exponent used in FDBM.'''
+        self.setRho(self._rho, sigma=self.sigma, B_pauli=B_pauli)
     
     def setRhoDelta(self, rho_delta=None):
-        '''Set tip electron delta-density.'''
+        '''Set tip electron delta-density that is used for electrostatic interaction in FDBM.
+        
+        Arguments:
+            rho_delta: TipDensity or None. Tip electron delta-density. If None, the existing density is deleted.
+        '''
         self.rho_delta = rho_delta
         if self.rho_delta is not None:
             if self.verbose > 0: print('AFMulator.setRhoDelta: Preparing buffers')
@@ -266,7 +282,7 @@ class AFMulator():
             if self.verbose > 0: print('(Re)initializing force field buffers.')
             if self.verbose > 1: print(f'old nDim: {self._old_nDim}, new nDim: {self.forcefield.nDim}')
             self.forcefield.tryReleaseBuffers()
-            self.setRho(self._rho, self.sigma)
+            self.setRho(self._rho, self.sigma, self.B_pauli)
             self.forcefield.prepareBuffers()
 
         # If rho_sample is specified, then we use FDMB. Check that other requirements are satisfied

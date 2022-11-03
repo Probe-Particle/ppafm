@@ -406,6 +406,7 @@ class DataGrid:
     def release(self):
         '''Release device buffers.'''
         if self._cl_array is not None:
+            self.array # Make sure grid values are in host memory before releasing device memory
             self._cl_array.release()
             self._cl_array = None
             self.nbytes -= 4 * np.prod(self.shape)
@@ -1430,8 +1431,10 @@ class ForceField_LJC:
         E_es = self.fft_conv_delta.convolve(self.pot)
 
         # Convolve sample electron density and tip electron density for Pauli energy
-        assert B == 1.0, 'Powers other than 1 not implemented'
-        E_pauli = self.fft_conv.convolve(self.rho_sample)
+        rho_sample = self.rho_sample
+        if not np.allclose(B, 1.0):
+            rho_sample = self.rho_sample.power_positive(p=B, in_place=False)
+        E_pauli = self.fft_conv.convolve(rho_sample)
 
         if bRuntime:
             self.queue.finish()
