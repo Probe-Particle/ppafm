@@ -10,6 +10,7 @@ from pyopencl import array
 from ..GridUtils import loadCUBE, loadXSF, limit_vec_field, save_scal_field, save_vec_field
 from ..basUtils import loadAtomsCUBE, loadXSFGeom
 from ..fieldFFT import getProbeDensity
+from ..HighLevel import subtractCoreDensities, _getAtomsWhichTouchPBCcell
 
 try:
     from reikna.cluda import ocl_api, dtypes
@@ -645,8 +646,30 @@ class HartreePotential(DataGrid):
     '''Sample Hartree potential. Units should be in Volts.'''
 class ElectronDensity(DataGrid):
     '''Sample electron density. Units should be in e/Å^3.'''
+
 class TipDensity(DataGrid):
     '''Tip electron density. Units should be in e/Å^3.'''
+
+    def subCores(self, xyzs, Zs, Rcore=0.7, valElDict=None):
+        '''
+        Subtract core densities from the tip density.
+
+        Arguments:
+            xyzs: np.ndarray of shape (n_atoms, 3). Coordinates of atoms.
+            Zs: np.ndarray of shape (n_atoms,). Atomic numbers of atoms.
+            Rcore: float. Width of core density distribution.
+            valElDict: Dict or None. Dictionary of the number of valence electrons for elements.
+                If None, then values in defaults.valelec_dict are used. 
+
+        Returns:
+            TipDensity. New tip density with core densities subtracted.
+        '''
+        array = np.ascontiguousarray(self.array.T, dtype=np.float64) # 64 bit required by library
+        Rs, elems = _getAtomsWhichTouchPBCcell(xyzs.T, Zs, self.shape, self.lvec, 1.0, False)
+        subtractCoreDensities(array, self.lvec, elems=elems, Rs=Rs, valElDict=valElDict,
+            Rcore=Rcore, bSaveDebugGeom=False)
+        grid = TipDensity(array.T, self.lvec, ctx=self.ctx)
+        return grid
 
 class MultipoleTipDensity(TipDensity):
     '''
