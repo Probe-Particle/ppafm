@@ -290,8 +290,7 @@ def loadValenceElectronDict():
     if(verbose>0): print(" Valence Electron Dict : \n", valElDict_)
     return valElDict_
 
-
-def _getAtomsWhichTouchPBCcell( Rs, elems, nDim, lvec, Rcut, bSaveDebug ):
+def _getAtomsWhichTouchPBCcell( Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname=None ):
     print(Rs, elems, nDim, lvec)
     inds, Rs_ = PPU.findPBCAtoms3D_cutoff( Rs, np.array(lvec[1:]), Rcut=Rcut )  # find periodic images of PBC images of atom of radius Rcut which touch our cell 
     elems = [ elems[i] for i in inds ]   # atomic number of all relevant peridic images of atoms   
@@ -304,8 +303,8 @@ def getAtomsWhichTouchPBCcell( fname, Rcut=1.0, bSaveDebug=True ):
     atoms, nDim, lvec = BU.loadGeometry( fname, params=PPU.params )
     Rs = np.array(atoms[1:4]) # get just positions x,y,z
     elems = np.array(atoms[0])
-    Rs, elems = _getAtomsWhichTouchPBCcell(Rs, elems, nDim, lvec, Rcut, bSaveDebug)
-    return Rs_, elems
+    Rs, elems = _getAtomsWhichTouchPBCcell(Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname)
+    return Rs, elems
 
 def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDict=None, Rcore=0.7, bSaveDebugDens=False, bSaveDebugGeom=True, head=GU.XSF_HEAD_DEFAULT ):
     lvec = lvec_[1:]
