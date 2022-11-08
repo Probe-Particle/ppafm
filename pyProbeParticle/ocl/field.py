@@ -2,6 +2,7 @@
 
 import os
 import time
+import warnings
 import numpy as np 
 
 import pyopencl as cl
@@ -15,6 +16,7 @@ from ..HighLevel import subtractCoreDensities, _getAtomsWhichTouchPBCcell
 try:
     from reikna.cluda import ocl_api, dtypes
     from reikna.fft import FFT
+    from reikna import cluda
     from reikna.core import Annotation, Type, Transformation, Parameter
     fft_available = True
 except ModuleNotFoundError:
@@ -432,7 +434,12 @@ class DataGrid:
             Zs, x, y, z, _ = loadAtomsCUBE(file_path)
         elif file_path.endswith('.xsf'):
             data, lvec, _, _ = loadXSF(file_path, xyz_order=True, verbose=False)
-            (Zs, x, y, z, _), _, _ = loadXSFGeom(file_path)
+            try:
+                (Zs, x, y, z, _), _, _ = loadXSFGeom(file_path)
+            except ValueError:
+                warnings.warn(f'Could not read geometry from {file_path} in DataGrid.from_file.')
+                Zs = np.zeros(1)
+                x = y = z = np.zeros((1, 1))
         else:
             raise ValueError(f'Unsupported file format in file `{file_path}`')
 
@@ -712,13 +719,13 @@ class MultipoleTipDensity(TipDensity):
         step = lvec_len / shape
         rho = getProbeDensity(lvec, X, Y, Z, step, sigma=sigma, multipole_dict=multipole, tilt=tilt)
 
-        if(bRuntime): print("runtime(FFTConvolution._make_tip_density) [s]: ", time.perf_counter() - t0)
+        if(bRuntime): print("runtime(MultipoleTipDensity._make_tip_density) [s]: ", time.perf_counter() - t0)
         
         return rho.astype(np.float32)
 
-class FFTConvolution:
+class FFTCrossCorrelation:
     '''
-    Do circular convolution of sample Hartree potential or electron density with tip charge
+    Do circular cross-correlation of sample Hartree potential or electron density with tip charge
     density via FFT.
 
     Arguments:
@@ -737,7 +744,7 @@ class FFTConvolution:
         self._make_transforms()
         self._make_fft()
         self._set_rho(rho)
-        if (verbose > 0): print(f'FFTConvolution.nbytes {self.nbytes}')
+        if (verbose > 0): print(f'FFTCrossCorrelation.nbytes {self.nbytes}')
 
     # https://github.com/fjarri/reikna/issues/57
     def _make_transforms(self):
@@ -759,50 +766,68 @@ class FFTConvolution:
             ${output.store_same}(${input.load_same}.x * ${scale});
             """
         )
+        self.conj_mult = Transformation(
+            [
+                Parameter("input1", Annotation(Type(np.complex64, self.shape), "i")),
+                Parameter("input2", Annotation(Type(np.complex64, self.shape), "i")),
+                Parameter("output", Annotation(Type(np.complex64, self.shape), "o")),
+            ],
+            """
+            ${output.store_same}(${MUL}(${CONJ}(${input1.load_same}), ${input2.load_same}));
+            """,
+            render_kwds={
+                'CONJ': cluda.functions.conj(np.complex64),
+                'MUL': cluda.functions.mul(np.complex64, np.complex64)
+            }
+        )
 
     def _make_fft(self):
 
         if bRuntime: t0 = time.perf_counter()
 
         thr = ocl_api().Thread(self.queue)
-        self.pot_hat_cl = array.empty(self.queue, self.shape, dtype=np.complex64)
-        self.rho_hat_cl = array.empty(self.queue, self.shape, dtype=np.complex64)
-        self.nbytes += 2 * np.prod(self.shape) * 8
+        size = 8 * np.prod(self.shape)
+        self.pot_hat_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=size)
+        self.rho_hat_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=size)
+        self.nbytes += 2 * size
 
         fft_f = FFT(self.r2c.output)
         fft_f.parameter.input.connect(self.r2c, self.r2c.output, new_input=self.r2c.input)
         self.fft_f = fft_f.compile(thr)
 
         fft_i = FFT(self.c2r.input)
+        fft_i.parameter.input.connect(self.conj_mult, self.conj_mult.output,
+            new_input1=self.conj_mult.input1, new_input2=self.conj_mult.input2)
         fft_i.parameter.output.connect(self.c2r, self.c2r.input, new_output=self.c2r.output, scale=self.c2r.scale)
         self.fft_i = fft_i.compile(thr)
 
-        if(bRuntime): print("runtime(FFTConvolution._make_fft) [s]: ", time.perf_counter() - t0)
+        if(bRuntime): print("runtime(FFTCrossCorrelation._make_fft) [s]: ", time.perf_counter() - t0)
 
     def _set_rho(self, rho):
         self.rho = rho
         self.fft_f(self.rho_hat_cl, rho.cl_array, inverse=0)
 
-    def convolve(self, array, E=None, scale=1):
+    def correlate(self, array, E=None, scale=1):
         '''
-        Convolve input array with tip charge density.
+        Cross-correlate input array with tip charge density.
 
         Arguments:
             array: DataGrid or pyopencl.Buffer. Sample potential/density
-                to convolve with tip density. Has to be same shape as rho.
+                to cross-correlate with tip density. Has to be same shape as rho.
             E: DataGrid or None. Output data grid. If None, is created automatically.
                 The automatically created datagrid has the same lvec as self.rho.lvec.
             scale: float. Additional scaling factor for the output.
 
         Returns:
-            DataGrid. Result of convolution.
+            DataGrid. Result of cross-correlation.
         '''
 
         if bRuntime: t0 = time.perf_counter()
 
+        print(array.shape)
         if isinstance(array, DataGrid):
             array = array.cl_array
-        assert array.size == np.prod(self.shape) * 4, 'array shape does not match rho array shape'
+        assert array.size == np.prod(self.shape) * 4, f'array size {array.size} does not match rho array shape {self.shape}'
         
         if E is None:
             E_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=4*np.prod(self.shape))
@@ -813,14 +838,14 @@ class FFTConvolution:
 
         if(bRuntime):
             self.queue.finish()
-            print("runtime(FFTConvolution.convolve.pre) [s]: ", time.perf_counter() - t0)
+            print("runtime(FFTCrossCorrelation.correlate.pre) [s]: ", time.perf_counter() - t0)
 
-        # Do convolution
+        # Do cross-correlation
         self.fft_f(output=self.pot_hat_cl, new_input=array, inverse=0)
-        self.fft_i(new_output=E_cl, input=self.pot_hat_cl * self.rho_hat_cl,
+        self.fft_i(new_output=E_cl, new_input1=self.rho_hat_cl, new_input2=self.pot_hat_cl,
             scale=scale*self.rho.cell_vol, inverse=1)
 
-        if(bRuntime): print("runtime(FFTConvolution.convolve) [s]: ", time.perf_counter() - t0)
+        if(bRuntime): print("runtime(FFTCrossCorrelation.correlate) [s]: ", time.perf_counter() - t0)
 
         return E
 
@@ -913,11 +938,11 @@ class ForceField_LJC:
         if rho is not None:
             assert isinstance(rho, TipDensity), 'rho should be a TipDensity object'
             self.rho = rho
-            self.fft_conv = FFTConvolution(rho)
+            self.fft_corr = FFTCrossCorrelation(rho)
         if rho_delta is not None:
             assert isinstance(rho_delta, TipDensity), 'rho_delta should be a TipDensity object'
             self.rho_delta = rho_delta
-            self.fft_conv_delta = FFTConvolution(rho_delta)
+            self.fft_corr_delta = FFTCrossCorrelation(rho_delta)
         if rho_sample is not None:
             assert isinstance(rho_sample, ElectronDensity), 'rho_sample should be a ElectronDensity object'
             self.rho_sample = rho_sample
@@ -1364,10 +1389,10 @@ class ForceField_LJC:
             self.dlvec[0], self.dlvec[1], self.dlvec[2]
         )
 
-    def calc_force_fft(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
+    def calc_force_hartree(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
             bCopy=True, bFinish=True):
         '''
-        Calculate force field for LJ + Hartree convolved with tip density via FFT.
+        Calculate force field for LJ + Hartree cross-correlated with tip density via FFT.
 
         Arguments:
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
@@ -1392,14 +1417,14 @@ class ForceField_LJC:
         pot = self.pot.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center,
             local_size=local_size, queue=self.queue)
 
-        if bRuntime: print("runtime(ForceField_LJC.calc_force_fft.interpolate) [s]: ", time.perf_counter() - t0)
+        if bRuntime: print("runtime(ForceField_LJC.calc_force_hartree.interpolate) [s]: ", time.perf_counter() - t0)
 
-        # Convolve Hartree potential and tip charge density
-        E = self.fft_conv.convolve(pot)
+        # Cross-correlate Hartree potential and tip charge density
+        E = self.fft_corr.correlate(pot)
 
         if bRuntime:
             self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_fft.convolution) [s]: ", time.perf_counter() - t0)
+            print("runtime(ForceField_LJC.calc_force_hartree.cross-correlation) [s]: ", time.perf_counter() - t0)
 
         # Take gradient to get electrostatic force field
         E.grad(scale=[-1.0, -1.0, -1.0, 1.0], array_out=self.cl_FE, order='F',
@@ -1407,21 +1432,21 @@ class ForceField_LJC:
 
         if bRuntime:
             self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_fft.gradient) [s]: ", time.perf_counter() - t0)
+            print("runtime(ForceField_LJC.calc_force_hartree.gradient) [s]: ", time.perf_counter() - t0)
 
         # Add Lennard-Jones force
         self.addLJ(local_size=local_size)
 
         if bCopy: FE = self.downloadFF(FE)
         if bFinish or bRuntime: self.queue.finish()
-        if bRuntime: print("runtime(ForceField_LJC.calc_force_fft) [s]: ", time.perf_counter() - t0)
+        if bRuntime: print("runtime(ForceField_LJC.calc_force_hartree) [s]: ", time.perf_counter() - t0)
 
         return FE
 
     def calc_force_fdbm(self, A=18.0, B=1.0, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
             bCopy=True, bFinish=True):
         '''
-        Calculate force field using FDBM.
+        Calculate force field using the full density-based model.
 
         Arguments:
             A: float. Prefactor for Pauli repulsion.
@@ -1444,20 +1469,22 @@ class ForceField_LJC:
             raise NotImplementedError('Forcefield calculation via FFT for non-rectangular grids is not implemented. '
                 'Note that the forcefield grid does not need to match the Hartree potential grid.')
 
-        # Interpolate Hartree potential onto the correct grid
-        # pot_interp = self.interp_pot(rot=rot, rot_center=rot_center, local_size=local_size,
-        #     bCopy=False, bFinish=bRuntime)
+        # Interpolate sample Hartree potential and electron density onto the correct grid
+        lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
+        pot = self.pot.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center,
+            local_size=local_size, queue=self.queue)
+        rho_sample = self.rho_sample.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center,
+            local_size=local_size, queue=self.queue)
 
-        # if bRuntime: print("runtime(ForceField_LJC.calc_force_fdbm.interpolate) [s]: ", time.perf_counter() - t0)
+        if bRuntime: print("runtime(ForceField_LJC.calc_force_fdbm.interpolate) [s]: ", time.perf_counter() - t0)
 
-        # Convolve Hartree potential and tip electron delta density for electrostatic energy
-        E_es = self.fft_conv_delta.convolve(self.pot)
+        # Cross-correlate Hartree potential and tip electron delta density for electrostatic energy
+        E_es = self.fft_corr_delta.correlate(pot)
 
-        # Convolve sample electron density and tip electron density for Pauli energy
-        rho_sample = self.rho_sample
+        # Cross-correlate sample electron density and tip electron density for Pauli energy
         if not np.allclose(B, 1.0):
-            rho_sample = self.rho_sample.power_positive(p=B, in_place=False)
-        E_pauli = self.fft_conv.convolve(rho_sample)
+            rho_sample = rho_sample.power_positive(p=B, in_place=False)
+        E_pauli = self.fft_corr.correlate(rho_sample)
 
         if bRuntime:
             self.queue.finish()
@@ -1469,7 +1496,7 @@ class ForceField_LJC:
 
         if bRuntime:
             self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_fdbm.convolution) [s]: ", time.perf_counter() - t0)
+            print("runtime(ForceField_LJC.calc_force_fdbm.cross-correlation) [s]: ", time.perf_counter() - t0)
 
         # Take gradient to get the force field
         E.grad(scale=[-1.0, -1.0, -1.0, 1.0], array_out=self.cl_FE, order='F',
@@ -1497,7 +1524,7 @@ class ForceField_LJC:
 
         There are several methods for generating the force field:
             'point-charge': Lennard-Jones + point-charge electrostatics for both tip and sample.
-            'hartree': Lennard-Jones + sample hartree potential convolved with tip charge density
+            'hartree': Lennard-Jones + sample hartree potential cross-correlated with tip charge density
                 for electrostatic interaction.
             'fdbm': Approximated full density-based model. Pauli repulsion is calculated by tip-sample
                 electron density overlap + attractive vdW like in Lennard-Jones. Electrostatic
@@ -1570,12 +1597,12 @@ class ForceField_LJC:
                 self.run_gradPotentialGrid(local_size=local_size, bCopy=False, bFinish=False)
                 FF = self.run_evalLJC_Hartree(FE=FE, local_size=local_size, bCopy=bCopy, bFinish=bFinish)
             else:
-                FF = self.calc_force_fft(rot=rot_ff, rot_center=rot_center, local_size=local_size,
+                FF = self.calc_force_hartree(rot=rot_ff, rot_center=rot_center, local_size=local_size,
                     bCopy=bCopy, bFinish=bFinish)
 
         elif method == 'fdbm':
-            if not (np.allclose(self.nDim[:3], self.rho_delta.shape) and np.allclose(self.nDim[:3], self.rho.shape) and np.allclose(self.nDim[:3], self.rho_sample.shape)):
-                raise NotImplementedError(f'Non-matching grid dimensions not yet implemented. {self.nDim[:3]}, {self.rho.shape}, {self.rho_delta.shape}, {self.rho_sample.shape}')
+            if not (np.allclose(self.nDim[:3], self.rho_delta.shape) and np.allclose(self.nDim[:3], self.rho.shape)):
+                raise NotImplementedError(f'Non-matching grid dimensions not yet implemented. {self.nDim[:3]}, {self.rho.shape}, {self.rho_delta.shape}')
             FF = self.calc_force_fdbm(A=A, B=B, rot=rot_ff, rot_center=rot_center, local_size=local_size,
                 bCopy=bCopy, bFinish=bFinish)
 
