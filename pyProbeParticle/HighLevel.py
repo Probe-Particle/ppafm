@@ -212,7 +212,7 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     if(verbose>0): print("<<<END: computeELFF_pointCharge()")
     return FF, V, nDim, lvec
 
-def computeElFF(V,lvec,nDim,tip,computeVpot=False, tilt=0.0 ):
+def computeElFF(V,lvec,nDim,tip,computeVpot=False, tilt=0.0,sigma=PPU.params['sigma'] ):
     if(verbose>0): print(" ========= get electrostatic forcefiled from hartree ")
     rho = None
     multipole = None
@@ -229,7 +229,7 @@ def computeElFF(V,lvec,nDim,tip,computeVpot=False, tilt=0.0 ):
             if any(nDim_tip != nDim):
                 sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")
     if(verbose>0): print(" computing convolution with tip by FFT ")
-    Fel_x,Fel_y,Fel_z, Vout = fFFT.potential2forces_mem( V, lvec, nDim, rho=rho, sigma=PPU.params['sigma'], multipole = multipole, doPot=computeVpot, tilt=tilt )
+    Fel_x,Fel_y,Fel_z, Vout = fFFT.potential2forces_mem( V, lvec, nDim, rho=rho, sigma=sigma, multipole = multipole, doPot=computeVpot, tilt=tilt )
     FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
     del Fel_x,Fel_y,Fel_z
     return FFel, Vout

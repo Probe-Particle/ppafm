@@ -32,6 +32,10 @@ if __name__=="__main__":
     parser.add_option("--noPBC", action="store_false",  help="pbc False",dest="PBC", default=None)
     parser.add_option( "-w", "--sigma", action="store", type="float",help="gaussian width for convolution in Electrostatics [Angstroem]", default=None)
     parser.add_option("-f","--data_format" , action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
+    parser.add_option("--KPFM_tip", action="store",type="string", help="read tip density under bias", default='Fit')
+    parser.add_option("--KPFM_sample", action="store",type="string", help="read sample hartree under bias")
+    parser.add_option("--Vref", action="store",type="float", help="Field under the KPFM dens. and Vh was calculated in V/Ang")
+    parser.add_option("--z0", action="store",type="float", default=0.0 ,help="heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
     (options, args) = parser.parse_args()
 
     #print "options.tip_dens ", options.tip_dens;  exit() 
@@ -96,6 +100,70 @@ if __name__=="__main__":
             PPH.subtractCoreDensities( rho_tip, lvec_tip, elems=elems_tip, Rs=Rs_tip, valElDict=valElDict, Rcore=options.Rcore, head=head_tip )
 
         PPU.params['tip'] = rho_tip
+
+    if (options.KPFM_sample is not None):
+        V_v0_aux = V.copy()
+        V_v0_aux2 = V.copy()    
+
+        V_kpfm=None
+        sigma=PPU.params['sigma']
+        print(PPU.params['sigma'])
+        if(options.KPFM_sample.lower().endswith(".xsf") ):
+            Vref_s = options.Vref
+            print(">>> loading Hartree potential  under bias from  ",options.KPFM_sample,"...")
+            print("Use loadXSF")
+            V_kpfm, lvec, nDim, head = GU.loadXSF(options.KPFM_sample)    
+
+        elif(options.KPFM_sample.lower().endswith(".cube") ):
+            Vref_s = options.Vref
+            print(" loading Hartree potential under bias from ",options.KPFM_sample,"...")
+            print("Use loadCUBE")
+            V_kpfm, lvec, nDim, head = GU.loadCUBE(options.KPFM_sample)
+
+        dV_kpfm = (V_kpfm - V_v0_aux)
+
+        print(">>> loading tip density under bias from ",options.KPFM_tip,"...")
+        if (options.KPFM_tip.lower().endswith(".xsf")):
+            Vref_t = options.Vref
+            rho_tip_v0_aux = rho_tip.copy()
+            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = GU.loadXSF( options.KPFM_tip )
+            drho_kpfm = (rho_tip_kpfm - rho_tip_v0_aux)
+        elif(options.KPFM_tip.lower().endswith(".cube")):
+            Vref_t = options.Vref
+            rho_tip_v0_aux = rho_tip.copy()
+            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = GU.loadCUBE( options.KPFM_tip, hartree=False, borh = options.borh )  
+            drho_kpfm = (rho_tip_kpfm - rho_tip_v0_aux)
+        elif options.KPFM_tip in {'Fit', 'fit', 'dipole', 'pz'}: #To be put on a library in the near future...
+            Vref_t = -0.1
+            if ( PPU.params['probeType'] == '8' ):
+                drho_kpfm={'pz':-0.045}
+                sigma = 0.48
+                print(" Select CO-tip polarization ")
+            if ( PPU.params['probeType'] == '47' ):
+                drho_kpfm={'pz':-0.21875} 
+                sigma = 0.7
+                print(" Select Ag polarization with decay sigma", sigma)
+            if ( PPU.params['probeType'] == '54' ):
+                drho_kpfm={'pz':-0.250}
+                sigma = 0.67
+                print(" Select Xe-tip polarization")
+
+        if options.tip_dens is not None: #This copy is made to avoid El and kpfm conflicts because during the computeEl, the tip is been put upside down
+            tip_aux_2 = PPU.params['tip'].copy()
+        else:
+            tip_aux_2 = PPU.params['tip']
+        FFkpfm_t0sV,Eel_t0sV=PPH.computeElFF(dV_kpfm,lvec,nDim,tip_aux_2,computeVpot=options.energy , tilt=opt_dict['tilt'] ,)
+        FFkpfm_tVs0,Eel_tVs0=PPH.computeElFF(V_v0_aux2,lvec,nDim,drho_kpfm,computeVpot=options.energy , tilt=opt_dict['tilt'], sigma=sigma )
+        
+        print("Linear E to V")
+        zpos = np.linspace(lvec[0,2]-options.z0,lvec[3,2]-options.z0,nDim[0])
+        for i in range(nDim[0]):
+            FFkpfm_t0sV[i,:,:]=FFkpfm_t0sV[i,:,:]/((Vref_s)*(zpos[i]+0.1))
+            FFkpfm_tVs0[i,:,:]=FFkpfm_tVs0[i,:,:]/((Vref_t)*(zpos[i]+0.1))
+
+        print(">>> saving electrostatic forcefiled ... ")
+        GU.save_vec_field('FFkpfm_t0sV',FFkpfm_t0sV,lvec_samp ,data_format=options.data_format, head=head_samp)
+        GU.save_vec_field('FFkpfm_tVs0',FFkpfm_tVs0,lvec_samp ,data_format=options.data_format, head=head_samp)
 
     print(">>> calculating electrostatic forcefiled with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
     #FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
