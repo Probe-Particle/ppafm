@@ -1,6 +1,8 @@
 
 # Probe Particle Model (PPM)
 
+[![Documentation Status](https://readthedocs.org/projects/probeparticlemodel/badge/?version=main)](https://probeparticlemodel.readthedocs.io/en/main/?badge=main)
+
 Simple and efficient **simulation software for high-resolution atomic force microscopy** (**HR-AFM**) and other scanning probe microscopy (SPM) techniques with sub-molecular resolution (STM, IETS, TERS). It simulates deflection of the particle attached to the tip (typically CO molecule, but also e.g. Xe, Cl-, H2O and others).
 
 ### References
