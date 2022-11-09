@@ -143,39 +143,39 @@ if __name__=="__main__":
             PPU.params['klat'] = K
             for iv,Vx in enumerate( Vs ):
                 PPU.params['Vbias'] = Vx
-            if aplied_bias:
-                    dirname = "Q%1.2fK%1.2fV%1.2f" %(Q,K,Vx)
-            else:
-                    dirname = "Q%1.2fK%1.2f" %(Q,K)
-            print(" relaxed_scan for ", dirname)
-            if not os.path.exists( dirname ):
-                os.makedirs( dirname )
-            fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,FFkpfm_t0sV=FFkpfm_t0sV,FFkpfm_tVs0=FFkpfm_tVs0,tipspline=options.tipspline, bFFtotDebug=options.bDebugFFtot)
-            #fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,tipspline=options.tipspline)
-            #PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
-            #Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
-            #GU.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )
-            GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan, data_format=options.data_format )
-            if opt_dict['vib'] >= 0:
-                which = opt_dict['vib']
-                print(" === computing eigenvectors of dynamical matix which=%i ddisp=%f" %(which,PPU.params['ddisp']))
-                xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
-                rTips = np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0).copy()
-                evals,evecs = PPC.stiffnessMatrix( rTips.reshape((-1,3)), PPpos.reshape((-1,3)), which=which, ddisp=PPU.params['ddisp'] )
-                GU.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, data_format=data_format )
-                if which > 0: GU.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                if which > 1: GU.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                if which > 2: GU.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                #print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
-            if opt_dict['disp']:
-                GU.save_vec_field( dirname+'/PPdisp', PPdisp, lvecScan,data_format=options.data_format)
-            if opt_dict['pos']:
-                GU.save_vec_field(dirname+'/PPpos', PPpos, lvecScan, data_format=options.data_format )
-            if options.bI:
-                print("Calculating current from tip to the Boltzmann particle:")
-                I_in, lvec, nDim = GU.load_scal_field('I_boltzmann',
-                data_format=iptions.data_format)
-                I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None ) 
-                del I_in;
-                GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,  data_format=options.data_format)
+                if aplied_bias:
+                        dirname = "Q%1.2fK%1.2fV%1.2f" %(Q,K,Vx)
+                else:
+                        dirname = "Q%1.2fK%1.2f" %(Q,K)
+                print(" relaxed_scan for ", dirname)
+                if not os.path.exists( dirname ):
+                    os.makedirs( dirname )
+                fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,FFkpfm_t0sV=FFkpfm_t0sV,FFkpfm_tVs0=FFkpfm_tVs0,tipspline=options.tipspline, bFFtotDebug=options.bDebugFFtot)
+                #fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,tipspline=options.tipspline)
+                #PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
+                #Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
+                #GU.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )
+                GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan, data_format=options.data_format )
+                if opt_dict['vib'] >= 0:
+                    which = opt_dict['vib']
+                    print(" === computing eigenvectors of dynamical matix which=%i ddisp=%f" %(which,PPU.params['ddisp']))
+                    xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
+                    rTips = np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0).copy()
+                    evals,evecs = PPC.stiffnessMatrix( rTips.reshape((-1,3)), PPpos.reshape((-1,3)), which=which, ddisp=PPU.params['ddisp'] )
+                    GU.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, data_format=data_format )
+                    if which > 0: GU.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=data_format )
+                    if which > 1: GU.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=data_format )
+                    if which > 2: GU.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=data_format )
+                    #print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
+                if opt_dict['disp']:
+                    GU.save_vec_field( dirname+'/PPdisp', PPdisp, lvecScan,data_format=options.data_format)
+                if opt_dict['pos']:
+                    GU.save_vec_field(dirname+'/PPpos', PPpos, lvecScan, data_format=options.data_format )
+                if options.bI:
+                    print("Calculating current from tip to the Boltzmann particle:")
+                    I_in, lvec, nDim = GU.load_scal_field('I_boltzmann',
+                    data_format=iptions.data_format)
+                    I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None ) 
+                    del I_in;
+                    GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,  data_format=options.data_format)
 
