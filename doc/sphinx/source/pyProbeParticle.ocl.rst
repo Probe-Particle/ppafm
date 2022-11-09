@@ -14,14 +14,6 @@ pyProbeParticle.ocl.AFMulator module
    :show-inheritance:
 .. autofunction:: pyProbeParticle.ocl.AFMulator.quick_afm
 
-pyProbeParticle.ocl.HighLevel module
-------------------------------------
-
-.. automodule:: pyProbeParticle.ocl.HighLevel
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 pyProbeParticle.ocl.field module
 --------------------------------
 

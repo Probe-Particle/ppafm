@@ -8,18 +8,19 @@ from ..ocl import field    as FFcl
 from ..ocl import relax    as oclr
 
 class AuxMapBase:
-    '''
-    Base class for AuxMap subclasses.
+    '''Base class for AuxMap subclasses.
+
+    Each subclass implements the method `eval` with the input arguments:
+    
+    - xyzqs: numpy.ndarray of floats. xyz coordinates and charges of atoms in molecule
+    - Zs: numpy.ndarray of ints. Elements of atoms in molecule.
+    - pot: HartreePotential. Sample hartree potential.
+    - rot: np.ndarray of shape (3, 3). Sample rotation.
+
     Arguments:
         scan_dim: tuple of two ints. Indicates the pixel size of the scan in x and y.
         scan_window: tuple ((start_x, start_y), (end_x, end_y)). The start and end coordinates of scan region in angstroms.
-        zmin: float. Deepest coordinate that is still included. Top is defined to be at 0.
-        
-    Each subclass implements the method eval with the input arguments:
-        xyzqs: numpy.ndarray of floats. xyz coordinates and charges of atoms in molecule
-        Zs: numpy.ndarray of ints. Elements of atoms in molecule.
-        pot: HartreePotential. Sample hartree potential.
-        rot: np.ndarray of shape (3, 3). Sample rotation.
+        zmin: float. Deepest coordinate that is still included. Top is defined to be at 0. 
     '''
     def __init__(self, scan_dim, scan_window, zmin=None):
         if not FFcl.oclu:
@@ -51,6 +52,7 @@ class vdwSpheres(AuxMapBase):
     '''
     Generate vdW Spheres descriptors for molecules. Each atom is represented by a projection of a sphere 
     with radius equal to the vdW radius of the element.
+
     Arguments:
         Rpp: float. A constant that is added to the vdW radius of each atom.
     '''
@@ -67,6 +69,7 @@ class vdwSpheres(AuxMapBase):
 class AtomicDisks(AuxMapBase):
     '''
     Generate Atomic Disks descriptors for molecules. Each atom is represented by a conically decaying disk.
+
     Arguments:
         zmax_s: float. The maximum depth of vdW sphere shell when diskMode='sphere'.
         Rpp: float. A constant that is added to the vdW radius of each atom.
@@ -208,6 +211,7 @@ class MultiMapSpheres(AuxMapBase):
     Generate Multimap vdW Spheres descriptors for molecules. Each atom is represented by a projection of a sphere
     with radius equal to the vdW radius of the element. Different sizes of atoms are separated into different
     channels based on their vdW radii.
+    
     Arguments:
         Rpp: float. A constant that is added to the vdW radius of each atom.
         nChan: int. Number of channels.
@@ -234,6 +238,7 @@ class MultiMapSpheresElements(AuxMapBase):
     Generate Multimap vdW Spheres descriptors for molecules. Each atom is represented by a projection of a sphere
     with radius equal to the vdW radius of the element. Different elements can be separated arbitrarily into different
     channels.
+
     Arguments:
         Rpp: float. A constant that is added to the vdW radius of each atom.
         elems: list of lists of int or str. Lists of elements in each channel as the atomic numbers or symbols.
@@ -278,6 +283,7 @@ class MultiMapSpheresElements(AuxMapBase):
 class Bonds(AuxMapBase):
     '''
     Generate Bonds descriptors for molecules. Bonds between atoms are represented by ellipses.
+
     Arguments:
         Rfunc: numpy.ndarray. Radial function of bonds&atoms potential. Converted to numpy.float32
         Rmax: float. Cutoff in angstroms for radial function. Make sure is smaller than maximum range of Rfunc - 3*drStep.
@@ -309,6 +315,7 @@ class Bonds(AuxMapBase):
 class AtomRfunc(AuxMapBase):
     '''
     Generate AtomRfunc descriptors for molecules. Atoms are represented by disks with decay determined by Rfunc.
+
     Arguments:
         Rfunc: numpy.ndarray. Radial function of bonds&atoms potential. Converted to numpy.float32
         Rmax: float. Cutoff in angstroms for radial function. Make sure is smaller than maximum range of Rfunc - 3*drStep.
