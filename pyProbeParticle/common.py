@@ -46,9 +46,13 @@ params={
     'plotSliceBy'  :  1,
     'imageInterpolation': 'bicubic',
     'colorscale'   : 'gray',
+    'colorscale_kpfm'   : 'seismic',
     'ddisp'        :  0.05,
     'aMorse'       :  -1.6,
     'tip_base':  np.array( ['None', 0.00 ]),
+    'Rtip'         :  30.0,
+    'permit'       :  0.00552634959,
+    'Vrange':   0.0,
     '#' : None
 }
 
