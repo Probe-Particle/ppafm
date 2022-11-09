@@ -1,13 +1,12 @@
 
 # Probe Particle Model (PPM)
 
-[![Documentation Status](https://readthedocs.org/projects/probeparticlemodel/badge/?version=main)](https://probeparticlemodel.readthedocs.io/en/main/?badge=main)
-
 Simple and efficient **simulation software for high-resolution atomic force microscopy** (**HR-AFM**) and other scanning probe microscopy (SPM) techniques with sub-molecular resolution (STM, IETS, TERS). It simulates deflection of the particle attached to the tip (typically CO molecule, but also e.g. Xe, Cl-, H2O and others).
 
-### References
-* [Prokop Hapala, Georgy Kichin, Christian Wagner, F. Stefan Tautz, Ruslan Temirov, and Pavel Jelínek, Mechanism of high-resolution STM/AFM imaging with functionalized tips, Phys. Rev. B 90, 085421 – Published 19 August 2014](http://journals.aps.org/prb/abstract/10.1103/PhysRevB.90.085421)
-* [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014,](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101) 
+### Further information
+- Publications: https://github.com/Probe-Particle/ProbeParticleModel#notable-publications-using-probe-particle-model
+- Wiki: https://github.com/Probe-Particle/ProbeParticleModel/wiki
+- API documentation: https://probeparticlemodel.readthedocs.io/en/main
 
 ## Flavors of PPM
 
