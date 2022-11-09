@@ -73,7 +73,7 @@ def relaxedScan3D( xTips, yTips, zTips, trj=None, bF3d=False ):
     if(verbose>0): print("<<<END: relaxedScan3D()")
     return fzs,PPpos
 
-def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipspline=None,bPPdisp=False,bFFtotDebug=False):
+def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,FFkpfm_t0sV=None,FFkpfm_tVs0=None,tipspline=None,bPPdisp=False,bFFtotDebug=False):
     if(verbose>0): print(">>>BEGIN: perform_relaxation()")
     if tipspline is not None :
         try:
@@ -92,6 +92,10 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipsplin
     if ( FFel is not None):
         FF += FFel * PPU.params['charge']
         if(verbose>0): print("adding charge:", PPU.params['charge'])
+    if ( FFkpfm_t0sV is not None and FFkpfm_tVs0 is not None ):
+        
+        FF += (np.sign(PPU.params['charge'])*FFkpfm_t0sV - FFkpfm_tVs0) * abs(PPU.params['charge']) * PPU.params['Vbias']
+        if(verbose>0): print("adding charge:", PPU.params['charge'], "and bias:", PPU.params['Vbias'], "V")
     if ( FFpauli is not None ):
         FF += FFpauli * PPU.params['Apauli']
     if FFboltz != None :
