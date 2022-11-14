@@ -216,10 +216,12 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     if(verbose>0): print("<<<END: computeELFF_pointCharge()")
     return FF, V, nDim, lvec
 
-def computeElFF(V,lvec,nDim,tip,computeVpot=False, tilt=0.0,sigma=PPU.params['sigma'] ):
+def computeElFF(V,lvec,nDim,tip,computeVpot=False, tilt=0.0,sigma=None ):
     if(verbose>0): print(" ========= get electrostatic forcefiled from hartree ")
     rho = None
     multipole = None
+    if sigma is None:
+        sigma=PPU.params['sigma']
     if type(tip) is np.ndarray:
         rho = tip
     elif type(tip) is dict:
