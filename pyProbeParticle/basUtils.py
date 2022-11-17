@@ -4,8 +4,84 @@ from . import elements
 #import elements
 import math
 import numpy as np
+import warnings
 
 verbose = 0
+
+def loadXYZ(fname):
+    '''
+    Read the contents of an xyz file.
+
+    Arguments:
+        fname: str. Path to file.
+
+    Returns:
+        xyzs: np.ndarray of shape (N_atoms, 3). Atom xyz positions.
+        Zs: np.ndarray of shape (N_atoms,). Atom atomic numbers.
+        qs: np.ndarray of shape (N_atoms). If it exists, The fifth column of the xyz file, which is
+            interpreted as the partial charges of the atoms. If the fifth column does not exist, qs is
+            all zeros.
+        comment: str. The contents of the second line of the xyz file.
+    '''
+
+    xyzs = [] 
+    Zs = []
+    qs = []
+
+    with open(fname, 'r') as f:
+
+        line = f.readline().strip()
+        try:
+            N = int(line)
+        except ValueError:
+            raise ValueError(f'The first line of an xyz file should have the number of atoms, but got `{line}`')
+        
+        comment = f.readline().strip()
+        
+        for i, line in enumerate(f):
+            if i > N:
+                warnings.warn(f'xyz file ({fname}) has more lines than the number of atoms. Skipping the rest of the file.')
+                break
+            wds = line.split()
+            try:
+                Z = wds[0]
+                if Z in elements.ELEMENT_DICT:
+                    Z = elements.ELEMENT_DICT[Z][0]
+                else:
+                    Z = int(Z)
+                q = float(wds[4]) if len(wds) >= 5 else 0
+                xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
+                Zs.append(Z)
+                qs.append(q)
+            except ValueError:
+                raise ValueError(f'Could not interpret line in xyz file: `{line}`')
+
+    xyzs = np.array(xyzs, dtype=np.float32)
+    Zs = np.array(Zs, dtype=np.int32)
+    qs = np.array(qs, dtype=np.float32)
+
+    return xyzs, Zs, qs, comment
+
+def saveXYZ(fname, xyzs, Zs, qs=None, comment=''):
+    '''
+    Save atom types, positions and, optionally, charges to an xyz file.
+
+    Arguments:
+        fname: str. Path to file.
+        xyzs: np.ndarray of shape (N_atoms, 3). Atom xyz positions.
+        Zs: np.ndarray of shape (N_atoms,). Atom atomic numbers.
+        qs: np.ndarray of shape (N_atoms) or None. If not None, the partial charges of atoms written as
+            the fifth column into the xyz file.
+        comment: str. Comment string written to the second line of the xyz file.
+    '''
+    N = len(xyzs)
+    with open(fname, 'w') as f:
+        f.write(f'{N}\n{comment}\n')
+        for i in range(N):
+            f.write(f'{Zs[i]} {xyzs[i, 0]} {xyzs[i, 1]} {xyzs[i, 2]}')
+            if qs is not None:
+                f.write(f' {qs[i]}')
+            f.write('\n')
 
 def loadBas(name):
     xyzs = []
