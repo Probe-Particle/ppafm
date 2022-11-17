@@ -38,7 +38,8 @@ parser.add_option( "--bonds",    action="store_true", default=False, help="plot 
 atoms = None
 bonds = None
 if options.atoms:
-    atoms = basUtils.loadAtoms( options.atoms )
+    xyzs, Zs, qs, _ = basUtils.loadXYZ(options.atoms)
+    atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
     if os.path.isfile( 'atomtypes.ini' ):
         print(">> LOADING LOCAL atomtypes.ini")  
         FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 

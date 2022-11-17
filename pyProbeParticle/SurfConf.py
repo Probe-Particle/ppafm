@@ -140,9 +140,12 @@ if __name__ == "__main__":
 
     os.chdir( "/u/25/prokoph1/unix/git/SimpleSimulationEngine/cpp/Build/apps/MolecularEditor2" )
 
-    water   = au.loadAtoms( "inputs/water_T5_ax.xyz" );      #print Campher
-    campher = au.loadAtoms( "inputs/Campher.xyz" );      #print Campher
-    surf    = au.loadAtoms( "inputs/Cu111_6x6_2L.xyz" ); #print Surf
+    xyzs, Zs, qs, _ = au.loadXYZ("inputs/water_T5_ax.xyz")
+    water = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
+    xyzs, Zs, qs, _ = au.loadXYZ("inputs/Campher.xyz")
+    campher = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
+    xyzs, Zs, qs, _ = au.loadXYZ("inputs/Cu111_6x6_2L.xyz")
+    surf = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
 
     cell = [[15.31593,0.0,0.0],[0.0,13.26399,0.0],[0.0,0.0,20.0]]
     rots  = sphereTangentSpace(n=5)

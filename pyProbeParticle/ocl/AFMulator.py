@@ -10,7 +10,7 @@ from . import relax     as oclr
 from . import oclUtils  as oclu
 
 from .field import HartreePotential, MultipoleTipDensity, hartreeFromFile
-from ..basUtils import loadAtomsLines
+from ..basUtils import loadXYZ
 from ..PPPlot import plotImages
 
 VALID_SIZES = np.array([16, 32, 64, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048])
@@ -450,8 +450,7 @@ def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_s
         Qs = [0, 0, 0, 0]
         QZs = [0, 0, 0, 0]
     elif file_path.endswith('.xyz'):
-        with open(file_path, 'r') as f:
-            xyzs, Zs, _, qs = loadAtomsLines(f.readlines())
+        xyzs, Zs, qs, _ = loadXYZ(file_path)
         multipole = {}
         if tip == 's':
             Qs = [charge, 0, 0, 0]

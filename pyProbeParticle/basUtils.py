@@ -4,7 +4,6 @@ from . import elements
 #import elements
 import math
 import numpy as np
-import warnings
 
 verbose = 0
 
@@ -39,9 +38,7 @@ def loadXYZ(fname):
         comment = f.readline().strip()
         
         for i, line in enumerate(f):
-            if i > N:
-                warnings.warn(f'xyz file ({fname}) has more lines than the number of atoms. Skipping the rest of the file.')
-                break
+            if i >= N: break
             wds = line.split()
             try:
                 Z = wds[0]
@@ -53,7 +50,7 @@ def loadXYZ(fname):
                 xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
                 Zs.append(Z)
                 qs.append(q)
-            except ValueError:
+            except (ValueError, IndexError):
                 raise ValueError(f'Could not interpret line in xyz file: `{line}`')
 
     xyzs = np.array(xyzs, dtype=np.float32)
@@ -82,126 +79,6 @@ def saveXYZ(fname, xyzs, Zs, qs=None, comment=''):
             if qs is not None:
                 f.write(f' {qs[i]}')
             f.write('\n')
-
-def loadBas(name):
-    xyzs = []
-    f = open(name,"r")
-    while True:
-        n=0;
-        l = f.readline()
-        try:
-            n=int(l)
-        except ValueError:
-            break
-        if (n>0):
-            n=int(l)
-            e=[];x=[];y=[]; z=[];
-            for i in range(n):
-                l=f.readline().split()
-                e.append( int(l[0]) )
-                x.append( float(l[1]) )
-                y.append( float(l[2]) )
-                z.append( float(l[3]) )
-            xyzs.append( [e,x,y,z] )
-        else:
-            break
-        f.readline()
-    f.close()
-    return xyzs
-
-def loadAtoms( name ):
-    f = open(name,"r")
-    n=0;
-    l = f.readline()
-    try:
-        n=int(l)
-    except:
-                raise ValueError("First line of a xyz file should contain the number of atoms. Aborting...")
-    line = f.readline() 
-    if (n>0):
-        n=int(l)
-        e=[];x=[];y=[]; z=[]; q=[]
-        i = 0;
-        for line in f:
-            words=line.split()
-            nw = len( words)
-            ie = None
-            if( nw >=4 ):
-                e.append( words[0] )
-                x.append( float(words[1]) )
-                y.append( float(words[2]) )
-                z.append( float(words[3]) )
-                if ( nw >=5 ):
-                    q.append( float(words[4]) )
-                else:
-                    q.append( 0.0 )				
-                i+=1
-            else:
-                print(" skipped line : ", line)
-    f.close()
-    return [ e,x,y,z,q ]
-
-def loadAtomsNP(fname):
-    xyzs   = [] 
-    Zs     = []
-    enames = []
-    qs     = []
-    with open(fname, 'r') as f:
-        for line in f:
-            wds = line.split()
-            try:
-                xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
-                try:
-                    iz    = int(wds[0]) 
-                    Zs    .append(iz)
-                    enames.append( elements.ELEMENTS[iz] )
-                except:
-                    ename = wds[0]
-                    enames.append( ename )
-                    Zs    .append( elements.ELEMENT_DICT[ename][0] )
-                try:
-                    q = float(wds[4])
-                except:
-                    q = 0
-                qs.append(q)
-            except:
-                print("cannot interpet line: ", line)
-                continue
-    xyzs = np.array( xyzs )
-    Zs   = np.array( Zs, dtype=np.int32 )
-    qs   = np.array(qs)
-    return xyzs,Zs,enames,qs
-
-def loadAtomsLines( lines ):
-    xyzs   = [] 
-    Zs     = []
-    enames = []
-    qs     = []
-    for line in lines:
-        wds = line.split()
-        try:
-            xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
-            try:
-                iz    = int(wds[0]) 
-                Zs    .append(iz)
-                enames.append( elements.ELEMENTS[iz] )
-            except:
-                ename = wds[0]
-                enames.append( ename )
-                Zs    .append( elements.ELEMENT_DICT[ename][0] )
-            try:
-                q = float(wds[4])
-            except:
-                q = 0.0
-            qs.append(q)
-        except:
-            if(verbose>0):
-                print("cannot interpet line: ", line)
-            continue
-    xyzs = np.array( xyzs )
-    Zs   = np.array( Zs, dtype=np.int32 )
-    qs   = np.array(qs)
-    return xyzs,Zs,enames,qs
 
 def loadGeometryIN(fname):
     Zs = []; xyzs = []; lvec = []
@@ -524,7 +401,8 @@ def loadGeometry(fname=None,params=None):
     is_xsf  = fname.lower().endswith(".xsf")
     is_npy  = fname.lower().endswith(".npy")
     if(is_xyz):
-        atoms = loadAtoms(fname)
+        xyzs, Zs, qs, _ = loadXYZ(fname)
+        atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
         nDim  = params['gridN'].copy()
         lvec  = np.zeros((4,3))
         lvec[ 1,:  ] = params['gridA'].copy() 

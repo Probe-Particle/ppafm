@@ -36,7 +36,7 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
     sw    = simulator.scan_window
 
     def makeMol( fname ):
-        xyzs,Zs,elems,qs  = au.loadAtomsNP(fname)
+        xyzs, Zs, qs, _ = basUtils.loadXYZ(fname)
         xyzs[:,0] += -2
         xyzs[:,1] += -8+20.0
         xyzs[:,2] += -2.2
@@ -50,7 +50,6 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
         molecule = Molecule(xyzs,Zs,qs)
         return molecule
 
-    #xyzs_ref,Zs_ref,elems_ref,qs_ref  = au.loadAtomsNP(geom_fname_ref)
     mol_ref = makeMol( geom_fname_ref )
     #simulator.bSaveFF = True                #    DEBUG !!!!!!!!!!!!!!!!!
     simulator.saveFFpre = "ref_"

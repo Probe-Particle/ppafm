@@ -131,7 +131,8 @@ if opt_dict['atoms'] or opt_dict['bonds']:
         speciesFile='atomtypes.ini'
     FFparams=PPU.loadSpecies( speciesFile ) 
     atoms_str="_atoms"
-    atoms = basUtils.loadAtoms( 'input_plot.xyz' )
+    xyzs, Zs, qs, _ = basUtils.loadXYZ('input_plot.xyz')
+    atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
     #print "atoms ", atoms
     FFparams            = PPU.loadSpecies( ) 
     elem_dict           = PPU.getFFdict(FFparams);  #print "elem_dict ", elem_dict

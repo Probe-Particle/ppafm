@@ -258,6 +258,7 @@ class EngineFARFF():
 if __name__ == "__main__":
 
     import time
+    from . import basUtils
     if __package__ is None:
         import atomicUtils as au
         import GLView as glv
@@ -266,7 +267,7 @@ if __name__ == "__main__":
         from . import GLView as glv
 
     fff = sys.modules[__name__]
-    xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")     #; print xyzs
+    xyzs, Zs, qs, _ = basUtils.loadXYZ("input.xyz")
 
     natom  = len(xyzs)
     ndof   = fff.reallocFF(natom)

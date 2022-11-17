@@ -210,69 +210,6 @@ def makeMovie( fname, n, es, func ):
         writeToXYZ( fout, es, xyzs, qs, commet=("frame %i " %i) )
     fout.close() 
 
-def loadAtomsNP(fname):
-    xyzs   = [] 
-    Zs     = []
-    enames = []
-    qs     = []
-    with open(fname, 'r') as f:
-        for line in f:
-            wds = line.split()
-            try:
-                xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
-                try:
-                    iz    = int(wds[0]) 
-                    Zs    .append(iz)
-                    enames.append( elements.ELEMENTS[iz] )
-                except:
-                    ename = wds[0]
-                    enames.append( ename )
-                    Zs    .append( elements.ELEMENT_DICT[ename][0] )
-                try:
-                    q = float(wds[4])
-                except:
-                    q = 0
-                qs.append(q)
-            except:
-                print("cannot interpet line: ", line)
-                continue
-    xyzs = np.array( xyzs )
-    Zs   = np.array( Zs, dtype=np.int32 )
-    qs   = np.array(qs)
-    return xyzs,Zs,enames,qs
-
-def loadAtoms( name ):
-    f = open(name,"r")
-    n=0;
-    l = f.readline()
-    try:
-        n=int(l)
-    except:
-        raise ValueError("First line of a xyz file should contain the number of atoms. Aborting...")
-    line = f.readline() 
-    if (n>0):
-        n=int(l)
-        e=[];x=[];y=[]; z=[]; q=[]
-        i = 0;
-        for line in f:
-            words=line.split()
-            nw = len( words)
-            ie = None
-            if( nw >=4 ):
-                e.append( words[0] )
-                x.append( float(words[1]) )
-                y.append( float(words[2]) )
-                z.append( float(words[3]) )
-                if ( nw >=5 ):
-                    q.append( float(words[4]) )
-                else:
-                    q.append( 0.0 )
-                i+=1
-            else:
-                print(" skipped line : ", line)
-    f.close()
-    return [ e,x,y,z,q ]
-
 def loadCoefs( characters=['s'] ):
     dens = None
     coefs = []
@@ -314,6 +251,8 @@ def histR( ps, dbin=None, Rmax=None, weights=None ):
     print(( rs.shape, weights.shape ))
     return np.histogram(rs, bins, weights=weights)
 
-
+def ZsToElems(Zs):
+    '''Convert atomic numbers to element symbols.'''
+    return [elements.ELEMENTS[Z-1][1] for Z in Zs]
 
     

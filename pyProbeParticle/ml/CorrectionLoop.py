@@ -363,7 +363,7 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
     iz = -10
     mutator = Mutator()
     trainer = CorrectorTrainer( simulator, mutator, molCreator=None )
-    xyzs,Zs,elems,qs = au.loadAtomsNP(geom_fname)
+    xyzs, Zs, qs, _ = basUtils.loadXYZ(geom_fname)
 
     sw = simulator.scan_window
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
@@ -400,7 +400,7 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
     looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
     looper.logImgName = "CorrectionLoopAFMLog"
     looper.logAFMdataName = "AFMs"
-    xyzs,Zs,elems,qs = au.loadAtomsNP(geom_fname)
+    xyzs, Zs, qs, _ = basUtils.loadXYZ(geom_fname)
 
     sw = simulator.scan_window
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2

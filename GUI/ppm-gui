@@ -616,8 +616,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             qs, xyzs, Zs = hartreeFromFile(file_path)
             lvec = qs.lvec[1:]
         elif ext == '.xyz':
-            with open(file_path, 'r') as f:
-                xyzs, Zs, _, qs = basUtils.loadAtomsLines(f.readlines())
+            xyzs, Zs, qs, _ = basUtils.loadXYZ(file_path)
             lvec = None
         else:
             raise ValueError(f'Unsupported file format for file `{file_path}`.')
