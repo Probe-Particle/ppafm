@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+import re
 import math
 import numpy as np
 
@@ -335,13 +336,18 @@ def loadGeometry(fname=None,params=None):
     is_xsf  = fname.lower().endswith(".xsf")
     is_npy  = fname.lower().endswith(".npy")
     if(is_xyz):
-        xyzs, Zs, qs, _ = loadXYZ(fname)
-        atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
+        xyzs, Zs, qs, comment = loadXYZ(fname)
         nDim  = params['gridN'].copy()
-        lvec  = np.zeros((4,3))
-        lvec[ 1,:  ] = params['gridA'].copy() 
-        lvec[ 2,:  ] = params['gridB'].copy()
-        lvec[ 3,:  ] = params['gridC'].copy()
+        lvec, has_charges = parseCommentASE(comment)
+        if lvec is None:
+            lvec  = np.zeros((4,3))
+            lvec[ 1,:  ] = params['gridA'].copy() 
+            lvec[ 2,:  ] = params['gridB'].copy()
+            lvec[ 3,:  ] = params['gridC'].copy()
+        elif not has_charges:
+            # The fifth column in the ASE format was not charges, so ignore what was read from the file
+            qs = np.zeros(len(qs), dtype=np.float32)
+        atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
     elif(is_cube):
         atoms = loadAtomsCUBE(fname)
         lvec  = loadCellCUBE(fname)
@@ -354,6 +360,38 @@ def loadGeometry(fname=None,params=None):
     else:
         sys.exit("ERROR!!! Unknown format of geometry system. Supported formats are: .xyz, .cube, .xsf \n\n")
     return atoms,nDim,lvec
+
+def parseCommentASE(comment):
+    '''
+    Try to parse the lattice vectors in an xyz file comment line according to convention used by ASE.
+    Additionally, detect if fifth column has charges according to ASE properties.
+
+    Arguments:
+        comment: str. Comment line to parse.
+
+    Returns:
+        lvec: np.array of shape (4, 3) or None. The found lattice vectors or None if the comment line does not match
+            the ASE convention.
+        has_charges: bool. Whether the properties line has charges on the fifth column. Always False if the comment
+            does not match the ASE convention.
+    '''
+
+    match = re.match('.*Lattice=\"((?:[+-]?(?:[0-9]*\.)?[0-9]+\s?){9})\"', comment)
+    if match:
+        lvec = np.zeros(12, dtype=np.float32)
+        lvec[3:] = np.array([float(s) for s in match.group(1).split()], dtype=np.float32)
+        lvec = lvec.reshape(4, 3)
+    else:
+        lvec = None
+        
+    match = re.match('.*Properties=(.*)\s', comment)
+    if match:
+        props = match.group(1).split(':')[::3]
+        has_charges = props[2] in ['charge', 'initial_charges']
+    else:
+        has_charges = False
+    
+    return lvec, has_charges
 
 def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
     bonds = []
