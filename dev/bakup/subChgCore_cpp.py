@@ -41,10 +41,7 @@ elems = [ atoms[0][i] for i in inds ]   # atomic number of all relevant peridic 
 #elems +=  [2]*8
 #Rs_ = np.hstack( [Rs_,corners] )
 
-#BU.saveXyz_Transposed( "imaged_CO.xyz", elems, Rs_ )
 BU.saveGeomXSF( "imaged_CO.xsf",elems,Rs_, lvec[1:], convvec=lvec[1:], bTransposed=True )    # for debugging - mapping PBC images of atoms to the cell
-#BU.saveXyz( "imaged_CO.xyz", elems, Rs_ )
-#BU.saveXyz_Transposed( "imaged_CO.xyz", elems, Rs_ )
 
 #exit()
 

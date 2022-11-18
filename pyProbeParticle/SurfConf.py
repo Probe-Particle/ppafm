@@ -5,17 +5,12 @@ import os
 import numpy as np
 
 from . import  RigidMol  as rmol
+from . import basUtils
 
 def combineGeoms(mol,surf):
     es   = mol[0] + surf[0]
     xyzs = np.hstack( [np.array( mol[1:4] ), np.array(  surf[1:4] )] ).transpose().copy()
     return es, xyzs
-
-def writeToXYZ( fout, es, xyzs ):
-    fout.write("%i\n"  %len(xyzs) )
-    fout.write("\n") 
-    for i,xyz in enumerate( xyzs ):
-        fout.write("%s %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2] ) )
 
 def sphereTangentSpace(n=100):
     golden_angle = np.pi * ( 3.0 - np.sqrt(5.0) )
@@ -116,7 +111,8 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
     for irot,rot in enumerate(rots):
         mol_name = molFile.split("/")[1].split(".")[0]
         print(mol_name)
-        fout = open( "movie_%s_%03i.xyz" %(mol_name,irot) ,'w')
+        fname = "movie_%s_%03i.xyz" %(mol_name,irot)
+        if os.path.exists(fname): os.remove(fname)
         q = mat2quat(rot)
         print("q ", q)
         poses[0,4:8] = q
@@ -125,10 +121,9 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
             rot_ = quat2mat(poses[0,4:8])
             rots_.append(rot_)
             xyzs[:nAtomMol,:] = apos[:,:]
-            writeToXYZ( fout, es, xyzs )
+            basUtils.saveXYZ(fname, xyzs, es, append=True)
         print("rot  ", rot)
         print("rot_ ", rot_)
-        fout.close()
 
     del  poses
     del  apos

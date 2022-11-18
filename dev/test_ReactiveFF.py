@@ -8,6 +8,7 @@ import time
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import pyProbeParticle.ReactiveFF  as rff
 import pyProbeParticle.atomicUtils as au
+from pyProbeParticle import basUtils
 
 #import matplotlib.pyplot as plt
 #from mpl_toolkits.mplot3d import Axes3D
@@ -111,7 +112,7 @@ if __name__ == "__main__":
         print("Qs        ", qs)
 
         #itypes_[itypes_==5] = 6 # replace borons by carbons
-        au.saveXYZ( itypes_, xyzs, dname+"/pos.xyz", qs=qs )
+        basUtils.saveXYZ(dname+"/pos.xyz", xyzs, itypes_, qs=qs )
 
         import matplotlib.pyplot as plt
         plt.scatter(xyzs[:,0], xyzs[:,1], c=qs, alpha=1.0, vmin=-0.5,vmax=0.5, cmap='bwr')

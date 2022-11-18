@@ -14,6 +14,7 @@ sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 #import pyProbeParticle.PolyCycles  as pcff
 import pyProbeParticle.atomicUtils as au
 import pyProbeParticle.chemistry   as ch
+from pyProbeParticle import basUtils
 
 import matplotlib.pyplot as plt
 
@@ -340,7 +341,7 @@ if __name__ == "__main__":
     xyzs_g, elems_g = ch.groups2atoms( groups, neighs, xyzs )
     print("elems ", elems_g)
     print("elems ", xyzs_g)
-    au.saveXYZ( elems_g,xyzs_g, "test_PolyCycles_g.xyz" )
+    basUtils.saveXYZ("test_PolyCycles_g.xyz", xyzs_g, elems_g)
     
     # ======== Plot
     

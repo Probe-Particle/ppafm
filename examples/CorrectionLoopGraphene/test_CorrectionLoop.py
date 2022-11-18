@@ -28,7 +28,7 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
     '''
     corrector = Corrector()
     corrector.logImgName = "AFM_Err"
-    corrector.xyzLogFile = open( "CorrectorLog.xyz", "w")
+    corrector.xyzLogFile = "CorrectorLog.xyz"
     corrector.plt = plt
     corrector.izPlot = -1
     nscan = simulator.scan_dim; 
@@ -62,7 +62,6 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
     #AFMRef = np.roll( AFMRef, -6, axis=1 );
 
     looper = CorrectionLoop(None, simulator, None, None, corrector)
-    #looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
     looper.plt = plt
     #looper.logImgName = "CorrectionLoopAFMLog"
     #looper.logAFMdataName = "AFMs"
@@ -78,8 +77,6 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
         Err = looper.iteration(itr=itr)
         if Err < ErrConv:
             break
-    corrector.xyzLogFile.close()
-    #looper.xyzLogFile.close()
 
 # =============== Setup
 
@@ -108,7 +105,7 @@ if __name__ == "__main__":
                             [ 0.0,  0.0, 0.0],
                             [20.0,  0.0, 0.0],
                             [ 0.0, 20.0, 0.0],
-                            [ 0.0,  0.0, 5.0]
+                            [ 0.0,  0.0, 6.0]
                           ]),
         scan_window     = ((2.0, 2.0, 5.0), (18.0, 18.0, 8.0)),
     )

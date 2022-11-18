@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
-from . import elements
-#import elements
+import os
 import math
 import numpy as np
+
+from . import elements
 
 verbose = 0
 
@@ -59,9 +60,9 @@ def loadXYZ(fname):
 
     return xyzs, Zs, qs, comment
 
-def saveXYZ(fname, xyzs, Zs, qs=None, comment=''):
+def saveXYZ(fname, xyzs, Zs, qs=None, comment='', append=False):
     '''
-    Save atom types, positions and, optionally, charges to an xyz file.
+    Save atom types, positions, and, (optionally) charges to an xyz file.
 
     Arguments:
         fname: str. Path to file.
@@ -70,15 +71,19 @@ def saveXYZ(fname, xyzs, Zs, qs=None, comment=''):
         qs: np.ndarray of shape (N_atoms) or None. If not None, the partial charges of atoms written as
             the fifth column into the xyz file.
         comment: str. Comment string written to the second line of the xyz file.
+        append: bool. Append to file instead of overwriting if it already exists. Useful for creating
+            movies of changing structures.
     '''
     N = len(xyzs)
-    with open(fname, 'w') as f:
+    mode = 'a' if append else 'w'
+    file_exists = os.path.exists(fname)
+    with open(fname, mode) as f:
+        if append and file_exists: f.write('\n')
         f.write(f'{N}\n{comment}\n')
         for i in range(N):
             f.write(f'{Zs[i]} {xyzs[i, 0]} {xyzs[i, 1]} {xyzs[i, 2]}')
-            if qs is not None:
-                f.write(f' {qs[i]}')
-            f.write('\n')
+            if qs is not None: f.write(f' {qs[i]}')
+            if i < (N-1): f.write('\n')
 
 def loadGeometryIN(fname):
     Zs = []; xyzs = []; lvec = []
@@ -147,20 +152,6 @@ def writeMatrix( fout, mat ):
         for num in v: fout.write(' %f ' %num )
         fout.write('\n')
 
-def writeAtoms( f, elems, xyzs ):
-    for i in range(len(elems)):
-        xyzsi = xyzs[i]
-        f.write( str(elems[i] ) ); 
-        f.write( " %10.10f %10.10f %10.10f\n" %(xyzsi[0], xyzsi[1], xyzsi[2]) )
-
-def writeAtomsTransposed( f, elems, xyzs ):
-    xs = xyzs[0]
-    ys = xyzs[1]
-    zs = xyzs[2]
-    for i in range(len(elems)):
-        f.write( str(elems[i] ) ); 
-        f.write( " %10.10f %10.10f %10.10f\n" %(xs[i], ys[i], zs[i]) )
-
 def saveGeomXSF( fname,elems,xyzs, primvec, convvec=None, bTransposed=False ):
     if convvec is None:
         primvec = convvec
@@ -173,75 +164,18 @@ def saveGeomXSF( fname,elems,xyzs, primvec, convvec=None, bTransposed=False ):
         f.write( 'PRIMCOORD\n' )
         f.write( '%i %i\n' %(len(elems),1) )
         if bTransposed:
-            writeAtomsTransposed( f, elems, xyzs )
+            xs = xyzs[0]
+            ys = xyzs[1]
+            zs = xyzs[2]
+            for i in range(len(elems)):
+                f.write( str(elems[i] ) ); 
+                f.write( " %10.10f %10.10f %10.10f\n" %(xs[i], ys[i], zs[i]) )
         else:
-            writeAtoms( f, elems, xyzs )
+            for i in range(len(elems)):
+                xyzsi = xyzs[i]
+                f.write( str(elems[i] ) ); 
+                f.write( " %10.10f %10.10f %10.10f\n" %(xyzsi[0], xyzsi[1], xyzsi[2]) )
         f.write( '\n' )
-
-def saveXyz_Transposed(fname,elems,xyzs):
-    with open(fname,'w') as f:
-        n = len(elems)
-        f.write( "%i\n" %n )
-        f.write( "#comment\n" )
-        xs = xyzs[0]
-        ys = xyzs[1]
-        zs = xyzs[2]
-        for i in range(n):
-            f.write( "%s %10.10f %10.10f %10.10f\n" %(elems[i], xs[i], ys[i], zs[i] )  )
-
-def saveXyz(fname,elems,xyzs):
-    with open(fname,'w') as f:
-        n = len(elems)
-        f.write( "%i\n" %n )
-        f.write( "#comment\n" )
-        for i in range(n):
-            xyzsi = xyzs[i]
-            f.write( "%s %10.10f %10.10f %10.10f\n" %(elems[i], xyzsi[0], xyzsi[1], xyzsi[2] )  )
-
-def saveXyzq(fname,elems,xyzqs):
-    with open(fname,'w') as f:
-        n = len(elems)
-        f.write( "%i\n" %n )
-        f.write( "#comment\n" )
-        for i in range(n):
-            f.write( "%s %10.10f %10.10f %10.10f %10.10f\n" %(elems[i], xyzs[i][0], xyzs[i][1], xyzs[i][2], xyzs[i][3] )  )
-
-def writeDebugXYZ( fname, lines, poss, pos0=None ):
-    fout  = open(fname,"w")
-    natom = int(lines[0])
-    npos  = len(poss)
-    if pos0 is not None:
-        natom+=1
-        lines.append( "U %f %f %f\n" %(pos0[0], pos0[1], pos0[2]) )
-    fout.write( "%i\n" %(natom + npos) )
-    fout.write( "\n" )
-    for line in lines[2:natom+2]:
-        fout.write( line )
-    for pos in poss:
-        fout.write( "He %f %f %f\n" %(pos[0], pos[1], pos[2]) )
-    fout.write( "\n" )
-
-def writeDebugXYZ_2( fname, atoms, Zs, poss, pos0 ):
-    fout  = open(fname,"w")
-    natom = len(atoms)
-    npos  = len(poss)
-    fout.write( "%i\n" %(natom + npos+1) )
-    fout.write( "\n" )
-    fout.write( "%i %f %f %f\n" %( 92, pos0[0], pos0[1], pos0[2] ) )
-    for i in range(natom):
-        fout.write( "%i %f %f %f\n" %( Zs[i],atoms[i][0], atoms[i][1], atoms[i][2]) )
-    for pos in poss:
-        fout.write( "He %f %f %f\n" %(pos[0], pos[1], pos[2]) )
-    fout.write( "\n" )
-
-def writeDebugXYZ__( fname, atoms, Zs ):
-    fout  = open(fname,"w")
-    natom = len(atoms)
-    fout.write( "%i\n" %(natom ) )
-    fout.write( "\n" )
-    for i in range(natom):
-        fout.write( "%i %f %f %f\n" %( Zs[i],atoms[i][0], atoms[i][1], atoms[i][2]) )
-    fout.write( "\n" )
 
 def loadXSFGeom( fname ):
     f = open(fname )

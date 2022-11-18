@@ -239,7 +239,7 @@ if __name__ == "__main__":
     Es = eval( ps )  # evaluates potential for array of points (positions of atom A)
     dangs = danglingToArray()
     print( "dangs\n", dangs.shape, xyzs.shape )
-    au.saveXYZ( elems+['H']*len(dangs), np.concatenate( (xyzs, dangs) ), 'dangs.xyz' )
+    basUtils.saveXYZ('dangs.xyz', np.concatenate( (xyzs, dangs) ), elems+['H']*len(dangs))
 
     # ----- plot or store result
     if b3D:

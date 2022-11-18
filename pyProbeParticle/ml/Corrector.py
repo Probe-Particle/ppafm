@@ -56,7 +56,7 @@ class Molecule():
         return np.array( [x,y,z] )/n
 
     def toXYZ( self, xyzfile, comment="#comment" ):
-        au.writeToXYZ( xyzfile, self.Zs, self.xyzs, qs=self.qs, commet=comment )
+        basUtils.saveXYZ( xyzfile, self.xyzs, self.Zs, qs=self.qs, comment=comment )
 
 # ======================================================
 # ================== free function operating on Moleule
@@ -232,7 +232,7 @@ class Corrector():
         Rs    = np.concatenate( [ np.ones(na0),Ws] )
         xyzs2 = np.concatenate( [ molIn.xyzs,  ps], axis=0 )
         print( "xyzs2.shape ", xyzs2.shape ) 
-        au.saveXYZ( Zs2, xyzs2, 'debug_genAtomWs.xyz', qs=([0.0]*(na0+nps)),  Rs=Rs )
+        _saveXYZDebug( Zs2, xyzs2, 'debug_genAtomWs.xyz', qs=([0.0]*(na0+nps)),  Rs=Rs )
 
     def try_improve(self, molIn, AFMs, AFMRef, span, itr=0 ):
         AFMdiff = AFMs - AFMRef
@@ -272,6 +272,12 @@ class Corrector():
                 self.best_mol.toXYZ( self.xyzLogFile, comment=("Corrector [%i] Err %g " %(itr,self.best_E) ) )
         molOut = self.modifyStructure( self.best_mol )
         return Err, molOut
+
+def _saveXYZDebug(es, xyzs, fname, qs, Rs):
+    with open(fname, 'w') as fout:
+        fout.write("%i\n\n"  %len(xyzs) )
+        for i,xyz in enumerate( xyzs ):
+            fout.write("%s %f %f %f %f %f \n"  %( es[i], xyz[0], xyz[1], xyz[2], qs[i], Rs[i] ) )
 
 # ======================================================
 # ================== Class  Mutator

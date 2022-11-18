@@ -173,43 +173,6 @@ def replace( atoms, found, to=17, bond_length=2.0, radial=0.0, prob=0.75 ):
             atoms[iatom,1:] += bvec  
     return atoms
 
-def saveAtoms( atoms, fname, xyz=True ):
-    fout = open(fname,'w')
-    fout.write("%i\n"  %len(atoms) )
-    if xyz==True : fout.write("\n") 
-    for i,atom in enumerate( atoms ):
-        if isinstance( atom[0], str ):
-            fout.write("%s %f %f %f\n"  %( atom[0], atom[1], atom[2], atom[3] ) )
-        else:
-            fout.write("%i %f %f %f\n"  %( atom[0], atom[1], atom[2], atom[3] ) )
-    fout.close() 
-
-def writeToXYZ( fout, es, xyzs, qs=None, Rs=None, commet="" ):
-    fout.write("%i\n"  %len(xyzs) )
-    fout.write(commet+"\n")
-    if   (Rs is not None):
-        for i,xyz in enumerate( xyzs ):
-            fout.write("%s %f %f %f %f %f \n"  %( es[i], xyz[0], xyz[1], xyz[2], qs[i], Rs[i] ) )
-    elif (qs is not None):
-        for i,xyz in enumerate( xyzs ):
-            fout.write("%s %f %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2], qs[i] ) )
-    else:
-        for i,xyz in enumerate( xyzs ):
-            fout.write("%s %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2] ) )
-
-def saveXYZ( es, xyzs, fname, qs=None, Rs=None ):
-    print(">>>>>",fname,"<<<<<")
-    fout = open(fname, "w")
-    writeToXYZ( fout, es, xyzs, qs, Rs=Rs )
-    fout.close() 
-
-def makeMovie( fname, n, es, func ):
-    fout = open(fname, "w")
-    for i in range(n):
-        xyzs, qs = func(i)
-        writeToXYZ( fout, es, xyzs, qs, commet=("frame %i " %i) )
-    fout.close() 
-
 def loadCoefs( characters=['s'] ):
     dens = None
     coefs = []

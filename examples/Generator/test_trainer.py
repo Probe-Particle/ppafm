@@ -88,6 +88,6 @@ for Xs, Ys, mols in trainer:
         plt.close()
         
         mol = mols[j]
-        basUtils.saveXyz(os.path.join(save_dir, f'{counter}_mol.xyz'), mol[:,4].astype(np.int32), mol[:,:4])
+        basUtils.saveXYZ(os.path.join(save_dir, f'{counter}_mol.xyz'), mol[:, :3], mol[:, 4].astype(np.int32), mol[:, 3])
 
         counter += 1

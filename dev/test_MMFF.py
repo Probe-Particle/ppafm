@@ -14,6 +14,7 @@ sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 #import pyProbeParticle.PolyCycles  as pcff
 import pyProbeParticle.atomicUtils as au
 #import pyProbeParticle.chemistry   as ch
+from pyProbeParticle import basUtils
 
 import pyProbeParticle.MMFF   as mmff
 #include "DynamicOpt.h"
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     type2elem  = [ 'U', 'U'  , 'He',  'Ne', 'H'  ]
     elems     +=  [  type2elem[-t] for t in types[natom0:] ]  ;print(elems) 
     
-    au.saveXYZ( elems, pos, "test_MMFF_start.xyz", qs=None )
+    basUtils.saveXYZ("test_MMFF_start.xyz", pos, elems)
     
     #exit()
     
@@ -85,7 +86,7 @@ if __name__ == "__main__":
         print(i," ", end=' ')
         f = mmff.relaxNsteps(1)
         errs.append( f )
-        au.writeToXYZ( fout, elems, pos )
+        basUtils.saveXYZ( fout, pos, elems )
         if(f<1e-6): break
     fout.close()
     
