@@ -347,6 +347,9 @@ def loadGeometry(fname=None,params=None):
         elif not has_charges:
             # The fifth column in the ASE format was not charges, so ignore what was read from the file
             qs = np.zeros(len(qs), dtype=np.float32)
+        if _not_actually_charge(qs):
+            # qs is not actually charges based on some heuristics
+            qs = np.zeros(len(qs), dtype=np.float32)
         atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
     elif(is_cube):
         atoms = loadAtomsCUBE(fname)
@@ -392,6 +395,13 @@ def parseCommentASE(comment):
         has_charges = False
     
     return lvec, has_charges
+
+def _not_actually_charge(qs):
+    if abs(sum(qs)) > 3:
+        return True
+    if np.abs(qs).max() > 3:
+        return True
+    return False
 
 def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
     bonds = []

@@ -5,10 +5,11 @@ import sys
 import numpy as np
 
 sys.path.append('..')
-from pyProbeParticle.basUtils import loadXYZ, saveXYZ, parseCommentASE
-from pyProbeParticle.elements import ELEMENTS
 
 def test_xyz():
+
+    from pyProbeParticle.basUtils import loadXYZ, saveXYZ, _not_actually_charge
+    from pyProbeParticle.elements import ELEMENTS
 
     N = 20
     test_file = 'io_test.xyz'
@@ -31,9 +32,15 @@ def test_xyz():
     _, _, qs_, _ = loadXYZ(test_file)
     assert np.allclose(qs_, np.zeros(N))
 
+    assert _not_actually_charge([1, 1, 2, 2, 3, 3]) == True
+    assert _not_actually_charge([-3, -2, -1, 0, 1, 2, 3, 4]) == True
+    assert _not_actually_charge([-2, 2, -0.1, 0.1]) == False
+
     os.remove(test_file)
 
 def test_parse_comment_ase():
+
+    from pyProbeParticle.basUtils import parseCommentASE
 
     comment = 'Lattice="40.587929240107826 0.0 0.0 0.0 35.15017780893861 0.0 0.0 0.0 42.485492908861346" Properties=species:S:1:pos:R:3:tags:I:1 pbc="T T T"'
     lvec, has_charges = parseCommentASE(comment)
