@@ -43,6 +43,10 @@ if __name__=="__main__":
     parser.add_option( "--tipspline", action="store", type="string", help="file where spline is stored", default=None )
     parser.add_option( "--rotate", action="store", type="float", help="rotates sampling in xy-plane", default=0.0 )
     parser.add_option("-f","--data_format" , action="store" , type="string",help="Specify the input/output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
+    parser.add_option( "-V","--Vbias",       action="store", type="float", help="Aplied bias [V]" )
+    parser.add_option( "--Vrange",       action="store", type="float", help="Bias range [V]", nargs=3 )
+    parser.add_option( "--pol_t", action="store", type="float", default=1.0, help="scaling factor for tip polarization")
+    parser.add_option( "--pol_s", action="store", type="float", default=1.0, help="scaling factor for sample polarization")    
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
     PPU.loadParams( 'params.ini' )
@@ -69,12 +73,26 @@ if __name__=="__main__":
     for iq,Q in enumerate(Qs):
         if ( abs(Q) > 1e-7):
             charged_system=True
+    # Vkpfm
+    aplied_bias=False
+    if opt_dict['Vrange'] is not None:
+        Vs = np.linspace( opt_dict['Vrange'][0], opt_dict['Vrange'][1], int(opt_dict['Vrange'][2]) )
+    elif opt_dict['Vbias'] is not None:
+        Vs = [ opt_dict['Vbias'] ]
+    else:
+        Vs = [0.0]
+    for iV,Vx in enumerate(Vs):
+        if ( abs(Vx) > 1e-7):
+            aplied_bias=True       
+    
+    if (aplied_bias == True):
+        print("Vs   =", Vs)        
     print("Ks   =", Ks) 
     print("Qs   =", Qs) 
     #print "Amps =", Amps 
     
     print(" ============= RUN  ")
-    FFLJ, FFel, FFboltz=None,None,None 
+    FFLJ, FFel, FFboltz,FFkpfm_t0sV, FFkpfm_tVs0=None,None,None,None,None
     if ( charged_system == True):
         print(" load Electrostatic Force-field ")
         FFel, lvec, nDim = GU.load_vec_field( "FFel" ,data_format=options.data_format)
@@ -83,6 +101,16 @@ if __name__=="__main__":
         print(" load Boltzmann Force-field ")
         FFboltz, lvec, nDim = GU.load_vec_field( "FFboltz", data_format=options.data_format)
         FFboltz[0,:,:,:],FFboltz[1,:,:,:] = rotFF( FFboltz[0,:,:,:],FFboltz[1,:,:,:], opt_dict['rotate'] )
+    if  ( aplied_bias == True):
+        print(" load Electrostatic contribution from aplied bias")
+        FFkpfm_t0sV, lvec, nDim = GU.load_vec_field( "FFkpfm_t0sV" ,data_format=options.data_format)
+        FFkpfm_tVs0, lvec, nDim = GU.load_vec_field( "FFkpfm_tVs0" ,data_format=options.data_format)
+
+        FFkpfm_t0sV[0,:,:,:],FFkpfm_t0sV[1,:,:,:] = rotFF( FFkpfm_t0sV[0,:,:,:],FFkpfm_t0sV[1,:,:,:], opt_dict['rotate'] )
+        FFkpfm_tVs0[0,:,:,:],FFkpfm_tVs0[1,:,:,:] = rotFF( FFkpfm_tVs0[0,:,:,:],FFkpfm_tVs0[1,:,:,:], opt_dict['rotate'] )
+
+        FFkpfm_t0sV = FFkpfm_t0sV*opt_dict['pol_s']
+        FFkpfm_tVs0 = FFkpfm_tVs0*opt_dict['pol_t']
     print(" load Lenard-Jones Force-field ")
     FFLJ, lvec, nDim = GU.load_vec_field( "FFLJ" , data_format=options.data_format)
     FFLJ[0,:,:,:],FFLJ[1,:,:,:] = rotFF( FFLJ[0,:,:,:],FFLJ[1,:,:,:], opt_dict['rotate'] )
@@ -95,38 +123,44 @@ if __name__=="__main__":
         PPU.params['charge'] = Q
         for ik,K in enumerate( Ks ):
             PPU.params['klat'] = K
-            dirname = "Q%1.2fK%1.2f" %(Q,K)
-            print(" relaxed_scan for ", dirname)
-            if not os.path.exists( dirname ):
-                os.makedirs( dirname )
-            fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJ, FFel, FFboltz,options.tipspline)
-            #PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
-            #Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
-            #GU.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )
-            if PPU.params['tiltedScan']:
-                GU.save_vec_field( dirname+'/OutF', fzs, lvecScan, data_format=options.data_format )
-            else:
-                GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan, data_format=options.data_format )
-            if opt_dict['vib'] >= 0:
-                which = opt_dict['vib']
-                print(" === computing eigenvectors of dynamical matix which=%i ddisp=%f" %(which,PPU.params['ddisp']))
-                xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
-                rTips = np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0).copy()
-                evals,evecs = PPC.stiffnessMatrix( rTips.reshape((-1,3)), PPpos.reshape((-1,3)), which=which, ddisp=PPU.params['ddisp'] )
-                GU.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, data_format=data_format )
-                if which > 0: GU.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                if which > 1: GU.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                if which > 2: GU.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                #print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
-            if opt_dict['disp']:
-                GU.save_vec_field( dirname+'/PPdisp', PPdisp, lvecScan,data_format=options.data_format)
-            if opt_dict['pos']:
-                GU.save_vec_field(dirname+'/PPpos', PPpos, lvecScan, data_format=options.data_format )
-            if options.bI:
-                print("Calculating current from tip to the Boltzmann particle:")
-                I_in, lvec, nDim = GU.load_scal_field('I_boltzmann',
-                data_format=iptions.data_format)
-                I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None ) 
-                del I_in;
-                GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,  data_format=options.data_format)
+            for iv,Vx in enumerate( Vs ):
+                PPU.params['Vbias'] = Vx
+                if aplied_bias:
+                        dirname = "Q%1.2fK%1.2fV%1.2f" %(Q,K,Vx)
+                else:
+                        dirname = "Q%1.2fK%1.2f" %(Q,K)
+                dirname = "Q%1.2fK%1.2f" %(Q,K)
+                print(" relaxed_scan for ", dirname)
+                if not os.path.exists( dirname ):
+                    os.makedirs( dirname )
+                fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJ, FFel, FFboltz,options.tipspline)
+                #PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
+                #Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
+                #GU.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )
+                if PPU.params['tiltedScan']:
+                    GU.save_vec_field( dirname+'/OutF', fzs, lvecScan, data_format=options.data_format )
+                else:
+                    GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan, data_format=options.data_format )
+                if opt_dict['vib'] >= 0:
+                    which = opt_dict['vib']
+                    print(" === computing eigenvectors of dynamical matix which=%i ddisp=%f" %(which,PPU.params['ddisp']))
+                    xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
+                    rTips = np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0).copy()
+                    evals,evecs = PPC.stiffnessMatrix( rTips.reshape((-1,3)), PPpos.reshape((-1,3)), which=which, ddisp=PPU.params['ddisp'] )
+                    GU.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, data_format=data_format )
+                    if which > 0: GU.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=data_format )
+                    if which > 1: GU.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=data_format )
+                    if which > 2: GU.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=data_format )
+                    #print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
+                if opt_dict['disp']:
+                    GU.save_vec_field( dirname+'/PPdisp', PPdisp, lvecScan,data_format=options.data_format)
+                if opt_dict['pos']:
+                    GU.save_vec_field(dirname+'/PPpos', PPpos, lvecScan, data_format=options.data_format )
+                if options.bI:
+                    print("Calculating current from tip to the Boltzmann particle:")
+                    I_in, lvec, nDim = GU.load_scal_field('I_boltzmann',
+                    data_format=iptions.data_format)
+                    I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None ) 
+                    del I_in;
+                    GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,  data_format=options.data_format)
 
