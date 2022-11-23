@@ -12,22 +12,25 @@ verbose = 0
 def loadXYZ(fname):
     '''
     Read the contents of an xyz file.
+    
+    The standard xyz file format only has per-atom elements and xyz positions. In Probe-Particle
+    we also use the per-atom charges, which can be written as an extra column into the xyz file.
+    By default the fifth column is interpreted as the charges, but if the file is written in the 
+    extended xyz format used by ASE, the relevant column indicated in the comment line is used.
 
     Arguments:
         fname: str. Path to file.
 
     Returns:
         xyzs: np.ndarray of shape (N_atoms, 3). Atom xyz positions.
-        Zs: np.ndarray of shape (N_atoms,). Atom atomic numbers.
-        qs: np.ndarray of shape (N_atoms). If it exists, The fifth column of the xyz file, which is
-            interpreted as the partial charges of the atoms. If the fifth column does not exist, qs is
-            all zeros.
+        Zs: np.ndarray of shape (N_atoms,). Atomic numbers.
+        qs: np.ndarray of shape (N_atoms). Per-atom charges. All zeros if no charges are present in the file.
         comment: str. The contents of the second line of the xyz file.
     '''
 
     xyzs = [] 
     Zs = []
-    qs = []
+    extra_cols = []
 
     with open(fname, 'r') as f:
 
@@ -48,18 +51,49 @@ def loadXYZ(fname):
                     Z = elements.ELEMENT_DICT[Z][0]
                 else:
                     Z = int(Z)
-                q = float(wds[4]) if len(wds) >= 5 else 0
                 xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
                 Zs.append(Z)
-                qs.append(q)
+                extra_cols.append(wds[4:])
             except (ValueError, IndexError):
                 raise ValueError(f'Could not interpret line in xyz file: `{line}`')
 
-    xyzs = np.array(xyzs, dtype=np.float32)
+    xyzs = np.array(xyzs, dtype=np.float64)
     Zs = np.array(Zs, dtype=np.int32)
-    qs = np.array(qs, dtype=np.float32)
+        
+    if len(extra_cols[0]) > 0:
+        qs = _getCharges(comment, extra_cols)
+    else:
+        qs = np.zeros(len(Zs), dtype=np.float64)
 
     return xyzs, Zs, qs, comment
+
+def _getCharges(comment, extra_cols):
+    match = re.match('.*Properties=(\S*) ', comment)
+    if match:
+        # ASE format, check if one of the columns has charges
+        props = match.group(1).split(':')[6:] # [6:] is for skipping over elements and positions
+        col = 0
+        for name, size in zip(props[::3], props[2::3]):
+            if name in ['charge', 'initial_charges']:
+                qs = np.array([float(ex[col]) for ex in extra_cols], dtype=np.float64)
+                break
+            col += int(size)
+        else:
+            qs = np.zeros(len(extra_cols), dtype=np.float64)
+    else:
+        # Not ASE format, so just take first column
+        qs = np.array([float(ex[0]) for ex in extra_cols], dtype=np.float64)
+        if _notActuallyCharge(qs):
+            # qs is not actually charges based on some heuristics
+            qs = np.zeros(len(qs), dtype=np.float64)
+    return qs
+
+def _notActuallyCharge(qs):
+    if abs(sum(qs)) > 3:
+        return True
+    if np.abs(qs).max() > 3:
+        return True
+    return False
 
 def saveXYZ(fname, xyzs, Zs, qs=None, comment='', append=False):
     '''
@@ -337,19 +371,13 @@ def loadGeometry(fname=None,params=None):
     is_npy  = fname.lower().endswith(".npy")
     if(is_xyz):
         xyzs, Zs, qs, comment = loadXYZ(fname)
-        nDim  = params['gridN'].copy()
-        lvec, has_charges = parseCommentASE(comment)
+        nDim = params['gridN'].copy()
+        lvec = parseLvecASE(comment)
         if lvec is None:
             lvec  = np.zeros((4,3))
             lvec[ 1,:  ] = params['gridA'].copy() 
             lvec[ 2,:  ] = params['gridB'].copy()
             lvec[ 3,:  ] = params['gridC'].copy()
-        elif not has_charges:
-            # The fifth column in the ASE format was not charges, so ignore what was read from the file
-            qs = np.zeros(len(qs), dtype=np.float32)
-        if _not_actually_charge(qs):
-            # qs is not actually charges based on some heuristics
-            qs = np.zeros(len(qs), dtype=np.float32)
         atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
     elif(is_cube):
         atoms = loadAtomsCUBE(fname)
@@ -364,44 +392,26 @@ def loadGeometry(fname=None,params=None):
         sys.exit("ERROR!!! Unknown format of geometry system. Supported formats are: .xyz, .cube, .xsf \n\n")
     return atoms,nDim,lvec
 
-def parseCommentASE(comment):
+def parseLvecASE(comment):
     '''
-    Try to parse the lattice vectors in an xyz file comment line according to convention used by ASE.
-    Additionally, detect if fifth column has charges according to ASE properties.
+    Try to parse the lattice vectors in an xyz file comment line according to the extended xyz
+    file format used by ASE. The origin is always at zero.
 
     Arguments:
         comment: str. Comment line to parse.
 
     Returns:
-        lvec: np.array of shape (4, 3) or None. The found lattice vectors or None if the comment line does not match
-            the ASE convention.
-        has_charges: bool. Whether the properties line has charges on the fifth column. Always False if the comment
-            does not match the ASE convention.
+        lvec: np.array of shape (4, 3) or None. The found lattice vectors or None if the
+            comment line does not match the extended xyz file format.
     '''
-
-    match = re.match('.*Lattice=\"((?:[+-]?(?:[0-9]*\.)?[0-9]+\s?){9})\"', comment)
+    match = re.match('.*Lattice=\"\s*((?:[+-]?(?:[0-9]*\.)?[0-9]+\s*){9})\"', comment)
     if match:
         lvec = np.zeros(12, dtype=np.float32)
         lvec[3:] = np.array([float(s) for s in match.group(1).split()], dtype=np.float32)
         lvec = lvec.reshape(4, 3)
     else:
         lvec = None
-        
-    match = re.match('.*Properties=(.*)\s', comment)
-    if match:
-        props = match.group(1).split(':')[::3]
-        has_charges = props[2] in ['charge', 'initial_charges']
-    else:
-        has_charges = False
-    
-    return lvec, has_charges
-
-def _not_actually_charge(qs):
-    if abs(sum(qs)) > 3:
-        return True
-    if np.abs(qs).max() > 3:
-        return True
-    return False
+    return lvec
 
 def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
     bonds = []

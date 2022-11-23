@@ -8,7 +8,7 @@ sys.path.append('..')
 
 def test_xyz():
 
-    from pyProbeParticle.basUtils import loadXYZ, saveXYZ, _not_actually_charge
+    from pyProbeParticle.basUtils import loadXYZ, saveXYZ
     from pyProbeParticle.elements import ELEMENTS
 
     N = 20
@@ -17,7 +17,7 @@ def test_xyz():
     xyzs = 10*np.random.rand(N, 3)
     Zs = np.random.randint(1, 100, N)
     elems = [ELEMENTS[z-1][1] for z in Zs]
-    qs = np.random.rand(N)
+    qs = (np.random.rand(N) - 0.5) / N
     comment = 'test comment'
 
     saveXYZ(test_file, xyzs, elems, qs, comment)
@@ -32,18 +32,14 @@ def test_xyz():
     _, _, qs_, _ = loadXYZ(test_file)
     assert np.allclose(qs_, np.zeros(N))
 
-    assert _not_actually_charge([1, 1, 2, 2, 3, 3]) == True
-    assert _not_actually_charge([-3, -2, -1, 0, 1, 2, 3, 4]) == True
-    assert _not_actually_charge([-2, 2, -0.1, 0.1]) == False
-
     os.remove(test_file)
 
 def test_parse_comment_ase():
 
-    from pyProbeParticle.basUtils import parseCommentASE
+    from pyProbeParticle.basUtils import parseLvecASE, _getCharges
 
     comment = 'Lattice="40.587929240107826 0.0 0.0 0.0 35.15017780893861 0.0 0.0 0.0 42.485492908861346" Properties=species:S:1:pos:R:3:tags:I:1 pbc="T T T"'
-    lvec, has_charges = parseCommentASE(comment)
+    lvec = parseLvecASE(comment)
     assert np.allclose(lvec,
         np.array([
             [ 0.0              ,  0.0             ,  0.0              ],
@@ -52,12 +48,37 @@ def test_parse_comment_ase():
             [ 0.0              ,  0.0             , 42.485492908861346]
         ], dtype=np.float32)
     )
-    assert has_charges == False
 
     comment = 'Properties=species:S:1:pos:R:3:initial_charges:R:1 pbc="F F F"'
-    lvec, has_charges = parseCommentASE(comment)
+    lvec = parseLvecASE(comment)
     assert lvec is None
-    assert has_charges == True
+
+    comment = 'Properties=species:S:1:pos:R:3:tags:I:1:initial_charges:R:1 pbc="F F F"'
+    extra_cols = (np.random.rand(10, 2) - 0.5) / 10
+    extra_cols_ = [[str(ex[0]), (ex[1])] for ex in extra_cols]
+    qs = _getCharges(comment, extra_cols_)
+    assert np.allclose(qs, extra_cols[:, 1]), qs
+
+    comment = 'Properties=species:S:1:pos:R:3:initial_charges:R:1:tags:I:1 pbc="F F F"'
+    qs = _getCharges(comment, extra_cols_)
+    assert np.allclose(qs, extra_cols[:, 0]), qs
+
+    comment = 'Properties=species:S:1:pos:R:3:tags:I:1 pbc="F F F"'
+    extra_cols = [[str(v)] for v in np.random.rand(10)]
+    qs = _getCharges(comment, extra_cols)
+    assert np.allclose(qs, np.zeros(10)), qs
+
+    extra_cols = [[-2], [2], [-0.1], [0.1]]
+    qs = _getCharges('', extra_cols)
+    assert np.allclose(qs, [-2, 2, -0.1, 0.1])
+
+    extra_cols = [[1], [1], [2], [2], [3], [3]]
+    qs = _getCharges('', extra_cols)
+    assert np.allclose(qs, np.zeros(6))
+
+    extra_cols = [[-3], [-2], [-1], [0], [1], [2], [3], [4]]
+    qs = _getCharges('', extra_cols)
+    assert np.allclose(qs, np.zeros(8))
 
 if __name__ == '__main__':
     test_xyz()
