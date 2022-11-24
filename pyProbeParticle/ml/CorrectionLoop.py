@@ -341,7 +341,7 @@ class CorrectionLoop():
 
     def iteration(self, itr=0 ):
         if self.xyzLogFile is not None:
-           basUtils.saveXYZ( self.xyzLogFile, self.molecule.xyzs, self.molecule.Zs, qs=self.molecule.qs, comment=("CorrectionLoop.iteration [%i] " %itr) )
+           basUtils.saveXYZ( self.xyzLogFile, self.molecule.xyzs, self.molecule.Zs, qs=self.molecule.qs, comment=(f"CorrectionLoop.iteration [{itr}] ") )
         # Get AFM
         xyzs, qs, Zs = self.molecule.xyzs, self.molecule.qs, self.molecule.Zs
         AFMs  = self.simulator(xyzs, Zs, qs)
@@ -380,7 +380,7 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
     basUtils.saveXYZ( xyzfile, mol.xyzs, mol.Zs, qs=mol.qs, comment="# start " )
     for itr in range(nstep):
         Xs1,Xs2,mol1,mol2  = trainer[itr]
-        basUtils.saveXYZ( xyzfile, mol2.xyzs, mol2.Zs, qs=mol2.qs, comment=("# mutation %i " %itr), append=True)
+        basUtils.saveXYZ( xyzfile, mol2.xyzs, mol2.Zs, qs=mol2.qs, comment=(f"# mutation {itr} "), append=True)
         plt.figure(figsize=(10,5))
         plt.subplot(1,2,1); plt.imshow(Xs1[:,:,iz], origin='upper', extent=extent); plt.scatter( mol1.xyzs[:,0], mol1.xyzs[:,1], s=mol1.Zs*sc, c=cm.rainbow( mol1.xyzs[:,2] )  )
         plt.subplot(1,2,2); plt.imshow(Xs2[:,:,iz], origin='upper', extent=extent); plt.scatter( mol2.xyzs[:,0], mol2.xyzs[:,1], s=mol2.Zs*sc, c=cm.rainbow( mol2.xyzs[:,2] ) )

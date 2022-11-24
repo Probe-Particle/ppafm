@@ -275,9 +275,9 @@ class Corrector():
 
 def _saveXYZDebug(es, xyzs, fname, qs, Rs):
     with open(fname, 'w') as fout:
-        fout.write("%i\n\n"  %len(xyzs) )
+        fout.write(f"{len(xyzs)}\n\n")
         for i,xyz in enumerate( xyzs ):
-            fout.write("%s %f %f %f %f %f \n"  %( es[i], xyz[0], xyz[1], xyz[2], qs[i], Rs[i] ) )
+            fout.write(f"{es[i]} {xyz[0]} {xyz[1]} {xyz[2]} {qs[i]} {Rs[i]} \n")
 
 # ======================================================
 # ================== Class  Mutator
