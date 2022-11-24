@@ -204,12 +204,12 @@ def saveGeomXSF( fname,elems,xyzs, primvec, convvec=None, bTransposed=False ):
             zs = xyzs[2]
             for i in range(len(elems)):
                 f.write( str(elems[i] ) ); 
-                f.write( " %10.10f %10.10f %10.10f\n" %(xs[i], ys[i], zs[i]) )
+                f.write( f" {xs[i]:10.10f} {ys[i]:10.10f} {zs[i]:10.10f}\n" )
         else:
             for i in range(len(elems)):
                 xyzsi = xyzs[i]
                 f.write( str(elems[i] ) ); 
-                f.write( " %10.10f %10.10f %10.10f\n" %(xyzsi[0], xyzsi[1], xyzsi[2]) )
+                f.write( f" {xyzsi[0]:10.10f} {xyzsi[1]:10.10f} {xyzsi[2]:10.10f}\n" )
         f.write( '\n' )
 
 def loadXSFGeom( fname ):

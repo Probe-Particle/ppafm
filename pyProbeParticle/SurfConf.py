@@ -111,7 +111,7 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
     for irot,rot in enumerate(rots):
         mol_name = molFile.split("/")[1].split(".")[0]
         print(mol_name)
-        fname = "movie_%s_%03i.xyz" %(mol_name,irot)
+        fname = f"movie_{mol_name}_{irot:03d}.xyz"
         if os.path.exists(fname): os.remove(fname)
         q = mat2quat(rot)
         print("q ", q)
