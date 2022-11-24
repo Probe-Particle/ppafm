@@ -10,7 +10,7 @@ import time
 #import common    as PPU
 #from optparse import OptionParser
 
-sys.path.append("../")
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 #import pyProbeParticle.PolyCycles  as pcff
 import pyProbeParticle.atomicUtils as au
 import pyProbeParticle.chemistry   as ch

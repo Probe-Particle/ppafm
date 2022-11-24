@@ -7,15 +7,8 @@ import glob
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-
-
-sys.path.append( "/u/25/prokoph1/unix/git/ProbeParticleModel" )
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import pyProbeParticle.file_dat    as file_dat
-
-
-
-
 
 path = "./"
 

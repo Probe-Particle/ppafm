@@ -7,8 +7,8 @@ import __main__ as main
 import numpy as np
 import matplotlib.pyplot as plt
 #import GridUtils as GU
-#sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import pyProbeParticle                as PPU
 import pyProbeParticle.GridUtils      as GU
 import pyProbeParticle.fieldFFT       as fFFT

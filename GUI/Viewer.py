@@ -14,9 +14,7 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 import numpy as np
 from enum import Enum
 
-#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
-#import pyProbeParticle.GridUtils as GU
-
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 from   pyProbeParticle import    basUtils
 from   pyProbeParticle import    PPPlot 
 import pyProbeParticle.GridUtils as GU

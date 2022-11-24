@@ -21,9 +21,10 @@ def makeclean( ):
 
 makeclean( )
 
-import GridUtils     as GU
-import Multipoles    as MP
-import ProbeParticle as PP
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
+import pyProbeParticle.GridUtils     as GU
+import pyProbeParticle.Multipoles    as MP
+import pyProbeParticle.ProbeParticle as PP
 
 # ============== Setup
 

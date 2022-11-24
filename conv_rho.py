@@ -6,8 +6,6 @@ import sys
 import __main__ as main
 import numpy as np
 import matplotlib.pyplot as plt
-#import GridUtils as GU
-#sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
 import pyProbeParticle                as PPU
 import pyProbeParticle.GridUtils      as GU

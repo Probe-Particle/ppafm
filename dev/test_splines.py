@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-sys.path.append('../')
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 #import pyProbeParticle                as PPU 
 import pyProbeParticle.core           as PPC
 

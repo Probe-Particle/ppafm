@@ -7,7 +7,7 @@ import time
 
 import matplotlib.pyplot as plt
 
-sys.path.append("../")
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import pyProbeParticle.atomicUtils as au
 import pyProbeParticle.chemistry   as ch
 import pyProbeParticle.MMFF as mmff

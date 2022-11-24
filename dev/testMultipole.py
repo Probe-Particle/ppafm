@@ -19,8 +19,9 @@ def makeclean( ):
 
 makeclean( )
 
-import GridUtils  as GU
-import Multipoles as MP
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
+import pyProbeParticle.GridUtils  as GU
+import pyProbeParticle.Multipoles as MP
 
 atom_pos = np.array( [ 
 [ 0.0, 0.0, 0.0 ],

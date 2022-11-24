@@ -5,7 +5,7 @@ import os
 import numpy as np
 import time
 
-sys.path.append("../")
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import pyProbeParticle.ReactiveFF  as rff
 import pyProbeParticle.atomicUtils as au
 

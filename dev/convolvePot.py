@@ -4,7 +4,7 @@ import numpy as np
 import os
 import __main__ as main
 
-
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import pyProbeParticle                as PPU     
 from   pyProbeParticle            import basUtils
 from   pyProbeParticle            import elements   

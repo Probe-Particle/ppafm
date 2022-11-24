@@ -3,8 +3,9 @@
 
 import os
 import sys
-
 import numpy as np
+
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import pyProbeParticle               as PPU
 import pyProbeParticle.GridUtils     as GU
 import pyProbeParticle.basUtils      as BU

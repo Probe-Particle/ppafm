@@ -9,6 +9,7 @@ import sys
 #import basUtils
 #import elements
 
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 from   pyProbeParticle            import basUtils
 import pyProbeParticle                as PPU     
 import pyProbeParticle.GridUtils     as GU

@@ -18,6 +18,8 @@ from enum import Enum
 import glob
 import pickle
 import scipy.ndimage as nimg
+
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import pyProbeParticle.GUIWidgets as guiw
 import pyProbeParticle.file_dat    as file_dat
 import copy

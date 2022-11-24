@@ -6,6 +6,7 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import pyProbeParticle                as PPU     
 #import pyProbeParticle.GridUtils      as GU
 import pyProbeParticle.core           as PPC
