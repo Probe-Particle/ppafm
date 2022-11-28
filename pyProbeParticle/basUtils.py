@@ -83,17 +83,7 @@ def _getCharges(comment, extra_cols):
     else:
         # Not ASE format, so just take first column
         qs = np.array([float(ex[0]) for ex in extra_cols], dtype=np.float64)
-        if _notActuallyCharge(qs):
-            # qs is not actually charges based on some heuristics
-            qs = np.zeros(len(qs), dtype=np.float64)
     return qs
-
-def _notActuallyCharge(qs):
-    if abs(sum(qs)) > 3:
-        return True
-    if np.abs(qs).max() > 3:
-        return True
-    return False
 
 def saveXYZ(fname, xyzs, Zs, qs=None, comment='', append=False):
     '''

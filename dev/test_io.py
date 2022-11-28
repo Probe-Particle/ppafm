@@ -68,18 +68,6 @@ def test_parse_comment_ase():
     qs = _getCharges(comment, extra_cols)
     assert np.allclose(qs, np.zeros(10)), qs
 
-    extra_cols = [[-2], [2], [-0.1], [0.1]]
-    qs = _getCharges('', extra_cols)
-    assert np.allclose(qs, [-2, 2, -0.1, 0.1])
-
-    extra_cols = [[1], [1], [2], [2], [3], [3]]
-    qs = _getCharges('', extra_cols)
-    assert np.allclose(qs, np.zeros(6))
-
-    extra_cols = [[-3], [-2], [-1], [0], [1], [2], [3], [4]]
-    qs = _getCharges('', extra_cols)
-    assert np.allclose(qs, np.zeros(8))
-
 if __name__ == '__main__':
     test_xyz()
     test_parse_comment_ase()
