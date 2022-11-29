@@ -173,106 +173,6 @@ def replace( atoms, found, to=17, bond_length=2.0, radial=0.0, prob=0.75 ):
             atoms[iatom,1:] += bvec  
     return atoms
 
-def saveAtoms( atoms, fname, xyz=True ):
-    fout = open(fname,'w')
-    fout.write("%i\n"  %len(atoms) )
-    if xyz==True : fout.write("\n") 
-    for i,atom in enumerate( atoms ):
-        if isinstance( atom[0], str ):
-            fout.write("%s %f %f %f\n"  %( atom[0], atom[1], atom[2], atom[3] ) )
-        else:
-            fout.write("%i %f %f %f\n"  %( atom[0], atom[1], atom[2], atom[3] ) )
-    fout.close() 
-
-def writeToXYZ( fout, es, xyzs, qs=None, Rs=None, commet="" ):
-    fout.write("%i\n"  %len(xyzs) )
-    fout.write(commet+"\n")
-    if   (Rs is not None):
-        for i,xyz in enumerate( xyzs ):
-            fout.write("%s %f %f %f %f %f \n"  %( es[i], xyz[0], xyz[1], xyz[2], qs[i], Rs[i] ) )
-    elif (qs is not None):
-        for i,xyz in enumerate( xyzs ):
-            fout.write("%s %f %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2], qs[i] ) )
-    else:
-        for i,xyz in enumerate( xyzs ):
-            fout.write("%s %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2] ) )
-
-def saveXYZ( es, xyzs, fname, qs=None, Rs=None ):
-    print(">>>>>",fname,"<<<<<")
-    fout = open(fname, "w")
-    writeToXYZ( fout, es, xyzs, qs, Rs=Rs )
-    fout.close() 
-
-def makeMovie( fname, n, es, func ):
-    fout = open(fname, "w")
-    for i in range(n):
-        xyzs, qs = func(i)
-        writeToXYZ( fout, es, xyzs, qs, commet=("frame %i " %i) )
-    fout.close() 
-
-def loadAtomsNP(fname):
-    xyzs   = [] 
-    Zs     = []
-    enames = []
-    qs     = []
-    with open(fname, 'r') as f:
-        for line in f:
-            wds = line.split()
-            try:
-                xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
-                try:
-                    iz    = int(wds[0]) 
-                    Zs    .append(iz)
-                    enames.append( elements.ELEMENTS[iz] )
-                except:
-                    ename = wds[0]
-                    enames.append( ename )
-                    Zs    .append( elements.ELEMENT_DICT[ename][0] )
-                try:
-                    q = float(wds[4])
-                except:
-                    q = 0
-                qs.append(q)
-            except:
-                print("cannot interpet line: ", line)
-                continue
-    xyzs = np.array( xyzs )
-    Zs   = np.array( Zs, dtype=np.int32 )
-    qs   = np.array(qs)
-    return xyzs,Zs,enames,qs
-
-def loadAtoms( name ):
-    f = open(name,"r")
-    n=0;
-    l = f.readline()
-    try:
-        n=int(l)
-    except:
-        raise ValueError("First line of a xyz file should contain the number of atoms. Aborting...")
-    line = f.readline() 
-    if (n>0):
-        n=int(l)
-        e=[];x=[];y=[]; z=[]; q=[]
-        i = 0;
-        for line in f:
-            words=line.split()
-            nw = len( words)
-            ie = None
-            if( nw >=4 ):
-                e.append( words[0] )
-                x.append( float(words[1]) )
-                y.append( float(words[2]) )
-                z.append( float(words[3]) )
-                if ( nw >=5 ):
-                    q.append( float(words[4]) )
-                else:
-                    q.append( 0.0 )
-                i+=1
-            else:
-                print(" skipped line : ", line)
-    f.close()
-    return [ e,x,y,z,q ]
-
 def loadCoefs( characters=['s'] ):
     dens = None
     coefs = []
@@ -314,6 +214,8 @@ def histR( ps, dbin=None, Rmax=None, weights=None ):
     print(( rs.shape, weights.shape ))
     return np.histogram(rs, bins, weights=weights)
 
-
+def ZsToElems(Zs):
+    '''Convert atomic numbers to element symbols.'''
+    return [elements.ELEMENTS[Z-1][1] for Z in Zs]
 
     

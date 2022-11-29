@@ -1,131 +1,114 @@
 #!/usr/bin/python
 
-from . import elements
-#import elements
+import os
+import re
 import math
 import numpy as np
 
+from . import elements
+
 verbose = 0
 
-def loadBas(name):
-    xyzs = []
-    f = open(name,"r")
-    while True:
-        n=0;
-        l = f.readline()
-        try:
-            n=int(l)
-        except ValueError:
-            break
-        if (n>0):
-            n=int(l)
-            e=[];x=[];y=[]; z=[];
-            for i in range(n):
-                l=f.readline().split()
-                e.append( int(l[0]) )
-                x.append( float(l[1]) )
-                y.append( float(l[2]) )
-                z.append( float(l[3]) )
-            xyzs.append( [e,x,y,z] )
-        else:
-            break
-        f.readline()
-    f.close()
-    return xyzs
+def loadXYZ(fname):
+    '''
+    Read the contents of an xyz file.
+    
+    The standard xyz file format only has per-atom elements and xyz positions. In Probe-Particle
+    we also use the per-atom charges, which can be written as an extra column into the xyz file.
+    By default the fifth column is interpreted as the charges, but if the file is written in the 
+    extended xyz format used by ASE, the relevant column indicated in the comment line is used.
 
-def loadAtoms( name ):
-    f = open(name,"r")
-    n=0;
-    l = f.readline()
-    try:
-        n=int(l)
-    except:
-                raise ValueError("First line of a xyz file should contain the number of atoms. Aborting...")
-    line = f.readline() 
-    if (n>0):
-        n=int(l)
-        e=[];x=[];y=[]; z=[]; q=[]
-        i = 0;
-        for line in f:
-            words=line.split()
-            nw = len( words)
-            ie = None
-            if( nw >=4 ):
-                e.append( words[0] )
-                x.append( float(words[1]) )
-                y.append( float(words[2]) )
-                z.append( float(words[3]) )
-                if ( nw >=5 ):
-                    q.append( float(words[4]) )
-                else:
-                    q.append( 0.0 )				
-                i+=1
-            else:
-                print(" skipped line : ", line)
-    f.close()
-    return [ e,x,y,z,q ]
+    Arguments:
+        fname: str. Path to file.
 
-def loadAtomsNP(fname):
-    xyzs   = [] 
-    Zs     = []
-    enames = []
-    qs     = []
+    Returns:
+        xyzs: np.ndarray of shape (N_atoms, 3). Atom xyz positions.
+        Zs: np.ndarray of shape (N_atoms,). Atomic numbers.
+        qs: np.ndarray of shape (N_atoms). Per-atom charges. All zeros if no charges are present in the file.
+        comment: str. The contents of the second line of the xyz file.
+    '''
+
+    xyzs = [] 
+    Zs = []
+    extra_cols = []
+
     with open(fname, 'r') as f:
-        for line in f:
+
+        line = f.readline().strip()
+        try:
+            N = int(line)
+        except ValueError:
+            raise ValueError(f'The first line of an xyz file should have the number of atoms, but got `{line}`')
+        
+        comment = f.readline().strip()
+        
+        for i, line in enumerate(f):
+            if i >= N: break
             wds = line.split()
             try:
+                Z = wds[0]
+                if Z in elements.ELEMENT_DICT:
+                    Z = elements.ELEMENT_DICT[Z][0]
+                else:
+                    Z = int(Z)
                 xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
-                try:
-                    iz    = int(wds[0]) 
-                    Zs    .append(iz)
-                    enames.append( elements.ELEMENTS[iz] )
-                except:
-                    ename = wds[0]
-                    enames.append( ename )
-                    Zs    .append( elements.ELEMENT_DICT[ename][0] )
-                try:
-                    q = float(wds[4])
-                except:
-                    q = 0
-                qs.append(q)
-            except:
-                print("cannot interpet line: ", line)
-                continue
-    xyzs = np.array( xyzs )
-    Zs   = np.array( Zs, dtype=np.int32 )
-    qs   = np.array(qs)
-    return xyzs,Zs,enames,qs
+                Zs.append(Z)
+                extra_cols.append(wds[4:])
+            except (ValueError, IndexError):
+                raise ValueError(f'Could not interpret line in xyz file: `{line}`')
 
-def loadAtomsLines( lines ):
-    xyzs   = [] 
-    Zs     = []
-    enames = []
-    qs     = []
-    for line in lines:
-        wds = line.split()
-        try:
-            xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
-            try:
-                iz    = int(wds[0]) 
-                Zs    .append(iz)
-                enames.append( elements.ELEMENTS[iz] )
-            except:
-                ename = wds[0]
-                enames.append( ename )
-                Zs    .append( elements.ELEMENT_DICT[ename][0] )
-            try:
-                q = float(wds[4])
-            except:
-                q = 0.0
-            qs.append(q)
-        except:
-            if(verbose>0):
-                print("cannot interpet line: ", line)
-            continue
-    xyzs = np.array( xyzs )
-    Zs   = np.array( Zs, dtype=np.int32 )
-    qs   = np.array(qs)
-    return xyzs,Zs,enames,qs
+    xyzs = np.array(xyzs, dtype=np.float64)
+    Zs = np.array(Zs, dtype=np.int32)
+        
+    if len(extra_cols[0]) > 0:
+        qs = _getCharges(comment, extra_cols)
+    else:
+        qs = np.zeros(len(Zs), dtype=np.float64)
+
+    return xyzs, Zs, qs, comment
+
+def _getCharges(comment, extra_cols):
+    match = re.match('.*Properties=(\S*) ', comment)
+    if match:
+        # ASE format, check if one of the columns has charges
+        props = match.group(1).split(':')[6:] # [6:] is for skipping over elements and positions
+        col = 0
+        for name, size in zip(props[::3], props[2::3]):
+            if name in ['charge', 'initial_charges']:
+                qs = np.array([float(ex[col]) for ex in extra_cols], dtype=np.float64)
+                break
+            col += int(size)
+        else:
+            qs = np.zeros(len(extra_cols), dtype=np.float64)
+    else:
+        # Not ASE format, so just take first column
+        qs = np.array([float(ex[0]) for ex in extra_cols], dtype=np.float64)
+    return qs
+
+def saveXYZ(fname, xyzs, Zs, qs=None, comment='', append=False):
+    '''
+    Save atom types, positions, and, (optionally) charges to an xyz file.
+
+    Arguments:
+        fname: str. Path to file.
+        xyzs: np.ndarray of shape (N_atoms, 3). Atom xyz positions.
+        Zs: np.ndarray of shape (N_atoms,). Atom atomic numbers.
+        qs: np.ndarray of shape (N_atoms) or None. If not None, the partial charges of atoms written as
+            the fifth column into the xyz file.
+        comment: str. Comment string written to the second line of the xyz file.
+        append: bool. Append to file instead of overwriting if it already exists. Useful for creating
+            movies of changing structures.
+    '''
+    N = len(xyzs)
+    mode = 'a' if append else 'w'
+    file_exists = os.path.exists(fname)
+    with open(fname, mode) as f:
+        if append and file_exists: f.write('\n')
+        f.write(f'{N}\n{comment}\n')
+        for i in range(N):
+            f.write(f'{Zs[i]} {xyzs[i, 0]} {xyzs[i, 1]} {xyzs[i, 2]}')
+            if qs is not None: f.write(f' {qs[i]}')
+            if i < (N-1): f.write('\n')
 
 def loadGeometryIN(fname):
     Zs = []; xyzs = []; lvec = []
@@ -194,20 +177,6 @@ def writeMatrix( fout, mat ):
         for num in v: fout.write(' %f ' %num )
         fout.write('\n')
 
-def writeAtoms( f, elems, xyzs ):
-    for i in range(len(elems)):
-        xyzsi = xyzs[i]
-        f.write( str(elems[i] ) ); 
-        f.write( " %10.10f %10.10f %10.10f\n" %(xyzsi[0], xyzsi[1], xyzsi[2]) )
-
-def writeAtomsTransposed( f, elems, xyzs ):
-    xs = xyzs[0]
-    ys = xyzs[1]
-    zs = xyzs[2]
-    for i in range(len(elems)):
-        f.write( str(elems[i] ) ); 
-        f.write( " %10.10f %10.10f %10.10f\n" %(xs[i], ys[i], zs[i]) )
-
 def saveGeomXSF( fname,elems,xyzs, primvec, convvec=None, bTransposed=False ):
     if convvec is None:
         primvec = convvec
@@ -220,75 +189,18 @@ def saveGeomXSF( fname,elems,xyzs, primvec, convvec=None, bTransposed=False ):
         f.write( 'PRIMCOORD\n' )
         f.write( '%i %i\n' %(len(elems),1) )
         if bTransposed:
-            writeAtomsTransposed( f, elems, xyzs )
+            xs = xyzs[0]
+            ys = xyzs[1]
+            zs = xyzs[2]
+            for i in range(len(elems)):
+                f.write( str(elems[i] ) ); 
+                f.write( f" {xs[i]:10.10f} {ys[i]:10.10f} {zs[i]:10.10f}\n" )
         else:
-            writeAtoms( f, elems, xyzs )
+            for i in range(len(elems)):
+                xyzsi = xyzs[i]
+                f.write( str(elems[i] ) ); 
+                f.write( f" {xyzsi[0]:10.10f} {xyzsi[1]:10.10f} {xyzsi[2]:10.10f}\n" )
         f.write( '\n' )
-
-def saveXyz_Transposed(fname,elems,xyzs):
-    with open(fname,'w') as f:
-        n = len(elems)
-        f.write( "%i\n" %n )
-        f.write( "#comment\n" )
-        xs = xyzs[0]
-        ys = xyzs[1]
-        zs = xyzs[2]
-        for i in range(n):
-            f.write( "%s %10.10f %10.10f %10.10f\n" %(elems[i], xs[i], ys[i], zs[i] )  )
-
-def saveXyz(fname,elems,xyzs):
-    with open(fname,'w') as f:
-        n = len(elems)
-        f.write( "%i\n" %n )
-        f.write( "#comment\n" )
-        for i in range(n):
-            xyzsi = xyzs[i]
-            f.write( "%s %10.10f %10.10f %10.10f\n" %(elems[i], xyzsi[0], xyzsi[1], xyzsi[2] )  )
-
-def saveXyzq(fname,elems,xyzqs):
-    with open(fname,'w') as f:
-        n = len(elems)
-        f.write( "%i\n" %n )
-        f.write( "#comment\n" )
-        for i in range(n):
-            f.write( "%s %10.10f %10.10f %10.10f %10.10f\n" %(elems[i], xyzs[i][0], xyzs[i][1], xyzs[i][2], xyzs[i][3] )  )
-
-def writeDebugXYZ( fname, lines, poss, pos0=None ):
-    fout  = open(fname,"w")
-    natom = int(lines[0])
-    npos  = len(poss)
-    if pos0 is not None:
-        natom+=1
-        lines.append( "U %f %f %f\n" %(pos0[0], pos0[1], pos0[2]) )
-    fout.write( "%i\n" %(natom + npos) )
-    fout.write( "\n" )
-    for line in lines[2:natom+2]:
-        fout.write( line )
-    for pos in poss:
-        fout.write( "He %f %f %f\n" %(pos[0], pos[1], pos[2]) )
-    fout.write( "\n" )
-
-def writeDebugXYZ_2( fname, atoms, Zs, poss, pos0 ):
-    fout  = open(fname,"w")
-    natom = len(atoms)
-    npos  = len(poss)
-    fout.write( "%i\n" %(natom + npos+1) )
-    fout.write( "\n" )
-    fout.write( "%i %f %f %f\n" %( 92, pos0[0], pos0[1], pos0[2] ) )
-    for i in range(natom):
-        fout.write( "%i %f %f %f\n" %( Zs[i],atoms[i][0], atoms[i][1], atoms[i][2]) )
-    for pos in poss:
-        fout.write( "He %f %f %f\n" %(pos[0], pos[1], pos[2]) )
-    fout.write( "\n" )
-
-def writeDebugXYZ__( fname, atoms, Zs ):
-    fout  = open(fname,"w")
-    natom = len(atoms)
-    fout.write( "%i\n" %(natom ) )
-    fout.write( "\n" )
-    for i in range(natom):
-        fout.write( "%i %f %f %f\n" %( Zs[i],atoms[i][0], atoms[i][1], atoms[i][2]) )
-    fout.write( "\n" )
 
 def loadXSFGeom( fname ):
     f = open(fname )
@@ -448,12 +360,15 @@ def loadGeometry(fname=None,params=None):
     is_xsf  = fname.lower().endswith(".xsf")
     is_npy  = fname.lower().endswith(".npy")
     if(is_xyz):
-        atoms = loadAtoms(fname)
-        nDim  = params['gridN'].copy()
-        lvec  = np.zeros((4,3))
-        lvec[ 1,:  ] = params['gridA'].copy() 
-        lvec[ 2,:  ] = params['gridB'].copy()
-        lvec[ 3,:  ] = params['gridC'].copy()
+        xyzs, Zs, qs, comment = loadXYZ(fname)
+        nDim = params['gridN'].copy()
+        lvec = parseLvecASE(comment)
+        if lvec is None:
+            lvec  = np.zeros((4,3))
+            lvec[ 1,:  ] = params['gridA'].copy() 
+            lvec[ 2,:  ] = params['gridB'].copy()
+            lvec[ 3,:  ] = params['gridC'].copy()
+        atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
     elif(is_cube):
         atoms = loadAtomsCUBE(fname)
         lvec  = loadCellCUBE(fname)
@@ -466,6 +381,27 @@ def loadGeometry(fname=None,params=None):
     else:
         sys.exit("ERROR!!! Unknown format of geometry system. Supported formats are: .xyz, .cube, .xsf \n\n")
     return atoms,nDim,lvec
+
+def parseLvecASE(comment):
+    '''
+    Try to parse the lattice vectors in an xyz file comment line according to the extended xyz
+    file format used by ASE. The origin is always at zero.
+
+    Arguments:
+        comment: str. Comment line to parse.
+
+    Returns:
+        lvec: np.array of shape (4, 3) or None. The found lattice vectors or None if the
+            comment line does not match the extended xyz file format.
+    '''
+    match = re.match('.*Lattice=\"\s*((?:[+-]?(?:[0-9]*\.)?[0-9]+\s*){9})\"', comment)
+    if match:
+        lvec = np.zeros(12, dtype=np.float32)
+        lvec[3:] = np.array([float(s) for s in match.group(1).split()], dtype=np.float32)
+        lvec = lvec.reshape(4, 3)
+    else:
+        lvec = None
+    return lvec
 
 def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
     bonds = []

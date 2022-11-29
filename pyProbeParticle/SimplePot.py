@@ -10,6 +10,7 @@ import ctypes
 import os
 import sys
 
+from . import basUtils
 from . import atomicUtils as au
 
 # Covalent radii of few atoms in Å
@@ -229,7 +230,8 @@ if __name__ == "__main__":
     print( ps.shape )
 
     # ---- Load Geometry
-    xyzs,Zs,elems,qs = au.loadAtomsNP( 'fail.xyz' )
+    xyzs, Zs, qs, _ = basUtils.loadXYZ('fail.xyz')
+    elems = au.ZsToElems(Zs)
     Rcovs = np.ones(len(xyzs))*0.7
 
     # ----- Here Call SimplePot
@@ -237,7 +239,7 @@ if __name__ == "__main__":
     Es = eval( ps )  # evaluates potential for array of points (positions of atom A)
     dangs = danglingToArray()
     print( "dangs\n", dangs.shape, xyzs.shape )
-    au.saveXYZ( elems+['H']*len(dangs), np.concatenate( (xyzs, dangs) ), 'dangs.xyz' )
+    basUtils.saveXYZ('dangs.xyz', np.concatenate( (xyzs, dangs) ), elems+['H']*len(dangs))
 
     # ----- plot or store result
     if b3D:

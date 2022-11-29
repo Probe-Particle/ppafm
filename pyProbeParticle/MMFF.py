@@ -3,6 +3,7 @@ from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_
 import ctypes
 import os
 from . import cpp_utils
+from . import basUtils
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)
@@ -165,19 +166,17 @@ def relaxMolecule(
     pos = getPos (natom)
     
     if bMovie:
-        from . import atomicUtils as au
         if fname is None:
             movie_name = "movie_MMFF.xyz"
         else:
             movie_name = "movie_"+fname
-        with open( movie_name, "w") as fout:
-            for i in range(Nmax/perSave):
-                f = relaxNsteps(perSave, Fconv=Fconv)
-                au.writeToXYZ( fout, elems[mask_dummy], pos[mask_dummy] )
-                if(f<1e-6): break
+        if os.path.exists(movie_name): os.remove(movie_name)
+        for i in range(Nmax/perSave):
+            f = relaxNsteps(perSave, Fconv=Fconv)
+            basUtils.saveXYZ(movie_name, pos[mask_dummy], elems[mask_dummy], append=True)
+            if(f<1e-6): break
     else:
         relaxNsteps(Nmax,Fconv=Fconv)
     if fname is not None:
-        from . import atomicUtils as au
-        au.saveXYZ( elems[mask_dummy], pos[mask_dummy], fname, qs=None )
+        basUtils.saveXYZ(fname, pos[mask_dummy], elems[mask_dummy])
     return pos.copy(),types.copy(),elems

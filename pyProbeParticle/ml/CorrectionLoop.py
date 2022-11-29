@@ -341,7 +341,7 @@ class CorrectionLoop():
 
     def iteration(self, itr=0 ):
         if self.xyzLogFile is not None:
-           au.writeToXYZ( self.xyzLogFile, self.molecule.Zs, self.molecule.xyzs, qs=self.molecule.qs, commet=("CorrectionLoop.iteration [%i] " %itr) )
+           basUtils.saveXYZ( self.xyzLogFile, self.molecule.xyzs, self.molecule.Zs, qs=self.molecule.qs, comment=(f"CorrectionLoop.iteration [{itr}] ") )
         # Get AFM
         xyzs, qs, Zs = self.molecule.xyzs, self.molecule.qs, self.molecule.Zs
         AFMs  = self.simulator(xyzs, Zs, qs)
@@ -363,7 +363,7 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
     iz = -10
     mutator = Mutator()
     trainer = CorrectorTrainer( simulator, mutator, molCreator=None )
-    xyzs,Zs,elems,qs = au.loadAtomsNP(geom_fname)
+    xyzs, Zs, qs, _ = basUtils.loadXYZ(geom_fname)
 
     sw = simulator.scan_window
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
@@ -376,17 +376,16 @@ def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
     extent=( simulator.scan_window[0][0], simulator.scan_window[1][0], simulator.scan_window[0][1], simulator.scan_window[1][1] )
     sc = 3.0
 
-    xyzfile = open("geomMutations.xyz","w")
-    au.writeToXYZ( xyzfile, mol.Zs, mol.xyzs, qs=mol.qs, commet="# start " )
+    xyzfile = "geomMutations.xyz"
+    basUtils.saveXYZ( xyzfile, mol.xyzs, mol.Zs, qs=mol.qs, comment="# start " )
     for itr in range(nstep):
         Xs1,Xs2,mol1,mol2  = trainer[itr]
-        au.writeToXYZ( xyzfile, mol2.Zs,  mol2.xyzs, qs=mol2.qs, commet=("# mutation %i " %itr) )
+        basUtils.saveXYZ( xyzfile, mol2.xyzs, mol2.Zs, qs=mol2.qs, comment=(f"# mutation {itr} "), append=True)
         plt.figure(figsize=(10,5))
         plt.subplot(1,2,1); plt.imshow(Xs1[:,:,iz], origin='upper', extent=extent); plt.scatter( mol1.xyzs[:,0], mol1.xyzs[:,1], s=mol1.Zs*sc, c=cm.rainbow( mol1.xyzs[:,2] )  )
         plt.subplot(1,2,2); plt.imshow(Xs2[:,:,iz], origin='upper', extent=extent); plt.scatter( mol2.xyzs[:,0], mol2.xyzs[:,1], s=mol2.Zs*sc, c=cm.rainbow( mol2.xyzs[:,2] ) )
         plt.savefig( "CorrectorTrainAFM_%03i.png" %itr )
         plt.close()
-    xyzfile.close()
 
 def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=10 ):
     relaxator = FARFF.EngineFARFF()
@@ -397,10 +396,10 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
     AFMRef = np.load('AFMref.npy')
 
     looper = CorrectionLoop(relaxator, simulator, atoms, bonds, corrector)
-    looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
+    looper.xyzLogFile = "CorrectionLoopLog.xyz"
     looper.logImgName = "CorrectionLoopAFMLog"
     looper.logAFMdataName = "AFMs"
-    xyzs,Zs,elems,qs = au.loadAtomsNP(geom_fname)
+    xyzs, Zs, qs, _ = basUtils.loadXYZ(geom_fname)
 
     sw = simulator.scan_window
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
@@ -423,8 +422,6 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
         Err = looper.iteration(itr=itr)
         if Err < ErrConv:
             break
-
-    looper.xyzLogFile.close()
 
 # ========================================================================
 

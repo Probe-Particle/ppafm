@@ -152,9 +152,8 @@ class InverseAFMtrainer:
         '''
         self.molecules = []
         for path in self.paths:
-            with open(path, 'r') as f:
-                xyzs, Zs, _, qs = basUtils.loadAtomsLines(f.readlines())
-                self.molecules.append(np.concatenate([xyzs, qs[:,None], Zs[:,None]], axis=1))
+            xyzs, Zs, qs, _ = basUtils.loadXYZ(path)
+            self.molecules.append(np.concatenate([xyzs, qs[:,None], Zs[:,None]], axis=1))
     
     def handle_positions(self):
         '''

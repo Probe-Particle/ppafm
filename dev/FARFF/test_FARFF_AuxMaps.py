@@ -23,10 +23,12 @@ import pyProbeParticle.FARFF as fff
 # =============== Setup
 
 if __name__ == "__main__":
+
+    from pyProbeParticle import basUtils
     import pyProbeParticle.atomicUtils as au
     import pyProbeParticle.GLView as glv
 
-    xyzs,Zs,elems,qs = au.loadAtomsNP("input.xyz")     #; print xyzs
+    xyzs, Zs, qs, _ = basUtils.loadXYZ("input.xyz")
 
     atomMapF, bondMapF, lvecMap = fff.makeGridFF( fff )
     print( " atomMapF ", atomMapF.shape, " bondMapF ", bondMapF.shape,  )

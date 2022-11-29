@@ -27,6 +27,9 @@ extensions = [
 templates_path = ['_templates']
 exclude_patterns = []
 
+# Enable writing multiple return values for Google-style docstrings
+napoleon_custom_sections = [('Returns', 'params_style')]
+
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
