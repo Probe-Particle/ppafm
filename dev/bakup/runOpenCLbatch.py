@@ -17,18 +17,18 @@ import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 import matplotlib.pyplot as plt
 
 #sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
-#import pyProbeParticle.GridUtils as GU
+#import ppafm.GridUtils as GU
 
-from   pyProbeParticle import basUtils
-from   pyProbeParticle import PPPlot 
-import pyProbeParticle.GridUtils as GU
-import pyProbeParticle.common    as PPU
-import pyProbeParticle.cpp_utils as cpp_utils
+from   ppafm import basUtils
+from   ppafm import PPPlot 
+import ppafm.GridUtils as GU
+import ppafm.common    as PPU
+import ppafm.cpp_utils as cpp_utils
 
 import pyopencl as cl
-import pyProbeParticle.ocl.oclUtils as oclu
-import pyProbeParticle.ocl.field    as FFcl
-import pyProbeParticle.ocl.relax    as oclr
+import ppafm.ocl.oclUtils as oclu
+import ppafm.ocl.field    as FFcl
+import ppafm.ocl.relax    as oclr
 
 Modes     = Enum( 'Modes',    'LJel LJel_pbc LJQ' )
 DataViews = Enum( 'DataViews','FFin FFout df FFel FFpl' )

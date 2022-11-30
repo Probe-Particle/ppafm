@@ -7,9 +7,9 @@ import __main__ as main
 import numpy as np
 import matplotlib.pyplot as plt
 
-import pyProbeParticle                as PPU
-import pyProbeParticle.GridUtils      as GU
-import pyProbeParticle.fieldFFT       as fFFT
+import ppafm                as PPU
+import ppafm.GridUtils      as GU
+import ppafm.fieldFFT       as fFFT
 from optparse import OptionParser
 
 # ======== Functions

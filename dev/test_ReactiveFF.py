@@ -6,9 +6,9 @@ import numpy as np
 import time
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import pyProbeParticle.ReactiveFF  as rff
-import pyProbeParticle.atomicUtils as au
-from pyProbeParticle import basUtils
+import ppafm.ReactiveFF  as rff
+import ppafm.atomicUtils as au
+from ppafm import basUtils
 
 #import matplotlib.pyplot as plt
 #from mpl_toolkits.mplot3d import Axes3D

@@ -22,9 +22,9 @@ def makeclean( ):
 makeclean( )
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import pyProbeParticle.GridUtils     as GU
-import pyProbeParticle.Multipoles    as MP
-import pyProbeParticle.ProbeParticle as PP
+import ppafm.GridUtils     as GU
+import ppafm.Multipoles    as MP
+import ppafm.ProbeParticle as PP
 
 # ============== Setup
 

@@ -5,12 +5,12 @@ import os
 import __main__ as main
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import pyProbeParticle                as PPU     
-#from   pyProbeParticle            import elements   
-import pyProbeParticle.GridUtils      as GU
-import pyProbeParticle.basUtils      as BU
-import pyProbeParticle.HighLevel      as PPH
-import pyProbeParticle.cpp_utils      as cpp_utils
+import ppafm                as PPU     
+#from   ppafm            import elements   
+import ppafm.GridUtils      as GU
+import ppafm.basUtils      as BU
+import ppafm.HighLevel      as PPH
+import ppafm.cpp_utils      as cpp_utils
 
 
 if __name__=="__main__":

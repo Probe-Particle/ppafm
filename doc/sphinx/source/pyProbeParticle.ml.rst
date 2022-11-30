@@ -1,39 +1,39 @@
-pyProbeParticle.ml namespace
+ppafm.ml namespace
 ============================
 
-.. py:module:: pyProbeParticle.ml
+.. py:module:: ppafm.ml
 
 Submodules
 ----------
 
-pyProbeParticle.ml.AuxMap module
+ppafm.ml.AuxMap module
 --------------------------------
 
-.. automodule:: pyProbeParticle.ml.AuxMap
+.. automodule:: ppafm.ml.AuxMap
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.ml.CorrectionLoop module
+ppafm.ml.CorrectionLoop module
 ----------------------------------------
 
-.. automodule:: pyProbeParticle.ml.CorrectionLoop
+.. automodule:: ppafm.ml.CorrectionLoop
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.ml.Corrector module
+ppafm.ml.Corrector module
 -----------------------------------
 
-.. automodule:: pyProbeParticle.ml.Corrector
+.. automodule:: ppafm.ml.Corrector
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.ml.Generator module
+ppafm.ml.Generator module
 -----------------------------------
 
-.. automodule:: pyProbeParticle.ml.Generator
+.. automodule:: ppafm.ml.Generator
    :members:
    :undoc-members:
    :show-inheritance:

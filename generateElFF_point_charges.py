@@ -5,13 +5,13 @@ import os
 import __main__ as main
 
 
-import pyProbeParticle                as PPU     
-from   pyProbeParticle            import basUtils
-from   pyProbeParticle            import elements   
-import pyProbeParticle.GridUtils      as GU
-import pyProbeParticle.HighLevel      as PPH
-import pyProbeParticle.fieldFFT       as fFFT
-import pyProbeParticle.cpp_utils      as cpp_utils
+import ppafm                as PPU     
+from   ppafm            import basUtils
+from   ppafm            import elements   
+import ppafm.GridUtils      as GU
+import ppafm.HighLevel      as PPH
+import ppafm.fieldFFT       as fFFT
+import ppafm.cpp_utils      as cpp_utils
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:

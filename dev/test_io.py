@@ -8,8 +8,8 @@ sys.path.append('..')
 
 def test_xyz():
 
-    from pyProbeParticle.basUtils import loadXYZ, saveXYZ
-    from pyProbeParticle.elements import ELEMENTS
+    from ppafm.basUtils import loadXYZ, saveXYZ
+    from ppafm.elements import ELEMENTS
 
     N = 20
     test_file = 'io_test.xyz'
@@ -36,7 +36,7 @@ def test_xyz():
 
 def test_parse_comment_ase():
 
-    from pyProbeParticle.basUtils import parseLvecASE, _getCharges
+    from ppafm.basUtils import parseLvecASE, _getCharges
 
     comment = 'Lattice="40.587929240107826 0.0 0.0 0.0 35.15017780893861 0.0 0.0 0.0 42.485492908861346" Properties=species:S:1:pos:R:3:tags:I:1 pbc="T T T"'
     lvec = parseLvecASE(comment)

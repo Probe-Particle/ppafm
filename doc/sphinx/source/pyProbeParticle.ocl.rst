@@ -1,39 +1,39 @@
-pyProbeParticle.ocl namespace
+ppafm.ocl namespace
 =============================
 
-.. py:module:: pyProbeParticle.ocl
+.. py:module:: ppafm.ocl
 
 Submodules
 ----------
 
-pyProbeParticle.ocl.AFMulator module
+ppafm.ocl.AFMulator module
 ------------------------------------
 
-.. autoclass:: pyProbeParticle.ocl.AFMulator.AFMulator
+.. autoclass:: ppafm.ocl.AFMulator.AFMulator
    :members: __call__, eval, setLvec, setScanWindow, setRho, setQs, prepareFF, prepareScanner, evalAFM
    :show-inheritance:
-.. autofunction:: pyProbeParticle.ocl.AFMulator.quick_afm
+.. autofunction:: ppafm.ocl.AFMulator.quick_afm
 
-pyProbeParticle.ocl.field module
+ppafm.ocl.field module
 --------------------------------
 
-.. automodule:: pyProbeParticle.ocl.field
+.. automodule:: ppafm.ocl.field
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.ocl.oclUtils module
+ppafm.ocl.oclUtils module
 -----------------------------------
 
-.. automodule:: pyProbeParticle.ocl.oclUtils
+.. automodule:: ppafm.ocl.oclUtils
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.ocl.relax module
+ppafm.ocl.relax module
 --------------------------------
 
-.. automodule:: pyProbeParticle.ocl.relax
+.. automodule:: ppafm.ocl.relax
    :members:
    :undoc-members:
    :show-inheritance:

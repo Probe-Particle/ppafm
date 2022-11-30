@@ -8,16 +8,16 @@ import numpy as np
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 import matplotlib.pyplot as plt
 #import GridUtils as GU
-import pyProbeParticle.GridUtils      as GU
+import ppafm.GridUtils      as GU
 
 #--- added later just to plot atoms
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import pyProbeParticle                as PPU   
-import pyProbeParticle.PPPlot         as PPPlot
-from   pyProbeParticle            import basUtils
-from   pyProbeParticle            import elements 
-import pyProbeParticle.HighLevel      as PPH
-import pyProbeParticle.cpp_utils      as cpp_utils
+import ppafm                as PPU   
+import ppafm.PPPlot         as PPPlot
+from   ppafm            import basUtils
+from   ppafm            import elements 
+import ppafm.HighLevel      as PPH
+import ppafm.cpp_utils      as cpp_utils
 
 from optparse import OptionParser
 

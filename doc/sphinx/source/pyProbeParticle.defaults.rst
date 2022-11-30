@@ -1,15 +1,15 @@
-pyProbeParticle.defaults namespace
+ppafm.defaults namespace
 ==================================
 
-.. py:module:: pyProbeParticle.defaults
+.. py:module:: ppafm.defaults
 
 Submodules
 ----------
 
-pyProbeParticle.defaults.valelec\_dict module
+ppafm.defaults.valelec\_dict module
 ---------------------------------------------
 
-.. automodule:: pyProbeParticle.defaults.valelec_dict
+.. automodule:: ppafm.defaults.valelec_dict
    :members:
    :undoc-members:
    :show-inheritance:

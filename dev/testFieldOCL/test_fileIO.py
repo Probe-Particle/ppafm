@@ -6,7 +6,7 @@ import numpy as np
 
 sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
 
-import pyProbeParticle.GridUtils as GU
+import ppafm.GridUtils as GU
 
 xs    = np.linspace(0.1,1.0,5)
 ys    = np.linspace(0.1,1.0,5)

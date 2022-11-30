@@ -1,7 +1,7 @@
-pyProbeParticle
+ppafm
 ===============
 
 .. toctree::
    :maxdepth: 4
 
-   pyProbeParticle
+   ppafm

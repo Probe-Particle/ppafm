@@ -18,18 +18,18 @@ from matplotlib.figure import Figure
 import numpy as np
 
 sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
-#import pyProbeParticle.GridUtils as GU
+#import ppafm.GridUtils as GU
 
-from   pyProbeParticle import basUtils
-from   pyProbeParticle import PPPlot 
-import pyProbeParticle.GridUtils as GU
-import pyProbeParticle.common    as PPU
-import pyProbeParticle.cpp_utils as cpp_utils
+from   ppafm import basUtils
+from   ppafm import PPPlot 
+import ppafm.GridUtils as GU
+import ppafm.common    as PPU
+import ppafm.cpp_utils as cpp_utils
 
 import pyopencl as cl
-import pyProbeParticle.oclUtils    as oclu 
-import pyProbeParticle.fieldOCL    as FFcl 
-import pyProbeParticle.RelaxOpenCL as oclr
+import ppafm.oclUtils    as oclu 
+import ppafm.fieldOCL    as FFcl 
+import ppafm.RelaxOpenCL as oclr
 
 class MyDynamicMplCanvas(FigureCanvas):
     """A canvas that updates itself every second with a new plot."""

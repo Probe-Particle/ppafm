@@ -7,12 +7,12 @@ import sys
 import matplotlib.pyplot as plt
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import pyProbeParticle                as PPU     
-#import pyProbeParticle.GridUtils      as GU
-import pyProbeParticle.core           as PPC
-#import pyProbeParticle.HighLevel     as PPH
-import pyProbeParticle.cpp_utils as cpp_utils
-from   pyProbeParticle            import basUtils
+import ppafm                as PPU     
+#import ppafm.GridUtils      as GU
+import ppafm.core           as PPC
+#import ppafm.HighLevel     as PPH
+import ppafm.cpp_utils as cpp_utils
+from   ppafm            import basUtils
 
 # ======== setup
 

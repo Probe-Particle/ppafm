@@ -15,15 +15,15 @@ import numpy as np
 from enum import Enum
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-from pyProbeParticle import basUtils
-from pyProbeParticle import PPPlot
-from pyProbeParticle.ocl.AFMulator import AFMulator
-from pyProbeParticle.ocl.field     import HartreePotential, hartreeFromFile
-import pyProbeParticle.GridUtils    as GU
-import pyProbeParticle.common       as PPU
-import pyProbeParticle.ocl.oclUtils as oclu
-import pyProbeParticle.ocl.field    as FFcl
-import pyProbeParticle.GUIWidgets   as guiw
+from ppafm import basUtils
+from ppafm import PPPlot
+from ppafm.ocl.AFMulator import AFMulator
+from ppafm.ocl.field     import HartreePotential, hartreeFromFile
+import ppafm.GridUtils    as GU
+import ppafm.common       as PPU
+import ppafm.ocl.oclUtils as oclu
+import ppafm.ocl.field    as FFcl
+import ppafm.GUIWidgets   as guiw
 
 Multipoles = Enum('Multipoles', 's pz dz2')
 

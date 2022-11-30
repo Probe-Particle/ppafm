@@ -14,9 +14,9 @@ import matplotlib.pyplot as plt
 #import GridUtils as GU
 #sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
-import pyProbeParticle                as PPU
-import pyProbeParticle.GridUtils      as GU
-import pyProbeParticle.fieldFFT       as fFFT
+import ppafm                as PPU
+import ppafm.GridUtils      as GU
+import ppafm.fieldFFT       as fFFT
 from optparse import OptionParser
 
 parser = OptionParser()

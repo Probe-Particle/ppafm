@@ -8,10 +8,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
-import pyProbeParticle            as PPU
-import pyProbeParticle.core       as core
-import pyProbeParticle.GridUtils  as GU
-import pyProbeParticle.basUtils   as BU
+import ppafm            as PPU
+import ppafm.core       as core
+import ppafm.GridUtils  as GU
+import ppafm.basUtils   as BU
 from optparse import OptionParser
 
 parser = OptionParser()

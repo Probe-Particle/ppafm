@@ -8,9 +8,9 @@ import time
 import matplotlib.pyplot as plt
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import pyProbeParticle.atomicUtils as au
-import pyProbeParticle.chemistry   as ch
-import pyProbeParticle.MMFF as mmff
+import ppafm.atomicUtils as au
+import ppafm.chemistry   as ch
+import ppafm.MMFF as mmff
 
 def plotCycles(cpos=None,vpos=None,nvs=None):
     if cpos is not None:

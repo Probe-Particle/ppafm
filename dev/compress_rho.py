@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 #import GridUtils as GU
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import pyProbeParticle                as PPU
-import pyProbeParticle.GridUtils      as GU
-import pyProbeParticle.fieldFFT       as fFFT
+import ppafm                as PPU
+import ppafm.GridUtils      as GU
+import ppafm.fieldFFT       as fFFT
 from optparse import OptionParser
 
 

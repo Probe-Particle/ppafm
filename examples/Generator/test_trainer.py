@@ -2,14 +2,14 @@
 import sys
 sys.path.append('../..')
 
-from pyProbeParticle.ocl import oclUtils as oclu 
-from pyProbeParticle.ocl import field    as FFcl 
-from pyProbeParticle.ocl import relax    as oclr
-from pyProbeParticle import common       as PPU
-from pyProbeParticle import basUtils
-from pyProbeParticle.ocl.AFMulator import AFMulator
-from pyProbeParticle.ml.Generator import InverseAFMtrainer
-from pyProbeParticle.ml.AuxMap import AuxMaps
+from ppafm.ocl import oclUtils as oclu 
+from ppafm.ocl import field    as FFcl 
+from ppafm.ocl import relax    as oclr
+from ppafm import common       as PPU
+from ppafm import basUtils
+from ppafm.ocl.AFMulator import AFMulator
+from ppafm.ml.Generator import InverseAFMtrainer
+from ppafm.ml.AuxMap import AuxMaps
 
 import os
 import time

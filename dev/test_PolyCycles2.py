@@ -11,10 +11,10 @@ import time
 #from optparse import OptionParser
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-#import pyProbeParticle.PolyCycles  as pcff
-import pyProbeParticle.atomicUtils as au
-import pyProbeParticle.chemistry   as ch
-from pyProbeParticle import basUtils
+#import ppafm.PolyCycles  as pcff
+import ppafm.atomicUtils as au
+import ppafm.chemistry   as ch
+from ppafm import basUtils
 
 import matplotlib.pyplot as plt
 

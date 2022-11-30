@@ -8,11 +8,11 @@ import numpy as np
 
 sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
 
-from   pyProbeParticle import basUtils
-from   pyProbeParticle import PPPlot 
-import pyProbeParticle.GridUtils as GU
-import pyProbeParticle.common as PPU
-import pyProbeParticle.cpp_utils as cpp_utils
+from   ppafm import basUtils
+from   ppafm import PPPlot 
+import ppafm.GridUtils as GU
+import ppafm.common as PPU
+import ppafm.cpp_utils as cpp_utils
 
 def loadFEcl( Q = None ):
     E ,lvec, nDim, head = GU.loadXSF('ELJ_cl.xsf' ); FE = np.zeros( E.shape+(4,), dtype=np.float32 ); FE.shape; FE[:,:,:,3] = E

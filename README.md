@@ -43,7 +43,7 @@ All development and testing were done on **linux** OS (mostly ubuntu). For the w
  4. run the example `./run.sh`
  5. output directory `/examples/Graphene/Q-0.05K0.50/Amp2.0` should contain simulated images with tip charge -0.05e, stiffness 0.5N/m and ossicaltion amplitude 2.0A.
 
-*NOTE:* Python package is designed to automatically recompile the C/C++ automatically, which is convenient for development, so explicit compilation in step #2 maybe not be necessary. see e.g. `cpp_utils.make("PP")` in `pyProbeParticle/core.py`
+*NOTE:* Python package is designed to automatically recompile the C/C++ automatically, which is convenient for development, so explicit compilation in step #2 maybe not be necessary. see e.g. `cpp_utils.make("PP")` in `ppafm/core.py`
 
 ##### Example 2: PTCDA with Hartree potential
 
