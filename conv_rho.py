@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/python3 -u
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
