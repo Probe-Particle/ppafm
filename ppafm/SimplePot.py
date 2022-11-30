@@ -243,7 +243,7 @@ if __name__ == "__main__":
 
     # ----- plot or store result
     if b3D:
-        import pyProbeParticle.GridUtils as GU
+        import ppafm.GridUtils as GU
         Es = Es.reshape( (nz,ny,nx) )
         GU.saveXSF( 'SimplePot.xsf', Es )
     else:

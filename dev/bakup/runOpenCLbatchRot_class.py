@@ -17,12 +17,12 @@ from enum import Enum
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 import matplotlib.pyplot as plt
 
-from   pyProbeParticle import basUtils
-import pyProbeParticle.common    as PPU
-import pyProbeParticle.GridUtils as GU
+from   ppafm import basUtils
+import ppafm.common    as PPU
+import ppafm.GridUtils as GU
 
 import pyopencl as cl
-import pyProbeParticle.ocl.HighLevel as hl
+import ppafm.ocl.HighLevel as hl
 
 # ==== Setup
 

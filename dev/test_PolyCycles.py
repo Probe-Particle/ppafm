@@ -6,8 +6,8 @@ import numpy as np
 import time
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import pyProbeParticle.PolyCycles  as pcff
-import pyProbeParticle.atomicUtils as au
+import ppafm.PolyCycles  as pcff
+import ppafm.atomicUtils as au
 
 #import matplotlib.pyplot as plt
 #from mpl_toolkits.mplot3d import Axes3D

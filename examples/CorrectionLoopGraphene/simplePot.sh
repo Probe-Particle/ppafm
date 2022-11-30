@@ -2,4 +2,4 @@
 
 PPPATH="../../"
 export PYTHONPATH=$PYTHONPATH:$PPPATH
-python3 -m pyProbeParticle.SimplePot
+python3 -m ppafm.SimplePot

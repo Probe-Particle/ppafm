@@ -5,13 +5,13 @@ import numpy as np
 #import matplotlib.pyplot as plt
 import sys
 
-import pyProbeParticle                as PPU     
-import pyProbeParticle.basUtils       as BU
-import pyProbeParticle.GridUtils      as GU
-import pyProbeParticle.core           as PPC
-import pyProbeParticle.HighLevel      as PPH
-import pyProbeParticle.fieldFFT       as fFFT
-import pyProbeParticle.cpp_utils      as cpp_utils
+import ppafm                as PPU     
+import ppafm.basUtils       as BU
+import ppafm.GridUtils      as GU
+import ppafm.core           as PPC
+import ppafm.HighLevel      as PPH
+import ppafm.fieldFFT       as fFFT
+import ppafm.cpp_utils      as cpp_utils
 
 #file_format = "cube"
 file_format = "xsf"

@@ -6,7 +6,7 @@ from subprocess import run
 import matplotlib.pyplot as plt
 
 sys.path.append('../..')
-from pyProbeParticle.ocl.AFMulator import AFMulator, hartreeFromFile
+from ppafm.ocl.AFMulator import AFMulator, hartreeFromFile
 
 if not os.path.exists('LOCPOT.xsf'):
     run(['wget', '--no-check-certificate', 'https://www.dropbox.com/s/18eg89l89npll8x/LOCPOT.xsf.zip'])

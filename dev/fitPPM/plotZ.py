@@ -7,8 +7,8 @@ import __main__ as main
 import numpy as np
 import matplotlib.pyplot as plt
 #import GridUtils as GU
-import pyProbeParticle                as PPU     
-import pyProbeParticle.GridUtils      as GU
+import ppafm                as PPU     
+import ppafm.GridUtils      as GU
 from scipy.interpolate import interp1d
 from optparse import OptionParser
 

@@ -7,10 +7,10 @@ from optparse import OptionParser
 from scipy.interpolate import RegularGridInterpolator
 from scipy.optimize import minimize,basinhopping
 
-from pyProbeParticle import basUtils
-import pyProbeParticle.GridUtils as GU
-import pyProbeParticle  as PPU     
-import pyProbeParticle.HighLevel as PPH
+from ppafm import basUtils
+import ppafm.GridUtils as GU
+import ppafm  as PPU     
+import ppafm.HighLevel as PPH
 
 
 iteration=0

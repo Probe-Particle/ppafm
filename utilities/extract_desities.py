@@ -6,9 +6,9 @@ import sys
 import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import pyProbeParticle               as PPU
-import pyProbeParticle.GridUtils     as GU
-import pyProbeParticle.basUtils      as BU
+import ppafm               as PPU
+import ppafm.GridUtils     as GU
+import ppafm.basUtils      as BU
 from   optparse import OptionParser
 
 parser = OptionParser()

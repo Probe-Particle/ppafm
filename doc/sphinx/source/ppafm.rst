@@ -5,225 +5,225 @@ Subpackages
 .. toctree::
    :maxdepth: 2
 
-   pyProbeParticle.defaults
-   pyProbeParticle.ml
-   pyProbeParticle.ocl
+   ppafm.defaults
+   ppafm.ml
+   ppafm.ocl
 
 Submodules
 ----------
 
-pyProbeParticle.CG module
+ppafm.CG module
 -------------------------
 
-.. automodule:: pyProbeParticle.CG
+.. automodule:: ppafm.CG
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.COvsCO module
+ppafm.COvsCO module
 -----------------------------
 
-.. automodule:: pyProbeParticle.COvsCO
+.. automodule:: ppafm.COvsCO
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.FARFF module
+ppafm.FARFF module
 ----------------------------
 
-.. automodule:: pyProbeParticle.FARFF
+.. automodule:: ppafm.FARFF
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.GLView module
+ppafm.GLView module
 -----------------------------
 
-.. automodule:: pyProbeParticle.GLView
+.. automodule:: ppafm.GLView
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.GUIWidgets module
+ppafm.GUIWidgets module
 ---------------------------------
 
-.. automodule:: pyProbeParticle.GUIWidgets
+.. automodule:: ppafm.GUIWidgets
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.GridUtils module
+ppafm.GridUtils module
 --------------------------------
 
-.. automodule:: pyProbeParticle.GridUtils
+.. automodule:: ppafm.GridUtils
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.HighLevel module
+ppafm.HighLevel module
 --------------------------------
 
-.. automodule:: pyProbeParticle.HighLevel
+.. automodule:: ppafm.HighLevel
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.MMFF module
+ppafm.MMFF module
 ---------------------------
 
-.. automodule:: pyProbeParticle.MMFF
+.. automodule:: ppafm.MMFF
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.Multipoles module
+ppafm.Multipoles module
 ---------------------------------
 
-.. automodule:: pyProbeParticle.Multipoles
+.. automodule:: ppafm.Multipoles
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.PPPlot module
+ppafm.PPPlot module
 -----------------------------
 
-.. automodule:: pyProbeParticle.PPPlot
+.. automodule:: ppafm.PPPlot
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.PolyCycles module
+ppafm.PolyCycles module
 ---------------------------------
 
-.. automodule:: pyProbeParticle.PolyCycles
+.. automodule:: ppafm.PolyCycles
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.ReactiveFF module
+ppafm.ReactiveFF module
 ---------------------------------
 
-.. automodule:: pyProbeParticle.ReactiveFF
+.. automodule:: ppafm.ReactiveFF
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.RigidMol module
+ppafm.RigidMol module
 -------------------------------
 
-.. automodule:: pyProbeParticle.RigidMol
+.. automodule:: ppafm.RigidMol
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.SimplePot module
+ppafm.SimplePot module
 --------------------------------
 
-.. automodule:: pyProbeParticle.SimplePot
+.. automodule:: ppafm.SimplePot
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.SurfConf module
+ppafm.SurfConf module
 -------------------------------
 
-.. automodule:: pyProbeParticle.SurfConf
+.. automodule:: ppafm.SurfConf
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.atomfit module
+ppafm.atomfit module
 ------------------------------
 
-.. automodule:: pyProbeParticle.atomfit
+.. automodule:: ppafm.atomfit
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.atomicUtils module
+ppafm.atomicUtils module
 ----------------------------------
 
-.. automodule:: pyProbeParticle.atomicUtils
+.. automodule:: ppafm.atomicUtils
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.basUtils module
+ppafm.basUtils module
 -------------------------------
 
-.. automodule:: pyProbeParticle.basUtils
+.. automodule:: ppafm.basUtils
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.chemistry module
+ppafm.chemistry module
 --------------------------------
 
-.. automodule:: pyProbeParticle.chemistry
+.. automodule:: ppafm.chemistry
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.common module
+ppafm.common module
 -----------------------------
 
-.. automodule:: pyProbeParticle.common
+.. automodule:: ppafm.common
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.core module
+ppafm.core module
 ---------------------------
 
-.. automodule:: pyProbeParticle.core
+.. automodule:: ppafm.core
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.cpp\_utils module
+ppafm.cpp\_utils module
 ---------------------------------
 
-.. automodule:: pyProbeParticle.cpp_utils
+.. automodule:: ppafm.cpp_utils
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.elements module
+ppafm.elements module
 -------------------------------
 
-.. automodule:: pyProbeParticle.elements
+.. automodule:: ppafm.elements
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.fieldFFT module
+ppafm.fieldFFT module
 -------------------------------
 
-.. automodule:: pyProbeParticle.fieldFFT
+.. automodule:: ppafm.fieldFFT
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.file\_dat module
+ppafm.file\_dat module
 --------------------------------
 
-.. automodule:: pyProbeParticle.file_dat
+.. automodule:: ppafm.file_dat
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.fitSpline module
+ppafm.fitSpline module
 --------------------------------
 
-.. automodule:: pyProbeParticle.fitSpline
+.. automodule:: ppafm.fitSpline
    :members:
    :undoc-members:
    :show-inheritance:
 
-pyProbeParticle.fitting module
+ppafm.fitting module
 ------------------------------
 
-.. automodule:: pyProbeParticle.fitting
+.. automodule:: ppafm.fitting
    :members:
    :undoc-members:
    :show-inheritance:
@@ -231,7 +231,7 @@ pyProbeParticle.fitting module
 Module contents
 ---------------
 
-.. automodule:: pyProbeParticle
+.. automodule:: ppafm
    :members:
    :undoc-members:
    :show-inheritance:

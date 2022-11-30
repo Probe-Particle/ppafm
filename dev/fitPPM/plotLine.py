@@ -5,12 +5,12 @@ import __main__ as main
 import numpy as np
 import matplotlib.pyplot as plt
 #import GridUtils as GU
-import pyProbeParticle                as PPU     
-import pyProbeParticle.GridUtils      as GU
+import ppafm                as PPU     
+import ppafm.GridUtils      as GU
 from scipy.interpolate import interp1d
 from optparse import OptionParser
 from scipy.interpolate import RegularGridInterpolator
-import pyProbeParticle.cpp_utils      as cpp_utils
+import ppafm.cpp_utils      as cpp_utils
 
 def selectLine(BIGarray,MIN,MAX,startingPoint, endPoint, nsteps):
     x=np.linspace(MIN[0],MAX[0],BIGarray.shape[2])
@@ -61,7 +61,7 @@ if os.path.isfile( 'atomtypes.ini' ):
     print(">> LOADING LOCAL atomtypes.ini")  
     FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
 else:
-    import pyProbeParticle.cpp_utils as cpp_utils
+    import ppafm.cpp_utils as cpp_utils
     FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 print(" >> OVEWRITING SETTINGS by params.ini  ")
 PPU.loadParams( 'params.ini',FFparams=FFparams )

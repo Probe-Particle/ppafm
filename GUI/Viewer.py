@@ -15,12 +15,12 @@ import numpy as np
 from enum import Enum
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-from   pyProbeParticle import    basUtils
-from   pyProbeParticle import    PPPlot 
-import pyProbeParticle.GridUtils as GU
-#import pyProbeParticle.common    as PPU
-#import pyProbeParticle.cpp_utils as cpp_utils
-import pyProbeParticle.GUIWidgets as guiw
+from   ppafm import    basUtils
+from   ppafm import    PPPlot 
+import ppafm.GridUtils as GU
+#import ppafm.common    as PPU
+#import ppafm.cpp_utils as cpp_utils
+import ppafm.GUIWidgets as guiw
 
 
 class ApplicationWindow(QtWidgets.QMainWindow):

@@ -19,20 +19,20 @@ import numpy as np
 from enum import Enum
 
 #sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
-#import pyProbeParticle.GridUtils as GU
+#import ppafm.GridUtils as GU
 
-from   pyProbeParticle import basUtils
-from   pyProbeParticle import PPPlot 
-import pyProbeParticle.GridUtils as GU
-import pyProbeParticle.common    as PPU
-import pyProbeParticle.cpp_utils as cpp_utils
+from   ppafm import basUtils
+from   ppafm import PPPlot 
+import ppafm.GridUtils as GU
+import ppafm.common    as PPU
+import ppafm.cpp_utils as cpp_utils
 
 import pyopencl as cl
-import pyProbeParticle.oclUtils    as oclu 
-import pyProbeParticle.fieldOCL    as FFcl 
-import pyProbeParticle.RelaxOpenCL as oclr
+import ppafm.oclUtils    as oclu 
+import ppafm.fieldOCL    as FFcl 
+import ppafm.RelaxOpenCL as oclr
 
-import pyProbeParticle.GUIWidgets as guiw
+import ppafm.GUIWidgets as guiw
 
 Modes     = Enum( 'Modes',    'MorseFFel MorseFFel_pbc' )
 DataViews = Enum( 'DataViews','FFin FFout df FFel FFpl' )

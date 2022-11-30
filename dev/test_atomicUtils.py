@@ -3,7 +3,7 @@
 import sys
 
 sys.path.append('..')
-import pyProbeParticle.atomicUtils as au
+import ppafm.atomicUtils as au
 
 def test_ZsToElems():
 

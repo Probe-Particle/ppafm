@@ -5,13 +5,13 @@ import os
 import __main__ as main
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import pyProbeParticle                as PPU     
-from   pyProbeParticle            import basUtils
-from   pyProbeParticle            import elements   
-import pyProbeParticle.GridUtils      as GU
-#import pyProbeParticle.core          as PPC
-import pyProbeParticle.HighLevel      as PPH
-import pyProbeParticle.fieldFFT       as fFFT
+import ppafm                as PPU     
+from   ppafm            import basUtils
+from   ppafm            import elements   
+import ppafm.GridUtils      as GU
+#import ppafm.core          as PPC
+import ppafm.HighLevel      as PPH
+import ppafm.fieldFFT       as fFFT
 
 HELP_MSG="""Use this program in the following way:
 %s -i <filename> 

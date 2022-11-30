@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import pyProbeParticle.GridUtils      as GU
+import ppafm.GridUtils      as GU
 from   optparse import OptionParser
 
 parser = OptionParser()

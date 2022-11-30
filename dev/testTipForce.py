@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import sys
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-#import pyProbeParticle               as PPU 
-import pyProbeParticle.core           as PPC
+#import ppafm               as PPU 
+import ppafm.core           as PPC
 
 S = np.genfromtxt('TipRSpline.ini')
 print("TipRSpline.ini overrides harmonic tip")

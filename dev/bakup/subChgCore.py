@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 #import GridUtils as GU
 sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
-import pyProbeParticle                as PPU
-import pyProbeParticle.GridUtils      as GU
-import pyProbeParticle.fieldFFT       as fFFT
-import pyProbeParticle.basUtils  as BU
+import ppafm                as PPU
+import ppafm.GridUtils      as GU
+import ppafm.fieldFFT       as fFFT
+import ppafm.basUtils  as BU
 from optparse import OptionParser
 
 parser = OptionParser()
@@ -81,7 +81,7 @@ for ia in range(len(atoms[0])):
 
 '''
 
-import pyProbeParticle.fieldFFT  as ffft
+import ppafm.fieldFFT  as ffft
 
 print("sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV)
 ffft.addCoreDensities( atoms_, valElDict, rho1, lvec1, sigma=0.25 )

@@ -10,12 +10,12 @@ import sys
 #import elements
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-from   pyProbeParticle            import basUtils
-import pyProbeParticle                as PPU     
-import pyProbeParticle.GridUtils     as GU
-import pyProbeParticle.Multipoles    as MP
-#import pyProbeParticle.ProbeParticle as PP
-import pyProbeParticle.cpp_utils     as cpp_utils
+from   ppafm            import basUtils
+import ppafm                as PPU     
+import ppafm.GridUtils     as GU
+import ppafm.Multipoles    as MP
+#import ppafm.ProbeParticle as PP
+import ppafm.cpp_utils     as cpp_utils
 
 
 # ---- Load potential 
