@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ppafm"
 dynamic = ["version"]
-description = "Classical forcefiled model for simulation atomic force microscopy images."
+description = "Classical force field model for simulating atomic force microscopy images."
 authors = []
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -18,7 +18,11 @@ classifiers = [
 ]
 requires-python = ">=3.6"
 dependencies = [
+    "ase",
+    "matplotlib",
     "numpy",
+    "pyopencl",
+    "reikna",
 ]
 
 [project.urls]
