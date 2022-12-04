@@ -1,7 +1,9 @@
 #!/usr/bin/python
 
 import numpy as np
+
 from . import elements
+
 
 def findAllBonds( atoms, Rcut=3.0, RvdwCut=0.7 ):
     bonds     = []

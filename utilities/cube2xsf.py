@@ -1,17 +1,18 @@
 #!/usr/bin/python
-import sys
-import numpy as np
 import os
+import sys
+
 import __main__ as main
+import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm                as PPU
-#from   ppafm            import elements
-import ppafm.GridUtils      as GU
-import ppafm.basUtils      as BU
-import ppafm.HighLevel      as PPH
-import ppafm.cpp_utils      as cpp_utils
+import ppafm as PPU
+import ppafm.basUtils as BU
+import ppafm.cpp_utils as cpp_utils
 
+#from   ppafm            import elements
+import ppafm.GridUtils as GU
+import ppafm.HighLevel as PPH
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:

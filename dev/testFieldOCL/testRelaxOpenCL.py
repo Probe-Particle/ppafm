@@ -1,18 +1,19 @@
 #!/usr/bin/python
 
-import sys
 import os
+import sys
 import time
-import pyopencl as cl
+
 import numpy as np
+import pyopencl as cl
 
 sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 
-from   ppafm import basUtils
-from   ppafm import PPPlot
-import ppafm.GridUtils as GU
 import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
+import ppafm.GridUtils as GU
+from ppafm import PPPlot, basUtils
+
 
 def loadFEcl( Q = None ):
     E ,lvec, nDim, head = GU.loadXSF('ELJ_cl.xsf' ); FE = np.zeros( E.shape+(4,), dtype=np.float32 ); FE.shape; FE[:,:,:,3] = E

@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 print(" # ========== make & load C++ library ")
 
@@ -20,6 +21,7 @@ os.chdir(LWD);       print(" >> WORKDIR: ", os.getcwd())
 makeclean( )
 sys.path.insert(0, ".")
 import GridUtils as gu
+
 os.chdir(CWD);  print(" >> WORKDIR: ", os.getcwd())
 
 print(" ============= RUN  ")

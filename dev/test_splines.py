@@ -1,15 +1,14 @@
 #!/usr/bin/python -u
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 #import ppafm                as PPU
-import ppafm.core           as PPC
-
-
+import ppafm.core as PPC
 
 # =========== uniform spline
 

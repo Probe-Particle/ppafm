@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 LWD = '/home/prokop/git/ProbeParticleModel/code'
 
@@ -21,6 +22,7 @@ makeclean( )
 sys.path.insert(0, "./")
 import GridUtils as GU
 import ProbeParticle as PP
+
 os.chdir(CWD);  print(" >> WORKDIR: ", os.getcwd())
 
 print(" ============= RUN  ")

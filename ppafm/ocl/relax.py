@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
-import sys
 import os
-import pyopencl as cl
+import sys
+
 import numpy as np
+import pyopencl as cl
 
 from .. import common as PPU
 

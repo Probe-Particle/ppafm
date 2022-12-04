@@ -5,24 +5,26 @@
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
 
-import sys
 import os
-import shutil
-import time
 import random
-import matplotlib;
-import numpy as np
+import shutil
+import sys
+import time
 from enum import Enum
 
-import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
+import matplotlib
 import matplotlib.pyplot as plt
-
-from   ppafm import basUtils
-import ppafm.common    as PPU
-import ppafm.GridUtils as GU
-
+import numpy as np
 import pyopencl as cl
+
+import ppafm.common as PPU
+import ppafm.GridUtils as GU
 import ppafm.ocl.HighLevel as hl
+from ppafm import basUtils
+
+import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
+
+
 
 # ==== Setup
 

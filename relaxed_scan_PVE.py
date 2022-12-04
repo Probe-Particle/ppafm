@@ -1,15 +1,17 @@
 #!/usr/bin/python -u
 
 import os
-import numpy as np
+
 #import matplotlib.pyplot as plt
 import sys
 
-import ppafm                as PPU
-import ppafm.GridUtils      as GU
-import ppafm.core           as PPC
-import ppafm.HighLevel      as PPH
-import ppafm.cpp_utils      as cpp_utils
+import numpy as np
+
+import ppafm as PPU
+import ppafm.core as PPC
+import ppafm.cpp_utils as cpp_utils
+import ppafm.GridUtils as GU
+import ppafm.HighLevel as PPH
 
 #import PPPlot 		# we do not want to make it dempendent on matplotlib
 print("Amplitude ", PPU.params['Amplitude'])

@@ -2,20 +2,20 @@
 
 import os
 import time
-import numpy as np
 
+import numpy as np
 import pyopencl as cl
 from pyopencl import array
 
-from ..GridUtils import loadCUBE, loadXSF
 from ..basUtils import loadAtomsCUBE, loadXSFGeom
-from ..fieldFFT import getProbeDensity
 from ..common import genFFSampling
+from ..fieldFFT import getProbeDensity
+from ..GridUtils import loadCUBE, loadXSF
 
 try:
-    from reikna.cluda import ocl_api, dtypes
+    from reikna.cluda import dtypes, ocl_api
+    from reikna.core import Annotation, Parameter, Transformation, Type
     from reikna.fft import FFT
-    from reikna.core import Annotation, Type, Transformation, Parameter
     fft_available = True
 except ModuleNotFoundError:
     fft_available = False

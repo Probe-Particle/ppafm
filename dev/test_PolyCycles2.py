@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
-import sys
 import os
-import numpy as np
+import sys
 import time
+
+import numpy as np
 
 #import matplotlib.pyplot as plt
 #from mpl_toolkits.mplot3d import Axes3D
@@ -11,18 +12,19 @@ import time
 #from optparse import OptionParser
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-#import ppafm.PolyCycles  as pcff
-import ppafm.atomicUtils as au
-import ppafm.chemistry   as ch
-from ppafm import basUtils
-
 import matplotlib.pyplot as plt
-
-#from scipy.interpolate import CubicSpline
 
 #import scipy.interpolate as interp #.CubicSpline as CS
 #from scipy.interpolate import interp1d #.CubicSpline as CS
 from scipy.interpolate import Akima1DInterpolator
+
+#import ppafm.PolyCycles  as pcff
+import ppafm.atomicUtils as au
+import ppafm.chemistry as ch
+from ppafm import basUtils
+
+#from scipy.interpolate import CubicSpline
+
 
 xs = np.linspace(-1,4,200)
 Xs = np.array([-1 , 0, 1,2, 3, 4])

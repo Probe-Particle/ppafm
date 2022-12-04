@@ -5,31 +5,33 @@
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
 
-import sys
 import os
-import time
 import random
-import matplotlib; matplotlib.use('Qt5Agg')
-from PyQt5 import QtCore, QtWidgets, QtGui
-from numpy import arange, sin, pi
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
+import sys
+import time
+
 #import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+from numpy import arange, pi, sin
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+import matplotlib; matplotlib.use('Qt5Agg')
 
 sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 #import ppafm.GridUtils as GU
 
-from   ppafm import basUtils
-from   ppafm import PPPlot
-import ppafm.GridUtils as GU
-import ppafm.common    as PPU
-import ppafm.cpp_utils as cpp_utils
-
 import pyopencl as cl
-import ppafm.oclUtils    as oclu
-import ppafm.fieldOCL    as FFcl
+
+import ppafm.common as PPU
+import ppafm.cpp_utils as cpp_utils
+import ppafm.fieldOCL as FFcl
+import ppafm.GridUtils as GU
+import ppafm.oclUtils as oclu
 import ppafm.RelaxOpenCL as oclr
+from ppafm import PPPlot, basUtils
+
 
 class MyDynamicMplCanvas(FigureCanvas):
     """A canvas that updates itself every second with a new plot."""

@@ -1,9 +1,11 @@
 #!/usr/bin/python
 
-import numpy as np
-from   ctypes import c_int, c_double, c_char_p
 import ctypes
 import os
+from ctypes import c_char_p, c_double, c_int
+
+import numpy as np
+
 from . import common as PPU
 from . import cpp_utils
 

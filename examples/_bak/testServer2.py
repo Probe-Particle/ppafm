@@ -1,18 +1,20 @@
 #!/usr/bin/python
 
 import matplotlib
+
 matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
 
 import os
 import sys
-import numpy as np
-import matplotlib.pyplot as plt
+
+import basUtils
 import elements
+import matplotlib.pyplot as plt
+import numpy as np
 
 #print dir( elements )
 
 
-import basUtils
 
 print(" # ========== make & load  ProbeParticle C++ library ")
 
@@ -24,7 +26,7 @@ def makeclean( ):
 
 #makeclean( )  # force to recompile
 
-import  ProbeParticle as PP
+import ProbeParticle as PP
 
 print(" # ==========  server interface file I/O ")
 

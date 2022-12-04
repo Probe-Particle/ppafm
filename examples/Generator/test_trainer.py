@@ -1,20 +1,23 @@
 
 import sys
-sys.path.append('../..')
 
-from ppafm.ocl import oclUtils as oclu
-from ppafm.ocl import field    as FFcl
-from ppafm.ocl import relax    as oclr
-from ppafm import common       as PPU
-from ppafm import basUtils
-from ppafm.ocl.AFMulator import AFMulator
-from ppafm.ml.Generator import InverseAFMtrainer
-from ppafm.ml.AuxMap import AuxMaps
+sys.path.append('../..')
 
 import os
 import time
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+from ppafm import basUtils
+from ppafm import common as PPU
+from ppafm.ml.AuxMap import AuxMaps
+from ppafm.ml.Generator import InverseAFMtrainer
+from ppafm.ocl import field as FFcl
+from ppafm.ocl import oclUtils as oclu
+from ppafm.ocl import relax as oclr
+from ppafm.ocl.AFMulator import AFMulator
+
 
 class ExampleTrainer(InverseAFMtrainer):
 

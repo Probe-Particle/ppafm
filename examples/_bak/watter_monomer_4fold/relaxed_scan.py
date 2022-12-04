@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 print(" # ========== make & load  ProbeParticle C++ library ")
 

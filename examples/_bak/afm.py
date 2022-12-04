@@ -1,14 +1,16 @@
 #!/usr/bin/python
-import sys
 import os
-import ProbeParticle as PP
-import elements
-import basUtils
-import numpy as np
-import GridUtils as GU
-import PPPlot as PL
-import matplotlib.pyplot as plt
 import sys
+
+import basUtils
+import elements
+import GridUtils as GU
+import matplotlib.pyplot as plt
+import numpy as np
+import PPPlot as PL
+import ProbeParticle as PP
+
+
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
 

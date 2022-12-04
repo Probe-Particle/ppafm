@@ -1,11 +1,11 @@
 
 import numpy as np
 
-from .. import basUtils
-from .. import elements
+from .. import basUtils, elements
+from ..ocl import field as FFcl
 from ..ocl import oclUtils as oclu
-from ..ocl import field    as FFcl
-from ..ocl import relax    as oclr
+from ..ocl import relax as oclr
+
 
 class AuxMapBase:
     '''Base class for AuxMap subclasses.

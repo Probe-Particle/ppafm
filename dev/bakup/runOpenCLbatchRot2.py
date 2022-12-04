@@ -5,32 +5,35 @@
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
 
-import sys
 import os
-import shutil
-import time
 import random
-import matplotlib;
-import numpy as np
+import shutil
+import sys
+import time
 from enum import Enum
 
-import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
+import matplotlib
 import matplotlib.pyplot as plt
-
-#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
-#import ppafm.GridUtils as GU
+import numpy as np
+import pyopencl as cl
 
 #from   ppafm import basUtils
 #from   ppafm import PPPlot
 import ppafm.GridUtils as GU
-#import ppafm.common    as PPU
-#import ppafm.cpp_utils as cpp_utils
 
-import pyopencl as cl
 #import ppafm.oclUtils     as oclu
 #import ppafm.fieldOCL     as FFcl
 #import ppafm.RelaxOpenCL  as oclr
 import ppafm.ocl.HighLevel as hl
+
+import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
+
+#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
+#import ppafm.GridUtils as GU
+
+#import ppafm.common    as PPU
+#import ppafm.cpp_utils as cpp_utils
+
 
 hl.FFcl.init()
 hl.oclr.init()

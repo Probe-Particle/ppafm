@@ -1,11 +1,13 @@
 
 
-import sys
 import glob
 import os
-import pandas as pd
-import numpy as np
+import sys
 import zlib
+
+import numpy as np
+import pandas as pd
+
 
 def readDat( fname, Header=None ):
     ndir, nfile  = os.path.split( fname )

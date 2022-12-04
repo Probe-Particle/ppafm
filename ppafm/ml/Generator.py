@@ -1,10 +1,12 @@
 
-import time
 import random
+import time
+
 import numpy as np
 
 from .. import basUtils
 from .. import common as PPU
+
 
 class InverseAFMtrainer:
     '''

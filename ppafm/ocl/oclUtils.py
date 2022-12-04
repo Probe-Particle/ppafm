@@ -1,11 +1,12 @@
 
 import os
 
+import numpy as np
 import pyopencl as cl
-import numpy    as np
 
 from . import field as FFcl
 from . import relax as oclr
+
 
 class OCLEnvironment:
 

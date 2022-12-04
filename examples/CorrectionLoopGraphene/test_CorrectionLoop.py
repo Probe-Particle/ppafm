@@ -1,25 +1,28 @@
 
 import sys
-sys.path.append('../../')
 
-from ppafm.ocl import oclUtils as oclu
-from ppafm.ocl import field    as FFcl
-from ppafm.ocl import relax    as oclr
-from ppafm import common       as PPU
-from ppafm import basUtils
-from ppafm.ocl.AFMulator  import AFMulator
-from ppafm.ml.Generator import InverseAFMtrainer
-from ppafm.ml.AuxMap import AuxMaps
-import ppafm.ml.AuxMap as AuxMap
-import ppafm.atomicUtils as au
-from ppafm.ml.Corrector import Corrector,Molecule
-from ppafm.ml.CorrectionLoop import CorrectionLoop
-import ppafm.SimplePot as pot
+sys.path.append('../../')
 
 import os
 import time
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+import ppafm.atomicUtils as au
+import ppafm.ml.AuxMap as AuxMap
+import ppafm.SimplePot as pot
+from ppafm import basUtils
+from ppafm import common as PPU
+from ppafm.ml.AuxMap import AuxMaps
+from ppafm.ml.CorrectionLoop import CorrectionLoop
+from ppafm.ml.Corrector import Corrector, Molecule
+from ppafm.ml.Generator import InverseAFMtrainer
+from ppafm.ocl import field as FFcl
+from ppafm.ocl import oclUtils as oclu
+from ppafm.ocl import relax as oclr
+from ppafm.ocl.AFMulator import AFMulator
+
 
 def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fname_ref="ref.xyz", nstep=10, plt=None ):
     '''
@@ -81,8 +84,8 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
 # =============== Setup
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
     import matplotlib.cm as cm
+    import matplotlib.pyplot as plt
 
     #from optparse import OptionParser
     #parser = OptionParser()

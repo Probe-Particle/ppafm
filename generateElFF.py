@@ -1,17 +1,18 @@
 #!/usr/bin/python
-import sys
-import numpy as np
 import os
+import sys
+
 import __main__ as main
+import numpy as np
 
+import ppafm as PPU
+import ppafm.basUtils as BU
+import ppafm.cpp_utils as cpp_utils
+import ppafm.fieldFFT as fFFT
 
-import ppafm                as PPU
 #from   ppafm            import elements
-import ppafm.GridUtils      as GU
-import ppafm.fieldFFT       as fFFT
-import ppafm.HighLevel      as PPH
-import ppafm.cpp_utils      as cpp_utils
-import ppafm.basUtils       as BU
+import ppafm.GridUtils as GU
+import ppafm.HighLevel as PPH
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:

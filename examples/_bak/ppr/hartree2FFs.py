@@ -1,13 +1,13 @@
 #!/usr/bin/python
 import sys
-import numpy as np
-import basUtils
-import elements
-import GridUtils     as GU
-import ProbeParticle as PP
-from libFFTfin import *
 from optparse import OptionParser
 
+import basUtils
+import elements
+import GridUtils as GU
+import numpy as np
+import ProbeParticle as PP
+from libFFTfin import *
 
 parser = OptionParser()
 parser.add_option( "-i", "--input", action="store", type="string", help="format of input file", default='vasp.locpot.xsf')

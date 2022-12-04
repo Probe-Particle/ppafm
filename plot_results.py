@@ -1,10 +1,12 @@
 #!/usr/bin/python -u
 
 import os
-import numpy as np
-import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
-import matplotlib.pyplot as plt
 import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
 
 '''
@@ -15,22 +17,22 @@ import ProbeParticleUtils as PPU
 import PPPlot
 '''
 
-import ppafm                as PPU
-import ppafm.GridUtils      as GU
-import ppafm.PPPlot         as PPPlot
-from   ppafm            import basUtils
-from   ppafm            import elements
-#import ppafm.core           as PPC
-import ppafm.HighLevel      as PPH
-import ppafm.cpp_utils      as cpp_utils
+from optparse import OptionParser
 
+import ppafm as PPU
+import ppafm.cpp_utils as cpp_utils
+import ppafm.GridUtils as GU
+
+#import ppafm.core           as PPC
+import ppafm.HighLevel as PPH
+import ppafm.PPPlot as PPPlot
+from ppafm import basUtils, elements
 
 #import scipy                        # don't introduce unnecessary dependence on scipy
 #from scipy.ndimage import laplace   # don't introduce unnecessary dependence on scipy
 
 # =============== arguments definition
 
-from optparse import OptionParser
 parser = OptionParser()
 parser.add_option( "-k", "--klat", action="store", type="float", help="tip stiffness [N/m]" )
 parser.add_option( "--krange", action="store", type="float", help="tip stiffenss range (min,max,n) [N/m]", nargs=3)

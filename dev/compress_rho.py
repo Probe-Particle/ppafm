@@ -3,17 +3,19 @@
 
 import os
 import sys
+
 import __main__ as main
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
 #import GridUtils as GU
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm                as PPU
-import ppafm.GridUtils      as GU
-import ppafm.fieldFFT       as fFFT
 from optparse import OptionParser
 
+import ppafm as PPU
+import ppafm.fieldFFT as fFFT
+import ppafm.GridUtils as GU
 
 
 def maskFunc( x, x0, x1 ):

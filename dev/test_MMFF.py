@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
-import sys
 import os
-import numpy as np
+import sys
 import time
+
+import numpy as np
 
 #import matplotlib.pyplot as plt
 #from mpl_toolkits.mplot3d import Axes3D
@@ -11,15 +12,17 @@ import time
 #from optparse import OptionParser
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
+import matplotlib.pyplot as plt
+
 #import ppafm.PolyCycles  as pcff
 import ppafm.atomicUtils as au
+import ppafm.MMFF as mmff
+
 #import ppafm.chemistry   as ch
 from ppafm import basUtils
 
-import ppafm.MMFF   as mmff
 #include "DynamicOpt.h"
 
-import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":

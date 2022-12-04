@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
-import sys
 import os
+import sys
+
 import numpy as np
 
 sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")

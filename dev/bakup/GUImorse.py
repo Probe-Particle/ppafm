@@ -5,34 +5,36 @@
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
 
-import sys
 import os
-import time
 import random
-import matplotlib; matplotlib.use('Qt5Agg')
-from PyQt5 import QtCore, QtWidgets, QtGui
+import sys
+import time
+from enum import Enum
+
 #from numpy import arange, sin, pi
 #from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 #from matplotlib.figure import Figure
 #import matplotlib.pyplot as plt
 import numpy as np
-from enum import Enum
+import pyopencl as cl
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+import ppafm.common as PPU
+import ppafm.cpp_utils as cpp_utils
+import ppafm.fieldOCL as FFcl
+import ppafm.GridUtils as GU
+import ppafm.GUIWidgets as guiw
+import ppafm.oclUtils as oclu
+import ppafm.RelaxOpenCL as oclr
+from ppafm import PPPlot, basUtils
+
+import matplotlib; matplotlib.use('Qt5Agg')
 
 #sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 #import ppafm.GridUtils as GU
 
-from   ppafm import basUtils
-from   ppafm import PPPlot
-import ppafm.GridUtils as GU
-import ppafm.common    as PPU
-import ppafm.cpp_utils as cpp_utils
 
-import pyopencl as cl
-import ppafm.oclUtils    as oclu
-import ppafm.fieldOCL    as FFcl
-import ppafm.RelaxOpenCL as oclr
 
-import ppafm.GUIWidgets as guiw
 
 Modes     = Enum( 'Modes',    'MorseFFel MorseFFel_pbc' )
 DataViews = Enum( 'DataViews','FFin FFout df FFel FFpl' )

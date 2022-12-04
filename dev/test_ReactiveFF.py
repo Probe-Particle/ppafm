@@ -1,13 +1,14 @@
 #!/usr/bin/python
 
-import sys
 import os
-import numpy as np
+import sys
 import time
 
+import numpy as np
+
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm.ReactiveFF  as rff
 import ppafm.atomicUtils as au
+import ppafm.ReactiveFF as rff
 from ppafm import basUtils
 
 #import matplotlib.pyplot as plt

@@ -2,13 +2,14 @@
 
 import os
 import sys
-import numpy     as np
+
+import numpy as np
+
 from . import GridUtils as GU
-from . import fieldFFT  as fFFT
-from . import common    as PPU
-from . import basUtils  as BU
-from . import core
-from . import cpp_utils
+from . import basUtils as BU
+from . import common as PPU
+from . import core, cpp_utils
+from . import fieldFFT as fFFT
 
 verbose = 1
 

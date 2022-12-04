@@ -1,17 +1,19 @@
 #!/usr/bin/python -u
 
 import os
-import numpy as np
+
 #import matplotlib.pyplot as plt
 import sys
 
-import ppafm                as PPU
-import ppafm.basUtils       as BU
-import ppafm.GridUtils      as GU
-import ppafm.core           as PPC
-import ppafm.HighLevel      as PPH
-import ppafm.fieldFFT       as fFFT
-import ppafm.cpp_utils      as cpp_utils
+import numpy as np
+
+import ppafm as PPU
+import ppafm.basUtils as BU
+import ppafm.core as PPC
+import ppafm.cpp_utils as cpp_utils
+import ppafm.fieldFFT as fFFT
+import ppafm.GridUtils as GU
+import ppafm.HighLevel as PPH
 
 #file_format = "cube"
 file_format = "xsf"

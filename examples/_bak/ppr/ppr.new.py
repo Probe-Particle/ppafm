@@ -1,18 +1,16 @@
 #!/usr/bin/python
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
+from optparse import OptionParser
+
 import basUtils
 import elements
 import GridUtils as GU
-import ProbeParticle as PP
+import matplotlib.pyplot as plt
+import numpy as np
 import PPPlot
-
-from optparse import OptionParser
-
-
+import ProbeParticle as PP
 
 parser = OptionParser()
 parser.add_option( "-k",       action="store", type="float", help="k parameter", default=0.5)

@@ -1,17 +1,17 @@
 #!/usr/bin/python
-import sys
-import numpy as np
 import os
-import __main__ as main
+import sys
 from optparse import OptionParser
+
+import __main__ as main
+import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-from scipy.optimize import minimize,basinhopping
+from scipy.optimize import basinhopping, minimize
 
-from ppafm import basUtils
+import ppafm as PPU
 import ppafm.GridUtils as GU
-import ppafm  as PPU
 import ppafm.HighLevel as PPH
-
+from ppafm import basUtils
 
 iteration=0
 
@@ -78,6 +78,7 @@ loaded_forces=np.loadtxt("frc_tip.txt",
 points=loaded_forces[:,:3]
 iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'], FFparams=FFparams )
 from collections import OrderedDict
+
 fit_dict=OrderedDict()
 def update_atoms(atms=None):
 #    print "UPDATING ATOMS"

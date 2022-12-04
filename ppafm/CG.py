@@ -1,6 +1,7 @@
 
 import numpy as np
 
+
 def CGx( A, x, p, E ):
     Ap  = np.dot( A, p )
     #print "Ap.shape, p.shape ", Ap.shape, p.shape

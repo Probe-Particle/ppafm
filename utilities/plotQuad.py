@@ -4,12 +4,13 @@
 import os
 import sys
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm.GridUtils      as GU
-from   optparse import OptionParser
+from optparse import OptionParser
+
+import ppafm.GridUtils as GU
 
 parser = OptionParser()
 parser.add_option( "-p",   action="store", type="string", help="pixels (ix,iy) to take curve", default='quad_points.ini' )

@@ -1,7 +1,8 @@
-import numpy as np
-from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
+from ctypes import c_bool, c_char_p, c_double, c_float, c_int, c_void_p
+
+import numpy as np
 
 LIB_PATH      = os.path.dirname( os.path.realpath(__file__) )
 LIB_PATH_CPP  = os.path.normpath(LIB_PATH+'../../../'+'/cpp/Build/libs/Molecular')

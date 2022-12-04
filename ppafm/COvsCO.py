@@ -2,11 +2,12 @@
 
 '''
 
-import numpy as np
-from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
 import sys
+from ctypes import c_bool, c_char_p, c_double, c_float, c_int, c_void_p
+
+import numpy as np
 
 if __name__ == '__main__':
     if __package__ is None:

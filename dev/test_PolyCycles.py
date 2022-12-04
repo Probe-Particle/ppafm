@@ -1,13 +1,14 @@
 #!/usr/bin/python
 
-import sys
 import os
-import numpy as np
+import sys
 import time
 
+import numpy as np
+
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm.PolyCycles  as pcff
 import ppafm.atomicUtils as au
+import ppafm.PolyCycles as pcff
 
 #import matplotlib.pyplot as plt
 #from mpl_toolkits.mplot3d import Axes3D
@@ -35,6 +36,7 @@ iframe=0
 
 def make_anim(getData,fig,nframes,interval=200):
     from matplotlib.animation import FuncAnimation
+
     #scat = None
 
     def init():
@@ -84,6 +86,7 @@ if __name__ == "__main__":
     print("vpos: ", vpos)
 
     import matplotlib.pyplot as plt
+
     #plt.figure(); plotCycles(cpos=cpos)
 
     pcff.setupOpt(dt=0.2, damping=0.05, f_limit=1.0,v_limit=1.0 )

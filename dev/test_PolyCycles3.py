@@ -1,16 +1,17 @@
 #!/usr/bin/python
 
-import sys
 import os
-import numpy as np
+import sys
 import time
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import ppafm.atomicUtils as au
-import ppafm.chemistry   as ch
+import ppafm.chemistry as ch
 import ppafm.MMFF as mmff
+
 
 def plotCycles(cpos=None,vpos=None,nvs=None):
     if cpos is not None:

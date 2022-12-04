@@ -1,19 +1,19 @@
 #!/usr/bin/python
 
 import sys
-import pyopencl as cl
-import numpy    as np
 import time
+
+import numpy as np
+import pyopencl as cl
 
 sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 
-from   ppafm import basUtils
-from   ppafm import PPPlot
-import ppafm.GridUtils as GU
 import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
-
+import ppafm.GridUtils as GU
 import ppafm.ocl.field as FFcl
+from ppafm import PPPlot, basUtils
+
 
 def loadInput( ):
     FFparams          = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )

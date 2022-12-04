@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
-from . import elements
 import math
+
 import numpy as np
+
+from . import elements
 
 # ===========================
 #      Molecular Topology

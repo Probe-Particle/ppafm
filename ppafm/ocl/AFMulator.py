@@ -1,17 +1,17 @@
 #!/usr/bin/python3
 
 import os
+
 import numpy as np
 import pyopencl as cl
 
-from .. import common   as PPU
-from . import field     as FFcl
-from . import relax     as oclr
-from . import oclUtils  as oclu
-
-from .field import HartreePotential, MultipoleTipDensity, hartreeFromFile
+from .. import common as PPU
 from ..basUtils import loadXYZ
 from ..PPPlot import plotImages
+from . import field as FFcl
+from . import oclUtils as oclu
+from . import relax as oclr
+from .field import HartreePotential, MultipoleTipDensity, hartreeFromFile
 
 VALID_SIZES = np.array([16, 32, 64, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048])
 

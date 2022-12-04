@@ -4,9 +4,10 @@
 #matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 LWD = '/home/prokop/git/ProbeParticleModel/code'
 

@@ -4,14 +4,15 @@ Simple interatomic potential (not forcefield - we have no derivatives)
 used to predict probability map where to put new atom, considering atoms which are already there
 '''
 
-import numpy as np
-from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
 import sys
+from ctypes import c_bool, c_char_p, c_double, c_float, c_int, c_void_p
 
-from . import basUtils
+import numpy as np
+
 from . import atomicUtils as au
+from . import basUtils
 
 # Covalent radii of few atoms in Å
 # Covalent radii revisited. Dalton Transactions, (21), 2832. doi:10.1039/b801115j

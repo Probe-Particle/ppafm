@@ -14,31 +14,28 @@ see:  https://mega.nz/#!KLoilKIB!NxxCRQ814xtCXfjy7mPFfmJTOL9TaTHbmPKSxn_0sFs
 
 '''
 
-import sys
 import os
-import shutil
-import time
 import random
-import matplotlib
-import numpy as np
+import shutil
+import sys
+import time
 from enum import Enum
 
-import pyopencl     as cl
+import matplotlib
+import numpy as np
+import pyopencl as cl
 
+from .. import SimplePot as sp
 from .. import atomicUtils as au
 from .. import basUtils
-from .. import common    as PPU
+from .. import common as PPU
 from .. import elements
-from ..ocl import oclUtils as oclu
-from ..ocl import field    as FFcl
-from ..ocl import relax    as oclr
-from .. import SimplePot   as sp
-
 from ..ocl import AFMulator
-from . import AuxMap
-from . import Generator
-from .Corrector import Corrector,Molecule
-from .Corrector import Mutator
+from ..ocl import field as FFcl
+from ..ocl import oclUtils as oclu
+from ..ocl import relax as oclr
+from . import AuxMap, Generator
+from .Corrector import Corrector, Molecule, Mutator
 
 verbose  = 0
 bRunTime = False
@@ -426,10 +423,10 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
 # ========================================================================
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    import matplotlib.cm as cm
-
     from optparse import OptionParser
+
+    import matplotlib.cm as cm
+    import matplotlib.pyplot as plt
     parser = OptionParser()
     parser.add_option( "-j", "--job", action="store", type="string", help="[train/loop]")
     (options, args) = parser.parse_args()

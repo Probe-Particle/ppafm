@@ -5,22 +5,24 @@
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
 
-import sys
 import os
-import time
 import random
-import matplotlib; matplotlib.use('Qt5Agg')
-from PyQt5 import QtCore, QtWidgets, QtGui
-import numpy as np
+import sys
+import time
 from enum import Enum
 
+import numpy as np
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+import matplotlib; matplotlib.use('Qt5Agg')
+
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-from   ppafm import    basUtils
-from   ppafm import    PPPlot
 import ppafm.GridUtils as GU
+
 #import ppafm.common    as PPU
 #import ppafm.cpp_utils as cpp_utils
 import ppafm.GUIWidgets as guiw
+from ppafm import PPPlot, basUtils
 
 
 class ApplicationWindow(QtWidgets.QMainWindow):

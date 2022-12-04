@@ -1,10 +1,11 @@
 import os
-import time
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-
 import sys
+import time
+
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+import numpy as np
+
 sys.path.append('../../')
 
 #from ppafm import oclUtils     as oclu
@@ -19,14 +20,13 @@ sys.path.append('../../')
 import ppafm.atomicUtils as au
 import ppafm.FARFF as fff
 
-
 # =============== Setup
 
 if __name__ == "__main__":
 
-    from ppafm import basUtils
     import ppafm.atomicUtils as au
     import ppafm.GLView as glv
+    from ppafm import basUtils
 
     xyzs, Zs, qs, _ = basUtils.loadXYZ("input.xyz")
 

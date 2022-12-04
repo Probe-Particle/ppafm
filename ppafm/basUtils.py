@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
+import math
 import os
 import re
-import math
+
 import numpy as np
 
 from . import elements

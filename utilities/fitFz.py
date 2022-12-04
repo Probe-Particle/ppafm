@@ -8,18 +8,17 @@
 # https://stackoverflow.com/questions/22508593/numpy-polyfit-or-any-fitting-to-x-and-y-multidimensional-arrays
 
 
-import sys
 import os
-import time
 import random
-import matplotlib;
-import numpy as np
+import sys
+import time
+
+import matplotlib
 
 #import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver";
 import matplotlib.pyplot as plt
-
+import numpy as np
 from matplotlib.pyplot import cm
-
 
 # ========== setup
 

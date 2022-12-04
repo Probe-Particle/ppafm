@@ -1,17 +1,18 @@
 #!/usr/bin/python
-import sys
-import numpy as np
 import os
+import sys
+
 import __main__ as main
+import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm                as PPU
-from   ppafm            import basUtils
-from   ppafm            import elements
-import ppafm.GridUtils      as GU
+import ppafm as PPU
+import ppafm.fieldFFT as fFFT
+import ppafm.GridUtils as GU
+
 #import ppafm.core          as PPC
-import ppafm.HighLevel      as PPH
-import ppafm.fieldFFT       as fFFT
+import ppafm.HighLevel as PPH
+from ppafm import basUtils, elements
 
 HELP_MSG="""Use this program in the following way:
 %s -i <filename>

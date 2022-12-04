@@ -1,21 +1,20 @@
 
-import sys
 import os
-import shutil
-import time
 import random
-import matplotlib
-import numpy as np
+import shutil
+import sys
+import time
 from enum import Enum
 
-import pyopencl     as cl
-
-from .. import atomicUtils as au
-from .. import basUtils
-from .. import common    as PPU
-from .. import elements
+import matplotlib
+import numpy as np
+import pyopencl as cl
 
 from .. import SimplePot as pot
+from .. import atomicUtils as au
+from .. import basUtils
+from .. import common as PPU
+from .. import elements
 
 # ======================================================
 # ================== Class  Molecule

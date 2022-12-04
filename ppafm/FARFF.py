@@ -20,11 +20,12 @@ cpp/FARFF.cpp
 '''
 
 
-import numpy as np
-from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
 import sys
+from ctypes import c_bool, c_char_p, c_double, c_float, c_int, c_void_p
+
+import numpy as np
 
 if __package__ is None:
     print( " #### DEBUG #### import cpp_utils " )
@@ -258,13 +259,14 @@ class EngineFARFF():
 if __name__ == "__main__":
 
     import time
+
     from . import basUtils
     if __package__ is None:
         import atomicUtils as au
         import GLView as glv
     else:
-        from . import atomicUtils as au
         from . import GLView as glv
+        from . import atomicUtils as au
 
     fff = sys.modules[__name__]
     xyzs, Zs, qs, _ = basUtils.loadXYZ("input.xyz")

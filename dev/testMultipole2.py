@@ -3,11 +3,12 @@
 # TODO === remains not converted
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
+
 import basUtils
 import elements
+import matplotlib.pyplot as plt
+import numpy as np
 
 # ============== recompile & load C++ libraries
 
@@ -22,8 +23,8 @@ def makeclean( ):
 makeclean( )
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm.GridUtils     as GU
-import ppafm.Multipoles    as MP
+import ppafm.GridUtils as GU
+import ppafm.Multipoles as MP
 import ppafm.ProbeParticle as PP
 
 # ============== Setup

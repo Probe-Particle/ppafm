@@ -4,26 +4,27 @@
 # https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
-import sys
 import os
-import time
 import random
+import sys
+import time
 import traceback
-import matplotlib; matplotlib.use('Qt5Agg')
-from PyQt5 import QtCore, QtWidgets, QtGui
-import numpy as np
 from enum import Enum
 
+import numpy as np
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+import matplotlib; matplotlib.use('Qt5Agg')
+
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-from ppafm import basUtils
-from ppafm import PPPlot
-from ppafm.ocl.AFMulator import AFMulator
-from ppafm.ocl.field     import HartreePotential, hartreeFromFile
-import ppafm.GridUtils    as GU
-import ppafm.common       as PPU
+import ppafm.common as PPU
+import ppafm.GridUtils as GU
+import ppafm.GUIWidgets as guiw
+import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
-import ppafm.ocl.field    as FFcl
-import ppafm.GUIWidgets   as guiw
+from ppafm import PPPlot, basUtils
+from ppafm.ocl.AFMulator import AFMulator
+from ppafm.ocl.field import HartreePotential, hartreeFromFile
 
 Multipoles = Enum('Multipoles', 's pz dz2')
 

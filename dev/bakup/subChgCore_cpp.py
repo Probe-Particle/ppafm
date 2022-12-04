@@ -3,16 +3,19 @@
 
 import os
 import sys
+
 import __main__ as main
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
 sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
-import ppafm            as PPU
-import ppafm.core       as core
-import ppafm.GridUtils  as GU
-import ppafm.basUtils   as BU
 from optparse import OptionParser
+
+import ppafm as PPU
+import ppafm.basUtils as BU
+import ppafm.core as core
+import ppafm.GridUtils as GU
 
 parser = OptionParser()
 parser.add_option( "-s", "--sample", action="store", type="string", default="CHGCAR.xsf", help="sample 3D data-file (.xsf)")

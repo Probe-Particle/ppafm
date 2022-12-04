@@ -8,16 +8,19 @@ The goal is achieve efficient calculation of AFM images with density-overlap for
 
 import os
 import sys
+from optparse import OptionParser
+
 import __main__ as main
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import ppafm as PPU
+import ppafm.fieldFFT as fFFT
+import ppafm.GridUtils as GU
+
 #import GridUtils as GU
 #sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
-import ppafm                as PPU
-import ppafm.GridUtils      as GU
-import ppafm.fieldFFT       as fFFT
-from optparse import OptionParser
 
 parser = OptionParser()
 parser.add_option( "-s", "--sample", action="store", type="string", default="CHGCAR.xsf", help="sample 3D data-file (.xsf)")

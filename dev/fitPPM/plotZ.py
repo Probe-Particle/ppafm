@@ -3,14 +3,17 @@
 
 import os
 import sys
-import __main__ as main
-import numpy as np
-import matplotlib.pyplot as plt
-#import GridUtils as GU
-import ppafm                as PPU
-import ppafm.GridUtils      as GU
-from scipy.interpolate import interp1d
 from optparse import OptionParser
+
+import __main__ as main
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.interpolate import interp1d
+
+#import GridUtils as GU
+import ppafm as PPU
+import ppafm.GridUtils as GU
+
 
 def find_minimum(array,precision=0.0001):
     i=1

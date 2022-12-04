@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-import numpy as np
-
 import gc
+
+import numpy as np
 
 from . import GridUtils as GU
 

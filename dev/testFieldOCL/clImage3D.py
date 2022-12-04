@@ -2,8 +2,9 @@
 
 import sys
 import time
-import pyopencl as cl
+
 import numpy as np
+import pyopencl as cl
 
 CL_SOURCE = '''
 //__constant sampler_t sampler_1 = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
@@ -57,6 +58,7 @@ F = makeTestGrid( )
 print("F.shape", F.shape)
 print(F[10,10,:])
 import matplotlib.pyplot as plt
+
 plt.imshow(F[0,:,:]); plt.colorbar(); plt.show()
 
 ts        = np.linspace(0.0,1.0,100)

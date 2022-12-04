@@ -1,14 +1,14 @@
 #!/usr/bin/python
 
-import sys
-import os
 import glob
+import os
+import sys
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm.file_dat    as file_dat
+import ppafm.file_dat as file_dat
 
 path = "./"
 

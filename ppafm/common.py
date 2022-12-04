@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
-import numpy as np
 import os
 import sys
+
+import numpy as np
 
 from . import cpp_utils
 

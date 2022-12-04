@@ -1,7 +1,9 @@
-import numpy as np
-from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
+from ctypes import c_bool, c_char_p, c_double, c_float, c_int, c_void_p
+
+import numpy as np
+
 from . import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
@@ -169,6 +171,7 @@ corel_coefs = [ 1.72571429e+01,  8.50714286e+00,  8.57142857e-01,  7.14285714e-0
 
 
 import numpy as np
+
 
 def genSplineBasis( x, x0s ):
     Bs = np.empty( ( len(x0s), len(x) ) )

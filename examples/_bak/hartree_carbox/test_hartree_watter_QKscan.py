@@ -4,17 +4,13 @@
 #matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
-import elements
+
 #import XSFutils
 import basUtils
-
-
+import elements
+import matplotlib.pyplot as plt
+import numpy as np
 from memory_profiler import profile
-
-
-
 
 print(" # ========== make & load  ProbeParticle C++ library ")
 

@@ -1,11 +1,13 @@
 #!/usr/bin/python
 
-import sys
 import os
+import sys
+
 import numpy as np
 
-from . import  RigidMol  as rmol
+from . import RigidMol as rmol
 from . import basUtils
+
 
 def combineGeoms(mol,surf):
     es   = mol[0] + surf[0]

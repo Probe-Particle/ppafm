@@ -5,26 +5,31 @@
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
 
-import sys
-import os
-import re
-import time
-import random
-import matplotlib; matplotlib.use('Qt5Agg')
-import matplotlib.pyplot as plt
-from PyQt5 import QtCore, QtWidgets, QtGui
-import numpy as np
-from enum import Enum
 import glob
+import os
 import pickle
+import random
+import re
+import sys
+import time
+from enum import Enum
+
+import matplotlib.pyplot as plt
+import numpy as np
 import scipy.ndimage as nimg
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+import matplotlib; matplotlib.use('Qt5Agg')
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm.GUIWidgets as guiw
-import ppafm.file_dat    as file_dat
 import copy
 
 from PIL import Image
+
+import ppafm.file_dat as file_dat
+import ppafm.GUIWidgets as guiw
+
+
 def crosscorel_2d_fft(im0,im1):
     f0 = np.fft.fft2(im0)
     f1 = np.fft.fft2(im1)
