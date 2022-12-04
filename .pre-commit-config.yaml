@@ -15,3 +15,8 @@ repos:
       rev: v2.0.0
       hooks:
         - id: autoflake
+    - repo: https://github.com/asottile/pyupgrade
+      rev: v3.2.2
+      hooks:
+        - id: pyupgrade
+          args: [--py36-plus]
