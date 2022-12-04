@@ -1,6 +1,4 @@
-import os
 import sys
-import time
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt

@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import math
 
 import numpy as np
 
@@ -196,7 +195,7 @@ def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
 def normalizeSpeciesProbs( species ):
     out = []
     for l in species:
-        renorm=1.0/sum( s[1] for s in l )
+        1.0/sum( s[1] for s in l )
     return out
 
 def speciesToPLevels( species ):
@@ -232,7 +231,6 @@ def selectRandomGroups( an, ao, groupDict ):
     na = len(an)
     rnds=np.random.rand(na)
     out = []
-    atoms = []
     for i in range(na):
         k = (an[i],ao[i])
         if k in groupDict:

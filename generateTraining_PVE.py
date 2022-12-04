@@ -2,9 +2,6 @@
 
 import os
 
-#import matplotlib.pyplot as plt
-import sys
-
 import numpy as np
 
 import ppafm as PPU
@@ -14,6 +11,10 @@ import ppafm.cpp_utils as cpp_utils
 import ppafm.fieldFFT as fFFT
 import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
+
+#import matplotlib.pyplot as plt
+
+
 
 #file_format = "cube"
 file_format = "xsf"

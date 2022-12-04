@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import ctypes
-import os
 from ctypes import c_char_p, c_double, c_int
 
 import numpy as np
@@ -273,8 +272,8 @@ def getFromHead_PRIMCOORD( head ):
 def loadCUBE(fname, xyz_order=False, verbose=True):
 	filein = open(fname )
 	#First two lines of the header are comments
-	header1=filein.readline()
-	header2=filein.readline()
+	filein.readline()
+	filein.readline()
 	#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
 	sth0 = filein.readline().split()
 	#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector

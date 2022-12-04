@@ -3,7 +3,6 @@ import sys
 
 sys.path.append('../../')
 
-import os
 import time
 
 import matplotlib.pyplot as plt
@@ -36,7 +35,7 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
     corrector.izPlot = -1
     nscan = simulator.scan_dim;
     nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
-    sw    = simulator.scan_window
+    simulator.scan_window
 
     def makeMol( fname ):
         xyzs, Zs, qs, _ = basUtils.loadXYZ(fname)

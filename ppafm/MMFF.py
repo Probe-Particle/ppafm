@@ -1,6 +1,6 @@
 import ctypes
 import os
-from ctypes import c_bool, c_char_p, c_double, c_float, c_int, c_void_p
+from ctypes import c_bool, c_double, c_int
 
 import numpy as np
 
@@ -141,7 +141,7 @@ def relaxMolecule(
     bDummyEpair = False  # not yet tested/implemented
 
     # --- set atomic configurations ( set number of pi-orbitals and electron-pairs for each atom )
-    na    = len(apos)
+    len(apos)
     bonds = bonds.astype(np.int32).copy()
     aconf      = np.zeros( (len(apos),2), dtype=np.int32 )
     aconf[:,0] = npis                                                   # pi

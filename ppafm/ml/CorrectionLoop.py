@@ -14,12 +14,6 @@ see:  https://mega.nz/#!KLoilKIB!NxxCRQ814xtCXfjy7mPFfmJTOL9TaTHbmPKSxn_0sFs
 
 '''
 
-import os
-import random
-import shutil
-import sys
-import time
-from enum import Enum
 
 import matplotlib
 import numpy as np
@@ -194,7 +188,6 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
 
                 if self.potential:
                     self.pot.init_molecule(mol2.xyzs, mol2.Zs)
-                    es = []
                     for z in self.added_types:
                         e = -self.pot.calc_potential(z_added=z)
                         e = e.reshape((self.pot_dim[2], self.pot_dim[1], self.pot_dim[0]))

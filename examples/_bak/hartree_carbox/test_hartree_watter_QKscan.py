@@ -183,7 +183,7 @@ def relaxedScan3D( xTips, yTips, zTips ):
 		rTips[:,0] = x
 		for iy,y in enumerate( yTips  ):
 			rTips[:,1] = y
-			itrav = PP.relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
+			PP.relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
 			fzs[:,iy,ix] = fs[:,2].copy()
 	return fzs
 

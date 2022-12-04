@@ -7,12 +7,8 @@
 
 import glob
 import os
-import pickle
-import random
 import re
 import sys
-import time
-from enum import Enum
 
 import matplotlib.pyplot as plt
 import numpy as np

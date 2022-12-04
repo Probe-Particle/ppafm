@@ -2,9 +2,6 @@
 
 import os
 
-#import matplotlib.pyplot as plt
-import sys
-
 import numpy as np
 
 import ppafm as PPU
@@ -12,6 +9,10 @@ import ppafm.core as PPC
 import ppafm.cpp_utils as cpp_utils
 import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
+
+#import matplotlib.pyplot as plt
+
+
 
 #import PPPlot 		# we do not want to make it dempendent on matplotlib
 print("Amplitude ", PPU.params['Amplitude'])

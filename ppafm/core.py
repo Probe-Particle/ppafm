@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
 import ctypes
-import os
-from ctypes import c_char_p, c_double, c_int
+from ctypes import c_double, c_int
 
 import numpy as np
 

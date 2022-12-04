@@ -6,8 +6,6 @@ The goal is achieve efficient calculation of AFM images with density-overlap for
 '''
 
 
-import os
-import sys
 from optparse import OptionParser
 
 import __main__ as main

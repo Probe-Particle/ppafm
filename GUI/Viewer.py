@@ -6,10 +6,7 @@
 
 
 import os
-import random
 import sys
-import time
-from enum import Enum
 
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets

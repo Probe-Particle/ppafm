@@ -20,7 +20,6 @@ def set_box_value(box, value):
     box.blockSignals(True)
     box.setValue(value)
     box.blockSignals(False)
-    pass
 
 # =======================
 #     FigCanvas

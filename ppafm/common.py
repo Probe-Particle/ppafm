@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import os
-import sys
 
 import numpy as np
 
@@ -94,7 +93,7 @@ def Fz2df_tilt( F,  d=params['scanTilt'], k0 = params['kCantilever'], f0=params[
     oscialltion amplitude of cantilever is A = n * dz
     '''
     dr = np.sqrt( d[0]**2 + d[1]**2 + d[2]**2 )
-    hat=np.array(d)/dr
+    np.array(d)/dr
     W,xs = getDfWeight( n, dz=dr )
     dFconv_x = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F[:,:,:,0] )
     dFconv_y = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F[:,:,:,1] )
@@ -568,7 +567,7 @@ def prepareScanGrids( ):
     zTips  = np.arange( params['scanMin'][2], params['scanMax'][2]+0.00001, params['scanStep'][2] )
     xTips  = np.arange( params['scanMin'][0], params['scanMax'][0]+0.00001, params['scanStep'][0] )
     yTips  = np.arange( params['scanMin'][1], params['scanMax'][1]+0.00001, params['scanStep'][1] )
-    extent=( xTips[0], xTips[-1], yTips[0], yTips[-1] )
+    ( xTips[0], xTips[-1], yTips[0], yTips[-1] )
     lvecScan =np.array([
         [(params['scanMin'] + params['r0Probe'])[0],
          (params['scanMin'] + params['r0Probe'])[1],

@@ -254,14 +254,14 @@ def loadAtomsCUBE( fname ):
     e=[];x=[];y=[]; z=[]; q=[]
     f = open(fname )
     #First two lines of the header are comments
-    header1=f.readline()
-    header2=f.readline()
+    f.readline()
+    f.readline()
     #The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
     sth0 = f.readline().split()
     #The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
-    sth1 = f.readline().split()
-    sth2 = f.readline().split()
-    sth3 = f.readline().split()
+    f.readline().split()
+    f.readline().split()
+    f.readline().split()
 
     shift = [float(sth0[1]), float(sth0[2]), float(sth0[3])]
     nlines = int(sth0[0])
@@ -307,11 +307,11 @@ def loadCellCUBE( fname ):
     bohrRadius2angstroem = 0.5291772109217 # find a good place for this
     f = open(fname )
     #First two lines of the header are comments
-    header1=f.readline()
-    header2=f.readline()
+    f.readline()
+    f.readline()
     #The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
     line = f.readline().split()
-    n0 = int(line[0])
+    int(line[0])
     c0 =[ float(s) for s in line[1:4] ]
 
     #The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
@@ -339,10 +339,10 @@ def loadNCUBE( fname ):
     bohrRadius2angstroem = 0.5291772109217 # find a good place for this
     f = open(fname )
     #First two lines of the header are comments
-    header1=f.readline()
-    header2=f.readline()
+    f.readline()
+    f.readline()
     #The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
-    sth0 = f.readline().split()
+    f.readline().split()
     #The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
     sth1 = f.readline().split()
     sth2 = f.readline().split()
@@ -426,7 +426,6 @@ def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
 
 def findBondsNP( atoms, fRcut=0.7, ELEMENTS = elements.ELEMENTS ):
     bonds     = []
-    bondsVecs = []
     ps     = atoms[:,1:]
     iatoms = np.arange( len(atoms), dtype=int )
 

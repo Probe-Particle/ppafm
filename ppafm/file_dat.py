@@ -1,8 +1,6 @@
 
 
-import glob
 import os
-import sys
 import zlib
 
 import numpy as np
@@ -15,7 +13,7 @@ def readDat( fname, Header=None ):
     try:
         with open(fname, mode='rb') as binary_file:
             data = binary_file.read()
-    except IOError as error:
+    except IOError:
         print(('oops! File '+nfile+' can not be read.'))
     if b'[Parameter]' in data:
         STMAFMVersion = 1
@@ -77,15 +75,14 @@ def readDat( fname, Header=None ):
 
     # Check the STMAFM version to determine the number of bytes / pixel
     if STMAFMVersion == 1:
-        BytePerPixel = 2
+        pass
         # Header + 2 unused "NULL"-Bytes
         data_start=header_size+2
     elif STMAFMVersion == 2:
-        BytePerPixel = 4
+        pass
         # Header + 4 unused "NULL"-Bytes
         data_start=header_size+4
     elif STMAFMVersion == 3:
-        BytePerPixel = 4
         data_start=header_size
         # No Seek of additional bytes, since they are compressed:
 

@@ -7,12 +7,8 @@
 
 import glob
 import os
-import pickle
-import random
 import re
 import sys
-import time
-from enum import Enum
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -360,8 +356,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
 
 
-                imarginx0 = self.margins[1-ind_biggest_AFM][0]
-                imarginy0 = self.margins[1-ind_biggest_AFM][1]
+                self.margins[1-ind_biggest_AFM][0]
+                self.margins[1-ind_biggest_AFM][1]
                 imarginW = self.margins[1-ind_biggest_AFM][2]
                 imarginH = self.margins[1-ind_biggest_AFM][3]
 
@@ -592,7 +588,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.updateDataView()
 
     def marginData(self):
-        iz    = int( self.bxZ.value() )
+        int( self.bxZ.value() )
 
         imarginx0 = int(self.marginX0.value());
         imarginW = int(self.marginW.value());

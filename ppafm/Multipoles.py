@@ -2,7 +2,7 @@
 
 import ctypes
 import os
-from ctypes import c_bool, c_char_p, c_double, c_int
+from ctypes import c_bool, c_double, c_int
 
 import numpy as np
 
@@ -81,7 +81,7 @@ def make_Ratoms( atom_types, type_R,  fmin = 0.9 , fmax = 2.0 ):
 
 
 def BB2symMat( nbas, BB ):
-    M = np.zeros(nbas,nbas)
+    np.zeros(nbas,nbas)
     return
 
 # ==============================

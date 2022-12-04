@@ -23,7 +23,7 @@ cpp/FARFF.cpp
 import ctypes
 import os
 import sys
-from ctypes import c_bool, c_char_p, c_double, c_float, c_int, c_void_p
+from ctypes import c_double, c_int
 
 import numpy as np
 
@@ -207,8 +207,8 @@ class EngineFARFF():
     def preform_relaxation( self, molecule=None, xyzs=None, Zs=None, qs=None, lvec=None, atomMap=None, bondMap=None, Fconv=-1e-5 ):
         if molecule is not None:
             xyzs = molecule.xyzs
-            Zs   = molecule.Zs
-            qs   = molecule.qs
+            molecule.Zs
+            molecule.qs
         print( " # preform_relaxation - init " )
 
         natom  = len(xyzs)
@@ -295,7 +295,6 @@ if __name__ == "__main__":
     except Exception as e:
         print( e )
         print( "CANNOT LOAD atomsMap and bondMap !!!! " )
-        pass
 
     fff.setupOpt(dt=0.05, damp=0.2, f_limit=100.0, l_limit=0.2 )
 

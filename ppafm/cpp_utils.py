@@ -94,7 +94,6 @@ def writePointerCall( name, ttype ):
 
 def writeFuncInterface( parsed ):
     name,ret_type,arg_types,arg_names = parsed
-    arg_types_ = [ ]
     if ret_type=="void" :
         ret_type="None"
     else:

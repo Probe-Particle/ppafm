@@ -8,10 +8,6 @@
 # https://stackoverflow.com/questions/22508593/numpy-polyfit-or-any-fitting-to-x-and-y-multidimensional-arrays
 
 
-import os
-import random
-import sys
-import time
 
 import matplotlib
 

@@ -5,7 +5,7 @@
 import ctypes
 import os
 import sys
-from ctypes import c_bool, c_char_p, c_double, c_float, c_int, c_void_p
+from ctypes import c_double, c_int
 
 import numpy as np
 

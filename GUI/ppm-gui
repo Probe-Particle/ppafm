@@ -5,7 +5,6 @@
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
 import os
-import random
 import sys
 import time
 import traceback
@@ -674,7 +673,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         try:
             from ase import Atoms
             from ase.visualize import view
-        except ModuleNotFoundError as e:
+        except ModuleNotFoundError:
             print('No ase installation detected. Cannot show molecule geometry.')
             if self.verbose > 1: traceback.print_exc()
             return
@@ -768,7 +767,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.figCan.plotSlice(data, -1, title=title, points=self.df_points, cbar_range=cbar_range,
                 extent=extent)
 
-        except Exception as e:
+        except Exception:
             print("Failed to plot df slice")
             traceback.print_exc()
 

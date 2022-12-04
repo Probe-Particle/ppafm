@@ -27,12 +27,12 @@ def loadInput( ):
     t2    = time.clock(); print("getAtomsLJ time %f [s]" %(t2-t1))
 
     atoms_  = FFcl.xyzq2float4(xyzs,qs); #print atoms_
-    cLJs    = cLJs_.astype(np.float32)
+    cLJs_.astype(np.float32)
 
 def getposs( ):
     X,Y,Z   = FFcl.getPos( lvec );
-    nDim    = X.shape
-    poss    = FFcl.XYZ2float4(X,Y,Z)
+    X.shape
+    FFcl.XYZ2float4(X,Y,Z)
 
 t1 = time.clock()
 kargs = FFcl.initArgsLJC(atoms_,cLJs,poss)

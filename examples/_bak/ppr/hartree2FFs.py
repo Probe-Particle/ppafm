@@ -7,7 +7,16 @@ import elements
 import GridUtils as GU
 import numpy as np
 import ProbeParticle as PP
-from libFFTfin import *
+from libFFTfin import (
+    PPU,
+    cpp_utils,
+    getForces,
+    getMGrid,
+    getProbeDensity,
+    getSampleDimensions,
+    getSize,
+    os,
+)
 
 parser = OptionParser()
 parser.add_option( "-i", "--input", action="store", type="string", help="format of input file", default='vasp.locpot.xsf')

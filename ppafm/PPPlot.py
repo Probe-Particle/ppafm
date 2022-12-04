@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,7 +21,7 @@ def plotBonds( xyz, bonds ):
 
 def plotAtoms( atoms, atomSize=default_atom_size, edge=True, ec='k', color='w' ):
     plt.fig = plt.gcf()
-    es = atoms[0]
+    atoms[0]
     xs = atoms[1]
     ys = atoms[2]
     if len( atoms ) > 4:

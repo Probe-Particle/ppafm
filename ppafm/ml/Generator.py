@@ -252,25 +252,21 @@ class InverseAFMtrainer:
         '''
         Excecuted right at the start of each batch. Override to modify parameters for each batch.
         '''
-        pass
 
     def on_sample_start(self):
         '''
         Excecuted right before evaluating first AFM image. Override to modify the parameters for each sample.
         '''
-        pass
 
     def on_afm_start(self):
         '''
         Excecuted right before every AFM image evalution. Override to modify the parameters for each AFM image.
         '''
-        pass
 
     def on_afm_end(self):
         '''
         Excecuted right after evaluating AFM image. Override to modify the parameters for each sample.
         '''
-        pass
 
 class HartreeAFMtrainer(InverseAFMtrainer):
     '''

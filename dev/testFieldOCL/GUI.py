@@ -5,8 +5,6 @@
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
 
-import os
-import random
 import sys
 import time
 
