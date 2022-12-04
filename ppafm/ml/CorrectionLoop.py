@@ -348,7 +348,7 @@ class CorrectionLoop():
         xyzqs = np.concatenate([xyzs, qs[:,None]], axis=1)
         # Get Atoms and Bonds AuxMaps
         AuxMaps=None
-        if( self.bAuxMap ): 
+        if( self.bAuxMap ):
             atoms_map = self.atoms(xyzqs, Zs)
             bonds_map = self.bonds(xyzqs, Zs)
             AuxMaps = np.stack([atoms_map, bonds_map], axis=-1)
@@ -460,7 +460,7 @@ if __name__ == "__main__":
     if options.job == "loop":
         Job_CorrectionLoop( afmulator, atoms, bonds, geom_fname="pos_out3.xyz" )
     elif options.job == "train":
-        Job_trainCorrector( afmulator, geom_fname="pos_out3.xyz", nstep=10 )        
+        Job_trainCorrector( afmulator, geom_fname="pos_out3.xyz", nstep=10 )
     else:
         print("ERROR : invalid job ", options.job )
 

@@ -40,7 +40,7 @@ c_int_p    = ctypes.POINTER(c_int)
 def _np_as(arr,atype):
     if arr is None:
         return None
-    else: 
+    else:
         return arr.ctypes.data_as(atype)
 
 cpp_utils.s_numpy_data_as_call = "_np_as(%s,%s)"
@@ -68,54 +68,54 @@ libGL  = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libGL.so",   ctypes.RTLD_GLOBAL
 
 cpp_name='FARFF'
 cpp_utils.make(cpp_name)
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes
 
 # ========= C functions
 
 #  int insertAtomType( int nbond, int ihyb, double rbond0, double aMorse, double bMorse, double c6, double R2vdW, double Epz ){
-lib.insertAtomType.argtypes  = [c_int, c_int, c_double, c_double, c_double, c_double, c_double, c_double] 
+lib.insertAtomType.argtypes  = [c_int, c_int, c_double, c_double, c_double, c_double, c_double, c_double]
 lib.insertAtomType.restype   =  c_int
 def insertAtomType(nbond, ihyb, rbond0, aMorse, bMorse, c6, R2vdW, Epz):
-    return lib.insertAtomType(nbond, ihyb, rbond0, aMorse, bMorse, c6, R2vdW, Epz) 
+    return lib.insertAtomType(nbond, ihyb, rbond0, aMorse, bMorse, c6, R2vdW, Epz)
 
 #  void reallocFF(int natom){
-lib.reallocFF.argtypes  = [c_int] 
+lib.reallocFF.argtypes  = [c_int]
 lib.reallocFF.restype   =  c_int
 def reallocFF(natom):
-    return lib.reallocFF(natom) 
+    return lib.reallocFF(natom)
 
 #  double* getDofs  (){
-lib.getDofs  .argtypes  = [] 
+lib.getDofs  .argtypes  = []
 lib.getDofs  .restype   =  c_double_p
 def getDofs  (ndofs):
     return np.ctypeslib.as_array( lib.getDofs(), shape=(ndofs,3))
 
 #  double* getFDofs (){
-lib.getFDofs .argtypes  = [] 
+lib.getFDofs .argtypes  = []
 lib.getFDofs .restype   =  c_double_p
 def getFDofs (ndofs):
-    return np.ctypeslib.as_array( lib.getFDofs(), shape=(ndofs,3)) 
+    return np.ctypeslib.as_array( lib.getFDofs(), shape=(ndofs,3))
 
 #  double* getEDofs (){
-lib.getEDofs .argtypes  = [] 
+lib.getEDofs .argtypes  = []
 lib.getEDofs .restype   =  c_double_p
 def getEDofs (ndofs):
-    return np.ctypeslib.as_array( lib.getEDofs(), shape=(ndofs,)) 
+    return np.ctypeslib.as_array( lib.getEDofs(), shape=(ndofs,))
 
 #  double* getAtomMapStrenghs(){
-lib.getAtomMapStrenghs.argtypes  = [] 
+lib.getAtomMapStrenghs.argtypes  = []
 lib.getAtomMapStrenghs.restype   =  c_double_p
 def getAtomMapStrenghs(natom):
-    return np.ctypeslib.as_array(  lib.getAtomMapStrenghs(), shape=(natom,)) 
+    return np.ctypeslib.as_array(  lib.getAtomMapStrenghs(), shape=(natom,))
 
 #  double* getBondMapStrenghs(){
-lib.getBondMapStrenghs.argtypes  = [] 
+lib.getBondMapStrenghs.argtypes  = []
 lib.getBondMapStrenghs.restype   =  c_double_p
 def getBondMapStrenghs(nbond):
-    return np.ctypeslib.as_array(  lib.getBondMapStrenghs(), shape=(nbond,)) 
+    return np.ctypeslib.as_array(  lib.getBondMapStrenghs(), shape=(nbond,))
 
 #  void setupFF( int natom, int* types ){
-lib.setupFF.argtypes  = [c_int, c_int_p] 
+lib.setupFF.argtypes  = [c_int, c_int_p]
 lib.setupFF.restype   =  None
 def setupFF( n=None, itypes=None ):
     if itypes is None:
@@ -123,38 +123,38 @@ def setupFF( n=None, itypes=None ):
     else:
         n = len(itypes)
     print("type(itypes)",type(itypes),"itypes",itypes)
-    return lib.setupFF( n, _np_as(itypes,c_int_p) ) 
+    return lib.setupFF( n, _np_as(itypes,c_int_p) )
 
 #  void setGridShape( int * n, double * cell ){
-lib.setGridShape.argtypes  = [c_int_p, c_double_p] 
+lib.setGridShape.argtypes  = [c_int_p, c_double_p]
 lib.setGridShape.restype   =  None
 def setGridShape( n, cell):
     n=np.array(n,dtype=np.int32);
-    return lib.setGridShape(_np_as(n,c_int_p), _np_as(cell,c_double_p)) 
+    return lib.setGridShape(_np_as(n,c_int_p), _np_as(cell,c_double_p))
 
 #  void bindGrids( double* atomMap, double*  bondMap ){
-lib.bindGrids.argtypes  = [c_double_p, c_double_p] 
+lib.bindGrids.argtypes  = [c_double_p, c_double_p]
 lib.bindGrids.restype   =  None
 def bindGrids(atomMap, bondMap):
-    return lib.bindGrids(_np_as(atomMap,c_double_p), _np_as(bondMap,c_double_p)) 
+    return lib.bindGrids(_np_as(atomMap,c_double_p), _np_as(bondMap,c_double_p))
 
 #  double setupOpt( double dt, double damp, double f_limit, double l_limit ){
-lib.setupOpt.argtypes  = [c_double, c_double, c_double, c_double] 
+lib.setupOpt.argtypes  = [c_double, c_double, c_double, c_double]
 lib.setupOpt.restype   =  None
 def setupOpt(dt=0.2, damp=0.2, f_limit=10.0, l_limit=0.2 ):
-    lib.setupOpt(dt, damp, f_limit, l_limit) 
+    lib.setupOpt(dt, damp, f_limit, l_limit)
 
 #  void setBox(double* pmin, double* pmax, double* k){
-lib.setBox.argtypes  = [c_double_p, c_double_p, c_double_p] 
+lib.setBox.argtypes  = [c_double_p, c_double_p, c_double_p]
 lib.setBox.restype   =  None
 def setBox(pmin, pmax, k):
-    return lib.setBox(_np_as(pmin,c_double_p), _np_as(pmax,c_double_p), _np_as(k,c_double_p)) 
+    return lib.setBox(_np_as(pmin,c_double_p), _np_as(pmax,c_double_p), _np_as(k,c_double_p))
 
 #  double relaxNsteps( int nsteps, double Fconv, int ialg ){
-lib.relaxNsteps.argtypes  = [c_int, c_double, c_int ] 
+lib.relaxNsteps.argtypes  = [c_int, c_double, c_int ]
 lib.relaxNsteps.restype   =  c_double
 def relaxNsteps(nsteps, Fconv=1e-6, ialg=0):
-    return lib.relaxNsteps( nsteps, Fconv, ialg) 
+    return lib.relaxNsteps( nsteps, Fconv, ialg)
 
 # ================= Python Functions
 
@@ -195,7 +195,7 @@ class EngineFARFF():
     Fconv         = 1.-6
 
     # --- optimizer params
-    dt      = 0.05 
+    dt      = 0.05
     damp    = 0.2
     f_limit = 100.0
     l_limit = 0.2
@@ -213,7 +213,7 @@ class EngineFARFF():
         natom  = len(xyzs)
         ndof   = reallocFF(natom)
         norb   = ndof - natom
-        self.natom = natom; self.ndof = ndof; self.norb = norb; 
+        self.natom = natom; self.ndof = ndof; self.norb = norb;
         self.dofs   = getDofs(self.ndof)   ; print("dofs.shape ", self.dofs.shape)
         self.apos   = self.dofs[:natom]    ; print("apos.shape ", self.apos.shape)
         self.opos   = self.dofs[natom:]    ; print("opos.shape ", self.opos.shape)
@@ -238,7 +238,7 @@ class EngineFARFF():
         print( " # preform_relaxation - set DOFs [4]" )
         setupOpt(dt=self.dt, damp=self.damp, f_limit=self.f_limit, l_limit=self.l_limit )
 
-        # ! this must be done after setupFF 
+        # ! this must be done after setupFF
         self.atomMapStrenghs = getAtomMapStrenghs(natom)
         self.bondMapStrenghs = getBondMapStrenghs(norb)
         self.atomMapStrenghs[:] = 0.0
@@ -250,7 +250,7 @@ class EngineFARFF():
         for i in range( int( self.NmaxIter/self.NstepPerCheck )+1 ):
             F2err = relaxNsteps( self.NstepPerCheck, Fconv=Fconv, ialg=0 )
             print("[%i]|F| %g " %(i*self.NstepPerCheck, np.sqrt(F2err) ) )
-            if F2err<(Fconv*Fconv): 
+            if F2err<(Fconv*Fconv):
                 break
         return self.apos[:,:].copy()
 

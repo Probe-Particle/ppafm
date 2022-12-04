@@ -2,18 +2,18 @@
 
 import sys
 import pyopencl as cl
-import numpy    as np 
+import numpy    as np
 import time
 
-sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
+sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 
 from   ppafm import basUtils
-from   ppafm import PPPlot 
+from   ppafm import PPPlot
 import ppafm.GridUtils as GU
 import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
 
-import ppafm.ocl.field as FFcl 
+import ppafm.ocl.field as FFcl
 
 def loadInput( ):
     FFparams          = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
@@ -22,23 +22,23 @@ def loadInput( ):
 
     Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=lvec[1], bvec=lvec[2] )
 
-    t1    = time.clock() 
+    t1    = time.clock()
     cLJs_ = PPU.getAtomsLJ     ( 8, Zs, FFparams ); #print "C6_,C12_",C6_,C12_
-    t2    = time.clock(); print("getAtomsLJ time %f [s]" %(t2-t1)) 
+    t2    = time.clock(); print("getAtomsLJ time %f [s]" %(t2-t1))
 
     atoms_  = FFcl.xyzq2float4(xyzs,qs); #print atoms_
     cLJs    = cLJs_.astype(np.float32)
 
 def getposs( ):
-    X,Y,Z   = FFcl.getPos( lvec ); 
+    X,Y,Z   = FFcl.getPos( lvec );
     nDim    = X.shape
     poss    = FFcl.XYZ2float4(X,Y,Z)
 
-t1 = time.clock() 
+t1 = time.clock()
 kargs = FFcl.initArgsLJC(atoms_,cLJs,poss)
 FE    = FFcl.runLJC( kargs, nDim )
 t2 = time.clock()
-print("OpenCL kernell time: %f [s]" %(t2-t1)) 
+print("OpenCL kernell time: %f [s]" %(t2-t1))
 
 PPPlot.checkVecField(FE)
 Ftmp=np.zeros(nDim);
@@ -53,4 +53,3 @@ Ftmp[:,:,:] = FE[:,:,:,7]; GU.saveXSF( 'Felz_cl.xsf', Ftmp, lvec );
 
 
 print("==== ALL DONE === ")
-

@@ -36,7 +36,7 @@ iframe=0
 def make_anim(getData,fig,nframes,interval=200):
     from matplotlib.animation import FuncAnimation
     #scat = None
-    
+
     def init():
         #global scat
         cpos,sz,vpos = getData(0)
@@ -85,27 +85,27 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     #plt.figure(); plotCycles(cpos=cpos)
-    
+
     pcff.setupOpt(dt=0.2, damping=0.05, f_limit=1.0,v_limit=1.0 )
     pcff.relaxNsteps(kind=0, nsteps=500)
     #for i in range(3000):
     #    pcff.relaxNsteps(kind=0, nsteps=1)
     #    #print cpos
-    
+
     pcff.init(rots)
-    
+
     Rs = 1/np.sin(np.pi/nvs)
-    
+
     def getDate(frame):
         pcff.relaxNsteps(kind=1, nsteps=5)
         return cpos, Rs, vpos
-    
+
     ani = make_anim(getDate, plt.gcf(), 10, interval=10 )
     print("vpos: ", vpos)
     #print "vpos: ", vpos
-    
+
     #plt.figure(); plotCycles(cpos=cpos,vpos=vpos,nvs=nvs)
-    
+
     '''
     plt.plot(cpos[:,0],cpos[:,1],"+"); plt.axis("equal")
     plt.plot(vpos[:,0],vpos[:,1],".")
@@ -118,11 +118,3 @@ if __name__ == "__main__":
 
     plt.show()
     #pcff.relaxNsteps(nsteps=10, F2conf=-1.0, dt=0.1, damp=0.9)
-
-
-
-
-
-
-
-

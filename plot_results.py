@@ -15,11 +15,11 @@ import ProbeParticleUtils as PPU
 import PPPlot
 '''
 
-import ppafm                as PPU     
+import ppafm                as PPU
 import ppafm.GridUtils      as GU
 import ppafm.PPPlot         as PPPlot
 from   ppafm            import basUtils
-from   ppafm            import elements 
+from   ppafm            import elements
 #import ppafm.core           as PPC
 import ppafm.HighLevel      as PPH
 import ppafm.cpp_utils      as cpp_utils
@@ -105,13 +105,13 @@ else:
     Vs = [0.0]
 for iV,Vx in enumerate(Vs):
     if ( abs(Vx) > 1e-7):
-        aplied_bias=True     
+        aplied_bias=True
 
 if (aplied_bias == True):
     print("Vs   =", Vs)
-print("Ks   =", Ks) 
-print("Qs   =", Qs) 
-print("Amps =", Amps) 
+print("Ks   =", Ks)
+print("Qs   =", Qs)
+print("Amps =", Amps)
 
 #sys.exit("  STOPPED ")
 
@@ -129,12 +129,12 @@ if opt_dict['atoms'] or opt_dict['bonds']:
     speciesFile=None
     if os.path.isfile( 'atomtypes.ini' ):
         speciesFile='atomtypes.ini'
-    FFparams=PPU.loadSpecies( speciesFile ) 
+    FFparams=PPU.loadSpecies( speciesFile )
     atoms_str="_atoms"
     xyzs, Zs, qs, _ = basUtils.loadXYZ('input_plot.xyz')
     atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
     #print "atoms ", atoms
-    FFparams            = PPU.loadSpecies( ) 
+    FFparams            = PPU.loadSpecies( )
     elem_dict           = PPU.getFFdict(FFparams);  #print "elem_dict ", elem_dict
     iZs,Rs,Qs_tmp=PPU.parseAtoms(atoms, elem_dict, autogeom = False, PBC = PPU.params['PBC'] )
     atom_colors = basUtils.getAtomColors(iZs,FFparams=FFparams)
@@ -160,24 +160,24 @@ for iq,Q in enumerate( Qs ):
                 try:
                     PPpos, lvec, nDim = GU.load_vec_field(dirname+'/PPpos' ,data_format=options.data_format)
                     print(" plotting PPpos : ")
-                    PPPlot.plotDistortions( 
-                        dirname+"/xy"+atoms_str+cbar_str, PPpos[:,:,:,0], PPpos[:,:,:,1], slices = list(range( 0, len(PPpos))), BG=PPpos[:,:,:,2], 
-                        extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, markersize=2.0, cbar=opt_dict['cbar'] 
+                    PPPlot.plotDistortions(
+                        dirname+"/xy"+atoms_str+cbar_str, PPpos[:,:,:,0], PPpos[:,:,:,1], slices = list(range( 0, len(PPpos))), BG=PPpos[:,:,:,2],
+                        extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, markersize=2.0, cbar=opt_dict['cbar']
                     )
                     del PPpos
                 except:
                     print("error: ", sys.exc_info())
-                    print("cannot load : " + ( dirname+'/PPpos_?.' + options.data_format )) 
+                    print("cannot load : " + ( dirname+'/PPpos_?.' + options.data_format ))
             if opt_dict['iets'] is not None:
                 try :
                     eigvalK, lvec, nDim = GU.load_vec_field( dirname+'/eigvalKs' ,data_format=options.data_format)
                     M  = opt_dict['iets'][0]
                     E0 = opt_dict['iets'][1]
                     w  = opt_dict['iets'][2]
-                    print(" plotting IETS M=%f V=%f w=%f " %(M,E0,w))	
+                    print(" plotting IETS M=%f V=%f w=%f " %(M,E0,w))
                     hbar       = 6.58211951440e-16 # [eV.s]
-                    aumass     = 1.66053904020e-27 # [kg] 
-                    eVA2_to_Nm = 16.0217662        # [eV/A^2] / [N/m] 
+                    aumass     = 1.66053904020e-27 # [kg]
+                    eVA2_to_Nm = 16.0217662        # [eV/A^2] / [N/m]
                     Evib = hbar * np.sqrt( ( eVA2_to_Nm * eigvalK )/( M * aumass ) )
                     IETS = PPH.symGauss(Evib[:,:,:,0], E0, w) + PPH.symGauss(Evib[:,:,:,1], E0, w) + PPH.symGauss(Evib[:,:,:,2], E0, w)
                     PPPlot.plotImages( dirname+"/IETS"+atoms_str+cbar_str, IETS, slices = list(range(0,len(IETS))), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
@@ -211,7 +211,7 @@ for iq,Q in enumerate( Qs ):
                             print(" plotting df : ")
                             PPPlot.plotImages(
                                 dirNameAmp+"/df"+atoms_str+cbar_str, dfs,  slices = list(range( 0, len(dfs))), zs=zTips+PPU.params['Amplitude']/2.0,
-                                extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] 
+                                extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar']
                             )
                         if opt_dict['Laplace']:
                             print("plotting Laplace-filtered df : ")
@@ -220,7 +220,7 @@ for iq,Q in enumerate( Qs ):
                             GU.save_scal_field(dirNameAmp+'/df_laplace', df_LaplaceFiltered, lvec,data_format=options.data_format )
                             PPPlot.plotImages(
                                 dirNameAmp+"/df_laplace"+atoms_str+cbar_str, df_LaplaceFiltered, slices = list(range( 0, len(dfs))), zs=zTips+PPU.params['Amplitude']/2.0,
-                                extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] 
+                                extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar']
                             )
                         if opt_dict['WSxM']:
                             print(" printing df into WSxM files :")
@@ -230,7 +230,7 @@ for iq,Q in enumerate( Qs ):
                                 LCPD_b = - dfs
                             if (iv == (Vs.shape[0]-1)):
                                 LCPD_b = (LCPD_b + dfs)/(2*Vx)
-                        
+
                             if (iv == 0):
                                 LCPD_a = dfs
                             if (Vx == 0.0):
@@ -250,7 +250,7 @@ for iq,Q in enumerate( Qs ):
                     del I
                 except:
                     print("error: ", sys.exc_info())
-                    print("cannot load : " + (dirname+'/OutI_boltzmann.'+options.data_format )) 
+                    print("cannot load : " + (dirname+'/OutI_boltzmann.'+options.data_format ))
         if  opt_dict['LCPD_maps']:
             LCPD = -LCPD_b/(2*LCPD_a)
             PPPlot.plotImages(
@@ -259,7 +259,7 @@ for iq,Q in enumerate( Qs ):
             )
             PPPlot.plotImages(
                 "./_Asym-LCPD"+atoms_str+cbar_str, LCPD,  slices = list(range( 0, len(LCPD))), zs=zTips+PPU.params['Amplitude']/2.0,
-                extent=extent,cmap=PPU.params['colorscale_kpfm'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'], symetric_map=False 
+                extent=extent,cmap=PPU.params['colorscale_kpfm'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'], symetric_map=False
             )
             GU.save_scal_field('./LCDP_HzperV', LCPD, lvec,data_format=options.data_format )
             if opt_dict['WSxM']:

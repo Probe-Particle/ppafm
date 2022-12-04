@@ -6,18 +6,18 @@ import __main__ as main
 
 
 from   ppafm            import basUtils
-from   ppafm            import elements   
+from   ppafm            import elements
 import ppafm.HighLevel      as PPH
 import ppafm.fieldFFT       as fFFT
 import ppafm.GridUtils as GU
-import ppafm  as PPU     
+import ppafm  as PPU
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
-    %s -i <filename> 
-    
+    %s -i <filename>
+
     Supported file fromats are:
-       * xyz 
+       * xyz
     """ %os.path.basename(main.__file__)
     from optparse import OptionParser
     parser = OptionParser()

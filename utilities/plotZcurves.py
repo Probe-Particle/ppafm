@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
@@ -60,5 +60,5 @@ plt.savefig( options.i+'_zcurves.png', bbox_inches='tight')
 np.savetxt( options.i+'_zcurves.dat', np.transpose(curves) )
 
 #dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
-                    
+
 plt.show()

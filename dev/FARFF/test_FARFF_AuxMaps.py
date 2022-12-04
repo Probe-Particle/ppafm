@@ -7,8 +7,8 @@ import matplotlib.cm as cm
 import sys
 sys.path.append('../../')
 
-#from ppafm import oclUtils     as oclu 
-#from ppafm import fieldOCL     as FFcl 
+#from ppafm import oclUtils     as oclu
+#from ppafm import fieldOCL     as FFcl
 #from ppafm import RelaxOpenCL  as oclr
 #from ppafm import common       as PPU
 #from ppafm import basUtils
@@ -36,5 +36,3 @@ if __name__ == "__main__":
     relaxer = fff.EngineFARFF()
 
     relaxer.preform_relaxation( molecule=None, xyzs=xyzs, Zs=Zs, qs=qs, lvec=lvecMap, atomMap=atomMapF, bondMap=bondMapF, Fconv=-1e-5 )
-
-

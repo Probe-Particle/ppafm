@@ -16,7 +16,7 @@ from memory_profiler import profile
 
 
 
-print(" # ========== make & load  ProbeParticle C++ library ") 
+print(" # ========== make & load  ProbeParticle C++ library ")
 
 def makeclean( ):
 	import os
@@ -24,7 +24,7 @@ def makeclean( ):
 	[ os.remove(f) for f in os.listdir(".") if f.endswith(".o") ]
 	[ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
 
-makeclean( )  # force to recompile 
+makeclean( )  # force to recompile
 
 import ProbeParticle as PP
 
@@ -59,7 +59,7 @@ cell =np.array([
 PP.params['gridA'],
 PP.params['gridB'],
 PP.params['gridC'],
-]).copy() 
+]).copy()
 gridN = PP.params['gridN']
 
 print("cell", cell)
@@ -69,25 +69,25 @@ PP.setFF( FFLJ, cell  )
 print(" # ============ define atoms ")
 
 atoms    = basUtils.loadAtoms('watter4NaCl-2.xyz')
-Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
+Rs       = np.array([atoms[1],atoms[2],atoms[3]]);
 iZs      = np.array( atoms[0])
 
 if not PP.params['PBC' ]:
 	print(" NO PBC => autoGeom ")
 	PP.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
-	print(" NO PBC => params[ 'gridA'   ] ", PP.params[ 'gridA' ]) 
+	print(" NO PBC => params[ 'gridA'   ] ", PP.params[ 'gridA' ])
 	print(" NO PBC => params[ 'gridB'   ] ", PP.params[ 'gridB'   ])
 	print(" NO PBC => params[ 'gridC'   ] ", PP.params[ 'gridC'   ])
 	print(" NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ])
 	print(" NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ])
 
-Rs = np.transpose( Rs, (1,0) ).copy() 
+Rs = np.transpose( Rs, (1,0) ).copy()
 Qs = np.array( atoms[4] )
 
 if PP.params['PBC' ]:
 	iZs,Rs,Qs = PP.PBCAtoms( iZs, Rs, Qs, avec=PP.params['gridA'], bvec=PP.params['gridB'] )
 
-print("shape( Rs )", np.shape( Rs )); 
+print("shape( Rs )", np.shape( Rs ));
 
 print(" # ============ define Scan and allocate arrays   - do this before simulation, in case it will crash ")
 
@@ -110,15 +110,15 @@ PP.params['scanMin'],
 [        PP.params['scanMax'][0],0.0,0.0],
 [0.0,    PP.params['scanMax'][1],0.0    ],
 [0.0,0.0,PP.params['scanMax'][2]        ]
-]).copy() 
+]).copy()
 
 headScan='''
 ATOMS
  1   0.0   0.0   0.0
 
-BEGIN_BLOCK_DATAGRID_3D                        
-   some_datagrid      
-   BEGIN_DATAGRID_3D 
+BEGIN_BLOCK_DATAGRID_3D
+   some_datagrid
+   BEGIN_DATAGRID_3D
 '''
 
 
@@ -165,7 +165,7 @@ else:
 		FFLJ[:,:,:,1] = np.load('FFLJ_y.npy' )
 		FFLJ[:,:,:,2] = np.load('FFLJ_z.npy' )
 
-# ======= plot 
+# ======= plot
 #plt.figure(figsize=( 5*nslice,5 )); plt.title( ' FF LJ ' )
 #for i in range(nslice):
 #	plt.subplot( 1, nslice, i+1 )
@@ -173,14 +173,14 @@ else:
 
 #@profile
 def relaxedScan3D( xTips, yTips, zTips ):
-	ntips = len(zTips); 
+	ntips = len(zTips);
 	print(" zTips : ",zTips)
 	rTips = np.zeros((ntips,3))
 	rs    = np.zeros((ntips,3))
 	fs    = np.zeros((ntips,3))
 	rTips[:,0] = 1.0
 	rTips[:,1] = 1.0
-	rTips[:,2] = zTips 
+	rTips[:,2] = zTips
 	fzs    = np.zeros(( len(zTips), len(yTips ), len(xTips ) ));
 	for ix,x in enumerate( xTips  ):
 		print("relax ix:", ix)
@@ -237,7 +237,3 @@ main()
 print(" ***** ALL DONE ***** ")
 
 #plt.show()
-
-
-
-

@@ -24,7 +24,7 @@ import ppafm.GUIWidgets as guiw
 import ppafm.file_dat    as file_dat
 import copy
 
-from PIL import Image    
+from PIL import Image
 def crosscorel_2d_fft(im0,im1):
     f0 = np.fft.fft2(im0)
     f1 = np.fft.fft2(im1)
@@ -94,8 +94,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) ; bt = QtWidgets.QPushButton('Magic fit', self); bt.setToolTip('Fit to colser slice'); bt.clicked.connect(self.magicFit); vb.addWidget( bt ); bt.setEnabled(False); self.btMagic = bt
 
-        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('MagicAll', self); bt.setToolTip('Fit all slices');bt.setEnabled(False); bt.clicked.connect(self.magicFitAll);      vb.addWidget( bt ); self.btMagicAll = bt 
-        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('SaveImgs', self); bt.setToolTip('save images'); bt.setEnabled(False); bt.clicked.connect(self.saveImg);      vb.addWidget( bt ); self.btSaveImg = bt 
+        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('MagicAll', self); bt.setToolTip('Fit all slices');bt.setEnabled(False); bt.clicked.connect(self.magicFitAll);      vb.addWidget( bt ); self.btMagicAll = bt
+        l0.addLayout(vb) ; bt = QtWidgets.QPushButton('SaveImgs', self); bt.setToolTip('save images'); bt.setEnabled(False); bt.clicked.connect(self.saveImg);      vb.addWidget( bt ); self.btSaveImg = bt
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("Ninter ") )
         bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(1); vb.addWidget(bx); bx.setEnabled(False); self.bxNi=bx
@@ -114,7 +114,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
 
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
+        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
 
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb); vb.addWidget( QtWidgets.QLabel("margins") )
         bx = QtWidgets.QSpinBox(); bx.setSingleStep(1); bx.setValue(0); bx.setRange(0,1000); bx.valueChanged.connect(self.marginData); bx.setToolTip('trim left border'); vb.addWidget(bx); bx.setEnabled(False);self.marginX0=bx
@@ -144,10 +144,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def magicFit(self):
         print ('magic fit')
         iz = int(self.bxZ.value())
-        print ('iz=',iz)  
+        print ('iz=',iz)
         if (iz<len(self.data)-1 ):
-            #print ('we are in if')            
-            '''    
+            #print ('we are in if')
+            '''
             image=np.float32(self.data2[iz])
             image-=image.mean()
             vmax=image.max()
@@ -159,7 +159,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             if vmax>0:
                 image_target /= vmax
             '''
-            [ix,iy] = trans_match_fft(self.data2[iz],self.data[iz+1]) 
+            [ix,iy] = trans_match_fft(self.data2[iz],self.data[iz+1])
             print ('ix,iy=',-ix,-iy)
             if abs(int(ix))>self.data[iz].shape[0]:
                 ix=ix/abs(int(ix))*(abs(int(ix))-self.data[iz].shape[0])
@@ -170,11 +170,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             if abs(int(iy))>self.data[iz].shape[1]//2:
                 iy=iy/abs(int(iy))*(abs(int(iy))-self.data[iz].shape[1])
 
-            self.data[iz]=nimg.shift (self.data[iz], (-ix-self.shifts[iz][0],-iy-self.shifts[iz][1]), order=3,mode='mirror' )   
+            self.data[iz]=nimg.shift (self.data[iz], (-ix-self.shifts[iz][0],-iy-self.shifts[iz][1]), order=3,mode='mirror' )
             self.shifts[iz][0] =  -ix
             self.shifts[iz][1] =  -iy
             self.bxX.setValue( self.shifts[iz][0] )
-            self.bxY.setValue( self.shifts[iz][1] ) 
+            self.bxY.setValue( self.shifts[iz][1] )
 
             print (self.shifts)
             self.updateDataView()
@@ -201,16 +201,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if dlg.exec_():
             filenames = dlg.selectedFiles()
 
-        self.path = 
+        self.path =
         '''
 
         if self.path[-1] is not '/':
             self.path   += '/'
-                
+
         self.fnames   = glob.glob(self.path+'*.dat')
         self.fnames.sort()
 
- 
+
         print (self.fnames)
 
         data = []
@@ -233,59 +233,59 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.fnames = fnames
         #return data
         data = [d[::-1,:] for d in data]
- 
+
         self.data = data
 
         #z=np.arange(25)
-        data2=copy.copy(data)        
+        data2=copy.copy(data)
         self.data2= data2 #np.reshape(z, (5,5)) #data
         print ('data *.dat loaded')
         print (f'data len = {len(data)}')
         print (f'data.shape = {data[0].shape}')
         self.shifts = [ [0,0] for i in range(len(self.data)) ]
-        self.margins = [0,0,0,0] 
+        self.margins = [0,0,0,0]
         self.bxZ.setRange( 0, len(self.data)-1 );
 
         # set proper scale for all slices depends from parameters:  Header['LengthX']; Header['LengthY']
         slice_lengths = [[x['LengthX'],x['LengthY']] for x in headers]
-        print ('slice_lengths = ', slice_lengths) 
+        print ('slice_lengths = ', slice_lengths)
         max_length = [np.max(np.array(slice_lengths)[:,0]),np.max(np.array(slice_lengths)[:,1])]
-        print ('max slice_length = ', max_length) 
-        image_shape = self.data[0].shape        
+        print ('max slice_length = ', max_length)
+        image_shape = self.data[0].shape
         print ('image_shape = ', image_shape)
         for z_slice in range(len(self.data)):
-            
+
             if slice_lengths[z_slice][0] != max_length[0] :
                 print ('slice_lengths/max_lengths = ',slice_lengths[z_slice][0]/max_length[0])
                 scaled_size = int(image_shape[0]*slice_lengths[z_slice][0]/max_length[0])
-                scaled_image_slice = np.zeros_like(data[z_slice]) 
-                start_xy = int((image_shape[0] -  scaled_size)/2) 
+                scaled_image_slice = np.zeros_like(data[z_slice])
+                start_xy = int((image_shape[0] -  scaled_size)/2)
                 scaled_image_slice[start_xy:start_xy+scaled_size, start_xy:start_xy+scaled_size] =  np.array(Image.fromarray(self.data[z_slice]).resize((scaled_size,scaled_size) , Image.BILINEAR))
                 self.data[z_slice]=scaled_image_slice
-                self.margins = [start_xy,image_shape[0] -scaled_size - start_xy ,image_shape[1] -scaled_size - start_xy ,start_xy] 
+                self.margins = [start_xy,image_shape[0] -scaled_size - start_xy ,image_shape[1] -scaled_size - start_xy ,start_xy]
 
-        imarginx0 = self.margins[0]  
-        imarginx1 = self.margins[2] 
+        imarginx0 = self.margins[0]
+        imarginx1 = self.margins[2]
         imarginy0 = self.margins[1]
         imarginy1 = self.margins[3]
-        
+
         for z_slice in range(len(self.data)):
             marged_size = (image_shape[0]-imarginx0-imarginx1, image_shape[1]-imarginy0-imarginy1)
             print ('marged_size =',marged_size)
-            #print 'self.max_length  =', max_length 
+            #print 'self.max_length  =', max_length
             slice_lengths[z_slice] = [marged_size[1]*  max_length[1]/image_shape[0]   , marged_size[0]*  max_length[0]/image_shape[1] ]
- 
+
         print ('margins = ', self.margins)
         print ('slice_lengths = ',  slice_lengths )
 
 
-   
+
         self.slice_lengths = slice_lengths
         self.max_length = max_length
-        self.data2=copy.copy(self.data)        
-        
+        self.data2=copy.copy(self.data)
+
         #print 'amountCh = ', amountCh
-        self.bxChannel.setRange( 0, amountCh -1 )   
+        self.bxChannel.setRange( 0, amountCh -1 )
         self.marginX0.blockSignals(True); self.marginX0.setValue( self.margins[0]); self.marginX0.blockSignals(False);
         self.marginX1.blockSignals(True); self.marginX1.setValue( self.margins[2]); self.marginX1.blockSignals(False);
         self.marginY0.blockSignals(True); self.marginY0.setValue( self.margins[1]); self.marginY0.blockSignals(False);
@@ -293,14 +293,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         iz    = int( self.bxZ.value() )
         self.bxX.blockSignals(True); self.bxX.setValue( self.shifts[iz][0] ); self.bxX.blockSignals(False);
         self.bxY.blockSignals(True); self.bxY.setValue( self.shifts[iz][1] ); self.bxY.blockSignals(False);
-        
+
         self.updateDataView()
         self.bxChannel.setEnabled(True)
         self.bxZ.setEnabled(True)
-        self.bxX.setEnabled(True) 
-        self.bxY.setEnabled(True) 
-        self.btMagicAll.setEnabled(True) 
-        self.btMagic.setEnabled(True) 
+        self.bxX.setEnabled(True)
+        self.bxY.setEnabled(True)
+        self.btMagicAll.setEnabled(True)
+        self.btMagic.setEnabled(True)
         self.btSaveImg.setEnabled(True)
         self.bxNi.setEnabled(True)
         self.btInterp.setEnabled(True)
@@ -331,7 +331,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.bxZ.setRange( 0, len(self.data)-1 )
         print ('slice_lengths = ', self.slice_lengths)
 
-    def saveData(self):        
+    def saveData(self):
         self.slices_to_save = str(self.txSliceSave.text())
         if self.slices_to_save:
             print ('slices_to_save = ', self.slices_to_save)
@@ -347,21 +347,21 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             slices_indexes = [int(i) for i in linearrframes]
 
             print('slices_to_save = ',slices_indexes)
-            
+
             arr = np.array(self.data)
             endx = arr.shape[2]-self.margins[2]
             endy = arr.shape[1]-self.margins[3]
-            arr = arr[slices_indexes,self.margins[1]:endy,self.margins[0]:endx]  
-            
- 
+            arr = arr[slices_indexes,self.margins[1]:endy,self.margins[0]:endx]
+
+
         else:
             arr = np.array(self.data)
             print ("dat.shape ", arr.shape)
             endx = arr.shape[2]-self.margins[2]
             endy = arr.shape[1]-self.margins[3]
-            arr = arr[:,self.margins[1]:endy,self.margins[0]:endx]  
+            arr = arr[:,self.margins[1]:endy,self.margins[0]:endx]
             print ("arr.shape ", arr.shape)
-            
+
 
         print ("saveData: arr.shape ", arr.shape )
 
@@ -374,17 +374,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             ny=arr.shape[2]/self.divNY * self.divNY
             arr_ = arr[:,:nx,:ny]
             arr_ = arr_.transpose((2,1,0)) # save array with AFM data in (x,y,z) format
-            
+
             print ("saveData: arr_.shape ", arr_.shape)
- 
+
 
             np.savez_compressed( self.path+"data.npz", data = arr_, lengthX = lengthX, lengthY = lengthY)
         else:
             arr = arr.transpose((2,1,0)) # save array with AFM data in (x,y,z) format
-            
+
             np.savez_compressed( self.path+"data.npz", data = arr, lengthX = lengthX, lengthY = lengthY)
 
-        '''    
+        '''
         with open(self.path+'data.pickle', 'wb') as fp:
             if self.slices_to_save:
                 pickle.dump( [self.fnames[i] for i in slices_indexes], fp)
@@ -398,17 +398,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 pickle.dump( self.slice_lengths, fp)
 
         '''
-        
+
     def loadNPZ(self):
         self.path = self.txPath.text()
         if self.path[-1] is not '/':
             self.path   += '/'
-        
+
         # load image data from data.npz
         data = []
         data2 = []
         npzfile = np.load(self.path+'data.npz')
-        data =npzfile['data'] 
+        data =npzfile['data']
         lenX = npzfile['lengthX'].astype(float).item()
         lenY = npzfile['lengthY'].astype(float).item()
         self.slice_lengths = [[lenX ,lenY ]]*data.shape[2]
@@ -419,24 +419,24 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.data = [ s for s in data ]
 
-        data2=copy.copy(self.data)        
+        data2=copy.copy(self.data)
         self.data2= data2 #np.reshape(z, (5,5)) #data
         print ('data npz loaded')
 
         # load meta data from data.pickle about file names, shifts, lengths
-        
 
-        
+
+
         self.shifts = [ [0,0] for i in range(len(self.data)) ]
 
- 
 
-        self.margins = [0,0,0,0]  
+
+        self.margins = [0,0,0,0]
         self.bxZ.setRange( 0, len(self.data)-1 );
         self.bxChannel.setEnabled(False)
         iz    = int( self.bxZ.value() )
         self.bxX.setValue( self.shifts[iz][0] )
-        self.bxY.setValue( self.shifts[iz][1] )         
+        self.bxY.setValue( self.shifts[iz][1] )
 
 
         self.marginX0.blockSignals(True); self.marginX0.setValue( self.margins[0]); self.marginX0.blockSignals(False);
@@ -446,10 +446,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.updateDataView()
         self.bxChannel.setEnabled(True)
         self.bxZ.setEnabled(True)
-        self.bxX.setEnabled(True) 
-        self.bxY.setEnabled(True) 
-        self.btMagicAll.setEnabled(True) 
-        self.btMagic.setEnabled(True) 
+        self.bxX.setEnabled(True)
+        self.bxY.setEnabled(True)
+        self.btMagicAll.setEnabled(True)
+        self.btMagic.setEnabled(True)
         self.btSaveImg.setEnabled(True)
         self.bxNi.setEnabled(True)
         self.btInterp.setEnabled(True)
@@ -481,16 +481,16 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         print (self.shifts)
         image=self.data2[iz]
-        self.data[iz]=nimg.shift (image, (iy,ix), order=3,mode='mirror' )   
+        self.data[iz]=nimg.shift (image, (iy,ix), order=3,mode='mirror' )
         #self.data[iz] = np.roll( self.data[iz], dix, axis=0 )
-        
+
 
         #self.data[iz] = np.roll( self.data[iz], diy, axis=1 )
 
         self.updateDataView()
 
     def marginData(self):
- 
+
         imarginx0 = int(self.marginX0.value()); self.margins[0] = imarginx0
         imarginx1 = int(self.marginX1.value()); self.margins[2] = imarginx1
         imarginy0 = int(self.marginY0.value()); self.margins[1] = imarginy0
@@ -500,13 +500,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         for z_slice in range(len(self.data)):
             marged_size = (image_shape[0]-imarginx0-imarginx1, image_shape[1]-imarginy0-imarginy1)
             print ('marged_size =',marged_size)
-            #print 'self.max_length  =', self.max_length 
-           
+            #print 'self.max_length  =', self.max_length
+
             self.slice_lengths[z_slice] = [marged_size[0]*  self.max_length[0]/image_shape[0]   , marged_size[1]*  self.max_length[1]/image_shape[1] ]
             #print 'self.slice_lengths[z_slice]  =', self.slice_lengths[z_slice]
-   
-        #self.margins = [start_xy,image_shape[0] -scaled_size - start_xy ,image_shape[1] -scaled_size - start_xy ,start_xy]    
- 
+
+        #self.margins = [start_xy,image_shape[0] -scaled_size - start_xy ,image_shape[1] -scaled_size - start_xy ,start_xy]
+
         print ('margins = ', self.margins)
         print ('slice_lengths = ', self.slice_lengths )
 
@@ -537,7 +537,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def updateDataView(self):
         iz    = int( self.bxZ.value() )
         grid_selector = int(self.checkbox.checkState())
-        #t1 = time.clock() 
+        #t1 = time.clock()
         #iz = self.selectDataView()
         #print 'self.margins', self.margins
         #f =np.fft.fft2(self.data[iz])
@@ -563,4 +563,3 @@ if __name__ == "__main__":
     aw = ApplicationWindow()
     aw.show()
     sys.exit(qApp.exec_())
-

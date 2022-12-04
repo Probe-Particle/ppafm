@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
@@ -7,7 +7,7 @@ import __main__ as main
 import numpy as np
 import matplotlib.pyplot as plt
 #import GridUtils as GU
-import ppafm                as PPU     
+import ppafm                as PPU
 import ppafm.GridUtils      as GU
 from scipy.interpolate import interp1d
 from optparse import OptionParser
@@ -20,7 +20,7 @@ def find_minimum(array,precision=0.0001):
         i+=1
 
 
-    
+
 HELP_MSG="""Use this program in the following way:
 """+os.path.basename(main.__file__) +""" -p "X1xY1" [-p "X2xY2" ...]  """
 
@@ -98,22 +98,22 @@ for iq,Q in enumerate( Qs ):
                     y=float(p.split('x')[1])
                     x_pos=int(x/scan_step)
                     y_pos=int(y/scan_step)
-                    
+
                     Zplot=np.zeros(fzs.shape[0])
                     Fplot=np.zeros(fzs.shape[0])
                     DFplot=np.zeros(fzs.shape[0])
-                    
-                    
+
+
                     for k in range(0,fzs.shape[0]):
                             Fplot[k]=fzs[-k-1][y_pos][x_pos]
                             Zplot[k]=scan_max-scan_step*k
-                    
-                    
-                    # shifting the df plot 
+
+
+                    # shifting the df plot
                     for k in range(0,dfs.shape[0]-1):
                             DFplot[k+(int)(Amp/scan_step/2)]=dfs[-k-1][y_pos][x_pos]
-                    
-                    
+
+
                     xnew = np.linspace(Zplot[0], Zplot[-1], num=41, endpoint=True)
                     F_interp=interp1d(Zplot, Fplot,kind='cubic')
                     fig,ax1 = plt.subplots()
@@ -122,12 +122,12 @@ for iq,Q in enumerate( Qs ):
                     ax1.set_ylabel('Force (eV/$\AA$)', color='black')
                     for tl in ax1.get_yticklabels():
                         tl.set_color('black')
-                    
-                
-                
-                
+
+
+
+
                     F_interp=interp1d(Zplot, DFplot,kind='cubic')
-                    
+
                     ax2=ax1.twinx()
 #                   min_index= np.argmin(DFplot)
                     min_index= find_minimum(DFplot)
@@ -138,11 +138,11 @@ for iq,Q in enumerate( Qs ):
                     ax2.set_ylabel('Frequency shift (Hz)', color='b')
                     for tl in ax2.get_yticklabels():
                         tl.set_color('b')
-                    ax2.text(Zplot[min_index]+0.02, DFplot[min_index]-1.0, 
-                             'x:{:4.2f} ($\AA$); y:{:4.2f} (Hz)'.format(Zplot[min_index], 
-                             DFplot[min_index]), style='italic', 
+                    ax2.text(Zplot[min_index]+0.02, DFplot[min_index]-1.0,
+                             'x:{:4.2f} ($\AA$); y:{:4.2f} (Hz)'.format(Zplot[min_index],
+                             DFplot[min_index]), style='italic',
                              bbox={'facecolor':'blue', 'alpha':0.5, 'pad':0})
-                    
+
                     plt.axhline(y=0, color='black', ls='-.')
                     perplane=fig.add_axes([0.65, 0.6, 0.25, 0.25])
 #                    perplane.imshow(dfs[min_index+int(0.5/scan_step),:, :], origin='upper', cmap='gray')
@@ -153,6 +153,5 @@ for iq,Q in enumerate( Qs ):
                     perplane.axis('off')
 
 
-                    
+
                 plt.show()
-                

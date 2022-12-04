@@ -1,11 +1,11 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
 import sys
 
 import numpy as np
-import matplotlib.pyplot as plt   
+import matplotlib.pyplot as plt
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import ppafm.GridUtils      as GU
@@ -66,5 +66,5 @@ np.savetxt( "Fquad.dat", Fquad )
 
 
 
-                    
+
 plt.show()

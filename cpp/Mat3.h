@@ -567,4 +567,3 @@ inline void convert( const Mat3d& from, Mat3f& to ){ convert( from.a, to.a ); co
 inline Mat3f toFloat( const Mat3d& from){ Mat3f to; convert( from.a, to.a ); convert( from.b, to.b ); convert( from.c, to.c ); return to; }
 
 #endif
-

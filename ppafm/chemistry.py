@@ -134,7 +134,7 @@ def trisToPoints(tris,ps):
 
 def removeBorderAtoms(ps,cog,R):
     rnds = np.random.rand(len(ps))
-    r2s  = np.sum((ps-cog[None,:])**2, axis=1)  #;print "r2s ", r2s, R*R 
+    r2s  = np.sum((ps-cog[None,:])**2, axis=1)  #;print "r2s ", r2s, R*R
     mask = rnds > r2s/(R*R)
     return mask
 
@@ -168,11 +168,11 @@ def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
 
     atom_pos = ( ring_pos[atom2ring[:,0]] + ring_pos[atom2ring[:,1]] + ring_pos[atom2ring[:,2]] )/3.0
     bonds,_  = tris2num_(tris, bonds_)
-    
+
     atom_pos, bonds, atom2ring, = removeAtoms( atom_pos, bonds, atom2ring, cog, Lrange )
     bonds = np.array(bonds)
-    
-    # --- select aromatic hexagons as they have more pi-character 
+
+    # --- select aromatic hexagons as they have more pi-character
     ring_natm   = getRingNatom(atom2ring,len(ring_neighs))
     ring_N6mask = np.logical_and( ring_natm[:]==6, ring_nngs[:]==6 )
     atom_N6mask = np.logical_or( ring_N6mask[atom2ring[:,0]],
@@ -180,11 +180,11 @@ def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
                                  ring_N6mask[atom2ring[:,2]]  ) )
 
     neighs  = bonds2neighs( bonds, len(atom_pos) )    # ;print neighs
-    nngs    = np.array([ len(ngs) for ngs in neighs ],dtype=np.int) 
-    
+    nngs    = np.array([ len(ngs) for ngs in neighs ],dtype=np.int)
+
     atypes=nngs.copy()-1
     atypes[atom_N6mask]=3
-    
+
     return atom_pos,bonds, atypes, nngs, neighs, ring_bonds, atom_N6mask
 
 # ===========================
@@ -268,7 +268,7 @@ group_definition = {
 "=O"   :("O" ,3, 2,1,1, 2,0,2),
 
 "*C"   :("C", 3, 4,3,1, 0,0,0),
-"*N+"  :("N", 3, 4,3,1, 0,0,0), 
+"*N+"  :("N", 3, 4,3,1, 0,0,0),
 
 "#CH"  :("C", 2, 3,1,2, 1,1,0),
 "#N"   :("N", 2, 3,1,2, 1,0,1),
@@ -290,7 +290,7 @@ ndir = nsigma + nt
 
 def normalize(v):
     l  = np.sqrt(np.dot(v,v))
-    v/=l 
+    v/=l
     return v,l
 
 def makeTetrahedron(db,up):
@@ -351,7 +351,7 @@ def groups2atoms( groupNames, neighs, ps ):
             nH     = g[6]
             elems.append(g[0])
             xyzs.append(pi.copy())
-            
+
             if      ( ndir==4 ):  # ==== tetrahedral
                 flip = np.random.randint(2)*2-1
                 if   (nsigma==1):     # like -CH3
@@ -365,21 +365,21 @@ def groups2atoms( groupNames, neighs, ps ):
                     if nH==1:
                         elems.append("H")
                         xyzs.append(pi+up*flip)
-                    
+
             elif ( ndir==3 ):  # ==== triangular
                 if   (nsigma==1):     # like =CH2
                     txyz  = makeTriFork(pi-ps[ngs[0]],up) + pi[None,:]
                     appendHs( txyz, Hmasks2[nH], elems, xyzs )
                 elif (nsigma==2):    # like  =CH-
                     appendHs(  normalize( pi*2 - ps[ngs[0]] - ps[ngs[1]] )[0] + pi[None,:] , [(1,)], elems, xyzs )
-                    
+
             elif ( ndir==2 ):  # ==== linear
                 appendHs( normalize( pi-ps[ngs[0]] )[0] + pi[None,:], [(1,) ], elems, xyzs )
-            
+
         else:
             print("Group >>%s<< not known" %name)
     print("len(xyzs), len(elems) ", len(xyzs), len(elems))
-    for xyz in xyzs: 
+    for xyz in xyzs:
         print(len(xyz), end=' ')
         if len(xyz) != 3:
             print(xyz)
@@ -396,7 +396,7 @@ class FIRE:
     t_dec        = 0.5
     falpha       = 0.98
     kickStart    = 1.0
-    
+
     def __init__(self, dt_max=0.2, dt_min=0.01, damp_max=0.2, f_limit=10.0, v_limit=10.0 ):
         self.dt       = dt_max
         self.dt_max   = dt_max
@@ -406,19 +406,19 @@ class FIRE:
         self.v_limit  = v_limit
         self.f_limit  = f_limit
         self.bFIRE    = True
-        
+
         self.lastNeg = 0
-    
+
     def move(self,p,f):
         if self.v is None:
             self.v=np.zeros(len(p))
         v=self.v
-        
+
         f_norm = np.sqrt( np.dot(f,f) )
         v_norm = np.sqrt( np.dot(v,v) )
         vf     =          np.dot(v,f)
         dt_sc  = min( min(1.0,self.f_limit/(f_norm+1e-32)), min(1.0,self.v_limit/(v_norm+1e-32)) )
-        
+
         if self.bFIRE:
             if ( vf < 0.0 ) or ( dt_sc < 0.0 ):
                 self.dt      = max( self.dt * self.t_dec, self.dt_min );
@@ -433,7 +433,7 @@ class FIRE:
                 self.lastNeg+=1
         else:
             v[:] *= (1-self.damp_max)
-        
+
         dt_ = self.dt * dt_sc
         v[:] += f[:]*dt_
         p[:] += v[:]*dt_
@@ -464,8 +464,8 @@ def assignAtomBOFF(atypes, typeEs):
         typeMasks[it,:] = ( atypes[:] == it )
         Efunc = Akima1DInterpolator(Xs,typeEs[it])
         Ffunc = Efunc.derivative()
-        typeFFs.append(Ffunc) 
-    return typeMasks, typeFFs 
+        typeFFs.append(Ffunc)
+    return typeMasks, typeFFs
 
 def relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.01, nMaxStep=1000, EboStart=0.0, EboEnd=10.0, boStart=None, optimizer=None ):
     nt=typeMasks.shape[0]
@@ -478,22 +478,22 @@ def relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.01, nMaxStep=1000, EboSta
     fb=np.empty(nb)
     fa=np.empty(na)
     ao=np.empty(na)        # + 0.5 # initial guess
-    
+
     if optimizer is None:
         optimizer = FIRE()
-    
+
     for itr in range(nMaxStep):
-        
+
         # -- update Atoms
         ao[:] = 0
         for ib,(i,j) in enumerate(bonds):
             boi = bo[ib]
             ao[i] += boi
             ao[j] += boi
-        
+
         for it in range(nt):
             Ffunc     = typeFFs[it]
-            mask      = typeMasks [it] 
+            mask      = typeMasks [it]
             fa[mask]  = Ffunc( ao[mask] )
         fb  = fa[bonds[:,0]] + fa[bonds[:,1]]
         Ebo = (EboEnd-EboStart)*(itr/float(nMaxStep-1)) + EboStart
@@ -501,10 +501,10 @@ def relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.01, nMaxStep=1000, EboSta
 
         fb[:]*=-1
         f_norm = optimizer.move(bo,fb)
-        
+
         if f_norm < fConv:
             break
-        
+
     return bo,ao
 
 def estimateBondOrder( atypes, bonds, E12=0.5, E22=+0.5, E32=+0.5 ):
@@ -539,7 +539,7 @@ def getForceIvnR24( ps, Rs ):
 def relaxAtoms( ps, aParams, FFfunc=getForceIvnR24, fConv=0.001, nMaxStep=1000, optimizer=None ):
     if optimizer is None:
         optimizer = FIRE()
-    
+
     f_debug = []
     for itr in range(nMaxStep):
         fs = FFfunc(ps,aParams)
@@ -547,6 +547,5 @@ def relaxAtoms( ps, aParams, FFfunc=getForceIvnR24, fConv=0.001, nMaxStep=1000, 
         if f_norm < fConv:
             break
         f_debug.append(f_norm)
-    
-    return ps
 
+    return ps

@@ -29,7 +29,7 @@ npoly = 5
 
 def evalPoly(xs, coefs):
     ys  = np.zeros( (coefs.shape[1], len(xs)) )
-    xns = ys + 1 
+    xns = ys + 1
     for c in coefs:
         ys += xns*c[:,None]
         xns *= xs[None,:]
@@ -109,6 +109,3 @@ for i,p in enumerate(ps):
 '''
 
 #plt.show()
-
-
-

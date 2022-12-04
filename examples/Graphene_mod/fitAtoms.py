@@ -70,4 +70,3 @@ plt.xlim(extent[0],extent[1])
 plt.ylim(extent[2],extent[3])
 
 plt.show()
-

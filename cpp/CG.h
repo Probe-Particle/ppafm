@@ -6,7 +6,7 @@
 #include "VecN.h"
 
 
-typedef  void (*DotFunc)( int n, const double * x, double * Ax ); 
+typedef  void (*DotFunc)( int n, const double * x, double * Ax );
 
 class CG{ public:
 
@@ -58,9 +58,9 @@ class CG{ public:
 
     inline void dotA(int n, const double * x, double * Ax){
         if(A){ mdot   (n,n,A,x,Ax); }
-        else { 
+        else {
             if(!dotFunc){ printf( "ERROR in CG : dotFunc not defined !!! \n" ); exit(0); }
-            dotFunc(n    ,x,Ax); 
+            dotFunc(n    ,x,Ax);
         }
     }
 
@@ -88,7 +88,7 @@ class CG{ public:
             VecN::sub( n, b, r, r );  //printf( "DEBUG 2 \n" ); // r = b - A*x
             //printf("r_  "); VecN::print_vector(n, r);
             VecN::set( n, r, p );     //printf( "DEBUG 3 \n" ); // p = r
-            //rho = VecN::dot(n, r,r);  
+            //rho = VecN::dot(n, r,r);
             rho = getErr2(r);
             alpha = 0;
             //printf( "rho %f alpha %f \n", rho, alpha );

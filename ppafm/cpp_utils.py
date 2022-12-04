@@ -1,10 +1,10 @@
 
 import os
 
-recompile = True 
+recompile = True
 lib_ext   ='_lib.so'
 
-def work_dir( v__file__ ): 
+def work_dir( v__file__ ):
     return os.path.dirname( os.path.realpath( v__file__ ) )
 
 PACKAGE_PATH = work_dir( __file__ )
@@ -28,9 +28,9 @@ def compile_lib( name,
     if clean:
         try:
             os.remove( lib_name  )
-            os.remove( name+".o" ) 
+            os.remove( name+".o" )
         except:
-            pass 
+            pass
     os.system("g++ "+FFLAGS+" -c -fPIC "+name+".cpp -o "+name+".o "+LFLAGS )
     os.system("g++ "+FFLAGS+" -shared -Wl,-soname,"+lib_name+" -o "+lib_name+" "+name+".o "+LFLAGS)
     if path is not None:
@@ -95,7 +95,7 @@ def writePointerCall( name, ttype ):
 def writeFuncInterface( parsed ):
     name,ret_type,arg_types,arg_names = parsed
     arg_types_ = [ ]
-    if ret_type=="void" : 
+    if ret_type=="void" :
         ret_type="None"
     else:
         ret_type=translateTypeName(ret_type)[0]
@@ -111,7 +111,7 @@ def writeFuncInterface( parsed ):
 
 def writeFuncInterfaces( func_headers, debug=False ):
     for s in func_headers:
-        parsed = parseFuncHeader( s ); 
+        parsed = parseFuncHeader( s );
         if debug : print("parsed :\n", parsed)
         sgen   = writeFuncInterface( parsed )
         print("\n# ", s)

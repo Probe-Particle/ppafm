@@ -5,7 +5,7 @@ import numpy as np
 #import matplotlib.pyplot as plt
 import sys
 
-import ppafm                as PPU     
+import ppafm                as PPU
 import ppafm.GridUtils      as GU
 import ppafm.core           as PPC
 import ppafm.HighLevel      as PPH
@@ -46,7 +46,7 @@ if __name__=="__main__":
     parser.add_option( "-V","--Vbias",       action="store", type="float", help="Aplied bias [V]" )
     parser.add_option( "--Vrange",       action="store", type="float", help="Bias range [V]", nargs=3 )
     parser.add_option( "--pol_t", action="store", type="float", default=1.0, help="scaling factor for tip polarization")
-    parser.add_option( "--pol_s", action="store", type="float", default=1.0, help="scaling factor for sample polarization")    
+    parser.add_option( "--pol_s", action="store", type="float", default=1.0, help="scaling factor for sample polarization")
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
     PPU.loadParams( 'params.ini' )
@@ -83,14 +83,14 @@ if __name__=="__main__":
         Vs = [0.0]
     for iV,Vx in enumerate(Vs):
         if ( abs(Vx) > 1e-7):
-            aplied_bias=True       
-    
+            aplied_bias=True
+
     if (aplied_bias == True):
-        print("Vs   =", Vs)        
-    print("Ks   =", Ks) 
-    print("Qs   =", Qs) 
-    #print "Amps =", Amps 
-    
+        print("Vs   =", Vs)
+    print("Ks   =", Ks)
+    print("Qs   =", Qs)
+    #print "Amps =", Amps
+
     print(" ============= RUN  ")
     FFLJ, FFel, FFboltz,FFkpfm_t0sV, FFkpfm_tVs0=None,None,None,None,None
     if ( charged_system == True):
@@ -114,8 +114,8 @@ if __name__=="__main__":
     print(" load Lenard-Jones Force-field ")
     FFLJ, lvec, nDim = GU.load_vec_field( "FFLJ" , data_format=options.data_format)
     FFLJ[0,:,:,:],FFLJ[1,:,:,:] = rotFF( FFLJ[0,:,:,:],FFLJ[1,:,:,:], opt_dict['rotate'] )
-    lvec[1,:] = rotVec( lvec[1,:], opt_dict['rotate'] ) 
-    lvec[2,:] = rotVec( lvec[2,:], opt_dict['rotate'] ) 
+    lvec[1,:] = rotVec( lvec[1,:], opt_dict['rotate'] )
+    lvec[2,:] = rotVec( lvec[2,:], opt_dict['rotate'] )
     print(lvec)
     PPU.lvec2params( lvec )
 
@@ -160,7 +160,6 @@ if __name__=="__main__":
                     print("Calculating current from tip to the Boltzmann particle:")
                     I_in, lvec, nDim = GU.load_scal_field('I_boltzmann',
                     data_format=iptions.data_format)
-                    I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None ) 
+                    I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None )
                     del I_in;
                     GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,  data_format=options.data_format)
-

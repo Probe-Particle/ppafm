@@ -144,5 +144,3 @@ lib.setOptFIRE.argtypes = [ c_double, c_double, c_double, c_int    , c_double , 
 lib.setOptFIRE.restype  = None
 def setOptFIRE( dt_max=0.05, dt_min=0.005, damp_max=0.1, minLastNeg=5, finc=1.1, fdec=0.5, falpha=0.98, kickStart=1.0 ):
     lib.setOptFIRE( dt_max, dt_min, damp_max, minLastNeg, finc, fdec, falpha, kickStart )
-
-

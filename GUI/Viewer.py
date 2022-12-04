@@ -16,7 +16,7 @@ from enum import Enum
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 from   ppafm import    basUtils
-from   ppafm import    PPPlot 
+from   ppafm import    PPPlot
 import ppafm.GridUtils as GU
 #import ppafm.common    as PPU
 #import ppafm.cpp_utils as cpp_utils
@@ -52,7 +52,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb);
         self.leFile2=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect( lambda: self.load(1) ); vb.addWidget(wg)
         self.bxCoef2=wg=QtWidgets.QDoubleSpinBox(); wg.setRange(-10.0, 10.0); wg.setValue(0.0); wg.setSingleStep(0.05); wg.valueChanged.connect(self.updateLincomb); vb.addWidget(wg);
-        
+
         vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb);
         self.bxZ=wg=QtWidgets.QSpinBox();  wg.setRange(0,300); wg.setSingleStep(1); wg.setValue(10); wg.valueChanged.connect(self.updateDataView); vb.addWidget(wg);
 
@@ -98,7 +98,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         except Exception as e:
             print("cannot load file: ", fname)
             print(e)
-        
+
     def updateLincomb(self ):
         self.label = ""
         if self.items[0][0] is not None:
@@ -136,4 +136,3 @@ if __name__ == "__main__":
     aw = ApplicationWindow()
     aw.show()
     sys.exit(qApp.exec_())
-

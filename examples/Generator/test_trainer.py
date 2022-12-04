@@ -2,8 +2,8 @@
 import sys
 sys.path.append('../..')
 
-from ppafm.ocl import oclUtils as oclu 
-from ppafm.ocl import field    as FFcl 
+from ppafm.ocl import oclUtils as oclu
+from ppafm.ocl import field    as FFcl
 from ppafm.ocl import relax    as oclr
 from ppafm import common       as PPU
 from ppafm import basUtils
@@ -86,7 +86,7 @@ for Xs, Ys, mols in trainer:
         plt.tight_layout()
         plt.savefig(os.path.join(save_dir, f'{counter}_auxmaps.png'))
         plt.close()
-        
+
         mol = mols[j]
         basUtils.saveXYZ(os.path.join(save_dir, f'{counter}_mol.xyz'), mol[:, :3], mol[:, 4].astype(np.int32), mol[:, 3])
 

@@ -9,12 +9,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import elements
 
-#print dir( elements ) 
+#print dir( elements )
 
 
 import basUtils
 
-print(" # ========== make & load  ProbeParticle C++ library ") 
+print(" # ========== make & load  ProbeParticle C++ library ")
 
 def makeclean( ):
 	import os
@@ -22,7 +22,7 @@ def makeclean( ):
 	[ os.remove(f) for f in os.listdir(".") if f.endswith(".o") ]
 	[ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
 
-#makeclean( )  # force to recompile 
+#makeclean( )  # force to recompile
 
 import  ProbeParticle as PP
 
@@ -37,30 +37,30 @@ print(" # ============ define atoms ")
 #bas      = basUtils.loadBas('GrN6x6.bas')[0]
 
 atoms    = basUtils.loadAtoms('input.xyz')
-Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
+Rs       = np.array([atoms[1],atoms[2],atoms[3]]);
 iZs      = np.array( atoms[0])
 
 if not PP.params['PBC' ]:
 	print(" NO PBC => autoGeom ")
 	PP.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
-	print(" NO PBC => params[ 'gridA'   ] ", PP.params[ 'gridA' ]) 
+	print(" NO PBC => params[ 'gridA'   ] ", PP.params[ 'gridA' ])
 	print(" NO PBC => params[ 'gridB'   ] ", PP.params[ 'gridB'   ])
 	print(" NO PBC => params[ 'gridC'   ] ", PP.params[ 'gridC'   ])
 	print(" NO PBC => params[ 'scanMin' ] ", PP.params[ 'scanMin' ])
 	print(" NO PBC => params[ 'scanMax' ] ", PP.params[ 'scanMax' ])
 
 
-#Rs[0] += PP.params['moleculeShift' ][0]          # shift molecule so that we sample reasonable part of potential 
-#Rs[1] += PP.params['moleculeShift' ][1]          
-#Rs[2] += PP.params['moleculeShift' ][2]          
-Rs     = np.transpose( Rs, (1,0) ).copy() 
+#Rs[0] += PP.params['moleculeShift' ][0]          # shift molecule so that we sample reasonable part of potential
+#Rs[1] += PP.params['moleculeShift' ][1]
+#Rs[2] += PP.params['moleculeShift' ][2]
+Rs     = np.transpose( Rs, (1,0) ).copy()
 
 Qs = np.array( atoms[4] )
 
 if PP.params['PBC' ]:
 	iZs,Rs,Qs = PP.PBCAtoms( iZs, Rs, Qs, avec=PP.params['gridA'], bvec=PP.params['gridB'] )
 
-print("shape( Rs )", np.shape( Rs )); 
+print("shape( Rs )", np.shape( Rs ));
 #print "Rs : ",Rs
 
 
@@ -68,7 +68,7 @@ print(" # ============ define Scan and allocate arrays   - do this before simula
 
 dz    = PP.params['scanStep'][2]
 zTips = np.arange( PP.params['scanMin'][2], PP.params['scanMax'][2]+0.00001, dz )[::-1];
-ntips = len(zTips); 
+ntips = len(zTips);
 print(" zTips : ",zTips)
 rTips = np.zeros((ntips,3))
 rs    = np.zeros((ntips,3))
@@ -76,7 +76,7 @@ fs    = np.zeros((ntips,3))
 
 rTips[:,0] = 1.0
 rTips[:,1] = 1.0
-rTips[:,2] = zTips 
+rTips[:,2] = zTips
 
 PP.setTip()
 
@@ -97,7 +97,7 @@ cell =np.array([
 PP.params['gridA'],
 PP.params['gridB'],
 PP.params['gridC'],
-]).copy() 
+]).copy()
 
 gridN = PP.params['gridN']
 
@@ -123,7 +123,7 @@ for i in range(nslice):
 '''
 
 withElectrostatics = ( abs( PP.params['charge'] )>0.001 )
-if withElectrostatics: 
+if withElectrostatics:
 	print(" # =========== Sample Coulomb ")
 	FFel = np.zeros( np.shape( FF ) )
 	CoulombConst = -14.3996448915;  # [ e^2 eV/A ]
@@ -161,7 +161,7 @@ for ix,x in enumerate( xTips  ):
 		#	print " bad convergence > %i iterations per pixel " % itrav
 		#	print " exiting "
 		#	break
-		
+
 
 print(" # ============  convert Fz -> df ")
 
@@ -171,7 +171,7 @@ print(" # ============  Plot Relaxed Scan 3D ")
 
 #slices = range( PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy'] )
 #print "plotSliceFrom, plotSliceTo, plotSliceBy : ", PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy']
-#print slices 
+#print slices
 #nslice = len( slices )
 
 slices = list(range( 0, len(dfs)))
@@ -181,7 +181,7 @@ for ii,i in enumerate(slices):
 	plt.figure( figsize=( 10,10 ) )
 	plt.imshow( dfs[i], origin='upper', interpolation=PP.params['imageInterpolation'], cmap=PP.params['colorscale'], extent=extent )
 #	z = zTips[i] - PP.params['moleculeShift' ][2]
-	z = zTips[i] 
+	z = zTips[i]
 	plt.colorbar();
 	plt.xlabel(r' Tip_x $\AA$')
 	plt.ylabel(r' Tip_y $\AA$')
@@ -192,4 +192,3 @@ for ii,i in enumerate(slices):
 print(" ***** ALL DONE ***** ")
 
 #plt.show()
-

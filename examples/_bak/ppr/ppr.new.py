@@ -72,5 +72,3 @@ for iq,Q in enumerate( Qs ):
 print(" ***** ALL DONE ***** ")
 
 #plt.show()
-
-

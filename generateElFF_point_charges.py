@@ -5,9 +5,9 @@ import os
 import __main__ as main
 
 
-import ppafm                as PPU     
+import ppafm                as PPU
 from   ppafm            import basUtils
-from   ppafm            import elements   
+from   ppafm            import elements
 import ppafm.GridUtils      as GU
 import ppafm.HighLevel      as PPH
 import ppafm.fieldFFT       as fFFT
@@ -38,8 +38,8 @@ if __name__=="__main__":
     V=None
     atoms,nDim,lvec=basUtils.loadGeometry(options.input, params=PPU.params)
     if os.path.isfile( 'atomtypes.ini' ):
-        print ">> LOADING LOCAL atomtypes.ini"  
-        FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+        print ">> LOADING LOCAL atomtypes.ini"
+        FFparams=PPU.loadSpecies( 'atomtypes.ini' )
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
     iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC =PPU.params['PBC'],FFparams=FFparams )
@@ -50,4 +50,3 @@ if __name__=="__main__":
         GU.save_scal_field( 'Vel', V, lvec, data_format=options.data_format)
     del FFel,V;
     '''
-

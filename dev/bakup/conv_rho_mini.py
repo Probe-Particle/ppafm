@@ -1,7 +1,7 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 
 '''
-Version of conv_rho.py ( i.e. convolution of electron densities density ) which is optimized to minimize size of datafiles and therefore also run-time of hard-disk I/O operations. 
+Version of conv_rho.py ( i.e. convolution of electron densities density ) which is optimized to minimize size of datafiles and therefore also run-time of hard-disk I/O operations.
 The goal is achieve efficient calculation of AFM images with density-overlap for thousands of molecules (e.g. fr Machine-Learning application).
 '''
 
@@ -63,9 +63,3 @@ np.savez_compressed( "E"+namestr+"_mini.npz", Ecut*(PQ*-1.0) )
 #GU.saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ,       lvec1, head=head1 )
 #GU.saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ,       lvec1, head=head1 )
 #Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
-
-
-
-
-
-

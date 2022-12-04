@@ -6,7 +6,7 @@ import __main__ as main
 
 
 import ppafm                as PPU
-#from   ppafm            import elements   
+#from   ppafm            import elements
 import ppafm.GridUtils      as GU
 import ppafm.fieldFFT       as fFFT
 import ppafm.HighLevel      as PPH
@@ -38,23 +38,23 @@ if __name__=="__main__":
     parser.add_option("--z0", action="store",type="float", default=0.0 ,help="heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
     (options, args) = parser.parse_args()
 
-    #print "options.tip_dens ", options.tip_dens;  exit() 
+    #print "options.tip_dens ", options.tip_dens;  exit()
 
     if options.input is None:
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
     opt_dict = vars(options)
 
     if os.path.isfile( 'params.ini' ):
-        FFparams=PPU.loadParams( 'params.ini' ) 
+        FFparams=PPU.loadParams( 'params.ini' )
     else:
-        print(">> LOADING default params.ini >> 's' =")  
+        print(">> LOADING default params.ini >> 's' =")
         FFparams = PPU.loadParams( cpp_utils.PACKAGE_PATH+'/defaults/params.ini' )
     #PPU.loadParams( 'params.ini' )
-    PPU.apply_options(opt_dict)    
+    PPU.apply_options(opt_dict)
 
     if os.path.isfile( 'atomtypes.ini' ):
-        print(">> LOADING LOCAL atomtypes.ini")  
-        FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+        print(">> LOADING LOCAL atomtypes.ini")
+        FFparams=PPU.loadSpecies( 'atomtypes.ini' )
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
@@ -75,7 +75,7 @@ if __name__=="__main__":
         print(" loading Hartree potential from ",options.input,"...")
         print("Use loadCUBE")
         V, lvec, nDim, head = GU.loadCUBE(options.input)
-    
+
     if PPU.params['tip']==".py":
         #import tip
         exec(compile(open("tip.py", "rb").read(), "tip.py", 'exec'))
@@ -103,7 +103,7 @@ if __name__=="__main__":
 
     if (options.KPFM_sample is not None):
         V_v0_aux = V.copy()
-        V_v0_aux2 = V.copy()    
+        V_v0_aux2 = V.copy()
 
         V_kpfm=None
         sigma=PPU.params['sigma']
@@ -112,7 +112,7 @@ if __name__=="__main__":
             Vref_s = options.Vref
             print(">>> loading Hartree potential  under bias from  ",options.KPFM_sample,"...")
             print("Use loadXSF")
-            V_kpfm, lvec, nDim, head = GU.loadXSF(options.KPFM_sample)    
+            V_kpfm, lvec, nDim, head = GU.loadXSF(options.KPFM_sample)
 
         elif(options.KPFM_sample.lower().endswith(".cube") ):
             Vref_s = options.Vref
@@ -131,7 +131,7 @@ if __name__=="__main__":
         elif(options.KPFM_tip.lower().endswith(".cube")):
             Vref_t = options.Vref
             rho_tip_v0_aux = rho_tip.copy()
-            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = GU.loadCUBE( options.KPFM_tip, hartree=False, borh = options.borh )  
+            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = GU.loadCUBE( options.KPFM_tip, hartree=False, borh = options.borh )
             drho_kpfm = (rho_tip_kpfm - rho_tip_v0_aux)
         elif options.KPFM_tip in {'Fit', 'fit', 'dipole', 'pz'}: #To be put on a library in the near future...
             Vref_t = -0.1
@@ -140,7 +140,7 @@ if __name__=="__main__":
                 sigma = 0.48
                 print(" Select CO-tip polarization ")
             if ( PPU.params['probeType'] == '47' ):
-                drho_kpfm={'pz':-0.21875} 
+                drho_kpfm={'pz':-0.21875}
                 sigma = 0.7
                 print(" Select Ag polarization with decay sigma", sigma)
             if ( PPU.params['probeType'] == '54' ):
@@ -154,7 +154,7 @@ if __name__=="__main__":
             tip_aux_2 = PPU.params['tip']
         FFkpfm_t0sV,Eel_t0sV=PPH.computeElFF(dV_kpfm,lvec,nDim,tip_aux_2,computeVpot=options.energy , tilt=opt_dict['tilt'] ,)
         FFkpfm_tVs0,Eel_tVs0=PPH.computeElFF(V_v0_aux2,lvec,nDim,drho_kpfm,computeVpot=options.energy , tilt=opt_dict['tilt'], sigma=sigma )
-        
+
         print("Linear E to V")
         zpos = np.linspace(lvec[0,2]-options.z0,lvec[3,2]-options.z0,nDim[0])
         for i in range(nDim[0]):
@@ -168,14 +168,10 @@ if __name__=="__main__":
     print(">>> calculating electrostatic forcefiled with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
     #FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
     FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],computeVpot=options.energy , tilt=opt_dict['tilt'] )
-    
+
     print(">>> saving electrostatic forcefiled ... ")
-    
+
     GU.save_vec_field('FFel',FFel,lvec_samp ,data_format=options.data_format, head=head_samp)
     if options.energy:
         GU.save_scal_field( 'Eel', Eel, lvec_samp, data_format=options.data_format)
     del FFel,V;
-    
-    
-    
-    

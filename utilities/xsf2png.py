@@ -12,10 +12,10 @@ import ppafm.GridUtils      as GU
 
 #--- added later just to plot atoms
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm                as PPU   
+import ppafm                as PPU
 import ppafm.PPPlot         as PPPlot
 from   ppafm            import basUtils
-from   ppafm            import elements 
+from   ppafm            import elements
 import ppafm.HighLevel      as PPH
 import ppafm.cpp_utils      as cpp_utils
 
@@ -41,8 +41,8 @@ if options.atoms:
     xyzs, Zs, qs, _ = basUtils.loadXYZ(options.atoms)
     atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
     if os.path.isfile( 'atomtypes.ini' ):
-        print(">> LOADING LOCAL atomtypes.ini")  
-        FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+        print(">> LOADING LOCAL atomtypes.ini")
+        FFparams=PPU.loadSpecies( 'atomtypes.ini' )
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
     iZs,Rs,Qstmp=PPH.parseAtoms(atoms, autogeom = False, PBC = True, FFparams=FFparams )

@@ -1,11 +1,11 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 import os
 import sys
 import __main__ as main
 import numpy as np
 import matplotlib.pyplot as plt
 #import GridUtils as GU
-import ppafm                as PPU     
+import ppafm                as PPU
 import ppafm.GridUtils      as GU
 from scipy.interpolate import interp1d
 from optparse import OptionParser
@@ -37,7 +37,7 @@ def selectLine(BIGarray,MIN,MAX,startingPoint, endPoint, nsteps):
 #    print "TEST", interp([MAX[2], current_pos[1],current_pos[0]])
 #    print "TEST", interp([8.0, current_pos[1],current_pos[0]])
     return np.array(result)
-    
+
 parser = OptionParser()
 parser.add_option("--image",   action="store", type="float", help="position of "
                   "the 2D image (z, xScreen, yScreen)", nargs=3)
@@ -58,8 +58,8 @@ if options.points==[]:
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
-    print(">> LOADING LOCAL atomtypes.ini")  
-    FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+    print(">> LOADING LOCAL atomtypes.ini")
+    FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 else:
     import ppafm.cpp_utils as cpp_utils
     FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
@@ -94,7 +94,7 @@ for p in options.points:
     ymax=float(p[1].split('x')[1])
     zmax=float(p[1].split('x')[2])
     npoints=float(p[2])
-    
+
     print(opt_dict['disp'])
     if opt_dict['disp'] :
         print("Displacment {}".format(opt_dict['disp'][0]))
@@ -128,8 +128,8 @@ for p in options.points:
     Fplt=np.transpose(Fplot)[1].copy()
     Lplot=np.transpose(Fplot)[0].copy()
     F_interp=interp1d(Lplot, Fplt,kind='cubic')
-    # shifting the df plot 
-        
+    # shifting the df plot
+
 #    print "Amplitude", Amp
     scan_min[2]+=Amp[0]/2.0
     scan_max[2]-=Amp[0]/2.0
@@ -150,7 +150,7 @@ for p in options.points:
     with open ("x{}-y{}-z{}.dat".format(xmin,ymin,zmin),'w') as f:
         for val in Fplot :
             f.write("{} {} {} {} {} \n".format(val[0],val[1]*1.60217733e3,val[2],val[3],val[4]))
-    
+
     if not opt_dict['nodisp'] :
         fig,ax1 = plt.subplots()
         ax1.plot(Lplot, Fplt*1.60217733e3, 'ko', Lplot,

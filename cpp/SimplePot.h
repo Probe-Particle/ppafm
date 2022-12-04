@@ -9,7 +9,7 @@
 
 #include "fastmath.h"
 
-//#define GOLDEN_RATIO 
+//#define GOLDEN_RATIO
 
 // https://en.wikipedia.org/wiki/Regular_icosahedron#Cartesian_coordinates
 constexpr double IcosA = 0.52573111211; // 1 / |R|
@@ -61,15 +61,15 @@ class SimplePot{ public:
     int*    nepairs=0;
     int*    nneighs=0;
     Vec3d*  neighs=0;
-    double* Rcovs=0;  /// [A] covant radius 
+    double* Rcovs=0;  /// [A] covant radius
     double* RvdWs=0; /// [A] van der Waals radius
 
-    double barrierWidth = 1.0; // [A]  
+    double barrierWidth = 1.0; // [A]
     double covWidth     = 0.2; // [A]   width of covalent bond range
-    double angWidth     = 0.3; // [rad] 
-    double covAmp       = 1.0; 
+    double angWidth     = 0.3; // [rad]
+    double covAmp       = 1.0;
     double coreAmp      = 5.0;
-    double barrierAmp   = 0.3; 
+    double barrierAmp   = 0.3;
 
     // ========== Functions
 
@@ -125,7 +125,7 @@ class SimplePot{ public:
             if( r2<(R*R) ){
                 double r  = sqrt(r2);
                 // ToDo : barrier energy
-                double sb = (r-Rb)*invCovWidth; 
+                double sb = (r-Rb)*invCovWidth;
                 double Eb = (1-sb*sb)*covAmp;
                 if( Eb>0 ){
                     int nb = nneighs[i];
@@ -155,7 +155,7 @@ class SimplePot{ public:
         for(int i=0; i<natom; i++){
             Vec3d  pi   = apos [i];
             double R    = Rcovs[i] + Rcov;
-            //Vec3d  margin; margin.set(R); 
+            //Vec3d  margin; margin.set(R);
             //if( ! pi.isBetween( pmin-margin, pmax+margin ) ) continue;
             int nb = nneighs[i];
             int j0=i*neighPerAtom;
@@ -169,8 +169,8 @@ class SimplePot{ public:
                     Vec3d d = neighs[j0];
                     Vec3d u,s; d.getSomeOrtho(u,s);
                     Vec2d rot=Vec2dX;
-                    Vec2d drot; drot.fromAngle( 2*M_PI/ncircle ); 
-                    dangs[n]= pi + d*-R; n++; 
+                    Vec2d drot; drot.fromAngle( 2*M_PI/ncircle );
+                    dangs[n]= pi + d*-R; n++;
                     for(int k=0; k<ncircle; k++){
                         dangs[n] = pi + ( d*0.57714519003 + u*(rot.x*0.81664155516) + s*(rot.y*0.81664155516) )*-R;
                         n++;

@@ -112,14 +112,13 @@ ELEMENTS = [
 [        109       ,        "Mt"       ,        7        ,        9        ,        "D"        ,        "Meitnerium"         ,       2.000,   2.00      ,    (235,0,38   )   , 0     ]  ,
 [        110       ,        "Ds"       ,        7        ,        10       ,        "D"        ,        "Darmstadtium"       ,       2.000,   2.00      ,    (128,128,128)   , 0     ]  ,
 [        111       ,        "Rg"       ,        7        ,        1        ,        "D"        ,        "Roentgenium"        ,       2.000,   2.00      ,    (128,128,128)   , 0     ]  ,
-[        112       ,        "Uub"      ,        7        ,        2        ,        "D"        ,        "Ununbium"           ,       2.000,   2.00      ,    (128,128,128)   , 0     ]  
-]                                                                                                                                            
-                                                                                                                                             
-def elementDict( ELEMENTS ):                                                                                                                 
-	dic = { }                                                                                                                            
-	for elem in  ELEMENTS:                                                                                                               
-		dic[ elem[1] ] = elem                                                                                                       
+[        112       ,        "Uub"      ,        7        ,        2        ,        "D"        ,        "Ununbium"           ,       2.000,   2.00      ,    (128,128,128)   , 0     ]
+]
+
+def elementDict( ELEMENTS ):
+	dic = { }
+	for elem in  ELEMENTS:
+		dic[ elem[1] ] = elem
 	return dic
 
 ELEMENT_DICT = elementDict( ELEMENTS )
-

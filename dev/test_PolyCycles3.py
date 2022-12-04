@@ -58,22 +58,22 @@ def T2(s):
     if bTime:
         print("Time spend in : "+s+" [s]: ", time.clock() - t1)
 
-def generateAromaticMolecule( 
+def generateAromaticMolecule(
         N=30, ngons=[5,6,7], ngon_rates=[0.2,0.6,0.2], sz=2.5, bondLenght=1.4,
         E12=0.5, E22=+0.5, E32=+0.5,
-        ne2elem=[ 'C', 'N', 'O' ], epairProb=0.4, bNitrogenFix=True, 
+        ne2elem=[ 'C', 'N', 'O' ], epairProb=0.4, bNitrogenFix=True,
         fname="test_PolyCyclesMMFF.xyz", bMovie=False,
     ):
     T1();  ring_pos, ring_Rs, Lrange = generateRings( N=30, ngons=[5,6,7], ngon_rates=[0.2,0.6,0.2], sz=2.5 )                    ;T2("generateRings")
     T1();  atom_pos,bonds, atypes, nngs, neighs, ring_bonds, atom_N6mask = ch.ringsToMolecule( ring_pos, ring_Rs )               ;T2("ch.ringsToMolecule")
     T1();  bondOrder, atomOrder, _ = ch.estimateBondOrder( atypes, bonds, E12=0.5, E22=+0.5, E32=+0.5 )                          ;T2("ch.estimateBondOrder")
-    
-    T1();  
-    apos = (np.append(atom_pos, np.zeros((len(atom_pos),1)), axis=1) * bondLenght ).copy()                                
-    npis, nepairs, elems = mmff.assignAtomTypes( atomOrder, nngs, epairProb=epairProb, bNitrogenFix=True, ne2elem=[ 'C', 'N', 'O' ] )  
-    apos,atypes,aelems   = mmff.relaxMolecule( apos, bonds, npis, nepairs, elems, fname=fname, bMovie=bMovie )  
+
+    T1();
+    apos = (np.append(atom_pos, np.zeros((len(atom_pos),1)), axis=1) * bondLenght ).copy()
+    npis, nepairs, elems = mmff.assignAtomTypes( atomOrder, nngs, epairProb=epairProb, bNitrogenFix=True, ne2elem=[ 'C', 'N', 'O' ] )
+    apos,atypes,aelems   = mmff.relaxMolecule( apos, bonds, npis, nepairs, elems, fname=fname, bMovie=bMovie )
     T2("mmff.relaxMolecule")
-    
+
     rings      = (ring_pos, ring_Rs, ring_bonds)
     mol2d      = (atom_pos,bonds)
     mol3d      = (apos,atypes,aelems)
@@ -100,41 +100,32 @@ def plotMolecule( atom_pos, bonds=None, bondOrder=None, atom_N6mask=None ):
 
 if __name__ == "__main__":
     np.random.seed(26465)
-    
+
     global bTime
     bTime = True
-    
-    
-    
+
+
+
     t1 = time.clock()
     mol3d,mol2d,rings,atom_conf1,atom_conf2 = generateAromaticMolecule( )
     print("Time to generate molecule [s]: ", time.clock() - t1)
-    
-    (ring_pos, ring_Rs, ring_bonds) = rings 
+
+    (ring_pos, ring_Rs, ring_bonds) = rings
     (atom_pos,bonds)                      = mol2d
     (apos,atypes,aelems)                  = mol3d
-    ( bondOrder, atomOrder, atom_N6mask ) = atom_conf1 
-    ( nngs, npis, nepairs )               = atom_conf2 
-    
+    ( bondOrder, atomOrder, atom_N6mask ) = atom_conf1
+    ( nngs, npis, nepairs )               = atom_conf2
+
     plt.figure()
     plotRings( ring_pos, ring_Rs, ring_bonds )
     plotMolecule( atom_pos, bonds, bondOrder, atom_N6mask )
     plt.axis('equal')
     plt.show()
-    
-    
-    
+
+
+
     bTime = False
-    
+
     for i in range(20):
         print("Generated molecule [%i] " %i)
         generateAromaticMolecule( fname="mol_out/mol_mmff_%04i.xyz" %i )
-
-
-
-
-
-
-
-
-

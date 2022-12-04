@@ -38,7 +38,7 @@ params={
     'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
     'scanTilt': np.array( [  0.0,    0.0,   -0.1 ] ),
     'tiltedScan': False,
-    'kCantilever'  :  1800.0, 
+    'kCantilever'  :  1800.0,
     'f0Cantilever' :  30300.0,
     'Amplitude'    :  1.0,
     'plotSliceFrom':  16,
@@ -62,7 +62,7 @@ params={
 
 def getDfWeight( n, dz=0.1 ):
     '''
-    conversion of vertical force Fz to frequency shift 
+    conversion of vertical force Fz to frequency shift
     according to:
     Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
     oscialltion amplitude of cantilever is A = n * dz
@@ -70,13 +70,13 @@ def getDfWeight( n, dz=0.1 ):
     x  = np.linspace(-1,1,n+1)
     y  = np.sqrt(1-x*x)
     dy =  ( y[1:] - y[:-1] )/(dz*n)
-    fpi    = (n-2)**2 
+    fpi    = (n-2)**2
     prefactor = -1 * ( 1 + fpi*(2/np.pi) ) / (fpi+1) # correction for small n
     return dy*prefactor, (x[1:]+x[:-1])*0.5
 
 def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4, units=16.0217656 ):
     '''
-    conversion of vertical force Fz to frequency shift 
+    conversion of vertical force Fz to frequency shift
     according to:
     Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
     oscialltion amplitude of cantilever is A = n * dz
@@ -87,7 +87,7 @@ def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4
 
 def Fz2df_tilt( F,  d=params['scanTilt'], k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4, units=16.0217656 ):
     '''
-    conversion of vertical force Fz to frequency shift 
+    conversion of vertical force Fz to frequency shift
     according to:
     Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
     oscialltion amplitude of cantilever is A = n * dz
@@ -166,7 +166,7 @@ def autoGridN():
     return params["gridN"]
 
 
-# overide default parameters by parameters read from a file 
+# overide default parameters by parameters read from a file
 def loadParams( fname ):
     if(verbose>0): print(" >> OVERWRITING SETTINGS by "+fname)
     fin = open(fname,'r')
@@ -176,7 +176,7 @@ def loadParams( fname ):
             key = words[0]
             if key in params:
                 val = params[key]
-                if key[0][0] == '#' : continue 
+                if key[0][0] == '#' : continue
                 if(verbose>0): print(key,' is class ', val.__class__)
                 if   isinstance( val, bool ):
                     word=words[1].strip()
@@ -237,7 +237,7 @@ def loadSpecies( fname=None ):
     if(verbose>0): print(" loadSpecies from ", fname)
     #FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',np.int),('symbol', '|S10')],usecols=[0,1,2,3])
     FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',np.int),('symbol', '|S10')],usecols=(0,1,2,3,4))
-    return FFparams 
+    return FFparams
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
 def loadSpeciesLines( lines ):
@@ -282,7 +282,7 @@ def wrapAtomsCell( Rs, da, db, avec, bvec ):
     if(verbose>0): print("ABs.shape", ABs.shape)
     ABs[:,0] = (ABs[:,0] +10+da)%1.0
     ABs[:,1] = (ABs[:,1] +10+db)%1.0
-    Rs[:,:2] = np.dot( ABs, M )   
+    Rs[:,:2] = np.dot( ABs, M )
 
 def PBCAtoms( Zs, Rs, Qs, avec, bvec, na=None, nb=None ):
     '''
@@ -302,7 +302,7 @@ def PBCAtoms( Zs, Rs, Qs, avec, bvec, na=None, nb=None ):
                 Zs_.append( Zs[iatom]          )
                 Rs_.append( (x,y,Rs[iatom][2]) )
                 Qs_.append( Qs[iatom]          )
-    return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy()	
+    return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy()
 
 def PBCAtoms3D( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
     '''
@@ -336,7 +336,7 @@ def findPBCAtoms3D_cutoff( Rs, lvec, Rcut=1.0, corners=None ):
     '''
     find which atoms with positions 'Rs' and radius 'Rcut' thouch rhombic cell defined by 3x3 matrix 'lvec';
        or more precisely which points 'Rs' belong to a rhombic cell enlarged by margin Rcut on each side
-    all assuming that 'Rcut' is smaller than the rhombic cell (in all directions)  
+    all assuming that 'Rcut' is smaller than the rhombic cell (in all directions)
     '''
     invLvec = np.linalg.inv(lvec)
     abc = np.dot( invLvec, Rs )  # atoms in grid coordinates
@@ -352,7 +352,7 @@ def findPBCAtoms3D_cutoff( Rs, lvec, Rcut=1.0, corners=None ):
     c = abc[2];
     i = 0
     for ia in cells:
-        mask_a  = (a>(-mA-ia)) & (a<(mA+1-ia)) 
+        mask_a  = (a>(-mA-ia)) & (a<(mA+1-ia))
         shift_a = ia*lvec[0,:]
         for ib in cells:
             mask_ab  = (b>(-mB-ib)) & (b<(mB+1-ib)) & mask_a
@@ -362,7 +362,7 @@ def findPBCAtoms3D_cutoff( Rs, lvec, Rcut=1.0, corners=None ):
                 mask = mask_ab & (c>(-mC-ic)) & (c<(mC+1-ic))
                 inds_abc = np.nonzero( mask )[0]
                 if len(inds_abc)==0: continue
-                Rs_abc   = Rs[:,inds_abc] 
+                Rs_abc   = Rs[:,inds_abc]
                 Rs_abc  += v_shift[:,None]
                 inds.append( inds_abc )
                 Rs_ .append( Rs_abc   )
@@ -465,11 +465,11 @@ def atom2iZ( atm, elem_dict ):
         except:
             raise ValueError("Did not find atomkind: {}".format(atm))
 
-def atoms2iZs( names, elem_dict ): 
+def atoms2iZs( names, elem_dict ):
     return np.array( [atom2iZ(name,elem_dict) for name in names], dtype=np.int32 )
-     
+
 def parseAtoms( atoms, elem_dict, PBC=True, autogeom=False, lvec=None ):
-    Rs = np.array([atoms[1],atoms[2],atoms[3]]); 
+    Rs = np.array([atoms[1],atoms[2],atoms[3]]);
     if elem_dict is None:
         if(verbose>0): print("WARRNING: elem_dict is None => iZs are zero")
         iZs=np.zeros( len(atoms[0]) )
@@ -549,11 +549,11 @@ def getAtomsLJ_fast( iZprobe, iZs,  FFparams ):
     R = np.array( [ FFparams[i-1][0] for i in iZs ] )
     E = np.array( [ FFparams[i-1][1] for i in iZs ] )
     R+=FFparams[iZprobe-1][0]
-    E=np.sqrt(E*FFparams[iZprobe-1][1]); 
+    E=np.sqrt(E*FFparams[iZprobe-1][1]);
     cLJs = np.zeros((len(E),2))
     cLJs[:,0] = E         * R6
-    cLJs[:,1] = cLJs[:,0] * R6 
-    return cLJs 
+    cLJs[:,1] = cLJs[:,0] * R6
+    return cLJs
 
 # ============= Hi-Level Macros
 
@@ -575,7 +575,7 @@ def prepareScanGrids( ):
         [        (params['scanMax']-params['scanMin'])[0],0.0,0.0],
         [0.0,    (params['scanMax']-params['scanMin'])[1],0.0    ],
         [0.0,0.0,(params['scanMax']-params['scanMin'])[2]        ]
-    ]).copy() 
+    ]).copy()
     return xTips,yTips,zTips,lvecScan
 
 def lvec2params( lvec ):
@@ -605,11 +605,11 @@ def genFFSampling( lvec, pixPerAngstrome=10 ):
 def getPos( lvec, nDim=None, pixPerAngstrome=10 ):
     if nDim is None:
         nDim =  genFFSampling( lvec, pixPerAngstrome=pixPerAngstrome )
-    dCell = np.array( ( lvec[1,:]/nDim[2], lvec[2,:]/nDim[1], lvec[3,:]/nDim[0] ) ) 
+    dCell = np.array( ( lvec[1,:]/nDim[2], lvec[2,:]/nDim[1], lvec[3,:]/nDim[0] ) )
     ABC   = np.mgrid[0:nDim[0],0:nDim[1],0:nDim[2]]
     X = lvec[0,0] + ABC[2]*dCell[0,0] + ABC[1]*dCell[1,0] + ABC[0]*dCell[2,0]
-    Y = lvec[0,1] + ABC[2]*dCell[0,1] + ABC[1]*dCell[1,1] + ABC[0]*dCell[2,1] 
-    Z = lvec[0,2] + ABC[2]*dCell[0,2] + ABC[1]*dCell[1,2] + ABC[0]*dCell[2,2] 
+    Y = lvec[0,1] + ABC[2]*dCell[0,1] + ABC[1]*dCell[1,1] + ABC[0]*dCell[2,1]
+    Z = lvec[0,2] + ABC[2]*dCell[0,2] + ABC[1]*dCell[1,2] + ABC[0]*dCell[2,2]
     return X, Y, Z
 
 def getPos_Vec3d( lvec, nDim=None, pixPerAngstrome=10 ):

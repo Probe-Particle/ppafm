@@ -17,18 +17,18 @@ from enum import Enum
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 import matplotlib.pyplot as plt
 
-#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
+#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 #import ppafm.GridUtils as GU
 
 #from   ppafm import basUtils
-#from   ppafm import PPPlot 
+#from   ppafm import PPPlot
 import ppafm.GridUtils as GU
 #import ppafm.common    as PPU
 #import ppafm.cpp_utils as cpp_utils
 
 import pyopencl as cl
-#import ppafm.oclUtils     as oclu 
-#import ppafm.fieldOCL     as FFcl 
+#import ppafm.oclUtils     as oclu
+#import ppafm.fieldOCL     as FFcl
 #import ppafm.RelaxOpenCL  as oclr
 import ppafm.ocl.HighLevel as hl
 
@@ -39,7 +39,7 @@ hl.oclr.init()
 
 # --- Input files
 dirNames  = ["out0"]
-#dirNames  = ["out0", "out1", "out2", "out3", "out4", "out5", "out6" ] 
+#dirNames  = ["out0", "out1", "out2", "out3", "out4", "out5", "out6" ]
 #geomFileNames = ["out0/pos.xyz", "out1/pos.xyz", "out2/pos.xyz", "out3/pos.xyz", "out4/pos.xyz", "out5/pos.xyz", "out6/pos.xyz" ]
 
 # --- ForceField
@@ -64,8 +64,8 @@ islices   = [0,+2,+4,+6,+8]
 relax_params = np.array( [ 0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 );
 dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
 stiffness    = np.array( [0.24,0.24,0.0, 30.0     ], dtype=np.float32 ); stiffness/=-16.0217662;
-dpos0        = np.array([0.0,0.0,0.0,4.0], dtype=np.float32 ); 
-dpos0[2]     = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); 
+dpos0        = np.array([0.0,0.0,0.0,4.0], dtype=np.float32 );
+dpos0[2]     = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 );
 print("dpos0 ", dpos0)
 
 # === Main
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         FF, atoms, natoms0 =  hl.makeFF_LJC( poss, atom_lines, typeParams, iZPP, lvec, npbc=(1,1,1) )
         FEin  = FF[:,:,:,:4] + Q*FF[:,:,:,4:];   del FF
         #Tff = time.clock()-t1ff;
-        #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec ); 
+        #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec );
 
         #print "FEin.shape ", FEin.shape;
         relax_args  = hl.oclr.prepareBuffers( FEin, relax_dim )
@@ -114,14 +114,13 @@ if __name__ == "__main__":
             #t1plot = time.clock();
             for isl in islices:
                 plt.imshow( FEout[:,:,isl,2] )
-                plt.savefig( subDirName+( "/FoutZ%03i.png" %isl ), bbox_inches="tight"  ); 
+                plt.savefig( subDirName+( "/FoutZ%03i.png" %isl ), bbox_inches="tight"  );
                 plt.close()
             #Tplot = time.clock()-t1plot;
 
             #Ttot = time.clock()-t1tot;
             #print "Timing[s] Ttot %f Tff %f Trelax %f Tprepare %f Tplot %f " %(Ttot, Tff, Trelax, Tprepare, Tplot)
-        
+
         hl.oclr.releaseArgs(relax_args)
 
 #plt.show()
-

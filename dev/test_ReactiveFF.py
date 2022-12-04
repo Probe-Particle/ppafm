@@ -29,7 +29,7 @@ if __name__ == "__main__":
     print(" ================ START ")
     print(" ================ START ")
 
-    # --- prepare atom-types 
+    # --- prepare atom-types
     c6    = -15.0
     R2vdW = 8.0
     rff.insertAtomType( 3, 1, 0.65,  1.0, -0.7, c6, R2vdW, 0.2 )
@@ -89,11 +89,11 @@ if __name__ == "__main__":
             #    au.writeToXYZ( fout, itypes_, xyzs  )
         #if (rff_debug_xyz): fout.close()
         t2 = time.clock();
-        print(" molecule gen time ", t2-t1) 
+        print(" molecule gen time ", t2-t1)
 
 
         # ---- store result
-        xyzs, itypes_ = rff.h2bonds( itypes, poss, hbonds, bsc=1.1 ) 
+        xyzs, itypes_ = rff.h2bonds( itypes, poss, hbonds, bsc=1.1 )
         xyzs, itypes_ = rff.removeSaturatedBonds(caps, itypes_, xyzs )
 
         # --- charge equlibraion
@@ -118,11 +118,3 @@ if __name__ == "__main__":
         plt.scatter(xyzs[:,0], xyzs[:,1], c=qs, alpha=1.0, vmin=-0.5,vmax=0.5, cmap='bwr')
         plt.colorbar()
         plt.show()
-
-
-
-
-
-
-
-

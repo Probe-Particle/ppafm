@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
         FEin  = FF[:,:,:,:4] + Q*FF[:,:,:,4:];   del FF
         Tff = time.clock()-t1ff;   print("Tff %f [s]" %Tff)
-        #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec ); 
+        #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec );
 
         scanner.prepareBuffers( FEin, lvec, scan_dim=scan_dim )
 
@@ -112,10 +112,9 @@ if __name__ == "__main__":
 
             for isl in islices:
                 plt.imshow( FEout[:,:,isl,2] )
-                plt.savefig( subDirName+( "/FoutZ%03i.png" %isl ), bbox_inches="tight"  ); 
+                plt.savefig( subDirName+( "/FoutZ%03i.png" %isl ), bbox_inches="tight"  );
                 plt.close()
 
         scanner.releaseBuffers()
 
 #plt.show()
-

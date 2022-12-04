@@ -6,7 +6,7 @@ from . import cpp_utils
 
 cpp_name='PolyCycles'
 cpp_utils.make("PolyCycles")
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes
 
 array1ui = np.ctypeslib.ndpointer(dtype=np.uint32, ndim=1, flags='CONTIGUOUS')
 array1i  = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
@@ -24,19 +24,19 @@ lib.getVpos.restype  = ctypes.POINTER(c_double)
 def getVpos(nv):
     return np.ctypeslib.as_array( lib.getVpos(), shape=(nv,2) )
 
-#double* getCpos  (){ 
+#double* getCpos  (){
 lib.getCpos.argtypes = []
 lib.getCpos.restype  = ctypes.POINTER(c_double)
 def getCpos(nc):
     return np.ctypeslib.as_array( lib.getCpos(), shape=(nc,2) )
 '''
 
-#double* getPos  (){ 
+#double* getPos  (){
 lib.getPos.argtypes = []
 lib.getPos.restype  = ctypes.POINTER(c_double)
 def getPos(nc,nv):
     arr = np.ctypeslib.as_array( lib.getPos(), shape=(nc+nv,2) )
-    return arr[:nc],arr[nc:] 
+    return arr[:nc],arr[nc:]
 
 # double setupOpt( double dt, double damp, double f_limit, double v_limit ){
 lib.setupOpt.argtypes = [c_double,c_double,c_double,c_double]

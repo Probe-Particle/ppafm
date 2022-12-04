@@ -15,7 +15,7 @@ inline fastRspring( double r2 ){}
 
 class PolyCycleFF{ public:
 /*
-    constexpr static Vec2d drots[8] = {  
+    constexpr static Vec2d drots[8] = {
        { 0.0,  0.0}, // 0
        {-1.0,  0.0}, // 1
        { 0.0,  1.0}, // 2
@@ -46,7 +46,7 @@ class PolyCycleFF{ public:
     Vec2d* vpos  =0;
     Vec2d* vvel  =0;
     Vec2d* vforce=0;
-    
+
     int ncycles  =0;
     //Cyclus* cycles;
     int*   nvs    =0;
@@ -54,15 +54,15 @@ class PolyCycleFF{ public:
     Vec2d* cpos   =0;
     Vec2d* cvel   =0;
     Vec2d* cforce =0;
-    
+
     int voffset = 0;
-    
+
     double Ecc      =0.2;
     double Kvert    =4.0;
     double Kbond    =5.0;
     double Kcenter  =5.0;
-    double RvertMax =0.5; 
-    
+    double RvertMax =0.5;
+
     int realloc(int ncycles_, int* nvs_ ){
         ncycles=ncycles_;
         /*
@@ -99,7 +99,7 @@ class PolyCycleFF{ public:
         //printf("nvert %i %i \n", nvert, iv);
         return nvert;
     }
-    
+
     void initVerts(double* angles=0){
         int iv =0;
         for(int ic=0; ic<ncycles; ic++){
@@ -125,8 +125,8 @@ class PolyCycleFF{ public:
             cvel[ic].set(0.0);
         }
     }
-    
-    
+
+
     void forceVV(){
         double RvertMax2 = RvertMax*RvertMax;
         double K = Kvert/RvertMax2;
@@ -147,12 +147,12 @@ class PolyCycleFF{ public:
             }
         }
     }
-    
+
     void forceCC(){
         for(int i=1; i<ncycles; i++){
             const Vec2d& pi= cpos  [i];
             Vec2d&       fi= cforce[i];
-            double Ri      = rcyc[nvs[i]]; 
+            double Ri      = rcyc[nvs[i]];
             for(int j=0; j<i; j++){
                 double R = (Ri + rcyc[nvs[j]])*1.2;
                 //R=2.0;
@@ -169,24 +169,24 @@ class PolyCycleFF{ public:
                 d.mul( fr );
                 fi       .add(d);
                 cforce[j].sub(d);
-                
+
                 if(r2<(2*R2)){
                     forceCpair(i,j);
                 }
             }
         }
     }
-    
+
     void forceCpair(int ic, int jc){
         int nvi = nvs[ic];
         int nvj = nvs[jc];
         int i0  = ivs[ic];
         int j0  = ivs[jc];
-        
+
         double RvertMax2 = RvertMax*RvertMax;
         double K = Kvert/RvertMax2;
         //double K = Kvert;
-        
+
         // verts
         /*
         for(int i=0; i<nvi; i++){
@@ -206,7 +206,7 @@ class PolyCycleFF{ public:
             }
         }
         */
-        
+
         // edges
         /*
         int oiv=i0+nvi-1;
@@ -232,7 +232,7 @@ class PolyCycleFF{ public:
             oiv=iv;
         }
         */
-        
+
         // Edge+Vert
         int oiv=i0+nvi-1;
         for(int i=0; i<nvi; i++){
@@ -280,9 +280,9 @@ class PolyCycleFF{ public:
             double R = rcyc[nv];
             //int oi    = verts[i-1];
             //Vec2d* op = vps+oi;
-            //Vec2d* of = vfs+oi; 
+            //Vec2d* of = vfs+oi;
             Vec2d* op = vpos  +iv+nv-1;
-            Vec2d* of = vforce+iv+nv-1; 
+            Vec2d* of = vforce+iv+nv-1;
             const Vec2d& pos   = cpos  [ic];
             Vec2d&      force = cforce[ic];
             //printf( "ic %i nv %i \n", ic, nv );
@@ -302,7 +302,7 @@ class PolyCycleFF{ public:
                 }
                 // force to centre
                 {
-                    d.set_sub(*pi,pos); 
+                    d.set_sub(*pi,pos);
                     double r = d.norm(); // TODO: fast square root approx
                     double fr = Kcenter*(R-r)/r;
                     //printf( "fr(%i,%i) \n",ic,ii, fr );
@@ -325,16 +325,16 @@ class PolyCycleFF{ public:
 
     void moveCycles(double dt,double damp){
         for(int i=0; i<ncycles; i++){
-            
+
             Vec2d& vi = cvel[i];
             vi.mul(damp);
             vi.add_mul(cforce[i],dt);
             cpos[i].add_mul( vi, dt);
-            
+
             //cpos[i].add_mul( cforce[i], dt );
         }
     }
-    
+
     void moveVerts(double dt,double damp){
         for(int i=0; i<nvert; i++){
             Vec2d& vi = vvel[i];
@@ -343,7 +343,7 @@ class PolyCycleFF{ public:
             vpos[i].add_mul( vi, dt );
         }
     }
-    
+
     void step(double dt, double damp){
         forceCC();
         forceVV();

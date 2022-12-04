@@ -20,7 +20,7 @@ finput = sys.argv[num-1]
 
 # --- initialization ---
 
-sigma  = 1.0 # [ Angstroem ] 
+sigma  = 1.0 # [ Angstroem ]
 
 print('--- Data Loading ---')
 
@@ -61,8 +61,8 @@ PP.params['gridN'] = nDim.copy()
 print("--- Compute Lennard-Jones Force-filed ---")
 atoms     = basUtils.loadAtoms('input.xyz')
 if os.path.isfile( 'atomtypes.ini' ):
-	print(">> LOADING LOCAL atomtypes.ini")  
-	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+	print(">> LOADING LOCAL atomtypes.ini")
+	FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 else:
 	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
@@ -77,4 +77,3 @@ GU.saveXSF('FFel_y.xsf' , Fy, lvec, head)
 GU.saveXSF('FFel_z.xsf' , Fz, lvec, head)
 
 GU.saveVecFieldXsf( 'FFLJ', FFLJ, lvec, head)
-

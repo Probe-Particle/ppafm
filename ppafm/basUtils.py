@@ -12,10 +12,10 @@ verbose = 0
 def loadXYZ(fname):
     '''
     Read the contents of an xyz file.
-    
+
     The standard xyz file format only has per-atom elements and xyz positions. In Probe-Particle
     we also use the per-atom charges, which can be written as an extra column into the xyz file.
-    By default the fifth column is interpreted as the charges, but if the file is written in the 
+    By default the fifth column is interpreted as the charges, but if the file is written in the
     extended xyz format used by ASE, the relevant column indicated in the comment line is used.
 
     Arguments:
@@ -28,7 +28,7 @@ def loadXYZ(fname):
         comment: str. The contents of the second line of the xyz file.
     '''
 
-    xyzs = [] 
+    xyzs = []
     Zs = []
     extra_cols = []
 
@@ -39,9 +39,9 @@ def loadXYZ(fname):
             N = int(line)
         except ValueError:
             raise ValueError(f'The first line of an xyz file should have the number of atoms, but got `{line}`')
-        
+
         comment = f.readline().strip()
-        
+
         for i, line in enumerate(f):
             if i >= N: break
             wds = line.split()
@@ -59,7 +59,7 @@ def loadXYZ(fname):
 
     xyzs = np.array(xyzs, dtype=np.float64)
     Zs = np.array(Zs, dtype=np.int32)
-        
+
     if len(extra_cols[0]) > 0:
         qs = _getCharges(comment, extra_cols)
     else:
@@ -193,12 +193,12 @@ def saveGeomXSF( fname,elems,xyzs, primvec, convvec=None, bTransposed=False ):
             ys = xyzs[1]
             zs = xyzs[2]
             for i in range(len(elems)):
-                f.write( str(elems[i] ) ); 
+                f.write( str(elems[i] ) );
                 f.write( f" {xs[i]:10.10f} {ys[i]:10.10f} {zs[i]:10.10f}\n" )
         else:
             for i in range(len(elems)):
                 xyzsi = xyzs[i]
-                f.write( str(elems[i] ) ); 
+                f.write( str(elems[i] ) );
                 f.write( f" {xyzsi[0]:10.10f} {xyzsi[1]:10.10f} {xyzsi[2]:10.10f}\n" )
         f.write( '\n' )
 
@@ -206,22 +206,22 @@ def loadXSFGeom( fname ):
     f = open(fname )
     e=[];x=[];y=[]; z=[]; q=[]
     nDim = []
-    lvec = [] 
+    lvec = []
     for i in range(10000):
         if 'PRIMCOORD' in f.readline():
             break
     n = int(f.readline().split()[0])
     for j in range(n):
-        ws = f.readline().split();  
+        ws = f.readline().split();
         e.append(int(ws[0])); x.append(float(ws[1])); y.append(float(ws[2])); z.append(float(ws[3])); q.append(0);
     for i in range(10000):
         line = f.readline()
-        if ('BEGIN_DATAGRID_3D') in line:   
+        if ('BEGIN_DATAGRID_3D') in line:
             break
-        elif ('DATAGRID_3D_DENSITY') in line: 
+        elif ('DATAGRID_3D_DENSITY') in line:
             break
         elif ('BEGIN_DATAGRID_3D_CONTCAR_v2xsf') in line:
-            break   
+            break
     ws = f.readline().split(); nDim = [int(ws[0]),int(ws[1]),int(ws[2])]
     for j in range(4):
         ws = f.readline().split(); lvec.append( [float(ws[0]),float(ws[1]),float(ws[2])] )
@@ -238,7 +238,7 @@ def loadNPYGeom( fname ):
     e=tmp[0];x=tmp[1];y=tmp[2]; z=tmp[3]; q=tmp[4];
     del tmp;
     if(verbose>0): print("loading lvec")
-    lvec = np.load(fname+"_vec.npy" ) 
+    lvec = np.load(fname+"_vec.npy" )
     if(verbose>0): print("loading nDim")
     tmp = np.load(fname+"_z.npy")
     nDim = tmp.shape
@@ -365,7 +365,7 @@ def loadGeometry(fname=None,params=None):
         lvec = parseLvecASE(comment)
         if lvec is None:
             lvec  = np.zeros((4,3))
-            lvec[ 1,:  ] = params['gridA'].copy() 
+            lvec[ 1,:  ] = params['gridA'].copy()
             lvec[ 2,:  ] = params['gridB'].copy()
             lvec[ 3,:  ] = params['gridC'].copy()
         atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
@@ -479,7 +479,7 @@ def findBondsSimple( xyz, rmax ):
 
 def getAtomColors( iZs, ELEMENTS = elements.ELEMENTS, FFparams=None ):
     colors=[]
-    for e in iZs: 
+    for e in iZs:
         colors.append( ELEMENTS[ FFparams[e - 1][3] -1 ][8] )
     return colors
 
@@ -514,15 +514,15 @@ background      { color rgb <1.0,1.0,1.0> }
 #macro a(X,Y,Z,RADIUS,R,G,B,T)
  sphere{<X,Y,Z>,RADIUS
   pigment{rgbt<R,G,B,T>}
-  translucentFinish(T) 
-  no_shadow  // comment this out if you want include shadows 
+  translucentFinish(T)
+  no_shadow  // comment this out if you want include shadows
   }
 #end
 #macro b(X1,Y1,Z1,RADIUS1,X2,Y2,Z2,RADIUS2,R,G,B,T)
  cone{<X1,Y1,Z1>,RADIUS1,<X2,Y2,Z2>,RADIUS2
   pigment{rgbt<R,G,B,T>  }
   translucentFinish(T)
-  no_shadow // comment this out if you want include shadows 
+  no_shadow // comment this out if you want include shadows
   }
 #end
 '''
@@ -570,7 +570,7 @@ def writePov( fname, xyzs, Zs, bonds=None, HEAD=DEFAULT_POV_HEAD, bondw=0.1, sph
     fout.write( HEAD )
     for i in range(n):
         clr = ELEMENTS[Zs[i]-1][8]
-        R   = ELEMENTS[Zs[i]-1][7] 
+        R   = ELEMENTS[Zs[i]-1][7]
         s = 'a( %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f ) \n' %( xyzs[i][0],xyzs[i][1],xyzs[i][2], spherescale*R, clr[0]/255.0,clr[1]/255.0,clr[2]/255.0,0.0 )
         fout.write(s)
     if bonds is not None:
@@ -578,7 +578,7 @@ def writePov( fname, xyzs, Zs, bonds=None, HEAD=DEFAULT_POV_HEAD, bondw=0.1, sph
             i = b[0]; j = b[1]
             clr = [128,128,128]
             s   =  'b( %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f,0.0 ) \n' %( xyzs[i][0],xyzs[i][1],xyzs[i][2], bondw, xyzs[j][0],xyzs[j][1],xyzs[j][2], bondw, clr[0]/255.0,clr[1]/255.0,clr[2]/255.0 )
-            fout.write(s); 
+            fout.write(s);
     fout.close()
 
 def multCell( xyz, cel, m=(2,2,1) ):
@@ -602,7 +602,3 @@ def multCell( xyz, cel, m=(2,2,1) ):
                     zs[j]=xyz[3][i] + dz
                     j+=1
     return [es,xs,ys,zs]
-
-
-
-

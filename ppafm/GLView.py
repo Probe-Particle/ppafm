@@ -10,7 +10,7 @@ c_int_p    = ctypes.POINTER(c_int)
 def _np_as(arr,atype):
     if arr is None:
         return None
-    else: 
+    else:
         return arr.ctypes.data_as(atype)
 
 cpp_utils.s_numpy_data_as_call = "_np_as(%s,%s)"
@@ -23,9 +23,9 @@ def initViewLib():
 # ========= C functions
 
 class GLView():
-    
+
     def __init__(self, wh=(800,600) ):
-        
+
         self.libSDL = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libSDL2.so", ctypes.RTLD_GLOBAL )
         self.libGL  = ctypes.CDLL( "/usr/lib/x86_64-linux-gnu/libGL.so",   ctypes.RTLD_GLOBAL )
 

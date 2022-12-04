@@ -17,11 +17,11 @@ from enum import Enum
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 import matplotlib.pyplot as plt
 
-#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
+#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 #import ppafm.GridUtils as GU
 
 from   ppafm import basUtils
-from   ppafm import PPPlot 
+from   ppafm import PPPlot
 import ppafm.GridUtils as GU
 import ppafm.common    as PPU
 import ppafm.cpp_utils as cpp_utils
@@ -41,7 +41,7 @@ oclr.init()
 
 # --- Input files
 dirNames  = ["out0"]
-#dirNames  = ["out0", "out1", "out2", "out3", "out4", "out5", "out6" ] 
+#dirNames  = ["out0", "out1", "out2", "out3", "out4", "out5", "out6" ]
 #geomFileNames = ["out0/pos.xyz", "out1/pos.xyz", "out2/pos.xyz", "out3/pos.xyz", "out4/pos.xyz", "out5/pos.xyz", "out6/pos.xyz" ]
 
 # --- ForceField
@@ -67,8 +67,8 @@ islices   = [0,+2,+4,+6,+8]
 relax_params = np.array( [ 0.1,0.9,0.1*0.2,0.1*5.0], dtype=np.float32 );
 dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
 stiffness    = np.array( [0.24,0.24,0.0, 30.0     ], dtype=np.float32 ); stiffness/=-16.0217662;
-dpos0    = np.array([0.0,0.0,0.0,4.0], dtype=np.float32 ); 
-dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); 
+dpos0    = np.array([0.0,0.0,0.0,4.0], dtype=np.float32 );
+dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 );
 print("dpos0 ", dpos0)
 
 # === Functions
@@ -99,7 +99,7 @@ def PBCAtoms3D( Zs, Rs, Qs, lvec, npbc=[1,1,1] ):
                     Rs_.append( (x,y,z)   )
                     Qs_.append( Qs[iatom] )
                     #print "i,j,iatom,len(Rs)", i,j,iatom,len(Rs_)
-    return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy()	
+    return np.array(Zs_).copy(), np.array(Rs_).copy(), np.array(Qs_).copy()
 
 def rotation_matrix(axis, theta):
     """
@@ -127,15 +127,15 @@ def maxAlongDir(atoms, hdir):
     return imin, xdir[imin][0]
 
 #def getOptSlice( atoms, hdir ):
-#    
+#
 
 def loadSpecies(fname):
     try:
-        with open(fname, 'r') as f:  
-            str_Species = f.read(); 
+        with open(fname, 'r') as f:
+            str_Species = f.read();
     except:
         print("defaul atomtypes.ini")
-        with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:  
+        with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:
             str_Species = f.read();
     str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in str_Species.split('\n')  )
     print("str_Species")
@@ -170,8 +170,8 @@ if __name__ == "__main__":
     #exit()
 
     typeParams = loadSpecies('atomtypes.ini')
-    #lvec       = np.genfromtxt('cel.lvs') 
-    #lvec       = np.insert( lvec, 0, 0.0, axis=0); 
+    #lvec       = np.genfromtxt('cel.lvs')
+    #lvec       = np.insert( lvec, 0, 0.0, axis=0);
     print("lvec ", lvec)
     invCell = oclr.getInvCell(lvec)
     print("invCell ", invCell)
@@ -190,7 +190,7 @@ if __name__ == "__main__":
         t1prepare = time.clock();
         atom_lines =  open( dirName+"/pos.xyz" ).readlines()
         xyzs,Zs,enames,qs = basUtils.loadAtomsLines( atom_lines )
-        natoms = len(Zs) 
+        natoms = len(Zs)
 
         if(bPBC):
             #Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
@@ -204,7 +204,7 @@ if __name__ == "__main__":
         FEin =  FF[:,:,:,:4] + Q*FF[:,:,:,4:]
 
         Tff = time.clock()-t1ff;
-        #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec ); 
+        #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec );
 
         print("FEin.shape ", FEin.shape);
         relax_args  = oclr.prepareBuffers( FEin, relax_dim )
@@ -246,14 +246,13 @@ if __name__ == "__main__":
             t1plot = time.clock();
             for isl in islices:
                 plt.imshow( FEout[:,:,isl,2] )
-                plt.savefig( subDirName+( "/FoutZ%03i.png" %isl ), bbox_inches="tight"  ); 
+                plt.savefig( subDirName+( "/FoutZ%03i.png" %isl ), bbox_inches="tight"  );
                 plt.close()
             Tplot = time.clock()-t1plot;
 
             Ttot = time.clock()-t1tot;
             print("Timing[s] Ttot %f Tff %f Trelax %f Tprepare %f Tplot %f " %(Ttot, Tff, Trelax, Tprepare, Tplot))
-        
+
         oclr.releaseArgs(relax_args)
 
 #plt.show()
-

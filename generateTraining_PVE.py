@@ -5,7 +5,7 @@ import numpy as np
 #import matplotlib.pyplot as plt
 import sys
 
-import ppafm                as PPU     
+import ppafm                as PPU
 import ppafm.basUtils       as BU
 import ppafm.GridUtils      as GU
 import ppafm.core           as PPC
@@ -21,8 +21,8 @@ file_format = "xsf"
 PPU.loadParams( 'params.ini' )
 
 if os.path.isfile( 'atomtypes.ini' ):
-    print(">> LOADING LOCAL atomtypes.ini")  
-    FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+    print(">> LOADING LOCAL atomtypes.ini")
+    FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 else:
     FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
@@ -33,14 +33,14 @@ iPP         = PPU.atom2iZ( PPU.params['probeType'], elem_dict )
 drho_tip,lvec_dt, ndim_dt = GU.load_scal_field( "drho_tip",data_format=file_format)
 rho_tip ,lvec_t,  ndim_t  = GU.load_scal_field( "rho_tip" ,data_format=file_format)
 
-#PPU      .params['gridN'] = ndim_t 
-PPU      .params['gridN'] = ndim_t[::-1]; 
+#PPU      .params['gridN'] = ndim_t
+PPU      .params['gridN'] = ndim_t[::-1];
 PPU.params['gridA'] = lvec_t[1]; PPU.params['gridB'] = lvec_t[2]; PPU.params['gridC'] = lvec_t[3] # must be before parseAtoms
 print(PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC'])
 
 FF,V                = PPH.prepareArrays( None, False )
 
-print("FFLJ.shape",FF.shape) 
+print("FFLJ.shape",FF.shape)
 PPC.setFF_shape( np.shape(FF), lvec_t )
 
 base_dir = os.getcwd()
@@ -91,17 +91,7 @@ for path in paths:
     xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
     PPC.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
     fzs,PPpos = PPH.relaxedScan3D( xTips, yTips, zTips )
-    
+
     GU.save_scal_field( 'OutFz', fzs, lvecScan, data_format=file_format )
 
     os.chdir( base_dir )
-
-
-
-
-
-
-
-
-
-

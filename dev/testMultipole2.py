@@ -35,7 +35,7 @@ WORK_DIR =  '/home/prokop/Desktop/Probe_Particle_Simulations/Multipoles/COCu4/'
 
 V, lvec, nDim, head = GU.loadXSF( WORK_DIR + 'LOCPOT.xsf' )
 
-cell = np.array( [ lvec[1], lvec[2], lvec[3] ]); 
+cell = np.array( [ lvec[1], lvec[2], lvec[3] ]);
 
 MP.setGrid( V, cell );
 
@@ -46,14 +46,14 @@ atom_types,atom_pos = GU.getFromHead_PRIMCOORD( head )   # load atoms from heade
 # set sample region around atom atom_Rmin, atom_Rmax
 spacies              = PP.loadSpecies( './defaults/atomtypes.ini' )
 R_type               = spacies[:,0]
-atom_Rmin, atom_Rmax = MP.make_Ratoms( atom_types, R_type ) 
+atom_Rmin, atom_Rmax = MP.make_Ratoms( atom_types, R_type )
 
-# mask atoms which should not to be included into the expansion 
+# mask atoms which should not to be included into the expansion
 natoms          = len( atom_types )
-atom_mask       = np.array( [ True ] * natoms ); 
+atom_mask       = np.array( [ True ] * natoms );
 atom_mask[ 2: ] = False
 
-# set basiset for each atom 
+# set basiset for each atom
 atom_basis = MP.make_bas_list( [ len( atom_pos ) ],  basis=[ ['s','px','py','pz'] ] )
 
 #print "atom_pos:   ", atom_pos
@@ -73,5 +73,3 @@ for i in range( len( coefs ) ):
 
 print("saving LOCPOT_debug.xsf ")
 GU.saveXSF( WORK_DIR + 'LOCPOT_debug.xsf', V, lvec, head );
-
-

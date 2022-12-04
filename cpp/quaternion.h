@@ -809,4 +809,3 @@ inline int print( const Quat4i& v){ return printf( "%i %i %i %i", v.x, v.y, v.z,
 
 
 #endif
-

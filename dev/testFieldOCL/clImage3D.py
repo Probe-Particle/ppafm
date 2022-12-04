@@ -34,7 +34,7 @@ def makeTestGrid( pmin=(-1.0,-1.0,-1.0), pmax=(1.0,1.0,1.0), n=(100,100,100) ):
     return np.sin(R2*10).astype(np.float32).copy()
 
 plats   = cl.get_platforms()
-ctx     = cl.Context(properties=[(cl.context_properties.PLATFORM, plats[0])], devices=None)  
+ctx     = cl.Context(properties=[(cl.context_properties.PLATFORM, plats[0])], devices=None)
 #ctx    = cl.create_some_context()
 queue   = cl.CommandQueue(ctx)
 prg     = cl.Program(ctx, CL_SOURCE).build()
@@ -75,5 +75,5 @@ prg.getValInPoints( queue, (len(ts),), None, *(cl_ImgIn, cl_poss, cl_vals) )
 #prg.test_kernel( queue, (len(ts),), None, *(cl_poss, cl_vals) )
 cl.enqueue_copy( queue, vals, cl_vals )
 queue.finish()
-    
+
 print(vals)

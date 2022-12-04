@@ -12,9 +12,9 @@ def readDat( fname, Header=None ):
     ndir=ndir+'/'
     try:
         with open(fname, mode='rb') as binary_file:
-            data = binary_file.read() 
-    except IOError as error:              
-        print(('oops! File '+nfile+' can not be read.'))     
+            data = binary_file.read()
+    except IOError as error:
+        print(('oops! File '+nfile+' can not be read.'))
     if b'[Parameter]' in data:
         STMAFMVersion = 1
     elif b'[Paramet32]' in data:
@@ -35,7 +35,7 @@ def readDat( fname, Header=None ):
     ind = [i for i, s in enumerate(header_binary) if b'DSP-COMPDATE' in s][0]
 
 
-    d = [] 
+    d = []
     for i in range(1,ind):
             tmp=header_binary[i].split(b'=');
             if (len(tmp)> 1):
@@ -45,7 +45,7 @@ def readDat( fname, Header=None ):
 
     if Header is None:
         Header = {}
-    
+
     Header['ScanPixels_X'] = int(SplittedLine.loc[SplittedLine['parameter'] == b'Num.X / Num.X'].value.item())
     Header['ScanPixels_Y'] = int(SplittedLine.loc[SplittedLine['parameter'] == b'Num.Y / Num.Y'].value.item())
     Header['GainX'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'GainX / GainX'].value.item())
@@ -71,8 +71,8 @@ def readDat( fname, Header=None ):
     Header['CHOffset'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'CHModeZoff / CHModeZoff'].value.item())
     Header['CHMode'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'CHMode / CHMode'].value.item())
     Header['LengthX'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Length x[A]'].value.item())
-    Header['LengthY'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Length y[A]'].value.item())    
-    
+    Header['LengthY'] = float(SplittedLine.loc[SplittedLine['parameter'] == b'Length y[A]'].value.item())
+
     # Check the STMAFM version to determine the number of bytes / pixel
     if STMAFMVersion == 1:
         BytePerPixel = 2
@@ -118,7 +118,7 @@ def readDat( fname, Header=None ):
     pic1=mat_image[:y_size,:]
     pic2=mat_image[y_size:2*y_size,:]
     pic3=mat_image[2*y_size:3*y_size,:]
-    pic4=mat_image[3*y_size:,:] 
+    pic4=mat_image[3*y_size:,:]
 
     # Crop the image if there are rows with zeroes
     ind_list = np.where(~(pic1 == 0.0).all(axis=1))
@@ -139,4 +139,4 @@ def readDat( fname, Header=None ):
     except:
         pic4_crop = pic4
 
-    return (pic1_crop,pic2_crop,pic3_crop,pic4_crop) 
+    return (pic1_crop,pic2_crop,pic3_crop,pic4_crop)

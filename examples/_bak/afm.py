@@ -76,7 +76,7 @@ ProjName=filename[:-4]
 ParamFilename=ProjName+".ini"
 
 if os.path.exists(ParamFilename):
-    PP.loadParams(ParamFilename) 
+    PP.loadParams(ParamFilename)
 else:
     print("File {} with parameters doesn't exist!!! Using defaults".format(ParamFilename))
 
@@ -95,8 +95,8 @@ atoms    = basUtils.loadAtoms(filename )
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
-	print(">> LOADING LOCAL atomtypes.ini")  
-	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+	print(">> LOADING LOCAL atomtypes.ini")
+	FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 else:
 	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
@@ -157,7 +157,7 @@ if todoLJ == 'compute':
     GU.saveVecFieldXsf(ProjName+"_LJ_F",FFLJ, lvec=[[0.0,0.0,0.0],PP.params['gridA'], PP.params['gridB'],PP.params['gridC']]  )
 elif todoLJ == 'read':
     FFLJ, lvec, nDim, head = GU.loadVecFieldXsf( ProjName+"_LJ_F" )
-    
+
 PP.lvec2params( lvec )
 
 
@@ -174,8 +174,7 @@ PP.setTip( kSpring = np.array((K,K,0.0))/-PP.eVA_Nm )
 
 
 
-FF = FFLJ #+ FFEL * Q 
+FF = FFLJ #+ FFEL * Q
 PP.setFF_Pointer( FF )
 
 fzs = PP.relaxedScan3D( xTips, yTips, zTips )
-

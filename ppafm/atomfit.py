@@ -7,12 +7,12 @@ import os
 from . import cpp_utils
 
 # ==============================
-# ============================== interface to C++ core 
+# ============================== interface to C++ core
 # ==============================
 
 cpp_name='atomfit'
 cpp_utils.make( "atomfit"  )
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes 
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes
 
 # define used numpy array types for interfacing with C++
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
@@ -62,7 +62,7 @@ lib.relaxParticlesUnique.argtypes  = [ c_int, array2d,  c_int,    c_double, c_do
 lib.relaxParticlesUnique.restype   = c_int
 def relaxParticlesUnique( poss, nstep, dt, damp, F2conv ):
     return lib.relaxParticlesUnique( len(poss), poss, nstep, dt, damp, F2conv )
-    
+
 # int relaxParticlesUnique( int np, Vec2d* poss, int nstep, double dt, double damp, double F2conv ){
 lib.relaxParticlesRepel.argtypes  = [ c_int, array2d,  c_int,    c_double, c_double, c_double ]
 lib.relaxParticlesRepel.restype   = c_int

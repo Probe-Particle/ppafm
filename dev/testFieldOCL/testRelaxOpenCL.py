@@ -6,24 +6,24 @@ import time
 import pyopencl as cl
 import numpy as np
 
-sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
+sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 
 from   ppafm import basUtils
-from   ppafm import PPPlot 
+from   ppafm import PPPlot
 import ppafm.GridUtils as GU
 import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
 
 def loadFEcl( Q = None ):
     E ,lvec, nDim, head = GU.loadXSF('ELJ_cl.xsf' ); FE = np.zeros( E.shape+(4,), dtype=np.float32 ); FE.shape; FE[:,:,:,3] = E
-    Fx,lvec, nDim, head = GU.loadXSF('FLJx_cl.xsf'); FE[:,:,:,0] = Fx   
+    Fx,lvec, nDim, head = GU.loadXSF('FLJx_cl.xsf'); FE[:,:,:,0] = Fx
     Fy,lvec, nDim, head = GU.loadXSF('FLJy_cl.xsf'); FE[:,:,:,1] = Fy
-    Fz,lvec, nDim, head = GU.loadXSF('FLJz_cl.xsf'); FE[:,:,:,2] = Fz    
+    Fz,lvec, nDim, head = GU.loadXSF('FLJz_cl.xsf'); FE[:,:,:,2] = Fz
     if Q is not None:
         E ,lvec, nDim, head = GU.loadXSF('Eel_cl.xsf' ); FE[:,:,:,3] += Q*E
-        Fx,lvec, nDim, head = GU.loadXSF('Felx_cl.xsf'); FE[:,:,:,0] += Q*Fx   
+        Fx,lvec, nDim, head = GU.loadXSF('Felx_cl.xsf'); FE[:,:,:,0] += Q*Fx
         Fy,lvec, nDim, head = GU.loadXSF('Fely_cl.xsf'); FE[:,:,:,1] += Q*Fy
-        Fz,lvec, nDim, head = GU.loadXSF('Felz_cl.xsf'); FE[:,:,:,2] += Q*Fz    
+        Fz,lvec, nDim, head = GU.loadXSF('Felz_cl.xsf'); FE[:,:,:,2] += Q*Fz
     cell = lvec[1:4,0:3]
     invCell = np.linalg.inv(cell)
     print(invCell)
@@ -36,11 +36,11 @@ def loadFEcl( Q = None ):
 
 THIS_FILE_PATH = os.path.dirname( os.path.realpath( __file__ ) )
 
-CL_PATH  = os.path.normpath( THIS_FILE_PATH  + '/../../cl' ); print(CL_PATH) 
+CL_PATH  = os.path.normpath( THIS_FILE_PATH  + '/../../cl' ); print(CL_PATH)
 f        = open(CL_PATH+"/relax.cl", 'r')
 CL_CODE  = "".join( f.readlines() )
 plats    = cl.get_platforms()
-ctx      = cl.Context(properties=[(cl.context_properties.PLATFORM, plats[0])], devices=None)  
+ctx      = cl.Context(properties=[(cl.context_properties.PLATFORM, plats[0])], devices=None)
 queue    = cl.CommandQueue(ctx)
 prg      = cl.Program(ctx, CL_CODE).build()
 mf       = cl.mem_flags
@@ -86,7 +86,7 @@ cl_poss  = cl.Buffer(ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss   ) # f
 cl_FEout = cl.Buffer(ctx, mf.WRITE_ONLY                   , poss.nbytes*nz ) # float4
 
 # --- execute
-t1 = time.clock() 
+t1 = time.clock()
 #prg.getFEinPoints ( queue, (len(ts),), None, *(cl_ImgIn, cl_poss, cl_FEout, invA, invB, invC ) )
 #prg.getFEinStrokes( queue, (len(ts),), None, *(cl_ImgIn, cl_poss, cl_FEout, invA, invB, invC, dTip, np.int32(nz) ) )
 prg.relaxStrokes( queue, (Xs.size,), None, *(cl_ImgIn, cl_poss, cl_FEout, invA, invB, invC, dTip, stiffness, dpos0, relax_params, np.int32(nz) ) )
@@ -95,7 +95,7 @@ prg.relaxStrokes( queue, (Xs.size,), None, *(cl_ImgIn, cl_poss, cl_FEout, invA, 
 cl.enqueue_copy( queue, FEout, cl_FEout )
 queue.finish()
 
-t2 = time.clock(); print("relaxStrokes time %f [s]" %(t2-t1)) 
+t2 = time.clock(); print("relaxStrokes time %f [s]" %(t2-t1))
 
 import matplotlib.pyplot as plt
 
@@ -128,6 +128,3 @@ Ftmp[:,:,:] = np.transpose( FEout[:,:,:,2], (2,0,1) ); GU.saveXSF( 'OutFz_cl.xsf
 
 
 plt.show()
-
-
-

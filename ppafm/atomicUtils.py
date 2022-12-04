@@ -22,11 +22,11 @@ def findAllBonds( atoms, Rcut=3.0, RvdwCut=0.7 ):
                 bonds.append( (i,j) )
                 bondsVecs.append( ( rij, dp[j]/rij ) )
     return bonds, bondsVecs
-    
+
 def neighs( natoms, bonds ):
     neighs = [{} for i in range(natoms) ]
     for ib, b in enumerate(bonds):
-        i = b[0]; j = b[1]; 
+        i = b[0]; j = b[1];
         neighs[i][j] = ib
         neighs[j][i] = ib
     return neighs
@@ -47,7 +47,7 @@ def findTypeNeigh( atoms, neighs, typ, neighTyps=[(1,2,2)] ):
             if( (n>=nmin)and(n<=nmax) ):
                 selected.append( iatom )
     return selected
-    
+
 def getAllNeighsOfSelected( selected, neighs, atoms, typs={1} ):
     result = {}
     for iatom in selected:
@@ -57,9 +57,9 @@ def getAllNeighsOfSelected( selected, neighs, atoms, typs={1} ):
                     result[jatom].append( iatom )
                 else:
                     result[jatom] = [iatom]
-    return result 
-    
-def findPairs( select1, select2, atoms, Rcut=2.0 ):    
+    return result
+
+def findPairs( select1, select2, atoms, Rcut=2.0 ):
     ps = atoms[select2,1:]
     Rcut2 = Rcut*Rcut
     pairs = []
@@ -71,7 +71,7 @@ def findPairs( select1, select2, atoms, Rcut=2.0 ):
             pairs.append( (iatom,jatom) )
     return pairs
 
-def findPairs_one( select1, atoms, Rcut=2.0 ):    
+def findPairs_one( select1, atoms, Rcut=2.0 ):
     ps = atoms[select1,1:]
     Rcut2 = Rcut*Rcut
     pairs = []
@@ -81,8 +81,8 @@ def findPairs_one( select1, atoms, Rcut=2.0 ):
         rs = np.sum( (ps - p)**2, axis=1 )
         for jatom in select1[:i][ rs[:i] < Rcut2 ]:
             pairs.append( (iatom,jatom) )
-    return pairs  
-    
+    return pairs
+
 def pairsNotShareNeigh( pairs, neighs ):
     pairs_ = []
     for pair in pairs:
@@ -102,20 +102,20 @@ def makeRotMat( fw, up ):
     up   = up - fw*np.dot(up,fw)
     up   = up/np.linalg.norm(up)
     left = np.cross(fw,up)
-    left = left/np.linalg.norm(left) 
+    left = left/np.linalg.norm(left)
     return np.array([left,up,fw])
 
 def groupToPair( p1, p2, group, up, up_by_cog=False ):
     center = (p1+p2)*0.5
-    fw  = p2-p1;    
+    fw  = p2-p1;
     if up_by_cog:
         up  = center - up
     rotmat = makeRotMat( fw, up )
     ps  = group[:,1:]
-    ps_ = np.dot( ps, rotmat ) 
+    ps_ = np.dot( ps, rotmat )
     group[:,1:] = ps_ + center
     return group
-    
+
 def replacePairs( pairs, atoms, group, up_vec=(np.array((0.0,0.0,0.0)),1) ):
     replaceDict = {}
     for ipair,pair in enumerate(pairs):
@@ -136,8 +136,8 @@ def findNearest( p, ps, rcut=1e+9 ):
 	imin = np.argmin(rs)
 	if rs[imin]<(rcut**2):
 	    return imin
-	else: 
-	    return -1 
+	else:
+	    return -1
 
 def countTypeBonds( atoms, ofAtoms, rcut ):
     bond_counts = np.zeros(len(atoms), dtype=int )
@@ -147,11 +147,11 @@ def countTypeBonds( atoms, ofAtoms, rcut ):
         rs = np.sum( (ps - p)**2, axis=1 )
         bond_counts[i] = np.sum( rs < (rcut**2) )
     return bond_counts
-	
+
 def findBondsTo( atoms, typ, ofAtoms, rcut ):
     found     = []
     foundDict = {}
-    ps = ofAtoms[:,1:] 
+    ps = ofAtoms[:,1:]
     for i,atom in enumerate(atoms):
         if atom[0]==typ:
             p = atom[1:]
@@ -160,7 +160,7 @@ def findBondsTo( atoms, typ, ofAtoms, rcut ):
                 foundDict[i] = len(found)
                 found.append( (i, p - ps[ineigh]) )
     return found, foundDict
-	
+
 def replace( atoms, found, to=17, bond_length=2.0, radial=0.0, prob=0.75 ):
     replace_mask = np.random.rand(len(found)) < prob
     for i,foundi in enumerate(found):
@@ -170,7 +170,7 @@ def replace( atoms, found, to=17, bond_length=2.0, radial=0.0, prob=0.75 ):
             rb    = np.linalg.norm(bvec)
             bvec *= ( bond_length - rb )/rb
             atoms[iatom,0]   = to
-            atoms[iatom,1:] += bvec  
+            atoms[iatom,1:] += bvec
     return atoms
 
 def loadCoefs( characters=['s'] ):
@@ -188,11 +188,11 @@ def loadCoefs( characters=['s'] ):
         d   = cs[:,:,0]**2 + cs[:,:,1]**2
         coefs.append( cs[:,:,0] + 1j*cs[:,:,1] )
         if dens is None:
-            dens  = d 
+            dens  = d
         else:
             dens += d
     return dens, coefs, Es
-    
+
 def findCOG( ps, byBox=False ):
     if(byBox):
         xmin=ps[:,0].min(); xmax=ps[:,0].max();
@@ -203,7 +203,7 @@ def findCOG( ps, byBox=False ):
         cog = np.sum( ps, axis=0 )
         cog *=(1.0/len(ps))
         return cog
-        
+
 def histR( ps, dbin=None, Rmax=None, weights=None ):
     rs = np.sqrt(np.sum((ps*ps),axis=1))
     bins=100
@@ -217,5 +217,3 @@ def histR( ps, dbin=None, Rmax=None, weights=None ):
 def ZsToElems(Zs):
     '''Convert atomic numbers to element symbols.'''
     return [elements.ELEMENTS[Z-1][1] for Z in Zs]
-
-    

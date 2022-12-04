@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
@@ -51,7 +51,7 @@ for i in range( natoms ):
 	rec = byType.get(elem,[np.zeros(vals.shape),1])
 	rec[0] += vals
 	rec[1] += 1
-	byType[elem] = rec 
+	byType[elem] = rec
 	dlines.append(vals)
 
 #byType = zip(byType.items())

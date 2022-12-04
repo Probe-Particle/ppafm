@@ -7,7 +7,7 @@ from . import cpp_utils
 
 cpp_name='ReactiveFF'
 cpp_utils.make("RR")
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes
 
 array1ui = np.ctypeslib.ndpointer(dtype=np.uint32, ndim=1, flags='CONTIGUOUS')
 array1i  = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
@@ -36,39 +36,39 @@ lib.clean.restype  = None
 def clean():
     lib.clean()
 
-#int*    getTypes(){ 
+#int*    getTypes(){
 lib.getTypes.argtypes = []
 lib.getTypes.restype  = ctypes.POINTER(c_int)
 def getTypes(natom):
     ptr = lib.getTypes( )
-    print(ptr) 
+    print(ptr)
     return np.ctypeslib.as_array( ptr, shape=(natom,))
 
-#double* getPoss (){ 
+#double* getPoss (){
 lib.getPoss.argtypes = []
 lib.getPoss.restype  = ctypes.POINTER(c_double)
 def getPoss(natom):
     return np.ctypeslib.as_array( lib.getPoss( ), shape=(natom,3))
 
-#double* getQrots(){ 
+#double* getQrots(){
 lib.getQrots.argtypes = []
 lib.getQrots.restype  = ctypes.POINTER(c_double)
 def getQrots(natom):
     return np.ctypeslib.as_array( lib.getQrots( ), shape=(natom,4))
 
-#double* getHbonds(){ 
+#double* getHbonds(){
 lib.getHbonds.argtypes = []
 lib.getHbonds.restype  = ctypes.POINTER(c_double)
 def getHbonds(natom):
     return np.ctypeslib.as_array( lib.getHbonds( ), shape=(natom,4,3) )
 
-#double* getEbonds(){ 
+#double* getEbonds(){
 lib.getEbonds.argtypes = []
 lib.getEbonds.restype  = ctypes.POINTER(c_double)
 def getEbonds(natom):
     return np.ctypeslib.as_array( lib.getEbonds( ), shape=(natom,4) )
 
-#double* getBondCaps(){ 
+#double* getBondCaps(){
 lib.getBondCaps.argtypes = []
 lib.getBondCaps.restype  = ctypes.POINTER(c_int)
 def getBondCaps(natom):
@@ -230,8 +230,3 @@ class RFF():
         self.relax( nstep )
         t2 = time.clock();
         print("Relaxation time ", t2-t1)
-
-
-
-
-

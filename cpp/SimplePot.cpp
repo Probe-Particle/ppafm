@@ -5,7 +5,7 @@ static int iDebug = 0;
 #include "SimplePot.h"
 #include "GridUtils.cpp"
 
-// Golobals  
+// Golobals
 namespace grid{
     Vec3i   ns;
     Vec3d   pmin;
@@ -23,8 +23,8 @@ SimplePot pot;
 double grid::interpolate( Vec3d p, double* V ){
     Vec3d s = (p-pmin)*invStep;
     int ix = (int)s.x;
-    int iy = (int)s.y; 
-    int iz = (int)s.z; 
+    int iy = (int)s.y;
+    int iz = (int)s.z;
     if( (ix<0)||((ix+1)>=ns.x) || (iy<0)||((iy+1)>=ns.y) || (iz<0)||((iz+1)>=ns.z)  ) return 0;
     double dx=s.x-ix; double mx=1-dx;
     double dy=s.y-iy; double my=1-dy;
@@ -62,7 +62,7 @@ double assignWeighsGrid( int n, Vec3d* pos, double* Ws, double kT ){
     //printf( "(%g,%g,%g) (%g,%g,%g) \n", grid::pmin.x,grid::pmin.y,grid::pmin.z,  grid::pmax.x,grid::pmax.y,grid::pmax.z  );
     /*
     int ii=0;
-    for(int ix=0;ix<grid::ns.x;ix++){ 
+    for(int ix=0;ix<grid::ns.x;ix++){
     for(int iy=0;iy<grid::ns.y;iy++){
     for(int iz=0;iz<grid::ns.z;iz++){
        printf(  "Ws[%i,%i,%i] = %g \n", ix,iy,iz, grid::Ws[ii] ); ii++;
@@ -93,7 +93,7 @@ void setGridSize( int* ns_, double* pmin_, double* pmax_){
 
 void setGridPointer(double* data){
     //printf( "C++ setGridPointer \n" );
-    grid::Ws = data; 
+    grid::Ws = data;
 }
 
 void init( int natom, int neighPerAtom, double* apos, double* Rcovs ){
@@ -147,7 +147,7 @@ double randomOptAtom( int ntry, double* pos_, double* spread_, double Rcov, doub
     Vec3d spread = *(Vec3d*)spread_;
     Vec3d pmin=pos-spread;
     Vec3d pmax=pos+spread;
-    double Ebest = 1e+300; 
+    double Ebest = 1e+300;
     for( int i=0; i<ntry; i++ ){
         Vec3d p; p.fromRandomBox(pmin,pmax);
         double E = pot.eval( p, Rcov, RvdW );

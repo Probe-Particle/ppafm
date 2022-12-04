@@ -5,9 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-print(" # ========== make & load C++ library ") 
+print(" # ========== make & load C++ library ")
 
-LWD = '/home/prokop/git/ProbeParticleModel/code' 
+LWD = '/home/prokop/git/ProbeParticleModel/code'
 
 def makeclean( ):
 	import os
@@ -26,14 +26,10 @@ print(" ============= RUN  ")
 
 Fz,lvec,nDim,head=gu.loadXSF('Fz.xsf')
 
-nslice = min( len( Fz ), 10 ) 
+nslice = min( len( Fz ), 10 )
 
 for i in range(nslice):
 	plt.figure()
 	plt.imshow( Fz[i,:,:], origin='upper', interpolation='nearest' )
 
 plt.show()
-
-
-
-

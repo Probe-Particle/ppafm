@@ -19,7 +19,7 @@ fnames.sort()
 print(fnames)
 data = []
 for fname in fnames:
-    fname_ = os.path.basename(fname); 
+    fname_ = os.path.basename(fname);
     #fnames.append( fname_ )
     print(fname)
     imgs = file_dat.readDat(fname)

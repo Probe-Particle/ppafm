@@ -226,18 +226,18 @@ class Corrector():
         mask = Ws>0
         ps = ps[mask]
         Ws = Ws[mask]
-        nps   = len(ps) 
+        nps   = len(ps)
         print( "na0,nps", na0, nps )
         Zs2   = np.concatenate( [molIn.Zs,np.ones(nps,dtype=np.int32)] )
         Rs    = np.concatenate( [ np.ones(na0),Ws] )
         xyzs2 = np.concatenate( [ molIn.xyzs,  ps], axis=0 )
-        print( "xyzs2.shape ", xyzs2.shape ) 
+        print( "xyzs2.shape ", xyzs2.shape )
         _saveXYZDebug( Zs2, xyzs2, 'debug_genAtomWs.xyz', qs=([0.0]*(na0+nps)),  Rs=Rs )
 
     def try_improve(self, molIn, AFMs, AFMRef, span, itr=0 ):
         AFMdiff = AFMs - AFMRef
         AFMdiff = blur( AFMdiff ); AFMdiff = blur( AFMdiff ) # BLUR
-        AFMdiff2=AFMdiff**2 
+        AFMdiff2=AFMdiff**2
         Err  = np.sqrt( AFMdiff2.sum() )  # root mean square error
 
         # ToDo : identify are of most difference and make random changes in that area
@@ -245,7 +245,7 @@ class Corrector():
         bBetter = False
         if( self.best_E is not None ):
             if( self.best_E > Err ):
-                ErrB,ErrW = paretoNorm_( self.best_diff, AFMdiff2 ); Eworse = ErrW.sum(); 
+                ErrB,ErrW = paretoNorm_( self.best_diff, AFMdiff2 ); Eworse = ErrW.sum();
                 ErrPar = Err + 2.*Eworse
                 print( "\nmaybe better ? ", self.best_E , " <? ", ErrPar, " Eworse ", Eworse  )
                 if ( self.best_E > ErrPar ):  # check if some areas does not got worse
@@ -258,7 +258,7 @@ class Corrector():
             ErrLo = lowResErrorMap( AFMdiff2 ).astype(np.float64)
 
             self.debug_plot( itr, AFMdiff2, ErrLo, AFMs, AFMRef, Err )
-            self.best_mol  = molIn 
+            self.best_mol  = molIn
             self.best_E    = Err
             self.best_diff = AFMdiff2
             self.best_ErrMap = ErrLo

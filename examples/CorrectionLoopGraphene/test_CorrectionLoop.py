@@ -2,8 +2,8 @@
 import sys
 sys.path.append('../../')
 
-from ppafm.ocl import oclUtils as oclu 
-from ppafm.ocl import field    as FFcl 
+from ppafm.ocl import oclUtils as oclu
+from ppafm.ocl import field    as FFcl
 from ppafm.ocl import relax    as oclr
 from ppafm import common       as PPU
 from ppafm import basUtils
@@ -31,7 +31,7 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
     corrector.xyzLogFile = "CorrectorLog.xyz"
     corrector.plt = plt
     corrector.izPlot = -1
-    nscan = simulator.scan_dim; 
+    nscan = simulator.scan_dim;
     nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
     sw    = simulator.scan_window
 

@@ -12,7 +12,7 @@ from . import cpp_utils
 
 verbose = 1
 
-# ===== constants 
+# ===== constants
 Fmax_DEFAULT = 10.0
 Vmax_DEFAULT = 10.0
 
@@ -38,7 +38,7 @@ def trjByDir( n, d=[0.0,0.0,PPU.params['scanStep'][2]], p0=[0,0,PPU.params['scan
 def relaxedScan3D( xTips, yTips, zTips, trj=None, bF3d=False ):
     if(verbose>0): print(">>BEGIN: relaxedScan3D()")
     if(verbose>0): print(" zTips : ",zTips)
-    ntips = len(zTips); 
+    ntips = len(zTips);
     rTips = np.zeros((ntips,3))
     rs    = np.zeros((ntips,3))
     fs    = np.zeros((ntips,3))
@@ -79,9 +79,9 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,FFkpfm_t
         try:
             if(verbose>0): print(" loading tip spline from "+tipspline)
             S    = np.genfromtxt(tipspline )
-            xs   = S[:,0].copy();  
+            xs   = S[:,0].copy();
             if(verbose>0): print("xs: ",   xs)
-            ydys = S[:,1:].copy(); 
+            ydys = S[:,1:].copy();
             if(verbose>0): print("ydys: ", ydys)
             core.setTipSpline( xs, ydys )
         except:
@@ -93,7 +93,7 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,FFkpfm_t
         FF += FFel * PPU.params['charge']
         if(verbose>0): print("adding charge:", PPU.params['charge'])
     if ( FFkpfm_t0sV is not None and FFkpfm_tVs0 is not None ):
-        
+
         FF += (np.sign(PPU.params['charge'])*FFkpfm_t0sV - FFkpfm_tVs0) * abs(PPU.params['charge']) * PPU.params['Vbias']
         if(verbose>0): print("adding charge:", PPU.params['charge'], "and bias:", PPU.params['Vbias'], "V")
     if ( FFpauli is not None ):
@@ -138,12 +138,12 @@ def prepareArrays( FF, Vpot ):
         core.setFF_Epointer( V )
     else:
         V=None
-    return FF, V 
+    return FF, V
 
 def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT, ffModel="LJ" ):
     if(verbose>0): print(">>>BEGIN: computeLJ()")
     # --- load species (LJ potential)
-    FFparams            = PPU.loadSpecies( speciesFile ) 
+    FFparams            = PPU.loadSpecies( speciesFile )
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
     # --- load atomic geometry
     atoms,nDim,lvec     = BU.loadGeometry( geomFile, params=PPU.params )
@@ -175,7 +175,7 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
         V[ V > Vmax ] =  Vmax # remove too large values
     # --- save to files ?
     if save_format is not None:
-        if(verbose>0): print("computeLJ Save ", save_format) 
+        if(verbose>0): print("computeLJ Save ", save_format)
         GU.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring )
         if computeVpot:
             GU.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
@@ -188,7 +188,7 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     tipKind  = tipKinds[tip]
     if(verbose>0): print(" ========= get electrostatic forcefiled from the point charges tip=%s %i " %(tip,tipKind))
     # --- load atomic geometry
-    FFparams            = PPU.loadSpecies( ) 
+    FFparams            = PPU.loadSpecies( )
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
 
     atoms,nDim,lvec     = BU .loadGeometry( geomFile, params=PPU.params )
@@ -209,7 +209,7 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
         V[ V > Vmax ] =  Vmax # remove too large values
     # --- save to files ?
     if save_format is not None:
-        if(verbose>0): print("computeLJ Save ", save_format) 
+        if(verbose>0): print("computeLJ Save ", save_format)
         GU.save_vec_field( 'FFel',FF,lvec,data_format=save_format, head=atomstring )
         if computeVpot:
             GU.save_scal_field( 'Vel',V,lvec,data_format=save_format, head=atomstring )
@@ -264,8 +264,8 @@ def loadValenceElectronDict():
 def getAtomsWhichTouchPBCcell( fname, Rcut=1.0, bSaveDebug=True ):
     atoms, nDim, lvec = BU.loadGeometry( fname, params=PPU.params )
     Rs = np.array(atoms[1:4])                     # get just positions x,y,z
-    inds, Rs_ = PPU.findPBCAtoms3D_cutoff( Rs, np.array(lvec[1:]), Rcut=Rcut )  # find periodic images of PBC images of atom of radius Rcut which touch our cell 
-    elems = [ atoms[0][i] for i in inds ]   # atomic number of all relevant peridic images of atoms   
+    inds, Rs_ = PPU.findPBCAtoms3D_cutoff( Rs, np.array(lvec[1:]), Rcut=Rcut )  # find periodic images of PBC images of atom of radius Rcut which touch our cell
+    elems = [ atoms[0][i] for i in inds ]   # atomic number of all relevant peridic images of atoms
     if bSaveDebug:
         BU.saveGeomXSF( fname+"_TouchCell_debug.xsf",elems,Rs_, lvec[1:], convvec=lvec[1:], bTransposed=True )    # for debugging - mapping PBC images of atoms to the cell
     Rs_ = Rs_.transpose().copy()
@@ -280,12 +280,12 @@ def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDic
         valElDict = loadValenceElectronDict()
     print("subtractCoreDensities valElDict ", valElDict)
     print("subtractCoreDensities elems ", elems)
-    cRAs = np.array( [ (-valElDict[elem],Rcore) for elem in elems ] ) 
+    cRAs = np.array( [ (-valElDict[elem],Rcore) for elem in elems ] )
     V  = np.linalg.det( lvec )   # volume of triclinic cell
     N  = nDim[0]*nDim[1]*nDim[2]
     dV = (V/N)  # volume of one voxel
-    if(verbose>0): print("V : ",V," N: ",N," dV: ", dV)  
-    if(verbose>0): print("sum(RHO): ",rho.sum()," Nelec: ",rho.sum()*dV," voxel volume: ", dV)   # check sum 
+    if(verbose>0): print("V : ",V," N: ",N," dV: ", dV)
+    if(verbose>0): print("sum(RHO): ",rho.sum()," Nelec: ",rho.sum()*dV," voxel volume: ", dV)   # check sum
     core.setFF_shape   ( rho.shape, lvec )     # set grid sampling dimension and shape
     core.setFF_Epointer( rho )                  # set pointer to array with density data (to write into)
     if(verbose>0): print(">>> Projecting Core Densities ... ")
