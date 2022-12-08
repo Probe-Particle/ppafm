@@ -6,7 +6,7 @@ Simple and efficient **simulation software for high-resolution atomic force micr
 ### Further information
 - Publications: https://github.com/Probe-Particle/ProbeParticleModel#notable-publications-using-probe-particle-model
 - Wiki: https://github.com/Probe-Particle/ProbeParticleModel/wiki
-- API documentation: https://probeparticlemodel.readthedocs.io/en/main
+- API documentation: https://ppafm.readthedocs.io/en/latest/
 
 ## Flavors of PPM
 
