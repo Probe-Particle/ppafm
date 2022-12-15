@@ -78,11 +78,17 @@ Additionally an OpenCL Installable Client Driver (ICD) for your compute device i
 
 Run the GUI application:
 ```sh
-./ppm-gui
+./GUI/ppm-gui
 ```
-  
+
+In order to make the GUI application appear in the system application menu and 'Open with' context menus, link the `ppm-gui` application to a location that is on PATH, e.g. `~/.local/bin`, and install the provided .desktop file. This can be achived by running the following in the repository root:
+```bash
+ln -s `realpath ./GUI/ppm-gui` $HOME/.local/bin
+cp ./GUI/resources/ppm-gui.desktop $HOME/.local/share/applications
+```
+
 ###### Usage:
-* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument using the `-i` or `--input` option. The input file can be a .xyz geometry file (possibly with point charges*), a VASP POSCAR or CONTCAR file, an FHI-aims .in file, or a .xsf or .cube Hartree potential file. Loading large files may take some time.
+* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument. The input file can be a .xyz geometry file (possibly with point charges*), a VASP POSCAR or CONTCAR file, an FHI-aims .in file, or a .xsf or .cube Hartree potential file. Loading large files may take some time.
 * Changing any number in any input box will automatically update the image. There are also presets for some commonly used tip configurations.
 Hover the mouse cursor over any parameter for a tooltip explaining the meaning of the parameter.
 * Click anywhere on the image to bring up a plot of the df approach curve for that point in the image.
