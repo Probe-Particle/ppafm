@@ -228,7 +228,9 @@ class PlotWindow(SlaveWindow):
         vb.addWidget( QtWidgets.QLabel("Ymax:") ); self.leYmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
 
     def save_dat(self):
-        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","data files (*.dat)")
+        default_path = os.path.join(os.path.split(self.parent.file_path)[0], 'df_curve.dat')
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save df curve raw data", default_path,
+            "Data files (*.dat)")
         if fileName:
             fileName = correct_ext( fileName, ".dat" )
             print("saving data to :", fileName)
@@ -240,7 +242,9 @@ class PlotWindow(SlaveWindow):
             np.savetxt( fileName, data )
 
     def save_png(self):
-        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
+        default_path = os.path.join(os.path.split(self.parent.file_path)[0], 'df_curve.png')
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save df curve image", default_path,
+            "Image files (*.png)")
         if fileName:
             fileName = correct_ext( fileName, ".png" )
             print("saving image to :", fileName)

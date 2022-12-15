@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 import numpy as np
 from enum import Enum
 
-sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
+sys.path.append(os.path.split(sys.path[0])[0])
 from ppafm import basUtils
 from ppafm import PPPlot
 from ppafm.ocl.AFMulator import AFMulator
@@ -646,6 +646,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.updateParams()
 
         # Set current file path to window title
+        self.file_path = file_path
         if len(file_path) > 80: file_path = f'...{file_path[-80:]}'
         self.setWindowTitle(f'{file_path} - Probe Particle Model')
 
@@ -689,7 +690,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
     def saveFig(self):
         if self.xyzs is None: return
-        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"Save image","","Image files (*.png)")
+        default_path = os.path.join(os.path.split(self.file_path)[0], 'df.png')
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save image", default_path,
+            "Image files (*.png)")
         if fileName:
             self.status_message('Saving image...')
             fileName = guiw.correct_ext( fileName, ".png" )
@@ -699,7 +702,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def saveDataW(self):
         if self.df is None: return
-        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save df", "df.xsf",
+        default_path = os.path.join(os.path.split(self.file_path)[0], 'df.xsf')
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save df", default_path,
             "XCrySDen files (*.xsf);; WSxM files (*.xyz)")
         if not fileName: return
         ext = os.path.splitext(fileName)[1]
