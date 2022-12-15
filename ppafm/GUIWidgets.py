@@ -8,6 +8,9 @@ from matplotlib.figure import Figure
 from PyQt5 import QtCore, QtWidgets, QtGui
 import os
 
+from . import GridUtils as GU
+from . import basUtils
+
 def correct_ext(fname, ext ):
     _, fext = os.path.splitext( fname )
     if( fext.capitalize() != ext.capitalize() ):
@@ -417,22 +420,27 @@ class FFViewer(SlaveWindow):
         components = ['Fx', 'Fy', 'Fz', 'E']
 
         hb = QtWidgets.QHBoxLayout(); self.centralLayout.addLayout(hb)
-        hbl = QtWidgets.QHBoxLayout(); hb.addLayout(hbl)
-        hbr = QtWidgets.QHBoxLayout(); hb.addLayout(hbr)
 
+        hbl = QtWidgets.QHBoxLayout(); hb.addLayout(hbl)
         lb = QtWidgets.QLabel('Component:'); lb.setToolTip(tooltips[0]); hbl.addWidget(lb)
         sl = QtWidgets.QComboBox(); self.slComponent = sl; sl.addItems(components)
         sl.setCurrentIndex(sl.findText(components[2])); sl.currentIndexChanged.connect(self.updateView)
         sl.setToolTip(tooltips[0]); hbl.addWidget(sl)
-        hbl.addStretch(1)
 
+        hbr = QtWidgets.QHBoxLayout(); hb.addLayout(hbr)
         lb = QtWidgets.QLabel('z index:'); lb.setToolTip(tooltips[1]); hbr.addWidget(lb)
         bx = QtWidgets.QSpinBox(); bx.setRange(0, 200); bx.setValue(0)
         bx.valueChanged.connect(self.updateView); bx.setToolTip(tooltips[1])
         hbr.addWidget(bx); self.bxInd = bx
+        hbr.setContentsMargins(10, 0, 10, 0)
 
         hb.addStretch(1)
-        hbr.setContentsMargins(25, 0, 0, 0)
+
+        bt = QtWidgets.QPushButton('Save to file...', self)
+        bt.setToolTip('Save current force field component to a .xsf file.')
+        bt.clicked.connect(self.saveFF)
+        self.btSaveFF = bt; hb.addWidget(bt)
+
 
     def updateFF(self):
 
@@ -463,3 +471,35 @@ class FFViewer(SlaveWindow):
 
         if self.verbose > 0: print('FFViewer.updateView', ic, iz, data.shape)
         if self.verbose > 1: print('updateView time [s]', time.perf_counter() - t0)
+
+    def saveFF(self):
+
+        comp = self.slComponent.currentText()
+        default_path = os.path.join(os.path.split(self.parent.file_path)[0], f'{comp}.xsf')
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save force field data", default_path,
+            "XCrySDen files (*.xsf)")
+        if not fileName: return
+        ext = os.path.splitext(fileName)[1]
+        if ext != '.xsf':
+            self.parent.status_message('Unsupported file type in force field save file path')
+            print(f'Unsupported file type in force field save file path `{fileName}`')
+            return
+        self.parent.status_message('Saving data...')
+
+        if self.verbose > 0: print(f'Saving force field data to {fileName}...')
+        ic = self.slComponent.currentIndex()
+        data = self.FE.copy()
+        # Clamp large values for easier visualization
+        if ic < 3:
+            GU.limit_vec_field(data, Fmax=1000)
+            data = data[..., ic].transpose(2, 1, 0)
+        else:
+            data = data[..., ic].transpose(2, 1, 0)
+            data[data > 1000] = 1000
+        lvec = self.parent.afmulator.lvec
+        xyzs = self.parent.xyzs - lvec[0]
+        atomstring = basUtils.primcoords2Xsf(self.parent.Zs, xyzs.T, lvec)
+        GU.saveXSF(fileName, data, lvec, head=atomstring, verbose=0)
+
+        if self.verbose > 0: print("Done saving force field data.")
+        self.parent.status_message('Ready')
