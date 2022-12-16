@@ -665,6 +665,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.bxZPP.setRange(0, 200); self.bxZPP.setValue(8)
         self.bxZPP.valueChanged.connect(self.updateParams)
         self.bxZPP.setToolTip(TTips['Z'])
+        self.bxZPP.setKeyboardTracking(False)
         vb.addWidget(self.bxZPP, 2)
 
         # Charge multipole
@@ -822,6 +823,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.bxdfst.setRange(1, 50); self.bxdfst.setValue(10)
         self.bxdfst.valueChanged.connect(self.updateScanWindow)
         self.bxdfst.setToolTip(TTips['z_steps'])
+        self.bxdfst.setKeyboardTracking(False)
         vb.addWidget(self.bxdfst, 2)
 
         vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
@@ -915,6 +917,7 @@ def _spin_box(value_range, value, step, connect_func, tool_tip, parent, stretch=
     bx.setSingleStep(step)
     bx.valueChanged.connect(connect_func)
     bx.setToolTip(tool_tip)
+    bx.setKeyboardTracking(False)
     parent.addWidget(bx, stretch)
     return bx
 
