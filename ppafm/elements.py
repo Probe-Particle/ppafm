@@ -1,4 +1,3 @@
-
 ELEMENTS = [
 #        Z                Symbol             period              group             shell                name                   radius cov.    vdW.            color          val.elec
 [        1         ,        "H"        ,        1        ,        1        ,        "S"        ,        "Hydrogen"           ,       0.365,   1.487     ,    (255,255,255)   , 1     ]  ,

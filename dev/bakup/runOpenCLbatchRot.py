@@ -130,11 +130,11 @@ def maxAlongDir(atoms, hdir):
 
 def loadSpecies(fname):
     try:
-        with open(fname, 'r') as f:
+        with open(fname) as f:
             str_Species = f.read();
     except:
         print("defaul atomtypes.ini")
-        with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:
+        with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini') as f:
             str_Species = f.read();
     str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in str_Species.split('\n')  )
     print("str_Species")

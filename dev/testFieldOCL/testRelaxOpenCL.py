@@ -38,7 +38,7 @@ def loadFEcl( Q = None ):
 THIS_FILE_PATH = os.path.dirname( os.path.realpath( __file__ ) )
 
 CL_PATH  = os.path.normpath( THIS_FILE_PATH  + '/../../cl' ); print(CL_PATH)
-f        = open(CL_PATH+"/relax.cl", 'r')
+f        = open(CL_PATH+"/relax.cl")
 CL_CODE  = "".join( f.readlines() )
 plats    = cl.get_platforms()
 ctx      = cl.Context(properties=[(cl.context_properties.PLATFORM, plats[0])], devices=None)

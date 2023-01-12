@@ -414,7 +414,7 @@ def get_lvec(scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0), pixPerAngs
 
 def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_step=(0.1, 0.1, 0.1),
         probe_type=8, charge=-0.1, tip='dz2', sigma=0.71, num_heights=10, amplitude=1.0, out_dir=None):
-    '''
+    r'''
     Make an AFM simulation from a .cube, .xsf, or .xyz file, and print images to a folder.
 
     Arguments:

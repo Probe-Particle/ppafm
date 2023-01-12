@@ -275,10 +275,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def loadInputs_New(self):
         print("self.mode  ", self.mode)
         try:
-            with open('atomtypes.ini', 'r') as f:  self.str_Species = f.read();
+            with open('atomtypes.ini') as f:  self.str_Species = f.read();
         except:
             print("defaul atomtypes.ini")
-            with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:  self.str_Species = f.read();
+            with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini') as f:  self.str_Species = f.read();
 
         self.str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in self.str_Species.split('\n')  );
         self.TypeParams = PPU. loadSpeciesLines( self.str_Species.split('\n') );

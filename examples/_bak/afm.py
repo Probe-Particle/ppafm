@@ -62,7 +62,7 @@ except IndexError:
 filename = sys.argv[1]
 
 if not os.path.exists(filename):
-    print("File {} with coordinates doesn't exist!!! Exiting".format(filename))
+    print(f"File {filename} with coordinates doesn't exist!!! Exiting")
     exit(1)
 
 
@@ -80,7 +80,7 @@ ParamFilename=ProjName+".ini"
 if os.path.exists(ParamFilename):
     PP.loadParams(ParamFilename)
 else:
-    print("File {} with parameters doesn't exist!!! Using defaults".format(ParamFilename))
+    print(f"File {ParamFilename} with parameters doesn't exist!!! Using defaults")
 
 
 cell =np.array([

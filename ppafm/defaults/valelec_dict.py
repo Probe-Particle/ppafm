@@ -1,4 +1,3 @@
-
 # total Valence Electron Charge to be substracted to achieve electron neutrality. The numbers may vary depending on DFT code, pseudopotentials etc.
 
 valElDict = {

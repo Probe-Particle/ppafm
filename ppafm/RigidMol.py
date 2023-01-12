@@ -14,7 +14,7 @@ def recompile(path):
     os.chdir( path)
     os.system("make" )
     os.chdir( dir_bak )
-    print(( os.getcwd() ))
+    print( os.getcwd() )
 
 lib = ctypes.CDLL( LIB_PATH_CPP+"/libRigidMol.so_" )
 

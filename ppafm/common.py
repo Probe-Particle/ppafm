@@ -169,7 +169,7 @@ def autoGridN():
 # overide default parameters by parameters read from a file
 def loadParams( fname ):
     if(verbose>0): print(" >> OVERWRITING SETTINGS by "+fname)
-    fin = open(fname,'r')
+    fin = open(fname)
     for line in fin:
         words=line.split()
         if len(words)>=2:
@@ -206,7 +206,7 @@ def loadParams( fname ):
                         params[key] = np.array([ str(words[1]), float(words[2]) ])
                         if(verbose>0): print(key, params[key], words[1], words[2])
             else :
-                raise ValueError("Parameter {} is not known".format(key))
+                raise ValueError(f"Parameter {key} is not known")
     fin.close()
     if (params["gridN"][0]<=0):
         autoGridN()
@@ -463,7 +463,7 @@ def atom2iZ( atm, elem_dict ):
         try:
             return elem_dict[atm.encode()]
         except:
-            raise ValueError("Did not find atomkind: {}".format(atm))
+            raise ValueError(f"Did not find atomkind: {atm}")
 
 def atoms2iZs( names, elem_dict ):
     return np.array( [atom2iZ(name,elem_dict) for name in names], dtype=np.int32 )

@@ -121,8 +121,8 @@ for iq,Q in enumerate( Qs ):
                     F_interp=interp1d(Zplot, Fplot,kind='cubic')
                     fig,ax1 = plt.subplots()
                     ax1.plot(Zplot, Fplot, 'ko', xnew, F_interp(xnew), 'k--')
-                    ax1.set_xlabel('Z coordinate of the tip ($\AA$)')
-                    ax1.set_ylabel('Force (eV/$\AA$)', color='black')
+                    ax1.set_xlabel(r'Z coordinate of the tip ($\AA$)')
+                    ax1.set_ylabel(r'Force (eV/$\AA$)', color='black')
                     for tl in ax1.get_yticklabels():
                         tl.set_color('black')
 
@@ -142,7 +142,7 @@ for iq,Q in enumerate( Qs ):
                     for tl in ax2.get_yticklabels():
                         tl.set_color('b')
                     ax2.text(Zplot[min_index]+0.02, DFplot[min_index]-1.0,
-                             'x:{:4.2f} ($\AA$); y:{:4.2f} (Hz)'.format(Zplot[min_index],
+                             r'x:{:4.2f} ($\AA$); y:{:4.2f} (Hz)'.format(Zplot[min_index],
                              DFplot[min_index]), style='italic',
                              bbox={'facecolor':'blue', 'alpha':0.5, 'pad':0})
 

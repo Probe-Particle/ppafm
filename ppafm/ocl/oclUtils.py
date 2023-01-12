@@ -1,4 +1,3 @@
-
 import os
 
 import numpy as np
@@ -22,7 +21,7 @@ class OCLEnvironment:
         self.queue        = cl.CommandQueue(self.ctx)
 
     def loadProgram(self,fname):
-        f       = open(fname, 'r')
+        f       = open(fname)
         fstr    = "".join(f.readlines())
         program = cl.Program(self.ctx, fstr ).build(options=['-I', self.CL_PATH])
         return program

@@ -182,7 +182,7 @@ def BsplineCubic(x):
     absx = abs(x)
     x2   = x*x
     y                    = ( 3*absx*x2      - 6*x2 + 4)
-    mask=absx>1; y[mask] = ( (-absx*(x2+12) + 6*x2 + 8) )[mask]
+    mask=absx>1; y[mask] = ( -absx*(x2+12) + 6*x2 + 8 )[mask]
     mask=absx>2; y[mask] = 0
     return y
 
@@ -197,7 +197,7 @@ def conv1D(xs,ys):
     print(nx,ny,ntot, dnx, dny, len(xs_[dny:-dny]))
     xs_[dny:-dny-1] = xs
     ys_[dnx:-dnx-1] = ys
-    conv = np.real(np.fft.ifft((np.fft.fft(xs_)*np.fft.fft(ys_))))  # Keep it Real !
+    conv = np.real(np.fft.ifft(np.fft.fft(xs_)*np.fft.fft(ys_)))  # Keep it Real !
     conv = np.roll(conv,ntot/2)
     return conv
 

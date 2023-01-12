@@ -57,7 +57,7 @@ class MyDynamicMplCanvas(FigureCanvas):
 # TODO : we use now QDialog instead
 class AtomEditor(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
-        super(AtomEditor, self).__init__(parent)
+        super().__init__(parent)
         self.parent = parent
         self.textEdit = QtWidgets.QTextEdit()
         self.textEdit.setText(parent.str_Atoms)

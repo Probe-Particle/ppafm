@@ -189,7 +189,7 @@ for iq,Q in enumerate( Qs ):
                 except:
                     print("error: ", sys.exc_info())
                     print("cannot load : ", dirname+'/PPpos_?.' + options.data_format)
-            if ( ( opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM'] ) ):
+            if (  opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM']  ):
                 try :
                     for iA,Amp in enumerate( Amps ):
                         AmpStr = "/Amp%2.2f" %Amp

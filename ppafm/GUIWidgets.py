@@ -1,4 +1,3 @@
-
 import os
 import time
 
@@ -116,7 +115,7 @@ class FigImshow(FigCanvas):
             self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),F.shape[1]-margins[2]-margins[0], F.shape[0]-margins[3]-margins[1], linewidth=2,edgecolor='r',facecolor='none'))
             textRes = 'output size: '+str(F.shape[1]-margins[2]-margins[0])+ 'x'+ str(F.shape[0]-margins[3]-margins[1])
             if slice_length:
-                textRes += '     length [A] ='+'{:03.4f}, {:03.4f}'.format(slice_length[0], slice_length[1])
+                textRes += '     length [A] ='+f'{slice_length[0]:03.4f}, {slice_length[1]:03.4f}'
             self.axes.set_xlabel(textRes)
 
         self.axes.set_title(title)
@@ -149,7 +148,7 @@ class FigImshow(FigCanvas):
             self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),margins[2], margins[3], linewidth=2,edgecolor='r',facecolor='none'))
             textRes = 'output size: '+str(margins[2])+ 'x'+ str(margins[3])
             if slice_length:
-                textRes += '     length [A] ='+'{:03.4f}, {:03.4f}'.format(slice_length[0], slice_length[1])
+                textRes += '     length [A] ='+f'{slice_length[0]:03.4f}, {slice_length[1]:03.4f}'
             self.axes.set_xlabel(textRes)
 
         self.axes.set_xlim(0,F.shape[1])
@@ -200,7 +199,7 @@ class FigImshow(FigCanvas):
 
 class SlaveWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None, title="SlaveWindow" ):
-        super(SlaveWindow, self).__init__(parent)
+        super().__init__(parent)
         self.parent = parent
         self.setWindowTitle( title )
         self.main_widget = QtWidgets.QWidget(self)

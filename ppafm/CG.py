@@ -1,4 +1,3 @@
-
 import numpy as np
 
 
@@ -40,7 +39,7 @@ def CG( A, b, x, nMaxIter=10, Econv=1e-10, bPrint=True ):
               break
     return x
 
-'''
+r'''
 #https://en.wikipedia.org/wiki/Conjugate_gradient_method
 
 function [x, k] = cgp(x0, A, C, b, mit, stol, bbA, bbC)

@@ -84,7 +84,7 @@ K=PPU.params['klat']
 Q=PPU.params['charge']
 dirname = "Q%1.2fK%1.2f" %(Q,K)
 
-print("Working in {} directory".format(dirname))
+print(f"Working in {dirname} directory")
 
 fzs,lvec,nDim=GU.load_scal_field(dirname+'/OutFz',data_format=options.data_format)
 dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
@@ -117,8 +117,8 @@ for p in options.points:
         DSP_interp=interp1d(Lplot, DSPplt,kind='cubic')
         plt.plot(Lplot, DSPplt, 'ko',Lplot, DSP_interp(Lplot),'k--')
         plt.axhline(y=0, color='black', ls='-.')
-        plt.xlabel('Coordinate along the selected line ($\AA$)')
-        plt.ylabel('PP $\Delta$ {} displacement ($\AA$)'.format(opt_dict['disp'][0]), color='black')
+        plt.xlabel(r'Coordinate along the selected line ($\AA$)')
+        plt.ylabel(r'PP $\Delta$ {} displacement ($\AA$)'.format(opt_dict['disp'][0]), color='black')
         plt.show()
 
 
@@ -149,16 +149,16 @@ for p in options.points:
  #                           DFplot[k+(int)(Amp/scan_step[2]/2)]=dfs[-k-1][y_pos][x_pos]
 
     DF_interp=interp1d(Lplot, DFplt,kind='cubic')
-    with open ("x{}-y{}-z{}.dat".format(xmin,ymin,zmin),'w') as f:
+    with open (f"x{xmin}-y{ymin}-z{zmin}.dat",'w') as f:
         for val in Fplot :
-            f.write("{} {} {} {} {} \n".format(val[0],val[1]*1.60217733e3,val[2],val[3],val[4]))
+            f.write(f"{val[0]} {val[1]*1.60217733e3} {val[2]} {val[3]} {val[4]} \n")
 
     if not opt_dict['nodisp'] :
         fig,ax1 = plt.subplots()
         ax1.plot(Lplot, Fplt*1.60217733e3, 'ko', Lplot,
         F_interp(Lplot)*1.60217733e3, 'k--')
-        ax1.set_xlabel('Coordinate along the selected line ($\AA$)')
-        ax1.set_ylabel('Force (eV/$\AA$)', color='black')
+        ax1.set_xlabel(r'Coordinate along the selected line ($\AA$)')
+        ax1.set_ylabel(r'Force (eV/$\AA$)', color='black')
         for tl in ax1.get_yticklabels():
             tl.set_color('black')
         ax2=ax1.twinx()

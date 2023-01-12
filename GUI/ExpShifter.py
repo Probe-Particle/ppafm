@@ -205,7 +205,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.path =
         '''
 
-        if self.path[-1] is not '/':
+        if self.path[-1] != '/':
             self.path   += '/'
 
         self.fnames   = glob.glob(self.path+'*.dat')
@@ -402,7 +402,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def loadNPZ(self):
         self.path = self.txPath.text()
-        if self.path[-1] is not '/':
+        if self.path[-1] != '/':
             self.path   += '/'
 
         # load image data from data.npz

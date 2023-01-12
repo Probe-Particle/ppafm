@@ -210,11 +210,11 @@ def printMetadata(sampleSize, dims, dd, xsize, ysize, zsize, V, rho):
     print('sampleSize = \n', sampleSize)
     print('Lmat = \n', getNormalizedBasisMatrix(sampleSize))
     print('number of data points:'.rjust(first_col), ' dims'.rjust(sec_col), ' = %s' % list(dims))
-    print('specimen size:'.rjust(first_col), '(xsize, ysize, zsize)'.rjust(sec_col), ' = (%s, %s, %s)' % (xsize, ysize, zsize))
+    print('specimen size:'.rjust(first_col), '(xsize, ysize, zsize)'.rjust(sec_col), f' = ({xsize}, {ysize}, {zsize})')
     print('elementary lengths:'.rjust(first_col), '(dx, dy, dz)'.rjust(sec_col), ' = (%.5f, %.5f, %.5f)' % dd)
-    print('V potential:'.rjust(first_col), '(max, min)'.rjust(sec_col), ' = (%s, %s)' % (V.max(), V.min()))
+    print('V potential:'.rjust(first_col), '(max, min)'.rjust(sec_col), f' = ({V.max()}, {V.min()})')
     print(''.rjust(first_col), 'V.shape'.rjust(sec_col), ' = %s' % list(V.shape))
-    print('probe potential:'.rjust(first_col), '(max, min)'.rjust(sec_col), ' = (%s, %s)' % (rho.max(), rho.min()))
+    print('probe potential:'.rjust(first_col), '(max, min)'.rjust(sec_col), f' = ({rho.max()}, {rho.min()})')
     print(''.rjust(first_col), 'rho.shape'.rjust(sec_col), ' = %s' % list(rho.shape))
 
 def exportPotential(rho, rho_data='rho_data'):

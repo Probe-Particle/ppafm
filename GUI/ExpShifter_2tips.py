@@ -239,7 +239,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.marged_size = []
         for i,path in enumerate(self.pathes):
             if path:
-                if path[-1] is not '/':
+                if path[-1] != '/':
                     path += '/'
 
                 file_pathes = glob.glob(path+'*.dat')
@@ -434,7 +434,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             save_name = self.txPath_CO.text()
         else:
             save_name = self.txPath_Xe.text()
-        if save_name[-1] is not '/':
+        if save_name[-1] != '/':
             save_name += '/'
 
         save_name += 'data_'+ self.bxTip.currentText() + '.npz'
@@ -499,7 +499,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def loadNPZ(self):
         self.path = self.txPath.text()
-        if self.path[-1] is not '/':
+        if self.path[-1] != '/':
             self.path   += '/'
 
         # load image data from data.npz

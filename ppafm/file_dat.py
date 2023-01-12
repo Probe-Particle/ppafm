@@ -1,5 +1,3 @@
-
-
 import os
 import zlib
 
@@ -13,8 +11,8 @@ def readDat( fname, Header=None ):
     try:
         with open(fname, mode='rb') as binary_file:
             data = binary_file.read()
-    except IOError:
-        print(('oops! File '+nfile+' can not be read.'))
+    except OSError:
+        print('oops! File '+nfile+' can not be read.')
     if b'[Parameter]' in data:
         STMAFMVersion = 1
     elif b'[Paramet32]' in data:

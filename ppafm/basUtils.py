@@ -33,7 +33,7 @@ def loadXYZ(fname):
     Zs = []
     extra_cols = []
 
-    with open(fname, 'r') as f:
+    with open(fname) as f:
 
         line = f.readline().strip()
         try:
@@ -69,7 +69,7 @@ def loadXYZ(fname):
     return xyzs, Zs, qs, comment
 
 def _getCharges(comment, extra_cols):
-    match = re.match('.*Properties=(\S*) ', comment)
+    match = re.match(r'.*Properties=(\S*) ', comment)
     if match:
         # ASE format, check if one of the columns has charges
         props = match.group(1).split(':')[6:] # [6:] is for skipping over elements and positions
@@ -113,7 +113,7 @@ def saveXYZ(fname, xyzs, Zs, qs=None, comment='', append=False):
 
 def loadGeometryIN(fname):
     Zs = []; xyzs = []; lvec = []
-    with open(fname, 'r') as f:
+    with open(fname) as f:
         for line in f:
             ws = line.strip().split()
             if (len(ws) > 0 and ws[0][0] != '#'):
@@ -132,7 +132,7 @@ def loadGeometryIN(fname):
 
 def loadPOSCAR(file_path):
 
-    with open(file_path, 'r') as f:
+    with open(file_path) as f:
 
         f.readline()                # Comment line
         scale = float(f.readline()) # Scaling constant
@@ -395,7 +395,7 @@ def parseLvecASE(comment):
         lvec: np.array of shape (4, 3) or None. The found lattice vectors or None if the
             comment line does not match the extended xyz file format.
     '''
-    match = re.match('.*Lattice=\"\s*((?:[+-]?(?:[0-9]*\.)?[0-9]+\s*){9})\"', comment)
+    match = re.match('.*Lattice=\"\\s*((?:[+-]?(?:[0-9]*\\.)?[0-9]+\\s*){9})\"', comment)
     if match:
         lvec = np.zeros(12, dtype=np.float32)
         lvec[3:] = np.array([float(s) for s in match.group(1).split()], dtype=np.float32)

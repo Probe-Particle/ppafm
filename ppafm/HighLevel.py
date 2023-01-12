@@ -54,7 +54,7 @@ def relaxedScan3D( xTips, yTips, zTips, trj=None, bF3d=False ):
     for ix,x in enumerate( xTips  ):
         sys.stdout.write('\033[K')
         sys.stdout.flush()
-        sys.stdout.write("\rrelax ix: {}".format(ix))
+        sys.stdout.write(f"\rrelax ix: {ix}")
         sys.stdout.flush()
         for iy,y in enumerate( yTips  ):
             rTips[:,0] = trj[:,0] + x

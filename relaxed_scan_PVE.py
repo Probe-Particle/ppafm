@@ -106,7 +106,7 @@ if __name__=="__main__":
         print(" load Lenard-Jones Force-field ")
         FFvdW, lvec, nDim = GU.load_vec_field( "FFvdW" , data_format=options.data_format)
         FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )
-    except IOError:
+    except OSError:
         print(" load Lenard-Jones Force-field ")
         FFvdW, lvec, nDim = GU.load_vec_field( "FFLJ" , data_format=options.data_format)
         FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )

@@ -1,4 +1,3 @@
-
 '''
 Simple interatomic potential (not forcefield - we have no derivatives)
 used to predict probability map where to put new atom, considering atoms which are already there
