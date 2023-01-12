@@ -21,10 +21,6 @@ repos:
       hooks:
           - id: pyupgrade
             args: [--py36-plus]
-    - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
-      rev: 0.2.1
-      hooks:
-          - id: yamlfmt
     - repo: https://github.com/PyCQA/flake8
       rev: 6.0.0
       hooks:
@@ -48,3 +44,7 @@ repos:
                 - types-requests
                 - types-tabulate
                 - types-toml
+    - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
+      rev: 0.2.1
+      hooks:
+          - id: yamlfmt
