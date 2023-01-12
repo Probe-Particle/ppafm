@@ -24,3 +24,17 @@ repos:
       rev: 0.2.1
       hooks:
           - id: yamlfmt
+    - repo: https://github.com/PyCQA/flake8
+      rev: 6.0.0
+      hooks:
+          - id: flake8
+            args: [--count, --show-source, --statistics]
+            additional_dependencies:
+                - flake8-bugbear
+                - flake8-builtins
+                - flake8-comprehensions
+                - flake8-debugger
+                - flake8-logging-format
+                - pep8-naming
+                - pyflakes
+                - tryceratops
