@@ -1,18 +1,20 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
-import os
 import sys
+
 import __main__ as main
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
 sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
-import ppafm            as PPU
-import ppafm.core       as core
-import ppafm.GridUtils  as GU
-import ppafm.basUtils   as BU
 from optparse import OptionParser
+
+import ppafm as PPU
+import ppafm.basUtils as BU
+import ppafm.core as core
+import ppafm.GridUtils as GU
 
 parser = OptionParser()
 parser.add_option( "-s", "--sample", action="store", type="string", default="CHGCAR.xsf", help="sample 3D data-file (.xsf)")
@@ -29,9 +31,9 @@ Rs = np.array(atoms[1:4])                     # get just positions x,y,z
 #print "Rs\n", Rs
 
 corners   = []   # corners of the unit cell with margins - just for debugging
-inds, Rs_ = PPU.findPBCAtoms3D_cutoff( Rs, np.array(lvec[1:]), Rcut=Rcut, corners=corners )  # find periodic images of PBC images of atom of radius Rcut which touch our cell 
+inds, Rs_ = PPU.findPBCAtoms3D_cutoff( Rs, np.array(lvec[1:]), Rcut=Rcut, corners=corners )  # find periodic images of PBC images of atom of radius Rcut which touch our cell
 corners=corners[0]
-elems = [ atoms[0][i] for i in inds ]   # atomic number of all relevant peridic images of atoms   
+elems = [ atoms[0][i] for i in inds ]   # atomic number of all relevant peridic images of atoms
 
 #print "inds: \n", inds
 #print "Rs_ \n", Rs_
@@ -56,7 +58,7 @@ N = nDim1[0]*nDim1[1]*nDim1[2]
 dV = (V/N)  # volume of one voxel
 #cRAs[:,0] *= dV    # Debugging
 print(" dV ", dV)
-print("sum(RHO), Nelec: ",  rho1.sum(),  rho1.sum()*dV)   # check sum 
+print("sum(RHO), Nelec: ",  rho1.sum(),  rho1.sum()*dV)   # check sum
 
 #rho1[:,:,:] *= 0   # Debugging
 

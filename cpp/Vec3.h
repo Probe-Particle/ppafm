@@ -526,6 +526,3 @@ void makeSamples(const Vec2i& ns, const Vec3T<T>& p0, const Vec3T<T>& a, const V
 }
 
 #endif
-
-
-

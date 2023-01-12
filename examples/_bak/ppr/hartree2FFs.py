@@ -1,13 +1,22 @@
 #!/usr/bin/python
 import sys
-import numpy as np
-import basUtils
-import elements
-import GridUtils     as GU
-import ProbeParticle as PP
-from libFFTfin import *
 from optparse import OptionParser
 
+import basUtils
+import elements
+import GridUtils as GU
+import numpy as np
+import ProbeParticle as PP
+from libFFTfin import (
+    PPU,
+    cpp_utils,
+    getForces,
+    getMGrid,
+    getProbeDensity,
+    getSampleDimensions,
+    getSize,
+    os,
+)
 
 parser = OptionParser()
 parser.add_option( "-i", "--input", action="store", type="string", help="format of input file", default='vasp.locpot.xsf')
@@ -20,7 +29,7 @@ finput = sys.argv[num-1]
 
 # --- initialization ---
 
-sigma  = 1.0 # [ Angstroem ] 
+sigma  = 1.0 # [ Angstroem ]
 
 print('--- Data Loading ---')
 
@@ -61,8 +70,8 @@ PP.params['gridN'] = nDim.copy()
 print("--- Compute Lennard-Jones Force-filed ---")
 atoms     = basUtils.loadAtoms('input.xyz')
 if os.path.isfile( 'atomtypes.ini' ):
-	print(">> LOADING LOCAL atomtypes.ini")  
-	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+	print(">> LOADING LOCAL atomtypes.ini")
+	FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 else:
 	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
@@ -77,4 +86,3 @@ GU.saveXSF('FFel_y.xsf' , Fy, lvec, head)
 GU.saveXSF('FFel_z.xsf' , Fz, lvec, head)
 
 GU.saveVecFieldXsf( 'FFLJ', FFLJ, lvec, head)
-

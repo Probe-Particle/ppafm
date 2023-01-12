@@ -1,23 +1,24 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 
 '''
-Version of conv_rho.py ( i.e. convolution of electron densities density ) which is optimized to minimize size of datafiles and therefore also run-time of hard-disk I/O operations. 
+Version of conv_rho.py ( i.e. convolution of electron densities density ) which is optimized to minimize size of datafiles and therefore also run-time of hard-disk I/O operations.
 The goal is achieve efficient calculation of AFM images with density-overlap for thousands of molecules (e.g. fr Machine-Learning application).
 '''
 
 
-import os
-import sys
+from optparse import OptionParser
+
 import __main__ as main
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import ppafm as PPU
+import ppafm.fieldFFT as fFFT
+import ppafm.GridUtils as GU
+
 #import GridUtils as GU
 #sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
-import ppafm                as PPU
-import ppafm.GridUtils      as GU
-import ppafm.fieldFFT       as fFFT
-from optparse import OptionParser
 
 parser = OptionParser()
 parser.add_option( "-s", "--sample", action="store", type="string", default="CHGCAR.xsf", help="sample 3D data-file (.xsf)")
@@ -63,9 +64,3 @@ np.savez_compressed( "E"+namestr+"_mini.npz", Ecut*(PQ*-1.0) )
 #GU.saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ,       lvec1, head=head1 )
 #GU.saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ,       lvec1, head=head1 )
 #Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
-
-
-
-
-
-

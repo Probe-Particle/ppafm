@@ -1,7 +1,8 @@
-import numpy as np
-from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
 import os
+from ctypes import c_bool, c_char_p, c_double, c_int
+
+import numpy as np
 
 LIB_PATH      = os.path.dirname( os.path.realpath(__file__) )
 LIB_PATH_CPP  = os.path.normpath(LIB_PATH+'../../../'+'/cpp/Build/libs/Molecular')
@@ -13,7 +14,7 @@ def recompile(path):
     os.chdir( path)
     os.system("make" )
     os.chdir( dir_bak )
-    print(( os.getcwd() ))
+    print( os.getcwd() )
 
 lib = ctypes.CDLL( LIB_PATH_CPP+"/libRigidMol.so_" )
 
@@ -144,5 +145,3 @@ lib.setOptFIRE.argtypes = [ c_double, c_double, c_double, c_int    , c_double , 
 lib.setOptFIRE.restype  = None
 def setOptFIRE( dt_max=0.05, dt_min=0.005, damp_max=0.1, minLastNeg=5, finc=1.1, fdec=0.5, falpha=0.98, kickStart=1.0 ):
     lib.setOptFIRE( dt_max, dt_min, damp_max, minLastNeg, finc, fdec, falpha, kickStart )
-
-

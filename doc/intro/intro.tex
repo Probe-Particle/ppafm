@@ -1,6 +1,6 @@
 This is implementation of efficient and simple model for simulation of
 High-resolution atomic force microscopy (AFM), scanning probe microscopy (STM)
-and inelastic tunneling microscopy (IETS) images using classical forcefileds. 
+and inelastic tunneling microscopy (IETS) images using classical forcefileds.
 
 There are two versions of the code:
 
@@ -12,7 +12,7 @@ There are two versions of the code:
         https://github.com/ProkopHapala/ProbeParticleModel/wiki
    \item Legacy fortran version in SHTM\_springTip2 (branch fortran );
         more detailed description o the fortran version is here:
-        http://nanosurf.fzu.cz/wiki/doku.php?id=probe\_particle\_model 
+        http://nanosurf.fzu.cz/wiki/doku.php?id=probe\_particle\_model
 \end{enumerate}
 \cite{phapalamechhighresol}
 \cite{phapalaoriginhighresol}
@@ -46,7 +46,7 @@ The computation of images is divided into two parts:
     functions for more details ). After individial components of forcefiled are
     sampled ( i.e. Lenard-Jones and electrostatic ) they are summed up to form
     one single total effective forcefield in which Probe-Particle moves.
-    
+
     \item relax Probe-Particle attached to the tip under influence of the total
     effective forcefield. The relaxation of Probe-Particle is done using "Fast
     Inertial Realxation Engine" (FIRE) algorithm
@@ -94,7 +94,7 @@ computation of interaction on the fly during relaxation process.
 The code is divided into Python and C++, where performance intensive
 computations are done in C++ and python is used as convenient scripting
 interface for doing tasks like file I/O, plotting, memory management. For
-binding of Python and C++ is used python ctypes library. 
+binding of Python and C++ is used python ctypes library.
 
 
 \subsubsection{Dependencies:}
@@ -116,7 +116,7 @@ binding of Python and C++ is used python ctypes library.
 \subsubsection{Python source:}
 \begin{itemize}
     \item ProbeParticle.py - Interface between C++ core and python ising
-    C-types. Here are also defined some python rutines like: 
+    C-types. Here are also defined some python rutines like:
     \begin{itemize}
         \item  conversion from Force to frequency shift ( Fz2df ),
         \item  evaluation of Lenard-Jones coeffitints ( getAtomsLJ )
@@ -138,7 +138,6 @@ binding of Python and C++ is used python ctypes library.
     periodic table ( like effective raidus, color for visualization etc. ). It
     is used by basUtils.py
 
-        
+
 
 \end{itemize}
-

@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
-import os
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 
 # =========== defaults
@@ -21,7 +21,7 @@ def plotBonds( xyz, bonds ):
 
 def plotAtoms( atoms, atomSize=default_atom_size, edge=True, ec='k', color='w' ):
     plt.fig = plt.gcf()
-    es = atoms[0]
+    atoms[0]
     xs = atoms[1]
     ys = atoms[2]
     if len( atoms ) > 4:
@@ -37,7 +37,7 @@ def plotAtoms( atoms, atomSize=default_atom_size, edge=True, ec='k', color='w' )
 
 def plotGeom( atoms=None, bonds=None, atomSize=default_atom_size ):
     if (bonds is not None) and (atoms is not None):
-        plotBonds( atoms, bonds )	
+        plotBonds( atoms, bonds )
     if atoms is not None:
         plotAtoms( atoms, atomSize=atomSize )
 
@@ -47,16 +47,16 @@ def colorize_XY2RG( Xs, Ys ):
     Red   = 0.5*Xs/vmax + 0.5
     Green = 0.5*Ys/vmax + 0.5
     c = np.array( (Red, Green, 0.5*np.ones(np.shape(Red)) )  )  # -->  array of (3,n,m) shape, but need (n,m,3)
-    c = c.swapaxes(0,2) 
-    c = c.swapaxes(0,1) 
+    c = c.swapaxes(0,2)
+    c = c.swapaxes(0,1)
     return c, vmax
 
 # =========== plotting functions
 
-def plotImages( 
+def plotImages(
     prefix, F, slices,
-    extent=None, zs = None, figsize=default_figsize, 
-    cmap=default_cmap, interpolation=default_interpolation, vmin=None, vmax=None, cbar=False, 
+    extent=None, zs = None, figsize=default_figsize,
+    cmap=default_cmap, interpolation=default_interpolation, vmin=None, vmax=None, cbar=False,
     atoms=None, bonds=None, atomSize=default_atom_size, symetric_map=False, V0=0.0
     ):
     for ii,i in enumerate(slices):
@@ -79,17 +79,17 @@ def plotImages(
         plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
         plt.close()
 
-def plotVecFieldRG( 
-    prefix, dXs, dYs, slices, 
-    extent=None, zs = None, figsize=default_figsize, 
-    interpolation=default_interpolation, 
+def plotVecFieldRG(
+    prefix, dXs, dYs, slices,
+    extent=None, zs = None, figsize=default_figsize,
+    interpolation=default_interpolation,
     atoms=None, bonds=None, atomSize=default_atom_size
     ):
     for ii,i in enumerate(slices):
         print(" plotting ", i)
         plt.figure( figsize=( 10,10 ) )
         HSBs,vmax = colorize_XY2RG(dXs[i],dYs[i])
-        plt.imshow( HSBs, extent=extent, origin='image', interpolation=interpolation ) 
+        plt.imshow( HSBs, extent=extent, origin='image', interpolation=interpolation )
         plotGeom( atoms, bonds, atomSize=atomSize )
         plt.xlabel(r' Tip_x $\AA$')
         plt.ylabel(r' Tip_y $\AA$')
@@ -100,9 +100,9 @@ def plotVecFieldRG(
         plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
         plt.close()
 
-def plotDistortions( 
-    prefix, X, Y, slices, BG=None, by=2, 
-    extent=None, zs = None,  figsize=default_figsize, 
+def plotDistortions(
+    prefix, X, Y, slices, BG=None, by=2,
+    extent=None, zs = None,  figsize=default_figsize,
     cmap=default_cmap, interpolation=default_interpolation, vmin=None, vmax=None, cbar=False, markersize=1.0,
     atoms=None, bonds=None, atomSize=default_atom_size
     ):
@@ -120,14 +120,14 @@ def plotDistortions(
         if zs is None:
             plt.title( r"iz = %i" %i  )
         else:
-            plt.title( r"Tip_z = %2.2f $\AA$" %zs[i] ) 
+            plt.title( r"Tip_z = %2.2f $\AA$" %zs[i] )
         plt.savefig( prefix+'_%3.3i.png' %i, bbox_inches='tight' )
         plt.close()
 
-def plotArrows( 
+def plotArrows(
     # not yet tested
-    prefix, dX, dY, X, Y,  slices, BG=None, C=None, 
-    extent=None, zs = None, by=2,  figsize=default_figsize, 
+    prefix, dX, dY, X, Y,  slices, BG=None, C=None,
+    extent=None, zs = None, by=2,  figsize=default_figsize,
     cmap=default_cmap, interpolation=default_interpolation, vmin=None, vmax=None, cbar=False,
     atoms=None, bonds=None, atomSize=default_atom_size
     ):
@@ -152,21 +152,21 @@ def plotArrows(
 def checkField(F):
     plt.figure(figsize=(15,5))
     plt.subplot(1,3,1); plt.imshow(F[F.shape[0]/2,:,:], interpolation='nearest'); plt.title("F(y,x)")
-    plt.subplot(1,3,2); plt.imshow(F[:,F.shape[1]/2,:], interpolation='nearest'); plt.title("F(z,x)") 
-    plt.subplot(1,3,3); plt.imshow(F[:,:,F.shape[2]/2], interpolation='nearest'); plt.title("F(z,y)") 
+    plt.subplot(1,3,2); plt.imshow(F[:,F.shape[1]/2,:], interpolation='nearest'); plt.title("F(z,x)")
+    plt.subplot(1,3,3); plt.imshow(F[:,:,F.shape[2]/2], interpolation='nearest'); plt.title("F(z,y)")
     plt.show()
 
 def checkVecField(FF):
     plt.figure(figsize=(15,15))
     plt.subplot(3,3,1); plt.imshow(FF[FF.shape[0]/2,:,:,0], interpolation='nearest'); plt.title("FF_x(y,x)")
-    plt.subplot(3,3,2); plt.imshow(FF[FF.shape[0]/2,:,:,1], interpolation='nearest'); plt.title("FF_y(y,x)") 
-    plt.subplot(3,3,3); plt.imshow(FF[FF.shape[0]/2,:,:,2], interpolation='nearest'); plt.title("FF_z(y,x)") 
-    plt.subplot(3,3,4); plt.imshow(FF[:,FF.shape[1]/2,:,0], interpolation='nearest'); plt.title("FF_x(z,x)") 
-    plt.subplot(3,3,5); plt.imshow(FF[:,FF.shape[1]/2,:,1], interpolation='nearest'); plt.title("FF_y(z,x)") 
-    plt.subplot(3,3,6); plt.imshow(FF[:,FF.shape[1]/2,:,2], interpolation='nearest'); plt.title("FF_z(z,x)") 
-    plt.subplot(3,3,7); plt.imshow(FF[:,:,FF.shape[2]/2,0], interpolation='nearest'); plt.title("FF_x(z,y)") 
-    plt.subplot(3,3,8); plt.imshow(FF[:,:,FF.shape[2]/2,1], interpolation='nearest'); plt.title("FF_y(z,y)") 
-    plt.subplot(3,3,9); plt.imshow(FF[:,:,FF.shape[2]/2,2], interpolation='nearest'); plt.title("FF_z(z,y)") 
+    plt.subplot(3,3,2); plt.imshow(FF[FF.shape[0]/2,:,:,1], interpolation='nearest'); plt.title("FF_y(y,x)")
+    plt.subplot(3,3,3); plt.imshow(FF[FF.shape[0]/2,:,:,2], interpolation='nearest'); plt.title("FF_z(y,x)")
+    plt.subplot(3,3,4); plt.imshow(FF[:,FF.shape[1]/2,:,0], interpolation='nearest'); plt.title("FF_x(z,x)")
+    plt.subplot(3,3,5); plt.imshow(FF[:,FF.shape[1]/2,:,1], interpolation='nearest'); plt.title("FF_y(z,x)")
+    plt.subplot(3,3,6); plt.imshow(FF[:,FF.shape[1]/2,:,2], interpolation='nearest'); plt.title("FF_z(z,x)")
+    plt.subplot(3,3,7); plt.imshow(FF[:,:,FF.shape[2]/2,0], interpolation='nearest'); plt.title("FF_x(z,y)")
+    plt.subplot(3,3,8); plt.imshow(FF[:,:,FF.shape[2]/2,1], interpolation='nearest'); plt.title("FF_y(z,y)")
+    plt.subplot(3,3,9); plt.imshow(FF[:,:,FF.shape[2]/2,2], interpolation='nearest'); plt.title("FF_z(z,y)")
     plt.savefig("checkfield.png", bbox_inches='tight')
 
 # ================
@@ -182,4 +182,3 @@ def makeCmap_Blue2( vals=( 0.25, 0.5, 0.75 ) ):
                 'green': ( (0.0, 1.0, 1.0), (vals[0], 0.0, 0.0),  (vals[1], 0.0, 0.0), (vals[2], 0.0, 0.0), (1.0, 1.0, 1.0)   ),
                 'blue':  ( (0.0, 0.0, 0.0), (vals[0], 0.0, 0.0),  (vals[1], 0.0, 0.0), (vals[2], 1.0, 1.0), (1.0, 1.0, 1.0)   )    }
     return LinearSegmentedColormap('BlueRed1', cdict)
-

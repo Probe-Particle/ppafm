@@ -179,7 +179,7 @@ template <class T>
 inline T find_vals( int n, T * xs, T * ydys, int m, T * xs_, T * ys_ ){
 	int i=0;
 	for( int j=0; j<m; j++ ){
-		T x = xs_[j]; 
+		T x = xs_[j];
 		if( x>xs[i] ){
 			int i = find_index( 0, n, x, xs );
 		}
@@ -190,6 +190,3 @@ inline T find_vals( int n, T * xs, T * ydys, int m, T * xs_, T * ys_ ){
 };
 
 #endif
-
-
-

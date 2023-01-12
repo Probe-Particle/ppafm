@@ -14,31 +14,22 @@ see:  https://mega.nz/#!KLoilKIB!NxxCRQ814xtCXfjy7mPFfmJTOL9TaTHbmPKSxn_0sFs
 
 '''
 
-import sys
-import os
-import shutil
-import time
-import random
+
 import matplotlib
 import numpy as np
-from enum import Enum
+import pyopencl as cl
 
-import pyopencl     as cl
-
+from .. import SimplePot as sp
 from .. import atomicUtils as au
 from .. import basUtils
-from .. import common    as PPU
+from .. import common as PPU
 from .. import elements
-from ..ocl import oclUtils as oclu
-from ..ocl import field    as FFcl
-from ..ocl import relax    as oclr
-from .. import SimplePot   as sp
-
 from ..ocl import AFMulator
-from . import AuxMap
-from . import Generator
-from .Corrector import Corrector,Molecule
-from .Corrector import Mutator
+from ..ocl import field as FFcl
+from ..ocl import oclUtils as oclu
+from ..ocl import relax as oclr
+from . import AuxMap, Generator
+from .Corrector import Corrector, Molecule, Mutator
 
 verbose  = 0
 bRunTime = False
@@ -197,7 +188,6 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
 
                 if self.potential:
                     self.pot.init_molecule(mol2.xyzs, mol2.Zs)
-                    es = []
                     for z in self.added_types:
                         e = -self.pot.calc_potential(z_added=z)
                         e = e.reshape((self.pot_dim[2], self.pot_dim[1], self.pot_dim[0]))
@@ -348,7 +338,7 @@ class CorrectionLoop():
         xyzqs = np.concatenate([xyzs, qs[:,None]], axis=1)
         # Get Atoms and Bonds AuxMaps
         AuxMaps=None
-        if( self.bAuxMap ): 
+        if( self.bAuxMap ):
             atoms_map = self.atoms(xyzqs, Zs)
             bonds_map = self.bonds(xyzqs, Zs)
             AuxMaps = np.stack([atoms_map, bonds_map], axis=-1)
@@ -426,10 +416,10 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
 # ========================================================================
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    import matplotlib.cm as cm
-
     from optparse import OptionParser
+
+    import matplotlib.cm as cm
+    import matplotlib.pyplot as plt
     parser = OptionParser()
     parser.add_option( "-j", "--job", action="store", type="string", help="[train/loop]")
     (options, args) = parser.parse_args()
@@ -460,7 +450,7 @@ if __name__ == "__main__":
     if options.job == "loop":
         Job_CorrectionLoop( afmulator, atoms, bonds, geom_fname="pos_out3.xyz" )
     elif options.job == "train":
-        Job_trainCorrector( afmulator, geom_fname="pos_out3.xyz", nstep=10 )        
+        Job_trainCorrector( afmulator, geom_fname="pos_out3.xyz", nstep=10 )
     else:
         print("ERROR : invalid job ", options.job )
 

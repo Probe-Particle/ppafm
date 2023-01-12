@@ -1,19 +1,21 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
 import sys
+
 import __main__ as main
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
 #import GridUtils as GU
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm                as PPU
-import ppafm.GridUtils      as GU
-import ppafm.fieldFFT       as fFFT
 from optparse import OptionParser
 
+import ppafm as PPU
+import ppafm.fieldFFT as fFFT
+import ppafm.GridUtils as GU
 
 
 def maskFunc( x, x0, x1 ):
@@ -67,4 +69,3 @@ GU.saveXSF( namestr, rho_low, lvec, head=head )
 
 
 #Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
-

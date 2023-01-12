@@ -9,14 +9,14 @@ the code:
 \begin{itemize}
     \item The code works in coordinate system where the origin of sampling grid
     is always in point (x,y,z)=(0,0,0). The geometry of sample should be alignet
-    (i.e.) shifted to fit into this grid. 
+    (i.e.) shifted to fit into this grid.
 
     \item In reality probe particle cannot approach to sample than ~3.5-4.0
     \AA ( because van der Waals radius of most atoms is typically 1.5-2.0
     \AA ). For this reason we do not want to sample region closer than
     1.0-2.0 \AA to the molecule where the Pauli repulsion would be
     extremely high, and where quantum mechanical interactions (chemical force)
-    would be important. 
+    would be important.
 
     \item The region of sanning scanMax,scanMin is defined as a postion of tip
     apex (not probe particle). This means that probe particle can be outside the
@@ -25,13 +25,13 @@ the code:
     position by considerable distance ( ~ 4.0 \AA ). E.g. At the begining
     of each tip aproach the shift is r0Probe (relaxation is negligible).
 
-    
+
 \end{itemize}
 
 
 
 Overview of relative position of various points in space is schematically
-illustrate on following image: 
+illustrate on following image:
 
 
 

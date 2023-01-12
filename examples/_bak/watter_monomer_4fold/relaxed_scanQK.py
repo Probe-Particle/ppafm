@@ -1,20 +1,21 @@
 #!/usr/bin/python
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
 
-print(" # ========== make & load  ProbeParticle C++ library ") 
+import matplotlib.pyplot as plt
+import numpy as np
 
-LWD = '/home/prokop/git/ProbeParticleModel/code' 
+print(" # ========== make & load  ProbeParticle C++ library ")
+
+LWD = '/home/prokop/git/ProbeParticleModel/code'
 sys.path = [ LWD ]
 
 import basUtils
 import elements
 import GridUtils as GU
-import ProbeParticle as PP
 import PPPlot
+import ProbeParticle as PP
 
 print(" ============= RUN  ")
 
@@ -63,5 +64,3 @@ for iq,Q in enumerate( Qs ):
 print(" ***** ALL DONE ***** ")
 
 #plt.show()
-
-

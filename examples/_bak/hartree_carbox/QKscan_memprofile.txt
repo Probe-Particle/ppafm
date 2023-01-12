@@ -1,6 +1,6 @@
 Line #    Mem usage    Increment   Line Contents
 ================================================
-   219    418.8 MiB      0.0 MiB   
+   219    418.8 MiB      0.0 MiB
    220                             @profile
    221   2263.6 MiB   1844.8 MiB   def main():
    222   1716.6 MiB   -547.0 MiB   	for iq,Q in enumerate( Qs ):
@@ -14,4 +14,3 @@ Line #    Mem usage    Increment   Line Contents
    230   2040.5 MiB     25.9 MiB   			PP.saveXSF( dirname+'/OutFz.xsf', headScan, lvecScan, fzs )
    231   2263.6 MiB    223.1 MiB   			dfs = PP.Fz2df( fzs, dz = dz, k0 = PP.params['kCantilever'], f0=PP.params['f0Cantilever'], n=int(PP.params['Amplitude']/dz) )
    232                             			plotImages( dirname+"/df", dfs, slices = range( 0, len(dfs) ) )
-

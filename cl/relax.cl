@@ -41,7 +41,7 @@ float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
 }
 
 float4 read_imagef_trilin( __read_only image3d_t imgIn, float4 coord ){
-    float4 d = (float4)(0.00666666666,0.00666666666,0.00666666666,1.0); 
+    float4 d = (float4)(0.00666666666,0.00666666666,0.00666666666,1.0);
     float4 icoord;
     float4 fc     =  fract( coord/d, &icoord );
     icoord*=d;
@@ -49,7 +49,7 @@ float4 read_imagef_trilin( __read_only image3d_t imgIn, float4 coord ){
     // NOTE AMD-GPU seems to not accept CLK_NORMALIZED_COORDS_FALSE
     //return read_imagef( imgIn, sampler_2, icoord );
     //return read_imagef( imgIn, sampler_1, coord );
-    return  
+    return
      (( read_imagef( imgIn, sampler_2, icoord+(float4)(0.0,0.0,0.0,0.0) ) * mc.x
       + read_imagef( imgIn, sampler_2, icoord+(float4)(d.x,0.0,0.0,0.0) ) * fc.x )*mc.y
      +( read_imagef( imgIn, sampler_2, icoord+(float4)(0.0,d.y,0.0,0.0) ) * mc.x
@@ -58,7 +58,7 @@ float4 read_imagef_trilin( __read_only image3d_t imgIn, float4 coord ){
       + read_imagef( imgIn, sampler_2, icoord+(float4)(d.x,0.0,d.z,0.0) ) * fc.x )*mc.y
      +( read_imagef( imgIn, sampler_2, icoord+(float4)(0.0,d.y,d.z,0.0) ) * mc.x
       + read_imagef( imgIn, sampler_2, icoord+(float4)(d.x,d.y,d.z,0.0) ) * fc.x )*fc.y )*fc.z;
-}; 
+};
 
 
 float4 interpFE( float3 pos, float3 dinvA, float3 dinvB, float3 dinvC, __read_only image3d_t imgIn ){
@@ -69,7 +69,7 @@ float4 interpFE( float3 pos, float3 dinvA, float3 dinvB, float3 dinvC, __read_on
 
 float4 interpFE_prec( float3 pos, float3 dinvA, float3 dinvB, float3 dinvC, __read_only image3d_t imgIn ){
     const float4 coord = (float4)( dot(pos,dinvA),dot(pos,dinvB),dot(pos,dinvC), 0.0f );
-    return read_imagef_trilin( imgIn, coord ); 
+    return read_imagef_trilin( imgIn, coord );
     // read_imagef( imgIn, sampler_1, coord );
     //return coord;
 }
@@ -88,7 +88,7 @@ void move_LeapFrog( float3 f, float3 p, float3 v, float2 RP ){
 //#define F2CONV  1e-10f
 
 #define OPT_FIRE 1
-#if OPT_FIRE 
+#if OPT_FIRE
 #define FTDEC 0.5f
 #define FTINC 1.1f
 #define FDAMP 0.99f
@@ -98,7 +98,7 @@ void move_LeapFrog( float3 f, float3 p, float3 v, float2 RP ){
 #define F2SAFE    1e-8f
 
 float3 update_FIRE( float3 f, float3 v, float* dt, float* damp,    float dtmin, float dtmax, float damp0 ){
-    // Bitzek, E., Koskinen, P., Gähler, F., Moseler, M., & Gumbsch, P. (2006). Structural Relaxation Made Simple. Physical Review Letters, 97(17), 170201. 
+    // Bitzek, E., Koskinen, P., Gähler, F., Moseler, M., & Gumbsch, P. (2006). Structural Relaxation Made Simple. Physical Review Letters, 97(17), 170201.
     // https://doi.org/10.1103/PhysRevLett.97.170201
     // http://users.jyu.fi/~pekkosk/resources/pdf/FIRE.pdf
     float ff = dot(f,f);
@@ -158,7 +158,7 @@ __kernel void getFEinStrokes(
     float4 dpos0,
     int nz
 ){
-    float3 pos    =  points[get_global_id(0)].xyz + dpos0.xyz; 
+    float3 pos    =  points[get_global_id(0)].xyz + dpos0.xyz;
     for(int iz=0; iz<nz; iz++){
         float4 fe;
         //printf( " %li %i (%f,%f,%f) \n", get_global_id(0), iz, pos.x, pos.y, pos.z );
@@ -181,7 +181,7 @@ __kernel void getFEinStrokesTilted(
     float4 dpos0,
     int nz
 ){
-    float3 pos    =  points[get_global_id(0)].xyz + dpos0.xyz; 
+    float3 pos    =  points[get_global_id(0)].xyz + dpos0.xyz;
     for(int iz=0; iz<nz; iz++){
         //printf( " %li %i (%f,%f,%f) \n", get_global_id(0), iz, pos.x, pos.y, pos.z );
         float4 fe   = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
@@ -206,7 +206,7 @@ __kernel void getZisoTilted(
     float4 dpos0,
     int nz, float iso
 ){
-    float3 pos     = points[get_global_id(0)].xyz + dpos0.xyz; 
+    float3 pos     = points[get_global_id(0)].xyz + dpos0.xyz;
     float4 ofe,fe;
     ofe     = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
     ofe.xyz = rotMat( ofe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
@@ -243,7 +243,7 @@ __kernel void getZisoFETilted(
     int nz, float iso
 ){
     const int iG = get_global_id (0);
-    float3 pos     = points[iG].xyz + dpos0.xyz; 
+    float3 pos     = points[iG].xyz + dpos0.xyz;
     float4 ofe,fe;
     ofe     = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
     ofe.xyz = rotMat( ofe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
@@ -288,13 +288,13 @@ __kernel void relaxPoints(
     float damp0 = damp;
 
     float3 tipPos = points[get_global_id(0)].xyz;
-    float3 pos    = tipPos.xyz + dpos0.xyz; 
+    float3 pos    = tipPos.xyz + dpos0.xyz;
     float4 fe;
     float3 v    = 0.0f;
     for(int i=0; i<1000; i++){
         fe        = read_imagef( imgIn, sampler_1, (float4)(pos,0.0f) ); /// this would work only for unitary cell
         float3 f  = fe.xyz;
-        f        += tipForce( pos-tipPos, stiffness, dpos0 );    
+        f        += tipForce( pos-tipPos, stiffness, dpos0 );
 
         #if OPT_FIRE
         v = update_FIRE( f, v, &dt, &damp, dtmin, dtmax, damp0 );
@@ -322,12 +322,12 @@ __kernel void relaxStrokes(
     int nz
 ){
     float3 tipPos = points[get_global_id(0)].xyz;
-    float3 pos    = tipPos.xyz + dpos0.xyz; 
-    
+    float3 pos    = tipPos.xyz + dpos0.xyz;
+
     float dt      = relax_params.x;
     float damp    = relax_params.y;
     //printf( " %li (%f,%f,%f)  \n",  get_global_id(0), tipPos.x, tipPos.y, tipPos.z);
-    
+
     float dtmax = dt;
     float dtmin = dtmax*0.1f;
     float damp0 = damp;
@@ -339,7 +339,7 @@ __kernel void relaxStrokes(
             fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
             float3 f  = fe.xyz;
             f        += tipForce( pos-tipPos, stiffness, dpos0 );
-            
+
             #if OPT_FIRE
             v = update_FIRE( f, v, &dt, &damp, dtmin, dtmax, damp0 );
             #else
@@ -376,7 +376,7 @@ __kernel void relaxStrokesTilted_debug(
     const float3 dTip   = tipC.xyz * tipC.w;
     float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
     float3 tipPos = points[get_global_id(0)].xyz;
-    float3 pos    = tipPos.xyz + dpos0_.xyz; 
+    float3 pos    = tipPos.xyz + dpos0_.xyz;
     for(int iz=0; iz<nz; iz++){
         FEs[get_global_id(0)*nz + iz] = 1.0f;
     }
@@ -405,7 +405,7 @@ __kernel void relaxStrokesTilted(
     float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
 
     float3 tipPos = points[get_global_id(0)].xyz;
-    float3 pos    = tipPos.xyz + dpos0_.xyz; 
+    float3 pos    = tipPos.xyz + dpos0_.xyz;
 
     float dt      = relax_params.x;
     float damp    = relax_params.y;
@@ -430,7 +430,7 @@ __kernel void relaxStrokesTilted(
             f            +=  tipC.xyz * surfFF.x;                                // TODO: more sophisticated model of surface potential? Like Hamaker ?
 
             //f      +=  tipForce( dpos, stiffness, dpos0_ );  // Not rotated
-            
+
             #if OPT_FIRE
             v = update_FIRE( f, v, &dt, &damp, dtmin, dtmax, damp0 );
             #else
@@ -441,7 +441,7 @@ __kernel void relaxStrokesTilted(
 
             if(dot(f,f)<F2CONV) break;
         }
-        
+
         if(1){ // output tip-rotated force
             float4 fe_  = fe;
             int ind = get_global_id(0)*nz + iz;
@@ -449,7 +449,7 @@ __kernel void relaxStrokesTilted(
             fe_.w   = fe.w;
             FEs[ind] = fe_;
             paths[ind] = (float4)(pos, 0.0f);
-        }else{ // output molecule-rotated force 
+        }else{ // output molecule-rotated force
             FEs[get_global_id(0)*nz + iz] = fe;
             //FEs[get_global_id(0)*nz + iz].xyz = pos;
         }
@@ -484,7 +484,7 @@ __kernel void relaxStrokesTilted_convZ(
     float4 dpos0_=dpos0; dpos0_.xyz= rotMatT( dpos0_.xyz , tipA.xyz, tipB.xyz, tipC.xyz );
 
     float3 tipPos = points[get_global_id(0)].xyz;
-    float3 pos    = tipPos.xyz + dpos0_.xyz; 
+    float3 pos    = tipPos.xyz + dpos0_.xyz;
 
     float dt      = relax_params.x;
     float damp    = relax_params.y;
@@ -540,12 +540,12 @@ __kernel void relaxStrokesTilted_convZ(
             itr_tot++;
             if(dot(f,f)<F2CONV) break;
         }
-        
+
         if(1){ // output tip-rotated force
             fe.xyz = rotMat( fe.xyz, tipA.xyz, tipB.xyz, tipC.xyz );
         }
 
-        
+
         // do the convolution
         for(int izout=0;izout<nzout;izout++){
             int jzw = iz - izout;
@@ -553,7 +553,7 @@ __kernel void relaxStrokesTilted_convZ(
                 FEs[ ioff + izout] += fe * WEIGHTS[jzw];
             }
         }
-        
+
         //if( iz<nzout ) FEs[ioff+iz] = fe;
 
         tipPos += dTip.xyz;
@@ -584,7 +584,7 @@ __kernel void convolveZ(
         if( i<nzw ) WEIGHTS[i] = weighs[i];
     }
     barrier(CLK_LOCAL_MEM_FENCE);
-    
+
     for(int izo=0; izo<nzout; izo++){
         float4 fe = 0.0f;
         for(int jz=0; jz<nzw; jz++){
@@ -621,5 +621,3 @@ __kernel void izoZ(
     }
     zMap[get_global_id(0)] = -1;
 }
-
-

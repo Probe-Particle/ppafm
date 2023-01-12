@@ -219,11 +219,11 @@ double evalLJQ_sortedMask(){
                 //glColor3f(1.0,0.0,0.0); Draw3D::drawVecInPos( fij*-1000,ps[j]);
                 //glColor3f(1.0,0.0,0.0); Draw3D::drawVecInPos( fij*1000 ,ps[i]);
             //}
-            
+
             fs[j].sub(fij);
             fs[i].add(fij);
             fi   .add(fij);
-            
+
         }
         //fs[i].add(fi);
     }
@@ -296,4 +296,3 @@ double evalSRlist(){
 };
 
 #endif
-

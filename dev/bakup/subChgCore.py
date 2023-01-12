@@ -1,19 +1,21 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
-import os
 import sys
+
 import __main__ as main
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
 #import GridUtils as GU
 sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
-import ppafm                as PPU
-import ppafm.GridUtils      as GU
-import ppafm.fieldFFT       as fFFT
-import ppafm.basUtils  as BU
 from optparse import OptionParser
+
+import ppafm as PPU
+import ppafm.basUtils as BU
+import ppafm.fieldFFT as fFFT
+import ppafm.GridUtils as GU
 
 parser = OptionParser()
 parser.add_option( "-s", "--sample", action="store", type="string", default="CHGCAR.xsf", help="sample 3D data-file (.xsf)")
@@ -23,7 +25,7 @@ def triLin(abc):
     ia = int(np.floor(abc[0])); fa=abc[0]-ia; #ma=1.0-fa
     ib = int(np.floor(abc[1])); fb=abc[1]-ib; #mb=1.0-fb
     ic = int(np.floor(abc[2])); fc=abc[2]-ic; #mc=1.0-fc
-    print("::: ", abc , (ia,ib,ic), fa,fb, fc) 
+    print("::: ", abc , (ia,ib,ic), fa,fb, fc)
     return (ia,ib,ic), (fa,fb,fc)
 
 def addDeInterp( val, arr, iabc, fabc):
@@ -32,7 +34,7 @@ def addDeInterp( val, arr, iabc, fabc):
     fc=fabc[2]; mc=1.0-fc
     #print  val, ( ma*mb*mc + ma*mb*fc + ma*fb*mc + ma*fb*fc +
     #      fa*mb*mc  + fa*mb*fc  + fa*fb*mc  +fa*fb*fc)
-    
+
     arr[iabc[2]  ,iabc[1]  ,iabc[0]  ] += mc*mb*ma*val
     arr[iabc[2]  ,iabc[1]  ,iabc[0]+1] += mc*mb*fa*val
     arr[iabc[2]  ,iabc[1]+1,iabc[0]  ] += mc*fb*ma*val
@@ -81,7 +83,7 @@ for ia in range(len(atoms[0])):
 
 '''
 
-import ppafm.fieldFFT  as ffft
+import ppafm.fieldFFT as ffft
 
 print("sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV)
 ffft.addCoreDensities( atoms_, valElDict, rho1, lvec1, sigma=0.25 )
@@ -89,8 +91,3 @@ print("sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV)
 
 #GU.saveXSF( "rho_core.xsf", rho1,       lvec1, head=head1 )
 GU.saveXSF( "rho_diff.xsf", rho1,       lvec1, head=head1 )
-
-
-
-
-

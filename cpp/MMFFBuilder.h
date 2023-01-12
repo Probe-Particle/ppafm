@@ -59,7 +59,7 @@ static const double const_eVA2_Nm = 16.0217662;
 struct Atom{
     constexpr const static Vec3d HcapREQ    = (Vec3d){ 1.4870, sqrt(0.000681    ), 0 };
     constexpr const static Vec3d defaultREQ = (Vec3d){ 1.7,    sqrt(0.0037292524), 0 };
-    
+
     // this breaks {<brace-enclosed initializer list>} in C++11
     //int type  = -1;
     //int frag  = -1;
@@ -72,9 +72,9 @@ struct Atom{
     int iconf;
     Vec3d pos;
     Vec3d REQ;   // constexpr Vec3d{1.7,sqrt(0.0037292524),0}
-    
+
     //Atom() = default;
-    
+
     void print()const{ printf( " Atom{ t %i c %i f %i REQ(%g,%g,%g) pos(%g,%g,%g)}", type, iconf, frag, REQ.x, REQ.y, REQ.z, pos.x,pos.y,pos.z ); }
 
 };
@@ -112,7 +112,7 @@ struct AtomConf{
     inline bool addH    (     ){ return addNeigh((int)NeighType::H    ,nH ); };
     inline bool addPi   (     ){ return addNeigh((int)NeighType::pi   ,npi); };
     inline bool addEpair(     ){ return addNeigh((int)NeighType::epair,ne ); };
-    
+
     inline void  clearNonBond(){ n=nbond; npi=0;ne=0;nH=0; };
     inline void setNonBond(int npi_,int ne_){ npi=npi_; ne=ne_; n=nbond+npi+ne+nH;  }
     inline void init0(){ for(int i=0; i<N_NEIGH_MAX; i++)neighs[i]=-1; nbond=0; clearNonBond(); }
@@ -121,13 +121,13 @@ struct AtomConf{
 };
 
 struct Bond{
-    
+
     // --- this breaks {<brace-enclosed initializer list>} in C++11
     //int    type  = -1;
     //Vec2i  atoms = (Vec2i){-1,-1};
     //double l0=1,k=0;
     //Bond()=default;
-    
+
     int    type;
     Vec2i  atoms;
     double l0,k;
@@ -149,12 +149,12 @@ struct Angle{
     //double a0    = 0;
     //double k     = 0;
     //Angle()=default;
-    
+
     int type;
     Vec2i  bonds;
     double a0;
     double k;
-    
+
     void print()const{ printf( " Angle{t %i b(%i,%i) a0 %g k %g}", type, bonds.i, bonds.j, a0, k ); }
 };
 
@@ -166,12 +166,12 @@ struct Dihedral{
     //Vec3i  bonds = (Vec3i){-1,-1,-1};
     //int    n=0;
     //double k=0;
-    
+
     int    type;
     Vec3i  bonds;
     int    n;
     double k;
-    
+
     //Dihedral()=default;
 
     void print()const{ printf( " Dihedral{t %i b(%i,%i,%i) n %i k %g}", type, bonds.a, bonds.b,bonds.c, n, k ); }
@@ -214,7 +214,7 @@ class Builder{  public:
 
     Bond  defaultBond;
     Angle defaultAngle;
-    
+
     Atom capAtom      = (Atom){ (int)NeighType::H,     -1,-1, {0,0,0}, Atom::HcapREQ };
     Atom capAtomEpair = (Atom){ (int)NeighType::epair, -1,-1, {0,0,0}, {0,0,0} };
     Atom capAtomPi    = (Atom){ (int)NeighType::pi,    -1,-1, {0,0,0}, {0,0,0} };
@@ -325,12 +325,12 @@ class Builder{  public:
         //if(ic>=0){ confs[ic].addBond(bond.atoms.j); }
         //if(jc>=0){ confs[jc].addBond(bond.atoms.i); }
         //printf( "insertBond %i(%i,%i) to c(%i,%i) l0 %g k %g\n", ib, bond.atoms.i,bond.atoms.j, ic, jc, bond.l0, bond.k );
-        if(ic>=0){ 
-            confs[ic].addBond(ib); 
+        if(ic>=0){
+            confs[ic].addBond(ib);
             //printf( "   i.conf " ); println(confs[ic]);
         }
-        if(jc>=0){ 
-            confs[jc].addBond(ib); 
+        if(jc>=0){
+            confs[jc].addBond(ib);
             //printf( "   j.conf " ); println(confs[jc]);
         }
     }
@@ -472,12 +472,12 @@ class Builder{  public:
         return false;
     }
 
-    int makeAllConfsSP(){ 
-        int n=0,na=atoms.size(); 
-        for(int i=0;i<na;i++){ 
-            if(tryMakeSPConf(i)){n++;} 
-        } 
-        return n; 
+    int makeAllConfsSP(){
+        int n=0,na=atoms.size();
+        for(int i=0;i<na;i++){
+            if(tryMakeSPConf(i)){n++;}
+        }
+        return n;
     }
 
     // ============= Angles
@@ -534,16 +534,16 @@ class Builder{  public:
             //printf("checkBond2Conf b[%i]\n", i );
             const Bond& b = bonds[i];
             int i_ = getBondByAtoms(b.atoms.i,b.atoms.j);
-            if(i_!= i){ 
+            if(i_!= i){
                 if(bPrint){
-                    printf( "MMFFbuilder.checkBond2Conf: getBondByAtoms(bond[%i/%li]) returned %i \n", i,bonds.size(), i_ ); 
-                } 
-                return i; 
+                    printf( "MMFFbuilder.checkBond2Conf: getBondByAtoms(bond[%i/%li]) returned %i \n", i,bonds.size(), i_ );
+                }
+                return i;
             }
         }
         return -1;
     }
-    
+
     int checkConf2Bond(bool bPrint)const{
         int nb=0;
         std::vector<int> ng(atoms.size(), 0);
@@ -551,12 +551,12 @@ class Builder{  public:
         for(int ia=0;ia<atoms.size(); ia++){
             //printf("checkConf2Bond[%i] \n", ia );
             const AtomConf* conf = getAtomConf(ia); // we need to modify it
-            if(conf==0){ 
-                if( nb<bonds.size() ){ 
+            if(conf==0){
+                if( nb<bonds.size() ){
                     if(bPrint){
                         printf( "MMFFbuilder.checkConf2Bond: atom[%i/%li].conf==null nb(%i)<bonds.size(%li) \n", ia, atoms.size(), nb,bonds.size()  );
                     }
-                    return ia; 
+                    return ia;
                 } else continue;
             }
             int nbconf = conf->nbond;
@@ -567,17 +567,17 @@ class Builder{  public:
                     }
                     return ia;
             }
-            for(int j=0; j<nbconf; j++){ 
+            for(int j=0; j<nbconf; j++){
                 int ib = conf->neighs[j];
                 int ja = bonds[ib].getNeighborAtom(ia);
-                if(ja<0){ 
+                if(ja<0){
                     if(bPrint){
-                        printf( "MMFFbuilder.checkConf2Bond: atom[%i/%li].neighs[%i/%i]->bonds[%i/%li].getNeighborAtom(%i) returned %i \n", ia,atoms.size(), j,nbconf, ib,bonds.size(), ia, ja ); 
-                        println( (*conf)   ); 
-                        println( bonds[ib] ); 
+                        printf( "MMFFbuilder.checkConf2Bond: atom[%i/%li].neighs[%i/%i]->bonds[%i/%li].getNeighborAtom(%i) returned %i \n", ia,atoms.size(), j,nbconf, ib,bonds.size(), ia, ja );
+                        println( (*conf)   );
+                        println( bonds[ib] );
                     }
                     return ia;
-                } 
+                }
             }
             //printf("checkConf2Bond[%i] nb %i \n", ia, nb );
             nb+=nbconf;
@@ -611,8 +611,8 @@ class Builder{  public:
         //int bsort    = new[bonds.size()];
         //Bond * bback = new Bond[bonds.size()];
         //int *   invBsort = new int     [bonds.size()];
-        
-        // use smart pointer to solve problems with delete[] when return on fail 
+
+        // use smart pointer to solve problems with delete[] when return on fail
         std::unique_ptr<Bond[]> bback   (new Bond[bonds.size()]);
         std::unique_ptr<int []> invBsort(new int [bonds.size()]);
 

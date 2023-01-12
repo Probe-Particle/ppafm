@@ -1,15 +1,18 @@
 #!/usr/bin/python -u
 
 import os
-import numpy as np
-#import matplotlib.pyplot as plt
-import sys
 
-import ppafm                as PPU     
-import ppafm.GridUtils      as GU
-import ppafm.core           as PPC
-import ppafm.HighLevel      as PPH
-import ppafm.cpp_utils      as cpp_utils
+import numpy as np
+
+import ppafm as PPU
+import ppafm.core as PPC
+import ppafm.cpp_utils as cpp_utils
+import ppafm.GridUtils as GU
+import ppafm.HighLevel as PPH
+
+#import matplotlib.pyplot as plt
+
+
 
 #import PPPlot 		# we do not want to make it dempendent on matplotlib
 print("Amplitude ", PPU.params['Amplitude'])
@@ -48,7 +51,7 @@ if __name__=="__main__":
     parser.add_option( "-V","--Vbias",       action="store", type="float", help="Aplied bias [V]" )
     parser.add_option( "--Vrange",       action="store", type="float", help="Bias range [V]", nargs=3 )
     parser.add_option( "--pol_t", action="store", type="float", default=1.0, help="scaling factor for tip polarization")
-    parser.add_option( "--pol_s", action="store", type="float", default=1.0, help="scaling factor for sample polarization")    
+    parser.add_option( "--pol_s", action="store", type="float", default=1.0, help="scaling factor for sample polarization")
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
     PPU.loadParams( 'params.ini' )
@@ -83,13 +86,13 @@ if __name__=="__main__":
         Vs = [0.0]
     for iV,Vx in enumerate(Vs):
         if ( abs(Vx) > 1e-7):
-            aplied_bias=True       
-    
+            aplied_bias=True
+
     if (aplied_bias == True):
         print("Vs   =", Vs)
-    print("Ks   =", Ks) 
-    print("Qs   =", Qs) 
-    #print "Amps =", Amps 
+    print("Ks   =", Ks)
+    print("Qs   =", Qs)
+    #print "Amps =", Amps
     PPU.params["Apauli"] = options.Apauli
     print("Apauli",PPU.params["Apauli"])
 
@@ -103,7 +106,7 @@ if __name__=="__main__":
         print(" load Lenard-Jones Force-field ")
         FFvdW, lvec, nDim = GU.load_vec_field( "FFvdW" , data_format=options.data_format)
         FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )
-    except IOError:
+    except OSError:
         print(" load Lenard-Jones Force-field ")
         FFvdW, lvec, nDim = GU.load_vec_field( "FFLJ" , data_format=options.data_format)
         FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )
@@ -132,8 +135,8 @@ if __name__=="__main__":
     #FFpauli *= 0.25
     #FFpauli *= 0.15
 
-    lvec[1,:] = rotVec( lvec[1,:], opt_dict['rotate'] ) 
-    lvec[2,:] = rotVec( lvec[2,:], opt_dict['rotate'] ) 
+    lvec[1,:] = rotVec( lvec[1,:], opt_dict['rotate'] )
+    lvec[2,:] = rotVec( lvec[2,:], opt_dict['rotate'] )
     print(lvec)
     PPU.lvec2params( lvec )
 
@@ -175,7 +178,6 @@ if __name__=="__main__":
                     print("Calculating current from tip to the Boltzmann particle:")
                     I_in, lvec, nDim = GU.load_scal_field('I_boltzmann',
                     data_format=iptions.data_format)
-                    I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None ) 
+                    I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None )
                     del I_in;
                     GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,  data_format=options.data_format)
-

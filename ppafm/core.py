@@ -1,19 +1,20 @@
 #!/usr/bin/python
 
-import numpy as np
-from   ctypes import c_int, c_double, c_char_p
 import ctypes
-import os
+from ctypes import c_double, c_int
+
+import numpy as np
+
 from . import common as PPU
 from . import cpp_utils
 
 # ==============================
-# ============================== interface to C++ core 
+# ============================== interface to C++ core
 # ==============================
 
 cpp_name='ProbeParticle'
 cpp_utils.make( "PP"  )
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes 
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes
 
 # define used numpy array types for interfacing with C++
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
@@ -54,7 +55,7 @@ def setFF_shape( n_, cell ):
     n = np.array(n_).astype(np.int32)
     lib.setGridN    ( n    )
     setGridCell( cell )
-    
+
 # void setFF_pointer( double * gridF, double * gridE  )
 lib.setFF_Fpointer.argtypes = [array4d]
 lib.setFF_Fpointer.restype  = None
@@ -111,8 +112,8 @@ def setTip( lRadial=None, kRadial=None, rPP0=None, kSpring=None	):
         kRadial=PPU.params['krad']/-PPU.eVA_Nm
     if rPP0 is  None:
         rPP0=np.array((PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],0.0))
-    if kSpring is  None: 
-        kSpring=np.array((PPU.params['klat'],PPU.params['klat'][1],0.0))/-PPU.eVA_Nm 
+    if kSpring is  None:
+        kSpring=np.array((PPU.params['klat'],PPU.params['klat'][1],0.0))/-PPU.eVA_Nm
     print(" IN setTip !!!!!!!!!!!!!! ")
     print(" lRadial ", lRadial)
     print(" kRadial ", kRadial)
@@ -120,7 +121,7 @@ def setTip( lRadial=None, kRadial=None, rPP0=None, kSpring=None	):
     print(" kSpring ", kSpring)
     lib.setTip( lRadial, kRadial, rPP0, kSpring )
 
-#void setTipSpline( int n, double * xs, double * ydys ){  
+#void setTipSpline( int n, double * xs, double * ydys ){
 lib.setTipSpline.argtypes = [ c_int, array1d, array2d ]
 lib.setTipSpline.restype  = None
 def setTipSpline( xs, ydys	):
@@ -140,14 +141,14 @@ def getInPoints_LJ( ps, Rs, cLJs, FEs=None ):
 lib.getLenardJonesFF.argtypes  = [ c_int,       array2d,      array2d     ]
 lib.getLenardJonesFF.restype   = None
 def getLenardJonesFF( Rs, cLJs ):
-    natom = len(Rs) 
+    natom = len(Rs)
     lib.getLenardJonesFF( natom, Rs, cLJs )
 
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
 lib.getVdWFF.argtypes  = [ c_int,       array2d,      array2d     ]
 lib.getVdWFF.restype   = None
 def getVdWFF( Rs, cLJs ):
-    natom = len(Rs) 
+    natom = len(Rs)
     lib.getVdWFF( natom, Rs, cLJs )
 
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
@@ -156,28 +157,28 @@ lib.getMorseFF.restype   = None
 def getMorseFF( Rs, REs, alpha=None ):
     if alpha is None: alpha = PPU.params['aMorse']
     print("getMorseFF: alpha: %g [1/A] ", alpha)
-    natom = len(Rs) 
+    natom = len(Rs)
     lib.getMorseFF( natom, Rs, REs, alpha )
 
 # void getCoulombFF       (    int natom,   double * Rs_, double * C6, double * C12 )
 lib.getCoulombFF.argtypes  = [ c_int,       array2d,      array1d, c_int   ]
 lib.getCoulombFF.restype   = None
 def getCoulombFF( Rs, kQQs, kind=0 ):
-    natom = len(Rs) 
+    natom = len(Rs)
     lib.getCoulombFF( natom, Rs, kQQs, kind )
 
 # void getGaussDensity( int natoms_, double * Ratoms_, double * cRAs ){
 lib.getGaussDensity.argtypes  = [ c_int,       array2d,      array2d  ]
 lib.getGaussDensity.restype   = None
 def getGaussDensity( Rs, cRAs ):
-    natom = len(Rs) 
+    natom = len(Rs)
     lib.getGaussDensity( natom, Rs, cRAs )
 
 # void getSlaterDensity( int natoms_, double * Ratoms_, double * cRAs ){
 lib.getSlaterDensity.argtypes  = [ c_int,       array2d,      array2d  ]
 lib.getSlaterDensity.restype   = None
 def getSlaterDensity( Rs, cRAs ):
-    natom = len(Rs) 
+    natom = len(Rs)
     lib.getSlaterDensity( natom, Rs, cRAs )
 
 # void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs ){
@@ -186,24 +187,24 @@ lib.getDensityR4spline.restype   = None
 def getDensityR4spline( Rs, cRAs, bNormalize=True ):
     if bNormalize:
         cRAs[:,0] /= ((np.pi*32)/105)*cRAs[:,1]**3     # see https://www.wolframalpha.com/input/?i=4*pi*x%5E2*%281-x%5E2%29%5E2+integrate+from+0+to+1
-    natom = len(Rs) 
+    natom = len(Rs)
     lib.getDensityR4spline( natom, Rs, cRAs )
 
 # int relaxTipStroke ( int probeStart, int nstep, double * rTips_, double * rs_, double * fs_ )
 lib.relaxTipStroke.argtypes  = [ c_int, c_int, c_int,  array2d, array2d, array2d ]
 lib.relaxTipStroke.restype   = c_int
 def relaxTipStroke( rTips, rs, fs, probeStart=1, relaxAlg=1 ):
-    n = len(rTips) 
+    n = len(rTips)
     return lib.relaxTipStroke( probeStart, relaxAlg, n, rTips, rs, fs )
 
 # void stiffnessMatrix( double ddisp, int which, int n,  double * rTips_, double * rs_,    double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
 lib.stiffnessMatrix.argtypes  = [ c_double, c_int, c_int, array2d, array2d,    array2d, array2d, array2d, array2d  ]
 lib.stiffnessMatrix.restype   = None
 def stiffnessMatrix( rTips, rPPs, which=0, ddisp=0.05 ):
-    n = len(rTips) 
+    n = len(rTips)
     eigenvals = np.zeros( (n,3) )
     # this is really stupid solution because we cannot simply pass null pointer by ctypes; see :
-    # https://github.com/numpy/numpy/issues/6239 
+    # https://github.com/numpy/numpy/issues/6239
     # http://stackoverflow.com/questions/32120178/how-can-i-pass-null-to-an-external-library-using-ctypes-with-an-argument-decla
     evecs = [eigenvals,eigenvals,eigenvals]
     for i in range(which): evecs[i] = np.zeros( (n,3) )
@@ -247,5 +248,3 @@ def  test_eigen3x3( mat ):
     evs = np.zeros((4,3))
     lib.test_eigen3x3( mat, evs );
     return evs;
-
-

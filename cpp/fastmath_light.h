@@ -106,8 +106,3 @@ inline bool quadratic_roots( double a, double b, double c,  double& x1, double& 
 
 
 #endif
-
-
-
-
-

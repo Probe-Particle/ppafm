@@ -35,8 +35,8 @@ inline double Bspline(double x){
 
 // Reflective Boundary Conditions
 inline int rbc_left (int ijm      ){               return abs(ijm);                   };
-inline int rbc_right(int ijm,int n){               return (ijm>=n) ? 2*n-ijm-2 : ijm; }; 
-inline int rbc      (int ijm,int n){ ijm=abs(ijm); return (ijm>=n) ? 2*n-ijm-2 : ijm; }; 
+inline int rbc_right(int ijm,int n){               return (ijm>=n) ? 2*n-ijm-2 : ijm; };
+inline int rbc      (int ijm,int n){ ijm=abs(ijm); return (ijm>=n) ? 2*n-ijm-2 : ijm; };
 inline double dot_rbcL(const double* a, const double* b, const int im, const  int m             ){ double sum=0;               for(int j=0; j<m; j++){               sum += a[j]*b[abs(im+j)                ]; }; return sum; };
 inline double dot_rbcR(const double* a, const double* b, const int im, const  int m,const  int n){ double sum=0; int n2=n*2-2; for(int j=0; j<m; j++){ int ijm=im+j; sum += a[j]*b[(ijm>=n) ? (n2-ijm) : ijm]; }; return sum; };
 
@@ -85,7 +85,7 @@ inline void conv1D_up( int m, const int di, const int n, const double* coefs, co
 
 //   Mult  y = A * x
 void conv2D_tensorProd( const int ord, const Vec2i& ns, const double* coefs, const double* x, double* y ){
-    const int ordsym = ord*2 + 1; 
+    const int ordsym = ord*2 + 1;
     if(work==0){ work = new double[ns.x]; }
     for(int iy=0; iy<ns.y; iy++){
         double* yi = y + iy*ns.x;
@@ -99,7 +99,7 @@ void conv2D_tensorProd( const int ord, const Vec2i& ns, const double* coefs, con
 }
 
 void conv2D_tensorProd_down( const int ord, const int di, const Vec2i& ns, const double* coefs, const double* x, double* y ){
-    const int ordsym = ord*2 + 1; 
+    const int ordsym = ord*2 + 1;
     const int nx_in = ns.x*di;
     const int ny_in = ns.y*di;
     //printf( " conv2D_tensorProd_down %i %i %i %i \n",  ord, di, ns.x, nx_in );
@@ -125,7 +125,7 @@ void conv2D_tensorProd_down( const int ord, const int di, const Vec2i& ns, const
 }
 
 void conv2D_tensorProd_up( const int m, const int di, const Vec2i& ns, const double* coefs, const double* x, double* y ){
-    //const int ordsym = ord*2 + 1; 
+    //const int ordsym = ord*2 + 1;
     const int nx_out = ns.x*di;
     const int ny_out = ns.y*di;
     const int mtot=2*m;
@@ -177,7 +177,7 @@ void dotFunc_conv2D_tensorProd( int n,const double * x, double * Ax ){
 
 //   Mult  y = A * x
 void conv3D_tensorProd( const int ord, const Vec3i& ns, const double* coefs, const double* x, double* y ){
-    const int ordsym = ord*2 + 1; 
+    const int ordsym = ord*2 + 1;
     int nxy=ns.x*ns.y;
     //printf( " nxyz(%i,%i,%i) %i \n", ns.x, ns.y, ns.z, nxy );
     if(work2D==0){ work2D = new double[nxy]; }
@@ -214,8 +214,8 @@ CG cg_glob;
 
 extern "C"{
 
-void convolve1D(int m,int di,int n,double* coefs, double* x, double* y ){ 
-    //conv1D( m, n-m*2, coefs, x, y+m ); 
+void convolve1D(int m,int di,int n,double* coefs, double* x, double* y ){
+    //conv1D( m, n-m*2, coefs, x, y+m );
     //printf( " m %i di %i n %i \n", m, di, n );
     if(di== 1){ conv1D     ( m,      n, coefs, x, y ); }
     if(di<0  ){ conv1D_up  ( m, -di, n, coefs, x, y ); }
@@ -228,7 +228,7 @@ void convolve2D_tensorProduct( int ord, int di, int nx, int ny, double* coefs, d
     else      { conv2D_tensorProd_down( ord, di, (Vec2i){nx,ny}, coefs, x, y ); }
     //printf( "DONE 1\n" );
     delete [] work; work=0;
-    //printf( "DONE 2\n" ); 
+    //printf( "DONE 2\n" );
 }
 
 void convolve3D_tensorProduct( int ord, int di, int nx, int ny, int nz, double* coefs, double* x, double* y ){
@@ -239,7 +239,7 @@ void convolve3D_tensorProduct( int ord, int di, int nx, int ny, int nz, double* 
     //printf( "DONE 1\n" );
     delete [] work;   work=0;
     delete [] work2D; work2D=0;
-    //printf( "DONE 2\n" ); 
+    //printf( "DONE 2\n" );
 }
 
 void solveCG( int n, double* A, double* b, double* x, int maxIters, double maxErr ){

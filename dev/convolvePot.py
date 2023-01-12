@@ -1,23 +1,24 @@
 #!/usr/bin/python
-import sys
-import numpy as np
 import os
+import sys
+
 import __main__ as main
+import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm                as PPU     
-from   ppafm            import basUtils
-from   ppafm            import elements   
-import ppafm.GridUtils      as GU
+import ppafm as PPU
+import ppafm.fieldFFT as fFFT
+import ppafm.GridUtils as GU
+
 #import ppafm.core          as PPC
-import ppafm.HighLevel      as PPH
-import ppafm.fieldFFT       as fFFT
+import ppafm.HighLevel as PPH
+from ppafm import basUtils, elements
 
 HELP_MSG="""Use this program in the following way:
-%s -i <filename> 
+%s -i <filename>
 
 Supported file fromats are:
-   * xyz 
+   * xyz
 """ %os.path.basename(main.__file__)
 
 
@@ -41,7 +42,7 @@ def getXYZ( nDim, cell ):
     X,Y,Z - output: three dimensional arrays with x, y, z coordinates as value
     '''
     dcell = np.array( [ cell[0]/nDim[2], cell[1]/nDim[1], cell[2]/nDim[0] ]  )
-    print(" dcell ", dcell) 
+    print(" dcell ", dcell)
     CBA = np.mgrid[0:nDim[0],0:nDim[1],0:nDim[2]].astype(float) # grid going: CBA[z,x,y]
     X = CBA[2]*dcell[0, 0] + CBA[1]*dcell[1, 0] + CBA[0]*dcell[2, 0]
     Y = CBA[2]*dcell[0, 1] + CBA[1]*dcell[1, 1] + CBA[0]*dcell[2, 1]
@@ -102,12 +103,12 @@ def W_cut(W,nz=100,side='up',sm=10):
             W[iz,:,:] *= 1/(np.exp((iz-nz)*1.0/sm) + 1)
     return W;
 
-# ============== setup 
+# ============== setup
 
 T = 10.0 # [K]
 
 beta = 1/(kBoltz*T)   # [eV]
-print("T= ", T, " [K] => beta ", beta/1000.0, "[meV] ") 
+print("T= ", T, " [K] => beta ", beta/1000.0, "[meV] ")
 
 #E_cutoff = 32.0 * beta
 E_cutoff = 18.0 * beta
@@ -125,7 +126,7 @@ if options.noProbab :
     #cell   = np.array( [ lvec[1],lvec[2],lvec[3] ] ); print "nDim ", nDim, "\ncell ", cell
     #X,Y,Z  = getXYZ( nDim, cell )
     #V_tip = V_tip*0 + Egauss * getProbeDensity( (cell[0,0]/2.+cell[1,0]/2.,cell[1,1]/2,cell[2,2]/2.-3.8), X, Y, Z, wGauss ) # works for tip (the last flexible tip apex atom) in the middle of the cell
-    limitE( V_tip,  E_cutoff ) 
+    limitE( V_tip,  E_cutoff )
     W_tip  = np.exp( -beta * V_tip  )
     #W_tip = W_cut(W_tip,nz=95,side='down',sm=5)
     del V_tip;
@@ -133,18 +134,18 @@ if options.noProbab :
 
     # --- sample
     V_surf,  lvec, nDim = GU.load_scal_field('sample/VLJ',data_format=options.data_format)
-    limitE( V_surf, E_cutoff ) 
+    limitE( V_surf, E_cutoff )
     W_surf = np.exp( -beta * V_surf )
     #W_surf=W_cut(W_surf,nz=50,side='up',sm=1)
-    del V_surf; 
+    del V_surf;
     GU.save_scal_field ( 'W_surf', W_surf,   lvec, data_format=options.data_format)
 
 #=================== Force
 
 if options.noForces :
-    print(" ==== calculating Forces ====") 
+    print(" ==== calculating Forces ====")
     if (options.noProbab==False) :
-        print(" ==== loading probabilties ====") 
+        print(" ==== loading probabilties ====")
         # --- tip
         W_tip,   lvec, nDim = GU.load_scal_field('W_tip',data_format=options.data_format)
         # --- sample
@@ -187,7 +188,7 @@ if options.noForces :
 
 if options.current :
     if ((options.noProbab==False)and(options.noForces==False)) :
-        print(" ==== loading probabilties ====") 
+        print(" ==== loading probabilties ====")
         # --- tip
         W_tip,   lvec, nDim = GU.load_scal_field('W_tip',data_format=options.data_format)
         W_tip = np.roll(np.roll(np.roll(W_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
@@ -197,7 +198,7 @@ if options.current :
     if ((options.noProbab)and(options.noForces==False)) :
         W_tip = np.roll(np.roll(np.roll(W_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
 
-    print(" ==== calculating current ====") 
+    print(" ==== calculating current ====")
     cell   = np.array( [ lvec[1],lvec[2],lvec[3] ] ); print("nDim ", nDim, "\ncell ", cell)
     X,Y,Z  = getXYZ( nDim, cell )
     T_tip = getProbeTunelling( (cell[0,0]/2.+cell[1,0]/2.,cell[1,1]/2,cell[2,2]/2.) ,  X, Y, Z, beta=1.14557 )  #beta decay in eV/Angstom for WF = 5.0 eV;  works for tip (the last flexible tip apex atom) in the middle of the cell
@@ -206,6 +207,6 @@ if options.current :
     del T_tip;
     print(T.shape)
     print((T**2).shape)
-    GU.save_scal_field ( 'I_boltzmann', T**2,   lvec, data_format=options.data_format) # I ~ T**2 
+    GU.save_scal_field ( 'I_boltzmann', T**2,   lvec, data_format=options.data_format) # I ~ T**2
 
 print(" ***** ALL DONE ***** ")

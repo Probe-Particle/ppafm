@@ -1,16 +1,15 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
-import os
-import sys
-import __main__ as main
-import numpy as np
-import matplotlib.pyplot as plt
-
-import ppafm                as PPU
-import ppafm.GridUtils      as GU
-import ppafm.fieldFFT       as fFFT
 from optparse import OptionParser
+
+import __main__ as main
+import matplotlib.pyplot as plt
+import numpy as np
+
+import ppafm as PPU
+import ppafm.fieldFFT as fFFT
+import ppafm.GridUtils as GU
 
 # ======== Functions
 
@@ -56,7 +55,7 @@ if options.Bpower > 0.0:
     B = options.Bpower
     print(">>> computing rho^B where B = ", B)
     #print " rhoS.min,max ",rhoS.min(), rhoS.max(), " rhoT.min,max ",rhoT.min(), rhoT.max()
-    # NOTE: due to round-off error the density from DFT code is often negative in some voxels which produce NaNs after exponentiation; we need to correct this 
+    # NOTE: due to round-off error the density from DFT code is often negative in some voxels which produce NaNs after exponentiation; we need to correct this
     if options.densityMayBeNegative:
         handleNegativeDensity( rhoS )
         handleNegativeDensity( rhoT )
@@ -83,4 +82,3 @@ GU.saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ,       lvecS, head=headS )
 GU.saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ,       lvecS, head=headS )
 
 #Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
-

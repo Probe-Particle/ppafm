@@ -198,5 +198,3 @@ inline Vec2f toFloat( const Vec2d& from){ return (Vec2f){(float)from.x,(float)fr
 //inline int print( const Vec2i&  v){ return printf( "%i %i", v.x, v.y ); };
 
 #endif
-
-

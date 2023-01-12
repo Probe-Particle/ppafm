@@ -72,14 +72,14 @@ class DynamicOpt{ public:
 /*
     inline void initMass(double invM){ for(int i=0;i<n;i++){invMasses[i]=invM;} };
     inline void bindArrays( int n_, double * pos_, double * vel_, double * force_, double * invMasses_ ){
-        n = n_;     
+        n = n_;
         if(pos_  ==0){ _realloc(pos  ,n); }else{ pos   = pos_;   };
         if(vel_  ==0){ _realloc(vel  ,n); }else{ vel   = vel_;   };
         if(force_==0){ _realloc(force,n); }else{ force = force_; };
         if(invMasses_==0) { _realloc(invMasses,n); initMass(1.0); }else{ invMasses=invMasses_; }
     }
 */
-    
+
     inline void setInvMass(double invM){  if(invMasses==0){ _realloc(invMasses,n);}  for(int i=0;i<n;i++){invMasses[i]=invM;} };
 
     inline void bindArrays( int n_, double * pos_, double * vel_, double * force_, double * invMasses_ ){
@@ -109,7 +109,7 @@ class DynamicOpt{ public:
         _dealloc(force);
         _dealloc(invMasses);
     }
-    
+
     inline void unbindAll(){
         n=0; pos=0; vel=0; force=0; invMasses=0;
     }
@@ -302,7 +302,7 @@ double DynamicOpt::move_FIRE(){
         if( f>(f_limit) ){ // Gradient descent for extremely high forces
             if(iDebug>0) printf( "f(%g)>(%g) => GradinentDescent dt %g \n", f, f_limit, l_limit/f );
             cleanVel();
-            move_GD( l_limit/f ); // do GD step of length == l_limit 
+            move_GD( l_limit/f ); // do GD step of length == l_limit
             return ff;
         }
         dt_*=sqrt( f_limit/f );

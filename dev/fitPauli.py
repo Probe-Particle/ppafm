@@ -1,16 +1,19 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
 import sys
+
+import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib.pyplot as plt   
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm               as PPU
+from optparse import OptionParser
+
+import ppafm as PPU
+
 #import ppafm.GridUtils     as GU
-import ppafm.basUtils      as BU
-from   optparse import OptionParser
+import ppafm.basUtils as BU
 
 parser = OptionParser()
 parser.add_option( "-i",           action="store", type="string", help="input file",                              default= 'CHGCAR'        )
@@ -138,7 +141,7 @@ for i in ilist:
     #A *= dens2Pauli
     print " elem %i a_z %f alpha %f alpha/2 %f A  %f d2p %f " %( atoms_e[i], atoms_z[i], alpha, alpha*0.5, A, dens2Pauli )
     '''
-    
+
     if options.plot:
          plt.plot( zs - atoms_z[i], fs, label=("%i" %atoms_e[i])  )
          #plt.plot( zs, A*np.exp( alpha*zs ) )
@@ -150,7 +153,7 @@ f2.close()
 
 if options.plot:
     plt.plot( [0.0,5.0],[0.017,0.017], label=("threshold") )
-    plt.legend()    
+    plt.legend()
     plt.xlim(0.0, options.height)
     plt.ylim(1e-8, 1e+5)
     plt.yscale("log")

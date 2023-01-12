@@ -1,11 +1,11 @@
-
 import os
 
+import numpy as np
 import pyopencl as cl
-import numpy    as np 
 
 from . import field as FFcl
 from . import relax as oclr
+
 
 class OCLEnvironment:
 
@@ -15,13 +15,13 @@ class OCLEnvironment:
         self.platform     = platforms[i_platform]
         print(f"Initializing an OpenCL environment on {self.platform.name}")
 
-        self.PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) ); 
+        self.PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) );
         self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH + '/../../cl' )
         self.ctx          = cl.Context(properties=[(cl.context_properties.PLATFORM, self.platform)], devices=None)
         self.queue        = cl.CommandQueue(self.ctx)
 
     def loadProgram(self,fname):
-        f       = open(fname, 'r')
+        f       = open(fname)
         fstr    = "".join(f.readlines())
         program = cl.Program(self.ctx, fstr ).build(options=['-I', self.CL_PATH])
         return program
@@ -29,7 +29,7 @@ class OCLEnvironment:
     def updateBuffer(self, buff, cl_buff, access=cl.mem_flags ):
         if buff is not None:
             if cl_buff is None:
-                cl_buff = cl.Buffer(self.ctx, access | cl.mem_flags.COPY_HOST_PTR, hostbuf=buff ); 
+                cl_buff = cl.Buffer(self.ctx, access | cl.mem_flags.COPY_HOST_PTR, hostbuf=buff );
                 return buff.nbytes
             else:
                 cl.enqueue_copy( self.queue, cl_buff, buff )

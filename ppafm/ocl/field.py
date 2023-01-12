@@ -1,21 +1,20 @@
 #!/usr/bin/python
 
-import os
 import time
-import numpy as np 
 
+import numpy as np
 import pyopencl as cl
 from pyopencl import array
 
-from ..GridUtils import loadCUBE, loadXSF
 from ..basUtils import loadAtomsCUBE, loadXSFGeom
-from ..fieldFFT import getProbeDensity
 from ..common import genFFSampling
+from ..fieldFFT import getProbeDensity
+from ..GridUtils import loadCUBE, loadXSF
 
 try:
-    from reikna.cluda import ocl_api, dtypes
+    from reikna.cluda import dtypes, ocl_api
+    from reikna.core import Annotation, Parameter, Transformation, Type
     from reikna.fft import FFT
-    from reikna.core import Annotation, Type, Transformation, Parameter
     fft_available = True
 except ModuleNotFoundError:
     fft_available = False
@@ -267,7 +266,7 @@ class FFTConvolution:
         if isinstance(pot, HartreePotential):
             assert pot.shape == self.shape, 'pot array shape does not match rho array shape'
             pot = pot.cl_array
-        
+
         mf = cl.mem_flags
         if bCopy:
             E = E or np.empty(self.shape, dtype=np.float32)
@@ -299,7 +298,7 @@ class ForceField_LJC:
     verbose = 0
 
     def __init__( self ):
-        self.ctx   = oclu.ctx; 
+        self.ctx   = oclu.ctx;
         self.queue = oclu.queue
         self.cl_poss   = None
         self.cl_FE     = None
@@ -325,8 +324,8 @@ class ForceField_LJC:
             nDim = self.nDim
         else:
             print("ERROR : nDim must be set somewhere"); exit()
-        self.lvec0       = np.zeros( 4, dtype=np.float32 ) 
-        self.lvec        = np.zeros( (3,4), dtype=np.float32 ) 
+        self.lvec0       = np.zeros( 4, dtype=np.float32 )
+        self.lvec        = np.zeros( (3,4), dtype=np.float32 )
         self.dlvec       = np.zeros( (3,4), dtype=np.float32 )
         self.lvec0[:3]    = lvec[  0,:3]
         self.lvec[:,:3]  = lvec[1:4,:3]
@@ -336,7 +335,7 @@ class ForceField_LJC:
 
     def setQs(self, Qs=[100,-200,100,0],QZs=[0.1,0,-0.1,0]):
         if ( len(Qs) != 4 ) or ( len(QZs) != 4 ):
-            print("Qs and Qzs must have length 4 ") 
+            print("Qs and Qzs must have length 4 ")
             exit()
         self.Qs  = np.array(Qs ,dtype=np.float32)
         self.QZs = np.array(QZs,dtype=np.float32)
@@ -349,7 +348,7 @@ class ForceField_LJC:
         mf       = cl.mem_flags
         nb_float = np.dtype(np.float32).itemsize
         if atoms is not None:
-            self.nAtoms   = np.int32( len(atoms) ) 
+            self.nAtoms   = np.int32( len(atoms) )
             atoms = atoms.astype(np.float32)
             self.cl_atoms = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=atoms ); nbytes+=atoms.nbytes
         if cLJs is not None:
@@ -388,34 +387,34 @@ class ForceField_LJC:
         release all buffers
         '''
         if(self.verbose>0): print(" ForceField_LJC.tryReleaseBuffers ")
-        try: 
-            self.cl_atoms.release() 
+        try:
+            self.cl_atoms.release()
             self.cl_atoms = None
-        except: 
+        except:
             pass
-        try: 
-            self.cl_cLJs.release() 
+        try:
+            self.cl_cLJs.release()
             self.cl_cLJs = None
-        except: 
+        except:
             pass
-        try: 
-            self.cl_poss.release() 
+        try:
+            self.cl_poss.release()
             self.cl_poss = None
-        except: 
+        except:
             pass
-        try: 
-            self.cl_FE.release() 
+        try:
+            self.cl_FE.release()
             self.cl_FE = None
-        except: 
+        except:
             pass
-        try: 
+        try:
             self.pot.release()
-        except: 
+        except:
             pass
-        try: 
-            self.cl_Efield.release() 
+        try:
+            self.cl_Efield.release()
             self.cl_Efield = None
-        except: 
+        except:
             pass
         try:
             self.rho.release()
@@ -432,7 +431,7 @@ class ForceField_LJC:
             if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_cLJs,
@@ -445,7 +444,7 @@ class ForceField_LJC:
         if bFinish: self.queue.finish()
         if(bRuntime): print("runtime(ForceField_LJC.evalLJC) [s]: ", time.time() - t0)
         return FE
-    
+
     def run_evalLJ_noPos(self, FE=None, local_size=(32,), bCopy=True, bFinish=True ):
         '''
         Compute Lennard-Jones forcefield without charges at grid points.
@@ -461,9 +460,9 @@ class ForceField_LJC:
         '''
 
         if bRuntime: t0 = time.perf_counter()
-        
+
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
-        cl_program.evalLJ_noPos(self.queue, global_size, local_size, 
+        cl_program.evalLJ_noPos(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_cLJs,
@@ -478,7 +477,7 @@ class ForceField_LJC:
         if bCopy: FE = self.downloadFF(FE)
         if bFinish: self.queue.finish()
         if bRuntime: print("runtime(ForceField_LJC.run_evalLJ_noPos) [s]: ", time.perf_counter() - t0)
-        
+
         return FE
 
     def run_evalLJC_Q(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
@@ -491,7 +490,7 @@ class ForceField_LJC:
             if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_cLJs,
@@ -517,7 +516,7 @@ class ForceField_LJC:
             if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_cLJs,
@@ -560,7 +559,7 @@ class ForceField_LJC:
 
         else:
             FE = np.empty((self.nDim[3],) + tuple(self.nDim[:3]), dtype=np.float32, order='F')
-            
+
         if self.verbose: print("FE.shape ", FE.shape)
 
         # Copy from device to host
@@ -583,7 +582,7 @@ class ForceField_LJC:
             if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_cLJs,
@@ -604,7 +603,7 @@ class ForceField_LJC:
 
     def run_evalLJC_Hartree(self, FE=None, local_size=(32,), bCopy=True, bFinish=True):
         '''
-        Compute Lennard Jones force field at grid points and add to it the electrostatic force 
+        Compute Lennard Jones force field at grid points and add to it the electrostatic force
         from an electric field precomputed from a Hartree potential.
 
         Arguments:
@@ -618,7 +617,7 @@ class ForceField_LJC:
         '''
 
         if bRuntime: t0 = time.perf_counter()
-            
+
         T = np.append(np.linalg.inv(self.dlvec[:, :3]).T.copy(), np.zeros((3, 1)), axis=1).astype(np.float32)
 
         if bRuntime: print("runtime(ForceField_LJC.run_evalLJC_Hartree.pre) [s]: ", time.perf_counter() - t0)
@@ -664,13 +663,13 @@ class ForceField_LJC:
         '''
 
         if bRuntime: t0 = time.perf_counter()
-        
+
         if pot:
             self.prepareBuffers(pot=pot)
         elif not self.pot:
             raise ValueError("Hartree potential not initialized on the device. "
                 "Either initialize it with prepareBuffers or pass it here as a HartreePotential object.")
-        
+
         if bCopy:
             E_field = E_field or np.empty(self.nDim, dtype=np.float32)
             if not np.allclose(E_field.shape, self.nDim):
@@ -732,7 +731,7 @@ class ForceField_LJC:
             FE    = np.zeros( ns, dtype=np.float32 )
             #FE     = np.empty( self.scan_dim+(4,), dtype=np.float32 )
             if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
-        ntot = int( self.scan_dim[0]*self.scan_dim[1] ) 
+        ntot = int( self.scan_dim[0]*self.scan_dim[1] )
         ntot=makeDivisibleUp(ntot,local_size[0])
         global_size = (ntot,) # TODO make sure divisible by local_size
 
@@ -741,7 +740,7 @@ class ForceField_LJC:
         dpos0        = np.array( [ 0.0 , 0.0 , -4.0 , 4.0 ], dtype=np.float32 );
         relax_params = np.array( [ 0.1 , 0.9 ,  0.02, 0.5 ], dtype=np.float32 );
 
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_cLJs,
@@ -787,7 +786,7 @@ class ForceField_LJC:
         elif not self.pot:
             raise ValueError("Hartree potential not initialized on the device. "
                 "Either initialize it with prepareBuffers or pass it here as a HartreePotential object.")
-        
+
         mf = cl.mem_flags
         if bCopy:
             array_out = array_out or np.empty(self.nDim[:3], dtype=np.float32)
@@ -808,7 +807,7 @@ class ForceField_LJC:
         rot = np.append(rot, np.zeros((3, 1)), axis=1).astype(np.float32)
 
         if bRuntime: print("runtime(ForceField_LJC.interp_pot.pre) [s]: ", time.perf_counter() - t0)
-        
+
         cl_program.interp_at(self.queue, global_size, local_size,
             self.pot.cl_array,
             cl_array_out,
@@ -902,7 +901,7 @@ class ForceField_LJC:
         '''
         Generate force-field from given positions/charges (atoms), Lennard-Jones parameters (cLJs) etc.
         '''
-        
+
         if(bRuntime): t0 = time.time()
 
         self.atoms = atoms
@@ -965,7 +964,7 @@ class ForceField_LJC:
         self.prepareBuffers(self.atoms, cLJs, pot=pot, rho=rho)
 
         if(bRuntime): print("runtime(ForceField_LJC.makeFFHartree.pre) [s]: ", time.perf_counter() - t0)
-        
+
         if rho == None and self.rho is None:
             if not np.allclose(rot, np.eye(3)):
                 raise NotImplementedError('Force field calculation with rotation for Hartree potential with '
@@ -991,17 +990,17 @@ class AtomProcjetion:
     dzmax_s = np.Inf #  maximum depth of vdW shell in Atomic Disks
 
     Rmax       =  10.0  #  Radial function of bonds&atoms potential  ; used in Bonds
-    drStep     =   0.1  #  step dx (dr) for sampling of radial function; used in Bonds 
-    elipticity =  0.5;  #  ration between major and minor semiaxi;   used in Bonds 
+    drStep     =   0.1  #  step dx (dr) for sampling of radial function; used in Bonds
+    elipticity =  0.5;  #  ration between major and minor semiaxi;   used in Bonds
 
     # occlusion
-    zmargin =  0.2   #  zmargin 
+    zmargin =  0.2   #  zmargin
     tgMax   =  0.5   #  tangens of angle limiting occlusion for SphereCaps
     tgWidth =  0.1   #  tangens of angle for limiting rendered area for SphereCaps
     Rfunc   = None
 
     def __init__( self ):
-        self.ctx   = oclu.ctx; 
+        self.ctx   = oclu.ctx;
         self.queue = oclu.queue
 
     def makeCoefsZR(self, Zs, ELEMENTS ):
@@ -1051,15 +1050,15 @@ class AtomProcjetion:
             coefs[:,1] = 0.1 # width
 
         self.cl_coefs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=coefs  ); nbytes+=coefs.nbytes
-        
+
         npostot = prj_dim[0] * prj_dim[1]
-        
+
         bsz=np.dtype(np.float32).itemsize * npostot
         self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY , bsz*4           );   nbytes+=bsz*4  # float4
         self.cl_Eout  = cl.Buffer(self.ctx, mf.WRITE_ONLY, bsz*prj_dim[2]  );   nbytes+=bsz    # float
 
         self.cl_itypes  = cl.Buffer(self.ctx, mf.READ_ONLY, 200*np.dtype(np.int32).itemsize );   nbytes+=bsz    # float
-        
+
         if elem_channels:
             elem_channels = np.array(elem_channels).astype(np.int32)
             self.cl_elem_channels = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=elem_channels ); nbytes+=elem_channels.nbytes
@@ -1080,7 +1079,7 @@ class AtomProcjetion:
         '''
         self.nTypes   = np.int32( len(sel) )
         dct = { typ:i for i,typ in enumerate(sel) }
-        itypes = np.ones( 200, dtype=np.int32); itypes[:]*=-1 
+        itypes = np.ones( 200, dtype=np.int32); itypes[:]*=-1
         for i,typ in enumerate(types):
             if typ in dct:
                 itypes[i] = dct[typ]
@@ -1131,7 +1130,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
@@ -1157,7 +1156,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
@@ -1188,7 +1187,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
@@ -1219,7 +1218,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
@@ -1248,7 +1247,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
@@ -1279,7 +1278,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_poss,
@@ -1305,7 +1304,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
@@ -1337,7 +1336,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
@@ -1368,7 +1367,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.nTypes,
             self.cl_atoms,
@@ -1399,7 +1398,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nBonds,
             self.cl_bondPoints,
             self.cl_poss,
@@ -1429,7 +1428,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
@@ -1458,7 +1457,7 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (  
+        kargs = (
             self.nAtoms,
             self.cl_atoms,
             self.cl_poss,
@@ -1492,7 +1491,7 @@ class AtomProcjetion:
             if(verbose>0): print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
             oclu.updateBuffer(poss, self.cl_poss)
 
-        
+
         global_size = (int(np.ceil(np.prod(self.prj_dim[:2]) / local_size[0]) * local_size[0]),)
         T = np.append(np.linalg.inv(pot.step).T.copy(), np.zeros((3, 1)), axis=1).astype(np.float32)
         rot = np.append(rot, np.zeros((3, 1)), axis=1).astype(np.float32)

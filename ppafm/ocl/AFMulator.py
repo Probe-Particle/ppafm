@@ -1,17 +1,17 @@
 #!/usr/bin/python3
 
 import os
+
 import numpy as np
 import pyopencl as cl
 
-from .. import common   as PPU
-from . import field     as FFcl
-from . import relax     as oclr
-from . import oclUtils  as oclu
-
-from .field import HartreePotential, MultipoleTipDensity, hartreeFromFile
+from .. import common as PPU
 from ..basUtils import loadXYZ
 from ..PPPlot import plotImages
+from . import field as FFcl
+from . import oclUtils as oclu
+from . import relax as oclr
+from .field import HartreePotential, MultipoleTipDensity, hartreeFromFile
 
 VALID_SIZES = np.array([16, 32, 64, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048])
 
@@ -67,7 +67,7 @@ class AFMulator():
 
     # ==================== Methods =====================
 
-    def __init__( self, 
+    def __init__( self,
         pixPerAngstrome = 10,
         lvec            = None,
         scan_dim        = (128, 128, 30),
@@ -109,7 +109,7 @@ class AFMulator():
         self.typeParams = PPU.loadSpecies('atomtypes.ini')
         self.saveFFpre = ""
         self.counter = 0
-    
+
     def eval(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None, X=None ):
         '''
         Prepare and evaluate AFM image.
@@ -125,7 +125,7 @@ class AFMulator():
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
-        
+
         Returns:
             np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
         '''
@@ -133,7 +133,7 @@ class AFMulator():
         self.prepareScanner()
         X = self.evalAFM(X)
         return X
-    
+
     def __call__(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None, X=None):
         '''
         Makes object callable. See :meth:`eval` for input arguments.
@@ -155,7 +155,7 @@ class AFMulator():
         else:
             self.lvec = get_lvec(self.scan_window, tipR0=self.tipR0,
                 pixPerAngstrome=self.pixPerAngstrome)
-        
+
         # Remember old grid size
         if hasattr(self.forcefield, 'nDim'):
             self._old_nDim = self.forcefield.nDim.copy()
@@ -249,7 +249,7 @@ class AFMulator():
             self.forcefield.tryReleaseBuffers()
             self.setRho(self._rho, self.sigma)
             self.forcefield.prepareBuffers()
-        
+
         # Check if using point charges or precomputed Hartee potential
         if qs is None:
             pot = None
@@ -285,7 +285,7 @@ class AFMulator():
             xyzqs[:, :3] -= rot_center
             xyzqs[:, :3] = np.dot(xyzqs[:, :3], rot.T)
             xyzqs[:, :3] += rot_center
-            
+
         # Compute force field
         if self.bNoFFCopy:
             if pot:
@@ -301,7 +301,7 @@ class AFMulator():
             self.FEin = np.empty(self.forcefield.nDim, np.float32)
             FF, self.atoms = self.forcefield.makeFF(atoms=xyzqs, cLJs=cLJs, FE=self.FEin, Qmix=None,
                 bRelease=True,bCopy=True, bFinish=True )
-        
+
         self.atomsNonPBC = self.atoms[:self.natoms0].copy()
 
     def prepareScanner(self):
@@ -314,7 +314,7 @@ class AFMulator():
             self.scanner.updateFEin(self.forcefield.cl_FE)
         else:
             self.scanner.prepareBuffers(self.FEin)
-        
+
         # Subtract origin, because OpenCL kernel for tip relaxation does not take the origin of the FF box into account
         self.pos0 = np.array([0, 0, self.scan_window[1][2]]) - self.lvec[0]
 
@@ -328,7 +328,7 @@ class AFMulator():
         Arguments:
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
-        
+
         Returns:
             np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
         '''
@@ -414,7 +414,7 @@ def get_lvec(scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0), pixPerAngs
 
 def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_step=(0.1, 0.1, 0.1),
         probe_type=8, charge=-0.1, tip='dz2', sigma=0.71, num_heights=10, amplitude=1.0, out_dir=None):
-    '''
+    r'''
     Make an AFM simulation from a .cube, .xsf, or .xyz file, and print images to a folder.
 
     Arguments:
@@ -457,7 +457,6 @@ def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_s
             QZs = [0, 0, 0, 0]
         elif tip == 'pz':
             Qs = [10*charge, -10*charge, 0, 0]
-            Qzs = [0.1, -0.1, 0, 0]
         elif tip == 'dz2':
             Qs = [100*charge, -200*charge, 100*charge, 0]
             QZs = [0.1, 0, -0.1, 0]

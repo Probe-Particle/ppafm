@@ -4,13 +4,14 @@
 #matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
 
-LWD = '/home/prokop/git/ProbeParticleModel/code' 
+import matplotlib.pyplot as plt
+import numpy as np
 
-print(" # ========== make & load  ProbeParticle C++ library ") 
+LWD = '/home/prokop/git/ProbeParticleModel/code'
+
+print(" # ========== make & load  ProbeParticle C++ library ")
 
 
 '''
@@ -57,8 +58,8 @@ PP.params['gridN'] = nDim.copy()
 print(" compute Lennard-Jones Force-filed ")
 atoms     = basUtils.loadAtoms('geom.bas')
 if os.path.isfile( 'atomtypes.ini' ):
-	print(">> LOADING LOCAL atomtypes.ini")  
-	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+	print(">> LOADING LOCAL atomtypes.ini")
+	FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 else:
 	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 iZs,Rs,Qs = parseAtoms( atoms, autogeom = False, PBC = True, FFparams=FFparams )
@@ -79,7 +80,3 @@ print(" ***** ALL DONE ***** ")
 
 
 #plt.show()
-
-
-
-
