@@ -93,7 +93,6 @@ def Fz2df_tilt( F,  d=params['scanTilt'], k0 = params['kCantilever'], f0=params[
     oscialltion amplitude of cantilever is A = n * dz
     '''
     dr = np.sqrt( d[0]**2 + d[1]**2 + d[2]**2 )
-    np.array(d)/dr
     W,xs = getDfWeight( n, dz=dr )
     dFconv_x = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F[:,:,:,0] )
     dFconv_y = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F[:,:,:,1] )

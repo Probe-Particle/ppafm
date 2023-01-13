@@ -9,7 +9,7 @@ unzip LOCPOT.xsf.zip
 # ======= STEP 1 : Generate force-field grid
 
 python3 $PPPATH/generateElFF.py -i LOCPOT.xsf --tip dz2
-#python3 $PPPATH/generateLJFF.py -i LOCPOT.xsf
+python3 $PPPATH/generateLJFF.py -i LOCPOT.xsf
 
 # ======= STEP 2 : Relax Probe Particle using that force-field grid
 
