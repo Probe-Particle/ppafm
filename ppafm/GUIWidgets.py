@@ -6,11 +6,10 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-import matplotlib; matplotlib.use('Qt5Agg')
-
-
 from . import GridUtils as GU
 from . import basUtils
+
+import matplotlib; matplotlib.use('Qt5Agg')
 
 def correct_ext(fname, ext ):
     _, fext = os.path.splitext( fname )

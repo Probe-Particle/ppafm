@@ -640,7 +640,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         guiw.set_box_value(self.bxSCy, scan_start[1])
 
         self.updateScanWindow()
-    
+
     def _create_probe_settings_ui(self):
 
         # Title
@@ -780,7 +780,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
         bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
         bxr = QtWidgets.QVBoxLayout(); vb.addLayout(bxr, 3)
-        
+
         # Lattice vector A
         lb = QtWidgets.QLabel("A (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
         vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
@@ -859,7 +859,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bt.setToolTip(TTips['view_geom'])
         bt.clicked.connect(self.showGeometry)
         self.btViewGeom = bt; vb.addWidget(bt)
-        
+
         # Geometry editor
         self.geomEditor = None
         bt = QtWidgets.QPushButton('Edit Geometry', self)
@@ -867,7 +867,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bt.clicked.connect(self.showGeomEditor)
         self.btEditAtoms = bt; vb.addWidget(bt)
 
-        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb) 
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
 
         # Forcefield viewer
         self.FFViewer = guiw.FFViewer(self, verbose=self.verbose)
@@ -875,7 +875,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bt.setToolTip(TTips['view_ff'])
         bt.clicked.connect(self.showFFViewer)
         self.btViewFF = bt; vb.addWidget(bt)
-        
+
         # Forcefield parameter editor
         self.FFEditor = guiw.LJParamEditor(self.afmulator.typeParams, self)
         bt = QtWidgets.QPushButton('Edit Forcefield', self)
@@ -883,14 +883,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bt.clicked.connect(self.FFEditor.show)
         self.btEditFF = bt; vb.addWidget(bt)
 
-        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb) 
-        
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+
         # --- btLoad
         self.btLoad = QtWidgets.QPushButton('Open File...', self)
         self.btLoad.setToolTip('Open new file.')
         self.btLoad.clicked.connect(self.openFile)
         vb.addWidget( self.btLoad )
-        
+
         # --- btSave
         self.btSave = QtWidgets.QPushButton('Save Image...', self)
         self.btSave.setToolTip('Save current image.')
