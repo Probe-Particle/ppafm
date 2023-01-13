@@ -34,9 +34,9 @@ struct{
 struct{
     //                     R           eps     Q
     Vec3d  REQ = (Vec3d) { 1.4870,sqrt(0.000681),0};   // Hydrogen
-    double bond_l0      = 1.5; 
+    double bond_l0      = 1.5;
     double bond_k       = 100/const_eVA2_Nm;   // 100 N/m -> eV/A^2
-    double hydrogen_l0  = 1.07; 
+    double hydrogen_l0  = 1.07;
     double hydrogen_k   = 100/const_eVA2_Nm;
     double angle_kpi    = 3.5;
     double angle_ksigma = 2.0;
@@ -46,13 +46,13 @@ struct{
 
 extern "C"{
 
-void clear(){ 
+void clear(){
     builder.clear();
     ff.dealloc();
-    
+
     _dealloc( nff.REQs);
     nff.unbindAll();
-    
+
     _dealloc( opt.vel       );
     _dealloc( opt.invMasses );
     opt.unbindAll();
@@ -113,12 +113,12 @@ void addDihedrals(){
 
 void    setAllNonBonded ( double* REQs        ){ nff.bindOrRealloc( ff.natoms, ff.nbonds, ff.apos, ff.aforce, (Vec3d*)REQs, ff.bond2atom ); bNonBonded = true; }
 
-double* setSomeNonBonded( int n, double* REQs ){ 
+double* setSomeNonBonded( int n, double* REQs ){
     if( !checkPairsSorted( ff.nbonds, ff.bond2atom ) ){ printf( "ERROR: ff.bonds is not sorted => exit \n" ); return 0; };
     nff.bindOrRealloc( ff.natoms, ff.nbonds, ff.apos, ff.aforce, 0, ff.bond2atom );
     for(int i=0; i<n; i++    ){ nff.REQs[i]=((Vec3d*)REQs)[i];       };
-    for(int i=n; i<nff.n; i++){ 
-        //nff.REQs[i]=defaults.REQ; 
+    for(int i=n; i<nff.n; i++){
+        //nff.REQs[i]=defaults.REQ;
         nff.REQs[i] = builder.atoms[i].REQ;
     };
     bNonBonded = true;
@@ -176,13 +176,13 @@ double relaxNsteps( int ialg, int nsteps, double Fconv ){
         ff.cleanAtomForce();
         E += ff.eval();
         E += nff.evalLJQ_sortedMask();
-        
-        if((box.k.x>0)||(box.k.y>0)||(box.k.z>0)){ 
+
+        if((box.k.x>0)||(box.k.y>0)||(box.k.z>0)){
             for(int i=0; i<ff.natoms; i++){
                  boxForce( ff.apos[i], ff.aforce[i], box.pmin, box.pmax, box.k );
             }
         }
-        
+
         if(iDebug>0){
             Vec3d cog,fsum,torq;
             checkForceInvariatns( ff.natoms, ff.aforce, ff.apos, cog, fsum, torq );
@@ -202,4 +202,3 @@ double relaxNsteps( int ialg, int nsteps, double Fconv ){
 
 
 }
-

@@ -5,24 +5,23 @@
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
 
-import sys
 import os
 import shutil
 import time
-import random
-import matplotlib;
+
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
-from enum import Enum
+import pyopencl as cl
+
+import ppafm.common as PPU
+import ppafm.GridUtils as GU
+import ppafm.ocl.HighLevel as hl
+from ppafm import basUtils
 
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
-import matplotlib.pyplot as plt
 
-from   ppafm import basUtils
-import ppafm.common    as PPU
-import ppafm.GridUtils as GU
 
-import pyopencl as cl
-import ppafm.ocl.HighLevel as hl
 
 # ==== Setup
 
@@ -92,7 +91,7 @@ if __name__ == "__main__":
 
         FEin  = FF[:,:,:,:4] + Q*FF[:,:,:,4:];   del FF
         Tff = time.clock()-t1ff;   print("Tff %f [s]" %Tff)
-        #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec ); 
+        #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec );
 
         scanner.prepareBuffers( FEin, lvec, scan_dim=scan_dim )
 
@@ -112,10 +111,9 @@ if __name__ == "__main__":
 
             for isl in islices:
                 plt.imshow( FEout[:,:,isl,2] )
-                plt.savefig( subDirName+( "/FoutZ%03i.png" %isl ), bbox_inches="tight"  ); 
+                plt.savefig( subDirName+( "/FoutZ%03i.png" %isl ), bbox_inches="tight"  );
                 plt.close()
 
         scanner.releaseBuffers()
 
 #plt.show()
-

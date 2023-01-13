@@ -27,12 +27,12 @@ double  * gridE = NULL;       // pointer to data    ( 3D scalar array [nx,ny,nz]
 int      natoms       = 0;
 double   Morse_alpha  = 0;
 int      nCoefPerAtom = 0;
-Vec3d  * Ratoms       = NULL; 
+Vec3d  * Ratoms       = NULL;
 //double * C6s;
 //double * C12s;
 //double * kQQs;
 
-// Tip namespace 
+// Tip namespace
 namespace TIP{
     Vec3d   rPP0;       // equilibirum bending position
     Vec3d   kSpring;    // bending stiffness ( z component usually zero )
@@ -41,18 +41,18 @@ namespace TIP{
 
     // tip forcefiled spline
     int      rff_n    = 0;
-    double * rff_xs   = NULL; 
+    double * rff_xs   = NULL;
     double * rff_ydys = NULL;
 
     void makeConsistent(){ // place rPP0 on the sphere to be consistent with radial spring
-        if( fabs(kRadial) > 1e-8 ){  
-            rPP0.z = -sqrt( lRadial*lRadial - rPP0.x*rPP0.x - rPP0.y*rPP0.y );  
+        if( fabs(kRadial) > 1e-8 ){
+            rPP0.z = -sqrt( lRadial*lRadial - rPP0.x*rPP0.x - rPP0.y*rPP0.y );
             printf(" rPP0 %f %f %f \n", rPP0.x, rPP0.y, rPP0.z );
         }
     }
 }
 
-// relaxation namespace 
+// relaxation namespace
 namespace RELAX{
     // parameters
     int    maxIters  = 1000;          // maximum iterations steps for each pixel
@@ -67,21 +67,21 @@ double dt        = 0.1;           // time step [ abritrary units ]
     inline void  move( const Vec3d& f, Vec3d& r, Vec3d& v ){
         v.mul( 1 - damping );
         v.add_mul( f, dt );
-        r.add_mul( v, dt );	
+        r.add_mul( v, dt );
     }
 }
 
-// Fast Inertial Realxation Engine namespace 
+// Fast Inertial Realxation Engine namespace
 namespace FIRE{
-// "Fast Inertial Realxation Engine" according to  
+// "Fast Inertial Realxation Engine" according to
 // Bitzek, E., Koskinen, P., Gähler, F., Moseler, M. & Gumbsch, P. Structural relaxation made simple. Phys. Rev. Lett. 97, 170201 (2006).
 // Eidel, B., Stukowski, A. & Schröder, J. Energy-Minimization in Atomic-to-Continuum Scale-Bridging Methods. Pamm 11, 509–510 (2011).
 // http://users.jyu.fi/~pekkosk/resources/pdf/FIRE.pdf
 
     // parameters
     double finc    = 1.1;             // factor by which time step is increased if going downhill
-    double fdec    = 0.5;             // factor by which timestep is decreased if going uphill 
-    double falpha  = 0.99;            // rate of decrease of damping when going downhill 
+    double fdec    = 0.5;             // factor by which timestep is decreased if going uphill
+    double falpha  = 0.99;            // rate of decrease of damping when going downhill
     double dtmax   = RELAX::dt;       // maximal timestep
     double acoef0  = RELAX::damping;  // default damping
 
@@ -90,7 +90,7 @@ namespace FIRE{
     double acoef   = acoef0;          // damping  ( variable
 
     inline void setup(){
-        dtmax   = RELAX::dt; 
+        dtmax   = RELAX::dt;
         acoef0  = RELAX::damping;
         dt      = dtmax;
         acoef   = acoef0;
@@ -115,14 +115,14 @@ namespace FIRE{
         }
         // normal leap-frog times step
         v.add_mul( f , dt );
-        r.add_mul( v , dt );	
+        r.add_mul( v , dt );
     }
 }
 
 // ========= eval force templates
 
 #define dstep       0.1d
-#define inv_dstep   10.0d 
+#define inv_dstep   10.0d
 #define inv_ddstep  100.0d
 
 inline double addAtom_LJ        ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ     ( dR, fout, coefs[0], coefs[1] ); }
@@ -147,7 +147,7 @@ inline double addAtom_Coulomb_dz2( Vec3d dR, Vec3d& fout, double * coefs ){
     return    E*inv_ddstep;
 }
 
-// radial spring constrain 
+// radial spring constrain
 Vec3d forceRSpline( const Vec3d& dR, int n, double * xs, double * ydys ){
     double x     =  sqrt( dR.norm2() );
     int    i     = Spline_Hermite::find_index<double>( i, n-i, x, xs );
@@ -164,34 +164,34 @@ Vec3d forceRSpline( const Vec3d& dR, int n, double * xs, double * ydys ){
 
 inline double addAtom_splineR4( Vec3d dR, Vec3d& fout, double * coefs ){
     // Normalization is    (32./105)pi R^3  see:  https://www.wolframalpha.com/input/?i=4*pi*x%5E2*%281-x%5E2%29%5E2+integrate+from+0+to+1
-    //constexpr static const double invSqrt2pi = 1/sqrt(2*M_PI); 
+    //constexpr static const double invSqrt2pi = 1/sqrt(2*M_PI);
     double sigma2 = coefs[1];   sigma2*=sigma2;
     double r2     = dR.norm2();
     if( r2 > sigma2 )return 0;
     r2/=sigma2;
     double rf = 1-r2;
-    return coefs[0]*rf*rf; 
+    return coefs[0]*rf*rf;
 }
 
 
 
 inline double addAtom_Gauss( Vec3d dR, Vec3d& fout, double * coefs ){
-    //constexpr static const double invSqrt2pi = 1/sqrt(2*M_PI); 
+    //constexpr static const double invSqrt2pi = 1/sqrt(2*M_PI);
     double amp      =   coefs[0];
     double invSigma = 1/coefs[1];
     double r2    = dR.norm2();
     double E = amp * exp( -0.5*sq(r2*invSigma) ); // * invSqrt2pi * invSigma; // normalization should be done in python - rescale amp
     // fout =  TODO
-    return E; 
+    return E;
 }
 
-inline double addAtom_Slater( Vec3d dR, Vec3d& fout, double * coefs ){ 
+inline double addAtom_Slater( Vec3d dR, Vec3d& fout, double * coefs ){
     double amp  =   coefs[0];
     double beta = 1/coefs[1];
     double r    = dR.norm();
     double E = amp * exp( -beta*r );
     // fout =  TODO
-    return E; 
+    return E;
 }
 
 
@@ -199,18 +199,18 @@ inline double addAtom_Slater( Vec3d dR, Vec3d& fout, double * coefs ){
 // coefs is array of coefficient for each atom; nc is number of coefs for each atom
 template<double addAtom_func(Vec3d dR, Vec3d& fout, double * coefs)>
 inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
-    double * coefs = (double*)args; 
+    double * coefs = (double*)args;
     //printf(" evalCell : args %i \n", args );
     //printf(" natoms %i nCoefPerAtom %i \n", natoms, nCoefPerAtom );
     double E=0;
     Vec3d f; f.set(0.0d);
-    for(int i=0; i<natoms; i++){	
+    for(int i=0; i<natoms; i++){
         //if( ibuff==0 ) printf(" atom[%i] (%g,%g,%g) | %g \n", i, Ratoms[i].x, Ratoms[i].y, Ratoms[i].z, coefs[0] );
         E     += addAtom_func( Ratoms[i]-rProbe, f, coefs );
         coefs += nCoefPerAtom;
     }
     //printf( "evalCell[%i] %i (%g,%g,%g) %g\n", ibuff, natoms, rProbe.x, rProbe.y, rProbe.z, E ); exit(0);
-    if(gridF) gridF[ibuff].add(f); 
+    if(gridF) gridF[ibuff].add(f);
     if(gridE) gridE[ibuff] += E;
     //exit(0);
 }
@@ -218,20 +218,20 @@ inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
 // ========== Interpolations
 
 inline void getPPforce( const Vec3d& rTip, const Vec3d& r, Vec3d& f ){
-    Vec3d rGrid,drTip; 
+    Vec3d rGrid,drTip;
     rGrid.set( r.dot( gridShape.diCell.a ), r.dot( gridShape.diCell.b ), r.dot( gridShape.diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
     drTip.set_sub( r, rTip );                                                             // vector between Probe-particle and tip apex
     f.set    ( interpolate3DvecWrap( gridF, gridShape.n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
     if( TIP::rff_xs ){
-        f.add( forceRSpline( drTip, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline	
-    }else{		
-        f.add( forceRSpring( drTip, TIP::kRadial, TIP::lRadial ) );                       // force from tip - radial component harmonic		
-    }		
+        f.add( forceRSpline( drTip, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline
+    }else{
+        f.add( forceRSpring( drTip, TIP::kRadial, TIP::lRadial ) );                       // force from tip - radial component harmonic
+    }
     drTip.sub( TIP::rPP0 );
-    f.add_mul( drTip, TIP::kSpring );      // spring force   
+    f.add_mul( drTip, TIP::kSpring );      // spring force
 }
 
-// relax probe particle position "r" given on particular position of tip (rTip) and initial position "r" 
+// relax probe particle position "r" given on particular position of tip (rTip) and initial position "r"
 int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
     Vec3d v; v.set( 0.0d );
     int iter;
@@ -264,7 +264,7 @@ void setRelax( int maxIters, double convF2, double dt, double damping ){
 
 // set FIRE relaxation parameters
 void setFIRE( double finc, double fdec, double falpha ){
-    FIRE::finc    = finc; 
+    FIRE::finc    = finc;
     FIRE::fdec    = fdec;
     FIRE::falpha  = falpha;
 }
@@ -293,19 +293,19 @@ void setGridCell( double * cell ){
 }
 
 // set parameters of the tip like stiffness and equlibirum position in radial and lateral direction
-void setTip( double lRad, double kRad, double * rPP0, double * kSpring ){  
-    TIP::lRadial=lRad; 
-    TIP::kRadial=kRad;  
-    TIP::rPP0.set(rPP0);   
-    TIP::kSpring.set(kSpring); 
+void setTip( double lRad, double kRad, double * rPP0, double * kSpring ){
+    TIP::lRadial=lRad;
+    TIP::kRadial=kRad;
+    TIP::rPP0.set(rPP0);
+    TIP::kSpring.set(kSpring);
     TIP::makeConsistent();  // rPP0 to be consistent with  lRadial
 }
 
 // set parameters of the tip like stiffness and equlibirum position in radial and lateral direction
-void setTipSpline( int n, double * xs, double * ydys ){  
+void setTipSpline( int n, double * xs, double * ydys ){
     TIP::rff_n    = n;
-    TIP::rff_xs   = xs;  
-    TIP::rff_ydys = ydys;   
+    TIP::rff_xs   = xs;
+    TIP::rff_ydys = ydys;
 }
 
 void getInPoints_LJ( int npoints, double * points_, double * FEs, int natoms, double * Ratoms_, double * cLJs ){
@@ -343,7 +343,7 @@ void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){
     interateGrid3D < evalCell < addAtom_Morse > >( r0, gridShape.n, gridShape.dCell, REs );
 }
 
-// sample Coulomb Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with constant kQQs  =  - k_coulomb * Q_ProbeParticle * Q[i] 
+// sample Coulomb Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with constant kQQs  =  - k_coulomb * Q_ProbeParticle * Q[i]
 // results are sampled according to grid parameters defined in "namespace FF" and stored in array to which points by "double * FF::grid"
 void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs, int kind ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 1;
@@ -385,7 +385,7 @@ void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs ){
 // relax one stroke of tip positions ( stored in 1D array "rTips_" ) using precomputed 3D force-field on grid
 // returns position of probe-particle after relaxation in 1D array "rs_" and force between surface probe particle in this relaxed position in 1D array "fs_"
 // for efficiency, starting position of ProbeParticle in new point (next postion of Tip) is derived from relaxed postion of ProbeParticle from previous point
-// there are several strategies how to do it which are choosen by parameter probeStart 
+// there are several strategies how to do it which are choosen by parameter probeStart
 int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
     Vec3d * rTips = (Vec3d*) rTips_;
     Vec3d * rs    = (Vec3d*) rs_;
@@ -404,11 +404,11 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
             rTip  .set    ( rTips[i]      );
             rProbe.set_add( rTip, TIP::rPP0 );
         }else if ( probeStart == 1 ){   // rProbe shifted by the same vector as tip
-            Vec3d drp; 
+            Vec3d drp;
             drp   .set_sub( rProbe, rTip );
             rTip  .set    ( rTips[i]     );
             rProbe.set_add( rTip, drp    );
-        } 
+        }
         // relax Probe Particle postion
         int itr = relaxProbe( relaxAlg, rTip, rProbe );
         if( itr>RELAX::maxIters ){
@@ -417,8 +417,8 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
         }
         //printf( " %i  %i    %f %f %f   %f %f %f \n", i, itr, rTip.x, rTip.y, rTip.z, rProbe.x, rProbe.y, rProbe.z  );
         // compute force in relaxed position
-        Vec3d rGrid; 
-        rGrid.set( rProbe.dot( gridShape.diCell.a ), rProbe.dot( gridShape.diCell.b ), rProbe.dot( gridShape.diCell.c ) ); 
+        Vec3d rGrid;
+        rGrid.set( rProbe.dot( gridShape.diCell.a ), rProbe.dot( gridShape.diCell.b ), rProbe.dot( gridShape.diCell.c ) );
         rs[i].set( rProbe                               );
         fs[i].set( interpolate3DvecWrap( gridF, gridShape.n, rGrid ) );
         // count some statistics about number of iterations required; just for testing
@@ -438,15 +438,15 @@ void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * 
     Vec3d * evec2     = (Vec3d*) evec2_;
     Vec3d * evec3     = (Vec3d*) evec3_;
     for(int i=0; i<n; i++){
-        Vec3d rTip,rPP,f1,f2;    
-        rTip.set( rTips[i] );    
+        Vec3d rTip,rPP,f1,f2;
+        rTip.set( rTips[i] );
         rPP.set ( rPPs[i]  );
-        Mat3d dynmat;     
+        Mat3d dynmat;
         //getPPforce( rTip, rPP, f1 );  eigenvals[i] = f1;   // check if we are converged in f=0
         //rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp; evec1[i].set_sub(f2,f1);
         //rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp; evec2[i].set_sub(f2,f1);
         //rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp; evec3[i].set_sub(f2,f1);
-        // eval dynamical matrix    D_xy = df_y/dx    = ( f(r0+dx).y - f(r0-dx).y ) / (2*dx)                
+        // eval dynamical matrix    D_xy = df_y/dx    = ( f(r0+dx).y - f(r0-dx).y ) / (2*dx)
         rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp;  dynmat.a.set_sub(f2,f1); dynmat.a.mul(-0.5/ddisp);
         rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp;  dynmat.b.set_sub(f2,f1); dynmat.b.mul(-0.5/ddisp);
         rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp;  dynmat.c.set_sub(f2,f1); dynmat.c.mul(-0.5/ddisp);
@@ -458,9 +458,9 @@ void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * 
         // solve mat
         Vec3d evals; dynmat.eigenvals( evals ); Vec3d temp;
         // sort eigenvalues
-        if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; } 
+        if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; }
         if( evals.b > evals.c ){ tmp=evals.b; evals.b=evals.c; evals.c=tmp; }
-        if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; } 
+        if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; }
         // output eigenvalues and eigenvectors
         eigenvals[i] = evals;
         if(which>0) dynmat.eigenvec( evals.a, evec1[i] );
@@ -478,7 +478,7 @@ void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m
         double x  = xs_[j];
         double u  = (x - x0)*denom;
         int    i  = (int)u;
-               u -= i;  
+               u -= i;
         int i_=i<<1;
         //printf( " %i %i %f %f (%f,%f) (%f,%f) (%f,%f) \n", j, i, x, u, xs[i], xs[i+1], ydys[i_], ydys[i_+2], ydys[i_+1], ydys[i_+3] );
         ys_[j] = Spline_Hermite::val<double>( u, ydys[i_], ydys[i_+2], ydys[i_+1]*dx, ydys[i_+3]*dx );
@@ -490,7 +490,7 @@ void subsample_nonuniform_spline( int n, double * xs, double * ydys, int m, doub
     //double x0=xs[0],x1=xs[1],dx=x1-x0,denom=1/dx;
     double x0,x1=-1e+300,dx,denom;
     for( int j=0; j<m; j++ ){
-        double x = xs_[j]; 
+        double x = xs_[j];
         if( x>x1 ){
             i         = Spline_Hermite::find_index<double>( i, n-i, x, xs );
             x0        = xs[i  ];
@@ -517,7 +517,7 @@ void test_force( int type, int n, double * r0_, double * dr_, double * R_, doubl
         Vec3d f;
         switch( type ){
             case 1 : f = forceRSpline( r-R, TIP::rff_n,   TIP::rff_xs, TIP::rff_ydys ); break;
-            case 2 : f = forceRSpring( r-R, TIP::kRadial, TIP::lRadial               ); break;  
+            case 2 : f = forceRSpring( r-R, TIP::kRadial, TIP::lRadial               ); break;
         }
         fs[i] = f;
         //printf( " %i (%3.3f,%3.3f,%3.3f) (%3.3f,%3.3f,%3.3f) \n", i, r.x, r.y, r.z,  f.x, f.y, f.z );
@@ -531,13 +531,10 @@ void test_eigen3x3( double * mat, double * evs ){
     Vec3d* ev1   = (Vec3d*)(evs+3);
     Vec3d* ev2   = (Vec3d*)(evs+6);
     Vec3d* ev3   = (Vec3d*)(evs+9);
-    pmat->eigenvals( *es ); 
+    pmat->eigenvals( *es );
     pmat->eigenvec( es->a, *ev1 );
     pmat->eigenvec( es->b, *ev2 );
     pmat->eigenvec( es->c, *ev3 );
 }
 
 } // extern "C"{
-
-
-

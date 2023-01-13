@@ -4,26 +4,26 @@
 # https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
-import sys
 import os
+import sys
 import time
-import random
 import traceback
-import matplotlib; matplotlib.use('Qt5Agg')
-from PyQt5 import QtCore, QtWidgets, QtGui
-import numpy as np
 from enum import Enum
 
-sys.path.append(os.path.split(sys.path[0])[0])
-from ppafm import basUtils
-from ppafm import PPPlot
-from ppafm.ocl.AFMulator import AFMulator
-from ppafm.ocl.field     import HartreePotential, hartreeFromFile
-import ppafm.GridUtils    as GU
-import ppafm.common       as PPU
+import numpy as np
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+import matplotlib; matplotlib.use('Qt5Agg')
+
+sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
+import ppafm.common as PPU
+import ppafm.GridUtils as GU
+import ppafm.GUIWidgets as guiw
+import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
-import ppafm.ocl.field    as FFcl
-import ppafm.GUIWidgets   as guiw
+from ppafm import PPPlot, basUtils
+from ppafm.ocl.AFMulator import AFMulator
+from ppafm.ocl.field import HartreePotential, hartreeFromFile
 
 Multipoles = Enum('Multipoles', 's pz dz2')
 
@@ -76,7 +76,7 @@ TTips = {
     'z_steps': 'z steps: Number of steps in the df approach curve in z direction when clicking on image.',
     'df_colorbar': 'Colorbar: Add a colorbar of df values to plot.',
     'df_range': 'df range: Minimum and maximum df value in colorbar.',
-    'df_reset': 'Reset Range: Reset df colorbar range.', 
+    'df_reset': 'Reset Range: Reset df colorbar range.',
     'view_geom': 'View Geometry: Show system geometry in ASE GUI.',
     'edit_geom': 'Edit Geometry: Edit the positions, atomic numbers, and charges of atoms.',
     'view_ff': 'View Forcefield: View forcefield components in a separate window.',
@@ -359,7 +359,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.bxPBCCx, self.bxPBCCy, self.bxPBCCz
             ]:
             bx.setDisabled(not enabled)
-    
+
     def updatePBC(self):
         '''Get PBC lattice from from input fields and update'''
         lvec = np.array([
@@ -409,7 +409,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def loadInput(self, file_path):
         '''Load input file and show result
-        
+
         Arguments:
             file_path: str. File to load. Has to be POSCAR, .in, .xsf, .cube, or .xyz.
         '''
@@ -488,7 +488,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         try:
             from ase import Atoms
             from ase.visualize import view
-        except ModuleNotFoundError as e:
+        except ModuleNotFoundError:
             print('No ase installation detected. Cannot show molecule geometry.')
             if self.verbose > 1: traceback.print_exc()
             return
@@ -501,7 +501,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if file_path:
             self.status_message('Opening file...')
             self.loadInput(file_path)
-        
+
     def saveFig(self):
         if self.xyzs is None: return
         default_path = os.path.join(os.path.split(self.file_path)[0], 'df.png')
@@ -585,7 +585,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.figCan.plotSlice(data, -1, title=title, points=self.df_points, cbar_range=cbar_range,
                 extent=extent)
 
-        except Exception as e:
+        except Exception:
             print("Failed to plot df slice")
             traceback.print_exc()
 

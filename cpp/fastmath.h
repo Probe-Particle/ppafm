@@ -183,8 +183,3 @@ inline TYPE trashold_cub( TYPE x, TYPE x1, TYPE x2 ){
 
 
 #endif
-
-
-
-
-

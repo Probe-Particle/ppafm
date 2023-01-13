@@ -19,7 +19,7 @@ inline int mod(int x, int y) {
 // The cartesian position is transformed to the grid coordinate indices using the coordinate transformation
 // matrix whose rows are T_A, T_B, and T_C.
 float linearInterpB(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_C, int3 nGrid, __global float *buf) {
-    
+
     // Find coordinate index (ijk) that is just before the position and figure out
     // how far past the voxel coordinate we are (d).
     float3 ijk0;
@@ -53,14 +53,14 @@ float linearInterpB(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_
             +      d.x  * (1 - d.y) *      d.z  * c101
             +      d.x  *      d.y  * (1 - d.z) * c110
             +      d.x  *      d.y  *      d.z  * c111;
-    
+
     return c;
 
 }
 
 // Same as linearInterpB, except for float4 type
 float4 linearInterpB4(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 T_C, int3 nGrid, __global float4 *buf) {
-    
+
     // Find coordinate index (ijk) that is just before the position and figure out
     // how far past the voxel coordinate we are (d).
     float3 ijk0;
@@ -94,7 +94,7 @@ float4 linearInterpB4(float3 pos, float3 origin, float3 T_A, float3 T_B, float3 
              +      d.x  * (1 - d.y) *      d.z  * c101
              +      d.x  *      d.y  * (1 - d.z) * c110
              +      d.x  *      d.y  *      d.z  * c111;
-    
+
     return c;
 
 }
@@ -144,8 +144,8 @@ float getLorenz( float4 atom, float4 coefs, float3 pos ){
 
 
 __kernel void evalCoulomb(
-    int nAtoms, 
-    __global float4* atoms, 
+    int nAtoms,
+    __global float4* atoms,
     __global float4*  poss,
     __global float4*    FE
 ){
@@ -153,7 +153,7 @@ __kernel void evalCoulomb(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
     float4 fe  = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
     for (int i0=0; i0<nAtoms; i0+= nL ){
@@ -175,7 +175,7 @@ __kernel void evalCoulomb(
 }
 
 __kernel void evalLJ(
-    const int nAtoms, 
+    const int nAtoms,
     __global float4* atoms,
     __global float2*  cLJs,
     __global float4*  poss,
@@ -186,7 +186,7 @@ __kernel void evalLJ(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
     float4 fe  = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
     for (int i0=0; i0<nAtoms; i0+= nL ){
@@ -206,7 +206,7 @@ __kernel void evalLJ(
 }
 
 __kernel void evalLJ_noPos(
-    const int nAtoms, 
+    const int nAtoms,
     __global float4* atoms,
     __global float2*  cLJs,
     __global float4*    FE,
@@ -221,11 +221,11 @@ __kernel void evalLJ_noPos(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     const int nab = nGrid.x*nGrid.y;
-    const int ia  = iG%nGrid.x; 
+    const int ia  = iG%nGrid.x;
     const int ib  = (iG%nab)/nGrid.x;
-    const int ic  = iG/nab; 
+    const int ic  = iG/nab;
     const int nMax = nab*nGrid.z;
 
     if(iG>nMax) return;
@@ -239,7 +239,7 @@ __kernel void evalLJ_noPos(
         LCLJS [iL] = cLJs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nAtoms ){ 
+            if( (j+i0)<nAtoms ){
                 float4 xyzq = LATOMS[j];
                 fe += getLJ(xyzq.xyz, LCLJS[j], pos);
             }
@@ -248,11 +248,11 @@ __kernel void evalLJ_noPos(
     }
 
     FE[iG] = fe;
-    
+
 }
 
 __kernel void evalLJC_Q(
-    const int nAtoms, 
+    const int nAtoms,
     __global float4* atoms,
     __global float2*  cLJs,
     __global float4*  poss,
@@ -264,7 +264,7 @@ __kernel void evalLJC_Q(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
     float8 fe  = (float8) (0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
     //if(iG==0){ printf("evalLJC: nAtoms: %i \n", nAtoms ); }
@@ -287,7 +287,7 @@ __kernel void evalLJC_Q(
 }
 
 __kernel void evalLJC_Q_noPos(
-    const int nAtoms, 
+    const int nAtoms,
     __global float4* atoms,
     __global float2*  cLJs,
     __global float4*    FE,
@@ -303,28 +303,28 @@ __kernel void evalLJC_Q_noPos(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     //float3 pos = poss[iG].xyz;
     //float3 pos = grid_p0 + grid_dA*get_global_id(0) + grid_dA*get_global_id(1)  + grid_dA*get_global_id (2);      // there would be more problematic local_id optimization
 
     const int nab = nGrid.x*nGrid.y;
-    const int ia  = iG%nGrid.x; 
+    const int ia  = iG%nGrid.x;
     const int ib  = (iG%nab)/nGrid.x;
-    const int ic  = iG/nab; 
+    const int ic  = iG/nab;
     const int nMax = nab*nGrid.z;
 
     if(iG>nMax) return;
 
     float3 pos    = grid_p0.xyz + grid_dA.xyz*ia + grid_dB.xyz*ib  + grid_dC.xyz*ic;
 
-    // if(iG==430662){ 
-    //     printf("evalLJC_Q_noPos: nAtom %i nGrid(%i,%i,%i,%i)   nL %i  nG %i nG_ %i  \n", nAtoms, nGrid.x, nGrid.y, nGrid.z, nGrid.w, nL, get_global_size(0), nGrid.x*nGrid.y*nGrid.z ); 
-    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_p0.x, grid_p0.y, grid_p0.z ); 
-    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_dA.x, grid_dA.y, grid_dA.z ); 
-    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_dB.x, grid_dB.y, grid_dB.z ); 
-    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_dC.x, grid_dC.y, grid_dC.z ); 
+    // if(iG==430662){
+    //     printf("evalLJC_Q_noPos: nAtom %i nGrid(%i,%i,%i,%i)   nL %i  nG %i nG_ %i  \n", nAtoms, nGrid.x, nGrid.y, nGrid.z, nGrid.w, nL, get_global_size(0), nGrid.x*nGrid.y*nGrid.z );
+    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_p0.x, grid_p0.y, grid_p0.z );
+    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_dA.x, grid_dA.y, grid_dA.z );
+    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_dB.x, grid_dB.y, grid_dB.z );
+    //     printf("evalLJC_Q_noPos: grid.p0 (%g,%g,%g) \n", grid_dC.x, grid_dC.y, grid_dC.z );
     //     // 150*150*19 + 150*21 + 12 = 430662
-    //     printf("evalLJC_Q_noPos: iG %i ia,ib,ic(%i,%i,%i)   pos(%g,%g,%g) \n", iG, ia, ib, ic,   pos.x,pos.y,pos.z  ); 
+    //     printf("evalLJC_Q_noPos: iG %i ia,ib,ic(%i,%i,%i)   pos(%g,%g,%g) \n", iG, ia, ib, ic,   pos.x,pos.y,pos.z  );
     // }
 
     float8 fe  = (float8) (0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -351,7 +351,7 @@ __kernel void evalLJC_Q_noPos(
 }
 
 __kernel void evalLJC_QZs_noPos(
-    const int nAtoms, 
+    const int nAtoms,
     __global float4* atoms,
     __global float2*  cLJs,
     __global float4*    FE,
@@ -368,11 +368,11 @@ __kernel void evalLJC_QZs_noPos(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     const int nab = nGrid.x*nGrid.y;
-    const int ia  = iG%nGrid.x; 
+    const int ia  = iG%nGrid.x;
     const int ib  = (iG%nab)/nGrid.x;
-    const int ic  = iG/nab; 
+    const int ic  = iG/nab;
     const int nMax = nab*nGrid.z;
 
     if(iG>nMax) return;
@@ -381,7 +381,7 @@ __kernel void evalLJC_QZs_noPos(
     float3 pos    = grid_p0.xyz + grid_dA.xyz*ia + grid_dB.xyz*ib  + grid_dC.xyz*ic;
 
     float4 fe  = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
-    
+
     Qs *= COULOMB_CONST;
 
     for (int i0=0; i0<nAtoms; i0+= nL ){
@@ -391,7 +391,7 @@ __kernel void evalLJC_QZs_noPos(
         LCLJS [iL] = cLJs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nAtoms ){ 
+            if( (j+i0)<nAtoms ){
                 //fe += getLJC( LATOMS[j], LCLJS[j], pos );
                 float4 xyzq = LATOMS[j];
                 fe += getLJ     ( xyzq.xyz, LCLJS[j], pos );
@@ -410,7 +410,7 @@ __kernel void evalLJC_QZs_noPos(
 }
 
 __kernel void evalLJC(
-    int nAtoms, 
+    int nAtoms,
     __global float4*   atoms,
     __global float2*    cLJs,
     __global float4*    poss,
@@ -421,7 +421,7 @@ __kernel void evalLJC(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
     float8 fe  = (float8) (0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
     //if(iG==0){ printf("evalLJC: nAtoms: %i \n", nAtoms ); }
@@ -442,7 +442,7 @@ __kernel void evalLJC(
 }
 
 __kernel void evalLJC_QZs(
-    int nAtoms, 
+    int nAtoms,
     __global float4*   atoms,
     __global float2*    cLJs,
     __global float4*    poss,
@@ -455,7 +455,7 @@ __kernel void evalLJC_QZs(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
     float8 fe  = (float8) (0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
     //if(iG==0){ printf("evalLJC: nAtoms: %i \n", nAtoms ); }
@@ -474,7 +474,7 @@ __kernel void evalLJC_QZs(
                 fe.hi += getCoulomb( xyzq, pos+(float3)(0,0,QZs.y) ) * Qs.y;
                 fe.hi += getCoulomb( xyzq, pos+(float3)(0,0,QZs.z) ) * Qs.z;
                 fe.hi += getCoulomb( xyzq, pos+(float3)(0,0,QZs.w) ) * Qs.w;
-            } 
+            }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
@@ -530,7 +530,7 @@ __kernel void addLJ(
     FE[ind] += fe;
 }
 
-// Compute Lennard Jones force field at grid points and add to it the electrostatic force 
+// Compute Lennard Jones force field at grid points and add to it the electrostatic force
 // from an electric field precomputed from a Hartree potential. The output buffer is
 // written in Fortran memory layout in order to be compatible with OpenCL image
 // read functions in subsequent steps.
@@ -727,7 +727,7 @@ float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){
 
 
 __kernel void relaxStrokesDirect(
-    int nAtoms, 
+    int nAtoms,
     __global float4*    atoms,
     __global float2*    cLJs,
     __global float4*    points,
@@ -748,8 +748,8 @@ __kernel void relaxStrokesDirect(
 
 
     float3 tipPos = points[get_global_id(0)].xyz;
-    float3 pos    = tipPos.xyz + dpos0.xyz; 
-    
+    float3 pos    = tipPos.xyz + dpos0.xyz;
+
     const float dt   = relax_params.x;
     const float damp = relax_params.y;
     //printf( " %li (%f,%f,%f)  \n",  get_global_id(0), tipPos.x, tipPos.y, tipPos.z);
@@ -758,7 +758,7 @@ __kernel void relaxStrokesDirect(
         float4 fe_;
         float3 vel   = 0.0f;
 
-        
+
         for(int i=0; i<N_RELAX_STEP_MAX; i++){
             //fe        = interpFE( pos, dinvA.xyz, dinvB.xyz, dinvC.xyz, imgIn );
 
@@ -812,7 +812,7 @@ __kernel void relaxStrokesDirect(
         pos    += dTip.xyz;
 
     }
-    
+
 
 
 }
@@ -821,7 +821,7 @@ __kernel void relaxStrokesDirect(
 
 
 __kernel void evalMorse(
-    const int nAtoms, 
+    const int nAtoms,
     __global float4*   atoms,
     __global float4*   REAs,
     __global float4*   poss,
@@ -832,7 +832,7 @@ __kernel void evalMorse(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-    
+
     float3 pos = poss[iG].xyz;
     float4 fe  = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
     for (int i0=0; i0<nAtoms; i0+= nL ){
@@ -852,7 +852,7 @@ __kernel void evalMorse(
 
 
 __kernel void evalLorenz(
-    int nAtoms, 
+    int nAtoms,
     __global float4*    atoms,
     __global float4*    coefs,
     __global float4*    poss,
@@ -863,11 +863,11 @@ __kernel void evalLorenz(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
     float fe = 0.0f;
 
-    //if(iG==0){ 
+    //if(iG==0){
     //    printf( "nAtoms %i \n", nAtoms );
     //}
     for (int i0=0; i0<nAtoms; i0+= nL ){
@@ -890,7 +890,7 @@ __kernel void evalLorenz(
 
 
 __kernel void evalDisk(
-    int nAtoms, 
+    int nAtoms,
     __global float4*    atoms,
     __global float4*    coefs,
     __global float4*    poss,
@@ -908,7 +908,7 @@ __kernel void evalDisk(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
     float fe = 0.0f;
     //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf( " xyzq (%g,%g,%g,%g) coef (%g,%g,%g,%g) \n", atoms[i].x,atoms[i].y,atoms[i].z,atoms[i].w,   coefs[i].x,coefs[i].y,coefs[i].z,coefs[i].w );  } }
@@ -918,7 +918,7 @@ __kernel void evalDisk(
         LCOEFS[iL] = coefs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nAtoms ){ 
+            if( (j+i0)<nAtoms ){
                 float3 dp  =  pos - LATOMS[j].xyz;
                 float3 abc = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
                 //float   R  = coefs[j].z;
@@ -941,7 +941,7 @@ __kernel void evalDisk(
 }
 
 __kernel void evalSpheres(
-    int nAtoms, 
+    int nAtoms,
     __global float4*    atoms,
     __global float4*    coefs,
     __global float4*    poss,
@@ -957,7 +957,7 @@ __kernel void evalSpheres(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
 
     //float Rpp  =  1.0;
@@ -974,7 +974,7 @@ __kernel void evalSpheres(
         LCOEFS[iL] = coefs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nAtoms ){ 
+            if( (j+i0)<nAtoms ){
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
                 //float  Rvdw  = coefs[j].w + Rpp;
@@ -995,7 +995,7 @@ __kernel void evalSpheres(
 
 
 __kernel void evalSphereCaps(
-    int nAtoms, 
+    int nAtoms,
     __global float4*    atoms,
     __global float4*    coefs,
     __global float4*    poss,
@@ -1013,7 +1013,7 @@ __kernel void evalSphereCaps(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
 
     //float Rpp  =  1.0;
@@ -1032,7 +1032,7 @@ __kernel void evalSphereCaps(
         LCOEFS[iL] = coefs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nAtoms ){ 
+            if( (j+i0)<nAtoms ){
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
                 //float  Rvdw  = coefs[j].w + Rpp;
@@ -1051,12 +1051,12 @@ __kernel void evalSphereCaps(
         barrier(CLK_LOCAL_MEM_FENCE);
     }
     FE[iG] = ztop;
-    
+
 }
 
 
 __kernel void evalDisk_occlusion(
-    int nAtoms, 
+    int nAtoms,
     __global float4*    atoms,
     __global float4*    coefs,
     __global float4*    poss,
@@ -1074,7 +1074,7 @@ __kernel void evalDisk_occlusion(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
 
     //float dzmax = 0.2;
@@ -1092,7 +1092,7 @@ __kernel void evalDisk_occlusion(
         LCOEFS[iL] = coefs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nAtoms ){ 
+            if( (j+i0)<nAtoms ){
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
                 //float  Rvdw  = coefs[j].w + Rpp;
@@ -1115,7 +1115,7 @@ __kernel void evalDisk_occlusion(
         LCOEFS[iL] = coefs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nAtoms ){ 
+            if( (j+i0)<nAtoms ){
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
                 //float  Rvdw  = coefs[j].w + Rpp;
@@ -1172,7 +1172,7 @@ __kernel void evalMultiMapSpheres(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
 
     float mask = 1.0;
@@ -1189,7 +1189,7 @@ __kernel void evalMultiMapSpheres(
         LCOEFS[iL] = coefs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nAtoms ){ 
+            if( (j+i0)<nAtoms ){
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
                 float  Rvdw  = LCOEFS[j].w + Rpp;
@@ -1239,7 +1239,7 @@ __kernel void evalMultiMapSpheresElements(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
 
     float ztop = zmin;
@@ -1254,7 +1254,7 @@ __kernel void evalMultiMapSpheresElements(
         LELEMCHAN[iL] = elemChan[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nAtoms ){ 
+            if( (j+i0)<nAtoms ){
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
                 float  Rvdw  = LCOEFS[j].w + Rpp;
@@ -1304,7 +1304,7 @@ __kernel void evalSpheresType(
     float mask = 1.0;
     //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf( " xyzq (%g,%g,%g,%g) coef (%g,%g,%g,%g) \n", atoms[i].x,atoms[i].y,atoms[i].z,atoms[i].w,   coefs[i].x,coefs[i].y,coefs[i].z,coefs[i].w );  } }
     //if( iG==0 ){ for(int i=0; i<nAtoms; i++){ printf("itypes[%i] = %i \n" , i, itypes[i] ); } }
-    
+
     float ztop = zmin;
     for (int i=0; i<nType; i++){
         ztops[i]=zmin;
@@ -1316,7 +1316,7 @@ __kernel void evalSpheresType(
         LCOEFS[iL] = coefs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nAtoms ){ 
+            if( (j+i0)<nAtoms ){
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
                 float  Rvdw  = LCOEFS[j].w + Rpp;
@@ -1385,7 +1385,7 @@ __kernel void evalBondEllipses(
         LATOMS[iL] = bondPoints[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nBonds ){ 
+            if( (j+i0)<nBonds ){
                 float3 p1 = rotMat ( LATOMS[j].lo.xyz,  rotA.xyz, rotB.xyz, rotC.xyz );
                 float3 p2 = rotMat ( LATOMS[j].hi.xyz,  rotA.xyz, rotB.xyz, rotC.xyz );
                 float2 hbond   = p2.xy - p1.xy;
@@ -1399,7 +1399,7 @@ __kernel void evalBondEllipses(
                 //float r2 = dot(dT,dT)* max(0.0, 4.0*c*(rbond-c)/(rbond*rbond)   );
                 float c_ = (c-0.5*rbond)*elipticity;
                 float r2 = dot(dT,dT) + c_*c_ ;
-                float r  = sqrt(r2); 
+                float r  = sqrt(r2);
                 //float z       = reciprocalInterp( p1.z, p2.z, r2xy1, r2xy2  );
                 float z =  mix ( p1.z, p2.z, c/rbond ) - pos.z;
                 if( (r < Rmax) && (z>zmin) ){
@@ -1420,7 +1420,7 @@ __kernel void evalBondEllipses(
 
 
 __kernel void evalAtomRfunc(
-    int nAtoms, 
+    int nAtoms,
     __global float4*    atoms,
     __global float4*    coefs,
     __global float4*    poss,
@@ -1440,7 +1440,7 @@ __kernel void evalAtomRfunc(
     const int iG = get_global_id (0);
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-   
+
     float3 pos = poss[iG].xyz;
     float invStep = 1/drStep;
 
@@ -1456,7 +1456,7 @@ __kernel void evalAtomRfunc(
         LCOEFS[iL] = coefs[i];
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int j=0; j<nL; j++){
-            if( (j+i0)<nAtoms ){ 
+            if( (j+i0)<nAtoms ){
                 float3 dp    = pos - LATOMS[j].xyz;
                 float3 abc   = (float3)( dot(dp,rotA.xyz), dot(dp,rotB.xyz), dot(dp,rotC.xyz) );
                 float  RvdW  = LCOEFS[j].w;
@@ -1514,4 +1514,4 @@ __kernel void evalHartreeGradientZ(
     // Compute value of field as centered difference.
     field[ind] = 0.5*(pot_n - pot_p) / h;
 
-}   
+}

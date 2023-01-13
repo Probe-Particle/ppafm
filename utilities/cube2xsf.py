@@ -1,17 +1,18 @@
 #!/usr/bin/python
-import sys
-import numpy as np
 import os
+import sys
+
 import __main__ as main
+import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm                as PPU     
-#from   ppafm            import elements   
-import ppafm.GridUtils      as GU
-import ppafm.basUtils      as BU
-import ppafm.HighLevel      as PPH
-import ppafm.cpp_utils      as cpp_utils
+import ppafm as PPU
+import ppafm.basUtils as BU
+import ppafm.cpp_utils as cpp_utils
 
+#from   ppafm            import elements
+import ppafm.GridUtils as GU
+import ppafm.HighLevel as PPH
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
@@ -26,18 +27,18 @@ if __name__=="__main__":
     (options, args) = parser.parse_args()
     if options.input==None:
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
-    
-    
-    FFparams            = PPU.loadSpecies() 
+
+
+    FFparams            = PPU.loadSpecies()
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
 
     atoms,nDim,lvec     = BU .loadGeometry( options.input, params=PPU.params )
-    
+
     data, lvec, nDim, head = GU.loadCUBE(options.input)
     lvec[0] = [0.0, 0.0, 0.0]
     lvec = np.array( [lvec[0], lvec[3], lvec[2], lvec[1]]  )
     data = np.transpose(  data, (2,1,0) )
-    
+
     atomstring          = BU.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
-    
+
     GU.saveXSF( options.output, data, lvec, head=atomstring  )

@@ -1,13 +1,14 @@
 #!/usr/bin/python
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
 
-LWD = '/home/prokop/git/ProbeParticleModel/code' 
+import matplotlib.pyplot as plt
+import numpy as np
 
-print(" # ========== make & load  ProbeParticle C++ library ") 
+LWD = '/home/prokop/git/ProbeParticleModel/code'
+
+print(" # ========== make & load  ProbeParticle C++ library ")
 
 def makeclean( ):
 	import os
@@ -21,6 +22,7 @@ makeclean( )
 sys.path.insert(0, "./")
 import GridUtils as GU
 import ProbeParticle as PP
+
 os.chdir(CWD);  print(" >> WORKDIR: ", os.getcwd())
 
 print(" ============= RUN  ")
@@ -33,7 +35,3 @@ F4 = 0.25*( F + F[:,:,::-1] + F[:,::-1,:] + F[:,::-1,::-1] )
 GU.saveXSF('LOCPOT_4sym.xsf', head, lvec, F4 )
 
 plt.show()
-
-
-
-

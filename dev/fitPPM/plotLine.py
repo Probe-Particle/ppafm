@@ -1,16 +1,18 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 import os
 import sys
-import __main__ as main
-import numpy as np
-import matplotlib.pyplot as plt
-#import GridUtils as GU
-import ppafm                as PPU     
-import ppafm.GridUtils      as GU
-from scipy.interpolate import interp1d
 from optparse import OptionParser
-from scipy.interpolate import RegularGridInterpolator
-import ppafm.cpp_utils      as cpp_utils
+
+import __main__ as main
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.interpolate import RegularGridInterpolator, interp1d
+
+#import GridUtils as GU
+import ppafm as PPU
+import ppafm.cpp_utils as cpp_utils
+import ppafm.GridUtils as GU
+
 
 def selectLine(BIGarray,MIN,MAX,startingPoint, endPoint, nsteps):
     x=np.linspace(MIN[0],MAX[0],BIGarray.shape[2])
@@ -37,7 +39,7 @@ def selectLine(BIGarray,MIN,MAX,startingPoint, endPoint, nsteps):
 #    print "TEST", interp([MAX[2], current_pos[1],current_pos[0]])
 #    print "TEST", interp([8.0, current_pos[1],current_pos[0]])
     return np.array(result)
-    
+
 parser = OptionParser()
 parser.add_option("--image",   action="store", type="float", help="position of "
                   "the 2D image (z, xScreen, yScreen)", nargs=3)
@@ -58,8 +60,8 @@ if options.points==[]:
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
-    print(">> LOADING LOCAL atomtypes.ini")  
-    FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+    print(">> LOADING LOCAL atomtypes.ini")
+    FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 else:
     import ppafm.cpp_utils as cpp_utils
     FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
@@ -82,7 +84,7 @@ K=PPU.params['klat']
 Q=PPU.params['charge']
 dirname = "Q%1.2fK%1.2f" %(Q,K)
 
-print("Working in {} directory".format(dirname))
+print(f"Working in {dirname} directory")
 
 fzs,lvec,nDim=GU.load_scal_field(dirname+'/OutFz',data_format=options.data_format)
 dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
@@ -94,7 +96,7 @@ for p in options.points:
     ymax=float(p[1].split('x')[1])
     zmax=float(p[1].split('x')[2])
     npoints=float(p[2])
-    
+
     print(opt_dict['disp'])
     if opt_dict['disp'] :
         print("Displacment {}".format(opt_dict['disp'][0]))
@@ -115,8 +117,8 @@ for p in options.points:
         DSP_interp=interp1d(Lplot, DSPplt,kind='cubic')
         plt.plot(Lplot, DSPplt, 'ko',Lplot, DSP_interp(Lplot),'k--')
         plt.axhline(y=0, color='black', ls='-.')
-        plt.xlabel('Coordinate along the selected line ($\AA$)')
-        plt.ylabel('PP $\Delta$ {} displacement ($\AA$)'.format(opt_dict['disp'][0]), color='black')
+        plt.xlabel(r'Coordinate along the selected line ($\AA$)')
+        plt.ylabel(r'PP $\Delta$ {} displacement ($\AA$)'.format(opt_dict['disp'][0]), color='black')
         plt.show()
 
 
@@ -128,8 +130,8 @@ for p in options.points:
     Fplt=np.transpose(Fplot)[1].copy()
     Lplot=np.transpose(Fplot)[0].copy()
     F_interp=interp1d(Lplot, Fplt,kind='cubic')
-    # shifting the df plot 
-        
+    # shifting the df plot
+
 #    print "Amplitude", Amp
     scan_min[2]+=Amp[0]/2.0
     scan_max[2]-=Amp[0]/2.0
@@ -147,16 +149,16 @@ for p in options.points:
  #                           DFplot[k+(int)(Amp/scan_step[2]/2)]=dfs[-k-1][y_pos][x_pos]
 
     DF_interp=interp1d(Lplot, DFplt,kind='cubic')
-    with open ("x{}-y{}-z{}.dat".format(xmin,ymin,zmin),'w') as f:
+    with open (f"x{xmin}-y{ymin}-z{zmin}.dat",'w') as f:
         for val in Fplot :
-            f.write("{} {} {} {} {} \n".format(val[0],val[1]*1.60217733e3,val[2],val[3],val[4]))
-    
+            f.write(f"{val[0]} {val[1]*1.60217733e3} {val[2]} {val[3]} {val[4]} \n")
+
     if not opt_dict['nodisp'] :
         fig,ax1 = plt.subplots()
         ax1.plot(Lplot, Fplt*1.60217733e3, 'ko', Lplot,
         F_interp(Lplot)*1.60217733e3, 'k--')
-        ax1.set_xlabel('Coordinate along the selected line ($\AA$)')
-        ax1.set_ylabel('Force (eV/$\AA$)', color='black')
+        ax1.set_xlabel(r'Coordinate along the selected line ($\AA$)')
+        ax1.set_ylabel(r'Force (eV/$\AA$)', color='black')
         for tl in ax1.get_yticklabels():
             tl.set_color('black')
         ax2=ax1.twinx()

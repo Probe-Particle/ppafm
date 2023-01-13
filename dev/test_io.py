@@ -2,6 +2,7 @@
 
 import os
 import sys
+
 import numpy as np
 
 sys.path.append('..')
@@ -36,7 +37,7 @@ def test_xyz():
 
 def test_parse_comment_ase():
 
-    from ppafm.basUtils import parseLvecASE, _getCharges
+    from ppafm.basUtils import _getCharges, parseLvecASE
 
     comment = 'Lattice="40.587929240107826 0.0 0.0 0.0 35.15017780893861 0.0 0.0 0.0 42.485492908861346" Properties=species:S:1:pos:R:3:tags:I:1 pbc="T T T"'
     lvec = parseLvecASE(comment)

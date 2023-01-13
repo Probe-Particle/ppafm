@@ -100,4 +100,3 @@ class Camera{ public:
 };
 
 #endif
-

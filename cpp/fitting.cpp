@@ -27,7 +27,7 @@ Vec3i npbc = (Vec3i){0,0,0};
 //Vec3d gridA;
 //Vec3d gridB;
 //Vec3d gridC;
-Mat3d cell; 
+Mat3d cell;
 
 inline int basis_SplineSPD( const Vec3d& dR, int itype, int ncomp, double * bis ){
     double r   = dR.norm();
@@ -112,7 +112,7 @@ int acumByBB( double yref, int nbas, const double* Bs, double* By, double* BB ){
     //int ik = 0;
     double* BBij = BB;
     for(int i=0; i<nbas; i++){
-        double fi =  Bs[i]; 
+        double fi =  Bs[i];
         By[i] += fi*yref;
         for(int j=0; j<nbas; j++){
             *BBij = fi*Bs[j];
@@ -179,9 +179,9 @@ void selectedAtomsToFile( FILE* fout, const Vec3d& shift, int n, const Vec3d* ps
 
 template<typename Func>
 int map_pbc_images( int ncenters, Vec3d* centers, Func func ){
-    
-    int*    selection = new int  [ncenters];  
-    Vec3d*  abcs      = new Vec3d[ncenters]; 
+
+    int*    selection = new int  [ncenters];
+    Vec3d*  abcs      = new Vec3d[ncenters];
 
     // transform atoms to grid cooerdinates
     Mat3d invCell; cell.invert_to(invCell);
@@ -213,13 +213,13 @@ int map_pbc_images( int ncenters, Vec3d* centers, Func func ){
         }
     }
 
-    delete [] selection;  
-    delete [] abcs     ; 
+    delete [] selection;
+    delete [] abcs     ;
     return ntot;
 }
 
 void saveDebugGeomXsfPBC( int ncenters, Vec3d* centers ){
-    FILE* fout = fopen ( "debugGeomPBC.xsf", "w" ); 
+    FILE* fout = fopen ( "debugGeomPBC.xsf", "w" );
     fprintf( fout, "CRYSTAL\n" );
     fprintf( fout, "PRIMVEC\n" );
     matToFile( fout, cell );
@@ -228,12 +228,12 @@ void saveDebugGeomXsfPBC( int ncenters, Vec3d* centers ){
     fprintf( fout, "PRIMCOORD\n" );
     long int mark_1 = ftell(fout);
     fprintf( fout, "                                \n" );
-    int*    selection = new int  [ncenters];  
-    Vec3d*  abcs      = new Vec3d[ncenters]; 
+    int*    selection = new int  [ncenters];
+    Vec3d*  abcs      = new Vec3d[ncenters];
 
-    int ntot = map_pbc_images( ncenters, centers,  
-        [&fout]( const Vec3i iabc, const Vec3d& shift, int n, const int * selection, const Vec3d* centers ){ 
-            selectedAtomsToFile( fout, shift, n, centers, NULL, selection ); 
+    int ntot = map_pbc_images( ncenters, centers,
+        [&fout]( const Vec3i iabc, const Vec3d& shift, int n, const int * selection, const Vec3d* centers ){
+            selectedAtomsToFile( fout, shift, n, centers, NULL, selection );
     });
 
     fseek(fout, mark_1, SEEK_SET );
@@ -243,12 +243,12 @@ void saveDebugGeomXsfPBC( int ncenters, Vec3d* centers ){
 
 // coefs is array of coefficient for each atom; nc is number of coefs for each atom
 //template<double (Vec3d dR, Vec3d& fout, double * coefs)>
-void getBasisProjections_SplineSPD( 
-    int nps, 
+void getBasisProjections_SplineSPD(
+    int nps,
     int ncenters,
     Vec3d*  ps,
-    double* Yrefs, 
-    Vec3d* centers, 
+    double* Yrefs,
+    Vec3d* centers,
     int* types,
     int* ncomps,
     double * By,
@@ -265,8 +265,8 @@ void getBasisProjections_SplineSPD(
     for(int i=0;i<ncenters;i++){ offsets[i]=nbas; nbas+=ncomps[i]; };
     double*  Bs  = new double[nbas];
 
-    int ntot = map_pbc_images( ncenters, centers,  
-        [&]( const Vec3i iabc, const Vec3d& shift, int nfound, const int * selection, const Vec3d* centers ){ 
+    int ntot = map_pbc_images( ncenters, centers,
+        [&]( const Vec3i iabc, const Vec3d& shift, int nfound, const int * selection, const Vec3d* centers ){
             int nbmax = 0;
             for(int i=0; i<nfound; i++){ nbmax += ncomps[ selection[i] ]; };
             for(int ip=0; ip<nps; ip++){
@@ -274,18 +274,18 @@ void getBasisProjections_SplineSPD(
                 double* bis  = Bs;
                 int*    nbis = nBs;
                 for(int j=0; j<nbmax; j++ ){ bis[j]=0; }
-                Vec3d pi = ps[ip] - shift;  
+                Vec3d pi = ps[ip] - shift;
                 int nsel = 0;
                 for(int ii=0; ii<nfound; ii++){
                     int i          = selection[ii];
                     int ncomp      = ncomps[i];
                     int ncomp_true = basis_SplineSPD( pi-centers[i], types[i], ncomp, bis );
-                    if( ncomp_true>0 ){ 
+                    if( ncomp_true>0 ){
                         nBs [nsel] = ncomp_true;
                         i0s [nsel] = offsets[i];
                         il0s[nsel] = bis - Bs;
                         bis += ncomp_true;
-                        nsel++; 
+                        nsel++;
                     }
                 } // ii ... atoms/basis functions
                 acumByBB_sparse( Yrefs[ip], nbas, nsel, i0s, il0s, nBs, Bs, By, BB );
@@ -299,29 +299,29 @@ void getBasisProjections_SplineSPD(
     delete [] nBs      ;
 }
 
-void project_SplineSPD( 
-    int nps, 
+void project_SplineSPD(
+    int nps,
     int ncenters,
     Vec3d*  ps,
-    double* Youts, 
-    Vec3d*  centers, 
+    double* Youts,
+    Vec3d*  centers,
     int* types,
     int* ncomps,
     double* coefs
 ){
     // TODO:  OpenMP paralelization https://bisqwit.iki.fi/story/howto/openmp/
-    int ntot = map_pbc_images( ncenters, centers,  
-        [&]( const Vec3i iabc, const Vec3d& shift, int nfound, const int * selection, const Vec3d* centers ){ 
+    int ntot = map_pbc_images( ncenters, centers,
+        [&]( const Vec3i iabc, const Vec3d& shift, int nfound, const int * selection, const Vec3d* centers ){
             int nbmax = 0;
             for(int i=0; i<nfound; i++){ nbmax += ncomps[ selection[i] ]; };
             for(int ip=0; ip<nps; ip++){
                 //if(ip%100000==0) printf( " iabc(%i,%i,%i)[%i] \n", iabc.a,iabc.b,iabc.c, ip );
-                Vec3d pi = ps[ip] - shift;  
+                Vec3d pi = ps[ip] - shift;
                 double ypi = 0;
                 double * coefi = coefs;
                 for(int ii=0; ii<nfound; ii++){
                     int i     = selection[ii];
-                    int ncomp = ncomps[i]; 
+                    int ncomp = ncomps[i];
                     ypi += eval_SplineSPD( pi-centers[i], types[i], ncomp, coefi );
                     coefi += ncomp;
                 } // ii ... atoms/basis functions
@@ -354,33 +354,33 @@ void setSplines( int ntypes, int npts, double invStep, double Rcut, double* RFun
     RFuncSplines = RFuncs;
 }
 
-void getProjections( 
+void getProjections(
     int nps, int ncenters,
-    double*  ps, double* Yrefs, 
+    double*  ps, double* Yrefs,
     double* centers, int* types, int* ncomps,
     double * By,
     double * BB
 ){
-    getBasisProjections_SplineSPD( 
-        nps, ncenters, 
+    getBasisProjections_SplineSPD(
+        nps, ncenters,
         (Vec3d*)ps, Yrefs,
         (Vec3d*)centers, types, ncomps,
         By, BB
     );
 }
 
-void project( 
+void project(
     int nps, int ncenters,
-    double*  ps, double* Youts, 
+    double*  ps, double* Youts,
     double* centers, int* types, int* ncomps,
     double* coefs
 ){
-    project_SplineSPD( 
-        nps, 
+    project_SplineSPD(
+        nps,
         ncenters,
         (Vec3d*)ps,
-        Youts, 
-        (Vec3d*)centers, 
+        Youts,
+        (Vec3d*)centers,
         types,
         ncomps,
         coefs
@@ -390,8 +390,3 @@ void project(
 void debugGeomPBC_xsf( int ncenters, double* centers ){ saveDebugGeomXsfPBC( ncenters, (Vec3d*)centers ); }
 
 }
-
-
-
-
-

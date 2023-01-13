@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-import sys
 import os
+import sys
+
 import numpy as np
-import time
 
 #import matplotlib.pyplot as plt
 #from mpl_toolkits.mplot3d import Axes3D
@@ -11,18 +11,19 @@ import time
 #from optparse import OptionParser
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-#import ppafm.PolyCycles  as pcff
-import ppafm.atomicUtils as au
-import ppafm.chemistry   as ch
-from ppafm import basUtils
-
 import matplotlib.pyplot as plt
-
-#from scipy.interpolate import CubicSpline
 
 #import scipy.interpolate as interp #.CubicSpline as CS
 #from scipy.interpolate import interp1d #.CubicSpline as CS
 from scipy.interpolate import Akima1DInterpolator
+
+#import ppafm.PolyCycles  as pcff
+import ppafm.atomicUtils as au
+import ppafm.chemistry as ch
+from ppafm import basUtils
+
+#from scipy.interpolate import CubicSpline
+
 
 xs = np.linspace(-1,4,200)
 Xs = np.array([-1 , 0, 1,2, 3, 4])
@@ -186,36 +187,36 @@ if __name__ == "__main__":
     #nvs=np.random.choice([4,5,6,7],size=Nring,p=[0.05,0.2,0.65,0.1] )
     #nvs = np.ones()*6
     print("nvs: " ,nvs)
-    
+
     #nv = pcff.setup( np.array(nvs,np.int32) )
     #ring_pos,vpos=pcff.getPos(Nring,nv)
     #ring_pos[:,0]=np.arange(Nring)*2.5
     #ring_pos[:,1]=np.sin(ring_pos[:,0]*0.3)
-    
+
     #ring_pos[:,0]=np.arange(Nring)*2.5
     #ring_pos[:,1]=np.fract(ring_pos[:,0]/np.sqrt(Nring))
-    
+
     ring_pos = np.empty( (Nring,2) )
-    
+
     L=np.sqrt(Nring)
     ts=np.arange(Nring)/L
     ring_pos[:,0] = np.floor(ts)
     ring_pos[:,1] = (ts - ring_pos[:,0])*L
     ring_pos[:,:] += (np.random.random(ring_pos.shape)-0.5)*0.5
     ring_pos*=2.5
-    
+
     #ring_pos[:,0],ring_pos[:,1]=np.modf( np.arange(Nring)*np.sqrt(Nring))
-    
+
     #print "ring_pos: ", ring_pos
-    
+
     ring_Rs = 0.5/np.sin(np.pi/nvs)
-    
+
     #ring_pos_bak = ring_pos.copy()
     #plt.show()
-    
+
     #pcff.setupOpt(dt=0.3, damping=0.05, f_limit=1.0,v_limit=1.0 )
     #pcff.relaxNsteps(kind=0, nsteps=1000)
-    
+
     opt = ch.FIRE()
     ch.relaxAtoms( ring_pos, ring_Rs, FFfunc=ch.getForceIvnR24, fConv=0.1, nMaxStep=1000, optimizer=opt )
     #ch.relaxAtoms( ring_pos, ring_Rs, FFfunc=ch.getForceIvnR24, fConv=0.0001, nMaxStep=1000, optimizer=opt )
@@ -229,7 +230,7 @@ if __name__ == "__main__":
     plt.axis('equal')
     #plt.show()
     '''
-    
+
     #exit()
 
     ring_bonds  = ch.findBonds(ring_pos,ring_Rs,fR=1.0)
@@ -244,7 +245,7 @@ if __name__ == "__main__":
     #ops = ch.trisToPoints(tris,ring_pos)
     #print "ops", ops
     bonds,_ = ch.tris2num_(tris, bonds_)
-    
+
     # ------ remove some atoms
     print("pre:len ", len(atom_pos))
     mask    = ch.removeBorderAtoms(atom_pos,cog,L)
@@ -256,15 +257,15 @@ if __name__ == "__main__":
     atom_pos  = atom_pos [mask,:]
     #print "rm:atom_pos ", atom_pos
     print("rm:len ", len(atom_pos))
-    
+
     # ----- Hex mask
     #N6mask = (ring_natm[:]==ring_nngs[:])
     ring_natm   = ch.getRingNatom(atom2ring,len(ring_neighs))
     ring_N6mask = np.logical_and( ring_natm[:]==6, ring_nngs[:]==6 )
-    atom_N6mask = np.logical_or( ring_N6mask[atom2ring[:,0]], 
-                  np.logical_or( ring_N6mask[atom2ring[:,1]], 
+    atom_N6mask = np.logical_or( ring_N6mask[atom2ring[:,0]],
+                  np.logical_or( ring_N6mask[atom2ring[:,1]],
                                  ring_N6mask[atom2ring[:,2]]  ) )
-    
+
     print("ring_natm ", ring_natm)
     print("ring_nngs ", ring_nngs)
     #print "N6mask    ", N6mask   #;exit()
@@ -272,22 +273,22 @@ if __name__ == "__main__":
     print("atom_N6mask", len(atom_N6mask), atom_N6mask)
 
     bonds = np.array(bonds)
-    #print "tbonds_  ",tbonds_ 
-    
+    #print "tbonds_  ",tbonds_
+
     neighs  = ch.bonds2neighs( bonds, len(atom_pos) )
     print(neighs)
-    
+
     #tris_ = ch.tris2num(tris)
     #print "tris_ ", tris_
-    
-    nngs  = np.array([ len(ngs) for ngs in neighs ],dtype=np.int) 
-    
+
+    nngs  = np.array([ len(ngs) for ngs in neighs ],dtype=np.int)
+
     #atypes=np.zeros(len(nngs),dtype=np.int)
     atypes=nngs.copy()-1
     #atypes[atom_N6mask]=0
     atypes[atom_N6mask]=3
     print("atypes ", atypes)
-    
+
     '''
     Eb2=+0.1
     typeEs = np.array([
@@ -297,27 +298,27 @@ if __name__ == "__main__":
      [20.,1, -4,3,10 ,20], # hex
     ])
     '''
-    
+
     print(" ================= Reax BO ")
-    
+
     typeEs = ch.simpleAOEnergies( E12=0.5, E22=+0.5, E32=+0.5 )
-    
+
     typeMasks, typeFFs = ch.assignAtomBOFF(atypes, typeEs)
     opt = ch.FIRE(dt_max=0.1,damp_max=0.25)
-    
+
     bo,ao = ch.relaxBondOrder( bonds, typeMasks, typeFFs, fConv= 0.0001         , optimizer=opt, EboStart=0.0,  EboEnd=0.0                )
     #opt.bFIRE=False; opt.damp_max = 0.1
     bo,ao = ch.relaxBondOrder( bonds, typeMasks, typeFFs, fConv=-1., nMaxStep=100, optimizer=opt, EboStart=0.0,  EboEnd=10.0 , boStart=bo  )
     bo,ao = ch.relaxBondOrder( bonds, typeMasks, typeFFs, fConv=0.0001         , optimizer=opt, EboStart=10.0, EboEnd=10.0 , boStart=bo )
-    
+
     #bo,ao = ch.relaxBondOrder( bonds, typeMasks, typeFFs, Nstep=50, dt=0.1, EboStart=0.0,  EboEnd=0.0,            )
     #bo,ao = ch.relaxBondOrder( bonds, typeMasks, typeFFs, Nstep=50, dt=0.1, EboStart=0.0,  EboEnd=10.0,boStart=bo )
     #bo,ao = ch.relaxBondOrder( bonds, typeMasks, typeFFs, Nstep=20, dt=0.1, EboStart=10.0, EboEnd=10.0,boStart=bo )
-    
+
     print("ao ", ao[:6])
-    
+
     # ======== save XYZ
-    
+
     # --- simple elements
     xyzs = np.append(atom_pos, np.zeros((len(atom_pos),1)), axis=1)*1.4
     '''
@@ -327,28 +328,28 @@ if __name__ == "__main__":
     #print "xyzs", xyzs
     au.saveXYZ( elist,xyzs, "test_PolyCycles.xyz" )
     '''
-    
+
     # --- groups -> atoms
     groupDict = ch.makeGroupLevels(groupDict)
     aoi = np.round(ao).astype(np.int)
     groups = ch.selectRandomGroups( nngs, aoi, groupDict )
-    
+
     #for i in range(len(groups)):
     #    if(groups[i]=="-NH2"):
     #        groups[i]="#CH"
-    
+
     print("groups ", groups)
     xyzs_g, elems_g = ch.groups2atoms( groups, neighs, xyzs )
     print("elems ", elems_g)
     print("elems ", xyzs_g)
     basUtils.saveXYZ("test_PolyCycles_g.xyz", xyzs_g, elems_g)
-    
+
     # ======== Plot
-    
+
     plt.figure()
     plt.scatter(ring_pos[:,0], ring_pos[:,1], s=(ring_Rs*60)**2, c='none' )
     plt.plot( atom_pos[:,0],atom_pos[:,1], "*" )
-    
+
     for i,b in enumerate(bonds):
         pb=atom_pos[b,:]
         plt.plot( pb[:,0],pb[:,1], '-r', lw=1+bo[i]*5 )
@@ -357,19 +358,11 @@ if __name__ == "__main__":
     for b in ring_bonds:
         pb=ring_pos[b,:]
         plt.plot( pb[:,0],pb[:,1],'-b' )
-    
+
     print(atom_pos.shape, atom_N6mask.shape)
     plt.plot(atom_pos[atom_N6mask,0],atom_pos[atom_N6mask,1],"ow")
-    
-    
+
+
     plt.axis('equal')
     plt.show()
     #pcff.relaxNsteps(nsteps=10, F2conf=-1.0, dt=0.1, damp=0.9)
-
-
-
-
-
-
-
-

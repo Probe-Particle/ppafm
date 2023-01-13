@@ -1,17 +1,17 @@
 #!/usr/bin/python
-import sys
-import numpy as np
 import os
-import __main__ as main
+import sys
 from optparse import OptionParser
+
+import __main__ as main
+import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-from scipy.optimize import minimize,basinhopping
+from scipy.optimize import basinhopping, minimize
 
-from ppafm import basUtils
+import ppafm as PPU
 import ppafm.GridUtils as GU
-import ppafm  as PPU     
 import ppafm.HighLevel as PPH
-
+from ppafm import basUtils
 
 iteration=0
 
@@ -32,7 +32,7 @@ def pN2ev_o_a(val):
 def getFzlist(BIGarray,MIN,MAX,points):
     """
     Function makes an interpolation of a function stored in the BIGarray and finds its values in the "points"
-    BIGarray - a 3d array containing a grid of function values 
+    BIGarray - a 3d array containing a grid of function values
     MIN,MAX  - 1d array containing the minimum and maximum values of x,y,z
     """
     x=np.linspace(MIN[0],MAX[0],BIGarray.shape[2])
@@ -50,8 +50,8 @@ def getFzlist(BIGarray,MIN,MAX,points):
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
-	print(">> LOADING LOCAL atomtypes.ini")  
-	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+	print(">> LOADING LOCAL atomtypes.ini")
+	FFparams=PPU.loadSpecies( 'atomtypes.ini' )
         print(FFparams)
         elem_dict={}
         for i,ff in enumerate(FFparams):
@@ -78,6 +78,7 @@ loaded_forces=np.loadtxt("frc_tip.txt",
 points=loaded_forces[:,:3]
 iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC = PPU.params['PBC'], FFparams=FFparams )
 from collections import OrderedDict
+
 fit_dict=OrderedDict()
 def update_atoms(atms=None):
 #    print "UPDATING ATOMS"
@@ -96,7 +97,7 @@ def update_atoms(atms=None):
         FFparams[i][1]=float(atm[2])
         x.append(val2)
         constr.append((1e-6,0.1 ) )
-#    print "UPDATING : " ,x    
+#    print "UPDATING : " ,x
     return x,constr
 
 def set_fit_dict(opt=None):
@@ -150,9 +151,9 @@ def update_fit_dict(x=[]):
 
 
 def comp_msd(x=[]):
-    """ Function computes the Mean Square Deviation of DFT forces (provided in the file frc_tip.ini) 
-    and forces computed with the ProbeParticle approach" 
-    """ 
+    """ Function computes the Mean Square Deviation of DFT forces (provided in the file frc_tip.ini)
+    and forces computed with the ProbeParticle approach"
+    """
     global iteration
     iteration+=1
     update_fit_dict(x) # updating the array with the optimized values
@@ -212,4 +213,3 @@ if __name__=="__main__":
         x_new=result.x.copy()
         it+=1
     print("Non-bounded optimization is finished")
-

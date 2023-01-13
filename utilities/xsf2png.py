@@ -4,23 +4,24 @@
 
 import os
 import sys
-import numpy as np
-import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
+
 import matplotlib.pyplot as plt
+import numpy as np
+
 #import GridUtils as GU
-import ppafm.GridUtils      as GU
+import ppafm.GridUtils as GU
+
+import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
 #--- added later just to plot atoms
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm                as PPU   
-import ppafm.PPPlot         as PPPlot
-from   ppafm            import basUtils
-from   ppafm            import elements 
-import ppafm.HighLevel      as PPH
-import ppafm.cpp_utils      as cpp_utils
-
 from optparse import OptionParser
 
+import ppafm as PPU
+import ppafm.cpp_utils as cpp_utils
+import ppafm.HighLevel as PPH
+import ppafm.PPPlot as PPPlot
+from ppafm import basUtils, elements
 
 parser = OptionParser()
 parser.add_option( "-i", action="store", type="string", help="input file name", default='df' )
@@ -41,8 +42,8 @@ if options.atoms:
     xyzs, Zs, qs, _ = basUtils.loadXYZ(options.atoms)
     atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
     if os.path.isfile( 'atomtypes.ini' ):
-        print(">> LOADING LOCAL atomtypes.ini")  
-        FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+        print(">> LOADING LOCAL atomtypes.ini")
+        FFparams=PPU.loadSpecies( 'atomtypes.ini' )
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
     iZs,Rs,Qstmp=PPH.parseAtoms(atoms, autogeom = False, PBC = True, FFparams=FFparams )

@@ -1,11 +1,12 @@
 #!/usr/bin/python
 
-import sys
 import os
+
 import numpy as np
 
-from . import  RigidMol  as rmol
+from . import RigidMol as rmol
 from . import basUtils
+
 
 def combineGeoms(mol,surf):
     es   = mol[0] + surf[0]
@@ -90,7 +91,7 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
 
     rmol.clear()
 
-    mol   = rmol.loadMolType( molFile )                              ;print("DEBUG 0.1") 
+    mol   = rmol.loadMolType( molFile )                              ;print("DEBUG 0.1")
     rot0  = np.array([[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]])    ;print("DEBUG 0.2")
     rmol.insertMolecule( mol, np.array(pos), rot0, True )          ;print("DEBUG 0.3")
 
@@ -117,7 +118,7 @@ def getSurfConfs( rots, molFile, pos=[ 5.78, 6.7, 12.24 ], nMaxIter=200, Fconv=0
         print("q ", q)
         poses[0,4:8] = q
         for i in range(nMaxIter):
-            F2 = rmol.relaxNsteps( 1, 0.0 ); 
+            F2 = rmol.relaxNsteps( 1, 0.0 );
             rot_ = quat2mat(poses[0,4:8])
             rots_.append(rot_)
             xyzs[:nAtomMol,:] = apos[:,:]

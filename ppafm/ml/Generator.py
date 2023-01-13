@@ -1,10 +1,11 @@
-
-import time
 import random
+import time
+
 import numpy as np
 
 from .. import basUtils
 from .. import common as PPU
+
 
 class InverseAFMtrainer:
     '''
@@ -34,7 +35,7 @@ class InverseAFMtrainer:
     # Print timings during excecution
     bRuntime = False
 
-    def __init__(self, 
+    def __init__(self,
         afmulator, aux_maps, paths,
         batch_size = 30,
         distAbove  = 5.3,
@@ -65,7 +66,7 @@ class InverseAFMtrainer:
 
             # Callback
             self.on_batch_start()
-            
+
             mols = []
             Xs = [[] for _ in range(len(self.iZPPs))]
             Ys = [[] for _ in range(len(self.aux_maps))]
@@ -100,7 +101,7 @@ class InverseAFMtrainer:
 
                     # Make sure tip-sample distance is right
                     self.handle_distance()
-                    
+
                     # Callback
                     self.on_afm_start()
 
@@ -108,8 +109,8 @@ class InverseAFMtrainer:
                     if self.bRuntime: afm_start = time.time()
                     Xs[i].append(self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs))
                     if self.bRuntime: print(f'AFM {i} runtime [s]: {time.time() - afm_start}')
-                
-                    self.Xs = Xs[i][-1]   
+
+                    self.Xs = Xs[i][-1]
                     # Callback
                     self.on_afm_end()
 
@@ -119,7 +120,7 @@ class InverseAFMtrainer:
                     xyzqs = np.concatenate([self.xyzs, self.qs[:,None]], axis=1)
                     Ys[i].append(aux_map(xyzqs, self.Zs))
                     if self.bRuntime: print(f'AuxMap {i} runtime [s]: {time.time() - aux_start}')
-                
+
                 if self.bRuntime: print(f'Sample {s} runtime [s]: {time.time() - sample_start}')
                 self.counter += 1
 
@@ -135,7 +136,7 @@ class InverseAFMtrainer:
             raise StopIteration
 
         return Xs, Ys, mols
-    
+
     def __iter__(self):
         self.counter = 0
         return self
@@ -154,7 +155,7 @@ class InverseAFMtrainer:
         for path in self.paths:
             xyzs, Zs, qs, _ = basUtils.loadXYZ(path)
             self.molecules.append(np.concatenate([xyzs, qs[:,None], Zs[:,None]], axis=1))
-    
+
     def handle_positions(self):
         '''
         Set current molecule to the center of the scan window.
@@ -250,25 +251,21 @@ class InverseAFMtrainer:
         '''
         Excecuted right at the start of each batch. Override to modify parameters for each batch.
         '''
-        pass
 
     def on_sample_start(self):
         '''
         Excecuted right before evaluating first AFM image. Override to modify the parameters for each sample.
         '''
-        pass
 
     def on_afm_start(self):
         '''
         Excecuted right before every AFM image evalution. Override to modify the parameters for each AFM image.
         '''
-        pass
 
     def on_afm_end(self):
         '''
         Excecuted right after evaluating AFM image. Override to modify the parameters for each sample.
         '''
-        pass
 
 class HartreeAFMtrainer(InverseAFMtrainer):
     '''
@@ -288,7 +285,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         rhos: list of dict or MultipoleTipDensity. Tip charge densities.
     '''
 
-    def __init__(self, 
+    def __init__(self,
             afmulator, aux_maps, sample_generator,
             batch_size = 30,
             distAbove  = 5.3,
@@ -326,7 +323,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
 
         # Callback
         self.on_batch_start()
-        
+
         mols = []
         Xs = [[] for _ in range(len(self.iZPPs))]
         Ys = [[] for _ in range(len(self.aux_maps))]
@@ -379,7 +376,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
                 # Set AFMulator scan window and force field lattice vectors
                 self.afmulator.setScanWindow(self.scan_window, self.scan_dim, df_steps=self.df_steps)
                 self.afmulator.setLvec()
-                
+
                 # Callback
                 self.on_afm_start()
 
@@ -409,7 +406,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         if self.bRuntime: print(f'Batch runtime [s]: {time.perf_counter() - batch_start}')
 
         return Xs, Ys, mols, scan_windows
-    
+
     def __iter__(self):
         self.pot = None
         self.xyzs = None
@@ -418,7 +415,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         self.sample_iterator = iter(self.sample_generator)
         self.iteration_done = False
         return self
-    
+
     def __len__(self):
         '''
         Returns the number of batches that will be generated. Requires for the sample generator
@@ -465,7 +462,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
 
         Chosen number of df steps is uniform random between minimum and maximum. Modifies self.scan_dim and
         self.scan_size to retain same output z dimension and same dz step for the chosen number of df steps.
-        
+
         Arguments:
             minimum: int. Minimum number of df steps (inclusive).
             maximum: int. Maximum number of df steps (inclusive).
@@ -473,7 +470,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         self.df_steps = np.random.randint(minimum, maximum + 1)
         self.scan_dim = (self.scan_dim[0], self.scan_dim[1], self.z_size + self.df_steps - 1)
         self.scan_size = (self.scan_size[0], self.scan_size[1], self.afmulator.dz * self.scan_dim[2])
-    
+
 def sortRotationsByEntropy(xyzs, rotations):
     rots = []
     for rot in rotations:
@@ -496,6 +493,6 @@ def getRandomUniformDisk():
     # see: http://mathworld.wolfram.com/DiskPointPicking.html
     '''
     rnd = np.random.rand(2)
-    rnd[0]    = np.sqrt( rnd[0] ) 
+    rnd[0]    = np.sqrt( rnd[0] )
     rnd[1]   *= 2.0*np.pi
     return  rnd[0]*np.cos(rnd[1]), rnd[0]*np.sin(rnd[1])

@@ -22,7 +22,7 @@ const double const_eVA_SI = 16.0217662;
 
 inline void rotateZBond( const Vec3d& dir, const Vec3d& coefsIn, Vec3d& coefsOut ){
     // to rotate coefficients from molecular coordinate system, to absolute cartesian system
-    if( (dir.x*dir.x+dir.y*dir.y) < 1e-6 ){ // direction along z-axis ? 
+    if( (dir.x*dir.x+dir.y*dir.y) < 1e-6 ){ // direction along z-axis ?
         coefsOut=coefsIn*dir.z;
         return;
     }
@@ -49,7 +49,7 @@ class COCOFF{ public:
 
     double* lRadials=0;
     double* kRadials=0;
-    Vec3d*  kSprings=0; 
+    Vec3d*  kSprings=0;
     Vec3d*  pos0s   =0;
     Vec3d*  REQs    =0;
 
@@ -63,7 +63,7 @@ class COCOFF{ public:
     Vec3d* poss    = 0;
     Vec3d* vels    = 0;
     Vec3d* forces  = 0;
-    
+
 
     Quat4d* STMcoefs = 0;
 
@@ -103,7 +103,7 @@ class COCOFF{ public:
         Vec3d& PPanchor = anchors[nCOs];
         Vec3d& PPpos    = poss   [nCOs];
         Vec3d& PPforce  = forces [nCOs];
-        Vec3d& REQpp    = REQs   [nCOs]; 
+        Vec3d& REQpp    = REQs   [nCOs];
         PPforce = Vec3dZero;
         Vec3d dR;
         if(bSprings){
@@ -114,11 +114,11 @@ class COCOFF{ public:
         //printf( "PP %i p(%g,%g,%g) anchor(%g,%g,%g)\n", PPpos.x,PPpos.y,PPpos.z, nCOs,  PPanchor.x,PPanchor.y,PPanchor.z );
         for(int i=0; i<nCOs; i++){
             Vec3d f = Vec3dZero;
-            //Vec3d& f = COforces[i]; f=Vec3dZero; 
+            //Vec3d& f = COforces[i]; f=Vec3dZero;
             dR.set_sub( PPpos, poss[i] );
             //printf( "|dR| %g \n", dR.norm() );
             //E += addAtomLJ ( dR, f, C6, C12 );
-            //E += 
+            //E +=
             addAtomicForceLJQ( dR, f, REQs[i].x+REQpp.x, REQs[i].y*REQpp.y, REQs[i].z*REQpp.z );
             //printf( "CO[%i] p(%g,%g,%g) dR(%g,%g,%g) f(%g,%g,%g)\n",   i,   poss[i].x,poss[i].y,poss[i].z,   dR.x,dR.y,dR.z,   f.x,f.y,f.z );
             PPforce.sub(f);
@@ -141,7 +141,7 @@ class COCOFF{ public:
         Vec3d PPdir; PPdir.set_sub( PPpos, PPanchor );
         PPdir.normalize();
         double amp = 0;
-        
+
         Quat4d  PPcoefs;
         if(bZRot){   // rotate orbital from z-direction
             PPcoefs.s=STMcoefs[nCOs].s;
@@ -157,7 +157,7 @@ class COCOFF{ public:
             double r      = d.normalize();
             double radial = exp(beta*r);
 
-            // rotate sp-orbital coeficents to bond-oriented coordinate system 
+            // rotate sp-orbital coeficents to bond-oriented coordinate system
             Mat3d rot;  rot.fromDirUp( d, PPdir );
             Vec3d pPP,pCO;
 
@@ -178,15 +178,15 @@ class COCOFF{ public:
             //const Quat4d& COcoefs  = STMcoefs[i];
 
             //printf( "evalSTM  r %g Yr %g (%g,%g,%g,%g) | (%g,%g,%g) (%g,%g,%g) \n",  r, radial,   PPcoefs.s*STMcoefs[i].s,   pPP.x*pCO.x, pPP.y*pCO.y, pPP.z*pCO.z,   pPP.x,pPP.y,pPP.z,   pCO.x,pCO.y,pCO.z );
-            
+
             double ss  = COcoefs.s*PPcoefs.s;
             double zz  = pCO.z*pPP.z;
-            double sz  =  COcoefs.s*pPP.z; 
+            double sz  =  COcoefs.s*pPP.z;
             double zs  = pCO.z*PPcoefs.s;
             double yy  = pCO.y*pPP.y;
             double xx  = pCO.x*pPP.x;
             double ang = ss + xx + yy - zz   + sz-zs;
-            
+
             //printf( "evalSTM  Y %g | (%g,%g,%g) (%g,%g,%g) \n", ang,  pPP.x,pPP.y,pPP.z,  pCO.x,pCO.y,pCO.z );
             amp +=  radial * ang;
             //amp += ang;
@@ -236,7 +236,7 @@ extern "C"{
         //ff.kRadial = kR;
         //ff.lRadial = lR;
         ff.beta    = beta;
-        ff.setC612( R0, E0 ); 
+        ff.setC612( R0, E0 );
     }
 */
 
@@ -264,7 +264,7 @@ extern "C"{
             }
             if(iDebug>0){ printf(":::relaxNsteps[%i] |F| %g(>%g) E %g  <v|f> %g dt %g(%g..%g) damp %g \n", itr, sqrt(F2), Fconv, E, opt.vf, opt.dt, opt.dt_min, opt.dt_max, opt.damping ); }
             if(F2<F2conv){
-                //printf( "relaxed in %i iterations \n", itr ); 
+                //printf( "relaxed in %i iterations \n", itr );
                 break;
             }
         }
@@ -291,20 +291,17 @@ extern "C"{
             int i0 = ip*nChanMax;
             for(int j=0; j<ff.nChanMax; j++){
                    STMchans[i0+j] = ff.STMdecomp[j];
-            } 
+            }
             */
 
             int i0 = ip*ff.nChanMax;
             for(int j=0; j<4; j++){
                 for(int ia=0; ia<=ff.nCOs; ia++){  ff.STMcoefs[ia]=Quat4dZero; ff.STMcoefs[ia].array[j]=1.0; }
                 STMchans[i0+j] = ff.evalSTM();
-            } 
+            }
 
         }
 
     }
 
 } // extern "C"{
-
-
-

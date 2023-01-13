@@ -1,15 +1,16 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
 import sys
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm.GridUtils      as GU
-from   optparse import OptionParser
+from optparse import OptionParser
+
+import ppafm.GridUtils as GU
 
 parser = OptionParser()
 parser.add_option( "-p",   action="store", type="string", help="pixels (ix,iy) to take curve", default='curve_points.ini' )
@@ -60,5 +61,5 @@ plt.savefig( options.i+'_zcurves.png', bbox_inches='tight')
 np.savetxt( options.i+'_zcurves.dat', np.transpose(curves) )
 
 #dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
-                    
+
 plt.show()

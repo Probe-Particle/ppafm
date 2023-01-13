@@ -1,9 +1,8 @@
 #!/usr/bin/python
 
-import sys
-import os
-import pyopencl as cl
+
 import numpy as np
+import pyopencl as cl
 
 from .. import common as PPU
 
@@ -71,8 +70,8 @@ def rotTip(rot,zstep,tipR0=[0.0,0.0,4.0]):
     dpos0Tip[2]  =  -np.sqrt(tipR0[2]**2 - tipR0[0]**2 - tipR0[1]**2);
     dpos0Tip[3]  =   tipR0[2]
 
-    dpos0    = np.zeros(4,dtype=np.float32); 
-    dpos0[:3] = np.dot( rot.transpose(), dpos0Tip[:3] );  
+    dpos0    = np.zeros(4,dtype=np.float32);
+    dpos0[:3] = np.dot( rot.transpose(), dpos0Tip[:3] );
     dpos0[3]  = tipR0[2]
     return dTip, tipRot,dpos0Tip,dpos0
 
@@ -111,7 +110,7 @@ class RelaxedScanner:
             self.cl_atoms.release()
         self.nAtoms   = np.int32( len(atoms) )
         self.cl_atoms = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY  | cl.mem_flags.COPY_HOST_PTR, hostbuf=atoms );
-    
+
     def prepareAuxMapBuffers(self, bZMap=False, bFEmap=False, atoms=None):
         nbytes = 0
         mf     = cl.mem_flags
@@ -135,7 +134,7 @@ class RelaxedScanner:
 
     def prepareBuffers(self, FEin_np=None, lvec=None, FEin_cl=None, FEin_shape=None, scan_dim=None, nDimConv=None,
             nDimConvOut=None, bZMap=False, bFEmap=False, atoms=None):
-        
+
         nbytes = 0
         mf = cl.mem_flags
 
@@ -144,18 +143,18 @@ class RelaxedScanner:
             self.invCell = getInvCell(lvec)
         if FEin_np is not None:
             self.cl_ImgIn = cl.image_from_array(self.ctx,FEin_np,num_channels=4,mode='r');  nbytes+=FEin_np.nbytes        # TODO make this re-uploadable
-            if(self.verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn) 
+            if(self.verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn)
         else:
             if FEin_shape is not None:
                 self.FEin_shape   = FEin_shape
                 self.image_format = cl.ImageFormat( cl.channel_order.RGBA, cl.channel_type.FLOAT )
                 self.cl_ImgIn     = cl.Image(self.ctx, mf.READ_ONLY, self.image_format, shape=FEin_shape[:3],
                     pitches=None, hostbuf=None, is_array=False, buffer=None)
-                if(self.verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn) 
+                if(self.verbose>0): print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn)
             if FEin_cl is not None:
                 self.updateFEin( FEin_cl )
                 self.FEin_cl=FEin_cl
-            
+
         # see: https://stackoverflow.com/questions/39533635/pyopencl-3d-rgba-image-from-numpy-array
         if scan_dim is not None:
             self.scan_dim = scan_dim
@@ -179,11 +178,11 @@ class RelaxedScanner:
             self.cl_feMap  = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy*fsize*4  ); nbytes += nxy*fsize*4
         if atoms is not None:
             self.updateAtoms(atoms); nbytes+=atoms.nbytes
-        
+
         if(self.verbose>0): print("prepareBuffers.nbytes: ", nbytes)
 
     def releaseBuffers(self):
-        if(self.verbose>0): print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn) 
+        if(self.verbose>0): print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn)
         self.cl_ImgIn.release()
         self.cl_poss.release()
         self.cl_FEout.release()
@@ -192,7 +191,7 @@ class RelaxedScanner:
         if self.cl_atoms is not None: self.cl_atoms.release()
 
     def tryReleaseBuffers(self):
-        if(self.verbose>0): print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn) 
+        if(self.verbose>0): print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn)
         try:
             self.cl_ImgIn.release()
         except:
@@ -245,7 +244,7 @@ class RelaxedScanner:
     def updateBuffers(self, FEin=None, lvec=None, WZconv=None ):
         if lvec is not None: self.invCell = getInvCell(lvec)
         if FEin is not None:
-            region = FEin.shape[:3]; region = region[::-1]; 
+            region = FEin.shape[:3]; region = region[::-1];
             if(self.verbose>0): print("region : ", region)
             cl.enqueue_copy( self.queue, self.cl_ImgIn, FEin, origin=(0,0,0), region=region )
         if WZconv is not None:
@@ -260,7 +259,7 @@ class RelaxedScanner:
 
         # Make numpy array. Last axis is bigger by one because OCL aligns to multiples of 4 floats.
         paths = np.empty(self.scan_dim + (4,), dtype=np.float32, order='C')
-            
+
         if self.verbose: print("paths.shape ", paths.shape)
 
         # Copy from device to host
@@ -279,18 +278,18 @@ class RelaxedScanner:
         '''
         calculate force on relaxing probe particle approaching from top (z-direction)
         '''
-        if nz is None: nz=self.scan_dim[2] 
+        if nz is None: nz=self.scan_dim[2]
         self.updateBuffers( FEin=FEin, lvec=lvec )
         if FEout is None:    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
-        kargs = ( 
-            self.cl_ImgIn, 
-            self.cl_poss, 
-            self.cl_FEout, 
-            self.invCell[0], self.invCell[1], self.invCell[2], 
-            self.dTip, 
-            self.stiffness, 
-            self.dpos0, 
-            self.relax_params, 
+        kargs = (
+            self.cl_ImgIn,
+            self.cl_poss,
+            self.cl_FEout,
+            self.invCell[0], self.invCell[1], self.invCell[2],
+            self.dTip,
+            self.stiffness,
+            self.dpos0,
+            self.relax_params,
             np.int32(nz) )
         #print kargs
         cl_program.relaxStrokes( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
@@ -302,19 +301,19 @@ class RelaxedScanner:
         '''
         calculate force on relaxing probe particle approaching from particular direction
         '''
-        if nz is None: nz=self.scan_dim[2] 
+        if nz is None: nz=self.scan_dim[2]
         if bCopy and (FEout is None):    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
         self.updateBuffers( FEin=FEin, lvec=lvec )
-        kargs = ( 
-            self.cl_ImgIn, 
-            self.cl_poss, 
+        kargs = (
+            self.cl_ImgIn,
+            self.cl_poss,
             self.cl_FEout,
             self.cl_paths,
-            self.invCell[0], self.invCell[1], self.invCell[2], 
+            self.invCell[0], self.invCell[1], self.invCell[2],
             self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
-            self.stiffness, 
-            self.dpos0Tip, 
-            self.relax_params, 
+            self.stiffness,
+            self.dpos0Tip,
+            self.relax_params,
             self.surfFF,
             np.int32(nz) )
         cl_program.relaxStrokesTilted( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
@@ -326,23 +325,23 @@ class RelaxedScanner:
         '''
         calculate force on relaxing probe particle approaching from particular direction
         '''
-        if nz is None: nz=self.scan_dim[2] 
+        if nz is None: nz=self.scan_dim[2]
         if FEconv is None:
             if self.FEconv is not None:
-                FEconv = self.FEconv 
+                FEconv = self.FEconv
             else:
                 FEconv = self.prepareFEConv()
         self.updateBuffers( FEin=FEin, lvec=lvec )
-        kargs = ( 
-            self.cl_ImgIn, 
-            self.cl_poss, 
+        kargs = (
+            self.cl_ImgIn,
+            self.cl_poss,
             self.cl_WZconv,
-            self.cl_FEconv, 
-            self.invCell[0], self.invCell[1], self.invCell[2], 
+            self.cl_FEconv,
+            self.invCell[0], self.invCell[1], self.invCell[2],
             self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
-            self.stiffness, 
-            self.dpos0Tip, 
-            self.relax_params, 
+            self.stiffness,
+            self.dpos0Tip,
+            self.relax_params,
             self.surfFF,
             np.int32(nz),
             np.int32(self.nDimConvOut),
@@ -356,15 +355,15 @@ class RelaxedScanner:
         '''
         un-relaxed sampling of FE values from input Force-field (cl_ImgIn) store to cl_FEout
         '''
-        if nz is None: nz=self.scan_dim[2] 
+        if nz is None: nz=self.scan_dim[2]
         self.updateBuffers( FEin=FEin, lvec=lvec, WZconv=WZconv )
-        kargs = ( 
-            self.cl_ImgIn, 
-            self.cl_poss, 
-            self.cl_FEout, 
+        kargs = (
+            self.cl_ImgIn,
+            self.cl_poss,
+            self.cl_FEout,
             self.invCell[0], self.invCell[1], self.invCell[2],
             self.dTip,
-            self.dpos0, 
+            self.dpos0,
             np.int32(nz) )
         cl_program.getFEinStrokes( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         if bDoConv:
@@ -380,16 +379,16 @@ class RelaxedScanner:
         un-relaxed sampling of FE values from input Force-field (cl_ImgIn) store to cl_FEout
         operates in coordinates rotated by tipRot
         '''
-        if nz is None: nz=self.scan_dim[2] 
+        if nz is None: nz=self.scan_dim[2]
         self.updateBuffers( FEin=FEin, lvec=lvec )
-        kargs = ( 
-            self.cl_ImgIn, 
-            self.cl_poss, 
-            self.cl_FEout, 
-            self.invCell[0], self.invCell[1], self.invCell[2], 
+        kargs = (
+            self.cl_ImgIn,
+            self.cl_poss,
+            self.cl_FEout,
+            self.invCell[0], self.invCell[1], self.invCell[2],
             self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
             self.dTip,
-            self.dpos0, 
+            self.dpos0,
             np.int32(nz) )
         cl_program.getFEinStrokesTilted( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
@@ -406,14 +405,14 @@ class RelaxedScanner:
         if nz is None: nz=self.scan_dim[2]
         if FEconv is None:
             if self.FEconv is not None:
-                FEconv = self.FEconv 
-            else:            
+                FEconv = self.FEconv
+            else:
                 FEconv = self.prepareFEConv()
-        kargs = ( 
+        kargs = (
             self.cl_FEout,
             self.cl_FEconv,
-            self.cl_WZconv, 
-            np.int32(nz), np.int32( self.nDimConvOut ) 
+            self.cl_WZconv,
+            np.int32(nz), np.int32( self.nDimConvOut )
         )
         cl_program.convolveZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl.enqueue_copy( self.queue, FEconv, self.cl_FEconv )
@@ -423,14 +422,14 @@ class RelaxedScanner:
     def run_izoZ(self, zMap=None, iso=0.0, nz=None ):
         '''
         get isosurface of input 3D field from top (z)
-        used to generate HeightMap 
+        used to generate HeightMap
         if cl_FEout is Forcefield it takes "z" where ( F(z) > iso )
         '''
         if nz is None: nz=self.scan_dim[2]
         if zMap is None: zMap = np.empty( self.scan_dim[:2], dtype=np.float32 )
-        kargs = ( 
+        kargs = (
             self.cl_FEout,
-            self.cl_zMap, 
+            self.cl_zMap,
             np.int32(nz), np.float32( iso ) )
         cl_program.izoZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
         cl.enqueue_copy( self.queue, zMap, self.cl_zMap )
@@ -440,7 +439,7 @@ class RelaxedScanner:
     def run_getZisoTilted(self, zMap=None, iso=0.0, nz=None ):
         '''
         get isosurface of input 3D field from given direction
-        used to generate HeightMap 
+        used to generate HeightMap
         operates in coordinates rotated by tipRot
         '''
         if nz is None: nz=self.scan_dim[2]
@@ -463,7 +462,7 @@ class RelaxedScanner:
     def run_getZisoFETilted(self, zMap=None, feMap=None, iso=0.0, nz=None ):
         '''
         get isosurface of input 3D field from given direction
-        get map of 3D volume FE (e.g. electrostatic field) maped on 2D isosurface 
+        get map of 3D volume FE (e.g. electrostatic field) maped on 2D isosurface
         used to generate ElectrostaticMap
         returns zMap, feMap
         operates in coordinates rotated by tipRot

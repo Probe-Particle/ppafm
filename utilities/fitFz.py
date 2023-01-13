@@ -8,18 +8,13 @@
 # https://stackoverflow.com/questions/22508593/numpy-polyfit-or-any-fitting-to-x-and-y-multidimensional-arrays
 
 
-import sys
-import os
-import time
-import random
-import matplotlib;
-import numpy as np
+
+import matplotlib
 
 #import matplotlib as mpl;  mpl.use('Agg'); print "plot WITHOUT Xserver";
 import matplotlib.pyplot as plt
-
+import numpy as np
 from matplotlib.pyplot import cm
-
 
 # ========== setup
 
@@ -29,7 +24,7 @@ npoly = 5
 
 def evalPoly(xs, coefs):
     ys  = np.zeros( (coefs.shape[1], len(xs)) )
-    xns = ys + 1 
+    xns = ys + 1
     for c in coefs:
         ys += xns*c[:,None]
         xns *= xs[None,:]
@@ -109,6 +104,3 @@ for i,p in enumerate(ps):
 '''
 
 #plt.show()
-
-
-

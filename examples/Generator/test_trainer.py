@@ -1,20 +1,21 @@
-
 import sys
+
 sys.path.append('../..')
 
-from ppafm.ocl import oclUtils as oclu 
-from ppafm.ocl import field    as FFcl 
-from ppafm.ocl import relax    as oclr
-from ppafm import common       as PPU
-from ppafm import basUtils
-from ppafm.ocl.AFMulator import AFMulator
-from ppafm.ml.Generator import InverseAFMtrainer
-from ppafm.ml.AuxMap import AuxMaps
-
 import os
-import time
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+from ppafm import basUtils
+from ppafm import common as PPU
+from ppafm.ml.AuxMap import AuxMaps
+from ppafm.ml.Generator import InverseAFMtrainer
+from ppafm.ocl import field as FFcl
+from ppafm.ocl import oclUtils as oclu
+from ppafm.ocl import relax as oclr
+from ppafm.ocl.AFMulator import AFMulator
+
 
 class ExampleTrainer(InverseAFMtrainer):
 
@@ -86,7 +87,7 @@ for Xs, Ys, mols in trainer:
         plt.tight_layout()
         plt.savefig(os.path.join(save_dir, f'{counter}_auxmaps.png'))
         plt.close()
-        
+
         mol = mols[j]
         basUtils.saveXYZ(os.path.join(save_dir, f'{counter}_mol.xyz'), mol[:, :3], mol[:, 4].astype(np.int32), mol[:, 3])
 

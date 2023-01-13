@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 import sys
-import os
+
 import numpy as np
 
-sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
+sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 
 import ppafm.GridUtils as GU
 
@@ -25,4 +25,3 @@ lvec_OUT = (
 GU.saveXSF( 'mini.xsf',  F, lvec_OUT );
 
 E,lvec, nDim, head = GU.loadXSF( 'mini.xsf' );
-

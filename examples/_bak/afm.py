@@ -1,14 +1,16 @@
 #!/usr/bin/python
-import sys
 import os
-import ProbeParticle as PP
-import elements
-import basUtils
-import numpy as np
-import GridUtils as GU
-import PPPlot as PL
-import matplotlib.pyplot as plt
 import sys
+
+import basUtils
+import elements
+import GridUtils as GU
+import matplotlib.pyplot as plt
+import numpy as np
+import PPPlot as PL
+import ProbeParticle as PP
+
+
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
 
@@ -60,7 +62,7 @@ except IndexError:
 filename = sys.argv[1]
 
 if not os.path.exists(filename):
-    print("File {} with coordinates doesn't exist!!! Exiting".format(filename))
+    print(f"File {filename} with coordinates doesn't exist!!! Exiting")
     exit(1)
 
 
@@ -76,9 +78,9 @@ ProjName=filename[:-4]
 ParamFilename=ProjName+".ini"
 
 if os.path.exists(ParamFilename):
-    PP.loadParams(ParamFilename) 
+    PP.loadParams(ParamFilename)
 else:
-    print("File {} with parameters doesn't exist!!! Using defaults".format(ParamFilename))
+    print(f"File {ParamFilename} with parameters doesn't exist!!! Using defaults")
 
 
 cell =np.array([
@@ -95,8 +97,8 @@ atoms    = basUtils.loadAtoms(filename )
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
-	print(">> LOADING LOCAL atomtypes.ini")  
-	FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+	print(">> LOADING LOCAL atomtypes.ini")
+	FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 else:
 	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
@@ -157,7 +159,7 @@ if todoLJ == 'compute':
     GU.saveVecFieldXsf(ProjName+"_LJ_F",FFLJ, lvec=[[0.0,0.0,0.0],PP.params['gridA'], PP.params['gridB'],PP.params['gridC']]  )
 elif todoLJ == 'read':
     FFLJ, lvec, nDim, head = GU.loadVecFieldXsf( ProjName+"_LJ_F" )
-    
+
 PP.lvec2params( lvec )
 
 
@@ -174,8 +176,7 @@ PP.setTip( kSpring = np.array((K,K,0.0))/-PP.eVA_Nm )
 
 
 
-FF = FFLJ #+ FFEL * Q 
+FF = FFLJ #+ FFEL * Q
 PP.setFF_Pointer( FF )
 
 fzs = PP.relaxedScan3D( xTips, yTips, zTips )
-

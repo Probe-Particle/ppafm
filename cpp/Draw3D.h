@@ -195,4 +195,3 @@ inline void toGLMatCam    ( const Vec3d& pos, const Quat4d& qrot, const Vec3d& s
 }; // namespace Draw3D
 
 #endif
-

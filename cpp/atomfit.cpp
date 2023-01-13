@@ -33,7 +33,7 @@ struct Particle2d{
     Vec2d pos;
     Vec2d vel;
     Vec2d force;
-    
+
     void move(double dt, double damp){
         vel.mul(damp);
         vel.add_mul(force,dt);
@@ -46,7 +46,7 @@ Particle2d point;
 
 inline Vec2d interpolate2DWrap( Vec2d * grid, const Vec2i& n, const Vec2d& r ){
 	int xoff = n.x<<3; int imx = r.x +xoff;	double tx = r.x - imx +xoff;	double mx = 1 - tx;		int itx = (imx+1)%n.x;  imx=imx%n.x;
-	int yoff = n.y<<3; int imy = r.y +yoff;	double ty = r.y - imy +yoff;	double my = 1 - ty;		int ity = (imy+1)%n.y;  imy=imy%n.y; 
+	int yoff = n.y<<3; int imy = r.y +yoff;	double ty = r.y - imy +yoff;	double my = 1 - ty;		int ity = (imy+1)%n.y;  imy=imy%n.y;
 
     //printf( "(%g,%g) (%i/%i,%i/%i) (%g,%g) \n", r.x,r.y, imx,n.x, imy,n.y,   mx, my );
 	Vec2d out;
@@ -74,19 +74,19 @@ void interForce(){
         for(int j=0; j<i; j++){
             Vec2d d = pos[j] - pi;
             double r2 = d.norm2();
-            
+
             //--- LJ like
             /*
             double ir2 = 1/(r2+0.1);
             d.mul( ( C2 + C4*ir2 )*ir2*eps );
             */
-            
+
             if(r2<r2min){
                 d.mul( eps*(r2min-r2) );
                 force[i].sub(d);
                 force[j].add(d);
             }
-            
+
         }
     }
 };
@@ -94,17 +94,17 @@ void interForce(){
 double move(double dt, double damp){
     double F2max = 0;
     for(int i=0; i<natom; i++){
-        
+
         Vec2d& vi       = vel  [i];
         const Vec2d& fi = force[i];
-        
+
         vi.mul(damp);
         vi.add_mul(fi,dt);
         vel[i] = vi;
         pos[i].add_mul(vi,dt);
-        
+
         //pos[i].add_mul(fi,dt);
-        
+
         F2max = fmax(F2max,fi.norm2());
     }
     return F2max;
@@ -141,7 +141,7 @@ bool relaxAtoms( int nstep, double dt, double damp, double F2conv ){
         double F2err = move(dt,damp);
         //printf();
         printf( "itr %i Ferr %g natom %i \n", itr, sqrt(F2err), natom );
-        if(F2err/F2conv>1) return true; 
+        if(F2err/F2conv>1) return true;
     }
     return false;
 }
@@ -168,26 +168,26 @@ int relaxParticlesUnique( int np, Vec2d* poss, int nstep, double dt, double damp
             //printf( "F2err %g \n", F2err );
             relaxParticleNstep(nstep,dt,damp);
             F2err = point.force.norm2();
-            
+
             for(int j : known){
                 Vec2d d = point.pos-poss[j];
                 double r2 = d.norm2();
                 if(r2<r2min){ goto GOTO_1; }
             }
-            
+
             //printf( "ip %i Ferr %g \n", i, F2err );
         }
         known.push_back(i);
         GOTO_1:
         poss[i]=point.pos;
     }
-    
+
     int i=0;
     for( int j : known ){
         poss[i]=poss[j];
         i++;
     }
-    
+
     return known.size();
 }
 
@@ -214,9 +214,9 @@ int relaxParticlesRepel( int np, Vec2d* poss, int nstep, double dt, double damp,
                     point.force.sub(d);
                 }
             }
-            
+
             point.move(dt,damp);
-            
+
             F2err = point.force.norm2();
             if(F2err<F2conv) break;
         }
@@ -228,5 +228,3 @@ int relaxParticlesRepel( int np, Vec2d* poss, int nstep, double dt, double damp,
 
 
 } // extern "C"{
-
-

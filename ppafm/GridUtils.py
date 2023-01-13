@@ -1,21 +1,22 @@
 #!/usr/bin/python
 
-import numpy as np
-from   ctypes import c_int, c_double, c_char_p
 import ctypes
-import os
+from ctypes import c_char_p, c_double, c_int
+
+import numpy as np
+
 from . import cpp_utils
 
-# ============================== 
+# ==============================
 
 bohrRadius2angstroem = 0.5291772109217
-Hartree2eV           = 27.211396132 
+Hartree2eV           = 27.211396132
 
-# ============================== interface to C++ core 
+# ============================== interface to C++ core
 
 cpp_name='GridUtils'
 cpp_utils.make("GU")
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes
 
 # define used numpy array types for interfacing with C++
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
@@ -69,7 +70,7 @@ lib.interpolate_cartesian.restype   = None
 lib.setGridCell.argtypes  = [array2d]
 lib.setGridCell.restype   = None
 setGridCell = lib.setGridCell
-	
+
 #	void setGridN( int * n )
 lib.setGridN.argtypes  = [array1i]
 lib.setGridN.restype   = None
@@ -126,15 +127,15 @@ def dens2Q_CHGCARxsf(data, lvec):
     #Qsum = rho1.sum()
     return Vtot/Ntot
 
-#double cog( double * data_, double* center ){ 	
+#double cog( double * data_, double* center ){
 lib.cog.argtypes = [ array3d, array1d ]
 lib.cog.restype  = c_double
 def cog( data ):
     center = np.zeros(3)
     Hsum = lib.cog( data, center );
     return center, Hsum
-	
-#sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){ 	
+
+#sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){
 lib.sphericalHist.argtypes = [ array3d, array1d, c_double, c_int, array1d, array1d ]
 lib.sphericalHist.restype  = None
 def sphericalHist( data, center, dr, n ):
@@ -142,7 +143,7 @@ def sphericalHist( data, center, dr, n ):
     rs = np.arange( 0, n ) * dr
     lib.sphericalHist( data, center, dr, n, Hs, Ws );
     return rs, Hs, Ws
-    	
+
 # ==============  String / File IO utils
 
 def readUpTo( filein, keyword ):
@@ -198,9 +199,9 @@ XSF_HEAD_DEFAULT = headScan='''
 ATOMS
  1   0.0   0.0   0.0
 
-BEGIN_BLOCK_DATAGRID_3D                        
-   some_datagrid      
-   BEGIN_DATAGRID_3D_whatever 
+BEGIN_BLOCK_DATAGRID_3D
+   some_datagrid
+   BEGIN_DATAGRID_3D_whatever
 '''
 
 def orthoLvec( sh, dd ):
@@ -213,7 +214,7 @@ def orthoLvec( sh, dd ):
 
 
 def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1 ):
-    if verbose > 0: print("Saving xsf", fname) 
+    if verbose > 0: print("Saving xsf", fname)
     fileout = open(fname, 'w')
     if lvec is None:
         if dd is None:
@@ -241,7 +242,7 @@ def loadXSF(fname, xyz_order=False, verbose=True):
 	lvec = readmat(filein, 4)                                       # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
 	filein.close()
 	if verbose: print("nDim xsf (= nDim + [1,1,1] ):", nDim)
-	if verbose: print("GridUtils| Load "+fname+" using readNumsUpTo ")    
+	if verbose: print("GridUtils| Load "+fname+" using readNumsUpTo ")
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(), startline+5)
 	if verbose: print("GridUtils| Done")
 	FF = np.reshape(F, nDim)[:-1,:-1,:-1]
@@ -251,10 +252,10 @@ def loadXSF(fname, xyz_order=False, verbose=True):
 	FF = FF.copy()
 	return FF, lvec, nDim-1, head
 
-def getFromHead_PRIMCOORD( head ): 
+def getFromHead_PRIMCOORD( head ):
 	Zs = None; Rs = None;
-	for i,line in enumerate( head ):			
-		if "PRIMCOORD" in line: 
+	for i,line in enumerate( head ):
+		if "PRIMCOORD" in line:
 			natoms = int( head[i+1].split()[0] )
 			Zs = np.zeros( natoms, dtype='int32' ); Rs = np.zeros( (natoms,3) )
 			for j in range(natoms):
@@ -271,8 +272,8 @@ def getFromHead_PRIMCOORD( head ):
 def loadCUBE(fname, xyz_order=False, verbose=True):
 	filein = open(fname )
 	#First two lines of the header are comments
-	header1=filein.readline()
-	header2=filein.readline()
+	filein.readline()
+	filein.readline()
 	#The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
 	sth0 = filein.readline().split()
 	#The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
@@ -288,7 +289,7 @@ def loadCUBE(fname, xyz_order=False, verbose=True):
 		lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*bohrRadius2angstroem
 		lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*bohrRadius2angstroem
 
-	if verbose: print("GridUtils| Load "+fname+" using readNumsUpTo")  
+	if verbose: print("GridUtils| Load "+fname+" using readNumsUpTo")
 	noline = 6+int(sth0[0])
 	F = readNumsUpTo(fname,nDim.astype(np.int32).copy(),noline)
 	if verbose: print("GridUtils| np.shape(F): ",np.shape(F))
@@ -298,14 +299,14 @@ def loadCUBE(fname, xyz_order=False, verbose=True):
 	if not xyz_order:
 		FF = FF.transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
 
-	nDim=[nDim[2],nDim[1],nDim[0]]                          # Setting up the corresponding dimensions. 
+	nDim=[nDim[2],nDim[1],nDim[0]]                          # Setting up the corresponding dimensions.
 	head = []
 	head.append("BEGIN_BLOCK_DATAGRID_3D \n")
 	head.append("g98_3D_unknown \n")
 	head.append("DATAGRID_3D_g98Cube \n")
 	FF*=Hartree2eV
 	return FF,lvec, nDim, head
-	
+
 #================ WSxM output
 
 def saveWSxM_2D(name_file, data, Xs, Ys):
@@ -396,7 +397,7 @@ def limit_vec_field( FF, Fmax=100.0 ):
 	FR   = np.sqrt( FF[:,:,:,0]**2  +  FF[:,:,:,1]**2  + FF[:,:,:,2]**2 ).flat
 	mask = ( FR > Fmax )
 	FF[:,:,:,0].flat[mask] *= Fmax/FR[mask]
-	FF[:,:,:,1].flat[mask] *= Fmax/FR[mask] 
+	FF[:,:,:,1].flat[mask] *= Fmax/FR[mask]
 	FF[:,:,:,2].flat[mask] *= Fmax/FR[mask]
 
 def save_vec_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT ):
@@ -458,7 +459,7 @@ def load_scal_field(fname, data_format="xsf"):
 
 def multArray( F, nx=2,ny=2 ):
 	'''
-	multiply data array "F" along second two axis (:, :*nx, :*ny ) 
+	multiply data array "F" along second two axis (:, :*nx, :*ny )
 	it is usefull to visualization of images computed in periodic supercell ( PBC )
 	'''
 	nF = np.shape(F)
@@ -468,4 +469,3 @@ def multArray( F, nx=2,ny=2 ):
 		for ix in range(nx):
 			F_[:, iy*nF[1]:(iy+1)*nF[1], ix*nF[2]:(ix+1)*nF[2]  ] = F
 	return F_
-
