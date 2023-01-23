@@ -784,23 +784,23 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Lattice vector A
         lb = QtWidgets.QLabel("A (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
         vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        self.bxPBCAx = _spin_box((-100, 100), 50, 0.1, self.updatePBC, TTips['PBC'], vb)
-        self.bxPBCAy = _spin_box((-100, 100),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
-        self.bxPBCAz = _spin_box((-100, 100),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCAx = _spin_box((-1000, 1000), 50, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCAy = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCAz = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
 
         # Lattice vector B
         lb = QtWidgets.QLabel("B (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
         vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        self.bxPBCBx = _spin_box((-100, 100),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
-        self.bxPBCBy = _spin_box((-100, 100), 50, 0.1, self.updatePBC, TTips['PBC'], vb)
-        self.bxPBCBz = _spin_box((-100, 100),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCBx = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCBy = _spin_box((-1000, 1000), 50, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCBz = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
 
         # Lattice vector C
         lb = QtWidgets.QLabel("C (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
         vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        self.bxPBCCx = _spin_box((-100, 100),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
-        self.bxPBCCy = _spin_box((-100, 100),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
-        self.bxPBCCz = _spin_box((-100, 100), 50, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCCx = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCCy = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCCz = _spin_box((-1000, 1000), 50, 0.1, self.updatePBC, TTips['PBC'], vb)
 
     def _create_df_settings_ui(self):
 
