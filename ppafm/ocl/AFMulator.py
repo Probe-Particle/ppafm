@@ -457,6 +457,7 @@ def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_s
             QZs = [0, 0, 0, 0]
         elif tip == 'pz':
             Qs = [10*charge, -10*charge, 0, 0]
+            Qzs = [0.1, -0.1, 0, 0]
         elif tip == 'dz2':
             Qs = [100*charge, -200*charge, 100*charge, 0]
             QZs = [0.1, 0, -0.1, 0]

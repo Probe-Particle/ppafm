@@ -60,7 +60,7 @@ def relaxedScan3D( xTips, yTips, zTips, trj=None, bF3d=False ):
             rTips[:,0] = trj[:,0] + x
             rTips[:,1] = trj[:,1] + y
             rTips[:,2] = trj[:,2]
-            core.relaxTipStroke( rTips, rs, fs ) / float( len(zTips) )
+            core.relaxTipStroke( rTips, rs, fs )
             if( bF3d ):
                 fzs[:,iy,ix,0] = (fs[:,0].copy()) [::-1]
                 fzs[:,iy,ix,1] = (fs[:,1].copy()) [::-1]

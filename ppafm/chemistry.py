@@ -192,12 +192,6 @@ def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
 #   Atom Types and groups
 # ===========================
 
-def normalizeSpeciesProbs( species ):
-    out = []
-    for l in species:
-        1.0/sum( s[1] for s in l )
-    return out
-
 def speciesToPLevels( species ):
     levels = []
     for l in species:

@@ -23,18 +23,19 @@ cd ..
 
 #python ../../plot_results.py -k 0.5 -q -0.00 -a 2.0 --df
 
-echo ""
-echo "!!! Now trying the same with saving to npy !!!:"
-echo ""
-
-
-python3 ../../generateLJFF.py -i Gr6x6N3hole.xyz -f npy
-python3 ../../relaxed_scan.py -k 0.2 -q -0.00 --tipspline TipRSpline.ini -f npy
-mv Q-0.00K0.20 Q-0.00K0.20-spline
-python3 ../../relaxed_scan.py -k 0.2 -q -0.00 -f npy
-cd Q-0.00K0.20
-../../../plotZcurves.py -p ../curve_points.ini -f npy
-cd ..
-cd Q-0.00K0.20-spline
-../../../plotZcurves.py -p ../curve_points.ini -f npy
-cd ..
+# --- npy not working for now at all !!! issue#53 should be added here!
+#echo ""
+#echo "!!! Now trying the same with saving to npy !!!:"
+#echo ""
+#
+#
+#python3 ../../generateLJFF.py -i Gr6x6N3hole.xyz -f npy
+#python3 ../../relaxed_scan.py -k 0.2 -q -0.00 --tipspline TipRSpline.ini -f npy
+#mv Q-0.00K0.20 Q-0.00K0.20-spline
+#python3 ../../relaxed_scan.py -k 0.2 -q -0.00 -f npy
+#cd Q-0.00K0.20
+#../../../plotZcurves.py -p ../curve_points.ini -f npy
+#cd ..
+#cd Q-0.00K0.20-spline
+#../../../plotZcurves.py -p ../curve_points.ini -f npy
+#cd ..
