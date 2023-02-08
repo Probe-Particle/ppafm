@@ -6,25 +6,25 @@ Simple and efficient **simulation software for high-resolution atomic force micr
 ### Further information
 - Publications: https://github.com/Probe-Particle/ProbeParticleModel#notable-publications-using-probe-particle-model
 - Wiki: https://github.com/Probe-Particle/ProbeParticleModel/wiki
-- API documentation: https://probeparticlemodel.readthedocs.io/en/main
+- API documentation: https://ppafm.readthedocs.io/en/latest/
 
 ## Flavors of PPM
 
-Since 2014 PPM developed into the toolbox of various methodologies adjusted for a particular use case. 
+Since 2014 PPM developed into the toolbox of various methodologies adjusted for a particular use case.
 
 1. **CPU version:** - Original implementation using Python & C/C++. It can simulate a typical AFM experiment (3D stack of AFM images) in ~1 minute. It is the base version for the development of new features and methodology. All available simulation models are implemented in this version, including:
    1. **Point charge electrostatics + Lennard-Jones:** Original fully classical implementation allows the user to set up calculation without any ab-initio input simply by specifying atomic positions, types and charges.
    2. **Hartree-potential electrostatics + Lennard-Jones:** Electrostatics is considerably improved by using Hartree potential from DFT calculation (e.g. LOCPOT from VASP) and using the Quadrupole model for CO-tip. We found this crucial to properly simulate polar molecules (e.g. H2O clusters, carboxylic acids, PTCDA) which exhibit strong electrostatic distortions of AFM images. Thanks to implementation using fast Fourier transform (FFT) this improvement does not increase the computational time (still ~1 minute), as long as the input electrostatic field is accessible.
    3. **Hartree-potential electrostatics + Density overlap:** Further accuracy improvement is achieved when Pauli repulsion between electron shells of atoms is modeled by the overlap between electron density of tip and sample. This repulsive term replaces the repulsive part of Lennard-Jones while the attractive part (C6) remains. This modification considerably improves especially simulation of molecules with electron pairs (-NH-, -OH, =O group), triple bonds and other strongly concentrated electrons. Calculation of the overlap repulsive potential is again accelerated by FFT to achieve minimal computational overhead (2-3 minutes) as long as input densities of tip and sample are available.
 2. **GPU version:** - Version specially designed for generation of training data for machine learning. Implementation using `pyOpenCL` can parallelize the evaluation of forcefield and relaxation of probe-particle positions over hundreds or thousands of stream-processors of the graphical accelerator. Further speed-up is achieved by using hardware accelerated trilinear interpolation of 3D textures available in most GPUs. This allows simulating 10-100 AFM experiments per second on consumer-grade desktop GPU.
-   * GPU version is designed to work in collaboration with machine-learning software for AFM (https://github.com/SINGROUP/ASD-AFM) and use various generators of molecular geometry.    
-3. **GUI @ GPU** - The speed of GPU implementation also allows to make interactive GUI where AFM images of molecules can be updated on the fly (<<0.1s) on a common laptop computer while the user is editing molecular geometry or parameters of the tip. This provides an invaluable tool especially to experimentalists trying to identify and interpret the structure and configuration of molecules in experiments on-the-fly while running the experiment. 
+   * GPU version is designed to work in collaboration with machine-learning software for AFM (https://github.com/SINGROUP/ASD-AFM) and use various generators of molecular geometry.
+3. **GUI @ GPU** - The speed of GPU implementation also allows to make interactive GUI where AFM images of molecules can be updated on the fly (<<0.1s) on a common laptop computer while the user is editing molecular geometry or parameters of the tip. This provides an invaluable tool especially to experimentalists trying to identify and interpret the structure and configuration of molecules in experiments on-the-fly while running the experiment.
 
 #### Other branches
 
 * **master_backup** - Old `master` branch was recently significantly updated and named `main`. For users who miss the old master branch, we provided a backup copy. However, this version is very old and its use is discouraged. If you miss some functionality or are not satisfied with the behavior of current `main` branch please let us know by creating an *issue*.
 * **PhotonMap** - implements the latest developments concerning sub-molecular scanning probe combined with Raman spectroscopy (TERS)y and fluorescent spectroscopy (LSTM).
-* **complex_tip** - Modification of probe-particle model with 2 particles allows a better fit to experimental results at the cost of additional fitting parameters. 
+* **complex_tip** - Modification of probe-particle model with 2 particles allows a better fit to experimental results at the cost of additional fitting parameters.
 
 ## Installation & running examples
 
@@ -35,7 +35,7 @@ All development and testing were done on **linux** OS (mostly ubuntu). For the w
 **Requirements:** Python3 (numpy,matplotlib) & C/C++ compiler (g++,make)
 
 ##### First run: Graphene with point-charges
- 1. clone the repository: `clone https://github.com/Probe-Particle/ProbeParticleModel.git` 
+ 1. clone the repository: `clone https://github.com/Probe-Particle/ProbeParticleModel.git`
  2. compile the C/C++ modules
     * `cd ProbeParticleModel/Graphene`
     * `make`
@@ -49,7 +49,7 @@ All development and testing were done on **linux** OS (mostly ubuntu). For the w
 
 1. navigate to `ProbeParticleModel/examples/PTCDA_Hartree`
 2. run the example `./run.sh`
-   
+
 *NOTE:* Notice that the script `run.sh` downloads and unpack LOCPOT file:
 `wget --no-check-certificate "https://www.dropbox.com/s/18eg89l89npll8x/LOCPOT.xsf.zip"`
 `unzip LOCPOT.xsf.zip`
@@ -78,11 +78,17 @@ Additionally an OpenCL Installable Client Driver (ICD) for your compute device i
 
 Run the GUI application:
 ```sh
-./ppm-gui
+./GUI/ppm-gui
 ```
-  
+
+In order to make the GUI application appear in the system application menu and 'Open with' context menus, link the `ppm-gui` application to a location that is on PATH, e.g. `~/.local/bin`, and install the provided .desktop file. This can be achived by running the following in the repository root:
+```bash
+ln -s `realpath ./GUI/ppm-gui` $HOME/.local/bin
+cp ./GUI/resources/ppm-gui.desktop $HOME/.local/share/applications
+```
+
 ###### Usage:
-* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument using the `-i` or `--input` option. The input file can be a .xyz geometry file (possibly with point charges*), a VASP POSCAR or CONTCAR file, an FHI-aims .in file, or a .xsf or .cube Hartree potential file. Loading large files may take some time.
+* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument. The input file can be a .xyz geometry file (possibly with point charges*), a VASP POSCAR or CONTCAR file, an FHI-aims .in file, or a .xsf or .cube Hartree potential file. Loading large files may take some time.
 * Changing any number in any input box will automatically update the image. There are also presets for some commonly used tip configurations.
 Hover the mouse cursor over any parameter for a tooltip explaining the meaning of the parameter.
 * Click anywhere on the image to bring up a plot of the df approach curve for that point in the image.
@@ -104,8 +110,7 @@ Hover the mouse cursor over any parameter for a tooltip explaining the meaning o
 ### Notable publications using Probe Particle Model
 
 * [Prokop Hapala, Georgy Kichin, Christian Wagner, F. Stefan Tautz, Ruslan Temirov, and Pavel Jelínek, Mechanism of high-resolution STM/AFM imaging with functionalized tips, Phys. Rev. B 90, 085421 – Published 19 August 2014](http://journals.aps.org/prb/abstract/10.1103/PhysRevB.90.085421)
-* [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014,](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101) 
+* [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014,](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101)
 
 ### License
 MIT
-

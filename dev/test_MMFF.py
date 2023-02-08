@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
-import sys
 import os
-import numpy as np
+import sys
 import time
+
+import numpy as np
 
 #import matplotlib.pyplot as plt
 #from mpl_toolkits.mplot3d import Axes3D
@@ -11,15 +12,17 @@ import time
 #from optparse import OptionParser
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
+import matplotlib.pyplot as plt
+
 #import ppafm.PolyCycles  as pcff
 import ppafm.atomicUtils as au
+import ppafm.MMFF as mmff
+
 #import ppafm.chemistry   as ch
 from ppafm import basUtils
 
-import ppafm.MMFF   as mmff
 #include "DynamicOpt.h"
 
-import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":
@@ -64,22 +67,22 @@ if __name__ == "__main__":
     mmff.setupOpt()                                #;print "DEBUG 5"
     pos = mmff.getPos(natom)
     print(" Time to build molecule [s] ", time.clock()-t1)
-    
+
     natom0 =  len(apos)
-    
+
     #            0    1    2
     ne2elem = [ 'C', 'N', 'O' ]
     elems   = [   ne2elem[ne] for ne in aconf[:,1] ]
-    
+
     types = mmff.getAtomTypes(natom)            ;print(types)
     #              0!  -1!   -2=pi   -3=e   -4=H
     type2elem  = [ 'U', 'U'  , 'He',  'Ne', 'H'  ]
-    elems     +=  [  type2elem[-t] for t in types[natom0:] ]  ;print(elems) 
-    
+    elems     +=  [  type2elem[-t] for t in types[natom0:] ]  ;print(elems)
+
     basUtils.saveXYZ("test_MMFF_start.xyz", pos, elems)
-    
+
     #exit()
-    
+
     errs = []
     fout = open("test_MMFF_movie.xyz", "w")
     for i in range(1000):
@@ -89,10 +92,10 @@ if __name__ == "__main__":
         basUtils.saveXYZ( fout, pos, elems )
         if(f<1e-6): break
     fout.close()
-    
+
     plt.plot(errs); plt.yscale('log'); plt.xlim(0,1000); plt.ylim(1e-6,1e+2);
     plt.show()
-    
+
 
     '''
     t1=time.clock()
@@ -100,8 +103,5 @@ if __name__ == "__main__":
     print " Time to relax molecule [s] ", time.clock()-t1
     au.saveXYZ( elems, pos, "test_MMFF.xyz", qs=None )
     '''
-    
+
     print("pos ", pos)
-
-
-

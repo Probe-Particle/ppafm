@@ -148,8 +148,8 @@ class GLView{ public:
     virtual void cameraHUD   ();
     virtual void draw        ();
     virtual void drawHUD     ();
-    
-    
+
+
     ProcedurePointer draw_func_ptr = default_draw;
 
     // ==== Functions
@@ -185,7 +185,7 @@ class GLView{ public:
 
 
 // ================================
-// ======== Implementation 
+// ======== Implementation
 // =================================
 
 // ===================== INIT
@@ -343,7 +343,7 @@ void GLView::updateMousePos ( int x, int y ){
 //    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 //}
 
-void GLView::drawHUD(){ 
+void GLView::drawHUD(){
 }
 
 void GLView::draw   (){
@@ -640,9 +640,3 @@ void set_draw_function( ProcedurePointer draw_func ){
 
 
 #endif
-
-
-
-
-
-

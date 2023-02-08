@@ -29,7 +29,7 @@ inline void pairs2triple( const Vec2i& b1, const Vec2i& b2, Vec3i& tri, bool& fl
 class ForceField{ public:
 
     //static int iDebug = 0;
-    
+
     int  natoms=0, nbonds=0, nang=0, ntors=0;
 
 
@@ -282,11 +282,11 @@ double eval_bonds   (){ Eb=0; for(int i=0; i<nbonds; i++){ Eb+= eval_bond(i);   
 double eval_angles  (){ Ea=0; for(int i=0; i<nang;   i++){ Ea+= eval_angle(i);   } return Ea; }
 double eval_torsions(){ Et=0; for(int i=0; i<ntors;  i++){ Et+= eval_torsion(i); } return Et; }
 
-double eval(){                
-    //cleanAtomForce();   //    move this outside     
-    eval_bonds();              
-    eval_angles();   
-    eval_torsions(); 
+double eval(){
+    //cleanAtomForce();   //    move this outside
+    eval_bonds();
+    eval_angles();
+    eval_torsions();
     //printf( "Eb %g Ea %g Et %g\n", Eb, Ea, Et );
     return Eb+Ea+Et;
 };
@@ -337,7 +337,7 @@ void printAngleParams(){
     }
 }
 
-}; // MMFF 
+}; // MMFF
 
 }; // namespace MMFF
 

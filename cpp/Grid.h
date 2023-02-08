@@ -1,6 +1,6 @@
 
 #ifndef Grid_h
-#define Grid_h 
+#define Grid_h
 
 #include <math.h>
 #include <stdlib.h>
@@ -14,12 +14,12 @@
 
 #define fast_floor_offset  1000
 #define fast_floor( x )    ( ( (int)( x + fast_floor_offset ) ) - fast_floor_offset )
-#define i3D( ix, iy, iz )  ( iz*nxy + iy*nx + ix  ) 
+#define i3D( ix, iy, iz )  ( iz*nxy + iy*nx + ix  )
 
 // ================= CONSTANTS
 
-// Force-Field namespace 
-class GridShape {	
+// Force-Field namespace
+class GridShape {
 	public:
 	Vec3d   pos0;
 	Mat3d   cell;       // lattice vector
@@ -29,11 +29,11 @@ class GridShape {
 
 	inline void setCell( const Mat3d& cell_ ){
 		//n.set( n_ );
-		cell.set( cell_ ); 
+		cell.set( cell_ );
 		dCell.a.set_mul( cell.a, 1.0/n.a );
 		dCell.b.set_mul( cell.b, 1.0/n.b );
 		dCell.c.set_mul( cell.c, 1.0/n.c );
-		dCell.invert_T_to( diCell );	
+		dCell.invert_T_to( diCell );
 	};
 
 	//inline void set( int * n_, double * cell_ ){ set( *(Vec3d*) n_, *(Mat3d*)cell_ ); };
@@ -49,7 +49,7 @@ class GridShape {
 		gpos.b = cpos.dot( diCell.b );
 		gpos.c = cpos.dot( diCell.c );
 	};
-	
+
 	void printCell(){
 	    printf( " n      %i %i %i \n", n.x,        n.y,       n.z        );
 	    printf( " a      %f %f %f \n", cell.a.x,   cell.a.y,   cell.a.z  );
@@ -74,11 +74,11 @@ inline double interpolate3DWrap( double * grid, const Vec3i& n, const Vec3d& r )
 	//double out = grid[ i3D( imx, imy, imz ) ];
 
 	//double out = mz * my * (  ( mx * grid[ i3D( imx, imy, imz ) ] ) +  ( tx * grid[ i3D( itx, imy, imz ) ] );
-	//ty * ( mx * grid[ i3D( imx, ity, imz ) ] ) +  ( tx * grid[ i3D( itx, ity, imz ) ] ) ); 
+	//ty * ( mx * grid[ i3D( imx, ity, imz ) ] ) +  ( tx * grid[ i3D( itx, ity, imz ) ] ) );
 
 	double out = mz * (
 	my * ( ( mx * grid[ i3D( imx, imy, imz ) ] ) +  ( tx * grid[ i3D( itx, imy, imz ) ] ) ) +
-	ty * ( ( mx * grid[ i3D( imx, ity, imz ) ] ) +  ( tx * grid[ i3D( itx, ity, imz ) ] ) ) ) 
+	ty * ( ( mx * grid[ i3D( imx, ity, imz ) ] ) +  ( tx * grid[ i3D( itx, ity, imz ) ] ) ) )
                + tz * (
 	my * ( ( mx * grid[ i3D( imx, imy, itz ) ] ) +  ( tx * grid[ i3D( itx, imy, itz ) ] ) ) +
 	ty * ( ( mx * grid[ i3D( imx, ity, itz ) ] ) +  ( tx * grid[ i3D( itx, ity, itz ) ] ) ) );
@@ -94,7 +94,7 @@ inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r 
 	double mymx = my*mx; double mytx = my*tx; double tymx = ty*mx; double tytx = ty*tx;
 	Vec3d out;
 	out.set_mul( grid[ i3D( imx, imy, imz ) ], mz*mymx );   out.add_mul( grid[ i3D( itx, imy, imz ) ], mz*mytx );
-	out.add_mul( grid[ i3D( imx, ity, imz ) ], mz*tymx );   out.add_mul( grid[ i3D( itx, ity, imz ) ], mz*tytx );    
+	out.add_mul( grid[ i3D( imx, ity, imz ) ], mz*tymx );   out.add_mul( grid[ i3D( itx, ity, imz ) ], mz*tytx );
 	out.add_mul( grid[ i3D( imx, ity, itz ) ], tz*tymx );   out.add_mul( grid[ i3D( itx, ity, itz ) ], tz*tytx );
 	out.add_mul( grid[ i3D( imx, imy, itz ) ], tz*mymx );   out.add_mul( grid[ i3D( itx, imy, itz ) ], tz*mytx );
 	//printf( "DEBUG interpolate3DvecWrap gp(%g,%g,%g) igp(%i,%i,%i)/(%i,%i,%i) %i->%g out(%g,%g,%g) \n", r.x, r.y, r.z, imx, imy, imz, n.x,n.y,n.z, i3D( imx, imy, imz ), grid[ i3D( imx, imy, imz ) ], out.x,out.y,out.z );
@@ -115,17 +115,17 @@ void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void
         std::cout.flush();
         std::cout << '\r';
 		for ( int ib=0; ib<ny; ib++ ){
-	        for ( int ia=0; ia<nx; ia++ ){ 
+	        for ( int ia=0; ia<nx; ia++ ){
 			    int ibuff = i3D( ia, ib, ic );
                 //FUNC( ibuff, {ia,ib,ic}, pos );
                 //pos = pos0 + dCell.c*ic + dCell.b*ib + dCell.a*ia;
                 FUNC( ibuff, pos, args );
                 //printf("(%i,%i,%i)(%3.3f,%3.3f,%3.3f)\n",ia,ib,ic,pos.x,pos.y,pos.z);
 				pos.add( dCell.a );
-			} 
-			pos.add_mul( dCell.a, -nx ); 
+			}
+			pos.add_mul( dCell.a, -nx );
 			pos.add( dCell.b );
-		} 
+		}
 		//exit(0);
 		pos.add_mul( dCell.b, -ny );
 		pos.add( dCell.c );
@@ -136,12 +136,3 @@ void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void
 
 
 #endif
-
-
-
-
-
-
-
-
-

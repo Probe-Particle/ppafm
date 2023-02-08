@@ -39,7 +39,7 @@ TODO:
 #endif
 
 struct AtomRating{
-    int ia; 
+    int ia;
     double val;
     inline bool operator<(const AtomRating& rhs){ return val<rhs.val; }
     inline bool operator>(const AtomRating& rhs){ return val>rhs.val; }
@@ -57,7 +57,7 @@ constexpr static const Vec2d sp_cs0s[] = {
 
 struct FlexibleAtomType{
 
-    Vec3ui8 conf = Vec3ui8{3,1,0}; 
+    Vec3ui8 conf = Vec3ui8{3,1,0};
 
     double rbond0 =  0.8;  // Rbond
     double aMorse =  4.0;  // EBond
@@ -182,7 +182,7 @@ double evalAtom(int ia){
     int    nsigma = conf.a;
     Vec2d cs0 = sp_cs0s[nsigma];
     // -- repulsion between sigma bonds
-    
+
     for(int i=1; i<nsigma; i++){
         const Vec3d& hi = hs[i];
         Vec3d&       fi = fs[i];
@@ -190,7 +190,7 @@ double evalAtom(int ia){
             E += evalCos2  (hi,hs[j],fi,fs[j],type.Kee,cs0.x);
         }
     }
-    
+
     // -- orthogonalization with p-orbitals
     for(int i=nsigma; i<N_BOND_MAX; i++){
         const Vec3d& hi = hs[i];
@@ -330,7 +330,7 @@ double evalPair( int ia, int ja, const FlexiblePairType& type){
         dfi.set_lincomb( -c*de, hi,    de, hj );
         dfj.set_lincomb(    de, hi, -c*de, hj );
 
-        #ifdef DEBUG_GL 
+        #ifdef DEBUG_GL
         glColor3f(1.0,1.0,0.0);
         Draw3D::vecInPos(  dfi, apos[ia]+hi*0.5 );
         Draw3D::vecInPos(  dfj, apos[ja]+hj*0.5 );
@@ -386,8 +386,8 @@ void removeNormalForces(){ for(int i=0; i<norb; i++){ oforce[i].makeOrthoU(opos[
 // }
 
 double eval(){
-    //cleanForce();       
-    normalizeOrbsFast();  
+    //cleanForce();
+    normalizeOrbsFast();
     Eatoms=evalAtoms(); // do this first to orthonormalize ?
     //transferOrbRecoil();
     Epairs=evalPairs();
@@ -409,7 +409,7 @@ void moveGD(double dt, bool bAtom, bool bOrbital ){
 
 void guessBonds(){
     AtomRating neighs[natom*N_BOND_MAX];
-    for(int i=0; i<natom*N_BOND_MAX; i++){ 
+    for(int i=0; i<natom*N_BOND_MAX; i++){
         //neighs[i]=-1; neighr2s[i]=+1e+300;
         neighs[i].ia  = -1;
         neighs[i].val = +1e+300;
@@ -445,7 +445,7 @@ void guessBonds(){
         //     opos[i] = sps[j].p;
         //     printf( "atom[%i] orb[%i] sp(%g,%g,%g|%g) \n", ia, j, sps[j].x, sps[j].y, sps[j].z, sps[j].s );
         // }
-       Vec3d fw,up,lf; 
+       Vec3d fw,up,lf;
        fw.set_sub(apos[neighs[ioff].ia],pi);
        fw.normalize();
        //if      (nsigma==1){
@@ -472,7 +472,7 @@ void guessBonds(){
        }
     }
 
-    //for(int io=0; io<norb; io++){ 
+    //for(int io=0; io<norb; io++){
     //    double d = 0.1;
     //    opos[io].add(randf(-d,d),randf(-d,d),randf(-d,d));
     //}

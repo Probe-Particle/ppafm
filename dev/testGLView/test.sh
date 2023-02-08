@@ -16,4 +16,3 @@ g++ -o testGLV.x test.cpp $LFLAGS -lGLV -lGL -lSDL2
 
 ln -f -s ../../cpp/libGLV.so  ./libGLV.so
 ./testGLV.x
-

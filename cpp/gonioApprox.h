@@ -245,4 +245,3 @@ Vec2 sinCos_iq( in float x )
 */
 
 #endif
-

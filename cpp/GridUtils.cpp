@@ -4,7 +4,7 @@
 
 #include "Grid.h"
 
-#include <locale.h> 
+#include <locale.h>
 
 GridShape gridShape;
 
@@ -18,23 +18,23 @@ namespace Histogram{
     double Htot;
     int    n;
     double dx;
-    double * Hs;   
+    double * Hs;
     double * Ws;
 }
 
 extern "C" {
 
     int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline) {
-    
+
         setlocale( LC_ALL, "C" ); // https://msdn.microsoft.com/en-us/library/x99tb11d(v=vs.71).aspx
         //setlocale( LC_ALL, "" );
         //setlocale( LC_ALL, "En_US" );  // to sove problem with ',' vs '.' caused by PyQt
-        
+
         FILE *f;
         char line[5000]; // define a length which is long enough to store a line
         char *waste;
         int waste2;
-        long i=0, j=0, k=0, tot=0; 
+        long i=0, j=0, k=0, tot=0;
         int nx=dims[0];
         int ny=dims[1];
         int nz=dims[2];
@@ -43,14 +43,14 @@ extern "C" {
         f=fopen(fname, "r");
         if (f==NULL)        {
             fprintf(stderr, "Can't open the file %s", fname);
-            exit (1); 
+            exit (1);
         }
-        for (i=0; i<noline; i++) {   
+        for (i=0; i<noline; i++) {
             waste=fgets(line,5000, f);
         }
 //       printf ("Line: %s", line);
         for  (tot=0, k=0; k<dims[2]; k++){
-            for (j=0; j<dims[1]; j++){   
+            for (j=0; j<dims[1]; j++){
                 for (i=0; i<dims[0]; i++){
                     waste2=fscanf(f,"%lf",&numbers[tot]);
                     //printf ("%20.20lf ", numbers[tot]);
@@ -67,19 +67,19 @@ extern "C" {
     }
 
 	void interpolate_gridCoord( int n, Vec3d * pos_list, double * data, double * out ){
-		for( int i=0; i<n; i++ ){ 
-			out[i] = interpolate3DWrap( data, gridShape.n, pos_list[i] ); 
+		for( int i=0; i<n; i++ ){
+			out[i] = interpolate3DWrap( data, gridShape.n, pos_list[i] );
 		}
 	}
 
 	void interpolateLine_gridCoord( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
         //printf( " interpolateLine n %i  p0 (%g,%g,%g) p1 (%g,%g,%g) \n", n,   p0->x,p0->y,p0->z, p1->x,p1->y,p1->z );
-		Vec3d dp,p; 
+		Vec3d dp,p;
 		dp.set_sub( *p1, *p0 );
 		dp.mul( 1.0d/n );
 		p.set( *p0 );
         //printf( " interpolateLine n %i  p (%g,%g,%g) dp (%g,%g,%g) \n", n,   p.x,p.y,p.z, dp.x,dp.y,dp.z );
-		for( int i=0; i<n; i++ ){ 
+		for( int i=0; i<n; i++ ){
 			//printf( " i, n  %i %i  pi0  %f %f %f  \n", i, n,  p.x,p.y,p.z );
 			out[i] = interpolate3DWrap( data, gridShape.n, p );
 			p.add( dp );
@@ -87,11 +87,11 @@ extern "C" {
 	}
 
 	void interpolateLine_cartes( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
-		Vec3d dp,p; 
+		Vec3d dp,p;
 		dp.set_sub( *p1, *p0 );
 		dp.mul( 1.0d/n );
 		p.set( *p0 );
-		for( int i=0; i<n; i++ ){ 
+		for( int i=0; i<n; i++ ){
 			//printf( " i, n  %i %i  pi0  %f %f %f  \n", i, n,  p.x,p.y,p.z );
 			Vec3d gp;
 			gridShape.cartesian2grid( p, gp );
@@ -112,14 +112,14 @@ extern "C" {
 		pi0.set( *p00 );
 		pi1.set( *p01 );
         //printf( "(%g,%g,%g) (%g,%g,%g) \n",   dpi0.x,dpi0.y,dpi0.z, dpi1.x,dpi1.y,dpi1.z );
-		for( int i=0; i<ni; i++ ){ 
+		for( int i=0; i<ni; i++ ){
 			//printf( " i,ni,nj   %i %i %i  pi0  %f %f %f   pi1  %f %f %f \n", i, ni, nj,     pi0.x,pi0.y,pi0.z,     pi1.x,pi1.y,pi1.z );
 			interpolateLine_gridCoord( nj, &pi0, &pi1, data, out + ( i * nj ) );
 			pi0.add( dpi0 );
 			pi1.add( dpi1 );
 		}
 	}
-	
+
 	// ---------  1D radial histogram
 	inline void acum_sphere_hist( int ibuff, const Vec3d& pos, void * args ){
 	    Vec3d dr;
@@ -140,21 +140,21 @@ extern "C" {
         Histogram::Ws[i+1] += u;
         #endif
     }
-	void sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){ 
-	    data = data_; Histogram::n = n; Histogram::Hs=Hs; Histogram::Ws=Ws; Histogram::dx = dr; Histogram::center.set(center[0],center[1],center[2]); 
+	void sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){
+	    data = data_; Histogram::n = n; Histogram::Hs=Hs; Histogram::Ws=Ws; Histogram::dx = dr; Histogram::center.set(center[0],center[1],center[2]);
         Vec3d r0; r0.set(0.0,0.0,0.0);
         interateGrid3D<acum_sphere_hist>( r0, gridShape.n, gridShape.dCell, NULL );
 	}
-	
-	// ---------  find center of mass 
+
+	// ---------  find center of mass
 	inline void acum_cog( int ibuff, const Vec3d& pos, void * args ){
 	    double h = fabs( data[ibuff] );
-	    Histogram::Htot +=  h; 
+	    Histogram::Htot +=  h;
 	    Histogram::center.add_mul( pos, h );
 	    //printf("acum_cog %i (%g,%g,%g) %g \n", ibuff, pos.x, pos.y, pos.z, h );
 	    //if( ibuff > 100 ) exit(0);
     }
-	double cog( double * data_, double* center ){ 
+	double cog( double * data_, double* center ){
 	    data = data_; Histogram::Htot += 0;  Histogram::center.set(0.0);
         Vec3d r0; r0.set(0.0,0.0,0.0);
         interateGrid3D<acum_cog>( r0, gridShape.n, gridShape.dCell, NULL );
@@ -164,10 +164,10 @@ extern "C" {
 	}
 
 	void interpolate_cartesian( int n, Vec3d * pos_list, double * data, double * out ){
-		for( int i=0; i<n; i++ ){ 
+		for( int i=0; i<n; i++ ){
 			Vec3d gpos;
 			gridShape.cartesian2grid( pos_list[i], gpos );
-			out[i] = interpolate3DWrap( data, gridShape.n, gpos ); 
+			out[i] = interpolate3DWrap( data, gridShape.n, gpos );
 		}
 	}
 
@@ -183,5 +183,3 @@ extern "C" {
 	}
 
 }
-
-

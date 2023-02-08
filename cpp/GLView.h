@@ -1,7 +1,7 @@
 #ifndef  GLView_h
 #define  GLView_h
 
-#include <stdbool.h> 
+#include <stdbool.h>
 
 extern "C" {
 typedef void (*ProcedurePointer)();
@@ -16,9 +16,3 @@ void set_draw_function( ProcedurePointer draw_func );
 } // extern "C" {
 
 #endif
-
-
-
-
-
-

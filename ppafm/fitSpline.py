@@ -1,7 +1,8 @@
-import numpy as np
-from   ctypes import c_int, c_double, c_bool, c_float, c_char_p, c_bool, c_void_p
 import ctypes
-import os
+from ctypes import c_double, c_int
+
+import numpy as np
+
 from . import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
@@ -10,7 +11,7 @@ c_int_p    = ctypes.POINTER(c_int)
 def _np_as(arr,atype):
     if arr is None:
         return None
-    else: 
+    else:
         return arr.ctypes.data_as(atype)
 
 cpp_utils.s_numpy_data_as_call = "_np_as(%s,%s)"
@@ -29,12 +30,12 @@ header_strings = [
 
 cpp_name='fitSpline'
 cpp_utils.make(cpp_name)
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes 
+lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes
 
 # ========= C functions
 
 #  void convolve1D( const int m, const int n, const double* coefs, const double* x, double* y )
-lib.convolve1D.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, c_double_p] 
+lib.convolve1D.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, c_double_p]
 lib.convolve1D.restype   =  None
 def convolve1D(coefs, x, y=None, di=1 ):
     m = len(coefs)/2
@@ -43,23 +44,23 @@ def convolve1D(coefs, x, y=None, di=1 ):
         if di<0:
             y = np.zeros( nx*-di )
             m /= -di
-        else: 
+        else:
             nx/=di
             y = np.zeros( nx )
     print("di ", di, m)
-    lib.convolve1D( m, di, nx, _np_as(coefs,c_double_p), _np_as(x,c_double_p), _np_as(y,c_double_p)) 
+    lib.convolve1D( m, di, nx, _np_as(coefs,c_double_p), _np_as(x,c_double_p), _np_as(y,c_double_p))
     return y
 
 #  void convolve2D_tensorProduct( int nx, int ny, int ord, double* x, double* y, const double* coefs )
-lib.convolve2D_tensorProduct.argtypes  = [c_int, c_int, c_int, c_int, c_double_p, c_double_p, c_double_p] 
+lib.convolve2D_tensorProduct.argtypes  = [c_int, c_int, c_int, c_int, c_double_p, c_double_p, c_double_p]
 lib.convolve2D_tensorProduct.restype   =  None
 def convolve2D_tensorProduct( coefs, x, y=None, di=1 ):
     m = len(coefs)/2
-    nx,ny=x.shape;   
-    if y is None: 
+    nx,ny=x.shape;
+    if y is None:
         if di<0:
             y = np.zeros( (nx*-di,ny*-di) )
-            m /= -di 
+            m /= -di
         else:
             nx/=di; ny/=di;
             y = np.zeros( (nx,ny) )
@@ -68,23 +69,23 @@ def convolve2D_tensorProduct( coefs, x, y=None, di=1 ):
     return y
 
 #  void convolve3D_tensorProduct( int ord, int di, int nx, int ny, int nz, double* coefs, double* x, double* y ){
-lib.convolve3D_tensorProduct.argtypes  = [c_int, c_int, c_int, c_int, c_int, c_double_p, c_double_p, c_double_p] 
+lib.convolve3D_tensorProduct.argtypes  = [c_int, c_int, c_int, c_int, c_int, c_double_p, c_double_p, c_double_p]
 lib.convolve3D_tensorProduct.restype   =  None
 def convolve3D_tensorProduct( coefs, x, y=None, di=1,):
     m = len(coefs)/2
-    nx,ny,nz=x.shape;   
-    if y is None: 
+    nx,ny,nz=x.shape;
+    if y is None:
         if di<0:
             y = np.zeros( (nx*-di,ny*-di,nz*-di) )
-            m /= -di 
+            m /= -di
         else:
             nx/=di; ny/=di; nz/=di;
             y = np.zeros( (nx,ny,nz) )
-    lib.convolve3D_tensorProduct( m, di, nx, ny, nz, _np_as(coefs,c_double_p), _np_as(x,c_double_p), _np_as(y,c_double_p)) 
+    lib.convolve3D_tensorProduct( m, di, nx, ny, nz, _np_as(coefs,c_double_p), _np_as(x,c_double_p), _np_as(y,c_double_p))
     return y
 
 #  void solveCG( int n, double* A, double* b, double* x, int maxIters, double maxErr ){
-lib.solveCG.argtypes  = [c_int, c_double_p, c_double_p, c_double_p, c_int, c_double] 
+lib.solveCG.argtypes  = [c_int, c_double_p, c_double_p, c_double_p, c_int, c_double]
 lib.solveCG.restype   =  None
 def solveCG( A, b, x=None, maxIters=100, maxErr=1e-6 ):
     n = len(b)
@@ -93,7 +94,7 @@ def solveCG( A, b, x=None, maxIters=100, maxErr=1e-6 ):
     return x
 
 #  void fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, double* Yref, double* Ycoefs, int maxIters, double maxErr2 )
-lib.fit_tensorProd_2D.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, c_double_p, c_int, c_double, c_int ] 
+lib.fit_tensorProd_2D.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, c_double_p, c_int, c_double, c_int ]
 lib.fit_tensorProd_2D.restype   =  None
 def fit_tensorProd_2D( BYref=None, Yref=None, basis_coefs=None, kernel_coefs=None, Ycoefs=None, maxIters=100, maxErr=1e-6, di=1, nConvPerCG=1 ):
     if BYref is None:
@@ -108,10 +109,10 @@ def fit_tensorProd_2D( BYref=None, Yref=None, basis_coefs=None, kernel_coefs=Non
     else:
         nker = len(kernel_coefs)
         lib.fit_tensorProd_2D( nker/2, nx, ny, _np_as(kernel_coefs,c_double_p), _np_as(BYref,c_double_p), _np_as(Ycoefs,c_double_p), maxIters, maxErr, nConvPerCG )
-    return Ycoefs 
+    return Ycoefs
 
 #  void fit_tensorProd_3D( int ord, int nx, int ny, int nz, double* kernel_coefs_, double* BYref, double* Ycoefs, int maxIters, double maxErr, int nConvPerCG_ ){
-lib.fit_tensorProd_3D.argtypes  = [c_int, c_int, c_int, c_int, c_double_p, c_double_p, c_double_p, c_int, c_double, c_int] 
+lib.fit_tensorProd_3D.argtypes  = [c_int, c_int, c_int, c_int, c_double_p, c_double_p, c_double_p, c_int, c_double, c_int]
 lib.fit_tensorProd_3D.restype   =  None
 def fit_tensorProd_3D( BYref=None, Yref=None, basis_coefs=None, kernel_coefs=None, Ycoefs=None, maxIters=100, maxErr=1e-6, di=1, nConvPerCG=1  ):
     if BYref is None:
@@ -129,19 +130,19 @@ def fit_tensorProd_3D( BYref=None, Yref=None, basis_coefs=None, kernel_coefs=Non
     return Ycoefs
 
 #  void setup_fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, double* BYref, double* Ycoefs ){
-lib.setup_fit_tensorProd.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_int ] 
+lib.setup_fit_tensorProd.argtypes  = [c_int, c_int, c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_int ]
 lib.setup_fit_tensorProd.restype   =  None
 def setup_fit_tensorProd( kernel_coefs, BYref, Ycoefs, Wprecond=None, nConvPerCG=1 ):
     nx,ny=BYref.shape
     if Wprecond is not None:
         Wprecond = _np_as(Wprecond,c_double_p)
-    return lib.setup_fit_tensorProd( len(kernel_coefs)/2, nx, ny, _np_as(kernel_coefs,c_double_p), _np_as(BYref,c_double_p), _np_as(Ycoefs,c_double_p), Wprecond, nConvPerCG ) 
+    return lib.setup_fit_tensorProd( len(kernel_coefs)/2, nx, ny, _np_as(kernel_coefs,c_double_p), _np_as(BYref,c_double_p), _np_as(Ycoefs,c_double_p), Wprecond, nConvPerCG )
 
 #  void step_fit_tensorProd( ){
-lib.step_fit_tensorProd.argtypes  = [] 
+lib.step_fit_tensorProd.argtypes  = []
 lib.step_fit_tensorProd.restype   =  None
 def step_fit_tensorProd():
-    return lib.step_fit_tensorProd() 
+    return lib.step_fit_tensorProd()
 
 # ========= Python
 
@@ -151,7 +152,7 @@ def upSwizzle( coefs, di ):
     print("cs.shape ", cs.shape)
     for i in range(di):
         csi     = coefs[i::di]
-        cs[i,-len(csi):] = csi 
+        cs[i,-len(csi):] = csi
     return cs.flat.copy()
 
 '''
@@ -170,6 +171,7 @@ corel_coefs = [ 1.72571429e+01,  8.50714286e+00,  8.57142857e-01,  7.14285714e-0
 
 import numpy as np
 
+
 def genSplineBasis( x, x0s ):
     Bs = np.empty( ( len(x0s), len(x) ) )
     for i,x0 in enumerate(x0s):
@@ -180,14 +182,14 @@ def BsplineCubic(x):
     absx = abs(x)
     x2   = x*x
     y                    = ( 3*absx*x2      - 6*x2 + 4)
-    mask=absx>1; y[mask] = ( (-absx*(x2+12) + 6*x2 + 8) )[mask]
+    mask=absx>1; y[mask] = ( -absx*(x2+12) + 6*x2 + 8 )[mask]
     mask=absx>2; y[mask] = 0
     return y
 
 def conv1D(xs,ys):
     nx=len(xs)
     ny=len(ys)
-    ntot=nx+ny+2    
+    ntot=nx+ny+2
     xs_ = np.zeros(ntot)
     ys_ = np.zeros(ntot)
     dnx=(nx/2)+1
@@ -195,7 +197,7 @@ def conv1D(xs,ys):
     print(nx,ny,ntot, dnx, dny, len(xs_[dny:-dny]))
     xs_[dny:-dny-1] = xs
     ys_[dnx:-dnx-1] = ys
-    conv = np.real(np.fft.ifft((np.fft.fft(xs_)*np.fft.fft(ys_))))  # Keep it Real !
+    conv = np.real(np.fft.ifft(np.fft.fft(xs_)*np.fft.fft(ys_)))  # Keep it Real !
     conv = np.roll(conv,ntot/2)
     return conv
 
@@ -220,12 +222,12 @@ if __name__ == "__main__":
 
     coefs5 = np.array( [0.1, 0.2, 0.4, 0.2, 0.1] );
 
-    coefs3_ker = conv1D(coefs3_2,coefs3_2)    ; print(coefs3_ker) ; 
+    coefs3_ker = conv1D(coefs3_2,coefs3_2)    ; print(coefs3_ker) ;
     coefs3_ker_down = coefs3_ker[:-2:2].copy()
     plt.plot( coefs3_2  ,'.-' )
     plt.plot( coefs3_ker,'.-' )
     plt.plot( coefs3_ker_down,'.-' )
-    
+
     # ======  3D
     N = 10
     y3D = np.zeros((N,N,N))
@@ -239,13 +241,13 @@ if __name__ == "__main__":
     print("min,max y3d_conv ", y3D_conv.min(), y3D_conv.max())
 
 
-    iz_view = 4 
+    iz_view = 4
 
     interp = 'nearest'
     plt.figure(figsize=(10,5))
     plt.subplot(1,2,1); plt.imshow( y3D     [iz_view], interpolation=interp ); plt.title("input: coefs"); plt.colorbar()
     plt.subplot(1,2,2); plt.imshow( y3D_conv[iz_view], interpolation=interp ); plt.title("input: Yfunc"); plt.colorbar()
-    
+
     from . import GridUtils as GU
     lvec0 = [[0.,0,0],[1.,0,0],[0.,1,0],[0.,0,1]]
     GU.saveXSF( "y2d.xsf",      y3D, lvec0 )

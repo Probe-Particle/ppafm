@@ -1,15 +1,17 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
 import sys
+
 import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm               as PPU
-import ppafm.GridUtils     as GU
-import ppafm.basUtils      as BU
-from   optparse import OptionParser
+from optparse import OptionParser
+
+import ppafm as PPU
+import ppafm.basUtils as BU
+import ppafm.GridUtils as GU
 
 parser = OptionParser()
 parser.add_option( "-i",     action="store", type="string",  help="input file",                                 default='CHGCAR.xsf' )
@@ -51,7 +53,7 @@ for i in range( natoms ):
 	rec = byType.get(elem,[np.zeros(vals.shape),1])
 	rec[0] += vals
 	rec[1] += 1
-	byType[elem] = rec 
+	byType[elem] = rec
 	dlines.append(vals)
 
 #byType = zip(byType.items())

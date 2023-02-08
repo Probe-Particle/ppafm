@@ -94,7 +94,7 @@ double dotSparse(int n, double* dens, double* sparse, int* jumps ){
 	for(int i=0;i<n;i++){
 		const int ni = jumps[i];
 		if(ni>0){
-			for(int j=0; j<ni; j++){ 
+			for(int j=0; j<ni; j++){
 				sum += (*dens)*(*sparse);
 				dens  ++;
 				sparse++;

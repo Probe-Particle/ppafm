@@ -1,12 +1,15 @@
-
+import os
 import time
+
 import numpy as np
-import matplotlib; matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from PyQt5 import QtCore, QtGui, QtWidgets
 
-from PyQt5 import QtCore, QtWidgets, QtGui
-import os
+from . import GridUtils as GU
+from . import basUtils
+
+import matplotlib; matplotlib.use('Qt5Agg')
 
 def correct_ext(fname, ext ):
     _, fext = os.path.splitext( fname )
@@ -18,7 +21,6 @@ def set_box_value(box, value):
     box.blockSignals(True)
     box.setValue(value)
     box.blockSignals(False)
-    pass
 
 # =======================
 #     FigCanvas
@@ -26,7 +28,7 @@ def set_box_value(box, value):
 
 class FigCanvas(FigureCanvasQTAgg):
     """A canvas that updates itself every second with a new plot."""
-    
+
     def __init__(self, parentWiget=None, parentApp=None,  width=5, height=4, dpi=100 ):
         self.fig  = Figure( figsize=(width, height), dpi=dpi )
         self.axes = self.fig.add_subplot(111)
@@ -42,7 +44,7 @@ class FigCanvas(FigureCanvasQTAgg):
 
 class FigPlot(FigCanvas):
     """A canvas that updates itself every second with a new plot."""
-    
+
     def __init__(self, parentWiget=None, parentApp=None,  width=5, height=4, dpi=100 ):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp,  width=width, height=height, dpi=dpi )
         self.defaultPlotAxis()
@@ -60,8 +62,8 @@ class FigPlot(FigCanvas):
 
 class FigImshow(FigCanvas):
     """A canvas that updates itself every second with a new plot."""
-    cbar = None 
-    
+    cbar = None
+
     def __init__(self, parentWiget=None, parentApp=None,  width=5, height=4, dpi=100, verbose=0):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp,  width=width, height=height, dpi=dpi )
         self.fig.canvas.mpl_connect('button_press_event', self.onclick)
@@ -69,10 +71,10 @@ class FigImshow(FigCanvas):
         self.verbose = verbose
         self.img = None
         self.cbar = None
-            
+
     def plotSlice(self, F_stack , z_slice, title=None, margins=None, grid_selector = 0,
             slice_length = None, points=[], cbar_range=None, extent=None):
-        
+
         F = F_stack[z_slice]
 
         if self.verbose > 0: print("plotSlice F.shape, F.min(), F.max(), margins", F.shape, F.min(), F.max(), margins)
@@ -112,12 +114,12 @@ class FigImshow(FigCanvas):
             self.axes.set_ylabel('y (Å)')
 
         if margins:
-            self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),F.shape[1]-margins[2]-margins[0], F.shape[0]-margins[3]-margins[1], linewidth=2,edgecolor='r',facecolor='none')) 
+            self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),F.shape[1]-margins[2]-margins[0], F.shape[0]-margins[3]-margins[1], linewidth=2,edgecolor='r',facecolor='none'))
             textRes = 'output size: '+str(F.shape[1]-margins[2]-margins[0])+ 'x'+ str(F.shape[0]-margins[3]-margins[1])
             if slice_length:
-                textRes += '     length [A] ='+'{:03.4f}, {:03.4f}'.format(slice_length[0], slice_length[1])  
+                textRes += '     length [A] ='+f'{slice_length[0]:03.4f}, {slice_length[1]:03.4f}'
             self.axes.set_xlabel(textRes)
-        
+
         self.axes.set_title(title)
 
         if (grid_selector > 0):
@@ -127,11 +129,11 @@ class FigImshow(FigCanvas):
 
         self.fig.tight_layout()
         self.draw()
-    
+
     def plotSlice2(self, F_stack, title=None , margins=None, grid_selector = 0, slice_length = None, big_len_image = None, alpha = 0.0):
- 
+
         self.axes.cla()
-        
+
         F = F_stack
         print("plotSlice F.shape, F.min(), F.max() ", F.shape, F.min(), F.max())
 
@@ -140,17 +142,17 @@ class FigImshow(FigCanvas):
         if alpha>0 and big_len_image is not None:
             F = F*(1-alpha) + big_len_image*alpha
         self.img = self.axes.imshow( F, origin='image', cmap='viridis', interpolation='bicubic' )
-       
-        j_min,i_min = np.unravel_index(F.argmin(), F.shape)  
+
+        j_min,i_min = np.unravel_index(F.argmin(), F.shape)
         j_max,i_max = np.unravel_index(F.argmax(), F.shape)
 
         if margins:
-            self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),margins[2], margins[3], linewidth=2,edgecolor='r',facecolor='none')) 
+            self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]),margins[2], margins[3], linewidth=2,edgecolor='r',facecolor='none'))
             textRes = 'output size: '+str(margins[2])+ 'x'+ str(margins[3])
             if slice_length:
-                textRes += '     length [A] ='+'{:03.4f}, {:03.4f}'.format(slice_length[0], slice_length[1])  
+                textRes += '     length [A] ='+f'{slice_length[0]:03.4f}, {slice_length[1]:03.4f}'
             self.axes.set_xlabel(textRes)
-        
+
         self.axes.set_xlim(0,F.shape[1])
         self.axes.set_ylim(0,F.shape[0])
         self.axes.set_title(title)
@@ -199,7 +201,7 @@ class FigImshow(FigCanvas):
 
 class SlaveWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None, title="SlaveWindow" ):
-        super(SlaveWindow, self).__init__(parent)
+        super().__init__(parent)
         self.parent = parent
         self.setWindowTitle( title )
         self.main_widget = QtWidgets.QWidget(self)
@@ -221,14 +223,16 @@ class PlotWindow(SlaveWindow):
         self.btSaveDat =bt= QtWidgets.QPushButton('Save.dat', self); bt.setToolTip('Save Curves to .dat file'); bt.clicked.connect(self.save_dat); vb.addWidget( bt )
         self.btSavePng =bt= QtWidgets.QPushButton('Save.png', self); bt.setToolTip('Save Figure to .png file'); bt.clicked.connect(self.save_png); vb.addWidget( bt )
         self.btClear   =bt= QtWidgets.QPushButton('Clear', self);    bt.setToolTip('Clear figure');             bt.clicked.connect(self.clearFig); vb.addWidget( bt )
-        
+
         vb.addWidget( QtWidgets.QLabel("Xmin (top):") ); self.leXmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
         vb.addWidget( QtWidgets.QLabel("Xmax (bottom):") ); self.leXmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
         vb.addWidget( QtWidgets.QLabel("Ymin:") ); self.leYmin=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
         vb.addWidget( QtWidgets.QLabel("Ymax:") ); self.leYmax=wg=QtWidgets.QLineEdit(); wg.returnPressed.connect(self.setRange); vb.addWidget(wg)
 
     def save_dat(self):
-        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","data files (*.dat)")
+        default_path = os.path.join(os.path.split(self.parent.file_path)[0], 'df_curve.dat')
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save df curve raw data", default_path,
+            "Data files (*.dat)")
         if fileName:
             fileName = correct_ext( fileName, ".dat" )
             print("saving data to :", fileName)
@@ -240,7 +244,9 @@ class PlotWindow(SlaveWindow):
             np.savetxt( fileName, data )
 
     def save_png(self):
-        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"QFileDialog.getSaveFileName()","","Image files (*.png)")
+        default_path = os.path.join(os.path.split(self.parent.file_path)[0], 'df_curve.png')
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save df curve image", default_path,
+            "Image files (*.png)")
         if fileName:
             fileName = correct_ext( fileName, ".png" )
             print("saving image to :", fileName)
@@ -251,7 +257,7 @@ class PlotWindow(SlaveWindow):
         self.figCan.defaultPlotAxis()
         self.figCan.draw()
         self.parent.clearPoints()
-    
+
     def setRange(self):
         xmin=None;xmax=None;ymin=None;ymax=None
         try:
@@ -307,7 +313,7 @@ class GeomEditor(SlaveWindow):
                 grid.addWidget(b, i+1, j)
 
             self.input_boxes.append([bZ, bx, by, bz, bQ])
-        
+
         # Since the box may be very tall, make it scrollable
         self.scroll = QtWidgets.QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -319,7 +325,7 @@ class GeomEditor(SlaveWindow):
 
         xyzs = self.parent.xyzs
         Zs = self.parent.Zs
-        
+
         if self.enable_qs:
             qs = self.parent.qs
         else:
@@ -333,7 +339,7 @@ class GeomEditor(SlaveWindow):
             set_box_value(boxes[2], xyz[1])
             set_box_value(boxes[3], xyz[2])
             set_box_value(boxes[4], q)
-    
+
     def updateParent(self):
         xyzs, Zs, qs = [], [], []
         for boxes in self.input_boxes:
@@ -378,14 +384,14 @@ class LJParamEditor(QtWidgets.QMainWindow):
                 self.grid.addWidget(b, i+1, j+1)
 
             self.input_boxes.append([br, be])
-        
+
         # Since the box is very tall, make it scrollable
         self.scroll = QtWidgets.QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setWidget(self.main_widget)
         self.scroll.setMinimumWidth(250)
         self.setCentralWidget(self.scroll)
-    
+
     def updateParent(self):
         for i, (br, be) in enumerate(self.input_boxes):
             p = self.type_params[i]
@@ -413,22 +419,27 @@ class FFViewer(SlaveWindow):
         components = ['Fx', 'Fy', 'Fz', 'E']
 
         hb = QtWidgets.QHBoxLayout(); self.centralLayout.addLayout(hb)
-        hbl = QtWidgets.QHBoxLayout(); hb.addLayout(hbl)
-        hbr = QtWidgets.QHBoxLayout(); hb.addLayout(hbr)
 
+        hbl = QtWidgets.QHBoxLayout(); hb.addLayout(hbl)
         lb = QtWidgets.QLabel('Component:'); lb.setToolTip(tooltips[0]); hbl.addWidget(lb)
         sl = QtWidgets.QComboBox(); self.slComponent = sl; sl.addItems(components)
         sl.setCurrentIndex(sl.findText(components[2])); sl.currentIndexChanged.connect(self.updateView)
         sl.setToolTip(tooltips[0]); hbl.addWidget(sl)
-        hbl.addStretch(1)
 
+        hbr = QtWidgets.QHBoxLayout(); hb.addLayout(hbr)
         lb = QtWidgets.QLabel('z index:'); lb.setToolTip(tooltips[1]); hbr.addWidget(lb)
         bx = QtWidgets.QSpinBox(); bx.setRange(0, 200); bx.setValue(0)
         bx.valueChanged.connect(self.updateView); bx.setToolTip(tooltips[1])
         hbr.addWidget(bx); self.bxInd = bx
+        hbr.setContentsMargins(10, 0, 10, 0)
 
         hb.addStretch(1)
-        hbr.setContentsMargins(25, 0, 0, 0)
+
+        bt = QtWidgets.QPushButton('Save to file...', self)
+        bt.setToolTip('Save current force field component to a .xsf file.')
+        bt.clicked.connect(self.saveFF)
+        self.btSaveFF = bt; hb.addWidget(bt)
+
 
     def updateFF(self):
 
@@ -436,7 +447,7 @@ class FFViewer(SlaveWindow):
 
         self.FE = afmulator.forcefield.downloadFF()
         self.bxInd.setRange(0, self.FE.shape[2] - 1)
-        
+
         self.z_min = afmulator.lvec[0, 2]
         self.z_step = 1 / afmulator.pixPerAngstrome
 
@@ -448,7 +459,7 @@ class FFViewer(SlaveWindow):
         if self.verbose > 0: print('FFViewer.updateFF', self.FE.shape, iz, self.z_step, self.z_min)
 
     def updateView(self):
-        
+
         t0 = time.perf_counter()
 
         ic = self.slComponent.currentIndex()
@@ -459,3 +470,35 @@ class FFViewer(SlaveWindow):
 
         if self.verbose > 0: print('FFViewer.updateView', ic, iz, data.shape)
         if self.verbose > 1: print('updateView time [s]', time.perf_counter() - t0)
+
+    def saveFF(self):
+
+        comp = self.slComponent.currentText()
+        default_path = os.path.join(os.path.split(self.parent.file_path)[0], f'{comp}.xsf')
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save force field data", default_path,
+            "XCrySDen files (*.xsf)")
+        if not fileName: return
+        ext = os.path.splitext(fileName)[1]
+        if ext != '.xsf':
+            self.parent.status_message('Unsupported file type in force field save file path')
+            print(f'Unsupported file type in force field save file path `{fileName}`')
+            return
+        self.parent.status_message('Saving data...')
+
+        if self.verbose > 0: print(f'Saving force field data to {fileName}...')
+        ic = self.slComponent.currentIndex()
+        data = self.FE.copy()
+        # Clamp large values for easier visualization
+        if ic < 3:
+            GU.limit_vec_field(data, Fmax=1000)
+            data = data[..., ic].transpose(2, 1, 0)
+        else:
+            data = data[..., ic].transpose(2, 1, 0)
+            data[data > 1000] = 1000
+        lvec = self.parent.afmulator.lvec
+        xyzs = self.parent.xyzs - lvec[0]
+        atomstring = basUtils.primcoords2Xsf(self.parent.Zs, xyzs.T, lvec)
+        GU.saveXSF(fileName, data, lvec, head=atomstring, verbose=0)
+
+        if self.verbose > 0: print("Done saving force field data.")
+        self.parent.status_message('Ready')

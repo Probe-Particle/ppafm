@@ -142,7 +142,7 @@ double relaxNsteps( int nsteps, double F2conf, double dt, double damp ){
         if( box .K < 0.0 ){ ff.applyForceBox       ( box.p0, box.p1, box.K, box.fmax); }
         ff.evalTorques();
         F2 = ff.evalF2pos() + ff.evalF2rot(); // some scaling ?
-        //printf( "itr %i F2 %g \n", itr, F2 ); 
+        //printf( "itr %i F2 %g \n", itr, F2 );
         if(F2<F2conf) break;
         ff.moveMDdamp(dt, damp);
         //exit(0);
@@ -188,7 +188,7 @@ void setupChargePos( int natom, double* pos, int* itypes, double* taffins, doubl
     }
     //printf( "to makeCoulombMatrix \n"  );
     makeCoulombMatrix( natom, (Vec3d*)pos, qeq.J );
-    for(int i=0; i<natom; i++ ){  
+    for(int i=0; i<natom; i++ ){
         qeq.qs [i] = 0.0;
         qeq.vqs[i] = 0.0;
         qeq.fqs[i] = 0.0;
@@ -210,5 +210,3 @@ double relaxCharge( int nsteps, double F2conf, double dt, double damp ){
 }
 
 } // extern "C"{
-
-

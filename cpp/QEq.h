@@ -5,7 +5,7 @@
 #include "fastmath_light.h"
 #include "Vec3.h"
 
-// implementation of "ChargeEquilibrationforMolecularDynamicsSimulations" 
+// implementation of "ChargeEquilibrationforMolecularDynamicsSimulations"
 // http://www.sklogwiki.org/SklogWiki/index.php/Charge_equilibration_for_molecular_dynamics_simulations
 // ChargeEquilibrationforMolecularDynamicsSimulations
 // https://pubs.acs.org/doi/pdf/10.1021/j100161a070
@@ -73,18 +73,18 @@ class QEq{ public:
             for(int j=0; j<n; j++){
                 fq += J[i*n+j]*qs[j];
             }
-            fqtot +=fq; 
+            fqtot +=fq;
             fqs[i]=fq;
             //err2 += fq*fq;
         }
-        
+
         // constrain TOTAL CHARGE
         //fqtot*=(Qtot-Qtarget)/n;
         //double invn = 1/n;
         double dfqtot= fqtot/n;
         for(int i=0; i<n; i++){
-            fqs[i] -= dfqtot; 
-            err2   += fqs[i]*fqs[i]; 
+            fqs[i] -= dfqtot;
+            err2   += fqs[i]*fqs[i];
         };
         //printf( "Qtot %g F2 %g fqtot \n", Qtot, err2, fqtot );
         //for(int i=0; i<n; i++){ qs[i]-=qi; };

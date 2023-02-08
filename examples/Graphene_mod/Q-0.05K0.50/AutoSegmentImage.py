@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-import numpy as np
 import sys
-import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
+import numpy as np
 
 '''
 
@@ -46,7 +46,7 @@ Nulls = 1/(1e-8+Fx*Fx  + Fy*Fy)[1:,1:]
 
 plt.subplot(3,2,5); plt.imshow( Nulls ); plt.colorbar()
 
-#concave = Nulls.flat > 
+#concave = Nulls.flat >
 #concave = np.logical_or(concave,Kx.flat < 0)
 #concave = np.logical_or(concave,Ky.flat < 0)
 
@@ -60,7 +60,7 @@ npix = 8
 minNull = 1e+7
 concave = np.logical_or(concave, nullConcave.flat < minNull )
 
-nullConcave.flat[concave] = 0; 
+nullConcave.flat[concave] = 0;
 
 
 plt.subplot(3,2,6); plt.imshow( nullConcave ); plt.colorbar()

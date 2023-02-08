@@ -1,5 +1,5 @@
-
 import numpy as np
+
 
 def CGx( A, x, p, E ):
     Ap  = np.dot( A, p )
@@ -39,7 +39,7 @@ def CG( A, b, x, nMaxIter=10, Econv=1e-10, bPrint=True ):
               break
     return x
 
-'''
+r'''
 #https://en.wikipedia.org/wiki/Conjugate_gradient_method
 
 function [x, k] = cgp(x0, A, C, b, mit, stol, bbA, bbC)
@@ -54,7 +54,7 @@ function [x, k] = cgp(x0, A, C, b, mit, stol, bbA, bbC)
 %      for left-side preconditioner : ha = C \ ra
 %      for right-side preconditioner: ha = C * ra
 % x: Estimated solution point
-% k: Number of iterations done 
+% k: Number of iterations done
 %
 % Example:
 % tic;[x, t] = cgp(x0, S, speye(1), b, 3000, 10^-8, @(Z, o) Z*o, @(Z, o) o);toc

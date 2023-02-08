@@ -4,14 +4,14 @@ static int iDebug = 0;
 #include "PolyCycles.h"
 
 
-double PolyCycleFF::rcyc[9] = 
+double PolyCycleFF::rcyc[9] =
       {0, 0,   // 0,1
        0.500000000, 0.577350269,               // 2,3
        0.707106781, 0.850650808,               // 4,5
        1.00000000 , 1.15238244 ,               // 6,7
        1.30656296                              // 8
     };
-    
+
 
 PolyCycleFF cff;
 
@@ -66,7 +66,7 @@ double relaxNsteps( int kind, int nsteps, double F2conf ){
             }
         }
         break;
-        
+
         case 1: {
             //printf( "kind 1 \n" );
             cff.opt.n=(cff.ncycles+cff.nvert)*2;
@@ -82,7 +82,7 @@ double relaxNsteps( int kind, int nsteps, double F2conf ){
                 //if(F2<F2conf) break;
                 //ff.moveMDdamp(dt, damp);
                 */
-                
+
                 cff.opt.cleanForce();
                 cff.forceCC();
                 //cff.forceVV();
@@ -93,7 +93,7 @@ double relaxNsteps( int kind, int nsteps, double F2conf ){
                 //printf( "itr %i dt %g scale_dt %g f %g \n", itr, cff.opt.dt, cff.opt.scale_dt, f );
             }
         }
-        
+
         break;
     }
     return F2;

@@ -4,26 +4,26 @@
 # https://matplotlib.org/examples/user_interfaces/embedding_in_qt5.html
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
-import sys
 import os
+import sys
 import time
-import random
 import traceback
-import matplotlib; matplotlib.use('Qt5Agg')
-from PyQt5 import QtCore, QtWidgets, QtGui
-import numpy as np
 from enum import Enum
 
+import numpy as np
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+import matplotlib; matplotlib.use('Qt5Agg')
+
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-from ppafm import basUtils
-from ppafm import PPPlot
-from ppafm.ocl.AFMulator import AFMulator
-from ppafm.ocl.field     import HartreePotential, hartreeFromFile
-import ppafm.GridUtils    as GU
-import ppafm.common       as PPU
+import ppafm.common as PPU
+import ppafm.GridUtils as GU
+import ppafm.GUIWidgets as guiw
+import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
-import ppafm.ocl.field    as FFcl
-import ppafm.GUIWidgets   as guiw
+from ppafm import PPPlot, basUtils
+from ppafm.ocl.AFMulator import AFMulator
+from ppafm.ocl.field import HartreePotential, hartreeFromFile
 
 Multipoles = Enum('Multipoles', 's pz dz2')
 
@@ -76,7 +76,7 @@ TTips = {
     'z_steps': 'z steps: Number of steps in the df approach curve in z direction when clicking on image.',
     'df_colorbar': 'Colorbar: Add a colorbar of df values to plot.',
     'df_range': 'df range: Minimum and maximum df value in colorbar.',
-    'df_reset': 'Reset Range: Reset df colorbar range.', 
+    'df_reset': 'Reset Range: Reset df colorbar range.',
     'view_geom': 'View Geometry: Show system geometry in ASE GUI.',
     'edit_geom': 'Edit Geometry: Edit the positions, atomic numbers, and charges of atoms.',
     'view_ff': 'View Forcefield: View forcefield components in a separate window.',
@@ -86,12 +86,12 @@ TTips = {
 def parse_args():
     from argparse import ArgumentParser
     parser = ArgumentParser('ppm')
-    parser.add_argument("-i", "--input", action="store", type=str, help="Input file.")
+    parser.add_argument("input", type=str, nargs='?', help="Input file.")
     parser.add_argument("-d", "--device", action="store", type=int, default=0, help="Choose OpenCL device.")
     parser.add_argument("-l", "--list-devices", action="store_true", help="List available devices and exit.")
     parser.add_argument("-v", '--verbosity', action="store", type=int, default=0, help="Set verbosity level (0-2)")
     args = parser.parse_args()
-    return args.input, args.device, args.list_devices, args.verbosity
+    return args
 
 class ApplicationWindow(QtWidgets.QMainWindow):
 
@@ -100,7 +100,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     df_range = (-1, 1) # min and max df value in colorbar
     fixed_df_range = False # Keep track if df range was fixed by user or should be set automatically
 
-    def __init__(self, input_file, device, verbose=0):
+    def __init__(self, input_file=None, device=0, verbose=0):
 
         self.df = None
         self.xyzs = None
@@ -129,10 +129,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.main_widget = QtWidgets.QWidget(self)
         l00 = QtWidgets.QHBoxLayout(self.main_widget)
         l1 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l1, 2)
-        self.figCan = guiw.FigImshow( parentWiget=self.main_widget, parentApp=self, width=5, height=4, dpi=100, verbose=verbose)
+        self.figCan = guiw.FigImshow( parentWiget=self.main_widget, parentApp=self, width=5, height=4,
+            dpi=100, verbose=verbose)
         l1.addWidget(self.figCan)
-        l0 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(l0, 1)
         self.resize(1100, 600)
+        self.main_widget.setFocus()
+        self.setCentralWidget(self.main_widget)
 
         # -------- Status Bar
         self.status_bar = QtWidgets.QStatusBar()
@@ -141,208 +143,20 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.status_bar.addPermanentWidget(self.dim_label)
         l1.addWidget(self.status_bar)
 
-        # ------- Probe Settings
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("Probe settings"); lb.setAlignment(QtCore.Qt.AlignCenter)
-        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
-        vb.addWidget(lb)
+        # -------- Settings
+        self.l0 = QtWidgets.QVBoxLayout(self.main_widget); l00.addLayout(self.l0, 1)
+        self._create_probe_settings_ui()
+        _separator_line(self.l0)
+        self._create_scan_settings_ui()
+        _separator_line(self.l0)
+        self._create_pbc_settings_ui()
+        _separator_line(self.l0)
+        self._create_df_settings_ui()
+        _separator_line(self.l0)
+        self._create_buttons_ui()
 
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("Preset"); lb.setToolTip(TTips['Preset']); vb.addWidget(lb, 1)
-        sl = QtWidgets.QComboBox(); self.slPreset = sl; sl.addItems(Presets.keys())
-        sl.currentIndexChanged.connect(self.applyPreset); sl.setToolTip(TTips['Preset']); vb.addWidget(sl, 6)
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("Z"); lb.setToolTip(TTips['Z']); vb.addWidget(lb, 1)
-        bx = QtWidgets.QSpinBox(); bx.setRange(0, 200); bx.setValue(8); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['Z']); vb.addWidget(bx, 2); self.bxZPP=bx
-
-        lb = QtWidgets.QLabel("Multipole"); lb.setToolTip(TTips['Multipole']); vb.addWidget(lb, 2)
-        sl = QtWidgets.QComboBox(); self.slMultipole = sl; sl.addItems([m.name for m in Multipoles]); sl.setCurrentIndex(sl.findText(Multipoles.dz2.name))
-        sl.currentIndexChanged.connect(self.updateParams); sl.setToolTip(TTips['Multipole']); vb.addWidget(sl, 2)
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("Q [e]"); lb.setToolTip(TTips['Q']); vb.addWidget(lb, 1)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(-0.1); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['Q']); vb.addWidget(bx, 2); self.bxQ=bx
-        lb = QtWidgets.QLabel("Sigma [Å]"); lb.setToolTip(TTips['Sigma']); vb.addWidget(lb, 2)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 2.0); bx.setValue(0.71); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['Sigma']); vb.addWidget(bx, 2); self.bxS=bx
-        lb = QtWidgets.QLabel("Point Charges"); lb.setToolTip(TTips['point_charge']); vb.addWidget(lb)
-        bx = QtWidgets.QCheckBox(); bx.setChecked(True); bx.toggled.connect(self.updateParams); bx.setToolTip(TTips['point_charge']); vb.addWidget(bx); self.bxPC = bx
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
-        bxr = QtWidgets.QVBoxLayout(); vb.addLayout(bxr, 3)
-
-        lb = QtWidgets.QLabel("K (x,y,R) [N/m]"); lb.setToolTip(TTips['K']); bxl.addWidget(lb)
-        lb = QtWidgets.QLabel("Eq. pos (x,y,R) [Å]"); lb.setToolTip(TTips['EqPos']); bxl.addWidget(lb)
-
-        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.25); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['K']); vb.addWidget(bx); self.bxKx=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,   2.0); bx.setValue(0.25); bx.setSingleStep(0.05); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['K']); vb.addWidget(bx); self.bxKy=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(30.0); bx.setSingleStep(5.0); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['K']); vb.addWidget(bx); self.bxKr=bx
-
-        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['EqPos']); vb.addWidget(bx); self.bxP0x=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0, 2.0); bx.setValue(0.0);  bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['EqPos']); vb.addWidget(bx); self.bxP0y=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange( 0.0, 10.0); bx.setValue(3.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateParams); bx.setToolTip(TTips['EqPos']); vb.addWidget(bx); self.bxP0r=bx
-
-        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
-
-        # ------- Scan settings
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("Scan settings"); lb.setAlignment(QtCore.Qt.AlignCenter)
-        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
-        vb.addWidget(lb)
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
-        bxr = QtWidgets.QVBoxLayout(); vb.addLayout(bxr, 3)
-
-        lb = QtWidgets.QLabel("Scan step (x,y,z)[Å]"); lb.setToolTip(TTips['ScanStep']); bxl.addWidget(lb)
-        lb = QtWidgets.QLabel("Scan size (x,y)[Å]"); lb.setToolTip(TTips['ScanSize']); bxl.addWidget(lb)
-        lb = QtWidgets.QLabel("Scan start (x,y)[Å]"); lb.setToolTip(TTips['ScanStart']); bxl.addWidget(lb)
-
-        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1); bx.setSingleStep(0.02); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStep']); vb.addWidget(bx); self.bxStepX=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1); bx.setSingleStep(0.02); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStep']); vb.addWidget(bx); self.bxStepY=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.02,0.5); bx.setValue(0.1); bx.setSingleStep(0.02); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStep']); vb.addWidget(bx); self.bxStepZ=bx 
-
-        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(1.0, 100.0); bx.setValue(16.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanSize']); vb.addWidget(bx); self.bxSSx=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(1.0, 100.0); bx.setValue(16.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanSize']); vb.addWidget(bx); self.bxSSy=bx
-
-        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0, 100.0); bx.setValue(0.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStart']); vb.addWidget(bx); self.bxSCx=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100.0, 100.0); bx.setValue(0.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['ScanStart']); vb.addWidget(bx); self.bxSCy=bx
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("Distance [Å]"); lb.setToolTip(TTips['Distance']); vb.addWidget(lb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-1000.0, 1000.0); bx.setValue(6.5); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Distance']); vb.addWidget(bx); self.bxD=bx
-        lb = QtWidgets.QLabel("Amplitude [Å]"); lb.setToolTip(TTips['Amplitude']); vb.addWidget(lb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0, 100.0); bx.setValue(1.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['Amplitude']); vb.addWidget(bx); self.bxA=bx
-        lb = QtWidgets.QLabel("Rotation"); lb.setToolTip(TTips['Rotation']); vb.addWidget(lb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-360.0, 360.0); bx.setValue(0.0); bx.setSingleStep(5.0); bx.valueChanged.connect(self.updateRotation); bx.setToolTip(TTips['Rotation']); vb.addWidget(bx); self.bxRot=bx
-
-        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
-
-        # ------- Periodic Boundaries
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("Periodic Boundaries"); lb.setAlignment(QtCore.Qt.AlignCenter)
-        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
-        vb.addWidget(lb)
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("Use periodic boundary conditions"); vb.addWidget(lb)
-        bx = QtWidgets.QCheckBox(); bx.setChecked(True); bx.toggled.connect(self.updatePBC); vb.addWidget(bx); self.bxPBC = bx
-        lb = QtWidgets.QLabel("z periodicity"); lb.setToolTip(TTips['PBCz']); vb.addWidget(lb)
-        bx = QtWidgets.QCheckBox(); bx.setChecked(False); bx.toggled.connect(self.updatePBC); bx.setToolTip(TTips['PBCz']); vb.addWidget(bx); self.bxPBCz = bx
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
-        bxr = QtWidgets.QVBoxLayout(); vb.addLayout(bxr, 3)
-
-        lb = QtWidgets.QLabel("A (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
-        lb = QtWidgets.QLabel("B (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
-        lb = QtWidgets.QLabel("C (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
-        
-        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(50); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCAx=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCAy=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCAz=bx
-
-        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCBx=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(50); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCBy=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCBz=bx
-
-        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCCx=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCCy=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-100, 100); bx.setValue(100); bx.setSingleStep(0.1); bx.valueChanged.connect(self.updatePBC); bx.setToolTip(TTips['PBC']); vb.addWidget(bx); self.bxPBCCz=bx
-
-        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
-
-        # ------- df Conversion
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("df settings"); lb.setAlignment(QtCore.Qt.AlignCenter)
-        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
-        vb.addWidget(lb)
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("k [kN/m]"); lb.setToolTip(TTips['k']); vb.addWidget(lb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,1000.0); bx.setSingleStep(0.1); bx.setValue(1.8);  bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['k']); vb.addWidget(bx); self.bxCant_K=bx
-        lb = QtWidgets.QLabel("f0 [kHz]"); lb.setToolTip(TTips['f0']); vb.addWidget(lb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0,2000.0); bx.setSingleStep(1.0); bx.setValue(30.3); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['f0']); vb.addWidget(bx); self.bxCant_f0=bx
-        lb = QtWidgets.QLabel("z steps"); lb.setToolTip(TTips['z_steps']); vb.addWidget(lb, 1)
-        bx = QtWidgets.QSpinBox(); bx.setRange(1, 50); bx.setValue(10); bx.valueChanged.connect(self.updateScanWindow); bx.setToolTip(TTips['z_steps']); vb.addWidget(bx, 2); self.bxdfst=bx
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb)
-        lb = QtWidgets.QLabel("Colorbar"); lb.setToolTip(TTips['df_colorbar']); vb.addWidget(lb)
-        bx = QtWidgets.QCheckBox(); bx.setChecked(False); bx.toggled.connect(self.updateDfColorbar); bx.setToolTip(TTips['df_colorbar']); vb.addWidget(bx); self.bxDfCbar = bx
-        lb = QtWidgets.QLabel("df range"); lb.setToolTip(TTips['df_range']); vb.addWidget(lb)
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-1000, 1000); bx.setSingleStep(0.1); bx.setValue(-1); bx.valueChanged.connect(self.updateDfRange); bx.setDisabled(True); bx.setToolTip(TTips['df_range']); vb.addWidget(bx); self.bxDfMin=bx
-        bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-1000, 1000); bx.setSingleStep(0.1); bx.setValue(1); bx.valueChanged.connect(self.updateDfRange); bx.setDisabled(True); bx.setToolTip(TTips['df_range']); vb.addWidget(bx); self.bxDfMax=bx
-        bt = QtWidgets.QPushButton('Reset', self); bt.setToolTip(TTips['df_reset']); bt.clicked.connect(self.resetDfRange); bt.setDisabled(True); self.btDfReset = bt; vb.addWidget(bt)
-
-        ln = QtWidgets.QFrame(); l0.addWidget(ln); ln.setFrameShape(QtWidgets.QFrame.HLine); ln.setFrameShadow(QtWidgets.QFrame.Sunken)
-
-        # ------- Buttons
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
-
-        # Geometry viewer
-        bt = QtWidgets.QPushButton('View Geometry', self)
-        bt.setToolTip(TTips['view_geom'])
-        bt.clicked.connect(self.showGeometry)
-        self.btViewGeom = bt; vb.addWidget(bt)
-        
-        # Geometry editor
-        self.geomEditor = None
-        bt = QtWidgets.QPushButton('Edit Geometry', self)
-        bt.setToolTip(TTips['edit_geom'])
-        bt.clicked.connect(self.showGeomEditor)
-        self.btEditAtoms = bt; vb.addWidget(bt)
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
-
-        # Forcefield viewer
-        self.FFViewer = guiw.FFViewer(self, verbose=verbose)
-        bt = QtWidgets.QPushButton('View Forcefield', self)
-        bt.setToolTip(TTips['view_ff'])
-        bt.clicked.connect(self.showFFViewer)
-        self.btViewFF = bt; vb.addWidget(bt)
-        
-        # Forcefield parameter editor
-        self.FFEditor = guiw.LJParamEditor(self.afmulator.typeParams, self)
-        bt = QtWidgets.QPushButton('Edit Forcefield', self)
-        bt.setToolTip(TTips['edit_ff'])
-        bt.clicked.connect(self.FFEditor.show)
-        self.btEditFF = bt; vb.addWidget(bt)
-
-        vb = QtWidgets.QHBoxLayout(); l0.addLayout(vb) 
-        
-        # --- btLoad
-        self.btLoad = QtWidgets.QPushButton('Open File...', self)
-        self.btLoad.setToolTip('Open new file.')
-        self.btLoad.clicked.connect(self.openFile)
-        vb.addWidget( self.btLoad )
-        
-        # --- btSave
-        self.btSave = QtWidgets.QPushButton('Save Image...', self)
-        self.btSave.setToolTip('Save current image.')
-        self.btSave.clicked.connect(self.saveFig)
-        vb.addWidget( self.btSave )
-
-        # --- btSaveW (W- wsxm)
-        self.btSaveW = QtWidgets.QPushButton('Save df...', self)
-        self.btSaveW.setToolTip('Save current frequency shift data.')
-        self.btSaveW.clicked.connect(self.saveDataW)
-        vb.addWidget( self.btSaveW )
-
-        self.main_widget.setFocus()
-        self.setCentralWidget(self.main_widget)
-        self.figCurv = guiw.PlotWindow( parent=self, width=5, height=4, dpi=100)
-
-        self.main_widget.setFocus()
-        self.setCentralWidget(self.main_widget)
+        # Create curve plotting window
+        self.figCurv = guiw.PlotWindow(parent=self, width=5, height=4, dpi=100)
 
         if input_file:
             self.loadInput(input_file)
@@ -545,7 +359,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.bxPBCCx, self.bxPBCCy, self.bxPBCCz
             ]:
             bx.setDisabled(not enabled)
-    
+
     def updatePBC(self):
         '''Get PBC lattice from from input fields and update'''
         lvec = np.array([
@@ -595,7 +409,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def loadInput(self, file_path):
         '''Load input file and show result
-        
+
         Arguments:
             file_path: str. File to load. Has to be POSCAR, .in, .xsf, .cube, or .xyz.
         '''
@@ -646,6 +460,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.updateParams()
 
         # Set current file path to window title
+        self.file_path = file_path
         if len(file_path) > 80: file_path = f'...{file_path[-80:]}'
         self.setWindowTitle(f'{file_path} - Probe Particle Model')
 
@@ -673,7 +488,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         try:
             from ase import Atoms
             from ase.visualize import view
-        except ModuleNotFoundError as e:
+        except ModuleNotFoundError:
             print('No ase installation detected. Cannot show molecule geometry.')
             if self.verbose > 1: traceback.print_exc()
             return
@@ -686,10 +501,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if file_path:
             self.status_message('Opening file...')
             self.loadInput(file_path)
-        
+
     def saveFig(self):
         if self.xyzs is None: return
-        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self,"Save image","","Image files (*.png)")
+        default_path = os.path.join(os.path.split(self.file_path)[0], 'df.png')
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save image", default_path,
+            "Image files (*.png)")
         if fileName:
             self.status_message('Saving image...')
             fileName = guiw.correct_ext( fileName, ".png" )
@@ -699,7 +516,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def saveDataW(self):
         if self.df is None: return
-        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save df", "df.xsf",
+        default_path = os.path.join(os.path.split(self.file_path)[0], 'df.xsf')
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save df", default_path,
             "XCrySDen files (*.xsf);; WSxM files (*.xyz)")
         if not fileName: return
         ext = os.path.splitext(fileName)[1]
@@ -767,7 +585,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.figCan.plotSlice(data, -1, title=title, points=self.df_points, cbar_range=cbar_range,
                 extent=extent)
 
-        except Exception as e:
+        except Exception:
             print("Failed to plot df slice")
             traceback.print_exc()
 
@@ -823,14 +641,293 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         self.updateScanWindow()
 
+    def _create_probe_settings_ui(self):
+
+        # Title
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Probe settings"); lb.setAlignment(QtCore.Qt.AlignCenter)
+        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
+        vb.addWidget(lb)
+
+        # Presets
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Preset"); lb.setToolTip(TTips['Preset']); vb.addWidget(lb, 1)
+        self.slPreset = QtWidgets.QComboBox()
+        self.slPreset.addItems(Presets.keys())
+        self.slPreset.currentIndexChanged.connect(self.applyPreset)
+        self.slPreset.setToolTip(TTips['Preset'])
+        vb.addWidget(self.slPreset, 6)
+
+        # Tip type
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Z"); lb.setToolTip(TTips['Z']); vb.addWidget(lb, 1)
+        self.bxZPP = QtWidgets.QSpinBox()
+        self.bxZPP.setRange(0, 200); self.bxZPP.setValue(8)
+        self.bxZPP.valueChanged.connect(self.updateParams)
+        self.bxZPP.setToolTip(TTips['Z'])
+        self.bxZPP.setKeyboardTracking(False)
+        vb.addWidget(self.bxZPP, 2)
+
+        # Charge multipole
+        lb = QtWidgets.QLabel("Multipole"); lb.setToolTip(TTips['Multipole']); vb.addWidget(lb, 2)
+        self.slMultipole = QtWidgets.QComboBox()
+        self.slMultipole.addItems([m.name for m in Multipoles])
+        self.slMultipole.setCurrentIndex(self.slMultipole.findText(Multipoles.dz2.name))
+        self.slMultipole.currentIndexChanged.connect(self.updateParams)
+        self.slMultipole.setToolTip(TTips['Multipole'])
+        vb.addWidget(self.slMultipole, 2)
+
+        # Charge magnitude and sigma
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Q [e]"); lb.setToolTip(TTips['Q']); vb.addWidget(lb, 1)
+        self.bxQ = _spin_box((-2.0, 2.0), -0.1, 0.05, self.updateParams, TTips['Q'], vb, 2)
+        lb = QtWidgets.QLabel("Sigma [Å]"); lb.setToolTip(TTips['Sigma']); vb.addWidget(lb, 2)
+        self.bxS = _spin_box((0.0, 2.0), 0.71, 0.05, self.updateParams, TTips['Sigma'], vb, 2)
+
+        # Point charge toggle
+        lb = QtWidgets.QLabel("Point Charges"); lb.setToolTip(TTips['point_charge']); vb.addWidget(lb)
+        self.bxPC = QtWidgets.QCheckBox()
+        self.bxPC.setChecked(True)
+        self.bxPC.toggled.connect(self.updateParams)
+        self.bxPC.setToolTip(TTips['point_charge'])
+        vb.addWidget(self.bxPC)
+
+        # Left-right divide for labels and input boxes
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
+        bxr = QtWidgets.QVBoxLayout(); vb.addLayout(bxr, 3)
+
+        # Spring constants
+        lb = QtWidgets.QLabel("K (x,y,R) [N/m]"); lb.setToolTip(TTips['K']); bxl.addWidget(lb)
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        self.bxKx = _spin_box((0.0,   2.0),  0.25, 0.05, self.updateParams, TTips['K'], vb)
+        self.bxKy = _spin_box((0.0,   2.0),  0.25, 0.05, self.updateParams, TTips['K'], vb)
+        self.bxKr = _spin_box((0.0, 100.0), 30.00, 5.00, self.updateParams, TTips['K'], vb)
+
+        # Probe equilibrium position
+        lb = QtWidgets.QLabel("Eq. pos (x,y,R) [Å]"); lb.setToolTip(TTips['EqPos']); bxl.addWidget(lb)
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        self.bxP0x = _spin_box((-2.0,  2.0), 0.0, 0.1, self.updateParams, TTips['EqPos'], vb)
+        self.bxP0y = _spin_box((-2.0,  2.0), 0.0, 0.1, self.updateParams, TTips['EqPos'], vb)
+        self.bxP0r = _spin_box(( 0.0, 10.0), 3.0, 0.1, self.updateParams, TTips['EqPos'], vb)
+
+    def _create_scan_settings_ui(self):
+
+        # Title
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Scan settings"); lb.setAlignment(QtCore.Qt.AlignCenter)
+        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
+        vb.addWidget(lb)
+
+        # Left-right divide for labels and input boxes
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
+        bxr = QtWidgets.QVBoxLayout(); vb.addLayout(bxr, 3)
+
+        # Scan step
+        lb = QtWidgets.QLabel("Scan step (x,y,z)[Å]"); lb.setToolTip(TTips['ScanStep']); bxl.addWidget(lb)
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        self.bxStepX = _spin_box((0.02, 0.5), 0.1, 0.02, self.updateScanWindow, TTips['ScanStep'], vb)
+        self.bxStepY = _spin_box((0.02, 0.5), 0.1, 0.02, self.updateScanWindow, TTips['ScanStep'], vb)
+        self.bxStepZ = _spin_box((0.02, 0.5), 0.1, 0.02, self.updateScanWindow, TTips['ScanStep'], vb)
+
+        # Scan size
+        lb = QtWidgets.QLabel("Scan size (x,y)[Å]"); lb.setToolTip(TTips['ScanSize']); bxl.addWidget(lb)
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        self.bxSSx = _spin_box((1, 100), 16, 0.1, self.updateScanWindow, TTips['ScanSize'], vb)
+        self.bxSSy = _spin_box((1, 100), 16, 0.1, self.updateScanWindow, TTips['ScanSize'], vb)
+
+        # Scan start
+        lb = QtWidgets.QLabel("Scan start (x,y)[Å]"); lb.setToolTip(TTips['ScanStart']); bxl.addWidget(lb)
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        self.bxSCx = _spin_box((-100, 100), 0, 0.1, self.updateScanWindow, TTips['ScanStart'], vb)
+        self.bxSCy = _spin_box((-100, 100), 0, 0.1, self.updateScanWindow, TTips['ScanStart'], vb)
+
+        # Distance, amplitude, rotation
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Distance [Å]"); lb.setToolTip(TTips['Distance']); vb.addWidget(lb)
+        self.bxD = _spin_box((-1000, 1000), 6.5, 0.1, self.updateScanWindow, TTips['Distance'], vb)
+        lb = QtWidgets.QLabel("Amplitude [Å]"); lb.setToolTip(TTips['Amplitude']); vb.addWidget(lb)
+        self.bxA = _spin_box((0.0, 100), 1.0, 0.1, self.updateScanWindow, TTips['Amplitude'], vb)
+        lb = QtWidgets.QLabel("Rotation"); lb.setToolTip(TTips['Rotation']); vb.addWidget(lb)
+        self.bxRot = _spin_box((-360.0, 360.0), 0.0, 5.0, self.updateRotation, TTips['Rotation'], vb)
+
+    def _create_pbc_settings_ui(self):
+
+        # Title
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Periodic Boundaries"); lb.setAlignment(QtCore.Qt.AlignCenter)
+        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
+        vb.addWidget(lb)
+
+        # Toggle PBC
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        lb = QtWidgets.QLabel("Use periodic boundary conditions"); lb.setToolTip(TTips['PBC']); vb.addWidget(lb)
+        self.bxPBC = QtWidgets.QCheckBox()
+        self.bxPBC.setChecked(True)
+        self.bxPBC.toggled.connect(self.updatePBC)
+        vb.addWidget(self.bxPBC)
+
+        # Toggle z PBC
+        lb = QtWidgets.QLabel("z periodicity"); lb.setToolTip(TTips['PBCz']); vb.addWidget(lb)
+        self.bxPBCz = QtWidgets.QCheckBox()
+        self.bxPBCz.setChecked(False)
+        self.bxPBCz.toggled.connect(self.updatePBC)
+        self.bxPBCz.setToolTip(TTips['PBCz'])
+        vb.addWidget(self.bxPBCz)
+
+        # Left-right divide for labels and input boxes
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        bxl = QtWidgets.QVBoxLayout(); vb.addLayout(bxl, 1)
+        bxr = QtWidgets.QVBoxLayout(); vb.addLayout(bxr, 3)
+
+        # Lattice vector A
+        lb = QtWidgets.QLabel("A (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        self.bxPBCAx = _spin_box((-1000, 1000), 50, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCAy = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCAz = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+
+        # Lattice vector B
+        lb = QtWidgets.QLabel("B (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        self.bxPBCBx = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCBy = _spin_box((-1000, 1000), 50, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCBz = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+
+        # Lattice vector C
+        lb = QtWidgets.QLabel("C (x, y, z) [Å]"); lb.setToolTip(TTips['PBC']); bxl.addWidget(lb)
+        vb = QtWidgets.QHBoxLayout(); bxr.addLayout(vb)
+        self.bxPBCCx = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCCy = _spin_box((-1000, 1000),  0, 0.1, self.updatePBC, TTips['PBC'], vb)
+        self.bxPBCCz = _spin_box((-1000, 1000), 50, 0.1, self.updatePBC, TTips['PBC'], vb)
+
+    def _create_df_settings_ui(self):
+
+        # Title
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        lb = QtWidgets.QLabel("df settings"); lb.setAlignment(QtCore.Qt.AlignCenter)
+        font = lb.font(); font.setPointSize(12); lb.setFont(font); lb.setMaximumHeight(50)
+        vb.addWidget(lb)
+
+        # Cantilevel settings
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        lb = QtWidgets.QLabel("k [kN/m]"); lb.setToolTip(TTips['k']); vb.addWidget(lb)
+        self.bxCant_K = _spin_box((0, 1000), 1.8, 0.1, self.updateScanWindow, TTips['k'], vb)
+        lb = QtWidgets.QLabel("f0 [kHz]"); lb.setToolTip(TTips['f0']); vb.addWidget(lb)
+        self.bxCant_f0 = _spin_box((0, 1000), 30.3, 1.0, self.updateScanWindow, TTips['k'], vb)
+
+        # Number of z-steps in df curve
+        lb = QtWidgets.QLabel("z steps"); lb.setToolTip(TTips['z_steps']); vb.addWidget(lb, 1)
+        self.bxdfst = QtWidgets.QSpinBox()
+        self.bxdfst.setRange(1, 50); self.bxdfst.setValue(10)
+        self.bxdfst.valueChanged.connect(self.updateScanWindow)
+        self.bxdfst.setToolTip(TTips['z_steps'])
+        self.bxdfst.setKeyboardTracking(False)
+        vb.addWidget(self.bxdfst, 2)
+
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+
+        # Colorbar toggle
+        lb = QtWidgets.QLabel("Colorbar"); lb.setToolTip(TTips['df_colorbar']); vb.addWidget(lb)
+        self.bxDfCbar = QtWidgets.QCheckBox()
+        self.bxDfCbar.setChecked(False)
+        self.bxDfCbar.toggled.connect(self.updateDfColorbar)
+        self.bxDfCbar.setToolTip(TTips['df_colorbar'])
+        vb.addWidget(self.bxDfCbar)
+
+        # Colorbar range
+        lb = QtWidgets.QLabel("df range"); lb.setToolTip(TTips['df_range']); vb.addWidget(lb)
+        self.bxDfMin = _spin_box((-1000, 1000), -1.0, 0.1, self.updateDfRange, TTips['df_range'], vb)
+        self.bxDfMax = _spin_box((-1000, 1000),  1.0, 0.1, self.updateDfRange, TTips['df_range'], vb)
+        self.bxDfMin.setDisabled(True)
+        self.bxDfMax.setDisabled(True)
+
+        # Colorbar range reset button
+        self.btDfReset = QtWidgets.QPushButton('Reset', self)
+        self.btDfReset.setToolTip(TTips['df_reset'])
+        self.btDfReset.clicked.connect(self.resetDfRange)
+        self.btDfReset.setDisabled(True)
+        vb.addWidget(self.btDfReset)
+
+    def _create_buttons_ui(self):
+
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+
+        # Geometry viewer
+        bt = QtWidgets.QPushButton('View Geometry', self)
+        bt.setToolTip(TTips['view_geom'])
+        bt.clicked.connect(self.showGeometry)
+        self.btViewGeom = bt; vb.addWidget(bt)
+
+        # Geometry editor
+        self.geomEditor = None
+        bt = QtWidgets.QPushButton('Edit Geometry', self)
+        bt.setToolTip(TTips['edit_geom'])
+        bt.clicked.connect(self.showGeomEditor)
+        self.btEditAtoms = bt; vb.addWidget(bt)
+
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+
+        # Forcefield viewer
+        self.FFViewer = guiw.FFViewer(self, verbose=self.verbose)
+        bt = QtWidgets.QPushButton('View Forcefield', self)
+        bt.setToolTip(TTips['view_ff'])
+        bt.clicked.connect(self.showFFViewer)
+        self.btViewFF = bt; vb.addWidget(bt)
+
+        # Forcefield parameter editor
+        self.FFEditor = guiw.LJParamEditor(self.afmulator.typeParams, self)
+        bt = QtWidgets.QPushButton('Edit Forcefield', self)
+        bt.setToolTip(TTips['edit_ff'])
+        bt.clicked.connect(self.FFEditor.show)
+        self.btEditFF = bt; vb.addWidget(bt)
+
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+
+        # --- btLoad
+        self.btLoad = QtWidgets.QPushButton('Open File...', self)
+        self.btLoad.setToolTip('Open new file.')
+        self.btLoad.clicked.connect(self.openFile)
+        vb.addWidget( self.btLoad )
+
+        # --- btSave
+        self.btSave = QtWidgets.QPushButton('Save Image...', self)
+        self.btSave.setToolTip('Save current image.')
+        self.btSave.clicked.connect(self.saveFig)
+        vb.addWidget( self.btSave )
+
+        # --- btSaveW (W- wsxm)
+        self.btSaveW = QtWidgets.QPushButton('Save df...', self)
+        self.btSaveW.setToolTip('Save current frequency shift data.')
+        self.btSaveW.clicked.connect(self.saveDataW)
+        vb.addWidget( self.btSaveW )
+
+def _separator_line(parent):
+    ln = QtWidgets.QFrame()
+    ln.setFrameShape(QtWidgets.QFrame.HLine)
+    ln.setFrameShadow(QtWidgets.QFrame.Sunken)
+    parent.addWidget(ln)
+    return ln
+
+def _spin_box(value_range, value, step, connect_func, tool_tip, parent, stretch=2):
+    bx = QtWidgets.QDoubleSpinBox()
+    bx.setRange(value_range[0], value_range[1])
+    bx.setValue(value)
+    bx.setSingleStep(step)
+    bx.valueChanged.connect(connect_func)
+    bx.setToolTip(tool_tip)
+    bx.setKeyboardTracking(False)
+    parent.addWidget(bx, stretch)
+    return bx
+
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
-    input_file, device, list_devices, verbosity = parse_args()
-    if list_devices:
+    args = parse_args()
+    if args.list_devices:
         print('\nAvailable OpenCL platforms:')
         oclu.print_platforms()
         sys.exit(0)
-    aw = ApplicationWindow(input_file, device, verbosity)
+    aw = ApplicationWindow(args.input, args.device, args.verbosity)
     aw.show()
     sys.exit(qApp.exec_())
-

@@ -1,9 +1,8 @@
 #!/usr/bin/python
 
-import sys
-import time
-import pyopencl as cl
+
 import numpy as np
+import pyopencl as cl
 
 CL_SOURCE = '''
 //__constant sampler_t sampler_1 = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
@@ -34,7 +33,7 @@ def makeTestGrid( pmin=(-1.0,-1.0,-1.0), pmax=(1.0,1.0,1.0), n=(100,100,100) ):
     return np.sin(R2*10).astype(np.float32).copy()
 
 plats   = cl.get_platforms()
-ctx     = cl.Context(properties=[(cl.context_properties.PLATFORM, plats[0])], devices=None)  
+ctx     = cl.Context(properties=[(cl.context_properties.PLATFORM, plats[0])], devices=None)
 #ctx    = cl.create_some_context()
 queue   = cl.CommandQueue(ctx)
 prg     = cl.Program(ctx, CL_SOURCE).build()
@@ -57,6 +56,7 @@ F = makeTestGrid( )
 print("F.shape", F.shape)
 print(F[10,10,:])
 import matplotlib.pyplot as plt
+
 plt.imshow(F[0,:,:]); plt.colorbar(); plt.show()
 
 ts        = np.linspace(0.0,1.0,100)
@@ -75,5 +75,5 @@ prg.getValInPoints( queue, (len(ts),), None, *(cl_ImgIn, cl_poss, cl_vals) )
 #prg.test_kernel( queue, (len(ts),), None, *(cl_poss, cl_vals) )
 cl.enqueue_copy( queue, vals, cl_vals )
 queue.finish()
-    
+
 print(vals)

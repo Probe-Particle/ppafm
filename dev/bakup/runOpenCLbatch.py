@@ -5,30 +5,28 @@
 # embedding_in_qt5.py --- Simple Qt5 application embedding matplotlib canvases
 
 
-import sys
-import os
 import time
-import random
-import matplotlib;
-import numpy as np
 from enum import Enum
 
-import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
+import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
+import pyopencl as cl
 
-#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL") 
+import ppafm.common as PPU
+import ppafm.cpp_utils as cpp_utils
+import ppafm.GridUtils as GU
+import ppafm.ocl.field as FFcl
+import ppafm.ocl.oclUtils as oclu
+import ppafm.ocl.relax as oclr
+from ppafm import PPPlot, basUtils
+
+import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
+
+#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 #import ppafm.GridUtils as GU
 
-from   ppafm import basUtils
-from   ppafm import PPPlot 
-import ppafm.GridUtils as GU
-import ppafm.common    as PPU
-import ppafm.cpp_utils as cpp_utils
 
-import pyopencl as cl
-import ppafm.ocl.oclUtils as oclu
-import ppafm.ocl.field    as FFcl
-import ppafm.ocl.relax    as oclr
 
 Modes     = Enum( 'Modes',    'LJel LJel_pbc LJQ' )
 DataViews = Enum( 'DataViews','FFin FFout df FFel FFpl' )
@@ -56,12 +54,12 @@ rmax = np.array( [ 20.0, 20.0, 20.0 ] )
 rSliceAbove = np.array( [ 0.0, 0.0, 7.0 ] )
 islices = [-2,0,+2,+4,+6,+8]
 
-stiffness    = np.array([0.24,0.24,0.0, 30.0 ], dtype=np.float32 ); 
+stiffness    = np.array([0.24,0.24,0.0, 30.0 ], dtype=np.float32 );
 stiffness/=-16.0217662;
 print("stiffness ", stiffness)
 
-dpos0    = np.array([0.0,0.0,0.0,4.0], dtype=np.float32 ); 
-dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 ); 
+dpos0    = np.array([0.0,0.0,0.0,4.0], dtype=np.float32 );
+dpos0[2] = -np.sqrt( dpos0[3]**2 - dpos0[0]**2 + dpos0[1]**2 );
 print("dpos0 ", dpos0)
 
 # === Functions
@@ -74,15 +72,15 @@ def maxAlongDir(atoms, hdir):
     return imin, xdir[imin][0]
 
 #def getOptSlice( atoms, hdir ):
-#    
+#
 
 def loadSpecies(fname):
     try:
-        with open(fname, 'r') as f:  
-            str_Species = f.read(); 
+        with open(fname) as f:
+            str_Species = f.read();
     except:
         print("defaul atomtypes.ini")
-        with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini', 'r') as f:  
+        with open(cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini') as f:
             str_Species = f.read();
     str_Species = "\n".join( "\t".join( l.split()[:5] )  for l in str_Species.split('\n')  )
     print("str_Species")
@@ -101,7 +99,7 @@ def updateFF_Morse( ff_args, iZPP, xyzs, Zs, qs, typeParams, pbcnx=0, func_runFF
     atoms   = FFcl.xyzq2float4(xyzs,qs);
     REAs    = PPU.getAtomsREA( iZPP, Zs, typeParams, alphaFac=alphaFac )
     REAs    = REAs.astype(np.float32)
-    ff_args = FFcl.updateArgsMorse( ff_args, atoms, REAs, poss ) 
+    ff_args = FFcl.updateArgsMorse( ff_args, atoms, REAs, poss )
 
 def evalFFatoms_LJC( atoms, cLJs, poss, func_runFF=FFcl.runLJC ):
     ff_args = FFcl.initArgsLJC( atoms, cLJs, poss )
@@ -120,8 +118,8 @@ def evalFF_LJC( iZPP, xyzs, Zs, qs, poss, typeParams, func_runFF=FFcl.runLJC ):
 
 if __name__ == "__main__":
     typeParams = loadSpecies('atomtypes.ini')
-    lvec       = np.genfromtxt('cel.lvs') 
-    lvec       = np.insert( lvec, 0, 0.0, axis=0); 
+    lvec       = np.genfromtxt('cel.lvs')
+    lvec       = np.insert( lvec, 0, 0.0, axis=0);
     print("lvec ", lvec)
     invCell = oclr.getInvCell(lvec)
     print("invCell ", invCell)
@@ -148,7 +146,7 @@ if __name__ == "__main__":
             Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=lvec[1], bvec=lvec[2] )
             #Zs, xyzs, qs = PBCAtoms3D( Zs, xyzs, qs, lvec[1:], npbc=[1,1,1] )
         atoms = FFcl.xyzq2float4(xyzs,qs)
-        
+
         hdir  = np.array([0.0,0.0,1.0])
         imax,xdirmax  = maxAlongDir(atoms, hdir)
         izslice = int( round( ( rmax[2] - xdirmax - rSliceAbove[2] )/-oclr.DEFAULT_dTip[2] ) )
@@ -159,11 +157,11 @@ if __name__ == "__main__":
 
         t1ff = time.clock();
         FF    = evalFFatoms_LJC( atoms, cLJs, poss, func_runFF=FFcl.runLJC )
-        FEin =  FF[:,:,:,:4] + Q*FF[:,:,:,4:] 
+        FEin =  FF[:,:,:,:4] + Q*FF[:,:,:,4:]
         Tff = time.clock()-t1ff;
         #GU.saveXSF( geomFileName+'_Fin_z.xsf',  FEin[:,:,:,2], lvec );
         np.save( geomFileName+'_Fin_z.npy', FEin[:,:,:,2] )
-        
+
         print("FEin.shape ", FEin.shape);
 
         t1relax = time.clock();
@@ -172,14 +170,14 @@ if __name__ == "__main__":
         cl.enqueue_copy( oclr.oclu.queue, relax_args[0], FEin, origin=(0,0,0), region=region)
         FEout = oclr.relax( relax_args, relax_dim, invCell, poss=relax_poss, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
         Trelax = time.clock() - t1relax;
-        
+
         #GU.saveXSF( geomFileName+'_Fout_z.xsf',  FEout[:,:,:,2], lvec );
         np.save( geomFileName+'_Fout_z.npy', FEout[:,:,:,2] )
         t1plot = time.clock();
         for isl in islices:
             isl += izslice
             plt.imshow( FEout[:,:,isl,2] )
-            plt.savefig( geomFileName+("_FoutZ%03i.png" %isl ), bbox_inches="tight"  ); 
+            plt.savefig( geomFileName+("_FoutZ%03i.png" %isl ), bbox_inches="tight"  );
             plt.close()
         Tplot = time.clock()-t1plot;
 
@@ -187,4 +185,3 @@ if __name__ == "__main__":
         print("Timing[s] Ttot %f Tff %f Trelax %f Tprepare %f Tplot %f " %(Ttot, Tff, Trelax, Tprepare, Tplot))
 
 #plt.show()
-

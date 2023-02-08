@@ -35,11 +35,11 @@ Optimization:
         - we can perhaps save sqrt() calculation
 
 
-Simple reactive force-field for mix of sp2 and sp3 hybridized atoms. Energy is based on Morse potential where the attractive term is multiplied by product of cosines between oriented dangling-bonds  sticking out  of atoms (the white sticks). 
+Simple reactive force-field for mix of sp2 and sp3 hybridized atoms. Energy is based on Morse potential where the attractive term is multiplied by product of cosines between oriented dangling-bonds  sticking out  of atoms (the white sticks).
 
 More specifically for two atoms with positions pi,pj (dij=pi-pj, rij=|dij|, hij = dij/rij )
 
-energy is computed as 
+energy is computed as
 E = exp( -2a(rij-r0)) - 2 K exp( -a(rij-r0) )
 
 where rij is distance  K = (ci.cj.cj) where ci=dot(hi,hij), cj=dot(hj,hij), cij=dot(hi,hj) and where hi, hj are normalized vector in direction of bonds
@@ -168,9 +168,9 @@ class RARFF2arr{ public:
 
     double Ecap   = 0.000681; // H
     double Rcap   = 1.4+1.4;  // H
-    double r2cap  = Rcap*Rcap; 
+    double r2cap  = Rcap*Rcap;
     double r6cap  = r2cap*r2cap*r2cap;
-    double c6cap  = 2*Ecap*(r6cap); 
+    double c6cap  = 2*Ecap*(r6cap);
     double c12cap =   Ecap*(r6cap*r6cap);
 
     double invRotMass = 2.0;
@@ -239,7 +239,7 @@ class RARFF2arr{ public:
         double E     =    type.aMorse*expar*expar;
         double Eb    = -2*type.aMorse*expar;
 
-        E +=evdW; 
+        E +=evdW;
         double fr    =  2*type.bMorse* E +   6*evdW*ir2vdW;
         double frb   =    type.bMorse* Eb;
 
@@ -295,7 +295,7 @@ class RARFF2arr{ public:
 
                     Vec3d  dij   = pi-pj;
                     double r2    = dij.norm2() + R2SAFE;
-                    
+
                     // Morse
                     //double rij   = sqrt( r2 );
                     //double e     = aMorseCap * exp( bMorseCap*rij );
@@ -380,24 +380,24 @@ class RARFF2arr{ public:
     }
 
     void cleanAux(){
-        for(int i=0; i<natom; i++){  
+        for(int i=0; i<natom; i++){
             vels  [i]=Vec3dZero;
             omegas[i]=Vec3dZero;
             torqs [i]=Vec3dZero;
             forces[i]=Vec3dZero;
         }
         int nb   = natom*N_BOND_MAX;
-        for(int i=0; i<nb;   i++){ 
+        for(int i=0; i<nb;   i++){
             ebonds  [i]=0;
             bondCaps[i]=-1;
             fbonds  [i].set(0.0);
         }
     }
 
-    void cleanAtomForce(){ 
-        for(int i=0; i<natom; i++){  
-            //atoms[i].cleanForceTorq(); 
-            torqs [i]=Vec3dZero; 
+    void cleanAtomForce(){
+        for(int i=0; i<natom; i++){
+            //atoms[i].cleanForceTorq();
+            torqs [i]=Vec3dZero;
             forces[i]=Vec3dZero;
         }
         int nb   = natom*N_BOND_MAX;    for(int i=0; i<nb;   i++){ ebonds[i]=0; }
@@ -416,7 +416,7 @@ class RARFF2arr{ public:
 
     void applyForceHarmonic1D(const Vec3d& h, double x0, double K){
         //printf( "applyForceHarmonic1D %g %g (%g,%g,%g) \n", x0, K, h.x,h.y,h.z  );
-        for(int ia=0; ia<natom; ia++){ 
+        for(int ia=0; ia<natom; ia++){
             double x = h.dot(poss[ia])-x0;
             forces[ia].add_mul( h, K*x );
         }
@@ -438,7 +438,7 @@ class RARFF2arr{ public:
             if( f2>f2max ){
                 f.mul( sqrt(f2max/f2) );
             }
-            //printf( "ia %i (%g,%g,%g) (%g,%g,%g) \n", ia, p.x,p.y,p.z,  f.x,f.y,f.z ); 
+            //printf( "ia %i (%g,%g,%g) (%g,%g,%g) \n", ia, p.x,p.y,p.z,  f.x,f.y,f.z );
             forces[ia].add(f);
         }
     }

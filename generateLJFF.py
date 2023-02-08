@@ -1,23 +1,22 @@
-#!/usr/bin/python3 -u
-import sys
-import numpy as np
+#!/usr/bin/python
 import os
+import sys
+
 import __main__ as main
+import numpy as np
 
-
-from   ppafm            import basUtils
-from   ppafm            import elements   
-import ppafm.HighLevel      as PPH
-import ppafm.fieldFFT       as fFFT
+import ppafm as PPU
+import ppafm.fieldFFT as fFFT
 import ppafm.GridUtils as GU
-import ppafm  as PPU     
+import ppafm.HighLevel as PPH
+from ppafm import basUtils, elements
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
-    %s -i <filename> 
-    
+    %s -i <filename>
+
     Supported file fromats are:
-       * xyz 
+       * xyz
     """ %os.path.basename(main.__file__)
     from optparse import OptionParser
     parser = OptionParser()

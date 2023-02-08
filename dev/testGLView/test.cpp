@@ -19,7 +19,7 @@ void my_draw(){
     Draw3D::box       ( -1.0f, 1.0f, -1.0f,   1.0f, -1.0f, 1.0f,   0.8f, 0.8f, 0.8f );
 
     glShadeModel( GL_SMOOTH     );
-    
+
     glColor3f(1.0,0.5,0.7);
     Draw3D::sphere_oct( 5, 1.0f, (Vec3f){3.0,3.0,3.0} );
 

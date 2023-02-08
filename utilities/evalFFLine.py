@@ -1,18 +1,22 @@
 #!/usr/bin/python -u
 
 import os
-import numpy as np
+
 #import matplotlib.pyplot as plt
 import sys
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm                as PPU     
+import ppafm as PPU
+
 #import ppafm.GridUtils      as GU
-import ppafm.core           as PPC
+import ppafm.core as PPC
+
 #import ppafm.HighLevel     as PPH
 import ppafm.cpp_utils as cpp_utils
-from   ppafm            import basUtils
+from ppafm import basUtils
 
 # ======== setup
 
@@ -27,15 +31,15 @@ lss = [ (':','k'),  ('-','r'), ('-','g'), ('-','b'), ('-','c'), ('--','r'), ('--
 
 zmin = 3.0
 zmax = 12.0
-npts = 100 
+npts = 100
 
 #vminF = 0.0; vminE = 0.0; scy=1.1
 vminF = -0.25; vminE = -0.5; scy=1.0
 
-# ======== functions 
+# ======== functions
 
 def getAtomsPos( atoms, ia ):
-    ia-=1; 
+    ia-=1;
     return np.array([atoms[1][ia], atoms[2][ia], atoms[3][ia]])
 
 def pos2line( pos, zmin=zmin, zmax=zmax, n=npts, label="" ):
@@ -59,7 +63,7 @@ def getLines( lst, atoms ):
 # ======== main
 
 PPU.loadParams( 'params.ini' )
-FFparams=PPU.loadSpecies( 'atomtypes.ini' ) 
+FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 #FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 elem_dict       = PPU.getFFdict(FFparams); print(elem_dict)
 
@@ -75,7 +79,7 @@ lines = getLines( lst, atoms );  #print lines
 PPU.params['probeType'] = "Xe"; #print "PPU.params['probeType'] : ", PPU.params['probeType']
 cLJs    = PPU.getAtomsLJ( PPU.atom2iZ( PPU.params['probeType'], elem_dict ),  iZs, FFparams )
 
-print("cLJs",cLJs); np.savetxt("cLJs_2D.dat", cLJs); 
+print("cLJs",cLJs); np.savetxt("cLJs_2D.dat", cLJs);
 
 
 
