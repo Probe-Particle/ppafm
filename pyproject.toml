@@ -20,8 +20,8 @@ requires-python = ">=3.6"
 dependencies = [
     "ase",
     "matplotlib",
-    "numpy",
-    "pyopencl",
+    "numpy<=1.21.6",
+#    "pyopencl",
     "reikna",
 ]
 

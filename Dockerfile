@@ -6,8 +6,25 @@ RUN apt-get update && apt-get install -y \
     python3-distutils                    \
     python3-pip                          \
     python3-apt                          \
+    python-is-python3                    \
     vim
 
-ENV PATH="${PATH}:/app/"
+RUN useradd -ms /bin/bash ppafm-user
 
-COPY ./ /app
+RUN mkdir /exec \
+    && chown ppafm-user:ppafm-user /exec
+
+USER ppafm-user
+
+WORKDIR /home/ppafm-user
+
+RUN pip install --upgrade --user pip
+
+COPY --chown=ppafm-user:ppafm-user ./ ppafm
+
+RUN pip install -e ppafm/
+
+
+ENV PATH="${PATH}:/home/ppafm-user/ppafm/"
+
+WORKDIR /exec
