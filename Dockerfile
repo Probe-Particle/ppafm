@@ -1,6 +1,6 @@
 FROM ubuntu:22.10
 
-# build-essential needed for building the C++ code in the PPAFM package
+# build-essential is needed for building the C++ code in the PPAFM package
 
 RUN apt-get update --yes &&                       \
     apt-get install --yes --no-install-recommends \
