@@ -112,5 +112,22 @@ Hover the mouse cursor over any parameter for a tooltip explaining the meaning o
 * [Prokop Hapala, Georgy Kichin, Christian Wagner, F. Stefan Tautz, Ruslan Temirov, and Pavel Jelínek, Mechanism of high-resolution STM/AFM imaging with functionalized tips, Phys. Rev. B 90, 085421 – Published 19 August 2014](http://journals.aps.org/prb/abstract/10.1103/PhysRevB.90.085421)
 * [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014,](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101)
 
+## Making ppafm platform-independent.
+
+We propose to use [Docker](https://docs.docker.com/get-docker/) to make the code platform-independent.
+
+Here are the steps to build and run the ppafm Docker container:
+
+1. Build the image.
+
+```bash
+$ docker build -t ppafm:latest .
+```
+2. Execute the container.
+
+```bash
+$ docker run --rm -it -v ${PWD}:/exec ppafm:latest <ppafm command>
+```
+
 ### License
 MIT
