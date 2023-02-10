@@ -159,12 +159,15 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     core.setFF_shape( np.shape(FF), lvec )
     if ffModel=="Morse":
         REs = PPU.getAtomsRE( iPP, iZs, FFparams )
-        core.getMorseFF( Rs, REs )       # THE MAIN STUFF HERE
+        core.getMorseFF( Rs, REs )     # THE MAIN STUFF HERE
     elif ffModel=="vdW":
         cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
-        core.getVdWFF( Rs, cLJs )       # THE MAIN STUFF HERE
+        core.getVdWFF( Rs, cLJs )      # THE MAIN STUFF HERE
+    elif ffModel=="vdWRE":
+        REs = PPU.getAtomsRE( iPP, iZs, FFparams )
+        core.getVdWFF_RE( Rs, REs )    # THE MAIN STUFF HERE
     else:
-        cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
+        REs = PPU.getAtomsRE( iPP, iZs, FFparams 
         core.getLenardJonesFF( Rs, cLJs ) # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not  None:

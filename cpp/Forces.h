@@ -122,12 +122,81 @@ inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
 }
 
 // Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
-inline double addAtomVdW( const Vec3d& dR, Vec3d& fout, double c6 ){
+inline double addAtomVdW_dampConst( const Vec3d& dR, Vec3d& fout, double c6 ){
     double r2 = dR.norm2(); r2*=r2; r2*=r2;
     //fout.add_mul( dR , 6*c6 /( r2 + 1.0 ) );
     //fout.add_mul( dR , 6*c6 /( r2 + 60*c6 ) );
     fout.add_mul( dR , 6*c6 /( r2 + 180*c6 ) );
     return 0;
+}
+
+
+
+/*
+// Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
+inline double addAtomVdW_dampR4( const Vec3d& dR, Vec3d& fout, double E0, double invR2cut, double cdamp ){
+    double r2 = dR.norm2(); 
+    double r8=r2*r2; r8=r8*r8;
+    double R2fun = 1-r2*invR2cut;
+    double dR2   = 1-r2*invR2cut;
+    if (damp<0) damp=0;  
+    F = Eij*r*( -C6/(r8 + cdamp*R2fun*R2fun  )  )  
+    return 0;
+}
+
+// https://manual.q-chem.com/5.2/Ch5.S7.SS2.html
+inline double addAtomVdW_Chai( const Vec3d& dR, Vec3d& fout, double E0,  double invR2cut, double cdamp ){
+    double r2 = dR.norm2()*invR2cut; 
+    double r4=r2*r2; r8=r8*r8;
+    double d  = 1/r8;
+    double D = 1./( 1. + A * D );
+    double D = 8*A*D*E*E/r**2
+
+    F = 12*A*D*E*E/r**2
+
+    double damp = 1-r2*invR2cut;  // damp = 1-(r/Rcut)^2 
+    if (damp<0) damp=0;  
+    F = Eij*r*( -C6/(r8 + cdamp/r8 )  )  
+    return 0;
+}
+*/
+
+template<double Rfunc(double r2,double &df)>
+double addAtomVdW_addDamp( const Vec3d& dR, Vec3d& fout, double R, double E0, double ADamp ){
+  double D,dD;
+  double r2 = dR.norm2()/(R*R); 
+  double r4 = r2*r2; 
+  D  = Rfunc(r2,dD);
+  double e  = 1./(      r4*r2 + D*ADamp);                    
+  double E  = -E0*e;
+  double fr = - E*e*( 6*r4    + dD*ADamp ); 
+  fout.add_mul(dR,fr);
+  return E;
+}
+
+double R2_func(double r2,double &df){
+    df     =  -2;
+    return    1 - r2;
+}
+
+double R4_func(double r2,double &df){
+    double e = 1 - r2; 
+    df     =  -4*e;
+    return     e*e;
+}
+
+double invR4_func(double r2,double &df){
+    double invR2 = 1/r2;
+    double invR4 = invR2*invR2;
+    df           = -4*invR4*invR2;
+    return            invR4;
+}
+
+double invR8_func(double r2,double &df){
+    double invR2 = 1/r2;
+    double invR8 = invR2*invR2; invR8*=invR8;
+    df           = -8*invR8*invR2;
+    return            invR8;
 }
 
 // Morse force between two atoms a,b separated by vector dR = Ra - Rb

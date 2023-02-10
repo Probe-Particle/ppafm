@@ -550,8 +550,8 @@ def getAtomsLJ_fast( iZprobe, iZs,  FFparams ):
     R+=FFparams[iZprobe-1][0]
     E=np.sqrt(E*FFparams[iZprobe-1][1]);
     cLJs = np.zeros((len(E),2))
-    cLJs[:,0] = E         * R6
-    cLJs[:,1] = cLJs[:,0] * R6
+    cLJs[:,0] = E         * 2  *R6    # C6  = 2*Eij*(Rij**6 )
+    cLJs[:,1] = cLJs[:,0] * 0.5*R6    # C12 =   Eij*(Rij**12)
     return cLJs
 
 # ============= Hi-Level Macros
