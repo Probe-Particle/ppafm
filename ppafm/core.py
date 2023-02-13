@@ -137,6 +137,17 @@ def getInPoints_LJ( ps, Rs, cLJs, FEs=None ):
     lib.getInPoints_LJ( npts, ps, FEs, nats, Rs, cLJs)
     return FEs
 
+#void evalRadialFF( int n, double* rs, double* coefs, double* Es, double* Fs, int kind ){
+lib.evalRadialFF.argtypes  = [ c_int,  array1d,  array1d,  array1d, array1d, c_int, c_double ]
+lib.evalRadialFF.restype   = None
+def evalRadialFF( rs, coefs, Es=None, Fs=None, kind=1, ADamp=-1 ):
+    n = len(rs)
+    if(Es is None): Es = np.zeros(n)
+    if(Fs is None): Fs = np.zeros(n)
+    coefs = np.array(coefs, dtype=np.float64)
+    lib.evalRadialFF( n, rs, coefs, Es, Fs, kind, ADamp )
+    return Es,Fs
+
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
 lib.getLenardJonesFF.argtypes  = [ c_int,       array2d,      array2d     ]
 lib.getLenardJonesFF.restype   = None
