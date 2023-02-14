@@ -211,7 +211,7 @@ double addAtomVdW_addDamp( const Vec3d& dR, Vec3d& fout, double R, double E0, do
     return E;
 }
 
-double R2_func(double r2,double &df){
+inline double R2_func(double r2,double &df){
     //printf( "R2_func() \n");
     if(r2>1){
         df     =  0;
@@ -222,7 +222,7 @@ double R2_func(double r2,double &df){
     }
 }
 
-double R4_func(double r2,double &df){
+inline double R4_func(double r2,double &df){
     //printf( "R4_func() \n");
     if(r2>1){
         df     =  0;
@@ -234,7 +234,7 @@ double R4_func(double r2,double &df){
     }
 }
 
-double invR4_func(double r2,double &df){
+inline double invR4_func(double r2,double &df){
     //printf( "invR4_func() \n");
     double invR2 = 1/r2;
     double invR4 = invR2*invR2;
@@ -242,7 +242,7 @@ double invR4_func(double r2,double &df){
     return            invR4;
 }
 
-double invR8_func(double r2,double &df){
+inline double invR8_func(double r2,double &df){
     //printf( "invR8_func() \n");
     double invR2 = 1/r2;
     double invR8 = invR2*invR2; invR8*=invR8;

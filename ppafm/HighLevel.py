@@ -161,13 +161,15 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
         REs = PPU.getAtomsRE( iPP, iZs, FFparams )
         core.getMorseFF( Rs, REs )     # THE MAIN STUFF HERE
     elif ffModel=="vdW":
-        cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
-        core.getVdWFF( Rs, cLJs )      # THE MAIN STUFF HERE
-    elif ffModel=="vdWRE":
-        REs = PPU.getAtomsRE( iPP, iZs, FFparams )
-        core.getVdWFF_RE( Rs, REs )    # THE MAIN STUFF HERE
+        vdWDampKind=PPU.params['vdWDampKind']
+        if(vdWDampKind==0): 
+            cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
+            core.getVdWFF( Rs, cLJs )      # THE MAIN STUFF HERE
+        else:
+            REs = PPU.getAtomsRE( iPP, iZs, FFparams )
+            core.getVdWFF_RE( Rs, REs, kind=vdWDampKind )    # THE MAIN STUFF HERE
     else:
-        REs = PPU.getAtomsRE( iPP, iZs, FFparams 
+        cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
         core.getLenardJonesFF( Rs, cLJs ) # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not  None:

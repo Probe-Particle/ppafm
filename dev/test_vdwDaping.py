@@ -95,8 +95,11 @@ for i in range(nz):
 
     Fs_num,xs_  = deriv( xs, Es )
 
-    plt.subplot(2,nz,i   +1);    plt.plot(xs,Es_LJ   ,':k'); plt.plot(xs,Es_r6   ,'--k'); plt.plot(xs,Es   );                                   plotDecor( R0, E0*5 )       ; plt.title("%s(Adamp=%5.2f) %s-%s" %(name,ADamp, (FFparams[iZs[i]-1][4]).decode(), (FFparams[iPP-1][4]).decode() ) ) #; plt.title("Interaction %i-%i" %(iZs[i], iPP) )
-    plt.subplot(2,nz,i+nz+1);    plt.plot(xs,Fs_LJ*-1,':k'); plt.plot(xs,Fs_r6*-1,'--k'); plt.plot(xs,Fs*-1);  plt.plot(xs_,Fs_num*-1, ':r');   plotDecor( R0, E0*7 ) 
-    plt.savefig(name+".png",bbox_inches='tight')
+    plt.subplot(2,nz,i   +1);    plt.plot(xs,Es_LJ   ,':k'); plt.plot(xs,Es_r6   ,'--k'); plt.plot(xs,Es   );                                   plotDecor( R0, E0*5 );  plt.title("%s(Adamp=%5.2f) %s-%s" %(name,ADamp, (FFparams[iZs[i]-1][4]).decode(), (FFparams[iPP-1][4]).decode() ) ) #; plt.title("Interaction %i-%i" %(iZs[i], iPP) )
+    plt.subplot(2,nz,i+nz+1);    plt.plot(xs,Fs_LJ*-1,':k'); plt.plot(xs,Fs_r6*-1,'--k'); plt.plot(xs,Fs*-1);  plt.plot(xs_,Fs_num*-1, ':r');   plotDecor( R0, E0*7 ); 
+
+plt.subplot(2,nz,  +1); plt.ylabel("Energy [eV]");
+plt.subplot(2,nz,nz+1); plt.ylabel("Force  [eV/A]");
+plt.savefig(name+".png",bbox_inches='tight')
 
 plt.show()

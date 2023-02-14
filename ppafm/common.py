@@ -53,6 +53,7 @@ params={
     'Rtip'         :  30.0,
     'permit'       :  0.00552634959,
     'Vrange':   0.0,
+    'vdWDampKind' : 2,
     '#' : None
 }
 

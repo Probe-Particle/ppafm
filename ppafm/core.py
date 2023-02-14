@@ -163,11 +163,11 @@ def getVdWFF( Rs, cLJs ):
     lib.getVdWFF( natom, Rs, cLJs )
 
 # void getVdWFF_RE( int natoms_, double * Ratoms_, double * REs, int kind, double ADamp_=-1.0 ){
-lib.getVdWFF_RE.argtypes  = [ c_int,       array2d,      array1d, c_int, c_double   ]
+lib.getVdWFF_RE.argtypes  = [ c_int,       array2d,      array2d, c_int, c_double   ]
 lib.getVdWFF_RE.restype   = None
-def getVdWFF_RE( Rs, kQQs, kind=0, ADamp=-1. ):
+def getVdWFF_RE( Rs, REs, kind=0, ADamp=-1. ):
     natom = len(Rs)
-    lib.getVdWFF_RE( natom, Rs, kQQs, kind, ADamp )
+    lib.getVdWFF_RE( natom, Rs, REs, kind, ADamp )
 
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
 lib.getMorseFF.argtypes  = [ c_int,       array2d,      array2d, c_double ]

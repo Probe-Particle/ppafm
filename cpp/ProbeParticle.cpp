@@ -389,14 +389,16 @@ void evalRadialFF( int n, double* rs, double* coefs, double* Es, double* Fs, int
 }
 
 void getVdWFF_RE( int natoms_, double * Ratoms_, double * REs, int kind, double ADamp_=-1.0 ){
+    printf( "DEBUG getVdWFF_RE(kind=%i,ADamp=%g) \n", kind, ADamp_ );
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     //if(ADamp>0){ ADamp = ADamp_; }
     switch(kind){
-        case 0: if(ADamp_>0){ ADamp_R2    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R2   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
-        case 1: if(ADamp_>0){ ADamp_R4    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R4   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
-        case 2: if(ADamp_>0){ ADamp_invR4 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR4>>( r0, gridShape.n, gridShape.dCell, REs ); break;
-        case 3: if(ADamp_>0){ ADamp_invR8 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR8>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        //case 0: if(ADamp_>0){ ADamp_Const = ADamp_; }; E=addAtom_VdW      ( dR, fout, coefs ); break;
+        case 1: if(ADamp_>0){ ADamp_R2    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R2   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 2: if(ADamp_>0){ ADamp_R4    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R4   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 3: if(ADamp_>0){ ADamp_invR4 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR4>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 4: if(ADamp_>0){ ADamp_invR8 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR8>>( r0, gridShape.n, gridShape.dCell, REs ); break;
         // case 0: interateGrid3D<evalCell<addAtomVdW_addDamp<R2_func>  >>>( r0, gridShape.n, gridShape.dCell, REs ); break;
         // case 1: interateGrid3D<evalCell<addAtomVdW_addDamp<R4_func>  >>>( r0, gridShape.n, gridShape.dCell, REs ); break;
         // case 2: interateGrid3D<evalCell<addAtomVdW_addDamp<invr4_func>>>( r0, gridShape.n, gridShape.dCell, REs ); break;

@@ -59,7 +59,14 @@ if __name__=="__main__":
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
-    if ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip is None) ):  # We do it here, in case it crash we don't want to wait for all the huge density files to load
+
+    print( ">>>>DEBUG !!!!!!!!!" )
+    print(  "\ndoDensity ",options.doDensity, "\nRcore ", options.Rcore,  "\ntip ", options.tip,  "\ntip_dens ", options.tip_dens )
+    print( "<<<<DEBUG !!!!!!!!!" )
+
+    bSubstractCore =  ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip_dens is not None) )
+    #if ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip is None) ):  # We do it here, in case it crash we don't want to wait for all the huge density files to load
+    if bSubstractCore:  # We do it here, in case it crash we don't want to wait for all the huge density files to load
         if options.tip_dens is None: raise Exception( " Rcore>0 but no tip density provided ! " )
         valElDict        = PPH.loadValenceElectronDict()
         Rs_tip,elems_tip = PPH.getAtomsWhichTouchPBCcell( options.tip_dens, Rcut=options.Rcore )
@@ -95,7 +102,7 @@ if __name__=="__main__":
         print(">>> loading tip density from ",options.tip_dens,"...")
         rho_tip, lvec_tip, nDim_tip, head_tip = GU.loadXSF( options.tip_dens )
 
-        if options.Rcore > 0.0:
+        if bSubstractCore:
             print(">>> subtracting core densities from rho_tip ... ")
             #subtractCoreDensities( rho_tip, lvec_tip, fname=options.tip_dens, valElDict=valElDict, Rcore=options.Rcore )
             PPH.subtractCoreDensities( rho_tip, lvec_tip, elems=elems_tip, Rs=Rs_tip, valElDict=valElDict, Rcore=options.Rcore, head=head_tip )
