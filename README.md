@@ -32,12 +32,12 @@ All development and testing were done on **linux** OS (mostly ubuntu). For the w
 
 #### Install & run CPU version
 
-**Requirements:** Python3 (numpy,matplotlib) & C/C++ compiler (g++,make)
+**Requirements:** Python3 (numpy,matplotlib) & C/C++ compiler (g++,make); SDL
 
 ##### First run: Graphene with point-charges
  1. clone the repository: `clone https://github.com/Probe-Particle/ProbeParticleModel.git`
  2. compile the C/C++ modules
-    * `cd ProbeParticleModel/Graphene`
+    * `cd ProbeParticleModel/cpp`
     * `make`
  3. Navigate to examples directory `cd ProbeParticleModel/examples/Graphene`this example uses simple (Point-charges + Lennard-Jones)
  4. run the example `./run.sh`
