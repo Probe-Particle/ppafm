@@ -1,0 +1,9 @@
+
+# Include C++ source files in distribution
+graft ppafm/cpp
+
+# Exclude intermediate object files
+global-exclude *.o
+
+# Include default parameter files
+graft ppafm/defaults
