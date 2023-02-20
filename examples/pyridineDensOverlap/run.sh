@@ -14,7 +14,6 @@ echo "enter your sudo password ( I promiss not hacking you ;-) : "
 sudo apt-get install megatools
 
 echo "Downloading Sample data-files ... "
-#megadl 'https://mega.nz/#F!GOhnRIwY!XneVlLYhCmvp74JCCH9BRA'   # OLD / NOT WORKING
 megadl 'https://mega.nz/file/bWhTUQDQ#7mS9E-wArUzHqOevCepckHezzO8uLLC0S1PbRDsiQfs'
 megadl 'https://mega.nz/file/rPgFxYAB#kQ6J90i4qQ4LlDFKq-k8PCX0rBie75_zdReNgNYbaKY'
 mkdir sample

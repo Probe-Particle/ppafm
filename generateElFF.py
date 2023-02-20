@@ -59,11 +59,6 @@ if __name__=="__main__":
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 
-
-    print( ">>>>DEBUG !!!!!!!!!" )
-    print(  "\ndoDensity ",options.doDensity, "\nRcore ", options.Rcore,  "\ntip ", options.tip,  "\ntip_dens ", options.tip_dens )
-    print( "<<<<DEBUG !!!!!!!!!" )
-
     bSubstractCore =  ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip_dens is not None) )
     #if ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip is None) ):  # We do it here, in case it crash we don't want to wait for all the huge density files to load
     if bSubstractCore:  # We do it here, in case it crash we don't want to wait for all the huge density files to load

@@ -389,7 +389,7 @@ void evalRadialFF( int n, double* rs, double* coefs, double* Es, double* Fs, int
 }
 
 void getVdWFF_RE( int natoms_, double * Ratoms_, double * REs, int kind, double ADamp_=-1.0 ){
-    printf( "DEBUG getVdWFF_RE(kind=%i,ADamp=%g) \n", kind, ADamp_ );
+    //printf( "DEBUG getVdWFF_RE(kind=%i,ADamp=%g) \n", kind, ADamp_ );
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     //if(ADamp>0){ ADamp = ADamp_; }

@@ -149,50 +149,6 @@ inline double addAtomVdW_dampConst( const Vec3d& dR, Vec3d& fout, double c6, dou
     return 0;
 }
 
-
-
-/*
-// Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
-inline double addAtomVdW_dampR4( const Vec3d& dR, Vec3d& fout, double E0, double invR2cut, double cdamp ){
-    double r2 = dR.norm2(); 
-    double r8=r2*r2; r8=r8*r8;
-    double R2fun = 1-r2*invR2cut;
-    double dR2   = 1-r2*invR2cut;
-    if (damp<0) damp=0;  
-    F = Eij*r*( -C6/(r8 + cdamp*R2fun*R2fun  )  )  
-    return 0;
-}
-
-// https://manual.q-chem.com/5.2/Ch5.S7.SS2.html
-inline double addAtomVdW_Chai( const Vec3d& dR, Vec3d& fout, double E0,  double invR2cut, double cdamp ){
-    double r2 = dR.norm2()*invR2cut; 
-    double r4=r2*r2; r8=r8*r8;
-    double d  = 1/r8;
-    double D = 1./( 1. + A * D );
-    double D = 8*A*D*E*E/r**2
-
-    F = 12*A*D*E*E/r**2
-
-    double damp = 1-r2*invR2cut;  // damp = 1-(r/Rcut)^2 
-    if (damp<0) damp=0;  
-    F = Eij*r*( -C6/(r8 + cdamp/r8 )  )  
-    return 0;
-}
-*/
-
-
-/*
-
-E     =     (R/r)^6
-dE_dr = r * R^6 * -6 * 1/r^8
-      = r * (R/r)^6 * -6 * 1/r^2
-      = r * (R/r)^12 * ( r^4 ) / R^6
-      =     (R/r)^12 * ( (r/R)^4 ) / (R*R)
-
-
-
-*/
-
 template<double Rfunc(double r2,double &df)>
 double addAtomVdW_addDamp( const Vec3d& dR, Vec3d& fout, double R, double E0, double ADamp ){
     double D,dD;
@@ -201,12 +157,9 @@ double addAtomVdW_addDamp( const Vec3d& dR, Vec3d& fout, double R, double E0, do
     double u2    = r2*invR2; 
     double u4    = u2*u2; 
     D  = Rfunc(u2,dD);
-    //ADamp=0; // DEBUG
-    double e  = 1./(      u4*u2 + D*ADamp);       
-    //printf( "r %g e %g R0 %g E0 %g \n", sqrt(r2), e,  R, E0 );             
+    double e  = 1./(      u4*u2 + D*ADamp);                
     double E  = -2*E0*e;
     double fr = -E *e*( 6*u4    + dD*ADamp)*invR2 ; 
-    //fr = dD*E0; E = D*E0; // DEBUG
     fout.add_mul(dR,fr);
     return E;
 }
