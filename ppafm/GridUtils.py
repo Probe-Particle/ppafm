@@ -337,14 +337,16 @@ def saveWSxM_3D( prefix, data, extent, slices=None ):
 
 #================ Npy
 
-def saveNpy(fname, data, lvec , head=None):
+def saveNpy(fname, data, lvec , atoms, head=None):
 	np.save(fname+'.npy', data)
 	np.save(fname+'_vec.npy',lvec)
+	np.save(fname+'_atoms.npy',np.array(atoms,dtype=float))
 
 def loadNpy(fname):
 	data = np.load(fname+'.npy')
 	lvec = np.load(fname+'_vec.npy')
-	return data.copy(), lvec;	#necessary for being 'C_CONTINUOS'
+	atoms = np.load(fname+'_atoms.npy') 
+	return data.copy(), lvec, atoms;	#necessary for being 'C_CONTINUOS'
 
 # =============== Vector Field
 
@@ -371,24 +373,23 @@ def loadVecFieldNpy( fname, FF = None ):
 	Fy = np.load(fname+'_y.npy' )
 	Fz = np.load(fname+'_z.npy' )
 	lvec = np.load(fname+'_vec.npy' )
+	atoms = np.load(fname+'atoms.npy')
 	FF = packVecGrid( Fx, Fy, Fz, FF )
 	del Fx,Fy,Fz
-	return FF, lvec
+	return FF, lvec, atoms 
 
 def saveVecFieldXsf( fname, FF, lvec, head = XSF_HEAD_DEFAULT ):
 	saveXSF(fname+'_x.xsf', FF[:,:,:,0], lvec, head )
 	saveXSF(fname+'_y.xsf', FF[:,:,:,1], lvec, head )
 	saveXSF(fname+'_z.xsf', FF[:,:,:,2], lvec, head )
 
-def saveVecFieldNpy( fname, FF, lvec , head = XSF_HEAD_DEFAULT ):
+def saveVecFieldNpy( fname, FF, lvec , atoms, head = XSF_HEAD_DEFAULT ):
 	np.save(fname+'_x.npy', FF[:,:,:,0] )
 	np.save(fname+'_y.npy', FF[:,:,:,1] )
 	np.save(fname+'_z.npy', FF[:,:,:,2] )
 	np.save(fname+'_vec.npy', lvec )
-	if (head != XSF_HEAD_DEFAULT ):
-		print("saving atoms")
-		tmp0=head[0]; q=np.zeros(len(tmp0));    #head: [e,[x,y,z],lvec]
-		np.save(fname+'_atoms.npy',[tmp0,head[1][0],head[1][1],head[1][2],q]) #atoms: [e, x, y, z, q]
+	print("saving atoms") # atoms: [e, x, y, z]; 
+	np.save(fname+'_atoms.npy',np.array(atoms,dtype=float)) # at the moment we did not switched npz, I will do it later, maybe #
 
 def limit_vec_field( FF, Fmax=100.0 ):
 	'''
@@ -400,14 +401,14 @@ def limit_vec_field( FF, Fmax=100.0 ):
 	FF[:,:,:,1].flat[mask] *= Fmax/FR[mask]
 	FF[:,:,:,2].flat[mask] *= Fmax/FR[mask]
 
-def save_vec_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT ):
+def save_vec_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT, atoms = [[0.],[0.],[0.],[0.]] ):
 	'''
 	Saving scalar fields into xsf, or npy
 	'''
 	if (data_format=="xsf"):
 		saveVecFieldXsf(fname, data, lvec, head = head )
 	elif (data_format=="npy"):
-		saveVecFieldNpy(fname, data, lvec, head = head )
+		saveVecFieldNpy(fname, data, lvec, atoms, head = head )
 	else:
 		print("I cannot save this format!")
 
@@ -419,7 +420,7 @@ def load_vec_field(fname, data_format="xsf"):
 	if (data_format=="xsf"):
 		data, lvec, ndim, head =loadVecFieldXsf(fname)
 	elif (data_format=="npy"):
-		data, lvec = loadVecFieldNpy(fname)
+		data, lvec, atoms = loadVecFieldNpy(fname)
 		ndim = np.delete(data.shape,3)
 	else:
 		print("I cannot load this format!")
@@ -428,7 +429,7 @@ def load_vec_field(fname, data_format="xsf"):
 
 # =============== Scalar Fields
 
-def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT ):
+def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT , atoms =  [[0.],[0.],[0.],[0.]]):
 	'''
 	Saving scalar fields into xsf, or npy
 	'''
@@ -436,6 +437,8 @@ def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAUL
 		saveXSF(fname+".xsf", data, lvec, head = head)
 	elif (data_format=="npy"):
 		saveNpy(fname, data, lvec, head = head)
+		attmp = np.array(atoms,dtype=float);    
+		np.save(fname+'_atoms.npy',attmp) # at the moment we did not switched npz, I will do it later, maybe #
 	else:
 		print("I cannot save this format!")
 
@@ -444,10 +447,11 @@ def load_scal_field(fname, data_format="xsf"):
 	'''
 	Loading scalar fields into xsf, or npy
 	'''
+	atoms = [[0.],[0.],[0.],[0.]] #
 	if (data_format=="xsf"):
 		data, lvec, ndim, head =loadXSF(fname+".xsf")
 	elif (data_format=="npy"):
-		data, lvec = loadNpy(fname)
+		data, lvec, atoms = loadNpy(fname)
 		ndim = data.shape
 	elif (data_format=="cube"):
 		data,lvec, ndim, head = loadCUBE(fname+".cube")

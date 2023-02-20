@@ -176,7 +176,7 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     # --- save to files ?
     if save_format is not None:
         if(verbose>0): print("computeLJ Save ", save_format)
-        GU.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring )
+        GU.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring, atoms = atoms )
         if computeVpot:
             GU.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
     if(verbose>0): print("<<<END: computeLJ()")
