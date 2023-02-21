@@ -3,7 +3,7 @@ import os
 from setuptools import Extension, setup
 from setuptools.command.build import build
 
-def make( what="" ):
+def make():
     package_path = os.path.dirname(os.path.realpath(__file__))
     cpp_path = os.path.normpath(package_path + '/ppafm/cpp/')
     current_directory = os.getcwd()
