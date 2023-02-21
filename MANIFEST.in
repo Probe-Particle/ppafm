@@ -1,6 +1,7 @@
 
-# Include C++ source files in distribution
+# Include C++ and OpenCL source files in distribution
 graft ppafm/cpp
+graft ppafm/ocl/cl
 
 # Exclude intermediate object files
 global-exclude *.o

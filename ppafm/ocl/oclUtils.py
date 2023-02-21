@@ -15,8 +15,8 @@ class OCLEnvironment:
         self.platform     = platforms[i_platform]
         print(f"Initializing an OpenCL environment on {self.platform.name}")
 
-        self.PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) );
-        self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH + '/../../cl' )
+        self.PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) )
+        self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH + '/cl' )
         self.ctx          = cl.Context(properties=[(cl.context_properties.PLATFORM, self.platform)], devices=None)
         self.queue        = cl.CommandQueue(self.ctx)
 

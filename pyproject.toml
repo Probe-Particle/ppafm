@@ -18,17 +18,19 @@ classifiers = [
 ]
 requires-python = ">=3.6"
 dependencies = [
-    "ase",
     "matplotlib",
     "numpy<=1.21.6", # Remove upper limit when #76 is fixed.
-    "reikna",
 ]
 
 [project.urls]
 Homepage = "https://github.com/Probe-Particle/ProbeParticleModel"
 
 [project.optional-dependencies]
-opencl = ["pyopencl"]
+opencl = [
+    "pyopencl",
+    "reikna",
+    "ase"
+]
 dev = [
     "pre-commit",
     "pytest",
