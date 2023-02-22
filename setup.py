@@ -19,6 +19,5 @@ class Build(build):
         super().run()
 
 setup(
-    cmdclass={'build': Build},
-    has_ext_modules=lambda: True
+    cmdclass={'build': Build}
 )

@@ -6,7 +6,7 @@ import numpy as np
 
 LIB_PATH      = os.path.dirname( os.path.realpath(__file__) )
 LIB_PATH_CPP  = os.path.normpath(LIB_PATH+'../../../'+'/cpp/Build/libs/Molecular')
-LIB_PATH_CPP  = os.path.normpath(LIB_PATH+'/../bin/')
+LIB_PATH_CPP  = os.path.normpath(LIB_PATH+'/bin/')
 
 def recompile(path):
     print(( "recompile path :", path ))
