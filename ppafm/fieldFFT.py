@@ -249,7 +249,7 @@ def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, tilt
     return Fx,Fy,Fz
 
 
-def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, doForce=True, doPot=False, deleteV=True, tilt=0.0 ):
+def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, doForce=True, doPot=False, deleteV=True, tilt=0.0 , save_rho=False):
     print('--- Preprocessing ---')
     sampleSize = getSampleDimensions( lvec )
     dims = (nDim[2], nDim[1], nDim[0])
@@ -267,7 +267,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     if rho is None:
         if(verbose>0): print('--- Get Probe Density ---')
         rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt )
-        GU.saveXSF( "rhoTip.xsf", rho, lvec )
+        if save_rho: GU.saveXSF( "rhoTip.xsf", rho, lvec )
 
     else:
         if(verbose>0): print("rho backward (rho[::-1,::-1,::-1]) ")

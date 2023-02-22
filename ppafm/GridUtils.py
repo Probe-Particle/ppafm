@@ -204,6 +204,20 @@ BEGIN_BLOCK_DATAGRID_3D
    BEGIN_DATAGRID_3D_whatever
 '''
 
+def head2atoms(head):
+    e = []; x = []; y = []; z = []
+    for i in range(len(head)):
+        try:
+            tmp2 = head[i].split()
+            et = int(tmp2[0]); xt = float(tmp2[1]); yt=float(tmp2[2]); zt=float(tmp2[3])
+            e.append(et); x.append(xt); y.append(yt); z.append(zt);
+        except:
+            pass
+            #print("DEBUG: non-atom line")
+    atoms = [e, x, y, z]
+    print("DEBUG: atoms",atoms)
+    return atoms
+
 def orthoLvec( sh, dd ):
     return [
         [0,0,0],
@@ -340,7 +354,7 @@ def saveWSxM_3D( prefix, data, extent, slices=None ):
 def saveNpy(fname, data, lvec , atoms, head=None):
 	np.save(fname+'.npy', data)
 	np.save(fname+'_vec.npy',lvec)
-	np.save(fname+'_atoms.npy',np.array(atoms,dtype=float))
+	np.save(fname+'_atoms.npy',np.array(atoms[:4],dtype=float))
 
 def loadNpy(fname):
 	data = np.load(fname+'.npy')
@@ -373,23 +387,23 @@ def loadVecFieldNpy( fname, FF = None ):
 	Fy = np.load(fname+'_y.npy' )
 	Fz = np.load(fname+'_z.npy' )
 	lvec = np.load(fname+'_vec.npy' )
-	atoms = np.load(fname+'atoms.npy')
+	atoms = np.load(fname+'_atoms.npy')
 	FF = packVecGrid( Fx, Fy, Fz, FF )
 	del Fx,Fy,Fz
-	return FF, lvec, atoms 
+	return FF, lvec, atoms
 
 def saveVecFieldXsf( fname, FF, lvec, head = XSF_HEAD_DEFAULT ):
-	saveXSF(fname+'_x.xsf', FF[:,:,:,0], lvec, head )
-	saveXSF(fname+'_y.xsf', FF[:,:,:,1], lvec, head )
-	saveXSF(fname+'_z.xsf', FF[:,:,:,2], lvec, head )
+	saveXSF(fname+'_x.xsf', FF[:,:,:,0], lvec, head = head )
+	saveXSF(fname+'_y.xsf', FF[:,:,:,1], lvec, head = head )
+	saveXSF(fname+'_z.xsf', FF[:,:,:,2], lvec, head = head )
 
 def saveVecFieldNpy( fname, FF, lvec , atoms, head = XSF_HEAD_DEFAULT ):
 	np.save(fname+'_x.npy', FF[:,:,:,0] )
 	np.save(fname+'_y.npy', FF[:,:,:,1] )
 	np.save(fname+'_z.npy', FF[:,:,:,2] )
 	np.save(fname+'_vec.npy', lvec )
-	print("saving atoms") # atoms: [e, x, y, z]; 
-	np.save(fname+'_atoms.npy',np.array(atoms,dtype=float)) # at the moment we did not switched npz, I will do it later, maybe #
+	print("saving atoms") # atoms: [e, x, y, z]; sometimes there can be q, so [:4] #
+	np.save(fname+'_atoms.npy',np.array(atoms[:4],dtype=float)) # at the moment we did not switched npz, I will do it later, maybe #
 
 def limit_vec_field( FF, Fmax=100.0 ):
 	'''

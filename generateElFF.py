@@ -31,6 +31,7 @@ if __name__=="__main__":
     parser.add_option( "--tilt", action="store", type="float", help="tilt of tip electrostatic field (radians)", default=0 )
     parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
     parser.add_option("--noPBC", action="store_false",  help="pbc False",dest="PBC", default=None)
+    parser.add_option("--save_rho", action="store_true",  help="to store the rho in xsf file", default=False)
     parser.add_option( "-w", "--sigma", action="store", type="float",help="gaussian width for convolution in Electrostatics [Angstroem]", default=None)
     parser.add_option("-f","--data_format" , action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     parser.add_option("--KPFM_tip", action="store",type="string", help="read tip density under bias", default='Fit')
@@ -168,11 +169,11 @@ if __name__=="__main__":
 
     print(">>> calculating electrostatic forcefiled with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
     #FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
-    FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],computeVpot=options.energy , tilt=opt_dict['tilt'] )
+    FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],computeVpot=options.energy , tilt=opt_dict['tilt'] , save_rho = options.save_rho)
 
     print(">>> saving electrostatic forcefiled ... ")
 
-    GU.save_vec_field('FFel',FFel,lvec_samp ,data_format=options.data_format, head=head_samp)
+    GU.save_vec_field('FFel',FFel,lvec_samp ,data_format=options.data_format, head=head_samp, atoms=atoms_samp )
     if options.energy:
-        GU.save_scal_field( 'Eel', Eel, lvec_samp, data_format=options.data_format)
+        GU.save_scal_field( 'Eel', Eel, lvec_samp, data_format=options.data_format, atoms=atoms_samp )
     del FFel,V;
