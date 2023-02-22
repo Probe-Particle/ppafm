@@ -10,8 +10,8 @@ from ctypes import c_double, c_int
 
 import numpy as np
 
-from . import atomicUtils as au
-from . import basUtils
+from .. import atomicUtils as au
+from .. import basUtils
 
 # Covalent radii of few atoms in Å
 # Covalent radii revisited. Dalton Transactions, (21), 2832. doi:10.1039/b801115j

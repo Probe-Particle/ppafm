@@ -3,8 +3,11 @@
 graft ppafm/cpp
 graft ppafm/ocl/cl
 
+# Include default parameter files
+graft ppafm/defaults
+
 # Exclude intermediate object files
 global-exclude *.o
 
-# Include default parameter files
-graft ppafm/defaults
+# Exclude dev sub-module
+exclude ppafm/dev/*

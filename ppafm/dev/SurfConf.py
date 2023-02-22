@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 from . import RigidMol as rmol
-from . import basUtils
+from .. import basUtils
 
 
 def combineGeoms(mol,surf):

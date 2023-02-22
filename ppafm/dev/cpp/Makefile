@@ -1,6 +1,6 @@
 CC=g++
 LD=g++
-CPPFLAGS= -fPIC -std=c++11 -O2 -march=native -mtune=native
+CPPFLAGS= -fPIC -std=c++11 -O2 -march=native -mtune=native -I../../cpp
 LDFLAGS= -shared
 
 all: MP RR PolyCycles_ atomfit_ MMFF_ FARFF_ COvsCO_ SimplePot_
