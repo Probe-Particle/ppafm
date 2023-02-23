@@ -1,6 +1,12 @@
 import os
 
-recompile = False
+# Check for environment variable PPAFM_RECOMPILE to determine whether
+# we should recompile the C++ extensions.
+if 'PPAFM_RECOMPILE' in os.environ and os.environ['PPAFM_RECOMPILE'] != '':
+    recompile = True
+else:
+    recompile = False
+
 lib_ext   ='_lib.so'
 
 def work_dir( v__file__ ):
@@ -42,12 +48,12 @@ def makeclean( ):
     os.chdir(CWD)
 
 def make( what="" ):
-    current_directory = os.getcwd()
-    os.chdir ( CPP_PATH          )
     if recompile:
+        current_directory = os.getcwd()
+        os.chdir ( CPP_PATH          )
         os.system("make clean")
-    os.system( "make "+what      )
-    os.chdir ( current_directory )
+        os.system( "make "+what      )
+        os.chdir ( current_directory )
 
 
 # ============ automatic C-python interface generation
