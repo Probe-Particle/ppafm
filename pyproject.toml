@@ -29,7 +29,8 @@ Homepage = "https://github.com/Probe-Particle/ProbeParticleModel"
 opencl = [
     "pyopencl",
     "reikna",
-    "ase"
+    "ase",
+    "PyQt5; platform_system=='Windows'"
 ]
 dev = [
     "pre-commit",
