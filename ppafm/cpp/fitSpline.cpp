@@ -9,6 +9,12 @@
 #include "VecN.h"
 #include "CG.h"
 
+#ifdef _WIN64 // Required for exports for ctypes on Windows
+    #define DLLEXPORT __declspec(dllexport)
+#else
+    #define DLLEXPORT
+#endif
+
 //CG cg;
 
 double* work   = 0;
@@ -214,7 +220,7 @@ CG cg_glob;
 
 extern "C"{
 
-__declspec(dllexport) void convolve1D(int m,int di,int n,double* coefs, double* x, double* y ){
+DLLEXPORT void convolve1D(int m,int di,int n,double* coefs, double* x, double* y ){
     //conv1D( m, n-m*2, coefs, x, y+m );
     //printf( " m %i di %i n %i \n", m, di, n );
     if(di== 1){ conv1D     ( m,      n, coefs, x, y ); }
@@ -222,7 +228,7 @@ __declspec(dllexport) void convolve1D(int m,int di,int n,double* coefs, double* 
     else      { conv1D_down( m,  di, n, coefs, x, y ); }
 }
 
-__declspec(dllexport) void convolve2D_tensorProduct( int ord, int di, int nx, int ny, double* coefs, double* x, double* y ){
+DLLEXPORT void convolve2D_tensorProduct( int ord, int di, int nx, int ny, double* coefs, double* x, double* y ){
     if(di== 1){ conv2D_tensorProd     ( ord,     Vec2i {nx,ny}, coefs, x, y ); }
     if(di<0  ){ conv2D_tensorProd_up  ( ord,-di, Vec2i {nx,ny}, coefs, x, y ); }
     else      { conv2D_tensorProd_down( ord, di, Vec2i {nx,ny}, coefs, x, y ); }
@@ -231,7 +237,7 @@ __declspec(dllexport) void convolve2D_tensorProduct( int ord, int di, int nx, in
     //printf( "DONE 2\n" );
 }
 
-__declspec(dllexport) void convolve3D_tensorProduct( int ord, int di, int nx, int ny, int nz, double* coefs, double* x, double* y ){
+DLLEXPORT void convolve3D_tensorProduct( int ord, int di, int nx, int ny, int nz, double* coefs, double* x, double* y ){
     if(di== 1){ conv3D_tensorProd     ( ord,     Vec3i {nx,ny,nz}, coefs, x, y ); }
     else{       printf( "ERROR:  di!=1 NOT IMPLEMENTED" ); exit(0); }
     //if(di<0  ){ conv2D_tensorProd_up  ( ord,-di, (Vec2i){nx,ny}, coefs, x, y ); }
@@ -242,12 +248,12 @@ __declspec(dllexport) void convolve3D_tensorProduct( int ord, int di, int nx, in
     //printf( "DONE 2\n" );
 }
 
-__declspec(dllexport) void solveCG( int n, double* A, double* b, double* x, int maxIters, double maxErr ){
+DLLEXPORT void solveCG( int n, double* A, double* b, double* x, int maxIters, double maxErr ){
     CG cg( n, x, b, A );
     cg.solve_CG( maxIters, maxErr, true );
 }
 
-__declspec(dllexport) void fit_tensorProd_2D( int ord, int nx, int ny, double* kernel_coefs_, double* BYref, double* Ycoefs, int maxIters, double maxErr, int nConvPerCG_ ){
+DLLEXPORT void fit_tensorProd_2D( int ord, int nx, int ny, double* kernel_coefs_, double* BYref, double* Ycoefs, int maxIters, double maxErr, int nConvPerCG_ ){
     nConvPerCG = nConvPerCG_;
     if(nConvPerCG>0) work2D = new double[nx*ny];
     nkernel = ord;
@@ -264,7 +270,7 @@ __declspec(dllexport) void fit_tensorProd_2D( int ord, int nx, int ny, double* k
     if(nConvPerCG>0){ delete [] work2D; work2D=0; }
 }
 
-__declspec(dllexport) void fit_tensorProd_3D( int ord, int nx, int ny, int nz, double* kernel_coefs_, double* BYref, double* Ycoefs, int maxIters, double maxErr, int nConvPerCG_ ){
+DLLEXPORT void fit_tensorProd_3D( int ord, int nx, int ny, int nz, double* kernel_coefs_, double* BYref, double* Ycoefs, int maxIters, double maxErr, int nConvPerCG_ ){
     nConvPerCG = nConvPerCG_;
     int nxyz = nx*ny*nz;
     if(nConvPerCG>0) work3D = new double[nxyz];
@@ -278,7 +284,7 @@ __declspec(dllexport) void fit_tensorProd_3D( int ord, int nx, int ny, int nz, d
     if(nConvPerCG>0){ delete [] work3D; work3D=0; }
 }
 
-__declspec(dllexport) void setup_fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, double* BYref, double* Ycoefs, double* Wprecond, int nConvPerCG_ ){
+DLLEXPORT void setup_fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, double* BYref, double* Ycoefs, double* Wprecond, int nConvPerCG_ ){
     if(nConvPerCG_>0) work2D = new double[nx*ny];
     nConvPerCG = nConvPerCG_;
     nkernel = ord;
@@ -292,7 +298,7 @@ __declspec(dllexport) void setup_fit_tensorProd( int ord, int nx, int ny, double
     //delete [] work; work=0;
 }
 
-__declspec(dllexport) void step_fit_tensorProd( ){
+DLLEXPORT void step_fit_tensorProd( ){
     double err2 = cg_glob.step_CG();
     //printf( "CG[%i] err %g \n", cg_glob.istep, sqrt(err2) );
 }

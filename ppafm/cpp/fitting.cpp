@@ -11,6 +11,12 @@
 //#include "Grid.h"
 //#include "DynamicOpt.h"
 
+#ifdef _WIN64 // Required for exports for ctypes on Windows
+    #define DLLEXPORT __declspec(dllexport)
+#else
+    #define DLLEXPORT
+#endif
+
 static int iDebug = 0;
 
 int nMaxComps = 9;
@@ -337,7 +343,7 @@ void project_SplineSPD(
 
 extern "C"{
 
-__declspec(dllexport) void setPBC( int * npbc_, double * cell_ ){
+DLLEXPORT void setPBC( int * npbc_, double * cell_ ){
     //gridA = *  (Vec3d*)cell;
     //gridB = *(((Vec3d*)cell)+1);
     //gridC = *(((Vec3d*)cell)+2);
@@ -346,7 +352,7 @@ __declspec(dllexport) void setPBC( int * npbc_, double * cell_ ){
     bPBC = true;
 }
 
-__declspec(dllexport) void setSplines( int ntypes, int npts, double invStep, double Rcut, double* RFuncs  ){
+DLLEXPORT void setSplines( int ntypes, int npts, double invStep, double Rcut, double* RFuncs  ){
     spline_Ntypes  = ntypes;
     spline_Nps     = npts;
     spline_invStep = invStep;
@@ -354,7 +360,7 @@ __declspec(dllexport) void setSplines( int ntypes, int npts, double invStep, dou
     RFuncSplines = RFuncs;
 }
 
-__declspec(dllexport) void getProjections(
+DLLEXPORT void getProjections(
     int nps, int ncenters,
     double*  ps, double* Yrefs,
     double* centers, int* types, int* ncomps,
@@ -369,7 +375,7 @@ __declspec(dllexport) void getProjections(
     );
 }
 
-__declspec(dllexport) void project(
+DLLEXPORT void project(
     int nps, int ncenters,
     double*  ps, double* Youts,
     double* centers, int* types, int* ncomps,
@@ -387,6 +393,6 @@ __declspec(dllexport) void project(
     );
 }
 
-__declspec(dllexport) void debugGeomPBC_xsf( int ncenters, double* centers ){ saveDebugGeomXsfPBC( ncenters, (Vec3d*)centers ); }
+DLLEXPORT void debugGeomPBC_xsf( int ncenters, double* centers ){ saveDebugGeomXsfPBC( ncenters, (Vec3d*)centers ); }
 
 }

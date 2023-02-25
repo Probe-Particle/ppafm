@@ -13,6 +13,12 @@
 
 // ================= MACROS
 
+#ifdef _WIN64 // Required for exports for ctypes on Windows
+    #define DLLEXPORT __declspec(dllexport)
+#else
+    #define DLLEXPORT
+#endif
+
 // ================= CONSTANTS
 
 const double const_eVA_SI = 16.0217662;
@@ -254,7 +260,7 @@ int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
 extern "C"{
 
 // set basic relaxation parameters
-__declspec(dllexport) void setRelax( int maxIters, double convF2, double dt, double damping ){
+DLLEXPORT void setRelax( int maxIters, double convF2, double dt, double damping ){
     RELAX::maxIters  = maxIters ;
     RELAX::convF2    = convF2;
     RELAX::dt        = dt;
@@ -263,37 +269,37 @@ __declspec(dllexport) void setRelax( int maxIters, double convF2, double dt, dou
 }
 
 // set FIRE relaxation parameters
-__declspec(dllexport) void setFIRE( double finc, double fdec, double falpha ){
+DLLEXPORT void setFIRE( double finc, double fdec, double falpha ){
     FIRE::finc    = finc;
     FIRE::fdec    = fdec;
     FIRE::falpha  = falpha;
 }
 
 // set pointer to force field array ( the array is usually allocated in python, we can flexibely switch betweeen different precomputed forcefields )
-__declspec(dllexport) void setFF_Fpointer( double * gridF_ ){
+DLLEXPORT void setFF_Fpointer( double * gridF_ ){
     gridF = (Vec3d *)gridF_;
 }
 
 // set pointer to force field array ( the array is usually allocated in python, we can flexibely switch betweeen different precomputed forcefields )
-__declspec(dllexport) void setFF_Epointer( double * gridE_ ){
+DLLEXPORT void setFF_Epointer( double * gridE_ ){
     gridE = gridE_;
 }
 
 // set forcefield grid dimension "n"
-__declspec(dllexport) void setGridN( int * n ){
+DLLEXPORT void setGridN( int * n ){
     //gridShape.n.set( *(Vec3i*)n );
     gridShape.n.set( n[2], n[1], n[0] );
     printf( " nxyz  %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
 }
 
 // set forcefield grid lattice vectors "cell"
-__declspec(dllexport) void setGridCell( double * cell ){
+DLLEXPORT void setGridCell( double * cell ){
     gridShape.setCell( *(Mat3d*)cell );
     gridShape.printCell();
 }
 
 // set parameters of the tip like stiffness and equlibirum position in radial and lateral direction
-__declspec(dllexport) void setTip( double lRad, double kRad, double * rPP0, double * kSpring ){
+DLLEXPORT void setTip( double lRad, double kRad, double * rPP0, double * kSpring ){
     TIP::lRadial=lRad;
     TIP::kRadial=kRad;
     TIP::rPP0.set(rPP0);
@@ -302,13 +308,13 @@ __declspec(dllexport) void setTip( double lRad, double kRad, double * rPP0, doub
 }
 
 // set parameters of the tip like stiffness and equlibirum position in radial and lateral direction
-__declspec(dllexport) void setTipSpline( int n, double * xs, double * ydys ){
+DLLEXPORT void setTipSpline( int n, double * xs, double * ydys ){
     TIP::rff_n    = n;
     TIP::rff_xs   = xs;
     TIP::rff_ydys = ydys;
 }
 
-__declspec(dllexport) void getInPoints_LJ( int npoints, double * points_, double * FEs, int natoms, double * Ratoms_, double * cLJs ){
+DLLEXPORT void getInPoints_LJ( int npoints, double * points_, double * FEs, int natoms, double * Ratoms_, double * cLJs ){
     Vec3d * Ratoms=(Vec3d*)Ratoms_; Vec3d * points =(Vec3d*)points_;
     //printf("natoms %i npoints %i \n", natoms, npoints);
     int i4=0;
@@ -325,19 +331,19 @@ __declspec(dllexport) void getInPoints_LJ( int npoints, double * points_, double
     }
 }
 
-__declspec(dllexport) void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
+DLLEXPORT void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     interateGrid3D < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
 }
 
-__declspec(dllexport) void getVdWFF( int natoms_, double * Ratoms_, double * cLJs ){
+DLLEXPORT void getVdWFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     interateGrid3D < evalCell < addAtom_VdW  > >( r0, gridShape.n, gridShape.dCell, cLJs );
 }
 
-__declspec(dllexport) void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){
+DLLEXPORT void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2; Morse_alpha = alpha;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     interateGrid3D < evalCell < addAtom_Morse > >( r0, gridShape.n, gridShape.dCell, REs );
@@ -345,7 +351,7 @@ __declspec(dllexport) void getMorseFF( int natoms_, double * Ratoms_, double * R
 
 // sample Coulomb Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with constant kQQs  =  - k_coulomb * Q_ProbeParticle * Q[i]
 // results are sampled according to grid parameters defined in "namespace FF" and stored in array to which points by "double * FF::grid"
-__declspec(dllexport) void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs, int kind ){
+DLLEXPORT void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs, int kind ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 1;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     //printf(" kind %i \n", kind );
@@ -357,7 +363,7 @@ __declspec(dllexport) void getCoulombFF( int natoms_, double * Ratoms_, double *
     }
 }
 
-__declspec(dllexport) void getGaussDensity( int natoms_, double * Ratoms_, double * cRAs ){
+DLLEXPORT void getGaussDensity( int natoms_, double * Ratoms_, double * cRAs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
@@ -365,7 +371,7 @@ __declspec(dllexport) void getGaussDensity( int natoms_, double * Ratoms_, doubl
     gridF=gridF_;
 }
 
-__declspec(dllexport) void getSlaterDensity( int natoms_, double * Ratoms_, double * cRAs ){
+DLLEXPORT void getSlaterDensity( int natoms_, double * Ratoms_, double * cRAs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
@@ -373,7 +379,7 @@ __declspec(dllexport) void getSlaterDensity( int natoms_, double * Ratoms_, doub
     gridF=gridF_;
 }
 
-__declspec(dllexport) void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs ){
+DLLEXPORT void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
@@ -386,7 +392,7 @@ __declspec(dllexport) void getDensityR4spline( int natoms_, double * Ratoms_, do
 // returns position of probe-particle after relaxation in 1D array "rs_" and force between surface probe particle in this relaxed position in 1D array "fs_"
 // for efficiency, starting position of ProbeParticle in new point (next postion of Tip) is derived from relaxed postion of ProbeParticle from previous point
 // there are several strategies how to do it which are choosen by parameter probeStart
-__declspec(dllexport) int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
+DLLEXPORT int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
     Vec3d * rTips = (Vec3d*) rTips_;
     Vec3d * rs    = (Vec3d*) rs_;
     Vec3d * fs    = (Vec3d*) fs_;
@@ -430,7 +436,7 @@ __declspec(dllexport) int relaxTipStroke ( int probeStart, int relaxAlg, int nst
     return itrsum;
 }
 
-__declspec(dllexport) void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
+DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
     Vec3d * rTips     = (Vec3d*) rTips_;
     Vec3d * rPPs      = (Vec3d*) rPPs_;
     Vec3d * eigenvals = (Vec3d*) eigenvals_;
@@ -472,7 +478,7 @@ __declspec(dllexport) void stiffnessMatrix( double ddisp, int which, int n, doub
     }
 }
 
-__declspec(dllexport) void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ ){
+DLLEXPORT void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ ){
     double denom = 1/dx;
     for( int j=0; j<m; j++ ){
         double x  = xs_[j];
@@ -485,7 +491,7 @@ __declspec(dllexport) void subsample_uniform_spline( double x0, double dx, int n
     }
 }
 
-__declspec(dllexport) void subsample_nonuniform_spline( int n, double * xs, double * ydys, int m, double * xs_, double * ys_ ){
+DLLEXPORT void subsample_nonuniform_spline( int n, double * xs, double * ydys, int m, double * xs_, double * ys_ ){
     int i=0;
     //double x0=xs[0],x1=xs[1],dx=x1-x0,denom=1/dx;
     double x0,x1=-1e+300,dx,denom;
@@ -506,7 +512,7 @@ __declspec(dllexport) void subsample_nonuniform_spline( int n, double * xs, doub
     }
 }
 
-__declspec(dllexport) void test_force( int type, int n, double * r0_, double * dr_, double * R_, double * fs_ ){
+DLLEXPORT void test_force( int type, int n, double * r0_, double * dr_, double * R_, double * fs_ ){
     Vec3d r,dr,R;
     r .set( r0_[0], r0_[1], r0_[2] );
     dr.set( dr_[0], dr_[1], dr_[2] );
@@ -525,7 +531,7 @@ __declspec(dllexport) void test_force( int type, int n, double * r0_, double * d
     }
 }
 
-__declspec(dllexport) void test_eigen3x3( double * mat, double * evs ){
+DLLEXPORT void test_eigen3x3( double * mat, double * evs ){
     Mat3d* pmat  = (Mat3d*)mat;
     Vec3d* es    = (Vec3d*)evs;
     Vec3d* ev1   = (Vec3d*)(evs+3);

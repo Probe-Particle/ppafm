@@ -6,6 +6,12 @@
 
 #include <locale.h>
 
+#ifdef _WIN64 // Required for exports for ctypes on Windows
+    #define DLLEXPORT __declspec(dllexport)
+#else
+    #define DLLEXPORT
+#endif
+
 GridShape gridShape;
 
 // ==== teporary global for functions
@@ -23,7 +29,7 @@ namespace Histogram{
 
 extern "C" {
 
-    __declspec(dllexport) int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline) {
+    DLLEXPORT int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline) {
 
         setlocale( LC_ALL, "C" ); // https://msdn.microsoft.com/en-us/library/x99tb11d(v=vs.71).aspx
         //setlocale( LC_ALL, "" );
@@ -65,13 +71,13 @@ extern "C" {
         return 0;
     }
 
-	__declspec(dllexport) void interpolate_gridCoord( int n, Vec3d * pos_list, double * data, double * out ){
+	DLLEXPORT void interpolate_gridCoord( int n, Vec3d * pos_list, double * data, double * out ){
 		for( int i=0; i<n; i++ ){
 			out[i] = interpolate3DWrap( data, gridShape.n, pos_list[i] );
 		}
 	}
 
-	__declspec(dllexport) void interpolateLine_gridCoord( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
+	DLLEXPORT void interpolateLine_gridCoord( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
         //printf( " interpolateLine n %i  p0 (%g,%g,%g) p1 (%g,%g,%g) \n", n,   p0->x,p0->y,p0->z, p1->x,p1->y,p1->z );
 		Vec3d dp,p;
 		dp.set_sub( *p1, *p0 );
@@ -85,7 +91,7 @@ extern "C" {
 		}
 	}
 
-	__declspec(dllexport) void interpolateLine_cartes( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
+	DLLEXPORT void interpolateLine_cartes( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
 		Vec3d dp,p;
 		dp.set_sub( *p1, *p0 );
 		dp.mul( 1.0/n );
@@ -100,7 +106,7 @@ extern "C" {
 		}
 	}
 
-	__declspec(dllexport) void interpolateQuad_gridCoord( int * nij, Vec3d * p00, Vec3d * p01, Vec3d * p10, Vec3d * p11, double * data, double * out ){
+	DLLEXPORT void interpolateQuad_gridCoord( int * nij, Vec3d * p00, Vec3d * p01, Vec3d * p10, Vec3d * p11, double * data, double * out ){
 		int ni = nij[0];
 		int nj = nij[1];
         //printf( "gridShape.n %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
@@ -139,7 +145,7 @@ extern "C" {
         Histogram::Ws[i+1] += u;
         #endif
     }
-	__declspec(dllexport) void sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){
+	DLLEXPORT void sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){
 	    data = data_; Histogram::n = n; Histogram::Hs=Hs; Histogram::Ws=Ws; Histogram::dx = dr; Histogram::center.set(center[0],center[1],center[2]);
         Vec3d r0; r0.set(0.0,0.0,0.0);
         interateGrid3D<acum_sphere_hist>( r0, gridShape.n, gridShape.dCell, NULL );
@@ -153,7 +159,7 @@ extern "C" {
 	    //printf("acum_cog %i (%g,%g,%g) %g \n", ibuff, pos.x, pos.y, pos.z, h );
 	    //if( ibuff > 100 ) exit(0);
     }
-	__declspec(dllexport) double cog( double * data_, double* center ){
+	DLLEXPORT double cog( double * data_, double* center ){
 	    data = data_; Histogram::Htot += 0;  Histogram::center.set(0.0);
         Vec3d r0; r0.set(0.0,0.0,0.0);
         interateGrid3D<acum_cog>( r0, gridShape.n, gridShape.dCell, NULL );
@@ -162,7 +168,7 @@ extern "C" {
         return Histogram::Htot;
 	}
 
-	__declspec(dllexport) void interpolate_cartesian( int n, Vec3d * pos_list, double * data, double * out ){
+	DLLEXPORT void interpolate_cartesian( int n, Vec3d * pos_list, double * data, double * out ){
 		for( int i=0; i<n; i++ ){
 			Vec3d gpos;
 			gridShape.cartesian2grid( pos_list[i], gpos );
@@ -170,13 +176,13 @@ extern "C" {
 		}
 	}
 
-	__declspec(dllexport) void setGridN( int * n ){
+	DLLEXPORT void setGridN( int * n ){
 		//gridShape.n.set( *(Vec3i*)n );
 		gridShape.n.set( n[2], n[1], n[0] );
 		printf( " nxyz  %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
 	}
 
-	__declspec(dllexport) void setGridCell( double * cell ){
+	DLLEXPORT void setGridCell( double * cell ){
 		gridShape.setCell( *(Mat3d*)cell );
         gridShape.printCell();
 	}
