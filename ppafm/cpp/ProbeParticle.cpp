@@ -102,7 +102,7 @@ namespace FIRE{
         double vv = v.norm2();
         double vf = f.dot(v);
         if( vf < 0 ){ // if velocity along direction of force
-            v.set( 0.0d );
+            v.set( 0.0 );
             dt    = dt * fdec;
               acoef = acoef0;
         }else{       // if velocity against direction of force
@@ -121,9 +121,9 @@ namespace FIRE{
 
 // ========= eval force templates
 
-#define dstep       0.1d
-#define inv_dstep   10.0d
-#define inv_ddstep  100.0d
+#define dstep       0.1
+#define inv_dstep   10.0
+#define inv_ddstep  100.0
 
 inline double addAtom_LJ        ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ     ( dR, fout, coefs[0], coefs[1] ); }
 inline double addAtom_VdW       ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW    ( dR, fout, coefs[0]           ); }
@@ -203,7 +203,7 @@ inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
     //printf(" evalCell : args %i \n", args );
     //printf(" natoms %i nCoefPerAtom %i \n", natoms, nCoefPerAtom );
     double E=0;
-    Vec3d f; f.set(0.0d);
+    Vec3d f; f.set(0.0);
     for(int i=0; i<natoms; i++){
         //if( ibuff==0 ) printf(" atom[%i] (%g,%g,%g) | %g \n", i, Ratoms[i].x, Ratoms[i].y, Ratoms[i].z, coefs[0] );
         E     += addAtom_func( Ratoms[i]-rProbe, f, coefs );
@@ -233,7 +233,7 @@ inline void getPPforce( const Vec3d& rTip, const Vec3d& r, Vec3d& f ){
 
 // relax probe particle position "r" given on particular position of tip (rTip) and initial position "r"
 int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
-    Vec3d v; v.set( 0.0d );
+    Vec3d v; v.set( 0.0 );
     int iter;
     for( iter=0; iter<RELAX::maxIters; iter++ ){
         Vec3d f;  getPPforce( rTip, r, f );
@@ -254,7 +254,7 @@ int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
 extern "C"{
 
 // set basic relaxation parameters
-void setRelax( int maxIters, double convF2, double dt, double damping ){
+__declspec(dllexport) void setRelax( int maxIters, double convF2, double dt, double damping ){
     RELAX::maxIters  = maxIters ;
     RELAX::convF2    = convF2;
     RELAX::dt        = dt;
@@ -263,37 +263,37 @@ void setRelax( int maxIters, double convF2, double dt, double damping ){
 }
 
 // set FIRE relaxation parameters
-void setFIRE( double finc, double fdec, double falpha ){
+__declspec(dllexport) void setFIRE( double finc, double fdec, double falpha ){
     FIRE::finc    = finc;
     FIRE::fdec    = fdec;
     FIRE::falpha  = falpha;
 }
 
 // set pointer to force field array ( the array is usually allocated in python, we can flexibely switch betweeen different precomputed forcefields )
-void setFF_Fpointer( double * gridF_ ){
+__declspec(dllexport) void setFF_Fpointer( double * gridF_ ){
     gridF = (Vec3d *)gridF_;
 }
 
 // set pointer to force field array ( the array is usually allocated in python, we can flexibely switch betweeen different precomputed forcefields )
-void setFF_Epointer( double * gridE_ ){
+__declspec(dllexport) void setFF_Epointer( double * gridE_ ){
     gridE = gridE_;
 }
 
 // set forcefield grid dimension "n"
-void setGridN( int * n ){
+__declspec(dllexport) void setGridN( int * n ){
     //gridShape.n.set( *(Vec3i*)n );
     gridShape.n.set( n[2], n[1], n[0] );
     printf( " nxyz  %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
 }
 
 // set forcefield grid lattice vectors "cell"
-void setGridCell( double * cell ){
+__declspec(dllexport) void setGridCell( double * cell ){
     gridShape.setCell( *(Mat3d*)cell );
     gridShape.printCell();
 }
 
 // set parameters of the tip like stiffness and equlibirum position in radial and lateral direction
-void setTip( double lRad, double kRad, double * rPP0, double * kSpring ){
+__declspec(dllexport) void setTip( double lRad, double kRad, double * rPP0, double * kSpring ){
     TIP::lRadial=lRad;
     TIP::kRadial=kRad;
     TIP::rPP0.set(rPP0);
@@ -302,13 +302,13 @@ void setTip( double lRad, double kRad, double * rPP0, double * kSpring ){
 }
 
 // set parameters of the tip like stiffness and equlibirum position in radial and lateral direction
-void setTipSpline( int n, double * xs, double * ydys ){
+__declspec(dllexport) void setTipSpline( int n, double * xs, double * ydys ){
     TIP::rff_n    = n;
     TIP::rff_xs   = xs;
     TIP::rff_ydys = ydys;
 }
 
-void getInPoints_LJ( int npoints, double * points_, double * FEs, int natoms, double * Ratoms_, double * cLJs ){
+__declspec(dllexport) void getInPoints_LJ( int npoints, double * points_, double * FEs, int natoms, double * Ratoms_, double * cLJs ){
     Vec3d * Ratoms=(Vec3d*)Ratoms_; Vec3d * points =(Vec3d*)points_;
     //printf("natoms %i npoints %i \n", natoms, npoints);
     int i4=0;
@@ -325,19 +325,19 @@ void getInPoints_LJ( int npoints, double * points_, double * FEs, int natoms, do
     }
 }
 
-void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
+__declspec(dllexport) void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     interateGrid3D < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
 }
 
-void getVdWFF( int natoms_, double * Ratoms_, double * cLJs ){
+__declspec(dllexport) void getVdWFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     interateGrid3D < evalCell < addAtom_VdW  > >( r0, gridShape.n, gridShape.dCell, cLJs );
 }
 
-void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){
+__declspec(dllexport) void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2; Morse_alpha = alpha;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     interateGrid3D < evalCell < addAtom_Morse > >( r0, gridShape.n, gridShape.dCell, REs );
@@ -345,7 +345,7 @@ void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){
 
 // sample Coulomb Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with constant kQQs  =  - k_coulomb * Q_ProbeParticle * Q[i]
 // results are sampled according to grid parameters defined in "namespace FF" and stored in array to which points by "double * FF::grid"
-void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs, int kind ){
+__declspec(dllexport) void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs, int kind ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 1;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     //printf(" kind %i \n", kind );
@@ -357,7 +357,7 @@ void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs, int kind ){
     }
 }
 
-void getGaussDensity( int natoms_, double * Ratoms_, double * cRAs ){
+__declspec(dllexport) void getGaussDensity( int natoms_, double * Ratoms_, double * cRAs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
@@ -365,7 +365,7 @@ void getGaussDensity( int natoms_, double * Ratoms_, double * cRAs ){
     gridF=gridF_;
 }
 
-void getSlaterDensity( int natoms_, double * Ratoms_, double * cRAs ){
+__declspec(dllexport) void getSlaterDensity( int natoms_, double * Ratoms_, double * cRAs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
@@ -373,7 +373,7 @@ void getSlaterDensity( int natoms_, double * Ratoms_, double * cRAs ){
     gridF=gridF_;
 }
 
-void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs ){
+__declspec(dllexport) void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
@@ -386,7 +386,7 @@ void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs ){
 // returns position of probe-particle after relaxation in 1D array "rs_" and force between surface probe particle in this relaxed position in 1D array "fs_"
 // for efficiency, starting position of ProbeParticle in new point (next postion of Tip) is derived from relaxed postion of ProbeParticle from previous point
 // there are several strategies how to do it which are choosen by parameter probeStart
-int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
+__declspec(dllexport) int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
     Vec3d * rTips = (Vec3d*) rTips_;
     Vec3d * rs    = (Vec3d*) rs_;
     Vec3d * fs    = (Vec3d*) fs_;
@@ -430,7 +430,7 @@ int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, d
     return itrsum;
 }
 
-void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
+__declspec(dllexport) void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
     Vec3d * rTips     = (Vec3d*) rTips_;
     Vec3d * rPPs      = (Vec3d*) rPPs_;
     Vec3d * eigenvals = (Vec3d*) eigenvals_;
@@ -472,7 +472,7 @@ void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * 
     }
 }
 
-void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ ){
+__declspec(dllexport) void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ ){
     double denom = 1/dx;
     for( int j=0; j<m; j++ ){
         double x  = xs_[j];
@@ -485,7 +485,7 @@ void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m
     }
 }
 
-void subsample_nonuniform_spline( int n, double * xs, double * ydys, int m, double * xs_, double * ys_ ){
+__declspec(dllexport) void subsample_nonuniform_spline( int n, double * xs, double * ydys, int m, double * xs_, double * ys_ ){
     int i=0;
     //double x0=xs[0],x1=xs[1],dx=x1-x0,denom=1/dx;
     double x0,x1=-1e+300,dx,denom;
@@ -506,7 +506,7 @@ void subsample_nonuniform_spline( int n, double * xs, double * ydys, int m, doub
     }
 }
 
-void test_force( int type, int n, double * r0_, double * dr_, double * R_, double * fs_ ){
+__declspec(dllexport) void test_force( int type, int n, double * r0_, double * dr_, double * R_, double * fs_ ){
     Vec3d r,dr,R;
     r .set( r0_[0], r0_[1], r0_[2] );
     dr.set( dr_[0], dr_[1], dr_[2] );
@@ -525,7 +525,7 @@ void test_force( int type, int n, double * r0_, double * dr_, double * R_, doubl
     }
 }
 
-void test_eigen3x3( double * mat, double * evs ){
+__declspec(dllexport) void test_eigen3x3( double * mat, double * evs ){
     Mat3d* pmat  = (Mat3d*)mat;
     Vec3d* es    = (Vec3d*)evs;
     Vec3d* ev1   = (Vec3d*)(evs+3);

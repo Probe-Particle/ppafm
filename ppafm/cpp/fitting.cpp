@@ -22,7 +22,7 @@ double spline_Rcut    = 0;
 double * RFuncSplines = 0;
 
 bool bPBC  = false;
-Vec3i npbc = (Vec3i){0,0,0};
+Vec3i npbc = Vec3i {0,0,0};
 //GridShape gridShape;
 //Vec3d gridA;
 //Vec3d gridB;
@@ -201,8 +201,8 @@ int map_pbc_images( int ncenters, Vec3d* centers, Func func ){
         for(int ib=-npbc.b; ib<=npbc.b; ib++){
             Vec3d shift_ab = cell.a*ia + cell.b*ib;
             for(int ic=-npbc.c; ic<=npbc.c; ic++){
-                Vec3d pmin = (Vec3d){(double)( -ia),(double)( -ib),(double)( -ic)} - margin;
-                Vec3d pmax = (Vec3d){(double)(1-ia),(double)(1-ib),(double)(1-ic)} + margin;
+                Vec3d pmin = Vec3d {(double)( -ia),(double)( -ib),(double)( -ic)} - margin;
+                Vec3d pmax = Vec3d {(double)(1-ia),(double)(1-ib),(double)(1-ic)} + margin;
                 int nfound = pointsInBox( pmin, pmax, ncenters, abcs, selection );
                 //printf( " icell(%i,%i,%i) nfound %i pmin(%g,%g,%g) pmax(%g,%g,%g) \n", ia,ib,ic, nfound, pmin.x,pmin.y,pmin.z, pmax.x,pmax.y,pmax.z );
                 Vec3d shift = shift_ab + cell.c*ic;
@@ -337,7 +337,7 @@ void project_SplineSPD(
 
 extern "C"{
 
-void setPBC( int * npbc_, double * cell_ ){
+__declspec(dllexport) void setPBC( int * npbc_, double * cell_ ){
     //gridA = *  (Vec3d*)cell;
     //gridB = *(((Vec3d*)cell)+1);
     //gridC = *(((Vec3d*)cell)+2);
@@ -346,7 +346,7 @@ void setPBC( int * npbc_, double * cell_ ){
     bPBC = true;
 }
 
-void setSplines( int ntypes, int npts, double invStep, double Rcut, double* RFuncs  ){
+__declspec(dllexport) void setSplines( int ntypes, int npts, double invStep, double Rcut, double* RFuncs  ){
     spline_Ntypes  = ntypes;
     spline_Nps     = npts;
     spline_invStep = invStep;
@@ -354,7 +354,7 @@ void setSplines( int ntypes, int npts, double invStep, double Rcut, double* RFun
     RFuncSplines = RFuncs;
 }
 
-void getProjections(
+__declspec(dllexport) void getProjections(
     int nps, int ncenters,
     double*  ps, double* Yrefs,
     double* centers, int* types, int* ncomps,
@@ -369,7 +369,7 @@ void getProjections(
     );
 }
 
-void project(
+__declspec(dllexport) void project(
     int nps, int ncenters,
     double*  ps, double* Youts,
     double* centers, int* types, int* ncomps,
@@ -387,6 +387,6 @@ void project(
     );
 }
 
-void debugGeomPBC_xsf( int ncenters, double* centers ){ saveDebugGeomXsfPBC( ncenters, (Vec3d*)centers ); }
+__declspec(dllexport) void debugGeomPBC_xsf( int ncenters, double* centers ){ saveDebugGeomXsfPBC( ncenters, (Vec3d*)centers ); }
 
 }

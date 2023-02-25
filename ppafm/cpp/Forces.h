@@ -206,7 +206,7 @@ inline Vec3d REQ2PLQ( const Vec3d& REQ, double alpha ){
     double expar = exp(-alpha*REQ.x);
     double CP    =    eps*expar*expar;
     double CL    = -2*eps*expar;
-    return (Vec3d){ CP, CL, REQ.z };
+    return  Vec3d { CP, CL, REQ.z };
 }
 
 inline Vec3d REnergyQ2PLQ( const Vec3d& REQ, double alpha ){

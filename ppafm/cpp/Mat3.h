@@ -457,8 +457,8 @@ class Mat3T{
     // http://www.geometrictools.com/Documentation/EigenSymmetric3x3.pdf
     // https://www.geometrictools.com/GTEngine/Include/Mathematics/GteSymmetricEigensolver3x3.h
 	inline void eigenvals( VEC& evs ) const {
-		const T inv3  = 0.33333333333d;
-        const T root3 = 1.73205080757d;
+		const T inv3  = 0.33333333333;
+        const T root3 = 1.73205080757;
 		T amax = array[0];
 		for(int i=1; i<9; i++){ double a=array[i]; if(a>amax)amax=a; }
 		T c0 = xx*yy*zz + 2*xy*xz*yz -  xx*yz*yz   - yy*xz*xz   -  zz*xy*xy;
@@ -467,8 +467,8 @@ class Mat3T{
 		T amax2 = amax*amax; c2/=amax; c1/=amax2; c0/=(amax2*amax);
 		T c2Div3 = c2*inv3;
 		T aDiv3  = (c1 - c2*c2Div3)*inv3;
-		if (aDiv3 > 0.0d) aDiv3 = 0.0d;
-		T mbDiv2 = 0.5d*( c0 + c2Div3*(2.0d*c2Div3*c2Div3 - c1) );
+		if (aDiv3 > 0.0) aDiv3 = 0.0;
+		T mbDiv2 = 0.5*( c0 + c2Div3*(2.0*c2Div3*c2Div3 - c1) );
 		T q = mbDiv2*mbDiv2 + aDiv3*aDiv3*aDiv3;
 		if (q > 0.0) q = 0.0;
 		T magnitude = sqrt(-aDiv3);
@@ -555,11 +555,11 @@ using Mat3i = Mat3T< int   >;
 using Mat3f = Mat3T< float >;
 using Mat3d = Mat3T< double>;
 
-static constexpr Mat3d Mat3dIdentity = (Mat3d){1.0d,0.0d,0.0d, 0.0d,1.0d,0.0d,  0.0d,0.0d,1.0d};
-static constexpr Mat3d Mat3dZero     = (Mat3d){0.0d,0.0d,0.0d, 0.0d,0.0d,0.0d,  0.0d,0.0d,0.0d};
+static constexpr Mat3d Mat3dIdentity = Mat3d {1.0,0.0,0.0, 0.0,1.0,0.0,  0.0,0.0,1.0};
+static constexpr Mat3d Mat3dZero     = Mat3d {0.0,0.0,0.0, 0.0,0.0,0.0,  0.0,0.0,0.0};
 
-static constexpr Mat3f Mat3fIdentity = (Mat3f){1.0f,0.0f,0.0f, 0.0f,1.0f,0.0f,  0.0f,0.0f,1.0f};
-static constexpr Mat3f Mat3fZero     = (Mat3f){0.0f,0.0f,0.0f, 0.0f,0.0f,0.0f,  0.0f,0.0f,0.0f};
+static constexpr Mat3f Mat3fIdentity = Mat3f {1.0f,0.0f,0.0f, 0.0f,1.0f,0.0f,  0.0f,0.0f,1.0f};
+static constexpr Mat3f Mat3fZero     = Mat3f {0.0f,0.0f,0.0f, 0.0f,0.0f,0.0f,  0.0f,0.0f,0.0f};
 
 inline void convert( const Mat3f& from, Mat3d& to ){ convert( from.a, to.a ); convert( from.b, to.b ); convert( from.c, to.c ); };
 inline void convert( const Mat3d& from, Mat3f& to ){ convert( from.a, to.a ); convert( from.b, to.b ); convert( from.c, to.c ); };

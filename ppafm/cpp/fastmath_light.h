@@ -2,9 +2,12 @@
 #ifndef  fastmath_light_h
 #define  fastmath_light_h
 
+#define _USE_MATH_DEFINES
+
 #include <math.h>
 
 //#define M_PI          3.14159265358979323846
+
 #define GOLDEN_RATIO  1.61803398875
 #define DEG2RAD       0.0174533
 #define RAD2DEG      57.2958

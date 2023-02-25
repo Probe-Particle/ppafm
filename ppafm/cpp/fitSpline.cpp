@@ -15,8 +15,8 @@ double* work   = 0;
 double* work2D = 0;
 double* work3D = 0;
 
-Vec2i   ns_2d = (Vec2i){0,0};
-Vec3i   ns_3d = (Vec3i){0,0,0};
+Vec2i   ns_2d = Vec2i {0,0};
+Vec3i   ns_3d = Vec3i {0,0,0};
 
 int     nkernel      = 0;
 double* kernel_coefs = 0;
@@ -214,7 +214,7 @@ CG cg_glob;
 
 extern "C"{
 
-void convolve1D(int m,int di,int n,double* coefs, double* x, double* y ){
+__declspec(dllexport) void convolve1D(int m,int di,int n,double* coefs, double* x, double* y ){
     //conv1D( m, n-m*2, coefs, x, y+m );
     //printf( " m %i di %i n %i \n", m, di, n );
     if(di== 1){ conv1D     ( m,      n, coefs, x, y ); }
@@ -222,17 +222,17 @@ void convolve1D(int m,int di,int n,double* coefs, double* x, double* y ){
     else      { conv1D_down( m,  di, n, coefs, x, y ); }
 }
 
-void convolve2D_tensorProduct( int ord, int di, int nx, int ny, double* coefs, double* x, double* y ){
-    if(di== 1){ conv2D_tensorProd     ( ord,     (Vec2i){nx,ny}, coefs, x, y ); }
-    if(di<0  ){ conv2D_tensorProd_up  ( ord,-di, (Vec2i){nx,ny}, coefs, x, y ); }
-    else      { conv2D_tensorProd_down( ord, di, (Vec2i){nx,ny}, coefs, x, y ); }
+__declspec(dllexport) void convolve2D_tensorProduct( int ord, int di, int nx, int ny, double* coefs, double* x, double* y ){
+    if(di== 1){ conv2D_tensorProd     ( ord,     Vec2i {nx,ny}, coefs, x, y ); }
+    if(di<0  ){ conv2D_tensorProd_up  ( ord,-di, Vec2i {nx,ny}, coefs, x, y ); }
+    else      { conv2D_tensorProd_down( ord, di, Vec2i {nx,ny}, coefs, x, y ); }
     //printf( "DONE 1\n" );
     delete [] work; work=0;
     //printf( "DONE 2\n" );
 }
 
-void convolve3D_tensorProduct( int ord, int di, int nx, int ny, int nz, double* coefs, double* x, double* y ){
-    if(di== 1){ conv3D_tensorProd     ( ord,     (Vec3i){nx,ny,nz}, coefs, x, y ); }
+__declspec(dllexport) void convolve3D_tensorProduct( int ord, int di, int nx, int ny, int nz, double* coefs, double* x, double* y ){
+    if(di== 1){ conv3D_tensorProd     ( ord,     Vec3i {nx,ny,nz}, coefs, x, y ); }
     else{       printf( "ERROR:  di!=1 NOT IMPLEMENTED" ); exit(0); }
     //if(di<0  ){ conv2D_tensorProd_up  ( ord,-di, (Vec2i){nx,ny}, coefs, x, y ); }
     //else      { conv2D_tensorProd_down( ord, di, (Vec2i){nx,ny}, coefs, x, y ); }
@@ -242,16 +242,16 @@ void convolve3D_tensorProduct( int ord, int di, int nx, int ny, int nz, double* 
     //printf( "DONE 2\n" );
 }
 
-void solveCG( int n, double* A, double* b, double* x, int maxIters, double maxErr ){
+__declspec(dllexport) void solveCG( int n, double* A, double* b, double* x, int maxIters, double maxErr ){
     CG cg( n, x, b, A );
     cg.solve_CG( maxIters, maxErr, true );
 }
 
-void fit_tensorProd_2D( int ord, int nx, int ny, double* kernel_coefs_, double* BYref, double* Ycoefs, int maxIters, double maxErr, int nConvPerCG_ ){
+__declspec(dllexport) void fit_tensorProd_2D( int ord, int nx, int ny, double* kernel_coefs_, double* BYref, double* Ycoefs, int maxIters, double maxErr, int nConvPerCG_ ){
     nConvPerCG = nConvPerCG_;
     if(nConvPerCG>0) work2D = new double[nx*ny];
     nkernel = ord;
-    ns_2d   = (Vec2i){nx,ny};
+    ns_2d   = Vec2i {nx,ny};
     kernel_coefs = kernel_coefs_;
     //printf( " ns_2d %i,%i \n", ns_2d.x, ns_2d.y );
     CG cg( nx*ny, Ycoefs, BYref );
@@ -264,12 +264,12 @@ void fit_tensorProd_2D( int ord, int nx, int ny, double* kernel_coefs_, double* 
     if(nConvPerCG>0){ delete [] work2D; work2D=0; }
 }
 
-void fit_tensorProd_3D( int ord, int nx, int ny, int nz, double* kernel_coefs_, double* BYref, double* Ycoefs, int maxIters, double maxErr, int nConvPerCG_ ){
+__declspec(dllexport) void fit_tensorProd_3D( int ord, int nx, int ny, int nz, double* kernel_coefs_, double* BYref, double* Ycoefs, int maxIters, double maxErr, int nConvPerCG_ ){
     nConvPerCG = nConvPerCG_;
     int nxyz = nx*ny*nz;
     if(nConvPerCG>0) work3D = new double[nxyz];
     nkernel = ord;
-    ns_3d   = (Vec3i){nx,ny,nz};
+    ns_3d   = Vec3i {nx,ny,nz};
     kernel_coefs = kernel_coefs_;
     CG cg( nxyz, Ycoefs, BYref );
     cg.dotFunc = dotFunc_conv3D_tensorProd;
@@ -278,11 +278,11 @@ void fit_tensorProd_3D( int ord, int nx, int ny, int nz, double* kernel_coefs_, 
     if(nConvPerCG>0){ delete [] work3D; work3D=0; }
 }
 
-void setup_fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, double* BYref, double* Ycoefs, double* Wprecond, int nConvPerCG_ ){
+__declspec(dllexport) void setup_fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, double* BYref, double* Ycoefs, double* Wprecond, int nConvPerCG_ ){
     if(nConvPerCG_>0) work2D = new double[nx*ny];
     nConvPerCG = nConvPerCG_;
     nkernel = ord;
-    ns_2d   = (Vec2i){nx,ny};
+    ns_2d   = Vec2i {nx,ny};
     kernel_coefs = kernel_coefs_;
     //printf( " ns_2d %i,%i \n", ns_2d.x, ns_2d.y );
     cg_glob.setLinearProblem( nx*ny, Ycoefs, BYref );
@@ -292,7 +292,7 @@ void setup_fit_tensorProd( int ord, int nx, int ny, double* kernel_coefs_, doubl
     //delete [] work; work=0;
 }
 
-void step_fit_tensorProd( ){
+__declspec(dllexport) void step_fit_tensorProd( ){
     double err2 = cg_glob.step_CG();
     //printf( "CG[%i] err %g \n", cg_glob.istep, sqrt(err2) );
 }

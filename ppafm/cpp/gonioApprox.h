@@ -218,7 +218,7 @@ inline float acos_table( float x ){
 // http://http.developer.nvidia.com/Cg/acos.html
 inline float acos_nVidia(float x) {
   float negate = float(x < 0);
-  x = abs(x);
+  x = fabs(x);
   float ret = -0.0187293;
   ret = ret * x;
   ret = ret + 0.0742610;

@@ -7,7 +7,7 @@ graft ppafm/ocl/cl
 graft ppafm/defaults
 
 # Exclude intermediate object files
-global-exclude *.o
+global-exclude *.o *.obj *.exp *.lib
 
 # Exclude dev sub-module
 exclude ppafm/dev/*
