@@ -204,7 +204,11 @@ BEGIN_BLOCK_DATAGRID_3D
    BEGIN_DATAGRID_3D_whatever
 '''
 
+
 def head2atoms(head):
+    '''
+    Maybe not necessary, let's see.
+    ''' 
     e = []; x = []; y = []; z = []
     for i in range(len(head)):
         try:
@@ -351,16 +355,16 @@ def saveWSxM_3D( prefix, data, extent, slices=None ):
 
 #================ Npy
 
-def saveNpy(fname, data, lvec , atoms, head=None):
+def saveNpy(fname, data, lvec , at_array):
 	np.save(fname+'.npy', data)
 	np.save(fname+'_vec.npy',lvec)
-	np.save(fname+'_atoms.npy',np.array(atoms[:4],dtype=float))
+	np.save(fname+'_atoms.npy',at_array)
 
 def loadNpy(fname):
 	data = np.load(fname+'.npy')
 	lvec = np.load(fname+'_vec.npy')
-	atoms = np.load(fname+'_atoms.npy') 
-	return data.copy(), lvec, atoms;	#necessary for being 'C_CONTINUOS'
+	at_array = np.load(fname+'_atoms.npy') 
+	return data.copy(), lvec, at_array;	#necessary for being 'C_CONTINUOS'
 
 # =============== Vector Field
 
@@ -387,23 +391,22 @@ def loadVecFieldNpy( fname, FF = None ):
 	Fy = np.load(fname+'_y.npy' )
 	Fz = np.load(fname+'_z.npy' )
 	lvec = np.load(fname+'_vec.npy' )
-	atoms = np.load(fname+'_atoms.npy')
+	at_array = np.load(fname+'_atoms.npy')
 	FF = packVecGrid( Fx, Fy, Fz, FF )
 	del Fx,Fy,Fz
-	return FF, lvec, atoms
+	return FF, lvec, at_array
 
 def saveVecFieldXsf( fname, FF, lvec, head = XSF_HEAD_DEFAULT ):
 	saveXSF(fname+'_x.xsf', FF[:,:,:,0], lvec, head = head )
 	saveXSF(fname+'_y.xsf', FF[:,:,:,1], lvec, head = head )
 	saveXSF(fname+'_z.xsf', FF[:,:,:,2], lvec, head = head )
 
-def saveVecFieldNpy( fname, FF, lvec , atoms, head = XSF_HEAD_DEFAULT ):
+def saveVecFieldNpy( fname, FF, lvec , at_array ):
 	np.save(fname+'_x.npy', FF[:,:,:,0] )
 	np.save(fname+'_y.npy', FF[:,:,:,1] )
 	np.save(fname+'_z.npy', FF[:,:,:,2] )
 	np.save(fname+'_vec.npy', lvec )
-	print("saving atoms") # atoms: [e, x, y, z]; sometimes there can be q, so [:4] #
-	np.save(fname+'_atoms.npy',np.array(atoms[:4],dtype=float)) # at the moment we did not switched npz, I will do it later, maybe #
+	np.save(fname+'_atoms.npy',at_array) # at the moment we have not switched npz, I will do it later, maybe #
 
 def limit_vec_field( FF, Fmax=100.0 ):
 	'''
@@ -415,14 +418,14 @@ def limit_vec_field( FF, Fmax=100.0 ):
 	FF[:,:,:,1].flat[mask] *= Fmax/FR[mask]
 	FF[:,:,:,2].flat[mask] *= Fmax/FR[mask]
 
-def save_vec_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT, atoms = [[0.],[0.],[0.],[0.]] ):
+def save_vec_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT, at_array = np.zeros((1,4)) ):
 	'''
 	Saving scalar fields into xsf, or npy
 	'''
 	if (data_format=="xsf"):
 		saveVecFieldXsf(fname, data, lvec, head = head )
 	elif (data_format=="npy"):
-		saveVecFieldNpy(fname, data, lvec, atoms, head = head )
+		saveVecFieldNpy(fname, data, lvec, at_array = at_array)
 	else:
 		print("I cannot save this format!")
 
@@ -432,27 +435,25 @@ def load_vec_field(fname, data_format="xsf"):
 	Loading Vector fields into xsf, or npy
 	'''
 	if (data_format=="xsf"):
-		data, lvec, ndim, head =loadVecFieldXsf(fname)
+		data, lvec, ndim, headOrAtoms =loadVecFieldXsf(fname) # headOrAtoms - head in this case #
 	elif (data_format=="npy"):
-		data, lvec, atoms = loadVecFieldNpy(fname)
+		data, lvec, at_array = loadVecFieldNpy(fname) # headOrAtoms - at_array in this case #
 		ndim = np.delete(data.shape,3)
 	else:
 		print("I cannot load this format!")
-	return data, lvec, ndim;
+	return data, lvec, ndim, headOrAtoms;
 
 
 # =============== Scalar Fields
 
-def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT , atoms =  [[0.],[0.],[0.],[0.]]):
+def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAULT , at_array = np.zeros((1,4)) ):
 	'''
 	Saving scalar fields into xsf, or npy
 	'''
 	if (data_format=="xsf"):
 		saveXSF(fname+".xsf", data, lvec, head = head)
 	elif (data_format=="npy"):
-		saveNpy(fname, data, lvec, head = head)
-		attmp = np.array(atoms,dtype=float);    
-		np.save(fname+'_atoms.npy',attmp) # at the moment we did not switched npz, I will do it later, maybe #
+		saveNpy(fname, data, lvec, at_array)
 	else:
 		print("I cannot save this format!")
 

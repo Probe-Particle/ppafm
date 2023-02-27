@@ -146,7 +146,7 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     FFparams            = PPU.loadSpecies( speciesFile )
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
     # --- load atomic geometry
-    atoms,nDim,lvec     = BU.loadGeometry( geomFile, params=PPU.params )
+    atoms,nDim,lvec     = BU.loadGeometry( geomFile, params=PPU.params ) # atoms can be iether [e,x,y,z] or [e,x,y,z,q] for each atoms #
     atomstring          = BU.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
     PPU      .params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3] # must be before parseAtoms
     if(verbose>0): print(PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC'])
@@ -176,9 +176,10 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     # --- save to files ?
     if save_format is not None:
         if(verbose>0): print("computeLJ Save ", save_format)
-        GU.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring, atoms = atoms )
+        at_array = BU.create_at_array(atoms, lvec)
+        GU.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring, at_array = at_array )
         if computeVpot:
-            GU.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
+            GU.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring, at_array = at_array )
     if(verbose>0): print("<<<END: computeLJ()")
     return FF, V, nDim, lvec
 
@@ -210,9 +211,10 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     # --- save to files ?
     if save_format is not None:
         if(verbose>0): print("computeLJ Save ", save_format)
-        GU.save_vec_field( 'FFel',FF,lvec,data_format=save_format, head=atomstring, atoms=atoms )
+        at_array = BU.create_at_array(atoms, lvec)
+        GU.save_vec_field( 'FFel',FF,lvec,data_format=save_format, head=atomstring, at_array=at_array )
         if computeVpot:
-            GU.save_scal_field( 'Vel',V,lvec,data_format=save_format, head=atomstring, atoms=atoms )
+            GU.save_scal_field( 'Vel',V,lvec,data_format=save_format, head=atomstring, at_array=at_array )
     if(verbose>0): print("<<<END: computeELFF_pointCharge()")
     return FF, V, nDim, lvec
 

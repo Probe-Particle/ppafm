@@ -404,6 +404,31 @@ def parseLvecASE(comment):
         lvec = None
     return lvec
 
+def create_at_array(atoms,lvec):
+    '''
+    Function for creating at_array: atomic array which can be saved as numpy field and can propagate
+    the information about original geometry and lvec through the code. At the moment we will not
+    propagate charges (can be easily changed in the future).Future possible change to ASE format
+    should be very easy. The shift is also not propagated as the atoms are shifted, so everything 
+    starts at (0,0,0).
+
+    Argumens:
+        atoms: list. [e,x,y,z] or [e,x,y,z,q]
+        lvec: list, [shift from (0,0,0), a1, a2, a3]. a - lattice vectors
+
+    Returns:
+        at_array: np.array(number of atoms +3, 4). In each row is [ei, xi, yi, zi]. At the very end
+            there is  [0, a1x, aiy, aiz].
+    '''
+    nat = len(atoms[0])
+    lvec = np.array(lvec)
+    at_array = np.zeros((nat+3,4))
+    for i in range(4): 
+        at_array[:nat,i]=np.array(atoms[i]);
+
+    at_array[nat:,1:]=lvec[1:,:]
+    return at_array;
+
 def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
     bonds = []
     xs = atoms[1]

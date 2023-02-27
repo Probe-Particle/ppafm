@@ -164,16 +164,17 @@ if __name__=="__main__":
             FFkpfm_tVs0[i,:,:]=FFkpfm_tVs0[i,:,:]/((Vref_t)*(zpos[i]+0.1))
 
         print(">>> saving electrostatic forcefiled ... ")
-        GU.save_vec_field('FFkpfm_t0sV',FFkpfm_t0sV,lvec_samp ,data_format=options.data_format, head=head_samp)
-        GU.save_vec_field('FFkpfm_tVs0',FFkpfm_tVs0,lvec_samp ,data_format=options.data_format, head=head_samp)
+        at_array = BU.create_at_array(atoms_samp,lvec)
+        GU.save_vec_field('FFkpfm_t0sV',FFkpfm_t0sV,lvec_samp ,data_format=options.data_format, head=head_samp, at_array = at_array)
+        GU.save_vec_field('FFkpfm_tVs0',FFkpfm_tVs0,lvec_samp ,data_format=options.data_format, head=head_samp, at_array = at_array)
 
     print(">>> calculating electrostatic forcefiled with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
     #FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
     FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],computeVpot=options.energy , tilt=opt_dict['tilt'] , save_rho = options.save_rho)
 
     print(">>> saving electrostatic forcefiled ... ")
-
-    GU.save_vec_field('FFel',FFel,lvec_samp ,data_format=options.data_format, head=head_samp, atoms=atoms_samp )
+    at_array = BU.create_at_array(atoms_samp,lvec)
+    GU.save_vec_field('FFel',FFel,lvec_samp ,data_format=options.data_format, head=head_samp, at_array=at_array )
     if options.energy:
-        GU.save_scal_field( 'Eel', Eel, lvec_samp, data_format=options.data_format, atoms=atoms_samp )
+        GU.save_scal_field( 'Eel', Eel, lvec_samp, data_format=options.data_format, at_array=at_array )
     del FFel,V;
