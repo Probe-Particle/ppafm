@@ -38,6 +38,10 @@ Vec3d  * Ratoms       = NULL;
 //double * C12s;
 //double * kQQs;
 
+
+// vdW daping coefficients
+double ADamp_Const=180.0,ADamp_R2=0.5, ADamp_R4=0.5, ADamp_invR4=0.03,  ADamp_invR8=0.01;
+
 // Tip namespace
 namespace TIP{
     Vec3d   rPP0;       // equilibirum bending position
@@ -131,10 +135,16 @@ namespace FIRE{
 #define inv_dstep   10.0
 #define inv_ddstep  100.0
 
-inline double addAtom_LJ        ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ     ( dR, fout, coefs[0], coefs[1] ); }
-inline double addAtom_VdW       ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW    ( dR, fout, coefs[0]           ); }
-inline double addAtom_Morse     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomMorse  ( dR, fout, coefs[0], coefs[1], Morse_alpha ); }
-inline double addAtom_Coulomb_s ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomCoulomb( dR, fout, coefs[0]           ); }
+inline double addAtom_LJ        ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ                     ( dR, fout, coefs[0], coefs[1]              ); }
+inline double addAtom_LJ_RE     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ_RE                  ( dR, fout, coefs[0], coefs[1]              ); }
+inline double addAtom_invR6     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_noDamp             ( dR, fout, coefs[0]                        ); }
+inline double addAtom_VdW       ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_dampConst          ( dR, fout, coefs[0]          , ADamp_Const ); }
+inline double addAtom_VdW_R2    ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<R2_func>   ( dR, fout, coefs[0], coefs[1], ADamp_R2    ); }
+inline double addAtom_VdW_R4    ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<R4_func>   ( dR, fout, coefs[0], coefs[1], ADamp_R4    ); }
+inline double addAtom_VdW_invR4 ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<invR4_func>( dR, fout, coefs[0], coefs[1], ADamp_invR4 ); }
+inline double addAtom_VdW_invR8 ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<invR8_func>( dR, fout, coefs[0], coefs[1], ADamp_invR8 ); }
+inline double addAtom_Morse     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomMorse                  ( dR, fout, coefs[0], coefs[1], Morse_alpha ); }
+inline double addAtom_Coulomb_s ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomCoulomb                ( dR, fout, coefs[0]                        ); }
 inline double addAtom_Coulomb_pz( Vec3d dR, Vec3d& fout, double * coefs ){
     double kqq=coefs[0], E=0;
     Vec3d f; f.set(0.0);
@@ -360,6 +370,45 @@ DLLEXPORT void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs, int k
         case 0: interateGrid3D < evalCell < addAtom_Coulomb_s   > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
         case 1: interateGrid3D < evalCell < addAtom_Coulomb_pz  > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
         case 2: interateGrid3D < evalCell < addAtom_Coulomb_dz2 > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+    }
+}
+
+DLLEXPORT void evalRadialFF( int n, double* rs, double* coefs, double* Es, double* Fs, int kind, double ADamp_ ){
+    //printf( "evalRadialFF kind=%i Adamp=%g \n", kind, ADamp_ );
+    for(int i=0; i<n; i++){
+        Vec3d dR    = Vec3d{rs[i],0,0};
+        Vec3d fout  = Vec3dZero;
+        double E = 0;
+        switch(kind){
+            case -3:                                        E=addAtom_LJ_RE    ( dR, fout, coefs ); break;
+            case -2:                                        E=addAtom_LJ       ( dR, fout, coefs ); break;
+            case -1:                                        E=addAtom_invR6    ( dR, fout, coefs ); break;
+            case  0: if(ADamp_>0){ ADamp_Const = ADamp_; }; E=addAtom_VdW      ( dR, fout, coefs ); break;
+            case  1: if(ADamp_>0){ ADamp_R2    = ADamp_; }; E=addAtom_VdW_R2   ( dR, fout, coefs ); break;
+            case  2: if(ADamp_>0){ ADamp_R4    = ADamp_; }; E=addAtom_VdW_R4   ( dR, fout, coefs ); break;
+            case  3: if(ADamp_>0){ ADamp_invR4 = ADamp_; }; E=addAtom_VdW_invR4( dR, fout, coefs ); break;
+            case  4: if(ADamp_>0){ ADamp_invR8 = ADamp_; }; E=addAtom_VdW_invR8( dR, fout, coefs ); break;
+        }
+        Fs[i]=fout.x;
+        Es[i]=E;
+    }
+}
+
+DLLEXPORT void getVdWFF_RE( int natoms_, double * Ratoms_, double * REs, int kind, double ADamp_=-1.0 ){
+    //printf( "DEBUG getVdWFF_RE(kind=%i,ADamp=%g) \n", kind, ADamp_ );
+    natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
+    Vec3d r0; r0.set(0.0,0.0,0.0);
+    //if(ADamp>0){ ADamp = ADamp_; }
+    switch(kind){
+        //case 0: if(ADamp_>0){ ADamp_Const = ADamp_; }; E=addAtom_VdW      ( dR, fout, coefs ); break;
+        case 1: if(ADamp_>0){ ADamp_R2    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R2   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 2: if(ADamp_>0){ ADamp_R4    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R4   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 3: if(ADamp_>0){ ADamp_invR4 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR4>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 4: if(ADamp_>0){ ADamp_invR8 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR8>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        // case 0: interateGrid3D<evalCell<addAtomVdW_addDamp<R2_func>  >>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        // case 1: interateGrid3D<evalCell<addAtomVdW_addDamp<R4_func>  >>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        // case 2: interateGrid3D<evalCell<addAtomVdW_addDamp<invr4_func>>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        // case 2: interateGrid3D<evalCell<addAtomVdW_addDamp<invr8_func>>>( r0, gridShape.n, gridShape.dCell, REs ); break;
     }
 }
 

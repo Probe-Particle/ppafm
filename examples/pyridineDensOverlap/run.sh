@@ -14,7 +14,8 @@ echo "enter your sudo password ( I promiss not hacking you ;-) : "
 sudo apt-get install megatools
 
 echo "Downloading Sample data-files ... "
-megadl 'https://mega.nz/#F!GOhnRIwY!XneVlLYhCmvp74JCCH9BRA'
+megadl 'https://mega.nz/file/bWhTUQDQ#7mS9E-wArUzHqOevCepckHezzO8uLLC0S1PbRDsiQfs'
+megadl 'https://mega.nz/file/rPgFxYAB#kQ6J90i4qQ4LlDFKq-k8PCX0rBie75_zdReNgNYbaKY'
 mkdir sample
 mv CHGCAR.xsf sample
 mv LOCPOT.xsf sample
@@ -27,7 +28,7 @@ mv CHGCAR.xsf tip
 echo "======= STEP 1 : Generate force-field grid "
 
 python3 $PPPATH/conv_rho.py     -s sample/CHGCAR.xsf -t tip/CHGCAR.xsf --Bpower 1.2 -E
-python3 $PPPATH/generateElFF.py -i sample/LOCPOT.xsf --tip_dens tip/CHGCAR.xsf --Rcore 0.7 -E
+python3 $PPPATH/generateElFF.py -i sample/LOCPOT.xsf --tip_dens tip/CHGCAR.xsf --Rcore 0.7 -E --doDensity
 python3 $PPPATH/generateLJFF.py -i sample/CHGCAR.xsf --ffModel vdW  -E
 
 echo "======= STEP 2 : Relax Probe Particle using that force-field grid "
