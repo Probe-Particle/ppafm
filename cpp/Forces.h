@@ -107,6 +107,18 @@ inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& 
 }
 
 // Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
+inline double addAtomLJ_RE( const Vec3d& dR, Vec3d& fout, double R0, double E0 ){
+    double ir2  = 1/( dR.norm2( ) + R2SAFE );
+    double u2   = R0*R0 *ir2;
+    double u6   = u2*u2*u2;
+    //printf( "r %g u2 %g R*R %g ir2 %g u6 %g R0 %g E0 %g \n", 1/sqrt(ir2), u2, R0*R0, ir2, u6, R0, E0 );
+    double E6   = E0*u6;
+    double E12  = E6*u6;
+    fout.add_mul( dR , 12*( E6 - E12 ) * ir2 );
+    return E12 - 2*E6;
+}
+
+// Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
 inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
     double ir2  = 1.0/ ( dR.norm2( ) + R2SAFE );
     double ir6  = ir2*ir2*ir2;
@@ -122,12 +134,73 @@ inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
 }
 
 // Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
-inline double addAtomVdW( const Vec3d& dR, Vec3d& fout, double c6 ){
+inline double addAtomVdW_noDamp( const Vec3d& dR, Vec3d& fout, double c6 ){
+    double invR2 = 1/dR.norm2(); 
+    double invR4 = invR2*invR2;
+    double E     = -c6 * invR4*invR2;
+    fout.add_mul( dR , E*-6*invR2 );
+    return E;
+}
+
+// Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
+inline double addAtomVdW_dampConst( const Vec3d& dR, Vec3d& fout, double c6, double ADamp ){
     double r2 = dR.norm2(); r2*=r2; r2*=r2;
-    //fout.add_mul( dR , 6*c6 /( r2 + 1.0 ) );
-    //fout.add_mul( dR , 6*c6 /( r2 + 60*c6 ) );
-    fout.add_mul( dR , 6*c6 /( r2 + 180*c6 ) );
+    fout.add_mul  ( dR , 6*c6 /( r2 + ADamp*c6 ) );
     return 0;
+}
+
+template<double Rfunc(double r2,double &df)>
+double addAtomVdW_addDamp( const Vec3d& dR, Vec3d& fout, double R, double E0, double ADamp ){
+    double D,dD;
+    double r2    = dR.norm2();
+    double invR2 = 1./(R*R);
+    double u2    = r2*invR2; 
+    double u4    = u2*u2; 
+    D  = Rfunc(u2,dD);
+    double e  = 1./(      u4*u2 + D*ADamp);                
+    double E  = -2*E0*e;
+    double fr = -E *e*( 6*u4    + dD*ADamp)*invR2 ; 
+    fout.add_mul(dR,fr);
+    return E;
+}
+
+inline double R2_func(double r2,double &df){
+    //printf( "R2_func() \n");
+    if(r2>1){
+        df     =  0;
+        return    0;
+    }else{
+        df     =  -2;
+        return    1 - r2;
+    }
+}
+
+inline double R4_func(double r2,double &df){
+    //printf( "R4_func() \n");
+    if(r2>1){
+        df     =  0;
+        return    0;
+    }else{
+        double e = 1 - r2; 
+        df     =  -4*e;
+        return     e*e;
+    }
+}
+
+inline double invR4_func(double r2,double &df){
+    //printf( "invR4_func() \n");
+    double invR2 = 1/r2;
+    double invR4 = invR2*invR2;
+    df           = -4*invR4*invR2;
+    return            invR4;
+}
+
+inline double invR8_func(double r2,double &df){
+    //printf( "invR8_func() \n");
+    double invR2 = 1/r2;
+    double invR8 = invR2*invR2; invR8*=invR8;
+    df           = -8*invR8*invR2;
+    return            invR8;
 }
 
 // Morse force between two atoms a,b separated by vector dR = Ra - Rb
