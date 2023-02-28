@@ -160,7 +160,7 @@ for iq,Q in enumerate( Qs ):
                 dirname = "Q%1.2fK%1.2fV%1.2f" %(Q,K,Vx)
             if opt_dict['pos']:
                 try:
-                    PPpos, lvec, nDim = GU.load_vec_field(dirname+'/PPpos' ,data_format=options.data_format)
+                    PPpos, lvec, nDim, headORatoms = GU.load_vec_field(dirname+'/PPpos' ,data_format=options.data_format)
                     print(" plotting PPpos : ")
                     PPPlot.plotDistortions(
                         dirname+"/xy"+atoms_str+cbar_str, PPpos[:,:,:,0], PPpos[:,:,:,1], slices = list(range( 0, len(PPpos))), BG=PPpos[:,:,:,2],
@@ -172,7 +172,7 @@ for iq,Q in enumerate( Qs ):
                     print("cannot load : " + ( dirname+'/PPpos_?.' + options.data_format ))
             if opt_dict['iets'] is not None:
                 try :
-                    eigvalK, lvec, nDim = GU.load_vec_field( dirname+'/eigvalKs' ,data_format=options.data_format)
+                    eigvalK, lvec, nDim, headORatoms = GU.load_vec_field( dirname+'/eigvalKs' ,data_format=options.data_format)
                     M  = opt_dict['iets'][0]
                     E0 = opt_dict['iets'][1]
                     w  = opt_dict['iets'][2]
@@ -198,17 +198,17 @@ for iq,Q in enumerate( Qs ):
                         if not os.path.exists( dirNameAmp ):
                             os.makedirs( dirNameAmp )
                         if PPU.params['tiltedScan']:
-                            Fout, lvec, nDim = GU.load_vec_field(dirname+'/OutF' , data_format=options.data_format)
+                            Fout, lvec, nDim, headORatoms = GU.load_vec_field(dirname+'/OutF' , data_format=options.data_format)
                             dfs = PPU.Fz2df_tilt( Fout, PPU.params['scanTilt'], k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
                         else:
-                            fzs, lvec, nDim = GU.load_scal_field(dirname+'/OutFz' , data_format=options.data_format)
+                            fzs, lvec, nDim, headORatoms = GU.load_scal_field(dirname+'/OutFz' , data_format=options.data_format)
                             if (aplied_bias):
                                 Rtip = PPU.params['Rtip']
                                 for iz,z in enumerate( zTips ):
                                     fzs[iz,:,:] = fzs[iz,:,:] - np.pi*PPU.params['permit']*((Rtip*Rtip)/((z-options.z0)*(z+Rtip)))*(Vx-options.V0)*(Vx-options.V0)
                             dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
                         if opt_dict['save_df']:
-                            GU.save_scal_field(dirNameAmp+'/df', dfs, lvec,data_format=options.data_format )
+                            GU.save_scal_field(dirNameAmp+'/df', dfs, lvec,data_format=options.data_format, head = headORatoms, at_array = headORatoms )
                         if opt_dict['df']:
                             print(" plotting df : ")
                             PPPlot.plotImages(
@@ -219,7 +219,7 @@ for iq,Q in enumerate( Qs ):
                             print("plotting Laplace-filtered df : ")
                             df_LaplaceFiltered = dfs.copy()
                             laplace( dfs, output = df_LaplaceFiltered )
-                            GU.save_scal_field(dirNameAmp+'/df_laplace', df_LaplaceFiltered, lvec,data_format=options.data_format )
+                            GU.save_scal_field(dirNameAmp+'/df_laplace', df_LaplaceFiltered, lvec,data_format=options.data_format, head = headORatoms, at_array = headORatoms )
                             PPPlot.plotImages(
                                 dirNameAmp+"/df_laplace"+atoms_str+cbar_str, df_LaplaceFiltered, slices = list(range( 0, len(dfs))), zs=zTips+PPU.params['Amplitude']/2.0,
                                 extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar']
@@ -246,7 +246,7 @@ for iq,Q in enumerate( Qs ):
                     print("cannot load : ",dirname+'/OutFz.'+options.data_format)
             if opt_dict['bI']:
                 try:
-                    I, lvec, nDim = GU.load_scal_field(dirname+'/OutI_boltzmann', data_format=options.data_format )
+                    I, lvec, nDim, headORatoms = GU.load_scal_field(dirname+'/OutI_boltzmann', data_format=options.data_format )
                     print(" plotting Boltzmann current: ")
                     PPPlot.plotImages( dirname+"/OutI"+atoms_str+cbar_str, I,  slices = list(range( 0,len(I))), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
                     del I
@@ -263,7 +263,7 @@ for iq,Q in enumerate( Qs ):
                 "./_Asym-LCPD"+atoms_str+cbar_str, LCPD,  slices = list(range( 0, len(LCPD))), zs=zTips+PPU.params['Amplitude']/2.0,
                 extent=extent,cmap=PPU.params['colorscale_kpfm'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'], symetric_map=False
             )
-            GU.save_scal_field('./LCDP_HzperV', LCPD, lvec,data_format=options.data_format )
+            GU.save_scal_field('./LCDP_HzperV', LCPD, lvec,data_format=options.data_format, head = headORatoms, at_array = headORatoms )
             if opt_dict['WSxM']:
                 print(" printing LCPD_b into WSxM files :")
                 GU.saveWSxM_3D( "./LCPD"+atoms_str , LCPD , extent , slices=None)

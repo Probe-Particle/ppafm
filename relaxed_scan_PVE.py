@@ -100,29 +100,29 @@ if __name__=="__main__":
     FFvdW, FFpauli, FFel, FFboltz, FFkpfm_t0sV, FFkpfm_tVs0=None,None,None,None,None,None
 
     try: #wrote in this way in can work with both LJ and Pauli+vdW modes
-        FFpauli, lvec, nDim = GU.load_vec_field( "FFpauli" ,data_format=options.data_format)
+        FFpauli, lvec, nDim, headORatoms = GU.load_vec_field( "FFpauli" ,data_format=options.data_format)
         FFpauli[0,:,:,:],FFpauli[1,:,:,:] = rotFF( FFpauli[0,:,:,:],FFpauli[1,:,:,:], opt_dict['rotate'] )
 
         print(" load Lenard-Jones Force-field ")
-        FFvdW, lvec, nDim = GU.load_vec_field( "FFvdW" , data_format=options.data_format)
+        FFvdW, lvec, nDim, headORatoms = GU.load_vec_field( "FFvdW" , data_format=options.data_format)
         FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )
     except OSError:
         print(" load Lenard-Jones Force-field ")
-        FFvdW, lvec, nDim = GU.load_vec_field( "FFLJ" , data_format=options.data_format)
+        FFvdW, lvec, nDim, headORatoms = GU.load_vec_field( "FFLJ" , data_format=options.data_format)
         FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )
 
     if ( charged_system == True):
         print(" load Electrostatic Force-field ")
-        FFel, lvec, nDim = GU.load_vec_field( "FFel" ,data_format=options.data_format)
+        FFel, lvec, nDim, headORatoms = GU.load_vec_field( "FFel" ,data_format=options.data_format)
         FFel[0,:,:,:],FFel[1,:,:,:] = rotFF( FFel[0,:,:,:],FFel[1,:,:,:], opt_dict['rotate'] )
     if (options.boltzmann  or options.bI) :
         print(" load Boltzmann Force-field ")
-        FFboltz, lvec, nDim = GU.load_vec_field( "FFboltz", data_format=options.data_format)
+        FFboltz, lvec, nDim, headORatoms = GU.load_vec_field( "FFboltz", data_format=options.data_format)
         FFboltz[0,:,:,:],FFboltz[1,:,:,:] = rotFF( FFboltz[0,:,:,:],FFboltz[1,:,:,:], opt_dict['rotate'] )
     if  ( aplied_bias == True):
         print(" load Electrostatic contribution from aplied bias")
-        FFkpfm_t0sV, lvec, nDim = GU.load_vec_field( "FFkpfm_t0sV" ,data_format=options.data_format)
-        FFkpfm_tVs0, lvec, nDim = GU.load_vec_field( "FFkpfm_tVs0" ,data_format=options.data_format)
+        FFkpfm_t0sV, lvec, nDim, headORatoms = GU.load_vec_field( "FFkpfm_t0sV" ,data_format=options.data_format)
+        FFkpfm_tVs0, lvec, nDim, headORatoms = GU.load_vec_field( "FFkpfm_tVs0" ,data_format=options.data_format)
 
         FFkpfm_t0sV[0,:,:,:],FFkpfm_t0sV[1,:,:,:] = rotFF( FFkpfm_t0sV[0,:,:,:],FFkpfm_t0sV[1,:,:,:], opt_dict['rotate'] )
         FFkpfm_tVs0[0,:,:,:],FFkpfm_tVs0[1,:,:,:] = rotFF( FFkpfm_tVs0[0,:,:,:],FFkpfm_tVs0[1,:,:,:], opt_dict['rotate'] )
@@ -158,7 +158,7 @@ if __name__=="__main__":
                 #PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
                 #Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
                 #GU.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )
-                GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan, data_format=options.data_format )
+                GU.save_scal_field( dirname+'/OutFz', fzs, lvecScan, data_format=options.data_format, head = headORatoms, at_array = headORatoms )
                 if opt_dict['vib'] >= 0:
                     which = opt_dict['vib']
                     print(" === computing eigenvectors of dynamical matix which=%i ddisp=%f" %(which,PPU.params['ddisp']))
@@ -166,18 +166,18 @@ if __name__=="__main__":
                     rTips = np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0).copy()
                     evals,evecs = PPC.stiffnessMatrix( rTips.reshape((-1,3)), PPpos.reshape((-1,3)), which=which, ddisp=PPU.params['ddisp'] )
                     GU.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, data_format=data_format )
-                    if which > 0: GU.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                    if which > 1: GU.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                    if which > 2: GU.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=data_format )
+                    if which > 0: GU.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=data_format, head = headORatoms, at_array = headORatoms )
+                    if which > 1: GU.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=data_format, head = headORatoms, at_array = headORatoms )
+                    if which > 2: GU.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=data_format, head = headORatoms, at_array = headORatoms )
                     #print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
                 if opt_dict['disp']:
-                    GU.save_vec_field( dirname+'/PPdisp', PPdisp, lvecScan,data_format=options.data_format)
+                    GU.save_vec_field( dirname+'/PPdisp', PPdisp, lvecScan,data_format=options.data_format, head = headORatoms, at_array = headORatoms)
                 if opt_dict['pos']:
-                    GU.save_vec_field(dirname+'/PPpos', PPpos, lvecScan, data_format=options.data_format )
+                    GU.save_vec_field(dirname+'/PPpos', PPpos, lvecScan, data_format=options.data_format, head = headORatoms, at_array = headORatoms )
                 if options.bI:
                     print("Calculating current from tip to the Boltzmann particle:")
-                    I_in, lvec, nDim = GU.load_scal_field('I_boltzmann',
+                    I_in, lvec, nDim, headORatoms = GU.load_scal_field('I_boltzmann',
                     data_format=iptions.data_format)
                     I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None )
                     del I_in;
-                    GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,  data_format=options.data_format)
+                    GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,  data_format=options.data_format, head = headORatoms, at_array = headORatoms)

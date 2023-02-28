@@ -435,13 +435,13 @@ def load_vec_field(fname, data_format="xsf"):
 	Loading Vector fields into xsf, or npy
 	'''
 	if (data_format=="xsf"):
-		data, lvec, ndim, headOrAtoms =loadVecFieldXsf(fname) # headOrAtoms - head in this case #
+		data, lvec, ndim, headORatoms =loadVecFieldXsf(fname) # headOrAtoms - head in this case #
 	elif (data_format=="npy"):
-		data, lvec, at_array = loadVecFieldNpy(fname) # headOrAtoms - at_array in this case #
+		data, lvec, headORatoms = loadVecFieldNpy(fname) # headOrAtoms - at_array in this case #
 		ndim = np.delete(data.shape,3)
 	else:
 		print("I cannot load this format!")
-	return data, lvec, ndim, headOrAtoms;
+	return data, lvec, ndim, headORatoms;
 
 
 # =============== Scalar Fields
@@ -464,15 +464,15 @@ def load_scal_field(fname, data_format="xsf"):
 	'''
 	atoms = [[0.],[0.],[0.],[0.]] #
 	if (data_format=="xsf"):
-		data, lvec, ndim, head =loadXSF(fname+".xsf")
+		data, lvec, ndim, headORatoms =loadXSF(fname+".xsf")
 	elif (data_format=="npy"):
-		data, lvec, atoms = loadNpy(fname)
+		data, lvec, headORatoms = loadNpy(fname)
 		ndim = data.shape
 	elif (data_format=="cube"):
-		data,lvec, ndim, head = loadCUBE(fname+".cube")
+		data,lvec, ndim, headORatoms = loadCUBE(fname+".cube")
 	else:
 		print("I cannot load this format!")
-	return data.copy(), lvec, ndim;
+	return data.copy(), lvec, ndim, headORatoms;
 
 # =============== Other Utils
 
