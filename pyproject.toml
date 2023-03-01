@@ -18,7 +18,7 @@ classifiers = [
 ]
 requires-python = ">=3.6"
 dependencies = [
-    "matplotlib<=3.6.3",  # Remove upper limit when #95 is fixed.
+    "matplotlib",
     "numpy<=1.21.6", # Remove upper limit when #76 is fixed.
 ]
 
