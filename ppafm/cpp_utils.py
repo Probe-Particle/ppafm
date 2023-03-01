@@ -1,6 +1,7 @@
 import os
 import glob
 import platform
+from pathlib import Path
 
 # Check for environment variable PPAFM_RECOMPILE to determine whether
 # we should recompile the C++ extensions.
@@ -23,47 +24,17 @@ cpp_modules = {
     'fitSpline_': 'fitSpline'
 }
 
-def work_dir( v__file__ ):
-    return os.path.dirname( os.path.realpath( v__file__ ) )
+vars_path = None
 
-PACKAGE_PATH = work_dir( __file__ )
-CPP_PATH     = os.path.normpath( PACKAGE_PATH + '/cpp/' )
+PACKAGE_PATH = Path(__file__).resolve().parent
+CPP_PATH     = PACKAGE_PATH / 'ppafm' / 'cpp'
 
 print(" PACKAGE_PATH = ", PACKAGE_PATH)
 print(" CPP_PATH     = ", CPP_PATH)
 
-def compile_lib( name,
-        FFLAGS = "-std=c++11 -O3 -ftree-vectorize -unroll-loops -ffast-math",
-        LFLAGS = "-I/usr/local/include/SDL2 -lSDL2",
-        path   = CPP_PATH,
-        clean  = True,
-    ):
-    lib_name = name+lib_ext
-    print(" COMPILATION OF : "+name)
-    if path is not None:
-        dir_bak = os.getcwd()
-        os.chdir( path );
-    print(os.getcwd())
-    if clean:
-        try:
-            os.remove( lib_name  )
-            os.remove( name+".o" )
-        except:
-            pass
-    os.system("g++ "+FFLAGS+" -c -fPIC "+name+".cpp -o "+name+".o "+LFLAGS )
-    os.system("g++ "+FFLAGS+" -shared -Wl,-soname,"+lib_name+" -o "+lib_name+" "+name+".o "+LFLAGS)
-    if path is not None:
-        os.chdir( dir_bak )
-
-def makeclean( ):
-    CWD=os.getcwd()
-    os.chdir( CPP_PATH )
-    os.system("make clean")
-    os.chdir(CWD)
-
 def make( what="" ):
     if recompile:
-        current_directory = os.getcwd()
+        current_directory = Path.cwd()
         os.chdir(CPP_PATH)
         if system == 'Windows':
             build_windows(what)
@@ -73,12 +44,16 @@ def make( what="" ):
         os.chdir(current_directory)
 
 def get_vars_path():
-    if not os.path.exists('C:\Program Files (x86)\Microsoft Visual Studio'):
-        raise RuntimeError('Could not detect Microsoft Visual Studio installation')
-    vars_path = glob.glob('C:/Program Files (x86)\Microsoft Visual Studio/*/BuildTools/Common7/Tools/VsDevCmd.bat')
-    if len(vars_path) == 0:
-        raise RuntimeError('Could not find VsDevCmd.bat')
-    return vars_path[0]
+    global vars_path
+    if vars_path is None:
+        vs_path = Path('C:/') / 'Program Files (x86)' / 'Microsoft Visual Studio'
+        if not vs_path.exists():
+            raise RuntimeError('Could not detect Microsoft Visual Studio installation')
+        vars_paths = list(vs_path.glob('**/VsDevCmd.bat'))
+        if len(vars_paths) == 0:
+            raise RuntimeError('Could not find VsDevCmd.bat')
+        vars_path = vars_paths[0]
+    return vars_path
 
 def build_windows(target):
     vars_path = get_vars_path()
@@ -90,68 +65,3 @@ def build_windows(target):
         cmd = f'"{vars_path}" /no_logo /arch=amd64 && cl.exe /O2 /D_USRDLL /D_WINDLL {module}.cpp /link /dll /out:{module}{lib_ext}'
         print(cmd)
         os.system(cmd)
-
-# ============ automatic C-python interface generation
-
-def parseFuncHeader( s ):
-    #args = []
-    arg_types = []
-    arg_names = []
-    i0 = s.find(' ')
-    i1 = s.find('(')
-    i2 = s.find(')')
-    ret_type = s[:i0]
-    name     = s[i0+1:i1]
-    sargs = s[i1+1:i2]
-    largs = sargs.split(',')
-    for sarg in largs:
-        sarg = sarg.strip()
-        i    = sarg.rfind(' ')
-        arg_types.append(sarg[  :i])
-        arg_names.append(sarg[i+1:])
-    return (name,ret_type,arg_types,arg_names)
-
-def translateTypeName( tname ):
-    np = tname.count('*')
-    if np > 1 :
-        print("Cannot do pointer-to-pointer (**) ", s)
-        print("=> exit() ")
-        exit()
-    else:
-        if(np==1):
-            i  = tname.find ('*')
-            return "c_"+tname[:i]+"_p", True
-        else:
-            return "c_"+tname     , False
-
-s_numpy_data_as_call = "%s.ctypes.data_as(%s)"
-
-def writePointerCall( name, ttype ):
-    if ttype[1]:
-        return s_numpy_data_as_call %(name,ttype[0])
-    else:
-        return name
-
-def writeFuncInterface( parsed ):
-    name,ret_type,arg_types,arg_names = parsed
-    if ret_type=="void" :
-        ret_type="None"
-    else:
-        ret_type=translateTypeName(ret_type)[0]
-    sdef_args  = ", ".join( [                    translateTypeName(t)[0] for   t in arg_types                ] )
-    scall_args = ", ".join( [ writePointerCall(n,translateTypeName(t))   for n,t in zip(arg_names,arg_types) ] )
-    lines = [
-        "lib."+name+".argtypes  = ["+ sdef_args + "] ",
-        "lib."+name+".restype   =  " + ret_type          ,
-        "def "+name+"("+ ", ".join(arg_names) +"):"    ,
-        "    return lib."+name+"("+scall_args+")"         ,
-    ]
-    return "\n".join( lines )
-
-def writeFuncInterfaces( func_headers, debug=False ):
-    for s in func_headers:
-        parsed = parseFuncHeader( s );
-        if debug : print("parsed :\n", parsed)
-        sgen   = writeFuncInterface( parsed )
-        print("\n# ", s)
-        print(sgen,"\n\n")

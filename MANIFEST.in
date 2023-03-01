@@ -8,6 +8,7 @@ graft ppafm/defaults
 
 # Exclude intermediate object files
 global-exclude *.o *.obj *.exp *.lib
+prune **/__pycache__
 
 # Exclude dev sub-module
 exclude ppafm/dev/*
