@@ -15,6 +15,12 @@ dist/
 # Mac
 .DS_Store
 
+# Windows
+*.obj
+*.exp
+*.lib
+*.dll
+
 # Output files
 *.png
 *.np[xz]
