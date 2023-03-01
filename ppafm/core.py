@@ -12,9 +12,7 @@ from . import cpp_utils
 # ============================== interface to C++ core
 # ==============================
 
-cpp_name='ProbeParticle'
-cpp_utils.make( "PP"  )
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes
+lib = cpp_utils.get_cdll('PP')
 
 # define used numpy array types for interfacing with C++
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
