@@ -233,7 +233,7 @@ def apply_options(opt):
 def loadSpecies( fname=None ):
     if fname is None or not os.path.exists(fname):
         if(verbose>0): print("WARRNING: loadSpecies(None) => load default atomtypes.ini")
-        fname=cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini'
+        fname = cpp_utils.PACKAGE_PATH / 'defaults' / 'atomtypes.ini'
     if(verbose>0): print(" loadSpecies from ", fname)
     #FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',np.int),('symbol', '|S10')],usecols=[0,1,2,3])
     FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',np.int),('symbol', '|S10')],usecols=(0,1,2,3,4))

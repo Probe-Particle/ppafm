@@ -13,8 +13,7 @@ class Build(build):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.package_path = Path(__file__).resolve().parent
-        self.cpp_path = self.package_path / 'ppafm' / 'cpp'
+        self.cpp_path = Path(__file__).resolve().parent / 'ppafm' / 'cpp'
         self.current_directory = Path.cwd()
 
     def run(self):

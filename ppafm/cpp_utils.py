@@ -20,8 +20,8 @@ else:
 
 _vars_path = None
 
-PACKAGE_PATH = Path(__file__).resolve().parent.parent
-CPP_PATH     = PACKAGE_PATH / 'ppafm' / 'cpp'
+PACKAGE_PATH = Path(__file__).resolve().parent
+CPP_PATH     = PACKAGE_PATH / 'cpp'
 
 print(" PACKAGE_PATH = ", PACKAGE_PATH)
 print(" CPP_PATH     = ", CPP_PATH)
@@ -53,7 +53,7 @@ def get_cdll(module):
         raise RuntimeError(f"Could not find compiled extension module in `{module_path}`. "
             "Either check pip installation or enable dynamic compilation by setting "
             "the environment variable PPAFM_RECOMPILE=1")
-    return ctypes.CDLL(module_path)
+    return ctypes.CDLL(str(module_path)) # Changing to str is required on Windows
 
 def _make(module):
     current_directory = Path.cwd()
