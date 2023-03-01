@@ -97,7 +97,7 @@ class Vec2T{
 	inline T norm ( ) const { return  sqrt( x*x + y*y ); };
     inline T normalize() {
 		T norm  = sqrt( x*x + y*y );
-		T inVnorm = 1.0d/norm;
+		T inVnorm = 1.0/norm;
 		x *= inVnorm;    y *= inVnorm;
 		return norm;
     };

@@ -77,7 +77,7 @@ inline double atan2_a1( double y, double x ){
     angle = 0.78539816339;
   }
   double aa = a * a;
-  //angle += a * ( -0.9817d + 0.1963d * aa );
+  //angle += a * ( -0.9817 + 0.1963 * aa );
   // angle +=  a * ( -1 + aa*( 0.326388646629 + aa*( -0.155559850719 + aa*0.0437730406925 ) ) );
   angle +=  a * ( -1 + aa*( 0.331768825725 + aa*( -0.184940152398 + aa*( 0.091121250024 -0.0233480867489*aa ) ) ) );
   return  ( y<0 )? -angle : angle ;
