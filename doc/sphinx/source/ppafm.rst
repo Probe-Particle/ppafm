@@ -12,38 +12,6 @@ Subpackages
 Submodules
 ----------
 
-ppafm.CG module
--------------------------
-
-.. automodule:: ppafm.CG
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ppafm.COvsCO module
------------------------------
-
-.. automodule:: ppafm.COvsCO
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ppafm.FARFF module
-----------------------------
-
-.. automodule:: ppafm.FARFF
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ppafm.GLView module
------------------------------
-
-.. automodule:: ppafm.GLView
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 ppafm.GUIWidgets module
 ---------------------------------
 
@@ -68,74 +36,10 @@ ppafm.HighLevel module
    :undoc-members:
    :show-inheritance:
 
-ppafm.MMFF module
----------------------------
-
-.. automodule:: ppafm.MMFF
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ppafm.Multipoles module
----------------------------------
-
-.. automodule:: ppafm.Multipoles
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 ppafm.PPPlot module
 -----------------------------
 
 .. automodule:: ppafm.PPPlot
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ppafm.PolyCycles module
----------------------------------
-
-.. automodule:: ppafm.PolyCycles
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ppafm.ReactiveFF module
----------------------------------
-
-.. automodule:: ppafm.ReactiveFF
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ppafm.RigidMol module
--------------------------------
-
-.. automodule:: ppafm.RigidMol
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ppafm.SimplePot module
---------------------------------
-
-.. automodule:: ppafm.SimplePot
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ppafm.SurfConf module
--------------------------------
-
-.. automodule:: ppafm.SurfConf
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ppafm.atomfit module
-------------------------------
-
-.. automodule:: ppafm.atomfit
    :members:
    :undoc-members:
    :show-inheritance:

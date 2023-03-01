@@ -6,8 +6,13 @@
 
 #include <locale.h>
 
-GridShape gridShape;
+#ifdef _WIN64 // Required for exports for ctypes on Windows
+    #define DLLEXPORT __declspec(dllexport)
+#else
+    #define DLLEXPORT
+#endif
 
+GridShape gridShape;
 
 // ==== teporary global for functions
 double * data;
@@ -24,7 +29,7 @@ namespace Histogram{
 
 extern "C" {
 
-    int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline) {
+    DLLEXPORT int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline) {
 
         setlocale( LC_ALL, "C" ); // https://msdn.microsoft.com/en-us/library/x99tb11d(v=vs.71).aspx
         //setlocale( LC_ALL, "" );
@@ -66,17 +71,17 @@ extern "C" {
         return 0;
     }
 
-	void interpolate_gridCoord( int n, Vec3d * pos_list, double * data, double * out ){
+	DLLEXPORT void interpolate_gridCoord( int n, Vec3d * pos_list, double * data, double * out ){
 		for( int i=0; i<n; i++ ){
 			out[i] = interpolate3DWrap( data, gridShape.n, pos_list[i] );
 		}
 	}
 
-	void interpolateLine_gridCoord( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
+	DLLEXPORT void interpolateLine_gridCoord( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
         //printf( " interpolateLine n %i  p0 (%g,%g,%g) p1 (%g,%g,%g) \n", n,   p0->x,p0->y,p0->z, p1->x,p1->y,p1->z );
 		Vec3d dp,p;
 		dp.set_sub( *p1, *p0 );
-		dp.mul( 1.0d/n );
+		dp.mul( 1.0/n );
 		p.set( *p0 );
         //printf( " interpolateLine n %i  p (%g,%g,%g) dp (%g,%g,%g) \n", n,   p.x,p.y,p.z, dp.x,dp.y,dp.z );
 		for( int i=0; i<n; i++ ){
@@ -86,10 +91,10 @@ extern "C" {
 		}
 	}
 
-	void interpolateLine_cartes( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
+	DLLEXPORT void interpolateLine_cartes( int n, Vec3d * p0, Vec3d * p1, double * data, double * out ){
 		Vec3d dp,p;
 		dp.set_sub( *p1, *p0 );
-		dp.mul( 1.0d/n );
+		dp.mul( 1.0/n );
 		p.set( *p0 );
 		for( int i=0; i<n; i++ ){
 			//printf( " i, n  %i %i  pi0  %f %f %f  \n", i, n,  p.x,p.y,p.z );
@@ -101,14 +106,14 @@ extern "C" {
 		}
 	}
 
-	void interpolateQuad_gridCoord( int * nij, Vec3d * p00, Vec3d * p01, Vec3d * p10, Vec3d * p11, double * data, double * out ){
+	DLLEXPORT void interpolateQuad_gridCoord( int * nij, Vec3d * p00, Vec3d * p01, Vec3d * p10, Vec3d * p11, double * data, double * out ){
 		int ni = nij[0];
 		int nj = nij[1];
         //printf( "gridShape.n %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
         //printf( "n (%i,%i) (%g,%g,%g) (%g,%g,%g) (%g,%g,%g) (%g,%g,%g) \n", nij[0],nij[1],   p00->x,p00->y,p00->z,   p01->x,p01->y,p01->z,   p10->x,p10->y,p10->z,   p11->x,p11->y,p11->z );
 		Vec3d dpi0,dpi1,pi0,pi1;
-		dpi0.set_sub( *p10, *p00 ); dpi0.mul( 1.0d/ni );
-		dpi1.set_sub( *p11, *p01 ); dpi1.mul( 1.0d/ni );
+		dpi0.set_sub( *p10, *p00 ); dpi0.mul( 1.0/ni );
+		dpi1.set_sub( *p11, *p01 ); dpi1.mul( 1.0/ni );
 		pi0.set( *p00 );
 		pi1.set( *p01 );
         //printf( "(%g,%g,%g) (%g,%g,%g) \n",   dpi0.x,dpi0.y,dpi0.z, dpi1.x,dpi1.y,dpi1.z );
@@ -140,7 +145,7 @@ extern "C" {
         Histogram::Ws[i+1] += u;
         #endif
     }
-	void sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){
+	DLLEXPORT void sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){
 	    data = data_; Histogram::n = n; Histogram::Hs=Hs; Histogram::Ws=Ws; Histogram::dx = dr; Histogram::center.set(center[0],center[1],center[2]);
         Vec3d r0; r0.set(0.0,0.0,0.0);
         interateGrid3D<acum_sphere_hist>( r0, gridShape.n, gridShape.dCell, NULL );
@@ -154,7 +159,7 @@ extern "C" {
 	    //printf("acum_cog %i (%g,%g,%g) %g \n", ibuff, pos.x, pos.y, pos.z, h );
 	    //if( ibuff > 100 ) exit(0);
     }
-	double cog( double * data_, double* center ){
+	DLLEXPORT double cog( double * data_, double* center ){
 	    data = data_; Histogram::Htot += 0;  Histogram::center.set(0.0);
         Vec3d r0; r0.set(0.0,0.0,0.0);
         interateGrid3D<acum_cog>( r0, gridShape.n, gridShape.dCell, NULL );
@@ -163,7 +168,7 @@ extern "C" {
         return Histogram::Htot;
 	}
 
-	void interpolate_cartesian( int n, Vec3d * pos_list, double * data, double * out ){
+	DLLEXPORT void interpolate_cartesian( int n, Vec3d * pos_list, double * data, double * out ){
 		for( int i=0; i<n; i++ ){
 			Vec3d gpos;
 			gridShape.cartesian2grid( pos_list[i], gpos );
@@ -171,13 +176,13 @@ extern "C" {
 		}
 	}
 
-	void setGridN( int * n ){
+	DLLEXPORT void setGridN( int * n ){
 		//gridShape.n.set( *(Vec3i*)n );
 		gridShape.n.set( n[2], n[1], n[0] );
 		printf( " nxyz  %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
 	}
 
-	void setGridCell( double * cell ){
+	DLLEXPORT void setGridCell( double * cell ){
 		gridShape.setCell( *(Mat3d*)cell );
         gridShape.printCell();
 	}

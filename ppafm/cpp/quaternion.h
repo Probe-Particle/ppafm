@@ -19,10 +19,10 @@ inline T project_beam_to_sphere( T r, T x, T y ){
 	T z;
 	T r2 = r * r;
 	T d2 = x*x + y*y;
-	if ( d2 < ( 0.5d * r2 ) ) {
+	if ( d2 < ( 0.5 * r2 ) ) {
 		z = sqrt( r2 - d2 );
 	} else {
-		T t2 = 0.5d * r;
+		T t2 = 0.5 * r;
 		z = sqrt( t2 / d2 );
 	}
 	return z;
@@ -72,7 +72,7 @@ class Quat4T {
 	inline void setXYZ( const VEC& v){ x=v.x; y=v.y; z=v.z; };
 
 	inline void setInverseUnitary( const  QUAT& q){ x=-q.x; y=-q.y; z=-q.z; w=q.w; };
-	inline void setInverse       ( const  QUAT& q){ setInverseUnitary(); mul(1.0d/q.norm2()); };
+	inline void setInverse       ( const  QUAT& q){ setInverseUnitary(); mul(1.0/q.norm2()); };
 
 	inline QUAT get_inv(){ QUAT q; q.x=-x; q.y=-y; q.z=-z; q.w=w; return q; }
 
@@ -115,7 +115,7 @@ class Quat4T {
         // sqrt(r2) = sqrt((r2-1)+1) ~= 1 + 0.5*(r2-1)
         // 1/sqrt(1+x) ~= 1 - 0.5*x + (3/8)*x^2 - (5/16)*x^3 + (35/128)*x^4 - (63/256)*x^5
         T dr2    = x*x+y*y+z*z+w*w-1;
-        T invr = 1 + dr2*( -0.5d + dr2*( 0.375d + dr2*-0.3125d ) );
+        T invr = 1 + dr2*( -0.5 + dr2*( 0.375 + dr2*-0.3125 ) );
         x*=invr;
         y*=invr;
         z*=invr;
@@ -127,7 +127,7 @@ class Quat4T {
         T dr2    = x*x+y*y+z*z+w*w-1;
         T dr4    = dr2*dr2;
         T invr;
-        if(dr4<dr4max){ invr = 1 + dr2*-0.5d + dr4*( 0.375d + dr2*-0.3125d ); }
+        if(dr4<dr4max){ invr = 1 + dr2*-0.5 + dr4*( 0.375 + dr2*-0.3125 ); }
         else          { invr = 1/sqrt(dr2+1); };
         x*=invr;
         y*=invr;
@@ -225,7 +225,7 @@ class Quat4T {
     inline void invert() {
 		T norm = sqrt( x*x + y*y + z*z + w*w );
 		if ( norm > 0.0 ) {
-			T invNorm = 1.0d / norm;
+			T invNorm = 1.0 / norm;
 			x *= -invNorm; y *= -invNorm;z *= -invNorm;	w *=  invNorm;
 		}
     };
@@ -285,7 +285,7 @@ class Quat4T {
 	inline void fromAngleAxis( T angle, const VEC& axis ){
 		T ir   = 1/axis.norm();
 		VEC  hat  = axis * ir;
-		T a    = 0.5d * angle;
+		T a    = 0.5 * angle;
 		T sa   = sin(a);
 		w =           cos(a);
 		x = sa * hat.x;
@@ -471,7 +471,7 @@ class Quat4T {
 		T r2   = hx*hx + hy*hy + hz*hz;
 		if(r2>0){
 			T norm = sqrt( r2 );
-			T a    = dt * norm * 0.5d;
+			T a    = dt * norm * 0.5;
 			T sa   = sin( a )/norm;  // we normalize it here to save multiplications
 			T ca   = cos( a );
 			hx*=sa; hy*=sa; hz*=sa;            // hat * sin(a)
@@ -490,11 +490,11 @@ class Quat4T {
 		T hz   = omega.z;
 		T r2   = hx*hx + hy*hy + hz*hz;
 		T b2   = dt*dt*r2;
-		const T c2 = 1.0d/8;    // 4  *2
-		const T c3 = 1.0d/48;   // 8  *2*3
-		const T c4 = 1.0d/384;  // 16 *2*3*4
-		const T c5 = 1.0d/3840; // 32 *2*3*4*5
-		T sa   = dt * ( 0.5d - b2*( c3 - c5*b2 ) );
+		const T c2 = 1.0/8;    // 4  *2
+		const T c3 = 1.0/48;   // 8  *2*3
+		const T c4 = 1.0/384;  // 16 *2*3*4
+		const T c5 = 1.0/3840; // 32 *2*3*4*5
+		T sa   = dt * ( 0.5 - b2*( c3 - c5*b2 ) );
 		T ca   =      ( 1    - b2*( c2 - c4*b2 ) );
 		hx*=sa; hy*=sa; hz*=sa;  // hat * sin(a)
 		T x_ = x, y_ = y, z_ = z, w_ = w;
@@ -736,17 +736,17 @@ using Quat4d = Quat4T< double >;
 static constexpr Quat4i Quat4iZero = (Quat4i){0,0,0,0};
 static constexpr Quat4i Quat4iOnes = (Quat4i){1,1,1,1};
 
-static constexpr Quat4d Quat4dZero = (Quat4d){0.0d,0.0d,0.0d,0.0d};
-static constexpr Quat4d Quat4dOnes = (Quat4d){0.0d,0.0d,0.0d,1.0d};
-//static constexpr Quat4d Quat4dX    = (Quat4d){1.0d,0.0d,0.0d,0.0d};
-//static constexpr Quat4d Quat4dY    = (Quat4d){0.0d,1.0d,0.0d,0.0d};
-//static constexpr Quat4d Quat4dZ    = (Quat4d){0.0d,0.0d,1.0d,0.0d};
+static constexpr Quat4d Quat4dZero = (Quat4d){0.0,0.0,0.0,0.0};
+static constexpr Quat4d Quat4dOnes = (Quat4d){0.0,0.0,0.0,1.0};
+//static constexpr Quat4d Quat4dX    = (Quat4d){1.0,0.0,0.0,0.0};
+//static constexpr Quat4d Quat4dY    = (Quat4d){0.0,1.0,0.0,0.0};
+//static constexpr Quat4d Quat4dZ    = (Quat4d){0.0,0.0,1.0,0.0};
 
-static constexpr Quat4f Quat4fZero = (Quat4f){0.0f,0.0f,0.0f,0.0d};
-static constexpr Quat4f Quat4fOnes = (Quat4f){0.0f,0.0f,0.0f,1.0d};
-//static constexpr Quat4f Quat4fX   = (Quat4f){1.0f,0.0f,0.0f,0.0d};
-//static constexpr Quat4f Quat4fY   = (Quat4f){0.0f,1.0f,0.0f,0.0d};
-//static constexpr Quat4f Quat4fZ   = (Quat4f){0.0f,0.0f,1.0f,0.0d};
+static constexpr Quat4f Quat4fZero = (Quat4f){0.0f,0.0f,0.0f,0.0};
+static constexpr Quat4f Quat4fOnes = (Quat4f){0.0f,0.0f,0.0f,1.0};
+//static constexpr Quat4f Quat4fX   = (Quat4f){1.0f,0.0f,0.0f,0.0};
+//static constexpr Quat4f Quat4fY   = (Quat4f){0.0f,1.0f,0.0f,0.0};
+//static constexpr Quat4f Quat4fZ   = (Quat4f){0.0f,0.0f,1.0f,0.0};
 
 
 

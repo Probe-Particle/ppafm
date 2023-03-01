@@ -2,7 +2,7 @@ import matplotlib
 import numpy as np
 import pyopencl as cl
 
-from .. import SimplePot as pot
+from ..dev import SimplePot as pot
 from .. import atomicUtils as au
 from .. import basUtils
 from .. import common as PPU
