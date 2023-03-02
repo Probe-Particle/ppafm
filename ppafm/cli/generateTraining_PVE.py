@@ -25,9 +25,9 @@ PPU.loadParams( 'params.ini' )
 
 if os.path.isfile( 'atomtypes.ini' ):
     print(">> LOADING LOCAL atomtypes.ini")
-    FFparams=PPU.loadSpecies( 'atomtypes.ini' )
+    FFparams=PPU.loadSpecies('atomtypes.ini')
 else:
-    FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+    FFparams = PPU.loadSpecies(cpp_utils.PACKAGE_PATH/'defaults/atomtypes.ini')
 
 elem_dict   = PPU.getFFdict(FFparams); # print elem_dict
 iPP         = PPU.atom2iZ( PPU.params['probeType'], elem_dict )

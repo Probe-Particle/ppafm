@@ -38,6 +38,13 @@ dev = [
     "pytest-cov",
 ]
 
+[project.scripts]
+ppafm-generate-elff = "ppafm.cli.GenerateELFF:main"
+ppafm-generate-elff-point-charges = "ppafm.cli.GenerateELFF_point_charges:main"
+ppafm-generate-ljff = "ppafm.cli.GenerateLJFF:main"
+ppafm-relaxed-scan = "ppafm.cli.relaxed_scan:main"
+ppafm-plot-results = "ppafm.cli.plot_results:main"
+
 [tool.setuptools]
 include-package-data = true
 zip-safe = false

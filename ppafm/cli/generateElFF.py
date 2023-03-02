@@ -1,8 +1,8 @@
 #!/usr/bin/python
 import os
 import sys
+from optparse import OptionParser
 
-import __main__ as main
 import numpy as np
 
 import ppafm as PPU
@@ -14,13 +14,14 @@ import ppafm.fieldFFT as fFFT
 import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
 
-if __name__=="__main__":
-    HELP_MSG="""Use this program in the following way:
-    """+os.path.basename(main.__file__) +""" -i <filename> [ --sigma <value> ]
-    Supported file fromats are:
-       * cube
-       * xsf """
-    from optparse import OptionParser
+HELP_MESSAGE = f"""Use this program in the following way:
+ppafm-generate-elff -i <filename> [ --sigma <value> ]
+Supported file fromats are:
+    * cube
+    * xsf
+"""
+
+def main():
     parser = OptionParser()
     parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
     parser.add_option( "--tip_dens", action="store", type="string", default=None, help="tip denisty file (.xsf)" )
@@ -42,22 +43,22 @@ if __name__=="__main__":
     #print "options.tip_dens ", options.tip_dens;  exit()
 
     if options.input is None:
-        sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
+        sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MESSAGE)
     opt_dict = vars(options)
 
     if os.path.isfile( 'params.ini' ):
-        FFparams=PPU.loadParams( 'params.ini' )
+        PPU.loadParams( 'params.ini' )
     else:
         print(">> LOADING default params.ini >> 's' =")
-        FFparams = PPU.loadParams( cpp_utils.PACKAGE_PATH+'/defaults/params.ini' )
+        PPU.loadParams( cpp_utils.PACKAGE_PATH+'/defaults/params.ini' )
     #PPU.loadParams( 'params.ini' )
     PPU.apply_options(opt_dict)
 
     if os.path.isfile( 'atomtypes.ini' ):
         print(">> LOADING LOCAL atomtypes.ini")
-        FFparams=PPU.loadSpecies( 'atomtypes.ini' )
+        PPU.loadSpecies( 'atomtypes.ini' )
     else:
-        FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH / 'defaults/atomtypes.ini' )
+        PPU.loadSpecies( cpp_utils.PACKAGE_PATH / 'defaults/atomtypes.ini' )
 
     bSubstractCore =  ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip_dens is not None) )
     #if ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip is None) ):  # We do it here, in case it crash we don't want to wait for all the huge density files to load
@@ -178,3 +179,7 @@ if __name__=="__main__":
     if options.energy:
         GU.save_scal_field( 'Eel', Eel, lvec_samp, data_format=options.data_format)
     del FFel,V;
+
+
+if __name__ == "__main__":
+    main()

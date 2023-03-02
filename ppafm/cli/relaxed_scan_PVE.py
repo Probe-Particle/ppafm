@@ -177,7 +177,7 @@ if __name__=="__main__":
                 if options.bI:
                     print("Calculating current from tip to the Boltzmann particle:")
                     I_in, lvec, nDim = GU.load_scal_field('I_boltzmann',
-                    data_format=iptions.data_format)
+                    data_format=options.data_format)
                     I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None )
                     del I_in;
                     GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,  data_format=options.data_format)
