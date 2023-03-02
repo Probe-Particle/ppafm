@@ -1,5 +1,4 @@
 #! /bin/bash
-PPAFM_DIR='../../ppafm/cmdline'
 
 # ======= STEP 1 : Generate force-field grid
 ppafm-generate-ljff -i PTCDA.xyz

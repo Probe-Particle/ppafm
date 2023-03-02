@@ -1,6 +1,5 @@
 #! /bin/bash
 
-#{PPAFM_DIR}="/home/prokop/git/ProbeParticleModel"
 PPAFM_DIR='../../ppafm/cmdline'
 
 echo " ====== STEP 0 : Download Example Data-Files "
