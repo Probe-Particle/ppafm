@@ -2,4 +2,4 @@
 
 PPPATH="../../"
 export PYTHONPATH=$PYTHONPATH:$PPPATH
-python3 test_trainer.py
+python test_trainer.py

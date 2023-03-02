@@ -57,7 +57,7 @@ if __name__=="__main__":
         print(">> LOADING LOCAL atomtypes.ini")
         FFparams=PPU.loadSpecies( 'atomtypes.ini' )
     else:
-        FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+        FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH / 'defaults/atomtypes.ini' )
 
     bSubstractCore =  ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip_dens is not None) )
     #if ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip is None) ):  # We do it here, in case it crash we don't want to wait for all the huge density files to load
