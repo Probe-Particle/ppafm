@@ -235,10 +235,10 @@ if __name__ == "__main__":
 
     ring_bonds  = ch.findBonds(ring_pos,ring_Rs,fR=1.0)
     ring_neighs = ch.bonds2neighs(ring_bonds,Nring)
-    ring_nngs   = np.array([ len(ng) for ng in ring_neighs ],dtype=np.int)
+    ring_nngs   = np.array([ len(ng) for ng in ring_neighs ],dtype=int)
 
     tris,bonds_ = ch.findTris(ring_bonds,ring_neighs)
-    atom2ring   = np.array( list(tris), dtype=np.int )
+    atom2ring   = np.array( list(tris), dtype=int )
     #print "atom2ring ", atom2ring
 
     atom_pos = ( ring_pos[atom2ring[:,0]] + ring_pos[atom2ring[:,1]] + ring_pos[atom2ring[:,2]] )/3.0
@@ -281,9 +281,9 @@ if __name__ == "__main__":
     #tris_ = ch.tris2num(tris)
     #print "tris_ ", tris_
 
-    nngs  = np.array([ len(ngs) for ngs in neighs ],dtype=np.int)
+    nngs  = np.array([ len(ngs) for ngs in neighs ],dtype=int)
 
-    #atypes=np.zeros(len(nngs),dtype=np.int)
+    #atypes=np.zeros(len(nngs),dtype=int)
     atypes=nngs.copy()-1
     #atypes[atom_N6mask]=0
     atypes[atom_N6mask]=3
@@ -331,7 +331,7 @@ if __name__ == "__main__":
 
     # --- groups -> atoms
     groupDict = ch.makeGroupLevels(groupDict)
-    aoi = np.round(ao).astype(np.int)
+    aoi = np.round(ao).astype(int)
     groups = ch.selectRandomGroups( nngs, aoi, groupDict )
 
     #for i in range(len(groups)):

@@ -17,7 +17,7 @@ CoulombConst         = -14.3996448915;
 params={
     'PBC': True,
     'nPBC' :       np.array( [      1,        1,        1 ] ),
-    'gridN':       np.array( [ -1,     -1,   -1   ] ).astype(np.int),
+    'gridN':       np.array( [ -1,     -1,   -1   ] ).astype(int),
     'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
     'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
     'gridC':       np.array( [      0,        0,      5.0 ] ),
@@ -195,10 +195,10 @@ def loadParams( fname ):
                     params[key] = words[1]
                     if(verbose>0): print(key, params[key], words[1])
                 elif isinstance(val, np.ndarray ):
-                    if val.dtype == np.float:
+                    if val.dtype == float:
                         params[key] = np.array([ float(words[1]), float(words[2]), float(words[3]) ])
                         if(verbose>0): print(key, params[key], words[1], words[2], words[3])
-                    elif val.dtype == np.int:
+                    elif val.dtype == int:
                         if(verbose>0): print(key)
                         params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
                         if(verbose>0): print(key, params[key], words[1], words[2], words[3])
@@ -235,8 +235,8 @@ def loadSpecies( fname=None ):
         if(verbose>0): print("WARRNING: loadSpecies(None) => load default atomtypes.ini")
         fname = cpp_utils.PACKAGE_PATH / 'defaults' / 'atomtypes.ini'
     if(verbose>0): print(" loadSpecies from ", fname)
-    #FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',np.int),('symbol', '|S10')],usecols=[0,1,2,3])
-    FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',np.int),('symbol', '|S10')],usecols=(0,1,2,3,4))
+    #FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',int),('symbol', '|S10')],usecols=[0,1,2,3])
+    FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',int),('symbol', '|S10')],usecols=(0,1,2,3,4))
     return FFparams
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
@@ -247,7 +247,7 @@ def loadSpeciesLines( lines ):
         if len(l) >= 5:
             # print l
             params.append( ( float(l[0]), float(l[1]), float(l[2]), int(l[3]), l[4] ) )
-    return np.array( params, dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',np.int),('symbol', '|S10')])
+    return np.array( params, dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',int),('symbol', '|S10')])
 
 def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
     '''
