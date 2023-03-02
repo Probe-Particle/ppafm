@@ -93,7 +93,7 @@ cpp_utils.make("MP")
 lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes
 
 # define used numpy array types for interfacing with C++
-array1b  = np.ctypeslib.ndpointer(dtype=np.bool  , ndim=1, flags='CONTIGUOUS')
+array1b  = np.ctypeslib.ndpointer(dtype=bool     , ndim=1, flags='CONTIGUOUS')
 array1i  = np.ctypeslib.ndpointer(dtype=np.int32 , ndim=1, flags='CONTIGUOUS')
 array1ui = np.ctypeslib.ndpointer(dtype=np.uint32, ndim=1, flags='CONTIGUOUS')
 array1d  = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
