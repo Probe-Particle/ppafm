@@ -13,7 +13,6 @@ from optparse import OptionParser
 
 import ppafm as PPU
 import ppafm.core as core
-import ppafm.GridUtils as GU
 from ppafm import io
 
 parser = OptionParser()
@@ -51,7 +50,7 @@ cRAs = np.array([ (-valElDict[elem],Rcut) for elem in elems ])     #   parameter
 #print "cRAs ",cRAs.shape, "\n",  cRAs
 
 print(">>> Loading ... ")
-rho1, lvec1, nDim1, head1 = GU.loadXSF( options.sample )
+rho1, lvec1, nDim1, head1 = io.loadXSF( options.sample )
 #V = lvec1[1,0]*lvec1[2,1]*lvec1[3,2]
 V  = np.linalg.det( lvec )
 N = nDim1[0]*nDim1[1]*nDim1[2]
@@ -70,4 +69,4 @@ core.getDensityR4spline( Rs_, cRAs.copy() )  # Do the job ( the Projection of at
 print("sum(RHO), Nelec: ",  rho1.sum(),  rho1.sum()*dV)   # check sum
 
 print(">>> Saving ... ")
-GU.saveXSF( "rho_subCoreChg.xsf", rho1, lvec1, head=head1 )
+io.saveXSF( "rho_subCoreChg.xsf", rho1, lvec1, head=head1 )

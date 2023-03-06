@@ -17,16 +17,12 @@ import pyopencl as cl
 
 import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
-import ppafm.GridUtils as GU
 import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
 import ppafm.ocl.relax as oclr
 from ppafm import PPPlot, io
 
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
-
-#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
-#import ppafm.GridUtils as GU
 
 
 
@@ -203,7 +199,7 @@ if __name__ == "__main__":
         FEin =  FF[:,:,:,:4] + Q*FF[:,:,:,4:]
 
         Tff = time.clock()-t1ff;
-        #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec );
+        # io.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec );
 
         print("FEin.shape ", FEin.shape);
         relax_args  = oclr.prepareBuffers( FEin, relax_dim )
@@ -239,7 +235,7 @@ if __name__ == "__main__":
             Trelax = time.clock() - t1relax;
 
             #writeDebugXYZ( subDirName + "/debugPosRlaxed.xyz", atom_lines, FEout[::10,::10,:,:].reshape(-1,4) )
-            #GU.saveXSF( geomFileName+'_Fout_z.xsf',  FEout[:,:,:,2], lvec );
+            #io.saveXSF( geomFileName+'_Fout_z.xsf',  FEout[:,:,:,2], lvec );
             #print "FEout.shape ", FEout.shape
             #np.save( subDirName+'/Fout_z.npy', FEout[:,:,:,2] )
             t1plot = time.clock();

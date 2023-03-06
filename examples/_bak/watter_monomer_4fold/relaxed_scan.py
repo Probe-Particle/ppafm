@@ -12,8 +12,9 @@ LWD = '/home/prokop/git/ProbeParticleModel/code'
 sys.path = [ LWD ]
 
 import elements
-import GridUtils as GU
 import ProbeParticle as PP
+
+from ppafm.io import loadVecFieldXsf, saveXSF
 
 print(" ============= RUN  ")
 
@@ -49,7 +50,7 @@ def main():
 			os.makedirs( dirname )
 			PP.setTip( kSpring = np.array((K,K,0.0))/-PP.eVA_Nm )
 			fzs = PP.relaxedScan3D( xTips, yTips, zTips )
-			PP.saveXSF( dirname+'/OutFz.xsf', headScan, lvecScan, fzs )
+			saveXSF( dirname+'/OutFz.xsf', headScan, lvecScan, fzs )
 			for iA,Amp in enumerate( Amps ):
 				AmpStr = "/Amp%2.2f" %Amp
 				print("Amp= ",AmpStr)

@@ -11,8 +11,6 @@ sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 from optparse import OptionParser
 
 import ppafm as PPU
-
-#import ppafm.GridUtils     as GU
 from ppafm import io
 
 parser = OptionParser()

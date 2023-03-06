@@ -8,8 +8,7 @@ from pyopencl import array
 
 from ..common import genFFSampling
 from ..fieldFFT import getProbeDensity
-from ..GridUtils import loadCUBE, loadXSF
-from ..io import loadAtomsCUBE, loadXSFGeom
+from ..io import loadAtomsCUBE, loadCUBE, loadXSF, loadXSFGeom
 
 try:
     from reikna.cluda import dtypes, ocl_api

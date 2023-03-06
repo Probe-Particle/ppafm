@@ -8,9 +8,6 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-#import GridUtils as GU
-import ppafm.GridUtils as GU
-
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
 #--- added later just to plot atoms
@@ -64,7 +61,7 @@ if options.npy:
 else:
     data_format = "xsf"
 
-data,lvec,nDim=GU.load_scal_field( options.i ,data_format=data_format)
+data,lvec,nDim=io.load_scal_field( options.i ,data_format=data_format)
 #print lvec
 #print nDim
 

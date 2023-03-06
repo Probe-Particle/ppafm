@@ -17,7 +17,6 @@ import matplotlib; matplotlib.use('Qt5Agg')
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import ppafm.common as PPU
-import ppafm.GridUtils as GU
 import ppafm.GUIWidgets as guiw
 import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
@@ -532,7 +531,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             xs = np.linspace(0, self.bxSSx.value(), data.shape[1], endpoint=False)
             ys = np.linspace(0, self.bxSSy.value(), data.shape[0], endpoint=False)
             Xs, Ys = np.meshgrid(xs,ys)
-            GU.saveWSxM_2D(fileName, data, Xs, Ys)
+            io.saveWSxM_2D(fileName, data, Xs, Ys)
         elif ext == '.xsf':
             data = self.df.transpose(2, 1, 0)[::-1]
             sw = self.afmulator.scan_window
@@ -548,8 +547,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 lvec = np.append([[0, 0, 0]], self.pbc_lvec, axis=0)
                 atomstring = io.primcoords2Xsf(self.Zs, self.xyzs.T, lvec)
             else:
-                atomstring = GU.XSF_HEAD_DEFAULT
-            GU.saveXSF(fileName, data, lvecScan, head=atomstring, verbose=0)
+                atomstring = io.XSF_HEAD_DEFAULT
+            io.saveXSF(fileName, data, lvecScan, head=atomstring, verbose=0)
         else:
             raise RuntimeError('This should not happen. Missing file format check?')
         if self.verbose > 0: print("Done saving df data.")

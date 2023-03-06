@@ -22,9 +22,9 @@ def makeclean( ):
 makeclean( )
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm.GridUtils as GU
 import ppafm.Multipoles as MP
 import ppafm.ProbeParticle as PP
+from ppafm.io import getFromHead_PRIMCOORD, loadXSF, saveXSF
 
 # ============== Setup
 
@@ -33,7 +33,7 @@ WORK_DIR =  '/home/prokop/Desktop/Probe_Particle_Simulations/Multipoles/COCu4/'
 
 # ============== load reference grid
 
-V, lvec, nDim, head = GU.loadXSF( WORK_DIR + 'LOCPOT.xsf' )
+V, lvec, nDim, head = loadXSF( WORK_DIR + 'LOCPOT.xsf' )
 
 cell = np.array( [ lvec[1], lvec[2], lvec[3] ]);
 
@@ -41,7 +41,7 @@ MP.setGrid( V, cell );
 
 # ============== prepare atoms
 
-atom_types,atom_pos = GU.getFromHead_PRIMCOORD( head )   # load atoms from header of xsf file
+atom_types,atom_pos = getFromHead_PRIMCOORD( head )   # load atoms from header of xsf file
 
 # set sample region around atom atom_Rmin, atom_Rmax
 spacies              = PP.loadSpecies( './defaults/atomtypes.ini' )
@@ -72,4 +72,4 @@ for i in range( len( coefs ) ):
 	print(basis_assignment[i], coefs[i])
 
 print("saving LOCPOT_debug.xsf ")
-GU.saveXSF( WORK_DIR + 'LOCPOT_debug.xsf', V, lvec, head );
+saveXSF( WORK_DIR + 'LOCPOT_debug.xsf', V, lvec, head );

@@ -15,7 +15,6 @@ import numpy as np
 import pyopencl as cl
 
 import ppafm.common as PPU
-import ppafm.GridUtils as GU
 import ppafm.ocl.HighLevel as hl
 from ppafm import io
 
@@ -91,7 +90,7 @@ if __name__ == "__main__":
 
         FEin  = FF[:,:,:,:4] + Q*FF[:,:,:,4:];   del FF
         Tff = time.clock()-t1ff;   print("Tff %f [s]" %Tff)
-        #GU.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec );
+        #io.saveXSF( dirName+'/Fin_z.xsf',  FEin[:,:,:,2], lvec );
 
         scanner.prepareBuffers( FEin, lvec, scan_dim=scan_dim )
 

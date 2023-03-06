@@ -10,7 +10,6 @@ sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 
 import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
-import ppafm.GridUtils as GU
 import ppafm.ocl.field as FFcl
 from ppafm import PPPlot, io
 
@@ -42,14 +41,14 @@ print("OpenCL kernell time: %f [s]" %(t2-t1))
 
 PPPlot.checkVecField(FE)
 Ftmp=np.zeros(nDim);
-Ftmp[:,:,:] = FE[:,:,:,0]; GU.saveXSF( 'ELJ_cl.xsf',  Ftmp, lvec );
-Ftmp[:,:,:] = FE[:,:,:,1]; GU.saveXSF( 'FLJx_cl.xsf', Ftmp, lvec );
-Ftmp[:,:,:] = FE[:,:,:,2]; GU.saveXSF( 'FLJy_cl.xsf', Ftmp, lvec );
-Ftmp[:,:,:] = FE[:,:,:,3]; GU.saveXSF( 'FLJz_cl.xsf', Ftmp, lvec );
-Ftmp[:,:,:] = FE[:,:,:,4]; GU.saveXSF( 'Eel_cl.xsf',  Ftmp, lvec );
-Ftmp[:,:,:] = FE[:,:,:,5]; GU.saveXSF( 'Felx_cl.xsf', Ftmp, lvec );
-Ftmp[:,:,:] = FE[:,:,:,6]; GU.saveXSF( 'Fely_cl.xsf', Ftmp, lvec );
-Ftmp[:,:,:] = FE[:,:,:,7]; GU.saveXSF( 'Felz_cl.xsf', Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,0]; io.saveXSF( 'ELJ_cl.xsf',  Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,1]; io.saveXSF( 'FLJx_cl.xsf', Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,2]; io.saveXSF( 'FLJy_cl.xsf', Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,3]; io.saveXSF( 'FLJz_cl.xsf', Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,4]; io.saveXSF( 'Eel_cl.xsf',  Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,5]; io.saveXSF( 'Felx_cl.xsf', Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,6]; io.saveXSF( 'Fely_cl.xsf', Ftmp, lvec );
+Ftmp[:,:,:] = FE[:,:,:,7]; io.saveXSF( 'Felz_cl.xsf', Ftmp, lvec );
 
 
 print("==== ALL DONE === ")

@@ -21,7 +21,6 @@ def makeclean( ):
 makeclean( )
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm.GridUtils as GU
 import ppafm.Multipoles as MP
 
 atom_pos = np.array( [

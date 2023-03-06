@@ -15,12 +15,12 @@ import ppafm as PPU
 
 #import ppafm.ProbeParticle as PP
 import ppafm.cpp_utils as cpp_utils
-import ppafm.GridUtils as GU
 import ppafm.Multipoles as MP
+from ppafm.io import getFromHead_PRIMCOORD, loadXSF, saveXSF
 
 # ---- Load potential
 
-V, lvec, nDim, head = GU.loadXSF( 'LOCPOT.xsf' )
+V, lvec, nDim, head = loadXSF( 'LOCPOT.xsf' )
 
 cell = np.array( [ lvec[1], lvec[2], lvec[3] ]);
 print(V.flags)
@@ -30,7 +30,7 @@ MP.setGrid_Pointer( V )
 
 # ---- prepare atoms
 
-atom_types,atom_pos = GU.getFromHead_PRIMCOORD( head )   # load atoms from header of xsf file
+atom_types,atom_pos = getFromHead_PRIMCOORD( head )   # load atoms from header of xsf file
 
 # set sample region around atom atom_Rmin, atom_Rmax
 if os.path.isfile( 'atomtypes.ini' ):
@@ -50,7 +50,7 @@ atom_mask       = np.array( [ True ] * natoms );
 # ---- do the fitting
 
 sampled_val, sampled_pos = MP.sampleGridArroundAtoms( atom_pos, atom_Rmin, atom_Rmax, atom_mask, pbc=False, show_where=True )
-#GU.saveXSF( 'LOCPOT_sample.xsf', V, lvec, head );
+#saveXSF( 'LOCPOT_sample.xsf', V, lvec, head );
 
 centers = atom_pos[atom_mask].copy(); print("centers", centers)
 types   = np.array([3]*len(centers)).astype(np.uint32); print("types", types)
@@ -65,7 +65,7 @@ coefs = np.linalg.solve( BB, B ); print("coefs:", coefs)
 
 
 MP.evalMultipoleComb( coefs, V )
-GU.saveXSF( 'LOCPOT_eval.xsf', V, lvec, head );
+saveXSF( 'LOCPOT_eval.xsf', V, lvec, head )
 
 # ============== output results
 

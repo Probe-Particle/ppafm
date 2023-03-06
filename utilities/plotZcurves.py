@@ -10,7 +10,7 @@ import numpy as np
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 from optparse import OptionParser
 
-import ppafm.GridUtils as GU
+from ppafm.io import load_scal_field
 
 parser = OptionParser()
 parser.add_option( "-p",   action="store", type="string", help="pixels (ix,iy) to take curve", default='curve_points.ini' )
@@ -27,7 +27,7 @@ except:
 	print(options.p+" not found => exiting ...")
 	sys.exit()
 
-fzs,lvec,nDim=GU.load_scal_field(options.i,data_format=options.data_format)
+fzs,lvec,nDim=load_scal_field(options.i,data_format=options.data_format)
 #xs = lvec[3,2]/*np.array( range(nDim[0]) )
 xs = np.linspace( 0, lvec[3,2], nDim[0] )
 

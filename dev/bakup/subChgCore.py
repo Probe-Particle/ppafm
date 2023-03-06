@@ -7,14 +7,12 @@ import __main__ as main
 import matplotlib.pyplot as plt
 import numpy as np
 
-#import GridUtils as GU
 sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 
 from optparse import OptionParser
 
 import ppafm as PPU
 import ppafm.fieldFFT as fFFT
-import ppafm.GridUtils as GU
 from ppafm import io
 
 parser = OptionParser()
@@ -51,7 +49,7 @@ valElDict = { 6:4.0, 8:6.0}
 atoms,nDim,lvec     = io.loadGeometry( options.sample, params=PPU.params )
 atoms_ = np.array(atoms)
 
-rho1, lvec1, nDim1, head1 = GU.loadXSF( options.sample )
+rho1, lvec1, nDim1, head1 = io.loadXSF( options.sample )
 V = lvec1[1,0]*lvec1[2,1]*lvec1[3,2]
 N = nDim1[0]*nDim1[1]*nDim1[2]
 dV = (V/N)
@@ -89,5 +87,5 @@ print("sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV)
 ffft.addCoreDensities( atoms_, valElDict, rho1, lvec1, sigma=0.25 )
 print("sum(RHO), Nelec",  rho1.sum(),  rho1.sum()*dV)
 
-#GU.saveXSF( "rho_core.xsf", rho1,       lvec1, head=head1 )
-GU.saveXSF( "rho_diff.xsf", rho1,       lvec1, head=head1 )
+# io.saveXSF( "rho_core.xsf", rho1,       lvec1, head=head1 )
+io.saveXSF( "rho_diff.xsf", rho1,       lvec1, head=head1 )

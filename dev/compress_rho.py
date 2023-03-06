@@ -8,14 +8,12 @@ import __main__ as main
 import matplotlib.pyplot as plt
 import numpy as np
 
-#import GridUtils as GU
-
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 from optparse import OptionParser
 
 import ppafm as PPU
 import ppafm.fieldFFT as fFFT
-import ppafm.GridUtils as GU
+from ppafm.io import loadXSF, saveXSF
 
 
 def maskFunc( x, x0, x1 ):
@@ -36,7 +34,7 @@ parser.add_option( "-s", "--sample", action="store", type="string", default="CHG
 (options, args) = parser.parse_args()
 
 print(">>> Loading sample from ", options.sample, " ... ")
-rho, lvec, nDim, head = GU.loadXSF( options.sample )
+rho, lvec, nDim, head = loadXSF( options.sample )
 
 rho_low = rho.copy()
 Ycut = 1e-1
@@ -61,11 +59,11 @@ print(" rho.max(), rho_low.max(), dRho.max() ", rho.max(), rho_low.max(), dRho.m
 
 namestr = options.sample+"_resudual.xsf"
 print(">>> Saving  residual to  ", namestr, " ... ")
-GU.saveXSF( namestr, dRho, lvec, head=head )
+saveXSF( namestr, dRho, lvec, head=head )
 
 namestr = options.sample+"_LowPass.xsf"
 print(">>> Saving  LowPass to  ", namestr, " ... ")
-GU.saveXSF( namestr, rho_low, lvec, head=head )
+saveXSF( namestr, rho_low, lvec, head=head )
 
 
 #Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)

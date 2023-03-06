@@ -4,7 +4,6 @@ import sys
 
 import numpy as np
 
-from . import GridUtils as GU
 from . import common as PPU
 from . import core, cpp_utils
 from . import fieldFFT as fFFT
@@ -101,7 +100,7 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,FFkpfm_t
     if FFboltz != None :
         FF += FFboltz
     if bFFtotDebug:
-        GU.save_vec_field( 'FFtotDebug', FF, lvec )
+        io.save_vec_field( 'FFtotDebug', FF, lvec )
     core.setFF_shape( np.shape(FF), lvec )
     core.setFF_Fpointer( FF )
     if (PPU.params['stiffness'] < 0.0).any():
@@ -174,16 +173,16 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     # --- post porces FFs
     if Fmax is not  None:
         if(verbose>0): print("Clamp force >", Fmax)
-        GU.limit_vec_field( FF, Fmax=Fmax )
+        io.limit_vec_field( FF, Fmax=Fmax )
     if (Vmax is not None) and computeVpot:
         if(verbose>0): print("Clamp potential >", Vmax)
         V[ V > Vmax ] =  Vmax # remove too large values
     # --- save to files ?
     if save_format is not None:
         if(verbose>0): print("computeLJ Save ", save_format)
-        GU.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring )
+        io.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring )
         if computeVpot:
-            GU.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
+            io.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
     if(verbose>0): print("<<<END: computeLJ()")
     return FF, V, nDim, lvec
 
@@ -208,16 +207,16 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     # --- post porces FFs
     if Fmax is not  None:
         if(verbose>0): print("Clamp force >", Fmax)
-        GU.limit_vec_field( FF, Fmax=Fmax )
+        io.limit_vec_field( FF, Fmax=Fmax )
     if (Vmax is not None) and computeVpot:
         if(verbose>0): print("Clamp potential >", Vmax)
         V[ V > Vmax ] =  Vmax # remove too large values
     # --- save to files ?
     if save_format is not None:
         if(verbose>0): print("computeLJ Save ", save_format)
-        GU.save_vec_field( 'FFel',FF,lvec,data_format=save_format, head=atomstring )
+        io.save_vec_field( 'FFel',FF,lvec,data_format=save_format, head=atomstring )
         if computeVpot:
-            GU.save_scal_field( 'Vel',V,lvec,data_format=save_format, head=atomstring )
+            io.save_scal_field( 'Vel',V,lvec,data_format=save_format, head=atomstring )
     if(verbose>0): print("<<<END: computeELFF_pointCharge()")
     return FF, V, nDim, lvec
 
@@ -236,12 +235,12 @@ def computeElFF(V,lvec,nDim,tip,computeVpot=False, tilt=0.0,sigma=None ):
             rho = None
             multipole={tip:1.0}
         elif tip.endswith(".xsf"):
-            rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(tip)
+            rho, lvec_tip, nDim_tip, tiphead = io.loadXSF(tip)
             if any(nDim_tip != nDim):
                 sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")
     if(verbose>0): print(" computing convolution with tip by FFT ")
     Fel_x,Fel_y,Fel_z, Vout = fFFT.potential2forces_mem( V, lvec, nDim, rho=rho, sigma=sigma, multipole = multipole, doPot=computeVpot, tilt=tilt )
-    FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
+    FFel = io.packVecGrid(Fel_x,Fel_y,Fel_z)
     del Fel_x,Fel_y,Fel_z
     return FFel, Vout
 
@@ -276,7 +275,7 @@ def getAtomsWhichTouchPBCcell( fname, Rcut=1.0, bSaveDebug=True ):
     Rs_ = Rs_.transpose().copy()
     return Rs_, elems
 
-def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDict=None, Rcore=0.7, bSaveDebugDens=False, bSaveDebugGeom=True, head=GU.XSF_HEAD_DEFAULT ):
+def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDict=None, Rcore=0.7, bSaveDebugDens=False, bSaveDebugGeom=True, head=io.XSF_HEAD_DEFAULT ):
     lvec = lvec_[1:]
     nDim = rho.shape
     if fname is not None:
@@ -297,4 +296,4 @@ def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDic
     core.getDensityR4spline( Rs, cRAs.copy() )  # Do the job ( the Projection of atoms onto grid )
     if(verbose>0): print("sum(RHO), Nelec: ",  rho.sum(),  rho.sum()*dV)   # check sum
     if bSaveDebugDens:
-        GU.saveXSF( "rho_subCoreChg.xsf", rho, lvec_, head=head )
+        io.saveXSF( "rho_subCoreChg.xsf", rho, lvec_, head=head )

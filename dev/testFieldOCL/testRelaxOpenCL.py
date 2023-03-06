@@ -11,20 +11,20 @@ sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 
 import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
-import ppafm.GridUtils as GU
 from ppafm import PPPlot
+from ppafm.io import loadXSF, saveXSF
 
 
 def loadFEcl( Q = None ):
-    E ,lvec, nDim, head = GU.loadXSF('ELJ_cl.xsf' ); FE = np.zeros( E.shape+(4,), dtype=np.float32 ); FE.shape; FE[:,:,:,3] = E
-    Fx,lvec, nDim, head = GU.loadXSF('FLJx_cl.xsf'); FE[:,:,:,0] = Fx
-    Fy,lvec, nDim, head = GU.loadXSF('FLJy_cl.xsf'); FE[:,:,:,1] = Fy
-    Fz,lvec, nDim, head = GU.loadXSF('FLJz_cl.xsf'); FE[:,:,:,2] = Fz
+    E ,lvec, nDim, head = loadXSF('ELJ_cl.xsf' ); FE = np.zeros( E.shape+(4,), dtype=np.float32 ); FE.shape; FE[:,:,:,3] = E
+    Fx,lvec, nDim, head = loadXSF('FLJx_cl.xsf'); FE[:,:,:,0] = Fx
+    Fy,lvec, nDim, head = loadXSF('FLJy_cl.xsf'); FE[:,:,:,1] = Fy
+    Fz,lvec, nDim, head = loadXSF('FLJz_cl.xsf'); FE[:,:,:,2] = Fz
     if Q is not None:
-        E ,lvec, nDim, head = GU.loadXSF('Eel_cl.xsf' ); FE[:,:,:,3] += Q*E
-        Fx,lvec, nDim, head = GU.loadXSF('Felx_cl.xsf'); FE[:,:,:,0] += Q*Fx
-        Fy,lvec, nDim, head = GU.loadXSF('Fely_cl.xsf'); FE[:,:,:,1] += Q*Fy
-        Fz,lvec, nDim, head = GU.loadXSF('Felz_cl.xsf'); FE[:,:,:,2] += Q*Fz
+        E ,lvec, nDim, head = loadXSF('Eel_cl.xsf' ); FE[:,:,:,3] += Q*E
+        Fx,lvec, nDim, head = loadXSF('Felx_cl.xsf'); FE[:,:,:,0] += Q*Fx
+        Fy,lvec, nDim, head = loadXSF('Fely_cl.xsf'); FE[:,:,:,1] += Q*Fy
+        Fz,lvec, nDim, head = loadXSF('Felz_cl.xsf'); FE[:,:,:,2] += Q*Fz
     cell = lvec[1:4,0:3]
     invCell = np.linalg.inv(cell)
     print(invCell)
@@ -125,7 +125,7 @@ lvec_OUT = (
 )
 
 Ftmp=np.zeros((nz,)+Xs.shape);
-Ftmp[:,:,:] = np.transpose( FEout[:,:,:,2], (2,0,1) ); GU.saveXSF( 'OutFz_cl.xsf',  Ftmp, lvec_OUT );
+Ftmp[:,:,:] = np.transpose( FEout[:,:,:,2], (2,0,1) ); saveXSF( 'OutFz_cl.xsf',  Ftmp, lvec_OUT )
 
 
 plt.show()

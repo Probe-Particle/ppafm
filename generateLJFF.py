@@ -7,7 +7,6 @@ import numpy as np
 
 import ppafm as PPU
 import ppafm.fieldFFT as fFFT
-import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
 from ppafm import elements
 

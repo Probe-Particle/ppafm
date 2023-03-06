@@ -8,11 +8,10 @@ import numpy as np
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import ppafm as PPU
 import ppafm.fieldFFT as fFFT
-import ppafm.GridUtils as GU
 
 #import ppafm.core          as PPC
 import ppafm.HighLevel as PPH
-from ppafm import elements
+from ppafm import elements, io
 
 HELP_MSG="""Use this program in the following way:
 %s -i <filename>
@@ -122,7 +121,7 @@ Egauss = -0.01
 if options.noProbab :
     print(" ==== calculating probabilties ====")
     # --- tip
-    V_tip,   lvec, nDim = GU.load_scal_field('tip/VLJ',data_format=options.data_format)
+    V_tip,   lvec, nDim = io.load_scal_field('tip/VLJ',data_format=options.data_format)
     #cell   = np.array( [ lvec[1],lvec[2],lvec[3] ] ); print "nDim ", nDim, "\ncell ", cell
     #X,Y,Z  = getXYZ( nDim, cell )
     #V_tip = V_tip*0 + Egauss * getProbeDensity( (cell[0,0]/2.+cell[1,0]/2.,cell[1,1]/2,cell[2,2]/2.-3.8), X, Y, Z, wGauss ) # works for tip (the last flexible tip apex atom) in the middle of the cell
@@ -130,15 +129,15 @@ if options.noProbab :
     W_tip  = np.exp( -beta * V_tip  )
     #W_tip = W_cut(W_tip,nz=95,side='down',sm=5)
     del V_tip;
-    GU.save_scal_field ( 'W_tip',  W_tip,    lvec, data_format=options.data_format)
+    io.save_scal_field ( 'W_tip',  W_tip,    lvec, data_format=options.data_format)
 
     # --- sample
-    V_surf,  lvec, nDim = GU.load_scal_field('sample/VLJ',data_format=options.data_format)
+    V_surf,  lvec, nDim = io.load_scal_field('sample/VLJ',data_format=options.data_format)
     limitE( V_surf, E_cutoff )
     W_surf = np.exp( -beta * V_surf )
     #W_surf=W_cut(W_surf,nz=50,side='up',sm=1)
     del V_surf;
-    GU.save_scal_field ( 'W_surf', W_surf,   lvec, data_format=options.data_format)
+    io.save_scal_field ( 'W_surf', W_surf,   lvec, data_format=options.data_format)
 
 #=================== Force
 
@@ -147,31 +146,31 @@ if options.noForces :
     if (options.noProbab==False) :
         print(" ==== loading probabilties ====")
         # --- tip
-        W_tip,   lvec, nDim = GU.load_scal_field('W_tip',data_format=options.data_format)
+        W_tip,   lvec, nDim = io.load_scal_field('W_tip',data_format=options.data_format)
         # --- sample
-        W_surf,  lvec, nDim = GU.load_scal_field('W_surf',data_format=options.data_format)
+        W_surf,  lvec, nDim = io.load_scal_field('W_surf',data_format=options.data_format)
 
     W_tip = np.roll(np.roll(np.roll(W_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
-    FF_tmp, lvec, nDim = GU.load_vec_field('tip/FFLJ',data_format=options.data_format)
-    Fx_tip, Fy_tip, Fz_tip = GU.unpackVecGrid( FF_tmp )
+    FF_tmp, lvec, nDim = io.load_vec_field('tip/FFLJ',data_format=options.data_format)
+    Fx_tip, Fy_tip, Fz_tip = io.unpackVecGrid( FF_tmp )
     del FF_tmp;
 
     # Fz:
     Fz_tip = np.roll(np.roll(np.roll(Fz_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
     F1=fFFT.Average_tip( Fz_tip , W_surf, W_tip  )
-    #GU.saveXSF        ( 'FFboltz_z.xsf', F1, lvec)#, echo=True )
+    #io.saveXSF        ( 'FFboltz_z.xsf', F1, lvec)#, echo=True )
 
     # Fx:
     Fx_tip = np.roll(np.roll(np.roll(Fx_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
     F2=fFFT.Average_tip( Fx_tip , W_surf, W_tip  )
-    #GU.saveXSF        ( 'FFboltz_x.xsf', F1, lvec)#, echo=True )
+    #io.saveXSF        ( 'FFboltz_x.xsf', F1, lvec)#, echo=True )
 
     # Fy:
     Fy_tip = np.roll(np.roll(np.roll(Fy_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
     F3=fFFT.Average_tip( Fy_tip , W_surf, W_tip  )
-    #GU.saveXSF        ( 'FFboltz_y.xsf', F1, lvec)#, echo=True )
-    FF_boltz = GU.packVecGrid(F3,F2,F1)
-    GU.save_vec_field('FFboltz',FF_boltz,lvec, data_format=options.data_format)
+    #io.saveXSF        ( 'FFboltz_y.xsf', F1, lvec)#, echo=True )
+    FF_boltz = io.packVecGrid(F3,F2,F1)
+    io.save_vec_field('FFboltz',FF_boltz,lvec, data_format=options.data_format)
     del F1; del F2; del F3; del FF_boltz; del Fz_tip; del Fy_tip; del Fx_tip;
 
 
@@ -179,9 +178,9 @@ if options.noForces :
 
 '''
 # surface just for debugging
-#Fz_surf, lvec, nDim, head = GU.loadXSF('sample/FFLJ_z.xsf')
+#Fz_surf, lvec, nDim, head = io.loadXSF('sample/FFLJ_z.xsf')
 #F2=Average_surf( Fz_surf, W_surf, W_tip )
-#GU.saveXSF        ( 'Fz_surf.xsf', F2, lvec, echo=True )
+#io.saveXSF        ( 'Fz_surf.xsf', F2, lvec, echo=True )
 '''
 #=================== Current
 
@@ -190,10 +189,10 @@ if options.current :
     if ((options.noProbab==False)and(options.noForces==False)) :
         print(" ==== loading probabilties ====")
         # --- tip
-        W_tip,   lvec, nDim = GU.load_scal_field('W_tip',data_format=options.data_format)
+        W_tip,   lvec, nDim = io.load_scal_field('W_tip',data_format=options.data_format)
         W_tip = np.roll(np.roll(np.roll(W_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
         # --- sample
-        W_surf,  lvec, nDim = GU.load_scal_field('W_surf',data_format=options.data_format)
+        W_surf,  lvec, nDim = io.load_scal_field('W_surf',data_format=options.data_format)
 
     if ((options.noProbab)and(options.noForces==False)) :
         W_tip = np.roll(np.roll(np.roll(W_tip,nDim[0]/2, axis=0),nDim[1]/2, axis=1),nDim[2]/2, axis=2) # works for tip (the last flexible tip apex atom) in the middle of the cell
@@ -207,6 +206,6 @@ if options.current :
     del T_tip;
     print(T.shape)
     print((T**2).shape)
-    GU.save_scal_field ( 'I_boltzmann', T**2,   lvec, data_format=options.data_format) # I ~ T**2
+    io.save_scal_field ( 'I_boltzmann', T**2,   lvec, data_format=options.data_format) # I ~ T**2
 
 print(" ***** ALL DONE ***** ")

@@ -15,7 +15,6 @@ import pyopencl as cl
 
 import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
-import ppafm.GridUtils as GU
 import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
 import ppafm.ocl.relax as oclr
@@ -23,8 +22,6 @@ from ppafm import PPPlot, io
 
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 
-#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
-#import ppafm.GridUtils as GU
 
 
 
@@ -159,7 +156,7 @@ if __name__ == "__main__":
         FF    = evalFFatoms_LJC( atoms, cLJs, poss, func_runFF=FFcl.runLJC )
         FEin =  FF[:,:,:,:4] + Q*FF[:,:,:,4:]
         Tff = time.clock()-t1ff;
-        #GU.saveXSF( geomFileName+'_Fin_z.xsf',  FEin[:,:,:,2], lvec );
+        # io.saveXSF( geomFileName+'_Fin_z.xsf',  FEin[:,:,:,2], lvec );
         np.save( geomFileName+'_Fin_z.npy', FEin[:,:,:,2] )
 
         print("FEin.shape ", FEin.shape);
@@ -171,7 +168,7 @@ if __name__ == "__main__":
         FEout = oclr.relax( relax_args, relax_dim, invCell, poss=relax_poss, dpos0=dpos0, stiffness=stiffness, relax_params=relax_params  )
         Trelax = time.clock() - t1relax;
 
-        #GU.saveXSF( geomFileName+'_Fout_z.xsf',  FEout[:,:,:,2], lvec );
+        # io.saveXSF( geomFileName+'_Fout_z.xsf',  FEout[:,:,:,2], lvec );
         np.save( geomFileName+'_Fout_z.npy', FEout[:,:,:,2] )
         t1plot = time.clock();
         for isl in islices:

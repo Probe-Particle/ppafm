@@ -18,14 +18,12 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import matplotlib; matplotlib.use('Qt5Agg')
 
 sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
-#import ppafm.GridUtils as GU
 
 import pyopencl as cl
 
 import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
 import ppafm.fieldOCL as FFcl
-import ppafm.GridUtils as GU
 import ppafm.oclUtils as oclu
 import ppafm.RelaxOpenCL as oclr
 from ppafm import PPPlot, io

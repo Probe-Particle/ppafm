@@ -14,7 +14,6 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import matplotlib; matplotlib.use('Qt5Agg')
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-import ppafm.GridUtils as GU
 
 #import ppafm.common    as PPU
 #import ppafm.cpp_utils as cpp_utils
@@ -87,10 +86,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         _, fext = os.path.splitext( fname )
         try:
             if   fext == ".xsf":
-                F, lvec, nDim, head = GU.loadXSF( fname )
+                F, lvec, nDim, head = io.loadXSF( fname )
                 #atoms, nDim, lvec = io.loadXSFGeom( fname )
             elif fext == ".cube":
-                F,lvec, nDim, head = GU.loadCUBE(fname)
+                F,lvec, nDim, head = io.loadCUBE(fname)
             item[0] = F
             item[1] = lvec
             self.updateLincomb()

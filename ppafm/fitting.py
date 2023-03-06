@@ -92,7 +92,6 @@ if __name__ == "__main__":
 
     np.set_printoptions( precision=None, linewidth=200 )
 
-    from . import GridUtils as GU
     from . import common as PPU
     from . import io
 
@@ -127,7 +126,7 @@ if __name__ == "__main__":
     ncomps = np.ones( len(types), dtype=np.int32  )
 
 
-    Yrefs,lvec,nDim,head = GU.loadXSF( fname_ext )
+    Yrefs,lvec,nDim,head = io.loadXSF( fname_ext )
     gridPoss = PPU.getPos_Vec3d( np.array(lvec), nDim )
 
     print("gridPoss.shape, yrefs.shape, centers.shape ", gridPoss.shape, Yrefs.shape, centers.shape)
@@ -136,7 +135,7 @@ if __name__ == "__main__":
 
     print(">>>>>> Yrefs -= project( coefs ) ")
     fitting.project( gridPoss, Yrefs, centers, types, ncomps, coefs*-1.0 );
-    GU.saveXSF( "Yresidual.xsf", Yrefs, lvec )
+    io.saveXSF( "Yresidual.xsf", Yrefs, lvec )
     exit();
 
     print(" **** ALL DONE *** ")

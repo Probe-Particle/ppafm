@@ -28,7 +28,7 @@ atoms,nDim,lvec     = io.loadGeometry( options.i, params=PPU.params )
 GU.lib.setGridN   ( np.array( nDim[::-1], dtype=np.int32 )   )
 GU.lib.setGridCell( np.array( lvec[1:],   dtype=np.float64 ) )
 
-F,lvec,nDim=GU.load_scal_field(fname,data_format=fext)
+F,lvec,nDim=io.load_scal_field(fname,data_format=fext)
 
 #zs = np.linspace( 0, lvec[3,2], nDim[0] )
 zs = np.arange( options.zmin, options.zmax if options.zmax > 0.0 else lvec[3,2], options.dz if options.dz > 0.0 else lvec[3,2]/nDim[0] )
@@ -36,7 +36,7 @@ print(lvec)
 
 
 if( fext == 'cube' ):
-	F /= GU.Hartree2eV
+	F /= io.Hartree2eV
 
 dlines = [ zs, ]
 

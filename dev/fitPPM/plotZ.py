@@ -10,9 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import interp1d
 
-#import GridUtils as GU
 import ppafm as PPU
-import ppafm.GridUtils as GU
+from ppafm.io import load_scal_field
 
 
 def find_minimum(array,precision=0.0001):
@@ -94,7 +93,7 @@ for iq,Q in enumerate( Qs ):
 
                 print("Working in {} directory".format(dirname))
 
-                fzs,lvec,nDim,head=GU.load_scal_field(dirname+'/OutFz', format=format)
+                fzs,lvec,nDim,head=load_scal_field(dirname+'/OutFz', format=format)
                 dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
                 for p in options.points:
                     x=float(p.split('x')[0])

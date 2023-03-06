@@ -20,16 +20,12 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
 import ppafm.fieldOCL as FFcl
-import ppafm.GridUtils as GU
 import ppafm.GUIWidgets as guiw
 import ppafm.oclUtils as oclu
 import ppafm.RelaxOpenCL as oclr
 from ppafm import PPPlot, io
 
 import matplotlib; matplotlib.use('Qt5Agg')
-
-#sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
-#import ppafm.GridUtils as GU
 
 
 
@@ -309,7 +305,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.poss         = FFcl.getposs( self.lvec, nDim )
         self.ff_nDim = self.poss.shape[:3]
 
-        FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
+        FFel, lvec, nDim, head = io.loadVecFieldXsf( "FFel" )
         self.FFel = FFcl.XYZ2float4(FFel[:,:,:,0],FFel[:,:,:,1],FFel[:,:,:,2])
 
         self.updateFF()
@@ -382,7 +378,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             xs = np.arange(npdata.shape[1] )
             ys = np.arange(npdata.shape[0] )
             Xs, Ys = np.meshgrid(xs,ys)
-            GU.saveWSxM_2D(fileName, npdata, Xs, Ys)
+            io.saveWSxM_2D(fileName, npdata, Xs, Ys)
 
     def selectMode(self):
         self.mode = self.slMode.currentText()
@@ -394,8 +390,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.loadInputs_New()
         self.getFF()
 
-        #GU.saveVecFieldXsf( "DEBUG_FFcl", self.FF[:,:,:,:3].astype(np.float32), self.lvec )
-        #GU.saveXSF( "DEBUG_FFcl_z.xsf", self.FF[:,:,:,2].astype(np.float32), self.lvec )
+        #io.saveVecFieldXsf( "DEBUG_FFcl", self.FF[:,:,:,:3].astype(np.float32), self.lvec )
+        #io.saveXSF( "DEBUG_FFcl_z.xsf", self.FF[:,:,:,2].astype(np.float32), self.lvec )
         #self.initRelax()
         self.shapeRelax()
         print(self.mode)

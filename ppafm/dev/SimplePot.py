@@ -243,9 +243,9 @@ if __name__ == "__main__":
 
     # ----- plot or store result
     if b3D:
-        import ppafm.GridUtils as GU
+        from ppafm.io import saveXSF
         Es = Es.reshape( (nz,ny,nx) )
-        GU.saveXSF( 'SimplePot.xsf', Es )
+        saveXSF( 'SimplePot.xsf', Es )
     else:
         Es = Es.reshape( (ny,nx) )
         vmax=1.5

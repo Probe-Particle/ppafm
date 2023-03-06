@@ -10,7 +10,6 @@ import ppafm as PPU
 import ppafm.cpp_utils as cpp_utils
 
 #from   ppafm            import elements
-import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
 from ppafm import io
 
@@ -34,11 +33,11 @@ if __name__=="__main__":
 
     atoms,nDim,lvec     = io .loadGeometry( options.input, params=PPU.params )
 
-    data, lvec, nDim, head = GU.loadCUBE(options.input)
+    data, lvec, nDim, head = io.loadCUBE(options.input)
     lvec[0] = [0.0, 0.0, 0.0]
     lvec = np.array( [lvec[0], lvec[3], lvec[2], lvec[1]]  )
     data = np.transpose(  data, (2,1,0) )
 
     atomstring          = io.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
 
-    GU.saveXSF( options.output, data, lvec, head=atomstring  )
+    io.saveXSF( options.output, data, lvec, head=atomstring  )

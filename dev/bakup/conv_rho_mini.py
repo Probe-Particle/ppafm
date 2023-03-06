@@ -14,11 +14,7 @@ import numpy as np
 
 import ppafm as PPU
 import ppafm.fieldFFT as fFFT
-import ppafm.GridUtils as GU
-
-#import GridUtils as GU
-#sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
-
+from ppafm.io import loadXSF, saveXSF
 
 parser = OptionParser()
 parser.add_option( "-s", "--sample", action="store", type="string", default="CHGCAR.xsf", help="sample 3D data-file (.xsf)")
@@ -26,8 +22,8 @@ parser.add_option( "-t", "--tip",    action="store", type="string", default="./t
 parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
 (options, args) = parser.parse_args()
 
-rho1, lvec1, nDim1, head1 = GU.loadXSF( options.sample )
-rho2, lvec2, nDim2, head2 = GU.loadXSF( options.tip    )
+rho1, lvec1, nDim1, head1 = loadXSF( options.sample )
+rho2, lvec2, nDim2, head2 = loadXSF( options.tip    )
 
 Fx,Fy,Fz,E = fFFT.potential2forces_mem( rho1, lvec1, nDim1, rho=rho2, doForce=True, doPot=True, deleteV=True )
 
@@ -53,14 +49,14 @@ Ecut = E[izmin:izmax,:,:]
 print(Ecut.shape)
 
 # Density Overlap Model
-GU.saveXSF( "E"+namestr+"_mini.xsf", Ecut*(PQ*-1.0), lvec_, head=head1 )
+saveXSF( "E"+namestr+"_mini.xsf", Ecut*(PQ*-1.0), lvec_, head=head1 )
 
 #np.fft.fft(  )
 
 np.save( "E"+namestr+"_mini.npy", Ecut*(PQ*-1.0) )
 np.savez_compressed( "E"+namestr+"_mini.npz", Ecut*(PQ*-1.0) )
 
-#GU.saveXSF( "FF"+namestr+"_x.xsf", Fx*PQ,       lvec1, head=head1 )
-#GU.saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ,       lvec1, head=head1 )
-#GU.saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ,       lvec1, head=head1 )
+#saveXSF( "FF"+namestr+"_x.xsf", Fx*PQ,       lvec1, head=head1 )
+#saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ,       lvec1, head=head1 )
+#saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ,       lvec1, head=head1 )
 #Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)

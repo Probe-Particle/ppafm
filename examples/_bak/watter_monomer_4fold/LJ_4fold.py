@@ -27,7 +27,6 @@ makeclean( )
 sys.path.insert(0, "./")
 import io
 import elements
-import GridUtils as GU
 import ProbeParticle as PP
 os.chdir(CWD);  print " >> WORKDIR: ", os.getcwd()
 '''
@@ -38,7 +37,6 @@ sys.path = [ LWD ]
 print(" sys.path = ", sys.path)
 
 import elements
-import GridUtils as GU
 import ProbeParticle as PP
 
 from ppafm import io
@@ -50,7 +48,7 @@ print(" >> WARNING!!! OVEWRITING SETTINGS by params.ini  ")
 #PP.loadParams( 'params_carbox.ini' )
 
 print(" load Electrostatic Force-field ")
-FFel_x,lvec,nDim,head=GU.loadXSF('FFel_x.xsf')
+FFel_x,lvec,nDim,head=io.loadXSF('FFel_x.xsf')
 PP.params['gridA'] = lvec[ 1,:  ].copy()
 PP.params['gridB'] = lvec[ 2,:  ].copy()
 PP.params['gridC'] = lvec[ 3,:  ].copy()
@@ -74,7 +72,7 @@ FFLJ4[:,:,:,1] = 0.25*( FFLJ[:,:,:,1] + FFLJ[:,:,::-1,1] - FFLJ[:,::-1,:,1] - FF
 FFLJ4[:,:,:,2] = 0.25*( FFLJ[:,:,:,2] + FFLJ[:,:,::-1,2] + FFLJ[:,::-1,:,2] + FFLJ[:,::-1,::-1,2] )
 
 print("save FFLJ to .xsf ")
-GU.saveVecFieldXsf( 'FFLJ', FFLJ4, lvec, head )
+io.saveVecFieldXsf( 'FFLJ', FFLJ4, lvec, head )
 
 
 print(" ***** ALL DONE ***** ")

@@ -8,7 +8,6 @@ import numpy as np
 import ppafm as PPU
 import ppafm.cpp_utils as cpp_utils
 import ppafm.fieldFFT as fFFT
-import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
 from ppafm import elements, io
 
@@ -44,8 +43,8 @@ if __name__=="__main__":
     iZs,Rs,Qs=PPH.parseAtoms(atoms, autogeom = False, PBC =PPU.params['PBC'],FFparams=FFparams )
     FFel,V=PPH.computeELFF_pch(iZs,Rs,Qs,False, tip=options.tip)
     print " saving electrostatic forcefiled "
-    GU.save_vec_field('FFel',FFel,lvec,data_format=options.data_format)
+    io.save_vec_field('FFel',FFel,lvec,data_format=options.data_format)
     if options.energy :
-        GU.save_scal_field( 'Vel', V, lvec, data_format=options.data_format)
+        io.save_scal_field( 'Vel', V, lvec, data_format=options.data_format)
     del FFel,V;
     '''

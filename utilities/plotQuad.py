@@ -11,6 +11,7 @@ sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 from optparse import OptionParser
 
 import ppafm.GridUtils as GU
+from ppafm.io import load_scal_field
 
 parser = OptionParser()
 parser.add_option( "-p",   action="store", type="string", help="pixels (ix,iy) to take curve", default='quad_points.ini' )
@@ -34,7 +35,7 @@ cmap  = plt.get_cmap('jet_r')
 isz = (200,130)
 
 #print "DEBUG 1 "
-F,lvec,nDim=GU.load_scal_field(options.i,data_format=options.data_format)
+F,lvec,nDim=load_scal_field(options.i,data_format=options.data_format)
 GU.setGridN( np.array( nDim, dtype='int32' ) )
 print("nDim ", nDim)
 Fquad = GU.interpolateQuad( F, points[0], points[1], points[2], points[3], sz=isz )  # grid coord

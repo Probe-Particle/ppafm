@@ -6,7 +6,7 @@ import numpy as np
 
 sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 
-import ppafm.GridUtils as GU
+from ppafm.io import loadXSF, saveXSF
 
 xs    = np.linspace(0.1,1.0,5)
 ys    = np.linspace(0.1,1.0,5)
@@ -22,6 +22,6 @@ lvec_OUT = (
     [0.0,0.0,6.0]
 )
 
-GU.saveXSF( 'mini.xsf',  F, lvec_OUT );
+saveXSF( 'mini.xsf',  F, lvec_OUT )
 
-E,lvec, nDim, head = GU.loadXSF( 'mini.xsf' );
+E,lvec, nDim, head = loadXSF( 'mini.xsf' )

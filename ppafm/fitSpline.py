@@ -246,10 +246,10 @@ if __name__ == "__main__":
     plt.subplot(1,2,1); plt.imshow( y3D     [iz_view], interpolation=interp ); plt.title("input: coefs"); plt.colorbar()
     plt.subplot(1,2,2); plt.imshow( y3D_conv[iz_view], interpolation=interp ); plt.title("input: Yfunc"); plt.colorbar()
 
-    from . import GridUtils as GU
+    from ppafm.io import saveXSF
     lvec0 = [[0.,0,0],[1.,0,0],[0.,1,0],[0.,0,1]]
-    GU.saveXSF( "y2d.xsf",      y3D, lvec0 )
-    GU.saveXSF( "y2d_conv.xsf", y3D_conv, lvec0 )
+    saveXSF( "y2d.xsf",      y3D, lvec0 )
+    saveXSF( "y2d_conv.xsf", y3D_conv, lvec0 )
 
     # ====== Fit 3D
 
@@ -263,7 +263,7 @@ if __name__ == "__main__":
 
     imfig( Ycoefs[iz_view], "Fitted: Ycoefs" )
     imfig( Yfit  [iz_view],   "Fitted: Yfit" )
-    GU.saveXSF( "Ycoefs.xsf", Ycoefs, lvec0 )
-    GU.saveXSF( "Yfit.xsf",   Yfit  , lvec0 )
+    saveXSF( "Ycoefs.xsf", Ycoefs, lvec0 )
+    saveXSF( "Yfit.xsf",   Yfit  , lvec0 )
 
     plt.show()

@@ -6,7 +6,7 @@ import numpy as np
 import pyopencl as cl
 
 from .. import common as PPU
-from ..io import loadXYZ
+from ..io import loadXYZ, saveXSF
 from ..PPPlot import plotImages
 from . import field as FFcl
 from . import oclUtils as oclu
@@ -370,13 +370,8 @@ class AFMulator():
         self.saveDebugXSF_FF( self.saveFFpre+"FF_z.xsf", FFz )
 
     def saveDebugXSF_FF( self, fname, F ):
-        if hasattr(self, 'GridUtils'):
-            GU = self.GridUtils
-        else:
-            from . import GridUtils as GU
-            self.GridUtils = GU
         if(self.verbose>0): print("saveDebugXSF : ", fname)
-        GU.saveXSF( fname, F, self.lvec )
+        saveXSF( fname, F, self.lvec )
 
     def check_scan_window(self):
         '''Check that scan window does not extend beyond any non-periodic boundaries.'''
