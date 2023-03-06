@@ -22,6 +22,7 @@ import ppafm.cpp_utils as cpp_utils
 import ppafm.HighLevel as PPH
 import ppafm.PPPlot as PPPlot
 from ppafm import elements, io
+from ppafm.atomicUtils import findBonds, getAtomColors
 
 parser = OptionParser()
 parser.add_option( "-i", action="store", type="string", help="input file name", default='df' )
@@ -47,13 +48,13 @@ if options.atoms:
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
     iZs,Rs,Qstmp=PPH.parseAtoms(atoms, autogeom = False, PBC = True, FFparams=FFparams )
-    atom_colors = io.getAtomColors(iZs,FFparams=FFparams)
+    atom_colors = getAtomColors(iZs,FFparams=FFparams)
     #print atom_colors
     Rs=Rs.transpose().copy()
     atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]
     #print "atom_colors: ", atom_colors
     if options.bonds:
-        bonds = io.findBonds(atoms,iZs,1.0,FFparams=FFparams)
+        bonds = findBonds(atoms,iZs,1.0,FFparams=FFparams)
         #print "bonds ", bonds
 atomSize = 0.15
 

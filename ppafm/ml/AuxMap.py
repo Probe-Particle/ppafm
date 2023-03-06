@@ -1,6 +1,7 @@
 import numpy as np
 
-from .. import elements, io
+from .. import elements
+from ..atomicUtils import findBonds_
 from ..ocl import field as FFcl
 from ..ocl import oclUtils as oclu
 from ..ocl import relax as oclr
@@ -307,7 +308,7 @@ class Bonds(AuxMapBase):
 
     def eval(self, xyzqs, Zs, pot=None, rot=None):
         pos0 = [0, 0, xyzqs[:,2].max()]
-        bonds2atoms = np.array( io.findBonds_( xyzqs[:,:3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
+        bonds2atoms = np.array( findBonds_( xyzqs[:,:3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
         return self.projector.run_evalBondEllipses( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)) )[:,:,0]
 
@@ -337,7 +338,7 @@ class AtomRfunc(AuxMapBase):
 
     def eval(self, xyzqs, Zs, pot=None, rot=None):
         pos0 = [0, 0, xyzqs[:,2].max()]
-        bonds2atoms = np.array( io.findBonds_( xyzqs[:,:3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
+        bonds2atoms = np.array( findBonds_( xyzqs[:,:3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS ), dtype=np.int32 )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
         return self.projector.run_evalAtomRfunc( poss = poss, tipRot=oclr.mat3x3to4f(np.eye(3)) )[:,:,0]
 

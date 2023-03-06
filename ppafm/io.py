@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
-import math
 import os
 import re
+import sys
 
 import numpy as np
 
@@ -404,86 +404,6 @@ def parseLvecASE(comment):
         lvec = None
     return lvec
 
-def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
-    bonds = []
-    xs = atoms[1]
-    ys = atoms[2]
-    zs = atoms[3]
-    n = len( xs )
-    for i in range(n):
-        for j in range(i):
-            dx=xs[j]-xs[i]
-            dy=ys[j]-ys[i]
-            dz=zs[j]-zs[i]
-            r=math.sqrt( dx*dx + dy*dy + dz*dz )
-            ii = iZs[i]-1
-            jj = iZs[j]-1
-            bondlength=ELEMENTS[ii][6]+ELEMENTS[jj][6]
-            print(" find bond ", i, j,   bondlength, r, sc, (xs[i],ys[i],zs[i]), (xs[j],ys[j],zs[j]))
-            if (r<( sc * bondlength)) :
-                bonds.append( (i,j) )
-    return bonds
-
-def findBondsNP( atoms, fRcut=0.7, ELEMENTS = elements.ELEMENTS ):
-    bonds     = []
-    ps     = atoms[:,1:]
-    iatoms = np.arange( len(atoms), dtype=int )
-
-    Ratoms = np.array( [ ELEMENTS[ int(ei) ][7] for ei in atoms[:,0] ] ) * frCut
-
-    subs = []
-    for i,atom in enumerate(atoms):
-        p    = atom[1:]
-        dp   = ps - p
-        r2s  = np.sum( dp**2, axis=1 )
-        mask = ( (Ratoms + Ratoms[i])**2 - r2s) > 0
-        ni   = np.nonzero(mask)
-        ijs  = np.empty( (ni,2), np.int32 )
-        ijs[:,0] = i
-        ijs[:,1] = iatoms[mask]
-        subs.append( ijs  )
-    bonds = np.concatenate( subs )
-    return bonds    #, bondsVecs
-
-def findBonds_( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS):
-    bonds = []
-    n = len( atoms )
-    for i in range(n):
-        for j in range(i):
-            d  = atoms[i]-atoms[j]
-            r  = math.sqrt( np.dot(d,d) )
-            ii = iZs[i]-1
-            jj = iZs[j]-1
-            bondlength=ELEMENTS[ii][6]+ELEMENTS[jj][6]
-            if (r<( sc * bondlength)) :
-                bonds.append( (i,j) )
-    return bonds
-
-
-
-def findBondsSimple( xyz, rmax ):
-    bonds = []
-    xs = atoms[1]
-    ys = atoms[2]
-    zs = atoms[3]
-    n = len( xs )
-    for i in range(n):
-        for j in range(i):
-            dx=xs[j]-xs[i]
-            dy=ys[j]-ys[i]
-            dz=zs[j]-zs[i]
-            r=math.sqrt(dx*dx+dy*dy+dz*dz)
-            if (r<rmax) :
-                bonds.append( (i,j) )
-    return bonds
-
-def getAtomColors( iZs, ELEMENTS = elements.ELEMENTS, FFparams=None ):
-    colors=[]
-    for e in iZs:
-        colors.append( ELEMENTS[ FFparams[e - 1][3] -1 ][8] )
-    return colors
-
-
 DEFAULT_POV_HEAD_NO_CAM='''
 background      { color rgb <1.0,1.0,1.0> }
 //background      { color rgb <0.5,0.5,0.5> }
@@ -544,8 +464,6 @@ camera{
 }
 '''+DEFAULT_POV_HEAD_NO_CAM
 
-
-
 def makePovCam( pos, up=[0.0,1.0,0.0], rg=[-1.0, 0.0, 0.0], fw=[0.0, 0.0, 100.0], lpos=[0.0, 0.0,-100.0], W=10.0, H=10.0 ):
     return '''
     // ***********************************************
@@ -564,6 +482,7 @@ def makePovCam( pos, up=[0.0,1.0,0.0], rg=[-1.0, 0.0, 0.0], fw=[0.0, 0.0, 100.0]
     }
     light_source    { < %f,%f,%f>  rgb <0.5,0.5,0.5> }
     ''' %(  W,H, up[0],up[1],up[2],      pos[0]-fw[0],pos[1]-fw[1],pos[2]-fw[2],    pos[0],pos[1],pos[2],    lpos[0],lpos[1],lpos[2]    )
+
 def writePov( fname, xyzs, Zs, bonds=None, HEAD=DEFAULT_POV_HEAD, bondw=0.1, spherescale=0.25, ELEMENTS = elements.ELEMENTS ):
     fout = open( fname,"w")
     n = len(xyzs)
@@ -580,25 +499,3 @@ def writePov( fname, xyzs, Zs, bonds=None, HEAD=DEFAULT_POV_HEAD, bondw=0.1, sph
             s   =  'b( %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f, %10.5f,0.0 ) \n' %( xyzs[i][0],xyzs[i][1],xyzs[i][2], bondw, xyzs[j][0],xyzs[j][1],xyzs[j][2], bondw, clr[0]/255.0,clr[1]/255.0,clr[2]/255.0 )
             fout.write(s);
     fout.close()
-
-def multCell( xyz, cel, m=(2,2,1) ):
-    n = len(xyz[0])
-    mtot = m[0]*m[1]*m[2]*n
-    es = [None] * mtot
-    xs = [None] * mtot
-    ys = [None] * mtot
-    zs = [None] * mtot
-    j  = 0
-    for ia in range(m[0]):
-        for ib in range(m[1]):
-            for ic in range(m[2]):
-                dx = ia*cel[0][0] + ib*cel[1][0] + ic*cel[2][0]
-                dy = ia*cel[0][1] + ib*cel[1][1] + ic*cel[2][1]
-                dz = ia*cel[0][2] + ib*cel[1][2] + ic*cel[2][2]
-                for i in range(n):
-                    es[j]=xyz[0][i]
-                    xs[j]=xyz[1][i] + dx
-                    ys[j]=xyz[2][i] + dy
-                    zs[j]=xyz[3][i] + dz
-                    j+=1
-    return [es,xs,ys,zs]

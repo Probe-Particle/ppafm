@@ -27,6 +27,7 @@ import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
 import ppafm.PPPlot as PPPlot
 from ppafm import elements, io
+from ppafm.atomicUtils import findBonds, getAtomColors
 
 #import scipy                        # don't introduce unnecessary dependence on scipy
 #from scipy.ndimage import laplace   # don't introduce unnecessary dependence on scipy
@@ -139,12 +140,12 @@ if opt_dict['atoms'] or opt_dict['bonds']:
     FFparams            = PPU.loadSpecies( )
     elem_dict           = PPU.getFFdict(FFparams);  #print "elem_dict ", elem_dict
     iZs,Rs,Qs_tmp=PPU.parseAtoms(atoms, elem_dict, autogeom = False, PBC = PPU.params['PBC'] )
-    atom_colors = io.getAtomColors(iZs,FFparams=FFparams)
+    atom_colors = getAtomColors(iZs,FFparams=FFparams)
     Rs=Rs.transpose().copy()
     atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]
     #print "atom_colors: ", atom_colors
 if opt_dict['bonds']:
-    bonds = io.findBonds(atoms,iZs,1.0,FFparams=FFparams)
+    bonds = findBonds(atoms,iZs,1.0,FFparams=FFparams)
     #print "bonds ", bonds
 atomSize = 0.15
 
