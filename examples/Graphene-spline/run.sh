@@ -1,5 +1,5 @@
 #! /bin/bash
-PPAFM_DIR='../../ppafm/cmdline'
+PPAFM_DIR='../../ppafm/cli'
 
 # ======= STEP 1 : Generate force-field grid
 

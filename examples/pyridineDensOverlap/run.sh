@@ -1,6 +1,6 @@
 #! /bin/bash
 
-PPAFM_DIR='../../ppafm/cmdline'
+PPAFM_DIR='../../ppafm/cli'
 
 echo " ====== STEP 0 : Download Example Data-Files "
 
