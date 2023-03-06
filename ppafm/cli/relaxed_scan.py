@@ -1,6 +1,7 @@
 #!/usr/bin/python -u
 
 import os
+from optparse import OptionParser
 
 import numpy as np
 
@@ -10,12 +11,6 @@ import ppafm.cpp_utils as cpp_utils
 import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
 
-#import matplotlib.pyplot as plt
-
-
-
-#import PPPlot 		# we do not want to make it dempendent on matplotlib
-print("Amplitude ", PPU.params['Amplitude'])
 
 def rotVec( v, a ):
     ca=np.cos(a);      sa=np.sin(a)
@@ -29,10 +24,7 @@ def rotFF( Fx,Fy, a ):
     return Fx_,Fy_
 
 
-# =============== arguments definition
-
-if __name__=="__main__":
-    from optparse import OptionParser
+def main():
     parser = OptionParser()
     parser.add_option( "-k", "--klat",  action="store", type="float", help="tip stiffenss [N/m]" )
     parser.add_option( "--krange", action="store", type="float", help="tip stiffenss range (min,max,n) [N/m]", nargs=3)
@@ -166,3 +158,6 @@ if __name__=="__main__":
                     I_out = GU.interpolate_cartesian( I_in, PPpos, cell=lvec[1:,:], result=None )
                     del I_in;
                     GU.save_scal_field(dirname+'/OutI_boltzmann', I_out, lvecScan,  data_format=options.data_format)
+
+if __name__ == "__main__":
+    main()

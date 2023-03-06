@@ -130,8 +130,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         except:
             print("cannot plot slice #", iz)
 
-if __name__ == "__main__":
+def main():
     qApp = QtWidgets.QApplication(sys.argv)
     aw = ApplicationWindow()
     aw.show()
     sys.exit(qApp.exec_())
+
+if __name__ == '__main__':
+    main()
