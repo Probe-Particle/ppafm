@@ -39,9 +39,9 @@ dev = [
 ]
 
 [project.scripts]
-ppafm-generate-elff = "ppafm.cli.GenerateELFF:main"
-ppafm-generate-elff-point-charges = "ppafm.cli.GenerateELFF_point_charges:main"
-ppafm-generate-ljff = "ppafm.cli.GenerateLJFF:main"
+ppafm-generate-elff = "ppafm.cli.generateElFF:main"
+ppafm-generate-elff-point-charges = "ppafm.cli.generateElFF_point_charges:main"
+ppafm-generate-ljff = "ppafm.cli.generateLJFF:main"
 ppafm-relaxed-scan = "ppafm.cli.relaxed_scan:main"
 ppafm-plot-results = "ppafm.cli.plot_results:main"
 
