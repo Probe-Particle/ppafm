@@ -921,7 +921,7 @@ def _spin_box(value_range, value, step, connect_func, tool_tip, parent, stretch=
     parent.addWidget(bx, stretch)
     return bx
 
-if __name__ == "__main__":
+def main():
     qApp = QtWidgets.QApplication(sys.argv)
     args = parse_args()
     if args.list_devices:
@@ -931,3 +931,6 @@ if __name__ == "__main__":
     aw = ApplicationWindow(args.input, args.device, args.verbosity)
     aw.show()
     sys.exit(qApp.exec_())
+
+if __name__ == "__main__":
+    main()

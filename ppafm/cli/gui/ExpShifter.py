@@ -559,8 +559,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             print ("cannot plot slice #", iz)
         #t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
 
-if __name__ == "__main__":
+def main():
     qApp = QtWidgets.QApplication(sys.argv)
     aw = ApplicationWindow()
     aw.show()
     sys.exit(qApp.exec_())
+
+
+if __name__ == "__main__":
+    main()

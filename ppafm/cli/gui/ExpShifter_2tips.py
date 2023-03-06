@@ -731,8 +731,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.figCan.plotSlice2( self.data[self.tip][iz], self.fnames[self.tip][iz], self.margins[self.tip],grid_selector,self.slice_lengths[self.tip][iz] )
 
 
-if __name__ == "__main__":
+def main():
     qApp = QtWidgets.QApplication(sys.argv)
     aw = ApplicationWindow()
     aw.show()
     sys.exit(qApp.exec_())
+
+if __name__ == "__main__":
+    main()
