@@ -2,7 +2,6 @@
 import sys
 from optparse import OptionParser
 
-import basUtils
 import elements
 import GridUtils as GU
 import numpy as np
@@ -17,6 +16,8 @@ from libFFTfin import (
     getSize,
     os,
 )
+
+from ppafm import io
 
 parser = OptionParser()
 parser.add_option( "-i", "--input", action="store", type="string", help="format of input file", default='vasp.locpot.xsf')
@@ -68,7 +69,7 @@ PP.params['gridC'] = lvec[ 3,:  ].copy()
 PP.params['gridN'] = nDim.copy()
 
 print("--- Compute Lennard-Jones Force-filed ---")
-atoms     = basUtils.loadAtoms('input.xyz')
+atoms     = io.loadAtoms('input.xyz')
 if os.path.isfile( 'atomtypes.ini' ):
 	print(">> LOADING LOCAL atomtypes.ini")
 	FFparams=PPU.loadSpecies( 'atomtypes.ini' )

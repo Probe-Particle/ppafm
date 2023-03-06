@@ -4,7 +4,7 @@ from ctypes import c_bool, c_double, c_int
 
 import numpy as np
 
-from . import basUtils, cpp_utils
+from . import cpp_utils, io
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)
@@ -174,10 +174,10 @@ def relaxMolecule(
         if os.path.exists(movie_name): os.remove(movie_name)
         for i in range(Nmax/perSave):
             f = relaxNsteps(perSave, Fconv=Fconv)
-            basUtils.saveXYZ(movie_name, pos[mask_dummy], elems[mask_dummy], append=True)
+            io.saveXYZ(movie_name, pos[mask_dummy], elems[mask_dummy], append=True)
             if(f<1e-6): break
     else:
         relaxNsteps(Nmax,Fconv=Fconv)
     if fname is not None:
-        basUtils.saveXYZ(fname, pos[mask_dummy], elems[mask_dummy])
+        io.saveXYZ(fname, pos[mask_dummy], elems[mask_dummy])
     return pos.copy(),types.copy(),elems

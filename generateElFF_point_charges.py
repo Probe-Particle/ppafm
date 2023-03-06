@@ -10,7 +10,7 @@ import ppafm.cpp_utils as cpp_utils
 import ppafm.fieldFFT as fFFT
 import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
-from ppafm import basUtils, elements
+from ppafm import elements, io
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
@@ -35,7 +35,7 @@ if __name__=="__main__":
     '''
     iZs,Rs,Qs=None,None,None
     V=None
-    atoms,nDim,lvec=basUtils.loadGeometry(options.input, params=PPU.params)
+    atoms,nDim,lvec=io.loadGeometry(options.input, params=PPU.params)
     if os.path.isfile( 'atomtypes.ini' ):
         print ">> LOADING LOCAL atomtypes.ini"
         FFparams=PPU.loadSpecies( 'atomtypes.ini' )

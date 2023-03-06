@@ -21,7 +21,7 @@ import ppafm.GridUtils as GU
 import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
 import ppafm.ocl.relax as oclr
-from ppafm import PPPlot, basUtils
+from ppafm import PPPlot, io
 
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 
@@ -188,7 +188,7 @@ if __name__ == "__main__":
         print(" ==================", dirName)
         t1prepare = time.clock();
         atom_lines =  open( dirName+"/pos.xyz" ).readlines()
-        xyzs,Zs,enames,qs = basUtils.loadAtomsLines( atom_lines )
+        xyzs,Zs,enames,qs = io.loadAtomsLines( atom_lines )
         natoms = len(Zs)
 
         if(bPBC):

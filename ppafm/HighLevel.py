@@ -5,10 +5,10 @@ import sys
 import numpy as np
 
 from . import GridUtils as GU
-from . import basUtils as BU
 from . import common as PPU
 from . import core, cpp_utils
 from . import fieldFFT as fFFT
+from . import io
 
 verbose = 1
 
@@ -146,8 +146,8 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     FFparams            = PPU.loadSpecies( speciesFile )
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
     # --- load atomic geometry
-    atoms,nDim,lvec     = BU.loadGeometry( geomFile, params=PPU.params )
-    atomstring          = BU.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
+    atoms,nDim,lvec     = io.loadGeometry( geomFile, params=PPU.params )
+    atomstring          = io.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
     PPU      .params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3] # must be before parseAtoms
     if(verbose>0): print(PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC'])
     iZs,Rs,Qs           = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
@@ -162,7 +162,7 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
         core.getMorseFF( Rs, REs )     # THE MAIN STUFF HERE
     elif ffModel=="vdW":
         vdWDampKind=PPU.params['vdWDampKind']
-        if(vdWDampKind==0): 
+        if(vdWDampKind==0):
             cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
             core.getVdWFF( Rs, cLJs )      # THE MAIN STUFF HERE
         else:
@@ -196,8 +196,8 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     FFparams            = PPU.loadSpecies( )
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
 
-    atoms,nDim,lvec     = BU .loadGeometry( geomFile, params=PPU.params )
-    atomstring          = BU.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
+    atoms,nDim,lvec     = io .loadGeometry( geomFile, params=PPU.params )
+    atomstring          = io.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
     iZs,Rs,Qs=PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params['PBC'] )
     # --- prepare arrays and compute
     PPU.params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3]
@@ -267,12 +267,12 @@ def loadValenceElectronDict():
     return valElDict_
 
 def getAtomsWhichTouchPBCcell( fname, Rcut=1.0, bSaveDebug=True ):
-    atoms, nDim, lvec = BU.loadGeometry( fname, params=PPU.params )
+    atoms, nDim, lvec = io.loadGeometry( fname, params=PPU.params )
     Rs = np.array(atoms[1:4])                     # get just positions x,y,z
     inds, Rs_ = PPU.findPBCAtoms3D_cutoff( Rs, np.array(lvec[1:]), Rcut=Rcut )  # find periodic images of PBC images of atom of radius Rcut which touch our cell
     elems = [ atoms[0][i] for i in inds ]   # atomic number of all relevant peridic images of atoms
     if bSaveDebug:
-        BU.saveGeomXSF( fname+"_TouchCell_debug.xsf",elems,Rs_, lvec[1:], convvec=lvec[1:], bTransposed=True )    # for debugging - mapping PBC images of atoms to the cell
+        io.saveGeomXSF( fname+"_TouchCell_debug.xsf",elems,Rs_, lvec[1:], convvec=lvec[1:], bTransposed=True )    # for debugging - mapping PBC images of atoms to the cell
     Rs_ = Rs_.transpose().copy()
     return Rs_, elems
 

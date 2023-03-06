@@ -12,7 +12,7 @@ import ppafm.GridUtils as GU
 
 #import ppafm.core          as PPC
 import ppafm.HighLevel as PPH
-from ppafm import basUtils, elements
+from ppafm import elements
 
 HELP_MSG="""Use this program in the following way:
 %s -i <filename>

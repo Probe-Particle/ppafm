@@ -6,13 +6,13 @@ import __main__ as main
 import numpy as np
 
 import ppafm as PPU
-import ppafm.basUtils as BU
 import ppafm.cpp_utils as cpp_utils
 import ppafm.fieldFFT as fFFT
 
 #from   ppafm            import elements
 import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
+from ppafm import io
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:
@@ -66,8 +66,8 @@ if __name__=="__main__":
         valElDict        = PPH.loadValenceElectronDict()
         Rs_tip,elems_tip = PPH.getAtomsWhichTouchPBCcell( options.tip_dens, Rcut=options.Rcore )
 
-    atoms_samp,nDim_samp,lvec_samp = BU.loadGeometry( options.input, params=PPU.params )
-    head_samp                      = BU.primcoords2Xsf( atoms_samp[0], [atoms_samp[1],atoms_samp[2],atoms_samp[3]], lvec_samp )
+    atoms_samp,nDim_samp,lvec_samp = io.loadGeometry( options.input, params=PPU.params )
+    head_samp                      = io.primcoords2Xsf( atoms_samp[0], [atoms_samp[1],atoms_samp[2],atoms_samp[3]], lvec_samp )
 
     V=None
     if(options.input.lower().endswith(".xsf") ):

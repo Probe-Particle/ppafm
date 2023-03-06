@@ -19,7 +19,7 @@ import ppafm.atomicUtils as au
 import ppafm.MMFF as mmff
 
 #import ppafm.chemistry   as ch
-from ppafm import basUtils
+from ppafm import io
 
 #include "DynamicOpt.h"
 
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     type2elem  = [ 'U', 'U'  , 'He',  'Ne', 'H'  ]
     elems     +=  [  type2elem[-t] for t in types[natom0:] ]  ;print(elems)
 
-    basUtils.saveXYZ("test_MMFF_start.xyz", pos, elems)
+    io.saveXYZ("test_MMFF_start.xyz", pos, elems)
 
     #exit()
 
@@ -89,7 +89,7 @@ if __name__ == "__main__":
         print(i," ", end=' ')
         f = mmff.relaxNsteps(1)
         errs.append( f )
-        basUtils.saveXYZ( fout, pos, elems )
+        io.saveXYZ( fout, pos, elems )
         if(f<1e-6): break
     fout.close()
 

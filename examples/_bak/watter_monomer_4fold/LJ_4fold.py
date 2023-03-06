@@ -25,7 +25,7 @@ CWD = os.getcwd()
 os.chdir(LWD);       print " >> WORKDIR: ", os.getcwd()
 makeclean( )
 sys.path.insert(0, "./")
-import basUtils
+import io
 import elements
 import GridUtils as GU
 import ProbeParticle as PP
@@ -37,10 +37,11 @@ print(" sys.path =  ", sys.path)
 sys.path = [ LWD ]
 print(" sys.path = ", sys.path)
 
-import basUtils
 import elements
 import GridUtils as GU
 import ProbeParticle as PP
+
+from ppafm import io
 
 print(" ============= RUN  ")
 
@@ -56,7 +57,7 @@ PP.params['gridC'] = lvec[ 3,:  ].copy()
 PP.params['gridN'] = nDim.copy()
 
 print(" compute Lennard-Jones Force-filed ")
-atoms     = basUtils.loadAtoms('geom.bas')
+atoms     = io.loadAtoms('geom.bas')
 if os.path.isfile( 'atomtypes.ini' ):
 	print(">> LOADING LOCAL atomtypes.ini")
 	FFparams=PPU.loadSpecies( 'atomtypes.ini' )

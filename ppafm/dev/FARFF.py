@@ -260,16 +260,16 @@ if __name__ == "__main__":
 
     import time
 
-    from . import basUtils
+    from .. import io
     if __package__ is None:
         import atomicUtils as au
         import GLView as glv
     else:
+        from .. import atomicUtils as au
         from . import GLView as glv
-        from . import atomicUtils as au
 
     fff = sys.modules[__name__]
-    xyzs, Zs, qs, _ = basUtils.loadXYZ("input.xyz")
+    xyzs, Zs, qs, _ = io.loadXYZ("input.xyz")
 
     natom  = len(xyzs)
     ndof   = fff.reallocFF(natom)

@@ -11,7 +11,7 @@ from ctypes import c_double, c_int
 import numpy as np
 
 from .. import atomicUtils as au
-from .. import basUtils
+from .. import io
 
 # Covalent radii of few atoms in Å
 # Covalent radii revisited. Dalton Transactions, (21), 2832. doi:10.1039/b801115j
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     print( ps.shape )
 
     # ---- Load Geometry
-    xyzs, Zs, qs, _ = basUtils.loadXYZ('fail.xyz')
+    xyzs, Zs, qs, _ = io.loadXYZ('fail.xyz')
     elems = au.ZsToElems(Zs)
     Rcovs = np.ones(len(xyzs))*0.7
 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     Es = eval( ps )  # evaluates potential for array of points (positions of atom A)
     dangs = danglingToArray()
     print( "dangs\n", dangs.shape, xyzs.shape )
-    basUtils.saveXYZ('dangs.xyz', np.concatenate( (xyzs, dangs) ), elems+['H']*len(dangs))
+    io.saveXYZ('dangs.xyz', np.concatenate( (xyzs, dangs) ), elems+['H']*len(dangs))
 
     # ----- plot or store result
     if b3D:

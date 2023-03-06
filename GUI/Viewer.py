@@ -19,7 +19,7 @@ import ppafm.GridUtils as GU
 #import ppafm.common    as PPU
 #import ppafm.cpp_utils as cpp_utils
 import ppafm.GUIWidgets as guiw
-from ppafm import PPPlot, basUtils
+from ppafm import PPPlot, io
 
 
 class ApplicationWindow(QtWidgets.QMainWindow):
@@ -88,7 +88,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         try:
             if   fext == ".xsf":
                 F, lvec, nDim, head = GU.loadXSF( fname )
-                #atoms, nDim, lvec = basUtils.loadXSFGeom( fname )
+                #atoms, nDim, lvec = io.loadXSFGeom( fname )
             elif fext == ".cube":
                 F,lvec, nDim, head = GU.loadCUBE(fname)
             item[0] = F

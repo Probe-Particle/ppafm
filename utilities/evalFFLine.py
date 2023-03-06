@@ -16,7 +16,7 @@ import ppafm.core as PPC
 
 #import ppafm.HighLevel     as PPH
 import ppafm.cpp_utils as cpp_utils
-from ppafm import basUtils
+from ppafm import io
 
 # ======== setup
 
@@ -67,8 +67,8 @@ FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 #FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
 elem_dict       = PPU.getFFdict(FFparams); print(elem_dict)
 
-atoms,nDim,lvec = basUtils.loadGeometry("input_plot_mod0.xyz", params=PPU.params)
-#atoms,nDim,lvec = basUtils.loadGeometry("Ag1.xyz", params=PPU.params)
+atoms,nDim,lvec = io.loadGeometry("input_plot_mod0.xyz", params=PPU.params)
+#atoms,nDim,lvec = io.loadGeometry("Ag1.xyz", params=PPU.params)
 iZs,Rs,Qs       = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
 
 lines = getLines( lst, atoms );  #print lines

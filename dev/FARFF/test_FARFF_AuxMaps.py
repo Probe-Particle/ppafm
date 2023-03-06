@@ -10,7 +10,6 @@ sys.path.append('../../')
 #from ppafm import fieldOCL     as FFcl
 #from ppafm import RelaxOpenCL  as oclr
 #from ppafm import common       as PPU
-#from ppafm import basUtils
 #from ppafm.AFMulatorOCL_Simple  import AFMulator
 #from ppafm.GeneratorOCL_Simple2 import InverseAFMtrainer
 #from ppafm.AuxMap import AuxMaps
@@ -24,9 +23,9 @@ if __name__ == "__main__":
 
     import ppafm.atomicUtils as au
     import ppafm.GLView as glv
-    from ppafm import basUtils
+    from ppafm import io
 
-    xyzs, Zs, qs, _ = basUtils.loadXYZ("input.xyz")
+    xyzs, Zs, qs, _ = io.loadXYZ("input.xyz")
 
     atomMapF, bondMapF, lvecMap = fff.makeGridFF( fff )
     print( " atomMapF ", atomMapF.shape, " bondMapF ", bondMapF.shape,  )

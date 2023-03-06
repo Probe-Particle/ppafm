@@ -8,7 +8,6 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-#import basUtils
 #import elements
 
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
@@ -18,7 +17,6 @@ import ppafm as PPU
 import ppafm.cpp_utils as cpp_utils
 import ppafm.GridUtils as GU
 import ppafm.Multipoles as MP
-from ppafm import basUtils
 
 # ---- Load potential
 

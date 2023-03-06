@@ -3,7 +3,6 @@
 import os
 from optparse import OptionParser
 
-import basUtils
 import elements
 import GridUtils as GU
 import matplotlib.pyplot as plt

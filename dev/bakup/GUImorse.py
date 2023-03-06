@@ -24,7 +24,7 @@ import ppafm.GridUtils as GU
 import ppafm.GUIWidgets as guiw
 import ppafm.oclUtils as oclu
 import ppafm.RelaxOpenCL as oclr
-from ppafm import PPPlot, basUtils
+from ppafm import PPPlot, io
 
 import matplotlib; matplotlib.use('Qt5Agg')
 
@@ -39,7 +39,7 @@ DataViews = Enum( 'DataViews','FFin FFout df FFel FFpl' )
 
 # Pre-autosetting:
 zmin = 1.0; zmax = 20.0; ymax = 20.0; xmax =20.0;
-atoms0, nDim0, lvec0 = basUtils.loadXSFGeom( "FFel_z.xsf" )
+atoms0, nDim0, lvec0 = io.loadXSFGeom( "FFel_z.xsf" )
 zmin = round(max(atoms0[3]),1); zmax=round(lvec0[3][2],1); ymax=round(lvec0[1][1]+lvec0[2][1],1); xmax=round(lvec0[1][0]+lvec0[2][0],1)
 
 print("zmin, zmax, ymax, xmax")
@@ -230,7 +230,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.str_Species = self.speciesEditor.textEdit.toPlainText()
         #print self.str_Species
         #print self.str_Atoms;
-        xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.str_Atoms.split('\n') )
+        xyzs,Zs,enames,qs = io.loadAtomsLines( self.str_Atoms.split('\n') )
         pbcnx = (1 if self.mode == Modes.MorseFFel_pbc.name else 0)
         Zs, xyzs, qs      = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2], na=pbcnx, nb=pbcnx )
         self.atoms        = FFcl.xyzq2float4(xyzs,qs);
@@ -288,7 +288,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         lvec=None; xyzs=None; Zs=None; qs=None;
         print(self.mode)
-        #atoms, nDim, lvec = basUtils.loadXSFGeom( "FFel_z.xsf" )
+        #atoms, nDim, lvec = io.loadXSFGeom( "FFel_z.xsf" )
         atoms = atoms0; nDim = nDim0; lvec = lvec0;
         nDim = nDim[::-1]
         lines = [   "%i %f %f %f %f" %(atoms[0][i], atoms[1][i], atoms[2][i], atoms[3][i], atoms[4][i] ) for i in range(len(atoms[0])) ]

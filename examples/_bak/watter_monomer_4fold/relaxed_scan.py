@@ -11,7 +11,6 @@ print(" # ========== make & load  ProbeParticle C++ library ")
 LWD = '/home/prokop/git/ProbeParticleModel/code'
 sys.path = [ LWD ]
 
-import basUtils
 import elements
 import GridUtils as GU
 import ProbeParticle as PP

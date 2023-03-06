@@ -12,7 +12,7 @@ sys.path.append("/home/prokop/git/ProbeParticleModel_OCL")
 import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
 import ppafm.GridUtils as GU
-from ppafm import PPPlot, basUtils
+from ppafm import PPPlot
 
 
 def loadFEcl( Q = None ):

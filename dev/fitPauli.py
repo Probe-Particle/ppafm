@@ -13,7 +13,7 @@ from optparse import OptionParser
 import ppafm as PPU
 
 #import ppafm.GridUtils     as GU
-import ppafm.basUtils as BU
+from ppafm import io
 
 parser = OptionParser()
 parser.add_option( "-i",           action="store", type="string", help="input file",                              default= 'CHGCAR'        )
@@ -66,7 +66,7 @@ def getLJ( r, R0=3.5, eps=0.03, cpull=1.0, cpush=1.0 ):
 # ====== Main
 
 fname, fext     = os.path.splitext( options.i ); fext = fext[1:]
-atoms,nDim,lvec = BU.loadGeometry( options.i, params=PPU.params )
+atoms,nDim,lvec = io.loadGeometry( options.i, params=PPU.params )
 
 data            = np.transpose( np.genfromtxt("atom_density_zlines.dat") )
 

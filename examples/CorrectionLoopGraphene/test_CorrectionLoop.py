@@ -10,8 +10,8 @@ import numpy as np
 import ppafm.atomicUtils as au
 import ppafm.ml.AuxMap as AuxMap
 import ppafm.SimplePot as pot
-from ppafm import basUtils
 from ppafm import common as PPU
+from ppafm import io
 from ppafm.ml.AuxMap import AuxMaps
 from ppafm.ml.CorrectionLoop import CorrectionLoop
 from ppafm.ml.Corrector import Corrector, Molecule
@@ -37,7 +37,7 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
     simulator.scan_window
 
     def makeMol( fname ):
-        xyzs, Zs, qs, _ = basUtils.loadXYZ(fname)
+        xyzs, Zs, qs, _ = io.loadXYZ(fname)
         xyzs[:,0] += -2
         xyzs[:,1] += -8+20.0
         xyzs[:,2] += -2.2

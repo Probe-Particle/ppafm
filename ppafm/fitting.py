@@ -93,14 +93,14 @@ if __name__ == "__main__":
     np.set_printoptions( precision=None, linewidth=200 )
 
     from . import GridUtils as GU
-    from . import basUtils as BU
     from . import common as PPU
+    from . import io
 
     fext  = "xsf"
     fname = "CHGCAR"
     fname_ext = fname+"."+fext
 
-    atoms,nDim,lvec = BU.loadGeometry   ( fname_ext, params=PPU.params )
+    atoms,nDim,lvec = io.loadGeometry   ( fname_ext, params=PPU.params )
     centers = np.array( atoms[1:4] ).transpose().copy()
     print("centers \n", centers)
 

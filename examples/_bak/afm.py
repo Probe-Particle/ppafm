@@ -2,13 +2,14 @@
 import os
 import sys
 
-import basUtils
 import elements
 import GridUtils as GU
 import matplotlib.pyplot as plt
 import numpy as np
 import PPPlot as PL
 import ProbeParticle as PP
+
+from ppafm import io
 
 
 def query_yes_no(question, default="yes"):
@@ -93,7 +94,7 @@ PP.params['gridC'],
 
 
 lvec = PP.params2lvec()
-atoms    = basUtils.loadAtoms(filename )
+atoms    = io.loadAtoms(filename )
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):

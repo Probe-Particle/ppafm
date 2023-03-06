@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyopencl as cl
 
-#from   ppafm import basUtils
 #from   ppafm import PPPlot
 import ppafm.GridUtils as GU
 

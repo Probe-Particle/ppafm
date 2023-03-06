@@ -21,7 +21,7 @@ import ppafm.GridUtils as GU
 import ppafm.GUIWidgets as guiw
 import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
-from ppafm import PPPlot, basUtils
+from ppafm import PPPlot, io
 from ppafm.ocl.AFMulator import AFMulator
 from ppafm.ocl.field import HartreePotential, hartreeFromFile
 
@@ -419,18 +419,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         ext = os.path.splitext(file_name)[1]
         if self.verbose > 0: print(f'loadInput: {file_path}, {file_name}, {ext}')
         if file_name in ['poscar', 'contcar']:
-            xyzs, Zs, lvec = basUtils.loadPOSCAR(file_path)
+            xyzs, Zs, lvec = io.loadPOSCAR(file_path)
             qs = np.zeros(len(Zs))
             lvec = lvec[1:]
         elif ext == '.in':
-            xyzs, Zs, lvec = basUtils.loadGeometryIN(file_path)
+            xyzs, Zs, lvec = io.loadGeometryIN(file_path)
             qs = np.zeros(len(Zs))
             lvec = lvec[1:] if len(lvec) > 0 else None
         elif ext in ['.xsf', '.cube']:
             qs, xyzs, Zs = hartreeFromFile(file_path)
             lvec = qs.lvec[1:]
         elif ext == '.xyz':
-            xyzs, Zs, qs, _ = basUtils.loadXYZ(file_path)
+            xyzs, Zs, qs, _ = io.loadXYZ(file_path)
             lvec = None
         else:
             raise ValueError(f'Unsupported file format for file `{file_path}`.')
@@ -546,7 +546,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             ])
             if self.pbc_lvec is not None:
                 lvec = np.append([[0, 0, 0]], self.pbc_lvec, axis=0)
-                atomstring = basUtils.primcoords2Xsf(self.Zs, self.xyzs.T, lvec)
+                atomstring = io.primcoords2Xsf(self.Zs, self.xyzs.T, lvec)
             else:
                 atomstring = GU.XSF_HEAD_DEFAULT
             GU.saveXSF(fileName, data, lvecScan, head=atomstring, verbose=0)

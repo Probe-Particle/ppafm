@@ -6,10 +6,10 @@ import numpy as np
 import pyopencl as cl
 from pyopencl import array
 
-from ..basUtils import loadAtomsCUBE, loadXSFGeom
 from ..common import genFFSampling
 from ..fieldFFT import getProbeDensity
 from ..GridUtils import loadCUBE, loadXSF
+from ..io import loadAtomsCUBE, loadXSFGeom
 
 try:
     from reikna.cluda import dtypes, ocl_api

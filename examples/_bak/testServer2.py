@@ -7,10 +7,11 @@ matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
 import os
 import sys
 
-import basUtils
 import elements
 import matplotlib.pyplot as plt
 import numpy as np
+
+from ppafm import io
 
 #print dir( elements )
 
@@ -34,11 +35,7 @@ PP.loadParams( 'params.ini' )
 
 print(" # ============ define atoms ")
 
-#bas      = basUtils.loadBas('surf.bas')[0]
-#bas      = basUtils.loadBas('PTCDA_Ruslan_1x1.bas')[0]
-#bas      = basUtils.loadBas('GrN6x6.bas')[0]
-
-atoms    = basUtils.loadAtoms('input.xyz')
+atoms    = io.loadAtoms('input.xyz')
 Rs       = np.array([atoms[1],atoms[2],atoms[3]]);
 iZs      = np.array( atoms[0])
 

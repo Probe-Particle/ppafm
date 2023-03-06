@@ -7,8 +7,8 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-from ppafm import basUtils
 from ppafm import common as PPU
+from ppafm import io
 from ppafm.ml.AuxMap import AuxMaps
 from ppafm.ml.Generator import InverseAFMtrainer
 from ppafm.ocl import field as FFcl
@@ -89,6 +89,6 @@ for Xs, Ys, mols in trainer:
         plt.close()
 
         mol = mols[j]
-        basUtils.saveXYZ(os.path.join(save_dir, f'{counter}_mol.xyz'), mol[:, :3], mol[:, 4].astype(np.int32), mol[:, 3])
+        io.saveXYZ(os.path.join(save_dir, f'{counter}_mol.xyz'), mol[:, :3], mol[:, 4].astype(np.int32), mol[:, 3])
 
         counter += 1

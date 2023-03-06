@@ -28,7 +28,7 @@ import ppafm.fieldOCL as FFcl
 import ppafm.GridUtils as GU
 import ppafm.oclUtils as oclu
 import ppafm.RelaxOpenCL as oclr
-from ppafm import PPPlot, basUtils
+from ppafm import PPPlot, io
 
 
 class MyDynamicMplCanvas(FigureCanvas):
@@ -200,7 +200,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         #print self.str_Atoms;
         self.str_Atoms = self.editor.textEdit.toPlainText()
         #print self.str_Atoms;
-        xyzs,Zs,enames,qs = basUtils.loadAtomsLines( self.str_Atoms.split('\n') )
+        xyzs,Zs,enames,qs = io.loadAtomsLines( self.str_Atoms.split('\n') )
         Zs, xyzs, qs      = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )
         self.atoms        = FFcl.xyzq2float4(xyzs,qs);
         self.ff_args      = FFcl.updateArgsLJC( self.ff_args, atoms=self.atoms )
@@ -213,7 +213,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.str_Atoms=open('input.xyz').read()
 
         self.TypeParams   = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-        xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input.xyz' )
+        xyzs,Zs,enames,qs = io.loadAtomsNP( 'input.xyz' )
         self.lvec         = np.genfromtxt('cel.lvs')
 
         Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )

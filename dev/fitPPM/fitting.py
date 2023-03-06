@@ -11,7 +11,7 @@ from scipy.optimize import basinhopping, minimize
 import ppafm as PPU
 import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
-from ppafm import basUtils
+from ppafm import io
 
 iteration=0
 
@@ -63,7 +63,7 @@ print(" >> OVEWRITING SETTINGS by params.ini  ")
 PPU.loadParams( 'params.ini',FFparams=FFparams )
 scan_min=PPU.params['scanMin']
 scan_max=PPU.params['scanMax']
-atoms,nDim,lvec=basUtils.loadGeometry("p_eq.xyz", params=PPU.params)
+atoms,nDim,lvec=io.loadGeometry("p_eq.xyz", params=PPU.params)
 # The function automatically load the geometry from the file of any
 # supported format. The desigion about the file format is based on the
 # filename extension

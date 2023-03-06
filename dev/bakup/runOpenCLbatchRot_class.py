@@ -17,7 +17,7 @@ import pyopencl as cl
 import ppafm.common as PPU
 import ppafm.GridUtils as GU
 import ppafm.ocl.HighLevel as hl
-from ppafm import basUtils
+from ppafm import io
 
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         t1ff = time.clock();
         atom_lines = open( dirName+"/pos.xyz" ).readlines()
         #FF, atoms, natoms0 =  hl.makeFF_LJC( poss, atom_lines, typeParams, iZPP, lvec, npbc=(1,1,1) )
-        xyzs,Zs,enames,qs = basUtils.loadAtomsLines( atom_lines )
+        xyzs,Zs,enames,qs = io.loadAtomsLines( atom_lines )
         natoms0 = len(Zs)
         if( npbc is not None ):
             #Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=self.lvec[1], bvec=self.lvec[2] )

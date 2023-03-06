@@ -5,12 +5,12 @@ import os
 import numpy as np
 
 import ppafm as PPU
-import ppafm.basUtils as BU
 import ppafm.core as PPC
 import ppafm.cpp_utils as cpp_utils
 import ppafm.fieldFFT as fFFT
 import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
+from ppafm import io
 
 #import matplotlib.pyplot as plt
 
@@ -56,7 +56,7 @@ for path in paths:
 
     # === load data
 
-    atoms,nDim,lvec     = BU.loadGeometry( "V.xsf", params=PPU.params )
+    atoms,nDim,lvec     = io.loadGeometry( "V.xsf", params=PPU.params )
 
     # === generate FF vdW
 

@@ -10,8 +10,8 @@ sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 from optparse import OptionParser
 
 import ppafm as PPU
-import ppafm.basUtils as BU
 import ppafm.GridUtils as GU
+from ppafm import io
 
 parser = OptionParser()
 parser.add_option( "-i",     action="store", type="string",  help="input file",                                 default='CHGCAR.xsf' )
@@ -24,7 +24,7 @@ parser.add_option( "--plot", action="store_false"        ,   help="plot extracte
 
 fname, fext = os.path.splitext( options.i ); fext = fext[1:]
 
-atoms,nDim,lvec     = BU.loadGeometry( options.i, params=PPU.params )
+atoms,nDim,lvec     = io.loadGeometry( options.i, params=PPU.params )
 GU.lib.setGridN   ( np.array( nDim[::-1], dtype=np.int32 )   )
 GU.lib.setGridCell( np.array( lvec[1:],   dtype=np.float64 ) )
 

@@ -9,7 +9,7 @@ import ppafm as PPU
 import ppafm.fieldFFT as fFFT
 import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
-from ppafm import basUtils, elements
+from ppafm import elements
 
 if __name__=="__main__":
     HELP_MSG="""Use this program in the following way:

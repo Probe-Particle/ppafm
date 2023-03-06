@@ -12,12 +12,12 @@ import ppafm.common as PPU
 import ppafm.cpp_utils as cpp_utils
 import ppafm.GridUtils as GU
 import ppafm.ocl.field as FFcl
-from ppafm import PPPlot, basUtils
+from ppafm import PPPlot, io
 
 
 def loadInput( ):
     FFparams          = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
-    xyzs,Zs,enames,qs = basUtils.loadAtomsNP( 'input_wrap.xyz' )
+    xyzs,Zs,enames,qs = io.loadAtomsNP( 'input_wrap.xyz' )
     lvec              = np.genfromtxt('cel.lvs')
 
     Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=lvec[1], bvec=lvec[2] )

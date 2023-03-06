@@ -20,7 +20,7 @@ from scipy.interpolate import Akima1DInterpolator
 #import ppafm.PolyCycles  as pcff
 import ppafm.atomicUtils as au
 import ppafm.chemistry as ch
-from ppafm import basUtils
+from ppafm import io
 
 #from scipy.interpolate import CubicSpline
 
@@ -342,7 +342,7 @@ if __name__ == "__main__":
     xyzs_g, elems_g = ch.groups2atoms( groups, neighs, xyzs )
     print("elems ", elems_g)
     print("elems ", xyzs_g)
-    basUtils.saveXYZ("test_PolyCycles_g.xyz", xyzs_g, elems_g)
+    io.saveXYZ("test_PolyCycles_g.xyz", xyzs_g, elems_g)
 
     # ======== Plot
 

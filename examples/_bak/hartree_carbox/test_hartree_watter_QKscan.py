@@ -5,12 +5,13 @@
 
 import os
 
-#import XSFutils
-import basUtils
 import elements
 import matplotlib.pyplot as plt
 import numpy as np
 from memory_profiler import profile
+
+#import XSFutils
+from ppafm import io
 
 print(" # ========== make & load  ProbeParticle C++ library ")
 
@@ -64,7 +65,7 @@ PP.setFF( FFLJ, cell  )
 
 print(" # ============ define atoms ")
 
-atoms    = basUtils.loadAtoms('watter4NaCl-2.xyz')
+atoms    = io.loadAtoms('watter4NaCl-2.xyz')
 Rs       = np.array([atoms[1],atoms[2],atoms[3]]);
 iZs      = np.array( atoms[0])
 

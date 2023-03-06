@@ -19,7 +19,7 @@ import ppafm.GridUtils as GU
 import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
 import ppafm.ocl.relax as oclr
-from ppafm import PPPlot, basUtils
+from ppafm import PPPlot, io
 
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver");
 
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         t1tot = time.clock()
         print(" ==================", geomFileName)
         t1prepare = time.clock();
-        xyzs,Zs,enames,qs = basUtils.loadAtomsLines( open( geomFileName ).readlines() )
+        xyzs,Zs,enames,qs = io.loadAtomsLines( open( geomFileName ).readlines() )
 
         if(bPBC):
             Zs, xyzs, qs = PPU.PBCAtoms( Zs, xyzs, qs, avec=lvec[1], bvec=lvec[2] )

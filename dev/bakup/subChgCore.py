@@ -13,9 +13,9 @@ sys.path.append("/u/25/prokoph1/unix/git/ProbeParticleModel")
 from optparse import OptionParser
 
 import ppafm as PPU
-import ppafm.basUtils as BU
 import ppafm.fieldFFT as fFFT
 import ppafm.GridUtils as GU
+from ppafm import io
 
 parser = OptionParser()
 parser.add_option( "-s", "--sample", action="store", type="string", default="CHGCAR.xsf", help="sample 3D data-file (.xsf)")
@@ -48,7 +48,7 @@ def addDeInterp( val, arr, iabc, fabc):
 pixOff    = np.array([0.0,0.0,0.0])
 valElDict = { 6:4.0, 8:6.0}
 
-atoms,nDim,lvec     = BU.loadGeometry( options.sample, params=PPU.params )
+atoms,nDim,lvec     = io.loadGeometry( options.sample, params=PPU.params )
 atoms_ = np.array(atoms)
 
 rho1, lvec1, nDim1, head1 = GU.loadXSF( options.sample )

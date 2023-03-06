@@ -9,7 +9,7 @@ import numpy as np
 sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import ppafm.atomicUtils as au
 import ppafm.ReactiveFF as rff
-from ppafm import basUtils
+from ppafm import io
 
 #import matplotlib.pyplot as plt
 #from mpl_toolkits.mplot3d import Axes3D
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         print("Qs        ", qs)
 
         #itypes_[itypes_==5] = 6 # replace borons by carbons
-        basUtils.saveXYZ(dname+"/pos.xyz", xyzs, itypes_, qs=qs )
+        io.saveXYZ(dname+"/pos.xyz", xyzs, itypes_, qs=qs )
 
         import matplotlib.pyplot as plt
         plt.scatter(xyzs[:,0], xyzs[:,1], c=qs, alpha=1.0, vmin=-0.5,vmax=0.5, cmap='bwr')
