@@ -24,7 +24,7 @@ PPU.loadParams( 'params.ini' )
 
 if os.path.isfile( 'atomtypes.ini' ):
     print(">> LOADING LOCAL atomtypes.ini")
-    FFparams=PPU.loadSpecies( 'atomtypes.ini' )
+    FFparams=PPU.loadSpecies('atomtypes.ini')
 else:
     FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH / 'defaults' / 'atomtypes.ini' )
 

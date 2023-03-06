@@ -2,7 +2,6 @@
 import os
 import sys
 
-import __main__ as main
 import numpy as np
 
 import ppafm as PPU
@@ -10,13 +9,15 @@ import ppafm.fieldFFT as fFFT
 import ppafm.HighLevel as PPH
 from ppafm import elements
 
-if __name__=="__main__":
-    HELP_MSG="""Use this program in the following way:
-    %s -i <filename>
+HELP_MESSAGE=f"""Use this program in the following way:
+ppafm-generate-ljff -i <filename>
 
-    Supported file fromats are:
-       * xyz
-    """ %os.path.basename(main.__file__)
+Supported file fromats are:
+    * xyz
+"""
+
+def main():
+
     from optparse import OptionParser
     parser = OptionParser()
     parser.add_option("-i", "--input",      action="store", type="string",  help="Input file, supported formats are:\n.xyz\n.cube,.xsf")
@@ -26,7 +27,7 @@ if __name__=="__main__":
     parser.add_option("--ffModel",          action="store",                 help="kind of potential 'LJ','Morse','vdW' ", default='LJ')
     (options, args) = parser.parse_args()
     if options.input==None:
-        sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)
+        sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MESSAGE)
     opt_dict = vars(options)
     try:
         PPU.loadParams( 'params.ini' )
@@ -38,3 +39,7 @@ if __name__=="__main__":
     if os.path.isfile( 'atomtypes.ini' ):
         speciesFile='atomtypes.ini'
     PPH.computeLJ( options.input, speciesFile=speciesFile, save_format=options.data_format, computeVpot=options.energy, ffModel=options.ffModel )
+
+
+if __name__ == "__main__":
+    main()
