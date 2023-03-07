@@ -128,41 +128,40 @@ def loadParams( fname,FFparams=None ):
         params["gridN"][0]=round(np.linalg.norm(params["gridA"])*10)
         params["gridN"][1]=round(np.linalg.norm(params["gridB"])*10)
         params["gridN"][2]=round(np.linalg.norm(params["gridC"])*10)
+        
+    try:
+            params['Catom'] = int(params['Catom'])
+    except:
+            if FFparams is None:
+                raise ValueError("if the ProbeParticle type is defined as "
+                "string, you have to provide parameter FFparams to the "
+                "loadParams function")
+            elem_dict={}
+            for i,ff in enumerate(FFparams):
+                    elem_dict[ff[3]] = i+1
+            try:
+                    params['Catom']=elem_dict[params['Catom']]
+            except:
+                    raise ValueError("The element {} for the ProbeParticle "
+                    "was not found".format(params['Catom']))
+    try:
+            params['Oatom'] = int(params['Oatom'])
+    except:
+            if FFparams is None:
+                raise ValueError("if the ProbeParticle type is defined as "
+                "string, you have to provide parameter FFparams to the "
+                "loadParams function")
+            elem_dict={}
+            for i,ff in enumerate(FFparams):
+                    elem_dict[ff[3]] = i+1
+            try:
+                    params['Oatom']=elem_dict[params['Oatom']]
+            except:
+                    raise ValueError("The element {} for the ProbeParticle "
+                    "was not found".format(params['Oatom']))
 
-
-        try:
-                params['Catom'] = int(params['Catom'])
-        except:
-                if FFparams is None:
-                    raise ValueError("if the ProbeParticle type is defined as "
-                    "string, you have to provide parameter FFparams to the "
-                    "loadParams function")
-                elem_dict={}
-                for i,ff in enumerate(FFparams):
-                        elem_dict[ff[3]] = i+1
-                try:
-                        params['Catom']=elem_dict[params['Catom']]
-                except:
-                        raise ValueError("The element {} for the ProbeParticle "
-                        "was not found".format(params['Catom']))
-        try:
-                params['Oatom'] = int(params['Oatom'])
-        except:
-                if FFparams is None:
-                    raise ValueError("if the ProbeParticle type is defined as "
-                    "string, you have to provide parameter FFparams to the "
-                    "loadParams function")
-                elem_dict={}
-                for i,ff in enumerate(FFparams):
-                        elem_dict[ff[3]] = i+1
-                try:
-                        params['Oatom']=elem_dict[params['Oatom']]
-                except:
-                        raise ValueError("The element {} for the ProbeParticle "
-                        "was not found".format(params['Oatom']))
-
-        params["tip"] = params["tip"].replace('"', ''); params["tip"] = params["tip"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
-        params["Omultipole"] = params["Omultipole"].replace('"', ''); params["Omultipole"] = params["Omultipole"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
+    params["tip"] = params["tip"].replace('"', ''); params["tip"] = params["tip"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
+    params["Omultipole"] = params["Omultipole"].replace('"', ''); params["Omultipole"] = params["Omultipole"].replace("'", ''); ### necessary for working even with quotemarks in params.ini
 
 def apply_options(opt=None):
         print("In apply options:")
