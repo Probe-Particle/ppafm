@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ppafm"
+dynamic = ["version"]
+description = "Classical force field model for simulating atomic force microscopy images."
+authors = []
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.6"
+dependencies = [
+    "matplotlib",
+    "numpy",
+]
+
+[project.urls]
+Homepage = "https://github.com/Probe-Particle/ProbeParticleModel"
+
+[project.optional-dependencies]
+opencl = [
+    "pyopencl",
+    "reikna",
+    "ase",
+    "PyQt5; platform_system=='Windows'"
+]
+dev = [
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+]
+
+[project.scripts]
+ppafm-generate-elff = "ppafm.cli.generateElFF:main"
+ppafm-generate-elff-point-charges = "ppafm.cli.generateElFF_point_charges:main"
+ppafm-generate-ljff = "ppafm.cli.generateLJFF:main"
+ppafm-relaxed-scan = "ppafm.cli.relaxed_scan:main"
+ppafm-plot-results = "ppafm.cli.plot_results:main"
+ppafm-gui = "ppafm.cli.gui.ppafm_gui:main"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+license-files = ["LICENSE"]
+
+[tool.setuptools.packages]
+find = {namespaces = false}
+
+[tool.setuptools.dynamic]
+version = {attr = "ppafm.version.__version__"}

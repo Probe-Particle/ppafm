@@ -7,7 +7,7 @@ a bit more detailed explanation than just inline-comments within the script
 code. The topics and are discussed in order in which are done in the example the
 script test2.py. The \textbf{order} of operations is sometimes important ( e.g. you
 cannot allocate grid until you set it's size, you cannot do scan until you
-sample forcefiled etc. ) 
+sample forcefiled etc. )
 
 
 \subsection{Import common libraries}
@@ -32,7 +32,7 @@ ProbeParticle\_lib.so binary dynamic library. If we do any change in C++ code, w
 have to recompile the library. This is done automatically during call of import
 ProbeParticle if the file ProbeParticle\_lib.so is not pressent in the directory.
 So, If we want force recompilation of the C++ dynamic library, we just delelete
-the library. This can be done e.g. like this: 
+the library. This can be done e.g. like this:
 
 
 \begin{shadedbox}
@@ -43,7 +43,7 @@ def makeclean( ):
     [ os.remove(f) for f in os.listdir(".") if f.endswith(".o") ]
     [ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
 
-makeclean( )  # force to recompile 
+makeclean( )  # force to recompile
 import  ProbeParticle as PP
 
     \end{lstlisting}
@@ -73,7 +73,7 @@ params={
 'scanStep': np.array( [ 0.10, 0.10, 0.10] ),
 'scanMin': np.array( [   0.0,     0.0,    5.0 ] ),
 'scanMax': np.array( [  20.0,    20.0,    8.0 ] ),
-'kCantilever'  :  1800.0, 
+'kCantilever'  :  1800.0,
 'f0Cantilever' :  30300.0,
 'Amplitude'    :  1.0,
 'plotSliceFrom':  16,
@@ -103,7 +103,7 @@ Then we should define system geometry ( positions of atoms and it types )
 \begin{shadedbox}
     \begin{lstlisting}[language=python]
 atoms    = basUtils.loadAtoms('input.xyz')
-Rs       = np.array([atoms[1],atoms[2],atoms[3]]);  
+Rs       = np.array([atoms[1],atoms[2],atoms[3]]);
 iZs      = np.array( atoms[0])
    \end{lstlisting}
 \end{shadedbox}
@@ -121,19 +121,19 @@ fitCell=True ) function like this:
 Before the simulation the geometry of molecule should be shifted to proper
 position with respect to sampling grid. The shift of the molecule can be set
 either manually in PP.params['moleculeShift' ], or let program set this
-parameter automatically using PP.autoGeom( shiftXY=True ). 
+parameter automatically using PP.autoGeom( shiftXY=True ).
 
-        
-        
+
+
 \begin{shadedbox}
     \begin{lstlisting}[language=python]
 if not PP.params['PBC' ]:
     PP.autoGeom( Rs, shiftXY=True,  fitCell=True,  border=3.0 )
 
-Rs[0] += PP.params['moleculeShift' ][0]          # shift molecule so that we sample reasonable part of potential 
-Rs[1] += PP.params['moleculeShift' ][1]          
-Rs[2] += PP.params['moleculeShift' ][2]          
-Rs     = np.transpose( Rs, (1,0) ).copy() 
+Rs[0] += PP.params['moleculeShift' ][0]          # shift molecule so that we sample reasonable part of potential
+Rs[1] += PP.params['moleculeShift' ][1]
+Rs[2] += PP.params['moleculeShift' ][2]
+Rs     = np.transpose( Rs, (1,0) ).copy()
 
    \end{lstlisting}
 \end{shadedbox}
@@ -161,7 +161,7 @@ Charges for pairwise pointcharge Coulomb interaction are read from 5-th column
 of geometry file.
 
 \textbf{NOTE}: it is important to do this step after the multiplication of periodic
-images to neighboring cells. 
+images to neighboring cells.
 
 \begin{shadedbox}
     \begin{lstlisting}[language=python]
@@ -178,7 +178,7 @@ Do this before simulation, in case it will crash
     \begin{lstlisting}[language=python]
 dz    = PP.params['scanStep'][2]
 zTips = np.arange( PP.params['scanMin'][2], PP.params['scanMax'][2]+0.00001, dz )[::-1];
-ntips = len(zTips); 
+ntips = len(zTips);
 print " zTips : ",zTips
 rTips = np.zeros((ntips,3))
 rs    = np.zeros((ntips,3))
@@ -186,7 +186,7 @@ fs    = np.zeros((ntips,3))
 
 rTips[:,0] = 1.0
 rTips[:,1] = 1.0
-rTips[:,2] = zTips 
+rTips[:,2] = zTips
 
 PP.setTip()
 
@@ -206,7 +206,7 @@ cell =np.array([
 PP.params['gridA'],
 PP.params['gridB'],
 PP.params['gridC'],
-]).copy() 
+]).copy()
 
 gridN = PP.params['gridN']
 
@@ -234,7 +234,7 @@ for i in range(nslice):
 
 
 withElectrostatics = ( abs( PP.params['charge'] )>0.001 )
-if withElectrostatics: 
+if withElectrostatics:
     print " # =========== Sample Coulomb "
     FFel = np.zeros( np.shape( FF ) )
     CoulombConst = -14.3996448915;  # [ e^2 eV/A ]
@@ -288,7 +288,7 @@ print " # ============  Plot Relaxed Scan 3D "
 
 #slices = range( PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy'] )
 #print "plotSliceFrom, plotSliceTo, plotSliceBy : ", PP.params['plotSliceFrom'], PP.params['plotSliceTo'], PP.params['plotSliceBy']
-#print slices 
+#print slices
 #nslice = len( slices )
 
 slices = range( 0, len(dfs) )
@@ -306,5 +306,3 @@ for ii,i in enumerate(slices):
 
     \end{lstlisting}
 \end{shadedbox}
-
-

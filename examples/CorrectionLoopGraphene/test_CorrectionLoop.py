@@ -1,25 +1,26 @@
-
 import sys
+
 sys.path.append('../../')
 
-from pyProbeParticle.ocl import oclUtils as oclu 
-from pyProbeParticle.ocl import field    as FFcl 
-from pyProbeParticle.ocl import relax    as oclr
-from pyProbeParticle import common       as PPU
-from pyProbeParticle import basUtils
-from pyProbeParticle.ocl.AFMulator  import AFMulator
-from pyProbeParticle.ml.Generator import InverseAFMtrainer
-from pyProbeParticle.ml.AuxMap import AuxMaps
-import pyProbeParticle.ml.AuxMap as AuxMap
-import pyProbeParticle.atomicUtils as au
-from pyProbeParticle.ml.Corrector import Corrector,Molecule
-from pyProbeParticle.ml.CorrectionLoop import CorrectionLoop
-import pyProbeParticle.SimplePot as pot
-
-import os
 import time
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+import ppafm.atomicUtils as au
+import ppafm.ml.AuxMap as AuxMap
+import ppafm.SimplePot as pot
+from ppafm import basUtils
+from ppafm import common as PPU
+from ppafm.ml.AuxMap import AuxMaps
+from ppafm.ml.CorrectionLoop import CorrectionLoop
+from ppafm.ml.Corrector import Corrector, Molecule
+from ppafm.ml.Generator import InverseAFMtrainer
+from ppafm.ocl import field as FFcl
+from ppafm.ocl import oclUtils as oclu
+from ppafm.ocl import relax as oclr
+from ppafm.ocl.AFMulator import AFMulator
+
 
 def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fname_ref="ref.xyz", nstep=10, plt=None ):
     '''
@@ -28,15 +29,15 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
     '''
     corrector = Corrector()
     corrector.logImgName = "AFM_Err"
-    corrector.xyzLogFile = open( "CorrectorLog.xyz", "w")
+    corrector.xyzLogFile = "CorrectorLog.xyz"
     corrector.plt = plt
     corrector.izPlot = -1
-    nscan = simulator.scan_dim; 
+    nscan = simulator.scan_dim;
     nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
-    sw    = simulator.scan_window
+    simulator.scan_window
 
     def makeMol( fname ):
-        xyzs,Zs,elems,qs  = au.loadAtomsNP(fname)
+        xyzs, Zs, qs, _ = basUtils.loadXYZ(fname)
         xyzs[:,0] += -2
         xyzs[:,1] += -8+20.0
         xyzs[:,2] += -2.2
@@ -50,7 +51,6 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
         molecule = Molecule(xyzs,Zs,qs)
         return molecule
 
-    #xyzs_ref,Zs_ref,elems_ref,qs_ref  = au.loadAtomsNP(geom_fname_ref)
     mol_ref = makeMol( geom_fname_ref )
     #simulator.bSaveFF = True                #    DEBUG !!!!!!!!!!!!!!!!!
     simulator.saveFFpre = "ref_"
@@ -63,7 +63,6 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
     #AFMRef = np.roll( AFMRef, -6, axis=1 );
 
     looper = CorrectionLoop(None, simulator, None, None, corrector)
-    #looper.xyzLogFile = open( "CorrectionLoopLog.xyz", "w")
     looper.plt = plt
     #looper.logImgName = "CorrectionLoopAFMLog"
     #looper.logAFMdataName = "AFMs"
@@ -79,14 +78,12 @@ def Job_CorrectionLoop_SimpleRandom( simulator, geom_fname="input.xyz", geom_fna
         Err = looper.iteration(itr=itr)
         if Err < ErrConv:
             break
-    corrector.xyzLogFile.close()
-    #looper.xyzLogFile.close()
 
 # =============== Setup
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
     import matplotlib.cm as cm
+    import matplotlib.pyplot as plt
 
     #from optparse import OptionParser
     #parser = OptionParser()
@@ -109,7 +106,7 @@ if __name__ == "__main__":
                             [ 0.0,  0.0, 0.0],
                             [20.0,  0.0, 0.0],
                             [ 0.0, 20.0, 0.0],
-                            [ 0.0,  0.0, 5.0]
+                            [ 0.0,  0.0, 6.0]
                           ]),
         scan_window     = ((2.0, 2.0, 5.0), (18.0, 18.0, 8.0)),
     )

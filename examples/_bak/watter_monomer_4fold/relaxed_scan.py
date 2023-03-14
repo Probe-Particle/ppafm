@@ -1,13 +1,14 @@
 #!/usr/bin/python
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
 
-print(" # ========== make & load  ProbeParticle C++ library ") 
+import matplotlib.pyplot as plt
+import numpy as np
 
-LWD = '/home/prokop/git/ProbeParticleModel/code' 
+print(" # ========== make & load  ProbeParticle C++ library ")
+
+LWD = '/home/prokop/git/ProbeParticleModel/code'
 sys.path = [ LWD ]
 
 import basUtils
@@ -61,5 +62,3 @@ def main():
 print(" ***** ALL DONE ***** ")
 
 #plt.show()
-
-

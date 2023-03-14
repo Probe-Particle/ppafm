@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=PPM-GUI
+Comment=Simulate high-resolution atomic force microscopy images
+Exec=ppm-gui %f
+Terminal=false

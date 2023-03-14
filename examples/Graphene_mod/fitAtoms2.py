@@ -1,10 +1,9 @@
 #!/usr/bin/python
 
-import numpy as np
 import sys
+
 import matplotlib.pyplot as plt
-
-
+import numpy as np
 
 '''
 
@@ -15,8 +14,8 @@ determine z-position from approach curve ( slightly below minimum )
 
 sys.path.append("/home/prokop/git/ProbeParticleModel")
 
-import pyProbeParticle.GridUtils as GU
-import pyProbeParticle.atomfit as AF
+import ppafm.atomfit as AF
+import ppafm.GridUtils as GU
 
 E,lvec,nDim,head =  GU.loadXSF("OutFz.xsf")
 
@@ -78,4 +77,3 @@ plt.xlim(extent[0],extent[1])
 plt.ylim(extent[2],extent[3])
 
 plt.show()
-
