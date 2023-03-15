@@ -8,6 +8,13 @@
 
 #include "splines.cl"
 
+// vdW damping coefficients
+__constant float ADamp_Const = 180.0;
+__constant float ADamp_R2 = 0.5;
+__constant float ADamp_R4 = 0.5;
+__constant float ADamp_invR4 = 0.03;
+__constant float ADamp_invR8 = 0.01;
+
 inline float3 rotMat ( float3 v,  float3 a, float3 b, float3 c  ){ return (float3)(dot(v,a),dot(v,b),dot(v,c)); }
 inline float3 rotMatT( float3 v,  float3 a, float3 b, float3 c  ){ return a*v.x + b*v.y + c*v.z; }
 inline int mod(int x, int y) {
@@ -113,15 +120,6 @@ float4 getLJ( float3 apos, float2 cLJ, float3 pos ){
      float   ir6 = ir2*ir2*ir2;
      float   E   =  (    cLJ.y*ir6 -   cLJ.x )*ir6;
      float3  F   = (( 12.0f*cLJ.y*ir6 - 6.0f*cLJ.x )*ir6*ir2)*dp;
-     return (float4)(F, E);
-}
-
-float4 getvdW( float3 apos, float cvdW, float3 pos ){
-     float3  dp  = pos - apos;
-     float   ir2 = 1.0f / (dot(dp,dp) + R2SAFE);
-     float   ir6 = ir2 * ir2 * ir2;
-     float   E   = -cvdW * ir6;
-     float3  F   = 6.0f * E * ir2 * dp;
      return (float4)(F, E);
 }
 
@@ -544,17 +542,17 @@ __kernel void addLJ(
 __kernel void addvdW(
     const int nAtoms,       // Number of atoms
     __global float4* atoms, // Atom positions
-    __global float2*  cLJs, // Lennard-Jones parameters for atoms
+    __global float2*  cLJs, // Lennard-Jones parameters in AB form
+    __global float4*  REAs, // Lennard-Jones parameters in RE form
     __global float4*    FE, // Forcefield grid
     int4 nGrid,             // Grid size
     float4 grid_origin,     // Real-space origin of grid
     float4 grid_stepA,      // Real-space step sizes of grid lattice vectors
     float4 grid_stepB,
-    float4 grid_stepC
+    float4 grid_stepC,
+    int damp_method         // Type of damping to use. -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8
 ){
 
-    __local float4 LATOMS[64];
-    __local float2 LCLJS [64];
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
 
@@ -569,17 +567,69 @@ __kernel void addvdW(
     // Calculate position in grid
     float3 pos = grid_origin.xyz + grid_stepA.xyz*i + grid_stepB.xyz*j  + grid_stepC.xyz*k;
 
-    // Compute Lennard-Jones force from all of the atoms
+    // Compute vdW force and energy
+    __local float4 LATOMS[64];
+    __local float2 LCLJS[64];
     float4 fe = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
-    for (int i0 = 0; i0 < nAtoms; i0 += nL) {
-        int ia = i0 + iL;
-        LATOMS[iL] = atoms[ia];
-        LCLJS [iL] = cLJs[ia];
-        barrier(CLK_LOCAL_MEM_FENCE);
-        for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
-            fe += getvdW(LATOMS[ja].xyz, LCLJS[ja].x, pos);
+    if (damp_method == -1 || damp_method == 0) {
+        for (int i0 = 0; i0 < nAtoms; i0 += nL) {
+            int ia = i0 + iL;
+            LATOMS[iL] = atoms[ia];
+            LCLJS[iL] = cLJs[ia];
+            barrier(CLK_LOCAL_MEM_FENCE);
+            for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+                float3 dp  = pos - LATOMS[ja].xyz;
+                float ir2;
+                if (damp_method == -1) {
+                    ir2 = 1.0f / (dot(dp, dp) + R2SAFE);
+                } else {
+                    ir2 = 1.0f / (dot(dp, dp) + ADamp_Const * LCLJS[ja].x);
+                }
+                // ir2 = 1.0f / (dot(dp, dp) + R2SAFE);
+                float  ir6 = ir2 * ir2 * ir2;
+                float  E   = -LCLJS[ja].x * ir6;
+                float3 F   = 6.0f * E * ir2 * dp;
+                fe += (float4)(F, E);
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
         }
-        barrier(CLK_LOCAL_MEM_FENCE);
+    } else {
+        for (int i0 = 0; i0 < nAtoms; i0 += nL) {
+            int ia = i0 + iL;
+            LATOMS[iL] = atoms[ia];
+            LCLJS[iL] = REAs[ia].xy;
+            barrier(CLK_LOCAL_MEM_FENCE);
+            for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+                float3 dp = pos - LATOMS[ja].xyz;
+                float r2 = dot(dp, dp);
+                float iR2 = 1.0f / (LCLJS[ja].x * LCLJS[ja].x);
+                float u2 = r2 * iR2;
+                float u4 = u2 * u2;
+                float D, dD;
+                if (damp_method == 1) {
+                    float step = (float)(u2 < 1);
+                    D = (1.0f - u2) * step;
+                    dD = -2.0f * step;
+                } else if (damp_method == 2) {
+                    float de = (1 - u2) * (float)(u2 < 1);
+                    D = de * de;
+                    dD = -4 * de;
+                } else if (damp_method == 3) {
+                    float de2 = 1 / (u2 + R2SAFE);
+                    D = de2 * de2;
+                    dD = -4 * de2 * D;
+                } else if (damp_method == 4) {
+                    float de2 = 1 / (u2 + R2SAFE);
+                    D = de2 * de2 * de2 * de2;
+                    dD = -8 * de2 * D;
+                }
+                float e = 1.0f / (u4 * u2 + D * ADamp_R2);
+                float E = 2.0f * LCLJS[ja].y * e;
+                float3 F = (E * e * (6.0f * u4 + dD * ADamp_R2) * iR2) * dp;
+                fe += (float4)(F, E);
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+        }
     }
 
     // Add to forcefield grid

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-import sys
 import time
+
 import numpy as np
 import pyopencl as cl
 
-sys.path.append('..')
-import pyProbeParticle.ocl.field    as FFcl
-import pyProbeParticle.ocl.oclUtils as oclu
+import ppafm.ocl.field as FFcl
+import ppafm.ocl.oclUtils as oclu
+
 
 def handleNegativeDensity( rho ):
     Q = rho.sum()

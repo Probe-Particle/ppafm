@@ -54,6 +54,8 @@ class AFMulator():
             potential defined on a grid is always considered to be periodic.
         f0Cantilever: float. Resonance frequency of cantilever in Hz.
         kCantilever: float. Harmonic spring constant of cantilever in N/m.
+        vdw_damp_method: int. Type of damping to use in vdw calculation for FDBM.
+            -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
     '''
 
     bMergeConv = False   # Should we use merged kernel relaxStrokesTilted_convZ or two separated kernells  ( relaxStrokesTilted, convolveZ  )
@@ -85,7 +87,8 @@ class AFMulator():
         tipStiffness    = [0.25, 0.25, 0.0, 30.0],
         npbc            = (1, 1, 0),
         f0Cantilever    = 30300,
-        kCantilever     = 1800
+        kCantilever     = 1800,
+        vdw_damp_method = 2
     ):
 
         if not FFcl.oclu or not oclr.oclu:
@@ -106,6 +109,7 @@ class AFMulator():
         self.sigma = sigma
         self.A_pauli = A_pauli
         self.B_pauli = B_pauli
+        self.vdw_damp_method = vdw_damp_method
 
         self.setScanWindow(scan_window, scan_dim, df_steps)
         self.setLvec(lvec, pixPerAngstrome)
@@ -204,7 +208,7 @@ class AFMulator():
 
     def setRho(self, rho=None, sigma=0.71, B_pauli=1.0):
         '''Set tip charge distribution.
-        
+
         Arguments:
             rho: Dict, TipDensity, or None. Tip charge density. If None, the existing density is deleted.
             sigma: float. Tip charge density distribution, when rho is a dict.
@@ -234,10 +238,10 @@ class AFMulator():
     def setBPauli(self, B_pauli=1.0):
         '''Set Pauli repulsion exponent used in FDBM.'''
         self.setRho(self._rho, sigma=self.sigma, B_pauli=B_pauli)
-    
+
     def setRhoDelta(self, rho_delta=None):
         '''Set tip electron delta-density that is used for electrostatic interaction in FDBM.
-        
+
         Arguments:
             rho_delta: TipDensity or None. Tip electron delta-density. If None, the existing density is deleted.
         '''
@@ -322,26 +326,17 @@ class AFMulator():
             rot_center = xyzs.mean(axis=0)
 
         # Get Lennard-Jones parameters and apply periodic boundary conditions to atoms
-        self.natoms0 = len(Zs)
         if REAs is None:
-            self.REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
-        else:
-            self.REAs = REAs
-        cLJs = PPU.REA2LJ(self.REAs)
+            REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
+        cLJs = PPU.REA2LJ(REAs)
         if sum(npbc) > 0:
-            Zs, xyzqs, cLJs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, pbc_lvec, npbc=npbc)
-            xyzs = xyzqs[:, :3]
-            qs = xyzqs[:, 3]
-        self.Zs = Zs
+            Zs, xyzs, qs, cLJs, REAs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, pbc_lvec, npbc=npbc)
 
         # Compute force field
         self.forcefield.makeFF(xyzs, cLJs, method=method, qs=qs, pot=pot, rho_sample=rho_sample,
             rho_delta=self.rho_delta, A=self.A_pauli, B=self.B_pauli, rot=rot, rot_center=rot_center,
-            bRelease=False, bCopy=False, bFinish=False)
-        self.atoms = self.forcefield.atoms
+            vdw_damp_method=self.vdw_damp_method, bRelease=False, bCopy=False, bFinish=False)
         if self.bSaveFF: self.saveFF()
-
-        self.atomsNonPBC = self.atoms[:self.natoms0].copy()
 
     def prepareScanner(self):
         '''Prepare scanner. Run after preparing force field.'''

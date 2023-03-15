@@ -2,22 +2,28 @@
 
 import time
 import warnings
-import numpy as np 
 
+import numpy as np
 import pyopencl as cl
 from pyopencl import array
 
-from ..GridUtils import loadCUBE, loadXSF, limit_vec_field, save_scal_field, save_vec_field
 from ..basUtils import loadAtomsCUBE, loadXSFGeom
 from ..common import genFFSampling
 from ..fieldFFT import getProbeDensity
-from ..HighLevel import subtractCoreDensities, _getAtomsWhichTouchPBCcell
+from ..GridUtils import (
+    limit_vec_field,
+    loadCUBE,
+    loadXSF,
+    save_scal_field,
+    save_vec_field,
+)
+from ..HighLevel import _getAtomsWhichTouchPBCcell, subtractCoreDensities
 
 try:
+    from reikna import cluda
     from reikna.cluda import dtypes, ocl_api
     from reikna.core import Annotation, Parameter, Transformation, Type
     from reikna.fft import FFT
-    from reikna import cluda
     fft_available = True
 except ModuleNotFoundError:
     fft_available = False
@@ -162,7 +168,7 @@ class DataGrid:
         '''Save data grid to file(s).
 
         Supported file types are .xsf and .npy.
-        
+
         Arguments:
             file_path: str. Path to saved file. For a 4D data grid, letters x, y, z, w are appended
                 to the file path for each component, respectively.
@@ -249,7 +255,7 @@ class DataGrid:
 
     def grad(self, scale=1.0, array_out=None, order='C', local_size=(32,), queue=None):
         '''Get the centered finite difference gradient of the data grid.
-        
+
         The datagrid has to be either 3D or 4D with self.shape[3] == 1.
 
         The resulting array adds a 4th dimension with size 4 to the grid such that at indices
@@ -340,7 +346,7 @@ class DataGrid:
         T = np.concatenate([np.linalg.inv(self.step).T.copy(), np.zeros((3, 1))], axis=1, dtype=np.float32)
         rot = np.concatenate([rot, np.zeros((3, 1))], axis=1, dtype=np.float32)
         dlvec = np.concatenate([array_out.step, np.zeros((3, 1))], axis=1, dtype=np.float32)
-        
+
         cl_program.interp_at(queue, global_size, local_size,
             self.cl_array,
             array_out.cl_array,
@@ -374,7 +380,7 @@ class TipDensity(DataGrid):
             Zs: np.ndarray of shape (n_atoms,). Atomic numbers of atoms.
             Rcore: float. Width of core density distribution.
             valElDict: Dict or None. Dictionary of the number of valence electrons for elements.
-                If None, then values in defaults.valelec_dict are used. 
+                If None, then values in defaults.valelec_dict are used.
 
         Returns:
             TipDensity. New tip density with core densities subtracted.
@@ -428,7 +434,7 @@ class MultipoleTipDensity(TipDensity):
         rho = getProbeDensity(lvec, X, Y, Z, step, sigma=sigma, multipole_dict=multipole, tilt=tilt)
 
         if(bRuntime): print("runtime(MultipoleTipDensity._make_tip_density) [s]: ", time.perf_counter() - t0)
-        
+
         return rho.astype(np.float32)
 
 class FFTCrossCorrelation:
@@ -535,7 +541,7 @@ class FFTCrossCorrelation:
         if isinstance(array, DataGrid):
             array = array.cl_array
         assert array.size == np.prod(self.shape) * 4, f'array size {array.size} does not match rho array shape {self.shape}'
-        
+
         if E is None:
             E_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=4*np.prod(self.shape))
             E = DataGrid(E_cl, lvec=self.rho.lvec, shape=self.shape, ctx=self.rho.ctx)
@@ -608,10 +614,10 @@ class ForceField_LJC:
         self.Qs  = np.array(Qs ,dtype=np.float32)
         self.QZs = np.array(QZs,dtype=np.float32)
 
-    def prepareBuffers(self, atoms=None, cLJs=None, poss=None, bDirect=False, nz=20, pot=None,
+    def prepareBuffers(self, atoms=None, cLJs=None, REAs=None, poss=None, bDirect=False, nz=20, pot=None,
         E_field=False, rho=None, rho_delta=None, rho_sample=None):
         '''
-        allocate all necessary buffers in GPU memory
+        Allocate all necessary buffers in GPU memory
         '''
         nbytes   =  0;
         mf       = cl.mem_flags
@@ -623,6 +629,9 @@ class ForceField_LJC:
         if cLJs is not None:
             cLJs = cLJs.astype(np.float32)
             self.cl_cLJs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  ); nbytes+=cLJs.nbytes
+        if REAs is not None:
+            REAs = REAs.astype(np.float32)
+            self.cl_REAs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=REAs  ); nbytes+=REAs.nbytes
         if poss is not None:
             self.nDim = np.array( poss.shape, dtype=np.int32 )
             self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
@@ -645,7 +654,7 @@ class ForceField_LJC:
             self.rho_delta = rho_delta
             self.fft_corr_delta = FFTCrossCorrelation(rho_delta)
         if rho_sample is not None:
-            assert isinstance(rho_sample, ElectronDensity), 'rho_sample should be a ElectronDensity object'
+            assert isinstance(rho_sample, ElectronDensity), 'rho_sample should be an ElectronDensity object'
             self.rho_sample = rho_sample
             self.rho_sample.cl_array
         if(self.verbose>0): print("initArgsLJC.nbytes ", nbytes)
@@ -672,6 +681,11 @@ class ForceField_LJC:
         try:
             self.cl_cLJs.release()
             self.cl_cLJs = None
+        except:
+            pass
+        try:
+            self.cl_REAs.release()
+            self.cl_REAs = None
         except:
             pass
         try:
@@ -705,6 +719,16 @@ class ForceField_LJC:
             self.rho_sample.release()
         except:
             pass
+
+    def initialize(self, value=0, bFinish=False):
+        '''Initialize the force field to a constant value.
+
+        Arguments:
+            value: float. Value assigned to every element of the force field grid.
+            bFinish: Bool. Whether to wait for execution to finish.
+        '''
+        cl.enqueue_copy(self.queue, self.cl_FE, np.full(self.nDim.prod(), value, dtype=np.float32))
+        if bFinish: self.queue.finish()
 
     def run(self, FE=None, local_size=(32,), bCopy=True, bFinish=True ):
         '''
@@ -1046,7 +1070,7 @@ class ForceField_LJC:
 
     def addLJ(self, local_size=(32,)):
         '''Add Lennard-Jones force and energy to the current force field grid.
-        
+
         Arguments:
             local_size: tuple of a single int. Size of local work group on device.
         '''
@@ -1062,10 +1086,11 @@ class ForceField_LJC:
             self.dlvec[0], self.dlvec[1], self.dlvec[2]
         )
 
-    def addvdW(self, local_size=(32,)):
+    def addvdW(self, damp_method=0, local_size=(32,)):
         '''Add van der Waals force and energy to the current force field grid.
-        
+
         Arguments:
+            damp_method: int. Type of damping to use. -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
             local_size: tuple of a single int. Size of local work group on device.
         '''
         local_size = (min(local_size[0], 64),)
@@ -1074,10 +1099,12 @@ class ForceField_LJC:
             self.nAtoms,
             self.cl_atoms,
             self.cl_cLJs,
+            self.cl_REAs,
             self.cl_FE,
             self.nDim,
             self.lvec0,
-            self.dlvec[0], self.dlvec[1], self.dlvec[2]
+            self.dlvec[0], self.dlvec[1], self.dlvec[2],
+            np.int32(damp_method)
         )
 
     def calc_force_hartree(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
@@ -1134,8 +1161,8 @@ class ForceField_LJC:
 
         return FE
 
-    def calc_force_fdbm(self, A=18.0, B=1.0, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
-            bCopy=True, bFinish=True):
+    def calc_force_fdbm(self, A=18.0, B=1.0, FE=None, rot=np.eye(3), rot_center=np.zeros(3), vdw_damp_method=2,
+            local_size=(32,), bCopy=True, bFinish=True):
         '''
         Calculate force field using the full density-based model.
 
@@ -1146,6 +1173,8 @@ class ForceField_LJC:
                 If None and bCopy == True, will be created automatically.
             rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
             rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            vdw_damp_method: int. Type of damping to use in vdw calculation.
+                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
             local_size: tuple of a single int. Size of local work group on device.
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
             bFinish: Bool. Whether to wait for execution to finish.
@@ -1199,7 +1228,7 @@ class ForceField_LJC:
             print("runtime(ForceField_LJC.calc_force_fdbm.gradient) [s]: ", time.perf_counter() - t0)
 
         # Add vdW force
-        self.addvdW(local_size=local_size)
+        self.addvdW(vdw_damp_method, local_size=local_size)
 
         if bCopy: FE = self.downloadFF(FE)
         if bFinish or bRuntime: self.queue.finish()
@@ -1207,8 +1236,8 @@ class ForceField_LJC:
 
         return FE
 
-    def makeFF(self, xyzs, cLJs, method='point-charge', FE=None, qs=None, pot=None, rho_sample=None,
-            rho=None, rho_delta=None, A=18.0, B=1.0, rot=np.eye(3), rot_center=np.zeros(3),
+    def makeFF(self, xyzs, cLJs, REAs=None, method='point-charge', FE=None, qs=None, pot=None, rho_sample=None,
+            rho=None, rho_delta=None, A=18.0, B=1.0, rot=np.eye(3), rot_center=np.zeros(3), vdw_damp_method=2,
             local_size=(32,), bRelease=True, bCopy=True, bFinish=True):
         '''
         Generate a force field for the tip-sample interaction.
@@ -1226,7 +1255,9 @@ class ForceField_LJC:
 
         Arguments:
             xyzs: np.ndarray of shape (n_atoms, 3). xyz positions.
-            cLJs: np.ndarray of shape (n_atoms, 2). Lennard-Jones interaction parameters for each atom.
+            cLJs: np.ndarray of shape (n_atoms, 2). Lennard-Jones interaction parameters in AB form for each atom.
+            REAs: np.ndarray of shape (n_atoms, 4) or None. Lennard-Jones interaction parameters in RE form for each atom.
+                Required when method is 'fdbm' and vdw_damp_method >= 1.
             method: 'point-charge', 'hartree' or 'fdbm'. Method for generating the force field.
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.
@@ -1244,6 +1275,8 @@ class ForceField_LJC:
             B: float. Exponent used for Pauli repulsion when method is 'fdbm'.
             rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
             rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            vdw_damp_method: int. Type of damping to use in vdw calculation when method is 'fdbm'.
+                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
             local_size: tuple of a single int. Size of local work group on device.
             bRelease: Bool. Whether to delete data on device after computation is done.
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
@@ -1252,7 +1285,7 @@ class ForceField_LJC:
         Returns:
             np.ndarray if bCopy==True or None otherwise.
         '''
-        
+
         if(bRuntime): t0 = time.time()
 
         if not hasattr(self, 'nDim') or not hasattr(self, 'lvec'):
@@ -1269,7 +1302,7 @@ class ForceField_LJC:
         if qs is None:
             qs = np.zeros(len(xyzs))
         self.atoms = np.concatenate([xyzs, qs[:, None]], axis=1)
-        self.prepareBuffers(self.atoms, cLJs, pot=pot, rho=rho, rho_delta=rho_delta, rho_sample=rho_sample)
+        self.prepareBuffers(self.atoms, cLJs, REAs=REAs, pot=pot, rho=rho, rho_delta=rho_delta, rho_sample=rho_sample)
         if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.time() - t0)
 
         if method == 'point-charge':
@@ -1278,7 +1311,7 @@ class ForceField_LJC:
                 FF = self.run_evalLJ_noPos()
             else:
                 FF = self.run_evalLJC_QZs_noPos( FE=FE, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
-        
+
         elif method == 'hartree':
 
             if rho == None and self.rho is None:
@@ -1292,11 +1325,11 @@ class ForceField_LJC:
                     bCopy=bCopy, bFinish=bFinish)
 
         elif method == 'fdbm':
-            
+
             if not (np.allclose(self.nDim[:3], self.rho_delta.shape) and np.allclose(self.nDim[:3], self.rho.shape)):
                 raise NotImplementedError(f'Non-matching grid dimensions not yet implemented. {self.nDim[:3]}, {self.rho.shape}, {self.rho_delta.shape}')
-            FF = self.calc_force_fdbm(A=A, B=B, rot=rot_ff, rot_center=rot_center, local_size=local_size,
-                bCopy=bCopy, bFinish=bFinish)
+            FF = self.calc_force_fdbm(A=A, B=B, rot=rot_ff, rot_center=rot_center, vdw_damp_method=vdw_damp_method,
+                local_size=local_size, bCopy=bCopy, bFinish=bFinish)
 
         else:
             raise ValueError(f'Unknown method for force field calculation: `{method}`.')
