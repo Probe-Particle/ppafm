@@ -4,8 +4,8 @@
 Simple and efficient **simulation software for high-resolution atomic force microscopy** (**HR-AFM**) and other scanning probe microscopy (SPM) techniques with sub-molecular resolution (STM, IETS, TERS). It simulates deflection of the particle attached to the tip (typically CO molecule, but also e.g. Xe, Cl-, H2O and others).
 
 ### Further information
-- Publications: https://github.com/Probe-Particle/ProbeParticleModel#notable-publications-using-probe-particle-model
-- Wiki: https://github.com/Probe-Particle/ProbeParticleModel/wiki
+- Publications: https://github.com/Probe-Particle/ppafm#notable-publications-using-probe-particle-model
+- Wiki: https://github.com/Probe-Particle/ppafm/wiki
 - API documentation: https://ppafm.readthedocs.io/en/latest/
 
 ## Flavors of PPM
@@ -32,22 +32,25 @@ All development and testing were done on **linux** OS (mostly ubuntu). For the w
 
 #### Install & run CPU version
 
-**Requirements:** Python3 (numpy,matplotlib) & C/C++ compiler (g++,make); SDL
+**Requirements:** Python3 (pip,numpy,matplotlib) & C/C++ compiler (g++,make)
 
 ##### First run: Graphene with point-charges
- 1. clone the repository: `clone https://github.com/Probe-Particle/ProbeParticleModel.git`
- 2. compile the C/C++ modules
-    * `cd ProbeParticleModel/cpp`
+ 1. clone the repository: `git clone https://github.com/Probe-Particle/ppafm`
+ 2. install the python packages
+    * `cd ppafm'
+    * `pip install -e ppafm'
+ 3. compile the C/C++ modules
+    * `cd cpp`
     * `make`
- 3. Navigate to examples directory `cd ProbeParticleModel/examples/Graphene`this example uses simple (Point-charges + Lennard-Jones)
- 4. run the example `./run.sh`
- 5. output directory `/examples/Graphene/Q-0.05K0.50/Amp2.0` should contain simulated images with tip charge -0.05e, stiffness 0.5N/m and ossicaltion amplitude 2.0A.
+ 4. Navigate to examples directory `cd ppafm/examples/Graphene`this example uses simple (Point-charges + Lennard-Jones)
+ 5. run the example `./run.sh`
+ 6. output directory `/examples/Graphene/Q-0.05K0.50/Amp2.0` should contain simulated images with tip charge -0.05e, stiffness 0.5N/m and ossicaltion amplitude 2.0A.
 
 *NOTE:* Python package is designed to automatically recompile the C/C++ automatically, which is convenient for development, so explicit compilation in step #2 maybe not be necessary. see e.g. `cpp_utils.make("PP")` in `ppafm/core.py`
 
 ##### Example 2: PTCDA with Hartree potential
 
-1. navigate to `ProbeParticleModel/examples/PTCDA_Hartree`
+1. navigate to `ppafm/examples/PTCDA_Hartree`
 2. run the example `./run.sh`
 
 *NOTE:* Notice that the script `run.sh` downloads and unpack LOCPOT file:
@@ -57,7 +60,7 @@ this is a large 3D volumetric file which contains Hartree electrostatic potentia
 
 ##### Example 3: Pyridine with Density-overlap
 
-1. navigate to `ProbeParticleModel/examples/pyridineDensOverlap`
+1. navigate to `ppafm/examples/pyridineDensOverlap`
 2. run the example `./run.sh`
 
 *NOTE:* Notice that the script `run.sh` downloads and unpacks files `CHGCAR.xsf` & `LOCPOT.xsf` and places them in subdirectories `sample` and `tip`. These are electron density and Hartree potential which need to be provided from DFT calculation (this time from VASP).
