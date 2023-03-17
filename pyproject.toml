@@ -18,22 +18,33 @@ classifiers = [
 ]
 requires-python = ">=3.6"
 dependencies = [
-    "ase",
     "matplotlib",
     "numpy",
-    "pyopencl",
-    "reikna",
 ]
 
 [project.urls]
 Homepage = "https://github.com/Probe-Particle/ProbeParticleModel"
 
 [project.optional-dependencies]
+opencl = [
+    "pyopencl",
+    "reikna",
+    "ase",
+    "PyQt5; platform_system=='Windows'"
+]
 dev = [
     "pre-commit",
     "pytest",
     "pytest-cov",
 ]
+
+[project.scripts]
+ppafm-generate-elff = "ppafm.cli.generateElFF:main"
+ppafm-generate-elff-point-charges = "ppafm.cli.generateElFF_point_charges:main"
+ppafm-generate-ljff = "ppafm.cli.generateLJFF:main"
+ppafm-relaxed-scan = "ppafm.cli.relaxed_scan:main"
+ppafm-plot-results = "ppafm.cli.plot_results:main"
+ppafm-gui = "ppafm.cli.gui.ppafm_gui:main"
 
 [tool.setuptools]
 include-package-data = true

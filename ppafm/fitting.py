@@ -25,9 +25,7 @@ header_strings = [
     "void debugGeomPBC_xsf( int ncenters, double* centers )",
 ]
 
-cpp_name='fitting'
-cpp_utils.make(cpp_name)
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes
+lib = cpp_utils.get_cdll('fitting')
 
 # ========= C functions
 

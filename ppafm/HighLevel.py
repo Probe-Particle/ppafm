@@ -159,10 +159,15 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     core.setFF_shape( np.shape(FF), lvec )
     if ffModel=="Morse":
         REs = PPU.getAtomsRE( iPP, iZs, FFparams )
-        core.getMorseFF( Rs, REs )       # THE MAIN STUFF HERE
+        core.getMorseFF( Rs, REs )     # THE MAIN STUFF HERE
     elif ffModel=="vdW":
-        cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
-        core.getVdWFF( Rs, cLJs )       # THE MAIN STUFF HERE
+        vdWDampKind=PPU.params['vdWDampKind']
+        if(vdWDampKind==0): 
+            cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
+            core.getVdWFF( Rs, cLJs )      # THE MAIN STUFF HERE
+        else:
+            REs = PPU.getAtomsRE( iPP, iZs, FFparams )
+            core.getVdWFF_RE( Rs, REs, kind=vdWDampKind )    # THE MAIN STUFF HERE
     else:
         cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
         core.getLenardJonesFF( Rs, cLJs ) # THE MAIN STUFF HERE
@@ -254,7 +259,7 @@ def loadValenceElectronDict():
         pass
     if valElDict_ is None:
         namespace = {}
-        fname_valelec_dict = cpp_utils.PACKAGE_PATH+'/defaults/valelec_dict.py'
+        fname_valelec_dict = cpp_utils.PACKAGE_PATH / 'defaults' / 'valelec_dict.py'
         exec(open(fname_valelec_dict).read(), namespace )
         valElDict_ = namespace['valElDict']
         print("Valence electrons loaded from default location : ", fname_valelec_dict)

@@ -28,7 +28,7 @@ Since 2014 PPM developed into the toolbox of various methodologies adjusted for 
 
 ## Installation & running examples
 
-All development and testing were done on **linux** OS (mostly ubuntu). For the windows version, `docker` version will be prepared soon. In the meantime - several people successfully used probe-particle on windows using [mingw](https://www.mingw-w64.org/).
+All development and testing were done on **linux** OS (mostly ubuntu). However, there are also pip wheels for Windows available. See also the docker image below for a platform-independent way of running the code.
 
 #### Install & run CPU version
 
@@ -110,10 +110,49 @@ Hover the mouse cursor over any parameter for a tooltip explaining the meaning o
 * `examples/CorrectionLoopGraphene` use GPU accelerated PPM to iteratively improve the estimate of molecular geometry by comparing simulated AFM images with reference. This is work-in-progress. Currently, modification of estimate geometry is random (Monte-Carlo), while later we plan to develop a more clever (e.g. Machine-Learned) heuristic for more efficient improvment.
 * `examples/Generator` quickly generates a batch of simulated AFM images (resp. 3D data stacks) which can be further used for machine learning. Especially in connection with (https://github.com/SINGROUP/ASD-AFM).
 
+## Making ppafm platform-independent.
+
+We propose to use [Docker](https://docs.docker.com/get-docker/) to make the code platform-independent.
+
+Here are the steps to build and run the ppafm Docker container:
+
+1. Build the image.
+
+```bash
+$ docker build -t ppafm:latest .
+```
+2. Execute the container.
+
+```bash
+$ docker run --rm -it -v ${PWD}:/exec ppafm:latest <ppafm command>
+```
+
+## Building the code
+
+The ppafm package contains C++ extension that need to be built for the code to run. Pre-built distributions are available on PyPI via pip: https://pypi.org/project/ppafm/. However, if you want to build the pip wheel for yourself from the repository, this can be done in the following way.
+
+First install the pre-requisite packages:
+```bash
+pip install setuptools build
+```
+**Linux**: Install `g++` and `make`: `sudo apt install g++ make`
+
+**Windows**: Install Visual Studio Build Tools: https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022. Make sure to check the *Desktop development with C++* option during the installation.
+
+Then clone the repository and execute in the repository root:
+```bash
+python -m build
+```
+After the build completes, you should find the built wheel under `dist`.
+
+#### For developers
+During development it is required to compile the C++ extensions very often after each modification. To help with this, ppafm offers the environment variable `PPAFM_RECOMPILE`, which when set to any non-empty value will make the C++ code recompile every time the extensions are imported. You could, e.g., set the variable in the beginning of a script, `export PPAFM_RECOMPILE=1`, or on a per run basis, `PPAFM_RECOMPILE=1 ./run.sh`.
+
 ### Notable publications using Probe Particle Model
 
 * [Prokop Hapala, Georgy Kichin, Christian Wagner, F. Stefan Tautz, Ruslan Temirov, and Pavel Jelínek, Mechanism of high-resolution STM/AFM imaging with functionalized tips, Phys. Rev. B 90, 085421 – Published 19 August 2014](http://journals.aps.org/prb/abstract/10.1103/PhysRevB.90.085421)
 * [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014,](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101)
+
 
 ### License
 MIT

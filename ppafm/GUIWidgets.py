@@ -87,8 +87,9 @@ class FigImshow(FigCanvas):
         else:
             self.img.set_data(F)
             if len(points) == 0:
-                self.axes.lines.clear()
-                self.axes.set_prop_cycle(None)
+                for line in self.axes.lines:
+                    line.remove()
+                self.axes.set_prop_cycle(None) # Reset color cycle
                 if self.verbose > 0: print('plotSlice: reset points')
             else:
                 for p, (ix, iy) in zip(self.axes.lines, points):

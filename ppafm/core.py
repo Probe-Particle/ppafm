@@ -12,9 +12,7 @@ from . import cpp_utils
 # ============================== interface to C++ core
 # ==============================
 
-cpp_name='ProbeParticle'
-cpp_utils.make( "PP"  )
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )    # load dynamic librady object using ctypes
+lib = cpp_utils.get_cdll('PP')
 
 # define used numpy array types for interfacing with C++
 array1i = np.ctypeslib.ndpointer(dtype=np.int32,  ndim=1, flags='CONTIGUOUS')
@@ -137,6 +135,17 @@ def getInPoints_LJ( ps, Rs, cLJs, FEs=None ):
     lib.getInPoints_LJ( npts, ps, FEs, nats, Rs, cLJs)
     return FEs
 
+#void evalRadialFF( int n, double* rs, double* coefs, double* Es, double* Fs, int kind ){
+lib.evalRadialFF.argtypes  = [ c_int,  array1d,  array1d,  array1d, array1d, c_int, c_double ]
+lib.evalRadialFF.restype   = None
+def evalRadialFF( rs, coefs, Es=None, Fs=None, kind=1, ADamp=-1 ):
+    n = len(rs)
+    if(Es is None): Es = np.zeros(n)
+    if(Fs is None): Fs = np.zeros(n)
+    coefs = np.array(coefs, dtype=np.float64)
+    lib.evalRadialFF( n, rs, coefs, Es, Fs, kind, ADamp )
+    return Es,Fs
+
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
 lib.getLenardJonesFF.argtypes  = [ c_int,       array2d,      array2d     ]
 lib.getLenardJonesFF.restype   = None
@@ -150,6 +159,13 @@ lib.getVdWFF.restype   = None
 def getVdWFF( Rs, cLJs ):
     natom = len(Rs)
     lib.getVdWFF( natom, Rs, cLJs )
+
+# void getVdWFF_RE( int natoms_, double * Ratoms_, double * REs, int kind, double ADamp_=-1.0 ){
+lib.getVdWFF_RE.argtypes  = [ c_int,       array2d,      array2d, c_int, c_double   ]
+lib.getVdWFF_RE.restype   = None
+def getVdWFF_RE( Rs, REs, kind=0, ADamp=-1. ):
+    natom = len(Rs)
+    lib.getVdWFF_RE( natom, Rs, REs, kind, ADamp )
 
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
 lib.getMorseFF.argtypes  = [ c_int,       array2d,      array2d, c_double ]
