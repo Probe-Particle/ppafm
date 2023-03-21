@@ -38,11 +38,11 @@ All development and testing were done on **linux** OS (mostly ubuntu). However, 
  1. clone the repository: `git clone https://github.com/Probe-Particle/ppafm`
  2. install the python packages
     * `cd ppafm'
-    * `pip install -e ppafm'
+    * `pip install -e .'
  3. compile the C/C++ modules
-    * `cd cpp`
+    * `cd ppafm/cpp`
     * `make`
- 4. Navigate to examples directory `cd ppafm/examples/Graphene`this example uses simple (Point-charges + Lennard-Jones)
+ 4. Navigate to examples directory `ppafm/examples/Graphene` by `cd ../../examples/Graphene'; this example uses simple (Point-charges + Lennard-Jones)
  5. run the example `./run.sh`
  6. output directory `/examples/Graphene/Q-0.05K0.50/Amp2.0` should contain simulated images with tip charge -0.05e, stiffness 0.5N/m and ossicaltion amplitude 2.0A.
 
