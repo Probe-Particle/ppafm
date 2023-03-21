@@ -5,8 +5,8 @@ from ppafm import common
 
 def test_get_df_weight():
     x, y = common.getDfWeight(n=5, dz=0.2)
-    np.equal(x, np.array([-0.53836624, -0.12099505, -0.0, 0.12099505, 0.53836624]))
-    np.equal(
+    assert np.allclose(x, np.array([-0.53836624, -0.12099505, -0.0, 0.12099505, 0.53836624]))
+    assert np.allclose(
         y,
         np.array(
             [
@@ -22,7 +22,7 @@ def test_get_df_weight():
 
 def test_sphere_tangent_space(n=2):
     rots = common.sphereTangentSpace(n)
-    assert np.isclose(
+    assert np.allclose(
         rots,
         np.array(
             [
@@ -34,4 +34,4 @@ def test_sphere_tangent_space(n=2):
                 ],
             ]
         ),
-    ).all()
+    )
