@@ -2,7 +2,7 @@
 
 import os
 import sys
-
+from io import StringIO 
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -10,7 +10,16 @@ sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 #import ppafm               as PPU
 import ppafm.core as PPC
 
-S = np.genfromtxt('TipRSpline.ini')
+spline_ini = """
+0.0   0.4 -0.1
+2.0   0.2 -0.1
+4.0   0.0 -0.1
+5.0  -4.0 -4.0
+10.0 -24.0 -4.0
+"""
+#S = np.genfromtxt('TipRSpline.ini')
+S = np.genfromtxt(StringIO(spline_ini), skip_header=1 )
+
 print("TipRSpline.ini overrides harmonic tip")
 xs   = S[:,0].copy();  print("xs: ",   xs)
 ydys = S[:,1:].copy(); print("ydys: ", ydys)

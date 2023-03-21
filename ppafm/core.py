@@ -113,7 +113,7 @@ def setTip( lRadial=None, kRadial=None, rPP0=None, kSpring=None	):
     if rPP0 is  None:
         rPP0=np.array((PPU.params['r0Probe'][0],PPU.params['r0Probe'][1],0.0))
     if kSpring is  None:
-        kSpring=np.array((PPU.params['klat'],PPU.params['klat'][1],0.0))/-PPU.eVA_Nm
+        kSpring=np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm
     print(" IN setTip !!!!!!!!!!!!!! ")
     print(" lRadial ", lRadial)
     print(" kRadial ", kRadial)
