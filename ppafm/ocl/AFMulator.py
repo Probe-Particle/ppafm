@@ -122,7 +122,7 @@ class AFMulator():
         self.counter = 0
 
     def eval(self, xyzs, Zs, qs, rho_sample=None, pbc_lvec=None, rot=np.eye(3), rot_center=None,
-        REAs=None, X=None ):
+        REAs=None, X=None, plot_to_dir=None):
         '''
         Prepare and evaluate AFM image.
 
@@ -139,6 +139,7 @@ class AFMulator():
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
+            plot_to_dir: str or None. If not None, plot the generated AFM images to this directory.
 
         Returns:
             np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
@@ -146,6 +147,7 @@ class AFMulator():
         self.prepareFF(xyzs, Zs, qs, rho_sample, pbc_lvec, rot, rot_center, REAs)
         self.prepareScanner()
         X = self.evalAFM(X)
+        if plot_to_dir: self.plot_images(X, outdir=plot_to_dir)
         return X
 
     def __call__(self, *args, **kwargs):
@@ -423,6 +425,25 @@ class AFMulator():
                     f'the boundary of the force-field grid which is not periodic in {dim} dimension. '
                     'If you get artifacts in the images, please check the boundary conditions and '
                     'the size of the scan window and the force field grid.')
+
+    def plot_images(self, X, outdir='afm_images', prefix='df'):
+        '''
+        Plot simulated AFM images and save them to a directory.
+
+        Arguments:
+            X: np.ndarray. AFM images to plot.
+            outdir: str. Path to directory where files are saved.
+            prefix: str. Prefix string for saved files.
+        '''
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        X = X.transpose(2, 1, 0)[::-1]
+        zTips = np.linspace(self.scan_window[0][2], self.scan_window[1][2] - self.df_steps * self.dz,
+            self.scan_dim[2] - self.df_steps + 1)
+        zTips += self.amplitude / 2
+        extent = [self.scan_window[0][0], self.scan_window[1][0], self.scan_window[0][1], self.scan_window[1][1]]
+        plotImages(os.path.join(outdir, prefix), X, slices = list(range(0, len(X))),
+            zs=zTips, extent=extent, cmap=PPU.params['colorscale'])
 
 def get_lvec(scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrome=10):
     pad = np.array(pad)

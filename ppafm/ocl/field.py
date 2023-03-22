@@ -652,10 +652,12 @@ class ForceField_LJC:
             assert isinstance(rho, TipDensity), 'rho should be a TipDensity object'
             self.rho = rho
             self.fft_corr = FFTCrossCorrelation(rho)
+            self.rho.release() # Don't actually need this on device, only the FFT array
         if rho_delta is not None:
             assert isinstance(rho_delta, TipDensity), 'rho_delta should be a TipDensity object'
             self.rho_delta = rho_delta
             self.fft_corr_delta = FFTCrossCorrelation(rho_delta)
+            self.rho_delta.release() # Don't actually need this on device, only the FFT array
         if rho_sample is not None:
             assert isinstance(rho_sample, ElectronDensity), 'rho_sample should be an ElectronDensity object'
             self.rho_sample = rho_sample
