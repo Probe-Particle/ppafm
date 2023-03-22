@@ -406,9 +406,9 @@ def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, REAs, lvec, npbc=[1,1,1] ):
     else:
         cLJs_=None
     if REAs is not None:
-        REAs_  = np.empty( (matom,2), np.float32)
+        REAs_ = np.empty( (matom,4), np.float32)
     else:
-        REAs_=None
+        REAs_ = None
     i0 = 0
     i1 = i0 + natom
     # we want to have cell=(0,0,0) first

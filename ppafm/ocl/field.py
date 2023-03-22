@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 import time
 import warnings
 
@@ -558,7 +559,9 @@ class FFTCrossCorrelation:
         self.fft_i(new_output=E_cl, new_input1=self.rho_hat_cl, new_input2=self.pot_hat_cl,
             scale=scale*self.rho.cell_vol, inverse=1)
 
-        if(bRuntime): print("runtime(FFTCrossCorrelation.correlate) [s]: ", time.perf_counter() - t0)
+        if(bRuntime):
+            self.queue.finish()
+            print("runtime(FFTCrossCorrelation.correlate) [s]: ", time.perf_counter() - t0)
 
         return E
 
@@ -1191,24 +1194,36 @@ class ForceField_LJC:
 
         # Interpolate sample Hartree potential and electron density onto the correct grid
         lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
-        pot = self.pot.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center,
-            local_size=local_size, queue=self.queue)
-        rho_sample = self.rho_sample.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center,
-            local_size=local_size, queue=self.queue)
+        pot_lvec_same = (np.allclose(lvec, self.pot.lvec) and np.allclose(self.pot.shape, self.nDim[:3]))
+        rho_sample_lvec_same = (np.allclose(lvec, self.rho_sample.lvec) and np.allclose(self.rho_sample.shape, self.nDim[:3]))
+        if not pot_lvec_same:
+            pot = self.pot.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center,
+                local_size=local_size, queue=self.queue)
+        else:
+            pot = self.pot
+        if not rho_sample_lvec_same:
+            rho_sample = self.rho_sample.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center,
+                local_size=local_size, queue=self.queue)
+        else:
+            rho_sample = self.rho_sample
 
-        if bRuntime: print("runtime(ForceField_LJC.calc_force_fdbm.interpolate) [s]: ", time.perf_counter() - t0)
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_fdbm.interpolate) [s]: ", time.perf_counter() - t0)
 
         # Cross-correlate Hartree potential and tip electron delta density for electrostatic energy
         E_es = self.fft_corr_delta.correlate(pot)
+        if not pot_lvec_same: pot.release()
 
         # Cross-correlate sample electron density and tip electron density for Pauli energy
         if not np.allclose(B, 1.0):
             rho_sample = rho_sample.power_positive(p=B, in_place=False)
         E_pauli = self.fft_corr.correlate(rho_sample)
+        if not rho_sample_lvec_same: rho_sample.release()
 
         if bRuntime:
             self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_fdbm.add_mult) [s]: ", time.perf_counter() - t0)
+            print("runtime(ForceField_LJC.calc_force_fdbm.cross-correlation) [s]: ", time.perf_counter() - t0)
 
         # Add the two energy contributions together
         E = E_es.add_mult(E_pauli, scale=A, in_place=True, local_size=local_size, queue=self.queue)
@@ -1216,7 +1231,7 @@ class ForceField_LJC:
 
         if bRuntime:
             self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_fdbm.cross-correlation) [s]: ", time.perf_counter() - t0)
+            print("runtime(ForceField_LJC.calc_force_fdbm.add_mult) [s]: ", time.perf_counter() - t0)
 
         # Take gradient to get the force field
         E.grad(scale=[-1.0, -1.0, -1.0, 1.0], array_out=self.cl_FE, order='F',

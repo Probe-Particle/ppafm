@@ -333,7 +333,7 @@ class AFMulator():
             Zs, xyzs, qs, cLJs, REAs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, pbc_lvec, npbc=npbc)
 
         # Compute force field
-        self.forcefield.makeFF(xyzs, cLJs, method=method, qs=qs, pot=pot, rho_sample=rho_sample,
+        self.forcefield.makeFF(xyzs, cLJs, REAs=REAs, method=method, qs=qs, pot=pot, rho_sample=rho_sample,
             rho_delta=self.rho_delta, A=self.A_pauli, B=self.B_pauli, rot=rot, rot_center=rot_center,
             vdw_damp_method=self.vdw_damp_method, bRelease=False, bCopy=False, bFinish=False)
         if self.bSaveFF: self.saveFF()
@@ -486,7 +486,7 @@ def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_s
             QZs = [0, 0, 0, 0]
         elif tip == 'pz':
             Qs = [10*charge, -10*charge, 0, 0]
-            Qzs = [0.1, -0.1, 0, 0]
+            QZs = [0.1, -0.1, 0, 0]
         elif tip == 'dz2':
             Qs = [100*charge, -200*charge, 100*charge, 0]
             QZs = [0.1, 0, -0.1, 0]
