@@ -76,9 +76,9 @@ print(">>> Saving result of convolution to FF_",namestr,"_?.xsf ... ")
 
 # Density Overlap Model
 if options.energy:
-    GU.saveXSF( "E"+namestr+".xsf", E*(PQ*-1.0), lvecS, head=headS )
-GU.saveXSF( "FF"+namestr+"_x.xsf", Fx*PQ,       lvecS, head=headS )
-GU.saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ,       lvecS, head=headS )
-GU.saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ,       lvecS, head=headS )
+    GU.saveXSF( "E"+namestr+".xsf", E*PQ, lvecS, head=headS )
+GU.saveXSF( "FF"+namestr+"_x.xsf", Fx*PQ, lvecS, head=headS )
+GU.saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ, lvecS, head=headS )
+GU.saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ, lvecS, head=headS )
 
 #Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)

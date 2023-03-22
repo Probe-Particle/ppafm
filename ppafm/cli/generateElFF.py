@@ -79,6 +79,7 @@ def main():
         print(" loading Hartree potential from ",options.input,"...")
         print("Use loadCUBE")
         V, lvec, nDim, head = GU.loadCUBE(options.input)
+    V *= -1 # Unit conversion, energy to potential (eV -> V)
 
     if PPU.params['tip']==".py":
         #import tip

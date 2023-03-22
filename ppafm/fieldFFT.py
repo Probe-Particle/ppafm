@@ -287,7 +287,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
         E         = np.real(np.fft.ifftn(convFFT * (dd[0]*dd[1]*dd[2]) / (detLmatInv) ) )
     if doForce:
         if(verbose>0): print('--- Get Forces ---')
-        convFFT  *= 2*np.pi*1j*(dd[0]*dd[1]*dd[2]) / (detLmatInv)
+        convFFT  *= -2*np.pi*1j*(dd[0]*dd[1]*dd[2]) / (detLmatInv)
         if(verbose>0): print("derConvFFT ", convFFT.sum(),convFFT.min(),convFFT.max())
         Fx        = np.real(np.fft.ifftn(zetaX*convFFT)); del zetaX; gc.collect()
         Fy        = np.real(np.fft.ifftn(zetaY*convFFT)); del zetaY; gc.collect()
