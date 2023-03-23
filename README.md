@@ -142,14 +142,10 @@ python -m build
 ```
 After the build completes, you should find the built wheel under `dist`.
 
-#### For developers
-During development it is required to compile the C++ extensions very often after each modification. To help with this, ppafm offers the environment variable `PPAFM_RECOMPILE`, which when set to any non-empty value will make the C++ code recompile every time the extensions are imported. You could, e.g., set the variable in the beginning of a script, `export PPAFM_RECOMPILE=1`, or on a per run basis, `PPAFM_RECOMPILE=1 ./run.sh`.
-
 ### Notable publications using Probe Particle Model
 
 * [Prokop Hapala, Georgy Kichin, Christian Wagner, F. Stefan Tautz, Ruslan Temirov, and Pavel Jelínek, Mechanism of high-resolution STM/AFM imaging with functionalized tips, Phys. Rev. B 90, 085421 – Published 19 August 2014](http://journals.aps.org/prb/abstract/10.1103/PhysRevB.90.085421)
 * [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014,](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101)
-
 
 ### License
 MIT

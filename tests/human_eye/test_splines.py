@@ -1,13 +1,9 @@
 #!/usr/bin/python -u
 
-import os
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-#import ppafm                as PPU
 import ppafm.core as PPC
 
 # =========== uniform spline
@@ -28,6 +24,8 @@ plt.plot( xs,  ys+0.1*dys , '.'  );
 plt.plot( xs_, ys_, '-' );
 plt.grid()
 
+plt.savefig('splines1.png')
+
 # =========== non-uniform spline
 
 xs  = np.array   ( [ -0.9, -0.6,  0.4,  0.6 ] )
@@ -46,5 +44,7 @@ plt.grid()
 
 #print "xs_", xs_
 #print "ys_", ys_
+
+plt.savefig('splines2.png')
 
 plt.show()
