@@ -85,7 +85,6 @@ def main():
         print("Vs   =", Vs)
     print("Ks   =", Ks)
     print("Qs   =", Qs)
-    #print "Amps =", Amps
 
     print(" ============= RUN  ")
     FFLJ, FFel, FFboltz,FFkpfm_t0sV, FFkpfm_tVs0=None,None,None,None,None
@@ -130,9 +129,6 @@ def main():
                 if not os.path.exists( dirname ):
                     os.makedirs( dirname )
                 fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJ, FFel, FFboltz,options.tipspline)
-                #PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
-                #Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
-                #io.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )
                 if PPU.params['tiltedScan']:
                     io.save_vec_field( dirname+'/OutF', fzs, lvecScan, data_format=options.data_format )
                 else:
@@ -143,10 +139,10 @@ def main():
                     xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
                     rTips = np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0).copy()
                     evals,evecs = PPC.stiffnessMatrix( rTips.reshape((-1,3)), PPpos.reshape((-1,3)), which=which, ddisp=PPU.params['ddisp'] )
-                    io.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, data_format=data_format )
-                    if which > 0: io.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                    if which > 1: io.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                    if which > 2: io.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=data_format )
+                    io.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, data_format=options.data_format )
+                    if which > 0: io.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=options.data_format )
+                    if which > 1: io.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=options.data_format )
+                    if which > 2: io.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=options.data_format )
                     #print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
                 if opt_dict['disp']:
                     io.save_vec_field( dirname+'/PPdisp', PPdisp, lvecScan,data_format=options.data_format)

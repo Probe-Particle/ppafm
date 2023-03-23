@@ -11,10 +11,6 @@ import ppafm.fieldFFT as fFFT
 import ppafm.HighLevel as PPH
 from ppafm import io
 
-#import matplotlib.pyplot as plt
-
-
-
 #file_format = "cube"
 file_format = "xsf"
 

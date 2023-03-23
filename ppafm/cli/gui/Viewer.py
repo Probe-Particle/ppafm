@@ -11,14 +11,11 @@ import sys
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-import matplotlib; matplotlib.use('Qt5Agg')
-
-sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-
-#import ppafm.common    as PPU
-#import ppafm.cpp_utils as cpp_utils
 import ppafm.GUIWidgets as guiw
 from ppafm import PPPlot, io
+
+import matplotlib; matplotlib.use('Qt5Agg')
+
 
 
 class ApplicationWindow(QtWidgets.QMainWindow):
@@ -87,7 +84,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         try:
             if   fext == ".xsf":
                 F, lvec, nDim, head = io.loadXSF( fname )
-                #atoms, nDim, lvec = io.loadXSFGeom( fname )
             elif fext == ".cube":
                 F,lvec, nDim, head = io.loadCUBE(fname)
             item[0] = F

@@ -11,11 +11,6 @@ import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
 from ppafm import io
 
-#import matplotlib.pyplot as plt
-
-
-
-#import PPPlot 		# we do not want to make it dempendent on matplotlib
 print("Amplitude ", PPU.params['Amplitude'])
 
 def rotVec( v, a ):
@@ -93,7 +88,6 @@ if __name__=="__main__":
         print("Vs   =", Vs)
     print("Ks   =", Ks)
     print("Qs   =", Qs)
-    #print "Amps =", Amps
     PPU.params["Apauli"] = options.Apauli
     print("Apauli",PPU.params["Apauli"])
 
@@ -131,11 +125,6 @@ if __name__=="__main__":
         FFkpfm_t0sV = FFkpfm_t0sV*opt_dict['pol_s']
         FFkpfm_tVs0 = FFkpfm_tVs0*opt_dict['pol_t']
 
-    #FFvdW*=0
-    #FFvdW*=0.25
-    #FFpauli *= 0.25
-    #FFpauli *= 0.15
-
     lvec[1,:] = rotVec( lvec[1,:], opt_dict['rotate'] )
     lvec[2,:] = rotVec( lvec[2,:], opt_dict['rotate'] )
     print(lvec)
@@ -155,10 +144,6 @@ if __name__=="__main__":
                 if not os.path.exists( dirname ):
                     os.makedirs( dirname )
                 fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,FFkpfm_t0sV=FFkpfm_t0sV,FFkpfm_tVs0=FFkpfm_tVs0,tipspline=options.tipspline, bFFtotDebug=options.bDebugFFtot)
-                #fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,tipspline=options.tipspline)
-                #PPC.setTip( kSpring = np.array((K,K,0.0))/-PPU.eVA_Nm )
-                #Fs,rPPs,rTips = PPH.relaxedScan3D( xTips, yTips, zTips )
-                #io.save_scal_field( dirname+'/OutFz', Fs[:,:,:,2], lvecScan, data_format=data_format )
                 io.save_scal_field( dirname+'/OutFz', fzs, lvecScan, data_format=options.data_format )
                 if opt_dict['vib'] >= 0:
                     which = opt_dict['vib']
@@ -166,11 +151,10 @@ if __name__=="__main__":
                     xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
                     rTips = np.array(np.meshgrid(xTips,yTips,zTips)).transpose(3,1,2,0).copy()
                     evals,evecs = PPC.stiffnessMatrix( rTips.reshape((-1,3)), PPpos.reshape((-1,3)), which=which, ddisp=PPU.params['ddisp'] )
-                    io.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, data_format=data_format )
-                    if which > 0: io.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                    if which > 1: io.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                    if which > 2: io.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=data_format )
-                    #print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
+                    io.save_vec_field( dirname+'/eigvalKs', evals   .reshape( rTips.shape ), lvecScan, data_format=options.data_format )
+                    if which > 0: io.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=options.data_format )
+                    if which > 1: io.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=options.data_format )
+                    if which > 2: io.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=options.data_format )
                 if opt_dict['disp']:
                     io.save_vec_field( dirname+'/PPdisp', PPdisp, lvecScan,data_format=options.data_format)
                 if opt_dict['pos']:

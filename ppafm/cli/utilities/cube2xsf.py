@@ -5,11 +5,8 @@ import sys
 import __main__ as main
 import numpy as np
 
-sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import ppafm as PPU
 import ppafm.cpp_utils as cpp_utils
-
-#from   ppafm            import elements
 import ppafm.HighLevel as PPH
 from ppafm import io
 

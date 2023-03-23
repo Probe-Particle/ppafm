@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 
 import numpy as np
 
-sys.path.append('..')
 
 def test_xyz():
 
@@ -68,7 +66,3 @@ def test_parse_comment_ase():
     extra_cols = [[str(v)] for v in np.random.rand(10)]
     qs = _getCharges(comment, extra_cols)
     assert np.allclose(qs, np.zeros(10)), qs
-
-if __name__ == '__main__':
-    test_xyz()
-    test_parse_comment_ase()

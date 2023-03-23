@@ -14,23 +14,6 @@ LWD = '/home/prokop/git/ProbeParticleModel/code'
 print(" # ========== make & load  ProbeParticle C++ library ")
 
 
-'''
-def makeclean( ):
-	import os
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".so") ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".o") ]
-	[ os.remove(f) for f in os.listdir(".") if f.endswith(".pyc") ]
-
-CWD = os.getcwd()
-os.chdir(LWD);       print " >> WORKDIR: ", os.getcwd()
-makeclean( )
-sys.path.insert(0, "./")
-import io
-import elements
-import ProbeParticle as PP
-os.chdir(CWD);  print " >> WORKDIR: ", os.getcwd()
-'''
-
 # sys.path.append( LWD )
 print(" sys.path =  ", sys.path)
 sys.path = [ LWD ]

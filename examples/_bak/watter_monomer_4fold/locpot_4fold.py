@@ -32,7 +32,6 @@ F,lvec,nDim,head=io.loadXSF('LOCPOT.xsf')
 
 F4 = 0.25*( F + F[:,:,::-1] + F[:,::-1,:] + F[:,::-1,::-1] )
 
-#io.saveXSF('LOCPOT_4sym.xsf', io.XSF_HEAD_DEFAULT, lvec, F4 )
 io.saveXSF('LOCPOT_4sym.xsf', head, lvec, F4 )
 
 plt.show()

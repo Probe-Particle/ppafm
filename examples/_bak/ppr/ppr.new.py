@@ -54,7 +54,6 @@ for iq,Q in enumerate( Qs ):
 		dirname = "Q%1.2fK%1.2f" %(Q,K)
 		os.makedirs( dirname )
 		PP.setTip( kSpring = np.array((K,K,0.0))/-PP.eVA_Nm )
-		#io.saveVecFieldXsf( 'FFtot', FF, lvec, head )
 		fzs = PP.relaxedScan3D( xTips, yTips, zTips )
 		io.saveXSF( dirname+'/OutFz.xsf', fzs, lvecScan, io.XSF_HEAD_DEFAULT )
 		for iA,Amp in enumerate( Amps ):

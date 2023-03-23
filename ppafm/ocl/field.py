@@ -6,9 +6,9 @@ import numpy as np
 import pyopencl as cl
 from pyopencl import array
 
+from .. import io
 from ..common import genFFSampling
 from ..fieldFFT import getProbeDensity
-from ..io import loadAtomsCUBE, loadCUBE, loadXSF, loadXSFGeom
 
 try:
     from reikna.cluda import dtypes, ocl_api
@@ -51,11 +51,11 @@ def hartreeFromFile(file_path):
     '''
 
     if file_path.endswith('.cube'):
-        FF, lvec, _, _ = loadCUBE(file_path, xyz_order=True, verbose=False)
-        Zs, x, y, z, _ = loadAtomsCUBE(file_path)
+        FF, lvec, _, _ = io.loadCUBE(file_path, xyz_order=True, verbose=False)
+        Zs, x, y, z, _ = io.loadAtomsCUBE(file_path)
     elif file_path.endswith('.xsf'):
-        FF, lvec, _, _ = loadXSF(file_path, xyz_order=True, verbose=False)
-        (Zs, x, y, z, _), _, _ = loadXSFGeom(file_path)
+        FF, lvec, _, _ = io.loadXSF(file_path, xyz_order=True, verbose=False)
+        (Zs, x, y, z, _), _, _ = io.loadXSFGeom(file_path)
     else:
         raise ValueError(f'Unsupported file format in file `{file_path}`')
 

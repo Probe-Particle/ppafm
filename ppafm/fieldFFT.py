@@ -4,7 +4,7 @@ import gc
 
 import numpy as np
 
-from .io import saveXSF
+from . import io
 
 verbose = 1
 
@@ -267,7 +267,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     if rho is None:
         if(verbose>0): print('--- Get Probe Density ---')
         rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt )
-        saveXSF( "rhoTip.xsf", rho, lvec )
+        io.saveXSF( "rhoTip.xsf", rho, lvec )
 
     else:
         if(verbose>0): print("rho backward (rho[::-1,::-1,::-1]) ")

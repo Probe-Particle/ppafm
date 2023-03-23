@@ -6,7 +6,7 @@ import numpy as np
 import pyopencl as cl
 
 from .. import common as PPU
-from ..io import loadXYZ, saveXSF
+from .. import io
 from ..PPPlot import plotImages
 from . import field as FFcl
 from . import oclUtils as oclu
@@ -371,7 +371,7 @@ class AFMulator():
 
     def saveDebugXSF_FF( self, fname, F ):
         if(self.verbose>0): print("saveDebugXSF : ", fname)
-        saveXSF( fname, F, self.lvec )
+        io.saveXSF( fname, F, self.lvec )
 
     def check_scan_window(self):
         '''Check that scan window does not extend beyond any non-periodic boundaries.'''
@@ -445,7 +445,7 @@ def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_s
         Qs = [0, 0, 0, 0]
         QZs = [0, 0, 0, 0]
     elif file_path.endswith('.xyz'):
-        xyzs, Zs, qs, _ = loadXYZ(file_path)
+        xyzs, Zs, qs, _ = io.loadXYZ(file_path)
         multipole = {}
         if tip == 's':
             Qs = [charge, 0, 0, 0]

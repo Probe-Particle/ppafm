@@ -1,18 +1,11 @@
 #!/usr/bin/python -u
 
-import os
-
-#import matplotlib.pyplot as plt
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import ppafm as PPU
 import ppafm.core as PPC
-
-#import ppafm.HighLevel     as PPH
 import ppafm.cpp_utils as cpp_utils
 from ppafm import io
 
@@ -66,7 +59,6 @@ FFparams=PPU.loadSpecies( 'atomtypes.ini' )
 elem_dict       = PPU.getFFdict(FFparams); print(elem_dict)
 
 atoms,nDim,lvec = io.loadGeometry("input_plot_mod0.xyz", params=PPU.params)
-#atoms,nDim,lvec = io.loadGeometry("Ag1.xyz", params=PPU.params)
 iZs,Rs,Qs       = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
 
 lines = getLines( lst, atoms );  #print lines

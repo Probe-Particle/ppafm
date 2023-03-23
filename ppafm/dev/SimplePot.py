@@ -243,9 +243,9 @@ if __name__ == "__main__":
 
     # ----- plot or store result
     if b3D:
-        from ppafm.io import saveXSF
+        from ppafm import io
         Es = Es.reshape( (nz,ny,nx) )
-        saveXSF( 'SimplePot.xsf', Es )
+        io.saveXSF( 'SimplePot.xsf', Es )
     else:
         Es = Es.reshape( (ny,nx) )
         vmax=1.5

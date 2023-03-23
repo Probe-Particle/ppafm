@@ -8,8 +8,6 @@ import numpy as np
 import ppafm as PPU
 import ppafm.cpp_utils as cpp_utils
 import ppafm.fieldFFT as fFFT
-
-#from   ppafm            import elements
 import ppafm.HighLevel as PPH
 from ppafm import io
 
@@ -39,8 +37,6 @@ def main():
     parser.add_option("--z0", action="store",type="float", default=0.0 ,help="heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
     (options, args) = parser.parse_args()
 
-    #print "options.tip_dens ", options.tip_dens;  exit()
-
     if options.input is None:
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MESSAGE)
     opt_dict = vars(options)
@@ -50,7 +46,6 @@ def main():
     else:
         print(">> LOADING default params.ini >> 's' =")
         PPU.loadParams( cpp_utils.PACKAGE_PATH / 'defaults' / 'params.ini' )
-    #PPU.loadParams( 'params.ini' )
     PPU.apply_options(opt_dict)
 
     if os.path.isfile( 'atomtypes.ini' ):
@@ -60,7 +55,6 @@ def main():
         PPU.loadSpecies( cpp_utils.PACKAGE_PATH / 'defaults' / 'atomtypes.ini' )
 
     bSubstractCore =  ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip_dens is not None) )
-    #if ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip is None) ):  # We do it here, in case it crash we don't want to wait for all the huge density files to load
     if bSubstractCore:  # We do it here, in case it crash we don't want to wait for all the huge density files to load
         if options.tip_dens is None: raise Exception( " Rcore>0 but no tip density provided ! " )
         valElDict        = PPH.loadValenceElectronDict()
@@ -87,19 +81,12 @@ def main():
         print(" PPU.params['tip'] ", PPU.params['tip'])
 
     if options.tip_dens is not None:
-        '''
         ###  NO NEED TO RENORMALIZE : fieldFFT already works with density
-        rho_tip, lvec_tip, nDim_tip, head_tip = io.loadXSF( options.tip_dens )
-        rho_tip *= io.dens2Q_CHGCARxsf(rho_tip, lvec_tip)
-        PPU.params['tip'] = rho_tip
-        print " dens_tip check_sum Q =  ", np.sum( rho_tip )
-        '''
         print(">>> loading tip density from ",options.tip_dens,"...")
         rho_tip, lvec_tip, nDim_tip, head_tip = io.loadXSF( options.tip_dens )
 
         if bSubstractCore:
             print(">>> subtracting core densities from rho_tip ... ")
-            #subtractCoreDensities( rho_tip, lvec_tip, fname=options.tip_dens, valElDict=valElDict, Rcore=options.Rcore )
             PPH.subtractCoreDensities( rho_tip, lvec_tip, elems=elems_tip, Rs=Rs_tip, valElDict=valElDict, Rcore=options.Rcore, head=head_tip )
 
         PPU.params['tip'] = rho_tip
@@ -169,7 +156,6 @@ def main():
         io.save_vec_field('FFkpfm_tVs0',FFkpfm_tVs0,lvec_samp ,data_format=options.data_format, head=head_samp)
 
     print(">>> calculating electrostatic forcefiled with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
-    #FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],Fmax=10.0,computeVpot=options.energy,Vmax=10, tilt=opt_dict['tilt'] )
     FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],computeVpot=options.energy , tilt=opt_dict['tilt'] )
 
     print(">>> saving electrostatic forcefiled ... ")
