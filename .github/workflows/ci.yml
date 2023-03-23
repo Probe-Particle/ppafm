@@ -21,7 +21,13 @@ jobs:
 
             - name: Install package and its dependencies
               run: |
-                  pip install -e .[dev]
+                  pip install .[dev]
 
             - name: Run pytest
               run: pytest tests -v --cov
+
+            - name: Save test images
+              uses: actions/upload-artifact@v3
+              with:
+                  name: test-images
+                  path: ./*.png
