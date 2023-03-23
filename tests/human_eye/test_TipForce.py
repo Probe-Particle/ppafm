@@ -1,13 +1,10 @@
 #!/usr/bin/python -u
 
-import os
-import sys
-from io import StringIO 
+from io import StringIO
+
 import matplotlib.pyplot as plt
 import numpy as np
 
-sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-#import ppafm               as PPU
 import ppafm.core as PPC
 
 spline_ini = """
@@ -47,4 +44,5 @@ plt.plot(xs, fs[:,2] )
 #print "fs:", fs
 
 plt.grid()
+plt.savefig('tip_force.png')
 plt.show()
