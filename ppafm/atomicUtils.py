@@ -1,29 +1,11 @@
 #!/usr/bin/python
 
+import math
+
 import numpy as np
 
 from . import elements
 
-
-def findAllBonds( atoms, Rcut=3.0, RvdwCut=0.7 ):
-    bonds     = []
-    bondsVecs = []
-    ps     = atoms[:,1:]
-    iatoms = np.arange( len(atoms), dtype=int )
-    Rcut2 = Rcut*Rcut
-    for i,atom in enumerate(atoms):
-        p    = atom[1:]
-        dp   = ps - p
-        rs   = np.sum( dp**2, axis=1 )
-        for j in iatoms[:i][ rs[:i] < Rcut2 ]:
-            ei = int( atoms[i,0] )
-            ej = int( atoms[j,0] )
-            Rcut_ij =  elements.ELEMENTS[ ei ][7] + elements.ELEMENTS[ ej ][7]
-            rij =  np.sqrt( rs[j] )
-            if ( rij < ( RvdwCut * Rcut_ij ) ):
-                bonds.append( (i,j) )
-                bondsVecs.append( ( rij, dp[j]/rij ) )
-    return bonds, bondsVecs
 
 def neighs( natoms, bonds ):
     neighs = [{} for i in range(natoms) ]
@@ -150,19 +132,6 @@ def countTypeBonds( atoms, ofAtoms, rcut ):
         bond_counts[i] = np.sum( rs < (rcut**2) )
     return bond_counts
 
-def findBondsTo( atoms, typ, ofAtoms, rcut ):
-    found     = []
-    foundDict = {}
-    ps = ofAtoms[:,1:]
-    for i,atom in enumerate(atoms):
-        if atom[0]==typ:
-            p = atom[1:]
-            ineigh = findNearest( p, ps, rcut )
-            if ineigh >= 0:
-                foundDict[i] = len(found)
-                found.append( (i, p - ps[ineigh]) )
-    return found, foundDict
-
 def replace( atoms, found, to=17, bond_length=2.0, radial=0.0, prob=0.75 ):
     replace_mask = np.random.rand(len(found)) < prob
     for i,foundi in enumerate(found):
@@ -219,3 +188,43 @@ def histR( ps, dbin=None, Rmax=None, weights=None ):
 def ZsToElems(Zs):
     '''Convert atomic numbers to element symbols.'''
     return [elements.ELEMENTS[Z-1][1] for Z in Zs]
+
+def findBonds( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS, FFparams=None ):
+    bonds = []
+    xs = atoms[1]
+    ys = atoms[2]
+    zs = atoms[3]
+    n = len( xs )
+    for i in range(n):
+        for j in range(i):
+            dx=xs[j]-xs[i]
+            dy=ys[j]-ys[i]
+            dz=zs[j]-zs[i]
+            r=math.sqrt( dx*dx + dy*dy + dz*dz )
+            ii = iZs[i]-1
+            jj = iZs[j]-1
+            bondlength=ELEMENTS[ii][6]+ELEMENTS[jj][6]
+            print(" find bond ", i, j,   bondlength, r, sc, (xs[i],ys[i],zs[i]), (xs[j],ys[j],zs[j]))
+            if (r<( sc * bondlength)) :
+                bonds.append( (i,j) )
+    return bonds
+
+def findBonds_( atoms, iZs, sc, ELEMENTS = elements.ELEMENTS):
+    bonds = []
+    n = len( atoms )
+    for i in range(n):
+        for j in range(i):
+            d  = atoms[i]-atoms[j]
+            r  = math.sqrt( np.dot(d,d) )
+            ii = iZs[i]-1
+            jj = iZs[j]-1
+            bondlength=ELEMENTS[ii][6]+ELEMENTS[jj][6]
+            if (r<( sc * bondlength)) :
+                bonds.append( (i,j) )
+    return bonds
+
+def getAtomColors( iZs, ELEMENTS = elements.ELEMENTS, FFparams=None ):
+    colors=[]
+    for e in iZs:
+        colors.append( ELEMENTS[ FFparams[e - 1][3] -1 ][8] )
+    return colors

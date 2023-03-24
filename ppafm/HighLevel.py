@@ -4,11 +4,10 @@ import sys
 
 import numpy as np
 
-from . import GridUtils as GU
-from . import basUtils as BU
 from . import common as PPU
 from . import core, cpp_utils
 from . import fieldFFT as fFFT
+from . import io
 
 verbose = 1
 
@@ -101,7 +100,7 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,FFkpfm_t
     if FFboltz != None :
         FF += FFboltz
     if bFFtotDebug:
-        GU.save_vec_field( 'FFtotDebug', FF, lvec )
+        io.save_vec_field( 'FFtotDebug', FF, lvec )
     core.setFF_shape( np.shape(FF), lvec )
     core.setFF_Fpointer( FF )
     if (PPU.params['stiffness'] < 0.0).any():
@@ -146,8 +145,8 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     FFparams            = PPU.loadSpecies( speciesFile )
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
     # --- load atomic geometry
-    atoms,nDim,lvec     = BU.loadGeometry( geomFile, params=PPU.params )
-    atomstring          = BU.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
+    atoms,nDim,lvec     = io.loadGeometry( geomFile, params=PPU.params )
+    atomstring          = io.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
     PPU      .params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3] # must be before parseAtoms
     if(verbose>0): print(PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC'])
     iZs,Rs,Qs           = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
@@ -162,7 +161,7 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
         core.getMorseFF( Rs, REs )     # THE MAIN STUFF HERE
     elif ffModel=="vdW":
         vdWDampKind=PPU.params['vdWDampKind']
-        if(vdWDampKind==0): 
+        if(vdWDampKind==0):
             cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
             core.getVdWFF( Rs, cLJs )      # THE MAIN STUFF HERE
         else:
@@ -174,16 +173,16 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     # --- post porces FFs
     if Fmax is not  None:
         if(verbose>0): print("Clamp force >", Fmax)
-        GU.limit_vec_field( FF, Fmax=Fmax )
+        io.limit_vec_field( FF, Fmax=Fmax )
     if (Vmax is not None) and computeVpot:
         if(verbose>0): print("Clamp potential >", Vmax)
         V[ V > Vmax ] =  Vmax # remove too large values
     # --- save to files ?
     if save_format is not None:
         if(verbose>0): print("computeLJ Save ", save_format)
-        GU.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring )
+        io.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring )
         if computeVpot:
-            GU.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
+            io.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
     if(verbose>0): print("<<<END: computeLJ()")
     return FF, V, nDim, lvec
 
@@ -196,8 +195,8 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     FFparams            = PPU.loadSpecies( )
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
 
-    atoms,nDim,lvec     = BU .loadGeometry( geomFile, params=PPU.params )
-    atomstring          = BU.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
+    atoms,nDim,lvec     = io .loadGeometry( geomFile, params=PPU.params )
+    atomstring          = io.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
     iZs,Rs,Qs=PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params['PBC'] )
     # --- prepare arrays and compute
     PPU.params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3]
@@ -208,16 +207,16 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     # --- post porces FFs
     if Fmax is not  None:
         if(verbose>0): print("Clamp force >", Fmax)
-        GU.limit_vec_field( FF, Fmax=Fmax )
+        io.limit_vec_field( FF, Fmax=Fmax )
     if (Vmax is not None) and computeVpot:
         if(verbose>0): print("Clamp potential >", Vmax)
         V[ V > Vmax ] =  Vmax # remove too large values
     # --- save to files ?
     if save_format is not None:
         if(verbose>0): print("computeLJ Save ", save_format)
-        GU.save_vec_field( 'FFel',FF,lvec,data_format=save_format, head=atomstring )
+        io.save_vec_field( 'FFel',FF,lvec,data_format=save_format, head=atomstring )
         if computeVpot:
-            GU.save_scal_field( 'Vel',V,lvec,data_format=save_format, head=atomstring )
+            io.save_scal_field( 'Vel',V,lvec,data_format=save_format, head=atomstring )
     if(verbose>0): print("<<<END: computeELFF_pointCharge()")
     return FF, V, nDim, lvec
 
@@ -236,12 +235,12 @@ def computeElFF(V,lvec,nDim,tip,computeVpot=False, tilt=0.0,sigma=None ):
             rho = None
             multipole={tip:1.0}
         elif tip.endswith(".xsf"):
-            rho, lvec_tip, nDim_tip, tiphead = GU.loadXSF(tip)
+            rho, lvec_tip, nDim_tip, tiphead = io.loadXSF(tip)
             if any(nDim_tip != nDim):
                 sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")
     if(verbose>0): print(" computing convolution with tip by FFT ")
     Fel_x,Fel_y,Fel_z, Vout = fFFT.potential2forces_mem( V, lvec, nDim, rho=rho, sigma=sigma, multipole = multipole, doPot=computeVpot, tilt=tilt )
-    FFel = GU.packVecGrid(Fel_x,Fel_y,Fel_z)
+    FFel = io.packVecGrid(Fel_x,Fel_y,Fel_z)
     del Fel_x,Fel_y,Fel_z
     return FFel, Vout
 
@@ -267,22 +266,21 @@ def loadValenceElectronDict():
     return valElDict_
 
 def _getAtomsWhichTouchPBCcell( Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname=None ):
-    print(Rs, elems, nDim, lvec)
     inds, Rs_ = PPU.findPBCAtoms3D_cutoff( Rs, np.array(lvec[1:]), Rcut=Rcut )  # find periodic images of PBC images of atom of radius Rcut which touch our cell
     elems = [ elems[i] for i in inds ]   # atomic number of all relevant peridic images of atoms
     if bSaveDebug:
-        BU.saveGeomXSF( fname+"_TouchCell_debug.xsf",elems,Rs_, lvec[1:], convvec=lvec[1:], bTransposed=True )    # for debugging - mapping PBC images of atoms to the cell
+        io.saveGeomXSF( fname+"_TouchCell_debug.xsf",elems,Rs_, lvec[1:], convvec=lvec[1:], bTransposed=True )    # for debugging - mapping PBC images of atoms to the cell
     Rs_ = Rs_.transpose().copy()
     return Rs_, elems
 
 def getAtomsWhichTouchPBCcell( fname, Rcut=1.0, bSaveDebug=True ):
-    atoms, nDim, lvec = BU.loadGeometry( fname, params=PPU.params )
+    atoms, nDim, lvec = io.loadGeometry( fname, params=PPU.params )
     Rs = np.array(atoms[1:4]) # get just positions x,y,z
     elems = np.array(atoms[0])
     Rs, elems = _getAtomsWhichTouchPBCcell(Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname)
     return Rs, elems
 
-def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDict=None, Rcore=0.7, bSaveDebugDens=False, bSaveDebugGeom=True, head=GU.XSF_HEAD_DEFAULT ):
+def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDict=None, Rcore=0.7, bSaveDebugDens=False, bSaveDebugGeom=True, head=io.XSF_HEAD_DEFAULT ):
     lvec = lvec_[1:]
     nDim = rho.shape
     if fname is not None:
@@ -303,4 +301,4 @@ def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDic
     core.getDensityR4spline( Rs, cRAs.copy() )  # Do the job ( the Projection of atoms onto grid )
     if(verbose>0): print("sum(RHO), Nelec: ",  rho.sum(),  rho.sum()*dV)   # check sum
     if bSaveDebugDens:
-        GU.saveXSF( "rho_subCoreChg.xsf", rho, lvec_, head=head )
+        io.saveXSF( "rho_subCoreChg.xsf", rho, lvec_, head=head )

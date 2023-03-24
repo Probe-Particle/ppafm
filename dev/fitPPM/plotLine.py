@@ -8,10 +8,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator, interp1d
 
-#import GridUtils as GU
 import ppafm as PPU
 import ppafm.cpp_utils as cpp_utils
-import ppafm.GridUtils as GU
+from ppafm import io
 
 
 def selectLine(BIGarray,MIN,MAX,startingPoint, endPoint, nsteps):
@@ -86,7 +85,7 @@ dirname = "Q%1.2fK%1.2f" %(Q,K)
 
 print(f"Working in {dirname} directory")
 
-fzs,lvec,nDim=GU.load_scal_field(dirname+'/OutFz',data_format=options.data_format)
+fzs,lvec,nDim=io.load_scal_field(dirname+'/OutFz',data_format=options.data_format)
 dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
 for p in options.points:
     xmin=float(p[0].split('x')[0])
@@ -100,8 +99,8 @@ for p in options.points:
     print(opt_dict['disp'])
     if opt_dict['disp'] :
         print("Displacment {}".format(opt_dict['disp'][0]))
-        disp_all,lvec,nDim,head=GU.load_vec_field(dirname+'/PPdisp_')
-        disp_x,disp_y,disp_z = GU.unpackVecGrid( disp_all ); del disp_all;
+        disp_all,lvec,nDim,head=io.load_vec_field(dirname+'/PPdisp_')
+        disp_x,disp_y,disp_z = io.unpackVecGrid( disp_all ); del disp_all;
         if (opt_dict['disp'][0]=='x'):
             disp = disp_x; del disp_y, disp_z;
         elif (opt_dict['disp'][0]=='y'):

@@ -9,7 +9,7 @@ import numpy as np
 
 import ppafm as PPU
 import ppafm.fieldFFT as fFFT
-import ppafm.GridUtils as GU
+from ppafm import io
 
 # ======== Functions
 
@@ -37,13 +37,10 @@ parser.add_option( "--densityMayBeNegative", action="store_false", help="input d
 
 (options, args) = parser.parse_args()
 
-#rho1, lvec1, nDim1, head1 = GU.loadXSF("./pyridine/CHGCAR.xsf")
-#rho2, lvec2, nDim2, head2 = GU.loadXSF("./CO_/CHGCAR.xsf")
-
 print(">>> Loading sample from ", options.sample, " ... ")
-rhoS, lvecS, nDimS, headS = GU.loadXSF( options.sample )
+rhoS, lvecS, nDimS, headS = io.loadXSF( options.sample )
 print(">>> Loading tip from ", options.tip, " ... ")
-rhoT, lvecT, nDimT, headT = GU.loadXSF( options.tip    )
+rhoT, lvecT, nDimT, headT = io.loadXSF( options.tip    )
 
 if np.any( nDimS != nDimT ): raise Exception( "Tip and Sample grids has different dimensions! - sample: "+str(nDimS)+" tip: "+str(nDimT) )
 if np.any( lvecS != lvecT ): raise Exception( "Tip and Sample grids has different shap! - sample: "+str(lvecS )+" tip: "+str(lvecT) )
@@ -63,8 +60,8 @@ if options.Bpower > 0.0:
     rhoS[:,:,:] = rhoS[:,:,:]**B
     rhoT[:,:,:] = rhoT[:,:,:]**B
     if options.saveDebugXsfs:
-        GU.saveXSF( "sample_density_pow_%03.3f.xsf" %B, rhoS, lvecS, head=headS )
-        GU.saveXSF( "tip_density_pow_%03.3f.xsf" %B, rhoT, lvecT, head=headT )
+        io.saveXSF( "sample_density_pow_%03.3f.xsf" %B, rhoS, lvecS, head=headS )
+        io.saveXSF( "tip_density_pow_%03.3f.xsf" %B, rhoT, lvecT, head=headT )
 
 print(">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... ")
 Fx,Fy,Fz,E = fFFT.potential2forces_mem( rhoS, lvecS, nDimS, rho=rhoT, doForce=True, doPot=True, deleteV=True )
@@ -76,9 +73,9 @@ print(">>> Saving result of convolution to FF_",namestr,"_?.xsf ... ")
 
 # Density Overlap Model
 if options.energy:
-    GU.saveXSF( "E"+namestr+".xsf", E*(PQ*-1.0), lvecS, head=headS )
-GU.saveXSF( "FF"+namestr+"_x.xsf", Fx*PQ,       lvecS, head=headS )
-GU.saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ,       lvecS, head=headS )
-GU.saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ,       lvecS, head=headS )
+    io.saveXSF( "E"+namestr+".xsf", E*(PQ*-1.0), lvecS, head=headS )
+io.saveXSF( "FF"+namestr+"_x.xsf", Fx*PQ,       lvecS, head=headS )
+io.saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ,       lvecS, head=headS )
+io.saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ,       lvecS, head=headS )
 
 #Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)

@@ -11,10 +11,10 @@ print(" # ========== make & load  ProbeParticle C++ library ")
 LWD = '/home/prokop/git/ProbeParticleModel/code'
 sys.path = [ LWD ]
 
-import basUtils
 import elements
-import GridUtils as GU
 import ProbeParticle as PP
+
+from ppafm import io
 
 print(" ============= RUN  ")
 
@@ -23,9 +23,9 @@ print(" >> WARNING!!! OVEWRITING SETTINGS by params.ini  ")
 PP.loadParams( 'params.ini' )
 
 print(" load Electrostatic Force-field ")
-FFel, lvec, nDim, head = loadVecFieldXsf( "FFel" )
+FFel, lvec, nDim, head = io.loadVecFieldXsf( "FFel" )
 print(" load Lenard-Jones Force-field ")
-FFLJ, lvec, nDim, head = loadVecFieldXsf( "FFLJ" )
+FFLJ, lvec, nDim, head = io.loadVecFieldXsf( "FFLJ" )
 PP.params['gridA'] = lvec[ 1,:  ].copy()
 PP.params['gridB'] = lvec[ 2,:  ].copy()
 PP.params['gridC'] = lvec[ 3,:  ].copy()
@@ -50,7 +50,7 @@ def main():
 			os.makedirs( dirname )
 			PP.setTip( kSpring = np.array((K,K,0.0))/-PP.eVA_Nm )
 			fzs = PP.relaxedScan3D( xTips, yTips, zTips )
-			PP.saveXSF( dirname+'/OutFz.xsf', headScan, lvecScan, fzs )
+			io.saveXSF( dirname+'/OutFz.xsf', headScan, lvecScan, fzs )
 			for iA,Amp in enumerate( Amps ):
 				AmpStr = "/Amp%2.2f" %Amp
 				print("Amp= ",AmpStr)

@@ -5,16 +5,11 @@ import os
 import numpy as np
 
 import ppafm as PPU
-import ppafm.basUtils as BU
 import ppafm.core as PPC
 import ppafm.cpp_utils as cpp_utils
 import ppafm.fieldFFT as fFFT
-import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
-
-#import matplotlib.pyplot as plt
-
-
+from ppafm import io
 
 #file_format = "cube"
 file_format = "xsf"
@@ -27,14 +22,14 @@ if os.path.isfile( 'atomtypes.ini' ):
     print(">> LOADING LOCAL atomtypes.ini")
     FFparams=PPU.loadSpecies('atomtypes.ini')
 else:
-    FFparams = PPU.loadSpecies(cpp_utils.PACKAGE_PATH/'defaults/atomtypes.ini')
+    FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH / 'defaults' / 'atomtypes.ini' )
 
 elem_dict   = PPU.getFFdict(FFparams); # print elem_dict
 iPP         = PPU.atom2iZ( PPU.params['probeType'], elem_dict )
 
 # -- load CO tip
-drho_tip,lvec_dt, ndim_dt = GU.load_scal_field( "drho_tip",data_format=file_format)
-rho_tip ,lvec_t,  ndim_t  = GU.load_scal_field( "rho_tip" ,data_format=file_format)
+drho_tip,lvec_dt, ndim_dt = io.load_scal_field( "drho_tip",data_format=file_format)
+rho_tip ,lvec_t,  ndim_t  = io.load_scal_field( "rho_tip" ,data_format=file_format)
 
 #PPU      .params['gridN'] = ndim_t
 PPU      .params['gridN'] = ndim_t[::-1];
@@ -56,7 +51,7 @@ for path in paths:
 
     # === load data
 
-    atoms,nDim,lvec     = BU.loadGeometry( "V.xsf", params=PPU.params )
+    atoms,nDim,lvec     = io.loadGeometry( "V.xsf", params=PPU.params )
 
     # === generate FF vdW
 
@@ -68,7 +63,7 @@ for path in paths:
 
     # === generate FF Pauli
 
-    rho1,lvec1, ndim1 = GU.load_scal_field( "rho",data_format=file_format)
+    rho1,lvec1, ndim1 = io.load_scal_field( "rho",data_format=file_format)
 
     #print "rho1.shape, FF.shape ", rho1.shape, FF.shape
     #exit()
@@ -81,7 +76,7 @@ for path in paths:
 
     # === generate FF Electrostatic
 
-    V_samp, lvec1, ndim1  = GU.load_scal_field( "V",data_format=file_format)
+    V_samp, lvec1, ndim1  = io.load_scal_field( "V",data_format=file_format)
     Fx,Fy,Fz,E = fFFT.potential2forces_mem( V_samp, lvec1, V_samp.shape, rho=drho_tip, doForce=True, doPot=False, deleteV=True )
     FF[:,:,:,0] = Fx*PPU.params['charge']
     FF[:,:,:,1] = Fy*PPU.params['charge']
@@ -95,6 +90,6 @@ for path in paths:
     PPC.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
     fzs,PPpos = PPH.relaxedScan3D( xTips, yTips, zTips )
 
-    GU.save_scal_field( 'OutFz', fzs, lvecScan, data_format=file_format )
+    io.save_scal_field( 'OutFz', fzs, lvecScan, data_format=file_format )
 
     os.chdir( base_dir )

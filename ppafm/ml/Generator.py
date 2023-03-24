@@ -3,8 +3,8 @@ import time
 
 import numpy as np
 
-from .. import basUtils
 from .. import common as PPU
+from .. import io
 
 
 class InverseAFMtrainer:
@@ -153,7 +153,7 @@ class InverseAFMtrainer:
         '''
         self.molecules = []
         for path in self.paths:
-            xyzs, Zs, qs, _ = basUtils.loadXYZ(path)
+            xyzs, Zs, qs, _ = io.loadXYZ(path)
             self.molecules.append(np.concatenate([xyzs, qs[:,None], Zs[:,None]], axis=1))
 
     def handle_positions(self):

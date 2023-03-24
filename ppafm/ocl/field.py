@@ -8,16 +8,9 @@ import numpy as np
 import pyopencl as cl
 from pyopencl import array
 
-from ..basUtils import loadAtomsCUBE, loadXSFGeom
+from .. import io
 from ..common import genFFSampling
 from ..fieldFFT import getProbeDensity
-from ..GridUtils import (
-    limit_vec_field,
-    loadCUBE,
-    loadXSF,
-    save_scal_field,
-    save_vec_field,
-)
 from ..HighLevel import _getAtomsWhichTouchPBCcell, subtractCoreDensities
 
 try:
@@ -145,12 +138,12 @@ class DataGrid:
         '''
 
         if file_path.endswith('.cube'):
-            data, lvec, _, _ = loadCUBE(file_path, xyz_order=True, verbose=False)
-            Zs, x, y, z, _ = loadAtomsCUBE(file_path)
+            data, lvec, _, _ = io.loadCUBE(file_path, xyz_order=True, verbose=False)
+            Zs, x, y, z, _ = io.loadAtomsCUBE(file_path)
         elif file_path.endswith('.xsf'):
-            data, lvec, _, _ = loadXSF(file_path, xyz_order=True, verbose=False)
+            data, lvec, _, _ = io.loadXSF(file_path, xyz_order=True, verbose=False)
             try:
-                (Zs, x, y, z, _), _, _ = loadXSFGeom(file_path)
+                (Zs, x, y, z, _), _, _ = io.loadXSFGeom(file_path)
             except ValueError:
                 warnings.warn(f'Could not read geometry from {file_path} in DataGrid.from_file.')
                 Zs = np.zeros(1)
@@ -182,15 +175,15 @@ class DataGrid:
         array = self.array.copy()
         if len(self.shape) == 3:
             if clamp: array[array > clamp] = clamp
-            save_scal_field(file_head, array.T, self.lvec, data_format=ext)
+            io.save_scal_field(file_head, array.T, self.lvec, data_format=ext)
         if len(self.shape) == 4:
             assert self.shape[3] == 4, 'Wrong number of components'
             if clamp:
-                limit_vec_field(array, Fmax=clamp)
+                io.limit_vec_field(array, Fmax=clamp)
                 array[:, :, :, 3][array[:, :, :, 3] > clamp] = clamp
             array = array.transpose(2, 1, 0, 3)
-            save_vec_field(file_head, array[:, :, :, :3], self.lvec, data_format=ext)
-            save_scal_field(file_head+'_w', array[:, :, :, 3], self.lvec, data_format=ext)
+            io.save_vec_field(file_head, array[:, :, :, :3], self.lvec, data_format=ext)
+            io.save_scal_field(file_head+'_w', array[:, :, :, 3], self.lvec, data_format=ext)
 
     def add_mult(self, array, scale=1.0, in_place=True, local_size=(32,), queue=None):
         '''
