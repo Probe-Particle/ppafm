@@ -850,6 +850,9 @@ class ForceField_LJC:
         Arguments:
             FE: np.ndarray or None. Array where output force field is copied to. If None,
                 will be created automatically.
+
+        Returns:
+            FE: np.ndarray. Force field and energy.
         '''
 
         # Get numpy array

@@ -517,8 +517,8 @@ def REA2LJ( cREAs, cLJs=None ):
     if cLJs is None:
         cLJs = np.zeros((len(cREAs),2))
     R6   = cREAs[:,0]**6
-    cLJs[:,0] = -2*cREAs[:,1] *  R6
-    cLJs[:,1] =  - cREAs[:,1] * (R6**2)
+    cLJs[:,0] = 2*cREAs[:,1] *  R6
+    cLJs[:,1] =   cREAs[:,1] * (R6**2)
     return cLJs
 
 def getAtomsREA(  iZprobe, iZs,  FFparams, alphaFac=-1.0 ):
@@ -531,20 +531,12 @@ def getAtomsREA(  iZprobe, iZs,  FFparams, alphaFac=-1.0 ):
     for ii in range(n):
         j = iZs[ii]-1
         REAs[ii,0] = FFparams[i][0] + FFparams[j][0]
-        REAs[ii,1] = -np.sqrt( FFparams[i][1] * FFparams[j][1] )
+        REAs[ii,1] = np.sqrt( FFparams[i][1] * FFparams[j][1] )
         REAs[ii,2] = FFparams[j][2] * alphaFac
     return REAs
 
 def getSampleAtomsREA( iZs, FFparams ):
     return np.array( [ ( FFparams[i-1][0],FFparams[i-1][1],FFparams[i-1][2] ) for i in iZs ] )
-
-def combineREA( PP_R, PP_E, atomREAs, alphaFac=-1.0 ):
-    n   = len(atomREAs)
-    REAs  = np.zeros( (n,4) )
-    REAs[:,0] =          atomREAs[:,0] + PP_R;
-    REAs[:,1] = -np.sqrt( atomREAs[:,1] * PP_E );
-    REAs[:,2] = atomREAs[:,2] * alphaFac;
-    return REAs
 
 def getAtomsRE(  iZprobe, iZs,  FFparams ):
     n   = len(iZs)

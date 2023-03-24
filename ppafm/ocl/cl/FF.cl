@@ -555,9 +555,7 @@ __kernel void addvdW(
 
     const int iL = get_local_id  (0);
     const int nL = get_local_size(0);
-
     int ind = get_global_id(0);
-    if (ind > nGrid.x * nGrid.y * nGrid.z) return;
 
     // Convert linear index to x,y,z indices (Fortran order)
     int i = ind % nGrid.x;
@@ -571,24 +569,38 @@ __kernel void addvdW(
     __local float4 LATOMS[64];
     __local float2 LCLJS[64];
     float4 fe = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
-    if (damp_method == -1 || damp_method == 0) {
+    if (damp_method == -1) {
         for (int i0 = 0; i0 < nAtoms; i0 += nL) {
             int ia = i0 + iL;
-            LATOMS[iL] = atoms[ia];
-            LCLJS[iL] = cLJs[ia];
+            if (ia < nAtoms) {
+                LATOMS[iL] = atoms[ia];
+                LCLJS[iL] = cLJs[ia];
+            }
             barrier(CLK_LOCAL_MEM_FENCE);
             for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
-                float3 dp  = pos - LATOMS[ja].xyz;
-                float ir2;
-                if (damp_method == -1) {
-                    ir2 = 1.0f / (dot(dp, dp) + R2SAFE);
-                } else {
-                    ir2 = 1.0f / (dot(dp, dp) + ADamp_Const * LCLJS[ja].x);
-                }
-                // ir2 = 1.0f / (dot(dp, dp) + R2SAFE);
-                float  ir6 = ir2 * ir2 * ir2;
-                float  E   = -LCLJS[ja].x * ir6;
-                float3 F   = 6.0f * E * ir2 * dp;
+                float3 dp = pos - LATOMS[ja].xyz;
+                float ir2 = 1.0f / (dot(dp, dp) + R2SAFE);
+                float ir6 = ir2 * ir2 * ir2;
+                float E = -LCLJS[ja].x * ir6;
+                float3 F = 6.0f * E * ir2 * dp;
+                fe += (float4)(F, E);
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+        }
+    } else if (damp_method == 0) {
+        for (int i0 = 0; i0 < nAtoms; i0 += nL) {
+            int ia = i0 + iL;
+            if (ia < nAtoms) {
+                LATOMS[iL] = atoms[ia];
+                LCLJS[iL] = cLJs[ia];
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+            for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+                float3 dp = pos - LATOMS[ja].xyz;
+                float r2 = dot(dp, dp);
+                float r8 = r2 * r2 * r2 * r2;
+                float E = 0.0f;
+                float3 F = -6.0f * LCLJS[ja].x / (r8 + ADamp_Const * LCLJS[ja].x) * dp;
                 fe += (float4)(F, E);
             }
             barrier(CLK_LOCAL_MEM_FENCE);
@@ -596,8 +608,10 @@ __kernel void addvdW(
     } else {
         for (int i0 = 0; i0 < nAtoms; i0 += nL) {
             int ia = i0 + iL;
-            LATOMS[iL] = atoms[ia];
-            LCLJS[iL] = REAs[ia].xy;
+            if (ia < nAtoms) {
+                LATOMS[iL] = atoms[ia];
+                LCLJS[iL] = REAs[ia].xy;
+            }
             barrier(CLK_LOCAL_MEM_FENCE);
             for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
                 float3 dp = pos - LATOMS[ja].xyz;
@@ -605,27 +619,31 @@ __kernel void addvdW(
                 float iR2 = 1.0f / (LCLJS[ja].x * LCLJS[ja].x);
                 float u2 = r2 * iR2;
                 float u4 = u2 * u2;
-                float D, dD;
+                float D, dD, ADamp;
                 if (damp_method == 1) {
                     float step = (float)(u2 < 1);
                     D = (1.0f - u2) * step;
                     dD = -2.0f * step;
+                    ADamp = ADamp_R2;
                 } else if (damp_method == 2) {
                     float de = (1 - u2) * (float)(u2 < 1);
                     D = de * de;
                     dD = -4 * de;
+                    ADamp = ADamp_R4;
                 } else if (damp_method == 3) {
                     float de2 = 1 / (u2 + R2SAFE);
                     D = de2 * de2;
                     dD = -4 * de2 * D;
+                    ADamp = ADamp_invR4;
                 } else if (damp_method == 4) {
                     float de2 = 1 / (u2 + R2SAFE);
                     D = de2 * de2 * de2 * de2;
                     dD = -8 * de2 * D;
+                    ADamp = ADamp_invR8;
                 }
-                float e = 1.0f / (u4 * u2 + D * ADamp_R2);
-                float E = 2.0f * LCLJS[ja].y * e;
-                float3 F = (E * e * (6.0f * u4 + dD * ADamp_R2) * iR2) * dp;
+                float e = 1.0f / (u4 * u2 + D * ADamp);
+                float E = -2.0f * LCLJS[ja].y * e;
+                float3 F = (E * e * (6.0f * u4 + dD * ADamp) * iR2) * dp;
                 fe += (float4)(F, E);
             }
             barrier(CLK_LOCAL_MEM_FENCE);
@@ -633,7 +651,10 @@ __kernel void addvdW(
     }
 
     // Add to forcefield grid
-    FE[ind] += fe;
+    if (ind < nGrid.x * nGrid.y * nGrid.z) {
+        FE[ind] += fe;
+    }
+
 }
 
 
