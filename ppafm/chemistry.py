@@ -23,11 +23,6 @@ def findBonds( xyzs, Rs, fR=1.3 ):
         bonds += [ (i,j) for j in sel ]
     return bonds
 
-def findBondsZs( xyzs, Zs, ELEMENTS=elements.ELEMENTS, fR=1.3 ):
-    Rs = np.array([ ELEMENTS[iz-1][6]*fRvdw for iz in Zs ])
-    findBonds( xyzs, Rs, fR=1.3 )
-    return findBonds( xyzs, Rs, fR=fR )
-
 def bonds2neighs( bonds, na ):
     ngs = [ [] for i in range(na) ]
     for i,j in bonds:

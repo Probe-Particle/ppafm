@@ -3,25 +3,22 @@
 # This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
 
 import os
-import sys
+
+#--- added later just to plot atoms
+from optparse import OptionParser
 
 import matplotlib.pyplot as plt
 import numpy as np
-
-#import GridUtils as GU
-import ppafm.GridUtils as GU
-
-import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
-
-#--- added later just to plot atoms
-sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
-from optparse import OptionParser
 
 import ppafm as PPU
 import ppafm.cpp_utils as cpp_utils
 import ppafm.HighLevel as PPH
 import ppafm.PPPlot as PPPlot
-from ppafm import basUtils, elements
+from ppafm import atomicUtils, elements, io
+
+import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
+
+
 
 parser = OptionParser()
 parser.add_option( "-i", action="store", type="string", help="input file name", default='df' )
@@ -39,7 +36,7 @@ parser.add_option( "--bonds",    action="store_true", default=False, help="plot 
 atoms = None
 bonds = None
 if options.atoms:
-    xyzs, Zs, qs, _ = basUtils.loadXYZ(options.atoms)
+    xyzs, Zs, qs, _ = io.loadXYZ(options.atoms)
     atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
     if os.path.isfile( 'atomtypes.ini' ):
         print(">> LOADING LOCAL atomtypes.ini")
@@ -47,13 +44,13 @@ if options.atoms:
     else:
         FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH / 'defaults/atomtypes.ini' )
     iZs,Rs,Qstmp=PPH.parseAtoms(atoms, autogeom = False, PBC = True, FFparams=FFparams )
-    atom_colors = basUtils.getAtomColors(iZs,FFparams=FFparams)
+    atom_colors = atomicUtils.getAtomColors(iZs,FFparams=FFparams)
     #print atom_colors
     Rs=Rs.transpose().copy()
     atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]
     #print "atom_colors: ", atom_colors
     if options.bonds:
-        bonds = basUtils.findBonds(atoms,iZs,1.0,FFparams=FFparams)
+        bonds = atomicUtils.findBonds(atoms,iZs,1.0,FFparams=FFparams)
         #print "bonds ", bonds
 atomSize = 0.15
 
@@ -63,7 +60,7 @@ if options.npy:
 else:
     data_format = "xsf"
 
-data,lvec,nDim=GU.load_scal_field( options.i ,data_format=data_format)
+data,lvec,nDim=io.load_scal_field( options.i ,data_format=data_format)
 #print lvec
 #print nDim
 

@@ -2,13 +2,13 @@
 import os
 import sys
 
-import basUtils
 import elements
-import GridUtils as GU
 import matplotlib.pyplot as plt
 import numpy as np
 import PPPlot as PL
 import ProbeParticle as PP
+
+from ppafm import io
 
 
 def query_yes_no(question, default="yes"):
@@ -93,7 +93,7 @@ PP.params['gridC'],
 
 
 lvec = PP.params2lvec()
-atoms    = basUtils.loadAtoms(filename )
+atoms    = io.loadAtoms(filename )
 
 FFparams=None
 if os.path.isfile( 'atomtypes.ini' ):
@@ -156,9 +156,9 @@ if PP.params['charge'] != 0.00 :
 
 if todoLJ == 'compute':
     FFLJ      = PP.computeLJ( Rs, iZs, FFLJ=None, FFparams=None)
-    GU.saveVecFieldXsf(ProjName+"_LJ_F",FFLJ, lvec=[[0.0,0.0,0.0],PP.params['gridA'], PP.params['gridB'],PP.params['gridC']]  )
+    io.saveVecFieldXsf(ProjName+"_LJ_F",FFLJ, lvec=[[0.0,0.0,0.0],PP.params['gridA'], PP.params['gridB'],PP.params['gridC']]  )
 elif todoLJ == 'read':
-    FFLJ, lvec, nDim, head = GU.loadVecFieldXsf( ProjName+"_LJ_F" )
+    FFLJ, lvec, nDim, head = io.loadVecFieldXsf( ProjName+"_LJ_F" )
 
 PP.lvec2params( lvec )
 
@@ -167,7 +167,7 @@ xTips,yTips,zTips,lvecScan = PP.prepareScanGrids( )
 print(xTips,yTips,zTips)
 
 if todoEL == 'read':
-    FFEL, lvec, nDim, head = GU.loadVecFieldXsf( ProjName+"_EL_F" )
+    FFEL, lvec, nDim, head = io.loadVecFieldXsf( ProjName+"_EL_F" )
 
 
 Q=PP.params['charge']

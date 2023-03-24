@@ -6,8 +6,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from . import GridUtils as GU
-from . import basUtils
+from . import io
 
 import matplotlib; matplotlib.use('Qt5Agg')
 
@@ -491,15 +490,15 @@ class FFViewer(SlaveWindow):
         data = self.FE.copy()
         # Clamp large values for easier visualization
         if ic < 3:
-            GU.limit_vec_field(data, Fmax=1000)
+            io.limit_vec_field(data, Fmax=1000)
             data = data[..., ic].transpose(2, 1, 0)
         else:
             data = data[..., ic].transpose(2, 1, 0)
             data[data > 1000] = 1000
         lvec = self.parent.afmulator.lvec
         xyzs = self.parent.xyzs - lvec[0]
-        atomstring = basUtils.primcoords2Xsf(self.parent.Zs, xyzs.T, lvec)
-        GU.saveXSF(fileName, data, lvec, head=atomstring, verbose=0)
+        atomstring = io.primcoords2Xsf(self.parent.Zs, xyzs.T, lvec)
+        io.saveXSF(fileName, data, lvec, head=atomstring, verbose=0)
 
         if self.verbose > 0: print("Done saving force field data.")
         self.parent.status_message('Ready')

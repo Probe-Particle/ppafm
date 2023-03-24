@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 
 import numpy as np
 
-sys.path.append('..')
 
 def test_xyz():
 
-    from ppafm.basUtils import loadXYZ, saveXYZ
     from ppafm.elements import ELEMENTS
+    from ppafm.io import loadXYZ, saveXYZ
 
     N = 20
     test_file = 'io_test.xyz'
@@ -37,7 +35,7 @@ def test_xyz():
 
 def test_parse_comment_ase():
 
-    from ppafm.basUtils import _getCharges, parseLvecASE
+    from ppafm.io import _getCharges, parseLvecASE
 
     comment = 'Lattice="40.587929240107826 0.0 0.0 0.0 35.15017780893861 0.0 0.0 0.0 42.485492908861346" Properties=species:S:1:pos:R:3:tags:I:1 pbc="T T T"'
     lvec = parseLvecASE(comment)
@@ -68,7 +66,3 @@ def test_parse_comment_ase():
     extra_cols = [[str(v)] for v in np.random.rand(10)]
     qs = _getCharges(comment, extra_cols)
     assert np.allclose(qs, np.zeros(10)), qs
-
-if __name__ == '__main__':
-    test_xyz()
-    test_parse_comment_ase()
