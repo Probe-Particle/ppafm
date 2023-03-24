@@ -126,6 +126,3 @@ def test_vdw():
         FF_np = get_vdw(damp_method, xyzs, Zs, lvec, forcefield.nDim, cLJs)
 
         assert np.allclose(FF_ocl, FF_np, rtol=1e-4, atol=1e-6)
-
-if __name__ == '__main__':
-    test_vdw()
