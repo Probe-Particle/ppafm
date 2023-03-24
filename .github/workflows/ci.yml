@@ -21,7 +21,7 @@ jobs:
 
             - name: Install package and its dependencies
               run: |
-                  pip install .[dev]
+                  pip install .[dev,opencl]
 
             - name: Run pytest
               run: pytest tests -v --cov
