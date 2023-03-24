@@ -22,6 +22,7 @@ jobs:
             - name: Install package and its dependencies
               run: |
                   pip install .[dev,opencl]
+                  sudo apt install pocl-opencl-icd
 
             - name: Run pytest
               run: pytest tests -v --cov
