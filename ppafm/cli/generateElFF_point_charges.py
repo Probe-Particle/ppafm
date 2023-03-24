@@ -7,9 +7,8 @@ import numpy as np
 import ppafm as PPU
 import ppafm.cpp_utils as cpp_utils
 import ppafm.fieldFFT as fFFT
-import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
-from ppafm import basUtils, elements
+from ppafm import elements
 
 HELP_MESSAGE = """Use this program in the following way:
 ppafm-generate-elff-point-charges -i <filename> [ --sigma <value> ]

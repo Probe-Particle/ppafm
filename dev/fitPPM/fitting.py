@@ -9,9 +9,8 @@ from scipy.interpolate import RegularGridInterpolator
 from scipy.optimize import basinhopping, minimize
 
 import ppafm as PPU
-import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
-from ppafm import basUtils
+from ppafm import io
 
 iteration=0
 
@@ -63,7 +62,7 @@ print(" >> OVEWRITING SETTINGS by params.ini  ")
 PPU.loadParams( 'params.ini',FFparams=FFparams )
 scan_min=PPU.params['scanMin']
 scan_max=PPU.params['scanMax']
-atoms,nDim,lvec=basUtils.loadGeometry("p_eq.xyz", params=PPU.params)
+atoms,nDim,lvec=io.loadGeometry("p_eq.xyz", params=PPU.params)
 # The function automatically load the geometry from the file of any
 # supported format. The desigion about the file format is based on the
 # filename extension
@@ -71,7 +70,7 @@ PPU.params['gridN'] = nDim
 PPU.params['gridA'] = lvec[1]
 PPU.params['gridB'] = lvec[2]
 PPU.params['gridC'] = lvec[3]
-V, lvec_bak, nDim_bak, head = GU.loadCUBE("hartree.cube")
+V, lvec_bak, nDim_bak, head = io.loadCUBE("hartree.cube")
 loaded_forces=np.loadtxt("frc_tip.txt",
                          converters={0:pm2a,1:pm2a,2:pm2a},
                          skiprows=2, usecols=(0,1,2,5))

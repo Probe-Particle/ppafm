@@ -6,9 +6,8 @@ import numpy as np
 
 import ppafm as PPU
 import ppafm.fieldFFT as fFFT
-import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
-from ppafm import basUtils, elements
+from ppafm import elements
 
 HELP_MESSAGE=f"""Use this program in the following way:
 ppafm-generate-ljff -i <filename>
