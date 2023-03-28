@@ -12,7 +12,7 @@ import ppafm.cpp_utils as cpp_utils
 import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
 import ppafm.PPPlot as PPPlot
-from ppafm import basUtils, elements
+from ppafm import io, elements
 
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
