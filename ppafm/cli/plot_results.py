@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import ppafm as PPU
+import ppafm.atomicUtils as au
 import ppafm.cpp_utils as cpp_utils
-import ppafm.io
 import ppafm.HighLevel as PPH
 import ppafm.PPPlot as PPPlot
-from ppafm import io, elements
+from ppafm import elements, io
 
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
@@ -114,18 +114,18 @@ def main():
             speciesFile='atomtypes.ini'
         FFparams=PPU.loadSpecies( speciesFile )
         atoms_str="_atoms"
-        xyzs, Zs, qs, _ = basUtils.loadXYZ('input_plot.xyz')
+        xyzs, Zs, qs, _ = io.loadXYZ('input_plot.xyz')
         atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
         #print "atoms ", atoms
         FFparams            = PPU.loadSpecies( )
         elem_dict           = PPU.getFFdict(FFparams);  #print "elem_dict ", elem_dict
         iZs,Rs,Qs_tmp=PPU.parseAtoms(atoms, elem_dict, autogeom = False, PBC = PPU.params['PBC'] )
-        atom_colors = basUtils.getAtomColors(iZs,FFparams=FFparams)
+        atom_colors = au.getAtomColors(iZs,FFparams=FFparams)
         Rs=Rs.transpose().copy()
         atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]
         #print "atom_colors: ", atom_colors
     if opt_dict['bonds']:
-        bonds = basUtils.findBonds(atoms,iZs,1.0,FFparams=FFparams)
+        bonds = au.findBonds(atoms,iZs,1.0,FFparams=FFparams)
         #print "bonds ", bonds
     atomSize = 0.15
 
