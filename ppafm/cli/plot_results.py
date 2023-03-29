@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import ppafm as PPU
+import ppafm.atomicUtils as au
 import ppafm.cpp_utils as cpp_utils
-import ppafm.GridUtils as GU
 import ppafm.HighLevel as PPH
 import ppafm.PPPlot as PPPlot
-from ppafm import basUtils, elements
+from ppafm import elements, io
 
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
@@ -114,18 +114,18 @@ def main():
             speciesFile='atomtypes.ini'
         FFparams=PPU.loadSpecies( speciesFile )
         atoms_str="_atoms"
-        xyzs, Zs, qs, _ = basUtils.loadXYZ('input_plot.xyz')
+        xyzs, Zs, qs, _ = io.loadXYZ('input_plot.xyz')
         atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
         #print "atoms ", atoms
         FFparams            = PPU.loadSpecies( )
         elem_dict           = PPU.getFFdict(FFparams);  #print "elem_dict ", elem_dict
         iZs,Rs,Qs_tmp=PPU.parseAtoms(atoms, elem_dict, autogeom = False, PBC = PPU.params['PBC'] )
-        atom_colors = basUtils.getAtomColors(iZs,FFparams=FFparams)
+        atom_colors = au.getAtomColors(iZs,FFparams=FFparams)
         Rs=Rs.transpose().copy()
         atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]
         #print "atom_colors: ", atom_colors
     if opt_dict['bonds']:
-        bonds = basUtils.findBonds(atoms,iZs,1.0,FFparams=FFparams)
+        bonds = au.findBonds(atoms,iZs,1.0,FFparams=FFparams)
         #print "bonds ", bonds
     atomSize = 0.15
 
@@ -141,7 +141,7 @@ def main():
                     dirname = "Q%1.2fK%1.2fV%1.2f" %(Q,K,Vx)
                 if opt_dict['pos']:
                     try:
-                        PPpos, lvec, nDim = GU.load_vec_field(dirname+'/PPpos' ,data_format=options.data_format)
+                        PPpos, lvec, nDim = io.load_vec_field(dirname+'/PPpos' ,data_format=options.data_format)
                         print(" plotting PPpos : ")
                         PPPlot.plotDistortions(
                             dirname+"/xy"+atoms_str+cbar_str, PPpos[:,:,:,0], PPpos[:,:,:,1], slices = list(range( 0, len(PPpos))), BG=PPpos[:,:,:,2],
@@ -153,7 +153,7 @@ def main():
                         print("cannot load : " + ( dirname+'/PPpos_?.' + options.data_format ))
                 if opt_dict['iets'] is not None:
                     try :
-                        eigvalK, lvec, nDim = GU.load_vec_field( dirname+'/eigvalKs' ,data_format=options.data_format)
+                        eigvalK, lvec, nDim = io.load_vec_field( dirname+'/eigvalKs' ,data_format=options.data_format)
                         M  = opt_dict['iets'][0]
                         E0 = opt_dict['iets'][1]
                         w  = opt_dict['iets'][2]
@@ -179,17 +179,17 @@ def main():
                             if not os.path.exists( dirNameAmp ):
                                 os.makedirs( dirNameAmp )
                             if PPU.params['tiltedScan']:
-                                Fout, lvec, nDim = GU.load_vec_field(dirname+'/OutF' , data_format=options.data_format)
+                                Fout, lvec, nDim = io.load_vec_field(dirname+'/OutF' , data_format=options.data_format)
                                 dfs = PPU.Fz2df_tilt( Fout, PPU.params['scanTilt'], k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
                             else:
-                                fzs, lvec, nDim = GU.load_scal_field(dirname+'/OutFz' , data_format=options.data_format)
+                                fzs, lvec, nDim = io.load_scal_field(dirname+'/OutFz' , data_format=options.data_format)
                                 if (aplied_bias):
                                     Rtip = PPU.params['Rtip']
                                     for iz,z in enumerate( zTips ):
                                         fzs[iz,:,:] = fzs[iz,:,:] - np.pi*PPU.params['permit']*((Rtip*Rtip)/((z-options.z0)*(z+Rtip)))*(Vx-options.V0)*(Vx-options.V0)
                                 dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
                             if opt_dict['save_df']:
-                                GU.save_scal_field(dirNameAmp+'/df', dfs, lvec,data_format=options.data_format )
+                                io.save_scal_field(dirNameAmp+'/df', dfs, lvec,data_format=options.data_format )
                             if opt_dict['df']:
                                 print(" plotting df : ")
                                 PPPlot.plotImages(
@@ -200,14 +200,14 @@ def main():
                                 print("plotting Laplace-filtered df : ")
                                 df_LaplaceFiltered = dfs.copy()
                                 laplace( dfs, output = df_LaplaceFiltered )
-                                GU.save_scal_field(dirNameAmp+'/df_laplace', df_LaplaceFiltered, lvec,data_format=options.data_format )
+                                io.save_scal_field(dirNameAmp+'/df_laplace', df_LaplaceFiltered, lvec,data_format=options.data_format )
                                 PPPlot.plotImages(
                                     dirNameAmp+"/df_laplace"+atoms_str+cbar_str, df_LaplaceFiltered, slices = list(range( 0, len(dfs))), zs=zTips+PPU.params['Amplitude']/2.0,
                                     extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar']
                                 )
                             if opt_dict['WSxM']:
                                 print(" printing df into WSxM files :")
-                                GU.saveWSxM_3D( dirNameAmp+"/df" , dfs , extent , slices=None)
+                                io.saveWSxM_3D( dirNameAmp+"/df" , dfs , extent , slices=None)
                             if  opt_dict['LCPD_maps']:
                                 if (iv == 0):
                                     LCPD_b = - dfs
@@ -227,7 +227,7 @@ def main():
                         print("cannot load : ",dirname+'/OutFz.'+options.data_format)
                 if opt_dict['bI']:
                     try:
-                        I, lvec, nDim = GU.load_scal_field(dirname+'/OutI_boltzmann', data_format=options.data_format )
+                        I, lvec, nDim = io.load_scal_field(dirname+'/OutI_boltzmann', data_format=options.data_format )
                         print(" plotting Boltzmann current: ")
                         PPPlot.plotImages( dirname+"/OutI"+atoms_str+cbar_str, I,  slices = list(range( 0,len(I))), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
                         del I
@@ -244,10 +244,10 @@ def main():
                     "./_Asym-LCPD"+atoms_str+cbar_str, LCPD,  slices = list(range( 0, len(LCPD))), zs=zTips+PPU.params['Amplitude']/2.0,
                     extent=extent,cmap=PPU.params['colorscale_kpfm'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'], symetric_map=False
                 )
-                GU.save_scal_field('./LCDP_HzperV', LCPD, lvec,data_format=options.data_format )
+                io.save_scal_field('./LCDP_HzperV', LCPD, lvec,data_format=options.data_format )
                 if opt_dict['WSxM']:
                     print(" printing LCPD_b into WSxM files :")
-                    GU.saveWSxM_3D( "./LCPD"+atoms_str , LCPD , extent , slices=None)
+                    io.saveWSxM_3D( "./LCPD"+atoms_str , LCPD , extent , slices=None)
 
 
     print(" ***** ALL DONE ***** ")
