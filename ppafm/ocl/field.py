@@ -711,6 +711,44 @@ class ForceField_LJC:
         except:
             pass
 
+    def downloadFF(self, FE=None):
+        '''
+        Get the force field array from the device.
+
+        Arguments:
+            FE: np.ndarray or None. Array where output force field is copied to. If None,
+                will be created automatically.
+
+        Returns:
+            FE: np.ndarray. Force field and energy.
+        '''
+
+        # Get numpy array
+        if FE:
+
+            if not np.allclose(FE.shape, self.nDim):
+                raise ValueError(f'FE array dimensions {FE.shape} do not match with '
+                    f'force field dimensions {self.nDim}.')
+
+            # Values are saved in Fortran order with the xyzw dimensions as the first index
+            FE = FE.transpose(3, 0, 1, 2)
+            if not FE.flags['F_CONTIGUOUS']:
+                FE = np.asfortranarray(FE)
+
+        else:
+            FE = np.empty((self.nDim[3],) + tuple(self.nDim[:3]), dtype=np.float32, order='F')
+
+        if self.verbose: print("FE.shape ", FE.shape)
+
+        # Copy from device to host
+        cl.enqueue_copy(self.queue, FE, self.cl_FE)
+        self.queue.finish()
+
+        # Transpose xyzw dimension back to last index
+        FE = FE.transpose(1, 2, 3, 0)
+
+        return FE
+
     def initialize(self, value=0, bFinish=False):
         '''Initialize the force field to a constant value.
 
@@ -720,28 +758,6 @@ class ForceField_LJC:
         '''
         cl.enqueue_copy(self.queue, self.cl_FE, np.full(self.nDim.prod(), value, dtype=np.float32))
         if bFinish: self.queue.finish()
-
-    def run(self, FE=None, local_size=(32,), bCopy=True, bFinish=True ):
-        '''Compute Lennard-Jones force field with point-charges.'''
-        if(bRuntime): t0 = time.time()
-        if bCopy and (FE is None):
-            FE = np.zeros( self.nDim[:3]+(8,), dtype=np.float32 )
-            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
-        ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
-        global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
-            self.nAtoms,
-            self.cl_atoms,
-            self.cl_cLJs,
-            self.cl_poss,
-            self.cl_FE,
-        )
-        if(bRuntime): print("runtime(ForceField_LJC.evalLJC.pre) [s]: ", time.time() - t0)
-        cl_program.evalLJC( self.queue, global_size, local_size, *(kargs) )
-        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[4] )
-        if bFinish: self.queue.finish()
-        if(bRuntime): print("runtime(ForceField_LJC.evalLJC) [s]: ", time.time() - t0)
-        return FE
 
     def run_evalLJ_noPos(self, FE=None, local_size=(32,), bCopy=True, bFinish=True ):
         '''
@@ -779,30 +795,7 @@ class ForceField_LJC:
 
         return FE
 
-    def run_evalLJC_Q(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
-        '''Compute Lennard-Jones force field with point-charges.'''
-        if(bRuntime): t0 = time.time()
-        if bCopy and (FE is None):
-            FE = np.zeros( self.nDim[:3]+(4,), dtype=np.float32 )
-            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
-        ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
-        global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
-            self.nAtoms,
-            self.cl_atoms,
-            self.cl_cLJs,
-            self.cl_poss,
-            self.cl_FE,
-            np.float32(Qmix),
-        )
-        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_Q.pre) [s]: ", time.time() - t0)
-        cl_program.evalLJC_Q( self.queue, global_size, local_size, *(kargs) )
-        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[4] )
-        if bFinish: self.queue.finish()
-        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_Q) [s]: ", time.time() - t0)
-        return FE
-
-    def run_evalLJC_QZs_noPos(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
+    def run_evalLJC_QZs_noPos(self, FE=None, local_size=(32,), bCopy=True, bFinish=True ):
         '''Compute Lennard-Jones force field with several point-charges separated on the z-axis.'''
         if(bRuntime): t0 = time.time()
         if bCopy and (FE is None):
@@ -829,72 +822,6 @@ class ForceField_LJC:
         if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[3] )
         if bFinish: self.queue.finish()
         if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos) [s]: ", time.time() - t0)
-        return FE
-
-    def downloadFF(self, FE=None):
-        '''
-        Get force field array from device.
-
-        Arguments:
-            FE: np.ndarray or None. Array where output force field is copied to. If None,
-                will be created automatically.
-
-        Returns:
-            FE: np.ndarray. Force field and energy.
-        '''
-
-        # Get numpy array
-        if FE:
-
-            if not np.allclose(FE.shape, self.nDim):
-                raise ValueError(f'FE array dimensions {FE.shape} do not match with '
-                    f'force field dimensions {self.nDim}.')
-
-            # Values are saved in Fortran order with the xyzw dimensions as the first index
-            FE = FE.transpose(3, 0, 1, 2)
-            if not FE.flags['F_CONTIGUOUS']:
-                FE = np.asfortranarray(FE)
-
-        else:
-            FE = np.empty((self.nDim[3],) + tuple(self.nDim[:3]), dtype=np.float32, order='F')
-
-        if self.verbose: print("FE.shape ", FE.shape)
-
-        # Copy from device to host
-        cl.enqueue_copy(self.queue, FE, self.cl_FE)
-        self.queue.finish()
-
-        # Transpose xyzw dimension back to last index
-        FE = FE.transpose(1, 2, 3, 0)
-
-        return FE
-
-    def run_evalLJC_Q_noPos(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
-        '''Compute Lennard-Jones force field with point-charges.'''
-        if(bRuntime): t0 = time.time()
-        if bCopy and (FE is None):
-            ns = ( tuple(self.nDim[:3])+(4,) )
-            FE = np.zeros( ns, dtype=np.float32 )
-            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
-        ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
-        global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
-            self.nAtoms,
-            self.cl_atoms,
-            self.cl_cLJs,
-            self.cl_FE,
-            self.nDim,
-            self.lvec0   ,
-            self.dlvec[0],
-            self.dlvec[1],
-            self.dlvec[2],
-            np.float32(Qmix),
-        )
-        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_Q_noPos.pre) [s]: ", time.time() - t0)
-        cl_program.evalLJC_Q_noPos( self.queue, global_size, local_size, *(kargs) )
-        if bCopy:   cl.enqueue_copy( self.queue, FE, self.cl_FE )
-        if bFinish: self.queue.finish()
-        if(bRuntime): print("runtime(ForceField_LJC.evalLJC_Q_noPos) [s]: ", time.time() - t0)
         return FE
 
     def run_evalLJC_Hartree(self, FE=None, local_size=(32,), bCopy=True, bFinish=True):
@@ -1020,42 +947,6 @@ class ForceField_LJC:
         if bRuntime: print("runtime(ForceField_LJC.run_gradPotentialGrid) [s]: ", time.perf_counter() - t0)
 
         return E_field
-
-    def runRelaxStrokesDirect(self, Q, cl_FE, FE=None, local_size=(32,), nz=10 ):
-        '''
-        generate force-field
-        '''
-        if FE is None:
-            ns = ( tuple(self.nDim[:3])+(4,) )
-            FE    = np.zeros( ns, dtype=np.float32 )
-            #FE     = np.empty( self.scan_dim+(4,), dtype=np.float32 )
-            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
-        ntot = int( self.scan_dim[0]*self.scan_dim[1] )
-        ntot=makeDivisibleUp(ntot,local_size[0])
-        global_size = (ntot,) # TODO make sure divisible by local_size
-
-        dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
-        stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
-        dpos0        = np.array( [ 0.0 , 0.0 , -4.0 , 4.0 ], dtype=np.float32 );
-        relax_params = np.array( [ 0.1 , 0.9 ,  0.02, 0.5 ], dtype=np.float32 );
-
-        kargs = (
-            self.nAtoms,
-            self.cl_atoms,
-            self.cl_cLJs,
-            self.cl_points,
-            cl_FE,
-            dTip,
-            stiffness,
-            dpos0,
-            relax_params,
-            np.float32(Q),
-            np.int32(nz),
-        )
-        cl_program.relaxStrokesDirect( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, FE, kargs[4] )
-        self.queue.finish()
-        return FE
 
     def addLJ(self, local_size=(32,)):
         '''Add Lennard-Jones force and energy to the current force field grid.
