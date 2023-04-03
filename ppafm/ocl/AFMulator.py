@@ -34,26 +34,26 @@ class AFMulator():
             scan_dim[2], and the scan in z-direction proceeds for scan_dim[2] steps, so the final step is one step short
             of z_min.
         iZPPs: int. Element of probe particle.
-        QZs: Array of length 4. Position tip charges along z-axis relative to probe-particle center in angstroms.
+        QZs: Array of length 4. Positions of tip charges along z-axis relative to probe-particle center in angstroms.
         Qs: Array of length 4. Values of tip charges in units of e. Some can be zero.
-        rho: Dict or :class:`.MultipoleTipDensity`. Tip charge density. Used with Hartree potentials. Overrides QZs and Qs.
+        rho: Dict or :class:`.TipDensity`. Tip charge density. Used with Hartree potentials. Overrides QZs and Qs.
             The dict should contain float entries for at least of one the following 's', 'px', 'py', 'pz', 'dz2',
             'dy2', 'dx2', 'dxy', 'dxz', 'dyz'. The tip charge density will be a linear combination of the specified
             multipole types with the specified weights.
         sigma: float. Width of tip density distribution if rho is a dict of multipole coefficients.
-        rho_delta: TipDensity. Tip delta charge density. Used in FDBM approximation for calculating the
+        rho_delta: :class:`.TipDensity`. Tip delta charge density. Used in FDBM approximation for calculating the
             electrostatic interaction force.
-        A_pauli: float. Prefactor for Pauli repulsion in FDBM.
-        B_pauli: float. Exponent for Pauli repulsion in FDBM.
+        A_pauli: float. Prefactor for Pauli repulsion when using the FDBM.
+        B_pauli: float. Exponent for Pauli repulsion when using the FDBM.
         df_steps: int. Number of steps in z convolution. The total amplitude is df_steps times scan z-step size.
         tipR0: array of length 3. Probe particle equilibrium position (x, y, z) in angstroms.
-        tipStiffness: array of length 4. Harmonic spring constants (x, y, z, r) for holding the probe particle
-            to the tip in N/m.
+        tipStiffness: array of length 4. Harmonic spring constants (x, y, z, r) in N/m for holding the probe particle
+            to the tip.
         npbc: tuple of three ints. How many periodic images of atoms to use in (x, y, z) dimensions. Used for calculating
             Lennard-Jones force field and electrostatic field from point charges. Electrostatic field from a Hartree
             potential defined on a grid is always considered to be periodic.
-        f0Cantilever: float. Resonance frequency of cantilever in Hz.
-        kCantilever: float. Harmonic spring constant of cantilever in N/m.
+        f0Cantilever: float. Resonance frequency of the cantilever in Hz.
+        kCantilever: float. Harmonic spring constant of the cantilever in N/m.
         vdw_damp_method: int. Type of damping to use in vdw calculation for FDBM.
             -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
     '''
@@ -142,7 +142,7 @@ class AFMulator():
             plot_to_dir: str or None. If not None, plot the generated AFM images to this directory.
 
         Returns:
-            np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
+            X: np.ndarray. Output AFM images. If input X is not None, this is the same array object as X with values overwritten.
         '''
         self.prepareFF(xyzs, Zs, qs, rho_sample, pbc_lvec, rot, rot_center, REAs)
         self.prepareScanner()
@@ -371,7 +371,7 @@ class AFMulator():
                Array where AFM image will be saved. If None, will be created automatically.
 
         Returns:
-            np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
+            X: np.ndarray. Output AFM images. If input X is not None, this is the same array object as X with values overwritten.
         '''
 
         if self.bMergeConv:

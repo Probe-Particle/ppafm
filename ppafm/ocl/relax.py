@@ -254,7 +254,8 @@ class RelaxedScanner:
         '''
         Get probe particle path array from device.
 
-        Returns: np.ndarray of shape scan_dim + (3,). xyz positions of probe particle at all scan points.
+        Returns:
+            paths: np.ndarray of shape scan_dim + (3,). xyz positions of probe particle at all scan points.
         '''
 
         # Make numpy array. Last axis is bigger by one because OCL aligns to multiples of 4 floats.
