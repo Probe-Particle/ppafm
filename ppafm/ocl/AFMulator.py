@@ -11,7 +11,13 @@ from ..PPPlot import plotImages
 from . import field as FFcl
 from . import oclUtils as oclu
 from . import relax as oclr
-from .field import HartreePotential, MultipoleTipDensity, hartreeFromFile
+from .field import (
+    ElectronDensity,
+    HartreePotential,
+    MultipoleTipDensity,
+    TipDensity,
+    hartreeFromFile,
+)
 
 VALID_SIZES = np.array([16, 32, 64, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048])
 
@@ -213,21 +219,25 @@ class AFMulator():
 
         Arguments:
             rho: Dict, TipDensity, or None. Tip charge density. If None, the existing density is deleted.
-            sigma: float. Tip charge density distribution, when rho is a dict.
+            sigma: float. Tip charge density distribution when rho is a dict.
             B_pauli: float. Pauli repulsion exponent for tip density when using FDBM.
         '''
         if rho is not None:
             self.sigma = sigma
             self.B_pauli = B_pauli
-            self._rho = rho # Remember argument value so that if it's a dict the tip density can be recalculated if necessary
+            self._rho = rho # Remember argument value so that we can recompute the power from grid or the grid from a dict later if needed
             if isinstance(rho, dict):
                 self.rho = MultipoleTipDensity(self.forcefield.lvec[:, :3], self.forcefield.nDim[:3], sigma=self.sigma,
                     multipole=rho, ctx=self.forcefield.ctx)
             else:
+                if not isinstance(rho, TipDensity):
+                    raise ValueError(f'rho should of type `TipDensity`, but got `{type(rho)}`')
                 self.rho = rho
             if self.verbose > 0: print('AFMulator.setRho: Preparing buffers')
             if not np.allclose(B_pauli, 1.0):
-                self.rho = self.rho.power_positive(p=self.B_pauli, in_place=False)
+                rho_power = self.rho.power_positive(p=self.B_pauli, in_place=False)
+                self.rho.release() # Let's not keep the original array in device memory to minimize memory foot print
+                self.rho = rho_power
             self.forcefield.prepareBuffers(rho=self.rho, bDirect=True)
         else:
             self._rho = None
@@ -249,6 +259,8 @@ class AFMulator():
         '''
         self.rho_delta = rho_delta
         if self.rho_delta is not None:
+            if not isinstance(rho_delta, TipDensity):
+                raise ValueError(f'rho_delta should of type `TipDensity`, but got `{type(rho_delta)}`')
             if self.verbose > 0: print('AFMulator.setRhoDelta: Preparing buffers')
             self.forcefield.prepareBuffers(rho_delta=self.rho_delta, bDirect=True)
         elif self.forcefield.rho_delta is not None:
@@ -292,13 +304,17 @@ class AFMulator():
             if self.verbose > 0: print('(Re)initializing force field buffers.')
             if self.verbose > 1: print(f'old nDim: {self._old_nDim}, new nDim: {self.forcefield.nDim}')
             self.forcefield.tryReleaseBuffers()
-            self.setRho(self._rho, self.sigma, self.B_pauli)
+            if isinstance(self._rho, dict):
+                # The grid size changed so we need to recompute the tip density grid from the multipole dict
+                self.setRho(self._rho, self.sigma, self.B_pauli)
             self.forcefield.prepareBuffers()
 
-        # If rho_sample is specified, then we use FDBM. Check that other requirements are satisfied
+        # If rho_sample is specified, then we use FDBM. Check that other requirements are satisfied.
         if rho_sample is not None:
+            if not isinstance(rho_sample, ElectronDensity):
+                raise ValueError(f'rho_sample should of type `ElectronDensity`, but got `{type(rho_sample)}`')
             if not isinstance(qs, HartreePotential):
-                raise ValueError(f'qs should be HartreePotential when rho_sample is not None.')
+                raise ValueError(f'qs should be HartreePotential when rho_sample is not None, but got type `{type(qs)}`.')
             if self.rho_delta is None:
                 raise ValueError(f'rho_delta should be set when rho_sample is not None.')
 
