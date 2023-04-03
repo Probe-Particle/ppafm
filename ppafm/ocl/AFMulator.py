@@ -11,13 +11,7 @@ from ..PPPlot import plotImages
 from . import field as FFcl
 from . import oclUtils as oclu
 from . import relax as oclr
-from .field import (
-    ElectronDensity,
-    HartreePotential,
-    MultipoleTipDensity,
-    TipDensity,
-    hartreeFromFile,
-)
+from .field import ElectronDensity, HartreePotential, MultipoleTipDensity, TipDensity
 
 VALID_SIZES = np.array([16, 32, 64, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048])
 
@@ -506,7 +500,7 @@ def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_s
 
     # Load input file
     if file_path.endswith('.xsf') or file_path.endswith('.cube'):
-        qs, xyzs, Zs = hartreeFromFile(file_path)
+        qs, xyzs, Zs = FFcl.HartreePotential.from_file(file_path, scale=-1.0)
         multipole = {tip: charge}
         Qs = [0, 0, 0, 0]
         QZs = [0, 0, 0, 0]

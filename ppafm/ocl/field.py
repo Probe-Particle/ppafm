@@ -41,12 +41,6 @@ def makeDivisibleUp( num, divisor ):
     if rest > 0: num += (divisor-rest)
     return num
 
-def hartreeFromFile(file_path):
-    '''
-    Load hartree potential and atoms from a .cube or .xsf file. See DataGrid.from_file.
-    '''
-    return HartreePotential.from_file(file_path, scale=-1.0)
-
 # ========= classes
 
 class DataGrid:
