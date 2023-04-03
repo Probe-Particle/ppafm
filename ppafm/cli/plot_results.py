@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import ppafm as PPU
+import ppafm.atomicUtils as au
 import ppafm.cpp_utils as cpp_utils
 import ppafm.HighLevel as PPH
 import ppafm.PPPlot as PPPlot
 from ppafm import elements, io
-from ppafm.atomicUtils import findBonds, getAtomColors
 
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
@@ -120,12 +120,12 @@ def main():
         FFparams            = PPU.loadSpecies( )
         elem_dict           = PPU.getFFdict(FFparams);  #print "elem_dict ", elem_dict
         iZs,Rs,Qs_tmp=PPU.parseAtoms(atoms, elem_dict, autogeom = False, PBC = PPU.params['PBC'] )
-        atom_colors = getAtomColors(iZs,FFparams=FFparams)
+        atom_colors = au.getAtomColors(iZs,FFparams=FFparams)
         Rs=Rs.transpose().copy()
         atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]
         #print "atom_colors: ", atom_colors
     if opt_dict['bonds']:
-        bonds = findBonds(atoms,iZs,1.0,FFparams=FFparams)
+        bonds = au.findBonds(atoms,iZs,1.0,FFparams=FFparams)
         #print "bonds ", bonds
     atomSize = 0.15
 
