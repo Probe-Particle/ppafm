@@ -131,10 +131,10 @@ class AFMulator():
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
             qs: np.ndarray of shape (num_atoms,) or :class:`.HartreePotential` or None. Charges of atoms or hartree potential.
                 If None, then no electrostatics are used.
-            rho_sample: ElectronDensity or None. Sample electron density. If not None, then FDBM is used
+            rho_sample: :class:`.ElectronDensity` or None. Sample electron density. If not None, then FDBM is used
                 for calculating the Pauli repulsion force.
             pbc_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
-                If None, periodic boundaries are disabled, unless qs is HartreePotential and the lvec from the
+                If None, periodic boundaries are disabled, unless qs is :class:`.HartreePotential` and the lvec from the
                 Hartree potential is used instead. If npbc = (0, 0, 0), then has no function.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
@@ -212,7 +212,7 @@ class AFMulator():
         '''Set tip charge distribution.
 
         Arguments:
-            rho: Dict, TipDensity, or None. Tip charge density. If None, the existing density is deleted.
+            rho: Dict, :class:`.TipDensity`, or None. Tip charge density. If None, the existing density is deleted.
             sigma: float. Tip charge density distribution when rho is a dict.
             B_pauli: float. Pauli repulsion exponent for tip density when using FDBM.
         '''
@@ -249,7 +249,7 @@ class AFMulator():
         '''Set tip electron delta-density that is used for electrostatic interaction in FDBM.
 
         Arguments:
-            rho_delta: TipDensity or None. Tip electron delta-density. If None, the existing density is deleted.
+            rho_delta: :class:`.TipDensity` or None. Tip electron delta-density. If None, the existing density is deleted.
         '''
         self.rho_delta = rho_delta
         if self.rho_delta is not None:
@@ -279,9 +279,9 @@ class AFMulator():
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
             qs: np.ndarray of shape (num_atoms,) or :class:`.HartreePotential` or None. Charges of atoms or hartree potential.
                 If None, then no electrostatics are used.
-            rho_sample: ElectronDensity or None. Sample electron density. If not None, then FDBM is used
+            rho_sample: :class:`.ElectronDensity` or None. Sample electron density. If not None, then FDBM is used
                 for calculating the Pauli repulsion force. Requires rho_delta to be set and qs has to
-                be HartreePotential.
+                be :class:`.HartreePotential`.
             pbc_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
                 If None, periodic boundaries are disabled, unless qs is HartreePotential and the lvec from the
                 Hartree potential is used instead. If npbc = (0, 0, 0), then has no function.

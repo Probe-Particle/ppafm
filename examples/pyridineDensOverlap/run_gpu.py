@@ -34,7 +34,7 @@ afmulator = AFMulator(
     A_pauli=18.0,                           # Prefactor for Pauli repulsion
     B_pauli=1.2,                            # Exponent in overlap integral for Pauli repulsion
     tipR0=[0, 0, 4],                        # Tip equilibrium position (x, y, R)
-    tipStiffness=[0.25, 0.25, 0.0, 20.0],   # Tip spring constants (x, y, R)
+    tipStiffness=[0.25, 0.25, 0.0, 20.0],   # Tip spring constants (x, y, z, R)
     npbc=(1, 1, 1),                         # Periodic images of atoms in (x, y, z) directions for vdW calculation
     df_steps=20                             # Oscillation amplitude in number of scan steps
 )

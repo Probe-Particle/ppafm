@@ -263,7 +263,7 @@ class DataGrid:
                 Defaults to oclu.queue.
 
         Returns:
-            grid_out: Same type as self. New data grid with result.
+            grid_out: :class:`DataGrid`. New data grid with result.
         '''
 
         if len(self.shape) == 4 and self.shape[3] > 1:
@@ -288,7 +288,7 @@ class DataGrid:
             array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size * 4)
         else:
             assert array_out.size == array_in.size * 4, f'array size does not match ({array_out.size} != {array_in.size * 4})'
-        grid_out = type(self)(array_out, lvec=self.lvec, shape=shape_out, ctx=self.ctx)
+        grid_out = DataGrid(array_out, lvec=self.lvec, shape=shape_out, ctx=self.ctx)
 
         global_size = [int(np.ceil(np.prod(self.shape) / local_size[0]) * local_size[0])]
         step = np.append(np.diag(self.step), 0).astype(np.float32)
@@ -1179,7 +1179,7 @@ class ForceField_LJC:
             FE: np.ndarray if bCopy==True or None otherwise. Calculated force field and energy.
         '''
 
-        if(bRuntime): t0 = time.time()
+        if(bRuntime): t0 = time.perf_counter()
 
         if not hasattr(self, 'nDim') or not hasattr(self, 'lvec'):
             raise RuntimeError('Forcefield position is not initialized. Initialize with initSampling.')
@@ -1196,7 +1196,7 @@ class ForceField_LJC:
             qs = np.zeros(len(xyzs))
         self.atoms = np.concatenate([xyzs, qs[:, None]], axis=1)
         self.prepareBuffers(self.atoms, cLJs, REAs=REAs, pot=pot, rho=rho, rho_delta=rho_delta, rho_sample=rho_sample)
-        if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.time() - t0)
+        if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.perf_counter() - t0)
 
         if method == 'point-charge':
 
@@ -1228,7 +1228,7 @@ class ForceField_LJC:
             raise ValueError(f'Unknown method for force field calculation: `{method}`.')
 
         if(bRelease): self.tryReleaseBuffers()
-        if(bRuntime): print("runtime(ForceField_LJC.makeFF.tot) [s]: ", time.time() - t0)
+        if(bRuntime): print("runtime(ForceField_LJC.makeFF.tot) [s]: ", time.perf_counter() - t0)
 
         return FF
 

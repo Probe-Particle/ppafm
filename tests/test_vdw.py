@@ -56,5 +56,3 @@ def test_vdw():
 
             assert np.allclose(Fx_ocl, Fx_cpp, atol=1e-6, rtol=1e-4)
             assert np.allclose(E_ocl, E_cpp, atol=1e-6, rtol=1e-4)
-
-test_vdw()

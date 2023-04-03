@@ -427,7 +427,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             lvec = lvec[1:] if len(lvec) > 0 else None
         elif ext in ['.xsf', '.cube']:
             # Scale=-1.0 for correct units of potential (V) instead of energy (eV)
-            qs, xyzs, Zs = FFcl.HartreePotential.from_file(file_path, scale=-1.0)
+            qs, xyzs, Zs = HartreePotential.from_file(file_path, scale=-1.0)
             lvec = qs.lvec[1:]
         elif ext == '.xyz':
             xyzs, Zs, qs, _ = io.loadXYZ(file_path)

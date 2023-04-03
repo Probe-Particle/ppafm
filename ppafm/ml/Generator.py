@@ -22,7 +22,7 @@ class InverseAFMtrainer:
 
     Arguments:
         afmulator: An instance of AFMulator.
-        auxmaps: list of AuxMap objects.
+        auxmaps: list of :class:`.AuxMapBase`.
         paths: list of paths to xyz files of molecules. The molecules are saved to the "molecules" attribute
                in np.ndarrays of shape (num_atoms, 5) with [x, y, z, charge, element] for each atom.
         batch_size: int. Number of samples per batch.
@@ -186,6 +186,7 @@ class InverseAFMtrainer:
     def augment_with_rotations(self, rotations):
         '''
         Augment molecule list with rotations of the molecules.
+
         Arguments:
             rotations: list of np.ndarray. Rotation matrices.
         '''
@@ -201,6 +202,7 @@ class InverseAFMtrainer:
     def augment_with_rotations_entropy(self, rotations, n_best_rotations=30):
         '''
         Augment molecule list with rotations of the molecules. Rotations are sorted in terms of their "entropy".
+
         Arguments:
             rotations: list of np.ndarray. Rotation matrices.
             n_best_rotations: int. Only the first n_best_rotations with the highest "entropy" will be taken.
@@ -218,6 +220,7 @@ class InverseAFMtrainer:
     def randomize_tip(self, max_tilt=0.5):
         '''
         Randomize tip tilt to simulate asymmetric adsorption of particle on tip apex.
+
         Arguments:
             max_tilt: float. Maximum deviation in xy plane in angstroms.
         '''
@@ -226,6 +229,7 @@ class InverseAFMtrainer:
     def randomize_distance(self, delta=0.25):
         '''
         Randomize tip-sample distance.
+
         Arguments:
             delta: float. Maximum deviation from original value in angstroms.
         '''
@@ -273,7 +277,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
 
     Arguments:
         afmulator: An instance of AFMulator.
-        auxmaps: list of AuxMap objects.
+        auxmaps: list of :class:`.AuxMapBase`.
         sample_generator: Iterable. An iterable that returns tuples (hartree, xyzs, Zs, rotations), where
             hartree is a HartreePotential, xyzs is a np.ndarray of shape (n_atoms, 3), Zs is a np.ndarray of
             shape (n_atoms,), and rotations is a list of np.ndarray of shape (3, 3). Input/output samples will be
