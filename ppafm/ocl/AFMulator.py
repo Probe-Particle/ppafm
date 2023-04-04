@@ -351,6 +351,36 @@ class AFMulator():
 
         return X
 
+    # ========= Save/Load state =========
+
+    @classmethod
+    def from_params(cls, file_path='./params.ini'):
+        '''
+        Construct an AFMulator instance from a params.ini file.
+
+        Arguments:
+            file_path: str. Path to the params.ini file to load.
+        '''
+        raise NotImplementedError()
+
+    def load_params(self, file_path='./params.ini'):
+        '''
+        Update the parameters of this AFMulator instance from a params.ini file.
+
+        Arguments:
+            file_path: str. Path to the params.ini file to load.
+        '''
+        raise NotImplementedError()
+
+    def save_params(self, file_path='./params.ini'):
+        '''
+        Save the parameters of this AFMulator instance to a params.ini file.
+
+        Arguments:
+            file_path: str. Path to the file where parameters are saved.
+        '''
+        raise NotImplementedError()
+
     # ========= Debug/Plot Misc. =========
 
     def saveFF(self):
