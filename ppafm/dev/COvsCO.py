@@ -3,18 +3,12 @@
 '''
 
 import ctypes
-import os
 import sys
 from ctypes import c_double, c_int
 
 import numpy as np
 
-if __name__ == '__main__':
-    if __package__ is None:
-        sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) ) )
-        import cpp_utils
-    else:
-        from . import cpp_utils
+from .. import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)
