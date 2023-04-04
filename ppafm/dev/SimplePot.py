@@ -4,14 +4,12 @@ used to predict probability map where to put new atom, considering atoms which a
 '''
 
 import ctypes
-import os
-import sys
 from ctypes import c_double, c_int
 
 import numpy as np
 
 from .. import atomicUtils as au
-from .. import io
+from .. import cpp_utils, io
 
 # Covalent radii of few atoms in Å
 # Covalent radii revisited. Dalton Transactions, (21), 2832. doi:10.1039/b801115j
@@ -25,15 +23,6 @@ cov_radii = {1: 0.31,
              16: 1.05,
              17: 1.02,
              35: 1.20}
-
-if __package__ is None:
-    print( " #### DEBUG #### import cpp_utils " )
-    sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) ) )
-    import cpp_utils
-else:
-    print( " #### DEBUG #### from . import cpp_utils " )
-    from . import cpp_utils
-
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)

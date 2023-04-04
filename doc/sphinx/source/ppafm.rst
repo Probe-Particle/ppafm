@@ -52,14 +52,6 @@ ppafm.atomicUtils module
    :undoc-members:
    :show-inheritance:
 
-ppafm.basUtils module
--------------------------------
-
-.. automodule:: ppafm.basUtils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 ppafm.chemistry module
 --------------------------------
 
@@ -128,6 +120,14 @@ ppafm.fitting module
 ------------------------------
 
 .. automodule:: ppafm.fitting
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+ppafm.io module
+-------------------------------
+
+.. automodule:: ppafm.io
    :members:
    :undoc-members:
    :show-inheritance:

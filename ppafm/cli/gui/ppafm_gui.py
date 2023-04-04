@@ -13,9 +13,6 @@ from enum import Enum
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-import matplotlib; matplotlib.use('Qt5Agg')
-
-sys.path.append(os.path.split(sys.path[0])[0]) #;print(sys.path[-1])
 import ppafm.common as PPU
 import ppafm.GUIWidgets as guiw
 import ppafm.ocl.field as FFcl
@@ -23,6 +20,9 @@ import ppafm.ocl.oclUtils as oclu
 from ppafm import PPPlot, io
 from ppafm.ocl.AFMulator import AFMulator
 from ppafm.ocl.field import HartreePotential
+
+import matplotlib; matplotlib.use('Qt5Agg')
+
 
 Multipoles = Enum('Multipoles', 's pz dz2')
 
