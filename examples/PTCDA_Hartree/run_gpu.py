@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 from subprocess import run
 
 import matplotlib.pyplot as plt
 
-sys.path.append('../..')
 from ppafm.ocl.AFMulator import AFMulator, hartreeFromFile
 
 if not os.path.exists('LOCPOT.xsf'):

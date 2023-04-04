@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 from subprocess import run
 
-sys.path.append('../..')
 from ppafm.ocl.AFMulator import quick_afm
 
 if not os.path.exists('LOCPOT.xsf'):

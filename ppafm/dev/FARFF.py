@@ -21,19 +21,12 @@ cpp/FARFF.cpp
 
 
 import ctypes
-import os
 import sys
 from ctypes import c_double, c_int
 
 import numpy as np
 
-if __package__ is None:
-    print( " #### DEBUG #### import cpp_utils " )
-    sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) ) )
-    import cpp_utils
-else:
-    print( " #### DEBUG #### from . import cpp_utils " )
-    from . import cpp_utils
+from .. import cpp_utils
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p    = ctypes.POINTER(c_int)

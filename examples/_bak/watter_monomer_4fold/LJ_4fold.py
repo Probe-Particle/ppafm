@@ -4,25 +4,14 @@
 #matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
 
 import os
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-LWD = '/home/prokop/git/ProbeParticleModel/code'
-
 print(" # ========== make & load  ProbeParticle C++ library ")
 
-
-# sys.path.append( LWD )
-print(" sys.path =  ", sys.path)
-sys.path = [ LWD ]
-print(" sys.path = ", sys.path)
-
-import elements
-import ProbeParticle as PP
-
-from ppafm import io
+import ppafm as PP
+from ppafm import elements, io
 
 print(" ============= RUN  ")
 

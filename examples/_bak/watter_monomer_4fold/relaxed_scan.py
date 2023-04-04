@@ -1,20 +1,14 @@
 #!/usr/bin/python
 
 import os
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 print(" # ========== make & load  ProbeParticle C++ library ")
 
-LWD = '/home/prokop/git/ProbeParticleModel/code'
-sys.path = [ LWD ]
-
-import elements
-import ProbeParticle as PP
-
-from ppafm import io
+import ppafm as PP
+from ppafm import elements, io
 
 print(" ============= RUN  ")
 
