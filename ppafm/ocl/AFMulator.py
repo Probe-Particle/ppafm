@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 
 import os
+import warnings
 
 import numpy as np
 import pyopencl as cl
 
 from .. import common as PPU
-from .. import io
+from .. import elements, io
 from ..PPPlot import plotImages
 from . import field as FFcl
 from . import oclUtils as oclu
@@ -99,7 +100,6 @@ class AFMulator():
         self.f0Cantilever = f0Cantilever
         self.kCantilever = kCantilever
         self.npbc = npbc
-        self.pot = None
 
         self.setScanWindow(scan_window, scan_dim, df_steps)
         self.setLvec(lvec, pixPerAngstrome)
@@ -108,7 +108,6 @@ class AFMulator():
 
         self.typeParams = PPU.loadSpecies('atomtypes.ini')
         self.saveFFpre = ""
-        self.counter = 0
 
     def eval(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None, X=None ):
         '''
@@ -361,7 +360,8 @@ class AFMulator():
         Arguments:
             file_path: str. Path to the params.ini file to load.
         '''
-        raise NotImplementedError()
+        params = _get_params(file_path)
+        return cls(**params)
 
     def load_params(self, file_path='./params.ini'):
         '''
@@ -370,7 +370,17 @@ class AFMulator():
         Arguments:
             file_path: str. Path to the params.ini file to load.
         '''
-        raise NotImplementedError()
+        params = _get_params(file_path)
+        if params['tipStiffness'] is not None:
+            self.scanner.stiffness = np.array(params['tipStiffness'], dtype=np.float32) / -PPU.eVA_Nm
+        self.iZPP = params['iZPP']
+        self.tipR0 = params['tipR0']
+        self.f0Cantilever = params['f0Cantilever']
+        self.kCantilever = params['kCantilever']
+        self.npbc = params['npbc']
+        self.setScanWindow(params['scan_window'], params['scan_dim'], params['df_steps'])
+        self.setLvec(params['lvec'], params['pixPerAngstrome'])
+        self.setRho(params['rho'], params['sigma'])
 
     def save_params(self, file_path='./params.ini'):
         '''
@@ -379,7 +389,39 @@ class AFMulator():
         Arguments:
             file_path: str. Path to the file where parameters are saved.
         '''
-        raise NotImplementedError()
+        if not np.allclose(self.lvec[0], 0):
+            warnings.warn("The origin of the force field grid is not at (0, 0, 0). This is not supported in the "
+                "params.ini format so this information will not be saved.")
+        k = self.scanner.stiffness * -PPU.eVA_Nm
+        nDim = self.forcefield.nDim
+        scan_step = (
+            (self.scan_window[1][0] - self.scan_window[0][0]) / (self.scan_dim[0] - 1),
+            (self.scan_window[1][1] - self.scan_window[0][1]) / (self.scan_dim[1] - 1),
+            (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
+        )
+        with open(file_path, 'w') as f:
+            f.write(f'probeType {self.iZPP}\n')
+            if isinstance(self._rho, dict):
+                if len(self._rho) > 1:
+                    warnings.warn('More than one tip multipole type specified. Only writing the first one into params.ini.')
+                tip = list(self._rho)[0]
+                f.write(f'tip {tip}\n')
+                f.write(f'charge {self._rho[tip]}\n')
+                f.write(f'sigma {self.sigma}\n')
+            f.write(f'stiffness {k[0]} {k[1]} {k[3]}\n')
+            f.write(f'r0Probe {self.tipR0[0]} {self.tipR0[1]} {self.tipR0[2]}\n')
+            f.write(f'PBC {(np.array(self.npbc) > 0).any()}\n')
+            f.write(f'nPBC {self.npbc[0]} {self.npbc[1]} {self.npbc[2]}\n')
+            f.write(f'gridA {self.lvec[1, 0]} {self.lvec[1, 1]} {self.lvec[1, 2]}\n')
+            f.write(f'gridB {self.lvec[2, 0]} {self.lvec[2, 1]} {self.lvec[2, 2]}\n')
+            f.write(f'gridC {self.lvec[3, 0]} {self.lvec[3, 1]} {self.lvec[3, 2]}\n')
+            f.write(f'gridN {nDim[0]} {nDim[1]} {nDim[2]}\n')
+            f.write(f'scanMin {self.scan_window[0][0]} {self.scan_window[0][1]} {self.scan_window[0][2]}\n')
+            f.write(f'scanMax {self.scan_window[1][0]} {self.scan_window[1][1]} {self.scan_window[1][2]}\n')
+            f.write(f'scanStep {scan_step[0]} {scan_step[1]} {scan_step[2]}\n')
+            f.write(f'kCantilever {self.kCantilever}\n')
+            f.write(f'f0Cantilever {self.f0Cantilever}\n')
+            f.write(f'Amplitude {self.amplitude}\n')
 
     # ========= Debug/Plot Misc. =========
 
@@ -419,6 +461,55 @@ class AFMulator():
                     f'the boundary of the force-field grid which is not periodic in {dim} dimension. '
                     'If you get artifacts in the images, please check the boundary conditions and '
                     'the size of the scan window and the force field grid.')
+
+def _get_params(file_path):
+    '''Get AFMulator arguments from a params.ini file.'''
+    PPU.loadParams(file_path)
+    lvec = np.array([
+        [0, 0, 0],
+        PPU.params['gridA'],
+        PPU.params['gridB'],
+        PPU.params['gridC']
+    ])
+    if (PPU.params['gridN'] == 0).any():
+        pixPerAngstrome = 10
+    else:
+        rx, ry, rz = (round(PPU.params['gridN'][i] / np.linalg.norm(lvec[i+1])) for i in range(3))
+        if np.allclose([rx, ry], rz):
+            pixPerAngstrome = rx
+        else:
+            pixPerAngstrome = np.max([rx, ry, rz])
+            warnings.warn("Unequal grid densities in x, y, z directions is not supported in the OpenCL version of ppafm. "
+                f"Using the maximum of x, y, z directions, {pixPerAngstrome}, for grid point density.")
+    scan_window = (PPU.params['scanMin'], PPU.params['scanMax'])
+    scan_dim = (
+        round((scan_window[1][0] - scan_window[0][0]) / PPU.params['scanStep'][0]) + 1,
+        round((scan_window[1][1] - scan_window[0][1]) / PPU.params['scanStep'][1]) + 1,
+        round((scan_window[1][2] - scan_window[0][2]) / PPU.params['scanStep'][2])
+    )
+    iZPP = PPU.params['probeType']
+    iZPP = elements.ELEMENT_DICT[iZPP][0] if iZPP in elements.ELEMENT_DICT else int(iZPP)
+    tipStiffness = PPU.params['stiffness']
+    if (tipStiffness < 0).any():
+        tipStiffness = None
+    else:
+        tipStiffness = np.insert(tipStiffness, 2, 0.0) # AFMulator additionally has a z-component in the third place
+    afmulator_params = {
+        'lvec': lvec,
+        'pixPerAngstrome': pixPerAngstrome,
+        'scan_dim': scan_dim,
+        'scan_window': scan_window,
+        'iZPP': iZPP,
+        'rho': {PPU.params['tip']: PPU.params['charge']},
+        'sigma': PPU.params['sigma'],
+        'df_steps': round(PPU.params['Amplitude'] / PPU.params['scanStep'][2]),
+        'tipR0': PPU.params['r0Probe'],
+        'tipStiffness': tipStiffness,
+        'npbc': PPU.params['nPBC'],
+        'f0Cantilever': PPU.params['f0Cantilever'],
+        'kCantilever': PPU.params['kCantilever']
+    }
+    return afmulator_params
 
 def get_lvec(scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrome=10):
     pad = np.array(pad)
