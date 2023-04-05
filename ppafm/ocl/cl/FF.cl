@@ -720,7 +720,8 @@ __kernel void evalLJC_Hartree(
 
 }
 
-// Compute the gradient of a scalar field via centered difference
+// Compute the gradient of a scalar field via centered difference. Uses periodic boundary conditions
+// at the edge of the grid.
 __kernel void grad(
     __global float  *array_in,  // Input array
     __global float4 *array_out, // Output array

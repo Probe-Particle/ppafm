@@ -246,7 +246,8 @@ class DataGrid:
         return grid_out
 
     def grad(self, scale=1.0, array_out=None, order='C', local_size=(32,), queue=None):
-        '''Get the centered finite difference gradient of the data grid.
+        '''Get the centered finite difference gradient of the data grid. Uses periodic boundary conditions
+        at the edge of the grid.
 
         The datagrid has to be either 3D, or 4D with self.shape[3] == 1.
 
