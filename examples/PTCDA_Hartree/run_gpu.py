@@ -5,7 +5,8 @@ from subprocess import run
 
 import matplotlib.pyplot as plt
 
-from ppafm.ocl.AFMulator import AFMulator, hartreeFromFile
+from ppafm.ocl.AFMulator import AFMulator
+from ppafm.ocl.field import HartreePotential
 
 if not os.path.exists('LOCPOT.xsf'):
     run(['wget', '--no-check-certificate', 'https://www.dropbox.com/s/18eg89l89npll8x/LOCPOT.xsf.zip'])
@@ -23,17 +24,7 @@ afmulator = AFMulator(
 )
 
 print('Loading potential')
-pot, xyzs, Zs = hartreeFromFile('./LOCPOT.xsf')
+pot, xyzs, Zs = HartreePotential.from_file('./LOCPOT.xsf', scale=-1.0) # scale=-1.0 for correct units of potential (V) instead of energy (eV)
 
 print('Running simulation')
-X = afmulator(xyzs, Zs, pot)
-
-print('Plotting images')
-outdir = './PTCDA_CO_dz2-0.05_K0.37_A1.0'
-if not os.path.exists(outdir):
-    os.makedirs(outdir)
-
-for i in range(X.shape[-1]):
-    plt.imshow(X[:, :, i].T, origin='lower', cmap='gray')
-    plt.savefig(os.path.join(outdir, f'{i}.png'))
-    plt.close()
+X = afmulator(xyzs, Zs, pot, plot_to_dir='./PTCDA_CO_dz2-0.05_K0.37_A1.0')

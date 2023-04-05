@@ -386,7 +386,7 @@ def findPBCAtoms3D_cutoff( Rs, lvec, Rcut=1.0, corners=None ):
     return inds, Rs_
 
 
-def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
+def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, REAs, lvec, npbc=[1,1,1] ):
     '''
     multiply atoms of sample along supercell vectors
     the multiplied sample geometry is used for evaluation of forcefield in Periodic-boundary-Conditions ( PBC )
@@ -399,19 +399,26 @@ def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
     natom = len(Zs)
     matom = mtot * natom
     Zs_    = np.empty(  matom   , np.int32  )
-    xyzqs_ = np.empty( (matom,4), np.float32)
+    xyzs_ = np.empty( (matom,3), np.float32)
+    qs_ = np.empty( (matom,), np.float32)
     if cLJs is not None:
         cLJs_  = np.empty( (matom,2), np.float32)
     else:
         cLJs_=None
+    if REAs is not None:
+        REAs_ = np.empty( (matom,4), np.float32)
+    else:
+        REAs_ = None
     i0 = 0
     i1 = i0 + natom
     # we want to have cell=(0,0,0) first
-    Zs_   [i0:i1   ] = Zs  [:  ]
-    xyzqs_[i0:i1,:3] = Rs  [:,:]
-    xyzqs_[i0:i1, 3] = Qs  [:  ]
+    Zs_   [i0:i1] = Zs[:  ]
+    xyzs_ [i0:i1] = Rs[:,:]
+    qs_   [i0:i1] = Qs[:  ]
     if cLJs is not None:
         cLJs_ [i0:i1,: ] = cLJs[:,:]
+    if REAs is not None:
+        REAs_ [i0:i1,: ] = REAs[:,:]
     i0 += natom
     for ia in range(-npbc[0],npbc[0]+1):
         for ib in range(-npbc[1],npbc[1]+1):
@@ -419,13 +426,15 @@ def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
                 if (ia==0) and (ib==0) and (ic==0) : continue
                 v_shift = ia*lvec[0,:] + ib*lvec[1,:] + ic*lvec[2,:]
                 i1 = i0 + natom
-                Zs_   [i0:i1   ] = Zs  [:  ]
-                xyzqs_[i0:i1,:3] = Rs  [:,:] + v_shift[None,:]
-                xyzqs_[i0:i1, 3] = Qs  [:  ]
+                Zs_  [i0:i1] = Zs[:  ]
+                xyzs_[i0:i1] = Rs[:,:] + v_shift[None,:]
+                qs_  [i0:i1] = Qs[:  ]
                 if cLJs is not None:
                     cLJs_ [i0:i1,: ] = cLJs[:,:]
+                if REAs is not None:
+                    REAs_ [i0:i1,: ] = REAs[:,:]
                 i0 += natom
-    return Zs_, xyzqs_, cLJs_
+    return Zs_, xyzs_, qs_, cLJs_, REAs_
 
 def multRot( Zs, Rs, Qs, cLJs, rots, cog = (0,0,0) ):
     '''
@@ -508,8 +517,8 @@ def REA2LJ( cREAs, cLJs=None ):
     if cLJs is None:
         cLJs = np.zeros((len(cREAs),2))
     R6   = cREAs[:,0]**6
-    cLJs[:,0] = -2*cREAs[:,1] *  R6
-    cLJs[:,1] =  - cREAs[:,1] * (R6**2)
+    cLJs[:,0] = 2*cREAs[:,1] *  R6
+    cLJs[:,1] =   cREAs[:,1] * (R6**2)
     return cLJs
 
 def getAtomsREA(  iZprobe, iZs,  FFparams, alphaFac=-1.0 ):
@@ -522,20 +531,12 @@ def getAtomsREA(  iZprobe, iZs,  FFparams, alphaFac=-1.0 ):
     for ii in range(n):
         j = iZs[ii]-1
         REAs[ii,0] = FFparams[i][0] + FFparams[j][0]
-        REAs[ii,1] = -np.sqrt( FFparams[i][1] * FFparams[j][1] )
+        REAs[ii,1] = np.sqrt( FFparams[i][1] * FFparams[j][1] )
         REAs[ii,2] = FFparams[j][2] * alphaFac
     return REAs
 
 def getSampleAtomsREA( iZs, FFparams ):
     return np.array( [ ( FFparams[i-1][0],FFparams[i-1][1],FFparams[i-1][2] ) for i in iZs ] )
-
-def combineREA( PP_R, PP_E, atomREAs, alphaFac=-1.0 ):
-    n   = len(atomREAs)
-    REAs  = np.zeros( (n,4) )
-    REAs[:,0] =          atomREAs[:,0] + PP_R;
-    REAs[:,1] = -np.sqrt( atomREAs[:,1] * PP_E );
-    REAs[:,2] = atomREAs[:,2] * alphaFac;
-    return REAs
 
 def getAtomsRE(  iZprobe, iZs,  FFparams ):
     n   = len(iZs)
