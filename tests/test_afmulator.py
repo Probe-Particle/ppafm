@@ -23,6 +23,9 @@ def test_afmulator_save_load():
         df_steps=10,
         tipStiffness=(0.37, 0.37, 0.0, 20.0),
         rho={'dz2': -0.05},
+        sigma=0.8,
+        A_pauli=15.0,
+        B_pauli=1.0,
         tipR0=[0.0, 0.0, 4.0],
         npbc=(1, 1, 1),
         f0Cantilever=30000,
@@ -53,5 +56,7 @@ def test_afmulator_save_load():
         assert np.allclose(afmulator.pixPerAngstrome, afmulator_original.pixPerAngstrome)
         assert afmulator._rho == afmulator_original._rho
         assert np.allclose(afmulator.sigma, afmulator_original.sigma)
+        assert np.allclose(afmulator.A_pauli, afmulator_original.A_pauli)
+        assert np.allclose(afmulator.B_pauli, afmulator_original.B_pauli)
 
     os.remove(params_path)

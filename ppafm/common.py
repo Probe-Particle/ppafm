@@ -25,6 +25,7 @@ params={
     'probeType':   'O',
     'charge':      0.00,
     'Apauli':    18.0,
+    'Bpauli':     1.0,
     'ffModel':     'LJ',
     'Rcore':    0.7,
     'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),

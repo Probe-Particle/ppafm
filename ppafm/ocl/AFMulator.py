@@ -419,9 +419,10 @@ class AFMulator():
         self.f0Cantilever = params['f0Cantilever']
         self.kCantilever = params['kCantilever']
         self.npbc = params['npbc']
+        self.A_pauli = params['A_pauli']
         self.setScanWindow(params['scan_window'], params['scan_dim'], params['df_steps'])
         self.setLvec(params['lvec'], params['pixPerAngstrome'])
-        self.setRho(params['rho'], params['sigma'])
+        self.setRho(params['rho'], params['sigma'], params['B_pauli'])
 
     def save_params(self, file_path='./params.ini'):
         '''
@@ -463,6 +464,8 @@ class AFMulator():
             f.write(f'kCantilever {self.kCantilever}\n')
             f.write(f'f0Cantilever {self.f0Cantilever}\n')
             f.write(f'Amplitude {self.amplitude}\n')
+            f.write(f'Apauli {self.A_pauli}\n')
+            f.write(f'Bpauli {self.B_pauli}\n')
 
     # ========= Debug/Plot Misc. =========
 
@@ -562,6 +565,8 @@ def _get_params(file_path):
         'iZPP': iZPP,
         'rho': {PPU.params['tip']: PPU.params['charge']},
         'sigma': PPU.params['sigma'],
+        'A_pauli': PPU.params['Apauli'],
+        'B_pauli': PPU.params['Bpauli'],
         'df_steps': round(PPU.params['Amplitude'] / PPU.params['scanStep'][2]),
         'tipR0': PPU.params['r0Probe'],
         'tipStiffness': tipStiffness,
