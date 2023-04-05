@@ -246,10 +246,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.verbose > 0: print('updateRotation', a, self.rot)
         self.update()
 
-    def updateParams(self):
+    def updateParams(self, preset_none=True):
         '''Get parameter values from input fields and update'''
 
         if self.xyzs is None: return
+
+        if preset_none:
+            self.slPreset.blockSignals(True)
+            self.slPreset.setCurrentIndex(-1)
+            self.slPreset.blockSignals(False)
 
         Q = self.bxQ.value()
         sigma = self.bxS.value()
@@ -389,7 +394,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             sl.blockSignals(True)
             sl.setCurrentIndex(sl.findText(preset['Multipole']))
             sl.blockSignals(False)
-        self.updateParams()
+        self.updateParams(preset_none=False)
 
     def update(self):
         '''Run simulation, and show the result'''
@@ -457,7 +462,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Infer scan window from loaded geometry and run
         self.scanWindowFromGeom()
         self.setPBC(lvec, lvec is not None)
-        self.updateParams()
+        self.updateParams(preset_none=False)
 
         # Set current file path to window title
         self.file_path = file_path
@@ -640,6 +645,83 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         guiw.set_box_value(self.bxSCy, scan_start[1])
 
         self.updateScanWindow()
+
+    def saveParams(self):
+        '''
+        Save all current parameters to a params.ini file. Bring up a file dialog to decide
+        the file location.
+        '''
+        if hasattr(self, 'file_path'):
+            default_path = os.path.join(os.path.split(self.file_path)[0], 'params.ini')
+        else:
+            default_path = 'params.ini'
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save parameters", default_path, "(*.ini)")
+        if not fileName: return
+        if self.verbose > 0: print(f'Saving current parameters to `{fileName}`')
+        self.afmulator.save_params(fileName)
+        self.status_message('Saved parameters')
+
+    def loadParams(self):
+        '''
+        Load all current parameters from a params.ini file. Bring up a file dialog to decide
+        the file location.
+        '''
+
+        if hasattr(self, 'file_path'):
+            default_path = os.path.join(os.path.split(self.file_path)[0], 'params.ini')
+        else:
+            default_path = 'params.ini'
+        default_path = default_path if os.path.exists(default_path) else None
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open parameters file', default_path,
+            '(*.ini)')
+        self.afmulator.load_params(file_path)
+
+        # Set preset to nothing
+        self.slPreset.blockSignals(True)
+        self.slPreset.setCurrentIndex(-1)
+        self.slPreset.blockSignals(False)
+
+        # Set probe settings
+        guiw.set_box_value(self.bxZPP, self.afmulator.iZPP)
+        tip = list(self.afmulator._rho.keys())[0]
+        self.slMultipole.blockSignals(True); self.slMultipole.setCurrentText(tip); self.slMultipole.blockSignals(False)
+        guiw.set_box_value(self.bxQ, self.afmulator._rho[tip])
+        guiw.set_box_value(self.bxS, self.afmulator.sigma)
+        guiw.set_box_value(self.bxS, self.afmulator.sigma)
+        guiw.set_box_value(self.bxKx, self.afmulator.scanner.stiffness[0] * -PPU.eVA_Nm)
+        guiw.set_box_value(self.bxKy, self.afmulator.scanner.stiffness[1] * -PPU.eVA_Nm)
+        guiw.set_box_value(self.bxKr, self.afmulator.scanner.stiffness[3] * -PPU.eVA_Nm)
+        guiw.set_box_value(self.bxP0x, self.afmulator.tipR0[0])
+        guiw.set_box_value(self.bxP0y, self.afmulator.tipR0[1])
+        guiw.set_box_value(self.bxP0r, self.afmulator.tipR0[2])
+
+        # Set scan settings
+        scan_size = (
+            self.afmulator.scan_window[1][0] - self.afmulator.scan_window[0][0],
+            self.afmulator.scan_window[1][1] - self.afmulator.scan_window[0][1]
+        )
+        scan_step = (
+            (scan_size[0]) / (self.afmulator.scan_dim[0] - 1),
+            (scan_size[1]) / (self.afmulator.scan_dim[1] - 1),
+            self.afmulator.dz
+        )
+        guiw.set_box_value(self.bxStepX, scan_step[0])
+        guiw.set_box_value(self.bxStepY, scan_step[1])
+        guiw.set_box_value(self.bxStepZ, scan_step[2])
+        guiw.set_box_value(self.bxSSx, scan_size[0])
+        guiw.set_box_value(self.bxSSy, scan_size[1])
+        guiw.set_box_value(self.bxSCx, self.afmulator.scan_window[0][0])
+        guiw.set_box_value(self.bxSCy, self.afmulator.scan_window[0][1])
+        if self.xyzs is not None:
+            d = self.afmulator.scan_window[0][2] + self.afmulator.amplitude / 2 - self.xyzs[:, 2].max()
+            guiw.set_box_value(self.bxD, d)
+        guiw.set_box_value(self.bxA, self.afmulator.amplitude)
+
+        # Set df settings
+        guiw.set_box_value(self.bxCant_K, self.afmulator.kCantilever)
+        guiw.set_box_value(self.bxCant_f0, self.afmulator.f0Cantilever)
+
+        self.update()
 
     def _create_probe_settings_ui(self):
 
@@ -882,6 +964,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bt.setToolTip(TTips['edit_ff'])
         bt.clicked.connect(self.FFEditor.show)
         self.btEditFF = bt; vb.addWidget(bt)
+
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+
+        # Buttons for saving/loading parameters
+        self.btSaveParams = QtWidgets.QPushButton('Save parameters...', self)
+        self.btSaveParams.setToolTip('Save all current parameters into a params.ini file.')
+        self.btSaveParams.clicked.connect(self.saveParams)
+        vb.addWidget( self.btSaveParams )
+        self.btLoadParams = QtWidgets.QPushButton('Load parameters...', self)
+        self.btLoadParams.setToolTip('Load parameters from a params.ini file.')
+        self.btLoadParams.clicked.connect(self.loadParams)
+        vb.addWidget( self.btLoadParams )
 
         vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
 

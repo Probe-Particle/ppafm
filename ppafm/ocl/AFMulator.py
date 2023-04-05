@@ -431,9 +431,6 @@ class AFMulator():
         Arguments:
             file_path: str. Path to the file where parameters are saved.
         '''
-        if not np.allclose(self.lvec[0], 0):
-            warnings.warn("The origin of the force field grid is not at (0, 0, 0). This is not supported in the "
-                "params.ini format so this information will not be saved.")
         k = self.scanner.stiffness * -PPU.eVA_Nm
         nDim = self.forcefield.nDim
         scan_step = (
