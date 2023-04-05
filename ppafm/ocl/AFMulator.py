@@ -454,6 +454,7 @@ class AFMulator():
             f.write(f'r0Probe {self.tipR0[0]} {self.tipR0[1]} {self.tipR0[2]}\n')
             f.write(f'PBC {(np.array(self.npbc) > 0).any()}\n')
             f.write(f'nPBC {self.npbc[0]} {self.npbc[1]} {self.npbc[2]}\n')
+            f.write(f'grid0 {self.lvec[0, 0]} {self.lvec[0, 1]} {self.lvec[0, 2]}\n')
             f.write(f'gridA {self.lvec[1, 0]} {self.lvec[1, 1]} {self.lvec[1, 2]}\n')
             f.write(f'gridB {self.lvec[2, 0]} {self.lvec[2, 1]} {self.lvec[2, 2]}\n')
             f.write(f'gridC {self.lvec[3, 0]} {self.lvec[3, 1]} {self.lvec[3, 2]}\n')
@@ -529,7 +530,7 @@ def _get_params(file_path):
     '''Get AFMulator arguments from a params.ini file.'''
     PPU.loadParams(file_path)
     lvec = np.array([
-        [0, 0, 0],
+        PPU.params['grid0'],
         PPU.params['gridA'],
         PPU.params['gridB'],
         PPU.params['gridC']

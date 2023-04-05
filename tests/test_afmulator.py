@@ -12,7 +12,7 @@ def test_afmulator_save_load():
     afmulator_original = AFMulator(
         pixPerAngstrome=15,
         lvec=np.array([
-            [0, 0, 0],
+            [1, 1, 1],
             [5, 1, 0],
             [2, 5, 0],
             [0, 0, 8]
