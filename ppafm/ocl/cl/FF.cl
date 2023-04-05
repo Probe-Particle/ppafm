@@ -1,5 +1,5 @@
 
-#define R2SAFE          1e-4f
+#define R2SAFE          1e-6f
 #define COULOMB_CONST   14.399644f  // [eV*Ang/e^2]
 
 //#define N_RELAX_STEP_MAX  64
@@ -7,6 +7,13 @@
 #define F2CONV  1e-8
 
 #include "splines.cl"
+
+// vdW damping coefficients
+__constant float ADamp_Const = 180.0;
+__constant float ADamp_R2 = 0.5;
+__constant float ADamp_R4 = 0.5;
+__constant float ADamp_invR4 = 0.03;
+__constant float ADamp_invR8 = 0.01;
 
 inline float3 rotMat ( float3 v,  float3 a, float3 b, float3 c  ){ return (float3)(dot(v,a),dot(v,b),dot(v,c)); }
 inline float3 rotMatT( float3 v,  float3 a, float3 b, float3 c  ){ return a*v.x + b*v.y + c*v.z; }
@@ -530,6 +537,127 @@ __kernel void addLJ(
     FE[ind] += fe;
 }
 
+// Add van der Waals force to an existing forcefield grid. The forcefield values are saved in
+// Fortran order. Local work group size can be at most 64.
+__kernel void addvdW(
+    const int nAtoms,       // Number of atoms
+    __global float4* atoms, // Atom positions
+    __global float2*  cLJs, // Lennard-Jones parameters in AB form
+    __global float4*  REAs, // Lennard-Jones parameters in RE form
+    __global float4*    FE, // Forcefield grid
+    int4 nGrid,             // Grid size
+    float4 grid_origin,     // Real-space origin of grid
+    float4 grid_stepA,      // Real-space step sizes of grid lattice vectors
+    float4 grid_stepB,
+    float4 grid_stepC,
+    int damp_method         // Type of damping to use. -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8
+){
+
+    const int iL = get_local_id  (0);
+    const int nL = get_local_size(0);
+    int ind = get_global_id(0);
+
+    // Convert linear index to x,y,z indices (Fortran order)
+    int i = ind % nGrid.x;
+    int j = (ind / nGrid.x) % nGrid.y;
+    int k = ind / (nGrid.y * nGrid.x);
+
+    // Calculate position in grid
+    float3 pos = grid_origin.xyz + grid_stepA.xyz*i + grid_stepB.xyz*j  + grid_stepC.xyz*k;
+
+    // Compute vdW force and energy
+    __local float4 LATOMS[64];
+    __local float2 LCLJS[64];
+    float4 fe = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
+    if (damp_method == -1) {
+        for (int i0 = 0; i0 < nAtoms; i0 += nL) {
+            int ia = i0 + iL;
+            if (ia < nAtoms) {
+                LATOMS[iL] = atoms[ia];
+                LCLJS[iL] = cLJs[ia];
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+            for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+                float3 dp = pos - LATOMS[ja].xyz;
+                float ir2 = 1.0f / (dot(dp, dp) + R2SAFE);
+                float ir6 = ir2 * ir2 * ir2;
+                float E = -LCLJS[ja].x * ir6;
+                float3 F = 6.0f * E * ir2 * dp;
+                fe += (float4)(F, E);
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+        }
+    } else if (damp_method == 0) {
+        for (int i0 = 0; i0 < nAtoms; i0 += nL) {
+            int ia = i0 + iL;
+            if (ia < nAtoms) {
+                LATOMS[iL] = atoms[ia];
+                LCLJS[iL] = cLJs[ia];
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+            for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+                float3 dp = pos - LATOMS[ja].xyz;
+                float r2 = dot(dp, dp);
+                float r8 = r2 * r2 * r2 * r2;
+                float E = 0.0f;
+                float3 F = -6.0f * LCLJS[ja].x / (r8 + ADamp_Const * LCLJS[ja].x) * dp;
+                fe += (float4)(F, E);
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+        }
+    } else {
+        for (int i0 = 0; i0 < nAtoms; i0 += nL) {
+            int ia = i0 + iL;
+            if (ia < nAtoms) {
+                LATOMS[iL] = atoms[ia];
+                LCLJS[iL] = REAs[ia].xy;
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+            for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+                float3 dp = pos - LATOMS[ja].xyz;
+                float r2 = dot(dp, dp);
+                float iR2 = 1.0f / (LCLJS[ja].x * LCLJS[ja].x);
+                float u2 = r2 * iR2;
+                float u4 = u2 * u2;
+                float D, dD, ADamp;
+                if (damp_method == 1) {
+                    float step = (float)(u2 < 1);
+                    D = (1.0f - u2) * step;
+                    dD = -2.0f * step;
+                    ADamp = ADamp_R2;
+                } else if (damp_method == 2) {
+                    float de = (1 - u2) * (float)(u2 < 1);
+                    D = de * de;
+                    dD = -4 * de;
+                    ADamp = ADamp_R4;
+                } else if (damp_method == 3) {
+                    float de2 = 1 / (u2 + R2SAFE);
+                    D = de2 * de2;
+                    dD = -4 * de2 * D;
+                    ADamp = ADamp_invR4;
+                } else if (damp_method == 4) {
+                    float de2 = 1 / (u2 + R2SAFE);
+                    D = de2 * de2 * de2 * de2;
+                    dD = -8 * de2 * D;
+                    ADamp = ADamp_invR8;
+                }
+                float e = 1.0f / (u4 * u2 + D * ADamp);
+                float E = -2.0f * LCLJS[ja].y * e;
+                float3 F = (E * e * (6.0f * u4 + dD * ADamp) * iR2) * dp;
+                fe += (float4)(F, E);
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+        }
+    }
+
+    // Add to forcefield grid
+    if (ind < nGrid.x * nGrid.y * nGrid.z) {
+        FE[ind] += fe;
+    }
+
+}
+
+
 // Compute Lennard Jones force field at grid points and add to it the electrostatic force
 // from an electric field precomputed from a Hartree potential. The output buffer is
 // written in Fortran memory layout in order to be compatible with OpenCL image
@@ -592,13 +720,15 @@ __kernel void evalLJC_Hartree(
 
 }
 
-// Obtain electric field as the negative gradient of Hartree potential via centered difference
-__kernel void gradPotential(
-    __global float  *pot,   // Input Hartree potential
-    __global float4 *field, // Output electric field
-    int4            nGrid,  // Size of Hartree potential grid (x, y, z, _)
-    float4          step,   // Step size of grid (x, y, z, _)
-    int             C_order // If non-zeo, values are saved in C order, otherwise Fortran order
+// Compute the gradient of a scalar field via centered difference. Uses periodic boundary conditions
+// at the edge of the grid.
+__kernel void grad(
+    __global float  *array_in,  // Input array
+    __global float4 *array_out, // Output array
+    int4            nGrid,      // Shape of grid (x, y, z, _)
+    float4          step,       // Step size of grid (x, y, z, _)
+    int             C_order,    // If non-zero, values are saved in C order, otherwise Fortran order
+    float4          scale       // Additional scaling factor for the output
 ) {
 
     int ind = get_global_id(0);
@@ -619,18 +749,18 @@ __kernel void gradPotential(
     int jn = j < nGrid.y - 1 ? ind + nGrid.z : ind - (nGrid.y - 1) * nGrid.z;
     int kn = k < nGrid.z - 1 ? ind + 1       : ind - (nGrid.z - 1);
 
-    // Compute value of field as centered difference. Also copy potential to
-    // last place to be consistent with the other Coulomb kernels.
+    // Compute value of gradient as centered difference. Also copy original scalar value to
+    // last place to be consistent with the other kernels.
     float4 f = (float4)(
-        0.5*(pot[ip] - pot[in]) / step.x,
-        0.5*(pot[jp] - pot[jn]) / step.y,
-        0.5*(pot[kp] - pot[kn]) / step.z,
-        pot[ind]
+        0.5 * (array_in[in] - array_in[ip]) / step.x,
+        0.5 * (array_in[jn] - array_in[jp]) / step.y,
+        0.5 * (array_in[kn] - array_in[kp]) / step.z,
+        array_in[ind]
     );
 
     // Save to output array
     int out_ind = C_order ? ind : i + nGrid.x * j + nGrid.x * nGrid.y * k;
-    field[out_ind] = f;
+    array_out[out_ind] = scale * f;
 
 }
 
@@ -717,6 +847,31 @@ __kernel void interp_at(
     // Interpolate
     out[ind] = linearInterpB(pos.xyz, origin_in.xyz, T_A.xyz, T_B.xyz, T_C.xyz, nGrid_in.xyz, in);
 
+}
+
+// Raise all array elements to the same power. Negative values are set to zero.
+__kernel void power(
+    __global float *array_in,   // Input array
+    __global float *array_out,  // Output array
+    int n,                      // Number of elements in array
+    float p                     // Power to raise to
+) {
+    int ind = get_global_id(0);
+    if (ind >= n) return;
+    array_out[ind] = powr(max(0.0f, array_in[ind]), p);
+}
+
+// Multiply and add values in one array with another
+__kernel void addMult(
+    __global float *array_in1,  // Input array 1
+    __global float *array_in2,  // Input array 2 that is scaled
+    __global float *array_out,  // Output array
+    int n,                      // Number of elements in array
+    float A                     // Scaling constant for input array 2
+) {
+    int ind = get_global_id(0);
+    if (ind >= n) return;
+    array_out[ind] = array_in1[ind] + A * array_in2[ind];
 }
 
 float3 tipForce( float3 dpos, float4 stiffness, float4 dpos0 ){

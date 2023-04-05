@@ -11,7 +11,7 @@ from ..PPPlot import plotImages
 from . import field as FFcl
 from . import oclUtils as oclu
 from . import relax as oclr
-from .field import HartreePotential, MultipoleTipDensity, hartreeFromFile
+from .field import ElectronDensity, HartreePotential, MultipoleTipDensity, TipDensity
 
 VALID_SIZES = np.array([16, 32, 64, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048])
 
@@ -34,28 +34,30 @@ class AFMulator():
             scan_dim[2], and the scan in z-direction proceeds for scan_dim[2] steps, so the final step is one step short
             of z_min.
         iZPPs: int. Element of probe particle.
-        QZs: Array of length 4. Position tip charges along z-axis relative to probe-particle center in angstroms.
+        QZs: Array of length 4. Positions of tip charges along z-axis relative to probe-particle center in angstroms.
         Qs: Array of length 4. Values of tip charges in units of e. Some can be zero.
-        rho: Dict or :class:`.MultipoleTipDensity`. Tip charge density. Used with Hartree potentials. Overrides QZs and Qs.
+        rho: Dict or :class:`.TipDensity`. Tip charge density. Used with Hartree potentials. Overrides QZs and Qs.
             The dict should contain float entries for at least of one the following 's', 'px', 'py', 'pz', 'dz2',
             'dy2', 'dx2', 'dxy', 'dxz', 'dyz'. The tip charge density will be a linear combination of the specified
             multipole types with the specified weights.
         sigma: float. Width of tip density distribution if rho is a dict of multipole coefficients.
+        rho_delta: :class:`.TipDensity`. Tip delta charge density. Used in FDBM approximation for calculating the
+            electrostatic interaction force.
+        A_pauli: float. Prefactor for Pauli repulsion when using the FDBM.
+        B_pauli: float. Exponent for Pauli repulsion when using the FDBM.
         df_steps: int. Number of steps in z convolution. The total amplitude is df_steps times scan z-step size.
         tipR0: array of length 3. Probe particle equilibrium position (x, y, z) in angstroms.
-        tipStiffness: array of length 4. Harmonic spring constants (x, y, z, r) for holding the probe particle
-            to the tip in N/m.
+        tipStiffness: array of length 4. Harmonic spring constants (x, y, z, r) in N/m for holding the probe particle
+            to the tip.
         npbc: tuple of three ints. How many periodic images of atoms to use in (x, y, z) dimensions. Used for calculating
             Lennard-Jones force field and electrostatic field from point charges. Electrostatic field from a Hartree
             potential defined on a grid is always considered to be periodic.
-        f0Cantilever: float. Resonance frequency of cantilever in Hz.
-        kCantilever: float. Harmonic spring constant of cantilever in N/m.
-        initFF: Bool. Whether to initialize buffers. Set to False to modify force field and scanner parameters
-            before initialization.
+        f0Cantilever: float. Resonance frequency of the cantilever in Hz.
+        kCantilever: float. Harmonic spring constant of the cantilever in N/m.
+        vdw_damp_method: int. Type of damping to use in vdw calculation for FDBM.
+            -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
     '''
 
-    bNoPoss    = True    # Use algorithm which does not need to store array of FF_grid-sampling positions in memory (neither GPU-memory nor main-memory)
-    bNoFFCopy  = True    # Should we copy Force-Field grid from GPU  to main_mem ?  ( Or we just copy it just internally withing GPU directly to image/texture used by RelaxedScanner )
     bMergeConv = False   # Should we use merged kernel relaxStrokesTilted_convZ or two separated kernells  ( relaxStrokesTilted, convolveZ  )
 
     # --- Relaxation
@@ -77,12 +79,16 @@ class AFMulator():
         Qs              = [ -10, 20,  -10, 0 ],
         rho             = None,
         sigma           = 0.71,
+        rho_delta       = None,
+        A_pauli         = 18.0,
+        B_pauli         = 1.0,
         df_steps        = 10,
         tipR0           = [0.0, 0.0, 3.0],
         tipStiffness    = [0.25, 0.25, 0.0, 30.0],
         npbc            = (1, 1, 0),
         f0Cantilever    = 30300,
-        kCantilever     = 1800
+        kCantilever     = 1800,
+        vdw_damp_method = 2
     ):
 
         if not FFcl.oclu or not oclr.oclu:
@@ -100,17 +106,23 @@ class AFMulator():
         self.kCantilever = kCantilever
         self.npbc = npbc
         self.pot = None
+        self.sigma = sigma
+        self.A_pauli = A_pauli
+        self.B_pauli = B_pauli
+        self.vdw_damp_method = vdw_damp_method
 
         self.setScanWindow(scan_window, scan_dim, df_steps)
         self.setLvec(lvec, pixPerAngstrome)
-        self.setRho(rho, sigma)
+        self.setRho(rho, sigma, B_pauli)
+        self.setRhoDelta(rho_delta)
         self.setQs(Qs, QZs)
 
         self.typeParams = PPU.loadSpecies('atomtypes.ini')
         self.saveFFpre = ""
         self.counter = 0
 
-    def eval(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None, X=None ):
+    def eval(self, xyzs, Zs, qs, rho_sample=None, pbc_lvec=None, rot=np.eye(3), rot_center=None,
+        REAs=None, X=None, plot_to_dir=None):
         '''
         Prepare and evaluate AFM image.
 
@@ -119,26 +131,30 @@ class AFMulator():
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
             qs: np.ndarray of shape (num_atoms,) or :class:`.HartreePotential` or None. Charges of atoms or hartree potential.
                 If None, then no electrostatics are used.
+            rho_sample: :class:`.ElectronDensity` or None. Sample electron density. If not None, then FDBM is used
+                for calculating the Pauli repulsion force.
             pbc_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
-                If None, periodic boundaries are disabled, unless qs is HartreePotential and the lvec from the
+                If None, periodic boundaries are disabled, unless qs is :class:`.HartreePotential` and the lvec from the
                 Hartree potential is used instead. If npbc = (0, 0, 0), then has no function.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
+            plot_to_dir: str or None. If not None, plot the generated AFM images to this directory.
 
         Returns:
-            np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
+            X: np.ndarray. Output AFM images. If input X is not None, this is the same array object as X with values overwritten.
         '''
-        self.prepareFF(xyzs, Zs, qs, pbc_lvec, rot, rot_center, REAs)
+        self.prepareFF(xyzs, Zs, qs, rho_sample, pbc_lvec, rot, rot_center, REAs)
         self.prepareScanner()
         X = self.evalAFM(X)
+        if plot_to_dir: self.plot_images(X, outdir=plot_to_dir)
         return X
 
-    def __call__(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None, X=None):
+    def __call__(self, *args, **kwargs):
         '''
         Makes object callable. See :meth:`eval` for input arguments.
         '''
-        return self.eval(xyzs, Zs, qs, pbc_lvec, rot, rot_center, REAs=REAs, X=X)
+        return self.eval(*args, **kwargs)
 
     def eval_( self, mol ):
         return self.eval( mol.xyzs, mol.Zs, mol.qs )
@@ -163,10 +179,7 @@ class AFMulator():
             self._old_nDim = np.zeros(4)
 
         # Set lvec in force field and scanner
-        if self.bNoPoss:
-            self.forcefield.initSampling(self.lvec, pixPerAngstrome=self.pixPerAngstrome)
-        else:
-            self.forcefield.initPoss(lvec=self.lvec, pixPerAngstrome=self.pixPerAngstrome)
+        self.forcefield.initSampling(self.lvec, pixPerAngstrome=self.pixPerAngstrome)
         FEin_shape = self.forcefield.nDim if (self._old_nDim != self.forcefield.nDim).any() else None
         self.scanner.prepareBuffers(lvec=self.lvec, FEin_shape=FEin_shape)
 
@@ -195,24 +208,59 @@ class AFMulator():
         self.scanner.updateBuffers(WZconv=self.dfWeight)
         self.scanner.preparePosBasis(start=self.scan_window[0][:2], end=self.scan_window[1][:2] )
 
-    def setRho(self, rho=None, sigma=0.71):
-        '''Set tip charge distribution.'''
-        self.sigma = sigma
+    def setRho(self, rho=None, sigma=0.71, B_pauli=1.0):
+        '''Set tip charge distribution.
+
+        Arguments:
+            rho: Dict, :class:`.TipDensity`, or None. Tip charge density. If None, the existing density is deleted.
+            sigma: float. Tip charge density distribution when rho is a dict.
+            B_pauli: float. Pauli repulsion exponent for tip density when using FDBM.
+        '''
         if rho is not None:
-            self._rho = rho # Remember argument value so that if it's a dict the tip density can be recalculated if necessary
+            self.sigma = sigma
+            self.B_pauli = B_pauli
+            self._rho = rho # Remember argument value so that we can recompute the power from grid or the grid from a dict later if needed
             if isinstance(rho, dict):
                 self.rho = MultipoleTipDensity(self.forcefield.lvec[:, :3], self.forcefield.nDim[:3], sigma=self.sigma,
                     multipole=rho, ctx=self.forcefield.ctx)
             else:
+                if not isinstance(rho, TipDensity):
+                    raise ValueError(f'rho should of type `TipDensity`, but got `{type(rho)}`')
                 self.rho = rho
             if self.verbose > 0: print('AFMulator.setRho: Preparing buffers')
+            if not np.allclose(B_pauli, 1.0):
+                rho_power = self.rho.power_positive(p=self.B_pauli, in_place=False)
+                self.rho.release() # Let's not keep the original array in device memory to minimize memory foot print
+                self.rho = rho_power
             self.forcefield.prepareBuffers(rho=self.rho, bDirect=True)
         else:
             self._rho = None
             self.rho = None
             if self.forcefield.rho is not None:
+                if self.verbose > 0: print('AFMulator.setRho: Releasing buffers')
                 self.forcefield.rho.release()
                 self.forcefield.rho = None
+
+    def setBPauli(self, B_pauli=1.0):
+        '''Set Pauli repulsion exponent used in FDBM.'''
+        self.setRho(self._rho, sigma=self.sigma, B_pauli=B_pauli)
+
+    def setRhoDelta(self, rho_delta=None):
+        '''Set tip electron delta-density that is used for electrostatic interaction in FDBM.
+
+        Arguments:
+            rho_delta: :class:`.TipDensity` or None. Tip electron delta-density. If None, the existing density is deleted.
+        '''
+        self.rho_delta = rho_delta
+        if self.rho_delta is not None:
+            if not isinstance(rho_delta, TipDensity):
+                raise ValueError(f'rho_delta should of type `TipDensity`, but got `{type(rho_delta)}`')
+            if self.verbose > 0: print('AFMulator.setRhoDelta: Preparing buffers')
+            self.forcefield.prepareBuffers(rho_delta=self.rho_delta, bDirect=True)
+        elif self.forcefield.rho_delta is not None:
+            if self.verbose > 0: print('AFMulator.setRhoDelta: Releasing buffers')
+            self.forcefield.rho_delta.release()
+            self.forcefield.rho_delta = None
 
     def setQs(self, Qs, QZs):
         '''Set tip point charges.'''
@@ -222,7 +270,7 @@ class AFMulator():
 
     # ========= Imaging =========
 
-    def prepareFF(self, xyzs, Zs, qs, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None):
+    def prepareFF(self, xyzs, Zs, qs, rho_sample=None, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None):
         '''
         Prepare molecule parameters and calculate force field.
 
@@ -231,6 +279,9 @@ class AFMulator():
             Zs: np.ndarray of shape (num_atoms,). Elements of atoms.
             qs: np.ndarray of shape (num_atoms,) or :class:`.HartreePotential` or None. Charges of atoms or hartree potential.
                 If None, then no electrostatics are used.
+            rho_sample: :class:`.ElectronDensity` or None. Sample electron density. If not None, then FDBM is used
+                for calculating the Pauli repulsion force. Requires rho_delta to be set and qs has to
+                be :class:`.HartreePotential`.
             pbc_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
                 If None, periodic boundaries are disabled, unless qs is HartreePotential and the lvec from the
                 Hartree potential is used instead. If npbc = (0, 0, 0), then has no function.
@@ -247,8 +298,19 @@ class AFMulator():
             if self.verbose > 0: print('(Re)initializing force field buffers.')
             if self.verbose > 1: print(f'old nDim: {self._old_nDim}, new nDim: {self.forcefield.nDim}')
             self.forcefield.tryReleaseBuffers()
-            self.setRho(self._rho, self.sigma)
+            if isinstance(self._rho, dict):
+                # The grid size changed so we need to recompute the tip density grid from the multipole dict
+                self.setRho(self._rho, self.sigma, self.B_pauli)
             self.forcefield.prepareBuffers()
+
+        # If rho_sample is specified, then we use FDBM. Check that other requirements are satisfied.
+        if rho_sample is not None:
+            if not isinstance(rho_sample, ElectronDensity):
+                raise ValueError(f'rho_sample should of type `ElectronDensity`, but got `{type(rho_sample)}`')
+            if not isinstance(qs, HartreePotential):
+                raise ValueError(f'qs should be HartreePotential when rho_sample is not None, but got type `{type(qs)}`.')
+            if self.rho_delta is None:
+                raise ValueError(f'rho_delta should be set when rho_sample is not None.')
 
         # Check if using point charges or precomputed Hartee potential
         if qs is None:
@@ -262,58 +324,37 @@ class AFMulator():
         else:
             pot = None
 
+        # Determine method
+        if rho_sample is not None:
+            method = 'fdbm'
+        elif pot is not None:
+            method = 'hartree'
+        else:
+            method = 'point-charge'
+
         npbc = self.npbc if pbc_lvec is not None else (0, 0, 0)
 
         if rot_center is None:
             rot_center = xyzs.mean(axis=0)
 
         # Get Lennard-Jones parameters and apply periodic boundary conditions to atoms
-        self.natoms0 = len(Zs)
         if REAs is None:
-            self.REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
-        else:
-            self.REAs = REAs
-        cLJs = PPU.REA2LJ(self.REAs)
+            REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
+        cLJs = PPU.REA2LJ(REAs)
         if sum(npbc) > 0:
-            Zs, xyzqs, cLJs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, pbc_lvec, npbc=npbc)
-        else:
-            xyzqs = np.concatenate([xyzs, qs[:, None]], axis=1)
-        self.Zs = Zs
-
-        # Rotate atom positions
-        if pot is None:
-            xyzqs[:, :3] -= rot_center
-            xyzqs[:, :3] = np.dot(xyzqs[:, :3], rot.T)
-            xyzqs[:, :3] += rot_center
+            Zs, xyzs, qs, cLJs, REAs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, pbc_lvec, npbc=npbc)
 
         # Compute force field
-        if self.bNoFFCopy:
-            if pot:
-                self.forcefield.makeFFHartree(xyzqs[:, :3], cLJs, pot=pot, rho=None, rot=rot,
-                    rot_center=rot_center, bRelease=False, bCopy=False, bFinish=False)
-            else:
-                self.forcefield.makeFF(atoms=xyzqs, cLJs=cLJs, FE=False, Qmix=None,
-                    bRelease=False, bCopy=False, bFinish=True, bQZ=True)
-            self.atoms = self.forcefield.atoms
-            if self.bSaveFF:
-                self.saveFF()
-        else:
-            self.FEin = np.empty(self.forcefield.nDim, np.float32)
-            FF, self.atoms = self.forcefield.makeFF(atoms=xyzqs, cLJs=cLJs, FE=self.FEin, Qmix=None,
-                bRelease=True,bCopy=True, bFinish=True )
-
-        self.atomsNonPBC = self.atoms[:self.natoms0].copy()
+        self.forcefield.makeFF(xyzs, cLJs, REAs=REAs, method=method, qs=qs, pot=pot, rho_sample=rho_sample,
+            rho_delta=self.rho_delta, A=self.A_pauli, B=self.B_pauli, rot=rot, rot_center=rot_center,
+            vdw_damp_method=self.vdw_damp_method, bRelease=False, bCopy=False, bFinish=False)
+        if self.bSaveFF: self.saveFF()
 
     def prepareScanner(self):
-        '''
-        Prepare scanner. Run after preparing force field.
-        '''
+        '''Prepare scanner. Run after preparing force field.'''
 
         # Copy forcefield array to scanner buffer
-        if self.bNoFFCopy:
-            self.scanner.updateFEin(self.forcefield.cl_FE)
-        else:
-            self.scanner.prepareBuffers(self.FEin)
+        self.scanner.updateFEin(self.forcefield.cl_FE)
 
         # Subtract origin, because OpenCL kernel for tip relaxation does not take the origin of the FF box into account
         self.pos0 = np.array([0, 0, self.scan_window[1][2]]) - self.lvec[0]
@@ -330,7 +371,7 @@ class AFMulator():
                Array where AFM image will be saved. If None, will be created automatically.
 
         Returns:
-            np.ndarray. AFM image. If X is not None, this is the same array object as X with values overwritten.
+            X: np.ndarray. Output AFM images. If input X is not None, this is the same array object as X with values overwritten.
         '''
 
         if self.bMergeConv:
@@ -390,6 +431,25 @@ class AFMulator():
                     'If you get artifacts in the images, please check the boundary conditions and '
                     'the size of the scan window and the force field grid.')
 
+    def plot_images(self, X, outdir='afm_images', prefix='df'):
+        '''
+        Plot simulated AFM images and save them to a directory.
+
+        Arguments:
+            X: np.ndarray. AFM images to plot.
+            outdir: str. Path to directory where files are saved.
+            prefix: str. Prefix string for saved files.
+        '''
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        X = X.transpose(2, 1, 0)[::-1]
+        zTips = np.linspace(self.scan_window[0][2], self.scan_window[1][2] - self.df_steps * self.dz,
+            self.scan_dim[2] - self.df_steps + 1)
+        zTips += self.amplitude / 2
+        extent = [self.scan_window[0][0], self.scan_window[1][0], self.scan_window[0][1], self.scan_window[1][1]]
+        plotImages(os.path.join(outdir, prefix), X, slices = list(range(0, len(X))),
+            zs=zTips, extent=extent, cmap=PPU.params['colorscale'])
+
 def get_lvec(scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrome=10):
     pad = np.array(pad)
     tipR0 = np.array(tipR0)
@@ -440,7 +500,7 @@ def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_s
 
     # Load input file
     if file_path.endswith('.xsf') or file_path.endswith('.cube'):
-        qs, xyzs, Zs = hartreeFromFile(file_path)
+        qs, xyzs, Zs = FFcl.HartreePotential.from_file(file_path, scale=-1.0)
         multipole = {tip: charge}
         Qs = [0, 0, 0, 0]
         QZs = [0, 0, 0, 0]
@@ -452,6 +512,7 @@ def quick_afm(file_path, scan_size=(16, 16), offset=(0, 0), distance=8.0, scan_s
             QZs = [0, 0, 0, 0]
         elif tip == 'pz':
             Qs = [10*charge, -10*charge, 0, 0]
+            QZs = [0.1, -0.1, 0, 0]
         elif tip == 'dz2':
             Qs = [100*charge, -200*charge, 100*charge, 0]
             QZs = [0.1, 0, -0.1, 0]

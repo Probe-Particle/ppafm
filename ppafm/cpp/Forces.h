@@ -135,7 +135,7 @@ inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
 
 // Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
 inline double addAtomVdW_noDamp( const Vec3d& dR, Vec3d& fout, double c6 ){
-    double invR2 = 1/dR.norm2(); 
+    double invR2 = 1/dR.norm2();
     double invR4 = invR2*invR2;
     double E     = -c6 * invR4*invR2;
     fout.add_mul( dR , E*-6*invR2 );
@@ -154,12 +154,12 @@ double addAtomVdW_addDamp( const Vec3d& dR, Vec3d& fout, double R, double E0, do
     double D,dD;
     double r2    = dR.norm2();
     double invR2 = 1./(R*R);
-    double u2    = r2*invR2; 
-    double u4    = u2*u2; 
+    double u2    = r2*invR2;
+    double u4    = u2*u2;
     D  = Rfunc(u2,dD);
-    double e  = 1./(      u4*u2 + D*ADamp);                
+    double e  = 1./(      u4*u2 + D*ADamp);
     double E  = -2*E0*e;
-    double fr = -E *e*( 6*u4    + dD*ADamp)*invR2 ; 
+    double fr = -E *e*( 6*u4    + dD*ADamp)*invR2 ;
     fout.add_mul(dR,fr);
     return E;
 }
@@ -181,7 +181,7 @@ inline double R4_func(double r2,double &df){
         df     =  0;
         return    0;
     }else{
-        double e = 1 - r2; 
+        double e = 1 - r2;
         df     =  -4*e;
         return     e*e;
     }
@@ -189,7 +189,7 @@ inline double R4_func(double r2,double &df){
 
 inline double invR4_func(double r2,double &df){
     //printf( "invR4_func() \n");
-    double invR2 = 1/r2;
+    double invR2 = 1/(r2 + R2SAFE);
     double invR4 = invR2*invR2;
     df           = -4*invR4*invR2;
     return            invR4;
@@ -197,7 +197,7 @@ inline double invR4_func(double r2,double &df){
 
 inline double invR8_func(double r2,double &df){
     //printf( "invR8_func() \n");
-    double invR2 = 1/r2;
+    double invR2 = 1/(r2 + R2SAFE);
     double invR8 = invR2*invR2; invR8*=invR8;
     df           = -8*invR8*invR2;
     return            invR8;
