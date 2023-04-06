@@ -105,7 +105,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.xyzs = None
         self.Zs = None
         self.qs = None
-        self.pbc_lvec = None
+        self.sample_lvec = None
         self.rot = np.eye(3)
         self.df_points = []
 
@@ -246,10 +246,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.verbose > 0: print('updateRotation', a, self.rot)
         self.update()
 
-    def updateParams(self):
+    def updateParams(self, preset_none=True):
         '''Get parameter values from input fields and update'''
 
         if self.xyzs is None: return
+
+        if preset_none:
+            self.slPreset.blockSignals(True)
+            self.slPreset.setCurrentIndex(-1)
+            self.slPreset.blockSignals(False)
 
         Q = self.bxQ.value()
         sigma = self.bxS.value()
@@ -325,13 +330,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.verbose > 0: print('setPBC', lvec, enabled)
 
         if enabled:
-            self.pbc_lvec = lvec
+            self.sample_lvec = lvec
             if self.bxPBCz.isChecked():
                 self.afmulator.npbc = (1, 1, 1)
             else:
                 self.afmulator.npbc = (1, 1, 0)
         else:
-            self.pbc_lvec = None
+            self.sample_lvec = None
             self.afmulator.npbc = (0, 0, 0)
 
         # Set check-box state
@@ -389,14 +394,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             sl.blockSignals(True)
             sl.setCurrentIndex(sl.findText(preset['Multipole']))
             sl.blockSignals(False)
-        self.updateParams()
+        self.updateParams(preset_none=False)
 
     def update(self):
         '''Run simulation, and show the result'''
         if self.xyzs is None: return
         if self.verbose > 1: t0 = time.perf_counter()
         self.status_message('Running simulation...')
-        self.df = self.afmulator(self.xyzs, self.Zs, self.qs, pbc_lvec=self.pbc_lvec, rot=self.rot)
+        self.df = self.afmulator(self.xyzs, self.Zs, self.qs, sample_lvec=self.sample_lvec, rot=self.rot)
         if self.verbose > 1: print(f'AFMulator total time [s]: {time.perf_counter() - t0}')
         self.status_message('Updating plot...')
         self.updateDataView()
@@ -457,7 +462,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Infer scan window from loaded geometry and run
         self.scanWindowFromGeom()
         self.setPBC(lvec, lvec is not None)
-        self.updateParams()
+        self.updateParams(preset_none=False)
 
         # Set current file path to window title
         self.file_path = file_path
@@ -492,7 +497,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             print('No ase installation detected. Cannot show molecule geometry.')
             if self.verbose > 1: traceback.print_exc()
             return
-        atoms = Atoms(positions=self.xyzs, numbers=self.Zs, cell=self.pbc_lvec, pbc=self.afmulator.npbc)
+        atoms = Atoms(positions=self.xyzs, numbers=self.Zs, cell=self.sample_lvec, pbc=self.afmulator.npbc)
         view(atoms)
 
     def openFile(self):
@@ -544,8 +549,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 [      0, size[1],       0],
                 [      0,       0, size[2]],
             ])
-            if self.pbc_lvec is not None:
-                lvec = np.append([[0, 0, 0]], self.pbc_lvec, axis=0)
+            if self.sample_lvec is not None:
+                lvec = np.append([[0, 0, 0]], self.sample_lvec, axis=0)
                 atomstring = io.primcoords2Xsf(self.Zs, self.xyzs.T, lvec)
             else:
                 atomstring = io.XSF_HEAD_DEFAULT
@@ -640,6 +645,94 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         guiw.set_box_value(self.bxSCy, scan_start[1])
 
         self.updateScanWindow()
+
+    def saveParams(self):
+        '''
+        Save all current parameters to a params.ini file. Bring up a file dialog to decide
+        the file location.
+        '''
+        if hasattr(self, 'file_path'):
+            default_path = os.path.join(os.path.split(self.file_path)[0], 'params.ini')
+        else:
+            default_path = 'params.ini'
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save parameters", default_path, "(*.ini)")
+        if not fileName: return
+        if self.verbose > 0: print(f'Saving current parameters to `{fileName}`')
+        self.afmulator.save_params(fileName)
+        self.status_message('Saved parameters')
+
+    def loadParams(self):
+        '''
+        Load all current parameters from a params.ini file. Bring up a file dialog to decide
+        the file location.
+        '''
+
+        if hasattr(self, 'file_path'):
+            default_path = os.path.join(os.path.split(self.file_path)[0], 'params.ini')
+        else:
+            default_path = 'params.ini'
+        default_path = default_path if os.path.exists(default_path) else None
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open parameters file', default_path,
+            '(*.ini)')
+        self.afmulator.load_params(file_path)
+
+        # Set preset to nothing
+        self.slPreset.blockSignals(True)
+        self.slPreset.setCurrentIndex(-1)
+        self.slPreset.blockSignals(False)
+
+        # Set probe settings
+        guiw.set_box_value(self.bxZPP, self.afmulator.iZPP)
+        tip = list(self.afmulator._rho.keys())[0]
+        self.slMultipole.blockSignals(True); self.slMultipole.setCurrentText(tip); self.slMultipole.blockSignals(False)
+        guiw.set_box_value(self.bxQ, self.afmulator._rho[tip])
+        guiw.set_box_value(self.bxS, self.afmulator.sigma)
+        guiw.set_box_value(self.bxS, self.afmulator.sigma)
+        guiw.set_box_value(self.bxKx, self.afmulator.scanner.stiffness[0] * -PPU.eVA_Nm)
+        guiw.set_box_value(self.bxKy, self.afmulator.scanner.stiffness[1] * -PPU.eVA_Nm)
+        guiw.set_box_value(self.bxKr, self.afmulator.scanner.stiffness[3] * -PPU.eVA_Nm)
+        guiw.set_box_value(self.bxP0x, self.afmulator.tipR0[0])
+        guiw.set_box_value(self.bxP0y, self.afmulator.tipR0[1])
+        guiw.set_box_value(self.bxP0r, self.afmulator.tipR0[2])
+
+        # Set scan settings
+        scan_size = (
+            self.afmulator.scan_window[1][0] - self.afmulator.scan_window[0][0],
+            self.afmulator.scan_window[1][1] - self.afmulator.scan_window[0][1]
+        )
+        scan_step = (
+            (scan_size[0]) / (self.afmulator.scan_dim[0] - 1),
+            (scan_size[1]) / (self.afmulator.scan_dim[1] - 1),
+            self.afmulator.dz
+        )
+        guiw.set_box_value(self.bxStepX, scan_step[0])
+        guiw.set_box_value(self.bxStepY, scan_step[1])
+        guiw.set_box_value(self.bxStepZ, scan_step[2])
+        guiw.set_box_value(self.bxSSx, scan_size[0])
+        guiw.set_box_value(self.bxSSy, scan_size[1])
+        guiw.set_box_value(self.bxSCx, self.afmulator.scan_window[0][0])
+        guiw.set_box_value(self.bxSCy, self.afmulator.scan_window[0][1])
+        if self.xyzs is not None:
+            d = self.afmulator.scan_window[0][2] + self.afmulator.amplitude / 2 - self.xyzs[:, 2].max()
+            guiw.set_box_value(self.bxD, d)
+        guiw.set_box_value(self.bxA, self.afmulator.amplitude)
+
+        # Set PBC settings
+        self.bxPBCz.blockSignals(True)
+        self.bxPBCz.setChecked(False) # The CPU code actually never uses periodic copies in the z direction
+        self.bxPBCz.blockSignals(False)
+        if isinstance(self.qs, HartreePotential):
+            # To be consistent with the CPU scripts, we should always prioritize the sample lattice vectors
+            # from the .xsf/.cube files
+            self.afmulator.sample_lvec = self.qs.lvec[1:]
+        self.setPBC(self.afmulator.sample_lvec, enabled=True)
+
+        # Set df settings
+        guiw.set_box_value(self.bxCant_K, self.afmulator.kCantilever / 1000)
+        guiw.set_box_value(self.bxCant_f0, self.afmulator.f0Cantilever / 1000)
+        guiw.set_box_value(self.bxdfst, self.afmulator.scan_dim[2] - self.afmulator.df_steps + 1)
+
+        self.update()
 
     def _create_probe_settings_ui(self):
 
@@ -820,7 +913,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Number of z-steps in df curve
         lb = QtWidgets.QLabel("z steps"); lb.setToolTip(TTips['z_steps']); vb.addWidget(lb, 1)
         self.bxdfst = QtWidgets.QSpinBox()
-        self.bxdfst.setRange(1, 50); self.bxdfst.setValue(10)
+        self.bxdfst.setRange(1, 100); self.bxdfst.setValue(10)
         self.bxdfst.valueChanged.connect(self.updateScanWindow)
         self.bxdfst.setToolTip(TTips['z_steps'])
         self.bxdfst.setKeyboardTracking(False)
@@ -882,6 +975,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         bt.setToolTip(TTips['edit_ff'])
         bt.clicked.connect(self.FFEditor.show)
         self.btEditFF = bt; vb.addWidget(bt)
+
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+
+        # Buttons for saving/loading parameters
+        self.btSaveParams = QtWidgets.QPushButton('Save parameters...', self)
+        self.btSaveParams.setToolTip('Save all current parameters into a params.ini file.')
+        self.btSaveParams.clicked.connect(self.saveParams)
+        vb.addWidget( self.btSaveParams )
+        self.btLoadParams = QtWidgets.QPushButton('Load parameters...', self)
+        self.btLoadParams.setToolTip('Load parameters from a params.ini file.')
+        self.btLoadParams.clicked.connect(self.loadParams)
+        vb.addWidget( self.btLoadParams )
 
         vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
 

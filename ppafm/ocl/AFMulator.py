@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 
 import os
+import warnings
 
 import numpy as np
 import pyopencl as cl
 
 from .. import common as PPU
-from .. import io
+from .. import elements, io
 from ..PPPlot import plotImages
 from . import field as FFcl
 from . import oclUtils as oclu
@@ -105,11 +106,11 @@ class AFMulator():
         self.f0Cantilever = f0Cantilever
         self.kCantilever = kCantilever
         self.npbc = npbc
-        self.pot = None
         self.sigma = sigma
         self.A_pauli = A_pauli
         self.B_pauli = B_pauli
         self.vdw_damp_method = vdw_damp_method
+        self.sample_lvec = None
 
         self.setScanWindow(scan_window, scan_dim, df_steps)
         self.setLvec(lvec, pixPerAngstrome)
@@ -119,9 +120,8 @@ class AFMulator():
 
         self.typeParams = PPU.loadSpecies('atomtypes.ini')
         self.saveFFpre = ""
-        self.counter = 0
 
-    def eval(self, xyzs, Zs, qs, rho_sample=None, pbc_lvec=None, rot=np.eye(3), rot_center=None,
+    def eval(self, xyzs, Zs, qs, rho_sample=None, sample_lvec=None, rot=np.eye(3), rot_center=None,
         REAs=None, X=None, plot_to_dir=None):
         '''
         Prepare and evaluate AFM image.
@@ -133,7 +133,7 @@ class AFMulator():
                 If None, then no electrostatics are used.
             rho_sample: :class:`.ElectronDensity` or None. Sample electron density. If not None, then FDBM is used
                 for calculating the Pauli repulsion force.
-            pbc_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
+            sample_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
                 If None, periodic boundaries are disabled, unless qs is :class:`.HartreePotential` and the lvec from the
                 Hartree potential is used instead. If npbc = (0, 0, 0), then has no function.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
@@ -144,7 +144,7 @@ class AFMulator():
         Returns:
             X: np.ndarray. Output AFM images. If input X is not None, this is the same array object as X with values overwritten.
         '''
-        self.prepareFF(xyzs, Zs, qs, rho_sample, pbc_lvec, rot, rot_center, REAs)
+        self.prepareFF(xyzs, Zs, qs, rho_sample, sample_lvec, rot, rot_center, REAs)
         self.prepareScanner()
         X = self.evalAFM(X)
         if plot_to_dir: self.plot_images(X, outdir=plot_to_dir)
@@ -270,7 +270,7 @@ class AFMulator():
 
     # ========= Imaging =========
 
-    def prepareFF(self, xyzs, Zs, qs, rho_sample=None, pbc_lvec=None, rot=np.eye(3), rot_center=None, REAs=None):
+    def prepareFF(self, xyzs, Zs, qs, rho_sample=None, sample_lvec=None, rot=np.eye(3), rot_center=None, REAs=None):
         '''
         Prepare molecule parameters and calculate force field.
 
@@ -282,7 +282,7 @@ class AFMulator():
             rho_sample: :class:`.ElectronDensity` or None. Sample electron density. If not None, then FDBM is used
                 for calculating the Pauli repulsion force. Requires rho_delta to be set and qs has to
                 be :class:`.HartreePotential`.
-            pbc_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
+            sample_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
                 If None, periodic boundaries are disabled, unless qs is HartreePotential and the lvec from the
                 Hartree potential is used instead. If npbc = (0, 0, 0), then has no function.
             rot: np.ndarray of shape (3, 3). Rotation matrix to apply to atom positions.
@@ -319,8 +319,8 @@ class AFMulator():
         elif isinstance(qs, HartreePotential):
             pot = qs
             qs = np.zeros(len(Zs))
-            pbc_lvec = pbc_lvec if pbc_lvec is not None else pot.lvec[1:]
-            assert pbc_lvec.shape == (3, 3), f'pbc_lvec has shape {pbc_lvec.shape}, but should have shape (3, 3)'
+            self.sample_lvec = sample_lvec if sample_lvec is not None else pot.lvec[1:]
+            assert self.sample_lvec.shape == (3, 3), f'sample_lvec has shape {self.sample_lvec.shape}, but should have shape (3, 3)'
         else:
             pot = None
 
@@ -332,7 +332,7 @@ class AFMulator():
         else:
             method = 'point-charge'
 
-        npbc = self.npbc if pbc_lvec is not None else (0, 0, 0)
+        npbc = self.npbc if self.sample_lvec is not None else (0, 0, 0)
 
         if rot_center is None:
             rot_center = xyzs.mean(axis=0)
@@ -342,7 +342,7 @@ class AFMulator():
             REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
         cLJs = PPU.REA2LJ(REAs)
         if sum(npbc) > 0:
-            Zs, xyzs, qs, cLJs, REAs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, pbc_lvec, npbc=npbc)
+            Zs, xyzs, qs, cLJs, REAs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, self.sample_lvec, npbc=npbc)
 
         # Compute force field
         self.forcefield.makeFF(xyzs, cLJs, REAs=REAs, method=method, qs=qs, pot=pot, rho_sample=rho_sample,
@@ -391,6 +391,87 @@ class AFMulator():
             X[:,:,:] = FEout[:,:,:,2]
 
         return X
+
+    # ========= Save/Load state =========
+
+    @classmethod
+    def from_params(cls, file_path='./params.ini'):
+        '''
+        Construct an AFMulator instance from a params.ini file.
+
+        Arguments:
+            file_path: str. Path to the params.ini file to load.
+        '''
+        params, sample_lvec = _get_params(file_path)
+        afmulator = cls(**params)
+        afmulator.sample_lvec = sample_lvec
+        return afmulator
+
+    def load_params(self, file_path='./params.ini'):
+        '''
+        Update the parameters of this AFMulator instance from a params.ini file.
+
+        Arguments:
+            file_path: str. Path to the params.ini file to load.
+        '''
+        params, sample_lvec = _get_params(file_path)
+        if params['tipStiffness'] is not None:
+            self.scanner.stiffness = np.array(params['tipStiffness'], dtype=np.float32) / -PPU.eVA_Nm
+        self.iZPP = params['iZPP']
+        self.tipR0 = params['tipR0']
+        self.f0Cantilever = params['f0Cantilever']
+        self.kCantilever = params['kCantilever']
+        self.npbc = params['npbc']
+        self.A_pauli = params['A_pauli']
+        self.setScanWindow(params['scan_window'], params['scan_dim'], params['df_steps'])
+        self.setLvec(params['lvec'], params['pixPerAngstrome'])
+        self.setRho(params['rho'], params['sigma'], params['B_pauli'])
+        self.sample_lvec = sample_lvec
+
+    def save_params(self, file_path='./params.ini'):
+        '''
+        Save the parameters of this AFMulator instance to a params.ini file.
+
+        Arguments:
+            file_path: str. Path to the file where parameters are saved.
+        '''
+        k = self.scanner.stiffness * -PPU.eVA_Nm
+        nDim = self.forcefield.nDim
+        scan_step = (
+            (self.scan_window[1][0] - self.scan_window[0][0]) / (self.scan_dim[0] - 1),
+            (self.scan_window[1][1] - self.scan_window[0][1]) / (self.scan_dim[1] - 1),
+            (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
+        )
+        with open(file_path, 'w') as f:
+            f.write(f'probeType {self.iZPP}\n')
+            if isinstance(self._rho, dict):
+                if len(self._rho) > 1:
+                    warnings.warn('More than one tip multipole type specified. Only writing the first one into params.ini.')
+                tip = list(self._rho)[0]
+                f.write(f'tip {tip}\n')
+                f.write(f'charge {self._rho[tip]}\n')
+                f.write(f'sigma {self.sigma}\n')
+            f.write(f'stiffness {k[0]} {k[1]} {k[3]}\n')
+            f.write(f'r0Probe {self.tipR0[0]} {self.tipR0[1]} {self.tipR0[2]}\n')
+            f.write(f'PBC {(np.array(self.npbc) > 0).any()}\n')
+            f.write(f'nPBC {self.npbc[0]} {self.npbc[1]} {self.npbc[2]}\n')
+            if self.sample_lvec is not None:
+                f.write(f'gridA {self.sample_lvec[0, 0]} {self.sample_lvec[0, 1]} {self.sample_lvec[0, 2]}\n')
+                f.write(f'gridB {self.sample_lvec[1, 0]} {self.sample_lvec[1, 1]} {self.sample_lvec[1, 2]}\n')
+                f.write(f'gridC {self.sample_lvec[2, 0]} {self.sample_lvec[2, 1]} {self.sample_lvec[2, 2]}\n')
+            f.write(f'FFgrid0 {self.lvec[0, 0]} {self.lvec[0, 1]} {self.lvec[0, 2]}\n')
+            f.write(f'FFgridA {self.lvec[1, 0]} {self.lvec[1, 1]} {self.lvec[1, 2]}\n')
+            f.write(f'FFgridB {self.lvec[2, 0]} {self.lvec[2, 1]} {self.lvec[2, 2]}\n')
+            f.write(f'FFgridC {self.lvec[3, 0]} {self.lvec[3, 1]} {self.lvec[3, 2]}\n')
+            f.write(f'gridN {nDim[0]} {nDim[1]} {nDim[2]}\n')
+            f.write(f'scanMin {self.scan_window[0][0]} {self.scan_window[0][1]} {self.scan_window[0][2]}\n')
+            f.write(f'scanMax {self.scan_window[1][0]} {self.scan_window[1][1]} {self.scan_window[1][2]}\n')
+            f.write(f'scanStep {scan_step[0]} {scan_step[1]} {scan_step[2]}\n')
+            f.write(f'kCantilever {self.kCantilever}\n')
+            f.write(f'f0Cantilever {self.f0Cantilever}\n')
+            f.write(f'Amplitude {self.amplitude}\n')
+            f.write(f'Apauli {self.A_pauli}\n')
+            f.write(f'Bpauli {self.B_pauli}\n')
 
     # ========= Debug/Plot Misc. =========
 
@@ -449,6 +530,64 @@ class AFMulator():
         extent = [self.scan_window[0][0], self.scan_window[1][0], self.scan_window[0][1], self.scan_window[1][1]]
         plotImages(os.path.join(outdir, prefix), X, slices = list(range(0, len(X))),
             zs=zTips, extent=extent, cmap=PPU.params['colorscale'])
+
+def _get_params(file_path):
+    '''Get AFMulator arguments from a params.ini file.'''
+    PPU.loadParams(file_path)
+    lvec = np.array([
+        PPU.params['FFgrid0'],
+        PPU.params['FFgridA'],
+        PPU.params['FFgridB'],
+        PPU.params['FFgridC']
+    ])
+    if (lvec < 0).any():
+        lvec = None
+    sample_lvec = np.array([
+        PPU.params['gridA'],
+        PPU.params['gridB'],
+        PPU.params['gridC']
+    ])
+    if (PPU.params['gridN'] == 0).any() or lvec is None:
+        pixPerAngstrome = 10
+    else:
+        rx, ry, rz = (round(PPU.params['gridN'][i] / np.linalg.norm(lvec[i+1])) for i in range(3))
+        if np.allclose([rx, ry], rz):
+            pixPerAngstrome = rx
+        else:
+            pixPerAngstrome = np.max([rx, ry, rz])
+            warnings.warn("Unequal grid densities in x, y, z directions is not supported in the OpenCL version of ppafm. "
+                f"Using the maximum of x, y, z directions, {pixPerAngstrome}, for grid point density.")
+    scan_window = (PPU.params['scanMin'], PPU.params['scanMax'])
+    scan_dim = (
+        round((scan_window[1][0] - scan_window[0][0]) / PPU.params['scanStep'][0]) + 1,
+        round((scan_window[1][1] - scan_window[0][1]) / PPU.params['scanStep'][1]) + 1,
+        round((scan_window[1][2] - scan_window[0][2]) / PPU.params['scanStep'][2])
+    )
+    iZPP = PPU.params['probeType']
+    iZPP = elements.ELEMENT_DICT[iZPP][0] if iZPP in elements.ELEMENT_DICT else int(iZPP)
+    tipStiffness = PPU.params['stiffness']
+    if (tipStiffness < 0).any():
+        tipStiffness = [0.25, 0.25, 0.0, 30.0]
+    else:
+        tipStiffness = np.insert(tipStiffness, 2, 0.0) # AFMulator additionally has a z-component in the third place
+    afmulator_params = {
+        'lvec': lvec,
+        'pixPerAngstrome': pixPerAngstrome,
+        'scan_dim': scan_dim,
+        'scan_window': scan_window,
+        'iZPP': iZPP,
+        'rho': {PPU.params['tip']: PPU.params['charge']},
+        'sigma': PPU.params['sigma'],
+        'A_pauli': PPU.params['Apauli'],
+        'B_pauli': PPU.params['Bpauli'],
+        'df_steps': round(PPU.params['Amplitude'] / PPU.params['scanStep'][2]),
+        'tipR0': PPU.params['r0Probe'],
+        'tipStiffness': tipStiffness,
+        'npbc': PPU.params['nPBC'],
+        'f0Cantilever': PPU.params['f0Cantilever'],
+        'kCantilever': PPU.params['kCantilever']
+    }
+    return afmulator_params, sample_lvec
 
 def get_lvec(scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrome=10):
     pad = np.array(pad)
