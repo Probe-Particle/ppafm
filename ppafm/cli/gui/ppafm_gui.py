@@ -717,9 +717,19 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             guiw.set_box_value(self.bxD, d)
         guiw.set_box_value(self.bxA, self.afmulator.amplitude)
 
+        # Set PBC settings
+        self.bxPBCz.blockSignals(True)
+        self.bxPBCz.setChecked(False) # The CPU code actually never uses periodic copies in the z direction
+        self.bxPBCz.blockSignals(False)
+        # We first set the sample periodic cell in the GUI, which could be anything...
+        self.setPBC(self.afmulator.lvec[1:], enabled=True)
+        # ...but then override the AFMulator internal lvec cell to be just rectangular around the scan window
+        self.afmulator.setLvec()
+
         # Set df settings
-        guiw.set_box_value(self.bxCant_K, self.afmulator.kCantilever)
-        guiw.set_box_value(self.bxCant_f0, self.afmulator.f0Cantilever)
+        guiw.set_box_value(self.bxCant_K, self.afmulator.kCantilever / 1000)
+        guiw.set_box_value(self.bxCant_f0, self.afmulator.f0Cantilever / 1000)
+        guiw.set_box_value(self.bxdfst, self.afmulator.scan_dim[2] - self.afmulator.df_steps + 1)
 
         self.update()
 
@@ -902,7 +912,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Number of z-steps in df curve
         lb = QtWidgets.QLabel("z steps"); lb.setToolTip(TTips['z_steps']); vb.addWidget(lb, 1)
         self.bxdfst = QtWidgets.QSpinBox()
-        self.bxdfst.setRange(1, 50); self.bxdfst.setValue(10)
+        self.bxdfst.setRange(1, 100); self.bxdfst.setValue(10)
         self.bxdfst.valueChanged.connect(self.updateScanWindow)
         self.bxdfst.setToolTip(TTips['z_steps'])
         self.bxdfst.setKeyboardTracking(False)

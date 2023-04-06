@@ -552,7 +552,7 @@ def _get_params(file_path):
     iZPP = elements.ELEMENT_DICT[iZPP][0] if iZPP in elements.ELEMENT_DICT else int(iZPP)
     tipStiffness = PPU.params['stiffness']
     if (tipStiffness < 0).any():
-        tipStiffness = None
+        tipStiffness = [0.25, 0.25, 0.0, 30.0]
     else:
         tipStiffness = np.insert(tipStiffness, 2, 0.0) # AFMulator additionally has a z-component in the third place
     afmulator_params = {
