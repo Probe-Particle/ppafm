@@ -105,7 +105,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.xyzs = None
         self.Zs = None
         self.qs = None
-        self.pbc_lvec = None
+        self.sample_lvec = None
         self.rot = np.eye(3)
         self.df_points = []
 
@@ -330,13 +330,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.verbose > 0: print('setPBC', lvec, enabled)
 
         if enabled:
-            self.pbc_lvec = lvec
+            self.sample_lvec = lvec
             if self.bxPBCz.isChecked():
                 self.afmulator.npbc = (1, 1, 1)
             else:
                 self.afmulator.npbc = (1, 1, 0)
         else:
-            self.pbc_lvec = None
+            self.sample_lvec = None
             self.afmulator.npbc = (0, 0, 0)
 
         # Set check-box state
@@ -401,7 +401,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.xyzs is None: return
         if self.verbose > 1: t0 = time.perf_counter()
         self.status_message('Running simulation...')
-        self.df = self.afmulator(self.xyzs, self.Zs, self.qs, pbc_lvec=self.pbc_lvec, rot=self.rot)
+        self.df = self.afmulator(self.xyzs, self.Zs, self.qs, sample_lvec=self.sample_lvec, rot=self.rot)
         if self.verbose > 1: print(f'AFMulator total time [s]: {time.perf_counter() - t0}')
         self.status_message('Updating plot...')
         self.updateDataView()
@@ -497,7 +497,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             print('No ase installation detected. Cannot show molecule geometry.')
             if self.verbose > 1: traceback.print_exc()
             return
-        atoms = Atoms(positions=self.xyzs, numbers=self.Zs, cell=self.pbc_lvec, pbc=self.afmulator.npbc)
+        atoms = Atoms(positions=self.xyzs, numbers=self.Zs, cell=self.sample_lvec, pbc=self.afmulator.npbc)
         view(atoms)
 
     def openFile(self):
@@ -549,8 +549,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 [      0, size[1],       0],
                 [      0,       0, size[2]],
             ])
-            if self.pbc_lvec is not None:
-                lvec = np.append([[0, 0, 0]], self.pbc_lvec, axis=0)
+            if self.sample_lvec is not None:
+                lvec = np.append([[0, 0, 0]], self.sample_lvec, axis=0)
                 atomstring = io.primcoords2Xsf(self.Zs, self.xyzs.T, lvec)
             else:
                 atomstring = io.XSF_HEAD_DEFAULT
@@ -721,10 +721,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.bxPBCz.blockSignals(True)
         self.bxPBCz.setChecked(False) # The CPU code actually never uses periodic copies in the z direction
         self.bxPBCz.blockSignals(False)
-        # We first set the sample periodic cell in the GUI, which could be anything...
-        self.setPBC(self.afmulator.lvec[1:], enabled=True)
-        # ...but then override the AFMulator internal lvec cell to be just rectangular around the scan window
-        self.afmulator.setLvec()
+        self.setPBC(self.afmulator.sample_lvec, enabled=True)
 
         # Set df settings
         guiw.set_box_value(self.bxCant_K, self.afmulator.kCantilever / 1000)
