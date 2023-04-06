@@ -721,6 +721,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.bxPBCz.blockSignals(True)
         self.bxPBCz.setChecked(False) # The CPU code actually never uses periodic copies in the z direction
         self.bxPBCz.blockSignals(False)
+        if isinstance(self.qs, HartreePotential):
+            # To be consistent with the CPU scripts, we should always prioritize the sample lattice vectors
+            # from the .xsf/.cube files
+            self.afmulator.sample_lvec = self.qs.lvec[1:]
         self.setPBC(self.afmulator.sample_lvec, enabled=True)
 
         # Set df settings
