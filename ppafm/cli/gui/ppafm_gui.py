@@ -186,8 +186,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             (scan_start[0]               , scan_start[1]               , z_min),
             (scan_start[0] + scan_size[0], scan_start[1] + scan_size[1], z_max)
         )
-        self.afmulator.kCantilever = self.bxCant_K.value()
-        self.afmulator.f0Cantilever = self.bxCant_f0.value()
+        self.afmulator.kCantilever = self.bxCant_K.value() * 1000
+        self.afmulator.f0Cantilever = self.bxCant_f0.value() * 1000
         if self.verbose > 0: print("setScanWindow", step, scan_size, scan_start, scan_dim, scan_window)
 
         # Set new values to the fields
@@ -338,7 +338,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.afmulator.npbc = (0, 0, 0)
 
         # Set check-box state
-        guiw.set_widget_value(self.bxPCB, enabled)
+        guiw.set_widget_value(self.bxPBC, enabled)
 
         # Set lattice vector values
         if lvec is not None:
@@ -386,7 +386,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             guiw.set_widget_value(self.bxP0y, preset['EqPos'][1])
             guiw.set_widget_value(self.bxP0r, preset['EqPos'][2])
         if 'Multipole' in preset:
-            guiw.set_widget_value(self.slMultipole, sl.findText(preset['Multipole']))
+            guiw.set_widget_value(self.slMultipole, self.slMultipole.findText(preset['Multipole']))
         self.updateParams(preset_none=False)
 
     def update(self):
@@ -667,6 +667,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         default_path = default_path if os.path.exists(default_path) else None
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open parameters file', default_path,
             '(*.ini)')
+        if not file_path: return
         self.afmulator.load_params(file_path)
 
         # Set preset to nothing
@@ -714,7 +715,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             # To be consistent with the CPU scripts, we should always prioritize the sample lattice vectors
             # from the .xsf/.cube files
             self.afmulator.sample_lvec = self.qs.lvec[1:]
-        self.setPBC(self.afmulator.sample_lvec, enabled=True)
+        self.setPBC(self.afmulator.sample_lvec, enabled=not (np.array(self.afmulator.npbc) == 0).all())
 
         # Set df settings
         guiw.set_widget_value(self.bxCant_K, self.afmulator.kCantilever / 1000)

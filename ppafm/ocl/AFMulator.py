@@ -583,7 +583,7 @@ def _get_params(file_path):
         'df_steps': round(PPU.params['Amplitude'] / PPU.params['scanStep'][2]),
         'tipR0': PPU.params['r0Probe'],
         'tipStiffness': tipStiffness,
-        'npbc': PPU.params['nPBC'],
+        'npbc': PPU.params['nPBC'] * PPU.params['PBC'],
         'f0Cantilever': PPU.params['f0Cantilever'],
         'kCantilever': PPU.params['kCantilever']
     }
