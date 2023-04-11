@@ -16,10 +16,30 @@ def correct_ext(fname, ext ):
         fname += ext
     return fname
 
-def set_box_value(box, value):
-    box.blockSignals(True)
-    box.setValue(value)
-    box.blockSignals(False)
+def set_widget_value(widget, value):
+    '''
+    Set the value of a widget without calling any functions connected to it.
+
+    Arguments:
+        widget: QtWidget. Widget whose value to change.
+        value: any. Value to set to the widget.
+    '''
+    # Normally any changes to the widget trigger the calling of the connected function,
+    # including changes made programmatically. Here we temporarily disable the signals,
+    # set the value, and then enable the signals again.
+    widget.blockSignals(True)
+    if isinstance(widget, QtWidgets.QSpinBox) or isinstance(widget, QtWidgets.QDoubleSpinBox):
+        widget.setValue(value)
+    elif isinstance(widget, QtWidgets.QComboBox):
+        if isinstance(value, str):
+            widget.setCurrentText(value)
+        else:
+            widget.setCurrentIndex(value)
+    elif isinstance(widget, QtWidgets.QCheckBox):
+        widget.setChecked(value)
+    else:
+        raise ValueError(f'Unsupported widget type `{type(widget)}`')
+    widget.blockSignals(False)
 
 # =======================
 #     FigCanvas
@@ -334,11 +354,11 @@ class GeomEditor(SlaveWindow):
                 ab[4].setDisabled(True)
 
         for xyz, Z, q, boxes in zip(xyzs, Zs, qs, self.input_boxes):
-            set_box_value(boxes[0], Z)
-            set_box_value(boxes[1], xyz[0])
-            set_box_value(boxes[2], xyz[1])
-            set_box_value(boxes[3], xyz[2])
-            set_box_value(boxes[4], q)
+            set_widget_value(boxes[0], Z)
+            set_widget_value(boxes[1], xyz[0])
+            set_widget_value(boxes[2], xyz[1])
+            set_widget_value(boxes[3], xyz[2])
+            set_widget_value(boxes[4], q)
 
     def updateParent(self):
         xyzs, Zs, qs = [], [], []
@@ -454,7 +474,7 @@ class FFViewer(SlaveWindow):
         z = afmulator.scan_window[0][2] + afmulator.amplitude / 2 - afmulator.tipR0[2]
         iz = round((z - self.z_min) / self.z_step)
         if not self.isVisible():
-            set_box_value(self.bxInd, iz)
+            set_widget_value(self.bxInd, iz)
 
         if self.verbose > 0: print('FFViewer.updateFF', self.FE.shape, iz, self.z_step, self.z_min)
 

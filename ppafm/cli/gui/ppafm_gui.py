@@ -191,12 +191,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.verbose > 0: print("setScanWindow", step, scan_size, scan_start, scan_dim, scan_window)
 
         # Set new values to the fields
-        guiw.set_box_value(self.bxSSx, scan_size[0])
-        guiw.set_box_value(self.bxSSy, scan_size[1])
-        guiw.set_box_value(self.bxSCx, scan_start[0])
-        guiw.set_box_value(self.bxSCy, scan_start[1])
-        guiw.set_box_value(self.bxD, distance)
-        guiw.set_box_value(self.bxA, amplitude)
+        guiw.set_widget_value(self.bxSSx, scan_size[0])
+        guiw.set_widget_value(self.bxSSy, scan_size[1])
+        guiw.set_widget_value(self.bxSCx, scan_start[0])
+        guiw.set_widget_value(self.bxSCy, scan_start[1])
+        guiw.set_widget_value(self.bxD, distance)
+        guiw.set_widget_value(self.bxA, amplitude)
 
         # Set scan size and amplitude increments to match the set step size
         self.bxSSx.setSingleStep(step[0])
@@ -252,9 +252,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.xyzs is None: return
 
         if preset_none:
-            self.slPreset.blockSignals(True)
-            self.slPreset.setCurrentIndex(-1)
-            self.slPreset.blockSignals(False)
+            guiw.set_widget_value(self.slPreset, -1)
 
         Q = self.bxQ.value()
         sigma = self.bxS.value()
@@ -289,8 +287,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
     def setDfRange(self, df_range):
         '''Set df range in input boxes'''
-        guiw.set_box_value(self.bxDfMin, df_range[0])
-        guiw.set_box_value(self.bxDfMax, df_range[1])
+        guiw.set_widget_value(self.bxDfMin, df_range[0])
+        guiw.set_widget_value(self.bxDfMax, df_range[1])
 
     def dfRangeFromData(self):
         '''Set colorbar df range from current df data'''
@@ -340,21 +338,19 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.afmulator.npbc = (0, 0, 0)
 
         # Set check-box state
-        self.bxPBC.blockSignals(True)
-        self.bxPBC.setChecked(enabled)
-        self.bxPBC.blockSignals(False)
+        guiw.set_widget_value(self.bxPCB, enabled)
 
         # Set lattice vector values
         if lvec is not None:
-            guiw.set_box_value(self.bxPBCAx, lvec[0][0])
-            guiw.set_box_value(self.bxPBCAy, lvec[0][1])
-            guiw.set_box_value(self.bxPBCAz, lvec[0][2])
-            guiw.set_box_value(self.bxPBCBx, lvec[1][0])
-            guiw.set_box_value(self.bxPBCBy, lvec[1][1])
-            guiw.set_box_value(self.bxPBCBz, lvec[1][2])
-            guiw.set_box_value(self.bxPBCCx, lvec[2][0])
-            guiw.set_box_value(self.bxPBCCy, lvec[2][1])
-            guiw.set_box_value(self.bxPBCCz, lvec[2][2])
+            guiw.set_widget_value(self.bxPBCAx, lvec[0][0])
+            guiw.set_widget_value(self.bxPBCAy, lvec[0][1])
+            guiw.set_widget_value(self.bxPBCAz, lvec[0][2])
+            guiw.set_widget_value(self.bxPBCBx, lvec[1][0])
+            guiw.set_widget_value(self.bxPBCBy, lvec[1][1])
+            guiw.set_widget_value(self.bxPBCBz, lvec[1][2])
+            guiw.set_widget_value(self.bxPBCCx, lvec[2][0])
+            guiw.set_widget_value(self.bxPBCCy, lvec[2][1])
+            guiw.set_widget_value(self.bxPBCCz, lvec[2][2])
 
         # Disable lattice vector boxes if PBC not enabled
         for bx in [
@@ -378,22 +374,19 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def applyPreset(self):
         '''Get current preset, apply parameters, and update'''
         preset = Presets[self.slPreset.currentText()]
-        if 'Z' in preset: guiw.set_box_value(self.bxZPP, preset['Z'])
-        if 'Q' in preset: guiw.set_box_value(self.bxQ, preset['Q'])
-        if 'Sigma' in preset: guiw.set_box_value(self.bxS, preset['Sigma'])
+        if 'Z' in preset: guiw.set_widget_value(self.bxZPP, preset['Z'])
+        if 'Q' in preset: guiw.set_widget_value(self.bxQ, preset['Q'])
+        if 'Sigma' in preset: guiw.set_widget_value(self.bxS, preset['Sigma'])
         if 'K' in preset:
-            guiw.set_box_value(self.bxKx, preset['K'][0])
-            guiw.set_box_value(self.bxKy, preset['K'][1])
-            guiw.set_box_value(self.bxKr, preset['K'][2])
+            guiw.set_widget_value(self.bxKx, preset['K'][0])
+            guiw.set_widget_value(self.bxKy, preset['K'][1])
+            guiw.set_widget_value(self.bxKr, preset['K'][2])
         if 'EqPos' in preset:
-            guiw.set_box_value(self.bxP0x, preset['EqPos'][0])
-            guiw.set_box_value(self.bxP0y, preset['EqPos'][1])
-            guiw.set_box_value(self.bxP0r, preset['EqPos'][2])
+            guiw.set_widget_value(self.bxP0x, preset['EqPos'][0])
+            guiw.set_widget_value(self.bxP0y, preset['EqPos'][1])
+            guiw.set_widget_value(self.bxP0r, preset['EqPos'][2])
         if 'Multipole' in preset:
-            sl = self.slMultipole
-            sl.blockSignals(True)
-            sl.setCurrentIndex(sl.findText(preset['Multipole']))
-            sl.blockSignals(False)
+            guiw.set_widget_value(self.slMultipole, sl.findText(preset['Multipole']))
         self.updateParams(preset_none=False)
 
     def update(self):
@@ -639,10 +632,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             scan_size += self.zoom_step
             scan_start -= offset
 
-        guiw.set_box_value(self.bxSSx, scan_size[0])
-        guiw.set_box_value(self.bxSSy, scan_size[1])
-        guiw.set_box_value(self.bxSCx, scan_start[0])
-        guiw.set_box_value(self.bxSCy, scan_start[1])
+        guiw.set_widget_value(self.bxSSx, scan_size[0])
+        guiw.set_widget_value(self.bxSSy, scan_size[1])
+        guiw.set_widget_value(self.bxSCx, scan_start[0])
+        guiw.set_widget_value(self.bxSCy, scan_start[1])
 
         self.updateScanWindow()
 
@@ -677,23 +670,21 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.afmulator.load_params(file_path)
 
         # Set preset to nothing
-        self.slPreset.blockSignals(True)
-        self.slPreset.setCurrentIndex(-1)
-        self.slPreset.blockSignals(False)
+        guiw.set_widget_value(self.slPreset, -1)
 
         # Set probe settings
-        guiw.set_box_value(self.bxZPP, self.afmulator.iZPP)
+        guiw.set_widget_value(self.bxZPP, self.afmulator.iZPP)
         tip = list(self.afmulator._rho.keys())[0]
-        self.slMultipole.blockSignals(True); self.slMultipole.setCurrentText(tip); self.slMultipole.blockSignals(False)
-        guiw.set_box_value(self.bxQ, self.afmulator._rho[tip])
-        guiw.set_box_value(self.bxS, self.afmulator.sigma)
-        guiw.set_box_value(self.bxS, self.afmulator.sigma)
-        guiw.set_box_value(self.bxKx, self.afmulator.scanner.stiffness[0] * -PPU.eVA_Nm)
-        guiw.set_box_value(self.bxKy, self.afmulator.scanner.stiffness[1] * -PPU.eVA_Nm)
-        guiw.set_box_value(self.bxKr, self.afmulator.scanner.stiffness[3] * -PPU.eVA_Nm)
-        guiw.set_box_value(self.bxP0x, self.afmulator.tipR0[0])
-        guiw.set_box_value(self.bxP0y, self.afmulator.tipR0[1])
-        guiw.set_box_value(self.bxP0r, self.afmulator.tipR0[2])
+        guiw.set_widget_value(self.slMultipole, tip)
+        guiw.set_widget_value(self.bxQ, self.afmulator._rho[tip])
+        guiw.set_widget_value(self.bxS, self.afmulator.sigma)
+        guiw.set_widget_value(self.bxS, self.afmulator.sigma)
+        guiw.set_widget_value(self.bxKx, self.afmulator.scanner.stiffness[0] * -PPU.eVA_Nm)
+        guiw.set_widget_value(self.bxKy, self.afmulator.scanner.stiffness[1] * -PPU.eVA_Nm)
+        guiw.set_widget_value(self.bxKr, self.afmulator.scanner.stiffness[3] * -PPU.eVA_Nm)
+        guiw.set_widget_value(self.bxP0x, self.afmulator.tipR0[0])
+        guiw.set_widget_value(self.bxP0y, self.afmulator.tipR0[1])
+        guiw.set_widget_value(self.bxP0r, self.afmulator.tipR0[2])
 
         # Set scan settings
         scan_size = (
@@ -705,22 +696,20 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             (scan_size[1]) / (self.afmulator.scan_dim[1] - 1),
             self.afmulator.dz
         )
-        guiw.set_box_value(self.bxStepX, scan_step[0])
-        guiw.set_box_value(self.bxStepY, scan_step[1])
-        guiw.set_box_value(self.bxStepZ, scan_step[2])
-        guiw.set_box_value(self.bxSSx, scan_size[0])
-        guiw.set_box_value(self.bxSSy, scan_size[1])
-        guiw.set_box_value(self.bxSCx, self.afmulator.scan_window[0][0])
-        guiw.set_box_value(self.bxSCy, self.afmulator.scan_window[0][1])
+        guiw.set_widget_value(self.bxStepX, scan_step[0])
+        guiw.set_widget_value(self.bxStepY, scan_step[1])
+        guiw.set_widget_value(self.bxStepZ, scan_step[2])
+        guiw.set_widget_value(self.bxSSx, scan_size[0])
+        guiw.set_widget_value(self.bxSSy, scan_size[1])
+        guiw.set_widget_value(self.bxSCx, self.afmulator.scan_window[0][0])
+        guiw.set_widget_value(self.bxSCy, self.afmulator.scan_window[0][1])
         if self.xyzs is not None:
             d = self.afmulator.scan_window[0][2] + self.afmulator.amplitude / 2 - self.xyzs[:, 2].max()
-            guiw.set_box_value(self.bxD, d)
-        guiw.set_box_value(self.bxA, self.afmulator.amplitude)
+            guiw.set_widget_value(self.bxD, d)
+        guiw.set_widget_value(self.bxA, self.afmulator.amplitude)
 
         # Set PBC settings
-        self.bxPBCz.blockSignals(True)
-        self.bxPBCz.setChecked(False) # The CPU code actually never uses periodic copies in the z direction
-        self.bxPBCz.blockSignals(False)
+        guiw.set_widget_value(self.bxPBCz, False) # The CPU code actually never uses periodic copies in the z direction
         if isinstance(self.qs, HartreePotential):
             # To be consistent with the CPU scripts, we should always prioritize the sample lattice vectors
             # from the .xsf/.cube files
@@ -728,9 +717,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setPBC(self.afmulator.sample_lvec, enabled=True)
 
         # Set df settings
-        guiw.set_box_value(self.bxCant_K, self.afmulator.kCantilever / 1000)
-        guiw.set_box_value(self.bxCant_f0, self.afmulator.f0Cantilever / 1000)
-        guiw.set_box_value(self.bxdfst, self.afmulator.scan_dim[2] - self.afmulator.df_steps + 1)
+        guiw.set_widget_value(self.bxCant_K, self.afmulator.kCantilever / 1000)
+        guiw.set_widget_value(self.bxCant_f0, self.afmulator.f0Cantilever / 1000)
+        guiw.set_widget_value(self.bxdfst, self.afmulator.scan_dim[2] - self.afmulator.df_steps + 1)
 
         self.update()
 
