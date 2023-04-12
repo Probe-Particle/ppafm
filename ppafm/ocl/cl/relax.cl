@@ -62,9 +62,14 @@ float4 read_imagef_trilin( __read_only image3d_t imgIn, float4 coord ){
 
 
 float4 interpFE( float3 pos, float3 dinvA, float3 dinvB, float3 dinvC, __read_only image3d_t imgIn ){
-    const float4 coord = (float4)( dot(pos,dinvA),dot(pos,dinvB),dot(pos,dinvC), 0.0f );
+    float4 offset = (float4)(
+        0.5f / (float) get_image_width(imgIn),
+        0.5f / (float) get_image_height(imgIn),
+        0.5f / (float) get_image_depth(imgIn),
+        0.0f
+    );
+    const float4 coord = (float4)( dot(pos,dinvA),dot(pos,dinvB),dot(pos,dinvC), 0.0f ) + offset;
     return read_imagef( imgIn, sampler_1, coord );
-    //return coord;
 }
 
 float4 interpFE_prec( float3 pos, float3 dinvA, float3 dinvB, float3 dinvC, __read_only image3d_t imgIn ){
@@ -82,7 +87,7 @@ void move_LeapFrog( float3 f, float3 p, float3 v, float2 RP ){
 
 
 //#define N_RELAX_STEP_MAX  64
-#define N_RELAX_STEP_MAX  128
+#define N_RELAX_STEP_MAX  1000
 //#define N_RELAX_STEP_MAX  256
 #define F2CONV  1e-8f
 //#define F2CONV  1e-10f
