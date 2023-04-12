@@ -215,12 +215,15 @@ class DataGrid:
         cl_program.addMult(queue, global_size, local_size, array_in1, array_in2, array_out, n, scale)
         return grid_out
 
-    def power_positive(self, p=1.2, in_place=True, local_size=(32,), queue=None):
+    def power_positive(self, p=1.2, normalize=True, in_place=True, local_size=(32,), queue=None):
         '''
         Raise every positive element in the grid into a power. Negative values are set to zero.
 
         Arguments:
             p: float. Power to rise to.
+            normalize: bool. Whether to normalize the values after setting negative values to zero.
+                The normalization is done by scaling the values such that the total sum of the values
+                in the array remains unchanged after eliminating the negative values.
             in_place: bool. Whether to do operation in place or to create a new array.
             local_size: tuple of a single int. Size of local work group on device.
             queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
@@ -241,9 +244,30 @@ class DataGrid:
             grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
         n = np.int32(array_in.size / 4)
         p = np.float32(p)
+        if normalize:
+            scale = np.float32(self._get_normalization_factor(queue)) ** p
+        else:
+            scale = np.float32(1.0)
         global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
-        cl_program.power(queue, global_size, local_size, array_in, array_out, n, p)
+        cl_program.power(queue, global_size, local_size, array_in, array_out, n, p, scale)
         return grid_out
+
+    def _get_normalization_factor(self, queue=None):
+        queue = queue or oclu.queue
+        n = np.int32(np.prod(self.shape))
+        local_size = (256,)
+        n_groups = np.int32(min(local_size[0], (n - 1) // local_size[0] + 1))
+        global_size = (local_size[0] * n_groups,)
+        array_in = self.cl_array
+        array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=8*n_groups)
+        # First do sums of the input array within each work group...
+        cl_program.normalizeSumReduce(queue, global_size, local_size, array_in, array_out, n)
+        # ... then sum the results of the first kernel call
+        cl_program.sumSingleGroup(queue, local_size, local_size, array_out, n_groups)
+        # Now the first element of array_out holds the final answer
+        sums = np.empty((2,), dtype=np.float32)
+        cl.enqueue_copy(oclu.queue, sums, array_out)
+        return sums[0] / sums[1]
 
     def grad(self, scale=1.0, array_out=None, order='C', local_size=(32,), queue=None):
         '''Get the centered finite difference gradient of the data grid. Uses periodic boundary conditions
