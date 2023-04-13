@@ -20,7 +20,7 @@ def test_power():
 
     p = 1.5
     data = FFcl.DataGrid(
-        np.random.rand(350, 350, 350).astype(np.float32),
+        np.random.rand(350, 350, 350).astype(np.float32) - 0.25,
         np.concatenate([np.zeros((1, 3)), np.eye(3)], axis=0)
     )
     data.cl_array # array to device
@@ -33,14 +33,14 @@ def test_power():
     print(f'Exponentiation time (CPU): {cpu_time}')
 
     t0 = time.perf_counter()
-    data_exp_cpu = data.power_positive(p=p, in_place=True)
+    data_exp_gpu = data.power_positive(p=p, in_place=True)
     FFcl.oclu.queue.finish()
     gpu_time = time.perf_counter() - t0
     print(f'Exponentiation time (GPU): {gpu_time}')
     print(f'Speed-up factor: {cpu_time/gpu_time}')
 
-    # Test that OCL routine give the same result as numpy
-    array_exp_gpu = data_exp_cpu.array
+    # Test that OCL routine gives the same result as numpy
+    array_exp_gpu = data_exp_gpu.array
     assert np.allclose(array_exp_cpu, array_exp_gpu)
 
     # Test that the original array is not modified when in_place=False

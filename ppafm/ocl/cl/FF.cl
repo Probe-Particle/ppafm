@@ -6,6 +6,8 @@
 #define N_RELAX_STEP_MAX  16
 #define F2CONV  1e-8
 
+#define reduceGroupSize 256
+
 #include "splines.cl"
 
 // vdW damping coefficients
@@ -854,11 +856,82 @@ __kernel void power(
     __global float *array_in,   // Input array
     __global float *array_out,  // Output array
     int n,                      // Number of elements in array
-    float p                     // Power to raise to
+    float p,                    // Power to raise to
+    float scale                 // Additional scaling factor for output values
 ) {
     int ind = get_global_id(0);
     if (ind >= n) return;
-    array_out[ind] = powr(max(0.0f, array_in[ind]), p);
+    array_out[ind] = scale * powr(max(0.0f, array_in[ind]), p);
+}
+
+// Compute normalization factor for ignoring the negative values of an electron density array.
+// The output array should have size equal or greater than the number of work groups. Each
+// element in the output array will have the result sum for one work group. Work group size
+// should be 256.
+__kernel void normalizeSumReduce(
+    __global float  *array_in,  // Input array
+    __global float2 *array_out, // Output array. Index 0: total sum, index 1: sum of positive numbers
+    int n                       // Total number of elements in the input array
+) {
+
+    int iL = get_local_id(0);
+    int iGr = get_group_id(0);
+    int iGl = get_global_id(0);
+    int nG = get_global_size(0);
+    __local float2 shMem[reduceGroupSize];
+
+    // Get values from global memory. We do a for loop to ensure that all values are read even if the
+    // total number of work items is smaller than the array.
+    float sum_total = 0.0f;
+    float sum_positive = 0.0f;
+    for (int i = iGl; i < n; i += nG) {
+        float val = array_in[i];
+        sum_total += val;
+        sum_positive += (float)(val > 0) * val;
+    }
+
+    // Do parallel sum reduction in local memory
+    shMem[iL] = (float2)(sum_total, sum_positive);
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int s = reduceGroupSize / 2; s > 0; s /= 2) {
+        if (iL < s) {
+            shMem[iL] += shMem[iL + s];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+
+    // In the end, the value at index 0 is the total sum for this work group. Save this to
+    // global memory.
+    if (iL == 0) {
+        array_out[iGr] = shMem[0];
+    }
+
+}
+
+// Auxiliary kernel to do final sum to normalizeSumReduce.
+__kernel void sumSingleGroup(__global float2 *array, int n) {
+
+    int iL = get_local_id(0);
+    __local float2 shMem[reduceGroupSize];
+
+    if (iL < n) {
+        shMem[iL] = array[iL];
+    } else {
+        shMem[iL] = 0.0f;
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int s = reduceGroupSize / 2; s > 0; s /= 2) {
+        if (iL < s) {
+            shMem[iL] += shMem[iL + s];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    if (iL == 0) {
+        array[0] = shMem[0];
+    }
+
 }
 
 // Multiply and add values in one array with another
