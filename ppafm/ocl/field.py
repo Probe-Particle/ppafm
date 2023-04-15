@@ -409,6 +409,53 @@ class TipDensity(DataGrid):
         grid = TipDensity(array.T, self.lvec, ctx=self.ctx)
         return grid
 
+    def interp_at(self, lvec_new, shape_new, array_out=None, local_size=(32,), queue=None):
+        '''
+        Interpolate tip density onto a new grid. The tip is assumed to be cented on the origin,
+        so the resizing of the grid happens in the middle of the grid and the corners remain
+        fixed (the origins of the grids are ignored in the transformation).
+
+        Arguments:
+            lvec_new: array-like of shape (4, 3). Unit cell boundaries for new grid.
+            shape_new: array-like of length 3. New grid shape.
+            array_out: pyopencl.Buffer or None. Output array. If None, then is created automatically.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+                Defaults to oclu.queue.
+
+        Returns:
+            grid_out: :class:`TipDensity`. New tip density grid.
+        '''
+
+        if len(self.shape) == 4 and self.shape[3] > 1:
+            raise NotImplementedError('Interpolation for 4D grids is not implemented.')
+
+        queue = queue or oclu.queue
+
+        size_new = 4 * np.prod(shape_new[:3])
+        if array_out is None:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=size_new)
+        else:
+            assert array_out.size == size_new, f'array size does not match ({array_out.size} != {size_new})'
+        array_out = TipDensity(array_out, lvec_new, shape_new, self.ctx)
+
+        global_size = [int(np.ceil(np.prod(shape_new[:3]) / local_size[0]) * local_size[0])]
+        T = np.concatenate([np.linalg.inv(self.step).T.copy(), np.zeros((3, 1))], axis=1, dtype=np.float32)
+        lvec_in_inv = np.concatenate([np.linalg.inv(self.lvec[1:]), np.zeros((3, 1))], axis=1, dtype=np.float32)
+        dlvec_out = np.concatenate([array_out.step, np.zeros((3, 1))], axis=1, dtype=np.float32)
+
+        cl_program.interp_tip_at(queue, global_size, local_size,
+            self.cl_array,
+            array_out.cl_array,
+            np.append(self.shape, 0).astype(np.int32),
+            T[0], T[1], T[2],
+            lvec_in_inv[0], lvec_in_inv[1], lvec_in_inv[2],
+            np.append(shape_new, 0).astype(np.int32),
+            dlvec_out[0], dlvec_out[1], dlvec_out[2],
+        )
+
+        return array_out
+
 class MultipoleTipDensity(TipDensity):
     '''
     Multipole probe tip charge density on a periodic grid.

@@ -851,6 +851,54 @@ __kernel void interp_at(
 
 }
 
+// Interpolate a tip density array onto a new grid. The tip is assumed to be centered
+// on the origin of the input grid, so any resizing of the grid happens in the middle.
+__kernel void interp_tip_at(
+    __global float *in,     // Input array
+    __global float *out,    // Output array
+    int4   nGrid_in,        // Size of input array
+    float4 T_A,             // Rows of the transformation matrix for input array lattice coordinates
+    float4 T_B,
+    float4 T_C,
+    float4 vec_in_inv_A,        // Rows of the inverse of the input array lattice vector matrix
+    float4 vec_in_inv_B,
+    float4 vec_in_inv_C,
+    int4   nGrid_out,       // Size of target grid
+    float4 step_out_A,      // Real-space step sizes of output array lattice vectors
+    float4 step_out_B,
+    float4 step_out_C
+){
+
+    int ind = get_global_id(0);
+    if (ind >= nGrid_out.x * nGrid_out.y * nGrid_out.z) return;
+
+    // Convert linear index to x,y,z indices of output array
+    int i = ind / (nGrid_out.y * nGrid_out.z);
+    int j = (ind / nGrid_out.z) % nGrid_out.y;
+    int k = ind % nGrid_out.z;
+
+    // Past half-way point in the target grid we need to wrap around
+    if (i > nGrid_out.x / 2) i -= nGrid_out.x;
+    if (j > nGrid_out.y / 2) j -= nGrid_out.y;
+    if (k > nGrid_out.z / 2) k -= nGrid_out.z;
+
+    // Calculate position in target grid
+    float4 pos = i * step_out_A + j * step_out_B + k * step_out_C;
+
+    // Figure out fractional coordinates in the input grid
+    float a_frac = dot(vec_in_inv_A, pos);
+    float b_frac = dot(vec_in_inv_B, pos);
+    float c_frac = dot(vec_in_inv_C, pos);
+
+    // If we go beyond half-way in the input lattice, we pad with zeros
+    if ((fabs(a_frac) > 0.5f) || (fabs(b_frac) > 0.5f) || (fabs(c_frac) > 0.5f)) {
+        out[ind] = 0.0f;
+    } else { // Otherwise interpolate
+        out[ind] = linearInterpB(pos.xyz, (float3)(0, 0, 0), T_A.xyz, T_B.xyz, T_C.xyz, nGrid_in.xyz, in);
+    }
+
+}
+
 // Raise all array elements to the same power. Negative values are set to zero.
 __kernel void power(
     __global float *array_in,   // Input array
