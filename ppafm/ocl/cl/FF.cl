@@ -860,7 +860,7 @@ __kernel void interp_tip_at(
     float4 T_A,             // Rows of the transformation matrix for input array lattice coordinates
     float4 T_B,
     float4 T_C,
-    float4 vec_in_inv_A,        // Rows of the inverse of the input array lattice vector matrix
+    float4 vec_in_inv_A,    // Rows of the inverse of the input array lattice vector matrix
     float4 vec_in_inv_B,
     float4 vec_in_inv_C,
     int4   nGrid_out,       // Size of target grid
