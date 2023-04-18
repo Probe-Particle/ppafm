@@ -5,6 +5,7 @@ import numpy as np
 
 from .. import common as PPU
 from .. import io
+from ..ocl import field as FFcl
 
 
 class InverseAFMtrainer:
@@ -271,39 +272,72 @@ class InverseAFMtrainer:
         Excecuted right after evaluating AFM image. Override to modify the parameters for each sample.
         '''
 
-class HartreeAFMtrainer(InverseAFMtrainer):
+class GeneratorAFMtrainer:
     '''
-    Generate batches of input/output pairs for machine learning based on Hartree potentials. An iterator.
+    Generate batches of input/output pair samples for machine learning. An iterator.
+
+    The machine learning samples are generated for every sample system returned by a generator
+    function. The generator should return dicts with the input arguments for the simulation. Possible
+    entries in the dict are all of the call arguments to :meth:`.AFMulator.eval`. At least the entries
+    'xyzs' and 'Zs' should be present in the dict.
+
+    During the iteration for a batch, several methods are called at various points. The procedure is
+    the following:
+        | on_batch_start()
+        | for each sample:
+        |   on_sample_start()
+        |   for each tip:
+        |     on_afm_start()
+    These methods can be overridden to modify the behaviour of the simulation. For example,
+    various parameters of the simulation can be randomized.
 
     Arguments:
         afmulator: An instance of AFMulator.
         auxmaps: list of :class:`.AuxMapBase`.
-        sample_generator: Iterable. An iterable that returns tuples (hartree, xyzs, Zs, rotations), where
-            hartree is a HartreePotential, xyzs is a np.ndarray of shape (n_atoms, 3), Zs is a np.ndarray of
-            shape (n_atoms,), and rotations is a list of np.ndarray of shape (3, 3). Input/output samples will be
-            generated for each rotation in rotations of the molecule specified by the atomic coordinates in
-            xyzs, elements in Zs, and Hartree potential in hartree.
+        sample_generator: Iterable. A generator function that returns sample dicts containing the input
+            arguments for the simulation.
         batch_size: int. Number of samples per batch.
         distAbove: float. Tip-sample distance parameter.
-        iZPPs: list of int. Elements for AFM tips. Image is produced with every tip for each sample.
-        rhos: list of dict or TipDensity. Tip charge densities.
+        iZPPs: list of int. Atomic numbers of AFM tips. An image is produced with every tip for each sample.
+        Qs: list of arrays of length 4. Point charges for tips. Used for point-charge approximation
+            of tip charge when rho is None.
+        QZs: list of arrays of length 4. Positions of tip charges. Used for point-charge approximation
+            of tip charge when rho is None.
+        rhos: list of dict or :class:`.TipDensity`. Tip charge densities. Used for electrostatic
+            interaction when the simulation input is a Hartree potential or for Pauli repulsion
+            calculation in full-density based model when the input is an electron density.
+        rho_deltas: None or list of :class:`.TipDensity`. Tip delta charge density. Required for the
+            full-density based model, where it is used for calculating the electrostatic interaction.
     '''
 
     def __init__(self,
-            afmulator, aux_maps, sample_generator,
+            afmulator,
+            aux_maps,
+            sample_generator,
             batch_size = 30,
             distAbove  = 5.3,
             iZPPs      = [8],
-            rhos       = [{'dz2': -0.1}]
+            Qs         = None,
+            QZs        = None,
+            rhos       = [{'dz2': -0.1}],
+            rho_deltas = None
         ):
 
-        assert len(iZPPs) == len(rhos)
-
-        Qs = QZs = [[0, 0, 0, 0] for _ in range(len(iZPPs))]
-        super().__init__(afmulator, aux_maps, [], batch_size, distAbove, iZPPs, Qs, QZs)
-
+        self.afmulator = afmulator
+        self.aux_maps = aux_maps
         self.sample_generator = sample_generator
-        self._prepareBuffers(rhos)
+        self.batch_size = batch_size
+        self.distAbove = distAbove
+        self.distAboveActive = distAbove
+        self.iZPPs = iZPPs
+        self._prepareBuffers(rhos, rho_deltas)
+
+        if Qs is None or QZs is None:
+            self.Qs = self.QZs = [[0, 0, 0, 0] for _ in range(len(iZPPs))]
+        else:
+            assert len(Qs) == len(QZs) == len(iZPPs), f'Inconsistent lengths for tip charge arrays.'
+            self.Qs = Qs
+            self.QZs = QZs
 
         sw = self.afmulator.scan_window
         self.scan_window = sw
@@ -312,13 +346,30 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         self.df_steps = self.afmulator.df_steps
         self.z_size = self.scan_dim[2] - self.df_steps + 1
 
-    def _prepareBuffers(self, rhos):
+    def _prepareBuffers(self, rhos=None, rho_deltas=None):
+        if rhos is None:
+            self.rhos = self.ffts = [(None, None)] * len(self.iZPPs)
+            return
+        if rho_deltas is not None and (len(rhos) != len(rho_deltas)):
+            raise ValueError(f'The length of rhos ({len(rhos)}) does not match the length of rho_deltas ({len(rho_deltas)})')
         self.rhos = []
         self.ffts = []
-        for rho in rhos:
-            self.afmulator.setRho(rho)
-            self.rhos.append(self.afmulator.forcefield.rho)
-            self.ffts.append(self.afmulator.forcefield.fft_conv)
+        for i in range(len(rhos)):
+            self.afmulator.setRho(rhos[i])
+            rhos_ = [self.afmulator.forcefield.rho]
+            ffts_ = [self.afmulator.forcefield.fft_corr]
+            if rho_deltas is not None:
+                self.afmulator.setRhoDelta(rho_deltas[i])
+                rhos_.append(self.afmulator.forcefield.rho_delta)
+                ffts_.append(self.afmulator.forcefield.fft_corr_delta)
+            self.rhos.append(rhos_)
+            self.ffts.append(ffts_)
+
+    def __iter__(self):
+        self.sample_dict = {}
+        self.sample_iterator = iter(self.sample_generator)
+        self.iteration_done = False
+        return self
 
     def __next__(self):
 
@@ -339,22 +390,22 @@ class HartreeAFMtrainer(InverseAFMtrainer):
 
             if self.bRuntime: sample_start = time.perf_counter()
 
-            # Load sample
-            if len(self.rots) == 0:
-                if self.pot:
-                    self.pot.release()
-                try:
-                    self.pot, self.xyzs, self.Zs, self.rots = next(self.sample_iterator)
-                    self.qs = np.zeros(len(self.xyzs))
-                except StopIteration:
-                    self.iteration_done = True
-                    break
+            # Load the next sample, if available
+            self._release_sample_buffers()
+            try:
+                self._load_next_sample()
+            except StopIteration:
+                self.iteration_done = True
+                break
 
-            # Get rotation
-            rot = self.rots.pop(0)
-            xyz_center = self.xyzs.mean(axis=0)
-            self.xyzs_rot = np.dot(self.xyzs - xyz_center, rot.T) + xyz_center
-            mol = np.concatenate([self.xyzs_rot, self.qs[:, None], self.Zs[:, None]], axis=1)
+            # Save the rotated molecule
+            rot = self.sample_dict['rot']
+            xyzs = self.sample_dict['xyzs']
+            Zs = self.sample_dict['Zs']
+            qs = np.zeros(len(Zs)) if isinstance(self.sample_dict['qs'], FFcl.HartreePotential) else self.sample_dict['qs']
+            xyz_center = xyzs.mean(axis=0)
+            self.xyzs_rot = np.dot(xyzs - xyz_center, rot.T) + xyz_center
+            mol = np.concatenate([self.xyzs_rot, qs[:, None], Zs[:, None]], axis=1)
             mols.append(mol)
 
             # Make sure the molecule is in right position
@@ -366,13 +417,18 @@ class HartreeAFMtrainer(InverseAFMtrainer):
             if self.bRuntime: print(f'Sample {s} preparation time [s]: {time.perf_counter() - sample_start}')
 
             # Get AFM
-            for i, (iZPP, rho, fft) in enumerate(zip(self.iZPPs, self.rhos, self.ffts)): # Loop over different tips
+            for i, (iZPP, rho, fft, Qs, QZs) in enumerate(zip(self.iZPPs, self.rhos, self.ffts, self.Qs, self.QZs)): # Loop over different tips
 
                 # Set interaction parameters
                 self.afmulator.iZPP = iZPP
-                self.afmulator.forcefield.rho = rho
-                self.afmulator.forcefield.fft_conv = fft
-                self.REAs = PPU.getAtomsREA( self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0 )
+                self.afmulator.setQs(Qz, QZs)
+                self.afmulator.forcefield.rho = rho[0]
+                self.afmulator.forcefield.fft_corr = fft[0]
+                self.afmulator.forcefield.rho_delta = rho[1]
+                self.afmulator.forcefield.fft_corr_delta = fft[0]
+                if 'REAs' not in self.sample_dict:
+                    self.sample_dict['REAs'] = PPU.getAtomsREA(self.afmulator.iZPP, self.sample_dict['Zs'],
+                        self.afmulator.typeParams, alphaFac=-1.0)
 
                 # Make sure tip-sample distance is right
                 self.handle_distance()
@@ -386,16 +442,25 @@ class HartreeAFMtrainer(InverseAFMtrainer):
 
                 # Evaluate AFM
                 if self.bRuntime: afm_start = time.perf_counter()
-                Xs[i].append(self.afmulator(self.xyzs, self.Zs, self.pot, rot=rot, REAs=self.REAs))
+                Xs[i].append(self.afmulator(**self.sample_dict))
                 if self.bRuntime: print(f'AFM {i} runtime [s]: {time.perf_counter() - afm_start}')
 
                 scan_windows[i].append(np.array(self.scan_window))
 
             # Get AuxMaps
+            xyzs = self.sample_dict['xyzs']
+            Zs = self.sample_dict['Zs']
+            rot = self.sample_dict['rot']
+            if isinstance(self.sample_dict['qs'], FFcl.HartreePotential):
+                qs = np.zeros(len(Zs))
+                pot = self.sample_dict['qs']
+            else:
+                qs = self.sample_dict['qs']
+                pot = None
+            xyzqs = np.concatenate([xyzs, qs[:, None]], axis=1)
             for i, aux_map in enumerate(self.aux_maps):
                 if self.bRuntime: aux_start = time.perf_counter()
-                xyzqs = np.concatenate([self.xyzs, self.qs[:, None]], axis=1)
-                Ys[i].append(aux_map(xyzqs, self.Zs, self.pot, rot))
+                Ys[i].append(aux_map(xyzqs, Zs, pot, rot))
                 if self.bRuntime: print(f'AuxMap {i} runtime [s]: {time.perf_counter() - aux_start}')
 
             if self.bRuntime: print(f'Sample {s} runtime [s]: {time.perf_counter() - sample_start}')
@@ -411,19 +476,23 @@ class HartreeAFMtrainer(InverseAFMtrainer):
 
         return Xs, Ys, mols, scan_windows
 
-    def __iter__(self):
-        self.pot = None
-        self.xyzs = None
-        self.Zs = None
-        self.rots = []
-        self.sample_iterator = iter(self.sample_generator)
-        self.iteration_done = False
-        return self
+    def _load_next_sample(self):
+        self.sample_dict = next(self.sample_iterator)
+        if 'qs' not in self.sample_dict:
+            self.sample_dict['qs'] = np.zeros((len(self.sample_dict['Zs']),), dtype=np.float32)
+        if 'rot' not in self.sample_dict:
+            self.sample_dict['rot'] = np.eye(3)
+
+    def _release_sample_buffers(self):
+        if 'qs' in self.sample_dict and isinstance(self.sample_dict['qs'], FFcl.HartreePotential):
+            self.sample_dict['qs'].release()
+        if 'rho_sample' in self.sample_dict:
+            self.sample_dict['rho_sample'].release()
 
     def __len__(self):
         '''
         Returns the number of batches that will be generated. Requires for the sample generator
-        to have attribute __len__ that returns the total number of samples (including rotations).
+        to have attribute __len__ that returns the total number of samples.
         '''
         if not hasattr(self.sample_generator, '__len__'):
             raise RuntimeError('Cannot infer the number of batches because sample generator does not '
@@ -436,7 +505,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         '''
         ss = self.scan_size
         sw = self.scan_window
-        xy_center = self.xyzs[:, :2].mean(axis=0)
+        xy_center = self.sample_dict['xyzs'][:, :2].mean(axis=0)
         sw = (
             (xy_center[0] - ss[0] / 2, xy_center[1] - ss[1] / 2, sw[0][2]),
             (xy_center[0] + ss[0] / 2, xy_center[1] + ss[1] / 2, sw[1][2])
@@ -474,6 +543,33 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         self.df_steps = np.random.randint(minimum, maximum + 1)
         self.scan_dim = (self.scan_dim[0], self.scan_dim[1], self.z_size + self.df_steps - 1)
         self.scan_size = (self.scan_size[0], self.scan_size[1], self.afmulator.dz * self.scan_dim[2])
+
+    def randomize_tip(self, max_tilt=0.5):
+        '''
+        Randomize tip tilt to simulate asymmetric adsorption of particle on tip apex.
+
+        Arguments:
+            max_tilt: float. Maximum deviation in xy plane in angstroms.
+        '''
+        self.afmulator.tipR0[:2] = max_tilt * np.array(getRandomUniformDisk())
+
+    def randomize_distance(self, delta=0.25):
+        '''
+        Randomize tip-sample distance.
+
+        Arguments:
+            delta: float. Maximum deviation from the original value in angstroms.
+        '''
+        self.distAboveActive = np.random.uniform(self.distAbove - delta, self.distAbove + delta)
+
+    def on_batch_start(self):
+        '''Excecuted at the start of each batch. Override to modify parameters for each batch.'''
+
+    def on_sample_start(self):
+        '''Excecuted after loading in a new sample. Override to modify the parameters for each sample.'''
+
+    def on_afm_start(self):
+        '''Excecuted before every AFM image evaluation. Override to modify the parameters for each AFM image.'''
 
 def sortRotationsByEntropy(xyzs, rotations):
     rots = []

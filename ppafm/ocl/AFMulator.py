@@ -136,6 +136,8 @@ class AFMulator():
             sample_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
                 If None, periodic boundaries are disabled, unless qs is :class:`.HartreePotential` and the lvec from the
                 Hartree potential is used instead. If npbc = (0, 0, 0), then has no function.
+            rot: np.ndarray of shape (3, 3). Rotation matrix to apply to atom positions.
+            rot_center: np.ndarray of shape (3,). Center for rotation. Defaults to center of atom coordinates.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
