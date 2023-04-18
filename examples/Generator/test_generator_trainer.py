@@ -87,31 +87,33 @@ trainer = ExampleTrainer(
     afmulator,
     aux_maps,
     sample_generator,
-    batch_size=2,           # Number of samples per batch
-    distAbove=3.2,          # Tip-sample distance, taking into account the effective size of the tip and sample atoms
-    iZPPs=[8],              # Tip atomic number(s)
-    rhos=[{'dz2': -0.1}]    # Tip charge distribution(s)
+    batch_size=2,                    # Number of samples per batch
+    distAbove=3.2,                   # Tip-sample distance, taking into account the effective size of the tip and sample atoms
+    iZPPs=[8, 54],                   # Tip atomic number(s)
+    rhos=[{'dz2': -0.1}, {'s': 0.3}] # Tip charge distribution(s)
 )
 
 # Get samples from the trainer by iterating over it
 counter = 0
-for Xs, Ys, mols, sws in trainer:
+for ib, (Xs, Ys, mols, sws) in enumerate(trainer):
 
-    # Xs: AFM images
-    # Ys: Image descriptors
-    # mols: Sample atom coordinates, atomic numbers, and charges
-    # sws: Scan window bounds for each sample
+    print(f'Batch {ib+1}')
 
     # Loop over samples in the batch
-    for j in range(len(Ys[0])):
+    for X, Y, mol, sw in zip(Xs, Ys, mols, sws):
+
+        # X: AFM images
+        # Y: Image descriptors
+        # mol: Sample atom coordinates, atomic numbers, and charges
+        # sw: Scan window bounds
 
         # Plot AFM images
-        for i, X in enumerate(Xs):
+        for i, x in enumerate(X):
             rows, cols = 2, 5
             fig = plt.figure(figsize=(3.2*cols,2.5*rows))
             for k in range(X.shape[-1]):
                 fig.add_subplot(rows, cols, k+1)
-                plt.imshow(X[j,:,:,k].T, cmap='afmhot', origin="lower")
+                plt.imshow(x[..., k].T, cmap='afmhot', origin="lower")
                 plt.colorbar()
             plt.tight_layout()
             plt.savefig(os.path.join(save_dir, f'{counter}_afm{i}.png'))
@@ -121,15 +123,14 @@ for Xs, Ys, mols, sws in trainer:
         fig, axes = plt.subplots(1, len(aux_maps))
         fig.subplots_adjust(left=0.02, bottom=0.06, right=0.95, top=0.94, wspace=0.05)
         fig.set_size_inches(3*len(aux_maps), 3)
-        for i, ax in enumerate(axes):
-            im = ax.imshow(Ys[i][j].T, origin='lower')
+        for y, ax in zip(Y, axes):
+            im = ax.imshow(y.T, origin='lower')
             fig.colorbar(im, ax=ax)
         plt.tight_layout()
         plt.savefig(os.path.join(save_dir, f'{counter}_auxmaps.png'))
         plt.close()
 
         # Save molecule into a xyz file
-        mol = mols[j]
         io.saveXYZ(os.path.join(save_dir, f'{counter}_mol.xyz'), mol[:, :3], mol[:, 4].astype(np.int32), mol[:, 3])
 
         counter += 1

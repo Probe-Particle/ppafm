@@ -292,13 +292,10 @@ class GeneratorAFMtrainer:
     various parameters of the simulation can be randomized.
 
     The iterator returns batches of samples (Xs, Ys, mols, sws):
-        - Xs: List of AFM images as np.ndarray of shape (n_batch, nx, ny, nz). Each element in the list
-          corresponds to a different tip.
-        - Ys: List of AuxMap descriptors as np.ndarray of shape (n_batch, nx, ny). Each element in the list
-          corresponds to a different descriptor.
-        - mols: List of atomic coordinates, atomic numbers, and charges as np.ndarray of shape (n_atoms, 5).
-        - sws: List of scan window bounds as np.ndarray of shape (n_batch, 2, 3). Each element in the list
-          corresponds to a different tip.
+        - Xs: AFM images as np.ndarray of shape (n_batch, n_tip, nx, ny, nz).
+        - Ys: AuxMap descriptors as np.ndarray of shape (n_batch, n_auxmap, nx, ny).
+        - mols: List of lenght n_batch of atomic coordinates, atomic numbers, and charges as np.ndarray of shape (n_atoms, 5).
+        - sws: Scan window bounds as np.ndarray of shape (n_batch, n_tip, 2, 3).
 
     Arguments:
         afmulator: An instance of AFMulator.
@@ -396,15 +393,19 @@ class GeneratorAFMtrainer:
 
         # We gather the samples in these lists
         mols = []
-        Xs = [[] for _ in range(len(self.iZPPs))]
-        Ys = [[] for _ in range(len(self.aux_maps))]
-        scan_windows = [[] for _ in range(len(self.iZPPs))]
+        Xs = []
+        Ys = []
+        sws = []
 
         if self.bRuntime: batch_start = time.perf_counter()
 
         for s in range(self.batch_size):
 
             if self.bRuntime: sample_start = time.perf_counter()
+
+            Xs_ = []
+            Ys_ = []
+            sws_ = []
 
             # Load the next sample, if available
             self._release_sample_buffers()
@@ -442,9 +443,8 @@ class GeneratorAFMtrainer:
                 self.afmulator.forcefield.fft_corr = fft[0]
                 self.afmulator.forcefield.rho_delta = rho[1]
                 self.afmulator.forcefield.fft_corr_delta = fft[1]
-                if 'REAs' not in self.sample_dict:
-                    self.sample_dict['REAs'] = PPU.getAtomsREA(self.afmulator.iZPP, self.sample_dict['Zs'],
-                        self.afmulator.typeParams, alphaFac=-1.0)
+                self.sample_dict['REAs'] = PPU.getAtomsREA(self.afmulator.iZPP, self.sample_dict['Zs'],
+                    self.afmulator.typeParams, alphaFac=-1.0)
 
                 # Make sure tip-sample distance is right
                 self.handle_distance()
@@ -458,10 +458,10 @@ class GeneratorAFMtrainer:
 
                 # Evaluate AFM
                 if self.bRuntime: afm_start = time.perf_counter()
-                Xs[i].append(self.afmulator(**self.sample_dict))
+                Xs_.append(self.afmulator(**self.sample_dict))
                 if self.bRuntime: print(f'AFM {i} runtime [s]: {time.perf_counter() - afm_start}')
 
-                scan_windows[i].append(np.array(self.scan_window))
+                sws_.append(np.array(self.scan_window))
 
             # Get AuxMaps
             xyzs = self.sample_dict['xyzs']
@@ -476,21 +476,25 @@ class GeneratorAFMtrainer:
             xyzqs = np.concatenate([xyzs, qs[:, None]], axis=1)
             for i, aux_map in enumerate(self.aux_maps):
                 if self.bRuntime: aux_start = time.perf_counter()
-                Ys[i].append(aux_map(xyzqs, Zs, pot, rot))
+                Ys_.append(aux_map(xyzqs, Zs, pot, rot))
                 if self.bRuntime: print(f'AuxMap {i} runtime [s]: {time.perf_counter() - aux_start}')
+
+            Xs.append(Xs_)
+            Ys.append(Ys_)
+            sws.append(sws_)
 
             if self.bRuntime: print(f'Sample {s} runtime [s]: {time.perf_counter() - sample_start}')
 
         if len(mols) == 0: # Sample iterator was empty
             raise StopIteration
 
-        Xs = [np.stack(x, axis=0) for x in Xs]
-        Ys = [np.stack(y, axis=0) for y in Ys]
-        scan_windows = [np.stack(sw, axis=0) for sw in scan_windows]
+        Xs = np.array(Xs)
+        Ys = np.array(Ys)
+        sws = np.array(sws)
 
         if self.bRuntime: print(f'Batch runtime [s]: {time.perf_counter() - batch_start}')
 
-        return Xs, Ys, mols, scan_windows
+        return Xs, Ys, mols, sws
 
     def _load_next_sample(self):
         self.sample_dict = next(self.sample_iterator)
