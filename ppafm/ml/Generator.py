@@ -291,6 +291,15 @@ class GeneratorAFMtrainer:
     These methods can be overridden to modify the behaviour of the simulation. For example,
     various parameters of the simulation can be randomized.
 
+    The iterator returns batches of samples (Xs, Ys, mols, sws):
+        - Xs: List of AFM images as np.ndarray of shape (n_batch, nx, ny, nz). Each element in the list
+          corresponds to a different tip.
+        - Ys: List of AuxMap descriptors as np.ndarray of shape (n_batch, nx, ny). Each element in the list
+          corresponds to a different descriptor.
+        - mols: List of atomic coordinates, atomic numbers, and charges as np.ndarray of shape (n_atoms, 5).
+        - sws: List of scan window bounds as np.ndarray of shape (n_batch, 2, 3). Each element in the list
+          corresponds to a different tip.
+
     Arguments:
         afmulator: An instance of AFMulator.
         auxmaps: list of :class:`.AuxMapBase`.
@@ -309,6 +318,9 @@ class GeneratorAFMtrainer:
         rho_deltas: None or list of :class:`.TipDensity`. Tip delta charge density. Required for the
             full-density based model, where it is used for calculating the electrostatic interaction.
     '''
+
+    # Print timings during excecution
+    bRuntime = False
 
     def __init__(self,
             afmulator,
@@ -362,6 +374,9 @@ class GeneratorAFMtrainer:
                 self.afmulator.setRhoDelta(rho_deltas[i])
                 rhos_.append(self.afmulator.forcefield.rho_delta)
                 ffts_.append(self.afmulator.forcefield.fft_corr_delta)
+            else:
+                rhos_.append(None)
+                ffts_.append(None)
             self.rhos.append(rhos_)
             self.ffts.append(ffts_)
 
@@ -379,6 +394,7 @@ class GeneratorAFMtrainer:
         # Callback
         self.on_batch_start()
 
+        # We gather the samples in these lists
         mols = []
         Xs = [[] for _ in range(len(self.iZPPs))]
         Ys = [[] for _ in range(len(self.aux_maps))]
@@ -421,11 +437,11 @@ class GeneratorAFMtrainer:
 
                 # Set interaction parameters
                 self.afmulator.iZPP = iZPP
-                self.afmulator.setQs(Qz, QZs)
+                self.afmulator.setQs(Qs, QZs)
                 self.afmulator.forcefield.rho = rho[0]
                 self.afmulator.forcefield.fft_corr = fft[0]
                 self.afmulator.forcefield.rho_delta = rho[1]
-                self.afmulator.forcefield.fft_corr_delta = fft[0]
+                self.afmulator.forcefield.fft_corr_delta = fft[1]
                 if 'REAs' not in self.sample_dict:
                     self.sample_dict['REAs'] = PPU.getAtomsREA(self.afmulator.iZPP, self.sample_dict['Zs'],
                         self.afmulator.typeParams, alphaFac=-1.0)
@@ -519,7 +535,7 @@ class GeneratorAFMtrainer:
         Set correct distance of the scan window from the current molecule.
         '''
         RvdwPP = self.afmulator.typeParams[self.afmulator.iZPP-1][0]
-        Rvdw = self.REAs[:,0] - RvdwPP
+        Rvdw = self.sample_dict['REAs'][:, 0] - RvdwPP
         zs = self.xyzs_rot[:,2]
         imax = np.argmax(zs + Rvdw)
         total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
