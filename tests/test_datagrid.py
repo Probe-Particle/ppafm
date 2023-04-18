@@ -8,15 +8,22 @@ import pyopencl as cl
 import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
 
+oclu.init_env(i_platform=0)
 
 def handleNegativeDensity( rho ):
     Q = rho.sum()
     rho[rho<0] = 0
     rho *= ( Q/rho.sum() )
 
-def test_power():
+def make_gaussian(shape, lvec):
+    xyz = np.stack(np.meshgrid(*[np.linspace(-0.5, 0.5, shape[i], endpoint=False) for i in range(3)], indexing='ij'), axis=-1)
+    xyz = xyz.dot(lvec[1:].T)
+    array = np.exp(-0.5 * (xyz ** 2).sum(axis=-1))
+    shift = (-np.array(shape) / 2).astype(int)
+    array = np.roll(array, shift, axis=(0, 1, 2))
+    return array
 
-    oclu.init_env(i_platform=0)
+def test_power():
 
     p = 1.5
     data = FFcl.DataGrid(
@@ -47,3 +54,30 @@ def test_power():
     array_orig = data.array.copy()
     data.power_positive(p=p, in_place=False)
     assert np.allclose(data.array, array_orig)
+
+def test_tip_interp():
+
+    # Make two different grids with a gaussian peak at the corner
+    shape = (200, 200, 200)
+    lvec = np.array([
+        [ 0,  0,  0],
+        [10,  0,  0],
+        [ 0, 10,  0],
+        [ 0,  0, 10]
+    ])
+    rho = FFcl.TipDensity(make_gaussian(shape, lvec), lvec)
+
+    shape2 = (150, 100, 140)
+    lvec2 = np.array([
+        [ 0,  0,  0],
+        [12,  0,  0],
+        [ 0,  8,  0],
+        [ 0,  0, 15]
+    ])
+    rho2 = FFcl.TipDensity(make_gaussian(shape2, lvec2), lvec2)
+
+    # Interpolate the first grid onto the second grid
+    rho_interp = rho.interp_at(lvec2, shape2)
+
+    # Check that the interpolant is close to the analytical solution
+    assert np.allclose(rho_interp.array, rho2.array, atol=1e-3, rtol=1e-3)

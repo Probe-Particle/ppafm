@@ -23,11 +23,9 @@ rho_sample, _, _, = FFcl.ElectronDensity.from_file('sample/CHGCAR.xsf')
 rho_tip_delta = rho_tip.subCores(xyzs_tip, Zs_tip, Rcore=0.7)
 
 # Construct the simulator
-pixPerAngstrome = round(pot.shape[0] / (pot.lvec[1, 0] - pot.lvec[0, 0]))
 afmulator = AFMulator(
-    pixPerAngstrome=pixPerAngstrome,        # The force field pixel density and the
-    lvec=rho_tip.lvec,                      # lattice vectors have to match the input files for now
-    scan_dim=(201, 201, 50),                # Output scan dimensions (z dimension gets reduced by df_steps)
+    pixPerAngstrome=10,                     # Force field grid density
+    scan_dim=(201, 201, 50),                # Output scan dimensions (z dimension gets reduced by df_steps - 1)
     scan_window=((0, 0, 5), (20, 20, 10)),  # Physical limits of the scan
     rho=rho_tip,                            # Tip charge density (used for calculating Pauli repulsion)
     rho_delta=rho_tip_delta,                # Tip delta charge density (used for calculating electrostatic force)

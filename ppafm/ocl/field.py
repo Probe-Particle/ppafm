@@ -409,6 +409,53 @@ class TipDensity(DataGrid):
         grid = TipDensity(array.T, self.lvec, ctx=self.ctx)
         return grid
 
+    def interp_at(self, lvec_new, shape_new, array_out=None, local_size=(32,), queue=None):
+        '''
+        Interpolate tip density onto a new grid. The tip is assumed to be cented on the origin,
+        so the resizing of the grid happens in the middle of the grid and the corners remain
+        fixed (the origin coordinates of the grids are ignored in the transformation).
+
+        Arguments:
+            lvec_new: array-like of shape (4, 3). Unit cell boundaries for new grid.
+            shape_new: array-like of length 3. New grid shape.
+            array_out: pyopencl.Buffer or None. Output array. If None, then is created automatically.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+                Defaults to oclu.queue.
+
+        Returns:
+            grid_out: :class:`TipDensity`. New tip density grid.
+        '''
+
+        if len(self.shape) == 4 and self.shape[3] > 1:
+            raise NotImplementedError('Interpolation for 4D grids is not implemented.')
+
+        queue = queue or oclu.queue
+
+        size_new = 4 * np.prod(shape_new[:3])
+        if array_out is None:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=size_new)
+        else:
+            assert array_out.size == size_new, f'array size does not match ({array_out.size} != {size_new})'
+        array_out = TipDensity(array_out, lvec_new, shape_new, self.ctx)
+
+        global_size = [int(np.ceil(np.prod(shape_new[:3]) / local_size[0]) * local_size[0])]
+        T = np.concatenate([np.linalg.inv(self.step).T.copy(), np.zeros((3, 1))], axis=1, dtype=np.float32)
+        lvec_in_inv = np.concatenate([np.linalg.inv(self.lvec[1:]), np.zeros((3, 1))], axis=1, dtype=np.float32)
+        dlvec_out = np.concatenate([array_out.step, np.zeros((3, 1))], axis=1, dtype=np.float32)
+
+        cl_program.interp_tip_at(queue, global_size, local_size,
+            self.cl_array,
+            array_out.cl_array,
+            np.append(self.shape, 0).astype(np.int32),
+            T[0], T[1], T[2],
+            lvec_in_inv[0], lvec_in_inv[1], lvec_in_inv[2],
+            np.append(shape_new, 0).astype(np.int32),
+            dlvec_out[0], dlvec_out[1], dlvec_out[2],
+        )
+
+        return array_out
+
 class MultipoleTipDensity(TipDensity):
     '''
     Multipole probe tip charge density on a periodic grid.
@@ -665,12 +712,18 @@ class ForceField_LJC:
         if rho is not None:
             assert isinstance(rho, TipDensity), 'rho should be a TipDensity object'
             self.rho = rho
-            self.fft_corr = FFTCrossCorrelation(rho)
+            lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
+            if not (np.allclose(self.rho.lvec, lvec) and np.allclose(self.rho.shape, self.nDim[:3])):
+                self.rho = self.rho.interp_at(lvec, self.nDim[:3])
+            self.fft_corr = FFTCrossCorrelation(self.rho)
             self.rho.release() # Don't actually need this on device, only the FFT array
         if rho_delta is not None:
             assert isinstance(rho_delta, TipDensity), 'rho_delta should be a TipDensity object'
             self.rho_delta = rho_delta
-            self.fft_corr_delta = FFTCrossCorrelation(rho_delta)
+            lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
+            if not (np.allclose(self.rho_delta.lvec, lvec) and np.allclose(self.rho_delta.shape, self.nDim[:3])):
+                self.rho_delta = self.rho_delta.interp_at(lvec, self.nDim[:3])
+            self.fft_corr_delta = FFTCrossCorrelation(self.rho_delta)
             self.rho_delta.release() # Don't actually need this on device, only the FFT array
         if rho_sample is not None:
             assert isinstance(rho_sample, ElectronDensity), 'rho_sample should be an ElectronDensity object'
@@ -1243,9 +1296,6 @@ class ForceField_LJC:
                     bCopy=bCopy, bFinish=bFinish)
 
         elif method == 'fdbm':
-
-            if not (np.allclose(self.nDim[:3], self.rho_delta.shape) and np.allclose(self.nDim[:3], self.rho.shape)):
-                raise NotImplementedError(f'Non-matching grid dimensions not yet implemented. {self.nDim[:3]}, {self.rho.shape}, {self.rho_delta.shape}')
             FF = self.calc_force_fdbm(A=A, B=B, rot=rot_ff, rot_center=rot_center, vdw_damp_method=vdw_damp_method,
                 local_size=local_size, bCopy=bCopy, bFinish=bFinish)
 
