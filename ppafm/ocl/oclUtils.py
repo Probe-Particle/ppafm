@@ -21,8 +21,13 @@ class OCLEnvironment:
         self.queue        = cl.CommandQueue(self.ctx)
 
     def loadProgram(self,fname):
+        cl_path = str(self.CL_PATH)
+        if self.platform.name != 'Portable Computing Language':
+            # Older versions of pocl don't handle quotes and spaces properly. This is kind of ugly, but
+            # this is needed for the version of pocl running on Github Actions at the moment of writing.
+            cl_path = f'"{cl_path}"'
         with open(fname) as f:
-            program = cl.Program(self.ctx, f.read()).build(options=['-I', f'"{self.CL_PATH}"'])
+            program = cl.Program(self.ctx, f.read()).build(options=['-I', cl_path])
         return program
 
     def updateBuffer(self, buff, cl_buff, access=cl.mem_flags ):
