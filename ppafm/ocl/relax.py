@@ -23,7 +23,7 @@ verbose = 0
 def init(env):
     global cl_program
     global oclu
-    cl_program  = env.loadProgram(env.CL_PATH+"/relax.cl")
+    cl_program = env.loadProgram(env.CL_PATH / 'relax.cl')
     oclu = env
 
 def mat3x3to4f( M ):

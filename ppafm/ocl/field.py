@@ -30,7 +30,7 @@ oclu       = None
 def init(env):
     global cl_program
     global oclu
-    cl_program = env.loadProgram(env.CL_PATH+"/FF.cl")
+    cl_program = env.loadProgram(env.CL_PATH / 'FF.cl')
     oclu = env
 
 verbose    = 0
