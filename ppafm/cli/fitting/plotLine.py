@@ -118,7 +118,7 @@ MAX = [gridA, gridB, gridC]
 
 K = PPU.params["klat"]
 Q = PPU.params["charge"]
-dirname = "Q{:1.2f}K{:1.2f}".format(Q, K)
+dirname = f"Q{Q:1.2f}K{K:1.2f}"
 
 print(f"Working in {dirname} directory")
 
