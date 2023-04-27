@@ -90,7 +90,7 @@ def main():
             print(">>> subtracting core densities from rho_tip ... ")
             PPH.subtractCoreDensities( rho_tip, lvec_tip, elems=elems_tip, Rs=Rs_tip, valElDict=valElDict, Rcore=options.Rcore, head=head_tip )
 
-        PPU.params['tip'] = rho_tip
+        PPU.params['tip'] = -rho_tip # Negative sign, because the electron density needs to be negative and but the input density is positive
 
     if (options.KPFM_sample is not None):
         V_v0_aux = V.copy()
