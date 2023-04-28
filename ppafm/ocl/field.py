@@ -1168,7 +1168,7 @@ class ForceField_LJC:
             print("runtime(ForceField_LJC.calc_force_fdbm.interpolate) [s]: ", time.perf_counter() - t0)
 
         # Cross-correlate Hartree potential and tip electron delta density for electrostatic energy
-        E_es = self.fft_corr_delta.correlate(pot)
+        E_es = self.fft_corr_delta.correlate(pot, scale=-1.0) # scale=-1.0, because the electron density has positive sign.
         if not pot_lvec_same: pot.release()
 
         # Cross-correlate sample electron density and tip electron density for Pauli energy
