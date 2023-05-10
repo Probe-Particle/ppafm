@@ -13,3 +13,8 @@ ppafm.defaults.valelec\_dict module
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. automodule:: ppafm.defaults.d3
+   :members:
+   :undoc-members:
+   :show-inheritance:

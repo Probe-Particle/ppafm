@@ -10,6 +10,7 @@ from pyopencl import array
 
 from .. import io
 from ..common import genFFSampling
+from ..defaults import d3
 from ..fieldFFT import getProbeDensity
 from ..HighLevel import _getAtomsWhichTouchPBCcell, subtractCoreDensities
 
@@ -678,7 +679,7 @@ class ForceField_LJC:
         self.Qs  = np.array(Qs ,dtype=np.float32)
         self.QZs = np.array(QZs,dtype=np.float32)
 
-    def prepareBuffers(self, atoms=None, cLJs=None, REAs=None, poss=None, bDirect=False, nz=20, pot=None,
+    def prepareBuffers(self, atoms=None, cLJs=None, REAs=None, Zs=None, poss=None, bDirect=False, nz=20, pot=None,
         E_field=False, rho=None, rho_delta=None, rho_sample=None):
         '''Allocate all necessary buffers in device memory.'''
 
@@ -696,6 +697,8 @@ class ForceField_LJC:
         if REAs is not None:
             REAs = REAs.astype(np.float32)
             self.cl_REAs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=REAs  ); nbytes+=REAs.nbytes
+        if Zs is not None:
+            self.Zs = np.array(Zs, dtype=np.int32)
         if poss is not None:
             self.nDim = np.array( poss.shape, dtype=np.int32 )
             self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
@@ -1045,7 +1048,7 @@ class ForceField_LJC:
         )
 
     def addvdW(self, damp_method=0, local_size=(32,)):
-        '''Add van der Waals force and energy to the current force field grid.
+        '''Add Lennard-Jones van der Waals force and energy to the current force field grid.
 
         Arguments:
             damp_method: int. Type of damping to use. -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
@@ -1063,6 +1066,99 @@ class ForceField_LJC:
             self.lvec0,
             self.dlvec[0], self.dlvec[1], self.dlvec[2],
             np.int32(damp_method)
+        )
+
+    def _get_dftd3_params(self, params, damp_method, local_size=(32,)):
+        
+        if isinstance(params, str):
+            raise NotImplementedError()
+
+        k1 = d3.K1
+        k2 = d3.K2
+        k3 = d3.K3
+        iZPP = 8
+
+        from scipy.spatial.distance import cdist
+        atoms = np.empty((self.nAtoms, 4), dtype=np.float32)
+        cl.enqueue_copy(oclu.queue, atoms, self.cl_atoms)
+
+        dists = cdist(atoms[:, :3], atoms[:, :3])
+        r_cov = d3.R_COV[self.Zs]
+        cn = np.empty(self.nAtoms)
+        for i, Zi in enumerate(self.Zs):
+            mask = np.zeros(self.nAtoms)
+            mask[i] = 1
+            d = np.ma.array(dists[i], mask=mask)
+            r = np.ma.array(r_cov, mask=mask) + r_cov[i]
+            cn[i] = (1 / (1 + np.exp(-k1 * (k2 * r / d - 1)))).sum()
+
+        sample_ref_cn = d3.REF_CN[self.Zs - 1]
+        sample_ref_cn = np.ma.array(sample_ref_cn, mask=(sample_ref_cn < 0))
+        pp_ref_cn = d3.REF_CN[iZPP - 1]
+        pp_ref_cn = np.ma.array(pp_ref_cn, mask=(pp_ref_cn < 0))
+        L_sample = np.exp(-k3 * (sample_ref_cn - cn[:, None]) ** 2)
+        L_pp = np.exp(-k3 * pp_ref_cn ** 2) # The probe particle always has coordination number = 0
+        L = L_sample[:, :, None] * L_pp[None, None, :]
+        L /= L.sum(axis=(1, 2))[:, None, None]
+        
+        ref_c6 = d3.load_ref_c6()[self.Zs - 1, iZPP - 1]
+        qq_ab = 3 * d3.R4R2[self.Zs - 1] * d3.R4R2[iZPP - 1]
+        c6 = (ref_c6 * L).sum(axis=(1, 2))
+        c8 = c6 * qq_ab
+
+        c6 *= params['s6']
+        c8 *= params['s8']
+
+        if damp_method == 'zero':
+            R0 = d3.load_R0()[self.Zs - 1, iZPP - 1]
+            R0_6 = (params['sr6'] * R0) ** 14
+            R0_8 = R0 ** 16
+        elif damp_method == 'BJ':
+            R0 = params['a1'] * qq_ab + params['a2']
+            R0_6 = R0 ** 6
+            R0_8 = R0 ** 8
+
+        coeffs = np.stack([c6, c8, R0_6, R0_8], axis=1, dtype=np.float32)
+        self.cl_cD3 = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=coeffs)
+
+    def add_dftd3(self, damp_method='zero', params='PBE', local_size=(32,)):
+        '''
+        Add van der Waals force and energy to the force field grid using the DFT-D3 method.
+        Mainly useful in conjunction with the full-density based model.
+
+        The DFT-D3 parameters are adjusted based on the DFT functional. There are predefined 
+        scaling parameters for the following functionals: TODO.
+        Otherwise, the parameters can be manually specified in a dict with the following entries:
+         - 's6': Scaling parameter for r^-6 term
+         - 's8': Scaling parameter for r^-8 term
+         - 'sr6': Scaling parameter for cutoff radius in zero damping
+         - 'a1': Scaling parameter for cutoff radius in BJ damping
+         - 'a2': Additive parameter for cutoff radius in BJ damping
+
+        References:
+         - https://doi.org/10.1063/1.3382344
+         - https://doi.org/10.1002/jcc.21759
+         - https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dft-d3
+
+        Arguments:
+            damp_method: str. Type of damping to use. 'zero': zero damping, 'BJ' Becke-Johnson damping.
+            params: str or dict. Functional specific scaling parameters. Can be a str with the
+                functional name or a dict with manually specified parameters.
+            local_size: tuple of a single int. Size of local work group on device.
+        '''
+        if damp_method == 'BJ':
+            raise NotImplementedError()
+        self._get_dftd3_params(params, damp_method, local_size)
+        local_size = (min(local_size[0], 64),)
+        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        cl_program.addDFTD3_zero(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cD3,
+            self.cl_FE,
+            self.nDim,
+            self.lvec0,
+            self.dlvec[0], self.dlvec[1], self.dlvec[2]
         )
 
     def calc_force_hartree(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
