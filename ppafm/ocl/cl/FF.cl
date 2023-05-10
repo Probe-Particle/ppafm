@@ -730,6 +730,73 @@ __kernel void addDFTD3_zero(
 
 }
 
+// Add van der Waals force to an existing forcefield grid using the DFT-D3 method and Becke-Johnson damping.
+// The forcefield values are saved in Fortran order.
+__kernel void addDFTD3_BJ(
+    const int nAtoms,       // Number of atoms
+    __global float4* atoms, // Atom positions
+    __global float4* coeff, // The C6, C8, and R0_6, R0_8 parameters for each atom (pre-scaled)
+    __global float4* FE,    // Forcefield grid
+    int4 nGrid,             // Grid size
+    float4 grid_origin,     // Real-space origin of grid
+    float4 grid_stepA,      // Real-space step sizes of grid lattice vectors
+    float4 grid_stepB,
+    float4 grid_stepC
+){
+
+    const int iL = get_local_id(0);
+    const int nL = get_local_size(0);
+    int ind = get_global_id(0);
+
+    // Convert linear index to x,y,z indices (Fortran order)
+    int i = ind % nGrid.x;
+    int j = (ind / nGrid.x) % nGrid.y;
+    int k = ind / (nGrid.y * nGrid.x);
+
+    // Calculate position in grid
+    float3 pos = grid_origin.xyz + grid_stepA.xyz*i + grid_stepB.xyz*j  + grid_stepC.xyz*k;
+
+    // Compute vdW force and energy
+    __local float4 LATOMS[64];
+    __local float4 LCOEFF[64];
+    float4 fe = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
+    for (int i0 = 0; i0 < nAtoms; i0 += nL) {
+        int ia = i0 + iL;
+        if (ia < nAtoms) {
+            LATOMS[iL] = atoms[ia];
+            LCOEFF[iL] = coeff[ia];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+
+            float3 dp = pos - LATOMS[ja].xyz;
+            float r2  = dot(dp, dp);
+            float r4  = r2 * r2;
+            float r6  = r4 * r2;
+            float r8  = r6 * r2;
+
+            float d6 = 1.0f / (r6 + LCOEFF[ja].z);
+            float d8 = 1.0f / (r8 + LCOEFF[ja].w);
+            float E6 = -0.5 * LCOEFF[ja].x * d6;
+            float E8 = -0.5 * LCOEFF[ja].y * d8;
+            float F6 = E6 * d6 * 6 * r4;
+            float F8 = E8 * d8 * 8 * r6;
+
+            float E = E6 + E8;
+            float F = F6 + F8;
+            fe += (float4)(F * dp, E);
+
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    // Add to forcefield grid
+    if (ind < nGrid.x * nGrid.y * nGrid.z) {
+        FE[ind] += fe;
+    }
+
+}
+
 // Compute Lennard Jones force field at grid points and add to it the electrostatic force
 // from an electric field precomputed from a Hartree potential. The output buffer is
 // written in Fortran memory layout in order to be compatible with OpenCL image

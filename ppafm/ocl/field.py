@@ -1114,9 +1114,11 @@ class ForceField_LJC:
             R0_6 = (params['sr6'] * R0) ** 14
             R0_8 = R0 ** 16
         elif damp_method == 'BJ':
-            R0 = params['a1'] * qq_ab + params['a2']
+            R0 = np.sqrt(params['a1'] * qq_ab + params['a2'])
             R0_6 = R0 ** 6
             R0_8 = R0 ** 8
+        else:
+            raise ValueError(f'Invalid damp method `{damp_method}`.')
 
         coeffs = np.stack([c6, c8, R0_6, R0_8], axis=1, dtype=np.float32)
         self.cl_cD3 = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=coeffs)
@@ -1146,20 +1148,31 @@ class ForceField_LJC:
                 functional name or a dict with manually specified parameters.
             local_size: tuple of a single int. Size of local work group on device.
         '''
-        if damp_method == 'BJ':
-            raise NotImplementedError()
         self._get_dftd3_params(params, damp_method, local_size)
         local_size = (min(local_size[0], 64),)
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
-        cl_program.addDFTD3_zero(self.queue, global_size, local_size,
-            self.nAtoms,
-            self.cl_atoms,
-            self.cl_cD3,
-            self.cl_FE,
-            self.nDim,
-            self.lvec0,
-            self.dlvec[0], self.dlvec[1], self.dlvec[2]
-        )
+        if damp_method == 'zero':
+            cl_program.addDFTD3_zero(self.queue, global_size, local_size,
+                self.nAtoms,
+                self.cl_atoms,
+                self.cl_cD3,
+                self.cl_FE,
+                self.nDim,
+                self.lvec0,
+                self.dlvec[0], self.dlvec[1], self.dlvec[2]
+            )
+        elif damp_method == 'BJ':
+            cl_program.addDFTD3_BJ(self.queue, global_size, local_size,
+                self.nAtoms,
+                self.cl_atoms,
+                self.cl_cD3,
+                self.cl_FE,
+                self.nDim,
+                self.lvec0,
+                self.dlvec[0], self.dlvec[1], self.dlvec[2]
+            )
+        else:
+            raise ValueError(f'Invalid damp method `{damp_method}`.')
 
     def calc_force_hartree(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
             bCopy=True, bFinish=True):
