@@ -698,16 +698,27 @@ __kernel void addDFTD3_zero(
         }
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+
             float3 dp  = pos - LATOMS[ja].xyz;
             float ir2  = 1.0f / (dot(dp, dp) + R2SAFE);
             float ir6  = ir2 * ir2 * ir2;
             float ir8  = ir6 * ir2;
             float ir14 = ir6 * ir8;
             float ir16 = ir14 * ir2;
-            float d6 = 1.0f / (1 + 6 * LCOEFF[ja].z * ir14);
-            float d8 = 1.0f / (1 + 6 * LCOEFF[ja].w * ir16);
-            float E = LCOEFF[ja].x * ir6 * d6 + LCOEFF[ja].y * ir8 * d8;
-            fe += (float4)(0.0f, 0.0f, 0.0f, -E);
+            ir14 *= LCOEFF[ja].z;
+            ir16 *= LCOEFF[ja].w;
+
+            float d6 = 1.0f / (1 + 6 * ir14);
+            float d8 = 1.0f / (1 + 6 * ir16);
+            float E6 = LCOEFF[ja].x * ir6 * d6;
+            float E8 = LCOEFF[ja].y * ir8 * d8;
+            float F6 = E6 * 6.0f * ir2 * (1 - 14 * ir14 * d6);
+            float F8 = E8 * 8.0f * ir2 * (1 - 12 * ir16 * d8);
+
+            float E = E6 + E8;
+            float F = F6 + F8;
+            fe += (float4)(-F * dp, -E);
+
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
