@@ -32,6 +32,7 @@ parser.add_option( "-o", "--output", action="store", type="string", default="pau
 parser.add_option( "-B", "--Bpower", action="store", type="float", default="-1.0", help="exponent B in formula E = A*Integral( rho_tip^B * rho_sample^B ); NOTE: negative value equivalent to B=1 ")
 parser.add_option( "-A", "--Apauli", action="store", type="float", default="1.0", help="prefactor A in formula E = A*Integral( rho_tip^B * rho_sample^B ); NOTE: default A=1 since re-scaling done in relax_scan_PVE.py")
 parser.add_option( "-E", "--energy",     action="store_true",            help="Compue potential energ y(not just Force)", default=False)
+parser.add_option( "-f","--data_format", action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
 parser.add_option( "--saveDebugXsfs",        action="store_true",  help="save auxuliary xsf files for debugging", default=False )
 parser.add_option( "--densityMayBeNegative", action="store_false", help="input desnity files from DFT may contain negative voxels, lets handle them properly", default=True )
 
@@ -60,8 +61,8 @@ if options.Bpower > 0.0:
     rhoS[:,:,:] = rhoS[:,:,:]**B
     rhoT[:,:,:] = rhoT[:,:,:]**B
     if options.saveDebugXsfs:
-        io.saveXSF( "sample_density_pow_%03.3f.xsf" %B, rhoS, lvecS, head=headS )
-        io.saveXSF( "tip_density_pow_%03.3f.xsf" %B, rhoT, lvecT, head=headT )
+        io.save_scal_field( "sample_density_pow_%03.3f.xsf" %B, rhoS, lvecS, data_format=options.data_format, head=headS )
+        io.save_scal_field( "tip_density_pow_%03.3f.xsf" %B, rhoT, lvecT, data_format=options.data_format, head=headT )
 
 print(">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... ")
 Fx,Fy,Fz,E = fFFT.potential2forces_mem( rhoS, lvecS, nDimS, rho=rhoT, doForce=True, doPot=True, deleteV=True )
@@ -73,9 +74,8 @@ print(">>> Saving result of convolution to FF_",namestr,"_?.xsf ... ")
 
 # Density Overlap Model
 if options.energy:
-    io.saveXSF( "E"+namestr+".xsf", E*PQ, lvecS, head=headS )
-io.saveXSF( "FF"+namestr+"_x.xsf", Fx*PQ, lvecS, head=headS )
-io.saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ, lvecS, head=headS )
-io.saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ, lvecS, head=headS )
+    io.save_scal_field( "E"+namestr, E*PQ, lvecS, data_format=options.data_format, head=headS )
+FF = io.packVecGrid(Fx*PQ,Fy*PQ,Fz*PQ)
+io.save_vec_field( "FF"+namestr, FF, lvecS, data_format=options.data_format, head=headS )
 
 #Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
