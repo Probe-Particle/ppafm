@@ -44,6 +44,61 @@ def makeDivisibleUp( num, divisor ):
 
 # ========= classes
 
+class D3Params:
+    '''
+    pyopencl device buffer handles to Grimme-D3 parameters. Each buffer is allocated on first access.
+    
+    Arguments:
+        ctx: pyopencl.Context. OpenCL context for device buffer. Defaults to oclu.ctx.
+    '''
+
+    def __init__(self, ctx):
+        self.ctx = ctx or oclu.ctx
+        self._cl_rcov = None
+        self._cl_rcut = None
+        self._cl_ref_cn = None
+        self._cl_ref_c6 = None
+        self._cl_r4r2 = None
+
+    def _alloc(self, buf):
+        return cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=buf.astype(np.float32))
+
+    @property
+    def cl_rcov(self):
+        '''See :data:`.R_COV`.'''
+        if self._cl_rcov is None: self._cl_rcov = self._alloc(d3.R_COV)
+        return self._cl_rcov
+
+    @property
+    def cl_rcut(self):
+        '''See :func:`.load_R0`.'''
+        if self._cl_rcut is None: self._cl_rcut = self._alloc(d3.load_R0())
+        return self._cl_rcut
+
+    @property
+    def cl_ref_cn(self):
+        '''See :data:`.REF_CN`.'''
+        if self._cl_ref_cn is None: self._cl_ref_cn = self._alloc(d3.REF_CN)
+        return self._cl_ref_cn
+
+    @property
+    def cl_ref_c6(self):
+        '''See :func:`.load_ref_c6`.'''
+        if self._cl_ref_c6 is None: self._cl_ref_c6 = self._alloc(d3.load_ref_c6())
+        return self._cl_ref_c6
+
+    @property
+    def cl_r4r2(self):
+        '''See :data:`.R4R2`.'''
+        if self._cl_r4r2 is None: self._cl_r4r2 = self._alloc(d3.R4R2)
+        return self._cl_r4r2
+
+    def release(self):
+        '''Release device buffers.'''
+        for buf_name in ['_cl_rcov', '_cl_rcut', '_cl_ref_cn', '_cl_ref_c6', '_cl_r4r2']:
+            getattr(self, buf_name).release()
+            setattr(self, buf_name, None)
+
 class DataGrid:
     '''
     Class for holding data on a grid. The data can be stored on the CPU host or an OpenCL device.
@@ -637,6 +692,7 @@ class ForceField_LJC:
     def __init__( self ):
         self.ctx   = oclu.ctx
         self.queue = oclu.queue
+        self.d3_params  = D3Params(self.ctx)
         self.cl_poss    = None
         self.cl_FE      = None
         self.cl_Efield  = None
@@ -699,6 +755,7 @@ class ForceField_LJC:
             self.cl_REAs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=REAs  ); nbytes+=REAs.nbytes
         if Zs is not None:
             self.Zs = np.array(Zs, dtype=np.int32)
+            self.cl_Zs = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.Zs); nbytes+=self.Zs.nbytes
         if poss is not None:
             self.nDim = np.array( poss.shape, dtype=np.int32 )
             self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
@@ -1073,55 +1130,35 @@ class ForceField_LJC:
         if isinstance(params, str):
             raise NotImplementedError()
 
-        k1 = d3.K1
-        k2 = d3.K2
-        k3 = d3.K3
-        iZPP = 8
-
-        from scipy.spatial.distance import cdist
-        atoms = np.empty((self.nAtoms, 4), dtype=np.float32)
-        cl.enqueue_copy(oclu.queue, atoms, self.cl_atoms)
-
-        dists = cdist(atoms[:, :3], atoms[:, :3])
-        r_cov = d3.R_COV[self.Zs]
-        cn = np.empty(self.nAtoms)
-        for i, Zi in enumerate(self.Zs):
-            mask = np.zeros(self.nAtoms)
-            mask[i] = 1
-            d = np.ma.array(dists[i], mask=mask)
-            r = np.ma.array(r_cov, mask=mask) + r_cov[i]
-            cn[i] = (1 / (1 + np.exp(-k1 * (k2 * r / d - 1)))).sum()
-
-        sample_ref_cn = d3.REF_CN[self.Zs - 1]
-        sample_ref_cn = np.ma.array(sample_ref_cn, mask=(sample_ref_cn < 0))
-        pp_ref_cn = d3.REF_CN[iZPP - 1]
-        pp_ref_cn = np.ma.array(pp_ref_cn, mask=(pp_ref_cn < 0))
-        L_sample = np.exp(-k3 * (sample_ref_cn - cn[:, None]) ** 2)
-        L_pp = np.exp(-k3 * pp_ref_cn ** 2) # The probe particle always has coordination number = 0
-        L = L_sample[:, :, None] * L_pp[None, None, :]
-        L /= L.sum(axis=(1, 2))[:, None, None]
-        
-        ref_c6 = d3.load_ref_c6()[self.Zs - 1, iZPP - 1]
-        qq_ab = 3 * d3.R4R2[self.Zs - 1] * d3.R4R2[iZPP - 1]
-        c6 = (ref_c6 * L).sum(axis=(1, 2))
-        c8 = c6 * qq_ab
-
-        c6 *= params['s6']
-        c8 *= params['s8']
-
         if damp_method == 'zero':
-            R0 = d3.load_R0()[self.Zs - 1, iZPP - 1]
-            R0_6 = (params['sr6'] * R0) ** 14
-            R0_8 = R0 ** 16
+            params = np.array([params['s6'], params['s8'], params['sr6']**14, 0.0], dtype=np.float32)
         elif damp_method == 'BJ':
-            R0 = np.sqrt(params['a1'] * qq_ab + params['a2'])
-            R0_6 = R0 ** 6
-            R0_8 = R0 ** 8
+            params = np.array([params['s6'], params['s8'], params['a1'], params['a2']], dtype=np.float32)
         else:
             raise ValueError(f'Invalid damp method `{damp_method}`.')
 
-        coeffs = np.stack([c6, c8, R0_6, R0_8], axis=1, dtype=np.float32)
-        self.cl_cD3 = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=coeffs)
+        k = np.array([d3.K1, d3.K2, d3.K3, 0.0], dtype=np.float32)
+        iZPP = np.int32(8) # TODO not hard-coded
+        damp_method = np.int32(0) if damp_method == 'zero' else np.int32(1)
+
+        self.cl_cD3 = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=(self.nAtoms * 4 * 4))
+
+        global_size = (int(np.ceil(self.nAtoms / local_size[0]) * local_size[0]),)
+        cl_program.d3_coeffs(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_Zs,
+            self.d3_params.cl_rcov,
+            self.d3_params.cl_rcut,
+            self.d3_params.cl_ref_cn,
+            self.d3_params.cl_ref_c6,
+            self.d3_params.cl_r4r2,
+            self.cl_cD3,
+            k,
+            params,
+            iZPP,
+            damp_method
+        )
 
     def add_dftd3(self, damp_method='zero', params='PBE', local_size=(32,)):
         '''

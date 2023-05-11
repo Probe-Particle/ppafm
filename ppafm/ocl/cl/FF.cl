@@ -8,6 +8,9 @@
 
 #define reduceGroupSize 256
 
+#define MAX_REF_CN 5
+#define MAX_D3_ELEM 94
+
 #include "splines.cl"
 
 // vdW damping coefficients
@@ -659,6 +662,115 @@ __kernel void addvdW(
 
 }
 
+// Compute Grimme-D3 coefficients for atoms.
+__kernel void d3_coeffs(
+    const int nAtoms,           // Number of atoms
+    __global float4 *atoms,     // Atom positions
+    __global int    *elems,     // Atomic numbers
+    __global float  *r_cov,     // Grimme-D3 covalent radii
+    __global float  *r_cut,     // Grimme-D3 cut-off radii
+    __global float  *ref_cn,    // Grimme-D3 reference coordination numbers
+    __global float  *ref_c6,    // Grimme-D3 reference C6 coefficients
+    __global float  *r4r2,      // Grimme-D3 <r4>/<r2> values
+    __global float4 *coeff,     // Output array of coefficients
+    const float4 k,             // Parameters (k1, k2, k3, _)
+    const float4 params,        // Functional-specific parameters. (s6, s8, sr6, _) for zero and (s6, s8, a1, a2) for BJ
+    const int elem_pp,          // Probe particle atomic number
+    const int damp_method       // Damping method: 0: zero-damping, other: Becke-Johnson damping
+) {
+
+    int iG = get_global_id(0);
+    int iL = get_local_id(0);
+
+    int pp_ind = elem_pp - 1;
+    __local float pp_cn[MAX_REF_CN];
+    if (iL < MAX_REF_CN) { // Work group size needs to be at least 5 (which should not be a problem)
+        pp_cn[iL] = ref_cn[pp_ind * MAX_REF_CN + iL];
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if (iG >= nAtoms) return;
+
+    float3 pos = atoms[iG].xyz;
+    int elem_ind = elems[iG] - 1;
+
+    const float k1 = k.x;
+    const float k2 = k.y;
+    const float k3 = -k.z;
+    const float k12 = -k1 * k2;
+
+    float cn = 0; // Coordination number
+    float r_cov_elem = r_cov[elem_ind];
+    for (int i = 0; i < nAtoms; i++) {
+        if (i == iG) continue; // No self-interaction for coordination number
+        float3 dp = atoms[i].xyz - pos;
+        float d = sqrt(dot(dp, dp));
+        float r = r_cov[elems[i] - 1] + r_cov_elem;
+        cn += 1.0f / (1.0f + exp(k12 * r / d + k1));;
+    }
+
+    float L[MAX_REF_CN * MAX_REF_CN];
+    float norm = 0;
+    int i, j;
+    for (i = 0; i < MAX_REF_CN; i++) {
+        float ref_cn_i = ref_cn[elem_ind * MAX_REF_CN + i];
+        if (ref_cn_i < 0.0f) break; // Invalid values after this
+        float diff_cn_i  = ref_cn_i - cn;
+        float diff_cn_i2 = diff_cn_i * diff_cn_i;
+        for (j = 0; j < MAX_REF_CN; j++) {
+            float diff_cn_j = pp_cn[j]; // Probe particle -> cn always 0
+            if (diff_cn_j < 0.0f) break; // Invalid values after this
+            float diff_cn_j2 = diff_cn_j * diff_cn_j;
+            float L_ij = exp(k3 * (diff_cn_i2 + diff_cn_j2));
+            norm += L_ij;
+            L[i * MAX_REF_CN + j] = L_ij;
+        }
+    }
+    int max_ref_i = i;
+    int max_ref_j = j;
+
+    int n_zw = MAX_REF_CN * MAX_REF_CN;
+    int n_yzw = MAX_D3_ELEM * n_zw;
+    float c6 = 0;
+    for (int i = 0; i < max_ref_i; i++) {
+        for (int j = 0; j < max_ref_j; j++) {
+            int L_ind = i * MAX_REF_CN + j;
+            int c6_ind = elem_ind * n_yzw + pp_ind * n_zw + L_ind; // ref_c6 shape = (MAX_D3_ELEM, MAX_D3_ELEM, MAX_REF_CN, MAX_REF_CN)
+            c6 += L[L_ind] * ref_c6[c6_ind];
+        }
+    }
+    c6 /= norm;
+
+    float qq = 3 * r4r2[elem_ind] * r4r2[pp_ind];
+    float c8 = qq * c6;
+
+    if (damp_method == 0) { // zero damping
+        float R0 = r_cut[elem_ind * MAX_D3_ELEM + pp_ind];
+        float R0_2  = R0 * R0;
+        float R0_4  = R0_2 * R0_2;
+        float R0_8  = R0_4 * R0_4;
+        float R0_14 = R0_8 * R0_4 * R0_2;
+        float R0_16 = R0_14 * R0_2;
+        coeff[iG] = (float4)(
+            c6    * params.x,
+            c8    * params.y,
+            R0_14 * params.z,
+            R0_16
+        );
+    } else { // Becke-Johnson damping
+        float R0 = sqrt(params.z * qq + params.w);
+        float R0_2  = R0 * R0;
+        float R0_6  = R0_2 * R0_2 * R0_2;
+        float R0_8  = R0_6 * R0_2;
+        coeff[iG] = (float4)(
+            c6 * params.x,
+            c8 * params.y,
+            R0_6,
+            R0_8
+        );
+    }
+
+}
 
 // Add van der Waals force to an existing forcefield grid using the DFT-D3 method and zero damping.
 // The forcefield values are saved in Fortran order.
