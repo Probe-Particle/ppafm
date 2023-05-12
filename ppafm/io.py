@@ -577,11 +577,11 @@ def saveNpy(fname, data, lvec , atomic_info):
     '''
     Function for saving scalar grid data, together with its lattice_vector and information about original atoms and the original lattice vector (lvec0) in numpy format
 
-        Arguments:
-            fname: str. Path to file.
-            data: np.ndarray of shape (n_z, n_y, n_x) with scallar data
-            lvec: np.ndarray of shape (4, 3). Lattice vector of the data
-            atomic_info: tuple of shape (2). First part is [e, x, y, z] of atoms, the second is lvec of the atoms from the original geometry file, named as lvec0;
+    Arguments:
+        fname: str. Path to file. fname should be without the npz expension, which is added by this function.
+        data: np.ndarray of shape (n_z, n_y, n_x) with scallar data
+        lvec: np.ndarray of shape (4, 3). Lattice vector of the data
+        atomic_info: tuple of shape (2). First part is [e, x, y, z] of atoms, the second is lvec of the atoms from the original geometry file, named as lvec0;
     '''
     np.savez(fname+'.npz', data=data, lvec=lvec, atoms=atomic_info[0], lvec0=atomic_info[1])
 
@@ -591,7 +591,7 @@ def loadNpy(fname):
     Function for loading scalar grid data, together with its lattice_vector and information about original atoms and the original lattice vector (lvec0) in numpy format
 
     Arguments:
-        fname: str. name of the npz file.
+        fname: str. name of the npz file. fname should be without the npz expension, which is added by this function.
 
     Returns:
         data: np.array of shape(nz, ny, nx) with volumetric (scaler data) we want to save
@@ -652,7 +652,7 @@ def saveVecFieldNpy( fname, FF, lvec , atomic_info ):
     Function for saving vector grid data, together with its lattice_vector and information about original atoms and the original lattice vector (lvec0) in numpy format.
 
     Arguments:
-        fname: str. name of the npz file.
+        fname: str. name of the npz file. fname should be without the npz expension, which is added by this function.
         FF: np.array of shape(nz, ny, nx, 3) with volumetric (vector data) we want to load.
         lvec: np.array of shape(4,3) with lattice vector of the volumetric data.
         atomic_info: tuple of shape (2) with 2 np.arrays, one is np.array([e,x,y,z]) with atoms positions and the second one is np.array(lvec0) of shape (4,3) with saved information about lattice vector.
@@ -678,7 +678,7 @@ def save_vec_field(fname, data, lvec, data_format="xsf", head=XSF_HEAD_DEFAULT ,
     Saving vector fields into xsf, or npy
 
     Arguments:
-        fname: str. name of the npz file.
+        fname: str. name of the npz or xsf file. fname should be without any extension, which is added later automatically based on the format (data_format).
         data: np.array of shape(nz, ny, nx, 3) with volumetric (vector data) we want to save; note [:,:,:,0] are x part, [:,:,:,1] is the y part and [:,:,:,2] is the z part of the vector
         lvec: np.array of shape (4,3) with lattice vector of the volumetric data
         data_format: string "xsf" or "npy"
@@ -698,13 +698,14 @@ def load_vec_field(fname, data_format="xsf"):
     Loading Vector fields from xsf, or npy
 
     Arguments:
-        fname: str. name of the npz file.
+        fname: str. name of the npz or xsf file. fname should be without any extension, which is added later automatically based on the format (data_format).
         data_fromat: str "xsf" or "npy"
 
     Returns:
         data: np.array of shape(nz, ny, nx, 3) with volumetric (vector data) we want to load.
         lvec: np.array of shape(4,3) with lattice vector of the volumetric data.
-        atomic_info_or_heaad: tuple or string. If tupple then shape (2) with 2 np.arrays,
+        ndim: tupple of lenght 4 with dimmensions of the vector data.
+        atomic_info_or_head: tuple or string. If tupple then shape (2) with 2 np.arrays,
              one is np.array([e,x,y,z]) with atoms positions and the second one is np.array(lvec0) of shape (4,3) with saved information about lattice vector.
              if string, the same information is basically stored as the header of xsf
     '''
@@ -726,13 +727,12 @@ def save_scal_field(fname, data, lvec, data_format="xsf", head = XSF_HEAD_DEFAUL
     Saving scalar fields into xsf, or npy
 
     Arguments:
-        fname: str. name of the npz file.
-        data: np.array of shape(nz, ny, nx, 3) with volumetric (scalar data) we want to save/
-        data_fromat: str "xsf" or "npy"/
+        fname: str. name of the npz or xsf file. fname should be without any extension, which is added later automatically based on the format (data_format).
+        data: np.array of shape(nz, ny, nx, 3) with volumetric (scalar data) we want to save.
         lvec: np.array of shape(4,3) with lattice vector of the volumetric data.
-        atomic_info_or_heaad: tuple or string. If tupple then shape (2) with 2 np.arrays,
-             one is np.array([e,x,y,z]) with atoms positions and the second one is np.array(lvec0) of shape (4,3) with saved information about lattice vector.
-             if string, the same information is basically stored as the header of xsf
+        data_format: str "xsf" or "npy".
+        head: string header of the XSF file
+        atomic_info: tuple of shape (2) with 2 np.arrays - one is np.array([e,x,y,z]) with atoms positions and the second one is np.array(lvec) of shape (4,3) with saved information about lattice vector.
     '''
     if (data_format=="xsf"):
         saveXSF(fname+".xsf", data, lvec, head = head)
@@ -748,13 +748,13 @@ def load_scal_field(fname, data_format="xsf"):
     Loading Vector fields from xsf, or npy
 
     Arguments:
-        fname: str. name of the npz file.
+        fname: str. name of the npz or xsf file. fname should be without any extension, which is added later automatically based on the format (data_format).
         data_fromat: str "xsf" or "npy"
 
     Returns:
         data: np.array of shape(nz, ny, nx) with volumetric (scalar data) we want to load.
         lvec: np.array of shape(4,3) with lattice vector of the volumetric data.
-        atomic_info_or_heaad: tuple or string. If tupple then shape (2) with 2 np.arrays,
+        atomic_info_or_head: tuple or string. If tupple then shape (2) with 2 np.arrays,
              one is np.array([e,x,y,z]) with atoms positions and the second one is np.array(lvec0) of shape (4,3) with saved information about lattice vector.
              if string, the same information is basically stored as the header of xsf
     '''
