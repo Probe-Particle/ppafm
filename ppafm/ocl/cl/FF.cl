@@ -10,6 +10,8 @@
 
 #define MAX_REF_CN 5
 #define MAX_D3_ELEM 94
+#define R2_D3_CUTOFF 400.0f
+#define IR2_D3_CUTOFF 1.0f / R2_D3_CUTOFF
 
 #include "splines.cl"
 
@@ -682,13 +684,25 @@ __kernel void d3_coeffs(
     int iG = get_global_id(0);
     int iL = get_local_id(0);
 
+    const float k3 = -k.z;
+
+    // The probe particle reference coordination number values are the same in all threads
+    // so load them into shared memory.
     int pp_ind = elem_pp - 1;
-    __local float pp_cn[MAX_REF_CN];
+    __local float L_pp[MAX_REF_CN];
+    __local int max_ref_pp;
+    max_ref_pp = 0;
+    barrier(CLK_LOCAL_MEM_FENCE);
     if (iL < MAX_REF_CN) { // Work group size needs to be at least 5 (which should not be a problem)
-        pp_cn[iL] = ref_cn[pp_ind * MAX_REF_CN + iL];
+        float pp_cn = ref_cn[pp_ind * MAX_REF_CN + iL];
+        if (pp_cn >= 0.0f) { // Values less that 0 zero are invalid and should not be counted.
+            atomic_inc(&max_ref_pp);
+            L_pp[iL] = exp(k3 * pp_cn * pp_cn);
+        }
     }
     barrier(CLK_LOCAL_MEM_FENCE);
 
+    // Extra threads cannot return before this point because of the barriers.
     if (iG >= nAtoms) return;
 
     float3 pos = atoms[iG].xyz;
@@ -696,10 +710,10 @@ __kernel void d3_coeffs(
 
     const float k1 = k.x;
     const float k2 = k.y;
-    const float k3 = -k.z;
     const float k12 = -k1 * k2;
 
-    float cn = 0; // Coordination number
+    // Compute coordination number for this atom by considering all pair-wise distances
+    float cn = 0;
     float r_cov_elem = r_cov[elem_ind];
     for (int i = 0; i < nAtoms; i++) {
         if (i == iG) continue; // No self-interaction for coordination number
@@ -709,31 +723,41 @@ __kernel void d3_coeffs(
         cn += 1.0f / (1.0f + exp(k12 * r / d + k1));;
     }
 
+    // Compute gaussian weights and normalization factor for all of the reference
+    // coordination numbers.
     float L[MAX_REF_CN * MAX_REF_CN];
     float norm = 0;
     int i, j;
     for (i = 0; i < MAX_REF_CN; i++) {
         float ref_cn_i = ref_cn[elem_ind * MAX_REF_CN + i];
         if (ref_cn_i < 0.0f) break; // Invalid values after this
-        float diff_cn_i  = ref_cn_i - cn;
-        float diff_cn_i2 = diff_cn_i * diff_cn_i;
-        for (j = 0; j < MAX_REF_CN; j++) {
-            float diff_cn_j = pp_cn[j]; // Probe particle -> cn always 0
-            if (diff_cn_j < 0.0f) break; // Invalid values after this
-            float diff_cn_j2 = diff_cn_j * diff_cn_j;
-            float L_ij = exp(k3 * (diff_cn_i2 + diff_cn_j2));
+        float diff_cn_i = ref_cn_i - cn;
+        float L_i = exp(k3 * diff_cn_i * diff_cn_i);
+        for (j = 0; j < max_ref_pp; j++) {
+            float L_ij = L_i * L_pp[j];
             norm += L_ij;
             L[i * MAX_REF_CN + j] = L_ij;
         }
     }
     int max_ref_i = i;
-    int max_ref_j = j;
 
+    // If the coordination number is so high that the gaussian weights are all zero,
+    // then we put all of the weight on the highest reference coordination number.
+    if (norm == 0) {
+        i = (max_ref_i - 1);
+        for (j = 0; j < max_ref_pp; j++) {
+            float L_ij = L_pp[j];
+            norm += L_ij;
+            L[i * MAX_REF_CN + j] = L_ij;
+        }
+    }
+
+    // Compute C6 coefficient as a linear combination of reference C6 values
     int n_zw = MAX_REF_CN * MAX_REF_CN;
     int n_yzw = MAX_D3_ELEM * n_zw;
     float c6 = 0;
     for (int i = 0; i < max_ref_i; i++) {
-        for (int j = 0; j < max_ref_j; j++) {
+        for (int j = 0; j < max_ref_pp; j++) {
             int L_ind = i * MAX_REF_CN + j;
             int c6_ind = elem_ind * n_yzw + pp_ind * n_zw + L_ind; // ref_c6 shape = (MAX_D3_ELEM, MAX_D3_ELEM, MAX_REF_CN, MAX_REF_CN)
             c6 += L[L_ind] * ref_c6[c6_ind];
@@ -741,6 +765,7 @@ __kernel void d3_coeffs(
     }
     c6 /= norm;
 
+    // The C8 coefficient is inferred from the C6 coefficient
     float qq = 3 * r4r2[elem_ind] * r4r2[pp_ind];
     float c8 = qq * c6;
 
@@ -813,6 +838,7 @@ __kernel void addDFTD3_zero(
 
             float3 dp  = pos - LATOMS[ja].xyz;
             float ir2  = 1.0f / (dot(dp, dp) + R2SAFE);
+            if (ir2 < IR2_D3_CUTOFF) continue;
             float ir6  = ir2 * ir2 * ir2;
             float ir8  = ir6 * ir2;
             float ir14 = ir6 * ir8;
@@ -883,6 +909,7 @@ __kernel void addDFTD3_BJ(
 
             float3 dp = pos - LATOMS[ja].xyz;
             float r2  = dot(dp, dp);
+            if (r2 > R2_D3_CUTOFF) continue;
             float r4  = r2 * r2;
             float r6  = r4 * r2;
             float r8  = r6 * r2;
