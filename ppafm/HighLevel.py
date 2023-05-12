@@ -180,9 +180,9 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     # --- save to files ?
     if save_format is not None:
         if(verbose>0): print("computeLJ Save ", save_format)
-        io.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring )
+        io.save_vec_field( 'FF'+ffModel, FF, lvec,  data_format=save_format, head=atomstring , atomic_info = (atoms[:4],lvec))
         if computeVpot:
-            io.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring )
+            io.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring , atomic_info = (atoms[:4],lvec))
     if(verbose>0): print("<<<END: computeLJ()")
     return FF, V, nDim, lvec
 
@@ -214,9 +214,9 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     # --- save to files ?
     if save_format is not None:
         if(verbose>0): print("computeLJ Save ", save_format)
-        io.save_vec_field( 'FFel',FF,lvec,data_format=save_format, head=atomstring )
+        io.save_vec_field( 'FFel',FF,lvec,data_format=save_format, head=atomstring , atomic_info = (atoms[:4],lvec))
         if computeVpot:
-            io.save_scal_field( 'Vel',V,lvec,data_format=save_format, head=atomstring )
+            io.save_scal_field( 'Vel',V,lvec,data_format=save_format, head=atomstring , atomic_info = (atoms[:4],lvec) )
     if(verbose>0): print("<<<END: computeELFF_pointCharge()")
     return FF, V, nDim, lvec
 
