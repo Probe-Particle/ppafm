@@ -14,6 +14,9 @@ ppafm.defaults.valelec\_dict module
    :undoc-members:
    :show-inheritance:
 
+ppafm.defaults.d3 module
+---------------------------------------------
+
 .. automodule:: ppafm.defaults.d3
    :members:
    :undoc-members:

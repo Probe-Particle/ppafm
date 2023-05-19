@@ -664,7 +664,7 @@ __kernel void addvdW(
 
 }
 
-// Compute Grimme-D3 coefficients for atoms.
+// Compute Grimme-D3 coefficients for atoms. Each work item computes one atom.
 __kernel void d3_coeffs(
     const int nAtoms,           // Number of atoms
     __global float4 *atoms,     // Atom positions
@@ -676,9 +676,8 @@ __kernel void d3_coeffs(
     __global float  *r4r2,      // Grimme-D3 <r4>/<r2> values
     __global float4 *coeff,     // Output array of coefficients
     const float4 k,             // Parameters (k1, k2, k3, _)
-    const float4 params,        // Functional-specific parameters. (s6, s8, sr6, _) for zero and (s6, s8, a1, a2) for BJ
-    const int elem_pp,          // Probe particle atomic number
-    const int damp_method       // Damping method: 0: zero-damping, other: Becke-Johnson damping
+    const float4 params,        // Functional-specific parameters (s6, s8, a1, a2)
+    const int elem_pp           // Probe particle atomic number
 ) {
 
     int iG = get_global_id(0);
@@ -769,102 +768,19 @@ __kernel void d3_coeffs(
     float qq = 3 * r4r2[elem_ind] * r4r2[pp_ind];
     float c8 = qq * c6;
 
-    if (damp_method == 0) { // zero damping
-        float R0 = r_cut[elem_ind * MAX_D3_ELEM + pp_ind];
-        float R0_2  = R0 * R0;
-        float R0_4  = R0_2 * R0_2;
-        float R0_8  = R0_4 * R0_4;
-        float R0_14 = R0_8 * R0_4 * R0_2;
-        float R0_16 = R0_14 * R0_2;
-        coeff[iG] = (float4)(
-            c6    * params.x,
-            c8    * params.y,
-            R0_14 * params.z,
-            R0_16
-        );
-    } else { // Becke-Johnson damping
-        float R0   = params.z * sqrt(qq) + params.w;
-        float R0_2 = R0 * R0;
-        float R0_6 = R0_2 * R0_2 * R0_2;
-        float R0_8 = R0_6 * R0_2;
-        coeff[iG] = (float4)(
-            c6 * params.x,
-            c8 * params.y,
-            R0_6,
-            R0_8
-        );
-    }
+    // Compute damping constants
+    float R0   = params.z * sqrt(qq) + params.w;
+    float R0_2 = R0 * R0;
+    float R0_6 = R0_2 * R0_2 * R0_2;
+    float R0_8 = R0_6 * R0_2;
 
-}
-
-// Add van der Waals force to an existing forcefield grid using the DFT-D3 method and zero damping.
-// The forcefield values are saved in Fortran order.
-__kernel void addDFTD3_zero(
-    const int nAtoms,       // Number of atoms
-    __global float4* atoms, // Atom positions
-    __global float4* coeff, // The C6, C8, and R0_6, R0_8 parameters for each atom (pre-scaled)
-    __global float4* FE,    // Forcefield grid
-    int4 nGrid,             // Grid size
-    float4 grid_origin,     // Real-space origin of grid
-    float4 grid_stepA,      // Real-space step sizes of grid lattice vectors
-    float4 grid_stepB,
-    float4 grid_stepC
-){
-
-    const int iL = get_local_id(0);
-    const int nL = get_local_size(0);
-    int ind = get_global_id(0);
-
-    // Convert linear index to x,y,z indices (Fortran order)
-    int i = ind % nGrid.x;
-    int j = (ind / nGrid.x) % nGrid.y;
-    int k = ind / (nGrid.y * nGrid.x);
-
-    // Calculate position in grid
-    float3 pos = grid_origin.xyz + grid_stepA.xyz*i + grid_stepB.xyz*j  + grid_stepC.xyz*k;
-
-    // Compute vdW force and energy
-    __local float4 LATOMS[64];
-    __local float4 LCOEFF[64];
-    float4 fe = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
-    for (int i0 = 0; i0 < nAtoms; i0 += nL) {
-        int ia = i0 + iL;
-        if (ia < nAtoms) {
-            LATOMS[iL] = atoms[ia];
-            LCOEFF[iL] = coeff[ia];
-        }
-        barrier(CLK_LOCAL_MEM_FENCE);
-        for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
-
-            float3 dp  = (pos - LATOMS[ja].xyz);
-            float ir2  = 1.0f / (dot(dp, dp) + R2SAFE);
-            if (ir2 < IR2_D3_CUTOFF) continue;
-            float ir6  = ir2 * ir2 * ir2;
-            float ir8  = ir6 * ir2;
-            float ir14 = ir6 * ir8;
-            float ir16 = ir14 * ir2;
-            ir14 *= LCOEFF[ja].z;
-            ir16 *= LCOEFF[ja].w;
-
-            float d6 = 1.0f / (1 + 6 * ir14);
-            float d8 = 1.0f / (1 + 6 * ir16);
-            float E6 = -LCOEFF[ja].x * ir6 * d6;
-            float E8 = -LCOEFF[ja].y * ir8 * d8;
-            float F6 = E6 * 6.0f * ir2 * (1 - 14 * ir14 * d6);
-            float F8 = E8 * 8.0f * ir2 * (1 - 12 * ir16 * d8);
-
-            float  E = E6 + E8;
-            float3 F = (F6 + F8) * dp;
-            fe += (float4)(F, E);
-
-        }
-        barrier(CLK_LOCAL_MEM_FENCE);
-    }
-
-    // Add to forcefield grid
-    if (ind < nGrid.x * nGrid.y * nGrid.z) {
-        FE[ind] += fe;
-    }
+    // Save coefficients
+    coeff[iG] = (float4)(
+        c6 * params.x,
+        c8 * params.y,
+        R0_6,
+        R0_8
+    );
 
 }
 

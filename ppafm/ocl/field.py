@@ -1129,23 +1129,19 @@ class ForceField_LJC:
             np.int32(damp_method)
         )
 
-    def _get_dftd3_params(self, params, damp_method, local_size=(32,)):
-
-        if isinstance(params, str):
-            raise NotImplementedError()
+    def _get_dftd3_params(self, params, local_size=(32,)):
 
         if not hasattr(self, 'iZPP'):
             raise RuntimeError('Probe particle atomic number not set. Set it before DFT-D3 calculation using setPP()')
 
-        if damp_method == 'zero':
-            params = np.array([params['s6'], params['s8'], params['sr6']**14, 0.0], dtype=np.float32)
-        elif damp_method == 'BJ':
-            params = np.array([params['s6'], params['s8'], params['a1'], params['a2'] * io.bohrRadius2angstroem], dtype=np.float32)
-        else:
-            raise ValueError(f'Invalid damp method `{damp_method}`.')
+        if isinstance(params, str):
+            if params not in d3.DF_DEFAULT_PARAMS:
+                raise ValueError(f'Default parameters not available for functional `{params}`. See the available '
+                    'default parameters in ppafm.defaults.d3.DF_DEFAULT_PARAMS.')
+            params = d3.DF_DEFAULT_PARAMS[params]
 
+        params = np.array([params['s6'], params['s8'], params['a1'], params['a2'] * io.bohrRadius2angstroem], dtype=np.float32)
         k = np.array([d3.K1, d3.K2, d3.K3, 0.0], dtype=np.float32)
-        damp_method = np.int32(0) if damp_method == 'zero' else np.int32(1)
 
         self.cl_cD3 = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=(self.nAtoms * 4 * 4))
 
@@ -1162,60 +1158,45 @@ class ForceField_LJC:
             self.cl_cD3,
             k,
             params,
-            self.iZPP,
-            damp_method
+            self.iZPP
         )
 
-    def add_dftd3(self, damp_method='zero', params='PBE', local_size=(32,)):
+    def add_dftd3(self, params='PBE', local_size=(32,)):
         '''
-        Add van der Waals force and energy to the force field grid using the DFT-D3 method.
-        Mainly useful in conjunction with the full-density based model.
+        Add van der Waals force and energy to the force field grid using the DFT-D3 method. Uses the Becke-Johnson
+        damping method. Mainly useful in conjunction with the full-density based model.
 
-        The DFT-D3 parameters are adjusted based on the DFT functional. There are predefined
-        scaling parameters for the following functionals: TODO.
+        The DFT-D3 parameters are adjusted based on the DFT functional. There are predefined scaling parameters for the
+        following functionals:
+        PBE, B1B95, B2GPPLYP, B3PW91, BHLYP, BMK, BOP, BPBE, CAMB3LYP, LCwPBE, MPW1B95, MPWB1K, mPWLYP, OLYP, OPBE,
+        oTPSS, PBE38, PBEsol, PTPSS, PWB6K, revSSB, SSB, TPSSh, HCTH120, B2PLYP, B3LYP, B97D, BLYP, BP86, DSDBLYP,
+        PBE0, PBE, PW6B95, PWPB95, revPBE0, revPBE38, revPBE, rPW86PBE, TPSS0, TPSS.
+        See also :data:`.DF_DEFAULT_PARAMS`.
+
         Otherwise, the parameters can be manually specified in a dict with the following entries:
+
          - 's6': Scaling parameter for r^-6 term.
          - 's8': Scaling parameter for r^-8 term.
-         - 'sr6': Scaling parameter for cutoff radius in zero damping.
-         - 'a1': Scaling parameter for cutoff radius in BJ damping.
-         - 'a2': Additive parameter for cutoff radius in BJ damping. Unit should be Bohr.
-
-        References:
-         - https://doi.org/10.1063/1.3382344
-         - https://doi.org/10.1002/jcc.21759
-         - https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dft-d3
+         - 'a1': Scaling parameter for cutoff radius.
+         - 'a2': Additive parameter for cutoff radius. Unit should be Bohr.
 
         Arguments:
-            damp_method: str. Type of damping to use. 'zero': zero damping, 'BJ' Becke-Johnson damping.
             params: str or dict. Functional specific scaling parameters. Can be a str with the
                 functional name or a dict with manually specified parameters.
             local_size: tuple of a single int. Size of local work group on device.
         '''
-        self._get_dftd3_params(params, damp_method, local_size)
+        self._get_dftd3_params(params, local_size)
         local_size = (min(local_size[0], 64),)
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
-        if damp_method == 'zero':
-            cl_program.addDFTD3_zero(self.queue, global_size, local_size,
-                self.nAtoms,
-                self.cl_atoms,
-                self.cl_cD3,
-                self.cl_FE,
-                self.nDim,
-                self.lvec0,
-                self.dlvec[0], self.dlvec[1], self.dlvec[2]
-            )
-        elif damp_method == 'BJ':
-            cl_program.addDFTD3_BJ(self.queue, global_size, local_size,
-                self.nAtoms,
-                self.cl_atoms,
-                self.cl_cD3,
-                self.cl_FE,
-                self.nDim,
-                self.lvec0,
-                self.dlvec[0], self.dlvec[1], self.dlvec[2]
-            )
-        else:
-            raise ValueError(f'Invalid damp method `{damp_method}`.')
+        cl_program.addDFTD3_BJ(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cD3,
+            self.cl_FE,
+            self.nDim,
+            self.lvec0,
+            self.dlvec[0], self.dlvec[1], self.dlvec[2]
+        )
 
     def calc_force_hartree(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
             bCopy=True, bFinish=True):

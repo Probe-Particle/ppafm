@@ -1,3 +1,14 @@
+'''
+Contains various constants and parameters for use in Grimme-D3 calculations. The values are extracted from
+the original Fortran implementation and tables which can be found at
+https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dft-d3.
+Some of the values have been rescaled to be in units of eV and Å.
+
+References:
+    - https://doi.org/10.1063/1.3382344
+    - https://doi.org/10.1002/jcc.21759
+'''
+
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +34,7 @@ R_COV = np.array([
 '''
 Covalent radii in Ångströms according to `Pyykkö and Atsumi
 <https://doi.org/10.1002/chem.200800987>`_.
-Values for metals reduced by 10% for use in Grimme-D3. Units are Ångström.
+Values for metals reduced by 10% for use in Grimme-D3. Units are Ångströms.
 '''
 
 # Also directly copied from https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dft-d3
@@ -49,7 +60,7 @@ R4R2 = np.array([
     4.64162882, 4.57951396, 4.51876857, 4.68334909
 ])
 '''
-sqrt(0.5*sqrt(Z)<r4>/<r2>(Z)) values for Grimme-D3. Units are Ångström.
+sqrt(0.5*sqrt(Z)<r4>/<r2>(Z)) values for Grimme-D3. Units are Ångströms.
 '''
 
 REF_CN = np.array([
@@ -180,7 +191,7 @@ def load_ref_c6():
     The returned array has shape (94, 94, 5, 5). The first two indices correspond
     to pairs of chemical elements, and the (5, 5) array of values contains the C6
     coeffiecients for the corresponding of reference coordination numbers stored in
-    :data:`REF_CN`. Units are eV*Ångström^6.
+    :data:`REF_CN`. Units are eV*Å^6.
 
     Returns:
         ref_c6: numpy.ndarray of shape (94, 94, 5, 5). C6 coefficients.
@@ -196,7 +207,7 @@ def load_R0():
     `<https://doi.org/10.1063/1.3382344>`_
 
     Pairs of chemical elements have their own cut-off radii, corresponding to the
-    two indices of the returned array. Units are Ångström.
+    two indices of the returned array. Units are Ångströms.
 
     Returns:
         ref_R0: numpy.ndarray of shape (94, 94). Cut-off radii.
@@ -205,3 +216,50 @@ def load_R0():
     if _R0_AB is None:
         _R0_AB = np.load(Path(__file__).parent / 'd3_R0.npy')
     return _R0_AB
+
+DF_DEFAULT_PARAMS = {
+    'PBE'     : {'s6': 1.000, 's8': 0.7875, 'a1':  0.4289, 'a2': 4.4407},
+    'B1B95'   : {'s6': 1.000, 's8': 1.4507, 'a1':  0.2092, 'a2': 5.5545},
+    'B2GPPLYP': {'s6': 0.560, 's8': 0.2597, 'a1':  0.0000, 'a2': 6.3332},
+    'B3PW91'  : {'s6': 1.000, 's8': 2.8524, 'a1':  0.4312, 'a2': 4.4693},
+    'BHLYP'   : {'s6': 1.000, 's8': 1.0354, 'a1':  0.2793, 'a2': 4.9615},
+    'BMK'     : {'s6': 1.000, 's8': 2.0860, 'a1':  0.1940, 'a2': 5.9197},
+    'BOP'     : {'s6': 1.000, 's8': 3.2950, 'a1':  0.4870, 'a2': 0.5043},
+    'BPBE'    : {'s6': 1.000, 's8': 4.0728, 'a1':  0.4567, 'a2': 4.3908},
+    'CAMB3LYP': {'s6': 1.000, 's8': 2.0674, 'a1':  0.3708, 'a2': 5.4743},
+    'LCwPBE'  : {'s6': 1.000, 's8': 1.8541, 'a1':  0.3919, 'a2': 5.0897},
+    'MPW1B95' : {'s6': 1.000, 's8': 1.0508, 'a1':  0.1955, 'a2': 6.4177},
+    'MPWB1K'  : {'s6': 1.000, 's8': 0.9499, 'a1':  0.1474, 'a2': 6.6223},
+    'mPWLYP'  : {'s6': 1.000, 's8': 2.0077, 'a1':  0.4831, 'a2': 4.5323},
+    'OLYP'    : {'s6': 1.000, 's8': 2.6205, 'a1':  0.5299, 'a2': 2.8065},
+    'OPBE'    : {'s6': 1.000, 's8': 3.3816, 'a1':  0.5512, 'a2': 2.9444},
+    'oTPSS'   : {'s6': 1.000, 's8': 2.7495, 'a1':  0.4634, 'a2': 4.3153},
+    'PBE38'   : {'s6': 1.000, 's8': 1.4623, 'a1':  0.3995, 'a2': 5.1405},
+    'PBEsol'  : {'s6': 1.000, 's8': 2.9491, 'a1':  0.4466, 'a2': 6.1742},
+    'PTPSS'   : {'s6': 0.750, 's8': 0.2804, 'a1':  0.0000, 'a2': 6.5745},
+    'PWB6K'   : {'s6': 1.000, 's8': 0.9383, 'a1':  0.1805, 'a2': 7.7627},
+    'revSSB'  : {'s6': 1.000, 's8': 0.4389, 'a1':  0.4720, 'a2': 4.0986},
+    'SSB'     : {'s6': 1.000, 's8': 0.1744, 'a1': -0.0952, 'a2': 5.2170},
+    'TPSSh'   : {'s6': 1.000, 's8': 2.2382, 'a1':  0.4529, 'a2': 4.6550},
+    'HCTH120' : {'s6': 1.000, 's8': 1.0821, 'a1':  0.3563, 'a2': 4.3359},
+    'B2PLYP'  : {'s6': 0.640, 's8': 0.9147, 'a1':  0.3065, 'a2': 5.0570},
+    'B3LYP'   : {'s6': 1.000, 's8': 1.9889, 'a1':  0.3981, 'a2': 4.4211},
+    'B97D'    : {'s6': 1.000, 's8': 2.2609, 'a1':  0.5545, 'a2': 3.2297},
+    'BLYP'    : {'s6': 1.000, 's8': 2.6996, 'a1':  0.4298, 'a2': 4.2359},
+    'BP86'    : {'s6': 1.000, 's8': 3.2822, 'a1':  0.3946, 'a2': 4.8516},
+    'DSDBLYP' : {'s6': 0.500, 's8': 0.2130, 'a1':  0.0000, 'a2': 6.0519},
+    'PBE0'    : {'s6': 1.000, 's8': 1.2177, 'a1':  0.4145, 'a2': 4.8593},
+    'PBE'     : {'s6': 1.000, 's8': 0.7875, 'a1':  0.4289, 'a2': 4.4407},
+    'PW6B95'  : {'s6': 1.000, 's8': 0.7257, 'a1':  0.2076, 'a2': 6.3750},
+    'PWPB95'  : {'s6': 0.820, 's8': 0.2904, 'a1':  0.0000, 'a2': 7.3141},
+    'revPBE0' : {'s6': 1.000, 's8': 1.7588, 'a1':  0.4679, 'a2': 3.7619},
+    'revPBE38': {'s6': 1.000, 's8': 1.4760, 'a1':  0.4309, 'a2': 3.9446},
+    'revPBE'  : {'s6': 1.000, 's8': 2.3550, 'a1':  0.5238, 'a2': 3.5016},
+    'rPW86PBE': {'s6': 1.000, 's8': 1.3845, 'a1':  0.4613, 'a2': 4.5062},
+    'TPSS0'   : {'s6': 1.000, 's8': 1.2576, 'a1':  0.3768, 'a2': 4.5865},
+    'TPSS'    : {'s6': 1.000, 's8': 1.9435, 'a1':  0.4535, 'a2': 4.4752}
+}
+'''
+Default Grimme-D3 scaling parameters for a variety of density functionals using Becke-Johnson damping.
+Values taken from `<https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3/functionalsbj>`_.
+'''
