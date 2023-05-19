@@ -1181,7 +1181,7 @@ class ForceField_LJC:
          - 'a2': Additive parameter for cutoff radius. Unit should be Bohr.
 
         Arguments:
-            params: str or dict. Functional specific scaling parameters. Can be a str with the
+            params: str or dict. Functional-specific scaling parameters. Can be a str with the
                 functional name or a dict with manually specified parameters.
             local_size: tuple of a single int. Size of local work group on device.
         '''
@@ -1253,7 +1253,7 @@ class ForceField_LJC:
 
         return FE
 
-    def calc_force_fdbm(self, A=18.0, B=1.0, FE=None, rot=np.eye(3), rot_center=np.zeros(3), vdw_damp_method=2,
+    def calc_force_fdbm(self, A=18.0, B=1.0, d3_params='PBE', FE=None, rot=np.eye(3), rot_center=np.zeros(3),
             local_size=(32,), bCopy=True, bFinish=True):
         '''
         Calculate force field using the full density-based model.
@@ -1261,12 +1261,12 @@ class ForceField_LJC:
         Arguments:
             A: float. Prefactor for Pauli repulsion.
             B: float. Exponent used for Pauli repulsion.
+            d3_params: str or dict. Functional-specific scaling parameters for DFT-D3. Can be a str with the
+                functional name or a dict with manually specified parameters. See :meth:`add_dftd3`.
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.
             rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
             rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
-            vdw_damp_method: int. Type of damping to use in vdw calculation.
-                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
             local_size: tuple of a single int. Size of local work group on device.
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
             bFinish: Bool. Whether to wait for execution to finish.
@@ -1332,7 +1332,7 @@ class ForceField_LJC:
             print("runtime(ForceField_LJC.calc_force_fdbm.gradient) [s]: ", time.perf_counter() - t0)
 
         # Add vdW force
-        self.addvdW(vdw_damp_method, local_size=local_size)
+        self.add_dftd3(params=d3_params, local_size=local_size)
 
         if bCopy: FE = self.downloadFF(FE)
         if bFinish or bRuntime: self.queue.finish()
@@ -1340,8 +1340,8 @@ class ForceField_LJC:
 
         return FE
 
-    def makeFF(self, xyzs, cLJs, REAs=None, method='point-charge', FE=None, qs=None, pot=None, rho_sample=None,
-            rho=None, rho_delta=None, A=18.0, B=1.0, rot=np.eye(3), rot_center=np.zeros(3), vdw_damp_method=2,
+    def makeFF(self, xyzs, cLJs, Zs=None, method='point-charge', FE=None, qs=None, pot=None, rho_sample=None,
+            rho=None, rho_delta=None, A=18.0, B=1.0, d3_params='PBE', rot=np.eye(3), rot_center=np.zeros(3),
             local_size=(32,), bRelease=True, bCopy=True, bFinish=True):
         '''
         Generate the force field for a tip-sample interaction.
@@ -1360,8 +1360,7 @@ class ForceField_LJC:
         Arguments:
             xyzs: np.ndarray of shape (n_atoms, 3). xyz positions.
             cLJs: np.ndarray of shape (n_atoms, 2). Lennard-Jones interaction parameters in AB form for each atom.
-            REAs: np.ndarray of shape (n_atoms, 4) or None. Lennard-Jones interaction parameters in RE form for each atom.
-                Required when method is 'fdbm' and vdw_damp_method >= 1.
+            Zs: np.ndarray of shape (n_atoms,). Atomic numbers. Required when method is 'fdbm'.
             method: 'point-charge', 'hartree' or 'fdbm'. Method for generating the force field.
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.
@@ -1377,10 +1376,10 @@ class ForceField_LJC:
                 interaction when method is 'fdbm'.
             A: float. Prefactor for Pauli repulsion when method is 'fdbm'.
             B: float. Exponent used for Pauli repulsion when method is 'fdbm'.
+            d3_params: str or dict. Functional-specific scaling parameters for DFT-D3. Can be a str with the functional name
+                or a dict with manually specified parameters. Used when method is 'fdbm. See :meth:`add_dftd3`.
             rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
             rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
-            vdw_damp_method: int. Type of damping to use in vdw calculation when method is 'fdbm'.
-                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
             local_size: tuple of a single int. Size of local work group on device.
             bRelease: Bool. Whether to delete data on device after computation is done.
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
@@ -1406,7 +1405,7 @@ class ForceField_LJC:
         if qs is None:
             qs = np.zeros(len(xyzs))
         self.atoms = np.concatenate([xyzs, qs[:, None]], axis=1)
-        self.prepareBuffers(self.atoms, cLJs, REAs=REAs, pot=pot, rho=rho, rho_delta=rho_delta, rho_sample=rho_sample)
+        self.prepareBuffers(self.atoms, cLJs, Zs=Zs, pot=pot, rho=rho, rho_delta=rho_delta, rho_sample=rho_sample)
         if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.perf_counter() - t0)
 
         if method == 'point-charge':
@@ -1429,7 +1428,7 @@ class ForceField_LJC:
                     bCopy=bCopy, bFinish=bFinish)
 
         elif method == 'fdbm':
-            FF = self.calc_force_fdbm(A=A, B=B, rot=rot_ff, rot_center=rot_center, vdw_damp_method=vdw_damp_method,
+            FF = self.calc_force_fdbm(A=A, B=B, rot=rot_ff, rot_center=rot_center, d3_params=d3_params,
                 local_size=local_size, bCopy=bCopy, bFinish=bFinish)
 
         else:

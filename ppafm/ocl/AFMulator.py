@@ -46,6 +46,8 @@ class AFMulator():
             electrostatic interaction force.
         A_pauli: float. Prefactor for Pauli repulsion when using the FDBM.
         B_pauli: float. Exponent for Pauli repulsion when using the FDBM.
+        d3_params: str or dict. Functional-specific scaling parameters for DFT-D3. Can be a str with the functional name
+            or a dict with manually specified parameters. Used in FDBM. See :meth:`.add_dftd3` for further explanation.
         df_steps: int. Number of steps in z convolution. The total amplitude is df_steps times scan z-step size.
         tipR0: array of length 3. Probe particle equilibrium position (x, y, z) in angstroms.
         tipStiffness: array of length 4. Harmonic spring constants (x, y, z, r) in N/m for holding the probe particle
@@ -55,8 +57,6 @@ class AFMulator():
             potential defined on a grid is always considered to be periodic.
         f0Cantilever: float. Resonance frequency of the cantilever in Hz.
         kCantilever: float. Harmonic spring constant of the cantilever in N/m.
-        vdw_damp_method: int. Type of damping to use in vdw calculation for FDBM.
-            -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
     '''
 
     bMergeConv = False   # Should we use merged kernel relaxStrokesTilted_convZ or two separated kernells  ( relaxStrokesTilted, convolveZ  )
@@ -83,13 +83,13 @@ class AFMulator():
         rho_delta       = None,
         A_pauli         = 18.0,
         B_pauli         = 1.0,
+        d3_params       = 'PBE',
         df_steps        = 10,
         tipR0           = [0.0, 0.0, 3.0],
         tipStiffness    = [0.25, 0.25, 0.0, 30.0],
         npbc            = (1, 1, 0),
         f0Cantilever    = 30300,
-        kCantilever     = 1800,
-        vdw_damp_method = 2
+        kCantilever     = 1800
     ):
 
         if not FFcl.oclu or not oclr.oclu:
@@ -109,7 +109,7 @@ class AFMulator():
         self.sigma = sigma
         self.A_pauli = A_pauli
         self.B_pauli = B_pauli
-        self.vdw_damp_method = vdw_damp_method
+        self.d3_params = d3_params
         self.sample_lvec = None
 
         self.setScanWindow(scan_window, scan_dim, df_steps)
@@ -327,6 +327,7 @@ class AFMulator():
         # Determine method
         if rho_sample is not None:
             method = 'fdbm'
+            self.forcefield.setPP(self.iZPP)
         elif pot is not None:
             method = 'hartree'
         else:
@@ -342,12 +343,12 @@ class AFMulator():
             REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
         cLJs = PPU.REA2LJ(REAs)
         if sum(npbc) > 0:
-            Zs, xyzs, qs, cLJs, REAs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, self.sample_lvec, npbc=npbc)
+            Zs, xyzs, qs, cLJs, _ = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, self.sample_lvec, npbc=npbc)
 
         # Compute force field
-        self.forcefield.makeFF(xyzs, cLJs, REAs=REAs, method=method, qs=qs, pot=pot, rho_sample=rho_sample,
+        self.forcefield.makeFF(xyzs, cLJs, Zs=Zs, method=method, qs=qs, pot=pot, rho_sample=rho_sample,
             rho_delta=self.rho_delta, A=self.A_pauli, B=self.B_pauli, rot=rot, rot_center=rot_center,
-            vdw_damp_method=self.vdw_damp_method, bRelease=False, bCopy=False, bFinish=False)
+            d3_params=self.d3_params, bRelease=False, bCopy=False, bFinish=False)
         if self.bSaveFF: self.saveFF()
 
     def prepareScanner(self):
