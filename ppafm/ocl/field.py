@@ -735,6 +735,10 @@ class ForceField_LJC:
         self.Qs  = np.array(Qs ,dtype=np.float32)
         self.QZs = np.array(QZs,dtype=np.float32)
 
+    def setPP(self, Z_pp):
+        '''Set the atomic number of the probe particle. Required for calculating DFT-D3 parameters.'''
+        self.iZPP = np.int32(Z_pp)
+
     def prepareBuffers(self, atoms=None, cLJs=None, REAs=None, Zs=None, poss=None, bDirect=False, nz=20, pot=None,
         E_field=False, rho=None, rho_delta=None, rho_sample=None):
         '''Allocate all necessary buffers in device memory.'''
@@ -1130,6 +1134,9 @@ class ForceField_LJC:
         if isinstance(params, str):
             raise NotImplementedError()
 
+        if not hasattr(self, 'iZPP'):
+            raise RuntimeError('Probe particle atomic number not set. Set it before DFT-D3 calculation using setPP()')
+
         if damp_method == 'zero':
             params = np.array([params['s6'], params['s8'], params['sr6']**14, 0.0], dtype=np.float32)
         elif damp_method == 'BJ':
@@ -1138,7 +1145,6 @@ class ForceField_LJC:
             raise ValueError(f'Invalid damp method `{damp_method}`.')
 
         k = np.array([d3.K1, d3.K2, d3.K3, 0.0], dtype=np.float32)
-        iZPP = np.int32(8) # TODO not hard-coded
         damp_method = np.int32(0) if damp_method == 'zero' else np.int32(1)
 
         self.cl_cD3 = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=(self.nAtoms * 4 * 4))
@@ -1156,7 +1162,7 @@ class ForceField_LJC:
             self.cl_cD3,
             k,
             params,
-            iZPP,
+            self.iZPP,
             damp_method
         )
 
