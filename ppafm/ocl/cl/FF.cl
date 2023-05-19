@@ -1,8 +1,6 @@
 
 #define R2SAFE          1e-6f
 #define COULOMB_CONST   14.399644f  // [eV*Ang/e^2]
-#define HARTREE2EV      27.211396132f
-#define ANG2BOHR        1.88972612462f
 
 //#define N_RELAX_STEP_MAX  64
 #define N_RELAX_STEP_MAX  16
@@ -838,7 +836,7 @@ __kernel void addDFTD3_zero(
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
 
-            float3 dp  = (pos - LATOMS[ja].xyz) * ANG2BOHR;
+            float3 dp  = (pos - LATOMS[ja].xyz);
             float ir2  = 1.0f / (dot(dp, dp) + R2SAFE);
             if (ir2 < IR2_D3_CUTOFF) continue;
             float ir6  = ir2 * ir2 * ir2;
@@ -857,10 +855,7 @@ __kernel void addDFTD3_zero(
 
             float  E = E6 + E8;
             float3 F = (F6 + F8) * dp;
-
-            // At this point energy is in Hartree and force is Hartree/bohr. Conversion to eV and eV/Å.
-            F *= ANG2BOHR;
-            fe += (float4)(F, E) * HARTREE2EV;
+            fe += (float4)(F, E);
 
         }
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -912,7 +907,7 @@ __kernel void addDFTD3_BJ(
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
 
-            float3 dp = (pos - LATOMS[ja].xyz) * ANG2BOHR;
+            float3 dp = (pos - LATOMS[ja].xyz);
             float r2  = dot(dp, dp);
             if (r2 > R2_D3_CUTOFF) continue;
             float r4  = r2 * r2;
@@ -928,10 +923,7 @@ __kernel void addDFTD3_BJ(
 
             float  E = E6 + E8;
             float3 F = (F6 + F8) * dp;
-
-            // At this point energy is in Hartree and force is Hartree/bohr. Conversion to eV and eV/Å.
-            F *= ANG2BOHR;
-            fe += (float4)(F, E) * HARTREE2EV;
+            fe += (float4)(F, E);
 
         }
         barrier(CLK_LOCAL_MEM_FENCE);

@@ -1133,7 +1133,7 @@ class ForceField_LJC:
         if damp_method == 'zero':
             params = np.array([params['s6'], params['s8'], params['sr6']**14, 0.0], dtype=np.float32)
         elif damp_method == 'BJ':
-            params = np.array([params['s6'], params['s8'], params['a1'], params['a2']], dtype=np.float32)
+            params = np.array([params['s6'], params['s8'], params['a1'], params['a2'] * io.bohrRadius2angstroem], dtype=np.float32)
         else:
             raise ValueError(f'Invalid damp method `{damp_method}`.')
 
