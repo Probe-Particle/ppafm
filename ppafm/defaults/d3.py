@@ -1,4 +1,3 @@
-
 from pathlib import Path
 
 import numpy as np
@@ -24,7 +23,7 @@ R_COV = np.array([
 '''
 Covalent radii in Ångströms according to `Pyykkö and Atsumi
 <https://doi.org/10.1002/chem.200800987>`_.
-Values for metals reduced by 10% for use in Grimme-D3.
+Values for metals reduced by 10% for use in Grimme-D3. Units are Ångström.
 '''
 
 # Also directly copied from https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dft-d3
@@ -47,10 +46,10 @@ R4R2 = np.array([
      6.68978720,  6.05450052,  5.88752022, 5.70661499,  5.78450695,
      7.79780729,  7.26443867,  6.78151984, 6.67883169,  6.39024318,
      6.09527958, 11.79156076, 11.10997644, 9.51377795,  8.67197068,
-     8.77140725,  8.65402716,  8.53923501, 8.85024712  
+     8.77140725,  8.65402716,  8.53923501, 8.85024712
 ])
 '''
-sqrt(0.5*sqrt(Z)<r4>/<r2>(Z)) values for Grimme-D3.
+sqrt(0.5*sqrt(Z)<r4>/<r2>(Z)) values for Grimme-D3. Units are Bohr.
 '''
 
 REF_CN = np.array([
@@ -181,7 +180,7 @@ def load_ref_c6():
     The returned array has shape (94, 94, 5, 5). The first two indices correspond
     to pairs of chemical elements, and the (5, 5) array of values contains the C6
     coeffiecients for the corresponding of reference coordination numbers stored in
-    :data:`REF_CN`.
+    :data:`REF_CN`. Units are Hartree/Bohr^6.
 
     Returns:
         ref_c6: numpy.ndarray of shape (94, 94, 5, 5). C6 coefficients.
@@ -197,10 +196,10 @@ def load_R0():
     `<https://doi.org/10.1063/1.3382344>`_
 
     Pairs of chemical elements have their own cut-off radii, corresponding to the
-    two indices of the returned array.
+    two indices of the returned array. Units are Bohr.
 
     Returns:
-        ref_c6: numpy.ndarray of shape (94, 94). Cut-off radii.
+        ref_R0: numpy.ndarray of shape (94, 94). Cut-off radii.
     '''
     global _R0_AB
     if _R0_AB is None:

@@ -47,7 +47,7 @@ def makeDivisibleUp( num, divisor ):
 class D3Params:
     '''
     pyopencl device buffer handles to Grimme-D3 parameters. Each buffer is allocated on first access.
-    
+
     Arguments:
         ctx: pyopencl.Context. OpenCL context for device buffer. Defaults to oclu.ctx.
     '''
@@ -1126,7 +1126,7 @@ class ForceField_LJC:
         )
 
     def _get_dftd3_params(self, params, damp_method, local_size=(32,)):
-        
+
         if isinstance(params, str):
             raise NotImplementedError()
 
@@ -1165,14 +1165,14 @@ class ForceField_LJC:
         Add van der Waals force and energy to the force field grid using the DFT-D3 method.
         Mainly useful in conjunction with the full-density based model.
 
-        The DFT-D3 parameters are adjusted based on the DFT functional. There are predefined 
+        The DFT-D3 parameters are adjusted based on the DFT functional. There are predefined
         scaling parameters for the following functionals: TODO.
         Otherwise, the parameters can be manually specified in a dict with the following entries:
-         - 's6': Scaling parameter for r^-6 term
-         - 's8': Scaling parameter for r^-8 term
-         - 'sr6': Scaling parameter for cutoff radius in zero damping
-         - 'a1': Scaling parameter for cutoff radius in BJ damping
-         - 'a2': Additive parameter for cutoff radius in BJ damping
+         - 's6': Scaling parameter for r^-6 term.
+         - 's8': Scaling parameter for r^-8 term.
+         - 'sr6': Scaling parameter for cutoff radius in zero damping.
+         - 'a1': Scaling parameter for cutoff radius in BJ damping.
+         - 'a2': Additive parameter for cutoff radius in BJ damping. Unit should be Bohr.
 
         References:
          - https://doi.org/10.1063/1.3382344
