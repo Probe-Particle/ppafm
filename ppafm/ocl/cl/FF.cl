@@ -743,22 +743,24 @@ __kernel void d3_coeffs(
     // If the coordination number is so high that the gaussian weights are all zero,
     // then we put all of the weight on the highest reference coordination number.
     if (norm == 0) {
-        i = (max_ref_i - 1);
+        int i_ind = (max_ref_i - 1) * MAX_REF_CN;
         for (j = 0; j < max_ref_pp; j++) {
             float L_ij = L_pp[j];
             norm += L_ij;
-            L[i * MAX_REF_CN + j] = L_ij;
+            L[i_ind + j] = L_ij;
         }
     }
 
     // Compute C6 coefficient as a linear combination of reference C6 values
     int n_zw = MAX_REF_CN * MAX_REF_CN;
     int n_yzw = MAX_D3_ELEM * n_zw;
+    int pair_ind = elem_ind * n_yzw + pp_ind * n_zw;  // ref_c6 shape = (MAX_D3_ELEM, MAX_D3_ELEM, MAX_REF_CN, MAX_REF_CN)
     float c6 = 0;
     for (int i = 0; i < max_ref_i; i++) {
+        int i_ind = i * MAX_REF_CN;
         for (int j = 0; j < max_ref_pp; j++) {
-            int L_ind = i * MAX_REF_CN + j;
-            int c6_ind = elem_ind * n_yzw + pp_ind * n_zw + L_ind; // ref_c6 shape = (MAX_D3_ELEM, MAX_D3_ELEM, MAX_REF_CN, MAX_REF_CN)
+            int L_ind = i_ind + j;
+            int c6_ind = pair_ind + L_ind;
             c6 += L[L_ind] * ref_c6[c6_ind];
         }
     }
