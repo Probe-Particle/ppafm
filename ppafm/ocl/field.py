@@ -1161,7 +1161,7 @@ class ForceField_LJC:
             self.iZPP
         )
 
-    def add_dftd3(self, params='PBE', local_size=(32,)):
+    def add_dftd3(self, params='PBE', local_size=(64,)):
         '''
         Add van der Waals force and energy to the force field grid using the DFT-D3 method. Uses the Becke-Johnson
         damping method. Mainly useful in conjunction with the full-density based model.
@@ -1185,8 +1185,12 @@ class ForceField_LJC:
                 functional name or a dict with manually specified parameters.
             local_size: tuple of a single int. Size of local work group on device.
         '''
+        if bRuntime: t0 = time.perf_counter()
+        local_size = (min(local_size[0], 64),) # The kernel uses shared memory arrays with size 64. Let's not overflow.
         self._get_dftd3_params(params, local_size)
-        local_size = (min(local_size[0], 64),)
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.add_dftd3.get_params) [s]: ", time.perf_counter() - t0)
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
         cl_program.addDFTD3_BJ(self.queue, global_size, local_size,
             self.nAtoms,
@@ -1197,6 +1201,9 @@ class ForceField_LJC:
             self.lvec0,
             self.dlvec[0], self.dlvec[1], self.dlvec[2]
         )
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.add_dftd3) [s]: ", time.perf_counter() - t0)
 
     def calc_force_hartree(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
             bCopy=True, bFinish=True):
