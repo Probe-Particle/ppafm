@@ -46,8 +46,12 @@ class AFMulator():
             electrostatic interaction force.
         A_pauli: float. Prefactor for Pauli repulsion when using the FDBM.
         B_pauli: float. Exponent for Pauli repulsion when using the FDBM.
-        d3_params: str or dict. Functional-specific scaling parameters for DFT-D3. Can be a str with the functional name
+        fdbm_vdw_type: 'D3' or 'LJ'. Type of vdW interaction to use with the FDBM. 'D3' is for Grimme-D3 and 'LJ' uses
+            standard Lennard-Jones vdW.
+        d3_params: str or dict. Functional-specific scaling parameters for Grimme-D3. Can be a str with the functional name
             or a dict with manually specified parameters. Used in FDBM. See :meth:`.add_dftd3` for further explanation.
+        lj_vdw_damp: int. Type of damping to use in vdw calculation for FDBM when fdbm_vdw_type=='LJ'.
+            -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
         df_steps: int. Number of steps in z convolution. The total amplitude is df_steps times scan z-step size.
         tipR0: array of length 3. Probe particle equilibrium position (x, y, z) in angstroms.
         tipStiffness: array of length 4. Harmonic spring constants (x, y, z, r) in N/m for holding the probe particle
@@ -83,7 +87,9 @@ class AFMulator():
         rho_delta       = None,
         A_pauli         = 18.0,
         B_pauli         = 1.0,
+        fdbm_vdw_type   = 'D3',
         d3_params       = 'PBE',
+        lj_vdw_damp     = 2,
         df_steps        = 10,
         tipR0           = [0.0, 0.0, 3.0],
         tipStiffness    = [0.25, 0.25, 0.0, 30.0],
@@ -109,7 +115,9 @@ class AFMulator():
         self.sigma = sigma
         self.A_pauli = A_pauli
         self.B_pauli = B_pauli
+        self.fdbm_vdw_type = fdbm_vdw_type
         self.d3_params = d3_params
+        self.lj_vdw_damp = lj_vdw_damp
         self.sample_lvec = None
 
         self.setScanWindow(scan_window, scan_dim, df_steps)
@@ -136,6 +144,8 @@ class AFMulator():
             sample_lvec: np.ndarray of shape (3, 3) or None. Unit cell lattice vectors for periodic images of atoms.
                 If None, periodic boundaries are disabled, unless qs is :class:`.HartreePotential` and the lvec from the
                 Hartree potential is used instead. If npbc = (0, 0, 0), then has no function.
+            rot: np.ndarray of shape (3, 3). Rotation matrix to apply to atom positions.
+            rot_center: np.ndarray of shape (3,). Center for rotation. Defaults to center of atom coordinates.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
             X: np.ndarray of shape (self.scan_dim[0], self.scan_dim[1], self.scan_dim[2]-self.df_steps+1)).
                Array where AFM image will be saved. If None, will be created automatically.
@@ -343,12 +353,13 @@ class AFMulator():
             REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
         cLJs = PPU.REA2LJ(REAs)
         if sum(npbc) > 0:
-            Zs, xyzs, qs, cLJs, _ = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, self.sample_lvec, npbc=npbc)
+            Zs, xyzs, qs, cLJs, REAs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, self.sample_lvec, npbc=npbc)
 
         # Compute force field
-        self.forcefield.makeFF(xyzs, cLJs, Zs=Zs, method=method, qs=qs, pot=pot, rho_sample=rho_sample,
+        self.forcefield.makeFF(xyzs, cLJs, REAs=REAs, Zs=Zs, method=method, qs=qs, pot=pot, rho_sample=rho_sample,
             rho_delta=self.rho_delta, A=self.A_pauli, B=self.B_pauli, rot=rot, rot_center=rot_center,
-            d3_params=self.d3_params, bRelease=False, bCopy=False, bFinish=False)
+            fdbm_vdw_type=self.fdbm_vdw_type, d3_params=self.d3_params, lj_vdw_damp=self.lj_vdw_damp,
+            bRelease=False, bCopy=False, bFinish=False)
         if self.bSaveFF: self.saveFF()
 
     def prepareScanner(self):
