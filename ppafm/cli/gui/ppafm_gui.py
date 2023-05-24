@@ -218,6 +218,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         '''Infer and set scan window from current geometry'''
         if self.xyzs is None: return
         scan_size = self.xyzs[:, :2].max(axis=0) - self.xyzs[:, :2].min(axis=0) + 2 * self.sw_pad
+        scan_size = np.minimum(scan_size, [25, 25]) # Let's not make it automatically too large, so that we don't run out of memory
         scan_start = (self.xyzs[:, :2].max(axis=0) + self.xyzs[:, :2].min(axis=0)) / 2 - scan_size / 2
         step = np.array([self.bxStepX.value(), self.bxStepY.value(), self.bxStepZ.value()])
         distance = self.bxD.value()
