@@ -8,6 +8,11 @@
 
 #define reduceGroupSize 256
 
+#define MAX_REF_CN 5
+#define MAX_D3_ELEM 94
+#define R2_D3_CUTOFF 400.0f
+#define IR2_D3_CUTOFF 1.0f / R2_D3_CUTOFF
+
 #include "splines.cl"
 
 // vdW damping coefficients
@@ -659,6 +664,195 @@ __kernel void addvdW(
 
 }
 
+// Compute Grimme-D3 coefficients for atoms. Each work item computes one atom.
+__kernel void d3_coeffs(
+    const int nAtoms,           // Number of atoms
+    __global float4 *atoms,     // Atom positions
+    __global int    *elems,     // Atomic numbers
+    __global float  *r_cov,     // Grimme-D3 covalent radii
+    __global float  *r_cut,     // Grimme-D3 cut-off radii
+    __global float  *ref_cn,    // Grimme-D3 reference coordination numbers
+    __global float  *ref_c6,    // Grimme-D3 reference C6 coefficients
+    __global float  *r4r2,      // Grimme-D3 <r4>/<r2> values
+    __global float4 *coeff,     // Output array of coefficients
+    const float4 k,             // Parameters (k1, k2, k3, _)
+    const float4 params,        // Functional-specific parameters (s6, s8, a1, a2)
+    const int elem_pp           // Probe particle atomic number
+) {
+
+    int iG = get_global_id(0);
+    int iL = get_local_id(0);
+
+    const float k3 = -k.z;
+
+    // The probe particle reference coordination number values are the same in all threads
+    // so load them into shared memory.
+    int pp_ind = elem_pp - 1;
+    __local float L_pp[MAX_REF_CN];
+    __local int max_ref_pp;
+    max_ref_pp = 0;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (iL < MAX_REF_CN) { // Work group size needs to be at least 5 (which should not be a problem)
+        float pp_cn = ref_cn[pp_ind * MAX_REF_CN + iL];
+        if (pp_cn >= 0.0f) { // Values less that 0 zero are invalid and should not be counted.
+            atomic_inc(&max_ref_pp);
+            L_pp[iL] = exp(k3 * pp_cn * pp_cn);
+        }
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // Extra threads cannot return before this point because of the barriers.
+    if (iG >= nAtoms) return;
+
+    float3 pos = atoms[iG].xyz;
+    int elem_ind = elems[iG] - 1;
+
+    const float k1 = k.x;
+    const float k2 = k.y;
+    const float k12 = -k1 * k2;
+
+    // Compute coordination number for this atom by considering all pair-wise distances
+    float cn = 0;
+    float r_cov_elem = r_cov[elem_ind];
+    for (int i = 0; i < nAtoms; i++) {
+        if (i == iG) continue; // No self-interaction for coordination number
+        float3 dp = atoms[i].xyz - pos;
+        float d = sqrt(dot(dp, dp));
+        float r = r_cov[elems[i] - 1] + r_cov_elem;
+        cn += 1.0f / (1.0f + exp(k12 * r / d + k1));;
+    }
+
+    // Compute gaussian weights and normalization factor for all of the reference
+    // coordination numbers.
+    float L[MAX_REF_CN * MAX_REF_CN];
+    float norm = 0;
+    int i, j;
+    for (i = 0; i < MAX_REF_CN; i++) {
+        float ref_cn_i = ref_cn[elem_ind * MAX_REF_CN + i];
+        if (ref_cn_i < 0.0f) break; // Invalid values after this
+        float diff_cn_i = ref_cn_i - cn;
+        float L_i = exp(k3 * diff_cn_i * diff_cn_i);
+        for (j = 0; j < max_ref_pp; j++) {
+            float L_ij = L_i * L_pp[j];
+            norm += L_ij;
+            L[i * MAX_REF_CN + j] = L_ij;
+        }
+    }
+    int max_ref_i = i;
+
+    // If the coordination number is so high that the gaussian weights are all zero,
+    // then we put all of the weight on the highest reference coordination number.
+    if (norm == 0) {
+        int i_ind = (max_ref_i - 1) * MAX_REF_CN;
+        for (j = 0; j < max_ref_pp; j++) {
+            float L_ij = L_pp[j];
+            norm += L_ij;
+            L[i_ind + j] = L_ij;
+        }
+    }
+
+    // Compute C6 coefficient as a linear combination of reference C6 values
+    int n_zw = MAX_REF_CN * MAX_REF_CN;
+    int n_yzw = MAX_D3_ELEM * n_zw;
+    int pair_ind = elem_ind * n_yzw + pp_ind * n_zw;  // ref_c6 shape = (MAX_D3_ELEM, MAX_D3_ELEM, MAX_REF_CN, MAX_REF_CN)
+    float c6 = 0;
+    for (int i = 0; i < max_ref_i; i++) {
+        int i_ind = i * MAX_REF_CN;
+        for (int j = 0; j < max_ref_pp; j++) {
+            int L_ind = i_ind + j;
+            int c6_ind = pair_ind + L_ind;
+            c6 += L[L_ind] * ref_c6[c6_ind];
+        }
+    }
+    c6 /= norm;
+
+    // The C8 coefficient is inferred from the C6 coefficient
+    float qq = 3 * r4r2[elem_ind] * r4r2[pp_ind];
+    float c8 = qq * c6;
+
+    // Compute damping constants
+    float R0   = params.z * sqrt(qq) + params.w;
+    float R0_2 = R0 * R0;
+    float R0_6 = R0_2 * R0_2 * R0_2;
+    float R0_8 = R0_6 * R0_2;
+
+    // Save coefficients
+    coeff[iG] = (float4)(
+        c6 * params.x,
+        c8 * params.y,
+        R0_6,
+        R0_8
+    );
+
+}
+
+// Add van der Waals force to an existing forcefield grid using the DFT-D3 method and Becke-Johnson damping.
+// The forcefield values are saved in Fortran order.
+__kernel void addDFTD3_BJ(
+    const int nAtoms,       // Number of atoms
+    __global float4* atoms, // Atom positions
+    __global float4* coeff, // The C6, C8, and R0_6, R0_8 parameters for each atom (pre-scaled)
+    __global float4* FE,    // Forcefield grid
+    int4 nGrid,             // Grid size
+    float4 grid_origin,     // Real-space origin of grid
+    float4 grid_stepA,      // Real-space step sizes of grid lattice vectors
+    float4 grid_stepB,
+    float4 grid_stepC
+){
+
+    const int iL = get_local_id(0);
+    const int nL = get_local_size(0);
+    int ind = get_global_id(0);
+
+    // Convert linear index to x,y,z indices (Fortran order)
+    int i = ind % nGrid.x;
+    int j = (ind / nGrid.x) % nGrid.y;
+    int k = ind / (nGrid.y * nGrid.x);
+
+    // Calculate position in grid
+    float3 pos = grid_origin.xyz + grid_stepA.xyz*i + grid_stepB.xyz*j  + grid_stepC.xyz*k;
+
+    // Compute vdW force and energy
+    __local float4 LATOMS[64];
+    __local float4 LCOEFF[64];
+    float4 fe = (float4) (0.0f, 0.0f, 0.0f, 0.0f);
+    for (int i0 = 0; i0 < nAtoms; i0 += nL) {
+        int ia = i0 + iL;
+        if (ia < nAtoms) {
+            LATOMS[iL] = atoms[ia];
+            LCOEFF[iL] = coeff[ia];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+        for (int ja = 0; (ja < nL) && (ja < (nAtoms - i0)); ja++){
+
+            float3 dp = (pos - LATOMS[ja].xyz);
+            float r2  = dot(dp, dp);
+            if (r2 > R2_D3_CUTOFF) continue;
+            float r4  = r2 * r2;
+            float r6  = r4 * r2;
+            float r8  = r6 * r2;
+
+            float d6 = 1.0f / (r6 + LCOEFF[ja].z);
+            float d8 = 1.0f / (r8 + LCOEFF[ja].w);
+            float E6 = -LCOEFF[ja].x * d6;
+            float E8 = -LCOEFF[ja].y * d8;
+            float F6 = E6 * d6 * 6 * r4;
+            float F8 = E8 * d8 * 8 * r6;
+
+            float  E = E6 + E8;
+            float3 F = (F6 + F8) * dp;
+            fe += (float4)(F, E);
+
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    // Add to forcefield grid
+    if (ind < nGrid.x * nGrid.y * nGrid.z) {
+        FE[ind] += fe;
+    }
+
+}
 
 // Compute Lennard Jones force field at grid points and add to it the electrostatic force
 // from an electric field precomputed from a Hartree potential. The output buffer is
