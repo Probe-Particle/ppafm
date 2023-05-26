@@ -99,6 +99,7 @@ def test_dftd3():
     cl.enqueue_copy(forcefield.queue, coeffs_ocl, forcefield.cl_cD3)
 
     coeffs_cpp = PPC.computeD3Coeffs(xyzs, Zs, Z_pp, params)
+    PPU.params['gridN'] = forcefield.nDim
     PPU.params['gridA'] = lvec[1]
     PPU.params['gridB'] = lvec[2]
     PPU.params['gridC'] = lvec[3]
