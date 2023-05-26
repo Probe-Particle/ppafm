@@ -23,6 +23,9 @@
 
 const double const_eVA_SI = 16.0217662;
 
+#define MAX_REF_CN 5
+#define MAX_D3_ELEM 94
+
 // ================= GLOBAL VARIABLES
 
 GridShape gridShape;
@@ -135,16 +138,17 @@ namespace FIRE{
 #define inv_dstep   10.0
 #define inv_ddstep  100.0
 
-inline double addAtom_LJ        ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ                     ( dR, fout, coefs[0], coefs[1]              ); }
-inline double addAtom_LJ_RE     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ_RE                  ( dR, fout, coefs[0], coefs[1]              ); }
-inline double addAtom_invR6     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_noDamp             ( dR, fout, coefs[0]                        ); }
-inline double addAtom_VdW       ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_dampConst          ( dR, fout, coefs[0]          , ADamp_Const ); }
-inline double addAtom_VdW_R2    ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<R2_func>   ( dR, fout, coefs[0], coefs[1], ADamp_R2    ); }
-inline double addAtom_VdW_R4    ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<R4_func>   ( dR, fout, coefs[0], coefs[1], ADamp_R4    ); }
-inline double addAtom_VdW_invR4 ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<invR4_func>( dR, fout, coefs[0], coefs[1], ADamp_invR4 ); }
-inline double addAtom_VdW_invR8 ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<invR8_func>( dR, fout, coefs[0], coefs[1], ADamp_invR8 ); }
-inline double addAtom_Morse     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomMorse                  ( dR, fout, coefs[0], coefs[1], Morse_alpha ); }
-inline double addAtom_Coulomb_s ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomCoulomb                ( dR, fout, coefs[0]                        ); }
+inline double addAtom_LJ        ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ                     ( dR, fout, coefs[0], coefs[1]                     ); }
+inline double addAtom_LJ_RE     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ_RE                  ( dR, fout, coefs[0], coefs[1]                     ); }
+inline double addAtom_invR6     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_noDamp             ( dR, fout, coefs[0]                               ); }
+inline double addAtom_VdW       ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_dampConst          ( dR, fout, coefs[0]          , ADamp_Const        ); }
+inline double addAtom_VdW_R2    ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<R2_func>   ( dR, fout, coefs[0], coefs[1], ADamp_R2           ); }
+inline double addAtom_VdW_R4    ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<R4_func>   ( dR, fout, coefs[0], coefs[1], ADamp_R4           ); }
+inline double addAtom_VdW_invR4 ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<invR4_func>( dR, fout, coefs[0], coefs[1], ADamp_invR4        ); }
+inline double addAtom_VdW_invR8 ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<invR8_func>( dR, fout, coefs[0], coefs[1], ADamp_invR8        ); }
+inline double addAtom_DFTD3     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomDFTD3                  ( dR, fout, coefs[0], coefs[1], coefs[2], coefs[3] ); }
+inline double addAtom_Morse     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomMorse                  ( dR, fout, coefs[0], coefs[1], Morse_alpha        ); }
+inline double addAtom_Coulomb_s ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomCoulomb                ( dR, fout, coefs[0]                               ); }
 inline double addAtom_Coulomb_pz( Vec3d dR, Vec3d& fout, double * coefs ){
     double kqq=coefs[0], E=0;
     Vec3d f; f.set(0.0);
@@ -341,6 +345,118 @@ DLLEXPORT void getInPoints_LJ( int npoints, double * points_, double * FEs, int 
     }
 }
 
+
+DLLEXPORT void computeD3Coeffs(
+    const int natoms_, const double *rs, const int *elems, const double *r_cov, const double *r_cut, const double *ref_cn,
+    const double *ref_c6, const double *r4r2, const double *k, const double *params, const int elem_pp, double *d3_coeffs
+) {
+
+    natoms = natoms_;
+    Ratoms = (Vec3d*)rs;
+
+    const double k1  = k[0];
+    const double k2  = k[1];
+    const double k3  = -k[2];
+    const double k12 = -k1 * k2;
+
+    const double s6 = params[0];
+    const double s8 = params[1];
+    const double a1 = params[2];
+    const double a2 = params[3];
+
+    float L[MAX_REF_CN * MAX_REF_CN];
+
+    // Compute reference C6 weights for the probe particle
+    int pp_ind = elem_pp - 1;
+    double L_pp[MAX_REF_CN];
+    int i;
+    for (i = 0; i < MAX_REF_CN; i++) {
+        double pp_cn = ref_cn[pp_ind * MAX_REF_CN + i];
+        if (pp_cn >= 0.0f) { // Values less that 0 zero are invalid and should not be counted.
+            L_pp[i] = exp(k3 * pp_cn * pp_cn);
+        }
+    }
+    int max_ref_pp = i;
+
+
+    for (int ia = 0; ia < natoms; ia++) { // Loop over all atoms
+
+        const Vec3d pos = Ratoms[ia];
+        const int elem_ind = elems[ia] - 1;
+        const double r_cov_elem = r_cov[elem_ind];
+
+        // Compute the coordination number for this atom
+        double cn = 0;
+        for (int j = 0; j < natoms; j++) {
+            if (j == ia) continue; // No self-interaction for coordination number
+            double d = (Ratoms[j] - pos).norm();
+            double r = r_cov[elems[j] - 1] + r_cov_elem;
+            cn += 1.0f / (1.0f + exp(k12 * r / d + k1));
+        }
+
+        // Compute gaussian weights and normalization factor for all of the reference
+        // coordination numbers.
+        double norm = 0;
+        int a, b;
+        for (a = 0; a < MAX_REF_CN; a++) {
+            double ref_cn_a = ref_cn[elem_ind * MAX_REF_CN + a];
+            if (ref_cn_a < 0.0f) break; // Invalid values after this
+            double diff_cn_a = ref_cn_a - cn;
+            double L_a = exp(k3 * diff_cn_a * diff_cn_a);
+            for (b = 0; b < max_ref_pp; b++) {
+                double L_ab = L_a * L_pp[b];
+                norm += L_ab;
+                L[a * MAX_REF_CN + b] = L_ab;
+            }
+        }
+        int max_ref_a = a;
+
+        // If the coordination number is so high that the gaussian weights are all zero,
+        // then we put all of the weight on the highest reference coordination number.
+        if (norm == 0) {
+            int a_ind = (max_ref_a - 1) * MAX_REF_CN;
+            for (b = 0; b < max_ref_pp; b++) {
+                double L_ab = L_pp[b];
+                norm += L_ab;
+                L[a_ind + b] = L_ab;
+            }
+        }
+
+        // Compute C6 coefficient as a linear combination of reference C6 values
+        int n_zw = MAX_REF_CN * MAX_REF_CN;
+        int n_yzw = MAX_D3_ELEM * n_zw;
+        int pair_ind = elem_ind * n_yzw + pp_ind * n_zw;  // ref_c6 shape = (MAX_D3_ELEM, MAX_D3_ELEM, MAX_REF_CN, MAX_REF_CN)
+        double c6 = 0;
+        for (int a = 0; a < max_ref_a; a++) {
+            int a_ind = a * MAX_REF_CN;
+            for (int b = 0; b < max_ref_pp; b++) {
+                int L_ind = a_ind + b;
+                int c6_ind = pair_ind + L_ind;
+                c6 += L[L_ind] * ref_c6[c6_ind];
+            }
+        }
+        c6 /= norm;
+
+        // The C8 coefficient is inferred from the C6 coefficient
+        double qq = 3 * r4r2[elem_ind] * r4r2[pp_ind];
+        double c8 = qq * c6;
+
+        // Compute damping constants
+        double R0   = a1 * sqrt(qq) + a2;
+        double R0_2 = R0 * R0;
+        double R0_6 = R0_2 * R0_2 * R0_2;
+        double R0_8 = R0_6 * R0_2;
+
+        // Save coefficients
+        d3_coeffs[4 * ia    ] = c6 * s6;
+        d3_coeffs[4 * ia + 1] = c8 * s8;
+        d3_coeffs[4 * ia + 2] = R0_6;
+        d3_coeffs[4 * ia + 3] = R0_8;
+
+    }
+
+}
+
 DLLEXPORT void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
@@ -351,6 +467,12 @@ DLLEXPORT void getVdWFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     interateGrid3D < evalCell < addAtom_VdW  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+}
+
+DLLEXPORT void getDFTD3FF(int natoms_, double * Ratoms_, double *d3_coeffs){
+    natoms = natoms_; Ratoms = (Vec3d*)Ratoms_; nCoefPerAtom = 4;
+    Vec3d r0; r0.set(0.0,0.0,0.0);
+    interateGrid3D < evalCell < addAtom_DFTD3  > >( r0, gridShape.n, gridShape.dCell, d3_coeffs );
 }
 
 DLLEXPORT void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){

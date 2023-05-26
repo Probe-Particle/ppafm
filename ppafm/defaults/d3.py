@@ -263,3 +263,14 @@ DF_DEFAULT_PARAMS = {
 Default Grimme-D3 scaling parameters for a variety of density functionals using Becke-Johnson damping.
 Values taken from `<https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3/functionalsbj>`_.
 '''
+
+def get_df_params(params):
+    if isinstance(params, str):
+        if params not in DF_DEFAULT_PARAMS:
+            raise ValueError(f'Default parameters not available for functional `{params}`. See the available '
+                'default parameters in ppafm.defaults.d3.DF_DEFAULT_PARAMS.')
+        params = DF_DEFAULT_PARAMS[params]
+    for key in ['s6', 's8', 'a1', 'a2']:
+        if key not in params:
+            raise ValueError(f'DFT-D3 parameter dictionary is missing entry for `{key}`')
+    return params

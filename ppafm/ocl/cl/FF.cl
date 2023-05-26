@@ -11,7 +11,6 @@
 #define MAX_REF_CN 5
 #define MAX_D3_ELEM 94
 #define R2_D3_CUTOFF 400.0f
-#define IR2_D3_CUTOFF 1.0f / R2_D3_CUTOFF
 
 #include "splines.cl"
 

@@ -8,6 +8,7 @@ from . import common as PPU
 from . import core, cpp_utils
 from . import fieldFFT as fFFT
 from . import io
+from .defaults import d3
 
 verbose = 1
 
@@ -185,6 +186,50 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
             io.save_scal_field( 'E'+ffModel, V, lvec,  data_format=save_format, head=atomstring , atomic_info = (atoms[:4],lvec))
     if(verbose>0): print("<<<END: computeLJ()")
     return FF, V, nDim, lvec
+
+def computeDFTD3(input_file, df_params='PBE', save_format=None, compute_energy=False):
+    '''
+    Compute the Grimme DFT-D3 force field and optionally save to a file. See also :meth:`.add_dftd3`.
+
+    Arguments:
+        input_file: str. Path to input file. Supported formats are .xyz, .xsf, and .cube.
+        save_format: str or None. If not None, then the generated force field is saved to files FFvdW_{x,y,z} in format
+            that can be either 'xsf' or 'npy'.
+        compute_energy: bool. In addition to force, also compute the energy. The energy is saved to file Evdw if save format
+            is not None.
+        df_params: str or dict. Functional-specific scaling parameters. Can be a str with the
+            functional name or a dict with manually specified parameters.
+
+    Returns:
+        FF: np.ndarray of shape (nx, ny, nz, 3). Force field.
+        V: np.ndarray of shape (nx, ny, nz) or None. Energy, if compute_energy == True.
+        lvec: np.ndarray of shape (4, 3). Origin and lattice vectors of the force field.
+    '''
+
+    # Load atomic geometry
+    atoms, nDim, lvec = io.loadGeometry(input_file, params=PPU.params)
+    PPU.params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3]
+    elem_dict = PPU.getFFdict(PPU.loadSpecies())
+    iZs, Rs, _ = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=PPU.params['PBC'])
+    iPP = PPU.atom2iZ(PPU.params['probeType'], elem_dict)
+
+    # Compute coefficients for each atom
+    df_params = d3.get_df_params(df_params)
+    coeffs = core.computeD3Coeffs(Rs, iZs, iPP, df_params)
+
+    # Compute the force field
+    FF, V = prepareArrays(None, compute_energy)
+    core.setFF_shape(np.shape(FF), lvec)
+    core.getDFTD3FF(Rs, coeffs)
+
+    # Save to file
+    if save_format is not None:
+        atom_string = io.primcoords2Xsf(PPU.atoms2iZs(atoms[0], elem_dict), atoms[1:4], lvec)
+        io.save_vec_field('FFvdW', FF, lvec, data_format=save_format, head=atom_string, atomic_info = (atoms[:4], lvec))
+        if compute_energy:
+            io.save_scal_field('EvdW', V, lvec, data_format=save_format, head=atom_string, atomic_info = (atoms[:4], lvec))
+
+    return FF, V, lvec
 
 def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT ):
     if(verbose>0): print(">>>BEGIN: computeELFF_pointCharge()")

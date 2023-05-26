@@ -1133,13 +1133,10 @@ class ForceField_LJC:
 
         if not hasattr(self, 'iZPP'):
             raise RuntimeError('Probe particle atomic number not set. Set it before DFT-D3 calculation using setPP()')
+        if not hasattr(self, 'cl_Zs') or not hasattr(self, 'nAtoms'):
+            raise RuntimeError('Atom positions or elements not set. Set them before DFT-D3 calculation using prepareBuffers(atoms=..., Zs=...)')
 
-        if isinstance(params, str):
-            if params not in d3.DF_DEFAULT_PARAMS:
-                raise ValueError(f'Default parameters not available for functional `{params}`. See the available '
-                    'default parameters in ppafm.defaults.d3.DF_DEFAULT_PARAMS.')
-            params = d3.DF_DEFAULT_PARAMS[params]
-
+        params = d3.get_df_params(params)
         params = np.array([params['s6'], params['s8'], params['a1'], params['a2'] * io.bohrRadius2angstroem], dtype=np.float32)
         k = np.array([d3.K1, d3.K2, d3.K3, 0.0], dtype=np.float32)
 

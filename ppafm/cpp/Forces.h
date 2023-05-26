@@ -14,6 +14,7 @@
 #define RSAFE   1.0e-4f
 #define R2SAFE  1.0e-8f
 #define F2MAX   10.0f
+#define R2_D3_CUTOFF 400.0f
 
 void sum(int n, Vec3d* ps, Vec3d& psum){ for(int i=0;i<n;i++){ psum.add(ps[i]); } };
 
@@ -201,6 +202,28 @@ inline double invR8_func(double r2,double &df){
     double invR8 = invR2*invR2; invR8*=invR8;
     df           = -8*invR8*invR2;
     return            invR8;
+}
+
+// DFT-D3 force between two atoms
+inline double addAtomDFTD3(const Vec3d& dR, Vec3d& fout, double c6, double c8, double R0_6, double R0_8) {
+
+    double r2 = dR.norm2();
+    if (r2 > R2_D3_CUTOFF) return 0;
+    double r4 = r2 * r2;
+    double r6 = r4 * r2;
+    double r8 = r6 * r2;
+
+    double d6 = 1.0f / (r6 + R0_6);
+    double d8 = 1.0f / (r8 + R0_8);
+    double E6 = -c6 * d6;
+    double E8 = -c8 * d8;
+    double F6 = E6 * d6 * 6 * r4;
+    double F8 = E8 * d8 * 8 * r6;
+
+    double E = E6 + E8;
+    fout.add_mul(dR, -(F6 + F8));
+
+    return E;
 }
 
 // Morse force between two atoms a,b separated by vector dR = Ra - Rb
