@@ -6,11 +6,6 @@ on:
         tags:
         # Tags that start with the "v" prefix are published on PyPI.
             - v*
-        # !!!!!!!!!!!!!
-        # TODO: remove this before merging to main.
-        branches:
-            - update/automate-release
-        # !!!!!!!!!!!!!
 
 jobs:
     build:
