@@ -33,6 +33,7 @@ opencl = [
     "PyQt5; platform_system=='Windows'"
 ]
 dev = [
+    "bumpver==2023.1124",
     "pre-commit",
     "pytest",
     "pytest-cov",
@@ -56,3 +57,16 @@ find = {namespaces = false}
 
 [tool.setuptools.dynamic]
 version = {attr = "ppafm.version.__version__"}
+
+[tool.bumpver]
+current_version = "v0.2.0a1"
+version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
+commit_message = "Bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"ppafm/version.py" = [
+    '__version__ = "{pep440_version}"',
+]
