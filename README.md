@@ -28,7 +28,7 @@ To make sure the `ppafm-gui` command works without problems, you need to install
 On Ubuntu, you can do this by running:
 
 ```bash
-$ sudo apt install git python3-pip python3-pyqt5
+$ sudo apt install python3-pyqt5
 ```
 
 The other dependencies should be installed automatically when you install the `ppafm` package with `opencl` option:
