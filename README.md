@@ -14,52 +14,35 @@ $ pip install ppafm
 This should install the package and all its dependencies.
 Once the installation is completed, the following commands should be available:
 
-- `ppafm-generate-elff` - command-line interface to gelerate electrostatic force field.
-- `ppafm-generate-elff-point-charges` - command-line interface to gelerate electrostatic force field using point charges.
-- `ppafm-generate-ljff` - command-line interface to gelerate Lennard-Jones force field.
-- `ppafm-relaxed-scan` - command-line interface to run scan the sample with the probe particle.
+- `ppafm-generate-elff` - command-line interface to generate electrostatic force field.
+- `ppafm-generate-elff-point-charges` - command-line interface to generate electrostatic force field using point charges.
+- `ppafm-generate-ljff` - command-line interface to generate Lennard-Jones force field.
+- `ppafm-relaxed-scan` - command-line interface to run a scan of the sample with the probe particle.
 - `ppafm-plot-results` - command-line interface to plot the results of the simulation.
-- `ppafm-gui` - GUI application for interactive simulation of AFM images.
+- `ppafm-gui` - GUI application for interactive simulation of AFM images. Requires some additional dependencies, see below.
 
+Alternatives (Docker, Anaconda) and some notes on different platforms (Linux, MacOS, Windows) can be found on the wiki: [Additional installation instructions](https://github.com/Probe-Particle/ppafm/wiki/Additional-installation-instructions)
 
 ### Install GPU GUI
-
-To make sure the `ppafm-gui` command works without problems, you need to install QT5 library on your system.
-On Ubuntu, you can do this by running:
-
-```bash
-$ sudo apt install python3-pyqt5
-```
-
-The other dependencies should be installed automatically when you install the `ppafm` package with `opencl` option:
+The `ppafm-gui` application requires some additional dependencies. These dependencies should be installed automatically when you install the `ppafm` package with the `opencl` option:
 
 ```bash
 $ pip install ppafm[opencl]
 ```
 
-Additionally an OpenCL Installable Client Driver (ICD) for your compute device is required:
+On Linux systems (tested on Ubuntu) you need to additionally install PyQt5 on your system
+
+```bash
+$ sudo apt install python3-pyqt5
+```
+
+Additionally, an OpenCL Installable Client Driver (ICD) for your compute device is required. On Ubuntu:
 * Nvidia GPU: comes with the standard Nvidia driver (nvidia-driver-xxx)
-* AMD GPU: `sudo apt install mesa-opencl-icd`
+* AMD GPU: `sudo apt install mesa-opencl-icd` (May not work on all AMD devices, see the [Pro drivers](https://www.amd.com/en/support/kb/faq/amdgpu-installation))
 * Intel HD Graphics: `sudo apt install intel-opencl-icd`
 * CPU: `sudo apt install pocl-opencl-icd`
 
-### Use ppafm Docker container
-
-We propose to use [Docker](https://docs.docker.com/get-docker/) to make the code platform-independent.
-
-Here are the steps to build and run the ppafm Docker container:
-
-1. Build the image.
-
-```bash
-$ docker build -t ppafm:latest .
-```
-2. Execute the container.
-
-```bash
-$ docker run --rm -it -v ${PWD}:/exec ppafm:latest <ppafm command>
-```
-
+See additional instructions on the wiki: [PPAFM GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI)
 
 ## Usage examples
 
@@ -73,26 +56,12 @@ $ ./run.sh
 ```
 
 You can study the script to see how to run the simulation.
-Also, have a look at the `params.ini` file to see how to set up the simulation parameters.
-
+Also, have a look at the `params.ini` file and [the wiki](https://github.com/Probe-Particle/ppafm/wiki/Params) to see how to set up the simulation parameters.
 
 Once the simulation is finished, a number of files and folders will be created.
 
-### GUI usage
-
-* Open a file by clicking `Open File...` at the bottom or provide an input file as a command line argument. The input file can be a .xyz geometry file (possibly with point charges*), a VASP POSCAR or CONTCAR file, an FHI-aims .in file, or a .xsf or .cube Hartree potential file. Loading large files may take some time.
-* Changing any number in any input box will automatically update the image. There are also presets for some commonly used tip configurations.
-Hover the mouse cursor over any parameter for a tooltip explaining the meaning of the parameter.
-* Click anywhere on the image to bring up a plot of the df approach curve for that point in the image.
-* Scroll anywhere on the image to zoom the scan window in/out of that spot.
-* Click on the `View Geometry` button to show the system geometry in ASE GUI.
-* Click on the `Edit Geometry` button to edit the positions, types, and charges of the atoms in the system. Note that for Hartree potential inputs editing charges is disabled and editing the geometry only affects the Lennard-Jones force field.
-* Click on the `View Forcefield` button to view different components of the force field. Note that the forcefield box size is inferred automatically from the scan size and is bigger than the scan size. Take into account the probe particle equilibrium distance when comparing the reported z-coordinates between the forcefield and the df image.
-* Click on the `Edit Forcefield` button to edit the per-species parameters of the Lennard-Jones forcefield.
-* Save the current image or df data by clicking the `Save Image...` or `Save df...` buttons at the bottom.
-* In case there are multiple OpenCL devices installed on the system, use the `-l` or `--list-devices` option to list available devices and choose the device using the `-d` or `--device` option with the device platform number as the argument.
-
-*Note that while input files without charges work, depending on the system, the resulting image may be significantly different from an image with electrostatics, and therefore may not be representative of reality. If no electrostatics are included, this is indicated in the title of the image.
+### GUI
+See the wiki: [PPAFM GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI)
 
 ### Run GPU generator for machine learning
 
@@ -120,14 +89,11 @@ Since 2014 PPM developed into the toolbox of various methodologies adjusted for 
 
 ## For developers
 
-If you would like to contribute to the development of ppafm code, please read the [Developer's Guide](https://github.com/Probe-Particle/ppafm/wiki/For-Developers) wiki page.
+If you would like to contribute to the development of the ppafm code, please read the [Developer's Guide](https://github.com/Probe-Particle/ppafm/wiki/For-Developers) wiki page.
 
-
-### Further information
-- Publications: https://github.com/Probe-Particle/ProbeParticleModel#notable-publications-using-probe-particle-model
+## Further information
 - Wiki: https://github.com/Probe-Particle/ProbeParticleModel/wiki
-- API documentation: https://ppafm.readthedocs.io/en/latest/
-
+- Python API documentation: https://ppafm.readthedocs.io/en/latest/
 
 ### Notable publications using Probe Particle Model
 
