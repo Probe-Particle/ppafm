@@ -161,7 +161,7 @@ class FigImshow(FigCanvas):
         print('self.margins', margins)
         if alpha>0 and big_len_image is not None:
             F = F*(1-alpha) + big_len_image*alpha
-        self.img = self.axes.imshow( F, origin='image', cmap='viridis', interpolation='bicubic' )
+        self.img = self.axes.imshow( F, origin='lower', cmap='viridis', interpolation='bicubic' )
 
         j_min,i_min = np.unravel_index(F.argmin(), F.shape)
         j_max,i_max = np.unravel_index(F.argmax(), F.shape)
