@@ -1,10 +1,10 @@
-
 import os
-import glob
 import platform
 from pathlib import Path
-from setuptools import Extension, setup
+
+from setuptools import setup
 from setuptools.command.build import build
+
 
 class Build(build):
     '''Custom build for setuptools to compile C++ shared libraries.'''
@@ -31,9 +31,10 @@ class Build(build):
 
     def build_windows(self):
         os.chdir(self.cpp_path)
-        vars_path = self.get_vars_path()
+        # vars_path = self.get_vars_path()
         for module in self.cpp_modules:
-            cmd = f'"{vars_path}" /no_logo /arch=amd64 && cl.exe /O2 /D_USRDLL /D_WINDLL {module}.cpp /link /dll /out:{module}_lib.dll'
+            # cmd = f'"{vars_path}" /no_logo /arch=amd64 && cl.exe /O2 /D_USRDLL /D_WINDLL {module}.cpp /link /dll /out:{module}_lib.dll'
+            cmd = f'cl.exe /O2 /D_USRDLL /D_WINDLL {module}.cpp /link /dll /out:{module}_lib.dll'
             print(cmd)
             os.system(cmd)
         os.chdir(self.current_directory)
