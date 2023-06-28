@@ -70,3 +70,6 @@ push = true
 "ppafm/version.py" = [
     '__version__ = "{pep440_version}"',
 ]
+
+[tool.cibuildwheel]
+skip = ["pp*", "*-manylinux_i686"]
