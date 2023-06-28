@@ -72,4 +72,4 @@ push = true
 ]
 
 [tool.cibuildwheel]
-skip = ["pp*", "*-manylinux_i686"]
+skip = ["pp*", "*-manylinux_i686", "*-musllinux*"]
