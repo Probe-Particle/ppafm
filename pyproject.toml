@@ -59,7 +59,7 @@ find = {namespaces = false}
 version = {attr = "ppafm.version.__version__"}
 
 [tool.bumpver]
-current_version = "v0.2.0"
+current_version = "v0.2.1a0"
 version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message = "Bump version {old_version} -> {new_version}"
 commit = true
