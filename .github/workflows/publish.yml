@@ -61,7 +61,7 @@ jobs:
         name: Build and publish on PyPI
         if: startsWith(github.ref, 'refs/tags')
 
-        needs: [build]
+        needs: [build_wheels, build_sdist]
         runs-on: ubuntu-latest
 
         environment:
