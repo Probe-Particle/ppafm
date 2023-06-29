@@ -8,12 +8,36 @@ on:
             - v*
 
 jobs:
-    build:
+
+    build_wheels:
+
+        name: Build wheels on ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, windows-2022, macos-11]
+
+        steps:
+            - uses: actions/checkout@v3
+            - uses: ilammy/msvc-dev-cmd@v1
+
+            - name: Build wheels
+              uses: pypa/cibuildwheel@v2.13.1
+
+            - name: Upload distribution artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                  name: release
+                  path: ./wheelhouse/*.whl
+
+    build_sdist:
+
+        name: Build source distribution
         runs-on: ubuntu-latest
 
         steps:
 
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v3
 
             - name: Set up Python
               uses: actions/setup-python@v2
@@ -27,11 +51,10 @@ jobs:
               run: python -m build --sdist --outdir dist/
 
             - name: Upload distribution artifacts
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v3
               with:
                   name: release
-                  path: dist/
-
+                  path: dist/*.tar.gz
 
     publish:
 

@@ -16,7 +16,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
 ]
-requires-python = ">=3.6"
+requires-python = ">=3.7"
 dependencies = [
     "matplotlib",
     "numpy",
@@ -70,3 +70,6 @@ push = true
 "ppafm/version.py" = [
     '__version__ = "{pep440_version}"',
 ]
+
+[tool.cibuildwheel]
+skip = ["pp*", "*-manylinux_i686", "*-musllinux*", '*-win32']
