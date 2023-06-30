@@ -21,6 +21,7 @@ Supported file fromats are:
 def main():
     parser = OptionParser()
     parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
+    parser.add_option("--format", action="store", type="string", help="Format of the input geometry file (overrides format concluded from the file name extension)", default=None)
     parser.add_option( "--tip_dens", action="store", type="string", default=None, help="tip denisty file (.xsf)" )
     #parser.add_option( "--sub_core",  action="store_true",  help="subtract core density", default=False )
     parser.add_option("--doDensity", action="store_true",  help="do density overlap", dest="doDensity", default=False)
@@ -60,15 +61,23 @@ def main():
         valElDict        = PPH.loadValenceElectronDict()
         Rs_tip,elems_tip = PPH.getAtomsWhichTouchPBCcell( options.tip_dens, Rcut=options.Rcore )
 
-    atoms_samp,nDim_samp,lvec_samp = io.loadGeometry( options.input, params=PPU.params )
+    atoms_samp,nDim_samp,lvec_samp = io.loadGeometry( options.input, format=options.format, params=PPU.params )
     head_samp                      = io.primcoords2Xsf( atoms_samp[0], [atoms_samp[1],atoms_samp[2],atoms_samp[3]], lvec_samp )
 
     V=None
-    if(options.input.lower().endswith(".xsf") ):
+    geometry_format = options.format
+    if(options.format == None):
+        if options.input..lower().endswith(".cube"):
+            geometry_format = "cube"
+        elif options.input.lower().endswith(".xsf"):
+            geometry_format = "xsf"
+    else:
+        geometry_format = options.format.lower()
+    if(geometry_format == "xsf"):
         print(">>> loading Hartree potential from  ",options.input,"...")
         print("Use loadXSF")
         V, lvec, nDim, head = io.loadXSF(options.input)
-    elif(options.input.lower().endswith(".cube") ):
+    elif(geometry_format=="cube"):
         print(" loading Hartree potential from ",options.input,"...")
         print("Use loadCUBE")
         V, lvec, nDim, head = io.loadCUBE(options.input)

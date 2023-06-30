@@ -21,6 +21,7 @@ def main():
     from optparse import OptionParser
     parser = OptionParser()
     parser.add_option("-i", "--input",      action="store", type="string",  help="Input file, supported formats are:\n.xyz\n.cube,.xsf")
+    parser.add_option("--format", action="store", type="string", help="Format of the input geometry file (overrides format concluded from the file name extension)", default=None)
     parser.add_option("-f","--data_format", action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
     parser.add_option("--noPBC",            action="store_false",           help="pbc False", dest="PBC", default=None)
     parser.add_option("-E", "--energy",     action="store_true",            help="Compue potential energ y(not just Force)", default=False)
@@ -38,7 +39,7 @@ def main():
     speciesFile = None
     if os.path.isfile( 'atomtypes.ini' ):
         speciesFile='atomtypes.ini'
-    PPH.computeLJ( options.input, speciesFile=speciesFile, save_format=options.data_format, computeVpot=options.energy, ffModel=options.ffModel )
+    PPH.computeLJ( options.input, geometry_format=opt_dict["format"],speciesFile=speciesFile, save_format=options.data_format, computeVpot=options.energy, ffModel=options.ffModel )
 
 
 if __name__ == "__main__":

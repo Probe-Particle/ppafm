@@ -63,9 +63,9 @@ PPU.loadParams( 'params.ini',FFparams=FFparams )
 scan_min=PPU.params['scanMin']
 scan_max=PPU.params['scanMax']
 atoms,nDim,lvec=io.loadGeometry("p_eq.xyz", params=PPU.params)
-# The function automatically load the geometry from the file of any
-# supported format. The desigion about the file format is based on the
-# filename extension
+# The function automatically loads the geometry from the file of any
+# supported format. The decision about the file format is based on the
+# filename extension or it can be supplied by an extra "format" argument
 PPU.params['gridN'] = nDim
 PPU.params['gridA'] = lvec[1]
 PPU.params['gridB'] = lvec[2]

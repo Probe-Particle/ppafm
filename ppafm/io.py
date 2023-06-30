@@ -126,8 +126,12 @@ def loadGeometryIN(fname):
                     Zs.append(elements.ELEMENT_DICT[ws[4]][0])
                 elif (ws[0] == 'lattice_vector'):
                     lvec.append([float(ws[1]), float(ws[2]), float(ws[3])])
+                elif(ws[0] == 'atom_frac' and len(lvec)==3):
+                    xyzs.append(np.array(lvec) @ np.array([float(ws[1]),float(ws[2]),float(ws[3])]))
+                    Zs.append(elements.ELEMENT_DICT[ws[4]][0])
                 elif (ws[0] == 'trust_radius'):
                     break
+                    
     xyzs = np.array(xyzs)
     Zs = np.array(Zs, dtype=np.int32)
     if (lvec != []):
@@ -354,17 +358,28 @@ def loadNCUBE( fname ):
     f.close()
     return [ int(sth1[0]), int(sth2[0]), int(sth3[0]) ]
 
-def loadGeometry(fname=None,params=None):
+def loadGeometry(fname=None,format=None,params=None):
     if(verbose>0): print("loadGeometry ", fname)
     if fname == None:
         raise ValueError("Please provide the name of the file with coordinates")
     if params == None:
         raise ValueError("Please provide the parameters dictionary here")
-    is_xyz  = fname.lower().endswith(".xyz")
-    is_cube = fname.lower().endswith(".cube")
-    is_xsf  = fname.lower().endswith(".xsf")
-    is_npy  = fname.lower().endswith(".npy")
-    if(is_xyz):
+    if format == None or format == "":
+        if fname.lower().endswith(".xyz"):
+            format = "xyz"
+        elif fname.lower().endswith(".cube"):
+            format = "cube"
+        elif fname.lower().endswith(".xsf"):
+            format = "xsf"
+        elif fname.lower().endswith(".npy"):
+            format = "npy"
+        elif fname.lower().endswith(".in") or fname.lower().endswith(".in.next_step"):
+            format = "in"
+        if fname.startswith("POSCAR") or fname.startswith("CONTCAR"):
+            format = "poscar"
+    else:
+        format = format.lower() #prevent format from being case sensitive, e.g. "XYZ" and "xyz" should be the same
+    if(format=="xyz"):
         xyzs, Zs, qs, comment = loadXYZ(fname)
         nDim = params['gridN'].copy()
         lvec = parseLvecASE(comment)
@@ -374,15 +389,19 @@ def loadGeometry(fname=None,params=None):
             lvec[ 2,:  ] = params['gridB'].copy()
             lvec[ 3,:  ] = params['gridC'].copy()
         atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
-    elif(is_cube):
+    elif(format=="cube"):
         atoms = loadAtomsCUBE(fname)
         lvec  = loadCellCUBE(fname)
         nDim  = loadNCUBE(fname)
-    elif(is_xsf):
-        atoms, nDim, lvec = loadXSFGeom( fname)
-    elif(is_npy):
-        atoms, nDim, lvec = loadNPYGeom( fname) # under development
-        #TODO: introduce a function which reads the geometry from the .npy file
+    elif(format=="xsf"):
+        atoms, nDim, lvec = loadXSFGeom(fname)
+    elif(format=="npy"):
+        atoms, nDim, lvec = loadNPYGeom(fname) # under development
+    elif(format=="poscar"):
+        atoms, nDim, lvec = loadPOSCAR(fname)
+    elif(format=="in"):
+        atoms, nDim, lvec = loadGeometryIN(fname)
+    #TODO: introduce a function which reads the geometry from the .npy file
     else:
         sys.exit("ERROR!!! Unknown format of geometry system. Supported formats are: .xyz, .cube, .xsf \n\n")
     return atoms,nDim,lvec
