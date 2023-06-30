@@ -31,6 +31,9 @@ extern "C" {
 
     DLLEXPORT int ReadNumsUpTo_C (char *fname, double *numbers, int * dims, int noline) {
 
+        // Temporarily set fixed locale so that . (dot) is definitely the decimal separator
+        setlocale(LC_NUMERIC, "C");
+
         FILE *f;
         char line[5000]; // define a length which is long enough to store a line
         char *waste;
@@ -64,6 +67,10 @@ extern "C" {
 //       printf ("%lf %lf %lf %lf %lf\n", numbers[tot-1], numbers[tot-2], numbers[tot-3], numbers[tot-4], numbers[tot-5]);
         printf("Reading DONE\n");
         fclose(f);
+
+        // Set locale back to the default locale
+        setlocale(LC_NUMERIC, "");
+
         return 0;
     }
 

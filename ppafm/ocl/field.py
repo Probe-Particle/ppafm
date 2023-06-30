@@ -10,6 +10,7 @@ from pyopencl import array
 
 from .. import io
 from ..common import genFFSampling
+from ..defaults import d3
 from ..fieldFFT import getProbeDensity
 from ..HighLevel import _getAtomsWhichTouchPBCcell, subtractCoreDensities
 
@@ -42,6 +43,61 @@ def makeDivisibleUp( num, divisor ):
     return num
 
 # ========= classes
+
+class D3Params:
+    '''
+    pyopencl device buffer handles to Grimme-D3 parameters. Each buffer is allocated on first access.
+
+    Arguments:
+        ctx: pyopencl.Context. OpenCL context for device buffer. Defaults to oclu.ctx.
+    '''
+
+    def __init__(self, ctx):
+        self.ctx = ctx or oclu.ctx
+        self._cl_rcov = None
+        self._cl_rcut = None
+        self._cl_ref_cn = None
+        self._cl_ref_c6 = None
+        self._cl_r4r2 = None
+
+    def _alloc(self, buf):
+        return cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=buf.astype(np.float32))
+
+    @property
+    def cl_rcov(self):
+        '''See :data:`.R_COV`.'''
+        if self._cl_rcov is None: self._cl_rcov = self._alloc(d3.R_COV)
+        return self._cl_rcov
+
+    @property
+    def cl_rcut(self):
+        '''See :func:`.load_R0`.'''
+        if self._cl_rcut is None: self._cl_rcut = self._alloc(d3.load_R0())
+        return self._cl_rcut
+
+    @property
+    def cl_ref_cn(self):
+        '''See :data:`.REF_CN`.'''
+        if self._cl_ref_cn is None: self._cl_ref_cn = self._alloc(d3.REF_CN)
+        return self._cl_ref_cn
+
+    @property
+    def cl_ref_c6(self):
+        '''See :func:`.load_ref_c6`.'''
+        if self._cl_ref_c6 is None: self._cl_ref_c6 = self._alloc(d3.load_ref_c6())
+        return self._cl_ref_c6
+
+    @property
+    def cl_r4r2(self):
+        '''See :data:`.R4R2`.'''
+        if self._cl_r4r2 is None: self._cl_r4r2 = self._alloc(d3.R4R2)
+        return self._cl_r4r2
+
+    def release(self):
+        '''Release device buffers.'''
+        for buf_name in ['_cl_rcov', '_cl_rcut', '_cl_ref_cn', '_cl_ref_c6', '_cl_r4r2']:
+            getattr(self, buf_name).release()
+            setattr(self, buf_name, None)
 
 class DataGrid:
     '''
@@ -636,6 +692,7 @@ class ForceField_LJC:
     def __init__( self ):
         self.ctx   = oclu.ctx
         self.queue = oclu.queue
+        self.d3_params  = D3Params(self.ctx)
         self.cl_poss    = None
         self.cl_FE      = None
         self.cl_Efield  = None
@@ -678,7 +735,11 @@ class ForceField_LJC:
         self.Qs  = np.array(Qs ,dtype=np.float32)
         self.QZs = np.array(QZs,dtype=np.float32)
 
-    def prepareBuffers(self, atoms=None, cLJs=None, REAs=None, poss=None, bDirect=False, nz=20, pot=None,
+    def setPP(self, Z_pp):
+        '''Set the atomic number of the probe particle. Required for calculating DFT-D3 parameters.'''
+        self.iZPP = np.int32(Z_pp)
+
+    def prepareBuffers(self, atoms=None, cLJs=None, REAs=None, Zs=None, poss=None, bDirect=False, nz=20, pot=None,
         E_field=False, rho=None, rho_delta=None, rho_sample=None):
         '''Allocate all necessary buffers in device memory.'''
 
@@ -696,6 +757,9 @@ class ForceField_LJC:
         if REAs is not None:
             REAs = REAs.astype(np.float32)
             self.cl_REAs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=REAs  ); nbytes+=REAs.nbytes
+        if Zs is not None:
+            self.Zs = np.array(Zs, dtype=np.int32)
+            self.cl_Zs = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.Zs); nbytes+=self.Zs.nbytes
         if poss is not None:
             self.nDim = np.array( poss.shape, dtype=np.int32 )
             self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
@@ -1045,7 +1109,7 @@ class ForceField_LJC:
         )
 
     def addvdW(self, damp_method=0, local_size=(32,)):
-        '''Add van der Waals force and energy to the current force field grid.
+        '''Add Lennard-Jones van der Waals force and energy to the current force field grid.
 
         Arguments:
             damp_method: int. Type of damping to use. -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
@@ -1064,6 +1128,79 @@ class ForceField_LJC:
             self.dlvec[0], self.dlvec[1], self.dlvec[2],
             np.int32(damp_method)
         )
+
+    def _get_dftd3_params(self, params, local_size=(32,)):
+
+        if not hasattr(self, 'iZPP'):
+            raise RuntimeError('Probe particle atomic number not set. Set it before DFT-D3 calculation using setPP()')
+        if not hasattr(self, 'cl_Zs') or not hasattr(self, 'nAtoms'):
+            raise RuntimeError('Atom positions or elements not set. Set them before DFT-D3 calculation using prepareBuffers(atoms=..., Zs=...)')
+
+        params = d3.get_df_params(params)
+        params = np.array([params['s6'], params['s8'], params['a1'], params['a2'] * io.bohrRadius2angstroem], dtype=np.float32)
+        k = np.array([d3.K1, d3.K2, d3.K3, 0.0], dtype=np.float32)
+
+        self.cl_cD3 = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=(self.nAtoms * 4 * 4))
+
+        global_size = (int(np.ceil(self.nAtoms / local_size[0]) * local_size[0]),)
+        cl_program.d3_coeffs(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_Zs,
+            self.d3_params.cl_rcov,
+            self.d3_params.cl_rcut,
+            self.d3_params.cl_ref_cn,
+            self.d3_params.cl_ref_c6,
+            self.d3_params.cl_r4r2,
+            self.cl_cD3,
+            k,
+            params,
+            self.iZPP
+        )
+
+    def add_dftd3(self, params='PBE', local_size=(64,)):
+        '''
+        Add van der Waals force and energy to the force field grid using the DFT-D3 method. Uses the Becke-Johnson
+        damping method. Mainly useful in conjunction with the full-density based model.
+
+        The DFT-D3 parameters are adjusted based on the DFT functional. There are predefined scaling parameters for the
+        following functionals:
+        PBE, B1B95, B2GPPLYP, B3PW91, BHLYP, BMK, BOP, BPBE, CAMB3LYP, LCwPBE, MPW1B95, MPWB1K, mPWLYP, OLYP, OPBE,
+        oTPSS, PBE38, PBEsol, PTPSS, PWB6K, revSSB, SSB, TPSSh, HCTH120, B2PLYP, B3LYP, B97D, BLYP, BP86, DSDBLYP,
+        PBE0, PBE, PW6B95, PWPB95, revPBE0, revPBE38, revPBE, rPW86PBE, TPSS0, TPSS.
+        See also :data:`.DF_DEFAULT_PARAMS`.
+
+        Otherwise, the parameters can be manually specified in a dict with the following entries:
+
+         - 's6': Scaling parameter for r^-6 term.
+         - 's8': Scaling parameter for r^-8 term.
+         - 'a1': Scaling parameter for cutoff radius.
+         - 'a2': Additive parameter for cutoff radius. Unit should be Bohr.
+
+        Arguments:
+            params: str or dict. Functional-specific scaling parameters. Can be a str with the
+                functional name or a dict with manually specified parameters.
+            local_size: tuple of a single int. Size of local work group on device.
+        '''
+        if bRuntime: t0 = time.perf_counter()
+        local_size = (min(local_size[0], 64),) # The kernel uses shared memory arrays with size 64. Let's not overflow.
+        self._get_dftd3_params(params, local_size)
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.add_dftd3.get_params) [s]: ", time.perf_counter() - t0)
+        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        cl_program.addDFTD3_BJ(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cD3,
+            self.cl_FE,
+            self.nDim,
+            self.lvec0,
+            self.dlvec[0], self.dlvec[1], self.dlvec[2]
+        )
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.add_dftd3) [s]: ", time.perf_counter() - t0)
 
     def calc_force_hartree(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
             bCopy=True, bFinish=True):
@@ -1120,20 +1257,24 @@ class ForceField_LJC:
 
         return FE
 
-    def calc_force_fdbm(self, A=18.0, B=1.0, FE=None, rot=np.eye(3), rot_center=np.zeros(3), vdw_damp_method=2,
-            local_size=(32,), bCopy=True, bFinish=True):
+    def calc_force_fdbm(self, A=18.0, B=1.0, vdw_type='D3', d3_params='PBE', lj_vdw_damp=2, FE=None, rot=np.eye(3),
+            rot_center=np.zeros(3), local_size=(32,), bCopy=True, bFinish=True):
         '''
         Calculate force field using the full density-based model.
 
         Arguments:
             A: float. Prefactor for Pauli repulsion.
             B: float. Exponent used for Pauli repulsion.
+            vdw_type: 'D3' or 'LJ'. Type of vdW interaction to use with the FDBM. 'D3' is for Grimme-D3 and 'LJ' uses
+                standard Lennard-Jones vdW.
+            d3_params: str or dict. Functional-specific scaling parameters for DFT-D3. Can be a str with the
+                functional name or a dict with manually specified parameters. See :meth:`add_dftd3`.
+            lj_vdw_damp:  int. Type of damping to use in vdw calculation fdbm_vdw_type=='LJ.
+                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.
             rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
             rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
-            vdw_damp_method: int. Type of damping to use in vdw calculation.
-                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
             local_size: tuple of a single int. Size of local work group on device.
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
             bFinish: Bool. Whether to wait for execution to finish.
@@ -1199,7 +1340,12 @@ class ForceField_LJC:
             print("runtime(ForceField_LJC.calc_force_fdbm.gradient) [s]: ", time.perf_counter() - t0)
 
         # Add vdW force
-        self.addvdW(vdw_damp_method, local_size=local_size)
+        if vdw_type == 'D3':
+            self.add_dftd3(params=d3_params, local_size=local_size)
+        elif vdw_type == 'LJ':
+            self.addvdW(damp_method=lj_vdw_damp, local_size=local_size)
+        else:
+            raise ValueError(f'Invalid vdw type `{vdw_type}`')
 
         if bCopy: FE = self.downloadFF(FE)
         if bFinish or bRuntime: self.queue.finish()
@@ -1207,19 +1353,20 @@ class ForceField_LJC:
 
         return FE
 
-    def makeFF(self, xyzs, cLJs, REAs=None, method='point-charge', FE=None, qs=None, pot=None, rho_sample=None,
-            rho=None, rho_delta=None, A=18.0, B=1.0, rot=np.eye(3), rot_center=np.zeros(3), vdw_damp_method=2,
-            local_size=(32,), bRelease=True, bCopy=True, bFinish=True):
+    def makeFF(self, xyzs, cLJs, REAs=None, Zs=None, method='point-charge', FE=None, qs=None, pot=None, rho_sample=None,
+            rho=None, rho_delta=None, A=18.0, B=1.0, fdbm_vdw_type='D3', d3_params='PBE', lj_vdw_damp=2, rot=np.eye(3),
+            rot_center=np.zeros(3), local_size=(32,), bRelease=True, bCopy=True, bFinish=True):
         '''
         Generate the force field for a tip-sample interaction.
 
         There are several methods for generating the force field:
-            | 'point-charge': Lennard-Jones + point-charge electrostatics for both tip and sample.
-            | 'hartree': Lennard-Jones + sample hartree potential cross-correlated with tip charge density
-                for electrostatic interaction.
-            | 'fdbm': Approximated full density-based model. Pauli repulsion is calculated by tip-sample
-                electron density overlap + attractive vdW like in Lennard-Jones. Electrostatic
-                interaction is same as in 'hartree', except tip delta-density is used instead.
+
+            - 'point-charge': Lennard-Jones + point-charge electrostatics for both tip and sample.
+            - 'hartree': Lennard-Jones + sample hartree potential cross-correlated with tip charge density
+              for electrostatic interaction.
+            - 'fdbm': Approximated full density-based model. Pauli repulsion is calculated by tip-sample
+              electron density overlap + attractive vdW like in Lennard-Jones. Electrostatic
+              interaction is same as in 'hartree', except tip delta-density is used instead.
 
         If pot, rho, or rho_delta is None and is required for the specified method, it has to be
         initialized beforehand with prepareBuffers.
@@ -1228,7 +1375,8 @@ class ForceField_LJC:
             xyzs: np.ndarray of shape (n_atoms, 3). xyz positions.
             cLJs: np.ndarray of shape (n_atoms, 2). Lennard-Jones interaction parameters in AB form for each atom.
             REAs: np.ndarray of shape (n_atoms, 4) or None. Lennard-Jones interaction parameters in RE form for each atom.
-                Required when method is 'fdbm' and vdw_damp_method >= 1.
+                Required when method is 'fdbm', fdbm_vdw_type is 'LJ', and vdw_damp_method >= 1.
+            Zs: np.ndarray of shape (n_atoms,). Atomic numbers. Required when method is 'fdbm'.
             method: 'point-charge', 'hartree' or 'fdbm'. Method for generating the force field.
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.
@@ -1244,10 +1392,14 @@ class ForceField_LJC:
                 interaction when method is 'fdbm'.
             A: float. Prefactor for Pauli repulsion when method is 'fdbm'.
             B: float. Exponent used for Pauli repulsion when method is 'fdbm'.
+            fdbm_vdw_type: 'D3' or 'LJ'. Type of vdW interaction to use when method is 'fdbm'. 'D3' is for Grimme-D3 and
+                'LJ' uses standard Lennard-Jones vdW.
+            d3_params: str or dict. Functional-specific scaling parameters for DFT-D3. Can be a str with the functional name
+                or a dict with manually specified parameters. Used when method is 'fdbm. See :meth:`add_dftd3`.
+            lj_vdw_damp: int. Type of damping to use in vdw calculation when method is 'fdbm' and fdbm_vdw_type is 'LJ'.
+                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
             rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
             rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
-            vdw_damp_method: int. Type of damping to use in vdw calculation when method is 'fdbm'.
-                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
             local_size: tuple of a single int. Size of local work group on device.
             bRelease: Bool. Whether to delete data on device after computation is done.
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
@@ -1273,7 +1425,7 @@ class ForceField_LJC:
         if qs is None:
             qs = np.zeros(len(xyzs))
         self.atoms = np.concatenate([xyzs, qs[:, None]], axis=1)
-        self.prepareBuffers(self.atoms, cLJs, REAs=REAs, pot=pot, rho=rho, rho_delta=rho_delta, rho_sample=rho_sample)
+        self.prepareBuffers(self.atoms, cLJs, REAs=REAs, Zs=Zs, pot=pot, rho=rho, rho_delta=rho_delta, rho_sample=rho_sample)
         if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.perf_counter() - t0)
 
         if method == 'point-charge':
@@ -1296,8 +1448,8 @@ class ForceField_LJC:
                     bCopy=bCopy, bFinish=bFinish)
 
         elif method == 'fdbm':
-            FF = self.calc_force_fdbm(A=A, B=B, rot=rot_ff, rot_center=rot_center, vdw_damp_method=vdw_damp_method,
-                local_size=local_size, bCopy=bCopy, bFinish=bFinish)
+            FF = self.calc_force_fdbm(A=A, B=B, rot=rot_ff, rot_center=rot_center, vdw_type=fdbm_vdw_type,
+                d3_params=d3_params, lj_vdw_damp=lj_vdw_damp, local_size=local_size, bCopy=bCopy, bFinish=bFinish)
 
         else:
             raise ValueError(f'Unknown method for force field calculation: `{method}`.')

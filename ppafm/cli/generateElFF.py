@@ -170,9 +170,9 @@ def main():
 
     print(">>> saving electrostatic forcefiled ... ")
 
-    io.save_vec_field('FFel',FFel,lvec_samp ,data_format=options.data_format, head=head_samp)
+    io.save_vec_field('FFel',FFel,lvec_samp ,data_format=options.data_format, head=head_samp, atomic_info = (atoms_samp[:4],lvec_samp))
     if options.energy:
-        io.save_scal_field( 'Eel', Eel, lvec_samp, data_format=options.data_format)
+        io.save_scal_field( 'Eel', Eel, lvec_samp, data_format=options.data_format, head=head_samp, atomic_info = (atoms_samp[:4],lvec_samp))
     del FFel,V;
 
 

@@ -25,9 +25,9 @@ mkdir tip
 mv CHGCAR.xsf tip
 
 echo "======= STEP 1 : Generate force-field grid "
-python ${PPAFM_DIR}/conv_rho.py     -s sample/CHGCAR.xsf -t tip/CHGCAR.xsf --Bpower 1.0 -E
-python ${PPAFM_DIR}/generateElFF.py -i sample/LOCPOT.xsf --tip_dens tip/CHGCAR.xsf --Rcore 0.7 -E --doDensity
-ppafm-generate-ljff -i sample/CHGCAR.xsf --ffModel vdW  -E
+python ${PPAFM_DIR}/conv_rho.py      -s sample/CHGCAR.xsf -t tip/CHGCAR.xsf --Bpower 1.0 -E
+python ${PPAFM_DIR}/generateElFF.py  -i sample/LOCPOT.xsf --tip_dens tip/CHGCAR.xsf --Rcore 0.7 -E --doDensity
+python ${PPAFM_DIR}/generateDFTD3.py -i sample/LOCPOT.xsf --df_name PBE
 
 echo "======= STEP 2 : Relax Probe Particle using that force-field grid "
 python ${PPAFM_DIR}/relaxed_scan_PVE.py -k 0.25 -q 1.0 --Apauli 18.0 --bDebugFFtot

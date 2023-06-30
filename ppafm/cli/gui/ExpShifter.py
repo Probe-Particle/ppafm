@@ -468,7 +468,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         for i in range(n):
             print (i)
             plt.subplot(1,n,i+1)
-            plt.imshow(self.data[i], origin='image') #,cmap='gray')
+            plt.imshow(self.data[i], origin='lower') #,cmap='gray')
             print ('image path = ' , self.path+'data.png')
         plt.savefig(self.path+"data.png", bbox_inches='tight')
 
