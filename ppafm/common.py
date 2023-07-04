@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+from argparse import ArgumentParser
 
 import numpy as np
 
@@ -61,6 +62,42 @@ params={
     'vdWDampKind' : 2,
     '#' : None
 }
+
+class CLIParser(ArgumentParser):
+    '''
+    Subclass from the built-in ArgumentParser with functionality to easily add arguments commonly used in ppafm scripts.
+    '''
+
+    _cli_args = None
+    _params_args = None # Load this from a file?
+    _extra_args = {
+        'input': {'short_name': '-i', 'action': 'store', 'help': 'Input file. Mandatory. Supported formats are: .xyz, .cube, .xsf.'}
+    }
+
+    @property
+    def cli_args(self):
+        '''Dictionary of arguments.'''
+        if self._cli_args is None:
+            self._load_cli_args()
+        return self._cli_args
+
+    def add_arguments(self, arg_names):
+        '''
+        Add CLI arguments from predefined dictionary :data:`cli_params`.
+
+        Arguments:
+            arg_names: list of str. Names of arguments to add.
+        '''
+        for name in arg_names:
+            if name not in self.cli_args:
+                raise ValueError(f'Invalid argument name `{name}`')
+            arg_dict = self.cli_args[name]
+            if 'short_name' in arg_dict:
+                arg_names = [f'--{name}', arg_dict['short_name']]
+                del arg_dict['short_name']
+            else:
+                arg_names = [f'--{name}']
+            self.add_argument(*arg_names, **arg_dict)
 
 # ==============================
 # ============================== Pure python functions
