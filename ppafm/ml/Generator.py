@@ -506,7 +506,7 @@ class GeneratorAFMtrainer:
     def _release_sample_buffers(self):
         if 'qs' in self.sample_dict and isinstance(self.sample_dict['qs'], FFcl.HartreePotential):
             self.sample_dict['qs'].release()
-        if 'rho_sample' in self.sample_dict:
+        if 'rho_sample' in self.sample_dict and isinstance(self.sample_dict['rho_sample'], FFcl.ElectronDensity):
             self.sample_dict['rho_sample'].release()
 
     def __len__(self):
