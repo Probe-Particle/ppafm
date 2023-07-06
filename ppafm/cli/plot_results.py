@@ -2,7 +2,6 @@
 
 import os
 import sys
-from optparse import OptionParser
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,32 +20,30 @@ import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this
 
 
 def main():
-    parser = OptionParser()
-    parser.add_option( "-k", "--klat", action="store", type="float", help="tip stiffness [N/m]" )
-    parser.add_option( "--krange", action="store", type="float", help="tip stiffenss range (min,max,n) [N/m]", nargs=3)
-    parser.add_option( "-q",       action="store", type="float", help="tip charge [e]" )
-    parser.add_option( "--qrange", action="store", type="float", help="tip charge range (min,max,n) [e]", nargs=3)
-    parser.add_option( "-a",       action="store", type="float", help="oscilation amplitude [A]" )
-    parser.add_option( "--arange", action="store", type="float", help="oscilation amplitude range (min,max,n) [A]", nargs=3)
-    parser.add_option( "--iets",   action="store", type="float", help="mass [a.u.]; bias offset [eV]; peak width [eV] ", nargs=3 )
-    parser.add_option( "-V","--Vbias",       action="store", type="float", help="Aplied field [eV/Ang]" )
-    parser.add_option( "--Vrange",  action="store", type="float", help="set of bias to perform the scan under", nargs=3)
-    parser.add_option( "--LCPD_maps", action="store_true", default=False, help="print LCPD maps")
-    parser.add_option("--z0", action="store",type="float", default=0.0 ,help="heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
-    parser.add_option("--V0", action="store",type="float", default=0.0 ,help="Empirical LCPD maxima shift due to mesoscopic workfunction diference")
+    parser = PPU.CLIParser(prog='plot_results', description='Plot results for a scan.')
+    parser.add_arguments(['data_format', 'Amplitude', 'klat'])
+    parser.add_argument( "--krange", action="store", type=float, help="tip stiffenss range (min,max,n) [N/m]", nargs=3)
+    parser.add_argument( "-q",       action="store", type=float, help="tip charge [e]" )
+    parser.add_argument( "--qrange", action="store", type=float, help="tip charge range (min,max,n) [e]", nargs=3)
+    parser.add_argument( "--arange", action="store", type=float, help="oscilation amplitude range (min,max,n) [A]", nargs=3)
+    parser.add_argument( "--iets",   action="store", type=float, help="mass [a.u.]; bias offset [eV]; peak width [eV] ", nargs=3 )
+    parser.add_argument( "-V","--Vbias",       action="store", type=float, help="Aplied field [eV/Ang]" )
+    parser.add_argument( "--Vrange",  action="store", type=float, help="set of bias to perform the scan under", nargs=3)
+    parser.add_argument( "--LCPD_maps", action="store_true", default=False, help="print LCPD maps")
+    parser.add_argument("--z0", action="store",type=float, default=0.0 ,help="heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
+    parser.add_argument("--V0", action="store",type=float, default=0.0 ,help="Empirical LCPD maxima shift due to mesoscopic workfunction diference")
 
-    parser.add_option( "--df",       action="store_true", default=False,  help="plot images for dfz " )
-    parser.add_option( "--save_df" , action="store_true", default=False, help="save frequency shift as df.xsf " )
-    parser.add_option( "--Laplace",  action="store_true", default=False,  help="plot Laplace-filtered images and save them " )
-    parser.add_option( "--pos",      action="store_true", default=False, help="save probe particle positions" )
-    parser.add_option( "--atoms",    action="store_true", default=False, help="plot atoms to images" )
-    parser.add_option( "--bonds",    action="store_true", default=False, help="plot bonds to images" )
-    parser.add_option( "--cbar",     action="store_true", default=False, help="plot bonds to images" )
-    parser.add_option( "--WSxM",     action="store_true", default=False, help="save frequency shift into WsXM *.dat files" )
-    parser.add_option( "--bI",       action="store_true", default=False, help="plot images for Boltzmann current" )
-    parser.add_option("-f","--data_format" , action="store" , type="string",help="Specify the input/output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
+    parser.add_argument( "--df",       action="store_true", default=False,  help="plot images for dfz " )
+    parser.add_argument( "--save_df" , action="store_true", default=False, help="save frequency shift as df.xsf " )
+    parser.add_argument( "--Laplace",  action="store_true", default=False,  help="plot Laplace-filtered images and save them " )
+    parser.add_argument( "--pos",      action="store_true", default=False, help="save probe particle positions" )
+    parser.add_argument( "--atoms",    action="store_true", default=False, help="plot atoms to images" )
+    parser.add_argument( "--bonds",    action="store_true", default=False, help="plot bonds to images" )
+    parser.add_argument( "--cbar",     action="store_true", default=False, help="plot bonds to images" )
+    parser.add_argument( "--WSxM",     action="store_true", default=False, help="save frequency shift into WsXM *.dat files" )
+    parser.add_argument( "--bI",       action="store_true", default=False, help="plot images for Boltzmann current" )
 
-    parser.add_option( "--noPBC", action="store_false",  help="pbc False", dest="PBC",default=None)
+    parser.add_argument( "--noPBC", action="store_false",  help="pbc False", dest="PBC",default=None)
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
 

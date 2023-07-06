@@ -69,16 +69,57 @@ class CLIParser(ArgumentParser):
     '''
 
     _cli_args = None
-    _params_args = None # Load this from a file?
-    _extra_args = {
-        'input': {'short_name': '-i', 'action': 'store', 'help': 'Input file. Mandatory. Supported formats are: .xyz, .cube, .xsf.'}
+    _params_args = {
+        'Amplitude': {
+            'short_name': '-a',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Oscillation amplitude [Å]'
+        },
+        'klat': {
+            'short_name': '-k',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Lateral tip stiffness [N/m]'
+        }
     }
+    _extra_args = {
+        'input': {
+            'short_name': '-i',
+            'action'    : 'store',
+            'help'      : 'Input file path. Mandatory. Supported formats are: .xyz, .cube, .xsf.'
+        },
+        'data_format' : {
+            'short_name': '-f',
+            'action'    : 'store',
+            'default'   : 'xsf',
+            'help'      : 'Specify the output format. Supported formats are: xsf, npy'
+        },
+        'noPBC': {
+            'action'    : 'store_false',
+            'dest'      : 'PBC',
+            'default'   : None,
+            'help'      : 'Disable periodic boundary conditions.'
+        },
+        'energy': {
+            'short_name': '-E',
+            'action'    : 'store_true',
+            'default'   : False,
+            'help'      : 'Compute the potential energy in addition to the force.'
+        }
+    }
+
+    def _check_params_args(self):
+        for arg in self._params_args:
+            if arg not in params:
+                raise ValueError(f'Argument name `{arg}` does not match with any parameter in global parameters dictionary.')
 
     @property
     def cli_args(self):
         '''Dictionary of arguments.'''
         if self._cli_args is None:
-            self._load_cli_args()
+            self._check_params_args()
+            self._cli_args = {**self._params_args, **self._extra_args}
         return self._cli_args
 
     def add_arguments(self, arg_names):
@@ -92,6 +133,8 @@ class CLIParser(ArgumentParser):
             if name not in self.cli_args:
                 raise ValueError(f'Invalid argument name `{name}`')
             arg_dict = self.cli_args[name]
+            if 'help' not in arg_dict:
+                raise ValueError(f'No help message defined for `{name}`')
             if 'short_name' in arg_dict:
                 arg_names = [f'--{name}', arg_dict['short_name']]
                 del arg_dict['short_name']
