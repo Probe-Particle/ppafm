@@ -81,12 +81,38 @@ class CLIParser(ArgumentParser):
             'action'    : 'store',
             'type'      : float,
             'help'      : 'Lateral tip stiffness [N/m]'
+        },
+        'charge': {
+            'short_name': '-q',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Probe particle charge [e]'
+        },
+        'tip': {
+            'short_name': '-t',
+            'action'    : 'store',
+            'type'      : str,
+            'default'   : 's',
+            'help'      : 'Tip model (multipole) {s,pz,dz2,..}'
+        },
+        'Rcore': {
+            'action'    : 'store',
+            'type'      : float,
+            'default'   : params['Rcore'],
+            'help'      : 'Width of nuclear charge density blob to achieve charge neutrality [Å]'
+        },
+        'sigma': {
+            'short_name': '-w',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Gaussian width for convolution in Electrostatics [Å]'
         }
     }
     _extra_args = {
         'input': {
             'short_name': '-i',
             'action'    : 'store',
+            'required'  : True,
             'help'      : 'Input file path. Mandatory. Supported formats are: .xyz, .cube, .xsf.'
         },
         'data_format' : {
@@ -106,6 +132,27 @@ class CLIParser(ArgumentParser):
             'action'    : 'store_true',
             'default'   : False,
             'help'      : 'Compute the potential energy in addition to the force.'
+        },
+        'krange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('k_min', 'k_max', 'n_k'),
+            'help'      : 'Do scan for a range of tip stiffnesses. Overrides --klat.'
+        },
+        'qrange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('q_min', 'q_max', 'n_q'),
+            'help'      : 'Do scan for a range of tip charges. Overrides --charge.'
+        },
+        'arange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('A_min', 'A_max', 'n_A'),
+            'help'      : 'Do scan for a range of amplitudes. Overrides --Amplitude.'
         }
     }
 

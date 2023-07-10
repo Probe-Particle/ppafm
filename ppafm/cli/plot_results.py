@@ -20,22 +20,19 @@ import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this
 
 
 def main():
-    parser = PPU.CLIParser(prog='plot_results', description='Plot results for a scan.')
-    parser.add_arguments(['data_format', 'Amplitude', 'klat'])
-    parser.add_argument( "--krange", action="store", type=float, help="tip stiffenss range (min,max,n) [N/m]", nargs=3)
-    parser.add_argument( "-q",       action="store", type=float, help="tip charge [e]" )
-    parser.add_argument( "--qrange", action="store", type=float, help="tip charge range (min,max,n) [e]", nargs=3)
-    parser.add_argument( "--arange", action="store", type=float, help="oscilation amplitude range (min,max,n) [A]", nargs=3)
+
+    parser = PPU.CLIParser(description='Plot results for a scan.')
+    parser.add_arguments(['data_format', 'Amplitude', 'arange', 'klat', 'krange', 'charge', 'qrange'])
     parser.add_argument( "--iets",   action="store", type=float, help="mass [a.u.]; bias offset [eV]; peak width [eV] ", nargs=3 )
-    parser.add_argument( "-V","--Vbias",       action="store", type=float, help="Aplied field [eV/Ang]" )
+    parser.add_argument( "-V","--Vbias",       action="store", type=float, help="Applied field [eV/Ang]" )
     parser.add_argument( "--Vrange",  action="store", type=float, help="set of bias to perform the scan under", nargs=3)
     parser.add_argument( "--LCPD_maps", action="store_true", default=False, help="print LCPD maps")
     parser.add_argument("--z0", action="store",type=float, default=0.0 ,help="heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
     parser.add_argument("--V0", action="store",type=float, default=0.0 ,help="Empirical LCPD maxima shift due to mesoscopic workfunction diference")
 
-    parser.add_argument( "--df",       action="store_true", default=False,  help="plot images for dfz " )
+    parser.add_argument( "--df",       action="store_true", default=False, help="plot images for dfz " )
     parser.add_argument( "--save_df" , action="store_true", default=False, help="save frequency shift as df.xsf " )
-    parser.add_argument( "--Laplace",  action="store_true", default=False,  help="plot Laplace-filtered images and save them " )
+    parser.add_argument( "--Laplace",  action="store_true", default=False, help="plot Laplace-filtered images and save them " )
     parser.add_argument( "--pos",      action="store_true", default=False, help="save probe particle positions" )
     parser.add_argument( "--atoms",    action="store_true", default=False, help="plot atoms to images" )
     parser.add_argument( "--bonds",    action="store_true", default=False, help="plot bonds to images" )

@@ -14,7 +14,6 @@ from ppafm.defaults import d3
 def main():
 
     parser = PPU.CLIParser(
-        prog='generateDFTD3',
         description='Generate Grimme DFT-D3 vdW force field using the Becke-Johnson damping function. '
             'The generated force field is saved to FFvdW_{x,y,z}.[ext].'
     )
@@ -28,11 +27,6 @@ def main():
     parser.add_argument('--df_params', action='store', default=None, nargs=4, type=float, metavar=('s6', 's8', 'a1', 'a2'),
         help='Manually specify scaling parameters s6, s8, a1, a2. Overwrites --df_name.')
     args = parser.parse_args()
-
-    if args.input is None:
-        parser.print_help()
-        print('\nMissing input file (-i, --input)!\n')
-        sys.exit(1)
 
     try:
         # Try overwriting global parameters with params.ini file
