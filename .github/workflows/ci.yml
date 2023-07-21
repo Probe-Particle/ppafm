@@ -34,7 +34,11 @@ jobs:
                   path: ./*.png
 
     test-docker:
-        runs-on: ubuntu-latest
+        name: Build docker image on ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, windows-2022, macos-11]
 
         steps:
             - name: Check out repository
