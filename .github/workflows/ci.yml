@@ -34,7 +34,7 @@ jobs:
                   path: ./*.png
 
     test-docker:
-        name: Build docker image on ${{ matrix.os }}
+        name: Test docker image on ${{ matrix.os }}
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
