@@ -6,11 +6,9 @@ RUN apt-get update --yes &&                       \
     apt-get install --yes --no-install-recommends \
     build-essential                               \
     python3                                       \
-    python3-pip                                   \
-    python-is-python3 &&                          \
+    python-is-python3                             \
+    wget &&                                       \
     apt-get clean && rm -rf /var/lib/apt/lists/*
-
-RUN pip install --upgrade --user pip && pip cache purge
 
 RUN useradd -ms /bin/bash ppafm-user
 
@@ -20,10 +18,14 @@ RUN chown ppafm-user:ppafm-user /exec
 
 USER ppafm-user
 
+ENV PATH="${PATH}:/home/ppafm-user/.local/bin"
+
 WORKDIR /home/ppafm-user
 
-COPY ./ ppafm
+RUN wget --no-check-certificate https://bootstrap.pypa.io/get-pip.py && python get-pip.py
 
-RUN pip install ppafm/ && pip cache purge
+COPY --chown=ppafm-user:ppafm-user . ppafm
+
+RUN pip install --user ppafm/ && pip cache purge
 
 WORKDIR /exec
