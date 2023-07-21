@@ -18,10 +18,11 @@ RUN mkdir /exec
 
 RUN chown ppafm-user:ppafm-user /exec
 
-USER ppafm-user
-
 COPY ./ ppafm
 
 RUN pip install ppafm/ && pip cache purge
+
+USER ppafm-user
+
 
 WORKDIR /exec
