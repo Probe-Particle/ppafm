@@ -14,8 +14,6 @@ RUN wget --no-check-certificate https://bootstrap.pypa.io/get-pip.py && python g
 
 RUN mkdir /exec
 
-RUN useradd -ms /bin/bash ppafm-user
-
 COPY ./ ppafm
 
 RUN pip install ppafm/ && pip cache purge
