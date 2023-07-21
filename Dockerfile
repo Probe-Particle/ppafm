@@ -20,6 +20,8 @@ RUN chown ppafm-user:ppafm-user /exec
 
 USER ppafm-user
 
+WORKDIR /home/ppafm-user
+
 COPY ./ ppafm
 
 RUN pip install ppafm/ && pip cache purge
