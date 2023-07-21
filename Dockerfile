@@ -24,5 +24,4 @@ RUN pip install ppafm/ && pip cache purge
 
 USER ppafm-user
 
-
 WORKDIR /exec
