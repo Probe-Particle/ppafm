@@ -46,6 +46,7 @@ jobs:
             - name: Execute the container.
               run: |
                   cd examples/PTCDA_single/
+                  chmod 777 .
                   docker run --rm -v ${PWD}:/exec ppafm:latest ppafm-generate-ljff -i PTCDA.xyz
                   docker run --rm -v ${PWD}:/exec ppafm:latest ppafm-generate-elff-point-charges -i PTCDA.xyz --tip s
                   docker run --rm -v ${PWD}:/exec ppafm:latest ppafm-relaxed-scan -k 0.5 -q -0.10
