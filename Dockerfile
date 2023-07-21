@@ -10,21 +10,20 @@ RUN apt-get update --yes &&                       \
     python-is-python3 &&                          \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -ms /bin/bash ppafm-user
 
-RUN mkdir /exec && chown ppafm-user:ppafm-user /exec
-
-USER ppafm-user
-
-WORKDIR /home/ppafm-user
 
 RUN pip install --upgrade --user pip && pip cache purge
 
-COPY --chown=ppafm-user:ppafm-user ./ ppafm
+COPY ./ ppafm
 
-RUN pip install -e ppafm/ && pip cache purge
+RUN pip install ppafm/ && pip cache purge
 
+RUN useradd -ms /bin/bash ppafm-user
 
-ENV PATH="${PATH}:/home/ppafm-user/ppafm/"
+RUN mkdir /exec
+
+RUN chown ppafm-user:ppafm-user /exec
+
+USER ppafm-user
 
 WORKDIR /exec
