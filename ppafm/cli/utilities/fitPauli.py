@@ -6,6 +6,7 @@
 # https://doi.org/10.1021/acs.jpclett.2c03243
 # It will create new_xyz.xyz geometry file with each atom having its own number and
 # atomtypes.ini with fitted sizes and standard e0 parameters for L-J force-field.
+# !!! then adjust your params.ini with proper grid vectors !!!
 # after this use ppafm-generate-ljff -i new_xyz.xyz
 # It will automatically load the parameters. You can continue as usually
 # ppafm-gui not tested !
