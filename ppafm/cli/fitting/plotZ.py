@@ -93,7 +93,7 @@ for iq,Q in enumerate( Qs ):
 
         print(f"Working in {dirname} directory")
 
-        fzs,lvec,nDim,head=io.load_scal_field(dirname+'/OutFz', format=format)
+        fzs,lvec,nDim,atomic_info_or_head=io.load_scal_field(dirname+'/OutFz', format=format)
         dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=Amp/dz )
         for p in options.points:
             x=float(p.split('x')[0])
