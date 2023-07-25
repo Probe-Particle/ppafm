@@ -6,7 +6,7 @@
 # https://doi.org/10.1021/acs.jpclett.2c03243
 # It will create new_xyz.xyz geometry file with each atom having its own number and
 # atomtypes.ini with fitted sizes and standard e0 parameters for L-J force-field.
-# !!! then adjust your params.ini with proper grid vectors !!!
+# !!! then adjust your params.ini with proper grid vectors and use LETTER for specification of your PP !!!
 # after this use ppafm-generate-ljff -i new_xyz.xyz
 # It will automatically load the parameters. You can continue as usually
 # ppafm-gui not tested !
@@ -47,7 +47,6 @@ def getIsoArg( zs_, fs, iso=0.01, atom_z=0.0 ):
     ai = int((atom_z+options.height +0.1 - zs_[0]) // (zs_[1]-zs_[0]))
     zs = zs_ - atom_z
     i = np.searchsorted( -fs[zi:ai], -iso )
-    #i = np.searchsorted( fs[:160], iso , side='right') # Not working either way
     x0 = zs[zi+i-1]
     f0 = fs[zi+i-1]
     dx = (zs[zi+i] - x0 )
@@ -131,28 +130,13 @@ for i in ilist:
         f2.write(str(Riso)+' '+str(REAs[i][1])+' '+str(i+1)+' '+str(FFparams[iZs[i]-1][4].decode('UTF-8'))+str(i)+'\n')
     else: # ocl version of atomtypes.ini
         f2.write(str(Riso)+' '+str(REAs[i][1])+' '+str(alpha/2)+' '+str(i+1)+' '+str(FFparams[iZs[i]-1][4].decode('UTF-8'))+str(i)+'\n')
-    #plt.axvline(Riso)
-    #print " elem %i a_z %f Riso %f alpha %f alpha/2 %f" %( atoms_e[i], atoms_z[i], Riso, alpha, alpha/2.0 ), REAs[i]
     print(" elem %i a_z %f Riso %f " %( atoms_e[i], atoms_z[i], Riso ), REAs[i], FFparams[iZs[i] -1][4].decode('UTF-8'))
 
     REAs[i][0] = Riso
     REAs[i][2] = alpha/2.0
 
-    '''
-    zmid   = (zmin+zmax)*0.5
-    fmid   = np.interp( zmid, zs, fs )
-    fmorse = getMorse( zmid, R0=1.8, eps=0.03, alpha=-1.8, cpull=0.0)
-
-    dens2Pauli = fmorse/fmid
-    #A *= dens2Pauli
-    print " elem %i a_z %f alpha %f alpha/2 %f A  %f d2p %f " %( atoms_e[i], atoms_z[i], alpha, alpha*0.5, A, dens2Pauli )
-    '''
-    
     if options.not_plot:
-         plt.plot( zs - atoms_z[i], fs, label=("%i" %atoms_e[i])  )
-         #plt.plot( zs, A*np.exp( alpha*zs ) )
-         #plt.plot( zs, dens2Pauli*A*np.exp( alpha*zs ) )
-         #plt.plot( zs, getMorse(zs, R0=1.8, eps=0.03, alpha=-1.8, cpull=0.0) )
+        plt.plot( zs - atoms_z[i], fs, label=("%i" %atoms_e[i])  )
 
 number_of_original_elements = len(FFparams)
 print()
@@ -182,26 +166,8 @@ print(atoms.shape, REAs.shape)
 data =  np.concatenate( ( atoms[:,:4], REAs ), axis=1 )
 np.savetxt( "atom_REAs.xyz", data, header=("%i \n # e,xyz,REA" %len(data) ) )
 
-
-
-'''
-plt.figure()
-
-eps   =  0.030
-R0    =  3.6
-alpha = -1.8
-
-Vmorse = getMorse(zs, R0=R0, eps=eps, alpha=alpha)
-VLJ    = getLJ   (zs, R0=R0, eps=eps )
-
-plt.plot( zs, Vmorse )
-plt.plot( zs, VLJ )
-
-plt.xlim(0.0, 5.0)
-plt.ylim(-eps*1.2, eps)
-plt.axvline( eps, ls="--", c="k" ); plt.axhline( R0, ls="--", c="k" )
-plt.grid()
-'''
-
 if options.not_plot:
     plt.show()
+
+print("!!! Do not forget to adjust your params.ini with proper lattice vectors and use LETTER for a probeType !!!")
+print(" -- Fitting done -- BB")
