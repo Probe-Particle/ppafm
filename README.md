@@ -29,7 +29,7 @@ For more information, please consult the [dedicated page](https://github.com/Pro
 
 ## Graphical User Interface (GUI)
 The package comes with a convenient graphical user interface.
-Unlike CLI, this interface should be enabled during the installation.
+Unlike CLI, this interface needs to be explicitely enabled during the installation.
 To enable it, check the [dedicated section](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) on the [Install ppafm](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) wiki page.
 To know more about the GUI interface, please consult [PPAFM GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI) wiki page.
 
