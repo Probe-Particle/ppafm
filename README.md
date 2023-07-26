@@ -15,7 +15,7 @@ This should install the package and all its dependencies.
 
 The most up-to-date installation guide can be found on the [dedicated wiki page](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm).
 
-## CLI
+## Command line interface (CLI)
 
 Once `ppafm` is installed, a collection of command-line tools will become available to the user.
 Their names start with `ppafm-` preffix.
@@ -27,6 +27,11 @@ ppafm-generate-ljff -h
 
 For more information, please consult the [dedicated page](https://github.com/Probe-Particle/ppafm/wiki/Command-line-interface) on command line interface of `ppafm`.
 
+## Graphic User Interface (GUI)
+The package comes with a convenient graphical user interface.
+Unlike CLI, this interface should be enabled during the installation.
+To enable it, check the [dedicated section](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) on the [Install ppafm](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) wiki page.
+To know more about the GUI interface, please consult [PPAFM GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI) wiki page.
 
 ## Usage examples
 
@@ -44,8 +49,7 @@ Also, have a look at the `params.ini` file and [the wiki](https://github.com/Pro
 
 Once the simulation is finished, a number of files and folders will be created.
 
-### GUI
-See the wiki: [PPAFM GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI)
+
 
 ### Run GPU generator for machine learning
 
