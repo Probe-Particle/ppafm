@@ -27,7 +27,7 @@ ppafm-generate-ljff -h
 
 For more information, please consult the [dedicated page](https://github.com/Probe-Particle/ppafm/wiki/Command-line-interface) on command line interface of `ppafm`.
 
-## Graphic User Interface (GUI)
+## Graphical User Interface (GUI)
 The package comes with a convenient graphical user interface.
 Unlike CLI, this interface should be enabled during the installation.
 To enable it, check the [dedicated section](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) on the [Install ppafm](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) wiki page.
