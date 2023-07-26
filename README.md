@@ -17,7 +17,7 @@ The most up-to-date installation guide can be found on the [dedicated wiki page]
 
 ## CLI
 
-Once `ppafm` is installed, a collection of command-line tools will become available for the user.
+Once `ppafm` is installed, a collection of command-line tools will become available to the user.
 Their names start with `ppafm-` preffix.
 To get more information about a given tool, run it with `-h` option, e.g.:
 
@@ -64,7 +64,7 @@ Since 2014 PPM developed into the toolbox of various methodologies adjusted for 
    * GPU version is designed to work in collaboration with machine-learning software for AFM (https://github.com/SINGROUP/ASD-AFM) and use various generators of molecular geometry.
 3. **GUI @ GPU** - The speed of GPU implementation also allows to make interactive GUI where AFM images of molecules can be updated on the fly (<<0.1s) on a common laptop computer while the user is editing molecular geometry or parameters of the tip. This provides an invaluable tool especially to experimentalists trying to identify and interpret the structure and configuration of molecules in experiments on-the-fly while running the experiment.
 
-### Other branches
+## Other branches
 
 * **master_backup** - Old `master` branch was recently significantly updated and named `main`. For users who miss the old master branch, we provided a backup copy. However, this version is very old and its use is discouraged. If you miss some functionality or are not satisfied with the behavior of current `main` branch please let us know by creating an *issue*.
 * **PhotonMap** - implements the latest developments concerning sub-molecular scanning probe combined with Raman spectroscopy (TERS)y and fluorescent spectroscopy (LSTM).
@@ -79,10 +79,10 @@ If you would like to contribute to the development of the ppafm code, please rea
 - Wiki: https://github.com/Probe-Particle/ProbeParticleModel/wiki
 - Python API documentation: https://ppafm.readthedocs.io/en/latest/
 
-### Notable publications using Probe Particle Model
+## Notable publications using Probe Particle Model
 
 * [Prokop Hapala, Georgy Kichin, Christian Wagner, F. Stefan Tautz, Ruslan Temirov, and Pavel Jelínek, Mechanism of high-resolution STM/AFM imaging with functionalized tips, Phys. Rev. B 90, 085421 – Published 19 August 2014](http://journals.aps.org/prb/abstract/10.1103/PhysRevB.90.085421)
 * [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014,](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101)
 
-### License
+## License
 MIT
