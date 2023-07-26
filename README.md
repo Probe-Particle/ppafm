@@ -5,44 +5,28 @@ Simple and efficient **simulation software for high-resolution atomic force micr
 
 ## Installation
 
-To install the latest version of PPM, run:
+The standard way of installing `ppafm` is:
 
 ```bash
 $ pip install ppafm
 ```
 
 This should install the package and all its dependencies.
-Once the installation is completed, the following commands should be available:
 
-- `ppafm-generate-elff` - command-line interface to generate electrostatic force field.
-- `ppafm-generate-elff-point-charges` - command-line interface to generate electrostatic force field using point charges.
-- `ppafm-generate-ljff` - command-line interface to generate Lennard-Jones force field.
-- `ppafm-relaxed-scan` - command-line interface to run a scan of the sample with the probe particle.
-- `ppafm-plot-results` - command-line interface to plot the results of the simulation.
-- `ppafm-gui` - GUI application for interactive simulation of AFM images. Requires some additional dependencies, see below.
+The most complete installation guide can be found in the [dedicated wiki page](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm)
 
-Alternatives (Docker, Anaconda) and some notes on different platforms (Linux, MacOS, Windows) can be found on the wiki: [Additional installation instructions](https://github.com/Probe-Particle/ppafm/wiki/Additional-installation-instructions)
+## CLI
 
-### Install GPU GUI
-The `ppafm-gui` application requires some additional dependencies. These dependencies should be installed automatically when you install the `ppafm` package with the `opencl` option:
+Once `ppafm` is installed, a collection of command-line tools will become available for the user.
+Their names start with `ppafm-` preffix.
+To get more information about a given tool, run it with `-h` option, e.g.:
 
 ```bash
-$ pip install ppafm[opencl]
+ppafm-generate-ljff -h
 ```
 
-On Linux systems (tested on Ubuntu) you need to additionally install PyQt5 on your system
+For more information, please consult the [dedicated page](https://github.com/Probe-Particle/ppafm/wiki/Command-line-interface) on command line interface of `ppafm`.
 
-```bash
-$ sudo apt install python3-pyqt5
-```
-
-Additionally, an OpenCL Installable Client Driver (ICD) for your compute device is required. On Ubuntu:
-* Nvidia GPU: comes with the standard Nvidia driver (nvidia-driver-xxx)
-* AMD GPU: `sudo apt install mesa-opencl-icd` (May not work on all AMD devices, see the [Pro drivers](https://www.amd.com/en/support/kb/faq/amdgpu-installation))
-* Intel HD Graphics: `sudo apt install intel-opencl-icd`
-* CPU: `sudo apt install pocl-opencl-icd`
-
-See additional instructions on the wiki: [PPAFM GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI)
 
 ## Usage examples
 
