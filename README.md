@@ -13,7 +13,7 @@ $ pip install ppafm
 
 This should install the package and all its dependencies.
 
-The most complete installation guide can be found in the [dedicated wiki page](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm)
+The most up-to-date installation guide can be found on the [dedicated wiki page](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm).
 
 ## CLI
 
