@@ -5,44 +5,33 @@ Simple and efficient **simulation software for high-resolution atomic force micr
 
 ## Installation
 
-To install the latest version of PPM, run:
+The standard way of installing `ppafm` is:
 
 ```bash
 $ pip install ppafm
 ```
 
 This should install the package and all its dependencies.
-Once the installation is completed, the following commands should be available:
 
-- `ppafm-generate-elff` - command-line interface to generate electrostatic force field.
-- `ppafm-generate-elff-point-charges` - command-line interface to generate electrostatic force field using point charges.
-- `ppafm-generate-ljff` - command-line interface to generate Lennard-Jones force field.
-- `ppafm-relaxed-scan` - command-line interface to run a scan of the sample with the probe particle.
-- `ppafm-plot-results` - command-line interface to plot the results of the simulation.
-- `ppafm-gui` - GUI application for interactive simulation of AFM images. Requires some additional dependencies, see below.
+The most up-to-date installation guide can be found on the [dedicated wiki page](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm).
 
-Alternatives (Docker, Anaconda) and some notes on different platforms (Linux, MacOS, Windows) can be found on the wiki: [Additional installation instructions](https://github.com/Probe-Particle/ppafm/wiki/Additional-installation-instructions)
+## Command line interface (CLI)
 
-### Install GPU GUI
-The `ppafm-gui` application requires some additional dependencies. These dependencies should be installed automatically when you install the `ppafm` package with the `opencl` option:
+Once `ppafm` is installed, a collection of command-line tools will become available to the user.
+Their names start with `ppafm-` preffix.
+To get more information about a given tool, run it with `-h` option, e.g.:
 
 ```bash
-$ pip install ppafm[opencl]
+ppafm-generate-ljff -h
 ```
 
-On Linux systems (tested on Ubuntu) you need to additionally install PyQt5 on your system
+For more information, please consult the [dedicated page](https://github.com/Probe-Particle/ppafm/wiki/Command-line-interface) on command line interface of `ppafm`.
 
-```bash
-$ sudo apt install python3-pyqt5
-```
-
-Additionally, an OpenCL Installable Client Driver (ICD) for your compute device is required. On Ubuntu:
-* Nvidia GPU: comes with the standard Nvidia driver (nvidia-driver-xxx)
-* AMD GPU: `sudo apt install mesa-opencl-icd` (May not work on all AMD devices, see the [Pro drivers](https://www.amd.com/en/support/kb/faq/amdgpu-installation))
-* Intel HD Graphics: `sudo apt install intel-opencl-icd`
-* CPU: `sudo apt install pocl-opencl-icd`
-
-See additional instructions on the wiki: [PPAFM GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI)
+## Graphical User Interface (GUI)
+The package comes with a convenient graphical user interface.
+Unlike CLI, this interface needs to be explicitly enabled during the installation.
+To enable it, check the [dedicated section](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) on the [Install ppafm](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) wiki page.
+To know more about the GUI interface, please consult [PPAFM GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI) wiki page.
 
 ## Usage examples
 
@@ -60,8 +49,7 @@ Also, have a look at the `params.ini` file and [the wiki](https://github.com/Pro
 
 Once the simulation is finished, a number of files and folders will be created.
 
-### GUI
-See the wiki: [PPAFM GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI)
+
 
 ### Run GPU generator for machine learning
 
@@ -80,7 +68,7 @@ Since 2014 PPM developed into the toolbox of various methodologies adjusted for 
    * GPU version is designed to work in collaboration with machine-learning software for AFM (https://github.com/SINGROUP/ASD-AFM) and use various generators of molecular geometry.
 3. **GUI @ GPU** - The speed of GPU implementation also allows to make interactive GUI where AFM images of molecules can be updated on the fly (<<0.1s) on a common laptop computer while the user is editing molecular geometry or parameters of the tip. This provides an invaluable tool especially to experimentalists trying to identify and interpret the structure and configuration of molecules in experiments on-the-fly while running the experiment.
 
-### Other branches
+## Other branches
 
 * **master_backup** - Old `master` branch was recently significantly updated and named `main`. For users who miss the old master branch, we provided a backup copy. However, this version is very old and its use is discouraged. If you miss some functionality or are not satisfied with the behavior of current `main` branch please let us know by creating an *issue*.
 * **PhotonMap** - implements the latest developments concerning sub-molecular scanning probe combined with Raman spectroscopy (TERS)y and fluorescent spectroscopy (LSTM).
@@ -95,10 +83,10 @@ If you would like to contribute to the development of the ppafm code, please rea
 - Wiki: https://github.com/Probe-Particle/ProbeParticleModel/wiki
 - Python API documentation: https://ppafm.readthedocs.io/en/latest/
 
-### Notable publications using Probe Particle Model
+## Notable publications using Probe Particle Model
 
 * [Prokop Hapala, Georgy Kichin, Christian Wagner, F. Stefan Tautz, Ruslan Temirov, and Pavel Jelínek, Mechanism of high-resolution STM/AFM imaging with functionalized tips, Phys. Rev. B 90, 085421 – Published 19 August 2014](http://journals.aps.org/prb/abstract/10.1103/PhysRevB.90.085421)
 * [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014,](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101)
 
-### License
+## License
 MIT
