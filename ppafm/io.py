@@ -2,7 +2,6 @@
 
 import os
 import re
-import sys
 
 import numpy as np
 
@@ -131,7 +130,7 @@ def loadGeometryIN(fname):
                     Zs.append(elements.ELEMENT_DICT[ws[4]][0])
                 elif (ws[0] == 'trust_radius'):
                     break
-                    
+
     xyzs = np.array(xyzs)
     Zs = np.array(Zs, dtype=np.int32)
     if (lvec != []):
@@ -403,7 +402,10 @@ def loadGeometry(fname=None,format=None,params=None):
         atoms, nDim, lvec = loadGeometryIN(fname)
     #TODO: introduce a function which reads the geometry from the .npy file
     else:
-        sys.exit("ERROR!!! Unknown format of geometry system. Supported formats are: .xyz, .cube, .xsf \n\n")
+        if(format is None):
+            raise ValueError ('ERROR!!! Input geometry format was neither specified nor could it be determined automatically.')
+        else:
+            raise ValueError ('ERROR!!! Unknown format %s of input geometry.' % (format))
     return atoms,nDim,lvec
 
 def parseLvecASE(comment):

@@ -67,7 +67,7 @@ def main():
     V=None
     geometry_format = options.format
     if(options.format == None):
-        if options.input..lower().endswith(".cube"):
+        if options.input.lower().endswith(".cube"):
             geometry_format = "cube"
         elif options.input.lower().endswith(".xsf"):
             geometry_format = "xsf"
@@ -81,6 +81,9 @@ def main():
         print(" loading Hartree potential from ",options.input,"...")
         print("Use loadCUBE")
         V, lvec, nDim, head = io.loadCUBE(options.input)
+    else:
+        raise ValueError("ERORR!!! Unknown or unsupported input format\n"+HELP_MESSAGE)
+
     V *= -1 # Unit conversion, energy to potential (eV -> V)
 
     if PPU.params['tip']==".py":
