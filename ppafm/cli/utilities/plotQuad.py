@@ -32,7 +32,7 @@ cmap  = plt.get_cmap('jet_r')
 isz = (200,130)
 
 #print "DEBUG 1 "
-F,lvec,nDim=io.load_scal_field(options.i,data_format=options.data_format)
+F,lvec,nDim,atomic_info_or_head = io.load_scal_field(options.i,data_format=options.data_format)
 GU.setGridN( np.array( nDim, dtype='int32' ) )
 print("nDim ", nDim)
 Fquad = GU.interpolateQuad( F, points[0], points[1], points[2], points[3], sz=isz )  # grid coord

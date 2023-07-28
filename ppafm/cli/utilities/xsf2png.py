@@ -60,7 +60,7 @@ if options.npy:
 else:
     data_format = "xsf"
 
-data,lvec,nDim=io.load_scal_field( options.i ,data_format=data_format)
+data,lvec,nDim,atomic_info_or_head = io.load_scal_field( options.i ,data_format=data_format)
 #print lvec
 #print nDim
 

@@ -32,3 +32,25 @@ jobs:
               with:
                   name: test-images
                   path: ./*.png
+
+    test-docker:
+        name: Test docker image on ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest] # Further: test docker builds on different OS
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v2
+
+            - name: Build a Docker image
+              run: docker build -t ppafm:latest .
+
+            - name: Execute the container.
+              run: |
+                  cd examples/PTCDA_single/
+                  docker run --rm -v ${PWD}:/exec ppafm:latest ppafm-generate-ljff -i PTCDA.xyz
+                  docker run --rm -v ${PWD}:/exec ppafm:latest ppafm-generate-elff-point-charges -i PTCDA.xyz --tip s
+                  docker run --rm -v ${PWD}:/exec ppafm:latest ppafm-relaxed-scan -k 0.5 -q -0.10
+                  docker run --rm -v ${PWD}:/exec ppafm:latest ppafm-plot-results -k 0.5 -q -0.10 --arange 0.5 2.0 2 --df

@@ -122,7 +122,7 @@ dirname = f"Q{Q:1.2f}K{K:1.2f}"
 
 print(f"Working in {dirname} directory")
 
-fzs, lvec, nDim = io.load_scal_field(
+fzs, lvec, nDim, atomic_info_or_head = io.load_scal_field(
     dirname + "/OutFz", data_format=options.data_format
 )
 dfs = PPU.Fz2df(
@@ -140,7 +140,7 @@ for p in options.points:
     print(opt_dict["disp"])
     if opt_dict["disp"]:
         print("Displacment {}".format(opt_dict["disp"][0]))
-        disp_all, lvec, nDim, head = io.load_vec_field(dirname + "/PPdisp_")
+        disp_all, lvec, nDim, atomic_info_or_head = io.load_vec_field(dirname + "/PPdisp_")
         disp_x, disp_y, disp_z = io.unpackVecGrid(disp_all)
         del disp_all
         if opt_dict["disp"][0] == "x":
