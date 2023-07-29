@@ -16,8 +16,7 @@ def main():
             'The generated force field is saved to FFLJ_{x,y,z}.[ext].'
     )
 
-    parser.add_arguments(['input', 'data_format', 'noPBC', 'energy'])
-    parser.add_argument("--ffModel", action="store", default='LJ', help="Kind of potential to generate ('LJ','Morse','vdW')")
+    parser.add_arguments(['input', 'data_format', 'ffModel', 'energy', 'noPBC'])
     args = parser.parse_args()
 
     try:

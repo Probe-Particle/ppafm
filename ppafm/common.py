@@ -120,6 +120,11 @@ class CLIParser(ArgumentParser):
             'default'   : -1.0,
             'help'      : 'Exponent B in the density overlap integral. Negative value is equivalent to B=1.'
         },
+        'ffModel': {
+            'action'    : 'store',
+            'default'   : 'LJ',
+            'help'      : "Force field model ('LJ','Morse','vdW')"
+        },
     }
     _extra_args = {
         'input': {
@@ -375,17 +380,15 @@ def loadParams( fname ):
 def apply_options(opt):
     if(verbose>0): print("!!!! OVERRIDE params !!!! in Apply options:")
     if(verbose>0): print(opt)
-    for key,value in opt.items():
-        if opt[key] is None:
+    for key, value in opt.items():
+        if value is None:
             continue
-        try:
-            x=params[key]     # to make sure that such a key exists in the list. If not it will be skipped
-            params[key]=value
-            if key in ['klat', 'krange']:
-                params['stiffness'] = np.array( [ -1.0, -1.0, -1.0] ) # klat and krange override stiffness
-            if(verbose>0): print(key,value," applied")
-        except:
-            pass
+        if key in params:
+            params[key] = value
+            if key == 'klat' and params['stiffness'][0] > 0.0:
+                print('Overriding stiffness parameter with klat')
+                params['stiffness'] = np.array( [ -1.0, -1.0, -1.0] ) # klat overrides stiffness
+            if(verbose>0): print(f'Applied: {key} = {value}')
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
 def loadSpecies( fname=None ):
