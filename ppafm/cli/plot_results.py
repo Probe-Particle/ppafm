@@ -59,7 +59,6 @@ def main():
         Ks = [ PPU.params['klat']]
     # Qs
     if opt_dict['qrange'] is not None:
-        #print( " opt_dict['qrange'] ", opt_dict['qrange'], int(opt_dict['qrange'][2])  )
         Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], int(opt_dict['qrange'][2]) )
     elif opt_dict['charge'] is not None:
         Qs = [ opt_dict['charge'] ]
@@ -72,8 +71,8 @@ def main():
         Amps = [ opt_dict['Amplitude'] ]
     else:
         Amps = [ PPU.params['Amplitude'] ]
-        #activate the aplied bias
-    aplied_bias=False
+    # Applied biases
+    bias_applied = False
     if opt_dict['Vrange'] is not None:
         Vs = np.linspace( opt_dict['Vrange'][0], opt_dict['Vrange'][1], int(opt_dict['Vrange'][2]) )
     elif opt_dict['Vbias'] is not None:
@@ -82,9 +81,9 @@ def main():
         Vs = [0.0]
     for iV,Vx in enumerate(Vs):
         if ( abs(Vx) > 1e-7):
-            aplied_bias=True
+            bias_applied=True
 
-    if (aplied_bias == True):
+    if (bias_applied == True):
         print("Vs   =", Vs)
     print("Ks   =", Ks)
     print("Qs   =", Qs)
@@ -107,17 +106,14 @@ def main():
         atoms_str="_atoms"
         xyzs, Zs, qs, _ = io.loadXYZ('input_plot.xyz')
         atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
-        #print "atoms ", atoms
         FFparams            = PPU.loadSpecies( )
-        elem_dict           = PPU.getFFdict(FFparams);  #print "elem_dict ", elem_dict
+        elem_dict           = PPU.getFFdict(FFparams)
         iZs,Rs,Qs_tmp=PPU.parseAtoms(atoms, elem_dict, autogeom = False, PBC = PPU.params['PBC'] )
         atom_colors = au.getAtomColors(iZs,FFparams=FFparams)
         Rs=Rs.transpose().copy()
         atoms= [iZs,Rs[0],Rs[1],Rs[2],atom_colors]
-        #print "atom_colors: ", atom_colors
     if opt_dict['bonds']:
         bonds = au.findBonds(atoms,iZs,1.0,FFparams=FFparams)
-        #print "bonds ", bonds
     atomSize = 0.15
 
     cbar_str =""
@@ -128,7 +124,7 @@ def main():
         for ik,K in enumerate( Ks ):
             dirname = "Q%1.2fK%1.2f" %(Q,K)
             for iv,Vx in enumerate( Vs ):
-                if aplied_bias:
+                if bias_applied:
                     dirname = "Q%1.2fK%1.2fV%1.2f" %(Q,K,Vx)
                 if opt_dict['pos']:
                     try:
@@ -164,6 +160,7 @@ def main():
                 if (  opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM']  ):
                     try :
                         for iA,Amp in enumerate( Amps ):
+                            PPU.params['Amplitude'] = Amp
                             AmpStr = "/Amp%2.2f" %Amp
                             print("Amp= ",AmpStr)
                             dirNameAmp = dirname+AmpStr
@@ -174,7 +171,7 @@ def main():
                                 dfs = PPU.Fz2df_tilt( Fout, PPU.params['scanTilt'], k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
                             else:
                                 fzs, lvec, nDim , atomic_info_or_head = io.load_scal_field(dirname+'/OutFz' , data_format=args.data_format)
-                                if (aplied_bias):
+                                if (bias_applied):
                                     Rtip = PPU.params['Rtip']
                                     for iz,z in enumerate( zTips ):
                                         fzs[iz,:,:] = fzs[iz,:,:] - np.pi*PPU.params['permit']*((Rtip*Rtip)/((z-args.z0)*(z+Rtip)))*(Vx-args.V0)*(Vx-args.V0)
