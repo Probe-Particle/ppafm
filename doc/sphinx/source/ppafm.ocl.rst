@@ -9,10 +9,10 @@ Submodules
 ppafm.ocl.AFMulator module
 ------------------------------------
 
-.. autoclass:: ppafm.ocl.AFMulator.AFMulator
-   :members: __call__, eval, setLvec, setScanWindow, setRho, setQs, prepareFF, prepareScanner, evalAFM
+.. automodule:: ppafm.ocl.AFMulator
+   :members:
+   :undoc-members:
    :show-inheritance:
-.. autofunction:: ppafm.ocl.AFMulator.quick_afm
 
 ppafm.ocl.field module
 --------------------------------

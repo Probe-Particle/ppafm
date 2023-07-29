@@ -21,11 +21,11 @@ parser.add_option( "--plot", action="store_false"        ,   help="plot extracte
 
 fname, fext = os.path.splitext( options.i ); fext = fext[1:]
 
-atoms,nDim,lvec     = io.loadGeometry( options.i, params=PPU.params )
+atoms,nDim,lvec = io.loadGeometry( options.i, params=PPU.params )
 GU.lib.setGridN   ( np.array( nDim[::-1], dtype=np.int32 )   )
 GU.lib.setGridCell( np.array( lvec[1:],   dtype=np.float64 ) )
 
-F,lvec,nDim=io.load_scal_field(fname,data_format=fext)
+F,lvec,nDim,atomic_info_or_head = io.load_scal_field(fname,data_format=fext)
 
 #zs = np.linspace( 0, lvec[3,2], nDim[0] )
 zs = np.arange( options.zmin, options.zmax if options.zmax > 0.0 else lvec[3,2], options.dz if options.dz > 0.0 else lvec[3,2]/nDim[0] )

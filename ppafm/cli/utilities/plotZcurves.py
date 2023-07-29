@@ -23,7 +23,7 @@ except:
 	print(options.p+" not found => exiting ...")
 	sys.exit()
 
-fzs,lvec,nDim=io.load_scal_field(options.i,data_format=options.data_format)
+fzs,lvec,nDim,atomic_info_or_head = io.load_scal_field(options.i,data_format=options.data_format)
 xs = np.linspace( 0, lvec[3,2], nDim[0] )
 
 print(xs)
