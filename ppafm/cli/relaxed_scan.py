@@ -31,7 +31,7 @@ def main():
             'The generated force field is saved to Q{charge}K{klat}/OutFz.xsf.'
     )
 
-    parser.add_arguments(['klat', 'krange', 'charge', 'qrange', 'data_format'])
+    parser.add_arguments(['klat', 'krange', 'charge', 'qrange', 'Vbias', 'Vrange', 'data_format'])
     parser.add_argument("-b", "--boltzmann", action="store_true", default=False, help="Calculate forces with boltzmann particle" )
     parser.add_argument("--bI" , action="store_true", default=False, help="Calculate current between boltzmann particle and tip" )
     parser.add_argument("--pos", action="store_true", default=False, help="Save probe particle positions" )
@@ -39,8 +39,6 @@ def main():
     parser.add_argument("--vib", action="store", type=int, default=-1, help="Map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs")
     parser.add_argument("--tipspline", action="store", type=str, help="File where spline is stored")
     parser.add_argument("--rotate", action="store", type=float, default=0.0, help="Rotates sampling in xy-plane")
-    parser.add_argument("-V","--Vbias", action="store", type=float, help="Applied bias [V]")
-    parser.add_argument("--Vrange", action="store", type=float, help="Bias range [V]", nargs=3 )
     parser.add_argument("--pol_t", action="store", type=float, default=1.0, help="Scaling factor for tip polarization")
     parser.add_argument("--pol_s", action="store", type=float, default=1.0, help="Scaling factor for sample polarization")
     args = parser.parse_args()

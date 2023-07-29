@@ -17,7 +17,7 @@ def main():
     )
 
     parser.add_arguments(['input', 'data_format', 'noPBC', 'energy'])
-    parser.add_argument("--ffModel", action="store", help="Kind of potential to generate ('LJ','Morse','vdW')", default='LJ')
+    parser.add_argument("--ffModel", action="store", default='LJ', help="Kind of potential to generate ('LJ','Morse','vdW')")
     args = parser.parse_args()
 
     try:

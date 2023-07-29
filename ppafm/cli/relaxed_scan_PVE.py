@@ -28,26 +28,23 @@ def rotFF( Fx,Fy, a ):
 # =============== arguments definition
 
 if __name__=="__main__":
-    from optparse import OptionParser
-    parser = OptionParser()
-    parser.add_option( "-k", "--klat",  action="store", type="float", help="tip stiffenss [N/m]" )
-    parser.add_option( "--krange", action="store", type="float", help="tip stiffenss range (min,max,n) [N/m]", nargs=3)
-    parser.add_option( "-q","--charge",       action="store", type="float", help="tip charge  [e]" )
-    parser.add_option( "--Apauli",  default=PPU.params["Apauli"],    action="store", type="float", help="FFpauli scaling; i.e. prefactor A in formula E = A*Integral( rho_tip^B * rho_sample^B ) " )
-    parser.add_option( "--qrange", action="store", type="float", help="tip charge range (min,max,n) [e]", nargs=3)
-    parser.add_option( "-b", "--boltzmann" ,action="store_true", default=False, help="calculate forces with boltzmann particle" )
-    parser.add_option( "--bI" ,action="store_true", default=False, help="calculate current between boltzmann particle and tip" )
-    parser.add_option( "--bDebugFFtot" ,action="store_true", default=False, help="store total Force-Field for debuging" )
-    parser.add_option( "--pos",       action="store_true", default=False, help="save probe particle positions" )
-    parser.add_option( "--disp",      action="store_true", default=False, help="save probe particle displacements")
-    parser.add_option( "--vib",       action="store", type="int", default=-1, help="map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs" )
-    parser.add_option( "--tipspline", action="store", type="string", help="file where spline is stored", default=None )
-    parser.add_option( "--rotate", action="store", type="float", help="rotates sampling in xy-plane", default=0.0 )
-    parser.add_option("-f","--data_format" , action="store" , type="string",help="Specify the input/output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
-    parser.add_option( "-V","--Vbias",       action="store", type="float", help="Aplied bias [V]" )
-    parser.add_option( "--Vrange",       action="store", type="float", help="Bias range [V]", nargs=3 )
-    parser.add_option( "--pol_t", action="store", type="float", default=1.0, help="scaling factor for tip polarization")
-    parser.add_option( "--pol_s", action="store", type="float", default=1.0, help="scaling factor for sample polarization")
+
+    parser = PPU.CLIParser(
+        description='Perform a scan, relaxing the probe particle in a precalculated force field using the full-density based model, where '
+            'the force field is divided into (P)auli (V)dW and (E)lectrostatic components. The output is saved to Q{charge}K{klat}/OutFz.xsf.'
+    )
+
+    parser.add_arguments(['klat', 'krange', 'charge', 'qrange', 'Vbias', 'Vrange', 'Apauli', 'data_format'])
+    parser.add_argument( "-b", "--boltzmann" ,action="store_true", default=False, help="calculate forces with boltzmann particle" )
+    parser.add_argument( "--bI" ,action="store_true", default=False, help="calculate current between boltzmann particle and tip" )
+    parser.add_argument( "--bDebugFFtot" ,action="store_true", default=False, help="store total Force-Field for debuging" )
+    parser.add_argument( "--pos",       action="store_true", default=False, help="save probe particle positions" )
+    parser.add_argument( "--disp",      action="store_true", default=False, help="save probe particle displacements")
+    parser.add_argument( "--vib",       action="store", type="int", default=-1, help="map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs" )
+    parser.add_argument( "--tipspline", action="store", type="string", help="file where spline is stored", default=None )
+    parser.add_argument( "--rotate", action="store", type="float", help="rotates sampling in xy-plane", default=0.0 )
+    parser.add_argument( "--pol_t", action="store", type="float", default=1.0, help="scaling factor for tip polarization")
+    parser.add_argument( "--pol_s", action="store", type="float", default=1.0, help="scaling factor for sample polarization")
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
     PPU.loadParams( 'params.ini' )

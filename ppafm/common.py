@@ -58,7 +58,6 @@ params={
     'tip_base':  np.array( ['None', 0.00 ]),
     'Rtip'         :  30.0,
     'permit'       :  0.00552634959,
-    'Vrange':   0.0,
     'vdWDampKind' : 2,
     '#' : None
 }
@@ -106,7 +105,21 @@ class CLIParser(ArgumentParser):
             'action'    : 'store',
             'type'      : float,
             'help'      : 'Gaussian width for convolution in Electrostatics [Å]'
-        }
+        },
+        'Apauli': {
+            'short_name': '-A',
+            'action'    : 'store',
+            'type'      : float,
+            'default'   : 1.0,
+            'help'      : 'Prefactor A in the density overlap integral.'
+        },
+        'Bpauli': {
+            'short_name': '-B',
+            'action'    : 'store',
+            'type'      : float,
+            'default'   : -1.0,
+            'help'      : 'Exponent B in the density overlap integral. Negative value is equivalent to B=1.'
+        },
     }
     _extra_args = {
         'input': {
@@ -153,7 +166,20 @@ class CLIParser(ArgumentParser):
             'nargs'     : 3,
             'metavar'   : ('A_min', 'A_max', 'n_A'),
             'help'      : 'Do scan for a range of amplitudes. Overrides --Amplitude.'
-        }
+        },
+        'Vbias': {
+            'short_name': '-V',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Applied bias voltage [V].'
+        },
+        'Vrange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('V_min', 'V_max', 'n_V'),
+            'help'      : 'Do scan for a range of voltages. Overrides --Vbias.'
+        },
     }
 
     def _check_params_args(self):
@@ -183,7 +209,7 @@ class CLIParser(ArgumentParser):
             if 'help' not in arg_dict:
                 raise ValueError(f'No help message defined for `{name}`')
             if 'short_name' in arg_dict:
-                arg_names = [f'--{name}', arg_dict['short_name']]
+                arg_names = [arg_dict['short_name'], f'--{name}']
                 del arg_dict['short_name']
             else:
                 arg_names = [f'--{name}']

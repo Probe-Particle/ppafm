@@ -16,33 +16,30 @@ from ppafm import elements, io
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
 
-
-
-
 def main():
 
-    parser = PPU.CLIParser(description='Plot results for a scan.')
-    parser.add_arguments(['data_format', 'Amplitude', 'arange', 'klat', 'krange', 'charge', 'qrange'])
-    parser.add_argument( "--iets",   action="store", type=float, help="mass [a.u.]; bias offset [eV]; peak width [eV] ", nargs=3 )
-    parser.add_argument( "-V","--Vbias",       action="store", type=float, help="Applied field [eV/Ang]" )
-    parser.add_argument( "--Vrange",  action="store", type=float, help="set of bias to perform the scan under", nargs=3)
-    parser.add_argument( "--LCPD_maps", action="store_true", default=False, help="print LCPD maps")
-    parser.add_argument("--z0", action="store",type=float, default=0.0 ,help="heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
-    parser.add_argument("--V0", action="store",type=float, default=0.0 ,help="Empirical LCPD maxima shift due to mesoscopic workfunction diference")
+    parser = PPU.CLIParser(
+        description='Plot results for a scan with a specified charge, amplitude, and spring constant. '
+            'Images are saved in folder Q{charge}K{klat}/Amp{Amplitude}.'
+    )
+    parser.add_arguments(['data_format', 'Amplitude', 'arange', 'klat', 'krange', 'charge', 'qrange', 'Vbias', 'Vrange', 'noPBC'])
+    parser.add_argument( "--iets", action="store", type=float, help="Mass [a.u.]; Bias offset [eV]; Peak width [eV] ", nargs=3 )
+    parser.add_argument( "--LCPD_maps", action="store_true", help="Print LCPD maps")
+    parser.add_argument("--z0", action="store", type=float, default=0.0, help="Height of the topmost layer of metallic substrate for E to V conversion (Ang)")
+    parser.add_argument("--V0", action="store", type=float, default=0.0, help="Empirical LCPD maxima shift due to mesoscopic workfunction diference")
 
-    parser.add_argument( "--df",       action="store_true", default=False, help="plot images for dfz " )
-    parser.add_argument( "--save_df" , action="store_true", default=False, help="save frequency shift as df.xsf " )
-    parser.add_argument( "--Laplace",  action="store_true", default=False, help="plot Laplace-filtered images and save them " )
-    parser.add_argument( "--pos",      action="store_true", default=False, help="save probe particle positions" )
-    parser.add_argument( "--atoms",    action="store_true", default=False, help="plot atoms to images" )
-    parser.add_argument( "--bonds",    action="store_true", default=False, help="plot bonds to images" )
-    parser.add_argument( "--cbar",     action="store_true", default=False, help="plot bonds to images" )
-    parser.add_argument( "--WSxM",     action="store_true", default=False, help="save frequency shift into WsXM *.dat files" )
-    parser.add_argument( "--bI",       action="store_true", default=False, help="plot images for Boltzmann current" )
+    parser.add_argument( "--df",       action="store_true", help="Plot images for dfz " )
+    parser.add_argument( "--save_df" , action="store_true", help="Save frequency shift as df.xsf " )
+    parser.add_argument( "--Laplace",  action="store_true", help="Plot Laplace-filtered images and save them " )
+    parser.add_argument( "--pos",      action="store_true", help="Save probe particle positions" )
+    parser.add_argument( "--atoms",    action="store_true", help="Plot atoms to images" )
+    parser.add_argument( "--bonds",    action="store_true", help="Plot bonds to images" )
+    parser.add_argument( "--cbar",     action="store_true", help="Plot colorbars to images" )
+    parser.add_argument( "--WSxM",     action="store_true", help="Save frequency shift into WsXM *.dat files" )
+    parser.add_argument( "--bI",       action="store_true", help="Plot images for Boltzmann current" )
 
-    parser.add_argument( "--noPBC", action="store_false",  help="pbc False", dest="PBC",default=None)
-    (options, args) = parser.parse_args()
-    opt_dict = vars(options)
+    args = parser.parse_args()
+    opt_dict = vars(args)
 
     PPU.loadParams( 'params.ini' )
     PPU.apply_options(opt_dict)
@@ -135,7 +132,7 @@ def main():
                     dirname = "Q%1.2fK%1.2fV%1.2f" %(Q,K,Vx)
                 if opt_dict['pos']:
                     try:
-                        PPpos, lvec, nDim , atomic_info_or_head = io.load_vec_field(dirname+'/PPpos' ,data_format=options.data_format)
+                        PPpos, lvec, nDim , atomic_info_or_head = io.load_vec_field(dirname+'/PPpos' ,data_format=args.data_format)
                         print(" plotting PPpos : ")
                         PPPlot.plotDistortions(
                             dirname+"/xy"+atoms_str+cbar_str, PPpos[:,:,:,0], PPpos[:,:,:,1], slices = list(range( 0, len(PPpos))), BG=PPpos[:,:,:,2],
@@ -144,10 +141,10 @@ def main():
                         del PPpos
                     except:
                         print("error: ", sys.exc_info())
-                        print("cannot load : " + ( dirname+'/PPpos_?.' + options.data_format ))
+                        print("cannot load : " + ( dirname+'/PPpos_?.' + args.data_format ))
                 if opt_dict['iets'] is not None:
                     try :
-                        eigvalK, lvec, nDim = io.load_vec_field( dirname+'/eigvalKs' ,data_format=options.data_format)
+                        eigvalK, lvec, nDim = io.load_vec_field( dirname+'/eigvalKs' ,data_format=args.data_format)
                         M  = opt_dict['iets'][0]
                         E0 = opt_dict['iets'][1]
                         w  = opt_dict['iets'][2]
@@ -163,7 +160,7 @@ def main():
                         del eigvalK; del Evib; del IETS
                     except:
                         print("error: ", sys.exc_info())
-                        print("cannot load : ", dirname+'/PPpos_?.' + options.data_format)
+                        print("cannot load : ", dirname+'/PPpos_?.' + args.data_format)
                 if (  opt_dict['df'] or opt_dict['save_df'] or opt_dict['WSxM']  ):
                     try :
                         for iA,Amp in enumerate( Amps ):
@@ -173,17 +170,17 @@ def main():
                             if not os.path.exists( dirNameAmp ):
                                 os.makedirs( dirNameAmp )
                             if PPU.params['tiltedScan']:
-                                Fout, lvec, nDim , atomic_info_or_head = io.load_vec_field(dirname+'/OutF' , data_format=options.data_format)
+                                Fout, lvec, nDim , atomic_info_or_head = io.load_vec_field(dirname+'/OutF' , data_format=args.data_format)
                                 dfs = PPU.Fz2df_tilt( Fout, PPU.params['scanTilt'], k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
                             else:
-                                fzs, lvec, nDim , atomic_info_or_head = io.load_scal_field(dirname+'/OutFz' , data_format=options.data_format)
+                                fzs, lvec, nDim , atomic_info_or_head = io.load_scal_field(dirname+'/OutFz' , data_format=args.data_format)
                                 if (aplied_bias):
                                     Rtip = PPU.params['Rtip']
                                     for iz,z in enumerate( zTips ):
-                                        fzs[iz,:,:] = fzs[iz,:,:] - np.pi*PPU.params['permit']*((Rtip*Rtip)/((z-options.z0)*(z+Rtip)))*(Vx-options.V0)*(Vx-options.V0)
+                                        fzs[iz,:,:] = fzs[iz,:,:] - np.pi*PPU.params['permit']*((Rtip*Rtip)/((z-args.z0)*(z+Rtip)))*(Vx-args.V0)*(Vx-args.V0)
                                 dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
                             if opt_dict['save_df']:
-                                io.save_scal_field(dirNameAmp+'/df', dfs, lvec,data_format=options.data_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
+                                io.save_scal_field(dirNameAmp+'/df', dfs, lvec,data_format=args.data_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
                             if opt_dict['df']:
                                 print(" plotting df : ")
                                 PPPlot.plotImages(
@@ -194,7 +191,7 @@ def main():
                                 print("plotting Laplace-filtered df : ")
                                 df_LaplaceFiltered = dfs.copy()
                                 laplace( dfs, output = df_LaplaceFiltered )
-                                io.save_scal_field(dirNameAmp+'/df_laplace', df_LaplaceFiltered, lvec,data_format=options.data_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
+                                io.save_scal_field(dirNameAmp+'/df_laplace', df_LaplaceFiltered, lvec,data_format=args.data_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
                                 PPPlot.plotImages(
                                     dirNameAmp+"/df_laplace"+atoms_str+cbar_str, df_LaplaceFiltered, slices = list(range( 0, len(dfs))), zs=zTips+PPU.params['Amplitude']/2.0,
                                     extent=extent,cmap=PPU.params['colorscale'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar']
@@ -218,27 +215,27 @@ def main():
                         del fzs
                     except:
                         print("error: ", sys.exc_info())
-                        print("cannot load : ",dirname+'/OutFz.'+options.data_format)
+                        print("cannot load : ",dirname+'/OutFz.'+args.data_format)
                 if opt_dict['bI']:
                     try:
-                        I, lvec, nDim , atomic_info_or_head = io.load_scal_field(dirname+'/OutI_boltzmann', data_format=options.data_format )
+                        I, lvec, nDim , atomic_info_or_head = io.load_scal_field(dirname+'/OutI_boltzmann', data_format=args.data_format )
                         print(" plotting Boltzmann current: ")
                         PPPlot.plotImages( dirname+"/OutI"+atoms_str+cbar_str, I,  slices = list(range( 0,len(I))), zs=zTips, extent=extent, atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'] )
                         del I
                     except:
                         print("error: ", sys.exc_info())
-                        print("cannot load : " + (dirname+'/OutI_boltzmann.'+options.data_format ))
+                        print("cannot load : " + (dirname+'/OutI_boltzmann.'+args.data_format ))
             if  opt_dict['LCPD_maps']:
                 LCPD = -LCPD_b/(2*LCPD_a)
                 PPPlot.plotImages(
                     "./LCPD"+atoms_str+cbar_str, LCPD,  slices = list(range( 0, len(LCPD))), zs=zTips+PPU.params['Amplitude']/2.0,
-                    extent=extent,cmap=PPU.params['colorscale_kpfm'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'], symetric_map=True ,V0=options.V0
+                    extent=extent,cmap=PPU.params['colorscale_kpfm'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'], symetric_map=True ,V0=args.V0
                 )
                 PPPlot.plotImages(
                     "./_Asym-LCPD"+atoms_str+cbar_str, LCPD,  slices = list(range( 0, len(LCPD))), zs=zTips+PPU.params['Amplitude']/2.0,
                     extent=extent,cmap=PPU.params['colorscale_kpfm'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'], symetric_map=False
                 )
-                io.save_scal_field('./LCDP_HzperV', LCPD, lvec,data_format=options.data_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
+                io.save_scal_field('./LCDP_HzperV', LCPD, lvec,data_format=args.data_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
                 if opt_dict['WSxM']:
                     print(" printing LCPD_b into WSxM files :")
                     io.saveWSxM_3D( "./LCPD"+atoms_str , LCPD , extent , slices=None)
