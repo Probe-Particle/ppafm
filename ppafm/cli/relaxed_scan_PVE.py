@@ -71,7 +71,7 @@ if __name__=="__main__":
         if ( abs(Q) > 1e-7):
             charged_system=True
     # Vkpfm
-    aplied_bias=False
+    applied_bias=False
     if opt_dict['Vrange'] is not None:
         Vs = np.linspace( opt_dict['Vrange'][0], opt_dict['Vrange'][1], int(opt_dict['Vrange'][2]) )
     elif opt_dict['Vbias'] is not None:
@@ -80,9 +80,9 @@ if __name__=="__main__":
         Vs = [0.0]
     for iV,Vx in enumerate(Vs):
         if ( abs(Vx) > 1e-7):
-            aplied_bias=True
+            applied_bias=True
 
-    if (aplied_bias == True):
+    if (applied_bias == True):
         print("Vs   =", Vs)
     print("Ks   =", Ks)
     print("Qs   =", Qs)
@@ -112,7 +112,7 @@ if __name__=="__main__":
         print(" load Boltzmann Force-field ")
         FFboltz, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFboltz", data_format=args.output_format)
         FFboltz[0,:,:,:],FFboltz[1,:,:,:] = rotFF( FFboltz[0,:,:,:],FFboltz[1,:,:,:], opt_dict['rotate'] )
-    if  ( aplied_bias == True):
+    if  ( applied_bias == True):
         print(" load Electrostatic contribution from aplied bias")
         FFkpfm_t0sV, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFkpfm_t0sV" ,data_format=args.output_format)
         FFkpfm_tVs0, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFkpfm_tVs0" ,data_format=args.output_format)
@@ -134,7 +134,7 @@ if __name__=="__main__":
             PPU.params['klat'] = K
             for iv,Vx in enumerate( Vs ):
                 PPU.params['Vbias'] = Vx
-                if aplied_bias:
+                if applied_bias:
                         dirname = "Q%1.2fK%1.2fV%1.2f" %(Q,K,Vx)
                 else:
                         dirname = "Q%1.2fK%1.2f" %(Q,K)

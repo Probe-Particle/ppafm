@@ -72,7 +72,7 @@ def main():
     else:
         Amps = [ PPU.params['Amplitude'] ]
     # Applied biases
-    bias_applied = False
+    applied_bias = False
     if opt_dict['Vrange'] is not None:
         Vs = np.linspace( opt_dict['Vrange'][0], opt_dict['Vrange'][1], int(opt_dict['Vrange'][2]) )
     elif opt_dict['Vbias'] is not None:
@@ -81,9 +81,9 @@ def main():
         Vs = [0.0]
     for iV,Vx in enumerate(Vs):
         if ( abs(Vx) > 1e-7):
-            bias_applied=True
+            applied_bias=True
 
-    if (bias_applied == True):
+    if (applied_bias == True):
         print("Vs   =", Vs)
     print("Ks   =", Ks)
     print("Qs   =", Qs)
@@ -124,7 +124,7 @@ def main():
         for ik,K in enumerate( Ks ):
             dirname = "Q%1.2fK%1.2f" %(Q,K)
             for iv,Vx in enumerate( Vs ):
-                if bias_applied:
+                if applied_bias:
                     dirname = "Q%1.2fK%1.2fV%1.2f" %(Q,K,Vx)
                 if opt_dict['pos']:
                     try:
@@ -171,7 +171,7 @@ def main():
                                 dfs = PPU.Fz2df_tilt( Fout, PPU.params['scanTilt'], k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
                             else:
                                 fzs, lvec, nDim , atomic_info_or_head = io.load_scal_field(dirname+'/OutFz' , data_format=args.output_format)
-                                if (bias_applied):
+                                if (applied_bias):
                                     Rtip = PPU.params['Rtip']
                                     for iz,z in enumerate( zTips ):
                                         fzs[iz,:,:] = fzs[iz,:,:] - np.pi*PPU.params['permit']*((Rtip*Rtip)/((z-args.z0)*(z+Rtip)))*(Vx-args.V0)*(Vx-args.V0)
