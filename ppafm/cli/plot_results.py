@@ -61,15 +61,15 @@ def main():
     if opt_dict['qrange'] is not None:
         #print( " opt_dict['qrange'] ", opt_dict['qrange'], int(opt_dict['qrange'][2])  )
         Qs = np.linspace( opt_dict['qrange'][0], opt_dict['qrange'][1], int(opt_dict['qrange'][2]) )
-    elif opt_dict['q'] is not None:
-        Qs = [ opt_dict['q'] ]
+    elif opt_dict['charge'] is not None:
+        Qs = [ opt_dict['charge'] ]
     else:
         Qs = [ PPU.params['charge'] ]
     # Amps
     if opt_dict['arange'] is not None:
         Amps = np.linspace( opt_dict['arange'][0], opt_dict['arange'][1], int(opt_dict['arange'][2]) )
-    elif opt_dict['a'] is not None:
-        Amps = [ opt_dict['a'] ]
+    elif opt_dict['Amplitude'] is not None:
+        Amps = [ opt_dict['Amplitude'] ]
     else:
         Amps = [ PPU.params['Amplitude'] ]
         #activate the aplied bias
