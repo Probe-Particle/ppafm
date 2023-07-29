@@ -23,7 +23,7 @@ def main():
             'The generated force field is saved to FFel_{x,y,z}.[ext].'
     )
 
-    parser.add_arguments(['input', 'energy', 'noPBC', 'data_format', 'tip', 'sigma', 'Rcore'])
+    parser.add_arguments(['input', 'output_format', 'tip', 'sigma', 'Rcore', 'energy', 'noPBC'])
     parser.add_argument("--tip_dens", action="store", type=str, default=None,
         help="Use tip density from a file (.xsf). Overrides --tip.")
     parser.add_argument("--doDensity", action="store_true", help="Do density overlap")
@@ -147,17 +147,17 @@ def main():
             FFkpfm_tVs0[i,:,:]=FFkpfm_tVs0[i,:,:]/((Vref_t)*(zpos[i]+0.1))
 
         print(">>> saving electrostatic forcefiled ... ")
-        io.save_vec_field('FFkpfm_t0sV',FFkpfm_t0sV,lvec_samp ,data_format=args.data_format, head=head_samp)
-        io.save_vec_field('FFkpfm_tVs0',FFkpfm_tVs0,lvec_samp ,data_format=args.data_format, head=head_samp)
+        io.save_vec_field('FFkpfm_t0sV',FFkpfm_t0sV,lvec_samp ,data_format=args.output_format, head=head_samp)
+        io.save_vec_field('FFkpfm_tVs0',FFkpfm_tVs0,lvec_samp ,data_format=args.output_format, head=head_samp)
 
     print(">>> calculating electrostatic forcefiled with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
     FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],computeVpot=args.energy , tilt=args.tilt )
 
     print(">>> saving electrostatic forcefiled ... ")
 
-    io.save_vec_field('FFel',FFel,lvec_samp ,data_format=args.data_format, head=head_samp, atomic_info = (atoms_samp[:4],lvec_samp))
+    io.save_vec_field('FFel',FFel,lvec_samp ,data_format=args.output_format, head=head_samp, atomic_info = (atoms_samp[:4],lvec_samp))
     if args.energy:
-        io.save_scal_field( 'Eel', Eel, lvec_samp, data_format=args.data_format, head=head_samp, atomic_info = (atoms_samp[:4],lvec_samp))
+        io.save_scal_field( 'Eel', Eel, lvec_samp, data_format=args.output_format, head=head_samp, atomic_info = (atoms_samp[:4],lvec_samp))
     del FFel,V
 
 

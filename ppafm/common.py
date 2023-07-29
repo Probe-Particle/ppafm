@@ -133,7 +133,13 @@ class CLIParser(ArgumentParser):
             'required'  : True,
             'help'      : 'Input file path. Mandatory. Supported formats are: .xyz, .cube, .xsf.'
         },
-        'data_format' : {
+        'input_format' : {
+            'short_name': '-F',
+            'action'    : 'store',
+            'default'   : None,
+            'help'      : 'Specify the input file format. By default the format is inferred from the file extension.'
+        },
+        'output_format' : {
             'short_name': '-f',
             'action'    : 'store',
             'default'   : 'xsf',

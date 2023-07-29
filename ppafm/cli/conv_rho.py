@@ -31,7 +31,7 @@ parser = PPU.CLIParser(
 parser.add_argument('-s', '--sample', action='store', required=True, help='Path to sample charge density (.xsf).')
 parser.add_argument('-t', '--tip',    action='store', required=True, help='Path to tip charge density (.xsf).')
 parser.add_argument('-o', '--output', action='store', default='pauli', help='Name of output energy/force files.')
-parser.add_arguments(['data_format', 'energy', 'Apauli', 'Bpauli'])
+parser.add_arguments(['output_format', 'energy', 'Apauli', 'Bpauli'])
 parser.add_argument('--saveDebugXsfs', action='store_true', help='Save auxiliary xsf files for debugging.')
 parser.add_argument('--no_negative_check', action='store_true',
     help='Input density files may contain negative voxels. This is handled by default by setting negative values to zero '
@@ -63,8 +63,8 @@ if args.Bpauli > 0.0:
     rhoS[:,:,:] = rhoS[:,:,:]**B
     rhoT[:,:,:] = rhoT[:,:,:]**B
     if args.saveDebugXsfs:
-        io.save_scal_field( "sample_density_pow_%03.3f.xsf" %B, rhoS, lvecS, data_format=args.data_format, head=headS )
-        io.save_scal_field( "tip_density_pow_%03.3f.xsf" %B, rhoT, lvecT, data_format=args.data_format, head=headT )
+        io.save_scal_field( "sample_density_pow_%03.3f.xsf" %B, rhoS, lvecS, data_format=args.output_format, head=headS )
+        io.save_scal_field( "tip_density_pow_%03.3f.xsf" %B, rhoT, lvecT, data_format=args.output_format, head=headT )
 
 print(">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... ")
 Fx,Fy,Fz,E = fFFT.potential2forces_mem( rhoS, lvecS, nDimS, rho=rhoT, doForce=True, doPot=True, deleteV=True )
@@ -76,8 +76,8 @@ print(">>> Saving result of convolution to FF_",namestr,"_?.xsf ... ")
 
 # Density Overlap Model
 if args.energy:
-    io.save_scal_field( "E"+namestr, E*PQ, lvecS, data_format=args.data_format, head=headS )
+    io.save_scal_field( "E"+namestr, E*PQ, lvecS, data_format=args.output_format, head=headS )
 FF = io.packVecGrid(Fx*PQ,Fy*PQ,Fz*PQ)
-io.save_vec_field( "FF"+namestr, FF, lvecS, data_format=args.data_format, head=headS )
+io.save_vec_field( "FF"+namestr, FF, lvecS, data_format=args.output_format, head=headS )
 
 #Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)

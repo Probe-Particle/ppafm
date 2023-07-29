@@ -16,7 +16,7 @@ def main():
             'The generated force field is saved to FFLJ_{x,y,z}.[ext].'
     )
 
-    parser.add_arguments(['input', 'data_format', 'ffModel', 'energy', 'noPBC'])
+    parser.add_arguments(['input', 'output_format', 'ffModel', 'energy', 'noPBC'])
     args = parser.parse_args()
 
     try:
@@ -29,7 +29,7 @@ def main():
 
     speciesFile = 'atomtypes.ini' if os.path.isfile('atomtypes.ini') else None
 
-    PPH.computeLJ( args.input, speciesFile=speciesFile, save_format=args.data_format, computeVpot=args.energy, ffModel=args.ffModel )
+    PPH.computeLJ( args.input, speciesFile=speciesFile, save_format=args.output_format, computeVpot=args.energy, ffModel=args.ffModel )
 
 
 if __name__ == "__main__":

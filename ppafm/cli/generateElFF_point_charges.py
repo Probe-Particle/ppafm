@@ -15,13 +15,13 @@ def main():
         description='Generate electrostatic force field by Coulomb interaction of point charges. '
             'The generated force field is saved to FFel_{x,y,z}.[ext].'
     )
-    parser.add_arguments(['input', 'data_format', 'tip', 'energy', 'noPBC'])
+    parser.add_arguments(['input', 'output_format', 'tip', 'energy', 'noPBC'])
     args = parser.parse_args()
 
     PPU.loadParams( 'params.ini' )
     PPU.apply_options(vars(args))
 
-    PPH.computeELFF_pointCharge( args.input, tip=args.tip, save_format=args.data_format, computeVpot=args.energy )
+    PPH.computeELFF_pointCharge( args.input, tip=args.tip, save_format=args.output_format, computeVpot=args.energy )
 
 if __name__ == "__main__":
     main()
