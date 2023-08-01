@@ -11,4 +11,4 @@ ppafm-generate-ljff -i LOCPOT.xsf -f npy
 ppafm-relaxed-scan -k 0.5 -q -0.10 -f npy
 
 # ======= STEP 3 : Plot the results
-ppafm-plot-results -k 0.5 -q -0.10 -a 2.0 2 --df -f npy
+ppafm-plot-results -k 0.5 -q -0.10 -a 2.0 --df -f npy
