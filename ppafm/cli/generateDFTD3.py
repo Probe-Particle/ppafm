@@ -22,7 +22,7 @@ def main():
 
     parser.add_argument('-i', '--input',       action='store',
         help='Input file. Mandatory. Supported formats are: .xyz, .cube, .xsf.')
-    parser.add_argument("--format", action="store", type="string", help="Format of the input geometry file (overrides format concluded from the file name extension)", default=None)
+    parser.add_argument("-F", "--input_format", action="store", type="string", help="Format of the input geometry file (overrides format concluded from the file name extension)", default=None)
     parser.add_argument('-f', '--data_format', action='store', default='xsf',
         help='Specify the output format of the force field. Supported formats are: xsf, npy')
     parser.add_argument(      '--noPBC',       action='store_false', dest='PBC', default=None,
@@ -61,7 +61,7 @@ def main():
             sys.exit(1)
         df_params = args.df_name
 
-    PPH.computeDFTD3(args.input, df_params=df_params, geometry_format=args.format, save_format=args.data_format, compute_energy=args.energy)
+    PPH.computeDFTD3(args.input, df_params=df_params, geometry_format=args.input_format, save_format=args.data_format, compute_energy=args.energy)
 
 
 if __name__ == "__main__":

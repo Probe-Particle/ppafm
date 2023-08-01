@@ -20,7 +20,7 @@ Supported file fromats are:
 def main():
     parser = OptionParser()
     parser.add_option( "-i", "--input"      , action="store", type="string", help="format of input file")
-    parser.add_option("--format", action="store", type="string", help="Format of the input geometry file (overrides format concluded from the file name extension)", default=None)
+    parser.add_option("-F", "--input_format", action="store", type="string", help="Format of the input geometry file (overrides format concluded from the file name extension)", default=None)
     parser.add_option( "-t", "--tip"        , action="store", type="string", help="tip model (multipole)", default='s')
     parser.add_option( "-E", "--energy"     , action="store_true",           help="pbc False",             default=False)
     parser.add_option( "--noPBC"            , action="store_false",          help="pbc False", dest="PBC", default=None)
@@ -31,7 +31,7 @@ def main():
     opt_dict = vars(options)
     PPU.loadParams( 'params.ini' )
     PPU.apply_options(opt_dict)
-    PPH.computeELFF_pointCharge( options.input, geometry_format=options.format, tip=options.tip, save_format=options.data_format, computeVpot=options.energy )
+    PPH.computeELFF_pointCharge( options.input, geometry_format=options.input_format, tip=options.tip, save_format=options.data_format, computeVpot=options.energy )
 
 if __name__ == "__main__":
     main()
