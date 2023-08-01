@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+from argparse import ArgumentParser
 
 import numpy as np
 
@@ -57,10 +58,173 @@ params={
     'tip_base':  np.array( ['None', 0.00 ]),
     'Rtip'         :  30.0,
     'permit'       :  0.00552634959,
-    'Vrange':   0.0,
     'vdWDampKind' : 2,
     '#' : None
 }
+
+class CLIParser(ArgumentParser):
+    '''
+    Subclass from the built-in ArgumentParser with functionality to easily add arguments commonly used in ppafm scripts.
+    '''
+
+    _cli_args = None
+    _params_args = {
+        'Amplitude': {
+            'short_name': '-a',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Oscillation amplitude [Å]'
+        },
+        'klat': {
+            'short_name': '-k',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Lateral tip stiffness [N/m]'
+        },
+        'charge': {
+            'short_name': '-q',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Probe particle charge [e]'
+        },
+        'tip': {
+            'short_name': '-t',
+            'action'    : 'store',
+            'type'      : str,
+            'default'   : 's',
+            'help'      : 'Tip model (multipole) {s,pz,dz2,..}'
+        },
+        'Rcore': {
+            'action'    : 'store',
+            'type'      : float,
+            'default'   : params['Rcore'],
+            'help'      : 'Width of nuclear charge density blob to achieve charge neutrality [Å]'
+        },
+        'sigma': {
+            'short_name': '-w',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Gaussian width for convolution in Electrostatics [Å]'
+        },
+        'Apauli': {
+            'short_name': '-A',
+            'action'    : 'store',
+            'type'      : float,
+            'default'   : 1.0,
+            'help'      : 'Prefactor A in the density overlap integral.'
+        },
+        'Bpauli': {
+            'short_name': '-B',
+            'action'    : 'store',
+            'type'      : float,
+            'default'   : -1.0,
+            'help'      : 'Exponent B in the density overlap integral. Negative value is equivalent to B=1.'
+        },
+        'ffModel': {
+            'action'    : 'store',
+            'default'   : 'LJ',
+            'help'      : "Force field model ('LJ','Morse','vdW')"
+        },
+    }
+    _extra_args = {
+        'input': {
+            'short_name': '-i',
+            'action'    : 'store',
+            'required'  : True,
+            'help'      : 'Input file path. Mandatory. Supported formats are: .xyz, .cube, .xsf.'
+        },
+        'input_format' : {
+            'short_name': '-F',
+            'action'    : 'store',
+            'default'   : None,
+            'help'      : 'Specify the input file format. By default the format is inferred from the file extension.'
+        },
+        'output_format' : {
+            'short_name': '-f',
+            'action'    : 'store',
+            'default'   : 'xsf',
+            'help'      : 'Specify the output format. Supported formats are: xsf, npy'
+        },
+        'noPBC': {
+            'action'    : 'store_false',
+            'dest'      : 'PBC',
+            'default'   : None,
+            'help'      : 'Disable periodic boundary conditions.'
+        },
+        'energy': {
+            'short_name': '-E',
+            'action'    : 'store_true',
+            'default'   : False,
+            'help'      : 'Compute the potential energy in addition to the force.'
+        },
+        'krange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('k_min', 'k_max', 'n_k'),
+            'help'      : 'Do scan for a range of tip stiffnesses. Overrides --klat.'
+        },
+        'qrange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('q_min', 'q_max', 'n_q'),
+            'help'      : 'Do scan for a range of tip charges. Overrides --charge.'
+        },
+        'arange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('A_min', 'A_max', 'n_A'),
+            'help'      : 'Do scan for a range of amplitudes. Overrides --Amplitude.'
+        },
+        'Vbias': {
+            'short_name': '-V',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Applied bias voltage [V].'
+        },
+        'Vrange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('V_min', 'V_max', 'n_V'),
+            'help'      : 'Do scan for a range of voltages. Overrides --Vbias.'
+        },
+    }
+
+    def _check_params_args(self):
+        for arg in self._params_args:
+            if arg not in params:
+                raise ValueError(f'Argument name `{arg}` does not match with any parameter in global parameters dictionary.')
+
+    @property
+    def cli_args(self):
+        '''Dictionary of arguments.'''
+        if self._cli_args is None:
+            self._check_params_args()
+            self._cli_args = {**self._params_args, **self._extra_args}
+        return self._cli_args
+
+    def add_arguments(self, arg_names):
+        '''
+        Add CLI arguments from predefined dictionary :data:`cli_params`.
+
+        Arguments:
+            arg_names: list of str. Names of arguments to add.
+        '''
+        for name in arg_names:
+            if name not in self.cli_args:
+                raise ValueError(f'Invalid argument name `{name}`')
+            arg_dict = self.cli_args[name]
+            if 'help' not in arg_dict:
+                raise ValueError(f'No help message defined for `{name}`')
+            if 'short_name' in arg_dict:
+                arg_names = [arg_dict['short_name'], f'--{name}']
+                del arg_dict['short_name']
+            else:
+                arg_names = [f'--{name}']
+            self.add_argument(*arg_names, **arg_dict)
 
 # ==============================
 # ============================== Pure python functions
@@ -222,17 +386,15 @@ def loadParams( fname ):
 def apply_options(opt):
     if(verbose>0): print("!!!! OVERRIDE params !!!! in Apply options:")
     if(verbose>0): print(opt)
-    for key,value in opt.items():
-        if opt[key] is None:
+    for key, value in opt.items():
+        if value is None:
             continue
-        try:
-            x=params[key]     # to make sure that such a key exists in the list. If not it will be skipped
-            params[key]=value
-            if key in ['klat', 'krange']:
-                params['stiffness'] = np.array( [ -1.0, -1.0, -1.0] ) # klat and krange override stiffness
-            if(verbose>0): print(key,value," applied")
-        except:
-            pass
+        if key in params:
+            params[key] = value
+            if key == 'klat' and params['stiffness'][0] > 0.0:
+                print('Overriding stiffness parameter with klat')
+                params['stiffness'] = np.array( [ -1.0, -1.0, -1.0] ) # klat overrides stiffness
+            if(verbose>0): print(f'Applied: {key} = {value}')
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
 def loadSpecies( fname=None ):
