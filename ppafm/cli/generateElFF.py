@@ -1,7 +1,5 @@
 #!/usr/bin/python
 import os
-import sys
-from optparse import OptionParser
 
 import numpy as np
 
@@ -19,35 +17,30 @@ Supported file fromats are:
 """
 
 def main():
-    parser = OptionParser()
-    parser.add_option( "-i", "--input", action="store", type="string", help="format of input file")
-    parser.add_option("-F", "--input_format", action="store", type="string", help="Format of the input geometry file (overrides format concluded from the file name extension)", default=None)
-    parser.add_option( "--tip_dens", action="store", type="string", default=None, help="tip denisty file (.xsf)" )
-    #parser.add_option( "--sub_core",  action="store_true",  help="subtract core density", default=False )
-    parser.add_option("--doDensity", action="store_true",  help="do density overlap", dest="doDensity", default=False)
-    parser.add_option( "--Rcore",   default=PPU.params["Rcore"],    action="store", type="float", help="Width of nuclear charge density blob to achieve charge neutrality [Angstroem]" )
-    parser.add_option( "-t", "--tip", action="store", type="string", help="tip model (multipole) {s,pz,dz2,..}", default=None)
-    parser.add_option( "--tilt", action="store", type="float", help="tilt of tip electrostatic field (radians)", default=0 )
-    parser.add_option( "-E", "--energy", action="store_true",  help="pbc False", default=False)
-    parser.add_option("--noPBC", action="store_false",  help="pbc False",dest="PBC", default=None)
-    parser.add_option( "-w", "--sigma", action="store", type="float",help="gaussian width for convolution in Electrostatics [Angstroem]", default=None)
-    parser.add_option("-f","--data_format" , action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
-    parser.add_option("--KPFM_tip", action="store",type="string", help="read tip density under bias", default='Fit')
-    parser.add_option("--KPFM_sample", action="store",type="string", help="read sample hartree under bias")
-    parser.add_option("--Vref", action="store",type="float", help="Field under the KPFM dens. and Vh was calculated in V/Ang")
-    parser.add_option("--z0", action="store",type="float", default=0.0 ,help="heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
-    (options, args) = parser.parse_args()
 
-    if options.input is None:
-        sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MESSAGE)
-    opt_dict = vars(options)
+    parser = PPU.CLIParser(
+        description='Generate electrostatic force field by cross-correlation of sample Hartree potential with tip charge density. '
+            'The generated force field is saved to FFel_{x,y,z}.[ext].'
+    )
+
+    parser.add_arguments(['input', 'input_format', 'output_format', 'tip', 'sigma', 'Rcore', 'energy', 'noPBC'])
+    parser.add_argument("--tip_dens", action="store", type=str, default=None,
+        help="Use tip density from a file (.xsf or .cube). Overrides --tip.")
+    parser.add_argument("--doDensity", action="store_true", help="Do density overlap")
+    parser.add_argument( "--tilt", action="store", type=float, default=0, help="Tilt of tip electrostatic field (radians)")
+    parser.add_argument("--KPFM_tip", action="store", type=str, default='Fit', help="Read tip density under bias")
+    parser.add_argument("--KPFM_sample", action="store", type=str, help="Read sample hartree under bias")
+    parser.add_argument("--Vref", action="store", type=float, help="Field under the KPFM dens. and Vh was calculated in V/Ang")
+    parser.add_argument("--z0", action="store", type=float, default=0.0,
+        help="Heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
+    args = parser.parse_args()
 
     if os.path.isfile( 'params.ini' ):
         PPU.loadParams( 'params.ini' )
     else:
         print(">> LOADING default params.ini >> 's' =")
         PPU.loadParams( cpp_utils.PACKAGE_PATH / 'defaults' / 'params.ini' )
-    PPU.apply_options(opt_dict)
+    PPU.apply_options(vars(args))
 
     if os.path.isfile( 'atomtypes.ini' ):
         print(">> LOADING LOCAL atomtypes.ini")
@@ -55,34 +48,34 @@ def main():
     else:
         PPU.loadSpecies( cpp_utils.PACKAGE_PATH / 'defaults' / 'atomtypes.ini' )
 
-    bSubstractCore =  ( (options.doDensity) and (options.Rcore > 0.0) and (options.tip_dens is not None) )
+    bSubstractCore =  ( (args.doDensity) and (args.Rcore > 0.0) and (args.tip_dens is not None) )
     if bSubstractCore:  # We do it here, in case it crash we don't want to wait for all the huge density files to load
-        if options.tip_dens is None: raise Exception( " Rcore>0 but no tip density provided ! " )
+        if args.tip_dens is None: raise Exception( " Rcore>0 but no tip density provided ! " )
         valElDict        = PPH.loadValenceElectronDict()
-        Rs_tip,elems_tip = PPH.getAtomsWhichTouchPBCcell( options.tip_dens, Rcut=options.Rcore )
+        Rs_tip,elems_tip = PPH.getAtomsWhichTouchPBCcell( args.tip_dens, Rcut=args.Rcore )
 
-    atoms_samp,nDim_samp,lvec_samp = io.loadGeometry( options.input, format=options.input_format, params=PPU.params )
+    atoms_samp,nDim_samp,lvec_samp = io.loadGeometry( args.input, format=args.input_format, params=PPU.params )
     head_samp                      = io.primcoords2Xsf( atoms_samp[0], [atoms_samp[1],atoms_samp[2],atoms_samp[3]], lvec_samp )
 
     V=None
-    geometry_format = options.input_format
+    geometry_format = args.input_format
     if(geometry_format == None):
-        if options.input.lower().endswith(".cube"):
-            geometry_format = "cube"
-        elif options.input.lower().endswith(".xsf"):
+        if(args.input.lower().endswith(".xsf") ):
             geometry_format = "xsf"
+        elif(args.input.lower().endswith(".cube") ):
+            geometry_format = "cube"
     else:
         geometry_format = geometry_format.lower()
-    if(geometry_format == "xsf"):
-        print(">>> loading Hartree potential from  ",options.input,"...")
+    if(geometry_format=="xsf"):
+        print(">>> Loading Hartree potential from  ",args.input,"...")
         print("Use loadXSF")
-        V, lvec, nDim, head = io.loadXSF(options.input)
+        V, lvec, nDim, head = io.loadXSF(args.input)
     elif(geometry_format=="cube"):
-        print(" loading Hartree potential from ",options.input,"...")
+        print(">>> Loading Hartree potential from ",args.input,"...")
         print("Use loadCUBE")
-        V, lvec, nDim, head = io.loadCUBE(options.input)
+        V, lvec, nDim, head = io.loadCUBE(args.input)
     else:
-        raise ValueError("ERORR!!! Unknown or unsupported input format\n"+HELP_MESSAGE)
+        raise ValueError("ERROR!!! Unknown or unsupported input format\n"+HELP_MESSAGE)
 
     V *= -1 # Unit conversion, energy to potential (eV -> V)
 
@@ -93,50 +86,58 @@ def main():
         PPU.params['tip'] = tipMultipole
         print(" PPU.params['tip'] ", PPU.params['tip'])
 
-    if options.tip_dens is not None:
+    if args.tip_dens is not None:
         ###  NO NEED TO RENORMALIZE : fieldFFT already works with density
-        print(">>> loading tip density from ",options.tip_dens,"...")
-        rho_tip, lvec_tip, nDim_tip, head_tip = io.loadXSF( options.tip_dens )
-
+        print(">>> Loading tip density from ",args.tip_dens,"...")
+        if(args.tip_dens.lowercase().endswith("xsf") ):
+            rho_tip, lvec_tip, nDim_tip, head_tip = io.loadXSF( args.tip_dens )
+        elif(args.tip_dens.lowercase().endswith("cube") ):
+            rho_tip, lvec_tip, nDim_tip, head_tip = io.loadCUBE( args.tip_dens )
+        else:
+            raise ValueError('ERROR!!! Unknown or unsupported format of the tip density file "'+args.tip_dens+'"\n')
         if bSubstractCore:
             print(">>> subtracting core densities from rho_tip ... ")
-            PPH.subtractCoreDensities( rho_tip, lvec_tip, elems=elems_tip, Rs=Rs_tip, valElDict=valElDict, Rcore=options.Rcore, head=head_tip )
+            PPH.subtractCoreDensities( rho_tip, lvec_tip, elems=elems_tip, Rs=Rs_tip, valElDict=valElDict, Rcore=args.Rcore, head=head_tip )
 
-        PPU.params['tip'] = -rho_tip # Negative sign, because the electron density needs to be negative and but the input density is positive
+        PPU.params['tip'] = -rho_tip # Negative sign, because the electron density needs to be negative but the input density is positive
 
-    if (options.KPFM_sample is not None):
+    if (args.KPFM_sample is not None):
         V_v0_aux = V.copy()
         V_v0_aux2 = V.copy()
 
         V_kpfm=None
         sigma=PPU.params['sigma']
         print(PPU.params['sigma'])
-        if(options.KPFM_sample.lower().endswith(".xsf") ):
-            Vref_s = options.Vref
-            print(">>> loading Hartree potential  under bias from  ",options.KPFM_sample,"...")
+        if(geometry_format=="xsf" and args.KPFM_sample.lower().endswith(".xsf") ):
+            Vref_s = args.Vref
+            print(">>> Loading Hartree potential under bias from ",args.KPFM_sample,"...")
             print("Use loadXSF")
-            V_kpfm, lvec, nDim, head = io.loadXSF(options.KPFM_sample)
+            V_kpfm, lvec, nDim, head = io.loadXSF(args.KPFM_sample)
 
-        elif(options.KPFM_sample.lower().endswith(".cube") ):
-            Vref_s = options.Vref
-            print(" loading Hartree potential under bias from ",options.KPFM_sample,"...")
+        elif(geometry_format=="cube" and args.KPFM_sample.lower().endswith(".cube") ):
+            Vref_s = args.Vref
+            print(">>> Loading Hartree potential under bias from ",args.KPFM_sample,"...")
             print("Use loadCUBE")
-            V_kpfm, lvec, nDim, head = io.loadCUBE(options.KPFM_sample)
+            V_kpfm, lvec, nDim, head = io.loadCUBE(args.KPFM_sample)
+
+        else:
+            raise ValueError('ERROR!!! Format of the "'+args.KPFM_sample+'" file with Hartree potential under bias is unknown\n'
+                             +' or incompatible with the main input format, which is "'+geometry_format+'.\n')
 
         dV_kpfm = (V_kpfm - V_v0_aux)
 
-        print(">>> loading tip density under bias from ",options.KPFM_tip,"...")
-        if (options.KPFM_tip.lower().endswith(".xsf")):
-            Vref_t = options.Vref
+        print(">>> Loading tip density under bias from ",args.KPFM_tip,"...")
+        if (geometry_format=="xsf" and args.KPFM_tip.lower().endswith(".xsf")):
+            Vref_t = args.Vref
             rho_tip_v0_aux = rho_tip.copy()
-            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = io.loadXSF( options.KPFM_tip )
+            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = io.loadXSF( args.KPFM_tip )
             drho_kpfm = (rho_tip_kpfm - rho_tip_v0_aux)
-        elif(options.KPFM_tip.lower().endswith(".cube")):
-            Vref_t = options.Vref
+        elif(geometry_format=="cube" and args.KPFM_tip.lower().endswith(".cube")):
+            Vref_t = args.Vref
             rho_tip_v0_aux = rho_tip.copy()
-            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = io.loadCUBE( options.KPFM_tip, hartree=False, borh = options.borh )
+            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = io.loadCUBE( args.KPFM_tip, hartree=False, borh = args.borh )
             drho_kpfm = (rho_tip_kpfm - rho_tip_v0_aux)
-        elif options.KPFM_tip in {'Fit', 'fit', 'dipole', 'pz'}: #To be put on a library in the near future...
+        elif args.KPFM_tip in {'Fit', 'fit', 'dipole', 'pz'}: #To be put on a library in the near future...
             Vref_t = -0.1
             if ( PPU.params['probeType'] == '8' ):
                 drho_kpfm={'pz':-0.045}
@@ -150,33 +151,36 @@ def main():
                 drho_kpfm={'pz':-0.250}
                 sigma = 0.67
                 print(" Select Xe-tip polarization")
+        else:
+            raise ValueError('ERROR!!! Neither is "'+args.KPFM_sample+'" a density file with an appropriate ("'+geometry_format
+                             +'") format\nnor is it a valid name of a tip polarizability model.\n')
 
-        if options.tip_dens is not None: #This copy is made to avoid El and kpfm conflicts because during the computeEl, the tip is been put upside down
+        if args.tip_dens is not None: #This copy is made to avoid El and kpfm conflicts because during the computeEl, the tip is been put upside down
             tip_aux_2 = PPU.params['tip'].copy()
         else:
             tip_aux_2 = PPU.params['tip']
-        FFkpfm_t0sV,Eel_t0sV=PPH.computeElFF(dV_kpfm,lvec,nDim,tip_aux_2,computeVpot=options.energy , tilt=opt_dict['tilt'] ,)
-        FFkpfm_tVs0,Eel_tVs0=PPH.computeElFF(V_v0_aux2,lvec,nDim,drho_kpfm,computeVpot=options.energy , tilt=opt_dict['tilt'], sigma=sigma )
+        FFkpfm_t0sV,Eel_t0sV=PPH.computeElFF(dV_kpfm,lvec,nDim,tip_aux_2,computeVpot=args.energy , tilt=args.tilt ,)
+        FFkpfm_tVs0,Eel_tVs0=PPH.computeElFF(V_v0_aux2,lvec,nDim,drho_kpfm,computeVpot=args.energy , tilt=args.tilt, sigma=sigma )
 
         print("Linear E to V")
-        zpos = np.linspace(lvec[0,2]-options.z0,lvec[3,2]-options.z0,nDim[0])
+        zpos = np.linspace(lvec[0,2]-args.z0,lvec[3,2]-args.z0,nDim[0])
         for i in range(nDim[0]):
             FFkpfm_t0sV[i,:,:]=FFkpfm_t0sV[i,:,:]/((Vref_s)*(zpos[i]+0.1))
             FFkpfm_tVs0[i,:,:]=FFkpfm_tVs0[i,:,:]/((Vref_t)*(zpos[i]+0.1))
 
-        print(">>> saving electrostatic forcefiled ... ")
-        io.save_vec_field('FFkpfm_t0sV',FFkpfm_t0sV,lvec_samp ,data_format=options.data_format, head=head_samp)
-        io.save_vec_field('FFkpfm_tVs0',FFkpfm_tVs0,lvec_samp ,data_format=options.data_format, head=head_samp)
+        print(">>> Saving electrostatic forcefield ... ")
+        io.save_vec_field('FFkpfm_t0sV',FFkpfm_t0sV,lvec_samp ,data_format=args.output_format, head=head_samp)
+        io.save_vec_field('FFkpfm_tVs0',FFkpfm_tVs0,lvec_samp ,data_format=args.output_format, head=head_samp)
 
-    print(">>> calculating electrostatic forcefiled with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
-    FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],computeVpot=options.energy , tilt=opt_dict['tilt'] )
+    print(">>> Calculating electrostatic forcefield with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
+    FFel,Eel=PPH.computeElFF(V,lvec,nDim,PPU.params['tip'],computeVpot=args.energy , tilt=args.tilt )
 
-    print(">>> saving electrostatic forcefiled ... ")
+    print(">>> Saving electrostatic forcefield ... ")
 
-    io.save_vec_field('FFel',FFel,lvec_samp ,data_format=options.data_format, head=head_samp, atomic_info = (atoms_samp[:4],lvec_samp))
-    if options.energy:
-        io.save_scal_field( 'Eel', Eel, lvec_samp, data_format=options.data_format, head=head_samp, atomic_info = (atoms_samp[:4],lvec_samp))
-    del FFel,V;
+    io.save_vec_field('FFel',FFel,lvec_samp ,data_format=args.output_format, head=head_samp, atomic_info = (atoms_samp[:4],lvec_samp))
+    if args.energy:
+        io.save_scal_field( 'Eel', Eel, lvec_samp, data_format=args.output_format, head=head_samp, atomic_info = (atoms_samp[:4],lvec_samp))
+    del FFel,V
 
 
 if __name__ == "__main__":
