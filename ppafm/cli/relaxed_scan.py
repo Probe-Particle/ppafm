@@ -31,13 +31,14 @@ def main():
             'The generated force field is saved to Q{charge}K{klat}/OutFz.xsf.'
     )
 
-    parser.add_arguments(['klat', 'krange', 'charge', 'qrange', 'Vbias', 'Vrange', 'output_format'])
+    parser.add_arguments(['klat', 'krange', 'charge', 'qrange', 'Vbias', 'Vrange', 'Apauli', 'output_format'])
     parser.add_argument("-b", "--boltzmann", action="store_true", default=False, help="Calculate forces with boltzmann particle" )
-    parser.add_argument("--bI" , action="store_true", default=False, help="Calculate current between boltzmann particle and tip" )
+    parser.add_argument("--bI", action="store_true", default=False, help="Calculate current between boltzmann particle and tip" )
+    parser.add_argument("--bDebugFFtot", action="store_true", default=False, help="Store total force field for debugging")
     parser.add_argument("--pos", action="store_true", default=False, help="Save probe particle positions" )
     parser.add_argument("--disp", action="store_true", default=False, help="Save probe particle displacements")
     parser.add_argument("--vib", action="store", type=int, default=-1, help="Map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs")
-    parser.add_argument("--tipspline", action="store", type=str, help="File where spline is stored")
+    parser.add_argument("--tipspline", action="store", type=str, default=None, help="File where spline is stored")
     parser.add_argument("--rotate", action="store", type=float, default=0.0, help="Rotates sampling in xy-plane")
     parser.add_argument("--pol_t", action="store", type=float, default=1.0, help="Scaling factor for tip polarization")
     parser.add_argument("--pol_s", action="store", type=float, default=1.0, help="Scaling factor for sample polarization")
@@ -89,10 +90,22 @@ def main():
     print("Qs   =", Qs)
 
     print(" ============= RUN  ")
-    FFLJ, FFel, FFboltz,FFkpfm_t0sV, FFkpfm_tVs0=None,None,None,None,None
+    FFvdW, FFpauli, FFel, FFboltz, FFkpfm_t0sV, FFkpfm_tVs0 = None, None, None, None, None, None
+
+    try: #written this way, it can work in both LJ and Pauli+vdW modes
+        FFpauli, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFpauli", data_format=args.output_format)
+        FFpauli[0,:,:,:],FFpauli[1,:,:,:] = rotFF( FFpauli[0,:,:,:],FFpauli[1,:,:,:], opt_dict['rotate'] )
+
+        FFvdW, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFvdW", data_format=args.output_format)
+        FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )
+    except OSError:
+        print(" load Lennard-Jones Force-field ")
+        FFvdW, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFLJ", data_format=args.output_format)
+        FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )
+
     if ( charged_system == True):
         print(" load Electrostatic Force-field ")
-        FFel, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFel" ,data_format=args.output_format)
+        FFel, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFel", data_format=args.output_format)
         FFel[0,:,:,:],FFel[1,:,:,:] = rotFF( FFel[0,:,:,:],FFel[1,:,:,:], opt_dict['rotate'] )
     if (args.boltzmann  or args.bI) :
         print(" load Boltzmann Force-field ")
@@ -100,17 +113,15 @@ def main():
         FFboltz[0,:,:,:],FFboltz[1,:,:,:] = rotFF( FFboltz[0,:,:,:],FFboltz[1,:,:,:], opt_dict['rotate'] )
     if  ( applied_bias == True):
         print(" load Electrostatic contribution from aplied bias")
-        FFkpfm_t0sV, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFkpfm_t0sV" ,data_format=args.output_format)
-        FFkpfm_tVs0, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFkpfm_tVs0" ,data_format=args.output_format)
+        FFkpfm_t0sV, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFkpfm_t0sV", data_format=args.output_format)
+        FFkpfm_tVs0, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFkpfm_tVs0", data_format=args.output_format)
 
         FFkpfm_t0sV[0,:,:,:],FFkpfm_t0sV[1,:,:,:] = rotFF( FFkpfm_t0sV[0,:,:,:],FFkpfm_t0sV[1,:,:,:], opt_dict['rotate'] )
         FFkpfm_tVs0[0,:,:,:],FFkpfm_tVs0[1,:,:,:] = rotFF( FFkpfm_tVs0[0,:,:,:],FFkpfm_tVs0[1,:,:,:], opt_dict['rotate'] )
 
         FFkpfm_t0sV = FFkpfm_t0sV*opt_dict['pol_s']
         FFkpfm_tVs0 = FFkpfm_tVs0*opt_dict['pol_t']
-    print(" load Lenard-Jones Force-field ")
-    FFLJ, lvec, nDim, atomic_info_or_head = io.load_vec_field( "FFLJ" , data_format=args.output_format)
-    FFLJ[0,:,:,:],FFLJ[1,:,:,:] = rotFF( FFLJ[0,:,:,:],FFLJ[1,:,:,:], opt_dict['rotate'] )
+
     lvec[1,:] = rotVec( lvec[1,:], opt_dict['rotate'] )
     lvec[2,:] = rotVec( lvec[2,:], opt_dict['rotate'] )
     print(lvec)
@@ -126,11 +137,10 @@ def main():
                         dirname = "Q%1.2fK%1.2fV%1.2f" %(Q,K,Vx)
                 else:
                         dirname = "Q%1.2fK%1.2f" %(Q,K)
-                dirname = "Q%1.2fK%1.2f" %(Q,K)
                 print(" relaxed_scan for ", dirname)
                 if not os.path.exists( dirname ):
                     os.makedirs( dirname )
-                fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFLJ, FFel, FFboltz,args.tipspline)
+                fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz, FFkpfm_t0sV=FFkpfm_t0sV, FFkpfm_tVs0=FFkpfm_tVs0, tipspline=args.tipspline, bFFtotDebug=args.bDebugFFtot)
                 if PPU.params['tiltedScan']:
                     io.save_vec_field( dirname+'/OutF', fzs, lvecScan, data_format=args.output_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
                 else:
@@ -145,7 +155,6 @@ def main():
                     if which > 0: io.save_vec_field( dirname+'/eigvecK1', evecs[0].reshape( rTips.shape ), lvecScan, data_format=args.output_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
                     if which > 1: io.save_vec_field( dirname+'/eigvecK2', evecs[1].reshape( rTips.shape ), lvecScan, data_format=args.output_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
                     if which > 2: io.save_vec_field( dirname+'/eigvecK3', evecs[2].reshape( rTips.shape ), lvecScan, data_format=args.output_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
-                    #print "SHAPE", PPpos.shape, xTips.shape, yTips.shape, zTips.shape
                 if opt_dict['disp']:
                     io.save_vec_field( dirname+'/PPdisp', PPdisp, lvecScan,data_format=args.output_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
                 if opt_dict['pos']:
