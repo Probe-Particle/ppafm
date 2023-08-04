@@ -30,7 +30,7 @@ python ${PPAFM_DIR}/generateElFF.py  -i sample/LOCPOT.xsf --tip_dens tip/CHGCAR.
 python ${PPAFM_DIR}/generateDFTD3.py -i sample/LOCPOT.xsf --df_name PBE
 
 echo "======= STEP 2 : Relax Probe Particle using that force-field grid "
-python ${PPAFM_DIR}/relaxed_scan_PVE.py -k 0.25 -q 1.0 --Apauli 18.0 --bDebugFFtot
+python ${PPAFM_DIR}/relaxed_scan.py -k 0.25 -q 1.0 --Apauli 18.0 --bDebugFFtot
 
 echo "======= STEP 3 : Plot the results "
 ppafm-plot-results -k 0.25 -q 1.0 -a 2.0 --df
