@@ -96,32 +96,35 @@ def main():
 
     if not args.noLJ:
         try:
-            print(" Loading Lennard-Jones force field from FFLJ_{x,y,z}")
+            print("Loading Lennard-Jones force field from FFLJ_{x,y,z}")
             FFvdW, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFLJ", data_format=args.output_format)
             FFvdW[0,:,:,:], FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:], FFvdW[1,:,:,:], opt_dict['rotate'] )
         except :
+            print("Loading Lennard-Jones force field failed. Trying Pauli + vdW instead.")
             args.noLJ = True
 
     if args.noLJ:
-        print(" Loading Pauli force field from FFpauli_{x,y,z}")
+        print("Apauli", PPU.params["Apauli"])
+        print("Loading Pauli force field from FFpauli_{x,y,z}")
         FFpauli, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFpauli", data_format=args.output_format)
         FFpauli[0,:,:,:], FFpauli[1,:,:,:] = rotFF( FFpauli[0,:,:,:], FFpauli[1,:,:,:], opt_dict['rotate'] )
 
+        print("Loading vdW force field from FFvdW_{x,y,z}")
         FFvdW, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFvdW", data_format=args.output_format)
         FFvdW[0,:,:,:], FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:], FFvdW[1,:,:,:], opt_dict['rotate'] )
 
     if charged_system:
-        print(" Loading electrostatic force field from FFel_{x,y,z}")
+        print("Loading electrostatic force field from FFel_{x,y,z}")
         FFel, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFel", data_format=args.output_format)
         FFel[0,:,:,:], FFel[1,:,:,:] = rotFF( FFel[0,:,:,:], FFel[1,:,:,:], opt_dict['rotate'] )
 
-    if args.boltzmann  or args.bI:
-        print(" Loading Boltzmann force field from FFboltz_{x,y,z}")
+    if args.boltzmann or args.bI:
+        print("Loading Boltzmann force field from FFboltz_{x,y,z}")
         FFboltz, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFboltz", data_format=args.output_format)
         FFboltz[0,:,:,:], FFboltz[1,:,:,:] = rotFF( FFboltz[0,:,:,:], FFboltz[1,:,:,:], opt_dict['rotate'] )
 
     if applied_bias:
-        print(" Loading electrostatic contribution from applied bias from FFkpfm_t0sV_{x,y,z} and FFkpfm_tVs0_{x,y,z}")
+        print("Loading electrostatic contribution from applied bias from FFkpfm_t0sV_{x,y,z} and FFkpfm_tVs0_{x,y,z}")
         FFkpfm_t0sV, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFkpfm_t0sV", data_format=args.output_format)
         FFkpfm_tVs0, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFkpfm_tVs0", data_format=args.output_format)
 
@@ -147,14 +150,14 @@ def main():
 
                 dirname = f"Q{Q:1.2f}K{K:1.2f}"
                 if applied_bias:
-                        dirname += f"V{Vx:1.2f}"
+                    dirname += f"V{Vx:1.2f}"
                 print(" Relaxed_scan for ", dirname)
                 if not os.path.exists( dirname ):
                     os.makedirs( dirname )
 
                 # Run relaxation
-                fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,
-                                                                 FFkpfm_t0sV=FFkpfm_t0sV, FFkpfm_tVs0=FFkpfm_tVs0, tipspline=args.tipspline, bFFtotDebug=args.bDebugFFtot)
+                fzs, PPpos, PPdisp, lvecScan = PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,
+                                                                      FFkpfm_t0sV=FFkpfm_t0sV, FFkpfm_tVs0=FFkpfm_tVs0, tipspline=args.tipspline, bFFtotDebug=args.bDebugFFtot)
 
                 data_info = {'lvec': lvecScan, 'data_format': args.output_format, 'head': atomic_info_or_head, 'atomic_info': atomic_info_or_head}
                 if PPU.params['tiltedScan']:
