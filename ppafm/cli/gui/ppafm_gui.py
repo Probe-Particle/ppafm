@@ -8,6 +8,7 @@ import os
 import sys
 import time
 import traceback
+from argparse import ArgumentParser
 from enum import Enum
 
 import numpy as np
@@ -19,7 +20,7 @@ import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
 from ppafm import PPPlot, io
 from ppafm.ocl.AFMulator import AFMulator
-from ppafm.ocl.field import HartreePotential
+from ppafm.ocl.field import ElectronDensity, HartreePotential, TipDensity
 
 import matplotlib; matplotlib.use('Qt5Agg')
 
@@ -68,6 +69,8 @@ TTips = {
     'Distance': 'Distance: Average tip distance from the nucleus of the closest atom.',
     'Amplitude': 'Amplitude: Peak-to-peak oscillation amplitude for the tip.',
     'Rotation': 'Rotation: Set sample counter-clockwise rotation angle around center of atom coordinates.',
+    'fdbm_V0': 'FDBM V0: Prefactor in Pauli interaction integral in the full-density based model.',
+    'fdbm_alpha': 'FDBM alpha: Exponent in Pauli interaction integral in the full-density based model.',
     'PBCz': 'z periodicity: When checked, the lattice is also periodic in z direction. This is usually not required, since the scan is aligned with the xy direction.',
     'PBC': 'Periodic Boundaries: Lattice vectors for periodic images of atoms. Does not affect electrostatics calculated from a Hartree potential file, which is always assumed to be periodic.',
     'k': 'k: Cantilever spring constant. Only appears as a scaling constant.',
@@ -83,13 +86,24 @@ TTips = {
 }
 
 def parse_args():
-    from argparse import ArgumentParser
-    parser = ArgumentParser('ppm')
-    parser.add_argument("input", type=str, nargs='?', help="Input file.")
+
+    parser = ArgumentParser(description='Probe Particle Model graphical user interface')
+    parser.add_argument("input", nargs='*',
+        help="Optional input file(s). The first file is the main input file containing the xyz geometry or Hartree potential. The subsequent"
+            "optional files, in order, are the sample electron density, tip electron density, and tip electron delta density."
+    )
     parser.add_argument("-d", "--device", action="store", type=int, default=0, help="Choose OpenCL device.")
-    parser.add_argument("-l", "--list-devices", action="store_true", help="List available devices and exit.")
-    parser.add_argument("-v", '--verbosity', action="store", type=int, default=0, help="Set verbosity level (0-2)")
+    parser.add_argument("-l", "--list-devices", action="store_true", help="List available OpenCL devices and exit.")
+    parser.add_argument("-v", '--verbosity', action="store", type=int, default=0, help="Set verbosity level (0-2).")
+
     args = parser.parse_args()
+    if args.input:
+        inputs = {'main_input': args.input[0]}
+        if len(args.input) > 1: inputs['rho_sample'] = args.input[1]
+        if len(args.input) > 2: inputs['rho_tip'] = args.input[2]
+        if len(args.input) > 3: inputs['rho_tip_delta'] = args.input[3]
+        args.input = inputs
+
     return args
 
 class ApplicationWindow(QtWidgets.QMainWindow):
@@ -99,12 +113,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     df_range = (-1, 1) # min and max df value in colorbar
     fixed_df_range = False # Keep track if df range was fixed by user or should be set automatically
 
-    def __init__(self, input_file=None, device=0, verbose=0):
+    def __init__(self, input_files=None, device=0, verbose=0):
 
         self.df = None
         self.xyzs = None
         self.Zs = None
         self.qs = None
+        self.rho_sample = None
+        self.rho_tip = None
+        self.rho_tip_delta = None
         self.sample_lvec = None
         self.rot = np.eye(3)
         self.df_points = []
@@ -131,7 +148,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.figCan = guiw.FigImshow( parentWiget=self.main_widget, parentApp=self, width=5, height=4,
             dpi=100, verbose=verbose)
         l1.addWidget(self.figCan)
-        self.resize(1100, 600)
+        self.resize(1200, 600)
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
 
@@ -157,8 +174,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Create curve plotting window
         self.figCurv = guiw.PlotWindow(parent=self, width=5, height=4, dpi=100)
 
-        if input_file:
-            self.loadInput(input_file)
+        if input_files:
+            self.loadInput(**input_files)
 
     def status_message(self, msg):
         self.status_bar.showMessage(msg)
@@ -261,6 +278,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         tipStiffness = [self.bxKx.value(), self.bxKy.value(), 0.0, self.bxKr.value()]
         tipR0 = [self.bxP0x.value(), self.bxP0y.value(), self.bxP0r.value()]
         use_point_charge = self.bxPC.isChecked()
+        A_pauli = self.bxV0.value()
+        B_pauli = self.bxAlpha.value() if (self.rho_sample is not None) else 1.0
 
         if multipole == 's':
             Qs = [Q, 0, 0, 0]
@@ -276,13 +295,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             use_point_charge, type(self.qs))
 
         self.afmulator.iZPP = int(self.bxZPP.value())
-        self.afmulator.setQs(Qs, QZs)
-        if use_point_charge:
-            self.afmulator.setRho(None, sigma)
-        elif isinstance(self.qs, HartreePotential):
-            self.afmulator.setRho({multipole: Q}, sigma)
+        if self.rho_sample is not None: # Use FDBM
+            self.afmulator.setRho(self.rho_tip, B_pauli=B_pauli)
+        else:
+            if self.rho_tip is None: # else we just keep the tip density loaded from file
+                if use_point_charge:
+                    self.afmulator.setQs(Qs, QZs)
+                    self.afmulator.setRho(None, sigma)
+                elif isinstance(self.qs, HartreePotential):
+                    self.afmulator.setRho({multipole: Q}, sigma)
         self.afmulator.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
         self.afmulator.tipR0 = tipR0
+        self.afmulator.A_pauli = A_pauli
 
         self.update()
 
@@ -395,7 +419,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.xyzs is None: return
         if self.verbose > 1: t0 = time.perf_counter()
         self.status_message('Running simulation...')
-        self.df = self.afmulator(self.xyzs, self.Zs, self.qs, sample_lvec=self.sample_lvec, rot=self.rot)
+        self.df = self.afmulator(self.xyzs, self.Zs, self.qs, rho_sample=self.rho_sample, sample_lvec=self.sample_lvec, rot=self.rot)
         if self.verbose > 1: print(f'AFMulator total time [s]: {time.perf_counter() - t0}')
         self.status_message('Updating plot...')
         self.updateDataView()
@@ -405,34 +429,72 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.FFViewer.updateView()
         self.status_message('Ready')
 
-    def loadInput(self, file_path):
-        '''Load input file and show result
+    def loadInput(self, main_input, rho_sample=None, rho_tip=None, rho_tip_delta=None):
+        '''Load input file(s) and show the result
 
         Arguments:
-            file_path: str. File to load. Has to be POSCAR, .in, .xsf, .cube, or .xyz.
+            main_input: str. Main input file containing xyz geometry or Hartree potential. xyz, POSCAR, in, xsf, or cube format.
+            rho_sample: str. Optional sample electron density. xsf format.
+            rho_tip: str. Optional tip electron density. xsf format.
+            rho_tip_delta: str. Optional tip delta electron density. xsf format.
         '''
 
+        # If there are existing arrays in memory, release them
+        if isinstance(self.qs, HartreePotential):
+            self.qs.release()
+        if self.rho_sample is not None:
+            self.rho_sample.release()
+        if self.rho_tip is not None:
+            self.rho_tip.release()
+        if self.rho_tip_delta is not None:
+            self.rho_tip_delta.release()
+
         # Load input file
-        file_name = os.path.split(file_path)[1].lower()
+        file_name = os.path.split(main_input)[1].lower()
         ext = os.path.splitext(file_name)[1]
-        if self.verbose > 0: print(f'loadInput: {file_path}, {file_name}, {ext}')
+        if self.verbose > 0: print(f'loadInput: {main_input}, {file_name}, {ext}')
         if file_name in ['poscar', 'contcar']:
-            xyzs, Zs, lvec = io.loadPOSCAR(file_path)
+            xyzs, Zs, lvec = io.loadPOSCAR(main_input)
             qs = np.zeros(len(Zs))
             lvec = lvec[1:]
         elif ext == '.in':
-            xyzs, Zs, lvec = io.loadGeometryIN(file_path)
+            xyzs, Zs, lvec = io.loadGeometryIN(main_input)
             qs = np.zeros(len(Zs))
             lvec = lvec[1:] if len(lvec) > 0 else None
         elif ext in ['.xsf', '.cube']:
             # Scale=-1.0 for correct units of potential (V) instead of energy (eV)
-            qs, xyzs, Zs = HartreePotential.from_file(file_path, scale=-1.0)
+            qs, xyzs, Zs = HartreePotential.from_file(main_input, scale=-1.0)
             lvec = qs.lvec[1:]
         elif ext == '.xyz':
-            xyzs, Zs, qs, _ = io.loadXYZ(file_path)
+            xyzs, Zs, qs, _ = io.loadXYZ(main_input)
             lvec = None
         else:
-            raise ValueError(f'Unsupported file format for file `{file_path}`.')
+            raise ValueError(f'Unsupported file format for file `{main_input}`.')
+
+        # Load auxiliary files (if any)
+        if rho_sample:
+            self.rho_sample, _, _ = ElectronDensity.from_file(rho_sample)
+        else:
+            self.rho_sample = None
+        if rho_tip:
+            self.rho_tip, self.xyzs_tip, self.Zs_tip = TipDensity.from_file(rho_tip)
+        else:
+            self.rho_tip = None
+        if rho_tip_delta:
+            self.rho_tip_delta, self.xyzs_tip, self.Zs_tip = TipDensity.from_file(rho_tip_delta)
+        else:
+            if self.rho_tip is not None:
+                self.rho_tip_delta = self.rho_tip.subCores(self.xyzs_tip, self.Zs_tip, Rcore=0.7)
+                if self.rho_sample is None:
+                    # Not doing FDBM, just use the delta density for electrostatics
+                    self.rho_tip.release()
+                    self.rho_tip = self.rho_tip_delta
+                    self.rho_tip_delta = None
+                    self.afmulator.setRho(self.rho_tip)
+                else:
+                    self.afmulator.setRhoDelta(self.rho_tip_delta)
+            else:
+                self.rho_tip_delta = None
 
         self.xyzs = xyzs
         self.Zs = Zs
@@ -450,6 +512,21 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.bxPC.setDisabled(True)
         self.bxPC.blockSignals(False)
 
+        # Some tip parameters cannot be controlled when the tip density is loaded from file
+        if self.rho_tip is not None:
+            guiw.set_widget_value(self.bxPC, False)
+            self._toggleTipControls(enabled=False)
+        else:
+            self._toggleTipControls(enabled=True)
+
+        # Disable FDBM boxes when it's not in use
+        if self.rho_sample is None:
+            self.bxV0.setDisabled(True)
+            self.bxAlpha.setDisabled(True)
+        else:
+            self.bxV0.setDisabled(False)
+            self.bxAlpha.setDisabled(False)
+
         # Create geometry editor widget
         self.createGeomEditor()
 
@@ -459,9 +536,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.updateParams(preset_none=False)
 
         # Set current file path to window title
-        self.file_path = file_path
-        if len(file_path) > 80: file_path = f'...{file_path[-80:]}'
-        self.setWindowTitle(f'{file_path} - Probe Particle Model')
+        self.file_path = main_input
+        if len(main_input) > 80: main_input = f'...{main_input[-80:]}'
+        self.setWindowTitle(f'{main_input} - Probe Particle Model')
+
+    def _toggleTipControls(self, enabled):
+        for widget in [self.slPreset, self.bxZPP, self.slMultipole, self.bxQ, self.bxS, self.bxPC]:
+            widget.setDisabled(not enabled)
 
     def createGeomEditor(self):
         '''Create a new geometry editor. Replace old one if it exists.'''
@@ -495,11 +576,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         view(atoms)
 
     def openFile(self):
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '',
-            '*.xyz *.in *.xsf *.cube POSCAR CONTCAR')
-        if file_path:
-            self.status_message('Opening file...')
-            self.loadInput(file_path)
+        self.openFileDialog.exec()
+        file_paths = self.openFileDialog.paths
+        if self.verbose > 0: print('openFile', file_paths)
+        if file_paths is None: return
+        self.status_message('Opening file(s)...')
+        self.loadInput(**file_paths)
 
     def saveFig(self):
         if self.xyzs is None: return
@@ -795,6 +877,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.bxP0y = _spin_box((-2.0,  2.0), 0.0, 0.1, self.updateParams, TTips['EqPos'], vb)
         self.bxP0r = _spin_box(( 0.0, 10.0), 3.0, 0.1, self.updateParams, TTips['EqPos'], vb)
 
+        # FDBM settings
+        vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
+        lb = QtWidgets.QLabel("FDBM settings:"); vb.addWidget(lb)
+        l = QtWidgets.QHBoxLayout(); vb.addLayout(l)
+        lb = QtWidgets.QLabel("V0"); lb.setToolTip(TTips['fdbm_V0']); l.addWidget(lb)
+        self.bxV0 = _spin_box((0.1, 999), 18.0, 1.0, self.updateParams, TTips['fdbm_V0'], l)
+        lb = QtWidgets.QLabel("alpha"); lb.setToolTip(TTips['fdbm_alpha']); l.addWidget(lb)
+        self.bxAlpha = _spin_box((0.1, 9.9), 1.0, 0.02, self.updateParams, TTips['fdbm_alpha'], l)
+
     def _create_scan_settings_ui(self):
 
         # Title
@@ -982,6 +1073,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb = QtWidgets.QHBoxLayout(); self.l0.addLayout(vb)
 
         # --- btLoad
+        self.openFileDialog = guiw.FileOpen(self)
         self.btLoad = QtWidgets.QPushButton('Open File...', self)
         self.btLoad.setToolTip('Open new file.')
         self.btLoad.clicked.connect(self.openFile)

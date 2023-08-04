@@ -308,8 +308,8 @@ class AFMulator():
             if self.verbose > 0: print('(Re)initializing force field buffers.')
             if self.verbose > 1: print(f'old nDim: {self._old_nDim}, new nDim: {self.forcefield.nDim}')
             self.forcefield.tryReleaseBuffers()
-            if isinstance(self._rho, dict):
-                # The grid size changed so we need to recompute the tip density grid from the multipole dict
+            if self._rho is not None:
+                # The grid size changed so we need to recompute/reinterpolate the tip density grid
                 self.setRho(self._rho, self.sigma, self.B_pauli)
             self.forcefield.prepareBuffers()
 

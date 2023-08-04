@@ -522,3 +522,116 @@ class FFViewer(SlaveWindow):
 
         if self.verbose > 0: print("Done saving force field data.")
         self.parent.status_message('Ready')
+
+# =======================
+#    File open dialog
+# =======================
+
+class FileOpen(QtWidgets.QDialog):
+
+    def __init__(self, parent=None, title='Open file(s)'):
+        super().__init__(parent)
+
+        self.setWindowTitle(title)
+
+        self.centralLayout = QtWidgets.QVBoxLayout()
+        self.setLayout(self.centralLayout)
+
+        self.file_paths = []
+        self.grid = QtWidgets.QGridLayout()
+
+        self._addLine(1, 'Main input', '*.xyz *.in *.xsf *.cube POSCAR CONTCAR', 'Main input: xyz geometry or Hartree potential')
+        self._addSeparator(2)
+        self._addLine(3, 'Electron dens.', '*.xsf', 'Sample electron density. Used with FDBM')
+        self._addLine(4, 'Tip dens.', '*.xsf', 'Tip electron density. Can be used in FDBM or for electrostatic interaction.')
+        self._addLine(5, 'Tip delta dens.', '*.xsf', 'Tip electron delta density. Used for electrostatic interaction.')
+        self._addButtons(6)
+
+        self.centralLayout.addLayout(self.grid)
+        self.resize(450, 200)
+
+    def _addSeparator(self, pos):
+        sep = QtWidgets.QFrame()
+        sep.setFrameShape(QtWidgets.QFrame.HLine)
+        sep.setFrameShadow(QtWidgets.QFrame.Sunken)
+        self.grid.addWidget(sep, pos, 0, 1, 3)
+
+    def _addLine(self, pos, text, file_types, ttip):
+
+        lb = QtWidgets.QLabel(text)
+        lb.setToolTip(ttip)
+        self.grid.addWidget(lb, pos, 0)
+
+        file_path_box = QtWidgets.QLineEdit(self)
+        self.grid.addWidget(file_path_box, pos, 1)
+        self.file_paths.append(file_path_box)
+
+        browse_button = QtWidgets.QPushButton('Browse', self)
+        browse_button.clicked.connect(lambda: self._browseFile(file_path_box, file_types))
+        self.grid.addWidget(browse_button, pos, 2)
+
+    def _addButtons(self, pos):
+
+        layout = QtWidgets.QHBoxLayout()
+        self.grid.addLayout(layout, pos, 0, 1, 3)
+
+        button_ok = QtWidgets.QPushButton('Ok', self)
+        button_ok.clicked.connect(lambda: self._getPaths('ok'))
+        layout.addWidget(button_ok)
+
+        button_cancel = QtWidgets.QPushButton('Cancel', self)
+        button_cancel.clicked.connect(lambda: self._getPaths('cancel'))
+        layout.addWidget(button_cancel)
+
+    def _browseFile(self, line_box, file_types):
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '', file_types)
+        if file_path:
+            line_box.setText(file_path)
+
+    def _pathsOk(self, paths):
+        if not paths[0]:
+            self._showWarning('Missing main input file!')
+            return False
+        if paths[1] and not paths[2]:
+            self._showWarning('Tip density is required when using sample electron density!')
+            return False
+        for path in paths:
+            if len(path) > 0 and not os.path.exists(path):
+                self._showWarning(f'File `{path}` not found!')
+                return False
+        return True
+
+    def _showWarning(self, text):
+        warn_dialog = QtWidgets.QMessageBox(self)
+        warn_dialog.setWindowTitle("Invalid file path!")
+        warn_dialog.setText(text)
+        warn_dialog.exec()
+
+    def _getPaths(self, action):
+        if action == 'ok':
+            paths = [line_box.text() for line_box in self.file_paths]
+            if not self._pathsOk(paths):
+                return
+            self.paths = {
+                'main_input':    paths[0],
+                'rho_sample':    paths[1],
+                'rho_tip':       paths[2],
+                'rho_tip_delta': paths[3]
+            }
+        elif action == 'cancel':
+            self.paths = None
+        else:
+            raise ValueError(f'Invalid action `{action}`')
+        for path_box in self.file_paths:
+            path_box.clear()
+        self.close()
+
+    def closeEvent(self, event):
+        if event.spontaneous():
+            self._getPaths('cancel')
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Escape:
+            self._getPaths('cancel')
+        else:
+            super().keyPressEvent(event)
