@@ -27,19 +27,19 @@ def rotFF( Fx,Fy, a ):
 def main():
 
     parser = PPU.CLIParser(
-        description='Perform a scan, relaxing the probe particle in a precalculated force field. '
+        description='Perform a scan, relaxing the probe particle in a precalculated force field.'
             'The generated force field is saved to Q{charge}K{klat}/OutFz.xsf.'
     )
 
     parser.add_arguments(['klat', 'krange', 'charge', 'qrange', 'Vbias', 'Vrange', 'Apauli', 'output_format'])
-    parser.add_argument("--noLJ", action="store_true", help="Load Pauli and vdW force fields from separate files.")
+    parser.add_argument("--noLJ", action="store_true", help="Load Pauli and vdW force fields from separate files")
     parser.add_argument("-b", "--boltzmann", action="store_true", help="Calculate forces with boltzmann particle")
-    parser.add_argument("--bI" , action="store_true", help="Calculate current between boltzmann particle and tip")
+    parser.add_argument("--bI", action="store_true", help="Calculate current between boltzmann particle and tip")
     parser.add_argument("--pos", action="store_true", help="Save probe particle positions")
     parser.add_argument("--disp", action="store_true", help="Save probe particle displacements")
     parser.add_argument("--bDebugFFtot", action="store_true", help="Store total Force-Field for debugging")
     parser.add_argument("--vib", action="store", type=int, default=-1, help="Map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs")
-    parser.add_argument("--tipspline", action="store", help="File where spline is stored")
+    parser.add_argument("--tipspline", action="store", type=str, help="File where spline is stored")
     parser.add_argument("--rotate", action="store", type=float, default=0.0, help="Rotates sampling in xy-plane")
     parser.add_argument("--pol_t", action="store", type=float, default=1.0, help="Scaling factor for tip polarization")
     parser.add_argument("--pol_s", action="store", type=float, default=1.0, help="Scaling factor for sample polarization")
@@ -100,24 +100,24 @@ def main():
 
         print('Loading Pauli force field from FFpauli_{x,y,z}')
         FFpauli, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFpauli", data_format=args.output_format)
-        FFpauli[0,:,:,:],FFpauli[1,:,:,:] = rotFF( FFpauli[0,:,:,:],FFpauli[1,:,:,:], opt_dict['rotate'] )
+        FFpauli[0,:,:,:], FFpauli[1,:,:,:] = rotFF( FFpauli[0,:,:,:], FFpauli[1,:,:,:], opt_dict['rotate'] )
 
         print('Loading vdW force field from FFvdW_{x,y,z}')
         FFvdW, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFvdW", data_format=args.output_format)
-        FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )
+        FFvdW[0,:,:,:], FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:], FFvdW[1,:,:,:], opt_dict['rotate'] )
 
     else:
-        print("Loading Lennard-Jones Force-field from FFLJ_{x,y,z}")
+        print("Loading Lennard-Jones force field from FFLJ_{x,y,z}")
         FFvdW, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFLJ", data_format=args.output_format)
-        FFvdW[0,:,:,:],FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:],FFvdW[1,:,:,:], opt_dict['rotate'] )
+        FFvdW[0,:,:,:], FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:], FFvdW[1,:,:,:], opt_dict['rotate'] )
 
     if charged_system:
-        print("Loading electrostatic Force-field from FFel_{x,y,z}")
+        print("Loading electrostatic force field from FFel_{x,y,z}")
         FFel, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFel", data_format=args.output_format)
-        FFel[0,:,:,:],FFel[1,:,:,:] = rotFF( FFel[0,:,:,:],FFel[1,:,:,:], opt_dict['rotate'] )
+        FFel[0,:,:,:], FFel[1,:,:,:] = rotFF( FFel[0,:,:,:], FFel[1,:,:,:], opt_dict['rotate'] )
 
     if args.boltzmann or args.bI:
-        print("Loading Boltzmann Force-field from FFboltz_{x,y,z}")
+        print("Loading Boltzmann force field from FFboltz_{x,y,z}")
         FFboltz, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFboltz", data_format=args.output_format)
         FFboltz[0,:,:,:], FFboltz[1,:,:,:] = rotFF( FFboltz[0,:,:,:], FFboltz[1,:,:,:], opt_dict['rotate'] )
 
@@ -126,8 +126,8 @@ def main():
         FFkpfm_t0sV, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFkpfm_t0sV", data_format=args.output_format)
         FFkpfm_tVs0, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFkpfm_tVs0", data_format=args.output_format)
 
-        FFkpfm_t0sV[0,:,:,:], FFkpfm_t0sV[1,:,:,:] = rotFF(FFkpfm_t0sV[0,:,:,:], FFkpfm_t0sV[1,:,:,:], opt_dict['rotate'])
-        FFkpfm_tVs0[0,:,:,:], FFkpfm_tVs0[1,:,:,:] = rotFF(FFkpfm_tVs0[0,:,:,:], FFkpfm_tVs0[1,:,:,:], opt_dict['rotate'])
+        FFkpfm_t0sV[0,:,:,:], FFkpfm_t0sV[1,:,:,:] = rotFF( FFkpfm_t0sV[0,:,:,:], FFkpfm_t0sV[1,:,:,:], opt_dict['rotate'] )
+        FFkpfm_tVs0[0,:,:,:], FFkpfm_tVs0[1,:,:,:] = rotFF( FFkpfm_tVs0[0,:,:,:], FFkpfm_tVs0[1,:,:,:], opt_dict['rotate'] )
 
         FFkpfm_t0sV = FFkpfm_t0sV*opt_dict['pol_s']
         FFkpfm_tVs0 = FFkpfm_tVs0*opt_dict['pol_t']
@@ -147,18 +147,19 @@ def main():
                 PPU.params['Vbias'] = Vx
 
                 dirname = f"Q{Q:1.2f}K{K:1.2f}"
-                if applied_bias: dirname += f"V{Vx:1.2f}"
+                if applied_bias:
+                    dirname += f"V{Vx:1.2f}"
                 print(" Relaxed_scan for ", dirname)
                 if not os.path.exists( dirname ):
                     os.makedirs( dirname )
 
                 # Run relaxation
                 fzs, PPpos, PPdisp, lvecScan = PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,
-                    FFkpfm_t0sV=FFkpfm_t0sV, FFkpfm_tVs0=FFkpfm_tVs0, tipspline=args.tipspline, bFFtotDebug=args.bDebugFFtot)
+                                                                      FFkpfm_t0sV=FFkpfm_t0sV, FFkpfm_tVs0=FFkpfm_tVs0, tipspline=args.tipspline, bFFtotDebug=args.bDebugFFtot)
 
                 data_info = {'lvec': lvecScan, 'data_format': args.output_format, 'head': atomic_info_or_head, 'atomic_info': atomic_info_or_head}
                 if PPU.params['tiltedScan']:
-                    io.save_vec_field ( dirname+'/OutF',  fzs, **data_info)
+                    io.save_vec_field( dirname+'/OutF',  fzs, **data_info)
                 else:
                     io.save_scal_field( dirname+'/OutFz', fzs, **data_info)
 
@@ -175,8 +176,9 @@ def main():
 
                 if opt_dict['disp']:
                     io.save_vec_field( dirname+'/PPdisp', PPdisp, **data_info)
+
                 if opt_dict['pos']:
-                    io.save_vec_field( dirname+'/PPpos',  PPpos,  **data_info)
+                    io.save_vec_field( dirname+'/PPpos', PPpos, **data_info)
 
                 if args.bI:
                     print("Calculating current from tip to the Boltzmann particle:")
