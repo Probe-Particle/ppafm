@@ -27,7 +27,7 @@ def rotFF( Fx,Fy, a ):
 def main():
 
     parser = PPU.CLIParser(
-        description='Perform a scan, relaxing the probe particle in a precalculated force field.'
+        description='Perform a scan, relaxing the probe particle in a precalculated force field. '
             'The generated force field is saved to Q{charge}K{klat}/OutFz.xsf.'
     )
 
@@ -37,7 +37,7 @@ def main():
     parser.add_argument("--bI", action="store_true", help="Calculate current between boltzmann particle and tip")
     parser.add_argument("--pos", action="store_true", help="Save probe particle positions")
     parser.add_argument("--disp", action="store_true", help="Save probe particle displacements")
-    parser.add_argument("--bDebugFFtot", action="store_true", help="Store total Force-Field for debugging")
+    parser.add_argument("--bDebugFFtot", action="store_true", help="Store total force field for debugging")
     parser.add_argument("--vib", action="store", type=int, default=-1, help="Map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs")
     parser.add_argument("--tipspline", action="store", type=str, help="File where spline is stored")
     parser.add_argument("--rotate", action="store", type=float, default=0.0, help="Rotates sampling in xy-plane")
@@ -98,11 +98,11 @@ def main():
 
         print("Apauli", PPU.params["Apauli"])
 
-        print('Loading Pauli force field from FFpauli_{x,y,z}')
+        print("Loading Pauli force field from FFpauli_{x,y,z}")
         FFpauli, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFpauli", data_format=args.output_format)
         FFpauli[0,:,:,:], FFpauli[1,:,:,:] = rotFF( FFpauli[0,:,:,:], FFpauli[1,:,:,:], opt_dict['rotate'] )
 
-        print('Loading vdW force field from FFvdW_{x,y,z}')
+        print("Loading vdW force field from FFvdW_{x,y,z}")
         FFvdW, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFvdW", data_format=args.output_format)
         FFvdW[0,:,:,:], FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:], FFvdW[1,:,:,:], opt_dict['rotate'] )
 
@@ -159,7 +159,7 @@ def main():
 
                 data_info = {'lvec': lvecScan, 'data_format': args.output_format, 'head': atomic_info_or_head, 'atomic_info': atomic_info_or_head}
                 if PPU.params['tiltedScan']:
-                    io.save_vec_field( dirname+'/OutF',  fzs, **data_info)
+                    io.save_vec_field( dirname+'/OutF', fzs, **data_info)
                 else:
                     io.save_scal_field( dirname+'/OutFz', fzs, **data_info)
 
