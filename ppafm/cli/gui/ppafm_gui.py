@@ -292,11 +292,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             QZs = [sigma, 0, -sigma, 0]
 
         if self.verbose > 0: print('updateParams', Q, sigma, multipole, tipStiffness, tipR0,
-            use_point_charge, type(self.qs))
+            use_point_charge, A_pauli, B_pauli, type(self.qs))
 
         self.afmulator.iZPP = int(self.bxZPP.value())
         if self.rho_sample is not None: # Use FDBM
-            self.afmulator.setRho(self.rho_tip, B_pauli=B_pauli)
+            if self.afmulator.B_pauli != B_pauli:
+                self.afmulator.setRho(self.rho_tip, B_pauli=B_pauli)
         else:
             if self.rho_tip is None: # else we just keep the tip density loaded from file
                 if use_point_charge:
@@ -396,7 +397,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setPBC(lvec, toggle)
         self.update()
 
-    def applyPreset(self):
+    def applyPreset(self, update=True):
         '''Get current preset, apply parameters, and update'''
         preset = Presets[self.slPreset.currentText()]
         if 'Z' in preset: guiw.set_widget_value(self.bxZPP, preset['Z'])
@@ -412,7 +413,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             guiw.set_widget_value(self.bxP0r, preset['EqPos'][2])
         if 'Multipole' in preset:
             guiw.set_widget_value(self.slMultipole, self.slMultipole.findText(preset['Multipole']))
-        self.updateParams(preset_none=False)
+        if update:
+            self.updateParams(preset_none=False)
 
     def update(self):
         '''Run simulation, and show the result'''
@@ -483,23 +485,48 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if rho_tip_delta:
             self.rho_tip_delta, self.xyzs_tip, self.Zs_tip = TipDensity.from_file(rho_tip_delta)
         else:
+            self.rho_tip_delta = None
             if self.rho_tip is not None:
                 self.rho_tip_delta = self.rho_tip.subCores(self.xyzs_tip, self.Zs_tip, Rcore=0.7)
                 if self.rho_sample is None:
-                    # Not doing FDBM, just use the delta density for electrostatics
+                    # Not FDBM, no need for full tip electron density
                     self.rho_tip.release()
-                    self.rho_tip = self.rho_tip_delta
-                    self.rho_tip_delta = None
-                    self.afmulator.setRho(self.rho_tip)
-                else:
-                    self.afmulator.setRhoDelta(self.rho_tip_delta)
-            else:
-                self.rho_tip_delta = None
+                    self.rho_tip = None
+
+        if (self.rho_tip is None) and (self.rho_tip_delta is not None):
+            # Not doing FDBM, just use the delta density for electrostatics
+            self.rho_tip = self.rho_tip_delta
+            self.rho_tip_delta = None
+
+        if self.rho_tip is not None:
+            B_pauli = 1.0 if (self.rho_sample is None) else self.bxAlpha.value()
+            self.afmulator.setRho(self.rho_tip, B_pauli=B_pauli)
+        if self.rho_tip_delta is not None:
+            self.afmulator.setRhoDelta(self.rho_tip_delta)
 
         self.xyzs = xyzs
         self.Zs = Zs
         self.qs = qs
         self.df_points = []
+
+        if self.rho_tip is not None:
+
+            # Pick the probe particle type from the lowest atom in the tip density geometry
+            lowest_ind = np.argmin(self.xyzs_tip[:, 2])
+            Zpp = int(self.Zs_tip[lowest_ind])
+            if Zpp == 0: return # Zs_tip can be just [0] if the file does not contain a geometry
+            self.afmulator.iZPP = Zpp
+
+            # Try to find a matching preset
+            for name, preset in Presets.items():
+                if preset['Z'] == Zpp:
+                    if self.verbose > 0: print(f'Setting preset `{name}` based on tip density file geometry.')
+                    self.slPreset.setCurrentText(name)
+                    self.applyPreset(update=False)
+                    break
+            else:
+                if self.verbose > 0: print(f'Setting probe particle type `{Zpp}` based on tip density file geometry.')
+                guiw.set_widget_value(self.bxZPP, Zpp)
 
         self.bxPC.blockSignals(True)
         if isinstance(self.qs, HartreePotential):
@@ -541,7 +568,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(f'{main_input} - Probe Particle Model')
 
     def _toggleTipControls(self, enabled):
-        for widget in [self.slPreset, self.bxZPP, self.slMultipole, self.bxQ, self.bxS, self.bxPC]:
+        for widget in [self.slMultipole, self.bxQ, self.bxS, self.bxPC]:
             widget.setDisabled(not enabled)
 
     def createGeomEditor(self):
@@ -758,17 +785,22 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
         # Set probe settings
         guiw.set_widget_value(self.bxZPP, self.afmulator.iZPP)
-        tip = list(self.afmulator._rho.keys())[0]
-        guiw.set_widget_value(self.slMultipole, tip)
-        guiw.set_widget_value(self.bxQ, self.afmulator._rho[tip])
-        guiw.set_widget_value(self.bxS, self.afmulator.sigma)
-        guiw.set_widget_value(self.bxS, self.afmulator.sigma)
+        if isinstance(self.afmulator._rho, dict):
+            tip = list(self.afmulator._rho.keys())[0]
+            guiw.set_widget_value(self.slMultipole, tip)
+            guiw.set_widget_value(self.bxQ, self.afmulator._rho[tip])
+            guiw.set_widget_value(self.bxS, self.afmulator.sigma)
         guiw.set_widget_value(self.bxKx, self.afmulator.scanner.stiffness[0] * -PPU.eVA_Nm)
         guiw.set_widget_value(self.bxKy, self.afmulator.scanner.stiffness[1] * -PPU.eVA_Nm)
         guiw.set_widget_value(self.bxKr, self.afmulator.scanner.stiffness[3] * -PPU.eVA_Nm)
         guiw.set_widget_value(self.bxP0x, self.afmulator.tipR0[0])
         guiw.set_widget_value(self.bxP0y, self.afmulator.tipR0[1])
         guiw.set_widget_value(self.bxP0r, self.afmulator.tipR0[2])
+        if self.rho_sample is not None: # Using FDBM
+            guiw.set_widget_value(self.bxV0, self.afmulator.A_pauli)
+            guiw.set_widget_value(self.bxAlpha, self.afmulator.B_pauli)
+        else:
+            self.afmulator.setBPauli(B_pauli=1.0) # Not using the FDBM so make sure the tip density is not being raised to the power
 
         # Set scan settings
         scan_size = (

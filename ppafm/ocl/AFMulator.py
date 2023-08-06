@@ -311,7 +311,9 @@ class AFMulator():
             if self._rho is not None:
                 # The grid size changed so we need to recompute/reinterpolate the tip density grid
                 self.setRho(self._rho, self.sigma, self.B_pauli)
+                self.setRhoDelta(self.rho_delta) # self.rho_delta could be None, but then this does nothing
             self.forcefield.prepareBuffers()
+            self._old_nDim = self.forcefield.nDim
 
         # If rho_sample is specified, then we use FDBM. Check that other requirements are satisfied.
         if rho_sample is not None:
@@ -343,6 +345,9 @@ class AFMulator():
         else:
             method = 'point-charge'
 
+        if (method != 'fdbm') and (not np.allclose(self.B_pauli, 1.0)):
+            warnings.warn(f'Not using FDBM, but tip density exponent is {self.B_pauli}! This is probably not what you want to do!')
+
         npbc = self.npbc if self.sample_lvec is not None else (0, 0, 0)
 
         if rot_center is None:
@@ -357,7 +362,7 @@ class AFMulator():
 
         # Compute force field
         self.forcefield.makeFF(xyzs, cLJs, REAs=REAs, Zs=Zs, method=method, qs=qs, pot=pot, rho_sample=rho_sample,
-            rho_delta=self.rho_delta, A=self.A_pauli, B=self.B_pauli, rot=rot, rot_center=rot_center,
+            rho_delta=None, A=self.A_pauli, B=self.B_pauli, rot=rot, rot_center=rot_center,
             fdbm_vdw_type=self.fdbm_vdw_type, d3_params=self.d3_params, lj_vdw_damp=self.lj_vdw_damp,
             bRelease=False, bCopy=False, bFinish=False)
         if self.bSaveFF: self.saveFF()
@@ -437,7 +442,11 @@ class AFMulator():
         self.A_pauli = params['A_pauli']
         self.setScanWindow(params['scan_window'], params['scan_dim'], params['df_steps'])
         self.setLvec(params['lvec'], params['pixPerAngstrome'])
-        self.setRho(params['rho'], params['sigma'], params['B_pauli'])
+        if (self._rho is None) or isinstance(self._rho, dict):
+            self.setRho(params['rho'], params['sigma'])
+        else:
+            warnings.warn(f'Using existing tip density with exponent {params["B_pauli"]}, instead of parameters from params.ini file.')
+            self.setRho(self._rho, sigma=params['sigma'], B_pauli=params['B_pauli'])
         self.sample_lvec = sample_lvec
 
     def save_params(self, file_path='./params.ini'):

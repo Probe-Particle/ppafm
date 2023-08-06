@@ -537,7 +537,7 @@ class FileOpen(QtWidgets.QDialog):
         self.centralLayout = QtWidgets.QVBoxLayout()
         self.setLayout(self.centralLayout)
 
-        self.file_paths = []
+        self.file_path_lines = []
         self.grid = QtWidgets.QGridLayout()
 
         self._addLine(1, 'Main input', '*.xyz *.in *.xsf *.cube POSCAR CONTCAR', 'Main input: xyz geometry or Hartree potential')
@@ -564,7 +564,7 @@ class FileOpen(QtWidgets.QDialog):
 
         file_path_box = QtWidgets.QLineEdit(self)
         self.grid.addWidget(file_path_box, pos, 1)
-        self.file_paths.append(file_path_box)
+        self.file_path_lines.append(file_path_box)
 
         browse_button = QtWidgets.QPushButton('Browse', self)
         browse_button.clicked.connect(lambda: self._browseFile(file_path_box, file_types))
@@ -593,7 +593,10 @@ class FileOpen(QtWidgets.QDialog):
             self._showWarning('Missing main input file!')
             return False
         if paths[1] and not paths[2]:
-            self._showWarning('Tip density is required when using sample electron density!')
+            self._showWarning('Tip density is required when using a sample electron density!')
+            return False
+        if paths[1] and paths[0].endswith('xyz'):
+            self._showWarning('Cannot use an xyz file as main input along with a sample electron density!')
             return False
         for path in paths:
             if len(path) > 0 and not os.path.exists(path):
@@ -609,7 +612,7 @@ class FileOpen(QtWidgets.QDialog):
 
     def _getPaths(self, action):
         if action == 'ok':
-            paths = [line_box.text() for line_box in self.file_paths]
+            paths = [line_box.text() for line_box in self.file_path_lines]
             if not self._pathsOk(paths):
                 return
             self.paths = {
@@ -622,7 +625,7 @@ class FileOpen(QtWidgets.QDialog):
             self.paths = None
         else:
             raise ValueError(f'Invalid action `{action}`')
-        for path_box in self.file_paths:
+        for path_box in self.file_path_lines:
             path_box.clear()
         self.close()
 
