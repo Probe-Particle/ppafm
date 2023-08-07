@@ -45,8 +45,8 @@ rhoS, lvecS, nDimS, headS = io.loadXSF( args.sample )
 print(">>> Loading tip from ", args.tip, " ... ")
 rhoT, lvecT, nDimT, headT = io.loadXSF( args.tip    )
 
-if np.any( nDimS != nDimT ): raise Exception( "Tip and Sample grids has different dimensions! - sample: "+str(nDimS)+" tip: "+str(nDimT) )
-if np.any( lvecS != lvecT ): raise Exception( "Tip and Sample grids has different shap! - sample: "+str(lvecS )+" tip: "+str(lvecT) )
+if np.any( nDimS != nDimT ): raise Exception( "Tip and Sample grids have different dimensions! - sample: "+str(nDimS)+" tip: "+str(nDimT) )
+if np.any( lvecS != lvecT ): raise Exception( "Tip and Sample grids have different shapes! - sample: "+str(lvecS )+" tip: "+str(lvecT) )
 
 handleAECCAR( args.sample, lvecS, rhoS )
 handleAECCAR( args.tip,    lvecT, rhoT )
