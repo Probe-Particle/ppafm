@@ -18,7 +18,7 @@ def main():
             'The generated force field is saved to FFvdW_{x,y,z}.[ext].'
     )
 
-    parser.add_arguments(['input', 'output_format', 'noPBC', 'energy'])
+    parser.add_arguments(['input', 'input_format', 'output_format', 'noPBC', 'energy'])
     parser.add_argument('--df_name', action='store', default='PBE',
         help='Which density functional-specific scaling parameters (s6, s8, a1, a2) to use. Give the name of the functional. '
             'The following functionals are available: PBE, B1B95, B2GPPLYP, B3PW91, BHLYP, BMK, BOP, BPBE, CAMB3LYP, LCwPBE, '
@@ -46,7 +46,7 @@ def main():
             sys.exit(1)
         df_params = args.df_name
 
-    PPH.computeDFTD3(args.input, df_params=df_params, save_format=args.output_format, compute_energy=args.energy)
+    PPH.computeDFTD3(args.input, df_params=df_params, geometry_format=args.input_format, save_format=args.output_format, compute_energy=args.energy)
 
 
 if __name__ == "__main__":

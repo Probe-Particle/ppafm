@@ -24,13 +24,13 @@ megadl 'https://mega.nz/#!2CgjyCZR!b0E-vPUp6TmkV0_uTwAYHDrMXv8mJcShYOVBZVSUYs0'
 mkdir tip
 mv CHGCAR.xsf tip
 
-echo "======= STEP 1 : Generate force-field grid "
+echo "======= STEP 1 : Generate force field grid."
 python ${PPAFM_DIR}/conv_rho.py      -s sample/CHGCAR.xsf -t tip/CHGCAR.xsf -B 1.0 -E
 python ${PPAFM_DIR}/generateElFF.py  -i sample/LOCPOT.xsf --tip_dens tip/CHGCAR.xsf --Rcore 0.7 -E --doDensity
 python ${PPAFM_DIR}/generateDFTD3.py -i sample/LOCPOT.xsf --df_name PBE
 
-echo "======= STEP 2 : Relax Probe Particle using that force-field grid "
-python ${PPAFM_DIR}/relaxed_scan_PVE.py -k 0.25 -q 1.0 --Apauli 18.0 --bDebugFFtot
+echo "======= STEP 2 : Relax Probe Particle using that force field grid."
+ppafm-relaxed-scan -k 0.25 -q 1.0 --noLJ --Apauli 18.0 --bDebugFFtot # Note the --noLJ for loading separate Pauli and vdW instead of LJ force field
 
-echo "======= STEP 3 : Plot the results "
+echo "======= STEP 3 : Plot the results."
 ppafm-plot-results -k 0.25 -q 1.0 -a 2.0 --df

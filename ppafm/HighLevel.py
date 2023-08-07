@@ -140,13 +140,13 @@ def prepareArrays( FF, Vpot ):
         V=None
     return FF, V
 
-def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT, ffModel="LJ" ):
+def computeLJ( geomFile, speciesFile, geometry_format=None, save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT, ffModel="LJ" ):
     if(verbose>0): print(">>>BEGIN: computeLJ()")
     # --- load species (LJ potential)
     FFparams            = PPU.loadSpecies( speciesFile )
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
     # --- load atomic geometry
-    atoms,nDim,lvec     = io.loadGeometry( geomFile, params=PPU.params )
+    atoms,nDim,lvec     = io.loadGeometry( geomFile, format=geometry_format, params=PPU.params )
     atomstring          = io.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
     PPU      .params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3] # must be before parseAtoms
     if(verbose>0): print(PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC'])
@@ -187,7 +187,7 @@ def computeLJ( geomFile, speciesFile, save_format=None, computeVpot=False, Fmax=
     if(verbose>0): print("<<<END: computeLJ()")
     return FF, V, nDim, lvec
 
-def computeDFTD3(input_file, df_params='PBE', save_format=None, compute_energy=False):
+def computeDFTD3(input_file, df_params='PBE', geometry_format=None, save_format=None, compute_energy=False):
     '''
     Compute the Grimme DFT-D3 force field and optionally save to a file. See also :meth:`.add_dftd3`.
 
@@ -207,7 +207,7 @@ def computeDFTD3(input_file, df_params='PBE', save_format=None, compute_energy=F
     '''
 
     # Load atomic geometry
-    atoms, nDim, lvec = io.loadGeometry(input_file, params=PPU.params)
+    atoms, nDim, lvec = io.loadGeometry(input_file, format=geometry_format, params=PPU.params)
     PPU.params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3]
     elem_dict = PPU.getFFdict(PPU.loadSpecies())
     iZs, Rs, _ = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=PPU.params['PBC'])
@@ -231,7 +231,8 @@ def computeDFTD3(input_file, df_params='PBE', save_format=None, compute_energy=F
 
     return FF, V, lvec
 
-def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT ):
+def computeELFF_pointCharge( geomFile, geometry_format = None, tip='s', save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT ):
+    
     if(verbose>0): print(">>>BEGIN: computeELFF_pointCharge()")
     tipKinds = {'s':0,'pz':1,'dz2':2}
     tipKind  = tipKinds[tip]
@@ -240,7 +241,7 @@ def computeELFF_pointCharge( geomFile, tip='s', save_format=None, computeVpot=Fa
     FFparams            = PPU.loadSpecies( )
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
 
-    atoms,nDim,lvec     = io .loadGeometry( geomFile, params=PPU.params )
+    atoms,nDim,lvec     = io.loadGeometry( geomFile, format=geometry_format, params=PPU.params )
     atomstring          = io.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
     iZs,Rs,Qs=PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params['PBC'] )
     # --- prepare arrays and compute
@@ -319,7 +320,7 @@ def _getAtomsWhichTouchPBCcell( Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname=N
     return Rs_, elems
 
 def getAtomsWhichTouchPBCcell( fname, Rcut=1.0, bSaveDebug=True ):
-    atoms, nDim, lvec = io.loadGeometry( fname, params=PPU.params )
+    atoms, nDim, lvec = io.loadGeometry( fname, format=geometry_format, params=PPU.params )
     Rs = np.array(atoms[1:4]) # get just positions x,y,z
     elems = np.array(atoms[0])
     Rs, elems = _getAtomsWhichTouchPBCcell(Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname)
