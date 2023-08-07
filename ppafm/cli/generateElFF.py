@@ -91,8 +91,6 @@ def main():
         print(">>> Loading tip density from ",args.tip_dens,"...")
         if(args.tip_dens.lowercase().endswith("xsf") ):
             rho_tip, lvec_tip, nDim_tip, head_tip = io.loadXSF( args.tip_dens )
-        elif(args.tip_dens.lowercase().endswith("cube") ):
-            rho_tip, lvec_tip, nDim_tip, head_tip = io.loadCUBE( args.tip_dens )
         else:
             raise ValueError('ERROR!!! Unknown or unsupported format of the tip density file "'+args.tip_dens+'"\n')
         if bSubstractCore:
