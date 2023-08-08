@@ -91,26 +91,24 @@ def main():
     print("Qs   =", Qs)
 
     print(" ============= RUN  ")
+
     FFvdW = FFpauli = FFel = FFboltz = FFkpfm_t0sV = FFkpfm_tVs0 = None
 
-
-    if not args.noLJ:
-        try:
-            print("Loading Lennard-Jones force field from FFLJ_{x,y,z}")
-            FFvdW, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFLJ", data_format=args.output_format)
-            FFvdW[0,:,:,:], FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:], FFvdW[1,:,:,:], opt_dict['rotate'] )
-        except :
-            print("Loading Lennard-Jones force field failed. Trying Pauli + vdW instead.")
-            args.noLJ = True
-
     if args.noLJ:
+
         print("Apauli", PPU.params["Apauli"])
+
         print("Loading Pauli force field from FFpauli_{x,y,z}")
         FFpauli, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFpauli", data_format=args.output_format)
         FFpauli[0,:,:,:], FFpauli[1,:,:,:] = rotFF( FFpauli[0,:,:,:], FFpauli[1,:,:,:], opt_dict['rotate'] )
 
         print("Loading vdW force field from FFvdW_{x,y,z}")
         FFvdW, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFvdW", data_format=args.output_format)
+        FFvdW[0,:,:,:], FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:], FFvdW[1,:,:,:], opt_dict['rotate'] )
+
+    else:
+        print("Loading Lennard-Jones force field from FFLJ_{x,y,z}")
+        FFvdW, lvec, nDim, atomic_info_or_head = io.load_vec_field("FFLJ", data_format=args.output_format)
         FFvdW[0,:,:,:], FFvdW[1,:,:,:] = rotFF( FFvdW[0,:,:,:], FFvdW[1,:,:,:], opt_dict['rotate'] )
 
     if charged_system:

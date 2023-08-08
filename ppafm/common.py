@@ -422,7 +422,7 @@ def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
     then shifts the geometry in the center of the supercell
     '''
     zmax=max(Rs[2]); 	Rs[2] -= zmax
-    if(verbose>0): print(" autoGeom substracted zmax = ",zmax)
+    if(verbose>0): print(" autoGeom subtracted zmax = ",zmax)
     xmin=min(Rs[0]); xmax=max(Rs[0])
     ymin=min(Rs[1]); ymax=max(Rs[1])
     if fitCell:
