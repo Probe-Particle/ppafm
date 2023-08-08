@@ -48,6 +48,7 @@ ppafm-conv-rho = "ppafm.cli.conv_rho:main"
 ppafm-relaxed-scan = "ppafm.cli.relaxed_scan:main"
 ppafm-plot-results = "ppafm.cli.plot_results:main"
 ppafm-gui = "ppafm.cli.gui.ppafm_gui:main"
+
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
