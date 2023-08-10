@@ -191,7 +191,7 @@ def main(argv=None):
                     cbar=opt_dict["cbar"],
                 )
 
-            if opt_dict["df"] or opt_dict["save_df"] or opt_dict["WSxM"]:
+            if opt_dict["df"] or opt_dict["save_df"] or opt_dict["WSxM"] or opt_dict["LCPD_maps"]:
                 for amplitude in amplitudes:
                     common.params["Amplitude"] = amplitude
                     amp_string = f"/Amp{amplitude:2.2f}"
@@ -350,7 +350,7 @@ def main(argv=None):
                 symetric_map=False,
             )
             io.save_scal_field(
-                "./LCDP_HzperV",
+                "./LCPD_HzperV",
                 lcpd,
                 lvec_df,
                 data_format=args.output_format,
