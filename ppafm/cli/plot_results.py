@@ -333,7 +333,7 @@ def main(argv=None):
                 bonds=bonds,
                 atomSize=atom_size,
                 cbar=opt_dict["cbar"],
-                symetric_map=True,
+                symmetric_map=True,
                 V0=args.V0,
             )
             PPPlot.plotImages(
@@ -347,10 +347,10 @@ def main(argv=None):
                 bonds=bonds,
                 atomSize=atom_size,
                 cbar=opt_dict["cbar"],
-                symetric_map=False,
+                symmetric_map=False,
             )
             io.save_scal_field(
-                "./LCPD_HzperV",
+                "./LCPD",
                 lcpd,
                 lvec_df,
                 data_format=args.output_format,
