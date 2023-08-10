@@ -5,12 +5,6 @@ import ppafm as PPU
 import ppafm.fieldFFT as fFFT
 from ppafm import io
 
-HELP_MESSAGE = f"""Use this program in the following way:
-ppafm-conv-rho -s <filename> -t <filename> [ -A <value> ] [ -B <value> ]
-Supported file fromats are:
-    * xsf
-"""
-
 
 def handleAECCAR( fname, lvec, rho ):
     if "AECCAR" in fname:
