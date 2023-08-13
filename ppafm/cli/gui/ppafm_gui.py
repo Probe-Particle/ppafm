@@ -421,7 +421,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.xyzs is None: return
         if self.verbose > 1: t0 = time.perf_counter()
         self.status_message('Running simulation...')
-        self.df = self.afmulator(self.xyzs, self.Zs, self.qs, rho_sample=self.rho_sample, sample_lvec=self.sample_lvec, rot=self.rot)
+        try:
+            self.df = self.afmulator(self.xyzs, self.Zs, self.qs, rho_sample=self.rho_sample, sample_lvec=self.sample_lvec, rot=self.rot)
+        except Exception:
+            traceback.print_exc()
+            guiw.show_warning(self, f'Error during simulation! Error message:\n{traceback.format_exc()}', 'Simulation error!')
         if self.verbose > 1: print(f'AFMulator total time [s]: {time.perf_counter() - t0}')
         self.status_message('Updating plot...')
         self.updateDataView()
@@ -514,19 +518,20 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             # Pick the probe particle type from the lowest atom in the tip density geometry
             lowest_ind = np.argmin(self.xyzs_tip[:, 2])
             Zpp = int(self.Zs_tip[lowest_ind])
-            if Zpp == 0: return # Zs_tip can be just [0] if the file does not contain a geometry
-            self.afmulator.iZPP = Zpp
 
-            # Try to find a matching preset
-            for name, preset in Presets.items():
-                if preset['Z'] == Zpp:
-                    if self.verbose > 0: print(f'Setting preset `{name}` based on tip density file geometry.')
-                    self.slPreset.setCurrentText(name)
-                    self.applyPreset(update=False)
-                    break
-            else:
-                if self.verbose > 0: print(f'Setting probe particle type `{Zpp}` based on tip density file geometry.')
-                guiw.set_widget_value(self.bxZPP, Zpp)
+            if Zpp != 0: # Zs_tip can be just [0] if the file does not contain a geometry
+
+                self.afmulator.iZPP = Zpp
+
+                for name, preset in Presets.items(): # Try to find a matching preset
+                    if preset['Z'] == Zpp:
+                        if self.verbose > 0: print(f'Setting preset `{name}` based on tip density file geometry.')
+                        self.slPreset.setCurrentText(name)
+                        self.applyPreset(update=False)
+                        break
+                else:
+                    if self.verbose > 0: print(f'Setting probe particle type `{Zpp}` based on tip density file geometry.')
+                    guiw.set_widget_value(self.bxZPP, Zpp)
 
         self.bxPC.blockSignals(True)
         if isinstance(self.qs, HartreePotential):
@@ -608,7 +613,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.verbose > 0: print('openFile', file_paths)
         if file_paths is None: return
         self.status_message('Opening file(s)...')
-        self.loadInput(**file_paths)
+        try:
+            self.loadInput(**file_paths)
+        except:
+            traceback.print_exc()
+            guiw.show_warning(self, f'Ran into an error while opening a file! Error message:\n{traceback.format_exc()}', 'File open error!')
+            self.status_message('Ready')
 
     def saveFig(self):
         if self.xyzs is None: return
@@ -694,8 +704,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 extent=extent)
 
         except Exception:
-            print("Failed to plot df slice")
-            traceback.print_exc()
+            print(f"Failed to plot df slice.\n{traceback.format_exc()}")
+            guiw.show_warning(self, f'Ran into an error while plotting! Error message:\n{traceback.format_exc()}', 'Plot error!')
 
         if self.verbose > 1: print(f"plotSlice time {time.perf_counter() - t1:.5f} [s]")
 
@@ -1148,9 +1158,15 @@ def main():
         print('\nAvailable OpenCL platforms:')
         oclu.print_platforms()
         sys.exit(0)
-    aw = ApplicationWindow(args.input, args.device, args.verbosity)
-    aw.show()
-    sys.exit(qApp.exec_())
+    try:
+        aw = ApplicationWindow(args.input, args.device, args.verbosity)
+        aw.show()
+        sys.exit(qApp.exec_())
+    except SystemExit:
+        pass
+    except:
+        traceback.print_exc()
+        guiw.show_warning(None, f'Ran into an error!\n\n{traceback.format_exc()}', 'Error!')
 
 if __name__ == "__main__":
     main()
