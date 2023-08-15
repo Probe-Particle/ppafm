@@ -41,6 +41,12 @@ def set_widget_value(widget, value):
         raise ValueError(f'Unsupported widget type `{type(widget)}`')
     widget.blockSignals(False)
 
+def show_warning(parent, text, title='Warning!'):
+    warn_dialog = QtWidgets.QMessageBox(parent)
+    warn_dialog.setWindowTitle(title)
+    warn_dialog.setText(text)
+    warn_dialog.exec()
+
 # =======================
 #     FigCanvas
 # =======================
@@ -522,3 +528,238 @@ class FFViewer(SlaveWindow):
 
         if self.verbose > 0: print("Done saving force field data.")
         self.parent.status_message('Ready')
+
+# =======================
+#    File open dialog
+# =======================
+
+class FileOpen(QtWidgets.QDialog):
+
+    def __init__(self, parent=None, title='Open file(s)'):
+        super().__init__(parent)
+
+        self.setWindowTitle(title)
+
+        self.centralLayout = QtWidgets.QVBoxLayout()
+        self.setLayout(self.centralLayout)
+
+        self.tabs_widget = QtWidgets.QTabWidget()
+        self.centralLayout.addWidget(self.tabs_widget)
+
+        self.tabs = {}
+        self._create_tab_lj()
+        self._create_tab_hartree()
+        self._create_tab_fdbm()
+        self._addButtons()
+
+    def _create_tab_lj(self):
+
+        tab = QtWidgets.QWidget()
+        self.tabs_widget.addTab(tab, 'LJ (+ point charges)')
+        grid = QtWidgets.QGridLayout()
+        tab.setLayout(grid)
+
+        description = QtWidgets.QLabel('Use the Lennard-Jones force field with optional point charge electrostatics. Load the sample '
+            'geometry from a .xyz, .in, or POSCAR/CONTCAR file. An xyz file can optionally have point charges as the last column.')
+        description.setWordWrap(True)
+        grid.addWidget(description, 1, 0, 1, 3)
+
+        self._addSeparator(grid, 2)
+
+        file_path_line = self._addLine(grid, 3, 'Geometry', '*.xyz *.in POSCAR CONTCAR',
+            'Sample xyz geometry (and optionally point charges) in .xyz, .in, or POSCAR format')
+
+        grid.setRowStretch(4, 1)
+
+        self.tabs['lj'] = {
+            'tab': tab,
+            'file_path_lines': [file_path_line]
+        }
+
+    def _create_tab_hartree(self):
+
+        tab = QtWidgets.QWidget()
+        self.tabs_widget.addTab(tab, 'LJ + Hartree')
+        grid = QtWidgets.QGridLayout()
+        tab.setLayout(grid)
+
+        description = QtWidgets.QLabel('Use the Lennard-Jones force field with Hartree potential electrostatics. Load the Hartree potential '
+            'and geometry from a .xsf or .cube file. Make sure the file also contains the atomic positions. You can also optionally '
+            'load a tip density from a .xsf file. The density can be a neutral delta density or an electron density from which you '
+            'can subtract the valence electrons by checking the box underneath.')
+        description.setWordWrap(True)
+        grid.addWidget(description, 1, 0, 1, 3)
+
+        self._addSeparator(grid, 2)
+
+        file_path_line_hartree = self._addLine(grid, 3, 'Hartree potential', '*.xsf *.cube',
+            'Sample hartree potential in .xsf or .cube format')
+        self._addSeparator(grid, 4)
+        file_path_line_tip_density = self._addLine(grid, 5, 'Tip density', '*.xsf',
+            'Tip electron density or delta density in .xsf format')
+
+        check_ttip = 'If the tip density is an electron density, check this box to subtract the valence electrons and make the density neutral.'
+        check_box_layout = QtWidgets.QHBoxLayout()
+        grid.addLayout(check_box_layout, 6, 0, 1, 3)
+        check_sub_valence = QtWidgets.QCheckBox()
+        check_sub_valence.setToolTip(check_ttip)
+        check_label = QtWidgets.QLabel('Subtract valence electrons')
+        check_label.setToolTip(check_ttip)
+        check_box_layout.addWidget(check_sub_valence)
+        check_box_layout.addWidget(check_label)
+        check_box_layout.addStretch(1)
+
+        grid.setRowStretch(7, 1)
+
+        self.tabs['hartree'] = {
+            'tab': tab,
+            'file_path_lines': [file_path_line_hartree, file_path_line_tip_density],
+            'check_sub_valence': check_sub_valence
+        }
+
+    def _create_tab_fdbm(self):
+
+        tab = QtWidgets.QWidget()
+        self.tabs_widget.addTab(tab, 'FDBM')
+        grid = QtWidgets.QGridLayout()
+        tab.setLayout(grid)
+
+        description = QtWidgets.QLabel('Use the full-density based model, where the Pauli repulsion is approximated with an overlap '
+            'integral between the sample and tip electron densities. Load the sample Hartree potential from a .xsf or .cube file, '
+            'and the sample and tip electron densities from .xsf files. Optionally, you can also load a neutral delta density for '
+            'the tip for electrostatic interaction. Otherwise the valence electrons are subtracted from the electron density for'
+            'this purpose.')
+        description.setWordWrap(True)
+        grid.addWidget(description, 1, 0, 1, 3)
+
+        self._addSeparator(grid, 2)
+
+        file_path_line_hartree = self._addLine(grid, 3, 'Hartree potential', '*.xsf *.cube',
+            'Sample hartree potential in .xsf or .cube format')
+        file_path_line_sample_density = self._addLine(grid, 4, 'Sample el. dens.', '*.xsf',
+            'Sample electron density in .xsf format')
+        file_path_line_tip_density = self._addLine(grid, 5, 'Tip el. dens.', '*.xsf',
+            'Tip electron density in .xsf format')
+        self._addSeparator(grid, 6)
+        file_path_line_delta_density = self._addLine(grid, 7, 'Tip delta dens.', '*.xsf',
+            'Tip electron delta density in .xsf format')
+
+        grid.setRowStretch(8, 1)
+
+        self.tabs['fdbm'] = {
+            'tab': tab,
+            'file_path_lines': [file_path_line_hartree, file_path_line_sample_density, file_path_line_tip_density, file_path_line_delta_density]
+        }
+
+    def _addSeparator(self, grid, pos):
+        sep = QtWidgets.QFrame()
+        sep.setFrameShape(QtWidgets.QFrame.HLine)
+        sep.setFrameShadow(QtWidgets.QFrame.Sunken)
+        grid.addWidget(sep, pos, 0, 1, 3)
+
+    def _addLine(self, grid, pos, text, file_types, ttip):
+
+        lb = QtWidgets.QLabel(text)
+        lb.setToolTip(ttip)
+        grid.addWidget(lb, pos, 0)
+
+        file_path_line = QtWidgets.QLineEdit(self)
+        file_path_line.setToolTip(ttip)
+        grid.addWidget(file_path_line, pos, 1)
+
+        browse_button = QtWidgets.QPushButton('Browse', self)
+        browse_button.clicked.connect(lambda: self._browseFile(file_path_line, file_types))
+        grid.addWidget(browse_button, pos, 2)
+
+        return file_path_line
+
+    def _addButtons(self):
+
+        layout = QtWidgets.QHBoxLayout()
+        self.centralLayout.addLayout(layout)
+
+        layout.addStretch(1)
+
+        button_ok = QtWidgets.QPushButton('Ok', self)
+        button_ok.clicked.connect(lambda: self._finish('ok'))
+        button_ok.setMinimumSize(150, 10)
+        layout.addWidget(button_ok)
+
+        button_cancel = QtWidgets.QPushButton('Cancel', self)
+        button_cancel.clicked.connect(lambda: self._finish('cancel'))
+        button_cancel.setMinimumSize(150, 10)
+        layout.addWidget(button_cancel)
+
+    def _browseFile(self, line_box, file_types):
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '', file_types)
+        if file_path:
+            line_box.setText(file_path)
+
+    def _getPaths(self):
+
+        tab_ind = self.tabs_widget.currentIndex()
+        tab_name = ['lj', 'hartree', 'fdbm'][tab_ind]
+        tab = self.tabs[tab_name]
+        paths = [line_box.text() for line_box in tab['file_path_lines']]
+
+        if tab_name == 'lj':
+            if not paths[0]:
+                show_warning(self, 'Missing geometry input file!', 'Invalid file path!')
+                return None
+            paths = paths + ['', '', '']
+        elif tab_name == 'hartree':
+            if not paths[0]:
+                show_warning(self, 'Missing Hartee potential input file!', 'Invalid file path!')
+                return None
+            if tab['check_sub_valence'].isChecked():
+                paths = [paths[0], '', paths[1], '']
+            else:
+                paths = [paths[0], '', '', paths[1]]
+        elif tab_name == 'fdbm':
+            if not paths[0]:
+                show_warning(self, 'Missing sample Hartee potential input file!', 'Invalid file path!')
+                return None
+            if not paths[1]:
+                show_warning(self, 'Missing sample Hartee electron density input file!', 'Invalid file path!')
+                return None
+            if not paths[2]:
+                show_warning(self, 'Missing tip electron density input file!', 'Invalid file path!')
+                return None
+
+        for path in paths:
+            if len(path) > 0 and not os.path.exists(path):
+                show_warning(self, f'File `{path}` not found!', 'Invalid file path!')
+                return None
+
+        paths = {
+            'main_input':    paths[0],
+            'rho_sample':    paths[1],
+            'rho_tip':       paths[2],
+            'rho_tip_delta': paths[3]
+        }
+
+        return paths
+
+    def _finish(self, action):
+        if action == 'ok':
+            paths = self._getPaths()
+            if paths is None: return
+            self.paths = paths
+        elif action == 'cancel':
+            self.paths = None
+        else:
+            raise ValueError(f'Invalid action `{action}`')
+        for tab in self.tabs.values():
+            for file_path_line in tab['file_path_lines']:
+                file_path_line.clear()
+        self.close()
+
+    def closeEvent(self, event):
+        if event.spontaneous():
+            self._finish('cancel')
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Escape:
+            self._finish('cancel')
+        else:
+            super().keyPressEvent(event)
