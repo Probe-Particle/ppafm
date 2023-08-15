@@ -9,12 +9,6 @@ import ppafm.fieldFFT as fFFT
 import ppafm.HighLevel as PPH
 from ppafm import io
 
-HELP_MESSAGE = f"""Use this program in the following way:
-ppafm-generate-elff -i <filename> [ --sigma <value> ]
-Supported file fromats are:
-    * cube
-    * xsf
-"""
 
 def main():
 
@@ -75,7 +69,7 @@ def main():
         print("Use loadCUBE")
         V, lvec, nDim, head = io.loadCUBE(args.input)
     else:
-        raise ValueError("ERROR!!! Unknown or unsupported input format\n"+HELP_MESSAGE)
+        raise ValueError("""ERROR!!! Unknown or unsupported input ("-i") file format.\nSupported file fromats are:\n* cube\n* xsf""")
 
     V *= -1 # Unit conversion, energy to potential (eV -> V)
 
