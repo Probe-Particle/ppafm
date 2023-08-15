@@ -9,12 +9,6 @@ import ppafm.fieldFFT as fFFT
 import ppafm.HighLevel as PPH
 from ppafm import io
 
-HELP_MESSAGE = f"""Use this program in the following way:
-ppafm-generate-elff -i <filename> [ --sigma <value> ]
-Supported file fromats are:
-    * cube
-    * xsf
-"""
 
 def main():
 
@@ -48,8 +42,8 @@ def main():
     else:
         PPU.loadSpecies( cpp_utils.PACKAGE_PATH / 'defaults' / 'atomtypes.ini' )
 
-    bSubstractCore =  ( (args.doDensity) and (args.Rcore > 0.0) and (args.tip_dens is not None) )
-    if bSubstractCore:  # We do it here, in case it crash we don't want to wait for all the huge density files to load
+    bSubtractCore =  ( (args.doDensity) and (args.Rcore > 0.0) and (args.tip_dens is not None) )
+    if bSubtractCore:  # We do it here, in case it crash we don't want to wait for all the huge density files to load
         if args.tip_dens is None: raise Exception( " Rcore>0 but no tip density provided ! " )
         valElDict        = PPH.loadValenceElectronDict()
         Rs_tip,elems_tip = PPH.getAtomsWhichTouchPBCcell( args.tip_dens, Rcut=args.Rcore )
@@ -75,7 +69,7 @@ def main():
         print("Use loadCUBE")
         V, lvec, nDim, head = io.loadCUBE(args.input)
     else:
-        raise ValueError("ERROR!!! Unknown or unsupported input format\n"+HELP_MESSAGE)
+        raise ValueError("""ERROR!!! Unknown or unsupported input ("-i") file format.\nSupported file fromats are:\n* cube\n* xsf""")
 
     V *= -1 # Unit conversion, energy to potential (eV -> V)
 
@@ -89,11 +83,11 @@ def main():
     if args.tip_dens is not None:
         ###  NO NEED TO RENORMALIZE : fieldFFT already works with density
         print(">>> Loading tip density from ",args.tip_dens,"...")
-        if(args.tip_dens.lowercase().endswith("xsf") ):
+        if(args.tip_dens.lower().endswith("xsf") ):
             rho_tip, lvec_tip, nDim_tip, head_tip = io.loadXSF( args.tip_dens )
         else:
             raise ValueError('ERROR!!! Unknown or unsupported format of the tip density file "'+args.tip_dens+'"\n')
-        if bSubstractCore:
+        if bSubtractCore:
             print(">>> subtracting core densities from rho_tip ... ")
             PPH.subtractCoreDensities( rho_tip, lvec_tip, elems=elems_tip, Rs=Rs_tip, valElDict=valElDict, Rcore=args.Rcore, head=head_tip )
 

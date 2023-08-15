@@ -232,7 +232,7 @@ def computeDFTD3(input_file, df_params='PBE', geometry_format=None, save_format=
     return FF, V, lvec
 
 def computeELFF_pointCharge( geomFile, geometry_format = None, tip='s', save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT ):
-    
+
     if(verbose>0): print(">>>BEGIN: computeELFF_pointCharge()")
     tipKinds = {'s':0,'pz':1,'dz2':2}
     tipKind  = tipKinds[tip]
@@ -319,7 +319,7 @@ def _getAtomsWhichTouchPBCcell( Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname=N
     Rs_ = Rs_.transpose().copy()
     return Rs_, elems
 
-def getAtomsWhichTouchPBCcell( fname, Rcut=1.0, bSaveDebug=True ):
+def getAtomsWhichTouchPBCcell( fname, Rcut=1.0, bSaveDebug=True, geometry_format=None ):
     atoms, nDim, lvec = io.loadGeometry( fname, format=geometry_format, params=PPU.params )
     Rs = np.array(atoms[1:4]) # get just positions x,y,z
     elems = np.array(atoms[0])
