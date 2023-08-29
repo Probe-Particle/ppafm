@@ -1,12 +1,30 @@
-*~
-*.x
-*.o
-*.so
-*.pyc
-*.pyd
-*_backup
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
-*.npy
-*.npz
-*.xsf
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# C extensions
+*.so
+*.o
+
+# Mac
+.DS_Store
+
+# Windows
+*.obj
+*.exp
+*.lib
+*.dll
+
+# Output files
 *.png
+*.np[xz]
+*.xsf
+
+# Sphinx documentation
+doc/sphinx/build/

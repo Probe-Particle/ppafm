@@ -4,7 +4,7 @@ import gc
 
 import numpy as np
 
-from . import GridUtils as GU
+from . import io
 
 verbose = 1
 
@@ -267,19 +267,16 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     if rho is None:
         if(verbose>0): print('--- Get Probe Density ---')
         rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt )
-        GU.saveXSF( "rhoTip.xsf", rho, lvec )
+        io.saveXSF( "rhoTip.xsf", rho, lvec )
 
-    else:
-        if(verbose>0): print("rho backward (rho[::-1,::-1,::-1]) ")
-        rho[:,:,:] = rho[::-1,::-1,::-1].copy()
     if doForce:
         if(verbose>0): print('--- prepare Force transforms ---')
         zetaX,zetaY,zetaZ,detLmatInv = getForceTransform(sampleSize, dims, dd, X, Y, Z )
     del X,Y,Z
-    E=None;Fx=None;Fy=None;Fz=None;
+    E=None;Fx=None;Fy=None;Fz=None
     if(verbose>0): print('--- forward FFT ---')
     gc.collect()
-    convFFT    = np.fft.fftn(V) * np.fft.fftn(rho);
+    convFFT = np.fft.fftn(V) * np.conj(np.fft.fftn(rho))
     if deleteV: del V
     gc.collect()
     if doPot:
@@ -287,7 +284,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
         E         = np.real(np.fft.ifftn(convFFT * (dd[0]*dd[1]*dd[2]) / (detLmatInv) ) )
     if doForce:
         if(verbose>0): print('--- Get Forces ---')
-        convFFT  *= 2*np.pi*1j*(dd[0]*dd[1]*dd[2]) / (detLmatInv)
+        convFFT  *= -2*np.pi*1j*(dd[0]*dd[1]*dd[2]) / (detLmatInv)
         if(verbose>0): print("derConvFFT ", convFFT.sum(),convFFT.min(),convFFT.max())
         Fx        = np.real(np.fft.ifftn(zetaX*convFFT)); del zetaX; gc.collect()
         Fy        = np.real(np.fft.ifftn(zetaY*convFFT)); del zetaY; gc.collect()

@@ -2,11 +2,10 @@ import matplotlib
 import numpy as np
 import pyopencl as cl
 
-from .. import SimplePot as pot
 from .. import atomicUtils as au
-from .. import basUtils
 from .. import common as PPU
-from .. import elements
+from .. import elements, io
+from ..dev import SimplePot as pot
 
 # ======================================================
 # ================== Class  Molecule
@@ -47,7 +46,7 @@ class Molecule():
         return np.array( [x,y,z] )/n
 
     def toXYZ( self, xyzfile, comment="#comment" ):
-        basUtils.saveXYZ( xyzfile, self.xyzs, self.Zs, qs=self.qs, comment=comment )
+        io.saveXYZ( xyzfile, self.xyzs, self.Zs, qs=self.qs, comment=comment )
 
 # ======================================================
 # ================== free function operating on Moleule

@@ -1,17 +1,21 @@
 #!/usr/bin/python
 
+import os
 import time
+import warnings
 
 import numpy as np
 import pyopencl as cl
 from pyopencl import array
 
-from ..basUtils import loadAtomsCUBE, loadXSFGeom
+from .. import io
 from ..common import genFFSampling
+from ..defaults import d3
 from ..fieldFFT import getProbeDensity
-from ..GridUtils import loadCUBE, loadXSF
+from ..HighLevel import _getAtomsWhichTouchPBCcell, subtractCoreDensities
 
 try:
+    from reikna import cluda
     from reikna.cluda import dtypes, ocl_api
     from reikna.core import Annotation, Parameter, Transformation, Type
     from reikna.fft import FFT
@@ -27,7 +31,7 @@ oclu       = None
 def init(env):
     global cl_program
     global oclu
-    cl_program = env.loadProgram(env.CL_PATH+"/FF.cl")
+    cl_program = env.loadProgram(env.CL_PATH / 'FF.cl')
     oclu = env
 
 verbose    = 0
@@ -38,89 +42,483 @@ def makeDivisibleUp( num, divisor ):
     if rest > 0: num += (divisor-rest)
     return num
 
-def hartreeFromFile(file_path):
-    '''
-    Load hartree potential and atoms from a .cube or .xsf file.
-
-    Arguments:
-        file_path: str. Path to file to load.
-
-    Returns: tuple (pot, xyzs, Zs)
-        | pot: HartreePotential.
-        | xyzs: np.ndarray of shape (num_atoms, 3). Atom coordinates.
-        | Zs: np.ndarray of shape (num_atoms,). Atomic numbers.
-    '''
-
-    if file_path.endswith('.cube'):
-        FF, lvec, _, _ = loadCUBE(file_path, xyz_order=True, verbose=False)
-        Zs, x, y, z, _ = loadAtomsCUBE(file_path)
-    elif file_path.endswith('.xsf'):
-        FF, lvec, _, _ = loadXSF(file_path, xyz_order=True, verbose=False)
-        (Zs, x, y, z, _), _, _ = loadXSFGeom(file_path)
-    else:
-        raise ValueError(f'Unsupported file format in file `{file_path}`')
-
-    FF *= -1
-    pot = HartreePotential(FF, lvec)
-    xyzs = np.stack([x, y, z], axis=1)
-
-    return pot, xyzs, Zs
-
 # ========= classes
 
-class HartreePotential:
+class D3Params:
     '''
-    Class for holding data of a Hartree potential on a grid.
+    pyopencl device buffer handles to Grimme-D3 parameters. Each buffer is allocated on first access.
 
     Arguments:
-        array: np.ndarray. Potential values on a 3D grid.
-        lvec: array-like of shape (4, 3). Unit cell boundaries. First (row) vector specifies the origin,
-            and the remaining three vectors specify the edge vectors of the unit cell.
         ctx: pyopencl.Context. OpenCL context for device buffer. Defaults to oclu.ctx.
     '''
-    def __init__(self, array, lvec, ctx=None):
-        assert isinstance(array, np.ndarray), 'array should be a numpy.ndarray'
-        if array.dtype != np.float32 or not array.flags['C_CONTIGUOUS']:
-            array = np.ascontiguousarray(array, dtype=np.float32)
-        self.array = array
-        self.lvec = np.array(lvec)
-        self.origin = self.lvec[0]
-        assert self.lvec.shape == (4, 3), 'lvec should have shape (4, 3)'
+
+    def __init__(self, ctx):
         self.ctx = ctx or oclu.ctx
-        self._cl_array = None
-        self.nbytes = 0
+        self._cl_rcov = None
+        self._cl_rcut = None
+        self._cl_ref_cn = None
+        self._cl_ref_c6 = None
+        self._cl_r4r2 = None
+
+    def _alloc(self, buf):
+        return cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=buf.astype(np.float32))
 
     @property
-    def shape(self):
-        return self.array.shape
+    def cl_rcov(self):
+        '''See :data:`.R_COV`.'''
+        if self._cl_rcov is None: self._cl_rcov = self._alloc(d3.R_COV)
+        return self._cl_rcov
+
+    @property
+    def cl_rcut(self):
+        '''See :func:`.load_R0`.'''
+        if self._cl_rcut is None: self._cl_rcut = self._alloc(d3.load_R0())
+        return self._cl_rcut
+
+    @property
+    def cl_ref_cn(self):
+        '''See :data:`.REF_CN`.'''
+        if self._cl_ref_cn is None: self._cl_ref_cn = self._alloc(d3.REF_CN)
+        return self._cl_ref_cn
+
+    @property
+    def cl_ref_c6(self):
+        '''See :func:`.load_ref_c6`.'''
+        if self._cl_ref_c6 is None: self._cl_ref_c6 = self._alloc(d3.load_ref_c6())
+        return self._cl_ref_c6
+
+    @property
+    def cl_r4r2(self):
+        '''See :data:`.R4R2`.'''
+        if self._cl_r4r2 is None: self._cl_r4r2 = self._alloc(d3.R4R2)
+        return self._cl_r4r2
+
+    def release(self):
+        '''Release device buffers.'''
+        for buf_name in ['_cl_rcov', '_cl_rcut', '_cl_ref_cn', '_cl_ref_c6', '_cl_r4r2']:
+            getattr(self, buf_name).release()
+            setattr(self, buf_name, None)
+
+class DataGrid:
+    '''
+    Class for holding data on a grid. The data can be stored on the CPU host or an OpenCL device.
+
+    Arguments:
+        array: np.ndarray or pyopencl.Buffer. Array values on a 3D grid with possibly multiple components.
+        lvec: array-like of shape (4, 3). Unit cell boundaries. First (row) vector specifies the origin,
+            and the remaining three vectors specify the edge vectors of the unit cell.
+        shape: array-like of length 3 or 4. Grid shape when array is a pyopencl.Buffer.
+        ctx: pyopencl.Context. OpenCL context for device buffer. Defaults to oclu.ctx.
+    '''
+    def __init__(self, array, lvec, shape=None, ctx=None):
+        if isinstance(array, np.ndarray):
+            if array.dtype != np.float32 or not array.flags['C_CONTIGUOUS']:
+                array = np.ascontiguousarray(array, dtype=np.float32)
+            self.shape = tuple(array.shape)
+            self._array = array
+            self._cl_array = None
+            self.nbytes = 0
+        elif isinstance(array, cl.Buffer):
+            if shape is None:
+                raise ValueError('The shape of the grid has to be specified when the array is '
+                   'a pyopencl.Buffer.')
+            nbytes = 4 * np.prod(shape)
+            assert array.size == nbytes, f'shape {shape} does not match with buffer size {array.size}'
+            self.shape = tuple(shape)
+            self._array = None
+            self._cl_array = array
+            self.nbytes = nbytes
+        else:
+            raise ValueError(f'Invalid type `{type(array)}` for array.')
+        if len(self.shape) not in [3, 4]:
+            raise ValueError(f'Dimension of array should be 3 or 4, but got {len(self.shape)}')
+        self.lvec = np.array(lvec)
+        self.origin = self.lvec[0]
+        assert self.lvec.shape == (4, 3), f'lvec should have shape (4, 3), but has shape {lvec.shape}'
+        self.ctx = ctx or oclu.ctx
 
     @property
     def step(self):
-        return np.stack([self.lvec[i+1] / self.array.shape[i] for i in range(3)])
+        '''Array of vectors pointing single steps along the grid for each lattice vector.'''
+        return np.stack([self.lvec[i+1] / self.shape[i] for i in range(3)])
+
+    @property
+    def cell_vol(self):
+        '''The volume of a grid cell in angstrom^3.'''
+        a, b, c = self.step
+        vol = abs(np.cross(a, b).dot(c))
+        return vol
+
+    @property
+    def array(self):
+        '''Host array as np.ndarray. If the grid currently only exists on the device, it is copied to the host memory.'''
+        if self._array is None:
+            self._array = np.empty(self.shape, dtype=np.float32)
+            cl.enqueue_copy(oclu.queue, self._array, self._cl_array)
+        return self._array
 
     @property
     def cl_array(self):
+        '''Device array as pyopencl.buffer. If the grid currently only exists on the host, it is copied to the device memory.'''
         if self._cl_array is None:
             mf = cl.mem_flags
             self._cl_array = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.array)
             self.nbytes += 4 * np.prod(self.shape)
-            if (verbose > 0): print(f'HartreePotential.nbytes {self.nbytes}')
+            if (verbose > 0): print(f'DataGrid.nbytes {self.nbytes}')
         return self._cl_array
 
     def release(self):
-        '''Release device buffers.'''
+        '''Release device buffer. If the grid currently only exists on the device, it is copied to the host memory before release.'''
         if self._cl_array is not None:
+            self.array # Make sure grid values are in host memory before releasing device memory
             self._cl_array.release()
             self._cl_array = None
             self.nbytes -= 4 * np.prod(self.shape)
 
-class MultipoleTipDensity:
+    @classmethod
+    def from_file(cls, file_path, scale=1.0):
+        '''
+        Load grid data and atoms from a .cube or .xsf file.
+
+        Arguments:
+            file_path: str. Path to file to load.
+            scale: float. Scaling factor for the returned data grid values.
+
+        Returns:
+            data: class type. Data grid object.
+            xyzs: np.ndarray of shape (num_atoms, 3). Atom coordinates.
+            Zs: np.ndarray of shape (num_atoms,). Atomic numbers.
+        '''
+
+        if file_path.endswith('.cube'):
+            data, lvec, _, _ = io.loadCUBE(file_path, xyz_order=True, verbose=False)
+            Zs, x, y, z, _ = io.loadAtomsCUBE(file_path)
+        elif file_path.endswith('.xsf'):
+            data, lvec, _, _ = io.loadXSF(file_path, xyz_order=True, verbose=False)
+            try:
+                (Zs, x, y, z, _), _, _ = io.loadXSFGeom(file_path)
+            except ValueError:
+                warnings.warn(f'Could not read geometry from {file_path} in DataGrid.from_file.')
+                Zs = np.zeros(1)
+                x = y = z = np.zeros((1, 1))
+        else:
+            raise ValueError(f'Unsupported file format in file `{file_path}`')
+
+        if not np.allclose(scale, 1.0):
+            data *= scale
+        data = cls(data, lvec)
+        xyzs = np.stack([x, y, z], axis=1)
+
+        return data, xyzs, Zs
+
+    def to_file(self, file_path, clamp=None):
+        '''
+        Save data grid to file(s).
+
+        Supported file types are .xsf and .npy.
+
+        Arguments:
+            file_path: str. Path to saved file. For a 4D data grid, letters x, y, z, w are appended
+                to the file path for each component, respectively.
+            clamp: float or None. If not None, all values greater than this are clamped to this value.
+        '''
+        file_head, ext = os.path.splitext(file_path)
+        if ext not in ['.xsf', '.npy']:
+            raise ValueError(f'Unsupported file extension `{ext}` for saving data grid.')
+        ext = ext[1:]
+        array = self.array.copy()
+        if len(self.shape) == 3:
+            if clamp: array[array > clamp] = clamp
+            io.save_scal_field(file_head, array.T, self.lvec, data_format=ext)
+        if len(self.shape) == 4:
+            assert self.shape[3] == 4, 'Wrong number of components'
+            if clamp:
+                io.limit_vec_field(array, Fmax=clamp)
+                array[:, :, :, 3][array[:, :, :, 3] > clamp] = clamp
+            array = array.transpose(2, 1, 0, 3)
+            io.save_vec_field(file_head, array[:, :, :, :3], self.lvec, data_format=ext)
+            io.save_scal_field(file_head+'_w', array[:, :, :, 3], self.lvec, data_format=ext)
+
+    def add_mult(self, array, scale=1.0, in_place=True, local_size=(32,), queue=None):
+        '''
+        Multiply the values of another data grid and add them to the values of this data grid.
+
+        Arguments:
+            array: DataGrid. Grid whose values to scale and add.
+            scale: float. Value by which values in array are multiplied.
+            in_place: bool. Whether to do operation in place or to create a new array.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+                Defaults to oclu.queue.
+
+        Returns:
+            grid_out: Same type as self. New data grid with result.
+        '''
+        array_in1 = self.cl_array
+        array_in2 = array.cl_array
+        queue = queue or oclu.queue
+        if in_place:
+            grid_out = self
+            array_out = array_in1
+            self._array = None # The current numpy array will be wrong after operation so reset it
+        else:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in1.size)
+            array_type = type(self) # This way so inherited classes return their own class type
+            grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
+        n = np.int32(array_in1.size / 4)
+        scale = np.float32(scale)
+        global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
+        cl_program.addMult(queue, global_size, local_size, array_in1, array_in2, array_out, n, scale)
+        return grid_out
+
+    def power_positive(self, p=1.2, normalize=True, in_place=True, local_size=(32,), queue=None):
+        '''
+        Raise every positive element in the grid into a power. Negative values are set to zero.
+
+        Arguments:
+            p: float. Power to rise to.
+            normalize: bool. Whether to normalize the values after setting negative values to zero.
+                The normalization is done by scaling the values such that the total sum of the values
+                in the array remains unchanged after eliminating the negative values.
+            in_place: bool. Whether to do operation in place or to create a new array.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+                Defaults to oclu.queue.
+
+        Returns:
+            grid_out: Same type as self. New data grid with result.
+        '''
+        array_in = self.cl_array
+        queue = queue or oclu.queue
+        if in_place:
+            grid_out = self
+            array_out = array_in
+            self._array = None # The current numpy array will be wrong after operation so reset it
+        else:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size)
+            array_type = type(self) # This way so inherited classes return their own class type
+            grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
+        n = np.int32(array_in.size / 4)
+        p = np.float32(p)
+        if normalize:
+            scale = np.float32(self._get_normalization_factor(queue)) ** p
+        else:
+            scale = np.float32(1.0)
+        global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
+        cl_program.power(queue, global_size, local_size, array_in, array_out, n, p, scale)
+        return grid_out
+
+    def _get_normalization_factor(self, queue=None):
+        queue = queue or oclu.queue
+        n = np.int32(np.prod(self.shape))
+        local_size = (256,)
+        n_groups = np.int32(min(local_size[0], (n - 1) // local_size[0] + 1))
+        global_size = (local_size[0] * n_groups,)
+        array_in = self.cl_array
+        array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=8*n_groups)
+        # First do sums of the input array within each work group...
+        cl_program.normalizeSumReduce(queue, global_size, local_size, array_in, array_out, n)
+        # ... then sum the results of the first kernel call
+        cl_program.sumSingleGroup(queue, local_size, local_size, array_out, n_groups)
+        # Now the first element of array_out holds the final answer
+        sums = np.empty((2,), dtype=np.float32)
+        cl.enqueue_copy(oclu.queue, sums, array_out)
+        return sums[0] / sums[1]
+
+    def grad(self, scale=1.0, array_out=None, order='C', local_size=(32,), queue=None):
+        '''Get the centered finite difference gradient of the data grid. Uses periodic boundary conditions
+        at the edge of the grid.
+
+        The datagrid has to be either 3D, or 4D with self.shape[3] == 1.
+
+        The resulting array adds a 4th dimension with size 4 to the grid such that at indices
+        0-2 are the partial derivatives in x, y, and z directions, respectively, and at index
+        3 is the original scalar field.
+
+        Arguments:
+            scale: float or array-like of size 4. Additional scaling factor for the output.
+            array_out: pyopencl.Buffer or None. Output array. If None, then is created automatically.
+            order: str, 'C' or 'F'. Whether to save values in C or Fortran order.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+                Defaults to oclu.queue.
+
+        Returns:
+            grid_out: :class:`DataGrid`. New data grid with result.
+        '''
+
+        if len(self.shape) == 4 and self.shape[3] > 1:
+            raise RuntimeError(f'Can only take gradient of a datagrid with a single component.')
+
+        if isinstance(scale, float):
+            scale = scale * np.ones(4, dtype=np.float32)
+        else:
+            scale = np.array(scale, dtype=np.float32)
+            if len(scale) != 4:
+                raise ValueError(f'Scale should have length 4, but got {len(scale)}.')
+
+        if not order in ['C', 'F']:
+            raise ValueError(f'Unknown data order `{order}`')
+        order = np.int32(1) if order == 'C' else np.int32(0)
+
+        array_in = self.cl_array
+        queue = queue or oclu.queue
+
+        shape_out = self.shape[:3] + (4,)
+        if array_out is None:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size * 4)
+        else:
+            assert array_out.size == array_in.size * 4, f'array size does not match ({array_out.size} != {array_in.size * 4})'
+        grid_out = DataGrid(array_out, lvec=self.lvec, shape=shape_out, ctx=self.ctx)
+
+        global_size = [int(np.ceil(np.prod(self.shape) / local_size[0]) * local_size[0])]
+        step = np.append(np.diag(self.step), 0).astype(np.float32)
+        cl_program.grad(queue, global_size, local_size,
+            array_in,
+            array_out,
+            np.array(shape_out, dtype=np.int32),
+            step,
+            order,
+            scale
+        )
+
+        return grid_out
+
+    def interp_at(self, lvec_new, shape_new, array_out=None, rot=np.eye(3), rot_center=np.zeros(3),
+        local_size=(32,), queue=None):
+        '''
+        Interpolate grid values onto another grid. Uses periodic boundary conditions.
+
+        Arguments:
+            lvec_new: array-like of shape (4, 3). Unit cell boundaries for new grid.
+            shape_new: array-like of length 3. New grid shape.
+            array_out: pyopencl.Buffer or None. Output array. If None, then is created automatically.
+            rot: np.ndarray of shape (3, 3). Rotation matrix to apply.
+            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+                Defaults to oclu.queue.
+
+        Returns:
+            grid_out: Same type as self. New data grid with result.
+        '''
+
+        if len(self.shape) == 4 and self.shape[3] > 1:
+            raise NotImplementedError('Interpolation for 4D grids is not implemented.')
+
+        queue = queue or oclu.queue
+
+        size_new = 4*np.prod(shape_new[:3])
+        if array_out is None:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=size_new)
+        else:
+            assert array_out.size == size_new, f'array size does not match ({array_out.size} != {size_new})'
+        array_out = type(self)(array_out, lvec_new, shape_new, self.ctx)
+
+        global_size = [int(np.ceil(np.prod(shape_new[:3]) / local_size[0]) * local_size[0])]
+        T = np.concatenate([np.linalg.inv(self.step).T.copy(), np.zeros((3, 1))], axis=1, dtype=np.float32)
+        rot = np.concatenate([rot, np.zeros((3, 1))], axis=1, dtype=np.float32)
+        dlvec = np.concatenate([array_out.step, np.zeros((3, 1))], axis=1, dtype=np.float32)
+
+        cl_program.interp_at(queue, global_size, local_size,
+            self.cl_array,
+            array_out.cl_array,
+            np.append(self.shape, 0).astype(np.int32),
+            T[0], T[1], T[2],
+            np.append(self.origin, 0).astype(np.float32),
+            np.append(shape_new, 0).astype(np.int32),
+            dlvec[0], dlvec[1], dlvec[2],
+            np.append(array_out.origin, 0).astype(np.float32),
+            rot[0], rot[1], rot[2],
+            np.append(rot_center, 0).astype(np.float32)
+        )
+
+        return array_out
+
+# Aliases for DataGrid
+class HartreePotential(DataGrid):
+    '''Sample Hartree potential. Units should be in Volts.'''
+class ElectronDensity(DataGrid):
+    '''Sample electron density. Units should be in e/Å^3.'''
+
+class TipDensity(DataGrid):
+    '''Tip electron density. Units should be in e/Å^3.'''
+
+    def subCores(self, xyzs, Zs, Rcore=0.7, valElDict=None):
+        '''
+        Subtract core densities from the tip density.
+
+        Arguments:
+            xyzs: np.ndarray of shape (n_atoms, 3). Coordinates of atoms.
+            Zs: np.ndarray of shape (n_atoms,). Atomic numbers of atoms.
+            Rcore: float. Width of core density distribution.
+            valElDict: Dict or None. Dictionary of the number of valence electrons for elements.
+                If None, then values in defaults.valelec_dict are used.
+
+        Returns:
+            TipDensity. New tip density with core densities subtracted.
+        '''
+        array = np.ascontiguousarray(self.array.T, dtype=np.float64) # 64 bit required by library
+        Rs, elems = _getAtomsWhichTouchPBCcell(xyzs.T, Zs, self.shape, self.lvec, 1.0, False)
+        subtractCoreDensities(array, self.lvec, elems=elems, Rs=Rs, valElDict=valElDict,
+            Rcore=Rcore, bSaveDebugGeom=False)
+        grid = TipDensity(array.T, self.lvec, ctx=self.ctx)
+        return grid
+
+    def interp_at(self, lvec_new, shape_new, array_out=None, local_size=(32,), queue=None):
+        '''
+        Interpolate tip density onto a new grid. The tip is assumed to be cented on the origin,
+        so the resizing of the grid happens in the middle of the grid and the corners remain
+        fixed (the origin coordinates of the grids are ignored in the transformation).
+
+        Arguments:
+            lvec_new: array-like of shape (4, 3). Unit cell boundaries for new grid.
+            shape_new: array-like of length 3. New grid shape.
+            array_out: pyopencl.Buffer or None. Output array. If None, then is created automatically.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed.
+                Defaults to oclu.queue.
+
+        Returns:
+            grid_out: :class:`TipDensity`. New tip density grid.
+        '''
+
+        if len(self.shape) == 4 and self.shape[3] > 1:
+            raise NotImplementedError('Interpolation for 4D grids is not implemented.')
+
+        queue = queue or oclu.queue
+
+        size_new = 4 * np.prod(shape_new[:3])
+        if array_out is None:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=size_new)
+        else:
+            assert array_out.size == size_new, f'array size does not match ({array_out.size} != {size_new})'
+        array_out = TipDensity(array_out, lvec_new, shape_new, self.ctx)
+
+        global_size = [int(np.ceil(np.prod(shape_new[:3]) / local_size[0]) * local_size[0])]
+        T = np.concatenate([np.linalg.inv(self.step).T.copy(), np.zeros((3, 1))], axis=1, dtype=np.float32)
+        lvec_in_inv = np.concatenate([np.linalg.inv(self.lvec[1:]), np.zeros((3, 1))], axis=1, dtype=np.float32)
+        dlvec_out = np.concatenate([array_out.step, np.zeros((3, 1))], axis=1, dtype=np.float32)
+
+        cl_program.interp_tip_at(queue, global_size, local_size,
+            self.cl_array,
+            array_out.cl_array,
+            np.append(self.shape, 0).astype(np.int32),
+            T[0], T[1], T[2],
+            lvec_in_inv[0], lvec_in_inv[1], lvec_in_inv[2],
+            np.append(shape_new, 0).astype(np.int32),
+            dlvec_out[0], dlvec_out[1], dlvec_out[2],
+        )
+
+        return array_out
+
+class MultipoleTipDensity(TipDensity):
     '''
     Multipole probe tip charge density on a periodic grid.
 
     Arguments:
         lvec: np.ndarray of shape (3, 3). Grid lattice vectors.
-        nDim: array-like of length 3. Grid shape.
+        shape: array-like of length 3. Grid shape.
         center: array-like of length 3. Center position of charge density in the grid.
         sigma: float. Width of charge distribution.
         multipole: Dict. Charge multipole types. The dict should contain float entries for at least
@@ -131,63 +529,43 @@ class MultipoleTipDensity:
         ctx: pyopencl.Context. OpenCL context for device buffer. Defaults to oclu.ctx.
     '''
 
-    def __init__(self, lvec, nDim, center=[0, 0, 0], sigma=0.71, multipole={'dz2': -0.1}, tilt=0.0, ctx=None):
+    def __init__(self, lvec, shape, center=[0, 0, 0], sigma=0.71, multipole={'dz2': -0.1}, tilt=0.0, ctx=None):
+        array = self._make_tip_density(lvec, shape, center, sigma, multipole, tilt)
+        lvec = np.concatenate([[[0, 0, 0]], lvec], axis=0)
+        super().__init__(array, lvec, ctx)
 
-        self.lvec = lvec
-        self.lvec_len = np.linalg.norm(self.lvec, axis=1)
-        self.nDim = np.array(nDim)
-        self.center = np.array(center)
-        self.step = self.lvec_len / self.nDim
-        self.sigma = sigma
-        self.multipole = multipole
-        self.tilt = tilt
-        self.ctx = ctx or oclu.ctx
-        self._cl_array = None
-        self.nbytes = 0
+    def _make_tip_density(self, lvec, shape, center, sigma, multipole, tilt):
 
-        if (self.center < 0).any() or (self.center > lvec.sum(axis=0)).any():
+        if(bRuntime): t0 = time.perf_counter()
+
+        lvec_len = np.linalg.norm(lvec, axis=1)
+        center = np.array(center)
+        if (center < 0).any() or (center > lvec.sum(axis=0)).any():
             raise ValueError('Center position is outside the grid.')
 
-        # Make tip density grid as a numpy array
-        self.array = self._make_tip_density()
-
-    def _make_tip_density(self):
-        if(bRuntime): t0 = time.perf_counter()
         xyz = []
         for i in range(3):
-            c = np.linspace(0, self.lvec_len[i] * (1 - 1/self.nDim[i]), self.nDim[i]) - self.center[i]
-            c[c >= self.lvec_len[i] / 2] -= self.lvec_len[i]
-            c[c <= -self.lvec_len[i] / 2] += self.lvec_len[i]
+            c = np.linspace(0, lvec_len[i] * (1 - 1/shape[i]), shape[i]) - center[i]
+            c[c >= lvec_len[i] / 2] -= lvec_len[i]
+            c[c <= -lvec_len[i] / 2] += lvec_len[i]
             xyz.append(c)
         X, Y, Z = np.meshgrid(*xyz, indexing='ij')
-        rho = getProbeDensity(self.lvec, X, Y, Z, self.step, sigma=self.sigma,
-            multipole_dict=self.multipole, tilt=self.tilt)
-        if(bRuntime): print("runtime(FFTConvolution._make_tip_density) [s]: ", time.perf_counter() - t0)
+        step = lvec_len / shape
+        rho = getProbeDensity(lvec, X, Y, Z, step, sigma=sigma, multipole_dict=multipole, tilt=tilt)
+
+        if(bRuntime): print("runtime(MultipoleTipDensity._make_tip_density) [s]: ", time.perf_counter() - t0)
+
         return rho.astype(np.float32)
 
-    @property
-    def cl_array(self):
-        if self._cl_array is None:
-            mf = cl.mem_flags
-            self._cl_array = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.array)
-            self.nbytes += 4 * np.prod(self.nDim)
-            if (verbose > 0): print(f'MultipoleTipDensity.nbytes {self.nbytes}')
-        return self._cl_array
-
-    def release(self):
-        '''Release device buffers.'''
-        if self._cl_array is not None:
-            self._cl_array.release()
-            self._cl_array = None
-            self.nbytes -= 4 * np.prod(self.nDim)
-
-class FFTConvolution:
+class FFTCrossCorrelation:
     '''
-    Do circular convolution of Hartree potential with tip charge density via FFT.
+    Do circular cross-correlation of sample Hartree potential or electron density with tip charge
+    density via FFT.
 
     Arguments:
-        rho: MultipoleTipDensity. Tip charge density.
-        queue: pyopencl.CommandQueue. OpenCL queue on which operations are performed. Defaults to oclu.queue.
+        rho: :class:`TipDensity`. Tip charge density.
+        queue: pyopencl.CommandQueue. OpenCL queue on which operations are performed.
+            Defaults to oclu.queue.
     '''
 
     def __init__(self, rho, queue=None):
@@ -200,7 +578,7 @@ class FFTConvolution:
         self._make_transforms()
         self._make_fft()
         self._set_rho(rho)
-        if (verbose > 0): print(f'FFTConvolution.nbytes {self.nbytes}')
+        if (verbose > 0): print(f'FFTCrossCorrelation.nbytes {self.nbytes}')
 
     # https://github.com/fjarri/reikna/issues/57
     def _make_transforms(self):
@@ -222,89 +600,106 @@ class FFTConvolution:
             ${output.store_same}(${input.load_same}.x * ${scale});
             """
         )
+        self.conj_mult = Transformation(
+            [
+                Parameter("input1", Annotation(Type(np.complex64, self.shape), "i")),
+                Parameter("input2", Annotation(Type(np.complex64, self.shape), "i")),
+                Parameter("output", Annotation(Type(np.complex64, self.shape), "o")),
+            ],
+            """
+            ${output.store_same}(${MUL}(${CONJ}(${input1.load_same}), ${input2.load_same}));
+            """,
+            render_kwds={
+                'CONJ': cluda.functions.conj(np.complex64),
+                'MUL': cluda.functions.mul(np.complex64, np.complex64)
+            }
+        )
 
     def _make_fft(self):
 
         if bRuntime: t0 = time.perf_counter()
 
         thr = ocl_api().Thread(self.queue)
-        self.pot_hat_cl = array.empty(self.queue, self.shape, dtype=np.complex64)
-        self.rho_hat_cl = array.empty(self.queue, self.shape, dtype=np.complex64)
-        self.nbytes += 2 * np.prod(self.shape) * 8
+        size = 8 * np.prod(self.shape)
+        self.pot_hat_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=size)
+        self.rho_hat_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=size)
+        self.nbytes += 2 * size
 
         fft_f = FFT(self.r2c.output)
         fft_f.parameter.input.connect(self.r2c, self.r2c.output, new_input=self.r2c.input)
         self.fft_f = fft_f.compile(thr)
 
         fft_i = FFT(self.c2r.input)
+        fft_i.parameter.input.connect(self.conj_mult, self.conj_mult.output,
+            new_input1=self.conj_mult.input1, new_input2=self.conj_mult.input2)
         fft_i.parameter.output.connect(self.c2r, self.c2r.input, new_output=self.c2r.output, scale=self.c2r.scale)
         self.fft_i = fft_i.compile(thr)
 
-        if(bRuntime): print("runtime(FFTConvolution._make_fft) [s]: ", time.perf_counter() - t0)
+        if(bRuntime): print("runtime(FFTCrossCorrelation._make_fft) [s]: ", time.perf_counter() - t0)
 
     def _set_rho(self, rho):
         self.rho = rho
         self.fft_f(self.rho_hat_cl, rho.cl_array, inverse=0)
 
-    def convolve(self, pot, E=None, bCopy=True, bFinish=True):
+    def correlate(self, array, E=None, scale=1):
         '''
-        Convolve Hartree potential with tip charge density.
+        Cross-correlate input array with tip charge density.
 
         Arguments:
-            pot: HartreePotential or pyopencl.Buffer. Hartree potential to convolve. Has to be same shape as rho.
-            E: np.ndarray, pyopencl.Buffer or None. Output energy. Created automatically,
-                if None. For bCopy==True it is a np.ndarray and for bCopy==False it is a
-                pyopencl.Buffer.
-            bCopy: Bool. Whether to return the output energy to host.
-            bFinish: Bool. Whether to wait for execution to finish.
+            array: :class:`DataGrid` or pyopencl.Buffer. Sample potential/density
+                to cross-correlate with tip density. Has to be the same shape as rho.
+            E: :class:`DataGrid` or None. Output data grid. If None, is created automatically.
+                The automatically created datagrid has the same lvec as self.rho.lvec.
+            scale: float. Additional scaling factor for the output.
 
-        Returns: np.ndarray if bCopy == True or pyopencl.Buffer otherwise.
+        Returns:
+            E: :class:`DataGrid`. Result of cross-correlation.
         '''
 
         if bRuntime: t0 = time.perf_counter()
 
-        if isinstance(pot, HartreePotential):
-            assert pot.shape == self.shape, 'pot array shape does not match rho array shape'
-            pot = pot.cl_array
+        if isinstance(array, DataGrid):
+            array = array.cl_array
+        assert array.size == np.prod(self.shape) * 4, f'array size {array.size} does not match rho array shape {self.shape}'
 
-        mf = cl.mem_flags
-        if bCopy:
-            E = E or np.empty(self.shape, dtype=np.float32)
-            assert E.shape == self.shape, 'E array shape does not match'
-            E_cl = cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.shape))
+        if E is None:
+            E_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=4*np.prod(self.shape))
+            E = DataGrid(E_cl, lvec=self.rho.lvec, shape=self.shape, ctx=self.rho.ctx)
         else:
-            E = E or cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.shape))
-            E_cl = E
+            assert E.shape == self.shape, 'E data grid shape does not match'
+            E_cl = E.cl_array
 
         if(bRuntime):
             self.queue.finish()
-            print("runtime(FFTConvolution.convolve.pre) [s]: ", time.perf_counter() - t0)
+            print("runtime(FFTCrossCorrelation.correlate.pre) [s]: ", time.perf_counter() - t0)
 
-        # Do convolution
-        self.fft_f(output=self.pot_hat_cl, new_input=pot, inverse=0)
-        self.fft_i(new_output=E_cl, input=self.pot_hat_cl * self.rho_hat_cl, scale=self.rho.step.prod(), inverse=1)
+        # Do cross-correlation
+        self.fft_f(output=self.pot_hat_cl, new_input=array, inverse=0)
+        self.fft_i(new_output=E_cl, new_input1=self.rho_hat_cl, new_input2=self.pot_hat_cl,
+            scale=scale*self.rho.cell_vol, inverse=1)
 
-        if bCopy: cl.enqueue_copy(self.queue, E, E_cl)
-        if bFinish or bRuntime: self.queue.finish()
-        if(bRuntime): print("runtime(FFTConvolution.convolve) [s]: ", time.perf_counter() - t0)
+        if(bRuntime):
+            self.queue.finish()
+            print("runtime(FFTCrossCorrelation.correlate) [s]: ", time.perf_counter() - t0)
 
         return E
 
 class ForceField_LJC:
-    '''
-        to evaluate ForceField on GPU
-    '''
+    '''Evaluate Lennard-Jones based force fields on an OpenCL device.'''
 
     verbose = 0
 
     def __init__( self ):
-        self.ctx   = oclu.ctx;
+        self.ctx   = oclu.ctx
         self.queue = oclu.queue
-        self.cl_poss   = None
-        self.cl_FE     = None
-        self.cl_Efield = None
-        self.pot       = None
-        self.rho       = None
+        self.d3_params  = D3Params(self.ctx)
+        self.cl_poss    = None
+        self.cl_FE      = None
+        self.cl_Efield  = None
+        self.pot        = None
+        self.rho        = None
+        self.rho_delta  = None
+        self.rho_sample = None
 
     def initSampling(self, lvec, pixPerAngstrome=10, nDim=None ):
         if nDim is None:
@@ -340,13 +735,18 @@ class ForceField_LJC:
         self.Qs  = np.array(Qs ,dtype=np.float32)
         self.QZs = np.array(QZs,dtype=np.float32)
 
-    def prepareBuffers(self, atoms=None, cLJs=None, poss=None, bDirect=False, nz=20, pot=None, E_field=False, rho=None):
-        '''
-        allocate all necessary buffers in GPU memory
-        '''
+    def setPP(self, Z_pp):
+        '''Set the atomic number of the probe particle. Required for calculating DFT-D3 parameters.'''
+        self.iZPP = np.int32(Z_pp)
+
+    def prepareBuffers(self, atoms=None, cLJs=None, REAs=None, Zs=None, poss=None, bDirect=False, nz=20, pot=None,
+        E_field=False, rho=None, rho_delta=None, rho_sample=None):
+        '''Allocate all necessary buffers in device memory.'''
+
         nbytes   =  0;
         mf       = cl.mem_flags
         nb_float = np.dtype(np.float32).itemsize
+
         if atoms is not None:
             self.nAtoms   = np.int32( len(atoms) )
             atoms = atoms.astype(np.float32)
@@ -354,6 +754,12 @@ class ForceField_LJC:
         if cLJs is not None:
             cLJs = cLJs.astype(np.float32)
             self.cl_cLJs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=cLJs  ); nbytes+=cLJs.nbytes
+        if REAs is not None:
+            REAs = REAs.astype(np.float32)
+            self.cl_REAs  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=REAs  ); nbytes+=REAs.nbytes
+        if Zs is not None:
+            self.Zs = np.array(Zs, dtype=np.int32)
+            self.cl_Zs = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.Zs); nbytes+=self.Zs.nbytes
         if poss is not None:
             self.nDim = np.array( poss.shape, dtype=np.int32 )
             self.cl_poss  = cl.Buffer(self.ctx, mf.READ_ONLY  | mf.COPY_HOST_PTR, hostbuf=poss  ); nbytes+=poss.nbytes   # float4
@@ -368,24 +774,37 @@ class ForceField_LJC:
         if E_field:
             self.cl_Efield = cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.nDim)); nbytes+=4*np.prod(self.nDim)
         if rho is not None:
-            assert isinstance(rho, MultipoleTipDensity), 'rho should be a MultipoleTipDensity object'
+            assert isinstance(rho, TipDensity), 'rho should be a TipDensity object'
             self.rho = rho
-            self.fft_conv = FFTConvolution(rho)
-        if(self.verbose>0): print("initArgsLJC.nbytes ", nbytes)
+            lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
+            if not (np.allclose(self.rho.lvec, lvec) and np.allclose(self.rho.shape, self.nDim[:3])):
+                self.rho = self.rho.interp_at(lvec, self.nDim[:3])
+            self.fft_corr = FFTCrossCorrelation(self.rho)
+            self.rho.release() # Don't actually need this on device, only the FFT array
+        if rho_delta is not None:
+            assert isinstance(rho_delta, TipDensity), 'rho_delta should be a TipDensity object'
+            self.rho_delta = rho_delta
+            lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
+            if not (np.allclose(self.rho_delta.lvec, lvec) and np.allclose(self.rho_delta.shape, self.nDim[:3])):
+                self.rho_delta = self.rho_delta.interp_at(lvec, self.nDim[:3])
+            self.fft_corr_delta = FFTCrossCorrelation(self.rho_delta)
+            self.rho_delta.release() # Don't actually need this on device, only the FFT array
+        if rho_sample is not None:
+            assert isinstance(rho_sample, ElectronDensity), 'rho_sample should be an ElectronDensity object'
+            self.rho_sample = rho_sample
+            self.rho_sample.cl_array
+
+        if(self.verbose>0): print("ForceField_LJC.prepareBuffers.nbytes", nbytes)
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None):
-        '''
-        update content of all buffers
-        '''
+        '''Update the content of device buffers.'''
         if(self.verbose>0): print(" ForceField_LJC.updateBuffers ")
         oclu.updateBuffer(atoms, self.cl_atoms )
         oclu.updateBuffer(cLJs,  self.cl_cLJs  )
         oclu.updateBuffer(poss,  self.cl_poss  )
 
     def tryReleaseBuffers(self):
-        '''
-        release all buffers
-        '''
+        '''Release all device buffers.'''
         if(self.verbose>0): print(" ForceField_LJC.tryReleaseBuffers ")
         try:
             self.cl_atoms.release()
@@ -395,6 +814,11 @@ class ForceField_LJC:
         try:
             self.cl_cLJs.release()
             self.cl_cLJs = None
+        except:
+            pass
+        try:
+            self.cl_REAs.release()
+            self.cl_REAs = None
         except:
             pass
         try:
@@ -420,129 +844,25 @@ class ForceField_LJC:
             self.rho.release()
         except:
             pass
-
-    def run(self, FE=None, local_size=(32,), bCopy=True, bFinish=True ):
-        '''
-        generate force-field
-        '''
-        if(bRuntime): t0 = time.time()
-        if bCopy and (FE is None):
-            FE = np.zeros( self.nDim[:3]+(8,), dtype=np.float32 )
-            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
-        ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
-        global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
-            self.nAtoms,
-            self.cl_atoms,
-            self.cl_cLJs,
-            self.cl_poss,
-            self.cl_FE,
-        )
-        if(bRuntime): print("runtime(ForceField_LJC.evalLJC.pre) [s]: ", time.time() - t0)
-        cl_program.evalLJC( self.queue, global_size, local_size, *(kargs) )
-        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[4] )
-        if bFinish: self.queue.finish()
-        if(bRuntime): print("runtime(ForceField_LJC.evalLJC) [s]: ", time.time() - t0)
-        return FE
-
-    def run_evalLJ_noPos(self, FE=None, local_size=(32,), bCopy=True, bFinish=True ):
-        '''
-        Compute Lennard-Jones forcefield without charges at grid points.
-
-        Arguments:
-            FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
-                If None and bCopy == True, will be created automatically.
-            local_size: tuple of a single int. Size of local work group on device.
-            bCopy: Bool. Whether to return the calculated electric field to host.
-            bFinish: Bool. Whether to wait for execution to finish.
-
-        Returns: np.ndarray if bCopy == True or None otherwise.
-        '''
-
-        if bRuntime: t0 = time.perf_counter()
-
-        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
-        cl_program.evalLJ_noPos(self.queue, global_size, local_size,
-            self.nAtoms,
-            self.cl_atoms,
-            self.cl_cLJs,
-            self.cl_FE,
-            self.nDim,
-            self.lvec0   ,
-            self.dlvec[0],
-            self.dlvec[1],
-            self.dlvec[2]
-        )
-
-        if bCopy: FE = self.downloadFF(FE)
-        if bFinish: self.queue.finish()
-        if bRuntime: print("runtime(ForceField_LJC.run_evalLJ_noPos) [s]: ", time.perf_counter() - t0)
-
-        return FE
-
-    def run_evalLJC_Q(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
-        '''
-        generate force-field
-        '''
-        if(bRuntime): t0 = time.time()
-        if bCopy and (FE is None):
-            FE = np.zeros( self.nDim[:3]+(4,), dtype=np.float32 )
-            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
-        ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
-        global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
-            self.nAtoms,
-            self.cl_atoms,
-            self.cl_cLJs,
-            self.cl_poss,
-            self.cl_FE,
-            np.float32(Qmix),
-        )
-        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_Q.pre) [s]: ", time.time() - t0)
-        cl_program.evalLJC_Q( self.queue, global_size, local_size, *(kargs) )
-        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[4] )
-        if bFinish: self.queue.finish()
-        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_Q) [s]: ", time.time() - t0)
-        return FE
-
-    def run_evalLJC_QZs_noPos(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
-        '''
-        generate force-field
-        '''
-        if(bRuntime): t0 = time.time()
-        if bCopy and (FE is None):
-            ns = ( tuple(self.nDim[:3])+(4,) )
-            FE = np.zeros( ns, dtype=np.float32 )
-            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
-        ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
-        global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
-            self.nAtoms,
-            self.cl_atoms,
-            self.cl_cLJs,
-            self.cl_FE,
-            self.nDim,
-            self.lvec0   ,
-            self.dlvec[0],
-            self.dlvec[1],
-            self.dlvec[2],
-            self.Qs,
-            self.QZs
-        )
-        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos.pre) [s]: ", time.time() - t0)
-        cl_program.evalLJC_QZs_noPos( self.queue, global_size, local_size, *(kargs) )
-        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[3] )
-        if bFinish: self.queue.finish()
-        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos) [s]: ", time.time() - t0)
-        return FE
+        try:
+            self.rho_delta.release()
+        except:
+            pass
+        try:
+            self.rho_sample.release()
+        except:
+            pass
 
     def downloadFF(self, FE=None):
         '''
-        Get force field array from device.
+        Get the force field array from the device.
 
         Arguments:
             FE: np.ndarray or None. Array where output force field is copied to. If None,
                 will be created automatically.
+
+        Returns:
+            FE: np.ndarray. Force field and energy.
         '''
 
         # Get numpy array
@@ -571,10 +891,54 @@ class ForceField_LJC:
 
         return FE
 
-    def run_evalLJC_Q_noPos(self, FE=None, Qmix=0.0, local_size=(32,), bCopy=True, bFinish=True ):
+    def initialize(self, value=0, bFinish=False):
+        '''Initialize the force field to a constant value.
+
+        Arguments:
+            value: float. Value assigned to every element of the force field grid.
+            bFinish: Bool. Whether to wait for execution to finish.
         '''
-        generate force-field
+        cl.enqueue_copy(self.queue, self.cl_FE, np.full(self.nDim.prod(), value, dtype=np.float32))
+        if bFinish: self.queue.finish()
+
+    def run_evalLJ_noPos(self, FE=None, local_size=(32,), bCopy=True, bFinish=True ):
         '''
+        Compute Lennard-Jones forcefield without charges at grid points.
+
+        Arguments:
+            FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
+                If None and bCopy == True, will be created automatically.
+            local_size: tuple of a single int. Size of local work group on device.
+            bCopy: Bool. Whether to return the calculated electric field to host.
+            bFinish: Bool. Whether to wait for execution to finish.
+
+        Returns:
+            FE: np.ndarray if bCopy == True or None otherwise. Calculated force field and energy.
+        '''
+
+        if bRuntime: t0 = time.perf_counter()
+
+        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        cl_program.evalLJ_noPos(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cLJs,
+            self.cl_FE,
+            self.nDim,
+            self.lvec0   ,
+            self.dlvec[0],
+            self.dlvec[1],
+            self.dlvec[2]
+        )
+
+        if bCopy: FE = self.downloadFF(FE)
+        if bFinish: self.queue.finish()
+        if bRuntime: print("runtime(ForceField_LJC.run_evalLJ_noPos) [s]: ", time.perf_counter() - t0)
+
+        return FE
+
+    def run_evalLJC_QZs_noPos(self, FE=None, local_size=(32,), bCopy=True, bFinish=True ):
+        '''Compute Lennard-Jones force field with several point-charges separated on the z-axis.'''
         if(bRuntime): t0 = time.time()
         if bCopy and (FE is None):
             ns = ( tuple(self.nDim[:3])+(4,) )
@@ -592,13 +956,14 @@ class ForceField_LJC:
             self.dlvec[0],
             self.dlvec[1],
             self.dlvec[2],
-            np.float32(Qmix),
+            self.Qs,
+            self.QZs
         )
-        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_Q_noPos.pre) [s]: ", time.time() - t0)
-        cl_program.evalLJC_Q_noPos( self.queue, global_size, local_size, *(kargs) )
-        if bCopy:   cl.enqueue_copy( self.queue, FE, self.cl_FE )
+        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos.pre) [s]: ", time.time() - t0)
+        cl_program.evalLJC_QZs_noPos( self.queue, global_size, local_size, *(kargs) )
+        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[3] )
         if bFinish: self.queue.finish()
-        if(bRuntime): print("runtime(ForceField_LJC.evalLJC_Q_noPos) [s]: ", time.time() - t0)
+        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos) [s]: ", time.time() - t0)
         return FE
 
     def run_evalLJC_Hartree(self, FE=None, local_size=(32,), bCopy=True, bFinish=True):
@@ -613,7 +978,8 @@ class ForceField_LJC:
             bCopy: Bool. Whether to return the calculated forcefield to host.
             bFinish: Bool. Whether to wait for execution to finish.
 
-        Returns: np.ndarray if bCopy == True or None otherwise.
+        Returns:
+            FE: np.ndarray if bCopy == True or None otherwise. Calculated force field and energy.
         '''
 
         if bRuntime: t0 = time.perf_counter()
@@ -659,7 +1025,8 @@ class ForceField_LJC:
             bCopy: Bool. Whether to return the calculated electric field to host.
             bFinish: Bool. Whether to wait for execution to finish.
 
-        Returns: np.ndarray if bCopy == True or None otherwise.
+        Returns:
+            E_field: np.ndarray if bCopy == True or None otherwise. Calculated electric field and potential.
         '''
 
         if bRuntime: t0 = time.perf_counter()
@@ -695,12 +1062,13 @@ class ForceField_LJC:
 
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
         if matching_grid:
-            cl_program.gradPotential(self.queue, global_size, local_size,
+            cl_program.grad(self.queue, global_size, local_size,
                 self.pot.cl_array,
                 self.cl_Efield,
                 np.append(self.pot.shape, 0).astype(np.int32),
                 np.append(np.diag(self.pot.step), 0).astype(np.float32),
-                np.int32(1)
+                np.int32(1),
+                np.array([-1.0, -1.0, -1.0, 1.0], dtype=np.float32)
             )
         else:
             T = np.append(np.linalg.inv(self.pot.step).T.copy(), np.zeros((3, 1)), axis=1).astype(np.float32)
@@ -722,163 +1090,12 @@ class ForceField_LJC:
 
         return E_field
 
-    def runRelaxStrokesDirect(self, Q, cl_FE, FE=None, local_size=(32,), nz=10 ):
-        '''
-        generate force-field
-        '''
-        if FE is None:
-            ns = ( tuple(self.nDim[:3])+(4,) )
-            FE    = np.zeros( ns, dtype=np.float32 )
-            #FE     = np.empty( self.scan_dim+(4,), dtype=np.float32 )
-            if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
-        ntot = int( self.scan_dim[0]*self.scan_dim[1] )
-        ntot=makeDivisibleUp(ntot,local_size[0])
-        global_size = (ntot,) # TODO make sure divisible by local_size
-
-        dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
-        stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
-        dpos0        = np.array( [ 0.0 , 0.0 , -4.0 , 4.0 ], dtype=np.float32 );
-        relax_params = np.array( [ 0.1 , 0.9 ,  0.02, 0.5 ], dtype=np.float32 );
-
-        kargs = (
-            self.nAtoms,
-            self.cl_atoms,
-            self.cl_cLJs,
-            self.cl_points,
-            cl_FE,
-            dTip,
-            stiffness,
-            dpos0,
-            relax_params,
-            np.float32(Q),
-            np.int32(nz),
-        )
-        cl_program.relaxStrokesDirect( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, FE, kargs[4] )
-        self.queue.finish()
-        return FE
-
-    def interp_pot(self, pot=None, array_out=None, rot=np.eye(3), rot_center=np.zeros(3),
-            local_size=(32,), bCopy=True, bFinish=True):
-        '''
-        Interpolate Hartree potential on the force field grid with an optional rotation
-        to the output grid coordinates.
+    def addLJ(self, local_size=(32,)):
+        '''Add Lennard-Jones force and energy to the current force field grid.
 
         Arguments:
-            pot: HartreePotential or None. Hartree potential to differentiate. If None, has to be
-                initialized beforehand with prepareBuffers.
-            array_out: np.ndarray, pyopencl.Buffer or None. Output array. Created automatically,
-                if None. For bCopy==True it is a np.ndarray and for bCopy==False it is a
-                pyopencl.Buffer.
-            rot: np.ndarray of shape (3, 3). Rotation matrix to apply.
-            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
             local_size: tuple of a single int. Size of local work group on device.
-            bCopy: Bool. Whether to return the calculated electric field to host.
-            bFinish: Bool. Whether to wait for execution to finish.
-
-        Returns: np.ndarray if bCopy == True or pyopencl.Buffer otherwise.
         '''
-
-        if bRuntime: t0 = time.perf_counter()
-
-        if pot:
-            self.prepareBuffers(pot=pot)
-        elif not self.pot:
-            raise ValueError("Hartree potential not initialized on the device. "
-                "Either initialize it with prepareBuffers or pass it here as a HartreePotential object.")
-
-        mf = cl.mem_flags
-        if bCopy:
-            array_out = array_out or np.empty(self.nDim[:3], dtype=np.float32)
-            assert isinstance(array_out, np.ndarray), 'array_out should be a numpy array when bCopy==True'
-            cl_array_out = cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.nDim[:3]))
-            if not np.allclose(array_out.shape, self.nDim[:3]):
-                raise ValueError(f'array_out dimensions {array_out.shape} do not match with '
-                    f'force field dimensions {self.nDim}.')
-        else:
-            if array_out:
-                assert isinstance(array_out, cl.Buffer), 'array_out should be an pyopencl.Buffer when bCopy==False'
-            else:
-                array_out = cl.Buffer(self.ctx, mf.READ_WRITE, size=4*np.prod(self.nDim[:3]))
-            cl_array_out = array_out
-
-        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
-        T = np.append(np.linalg.inv(self.pot.step).T.copy(), np.zeros((3, 1)), axis=1).astype(np.float32)
-        rot = np.append(rot, np.zeros((3, 1)), axis=1).astype(np.float32)
-
-        if bRuntime: print("runtime(ForceField_LJC.interp_pot.pre) [s]: ", time.perf_counter() - t0)
-
-        cl_program.interp_at(self.queue, global_size, local_size,
-            self.pot.cl_array,
-            cl_array_out,
-            np.append(self.pot.shape, 0).astype(np.int32),
-            T[0], T[1], T[2],
-            np.append(self.pot.origin, 0).astype(np.float32),
-            self.nDim,
-            self.dlvec[0], self.dlvec[1], self.dlvec[2],
-            self.lvec0,
-            rot[0], rot[1], rot[2],
-            np.append(rot_center, 0).astype(np.float32)
-        )
-
-        if bCopy: cl.enqueue_copy(self.queue, array_out, cl_array_out)
-        if bFinish: self.queue.finish()
-        if bRuntime: print("runtime(ForceField_LJC.interp_pot) [s]: ", time.perf_counter() - t0)
-
-        return array_out
-
-    def calc_force_fft(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
-            bCopy=True, bFinish=True):
-        '''
-        Calculate force field for LJ + Hartree convolved with tip density via FFT.
-
-        Arguments:
-            FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
-                If None and bCopy == True, will be created automatically.
-            rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
-            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
-            local_size: tuple of a single int. Size of local work group on device.
-            bCopy: Bool. Whether to copy the calculated forcefield field to host.
-            bFinish: Bool. Whether to wait for execution to finish.
-
-        Returns: np.ndarray if bCopy==True or None otherwise.
-        '''
-
-        if bRuntime: t0 = time.perf_counter()
-
-        if (self.lvec[:, :3] != np.diag(np.diag(self.lvec[:, :3]))).any():
-            raise NotImplementedError('Forcefield calculation via FFT for non-rectangular grids is not implemented. '
-                'Note that the forcefield grid does not need to match the Hartree potential grid.')
-
-        # Interpolate Hartree potential onto the correct grid
-        pot_interp = self.interp_pot(rot=rot, rot_center=rot_center, local_size=local_size,
-            bCopy=False, bFinish=bRuntime)
-
-        if bRuntime: print("runtime(ForceField_LJC.calc_force_fft.interpolate) [s]: ", time.perf_counter() - t0)
-
-        # Convolve Hartree potential and tip charge density
-        E_cl = self.fft_conv.convolve(pot_interp, bCopy=False, bFinish=False)
-
-        if bRuntime:
-            self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_fft.convolution) [s]: ", time.perf_counter() - t0)
-
-        # Take gradient to get electrostatic force field
-        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
-        step = np.append(np.diag(self.dlvec[:, :3]), 0).astype(np.float32)
-        cl_program.gradPotential(self.queue, global_size, local_size,
-            E_cl,
-            self.cl_FE,
-            self.nDim,
-            step,
-            np.int32(0)
-        )
-
-        if bRuntime:
-            self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_fft.gradient) [s]: ", time.perf_counter() - t0)
-
-        # Add Lennard-Jones force
         local_size = (min(local_size[0], 64),)
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
         cl_program.addLJ(self.queue, global_size, local_size,
@@ -891,53 +1108,296 @@ class ForceField_LJC:
             self.dlvec[0], self.dlvec[1], self.dlvec[2]
         )
 
+    def addvdW(self, damp_method=0, local_size=(32,)):
+        '''Add Lennard-Jones van der Waals force and energy to the current force field grid.
+
+        Arguments:
+            damp_method: int. Type of damping to use. -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
+            local_size: tuple of a single int. Size of local work group on device.
+        '''
+        local_size = (min(local_size[0], 64),)
+        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        cl_program.addvdW(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cLJs,
+            self.cl_REAs,
+            self.cl_FE,
+            self.nDim,
+            self.lvec0,
+            self.dlvec[0], self.dlvec[1], self.dlvec[2],
+            np.int32(damp_method)
+        )
+
+    def _get_dftd3_params(self, params, local_size=(32,)):
+
+        if not hasattr(self, 'iZPP'):
+            raise RuntimeError('Probe particle atomic number not set. Set it before DFT-D3 calculation using setPP()')
+        if not hasattr(self, 'cl_Zs') or not hasattr(self, 'nAtoms'):
+            raise RuntimeError('Atom positions or elements not set. Set them before DFT-D3 calculation using prepareBuffers(atoms=..., Zs=...)')
+
+        params = d3.get_df_params(params)
+        params = np.array([params['s6'], params['s8'], params['a1'], params['a2'] * io.bohrRadius2angstroem], dtype=np.float32)
+        k = np.array([d3.K1, d3.K2, d3.K3, 0.0], dtype=np.float32)
+
+        self.cl_cD3 = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=(self.nAtoms * 4 * 4))
+
+        global_size = (int(np.ceil(self.nAtoms / local_size[0]) * local_size[0]),)
+        cl_program.d3_coeffs(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_Zs,
+            self.d3_params.cl_rcov,
+            self.d3_params.cl_rcut,
+            self.d3_params.cl_ref_cn,
+            self.d3_params.cl_ref_c6,
+            self.d3_params.cl_r4r2,
+            self.cl_cD3,
+            k,
+            params,
+            self.iZPP
+        )
+
+    def add_dftd3(self, params='PBE', local_size=(64,)):
+        '''
+        Add van der Waals force and energy to the force field grid using the DFT-D3 method. Uses the Becke-Johnson
+        damping method. Mainly useful in conjunction with the full-density based model.
+
+        The DFT-D3 parameters are adjusted based on the DFT functional. There are predefined scaling parameters for the
+        following functionals:
+        PBE, B1B95, B2GPPLYP, B3PW91, BHLYP, BMK, BOP, BPBE, CAMB3LYP, LCwPBE, MPW1B95, MPWB1K, mPWLYP, OLYP, OPBE,
+        oTPSS, PBE38, PBEsol, PTPSS, PWB6K, revSSB, SSB, TPSSh, HCTH120, B2PLYP, B3LYP, B97D, BLYP, BP86, DSDBLYP,
+        PBE0, PBE, PW6B95, PWPB95, revPBE0, revPBE38, revPBE, rPW86PBE, TPSS0, TPSS.
+        See also :data:`.DF_DEFAULT_PARAMS`.
+
+        Otherwise, the parameters can be manually specified in a dict with the following entries:
+
+         - 's6': Scaling parameter for r^-6 term.
+         - 's8': Scaling parameter for r^-8 term.
+         - 'a1': Scaling parameter for cutoff radius.
+         - 'a2': Additive parameter for cutoff radius. Unit should be Bohr.
+
+        Arguments:
+            params: str or dict. Functional-specific scaling parameters. Can be a str with the
+                functional name or a dict with manually specified parameters.
+            local_size: tuple of a single int. Size of local work group on device.
+        '''
+        if bRuntime: t0 = time.perf_counter()
+        local_size = (min(local_size[0], 64),) # The kernel uses shared memory arrays with size 64. Let's not overflow.
+        self._get_dftd3_params(params, local_size)
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.add_dftd3.get_params) [s]: ", time.perf_counter() - t0)
+        global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        cl_program.addDFTD3_BJ(self.queue, global_size, local_size,
+            self.nAtoms,
+            self.cl_atoms,
+            self.cl_cD3,
+            self.cl_FE,
+            self.nDim,
+            self.lvec0,
+            self.dlvec[0], self.dlvec[1], self.dlvec[2]
+        )
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.add_dftd3) [s]: ", time.perf_counter() - t0)
+
+    def calc_force_hartree(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,),
+            bCopy=True, bFinish=True):
+        '''
+        Calculate force field for LJ + Hartree cross-correlated with tip density via FFT.
+
+        Arguments:
+            FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
+                If None and bCopy == True, will be created automatically.
+            rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
+            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            local_size: tuple of a single int. Size of local work group on device.
+            bCopy: Bool. Whether to copy the calculated forcefield field to host.
+            bFinish: Bool. Whether to wait for execution to finish.
+
+        Returns:
+            FE: np.ndarray if bCopy==True or None otherwise. Calculated force field and energy.
+        '''
+
+        if bRuntime: t0 = time.perf_counter()
+
+        if (self.lvec[:, :3] != np.diag(np.diag(self.lvec[:, :3]))).any():
+            raise NotImplementedError('Forcefield calculation via FFT for non-rectangular grids is not implemented. '
+                'Note that the forcefield grid does not need to match the Hartree potential grid.')
+
+        # Interpolate Hartree potential onto the correct grid
+        lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
+        pot = self.pot.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center,
+            local_size=local_size, queue=self.queue)
+
+        if bRuntime: print("runtime(ForceField_LJC.calc_force_hartree.interpolate) [s]: ", time.perf_counter() - t0)
+
+        # Cross-correlate Hartree potential and tip charge density
+        E = self.fft_corr.correlate(pot)
+
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_hartree.cross-correlation) [s]: ", time.perf_counter() - t0)
+
+        # Take gradient to get electrostatic force field
+        E.grad(scale=[-1.0, -1.0, -1.0, 1.0], array_out=self.cl_FE, order='F',
+            local_size=local_size, queue=self.queue)
+
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_hartree.gradient) [s]: ", time.perf_counter() - t0)
+
+        # Add Lennard-Jones force
+        self.addLJ(local_size=local_size)
+
         if bCopy: FE = self.downloadFF(FE)
         if bFinish or bRuntime: self.queue.finish()
-        if bRuntime: print("runtime(ForceField_LJC.calc_force_fft) [s]: ", time.perf_counter() - t0)
+        if bRuntime: print("runtime(ForceField_LJC.calc_force_hartree) [s]: ", time.perf_counter() - t0)
 
         return FE
 
-    def makeFF(self, atoms=None, cLJs=None, Qmix=0.0, FE=None, bRelease=True, bCopy=True, bFinish=True, bQZ=False):
+    def calc_force_fdbm(self, A=18.0, B=1.0, vdw_type='D3', d3_params='PBE', lj_vdw_damp=2, FE=None, rot=np.eye(3),
+            rot_center=np.zeros(3), local_size=(32,), bCopy=True, bFinish=True):
         '''
-        Generate force-field from given positions/charges (atoms), Lennard-Jones parameters (cLJs) etc.
-        '''
-
-        if(bRuntime): t0 = time.time()
-
-        self.atoms = atoms
-        cLJs = cLJs.astype(np.float32, copy=False)
-        self.prepareBuffers(atoms, cLJs)
-        if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.time() - t0)
-
-        if self.cl_poss is not None:
-            FF = self.run_evalLJC_Q( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
-        else:
-            if np.allclose(self.atoms[:, -1], 0): # No charges
-                FF = self.run_evalLJ_noPos()
-            elif bQZ:
-                FF = self.run_evalLJC_QZs_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
-            else:
-                FF = self.run_evalLJC_Q_noPos( FE=FE, Qmix=Qmix, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
-
-        if(bRelease): self.tryReleaseBuffers()
-        if(bRuntime): print("runtime(ForceField_LJC.makeFF.tot) [s]: ", time.time() - t0)
-
-        return FF, atoms
-
-    def makeFFHartree(self, atoms, cLJs, pot=None, rho=None, FE=None, rot=np.eye(3), rot_center=np.zeros(3),
-            local_size=(32,), bRelease=True, bCopy=True, bFinish=True):
-        '''
-        Generate a force field from a list of atoms and a Hartree potential.
+        Calculate force field using the full density-based model.
 
         Arguments:
-            atoms: np.ndarray of shape (n_atoms, 3). xyz positions of atoms.
-            cLJs: np.ndarray of shape (n_atoms, 2). Lennard-Jones interaction parameters for each atom.
-            pot: HartreePotential or None. Hartree potential used for electrostatic interaction.
-                If None, has to be initialized beforehand with prepareBuffers.
-            rho: MultipoleTipDensity or None. Probe tip charge density. If None and one has not been
-                set for the forcefield, point-charge electrostatics for the tip will be used instead.
+            A: float. Prefactor for Pauli repulsion.
+            B: float. Exponent used for Pauli repulsion.
+            vdw_type: 'D3' or 'LJ'. Type of vdW interaction to use with the FDBM. 'D3' is for Grimme-D3 and 'LJ' uses
+                standard Lennard-Jones vdW.
+            d3_params: str or dict. Functional-specific scaling parameters for DFT-D3. Can be a str with the
+                functional name or a dict with manually specified parameters. See :meth:`add_dftd3`.
+            lj_vdw_damp:  int. Type of damping to use in vdw calculation fdbm_vdw_type=='LJ.
+                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.
+            rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
+            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            local_size: tuple of a single int. Size of local work group on device.
+            bCopy: Bool. Whether to copy the calculated forcefield field to host.
+            bFinish: Bool. Whether to wait for execution to finish.
+
+        Returns:
+            FE: np.ndarray if bCopy==True or None otherwise. Calculated force field and energy.
+        '''
+
+        if bRuntime: t0 = time.perf_counter()
+
+        if (self.lvec[:, :3] != np.diag(np.diag(self.lvec[:, :3]))).any():
+            raise NotImplementedError('Forcefield calculation via FFT for non-rectangular grids is not implemented. '
+                'Note that the forcefield grid does not need to match the Hartree potential grid.')
+
+        # Interpolate sample Hartree potential and electron density onto the correct grid
+        lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
+        pot_lvec_same = (np.allclose(lvec, self.pot.lvec) and np.allclose(self.pot.shape, self.nDim[:3]))
+        rho_sample_lvec_same = (np.allclose(lvec, self.rho_sample.lvec) and np.allclose(self.rho_sample.shape, self.nDim[:3]))
+        if not pot_lvec_same:
+            pot = self.pot.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center,
+                local_size=local_size, queue=self.queue)
+        else:
+            pot = self.pot
+        if not rho_sample_lvec_same:
+            rho_sample = self.rho_sample.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center,
+                local_size=local_size, queue=self.queue)
+        else:
+            rho_sample = self.rho_sample
+
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_fdbm.interpolate) [s]: ", time.perf_counter() - t0)
+
+        # Cross-correlate Hartree potential and tip electron delta density for electrostatic energy
+        E_es = self.fft_corr_delta.correlate(pot, scale=-1.0) # scale=-1.0, because the electron density has positive sign.
+        if not pot_lvec_same: pot.release()
+
+        # Cross-correlate sample electron density and tip electron density for Pauli energy
+        if not np.allclose(B, 1.0):
+            rho_sample = rho_sample.power_positive(p=B, in_place=False)
+        E_pauli = self.fft_corr.correlate(rho_sample)
+        if not rho_sample_lvec_same: rho_sample.release()
+
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_fdbm.cross-correlation) [s]: ", time.perf_counter() - t0)
+
+        # Add the two energy contributions together
+        E = E_es.add_mult(E_pauli, scale=A, in_place=True, local_size=local_size, queue=self.queue)
+        E_pauli.release()
+
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_fdbm.add_mult) [s]: ", time.perf_counter() - t0)
+
+        # Take gradient to get the force field
+        E.grad(scale=[-1.0, -1.0, -1.0, 1.0], array_out=self.cl_FE, order='F',
+            local_size=local_size, queue=self.queue)
+        E.release()
+
+        if bRuntime:
+            self.queue.finish()
+            print("runtime(ForceField_LJC.calc_force_fdbm.gradient) [s]: ", time.perf_counter() - t0)
+
+        # Add vdW force
+        if vdw_type == 'D3':
+            self.add_dftd3(params=d3_params, local_size=local_size)
+        elif vdw_type == 'LJ':
+            self.addvdW(damp_method=lj_vdw_damp, local_size=local_size)
+        else:
+            raise ValueError(f'Invalid vdw type `{vdw_type}`')
+
+        if bCopy: FE = self.downloadFF(FE)
+        if bFinish or bRuntime: self.queue.finish()
+        if bRuntime: print("runtime(ForceField_LJC.calc_force_fdbm) [s]: ", time.perf_counter() - t0)
+
+        return FE
+
+    def makeFF(self, xyzs, cLJs, REAs=None, Zs=None, method='point-charge', FE=None, qs=None, pot=None, rho_sample=None,
+            rho=None, rho_delta=None, A=18.0, B=1.0, fdbm_vdw_type='D3', d3_params='PBE', lj_vdw_damp=2, rot=np.eye(3),
+            rot_center=np.zeros(3), local_size=(32,), bRelease=True, bCopy=True, bFinish=True):
+        '''
+        Generate the force field for a tip-sample interaction.
+
+        There are several methods for generating the force field:
+
+            - 'point-charge': Lennard-Jones + point-charge electrostatics for both tip and sample.
+            - 'hartree': Lennard-Jones + sample hartree potential cross-correlated with tip charge density
+              for electrostatic interaction.
+            - 'fdbm': Approximated full density-based model. Pauli repulsion is calculated by tip-sample
+              electron density overlap + attractive vdW like in Lennard-Jones. Electrostatic
+              interaction is same as in 'hartree', except tip delta-density is used instead.
+
+        If pot, rho, or rho_delta is None and is required for the specified method, it has to be
+        initialized beforehand with prepareBuffers.
+
+        Arguments:
+            xyzs: np.ndarray of shape (n_atoms, 3). xyz positions.
+            cLJs: np.ndarray of shape (n_atoms, 2). Lennard-Jones interaction parameters in AB form for each atom.
+            REAs: np.ndarray of shape (n_atoms, 4) or None. Lennard-Jones interaction parameters in RE form for each atom.
+                Required when method is 'fdbm', fdbm_vdw_type is 'LJ', and vdw_damp_method >= 1.
+            Zs: np.ndarray of shape (n_atoms,). Atomic numbers. Required when method is 'fdbm'.
+            method: 'point-charge', 'hartree' or 'fdbm'. Method for generating the force field.
+            FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
+                If None and bCopy == True, will be created automatically.
+            qs: np.ndarray of shape (n_atoms,) or None. Point charges of atoms. Used when method
+                is 'point-charge'.
+            pot: :class:`HartreePotential` or None. Hartree potential used for electrostatic interaction when
+                method is 'hartree' or 'fdbm'.
+            rho_sample: :class:`ElectronDensity` or None. Sample electron density. Used for Pauli repulsion
+                when method is 'fdbm'.
+            rho: :class:`TipDensity` or None. Probe tip charge density. Used for electrostatic interaction when
+                method is 'hartree' and Pauli repulsion when method is 'fdbm'.
+            rho_delta: :class:`TipDensity` or None. Probe tip electron delta-density. Used for electrostatic
+                interaction when method is 'fdbm'.
+            A: float. Prefactor for Pauli repulsion when method is 'fdbm'.
+            B: float. Exponent used for Pauli repulsion when method is 'fdbm'.
+            fdbm_vdw_type: 'D3' or 'LJ'. Type of vdW interaction to use when method is 'fdbm'. 'D3' is for Grimme-D3 and
+                'LJ' uses standard Lennard-Jones vdW.
+            d3_params: str or dict. Functional-specific scaling parameters for DFT-D3. Can be a str with the functional name
+                or a dict with manually specified parameters. Used when method is 'fdbm. See :meth:`add_dftd3`.
+            lj_vdw_damp: int. Type of damping to use in vdw calculation when method is 'fdbm' and fdbm_vdw_type is 'LJ'.
+                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
             rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
             rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
             local_size: tuple of a single int. Size of local work group on device.
@@ -945,7 +1405,8 @@ class ForceField_LJC:
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
             bFinish: Bool. Whether to wait for execution to finish.
 
-        Returns: np.ndarray if bCopy==True or None otherwise.
+        Returns:
+            FE: np.ndarray if bCopy==True or None otherwise. Calculated force field and energy.
         '''
 
         if(bRuntime): t0 = time.perf_counter()
@@ -954,29 +1415,47 @@ class ForceField_LJC:
             raise RuntimeError('Forcefield position is not initialized. Initialize with initSampling.')
 
         # Rotate atoms
-        atoms = atoms - rot_center
-        atoms = np.dot(atoms, rot.T)
-        atoms += rot_center
+        xyzs = xyzs.copy()
+        xyzs -= rot_center
+        xyzs = np.dot(xyzs, rot.T)
+        xyzs += rot_center
         rot_ff = np.linalg.inv(rot) # Force field rotation is in opposite direction to atoms
 
         # Prepare data on device
-        self.atoms = np.pad(atoms, ((0, 0), (0, 1)))
-        self.prepareBuffers(self.atoms, cLJs, pot=pot, rho=rho)
+        if qs is None:
+            qs = np.zeros(len(xyzs))
+        self.atoms = np.concatenate([xyzs, qs[:, None]], axis=1)
+        self.prepareBuffers(self.atoms, cLJs, REAs=REAs, Zs=Zs, pot=pot, rho=rho, rho_delta=rho_delta, rho_sample=rho_sample)
+        if(bRuntime): print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.perf_counter() - t0)
 
-        if(bRuntime): print("runtime(ForceField_LJC.makeFFHartree.pre) [s]: ", time.perf_counter() - t0)
+        if method == 'point-charge':
 
-        if rho == None and self.rho is None:
-            if not np.allclose(rot, np.eye(3)):
-                raise NotImplementedError('Force field calculation with rotation for Hartree potential with '
-                    'point charges tip density is not implemented.')
-            self.run_gradPotentialGrid(local_size=local_size, bCopy=False, bFinish=False)
-            FF = self.run_evalLJC_Hartree(FE=FE, local_size=local_size, bCopy=bCopy, bFinish=bFinish)
+            if np.allclose(self.atoms[:, -1], 0): # No charges
+                FF = self.run_evalLJ_noPos()
+            else:
+                FF = self.run_evalLJC_QZs_noPos( FE=FE, local_size=(32,), bCopy=bCopy, bFinish=bFinish )
+
+        elif method == 'hartree':
+
+            if rho == None and self.rho is None:
+                if not np.allclose(rot, np.eye(3)):
+                    raise NotImplementedError('Force field calculation with rotation for Hartree potential with '
+                        'point charges tip density is not implemented.')
+                self.run_gradPotentialGrid(local_size=local_size, bCopy=False, bFinish=False)
+                FF = self.run_evalLJC_Hartree(FE=FE, local_size=local_size, bCopy=bCopy, bFinish=bFinish)
+            else:
+                FF = self.calc_force_hartree(rot=rot_ff, rot_center=rot_center, local_size=local_size,
+                    bCopy=bCopy, bFinish=bFinish)
+
+        elif method == 'fdbm':
+            FF = self.calc_force_fdbm(A=A, B=B, rot=rot_ff, rot_center=rot_center, vdw_type=fdbm_vdw_type,
+                d3_params=d3_params, lj_vdw_damp=lj_vdw_damp, local_size=local_size, bCopy=bCopy, bFinish=bFinish)
+
         else:
-            FF = self.calc_force_fft(rot=rot_ff, rot_center=rot_center, local_size=local_size,
-                bCopy=bCopy, bFinish=bFinish)
+            raise ValueError(f'Unknown method for force field calculation: `{method}`.')
 
         if(bRelease): self.tryReleaseBuffers()
-        if(bRuntime): print("runtime(ForceField_LJC.makeFFHartree.tot) [s]: ", time.perf_counter() - t0)
+        if(bRuntime): print("runtime(ForceField_LJC.makeFF.tot) [s]: ", time.perf_counter() - t0)
 
         return FF
 

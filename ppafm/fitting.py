@@ -25,9 +25,7 @@ header_strings = [
     "void debugGeomPBC_xsf( int ncenters, double* centers )",
 ]
 
-cpp_name='fitting'
-cpp_utils.make(cpp_name)
-lib    = ctypes.CDLL(  cpp_utils.CPP_PATH + "/" + cpp_name + cpp_utils.lib_ext )     # load dynamic librady object using ctypes
+lib = cpp_utils.get_cdll('fitting')
 
 # ========= C functions
 
@@ -94,15 +92,14 @@ if __name__ == "__main__":
 
     np.set_printoptions( precision=None, linewidth=200 )
 
-    from . import GridUtils as GU
-    from . import basUtils as BU
     from . import common as PPU
+    from . import io
 
     fext  = "xsf"
     fname = "CHGCAR"
     fname_ext = fname+"."+fext
 
-    atoms,nDim,lvec = BU.loadGeometry   ( fname_ext, params=PPU.params )
+    atoms,nDim,lvec = io.loadGeometry   ( fname_ext, params=PPU.params )
     centers = np.array( atoms[1:4] ).transpose().copy()
     print("centers \n", centers)
 
@@ -129,7 +126,7 @@ if __name__ == "__main__":
     ncomps = np.ones( len(types), dtype=np.int32  )
 
 
-    Yrefs,lvec,nDim,head = GU.loadXSF( fname_ext )
+    Yrefs,lvec,nDim,head = io.loadXSF( fname_ext )
     gridPoss = PPU.getPos_Vec3d( np.array(lvec), nDim )
 
     print("gridPoss.shape, yrefs.shape, centers.shape ", gridPoss.shape, Yrefs.shape, centers.shape)
@@ -138,7 +135,7 @@ if __name__ == "__main__":
 
     print(">>>>>> Yrefs -= project( coefs ) ")
     fitting.project( gridPoss, Yrefs, centers, types, ncomps, coefs*-1.0 );
-    GU.saveXSF( "Yresidual.xsf", Yrefs, lvec )
+    io.saveXSF( "Yresidual.xsf", Yrefs, lvec )
     exit();
 
     print(" **** ALL DONE *** ")

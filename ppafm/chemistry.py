@@ -23,11 +23,6 @@ def findBonds( xyzs, Rs, fR=1.3 ):
         bonds += [ (i,j) for j in sel ]
     return bonds
 
-def findBondsZs( xyzs, Zs, ELEMENTS=elements.ELEMENTS, fR=1.3 ):
-    Rs = np.array([ ELEMENTS[iz-1][6]*fRvdw for iz in Zs ])
-    findBonds( xyzs, Rs, fR=1.3 )
-    return findBonds( xyzs, Rs, fR=fR )
-
 def bonds2neighs( bonds, na ):
     ngs = [ [] for i in range(na) ]
     for i,j in bonds:
@@ -114,7 +109,7 @@ def findTris_(bonds,neighs):
 
 def getRingNatom(atom2ring,nr):
     #nr = len(ringNeighs)
-    nra=np.zeros(nr,dtype=np.int)
+    nra=np.zeros(nr,dtype=int)
     for r1,r2,r3 in atom2ring:
         nra[r1]+=1
         nra[r2]+=1
@@ -162,10 +157,10 @@ def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
     cog = np.sum(ring_pos,axis=0)/Nring
     ring_bonds  = findBonds(ring_pos,ring_Rs,fR=1.0)
     ring_neighs = bonds2neighs(ring_bonds,Nring)
-    ring_nngs   = np.array([ len(ng) for ng in ring_neighs ],dtype=np.int)
+    ring_nngs   = np.array([ len(ng) for ng in ring_neighs ],dtype=int)
 
     tris,bonds_ = findTris(ring_bonds,ring_neighs)
-    atom2ring   = np.array( list(tris), dtype=np.int )
+    atom2ring   = np.array( list(tris), dtype=int )
 
     atom_pos = ( ring_pos[atom2ring[:,0]] + ring_pos[atom2ring[:,1]] + ring_pos[atom2ring[:,2]] )/3.0
     bonds,_  = tris2num_(tris, bonds_)
@@ -181,7 +176,7 @@ def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
                                  ring_N6mask[atom2ring[:,2]]  ) )
 
     neighs  = bonds2neighs( bonds, len(atom_pos) )    # ;print neighs
-    nngs    = np.array([ len(ngs) for ngs in neighs ],dtype=np.int)
+    nngs    = np.array([ len(ngs) for ngs in neighs ],dtype=int)
 
     atypes=nngs.copy()-1
     atypes[atom_N6mask]=3
@@ -451,7 +446,7 @@ def assignAtomBOFF(atypes, typeEs):
     from scipy.interpolate import Akima1DInterpolator
     nt=len(typeEs)
     na=len(atypes)
-    typeMasks = np.empty((nt,na),dtype=np.bool)
+    typeMasks = np.empty((nt,na),dtype=bool)
     typeFFs = []
     Xs = np.array([-1,0,1,2,3,4])
     for it in range(nt):

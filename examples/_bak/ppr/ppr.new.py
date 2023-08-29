@@ -3,13 +3,13 @@
 import os
 from optparse import OptionParser
 
-import basUtils
 import elements
-import GridUtils as GU
 import matplotlib.pyplot as plt
 import numpy as np
 import PPPlot
 import ProbeParticle as PP
+
+from ppafm import io
 
 parser = OptionParser()
 parser.add_option( "-k",       action="store", type="float", help="k parameter", default=0.5)
@@ -33,9 +33,9 @@ PP.loadParams( 'params.ini' )
 PPPlot.params = PP.params
 
 print(" load Electrostatic Force-field ")
-FFel, lvec, nDim, head = GU.loadVecFieldXsf( "FFel" )
+FFel, lvec, nDim, head = io.loadVecFieldXsf( "FFel" )
 print(" load Lenard-Jones Force-field ")
-FFLJ, lvec, nDim, head = GU.loadVecFieldXsf( "FFLJ" )
+FFLJ, lvec, nDim, head = io.loadVecFieldXsf( "FFLJ" )
 PP.lvec2params( lvec )
 PP.setFF( FFel )
 
@@ -54,9 +54,8 @@ for iq,Q in enumerate( Qs ):
 		dirname = "Q%1.2fK%1.2f" %(Q,K)
 		os.makedirs( dirname )
 		PP.setTip( kSpring = np.array((K,K,0.0))/-PP.eVA_Nm )
-		#GU.saveVecFieldXsf( 'FFtot', FF, lvec, head )
 		fzs = PP.relaxedScan3D( xTips, yTips, zTips )
-		GU.saveXSF( dirname+'/OutFz.xsf', fzs, lvecScan, GU.XSF_HEAD_DEFAULT )
+		io.saveXSF( dirname+'/OutFz.xsf', fzs, lvecScan, io.XSF_HEAD_DEFAULT )
 		for iA,Amp in enumerate( Amps ):
 			AmpStr = "/Amp%2.2f" %Amp
 			print("Amp= ",AmpStr)

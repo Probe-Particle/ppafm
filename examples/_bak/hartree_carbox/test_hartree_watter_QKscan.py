@@ -1,16 +1,13 @@
 #!/usr/bin/python
 
-#import matplotlib
-#matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
-
 import os
 
-#import XSFutils
-import basUtils
 import elements
 import matplotlib.pyplot as plt
 import numpy as np
 from memory_profiler import profile
+
+from ppafm import io
 
 print(" # ========== make & load  ProbeParticle C++ library ")
 
@@ -24,17 +21,15 @@ makeclean( )  # force to recompile
 
 import ProbeParticle as PP
 
+from ppafm import io
+
 print(" >> WARNING!!! OVEWRITING SETTINGS by params.ini  ")
 
 PP.loadParams( 'params_watter.ini' )
 
-#Fx,lvec,nDim,head=XSFutils.loadXSF('Fx.xsf')
-#Fy,lvec,nDim,head=XSFutils.loadXSF('Fy.xsf')
-#Fz,lvec,nDim,head=XSFutils.loadXSF('Fz.xsf')
-
-Fx,lvec,nDim,head=PP.loadXSF('Fx.xsf')
-Fy,lvec,nDim,head=PP.loadXSF('Fy.xsf')
-Fz,lvec,nDim,head=PP.loadXSF('Fz.xsf')
+Fx,lvec,nDim,head=io.loadXSF('Fx.xsf')
+Fy,lvec,nDim,head=io.loadXSF('Fy.xsf')
+Fz,lvec,nDim,head=io.loadXSF('Fz.xsf')
 
 PP.params['gridA'] = lvec[ 1,:  ].copy()
 PP.params['gridB'] = lvec[ 2,:  ].copy()
@@ -64,7 +59,7 @@ PP.setFF( FFLJ, cell  )
 
 print(" # ============ define atoms ")
 
-atoms    = basUtils.loadAtoms('watter4NaCl-2.xyz')
+atoms    = io.loadAtoms('watter4NaCl-2.xyz')
 Rs       = np.array([atoms[1],atoms[2],atoms[3]]);
 iZs      = np.array( atoms[0])
 
@@ -144,18 +139,18 @@ if recomputeLJ:
 	PP.setFF_Pointer( FFLJ )
 	PP.getLenardJonesFF( Rs, C6, C12 )
 	if xsfLJ:
-		PP.saveXSF('FFLJ_x.xsf', head, lvec, FFLJ[:,:,:,0] )
-		PP.saveXSF('FFLJ_y.xsf', head, lvec, FFLJ[:,:,:,1] )
-		PP.saveXSF('FFLJ_z.xsf', head, lvec, FFLJ[:,:,:,2] )
+		io.saveXSF('FFLJ_x.xsf', head, lvec, FFLJ[:,:,:,0] )
+		io.saveXSF('FFLJ_y.xsf', head, lvec, FFLJ[:,:,:,1] )
+		io.saveXSF('FFLJ_z.xsf', head, lvec, FFLJ[:,:,:,2] )
 	else:
 		np.save('FFLJ_x.npy', FFLJ[:,:,:,0] )
 		np.save('FFLJ_y.npy', FFLJ[:,:,:,1] )
 		np.save('FFLJ_z.npy', FFLJ[:,:,:,2] )
 else:
 	if xsfLJ:
-		FFLJ[:,:,:,0],lvec,nDim,head=PP.loadXSF('FFLJ_x.xsf')
-		FFLJ[:,:,:,1],lvec,nDim,head=PP.loadXSF('FFLJ_y.xsf')
-		FFLJ[:,:,:,2],lvec,nDim,head=PP.loadXSF('FFLJ_z.xsf')
+		FFLJ[:,:,:,0],lvec,nDim,head=io.loadXSF('FFLJ_x.xsf')
+		FFLJ[:,:,:,1],lvec,nDim,head=io.loadXSF('FFLJ_y.xsf')
+		FFLJ[:,:,:,2],lvec,nDim,head=io.loadXSF('FFLJ_z.xsf')
 	else:
 		FFLJ[:,:,:,0] = np.load('FFLJ_x.npy' )
 		FFLJ[:,:,:,1] = np.load('FFLJ_y.npy' )
@@ -220,7 +215,7 @@ def main():
 			os.makedirs( dirname )
 			PP.setTip( kSpring = np.array((K,K,0.0))/-PP.eVA_Nm )
 			fzs = relaxedScan3D( xTips, yTips, zTips )
-			PP.saveXSF( dirname+'/OutFz.xsf', headScan, lvecScan, fzs )
+			io.saveXSF( dirname+'/OutFz.xsf', headScan, lvecScan, fzs )
 			for iA,Amp in enumerate( Amps ):
 				AmpStr = "/Amp%2.2f" %Amp
 				print("Amp= ",AmpStr)

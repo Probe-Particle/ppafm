@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 import numpy as np
 import pyopencl as cl
@@ -15,15 +15,19 @@ class OCLEnvironment:
         self.platform     = platforms[i_platform]
         print(f"Initializing an OpenCL environment on {self.platform.name}")
 
-        self.PACKAGE_PATH = os.path.dirname( os.path.realpath( __file__ ) );
-        self.CL_PATH      = os.path.normpath( self.PACKAGE_PATH + '/../../cl' )
+        self.PACKAGE_PATH = Path(__file__).resolve().parent
+        self.CL_PATH      = self.PACKAGE_PATH / 'cl'
         self.ctx          = cl.Context(properties=[(cl.context_properties.PLATFORM, self.platform)], devices=None)
         self.queue        = cl.CommandQueue(self.ctx)
 
     def loadProgram(self,fname):
-        f       = open(fname)
-        fstr    = "".join(f.readlines())
-        program = cl.Program(self.ctx, fstr ).build(options=['-I', self.CL_PATH])
+        cl_path = str(self.CL_PATH)
+        if self.platform.name != 'Portable Computing Language':
+            # Older versions of pocl don't handle quotes and spaces properly. This is kind of ugly, but
+            # this is needed for the version of pocl running on Github Actions at the moment of writing.
+            cl_path = f'"{cl_path}"'
+        with open(fname) as f:
+            program = cl.Program(self.ctx, f.read()).build(options=['-I', cl_path])
         return program
 
     def updateBuffer(self, buff, cl_buff, access=cl.mem_flags ):

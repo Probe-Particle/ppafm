@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+from argparse import ArgumentParser
 
 import numpy as np
 
@@ -17,14 +18,19 @@ CoulombConst         = -14.3996448915;
 params={
     'PBC': True,
     'nPBC' :       np.array( [      1,        1,        1 ] ),
-    'gridN':       np.array( [ -1,     -1,   -1   ] ).astype(np.int),
+    'gridN':       np.array( [ -1,     -1,   -1   ] ).astype(int),
     'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
     'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
     'gridC':       np.array( [      0,        0,      5.0 ] ),
+    'FFgrid0':     np.array( [ -1.0, -1.0, -1.0 ] ),
+    'FFgridA':     np.array( [ -1.0, -1.0, -1.0 ] ),
+    'FFgridB':     np.array( [ -1.0, -1.0, -1.0 ] ),
+    'FFgridC':     np.array( [ -1.0, -1.0, -1.0 ] ),
     'moleculeShift':  np.array( [  0.0,      0.0,    0.0 ] ),
     'probeType':   'O',
     'charge':      0.00,
     'Apauli':    18.0,
+    'Bpauli':     1.0,
     'ffModel':     'LJ',
     'Rcore':    0.7,
     'r0Probe'  :  np.array( [ 0.00, 0.00, 4.00] ),
@@ -52,10 +58,173 @@ params={
     'tip_base':  np.array( ['None', 0.00 ]),
     'Rtip'         :  30.0,
     'permit'       :  0.00552634959,
-    'Vrange':   0.0,
     'vdWDampKind' : 2,
     '#' : None
 }
+
+class CLIParser(ArgumentParser):
+    '''
+    Subclass from the built-in ArgumentParser with functionality to easily add arguments commonly used in ppafm scripts.
+    '''
+
+    _cli_args = None
+    _params_args = {
+        'Amplitude': {
+            'short_name': '-a',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Oscillation amplitude [Å]'
+        },
+        'klat': {
+            'short_name': '-k',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Lateral tip stiffness [N/m]'
+        },
+        'charge': {
+            'short_name': '-q',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Probe particle charge [e]'
+        },
+        'tip': {
+            'short_name': '-t',
+            'action'    : 'store',
+            'type'      : str,
+            'default'   : 's',
+            'help'      : 'Tip model (multipole) {s,pz,dz2,..}'
+        },
+        'Rcore': {
+            'action'    : 'store',
+            'type'      : float,
+            'default'   : params['Rcore'],
+            'help'      : 'Width of nuclear charge density blob to achieve charge neutrality [Å]'
+        },
+        'sigma': {
+            'short_name': '-w',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Gaussian width for convolution in Electrostatics [Å]'
+        },
+        'Apauli': {
+            'short_name': '-A',
+            'action'    : 'store',
+            'type'      : float,
+            'default'   : 1.0,
+            'help'      : 'Prefactor A in the density overlap integral.'
+        },
+        'Bpauli': {
+            'short_name': '-B',
+            'action'    : 'store',
+            'type'      : float,
+            'default'   : -1.0,
+            'help'      : 'Exponent B in the density overlap integral. Negative value is equivalent to B=1.'
+        },
+        'ffModel': {
+            'action'    : 'store',
+            'default'   : 'LJ',
+            'help'      : "Force field model ('LJ','Morse','vdW')"
+        },
+    }
+    _extra_args = {
+        'input': {
+            'short_name': '-i',
+            'action'    : 'store',
+            'required'  : True,
+            'help'      : 'Input file path. Mandatory. Supported formats are: .xyz, .cube, .xsf.'
+        },
+        'input_format' : {
+            'short_name': '-F',
+            'action'    : 'store',
+            'default'   : None,
+            'help'      : 'Specify the input file format. By default the format is inferred from the file extension.'
+        },
+        'output_format' : {
+            'short_name': '-f',
+            'action'    : 'store',
+            'default'   : 'xsf',
+            'help'      : 'Specify the output format. Supported formats are: xsf, npy'
+        },
+        'noPBC': {
+            'action'    : 'store_false',
+            'dest'      : 'PBC',
+            'default'   : None,
+            'help'      : 'Disable periodic boundary conditions.'
+        },
+        'energy': {
+            'short_name': '-E',
+            'action'    : 'store_true',
+            'default'   : False,
+            'help'      : 'Compute the potential energy in addition to the force.'
+        },
+        'krange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('k_min', 'k_max', 'n_k'),
+            'help'      : 'Do scan for a range of tip stiffnesses. Overrides --klat.'
+        },
+        'qrange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('q_min', 'q_max', 'n_q'),
+            'help'      : 'Do scan for a range of tip charges. Overrides --charge.'
+        },
+        'arange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('A_min', 'A_max', 'n_A'),
+            'help'      : 'Do scan for a range of amplitudes. Overrides --Amplitude.'
+        },
+        'Vbias': {
+            'short_name': '-V',
+            'action'    : 'store',
+            'type'      : float,
+            'help'      : 'Applied bias voltage [V].'
+        },
+        'Vrange': {
+            'action'    : 'store',
+            'type'      : float,
+            'nargs'     : 3,
+            'metavar'   : ('V_min', 'V_max', 'n_V'),
+            'help'      : 'Do scan for a range of voltages. Overrides --Vbias.'
+        },
+    }
+
+    def _check_params_args(self):
+        for arg in self._params_args:
+            if arg not in params:
+                raise ValueError(f'Argument name `{arg}` does not match with any parameter in global parameters dictionary.')
+
+    @property
+    def cli_args(self):
+        '''Dictionary of arguments.'''
+        if self._cli_args is None:
+            self._check_params_args()
+            self._cli_args = {**self._params_args, **self._extra_args}
+        return self._cli_args
+
+    def add_arguments(self, arg_names):
+        '''
+        Add CLI arguments from predefined dictionary :data:`cli_params`.
+
+        Arguments:
+            arg_names: list of str. Names of arguments to add.
+        '''
+        for name in arg_names:
+            if name not in self.cli_args:
+                raise ValueError(f'Invalid argument name `{name}`')
+            arg_dict = self.cli_args[name]
+            if 'help' not in arg_dict:
+                raise ValueError(f'No help message defined for `{name}`')
+            if 'short_name' in arg_dict:
+                arg_names = [arg_dict['short_name'], f'--{name}']
+                del arg_dict['short_name']
+            else:
+                arg_names = [f'--{name}']
+            self.add_argument(*arg_names, **arg_dict)
 
 # ==============================
 # ============================== Pure python functions
@@ -195,10 +364,10 @@ def loadParams( fname ):
                     params[key] = words[1]
                     if(verbose>0): print(key, params[key], words[1])
                 elif isinstance(val, np.ndarray ):
-                    if val.dtype == np.float:
+                    if val.dtype == float:
                         params[key] = np.array([ float(words[1]), float(words[2]), float(words[3]) ])
                         if(verbose>0): print(key, params[key], words[1], words[2], words[3])
-                    elif val.dtype == np.int:
+                    elif val.dtype == int:
                         if(verbose>0): print(key)
                         params[key] = np.array([ int(words[1]), int(words[2]), int(words[3]) ])
                         if(verbose>0): print(key, params[key], words[1], words[2], words[3])
@@ -217,26 +386,24 @@ def loadParams( fname ):
 def apply_options(opt):
     if(verbose>0): print("!!!! OVERRIDE params !!!! in Apply options:")
     if(verbose>0): print(opt)
-    for key,value in opt.items():
-        if opt[key] is None:
+    for key, value in opt.items():
+        if value is None:
             continue
-        try:
-            x=params[key]     # to make sure that such a key exists in the list. If not it will be skipped
-            params[key]=value
-            if key in ['klat', 'krange']:
-                params['stiffness'] = np.array( [ -1.0, -1.0, -1.0] ) # klat and krange override stiffness
-            if(verbose>0): print(key,value," applied")
-        except:
-            pass
+        if key in params:
+            params[key] = value
+            if key == 'klat' and params['stiffness'][0] > 0.0:
+                print('Overriding stiffness parameter with klat')
+                params['stiffness'] = np.array( [ -1.0, -1.0, -1.0] ) # klat overrides stiffness
+            if(verbose>0): print(f'Applied: {key} = {value}')
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
 def loadSpecies( fname=None ):
     if fname is None or not os.path.exists(fname):
         if(verbose>0): print("WARRNING: loadSpecies(None) => load default atomtypes.ini")
-        fname=cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini'
+        fname = cpp_utils.PACKAGE_PATH / 'defaults' / 'atomtypes.ini'
     if(verbose>0): print(" loadSpecies from ", fname)
-    #FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',np.int),('symbol', '|S10')],usecols=[0,1,2,3])
-    FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',np.int),('symbol', '|S10')],usecols=(0,1,2,3,4))
+    #FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',int),('symbol', '|S10')],usecols=[0,1,2,3])
+    FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',int),('symbol', '|S10')],usecols=(0,1,2,3,4))
     return FFparams
 
 # load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
@@ -247,7 +414,7 @@ def loadSpeciesLines( lines ):
         if len(l) >= 5:
             # print l
             params.append( ( float(l[0]), float(l[1]), float(l[2]), int(l[3]), l[4] ) )
-    return np.array( params, dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',np.int),('symbol', '|S10')])
+    return np.array( params, dtype=[('rmin',np.float64),('epsilon',np.float64),('alpha',np.float64),('atom',int),('symbol', '|S10')])
 
 def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
     '''
@@ -255,7 +422,7 @@ def autoGeom( Rs, shiftXY=False, fitCell=False, border=3.0 ):
     then shifts the geometry in the center of the supercell
     '''
     zmax=max(Rs[2]); 	Rs[2] -= zmax
-    if(verbose>0): print(" autoGeom substracted zmax = ",zmax)
+    if(verbose>0): print(" autoGeom subtracted zmax = ",zmax)
     xmin=min(Rs[0]); xmax=max(Rs[0])
     ymin=min(Rs[1]); ymax=max(Rs[1])
     if fitCell:
@@ -386,7 +553,7 @@ def findPBCAtoms3D_cutoff( Rs, lvec, Rcut=1.0, corners=None ):
     return inds, Rs_
 
 
-def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
+def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, REAs, lvec, npbc=[1,1,1] ):
     '''
     multiply atoms of sample along supercell vectors
     the multiplied sample geometry is used for evaluation of forcefield in Periodic-boundary-Conditions ( PBC )
@@ -399,19 +566,26 @@ def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
     natom = len(Zs)
     matom = mtot * natom
     Zs_    = np.empty(  matom   , np.int32  )
-    xyzqs_ = np.empty( (matom,4), np.float32)
+    xyzs_ = np.empty( (matom,3), np.float32)
+    qs_ = np.empty( (matom,), np.float32)
     if cLJs is not None:
         cLJs_  = np.empty( (matom,2), np.float32)
     else:
         cLJs_=None
+    if REAs is not None:
+        REAs_ = np.empty( (matom,4), np.float32)
+    else:
+        REAs_ = None
     i0 = 0
     i1 = i0 + natom
     # we want to have cell=(0,0,0) first
-    Zs_   [i0:i1   ] = Zs  [:  ]
-    xyzqs_[i0:i1,:3] = Rs  [:,:]
-    xyzqs_[i0:i1, 3] = Qs  [:  ]
+    Zs_   [i0:i1] = Zs[:  ]
+    xyzs_ [i0:i1] = Rs[:,:]
+    qs_   [i0:i1] = Qs[:  ]
     if cLJs is not None:
         cLJs_ [i0:i1,: ] = cLJs[:,:]
+    if REAs is not None:
+        REAs_ [i0:i1,: ] = REAs[:,:]
     i0 += natom
     for ia in range(-npbc[0],npbc[0]+1):
         for ib in range(-npbc[1],npbc[1]+1):
@@ -419,13 +593,15 @@ def PBCAtoms3D_np( Zs, Rs, Qs, cLJs, lvec, npbc=[1,1,1] ):
                 if (ia==0) and (ib==0) and (ic==0) : continue
                 v_shift = ia*lvec[0,:] + ib*lvec[1,:] + ic*lvec[2,:]
                 i1 = i0 + natom
-                Zs_   [i0:i1   ] = Zs  [:  ]
-                xyzqs_[i0:i1,:3] = Rs  [:,:] + v_shift[None,:]
-                xyzqs_[i0:i1, 3] = Qs  [:  ]
+                Zs_  [i0:i1] = Zs[:  ]
+                xyzs_[i0:i1] = Rs[:,:] + v_shift[None,:]
+                qs_  [i0:i1] = Qs[:  ]
                 if cLJs is not None:
                     cLJs_ [i0:i1,: ] = cLJs[:,:]
+                if REAs is not None:
+                    REAs_ [i0:i1,: ] = REAs[:,:]
                 i0 += natom
-    return Zs_, xyzqs_, cLJs_
+    return Zs_, xyzs_, qs_, cLJs_, REAs_
 
 def multRot( Zs, Rs, Qs, cLJs, rots, cog = (0,0,0) ):
     '''
@@ -508,8 +684,8 @@ def REA2LJ( cREAs, cLJs=None ):
     if cLJs is None:
         cLJs = np.zeros((len(cREAs),2))
     R6   = cREAs[:,0]**6
-    cLJs[:,0] = -2*cREAs[:,1] *  R6
-    cLJs[:,1] =  - cREAs[:,1] * (R6**2)
+    cLJs[:,0] = 2*cREAs[:,1] *  R6
+    cLJs[:,1] =   cREAs[:,1] * (R6**2)
     return cLJs
 
 def getAtomsREA(  iZprobe, iZs,  FFparams, alphaFac=-1.0 ):
@@ -522,20 +698,12 @@ def getAtomsREA(  iZprobe, iZs,  FFparams, alphaFac=-1.0 ):
     for ii in range(n):
         j = iZs[ii]-1
         REAs[ii,0] = FFparams[i][0] + FFparams[j][0]
-        REAs[ii,1] = -np.sqrt( FFparams[i][1] * FFparams[j][1] )
+        REAs[ii,1] = np.sqrt( FFparams[i][1] * FFparams[j][1] )
         REAs[ii,2] = FFparams[j][2] * alphaFac
     return REAs
 
 def getSampleAtomsREA( iZs, FFparams ):
     return np.array( [ ( FFparams[i-1][0],FFparams[i-1][1],FFparams[i-1][2] ) for i in iZs ] )
-
-def combineREA( PP_R, PP_E, atomREAs, alphaFac=-1.0 ):
-    n   = len(atomREAs)
-    REAs  = np.zeros( (n,4) )
-    REAs[:,0] =          atomREAs[:,0] + PP_R;
-    REAs[:,1] = -np.sqrt( atomREAs[:,1] * PP_E );
-    REAs[:,2] = atomREAs[:,2] * alphaFac;
-    return REAs
 
 def getAtomsRE(  iZprobe, iZs,  FFparams ):
     n   = len(iZs)
