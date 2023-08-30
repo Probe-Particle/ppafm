@@ -78,9 +78,7 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
             self.pot_sw = (mins, maxs)
             self.pot_dim = (100, 100, 20)
             self.pot = sp.SimplePotential(self.pot_dim, self.pot_sw)
-            self.added_types = (
-                [added_types] if isinstance(added_types, int) else added_types
-            )
+            self.added_types = [added_types] if isinstance(added_types, int) else added_types
 
     def generatePair(self):
         """
@@ -90,9 +88,7 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
 
         # Get current molecule
         mol1_xyz_all = self.molecules[self.index]
-        mol1_xyz_top = mol1_xyz_all[
-            mol1_xyz_all[:, 2] >= mol1_xyz_all[:, 2].max() + self.zmin
-        ]
+        mol1_xyz_top = mol1_xyz_all[mol1_xyz_all[:, 2] >= mol1_xyz_all[:, 2].max() + self.zmin]
 
         xyzs = mol1_xyz_top[:, :3]
         qs = mol1_xyz_top[:, 3]
@@ -141,9 +137,7 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
                 self.on_sample_start()
 
                 # Get AFM images
-                for i, (iZPP, Q, Qz) in enumerate(
-                    zip(self.iZPPs, self.Qs, self.QZs)
-                ):  # Loop over different tips
+                for i, (iZPP, Q, Qz) in enumerate(zip(self.iZPPs, self.Qs, self.QZs)):  # Loop over different tips
                     self.xyzs = mol1_a.xyzs
                     self.qs = mol1_a.qs
                     self.Zs = mol1_a.Zs
@@ -170,15 +164,9 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
                     X1 = self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs)
                     X1s[i].append(X1)
 
-                    mol1_tx = self.xyzs[
-                        mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin
-                    ]
-                    mol1_tq = self.qs[
-                        mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin
-                    ]
-                    mol1_tz = self.Zs[
-                        mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin
-                    ]
+                    mol1_tx = self.xyzs[mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin]
+                    mol1_tq = self.qs[mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin]
+                    mol1_tz = self.Zs[mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin]
 
                     mol1_t = Molecule(mol1_tx, mol1_tz, mol1_tq)
 
@@ -208,9 +196,7 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
                         mol2 = Molecule(self.xyzs, self.Zs, self.qs)
 
                     else:
-                        X2 = np.random.normal(0, 1e-7, (128, 128, 10)).astype(
-                            np.float32
-                        )
+                        X2 = np.random.normal(0, 1e-7, (128, 128, 10)).astype(np.float32)
                         X2s[i].append(X2)
 
                 self.top_atom_to_zero(mol1_t, mol2)
@@ -222,9 +208,7 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
                     self.pot.init_molecule(mol2.xyzs, mol2.Zs)
                     for z in self.added_types:
                         e = -self.pot.calc_potential(z_added=z)
-                        e = e.reshape(
-                            (self.pot_dim[2], self.pot_dim[1], self.pot_dim[0])
-                        )
+                        e = e.reshape((self.pot_dim[2], self.pot_dim[1], self.pot_dim[0]))
 
                     potMaps.append(e)
 
@@ -265,12 +249,8 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
         Rvdw = self.REAs[:, 0] - RvdwPP
         zs = self.xyzs[:, 2].copy()
         imax = np.argmax(zs + Rvdw)
-        total_distance = (
-            self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
-        )
-        self.xyzs[:, 2] += (
-            self.afmulator.scan_window[1][2] - total_distance
-        ) - zs.max()
+        total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
+        self.xyzs[:, 2] += (self.afmulator.scan_window[1][2] - total_distance) - zs.max()
         return total_distance, zs.max()
 
     def handle_positions_and_return(self):
@@ -391,9 +371,7 @@ class CorrectionLoop:
             np.save(self.logAFMdataName + ("%03i.dat" % itr), AFMs)
         self.debug_plot(AFMs, AuxMaps)
         sw = self.simulator.scan_window
-        Err, self.molecule = self.corrector.try_improve(
-            self.molecule, AFMs, self.AFMRef, sw, itr=itr
-        )
+        Err, self.molecule = self.corrector.try_improve(self.molecule, AFMs, self.AFMRef, sw, itr=itr)
         return Err
 
 
@@ -515,9 +493,7 @@ if __name__ == "__main__":
 
     afmulator = AFMulator.AFMulator(
         pixPerAngstrome=10,
-        lvec=np.array(
-            [[0.0, 0.0, 0.0], [20.0, 0.0, 0.0], [0.0, 20.0, 0.0], [0.0, 0.0, 5.0]]
-        ),
+        lvec=np.array([[0.0, 0.0, 0.0], [20.0, 0.0, 0.0], [0.0, 20.0, 0.0], [0.0, 0.0, 5.0]]),
         scan_window=((2.0, 2.0, 5.0), (18.0, 18.0, 8.0)),
     )
 

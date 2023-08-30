@@ -93,9 +93,7 @@ class InverseAFMtrainer:
                 self.on_sample_start()
 
                 # Get AFM
-                for i, (iZPP, Q, Qz) in enumerate(
-                    zip(self.iZPPs, self.Qs, self.QZs)
-                ):  # Loop over different tips
+                for i, (iZPP, Q, Qz) in enumerate(zip(self.iZPPs, self.Qs, self.QZs)):  # Loop over different tips
                     # Set interaction parameters
                     self.afmulator.iZPP = iZPP
                     self.afmulator.setQs(Q, Qz)
@@ -167,9 +165,7 @@ class InverseAFMtrainer:
         self.molecules = []
         for path in self.paths:
             xyzs, Zs, qs, _ = io.loadXYZ(path)
-            self.molecules.append(
-                np.concatenate([xyzs, qs[:, None], Zs[:, None]], axis=1)
-            )
+            self.molecules.append(np.concatenate([xyzs, qs[:, None], Zs[:, None]], axis=1))
 
     def handle_positions(self):
         """
@@ -187,12 +183,8 @@ class InverseAFMtrainer:
         Rvdw = self.REAs[:, 0] - RvdwPP
         zs = self.xyzs[:, 2]
         imax = np.argmax(zs + Rvdw)
-        total_distance = (
-            self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
-        )
-        self.xyzs[:, 2] += (
-            self.afmulator.scan_window[1][2] - total_distance
-        ) - zs.max()
+        total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
+        self.xyzs[:, 2] += (self.afmulator.scan_window[1][2] - total_distance) - zs.max()
 
     # ======== Augmentation =========
 
@@ -216,9 +208,7 @@ class InverseAFMtrainer:
             qs = mol[:, 3]
             Zs = mol[:, 4]
             for xyzs_rot in rotate(xyzs, rotations):
-                self.molecules.append(
-                    np.concatenate([xyzs_rot, qs[:, None], Zs[:, None]], axis=1)
-                )
+                self.molecules.append(np.concatenate([xyzs_rot, qs[:, None], Zs[:, None]], axis=1))
 
     def augment_with_rotations_entropy(self, rotations, n_best_rotations=30):
         """
@@ -236,9 +226,7 @@ class InverseAFMtrainer:
             Zs = mol[:, 4]
             rots = sortRotationsByEntropy(mol[:, :3], rotations)[:n_best_rotations]
             for xyzs_rot in rotate(xyzs, rots):
-                self.molecules.append(
-                    np.concatenate([xyzs_rot, qs[:, None], Zs[:, None]], axis=1)
-                )
+                self.molecules.append(np.concatenate([xyzs_rot, qs[:, None], Zs[:, None]], axis=1))
 
     def randomize_tip(self, max_tilt=0.5):
         """
@@ -256,13 +244,9 @@ class InverseAFMtrainer:
         Arguments:
             delta: float. Maximum deviation from original value in angstroms.
         """
-        self.distAboveActive = np.random.uniform(
-            self.distAbove - delta, self.distAbove + delta
-        )
+        self.distAboveActive = np.random.uniform(self.distAbove - delta, self.distAbove + delta)
 
-    def randomize_mol_parameters(
-        self, rndQmax=0.0, rndRmax=0.0, rndEmax=0.0, rndAlphaMax=0.0
-    ):
+    def randomize_mol_parameters(self, rndQmax=0.0, rndRmax=0.0, rndEmax=0.0, rndAlphaMax=0.0):
         """
         Randomize various interaction parameters for current molecule.
         """
@@ -384,9 +368,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
             rot = self.rots.pop(0)
             xyz_center = self.xyzs.mean(axis=0)
             self.xyzs_rot = np.dot(self.xyzs - xyz_center, rot.T) + xyz_center
-            mol = np.concatenate(
-                [self.xyzs_rot, self.qs[:, None], self.Zs[:, None]], axis=1
-            )
+            mol = np.concatenate([self.xyzs_rot, self.qs[:, None], self.Zs[:, None]], axis=1)
             mols.append(mol)
 
             # Make sure the molecule is in right position
@@ -396,14 +378,10 @@ class HartreeAFMtrainer(InverseAFMtrainer):
             self.on_sample_start()
 
             if self.bRuntime:
-                print(
-                    f"Sample {s} preparation time [s]: {time.perf_counter() - sample_start}"
-                )
+                print(f"Sample {s} preparation time [s]: {time.perf_counter() - sample_start}")
 
             # Get AFM
-            for i, (iZPP, rho, fft) in enumerate(
-                zip(self.iZPPs, self.rhos, self.ffts)
-            ):  # Loop over different tips
+            for i, (iZPP, rho, fft) in enumerate(zip(self.iZPPs, self.rhos, self.ffts)):  # Loop over different tips
                 # Set interaction parameters
                 self.afmulator.iZPP = iZPP
                 self.afmulator.forcefield.rho = rho
@@ -419,9 +397,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
                 self.handle_distance()
 
                 # Set AFMulator scan window and force field lattice vectors
-                self.afmulator.setScanWindow(
-                    self.scan_window, self.scan_dim, df_steps=self.df_steps
-                )
+                self.afmulator.setScanWindow(self.scan_window, self.scan_dim, df_steps=self.df_steps)
                 self.afmulator.setLvec()
 
                 # Callback
@@ -430,11 +406,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
                 # Evaluate AFM
                 if self.bRuntime:
                     afm_start = time.perf_counter()
-                Xs[i].append(
-                    self.afmulator(
-                        self.xyzs, self.Zs, self.pot, rot=rot, REAs=self.REAs
-                    )
-                )
+                Xs[i].append(self.afmulator(self.xyzs, self.Zs, self.pot, rot=rot, REAs=self.REAs))
                 if self.bRuntime:
                     print(f"AFM {i} runtime [s]: {time.perf_counter() - afm_start}")
 
@@ -480,8 +452,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         """
         if not hasattr(self.sample_generator, "__len__"):
             raise RuntimeError(
-                "Cannot infer the number of batches because sample generator does not "
-                "have length attribute."
+                "Cannot infer the number of batches because sample generator does not " "have length attribute."
             )
         return int(np.floor(len(self.sample_generator) / self.batch_size))
 
@@ -508,9 +479,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         Rvdw = self.REAs[:, 0] - RvdwPP
         zs = self.xyzs_rot[:, 2]
         imax = np.argmax(zs + Rvdw)
-        total_distance = (
-            self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
-        )
+        total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
         z_min = self.xyzs_rot[:, 2].max() + total_distance
         sw = self.scan_window
         self.scan_window = (

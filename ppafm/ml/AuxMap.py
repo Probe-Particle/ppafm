@@ -73,9 +73,7 @@ class vdwSpheres(AuxMapBase):
         Rpp: float. A constant that is added to the vdW radius of each atom.
     """
 
-    def __init__(
-        self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), zmin=-1.5, Rpp=-0.5
-    ):
+    def __init__(self, scan_dim=(128, 128), scan_window=((-8, -8), (8, 8)), zmin=-1.5, Rpp=-0.5):
         super().__init__(scan_dim, scan_window, zmin)
         self.projector.Rpp = Rpp
 
@@ -83,9 +81,7 @@ class vdwSpheres(AuxMapBase):
         coefs = self.projector.makeCoefsZR(Zs, elements.ELEMENTS)
         pos0 = [0, 0, (xyzqs[:, 2] + coefs[:, 3]).max() + self.projector.Rpp]
         poss = self.prepare_projector(xyzqs, Zs, pos0)
-        return self.projector.run_evalSpheres(
-            poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3))
-        )[:, :, 0]
+        return self.projector.run_evalSpheres(poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3)))[:, :, 0]
 
 
 class AtomicDisks(AuxMapBase):
@@ -120,9 +116,7 @@ class AtomicDisks(AuxMapBase):
             self.projector.dzmax_s = np.Inf
             self.offset = -1.0
         else:
-            raise ValueError(
-                f"Unknown diskMode {diskMode}. Should be either sphere or center"
-            )
+            raise ValueError(f"Unknown diskMode {diskMode}. Should be either sphere or center")
 
     def eval(self, xyzqs, Zs, pot=None, rot=None):
         coefs = self.projector.makeCoefsZR(Zs, elements.ELEMENTS)
@@ -130,9 +124,7 @@ class AtomicDisks(AuxMapBase):
         offset = coords_sphere.max() - xyzqs[:, 2].max() + self.offset
         pos0 = [0, 0, coords_sphere.max()]
         poss = self.prepare_projector(xyzqs, Zs, pos0)
-        return self.projector.run_evaldisks(
-            poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3)), offset=offset
-        )[:, :, 0]
+        return self.projector.run_evaldisks(poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3)), offset=offset)[:, :, 0]
 
 
 class HeightMap(AuxMapBase):
@@ -188,9 +180,7 @@ class ESMap(AuxMapBase):
         self.nz = 100  # Number of steps in downwards scan
 
     def eval(self, xyzqs, Zs=None, pot=None, rot=None):
-        self.scanner.prepareAuxMapBuffers(
-            bZMap=True, bFEmap=True, atoms=xyzqs.astype(np.float32)
-        )
+        self.scanner.prepareAuxMapBuffers(bZMap=True, bFEmap=True, atoms=xyzqs.astype(np.float32))
         zMap, feMap = self.scanner.run_getZisoFETilted(iso=self.iso, nz=self.nz)
         Ye = (feMap[:, :, 2]).copy()  # Fel_z
         zMap *= -(self.scanner.zstep)
@@ -239,24 +229,18 @@ class ESMapConstant(AuxMapBase):
             rot = np.linalg.inv(rot)
             rot_center = xyzqs[:, :3].mean(axis=0)
             poss = self.prepare_projector(xyzqs, Zs, pos0)
-            es = self.projector.run_evalHartreeGradient(
-                pot, poss, rot=rot, rot_center=rot_center
-            )
+            es = self.projector.run_evalHartreeGradient(pot, poss, rot=rot, rot_center=rot_center)
         else:
             self.nChan = 4
             poss = self.prepare_projector(xyzqs, Zs, pos0)
-            es = self.projector.run_evalCoulomb(poss=poss)[
-                :, :, 2
-            ]  # Last dim = (E_x, E_y, E_z, V)
+            es = self.projector.run_evalCoulomb(poss=poss)[:, :, 2]  # Last dim = (E_x, E_y, E_z, V)
 
         if self.vdW_cutoff:
             self.nChan = 1  # Projector needs only one channel for vdW Spheres
             coefs = self.projector.makeCoefsZR(Zs, elements.ELEMENTS)
             pos0 = [0, 0, (xyzqs[:, 2] + coefs[:, 3]).max() + self.projector.Rpp]
             poss = self.prepare_projector(xyzqs, Zs, pos0)
-            vdW = self.projector.run_evalSpheres(
-                poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3))
-            )[:, :, 0]
+            vdW = self.projector.run_evalSpheres(poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3)))[:, :, 0]
             es[vdW == vdW.min()] = 0.0
 
         return es
@@ -346,9 +330,7 @@ class MultiMapSpheresElements(AuxMapBase):
         elem_channels = []
         for Z in Zs:
             if Z not in self.all_elems:
-                raise RuntimeError(
-                    f"Element {Z} was not found in list of elements for any channel."
-                )
+                raise RuntimeError(f"Element {Z} was not found in list of elements for any channel.")
             for i, c in enumerate(self.elems):
                 if Z in c:
                     elem_channels.append(i)
@@ -403,15 +385,11 @@ class Bonds(AuxMapBase):
     def eval(self, xyzqs, Zs, pot=None, rot=None):
         pos0 = [0, 0, xyzqs[:, 2].max()]
         bonds2atoms = np.array(
-            findBonds_(
-                xyzqs[:, :3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS
-            ),
+            findBonds_(xyzqs[:, :3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS),
             dtype=np.int32,
         )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
-        return self.projector.run_evalBondEllipses(
-            poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3))
-        )[:, :, 0]
+        return self.projector.run_evalBondEllipses(poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3)))[:, :, 0]
 
 
 class AtomRfunc(AuxMapBase):
@@ -450,15 +428,11 @@ class AtomRfunc(AuxMapBase):
     def eval(self, xyzqs, Zs, pot=None, rot=None):
         pos0 = [0, 0, xyzqs[:, 2].max()]
         bonds2atoms = np.array(
-            findBonds_(
-                xyzqs[:, :3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS
-            ),
+            findBonds_(xyzqs[:, :3], Zs.astype(np.int32), 1.2, ELEMENTS=elements.ELEMENTS),
             dtype=np.int32,
         )
         poss = self.prepare_projector(xyzqs, Zs, pos0, bonds2atoms=bonds2atoms)
-        return self.projector.run_evalAtomRfunc(
-            poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3))
-        )[:, :, 0]
+        return self.projector.run_evalAtomRfunc(poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3)))[:, :, 0]
 
 
 aux_map_dict = {
@@ -479,9 +453,7 @@ class AuxMapFactory:
             aux_map = aux_map_dict[map_type](**args)
         except KeyError:
             recognized_types = ", ".join([f"{key}" for key in aux_map_dict.keys()])
-            raise ValueError(
-                f"Unrecognized AuxMap type {map_type}. Should be one of {recognized_types}."
-            )
+            raise ValueError(f"Unrecognized AuxMap type {map_type}. Should be one of {recognized_types}.")
         return aux_map
 
 

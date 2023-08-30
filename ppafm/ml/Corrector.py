@@ -194,9 +194,7 @@ def blur(F):
 
 
 def halfRes(F):
-    return (
-        F[:-1:2, :-1:2, :] + F[:-1:2, 1::2, :] + F[1::2, :-1:2, :] + F[1::2, 1::2, :]
-    ) * 0.25
+    return (F[:-1:2, :-1:2, :] + F[:-1:2, 1::2, :] + F[1::2, :-1:2, :] + F[1::2, 1::2, :]) * 0.25
 
 
 def lowResErrorMap(Err3D):
@@ -280,9 +278,7 @@ class Corrector:
         Rs = np.concatenate([np.ones(na0), Ws])
         xyzs2 = np.concatenate([molIn.xyzs, ps], axis=0)
         print("xyzs2.shape ", xyzs2.shape)
-        _saveXYZDebug(
-            Zs2, xyzs2, "debug_genAtomWs.xyz", qs=([0.0] * (na0 + nps)), Rs=Rs
-        )
+        _saveXYZDebug(Zs2, xyzs2, "debug_genAtomWs.xyz", qs=([0.0] * (na0 + nps)), Rs=Rs)
 
     def try_improve(self, molIn, AFMs, AFMRef, span, itr=0):
         AFMdiff = AFMs - AFMRef
@@ -299,9 +295,7 @@ class Corrector:
                 ErrB, ErrW = paretoNorm_(self.best_diff, AFMdiff2)
                 Eworse = ErrW.sum()
                 ErrPar = Err + 2.0 * Eworse
-                print(
-                    "\nmaybe better ? ", self.best_E, " <? ", ErrPar, " Eworse ", Eworse
-                )
+                print("\nmaybe better ? ", self.best_E, " <? ", ErrPar, " Eworse ", Eworse)
                 if self.best_E > ErrPar:  # check if some areas does not got worse
                     bBetter = True
                     print(
