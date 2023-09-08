@@ -144,6 +144,8 @@ def loadGeometryIN(fname):
     Zs = np.array(Zs, dtype=np.int32)
     if lvec != []:
         lvec = np.stack([[0.0, 0.0, 0.0]] + lvec, axis=0)
+    else:
+        lvec = None
     return xyzs, Zs, lvec
 
 
@@ -184,7 +186,11 @@ def loadPOSCAR(file_path):
         if coord_type == "cartesian":
             xyzs *= scale
         else:
-            xyzs = np.outer(xyzs[:, 0], lvec[1]) + np.outer(xyzs[:, 1], lvec[2]) + np.outer(xyzs[:, 2], lvec[3])
+            xyzs = (
+                np.outer(xyzs[:, 0], lvec[1])
+                + np.outer(xyzs[:, 1], lvec[2])
+                + np.outer(xyzs[:, 2], lvec[3])
+            )
 
     return xyzs, Zs, lvec
 
@@ -431,12 +437,8 @@ def loadGeometry(fname=None, format=None, params=None):
     xyzs = Zs = qs = None
     if format == "xyz":
         xyzs, Zs, qs, comment = loadXYZ(fname)
+        nDim = params["gridN"].copy()
         lvec = parseLvecASE(comment)
-        if lvec is None:
-            lvec = np.zeros((4, 3))
-            lvec[1, :] = params["gridA"].copy()
-            lvec[2, :] = params["gridB"].copy()
-            lvec[3, :] = params["gridC"].copy()
     elif format == "cube":
         atoms = loadAtomsCUBE(fname)
         lvec = loadCellCUBE(fname)
@@ -464,6 +466,65 @@ def loadGeometry(fname=None, format=None, params=None):
         atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
         nDim = params["gridN"].copy()
 
+    # Make sure lvec is a 4x3 array. Use default grid parameters if needed
+    if (lvec is None) or (len(lvec) == 0):
+        lvec = np.zeros((4, 3))
+        lvec[1, :] = params["gridA"].copy()
+        lvec[2, :] = params["gridB"].copy()
+        lvec[3, :] = params["gridC"].copy()
+    else:
+        if len(lvec) == 1:
+            lvec.append(params["gridA"].copy())
+        if len(lvec) == 2:
+            lvec.append(params["gridB"].copy())
+        if len(lvec) == 3:
+            lvec.append(params["gridC"].copy())
+    lvec = np.array(lvec)
+
+    # Shift scanning coordinates to such that actually make sense (being directly comparable to coordinates of atoms)
+    params["scanMin"][0] += params["r0Probe"][0]
+    params["scanMin"][1] += params["r0Probe"][1]
+    params["scanMin"][2] -= params["r0Probe"][2]
+    params["scanMax"][0] += params["r0Probe"][0]
+    params["scanMax"][1] += params["r0Probe"][1]
+    params["scanMax"][2] -= params["r0Probe"][2]
+
+    # Generate automatic lattice vectors and grid dimensions if needed
+    pad = 3.0
+    default_grid_step = 0.1
+    for i in range(3):
+        # Zero lattice vector is considered undefined and triggers creation of an automatic one.
+        # The automatic generated lattice vector should enclose the whole area filled with atoms as well as the whole scanning area, plus the default padding.
+        if np.allclose(lvec[i + 1, :], 0):
+            if not params["PBC"]:
+                lvec[i + 1, i] = (
+                    max(max(atoms[i + 1]), params["scanMax"][i])
+                    - min(min(atoms[i + 1]), params["scanMin"][i])
+                    + 2 * pad
+                )
+            else:
+                lvec[i + 1, i] = max(max(atoms[i + 1]), params["scanMax"][i]) + pad
+
+        # Generate automatic grid using the default step if the grid dimension specified so far is not a positive number
+        if not nDim[i] > 0:
+            nDim[i] = round(np.linalg.norm(lvec[i + 1, :]) / default_grid_step)
+
+    # Shift scanning coordinates back because, unfortunately, we have to keep backward compatibility
+    params["scanMin"][0] -= params["r0Probe"][0]
+    params["scanMin"][1] -= params["r0Probe"][1]
+    params["scanMin"][2] += params["r0Probe"][2]
+    params["scanMax"][0] -= params["r0Probe"][0]
+    params["scanMax"][1] -= params["r0Probe"][1]
+    params["scanMax"][2] += params["r0Probe"][2]
+
+    # Copy lattice vectors and grid dimensions to the global parameters
+    # so as to guarantee compatibility between the local variables and global parameters
+    for i in range(3):
+        params["gridA"][i] = lvec[1][i]
+        params["gridB"][i] = lvec[2][i]
+        params["gridC"][i] = lvec[3][i]
+        params["gridN"][i] = nDim[i]
+
     return atoms, nDim, lvec
 
 
@@ -482,7 +543,9 @@ def parseLvecASE(comment):
     match = re.match('.*Lattice="\\s*((?:[+-]?(?:[0-9]*\\.)?[0-9]+\\s*){9})"', comment)
     if match:
         lvec = np.zeros(12, dtype=np.float32)
-        lvec[3:] = np.array([float(s) for s in match.group(1).split()], dtype=np.float32)
+        lvec[3:] = np.array(
+            [float(s) for s in match.group(1).split()], dtype=np.float32
+        )
         lvec = lvec.reshape(4, 3)
     else:
         lvec = None

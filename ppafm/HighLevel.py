@@ -198,7 +198,7 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
             core.getVdWFF_RE(Rs, REs, kind=vdWDampKind)  # THE MAIN STUFF HERE
     else:
         cLJs = PPU.getAtomsLJ(iPP, iZs, FFparams)
-        core.getLenardJonesFF(Rs, cLJs)  # THE MAIN STUFF HERE
+        core.getLennardJonesFF(Rs, cLJs)  # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not None:
         if verbose > 0:
@@ -221,7 +221,7 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
 
 
 def computeDFTD3(input_file, df_params="PBE", geometry_format=None, save_format=None, compute_energy=False):
-    """
+   """
     Compute the Grimme DFT-D3 force field and optionally save to a file. See also :meth:`.add_dftd3`.
 
     Arguments:
@@ -377,7 +377,9 @@ def getAtomsWhichTouchPBCcell(fname, Rcut=1.0, bSaveDebug=True, geometry_format=
     atoms, nDim, lvec = io.loadGeometry(fname, format=geometry_format, params=PPU.params)
     Rs = np.array(atoms[1:4])  # get just positions x,y,z
     elems = np.array(atoms[0])
-    Rs, elems = _getAtomsWhichTouchPBCcell(Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname)
+    Rs, elems = _getAtomsWhichTouchPBCcell(
+        Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname
+    )
     return Rs, elems
 
 

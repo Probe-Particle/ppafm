@@ -93,6 +93,7 @@ def parse_args():
 
 
 class ApplicationWindow(QtWidgets.QMainWindow):
+
     sw_pad = 4.0  # Default padding for scan window on each side of the molecule in xy plane
     zoom_step = 1.0  # How much to increase/reduce scan size on zoom
     df_range = (-1, 1)  # min and max df value in colorbar
@@ -202,13 +203,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.bxA.setSingleStep(step[2])
 
         # Set new scan window and dimension in AFMulator, and infer FF lvec from the scan window
-        self.afmulator.setScanWindow(scan_window, tuple(scan_dim), scan_dim[2] - z_extra_steps)
+        self.afmulator.setScanWindow(
+            scan_window, tuple(scan_dim), scan_dim[2] - z_extra_steps
+        )
         self.afmulator.setLvec()
 
         # Update status bar info
         ff_dim = self.afmulator.forcefield.nDim
         self.dim_label.setText(f"Scan dim: {scan_dim[0]}x{scan_dim[1]}x{scan_dim[2]} | " f"FF dim: {ff_dim[0]}x{ff_dim[1]}x{ff_dim[2]}")
-
         if self.verbose > 0:
             print("lvec:\n", self.afmulator.forcefield.nDim, self.afmulator.lvec)
 
@@ -230,7 +232,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             return
         scan_size = np.array([self.bxSSx.value(), self.bxSSy.value()])
         scan_start = np.array([self.bxSCx.value(), self.bxSCy.value()])
-        step = np.array([self.bxStepX.value(), self.bxStepY.value(), self.bxStepZ.value()])
+        step = np.array(
+            [self.bxStepX.value(), self.bxStepY.value(), self.bxStepZ.value()]
+        )
         distance = self.bxD.value()
         amplitude = self.bxA.value()
         self.setScanWindow(scan_size, scan_start, step, distance, amplitude)
@@ -273,6 +277,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             QZs = [sigma, 0, -sigma, 0]
 
         if self.verbose > 0:
+
             print("updateParams", Q, sigma, multipole, tipStiffness, tipR0, use_point_charge, A_pauli, B_pauli, type(self.qs))
 
         self.afmulator.iZPP = int(self.bxZPP.value())
@@ -286,7 +291,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                     self.afmulator.setRho(None, sigma)
                 elif isinstance(self.qs, HartreePotential):
                     self.afmulator.setRho({multipole: Q}, sigma)
-        self.afmulator.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
+        self.afmulator.scanner.stiffness = (
+            np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
+        )
         self.afmulator.tipR0 = tipR0
         self.afmulator.A_pauli = A_pauli
 
@@ -408,7 +415,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             t0 = time.perf_counter()
         self.status_message("Running simulation...")
         try:
-            self.df = self.afmulator(self.xyzs, self.Zs, self.qs, rho_sample=self.rho_sample, sample_lvec=self.sample_lvec, rot=self.rot)
+            self.df = self.afmulator(
+                self.xyzs,
+                self.Zs,
+                self.qs,
+                rho_sample=self.rho_sample,
+                sample_lvec=self.sample_lvec,
+                rot=self.rot,
+            )
         except Exception:
             traceback.print_exc()
             guiw.show_warning(self, f"Error during simulation! Error message:\n{traceback.format_exc()}", "Simulation error!")
@@ -460,8 +474,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             qs, xyzs, Zs = HartreePotential.from_file(main_input, scale=-1.0)
             lvec = qs.lvec[1:]
         elif ext == ".xyz":
-            xyzs, Zs, qs, _ = io.loadXYZ(main_input)
-            lvec = None
+            xyzs, Zs, qs, comment = io.loadXYZ(main_input)
+            lvec = io.parseLvecASE(comment)
         else:
             raise ValueError(f"Unsupported file format for file `{main_input}`.")
 
@@ -475,11 +489,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         else:
             self.rho_tip = None
         if rho_tip_delta:
-            self.rho_tip_delta, self.xyzs_tip, self.Zs_tip = TipDensity.from_file(rho_tip_delta)
+            self.rho_tip_delta, self.xyzs_tip, self.Zs_tip = TipDensity.from_file(
+                rho_tip_delta
+            )
         else:
             self.rho_tip_delta = None
             if self.rho_tip is not None:
-                self.rho_tip_delta = self.rho_tip.subCores(self.xyzs_tip, self.Zs_tip, Rcore=0.7)
+                self.rho_tip_delta = self.rho_tip.subCores(
+                    self.xyzs_tip, self.Zs_tip, Rcore=0.7
+                )
                 if self.rho_sample is None:
                     # Not FDBM, no need for full tip electron density
                     self.rho_tip.release()
@@ -595,7 +613,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             if self.verbose > 1:
                 traceback.print_exc()
             return
-        atoms = Atoms(positions=self.xyzs, numbers=self.Zs, cell=self.sample_lvec, pbc=self.afmulator.npbc)
+        atoms = Atoms(
+            positions=self.xyzs,
+            numbers=self.Zs,
+            cell=self.sample_lvec,
+            pbc=self.afmulator.npbc,
+        )
         view(atoms)
 
     def openFile(self):
@@ -802,9 +825,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             guiw.set_widget_value(self.slMultipole, tip)
             guiw.set_widget_value(self.bxQ, self.afmulator._rho[tip])
             guiw.set_widget_value(self.bxS, self.afmulator.sigma)
-        guiw.set_widget_value(self.bxKx, self.afmulator.scanner.stiffness[0] * -PPU.eVA_Nm)
-        guiw.set_widget_value(self.bxKy, self.afmulator.scanner.stiffness[1] * -PPU.eVA_Nm)
-        guiw.set_widget_value(self.bxKr, self.afmulator.scanner.stiffness[3] * -PPU.eVA_Nm)
+        guiw.set_widget_value(
+            self.bxKx, self.afmulator.scanner.stiffness[0] * -PPU.eVA_Nm
+        )
+        guiw.set_widget_value(
+            self.bxKy, self.afmulator.scanner.stiffness[1] * -PPU.eVA_Nm
+        )
+        guiw.set_widget_value(
+            self.bxKr, self.afmulator.scanner.stiffness[3] * -PPU.eVA_Nm
+        )
         guiw.set_widget_value(self.bxP0x, self.afmulator.tipR0[0])
         guiw.set_widget_value(self.bxP0y, self.afmulator.tipR0[1])
         guiw.set_widget_value(self.bxP0r, self.afmulator.tipR0[2])
@@ -825,7 +854,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         guiw.set_widget_value(self.bxSCx, self.afmulator.scan_window[0][0])
         guiw.set_widget_value(self.bxSCy, self.afmulator.scan_window[0][1])
         if self.xyzs is not None:
-            d = self.afmulator.scan_window[0][2] + self.afmulator.amplitude / 2 - self.xyzs[:, 2].max()
+            d = (
+                self.afmulator.scan_window[0][2]
+                + self.afmulator.amplitude / 2
+                - self.xyzs[:, 2].max()
+            )
             guiw.set_widget_value(self.bxD, d)
         guiw.set_widget_value(self.bxA, self.afmulator.amplitude)
 
@@ -835,12 +868,17 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             # To be consistent with the CPU scripts, we should always prioritize the sample lattice vectors
             # from the .xsf/.cube files
             self.afmulator.sample_lvec = self.qs.lvec[1:]
-        self.setPBC(self.afmulator.sample_lvec, enabled=not (np.array(self.afmulator.npbc) == 0).all())
+        self.setPBC(
+            self.afmulator.sample_lvec,
+            enabled=not (np.array(self.afmulator.npbc) == 0).all(),
+        )
 
         # Set df settings
         guiw.set_widget_value(self.bxCant_K, self.afmulator.kCantilever / 1000)
         guiw.set_widget_value(self.bxCant_f0, self.afmulator.f0Cantilever / 1000)
-        guiw.set_widget_value(self.bxdfst, self.afmulator.scan_dim[2] - self.afmulator.df_steps + 1)
+        guiw.set_widget_value(
+            self.bxdfst, self.afmulator.scan_dim[2] - self.afmulator.df_steps + 1
+        )
 
         self.update()
 

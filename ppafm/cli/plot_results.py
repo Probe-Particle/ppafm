@@ -399,7 +399,10 @@ def main():
                                 if iv == (Vs.shape[0] - 1):
                                     LCPD_a = (LCPD_a + dfs) / (2 * Vx**2)
                             del dfs
-                        del fzs
+                        if PPU.params["tiltedScan"]:
+                            del Fout
+                        else:
+                            del fzs
                     except:
                         print("error: ", sys.exc_info())
                         print(
