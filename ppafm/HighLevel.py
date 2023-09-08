@@ -282,7 +282,6 @@ def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format
 
     atoms, nDim, lvec = io.loadGeometry(geomFile, format=geometry_format, params=PPU.params)
     atomstring = io.primcoords2Xsf(PPU.atoms2iZs(atoms[0], elem_dict), [atoms[1], atoms[2], atoms[3]], lvec)
-    iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params["PBC"])
     # --- prepare arrays and compute
     PPU.params["gridN"] = nDim
     PPU.params["gridA"] = lvec[1]
@@ -290,6 +289,7 @@ def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format
     PPU.params["gridC"] = lvec[3]
     if verbose > 0:
         print(PPU.params["gridN"], PPU.params["gridA"], PPU.params["gridB"], PPU.params["gridC"])
+    iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params["PBC"])
     FF, V = prepareArrays(None, computeVpot)
     core.setFF_shape(np.shape(FF), lvec)
     core.getCoulombFF(Rs, Qs * PPU.CoulombConst, kind=tipKind)  # THE MAIN STUFF HERE
@@ -399,11 +399,13 @@ def subtractCoreDensities(rho, lvec_, elems=None, Rs=None, fname=None, valElDict
     if verbose > 0:
         print("V : ", V, " N: ", N, " dV: ", dV)
     if verbose > 0:
+
         print("sum(RHO): ", rho.sum(), " Nelec: ", rho.sum() * dV, " voxel volume: ", dV)  # check sum
     core.setFF_shape(rho.shape, lvec)  # set grid sampling dimension and shape
     core.setFF_Epointer(rho)  # set pointer to array with density data (to write into)
     if verbose > 0:
         print(">>> Projecting Core Densities ... ")
+
     core.getDensityR4spline(Rs, cRAs.copy())  # Do the job ( the Projection of atoms onto grid )
     if verbose > 0:
         print("sum(RHO), Nelec: ", rho.sum(), rho.sum() * dV)  # check sum
