@@ -212,7 +212,6 @@ def computeLJ(
 ):
     if verbose > 0:
         print(">>>BEGIN: computeLJ()")
-        print(PPU.params["gridN"])
     # --- load species (LJ potential)
     FFparams = PPU.loadSpecies(speciesFile)
     elem_dict = PPU.getFFdict(FFparams)
@@ -395,10 +394,6 @@ def computeELFF_pointCharge(
     atomstring = io.primcoords2Xsf(
         PPU.atoms2iZs(atoms[0], elem_dict), [atoms[1], atoms[2], atoms[3]], lvec
     )
-    iZs, Rs, Qs = PPU.parseAtoms(
-        atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params["PBC"]
-    )
-    # --- prepare arrays and compute
     PPU.params["gridN"] = nDim
     PPU.params["gridA"] = lvec[1]
     PPU.params["gridB"] = lvec[2]
@@ -410,6 +405,10 @@ def computeELFF_pointCharge(
             PPU.params["gridB"],
             PPU.params["gridC"],
         )
+    iZs, Rs, Qs = PPU.parseAtoms(
+        atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params["PBC"]
+    )
+    # --- prepare arrays and compute
     FF, V = prepareArrays(None, computeVpot)
     core.setFF_shape(np.shape(FF), lvec)
     core.getCoulombFF(Rs, Qs * PPU.CoulombConst, kind=tipKind)  # THE MAIN STUFF HERE
