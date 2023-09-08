@@ -104,7 +104,7 @@ inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& 
     return f;
 }
 
-// Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
+// Lennard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
 inline double addAtomLJ_RE( const Vec3d& dR, Vec3d& fout, double R0, double E0 ){
     double ir2  = 1/( dR.norm2( ) + R2SAFE );
     double u2   = R0*R0 *ir2;
@@ -116,7 +116,7 @@ inline double addAtomLJ_RE( const Vec3d& dR, Vec3d& fout, double R0, double E0 )
     return E12 - 2*E6;
 }
 
-// Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
+// Lennard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
 inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
     double ir2  = 1.0/ ( dR.norm2( ) + R2SAFE );
     double ir6  = ir2*ir2*ir2;
@@ -131,7 +131,7 @@ inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
     return E12 - E6;
 }
 
-// Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
+// Lennard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
 inline double addAtomVdW_noDamp( const Vec3d& dR, Vec3d& fout, double c6 ){
     double invR2 = 1/dR.norm2();
     double invR4 = invR2*invR2;
@@ -140,7 +140,7 @@ inline double addAtomVdW_noDamp( const Vec3d& dR, Vec3d& fout, double c6 ){
     return E;
 }
 
-// Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
+// Lennard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
 inline double addAtomVdW_dampConst( const Vec3d& dR, Vec3d& fout, double c6, double ADamp ){
     double r2 = dR.norm2(); r2*=r2; r2*=r2;
     fout.add_mul  ( dR , -6*c6 /( r2 + ADamp*c6 ) );
