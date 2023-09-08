@@ -457,7 +457,7 @@ DLLEXPORT void computeD3Coeffs(
 
 }
 
-DLLEXPORT void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
+DLLEXPORT void getLennardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     interateGrid3D < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
