@@ -517,7 +517,7 @@ def loadGeometry(fname=None, format=None, params=None):
         # Zero lattice vector is considered undefined and triggers creation of an automatic one.
         # The automatic generated lattice vector should enclose the whole area filled with atoms as well as the whole scanning area, plus the default padding.
         if np.allclose(lvec[i + 1, :], 0):
-            if not params["PBC"]:
+            if params["PBC"]:
                 lvec[i + 1, i] = (
                     max(max(atoms[i + 1]), params["scanMax"][i])
                     - min(min(atoms[i + 1]), params["scanMin"][i])
