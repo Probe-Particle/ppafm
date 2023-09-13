@@ -437,7 +437,6 @@ def loadGeometry(fname=None, format=None, params=None):
     xyzs = Zs = qs = None
     if format == "xyz":
         xyzs, Zs, qs, comment = loadXYZ(fname)
-        nDim = params["gridN"].copy()
         lvec = parseLvecASE(comment)
     elif format == "cube":
         atoms = loadAtomsCUBE(fname)
