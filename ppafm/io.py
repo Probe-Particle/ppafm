@@ -475,9 +475,24 @@ def loadGeometry(fname=None, format=None, params=None):
     elif format == "npy":
         atoms, nDim, lvec = loadNPYGeom(fname)  # under development
     elif format == "poscar":
-        atoms, nDim, lvec = loadPOSCAR(fname)
+        xyzs, Zs, lvec = loadPOSCAR(fname)
+        atoms = [
+            list(Zs),
+            list(xyzs[:, 0]),
+            list(xyzs[:, 1]),
+            list(xyzs[:, 2]),
+            [0.0 for q in Zs],
+        ]
     elif format == "in":
-        atoms, nDim, lvec = loadGeometryIN(fname)
+        xyzs, Zs, lvec = loadGeometryIN(fname)
+        nDim = params["gridN"].copy()
+        atoms = [
+            list(Zs),
+            list(xyzs[:, 0]),
+            list(xyzs[:, 1]),
+            list(xyzs[:, 2]),
+            [0.0 for q in Zs],
+        ]
     # TODO: introduce a function which reads the geometry from the .npy file
     else:
         if format is None:
