@@ -166,18 +166,27 @@ def main():
                             dirNameAmp = dirname+AmpStr
                             if not os.path.exists( dirNameAmp ):
                                 os.makedirs( dirNameAmp )
+
                             if PPU.params['tiltedScan']:
                                 Fout, lvec, nDim , atomic_info_or_head = io.load_vec_field(dirname+'/OutF' , data_format=args.output_format)
-                                dfs = PPU.Fz2df_tilt( Fout, PPU.params['scanTilt'], k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
+                                dfs = PPU.Fz2df_tilt( Fout, PPU.params['scanTilt'], k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], A = Amp)
+                                lvec_df = np.array(lvec.copy())
+                                l=np.linalg.norm(lvec[3])
+                                lvec_df[0] = lvec_df[0] + lvec_df[3] / l * Amp / 2
+                                lvec_df[3] = lvec_df[3] / l * (l - Amp)
                             else:
                                 fzs, lvec, nDim , atomic_info_or_head = io.load_scal_field(dirname+'/OutFz' , data_format=args.output_format)
                                 if (applied_bias):
                                     Rtip = PPU.params['Rtip']
                                     for iz,z in enumerate( zTips ):
                                         fzs[iz,:,:] = fzs[iz,:,:] - np.pi*PPU.params['permit']*((Rtip*Rtip)/((z-args.z0)*(z+Rtip)))*(Vx-args.V0)*(Vx-args.V0)
-                                dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], n=int(Amp/dz) )
+                                dfs = PPU.Fz2df( fzs, dz = dz, k0 = PPU.params['kCantilever'], f0=PPU.params['f0Cantilever'], A = Amp)
+                                lvec_df = np.array(lvec.copy())
+                                lvec_df[0][2] += Amp/2
+                                lvec_df[3][2] -= Amp
+
                             if opt_dict['save_df']:
-                                io.save_scal_field(dirNameAmp+'/df', dfs, lvec,data_format=args.output_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
+                                io.save_scal_field(dirNameAmp+'/df', dfs, lvec_df,data_format=args.output_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
                             if opt_dict['df']:
                                 print(" plotting df : ")
                                 PPPlot.plotImages(
@@ -232,7 +241,7 @@ def main():
                     "./_Asym-LCPD"+atoms_str+cbar_str, LCPD,  slices = list(range( 0, len(LCPD))), zs=zTips+PPU.params['Amplitude']/2.0,
                     extent=extent,cmap=PPU.params['colorscale_kpfm'], atoms=atoms, bonds=bonds, atomSize=atomSize, cbar=opt_dict['cbar'], symetric_map=False
                 )
-                io.save_scal_field('./LCDP_HzperV', LCPD, lvec,data_format=args.output_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
+                io.save_scal_field('./LCDP_HzperV', LCPD, lvec_df,data_format=args.output_format , head = atomic_info_or_head , atomic_info = atomic_info_or_head)
                 if opt_dict['WSxM']:
                     print(" printing LCPD_b into WSxM files :")
                     io.saveWSxM_3D( "./LCPD"+atoms_str , LCPD , extent , slices=None)

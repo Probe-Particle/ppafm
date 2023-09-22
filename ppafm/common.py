@@ -230,40 +230,72 @@ class CLIParser(ArgumentParser):
 # ============================== Pure python functions
 # ==============================
 
-def getDfWeight( n, dz=0.1 ):
+def getDfWeight( A, dz = 0.1):
     '''
-    conversion of vertical force Fz to frequency shift
-    according to:
-    Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
-    oscialltion amplitude of cantilever is A = n * dz
-    '''
-    x  = np.linspace(-1,1,n+1)
-    y  = np.sqrt(1-x*x)
-    dy =  ( y[1:] - y[:-1] )/(dz*n)
-    fpi    = (n-2)**2
-    prefactor = -1 * ( 1 + fpi*(2/np.pi) ) / (fpi+1) # correction for small n
-    return dy*prefactor, (x[1:]+x[:-1])*0.5
+    Conversion of vertical force Fz to frequency shift
+    Returns the discretized version of the required convolution kernel
 
-def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4, units=16.0217656 ):
+    The integrand for calculating the frequency shift from force is taken from:
+    Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
+
+    The continuous weight function needed for the conversion is w(t) = t/sqrt(1-t**2).
+    We want to find an array w_i (of n+1 elements) - the discrete convolution kernel - such that
+    (F*w)[j] = Sum_over(i) F[i+j] w[n+1-i] = -2/(A*pi) Integral_from(t=-1)_to(t=+1)_of F(t) w(t) dt
+    where the normalized coordinate t = z*2/A.
+    Linear interpolation will be used to define the force field F(t) from its discretized version F[i]:
+    F(t) = ( F[i] * (t[i+1] - t) + F[i+1] * (t - t[i]) ) / dt for t[i] < t < t[i+1] =
+    where dt = dz*2/A = t[i+1] - t[i].
+    For each i, the interval from t[i] up to t[i+1] contribues to w[n+1-i] the weight
+    (omitting the coefficient of 1/(pi*dz) but including the minus sign in front of the original integrtal)
+    Integral_from(t=t[i])_to(t=t[i+1])_of dt*w(t)*( -t[i+1] + t ) = t[i+1]*(f[i+1] - f[i]) + (f2[i+1] - f2[i])
+    corresponding to the coefficient multiplying F[i],
+    and, additionally, to w[n+1-(i+1)] = w[n-i] the weight
+    Integral_from(t=t[i]_to(t=t[i+1])_of dt*w(t)*( t[i] - t ) = -t[i]*(f[i+1] - f[i]) - (f2[i+1] - f2[i])
+    corresponding to the coefficient multiplying F[i+1].
+    In the above, two auxiliary functions were introduced to express the desired integrals,
+    f(t) = Integral_of -w(t)*dt = sqrt(1-t**2)
+    f2(t) = Integral_of w(t)*t*dt = (arccos(-t) - sqrt(1-t**2)) / 2
+    and their discrete versions f[i] = f(t[i]); f2[i] = f2(t[i]).
+    Note: we set f(t) = 0 and f2(t) = pi for t > +1.
+    '''
+
+    n = int(np.ceil(A/dz))
+    w = np.zeros(n+1)
+    f = np.zeros(n+1)
+    f2 = np.zeros(n+1)
+    #Note that, because of how the convolution is defined, the weight array w needs to be reversed:
+    #The largest index of w corresponds to the smallest index i of force F[j+i].
+    #In contrast to the theoretical description above, we already reverse all the auxiliary arrays (t,f,f2,df,df2) in the code,
+    #starting from t[n+1-i] -> t[i], so that we do not need to reverse w explicitely in the end.
+    t = np.linspace(-1 + 2*n*dz/A, -1, n+1)
+    if(n>1):
+        f[1:-1] = np.sqrt(1 - t[1:-1]*t[1:-1])
+        f2[1:-1] = (np.arccos(-t[1:-1]) - t[1:-1]*f[1:-1]) / 2.0
+    f2[0] = np.pi #end point for t>=1 must be as if t=1 even if t>1
+    df = f[:-1] - f[1:] #numerical derivative (first derivative integrated over one-step-long intervals) of function f(t)
+    df2 = f2[:-1] - f2[1:] #numerical derivative (first derivative integrated over one-step-long intervals) of f2(t)
+    w[1:] = t[:-1]*df + df2 #coefficients to multiply F[i]
+    w[:-1] -= t[1:]*df + df2 #coefficients to multiply F[i+1]
+    return w/(np.pi*dz)
+
+def Fz2df( F, dz=0.1, k0 = params['kCantilever'], f0=params['f0Cantilever'], A = 0.1, units=16.0217656 ):
     '''
     conversion of vertical force Fz to frequency shift
     according to:
     Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
-    oscialltion amplitude of cantilever is A = n * dz
     '''
-    W,xs = getDfWeight( n, dz=dz )
+    W = getDfWeight( A, dz=dz )
     dFconv = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F )
     return dFconv*units*f0/k0
 
-def Fz2df_tilt( F,  d=params['scanTilt'], k0 = params['kCantilever'], f0=params['f0Cantilever'], n=4, units=16.0217656 ):
+def Fz2df_tilt( F,  d=params['scanTilt'], k0 = params['kCantilever'], f0=params['f0Cantilever'], A = 0.1, units=16.0217656 ):
     '''
     conversion of vertical force Fz to frequency shift
     according to:
     Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
-    oscialltion amplitude of cantilever is A = n * dz
     '''
     dr = np.sqrt( d[0]**2 + d[1]**2 + d[2]**2 )
-    W,xs = getDfWeight( n, dz=dr )
+    W = getDfWeight( A, dz=dr )
     dFconv_x = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F[:,:,:,0] )
     dFconv_y = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F[:,:,:,1] )
     dFconv_z = np.apply_along_axis( lambda m: np.convolve(m, W, mode='valid'), axis=0, arr=F[:,:,:,2] )

@@ -126,7 +126,7 @@ fzs, lvec, nDim, atomic_info_or_head = io.load_scal_field(
     dirname + "/OutFz", data_format=options.data_format
 )
 dfs = PPU.Fz2df(
-    fzs, dz=dz, k0=PPU.params["kCantilever"], f0=PPU.params["f0Cantilever"], n=Amp / dz
+    fzs, dz=dz, k0=PPU.params["kCantilever"], f0=PPU.params["f0Cantilever"], A=Amp
 )
 for p in options.points:
     xmin = float(p[0].split("x")[0])
