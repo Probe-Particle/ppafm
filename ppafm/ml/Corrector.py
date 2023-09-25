@@ -51,7 +51,7 @@ class Molecule:
 
 
 # ======================================================
-# ================== free function operating on Moleule
+# ================== free function operating on Molecule
 # ======================================================
 
 
@@ -71,25 +71,11 @@ def removeAtoms(molecule, nmax=1):
 
 
 def addAtom_bare(mol, xyz, Z, q):
-    Zs_ = np.append(
-        mol.Zs,
-        np.array(
-            [
-                Z,
-            ]
-        ),
-        axis=0,
-    )
+    # fmt: off
+    Zs_ = np.append(mol.Zs, np.array([Z,]), axis=0,)
     xyzs_ = np.append(mol.xyzs, xyz[None, :], axis=0)
-    qs_ = np.append(
-        mol.qs,
-        np.array(
-            [
-                q,
-            ]
-        ),
-        axis=0,
-    )
+    qs_ = np.append(mol.qs, np.array([q,]), axis=0)
+    # fmt: on
     return Molecule(xyzs_, Zs_, qs_)
 
 
@@ -108,15 +94,9 @@ def addAtom(molecule, p0, R=0.0, Z0=1, q0=0.0, dq=0.0):
     max_q = qs.max(axis=0)
     nq = np.random.uniform(min_q, max_q, (1,))
 
-    Zs_ = np.append(
-        Zs,
-        np.array(
-            [
-                Z0,
-            ]
-        ),
-        axis=0,
-    )
+    # fmt: off
+    Zs_ = np.append(Zs, np.array([Z0,]), axis=0)
+    # fmt: on
     xyzs_ = np.append(xyzs, nx, axis=0)
     qs_ = np.append(qs, nq, axis=0)
     return Molecule(xyzs_, Zs_, qs_)

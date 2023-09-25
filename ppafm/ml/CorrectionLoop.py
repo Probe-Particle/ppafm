@@ -456,9 +456,7 @@ def Job_CorrectionLoop(simulator, atoms, bonds, geom_fname="input.xyz", nstep=10
     np.save("./Bonds.npy", bonds(xyzqs, Zs))
 
     molecule = Molecule(xyzs, Zs, qs)
-    atomMap, bondMap, lvecMap = FARFF.makeGridFF(
-        FARFF, fname_atom="./Atoms.npy", fname_bond="./Bonds.npy", dx=0.1, dy=0.1
-    )
+    atomMap, bondMap, lvecMap = FARFF.makeGridFF(FARFF, fname_atom="./Atoms.npy", fname_bond="./Bonds.npy", dx=0.1, dy=0.1)
 
     looper.startLoop(molecule, atomMap, bondMap, lvecMap, AFMRef)
     ErrConv = 0.1
@@ -491,11 +489,18 @@ if __name__ == "__main__":
     FFcl.init(env)
     oclr.init(env)
 
+    # fmt: off
     afmulator = AFMulator.AFMulator(
         pixPerAngstrome=10,
-        lvec=np.array([[0.0, 0.0, 0.0], [20.0, 0.0, 0.0], [0.0, 20.0, 0.0], [0.0, 0.0, 5.0]]),
+        lvec=np.array([
+            [0.0, 0.0, 0.0],
+            [20.0, 0.0, 0.0],
+            [0.0, 20.0, 0.0],
+            [0.0, 0.0, 5.0]
+            ]),
         scan_window=((2.0, 2.0, 5.0), (18.0, 18.0, 8.0)),
     )
+    # fmt: on
 
     atoms = AuxMap.AtomRfunc(scan_dim=(128, 128), scan_window=((2, 2), (18, 18)))
     bonds = AuxMap.Bonds(scan_dim=(128, 128), scan_window=((2, 2), (18, 18)))

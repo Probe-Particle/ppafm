@@ -25,9 +25,7 @@ class AuxMapBase:
 
     def __init__(self, scan_dim, scan_window, zmin=None):
         if not FFcl.oclu:
-            raise RuntimeError(
-                "OpenCL context not initialized. Initialize with ocl.field.init before creating an AuxMap object."
-            )
+            raise RuntimeError("OpenCL context not initialized. Initialize with ocl.field.init before creating an AuxMap object.")
         self.scan_dim = scan_dim
         self.scan_window = scan_window
         self.projector = FFcl.AtomProcjetion()
@@ -341,9 +339,7 @@ class MultiMapSpheresElements(AuxMapBase):
         elem_channels = self.get_elem_channels(Zs)
         pos0 = [0, 0, (xyzqs[:, 2] + coefs[:, 3]).max() + self.projector.Rpp]
         poss = self.prepare_projector(xyzqs, Zs, pos0, elem_channels=elem_channels)
-        return self.projector.run_evalMultiMapSpheresElements(
-            poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3)), bOccl=self.bOccl
-        )
+        return self.projector.run_evalMultiMapSpheresElements(poss=poss, tipRot=oclr.mat3x3to4f(np.eye(3)), bOccl=self.bOccl)
 
 
 class Bonds(AuxMapBase):

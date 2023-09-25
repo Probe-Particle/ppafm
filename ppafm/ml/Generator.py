@@ -451,9 +451,7 @@ class HartreeAFMtrainer(InverseAFMtrainer):
         to have attribute __len__ that returns the total number of samples (including rotations).
         """
         if not hasattr(self.sample_generator, "__len__"):
-            raise RuntimeError(
-                "Cannot infer the number of batches because sample generator does not " "have length attribute."
-            )
+            raise RuntimeError("Cannot infer the number of batches because sample generator does not have length attribute.")
         return int(np.floor(len(self.sample_generator) / self.batch_size))
 
     def handle_positions(self):
