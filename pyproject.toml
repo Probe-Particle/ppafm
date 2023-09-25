@@ -75,3 +75,8 @@ push = true
 
 [tool.cibuildwheel]
 skip = ["pp*", "*-manylinux_i686", "*-musllinux*", '*-win32']
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "examples"]
+python_files = ["test_*.py", "example_*.py"]
+python_functions = ["test_*", "example_*"]
