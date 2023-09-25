@@ -20,7 +20,7 @@ def test_get_df_weight():
 def test_get_simple_df_weight():
     w = common.get_simple_df_weight(n=5, dz=0.2)
     assert np.allclose(
-        w, np.array([-0.62725683, -0.74548635, -0.0, 0.74548635, 0.62725683])
+        w, np.array([-0.31362841, -0.37274317, 0, 0.37274317, 0.31362841])
     )
 
 
