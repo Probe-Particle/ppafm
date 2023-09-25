@@ -16,9 +16,7 @@ def example_ptcda_singe():
     generate_ljff(["-i", "PTCDA.xyz"])
     generate_elff_point_charges(["--input", "PTCDA.xyz", "--tip", "s"])
     relaxed_scan(["-k", "0.5", "-q", "-0.10"])
-    plot_results(
-        ["--klat", "0.5", "--charge", "-0.10", "--arange", "0.5", "2.0", "2", "--df"]
-    )
+    plot_results(["--klat", "0.5", "--charge", "-0.10", "--arange", "0.5", "2.0", "2", "--df"])
 
 
 if __name__ == "__main__":

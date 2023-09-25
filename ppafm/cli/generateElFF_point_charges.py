@@ -10,13 +10,8 @@ from ppafm import elements
 
 
 def main(argv=None):
-    parser = PPU.CLIParser(
-        description="Generate electrostatic force field by Coulomb interaction of point charges. "
-        "The generated force field is saved to FFel_{x,y,z}.[ext]."
-    )
-    parser.add_arguments(
-        ["input", "input_format", "output_format", "tip", "energy", "noPBC"]
-    )
+    parser = PPU.CLIParser(description="Generate electrostatic force field by Coulomb interaction of point charges. " "The generated force field is saved to FFel_{x,y,z}.[ext].")
+    parser.add_arguments(["input", "input_format", "output_format", "tip", "energy", "noPBC"])
     args = parser.parse_args(argv)
 
     PPU.loadParams("params.ini")

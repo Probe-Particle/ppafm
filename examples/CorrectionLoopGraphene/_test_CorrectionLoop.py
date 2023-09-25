@@ -18,9 +18,7 @@ from ppafm.ocl import relax as oclr
 from ppafm.ocl.AFMulator import AFMulator
 
 
-def Job_CorrectionLoop_SimpleRandom(
-    simulator, geom_fname="input.xyz", geom_fname_ref="ref.xyz", nstep=10, plt=None
-):
+def Job_CorrectionLoop_SimpleRandom(simulator, geom_fname="input.xyz", geom_fname_ref="ref.xyz", nstep=10, plt=None):
     """
     Correction loop which does not use any Force-Field nor AuxMap or Neural-Network
     it simply randomly add/remove or move atoms
@@ -101,9 +99,7 @@ if __name__ == "__main__":
 
     afmulator = AFMulator(
         pixPerAngstrome=10,
-        lvec=np.array(
-            [[0.0, 0.0, 0.0], [20.0, 0.0, 0.0], [0.0, 20.0, 0.0], [0.0, 0.0, 6.0]]
-        ),
+        lvec=np.array([[0.0, 0.0, 0.0], [20.0, 0.0, 0.0], [0.0, 20.0, 0.0], [0.0, 0.0, 6.0]]),
         scan_window=((2.0, 2.0, 5.0), (18.0, 18.0, 8.0)),
     )
 
@@ -111,9 +107,7 @@ if __name__ == "__main__":
     # bonds = AuxMap.Bonds(scan_dim=(128, 128), scan_window=((2,2),(18,18)))
 
     pot.init_random(int(45446 * time.time()))
-    Job_CorrectionLoop_SimpleRandom(
-        afmulator, geom_fname="input.xyz", geom_fname_ref="ref.xyz", nstep=1000, plt=plt
-    )
+    Job_CorrectionLoop_SimpleRandom(afmulator, geom_fname="input.xyz", geom_fname_ref="ref.xyz", nstep=1000, plt=plt)
 
     # print( "UNIT_TEST is not yet written :-( " )
     print(" UNIT_TEST CorrectionLoop DONE !!! ")

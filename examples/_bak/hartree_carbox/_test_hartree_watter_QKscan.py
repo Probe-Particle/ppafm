@@ -83,15 +83,11 @@ Rs = np.transpose(Rs, (1, 0)).copy()
 Qs = np.array(atoms[4])
 
 if PP.params["PBC"]:
-    iZs, Rs, Qs = PP.PBCAtoms(
-        iZs, Rs, Qs, avec=PP.params["gridA"], bvec=PP.params["gridB"]
-    )
+    iZs, Rs, Qs = PP.PBCAtoms(iZs, Rs, Qs, avec=PP.params["gridA"], bvec=PP.params["gridB"])
 
 print("shape( Rs )", np.shape(Rs))
 
-print(
-    " # ============ define Scan and allocate arrays   - do this before simulation, in case it will crash "
-)
+print(" # ============ define Scan and allocate arrays   - do this before simulation, in case it will crash ")
 
 dz = PP.params["scanStep"][2]
 zTips = np.arange(PP.params["scanMin"][2], PP.params["scanMax"][2] + 0.00001, dz)[::-1]
@@ -247,9 +243,7 @@ def main():
                     f0=PP.params["f0Cantilever"],
                     n=Amp / dz,
                 )
-                plotImages(
-                    dirname + AmpStr + "/df", dfs, slices=list(range(0, len(dfs)))
-                )
+                plotImages(dirname + AmpStr + "/df", dfs, slices=list(range(0, len(dfs))))
 
 
 main()

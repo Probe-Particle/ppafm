@@ -50,9 +50,7 @@ def main(argv=None):
         default="Fit",
         help="Read tip density under bias",
     )
-    parser.add_argument(
-        "--KPFM_sample", action="store", type=str, help="Read sample hartree under bias"
-    )
+    parser.add_argument("--KPFM_sample", action="store", type=str, help="Read sample hartree under bias")
     parser.add_argument(
         "--Vref",
         action="store",
@@ -81,25 +79,15 @@ def main(argv=None):
     else:
         PPU.loadSpecies(cpp_utils.PACKAGE_PATH / "defaults" / "atomtypes.ini")
 
-    bSubtractCore = (
-        (args.doDensity) and (args.Rcore > 0.0) and (args.tip_dens is not None)
-    )
-    if (
-        bSubtractCore
-    ):  # We do it here, in case it crash we don't want to wait for all the huge density files to load
+    bSubtractCore = (args.doDensity) and (args.Rcore > 0.0) and (args.tip_dens is not None)
+    if bSubtractCore:  # We do it here, in case it crash we don't want to wait for all the huge density files to load
         if args.tip_dens is None:
             raise Exception(" Rcore>0 but no tip density provided ! ")
         valElDict = PPH.loadValenceElectronDict()
-        Rs_tip, elems_tip = PPH.getAtomsWhichTouchPBCcell(
-            args.tip_dens, Rcut=args.Rcore
-        )
+        Rs_tip, elems_tip = PPH.getAtomsWhichTouchPBCcell(args.tip_dens, Rcut=args.Rcore)
 
-    atoms_samp, nDim_samp, lvec_samp = io.loadGeometry(
-        args.input, format=args.input_format, params=PPU.params
-    )
-    head_samp = io.primcoords2Xsf(
-        atoms_samp[0], [atoms_samp[1], atoms_samp[2], atoms_samp[3]], lvec_samp
-    )
+    atoms_samp, nDim_samp, lvec_samp = io.loadGeometry(args.input, format=args.input_format, params=PPU.params)
+    head_samp = io.primcoords2Xsf(atoms_samp[0], [atoms_samp[1], atoms_samp[2], atoms_samp[3]], lvec_samp)
 
     V = None
     geometry_format = args.input_format
@@ -119,9 +107,7 @@ def main(argv=None):
         print("Use loadCUBE")
         V, lvec, nDim, head = io.loadCUBE(args.input)
     else:
-        raise ValueError(
-            """ERROR!!! Unknown or unsupported input ("-i") file format.\nSupported file fromats are:\n* cube\n* xsf"""
-        )
+        raise ValueError("""ERROR!!! Unknown or unsupported input ("-i") file format.\nSupported file fromats are:\n* cube\n* xsf""")
 
     V *= -1  # Unit conversion, energy to potential (eV -> V)
 
@@ -138,11 +124,7 @@ def main(argv=None):
         if args.tip_dens.lower().endswith("xsf"):
             rho_tip, lvec_tip, nDim_tip, head_tip = io.loadXSF(args.tip_dens)
         else:
-            raise ValueError(
-                'ERROR!!! Unknown or unsupported format of the tip density file "'
-                + args.tip_dens
-                + '"\n'
-            )
+            raise ValueError('ERROR!!! Unknown or unsupported format of the tip density file "' + args.tip_dens + '"\n')
         if bSubtractCore:
             print(">>> subtracting core densities from rho_tip ... ")
             PPH.subtractCoreDensities(
@@ -155,11 +137,7 @@ def main(argv=None):
                 head=head_tip,
             )
 
-        PPU.params[
-            "tip"
-        ] = (
-            -rho_tip
-        )  # Negative sign, because the electron density needs to be negative but the input density is positive
+        PPU.params["tip"] = -rho_tip  # Negative sign, because the electron density needs to be negative but the input density is positive
 
     if args.KPFM_sample is not None:
         V_v0_aux = V.copy()
@@ -209,9 +187,7 @@ def main(argv=None):
         elif geometry_format == "cube" and args.KPFM_tip.lower().endswith(".cube"):
             Vref_t = args.Vref
             rho_tip_v0_aux = rho_tip.copy()
-            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = io.loadCUBE(
-                args.KPFM_tip, hartree=False, borh=args.borh
-            )
+            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = io.loadCUBE(args.KPFM_tip, hartree=False, borh=args.borh)
             drho_kpfm = rho_tip_kpfm - rho_tip_v0_aux
         elif args.KPFM_tip in {
             "Fit",
@@ -241,9 +217,7 @@ def main(argv=None):
                 + '") format\nnor is it a valid name of a tip polarizability model.\n'
             )
 
-        if (
-            args.tip_dens is not None
-        ):  # This copy is made to avoid El and kpfm conflicts because during the computeEl, the tip is been put upside down
+        if args.tip_dens is not None:  # This copy is made to avoid El and kpfm conflicts because during the computeEl, the tip is been put upside down
             tip_aux_2 = PPU.params["tip"].copy()
         else:
             tip_aux_2 = PPU.params["tip"]
@@ -287,12 +261,8 @@ def main(argv=None):
             head=head_samp,
         )
 
-    print(
-        ">>> Calculating electrostatic forcefield with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... "
-    )
-    FFel, Eel = PPH.computeElFF(
-        V, lvec, nDim, PPU.params["tip"], computeVpot=args.energy, tilt=args.tilt
-    )
+    print(">>> Calculating electrostatic forcefield with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
+    FFel, Eel = PPH.computeElFF(V, lvec, nDim, PPU.params["tip"], computeVpot=args.energy, tilt=args.tilt)
 
     print(">>> Saving electrostatic forcefield ... ")
 

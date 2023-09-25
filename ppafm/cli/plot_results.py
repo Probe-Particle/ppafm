@@ -19,8 +19,7 @@ print("plot WITHOUT Xserver")
 
 def main(argv=None):
     parser = PPU.CLIParser(
-        description="Plot results for a scan with a specified charge, amplitude, and spring constant. "
-        "Images are saved in folder Q{charge}K{klat}/Amp{Amplitude}."
+        description="Plot results for a scan with a specified charge, amplitude, and spring constant. " "Images are saved in folder Q{charge}K{klat}/Amp{Amplitude}."
     )
     parser.add_arguments(
         [
@@ -60,26 +59,18 @@ def main(argv=None):
     )
 
     parser.add_argument("--df", action="store_true", help="Plot images for dfz ")
-    parser.add_argument(
-        "--save_df", action="store_true", help="Save frequency shift as df.xsf "
-    )
+    parser.add_argument("--save_df", action="store_true", help="Save frequency shift as df.xsf ")
     parser.add_argument(
         "--Laplace",
         action="store_true",
         help="Plot Laplace-filtered images and save them ",
     )
-    parser.add_argument(
-        "--pos", action="store_true", help="Save probe particle positions"
-    )
+    parser.add_argument("--pos", action="store_true", help="Save probe particle positions")
     parser.add_argument("--atoms", action="store_true", help="Plot atoms to images")
     parser.add_argument("--bonds", action="store_true", help="Plot bonds to images")
     parser.add_argument("--cbar", action="store_true", help="Plot colorbars to images")
-    parser.add_argument(
-        "--WSxM", action="store_true", help="Save frequency shift into WsXM *.dat files"
-    )
-    parser.add_argument(
-        "--bI", action="store_true", help="Plot images for Boltzmann current"
-    )
+    parser.add_argument("--WSxM", action="store_true", help="Save frequency shift into WsXM *.dat files")
+    parser.add_argument("--bI", action="store_true", help="Plot images for Boltzmann current")
 
     args = parser.parse_args(argv)
     opt_dict = vars(args)
@@ -93,9 +84,7 @@ def main(argv=None):
     print(" >> OVEWRITING SETTINGS by command line arguments  ")
     # Ks
     if opt_dict["krange"] is not None:
-        Ks = np.linspace(
-            opt_dict["krange"][0], opt_dict["krange"][1], int(opt_dict["krange"][2])
-        )
+        Ks = np.linspace(opt_dict["krange"][0], opt_dict["krange"][1], int(opt_dict["krange"][2]))
     elif opt_dict["klat"] is not None:
         Ks = [opt_dict["klat"]]
     elif PPU.params["stiffness"][0] > 0.0:
@@ -104,18 +93,14 @@ def main(argv=None):
         Ks = [PPU.params["klat"]]
     # Qs
     if opt_dict["qrange"] is not None:
-        Qs = np.linspace(
-            opt_dict["qrange"][0], opt_dict["qrange"][1], int(opt_dict["qrange"][2])
-        )
+        Qs = np.linspace(opt_dict["qrange"][0], opt_dict["qrange"][1], int(opt_dict["qrange"][2]))
     elif opt_dict["charge"] is not None:
         Qs = [opt_dict["charge"]]
     else:
         Qs = [PPU.params["charge"]]
     # Amps
     if opt_dict["arange"] is not None:
-        Amps = np.linspace(
-            opt_dict["arange"][0], opt_dict["arange"][1], int(opt_dict["arange"][2])
-        )
+        Amps = np.linspace(opt_dict["arange"][0], opt_dict["arange"][1], int(opt_dict["arange"][2]))
     elif opt_dict["Amplitude"] is not None:
         Amps = [opt_dict["Amplitude"]]
     else:
@@ -123,9 +108,7 @@ def main(argv=None):
     # Applied biases
     applied_bias = False
     if opt_dict["Vrange"] is not None:
-        Vs = np.linspace(
-            opt_dict["Vrange"][0], opt_dict["Vrange"][1], int(opt_dict["Vrange"][2])
-        )
+        Vs = np.linspace(opt_dict["Vrange"][0], opt_dict["Vrange"][1], int(opt_dict["Vrange"][2]))
     elif opt_dict["Vbias"] is not None:
         Vs = [opt_dict["Vbias"]]
     else:
@@ -165,9 +148,7 @@ def main(argv=None):
         ]
         FFparams = PPU.loadSpecies()
         elem_dict = PPU.getFFdict(FFparams)
-        iZs, Rs, Qs_tmp = PPU.parseAtoms(
-            atoms, elem_dict, autogeom=False, PBC=PPU.params["PBC"]
-        )
+        iZs, Rs, Qs_tmp = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=PPU.params["PBC"])
         atom_colors = au.getAtomColors(iZs, FFparams=FFparams)
         Rs = Rs.transpose().copy()
         atoms = [iZs, Rs[0], Rs[1], Rs[2], atom_colors]
@@ -184,14 +165,10 @@ def main(argv=None):
             dirname = f"Q{charge:1.2f}K{lateral_stiffness:1.2f}"
             for iv, Vx in enumerate(Vs):
                 if applied_bias:
-                    dirname = "Q{:1.2f}K{:1.2f}V{:1.2f}".format(
-                        charge, lateral_stiffness, Vx
-                    )
+                    dirname = f"Q{charge:1.2f}K{lateral_stiffness:1.2f}V{Vx:1.2f}"
                 if opt_dict["pos"]:
                     try:
-                        PPpos, lvec, nDim, atomic_info_or_head = io.load_vec_field(
-                            dirname + "/PPpos", data_format=args.output_format
-                        )
+                        PPpos, lvec, nDim, atomic_info_or_head = io.load_vec_field(dirname + "/PPpos", data_format=args.output_format)
                         print(" plotting PPpos : ")
                         PPPlot.plotDistortions(
                             dirname + "/xy" + atoms_str + cbar_str,
@@ -209,15 +186,10 @@ def main(argv=None):
                         del PPpos
                     except:
                         print("error: ", sys.exc_info())
-                        print(
-                            "cannot load : "
-                            + (dirname + "/PPpos_?." + args.output_format)
-                        )
+                        print("cannot load : " + (dirname + "/PPpos_?." + args.output_format))
                 if opt_dict["iets"] is not None:
                     try:
-                        eigvalK, lvec, nDim = io.load_vec_field(
-                            dirname + "/eigvalKs", data_format=args.output_format
-                        )
+                        eigvalK, lvec, nDim = io.load_vec_field(dirname + "/eigvalKs", data_format=args.output_format)
                         M = opt_dict["iets"][0]
                         E0 = opt_dict["iets"][1]
                         w = opt_dict["iets"][2]
@@ -226,11 +198,7 @@ def main(argv=None):
                         aumass = 1.66053904020e-27  # [kg]
                         eVA2_to_Nm = 16.0217662  # [eV/A^2] / [N/m]
                         Evib = hbar * np.sqrt((eVA2_to_Nm * eigvalK) / (M * aumass))
-                        IETS = (
-                            PPH.symGauss(Evib[:, :, :, 0], E0, w)
-                            + PPH.symGauss(Evib[:, :, :, 1], E0, w)
-                            + PPH.symGauss(Evib[:, :, :, 2], E0, w)
-                        )
+                        IETS = PPH.symGauss(Evib[:, :, :, 0], E0, w) + PPH.symGauss(Evib[:, :, :, 1], E0, w) + PPH.symGauss(Evib[:, :, :, 2], E0, w)
                         PPPlot.plotImages(
                             dirname + "/IETS" + atoms_str + cbar_str,
                             IETS,
@@ -269,9 +237,7 @@ def main(argv=None):
                         del IETS
                     except:
                         print("error: ", sys.exc_info())
-                        print(
-                            "cannot load : ", dirname + "/PPpos_?." + args.output_format
-                        )
+                        print("cannot load : ", dirname + "/PPpos_?." + args.output_format)
                 if opt_dict["df"] or opt_dict["save_df"] or opt_dict["WSxM"]:
                     for amplitude in Amps:
                         PPU.params["Amplitude"] = amplitude
@@ -281,9 +247,7 @@ def main(argv=None):
                         if not os.path.exists(dirNameAmp):
                             os.makedirs(dirNameAmp)
                         if PPU.params["tiltedScan"]:
-                            Fout, lvec, nDim, atomic_info_or_head = io.load_vec_field(
-                                dirname + "/OutF", data_format=args.output_format
-                            )
+                            Fout, lvec, nDim, atomic_info_or_head = io.load_vec_field(dirname + "/OutF", data_format=args.output_format)
                             dfs = PPU.Fz2df_tilt(
                                 Fout,
                                 PPU.params["scanTilt"],
@@ -292,21 +256,11 @@ def main(argv=None):
                                 n=int(amplitude / dz),
                             )
                         else:
-                            fzs, lvec, nDim, atomic_info_or_head = io.load_scal_field(
-                                dirname + "/OutFz", data_format=args.output_format
-                            )
+                            fzs, lvec, nDim, atomic_info_or_head = io.load_scal_field(dirname + "/OutFz", data_format=args.output_format)
                             if applied_bias:
                                 Rtip = PPU.params["Rtip"]
                                 for iz, z in enumerate(zTips):
-                                    fzs[iz, :, :] = fzs[iz, :, :] - np.pi * PPU.params[
-                                        "permit"
-                                    ] * (
-                                        (Rtip * Rtip) / ((z - args.z0) * (z + Rtip))
-                                    ) * (
-                                        Vx - args.V0
-                                    ) * (
-                                        Vx - args.V0
-                                    )
+                                    fzs[iz, :, :] = fzs[iz, :, :] - np.pi * PPU.params["permit"] * ((Rtip * Rtip) / ((z - args.z0) * (z + Rtip))) * (Vx - args.V0) * (Vx - args.V0)
                             dfs = PPU.Fz2df(
                                 fzs,
                                 dz=dz,
@@ -379,9 +333,7 @@ def main(argv=None):
 
                 if opt_dict["bI"]:
                     try:
-                        I, lvec, nDim, atomic_info_or_head = io.load_scal_field(
-                            dirname + "/OutI_boltzmann", data_format=args.output_format
-                        )
+                        I, lvec, nDim, atomic_info_or_head = io.load_scal_field(dirname + "/OutI_boltzmann", data_format=args.output_format)
                         print(" plotting Boltzmann current: ")
                         PPPlot.plotImages(
                             dirname + "/OutI" + atoms_str + cbar_str,
@@ -397,10 +349,7 @@ def main(argv=None):
                         del I
                     except:
                         print("error: ", sys.exc_info())
-                        print(
-                            "cannot load : "
-                            + (dirname + "/OutI_boltzmann." + args.output_format)
-                        )
+                        print("cannot load : " + (dirname + "/OutI_boltzmann." + args.output_format))
             if opt_dict["LCPD_maps"]:
                 LCPD = -LCPD_b / (2 * LCPD_a)
                 PPPlot.plotImages(
