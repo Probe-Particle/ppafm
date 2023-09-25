@@ -91,18 +91,17 @@ parser.add_option(
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
 if options.points == []:
-    sys.exit(HELP_MSG)
+    sys.exit("Error!! The '-p' or '--points' argument is required\npython plotLine.py -p XMINxYMINxZMIN XMAXxYMAXxZMAX")
 
-FFparams = None
+PPU.loadParams("params.ini")
 if os.path.isfile("atomtypes.ini"):
     print(">> LOADING LOCAL atomtypes.ini")
     FFparams = PPU.loadSpecies("atomtypes.ini")
 else:
     import ppafm.cpp_utils as cpp_utils
 
-    FFparams = PPU.loadSpecies(cpp_utils.PACKAGE_PATH + "/defaults/atomtypes.ini")
+    FFparams = PPU.loadSpecies(cpp_utils.PACKAGE_PATH.joinpath("defaults/atomtypes.ini"))
 print(" >> OVEWRITING SETTINGS by params.ini  ")
-PPU.loadParams("params.ini", FFparams=FFparams)
 dz = PPU.params["scanStep"][2]
 Amp = [PPU.params["Amplitude"]]
 scan_min = PPU.params["scanMin"]
@@ -126,7 +125,11 @@ fzs, lvec, nDim, atomic_info_or_head = io.load_scal_field(
     dirname + "/OutFz", data_format=options.data_format
 )
 dfs = PPU.Fz2df(
-    fzs, dz=dz, k0=PPU.params["kCantilever"], f0=PPU.params["f0Cantilever"], A=Amp
+    fzs,
+    dz=dz,
+    k0=PPU.params["kCantilever"],
+    f0=PPU.params["f0Cantilever"],
+    amplitude=Amp,
 )
 for p in options.points:
     xmin = float(p[0].split("x")[0])
@@ -140,7 +143,9 @@ for p in options.points:
     print(opt_dict["disp"])
     if opt_dict["disp"]:
         print("Displacment {}".format(opt_dict["disp"][0]))
-        disp_all, lvec, nDim, atomic_info_or_head = io.load_vec_field(dirname + "/PPdisp_")
+        disp_all, lvec, nDim, atomic_info_or_head = io.load_vec_field(
+            dirname + "/PPdisp_"
+        )
         disp_x, disp_y, disp_z = io.unpackVecGrid(disp_all)
         del disp_all
         if opt_dict["disp"][0] == "x":

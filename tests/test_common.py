@@ -4,19 +4,35 @@ from ppafm import common
 
 
 def test_get_df_weight():
-    x, y = common.getDfWeight(n=5, dz=0.2)
-    assert np.allclose(x, np.array([-0.53836624, -0.12099505, -0.0, 0.12099505, 0.53836624]))
+    #amplitude = dz = 0.1
+    assert np.allclose(common.get_df_weight(0.1), np.array([-5.0, 5.0]))
+    
+    #amplitude=1.0, dz=0.2
+    w = common.get_df_weight(1.0, dz=0.2)
     assert np.allclose(
-        y,
+        w,
         np.array(
             [
-                -8.00000000e-01,
-                -4.00000000e-01,
-                1.11022302e-16,
-                4.00000000e-01,
-                8.00000000e-01,
+                -2.60220097e-01,
+                -1.91452256e-01,
+                -9.80141360e-02,
+                -5.63847676e-02,
+                -2.62785481e-02,
+                3.69960354e-16,
+                2.62785481e-02,
+                5.63847676e-02,
+                9.80141360e-02,
+                1.91452256e-01,
+                2.60220097e-01,
             ]
         ),
+    )
+
+
+def test_get_simple_df_weight():
+    w = common.get_simple_df_weight(n=5, dz=0.2)
+    assert np.allclose(
+        w, np.array([-0.62725683, -0.74548635, -0.0, 0.74548635, 0.62725683])
     )
 
 

@@ -21,7 +21,7 @@ else:
 _vars_path = None
 
 PACKAGE_PATH = Path(__file__).resolve().parent
-CPP_PATH     = PACKAGE_PATH / 'cpp'
+CPP_PATH     = PACKAGE_PATH.joinpath('cpp')
 
 print(" PACKAGE_PATH = ", PACKAGE_PATH)
 print(" CPP_PATH     = ", CPP_PATH)

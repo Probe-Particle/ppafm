@@ -207,7 +207,7 @@ class AFMulator():
 
         # Set df convolution weights
         self.dz = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
-        self.dfWeight = PPU.getDfWeight(self.df_steps, dz=self.dz)[0].astype(np.float32)
+        self.dfWeight = PPU.get_simple_df_weight(self.df_steps, dz=self.dz)[0].astype(np.float32)
         self.dfWeight *= PPU.eVA_Nm * self.f0Cantilever / self.kCantilever
         self.amplitude = self.dz * len(self.dfWeight)
         self.scanner.zstep = self.dz
