@@ -1,4 +1,4 @@
-FROM ubuntu:22.10
+FROM ubuntu:22.04
 
 # build-essential is needed for building the C++ code in the PPAFM package
 
