@@ -53,7 +53,7 @@ def test_vdw():
             E_ocl = FF_ocl[:, 0, 0, 3]
 
             coefs = cLJs_[0] if damp_method in [-1, 0] else REAs_[0]
-            E_cpp, Fx_cpp = PPC.evalRadialFF(-x_FF, coefs, kind=damp_method)
+            E_cpp, Fx_cpp = PPC.evalRadialFF(x_FF, coefs, kind=damp_method)
 
             assert np.allclose(Fx_ocl, Fx_cpp, atol=1e-6, rtol=1e-4)
             assert np.allclose(E_ocl, E_cpp, atol=1e-6, rtol=1e-4)

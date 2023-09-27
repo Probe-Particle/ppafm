@@ -6,10 +6,7 @@
 #include "Vec2.h"
 #include "Vec3.h"
 
-#define COULOMB_CONST  14.3996448915f
-
-//const double kcoulomb   = 14.3996448915;
-//const double R2SAFE     = 1.0e-8;
+#define COULOMB_CONST  14.399645f
 
 #define RSAFE   1.0e-4f
 #define R2SAFE  1.0e-8f
@@ -93,7 +90,7 @@ inline Vec3d forceRSpring( const Vec3d& dR, double k, double l0 ){
 
 inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& Up, const Vec3d& R0, const Vec3d& K ){
     // dR - vector between actual PPpos and anchor point (in global coords)
-    // Fw - forward diraction of anchor coordinate system (previous bond direction; e.g. Tip->C for C->O) (in global coords)
+    // Fw - forward direction of anchor coordinate system (previous bond direction; e.g. Tip->C for C->O) (in global coords)
     // Up - Up vector --,,-- ; e.g. x axis (1,0,0), defines rotation of your tip (in global coords)
     // R0 - equlibirum position of PP (in local coords)
     // K  - stiffness (ka,kb,kc) along local coords
@@ -103,7 +100,7 @@ inline Vec3d forceSpringRotated( const Vec3d& dR, const Vec3d& Fw, const Vec3d& 
     rot.dot_to  ( dR, dR_   );              // transform dR to rotated coordinate system
     f_ .set_mul ( dR_-R0, K );              // spring force (in rotated system)
     // here you can easily put also other forces - e.g. Torsion etc.
-    rot.dot_to_T( dR_, f );                 // transform force back to world system
+    rot.dot_to_T( f_, f );                 // transform force back to world system
     return f;
 }
 
@@ -115,7 +112,7 @@ inline double addAtomLJ_RE( const Vec3d& dR, Vec3d& fout, double R0, double E0 )
     //printf( "r %g u2 %g R*R %g ir2 %g u6 %g R0 %g E0 %g \n", 1/sqrt(ir2), u2, R0*R0, ir2, u6, R0, E0 );
     double E6   = E0*u6;
     double E12  = E6*u6;
-    fout.add_mul( dR , 12*( E6 - E12 ) * ir2 );
+    fout.add_mul( dR , 12*( E12 - E6 ) * ir2 );
     return E12 - 2*E6;
 }
 
@@ -126,7 +123,7 @@ inline double addAtomLJ( const Vec3d& dR, Vec3d& fout, double c6, double c12 ){
     double E6   = c6  * ir6;
     double E12  = c12 * ir6*ir6;
     //return dR * ( ( 6*ir6*c6 -12*ir12*c12 ) * ir2  );
-    fout.add_mul( dR , ( 6*E6 -12*E12 ) * ir2 );
+    fout.add_mul( dR , ( 12*E12 - 6*E6 ) * ir2 );
     //fout.add_mul( dR , -12*E12 * ir2 );
     //fout.add_mul( dR , 6*E6 * ir2 );
     //printf(" (%g,%g,%g)  (%g,%g)  %g \n", dR.x,dR.y,dR.z, c6, c12,  E12 - E6);
@@ -139,14 +136,14 @@ inline double addAtomVdW_noDamp( const Vec3d& dR, Vec3d& fout, double c6 ){
     double invR2 = 1/dR.norm2();
     double invR4 = invR2*invR2;
     double E     = -c6 * invR4*invR2;
-    fout.add_mul( dR , E*-6*invR2 );
+    fout.add_mul( dR , E*6*invR2 );
     return E;
 }
 
 // Lenard-Jones force between two atoms a,b separated by vector dR = Ra - Rb
 inline double addAtomVdW_dampConst( const Vec3d& dR, Vec3d& fout, double c6, double ADamp ){
     double r2 = dR.norm2(); r2*=r2; r2*=r2;
-    fout.add_mul  ( dR , 6*c6 /( r2 + ADamp*c6 ) );
+    fout.add_mul  ( dR , -6*c6 /( r2 + ADamp*c6 ) );
     return 0;
 }
 
@@ -158,9 +155,9 @@ double addAtomVdW_addDamp( const Vec3d& dR, Vec3d& fout, double R, double E0, do
     double u2    = r2*invR2;
     double u4    = u2*u2;
     D  = Rfunc(u2,dD);
-    double e  = 1./(      u4*u2 + D*ADamp);
+    double e  = 1./( u4*u2 + D*ADamp);
     double E  = -2*E0*e;
-    double fr = -E *e*( 6*u4    + dD*ADamp)*invR2 ;
+    double fr = E*e*( 6*u4 + dD*ADamp)*invR2 ;
     fout.add_mul(dR,fr);
     return E;
 }
@@ -221,7 +218,7 @@ inline double addAtomDFTD3(const Vec3d& dR, Vec3d& fout, double c6, double c8, d
     double F8 = E8 * d8 * 8 * r6;
 
     double E = E6 + E8;
-    fout.add_mul(dR, -(F6 + F8));
+    fout.add_mul(dR, (F6 + F8));
 
     return E;
 }
@@ -231,7 +228,7 @@ inline double addAtomMorse( const Vec3d& dR, Vec3d& fout, double r0, double eps,
     double r     = sqrt( dR.norm2() + R2SAFE );
     double expar = exp( alpha*(r-r0));
     double E     = eps*( expar*expar - 2*expar );
-    double fr    = eps*2*alpha*( expar*expar - expar );
+    double fr    = eps*2*alpha*( expar - expar*expar );
     fout.add_mul( dR, fr/r );
     return E;
 }
@@ -255,7 +252,7 @@ inline void addAtomicForceLJQ( const Vec3d& dp, Vec3d& f, double r0, double eps,
     double ir   = sqrt(ir2);
     double ir2_ = ir2*r0*r0;
     double ir6  = ir2_*ir2_*ir2_;
-    double fr   = ( ( 1 - ir6 )*ir6*12*eps + ir*qq*-COULOMB_CONST )*ir2;
+    double fr   = ( ( ir6 - 1 )*ir6*12*eps + ir*qq*COULOMB_CONST )*ir2;
     f.add_mul( dp, fr );
 }
 
@@ -263,7 +260,7 @@ inline void addAtomicForceMorse( const Vec3d& dp, Vec3d& f, double r0, double ep
     const double R2ELEC = 1.0;
     double r     = sqrt( dp.norm2()+R2SAFE );
     double expar = exp ( beta*(r-r0) );
-    double fr    = eps*2*beta*( expar*expar - expar );
+    double fr    = eps*2*beta*( expar - expar*expar );
     f.add_mul( dp, fr/r );
 }
 

@@ -11,8 +11,8 @@ verbose = 0
 
 # ====================== constants
 
-eVA_Nm               =  16.0217657
-CoulombConst         = -14.3996448915;
+eVA_Nm               =  16.021766
+CoulombConst         =  14.399645;
 
 # default parameters of simulation
 params={
