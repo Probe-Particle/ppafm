@@ -358,11 +358,13 @@ def loadNCUBE( fname ):
     return [ int(sth1[0]), int(sth2[0]), int(sth3[0]) ]
 
 def loadGeometry(fname=None,format=None,params=None):
+
     if(verbose>0): print("loadGeometry ", fname)
     if fname == None:
         raise ValueError("Please provide the name of the file with coordinates")
     if params == None:
         raise ValueError("Please provide the parameters dictionary here")
+
     if format == None or format == "":
         if fname.lower().endswith(".xyz"):
             format = "xyz"
@@ -378,16 +380,16 @@ def loadGeometry(fname=None,format=None,params=None):
             format = "poscar"
     else:
         format = format.lower() #prevent format from being case sensitive, e.g. "XYZ" and "xyz" should be the same
+
+    xyzs = Zs = qs = None
     if(format=="xyz"):
         xyzs, Zs, qs, comment = loadXYZ(fname)
-        nDim = params['gridN'].copy()
         lvec = parseLvecASE(comment)
         if lvec is None:
             lvec  = np.zeros((4,3))
             lvec[ 1,:  ] = params['gridA'].copy()
             lvec[ 2,:  ] = params['gridB'].copy()
             lvec[ 3,:  ] = params['gridC'].copy()
-        atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
     elif(format=="cube"):
         atoms = loadAtomsCUBE(fname)
         lvec  = loadCellCUBE(fname)
@@ -397,15 +399,24 @@ def loadGeometry(fname=None,format=None,params=None):
     elif(format=="npy"):
         atoms, nDim, lvec = loadNPYGeom(fname) # under development
     elif(format=="poscar"):
-        atoms, nDim, lvec = loadPOSCAR(fname)
+        xyzs, Zs, lvec = loadPOSCAR(fname)
     elif(format=="in"):
-        atoms, nDim, lvec = loadGeometryIN(fname)
+        xyzs, Zs, lvec = loadGeometryIN(fname)
     #TODO: introduce a function which reads the geometry from the .npy file
     else:
         if(format is None):
             raise ValueError ('ERROR!!! Input geometry format was neither specified nor could it be determined automatically.')
         else:
             raise ValueError ('ERROR!!! Unknown format %s of input geometry.' % (format))
+
+    if xyzs is not None:
+        # Some of the load functions return the result in a different form. Really the return values should be unified.
+        assert Zs is not None, "Somehow loaded xyzs without Zs"
+        if qs is None:
+            qs = np.zeros(len(Zs))
+        atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
+        nDim = params['gridN'].copy()
+
     return atoms,nDim,lvec
 
 def parseLvecASE(comment):

@@ -66,3 +66,45 @@ def test_parse_comment_ase():
     extra_cols = [[str(v)] for v in np.random.rand(10)]
     qs = _getCharges(comment, extra_cols)
     assert np.allclose(qs, np.zeros(10)), qs
+
+def test_load_aims():
+
+    from ppafm.common import params
+    from ppafm.io import loadGeometry
+
+    temp_file = "temp_geom.in"
+    geometry_str = """
+        lattice_vector 4.0 0.0 0.0
+        lattice_vector 1.0 5.0 0.0
+        lattice_vector 0.0 0.0 6.0
+        atom 1.0 3.0 5.5 C
+        atom 2.0 4.0 6.6 O
+    """
+
+    with open(temp_file, 'w') as f:
+        f.write(geometry_str)
+
+    atoms, nDim, lvec = loadGeometry(temp_file, params=params)
+
+    assert np.allclose(
+        atoms,
+        np.array([
+            [6.0, 8.0],
+            [1.0, 2.0],
+            [3.0, 4.0],
+            [5.5, 6.6],
+            [0.0, 0.0],
+        ])
+    )
+    assert np.allclose(nDim, params['gridN'])
+    assert np.allclose(
+        lvec,
+        np.array([
+            [0.0, 0.0, 0.0],
+            [4.0, 0.0, 0.0],
+            [1.0, 5.0, 0.0],
+            [0.0, 0.0, 6.0]
+        ])
+    )
+
+    os.remove(temp_file)
