@@ -21,7 +21,7 @@
 
 // ================= CONSTANTS
 
-const double const_eVA_SI = 16.0217662;
+const double const_eVA_SI = 16.021766;
 
 #define MAX_REF_CN 5
 #define MAX_D3_ELEM 94
@@ -226,7 +226,7 @@ inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
     Vec3d f; f.set(0.0);
     for(int i=0; i<natoms; i++){
         //if( ibuff==0 ) printf(" atom[%i] (%g,%g,%g) | %g \n", i, Ratoms[i].x, Ratoms[i].y, Ratoms[i].z, coefs[0] );
-        E     += addAtom_func( Ratoms[i]-rProbe, f, coefs );
+        E     += addAtom_func( rProbe-Ratoms[i], f, coefs );
         coefs += nCoefPerAtom;
     }
     //printf( "evalCell[%i] %i (%g,%g,%g) %g\n", ibuff, natoms, rProbe.x, rProbe.y, rProbe.z, E ); exit(0);
