@@ -763,3 +763,76 @@ class FileOpen(QtWidgets.QDialog):
             self._finish('cancel')
         else:
             super().keyPressEvent(event)
+
+try:
+
+    import queue
+    from multiprocessing import Process, Queue
+
+    from ase import Atoms
+    from ase.gui.gui import GUI
+
+    class ASEGeometryViewer(GUI):
+
+        def __init__(self, parent, atoms):
+            super().__init__(images=[atoms])
+            self.parent = parent
+
+        def show(self):
+
+            # The ASE GUI wants to be run in the main thread, but we don't want to block the
+            # main ppafm window, so we run the ASE GUI in another process instead, and send the
+            # changed atoms through a queue. The queue is monitored by a pyQt worker thread that
+            # sends signals to the main ppafm window when atoms are available.
+            # https://realpython.com/python-pyqt-qthread/
+
+            self.queue = Queue()
+            self.queue_worker = QueueWorker(self.queue)
+            self.queue_thread = QtCore.QThread(parent=self.parent)
+
+            self.queue_worker.moveToThread(self.queue_thread)
+            self.queue_thread.started.connect(self.queue_worker.run)
+            self.queue_thread.finished.connect(self.queue_thread.deleteLater)
+            self.queue_thread.finished.connect(self.parent.cleanASEViewer)
+            self.queue_worker.finished.connect(self.queue_thread.quit)
+            self.queue_worker.finished.connect(self.queue_thread.deleteLater)
+            self.queue_worker.item_available.connect(self.parent.updateFromASEAtoms)
+            self.queue_thread.start()
+
+            self.run_proc = Process(target=self._run, args=(self.queue,))
+            self.run_proc.start()
+
+        def _run(self, queue):
+            self.attach(self.putToQueue)
+            self.run()
+
+        def putToQueue(self):
+            self.queue.put(self.images[0])
+            return True # The return value must evaluate to True so that this function keeps being observed
+
+        def exit(self, event=None):
+            self.queue.put(None) # Inform the worker that there are no more items to come
+            super().exit(event)
+
+    class QueueWorker(QtCore.QObject):
+
+        item_available = QtCore.pyqtSignal(Atoms)
+        finished = QtCore.pyqtSignal()
+
+        def __init__(self, queue):
+            super().__init__()
+            self.queue = queue
+
+        def run(self):
+            while True:
+                try:
+                    item = self.queue.get(block=True, timeout=1)
+                    if item is None:
+                        self.finished.emit()
+                        return
+                    self.item_available.emit(item)
+                except queue.Empty:
+                    continue
+
+except ModuleNotFoundError:
+    print('ASE not available, so geometry viewer is disabled')

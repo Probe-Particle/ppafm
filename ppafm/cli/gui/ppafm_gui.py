@@ -125,6 +125,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.sample_lvec = None
         self.rot = np.eye(3)
         self.df_points = []
+        self.ase_atoms = None
+        self.ase_viewer = None
 
         # Initialize OpenCL environment on chosen device and create an afmulator instance to use for simulations
         oclu.init_env(device)
@@ -596,16 +598,31 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.FFViewer.updateView()
         self.FFViewer.show()
 
-    def showGeometry(self):
-        try:
-            from ase import Atoms
-            from ase.visualize import view
-        except ModuleNotFoundError:
-            print('No ase installation detected. Cannot show molecule geometry.')
-            if self.verbose > 1: traceback.print_exc()
-            return
-        atoms = Atoms(positions=self.xyzs, numbers=self.Zs, cell=self.sample_lvec, pbc=self.afmulator.npbc)
-        view(atoms)
+    def showASEViewer(self):
+
+        from ase import Atoms
+
+        qs = self.qs if isinstance(self.qs, np.ndarray) else np.zeros(len(self.Zs))
+        self.ase_atoms = Atoms(
+            positions=self.xyzs,
+            numbers=self.Zs,
+            cell=self.sample_lvec,
+            pbc=self.afmulator.npbc,
+            charges=qs
+        )
+
+        if self.ase_viewer is None:
+            self.ase_viewer = guiw.ASEGeometryViewer(self, self.ase_atoms)
+            self.ase_viewer.show()
+
+    def cleanASEViewer(self):
+        self.ase_atoms = None
+        self.ase_viewer = None
+
+    def updateFromASEAtoms(self, atoms):
+        self.xyzs = atoms.get_positions()
+        self.Zs = atoms.get_atomic_numbers()
+        self.update()
 
     def openFile(self):
         self.openFileDialog.exec()
@@ -1074,8 +1091,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Geometry viewer
         bt = QtWidgets.QPushButton('View Geometry', self)
         bt.setToolTip(TTips['view_geom'])
-        bt.clicked.connect(self.showGeometry)
+        bt.clicked.connect(self.showASEViewer)
         self.btViewGeom = bt; vb.addWidget(bt)
+        if not hasattr(guiw, 'ASEGeometryViewer'):
+            self.btViewGeom.setToolTip('ASE not installed. Cannot show geometry viewer.')
+            self.btViewGeom.setDisabled(True)
 
         # Geometry editor
         self.geomEditor = None
