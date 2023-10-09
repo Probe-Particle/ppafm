@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-'''
+"""
 Idea is to improve prediction of gemeotry using physical generative model
 
 1) CNN prediction of Bonds&Atoms
@@ -12,7 +12,7 @@ Idea is to improve prediction of gemeotry using physical generative model
 
 see:  https://mega.nz/#!KLoilKIB!NxxCRQ814xtCXfjy7mPFfmJTOL9TaTHbmPKSxn_0sFs
 
-'''
+"""
 
 
 import matplotlib
@@ -30,12 +30,14 @@ from ..ocl import relax as oclr
 from . import AuxMap, Generator
 from .Corrector import Corrector, Molecule, Mutator
 
-verbose  = 0
+verbose = 0
 bRunTime = False
+
 
 # ========================================================================
 class Sequence:
     pass
+
 
 class CorrectorTrainer(Generator.InverseAFMtrainer):
     """
@@ -47,14 +49,24 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
         :param nMutants: integer, number of different mutants per molecule
     """
 
-    def __init__(self, afmulator, mutator, paths, nMutants, zmin, potential=True, added_types=[], **gen_args):
-        self.index        = 0
-        self.molIndex     = 0
-        self.afmulator    = afmulator
-        self.mutator      = mutator
-        self.paths        = paths
-        self.nMutants     = nMutants
-        self.zmin         = zmin
+    def __init__(
+        self,
+        afmulator,
+        mutator,
+        paths,
+        nMutants,
+        zmin,
+        potential=True,
+        added_types=[],
+        **gen_args,
+    ):
+        self.index = 0
+        self.molIndex = 0
+        self.afmulator = afmulator
+        self.mutator = mutator
+        self.paths = paths
+        self.nMutants = nMutants
+        self.zmin = zmin
         self.potential = potential
         super().__init__(afmulator, None, paths, **gen_args)
 
@@ -65,8 +77,7 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
             maxs = self.afmulator.scan_window[1][:2] + (0.0,)
             self.pot_sw = (mins, maxs)
             self.pot_dim = (100, 100, 20)
-            self.pot = sp.SimplePotential(self.pot_dim,
-                                          self.pot_sw)
+            self.pot = sp.SimplePotential(self.pot_dim, self.pot_sw)
             self.added_types = [added_types] if isinstance(added_types, int) else added_types
 
     def generatePair(self):
@@ -77,7 +88,7 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
 
         # Get current molecule
         mol1_xyz_all = self.molecules[self.index]
-        mol1_xyz_top = mol1_xyz_all[mol1_xyz_all[:,2] >= mol1_xyz_all[:,2].max()+self.zmin]
+        mol1_xyz_top = mol1_xyz_all[mol1_xyz_all[:, 2] >= mol1_xyz_all[:, 2].max() + self.zmin]
 
         xyzs = mol1_xyz_top[:, :3]
         qs = mol1_xyz_top[:, 3]
@@ -89,13 +100,14 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
         Zs_all = mol1_xyz_all[:, 4].astype(np.int32)
         mol1_all = Molecule(xyzs_all, Zs_all, qs_all)
 
-        mol2, removed     = self.mutator.mutate_local(mol1_top)
+        mol2, removed = self.mutator.mutate_local(mol1_top)
 
         return mol1_all, mol2, removed
 
     def __getitem__(self, index):
         self.index = index
-        if(verbose>0): print("index ", index)
+        if verbose > 0:
+            print("index ", index)
         return next(self)
 
     def __iter__(self):
@@ -103,19 +115,18 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
         return self
 
     def __len__(self):
-        return len(self.molecules)//self.batch_size
+        return len(self.molecules) // self.batch_size
 
     def __next__(self):
         if self.index < len(self.molecules):
-
             # Callback
             self.on_batch_start()
 
             mol1s = []
             mol2s = []
             removed = []
-            X1s   = [[] for _ in self.iZPPs]
-            X2s   = [[] for _ in self.iZPPs]
+            X1s = [[] for _ in self.iZPPs]
+            X2s = [[] for _ in self.iZPPs]
             potMaps = []
 
             for b in range(self.batch_size):
@@ -127,7 +138,6 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
 
                 # Get AFM images
                 for i, (iZPP, Q, Qz) in enumerate(zip(self.iZPPs, self.Qs, self.QZs)):  # Loop over different tips
-
                     self.xyzs = mol1_a.xyzs
                     self.qs = mol1_a.qs
                     self.Zs = mol1_a.Zs
@@ -135,7 +145,12 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
                     # Set tip parameters
                     self.afmulator.iZPP = iZPP
                     self.afmulator.setQs(Q, Qz)
-                    self.REAs = PPU.getAtomsREA(self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0)
+                    self.REAs = PPU.getAtomsREA(
+                        self.afmulator.iZPP,
+                        self.Zs,
+                        self.afmulator.typeParams,
+                        alphaFac=-1.0,
+                    )
 
                     # Make sure the molecule is in right position
                     center = self.handle_positions_and_return()
@@ -156,14 +171,18 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
                     mol1_t = Molecule(mol1_tx, mol1_tz, mol1_tq)
 
                     if mol2.xyzs.size > 0:
-
                         # Set mutant as current molecule
                         self.xyzs = mol2.xyzs
-                        self.qs   = mol2.qs
-                        self.Zs   = mol2.Zs
+                        self.qs = mol2.qs
+                        self.Zs = mol2.Zs
 
                         # Calculate new interaction parameters for the mutant
-                        self.REAs = PPU.getAtomsREA(self.afmulator.iZPP, self.Zs, self.afmulator.typeParams, alphaFac=-1.0)
+                        self.REAs = PPU.getAtomsREA(
+                            self.afmulator.iZPP,
+                            self.Zs,
+                            self.afmulator.typeParams,
+                            alphaFac=-1.0,
+                        )
 
                         # Make sure the molecule is in right position
                         self.handle_positions_mutant(center)
@@ -193,7 +212,6 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
 
                     potMaps.append(e)
 
-
                 self.index += 1
 
             for i in range(len(self.iZPPs)):
@@ -215,51 +233,51 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
         return out
 
     def handle_distance_mutant(self, total_distance, zs_max):
-        '''
+        """
         Set correct distance from scan region for the current mutant. Get distance information from original molecule
         Arguments:
-        '''
-        self.xyzs[:,2] += (self.afmulator.scan_window[1][2] - total_distance) - zs_max
+        """
+        self.xyzs[:, 2] += (self.afmulator.scan_window[1][2] - total_distance) - zs_max
 
     def handle_distance_and_return(self):
-        '''
+        """
         Set correct distance from scan region for the current molecule for the original molecule and return highest atom
         Returns:
 
-        '''
-        RvdwPP = self.afmulator.typeParams[self.afmulator.iZPP-1][0]
-        Rvdw = self.REAs[:,0] - RvdwPP
-        zs = self.xyzs[:,2].copy()
+        """
+        RvdwPP = self.afmulator.typeParams[self.afmulator.iZPP - 1][0]
+        Rvdw = self.REAs[:, 0] - RvdwPP
+        zs = self.xyzs[:, 2].copy()
         imax = np.argmax(zs + Rvdw)
         total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
-        self.xyzs[:,2] += (self.afmulator.scan_window[1][2] - total_distance) - zs.max()
+        self.xyzs[:, 2] += (self.afmulator.scan_window[1][2] - total_distance) - zs.max()
         return total_distance, zs.max()
 
     def handle_positions_and_return(self):
-        '''
+        """
         Set current molecule to the center of the scan window and return center coordinates
-        '''
+        """
         sw = self.afmulator.scan_window
         scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
-        out = self.xyzs[:,:2].mean(axis=0)
-        self.xyzs[:,:2] += scan_center - self.xyzs[:,:2].mean(axis=0)
+        out = self.xyzs[:, :2].mean(axis=0)
+        self.xyzs[:, :2] += scan_center - self.xyzs[:, :2].mean(axis=0)
         return out
 
     def handle_positions_mutant(self, center):
-        '''
+        """
         Set current molecule to the center of the scan window.
-        '''
+        """
         sw = self.afmulator.scan_window
         scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
-        self.xyzs[:,:2] += scan_center - center
+        self.xyzs[:, :2] += scan_center - center
 
     def top_atom_to_zero(self, mol1, mol2):
-        '''
+        """
         Set the z coordinate of the highest atom to 0. Keep molecule and mutant in same coordinates
-        '''
-        top = mol1.xyzs[:,2].max()
-        mol1.xyzs[:,2] -= top
-        mol2.xyzs[:,2] -= top
+        """
+        top = mol1.xyzs[:, 2].max()
+        mol1.xyzs[:, 2] -= top
+        mol2.xyzs[:, 2] -= top
 
     def extend_molecules_with_mutants(self):
         """
@@ -279,110 +297,147 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
         """
         If self.paths is empty, raise ValueError
         """
-        if not self.paths: raise ValueError("No molecules selected")
+        if not self.paths:
+            raise ValueError("No molecules selected")
 
-class CorrectionLoop():
 
-    def __init__(self, relaxator, simulator, atoms, bonds, corrector ):
-
-        self.rotMat = np.array([[1.,0,0],[0.,1.,0],[0.,0,1.]])
+class CorrectionLoop:
+    def __init__(self, relaxator, simulator, atoms, bonds, corrector):
+        self.rotMat = np.array([[1.0, 0, 0], [0.0, 1.0, 0], [0.0, 0, 1.0]])
         self.logAFMdataName = None
         self.logImgName = None
-        self.logImgIzs  = [0,-8,-1]
+        self.logImgIzs = [0, -8, -1]
         self.xyzLogFile = None
 
-        self.simulator  = simulator
-        self.relaxator  = relaxator
-        self.atoms      = atoms
-        self.bonds      = bonds
-        self.corrector  = corrector
+        self.simulator = simulator
+        self.relaxator = relaxator
+        self.atoms = atoms
+        self.bonds = bonds
+        self.corrector = corrector
         self.xyzLogName = None
 
     def init(self):
         pass
 
-    def startLoop(self, molecule, atomMap, bondMap, lvecMap, AFMRef ):
+    def startLoop(self, molecule, atomMap, bondMap, lvecMap, AFMRef):
         self.molecule = molecule
         self.atomMap = atomMap
         self.bondMap = bondMap
         self.mapLvec = lvecMap
-        self.AFMRef  = AFMRef
+        self.AFMRef = AFMRef
         self.bAuxMap = (self.atomMap is not None) and (self.bondMap is not None)
 
-    def debug_plot(self, AFMs, AuxMaps=None ):
+    def debug_plot(self, AFMs, AuxMaps=None):
         if self.logImgName is not None:
             plt = self.plt
-            nz  = len(self.logImgIzs)
+            nz = len(self.logImgIzs)
             if self.bAuxMap:
                 nch = AuxMaps.shape[2]
-                plt.figure(figsize=(5*(nz+nch),5))
+                plt.figure(figsize=(5 * (nz + nch), 5))
                 for ich in range(nch):
-                    plt.subplot(1,nz+nch,ich+1); plt.imshow ( AuxMaps[:,:,ich] )
+                    plt.subplot(1, nz + nch, ich + 1)
+                    plt.imshow(AuxMaps[:, :, ich])
             else:
                 nch = 0
-                plt.figure(figsize=(5*(nz+nch),5))
+                plt.figure(figsize=(5 * (nz + nch), 5))
 
             for iiz, iz in enumerate(self.logImgIzs):
-                plt.subplot(1,nz+nch,iiz+nch+1); plt.imshow ( AFMs[:,:,iz] )
-                plt.title( "iz %i" %iz )
-            plt.savefig( self.logImgName+("_%03i.png" %itr), bbox_inches='tight')
-            plt.close  ()
+                plt.subplot(1, nz + nch, iiz + nch + 1)
+                plt.imshow(AFMs[:, :, iz])
+                plt.title("iz %i" % iz)
+            plt.savefig(self.logImgName + ("_%03i.png" % itr), bbox_inches="tight")
+            plt.close()
 
-    def iteration(self, itr=0 ):
+    def iteration(self, itr=0):
         if self.xyzLogFile is not None:
-           io.saveXYZ( self.xyzLogFile, self.molecule.xyzs, self.molecule.Zs, qs=self.molecule.qs, comment=(f"CorrectionLoop.iteration [{itr}] ") )
+            io.saveXYZ(
+                self.xyzLogFile,
+                self.molecule.xyzs,
+                self.molecule.Zs,
+                qs=self.molecule.qs,
+                comment=(f"CorrectionLoop.iteration [{itr}] "),
+            )
         # Get AFM
         xyzs, qs, Zs = self.molecule.xyzs, self.molecule.qs, self.molecule.Zs
-        AFMs  = self.simulator(xyzs, Zs, qs)
-        xyzqs = np.concatenate([xyzs, qs[:,None]], axis=1)
+        AFMs = self.simulator(xyzs, Zs, qs)
+        xyzqs = np.concatenate([xyzs, qs[:, None]], axis=1)
         # Get Atoms and Bonds AuxMaps
-        AuxMaps=None
-        if( self.bAuxMap ):
+        AuxMaps = None
+        if self.bAuxMap:
             atoms_map = self.atoms(xyzqs, Zs)
             bonds_map = self.bonds(xyzqs, Zs)
             AuxMaps = np.stack([atoms_map, bonds_map], axis=-1)
         if self.logAFMdataName:
-            np.save( self.logAFMdataName+("%03i.dat" %itr), AFMs )
-        self.debug_plot( AFMs, AuxMaps )
-        sw=self.simulator.scan_window
-        Err, self.molecule = self.corrector.try_improve( self.molecule, AFMs, self.AFMRef, sw, itr=itr )
+            np.save(self.logAFMdataName + ("%03i.dat" % itr), AFMs)
+        self.debug_plot(AFMs, AuxMaps)
+        sw = self.simulator.scan_window
+        Err, self.molecule = self.corrector.try_improve(self.molecule, AFMs, self.AFMRef, sw, itr=itr)
         return Err
 
-def Job_trainCorrector( simulator, geom_fname="input.xyz", nstep=10 ):
+
+def Job_trainCorrector(simulator, geom_fname="input.xyz", nstep=10):
     iz = -10
     mutator = Mutator()
-    trainer = CorrectorTrainer( simulator, mutator, molCreator=None )
+    trainer = CorrectorTrainer(simulator, mutator, molCreator=None)
     xyzs, Zs, qs, _ = io.loadXYZ(geom_fname)
 
     sw = simulator.scan_window
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
-    xyzs[:,:2] += scan_center - xyzs[:,:2].mean(axis=0)
-    xyzs[:,2]  += (sw[1][2] - 9.0) - xyzs[:,2].max()
+    xyzs[:, :2] += scan_center - xyzs[:, :2].mean(axis=0)
+    xyzs[:, 2] += (sw[1][2] - 9.0) - xyzs[:, 2].max()
     print("xyzs ", xyzs)
-    mol = Molecule(xyzs,Zs,qs)
+    mol = Molecule(xyzs, Zs, qs)
 
-    trainer.start( mol )
-    extent=( simulator.scan_window[0][0], simulator.scan_window[1][0], simulator.scan_window[0][1], simulator.scan_window[1][1] )
+    trainer.start(mol)
+    extent = (
+        simulator.scan_window[0][0],
+        simulator.scan_window[1][0],
+        simulator.scan_window[0][1],
+        simulator.scan_window[1][1],
+    )
     sc = 3.0
 
     xyzfile = "geomMutations.xyz"
-    io.saveXYZ( xyzfile, mol.xyzs, mol.Zs, qs=mol.qs, comment="# start " )
+    io.saveXYZ(xyzfile, mol.xyzs, mol.Zs, qs=mol.qs, comment="# start ")
     for itr in range(nstep):
-        Xs1,Xs2,mol1,mol2  = trainer[itr]
-        io.saveXYZ( xyzfile, mol2.xyzs, mol2.Zs, qs=mol2.qs, comment=(f"# mutation {itr} "), append=True)
-        plt.figure(figsize=(10,5))
-        plt.subplot(1,2,1); plt.imshow(Xs1[:,:,iz], origin='upper', extent=extent); plt.scatter( mol1.xyzs[:,0], mol1.xyzs[:,1], s=mol1.Zs*sc, c=cm.rainbow( mol1.xyzs[:,2] )  )
-        plt.subplot(1,2,2); plt.imshow(Xs2[:,:,iz], origin='upper', extent=extent); plt.scatter( mol2.xyzs[:,0], mol2.xyzs[:,1], s=mol2.Zs*sc, c=cm.rainbow( mol2.xyzs[:,2] ) )
-        plt.savefig( "CorrectorTrainAFM_%03i.png" %itr )
+        Xs1, Xs2, mol1, mol2 = trainer[itr]
+        io.saveXYZ(
+            xyzfile,
+            mol2.xyzs,
+            mol2.Zs,
+            qs=mol2.qs,
+            comment=(f"# mutation {itr} "),
+            append=True,
+        )
+        plt.figure(figsize=(10, 5))
+        plt.subplot(1, 2, 1)
+        plt.imshow(Xs1[:, :, iz], origin="upper", extent=extent)
+        plt.scatter(
+            mol1.xyzs[:, 0],
+            mol1.xyzs[:, 1],
+            s=mol1.Zs * sc,
+            c=cm.rainbow(mol1.xyzs[:, 2]),
+        )
+        plt.subplot(1, 2, 2)
+        plt.imshow(Xs2[:, :, iz], origin="upper", extent=extent)
+        plt.scatter(
+            mol2.xyzs[:, 0],
+            mol2.xyzs[:, 1],
+            s=mol2.Zs * sc,
+            c=cm.rainbow(mol2.xyzs[:, 2]),
+        )
+        plt.savefig("CorrectorTrainAFM_%03i.png" % itr)
         plt.close()
 
-def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=10 ):
+
+def Job_CorrectionLoop(simulator, atoms, bonds, geom_fname="input.xyz", nstep=10):
     relaxator = FARFF.EngineFARFF()
     corrector = Corrector()
     corrector.logImgName = "AFM_Err"
-    nscan = simulator.scan_dim; nscan = ( nscan[0], nscan[1], nscan[2]- len(simulator.dfWeight) )
-    np.save( 'AFMref.npy', np.zeros(nscan) )
-    AFMRef = np.load('AFMref.npy')
+    nscan = simulator.scan_dim
+    nscan = (nscan[0], nscan[1], nscan[2] - len(simulator.dfWeight))
+    np.save("AFMref.npy", np.zeros(nscan))
+    AFMRef = np.load("AFMref.npy")
 
     looper = CorrectionLoop(relaxator, simulator, atoms, bonds, corrector)
     looper.xyzLogFile = "CorrectionLoopLog.xyz"
@@ -392,25 +447,26 @@ def Job_CorrectionLoop( simulator, atoms, bonds, geom_fname="input.xyz", nstep=1
 
     sw = simulator.scan_window
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
-    xyzs[:,:2] += scan_center - xyzs[:,:2].mean(axis=0)
-    xyzs[:,2] += (sw[1][2] - 9.0) - xyzs[:,2].max()
+    xyzs[:, :2] += scan_center - xyzs[:, :2].mean(axis=0)
+    xyzs[:, 2] += (sw[1][2] - 9.0) - xyzs[:, 2].max()
     print("xyzs ", xyzs)
 
-    xyzqs = np.concatenate([xyzs, qs[:,None]], axis=1)
-    np.save('./Atoms.npy', atoms(xyzqs, Zs))
-    np.save('./Bonds.npy', bonds(xyzqs, Zs))
+    xyzqs = np.concatenate([xyzs, qs[:, None]], axis=1)
+    np.save("./Atoms.npy", atoms(xyzqs, Zs))
+    np.save("./Bonds.npy", bonds(xyzqs, Zs))
 
-    molecule = Molecule(xyzs,Zs,qs)
-    atomMap, bondMap, lvecMap = FARFF.makeGridFF( FARFF,  fname_atom='./Atoms.npy', fname_bond='./Bonds.npy',   dx=0.1, dy=0.1 )
+    molecule = Molecule(xyzs, Zs, qs)
+    atomMap, bondMap, lvecMap = FARFF.makeGridFF(FARFF, fname_atom="./Atoms.npy", fname_bond="./Bonds.npy", dx=0.1, dy=0.1)
 
-    looper.startLoop( molecule, atomMap, bondMap, lvecMap, AFMRef )
+    looper.startLoop(molecule, atomMap, bondMap, lvecMap, AFMRef)
     ErrConv = 0.1
-    print( "# ------ To Loop    ")
+    print("# ------ To Loop    ")
     for itr in range(nstep):
-        print( "# ======= CorrectionLoop[ %i ] ", itr )
+        print("# ======= CorrectionLoop[ %i ] ", itr)
         Err = looper.iteration(itr=itr)
         if Err < ErrConv:
             break
+
 
 # ========================================================================
 
@@ -419,38 +475,41 @@ if __name__ == "__main__":
 
     import matplotlib.cm as cm
     import matplotlib.pyplot as plt
+
     parser = OptionParser()
-    parser.add_option( "-j", "--job", action="store", type="string", help="[train/loop]")
+    parser.add_option("-j", "--job", action="store", type="string", help="[train/loop]")
     (options, args) = parser.parse_args()
 
-    print( " UNIT_TEST START : CorrectionLoop ... " )
+    print(" UNIT_TEST START : CorrectionLoop ... ")
 
     print("# ------ Init Generator   ")
 
     i_platform = 0
-    env = oclu.OCLEnvironment( i_platform = i_platform )
+    env = oclu.OCLEnvironment(i_platform=i_platform)
     FFcl.init(env)
     oclr.init(env)
 
+    # fmt: off
     afmulator = AFMulator.AFMulator(
-        pixPerAngstrome = 10,
-        lvec            = np.array([
-                            [ 0.0,  0.0, 0.0],
-                            [20.0,  0.0, 0.0],
-                            [ 0.0, 20.0, 0.0],
-                            [ 0.0,  0.0, 5.0]
-                          ]),
-        scan_window     = ((2.0, 2.0, 5.0), (18.0, 18.0, 8.0)),
+        pixPerAngstrome=10,
+        lvec=np.array([
+            [0.0, 0.0, 0.0],
+            [20.0, 0.0, 0.0],
+            [0.0, 20.0, 0.0],
+            [0.0, 0.0, 5.0]
+            ]),
+        scan_window=((2.0, 2.0, 5.0), (18.0, 18.0, 8.0)),
     )
+    # fmt: on
 
-    atoms = AuxMap.AtomRfunc(scan_dim=(128, 128), scan_window=((2,2),(18,18)))
-    bonds = AuxMap.Bonds(scan_dim=(128, 128), scan_window=((2,2),(18,18)))
+    atoms = AuxMap.AtomRfunc(scan_dim=(128, 128), scan_window=((2, 2), (18, 18)))
+    bonds = AuxMap.Bonds(scan_dim=(128, 128), scan_window=((2, 2), (18, 18)))
 
     if options.job == "loop":
-        Job_CorrectionLoop( afmulator, atoms, bonds, geom_fname="pos_out3.xyz" )
+        Job_CorrectionLoop(afmulator, atoms, bonds, geom_fname="pos_out3.xyz")
     elif options.job == "train":
-        Job_trainCorrector( afmulator, geom_fname="pos_out3.xyz", nstep=10 )
+        Job_trainCorrector(afmulator, geom_fname="pos_out3.xyz", nstep=10)
     else:
-        print("ERROR : invalid job ", options.job )
+        print("ERROR : invalid job ", options.job)
 
-    print( " UNIT_TEST CorrectionLoop DONE !!! " )
+    print(" UNIT_TEST CorrectionLoop DONE !!! ")

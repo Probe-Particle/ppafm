@@ -134,7 +134,7 @@ float4 getMorse( float3 dp, float3 REA ){
     float   r     = sqrt( dot(dp,dp) + R2SAFE );
     float   expar = exp( REA.z*(r-REA.x) );
     float   E     = REA.y*expar*( expar - 2 );
-    float   fr    = REA.y*expar*( expar - 1 )*2*REA.z;
+    float   fr    = REA.y*expar*( 1 - expar )*2*REA.z;
     return (float4)(dp*(fr/r), E);
 }
 
