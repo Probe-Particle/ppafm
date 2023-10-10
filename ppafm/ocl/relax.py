@@ -396,7 +396,7 @@ class RelaxedScanner:
         self.queue.finish()
         return FEout
 
-    def prepareFEConv( ):
+    def prepareFEConv(self):
         return np.empty( self.scan_dim[:2]+(self.nDimConvOut,4,), dtype=np.float32 )
 
     def run_convolveZ(self, FEconv=None, nz=None ):
