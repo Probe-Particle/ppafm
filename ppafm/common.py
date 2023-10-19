@@ -740,9 +740,9 @@ def prepareScanGrids( ):
         [(params['scanMin'] + params['r0Probe'])[0],
          (params['scanMin'] + params['r0Probe'])[1],
          (params['scanMin'] - params['r0Probe'])[2] ] ,
-        [        (params['scanMax']-params['scanMin'])[0],0.0,0.0],
-        [0.0,    (params['scanMax']-params['scanMin'])[1],0.0    ],
-        [0.0,0.0,(params['scanMax']-params['scanMin'])[2]        ]
+        [        (params['scanMax']-params['scanMin']+params['scanStep'])[0],0.0,0.0],
+        [0.0,    (params['scanMax']-params['scanMin']+params['scanStep'])[1],0.0    ],
+        [0.0,0.0,(params['scanMax']-params['scanMin']+params['scanStep'])[2]        ]
     ]).copy()
     return xTips,yTips,zTips,lvecScan
 

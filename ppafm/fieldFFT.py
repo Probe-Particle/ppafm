@@ -229,7 +229,7 @@ def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, tilt
     fieldInfo( V, label="fieldInfo V " )
     if(verbose>0): print('--- Preprocessing ---')
     sampleSize = getSampleDimensions( lvec )
-    dims = (nDim[2], nDim[1], nDim[0])
+    dims = (nDim[0], nDim[1], nDim[2])
     xsize, dx = getSize('x', dims, sampleSize)
     ysize, dy = getSize('y', dims, sampleSize)
     zsize, dz = getSize('z', dims, sampleSize)
@@ -252,7 +252,7 @@ def potential2forces( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, tilt
 def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, doForce=True, doPot=False, deleteV=True, tilt=0.0 ):
     print('--- Preprocessing ---')
     sampleSize = getSampleDimensions( lvec )
-    dims = (nDim[2], nDim[1], nDim[0])
+    dims = (nDim[0], nDim[1], nDim[2])
 
     xsize, dx = getSize('x', dims, sampleSize)
     ysize, dy = getSize('y', dims, sampleSize)
@@ -267,7 +267,7 @@ def potential2forces_mem( V, lvec, nDim, sigma = 0.7, rho=None, multipole=None, 
     if rho is None:
         if(verbose>0): print('--- Get Probe Density ---')
         rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt )
-        io.saveXSF( "rhoTip.xsf", rho, lvec )
+        io.saveXSF( "rhoTip.xsf", rho, lvec, periodic=True )
 
     if doForce:
         if(verbose>0): print('--- prepare Force transforms ---')

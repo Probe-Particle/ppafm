@@ -63,7 +63,7 @@ def main():
     if(geometry_format=="xsf"):
         print(">>> Loading Hartree potential from  ",args.input,"...")
         print("Use loadXSF")
-        V, lvec, nDim, head = io.loadXSF(args.input)
+        V, lvec, nDim, head = io.loadXSF(args.input, Hartree=True)
     elif(geometry_format=="cube"):
         print(">>> Loading Hartree potential from ",args.input,"...")
         print("Use loadCUBE")
@@ -104,7 +104,7 @@ def main():
             Vref_s = args.Vref
             print(">>> Loading Hartree potential under bias from ",args.KPFM_sample,"...")
             print("Use loadXSF")
-            V_kpfm, lvec, nDim, head = io.loadXSF(args.KPFM_sample)
+            V_kpfm, lvec, nDim, head = io.loadXSF(args.KPFM_sample, Hartree=True)
 
         elif(geometry_format=="cube" and args.KPFM_sample.lower().endswith(".cube") ):
             Vref_s = args.Vref
@@ -127,7 +127,7 @@ def main():
         elif(geometry_format=="cube" and args.KPFM_tip.lower().endswith(".cube")):
             Vref_t = args.Vref
             rho_tip_v0_aux = rho_tip.copy()
-            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = io.loadCUBE( args.KPFM_tip, hartree=False, borh = args.borh )
+            rho_tip_kpfm, lvec_tip, nDim_tip, head_tip = io.loadCUBE( args.KPFM_tip, Hartree=False, borh = args.borh )
             drho_kpfm = (rho_tip_kpfm - rho_tip_v0_aux)
         elif args.KPFM_tip in {'Fit', 'fit', 'dipole', 'pz'}: #To be put on a library in the near future...
             Vref_t = -0.1
