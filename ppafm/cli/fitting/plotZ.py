@@ -17,9 +17,7 @@ from ppafm import io
 def find_minimum(array, precision=0.0001):
     i = 1
     while i < len(array):
-        if (array[i - 1] - array[i]) > precision and (
-            array[i + 1] - array[i]
-        ) > precision:
+        if (array[i - 1] - array[i]) > precision and (array[i + 1] - array[i]) > precision:
             return i
         i += 1
 
@@ -99,27 +97,21 @@ scan_step = PPU.params["scanStep"][2]
 print(" >> OVEWRITING SETTINGS by command line arguments  ")
 
 if opt_dict["krange"] is not None:
-    Ks = np.linspace(
-        opt_dict["krange"][0], opt_dict["krange"][1], opt_dict["krange"][2]
-    )
+    Ks = np.linspace(opt_dict["krange"][0], opt_dict["krange"][1], opt_dict["krange"][2])
 elif opt_dict["k"] is not None:
     Ks = [opt_dict["k"]]
 else:
     Ks = [PPU.params["klat"]]
 # Qs
 if opt_dict["qrange"] is not None:
-    Qs = np.linspace(
-        opt_dict["qrange"][0], opt_dict["qrange"][1], opt_dict["qrange"][2]
-    )
+    Qs = np.linspace(opt_dict["qrange"][0], opt_dict["qrange"][1], opt_dict["qrange"][2])
 elif opt_dict["q"] is not None:
     Qs = [opt_dict["q"]]
 else:
     Qs = [PPU.params["charge"]]
 # Amps
 if opt_dict["arange"] is not None:
-    Amps = np.linspace(
-        opt_dict["arange"][0], opt_dict["arange"][1], opt_dict["arange"][2]
-    )
+    Amps = np.linspace(opt_dict["arange"][0], opt_dict["arange"][1], opt_dict["arange"][2])
 elif opt_dict["a"] is not None:
     Amps = [opt_dict["a"]]
 else:
@@ -128,13 +120,11 @@ else:
 
 for iq, Q in enumerate(Qs):
     for ik, K in enumerate(Ks):
-        dirname = "Q%1.2fK%1.2f" % (Q, K)
+        dirname = f"Q{Q:1.2f}K{K:1.2f}"
 
         print(f"Working in {dirname} directory")
 
-        fzs, lvec, nDim, atomic_info_or_head = io.load_scal_field(
-            dirname + "/OutFz", data_format=format
-        )
+        fzs, lvec, nDim, atomic_info_or_head = io.load_scal_field(dirname + "/OutFz", data_format=format)
         dfs = PPU.Fz2df(
             fzs,
             dz=dz,
@@ -184,9 +174,7 @@ for iq, Q in enumerate(Qs):
             ax2.text(
                 Zplot[min_index] + 0.02,
                 DFplot[min_index] - 1.0,
-                r"x:{:4.2f} ($\AA$); y:{:4.2f} (Hz)".format(
-                    Zplot[min_index], DFplot[min_index]
-                ),
+                rf"x:{Zplot[min_index]:4.2f} ($\AA$); y:{DFplot[min_index]:4.2f} (Hz)",
                 style="italic",
                 bbox={"facecolor": "blue", "alpha": 0.5, "pad": 0},
             )
@@ -197,10 +185,7 @@ for iq, Q in enumerate(Qs):
             #                    perplane.imshow(dfs[len(Zplot)-min_index-(int)(Amp/scan_step/2)-5, :, :], origin='upper', cmap='gray')
             perplane.imshow(
                 dfs[
-                    len(Zplot)
-                    - min_index
-                    - (int)(Amp / scan_step / 2)
-                    - int(1.0 / scan_step),
+                    len(Zplot) - min_index - (int)(Amp / scan_step / 2) - int(1.0 / scan_step),
                     :,
                     :,
                 ],

@@ -76,8 +76,7 @@ parser.add_option(
     "--data_format",
     action="store",
     type="string",
-    help="Specify the output format of the vector and scalar "
-    "field. Supported formats are: xsf,npy",
+    help="Specify the output format of the vector and scalar " "field. Supported formats are: xsf,npy",
     default="xsf",
 )
 parser.add_option(
@@ -121,9 +120,7 @@ dirname = f"Q{Q:1.2f}K{K:1.2f}"
 
 print(f"Working in {dirname} directory")
 
-fzs, lvec, nDim, atomic_info_or_head = io.load_scal_field(
-    dirname + "/OutFz", data_format=options.data_format
-)
+fzs, lvec, nDim, atomic_info_or_head = io.load_scal_field(dirname + "/OutFz", data_format=options.data_format)
 dfs = PPU.Fz2df(
     fzs,
     dz=dz,
@@ -143,9 +140,7 @@ for p in options.points:
     print(opt_dict["disp"])
     if opt_dict["disp"]:
         print("Displacment {}".format(opt_dict["disp"][0]))
-        disp_all, lvec, nDim, atomic_info_or_head = io.load_vec_field(
-            dirname + "/PPdisp_"
-        )
+        disp_all, lvec, nDim, atomic_info_or_head = io.load_vec_field(dirname + "/PPdisp_")
         disp_x, disp_y, disp_z = io.unpackVecGrid(disp_all)
         del disp_all
         if opt_dict["disp"][0] == "x":
@@ -238,9 +233,7 @@ for p in options.points:
         for tl in ax2.get_yticklabels():
             tl.set_color("b")
         plt.axhline(y=0, color="black", ls="-.")
-        perplane = fig.add_axes(
-            [opt_dict["image"][1], opt_dict["image"][2], 0.25, 0.25]
-        )
+        perplane = fig.add_axes([opt_dict["image"][1], opt_dict["image"][2], 0.25, 0.25])
         zindex = int((opt_dict["image"][0] - scan_min[2] + Amp[0] / 2.0) / scan_step[2])
         perplane.imshow(dfs[zindex, :, :], origin="upper", cmap="gray")
         i = 0
