@@ -221,7 +221,7 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
 
 
 def computeDFTD3(input_file, df_params="PBE", geometry_format=None, save_format=None, compute_energy=False):
-   """
+    """
     Compute the Grimme DFT-D3 force field and optionally save to a file. See also :meth:`.add_dftd3`.
 
     Arguments:
