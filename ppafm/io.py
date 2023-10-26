@@ -133,8 +133,10 @@ def loadGeometryIN(fname):
 
     xyzs = np.array(xyzs)
     Zs = np.array(Zs, dtype=np.int32)
-    if (lvec != []):
-        lvec = np.stack([[0.,0.,0.]] + lvec, axis=0)
+    if lvec != []:
+        lvec = np.stack([[0.0, 0.0, 0.0]] + lvec, axis=0)
+    else:
+        lvec = None
     return xyzs, Zs, lvec
 
 def loadPOSCAR(file_path):
@@ -176,7 +178,11 @@ def loadPOSCAR(file_path):
         if coord_type == 'cartesian':
             xyzs *= scale
         else:
-            xyzs = np.outer(xyzs[:, 0], lvec[1]) + np.outer(xyzs[:, 1], lvec[2]) + np.outer(xyzs[:, 2], lvec[3])
+            xyzs = (
+                np.outer(xyzs[:, 0], lvec[1])
+                + np.outer(xyzs[:, 1], lvec[2])
+                + np.outer(xyzs[:, 2], lvec[3])
+            )
 
     return xyzs, Zs, lvec
 
@@ -385,12 +391,7 @@ def loadGeometry(fname=None,format=None,params=None):
     if(format=="xyz"):
         xyzs, Zs, qs, comment = loadXYZ(fname)
         lvec = parseLvecASE(comment)
-        if lvec is None:
-            lvec  = np.zeros((4,3))
-            lvec[ 1,:  ] = params['gridA'].copy()
-            lvec[ 2,:  ] = params['gridB'].copy()
-            lvec[ 3,:  ] = params['gridC'].copy()
-    elif(format=="cube"):
+    elif format == "cube":
         atoms = loadAtomsCUBE(fname)
         lvec  = loadCellCUBE(fname)
         nDim  = loadNCUBE(fname)
@@ -415,9 +416,57 @@ def loadGeometry(fname=None,format=None,params=None):
         if qs is None:
             qs = np.zeros(len(Zs))
         atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
-        nDim = params['gridN'].copy()
+        nDim = params["gridN"].copy()
 
-    return atoms,nDim,lvec
+    # Make sure lvec is a 4x3 array. Use default grid parameters if needed
+    if (lvec is None) or (len(lvec) == 0):
+        lvec = np.zeros((4, 3))
+        lvec[1, :] = params["gridA"].copy()
+        lvec[2, :] = params["gridB"].copy()
+        lvec[3, :] = params["gridC"].copy()
+    else:
+        if len(lvec) == 1:
+            lvec.append(params["gridA"].copy())
+        if len(lvec) == 2:
+            lvec.append(params["gridB"].copy())
+        if len(lvec) == 3:
+            lvec.append(params["gridC"].copy())
+    lvec = np.array(lvec)
+
+    # Shift scanning coordinates to such that actually make sense (being directly comparable to coordinates of atoms)
+    probe_min = params["scanMin"].copy()
+    probe_max = params["scanMax"].copy()
+    probe_min[0] += params["r0Probe"][0]
+    probe_min[1] += params["r0Probe"][1]
+    probe_min[2] -= params["r0Probe"][2]
+    probe_max[0] += params["r0Probe"][0]
+    probe_max[1] += params["r0Probe"][1]
+    probe_max[2] -= params["r0Probe"][2]
+
+    # Generate automatic lattice vectors and grid dimensions if needed
+    pad = 3.0
+    default_grid_step = 0.1
+    for i in range(3):
+        # Zero lattice vector is considered undefined and triggers creation of an automatic one.
+        # The automatically generated lattice vector should enclose the whole scanning area plus the default padding.
+        if np.allclose(lvec[i + 1, :], 0):
+            params["PBC"] = False
+            #lvec[i + 1, i] = probe_max[i] - probe_min[i] + 2*pad
+            lvec[i + 1, i] = probe_max[i] + pad
+
+        # Generate automatic grid using the default step if the grid dimension specified so far is not a positive number
+        if not nDim[i] > 0:
+            nDim[i] = round(np.linalg.norm(lvec[i + 1, :]) / default_grid_step)
+
+    # Copy lattice vectors and grid dimensions to the global parameters
+    # so as to guarantee compatibility between the local variables and global parameters
+    for i in range(3):
+        params["gridA"][i] = lvec[1][i]
+        params["gridB"][i] = lvec[2][i]
+        params["gridC"][i] = lvec[3][i]
+        params["gridN"][i] = nDim[i]
+
+    return atoms, nDim, lvec
 
 def parseLvecASE(comment):
     '''
@@ -434,7 +483,9 @@ def parseLvecASE(comment):
     match = re.match('.*Lattice=\"\\s*((?:[+-]?(?:[0-9]*\\.)?[0-9]+\\s*){9})\"', comment)
     if match:
         lvec = np.zeros(12, dtype=np.float32)
-        lvec[3:] = np.array([float(s) for s in match.group(1).split()], dtype=np.float32)
+        lvec[3:] = np.array(
+            [float(s) for s in match.group(1).split()], dtype=np.float32
+        )
         lvec = lvec.reshape(4, 3)
     else:
         lvec = None
@@ -492,11 +543,14 @@ def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1 ):
     for line in head:
         fileout.write(line)
     nDim = np.shape(data)
-    _writeArr (fileout, (nDim[2]+1,nDim[1]+1,nDim[0]+1) )
-    _writeArr2D(fileout,lvec)
-    data2 = np.zeros(np.array(nDim)+1);   # These crazy 3 lines are here since the first and the last cube
-    data2[:-1,:-1,:-1] = data;  # in XSF in every direction is the same
-    data2[-1,:,:]=data2[0,:,:];data2[:,-1,:]=data2[:,0,:];data2[:,:,-1]=data2[:,:,0];
+    _writeArr(fileout, (nDim[2] + 1, nDim[1] + 1, nDim[0] + 1))
+    _writeArr2D(fileout, lvec)
+    data2 = np.zeros(np.array(nDim) + 1)
+    # These crazy 3 lines are here since the first and the last cube in XSF in every direction is the same
+    data2[:-1, :-1, :-1] = data
+    data2[-1, :, :] = data2[0, :, :]
+    data2[:, -1, :] = data2[:, 0, :]
+    data2[:, :, -1] = data2[:, :, 0]
     for r in data2.flat:
         fileout.write( "%10.5e\n" % r )
     fileout.write ("   END_DATAGRID_3D\n")
