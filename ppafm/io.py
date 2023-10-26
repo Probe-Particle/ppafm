@@ -434,12 +434,14 @@ def loadGeometry(fname=None,format=None,params=None):
     lvec = np.array(lvec)
 
     # Shift scanning coordinates to such that actually make sense (being directly comparable to coordinates of atoms)
-    params["scanMin"][0] += params["r0Probe"][0]
-    params["scanMin"][1] += params["r0Probe"][1]
-    params["scanMin"][2] -= params["r0Probe"][2]
-    params["scanMax"][0] += params["r0Probe"][0]
-    params["scanMax"][1] += params["r0Probe"][1]
-    params["scanMax"][2] -= params["r0Probe"][2]
+    probeMin = params["scanMin"].copy()
+    probeMax = params["scanMax"].copy()
+    probeMin[0] += params["r0Probe"][0]
+    probeMin[1] += params["r0Probe"][1]
+    probeMin[2] -= params["r0Probe"][2]
+    probeMax[0] += params["r0Probe"][0]
+    probeMax[1] += params["r0Probe"][1]
+    probeMax[2] -= params["r0Probe"][2]
 
     # Generate automatic lattice vectors and grid dimensions if needed
     pad = 3.0
@@ -448,26 +450,12 @@ def loadGeometry(fname=None,format=None,params=None):
         # Zero lattice vector is considered undefined and triggers creation of an automatic one.
         # The automatic generated lattice vector should enclose the whole area filled with atoms as well as the whole scanning area, plus the default padding.
         if np.allclose(lvec[i + 1, :], 0):
-            if params["PBC"]:
-                lvec[i + 1, i] = (
-                    max(max(atoms[i + 1]), params["scanMax"][i])
-                    - min(min(atoms[i + 1]), params["scanMin"][i])
-                    + 2 * pad
-                )
-            else:
-                lvec[i + 1, i] = max(max(atoms[i + 1]), params["scanMax"][i]) + pad
+            params["PBC"] = False
+            lvec[i + 1, i] = probeMax[i] + pad
 
         # Generate automatic grid using the default step if the grid dimension specified so far is not a positive number
         if not nDim[i] > 0:
             nDim[i] = round(np.linalg.norm(lvec[i + 1, :]) / default_grid_step)
-
-    # Shift scanning coordinates back because, unfortunately, we have to keep backward compatibility
-    params["scanMin"][0] -= params["r0Probe"][0]
-    params["scanMin"][1] -= params["r0Probe"][1]
-    params["scanMin"][2] += params["r0Probe"][2]
-    params["scanMax"][0] -= params["r0Probe"][0]
-    params["scanMax"][1] -= params["r0Probe"][1]
-    params["scanMax"][2] += params["r0Probe"][2]
 
     # Copy lattice vectors and grid dimensions to the global parameters
     # so as to guarantee compatibility between the local variables and global parameters
