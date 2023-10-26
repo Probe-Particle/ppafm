@@ -448,7 +448,7 @@ def loadGeometry(fname=None,format=None,params=None):
     default_grid_step = 0.1
     for i in range(3):
         # Zero lattice vector is considered undefined and triggers creation of an automatic one.
-        # The automatic generated lattice vector should enclose the whole area filled with atoms as well as the whole scanning area, plus the default padding.
+        # The automatically generated lattice vector should enclose the whole scanning area plus the default padding.
         if np.allclose(lvec[i + 1, :], 0):
             params["PBC"] = False
             #lvec[i + 1, i] = probe_max[i] - probe_min[i] + 2*pad
