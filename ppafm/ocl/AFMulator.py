@@ -67,12 +67,7 @@ class AFMulator:
     bMergeConv = False  # Should we use merged kernel relaxStrokesTilted_convZ or two separated kernells  ( relaxStrokesTilted, convolveZ  )
 
     # --- Relaxation
-    relaxParams = [
-        0.5,
-        0.1,
-        0.1 * 0.2,
-        0.1 * 5.0,
-    ]  # (dt,damp, .., .. ) parameters of relaxation, in the moment just dt and damp are used
+    relaxParams = [0.5, 0.1, 0.1 * 0.2, 0.1 * 5.0]  # (dt,damp, .., .. ) parameters of relaxation, in the moment just dt and damp are used
 
     # --- Output
     bSaveFF = False  # Save debug ForceField as .xsf
@@ -135,19 +130,7 @@ class AFMulator:
         self.typeParams = PPU.loadSpecies("atomtypes.ini")
         self.saveFFpre = ""
 
-    def eval(
-        self,
-        xyzs,
-        Zs,
-        qs,
-        rho_sample=None,
-        sample_lvec=None,
-        rot=np.eye(3),
-        rot_center=None,
-        REAs=None,
-        X=None,
-        plot_to_dir=None,
-    ):
+    def eval(self, xyzs, Zs, qs, rho_sample=None, sample_lvec=None, rot=np.eye(3), rot_center=None, REAs=None, X=None, plot_to_dir=None):
         """
         Prepare and evaluate AFM image.
 
@@ -197,9 +180,7 @@ class AFMulator:
         if lvec is not None:
             self.lvec = lvec
         else:
-            self.lvec = get_lvec(
-                self.scan_window, tipR0=self.tipR0, pixPerAngstrome=self.pixPerAngstrome
-            )
+            self.lvec = get_lvec(self.scan_window, tipR0=self.tipR0, pixPerAngstrome=self.pixPerAngstrome)
 
         # Remember old grid size
         if hasattr(self.forcefield, "nDim"):
@@ -209,11 +190,7 @@ class AFMulator:
 
         # Set lvec in force field and scanner
         self.forcefield.initSampling(self.lvec, pixPerAngstrome=self.pixPerAngstrome)
-        FEin_shape = (
-            self.forcefield.nDim
-            if (self._old_nDim != self.forcefield.nDim).any()
-            else None
-        )
+        FEin_shape = self.forcefield.nDim if (self._old_nDim != self.forcefield.nDim).any() else None
         self.scanner.prepareBuffers(lvec=self.lvec, FEin_shape=FEin_shape)
 
     def setScanWindow(self, scan_window=None, scan_dim=None, df_steps=None):
@@ -225,16 +202,12 @@ class AFMulator:
             self.scan_dim = scan_dim
         if df_steps is not None:
             if df_steps <= 0 or df_steps > self.scan_dim[2]:
-                raise ValueError(
-                    f"df_steps should be between 1 and scan_dim[2]({scan_dim[2]}), but got {df_steps}."
-                )
+                raise ValueError(f"df_steps should be between 1 and scan_dim[2]({scan_dim[2]}), but got {df_steps}.")
             self.df_steps = df_steps
 
         # Set df convolution weights
         self.dz = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
-        self.dfWeight = PPU.get_simple_df_weight(self.df_steps, dz=self.dz).astype(
-            np.float32
-        )
+        self.dfWeight = PPU.get_simple_df_weight(self.df_steps, dz=self.dz).astype(np.float32)
         self.dfWeight *= PPU.eVA_Nm * self.f0Cantilever / self.kCantilever
         self.amplitude = self.dz * len(self.dfWeight)
         self.scanner.zstep = self.dz
@@ -246,9 +219,7 @@ class AFMulator:
             nDimConvOut=(self.scan_dim[2] - len(self.dfWeight) + 1),
         )
         self.scanner.updateBuffers(WZconv=self.dfWeight)
-        self.scanner.preparePosBasis(
-            start=self.scan_window[0][:2], end=self.scan_window[1][:2]
-        )
+        self.scanner.preparePosBasis(start=self.scan_window[0][:2], end=self.scan_window[1][:2])
 
     def setRho(self, rho=None, sigma=0.71, B_pauli=1.0):
         """Set tip charge distribution.
@@ -272,9 +243,7 @@ class AFMulator:
                 )
             else:
                 if not isinstance(rho, TipDensity):
-                    raise ValueError(
-                        f"rho should of type `TipDensity`, but got `{type(rho)}`"
-                    )
+                    raise ValueError(f"rho should of type `TipDensity`, but got `{type(rho)}`")
                 self.rho = rho
             if self.verbose > 0:
                 print("AFMulator.setRho: Preparing buffers")
@@ -305,9 +274,7 @@ class AFMulator:
         self.rho_delta = rho_delta
         if self.rho_delta is not None:
             if not isinstance(rho_delta, TipDensity):
-                raise ValueError(
-                    f"rho_delta should of type `TipDensity`, but got `{type(rho_delta)}`"
-                )
+                raise ValueError(f"rho_delta should of type `TipDensity`, but got `{type(rho_delta)}`")
             if self.verbose > 0:
                 print("AFMulator.setRhoDelta: Preparing buffers")
             self.forcefield.prepareBuffers(rho_delta=self.rho_delta, bDirect=True)
@@ -325,17 +292,7 @@ class AFMulator:
 
     # ========= Imaging =========
 
-    def prepareFF(
-        self,
-        xyzs,
-        Zs,
-        qs,
-        rho_sample=None,
-        sample_lvec=None,
-        rot=np.eye(3),
-        rot_center=None,
-        REAs=None,
-    ):
+    def prepareFF(self, xyzs, Zs, qs, rho_sample=None, sample_lvec=None, rot=np.eye(3), rot_center=None, REAs=None):
         """
         Prepare molecule parameters and calculate force field.
 
@@ -368,26 +325,18 @@ class AFMulator:
             if self._rho is not None:
                 # The grid size changed so we need to recompute/reinterpolate the tip density grid
                 self.setRho(self._rho, self.sigma, self.B_pauli)
-                self.setRhoDelta(
-                    self.rho_delta
-                )  # self.rho_delta could be None, but then this does nothing
+                self.setRhoDelta(self.rho_delta)  # self.rho_delta could be None, but then this does nothing
             self.forcefield.prepareBuffers()
             self._old_nDim = self.forcefield.nDim
 
         # If rho_sample is specified, then we use FDBM. Check that other requirements are satisfied.
         if rho_sample is not None:
             if not isinstance(rho_sample, ElectronDensity):
-                raise ValueError(
-                    f"rho_sample should of type `ElectronDensity`, but got `{type(rho_sample)}`"
-                )
+                raise ValueError(f"rho_sample should of type `ElectronDensity`, but got `{type(rho_sample)}`")
             if not isinstance(qs, HartreePotential):
-                raise ValueError(
-                    f"qs should be HartreePotential when rho_sample is not None, but got type `{type(qs)}`."
-                )
+                raise ValueError(f"qs should be HartreePotential when rho_sample is not None, but got type `{type(qs)}`.")
             if self.rho_delta is None:
-                raise ValueError(
-                    f"rho_delta should be set when rho_sample is not None."
-                )
+                raise ValueError(f"rho_delta should be set when rho_sample is not None.")
 
         # Check if using point charges or precomputed Hartee potential
         if qs is None:
@@ -414,9 +363,7 @@ class AFMulator:
             method = "point-charge"
 
         if (method != "fdbm") and (not np.allclose(self.B_pauli, 1.0)):
-            warnings.warn(
-                f"Not using FDBM, but tip density exponent is {self.B_pauli}! This is probably not what you want to do!"
-            )
+            warnings.warn(f"Not using FDBM, but tip density exponent is {self.B_pauli}! This is probably not what you want to do!")
 
         npbc = self.npbc if self.sample_lvec is not None else (0, 0, 0)
 
@@ -428,9 +375,7 @@ class AFMulator:
             REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
         cLJs = PPU.REA2LJ(REAs)
         if sum(npbc) > 0:
-            Zs, xyzs, qs, cLJs, REAs = PPU.PBCAtoms3D_np(
-                Zs, xyzs, qs, cLJs, REAs, self.sample_lvec, npbc=npbc
-            )
+            Zs, xyzs, qs, cLJs, REAs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, self.sample_lvec, npbc=npbc)
 
         # Compute force field
         self.forcefield.makeFF(
@@ -490,12 +435,10 @@ class AFMulator:
         if X is None:
             X = FEout[:, :, :, 2].copy()
         else:
-            if X.shape != self.scan_dim[:2] + (
-                self.scan_dim[2] - len(self.dfWeight) + 1,
-            ):
+            if X.shape != self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight) + 1,):
                 raise ValueError(
                     f"Expected an array of shape {self.scan_dim[:2] + (self.scan_dim[2] - len(self.dfWeight) + 1,)} "
-                    + f"for storing AFM image, but got an array of shape {X.shape} instead."
+                    f"for storing AFM image, but got an array of shape {X.shape} instead."
                 )
             X[:, :, :] = FEout[:, :, :, 2]
 
@@ -525,25 +468,19 @@ class AFMulator:
         """
         params, sample_lvec = _get_params(file_path)
         if params["tipStiffness"] is not None:
-            self.scanner.stiffness = (
-                np.array(params["tipStiffness"], dtype=np.float32) / -PPU.eVA_Nm
-            )
+            self.scanner.stiffness = np.array(params["tipStiffness"], dtype=np.float32) / -PPU.eVA_Nm
         self.iZPP = params["iZPP"]
         self.tipR0 = params["tipR0"]
         self.f0Cantilever = params["f0Cantilever"]
         self.kCantilever = params["kCantilever"]
         self.npbc = params["npbc"]
         self.A_pauli = params["A_pauli"]
-        self.setScanWindow(
-            params["scan_window"], params["scan_dim"], params["df_steps"]
-        )
+        self.setScanWindow(params["scan_window"], params["scan_dim"], params["df_steps"])
         self.setLvec(params["lvec"], params["pixPerAngstrome"])
         if (self._rho is None) or isinstance(self._rho, dict):
             self.setRho(params["rho"], params["sigma"])
         else:
-            warnings.warn(
-                f'Using existing tip density with exponent {params["B_pauli"]}, instead of parameters from params.ini file.'
-            )
+            warnings.warn(f'Using existing tip density with exponent {params["B_pauli"]}, instead of parameters from params.ini file.')
             self.setRho(self._rho, sigma=params["sigma"], B_pauli=params["B_pauli"])
         self.sample_lvec = sample_lvec
 
@@ -565,9 +502,7 @@ class AFMulator:
             f.write(f"probeType {self.iZPP}\n")
             if isinstance(self._rho, dict):
                 if len(self._rho) > 1:
-                    warnings.warn(
-                        "More than one tip multipole type specified. Only writing the first one into params.ini."
-                    )
+                    warnings.warn("More than one tip multipole type specified. Only writing the first one into params.ini.")
                 tip = list(self._rho)[0]
                 f.write(f"tip {tip}\n")
                 f.write(f"charge {self._rho[tip]}\n")
@@ -577,26 +512,16 @@ class AFMulator:
             f.write(f"PBC {(np.array(self.npbc) > 0).any()}\n")
             f.write(f"nPBC {self.npbc[0]} {self.npbc[1]} {self.npbc[2]}\n")
             if self.sample_lvec is not None:
-                f.write(
-                    f"gridA {self.sample_lvec[0, 0]} {self.sample_lvec[0, 1]} {self.sample_lvec[0, 2]}\n"
-                )
-                f.write(
-                    f"gridB {self.sample_lvec[1, 0]} {self.sample_lvec[1, 1]} {self.sample_lvec[1, 2]}\n"
-                )
-                f.write(
-                    f"gridC {self.sample_lvec[2, 0]} {self.sample_lvec[2, 1]} {self.sample_lvec[2, 2]}\n"
-                )
+                f.write(f"gridA {self.sample_lvec[0, 0]} {self.sample_lvec[0, 1]} {self.sample_lvec[0, 2]}\n")
+                f.write(f"gridB {self.sample_lvec[1, 0]} {self.sample_lvec[1, 1]} {self.sample_lvec[1, 2]}\n")
+                f.write(f"gridC {self.sample_lvec[2, 0]} {self.sample_lvec[2, 1]} {self.sample_lvec[2, 2]}\n")
             f.write(f"FFgrid0 {self.lvec[0, 0]} {self.lvec[0, 1]} {self.lvec[0, 2]}\n")
             f.write(f"FFgridA {self.lvec[1, 0]} {self.lvec[1, 1]} {self.lvec[1, 2]}\n")
             f.write(f"FFgridB {self.lvec[2, 0]} {self.lvec[2, 1]} {self.lvec[2, 2]}\n")
             f.write(f"FFgridC {self.lvec[3, 0]} {self.lvec[3, 1]} {self.lvec[3, 2]}\n")
             f.write(f"gridN {nDim[0]} {nDim[1]} {nDim[2]}\n")
-            f.write(
-                f"scanMin {self.scan_window[0][0]} {self.scan_window[0][1]} {self.scan_window[0][2]}\n"
-            )
-            f.write(
-                f"scanMax {self.scan_window[1][0]} {self.scan_window[1][1]} {self.scan_window[1][2]}\n"
-            )
+            f.write(f"scanMin {self.scan_window[0][0]} {self.scan_window[0][1]} {self.scan_window[0][2]}\n")
+            f.write(f"scanMax {self.scan_window[1][0]} {self.scan_window[1][1]} {self.scan_window[1][2]}\n")
             f.write(f"scanStep {scan_step[0]} {scan_step[1]} {scan_step[2]}\n")
             f.write(f"kCantilever {self.kCantilever}\n")
             f.write(f"f0Cantilever {self.f0Cantilever}\n")
@@ -635,12 +560,8 @@ class AFMulator:
                 continue
             lvec_start = self.lvec[0, i]
             lvec_end = lvec_start + self.lvec[i + 1, i]
-            scan_start = (
-                self.scan_window[0][i] - 0.3
-            )  # Small offsets because being close to the boundary
-            scan_end = (
-                self.scan_window[1][i] + 0.3
-            )  # is problematic as well because of PP bending.
+            scan_start = self.scan_window[0][i] - 0.3  # Small offsets because being close to the boundary
+            scan_end = self.scan_window[1][i] + 0.3  # is problematic as well because of PP bending.
             if i == 2:
                 scan_start -= self.tipR0[2]
                 scan_end -= self.tipR0[2]
@@ -699,16 +620,11 @@ def _get_params(file_path):
     )
     if (lvec < 0).any():
         lvec = None
-    sample_lvec = np.array(
-        [PPU.params["gridA"], PPU.params["gridB"], PPU.params["gridC"]]
-    )
+    sample_lvec = np.array([PPU.params["gridA"], PPU.params["gridB"], PPU.params["gridC"]])
     if (PPU.params["gridN"] == 0).any() or lvec is None:
         pixPerAngstrome = 10
     else:
-        rx, ry, rz = (
-            round(PPU.params["gridN"][i] / np.linalg.norm(lvec[i + 1]))
-            for i in range(3)
-        )
+        rx, ry, rz = (round(PPU.params["gridN"][i] / np.linalg.norm(lvec[i + 1])) for i in range(3))
         if np.allclose([rx, ry], rz):
             pixPerAngstrome = rx
         else:
@@ -724,16 +640,12 @@ def _get_params(file_path):
         round((scan_window[1][2] - scan_window[0][2]) / PPU.params["scanStep"][2]),
     )
     iZPP = PPU.params["probeType"]
-    iZPP = (
-        elements.ELEMENT_DICT[iZPP][0] if iZPP in elements.ELEMENT_DICT else int(iZPP)
-    )
+    iZPP = elements.ELEMENT_DICT[iZPP][0] if iZPP in elements.ELEMENT_DICT else int(iZPP)
     tipStiffness = PPU.params["stiffness"]
     if (tipStiffness < 0).any():
         tipStiffness = [0.25, 0.25, 0.0, 30.0]
     else:
-        tipStiffness = np.insert(
-            tipStiffness, 2, 0.0
-        )  # AFMulator additionally has a z-component in the third place
+        tipStiffness = np.insert(tipStiffness, 2, 0.0)  # AFMulator additionally has a z-component in the third place
     afmulator_params = {
         "lvec": lvec,
         "pixPerAngstrome": pixPerAngstrome,
@@ -754,9 +666,7 @@ def _get_params(file_path):
     return afmulator_params, sample_lvec
 
 
-def get_lvec(
-    scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrome=10
-):
+def get_lvec(scan_window, pad=(2.0, 2.0, 3.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrome=10):
     pad = np.array(pad)
     tipR0 = np.array(tipR0)
     center = (np.array(scan_window[0]) + np.array(scan_window[1])) / 2
@@ -765,9 +675,14 @@ def get_lvec(
     nDim = np.array([VALID_SIZES[VALID_SIZES >= d][0] for d in nDim])
     box_size = nDim / pixPerAngstrome
     origin = center - box_size / 2 - tipR0
-    lvec = np.array(
-        [origin, [box_size[0], 0, 0], [0, box_size[1], 0], [0, 0, box_size[2]]]
-    )
+    # fmt: off
+    lvec = np.array([
+        origin,
+        [box_size[0],           0,           0],
+        [          0, box_size[1],           0],
+        [          0,           0, box_size[2]]
+    ])
+    # fmt: on
     return lvec
 
 
@@ -839,17 +754,11 @@ def quick_afm(
 
     # Figure out scan parameters
     z_max = xyzs[:, 2].max() + distance
-    xy_center = (xyzs[:, :2].min(axis=0) + xyzs[:, :2].max(axis=0)) / 2 + np.array(
-        offset
-    )
+    xy_center = (xyzs[:, :2].min(axis=0) + xyzs[:, :2].max(axis=0)) / 2 + np.array(offset)
     df_steps = int(amplitude / scan_step[2])
     z_size = (num_heights + df_steps - 1) * scan_step[2]
     scan_window = (
-        (
-            xy_center[0] - scan_size[0] / 2,
-            xy_center[1] - scan_size[1] / 2,
-            z_max - z_size,
-        ),
+        (xy_center[0] - scan_size[0] / 2, xy_center[1] - scan_size[1] / 2, z_max - z_size),
         (xy_center[0] + scan_size[0] / 2, xy_center[1] + scan_size[1] / 2, z_max),
     )
     scan_dim = (
@@ -878,7 +787,5 @@ def quick_afm(
         scan_window[0][1],
         scan_window[1][1],
     ]
-    zs = np.linspace(scan_window[0][2], scan_window[1][2], scan_dim[2] + 1)[
-        :num_heights
-    ]
+    zs = np.linspace(scan_window[0][2], scan_window[1][2], scan_dim[2] + 1)[:num_heights]
     plotImages(os.path.join(out_dir, "df"), X, range(len(X)), extent=extent, zs=zs)
