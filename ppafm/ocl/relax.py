@@ -11,10 +11,12 @@ from .. import common as PPU
 cl_program = None
 oclu = None
 
-DEFAULT_dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 );
-DEFAULT_stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 );
-DEFAULT_dpos0        = np.array( [ 0.0 , 0.0 , -4.0 , 4.0 ], dtype=np.float32 );
-DEFAULT_relax_params = np.array( [ 0.5 , 0.1 ,  0.02, 0.5 ], dtype=np.float32 );
+# fmt: off
+DEFAULT_dTip         = np.array( [ 0.0 , 0.0 , -0.1 , 0.0 ], dtype=np.float32 )
+DEFAULT_stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 )
+DEFAULT_dpos0        = np.array( [ 0.0 , 0.0 , -4.0 , 4.0 ], dtype=np.float32 )
+DEFAULT_relax_params = np.array( [ 0.5 , 0.1 ,  0.02, 0.5 ], dtype=np.float32 )
+# fmt: on
 
 verbose = 0
 
@@ -282,18 +284,21 @@ class RelaxedScanner:
         if nz is None: nz=self.scan_dim[2]
         self.updateBuffers( FEin=FEin, lvec=lvec )
         if FEout is None:    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
-        kargs = (
+        # fmt: off
+        cl_program.relaxStrokes(self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None,
             self.cl_ImgIn,
             self.cl_poss,
             self.cl_FEout,
-            self.invCell[0], self.invCell[1], self.invCell[2],
+            self.invCell[0],
+            self.invCell[1],
+            self.invCell[2],
             self.dTip,
             self.stiffness,
             self.dpos0,
             self.relax_params,
-            np.int32(nz) )
-        #print kargs
-        cl_program.relaxStrokes( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+            np.int32(nz)
+        )
+        # fmt: on
         cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
         self.queue.finish()
         return FEout
@@ -305,19 +310,25 @@ class RelaxedScanner:
         if nz is None: nz=self.scan_dim[2]
         if bCopy and (FEout is None):    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
         self.updateBuffers( FEin=FEin, lvec=lvec )
-        kargs = (
+        # fmt: off
+        cl_program.relaxStrokesTilted(self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None,
             self.cl_ImgIn,
             self.cl_poss,
             self.cl_FEout,
             self.cl_paths,
-            self.invCell[0], self.invCell[1], self.invCell[2],
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            self.invCell[0],
+            self.invCell[1],
+            self.invCell[2],
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2],
             self.stiffness,
             self.dpos0Tip,
             self.relax_params,
             self.surfFF,
-            np.int32(nz) )
-        cl_program.relaxStrokesTilted( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+            np.int32(nz)
+        )
+        # fmt: on
         if(bCopy  ): cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
         if(bFinish): self.queue.finish()
         return FEout
@@ -333,21 +344,25 @@ class RelaxedScanner:
             else:
                 FEconv = self.prepareFEConv()
         self.updateBuffers( FEin=FEin, lvec=lvec )
-        kargs = (
+        # fmt: off
+        cl_program.relaxStrokesTilted_convZ(self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None,
             self.cl_ImgIn,
             self.cl_poss,
             self.cl_WZconv,
             self.cl_FEconv,
-            self.invCell[0], self.invCell[1], self.invCell[2],
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            self.invCell[0],
+            self.invCell[1],
+            self.invCell[2],
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2],
             self.stiffness,
             self.dpos0Tip,
             self.relax_params,
             self.surfFF,
-            np.int32(nz),
-            np.int32(self.nDimConvOut),
+            np.int32(nz), np.int32(self.nDimConvOut),
         )
-        cl_program.relaxStrokesTilted_convZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+        # fmt: on
         cl.enqueue_copy( self.queue, FEconv, self.cl_FEconv )
         self.queue.finish()
         return FEconv
@@ -358,16 +373,21 @@ class RelaxedScanner:
         '''
         if nz is None: nz=self.scan_dim[2]
         self.updateBuffers( FEin=FEin, lvec=lvec, WZconv=WZconv )
-        kargs = (
+        # fmt: off
+        cl_program.getFEinStrokes(self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None,
             self.cl_ImgIn,
             self.cl_poss,
             self.cl_FEout,
-            self.invCell[0], self.invCell[1], self.invCell[2],
+            self.invCell[0],
+            self.invCell[1],
+            self.invCell[2],
             self.dTip,
             self.dpos0,
-            np.int32(nz) )
-        cl_program.getFEinStrokes( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+            np.int32(nz)
+        )
+        # fmt: on
         if bDoConv:
+            # This function is missing. Maybe this should be self.run_convolveZ?
             FEout = runZConv(self, FEconv=FEconv, nz=nz )
         else:
             if FEout is None:    FEout = np.empty( self.scan_dim+(4,), dtype=np.float32 )
@@ -382,16 +402,22 @@ class RelaxedScanner:
         '''
         if nz is None: nz=self.scan_dim[2]
         self.updateBuffers( FEin=FEin, lvec=lvec )
-        kargs = (
+        # fmt: off
+        cl_program.getFEinStrokesTilted(self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None,
             self.cl_ImgIn,
             self.cl_poss,
             self.cl_FEout,
-            self.invCell[0], self.invCell[1], self.invCell[2],
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            self.invCell[0],
+            self.invCell[1],
+            self.invCell[2],
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2],
             self.dTip,
             self.dpos0,
-            np.int32(nz) )
-        cl_program.getFEinStrokesTilted( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+            np.int32(nz)
+        )
+        # fmt: on
         cl.enqueue_copy( self.queue, FEout, self.cl_FEout )
         self.queue.finish()
         return FEout
@@ -409,13 +435,14 @@ class RelaxedScanner:
                 FEconv = self.FEconv
             else:
                 FEconv = self.prepareFEConv()
-        kargs = (
+        # fmt: off
+        cl_program.convolveZ(self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None,
             self.cl_FEout,
             self.cl_FEconv,
             self.cl_WZconv,
-            np.int32(nz), np.int32( self.nDimConvOut )
+            np.int32(nz), np.int32(self.nDimConvOut)
         )
-        cl_program.convolveZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+        # fmt: on
         cl.enqueue_copy( self.queue, FEconv, self.cl_FEconv )
         self.queue.finish()
         return FEconv
@@ -428,11 +455,13 @@ class RelaxedScanner:
         '''
         if nz is None: nz=self.scan_dim[2]
         if zMap is None: zMap = np.empty( self.scan_dim[:2], dtype=np.float32 )
-        kargs = (
+        # fmt: off
+        cl_program.izoZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None,
             self.cl_FEout,
             self.cl_zMap,
-            np.int32(nz), np.float32( iso ) )
-        cl_program.izoZ( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), None, *kargs )
+            np.int32(nz), np.float32(iso)
+        )
+        # fmt: on
         cl.enqueue_copy( self.queue, zMap, self.cl_zMap )
         self.queue.finish()
         return zMap
@@ -445,17 +474,23 @@ class RelaxedScanner:
         '''
         if nz is None: nz=self.scan_dim[2]
         if zMap is None: zMap = np.empty( self.scan_dim[:2], dtype=np.float32 )
-        kargs = (
+        local_size = (1,)
+        # fmt: off
+        cl_program.getZisoTilted(self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), local_size,
             self.cl_ImgIn,
             self.cl_poss,
             self.cl_zMap,
-            self.invCell[0], self.invCell[1], self.invCell[2],
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            self.invCell[0],
+            self.invCell[1],
+            self.invCell[2],
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2],
             self.dTip,
             self.dpos0,
-            np.int32(nz), np.float32( iso ) )
-        local_size = (1,)
-        cl_program.getZisoTilted( self.queue, ( int(self.scan_dim[0]*self.scan_dim[1]),), local_size, *kargs )
+            np.int32(nz), np.float32( iso )
+        )
+        # fmt: on
         cl.enqueue_copy( self.queue, zMap, self.cl_zMap )
         self.queue.finish()
         return zMap
@@ -473,7 +508,9 @@ class RelaxedScanner:
         if nz is None: nz=self.scan_dim[2]
         if zMap is None:  zMap  = np.empty( self.scan_dim[:2], dtype=np.float32 )
         if feMap is None: feMap = np.empty( self.scan_dim[:2]+(4,), dtype=np.float32 )
-        kargs = (
+        local_size = (1,)
+        # fmt: off
+        cl_program.getZisoFETilted(self.queue, ( np.int32(self.scan_dim[0]*self.scan_dim[1]),), local_size,
             self.cl_ImgIn,
             self.cl_poss,
             self.cl_zMap,
@@ -484,9 +521,9 @@ class RelaxedScanner:
             self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
             self.dTip,
             self.dpos0,
-            np.int32(nz), np.float32( iso ) )
-        local_size = (1,)
-        cl_program.getZisoFETilted( self.queue, ( np.int32(self.scan_dim[0]*self.scan_dim[1]),), local_size, *kargs )
+            np.int32(nz), np.float32( iso )
+        )
+        # fmt: on
         cl.enqueue_copy( self.queue,  zMap, self.cl_zMap  )
         cl.enqueue_copy( self.queue, feMap, self.cl_feMap )
         self.queue.finish()

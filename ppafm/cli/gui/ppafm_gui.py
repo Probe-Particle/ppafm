@@ -27,6 +27,7 @@ import matplotlib; matplotlib.use('Qt5Agg')
 
 Multipoles = Enum('Multipoles', 's pz dz2')
 
+# fmt: off
 Presets = {
     'CO (Z8, dz2, Q-0.1, K0.25)': {
         'Z': 8,
@@ -53,6 +54,7 @@ Presets = {
         'EqPos': [0.0, 0.0, 3.0]
     }
 }
+# fmt: on
 
 TTips = {
     'Preset': 'Preset: Apply a probe parameter preset.',
@@ -199,10 +201,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         z = self.xyzs[:, 2].max() + distance
         z_min = z - amplitude / 2
         z_max = z + amplitude / 2 + z_extra_steps * step[2]
+        # fmt: off
         scan_window = (
             (scan_start[0]               , scan_start[1]               , z_min),
             (scan_start[0] + scan_size[0], scan_start[1] + scan_size[1], z_max)
-        )
+        ) # fmt: on
         self.afmulator.kCantilever = self.bxCant_K.value() * 1000
         self.afmulator.f0Cantilever = self.bxCant_f0.value() * 1000
         if self.verbose > 0: print("setScanWindow", step, scan_size, scan_start, scan_dim, scan_window)
@@ -259,11 +262,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def updateRotation(self):
         '''Get rotation from input field and update'''
         a = self.bxRot.value() / 180 * np.pi
+        # fmt: off
         self.rot = np.array([
             [np.cos(a), -np.sin(a), 0],
             [np.sin(a),  np.cos(a), 0],
             [        0,          0, 1]
-        ])
+        ]) # fmt: on
         if self.verbose > 0: print('updateRotation', a, self.rot)
         self.update()
 
@@ -677,12 +681,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             sw = self.afmulator.scan_window
             size = np.array(sw[1]) - np.array(sw[0])
             size[2] -= self.afmulator.amplitude - self.bxStepZ.value()
+            # fmt: off
             lvecScan = np.array([
                 [sw[0][0], sw[0][1], sw[0][2] - self.bxP0r.value()],
                 [size[0],       0,       0],
                 [      0, size[1],       0],
                 [      0,       0, size[2]],
-            ])
+            ]) # fmt: on
             if self.sample_lvec is not None:
                 lvec = np.append([[0, 0, 0]], self.sample_lvec, axis=0)
                 atomstring = io.primcoords2Xsf(self.Zs, self.xyzs.T, lvec)
