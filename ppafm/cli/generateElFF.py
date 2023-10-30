@@ -105,8 +105,7 @@ def main():
 
         else:
             print(
-                'ERROR!!! Format of the "{args.KPFM_sample}" file with Hartree potential under bias is unknown\n'
-                + ' or incompatible with the main input format, which is "{input_format}".\n',
+                f'ERROR!!! Format of the "{args.KPFM_sample}" file with Hartree potential under bias is unknown or incompatible with the main input format, which is "{input_format}".\n',
                 file=sys.stderr,
             )
             sys.exit(1)
