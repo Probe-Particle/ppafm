@@ -14,10 +14,6 @@ print("plot WITHOUT Xserver")
 # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
 
-HBAR = 6.58211951440e-16  # [eV.s]
-AUMASS = 1.66053904020e-27  # [kg]
-EVA2_TO_NM = 16.0217662  # [eV/A^2] / [N/m]
-
 atom_size = 0.15
 
 
@@ -195,7 +191,7 @@ def main():
                 iets_e = opt_dict["iets"][1]
                 iets_w = opt_dict["iets"][2]
                 print(f"Plotting IETS M={iets_m:f} V={iets_e:f} w={iets_w:f}")
-                e_vib = HBAR * np.sqrt((EVA2_TO_NM * eigenvalue_k) / (iets_m * AUMASS))
+                e_vib = common.HBAR * np.sqrt((common.eVA_Nm * eigenvalue_k) / (iets_m * common.AUMASS))
                 iets = symGauss(e_vib[:, :, :, 0], iets_e, iets_w) + symGauss(e_vib[:, :, :, 1], iets_e, iets_w) + symGauss(e_vib[:, :, :, 2], iets_e, iets_w)
                 PPPlot.plotImages(
                     dirname + "/IETS" + atoms_str + cbar_str,
