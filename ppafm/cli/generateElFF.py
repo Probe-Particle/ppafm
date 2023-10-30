@@ -75,7 +75,7 @@ def main():
         #  No need to renormalize: fieldFFT already works with density
         print(">>> Loading tip density from ", args.tip_dens, "...")
         if args.tip_dens.lower().endswith("xsf"):
-            rho_tip, lvec_tip, n_dim_tip, head_tip = io.loadXSF(args.tip_dens)
+            rho_tip, lvec_tip, _, head_tip = io.loadXSF(args.tip_dens)
         else:
             print(f'ERROR!!! Unknown or unsupported format of the tip density file "{args.tip_dens}"\n', file=sys.stderr)
             sys.exit(1)
@@ -117,12 +117,12 @@ def main():
         if input_format == "xsf" and args.KPFM_tip.lower().endswith(".xsf"):
             v_ref_t = args.Vref
             rho_tip_v0_aux = rho_tip.copy()
-            rho_tip_kpfm, lvec_tip, n_dim_tip, head_tip = io.loadXSF(args.KPFM_tip)
+            rho_tip_kpfm, lvec_tip, _, head_tip = io.loadXSF(args.KPFM_tip)
             drho_kpfm = rho_tip_kpfm - rho_tip_v0_aux
         elif input_format == "cube" and args.KPFM_tip.lower().endswith(".cube"):
             v_ref_t = args.Vref
             rho_tip_v0_aux = rho_tip.copy()
-            rho_tip_kpfm, lvec_tip, n_dim_tip, head_tip = io.loadCUBE(args.KPFM_tip, hartree=False, borh=args.borh)
+            rho_tip_kpfm, lvec_tip, _, head_tip = io.loadCUBE(args.KPFM_tip, hartree=False, borh=args.borh)
             drho_kpfm = rho_tip_kpfm - rho_tip_v0_aux
         elif args.KPFM_tip in {"Fit", "fit", "dipole", "pz"}:  # To be put on a library in the near future...
             v_ref_t = -0.1

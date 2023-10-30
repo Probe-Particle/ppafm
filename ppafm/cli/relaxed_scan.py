@@ -30,7 +30,7 @@ def rotate_ff(fx, fy, a):
 
 def main():
     parser = common.CLIParser(
-        description="Perform a scan, relaxing the probe particle in a precalculated force field. " "The generated force field is saved to Q{charge}K{klat}/OutFz.xsf."
+        description="Perform a scan, relaxing the probe particle in a precalculated force field. The generated force field is saved to Q{charge}K{klat}/OutFz.xsf."
     )
 
     parser.add_arguments(["klat", "krange", "charge", "qrange", "Vbias", "Vrange", "Apauli", "output_format"])
