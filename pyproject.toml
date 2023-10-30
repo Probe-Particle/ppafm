@@ -75,3 +75,6 @@ push = true
 
 [tool.cibuildwheel]
 skip = ["pp*", "*-manylinux_i686", "*-musllinux*", '*-win32']
+
+[tool.black]
+line-length = 180

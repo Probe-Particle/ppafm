@@ -148,11 +148,12 @@ def evalRadialFF( rs, coefs, Es=None, Fs=None, kind=1, ADamp=-1 ):
     return Es,Fs
 
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
-lib.getLenardJonesFF.argtypes  = [ c_int,       array2d,      array2d     ]
-lib.getLenardJonesFF.restype   = None
-def getLenardJonesFF( Rs, cLJs ):
+lib.getLennardJonesFF.argtypes = [c_int, array2d, array2d]
+lib.getLennardJonesFF.restype = None
+
+def getLennardJonesFF(Rs, cLJs):
     natom = len(Rs)
-    lib.getLenardJonesFF( natom, Rs, cLJs )
+    lib.getLennardJonesFF(natom, Rs, cLJs)
 
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
 lib.getVdWFF.argtypes  = [ c_int,       array2d,      array2d     ]
@@ -193,7 +194,9 @@ def computeD3Coeffs(Rs, iZs, iZPP, df_params):
     k = np.array([d3.K1, d3.K2, d3.K3], dtype=np.float64)
     df_params = np.array([df_params['s6'], df_params['s8'], df_params['a1'], df_params['a2'] * bohrRadius2angstroem], dtype=np.float64)
     coeffs = np.empty(4 * natom, dtype=np.float64)
-    lib.computeD3Coeffs(natom, Rs, iZs, r_cov, r_cut, ref_cn, ref_c6, r4r2, k, df_params, iZPP, coeffs)
+    lib.computeD3Coeffs(
+        natom, Rs, iZs, r_cov, r_cut, ref_cn, ref_c6, r4r2, k, df_params, iZPP, coeffs
+    )
     return coeffs.reshape((natom, 4))
 
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
@@ -251,9 +254,11 @@ def stiffnessMatrix( rTips, rPPs, which=0, ddisp=0.05 ):
     # this is really stupid solution because we cannot simply pass null pointer by ctypes; see :
     # https://github.com/numpy/numpy/issues/6239
     # http://stackoverflow.com/questions/32120178/how-can-i-pass-null-to-an-external-library-using-ctypes-with-an-argument-decla
-    evecs = [eigenvals,eigenvals,eigenvals]
-    for i in range(which): evecs[i] = np.zeros( (n,3) )
-    lib.stiffnessMatrix( ddisp, which, n, rTips, rPPs, eigenvals, evecs[0], evecs[1], evecs[2] )
+    evecs = [eigenvals, eigenvals, eigenvals]
+    for i in range(which):
+        evecs[i] = np.zeros((n, 3))
+
+    lib.stiffnessMatrix(ddisp, which, n, rTips, rPPs, eigenvals, evecs[0], evecs[1], evecs[2])
     return eigenvals, evecs
 
 # void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ )

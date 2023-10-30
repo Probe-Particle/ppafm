@@ -169,8 +169,8 @@ def computeLJ( geomFile, speciesFile, geometry_format=None, save_format=None, co
             REs = PPU.getAtomsRE( iPP, iZs, FFparams )
             core.getVdWFF_RE( Rs, REs, kind=vdWDampKind )    # THE MAIN STUFF HERE
     else:
-        cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams )
-        core.getLenardJonesFF( Rs, cLJs ) # THE MAIN STUFF HERE
+        cLJs = PPU.getAtomsLJ(iPP, iZs, FFparams)
+        core.getLennardJonesFF(Rs, cLJs)  # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not  None:
         if(verbose>0): print("Clamp force >", Fmax)
@@ -241,15 +241,19 @@ def computeELFF_pointCharge( geomFile, geometry_format = None, tip='s', save_for
     FFparams            = PPU.loadSpecies( )
     elem_dict           = PPU.getFFdict(FFparams); # print elem_dict
 
-    atoms,nDim,lvec     = io.loadGeometry( geomFile, format=geometry_format, params=PPU.params )
-    atomstring          = io.primcoords2Xsf( PPU.atoms2iZs( atoms[0],elem_dict ), [atoms[1],atoms[2],atoms[3]], lvec );
-    iZs,Rs,Qs=PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params['PBC'] )
+    atoms, nDim, lvec = io.loadGeometry(geomFile, format=geometry_format, params=PPU.params)
+    atomstring = io.primcoords2Xsf(PPU.atoms2iZs(atoms[0], elem_dict), [atoms[1], atoms[2], atoms[3]], lvec)
     # --- prepare arrays and compute
-    PPU.params['gridN'] = nDim; PPU.params['gridA'] = lvec[1]; PPU.params['gridB'] = lvec[2]; PPU.params['gridC'] = lvec[3]
-    if(verbose>0): print(PPU.params['gridN'], PPU.params['gridA'], PPU.params['gridB'], PPU.params['gridC'])
-    FF,V = prepareArrays( None, computeVpot )
-    core.setFF_shape( np.shape(FF), lvec )
-    core.getCoulombFF( Rs, Qs*PPU.CoulombConst, kind=tipKind ) # THE MAIN STUFF HERE
+    PPU.params["gridN"] = nDim
+    PPU.params["gridA"] = lvec[1]
+    PPU.params["gridB"] = lvec[2]
+    PPU.params["gridC"] = lvec[3]
+    if verbose > 0:
+        print(PPU.params["gridN"], PPU.params["gridA"], PPU.params["gridB"], PPU.params["gridC"])
+    iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params["PBC"])
+    FF, V = prepareArrays(None, computeVpot)
+    core.setFF_shape(np.shape(FF), lvec)
+    core.getCoulombFF(Rs, Qs * PPU.CoulombConst, kind=tipKind)  # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not  None:
         if(verbose>0): print("Clamp force >", Fmax)
@@ -323,7 +327,9 @@ def getAtomsWhichTouchPBCcell( fname, Rcut=1.0, bSaveDebug=True, geometry_format
     atoms, nDim, lvec = io.loadGeometry( fname, format=geometry_format, params=PPU.params )
     Rs = np.array(atoms[1:4]) # get just positions x,y,z
     elems = np.array(atoms[0])
-    Rs, elems = _getAtomsWhichTouchPBCcell(Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname)
+    Rs, elems = _getAtomsWhichTouchPBCcell(
+        Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname
+    )
     return Rs, elems
 
 def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDict=None, Rcore=0.7, bSaveDebugDens=False, bSaveDebugGeom=True, head=io.XSF_HEAD_DEFAULT ):
@@ -335,16 +341,22 @@ def subtractCoreDensities( rho, lvec_, elems=None, Rs=None, fname=None, valElDic
         valElDict = loadValenceElectronDict()
     print("subtractCoreDensities valElDict ", valElDict)
     print("subtractCoreDensities elems ", elems)
-    cRAs = np.array( [ (-valElDict[elem],Rcore) for elem in elems ] )
-    V  = np.linalg.det( lvec )   # volume of triclinic cell
-    N  = nDim[0]*nDim[1]*nDim[2]
-    dV = (V/N)  # volume of one voxel
-    if(verbose>0): print("V : ",V," N: ",N," dV: ", dV)
-    if(verbose>0): print("sum(RHO): ",rho.sum()," Nelec: ",rho.sum()*dV," voxel volume: ", dV)   # check sum
-    core.setFF_shape   ( rho.shape, lvec )     # set grid sampling dimension and shape
-    core.setFF_Epointer( rho )                  # set pointer to array with density data (to write into)
-    if(verbose>0): print(">>> Projecting Core Densities ... ")
-    core.getDensityR4spline( Rs, cRAs.copy() )  # Do the job ( the Projection of atoms onto grid )
-    if(verbose>0): print("sum(RHO), Nelec: ",  rho.sum(),  rho.sum()*dV)   # check sum
+    cRAs = np.array([(-valElDict[elem], Rcore) for elem in elems])
+    V = np.linalg.det(lvec)  # volume of triclinic cell
+    N = nDim[0] * nDim[1] * nDim[2]
+    dV = V / N  # volume of one voxel
+    if verbose > 0:
+        print("V : ", V, " N: ", N, " dV: ", dV)
+    if verbose > 0:
+
+        print("sum(RHO): ", rho.sum(), " Nelec: ", rho.sum() * dV, " voxel volume: ", dV)  # check sum
+    core.setFF_shape(rho.shape, lvec)  # set grid sampling dimension and shape
+    core.setFF_Epointer(rho)  # set pointer to array with density data (to write into)
+    if verbose > 0:
+        print(">>> Projecting Core Densities ... ")
+
+    core.getDensityR4spline(Rs, cRAs.copy())  # Do the job ( the Projection of atoms onto grid )
+    if verbose > 0:
+        print("sum(RHO), Nelec: ", rho.sum(), rho.sum() * dV)  # check sum
     if bSaveDebugDens:
         io.saveXSF( "rho_subCoreChg.xsf", rho, lvec_, head=head )

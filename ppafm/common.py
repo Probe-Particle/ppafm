@@ -11,18 +11,17 @@ verbose = 0
 
 # ====================== constants
 
-
-eVA_Nm               =  16.021766
-CoulombConst         =  14.399645;
+eVA_Nm = 16.021766
+CoulombConst = 14.399645
 
 # default parameters of simulation
 params = {
     "PBC": True,
     "nPBC": np.array([1, 1, 1]),
     "gridN": np.array([-1, -1, -1]).astype(int),
-    "gridA": np.array([12.798, -7.3889, 0.00000]),
-    "gridB": np.array([12.798, 7.3889, 0.00000]),
-    "gridC": np.array([0, 0, 5.0]),
+    "gridA": np.array([0.0, 0.0, 0.0]),
+    "gridB": np.array([0.0, 0.0, 0.0]),
+    "gridC": np.array([0.0, 0.0, 0.0]),
     "FFgrid0": np.array([-1.0, -1.0, -1.0]),
     "FFgridA": np.array([-1.0, -1.0, -1.0]),
     "FFgridB": np.array([-1.0, -1.0, -1.0]),
@@ -537,7 +536,7 @@ def apply_options(opt):
                 print(f"Applied: {key} = {value}")
 
 
-# load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
+# load atoms species parameters form a file ( currently used to load Lennard-Jones parameters )
 def loadSpecies(fname=None):
     if fname is None or not os.path.exists(fname):
         if verbose > 0:
@@ -560,7 +559,7 @@ def loadSpecies(fname=None):
     return FFparams
 
 
-# load atoms species parameters form a file ( currently used to load Lenard-Jones parameters )
+# load atoms species parameters form a file ( currently used to load Lennard-Jones parameters )
 def loadSpeciesLines(lines):
     params = []
     for l in lines:
@@ -889,7 +888,7 @@ def parseAtoms(atoms, elem_dict, PBC=True, autogeom=False, lvec=None):
 
 def get_C612(i, j, FFparams):
     """
-    compute Lenard-Jones coefitioens C6 and C12 pair of atoms i,j
+    compute Lennard-Jones coefitioens C6 and C12 pair of atoms i,j
     """
     Rij = FFparams[i][0] + FFparams[j][0]
     Eij = np.sqrt(FFparams[i][1] * FFparams[j][1])
@@ -898,7 +897,7 @@ def get_C612(i, j, FFparams):
 
 def getAtomsLJ(iZprobe, iZs, FFparams):
     """
-    compute Lenard-Jones coefitioens C6 and C12 for interaction between atoms in list "iZs" and probe-particle "iZprobe"
+    compute Lennard-Jones coefficients C6 and C12 for interaction between atoms in list "iZs" and probe-particle "iZprobe"
     """
     n = len(iZs)
     cLJs = np.zeros((n, 2))
@@ -918,7 +917,7 @@ def REA2LJ(cREAs, cLJs=None):
 
 def getAtomsREA(iZprobe, iZs, FFparams, alphaFac=-1.0):
     """
-    compute Lenard-Jones coefitioens C6 and C12 for interaction between atoms in list "iZs" and probe-particle "iZprobe"
+    compute Lennard-Jones coefficients C6 and C12 for interaction between atoms in list "iZs" and probe-particle "iZprobe"
     """
     n = len(iZs)
     REAs = np.zeros((n, 4))

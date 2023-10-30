@@ -6,7 +6,6 @@ import warnings
 
 import numpy as np
 import pyopencl as cl
-from pyopencl import array
 
 from .. import io
 from ..common import genFFSampling
@@ -16,7 +15,7 @@ from ..HighLevel import _getAtomsWhichTouchPBCcell, subtractCoreDensities
 
 try:
     from reikna import cluda
-    from reikna.cluda import dtypes, ocl_api
+    from reikna.cluda import ocl_api
     from reikna.core import Annotation, Parameter, Transformation, Type
     from reikna.fft import FFT
     fft_available = True
@@ -268,7 +267,15 @@ class DataGrid:
         n = np.int32(array_in1.size / 4)
         scale = np.float32(scale)
         global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
-        cl_program.addMult(queue, global_size, local_size, array_in1, array_in2, array_out, n, scale)
+        # fmt: off
+        cl_program.addMult(queue, global_size, local_size,
+            array_in1,
+            array_in2,
+            array_out,
+            n,
+            scale
+        )
+        # fmt: on
         return grid_out
 
     def power_positive(self, p=1.2, normalize=True, in_place=True, local_size=(32,), queue=None):
@@ -305,7 +312,15 @@ class DataGrid:
         else:
             scale = np.float32(1.0)
         global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
-        cl_program.power(queue, global_size, local_size, array_in, array_out, n, p, scale)
+        # fmt: off
+        cl_program.power(queue, global_size, local_size,
+            array_in,
+            array_out,
+            n,
+            p,
+            scale
+        )
+        # fmt: on
         return grid_out
 
     def _get_normalization_factor(self, queue=None):
@@ -317,7 +332,13 @@ class DataGrid:
         array_in = self.cl_array
         array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=8*n_groups)
         # First do sums of the input array within each work group...
-        cl_program.normalizeSumReduce(queue, global_size, local_size, array_in, array_out, n)
+        # fmt: off
+        cl_program.normalizeSumReduce(queue, global_size, local_size,
+            array_in,
+            array_out,
+            n
+        )
+        # fmt: on
         # ... then sum the results of the first kernel call
         cl_program.sumSingleGroup(queue, local_size, local_size, array_out, n_groups)
         # Now the first element of array_out holds the final answer
@@ -373,6 +394,7 @@ class DataGrid:
 
         global_size = [int(np.ceil(np.prod(self.shape) / local_size[0]) * local_size[0])]
         step = np.append(np.diag(self.step), 0).astype(np.float32)
+        # fmt: off
         cl_program.grad(queue, global_size, local_size,
             array_in,
             array_out,
@@ -381,6 +403,7 @@ class DataGrid:
             order,
             scale
         )
+        # fmt: on
 
         return grid_out
 
@@ -420,18 +443,26 @@ class DataGrid:
         rot = np.concatenate([rot, np.zeros((3, 1))], axis=1, dtype=np.float32)
         dlvec = np.concatenate([array_out.step, np.zeros((3, 1))], axis=1, dtype=np.float32)
 
+        # fmt: off
         cl_program.interp_at(queue, global_size, local_size,
             self.cl_array,
             array_out.cl_array,
             np.append(self.shape, 0).astype(np.int32),
-            T[0], T[1], T[2],
+            T[0],
+            T[1],
+            T[2],
             np.append(self.origin, 0).astype(np.float32),
             np.append(shape_new, 0).astype(np.int32),
-            dlvec[0], dlvec[1], dlvec[2],
+            dlvec[0],
+            dlvec[1],
+            dlvec[2],
             np.append(array_out.origin, 0).astype(np.float32),
-            rot[0], rot[1], rot[2],
-            np.append(rot_center, 0).astype(np.float32)
+            rot[0],
+            rot[1],
+            rot[2],
+            np.append(rot_center, 0).astype(np.float32),
         )
+        # fmt: on
 
         return array_out
 
@@ -500,15 +531,23 @@ class TipDensity(DataGrid):
         lvec_in_inv = np.concatenate([np.linalg.inv(self.lvec[1:]), np.zeros((3, 1))], axis=1, dtype=np.float32)
         dlvec_out = np.concatenate([array_out.step, np.zeros((3, 1))], axis=1, dtype=np.float32)
 
+        # fmt: off
         cl_program.interp_tip_at(queue, global_size, local_size,
             self.cl_array,
             array_out.cl_array,
             np.append(self.shape, 0).astype(np.int32),
-            T[0], T[1], T[2],
-            lvec_in_inv[0], lvec_in_inv[1], lvec_in_inv[2],
+            T[0],
+            T[1],
+            T[2],
+            lvec_in_inv[0],
+            lvec_in_inv[1],
+            lvec_in_inv[2],
             np.append(shape_new, 0).astype(np.int32),
-            dlvec_out[0], dlvec_out[1], dlvec_out[2],
+            dlvec_out[0],
+            dlvec_out[1],
+            dlvec_out[2],
         )
+        # fmt: on
 
         return array_out
 
@@ -582,23 +621,28 @@ class FFTCrossCorrelation:
 
     # https://github.com/fjarri/reikna/issues/57
     def _make_transforms(self):
+        # fmt: off
         self.r2c = Transformation(
-            [Parameter('output', Annotation(Type(np.complex64, self.shape), 'o')),
-            Parameter('input', Annotation(Type(np.float32, self.shape), 'i'))],
+            [
+                Parameter('output', Annotation(Type(np.complex64, self.shape), 'o')),
+                Parameter('input',  Annotation(Type(np.float32,   self.shape), 'i'))
+            ],
             """
             ${output.store_same}(
                 COMPLEX_CTR(${output.ctype})(
                     ${input.load_same},
                     0));
-            """
+            """,
         )
         self.c2r = Transformation(
-            [Parameter("output", Annotation(Type(np.float32, self.shape), "o")),
-            Parameter("input", Annotation(Type(np.complex64, self.shape), "i")),
-            Parameter("scale", Annotation(np.float32))],
+            [
+                Parameter("output", Annotation(Type(np.float32,   self.shape), "o")),
+                Parameter("input",  Annotation(Type(np.complex64, self.shape), "i")),
+                Parameter("scale",  Annotation(np.float32)),
+            ],
             """
             ${output.store_same}(${input.load_same}.x * ${scale});
-            """
+            """,
         )
         self.conj_mult = Transformation(
             [
@@ -614,6 +658,7 @@ class FFTCrossCorrelation:
                 'MUL': cluda.functions.mul(np.complex64, np.complex64)
             }
         )
+        # fmt: on
 
     def _make_fft(self):
 
@@ -718,7 +763,7 @@ class ForceField_LJC:
         elif self.nDim is not None:
             nDim = self.nDim
         else:
-            print("ERROR : nDim must be set somewhere"); exit()
+            raise RuntimeError("nDim must be set somewhere")
         self.lvec0       = np.zeros( 4, dtype=np.float32 )
         self.lvec        = np.zeros( (3,4), dtype=np.float32 )
         self.dlvec       = np.zeros( (3,4), dtype=np.float32 )
@@ -730,8 +775,7 @@ class ForceField_LJC:
 
     def setQs(self, Qs=[100,-200,100,0],QZs=[0.1,0,-0.1,0]):
         if ( len(Qs) != 4 ) or ( len(QZs) != 4 ):
-            print("Qs and Qzs must have length 4 ")
-            exit()
+            raise ValueError("Qs and Qzs must have length 4")
         self.Qs  = np.array(Qs ,dtype=np.float32)
         self.QZs = np.array(QZs,dtype=np.float32)
 
@@ -946,22 +990,23 @@ class ForceField_LJC:
             if(self.verbose>0): print("FE.shape", FE.shape, self.nDim)
         ntot = self.nDim[0]*self.nDim[1]*self.nDim[2]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos.pre) [s]: ", time.time() - t0)
+        # fmt: off
+        cl_program.evalLJC_QZs_noPos(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_cLJs,
             self.cl_FE,
             self.nDim,
-            self.lvec0   ,
+            self.lvec0,
             self.dlvec[0],
             self.dlvec[1],
             self.dlvec[2],
             self.Qs,
             self.QZs
         )
-        if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos.pre) [s]: ", time.time() - t0)
-        cl_program.evalLJC_QZs_noPos( self.queue, global_size, local_size, *(kargs) )
-        if bCopy:   cl.enqueue_copy( self.queue, FE, kargs[3] )
+        # fmt: on
+        if bCopy:   cl.enqueue_copy( self.queue, FE, self.cl_FE )
         if bFinish: self.queue.finish()
         if(bRuntime): print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos) [s]: ", time.time() - t0)
         return FE
@@ -1062,6 +1107,7 @@ class ForceField_LJC:
 
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
         if matching_grid:
+            # fmt: off
             cl_program.grad(self.queue, global_size, local_size,
                 self.pot.cl_array,
                 self.cl_Efield,
@@ -1070,19 +1116,26 @@ class ForceField_LJC:
                 np.int32(1),
                 np.array([-1.0, -1.0, -1.0, 1.0], dtype=np.float32)
             )
+            # fmt: on
         else:
             T = np.append(np.linalg.inv(self.pot.step).T.copy(), np.zeros((3, 1)), axis=1).astype(np.float32)
+            # fmt: off
             cl_program.gradPotentialGrid(self.queue, global_size, local_size,
                 self.pot.cl_array,
                 self.cl_Efield,
                 np.append(self.pot.shape, 0).astype(np.int32),
-                T[0], T[1], T[2],
+                T[0],
+                T[1],
+                T[2],
                 np.append(self.pot.origin, 0).astype(np.float32),
                 self.nDim,
-                self.dlvec[0], self.dlvec[1], self.dlvec[2],
+                self.dlvec[0],
+                self.dlvec[1],
+                self.dlvec[2],
                 self.lvec0,
                 np.array([h, h, h, 0.0], dtype=np.float32)
             )
+            # fmt: on
 
         if bCopy: cl.enqueue_copy(self.queue, E_field, self.cl_Efield)
         if bFinish: self.queue.finish()
@@ -1098,6 +1151,7 @@ class ForceField_LJC:
         '''
         local_size = (min(local_size[0], 64),)
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        # fmt: off
         cl_program.addLJ(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
@@ -1105,8 +1159,11 @@ class ForceField_LJC:
             self.cl_FE,
             self.nDim,
             self.lvec0,
-            self.dlvec[0], self.dlvec[1], self.dlvec[2]
+            self.dlvec[0],
+            self.dlvec[1],
+            self.dlvec[2]
         )
+        # fmt: on
 
     def addvdW(self, damp_method=0, local_size=(32,)):
         '''Add Lennard-Jones van der Waals force and energy to the current force field grid.
@@ -1117,6 +1174,7 @@ class ForceField_LJC:
         '''
         local_size = (min(local_size[0], 64),)
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        # fmt: off
         cl_program.addvdW(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
@@ -1125,9 +1183,12 @@ class ForceField_LJC:
             self.cl_FE,
             self.nDim,
             self.lvec0,
-            self.dlvec[0], self.dlvec[1], self.dlvec[2],
+            self.dlvec[0],
+            self.dlvec[1],
+            self.dlvec[2],
             np.int32(damp_method)
         )
+        # fmt: on
 
     def _get_dftd3_params(self, params, local_size=(32,)):
 
@@ -1143,6 +1204,7 @@ class ForceField_LJC:
         self.cl_cD3 = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=(self.nAtoms * 4 * 4))
 
         global_size = (int(np.ceil(self.nAtoms / local_size[0]) * local_size[0]),)
+        # fmt: off
         cl_program.d3_coeffs(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
@@ -1157,6 +1219,7 @@ class ForceField_LJC:
             params,
             self.iZPP
         )
+        # fmt: on
 
     def add_dftd3(self, params='PBE', local_size=(64,)):
         '''
@@ -1189,6 +1252,7 @@ class ForceField_LJC:
             self.queue.finish()
             print("runtime(ForceField_LJC.add_dftd3.get_params) [s]: ", time.perf_counter() - t0)
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
+        # fmt: off
         cl_program.addDFTD3_BJ(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
@@ -1196,8 +1260,11 @@ class ForceField_LJC:
             self.cl_FE,
             self.nDim,
             self.lvec0,
-            self.dlvec[0], self.dlvec[1], self.dlvec[2]
+            self.dlvec[0],
+            self.dlvec[1],
+            self.dlvec[2]
         )
+        # fmt: on
         if bRuntime:
             self.queue.finish()
             print("runtime(ForceField_LJC.add_dftd3) [s]: ", time.perf_counter() - t0)
@@ -1609,15 +1676,16 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalLorenz(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
             self.cl_poss,
-            self.cl_Eout,
+            self.cl_Eout
         )
-        cl_program.evalLorenz( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        # fmt: on
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
@@ -1635,20 +1703,23 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalDisk(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
             self.cl_poss,
             self.cl_Eout,
-            np.float32( self.dzmax   ),
-            np.float32( self.dzmax_s ),
-            np.float32( offset ),
-            np.float32( self.Rpp ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+            np.float32(self.dzmax),
+            np.float32(self.dzmax_s),
+            np.float32(offset),
+            np.float32(self.Rpp),
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2]
         )
-        cl_program.evalDisk( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        # fmt: on
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
@@ -1666,20 +1737,23 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalDisk_occlusion(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
             self.cl_poss,
             self.cl_Eout,
-            np.float32( self.Rpp     ),
-            np.float32( self.zmin    ),
-            np.float32( self.zmargin ),
-            np.float32( self.dzmax   ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+            np.float32(self.Rpp),
+            np.float32(self.zmin),
+            np.float32(self.zmargin),
+            np.float32(self.dzmax),
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2]
         )
-        cl_program.evalDisk_occlusion( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        # fmt: on
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
@@ -1697,18 +1771,21 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalSpheres(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
             self.cl_poss,
             self.cl_Eout,
-            np.float32( self.Rpp   ),
-            np.float32( self.zmin  ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+            np.float32(self.Rpp),
+            np.float32(self.zmin),
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2]
         )
-        cl_program.evalSpheres( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        # fmt: on
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
@@ -1726,20 +1803,23 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalSphereCaps(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
             self.cl_poss,
             self.cl_Eout,
-            np.float32( self.Rpp   ),
-            np.float32( self.zmin  ),
-            np.float32( self.tgMax ),
-            np.float32( self.tgWidth ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+            np.float32(self.Rpp),
+            np.float32(self.zmin),
+            np.float32(self.tgMax),
+            np.float32(self.tgWidth),
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2]
         )
-        cl_program.evalSphereCaps( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        # fmt: on
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
@@ -1757,16 +1837,19 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalQDisk(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_poss,
             self.cl_Eout,
-            np.float32( self.dzmax ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+            np.float32(self.dzmax),
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2]
         )
-        cl_program.evalQDisk( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, Eout, kargs[3] )
+        # fmt: on
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
@@ -1783,26 +1866,29 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalMultiMapSpheres(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
             self.cl_poss,
             self.cl_Eout,
-            np.float32( self.Rpp   ),
-            np.float32( self.zmin  ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            np.float32(self.Rpp),
+            np.float32(self.zmin),
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2],
             np.int32(bOccl),
-            np.int32( self.prj_dim[2] ),
+            np.int32(self.prj_dim[2]),
             np.float32(Rmin),
             np.float32(Rstep)
         )
-        cl_program.evalMultiMapSpheres( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        # fmt: on
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
-    def run_evalMultiMapSpheresElements(self, poss=None, Eout=None, tipRot=None, bOccl=0, Rmin=1.4, Rstep=0.1, local_size=(32,) ):
+    def run_evalMultiMapSpheresElements(self, poss=None, Eout=None, tipRot=None, bOccl=0, local_size=(32,) ):
         '''
          kernel to produce multiple channels of vdW Sphere maps each containing atoms with different vdW radius
         '''
@@ -1815,20 +1901,23 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalMultiMapSpheresElements(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
             self.cl_elem_channels,
             self.cl_poss,
             self.cl_Eout,
-            np.float32( self.Rpp   ),
-            np.float32( self.zmin  ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            np.float32(self.Rpp),
+            np.float32(self.zmin),
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2],
             np.int32(bOccl),
-            np.int32( self.prj_dim[2] ),
+            np.int32(self.prj_dim[2]),
         )
-        cl_program.evalMultiMapSpheresElements( self.queue, global_size, local_size, *(kargs) )
+        # fmt: on
         cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
@@ -1846,7 +1935,8 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalSpheresType(self.queue, global_size, local_size,
             self.nAtoms,
             self.nTypes,
             self.cl_atoms,
@@ -1854,17 +1944,19 @@ class AtomProcjetion:
             self.cl_coefs,
             self.cl_poss,
             self.cl_Eout,
-            np.float32( self.Rpp   ),
-            np.float32( self.zmin  ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2],
+            np.float32(self.Rpp),
+            np.float32(self.zmin),
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2],
             np.int32(bOccl),
         )
-        cl_program.evalSpheresType( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, Eout, kargs[6] )
+        # fmt: on
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
-    def run_evalBondEllipses(self, poss=None, Eout=None, tipRot=None, bOccl=0,  local_size=(32,) ):
+    def run_evalBondEllipses(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
         '''
          kernel to produce multiple channels of vdW Sphere maps each coresponding to different atom type
         '''
@@ -1877,24 +1969,27 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalBondEllipses(self.queue, global_size, local_size,
             self.nBonds,
             self.cl_bondPoints,
             self.cl_poss,
             self.cl_Eout,
             self.cl_Rfunc,
-            np.float32( self.drStep ),
-            np.float32( self.Rmax    ),
-            np.float32( self.elipticity    ),
-            np.float32( self.zmin    ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+            np.float32(self.drStep),
+            np.float32(self.Rmax),
+            np.float32(self.elipticity),
+            np.float32(self.zmin),
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2]
         )
-        cl_program.evalBondEllipses( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, Eout, kargs[3] )
+        # fmt: on
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
-    def run_evalAtomRfunc(self, poss=None, Eout=None, tipRot=None, bOccl=0,  local_size=(32,) ):
+    def run_evalAtomRfunc(self, poss=None, Eout=None, tipRot=None, local_size=(32,) ):
         '''
          kernel to produce multiple channels of vdW Sphere maps each coresponding to different atom type
         '''
@@ -1907,20 +2002,23 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalAtomRfunc( self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_coefs,
             self.cl_poss,
             self.cl_Eout,
             self.cl_Rfunc,
-            np.float32( self.drStep  ),
-            np.float32( self.Rmax    ),
-            np.float32( self.zmin    ),
-            self.tipRot[0],  self.tipRot[1],  self.tipRot[2]
+            np.float32(self.drStep),
+            np.float32(self.Rmax),
+            np.float32(self.zmin),
+            self.tipRot[0],
+            self.tipRot[1],
+            self.tipRot[2]
         )
-        cl_program.evalAtomRfunc( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, Eout, kargs[4] )
+        # fmt: on
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
@@ -1936,14 +2034,15 @@ class AtomProcjetion:
             oclu.updateBuffer(poss, self.cl_poss )
         ntot = self.prj_dim[0]*self.prj_dim[1]; ntot=makeDivisibleUp(ntot,local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,) # TODO make sure divisible by local_size
-        kargs = (
+        # fmt: off
+        cl_program.evalCoulomb(self.queue, global_size, local_size,
             self.nAtoms,
             self.cl_atoms,
             self.cl_poss,
             self.cl_Eout,
         )
-        cl_program.evalCoulomb( self.queue, global_size, local_size, *(kargs) )
-        cl.enqueue_copy( self.queue, Eout, kargs[3] )
+        # fmt: on
+        cl.enqueue_copy( self.queue, Eout, self.cl_Eout )
         self.queue.finish()
         return Eout
 
@@ -1976,17 +2075,23 @@ class AtomProcjetion:
         rot = np.append(rot, np.zeros((3, 1)), axis=1).astype(np.float32)
         h = h or DEFAULT_FD_STEP
 
+        # fmt: off
         cl_program.evalHartreeGradientZ(self.queue, global_size, local_size,
             pot.cl_array,
             self.cl_poss,
             self.cl_Eout,
             np.append(pot.shape, 0).astype(np.int32),
-            T[0], T[1], T[2],
+            T[0],
+            T[1],
+            T[2],
             np.append(pot.origin, 0).astype(np.float32),
-            rot[0], rot[1], rot[2],
+            rot[0],
+            rot[1],
+            rot[2],
             np.append(rot_center, 0).astype(np.float32),
             np.float32(h),
         )
+        # fmt: on
         cl.enqueue_copy(self.queue, Eout, self.cl_Eout)
         self.queue.finish()
 
