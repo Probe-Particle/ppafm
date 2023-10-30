@@ -49,44 +49,13 @@ def selectLine(BIGarray, MIN, MAX, startingPoint, endPoint, nsteps):
 
 
 parser = OptionParser()
-parser.add_option(
-    "--image",
-    action="store",
-    type="float",
-    help="position of " "the 2D image (z, xScreen, yScreen)",
-    nargs=3,
-)
-parser.add_option(
-    "-p",
-    "--points",
-    type=str,
-    help="Point where to perform the " "scan: -p XMINxYMINxZMIN XMAXxYMAXxZMAX",
-    action="append",
-    nargs=3,
-)
-parser.add_option(
-    "--disp",
-    type=str,
-    help="print ProbeParticle displacments",
-    action="append",
-    nargs=1,
-)
-parser.add_option(
-    "-f",
-    "--data_format",
-    action="store",
-    type="string",
-    help="Specify the output format of the vector and scalar "
-    "field. Supported formats are: xsf,npy",
-    default="xsf",
-)
-parser.add_option(
-    "--nodisp",
-    action="store_true",
-    help="Do NOT show the " "plots on the screen",
-    default=False,
-)
-
+# fmt: off
+parser.add_option( "--image",             type="float",  action="store",                     help="position of " "the 2D image (z, xScreen, yScreen)",                      nargs=3,)
+parser.add_option( "-p", "--points",      type=str,      action="append",                    help="Point where to perform the " "scan: -p XMINxYMINxZMIN XMAXxYMAXxZMAX",   nargs=3,)
+parser.add_option( "--disp",              type=str,      action="append",                    help="print ProbeParticle displacments",                                       nargs=1,)
+parser.add_option( "-f", "--data_format", type="string", action="store",      default="xsf", help="Specify the output format of the vector and scalar "  "field. Supported formats are: xsf,npy",   )
+parser.add_option( "--nodisp",                           action="store_true", default=False, help="Do NOT show the " "plots on the screen",  )
+# fmt: on
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)

@@ -17,16 +17,16 @@ def main():
             'The generated force field is saved to FFel_{x,y,z}.[ext].'
     )
 
+    # fmt: off
     parser.add_arguments(['input', 'input_format', 'output_format', 'tip', 'sigma', 'Rcore', 'energy', 'noPBC'])
-    parser.add_argument("--tip_dens", action="store", type=str, default=None,
-        help="Use tip density from a file (.xsf or .cube). Overrides --tip.")
-    parser.add_argument("--doDensity", action="store_true", help="Do density overlap")
-    parser.add_argument( "--tilt", action="store", type=float, default=0, help="Tilt of tip electrostatic field (radians)")
-    parser.add_argument("--KPFM_tip", action="store", type=str, default='Fit', help="Read tip density under bias")
-    parser.add_argument("--KPFM_sample", action="store", type=str, help="Read sample hartree under bias")
-    parser.add_argument("--Vref", action="store", type=float, help="Field under the KPFM dens. and Vh was calculated in V/Ang")
-    parser.add_argument("--z0", action="store", type=float, default=0.0,
-        help="Heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
+    parser.add_argument("--tip_dens",   action="store", type=str,   default=None,  help="Use tip density from a file (.xsf or .cube). Overrides --tip.")
+    parser.add_argument("--doDensity",  action="store_true",                       help="Do density overlap")
+    parser.add_argument( "--tilt",      action="store", type=float, default=0,     help="Tilt of tip electrostatic field (radians)")
+    parser.add_argument("--KPFM_tip",   action="store", type=str,   default='Fit', help="Read tip density under bias")
+    parser.add_argument("--KPFM_sample",action="store", type=str,                  help="Read sample hartree under bias")
+    parser.add_argument("--Vref",       action="store", type=float,                help="Field under the KPFM dens. and Vh was calculated in V/Ang")
+    parser.add_argument("--z0",         action="store", type=float, default=0.0,   help="Heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
+    # fmt: on
     args = parser.parse_args()
 
     if os.path.isfile( 'params.ini' ):

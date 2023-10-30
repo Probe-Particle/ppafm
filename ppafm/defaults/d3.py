@@ -65,6 +65,7 @@ R4R2 = np.array([
 sqrt(0.5*sqrt(Z)<r4>/<r2>(Z)) values for Grimme-D3. Units are Ångströms.
 """
 
+# fmt: off
 REF_CN = np.array(
     [
         [+0.9118, +0.0000, -1.0000, -1.0000, -1.0000],  # H
@@ -163,6 +164,7 @@ REF_CN = np.array(
         [+0.0000, +1.9209, -1.0000, -1.0000, -1.0000],  # Pu
     ]
 )
+# fmt: on
 """
 Reference coordination numbers for Grimme-D3. Values from:
 `<https://doi.org/10.1063/1.3382344>`_

@@ -18,8 +18,10 @@ if __name__=="__main__":
        * xsf """
     from optparse import OptionParser
     parser = OptionParser()
+    # fmt: off
     parser.add_option( "-i", "--input",  action="store", type="string", help="input file")
     parser.add_option( "-o", "--output", action="store", type="string", help="output file")
+    # fmt: on
     (options, args) = parser.parse_args()
     if options.input==None:
         sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MSG)

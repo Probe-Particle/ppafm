@@ -31,51 +31,19 @@ HELP_MSG = (
     + """ -p "X1xY1" [-p "X2xY2" ...]  """
 )
 
+# fmt: off
 parser = OptionParser()
-parser.add_option("-k", action="store", type="float", help="tip stiffenss [N/m]")
-parser.add_option(
-    "--krange",
-    action="store",
-    type="float",
-    help="tip stiffenss range (min,max,n) [N/m]",
-    nargs=3,
-)
-parser.add_option("-q", action="store", type="float", help="tip charge [e]")
-parser.add_option(
-    "--qrange",
-    action="store",
-    type="float",
-    help="tip charge range (min,max,n) [e]",
-    nargs=3,
-)
-parser.add_option("-a", action="store", type="float", help="oscilation amplitude [A]")
-parser.add_option(
-    "--arange",
-    action="store",
-    type="float",
-    help="oscilation amplitude range (min,max,n) [A]",
-    nargs=3,
-)
-
-
-parser.add_option(
-    "-p",
-    "--points",
-    default=[],
-    type=str,
-    help="Point where to perform Z-scan",
-    action="append",
-)
-parser.add_option(
-    "--npy",
-    action="store_true",
-    help="load and save fields in npy instead of xsf",
-    default=False,
-)
-
+parser.add_option("-k",             action="store",  type="float", help="tip stiffenss [N/m]")
+parser.add_option(  "--krange",     action="store",  type="float", help="tip stiffenss range (min,max,n) [N/m]", nargs=3,)
+parser.add_option("-q",             action="store",  type="float", help="tip charge [e]")
+parser.add_option("--qrange",       action="store",  type="float", help="tip charge range (min,max,n) [e]",  nargs=3,)
+parser.add_option("-a",             action="store",  type="float", help="oscilation amplitude [A]")
+parser.add_option("--arange",       action="store",  type="float", help="oscilation amplitude range (min,max,n) [A]", nargs=3,)
+parser.add_option( "-p","--points", action="append", type=str,     help="Point where to perform Z-scan", default=[], )
+parser.add_option( "--npy",         action="store_true",           help="load and save fields in npy instead of xsf", default=False,)
 # parser.add_option( "-y", action="store", type="float", help="format of input file")
 # parser.add_option( "--yrange", action="store", type="float", help="y positions of the tip range (min,max,n) [A]", nargs=3)
-
+#fmt: on
 
 (options, args) = parser.parse_args()
 opt_dict = vars(options)
@@ -195,18 +163,7 @@ for iq, Q in enumerate(Qs):
             perplane = fig.add_axes([0.65, 0.6, 0.25, 0.25])
             #                    perplane.imshow(dfs[min_index+int(0.5/scan_step),:, :], origin='upper', cmap='gray')
             #                    perplane.imshow(dfs[len(Zplot)-min_index-(int)(Amp/scan_step/2)-5, :, :], origin='upper', cmap='gray')
-            perplane.imshow(
-                dfs[
-                    len(Zplot)
-                    - min_index
-                    - (int)(Amp / scan_step / 2)
-                    - int(1.0 / scan_step),
-                    :,
-                    :,
-                ],
-                origin="upper",
-                cmap="gray",
-            )
+            perplane.imshow(  dfs[ len(Zplot) - min_index - (int)(Amp / scan_step / 2) - int(1.0 / scan_step), :,       :,   ],  origin="upper",     cmap="gray", )
 
             perplane.scatter(x=x_pos, y=y_pos, s=50, c="red", alpha=0.8)
             perplane.axis("off")

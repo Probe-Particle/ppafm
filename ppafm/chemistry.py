@@ -168,12 +168,14 @@ def ringsToMolecule( ring_pos, ring_Rs, Lrange=6.0 ):
     atom_pos, bonds, atom2ring, = removeAtoms( atom_pos, bonds, atom2ring, cog, Lrange )
     bonds = np.array(bonds)
 
+    # fmt: off
     # --- select aromatic hexagons as they have more pi-character
     ring_natm   = getRingNatom(atom2ring,len(ring_neighs))
     ring_N6mask = np.logical_and( ring_natm[:]==6, ring_nngs[:]==6 )
     atom_N6mask = np.logical_or( ring_N6mask[atom2ring[:,0]],
                   np.logical_or( ring_N6mask[atom2ring[:,1]],
                                  ring_N6mask[atom2ring[:,2]]  ) )
+    # fmt: on
 
     neighs  = bonds2neighs( bonds, len(atom_pos) )    # ;print neighs
     nngs    = np.array([ len(ngs) for ngs in neighs ],dtype=int)
@@ -232,7 +234,7 @@ def selectRandomGroups( an, ao, groupDict ):
         print(k, out[-1])
     return out
 
-
+# fmt: off
 group_definition = {
 # name   Center,  ndir,  nb,nsigma,npi  nt,nH,ne
 #         0   1  2 3 4  5 6 7
@@ -262,6 +264,7 @@ group_definition = {
 "#CH"  :("C", 2, 3,1,2, 1,1,0),
 "#N"   :("N", 2, 3,1,2, 1,0,1),
 }
+# fmt: on
 
 '''
 Simplified
@@ -320,7 +323,7 @@ def groups2atoms( groupNames, neighs, ps ):
             else:
                 elems.append( e2     )
                 xyzs .append( txyz[ih] )
-
+    # fmt: off
     up=np.array((0.,0.,1.))
     Hmasks3=[ [(0,0,0)],
               [(1,0,0),(0,1,0),(0,0,1)],
@@ -329,6 +332,7 @@ def groups2atoms( groupNames, neighs, ps ):
     Hmasks2=[[(0,0)],
              [(1,0),(1,0)],
              [(1,1)]]
+    # fmt: on
     elems=[]; xyzs=[]
     for ia,name in enumerate(groupNames):
         if name in group_definition:
@@ -387,6 +391,7 @@ class FIRE:
     kickStart    = 1.0
 
     def __init__(self, dt_max=0.2, dt_min=0.01, damp_max=0.2, f_limit=10.0, v_limit=10.0 ):
+        # fmt: off
         self.dt       = dt_max
         self.dt_max   = dt_max
         self.dt_min   = dt_min
@@ -395,8 +400,8 @@ class FIRE:
         self.v_limit  = v_limit
         self.f_limit  = f_limit
         self.bFIRE    = True
-
-        self.lastNeg = 0
+        self.lastNeg  = 0
+        # fmt: on
 
     def move(self,p,f):
         if self.v is None:

@@ -20,69 +20,24 @@ print("plot WITHOUT Xserver")
 
 
 def main():
-    parser = PPU.CLIParser(
-        description="Plot results for a scan with a specified charge, amplitude, and spring constant. "
-        "Images are saved in folder Q{charge}K{klat}/Amp{Amplitude}."
-    )
-    parser.add_arguments(
-        [
-            "output_format",
-            "Amplitude",
-            "arange",
-            "klat",
-            "krange",
-            "charge",
-            "qrange",
-            "Vbias",
-            "Vrange",
-            "noPBC",
-        ]
-    )
-    parser.add_argument(
-        "--iets",
-        action="store",
-        type=float,
-        help="Mass [a.u.]; Bias offset [eV]; Peak width [eV] ",
-        nargs=3,
-    )
-    parser.add_argument("--LCPD_maps", action="store_true", help="Print LCPD maps")
-    parser.add_argument(
-        "--z0",
-        action="store",
-        type=float,
-        default=0.0,
-        help="Height of the topmost layer of metallic substrate for E to V conversion (Ang)",
-    )
-    parser.add_argument(
-        "--V0",
-        action="store",
-        type=float,
-        default=0.0,
-        help="Empirical LCPD maxima shift due to mesoscopic workfunction diference",
-    )
-
-    parser.add_argument("--df", action="store_true", help="Plot images for dfz ")
-    parser.add_argument(
-        "--save_df", action="store_true", help="Save frequency shift as df.xsf "
-    )
-    parser.add_argument(
-        "--Laplace",
-        action="store_true",
-        help="Plot Laplace-filtered images and save them ",
-    )
-    parser.add_argument(
-        "--pos", action="store_true", help="Save probe particle positions"
-    )
-    parser.add_argument("--atoms", action="store_true", help="Plot atoms to images")
-    parser.add_argument("--bonds", action="store_true", help="Plot bonds to images")
-    parser.add_argument("--cbar", action="store_true", help="Plot colorbars to images")
-    parser.add_argument(
-        "--WSxM", action="store_true", help="Save frequency shift into WsXM *.dat files"
-    )
-    parser.add_argument(
-        "--bI", action="store_true", help="Plot images for Boltzmann current"
-    )
-
+    # fmt: off
+    parser = PPU.CLIParser( description="Plot results for a scan with a specified charge, amplitude, and spring constant.Images are saved in folder Q{charge}K{klat}/Amp{Amplitude}." )
+    parser.add_arguments(["output_format","Amplitude","arange","klat","krange","charge", "qrange", "Vbias", "Vrange", "noPBC", ])
+    parser.add_argument( "--iets",      action="store",      type=float,               help="Mass [a.u.]; Bias offset [eV]; Peak width [eV] ",   nargs=3,  )
+    parser.add_argument( "--LCPD_maps", action="store_true",                           help="Print LCPD maps")
+    parser.add_argument( "--z0",        action="store",      type=float,  default=0.0, help="Height of the topmost layer of metallic substrate for E to V conversion (Ang)",    )
+    parser.add_argument( "--V0",        action="store",      type=float,  default=0.0, help="Empirical LCPD maxima shift due to mesoscopic workfunction diference",    )
+    parser.add_argument( "--df",        action="store_true",                           help="Plot images for dfz ")
+    parser.add_argument( "--save_df",   action="store_true",                           help="Save frequency shift as df.xsf "    )
+    parser.add_argument( "--Laplace",   action="store_true",                           help="Plot Laplace-filtered images and save them ",    )
+    parser.add_argument( "--pos",       action="store_true",                           help="Save probe particle positions"    )
+    parser.add_argument( "--atoms",     action="store_true",                           help="Plot atoms to images")
+    parser.add_argument( "--bonds",     action="store_true",                           help="Plot bonds to images")
+    parser.add_argument( "--cbar",      action="store_true",                           help="Plot colorbars to images")
+    parser.add_argument( "--WSxM",      action="store_true",                           help="Save frequency shift into WsXM *.dat files"    )
+    parser.add_argument( "--bI",        action="store_true",                           help="Plot images for Boltzmann current"    )
+    # fmt: on
+    
     args = parser.parse_args()
     opt_dict = vars(args)
 

@@ -23,15 +23,14 @@ def main():
         'The integral has two parameters A and B, and is of form A*Integral( rho_tip^B * rho_sample^B )'
     )
 
+    # fmt: off
     parser.add_argument('-s', '--sample', action='store', required=True, help='Path to sample charge density (.xsf).')
     parser.add_argument('-t', '--tip',    action='store', required=True, help='Path to tip charge density (.xsf).')
     parser.add_argument('-o', '--output', action='store', default='pauli', help='Name of output energy/force files.')
-    parser.add_arguments(['output_format', 'energy', 'Apauli', 'Bpauli'])
     parser.add_argument('--saveDebugXsfs', action='store_true', help='Save auxiliary xsf files for debugging.')
-    parser.add_argument('--no_negative_check', action='store_true',
-                        help='Input density files may contain negative voxels. This is handled by default by setting negative values to zero '
-                        'and rescaling the density so that the total charge is conserved. Setting this option disables the check.'
-                        )
+    parser.add_argument('--no_negative_check', action='store_true', help='Input density files may contain negative voxels. This is handled by default by setting negative values to zero and rescaling the density so that the total charge is conserved. Setting this option disables the check.' )
+    parser.add_arguments(['output_format', 'energy', 'Apauli', 'Bpauli'])
+    # fmt: on
 
     args = parser.parse_args()
 

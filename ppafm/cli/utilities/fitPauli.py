@@ -23,6 +23,7 @@ import ppafm.io            as io
 from   optparse import OptionParser
 
 parser = OptionParser()
+# fmt: off
 parser.add_option( "-i",           action="store", type="string", help="input file - *.xsf or *.cube - where the densities and geometries are originally", default= 'CHGCAR.xsf' )
 parser.add_option( "-o",           action="store", type="string", help="output xyz file name",                    default= 'new_xyz.xyz'   )
 parser.add_option( "-z", "--zcut", action="store", type="float",  help="cut-out atoms bellow this height",        default= -100.           )
@@ -30,7 +31,7 @@ parser.add_option( "--height",     action="store", type="float",  help="how far 
 parser.add_option( "--old",        action="store_true",           help="use old version of atomtypes.ini - useful when combining with old-style double PP", default= False )
 parser.add_option( "--not_plot",   action="store_false"        ,  help="do not-plot the lines above atoms",       default= True            )
 parser.add_option( "--debug",      action="store_true"         ,  help="plot and pr. all lines and data from fit",default= False           )
-
+# fmt: on
 (options, args) = parser.parse_args()
 
 # ====== functions

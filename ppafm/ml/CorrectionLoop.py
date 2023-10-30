@@ -164,10 +164,11 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
                     X1 = self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs)
                     X1s[i].append(X1)
 
+                    # fmt: off
                     mol1_tx = self.xyzs[mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin]
-                    mol1_tq = self.qs[mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin]
-                    mol1_tz = self.Zs[mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin]
-
+                    mol1_tq = self.qs  [mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin]
+                    mol1_tz = self.Zs  [mol1_a.array[:, 2] >= mol1_a.array[:, 2].max() + self.zmin]
+                    # fmt: on
                     mol1_t = Molecule(mol1_tx, mol1_tz, mol1_tq)
 
                     if mol2.xyzs.size > 0:

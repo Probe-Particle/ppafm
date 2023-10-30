@@ -14,6 +14,7 @@ verbose = 0
 eVA_Nm = 16.021766
 CoulombConst = 14.399645
 
+# fmt: off
 # default parameters of simulation
 params = {
     "PBC": True,
@@ -61,6 +62,7 @@ params = {
     "vdWDampKind": 2,
     "#": None,
 }
+# fmt: on
 
 
 class CLIParser(ArgumentParser):
@@ -384,6 +386,7 @@ def rotation_matrix(axis, theta):
     b, c, d = -axis * np.sin(theta / 2.0)
     aa, bb, cc, dd = a * a, b * b, c * c, d * d
     bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
+
     return np.array(
         [
             [aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
@@ -663,6 +666,7 @@ def PBCAtoms3D(Zs, Rs, Qs, cLJs, lvec, npbc=[1, 1, 1]):
         Zs_.append(Zs[iatom])
         Rs_.append(Rs[iatom])
         Qs_.append(Qs[iatom])
+    # fmt: off
     for ia in range(-npbc[0], npbc[0] + 1):
         for ib in range(-npbc[1], npbc[1] + 1):
             for ic in range(-npbc[2], npbc[2] + 1):
@@ -691,6 +695,7 @@ def PBCAtoms3D(Zs, Rs, Qs, cLJs, lvec, npbc=[1, 1, 1]):
                     Rs_.append((x, y, z))
                     Qs_.append(Qs[iatom])
                     cLJs_.append(cLJs[iatom, :])
+    # fmt: on
     return (
         np.array(Zs_).copy(),
         np.array(Rs_).copy(),
@@ -741,21 +746,22 @@ def findPBCAtoms3D_cutoff(Rs, lvec, Rcut=1.0, corners=None):
     inds = np.concatenate(inds)
     Rs_ = np.hstack(Rs_)
 
+    # fmt: off
     if corners is not None:
         corns = np.array(
             [
-                [-mA, -mB, -mC],
-                [-mA, -mB, 1 + mC],
-                [-mA, 1 + mB, -mC],
-                [-mA, 1 + mB, 1 + mC],
-                [1 + mA, -mB, -mC],
-                [1 + mA, -mB, 1 + mC],
-                [1 + mA, 1 + mB, -mC],
+                [  -mA,     -mB,    -mC],
+                [  -mA,     -mB, 1 + mC],
+                [  -mA,  1 + mB,    -mC],
+                [  -mA,  1 + mB, 1 + mC],
+                [1 + mA,    -mB,    -mC],
+                [1 + mA,    -mB, 1 + mC],
+                [1 + mA, 1 + mB,     -mC],
                 [1 + mA, 1 + mB, 1 + mC],
             ]
         ).transpose()
         corners.append(np.dot(lvec, corns))
-
+    # fmt: on
     return inds, Rs_
 
 

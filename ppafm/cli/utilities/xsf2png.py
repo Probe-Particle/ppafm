@@ -18,18 +18,16 @@ from ppafm import atomicUtils, elements, io
 
 import matplotlib as mpl;  mpl.use('Agg'); print("plot WITHOUT Xserver"); # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
-
-
 parser = OptionParser()
-parser.add_option( "-i", action="store", type="string", help="input file name", default='df' )
-parser.add_option( "--cmap", action="store", type="string", help="input file name", default='gray' )
-parser.add_option( "--izs", action="store", type="int", help="Range of plotted z slice indexes", nargs=3)
-parser.add_option( "--vrange", action="store", type="float", help="Range of values", nargs=2)
-parser.add_option( "--npy" , action="store_true" ,  help="load and save fields in npy instead of xsf"     , default=False)
-
-parser.add_option( "--atoms",    action="store", type="string", help="xyz geometry file", default='input_plot.xyz' )
-parser.add_option( "--bonds",    action="store_true", default=False, help="plot bonds to images" )
-
+# fmt: off
+parser.add_option( "-i",       action="store",      type="string", default='df'             help="input file name",)
+parser.add_option( "--cmap",   action="store",      type="string", default='gray'           help="input file name",  )
+parser.add_option( "--izs",    action="store",      type="int",                             help="Range of plotted z slice indexes", nargs=3)
+parser.add_option( "--vrange", action="store",      type="float",                           help="Range of values", nargs=2)
+parser.add_option( "--npy" ,   action="store_true",                default=False            help="load and save fields in npy instead of xsf", )
+parser.add_option( "--atoms",  action="store",      type="string", default='input_plot.xyz' help="xyz geometry file",                           )
+parser.add_option( "--bonds",  action="store_true",                default=False,           help="plot bonds to images" )
+# fmt: on
 (options, args) = parser.parse_args()
 
 
