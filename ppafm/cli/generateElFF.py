@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -76,7 +77,8 @@ def main():
         if args.tip_dens.lower().endswith("xsf"):
             rho_tip, lvec_tip, n_dim_tip, head_tip = io.loadXSF(args.tip_dens)
         else:
-            raise ValueError('ERROR!!! Unknown or unsupported format of the tip density file "' + args.tip_dens + '"\n')
+            print(f'ERROR!!! Unknown or unsupported format of the tip density file "{args.tip_dens}"\n', file=sys.stderr)
+            sys.exit(1)
         if subtract_core_densities:
             print(">>> subtracting core densities from rho_tip ... ")
             subtractCoreDensities(rho_tip, lvec_tip, elems=elems_tip, Rs=rs_tip, valElDict=valence_electrons_dictionary, Rcore=args.Rcore, head=head_tip)
@@ -102,14 +104,12 @@ def main():
             v_kpfm, lvec, n_dim, head = io.loadCUBE(args.KPFM_sample)
 
         else:
-            raise ValueError(
-                'ERROR!!! Format of the "'
-                + args.KPFM_sample
-                + '" file with Hartree potential under bias is unknown\n'
-                + ' or incompatible with the main input format, which is "'
-                + input_format
-                + ".\n"
+            print(
+                'ERROR!!! Format of the "{args.KPFM_sample}" file with Hartree potential under bias is unknown\n'
+                + ' or incompatible with the main input format, which is "{input_format}".\n',
+                file=sys.stderr,
             )
+            sys.exit(1)
 
         dv_kpfm = v_kpfm - v_v0_aux
 
