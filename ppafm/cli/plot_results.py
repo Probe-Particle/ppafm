@@ -129,8 +129,8 @@ def main():
     print(" ============= RUN  ")
 
     dz = common.params["scanStep"][2]
-    x_tips, y_tips, z_tips, _ = common.prepareScanGrids()
-    extent = (x_tips[0], x_tips[-1], y_tips[0], y_tips[-1])
+    tip_positions_x, tip_positions_y, tip_positions_z, _ = common.prepareScanGrids()
+    extent = (tip_positions_x[0], tip_positions_x[-1], tip_positions_y[0], tip_positions_y[-1])
 
     atoms_str = ""
     atoms = None
@@ -197,7 +197,7 @@ def main():
                     dirname + "/IETS" + atoms_str + cbar_str,
                     iets,
                     slices=list(range(0, len(iets))),
-                    zs=z_tips,
+                    zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
                     bonds=bonds,
@@ -208,7 +208,7 @@ def main():
                     dirname + "/Evib" + atoms_str + cbar_str,
                     e_vib[:, :, :, 0],
                     slices=list(range(0, len(iets))),
-                    zs=z_tips,
+                    zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
                     bonds=bonds,
@@ -219,7 +219,7 @@ def main():
                     dirname + "/Kvib" + atoms_str + cbar_str,
                     16.0217662 * eigenvalue_k[:, :, :, 0],
                     slices=list(range(0, len(iets))),
-                    zs=z_tips,
+                    zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
                     bonds=bonds,
@@ -263,7 +263,7 @@ def main():
                         ) = io.load_scal_field(dirname + "/OutFz", data_format=args.output_format)
                         if applied_bias:
                             r_tip = common.params["Rtip"]
-                            for iz, z in enumerate(z_tips):
+                            for iz, z in enumerate(tip_positions_z):
                                 fzs[iz, :, :] = fzs[iz, :, :] - np.pi * common.params["permit"] * ((r_tip * r_tip) / ((z - args.z0) * (z + r_tip))) * (voltage - args.V0) * (
                                     voltage - args.V0
                                 )
@@ -293,7 +293,7 @@ def main():
                             dir_name_amplitude + "/df" + atoms_str + cbar_str,
                             dfs,
                             slices=list(range(0, len(dfs))),
-                            zs=z_tips + common.params["Amplitude"] / 2.0,
+                            zs=tip_positions_z + common.params["Amplitude"] / 2.0,
                             extent=extent,
                             cmap=common.params["colorscale"],
                             atoms=atoms,
@@ -317,7 +317,7 @@ def main():
                             dir_name_amplitude + "/df_laplace" + atoms_str + cbar_str,
                             df_laplace_filtered,
                             slices=list(range(0, len(dfs))),
-                            zs=z_tips + common.params["Amplitude"] / 2.0,
+                            zs=tip_positions_z + common.params["Amplitude"] / 2.0,
                             extent=extent,
                             cmap=common.params["colorscale"],
                             atoms=atoms,
@@ -348,7 +348,7 @@ def main():
                     dirname + "/OutI" + atoms_str + cbar_str,
                     current,
                     slices=list(range(0, len(current))),
-                    zs=z_tips,
+                    zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
                     bonds=bonds,
@@ -362,7 +362,7 @@ def main():
                 "./LCPD" + atoms_str + cbar_str,
                 lcpd,
                 slices=list(range(0, len(lcpd))),
-                zs=z_tips + common.params["Amplitude"] / 2.0,
+                zs=tip_positions_z + common.params["Amplitude"] / 2.0,
                 extent=extent,
                 cmap=common.params["colorscale_kpfm"],
                 atoms=atoms,
@@ -376,7 +376,7 @@ def main():
                 "./_Asym-LCPD" + atoms_str + cbar_str,
                 lcpd,
                 slices=list(range(0, len(lcpd))),
-                zs=z_tips + common.params["Amplitude"] / 2.0,
+                zs=tip_positions_z + common.params["Amplitude"] / 2.0,
                 extent=extent,
                 cmap=common.params["colorscale_kpfm"],
                 atoms=atoms,

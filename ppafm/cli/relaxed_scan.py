@@ -171,8 +171,8 @@ def main():
         if opt_dict["vib"] >= 0:
             which = opt_dict["vib"]
             print(f" === Computing eigenvectors of dynamical matrix: which={which} ddisp={common.params['ddisp']}")
-            x_tips, y_tips, z_tips, lvec_scan = common.prepareScanGrids()
-            r_tips = np.array(np.meshgrid(x_tips, y_tips, z_tips)).transpose(3, 1, 2, 0).copy()
+            tip_positions_x, tip_positions_y, tip_positions_z, lvec_scan = common.prepareScanGrids()
+            r_tips = np.array(np.meshgrid(tip_positions_x, tip_positions_y, tip_positions_z)).transpose(3, 1, 2, 0).copy()
             evals, evecs = core.stiffnessMatrix(r_tips.reshape((-1, 3)), pp_positions.reshape((-1, 3)), which=which, ddisp=common.params["ddisp"])
             io.save_vec_field(dirname + "/eigvalKs", evals.reshape(r_tips.shape), **data_info)
             if which > 0:
