@@ -190,9 +190,9 @@ def main():
 
         if args.bI:
             print("Calculating current from tip to the Boltzmann particle:")
-            i_in, lvec, _, atomic_info_or_head = io.load_scal_field("I_boltzmann", data_format=args.output_format)
-            i_out = interpolate_cartesian(i_in, pp_positions, cell=lvec[1:, :], result=None)
-            io.save_scal_field(dirname + "/OutI_boltzmann", i_out, **data_info)
+            current_in, lvec, _, atomic_info_or_head = io.load_scal_field("I_boltzmann", data_format=args.output_format)
+            current_out = interpolate_cartesian(current_in, pp_positions, cell=lvec[1:, :], result=None)
+            io.save_scal_field(dirname + "/OutI_boltzmann", current_out, **data_info)
 
 
 if __name__ == "__main__":
