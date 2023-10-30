@@ -10,7 +10,7 @@ from ..HighLevel import computeDFTD3
 
 def main():
     parser = common.CLIParser(
-        description="Generate Grimme DFT-D3 vdW force field using the Becke-Johnson damping function. " "The generated force field is saved to FFvdW_{x,y,z}.[ext]."
+        description="Generate Grimme DFT-D3 vdW force field using the Becke-Johnson damping function. The generated force field is saved to FFvdW_{x,y,z}.[ext]."
     )
 
     parser.add_arguments(["input", "input_format", "output_format", "noPBC", "energy"])
