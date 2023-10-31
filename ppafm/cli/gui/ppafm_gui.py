@@ -90,14 +90,12 @@ TTips = {
 def parse_args():
 
     parser = ArgumentParser(description='Probe Particle Model graphical user interface')
-    parser.add_argument("input", nargs='*',
-        help="Optional input file(s). The first file is the main input file containing the xyz geometry or Hartree potential. The subsequent"
-            "optional files, in order, are the sample electron density, tip electron density, and tip electron delta density."
-    )
-    parser.add_argument("-d", "--device", action="store", type=int, default=0, help="Choose OpenCL device.")
-    parser.add_argument("-l", "--list-devices", action="store_true", help="List available OpenCL devices and exit.")
-    parser.add_argument("-v", '--verbosity', action="store", type=int, default=0, help="Set verbosity level (0-2).")
-
+    # fmt: off
+    parser.add_argument("input", nargs='*', help="Optional input file(s). The first file is the main input file containing the xyz geometry or Hartree potential. The subsequent optional files, in order, are the sample electron density, tip electron density, and tip electron delta density.")
+    parser.add_argument("-d", "--device",       action="store", type=int, default=0,  help="Choose OpenCL device.")
+    parser.add_argument("-l", "--list-devices", action="store_true",                  help="List available OpenCL devices and exit.")
+    parser.add_argument("-v", '--verbosity',    action="store", type=int, default=0,  help="Set verbosity level (0-2).")
+    # fmt: on
     args = parser.parse_args()
     if args.input:
         inputs = {'main_input': args.input[0]}

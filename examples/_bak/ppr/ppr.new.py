@@ -11,6 +11,7 @@ import ProbeParticle as PP
 
 from ppafm import io
 
+# fmt: off
 parser = OptionParser()
 parser.add_option( "-k",       action="store", type="float", help="k parameter", default=0.5)
 parser.add_option( "--krange", action="store", type="float", help="k parameter range", nargs=3)
@@ -18,6 +19,7 @@ parser.add_option( "-q",       action="store", type="float", help="charge", defa
 parser.add_option( "--qrange", action="store", type="float", help="charge range", nargs=3)
 parser.add_option( "-a",       action="store", type="float", help="amplitude", default=0.0)
 parser.add_option( "--arange", action="store", type="float", help="amplitude range", nargs=3)
+# fmt: on
 (options, args) = parser.parse_args()
 
 

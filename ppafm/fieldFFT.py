@@ -29,7 +29,7 @@ def getMGrid(dims, dd):
     (dx, dy, dz) = dd
     nDim = [dims[2], dims[1], dims[0]]
     XYZ = np.mgrid[0:nDim[0],0:nDim[1],0:nDim[2]].astype(float)
-
+    # fmt: off
     xshift = nDim[2]//2;  xshift_ = xshift;
     yshift = nDim[1]//2;  yshift_ = yshift;
     zshift = nDim[0]//2;  zshift_ = zshift;
@@ -41,6 +41,7 @@ def getMGrid(dims, dd):
     X = dx*np.roll( XYZ[2] - xshift_, xshift, axis=2)
     Y = dy*np.roll( XYZ[1] - yshift_, yshift, axis=1)
     Z = dz*np.roll( XYZ[0] - zshift_, zshift, axis=0)
+    # fmt: on
     return X, Y, Z
 
 def rotZX( Z, X, tilt = 0.0 ):

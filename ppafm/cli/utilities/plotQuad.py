@@ -11,9 +11,11 @@ import ppafm.GridUtils as GU
 from ppafm import io
 
 parser = OptionParser()
-parser.add_option( "-p",   action="store", type="string", help="pixels (ix,iy) to take curve", default='quad_points.ini' )
-parser.add_option( "-i",   action="store", type="string", help="input file",                   default='OutFz'        )
-parser.add_option("-f","--data_format" , action="store" , type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
+# fmt: off
+parser.add_option( "-p",                 action="store", type="string", help="pixels (ix,iy) to take curve", default='quad_points.ini' )
+parser.add_option( "-i",                 action="store", type="string", help="input file",                   default='OutFz'        )
+parser.add_option("-f","--data_format" , action="store", type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
+# fmt: on
 (options, args) = parser.parse_args()
 
 try:

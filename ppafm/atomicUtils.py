@@ -166,9 +166,11 @@ def loadCoefs( characters=['s'] ):
 
 def findCOG( ps, byBox=False ):
     if(byBox):
+        # fmt: off
         xmin=ps[:,0].min(); xmax=ps[:,0].max();
         ymin=ps[:,1].min(); ymax=ps[:,1].max();
         zmin=ps[:,2].min(); zmax=ps[:,2].max();
+        # fmt: on
         return np.array( (xmin+xmax, ymin+ymax, zmin+zmax) ) * 0.5
     else:
         cog = np.sum( ps, axis=0 )

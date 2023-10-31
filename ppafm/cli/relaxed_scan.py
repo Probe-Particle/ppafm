@@ -32,19 +32,20 @@ def main():
     parser = common.CLIParser(
         description="Perform a scan, relaxing the probe particle in a precalculated force field. The generated force field is saved to Q{charge}K{klat}/OutFz.xsf."
     )
-
-    parser.add_arguments(["klat", "krange", "charge", "qrange", "Vbias", "Vrange", "Apauli", "output_format"])
-    parser.add_argument("--noLJ", action="store_true", help="Load Pauli and vdW force fields from separate files")
-    parser.add_argument("-b", "--boltzmann", action="store_true", help="Calculate forces with boltzmann particle")
-    parser.add_argument("--bI", action="store_true", help="Calculate current between boltzmann particle and tip")
-    parser.add_argument("--pos", action="store_true", help="Save probe particle positions")
-    parser.add_argument("--disp", action="store_true", help="Save probe particle displacements")
-    parser.add_argument("--bDebugFFtot", action="store_true", help="Store total force field for debugging")
-    parser.add_argument("--vib", action="store", type=int, default=-1, help="Map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs")
-    parser.add_argument("--tipspline", action="store", type=str, help="File where spline is stored")
-    parser.add_argument("--rotate", action="store", type=float, default=0.0, help="Rotates sampling in xy-plane")
-    parser.add_argument("--pol_t", action="store", type=float, default=1.0, help="Scaling factor for tip polarization")
-    parser.add_argument("--pol_s", action="store", type=float, default=1.0, help="Scaling factor for sample polarization")
+    # fmt: off
+    parser.add_arguments(['klat', 'krange', 'charge', 'qrange', 'Vbias', 'Vrange', 'Apauli', 'output_format'])
+    parser.add_argument("--noLJ",           action="store_true",                          help="Load Pauli and vdW force fields from separate files")
+    parser.add_argument("-b","--boltzmann", action="store_true",                          help="Calculate forces with boltzmann particle")
+    parser.add_argument("--bI",             action="store_true",                          help="Calculate current between boltzmann particle and tip")
+    parser.add_argument("--pos",            action="store_true",                          help="Save probe particle positions")
+    parser.add_argument("--disp",           action="store_true",                          help="Save probe particle displacements")
+    parser.add_argument("--bDebugFFtot",    action="store_true",                          help="Store total force field for debugging")
+    parser.add_argument("--vib",            action="store",      type=int,   default=-1,  help="Map PP vibration eigenmodes; 0-just eigenvals; 1-3 eigenvecs")
+    parser.add_argument("--tipspline",      action="store",      type=str,                help="File where spline is stored")
+    parser.add_argument("--rotate",         action="store",      type=float, default=0.0, help="Rotates sampling in xy-plane")
+    parser.add_argument("--pol_t",          action="store",      type=float, default=1.0, help="Scaling factor for tip polarization")
+    parser.add_argument("--pol_s",          action="store",      type=float, default=1.0, help="Scaling factor for sample polarization")
+    # fmt: on
     args = parser.parse_args()
 
     opt_dict = vars(args)

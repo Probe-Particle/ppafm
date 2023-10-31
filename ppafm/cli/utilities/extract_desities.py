@@ -11,12 +11,14 @@ import ppafm.GridUtils as GU
 from ppafm import io
 
 parser = OptionParser()
-parser.add_option( "-i",     action="store", type="string",  help="input file",                                 default='CHGCAR.xsf' )
-parser.add_option( "-n", "--same_name",action="store_false", help="save the file with same name as input file", default= True        )
-parser.add_option( "--zmin", action="store", type="float",   help="From what height to extract densities",      default=+0.0         )
-parser.add_option( "--zmax", action="store", type="float",   help="To which height extract densities",          default=-1.0         )
-parser.add_option( "--dz",   action="store", type="float",   help="use dz with step",                           default=-0.1         )
-parser.add_option( "--plot", action="store_false"        ,   help="plot extracted ?",                           default=True         )
+# fmt: off
+parser.add_option( "-i",               action="store", type="string",  help="input file",                                 default='CHGCAR.xsf' )
+parser.add_option( "-n", "--same_name",action="store_false",           help="save the file with same name as input file", default= True        )
+parser.add_option( "--zmin",           action="store", type="float",   help="From what height to extract densities",      default=+0.0         )
+parser.add_option( "--zmax",           action="store", type="float",   help="To which height extract densities",          default=-1.0         )
+parser.add_option( "--dz",             action="store", type="float",   help="use dz with step",                           default=-0.1         )
+parser.add_option( "--plot",           action="store_false"        ,   help="plot extracted ?",                           default=True         )
+# fmt: on
 (options, args) = parser.parse_args()
 
 fname, fext = os.path.splitext( options.i ); fext = fext[1:]

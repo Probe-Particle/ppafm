@@ -176,18 +176,15 @@ def comp_msd(x=[]):
 
 if __name__=="__main__":
     parser = OptionParser()
-    parser.add_option( "-q","--charge", action="store", type="float", help="fit tip charge ", default=None)
-    parser.add_option( "-s","--sigma", action="store", type="float", help="Fit "
-    "the gaussian width of the charge distribution", default=None)
-    parser.add_option( "-k","--klat", action="store", type="float", help="Fit "
-    "the lateral stiffness of the PP", default=None)
-    parser.add_option( "--krad", action="store", type="float", help="Fit "
-    "the radial stiffness of the PP", default=None)
-    parser.add_option( "-a","--atom", action="append", type="string",help="Fit "
-    "the LJ parameters of the given atom", default=None, nargs=3)
-    parser.add_option( "--nobounds", action="store_true",
-    help="Skipf the first optimization step with bounds", default=False)
-
+    # fmt: off
+    parser.add_option( "-q","--charge",  action="store",     type="float",  help="fit tip charge ",                                   default=None)
+    parser.add_option( "-s","--sigma",   action="store",     type="float",  help="Fit the gaussian width of the charge distribution", default=None)
+    parser.add_option( "-k","--klat",    action="store",     type="float",  help="Fit  the lateral stiffness of the PP",              default=None)
+    parser.add_option( "--krad",         action="store",     type="float",  help="Fit the radial stiffness of the PP",                default=None)
+    parser.add_option( "-a","--atom",    action="append",    type="string", help="Fit the LJ parameters of the given atom",           default=None, nargs=3)
+    parser.add_option( "--nobounds",     action="store_true",               help="Skipf the first optimization step with bounds",     default=False)
+    # fmt: on
+    
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
     PPU.apply_options(opt_dict) # setting up all the options according to their
