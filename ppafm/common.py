@@ -11,8 +11,11 @@ verbose = 0
 
 # ====================== constants
 
-eVA_Nm = 16.021766
+eVA_Nm = 16.0217662  # [eV/A^2] / [N/m]
 CoulombConst = 14.399645
+HBAR = 6.58211951440e-16  # [eV.s]
+AUMASS = 1.66053904020e-27  # [kg]
+
 
 # fmt: off
 # default parameters of simulation
@@ -199,9 +202,7 @@ class CLIParser(ArgumentParser):
     def _check_params_args(self):
         for arg in self._params_args:
             if arg not in params:
-                raise ValueError(
-                    f"Argument name `{arg}` does not match with any parameter in global parameters dictionary."
-                )
+                raise ValueError(f"Argument name `{arg}` does not match with any parameter in global parameters dictionary.")
 
     @property
     def cli_args(self):
@@ -292,12 +293,8 @@ def get_df_weight(Amp, dz=0.1):
         f[1:-1] = np.sqrt(1 - t[1:-1] * t[1:-1])
         f2[1:-1] = (np.arccos(-t[1:-1]) - t[1:-1] * f[1:-1]) / 2.0
     f2[0] = np.pi / 2  # end point for t>=1 must be as if t=1 even if t>1
-    df = (
-        f[:-1] - f[1:]
-    )  # numerical derivative (first derivative integrated over one-step-long intervals) of function f(t)
-    df2 = (
-        f2[:-1] - f2[1:]
-    )  # numerical derivative (first derivative integrated over one-step-long intervals) of f2(t)
+    df = f[:-1] - f[1:]  # numerical derivative (first derivative integrated over one-step-long intervals) of function f(t)
+    df2 = f2[:-1] - f2[1:]  # numerical derivative (first derivative integrated over one-step-long intervals) of f2(t)
     w[1:] = t[:-1] * df + df2  # coefficients to multiply F[i]
     w[:-1] -= t[1:] * df + df2  # coefficients to multiply F[i+1]
     return w / (np.pi * dz)
@@ -342,9 +339,7 @@ def Fz2df(
     Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
     """
     W = get_df_weight(amplitude, dz=dz)
-    dFconv = np.apply_along_axis(
-        lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F
-    )
+    dFconv = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F)
     return dFconv * units * f0 / k0
 
 
@@ -363,15 +358,9 @@ def Fz2df_tilt(
     """
     dr = np.sqrt(d[0] ** 2 + d[1] ** 2 + d[2] ** 2)
     W = get_df_weight(amplitude, dz=dr)
-    dFconv_x = np.apply_along_axis(
-        lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 0]
-    )
-    dFconv_y = np.apply_along_axis(
-        lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 1]
-    )
-    dFconv_z = np.apply_along_axis(
-        lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 2]
-    )
+    dFconv_x = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 0])
+    dFconv_y = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 1])
+    dFconv_z = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 2])
     return (dFconv_x * d[0] + dFconv_y * d[1] + dFconv_z * d[2]) * units * f0 / k0
 
 
@@ -489,17 +478,13 @@ def loadParams(fname):
                         print(key, params[key], words[1])
                 elif isinstance(val, np.ndarray):
                     if val.dtype == float:
-                        params[key] = np.array(
-                            [float(words[1]), float(words[2]), float(words[3])]
-                        )
+                        params[key] = np.array([float(words[1]), float(words[2]), float(words[3])])
                         if verbose > 0:
                             print(key, params[key], words[1], words[2], words[3])
                     elif val.dtype == int:
                         if verbose > 0:
                             print(key)
-                        params[key] = np.array(
-                            [int(words[1]), int(words[2]), int(words[3])]
-                        )
+                        params[key] = np.array([int(words[1]), int(words[2]), int(words[3])])
                         if verbose > 0:
                             print(key, params[key], words[1], words[2], words[3])
                     else:
@@ -532,9 +517,7 @@ def apply_options(opt):
             params[key] = value
             if key == "klat" and params["stiffness"][0] > 0.0:
                 print("Overriding stiffness parameter with klat")
-                params["stiffness"] = np.array(
-                    [-1.0, -1.0, -1.0]
-                )  # klat overrides stiffness
+                params["stiffness"] = np.array([-1.0, -1.0, -1.0])  # klat overrides stiffness
             if verbose > 0:
                 print(f"Applied: {key} = {value}")
 
@@ -673,24 +656,9 @@ def PBCAtoms3D(Zs, Rs, Qs, cLJs, lvec, npbc=[1, 1, 1]):
                 if (ia == 0) and (ib == 0) and (ic == 0):
                     continue
                 for iatom in range(len(Zs)):
-                    x = (
-                        Rs[iatom][0]
-                        + ia * lvec[0][0]
-                        + ib * lvec[1][0]
-                        + ic * lvec[2][0]
-                    )
-                    y = (
-                        Rs[iatom][1]
-                        + ia * lvec[0][1]
-                        + ib * lvec[1][1]
-                        + ic * lvec[2][1]
-                    )
-                    z = (
-                        Rs[iatom][2]
-                        + ia * lvec[0][2]
-                        + ib * lvec[1][2]
-                        + ic * lvec[2][2]
-                    )
+                    x = Rs[iatom][0] + ia * lvec[0][0] + ib * lvec[1][0] + ic * lvec[2][0]
+                    y = Rs[iatom][1] + ia * lvec[0][1] + ib * lvec[1][1] + ic * lvec[2][1]
+                    z = Rs[iatom][2] + ia * lvec[0][2] + ib * lvec[1][2] + ic * lvec[2][2]
                     Zs_.append(Zs[iatom])
                     Rs_.append((x, y, z))
                     Qs_.append(Qs[iatom])
@@ -937,21 +905,14 @@ def getAtomsREA(iZprobe, iZs, FFparams, alphaFac=-1.0):
 
 
 def getSampleAtomsREA(iZs, FFparams):
-    return np.array(
-        [(FFparams[i - 1][0], FFparams[i - 1][1], FFparams[i - 1][2]) for i in iZs]
-    )
+    return np.array([(FFparams[i - 1][0], FFparams[i - 1][1], FFparams[i - 1][2]) for i in iZs])
 
 
 def getAtomsRE(iZprobe, iZs, FFparams):
     n = len(iZs)
     Rpp = FFparams[iZprobe - 1][0]
     Epp = FFparams[iZprobe - 1][1]
-    REs = np.array(
-        [
-            (Rpp + FFparams[iZs[i] - 1][0], Epp * FFparams[iZs[i] - 1][1])
-            for i in range(n)
-        ]
-    )
+    REs = np.array([(Rpp + FFparams[iZs[i] - 1][0], Epp * FFparams[iZs[i] - 1][1]) for i in range(n)])
     REs[:, 1] = np.sqrt(REs[:, 1])
     return REs
 
@@ -977,15 +938,9 @@ def prepareScanGrids():
     and the "Apex", so that while the point of reference on the tip used to interpret scanMin  was the Apex,
     the new point of reference used in the XSF output will be the Probe Particle.
     """
-    zTips = np.arange(
-        params["scanMin"][2], params["scanMax"][2] + 0.00001, params["scanStep"][2]
-    )
-    xTips = np.arange(
-        params["scanMin"][0], params["scanMax"][0] + 0.00001, params["scanStep"][0]
-    )
-    yTips = np.arange(
-        params["scanMin"][1], params["scanMax"][1] + 0.00001, params["scanStep"][1]
-    )
+    zTips = np.arange(params["scanMin"][2], params["scanMax"][2] + 0.00001, params["scanStep"][2])
+    xTips = np.arange(params["scanMin"][0], params["scanMax"][0] + 0.00001, params["scanStep"][0])
+    yTips = np.arange(params["scanMin"][1], params["scanMax"][1] + 0.00001, params["scanStep"][1])
     (xTips[0], xTips[-1], yTips[0], yTips[-1])
     lvecScan = np.array(
         [

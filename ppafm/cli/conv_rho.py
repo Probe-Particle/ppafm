@@ -1,26 +1,24 @@
 #!/usr/bin/python
 import numpy as np
 
-import ppafm as PPU
-import ppafm.fieldFFT as fFFT
-from ppafm import io
+from .. import common, fieldFFT, io
 
 
-def handleAECCAR( fname, lvec, rho ):
+def handle_aeccar(fname, lvec, rho):
     if "AECCAR" in fname:
-        V = np.abs( np.linalg.det(lvec[1:]) )
-        rho /= V
+        rho /= np.abs(np.linalg.det(lvec[1:]))
 
-def handleNegativeDensity( rho ):
-    Q = rho.sum()
-    rho[rho<0] = 0
-    rho *= ( Q/rho.sum() )
+
+def handle_negative_density(rho):
+    q = rho.sum()
+    rho[rho < 0] = 0
+    rho *= q / rho.sum()
+
 
 def main():
-
-    parser = PPU.CLIParser(
-        description='Calculate the density overlap integral for Pauli force field in the full-density based model. '
-        'The integral has two parameters A and B, and is of form A*Integral( rho_tip^B * rho_sample^B )'
+    parser = common.CLIParser(
+        description="Calculate the density overlap integral for Pauli force field in the full-density based model. "
+        "The integral has two parameters A and B, and is of form A*Integral( rho_tip^B * rho_sample^B )"
     )
 
     # fmt: off
@@ -35,42 +33,41 @@ def main():
     args = parser.parse_args()
 
     print(">>> Loading sample from ", args.sample, " ... ")
-    rhoS, lvecS, nDimS, headS = io.loadXSF( args.sample )
+    rho_sample, lvec_sample, n_dim_sample, head_sample = io.loadXSF(args.sample)
     print(">>> Loading tip from ", args.tip, " ... ")
-    rhoT, lvecT, nDimT, headT = io.loadXSF( args.tip    )
+    rho_tip, lvec_tip, n_dim_tip, head_tip = io.loadXSF(args.tip)
 
-    if np.any( nDimS != nDimT ): raise Exception( "Tip and Sample grids have different dimensions! - sample: "+str(nDimS)+" tip: "+str(nDimT) )
-    if np.any( lvecS != lvecT ): raise Exception( "Tip and Sample grids have different shapes! - sample: "+str(lvecS )+" tip: "+str(lvecT) )
+    if np.any(n_dim_sample != n_dim_tip):
+        raise Exception("Tip and Sample grids have different dimensions! - sample: " + str(n_dim_sample) + " tip: " + str(n_dim_tip))
+    if np.any(lvec_sample != lvec_tip):
+        raise Exception("Tip and Sample grids have different shapes! - sample: " + str(lvec_sample) + " tip: " + str(lvec_tip))
 
-    handleAECCAR( args.sample, lvecS, rhoS )
-    handleAECCAR( args.tip,    lvecT, rhoT )
+    handle_aeccar(args.sample, lvec_sample, rho_sample)
+    handle_aeccar(args.tip, lvec_tip, rho_tip)
 
     if args.Bpauli > 0.0:
-        B = args.Bpauli
-        print(">>> computing rho^B where B = ", B)
+        print(">>> computing rho^B where B = ", args.Bpauli)
         # NOTE: due to round-off error the density from DFT code is often negative in some voxels which produce NaNs after exponentiation; we need to correct this
         if not args.no_negative_check:
-            handleNegativeDensity( rhoS )
-            handleNegativeDensity( rhoT )
-        rhoS[:,:,:] = rhoS[:,:,:]**B
-        rhoT[:,:,:] = rhoT[:,:,:]**B
+            handle_negative_density(rho_sample)
+            handle_negative_density(rho_tip)
+        rho_sample[:, :, :] = rho_sample[:, :, :] ** args.Bpauli
+        rho_tip[:, :, :] = rho_tip[:, :, :] ** args.Bpauli
         if args.saveDebugXsfs:
-            io.save_scal_field( "sample_density_pow_%03.3f.xsf" %B, rhoS, lvecS, data_format=args.output_format, head=headS )
-            io.save_scal_field( "tip_density_pow_%03.3f.xsf" %B, rhoT, lvecT, data_format=args.output_format, head=headT )
+            io.save_scal_field("sample_density_pow_%03.3f.xsf" % args.Bpauli, rho_sample, lvec_sample, data_format=args.output_format, head=head_sample)
+            io.save_scal_field("tip_density_pow_%03.3f.xsf" % args.Bpauli, rho_tip, lvec_tip, data_format=args.output_format, head=head_tip)
 
     print(">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... ")
-    Fx,Fy,Fz,E = fFFT.potential2forces_mem( rhoS, lvecS, nDimS, rho=rhoT, doForce=True, doPot=True, deleteV=True )
-
-    PQ = args.Apauli
+    f_x, f_y, f_z, energy = fieldFFT.potential2forces_mem(rho_sample, lvec_sample, n_dim_sample, rho=rho_tip, doForce=True, doPot=True, deleteV=True)
 
     namestr = args.output
-    print(">>> Saving result of convolution to FF_",namestr,"_?.xsf ... ")
+    print(">>> Saving result of convolution to FF_", namestr, "_?.xsf ... ")
 
     # Density Overlap Model
     if args.energy:
-        io.save_scal_field( "E"+namestr, E*PQ, lvecS, data_format=args.output_format, head=headS )
-    FF = io.packVecGrid(Fx*PQ,Fy*PQ,Fz*PQ)
-    io.save_vec_field( "FF"+namestr, FF, lvecS, data_format=args.output_format, head=headS )
+        io.save_scal_field("E" + namestr, energy * args.Apauli, lvec_sample, data_format=args.output_format, head=head_sample)
+    force_field = io.packVecGrid(f_x * args.Apauli, f_y * args.Apauli, f_z * args.Apauli)
+    io.save_vec_field("FF" + namestr, force_field, lvec_sample, data_format=args.output_format, head=head_sample)
 
 
 if __name__ == "__main__":
