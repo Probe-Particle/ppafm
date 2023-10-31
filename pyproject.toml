@@ -78,3 +78,4 @@ skip = ["pp*", "*-manylinux_i686", "*-musllinux*", '*-win32']
 
 [tool.black]
 line-length = 180
+exclude = "ppafm/dev"

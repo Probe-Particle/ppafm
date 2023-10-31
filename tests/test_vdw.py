@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-'''
+"""
 Compare the C++ and OpenCL implementations of the vdW calculation and check that they are consistent.
-'''
+"""
 
 import numpy as np
 import pyopencl as cl
@@ -15,7 +15,6 @@ import ppafm.ocl.oclUtils as oclu
 
 
 def test_vdw():
-
     oclu.init_env(i_platform=0)
 
     Z_pp = 8
@@ -23,27 +22,20 @@ def test_vdw():
     x_min, x_max, step = 0.3, 6.0, 0.1
     x_FF = np.arange(x_min, x_max, step)
     atoms = np.zeros((1, 4))
-    lvec = np.array([
-        [     x_min ,    0,    0],
-        [x_max-x_min,    0,    0],
-        [          0, step,    0],
-        [          0,    0, step]
-    ])
+    lvec = np.array([[x_min, 0, 0], [x_max - x_min, 0, 0], [0, step, 0], [0, 0, step]])
     pixPerAngstrome = round(1 / step)
 
     forcefield = FFcl.ForceField_LJC()
-    typeParams = PPU.loadSpecies('atomtypes.ini')
+    typeParams = PPU.loadSpecies("atomtypes.ini")
     REAs = PPU.getAtomsREA(Z_pp, Z_atom, typeParams)
     cLJs = PPU.REA2LJ(REAs)
 
     forcefield.initSampling(lvec, pixPerAngstrome=pixPerAngstrome)
 
     for damp_method in [-1, 0, 1, 2, 3, 4]:
-
         for i, Z in enumerate(Z_atom):
-
-            cLJs_ = cLJs[i:i+1]
-            REAs_ = REAs[i:i+1]
+            cLJs_ = cLJs[i : i + 1]
+            REAs_ = REAs[i : i + 1]
             forcefield.prepareBuffers(atoms, cLJs_, REAs=REAs_)
             forcefield.initialize()
 
@@ -58,33 +50,30 @@ def test_vdw():
             assert np.allclose(Fx_ocl, Fx_cpp, atol=1e-6, rtol=1e-4)
             assert np.allclose(E_ocl, E_cpp, atol=1e-6, rtol=1e-4)
 
-def test_dftd3():
 
+def test_dftd3():
     oclu.init_env(i_platform=0)
 
     Z_pp = 8
     Zs = np.array([1, 1, 1, 1, 1, 6, 6, 6, 6, 6, 7])
-    xyzs = np.array([
-        [12.503441, 10.00046 ,  0.0],
-        [11.21048 , 12.163759,  0.0],
-        [11.21132 ,  7.83666 ,  0.0],
-        [ 8.71074 , 12.06802 ,  0.0],
-        [ 8.71154 ,  7.93144 ,  0.0],
-        [11.41128 , 10.000239,  0.0],
-        [10.69736 , 11.2     ,  0.0],
-        [10.697821,  8.800241,  0.0],
-        [ 9.300119, 11.145101,  0.0],
-        [ 9.30056 ,  8.85458 ,  0.0],
-        [ 8.59812 ,  9.999701,  0.0]]
+    xyzs = np.array(
+        [
+            [12.503441, 10.00046, 0.0],
+            [11.21048, 12.163759, 0.0],
+            [11.21132, 7.83666, 0.0],
+            [8.71074, 12.06802, 0.0],
+            [8.71154, 7.93144, 0.0],
+            [11.41128, 10.000239, 0.0],
+            [10.69736, 11.2, 0.0],
+            [10.697821, 8.800241, 0.0],
+            [9.300119, 11.145101, 0.0],
+            [9.30056, 8.85458, 0.0],
+            [8.59812, 9.999701, 0.0],
+        ]
     )
-    lvec = np.array([
-        [ 0,  0,  0],
-        [20,  0,  0],
-        [ 0, 20,  0],
-        [ 0,  0, 20]
-    ])
+    lvec = np.array([[0, 0, 0], [20, 0, 0], [0, 20, 0], [0, 0, 20]])
     pixPerAngstrome = 10
-    params = {'s6': 1.000, 's8': 0.7875, 'a1':  0.4289, 'a2': 4.4407}
+    params = {"s6": 1.000, "s8": 0.7875, "a1": 0.4289, "a2": 4.4407}
 
     forcefield = FFcl.ForceField_LJC()
     forcefield.initSampling(lvec, pixPerAngstrome=pixPerAngstrome)
@@ -99,10 +88,10 @@ def test_dftd3():
     cl.enqueue_copy(forcefield.queue, coeffs_ocl, forcefield.cl_cD3)
 
     coeffs_cpp = PPC.computeD3Coeffs(xyzs, Zs, Z_pp, params)
-    PPU.params['gridN'] = forcefield.nDim
-    PPU.params['gridA'] = lvec[1]
-    PPU.params['gridB'] = lvec[2]
-    PPU.params['gridC'] = lvec[3]
+    PPU.params["gridN"] = forcefield.nDim
+    PPU.params["gridA"] = lvec[1]
+    PPU.params["gridB"] = lvec[2]
+    PPU.params["gridC"] = lvec[3]
     FF_cpp, E_cpp = PPH.prepareArrays(None, True)
     PPC.setFF_shape(np.shape(FF_cpp), lvec)
     PPC.getDFTD3FF(xyzs, coeffs_cpp)
