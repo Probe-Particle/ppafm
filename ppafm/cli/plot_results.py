@@ -20,7 +20,7 @@ atom_size = 0.15
 def main():
 
     # fmt: off
-    parser = PPU.CLIParser( description="Plot results for a scan with a specified charge, amplitude, and spring constant.Images are saved in folder Q{charge}K{klat}/Amp{Amplitude}." )
+    parser = common.CLIParser( description="Plot results for a scan with a specified charge, amplitude, and spring constant.Images are saved in folder Q{charge}K{klat}/Amp{Amplitude}." )
     parser.add_arguments(["output_format","Amplitude","arange","klat","krange","charge", "qrange", "Vbias", "Vrange", "noPBC", ])
     parser.add_argument( "--iets",      action="store",      type=float,               help="Mass [a.u.]; Bias offset [eV]; Peak width [eV] ",   nargs=3,  )
     parser.add_argument( "--LCPD_maps", action="store_true",                           help="Print LCPD maps")
