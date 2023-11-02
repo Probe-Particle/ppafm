@@ -21,8 +21,7 @@ def query_yes_no(question, default="yes"):
 
     The "answer" return value is True for "yes" or False for "no".
     """
-    valid = {"yes": True, "y": True, "ye": True,
-             "no": False, "n": False}
+    valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
     if default is None:
         prompt = " [y/n] "
     elif default == "yes":
@@ -35,17 +34,15 @@ def query_yes_no(question, default="yes"):
     while True:
         sys.stdout.write(question + prompt)
         choice = input().lower()
-        if default is not None and choice == '':
+        if default is not None and choice == "":
             return valid[default]
         elif choice in valid:
             return valid[choice]
         else:
-            sys.stdout.write("Please respond with 'yes' or 'no' "
-                             "(or 'y' or 'n').\n")
+            sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
 
 
-
-FFformatList={"xsf":".xsf", "cube":".cube","numpy":".npy"}
+FFformatList = {"xsf": ".xsf", "cube": ".cube", "numpy": ".npy"}
 
 
 try:
@@ -55,10 +52,6 @@ except IndexError:
     exit(1)
 
 
-
-
-
-
 filename = sys.argv[1]
 
 if not os.path.exists(filename):
@@ -66,16 +59,11 @@ if not os.path.exists(filename):
     exit(1)
 
 
-ProjName=filename[:-4]
-
-
-
-
-
+ProjName = filename[:-4]
 
 
 # Working with parameters file
-ParamFilename=ProjName+".ini"
+ParamFilename = ProjName + ".ini"
 
 if os.path.exists(ParamFilename):
     PP.loadParams(ParamFilename)
@@ -83,100 +71,93 @@ else:
     print(f"File {ParamFilename} with parameters doesn't exist!!! Using defaults")
 
 
-cell =np.array([
-PP.params['gridA'],
-PP.params['gridB'],
-PP.params['gridC'],
-]).copy()
-
-
+cell = np.array(
+    [
+        PP.params["gridA"],
+        PP.params["gridB"],
+        PP.params["gridC"],
+    ]
+).copy()
 
 
 lvec = PP.params2lvec()
-atoms    = io.loadAtoms(filename )
+atoms = io.loadAtoms(filename)
 
-FFparams=None
-if os.path.isfile( 'atomtypes.ini' ):
-	print(">> LOADING LOCAL atomtypes.ini")
-	FFparams=PPU.loadSpecies( 'atomtypes.ini' )
+FFparams = None
+if os.path.isfile("atomtypes.ini"):
+    print(">> LOADING LOCAL atomtypes.ini")
+    FFparams = PPU.loadSpecies("atomtypes.ini")
 else:
-	FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+    FFparams = PPU.loadSpecies(cpp_utils.PACKAGE_PATH + "/defaults/atomtypes.ini")
 
-iZs,Rs,Qs = PP.parseAtoms( atoms, autogeom = False, PBC = True,FFparams=FFparams )
-
+iZs, Rs, Qs = PP.parseAtoms(atoms, autogeom=False, PBC=True, FFparams=FFparams)
 
 
 # Lennard Jonnes contribution to the force field
-if PP.params['useLJ']:
-#checking if files exist:
-    exists=True
+if PP.params["useLJ"]:
+    # checking if files exist:
+    exists = True
     for lj_file in ["x", "y", "z"]:
-        lj_file=ProjName+"_LJ_F_"+lj_file+".xsf"
+        lj_file = ProjName + "_LJ_F_" + lj_file + ".xsf"
         if not os.path.exists(lj_file):
-            exists=False
+            exists = False
 
     if exists:
-        if query_yes_no( "I have found files containing LJ forcefield. Should I use them (yes) or do you want me to recompute them from scratch (n) ?"):
-            todoLJ='read'
+        if query_yes_no("I have found files containing LJ forcefield. Should I use them (yes) or do you want me to recompute them from scratch (n) ?"):
+            todoLJ = "read"
         else:
-            todoLJ='compute'
+            todoLJ = "compute"
     else:
         print("I haven't found files containing LJ forcefields. Therefore I will recompute them from scratch")
-        todoLJ='compute'
+        todoLJ = "compute"
 
 
 # Electrostatic contribution to the force field
-if PP.params['charge'] != 0.00 :
-#checking if files exist
-    exists=True
+if PP.params["charge"] != 0.00:
+    # checking if files exist
+    exists = True
     for el_file in ["x", "y", "z"]:
         print(el_file)
         print(ProjName)
-        el_file=ProjName+"_EL_F_"+el_file+".xsf"
+        el_file = ProjName + "_EL_F_" + el_file + ".xsf"
         print(el_file)
         if not os.path.exists(el_file):
-            exists=False
+            exists = False
     if exists:
-        if query_yes_no( "I have found files containing electrostatic forcefield. Should I use them (yes) or do you want me to recompute them from scratch (n) ?"):
-            todoEL='read'
+        if query_yes_no("I have found files containing electrostatic forcefield. Should I use them (yes) or do you want me to recompute them from scratch (n) ?"):
+            todoEL = "read"
         else:
-            todoEL='compute'
+            todoEL = "compute"
     else:
         print("I haven't found files containing electrostatic forcefields. Therefore I will recompute them from scratch")
-        todoEL='compute'
+        todoEL = "compute"
 
 
+# print iZs
 
 
+if todoLJ == "compute":
+    FFLJ = PP.computeLJ(Rs, iZs, FFLJ=None, FFparams=None)
+    io.saveVecFieldXsf(ProjName + "_LJ_F", FFLJ, lvec=[[0.0, 0.0, 0.0], PP.params["gridA"], PP.params["gridB"], PP.params["gridC"]])
+elif todoLJ == "read":
+    FFLJ, lvec, nDim, head = io.loadVecFieldXsf(ProjName + "_LJ_F")
 
-#print iZs
-
-
-
-
-if todoLJ == 'compute':
-    FFLJ      = PP.computeLJ( Rs, iZs, FFLJ=None, FFparams=None)
-    io.saveVecFieldXsf(ProjName+"_LJ_F",FFLJ, lvec=[[0.0,0.0,0.0],PP.params['gridA'], PP.params['gridB'],PP.params['gridC']]  )
-elif todoLJ == 'read':
-    FFLJ, lvec, nDim, head = io.loadVecFieldXsf( ProjName+"_LJ_F" )
-
-PP.lvec2params( lvec )
+PP.lvec2params(lvec)
 
 
-xTips,yTips,zTips,lvecScan = PP.prepareScanGrids( )
-print(xTips,yTips,zTips)
+xTips, yTips, zTips, lvecScan = PP.prepareScanGrids()
+print(xTips, yTips, zTips)
 
-if todoEL == 'read':
-    FFEL, lvec, nDim, head = io.loadVecFieldXsf( ProjName+"_EL_F" )
-
-
-Q=PP.params['charge']
-K=0.3
-PP.setTip( kSpring = np.array((K,K,0.0))/-PP.eVA_Nm )
+if todoEL == "read":
+    FFEL, lvec, nDim, head = io.loadVecFieldXsf(ProjName + "_EL_F")
 
 
+Q = PP.params["charge"]
+K = 0.3
+PP.setTip(kSpring=np.array((K, K, 0.0)) / -PP.eVA_Nm)
 
-FF = FFLJ #+ FFEL * Q
-PP.setFF_Pointer( FF )
 
-fzs = PP.relaxedScan3D( xTips, yTips, zTips )
+FF = FFLJ  # + FFEL * Q
+PP.setFF_Pointer(FF)
+
+fzs = PP.relaxedScan3D(xTips, yTips, zTips)

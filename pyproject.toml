@@ -78,3 +78,5 @@ skip = ["pp*", "*-manylinux_i686", "*-musllinux*", '*-win32']
 
 [tool.black]
 line-length = 180
+target-version = ['py37', 'py38', 'py39', 'py310', 'py311']
+extend-exclude = "ppafm/dev"

@@ -18,7 +18,6 @@ atom_size = 0.15
 
 
 def main():
-
     # fmt: off
     parser = common.CLIParser( description="Plot results for a scan with a specified charge, amplitude, and spring constant.Images are saved in folder Q{charge}K{klat}/Amp{Amplitude}." )
     parser.add_arguments(["output_format","Amplitude","arange","klat","krange","charge", "qrange", "Vbias", "Vrange", "noPBC", ])
@@ -36,7 +35,7 @@ def main():
     parser.add_argument( "--WSxM",      action="store_true",                           help="Save frequency shift into WsXM *.dat files"    )
     parser.add_argument( "--bI",        action="store_true",                           help="Plot images for Boltzmann current"    )
     # fmt: on
-    
+
     args = parser.parse_args()
     opt_dict = vars(args)
 

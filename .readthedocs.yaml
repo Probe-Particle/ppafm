@@ -11,8 +11,8 @@ build:
     tools:
         python: '3.9'
     apt_packages:
-      - g++
-      - make
+        - g++
+        - make
 
 sphinx:
     configuration: doc/sphinx/source/conf.py

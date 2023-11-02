@@ -6,18 +6,17 @@ import numpy as np
 
 
 def test_xyz():
-
     from ppafm.elements import ELEMENTS
     from ppafm.io import loadXYZ, saveXYZ
 
     N = 20
-    test_file = 'io_test.xyz'
+    test_file = "io_test.xyz"
 
-    xyzs = 10*np.random.rand(N, 3)
+    xyzs = 10 * np.random.rand(N, 3)
     Zs = np.random.randint(1, 100, N)
-    elems = [ELEMENTS[z-1][1] for z in Zs]
+    elems = [ELEMENTS[z - 1][1] for z in Zs]
     qs = (np.random.rand(N) - 0.5) / N
-    comment = 'test comment'
+    comment = "test comment"
 
     saveXYZ(test_file, xyzs, elems, qs, comment)
     xyzs_, Zs_, qs_, comment_ = loadXYZ(test_file)
@@ -33,20 +32,13 @@ def test_xyz():
 
     os.remove(test_file)
 
-def test_parse_comment_ase():
 
+def test_parse_comment_ase():
     from ppafm.io import _getCharges, parseLvecASE
 
     comment = 'Lattice="40.587929240107826 0.0 0.0 0.0 35.15017780893861 0.0 0.0 0.0 42.485492908861346" Properties=species:S:1:pos:R:3:tags:I:1 pbc="T T T"'
     lvec = parseLvecASE(comment)
-    assert np.allclose(lvec,
-        np.array([
-            [ 0.0              ,  0.0             ,  0.0              ],
-            [40.587929240107826,  0.0             ,  0.0              ],
-            [ 0.0              , 35.15017780893861,  0.0              ],
-            [ 0.0              ,  0.0             , 42.485492908861346]
-        ], dtype=np.float32)
-    )
+    assert np.allclose(lvec, np.array([[0.0, 0.0, 0.0], [40.587929240107826, 0.0, 0.0], [0.0, 35.15017780893861, 0.0], [0.0, 0.0, 42.485492908861346]], dtype=np.float32))
 
     comment = 'Properties=species:S:1:pos:R:3:initial_charges:R:1 pbc="F F F"'
     lvec = parseLvecASE(comment)
@@ -67,8 +59,8 @@ def test_parse_comment_ase():
     qs = _getCharges(comment, extra_cols)
     assert np.allclose(qs, np.zeros(10)), qs
 
-def test_load_aims():
 
+def test_load_aims():
     from ppafm.common import params
     from ppafm.io import loadGeometry
 
@@ -81,30 +73,24 @@ def test_load_aims():
         atom 2.0 4.0 6.6 O
     """
 
-    with open(temp_file, 'w') as f:
+    with open(temp_file, "w") as f:
         f.write(geometry_str)
 
     atoms, nDim, lvec = loadGeometry(temp_file, params=params)
 
     assert np.allclose(
         atoms,
-        np.array([
-            [6.0, 8.0],
-            [1.0, 2.0],
-            [3.0, 4.0],
-            [5.5, 6.6],
-            [0.0, 0.0],
-        ])
+        np.array(
+            [
+                [6.0, 8.0],
+                [1.0, 2.0],
+                [3.0, 4.0],
+                [5.5, 6.6],
+                [0.0, 0.0],
+            ]
+        ),
     )
-    assert np.allclose(nDim, params['gridN'])
-    assert np.allclose(
-        lvec,
-        np.array([
-            [0.0, 0.0, 0.0],
-            [4.0, 0.0, 0.0],
-            [1.0, 5.0, 0.0],
-            [0.0, 0.0, 6.0]
-        ])
-    )
+    assert np.allclose(nDim, params["gridN"])
+    assert np.allclose(lvec, np.array([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0], [1.0, 5.0, 0.0], [0.0, 0.0, 6.0]]))
 
     os.remove(temp_file)
