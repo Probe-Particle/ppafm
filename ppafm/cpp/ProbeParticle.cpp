@@ -74,8 +74,7 @@ namespace RELAX{
     double convF2    = 1.0e-8;        // square of convergence criterium ( convergence achieved when |F|^2 < convF2 )
 //	double dt        = 0.5;           // time step [ abritrary units ]
 
-double dt        = 0.1;           // time step [ abritrary units ]
-
+    double dt        = 0.1;           // time step [ abritrary units ]
     double damping   = 0.1;           // velocity damping ( like friction )  v_(i+1) = v_i * ( 1- damping )
 
     // relaxation step for simple damped-leap-frog molecular dynamics ( just for testing, less efficinet than FIRE )
@@ -101,16 +100,16 @@ namespace FIRE{
     double acoef0  = RELAX::damping;  // default damping
 
     // variables
-    double dt      = dtmax;           // time-step ( variable
-    double acoef   = acoef0;          // damping  ( variable
+    //double dt      = dtmax;           // time-step ( variable
+    //double acoef   = acoef0;          // damping  ( variable
 
     inline void setup(){
         dtmax   = RELAX::dt;
         acoef0  = RELAX::damping;
-        dt      = dtmax;
-        acoef   = acoef0;
+        //dt      = dtmax;
+        //acoef   = acoef0;
     }
-
+    /*
     // relaxation step using FIRE algorithm
     inline void move( const Vec3d& f, Vec3d& r, Vec3d& v ){
         double ff = f.norm2();
@@ -119,7 +118,7 @@ namespace FIRE{
         if( vf < 0 ){ // if velocity along direction of force
             v.set( 0.0 );
             dt    = dt * fdec;
-              acoef = acoef0;
+            acoef = acoef0;
         }else{       // if velocity against direction of force
             double cf  =     acoef * sqrt(vv/ff);
             double cv  = 1 - acoef;
@@ -132,7 +131,44 @@ namespace FIRE{
         v.add_mul( f , dt );
         r.add_mul( v , dt );
     }
+    */
+
 }
+
+
+struct FIREstate{
+
+    double dt      = FIRE::dtmax;           // time-step ( variable
+    double acoef   = FIRE::acoef0;          // damping  ( variable
+
+    inline void setup(){
+        dt      = FIRE::dtmax;
+        acoef   = FIRE::acoef0;
+    }
+
+    // relaxation step using FIRE algorithm
+    inline void move( const Vec3d& f, Vec3d& r, Vec3d& v ){
+        double ff = f.norm2();
+        double vv = v.norm2();
+        double vf = f.dot(v);
+        if( vf < 0 ){ // if velocity along direction of force
+            v.set( 0.0 );
+            dt    = dt * FIRE::fdec;
+            acoef = FIRE::acoef0;
+        }else{       // if velocity against direction of force
+            double cf  =     acoef * sqrt(vv/ff);
+            double cv  = 1 - acoef;
+            v.mul    (    cv );
+            v.add_mul( f, cf );	// v = cV * v  + cF * F
+            dt     = fmin( dt * FIRE::finc, FIRE::dtmax );
+            acoef  = acoef * FIRE::falpha;
+        }
+        // normal leap-frog times step
+        v.add_mul( f , dt );
+        r.add_mul( v , dt );
+    }
+
+};
 
 // ========= eval force templates
 
@@ -257,10 +293,13 @@ inline void getPPforce( const Vec3d& rTip, const Vec3d& r, Vec3d& f ){
 int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
     Vec3d v; v.set( 0.0 );
     int iter;
+    FIREstate fire;
+    fire.setup();
     for( iter=0; iter<RELAX::maxIters; iter++ ){
         Vec3d f;  getPPforce( rTip, r, f );
         if( relaxAlg == 1 ){                                                                  // move by either damped-leap-frog ( 0 ) or by FIRE ( 1 )
-            FIRE::move( f, r, v );
+            //FIRE::move( f, r, v );
+            fire.move( f, r, v );
         }else{
             RELAX::move( f, r, v );
         }
@@ -584,7 +623,7 @@ DLLEXPORT void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs 
 // returns position of probe-particle after relaxation in 1D array "rs_" and force between surface probe particle in this relaxed position in 1D array "fs_"
 // for efficiency, starting position of ProbeParticle in new point (next postion of Tip) is derived from relaxed postion of ProbeParticle from previous point
 // there are several strategies how to do it which are choosen by parameter probeStart
-DLLEXPORT int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
+DLLEXPORT int relaxTipStroke( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
     Vec3d * rTips = (Vec3d*) rTips_;
     Vec3d * rs    = (Vec3d*) rs_;
     Vec3d * fs    = (Vec3d*) fs_;
@@ -626,6 +665,31 @@ DLLEXPORT int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double *
     }
     //printf( " itr min, max, average %i %i %f \n", itrmin, itrmax, itrsum/(double)nstep );
     return itrsum;
+}
+
+// relax one stroke of tip positions ( stored in 1D array "rTips_" ) using precomputed 3D force-field on grid
+// returns position of probe-particle after relaxation in 1D array "rs_" and force between surface probe particle in this relaxed position in 1D array "fs_"
+// for efficiency, starting position of ProbeParticle in new point (next postion of Tip) is derived from relaxed postion of ProbeParticle from previous point
+// there are several strategies how to do it which are choosen by parameter probeStart
+DLLEXPORT int relaxTipStrokes_omp( int nx, int ny, int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
+    printf( "relaxTipStrokes_omp()  nx %i ny %i nstep %i \n", nx, ny, nstep );
+    int ndone=0;
+    #pragma omp parallel for collapse(2) shared( nx, ny, probeStart, relaxAlg, nstep, rTips_, rs_, fs_, ndone )
+    for (int ix=0; ix<nx; ix++){
+        for (int iy=0; iy<ny; iy++){
+            int ioff = (ix + iy*nx)*nstep;
+            relaxTipStroke( probeStart, relaxAlg, nstep, rTips_+ioff*3, rs_+ioff*3, fs_+ioff*3 );
+            if( omp_get_thread_num()==0 ){
+                ndone++;
+                if( ndone%100==0 ){ 
+                    int ncpu=omp_get_num_threads();
+                    printf( "\r %2.2f %% DONE (ncpu=%i)", (100.0*ndone*ncpu)/(nx*ny), ncpu ); 
+                    fflush(stdout);  
+                }
+            }
+        }
+    }
+    return 0;
 }
 
 DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){

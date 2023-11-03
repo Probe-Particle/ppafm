@@ -145,18 +145,30 @@ template< void FUNC( int ibuff, const Vec3d& pos_, void * args ) >
 void interateGrid3D_omp( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void * args ){
     int ntot = n.x*n.y*n.z;
     int ncpu = omp_get_num_threads(); printf( "interateGrid3D_omp nx,y,z (%i,%i,%i) nxy %i ncpu %i \n",  n.x,n.y,n.z, ntot, ncpu );
-    #pragma omp parallel for collapse(3) shared(pos0,n,dCell,args)
+    int ndone=0;
+    #pragma omp parallel for collapse(3) shared(pos0,n,dCell,args,ndone)
     for ( int ic=0; ic<n.z; ic++ ){
         for ( int ib=0; ib<n.y; ib++ ){
             for ( int ia=0; ia<n.x; ia++ ){
                 Vec3d pos = pos0 + dCell.c*ic + dCell.b*ib + dCell.a*ia;
                 //int ibuff = i3D( ia, ib, ic );
                 int ibuff = ic*(n.x*n.y) + ib*n.x + ia;
-                if( ibuff%100000==0 ){ printf( "cpu[%i/%i] ibuff %i/%i )\n",  omp_get_thread_num(), omp_get_num_threads(),  ibuff, ntot ); }
+                //ndone[ omp_get_thread_num() ]++;
+                if( omp_get_thread_num()==0 ){
+                    ndone++;
+                    if( ndone%10000==0 ){ 
+                        int ncpu=omp_get_num_threads();
+                        printf( "\r %2.2f %% DONE (ncpu=%i)", 100.0*ndone*ncpu / ntot, ncpu ); 
+                        fflush(stdout);  
+                    }
+                }
+                //if( ibuff%100000==0 ){ printf( "cpu[%i/%i] progress  %2.2f )\n",  omp_get_thread_num(), omp_get_num_threads(),  100.0*ndone / ntot ); }
                 FUNC( ibuff, pos, args );
             }
         }
     }
+    printf( "\n" );
+    //printf( "DONE ndone %i ntot %i \n", ndone, ntot );
 }
 
 
