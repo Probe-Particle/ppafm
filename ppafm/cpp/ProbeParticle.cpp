@@ -8,6 +8,8 @@
 #include "spline_hermite.h"
 //#include <string.h>
 
+#include <omp.h>
+
 #include "Grid.h"
 #include "Forces.h"
 
@@ -460,25 +462,31 @@ DLLEXPORT void computeD3Coeffs(
 DLLEXPORT void getLennardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    interateGrid3D < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+    //interateGrid3D < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+    interateGrid3D_omp < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
 }
 
 DLLEXPORT void getVdWFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    interateGrid3D < evalCell < addAtom_VdW  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+    //interateGrid3D < evalCell < addAtom_VdW  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+    interateGrid3D_omp < evalCell < addAtom_VdW  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+
 }
 
 DLLEXPORT void getDFTD3FF(int natoms_, double * Ratoms_, double *d3_coeffs){
     natoms = natoms_; Ratoms = (Vec3d*)Ratoms_; nCoefPerAtom = 4;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    interateGrid3D < evalCell < addAtom_DFTD3  > >( r0, gridShape.n, gridShape.dCell, d3_coeffs );
+    //interateGrid3D < evalCell < addAtom_DFTD3  > >( r0, gridShape.n, gridShape.dCell, d3_coeffs );
+    interateGrid3D_omp < evalCell < addAtom_DFTD3  > >( r0, gridShape.n, gridShape.dCell, d3_coeffs );
+
 }
 
 DLLEXPORT void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2; Morse_alpha = alpha;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    interateGrid3D < evalCell < addAtom_Morse > >( r0, gridShape.n, gridShape.dCell, REs );
+    //interateGrid3D < evalCell < addAtom_Morse > >( r0, gridShape.n, gridShape.dCell, REs );
+    interateGrid3D_omp < evalCell < addAtom_Morse > >( r0, gridShape.n, gridShape.dCell, REs );
 }
 
 // sample Coulomb Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with constant kQQs  =  - k_coulomb * Q_ProbeParticle * Q[i]
@@ -489,9 +497,13 @@ DLLEXPORT void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs, int k
     //printf(" kind %i \n", kind );
     switch(kind){
         //case 0: interateGrid3D < evalCell < foo  > >( r0, gridShape.n, gridShape.dCell, kQQs_ );
-        case 0: interateGrid3D < evalCell < addAtom_Coulomb_s   > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
-        case 1: interateGrid3D < evalCell < addAtom_Coulomb_pz  > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
-        case 2: interateGrid3D < evalCell < addAtom_Coulomb_dz2 > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        //case 0: interateGrid3D < evalCell < addAtom_Coulomb_s   > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        //case 1: interateGrid3D < evalCell < addAtom_Coulomb_pz  > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        //case 2: interateGrid3D < evalCell < addAtom_Coulomb_dz2 > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+
+        case 0: interateGrid3D_omp < evalCell < addAtom_Coulomb_s   > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        case 1: interateGrid3D_omp < evalCell < addAtom_Coulomb_pz  > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        case 2: interateGrid3D_omp < evalCell < addAtom_Coulomb_dz2 > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
     }
 }
 
@@ -523,10 +535,16 @@ DLLEXPORT void getVdWFF_RE( int natoms_, double * Ratoms_, double * REs, int kin
     //if(ADamp>0){ ADamp = ADamp_; }
     switch(kind){
         //case 0: if(ADamp_>0){ ADamp_Const = ADamp_; }; E=addAtom_VdW      ( dR, fout, coefs ); break;
-        case 1: if(ADamp_>0){ ADamp_R2    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R2   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
-        case 2: if(ADamp_>0){ ADamp_R4    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R4   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
-        case 3: if(ADamp_>0){ ADamp_invR4 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR4>>( r0, gridShape.n, gridShape.dCell, REs ); break;
-        case 4: if(ADamp_>0){ ADamp_invR8 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR8>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        //case 1: if(ADamp_>0){ ADamp_R2    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R2   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        //case 2: if(ADamp_>0){ ADamp_R4    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R4   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        //case 3: if(ADamp_>0){ ADamp_invR4 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR4>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        //case 4: if(ADamp_>0){ ADamp_invR8 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR8>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+
+        case 1: if(ADamp_>0){ ADamp_R2    = ADamp_; } interateGrid3D_omp<evalCell<addAtom_VdW_R2   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 2: if(ADamp_>0){ ADamp_R4    = ADamp_; } interateGrid3D_omp<evalCell<addAtom_VdW_R4   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 3: if(ADamp_>0){ ADamp_invR4 = ADamp_; } interateGrid3D_omp<evalCell<addAtom_VdW_invR4>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 4: if(ADamp_>0){ ADamp_invR8 = ADamp_; } interateGrid3D_omp<evalCell<addAtom_VdW_invR8>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+
         // case 0: interateGrid3D<evalCell<addAtomVdW_addDamp<R2_func>  >>>( r0, gridShape.n, gridShape.dCell, REs ); break;
         // case 1: interateGrid3D<evalCell<addAtomVdW_addDamp<R4_func>  >>>( r0, gridShape.n, gridShape.dCell, REs ); break;
         // case 2: interateGrid3D<evalCell<addAtomVdW_addDamp<invr4_func>>>( r0, gridShape.n, gridShape.dCell, REs ); break;
@@ -538,7 +556,8 @@ DLLEXPORT void getGaussDensity( int natoms_, double * Ratoms_, double * cRAs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
-    interateGrid3D < evalCell < addAtom_Gauss  > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    //interateGrid3D < evalCell < addAtom_Gauss  > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    interateGrid3D_omp < evalCell < addAtom_Gauss  > >( r0, gridShape.n, gridShape.dCell, cRAs );
     gridF=gridF_;
 }
 
@@ -546,7 +565,8 @@ DLLEXPORT void getSlaterDensity( int natoms_, double * Ratoms_, double * cRAs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
-    interateGrid3D < evalCell < addAtom_Slater > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    //interateGrid3D < evalCell < addAtom_Slater > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    interateGrid3D_omp < evalCell < addAtom_Slater > >( r0, gridShape.n, gridShape.dCell, cRAs );
     gridF=gridF_;
 }
 
@@ -554,7 +574,8 @@ DLLEXPORT void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs 
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
-    interateGrid3D < evalCell < addAtom_splineR4 > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    //interateGrid3D < evalCell < addAtom_splineR4 > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    interateGrid3D_omp < evalCell < addAtom_splineR4 > >( r0, gridShape.n, gridShape.dCell, cRAs );
     gridF=gridF_;
 }
 
