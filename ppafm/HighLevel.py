@@ -83,26 +83,31 @@ def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
         print("<<<END: relaxedScan3D()")
     return fzs, PPpos
 
+
 def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False):
-    if verbose > 0: print(">>BEGIN: relaxedScan3D_omp()")
-    if verbose > 0: print(" zTips : ", zTips)
+    if verbose > 0:
+        print(">>BEGIN: relaxedScan3D_omp()")
+    if verbose > 0:
+        print(" zTips : ", zTips)
     nz = len(zTips)
     ny = len(yTips)
     nx = len(xTips)
-    rTips = np.zeros((nx,ny,nz,3))
-    rs    = np.zeros((nx,ny,nz,3))
-    fs    = np.zeros((nx,ny,nz,3))
-    rTips[:,:,:,0] = xTips       [:   ,None,None]
-    rTips[:,:,:,1] = yTips       [None,:   ,None]
-    rTips[:,:,:,2] = zTips[::-1] [None,None,:   ]
-    core.relaxTipStrokes_omp( rTips, rs, fs )
-    #rs[:,:,:,:] = rs[:,:,::-1,:].transpose(2,1,0,3).copy()
-    #fs[:,:,:,:] = fs[:,:,::-1,:]
-    #fzs = fs[:,:,::-1,2].transpose(2,1,0).copy()
-    rs  = rs[:,:,::-1,:].transpose(2,1,0,3).copy()
-    fzs = fs[:,:,::-1,2].transpose(2,1,0).copy()
-    if verbose > 0: print("<<<END: relaxedScan3D_omp()")
+    rTips = np.zeros((nx, ny, nz, 3))
+    rs = np.zeros((nx, ny, nz, 3))
+    fs = np.zeros((nx, ny, nz, 3))
+    rTips[:, :, :, 0] = xTips[:, None, None]
+    rTips[:, :, :, 1] = yTips[None, :, None]
+    rTips[:, :, :, 2] = zTips[::-1][None, None, :]
+    core.relaxTipStrokes_omp(rTips, rs, fs)
+    # rs[:,:,:,:] = rs[:,:,::-1,:].transpose(2,1,0,3).copy()
+    # fs[:,:,:,:] = fs[:,:,::-1,:]
+    # fzs = fs[:,:,::-1,2].transpose(2,1,0).copy()
+    rs = rs[:, :, ::-1, :].transpose(2, 1, 0, 3).copy()
+    fzs = fs[:, :, ::-1, 2].transpose(2, 1, 0).copy()
+    if verbose > 0:
+        print("<<<END: relaxedScan3D_omp()")
     return fzs, rs
+
 
 def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm_t0sV=None, FFkpfm_tVs0=None, tipspline=None, bPPdisp=False, bFFtotDebug=False):
     if verbose > 0:
@@ -149,11 +154,11 @@ def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm
     trj = None
     if PPU.params["tiltedScan"]:
         trj = trjByDir(len(zTips), d=PPU.params["scanTilt"], p0=PPU.params["scanMin"])
-    
-    #fzs, PPpos = relaxedScan3D(xTips, yTips, zTips, trj=trj, bF3d=PPU.params["tiltedScan"])
+
+    # fzs, PPpos = relaxedScan3D(xTips, yTips, zTips, trj=trj, bF3d=PPU.params["tiltedScan"])
     fzs, PPpos = relaxedScan3D_omp(xTips, yTips, zTips, trj=trj, bF3d=PPU.params["tiltedScan"])
 
-    print(  "perform_relaxation():   "  ,   fzs.shape, PPpos.shape  )
+    print("perform_relaxation():   ", fzs.shape, PPpos.shape)
 
     if bPPdisp:
         PPdisp = PPpos.copy()

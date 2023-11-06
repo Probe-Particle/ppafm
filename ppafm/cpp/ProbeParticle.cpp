@@ -681,10 +681,10 @@ DLLEXPORT int relaxTipStrokes_omp( int nx, int ny, int probeStart, int relaxAlg,
             relaxTipStroke( probeStart, relaxAlg, nstep, rTips_+ioff*3, rs_+ioff*3, fs_+ioff*3 );
             if( omp_get_thread_num()==0 ){
                 ndone++;
-                if( ndone%100==0 ){ 
+                if( ndone%100==0 ){
                     int ncpu=omp_get_num_threads();
-                    printf( "\r %2.2f %% DONE (ncpu=%i)", (100.0*ndone*ncpu)/(nx*ny), ncpu ); 
-                    fflush(stdout);  
+                    printf( "\r %2.2f %% DONE (ncpu=%i)", (100.0*ndone*ncpu)/(nx*ny), ncpu );
+                    fflush(stdout);
                 }
             }
         }

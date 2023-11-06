@@ -257,6 +257,8 @@ def computeD3Coeffs(Rs, iZs, iZPP, df_params):
 # void getClassicalFF       (    int natom,   double * Rs_, double * cLJs )
 lib.getMorseFF.argtypes = [c_int, array2d, array2d, c_double]
 lib.getMorseFF.restype = None
+
+
 def getMorseFF(Rs, REs, alpha=None):
     if alpha is None:
         alpha = PPU.params["aMorse"]
@@ -268,6 +270,8 @@ def getMorseFF(Rs, REs, alpha=None):
 # void getCoulombFF       (    int natom,   double * Rs_, double * C6, double * C12 )
 lib.getCoulombFF.argtypes = [c_int, array2d, array1d, c_int]
 lib.getCoulombFF.restype = None
+
+
 def getCoulombFF(Rs, kQQs, kind=0):
     natom = len(Rs)
     lib.getCoulombFF(natom, Rs, kQQs, kind)
@@ -276,6 +280,8 @@ def getCoulombFF(Rs, kQQs, kind=0):
 # void getGaussDensity( int natoms_, double * Ratoms_, double * cRAs ){
 lib.getGaussDensity.argtypes = [c_int, array2d, array2d]
 lib.getGaussDensity.restype = None
+
+
 def getGaussDensity(Rs, cRAs):
     natom = len(Rs)
     lib.getGaussDensity(natom, Rs, cRAs)
@@ -284,6 +290,8 @@ def getGaussDensity(Rs, cRAs):
 # void getSlaterDensity( int natoms_, double * Ratoms_, double * cRAs ){
 lib.getSlaterDensity.argtypes = [c_int, array2d, array2d]
 lib.getSlaterDensity.restype = None
+
+
 def getSlaterDensity(Rs, cRAs):
     natom = len(Rs)
     lib.getSlaterDensity(natom, Rs, cRAs)
@@ -292,6 +300,8 @@ def getSlaterDensity(Rs, cRAs):
 # void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs ){
 lib.getDensityR4spline.argtypes = [c_int, array2d, array2d]
 lib.getDensityR4spline.restype = None
+
+
 def getDensityR4spline(Rs, cRAs, bNormalize=True):
     if bNormalize:
         cRAs[:, 0] /= ((np.pi * 32) / 105) * cRAs[:, 1] ** 3  # see https://www.wolframalpha.com/input/?i=4*pi*x%5E2*%281-x%5E2%29%5E2+integrate+from+0+to+1
@@ -302,16 +312,21 @@ def getDensityR4spline(Rs, cRAs, bNormalize=True):
 # int relaxTipStroke ( int probeStart, int nstep, double * rTips_, double * rs_, double * fs_ )
 lib.relaxTipStroke.argtypes = [c_int, c_int, c_int, array2d, array2d, array2d]
 lib.relaxTipStroke.restype = c_int
+
+
 def relaxTipStroke(rTips, rs, fs, probeStart=1, relaxAlg=1):
     n = len(rTips)
     return lib.relaxTipStroke(probeStart, relaxAlg, n, rTips, rs, fs)
 
+
 # int relaxTipStrokes ( int nx, int ny, int probeStart, int nstep, double * rTips_, double * rs_, double * fs_ )
 lib.relaxTipStrokes_omp.argtypes = [c_int, c_int, c_int, c_int, c_int, array4d, array4d, array4d]
 lib.relaxTipStrokes_omp.restype = c_int
+
+
 def relaxTipStrokes_omp(rTips, rs, fs, probeStart=1, relaxAlg=1):
-    nx,ny,nz,_ = rTips.shape
-    return lib.relaxTipStrokes_omp(  nx, ny, probeStart, relaxAlg, nz, rTips, rs, fs)
+    nx, ny, nz, _ = rTips.shape
+    return lib.relaxTipStrokes_omp(nx, ny, probeStart, relaxAlg, nz, rTips, rs, fs)
 
 
 # void stiffnessMatrix( double ddisp, int which, int n,  double * rTips_, double * rs_,    double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){

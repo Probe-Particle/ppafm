@@ -92,7 +92,7 @@ inline double interpolate3DWrap( double * grid, const Vec3i& n, const Vec3d& r )
 
 // interpolation of vector force-field Vec3d[ix,iy,iz] in periodic boundary condition
 inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r ){
-    //#pragma omp simd 
+    //#pragma omp simd
     //{
 	int xoff = n.x<<3; int imx = r.x +xoff;	double tx = r.x - imx +xoff;	double mx = 1 - tx;		int itx = (imx+1)%n.x;  imx=imx%n.x;
 	int yoff = n.y<<3; int imy = r.y +yoff;	double ty = r.y - imy +yoff;	double my = 1 - ty;		int ity = (imy+1)%n.y;  imy=imy%n.y;
@@ -156,10 +156,10 @@ void interateGrid3D_omp( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, 
                 //ndone[ omp_get_thread_num() ]++;
                 if( omp_get_thread_num()==0 ){
                     ndone++;
-                    if( ndone%10000==0 ){ 
+                    if( ndone%10000==0 ){
                         int ncpu=omp_get_num_threads();
-                        printf( "\r %2.2f %% DONE (ncpu=%i)", 100.0*ndone*ncpu / ntot, ncpu ); 
-                        fflush(stdout);  
+                        printf( "\r %2.2f %% DONE (ncpu=%i)", 100.0*ndone*ncpu / ntot, ncpu );
+                        fflush(stdout);
                     }
                 }
                 //if( ibuff%100000==0 ){ printf( "cpu[%i/%i] progress  %2.2f )\n",  omp_get_thread_num(), omp_get_num_threads(),  100.0*ndone / ntot ); }
