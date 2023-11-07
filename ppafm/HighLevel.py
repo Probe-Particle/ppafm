@@ -103,7 +103,10 @@ def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False):
     # fs[:,:,:,:] = fs[:,:,::-1,:]
     # fzs = fs[:,:,::-1,2].transpose(2,1,0).copy()
     rs = rs[:, :, ::-1, :].transpose(2, 1, 0, 3).copy()
-    fzs = fs[:, :, ::-1, 2].transpose(2, 1, 0).copy()
+    if bF3d:
+        fzs = fs[:, :, ::-1, :].transpose(2, 1, 0, 3).copy()
+    else:
+        fzs = fs[:, :, ::-1, 2].transpose(2, 1, 0).copy()
     if verbose > 0:
         print("<<<END: relaxedScan3D_omp()")
     return fzs, rs
