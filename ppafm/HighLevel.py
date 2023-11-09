@@ -148,7 +148,7 @@ def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm
     #grid origin has to be moved to zero, hence the subtraction of lvec[0,:] from trj and xTip, yTips, zTips
     trj = None
     if PPU.params['tiltedScan']:
-        trj = trjByDir(len(zTips), d=PPU.params['scanTilt'], p0=PPU.params['scanMin'] - lvec[0,:])
+        trj = trjByDir(len(zTips), d=PPU.params['scanTilt'], p0=[0.0, 0.0, PPU.params['scanMin'][2] - lvec[0,2]])
     fzs,PPpos = relaxedScan3D( xTips - lvec[0,0], yTips - lvec[0,1], zTips - lvec[0,2], trj=trj, bF3d=PPU.params['tiltedScan'] )
 
     #transform probe-particle positions back to the original coordinates
