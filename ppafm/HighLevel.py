@@ -52,9 +52,9 @@ def shift_positions(R, s):
     Returns Rs: Rs[ia,i] = R[ia,i] - s[i]
     """
     Rs = np.array(R).copy()
-    Rs[:,0] += s[0]
-    Rs[:,1] += s[1]
-    Rs[:,2] += s[2]
+    Rs[:, 0] += s[0]
+    Rs[:, 1] += s[1]
+    Rs[:, 2] += s[2]
     return Rs
 
 
@@ -145,16 +145,16 @@ def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm
         print("stiffness:", PPU.params["stiffness"])
     core.setTip(kSpring=np.array((PPU.params["stiffness"][0], PPU.params["stiffness"][1], 0.0)) / -PPU.eVA_Nm, kRadial=PPU.params["stiffness"][2] / -PPU.eVA_Nm)
 
-    #grid origin has to be moved to zero, hence the subtraction of lvec[0,:] from trj and xTip, yTips, zTips
+    # grid origin has to be moved to zero, hence the subtraction of lvec[0,:] from trj and xTip, yTips, zTips
     trj = None
-    if PPU.params['tiltedScan']:
-        trj = trjByDir(len(zTips), d=PPU.params['scanTilt'], p0=[0.0, 0.0, PPU.params['scanMin'][2] - lvec[0,2]])
-    fzs,PPpos = relaxedScan3D( xTips - lvec[0,0], yTips - lvec[0,1], zTips - lvec[0,2], trj=trj, bF3d=PPU.params['tiltedScan'] )
+    if PPU.params["tiltedScan"]:
+        trj = trjByDir(len(zTips), d=PPU.params["scanTilt"], p0=[0.0, 0.0, PPU.params["scanMin"][2] - lvec[0, 2]])
+    fzs, PPpos = relaxedScan3D(xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=PPU.params["tiltedScan"])
 
-    #transform probe-particle positions back to the original coordinates
-    PPpos[:,:,:,0] += lvec[0,0]
-    PPpos[:,:,:,1] += lvec[0,1]
-    PPpos[:,:,:,2] += lvec[0,2]
+    # transform probe-particle positions back to the original coordinates
+    PPpos[:, :, :, 0] += lvec[0, 0]
+    PPpos[:, :, :, 1] += lvec[0, 1]
+    PPpos[:, :, :, 2] += lvec[0, 2]
 
     if bPPdisp:
         PPdisp = PPpos.copy()
@@ -198,7 +198,7 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
     atoms, nDim, lvec = io.loadGeometry(geomFile, format=geometry_format, params=PPU.params)
     atomstring = io.primcoords2Xsf(PPU.atoms2iZs(atoms[0], elem_dict), [atoms[1], atoms[2], atoms[3]], lvec)
     if verbose > 0:
-        print(PPU.params['gridN'], PPU.params['gridO'], PPU.params['gridA'], PPU.params['gridB'], PPU.params['gridC'])
+        print(PPU.params["gridN"], PPU.params["gridO"], PPU.params["gridA"], PPU.params["gridB"], PPU.params["gridC"])
     iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=PPU.params["PBC"], lvec=lvec)
     # --- prepare LJ parameters
     iPP = PPU.atom2iZ(PPU.params["probeType"], elem_dict)
@@ -208,7 +208,7 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
         print("FFLJ.shape", FF.shape)
     core.setFF_shape(np.shape(FF), lvec)
 
-    #shift atoms to the coordinate system in which the grid origin is zero
+    # shift atoms to the coordinate system in which the grid origin is zero
     Rs0 = shift_positions(Rs, -lvec[0])
 
     if ffModel == "Morse":
@@ -311,7 +311,7 @@ def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format
     FF, V = prepareArrays(None, computeVpot)
     core.setFF_shape(np.shape(FF), lvec)
 
-    #shift atoms to the coordinate system in which the grid origin is zero
+    # shift atoms to the coordinate system in which the grid origin is zero
     Rs0 = shift_positions(Rs, -lvec[0])
 
     core.getCoulombFF(Rs0, Qs * PPU.CoulombConst, kind=tipKind)  # THE MAIN STUFF HERE
