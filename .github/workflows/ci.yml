@@ -24,7 +24,7 @@ jobs:
                   pip install pocl-binary-distribution
 
             - name: Run pytest
-              run: pytest tests examples -v --cov
+              run: PPAFM_RECOMPILE=1 pytest tests examples -v --cov
 
             - name: Save test images
               uses: actions/upload-artifact@v3
