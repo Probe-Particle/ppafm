@@ -13,7 +13,7 @@ from ..HighLevel import (
 )
 
 
-def main():
+def main(argv=None):
     parser = common.CLIParser(
         description="Generate electrostatic force field by cross-correlation of sample Hartree potential with tip charge density. "
         "The generated force field is saved to FFel_{x,y,z}.[ext]."
@@ -29,7 +29,7 @@ def main():
     parser.add_argument("--Vref",       action="store", type=float,                help="Field under the KPFM dens. and Vh was calculated in V/Ang")
     parser.add_argument("--z0",         action="store", type=float, default=0.0,   help="Heigth of the topmost layer of metallic substrate for E to V conversion (Ang)")
     # fmt: on
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     # Load parameters.
     params_path = Path("params.ini") if Path("params.ini").is_file() else cpp_utils.PACKAGE_PATH / "defaults" / "params.ini"
