@@ -313,7 +313,7 @@ def loadAtomsCUBE(fname):
     f.readline().split()
     f.readline().split()
 
-    #origin = [float(sth0[1]), float(sth0[2]), float(sth0[3])]
+    # origin = [float(sth0[1]), float(sth0[2]), float(sth0[3])]
     nlines = int(sth0[0])
     for i in range(nlines):
         l = f.readline().split()
