@@ -20,11 +20,11 @@ jobs:
 
             - name: Install package and its dependencies
               run: |
-                  pip install .[dev,opencl]
+                  pip install -e .[dev,opencl]
                   pip install pocl-binary-distribution
 
             - name: Run pytest
-              run: PPAFM_RECOMPILE=1 pytest tests examples -v --cov
+              run: pytest tests examples -v --cov
 
             - name: Save test images
               uses: actions/upload-artifact@v3
