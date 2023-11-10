@@ -24,4 +24,4 @@ def example_ptcda_hartree():
 
 
 if __name__ == "__main__":
-    example_ptcda_singe()
+    example_ptcda_hartree()
