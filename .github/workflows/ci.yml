@@ -26,6 +26,11 @@ jobs:
             - name: Run pytest
               run: PPAFM_RECOMPILE=1 pytest tests examples -v --cov -s
 
+            - name: Upload coverage report
+              uses: codecov/codecov-action@v3
+              with:
+                  flags: python-${{ matrix.python-version }}
+
             - name: Save test images
               uses: actions/upload-artifact@v3
               with:
