@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import copy
 import os
 import re
 
@@ -459,7 +460,7 @@ def loadGeometry(fname=None, format=None, params=None):
         if qs is None:
             qs = np.zeros(len(Zs))
         atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
-        nDim = params["gridN"].copy()
+        nDim = copy.copy(params["gridN"])
 
     # Make sure lvec is a 4x3 array. Use default grid parameters if needed
     if (lvec is None) or (len(lvec) == 0):
@@ -503,11 +504,12 @@ def loadGeometry(fname=None, format=None, params=None):
 
     # Copy lattice vectors and grid dimensions to the global parameters
     # so as to guarantee compatibility between the local variables and global parameters
+
     for i in range(3):
         params["gridA"][i] = lvec[1][i]
         params["gridB"][i] = lvec[2][i]
         params["gridC"][i] = lvec[3][i]
-        params["gridN"][i] = nDim[i]
+    params["gridN"] = nDim
 
     return atoms, nDim, lvec
 

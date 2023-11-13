@@ -5,11 +5,11 @@ from .. import common
 from ..HighLevel import computeLJ
 
 
-def main():
+def main(argv=None):
     parser = common.CLIParser(description="Generate a Lennard-Jones, Morse, or vdW force field. The generated force field is saved to FFLJ_{x,y,z}.[ext].")
 
     parser.add_arguments(["input", "input_format", "output_format", "ffModel", "energy", "noPBC"])
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     try:
         common.loadParams("params.ini")

@@ -7,7 +7,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                python-version: ['3.7', '3.8', '3.9', '3.10', '3.11', '3.12']
+                python-version: ['3.7', '3.9', '3.10', '3.11', '3.12']
 
         steps:
             - name: Check out repository
@@ -20,11 +20,11 @@ jobs:
 
             - name: Install package and its dependencies
               run: |
-                  pip install .[dev,opencl]
+                  pip install -e .[dev,opencl]
                   pip install pocl-binary-distribution
 
             - name: Run pytest
-              run: pytest tests -v --cov
+              run: PPAFM_RECOMPILE=1 pytest tests examples -v --cov -s
 
             - name: Save test images
               uses: actions/upload-artifact@v3
