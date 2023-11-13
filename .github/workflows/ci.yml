@@ -11,7 +11,7 @@ jobs:
 
         steps:
             - name: Check out repository
-              uses: actions/checkout@v2
+              uses: actions/checkout@v4
 
             - name: Set up Python
               uses: actions/setup-python@v4
@@ -24,7 +24,7 @@ jobs:
                   pip install pocl-binary-distribution
 
             - name: Run pytest
-              run: PPAFM_RECOMPILE=1 pytest tests examples -v --cov -s
+              run: PPAFM_RECOMPILE=1 pytest tests examples -v --cov --cov-report json
 
             - name: Upload coverage report
               uses: codecov/codecov-action@v3
