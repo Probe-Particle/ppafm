@@ -319,12 +319,14 @@ def relaxTipStroke(rTips, rs, fs, probeStart=1, relaxAlg=1):
     return lib.relaxTipStroke(probeStart, relaxAlg, n, rTips, rs, fs)
 
 
-# void stiffnessMatrix( double ddisp, int which, int n,  double * rTips_, double * rs_,    double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
+# void stiffnessMatrix         ( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
+# void stiffnessMatrix         ( double ddisp, int which, int n,  double * rTips_, double * rs_,    double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
 lib.stiffnessMatrix.argtypes = [c_double, c_int, c_int, array2d, array2d, array2d, array2d, array2d, array2d]
 lib.stiffnessMatrix.restype = None
 
 
 def stiffnessMatrix(rTips, rPPs, which=0, ddisp=0.05):
+    print("py.core.stiffnessMatrix() ")
     n = len(rTips)
     eigenvals = np.zeros((n, 3))
     # this is really stupid solution because we cannot simply pass null pointer by ctypes; see :
@@ -333,6 +335,7 @@ def stiffnessMatrix(rTips, rPPs, which=0, ddisp=0.05):
     evecs = [eigenvals, eigenvals, eigenvals]
     for i in range(which):
         evecs[i] = np.zeros((n, 3))
+    print("py.core.stiffnessMatrix() 1 ")
 
     lib.stiffnessMatrix(ddisp, which, n, rTips, rPPs, eigenvals, evecs[0], evecs[1], evecs[2])
     return eigenvals, evecs

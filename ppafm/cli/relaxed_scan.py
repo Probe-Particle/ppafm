@@ -172,10 +172,15 @@ def main(argv=None):
         if opt_dict["vib"] >= 0:
             which = opt_dict["vib"]
             print(f" === Computing eigenvectors of dynamical matrix: which={which} ddisp={common.params['ddisp']}")
+            print("DEBUG 1 ")
             tip_positions_x, tip_positions_y, tip_positions_z, lvec_scan = common.prepareScanGrids()
+            print("DEBUG 2 ")
             r_tips = np.array(np.meshgrid(tip_positions_x, tip_positions_y, tip_positions_z)).transpose(3, 1, 2, 0).copy()
+            print("DEBUG 3 ")
             evals, evecs = core.stiffnessMatrix(r_tips.reshape((-1, 3)), pp_positions.reshape((-1, 3)), which=which, ddisp=common.params["ddisp"])
+            print("DEBUG 4 ")
             io.save_vec_field(dirname + "/eigvalKs", evals.reshape(r_tips.shape), **data_info)
+            print("DEBUG 5 ")
             if which > 0:
                 io.save_vec_field(dirname + "/eigvecK1", evecs[0].reshape(r_tips.shape), **data_info)
             if which > 1:
