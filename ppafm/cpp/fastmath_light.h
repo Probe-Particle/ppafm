@@ -6,7 +6,9 @@
 
 #include <math.h>
 
-//#define M_PI          3.14159265358979323846
+#ifndef M_PI
+#define M_PI 3.141592653589793238463
+#endif
 
 #define GOLDEN_RATIO  1.61803398875
 #define DEG2RAD       0.0174533
