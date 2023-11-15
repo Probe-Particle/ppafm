@@ -314,15 +314,14 @@ def loadAtomsCUBE(fname):
     f.readline().split()
     f.readline().split()
 
-    shift = [float(sth0[1]), float(sth0[2]), float(sth0[3])]
+    # origin = [float(sth0[1]), float(sth0[2]), float(sth0[3])]
     nlines = int(sth0[0])
     for i in range(nlines):
         l = f.readline().split()
         r = [float(l[2]), float(l[3]), float(l[4])]
-        x.append((r[0] - shift[0]) * bohrRadius2angstroem)
-        y.append((r[1] - shift[1]) * bohrRadius2angstroem)
-        z.append((r[2] - shift[2]) * bohrRadius2angstroem)
-        # print float(l[2])*bohrRadius2angstroem, float(l[3])*bohrRadius2angstroem, float(l[4])*bohrRadius2angstroem
+        x.append(r[0] * bohrRadius2angstroem)
+        y.append(r[1] * bohrRadius2angstroem)
+        z.append(r[2] * bohrRadius2angstroem)
         e.append(int(l[0]))
         q.append(0.0)
     f.close()
@@ -382,8 +381,7 @@ def loadCellCUBE(fname):
     n3 = int(line[0])
     c3 = [float(s) for s in line[1:4]]
 
-    #    cell0 = [c0[0]*   bohrRadius2angstroem, c0[1]   *bohrRadius2angstroem, c0[2]   *bohrRadius2angstroem]
-    cell0 = [0.0, 0.0, 0.0]
+    cell0 = [c0[0] * bohrRadius2angstroem, c0[1] * bohrRadius2angstroem, c0[2] * bohrRadius2angstroem]
     cell1 = [c1[0] * n1 * bohrRadius2angstroem, c1[1] * n1 * bohrRadius2angstroem, c1[2] * n1 * bohrRadius2angstroem]
     cell2 = [c2[0] * n2 * bohrRadius2angstroem, c2[1] * n2 * bohrRadius2angstroem, c2[2] * n2 * bohrRadius2angstroem]
     cell3 = [c3[0] * n3 * bohrRadius2angstroem, c3[1] * n3 * bohrRadius2angstroem, c3[2] * n3 * bohrRadius2angstroem]
@@ -465,6 +463,7 @@ def loadGeometry(fname=None, format=None, params=None):
     # Make sure lvec is a 4x3 array. Use default grid parameters if needed
     if (lvec is None) or (len(lvec) == 0):
         lvec = np.zeros((4, 3))
+        lvec[0, :] = params["gridO"].copy()
         lvec[1, :] = params["gridA"].copy()
         lvec[2, :] = params["gridB"].copy()
         lvec[3, :] = params["gridC"].copy()
@@ -495,8 +494,8 @@ def loadGeometry(fname=None, format=None, params=None):
         # The automatically generated lattice vector should enclose the whole scanning area plus the default padding.
         if np.allclose(lvec[i + 1, :], 0):
             params["PBC"] = False
-            # lvec[i + 1, i] = probe_max[i] - probe_min[i] + 2*pad
-            lvec[i + 1, i] = probe_max[i] + pad
+            lvec[i + 1, i] = probe_max[i] - probe_min[i] + 2 * pad
+            lvec[0, i] = probe_min[i] - pad
 
         # Generate automatic grid using the default step if the grid dimension specified so far is not a positive number
         if not nDim[i] > 0:
@@ -506,6 +505,7 @@ def loadGeometry(fname=None, format=None, params=None):
     # so as to guarantee compatibility between the local variables and global parameters
 
     for i in range(3):
+        params["gridO"][i] = lvec[0][i]
         params["gridA"][i] = lvec[1][i]
         params["gridB"][i] = lvec[2][i]
         params["gridC"][i] = lvec[3][i]
