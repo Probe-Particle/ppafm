@@ -28,3 +28,5 @@ dist/
 
 # Sphinx documentation
 doc/sphinx/build/
+
+.coverage

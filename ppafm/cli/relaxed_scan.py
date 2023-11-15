@@ -28,7 +28,7 @@ def rotate_ff(fx, fy, a):
     return new_fx, new_fy
 
 
-def main():
+def main(argv=None):
     parser = common.CLIParser(
         description="Perform a scan, relaxing the probe particle in a precalculated force field. The generated force field is saved to Q{charge}K{klat}/OutFz.xsf."
     )
@@ -46,7 +46,7 @@ def main():
     parser.add_argument("--pol_t",          action="store",      type=float, default=1.0, help="Scaling factor for tip polarization")
     parser.add_argument("--pol_s",          action="store",      type=float, default=1.0, help="Scaling factor for sample polarization")
     # fmt: on
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     opt_dict = vars(args)
     common.loadParams("params.ini")

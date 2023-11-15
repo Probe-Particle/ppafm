@@ -17,7 +17,7 @@ print("plot WITHOUT Xserver")
 atom_size = 0.15
 
 
-def main():
+def main(argv=None):
     # fmt: off
     parser = common.CLIParser( description="Plot results for a scan with a specified charge, amplitude, and spring constant.Images are saved in folder Q{charge}K{klat}/Amp{Amplitude}." )
     parser.add_arguments(["output_format","Amplitude","arange","klat","krange","charge", "qrange", "Vbias", "Vrange", "noPBC", ])
@@ -36,7 +36,7 @@ def main():
     parser.add_argument( "--bI",        action="store_true",                           help="Plot images for Boltzmann current"    )
     # fmt: on
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     opt_dict = vars(args)
 
     common.loadParams("params.ini")
@@ -150,7 +150,7 @@ def main():
                 )
 
             if opt_dict["iets"] is not None:
-                eigenvalue_k, lvec, _ = io.load_vec_field(dirname + "/eigvalKs", data_format=args.output_format)
+                eigenvalue_k, lvec, _, atomic_info_or_head = io.load_vec_field(dirname + "/eigvalKs", data_format=args.output_format)
                 iets_m = opt_dict["iets"][0]
                 iets_e = opt_dict["iets"][1]
                 iets_w = opt_dict["iets"][2]

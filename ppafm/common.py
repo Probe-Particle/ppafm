@@ -23,6 +23,7 @@ params = {
     "PBC": True,
     "nPBC": np.array([1, 1, 1]),
     "gridN": np.array([-1, -1, -1]).astype(int),
+    "gridO": np.array([0.0, 0.0, 0.0]),
     "gridA": np.array([0.0, 0.0, 0.0]),
     "gridB": np.array([0.0, 0.0, 0.0]),
     "gridC": np.array([0.0, 0.0, 0.0]),
@@ -938,9 +939,9 @@ def prepareScanGrids():
     and the "Apex", so that while the point of reference on the tip used to interpret scanMin  was the Apex,
     the new point of reference used in the XSF output will be the Probe Particle.
     """
-    zTips = np.arange(params["scanMin"][2], params["scanMax"][2] + 0.00001, params["scanStep"][2])
-    xTips = np.arange(params["scanMin"][0], params["scanMax"][0] + 0.00001, params["scanStep"][0])
-    yTips = np.arange(params["scanMin"][1], params["scanMax"][1] + 0.00001, params["scanStep"][1])
+    xTips = np.arange(params["scanMin"][0], params["scanMax"][0] + 0.5 * params["scanStep"][0], params["scanStep"][0])
+    yTips = np.arange(params["scanMin"][1], params["scanMax"][1] + 0.5 * params["scanStep"][1], params["scanStep"][1])
+    zTips = np.arange(params["scanMin"][2], params["scanMax"][2] + 0.5 * params["scanStep"][2], params["scanStep"][2])
     (xTips[0], xTips[-1], yTips[0], yTips[-1])
     lvecScan = np.array(
         [

@@ -40,6 +40,24 @@ def trjByDir(n, d=[0.0, 0.0, PPU.params["scanStep"][2]], p0=[0, 0, PPU.params["s
     return trj
 
 
+def shift_positions(R, s):
+    """
+    Shifts positions in R by s; returns the result. Needed especially to shift atoms according to the grid origin.
+
+    Arguments:
+    R = list of positional vectors or a 2D array. The first index donoting the item (typically an atom)
+      the second index determines the coordinate
+    s = vector that determines the required shift
+
+    Returns Rs: Rs[ia,i] = R[ia,i] - s[i]
+    """
+    Rs = np.array(R).copy()
+    Rs[:, 0] += s[0]
+    Rs[:, 1] += s[1]
+    Rs[:, 2] += s[2]
+    return Rs
+
+
 def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
     if verbose > 0:
         print(">>BEGIN: relaxedScan3D()")
@@ -154,14 +172,18 @@ def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm
     if verbose > 0:
         print("stiffness:", PPU.params["stiffness"])
     core.setTip(kSpring=np.array((PPU.params["stiffness"][0], PPU.params["stiffness"][1], 0.0)) / -PPU.eVA_Nm, kRadial=PPU.params["stiffness"][2] / -PPU.eVA_Nm)
+
+    # grid origin has to be moved to zero, hence the subtraction of lvec[0,:] from trj and xTip, yTips, zTips
     trj = None
     if PPU.params["tiltedScan"]:
-        trj = trjByDir(len(zTips), d=PPU.params["scanTilt"], p0=PPU.params["scanMin"])
+        trj = trjByDir(len(zTips), d=PPU.params["scanTilt"], p0=[0.0, 0.0, PPU.params["scanMin"][2] - lvec[0, 2]])
+    fzs, PPpos = relaxedScan3D    (xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=PPU.params["tiltedScan"])
+    fzs, PPpos = relaxedScan3D_omp(xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=PPU.params["tiltedScan"])
 
-    # fzs, PPpos = relaxedScan3D(xTips, yTips, zTips, trj=trj, bF3d=PPU.params["tiltedScan"])
-    fzs, PPpos = relaxedScan3D_omp(xTips, yTips, zTips, trj=trj, bF3d=PPU.params["tiltedScan"])
-
-    print("perform_relaxation():   ", fzs.shape, PPpos.shape)
+    # transform probe-particle positions back to the original coordinates
+    PPpos[:, :, :, 0] += lvec[0, 0]
+    PPpos[:, :, :, 1] += lvec[0, 1]
+    PPpos[:, :, :, 2] += lvec[0, 2]
 
     if bPPdisp:
         PPdisp = PPpos.copy()
@@ -204,13 +226,9 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
     # --- load atomic geometry
     atoms, nDim, lvec = io.loadGeometry(geomFile, format=geometry_format, params=PPU.params)
     atomstring = io.primcoords2Xsf(PPU.atoms2iZs(atoms[0], elem_dict), [atoms[1], atoms[2], atoms[3]], lvec)
-    PPU.params["gridN"] = nDim
-    PPU.params["gridA"] = lvec[1]
-    PPU.params["gridB"] = lvec[2]
-    PPU.params["gridC"] = lvec[3]  # must be before parseAtoms
     if verbose > 0:
-        print(PPU.params["gridN"], PPU.params["gridA"], PPU.params["gridB"], PPU.params["gridC"])
-    iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=PPU.params["PBC"])
+        print(PPU.params["gridN"], PPU.params["gridO"], PPU.params["gridA"], PPU.params["gridB"], PPU.params["gridC"])
+    iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=PPU.params["PBC"], lvec=lvec)
     # --- prepare LJ parameters
     iPP = PPU.atom2iZ(PPU.params["probeType"], elem_dict)
     # --- prepare arrays and compute
@@ -218,20 +236,24 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
     if verbose > 0:
         print("FFLJ.shape", FF.shape)
     core.setFF_shape(np.shape(FF), lvec)
+
+    # shift atoms to the coordinate system in which the grid origin is zero
+    Rs0 = shift_positions(Rs, -lvec[0])
+
     if ffModel == "Morse":
         REs = PPU.getAtomsRE(iPP, iZs, FFparams)
-        core.getMorseFF(Rs, REs)  # THE MAIN STUFF HERE
+        core.getMorseFF(Rs0, REs)  # THE MAIN STUFF HERE
     elif ffModel == "vdW":
         vdWDampKind = PPU.params["vdWDampKind"]
         if vdWDampKind == 0:
             cLJs = PPU.getAtomsLJ(iPP, iZs, FFparams)
-            core.getVdWFF(Rs, cLJs)  # THE MAIN STUFF HERE
+            core.getVdWFF(Rs0, cLJs)  # THE MAIN STUFF HERE
         else:
             REs = PPU.getAtomsRE(iPP, iZs, FFparams)
-            core.getVdWFF_RE(Rs, REs, kind=vdWDampKind)  # THE MAIN STUFF HERE
+            core.getVdWFF_RE(Rs0, REs, kind=vdWDampKind)  # THE MAIN STUFF HERE
     else:
         cLJs = PPU.getAtomsLJ(iPP, iZs, FFparams)
-        core.getLennardJonesFF(Rs, cLJs)  # THE MAIN STUFF HERE
+        core.getLennardJonesFF(Rs0, cLJs)  # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not None:
         if verbose > 0:
@@ -274,12 +296,8 @@ def computeDFTD3(input_file, df_params="PBE", geometry_format=None, save_format=
 
     # Load atomic geometry
     atoms, nDim, lvec = io.loadGeometry(input_file, format=geometry_format, params=PPU.params)
-    PPU.params["gridN"] = nDim
-    PPU.params["gridA"] = lvec[1]
-    PPU.params["gridB"] = lvec[2]
-    PPU.params["gridC"] = lvec[3]
     elem_dict = PPU.getFFdict(PPU.loadSpecies())
-    iZs, Rs, _ = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=PPU.params["PBC"])
+    iZs, Rs, _ = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=PPU.params["PBC"], lvec=lvec)
     iPP = PPU.atom2iZ(PPU.params["probeType"], elem_dict)
 
     # Compute coefficients for each atom
@@ -289,7 +307,7 @@ def computeDFTD3(input_file, df_params="PBE", geometry_format=None, save_format=
     # Compute the force field
     FF, V = prepareArrays(None, compute_energy)
     core.setFF_shape(np.shape(FF), lvec)
-    core.getDFTD3FF(Rs, coeffs)
+    core.getDFTD3FF(shift_positions(Rs, -lvec[0]), coeffs)
 
     # Save to file
     if save_format is not None:
@@ -316,16 +334,16 @@ def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format
     atoms, nDim, lvec = io.loadGeometry(geomFile, format=geometry_format, params=PPU.params)
     atomstring = io.primcoords2Xsf(PPU.atoms2iZs(atoms[0], elem_dict), [atoms[1], atoms[2], atoms[3]], lvec)
     # --- prepare arrays and compute
-    PPU.params["gridN"] = nDim
-    PPU.params["gridA"] = lvec[1]
-    PPU.params["gridB"] = lvec[2]
-    PPU.params["gridC"] = lvec[3]
     if verbose > 0:
         print(PPU.params["gridN"], PPU.params["gridA"], PPU.params["gridB"], PPU.params["gridC"])
-    iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params["PBC"])
+    iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=PPU.params["PBC"], lvec=lvec)
     FF, V = prepareArrays(None, computeVpot)
     core.setFF_shape(np.shape(FF), lvec)
-    core.getCoulombFF(Rs, Qs * PPU.CoulombConst, kind=tipKind)  # THE MAIN STUFF HERE
+
+    # shift atoms to the coordinate system in which the grid origin is zero
+    Rs0 = shift_positions(Rs, -lvec[0])
+
+    core.getCoulombFF(Rs0, Qs * PPU.CoulombConst, kind=tipKind)  # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not None:
         if verbose > 0:
@@ -414,8 +432,7 @@ def getAtomsWhichTouchPBCcell(fname, Rcut=1.0, bSaveDebug=True, geometry_format=
     return Rs, elems
 
 
-def subtractCoreDensities(rho, lvec_, elems=None, Rs=None, fname=None, valElDict=None, Rcore=0.7, bSaveDebugDens=False, bSaveDebugGeom=True, head=io.XSF_HEAD_DEFAULT):
-    lvec = lvec_[1:]
+def subtractCoreDensities(rho, lvec, elems=None, Rs=None, fname=None, valElDict=None, Rcore=0.7, bSaveDebugDens=False, bSaveDebugGeom=True, head=io.XSF_HEAD_DEFAULT):
     nDim = rho.shape
     if fname is not None:
         elems, Rs = getAtomsWhichTouchPBCcell(fname, Rcut=Rcore, bSaveDebug=bSaveDebugDens)
@@ -424,7 +441,7 @@ def subtractCoreDensities(rho, lvec_, elems=None, Rs=None, fname=None, valElDict
     print("subtractCoreDensities valElDict ", valElDict)
     print("subtractCoreDensities elems ", elems)
     cRAs = np.array([(-valElDict[elem], Rcore) for elem in elems])
-    V = np.linalg.det(lvec)  # volume of triclinic cell
+    V = np.linalg.det(lvec[1:])  # volume of triclinic cell
     N = nDim[0] * nDim[1] * nDim[2]
     dV = V / N  # volume of one voxel
     if verbose > 0:
@@ -436,8 +453,8 @@ def subtractCoreDensities(rho, lvec_, elems=None, Rs=None, fname=None, valElDict
     if verbose > 0:
         print(">>> Projecting Core Densities ... ")
 
-    core.getDensityR4spline(Rs, cRAs.copy())  # Do the job ( the Projection of atoms onto grid )
+    core.getDensityR4spline(shift_positions(Rs, -lvec[0]), cRAs.copy())  # Do the job ( the Projection of atoms onto grid )
     if verbose > 0:
         print("sum(RHO), Nelec: ", rho.sum(), rho.sum() * dV)  # check sum
     if bSaveDebugDens:
-        io.saveXSF("rho_subCoreChg.xsf", rho, lvec_, head=head)
+        io.saveXSF("rho_subCoreChg.xsf", rho, lvec, head=head)
