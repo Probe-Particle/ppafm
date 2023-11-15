@@ -1,7 +1,8 @@
 CC=g++
 LD=g++
-CPPFLAGS= -fPIC -std=c++11 -O2 -mtune=native
-LDFLAGS= -shared
+#CPPFLAGS= -fPIC -std=c++11 -O2 -mtune=native
+CPPFLAGS= -fPIC -std=c++11 -O2 -mtune=native -fopenmp
+LDFLAGS= -shared -fopenmp
 
 all: PP GU fitting_ fitSpline_
 

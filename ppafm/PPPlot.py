@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -57,6 +58,11 @@ def colorize_XY2RG(Xs, Ys):
     return c, vmax
 
 
+def write_plotting_slice(i):
+    sys.stdout.write(f"\r plotting slice # {i}")
+    sys.stdout.flush()
+
+
 # =========== plotting functions
 
 
@@ -79,7 +85,8 @@ def plotImages(
     V0=0.0,
 ):
     for ii, i in enumerate(slices):
-        print(" plotting ", i)
+        # print(" plotting ", i)
+        write_plotting_slice(i)
         if symetric_map:
             limit = max(abs(np.min(F[i] - V0)), abs(np.max(F[i] - V0)))
             vmin = -limit + V0
@@ -103,7 +110,8 @@ def plotVecFieldRG(
     prefix, dXs, dYs, slices, extent=None, zs=None, figsize=default_figsize, interpolation=default_interpolation, atoms=None, bonds=None, atomSize=default_atom_size
 ):
     for ii, i in enumerate(slices):
-        print(" plotting ", i)
+        # print(" plotting ", i)
+        write_plotting_slice(i)
         plt.figure(figsize=(10, 10))
         HSBs, vmax = colorize_XY2RG(dXs[i], dYs[i])
         plt.imshow(HSBs, extent=extent, origin="lower", interpolation=interpolation)
@@ -139,7 +147,8 @@ def plotDistortions(
     atomSize=default_atom_size,
 ):
     for ii, i in enumerate(slices):
-        print(" plotting ", i)
+        # print(" plotting ", i)
+        write_plotting_slice(i)
         plt.figure(figsize=figsize)
         plt.plot(X[i, ::by, ::by].flat, Y[i, ::by, ::by].flat, "r.", markersize=markersize)
         if BG is not None:
@@ -181,7 +190,8 @@ def plotArrows(
     atomSize=default_atom_size,
 ):
     for ii, i in enumerate(slices):
-        print(" plotting ", i)
+        # print(" plotting ", i)
+        write_plotting_slice(i)
         plt.figure(figsize=figsize)
         plt.quiver(Xs[::by, ::by], Ys[::by, ::by], dX[::by, ::by], dY[::by, ::by], color="k", headlength=10, headwidth=10, scale=15)
         if BG is not None:

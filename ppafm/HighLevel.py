@@ -102,6 +102,34 @@ def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
     return fzs, PPpos
 
 
+def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False):
+    if verbose > 0:
+        print(">>BEGIN: relaxedScan3D_omp()")
+    if verbose > 0:
+        print(" zTips : ", zTips)
+    nz = len(zTips)
+    ny = len(yTips)
+    nx = len(xTips)
+    rTips = np.zeros((nx, ny, nz, 3))
+    rs = np.zeros((nx, ny, nz, 3))
+    fs = np.zeros((nx, ny, nz, 3))
+    rTips[:, :, :, 0] = xTips[:, None, None]
+    rTips[:, :, :, 1] = yTips[None, :, None]
+    rTips[:, :, :, 2] = zTips[::-1][None, None, :]
+    core.relaxTipStrokes_omp(rTips, rs, fs)
+    # rs[:,:,:,:] = rs[:,:,::-1,:].transpose(2,1,0,3).copy()
+    # fs[:,:,:,:] = fs[:,:,::-1,:]
+    # fzs = fs[:,:,::-1,2].transpose(2,1,0).copy()
+    rs = rs[:, :, ::-1, :].transpose(2, 1, 0, 3).copy()
+    if bF3d:
+        fzs = fs[:, :, ::-1, :].transpose(2, 1, 0, 3).copy()
+    else:
+        fzs = fs[:, :, ::-1, 2].transpose(2, 1, 0).copy()
+    if verbose > 0:
+        print("<<<END: relaxedScan3D_omp()")
+    return fzs, rs
+
+
 def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm_t0sV=None, FFkpfm_tVs0=None, tipspline=None, bPPdisp=False, bFFtotDebug=False):
     if verbose > 0:
         print(">>>BEGIN: perform_relaxation()")
@@ -149,7 +177,8 @@ def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm
     trj = None
     if PPU.params["tiltedScan"]:
         trj = trjByDir(len(zTips), d=PPU.params["scanTilt"], p0=[0.0, 0.0, PPU.params["scanMin"][2] - lvec[0, 2]])
-    fzs, PPpos = relaxedScan3D(xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=PPU.params["tiltedScan"])
+    # fzs, PPpos = relaxedScan3D(xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=PPU.params["tiltedScan"])
+    fzs, PPpos = relaxedScan3D_omp(xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=PPU.params["tiltedScan"])
 
     # transform probe-particle positions back to the original coordinates
     PPpos[:, :, :, 0] += lvec[0, 0]
