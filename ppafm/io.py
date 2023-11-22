@@ -652,7 +652,8 @@ def loadXSF(fname, xyz_order=False, verbose=True, lvec=None, Hartree=False):
     """
     filein = open( fname )
 
-    startline = 0 # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
+    startline = 0 # startline - number of the line with DATAGRID_3D_. Dimensions are located in the next line
+    AIMSflag = False
     head = []
     while True : #search for startline
         line = filein.readline()
@@ -670,32 +671,34 @@ def loadXSF(fname, xyz_order=False, verbose=True, lvec=None, Hartree=False):
         elif "BEGIN_DATAGRID_3D" in line:
             break
         elif line.strip().startswith("DATAGRID_3D"):
+            if('g98Cube' in line):
+                AIMSflag = True
             break
     nDim = np.array(filein.readline().split(), dtype=int) # reading 1 line with dimensions
     grid_cell = _readmat(filein, 4) # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
     grid_cell = np.array(grid_cell)[:4,:3]
     filein.close()
 
-    if verbose: print("nDim xsf:", nDim)
-    if verbose: print("io | Load "+fname+" using readNumsUpTo ")
+    if verbose:
+        print("nDim xsf:", nDim)
+    if verbose:
+        print("io | Load "+fname+" using readNumsUpTo ")
     F = readNumsUpTo(fname,nDim.astype(np.int32).copy(), startline+5)
     if verbose: print("io | Done")
     FF = np.reshape(F, nDim[::-1])
     swap_axes,nDim = _trim_and_swap(lvec=lvec, nDim=nDim, grid_cell=grid_cell)
-    if swap_axes:
-        #x,z axes swapped
-        FF = FF.transpose((2, 1, 0))
-    else:
-        Hartree=False
-    # Trim and copy. FF is not C_CONTIGUOUS without copy
+    if swap_axes^xyz_order:
+        #x,z axes swapped. Copy, otherwise the transposed array is not C_CONTIGUOUS
+        FF = FF.transpose((2, 1, 0)).copy()
     if xyz_order:
-        xyz_order = "F"
+        FF = FF[:nDim[0],:nDim[1],:nDim[2]]
     else:
-        xyz_order = "C"
-    FF = FF[:nDim[2],:nDim[1],:nDim[0]].copy(order = xyz_order)
-    if verbose: print("nDim after trimming:", nDim)
-    if Hartree:
-        if verbose: print("Electrostatic potential in hartree units. Converting!")
+        FF = FF[:nDim[2],:nDim[1],:nDim[0]]
+    if verbose:
+        print("nDim after trimming:", nDim)
+    if swap_axes and AIMSflag and Hartree:
+        if verbose:
+            print("Electrostatic potential in hartree units. Converting!")
         FF*=Hartree2eV
     return FF, grid_cell, nDim, head
 
