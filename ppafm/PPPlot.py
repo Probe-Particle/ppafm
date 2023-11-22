@@ -81,18 +81,19 @@ def plotImages(
     atoms=None,
     bonds=None,
     atomSize=default_atom_size,
-    symetric_map=False,
+    symmetric_map=False,
     V0=0.0,
 ):
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
         write_plotting_slice(i)
-        if symetric_map:
+        if symmetric_map:
             limit = max(abs(np.min(F[i] - V0)), abs(np.max(F[i] - V0)))
             vmin = -limit + V0
             vmax = limit + V0
         plt.figure(figsize=figsize)
         plt.imshow(F[i], origin="lower", interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax)
+
         if cbar:
             plt.colorbar()
         plotGeom(atoms, bonds, atomSize=atomSize)

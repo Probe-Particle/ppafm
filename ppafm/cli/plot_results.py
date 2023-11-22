@@ -191,7 +191,7 @@ def main(argv=None):
                     cbar=opt_dict["cbar"],
                 )
 
-            if opt_dict["df"] or opt_dict["save_df"] or opt_dict["WSxM"]:
+            if opt_dict["df"] or opt_dict["save_df"] or opt_dict["WSxM"] or opt_dict["LCPD_maps"]:
                 for amplitude in amplitudes:
                     common.params["Amplitude"] = amplitude
                     amp_string = f"/Amp{amplitude:2.2f}"
@@ -333,7 +333,7 @@ def main(argv=None):
                 bonds=bonds,
                 atomSize=atom_size,
                 cbar=opt_dict["cbar"],
-                symetric_map=True,
+                symmetric_map=True,
                 V0=args.V0,
             )
             PPPlot.plotImages(
@@ -347,10 +347,10 @@ def main(argv=None):
                 bonds=bonds,
                 atomSize=atom_size,
                 cbar=opt_dict["cbar"],
-                symetric_map=False,
+                symmetric_map=False,
             )
             io.save_scal_field(
-                "./LCDP_HzperV",
+                "./LCPD",
                 lcpd,
                 lvec_df,
                 data_format=args.output_format,
