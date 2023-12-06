@@ -251,20 +251,6 @@ inline void getPPforce( const Vec3d& rTip, const Vec3d& r, Vec3d& f ){
     f.add_mul( drTip, TIP::kSpring );      // spring force
 }
 
-
-inline void getPPforce_dbg( const Vec3d& rTip, const Vec3d& r, Vec3d& f ){
-    Vec3d rGrid,drTip;
-    rGrid.set( r.dot( gridShape.diCell.a ), r.dot( gridShape.diCell.b ), r.dot( gridShape.diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
-    printf( "getPPforce_dbg r(%g,%g,%g) rGrid(%g,%g,%g)\n", r.x,r.y,r.z, rGrid.x, rGrid.y, rGrid.z );
-    drTip.set_sub( r, rTip );                                                             // vector between Probe-particle and tip apex
-    printf("DEBIG getPPforce_dbg() 1 \n");
-    f.set    ( interpolate3DvecWrap( gridF, gridShape.n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
-    printf("DEBIG getPPforce_dbg() 2 \n");
-    drTip.sub( TIP::rPP0 );
-    printf("DEBIG getPPforce_dbg() 3 \n");
-    f.add_mul( drTip, TIP::kSpring );      // spring force
-}
-
 // relax probe particle position "r" given on particular position of tip (rTip) and initial position "r"
 int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
     Vec3d v; v.set( 0.0 );
@@ -622,81 +608,42 @@ DLLEXPORT int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double *
 }
 
 DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
-    printf( "C++ stiffnessMatrix() n=%i \n", n );
+    //printf( "C++ stiffnessMatrix() n=%i \n", n );
     Vec3d * rTips     = (Vec3d*) rTips_;
     Vec3d * rPPs      = (Vec3d*) rPPs_;
     Vec3d * eigenvals = (Vec3d*) eigenvals_;
     Vec3d * evec1     = (Vec3d*) evec1_;
     Vec3d * evec2     = (Vec3d*) evec2_;
     Vec3d * evec3     = (Vec3d*) evec3_;
-    printf( "C++ stiffnessMatrix() loop \n" );
-    printf( "C++ stiffnessMatrix() gridF=%li \n", (long)gridF  );
-    printf( "C++ stiffnessMatrix() gridShape.n(%i,%i,%i) \n", gridShape.n.x, gridShape.n.y, gridShape.n.z  );
+    //printf( "C++ stiffnessMatrix() gridShape.n(%i,%i,%i) \n", gridShape.n.x, gridShape.n.y, gridShape.n.z  );
+    //printf( "C++ stiffnessMatrix() gridF=%li \n", (long)gridF  );
     //Vec3d gf=gridF[0];                                        printf( "gridF[0 ] (%g,%g,%g) \n",gf.x,gf.y,gf.z );
     //gf=gridF[ gridShape.n.x*gridShape.n.y*gridShape.n.z -1 ]; printf( "gridF[-1] (%g,%g,%g) \n",gf.x,gf.y,gf.z);
-
-    //double eigMin =  1e+300;
-    //double eigMax = -1e+300;
-
-    Vec3d pmin,pmax; pmin.set( 1e+300, 1e+300, 1e+300 ); pmax.set( -1e+300, -1e+300, -1e+300 );
-
+    //Vec3d pmin,pmax; pmin.set( 1e+300, 1e+300, 1e+300 ); pmax.set( -1e+300, -1e+300, -1e+300 );
     for(int i=0; i<n; i++){
-        //printf( "C++ stiffnessMatrix[%i] \n", i );
         Vec3d rTip,rPP,f1,f2;
         rTip.set( rTips[i] );
         rPP.set ( rPPs[i]  );
         Mat3d dynmat;
-        //printf( "C++ stiffnessMatrix 1 gridF=%li \n", (long)gridF );
-
-        //rPP=Vec3d{1.0,1.0,1.0};
-        pmin.setIfLower(rPP); pmax.setIfGreater(rPP);
-
-        //getPPforce( rTip, rPP, f1 );  eigenvals[i] = f1;   // check if we are converged in f=0
-        //rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp; evec1[i].set_sub(f2,f1);
-        //rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp; evec2[i].set_sub(f2,f1);
-        //rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp; evec3[i].set_sub(f2,f1);
+        //pmin.setIfLower(rPP); pmax.setIfGreater(rPP);
         // eval dynamical matrix    D_xy = df_y/dx    = ( f(r0+dx).y - f(r0-dx).y ) / (2*dx)
-
-        /*
-        rPP.x-=ddisp;
-        //printf( "C++ stiffnessMatrix 2.0  rTip(%g,%g,%g) rPP(%g,%g,%g)  \n", rTip.x, rTip.y, rTip.z, rPP.x, rPP.y, rPP.z );
-        getPPforce_dbg( rTip, rPP, f1 );
-        rPP.x+=2*ddisp;
-        //printf( "C++ stiffnessMatrix 2.0.1 rTip(%g,%g,%g) rPP(%g,%g,%g)  \n", rTip.x, rTip.y, rTip.z, rPP.x, rPP.y, rPP.z  );
-        getPPforce_dbg( rTip, rPP, f2 );
-        //printf( "C++ stiffnessMatrix 2.0.2 \n" );
-        rPP.x-=ddisp;  dynmat.a.set_sub(f2,f1); dynmat.a.mul(-0.5/ddisp);
-        //printf( "C++ stiffnessMatrix 2.1 \n" );
-        rPP.y-=ddisp; getPPforce_dbg( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce_dbg( rTip, rPP, f2 );  rPP.y-=ddisp;  dynmat.b.set_sub(f2,f1); dynmat.b.mul(-0.5/ddisp);
-        //printf( "C++ stiffnessMatrix 2.2 \n" );
-        rPP.z-=ddisp; getPPforce_dbg( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce_dbg( rTip, rPP, f2 );  rPP.z-=ddisp;  dynmat.c.set_sub(f2,f1); dynmat.c.mul(-0.5/ddisp);
-        //printf( "C++ stiffnessMatrix 2.3 \n" );
-        */
-
         rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp; dynmat.a.set_sub(f2,f1); dynmat.a.mul(-0.5/ddisp);
         rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp; dynmat.b.set_sub(f2,f1); dynmat.b.mul(-0.5/ddisp);
         rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp; dynmat.c.set_sub(f2,f1); dynmat.c.mul(-0.5/ddisp);
-
         // symmetrize - to make sure that our symmetric matrix solver work properly
         double tmp;
-        //printf( "C++ stiffnessMatrix 3 \n" );
         tmp = 0.5*(dynmat.xy + dynmat.yx); dynmat.xy = tmp; dynmat.yx = tmp;
         tmp = 0.5*(dynmat.yz + dynmat.zy); dynmat.yz = tmp; dynmat.zy = tmp;
         tmp = 0.5*(dynmat.zx + dynmat.xz); dynmat.zx = tmp; dynmat.xz = tmp;
         // solve mat
         Vec3d evals; dynmat.eigenvals( evals ); Vec3d temp;
-        //printf( "C++ stiffnessMatrix 4 \n" );
         double eval_check = evals.a * evals.b * evals.c;
         //if( fabs(eval_check) < 1e-16 ){  };
         if( isnan(eval_check) ){  printf( "C++ stiffnessMatrix[%i] is NaN evals (%g,%g,%g) \n", i, evals.a, evals.b, evals.c ); exit(0); }
-        //eigMax = fmax( eigMax, evals.a ); // eigMax = fmax( eigMax, evals.b ); eigMax = fmax( eigMax, evals.c );
-        //eigMin = fmin( eigMin, evals.c ); // eigMin = fmin( eigMin, evals.b ); eigMin = fmin( eigMin, evals.c );
         // sort eigenvalues
-        //printf( "C++ stiffnessMatrix 5 \n" );
         if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; }
         if( evals.b > evals.c ){ tmp=evals.b; evals.b=evals.c; evals.c=tmp; }
         if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; }
-        //printf( "C++ stiffnessMatrix 6 \n" );
         // output eigenvalues and eigenvectors
         eigenvals[i] = evals;
         if(which>0) dynmat.eigenvec( evals.a, evec1[i] );
@@ -706,8 +653,7 @@ DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_,
         //evec2[i] = dynmat.b;
         //evec3[i] = dynmat.c;
     }
-    //printf( "C++ stiffnessMatrix() DONE! eigMin=%g eigMax=%g \n", eigMin, eigMax );
-    printf( "C++ stiffnessMatrix() DONE! pmin(%g,%g,%g) pmax(%g,%g,%g) \n", pmin.x, pmin.y, pmin.z, pmax.x, pmax.y, pmax.z );
+   // printf( "C++ stiffnessMatrix() DONE! pmin(%g,%g,%g) pmax(%g,%g,%g) \n", pmin.x, pmin.y, pmin.z, pmax.x, pmax.y, pmax.z );
 }
 
 DLLEXPORT void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ ){
