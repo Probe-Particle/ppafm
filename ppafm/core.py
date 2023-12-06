@@ -319,8 +319,17 @@ def relaxTipStroke(rTips, rs, fs, probeStart=1, relaxAlg=1):
     return lib.relaxTipStroke(probeStart, relaxAlg, n, rTips, rs, fs)
 
 
-# void stiffnessMatrix         ( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
-# void stiffnessMatrix         ( double ddisp, int which, int n,  double * rTips_, double * rs_,    double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
+# int relaxTipStrokes ( int nx, int ny, int probeStart, int nstep, double * rTips_, double * rs_, double * fs_ )
+lib.relaxTipStrokes_omp.argtypes = [c_int, c_int, c_int, c_int, c_int, array4d, array4d, array4d]
+lib.relaxTipStrokes_omp.restype = c_int
+
+
+def relaxTipStrokes_omp(rTips, rs, fs, probeStart=1, relaxAlg=1):
+    nx, ny, nz, _ = rTips.shape
+    return lib.relaxTipStrokes_omp(nx, ny, probeStart, relaxAlg, nz, rTips, rs, fs)
+
+
+# void stiffnessMatrix( double ddisp, int which, int n,  double * rTips_, double * rs_,    double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
 lib.stiffnessMatrix.argtypes = [c_double, c_int, c_int, array2d, array2d, array2d, array2d, array2d, array2d]
 lib.stiffnessMatrix.restype = None
 

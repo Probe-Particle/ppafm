@@ -84,6 +84,6 @@ def _build_windows(target):
     else:
         targets = [cpp_modules[target]]
     for module in targets:
-        cmd = f'"{vars_path}" /no_logo /arch=amd64 && cl.exe /O2 /D_USRDLL /D_WINDLL {module}.cpp /link /dll /out:{module}{_lib_ext}'
+        cmd = f'"{vars_path}" /no_logo /arch=amd64 && cl.exe /openmp /O2 /D_USRDLL /D_WINDLL {module}.cpp /link /dll /out:{module}{_lib_ext}'
         print(cmd)
         os.system(cmd)

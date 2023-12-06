@@ -31,7 +31,7 @@ class Build(build):
 
     def build_windows(self):
         for module in self.cpp_modules:
-            cmd = f"cl.exe /O2 /D_USRDLL /D_WINDLL {module}.cpp /link /dll /out:{module}_lib.dll"
+            cmd = f"cl.exe /openmp /O2 /D_USRDLL /D_WINDLL {module}.cpp /link /dll /out:{module}_lib.dll"
             print(cmd)
             os.system(cmd)
 
