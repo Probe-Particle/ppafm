@@ -332,7 +332,7 @@ def stiffnessMatrix(rTips, rPPs, which=0, ddisp=0.05):
     # this is really stupid solution because we cannot simply pass null pointer by ctypes; see :
     # https://github.com/numpy/numpy/issues/6239
     # http://stackoverflow.com/questions/32120178/how-can-i-pass-null-to-an-external-library-using-ctypes-with-an-argument-decla
-    evecs = [eigenvals, eigenvals, eigenvals]
+    evecs = [None, None, None]
     for i in range(which):
         evecs[i] = np.zeros((n, 3))
     print("py.core.stiffnessMatrix() 1 ")

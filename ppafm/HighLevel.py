@@ -85,6 +85,7 @@ def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
 
 
 def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm_t0sV=None, FFkpfm_tVs0=None, tipspline=None, bPPdisp=False, bFFtotDebug=False):
+    global FF  # We need FF global otherwise it is garbage collected and program crashes inside C++ e.g. in stiffnessMatrix()
     if verbose > 0:
         print(">>>BEGIN: perform_relaxation()")
     if tipspline is not None:

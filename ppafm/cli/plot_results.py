@@ -150,7 +150,7 @@ def main(argv=None):
                 )
 
             if opt_dict["iets"] is not None:
-                eigenvalue_k, lvec, _ = io.load_vec_field(dirname + "/eigvalKs", data_format=args.output_format)
+                eigenvalue_k, lvec, _, atomic_info_or_head = io.load_vec_field(dirname + "/eigvalKs", data_format=args.output_format)
                 iets_m = opt_dict["iets"][0]
                 iets_e = opt_dict["iets"][1]
                 iets_w = opt_dict["iets"][2]
