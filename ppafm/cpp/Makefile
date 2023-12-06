@@ -1,7 +1,7 @@
 CC=g++
 LD=g++
-#CPPFLAGS= -fPIC -std=c++11 -O2 -mtune=native
-CPPFLAGS= -fPIC -std=c++11 -Og -g
+CPPFLAGS= -fPIC -std=c++11 -O2 -mtune=native
+#CPPFLAGS= -fPIC -std=c++11 -Og -g
 #CPPFLAGS= -fPIC -std=c++11 -Og -g -fsanitize=address -fno-omit-frame-pointer
 
 LDFLAGS= -shared
