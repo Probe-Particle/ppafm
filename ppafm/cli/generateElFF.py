@@ -164,10 +164,10 @@ def main(argv=None):
         print("Linear E to V")
         zpos = np.linspace(lvec[0, 2] - args.z0, lvec[0, 2] + lvec[3, 2] - args.z0, n_dim[0])
         for i in range(n_dim[0]):
-            if zpos[i] <= 0:
-                # z position of the KPFM tip with respect to the sample must not be zero or negative
-                # Should that happen, use periodicity in z to get zpos>0
-                zpos[i] += lvec[3, 2]
+            # z position of the KPFM tip with respect to the sample must not be zero or negative
+            # Should that happen, use periodicity in z to get zpos>0
+            zpos[i] %= lvec[3, 2]
+
             ff_kpfm_t0sv[i, :, :] = ff_kpfm_t0sv[i, :, :] / ((v_ref_s) * (zpos[i] + 0.1))
             ff_kpfm_tvs0[i, :, :] = ff_kpfm_tvs0[i, :, :] / ((v_ref_t) * (zpos[i] + 0.1))
 
