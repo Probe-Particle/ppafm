@@ -104,6 +104,7 @@ def plotImages(
         else:
             plt.title(r"Tip_z = %2.2f $\AA$" % zs[i])
         plt.savefig(prefix + "_%3.3i.png" % i, bbox_inches="tight")
+        # plt.savefig(prefix + "_%3.3i.svg" % i, bbox_inches="tight")
         plt.close()
 
 
