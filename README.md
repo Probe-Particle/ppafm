@@ -1,5 +1,5 @@
 [![codecov](https://codecov.io/gh/Probe-Particle/ppafm/graph/badge.svg?token=bsFIxZhLJd)](https://codecov.io/gh/Probe-Particle/ppafm)
-
+|Build status| [![Build Status](https://github.com/Probe-Particle/ppafm/actions/workflows/ci.yml/badge.svg)](https://github.com/Probe-Particle/ppafm/actions)
 
 # Probe Particle Model (PPM)
 
