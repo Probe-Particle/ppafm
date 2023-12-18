@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/Probe-Particle/ppafm/graph/badge.svg?token=bsFIxZhLJd)](https://codecov.io/gh/Probe-Particle/ppafm)
+
 
 # Probe Particle Model (PPM)
 
