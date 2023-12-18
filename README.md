@@ -1,5 +1,5 @@
 [![codecov](https://codecov.io/gh/Probe-Particle/ppafm/graph/badge.svg?token=bsFIxZhLJd)](https://codecov.io/gh/Probe-Particle/ppafm)
-|Build status| [![Build Status](https://github.com/Probe-Particle/ppafm/actions/workflows/ci.yml/badge.svg)](https://github.com/Probe-Particle/ppafm/actions)
+[![Build Status](https://github.com/Probe-Particle/ppafm/actions/workflows/ci.yml/badge.svg)](https://github.com/Probe-Particle/ppafm/actions)
 [![PyPI version](https://badge.fury.io/py/ppafm.svg)](https://badge.fury.io/py/ppafm)
 [![Documentation Status](https://readthedocs.org/projects/ppafm/badge/?version=latest)](https://ppafm.readthedocs.io/en/latest/?badge=latest)
 [![PyPI-downloads](https://img.shields.io/pypi/dm/ppafm.svg?style=flat)](https://pypistats.org/packages/ppafm)
