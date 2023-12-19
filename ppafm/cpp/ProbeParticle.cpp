@@ -693,25 +693,28 @@ DLLEXPORT int relaxTipStrokes_omp( int nx, int ny, int probeStart, int relaxAlg,
 }
 
 DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
+    //printf( "C++ stiffnessMatrix() n=%i \n", n );
     Vec3d * rTips     = (Vec3d*) rTips_;
     Vec3d * rPPs      = (Vec3d*) rPPs_;
     Vec3d * eigenvals = (Vec3d*) eigenvals_;
     Vec3d * evec1     = (Vec3d*) evec1_;
     Vec3d * evec2     = (Vec3d*) evec2_;
     Vec3d * evec3     = (Vec3d*) evec3_;
+    //printf( "C++ stiffnessMatrix() gridShape.n(%i,%i,%i) \n", gridShape.n.x, gridShape.n.y, gridShape.n.z  );
+    //printf( "C++ stiffnessMatrix() gridF=%li \n", (long)gridF  );
+    //Vec3d gf=gridF[0];                                        printf( "gridF[0 ] (%g,%g,%g) \n",gf.x,gf.y,gf.z );
+    //gf=gridF[ gridShape.n.x*gridShape.n.y*gridShape.n.z -1 ]; printf( "gridF[-1] (%g,%g,%g) \n",gf.x,gf.y,gf.z);
+    //Vec3d pmin,pmax; pmin.set( 1e+300, 1e+300, 1e+300 ); pmax.set( -1e+300, -1e+300, -1e+300 );
     for(int i=0; i<n; i++){
         Vec3d rTip,rPP,f1,f2;
         rTip.set( rTips[i] );
         rPP.set ( rPPs[i]  );
         Mat3d dynmat;
-        //getPPforce( rTip, rPP, f1 );  eigenvals[i] = f1;   // check if we are converged in f=0
-        //rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp; evec1[i].set_sub(f2,f1);
-        //rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp; evec2[i].set_sub(f2,f1);
-        //rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp; evec3[i].set_sub(f2,f1);
+        //pmin.setIfLower(rPP); pmax.setIfGreater(rPP);
         // eval dynamical matrix    D_xy = df_y/dx    = ( f(r0+dx).y - f(r0-dx).y ) / (2*dx)
-        rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp;  dynmat.a.set_sub(f2,f1); dynmat.a.mul(-0.5/ddisp);
-        rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp;  dynmat.b.set_sub(f2,f1); dynmat.b.mul(-0.5/ddisp);
-        rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp;  dynmat.c.set_sub(f2,f1); dynmat.c.mul(-0.5/ddisp);
+        rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp; dynmat.a.set_sub(f2,f1); dynmat.a.mul(-0.5/ddisp);
+        rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp; dynmat.b.set_sub(f2,f1); dynmat.b.mul(-0.5/ddisp);
+        rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp; dynmat.c.set_sub(f2,f1); dynmat.c.mul(-0.5/ddisp);
         // symmetrize - to make sure that our symmetric matrix solver work properly
         double tmp;
         tmp = 0.5*(dynmat.xy + dynmat.yx); dynmat.xy = tmp; dynmat.yx = tmp;
@@ -719,6 +722,9 @@ DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_,
         tmp = 0.5*(dynmat.zx + dynmat.xz); dynmat.zx = tmp; dynmat.xz = tmp;
         // solve mat
         Vec3d evals; dynmat.eigenvals( evals ); Vec3d temp;
+        double eval_check = evals.a * evals.b * evals.c;
+        //if( fabs(eval_check) < 1e-16 ){  };
+        if( isnan(eval_check) ){  printf( "C++ stiffnessMatrix[%i] is NaN evals (%g,%g,%g) \n", i, evals.a, evals.b, evals.c ); exit(0); }
         // sort eigenvalues
         if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; }
         if( evals.b > evals.c ){ tmp=evals.b; evals.b=evals.c; evals.c=tmp; }
@@ -732,6 +738,7 @@ DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_,
         //evec2[i] = dynmat.b;
         //evec3[i] = dynmat.c;
     }
+   // printf( "C++ stiffnessMatrix() DONE! pmin(%g,%g,%g) pmax(%g,%g,%g) \n", pmin.x, pmin.y, pmin.z, pmax.x, pmax.y, pmax.z );
 }
 
 DLLEXPORT void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ ){

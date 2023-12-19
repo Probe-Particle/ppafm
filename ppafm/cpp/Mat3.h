@@ -463,21 +463,22 @@ class Mat3T{
 		for(int i=1; i<9; i++){ double a=array[i]; if(a>amax)amax=a; }
 		T c0 = xx*yy*zz + 2*xy*xz*yz -  xx*yz*yz   - yy*xz*xz   -  zz*xy*xy;
 		T c1 = xx*yy - xy*xy + xx*zz - xz*xz + yy*zz - yz*yz;
-		T c2 = xx + yy + zz;
+		T c2 = xx + yy + zz; // >0
 		T amax2 = amax*amax; c2/=amax; c1/=amax2; c0/=(amax2*amax);
-		T c2Div3 = c2*inv3;
+		T c2Div3 = c2*inv3;  // >0
 		T aDiv3  = (c1 - c2*c2Div3)*inv3;
 		if (aDiv3 > 0.0) aDiv3 = 0.0;
 		T mbDiv2 = 0.5*( c0 + c2Div3*(2.0*c2Div3*c2Div3 - c1) );
 		T q = mbDiv2*mbDiv2 + aDiv3*aDiv3*aDiv3;
 		if (q > 0.0) q = 0.0;
-		T magnitude = sqrt(-aDiv3);
+		T magnitude = sqrt(-aDiv3); // > 0
 		T angle = atan2( sqrt(-q), mbDiv2 ) * inv3;
 		T cs    = cos(angle);
 		T sn    = sin(angle);
 		evs.a = amax*( c2Div3 + 2.0*magnitude*cs );
 		evs.b = amax*( c2Div3 - magnitude*(cs + root3*sn) );
 		evs.c = amax*( c2Div3 - magnitude*(cs - root3*sn) );
+        // NOTE: sorting: evs.a >= evs.b >= evs.c
 	}
 
 	inline void eigenvec( T eval, VEC& evec ) const{
