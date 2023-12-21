@@ -43,9 +43,9 @@ POVRAY_AVAILABLE = shutil.which("povray") is not None
 # plt.rcParams.update({"text.usetex": True, "font.family": "serif", "font.serif": ["Computer Modern Roman"]})
 
 
-def get_dft_afm(path, amp=0.2):
+def get_dft_afm(data_dir, sample_name, amp=0.2):
     # Load data
-    data = np.load(path)
+    data = np.load(data_dir / f"{sample_name}.npz")
     force = data["force"]
     scan_window = data["scan_window"]
 
@@ -253,7 +253,7 @@ if __name__ == "__main__":
         print(f"Sample: {sample_name}")
 
         # Get DFT-AFM data
-        afm_dft, scan_window = get_dft_afm(dft_afm_dir / f"{sample_name}.npz", amp=amplitude)
+        afm_dft, scan_window = get_dft_afm(dft_afm_dir, sample_name, amp=amplitude)
 
         # Run PP-AFM simulations
         scan_window[:, 2] += z_offset
