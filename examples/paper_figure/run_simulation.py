@@ -1,5 +1,26 @@
 #!/usr/bin/env python3
 
+"""
+Example that reproduces the main simulations figure in the paper (TODO: add paper link when published)
+
+The simulation is run for 6 different molecules:
+    - C60 fullerene
+    - Formic acid dimer (FAD)
+    - 4-(4-(2,3,4,5,6-pentafluorophenylethynyl)-2,3,5,6-tetrafluorophenylethynyl) phenylethynylbenzene (FFPB),
+    - Pentacene
+    - Phtalocyanine
+    - Perylene carboxylic anhydride (PTCDA)
+
+Every simulation is run using three different force field models: Lennard-Jones + point-charge electrostatics, Lennard-Jones + hartree
+potential electrostatics, and the full-density based model. Additionally, comparison data from DFT AFM simulation is plotted.
+
+The used dataset is available at https://doi.org/10.5281/zenodo.10418629. It is downloaded automatically when running this script.
+(~660MB download -> ~5GB uncompressed on disk).
+
+Note: This script uses the OpenCL version of PPAFM. Additionally, in order to render the molecule geometries, povray needs to be
+installed on the system (optional).
+"""
+
 import os
 import shutil
 from pathlib import Path
@@ -11,13 +32,14 @@ from PIL import Image
 import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
 from ppafm.common import Fz2df
+from ppafm.data import download_dataset
 from ppafm.io import DEFAULT_POV_HEAD_NO_CAM, loadXYZ, makePovCam, writePov
 from ppafm.ocl.AFMulator import AFMulator
 
 MM_TO_INCH = 1 / 25.4
 POVRAY_AVAILABLE = shutil.which("povray") is not None
 
-# # Set matplotlib font rendering to use LaTex
+# Set matplotlib font rendering to use LaTex
 # plt.rcParams.update({"text.usetex": True, "font.family": "serif", "font.serif": ["Computer Modern Roman"]})
 
 
@@ -59,17 +81,17 @@ def complete_dft_afm(sample_name, dft_afm, scan_window):
     return dft_afm, scan_window
 
 
-def get_sims(sample_dir, scan_window, xy_shape, amp=0.2, A_pauli=18.0, B_pauli=1.0):
+def get_sims(sample_dir, co_dir, scan_window, xy_shape, amp=0.2, A_pauli=18.0, B_pauli=1.0):
     # Load geometry with point-charge electrostatics
     xyzs_pt, Zs_pt, qs, _ = loadXYZ(sample_dir / "mol.xyz")
 
     # Load sample Hartree potential and electron density
-    pot, xyzs, Zs = FFcl.HartreePotential.from_file(str(sample_dir / "LOCPOT.xsf"), scale=-1)
-    rho_sample, _, _ = FFcl.ElectronDensity.from_file(str(sample_dir / "CHGCAR.xsf"))
+    pot, xyzs, Zs = FFcl.HartreePotential.from_file(sample_dir / "LOCPOT.xsf", scale=-1)
+    rho_sample, _, _ = FFcl.ElectronDensity.from_file(sample_dir / "CHGCAR.xsf")
 
     # Load tip densities: total density and delta density
-    rho_tip, _, _ = FFcl.TipDensity.from_file("./density_CO.xsf")
-    rho_tip_delta, _, _ = FFcl.TipDensity.from_file("./CO_delta_density_aims.xsf")
+    rho_tip, _, _ = FFcl.TipDensity.from_file(co_dir / "density_CO.xsf")
+    rho_tip_delta, _, _ = FFcl.TipDensity.from_file(co_dir / "CO_delta_density_aims.xsf")
 
     # Scan dimension
     d = 0.1
@@ -191,12 +213,14 @@ def init_fig(img_shapes, n_cols=4, ax_width=30, left_pad=0.2, right_pad=0.2, bot
 
 
 if __name__ == "__main__":
-    # Choose OpenCL device to run on (List available devices with oclu.print_platforms())
+    # Choose OpenCL device to run on
+    # (List available devices by running "ppafm-gui -l" on the command line)
     oclu.init_env(i_platform=0)
 
     # Paths to data folders
     dft_afm_dir = Path("dft-afm")
-    dft_dir = Path("hartree-density")
+    hartree_density_dir = Path("hartree-density")
+    co_density_dir = Path("CO-densities")
 
     # Oscillation amplitude
     amplitude = 0.5
@@ -218,16 +242,23 @@ if __name__ == "__main__":
         "PTCDA": 1,
     }
 
+    # Download data
+    download_dataset("dft-afm", dft_afm_dir)
+    download_dataset("hartree-density", hartree_density_dir)
+    download_dataset("CO-tip-densities", co_density_dir)
+
     # Run simulations for each molecule
     data = []
     for i_s, (sample_name, z_ind) in enumerate(z_inds.items()):
+        print(f"Sample: {sample_name}")
+
         # Get DFT-AFM data
         afm_dft, scan_window = get_dft_afm(dft_afm_dir / f"{sample_name}.npz", amp=amplitude)
 
         # Run PP-AFM simulations
         scan_window[:, 2] += z_offset
         xy_shape = (3 * afm_dft.shape[0], 3 * afm_dft.shape[1])  # Use 3x resolution in PP-AFM compared to DFT
-        sims, mol_img = get_sims(dft_dir / sample_name, scan_window, xy_shape=xy_shape, amp=amplitude, A_pauli=A_pauli, B_pauli=B_pauli)
+        sims, mol_img = get_sims(hartree_density_dir / sample_name, co_density_dir, scan_window, xy_shape=xy_shape, amp=amplitude, A_pauli=A_pauli, B_pauli=B_pauli)
 
         data.append((sample_name, z_ind, afm_dft, sims, mol_img))
 

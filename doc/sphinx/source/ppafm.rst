@@ -84,6 +84,14 @@ ppafm.cpp\_utils module
    :undoc-members:
    :show-inheritance:
 
+ppafm.data module
+---------------------------------
+
+.. automodule:: ppafm.data
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 ppafm.elements module
 -------------------------------
 
