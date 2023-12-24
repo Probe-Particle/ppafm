@@ -203,6 +203,7 @@ class DataGrid:
             Zs: np.ndarray of shape (num_atoms,). Atomic numbers.
         """
 
+        file_path = str(file_path)
         if file_path.endswith(".cube"):
             data, lvec, _, _ = io.loadCUBE(file_path, xyz_order=True, verbose=False)
             Zs, x, y, z, _ = io.loadAtomsCUBE(file_path)
