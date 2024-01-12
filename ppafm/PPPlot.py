@@ -95,7 +95,7 @@ def plotImages(
         plt.imshow(F[i], origin="lower", interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax)
 
         if cbar:
-            plt.colorbar(shrink=0.5)
+            plt.colorbar(shrink=float(F[i].shape[0]) / float(F[i].shape[1]))
         plotGeom(atoms, bonds, atomSize=atomSize)
         plt.xlabel(r" Tip_x $\AA$")
         plt.ylabel(r" Tip_y $\AA$")
