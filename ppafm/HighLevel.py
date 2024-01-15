@@ -157,7 +157,7 @@ def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm
         if verbose > 0:
             print("adding charge:", PPU.params["charge"])
     if FFkpfm_t0sV is not None and FFkpfm_tVs0 is not None:
-        FF += (np.sign(PPU.params["charge"]) * FFkpfm_t0sV - FFkpfm_tVs0) * abs(PPU.params["charge"]) * PPU.params["Vbias"]
+        FF += (PPU.params["charge"] * FFkpfm_t0sV - FFkpfm_tVs0) * PPU.params["Vbias"]
         if verbose > 0:
             print("adding charge:", PPU.params["charge"], "and bias:", PPU.params["Vbias"], "V")
     if FFpauli is not None:
@@ -366,7 +366,7 @@ def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format
     return FF, V, nDim, lvec
 
 
-def computeElFF(V, lvec, nDim, tip, computeVpot=False, tilt=0.0, sigma=None):
+def computeElFF(V, lvec, nDim, tip, computeVpot=False, tilt=0.0, sigma=None, deleteV=True):
     if verbose > 0:
         print(" ========= get electrostatic forcefiled from hartree ")
     rho = None
@@ -385,9 +385,10 @@ def computeElFF(V, lvec, nDim, tip, computeVpot=False, tilt=0.0, sigma=None):
             rho, lvec_tip, nDim_tip, tiphead = io.loadXSF(tip)
             if any(nDim_tip != nDim):
                 sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")
+            rho *= -1  # Negative charge density from positive electron density
     if verbose > 0:
         print(" computing convolution with tip by FFT ")
-    Fel_x, Fel_y, Fel_z, Vout = fFFT.potential2forces_mem(V, lvec, nDim, rho=rho, sigma=sigma, multipole=multipole, doPot=computeVpot, tilt=tilt)
+    Fel_x, Fel_y, Fel_z, Vout = fFFT.potential2forces_mem(V, lvec, nDim, rho=rho, sigma=sigma, multipole=multipole, doPot=computeVpot, tilt=tilt, deleteV=deleteV)
     FFel = io.packVecGrid(Fel_x, Fel_y, Fel_z)
     del Fel_x, Fel_y, Fel_z
     return FFel, Vout

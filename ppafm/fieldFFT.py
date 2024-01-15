@@ -81,7 +81,7 @@ def getSphericalHarmonic(X, Y, Z, kind="dz2", tilt=0.0):
             print("Spherical harmonic: dz2")
         return 0.25 * (
             2 * Z**2 - X**2 - Y**2
-        )  # quadrupole normalized to get 3 times the quadrpole in the standard (cartesian) tensor normalization of Qzz. Also, 3D integral of rho_dz2(x,y,z)*(z/sigma)**2 gives 1 in the normalization use here.
+        )  # quadrupole normalized to get 3 times the quadrpole in the standard (cartesian) tensor normalization of Qzz. Also, 3D integral of rho_dz2(x,y,z)*(z/sigma)**2 gives 1 in the normalization used here.
     elif kind == "dx2":
         if verbose > 0:
             print("Spherical harmonic: dx2")

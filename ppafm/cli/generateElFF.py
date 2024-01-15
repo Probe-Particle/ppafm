@@ -87,9 +87,6 @@ def main(argv=None):
         common.params["tip"] = -rho_tip  # Negative sign, because the electron density needs to be negative but the input density is positive
 
     if args.KPFM_sample is not None:
-        v_v0_aux = electrostatic_potential.copy()
-        v_v0_aux2 = electrostatic_potential.copy()
-
         sigma = common.params["sigma"]
         print(common.params["sigma"])
         if input_format == "xsf" and args.KPFM_sample.lower().endswith(".xsf"):
@@ -110,32 +107,32 @@ def main(argv=None):
                 file=sys.stderr,
             )
             sys.exit(1)
-
-        dv_kpfm = v_kpfm - v_v0_aux
+        v_kpfm *= -1  # Unit conversion, energy to potential (eV -> V)
+        dv_kpfm = v_kpfm - electrostatic_potential
 
         print(">>> Loading tip density under bias from ", args.KPFM_tip, "...")
         if input_format == "xsf" and args.KPFM_tip.lower().endswith(".xsf"):
             v_ref_t = args.Vref
-            rho_tip_v0_aux = rho_tip.copy()
             rho_tip_kpfm, lvec_tip, _, head_tip = io.loadXSF(args.KPFM_tip)
-            drho_kpfm = rho_tip_kpfm - rho_tip_v0_aux
+            drho_kpfm = rho_tip - rho_tip_kpfm  # Order of terms in the difference is swapped,
+            # because the sign of rho_tip is as in *electron* density while drho_kpfm should be a difference of *charge* densities.
         elif input_format == "cube" and args.KPFM_tip.lower().endswith(".cube"):
             v_ref_t = args.Vref
-            rho_tip_v0_aux = rho_tip.copy()
             rho_tip_kpfm, lvec_tip, _, head_tip = io.loadCUBE(args.KPFM_tip, hartree=False, borh=args.borh)
-            drho_kpfm = rho_tip_kpfm - rho_tip_v0_aux
+            drho_kpfm = rho_tip - rho_tip_kpfm  # Order of terms in the difference is swapped,
+            # because the sign of rho_tip is as in *electron* density while drho_kpfm should be a difference of *charge* densities.
         elif args.KPFM_tip in {"Fit", "fit", "dipole", "pz"}:  # To be put on a library in the near future...
             v_ref_t = -0.1
             if common.params["probeType"] == "8":
-                drho_kpfm = {"pz": -0.045}
+                drho_kpfm = {"pz": 0.045}
                 sigma = 0.48
                 print(" Select CO-tip polarization ")
             if common.params["probeType"] == "47":
-                drho_kpfm = {"pz": -0.21875}
+                drho_kpfm = {"pz": 0.21875}
                 sigma = 0.7
                 print(" Select Ag polarization with decay sigma", sigma)
             if common.params["probeType"] == "54":
-                drho_kpfm = {"pz": -0.250}
+                drho_kpfm = {"pz": 0.250}
                 sigma = 0.67
                 print(" Select Xe-tip polarization")
         else:
@@ -147,19 +144,8 @@ def main(argv=None):
                 + '") format\nnor is it a valid name of a tip polarizability model.\n'
             )
 
-        if args.tip_dens is not None:  # This copy is made to avoid El and kpfm conflicts because during the computeEl, the tip is been put upside down
-            tip_aux_2 = common.params["tip"].copy()
-        else:
-            tip_aux_2 = common.params["tip"]
-        ff_kpfm_t0sv, _ = computeElFF(
-            dv_kpfm,
-            lvec,
-            n_dim,
-            tip_aux_2,
-            computeVpot=args.energy,
-            tilt=args.tilt,
-        )
-        ff_kpfm_tvs0, _ = computeElFF(v_v0_aux2, lvec, n_dim, drho_kpfm, computeVpot=args.energy, tilt=args.tilt, sigma=sigma)
+        ff_kpfm_t0sv, _ = computeElFF(dv_kpfm, lvec, n_dim, common.params["tip"], computeVpot=args.energy, tilt=args.tilt)
+        ff_kpfm_tvs0, _ = computeElFF(electrostatic_potential, lvec, n_dim, drho_kpfm, computeVpot=args.energy, tilt=args.tilt, sigma=sigma, deleteV=False)
 
         print("Linear E to V")
         zpos = np.linspace(lvec[0, 2] - args.z0, lvec[0, 2] + lvec[3, 2] - args.z0, n_dim[0])
