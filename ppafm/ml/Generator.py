@@ -113,7 +113,7 @@ class InverseAFMtrainer:
                     # Evaluate AFM
                     if self.bRuntime:
                         afm_start = time.time()
-                    Xs[i].append(self.afmulator(self.xyzs, self.Zs, self.qs, self.REAs))
+                    Xs[i].append(self.afmulator(self.xyzs, self.Zs, self.qs, REAs=self.REAs))
                     if self.bRuntime:
                         print(f"AFM {i} runtime [s]: {time.time() - afm_start}")
 
