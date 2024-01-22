@@ -264,6 +264,7 @@ def main(argv=None):
                             bonds=bonds,
                             atomSize=atom_size,
                             cbar=opt_dict["cbar"],
+                            cbar_label="df [Hz]",
                         )
                     if opt_dict["Laplace"]:
                         print("plotting Laplace-filtered df : ")
@@ -335,6 +336,7 @@ def main(argv=None):
                 cbar=opt_dict["cbar"],
                 symmetric_map=True,
                 V0=args.V0,
+                cbar_label="V_LCPD [V]",
             )
             PPPlot.plotImages(
                 "./_Asym-LCPD" + atoms_str + cbar_str,
@@ -348,6 +350,7 @@ def main(argv=None):
                 atomSize=atom_size,
                 cbar=opt_dict["cbar"],
                 symmetric_map=False,
+                cbar_label="V_LCPD [V]",
             )
             io.save_scal_field(
                 "./LCPD",

@@ -83,6 +83,7 @@ def plotImages(
     atomSize=default_atom_size,
     symmetric_map=False,
     V0=0.0,
+    cbar_label=None,
 ):
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
@@ -95,7 +96,7 @@ def plotImages(
         plt.imshow(F[i], origin="lower", interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax)
 
         if cbar:
-            plt.colorbar(shrink=min(1.0, F[i].shape[0] / F[i].shape[1]))
+            plt.colorbar(shrink=min(1.0, F[i].shape[0] / F[i].shape[1]), label=cbar_label)
         plotGeom(atoms, bonds, atomSize=atomSize)
         plt.xlabel(r" Tip_x $\AA$")
         plt.ylabel(r" Tip_y $\AA$")
