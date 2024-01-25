@@ -4,7 +4,7 @@ echo "Download Hartree Potentials"
 wget --no-check-certificate "https://zenodo.org/records/10563098/files/KPFM_hartree.tar.gz"
 
 echo "Extract Hartree Potentials"
-tar xzvf KPFM_hartree.tar.gz
+tar -xzvf KPFM_hartree.tar.gz
 
 echo "Calculate Electrostatic Forces and Polarizability in External Field"
 ppafm-generate-elff -i LOCPOT_V0.xsf -t dz2 --KPFM_sample LOCPOT_Vz.xsf --KPFM_tip fit --Vref +0.1 --Rcore -1.0 --z0 0.0
