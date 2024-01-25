@@ -1,7 +1,9 @@
 #!/bin/bash
 
 echo "Download Hartree Potentials"
-wget --no-check-certificate "https://zenodo.org/records/10563098/files/KPFM_hartree.tar.gz"
+if [ ! -f KPFM_hartree.tar.gz ] ; then
+    wget --no-check-certificate "https://zenodo.org/records/10563098/files/KPFM_hartree.tar.gz"
+fi
 
 echo "Extract Hartree Potentials"
 tar -xzvf KPFM_hartree.tar.gz
