@@ -3,7 +3,7 @@
 echo " ====== STEP 0 : Download Example Data-Files "
 
 # You should either install this: https://megatools.megous.com/
-# Or download it manually wrom Mega.nz
+# Or download it manually from Mega.nz
 echo "in order to download data files we need to install megatools "
 echo "alternatively you may download it manually from mega.nz webpage and place it to proper sub-folders ./tip and ./sample "
 echo "If you have Debian based linux system with apt-get this should work : "

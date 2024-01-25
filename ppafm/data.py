@@ -7,9 +7,10 @@ from tempfile import TemporaryDirectory
 from urllib.request import urlretrieve
 
 DATASET_URLS = {
-    "CO-tip-densities": "https://zenodo.org/records/10418629/files/CO_tip_densities.tar.gz?download=1",
-    "dft-afm": "https://zenodo.org/records/10418629/files/dft-afm.tar.gz?download=1",
-    "hartree-density": "https://zenodo.org/records/10418629/files/hartree-density.tar.gz?download=1",
+    "CO-tip-densities": "https://zenodo.org/records/10563098/files/CO_tip_densities.tar.gz?download=1",
+    "dft-afm": "https://zenodo.org/records/10563098/files/dft-afm.tar.gz?download=1",
+    "hartree-density": "https://zenodo.org/records/10563098/files/hartree-density.tar.gz?download=1",
+    "FFPB-KPFM-hartree": "https://zenodo.org/records/10563098/files/KPFM_hartree.tar.gz?download=1",
 }
 
 
@@ -49,9 +50,10 @@ def download_dataset(name: str, target_dir: PathLike):
 
     The following datasets are available:
 
-        - ``'CO-tip-densities'``: https://doi.org/10.5281/zenodo.10418629 - CO_tip_densities.tar.gz
-        - ``'dft-afm'``: https://doi.org/10.5281/zenodo.10418629 - dft-afm.tar.gz
-        - ``'hartree-density'``: https://doi.org/10.5281/zenodo.10418629 - hartree-density.tar.gz
+        - ``'CO-tip-densities'``: https://doi.org/10.5281/zenodo.10563098 - CO_tip_densities.tar.gz
+        - ``'dft-afm'``: https://doi.org/10.5281/zenodo.10563098 - dft-afm.tar.gz
+        - ``'hartree-density'``: https://doi.org/10.5281/zenodo.10563098 - hartree-density.tar.gz
+        - ``'FFPB-KPFM-hartree'``: https://doi.org/10.5281/zenodo.10563098 - KPFM_hartree.tar.gz
 
     Arguments:
         name: Name of dataset to download.
