@@ -22,7 +22,7 @@ jobs:
             - uses: ilammy/msvc-dev-cmd@v1
 
             - name: Build wheels
-              uses: pypa/cibuildwheel@v2.13.1
+              uses: pypa/cibuildwheel@v2.16.5
 
             - name: Upload distribution artifacts
               uses: actions/upload-artifact@v3
