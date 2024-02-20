@@ -72,6 +72,10 @@ push = true
 "ppafm/version.py" = [
     '__version__ = "{pep440_version}"',
 ]
+"doc/sphinx/source/conf.py" = [
+    'version = "{pep440_version}"',
+    '_year = YYYY'
+]
 
 [tool.cibuildwheel]
 skip = ["pp*", "*-manylinux_i686", "*-musllinux*", '*-win32']
