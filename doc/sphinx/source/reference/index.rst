@@ -1,5 +1,5 @@
 API Reference
-=========
+=============
 
 .. toctree::
     ppafm.atomicUtils.rst
