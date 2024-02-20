@@ -1,7 +1,7 @@
 """
 Contains various constants and parameters for use in Grimme-D3 calculations. The values are extracted from
 the original Fortran implementation and tables which can be found at
-https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dft-d3.
+https://www.chemie.uni-bonn.de/grimme/de/software/dft-d3.
 Some of the values have been rescaled to be in units of eV and Å.
 
 References:
@@ -16,7 +16,7 @@ import numpy as np
 from ..elements import ELEMENT_DICT
 
 # Taken directly from the original Fortran implementation at
-# https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dft-d3
+# https://www.chemie.uni-bonn.de/grimme/de/software/dft-d3
 # Some of the values don't match with the Pyykkö and Atsumi paper, but let's use
 # these values to be consistent with the original implementation...
 # fmt: off
@@ -271,7 +271,7 @@ DF_DEFAULT_PARAMS = {
 }  # fmt: on
 """
 Default Grimme-D3 scaling parameters for a variety of density functionals using Becke-Johnson damping.
-Values taken from `<https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3/functionalsbj>`_.
+Values taken from `<https://www.chemie.uni-bonn.de/grimme/de/software/dft-d3/bj_damping>`_.
 """
 
 
