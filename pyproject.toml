@@ -37,6 +37,8 @@ dev = [
     "pre-commit",
     "pytest",
     "pytest-cov",
+    "sphinx",
+    "furo",
 ]
 
 [project.scripts]
