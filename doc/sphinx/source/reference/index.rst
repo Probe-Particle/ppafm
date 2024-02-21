@@ -11,7 +11,6 @@ API Reference
     ppafm.defaults.rst
     ppafm.elements.rst
     ppafm.fieldFFT.rst
-    ppafm.file_dat.rst
     ppafm.fileSpline.rst
     ppafm.fitting.rst
     ppafm.GridUtils.rst
