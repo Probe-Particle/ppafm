@@ -1,37 +1,34 @@
-ppafm.ocl namespace
-=============================
+ppafm.ocl
+=========
 
 .. py:module:: ppafm.ocl
 
-Submodules
-----------
-
-ppafm.ocl.AFMulator module
-------------------------------------
+ppafm.ocl.AFMulator
+-------------------
 
 .. automodule:: ppafm.ocl.AFMulator
    :members:
    :undoc-members:
    :show-inheritance:
 
-ppafm.ocl.field module
---------------------------------
+ppafm.ocl.field
+---------------
 
 .. automodule:: ppafm.ocl.field
    :members:
    :undoc-members:
    :show-inheritance:
 
-ppafm.ocl.oclUtils module
------------------------------------
+ppafm.ocl.oclUtils
+------------------
 
 .. automodule:: ppafm.ocl.oclUtils
    :members:
    :undoc-members:
    :show-inheritance:
 
-ppafm.ocl.relax module
---------------------------------
+ppafm.ocl.relax
+---------------
 
 .. automodule:: ppafm.ocl.relax
    :members:

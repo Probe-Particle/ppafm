@@ -12,9 +12,12 @@ sys.path.insert(0, os.path.abspath("../../.."))  # Package root relative to this
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Probe Particle Model"
-copyright = "2022, Prokop Hapala, Aliaksandr Yakutovich, Ondřej Krejčí"
-author = "Prokop Hapala, Aliaksandr Yakutovich, Ondřej Krejčí"
+_year = 2024
+project = "ppafm"
+copyright = f"{_year}, Probe-Particle team"
+author = "Probe-Particle team"
+version = "0.3.1"
+release = version
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -34,5 +37,5 @@ napoleon_custom_sections = [("Returns", "params_style")]
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinx_rtd_theme"
-html_static_path = ["_static"]
+html_theme = "furo"
+# html_static_path = ["_static"]

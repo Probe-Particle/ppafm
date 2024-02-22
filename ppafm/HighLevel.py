@@ -45,11 +45,12 @@ def shift_positions(R, s):
     Shifts positions in R by s; returns the result. Needed especially to shift atoms according to the grid origin.
 
     Arguments:
-    R = list of positional vectors or a 2D array. The first index donoting the item (typically an atom)
-      the second index determines the coordinate
-    s = vector that determines the required shift
+        R: list of positional vectors or a 2D array. The first index donoting the item (typically an atom)
+            the second index determines the coordinate
+        s: vector that determines the required shift
 
-    Returns Rs: Rs[ia,i] = R[ia,i] - s[i]
+    Returns:
+        Rs: Rs[ia,i] = R[ia,i] - s[i]
     """
     Rs = np.array(R).copy()
     Rs[:, 0] += s[0]

@@ -302,14 +302,15 @@ def get_df_weight(Amp, dz=0.1):
 
 
 def get_simple_df_weight(n=10, dz=0.1):
-    """
+    r"""
     Conversion of vertical force Fz to frequency shift
     Returns the discretized version of the required convolution kernel
 
-    dz = the grid step (sistance between the nearest grid points) in the direction in which the tip oscillates
-    n = number of grid points involved in the convolution (peak-to-peak amplitude = n *dz)
-
     Simpler version of the above get_df_weight()
+
+    Arguments:
+        dz: the grid step (sistance between the nearest grid points) in the direction in which the tip oscillates
+        n: number of grid points involved in the convolution (peak-to-peak amplitude = n \* dz)
     """
     n = int(n)
     if n < 2:
@@ -676,7 +677,7 @@ def PBCAtoms3D(Zs, Rs, Qs, cLJs, lvec, npbc=[1, 1, 1]):
 def findPBCAtoms3D_cutoff(Rs, lvec, Rcut=1.0, corners=None):
     """
     find which atoms with positions 'Rs' and radius 'Rcut' thouch rhombic cell defined by 3x3 matrix 'lvec';
-       or more precisely which points 'Rs' belong to a rhombic cell enlarged by margin Rcut on each side
+    or more precisely which points 'Rs' belong to a rhombic cell enlarged by margin Rcut on each side
     all assuming that 'Rcut' is smaller than the rhombic cell (in all directions)
     """
     invLvec = np.linalg.inv(lvec)

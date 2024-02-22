@@ -37,6 +37,8 @@ dev = [
     "pre-commit",
     "pytest",
     "pytest-cov",
+    "sphinx",
+    "furo",
 ]
 
 [project.scripts]
@@ -71,6 +73,10 @@ push = true
 [tool.bumpver.file_patterns]
 "ppafm/version.py" = [
     '__version__ = "{pep440_version}"',
+]
+"doc/sphinx/source/conf.py" = [
+    'version = "{pep440_version}"',
+    '_year = YYYY'
 ]
 
 [tool.cibuildwheel]
