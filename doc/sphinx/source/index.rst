@@ -13,3 +13,4 @@ especially the :class:`.AFMulator` class and the machine learning tools at :mod:
    :maxdepth: 2
 
    reference/index
+   tutorials/index
