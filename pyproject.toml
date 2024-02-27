@@ -39,6 +39,7 @@ dev = [
     "pytest-cov",
     "sphinx",
     "furo",
+    "myst-parser"
 ]
 
 [project.scripts]
