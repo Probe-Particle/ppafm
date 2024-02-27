@@ -26,6 +26,7 @@ extensions = [
     "sphinx.ext.autodoc",  # Main library for html generation
     "sphinx.ext.napoleon",  # Understand Google-style doc-strings
     "sphinx.ext.viewcode",  # Add a [source] button to every function/class
+    "myst_parser",  # For Markdown support
 ]
 
 templates_path = ["_templates"]

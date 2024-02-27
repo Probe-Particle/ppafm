@@ -2,4 +2,4 @@ Tutorials
 =========
 
 .. toctree::
-    afmulator-tutorial.rst
+    afmulator-tutorial.md
