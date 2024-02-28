@@ -28,6 +28,7 @@ extensions = [
     "sphinx.ext.viewcode",  # Add a [source] button to every function/class
     "myst_parser",  # For Markdown support
 ]
+myst_enable_extensions = ["dollarmath"]
 
 templates_path = ["_templates"]
 exclude_patterns = []
