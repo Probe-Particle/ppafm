@@ -55,7 +55,7 @@ Also, have a look at the `params.ini` file and [the wiki](https://github.com/Pro
 
 Once the simulation is finished, a number of files and folders will be created.
 
-
+See also the tutorial for using the Python API for [running GPU-accelerated simulations](https://ppafm.readthedocs.io/en/latest/tutorials/afmulator-tutorial.html).
 
 ### Run GPU generator for machine learning
 
