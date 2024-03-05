@@ -4,92 +4,79 @@ import os
 
 import numpy as np
 
-import ppafm as PPU
-import ppafm.core as PPC
 import ppafm.cpp_utils as cpp_utils
 import ppafm.fieldFFT as fFFT
-import ppafm.HighLevel as PPH
 from ppafm import io
 
-#file_format = "cube"
+from .. import common, core
+from ..HighLevel import prepareArrays, relaxedScan3D
+
 file_format = "xsf"
 
-# =============== arguments definition
+# Arguments definition.
+common.loadParams("params.ini")
 
-PPU.loadParams( 'params.ini' )
-
-if os.path.isfile( 'atomtypes.ini' ):
+if os.path.isfile("atomtypes.ini"):
     print(">> LOADING LOCAL atomtypes.ini")
-    FFparams=PPU.loadSpecies('atomtypes.ini')
+    ff_params = common.loadSpecies("atomtypes.ini")
 else:
-    FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH / 'defaults' / 'atomtypes.ini' )
+    ff_params = common.loadSpecies(cpp_utils.PACKAGE_PATH / "defaults" / "atomtypes.ini")
 
-elem_dict   = PPU.getFFdict(FFparams); # print elem_dict
-iPP         = PPU.atom2iZ( PPU.params['probeType'], elem_dict )
+elem_dict = common.getFFdict(ff_params)
+pp_indexes = common.atom2iZ(common.params["probeType"], elem_dict)
 
-# -- load CO tip
-drho_tip,lvec_dt, ndim_dt = io.load_scal_field( "drho_tip",data_format=file_format)
-rho_tip ,lvec_t,  ndim_t  = io.load_scal_field( "rho_tip" ,data_format=file_format)
+# Load CO tip
+drho_tip, lvec_dt, ndim_dt, atomic_info_or_head = io.load_scal_field("drho_tip", data_format=file_format)
+rho_tip, lvec_t, ndim_t, atomic_info_or_head = io.load_scal_field("rho_tip", data_format=file_format)
 
-#PPU      .params['gridN'] = ndim_t
-PPU      .params['gridN'] = ndim_t[::-1];
-PPU.params['gridA'] = lvec_t[1]; PPU.params['gridB'] = lvec_t[2]; PPU.params['gridC'] = lvec_t[3] # must be before parseAtoms
-print(PPU.params['gridN'],        PPU.params['gridA'],           PPU.params['gridB'],           PPU.params['gridC'])
+common.params["gridN"] = ndim_t[::-1]
+common.params["gridA"] = lvec_t[1]
+common.params["gridB"] = lvec_t[2]
+common.params["gridC"] = lvec_t[3]  # must be before parseAtoms
+print(common.params["gridN"], common.params["gridA"], common.params["gridB"], common.params["gridC"])
 
-FF,V                = PPH.prepareArrays( None, False )
+force_field, _ = prepareArrays(None, False)
 
-print("FFLJ.shape",FF.shape)
-PPC.setFF_shape( np.shape(FF), lvec_t )
+print("FFLJ.shape", force_field.shape)
+core.setFF_shape(np.shape(force_field), lvec_t)
 
 base_dir = os.getcwd()
-paths=["out1","out2"]
+paths = ["out1", "out2"]
 
 
 for path in paths:
+    os.chdir(path)
 
-    os.chdir( path )
+    # Load data.
+    atoms, _, lvec = io.loadGeometry("V.xsf", params=common.params)
 
-    # === load data
+    # Generate vdW force field.
+    izs, rs, _ = common.parseAtoms(atoms, elem_dict, autogeom=False, PBC=common.params["PBC"])
 
-    atoms,nDim,lvec     = io.loadGeometry( "V.xsf", params=PPU.params )
+    force_field[:, :, :, :] = 0
+    lj_coefficients = common.getAtomsLJ(pp_indexes, izs, ff_params)
+    # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
+    core.getVdWFF(rs, lj_coefficients)  # THE MAIN STUFF HERE
 
-    # === generate FF vdW
+    # Generate Pauli force field.
+    rho1, lvec1, ndim1, atomic_info_or_head = io.load_scal_field("rho", data_format=file_format)
+    ff_x, ff_y, ff_z, _ = fFFT.potential2forces_mem(rho1, lvec1, rho1.shape, rho=rho_tip, doForce=True, doPot=False, deleteV=True)
+    force_field[:, :, :, 0] = ff_x * common.params["Apauli"]
+    force_field[:, :, :, 1] = ff_y * common.params["Apauli"]
+    force_field[:, :, :, 2] = ff_z * common.params["Apauli"]
 
-    iZs,Rs,Qs           = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC = PPU.params['PBC'] )
+    # Generate Electrostatic force field.
+    V_samp, lvec1, ndim1, atomic_info_or_head = io.load_scal_field("V", data_format=file_format)
+    ff_x, ff_y, ff_z, _ = fFFT.potential2forces_mem(V_samp, lvec1, V_samp.shape, rho=drho_tip, doForce=True, doPot=False, deleteV=True)
+    force_field[:, :, :, 0] = ff_x * common.params["charge"]
+    force_field[:, :, :, 1] = ff_y * common.params["charge"]
+    force_field[:, :, :, 2] = ff_z * common.params["charge"]
 
-    FF[:,:,:,:] = 0
-    cLJs = PPU.getAtomsLJ( iPP, iZs, FFparams ); # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
-    PPC.getVdWFF( Rs, cLJs )       # THE MAIN STUFF HERE
+    # Relaxed scan.
+    tip_positions_x, tip_positions_y, tip_positions_z, lvec_scan = common.prepareScanGrids()
+    core.setTip(kSpring=np.array((common.params["klat"], common.params["klat"], 0.0)) / -common.eVA_Nm)
+    fzs, PPpos = relaxedScan3D(tip_positions_x, tip_positions_y, tip_positions_z)
 
-    # === generate FF Pauli
+    io.save_scal_field("OutFz", fzs, lvec_scan, data_format=file_format, head=atomic_info_or_head, atomic_info=atomic_info_or_head)
 
-    rho1,lvec1, ndim1 = io.load_scal_field( "rho",data_format=file_format)
-
-    #print "rho1.shape, FF.shape ", rho1.shape, FF.shape
-    #exit()
-
-    Fx,Fy,Fz,E = fFFT.potential2forces_mem( rho1, lvec1, rho1.shape, rho=rho_tip, doForce=True, doPot=False, deleteV=True )
-    FF[:,:,:,0] = Fx*PPU.params['Apauli']
-    FF[:,:,:,1] = Fy*PPU.params['Apauli']
-    FF[:,:,:,2] = Fz*PPU.params['Apauli']
-    del Fx; del Fy; del Fz; del E;
-
-    # === generate FF Electrostatic
-
-    V_samp, lvec1, ndim1  = io.load_scal_field( "V",data_format=file_format)
-    Fx,Fy,Fz,E = fFFT.potential2forces_mem( V_samp, lvec1, V_samp.shape, rho=drho_tip, doForce=True, doPot=False, deleteV=True )
-    FF[:,:,:,0] = Fx*PPU.params['charge']
-    FF[:,:,:,1] = Fy*PPU.params['charge']
-    FF[:,:,:,2] = Fz*PPU.params['charge']
-    del Fx; del Fy; del Fz; del E;
-
-    # === relaxed scan
-
-    #fzs,PPpos,PPdisp,lvecScan=PPH.perform_relaxation(lvec, FFvdW, FFel=FFel, FFpauli=FFpauli, FFboltz=FFboltz,tipspline=options.tipspline, bFFtotDebug=options.bDebugFFtot)
-    xTips,yTips,zTips,lvecScan = PPU.prepareScanGrids( )
-    PPC.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
-    fzs,PPpos = PPH.relaxedScan3D( xTips, yTips, zTips )
-
-    io.save_scal_field( 'OutFz', fzs, lvecScan, data_format=file_format )
-
-    os.chdir( base_dir )
+    os.chdir(base_dir)

@@ -8,32 +8,26 @@ from ppafm.ocl.AFMulator import AFMulator
 
 
 def test_afmulator_save_load():
-
     afmulator_original = AFMulator(
         pixPerAngstrome=15,
-        lvec=np.array([
-            [1, 1, 1],
-            [5, 1, 0],
-            [2, 5, 0],
-            [0, 0, 8]
-        ]),
+        lvec=np.array([[1, 1, 1], [5, 1, 0], [2, 5, 0], [0, 0, 8]]),
         scan_dim=(200, 200, 60),
         scan_window=((0.0, 0.0, 16.0), (19.9, 19.9, 22.0)),
         iZPP=8,
         df_steps=10,
         tipStiffness=(0.37, 0.37, 0.0, 20.0),
-        rho={'dz2': -0.05},
+        rho={"dz2": -0.05},
         sigma=0.8,
         A_pauli=15.0,
         B_pauli=1.0,
         tipR0=[0.0, 0.0, 4.0],
         npbc=(1, 1, 1),
         f0Cantilever=30000,
-        kCantilever=2000
+        kCantilever=2000,
     )
 
     # Save parameters to a file
-    params_path = './params_test.ini'
+    params_path = "./params_test.ini"
     afmulator_original.save_params(params_path)
 
     # Load the same parameters two different ways from the saved file

@@ -8,6 +8,8 @@
 #include "spline_hermite.h"
 //#include <string.h>
 
+#include <omp.h>
+
 #include "Grid.h"
 #include "Forces.h"
 
@@ -21,7 +23,10 @@
 
 // ================= CONSTANTS
 
-const double const_eVA_SI = 16.0217662;
+const double const_eVA_SI = 16.021766;
+
+#define MAX_REF_CN 5
+#define MAX_D3_ELEM 94
 
 // ================= GLOBAL VARIABLES
 
@@ -69,8 +74,7 @@ namespace RELAX{
     double convF2    = 1.0e-8;        // square of convergence criterium ( convergence achieved when |F|^2 < convF2 )
 //	double dt        = 0.5;           // time step [ abritrary units ]
 
-double dt        = 0.1;           // time step [ abritrary units ]
-
+    double dt        = 0.1;           // time step [ abritrary units ]
     double damping   = 0.1;           // velocity damping ( like friction )  v_(i+1) = v_i * ( 1- damping )
 
     // relaxation step for simple damped-leap-frog molecular dynamics ( just for testing, less efficinet than FIRE )
@@ -96,16 +100,16 @@ namespace FIRE{
     double acoef0  = RELAX::damping;  // default damping
 
     // variables
-    double dt      = dtmax;           // time-step ( variable
-    double acoef   = acoef0;          // damping  ( variable
+    //double dt      = dtmax;           // time-step ( variable
+    //double acoef   = acoef0;          // damping  ( variable
 
     inline void setup(){
         dtmax   = RELAX::dt;
         acoef0  = RELAX::damping;
-        dt      = dtmax;
-        acoef   = acoef0;
+        //dt      = dtmax;
+        //acoef   = acoef0;
     }
-
+    /*
     // relaxation step using FIRE algorithm
     inline void move( const Vec3d& f, Vec3d& r, Vec3d& v ){
         double ff = f.norm2();
@@ -114,7 +118,7 @@ namespace FIRE{
         if( vf < 0 ){ // if velocity along direction of force
             v.set( 0.0 );
             dt    = dt * fdec;
-              acoef = acoef0;
+            acoef = acoef0;
         }else{       // if velocity against direction of force
             double cf  =     acoef * sqrt(vv/ff);
             double cv  = 1 - acoef;
@@ -127,7 +131,44 @@ namespace FIRE{
         v.add_mul( f , dt );
         r.add_mul( v , dt );
     }
+    */
+
 }
+
+
+struct FIREstate{
+
+    double dt      = FIRE::dtmax;           // time-step ( variable
+    double acoef   = FIRE::acoef0;          // damping  ( variable
+
+    inline void setup(){
+        dt      = FIRE::dtmax;
+        acoef   = FIRE::acoef0;
+    }
+
+    // relaxation step using FIRE algorithm
+    inline void move( const Vec3d& f, Vec3d& r, Vec3d& v ){
+        double ff = f.norm2();
+        double vv = v.norm2();
+        double vf = f.dot(v);
+        if( vf < 0 ){ // if velocity along direction of force
+            v.set( 0.0 );
+            dt    = dt * FIRE::fdec;
+            acoef = FIRE::acoef0;
+        }else{       // if velocity against direction of force
+            double cf  =     acoef * sqrt(vv/ff);
+            double cv  = 1 - acoef;
+            v.mul    (    cv );
+            v.add_mul( f, cf );	// v = cV * v  + cF * F
+            dt     = fmin( dt * FIRE::finc, FIRE::dtmax );
+            acoef  = acoef * FIRE::falpha;
+        }
+        // normal leap-frog times step
+        v.add_mul( f , dt );
+        r.add_mul( v , dt );
+    }
+
+};
 
 // ========= eval force templates
 
@@ -135,16 +176,17 @@ namespace FIRE{
 #define inv_dstep   10.0
 #define inv_ddstep  100.0
 
-inline double addAtom_LJ        ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ                     ( dR, fout, coefs[0], coefs[1]              ); }
-inline double addAtom_LJ_RE     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ_RE                  ( dR, fout, coefs[0], coefs[1]              ); }
-inline double addAtom_invR6     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_noDamp             ( dR, fout, coefs[0]                        ); }
-inline double addAtom_VdW       ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_dampConst          ( dR, fout, coefs[0]          , ADamp_Const ); }
-inline double addAtom_VdW_R2    ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<R2_func>   ( dR, fout, coefs[0], coefs[1], ADamp_R2    ); }
-inline double addAtom_VdW_R4    ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<R4_func>   ( dR, fout, coefs[0], coefs[1], ADamp_R4    ); }
-inline double addAtom_VdW_invR4 ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<invR4_func>( dR, fout, coefs[0], coefs[1], ADamp_invR4 ); }
-inline double addAtom_VdW_invR8 ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<invR8_func>( dR, fout, coefs[0], coefs[1], ADamp_invR8 ); }
-inline double addAtom_Morse     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomMorse                  ( dR, fout, coefs[0], coefs[1], Morse_alpha ); }
-inline double addAtom_Coulomb_s ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomCoulomb                ( dR, fout, coefs[0]                        ); }
+inline double addAtom_LJ        ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ                     ( dR, fout, coefs[0], coefs[1]                     ); }
+inline double addAtom_LJ_RE     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomLJ_RE                  ( dR, fout, coefs[0], coefs[1]                     ); }
+inline double addAtom_invR6     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_noDamp             ( dR, fout, coefs[0]                               ); }
+inline double addAtom_VdW       ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_dampConst          ( dR, fout, coefs[0]          , ADamp_Const        ); }
+inline double addAtom_VdW_R2    ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<R2_func>   ( dR, fout, coefs[0], coefs[1], ADamp_R2           ); }
+inline double addAtom_VdW_R4    ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<R4_func>   ( dR, fout, coefs[0], coefs[1], ADamp_R4           ); }
+inline double addAtom_VdW_invR4 ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<invR4_func>( dR, fout, coefs[0], coefs[1], ADamp_invR4        ); }
+inline double addAtom_VdW_invR8 ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomVdW_addDamp<invR8_func>( dR, fout, coefs[0], coefs[1], ADamp_invR8        ); }
+inline double addAtom_DFTD3     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomDFTD3                  ( dR, fout, coefs[0], coefs[1], coefs[2], coefs[3] ); }
+inline double addAtom_Morse     ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomMorse                  ( dR, fout, coefs[0], coefs[1], Morse_alpha        ); }
+inline double addAtom_Coulomb_s ( Vec3d dR, Vec3d& fout, double * coefs ){ return addAtomCoulomb                ( dR, fout, coefs[0]                               ); }
 inline double addAtom_Coulomb_pz( Vec3d dR, Vec3d& fout, double * coefs ){
     double kqq=coefs[0], E=0;
     Vec3d f; f.set(0.0);
@@ -222,7 +264,7 @@ inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
     Vec3d f; f.set(0.0);
     for(int i=0; i<natoms; i++){
         //if( ibuff==0 ) printf(" atom[%i] (%g,%g,%g) | %g \n", i, Ratoms[i].x, Ratoms[i].y, Ratoms[i].z, coefs[0] );
-        E     += addAtom_func( Ratoms[i]-rProbe, f, coefs );
+        E     += addAtom_func( rProbe-Ratoms[i], f, coefs );
         coefs += nCoefPerAtom;
     }
     //printf( "evalCell[%i] %i (%g,%g,%g) %g\n", ibuff, natoms, rProbe.x, rProbe.y, rProbe.z, E ); exit(0);
@@ -251,10 +293,13 @@ inline void getPPforce( const Vec3d& rTip, const Vec3d& r, Vec3d& f ){
 int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
     Vec3d v; v.set( 0.0 );
     int iter;
+    FIREstate fire;
+    fire.setup();
     for( iter=0; iter<RELAX::maxIters; iter++ ){
         Vec3d f;  getPPforce( rTip, r, f );
         if( relaxAlg == 1 ){                                                                  // move by either damped-leap-frog ( 0 ) or by FIRE ( 1 )
-            FIRE::move( f, r, v );
+            //FIRE::move( f, r, v );
+            fire.move( f, r, v );
         }else{
             RELAX::move( f, r, v );
         }
@@ -341,22 +386,146 @@ DLLEXPORT void getInPoints_LJ( int npoints, double * points_, double * FEs, int 
     }
 }
 
-DLLEXPORT void getLenardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
+
+DLLEXPORT void computeD3Coeffs(
+    const int natoms_, const double *rs, const int *elems, const double *r_cov, const double *r_cut, const double *ref_cn,
+    const double *ref_c6, const double *r4r2, const double *k, const double *params, const int elem_pp, double *d3_coeffs
+) {
+
+    natoms = natoms_;
+    Ratoms = (Vec3d*)rs;
+
+    const double k1  = k[0];
+    const double k2  = k[1];
+    const double k3  = -k[2];
+    const double k12 = -k1 * k2;
+
+    const double s6 = params[0];
+    const double s8 = params[1];
+    const double a1 = params[2];
+    const double a2 = params[3];
+
+    float L[MAX_REF_CN * MAX_REF_CN];
+
+    // Compute reference C6 weights for the probe particle
+    int pp_ind = elem_pp - 1;
+    double L_pp[MAX_REF_CN];
+    int i;
+    for (i = 0; i < MAX_REF_CN; i++) {
+        double pp_cn = ref_cn[pp_ind * MAX_REF_CN + i];
+        if (pp_cn >= 0.0f) { // Values less that 0 zero are invalid and should not be counted.
+            L_pp[i] = exp(k3 * pp_cn * pp_cn);
+        }
+    }
+    int max_ref_pp = i;
+
+
+    for (int ia = 0; ia < natoms; ia++) { // Loop over all atoms
+
+        const Vec3d pos = Ratoms[ia];
+        const int elem_ind = elems[ia] - 1;
+        const double r_cov_elem = r_cov[elem_ind];
+
+        // Compute the coordination number for this atom
+        double cn = 0;
+        for (int j = 0; j < natoms; j++) {
+            if (j == ia) continue; // No self-interaction for coordination number
+            double d = (Ratoms[j] - pos).norm();
+            double r = r_cov[elems[j] - 1] + r_cov_elem;
+            cn += 1.0f / (1.0f + exp(k12 * r / d + k1));
+        }
+
+        // Compute gaussian weights and normalization factor for all of the reference
+        // coordination numbers.
+        double norm = 0;
+        int a, b;
+        for (a = 0; a < MAX_REF_CN; a++) {
+            double ref_cn_a = ref_cn[elem_ind * MAX_REF_CN + a];
+            if (ref_cn_a < 0.0f) break; // Invalid values after this
+            double diff_cn_a = ref_cn_a - cn;
+            double L_a = exp(k3 * diff_cn_a * diff_cn_a);
+            for (b = 0; b < max_ref_pp; b++) {
+                double L_ab = L_a * L_pp[b];
+                norm += L_ab;
+                L[a * MAX_REF_CN + b] = L_ab;
+            }
+        }
+        int max_ref_a = a;
+
+        // If the coordination number is so high that the gaussian weights are all zero,
+        // then we put all of the weight on the highest reference coordination number.
+        if (norm == 0) {
+            int a_ind = (max_ref_a - 1) * MAX_REF_CN;
+            for (b = 0; b < max_ref_pp; b++) {
+                double L_ab = L_pp[b];
+                norm += L_ab;
+                L[a_ind + b] = L_ab;
+            }
+        }
+
+        // Compute C6 coefficient as a linear combination of reference C6 values
+        int n_zw = MAX_REF_CN * MAX_REF_CN;
+        int n_yzw = MAX_D3_ELEM * n_zw;
+        int pair_ind = elem_ind * n_yzw + pp_ind * n_zw;  // ref_c6 shape = (MAX_D3_ELEM, MAX_D3_ELEM, MAX_REF_CN, MAX_REF_CN)
+        double c6 = 0;
+        for (int a = 0; a < max_ref_a; a++) {
+            int a_ind = a * MAX_REF_CN;
+            for (int b = 0; b < max_ref_pp; b++) {
+                int L_ind = a_ind + b;
+                int c6_ind = pair_ind + L_ind;
+                c6 += L[L_ind] * ref_c6[c6_ind];
+            }
+        }
+        c6 /= norm;
+
+        // The C8 coefficient is inferred from the C6 coefficient
+        double qq = 3 * r4r2[elem_ind] * r4r2[pp_ind];
+        double c8 = qq * c6;
+
+        // Compute damping constants
+        double R0   = a1 * sqrt(qq) + a2;
+        double R0_2 = R0 * R0;
+        double R0_6 = R0_2 * R0_2 * R0_2;
+        double R0_8 = R0_6 * R0_2;
+
+        // Save coefficients
+        d3_coeffs[4 * ia    ] = c6 * s6;
+        d3_coeffs[4 * ia + 1] = c8 * s8;
+        d3_coeffs[4 * ia + 2] = R0_6;
+        d3_coeffs[4 * ia + 3] = R0_8;
+
+    }
+
+}
+
+DLLEXPORT void getLennardJonesFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    interateGrid3D < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+    //interateGrid3D < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+    interateGrid3D_omp < evalCell < addAtom_LJ  > >( r0, gridShape.n, gridShape.dCell, cLJs );
 }
 
 DLLEXPORT void getVdWFF( int natoms_, double * Ratoms_, double * cLJs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    interateGrid3D < evalCell < addAtom_VdW  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+    //interateGrid3D < evalCell < addAtom_VdW  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+    interateGrid3D_omp < evalCell < addAtom_VdW  > >( r0, gridShape.n, gridShape.dCell, cLJs );
+
+}
+
+DLLEXPORT void getDFTD3FF(int natoms_, double * Ratoms_, double *d3_coeffs){
+    natoms = natoms_; Ratoms = (Vec3d*)Ratoms_; nCoefPerAtom = 4;
+    Vec3d r0; r0.set(0.0,0.0,0.0);
+    //interateGrid3D < evalCell < addAtom_DFTD3  > >( r0, gridShape.n, gridShape.dCell, d3_coeffs );
+    interateGrid3D_omp < evalCell < addAtom_DFTD3  > >( r0, gridShape.n, gridShape.dCell, d3_coeffs );
+
 }
 
 DLLEXPORT void getMorseFF( int natoms_, double * Ratoms_, double * REs, double alpha ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2; Morse_alpha = alpha;
     Vec3d r0; r0.set(0.0,0.0,0.0);
-    interateGrid3D < evalCell < addAtom_Morse > >( r0, gridShape.n, gridShape.dCell, REs );
+    //interateGrid3D < evalCell < addAtom_Morse > >( r0, gridShape.n, gridShape.dCell, REs );
+    interateGrid3D_omp < evalCell < addAtom_Morse > >( r0, gridShape.n, gridShape.dCell, REs );
 }
 
 // sample Coulomb Force-field on 3D mesh over provided set of atoms with positions Rs_[i] with constant kQQs  =  - k_coulomb * Q_ProbeParticle * Q[i]
@@ -367,9 +536,13 @@ DLLEXPORT void getCoulombFF( int natoms_, double * Ratoms_, double * kQQs, int k
     //printf(" kind %i \n", kind );
     switch(kind){
         //case 0: interateGrid3D < evalCell < foo  > >( r0, gridShape.n, gridShape.dCell, kQQs_ );
-        case 0: interateGrid3D < evalCell < addAtom_Coulomb_s   > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
-        case 1: interateGrid3D < evalCell < addAtom_Coulomb_pz  > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
-        case 2: interateGrid3D < evalCell < addAtom_Coulomb_dz2 > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        //case 0: interateGrid3D < evalCell < addAtom_Coulomb_s   > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        //case 1: interateGrid3D < evalCell < addAtom_Coulomb_pz  > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        //case 2: interateGrid3D < evalCell < addAtom_Coulomb_dz2 > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+
+        case 0: interateGrid3D_omp < evalCell < addAtom_Coulomb_s   > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        case 1: interateGrid3D_omp < evalCell < addAtom_Coulomb_pz  > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
+        case 2: interateGrid3D_omp < evalCell < addAtom_Coulomb_dz2 > >( r0, gridShape.n, gridShape.dCell, kQQs ); break;
     }
 }
 
@@ -401,10 +574,16 @@ DLLEXPORT void getVdWFF_RE( int natoms_, double * Ratoms_, double * REs, int kin
     //if(ADamp>0){ ADamp = ADamp_; }
     switch(kind){
         //case 0: if(ADamp_>0){ ADamp_Const = ADamp_; }; E=addAtom_VdW      ( dR, fout, coefs ); break;
-        case 1: if(ADamp_>0){ ADamp_R2    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R2   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
-        case 2: if(ADamp_>0){ ADamp_R4    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R4   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
-        case 3: if(ADamp_>0){ ADamp_invR4 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR4>>( r0, gridShape.n, gridShape.dCell, REs ); break;
-        case 4: if(ADamp_>0){ ADamp_invR8 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR8>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        //case 1: if(ADamp_>0){ ADamp_R2    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R2   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        //case 2: if(ADamp_>0){ ADamp_R4    = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_R4   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        //case 3: if(ADamp_>0){ ADamp_invR4 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR4>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        //case 4: if(ADamp_>0){ ADamp_invR8 = ADamp_; } interateGrid3D<evalCell<addAtom_VdW_invR8>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+
+        case 1: if(ADamp_>0){ ADamp_R2    = ADamp_; } interateGrid3D_omp<evalCell<addAtom_VdW_R2   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 2: if(ADamp_>0){ ADamp_R4    = ADamp_; } interateGrid3D_omp<evalCell<addAtom_VdW_R4   >>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 3: if(ADamp_>0){ ADamp_invR4 = ADamp_; } interateGrid3D_omp<evalCell<addAtom_VdW_invR4>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+        case 4: if(ADamp_>0){ ADamp_invR8 = ADamp_; } interateGrid3D_omp<evalCell<addAtom_VdW_invR8>>( r0, gridShape.n, gridShape.dCell, REs ); break;
+
         // case 0: interateGrid3D<evalCell<addAtomVdW_addDamp<R2_func>  >>>( r0, gridShape.n, gridShape.dCell, REs ); break;
         // case 1: interateGrid3D<evalCell<addAtomVdW_addDamp<R4_func>  >>>( r0, gridShape.n, gridShape.dCell, REs ); break;
         // case 2: interateGrid3D<evalCell<addAtomVdW_addDamp<invr4_func>>>( r0, gridShape.n, gridShape.dCell, REs ); break;
@@ -416,7 +595,8 @@ DLLEXPORT void getGaussDensity( int natoms_, double * Ratoms_, double * cRAs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
-    interateGrid3D < evalCell < addAtom_Gauss  > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    //interateGrid3D < evalCell < addAtom_Gauss  > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    interateGrid3D_omp < evalCell < addAtom_Gauss  > >( r0, gridShape.n, gridShape.dCell, cRAs );
     gridF=gridF_;
 }
 
@@ -424,7 +604,8 @@ DLLEXPORT void getSlaterDensity( int natoms_, double * Ratoms_, double * cRAs ){
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
-    interateGrid3D < evalCell < addAtom_Slater > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    //interateGrid3D < evalCell < addAtom_Slater > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    interateGrid3D_omp < evalCell < addAtom_Slater > >( r0, gridShape.n, gridShape.dCell, cRAs );
     gridF=gridF_;
 }
 
@@ -432,7 +613,8 @@ DLLEXPORT void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs 
     natoms=natoms_; Ratoms=(Vec3d*)Ratoms_; nCoefPerAtom = 2;
     Vec3d r0; r0.set(0.0,0.0,0.0);
     Vec3d* gridF_=gridF; gridF=0;
-    interateGrid3D < evalCell < addAtom_splineR4 > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    //interateGrid3D < evalCell < addAtom_splineR4 > >( r0, gridShape.n, gridShape.dCell, cRAs );
+    interateGrid3D_omp < evalCell < addAtom_splineR4 > >( r0, gridShape.n, gridShape.dCell, cRAs );
     gridF=gridF_;
 }
 
@@ -441,7 +623,7 @@ DLLEXPORT void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs 
 // returns position of probe-particle after relaxation in 1D array "rs_" and force between surface probe particle in this relaxed position in 1D array "fs_"
 // for efficiency, starting position of ProbeParticle in new point (next postion of Tip) is derived from relaxed postion of ProbeParticle from previous point
 // there are several strategies how to do it which are choosen by parameter probeStart
-DLLEXPORT int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
+DLLEXPORT int relaxTipStroke( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
     Vec3d * rTips = (Vec3d*) rTips_;
     Vec3d * rs    = (Vec3d*) rs_;
     Vec3d * fs    = (Vec3d*) fs_;
@@ -485,26 +667,54 @@ DLLEXPORT int relaxTipStroke ( int probeStart, int relaxAlg, int nstep, double *
     return itrsum;
 }
 
+// relax one stroke of tip positions ( stored in 1D array "rTips_" ) using precomputed 3D force-field on grid
+// returns position of probe-particle after relaxation in 1D array "rs_" and force between surface probe particle in this relaxed position in 1D array "fs_"
+// for efficiency, starting position of ProbeParticle in new point (next postion of Tip) is derived from relaxed postion of ProbeParticle from previous point
+// there are several strategies how to do it which are choosen by parameter probeStart
+DLLEXPORT int relaxTipStrokes_omp( int nx, int ny, int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
+    printf( "relaxTipStrokes_omp()  nx %i ny %i nstep %i \n", nx, ny, nstep );
+    int ndone=0;
+    #pragma omp parallel for collapse(2) shared( nx, ny, probeStart, relaxAlg, nstep, rTips_, rs_, fs_, ndone )
+    for (int ix=0; ix<nx; ix++){
+        for (int iy=0; iy<ny; iy++){
+            int ioff = (ix + iy*nx)*nstep;
+            relaxTipStroke( probeStart, relaxAlg, nstep, rTips_+ioff*3, rs_+ioff*3, fs_+ioff*3 );
+            if( omp_get_thread_num()==0 ){
+                ndone++;
+                if( ndone%100==0 ){
+                    int ncpu=omp_get_num_threads();
+                    printf( "\r %2.2f %% DONE (ncpu=%i)", (100.0*ndone*ncpu)/(nx*ny), ncpu );
+                    fflush(stdout);
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
+    //printf( "C++ stiffnessMatrix() n=%i \n", n );
     Vec3d * rTips     = (Vec3d*) rTips_;
     Vec3d * rPPs      = (Vec3d*) rPPs_;
     Vec3d * eigenvals = (Vec3d*) eigenvals_;
     Vec3d * evec1     = (Vec3d*) evec1_;
     Vec3d * evec2     = (Vec3d*) evec2_;
     Vec3d * evec3     = (Vec3d*) evec3_;
+    //printf( "C++ stiffnessMatrix() gridShape.n(%i,%i,%i) \n", gridShape.n.x, gridShape.n.y, gridShape.n.z  );
+    //printf( "C++ stiffnessMatrix() gridF=%li \n", (long)gridF  );
+    //Vec3d gf=gridF[0];                                        printf( "gridF[0 ] (%g,%g,%g) \n",gf.x,gf.y,gf.z );
+    //gf=gridF[ gridShape.n.x*gridShape.n.y*gridShape.n.z -1 ]; printf( "gridF[-1] (%g,%g,%g) \n",gf.x,gf.y,gf.z);
+    //Vec3d pmin,pmax; pmin.set( 1e+300, 1e+300, 1e+300 ); pmax.set( -1e+300, -1e+300, -1e+300 );
     for(int i=0; i<n; i++){
         Vec3d rTip,rPP,f1,f2;
         rTip.set( rTips[i] );
         rPP.set ( rPPs[i]  );
         Mat3d dynmat;
-        //getPPforce( rTip, rPP, f1 );  eigenvals[i] = f1;   // check if we are converged in f=0
-        //rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp; evec1[i].set_sub(f2,f1);
-        //rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp; evec2[i].set_sub(f2,f1);
-        //rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp; evec3[i].set_sub(f2,f1);
+        //pmin.setIfLower(rPP); pmax.setIfGreater(rPP);
         // eval dynamical matrix    D_xy = df_y/dx    = ( f(r0+dx).y - f(r0-dx).y ) / (2*dx)
-        rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp;  dynmat.a.set_sub(f2,f1); dynmat.a.mul(-0.5/ddisp);
-        rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp;  dynmat.b.set_sub(f2,f1); dynmat.b.mul(-0.5/ddisp);
-        rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp;  dynmat.c.set_sub(f2,f1); dynmat.c.mul(-0.5/ddisp);
+        rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp; dynmat.a.set_sub(f2,f1); dynmat.a.mul(-0.5/ddisp);
+        rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp; dynmat.b.set_sub(f2,f1); dynmat.b.mul(-0.5/ddisp);
+        rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp; dynmat.c.set_sub(f2,f1); dynmat.c.mul(-0.5/ddisp);
         // symmetrize - to make sure that our symmetric matrix solver work properly
         double tmp;
         tmp = 0.5*(dynmat.xy + dynmat.yx); dynmat.xy = tmp; dynmat.yx = tmp;
@@ -512,6 +722,9 @@ DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_,
         tmp = 0.5*(dynmat.zx + dynmat.xz); dynmat.zx = tmp; dynmat.xz = tmp;
         // solve mat
         Vec3d evals; dynmat.eigenvals( evals ); Vec3d temp;
+        double eval_check = evals.a * evals.b * evals.c;
+        //if( fabs(eval_check) < 1e-16 ){  };
+        if( isnan(eval_check) ){  printf( "C++ stiffnessMatrix[%i] is NaN evals (%g,%g,%g) \n", i, evals.a, evals.b, evals.c ); exit(0); }
         // sort eigenvalues
         if( evals.a > evals.b ){ tmp=evals.a; evals.a=evals.b; evals.b=tmp; }
         if( evals.b > evals.c ){ tmp=evals.b; evals.b=evals.c; evals.c=tmp; }
@@ -525,6 +738,7 @@ DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_,
         //evec2[i] = dynmat.b;
         //evec3[i] = dynmat.c;
     }
+   // printf( "C++ stiffnessMatrix() DONE! pmin(%g,%g,%g) pmax(%g,%g,%g) \n", pmin.x, pmin.y, pmin.z, pmax.x, pmax.y, pmax.z );
 }
 
 DLLEXPORT void subsample_uniform_spline( double x0, double dx, int n, double * ydys, int m, double * xs_, double * ys_ ){

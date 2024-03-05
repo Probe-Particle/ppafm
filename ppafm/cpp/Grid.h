@@ -2,6 +2,8 @@
 #ifndef Grid_h
 #define Grid_h
 
+#include <omp.h>
+
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -67,6 +69,8 @@ class GridShape {
 
 // interpolation of vector force-field Vec3d[ix,iy,iz] in periodic boundary condition
 inline double interpolate3DWrap( double * grid, const Vec3i& n, const Vec3d& r ){
+    //#pragma omp simd
+    //{
 	int xoff = n.x<<3; int imx = r.x +xoff;	double tx = r.x - imx +xoff;	double mx = 1 - tx;		int itx = (imx+1)%n.x;  imx=imx%n.x;
 	int yoff = n.y<<3; int imy = r.y +yoff;	double ty = r.y - imy +yoff;	double my = 1 - ty;		int ity = (imy+1)%n.y;  imy=imy%n.y;
 	int zoff = n.z<<3; int imz = r.z +zoff;	double tz = r.z - imz +zoff;	double mz = 1 - tz;		int itz = (imz+1)%n.z;  imz=imz%n.z;
@@ -82,11 +86,14 @@ inline double interpolate3DWrap( double * grid, const Vec3i& n, const Vec3d& r )
                + tz * (
 	my * ( ( mx * grid[ i3D( imx, imy, itz ) ] ) +  ( tx * grid[ i3D( itx, imy, itz ) ] ) ) +
 	ty * ( ( mx * grid[ i3D( imx, ity, itz ) ] ) +  ( tx * grid[ i3D( itx, ity, itz ) ] ) ) );
+    //}
 	return out;
 }
 
 // interpolation of vector force-field Vec3d[ix,iy,iz] in periodic boundary condition
 inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r ){
+    //#pragma omp simd
+    //{
 	int xoff = n.x<<3; int imx = r.x +xoff;	double tx = r.x - imx +xoff;	double mx = 1 - tx;		int itx = (imx+1)%n.x;  imx=imx%n.x;
 	int yoff = n.y<<3; int imy = r.y +yoff;	double ty = r.y - imy +yoff;	double my = 1 - ty;		int ity = (imy+1)%n.y;  imy=imy%n.y;
 	int zoff = n.z<<3; int imz = r.z +zoff;	double tz = r.z - imz +zoff;	double mz = 1 - tz;		int itz = (imz+1)%n.z;  imz=imz%n.z;
@@ -98,6 +105,7 @@ inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r 
 	out.add_mul( grid[ i3D( imx, ity, itz ) ], tz*tymx );   out.add_mul( grid[ i3D( itx, ity, itz ) ], tz*tytx );
 	out.add_mul( grid[ i3D( imx, imy, itz ) ], tz*mymx );   out.add_mul( grid[ i3D( itx, imy, itz ) ], tz*mytx );
 	//printf( "DEBUG interpolate3DvecWrap gp(%g,%g,%g) igp(%i,%i,%i)/(%i,%i,%i) %i->%g out(%g,%g,%g) \n", r.x, r.y, r.z, imx, imy, imz, n.x,n.y,n.z, i3D( imx, imy, imz ), grid[ i3D( imx, imy, imz ) ], out.x,out.y,out.z );
+    //}
 	return out;
 }
 
@@ -133,6 +141,35 @@ void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void
     printf ("\n");
 }
 
+template< void FUNC( int ibuff, const Vec3d& pos_, void * args ) >
+void interateGrid3D_omp( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void * args ){
+    int ntot = n.x*n.y*n.z;
+    int ncpu = omp_get_num_threads(); printf( "interateGrid3D_omp nx,y,z (%i,%i,%i) nxy %i ncpu %i \n",  n.x,n.y,n.z, ntot, ncpu );
+    int ndone=0;
+    #pragma omp parallel for collapse(3) shared(pos0,n,dCell,args,ndone)
+    for ( int ic=0; ic<n.z; ic++ ){
+        for ( int ib=0; ib<n.y; ib++ ){
+            for ( int ia=0; ia<n.x; ia++ ){
+                Vec3d pos = pos0 + dCell.c*ic + dCell.b*ib + dCell.a*ia;
+                //int ibuff = i3D( ia, ib, ic );
+                int ibuff = ic*(n.x*n.y) + ib*n.x + ia;
+                //ndone[ omp_get_thread_num() ]++;
+                if( omp_get_thread_num()==0 ){
+                    ndone++;
+                    if( ndone%10000==0 ){
+                        int ncpu=omp_get_num_threads();
+                        printf( "\r %2.2f %% DONE (ncpu=%i)", 100.0*ndone*ncpu / ntot, ncpu );
+                        fflush(stdout);
+                    }
+                }
+                //if( ibuff%100000==0 ){ printf( "cpu[%i/%i] progress  %2.2f )\n",  omp_get_thread_num(), omp_get_num_threads(),  100.0*ndone / ntot ); }
+                FUNC( ibuff, pos, args );
+            }
+        }
+    }
+    printf( "\n" );
+    //printf( "DONE ndone %i ntot %i \n", ndone, ntot );
+}
 
 
 #endif

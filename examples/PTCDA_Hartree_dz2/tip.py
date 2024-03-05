@@ -1,3 +1,3 @@
 #!/usr/bin/python
 
-tipMultipole = {"s":0.5, "pz":-1.0}
+tipMultipole = {"s": 0.5, "pz": -1.0}

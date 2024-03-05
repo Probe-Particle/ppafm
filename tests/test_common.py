@@ -4,20 +4,20 @@ from ppafm import common
 
 
 def test_get_df_weight():
-    x, y = common.getDfWeight(n=5, dz=0.2)
-    assert np.allclose(x, np.array([-0.53836624, -0.12099505, -0.0, 0.12099505, 0.53836624]))
+    # amplitude = dz = 0.1
+    assert np.allclose(common.get_df_weight(0.1), np.array([-5.0, 5.0]))
+
+    # amplitude=1.0, dz=0.2
+    w = common.get_df_weight(1.0, dz=0.2)
     assert np.allclose(
-        y,
-        np.array(
-            [
-                -8.00000000e-01,
-                -4.00000000e-01,
-                1.11022302e-16,
-                4.00000000e-01,
-                8.00000000e-01,
-            ]
-        ),
+        w,
+        np.array([-0.35594622, -0.22193265, -0.05447093, 0.05447093, 0.22193265, 0.35594622]),
     )
+
+
+def test_get_simple_df_weight():
+    w = common.get_simple_df_weight(n=5, dz=0.2)
+    assert np.allclose(w, np.array([-0.31362841, -0.37274317, 0, 0.37274317, 0.31362841]))
 
 
 def test_sphere_tangent_space(n=2):

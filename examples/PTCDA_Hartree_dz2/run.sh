@@ -4,11 +4,11 @@ wget --no-check-certificate "https://www.dropbox.com/s/18eg89l89npll8x/LOCPOT.xs
 unzip LOCPOT.xsf.zip
 
 # ======= STEP 1 : Generate force-field grid
-ppafm-generate-elff -i LOCPOT.xsf --tip dz2
-ppafm-generate-ljff -i LOCPOT.xsf
+ppafm-generate-elff -i LOCPOT.xsf --tip dz2 -f npy
+ppafm-generate-ljff -i LOCPOT.xsf -f npy
 
 # ======= STEP 2 : Relax Probe Particle using that force-field grid
-ppafm-relaxed-scan -k 0.5 -q -0.10
+ppafm-relaxed-scan -k 0.5 -q -0.10 -f npy
 
 # ======= STEP 3 : Plot the results
-ppafm-plot-results -k 0.5 -q -0.10 -a 2.0 2 --df
+ppafm-plot-results -k 0.5 -q -0.10 -a 2.0 --df -f npy

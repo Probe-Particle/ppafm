@@ -1,81 +1,74 @@
 #!/usr/bin/python
-# This is a sead of simple plotting script which should get AFM frequency delta 'df.xsf' and generate 2D plots for different 'z'
-
-from optparse import OptionParser
-
-import __main__ as main
-import matplotlib.pyplot as plt
 import numpy as np
 
-import ppafm as PPU
-import ppafm.fieldFFT as fFFT
-from ppafm import io
+from .. import common, fieldFFT, io
 
-# ======== Functions
 
-def handleAECCAR( fname, lvec, rho ):
+def handle_aeccar(fname, lvec, rho):
     if "AECCAR" in fname:
-        V = np.abs( np.linalg.det(lvec[1:]) )
-        rho /= V
+        rho /= np.abs(np.linalg.det(lvec[1:]))
 
-def handleNegativeDensity( rho ):
-    Q = rho.sum()
-    rho[rho<0] = 0
-    rho *= ( Q/rho.sum() )
 
-# ======== Main
+def handle_negative_density(rho):
+    q = rho.sum()
+    rho[rho < 0] = 0
+    rho *= q / rho.sum()
 
-parser = OptionParser()
-parser.add_option( "-s", "--sample", action="store", type="string", default="CHGCAR.xsf", help="sample 3D data-file (.xsf)")
-parser.add_option( "-t", "--tip",    action="store", type="string", default="./tip/CHGCAR.xsf", help="tip 3D data-file (.xsf)")
-parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
-parser.add_option( "-B", "--Bpower", action="store", type="float", default="-1.0", help="exponent B in formula E = A*Integral( rho_tip^B * rho_sample^B ); NOTE: negative value equivalent to B=1 ")
-parser.add_option( "-A", "--Apauli", action="store", type="float", default="1.0", help="prefactor A in formula E = A*Integral( rho_tip^B * rho_sample^B ); NOTE: default A=1 since re-scaling done in relax_scan_PVE.py")
-parser.add_option( "-E", "--energy",     action="store_true",            help="Compue potential energ y(not just Force)", default=False)
-parser.add_option( "--saveDebugXsfs",        action="store_true",  help="save auxuliary xsf files for debugging", default=False )
-parser.add_option( "--densityMayBeNegative", action="store_false", help="input desnity files from DFT may contain negative voxels, lets handle them properly", default=True )
 
-(options, args) = parser.parse_args()
+def main():
+    parser = common.CLIParser(
+        description="Calculate the density overlap integral for Pauli force field in the full-density based model. "
+        "The integral has two parameters A and B, and is of form A*Integral( rho_tip^B * rho_sample^B )"
+    )
 
-print(">>> Loading sample from ", options.sample, " ... ")
-rhoS, lvecS, nDimS, headS = io.loadXSF( options.sample )
-print(">>> Loading tip from ", options.tip, " ... ")
-rhoT, lvecT, nDimT, headT = io.loadXSF( options.tip    )
+    # fmt: off
+    parser.add_argument('-s', '--sample', action='store', required=True, help='Path to sample charge density (.xsf).')
+    parser.add_argument('-t', '--tip',    action='store', required=True, help='Path to tip charge density (.xsf).')
+    parser.add_argument('-o', '--output', action='store', default='pauli', help='Name of output energy/force files.')
+    parser.add_argument('--saveDebugXsfs', action='store_true', help='Save auxiliary xsf files for debugging.')
+    parser.add_argument('--no_negative_check', action='store_true', help='Input density files may contain negative voxels. This is handled by default by setting negative values to zero and rescaling the density so that the total charge is conserved. Setting this option disables the check.' )
+    parser.add_arguments(['output_format', 'energy', 'Apauli', 'Bpauli'])
+    # fmt: on
 
-if np.any( nDimS != nDimT ): raise Exception( "Tip and Sample grids has different dimensions! - sample: "+str(nDimS)+" tip: "+str(nDimT) )
-if np.any( lvecS != lvecT ): raise Exception( "Tip and Sample grids has different shap! - sample: "+str(lvecS )+" tip: "+str(lvecT) )
+    args = parser.parse_args()
 
-handleAECCAR( options.sample, lvecS, rhoS )
-handleAECCAR( options.tip,    lvecT, rhoT )
+    print(">>> Loading sample from ", args.sample, " ... ")
+    rho_sample, lvec_sample, n_dim_sample, head_sample = io.loadXSF(args.sample)
+    print(">>> Loading tip from ", args.tip, " ... ")
+    rho_tip, lvec_tip, n_dim_tip, head_tip = io.loadXSF(args.tip)
 
-if options.Bpower > 0.0:
-    B = options.Bpower
-    print(">>> computing rho^B where B = ", B)
-    #print " rhoS.min,max ",rhoS.min(), rhoS.max(), " rhoT.min,max ",rhoT.min(), rhoT.max()
-    # NOTE: due to round-off error the density from DFT code is often negative in some voxels which produce NaNs after exponentiation; we need to correct this
-    if options.densityMayBeNegative:
-        handleNegativeDensity( rhoS )
-        handleNegativeDensity( rhoT )
-    #print " rhoS.min,max ",rhoS.min(), rhoS.max(), " rhoT.min,max ",rhoT.min(), rhoT.max()
-    rhoS[:,:,:] = rhoS[:,:,:]**B
-    rhoT[:,:,:] = rhoT[:,:,:]**B
-    if options.saveDebugXsfs:
-        io.saveXSF( "sample_density_pow_%03.3f.xsf" %B, rhoS, lvecS, head=headS )
-        io.saveXSF( "tip_density_pow_%03.3f.xsf" %B, rhoT, lvecT, head=headT )
+    if np.any(n_dim_sample != n_dim_tip):
+        raise Exception("Tip and Sample grids have different dimensions! - sample: " + str(n_dim_sample) + " tip: " + str(n_dim_tip))
+    if np.any(lvec_sample != lvec_tip):
+        raise Exception("Tip and Sample grids have different shapes! - sample: " + str(lvec_sample) + " tip: " + str(lvec_tip))
 
-print(">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... ")
-Fx,Fy,Fz,E = fFFT.potential2forces_mem( rhoS, lvecS, nDimS, rho=rhoT, doForce=True, doPot=True, deleteV=True )
+    handle_aeccar(args.sample, lvec_sample, rho_sample)
+    handle_aeccar(args.tip, lvec_tip, rho_tip)
 
-PQ = options.Apauli
+    if args.Bpauli > 0.0:
+        print(">>> computing rho^B where B = ", args.Bpauli)
+        # NOTE: due to round-off error the density from DFT code is often negative in some voxels which produce NaNs after exponentiation; we need to correct this
+        if not args.no_negative_check:
+            handle_negative_density(rho_sample)
+            handle_negative_density(rho_tip)
+        rho_sample[:, :, :] = rho_sample[:, :, :] ** args.Bpauli
+        rho_tip[:, :, :] = rho_tip[:, :, :] ** args.Bpauli
+        if args.saveDebugXsfs:
+            io.save_scal_field("sample_density_pow_%03.3f.xsf" % args.Bpauli, rho_sample, lvec_sample, data_format=args.output_format, head=head_sample)
+            io.save_scal_field("tip_density_pow_%03.3f.xsf" % args.Bpauli, rho_tip, lvec_tip, data_format=args.output_format, head=head_tip)
 
-namestr = options.output
-print(">>> Saving result of convolution to FF_",namestr,"_?.xsf ... ")
+    print(">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... ")
+    f_x, f_y, f_z, energy = fieldFFT.potential2forces_mem(rho_sample, lvec_sample, n_dim_sample, rho=rho_tip, doForce=True, doPot=True, deleteV=True)
 
-# Density Overlap Model
-if options.energy:
-    io.saveXSF( "E"+namestr+".xsf", E*PQ, lvecS, head=headS )
-io.saveXSF( "FF"+namestr+"_x.xsf", Fx*PQ, lvecS, head=headS )
-io.saveXSF( "FF"+namestr+"_y.xsf", Fy*PQ, lvecS, head=headS )
-io.saveXSF( "FF"+namestr+"_z.xsf", Fz*PQ, lvecS, head=headS )
+    namestr = args.output
+    print(">>> Saving result of convolution to FF_", namestr, "_?.xsf ... ")
 
-#Fx, Fy, Fz = getForces( V, rho, sampleSize, dims, dd, X, Y, Z)
+    # Density Overlap Model
+    if args.energy:
+        io.save_scal_field("E" + namestr, energy * args.Apauli, lvec_sample, data_format=args.output_format, head=head_sample)
+    force_field = io.packVecGrid(f_x * args.Apauli, f_y * args.Apauli, f_z * args.Apauli)
+    io.save_vec_field("FF" + namestr, force_field, lvec_sample, data_format=args.output_format, head=head_sample)
+
+
+if __name__ == "__main__":
+    main()

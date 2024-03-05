@@ -1,36 +1,19 @@
 #!/usr/bin/python
-import sys
-from optparse import OptionParser
 
-import numpy as np
+from .. import common
+from ..HighLevel import computeELFF_pointCharge
 
-import ppafm as PPU
-import ppafm.cpp_utils as cpp_utils
-import ppafm.fieldFFT as fFFT
-import ppafm.HighLevel as PPH
-from ppafm import elements
 
-HELP_MESSAGE = """Use this program in the following way:
-ppafm-generate-elff-point-charges -i <filename> [ --sigma <value> ]
-Supported file fromats are:
-    * cube
-    * xsf
-"""
+def main(argv=None):
+    parser = common.CLIParser(description="Generate electrostatic force field by Coulomb interaction of point charges. The generated force field is saved to FFel_{x,y,z}.[ext].")
+    parser.add_arguments(["input", "input_format", "output_format", "tip", "energy", "noPBC"])
+    args = parser.parse_args(argv)
 
-def main():
-    parser = OptionParser()
-    parser.add_option( "-i", "--input"      , action="store", type="string", help="format of input file")
-    parser.add_option( "-t", "--tip"        , action="store", type="string", help="tip model (multipole)", default='s')
-    parser.add_option( "-E", "--energy"     , action="store_true",           help="pbc False",             default=False)
-    parser.add_option( "--noPBC"            , action="store_false",          help="pbc False", dest="PBC", default=None)
-    parser.add_option( "-f","--data_format" , action="store", type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
-    (options, args) = parser.parse_args()
-    if options.input==None:
-        sys.exit("ERROR!!! Please, specify the input file with the '-i' option \n\n"+HELP_MESSAGE)
-    opt_dict = vars(options)
-    PPU.loadParams( 'params.ini' )
-    PPU.apply_options(opt_dict)
-    PPH.computeELFF_pointCharge( options.input, tip=options.tip, save_format=options.data_format, computeVpot=options.energy )
+    common.loadParams("params.ini")
+    common.apply_options(vars(args))
+
+    computeELFF_pointCharge(args.input, geometry_format=args.input_format, tip=args.tip, save_format=args.output_format, computeVpot=args.energy)
+
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,92 @@
+---
+name: Publish on PyPI
+
+on:
+    workflow_dispatch:
+    push:
+        tags:
+        # Tags that start with the "v" prefix are published on PyPI.
+            - v*
+
+jobs:
+
+    build_wheels:
+
+        name: Build wheels on ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, windows-2022, macos-11]
+
+        steps:
+            - uses: actions/checkout@v3
+            - uses: ilammy/msvc-dev-cmd@v1
+
+            - name: Build wheels
+              uses: pypa/cibuildwheel@v2.16.5
+
+            - name: Upload distribution artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                  name: release
+                  path: ./wheelhouse/*.whl
+
+    build_sdist:
+
+        name: Build source distribution
+        runs-on: ubuntu-latest
+
+        steps:
+
+            - uses: actions/checkout@v3
+
+            - name: Set up Python
+              uses: actions/setup-python@v2
+              with:
+                  python-version: '3.10'
+
+            - name: Install build
+              run: python -m pip install --upgrade build
+
+            - name: Build a source tarball
+              run: python -m build --sdist --outdir dist/
+
+            - name: Upload distribution artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                  name: release
+                  path: dist/*.tar.gz
+
+    publish:
+
+        name: Build and publish on PyPI
+        if: startsWith(github.ref, 'refs/tags')
+
+        needs: [build_wheels, build_sdist]
+        runs-on: ubuntu-latest
+
+        environment:
+            name: PyPI
+            url: https://pypi.org/project/ppafm/
+
+        steps:
+
+            - uses: actions/download-artifact@v2
+              name: Download distribution artifact
+              with:
+                  name: release
+                  path: dist/
+
+            - uses: softprops/action-gh-release@v1
+              name: Create release
+              if: startsWith(github.ref, 'refs/tags/v')
+              with:
+                  files: |
+                      dist/*
+                  generate_release_notes: true
+
+            - name: Publish distribution on PyPI
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                  user: __token__
+                  password: ${{ secrets.PYPI_API_TOKEN }}
