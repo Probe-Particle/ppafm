@@ -571,7 +571,9 @@ def _orthoLvec(sh, dd):
     return [[0, 0, 0], [sh[2] * dd[0], 0, 0], [0, sh[1] * dd[1], 0], [0, 0, sh[0] * dd[2]]]
 
 
-XSF_HEAD_DEFAULT = headScan = """
+XSF_HEAD_DEFAULT = (
+    headScan
+) = """
 ATOMS
  1   0.0   0.0   0.0
 
