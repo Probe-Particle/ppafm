@@ -1,13 +1,13 @@
 # GPU-accelerated AFM simulations
 
 The command-line interface to ppafm can only utilize the CPU.
-The simulations can be sped-up by at least a couple of orders of magnitude by utilizing a graphics processing unit (GPU).
+The simulations can be sped up by at least a couple of orders of magnitude by utilizing a graphics processing unit (GPU).
 In order to make use of the GPU acceleration in ppafm, install it with `pip` using the `[opencl]` option, as detailed on the  [installation page on the wiki](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm).
 
 The tutorial here concerns how to run GPU-accelerated AFM simulations programmatically via the Python API, which is most useful when running a large number of simulations in a batch.
-If you are looking to study an individual system and experiment with the simulation parameters, the [graphical user interface](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI)
-may be better suited for that purpose.
-This tutorial also assumes that you are already familiar with the basic of the structure of the ppafm simulation. If not, take a look at the wiki pages explaining the [basics of the simulation](https://github.com/Probe-Particle/ppafm/wiki#probe-particle-model) and the [different force field models](https://github.com/Probe-Particle/ppafm/wiki/Forces).
+In contrast, the [graphical user interface](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI) is better suited to study an individual system and experiment with the simulation parameters, 
+This tutorial also assumes that you are already familiar with the basic structure of the ppafm simulation.
+If not, take a look at the wiki pages explaining the [basics of the simulation](https://github.com/Probe-Particle/ppafm/wiki#probe-particle-model) and the [different force field models](https://github.com/Probe-Particle/ppafm/wiki/Forces).
 
 ## The AFMulator
 
@@ -66,7 +66,7 @@ afmulator = AFMulator(
 ```
 We set here the following parameters:
 - `pixPerAngstrome` sets the density of points in the force-field grid.
-The default value of 10 is usually adequate, but in some cases a higher value can lead to slighly more accurate results, but at the expense of higher video memory usage.
+The default value of 10 is usually adequate, but in some cases, a higher value can lead to slightly more accurate results, but at the expense of higher video memory usage.
 Try setting this lower if you get memory errors on devices with a low amount of video memory.
 - `scan_dim` sets the number points in the x, y, and z directions in the scan region, and the `scan_window` sets the physical size of the scan region as a tuple with the start and end points (opposing corners) of the region in units of Ångströms.
 - `iZPP` sets the atomic number of the probe particle, which affects the used Lennard-Jones parameters.
@@ -129,7 +129,7 @@ Typically the charges would be stored in a .xyz file and can be loaded using the
 The charges can come from, for example, Hirshfeld or Mulliken charge-partition analysis.
 
 The simulation can also be run without the electrostatic contribution.
-If the input .xyz file does not contain point charges for the atoms, then `loadXYZ` will simply return an array of zeros for `qs`:
+If the `.xyz` input file does not contain point charges for the atoms, then `loadXYZ` will return an array of zeros for `qs`:
 ```python
 import numpy as np
 xyzs, Zs, qs, _ = loadXYZ("./molecule_without_charges.xyz")
@@ -176,15 +176,15 @@ from ppafm.ocl.AFMulator import HartreePotential
 potential, xyzs, Zs = HartreePotential.from_file("./LOCPOT.xsf", scale=-1.0)  # scale=-1.0 for correct units of potential (V) instead of energy (eV)
 ```
 Since the file also contains the geometry of the system, in addition to the `potential`, we also get the `xyzs` and `Zs` when loading the file.
-In order to use the loaded potential, we simply substitute it for the `qs` argument when running the simulation:
+To use the loaded potential, we substitute it for the `qs` argument when running the simulation:
 ```python
 afm_images = afmulator(xyzs, Zs, qs=potential)
 ```
 
 ```{note}
 The `AFMulator` expects the potential to be in units of volts, but most DFT codes output the potential in units of energy, typically in eV or in Hartree.
-When loading files, `ppafm` currently always assumes that .xsf files are in units of eV, and .cube files are in units of Hartree which immediately get converted to eV.
-In order to convert the eV to V, we simply multiply by -1 (corresponding to division by the electron charge, -e), hence the `scale=-1.0` when loading the Hartree potential above.
+When loading files, `ppafm` assumes that the `.xsf` files are in units of eV and the `.cube` files are in units of Hartree, which immediately get converted to eV.
+To convert the eV to V, we multiply by -1 (corresponding to division by the electron charge, -e), hence the `scale=-1.0` when loading the Hartree potential above.
 ```
 
 Again, we need to set the charge distribution of the probe particle as well.
