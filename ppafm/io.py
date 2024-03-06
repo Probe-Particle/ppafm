@@ -19,8 +19,8 @@ def loadXYZ(fname):
     """
     Read the contents of an xyz file.
 
-    The standard xyz file format only has per-atom elements and xyz positions. In Probe-Particle
-    we also use the per-atom charges, which can be written as an extra column into the xyz file.
+    The standard xyz file format only has per-atom elements and xyz positions. However, in ppafm
+    we also use per-atom charges, which can be written as an extra column into the xyz file.
     By default the fifth column is interpreted as the charges, but if the file is written in the
     extended xyz format used by ASE, the relevant column indicated in the comment line is used.
 

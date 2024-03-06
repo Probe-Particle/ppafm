@@ -17,13 +17,9 @@ FFcl.bRuntime = True  # Print timings
 # Load all input files
 rho_tip, xyzs_tip, Zs_tip = FFcl.TipDensity.from_file("tip/CHGCAR.xsf")
 pot, xyzs, Zs = FFcl.HartreePotential.from_file("sample/LOCPOT.xsf", scale=-1.0)  # Scale=-1.0 for correct units of potential (V) instead of energy (eV)
-(
-    rho_sample,
-    _,
-    _,
-) = FFcl.ElectronDensity.from_file("sample/CHGCAR.xsf")
+rho_sample, _, _ = FFcl.ElectronDensity.from_file("sample/CHGCAR.xsf")
 
-# Get tip delta density by subtracting the core charges
+# Get tip delta density by subtracting the valence electrons
 rho_tip_delta = rho_tip.subCores(xyzs_tip, Zs_tip, Rcore=0.7)
 
 # Construct the simulator
