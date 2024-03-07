@@ -293,7 +293,7 @@ class GeneratorAFMtrainer:
     entries in the dict are all of the call arguments to :meth:`.AFMulator.eval`. At least the entries
     'xyzs' and 'Zs' should be present in the dict.
 
-    During the iteration for a batch, several methods are called at various points. The procedure is
+    During the iteration for a batch, several callback methods are called at various points. The procedure is
     the following:
         | on_batch_start()
         | for each sample:
@@ -328,7 +328,7 @@ class GeneratorAFMtrainer:
             full-density based model, where it is used for calculating the electrostatic interaction.
     """
 
-    # Print timings during excecution
+    # Print timings during execution
     bRuntime = False
 
     def __init__(

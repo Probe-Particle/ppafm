@@ -222,6 +222,7 @@ class DataGrid:
             data *= scale
         data = cls(data, lvec)
         xyzs = np.stack([x, y, z], axis=1)
+        Zs = np.array(Zs)
 
         return data, xyzs, Zs
 
