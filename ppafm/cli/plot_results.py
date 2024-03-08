@@ -191,11 +191,31 @@ def main(argv=None):
                     cbar=opt_dict["cbar"],
                 )
 
-            if opt_dict["df"] or opt_dict["save_df"] or opt_dict["WSxM"] or opt_dict["LCPD_maps"]:
-                for amplitude in amplitudes:
+            if opt_dict["bI"]:
+                current, lvec, _, atomic_info_or_head = io.load_scal_field(dirname + "/OutI_boltzmann", data_format=args.output_format)
+                print(" plotting Boltzmann current: ")
+                PPPlot.plotImages(
+                    dirname + "/OutI" + atoms_str + cbar_str,
+                    current,
+                    slices=list(range(0, len(current))),
+                    zs=tip_positions_z,
+                    extent=extent,
+                    atoms=atoms,
+                    bonds=bonds,
+                    atomSize=atom_size,
+                    cbar=opt_dict["cbar"],
+                )
+
+        if opt_dict["df"] or opt_dict["save_df"] or opt_dict["WSxM"] or opt_dict["LCPD_maps"]:
+            for amplitude in amplitudes:
+                for iv, voltage in enumerate(bias_voltages):
                     common.params["Amplitude"] = amplitude
                     amp_string = f"/Amp{amplitude:2.2f}"
                     print("Amplitude= ", amp_string)
+                    if applied_bias:
+                        dirname = f"Q{charge:1.2f}K{stiffness:1.2f}V{voltage:1.2f}"
+                    else:
+                        dirname = f"Q{charge:1.2f}K{stiffness:1.2f}"
                     dir_name_amplitude = dirname + amp_string
                     if not os.path.exists(dir_name_amplitude):
                         os.makedirs(dir_name_amplitude)
@@ -305,21 +325,6 @@ def main(argv=None):
                             lcpd_a = lcpd_a - 2 * dfs
                         if iv == (bias_voltages.shape[0] - 1):
                             lcpd_a = (lcpd_a + dfs) / (2 * voltage**2)
-
-            if opt_dict["bI"]:
-                current, lvec, _, atomic_info_or_head = io.load_scal_field(dirname + "/OutI_boltzmann", data_format=args.output_format)
-                print(" plotting Boltzmann current: ")
-                PPPlot.plotImages(
-                    dirname + "/OutI" + atoms_str + cbar_str,
-                    current,
-                    slices=list(range(0, len(current))),
-                    zs=tip_positions_z,
-                    extent=extent,
-                    atoms=atoms,
-                    bonds=bonds,
-                    atomSize=atom_size,
-                    cbar=opt_dict["cbar"],
-                )
 
         if opt_dict["LCPD_maps"]:
             lcpd = -lcpd_b / (2 * lcpd_a)
