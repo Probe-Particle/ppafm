@@ -290,6 +290,10 @@ class AFMulator:
         self.QZs = QZs
         self.forcefield.setQs(Qs=Qs, QZs=QZs)
 
+    def setStiffness(self, tipStiffness):
+        """Set the tip bending stiffness."""
+        self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
+
     # ========= Imaging =========
 
     def prepareFF(self, xyzs, Zs, qs, rho_sample=None, sample_lvec=None, rot=np.eye(3), rot_center=None, REAs=None):
