@@ -376,7 +376,7 @@ class GeneratorAFMtrainer:
         self.rhos = []
         self.ffts = []
         for i in range(len(rhos)):
-            self.afmulator.setRho(rhos[i])
+            self.afmulator.setRho(rhos[i], sigma=self.afmulator.sigma, B_pauli=self.afmulator.B_pauli)
             rhos_ = [self.afmulator.forcefield.rho]
             ffts_ = [self.afmulator.forcefield.fft_corr]
             if rho_deltas is not None:

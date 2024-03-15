@@ -1389,22 +1389,22 @@ class ForceField_LJC:
         Arguments:
             A: float. Prefactor for Pauli repulsion.
             B: float. Exponent used for Pauli repulsion.
-            vdw_type: 'D3' or 'LJ'. Type of vdW interaction to use with the FDBM. 'D3' is for Grimme-D3 and 'LJ' uses
+            vdw_type: ``'D3'`` or ``'LJ'``. Type of vdW interaction to use with the FDBM. ``'D3'`` is for Grimme-D3 and ``'LJ'`` uses
                 standard Lennard-Jones vdW.
             d3_params: str or dict. Functional-specific scaling parameters for DFT-D3. Can be a str with the
                 functional name or a dict with manually specified parameters. See :meth:`add_dftd3`.
-            lj_vdw_damp:  int. Type of damping to use in vdw calculation fdbm_vdw_type=='LJ.
-                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
-            FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
-                If None and bCopy == True, will be created automatically.
-            rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
-            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            lj_vdw_damp:  int. Type of damping to use in vdw calculation ``fdbm_vdw_type=='LJ'``.
+                ``-1``: no damping, ``0``: constant, ``1``: R2, ``2``: R4, ``3``: invR4, ``4``: invR8.
+            FE: np.ndarray or None. Array where output force field is copied to if ``bCopy==True``.
+                If ``None`` and ``bCopy==True``, will be created automatically.
+            rot: np.ndarray of shape ``(3, 3)``. Rotation matrix applied to the atom coordinates.
+            rot_center: np.ndarray of shape ``(3,)``. Point around which rotation is performed.
             local_size: tuple of a single int. Size of local work group on device.
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
             bFinish: Bool. Whether to wait for execution to finish.
 
         Returns:
-            FE: np.ndarray if bCopy==True or None otherwise. Calculated force field and energy.
+            FE: np.ndarray if ``bCopy==True`` or ``None`` otherwise. Calculated force field and energy.
         """
 
         if bRuntime:
@@ -1511,26 +1511,26 @@ class ForceField_LJC:
 
         There are several methods for generating the force field:
 
-            - 'point-charge': Lennard-Jones + point-charge electrostatics for both tip and sample.
-            - 'hartree': Lennard-Jones + sample hartree potential cross-correlated with tip charge density
+            - ``'point-charge'``: Lennard-Jones + point-charge electrostatics for both tip and sample.
+            - ``'hartree'``: Lennard-Jones + sample hartree potential cross-correlated with tip charge density
               for electrostatic interaction.
-            - 'fdbm': Approximated full density-based model. Pauli repulsion is calculated by tip-sample
+            - ``'fdbm'``: Approximated full density-based model. Pauli repulsion is calculated by tip-sample
               electron density overlap + attractive vdW like in Lennard-Jones. Electrostatic
               interaction is same as in 'hartree', except tip delta-density is used instead.
 
-        If pot, rho, or rho_delta is None and is required for the specified method, it has to be
-        initialized beforehand with prepareBuffers.
+        If ``pot``, ``rho``, or ``rho_delta`` is ``None`` and is required for the specified method, it has to be
+        initialized beforehand with :meth:`prepareBuffers`.
 
         Arguments:
-            xyzs: np.ndarray of shape (n_atoms, 3). xyz positions.
-            cLJs: np.ndarray of shape (n_atoms, 2). Lennard-Jones interaction parameters in AB form for each atom.
-            REAs: np.ndarray of shape (n_atoms, 4) or None. Lennard-Jones interaction parameters in RE form for each atom.
+            xyzs: np.ndarray of shape ``(n_atoms, 3)``. xyz positions.
+            cLJs: np.ndarray of shape ``(n_atoms, 2)``. Lennard-Jones interaction parameters in AB form for each atom.
+            REAs: np.ndarray of shape ``(n_atoms, 4)`` or None. Lennard-Jones interaction parameters in RE form for each atom.
                 Required when method is 'fdbm', fdbm_vdw_type is 'LJ', and vdw_damp_method >= 1.
-            Zs: np.ndarray of shape (n_atoms,). Atomic numbers. Required when method is 'fdbm'.
+            Zs: np.ndarray of shape ``(n_atoms,)``. Atomic numbers. Required when method is 'fdbm'.
             method: 'point-charge', 'hartree' or 'fdbm'. Method for generating the force field.
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.
-            qs: np.ndarray of shape (n_atoms,) or None. Point charges of atoms. Used when method
+            qs: np.ndarray of shape ``(n_atoms,)`` or None. Point charges of atoms. Used when method
                 is 'point-charge'.
             pot: :class:`HartreePotential` or None. Hartree potential used for electrostatic interaction when
                 method is 'hartree' or 'fdbm'.
@@ -1548,15 +1548,15 @@ class ForceField_LJC:
                 or a dict with manually specified parameters. Used when method is 'fdbm. See :meth:`add_dftd3`.
             lj_vdw_damp: int. Type of damping to use in vdw calculation when method is 'fdbm' and fdbm_vdw_type is 'LJ'.
                 -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
-            rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
-            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            rot: np.ndarray of shape ``(3, 3)``. Rotation matrix applied to the atom coordinates.
+            rot_center: np.ndarray of shape ``(3,)``. Point around which rotation is performed.
             local_size: tuple of a single int. Size of local work group on device.
             bRelease: Bool. Whether to delete data on device after computation is done.
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
             bFinish: Bool. Whether to wait for execution to finish.
 
         Returns:
-            FE: np.ndarray if bCopy==True or None otherwise. Calculated force field and energy.
+            FE: np.ndarray if ``bCopy==True`` or ``None`` otherwise. Calculated force field and energy.
         """
 
         if bRuntime:
