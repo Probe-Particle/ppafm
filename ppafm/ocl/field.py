@@ -810,6 +810,9 @@ class ForceField_LJC:
     def prepareBuffers(self, atoms=None, cLJs=None, REAs=None, Zs=None, poss=None, bDirect=False, nz=20, pot=None, E_field=False, rho=None, rho_delta=None, rho_sample=None):
         """Allocate all necessary buffers in device memory."""
 
+        if bRuntime:
+            t0 = time.perf_counter()
+
         nbytes = 0
         mf = cl.mem_flags
         nb_float = np.dtype(np.float32).itemsize
@@ -871,6 +874,9 @@ class ForceField_LJC:
 
         if self.verbose > 0:
             print("ForceField_LJC.prepareBuffers.nbytes", nbytes)
+
+        if bRuntime:
+            print("runtime(ForceField_LJC.prepareBuffers) [s]: ", time.perf_counter() - t0)
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None):
         """Update the content of device buffers."""

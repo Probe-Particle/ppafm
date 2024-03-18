@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import os
+import time
 import warnings
 
 import numpy as np
@@ -65,6 +66,7 @@ class AFMulator:
     """
 
     bMergeConv = False  # Should we use merged kernel relaxStrokesTilted_convZ or two separated kernells  ( relaxStrokesTilted, convolveZ  )
+    bRuntime = False  # Print timings during execution
 
     # --- Relaxation
     relaxParams = [0.5, 0.1, 0.1 * 0.2, 0.1 * 5.0]  # (dt,damp, .., .. ) parameters of relaxation, in the moment just dt and damp are used
@@ -154,11 +156,15 @@ class AFMulator:
         Returns:
             X: np.ndarray. Output AFM images. If input X is not None, this is the same array object as X with values overwritten.
         """
+        if self.bRuntime:
+            t0 = time.perf_counter()
         self.prepareFF(xyzs, Zs, qs, rho_sample, sample_lvec, rot, rot_center, REAs)
         self.prepareScanner()
         X = self.evalAFM(X)
         if plot_to_dir:
             self.plot_images(X, outdir=plot_to_dir)
+        if self.bRuntime:
+            print("runtime(AFMulator.eval) [s]: ", time.perf_counter() - t0)
         return X
 
     def __call__(self, *args, **kwargs):
@@ -174,6 +180,9 @@ class AFMulator:
 
     def setLvec(self, lvec=None, pixPerAngstrome=None):
         """Set forcefield lattice vectors. If lvec is not given it is inferred from the scan window."""
+
+        if self.bRuntime:
+            t0 = time.perf_counter()
 
         if pixPerAngstrome is not None:
             self.pixPerAngstrome = pixPerAngstrome
@@ -193,8 +202,14 @@ class AFMulator:
         FEin_shape = self.forcefield.nDim if (self._old_nDim != self.forcefield.nDim).any() else None
         self.scanner.prepareBuffers(lvec=self.lvec, FEin_shape=FEin_shape)
 
+        if self.bRuntime:
+            print("runtime(AFMulator.setLvec) [s]: ", time.perf_counter() - t0)
+
     def setScanWindow(self, scan_window=None, scan_dim=None, df_steps=None):
         """Set scanner scan window."""
+
+        if self.bRuntime:
+            t0 = time.perf_counter()
 
         if scan_window is not None:
             self.scan_window = scan_window
@@ -221,6 +236,9 @@ class AFMulator:
         self.scanner.updateBuffers(WZconv=self.dfWeight)
         self.scanner.preparePosBasis(start=self.scan_window[0][:2], end=self.scan_window[1][:2])
 
+        if self.bRuntime:
+            print("runtime(AFMulator.setScanWindow) [s]: ", time.perf_counter() - t0)
+
     def setRho(self, rho=None, sigma=0.71, B_pauli=1.0):
         """Set tip charge distribution.
 
@@ -229,6 +247,8 @@ class AFMulator:
             sigma: float. Tip charge density distribution when rho is a dict.
             B_pauli: float. Pauli repulsion exponent for tip density when using FDBM.
         """
+        if self.bRuntime:
+            t0 = time.perf_counter()
         if rho is not None:
             self.sigma = sigma
             self.B_pauli = B_pauli
@@ -260,6 +280,8 @@ class AFMulator:
                     print("AFMulator.setRho: Releasing buffers")
                 self.forcefield.rho.release()
                 self.forcefield.rho = None
+        if self.bRuntime:
+            print("runtime(AFMulator.setRho) [s]: ", time.perf_counter() - t0)
 
     def setBPauli(self, B_pauli=1.0):
         """Set Pauli repulsion exponent used in FDBM."""
@@ -271,6 +293,8 @@ class AFMulator:
         Arguments:
             rho_delta: :class:`.TipDensity` or None. Tip electron delta-density. If None, the existing density is deleted.
         """
+        if self.bRuntime:
+            t0 = time.perf_counter()
         self.rho_delta = rho_delta
         if self.rho_delta is not None:
             if not isinstance(rho_delta, TipDensity):
@@ -283,6 +307,8 @@ class AFMulator:
                 print("AFMulator.setRhoDelta: Releasing buffers")
             self.forcefield.rho_delta.release()
             self.forcefield.rho_delta = None
+        if self.bRuntime:
+            print("runtime(AFMulator.setRhoDelta) [s]: ", time.perf_counter() - t0)
 
     def setQs(self, Qs, QZs):
         """Set tip point charges."""
@@ -315,6 +341,8 @@ class AFMulator:
             rot_center: np.ndarray of shape (3,). Center for rotation. Defaults to center of atom coordinates.
             REAs: np.ndarray of shape (num_atoms, 4). Lennard Jones interaction parameters. Calculated automatically if None.
         """
+        if self.bRuntime:
+            t0 = time.perf_counter()
 
         # Check if the scan window extends over any non-periodic boundaries and issue a warning if it does
         self.check_scan_window()
@@ -406,8 +434,14 @@ class AFMulator:
         if self.bSaveFF:
             self.saveFF()
 
+        if self.bRuntime:
+            print("runtime(AFMulator.prepareFF) [s]: ", time.perf_counter() - t0)
+
     def prepareScanner(self):
         """Prepare scanner. Run after preparing force field."""
+
+        if self.bRuntime:
+            t0 = time.perf_counter()
 
         # Copy forcefield array to scanner buffer
         self.scanner.updateFEin(self.forcefield.cl_FE)
@@ -417,6 +451,9 @@ class AFMulator:
 
         # Prepare tip position array
         self.scanner.setScanRot(self.pos0, rot=np.eye(3), tipR0=self.tipR0)
+
+        if self.bRuntime:
+            print("runtime(AFMulator.prepareScanner) [s]: ", time.perf_counter() - t0)
 
     def evalAFM(self, X=None):
         """
@@ -429,6 +466,9 @@ class AFMulator:
         Returns:
             X: np.ndarray. Output AFM images. If input X is not None, this is the same array object as X with values overwritten.
         """
+
+        if self.bRuntime:
+            t0 = time.perf_counter()
 
         if self.bMergeConv:
             FEout = self.scanner.run_relaxStrokesTilted_convZ()
@@ -445,6 +485,9 @@ class AFMulator:
                     f"for storing AFM image, but got an array of shape {X.shape} instead."
                 )
             X[:, :, :] = FEout[:, :, :, 2]
+
+        if self.bRuntime:
+            print("runtime(AFMulator.evalAFM) [s]: ", time.perf_counter() - t0)
 
         return X
 
