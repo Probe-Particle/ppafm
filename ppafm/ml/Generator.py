@@ -420,10 +420,10 @@ class GeneratorAFMtrainer:
             sws_ = []
 
             # Load the next sample, if available
-            self._release_sample_buffers()
             try:
-                self._load_next_sample()
+                self.sample_dict = self._load_next_sample()
             except StopIteration:
+                self.sample_dict = None
                 self.iteration_done = True
                 break
 
@@ -514,17 +514,12 @@ class GeneratorAFMtrainer:
         return Xs, Ys, mols, sws
 
     def _load_next_sample(self):
-        self.sample_dict = next(self.sample_iterator)
-        if "qs" not in self.sample_dict:
-            self.sample_dict["qs"] = np.zeros((len(self.sample_dict["Zs"]),), dtype=np.float32)
-        if "rot" not in self.sample_dict:
-            self.sample_dict["rot"] = np.eye(3)
-
-    def _release_sample_buffers(self):
-        if "qs" in self.sample_dict and isinstance(self.sample_dict["qs"], FFcl.HartreePotential):
-            self.sample_dict["qs"].release()
-        if "rho_sample" in self.sample_dict and isinstance(self.sample_dict["rho_sample"], FFcl.ElectronDensity):
-            self.sample_dict["rho_sample"].release()
+        sample_dict = next(self.sample_iterator)
+        if "qs" not in sample_dict:
+            sample_dict["qs"] = np.zeros((len(sample_dict["Zs"]),), dtype=np.float32)
+        if "rot" not in sample_dict:
+            sample_dict["rot"] = np.eye(3)
+        return sample_dict
 
     def __len__(self):
         """
