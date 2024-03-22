@@ -133,7 +133,7 @@ class DataGrid:
             self.nbytes = 0
         elif isinstance(array, cl.Buffer):
             if shape is None:
-                raise ValueError("The shape of the grid has to be specified when the array is " "a pyopencl.Buffer.")
+                raise ValueError("The shape of the grid has to be specified when the array is a pyopencl.Buffer.")
             nbytes = 4 * np.prod(shape)
             assert array.size == nbytes, f"shape {shape} does not match with buffer size {array.size}"
             self.shape = tuple(shape)
@@ -173,12 +173,30 @@ class DataGrid:
     def cl_array(self):
         """Device array as pyopencl.buffer. If the grid currently only exists on the host, it is copied to the device memory."""
         if self._cl_array is None:
-            mf = cl.mem_flags
-            self._cl_array = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.array)
+            self._cl_array = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=self.array)
             self.nbytes += 4 * np.prod(self.shape)
             if verbose > 0:
                 print(f"DataGrid.nbytes {self.nbytes}")
         return self._cl_array
+
+    def update_array(self, array, lvec):
+        """
+        Update array contents. If the new array is the same size or smaller than the current array, the data is updated
+        without a reallocation on the device.
+        """
+        if array.dtype != np.float32 or not array.flags["C_CONTIGUOUS"]:
+            array = np.ascontiguousarray(array, dtype=np.float32)
+        if self._cl_array is not None:
+            current_size = np.prod(self.shape)
+            if array.size > current_size:
+                if verbose > 0:
+                    print(f"Reallocating buffers. Old size = {current_size}, new size = {array.size}")
+                self._cl_array = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY, 4 * array.size)
+                self.nbytes += 4 * (array.size - current_size)
+            self._enqueue_event = cl.enqueue_copy(oclu.queue, self._cl_array, array, is_blocking=True)
+        self._array = array
+        self.lvec = lvec
+        self.shape = tuple(array.shape)
 
     def release(self):
         """Release device buffer. If the grid currently only exists on the device, it is copied to the host memory before release."""
