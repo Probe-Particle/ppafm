@@ -351,7 +351,9 @@ class DataGrid:
 
         p = np.float32(p)
         if normalize:
-            scale = np.float32(self._get_normalization_factor(queue)) ** p
+            scale = self._get_normalization_factor(queue)
+            assert scale > 0, "Normalizing scaling factor should be positive."
+            scale = np.float32(scale) ** p
         else:
             scale = np.float32(1.0)
 
@@ -392,7 +394,7 @@ class DataGrid:
         cl_program.sumSingleGroup(queue, local_size, local_size, array_out, n_groups)
         # Now the first element of array_out holds the final answer
         sums = np.empty((2,), dtype=np.float32)
-        cl.enqueue_copy(oclu.queue, sums, array_out)
+        cl.enqueue_copy(queue, sums, array_out)
         return sums[0] / sums[1]
 
     def grad(self, scale=1.0, array_out=None, order="C", local_size=(32,), queue=None):
