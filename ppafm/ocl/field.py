@@ -193,15 +193,19 @@ class DataGrid:
                     print(f"Reallocating buffers. Old size = {current_size}, new size = {array.size}")
                 self._cl_array = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY, 4 * array.size)
                 self.nbytes += 4 * (array.size - current_size)
-            self._enqueue_event = cl.enqueue_copy(oclu.queue, self._cl_array, array, is_blocking=True)
+            self._enqueue_event = cl.enqueue_copy(oclu.queue, self._cl_array, array, is_blocking=False)
         self._array = array
         self.lvec = lvec
         self.shape = tuple(array.shape)
 
-    def release(self):
-        """Release device buffer. If the grid currently only exists on the device, it is copied to the host memory before release."""
+    def release(self, keep_on_host=True):
+        """Release device buffer.
+
+        Arguments:
+        keep_on_host: bool. If the grid currently only exists on the device, it is copied to the host memory before release."""
         if self._cl_array is not None:
-            self.array  # Make sure grid values are in host memory before releasing device memory
+            if keep_on_host:
+                self.array
             self._cl_array.release()
             self._cl_array = None
             self.nbytes -= 4 * np.prod(self.shape)
@@ -330,6 +334,10 @@ class DataGrid:
         Returns:
             grid_out: Same type as self. New data grid with result.
         """
+
+        if bRuntime:
+            t0 = time.perf_counter()
+
         array_in = self.cl_array
         queue = queue or oclu.queue
         if in_place:
@@ -340,12 +348,14 @@ class DataGrid:
             array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size)
             array_type = type(self)  # This way so inherited classes return their own class type
             grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
-        n = np.int32(array_in.size / 4)
+
         p = np.float32(p)
         if normalize:
             scale = np.float32(self._get_normalization_factor(queue)) ** p
         else:
             scale = np.float32(1.0)
+
+        n = np.int32(array_in.size / 4)
         global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
         # fmt: off
         cl_program.power(queue, global_size, local_size,
@@ -356,6 +366,10 @@ class DataGrid:
             scale
         )
         # fmt: on
+
+        if bRuntime:
+            print("runtime(DataGrid.power_positive) [s]: ", time.perf_counter() - t0)
+
         return grid_out
 
     def _get_normalization_factor(self, queue=None):
@@ -1459,14 +1473,14 @@ class ForceField_LJC:
         # Cross-correlate Hartree potential and tip electron delta density for electrostatic energy
         E_es = self.fft_corr_delta.correlate(pot, scale=-1.0)  # scale=-1.0, because the electron density has positive sign.
         if not pot_lvec_same:
-            pot.release()
+            pot.release(keep_on_host=False)
 
         # Cross-correlate sample electron density and tip electron density for Pauli energy
         if not np.allclose(B, 1.0):
             rho_sample = rho_sample.power_positive(p=B, in_place=False)
         E_pauli = self.fft_corr.correlate(rho_sample)
         if not rho_sample_lvec_same:
-            rho_sample.release()
+            rho_sample.release(keep_on_host=False)
 
         if bRuntime:
             self.queue.finish()
@@ -1474,7 +1488,7 @@ class ForceField_LJC:
 
         # Add the two energy contributions together
         E = E_es.add_mult(E_pauli, scale=A, in_place=True, local_size=local_size, queue=self.queue)
-        E_pauli.release()
+        E_pauli.release(keep_on_host=False)
 
         if bRuntime:
             self.queue.finish()
@@ -1482,7 +1496,7 @@ class ForceField_LJC:
 
         # Take gradient to get the force field
         E.grad(scale=[-1.0, -1.0, -1.0, 1.0], array_out=self.cl_FE, order="F", local_size=local_size, queue=self.queue)
-        E.release()
+        E.release(keep_on_host=False)
 
         if bRuntime:
             self.queue.finish()
