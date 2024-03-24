@@ -148,6 +148,7 @@ def main(argv=None):
                     markersize=2.0,
                     cbar=opt_dict["cbar"],
                 )
+                print()
 
             if opt_dict["iets"] is not None:
                 eigenvalue_k, lvec, _, atomic_info_or_head = io.load_vec_field(dirname + "/eigvalKs", data_format=args.output_format)
@@ -157,6 +158,7 @@ def main(argv=None):
                 print(f"Plotting IETS M={iets_m:f} V={iets_e:f} w={iets_w:f}")
                 e_vib = common.HBAR * np.sqrt((common.eVA_Nm * eigenvalue_k) / (iets_m * common.AUMASS))
                 iets = symGauss(e_vib[:, :, :, 0], iets_e, iets_w) + symGauss(e_vib[:, :, :, 1], iets_e, iets_w) + symGauss(e_vib[:, :, :, 2], iets_e, iets_w)
+
                 PPPlot.plotImages(
                     dirname + "/IETS" + atoms_str + cbar_str,
                     iets,
@@ -168,6 +170,8 @@ def main(argv=None):
                     atomSize=atom_size,
                     cbar=opt_dict["cbar"],
                 )
+                print()
+
                 PPPlot.plotImages(
                     dirname + "/Evib" + atoms_str + cbar_str,
                     e_vib[:, :, :, 0],
@@ -179,6 +183,8 @@ def main(argv=None):
                     atomSize=atom_size,
                     cbar=opt_dict["cbar"],
                 )
+                print()
+
                 PPPlot.plotImages(
                     dirname + "/Kvib" + atoms_str + cbar_str,
                     16.0217662 * eigenvalue_k[:, :, :, 0],
@@ -190,10 +196,11 @@ def main(argv=None):
                     atomSize=atom_size,
                     cbar=opt_dict["cbar"],
                 )
+                print()
 
             if opt_dict["bI"]:
                 current, lvec, _, atomic_info_or_head = io.load_scal_field(dirname + "/OutI_boltzmann", data_format=args.output_format)
-                print(" plotting Boltzmann current: ")
+                print("Plotting Boltzmann current: ")
                 PPPlot.plotImages(
                     dirname + "/OutI" + atoms_str + cbar_str,
                     current,
@@ -205,6 +212,7 @@ def main(argv=None):
                     atomSize=atom_size,
                     cbar=opt_dict["cbar"],
                 )
+                print()
 
         if opt_dict["df"] or opt_dict["save_df"] or opt_dict["WSxM"] or opt_dict["LCPD_maps"]:
             for amplitude in amplitudes:
@@ -212,11 +220,13 @@ def main(argv=None):
                     common.params["Amplitude"] = amplitude
                     amp_string = f"/Amp{amplitude:2.2f}"
                     print("Amplitude= ", amp_string)
+                    dirname0 = f"Q{charge:1.2f}K{stiffness:1.2f}"
                     if applied_bias:
-                        dirname = f"Q{charge:1.2f}K{stiffness:1.2f}V{voltage:1.2f}"
+                        dirname = dirname0 + f"V{voltage:1.2f}"
                     else:
-                        dirname = f"Q{charge:1.2f}K{stiffness:1.2f}"
+                        dirname = dirname0
                     dir_name_amplitude = dirname + amp_string
+                    dir_name_lcpd = dirname0 + amp_string
                     if not os.path.exists(dir_name_amplitude):
                         os.makedirs(dir_name_amplitude)
 
@@ -272,7 +282,7 @@ def main(argv=None):
                             atomic_info=atomic_info_or_head,
                         )
                     if opt_dict["df"]:
-                        print(" plotting df : ")
+                        print("Plotting df: ")
                         PPPlot.plotImages(
                             dir_name_amplitude + "/df" + atoms_str + cbar_str,
                             dfs,
@@ -286,8 +296,10 @@ def main(argv=None):
                             cbar=opt_dict["cbar"],
                             cbar_label="df [Hz]",
                         )
+                        print("")
+
                     if opt_dict["Laplace"]:
-                        print("plotting Laplace-filtered df : ")
+                        print("Plotting Laplace-filtered df: ")
                         df_laplace_filtered = dfs.copy()
                         laplace(dfs, output=df_laplace_filtered)
                         io.save_scal_field(
@@ -310,9 +322,12 @@ def main(argv=None):
                             atomSize=atom_size,
                             cbar=opt_dict["cbar"],
                         )
+                        print()
+
                     if opt_dict["WSxM"]:
                         print(" printing df into WSxM files :")
                         io.saveWSxM_3D(dir_name_amplitude + "/df", dfs, extent, slices=None)
+
                     if opt_dict["LCPD_maps"]:
                         if iv == 0:
                             lcpd_b = -dfs
@@ -326,48 +341,57 @@ def main(argv=None):
                         if iv == (bias_voltages.shape[0] - 1):
                             lcpd_a = (lcpd_a + dfs) / (2 * voltage**2)
 
-        if opt_dict["LCPD_maps"]:
-            lcpd = -lcpd_b / (2 * lcpd_a)
-            PPPlot.plotImages(
-                "./LCPD" + atoms_str + cbar_str,
-                lcpd,
-                slices=list(range(0, len(lcpd))),
-                zs=tip_positions_z + common.params["Amplitude"] / 2.0,
-                extent=extent,
-                cmap=common.params["colorscale_kpfm"],
-                atoms=atoms,
-                bonds=bonds,
-                atomSize=atom_size,
-                cbar=opt_dict["cbar"],
-                symmetric_map=True,
-                V0=args.V0,
-                cbar_label="V_LCPD [V]",
-            )
-            PPPlot.plotImages(
-                "./_Asym-LCPD" + atoms_str + cbar_str,
-                lcpd,
-                slices=list(range(0, len(lcpd))),
-                zs=tip_positions_z + common.params["Amplitude"] / 2.0,
-                extent=extent,
-                cmap=common.params["colorscale_kpfm"],
-                atoms=atoms,
-                bonds=bonds,
-                atomSize=atom_size,
-                cbar=opt_dict["cbar"],
-                symmetric_map=False,
-                cbar_label="V_LCPD [V]",
-            )
-            io.save_scal_field(
-                "./LCPD",
-                lcpd,
-                lvec_df,
-                data_format=args.output_format,
-                head=atomic_info_or_head,
-                atomic_info=atomic_info_or_head,
-            )
-            if opt_dict["WSxM"]:
-                print("Saving LCPD_b into WSxM files :")
-                io.saveWSxM_3D("./LCPD" + atoms_str, lcpd, extent, slices=None)
+                        lcpd = -lcpd_b / (2 * lcpd_a)
+
+                if opt_dict["LCPD_maps"]:
+                    print("Plotting LCPD: ")
+                    if not os.path.exists(dir_name_lcpd):
+                        os.makedirs(dir_name_lcpd)
+                    PPPlot.plotImages(
+                        dir_name_lcpd + "/LCPD" + atoms_str + cbar_str,
+                        lcpd,
+                        slices=list(range(0, len(lcpd))),
+                        zs=tip_positions_z + common.params["Amplitude"] / 2.0,
+                        extent=extent,
+                        cmap=common.params["colorscale_kpfm"],
+                        atoms=atoms,
+                        bonds=bonds,
+                        atomSize=atom_size,
+                        cbar=opt_dict["cbar"],
+                        symmetric_map=True,
+                        V0=args.V0,
+                        cbar_label="V_LCPD [V]",
+                    )
+                    print()
+
+                    PPPlot.plotImages(
+                        dir_name_lcpd + "/_Asym-LCPD" + atoms_str + cbar_str,
+                        lcpd,
+                        slices=list(range(0, len(lcpd))),
+                        zs=tip_positions_z + common.params["Amplitude"] / 2.0,
+                        extent=extent,
+                        cmap=common.params["colorscale_kpfm"],
+                        atoms=atoms,
+                        bonds=bonds,
+                        atomSize=atom_size,
+                        cbar=opt_dict["cbar"],
+                        symmetric_map=False,
+                        cbar_label="V_LCPD [V]",
+                    )
+                    print()
+
+                    io.save_scal_field(
+                        dir_name_lcpd + "/LCPD",
+                        lcpd,
+                        lvec_df,
+                        data_format=args.output_format,
+                        head=atomic_info_or_head,
+                        atomic_info=atomic_info_or_head,
+                    )
+
+                    if opt_dict["WSxM"]:
+                        print("Saving LCPD_b into WSxM files :")
+                        io.saveWSxM_3D(dir_name_lcpd + "/LCPD" + atoms_str, lcpd, extent, slices=None)
 
     print(" ***** ALL DONE ***** ")
 
