@@ -340,6 +340,8 @@ class GeneratorAFMtrainer:
             the simulation type is LJ+Hartree or for Pauli repulsion calculation when the simulation type is FDBM.
         rho_deltas: None or list of :class:`.TipDensity`. Tip delta charge density. Required for the when the simulation type
             is FDBM, where it is used for calculating the electrostatic interaction.
+        ignore_elements: list of int. Atomic numbers of elements to ignore in scan window distance and position calculations.
+            Useful for example for ignoring surface slab atoms in centering the scan window.
     """
 
     bRuntime = False
@@ -358,6 +360,7 @@ class GeneratorAFMtrainer:
         QZs=None,
         rhos=None,
         rho_deltas=None,
+        ignore_elements=[],
     ):
         self.afmulator = afmulator
         self.aux_maps = aux_maps
@@ -368,6 +371,7 @@ class GeneratorAFMtrainer:
         self.distAboveActive = distAbove
         self.iZPPs = iZPPs
         self._prepareBuffers(rhos, rho_deltas)
+        self.ignore_elements = ignore_elements
 
         if Qs is None or QZs is None:
             if self.sim_type == "lj+pc":
@@ -576,7 +580,12 @@ class GeneratorAFMtrainer:
         """
         ss = self.scan_size
         sw = self.scan_window
-        xy_center = self.sample_dict["xyzs"][:, :2].mean(axis=0)
+        xyzs = self.xyzs_rot
+        if self.ignore_elements:
+            Zs = self.sample_dict["Zs"]
+            mask = np.prod([Zs != elem for elem in self.ignore_elements], axis=0).astype(bool)
+            xyzs = xyzs[mask]
+        xy_center = xyzs[:, :2].mean(axis=0)
         sw = (
             (xy_center[0] - ss[0] / 2, xy_center[1] - ss[1] / 2, sw[0][2]),
             (xy_center[0] + ss[0] / 2, xy_center[1] + ss[1] / 2, sw[1][2]),
@@ -592,9 +601,14 @@ class GeneratorAFMtrainer:
         RvdwPP = self.afmulator.typeParams[self.afmulator.iZPP - 1][0]
         Rvdw = self.sample_dict["REAs"][:, 0] - RvdwPP
         zs = self.xyzs_rot[:, 2]
+        if self.ignore_elements:
+            Zs = self.sample_dict["Zs"]
+            mask = np.prod([Zs != elem for elem in self.ignore_elements], axis=0).astype(bool)
+            zs = zs[mask]
+            Rvdw = Rvdw[mask]
         imax = np.argmax(zs + Rvdw)
         total_distance = self.distAboveActive + Rvdw[imax] + RvdwPP - (zs.max() - zs[imax])
-        z_min = self.xyzs_rot[:, 2].max() + total_distance
+        z_min = zs.max() + total_distance
         sw = self.scan_window
         self.scan_window = (
             (sw[0][0], sw[0][1], z_min),
