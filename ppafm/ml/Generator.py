@@ -356,7 +356,7 @@ class GeneratorAFMtrainer:
         iZPPs=[8],
         Qs=None,
         QZs=None,
-        rhos=[{"dz2": -0.1}],
+        rhos=None,
         rho_deltas=None,
     ):
         self.afmulator = afmulator
@@ -389,6 +389,8 @@ class GeneratorAFMtrainer:
         if rhos is None:
             self.rhos = self.ffts = [(None, None)] * len(self.iZPPs)
             return
+        elif len(rhos) != len(self.iZPPs):
+            raise ValueError(f"The length of rhos ({len(rhos)}) does not match the length of iZPPs ({len(self.iZPPs)})")
         if rho_deltas is not None and (len(rhos) != len(rho_deltas)):
             raise ValueError(f"The length of rhos ({len(rhos)}) does not match the length of rho_deltas ({len(rho_deltas)})")
         self.rhos = []
