@@ -30,7 +30,7 @@ class InverseAFMtrainer:
         distAbove: float. Tip-sample distance parameter.
         iZPPs: list of ints. Elements for AFM tips. Image is produced with every tip for each sample.
         Qs: list of arrays of length 4. Charges for tips.
-        QZS list of arrays of length 4. Positions of tip charges.
+        QZS: list of arrays of length 4. Positions of tip charges.
     """
 
     # Print timings during excecution
@@ -291,56 +291,59 @@ class GeneratorAFMtrainer:
     The machine learning samples are generated for every sample system returned by a generator
     function. The generator should return dicts with the input arguments for the simulation. Possible
     entries in the dict are all of the call arguments to :meth:`.AFMulator.eval`. At least the entries
-    'xyzs' and 'Zs' should be present in the dict.
+    ``'xyzs'`` and ``'Zs'`` should be present in the dict.
 
     The following type of force fields for the simulations are supported (case-insensitive):
 
         - ``'LJ'``: Lennard-Jones without electrostatics.
-        - ``'LJ+pc'``: Lennard-Jones with electrostatics from point-charges.
-        - ``'LJ+hartree'``: Lennard-Jones with electrostatics from the Hartree potential.
+        - ``'LJ+PC'``: Lennard-Jones with electrostatics from point-charges.
+        - ``'LJ+Hartree'``: Lennard-Jones with electrostatics from the Hartree potential.
         - ``'FDBM'``: Full-density based model.
 
     During the iteration for a batch, several callback methods are called at various points. The procedure is
-    the following:
-        | on_batch_start()
-        | for each sample:
-        |   on_sample_start()
-        |   for each tip:
-        |     on_afm_start()
+    the following::
+
+        on_batch_start()
+        for each sample:
+            on_sample_start()
+            for each tip:
+                on_afm_start()
+                # Run AFM simulation
+            # Run AuxMap calculations
+
     These methods can be overridden to modify the behaviour of the simulation. For example,
     various parameters of the simulation can be randomized.
 
-    The iterator returns batches of samples (Xs, Ys, mols, sws):
+    The iterator returns batches of samples ``(Xs, Ys, mols, sws)``:
 
-        - Xs: AFM images as np.ndarray of shape (n_batch, n_tip, nx, ny, nz).
-        - Ys: AuxMap descriptors as np.ndarray of shape (n_batch, n_auxmap, nx, ny).
-        - mols: List of lenght n_batch of atomic coordinates, atomic numbers, and charges as np.ndarray of shape (n_atoms, 5).
-        - sws: Scan window bounds as np.ndarray of shape (n_batch, n_tip, 2, 3).
+        - ``Xs``: AFM images as an ``np.ndarray`` of shape ``(batch_size, n_tip, nx, ny, nz)``.
+        - ``Ys``: AuxMap descriptors as an ``np.ndarray`` of shape ``(batch_size, n_auxmap, nx, ny)``.
+        - ``mols``: List of length ``batch_size`` of atomic coordinates, atomic numbers, and charges as an ``np.ndarray`` of shape ``(n_atoms, 5)``.
+        - ``sws``: Scan window bounds as an ``np.ndarray`` of shape ``(batch_size, n_tip, 2, 3)``.
 
     Arguments:
         afmulator: An instance of AFMulator.
         auxmaps: list of :class:`.AuxMapBase`.
         sample_generator: Iterable. A generator function that returns sample dicts containing the input
             arguments for the simulation.
-        sim_type: str. Type of force field model to use in AFM simulation. The contents of the dicts returned by the
+        sim_type: str. Type of force field model to use in the AFM simulation. The contents of the dicts returned by the
             ``sample_generator`` need to be sufficient for the simulation type. Otherwise an error is raised at run time.
             If the dict contains entries not required for the chosen simulation type, then those entries are ignored.
         batch_size: int. Number of samples per batch.
         distAbove: float. Tip-sample distance parameter.
         iZPPs: list of int. Atomic numbers of AFM tips. An image is produced with every tip for each sample.
         Qs: list of arrays of length 4. Point charges for tips. Used for point-charge approximation
-            of tip charge when rho is None.
+            of tip charge when the simulation type is LJ+PC.
         QZs: list of arrays of length 4. Positions of tip charges. Used for point-charge approximation
-            of tip charge when rho is None.
-        rhos: list of dict or :class:`.TipDensity`. Tip charge densities. Used for electrostatic
-            interaction when the simulation input is a Hartree potential or for Pauli repulsion
-            calculation in full-density based model when the input is an electron density.
-        rho_deltas: None or list of :class:`.TipDensity`. Tip delta charge density. Required for the
-            full-density based model, where it is used for calculating the electrostatic interaction.
+            of tip charge when the simulation type is LJ+PC.
+        rhos: list of dict or :class:`.TipDensity`. Tip charge densities. Used for electrostatic interaction when
+            the simulation type is LJ+Hartree or for Pauli repulsion calculation when the simulation type is FDBM.
+        rho_deltas: None or list of :class:`.TipDensity`. Tip delta charge density. Required for the when the simulation type
+            is FDBM, where it is used for calculating the electrostatic interaction.
     """
 
-    # Print timings during execution
     bRuntime = False
+    """Print timings during execution."""
 
     def __init__(
         self,
@@ -599,8 +602,8 @@ class GeneratorAFMtrainer:
     def randomize_df_steps(self, minimum=4, maximum=20):
         """Randomize oscillation amplitude by randomizing the number of steps in df convolution.
 
-        Chosen number of df steps is uniform random between minimum and maximum. Modifies self.scan_dim and
-        self.scan_size to retain same output z dimension and same dz step for the chosen number of df steps.
+        Chosen number of df steps is uniform random between minimum and maximum. Modifies ``self.scan_dim`` and
+        ``self.scan_size`` to retain same output z dimension and same dz step for the chosen number of df steps.
 
         Arguments:
             minimum: int. Minimum number of df steps (inclusive).
