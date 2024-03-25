@@ -293,6 +293,13 @@ class GeneratorAFMtrainer:
     entries in the dict are all of the call arguments to :meth:`.AFMulator.eval`. At least the entries
     'xyzs' and 'Zs' should be present in the dict.
 
+    The following type of force fields for the simulations are supported (case-insensitive):
+
+        - ``'LJ'``: Lennard-Jones without electrostatics.
+        - ``'LJ+pc'``: Lennard-Jones with electrostatics from point-charges.
+        - ``'LJ+hartree'``: Lennard-Jones with electrostatics from the Hartree potential.
+        - ``'FDBM'``: Full-density based model.
+
     During the iteration for a batch, several callback methods are called at various points. The procedure is
     the following:
         | on_batch_start()
@@ -304,6 +311,7 @@ class GeneratorAFMtrainer:
     various parameters of the simulation can be randomized.
 
     The iterator returns batches of samples (Xs, Ys, mols, sws):
+
         - Xs: AFM images as np.ndarray of shape (n_batch, n_tip, nx, ny, nz).
         - Ys: AuxMap descriptors as np.ndarray of shape (n_batch, n_auxmap, nx, ny).
         - mols: List of lenght n_batch of atomic coordinates, atomic numbers, and charges as np.ndarray of shape (n_atoms, 5).
@@ -314,6 +322,9 @@ class GeneratorAFMtrainer:
         auxmaps: list of :class:`.AuxMapBase`.
         sample_generator: Iterable. A generator function that returns sample dicts containing the input
             arguments for the simulation.
+        sim_type: str. Type of force field model to use in AFM simulation. The contents of the dicts returned by the
+            ``sample_generator`` need to be sufficient for the simulation type. Otherwise an error is raised at run time.
+            If the dict contains entries not required for the chosen simulation type, then those entries are ignored.
         batch_size: int. Number of samples per batch.
         distAbove: float. Tip-sample distance parameter.
         iZPPs: list of int. Atomic numbers of AFM tips. An image is produced with every tip for each sample.
@@ -336,6 +347,7 @@ class GeneratorAFMtrainer:
         afmulator,
         aux_maps,
         sample_generator,
+        sim_type="LJ",
         batch_size=30,
         distAbove=5.3,
         iZPPs=[8],
@@ -347,6 +359,7 @@ class GeneratorAFMtrainer:
         self.afmulator = afmulator
         self.aux_maps = aux_maps
         self.sample_generator = sample_generator
+        self.sim_type = sim_type.lower()
         self.batch_size = batch_size
         self.distAbove = distAbove
         self.distAboveActive = distAbove
@@ -354,6 +367,8 @@ class GeneratorAFMtrainer:
         self._prepareBuffers(rhos, rho_deltas)
 
         if Qs is None or QZs is None:
+            if self.sim_type == "lj+pc":
+                raise ValueError("Both Qs and QZs should be specified when using point-charge electrostatics.")
             self.Qs = self.QZs = [[0, 0, 0, 0] for _ in range(len(iZPPs))]
         else:
             assert len(Qs) == len(QZs) == len(iZPPs), f"Inconsistent lengths for tip charge arrays."
@@ -515,10 +530,30 @@ class GeneratorAFMtrainer:
 
     def _load_next_sample(self):
         sample_dict = next(self.sample_iterator)
-        if "qs" not in sample_dict:
+
+        # Check that the contents of the sample dict are sufficient for the chosen simulation type
+        if self.sim_type == "lj":
             sample_dict["qs"] = np.zeros((len(sample_dict["Zs"]),), dtype=np.float32)
+            sample_dict["rho_sample"] = None
+        elif ("qs" not in sample_dict) or (sample_dict["qs"] is None):
+            raise ValueError(f"Sample dict does not contain qs, which is required for a simulation with electrostatics")
+        elif self.sim_type == "lj+pc":
+            if not isinstance(sample_dict["qs"], np.ndarray):
+                raise ValueError(f"qs in sample dict is not a numpy array, which is required for a LJ+PC simulation.")
+            sample_dict["rho_sample"] = None
+        elif self.sim_type == "lj+hartree":
+            if not isinstance(sample_dict["qs"], FFcl.HartreePotential):
+                raise ValueError(f"qs in sample dict is not a HartreePotential, which is required for a LJ+Hartree simulation.")
+            sample_dict["rho_sample"] = None
+        elif self.sim_type == "fdbm":
+            if ("rho_sample" not in sample_dict) or (sample_dict["rho_sample"] is None):
+                raise ValueError(f"Sample dict does not contain rho_sample, which is required for an FDBM simulation.")
+        else:
+            raise ValueError(f"Unknown simulation type `{self.sim_type}`")
+
         if "rot" not in sample_dict:
             sample_dict["rot"] = np.eye(3)
+
         return sample_dict
 
     def __len__(self):
