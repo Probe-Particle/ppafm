@@ -133,7 +133,7 @@ class DataGrid:
             self.nbytes = 0
         elif isinstance(array, cl.Buffer):
             if shape is None:
-                raise ValueError("The shape of the grid has to be specified when the array is " "a pyopencl.Buffer.")
+                raise ValueError("The shape of the grid has to be specified when the array is a pyopencl.Buffer.")
             nbytes = 4 * np.prod(shape)
             assert array.size == nbytes, f"shape {shape} does not match with buffer size {array.size}"
             self.shape = tuple(shape)
@@ -173,17 +173,39 @@ class DataGrid:
     def cl_array(self):
         """Device array as pyopencl.buffer. If the grid currently only exists on the host, it is copied to the device memory."""
         if self._cl_array is None:
-            mf = cl.mem_flags
-            self._cl_array = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.array)
+            self._cl_array = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=self.array)
             self.nbytes += 4 * np.prod(self.shape)
             if verbose > 0:
                 print(f"DataGrid.nbytes {self.nbytes}")
         return self._cl_array
 
-    def release(self):
-        """Release device buffer. If the grid currently only exists on the device, it is copied to the host memory before release."""
+    def update_array(self, array, lvec):
+        """
+        Update array contents. If the new array is the same size or smaller than the current array, the data is updated
+        without a reallocation on the device.
+        """
+        if array.dtype != np.float32 or not array.flags["C_CONTIGUOUS"]:
+            array = np.ascontiguousarray(array, dtype=np.float32)
         if self._cl_array is not None:
-            self.array  # Make sure grid values are in host memory before releasing device memory
+            current_size = np.prod(self.shape)
+            if array.size > current_size:
+                if verbose > 0:
+                    print(f"Reallocating buffers. Old size = {current_size}, new size = {array.size}")
+                self._cl_array = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY, 4 * array.size)
+                self.nbytes += 4 * (array.size - current_size)
+            self._enqueue_event = cl.enqueue_copy(oclu.queue, self._cl_array, array, is_blocking=False)
+        self._array = array
+        self.lvec = lvec
+        self.shape = tuple(array.shape)
+
+    def release(self, keep_on_host=True):
+        """Release device buffer.
+
+        Arguments:
+        keep_on_host: bool. If the grid currently only exists on the device, it is copied to the host memory before release."""
+        if self._cl_array is not None:
+            if keep_on_host:
+                self.array
             self._cl_array.release()
             self._cl_array = None
             self.nbytes -= 4 * np.prod(self.shape)
@@ -222,6 +244,7 @@ class DataGrid:
             data *= scale
         data = cls(data, lvec)
         xyzs = np.stack([x, y, z], axis=1)
+        Zs = np.array(Zs)
 
         return data, xyzs, Zs
 
@@ -311,6 +334,10 @@ class DataGrid:
         Returns:
             grid_out: Same type as self. New data grid with result.
         """
+
+        if bRuntime:
+            t0 = time.perf_counter()
+
         array_in = self.cl_array
         queue = queue or oclu.queue
         if in_place:
@@ -321,12 +348,16 @@ class DataGrid:
             array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size)
             array_type = type(self)  # This way so inherited classes return their own class type
             grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
-        n = np.int32(array_in.size / 4)
+
         p = np.float32(p)
         if normalize:
-            scale = np.float32(self._get_normalization_factor(queue)) ** p
+            scale = self._get_normalization_factor(queue)
+            assert scale > 0, "Normalizing scaling factor should be positive."
+            scale = np.float32(scale) ** p
         else:
             scale = np.float32(1.0)
+
+        n = np.int32(array_in.size / 4)
         global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
         # fmt: off
         cl_program.power(queue, global_size, local_size,
@@ -337,6 +368,10 @@ class DataGrid:
             scale
         )
         # fmt: on
+
+        if bRuntime:
+            print("runtime(DataGrid.power_positive) [s]: ", time.perf_counter() - t0)
+
         return grid_out
 
     def _get_normalization_factor(self, queue=None):
@@ -359,7 +394,7 @@ class DataGrid:
         cl_program.sumSingleGroup(queue, local_size, local_size, array_out, n_groups)
         # Now the first element of array_out holds the final answer
         sums = np.empty((2,), dtype=np.float32)
-        cl.enqueue_copy(oclu.queue, sums, array_out)
+        cl.enqueue_copy(queue, sums, array_out)
         return sums[0] / sums[1]
 
     def grad(self, scale=1.0, array_out=None, order="C", local_size=(32,), queue=None):
@@ -809,6 +844,9 @@ class ForceField_LJC:
     def prepareBuffers(self, atoms=None, cLJs=None, REAs=None, Zs=None, poss=None, bDirect=False, nz=20, pot=None, E_field=False, rho=None, rho_delta=None, rho_sample=None):
         """Allocate all necessary buffers in device memory."""
 
+        if bRuntime:
+            t0 = time.perf_counter()
+
         nbytes = 0
         mf = cl.mem_flags
         nb_float = np.dtype(np.float32).itemsize
@@ -870,6 +908,9 @@ class ForceField_LJC:
 
         if self.verbose > 0:
             print("ForceField_LJC.prepareBuffers.nbytes", nbytes)
+
+        if bRuntime:
+            print("runtime(ForceField_LJC.prepareBuffers) [s]: ", time.perf_counter() - t0)
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None):
         """Update the content of device buffers."""
@@ -1388,22 +1429,22 @@ class ForceField_LJC:
         Arguments:
             A: float. Prefactor for Pauli repulsion.
             B: float. Exponent used for Pauli repulsion.
-            vdw_type: 'D3' or 'LJ'. Type of vdW interaction to use with the FDBM. 'D3' is for Grimme-D3 and 'LJ' uses
+            vdw_type: ``'D3'`` or ``'LJ'``. Type of vdW interaction to use with the FDBM. ``'D3'`` is for Grimme-D3 and ``'LJ'`` uses
                 standard Lennard-Jones vdW.
             d3_params: str or dict. Functional-specific scaling parameters for DFT-D3. Can be a str with the
                 functional name or a dict with manually specified parameters. See :meth:`add_dftd3`.
-            lj_vdw_damp:  int. Type of damping to use in vdw calculation fdbm_vdw_type=='LJ.
-                -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
-            FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
-                If None and bCopy == True, will be created automatically.
-            rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
-            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            lj_vdw_damp:  int. Type of damping to use in vdw calculation ``fdbm_vdw_type=='LJ'``.
+                ``-1``: no damping, ``0``: constant, ``1``: R2, ``2``: R4, ``3``: invR4, ``4``: invR8.
+            FE: np.ndarray or None. Array where output force field is copied to if ``bCopy==True``.
+                If ``None`` and ``bCopy==True``, will be created automatically.
+            rot: np.ndarray of shape ``(3, 3)``. Rotation matrix applied to the atom coordinates.
+            rot_center: np.ndarray of shape ``(3,)``. Point around which rotation is performed.
             local_size: tuple of a single int. Size of local work group on device.
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
             bFinish: Bool. Whether to wait for execution to finish.
 
         Returns:
-            FE: np.ndarray if bCopy==True or None otherwise. Calculated force field and energy.
+            FE: np.ndarray if ``bCopy==True`` or ``None`` otherwise. Calculated force field and energy.
         """
 
         if bRuntime:
@@ -1434,14 +1475,14 @@ class ForceField_LJC:
         # Cross-correlate Hartree potential and tip electron delta density for electrostatic energy
         E_es = self.fft_corr_delta.correlate(pot, scale=-1.0)  # scale=-1.0, because the electron density has positive sign.
         if not pot_lvec_same:
-            pot.release()
+            pot.release(keep_on_host=False)
 
         # Cross-correlate sample electron density and tip electron density for Pauli energy
         if not np.allclose(B, 1.0):
             rho_sample = rho_sample.power_positive(p=B, in_place=False)
         E_pauli = self.fft_corr.correlate(rho_sample)
         if not rho_sample_lvec_same:
-            rho_sample.release()
+            rho_sample.release(keep_on_host=False)
 
         if bRuntime:
             self.queue.finish()
@@ -1449,7 +1490,7 @@ class ForceField_LJC:
 
         # Add the two energy contributions together
         E = E_es.add_mult(E_pauli, scale=A, in_place=True, local_size=local_size, queue=self.queue)
-        E_pauli.release()
+        E_pauli.release(keep_on_host=False)
 
         if bRuntime:
             self.queue.finish()
@@ -1457,7 +1498,7 @@ class ForceField_LJC:
 
         # Take gradient to get the force field
         E.grad(scale=[-1.0, -1.0, -1.0, 1.0], array_out=self.cl_FE, order="F", local_size=local_size, queue=self.queue)
-        E.release()
+        E.release(keep_on_host=False)
 
         if bRuntime:
             self.queue.finish()
@@ -1510,26 +1551,26 @@ class ForceField_LJC:
 
         There are several methods for generating the force field:
 
-            - 'point-charge': Lennard-Jones + point-charge electrostatics for both tip and sample.
-            - 'hartree': Lennard-Jones + sample hartree potential cross-correlated with tip charge density
+            - ``'point-charge'``: Lennard-Jones + point-charge electrostatics for both tip and sample.
+            - ``'hartree'``: Lennard-Jones + sample hartree potential cross-correlated with tip charge density
               for electrostatic interaction.
-            - 'fdbm': Approximated full density-based model. Pauli repulsion is calculated by tip-sample
+            - ``'fdbm'``: Approximated full density-based model. Pauli repulsion is calculated by tip-sample
               electron density overlap + attractive vdW like in Lennard-Jones. Electrostatic
               interaction is same as in 'hartree', except tip delta-density is used instead.
 
-        If pot, rho, or rho_delta is None and is required for the specified method, it has to be
-        initialized beforehand with prepareBuffers.
+        If ``pot``, ``rho``, or ``rho_delta`` is ``None`` and is required for the specified method, it has to be
+        initialized beforehand with :meth:`prepareBuffers`.
 
         Arguments:
-            xyzs: np.ndarray of shape (n_atoms, 3). xyz positions.
-            cLJs: np.ndarray of shape (n_atoms, 2). Lennard-Jones interaction parameters in AB form for each atom.
-            REAs: np.ndarray of shape (n_atoms, 4) or None. Lennard-Jones interaction parameters in RE form for each atom.
+            xyzs: np.ndarray of shape ``(n_atoms, 3)``. xyz positions.
+            cLJs: np.ndarray of shape ``(n_atoms, 2)``. Lennard-Jones interaction parameters in AB form for each atom.
+            REAs: np.ndarray of shape ``(n_atoms, 4)`` or None. Lennard-Jones interaction parameters in RE form for each atom.
                 Required when method is 'fdbm', fdbm_vdw_type is 'LJ', and vdw_damp_method >= 1.
-            Zs: np.ndarray of shape (n_atoms,). Atomic numbers. Required when method is 'fdbm'.
+            Zs: np.ndarray of shape ``(n_atoms,)``. Atomic numbers. Required when method is 'fdbm'.
             method: 'point-charge', 'hartree' or 'fdbm'. Method for generating the force field.
             FE: np.ndarray or None. Array where output force field is copied to if bCopy == True.
                 If None and bCopy == True, will be created automatically.
-            qs: np.ndarray of shape (n_atoms,) or None. Point charges of atoms. Used when method
+            qs: np.ndarray of shape ``(n_atoms,)`` or None. Point charges of atoms. Used when method
                 is 'point-charge'.
             pot: :class:`HartreePotential` or None. Hartree potential used for electrostatic interaction when
                 method is 'hartree' or 'fdbm'.
@@ -1547,15 +1588,15 @@ class ForceField_LJC:
                 or a dict with manually specified parameters. Used when method is 'fdbm. See :meth:`add_dftd3`.
             lj_vdw_damp: int. Type of damping to use in vdw calculation when method is 'fdbm' and fdbm_vdw_type is 'LJ'.
                 -1: no damping, 0: constant, 1: R2, 2: R4, 3: invR4, 4: invR8.
-            rot: np.ndarray of shape (3, 3). Rotation matrix applied to the atom coordinates.
-            rot_center: np.ndarray of shape (3,). Point around which rotation is performed.
+            rot: np.ndarray of shape ``(3, 3)``. Rotation matrix applied to the atom coordinates.
+            rot_center: np.ndarray of shape ``(3,)``. Point around which rotation is performed.
             local_size: tuple of a single int. Size of local work group on device.
             bRelease: Bool. Whether to delete data on device after computation is done.
             bCopy: Bool. Whether to copy the calculated forcefield field to host.
             bFinish: Bool. Whether to wait for execution to finish.
 
         Returns:
-            FE: np.ndarray if bCopy==True or None otherwise. Calculated force field and energy.
+            FE: np.ndarray if ``bCopy==True`` or ``None`` otherwise. Calculated force field and energy.
         """
 
         if bRuntime:
