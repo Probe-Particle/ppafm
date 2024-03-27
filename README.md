@@ -5,9 +5,11 @@
 [![PyPI-downloads](https://img.shields.io/pypi/dm/ppafm.svg?style=flat)](https://pypistats.org/packages/ppafm)
 
 
-# Probe Particle Model (PPM)
+# Probe-Particle Model
 
-Simple and efficient **simulation software for high-resolution atomic force microscopy** (**HR-AFM**) and other scanning probe microscopy (SPM) techniques with sub-molecular resolution (STM, IETS, TERS). It simulates deflection of the particle attached to the tip (typically CO molecule, but also e.g. Xe, Cl-, H2O and others).
+Simple and efficient **simulation software for high-resolution atomic force microscopy** (**HR-AFM**) and other scanning probe microscopy (SPM) techniques with sub-molecular resolution (STM, IETS, TERS).
+It simulates deflection of the particle attached to the tip (typically CO molecule, but also e.g. Xe, Cl-, H2O and others).
+The python package is named as `ppafm`.
 
 ## Installation
 
@@ -59,12 +61,12 @@ See also the tutorial for using the Python API for [running GPU-accelerated simu
 
 ### Run GPU generator for machine learning
 
-* `examples/CorrectionLoopGraphene` use GPU accelerated PPM to iteratively improve the estimate of molecular geometry by comparing simulated AFM images with reference. This is work-in-progress. Currently, modification of estimate geometry is random (Monte-Carlo), while later we plan to develop a more clever (e.g. Machine-Learned) heuristic for more efficient improvment.
+* `examples/CorrectionLoopGraphene` use GPU accelerated ppafm to iteratively improve the estimate of molecular geometry by comparing simulated AFM images with reference. This is work-in-progress. Currently, modification of estimate geometry is random (Monte-Carlo), while later we plan to develop a more clever (e.g. Machine-Learned) heuristic for more efficient improvment.
 * `examples/Generator` quickly generates a batch of simulated AFM images (resp. 3D data stacks) which can be further used for machine learning. Especially in connection with (https://github.com/SINGROUP/ASD-AFM).
 
-## Flavors of PPM
+## ppafm simulation models and implementations
 
-Since 2014 PPM developed into the toolbox of various methodologies adjusted for a particular use case.
+Since 2014 ppafm developed into the toolbox of various methodologies adjusted for a particular use case.
 
 1. **CPU version:** - Original implementation using Python & C/C++. It can simulate a typical AFM experiment (3D stack of AFM images) in ~1 minute. It is the base version for the development of new features and methodology. All available simulation models are implemented in this version, including:
    1. **Point charge electrostatics + Lennard-Jones:** Original fully classical implementation allows the user to set up calculation without any ab-initio input simply by specifying atomic positions, types and charges.
@@ -78,7 +80,7 @@ Since 2014 PPM developed into the toolbox of various methodologies adjusted for 
 
 * **master_backup** - Old `master` branch was recently significantly updated and named `main`. For users who miss the old master branch, we provided a backup copy. However, this version is very old and its use is discouraged. If you miss some functionality or are not satisfied with the behavior of current `main` branch please let us know by creating an *issue*.
 * **PhotonMap** - implements the latest developments concerning sub-molecular scanning probe combined with Raman spectroscopy (TERS)y and fluorescent spectroscopy (LSTM).
-* **complex_tip** - Modification of probe-particle model with 2 particles allows a better fit to experimental results at the cost of additional fitting parameters.
+* **complex_tip** - Modification of the Probe-Particle <odel with 2 particles allows a better fit to experimental results at the cost of additional fitting parameters.
 
 
 ## For developers
@@ -92,7 +94,8 @@ If you would like to contribute to the development of the ppafm code, please rea
 ## Notable publications using Probe Particle Model
 
 * [Prokop Hapala, Georgy Kichin, Christian Wagner, F. Stefan Tautz, Ruslan Temirov, and Pavel Jelínek, Mechanism of high-resolution STM/AFM imaging with functionalized tips, Phys. Rev. B 90, 085421 – Published 19 August 2014](http://journals.aps.org/prb/abstract/10.1103/PhysRevB.90.085421)
-* [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014,](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101)
+* [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101)
+* [Niko Oinonen, Aliaksandr V. Yakutovich, Aurelio Gallardo, Martin Ondráček, Prokop Hapala and Ondřej Krejčí, Advancing Scanning Probe Microscopy Simulations: A Decade of Development in Probe-Particle Models, arXiv:2401.14564 - 25 January 2024](https://arxiv.org/pdf/2401.14564.pdf)
 
 ## License
 MIT
