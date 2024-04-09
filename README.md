@@ -9,7 +9,7 @@
 
 Simple and efficient **simulation software for high-resolution atomic force microscopy** (**HR-AFM**) and other scanning probe microscopy (SPM) techniques with sub-molecular resolution (STM, IETS, TERS).
 It simulates deflection of the particle attached to the tip (typically CO molecule, but also e.g. Xe, Cl-, H2O and others).
-The python package is named as `ppafm`.
+The Python package is named as `ppafm`.
 
 ## Installation
 
@@ -79,8 +79,8 @@ Since 2014 ppafm developed into the toolbox of various methodologies adjusted fo
 ## Other branches
 
 * **master_backup** - Old `master` branch was recently significantly updated and named `main`. For users who miss the old master branch, we provided a backup copy. However, this version is very old and its use is discouraged. If you miss some functionality or are not satisfied with the behavior of current `main` branch please let us know by creating an *issue*.
-* **PhotonMap** - implements the latest developments concerning sub-molecular scanning probe combined with Raman spectroscopy (TERS)y and fluorescent spectroscopy (LSTM).
-* **complex_tip** - Modification of the Probe-Particle <odel with 2 particles allows a better fit to experimental results at the cost of additional fitting parameters.
+* **PhotonMap** - implements the latest developments concerning sub-molecular scanning probe combined with Raman spectroscopy (TERS) and fluorescent spectroscopy (LSTM).
+* **complex_tip** - Modification of the Probe-Particle Model with 2 particles allows a better fit to experimental results at the cost of additional fitting parameters.
 
 
 ## For developers
