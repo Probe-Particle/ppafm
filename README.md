@@ -7,8 +7,8 @@
 
 # Probe-Particle Model
 
-Simple and efficient **simulation software for high-resolution atomic force microscopy** (**HR-AFM**) and other scanning probe microscopy (SPM) techniques with sub-molecular resolution (STM, IETS, TERS).
-It simulates deflection of the particle attached to the tip (typically CO molecule, but also e.g. Xe, Cl-, H2O and others).
+Simple and efficient simulation software for high-resolution atomic force microscopy (HR-AFM) and other scanning probe microscopy (SPM) techniques with sub-molecular resolution (STM, IETS, TERS).
+It simulates the deflection of the probe particle attached to the tip, where the probe particle represents a flexible tip apex (typically CO molecule, but also e.g. Xe, Cl-, H2O and others).
 The Python package is named as `ppafm`.
 
 ## Installation
