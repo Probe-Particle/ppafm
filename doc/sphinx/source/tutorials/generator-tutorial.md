@@ -4,7 +4,7 @@ The previous tutorials described the [`AFMulator`](afmulator-tutorial) for produ
 The simulations and image descriptors can be used as input/output pairs for training a machine learning model for atomic structure prediction.
 To make the generation of large databases such training data easier, the ppafm Python API provides a generator that wraps both the AFM simulation and the image descriptor calculation into a single object that produces batches of training data.
 
-The generator comes in two forms, the {class}`.InverseAFMtrainer` which can be use for simple Lennard-Jones (+ point-charge electrostatics) simulations based on xyz files, and the {class}`.GeneratorAFMtrainer` which works with any of the force-field models, but requires a bit more setup.
+The generator comes in two forms, the {class}`.InverseAFMtrainer` which can be used for simple Lennard-Jones (+ point-charge electrostatics) simulations based on xyz files, and the {class}`.GeneratorAFMtrainer` which works with any of the force-field models, but requires a bit more setup.
 The following describes how to use both of them.
 
 

@@ -1660,7 +1660,7 @@ class ForceField_LJC:
         return FF
 
 
-class AtomProcjetion:
+class AtomProjection:
     """
     to generate reference output maps ( Ys )  in generator for Neural Network training
     """
@@ -1707,7 +1707,7 @@ class AtomProcjetion:
         allocate GPU buffers
         """
         if verbose > 0:
-            print("AtomProcjetion.prepareBuffers prj_dim", prj_dim)
+            print("AtomProjection.prepareBuffers prj_dim", prj_dim)
         self.prj_dim = prj_dim
         nbytes = 0
         self.nAtoms = np.int32(len(atoms))
@@ -1757,7 +1757,7 @@ class AtomProcjetion:
             nbytes += elem_channels.nbytes
 
         if verbose > 0:
-            print("AtomProcjetion.prepareBuffers.nbytes ", nbytes)
+            print("AtomProjection.prepareBuffers.nbytes ", nbytes)
 
     def updateBuffers(self, atoms=None, coefs=None, poss=None):
         """
