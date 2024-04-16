@@ -23,7 +23,7 @@ if __name__ == "__main__":
     vdw_spheres = vdwSpheres(scan_dim=scan_dim, scan_window=scan_window, zmin=-1.5, Rpp=-0.5)
     atomic_disks = AtomicDisks(scan_dim=scan_dim, scan_window=scan_window, zmin=-1.2)
     height_map = HeightMap(scanner=afmulator.scanner, zmin=-2.0)
-    es_map = ESMapConstant(scan_dim=scan_dim, scan_window=scan_window)
+    es_map = ESMapConstant(scan_dim=scan_dim, scan_window=scan_window, vdW_cutoff=-2.0, Rpp=1.0)
 
     # Evaluate each AuxMap for the molecule
     y_spheres = vdw_spheres(xyzqs, Zs)
@@ -55,4 +55,5 @@ if __name__ == "__main__":
         ax.set_xticks([])
         ax.set_yticks([])
 
+    # Save image to disk
     plt.savefig("auxmaps.png", bbox_inches="tight")
