@@ -256,7 +256,7 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
     else:
         cLJs = PPU.getAtomsLJ(iPP, iZs, FFparams)
         core.getLennardJonesFF(Rs0, cLJs)  # THE MAIN STUFF HERE
-    # --- post porces FFs
+    # --- post process FFs
     if Fmax is not None:
         if verbose > 0:
             print("Clamp force >", Fmax)

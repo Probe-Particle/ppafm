@@ -14,7 +14,7 @@
 
 GridShape gridShape;
 
-// ==== teporary global for functions
+// ==== temporary global for functions
 double * data;
 
 // for histogram ... would be better not make it global
@@ -151,7 +151,7 @@ extern "C" {
 	DLLEXPORT void sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){
 	    data = data_; Histogram::n = n; Histogram::Hs=Hs; Histogram::Ws=Ws; Histogram::dx = dr; Histogram::center.set(center[0],center[1],center[2]);
         Vec3d r0; r0.set(0.0,0.0,0.0);
-        interateGrid3D<acum_sphere_hist>( r0, gridShape.n, gridShape.dCell, NULL );
+        iterateGrid3D<acum_sphere_hist>( r0, gridShape.n, gridShape.dCell, NULL );
 	}
 
 	// ---------  find center of mass
@@ -165,7 +165,7 @@ extern "C" {
 	DLLEXPORT double cog( double * data_, double* center ){
 	    data = data_; Histogram::Htot += 0;  Histogram::center.set(0.0);
         Vec3d r0; r0.set(0.0,0.0,0.0);
-        interateGrid3D<acum_cog>( r0, gridShape.n, gridShape.dCell, NULL );
+        iterateGrid3D<acum_cog>( r0, gridShape.n, gridShape.dCell, NULL );
         Histogram::center.mul( 1/Histogram::Htot  );
         ((Vec3d*)center)->set(Histogram::center);
         return Histogram::Htot;

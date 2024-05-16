@@ -111,13 +111,13 @@ inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r 
 
 // iterate over field
 template< void FUNC( int ibuff, const Vec3d& pos_, void * args ) >
-void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void * args ){
+void iterateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void * args ){
 	int nx  = n.x; 	int ny  = n.y; 	int nz  = n.z;
 	//int nx  = n.z; 	int ny  = n.y; 	int nz  = n.x;
 	int nxy = ny * nx;
-	printf( "interateGrid3D nx,y,z (%i,%i,%i) nxy %i\n", nx,ny,nz, nxy );
+	printf( "iterateGrid3D nx,y,z (%i,%i,%i) nxy %i\n", nx,ny,nz, nxy );
 	Vec3d pos;  pos.set( pos0 );
-	//printf(" interateGrid3D : args %i \n", args );
+	//printf(" iterateGrid3D : args %i \n", args );
 	for ( int ic=0; ic<nz; ic++ ){
         std::cout << "ic " << ic;
         std::cout.flush();
@@ -142,9 +142,9 @@ void interateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void
 }
 
 template< void FUNC( int ibuff, const Vec3d& pos_, void * args ) >
-void interateGrid3D_omp( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void * args ){
+void iterateGrid3D_omp( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void * args ){
     int ntot = n.x*n.y*n.z;
-    int ncpu = omp_get_num_threads(); printf( "interateGrid3D_omp nx,y,z (%i,%i,%i) nxy %i ncpu %i \n",  n.x,n.y,n.z, ntot, ncpu );
+    int ncpu = omp_get_num_threads(); printf( "iterateGrid3D_omp nx,y,z (%i,%i,%i) nxy %i ncpu %i \n",  n.x,n.y,n.z, ntot, ncpu );
     int ndone=0;
     #pragma omp parallel for collapse(3) shared(pos0,n,dCell,args,ndone)
     for ( int ic=0; ic<n.z; ic++ ){
