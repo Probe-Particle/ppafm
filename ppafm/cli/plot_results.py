@@ -214,6 +214,62 @@ def main(argv=None):
                 )
                 print()
 
+        if opt_dict["LCPD_maps"]:
+            if len(bias_voltages) < 3:
+                print("At last three different values of volage needed to evaluate LCPD!")
+                print("LCPD will not be calculated here.")
+                opt_dict["LCPD_maps"] = False
+            else:
+                # Prepare to calculate KPFM/LCPD
+                # For each pixel, find a,b,c such that df = aV^2 + bV + c
+                # This is done as polynomial (2nd order) regression, the above equality need not be exact
+                # but the least-square criterion will be used.
+                # The coefficients a,b,c are going to be determined as linar combinations of df(V) at different biases:
+                #   a = Sum_i w_KPFM_a (V_i)
+                #   b = Sum_i w_KPFM_b (V_i)
+                #   c = Sum_i w_KPFM_c (V_i)
+                # Now, the coefficients (weights) w_KPFM have to be determined.
+                # This will be done with the help of Gram-sSchmidt ortogonalization:
+                # Create vectors v0, v1, v2,
+                #   v0 = [1]_(i=1..N),
+                #   v1 = [V_i]_(i=1..N,)
+                #   v2 = [V^2_i]_(i=1..N),
+                # orthogonalize them, find an expansion of [df(V_i)] into the orthogonalized v0', v1', v2',
+                # then into the original v0, v1, v2 as defined above.
+                # The following notation is going to be used
+                # in order to desribe the relation between the original and the orthogonal vectors:
+                #   v0' = v0
+                #   v1' = v1 + p10 v0
+                #   v2' = v2 + p21 v1 + p20 v0
+                # The coefficients p10, p21, and p20 can be found as follows:
+                #   p10 = -(v1.v0) / N (where N = |v0|^2),
+                #   p21 = -(v2.v1') / |v1'|^2,
+                #   p20 = -(v2.v0) / N + p21 p10.
+                # We have the following expansion of df:
+                #   df = (df.v0')/nv0 v0' + (df.v1')/nv1 v1' + (df.v2')/nv2 v2'
+                #      = (df.v0')/nv0 v0 + (df.v1')/nv1 (v1 + p10 v0) + (df.v2')/nv2 (v2 + p21 v1 + p20 v0),
+                # which gives, for vectors of the desired coefficients w_KPFM
+                #   w_KPFM_a = v2'/nv2
+                #   w_KPFM_b = v1'/nv1 + p21/nv2 v2'
+                #   w_KPFM_c = v0'/nv0 + p10/nv1 v1' + p20/nv2 v2'
+                # where nv0 = N = |v0'|^2, nv1 = |v1'|^2, nv2 = |v2'|^2.
+                nv0 = len(bias_voltages)
+                v0 = np.ones(nv0)
+                v1 = np.copy(bias_voltages)
+                v2 = v1 * v1
+                p10 = -np.dot(v1, v0) / nv0
+                v1 += p10 * v0
+                nv1 = np.dot(v1, v1)
+                p20 = -np.dot(v2, v0) / nv0
+                v2 += p20 * v0
+                p21 = -np.dot(v2, v1) / nv1
+                v2 += p21 * v1
+                p20 += p21 * p10
+                nv2 = np.dot(v2, v2)
+                w_kpfm_a = v2 / nv2
+                w_kpfm_b = v1 / nv1 + v2 * p21 / nv2
+                w_kpfm_c = v0 / nv0 + v1 * p10 / nv1 + v2 * p20 / nv2
+
         if opt_dict["df"] or opt_dict["save_df"] or opt_dict["WSxM"] or opt_dict["LCPD_maps"]:
             for amplitude in amplitudes:
                 for iv, voltage in enumerate(bias_voltages):
@@ -330,20 +386,17 @@ def main(argv=None):
 
                     if opt_dict["LCPD_maps"]:
                         if iv == 0:
-                            lcpd_b = -dfs
-                        if iv == (bias_voltages.shape[0] - 1):
-                            lcpd_b = (lcpd_b + dfs) / (2 * voltage)
-
-                        if iv == 0:
-                            lcpd_a = dfs
-                        if voltage == 0.0:
-                            lcpd_a = lcpd_a - 2 * dfs
-                        if iv == (bias_voltages.shape[0] - 1):
-                            lcpd_a = (lcpd_a + dfs) / (2 * voltage**2)
-
-                        lcpd = -lcpd_b / (2 * lcpd_a)
+                            kpfm_a = w_kpfm_a[0] * dfs
+                            kpfm_b = w_kpfm_b[0] * dfs
+                            kpfm_c = w_kpfm_c[0] * dfs
+                        else:
+                            kpfm_a += w_kpfm_a[iv] * dfs
+                            kpfm_b += w_kpfm_b[iv] * dfs
+                            kpfm_c += w_kpfm_c[iv] * dfs
 
                 if opt_dict["LCPD_maps"]:
+                    lcpd = -kpfm_b / (2 * kpfm_a)
+
                     print("Plotting LCPD: ")
                     if not os.path.exists(dir_name_lcpd):
                         os.makedirs(dir_name_lcpd)
@@ -390,7 +443,7 @@ def main(argv=None):
                     )
 
                     if opt_dict["WSxM"]:
-                        print("Saving LCPD_b into WSxM files :")
+                        print("Saving LCPD into WSxM files :")
                         io.saveWSxM_3D(dir_name_lcpd + "/LCPD" + atoms_str, lcpd, extent, slices=None)
 
     print(" ***** ALL DONE ***** ")
