@@ -77,8 +77,12 @@ if __name__ == "__main__":
         # - desc: descriptors
         # - mols: molecule geometries
 
+        # Save batch to a file
+        np.savez(f"batch_{ib}.npz", afm=afm, desc=desc, mols=mols)
+
         # Iterate over samples in the batch
         for j in range(len(desc[0])):
+
             # Plot AFM
             for i, x in enumerate(afm):
                 rows, cols = 2, 5
