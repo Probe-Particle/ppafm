@@ -1,9 +1,11 @@
 #!/usr/bin/python
 
 import os
+import typing
 from argparse import ArgumentParser
 
 import numpy as np
+import pydantic
 
 from . import cpp_utils
 
@@ -15,6 +17,57 @@ eVA_Nm = 16.0217662  # [eV/A^2] / [N/m]
 CoulombConst = 14.399645
 HBAR = 6.58211951440e-16  # [eV.s]
 AUMASS = 1.66053904020e-27  # [kg]
+
+
+class PpafmParameters(pydantic.BaseModel):
+    PBC: bool = True
+    nPBC: typing.Tuple[int, int, int] = (1, 1, 1)
+    gridN: typing.Tuple[int, int, int] = (-1, -1, -1)
+    gridO: typing.Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    gridA: typing.Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    gridB: typing.Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    gridC: typing.Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    FFgrid0: typing.Tuple[float, float, float] = (-1.0, -1.0, -1.0)
+    FFgridA: typing.Tuple[float, float, float] = (-1.0, -1.0, -1.0)
+    FFgridB: typing.Tuple[float, float, float] = (-1.0, -1.0, -1.0)
+    FFgridC: typing.Tuple[float, float, float] = (-1.0, -1.0, -1.0)
+    moleculeShift: typing.Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    probeType: str = "O"
+    charge: float = 0.00
+    Apauli: float = 18.0
+    Bpauli: float = 1.0
+    ffModel: str = "LJ"
+    Rcore: float = 0.7
+    r0Probe: typing.Tuple[float, float, float] = (0.00, 0.00, 4.00)
+    stiffness: typing.Tuple[float, float, float] = (-1.0, -1.0, -1.0)
+    klat: float = 0.5
+    krad: float = 20.00
+    tip: str = "s"
+    sigma: float = 0.7
+    scanStep: typing.Tuple[float, float, float] = (0.10, 0.10, 0.10)
+    scanMin: typing.Tuple[float, float, float] = (0.0, 0.0, 5.0)
+    scanMax: typing.Tuple[float, float, float] = (20.0, 20.0, 8.0)
+    scanTilt: typing.Tuple[float, float, float] = (0.0, 0.0, -0.1)
+    tiltedScan: bool = False
+    kCantilever: float = 1800.0
+    f0Cantilever: float = 30300.0
+    Amplitude: float = 1.0
+    plotSliceFrom: int = 16
+    plotSliceTo: int = 22
+    plotSliceBy: int = 1
+    imageInterpolation: str = "bicubic"
+    colorscale: str = "gray"
+    colorscale_kpfm: str = "seismic"
+    ddisp: float = 0.05
+    aMorse: float = -1.6
+    tip_base: typing.Tuple[str, float] = ("None", 0.00)
+    Rtip: float = 30.0
+    permit: float = 0.00552634959
+    vdWDampKind: int = 2
+
+    class Config:
+        arbitrary_types_allowed = True
+        validate_assignment = True
 
 
 # fmt: off
