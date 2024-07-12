@@ -16,7 +16,7 @@ _year = 2024
 project = "ppafm"
 copyright = f"{_year}, Probe-Particle team"
 author = "Probe-Particle team"
-version = "0.3.1"
+version = "0.3.2"
 release = version
 
 # -- General configuration ---------------------------------------------------
