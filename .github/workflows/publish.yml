@@ -57,36 +57,36 @@ jobs:
                   name: release
                   path: dist/*.tar.gz
 
-    # publish:
+    publish:
 
-    #     name: Build and publish on PyPI
-    #     if: startsWith(github.ref, 'refs/tags')
+        name: Build and publish on PyPI
+        if: startsWith(github.ref, 'refs/tags')
 
-    #     needs: [build_wheels, build_sdist]
-    #     runs-on: ubuntu-latest
+        needs: [build_wheels, build_sdist]
+        runs-on: ubuntu-latest
 
-    #     environment:
-    #         name: PyPI
-    #         url: https://pypi.org/project/ppafm/
+        environment:
+            name: PyPI
+            url: https://pypi.org/project/ppafm/
 
-    #     steps:
+        steps:
 
-    #         - uses: actions/download-artifact@v2
-    #           name: Download distribution artifact
-    #           with:
-    #               name: release
-    #               path: dist/
+            - uses: actions/download-artifact@v2
+              name: Download distribution artifact
+              with:
+                  name: release
+                  path: dist/
 
-    #         - uses: softprops/action-gh-release@v1
-    #           name: Create release
-    #           if: startsWith(github.ref, 'refs/tags/v')
-    #           with:
-    #               files: |
-    #                   dist/*
-    #               generate_release_notes: true
+            - uses: softprops/action-gh-release@v1
+              name: Create release
+              if: startsWith(github.ref, 'refs/tags/v')
+              with:
+                  files: |
+                      dist/*
+                  generate_release_notes: true
 
-    #         - name: Publish distribution on PyPI
-    #           uses: pypa/gh-action-pypi-publish@release/v1
-    #           with:
-    #               user: __token__
-    #               password: ${{ secrets.PYPI_API_TOKEN }}
+            - name: Publish distribution on PyPI
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                  user: __token__
+                  password: ${{ secrets.PYPI_API_TOKEN }}
