@@ -93,9 +93,10 @@ If you would like to contribute to the development of the ppafm code, please rea
 
 ## Notable publications using Probe Particle Model
 
+If you have used `ppafm` in your research, please cite following articles (at least the review below):
+* [Niko Oinonen, Aliaksandr V. Yakutovich, Aurelio Gallardo, Martin Ondracek, Prokop Hapala, Ondrej Krejci, Advancing Scanning Probe Microscopy Simulations: A Decade of Development in Probe-Particle Models, Comput. Phys. Commun. **issue to be updated**, 109341 - Available online 10 August 2024](https://doi.org/10.1016/j.cpc.2024.109341)
 * [Prokop Hapala, Georgy Kichin, Christian Wagner, F. Stefan Tautz, Ruslan Temirov, and Pavel Jelínek, Mechanism of high-resolution STM/AFM imaging with functionalized tips, Phys. Rev. B 90, 085421 – Published 19 August 2014](http://journals.aps.org/prb/abstract/10.1103/PhysRevB.90.085421)
 * [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101)
-* [Niko Oinonen, Aliaksandr V. Yakutovich, Aurelio Gallardo, Martin Ondráček, Prokop Hapala and Ondřej Krejčí, Advancing Scanning Probe Microscopy Simulations: A Decade of Development in Probe-Particle Models, arXiv:2401.14564 - 25 January 2024](https://arxiv.org/pdf/2401.14564.pdf)
 
 ## License
 MIT
