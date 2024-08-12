@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Example that reproduces the main simulations figure in the paper (TODO: add paper link when published)
+Example that reproduces the main simulations figure in the paper: [Niko Oinonen, Aliaksandr V. Yakutovich, Aurelio Gallardo, Martin Ondracek, Prokop Hapala, Ondrej Krejci, Advancing Scanning Probe Microscopy Simulations: A Decade of Development in Probe-Particle Models, Comput. Phys. Commun. **issue to be updated**, 109341 - Available online 10 August 2024](https://doi.org/10.1016/j.cpc.2024.109341).
 
 The simulation is run for 6 different molecules:
     - C60 fullerene
