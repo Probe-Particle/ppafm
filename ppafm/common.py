@@ -20,13 +20,18 @@ AUMASS = 1.66053904020e-27  # [kg]
 
 
 class PpafmParameters(pydantic.BaseModel):
+    """Parameters for the PPAFM simulation.
+
+    The parameters description can be found on the wiki page: https://github.com/Probe-Particle/ppafm/wiki/Setting-simulation-parameters
+    """
+
     PBC: bool = True
     nPBC: typing.List[int] = [1, 1, 1]
     gridN: typing.List[int] = [-1, -1, -1]
     gridO: typing.List[float] = [0.0, 0.0, 0.0]
-    gridA: typing.List[float] = [0.0, 0.0, 0.0]
-    gridB: typing.List[float] = [0.0, 0.0, 0.0]
-    gridC: typing.List[float] = [0.0, 0.0, 0.0]
+    gridA: typing.List[float] = [20.0, 0.0, 0.0]
+    gridB: typing.List[float] = [0.0, 20.0, 0.0]
+    gridC: typing.List[float] = [0.0, 0.0, 20.0]
     FFgrid0: typing.List[float] = [-1.0, -1.0, -1.0]
     FFgridA: typing.List[float] = [-1.0, -1.0, -1.0]
     FFgridB: typing.List[float] = [-1.0, -1.0, -1.0]
