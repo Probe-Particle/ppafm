@@ -36,11 +36,13 @@ def main(argv=None):
     parser.add_argument( "--bI",        action="store_true",                           help="Plot images for Boltzmann current"    )
     # fmt: on
 
+    parameters = common.PpafmParameters()
+
     args = parser.parse_args(argv)
     opt_dict = vars(args)
 
-    common.loadParams("params.ini")
-    common.apply_options(opt_dict)
+    common.loadParams("params.ini", parameters)
+    common.apply_options(opt_dict, parameters)
 
     if opt_dict["Laplace"]:
         from scipy.ndimage import laplace
@@ -52,10 +54,10 @@ def main(argv=None):
         k_constants = np.linspace(opt_dict["krange"][0], opt_dict["krange"][1], int(opt_dict["krange"][2]))
     elif opt_dict["klat"] is not None:
         k_constants = [opt_dict["klat"]]
-    elif common.params["stiffness"][0] > 0.0:
-        k_constants = [common.params["stiffness"][0]]
+    elif parameters.stiffness[0] > 0.0:
+        k_constants = [parameters.stiffness[0]]
     else:
-        k_constants = [common.params["klat"]]
+        k_constants = [parameters.klat]
 
     # Charges.
     if opt_dict["qrange"] is not None:
@@ -63,7 +65,7 @@ def main(argv=None):
     elif opt_dict["charge"] is not None:
         charges = [opt_dict["charge"]]
     else:
-        charges = [common.params["charge"]]
+        charges = [parameters.charge]
 
     # Amplidudes.
     if opt_dict["arange"] is not None:
@@ -71,7 +73,7 @@ def main(argv=None):
     elif opt_dict["Amplitude"] is not None:
         amplitudes = [opt_dict["Amplitude"]]
     else:
-        amplitudes = [common.params["Amplitude"]]
+        amplitudes = [parameters.Amplitude]
 
     # Applied biases.
     applied_bias = False
@@ -92,8 +94,8 @@ def main(argv=None):
     print("Amps =", amplitudes)
     print(" ============= RUN  ")
 
-    dz = common.params["scanStep"][2]
-    tip_positions_x, tip_positions_y, tip_positions_z, _ = common.prepareScanGrids()
+    dz = parameters.scanStep[2]
+    tip_positions_x, tip_positions_y, tip_positions_z, _ = common.prepareScanGrids(parameters=parameters)
     extent = (tip_positions_x[0], tip_positions_x[-1], tip_positions_y[0], tip_positions_y[-1])
 
     atoms_str = ""
@@ -116,7 +118,7 @@ def main(argv=None):
         ]
         ff_parameters = common.loadSpecies()
         elem_dict = common.getFFdict(ff_parameters)
-        i_zs, r_s, _ = common.parseAtoms(atoms, elem_dict, autogeom=False, PBC=common.params["PBC"])
+        i_zs, r_s, _ = common.parseAtoms(atoms, elem_dict, autogeom=False, PBC=parameters.PBC)
         atom_colors = atomicUtils.getAtomColors(i_zs, FFparams=ff_parameters)
         r_s = r_s.transpose().copy()
         atoms = [i_zs, r_s[0], r_s[1], r_s[2], atom_colors]
@@ -193,14 +195,14 @@ def main(argv=None):
 
             if opt_dict["df"] or opt_dict["save_df"] or opt_dict["WSxM"] or opt_dict["LCPD_maps"]:
                 for amplitude in amplitudes:
-                    common.params["Amplitude"] = amplitude
+                    parameters.Amplitude = amplitude
                     amp_string = f"/Amp{amplitude:2.2f}"
                     print("Amplitude= ", amp_string)
                     dir_name_amplitude = dirname + amp_string
                     if not os.path.exists(dir_name_amplitude):
                         os.makedirs(dir_name_amplitude)
 
-                    if common.params["tiltedScan"]:
+                    if parameters.tiltedScan:
                         (
                             f_out,
                             lvec,
@@ -209,9 +211,9 @@ def main(argv=None):
                         ) = io.load_vec_field(dirname + "/OutF", data_format=args.output_format)
                         dfs = common.Fz2df_tilt(
                             f_out,
-                            common.params["scanTilt"],
-                            k0=common.params["kCantilever"],
-                            f0=common.params["f0Cantilever"],
+                            parameters.scanTilt,
+                            k0=parameters.kCantilever,
+                            f0=parameters.f0Cantilever,
                             amplitude=amplitude,
                         )
                         lvec_df = np.array(lvec.copy())
@@ -226,16 +228,16 @@ def main(argv=None):
                             atomic_info_or_head,
                         ) = io.load_scal_field(dirname + "/OutFz", data_format=args.output_format)
                         if applied_bias:
-                            r_tip = common.params["Rtip"]
+                            r_tip = parameters.Rtip
                             for iz, z in enumerate(tip_positions_z):
-                                fzs[iz, :, :] = fzs[iz, :, :] - np.pi * common.params["permit"] * ((r_tip * r_tip) / ((z - args.z0) * (z + r_tip))) * (voltage - args.V0) * (
+                                fzs[iz, :, :] = fzs[iz, :, :] - np.pi * parameters.permit * ((r_tip * r_tip) / ((z - args.z0) * (z + r_tip))) * (voltage - args.V0) * (
                                     voltage - args.V0
                                 )
                         dfs = common.Fz2df(
                             fzs,
                             dz=dz,
-                            k0=common.params["kCantilever"],
-                            f0=common.params["f0Cantilever"],
+                            k0=parameters.kCantilever,
+                            f0=parameters.f0Cantilever,
                             amplitude=amplitude,
                         )
                         lvec_df = np.array(lvec.copy())
@@ -257,9 +259,9 @@ def main(argv=None):
                             dir_name_amplitude + "/df" + atoms_str + cbar_str,
                             dfs,
                             slices=list(range(0, len(dfs))),
-                            zs=tip_positions_z + common.params["Amplitude"] / 2.0,
+                            zs=tip_positions_z + parameters.Amplitude / 2.0,
                             extent=extent,
-                            cmap=common.params["colorscale"],
+                            cmap=parameters.colorscale,
                             atoms=atoms,
                             bonds=bonds,
                             atomSize=atom_size,
@@ -282,9 +284,9 @@ def main(argv=None):
                             dir_name_amplitude + "/df_laplace" + atoms_str + cbar_str,
                             df_laplace_filtered,
                             slices=list(range(0, len(dfs))),
-                            zs=tip_positions_z + common.params["Amplitude"] / 2.0,
+                            zs=tip_positions_z + parameters.Amplitude / 2.0,
                             extent=extent,
-                            cmap=common.params["colorscale"],
+                            cmap=parameters.colorscale,
                             atoms=atoms,
                             bonds=bonds,
                             atomSize=atom_size,
@@ -327,9 +329,9 @@ def main(argv=None):
                 "./LCPD" + atoms_str + cbar_str,
                 lcpd,
                 slices=list(range(0, len(lcpd))),
-                zs=tip_positions_z + common.params["Amplitude"] / 2.0,
+                zs=tip_positions_z + parameters.Amplitude / 2.0,
                 extent=extent,
-                cmap=common.params["colorscale_kpfm"],
+                cmap=parameters.colorscale_kpfm,
                 atoms=atoms,
                 bonds=bonds,
                 atomSize=atom_size,
@@ -342,9 +344,9 @@ def main(argv=None):
                 "./_Asym-LCPD" + atoms_str + cbar_str,
                 lcpd,
                 slices=list(range(0, len(lcpd))),
-                zs=tip_positions_z + common.params["Amplitude"] / 2.0,
+                zs=tip_positions_z + parameters.Amplitude / 2.0,
                 extent=extent,
-                cmap=common.params["colorscale_kpfm"],
+                cmap=parameters.colorscale_kpfm,
                 atoms=atoms,
                 bonds=bonds,
                 atomSize=atom_size,

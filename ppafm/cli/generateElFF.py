@@ -32,9 +32,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     # Load parameters.
-    params_path = Path("params.ini") if Path("params.ini").is_file() else cpp_utils.PACKAGE_PATH / "defaults" / "params.ini"
-    common.loadParams(params_path)
-    common.apply_options(vars(args))
+    parameters = common.PpafmParameters()
+    common.loadParams("params.ini", parameters)
+    common.apply_options(vars(args), parameters)
 
     # Load species.
     species_path = Path("atomtypes.ini") if Path("atomtypes.ini").is_file() else cpp_utils.PACKAGE_PATH / "defaults" / "atomtypes.ini"
@@ -47,7 +47,7 @@ def main(argv=None):
         valence_electrons_dictionary = loadValenceElectronDict()
         rs_tip, elems_tip = getAtomsWhichTouchPBCcell(args.tip_dens, Rcut=args.Rcore)
 
-    atoms_samp, _, lvec_samp = io.loadGeometry(args.input, format=args.input_format, params=common.params)
+    atoms_samp, _, lvec_samp = io.loadGeometry(args.input, format=args.input_format, parameters=parameters)
     head_samp = io.primcoords2Xsf(atoms_samp[0], [atoms_samp[1], atoms_samp[2], atoms_samp[3]], lvec_samp)
 
     # Load electrostatic potential.
@@ -64,14 +64,6 @@ def main(argv=None):
 
     electrostatic_potential *= -1  # Unit conversion, energy to potential (eV -> V)
 
-    # To fix.
-    # if common.params["tip"] == ".py":
-    #     # import tip
-    #     exec(compile(open("tip.py", "rb").read(), "tip.py", "exec"))
-    #     print(tipMultipole)
-    #     common.params["tip"] = tipMultipole
-    #     print("params['tip'] ", common.params["tip"])
-
     if args.tip_dens is not None:
         #  No need to renormalize: fieldFFT already works with density
         print(">>> Loading tip density from ", args.tip_dens, "...")
@@ -84,11 +76,11 @@ def main(argv=None):
             print(">>> subtracting core densities from rho_tip ... ")
             subtractCoreDensities(rho_tip, lvec_tip, elems=elems_tip, Rs=rs_tip, valElDict=valence_electrons_dictionary, Rcore=args.Rcore, head=head_tip)
 
-        common.params["tip"] = -rho_tip  # Negative sign, because the electron density needs to be negative but the input density is positive
+        parameters.tip = -rho_tip  # Negative sign, because the electron density needs to be negative but the input density is positive
 
     if args.KPFM_sample is not None:
-        sigma = common.params["sigma"]
-        print(common.params["sigma"])
+        sigma = parameters.sigma
+        print(parameters.sigma)
         if input_format == "xsf" and args.KPFM_sample.lower().endswith(".xsf"):
             v_ref_s = args.Vref
             print(">>> Loading Hartree potential under bias from ", args.KPFM_sample, "...")
@@ -123,15 +115,15 @@ def main(argv=None):
             # because the sign of rho_tip is as in *electron* density while drho_kpfm should be a difference of *charge* densities.
         elif args.KPFM_tip in {"Fit", "fit", "dipole", "pz"}:  # To be put on a library in the near future...
             v_ref_t = -0.1
-            if common.params["probeType"] == "8":
+            if parameters.probeType == "8":
                 drho_kpfm = {"pz": 0.045}
                 sigma = 0.48
                 print(" Select CO-tip polarization ")
-            if common.params["probeType"] == "47":
+            if parameters.probeType == "47":
                 drho_kpfm = {"pz": 0.21875}
                 sigma = 0.7
                 print(" Select Ag polarization with decay sigma", sigma)
-            if common.params["probeType"] == "54":
+            if parameters.probeType == "54":
                 drho_kpfm = {"pz": 0.250}
                 sigma = 0.67
                 print(" Select Xe-tip polarization")
@@ -144,8 +136,8 @@ def main(argv=None):
                 + '") format\nnor is it a valid name of a tip polarizability model.\n'
             )
 
-        ff_kpfm_t0sv, _ = computeElFF(dv_kpfm, lvec, n_dim, common.params["tip"], computeVpot=args.energy, tilt=args.tilt)
-        ff_kpfm_tvs0, _ = computeElFF(electrostatic_potential, lvec, n_dim, drho_kpfm, computeVpot=args.energy, tilt=args.tilt, sigma=sigma, deleteV=False)
+        ff_kpfm_t0sv, _ = computeElFF(dv_kpfm, lvec, n_dim, parameters.tip, computeVpot=args.energy, tilt=args.tilt, parameters=parameters)
+        ff_kpfm_tvs0, _ = computeElFF(electrostatic_potential, lvec, n_dim, drho_kpfm, computeVpot=args.energy, tilt=args.tilt, sigma=sigma, deleteV=False, parameters=parameters)
 
         print("Linear E to V")
         zpos = np.linspace(lvec[0, 2] - args.z0, lvec[0, 2] + lvec[3, 2] - args.z0, n_dim[0])
@@ -162,7 +154,7 @@ def main(argv=None):
         io.save_vec_field("FFkpfm_tVs0", ff_kpfm_tvs0, lvec_samp, data_format=args.output_format, head=head_samp)
 
     print(">>> Calculating electrostatic forcefield with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
-    ff_electrostatic, e_electrostatic = computeElFF(electrostatic_potential, lvec, n_dim, common.params["tip"], computeVpot=args.energy, tilt=args.tilt)
+    ff_electrostatic, e_electrostatic = computeElFF(electrostatic_potential, lvec, n_dim, parameters.tip, computeVpot=args.energy, tilt=args.tilt, parameters=parameters)
 
     print(">>> Saving electrostatic forcefield ... ")
 

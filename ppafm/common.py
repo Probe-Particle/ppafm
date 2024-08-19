@@ -21,33 +21,33 @@ AUMASS = 1.66053904020e-27  # [kg]
 
 class PpafmParameters(pydantic.BaseModel):
     PBC: bool = True
-    nPBC: typing.Tuple[int, int, int] = (1, 1, 1)
-    gridN: typing.Tuple[int, int, int] = (-1, -1, -1)
-    gridO: typing.Tuple[float, float, float] = (0.0, 0.0, 0.0)
-    gridA: typing.Tuple[float, float, float] = (0.0, 0.0, 0.0)
-    gridB: typing.Tuple[float, float, float] = (0.0, 0.0, 0.0)
-    gridC: typing.Tuple[float, float, float] = (0.0, 0.0, 0.0)
-    FFgrid0: typing.Tuple[float, float, float] = (-1.0, -1.0, -1.0)
-    FFgridA: typing.Tuple[float, float, float] = (-1.0, -1.0, -1.0)
-    FFgridB: typing.Tuple[float, float, float] = (-1.0, -1.0, -1.0)
-    FFgridC: typing.Tuple[float, float, float] = (-1.0, -1.0, -1.0)
-    moleculeShift: typing.Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    nPBC: typing.List[int] = [1, 1, 1]
+    gridN: typing.List[int] = [-1, -1, -1]
+    gridO: typing.List[float] = [0.0, 0.0, 0.0]
+    gridA: typing.List[float] = [0.0, 0.0, 0.0]
+    gridB: typing.List[float] = [0.0, 0.0, 0.0]
+    gridC: typing.List[float] = [0.0, 0.0, 0.0]
+    FFgrid0: typing.List[float] = [-1.0, -1.0, -1.0]
+    FFgridA: typing.List[float] = [-1.0, -1.0, -1.0]
+    FFgridB: typing.List[float] = [-1.0, -1.0, -1.0]
+    FFgridC: typing.List[float] = [-1.0, -1.0, -1.0]
+    moleculeShift: typing.List[float] = [0.0, 0.0, 0.0]
     probeType: str = "O"
     charge: float = 0.00
     Apauli: float = 18.0
     Bpauli: float = 1.0
     ffModel: str = "LJ"
     Rcore: float = 0.7
-    r0Probe: typing.Tuple[float, float, float] = (0.00, 0.00, 4.00)
-    stiffness: typing.Tuple[float, float, float] = (-1.0, -1.0, -1.0)
+    r0Probe: typing.List[float] = [0.00, 0.00, 4.00]
+    stiffness: typing.List[float] = [-1.0, -1.0, -1.0]
     klat: float = 0.5
     krad: float = 20.00
     tip: str = "s"
     sigma: float = 0.7
-    scanStep: typing.Tuple[float, float, float] = (0.10, 0.10, 0.10)
-    scanMin: typing.Tuple[float, float, float] = (0.0, 0.0, 5.0)
-    scanMax: typing.Tuple[float, float, float] = (20.0, 20.0, 8.0)
-    scanTilt: typing.Tuple[float, float, float] = (0.0, 0.0, -0.1)
+    scanStep: typing.List[float] = [0.10, 0.10, 0.10]
+    scanMin: typing.List[float] = [0.0, 0.0, 5.0]
+    scanMax: typing.List[float] = [20.0, 20.0, 8.0]
+    scanTilt: typing.List[float] = [0.0, 0.0, -0.1]
     tiltedScan: bool = False
     kCantilever: float = 1800.0
     f0Cantilever: float = 30300.0
@@ -60,7 +60,7 @@ class PpafmParameters(pydantic.BaseModel):
     colorscale_kpfm: str = "seismic"
     ddisp: float = 0.05
     aMorse: float = -1.6
-    tip_base: typing.Tuple[str, float] = ("None", 0.00)
+    tip_base: typing.List = ["None", 0.00]
     Rtip: float = 30.0
     permit: float = 0.00552634959
     vdWDampKind: int = 2
@@ -382,9 +382,9 @@ def get_simple_df_weight(n=10, dz=0.1):
 
 def Fz2df(
     F,
-    dz=0.1,
-    k0=params["kCantilever"],
-    f0=params["f0Cantilever"],
+    dz,
+    k0,
+    f0,
     amplitude=1.0,
     units=16.0217656,
 ):
@@ -400,9 +400,9 @@ def Fz2df(
 
 def Fz2df_tilt(
     F,
-    d=params["scanTilt"],
-    k0=params["kCantilever"],
-    f0=params["f0Cantilever"],
+    d,
+    k0,
+    f0,
     amplitude=1.0,
     units=16.0217656,
 ):
@@ -489,15 +489,15 @@ def maxAlongDirEntropy(atoms, hdir, beta=1.0):
 # ==============================
 
 
-def autoGridN():
-    params["gridN"][0] = round(np.linalg.norm(params["gridA"]) * 10)
-    params["gridN"][1] = round(np.linalg.norm(params["gridB"]) * 10)
-    params["gridN"][2] = round(np.linalg.norm(params["gridC"]) * 10)
-    return params["gridN"]
+def autoGridN(parameters):
+    parameters.gridN[0] = round(np.linalg.norm(parameters.gridA) * 10)
+    parameters.gridN[1] = round(np.linalg.norm(parameters.gridB) * 10)
+    parameters.gridN[2] = round(np.linalg.norm(parameters.gridC) * 10)
+    return parameters.gridN
 
 
 # overide default parameters by parameters read from a file
-def loadParams(fname):
+def loadParams(fname, parameters):
     if verbose > 0:
         print(" >> OVERWRITING SETTINGS by " + fname)
     fin = open(fname)
@@ -505,74 +505,70 @@ def loadParams(fname):
         words = line.split()
         if len(words) >= 2:
             key = words[0]
-            if key in params:
-                val = params[key]
+            if hasattr(parameters, key):
+                val = getattr(parameters, key)
                 if key[0][0] == "#":
                     continue
                 if verbose > 0:
                     print(key, " is class ", val.__class__)
                 if isinstance(val, bool):
                     word = words[1].strip()
-                    if (word[0] == "T") or (word[0] == "t"):
-                        params[key] = True
-                    else:
-                        params[key] = False
+                    setattr(parameters, key, word[0] == "T" or word[0] == "t")
                     if verbose > 0:
-                        print(key, params[key], ">>", word, "<<")
+                        print(key, getattr(parameters, key), ">>", word, "<<")
                 elif isinstance(val, float):
-                    params[key] = float(words[1])
+                    setattr(parameters, key, float(words[1]))
                     if verbose > 0:
-                        print(key, params[key], words[1])
+                        print(key, getattr(parameters, key), words[1])
                 elif isinstance(val, int):
-                    params[key] = int(words[1])
+                    setattr(parameters, key, int(words[1]))
                     if verbose > 0:
-                        print(key, params[key], words[1])
+                        print(key, getattr(parameters, key), words[1])
                 elif isinstance(val, str):
-                    params[key] = words[1]
-                    if verbose > 0:
-                        print(key, params[key], words[1])
+                    setattr(parameters, key, words[1])
                 elif isinstance(val, np.ndarray):
                     if val.dtype == float:
-                        params[key] = np.array([float(words[1]), float(words[2]), float(words[3])])
+                        setattr(parameters, key, [float(words[1]), float(words[2]), float(words[3])])
                         if verbose > 0:
-                            print(key, params[key], words[1], words[2], words[3])
+                            print(key, getattr(parameters, key), words[1], words[2], words[3])
                     elif val.dtype == int:
                         if verbose > 0:
                             print(key)
-                        params[key] = np.array([int(words[1]), int(words[2]), int(words[3])])
+                        setattr(parameters, key, [int(words[1]), int(words[2]), int(words[3])])
                         if verbose > 0:
-                            print(key, params[key], words[1], words[2], words[3])
+                            print(key, getattr(parameters, key), words[1], words[2], words[3])
                     else:
-                        params[key] = np.array([str(words[1]), float(words[2])])
+                        setattr(parameters, key, [str(words[1]), float(words[2])])
                         if verbose > 0:
-                            print(key, params[key], words[1], words[2])
+                            print(key, getattr(parameters, key), words[1], words[2])
             else:
                 raise ValueError(f"Parameter {key} is not known")
     fin.close()
-    if params["gridN"][0] <= 0:
-        autoGridN()
+    if parameters.gridN[0] <= 0:
+        autoGridN(parameters=parameters)
 
-    params["tip"] = params["tip"].replace('"', "")
-    params["tip"] = params["tip"].replace("'", "")
+    parameters.tip = parameters.tip.replace('"', "")
+    parameters.tip = parameters.tip.replace("'", "")
     ### necessary for working even with quotemarks in params.ini
-    params["tip_base"][0] = params["tip_base"][0].replace('"', "")
-    params["tip_base"][0] = params["tip_base"][0].replace("'", "")
+    parameters.tip_base[0] = parameters.tip_base[0].replace('"', "")
+    parameters.tip_base[0] = parameters.tip_base[0].replace("'", "")
     ### necessary for working even with quotemarks in params.ini
+    print("Loaded parameters from ", fname)
 
 
-def apply_options(opt):
+def apply_options(opt, parameters):
     if verbose > 0:
-        print("!!!! OVERRIDE params !!!! in Apply options:")
+        print("!!!! OVERRIDE parameters !!!! in Apply options:")
     if verbose > 0:
         print(opt)
     for key, value in opt.items():
         if value is None:
             continue
-        if key in params:
-            params[key] = value
+        if hasattr(parameters, key):
+            setattr(parameters, key, value)
             if key == "klat" and params["stiffness"][0] > 0.0:
                 print("Overriding stiffness parameter with klat")
-                params["stiffness"] = np.array([-1.0, -1.0, -1.0])  # klat overrides stiffness
+                parameters.stiffness = np.array([-1.0, -1.0, -1.0])  # klat overrides stiffness
             if verbose > 0:
                 print(f"Applied: {key} = {value}")
 
@@ -620,7 +616,7 @@ def loadSpeciesLines(lines):
     )
 
 
-def autoGeom(Rs, shiftXY=False, fitCell=False, border=3.0):
+def autoGeom(Rs, parameters, shiftXY=False, fitCell=False, border=3.0):
     """
     set Force-Filed and Scanning supercell to fit optimally given geometry
     then shifts the geometry in the center of the supercell
@@ -630,24 +626,25 @@ def autoGeom(Rs, shiftXY=False, fitCell=False, border=3.0):
     if verbose > 0:
         print(" autoGeom subtracted zmax = ", zmax)
     xmin = min(Rs[0])
+
     xmax = max(Rs[0])
     ymin = min(Rs[1])
     ymax = max(Rs[1])
     if fitCell:
-        params["gridA"][0] = (xmax - xmin) + 2 * border
-        params["gridA"][1] = 0
-        params["gridB"][0] = 0
-        params["gridB"][1] = (ymax - ymin) + 2 * border
-        params["scanMin"][0] = 0
-        params["scanMin"][1] = 0
-        params["scanMax"][0] = params["gridA"][0]
-        params["scanMax"][1] = params["gridB"][1]
+        parameters.gridA[0] = (xmax - xmin) + 2 * border
+        parameters.gridA[1] = 0
+        parameters.gridB[0] = 0
+        parameters.gridB[1] = (ymax - ymin) + 2 * border
+        parameters.scanMin[0] = 0
+        parameters.scanMin[1] = 0
+        parameters.scanMax[0] = parameters.gridA[0]
+        parameters.scanMax[1] = parameters.gridB[1]
         if verbose > 0:
-            print(" autoGeom changed cell to = ", params["scanMax"])
+            print(" autoGeom changed cell to = ", parameters.scanM)
     if shiftXY:
-        dx = -0.5 * (xmin + xmax) + 0.5 * (params["gridA"][0] + params["gridB"][0])
+        dx = -0.5 * (xmin + xmax) + 0.5 * (parameters.gridA[0] + parameters.gridB[0])
         Rs[0] += dx
-        dy = -0.5 * (ymin + ymax) + 0.5 * (params["gridA"][1] + params["gridB"][1])
+        dy = -0.5 * (ymin + ymax) + 0.5 * (parameters.gridA[1] + parameters.gridB[1])
         Rs[1] += dy
         if verbose > 0:
             print(" autoGeom moved geometry by ", dx, dy)
@@ -668,7 +665,7 @@ def wrapAtomsCell(Rs, da, db, avec, bvec):
     Rs[:, :2] = np.dot(ABs, M)
 
 
-def PBCAtoms(Zs, Rs, Qs, avec, bvec, na=None, nb=None):
+def PBCAtoms(Zs, Rs, Qs, avec, bvec, na=None, nb=None, parameters=None):
     """
     multiply atoms of sample along supercell vectors
     the multiplied sample geometry is used for evaluation of forcefield in Periodic-boundary-Conditions ( PBC )
@@ -677,9 +674,9 @@ def PBCAtoms(Zs, Rs, Qs, avec, bvec, na=None, nb=None):
     Rs_ = []
     Qs_ = []
     if na is None:
-        na = params["nPBC"][0]
+        na = parameters.nPBC[0]
     if nb is None:
-        nb = params["nPBC"][1]
+        nb = parameters.nPBC[1]
     for i in range(-na, na + 1):
         for j in range(-nb, nb + 1):
             for iatom in range(len(Zs)):
@@ -890,7 +887,7 @@ def atoms2iZs(names, elem_dict):
     return np.array([atom2iZ(name, elem_dict) for name in names], dtype=np.int32)
 
 
-def parseAtoms(atoms, elem_dict, PBC=True, autogeom=False, lvec=None):
+def parseAtoms(atoms, elem_dict, PBC=True, autogeom=False, lvec=None, parameters=None):
     Rs = np.array([atoms[1], atoms[2], atoms[3]])
     if elem_dict is None:
         if verbose > 0:
@@ -909,8 +906,8 @@ def parseAtoms(atoms, elem_dict, PBC=True, autogeom=False, lvec=None):
             avec = lvec[1]
             bvec = lvec[2]
         else:
-            avec = params["gridA"]
-            bvec = params["gridB"]
+            avec = parameters.gridA
+            bvec = parameters.gridB
         iZs, Rs, Qs = PBCAtoms(iZs, Rs, Qs, avec=avec, bvec=bvec)
     return iZs, Rs, Qs
 
@@ -986,47 +983,48 @@ def getAtomsLJ_fast(iZprobe, iZs, FFparams):
 # ============= Hi-Level Macros
 
 
-def prepareScanGrids():
+def prepareScanGrids(parameters):
     """
     Defines the grid over which the tip will scan, according to scanMin, scanMax, and scanStep.
     The origin of the grid is going to be shifted (from scanMin) by the bond length between the "Probe Particle"
     and the "Apex", so that while the point of reference on the tip used to interpret scanMin  was the Apex,
     the new point of reference used in the XSF output will be the Probe Particle.
     """
-    xTips = np.arange(params["scanMin"][0], params["scanMax"][0] + 0.5 * params["scanStep"][0], params["scanStep"][0])
-    yTips = np.arange(params["scanMin"][1], params["scanMax"][1] + 0.5 * params["scanStep"][1], params["scanStep"][1])
-    zTips = np.arange(params["scanMin"][2], params["scanMax"][2] + 0.5 * params["scanStep"][2], params["scanStep"][2])
+
+    xTips = np.arange(parameters.scanMin[0], parameters.scanMax[0] + 0.5 * parameters.scanStep[0], parameters.scanStep[0])
+    yTips = np.arange(parameters.scanMin[1], parameters.scanMax[1] + 0.5 * parameters.scanStep[1], parameters.scanStep[1])
+    zTips = np.arange(parameters.scanMin[2], parameters.scanMax[2] + 0.5 * parameters.scanStep[2], parameters.scanStep[2])
     (xTips[0], xTips[-1], yTips[0], yTips[-1])
     lvecScan = np.array(
         [
             [
-                (params["scanMin"] + params["r0Probe"])[0],
-                (params["scanMin"] + params["r0Probe"])[1],
-                (params["scanMin"] - params["r0Probe"])[2],
+                parameters.scanMin[0] + parameters.r0Probe[0],
+                parameters.scanMin[1] + parameters.r0Probe[1],
+                parameters.scanMin[2] - parameters.r0Probe[2],
             ],
-            [(params["scanMax"] - params["scanMin"])[0], 0.0, 0.0],
-            [0.0, (params["scanMax"] - params["scanMin"])[1], 0.0],
-            [0.0, 0.0, (params["scanMax"] - params["scanMin"])[2]],
+            [parameters.scanMax[0] - parameters.scanMin[0], 0.0, 0.0],
+            [0.0, parameters.scanMax[1] - parameters.scanMin[1], 0.0],
+            [0.0, 0.0, parameters.scanMax[2] - parameters.scanMin[2]],
         ]
-    ).copy()
+    )
     return xTips, yTips, zTips, lvecScan
 
 
-def lvec2params(lvec):
-    params["gridA"] = lvec[1, :].copy()
-    params["gridB"] = lvec[2, :].copy()
-    params["gridC"] = lvec[3, :].copy()
+def lvec2params(parameters, lvec):
+    parameters.gridA = lvec[1, :].copy()
+    parameters.gridB = lvec[2, :].copy()
+    parameters.gridC = lvec[3, :].copy()
 
 
-def params2lvec():
+def params2lvec(parameters):
     lvec = np.array(
         [
             [0.0, 0.0, 0.0],
-            params["gridA"],
-            params["gridB"],
-            params["gridC"],
+            parameters.gridA,
+            parameters.gridB,
+            parameters.gridC,
         ]
-    ).copy
+    ).copy()
     return lvec
 
 

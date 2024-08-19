@@ -46,11 +46,13 @@ def main(argv=None):
     parser.add_argument("--pol_t",          action="store",      type=float, default=1.0, help="Scaling factor for tip polarization")
     parser.add_argument("--pol_s",          action="store",      type=float, default=1.0, help="Scaling factor for sample polarization")
     # fmt: on
-    args = parser.parse_args(argv)
 
+    parameters = common.PpafmParameters()
+
+    args = parser.parse_args(argv)
     opt_dict = vars(args)
-    common.loadParams("params.ini")
-    common.apply_options(opt_dict)
+    common.loadParams("params.ini", parameters)
+    common.apply_options(opt_dict, parameters)
 
     # =============== Setup
 
@@ -136,7 +138,7 @@ def main(argv=None):
 
     lvec[1, :] = rotate_vector(lvec[1, :], opt_dict["rotate"])
     lvec[2, :] = rotate_vector(lvec[2, :], opt_dict["rotate"])
-    common.lvec2params(lvec)
+    common.lvec2params(parameters=parameters, lvec=lvec)
 
     for charge, stiffness, voltage in it.product(charges, k_constants, voltages):
         common.params["charge"] = charge
@@ -161,6 +163,7 @@ def main(argv=None):
             FFkpfm_tVs0=ff_kpfm_tvs0,
             tipspline=args.tipspline,
             bFFtotDebug=args.bDebugFFtot,
+            parameters=parameters,
         )
 
         data_info = {"lvec": lvec_scan, "data_format": args.output_format, "head": atomic_info_or_head, "atomic_info": atomic_info_or_head}
