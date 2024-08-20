@@ -176,7 +176,7 @@ class RelaxedScanner:
 
         # see: https://stackoverflow.com/questions/39533635/pyopencl-3d-rgba-image-from-numpy-array
         if scan_dim is not None:
-            self.scan_dim = scan_dim
+            self.scan_dim = tuple(scan_dim)
             fsize = np.dtype(np.float32).itemsize
             f4size = fsize * 4
             nxy = self.scan_dim[0] * self.scan_dim[1]
@@ -194,14 +194,7 @@ class RelaxedScanner:
                 nbytes += bsz * self.nDimConvOut
                 self.cl_WZconv = cl.Buffer(self.ctx, mf.READ_ONLY, fsize * self.nDimConv)
                 nbytes += fsize * self.nDimConv
-                self.FEconv = np.empty(
-                    self.scan_dim[:2]
-                    + (
-                        self.nDimConvOut,
-                        4,
-                    ),
-                    dtype=np.float32,
-                )
+                self.FEconv = self.prepareFEConv()
 
         if bZMap:
             self.cl_zMap = cl.Buffer(self.ctx, mf.WRITE_ONLY, nxy * fsize)
@@ -256,6 +249,9 @@ class RelaxedScanner:
             self.cl_atoms.release()
         except:
             pass
+
+    def prepareFEConv(self):
+        return np.empty(self.scan_dim[:2] + (self.nDimConvOut, 4), dtype=np.float32)
 
     def preparePosBasis(self, start=(-5.0, -5.0), end=(5.0, 5.0)):
         self.start = start
@@ -473,16 +469,6 @@ class RelaxedScanner:
         cl.enqueue_copy(self.queue, FEout, self.cl_FEout)
         self.queue.finish()
         return FEout
-
-    def prepareFEConv(self):
-        return np.empty(
-            self.scan_dim[:2]
-            + (
-                self.nDimConvOut,
-                4,
-            ),
-            dtype=np.float32,
-        )
 
     def run_convolveZ(self, FEconv=None, nz=None):
         """

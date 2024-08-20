@@ -136,7 +136,7 @@ def loadGeometryIN(fname):
                 elif ws[0] == "lattice_vector":
                     lvec.append([float(ws[1]), float(ws[2]), float(ws[3])])
                 elif ws[0] == "atom_frac" and len(lvec) == 3:
-                    xyzs.append(np.array(lvec) @ np.array([float(ws[1]), float(ws[2]), float(ws[3])]))
+                    xyzs.append(np.array([float(ws[1]), float(ws[2]), float(ws[3])]) @ np.array(lvec))
                     Zs.append(elements.ELEMENT_DICT[ws[4]][0])
                 elif ws[0] == "trust_radius":
                     break
