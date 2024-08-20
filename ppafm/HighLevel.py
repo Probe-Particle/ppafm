@@ -230,7 +230,7 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
     atomstring = io.primcoords2Xsf(PPU.atoms2iZs(atoms[0], elem_dict), [atoms[1], atoms[2], atoms[3]], lvec)
     if verbose > 0:
         print(parameters.gridN, parameters.gridO, parameters.gridA, parameters.gridB, parameters.gridC)
-    iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=parameters.PBC, lvec=lvec)
+    iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=parameters.PBC, lvec=lvec, parameters=parameters)
     # --- prepare LJ parameters
     iPP = PPU.atom2iZ(parameters.probeType, elem_dict)
     # --- prepare arrays and compute
@@ -338,7 +338,7 @@ def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format
     # --- prepare arrays and compute
     if verbose > 0:
         print(parameters.gridN, parameters.gridA, parameters.gridB, parameters.gridC)
-    _, Rs, Qs = PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=parameters.PBC, lvec=lvec)
+    _, Rs, Qs = PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=parameters.PBC, lvec=lvec, parameters=parameters)
     FF, V = prepareArrays(None, computeVpot, parameters=parameters)
     core.setFF_shape(np.shape(FF), lvec)
 

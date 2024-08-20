@@ -69,6 +69,7 @@ class PpafmParameters(pydantic.BaseModel):
     Rtip: float = 30.0
     permit: float = 0.00552634959
     vdWDampKind: int = 2
+    Vbias: float = 0.0
 
     class Config:
         arbitrary_types_allowed = True
@@ -531,12 +532,12 @@ def loadParams(fname, parameters):
                         print(key, getattr(parameters, key), words[1])
                 elif isinstance(val, str):
                     setattr(parameters, key, words[1])
-                elif isinstance(val, np.ndarray):
-                    if val.dtype == float:
+                elif isinstance(val, list):
+                    if isinstance(val[0], float):
                         setattr(parameters, key, [float(words[1]), float(words[2]), float(words[3])])
                         if verbose > 0:
                             print(key, getattr(parameters, key), words[1], words[2], words[3])
-                    elif val.dtype == int:
+                    elif isinstance(val[0], int):
                         if verbose > 0:
                             print(key)
                         setattr(parameters, key, [int(words[1]), int(words[2]), int(words[3])])
@@ -913,7 +914,7 @@ def parseAtoms(atoms, elem_dict, PBC=True, autogeom=False, lvec=None, parameters
         else:
             avec = parameters.gridA
             bvec = parameters.gridB
-        iZs, Rs, Qs = PBCAtoms(iZs, Rs, Qs, avec=avec, bvec=bvec)
+        iZs, Rs, Qs = PBCAtoms(iZs, Rs, Qs, avec=avec, bvec=bvec, parameters=parameters)
     return iZs, Rs, Qs
 
 
