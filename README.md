@@ -91,9 +91,9 @@ If you would like to contribute to the development of the ppafm code, please rea
 - Wiki: https://github.com/Probe-Particle/ProbeParticleModel/wiki
 - Python API documentation: https://ppafm.readthedocs.io/en/latest/
 
-## Notable publications using Probe Particle Model
+## Publications describing the Probe-Particle Model
 
-If you have used `ppafm` in your research, please cite following articles (at least the review below):
+If you have used `ppafm` in your research, please cite the following articles:
 * [Niko Oinonen, Aliaksandr V. Yakutovich, Aurelio Gallardo, Martin Ondracek, Prokop Hapala, Ondrej Krejci, Advancing Scanning Probe Microscopy Simulations: A Decade of Development in Probe-Particle Models, Comput. Phys. Commun. 305, 109341 - Available online 10 August 2024](https://doi.org/10.1016/j.cpc.2024.109341)
 * [Prokop Hapala, Georgy Kichin, Christian Wagner, F. Stefan Tautz, Ruslan Temirov, and Pavel Jelínek, Mechanism of high-resolution STM/AFM imaging with functionalized tips, Phys. Rev. B 90, 085421 – Published 19 August 2014](http://journals.aps.org/prb/abstract/10.1103/PhysRevB.90.085421)
 * [Prokop Hapala, Ruslan Temirov, F. Stefan Tautz, and Pavel Jelínek, Origin of High-Resolution IETS-STM Images of Organic Molecules with Functionalized Tips, Phys. Rev. Lett. 113, 226101 – Published 25 November 2014](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.113.226101)
