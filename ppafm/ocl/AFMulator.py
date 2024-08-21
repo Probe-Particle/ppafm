@@ -5,10 +5,8 @@ import time
 import warnings
 
 import numpy as np
-import pyopencl as cl
 
-from .. import common as PPU
-from .. import elements, io
+from .. import common, elements, io
 from ..PPPlot import plotImages
 from . import field as FFcl
 from . import oclUtils as oclu
@@ -100,6 +98,7 @@ class AFMulator:
         npbc=(1, 1, 0),
         f0Cantilever=30300,
         kCantilever=1800,
+        colorscale="gray",
     ):
         if not FFcl.oclu or not oclr.oclu:
             oclu.init_env()
@@ -108,7 +107,7 @@ class AFMulator:
 
         self.scanner = oclr.RelaxedScanner()
         self.scanner.relax_params = np.array(self.relaxParams, dtype=np.float32)
-        self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
+        self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -common.eVA_Nm
 
         self.iZPP = iZPP
         self.tipR0 = tipR0
@@ -122,6 +121,7 @@ class AFMulator:
         self.d3_params = d3_params
         self.lj_vdw_damp = lj_vdw_damp
         self.sample_lvec = None
+        self.colorscale = colorscale
 
         self.setScanWindow(scan_window, scan_dim, df_steps)
         self.setLvec(lvec, pixPerAngstrome)
@@ -129,7 +129,7 @@ class AFMulator:
         self.setRhoDelta(rho_delta)
         self.setQs(Qs, QZs)
 
-        self.typeParams = PPU.loadSpecies("atomtypes.ini")
+        self.typeParams = common.loadSpecies("atomtypes.ini")
         self.saveFFpre = ""
 
     def eval(self, xyzs, Zs, qs, rho_sample=None, sample_lvec=None, rot=np.eye(3), rot_center=None, REAs=None, X=None, plot_to_dir=None):
@@ -222,8 +222,8 @@ class AFMulator:
 
         # Set df convolution weights
         self.dz = (self.scan_window[1][2] - self.scan_window[0][2]) / self.scan_dim[2]
-        self.dfWeight = PPU.get_simple_df_weight(self.df_steps, dz=self.dz).astype(np.float32)
-        self.dfWeight *= PPU.eVA_Nm * self.f0Cantilever / self.kCantilever
+        self.dfWeight = common.get_simple_df_weight(self.df_steps, dz=self.dz).astype(np.float32)
+        self.dfWeight *= common.eVA_Nm * self.f0Cantilever / self.kCantilever
         self.amplitude = self.dz * len(self.dfWeight)
         self.scanner.zstep = self.dz
 
@@ -318,7 +318,7 @@ class AFMulator:
 
     def setStiffness(self, tipStiffness):
         """Set the tip bending stiffness."""
-        self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
+        self.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -common.eVA_Nm
 
     # ========= Imaging =========
 
@@ -404,10 +404,10 @@ class AFMulator:
 
         # Get Lennard-Jones parameters and apply periodic boundary conditions to atoms
         if REAs is None:
-            REAs = PPU.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
-        cLJs = PPU.REA2LJ(REAs)
+            REAs = common.getAtomsREA(self.iZPP, Zs, self.typeParams, alphaFac=-1.0)
+        cLJs = common.REA2LJ(REAs)
         if sum(npbc) > 0:
-            Zs, xyzs, qs, cLJs, REAs = PPU.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, self.sample_lvec, npbc=npbc)
+            Zs, xyzs, qs, cLJs, REAs = common.PBCAtoms3D_np(Zs, xyzs, qs, cLJs, REAs, self.sample_lvec, npbc=npbc)
 
         # Compute force field
         self.forcefield.makeFF(
@@ -501,8 +501,8 @@ class AFMulator:
         Arguments:
             file_path: str. Path to the params.ini file to load.
         """
-        params, sample_lvec = _get_params(file_path)
-        afmulator = cls(**params)
+        parameters, sample_lvec = _get_params(file_path)
+        afmulator = cls(**parameters)
         afmulator.sample_lvec = sample_lvec
         return afmulator
 
@@ -513,23 +513,24 @@ class AFMulator:
         Arguments:
             file_path: str. Path to the params.ini file to load.
         """
-        params, sample_lvec = _get_params(file_path)
-        if params["tipStiffness"] is not None:
-            self.scanner.stiffness = np.array(params["tipStiffness"], dtype=np.float32) / -PPU.eVA_Nm
-        self.iZPP = params["iZPP"]
-        self.tipR0 = params["tipR0"]
-        self.f0Cantilever = params["f0Cantilever"]
-        self.kCantilever = params["kCantilever"]
-        self.npbc = params["npbc"]
-        self.A_pauli = params["A_pauli"]
-        self.setScanWindow(params["scan_window"], params["scan_dim"], params["df_steps"])
-        self.setLvec(params["lvec"], params["pixPerAngstrome"])
+        parameters, sample_lvec = _get_params(file_path)
+        if parameters["tipStiffness"] is not None:
+            self.scanner.stiffness = np.array(parameters["tipStiffness"], dtype=np.float32) / -common.eVA_Nm
+        self.iZPP = parameters["iZPP"]
+        self.tipR0 = parameters["tipR0"]
+        self.f0Cantilever = parameters["f0Cantilever"]
+        self.kCantilever = parameters["kCantilever"]
+        self.npbc = parameters["npbc"]
+        self.A_pauli = parameters["A_pauli"]
+        self.setScanWindow(parameters["scan_window"], parameters["scan_dim"], parameters["df_steps"])
+        self.setLvec(parameters["lvec"], parameters["pixPerAngstrome"])
         if (self._rho is None) or isinstance(self._rho, dict):
-            self.setRho(params["rho"], params["sigma"])
+            self.setRho(parameters["rho"], parameters["sigma"])
         else:
-            warnings.warn(f'Using existing tip density with exponent {params["B_pauli"]}, instead of parameters from params.ini file.')
-            self.setRho(self._rho, sigma=params["sigma"], B_pauli=params["B_pauli"])
+            warnings.warn(f'Using existing tip density with exponent {parameters["B_pauli"]}, instead of parameters from params.ini file.')
+            self.setRho(self._rho, sigma=parameters["sigma"], B_pauli=parameters["B_pauli"])
         self.sample_lvec = sample_lvec
+        self.colorscale = parameters["colorscale"]
 
     def save_params(self, file_path="./params.ini"):
         """
@@ -538,7 +539,7 @@ class AFMulator:
         Arguments:
             file_path: str. Path to the file where parameters are saved.
         """
-        k = self.scanner.stiffness * -PPU.eVA_Nm
+        k = self.scanner.stiffness * -common.eVA_Nm
         nDim = self.forcefield.nDim
         scan_step = (
             (self.scan_window[1][0] - self.scan_window[0][0]) / (self.scan_dim[0] - 1),
@@ -650,28 +651,29 @@ class AFMulator:
             slices=list(range(0, len(X))),
             zs=zTips,
             extent=extent,
-            cmap=PPU.params["colorscale"],
+            cmap=self.colorscale,
         )
 
 
 def _get_params(file_path):
     """Get AFMulator arguments from a params.ini file."""
-    PPU.loadParams(file_path)
+    parameters = common.PpafmParameters()
+    common.loadParams(file_path, parameters=parameters)
     lvec = np.array(
         [
-            PPU.params["FFgrid0"],
-            PPU.params["FFgridA"],
-            PPU.params["FFgridB"],
-            PPU.params["FFgridC"],
+            parameters.FFgrid0,
+            parameters.FFgridA,
+            parameters.FFgridB,
+            parameters.FFgridC,
         ]
     )
     if (lvec < 0).any():
         lvec = None
-    sample_lvec = np.array([PPU.params["gridA"], PPU.params["gridB"], PPU.params["gridC"]])
-    if (PPU.params["gridN"] == 0).any() or lvec is None:
+    sample_lvec = np.array([parameters.gridA, parameters.gridB, parameters.gridC])
+    if (parameters.gridN == 0).any() or lvec is None:
         pixPerAngstrome = 10
     else:
-        rx, ry, rz = (round(PPU.params["gridN"][i] / np.linalg.norm(lvec[i + 1])) for i in range(3))
+        rx, ry, rz = (round(parameters.gridN[i] / np.linalg.norm(lvec[i + 1])) for i in range(3))
         if np.allclose([rx, ry], rz):
             pixPerAngstrome = rx
         else:
@@ -680,15 +682,15 @@ def _get_params(file_path):
                 "Unequal grid densities in x, y, z directions is not supported in the OpenCL version of ppafm. "
                 f"Using the maximum of x, y, z directions, {pixPerAngstrome}, for grid point density."
             )
-    scan_window = (PPU.params["scanMin"], PPU.params["scanMax"])
+    scan_window = (parameters.scanMin, parameters.scanMax)
     scan_dim = (
-        round((scan_window[1][0] - scan_window[0][0]) / PPU.params["scanStep"][0]) + 1,
-        round((scan_window[1][1] - scan_window[0][1]) / PPU.params["scanStep"][1]) + 1,
-        round((scan_window[1][2] - scan_window[0][2]) / PPU.params["scanStep"][2]),
+        round((scan_window[1][0] - scan_window[0][0]) / parameters.scanStep[0]) + 1,
+        round((scan_window[1][1] - scan_window[0][1]) / parameters.scanStep[1]) + 1,
+        round((scan_window[1][2] - scan_window[0][2]) / parameters.scanStep[2]),
     )
-    iZPP = PPU.params["probeType"]
+    iZPP = parameters.probeType
     iZPP = elements.ELEMENT_DICT[iZPP][0] if iZPP in elements.ELEMENT_DICT else int(iZPP)
-    tipStiffness = PPU.params["stiffness"]
+    tipStiffness = parameters.stiffness
     if (tipStiffness < 0).any():
         tipStiffness = [0.25, 0.25, 0.0, 30.0]
     else:
@@ -699,16 +701,17 @@ def _get_params(file_path):
         "scan_dim": scan_dim,
         "scan_window": scan_window,
         "iZPP": iZPP,
-        "rho": {PPU.params["tip"]: PPU.params["charge"]},
-        "sigma": PPU.params["sigma"],
-        "A_pauli": PPU.params["Apauli"],
-        "B_pauli": PPU.params["Bpauli"],
-        "df_steps": round(PPU.params["Amplitude"] / PPU.params["scanStep"][2]),
-        "tipR0": PPU.params["r0Probe"],
+        "rho": {parameters.tip: parameters.charge},
+        "sigma": parameters.sigma,
+        "A_pauli": parameters.Apauli,
+        "B_pauli": parameters.Bpauli,
+        "df_steps": round(parameters.Amplitude / parameters.scanStep[2]),
+        "tipR0": parameters.r0Probe,
         "tipStiffness": tipStiffness,
-        "npbc": PPU.params["nPBC"] * PPU.params["PBC"],
-        "f0Cantilever": PPU.params["f0Cantilever"],
-        "kCantilever": PPU.params["kCantilever"],
+        "npbc": parameters.nPBC * parameters.PBC,
+        "f0Cantilever": parameters.f0Cantilever,
+        "kCantilever": parameters.kCantilever,
+        "colorscale": parameters.colorscale,
     }
     return afmulator_params, sample_lvec
 
