@@ -173,7 +173,7 @@ def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm
         parameters.stiffness = np.array([parameters.klat, parameters.klat, parameters.krad])
     if verbose > 0:
         print("stiffness:", parameters.stiffness)
-    core.setTip(kSpring=np.array((parameters.stiffness[0], parameters.stiffness[1], 0.0)) / -PPU.eVA_Nm, kRadial=parameters.stiffness[2] / -PPU.eVA_Nm)
+    core.setTip(kSpring=np.array((parameters.stiffness[0], parameters.stiffness[1], 0.0)) / -PPU.eVA_Nm, kRadial=parameters.stiffness[2] / -PPU.eVA_Nm, parameters=parameters)
 
     # grid origin has to be moved to zero, hence the subtraction of lvec[0,:] from trj and xTip, yTips, zTips
     trj = None

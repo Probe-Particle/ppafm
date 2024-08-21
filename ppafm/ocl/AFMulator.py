@@ -670,7 +670,7 @@ def _get_params(file_path):
     if (lvec < 0).any():
         lvec = None
     sample_lvec = np.array([parameters.gridA, parameters.gridB, parameters.gridC])
-    if (parameters.gridN == 0).any() or lvec is None:
+    if (np.array(parameters.gridN) == 0).any() or lvec is None:
         pixPerAngstrome = 10
     else:
         rx, ry, rz = (round(parameters.gridN[i] / np.linalg.norm(lvec[i + 1])) for i in range(3))
@@ -691,7 +691,7 @@ def _get_params(file_path):
     iZPP = parameters.probeType
     iZPP = elements.ELEMENT_DICT[iZPP][0] if iZPP in elements.ELEMENT_DICT else int(iZPP)
     tipStiffness = parameters.stiffness
-    if (tipStiffness < 0).any():
+    if (np.array(tipStiffness) < 0).any():
         tipStiffness = [0.25, 0.25, 0.0, 30.0]
     else:
         tipStiffness = np.insert(tipStiffness, 2, 0.0)  # AFMulator additionally has a z-component in the third place

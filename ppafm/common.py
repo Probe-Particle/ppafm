@@ -209,7 +209,7 @@ class CLIParser(ArgumentParser):
 
     def _check_params_args(self):
         for arg in self._params_args:
-            if arg not in PpafmParameters.model_filds:
+            if arg not in PpafmParameters.model_fields:
                 raise ValueError(f"Argument name `{arg}` does not match with any parameter in global parameters dictionary.")
 
     @property
