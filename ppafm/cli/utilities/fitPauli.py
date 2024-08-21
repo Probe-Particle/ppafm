@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import ppafm as PPU
-import ppafm.io as io
+from ppafm import common, io
 
 parser = OptionParser()
 # fmt: off
@@ -76,10 +76,10 @@ def getLJ(r, R0=3.5, eps=0.03, cpull=1.0, cpush=1.0):
 
 
 # ====== Main
-
+parameters = common.PpafmParameters()
 fname, fext = os.path.splitext(options.i)
 fext = fext[1:]
-atoms, nDim, lvec = io.loadGeometry(options.i, params=PPU.params)
+atoms, nDim, lvec = io.loadGeometry(options.i, parameters=parameters)
 
 data = np.transpose(np.genfromtxt("atom_density_zlines.dat"))
 

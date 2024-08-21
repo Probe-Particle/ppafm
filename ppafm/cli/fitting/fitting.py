@@ -1,15 +1,14 @@
 #!/usr/bin/python
 import os
+from collections import OrderedDict
 from optparse import OptionParser
 
-import __main__ as main
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-from scipy.optimize import basinhopping, minimize
+from scipy.optimize import minimize
 
-import ppafm as PPU
 import ppafm.HighLevel as PPH
-from ppafm import io
+from ppafm import common, io
 
 iteration = 0
 
@@ -53,7 +52,7 @@ def getFzlist(BIGarray, MIN, MAX, points):
 FFparams = None
 if os.path.isfile("atomtypes.ini"):
     print(">> LOADING LOCAL atomtypes.ini")
-    FFparams = PPU.loadSpecies("atomtypes.ini")
+    FFparams = common.loadSpecies("atomtypes.ini")
     print(FFparams)
     elem_dict = {}
     for i, ff in enumerate(FFparams):
@@ -61,23 +60,24 @@ if os.path.isfile("atomtypes.ini"):
 else:
     raise ValueError('Please provide the file "atomtypes.ini"')
 
+
+parameters = common.PpafmParameters()
 print(" >> OVEWRITING SETTINGS by params.ini  ")
-PPU.loadParams("params.ini", FFparams=FFparams)
-scan_min = PPU.params["scanMin"]
-scan_max = PPU.params["scanMax"]
-atoms, nDim, lvec = io.loadGeometry("p_eq.xyz", params=PPU.params)
+common.loadParams("params.ini", parameters=parameters)
+scan_min = parameters.scanMin
+scan_max = parameters.scanMax
+atoms, nDim, lvec = io.loadGeometry("p_eq.xyz", parameters=parameters)
 # The function automatically loads the geometry from the file of any
 # supported format. The decision about the file format is based on the
 # filename extension or it can be supplied by an extra "format" argument
-PPU.params["gridN"] = nDim
-PPU.params["gridA"] = lvec[1]
-PPU.params["gridB"] = lvec[2]
-PPU.params["gridC"] = lvec[3]
+parameters.gridN = nDim
+parameters.gridA = lvec[1]
+parameters.gridB = lvec[2]
+parameters.gridC = lvec[3]
 V, lvec_bak, nDim_bak, head = io.loadCUBE("hartree.cube")
 loaded_forces = np.loadtxt("frc_tip.txt", converters={0: pm2a, 1: pm2a, 2: pm2a}, skiprows=2, usecols=(0, 1, 2, 5))
 points = loaded_forces[:, :3]
-iZs, Rs, Qs = PPH.parseAtoms(atoms, autogeom=False, PBC=PPU.params["PBC"], FFparams=FFparams)
-from collections import OrderedDict
+iZs, Rs, Qs = PPH.parseAtoms(atoms, autogeom=False, PBC=parameters.PBC, FFparams=FFparams)
 
 fit_dict = OrderedDict()
 
@@ -160,12 +160,12 @@ def comp_msd(x=[]):
     global iteration
     iteration += 1
     update_fit_dict(x)  # updating the array with the optimized values
-    PPU.apply_options(fit_dict)  # setting up all the options according to their
+    common.apply_options(fit_dict)  # setting up all the options according to their
     # current values
     update_atoms(atms=fit_dict["atom"])
     print(FFparams)
     FFLJ, VLJ = PPH.computeLJFF(iZs, Rs, FFparams)
-    FFel = PPH.computeElFF(V, lvec_bak, nDim_bak, PPU.params["tip"])
+    FFel = PPH.computeElFF(V, lvec_bak, nDim_bak, parameters.tip)
     FFboltz = None
     fzs, PPpos, PPdisp, lvecScan = PPH.perform_relaxation(lvec, FFLJ, FFel, FFboltz, tipspline=None)
     Fzlist = getFzlist(BIGarray=fzs, MIN=scan_min, MAX=scan_max, points=points)
@@ -191,7 +191,7 @@ if __name__ == "__main__":
 
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
-    PPU.apply_options(opt_dict)  # setting up all the options according to their
+    common.apply_options(opt_dict, parameters)  # setting up all the options according to their
     x_new, bounds = set_fit_dict(opt=opt_dict)
     print("params", x_new)
     print("bounds", bounds)

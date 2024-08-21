@@ -6,9 +6,10 @@ from optparse import OptionParser
 
 import numpy as np
 
-import ppafm as PPU
 import ppafm.GridUtils as GU
-from ppafm import io
+from ppafm import common, io
+
+parameters = common.PpafmParameters()
 
 parser = OptionParser()
 # fmt: off
@@ -24,7 +25,7 @@ parser.add_option( "--plot",           action="store_false"        ,   help="plo
 fname, fext = os.path.splitext(options.i)
 fext = fext[1:]
 
-atoms, nDim, lvec = io.loadGeometry(options.i, params=PPU.params)
+atoms, nDim, lvec = io.loadGeometry(options.i, parameters=parameters)
 GU.lib.setGridN(np.array(nDim[::-1], dtype=np.int32))
 GU.lib.setGridCell(np.array(lvec[1:], dtype=np.float64))
 

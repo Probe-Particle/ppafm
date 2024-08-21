@@ -6,8 +6,7 @@ import numpy as np
 
 import ppafm as PPU
 import ppafm.core as PPC
-import ppafm.cpp_utils as cpp_utils
-from ppafm import io
+from ppafm import common, io
 
 # ======== setup
 
@@ -78,14 +77,15 @@ def getLines(lst, atoms):
 
 # ======== main
 
+parameters = common.PpafmParameters()
+
 PPU.loadParams("params.ini")
-FFparams = PPU.loadSpecies("atomtypes.ini")
-# FFparams = PPU.loadSpecies( cpp_utils.PACKAGE_PATH+'/defaults/atomtypes.ini' )
+FFparams = PPU.loadSpecies("atomtypes.ini", parameters=parameters)
 elem_dict = PPU.getFFdict(FFparams)
 print(elem_dict)
 
-atoms, nDim, lvec = io.loadGeometry("input_plot_mod0.xyz", params=PPU.params)
-iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=PPU.params["PBC"])
+atoms, nDim, lvec = io.loadGeometry("input_plot_mod0.xyz", parameters=parameters)
+iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=parameters.PBC)
 
 lines = getLines(lst, atoms)
 # print lines
@@ -93,9 +93,8 @@ lines = getLines(lst, atoms)
 
 # print "iZs", iZs; print "Rs", Rs; print "Qs", Qs
 
-PPU.params["probeType"] = "Xe"
-# print "PPU.params['probeType'] : ", PPU.params['probeType']
-cLJs = PPU.getAtomsLJ(PPU.atom2iZ(PPU.params["probeType"], elem_dict), iZs, FFparams)
+parametes.probeType = "Xe"
+cLJs = PPU.getAtomsLJ(PPU.atom2iZ(parametes.probeType, elem_dict), iZs, FFparams)
 
 print("cLJs", cLJs)
 np.savetxt("cLJs_2D.dat", cLJs)
