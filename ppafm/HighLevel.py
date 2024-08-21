@@ -167,7 +167,7 @@ def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm
         FF += FFboltz
     if bFFtotDebug:
         io.save_vec_field("FFtotDebug", FF, lvec)
-    core.setFF_shape(np.shape(FF), lvec)
+    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
     core.setFF_Fpointer(FF)
     if (np.array(parameters.stiffness) < 0.0).any():
         parameters.stiffness = np.array([parameters.klat, parameters.klat, parameters.krad])
@@ -237,7 +237,7 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
     FF, V = prepareArrays(None, computeVpot, parameters=parameters)
     if verbose > 0:
         print("FFLJ.shape", FF.shape)
-    core.setFF_shape(np.shape(FF), lvec)
+    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
 
     # shift atoms to the coordinate system in which the grid origin is zero
     Rs0 = shift_positions(Rs, -lvec[0])
@@ -308,7 +308,7 @@ def computeDFTD3(input_file, df_params="PBE", geometry_format=None, save_format=
 
     # Compute the force field
     FF, V = prepareArrays(None, compute_energy)
-    core.setFF_shape(np.shape(FF), lvec)
+    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
     core.getDFTD3FF(shift_positions(Rs, -lvec[0]), coeffs)
 
     # Save to file
@@ -340,7 +340,7 @@ def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format
         print(parameters.gridN, parameters.gridA, parameters.gridB, parameters.gridC)
     _, Rs, Qs = PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=parameters.PBC, lvec=lvec, parameters=parameters)
     FF, V = prepareArrays(None, computeVpot, parameters=parameters)
-    core.setFF_shape(np.shape(FF), lvec)
+    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
 
     # shift atoms to the coordinate system in which the grid origin is zero
     Rs0 = shift_positions(Rs, -lvec[0])
@@ -435,7 +435,9 @@ def getAtomsWhichTouchPBCcell(fname, Rcut=1.0, bSaveDebug=True, geometry_format=
     return Rs, elems
 
 
-def subtractCoreDensities(rho, lvec, elems=None, Rs=None, fname=None, valElDict=None, Rcore=0.7, bSaveDebugDens=False, bSaveDebugGeom=True, head=io.XSF_HEAD_DEFAULT):
+def subtractCoreDensities(
+    rho, lvec, elems=None, Rs=None, fname=None, valElDict=None, Rcore=0.7, bSaveDebugDens=False, bSaveDebugGeom=True, head=io.XSF_HEAD_DEFAULT, parameters=None
+):
     nDim = rho.shape
     if fname is not None:
         elems, Rs = getAtomsWhichTouchPBCcell(fname, Rcut=Rcore, bSaveDebug=bSaveDebugDens)
@@ -451,7 +453,7 @@ def subtractCoreDensities(rho, lvec, elems=None, Rs=None, fname=None, valElDict=
         print("V : ", V, " N: ", N, " dV: ", dV)
     if verbose > 0:
         print("sum(RHO): ", rho.sum(), " Nelec: ", rho.sum() * dV, " voxel volume: ", dV)  # check sum
-    core.setFF_shape(rho.shape, lvec)  # set grid sampling dimension and shape
+    core.setFF_shape(rho.shape, lvec, parameters=parameters)  # set grid sampling dimension and shape
     core.setFF_Epointer(rho)  # set pointer to array with density data (to write into)
     if verbose > 0:
         print(">>> Projecting Core Densities ... ")

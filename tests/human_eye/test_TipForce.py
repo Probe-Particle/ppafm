@@ -5,7 +5,7 @@ from io import StringIO
 import matplotlib.pyplot as plt
 import numpy as np
 
-import ppafm.core as PPC
+from ppafm import common, core
 
 spline_ini = """
 0.0   0.4 -0.1
@@ -17,6 +17,8 @@ spline_ini = """
 # S = np.genfromtxt('TipRSpline.ini')
 S = np.genfromtxt(StringIO(spline_ini), skip_header=1)
 
+parameters = common.PpafmParameters()
+
 print("TipRSpline.ini overrides harmonic tip")
 xs = S[:, 0].copy()
 print("xs: ", xs)
@@ -24,9 +26,9 @@ ydys = S[:, 1:].copy()
 print("ydys: ", ydys)
 plt.plot(xs, ydys[:, 0], "o")
 plt.plot(xs, ydys[:, 0] + ydys[:, 1], ".")
-PPC.setTipSpline(xs, ydys)
+core.setTipSpline(xs, ydys)
 
-PPC.setTip()
+core.setTip(parameters=parameters)
 
 fs = np.zeros((60, 3))
 r0 = np.array([0.0, 0.0, 0.5])
@@ -35,12 +37,12 @@ R = np.array([0.0, 0.0, 0.0])
 xs = np.array(list(range(len(fs)))) * dr[2] + r0[2]
 # print "xs=",xs
 
-print(">>>  PPC.test_force( 1, r0, dr, R, fs )")
-PPC.test_force(1, r0, dr, R, fs)
+print(">>>  core.test_force( 1, r0, dr, R, fs )")
+core.test_force(1, r0, dr, R, fs)
 plt.plot(xs, fs[:, 2])
 
-print(">>>  PPC.test_force( 2, r0, dr, R, fs )")
-PPC.test_force(2, r0, dr, R, fs)
+print(">>>  core.test_force( 2, r0, dr, R, fs )")
+core.test_force(2, r0, dr, R, fs)
 plt.plot(xs, fs[:, 2])
 
 # print "fs:", fs

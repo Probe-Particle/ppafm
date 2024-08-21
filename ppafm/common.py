@@ -76,58 +76,6 @@ class PpafmParameters(pydantic.BaseModel):
         validate_assignment = True
 
 
-# fmt: off
-# default parameters of simulation
-params = {
-    "PBC": True,
-    "nPBC": np.array([1, 1, 1]),
-    "gridN": np.array([-1, -1, -1]).astype(int),
-    "gridO": np.array([0.0, 0.0, 0.0]),
-    "gridA": np.array([0.0, 0.0, 0.0]),
-    "gridB": np.array([0.0, 0.0, 0.0]),
-    "gridC": np.array([0.0, 0.0, 0.0]),
-    "FFgrid0": np.array([-1.0, -1.0, -1.0]),
-    "FFgridA": np.array([-1.0, -1.0, -1.0]),
-    "FFgridB": np.array([-1.0, -1.0, -1.0]),
-    "FFgridC": np.array([-1.0, -1.0, -1.0]),
-    "moleculeShift": np.array([0.0, 0.0, 0.0]),
-    "probeType": "O",
-    "charge": 0.00,
-    "Apauli": 18.0,
-    "Bpauli": 1.0,
-    "ffModel": "LJ",
-    "Rcore": 0.7,
-    "r0Probe": np.array([0.00, 0.00, 4.00]),
-    "stiffness": np.array([-1.0, -1.0, -1.0]),
-    "klat": 0.5,
-    "krad": 20.00,
-    "tip": "s",
-    "sigma": 0.7,
-    "scanStep": np.array([0.10, 0.10, 0.10]),
-    "scanMin": np.array([0.0, 0.0, 5.0]),
-    "scanMax": np.array([20.0, 20.0, 8.0]),
-    "scanTilt": np.array([0.0, 0.0, -0.1]),
-    "tiltedScan": False,
-    "kCantilever": 1800.0,
-    "f0Cantilever": 30300.0,
-    "Amplitude": 1.0,
-    "plotSliceFrom": 16,
-    "plotSliceTo": 22,
-    "plotSliceBy": 1,
-    "imageInterpolation": "bicubic",
-    "colorscale": "gray",
-    "colorscale_kpfm": "seismic",
-    "ddisp": 0.05,
-    "aMorse": -1.6,
-    "tip_base": np.array(["None", 0.00]),
-    "Rtip": 30.0,
-    "permit": 0.00552634959,
-    "vdWDampKind": 2,
-    "#": None,
-}
-# fmt: on
-
-
 class CLIParser(ArgumentParser):
     """
     Subclass from the built-in ArgumentParser with functionality to easily add arguments commonly used in ppafm scripts.
@@ -163,7 +111,7 @@ class CLIParser(ArgumentParser):
         "Rcore": {
             "action": "store",
             "type": float,
-            "default": params["Rcore"],
+            "default": 0.7,
             "help": "Width of nuclear charge density blob to achieve charge neutrality [Å]",
         },
         "sigma": {
@@ -261,7 +209,7 @@ class CLIParser(ArgumentParser):
 
     def _check_params_args(self):
         for arg in self._params_args:
-            if arg not in params:
+            if arg not in PpafmParameters.model_filds:
                 raise ValueError(f"Argument name `{arg}` does not match with any parameter in global parameters dictionary.")
 
     @property
@@ -555,11 +503,11 @@ def loadParams(fname, parameters):
 
     parameters.tip = parameters.tip.replace('"', "")
     parameters.tip = parameters.tip.replace("'", "")
-    ### necessary for working even with quotemarks in params.ini
+    # Necessary for working even with quotemarks in params.ini
     parameters.tip_base[0] = parameters.tip_base[0].replace('"', "")
     parameters.tip_base[0] = parameters.tip_base[0].replace("'", "")
-    ### necessary for working even with quotemarks in params.ini
-    print("Loaded parameters from ", fname)
+    if verbose > 0:
+        print("Loaded parameters from ", fname)
 
 
 def apply_options(opt, parameters):
@@ -572,7 +520,7 @@ def apply_options(opt, parameters):
             continue
         if hasattr(parameters, key):
             setattr(parameters, key, value)
-            if key == "klat" and params["stiffness"][0] > 0.0:
+            if key == "klat" and parameters.stiffness[0] > 0.0:
                 print("Overriding stiffness parameter with klat")
                 parameters.stiffness = np.array([-1.0, -1.0, -1.0])  # klat overrides stiffness
             if verbose > 0:
@@ -604,14 +552,14 @@ def loadSpecies(fname=None):
 
 # load atoms species parameters form a file ( currently used to load Lennard-Jones parameters )
 def loadSpeciesLines(lines):
-    params = []
+    parameters = []
     for l in lines:
         l = l.split()
         if len(l) >= 5:
             # print l
-            params.append((float(l[0]), float(l[1]), float(l[2]), int(l[3]), l[4]))
+            parameters.append((float(l[0]), float(l[1]), float(l[2]), int(l[3]), l[4]))
     return np.array(
-        params,
+        parameters,
         dtype=[
             ("rmin", np.float64),
             ("epsilon", np.float64),

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import os
 
 import numpy as np
@@ -61,9 +60,10 @@ def test_parse_comment_ase():
 
 
 def test_load_aims():
-    from ppafm.common import params
+    from ppafm import common
     from ppafm.io import loadGeometry
 
+    parameters = common.PpafmParameters()
     temp_file = "temp_geom.in"
     geometry_str = """
         lattice_vector 4.0 0.0 0.0
@@ -76,7 +76,7 @@ def test_load_aims():
     with open(temp_file, "w") as f:
         f.write(geometry_str)
 
-    atoms, nDim, lvec = loadGeometry(temp_file, params=params)
+    atoms, nDim, lvec = loadGeometry(temp_file, parameters=parameters)
 
     assert np.allclose(
         atoms,
@@ -90,7 +90,7 @@ def test_load_aims():
             ]
         ),
     )
-    assert np.allclose(nDim, params["gridN"])
+    assert np.allclose(nDim, parameters.gridN)
     assert np.allclose(lvec, np.array([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0], [1.0, 5.0, 0.0], [0.0, 0.0, 6.0]]))
 
     os.remove(temp_file)

@@ -41,13 +41,13 @@ lib.setGridCell.argtypes = [array2d]
 lib.setGridCell.restype = None
 
 
-def setGridCell(cell=None):
+def setGridCell(cell=None, parameters=None):
     if cell is None:
         cell = np.array(
             [
-                PPU.params["gridA"],
-                PPU.params["gridB"],
-                PPU.params["gridC"],
+                parameters.gridA,
+                parameters.gridB,
+                parameters.gridC,
             ],
             dtype=np.float64,
         ).copy()
@@ -63,10 +63,10 @@ def setGridCell(cell=None):
     lib.setGridCell(cell)
 
 
-def setFF_shape(n_, cell):
+def setFF_shape(n_, cell, parameters=None):
     n = np.array(n_).astype(np.int32)
     lib.setGridN(n)
-    setGridCell(cell)
+    setGridCell(cell, parameters=parameters)
 
 
 # void setFF_pointer( double * gridF, double * gridE  )
@@ -87,7 +87,7 @@ def setFF_Epointer(gridE):
     lib.setFF_Epointer(gridE)
 
 
-def setFF(cell=None, gridF=None, gridE=None):
+def setFF(cell=None, gridF=None, gridE=None, parameters=None):
     n_ = None
     if gridF is not None:
         setFF_Fpointer(gridF)
@@ -98,14 +98,14 @@ def setFF(cell=None, gridF=None, gridE=None):
     if cell is None:
         cell = np.array(
             [
-                PPU.params["gridA"],
-                PPU.params["gridB"],
-                PPU.params["gridC"],
+                parameters.gridA,
+                parameters.gridB,
+                parameters.gridC,
             ]
         ).copy()
     if n_ is not None:
         print("setFF() n_ : ", n_)
-        setFF_shape(n_, cell)
+        setFF_shape(n_, cell, parameters=parameters)
     else:
         "Warrning : setFF shape not set !!!"
 
@@ -133,15 +133,15 @@ lib.setTip.argtypes = [c_double, c_double, array1d, array1d]
 lib.setTip.restype = None
 
 
-def setTip(lRadial=None, kRadial=None, rPP0=None, kSpring=None):
+def setTip(lRadial=None, kRadial=None, rPP0=None, kSpring=None, parameters=None):
     if lRadial is None:
-        lRadial = PPU.params["r0Probe"][2]
+        lRadial = parameters.r0Probe[2]
     if kRadial is None:
-        kRadial = PPU.params["krad"] / -PPU.eVA_Nm
+        kRadial = parameters.krad / -PPU.eVA_Nm
     if rPP0 is None:
-        rPP0 = np.array((PPU.params["r0Probe"][0], PPU.params["r0Probe"][1], 0.0))
+        rPP0 = np.array((parameters.r0Probe[0], parameters.r0Probe[1], 0.0))
     if kSpring is None:
-        kSpring = np.array((PPU.params["klat"], PPU.params["klat"], 0.0)) / -PPU.eVA_Nm
+        kSpring = np.array((parameters.klat, parameters.klat, 0.0)) / -PPU.eVA_Nm
     print(" IN setTip !!!!!!!!!!!!!! ")
     print(" lRadial ", lRadial)
     print(" kRadial ", kRadial)
@@ -259,10 +259,10 @@ lib.getMorseFF.argtypes = [c_int, array2d, array2d, c_double]
 lib.getMorseFF.restype = None
 
 
-def getMorseFF(Rs, REs, alpha=None):
+def getMorseFF(Rs, REs, alpha=None, parameters=None):
     if alpha is None:
-        alpha = PPU.params["aMorse"]
-    print("getMorseFF: alpha: %g [1/A] ", alpha)
+        alpha = parameters.aMorse
+    print(f"getMorseFF: alpha: {alpha} [1/A] ")
     natom = len(Rs)
     lib.getMorseFF(natom, Rs, REs, alpha)
 
