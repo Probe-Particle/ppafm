@@ -21,6 +21,7 @@ dependencies = [
     "matplotlib",
     "numpy",
     "pydantic",
+    "toml",
 ]
 
 [project.urls]
