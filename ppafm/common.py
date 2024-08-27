@@ -334,14 +334,7 @@ def get_simple_df_weight(n=10, dz=0.1):
     return w / (w0 * n * dz)
 
 
-def Fz2df(
-    F,
-    dz,
-    k0,
-    f0,
-    amplitude=1.0,
-    units=16.0217656,
-):
+def Fz2df(F, dz, k0, f0, amplitude=1.0, units=16.0217656):
     """
     conversion of vertical force Fz to frequency shift
     according to:
@@ -352,14 +345,7 @@ def Fz2df(
     return dFconv * units * f0 / k0
 
 
-def Fz2df_tilt(
-    F,
-    d,
-    k0,
-    f0,
-    amplitude=1.0,
-    units=16.0217656,
-):
+def Fz2df_tilt(F, d, k0, f0, amplitude=1.0, units=16.0217656):
     """
     conversion of vertical force Fz to frequency shift
     according to:
