@@ -111,7 +111,7 @@ class CLIParser(ArgumentParser):
         "Rcore": {
             "action": "store",
             "type": float,
-            "default": 0.7,
+            "default": PpafmParameters.model_fields["Rcore"].default,
             "help": "Width of nuclear charge density blob to achieve charge neutrality [Å]",
         },
         "sigma": {
