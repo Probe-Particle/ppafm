@@ -21,6 +21,7 @@ dependencies = [
     "matplotlib",
     "numpy",
     "pydantic",
+    "pyyaml",
     "toml",
 ]
 
