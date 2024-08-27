@@ -10,7 +10,7 @@ def main(argv=None):
     parser.add_arguments(["input", "input_format", "output_format", "ffModel", "energy", "noPBC"])
     args = parser.parse_args(argv)
     parameters = common.PpafmParameters.from_file("params.ini")
-    common.apply_options(vars(args), parameters)
+    parameters.apply_options(vars(args))
     species_file = "atomtypes.ini" if Path("atomtypes.ini").is_file() else None
     computeLJ(
         args.input,

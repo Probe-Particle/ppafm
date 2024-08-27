@@ -9,7 +9,7 @@ def main(argv=None):
     parser.add_arguments(["input", "input_format", "output_format", "tip", "energy", "noPBC"])
     args = parser.parse_args(argv)
     parameters = common.PpafmParameters.from_file("params.ini")
-    common.apply_options(vars(args), parameters=parameters)
+    parameters.apply_options(vars(args))
 
     computeELFF_pointCharge(args.input, geometry_format=args.input_format, tip=args.tip, save_format=args.output_format, computeVpot=args.energy, parameters=parameters)
 

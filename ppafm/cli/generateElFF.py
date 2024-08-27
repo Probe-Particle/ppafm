@@ -33,7 +33,7 @@ def main(argv=None):
 
     # Load parameters.
     parameters = common.PpafmParameters.from_file("params.ini")
-    common.apply_options(vars(args), parameters)
+    parameters.apply_options(vars(args))
 
     # Load species.
     species_path = Path("atomtypes.ini") if Path("atomtypes.ini").is_file() else cpp_utils.PACKAGE_PATH / "defaults" / "atomtypes.ini"

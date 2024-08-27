@@ -159,7 +159,7 @@ def comp_msd(x=[]):
     global iteration
     iteration += 1
     update_fit_dict(x)  # updating the array with the optimized values
-    common.apply_options(fit_dict)  # setting up all the options according to their
+    parameters.apply_options(fit_dict)  # setting up all the options according to their
     # current values
     update_atoms(atms=fit_dict["atom"])
     print(FFparams)
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
     (options, args) = parser.parse_args()
     opt_dict = vars(options)
-    common.apply_options(opt_dict, parameters)  # setting up all the options according to their
+    parameters.apply_options(opt_dict)  # setting up all the options according to their
     x_new, bounds = set_fit_dict(opt=opt_dict)
     print("params", x_new)
     print("bounds", bounds)

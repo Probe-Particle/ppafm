@@ -90,18 +90,20 @@ class PpafmParameters(pydantic.BaseModel):
                     lines = file.readlines()
                     object.load_ini(lines)
                 elif suffix == ".yaml":
-                    object.parse_obj(yaml.safe_load(file))
+                    object.apply_options(yaml.safe_load(file))
                 elif suffix == ".toml":
-                    object.parse_obj(toml.load(file))
+                    object.apply_options(toml.load(file))
                 else:
                     raise ValueError(f"Unsupported file extension: {suffix}")
         except FileNotFoundError:
             raise ValueError(f"File {file_path} not found")
         return object
 
-    def parse_obj(self, obj):
+    def apply_options(self, obj):
         for key, value in obj.items():
-            setattr(self, key, value)
+            print("Applying", key, value)
+            if hasattr(self, key) and value is not None:
+                setattr(self, key, value)
 
     def dump_parameters(self, file_path: typing.Union[str, Path] = Path("params.ini")):
         """Save parameters to a file."""
@@ -529,23 +531,6 @@ def autoGridN(parameters):
     parameters.gridN[1] = round(np.linalg.norm(parameters.gridB) * 10)
     parameters.gridN[2] = round(np.linalg.norm(parameters.gridC) * 10)
     return parameters.gridN
-
-
-def apply_options(opt, parameters):
-    if verbose > 0:
-        print("!!!! OVERRIDE parameters !!!! in Apply options:")
-    if verbose > 0:
-        print(opt)
-    for key, value in opt.items():
-        if value is None:
-            continue
-        if hasattr(parameters, key):
-            setattr(parameters, key, value)
-            if key == "klat" and parameters.stiffness[0] > 0.0:
-                print("Overriding stiffness parameter with klat")
-                parameters.stiffness = np.array([-1.0, -1.0, -1.0])  # klat overrides stiffness
-            if verbose > 0:
-                print(f"Applied: {key} = {value}")
 
 
 # load atoms species parameters form a file ( currently used to load Lennard-Jones parameters )

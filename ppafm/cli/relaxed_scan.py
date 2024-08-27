@@ -51,7 +51,7 @@ def main(argv=None):
 
     args = parser.parse_args(argv)
     opt_dict = vars(args)
-    common.apply_options(opt_dict, parameters)
+    parameters.apply_options(opt_dict)
 
     # =============== Setup
 
