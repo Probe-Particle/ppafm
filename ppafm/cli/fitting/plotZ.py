@@ -54,9 +54,7 @@ if options.points == []:
     sys.exit(HELP_MSG)
 
 print(" >> OVEWRITING SETTINGS by params.ini  ")
-parameters = common.PpafmParameters()
-
-common.loadParams("params.ini", parameters=parameters)
+parameters = common.PpafmParameters.from_file("params.ini")
 dz = parameters.scanStep[2]
 Amp = [parameters.Amplitude]
 scan_max = parameters.scanMax[2]

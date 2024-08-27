@@ -9,8 +9,7 @@ def main(argv=None):
     parser = common.CLIParser(description="Generate a Lennard-Jones, Morse, or vdW force field. The generated force field is saved to FFLJ_{x,y,z}.[ext].")
     parser.add_arguments(["input", "input_format", "output_format", "ffModel", "energy", "noPBC"])
     args = parser.parse_args(argv)
-    parameters = common.PpafmParameters()
-    common.loadParams("params.ini", parameters)
+    parameters = common.PpafmParameters.from_file("params.ini")
     common.apply_options(vars(args), parameters)
     species_file = "atomtypes.ini" if Path("atomtypes.ini").is_file() else None
     computeLJ(

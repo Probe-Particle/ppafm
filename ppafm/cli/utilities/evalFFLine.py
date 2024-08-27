@@ -77,9 +77,7 @@ def getLines(lst, atoms):
 
 # ======== main
 
-parameters = common.PpafmParameters()
-
-PPU.loadParams("params.ini")
+parameters = common.PpafmParameters.from_file("params.ini")
 FFparams = PPU.loadSpecies("atomtypes.ini", parameters=parameters)
 elem_dict = PPU.getFFdict(FFparams)
 print(elem_dict)

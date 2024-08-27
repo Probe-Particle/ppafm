@@ -32,8 +32,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     # Load parameters.
-    parameters = common.PpafmParameters()
-    common.loadParams("params.ini", parameters)
+    parameters = common.PpafmParameters.from_file("params.ini")
     common.apply_options(vars(args), parameters)
 
     # Load species.

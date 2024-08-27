@@ -61,9 +61,8 @@ else:
     raise ValueError('Please provide the file "atomtypes.ini"')
 
 
-parameters = common.PpafmParameters()
+parameters = common.PpafmParameters.from_file("params.ini")
 print(" >> OVEWRITING SETTINGS by params.ini  ")
-common.loadParams("params.ini", parameters=parameters)
 scan_min = parameters.scanMin
 scan_max = parameters.scanMax
 atoms, nDim, lvec = io.loadGeometry("p_eq.xyz", parameters=parameters)

@@ -3,9 +3,12 @@
 import os
 import typing
 from argparse import ArgumentParser
+from pathlib import Path
 
 import numpy as np
 import pydantic
+import toml
+import yaml
 
 from . import cpp_utils
 
@@ -74,6 +77,98 @@ class PpafmParameters(pydantic.BaseModel):
     class Config:
         arbitrary_types_allowed = True
         validate_assignment = True
+
+    @classmethod
+    def from_file(cls, file_path: typing.Union[str, Path] = Path("params.ini")):
+        """Load parameters from a file."""
+        file_path = Path(file_path)
+        object = cls()
+        suffix = file_path.suffix
+        try:
+            with open(file_path) as file:
+                if suffix == ".ini":
+                    lines = file.readlines()
+                    object.load_ini(lines)
+                elif suffix == ".yaml":
+                    object.parse_obj(yaml.safe_load(file))
+                elif suffix == ".toml":
+                    object.parse_obj(toml.load(file))
+                else:
+                    raise ValueError(f"Unsupported file extension: {suffix}")
+        except FileNotFoundError:
+            raise ValueError(f"File {file_path} not found")
+        return object
+
+    def parse_obj(self, obj):
+        for key, value in obj.items():
+            setattr(self, key, value)
+
+    def dump_parameters(self, file_path: typing.Union[str, Path] = Path("params.ini")):
+        """Save parameters to a file."""
+        file_path = Path(file_path)
+        suffix = file_path.suffix
+        try:
+            with open(file_path, "w") as file:
+                if suffix == ".yaml":
+                    yaml.dump(self.model_dump(), file, default_flow_style=False, indent=4)
+                elif suffix == ".toml":
+                    toml.dump(self.model_dump(), file)
+                else:
+                    raise ValueError(f"Unsupported file extension: {suffix}")
+        except FileNotFoundError:
+            raise ValueError(f"File {file_path} not found")
+
+    def load_ini(self, lines):
+        for line in lines:
+            words = line.split()
+            if len(words) >= 2:
+                key = words[0]
+                if hasattr(self, key):
+                    val = getattr(self, key)
+                    if key[0][0] == "#":
+                        continue
+                    if verbose > 0:
+                        print(key, " is class ", val.__class__)
+                    if isinstance(val, bool):
+                        word = words[1].strip()
+                        setattr(self, key, word[0] == "T" or word[0] == "t")
+                        if verbose > 0:
+                            print(key, getattr(self, key), ">>", word, "<<")
+                    elif isinstance(val, float):
+                        setattr(self, key, float(words[1]))
+                        if verbose > 0:
+                            print(key, getattr(self, key), words[1])
+                    elif isinstance(val, int):
+                        setattr(self, key, int(words[1]))
+                        if verbose > 0:
+                            print(key, getattr(self, key), words[1])
+                    elif isinstance(val, str):
+                        setattr(self, key, words[1])
+                    elif isinstance(val, list):
+                        if isinstance(val[0], float):
+                            setattr(self, key, [float(words[1]), float(words[2]), float(words[3])])
+                            if verbose > 0:
+                                print(key, getattr(self, key), words[1], words[2], words[3])
+                        elif isinstance(val[0], int):
+                            if verbose > 0:
+                                print(key)
+                            setattr(self, key, [int(words[1]), int(words[2]), int(words[3])])
+                            if verbose > 0:
+                                print(key, getattr(self, key), words[1], words[2], words[3])
+                        else:
+                            setattr(self, key, [str(words[1]), float(words[2])])
+                            if verbose > 0:
+                                print(key, getattr(self, key), words[1], words[2])
+                else:
+                    raise ValueError(f"Parameter {key} is not known")
+        if self.gridN[0] <= 0:
+            autoGridN(parameters=self)
+
+        self.tip = self.tip.replace('"', "")
+        self.tip = self.tip.replace("'", "")
+        # Necessary for working even with quotemarks in params.ini
+        self.tip_base[0] = self.tip_base[0].replace('"', "")
+        self.tip_base[0] = self.tip_base[0].replace("'", "")
 
 
 class CLIParser(ArgumentParser):
@@ -434,66 +529,6 @@ def autoGridN(parameters):
     parameters.gridN[1] = round(np.linalg.norm(parameters.gridB) * 10)
     parameters.gridN[2] = round(np.linalg.norm(parameters.gridC) * 10)
     return parameters.gridN
-
-
-# overide default parameters by parameters read from a file
-def loadParams(fname, parameters):
-    if verbose > 0:
-        print(" >> OVERWRITING SETTINGS by " + fname)
-    fin = open(fname)
-    for line in fin:
-        words = line.split()
-        if len(words) >= 2:
-            key = words[0]
-            if hasattr(parameters, key):
-                val = getattr(parameters, key)
-                if key[0][0] == "#":
-                    continue
-                if verbose > 0:
-                    print(key, " is class ", val.__class__)
-                if isinstance(val, bool):
-                    word = words[1].strip()
-                    setattr(parameters, key, word[0] == "T" or word[0] == "t")
-                    if verbose > 0:
-                        print(key, getattr(parameters, key), ">>", word, "<<")
-                elif isinstance(val, float):
-                    setattr(parameters, key, float(words[1]))
-                    if verbose > 0:
-                        print(key, getattr(parameters, key), words[1])
-                elif isinstance(val, int):
-                    setattr(parameters, key, int(words[1]))
-                    if verbose > 0:
-                        print(key, getattr(parameters, key), words[1])
-                elif isinstance(val, str):
-                    setattr(parameters, key, words[1])
-                elif isinstance(val, list):
-                    if isinstance(val[0], float):
-                        setattr(parameters, key, [float(words[1]), float(words[2]), float(words[3])])
-                        if verbose > 0:
-                            print(key, getattr(parameters, key), words[1], words[2], words[3])
-                    elif isinstance(val[0], int):
-                        if verbose > 0:
-                            print(key)
-                        setattr(parameters, key, [int(words[1]), int(words[2]), int(words[3])])
-                        if verbose > 0:
-                            print(key, getattr(parameters, key), words[1], words[2], words[3])
-                    else:
-                        setattr(parameters, key, [str(words[1]), float(words[2])])
-                        if verbose > 0:
-                            print(key, getattr(parameters, key), words[1], words[2])
-            else:
-                raise ValueError(f"Parameter {key} is not known")
-    fin.close()
-    if parameters.gridN[0] <= 0:
-        autoGridN(parameters=parameters)
-
-    parameters.tip = parameters.tip.replace('"', "")
-    parameters.tip = parameters.tip.replace("'", "")
-    # Necessary for working even with quotemarks in params.ini
-    parameters.tip_base[0] = parameters.tip_base[0].replace('"', "")
-    parameters.tip_base[0] = parameters.tip_base[0].replace("'", "")
-    if verbose > 0:
-        print("Loaded parameters from ", fname)
 
 
 def apply_options(opt, parameters):

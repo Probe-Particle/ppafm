@@ -36,12 +36,11 @@ def main(argv=None):
     parser.add_argument( "--bI",        action="store_true",                           help="Plot images for Boltzmann current"    )
     # fmt: on
 
-    parameters = common.PpafmParameters()
+    parameters = common.PpafmParameters.from_file("params.ini")
 
     args = parser.parse_args(argv)
     opt_dict = vars(args)
 
-    common.loadParams("params.ini", parameters)
     common.apply_options(opt_dict, parameters)
 
     if opt_dict["Laplace"]:

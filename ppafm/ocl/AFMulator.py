@@ -657,8 +657,7 @@ class AFMulator:
 
 def _get_params(file_path):
     """Get AFMulator arguments from a params.ini file."""
-    parameters = common.PpafmParameters()
-    common.loadParams(file_path, parameters=parameters)
+    parameters = common.PpafmParameters.from_file(file_path)
     lvec = np.array(
         [
             parameters.FFgrid0,

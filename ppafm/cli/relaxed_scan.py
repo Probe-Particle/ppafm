@@ -47,11 +47,10 @@ def main(argv=None):
     parser.add_argument("--pol_s",          action="store",      type=float, default=1.0, help="Scaling factor for sample polarization")
     # fmt: on
 
-    parameters = common.PpafmParameters()
+    parameters = common.PpafmParameters.from_file("params.ini")
 
     args = parser.parse_args(argv)
     opt_dict = vars(args)
-    common.loadParams("params.ini", parameters)
     common.apply_options(opt_dict, parameters)
 
     # =============== Setup

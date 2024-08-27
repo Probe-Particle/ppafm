@@ -59,8 +59,7 @@ opt_dict = vars(options)
 if options.points == []:
     sys.exit("Error!! The '-p' or '--points' argument is required\npython plotLine.py -p XMINxYMINxZMIN XMAXxYMAXxZMAX")
 
-parameters = common.PpafmParameters()
-common.loadParams("params.ini", parameters=parameters)
+parameters = common.PpafmParameters.from_file("params.ini")
 if os.path.isfile("atomtypes.ini"):
     print(">> LOADING LOCAL atomtypes.ini")
     FFparams = common.loadSpecies("atomtypes.ini")

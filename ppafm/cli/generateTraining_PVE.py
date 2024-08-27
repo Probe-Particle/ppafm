@@ -13,10 +13,7 @@ from ..HighLevel import prepareArrays, relaxedScan3D
 
 file_format = "xsf"
 
-parameters = common.PpafmParameters()
-
-# Arguments definition.
-common.loadParams("params.ini", parameters)
+parameters = common.PpafmParameters.from_file("params.ini")
 
 if os.path.isfile("atomtypes.ini"):
     print(">> LOADING LOCAL atomtypes.ini")
