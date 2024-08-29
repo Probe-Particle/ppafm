@@ -8,7 +8,6 @@ from pathlib import Path
 import numpy as np
 import pydantic
 import toml
-import yaml
 
 from . import cpp_utils
 
@@ -89,8 +88,6 @@ class PpafmParameters(pydantic.BaseModel):
                 if suffix == ".ini":
                     lines = file.readlines()
                     object.load_ini(lines)
-                elif suffix == ".yaml":
-                    object.apply_options(yaml.safe_load(file))
                 elif suffix == ".toml":
                     object.apply_options(toml.load(file))
                 else:
@@ -105,15 +102,13 @@ class PpafmParameters(pydantic.BaseModel):
             if hasattr(self, key) and value is not None:
                 setattr(self, key, value)
 
-    def dump_parameters(self, file_path: typing.Union[str, Path] = Path("params.ini")):
+    def dump_parameters(self, file_path: typing.Union[str, Path] = Path("params.toml")):
         """Save parameters to a file."""
         file_path = Path(file_path)
         suffix = file_path.suffix
         try:
             with open(file_path, "w") as file:
-                if suffix == ".yaml":
-                    yaml.dump(self.model_dump(), file, default_flow_style=False, indent=4)
-                elif suffix == ".toml":
+                if suffix == ".toml":
                     toml.dump(self.model_dump(), file)
                 else:
                     raise ValueError(f"Unsupported file extension: {suffix}")
