@@ -117,7 +117,7 @@ def main(argv=None):
         ]
         ff_parameters = common.loadSpecies()
         elem_dict = common.getFFdict(ff_parameters)
-        i_zs, r_s, _ = common.parseAtoms(atoms, elem_dict, autogeom=False, PBC=parameters.PBC)
+        i_zs, r_s, _ = common.parseAtoms(atoms, elem_dict, autogeom=False, PBC=parameters.PBC, parameters=parameters)
         atom_colors = atomicUtils.getAtomColors(i_zs, FFparams=ff_parameters)
         r_s = r_s.transpose().copy()
         atoms = [i_zs, r_s[0], r_s[1], r_s[2], atom_colors]
