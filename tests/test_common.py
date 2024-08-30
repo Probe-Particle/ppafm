@@ -1,6 +1,10 @@
+import pathlib
+
 import numpy as np
 
 from ppafm import common
+
+THIS_FILE_PATH = pathlib.Path(__file__).parent
 
 
 def test_get_df_weight():
@@ -59,7 +63,7 @@ def test_ppafm_parameters():
     assert p_default.vdWDampKind == 2
 
     # Load the parameters from a file
-    p_ini = common.PpafmParameters.from_file("data/test_params.ini")
+    p_ini = common.PpafmParameters.from_file(THIS_FILE_PATH / "data/test_params.ini")
     assert p_ini.PBC == False
     assert p_ini.nPBC == [2, 3, 4]
     assert p_ini.probeType == "Xe"
@@ -79,8 +83,8 @@ def test_ppafm_parameters():
     assert p_ini.vdWDampKind == 3
 
     # Dump the parameters to a toml file
-    p_ini.to_file("data/test_params.toml")
+    p_ini.to_file(THIS_FILE_PATH / "data/test_params.toml")
 
     # Load the parameters from the toml file and compare to the original
-    p_toml = common.PpafmParameters.from_file("data/test_params.toml")
+    p_toml = common.PpafmParameters.from_file(THIS_FILE_PATH / "data/test_params.toml")
     assert p_ini == p_toml
