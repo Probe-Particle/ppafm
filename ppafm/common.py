@@ -67,7 +67,6 @@ class PpafmParameters(pydantic.BaseModel):
     colorscale_kpfm: str = "seismic"
     ddisp: float = 0.05
     aMorse: float = -1.6
-    tip_base: typing.List = ["None", 0.00]
     Rtip: float = 30.0
     permit: float = 0.00552634959
     vdWDampKind: int = 2
@@ -102,7 +101,7 @@ class PpafmParameters(pydantic.BaseModel):
             if hasattr(self, key) and value is not None:
                 setattr(self, key, value)
 
-    def dump_parameters(self, file_path: typing.Union[str, Path] = Path("params.toml")):
+    def to_file(self, file_path: typing.Union[str, Path] = Path("params.toml")):
         """Save parameters to a file."""
         file_path = Path(file_path)
         suffix = file_path.suffix
@@ -163,9 +162,6 @@ class PpafmParameters(pydantic.BaseModel):
 
         self.tip = self.tip.replace('"', "")
         self.tip = self.tip.replace("'", "")
-        # Necessary for working even with quotemarks in params.ini
-        self.tip_base[0] = self.tip_base[0].replace('"', "")
-        self.tip_base[0] = self.tip_base[0].replace("'", "")
 
 
 class CLIParser(ArgumentParser):
