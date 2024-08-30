@@ -10,8 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import interp1d
 
-import ppafm as PPU
-from ppafm import io
+from ppafm import common, io
 
 
 def find_minimum(array, precision=0.0001):
@@ -55,12 +54,12 @@ if options.points == []:
     sys.exit(HELP_MSG)
 
 print(" >> OVEWRITING SETTINGS by params.ini  ")
-PPU.loadParams("params.ini")
-dz = PPU.params["scanStep"][2]
-Amp = [PPU.params["Amplitude"]]
-scan_max = PPU.params["scanMax"][2]
-scan_min = PPU.params["scanMin"][2]
-scan_step = PPU.params["scanStep"][2]
+parameters = common.PpafmParameters.from_file("params.ini")
+dz = parameters.scanStep[2]
+Amp = [parameters.Amplitude]
+scan_max = parameters.scanMax[2]
+scan_min = parameters.scanMin[2]
+scan_step = parameters.scanStep[2]
 
 print(" >> OVEWRITING SETTINGS by command line arguments  ")
 
@@ -69,21 +68,21 @@ if opt_dict["krange"] is not None:
 elif opt_dict["k"] is not None:
     Ks = [opt_dict["k"]]
 else:
-    Ks = [PPU.params["klat"]]
+    Ks = [parameters.klat]
 # Qs
 if opt_dict["qrange"] is not None:
     Qs = np.linspace(opt_dict["qrange"][0], opt_dict["qrange"][1], opt_dict["qrange"][2])
 elif opt_dict["q"] is not None:
     Qs = [opt_dict["q"]]
 else:
-    Qs = [PPU.params["charge"]]
+    Qs = [parameters.charge]
 # Amps
 if opt_dict["arange"] is not None:
     Amps = np.linspace(opt_dict["arange"][0], opt_dict["arange"][1], opt_dict["arange"][2])
 elif opt_dict["a"] is not None:
     Amps = [opt_dict["a"]]
 else:
-    Amps = [PPU.params["Amplitude"]]
+    Amps = [parameters.Amplitude]
 
 
 for iq, Q in enumerate(Qs):
@@ -96,8 +95,8 @@ for iq, Q in enumerate(Qs):
         dfs = PPU.Fz2df(
             fzs,
             dz=dz,
-            k0=PPU.params["kCantilever"],
-            f0=PPU.params["f0Cantilever"],
+            k0=parameters.kCantilever,
+            f0=parameters.f0Cantilever,
             amplitude=Amp,
         )
         for p in options.points:

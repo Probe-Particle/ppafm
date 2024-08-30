@@ -46,11 +46,12 @@ def main(argv=None):
     parser.add_argument("--pol_t",          action="store",      type=float, default=1.0, help="Scaling factor for tip polarization")
     parser.add_argument("--pol_s",          action="store",      type=float, default=1.0, help="Scaling factor for sample polarization")
     # fmt: on
-    args = parser.parse_args(argv)
 
+    parameters = common.PpafmParameters.from_file("params.ini")
+
+    args = parser.parse_args(argv)
     opt_dict = vars(args)
-    common.loadParams("params.ini")
-    common.apply_options(opt_dict)
+    parameters.apply_options(opt_dict)
 
     # =============== Setup
 
@@ -59,10 +60,10 @@ def main(argv=None):
         k_constants = np.linspace(opt_dict["krange"][0], opt_dict["krange"][1], int(opt_dict["krange"][2]))
     elif opt_dict["klat"] is not None:
         k_constants = [opt_dict["klat"]]
-    elif common.params["stiffness"][0] > 0.0:
-        k_constants = [common.params["stiffness"][0]]
+    elif parameters.stiffness[0] > 0.0:
+        k_constants = [parameters.stiffness[0]]
     else:
-        k_constants = [common.params["klat"]]
+        k_constants = [parameters.klat]
 
     # Charges.
     charged_system = False
@@ -71,7 +72,7 @@ def main(argv=None):
     elif opt_dict["charge"] is not None:
         charges = [opt_dict["charge"]]
     else:
-        charges = [common.params["charge"]]
+        charges = [parameters.charge]
     for charge in charges:
         if abs(charge) > 1e-7:
             charged_system = True
@@ -98,7 +99,7 @@ def main(argv=None):
     ff_vdw = ff_pauli = ff_electrostatics = ff_boltzman = ff_kpfm_t0sv = ff_kpfm_tvs0 = None
 
     if args.noLJ:
-        print("Apauli", common.params["Apauli"])
+        print("Apauli", parameters.Apauli)
 
         print("Loading Pauli force field from FFpauli_{x,y,z}")
         ff_pauli, lvec, _, atomic_info_or_head = io.load_vec_field("FFpauli", data_format=args.output_format)
@@ -136,12 +137,12 @@ def main(argv=None):
 
     lvec[1, :] = rotate_vector(lvec[1, :], opt_dict["rotate"])
     lvec[2, :] = rotate_vector(lvec[2, :], opt_dict["rotate"])
-    common.lvec2params(lvec)
+    common.lvec2params(parameters=parameters, lvec=lvec)
 
     for charge, stiffness, voltage in it.product(charges, k_constants, voltages):
-        common.params["charge"] = charge
-        common.params["klat"] = stiffness
-        common.params["Vbias"] = voltage
+        parameters.charge = charge
+        parameters.klat = stiffness
+        parameters.Vbias = voltage
 
         dirname = f"Q{charge:1.2f}K{stiffness:1.2f}"
         if applied_bias:
@@ -161,20 +162,21 @@ def main(argv=None):
             FFkpfm_tVs0=ff_kpfm_tvs0,
             tipspline=args.tipspline,
             bFFtotDebug=args.bDebugFFtot,
+            parameters=parameters,
         )
 
         data_info = {"lvec": lvec_scan, "data_format": args.output_format, "head": atomic_info_or_head, "atomic_info": atomic_info_or_head}
-        if common.params["tiltedScan"]:
+        if parameters.tiltedScan:
             io.save_vec_field(dirname + "/OutF", fzs, **data_info)
         else:
             io.save_scal_field(dirname + "/OutFz", fzs, **data_info)
 
         if opt_dict["vib"] >= 0:
             which = opt_dict["vib"]
-            print(f" === Computing eigenvectors of dynamical matrix: which={which} ddisp={common.params['ddisp']}")
+            print(f" === Computing eigenvectors of dynamical matrix: which={which} ddisp={parameters.ddisp}")
             tip_positions_x, tip_positions_y, tip_positions_z, lvec_scan = common.prepareScanGrids()
             r_tips = np.array(np.meshgrid(tip_positions_x, tip_positions_y, tip_positions_z)).transpose(3, 1, 2, 0).copy()
-            evals, evecs = core.stiffnessMatrix(r_tips.reshape((-1, 3)), pp_positions.reshape((-1, 3)), which=which, ddisp=common.params["ddisp"])
+            evals, evecs = core.stiffnessMatrix(r_tips.reshape((-1, 3)), pp_positions.reshape((-1, 3)), which=which, ddisp=parameters.ddisp)
             print("vib eigenval 1 min..max : ", np.min(evals[:, 0]), np.max(evals[:, 0]))
             print("vib eigenval 2 min..max : ", np.min(evals[:, 1]), np.max(evals[:, 1]))
             print("vib eigenval 3 min..max : ", np.min(evals[:, 2]), np.max(evals[:, 2]))

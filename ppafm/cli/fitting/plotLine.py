@@ -3,14 +3,11 @@ import os
 import sys
 from optparse import OptionParser
 
-import __main__ as main
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator, interp1d
 
-import ppafm as PPU
-import ppafm.cpp_utils as cpp_utils
-from ppafm import io
+from ppafm import common, cpp_utils, io
 
 
 def selectLine(BIGarray, MIN, MAX, startingPoint, endPoint, nsteps):
@@ -62,40 +59,38 @@ opt_dict = vars(options)
 if options.points == []:
     sys.exit("Error!! The '-p' or '--points' argument is required\npython plotLine.py -p XMINxYMINxZMIN XMAXxYMAXxZMAX")
 
-PPU.loadParams("params.ini")
+parameters = common.PpafmParameters.from_file("params.ini")
 if os.path.isfile("atomtypes.ini"):
     print(">> LOADING LOCAL atomtypes.ini")
-    FFparams = PPU.loadSpecies("atomtypes.ini")
+    FFparams = common.loadSpecies("atomtypes.ini")
 else:
-    import ppafm.cpp_utils as cpp_utils
-
-    FFparams = PPU.loadSpecies(cpp_utils.PACKAGE_PATH.joinpath("defaults/atomtypes.ini"))
+    FFparams = common.loadSpecies(cpp_utils.PACKAGE_PATH.joinpath("defaults/atomtypes.ini"))
 print(" >> OVEWRITING SETTINGS by params.ini  ")
-dz = PPU.params["scanStep"][2]
-Amp = [PPU.params["Amplitude"]]
-scan_min = PPU.params["scanMin"]
-scan_max = PPU.params["scanMax"]
-scan_step = PPU.params["scanStep"]
-gridN = PPU.params["gridN"]
-gridA = PPU.params["gridA"][0]
-gridB = PPU.params["gridB"][1]
-gridC = PPU.params["gridC"][2]
+dz = parameters.scanStep[2]
+Amp = [parameters.Amplitude]
+scan_min = parameters.scanMin
+scan_max = parameters.scanMax
+scan_step = parameters.scanStep
+gridN = parameters.gridN
+gridA = parameters.gridA[0]
+gridB = parameters.gridB[1]
+gridC = parameters.gridC[2]
 
 
 MAX = [gridA, gridB, gridC]
 
-K = PPU.params["klat"]
-Q = PPU.params["charge"]
+K = parameters.klat
+Q = parameters.charge
 dirname = f"Q{Q:1.2f}K{K:1.2f}"
 
 print(f"Working in {dirname} directory")
 
 fzs, lvec, nDim, atomic_info_or_head = io.load_scal_field(dirname + "/OutFz", data_format=options.data_format)
-dfs = PPU.Fz2df(
+dfs = common.Fz2df(
     fzs,
     dz=dz,
-    k0=PPU.params["kCantilever"],
-    f0=PPU.params["f0Cantilever"],
+    k0=parameters.kCantilever,
+    f0=parameters.f0Cantilever,
     amplitude=Amp,
 )
 for p in options.points:

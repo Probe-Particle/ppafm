@@ -20,6 +20,8 @@ requires-python = ">=3.7"
 dependencies = [
     "matplotlib",
     "numpy",
+    "pydantic",
+    "toml",
 ]
 
 [project.urls]

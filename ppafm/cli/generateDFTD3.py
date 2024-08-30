@@ -34,14 +34,10 @@ def main():
     )
     args = parser.parse_args()
 
-    try:
-        # Try overwriting global parameters with params.ini file.
-        common.loadParams("params.ini")
-    except Exception:
-        print("No params.ini provided => using default parameters.")
+    parameters = common.PpafmParameters.from_file("params.ini")
 
     # Overwrite global parameters with command line arguments.
-    common.apply_options(vars(args))
+    parameters.apply_options(vars(args))
 
     if args.df_params is not None:
         p = args.df_params
