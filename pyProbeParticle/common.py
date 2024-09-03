@@ -17,7 +17,7 @@ CoulombConst         = -14.3996448915;
 params={
     'PBC': True,
     'nPBC' :       np.array( [      1,        1,        1 ] ),
-    'gridN':       np.array( [ -1,     -1,   -1   ] ).astype(np.int),
+    'gridN':       np.array( [ -1,     -1,   -1   ] ).astype(np.int32),
     'gridA':       np.array( [ 12.798,  -7.3889,  0.00000 ] ),
     'gridB':       np.array( [ 12.798,   7.3889,  0.00000 ] ),
     'gridC':       np.array( [      0,        0,      5.0 ] ),

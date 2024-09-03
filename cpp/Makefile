@@ -19,6 +19,8 @@ RR: ReactiveFF.o
 
 Ram: Ramman.o
 
+chrings: ChargeRings.o
+
 PolyCycles_: PolyCycles.o
 
 MMFF_: MMFF.o
