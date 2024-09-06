@@ -18,6 +18,8 @@ array3d  = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
 
 # ========= C functions interface
 
+
+
 # double solveSiteOccupancies( int npos, double* ptips_, double* Qtips,  int nsite, double* spos, const double* Esite, double* Qout, double E_mu, double cCouling, int niter, double tol, double dt ){
 lib.solveSiteOccupancies.argtypes = [ c_int, array2d, array1d, c_int, array2d, array1d, array2d, c_double, c_double, c_int, c_double, c_double ]
 lib.solveSiteOccupancies.restype  = c_double
@@ -32,5 +34,10 @@ def solveSiteOccupancies( ptips, Qtips, spos, Esite, Qout=None, E_mu=0.0, cCouli
     lib.solveSiteOccupancies( npos, ptips, Qtips, nsite, spos, Esite, Qout, E_mu, cCouling, niter, tol, dt )
     return Qout
 
-
+# void setVerbosity(int verbosity_){
+lib.setVerbosity.argtypes = [ c_int ]
+lib.setVerbosity.restype  = None
+def setVerbosity( verbosity ):
+    lib.setVerbosity( verbosity )
+    
 # ========= Python functions
