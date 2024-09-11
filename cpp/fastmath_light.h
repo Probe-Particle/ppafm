@@ -54,6 +54,11 @@ inline double clamp( double x, double xmin, double xmax ){
     return x;
 }
 
+inline bool clamp2( double& x, double xmin, double xmax ){
+    if(x<xmin){ x=xmin; return true; }else if(x>xmax){ x=xmax; return true; };
+    return false;
+}
+
 inline double clamp_abs( double x, double xmax ){
     if( x>0 ){ if(x>xmax) return xmax; }else{ if(x<-xmax) return -xmax; };
     return x;

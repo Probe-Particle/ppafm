@@ -16,14 +16,26 @@ array1d  = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
 array2d  = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
 array3d  = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
 
+c_double_p = ctypes.POINTER(c_double)
+c_float_p  = ctypes.POINTER(c_float)
+c_int_p    = ctypes.POINTER(c_int)
+c_bool_p   = ctypes.POINTER(c_bool)
+
+def _np_as(arr,atype):
+    if arr is None:
+        return None
+    else: 
+        return arr.ctypes.data_as(atype)
+
+
 # ========= C functions interface
 
 
 
-# double solveSiteOccupancies( int npos, double* ptips_, double* Qtips,  int nsite, double* spos, const double* Esite, double* Qout, double E_mu, double cCouling, int niter, double tol, double dt ){
-lib.solveSiteOccupancies.argtypes = [ c_int, array2d, array1d, c_int, array2d, array1d, array2d, c_double, c_double, c_int, c_double, c_double ]
+# double solveSiteOccupancies( int npos, double* ptips_, double* Qtips,  int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_mu, double cCouling, int niter, double tol, double dt, int* nitrs ){
+lib.solveSiteOccupancies.argtypes = [ c_int, array2d, array1d, c_int, array2d, c_double_p, c_double_p, array1d, array2d, c_double, c_double, c_int, c_double, c_double, array1i ]
 lib.solveSiteOccupancies.restype  = c_double
-def solveSiteOccupancies( ptips, Qtips, spos, Esite, Qout=None, E_mu=0.0, cCouling=1.0, niter=100, tol=1e-6, dt=0.1 ):
+def solveSiteOccupancies( ptips, Qtips, spos, Esite, Qout=None, rot=None, MultiPoles=None, E_mu=0.0, cCouling=1.0, niter=100, tol=1e-6, dt=0.1, niters=None ):
     npos = len(ptips)
     nsite= len(spos)
     ptips = np.array(ptips)
@@ -31,8 +43,9 @@ def solveSiteOccupancies( ptips, Qtips, spos, Esite, Qout=None, E_mu=0.0, cCouli
     spos   = np.array(spos)
     Esite  = np.array(Esite)
     if(Qout is None): Qout = np.zeros( (npos,nsite) )
-    lib.solveSiteOccupancies( npos, ptips, Qtips, nsite, spos, Esite, Qout, E_mu, cCouling, niter, tol, dt )
-    return Qout
+    if(niters is None): niters = np.zeros(npos, dtype=np.int32)
+    lib.solveSiteOccupancies( npos, ptips, Qtips, nsite, spos, _np_as(rot,c_double_p), _np_as(MultiPoles,c_double_p), Esite, Qout, E_mu, cCouling, niter, tol, dt, niters )
+    return Qout, niters
 
 # void setVerbosity(int verbosity_){
 lib.setVerbosity.argtypes = [ c_int ]

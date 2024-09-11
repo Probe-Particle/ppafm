@@ -4,7 +4,7 @@ LD=g++
 #CPPFLAGS= -fPIC -std=c++11 -O3 -ffast-math -ftree-vectorize 
 #CPPFLAGS= -fPIC -std=c++11 -O2 -march=native -mtune=native
 #CPPFLAGS= -fPIC -std=c++11 -O3 -march=native -mtune=native
-CPPFLAGS= -fPIC -std=c++11 -Ofast -march=native -mtune=native
+CPPFLAGS= -fPIC -std=c++11 -Ofast -march=native -mtune=native -fopenmp
 LDFLAGS= -shared
 
 all: PP GU MP RR PolyCycles_ atomfit_ fitting_ fitSpline_ MMFF_ FARFF_
