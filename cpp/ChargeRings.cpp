@@ -96,9 +96,9 @@ double getChargingForce( int nsite, const double* Esite, const double* Coupling,
     double E_on  = 0;
     double E_off = 0;
     //printf( "======== getChargingForce() \n" );
-
+    const double onSiteCoulomb = 3.0; 
     //printf( "getChargingForce() @Esite=%li @Coupling=%li \n", (long)Esite, (long)Coupling  );
-
+    double E=0;
     for(int i=0; i<nsite; i++){
         //double qi = Qs[i];
         //E_on     += qi*fQi;
@@ -117,13 +117,18 @@ double getChargingForce( int nsite, const double* Esite, const double* Coupling,
         }
         double eps_i = Esite[i];  //   on-site energy (with respct to fermi level)
         double fQi = eps_i + Vcoul - E_Fermi;   //charinging force, if below fermi level it is getting charged, if above it is getting discharged
+        { // onsite Coulomb
+            double qi  = Qs[i];
+            if(qi>1){ fQi += (qi-1)*onSiteCoulomb;  }
+        }
         //printf( "site[%i] fQi(%g) = eps(%g) + Vcoul(%g) - Ef(%g) \n", i, eps_i, Vcoul, fQi, E_Fermi  );
         //printf( "site[%i] eps %g  Vcoul %g  fQi %g E_Fermi %g \n", i, eps_i, Vcoul, fQi, E_Fermi );
-        dEdQ[i] = fQi;  
+        if(dEdQ){ dEdQ[i] = fQi; }  
+        E += fQi*Qs[i]; 
         f2err += fQi*fQi;
     }
     //printf("E_on %g E_off %g f2err %g\n", E_on, E_off, f2err );
-    return E_on + E_off;
+    return E;
 }
 
 
@@ -134,6 +139,7 @@ void makeCouplingMatrix( int nsite, const Vec3d* spos, const Mat3d* rot, const d
         const Vec3d pi = spos[i];
         const Vec3d d  = pi - pT;
         double Vitip=0;   
+
         // Quadrupole
         if(MultiPoles){
             //Vec3d d_ = rot[i].dot(d);
@@ -147,6 +153,7 @@ void makeCouplingMatrix( int nsite, const Vec3d* spos, const Mat3d* rot, const d
 
         double eps_i = Vitip + Esite0[i];
         Esite[i] = eps_i;
+
         if(Coupling){
             Coupling[i*nsite+i] = eps_i; // - E_mu;
             //printf( "makeCouplingMatrix[%i] V= %g   r= %g      pi(%g,%g,%g)   pT(%g,%g,%g) \n", i, Vitip, ( pi - pT ).norm(),  pi.x,pi.y,pi.z,   pT.x,pT.y,pT.z   );
@@ -197,7 +204,8 @@ double moveMD(  int n, double *x, double *f, double *v, double dt, double dampin
         vi = vi*cdamp + fi*dt;
 
         double xi = x[i] + vi*dt;
-        if( !clamp2( xi, 0.0, 1.0 ) ){
+        //if( !clamp2( xi, 0.0, 1.0 ) ){
+        if( !clamp2( xi, 0.0, 2.0 ) ){
             f2 += fi*fi;
         };
         
@@ -210,7 +218,7 @@ double moveMD(  int n, double *x, double *f, double *v, double dt, double dampin
 
 
 
-int solveSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, double* Qs, Vec3d p_tip, double Q_tip, double E_Fermi, double cCouling, int niter=1000, double tol=1e-6, double dt=0.1 ){
+int optimizeSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, double* Qs, Vec3d p_tip, double Q_tip, double E_Fermi, double cCouling, int niter=1000, double tol=1e-6, double dt=0.1 ){
     //  Site occupancy is 1 if below the Fermi level, 0 otherwise
     //  Fermi level is set by the voltage applied to the STM tip and distance from the site
     // The energy of sites is modified by Coulomb interaction between the sites as well
@@ -258,16 +266,64 @@ int solveSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const do
 }
 
 
+
+
+
+double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCouling, double T ){
+    if(verbosity>0) printf( "E_Fermi %g Q_tip %g Esite{%6.3f,%6.3f,%6.3f}  \n", E_Fermi, Q_tip,  Esite0[0],Esite0[1],Esite0[2] );
+    double Qs       [ nsite ];
+    double Qav      [ nsite ];
+    double Esite    [ nsite ];
+    double Coupling_[ nsite*nsite ];
+    double* Coupling=Coupling_;
+    if( cCouling<0 ){ Coupling  = 0; }
+    makeCouplingMatrix( nsite, spos, rot, MultiPoles, Esite0, p_tip, Q_tip, Esite, Coupling, cCouling );
+
+    double kB   = 8.617333262145e-5; // [eV/K]
+    double beta = 1.0/(kB*T);
+
+    int nspinorb = nsite*2;
+    int nconfs = 1<<nspinorb;
+    double sumP = 0;
+    for( int i=0; i<nsite; i++ ){ Qav[i]=0;  }
+    for( int ic=0; ic<nconfs; ic++ ){
+        for( int j=0; j<nsite; j++){ 
+            int jj=j*2; 
+            int qi=0;
+            if( ic&(1<<(jj  )) ){ qi++; }
+            if( ic&(1<<(jj+1)) ){ qi++; }        
+            Qs[j] = qi;
+        };
+        //printf( "boltzmanSiteOccupancy[ic=%i] Qs(%g,%g,%g) \n", ic, Qs[0], Qs[1], Qs[2] );
+        double E = getChargingForce( nsite, Esite, Coupling, E_Fermi, Qs, 0 );
+        double P = exp( -beta*E );
+        sumP += P;
+        for( int j=0; j<nsite; j++){ Qav[j] += Qs[j]*P; };
+    }
+
+    //printf( "boltzmanSiteOccupancy p_tip(%8.3f,%8.3f) sumP=%g  Qav(%g,%g,%g) nconfs=%i \n", p_tip.x, p_tip.y, sumP, Qav[0], Qav[1], Qav[2], nconfs );
+    double renorm = 1.0/sumP;
+    for( int j=0; j<nsite; j++){ Qout[j] = Qav[j] * renorm; };
+    //for(int i=0; i<nsite; i++){ Qs[i] = fQs[i]; } 
+    return sumP;
+}
+
+
+
+
 extern "C"{
 
 void solveSiteOccupancies( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_mu, double cCouling, int niter, double tol, double dt, int* nitrs ){
     Vec3d* ptips = (Vec3d*)ptips_;
 
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for(int i=0; i<npos; i++){
         double Qs[nsite];
         for(int j=0; j<nsite; j++){ Qs[j]=0; }
-        int nitr = solveSiteOccupancy( nsite, (Vec3d*)spos, (Mat3d*)rot, MultiPoles, Esite, Qs, ptips[i], Qtips[i], E_mu, cCouling, niter, tol, dt );     
+        //int nitr = optimizeSiteOccupancy( nsite, (Vec3d*)spos, (Mat3d*)rot, MultiPoles, Esite, Qs, ptips[i], Qtips[i], E_mu, cCouling, niter, tol, dt );     
+
+        boltzmanSiteOccupancy( nsite, (Vec3d*)spos, (Mat3d*)rot, MultiPoles, Esite, Qs, ptips[i], Qtips[i], E_mu, cCouling, 100.0 );  int nitr=0;
+
         //printf( "solveSiteOccupancies()[%i] nitr=%i \n", i, nitr );  
         for(int j=0; j<nsite; j++){ Qout[i*nsite+j] = Qs[j]; }
         if(nitrs) nitrs[i] = nitr;
