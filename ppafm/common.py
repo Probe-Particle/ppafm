@@ -119,10 +119,10 @@ class PpafmParameters(pydantic.BaseModel):
             words = line.split()
             if len(words) >= 2:
                 key = words[0]
+                if key[0] == "#":
+                    continue
                 if hasattr(self, key):
                     val = getattr(self, key)
-                    if key[0][0] == "#":
-                        continue
                     if verbose > 0:
                         print(key, " is class ", val.__class__)
                     if isinstance(val, bool):
