@@ -116,9 +116,8 @@ class PpafmParameters(pydantic.BaseModel):
 
     def load_ini(self, lines):
         for line in lines:
+            line = line.split("#")[0].strip()
             words = line.split()
-            if words[0][0] == "#":
-                continue
             if len(words) >= 2:
                 key = words[0]
                 if hasattr(self, key):
