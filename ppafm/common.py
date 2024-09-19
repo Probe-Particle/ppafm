@@ -116,45 +116,47 @@ class PpafmParameters(pydantic.BaseModel):
 
     def load_ini(self, lines):
         for line in lines:
+            line = line.split("#")[0].strip()
             words = line.split()
             if len(words) >= 2:
                 key = words[0]
                 if hasattr(self, key):
                     val = getattr(self, key)
-                    if key[0][0] == "#":
-                        continue
                     if verbose > 0:
                         print(key, " is class ", val.__class__)
-                    if isinstance(val, bool):
-                        word = words[1].strip()
-                        setattr(self, key, word[0] == "T" or word[0] == "t")
-                        if verbose > 0:
-                            print(key, getattr(self, key), ">>", word, "<<")
-                    elif isinstance(val, float):
-                        setattr(self, key, float(words[1]))
-                        if verbose > 0:
-                            print(key, getattr(self, key), words[1])
-                    elif isinstance(val, int):
-                        setattr(self, key, int(words[1]))
-                        if verbose > 0:
-                            print(key, getattr(self, key), words[1])
-                    elif isinstance(val, str):
-                        setattr(self, key, words[1])
-                    elif isinstance(val, list):
-                        if isinstance(val[0], float):
-                            setattr(self, key, [float(words[1]), float(words[2]), float(words[3])])
+                    try:
+                        if isinstance(val, bool):
+                            word = words[1].strip()
+                            setattr(self, key, word[0] == "T" or word[0] == "t")
                             if verbose > 0:
-                                print(key, getattr(self, key), words[1], words[2], words[3])
-                        elif isinstance(val[0], int):
+                                print(key, getattr(self, key), ">>", word, "<<")
+                        elif isinstance(val, float):
+                            setattr(self, key, float(words[1]))
                             if verbose > 0:
-                                print(key)
-                            setattr(self, key, [int(words[1]), int(words[2]), int(words[3])])
+                                print(key, getattr(self, key), words[1])
+                        elif isinstance(val, int):
+                            setattr(self, key, int(words[1]))
                             if verbose > 0:
-                                print(key, getattr(self, key), words[1], words[2], words[3])
-                        else:
-                            setattr(self, key, [str(words[1]), float(words[2])])
-                            if verbose > 0:
-                                print(key, getattr(self, key), words[1], words[2])
+                                print(key, getattr(self, key), words[1])
+                        elif isinstance(val, str):
+                            setattr(self, key, words[1])
+                        elif isinstance(val, list):
+                            if isinstance(val[0], float):
+                                setattr(self, key, [float(words[1]), float(words[2]), float(words[3])])
+                                if verbose > 0:
+                                    print(key, getattr(self, key), words[1], words[2], words[3])
+                            elif isinstance(val[0], int):
+                                if verbose > 0:
+                                    print(key)
+                                setattr(self, key, [int(words[1]), int(words[2]), int(words[3])])
+                                if verbose > 0:
+                                    print(key, getattr(self, key), words[1], words[2], words[3])
+                            else:
+                                setattr(self, key, [str(words[1]), float(words[2])])
+                                if verbose > 0:
+                                    print(key, getattr(self, key), words[1], words[2])
+                    except:
+                        raise ValueError(f"Error parsing parameters on line: {line}") from None
                 else:
                     raise ValueError(f"Parameter {key} is not known")
         if self.gridN[0] <= 0:
