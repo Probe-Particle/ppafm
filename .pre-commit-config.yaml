@@ -4,7 +4,7 @@ ci:
 
 repos:
     - repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v4.6.0
+      rev: v5.0.0
       hooks:
           - id: end-of-file-fixer
           - id: trailing-whitespace
@@ -20,11 +20,11 @@ repos:
       hooks:
           - id: autoflake
     - repo: https://github.com/asottile/pyupgrade
-      rev: v3.16.0
+      rev: v3.17.0
       hooks:
           - id: pyupgrade
     - repo: https://github.com/psf/black
-      rev: 24.4.2
+      rev: 24.10.0
       hooks:
           - id: black
             language_version: python3
