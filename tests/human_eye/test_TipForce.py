@@ -29,7 +29,7 @@ def test_tip_force():
     print("ydys: ", ydys)
     plt.plot(xs, ydys[:, 0], "o")
     plt.plot(xs, ydys[:, 0] + ydys[:, 1], ".")
-    core.setTipSpline(xs, ydys)
+    spline_parameters = core.SplineParameters(xs, ydys)
 
     core.setTip(parameters=parameters)
 
@@ -41,11 +41,11 @@ def test_tip_force():
     # print "xs=",xs
 
     print(">>>  core.test_force( 1, r0, dr, R, fs )")
-    core.test_force(1, r0, dr, R, fs)
+    core.test_force(1, r0, dr, R, fs, spline_parameters)
     plt.plot(xs, fs[:, 2])
 
     print(">>>  core.test_force( 2, r0, dr, R, fs )")
-    core.test_force(2, r0, dr, R, fs)
+    core.test_force(2, r0, dr, R, fs, spline_parameters)
     plt.plot(xs, fs[:, 2])
 
     # print "fs:", fs

@@ -54,10 +54,12 @@ namespace TIP{
     double  lRadial;    // radial PP-tip distance
     double  kRadial;    // radial PP-tip stiffness
 
-    // tip forcefiled spline
-    int      rff_n    = 0;
-    double * rff_xs   = NULL;
-    double * rff_ydys = NULL;
+    // Tip force field spline
+    struct SplineParams {
+        int      rff_n;
+        double * rff_xs;
+        double * rff_ydys;
+    };
 
     void makeConsistent(){ // place rPP0 on the sphere to be consistent with radial spring
         if( fabs(kRadial) > 1e-8 ){
@@ -65,6 +67,7 @@ namespace TIP{
             printf(" rPP0 %f %f %f \n", rPP0.x, rPP0.y, rPP0.z );
         }
     }
+
 }
 
 // relaxation namespace
@@ -206,15 +209,16 @@ inline double addAtom_Coulomb_dz2( Vec3d dR, Vec3d& fout, double * coefs ){
 }
 
 // radial spring constrain
-Vec3d forceRSpline( const Vec3d& dR, int n, double * xs, double * ydys ){
+Vec3d forceRSpline( const Vec3d& dR, TIP::SplineParams *params ){
     double x     =  sqrt( dR.norm2() );
-    int    i     = Spline_Hermite::find_index<double>( i, n-i, x, xs );
-    double x0    = xs[i  ];
-    double x1    = xs[i+1];
+    int    i     = Spline_Hermite::find_index<double>( 0, params->rff_n, x, params->rff_xs );
+    double x0    = params->rff_xs[i  ];
+    double x1    = params->rff_xs[i+1];
     double dx    = x1-x0;
     double denom = 1/dx;
     double u     = (x-x0)*denom;
     i=i<<1;
+    double *ydys = params->rff_ydys;
     double fr =  Spline_Hermite::val<double>( u, ydys[i], ydys[i+2], ydys[i+1]*dx, ydys[i+3]*dx );
     Vec3d f; f.set_mul( dR, fr/x );
     return f;
@@ -275,28 +279,28 @@ inline void evalCell( int ibuff, const Vec3d& rProbe, void * args ){
 
 // ========== Interpolations
 
-inline void getPPforce( const Vec3d& rTip, const Vec3d& r, Vec3d& f ){
+inline void getPPforce( const Vec3d& rTip, const Vec3d& r, Vec3d& f, TIP::SplineParams *splineParams ){
     Vec3d rGrid,drTip;
     rGrid.set( r.dot( gridShape.diCell.a ), r.dot( gridShape.diCell.b ), r.dot( gridShape.diCell.c ) );     // transform position from cartesian world coordinates to coordinates along which Force-Field data are sampled ( non-orthogonal cell )
     drTip.set_sub( r, rTip );                                                             // vector between Probe-particle and tip apex
     f.set    ( interpolate3DvecWrap( gridF, gridShape.n, rGrid ) );                          // force from surface, interpolated from Force-Field data array
-    if( TIP::rff_xs ){
-        f.add( forceRSpline( drTip, TIP::rff_n, TIP::rff_xs, TIP::rff_ydys ) );			  // force from tip - radial component spline
+    if( splineParams ){
+        f.add( forceRSpline( drTip, splineParams ) );                   // force from tip - radial component spline
     }else{
-        f.add( forceRSpring( drTip, TIP::kRadial, TIP::lRadial ) );                       // force from tip - radial component harmonic
+        f.add( forceRSpring( drTip, TIP::kRadial, TIP::lRadial ) );     // force from tip - radial component harmonic
     }
     drTip.sub( TIP::rPP0 );
     f.add_mul( drTip, TIP::kSpring );      // spring force
 }
 
 // relax probe particle position "r" given on particular position of tip (rTip) and initial position "r"
-int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r ){
+int relaxProbe( int relaxAlg, const Vec3d& rTip, Vec3d& r, TIP::SplineParams *splineParams ){
     Vec3d v; v.set( 0.0 );
     int iter;
     FIREstate fire;
     fire.setup();
     for( iter=0; iter<RELAX::maxIters; iter++ ){
-        Vec3d f;  getPPforce( rTip, r, f );
+        Vec3d f;  getPPforce( rTip, r, f, splineParams);
         if( relaxAlg == 1 ){                                                                  // move by either damped-leap-frog ( 0 ) or by FIRE ( 1 )
             //FIRE::move( f, r, v );
             fire.move( f, r, v );
@@ -360,13 +364,6 @@ DLLEXPORT void setTip( double lRad, double kRad, double * rPP0, double * kSpring
     TIP::rPP0.set(rPP0);
     TIP::kSpring.set(kSpring);
     TIP::makeConsistent();  // rPP0 to be consistent with  lRadial
-}
-
-// set parameters of the tip like stiffness and equlibirum position in radial and lateral direction
-DLLEXPORT void setTipSpline( int n, double * xs, double * ydys ){
-    TIP::rff_n    = n;
-    TIP::rff_xs   = xs;
-    TIP::rff_ydys = ydys;
 }
 
 DLLEXPORT void getInPoints_LJ( int npoints, double * points_, double * FEs, int natoms, double * Ratoms_, double * cLJs ){
@@ -623,7 +620,7 @@ DLLEXPORT void getDensityR4spline( int natoms_, double * Ratoms_, double * cRAs 
 // returns position of probe-particle after relaxation in 1D array "rs_" and force between surface probe particle in this relaxed position in 1D array "fs_"
 // for efficiency, starting position of ProbeParticle in new point (next postion of Tip) is derived from relaxed postion of ProbeParticle from previous point
 // there are several strategies how to do it which are choosen by parameter probeStart
-DLLEXPORT int relaxTipStroke( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
+DLLEXPORT int relaxTipStroke( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_, TIP::SplineParams *splineParams ){
     Vec3d * rTips = (Vec3d*) rTips_;
     Vec3d * rs    = (Vec3d*) rs_;
     Vec3d * fs    = (Vec3d*) fs_;
@@ -647,7 +644,7 @@ DLLEXPORT int relaxTipStroke( int probeStart, int relaxAlg, int nstep, double * 
             rProbe.set_add( rTip, drp    );
         }
         // relax Probe Particle postion
-        int itr = relaxProbe( relaxAlg, rTip, rProbe );
+        int itr = relaxProbe( relaxAlg, rTip, rProbe, splineParams );
         if( itr>RELAX::maxIters ){
             printf( " not converged in %i iterations \n", RELAX::maxIters );
             printf( "exiting \n" );	break;
@@ -671,14 +668,14 @@ DLLEXPORT int relaxTipStroke( int probeStart, int relaxAlg, int nstep, double * 
 // returns position of probe-particle after relaxation in 1D array "rs_" and force between surface probe particle in this relaxed position in 1D array "fs_"
 // for efficiency, starting position of ProbeParticle in new point (next postion of Tip) is derived from relaxed postion of ProbeParticle from previous point
 // there are several strategies how to do it which are choosen by parameter probeStart
-DLLEXPORT int relaxTipStrokes_omp( int nx, int ny, int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_ ){
+DLLEXPORT int relaxTipStrokes_omp( int nx, int ny, int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_, TIP::SplineParams *splineParams ){
     printf( "relaxTipStrokes_omp()  nx %i ny %i nstep %i \n", nx, ny, nstep );
     int ndone=0;
     #pragma omp parallel for collapse(2) shared( nx, ny, probeStart, relaxAlg, nstep, rTips_, rs_, fs_, ndone )
     for (int ix=0; ix<nx; ix++){
         for (int iy=0; iy<ny; iy++){
             int ioff = (ix + iy*nx)*nstep;
-            relaxTipStroke( probeStart, relaxAlg, nstep, rTips_+ioff*3, rs_+ioff*3, fs_+ioff*3 );
+            relaxTipStroke( probeStart, relaxAlg, nstep, rTips_+ioff*3, rs_+ioff*3, fs_+ioff*3, splineParams );
             if( omp_get_thread_num()==0 ){
                 ndone++;
                 if( ndone%100==0 ){
@@ -692,7 +689,7 @@ DLLEXPORT int relaxTipStrokes_omp( int nx, int ny, int probeStart, int relaxAlg,
     return 0;
 }
 
-DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
+DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_, TIP::SplineParams *sp ){
     //printf( "C++ stiffnessMatrix() n=%i \n", n );
     Vec3d * rTips     = (Vec3d*) rTips_;
     Vec3d * rPPs      = (Vec3d*) rPPs_;
@@ -712,9 +709,9 @@ DLLEXPORT void stiffnessMatrix( double ddisp, int which, int n, double * rTips_,
         Mat3d dynmat;
         //pmin.setIfLower(rPP); pmax.setIfGreater(rPP);
         // eval dynamical matrix    D_xy = df_y/dx    = ( f(r0+dx).y - f(r0-dx).y ) / (2*dx)
-        rPP.x-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.x-=ddisp; dynmat.a.set_sub(f2,f1); dynmat.a.mul(-0.5/ddisp);
-        rPP.y-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.y-=ddisp; dynmat.b.set_sub(f2,f1); dynmat.b.mul(-0.5/ddisp);
-        rPP.z-=ddisp; getPPforce( rTip, rPP, f1 ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2 );  rPP.z-=ddisp; dynmat.c.set_sub(f2,f1); dynmat.c.mul(-0.5/ddisp);
+        rPP.x-=ddisp; getPPforce( rTip, rPP, f1, sp ); rPP.x+=2*ddisp; getPPforce( rTip, rPP, f2, sp );  rPP.x-=ddisp; dynmat.a.set_sub(f2,f1); dynmat.a.mul(-0.5/ddisp);
+        rPP.y-=ddisp; getPPforce( rTip, rPP, f1, sp ); rPP.y+=2*ddisp; getPPforce( rTip, rPP, f2, sp );  rPP.y-=ddisp; dynmat.b.set_sub(f2,f1); dynmat.b.mul(-0.5/ddisp);
+        rPP.z-=ddisp; getPPforce( rTip, rPP, f1, sp ); rPP.z+=2*ddisp; getPPforce( rTip, rPP, f2, sp );  rPP.z-=ddisp; dynmat.c.set_sub(f2,f1); dynmat.c.mul(-0.5/ddisp);
         // symmetrize - to make sure that our symmetric matrix solver work properly
         double tmp;
         tmp = 0.5*(dynmat.xy + dynmat.yx); dynmat.xy = tmp; dynmat.yx = tmp;
@@ -775,7 +772,7 @@ DLLEXPORT void subsample_nonuniform_spline( int n, double * xs, double * ydys, i
     }
 }
 
-DLLEXPORT void test_force( int type, int n, double * r0_, double * dr_, double * R_, double * fs_ ){
+DLLEXPORT void test_force( int type, int n, double * r0_, double * dr_, double * R_, double * fs_, TIP::SplineParams *splineParams ){
     Vec3d r,dr,R;
     r .set( r0_[0], r0_[1], r0_[2] );
     dr.set( dr_[0], dr_[1], dr_[2] );
@@ -785,8 +782,8 @@ DLLEXPORT void test_force( int type, int n, double * r0_, double * dr_, double *
         //Vec3d drTip.set_sub( r, R );
         Vec3d f;
         switch( type ){
-            case 1 : f = forceRSpline( r-R, TIP::rff_n,   TIP::rff_xs, TIP::rff_ydys ); break;
-            case 2 : f = forceRSpring( r-R, TIP::kRadial, TIP::lRadial               ); break;
+            case 1 : f = forceRSpline( r-R, splineParams               ); break;
+            case 2 : f = forceRSpring( r-R, TIP::kRadial, TIP::lRadial ); break;
         }
         fs[i] = f;
         //printf( " %i (%3.3f,%3.3f,%3.3f) (%3.3f,%3.3f,%3.3f) \n", i, r.x, r.y, r.z,  f.x, f.y, f.z );
