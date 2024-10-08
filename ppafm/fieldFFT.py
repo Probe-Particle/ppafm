@@ -350,9 +350,9 @@ def potential2forces_mem(V, lvec, nDim, sigma=0.7, rho=None, multipole=None, doF
 
 def Average_surf(Val_surf, W_surf, W_tip):
     """
-               Int_r Val_surf(r+R)  W_tip(r) W_sample(r+R)     W_tip) * (Val_surf W_sample)
-    <F>(R) = -----------------------------------------  = -----------------------------; where * means convolution
-               Int_r W_tip(r) W_sample(r+R)                     W_tip * W_sample
+    |            Int_r Val_surf(r+R)  W_tip(r) W_sample(r+R)     W_tip) * (Val_surf W_sample)
+    | <F>(R) = -----------------------------------------  = -----------------------------; where * means convolution
+    |            Int_r W_tip(r) W_sample(r+R)                     W_tip * W_sample
     """
     if verbose > 0:
         print("Forward FFT ")
@@ -384,9 +384,9 @@ def Average_surf(Val_surf, W_surf, W_tip):
 
 def Average_tip(Val_tip, W_surf, W_tip):
     """
-               Int_r Val_tip(r)  W_tip(r) W_sample(r+R)    (Val_tip W_tip) * W_sample
-    <F>(R) = -----------------------------------------  = -----------------------------; where * means convolution
-               Int_r W_surf(r) W_sample(r+R)                     W_tip * W_sample
+    |            Int_r Val_tip(r)  W_tip(r) W_sample(r+R)    (Val_tip W_tip) * W_sample
+    | <F>(R) = -----------------------------------------  = -----------------------------; where * means convolution
+    |            Int_r W_surf(r) W_sample(r+R)                     W_tip * W_sample
     """
     if verbose > 0:
         print("Forward FFT ")

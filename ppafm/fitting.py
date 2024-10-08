@@ -3,7 +3,7 @@ from ctypes import c_double, c_int
 
 import numpy as np
 
-from . import cpp_utils
+from . import common, cpp_utils, io
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p = ctypes.POINTER(c_int)
@@ -122,14 +122,12 @@ def debugGeomPBC_xsf(centers):
 if __name__ == "__main__":
     np.set_printoptions(precision=None, linewidth=200)
 
-    from . import common as PPU
-    from . import io
-
     fext = "xsf"
     fname = "CHGCAR"
     fname_ext = fname + "." + fext
+    parameters = common.PpafmParameters()
 
-    atoms, nDim, lvec = io.loadGeometry(fname_ext, params=PPU.params)
+    atoms, nDim, lvec = io.loadGeometry(fname_ext, parameters=parameters)
     centers = np.array(atoms[1:4]).transpose().copy()
     print("centers \n", centers)
 

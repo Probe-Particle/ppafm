@@ -14,8 +14,9 @@ def example_ptcda_hartree():
     # Change directory to the location of this script
     os.chdir(script_location)
 
-    subprocess.run(["wget", "--no-check-certificate", "https://www.dropbox.com/s/18eg89l89npll8x/LOCPOT.xsf.zip"])
-    subprocess.run(["unzip", "LOCPOT.xsf.zip"])
+    if not Path("LOCPOT.xsf").exists():
+        subprocess.run(["wget", "--no-check-certificate", "https://www.dropbox.com/s/18eg89l89npll8x/LOCPOT.xsf.zip"])
+        subprocess.run(["unzip", "LOCPOT.xsf.zip"])
 
     generate_ljff(["--input", "LOCPOT.xsf"])
     generate_elff(["--input", "LOCPOT.xsf", "--tip", "dz2"])

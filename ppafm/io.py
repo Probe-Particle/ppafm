@@ -405,12 +405,12 @@ def loadNCUBE(fname):
     return [int(sth1[0]), int(sth2[0]), int(sth3[0])]
 
 
-def loadGeometry(fname=None, format=None, params=None):
+def loadGeometry(fname=None, format=None, parameters=None):
     if verbose > 0:
         print("loadGeometry ", fname)
     if fname == None:
         raise ValueError("Please provide the name of the file with coordinates")
-    if params == None:
+    if parameters == None:
         raise ValueError("Please provide the parameters dictionary here")
 
     if format == None or format == "":
@@ -458,33 +458,33 @@ def loadGeometry(fname=None, format=None, params=None):
         if qs is None:
             qs = np.zeros(len(Zs))
         atoms = [list(Zs), list(xyzs[:, 0]), list(xyzs[:, 1]), list(xyzs[:, 2]), list(qs)]
-        nDim = copy.copy(params["gridN"])
+        nDim = np.array(parameters.gridN)
 
     # Make sure lvec is a 4x3 array. Use default grid parameters if needed
     if (lvec is None) or (len(lvec) == 0):
         lvec = np.zeros((4, 3))
-        lvec[0, :] = params["gridO"].copy()
-        lvec[1, :] = params["gridA"].copy()
-        lvec[2, :] = params["gridB"].copy()
-        lvec[3, :] = params["gridC"].copy()
+        lvec[0, :] = copy.copy(parameters.gridO)
+        lvec[1, :] = copy.copy(parameters.gridA)
+        lvec[2, :] = copy.copy(parameters.gridB)
+        lvec[3, :] = copy.copy(parameters.gridC)
     else:
         if len(lvec) == 1:
-            lvec.append(params["gridA"].copy())
+            lvec.append(parameters.gridA.copy())
         if len(lvec) == 2:
-            lvec.append(params["gridB"].copy())
+            lvec.append(parameters.gridB.copy())
         if len(lvec) == 3:
-            lvec.append(params["gridC"].copy())
+            lvec.append(parameters.gridC.copy())
     lvec = np.array(lvec)
 
     # Shift scanning coordinates to such that actually make sense (being directly comparable to coordinates of atoms)
-    probe_min = params["scanMin"].copy()
-    probe_max = params["scanMax"].copy()
-    probe_min[0] += params["r0Probe"][0]
-    probe_min[1] += params["r0Probe"][1]
-    probe_min[2] -= params["r0Probe"][2]
-    probe_max[0] += params["r0Probe"][0]
-    probe_max[1] += params["r0Probe"][1]
-    probe_max[2] -= params["r0Probe"][2]
+    probe_min = np.array(parameters.scanMin)
+    probe_max = np.array(parameters.scanMax)
+    probe_min[0] += parameters.r0Probe[0]
+    probe_min[1] += parameters.r0Probe[1]
+    probe_min[2] -= parameters.r0Probe[2]
+    probe_max[0] += parameters.r0Probe[0]
+    probe_max[1] += parameters.r0Probe[1]
+    probe_max[2] -= parameters.r0Probe[2]
 
     # Generate automatic lattice vectors and grid dimensions if needed
     pad = 3.0
@@ -493,7 +493,7 @@ def loadGeometry(fname=None, format=None, params=None):
         # Zero lattice vector is considered undefined and triggers creation of an automatic one.
         # The automatically generated lattice vector should enclose the whole scanning area plus the default padding.
         if np.allclose(lvec[i + 1, :], 0):
-            params["PBC"] = False
+            parameters.PBC = False
             lvec[i + 1, i] = probe_max[i] - probe_min[i] + 2 * pad
             lvec[0, i] = probe_min[i] - pad
 
@@ -505,11 +505,11 @@ def loadGeometry(fname=None, format=None, params=None):
     # so as to guarantee compatibility between the local variables and global parameters
 
     for i in range(3):
-        params["gridO"][i] = lvec[0][i]
-        params["gridA"][i] = lvec[1][i]
-        params["gridB"][i] = lvec[2][i]
-        params["gridC"][i] = lvec[3][i]
-    params["gridN"] = nDim
+        parameters.gridO[i] = lvec[0][i]
+        parameters.gridA[i] = lvec[1][i]
+        parameters.gridB[i] = lvec[2][i]
+        parameters.gridC[i] = lvec[3][i]
+    parameters.gridN = nDim
 
     return atoms, nDim, lvec
 

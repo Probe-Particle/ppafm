@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from ctypes import c_double, c_int
+from ctypes import POINTER, Structure, c_double, c_int
 
 import numpy as np
 
@@ -41,13 +41,13 @@ lib.setGridCell.argtypes = [array2d]
 lib.setGridCell.restype = None
 
 
-def setGridCell(cell=None):
+def setGridCell(cell=None, parameters=None):
     if cell is None:
         cell = np.array(
             [
-                PPU.params["gridA"],
-                PPU.params["gridB"],
-                PPU.params["gridC"],
+                parameters.gridA,
+                parameters.gridB,
+                parameters.gridC,
             ],
             dtype=np.float64,
         ).copy()
@@ -63,10 +63,10 @@ def setGridCell(cell=None):
     lib.setGridCell(cell)
 
 
-def setFF_shape(n_, cell):
+def setFF_shape(n_, cell, parameters=None):
     n = np.array(n_).astype(np.int32)
     lib.setGridN(n)
-    setGridCell(cell)
+    setGridCell(cell, parameters=parameters)
 
 
 # void setFF_pointer( double * gridF, double * gridE  )
@@ -87,7 +87,7 @@ def setFF_Epointer(gridE):
     lib.setFF_Epointer(gridE)
 
 
-def setFF(cell=None, gridF=None, gridE=None):
+def setFF(cell=None, gridF=None, gridE=None, parameters=None):
     n_ = None
     if gridF is not None:
         setFF_Fpointer(gridF)
@@ -98,14 +98,14 @@ def setFF(cell=None, gridF=None, gridE=None):
     if cell is None:
         cell = np.array(
             [
-                PPU.params["gridA"],
-                PPU.params["gridB"],
-                PPU.params["gridC"],
+                parameters.gridA,
+                parameters.gridB,
+                parameters.gridC,
             ]
         ).copy()
     if n_ is not None:
         print("setFF() n_ : ", n_)
-        setFF_shape(n_, cell)
+        setFF_shape(n_, cell, parameters=parameters)
     else:
         "Warrning : setFF shape not set !!!"
 
@@ -133,15 +133,15 @@ lib.setTip.argtypes = [c_double, c_double, array1d, array1d]
 lib.setTip.restype = None
 
 
-def setTip(lRadial=None, kRadial=None, rPP0=None, kSpring=None):
+def setTip(lRadial=None, kRadial=None, rPP0=None, kSpring=None, parameters=None):
     if lRadial is None:
-        lRadial = PPU.params["r0Probe"][2]
+        lRadial = parameters.r0Probe[2]
     if kRadial is None:
-        kRadial = PPU.params["krad"] / -PPU.eVA_Nm
+        kRadial = parameters.krad / -PPU.eVA_Nm
     if rPP0 is None:
-        rPP0 = np.array((PPU.params["r0Probe"][0], PPU.params["r0Probe"][1], 0.0))
+        rPP0 = np.array((parameters.r0Probe[0], parameters.r0Probe[1], 0.0))
     if kSpring is None:
-        kSpring = np.array((PPU.params["klat"], PPU.params["klat"], 0.0)) / -PPU.eVA_Nm
+        kSpring = np.array((parameters.klat, parameters.klat, 0.0)) / -PPU.eVA_Nm
     print(" IN setTip !!!!!!!!!!!!!! ")
     print(" lRadial ", lRadial)
     print(" kRadial ", kRadial)
@@ -150,14 +150,30 @@ def setTip(lRadial=None, kRadial=None, rPP0=None, kSpring=None):
     lib.setTip(lRadial, kRadial, rPP0, kSpring)
 
 
-# void setTipSpline( int n, double * xs, double * ydys ){
-lib.setTipSpline.argtypes = [c_int, array1d, array2d]
-lib.setTipSpline.restype = None
+# struct SplineParams {
+#     int      rff_n;
+#     double * rff_xs;
+#     double * rff_ydys;
+# }
+class SplineParameters(Structure):
+    _fields_ = [
+        ("rff_n", c_int),
+        ("rff_xs", POINTER(c_double)),
+        ("rff_ydys", POINTER(c_double)),
+    ]
 
+    def __init__(self, xs, ydys):
+        super().__init__()
+        self.np_rff_xs = np.ascontiguousarray(xs, dtype=np.double)
+        self.np_rff_ydys = np.ascontiguousarray(ydys, dtype=np.double)
+        self.rff_n = len(self.np_rff_xs)
+        self.rff_xs = np.ctypeslib.as_ctypes(self.np_rff_xs)
+        self.rff_ydys = np.ctypeslib.as_ctypes(self.np_rff_ydys.reshape(-1))
 
-def setTipSpline(xs, ydys):
-    n = len(xs)
-    lib.setTipSpline(n, xs, ydys)
+    @classmethod
+    def from_file(cls, file_path):
+        spline_data = np.genfromtxt(file_path)
+        return cls(spline_data[:, 0], spline_data[:, 1:])
 
 
 # void getInPoints_LJ( int npoints, double * points, double * FEs, int natoms_, double * Ratoms_, double * cLJs ){
@@ -259,10 +275,10 @@ lib.getMorseFF.argtypes = [c_int, array2d, array2d, c_double]
 lib.getMorseFF.restype = None
 
 
-def getMorseFF(Rs, REs, alpha=None):
+def getMorseFF(Rs, REs, alpha=None, parameters=None):
     if alpha is None:
-        alpha = PPU.params["aMorse"]
-    print("getMorseFF: alpha: %g [1/A] ", alpha)
+        alpha = parameters.aMorse
+    print(f"getMorseFF: alpha: {alpha} [1/A] ")
     natom = len(Rs)
     lib.getMorseFF(natom, Rs, REs, alpha)
 
@@ -309,32 +325,32 @@ def getDensityR4spline(Rs, cRAs, bNormalize=True):
     lib.getDensityR4spline(natom, Rs, cRAs)
 
 
-# int relaxTipStroke ( int probeStart, int nstep, double * rTips_, double * rs_, double * fs_ )
-lib.relaxTipStroke.argtypes = [c_int, c_int, c_int, array2d, array2d, array2d]
+# int relaxTipStroke( int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_, TIP::SplineParams *splineParams )
+lib.relaxTipStroke.argtypes = [c_int, c_int, c_int, array2d, array2d, array2d, POINTER(SplineParameters)]
 lib.relaxTipStroke.restype = c_int
 
 
-def relaxTipStroke(rTips, rs, fs, probeStart=1, relaxAlg=1):
+def relaxTipStroke(rTips, rs, fs, probeStart=1, relaxAlg=1, tip_spline=None):
     n = len(rTips)
-    return lib.relaxTipStroke(probeStart, relaxAlg, n, rTips, rs, fs)
+    return lib.relaxTipStroke(probeStart, relaxAlg, n, rTips, rs, fs, tip_spline)
 
 
-# int relaxTipStrokes ( int nx, int ny, int probeStart, int nstep, double * rTips_, double * rs_, double * fs_ )
-lib.relaxTipStrokes_omp.argtypes = [c_int, c_int, c_int, c_int, c_int, array4d, array4d, array4d]
+# int relaxTipStrokes_omp( int nx, int ny, int probeStart, int relaxAlg, int nstep, double * rTips_, double * rs_, double * fs_, TIP::SplineParams *splineParams )
+lib.relaxTipStrokes_omp.argtypes = [c_int, c_int, c_int, c_int, c_int, array4d, array4d, array4d, POINTER(SplineParameters)]
 lib.relaxTipStrokes_omp.restype = c_int
 
 
-def relaxTipStrokes_omp(rTips, rs, fs, probeStart=1, relaxAlg=1):
+def relaxTipStrokes_omp(rTips, rs, fs, probeStart=1, relaxAlg=1, tip_spline=None):
     nx, ny, nz, _ = rTips.shape
-    return lib.relaxTipStrokes_omp(nx, ny, probeStart, relaxAlg, nz, rTips, rs, fs)
+    return lib.relaxTipStrokes_omp(nx, ny, probeStart, relaxAlg, nz, rTips, rs, fs, tip_spline)
 
 
-# void stiffnessMatrix( double ddisp, int which, int n,  double * rTips_, double * rs_,    double * eigenvals_, double * evec1_, double * evec2_, double * evec3_ ){
-lib.stiffnessMatrix.argtypes = [c_double, c_int, c_int, array2d, array2d, array2d, array2d, array2d, array2d]
+# void stiffnessMatrix( double ddisp, int which, int n, double * rTips_, double * rPPs_, double * eigenvals_, double * evec1_, double * evec2_, double * evec3_, TIP::SplineParams *sp )
+lib.stiffnessMatrix.argtypes = [c_double, c_int, c_int, array2d, array2d, array2d, array2d, array2d, array2d, POINTER(SplineParameters)]
 lib.stiffnessMatrix.restype = None
 
 
-def stiffnessMatrix(rTips, rPPs, which=0, ddisp=0.05):
+def stiffnessMatrix(rTips, rPPs, which=0, ddisp=0.05, tip_spline=None):
     print("py.core.stiffnessMatrix() ")
     n = len(rTips)
     eigenvals = np.zeros((n, 3))
@@ -346,7 +362,7 @@ def stiffnessMatrix(rTips, rPPs, which=0, ddisp=0.05):
         evecs[i] = np.zeros((n, 3))
     print("py.core.stiffnessMatrix() 1 ")
 
-    lib.stiffnessMatrix(ddisp, which, n, rTips, rPPs, eigenvals, evecs[0], evecs[1], evecs[2])
+    lib.stiffnessMatrix(ddisp, which, n, rTips, rPPs, eigenvals, evecs[0], evecs[1], evecs[2], tip_spline)
     return eigenvals, evecs
 
 
@@ -378,14 +394,14 @@ def subsample_nonuniform_spline(xs, ydys, xs_, ys_=None):
     return ys_
 
 
-# void test_force( int type, int n, double * r0_, double * dr_, double * R_, double * fs_ ){
-lib.test_force.argtypes = [c_int, c_int, array1d, array1d, array1d, array2d]
+# void test_force( int type, int n, double * r0_, double * dr_, double * R_, double * fs_, TIP::SplineParams *splineParams )
+lib.test_force.argtypes = [c_int, c_int, array1d, array1d, array1d, array2d, POINTER(SplineParameters)]
 lib.test_force.restype = None
 
 
-def test_force(typ, r0, dr, R, fs):
+def test_force(typ, r0, dr, R, fs, spline_parameters=None):
     n = len(fs)
-    lib.test_force(typ, n, r0, dr, R, fs)
+    lib.test_force(typ, n, r0, dr, R, fs, spline_parameters)
     return fs
 
 

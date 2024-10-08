@@ -24,8 +24,7 @@ jobs:
                   pip install pocl-binary-distribution
 
             - name: Run pytest
-              # run: PPAFM_RECOMPILE=1 pytest tests examples -v --cov --cov-report json # Re-enable this when #232 is resolved
-              run: PPAFM_RECOMPILE=1 pytest tests examples/PTCDA_Hartree_dz2 -v --cov --cov-report json
+              run: PPAFM_RECOMPILE=1 pytest tests examples -v --cov --cov-report json
 
             - name: Upload coverage report
               uses: codecov/codecov-action@v3

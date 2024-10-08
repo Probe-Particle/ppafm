@@ -1,9 +1,13 @@
 #!/usr/bin/python
 
 import os
+import typing
 from argparse import ArgumentParser
+from pathlib import Path
 
 import numpy as np
+import pydantic
+import toml
 
 from . import cpp_utils
 
@@ -17,56 +21,149 @@ HBAR = 6.58211951440e-16  # [eV.s]
 AUMASS = 1.66053904020e-27  # [kg]
 
 
-# fmt: off
-# default parameters of simulation
-params = {
-    "PBC": True,
-    "nPBC": np.array([1, 1, 1]),
-    "gridN": np.array([-1, -1, -1]).astype(int),
-    "gridO": np.array([0.0, 0.0, 0.0]),
-    "gridA": np.array([0.0, 0.0, 0.0]),
-    "gridB": np.array([0.0, 0.0, 0.0]),
-    "gridC": np.array([0.0, 0.0, 0.0]),
-    "FFgrid0": np.array([-1.0, -1.0, -1.0]),
-    "FFgridA": np.array([-1.0, -1.0, -1.0]),
-    "FFgridB": np.array([-1.0, -1.0, -1.0]),
-    "FFgridC": np.array([-1.0, -1.0, -1.0]),
-    "moleculeShift": np.array([0.0, 0.0, 0.0]),
-    "probeType": "O",
-    "charge": 0.00,
-    "Apauli": 18.0,
-    "Bpauli": 1.0,
-    "ffModel": "LJ",
-    "Rcore": 0.7,
-    "r0Probe": np.array([0.00, 0.00, 4.00]),
-    "stiffness": np.array([-1.0, -1.0, -1.0]),
-    "klat": 0.5,
-    "krad": 20.00,
-    "tip": "s",
-    "sigma": 0.7,
-    "scanStep": np.array([0.10, 0.10, 0.10]),
-    "scanMin": np.array([0.0, 0.0, 5.0]),
-    "scanMax": np.array([20.0, 20.0, 8.0]),
-    "scanTilt": np.array([0.0, 0.0, -0.1]),
-    "tiltedScan": False,
-    "kCantilever": 1800.0,
-    "f0Cantilever": 30300.0,
-    "Amplitude": 1.0,
-    "plotSliceFrom": 16,
-    "plotSliceTo": 22,
-    "plotSliceBy": 1,
-    "imageInterpolation": "bicubic",
-    "colorscale": "gray",
-    "colorscale_kpfm": "seismic",
-    "ddisp": 0.05,
-    "aMorse": -1.6,
-    "tip_base": np.array(["None", 0.00]),
-    "Rtip": 30.0,
-    "permit": 0.00552634959,
-    "vdWDampKind": 2,
-    "#": None,
-}
-# fmt: on
+class PpafmParameters(pydantic.BaseModel):
+    """Parameters for the PPAFM simulation.
+
+    The parameters description can be found on the wiki page: https://github.com/Probe-Particle/ppafm/wiki/Setting-simulation-parameters
+    """
+
+    PBC: bool = True
+    nPBC: typing.List[int] = [1, 1, 1]
+    gridN: typing.List[int] = [-1, -1, -1]
+    gridO: typing.List[float] = [0.0, 0.0, 0.0]
+    gridA: typing.List[float] = [20.0, 0.0, 0.0]
+    gridB: typing.List[float] = [0.0, 20.0, 0.0]
+    gridC: typing.List[float] = [0.0, 0.0, 20.0]
+    FFgrid0: typing.List[float] = [-1.0, -1.0, -1.0]
+    FFgridA: typing.List[float] = [-1.0, -1.0, -1.0]
+    FFgridB: typing.List[float] = [-1.0, -1.0, -1.0]
+    FFgridC: typing.List[float] = [-1.0, -1.0, -1.0]
+    moleculeShift: typing.List[float] = [0.0, 0.0, 0.0]
+    probeType: str = "O"
+    charge: float = 0.00
+    Apauli: float = 18.0
+    Bpauli: float = 1.0
+    ffModel: str = "LJ"
+    Rcore: float = 0.7
+    r0Probe: typing.List[float] = [0.00, 0.00, 4.00]
+    stiffness: typing.List[float] = [-1.0, -1.0, -1.0]
+    klat: float = 0.5
+    krad: float = 20.00
+    tip: typing.Union[str, typing.List] = "s"
+    sigma: float = 0.7
+    scanStep: typing.List[float] = [0.10, 0.10, 0.10]
+    scanMin: typing.List[float] = [0.0, 0.0, 5.0]
+    scanMax: typing.List[float] = [20.0, 20.0, 8.0]
+    scanTilt: typing.List[float] = [0.0, 0.0, -0.1]
+    tiltedScan: bool = False
+    kCantilever: float = 1800.0
+    f0Cantilever: float = 30300.0
+    Amplitude: float = 1.0
+    plotSliceFrom: int = 16
+    plotSliceTo: int = 22
+    plotSliceBy: int = 1
+    imageInterpolation: str = "bicubic"
+    colorscale: str = "gray"
+    colorscale_kpfm: str = "seismic"
+    ddisp: float = 0.05
+    aMorse: float = -1.6
+    Rtip: float = 30.0
+    permit: float = 0.00552634959
+    vdWDampKind: int = 2
+    Vbias: float = 0.0
+
+    class Config:
+        arbitrary_types_allowed = True
+        validate_assignment = True
+
+    @classmethod
+    def from_file(cls, file_path: typing.Union[str, Path] = Path("params.ini")):
+        """Load parameters from a file."""
+        file_path = Path(file_path)
+        object = cls()
+        suffix = file_path.suffix
+        try:
+            with open(file_path) as file:
+                if suffix == ".ini":
+                    lines = file.readlines()
+                    object.load_ini(lines)
+                elif suffix == ".toml":
+                    object.apply_options(toml.load(file))
+                else:
+                    raise ValueError(f"Unsupported file extension: {suffix}")
+        except FileNotFoundError:
+            raise ValueError(f"File {file_path} not found")
+        return object
+
+    def apply_options(self, obj):
+        for key, value in obj.items():
+            print("Applying", key, value)
+            if hasattr(self, key) and value is not None:
+                setattr(self, key, value)
+
+    def to_file(self, file_path: typing.Union[str, Path] = Path("params.toml")):
+        """Save parameters to a file."""
+        file_path = Path(file_path)
+        suffix = file_path.suffix
+        try:
+            with open(file_path, "w") as file:
+                if suffix == ".toml":
+                    toml.dump(self.model_dump(), file)
+                else:
+                    raise ValueError(f"Unsupported file extension: {suffix}")
+        except FileNotFoundError:
+            raise ValueError(f"File {file_path} not found")
+
+    def load_ini(self, lines):
+        for line in lines:
+            line = line.split("#")[0].strip()
+            words = line.split()
+            if len(words) >= 2:
+                key = words[0]
+                if hasattr(self, key):
+                    val = getattr(self, key)
+                    if verbose > 0:
+                        print(key, " is class ", val.__class__)
+                    try:
+                        if isinstance(val, bool):
+                            word = words[1].strip()
+                            setattr(self, key, word[0] == "T" or word[0] == "t")
+                            if verbose > 0:
+                                print(key, getattr(self, key), ">>", word, "<<")
+                        elif isinstance(val, float):
+                            setattr(self, key, float(words[1]))
+                            if verbose > 0:
+                                print(key, getattr(self, key), words[1])
+                        elif isinstance(val, int):
+                            setattr(self, key, int(words[1]))
+                            if verbose > 0:
+                                print(key, getattr(self, key), words[1])
+                        elif isinstance(val, str):
+                            setattr(self, key, words[1])
+                        elif isinstance(val, list):
+                            if isinstance(val[0], float):
+                                setattr(self, key, [float(words[1]), float(words[2]), float(words[3])])
+                                if verbose > 0:
+                                    print(key, getattr(self, key), words[1], words[2], words[3])
+                            elif isinstance(val[0], int):
+                                if verbose > 0:
+                                    print(key)
+                                setattr(self, key, [int(words[1]), int(words[2]), int(words[3])])
+                                if verbose > 0:
+                                    print(key, getattr(self, key), words[1], words[2], words[3])
+                            else:
+                                setattr(self, key, [str(words[1]), float(words[2])])
+                                if verbose > 0:
+                                    print(key, getattr(self, key), words[1], words[2])
+                    except:
+                        raise ValueError(f"Error parsing parameters on line: {line}") from None
+                else:
+                    raise ValueError(f"Parameter {key} is not known")
+        if self.gridN[0] <= 0:
+            autoGridN(parameters=self)
+
+        self.tip = self.tip.replace('"', "")
+        self.tip = self.tip.replace("'", "")
 
 
 class CLIParser(ArgumentParser):
@@ -104,7 +201,7 @@ class CLIParser(ArgumentParser):
         "Rcore": {
             "action": "store",
             "type": float,
-            "default": params["Rcore"],
+            "default": PpafmParameters.model_fields["Rcore"].default,
             "help": "Width of nuclear charge density blob to achieve charge neutrality [Å]",
         },
         "sigma": {
@@ -202,7 +299,7 @@ class CLIParser(ArgumentParser):
 
     def _check_params_args(self):
         for arg in self._params_args:
-            if arg not in params:
+            if arg not in PpafmParameters.model_fields:
                 raise ValueError(f"Argument name `{arg}` does not match with any parameter in global parameters dictionary.")
 
     @property
@@ -327,14 +424,7 @@ def get_simple_df_weight(n=10, dz=0.1):
     return w / (w0 * n * dz)
 
 
-def Fz2df(
-    F,
-    dz=0.1,
-    k0=params["kCantilever"],
-    f0=params["f0Cantilever"],
-    amplitude=1.0,
-    units=16.0217656,
-):
+def Fz2df(F, dz, k0, f0, amplitude=1.0, units=16.0217656):
     """
     conversion of vertical force Fz to frequency shift
     according to:
@@ -345,14 +435,7 @@ def Fz2df(
     return dFconv * units * f0 / k0
 
 
-def Fz2df_tilt(
-    F,
-    d=params["scanTilt"],
-    k0=params["kCantilever"],
-    f0=params["f0Cantilever"],
-    amplitude=1.0,
-    units=16.0217656,
-):
+def Fz2df_tilt(F, d, k0, f0, amplitude=1.0, units=16.0217656):
     """
     conversion of vertical force Fz to frequency shift
     according to:
@@ -436,92 +519,11 @@ def maxAlongDirEntropy(atoms, hdir, beta=1.0):
 # ==============================
 
 
-def autoGridN():
-    params["gridN"][0] = round(np.linalg.norm(params["gridA"]) * 10)
-    params["gridN"][1] = round(np.linalg.norm(params["gridB"]) * 10)
-    params["gridN"][2] = round(np.linalg.norm(params["gridC"]) * 10)
-    return params["gridN"]
-
-
-# overide default parameters by parameters read from a file
-def loadParams(fname):
-    if verbose > 0:
-        print(" >> OVERWRITING SETTINGS by " + fname)
-    fin = open(fname)
-    for line in fin:
-        words = line.split()
-        if len(words) >= 2:
-            key = words[0]
-            if key in params:
-                val = params[key]
-                if key[0][0] == "#":
-                    continue
-                if verbose > 0:
-                    print(key, " is class ", val.__class__)
-                if isinstance(val, bool):
-                    word = words[1].strip()
-                    if (word[0] == "T") or (word[0] == "t"):
-                        params[key] = True
-                    else:
-                        params[key] = False
-                    if verbose > 0:
-                        print(key, params[key], ">>", word, "<<")
-                elif isinstance(val, float):
-                    params[key] = float(words[1])
-                    if verbose > 0:
-                        print(key, params[key], words[1])
-                elif isinstance(val, int):
-                    params[key] = int(words[1])
-                    if verbose > 0:
-                        print(key, params[key], words[1])
-                elif isinstance(val, str):
-                    params[key] = words[1]
-                    if verbose > 0:
-                        print(key, params[key], words[1])
-                elif isinstance(val, np.ndarray):
-                    if val.dtype == float:
-                        params[key] = np.array([float(words[1]), float(words[2]), float(words[3])])
-                        if verbose > 0:
-                            print(key, params[key], words[1], words[2], words[3])
-                    elif val.dtype == int:
-                        if verbose > 0:
-                            print(key)
-                        params[key] = np.array([int(words[1]), int(words[2]), int(words[3])])
-                        if verbose > 0:
-                            print(key, params[key], words[1], words[2], words[3])
-                    else:
-                        params[key] = np.array([str(words[1]), float(words[2])])
-                        if verbose > 0:
-                            print(key, params[key], words[1], words[2])
-            else:
-                raise ValueError(f"Parameter {key} is not known")
-    fin.close()
-    if params["gridN"][0] <= 0:
-        autoGridN()
-
-    params["tip"] = params["tip"].replace('"', "")
-    params["tip"] = params["tip"].replace("'", "")
-    ### necessary for working even with quotemarks in params.ini
-    params["tip_base"][0] = params["tip_base"][0].replace('"', "")
-    params["tip_base"][0] = params["tip_base"][0].replace("'", "")
-    ### necessary for working even with quotemarks in params.ini
-
-
-def apply_options(opt):
-    if verbose > 0:
-        print("!!!! OVERRIDE params !!!! in Apply options:")
-    if verbose > 0:
-        print(opt)
-    for key, value in opt.items():
-        if value is None:
-            continue
-        if key in params:
-            params[key] = value
-            if key == "klat" and params["stiffness"][0] > 0.0:
-                print("Overriding stiffness parameter with klat")
-                params["stiffness"] = np.array([-1.0, -1.0, -1.0])  # klat overrides stiffness
-            if verbose > 0:
-                print(f"Applied: {key} = {value}")
+def autoGridN(parameters):
+    parameters.gridN[0] = round(np.linalg.norm(parameters.gridA) * 10)
+    parameters.gridN[1] = round(np.linalg.norm(parameters.gridB) * 10)
+    parameters.gridN[2] = round(np.linalg.norm(parameters.gridC) * 10)
+    return parameters.gridN
 
 
 # load atoms species parameters form a file ( currently used to load Lennard-Jones parameters )
@@ -549,14 +551,14 @@ def loadSpecies(fname=None):
 
 # load atoms species parameters form a file ( currently used to load Lennard-Jones parameters )
 def loadSpeciesLines(lines):
-    params = []
+    parameters = []
     for l in lines:
         l = l.split()
         if len(l) >= 5:
             # print l
-            params.append((float(l[0]), float(l[1]), float(l[2]), int(l[3]), l[4]))
+            parameters.append((float(l[0]), float(l[1]), float(l[2]), int(l[3]), l[4]))
     return np.array(
-        params,
+        parameters,
         dtype=[
             ("rmin", np.float64),
             ("epsilon", np.float64),
@@ -567,7 +569,7 @@ def loadSpeciesLines(lines):
     )
 
 
-def autoGeom(Rs, shiftXY=False, fitCell=False, border=3.0):
+def autoGeom(Rs, parameters, shiftXY=False, fitCell=False, border=3.0):
     """
     set Force-Filed and Scanning supercell to fit optimally given geometry
     then shifts the geometry in the center of the supercell
@@ -577,24 +579,25 @@ def autoGeom(Rs, shiftXY=False, fitCell=False, border=3.0):
     if verbose > 0:
         print(" autoGeom subtracted zmax = ", zmax)
     xmin = min(Rs[0])
+
     xmax = max(Rs[0])
     ymin = min(Rs[1])
     ymax = max(Rs[1])
     if fitCell:
-        params["gridA"][0] = (xmax - xmin) + 2 * border
-        params["gridA"][1] = 0
-        params["gridB"][0] = 0
-        params["gridB"][1] = (ymax - ymin) + 2 * border
-        params["scanMin"][0] = 0
-        params["scanMin"][1] = 0
-        params["scanMax"][0] = params["gridA"][0]
-        params["scanMax"][1] = params["gridB"][1]
+        parameters.gridA[0] = (xmax - xmin) + 2 * border
+        parameters.gridA[1] = 0
+        parameters.gridB[0] = 0
+        parameters.gridB[1] = (ymax - ymin) + 2 * border
+        parameters.scanMin[0] = 0
+        parameters.scanMin[1] = 0
+        parameters.scanMax[0] = parameters.gridA[0]
+        parameters.scanMax[1] = parameters.gridB[1]
         if verbose > 0:
-            print(" autoGeom changed cell to = ", params["scanMax"])
+            print(" autoGeom changed cell to = ", parameters.scanM)
     if shiftXY:
-        dx = -0.5 * (xmin + xmax) + 0.5 * (params["gridA"][0] + params["gridB"][0])
+        dx = -0.5 * (xmin + xmax) + 0.5 * (parameters.gridA[0] + parameters.gridB[0])
         Rs[0] += dx
-        dy = -0.5 * (ymin + ymax) + 0.5 * (params["gridA"][1] + params["gridB"][1])
+        dy = -0.5 * (ymin + ymax) + 0.5 * (parameters.gridA[1] + parameters.gridB[1])
         Rs[1] += dy
         if verbose > 0:
             print(" autoGeom moved geometry by ", dx, dy)
@@ -615,7 +618,7 @@ def wrapAtomsCell(Rs, da, db, avec, bvec):
     Rs[:, :2] = np.dot(ABs, M)
 
 
-def PBCAtoms(Zs, Rs, Qs, avec, bvec, na=None, nb=None):
+def PBCAtoms(Zs, Rs, Qs, avec, bvec, na=None, nb=None, parameters=None):
     """
     multiply atoms of sample along supercell vectors
     the multiplied sample geometry is used for evaluation of forcefield in Periodic-boundary-Conditions ( PBC )
@@ -624,9 +627,9 @@ def PBCAtoms(Zs, Rs, Qs, avec, bvec, na=None, nb=None):
     Rs_ = []
     Qs_ = []
     if na is None:
-        na = params["nPBC"][0]
+        na = parameters.nPBC[0]
     if nb is None:
-        nb = params["nPBC"][1]
+        nb = parameters.nPBC[1]
     for i in range(-na, na + 1):
         for j in range(-nb, nb + 1):
             for iatom in range(len(Zs)):
@@ -837,7 +840,7 @@ def atoms2iZs(names, elem_dict):
     return np.array([atom2iZ(name, elem_dict) for name in names], dtype=np.int32)
 
 
-def parseAtoms(atoms, elem_dict, PBC=True, autogeom=False, lvec=None):
+def parseAtoms(atoms, elem_dict, PBC=True, autogeom=False, lvec=None, parameters=None):
     Rs = np.array([atoms[1], atoms[2], atoms[3]])
     if elem_dict is None:
         if verbose > 0:
@@ -856,9 +859,9 @@ def parseAtoms(atoms, elem_dict, PBC=True, autogeom=False, lvec=None):
             avec = lvec[1]
             bvec = lvec[2]
         else:
-            avec = params["gridA"]
-            bvec = params["gridB"]
-        iZs, Rs, Qs = PBCAtoms(iZs, Rs, Qs, avec=avec, bvec=bvec)
+            avec = parameters.gridA
+            bvec = parameters.gridB
+        iZs, Rs, Qs = PBCAtoms(iZs, Rs, Qs, avec=avec, bvec=bvec, parameters=parameters)
     return iZs, Rs, Qs
 
 
@@ -933,47 +936,48 @@ def getAtomsLJ_fast(iZprobe, iZs, FFparams):
 # ============= Hi-Level Macros
 
 
-def prepareScanGrids():
+def prepareScanGrids(parameters):
     """
     Defines the grid over which the tip will scan, according to scanMin, scanMax, and scanStep.
     The origin of the grid is going to be shifted (from scanMin) by the bond length between the "Probe Particle"
     and the "Apex", so that while the point of reference on the tip used to interpret scanMin  was the Apex,
     the new point of reference used in the XSF output will be the Probe Particle.
     """
-    xTips = np.arange(params["scanMin"][0], params["scanMax"][0] + 0.5 * params["scanStep"][0], params["scanStep"][0])
-    yTips = np.arange(params["scanMin"][1], params["scanMax"][1] + 0.5 * params["scanStep"][1], params["scanStep"][1])
-    zTips = np.arange(params["scanMin"][2], params["scanMax"][2] + 0.5 * params["scanStep"][2], params["scanStep"][2])
+
+    xTips = np.arange(parameters.scanMin[0], parameters.scanMax[0] + 0.5 * parameters.scanStep[0], parameters.scanStep[0])
+    yTips = np.arange(parameters.scanMin[1], parameters.scanMax[1] + 0.5 * parameters.scanStep[1], parameters.scanStep[1])
+    zTips = np.arange(parameters.scanMin[2], parameters.scanMax[2] + 0.5 * parameters.scanStep[2], parameters.scanStep[2])
     (xTips[0], xTips[-1], yTips[0], yTips[-1])
     lvecScan = np.array(
         [
             [
-                (params["scanMin"] + params["r0Probe"])[0],
-                (params["scanMin"] + params["r0Probe"])[1],
-                (params["scanMin"] - params["r0Probe"])[2],
+                parameters.scanMin[0] + parameters.r0Probe[0],
+                parameters.scanMin[1] + parameters.r0Probe[1],
+                parameters.scanMin[2] - parameters.r0Probe[2],
             ],
-            [(params["scanMax"] - params["scanMin"])[0], 0.0, 0.0],
-            [0.0, (params["scanMax"] - params["scanMin"])[1], 0.0],
-            [0.0, 0.0, (params["scanMax"] - params["scanMin"])[2]],
+            [parameters.scanMax[0] - parameters.scanMin[0], 0.0, 0.0],
+            [0.0, parameters.scanMax[1] - parameters.scanMin[1], 0.0],
+            [0.0, 0.0, parameters.scanMax[2] - parameters.scanMin[2]],
         ]
-    ).copy()
+    )
     return xTips, yTips, zTips, lvecScan
 
 
-def lvec2params(lvec):
-    params["gridA"] = lvec[1, :].copy()
-    params["gridB"] = lvec[2, :].copy()
-    params["gridC"] = lvec[3, :].copy()
+def lvec2params(parameters, lvec):
+    parameters.gridA = lvec[1, :].copy()
+    parameters.gridB = lvec[2, :].copy()
+    parameters.gridC = lvec[3, :].copy()
 
 
-def params2lvec():
+def params2lvec(parameters):
     lvec = np.array(
         [
             [0.0, 0.0, 0.0],
-            params["gridA"],
-            params["gridB"],
-            params["gridC"],
+            parameters.gridA,
+            parameters.gridB,
+            parameters.gridC,
         ]
-    ).copy
+    ).copy()
     return lvec
 
 
