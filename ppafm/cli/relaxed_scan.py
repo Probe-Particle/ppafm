@@ -142,15 +142,15 @@ def main(argv=None):
 
     if args.tipspline is not None:
         try:
-            spline_parameters = core.SplineParameters.from_file(args.tipspline)
+            tip_spline = core.SplineParameters.from_file(args.tipspline)
             print(f"Loaded tip spline from {args.tipspline}")
-            print("xs: ", spline_parameters.rff_xs)
-            print("ydys: ", spline_parameters.rff_ydys)
+            print("xs: ", tip_spline.rff_xs)
+            print("ydys: ", tip_spline.rff_ydys)
         except:
             print(f"Could not load tip spline from {args.tipspline}")
             sys.exit(1)
     else:
-        spline_parameters = None
+        tip_spline = None
 
     for charge, stiffness, voltage in it.product(charges, k_constants, voltages):
         parameters.charge = charge
@@ -173,7 +173,7 @@ def main(argv=None):
             FFboltz=ff_boltzman,
             FFkpfm_t0sV=ff_kpfm_t0sv,
             FFkpfm_tVs0=ff_kpfm_tvs0,
-            spline_parameters=spline_parameters,
+            tip_spline=tip_spline,
             bFFtotDebug=args.bDebugFFtot,
             parameters=parameters,
         )
@@ -194,7 +194,7 @@ def main(argv=None):
                 pp_positions.reshape((-1, 3)),
                 which=which,
                 ddisp=parameters.ddisp,
-                spline_parameters=spline_parameters,
+                tip_spline=tip_spline,
             )
             print("vib eigenval 1 min..max : ", np.min(evals[:, 0]), np.max(evals[:, 0]))
             print("vib eigenval 2 min..max : ", np.min(evals[:, 1]), np.max(evals[:, 1]))

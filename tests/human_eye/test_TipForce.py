@@ -17,21 +17,15 @@ def test_tip_force():
     5.0  -4.0 -4.0
     10.0 -24.0 -4.0
     """
-    # S = np.genfromtxt('TipRSpline.ini')
-    S = np.genfromtxt(StringIO(spline_ini), skip_header=1)
 
-    parameters = common.PpafmParameters()
+    tip_spline = core.SplineParameters.from_file(StringIO(spline_ini))
 
-    print("TipRSpline.ini overrides harmonic tip")
-    xs = S[:, 0].copy()
-    print("xs: ", xs)
-    ydys = S[:, 1:].copy()
-    print("ydys: ", ydys)
-    plt.plot(xs, ydys[:, 0], "o")
-    plt.plot(xs, ydys[:, 0] + ydys[:, 1], ".")
-    spline_parameters = core.SplineParameters(xs, ydys)
+    print("xs: ", tip_spline.np_rff_xs)
+    print("ydys: ", tip_spline.np_rff_ydys)
+    plt.plot(tip_spline.np_rff_xs, tip_spline.np_rff_ydys[:, 0], "o")
+    plt.plot(tip_spline.np_rff_xs, tip_spline.np_rff_ydys[:, 0] + tip_spline.np_rff_ydys[:, 1], ".")
 
-    core.setTip(parameters=parameters)
+    core.setTip(parameters=common.PpafmParameters())
 
     fs = np.zeros((60, 3))
     r0 = np.array([0.0, 0.0, 0.5])
@@ -41,11 +35,11 @@ def test_tip_force():
     # print "xs=",xs
 
     print(">>>  core.test_force( 1, r0, dr, R, fs )")
-    core.test_force(1, r0, dr, R, fs, spline_parameters)
+    core.test_force(1, r0, dr, R, fs, tip_spline)
     plt.plot(xs, fs[:, 2])
 
     print(">>>  core.test_force( 2, r0, dr, R, fs )")
-    core.test_force(2, r0, dr, R, fs, spline_parameters)
+    core.test_force(2, r0, dr, R, fs, tip_spline)
     plt.plot(xs, fs[:, 2])
 
     # print "fs:", fs

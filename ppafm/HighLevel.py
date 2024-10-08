@@ -103,7 +103,7 @@ def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
     return fzs, PPpos
 
 
-def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False, spline_parameters=None):
+def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False, tip_spline=None):
     if verbose > 0:
         print(">>BEGIN: relaxedScan3D_omp()")
     if verbose > 0:
@@ -117,7 +117,7 @@ def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False, spline_paramete
     rTips[:, :, :, 0] = xTips[:, None, None]
     rTips[:, :, :, 1] = yTips[None, :, None]
     rTips[:, :, :, 2] = zTips[::-1][None, None, :]
-    core.relaxTipStrokes_omp(rTips, rs, fs, spline_parameters=spline_parameters)
+    core.relaxTipStrokes_omp(rTips, rs, fs, tip_spline=tip_spline)
     # rs[:,:,:,:] = rs[:,:,::-1,:].transpose(2,1,0,3).copy()
     # fs[:,:,:,:] = fs[:,:,::-1,:]
     # fzs = fs[:,:,::-1,2].transpose(2,1,0).copy()
@@ -139,7 +139,7 @@ def perform_relaxation(
     FFboltz=None,
     FFkpfm_t0sV=None,
     FFkpfm_tVs0=None,
-    spline_parameters=None,
+    tip_spline=None,
     bPPdisp=False,
     bFFtotDebug=False,
     parameters=None,
@@ -176,7 +176,7 @@ def perform_relaxation(
     if parameters.tiltedScan:
         trj = trjByDir(len(zTips), d=parameters.scanTilt, p0=[0.0, 0.0, parameters.scanMin[2] - lvec[0, 2]])
     # fzs, PPpos = relaxedScan3D(xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=parameters.tiltedScan)
-    fzs, PPpos = relaxedScan3D_omp(xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=parameters.tiltedScan, spline_parameters=spline_parameters)
+    fzs, PPpos = relaxedScan3D_omp(xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=parameters.tiltedScan, tip_spline=tip_spline)
 
     # transform probe-particle positions back to the original coordinates
     PPpos[:, :, :, 0] += lvec[0, 0]
