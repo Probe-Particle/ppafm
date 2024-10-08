@@ -2,6 +2,7 @@
 
 import itertools as it
 import os
+import sys
 
 import numpy as np
 
@@ -139,6 +140,18 @@ def main(argv=None):
     lvec[2, :] = rotate_vector(lvec[2, :], opt_dict["rotate"])
     common.lvec2params(parameters=parameters, lvec=lvec)
 
+    if args.tipspline is not None:
+        try:
+            tip_spline = core.SplineParameters.from_file(args.tipspline)
+            print(f"Loaded tip spline from {args.tipspline}")
+            print("xs: ", tip_spline.rff_xs)
+            print("ydys: ", tip_spline.rff_ydys)
+        except:
+            print(f"Could not load tip spline from {args.tipspline}")
+            sys.exit(1)
+    else:
+        tip_spline = None
+
     for charge, stiffness, voltage in it.product(charges, k_constants, voltages):
         parameters.charge = charge
         parameters.klat = stiffness
@@ -160,7 +173,7 @@ def main(argv=None):
             FFboltz=ff_boltzman,
             FFkpfm_t0sV=ff_kpfm_t0sv,
             FFkpfm_tVs0=ff_kpfm_tvs0,
-            tipspline=args.tipspline,
+            tip_spline=tip_spline,
             bFFtotDebug=args.bDebugFFtot,
             parameters=parameters,
         )
@@ -176,7 +189,13 @@ def main(argv=None):
             print(f" === Computing eigenvectors of dynamical matrix: which={which} ddisp={parameters.ddisp}")
             tip_positions_x, tip_positions_y, tip_positions_z, lvec_scan = common.prepareScanGrids()
             r_tips = np.array(np.meshgrid(tip_positions_x, tip_positions_y, tip_positions_z)).transpose(3, 1, 2, 0).copy()
-            evals, evecs = core.stiffnessMatrix(r_tips.reshape((-1, 3)), pp_positions.reshape((-1, 3)), which=which, ddisp=parameters.ddisp)
+            evals, evecs = core.stiffnessMatrix(
+                r_tips.reshape((-1, 3)),
+                pp_positions.reshape((-1, 3)),
+                which=which,
+                ddisp=parameters.ddisp,
+                tip_spline=tip_spline,
+            )
             print("vib eigenval 1 min..max : ", np.min(evals[:, 0]), np.max(evals[:, 0]))
             print("vib eigenval 2 min..max : ", np.min(evals[:, 1]), np.max(evals[:, 1]))
             print("vib eigenval 3 min..max : ", np.min(evals[:, 2]), np.max(evals[:, 2]))

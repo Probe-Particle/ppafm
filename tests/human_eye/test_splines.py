@@ -6,46 +6,53 @@ import numpy as np
 
 import ppafm.core as PPC
 
-# =========== uniform spline
 
-ys = np.array([0.0, 0.2, -0.3, 0.0])
-dys = np.array([0.8, 0.8, -1.2, -1.2])
-xs_ = np.linspace(-0.89, 0.59, 100)
-ydys = np.transpose(np.array([ys, dys])).copy()
-# print "ydys" = ydys
+def test_splines():
 
-x0 = -0.9
-dx = 0.5
-ys_ = PPC.subsample_uniform_spline(x0, dx, ydys, xs_)
-xs = np.array(list(range(len(ys)))) * dx + x0
+    # =========== uniform spline
 
-plt.figure()
-plt.plot(xs, ys, "o")
-plt.plot(xs, ys + 0.1 * dys, ".")
-plt.plot(xs_, ys_, "-")
-plt.grid()
+    ys = np.array([0.0, 0.2, -0.3, 0.0])
+    dys = np.array([0.8, 0.8, -1.2, -1.2])
+    xs_ = np.linspace(-0.89, 0.59, 100)
+    ydys = np.transpose(np.array([ys, dys])).copy()
+    # print "ydys" = ydys
 
-plt.savefig("splines1.png")
+    x0 = -0.9
+    dx = 0.5
+    ys_ = PPC.subsample_uniform_spline(x0, dx, ydys, xs_)
+    xs = np.array(list(range(len(ys)))) * dx + x0
 
-# =========== non-uniform spline
+    plt.figure()
+    plt.plot(xs, ys, "o")
+    plt.plot(xs, ys + 0.1 * dys, ".")
+    plt.plot(xs_, ys_, "-")
+    plt.grid()
 
-xs = np.array([-0.9, -0.6, 0.4, 0.6])
-# ys  = np.array   ( [  0.0, 0.2, -0.3,  0.0 ] )
-# dys = np.array  ( [  0.8, 0.8, -1.2, -1.2 ] )
-# dys = np.array   ( [  0.0, 0.0, 0.0, 0.0   ] )
-# xs_ = np.linspace(   -0.89, 0.59, 20           )
+    plt.savefig("splines1.png")
 
-ys_ = PPC.subsample_nonuniform_spline(xs, ydys, xs_)
+    # =========== non-uniform spline
 
-plt.figure()
-plt.plot(xs, ys, "o")
-plt.plot(xs, ys + 0.1 * dys, ".")
-plt.plot(xs_, ys_, "-")
-plt.grid()
+    xs = np.array([-0.9, -0.6, 0.4, 0.6])
+    # ys  = np.array   ( [  0.0, 0.2, -0.3,  0.0 ] )
+    # dys = np.array  ( [  0.8, 0.8, -1.2, -1.2 ] )
+    # dys = np.array   ( [  0.0, 0.0, 0.0, 0.0   ] )
+    # xs_ = np.linspace(   -0.89, 0.59, 20           )
 
-# print "xs_", xs_
-# print "ys_", ys_
+    ys_ = PPC.subsample_nonuniform_spline(xs, ydys, xs_)
 
-plt.savefig("splines2.png")
+    plt.figure()
+    plt.plot(xs, ys, "o")
+    plt.plot(xs, ys + 0.1 * dys, ".")
+    plt.plot(xs_, ys_, "-")
+    plt.grid()
 
-plt.show()
+    # print "xs_", xs_
+    # print "ys_", ys_
+
+    plt.savefig("splines2.png")
+
+    plt.show()
+
+
+if __name__ == "__main__":
+    test_splines()

@@ -103,7 +103,7 @@ def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
     return fzs, PPpos
 
 
-def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False):
+def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False, tip_spline=None):
     if verbose > 0:
         print(">>BEGIN: relaxedScan3D_omp()")
     if verbose > 0:
@@ -117,7 +117,7 @@ def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False):
     rTips[:, :, :, 0] = xTips[:, None, None]
     rTips[:, :, :, 1] = yTips[None, :, None]
     rTips[:, :, :, 2] = zTips[::-1][None, None, :]
-    core.relaxTipStrokes_omp(rTips, rs, fs)
+    core.relaxTipStrokes_omp(rTips, rs, fs, tip_spline=tip_spline)
     # rs[:,:,:,:] = rs[:,:,::-1,:].transpose(2,1,0,3).copy()
     # fs[:,:,:,:] = fs[:,:,::-1,:]
     # fzs = fs[:,:,::-1,2].transpose(2,1,0).copy()
@@ -131,26 +131,22 @@ def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False):
     return fzs, rs
 
 
-def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm_t0sV=None, FFkpfm_tVs0=None, tipspline=None, bPPdisp=False, bFFtotDebug=False, parameters=None):
+def perform_relaxation(
+    lvec,
+    FFLJ,
+    FFel=None,
+    FFpauli=None,
+    FFboltz=None,
+    FFkpfm_t0sV=None,
+    FFkpfm_tVs0=None,
+    tip_spline=None,
+    bPPdisp=False,
+    bFFtotDebug=False,
+    parameters=None,
+):
     global FF  # We need FF global otherwise it is garbage collected and program crashes inside C++ e.g. in stiffnessMatrix()
     if verbose > 0:
         print(">>>BEGIN: perform_relaxation()")
-    if tipspline is not None:
-        try:
-            if verbose > 0:
-                print(" loading tip spline from " + tipspline)
-            S = np.genfromtxt(tipspline)
-            xs = S[:, 0].copy()
-            if verbose > 0:
-                print("xs: ", xs)
-            ydys = S[:, 1:].copy()
-            if verbose > 0:
-                print("ydys: ", ydys)
-            core.setTipSpline(xs, ydys)
-        except:
-            if verbose > 0:
-                print("cannot load tip spline from " + tipspline)
-            sys.exit()
     xTips, yTips, zTips, lvecScan = PPU.prepareScanGrids(parameters=parameters)
     FF = FFLJ.copy()
     if FFel is not None:
@@ -180,7 +176,7 @@ def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, FFkpfm
     if parameters.tiltedScan:
         trj = trjByDir(len(zTips), d=parameters.scanTilt, p0=[0.0, 0.0, parameters.scanMin[2] - lvec[0, 2]])
     # fzs, PPpos = relaxedScan3D(xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=parameters.tiltedScan)
-    fzs, PPpos = relaxedScan3D_omp(xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=parameters.tiltedScan)
+    fzs, PPpos = relaxedScan3D_omp(xTips - lvec[0, 0], yTips - lvec[0, 1], zTips - lvec[0, 2], trj=trj, bF3d=parameters.tiltedScan, tip_spline=tip_spline)
 
     # transform probe-particle positions back to the original coordinates
     PPpos[:, :, :, 0] += lvec[0, 0]
