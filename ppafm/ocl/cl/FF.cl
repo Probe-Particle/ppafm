@@ -1201,8 +1201,10 @@ __kernel void clamp_soft(
     if (ind >= n) return;
 
     float val = array_in[ind];
-    val = (val - max_value) / (1 + exp((val - max_value) /  width)) + max_value;
-    val = (val - min_value) / (1 + exp((val - min_value) / -width)) + min_value;
+    if (max_value <  INFINITY)
+        val = (val - max_value) / (1 + exp((val - max_value) /  width)) + max_value;
+    if (min_value > -INFINITY)
+        val = (val - min_value) / (1 + exp((val - min_value) / -width)) + min_value;
 
     array_out[ind] = val;
 }
