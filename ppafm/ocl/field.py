@@ -277,6 +277,16 @@ class DataGrid:
             io.save_vec_field(file_head, array[:, :, :, :3], self.lvec, data_format=ext)
             io.save_scal_field(file_head + "_w", array[:, :, :, 3], self.lvec, data_format=ext)
 
+    def _prepare_same_size_output_grid(self, array_in, in_place):
+        if in_place:
+            grid_out = self
+            self._array = None  # The current host array will be wrong after operation, so reset it
+        else:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size)
+            array_type = type(self)  # This way so inherited classes return their own class type
+            grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
+        return grid_out
+
     def clamp(self, minimum=-np.inf, maximum=np.inf, in_place=True, local_size=(32,), queue=None):
         """
         Clamp data grid values to a specified range.
@@ -291,29 +301,26 @@ class DataGrid:
         Returns:
             grid_out: Same type as self. New data grid with result.
         """
+
         array_in = self.cl_array
-        queue = queue or oclu.queue
-        if in_place:
-            grid_out = self
-            array_out = array_in
-            self._array = None  # The current numpy array will be wrong after operation so reset it
-        else:
-            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size)
-            array_type = type(self)  # This way so inherited classes return their own class type
-            grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
+        grid_out = self._prepare_same_size_output_grid(array_in, in_place)
         n = np.int32(array_in.size / 4)
         minimum = np.float32(minimum)
         maximum = np.float32(maximum)
+
+        queue = queue or oclu.queue
         global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
+
         # fmt: off
         cl_program.clamp(queue, global_size, local_size,
             array_in,
-            array_out,
+            grid_out.cl_array,
             n,
             minimum,
             maximum,
         )
         # fmt: on
+
         return grid_out
 
     def add_mult(self, array, scale=1.0, in_place=True, local_size=(32,), queue=None):
@@ -331,25 +338,21 @@ class DataGrid:
         Returns:
             grid_out: Same type as self. New data grid with result.
         """
+
         array_in1 = self.cl_array
         array_in2 = array.cl_array
-        queue = queue or oclu.queue
-        if in_place:
-            grid_out = self
-            array_out = array_in1
-            self._array = None  # The current numpy array will be wrong after operation so reset it
-        else:
-            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in1.size)
-            array_type = type(self)  # This way so inherited classes return their own class type
-            grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
+        grid_out = self._prepare_same_size_output_grid(array_in1, in_place)
         n = np.int32(array_in1.size / 4)
         scale = np.float32(scale)
+
+        queue = queue or oclu.queue
         global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
+
         # fmt: off
         cl_program.addMult(queue, global_size, local_size,
             array_in1,
             array_in2,
-            array_out,
+            grid_out.cl_array,
             n,
             scale
         )
@@ -378,16 +381,8 @@ class DataGrid:
             t0 = time.perf_counter()
 
         array_in = self.cl_array
-        queue = queue or oclu.queue
-        if in_place:
-            grid_out = self
-            array_out = array_in
-            self._array = None  # The current numpy array will be wrong after operation so reset it
-        else:
-            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size)
-            array_type = type(self)  # This way so inherited classes return their own class type
-            grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
-
+        grid_out = self._prepare_same_size_output_grid(array_in, in_place)
+        n = np.int32(array_in.size / 4)
         p = np.float32(p)
         if normalize:
             scale = self._get_normalization_factor(queue)
@@ -396,12 +391,13 @@ class DataGrid:
         else:
             scale = np.float32(1.0)
 
-        n = np.int32(array_in.size / 4)
+        queue = queue or oclu.queue
         global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
+
         # fmt: off
         cl_program.power(queue, global_size, local_size,
             array_in,
-            array_out,
+            grid_out.cl_array,
             n,
             p,
             scale

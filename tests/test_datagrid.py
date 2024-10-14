@@ -85,3 +85,13 @@ def test_clamp():
     data_grid.clamp(maximum=1.0, in_place=True)
 
     assert np.allclose(data_grid.array, [-1.0, 0.0, 1.0, 1.0])
+
+
+def test_add_mult():
+
+    data_grid1 = FFcl.DataGrid(np.array([0.0, 1.0, 2.0])[None, None], lvec=np.concatenate([np.zeros((1, 3)), np.eye(3)], axis=0))
+    data_grid2 = FFcl.DataGrid(np.array([1.0, 0.0, 1.0])[None, None], lvec=np.concatenate([np.zeros((1, 3)), np.eye(3)], axis=0))
+
+    data_grid1.add_mult(data_grid2, scale=2.0, in_place=True)
+
+    assert np.allclose(data_grid1.array, [2.0, 1.0, 4.0])
