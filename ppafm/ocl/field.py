@@ -287,13 +287,16 @@ class DataGrid:
             grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
         return grid_out
 
-    def clamp(self, minimum=-np.inf, maximum=np.inf, in_place=True, local_size=(32,), queue=None):
+    def clamp(self, minimum=-np.inf, maximum=np.inf, clamp_type="hard", soft_clamp_width=1.0, in_place=True, local_size=(32,), queue=None):
         """
-        Clamp data grid values to a specified range.
+        Clamp data grid values to a specified range. The ``'hard'`` clamp simply clips values that are out of range,
+        and the ``'soft'`` clamp uses a sigmoid to smoothen the transition.
 
         Arguments:
             minimum: float. Values below minimum are set to minimum.
-            maximum: float. Values above maximum are set to maximum
+            maximum: float. Values above maximum are set to maximum.
+            clamp_type: str. Type of clamp to use: ``'soft'`` or ``'hard'``.
+            soft_clamp_width: float. Width of transition region for soft clamp.
             in_place: bool. Whether to do operation in place or to create a new array.
             local_size: tuple of a single int. Size of local work group on device.
             queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed. Defaults to oclu.queue.
@@ -307,19 +310,34 @@ class DataGrid:
         n = np.int32(array_in.size / 4)
         minimum = np.float32(minimum)
         maximum = np.float32(maximum)
+        soft_clamp_width = np.float32(soft_clamp_width)
 
         queue = queue or oclu.queue
         global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
 
-        # fmt: off
-        cl_program.clamp(queue, global_size, local_size,
-            array_in,
-            grid_out.cl_array,
-            n,
-            minimum,
-            maximum,
-        )
-        # fmt: on
+        if clamp_type == "hard":
+            # fmt: off
+            cl_program.clamp_hard(queue, global_size, local_size,
+                array_in,
+                grid_out.cl_array,
+                n,
+                minimum,
+                maximum,
+            )
+            # fmt: on
+        elif clamp_type == "soft":
+            # fmt: off
+            cl_program.clamp_soft(queue, global_size, local_size,
+                array_in,
+                grid_out.cl_array,
+                n,
+                minimum,
+                maximum,
+                soft_clamp_width,
+            )
+            # fmt: on
+        else:
+            raise ValueError(f"Unsupported clamp type `{clamp_type}`")
 
         return grid_out
 

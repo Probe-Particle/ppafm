@@ -3,7 +3,6 @@
 import time
 
 import numpy as np
-import pyopencl as cl
 
 import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
