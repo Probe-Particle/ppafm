@@ -277,6 +277,45 @@ class DataGrid:
             io.save_vec_field(file_head, array[:, :, :, :3], self.lvec, data_format=ext)
             io.save_scal_field(file_head + "_w", array[:, :, :, 3], self.lvec, data_format=ext)
 
+    def clamp(self, minimum=-np.inf, maximum=np.inf, in_place=True, local_size=(32,), queue=None):
+        """
+        Clamp data grid values to a specified range.
+
+        Arguments:
+            minimum: float. Values below minimum are set to minimum.
+            maximum: float. Values above maximum are set to maximum
+            in_place: bool. Whether to do operation in place or to create a new array.
+            local_size: tuple of a single int. Size of local work group on device.
+            queue: pyopencl.CommandQueue. OpenCL queue on which operation is performed. Defaults to oclu.queue.
+
+        Returns:
+            grid_out: Same type as self. New data grid with result.
+        """
+        array_in = self.cl_array
+        queue = queue or oclu.queue
+        if in_place:
+            grid_out = self
+            array_out = array_in
+            self._array = None  # The current numpy array will be wrong after operation so reset it
+        else:
+            array_out = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=array_in.size)
+            array_type = type(self)  # This way so inherited classes return their own class type
+            grid_out = array_type(array_out, lvec=self.lvec, shape=self.shape, ctx=self.ctx)
+        n = np.int32(array_in.size / 4)
+        minimum = np.float32(minimum)
+        maximum = np.float32(maximum)
+        global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
+        # fmt: off
+        cl_program.clamp(queue, global_size, local_size,
+            array_in,
+            array_out,
+            n,
+            minimum,
+            maximum,
+        )
+        # fmt: on
+        return grid_out
+
     def add_mult(self, array, scale=1.0, in_place=True, local_size=(32,), queue=None):
         """
         Multiply the values of another data grid and add them to the values of this data grid.

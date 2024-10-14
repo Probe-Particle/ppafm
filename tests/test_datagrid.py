@@ -70,3 +70,18 @@ def test_tip_interp():
 
     # Check that the interpolant is close to the analytical solution
     assert np.allclose(rho_interp.array, rho2.array, atol=1e-3, rtol=1e-3)
+
+
+def test_clamp():
+
+    array = np.array([-1.0, 0.0, 1.0, 2.0])[None, None]
+    data_grid = FFcl.DataGrid(array, lvec=np.concatenate([np.zeros((1, 3)), np.eye(3)], axis=0))
+
+    new_grid = data_grid.clamp(minimum=0.0, maximum=1.0, in_place=False)
+
+    assert np.allclose(new_grid.array, [0.0, 0.0, 1.0, 1.0])
+    assert np.allclose(data_grid.array, array)
+
+    data_grid.clamp(maximum=1.0, in_place=True)
+
+    assert np.allclose(data_grid.array, [-1.0, 0.0, 1.0, 1.0])
