@@ -74,6 +74,7 @@ TTips = {
     "Rotation": "Rotation: Set sample counter-clockwise rotation angle around center of atom coordinates.",
     "fdbm_V0": "FDBM V0: Prefactor in Pauli interaction integral in the full-density based model.",
     "fdbm_alpha": "FDBM alpha: Exponent in Pauli interaction integral in the full-density based model.",
+    "fdbm_cutoff": "Density cutoff: cut out high values of the electron density. Useful when working with all-electron densities where extremely high values can arise near nuclei, causing artifacts in the images",
     "PBCz": "z periodicity: When checked, the lattice is also periodic in z direction. This is usually not required, since the scan is aligned with the xy direction.",
     "PBC": "Periodic Boundaries: Lattice vectors for periodic images of atoms. Does not affect electrostatics calculated from a Hartree potential file, which is always assumed to be periodic.",
     "k": "k: Cantilever spring constant. Only appears as a scaling constant.",
@@ -123,11 +124,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.Zs = None
         self.qs = None
         self.rho_sample = None
+        self.rho_sample_original = None  # Stores the original density when a cutoff is applied
         self.rho_tip = None
         self.rho_tip_delta = None
         self.sample_lvec = None
         self.rot = np.eye(3)
         self.df_points = []
+        self.previous_cutoff = None
 
         # Initialize OpenCL environment on chosen device and create an afmulator instance to use for simulations
         oclu.init_env(device)
@@ -302,10 +305,33 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.verbose > 0:
             print("updateParams", Q, sigma, multipole, tipStiffness, tipR0, use_point_charge, A_pauli, B_pauli, type(self.qs))
 
-        self.afmulator.iZPP = int(self.bxZPP.value())
         if self.rho_sample is not None:  # Use FDBM
-            if self.afmulator.B_pauli != B_pauli:
-                self.afmulator.setRho(self.rho_tip, B_pauli=B_pauli)
+
+            if self.bxCutoffEnable.isChecked():
+                self.bxCutoffValue.setDisabled(False)
+                cutoff = float(self.bxCutoffValue.value())
+            else:
+                self.bxCutoffValue.setDisabled(True)
+                cutoff = None
+
+            if cutoff is None or self.previous_cutoff is None:
+                cutoff_changed = cutoff != self.previous_cutoff
+            else:
+                cutoff_changed = not np.isclose(cutoff, self.previous_cutoff)
+            self.previous_cutoff = cutoff
+
+            if cutoff_changed:
+                if cutoff is not None:
+                    self.rho_sample = self.rho_sample_original.clamp(maximum=cutoff, in_place=False)
+                else:
+                    self.rho_sample = self.rho_sample_original
+
+            if self.afmulator.B_pauli != B_pauli or cutoff_changed:
+                if cutoff is not None:
+                    rho_tip = self.rho_tip.clamp(maximum=cutoff, in_place=False)
+                else:
+                    rho_tip = self.rho_tip
+                self.afmulator.setRho(rho_tip, B_pauli=B_pauli)
         else:
             if self.rho_tip is None:  # else we just keep the tip density loaded from file
                 if use_point_charge:
@@ -313,6 +339,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                     self.afmulator.setRho(None, sigma)
                 elif isinstance(self.qs, HartreePotential):
                     self.afmulator.setRho({multipole: Q}, sigma)
+
+        self.afmulator.iZPP = int(self.bxZPP.value())
         self.afmulator.scanner.stiffness = np.array(tipStiffness, dtype=np.float32) / -PPU.eVA_Nm
         self.afmulator.tipR0 = tipR0
         self.afmulator.A_pauli = A_pauli
@@ -471,6 +499,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.qs.release()
         if self.rho_sample is not None:
             self.rho_sample.release()
+        if self.rho_sample_original is not None:
+            self.rho_sample_original.release()
         if self.rho_tip is not None:
             self.rho_tip.release()
         if self.rho_tip_delta is not None:
@@ -502,6 +532,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Load auxiliary files (if any)
         if rho_sample:
             self.rho_sample, _, _ = ElectronDensity.from_file(rho_sample)
+            self.rho_sample_original = self.rho_sample
         else:
             self.rho_sample = None
         if rho_tip:
@@ -577,9 +608,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if self.rho_sample is None:
             self.bxV0.setDisabled(True)
             self.bxAlpha.setDisabled(True)
+            self.bxCutoffEnable.setDisabled(True)
+            self.bxCutoffEnable.setChecked(False)
+            self.bxCutoffValue.setDisabled(True)
         else:
             self.bxV0.setDisabled(False)
             self.bxAlpha.setDisabled(False)
+            self.bxCutoffEnable.setDisabled(False)
+            self.previous_cutoff = None
 
         # Create geometry editor widget
         self.createGeomEditor()
@@ -999,6 +1035,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         lb.setToolTip(TTips["fdbm_alpha"])
         l.addWidget(lb)
         self.bxAlpha = _spin_box((0.1, 9.9), 1.0, 0.02, self.updateParams, TTips["fdbm_alpha"], l)
+
+        vb = QtWidgets.QHBoxLayout()
+        self.l0.addLayout(vb)
+        self.bxCutoffEnable = QtWidgets.QCheckBox()
+        self.bxCutoffEnable.setChecked(False)
+        self.bxCutoffEnable.toggled.connect(self.updateParams)
+        vb.addWidget(self.bxCutoffEnable)
+        lb = QtWidgets.QLabel("Density cutoff")
+        lb.setToolTip(TTips["fdbm_cutoff"])
+        vb.addWidget(lb)
+        self.bxCutoffValue = _spin_box((0.1, 10000.0), 100.0, 10.0, self.updateParams, TTips["fdbm_cutoff"], vb)
+        self.bxCutoffValue.setDisabled(True)
 
     def _create_scan_settings_ui(self):
         # Title
