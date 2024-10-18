@@ -74,7 +74,7 @@ TTips = {
     "Rotation": "Rotation: Set sample counter-clockwise rotation angle around center of atom coordinates.",
     "fdbm_V0": "FDBM V0: Prefactor in Pauli interaction integral in the full-density based model.",
     "fdbm_alpha": "FDBM alpha: Exponent in Pauli interaction integral in the full-density based model.",
-    "fdbm_cutoff": "Density cutoff: cut out high values of the electron density. Useful when working with all-electron densities where extremely high values can arise near nuclei, causing artifacts in the images",
+    "fdbm_cutoff": "Density cutoff: cut out high values of the electron density. Useful when working with all-electron densities where extremely high values can arise near nuclei, causing artifacts in the images.",
     "PBCz": "z periodicity: When checked, the lattice is also periodic in z direction. This is usually not required, since the scan is aligned with the xy direction.",
     "PBC": "Periodic Boundaries: Lattice vectors for periodic images of atoms. Does not affect electrostatics calculated from a Hartree potential file, which is always assumed to be periodic.",
     "k": "k: Cantilever spring constant. Only appears as a scaling constant.",
