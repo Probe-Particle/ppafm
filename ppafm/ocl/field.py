@@ -135,7 +135,7 @@ class DataGrid:
             if shape is None:
                 raise ValueError("The shape of the grid has to be specified when the array is a pyopencl.Buffer.")
             nbytes = 4 * np.prod(shape)
-            assert array.size == nbytes, f"shape {shape} does not match with buffer size {array.size}"
+            assert array.size >= nbytes, f"shape {shape} does not fit into the buffer of size {array.size}"
             self.shape = tuple(shape)
             self._array = None
             self._cl_array = array
