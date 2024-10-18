@@ -60,10 +60,8 @@ def main():
 
     if args.density_cutoff:
         print(f">>> Applying a density cutoff of {args.density_cutoff} to sample and tip electron densities.")
-        print(rho_sample.max(), rho_tip.max())
         rho_sample[rho_sample > args.density_cutoff] = args.density_cutoff
         rho_tip[rho_tip > args.density_cutoff] = args.density_cutoff
-        print(rho_sample.max(), rho_tip.max())
 
     print(">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... ")
     f_x, f_y, f_z, energy = fieldFFT.potential2forces_mem(rho_sample, lvec_sample, n_dim_sample, rho=rho_tip, doForce=True, doPot=True, deleteV=True)
