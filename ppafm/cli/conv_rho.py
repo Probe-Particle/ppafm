@@ -27,7 +27,7 @@ def main():
     parser.add_argument('-o', '--output', action='store', default='pauli', help='Name of output energy/force files.')
     parser.add_argument('--saveDebugXsfs', action='store_true', help='Save auxiliary xsf files for debugging.')
     parser.add_argument('--no_negative_check', action='store_true', help='Input density files may contain negative voxels. This is handled by default by setting negative values to zero and rescaling the density so that the total charge is conserved. Setting this option disables the check.' )
-    parser.add_argument("--density_cutoff", action="store", default=None, type=float, help="Apply a cutoff to the electron densities to cut out high values. Helpful when using all-electron densities where extremely high values at the nuclei positions can cause artifacts in the resulting simulations. In these cases, 100 is usually a safe value to use.")
+    parser.add_argument("--density_cutoff", action="store", default=None, type=float, help="Apply a cutoff to the electron densities to cut out high values. Helpful when using all-electron densities where extremely high values at the nuclei positions can cause artifacts in the resulting simulations. In these cases, 100 is usually a safe value to use, although sometimes when both the prefactor 'Apauli' and exponent 'Bpauli' are large, a lower cutoff may be required.")
     parser.add_arguments(['output_format', 'energy', 'Apauli', 'Bpauli'])
     # fmt: on
 

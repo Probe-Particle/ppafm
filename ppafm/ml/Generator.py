@@ -342,8 +342,9 @@ class GeneratorAFMtrainer:
             is FDBM, where it is used for calculating the electrostatic interaction.
         ignore_elements: list of int. Atomic numbers of elements to ignore in scan window distance and position calculations.
             Useful for example for ignoring surface slab atoms in centering the scan window.
-        density_cutoff: float or None. If not None, apply a cutoff to electron densities in the FDBM Pauli integral. Ignored when
-            sim_type is not ``'FDBM'``.
+        density_cutoff: float or None. If not None, apply a cutoff to electron densities in the FDBM Pauli integral. Useful when
+            working with all-electron densities where large density values near nuclei can cause artifacts in the resulting images.
+            Ignored when sim_type is not ``'FDBM'``.
     """
 
     bRuntime = False
