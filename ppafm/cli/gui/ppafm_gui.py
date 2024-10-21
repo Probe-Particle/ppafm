@@ -144,6 +144,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.afmulator.forcefield.verbose = verbose
         self.afmulator.scanner.verbose = verbose
         FFcl.bRuntime = verbose > 1
+        self.afmulator.bRuntime = verbose > 1
 
         # --- init QtMain
         QtWidgets.QMainWindow.__init__(self)

@@ -894,15 +894,32 @@ class ForceField_LJC:
         """Set the atomic number of the probe particle. Required for calculating DFT-D3 parameters."""
         self.iZPP = np.int32(Z_pp)
 
-    def prepareBuffers(self, atoms=None, cLJs=None, REAs=None, Zs=None, poss=None, bDirect=False, nz=20, pot=None, E_field=False, rho=None, rho_delta=None, rho_sample=None):
+    def prepareBuffers(
+        self,
+        atoms=None,
+        cLJs=None,
+        REAs=None,
+        Zs=None,
+        poss=None,
+        bDirect=False,
+        nz=20,
+        pot=None,
+        E_field=False,
+        rho=None,
+        rho_delta=None,
+        rho_sample=None,
+        minimize_memory=False,
+    ):
         """Allocate all necessary buffers in device memory."""
 
         if bRuntime:
+            self.queue.finish()
             t0 = time.perf_counter()
 
         nbytes = 0
         mf = cl.mem_flags
         nb_float = np.dtype(np.float32).itemsize
+        lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
 
         if atoms is not None:
             self.nAtoms = np.int32(len(atoms))
@@ -941,19 +958,28 @@ class ForceField_LJC:
         if rho is not None:
             assert isinstance(rho, TipDensity), "rho should be a TipDensity object"
             self.rho = rho
-            lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
             if not (np.allclose(self.rho.lvec, lvec) and np.allclose(self.rho.shape, self.nDim[:3])):
                 self.rho = self.rho.interp_at(lvec, self.nDim[:3])
-            self.fft_corr = FFTCrossCorrelation(self.rho)
-            self.rho.release()  # Don't actually need this on device, only the FFT array
+            if hasattr(self, "fft_corr") and np.allclose(self.rho.shape, self.fft_corr.shape):
+                # We have an existing FFT prepared and it has the same shape as the new one, so we only need to update the array.
+                self.fft_corr._set_rho(self.rho)
+            else:
+                self.fft_corr = FFTCrossCorrelation(self.rho)
+            if minimize_memory:
+                self.rho.release()  # We don't actually need this on device, only the FFT array
         if rho_delta is not None:
             assert isinstance(rho_delta, TipDensity), "rho_delta should be a TipDensity object"
             self.rho_delta = rho_delta
-            lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
             if not (np.allclose(self.rho_delta.lvec, lvec) and np.allclose(self.rho_delta.shape, self.nDim[:3])):
                 self.rho_delta = self.rho_delta.interp_at(lvec, self.nDim[:3])
-            self.fft_corr_delta = FFTCrossCorrelation(self.rho_delta)
-            self.rho_delta.release()  # Don't actually need this on device, only the FFT array
+            # self.fft_corr_delta = FFTCrossCorrelation(self.rho_delta)
+            if hasattr(self, "fft_corr_delta") and np.allclose(self.rho_delta.shape, self.fft_corr_delta.shape):
+                # We have an existing FFT prepared and it has the same shape as the new one, so we only need to update the array.
+                self.fft_corr_delta._set_rho(self.rho_delta)
+            else:
+                self.fft_corr_delta = FFTCrossCorrelation(self.rho_delta)
+            if minimize_memory:
+                self.rho_delta.release()  # We don't actually need this on device, only the FFT array
         if rho_sample is not None:
             assert isinstance(rho_sample, ElectronDensity), "rho_sample should be an ElectronDensity object"
             self.rho_sample = rho_sample
@@ -963,6 +989,7 @@ class ForceField_LJC:
             print("ForceField_LJC.prepareBuffers.nbytes", nbytes)
 
         if bRuntime:
+            self.queue.finish()
             print("runtime(ForceField_LJC.prepareBuffers) [s]: ", time.perf_counter() - t0)
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None):
