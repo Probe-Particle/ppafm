@@ -61,6 +61,9 @@ class AFMulator:
             potential defined on a grid is always considered to be periodic.
         f0Cantilever: float. Resonance frequency of the cantilever in Hz.
         kCantilever: float. Harmonic spring constant of the cantilever in N/m.
+        colorscale: str. Colorscale for output images.
+        minimize_memory: bool. Release device memory as soon as it's not needed. Can help save some memory, but can also make
+            the simulation significantly slower when run in a loop where parameters change between iterations.
     """
 
     bMergeConv = False  # Should we use merged kernel relaxStrokesTilted_convZ or two separated kernells  ( relaxStrokesTilted, convolveZ  )
@@ -99,6 +102,7 @@ class AFMulator:
         f0Cantilever=30300,
         kCantilever=1800,
         colorscale="gray",
+        minimize_memory=False,
     ):
         if not FFcl.oclu or not oclr.oclu:
             oclu.init_env()
@@ -122,6 +126,7 @@ class AFMulator:
         self.lj_vdw_damp = lj_vdw_damp
         self.sample_lvec = None
         self.colorscale = colorscale
+        self.minimize_memory = minimize_memory
 
         self.setScanWindow(scan_window, scan_dim, df_steps)
         self.setLvec(lvec, pixPerAngstrome)
@@ -269,9 +274,10 @@ class AFMulator:
                 print("AFMulator.setRho: Preparing buffers")
             if not np.allclose(B_pauli, 1.0):
                 rho_power = self.rho.power_positive(p=self.B_pauli, in_place=False)
-                self.rho.release()  # Let's not keep the original array in device memory to minimize memory foot print
+                if self.minimize_memory:
+                    self.rho.release()  # Let's not keep the original array in device memory to minimize memory foot print
                 self.rho = rho_power
-            self.forcefield.prepareBuffers(rho=self.rho, bDirect=True)
+            self.forcefield.prepareBuffers(rho=self.rho, bDirect=True, minimize_memory=self.minimize_memory)
         else:
             self._rho = None
             self.rho = None
@@ -281,6 +287,7 @@ class AFMulator:
                 self.forcefield.rho.release()
                 self.forcefield.rho = None
         if self.bRuntime:
+            self.forcefield.queue.finish()
             print("runtime(AFMulator.setRho) [s]: ", time.perf_counter() - t0)
 
     def setBPauli(self, B_pauli=1.0):
@@ -301,7 +308,7 @@ class AFMulator:
                 raise ValueError(f"rho_delta should of type `TipDensity`, but got `{type(rho_delta)}`")
             if self.verbose > 0:
                 print("AFMulator.setRhoDelta: Preparing buffers")
-            self.forcefield.prepareBuffers(rho_delta=self.rho_delta, bDirect=True)
+            self.forcefield.prepareBuffers(rho_delta=self.rho_delta, bDirect=True, minimize_memory=self.minimize_memory)
         elif self.forcefield.rho_delta is not None:
             if self.verbose > 0:
                 print("AFMulator.setRhoDelta: Releasing buffers")
