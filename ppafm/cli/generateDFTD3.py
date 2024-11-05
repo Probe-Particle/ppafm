@@ -48,7 +48,7 @@ def main():
             sys.exit(1)
         df_params = args.df_name
 
-    computeDFTD3(args.input, df_params=df_params, geometry_format=args.input_format, save_format=args.output_format, compute_energy=args.energy)
+    computeDFTD3(args.input, df_params=df_params, geometry_format=args.input_format, save_format=args.output_format, compute_energy=args.energy, parameters=parameters)
 
 
 if __name__ == "__main__":
