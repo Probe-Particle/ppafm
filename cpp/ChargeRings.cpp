@@ -32,9 +32,6 @@ Aij = K*Q_j/r_{ij}
 */
 
 
-
-
-
 #include <stdio.h>
 
 #include "Vec3.h"
@@ -42,8 +39,30 @@ Aij = K*Q_j/r_{ij}
 //#include "SMat3.h"
 //#include "CG.h"
 
-#define COULOMB_CONST      14.3996448915 
 
+#define SQRT3              1.7320508
+#define R_SAFE   1e-4
+#define COULOMB_CONST      14.3996448915     // [eV A]
+#define const_Boltzman     8.617333262145e-5 // [eV/K]
+
+
+struct RingParams {
+    int     nsite;       // number of molecular sites (quantum dots)
+    Vec3d*  spos;        // [nsite,3]    positions of molecular sites 
+    Mat3d*  rots;        // [nsite][3x3] rotation matrices for multipole orientation 
+    double* MultiPoles;  // [nsite][10]  multipole moments for each site  (1 + 3 + 6 components - monopole, dipole, quadrupole)
+    double* Esites;      // [nsite]      original energy levels of molecular orbitals 
+    double  E_Fermi;     // Fermi level of the substrate
+    double  cCoupling;   // strength of Coulomb interaction between sites
+    double  temperature; // temperature
+    //double*  Q_tips;   // [ntips] charge of the STM tip
+
+    void print(){
+        printf( "RingParams::print() nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", nsite, E_Fermi, cCoupling, temperature );
+    }
+};
+
+RingParams params;
 
 int verbosity=0; 
 
@@ -74,20 +93,6 @@ double Emultipole( const Vec3d& d, int order, const double * cs ){
                                 (cs[5]*d.y + cs[7]*d.z)*d.y +
                                 (cs[6]*d.z + cs[8]*d.x)*d.z );
     return sqrt(ir2)*E;
-}
-
-
-double getSTM_sites( Vec3d pos, double beta, int nsite, const Vec3d* spos, const double* Amps, const bool bInCoh=false ){
-    double I=0;
-    for(int i=0; i<nsite; i++){
-        Vec3d d  = pos - spos[i];
-        double r = d.norm();
-        double amp = Amps[i]*exp( -beta*r );
-        if( bInCoh ){ amp*=amp; }  // sum of independent channels (incoherent)
-        I+=amp;
-    }
-    if( !(bInCoh) ){ I*=I; } // sum of wavefunctions ( choherent )
-    return I;
 }
 
 
@@ -132,7 +137,7 @@ double getChargingForce( int nsite, const double* Esite, const double* Coupling,
 }
 
 
-void makeCouplingMatrix( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, Vec3d pT, double Qt, double* Esite, double* Coupling, double cCouling ){
+void makeCouplingMatrix( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, Vec3d pT, double Qt, double* Esite, double* Coupling, double cCoupling ){
     //printf( "makeCouplingMatrix() @Esite=%li @Coupling=%li \n", (long)Esite, (long)Coupling  );
     //printf("========\n");
     for(int i=0; i<nsite; i++){
@@ -160,7 +165,7 @@ void makeCouplingMatrix( int nsite, const Vec3d* spos, const Mat3d* rot, const d
             for(int j=i+1; j<nsite; j++){
                 //if( i==j ){ continue; }
                 Vec3d d  = pi - spos[j];
-                double Cij = COULOMB_CONST*cCouling/( pi - spos[j] ).norm();
+                double Cij = COULOMB_CONST*cCoupling/( pi - spos[j] ).norm();
                 //Cij = 0;
                 Coupling[i*nsite+j] = Cij;
                 Coupling[j*nsite+i] = Cij;
@@ -218,7 +223,7 @@ double moveMD(  int n, double *x, double *f, double *v, double dt, double dampin
 
 
 
-int optimizeSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, double* Qs, Vec3d p_tip, double Q_tip, double E_Fermi, double cCouling, int niter=1000, double tol=1e-6, double dt=0.1 ){
+int optimizeSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, double* Qs, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, int niter=1000, double tol=1e-6, double dt=0.1 ){
     //  Site occupancy is 1 if below the Fermi level, 0 otherwise
     //  Fermi level is set by the voltage applied to the STM tip and distance from the site
     // The energy of sites is modified by Coulomb interaction between the sites as well
@@ -233,11 +238,11 @@ int optimizeSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const
 
     //bool   bCoupling=true;
     double* Coupling=Coupling_;
-    if( cCouling<0 ){ 
+    if( cCoupling<0 ){ 
         Coupling  = 0;
         //bCoupling = false; 
     }
-    makeCouplingMatrix( nsite, spos, rot, MultiPoles, Esite0, p_tip, Q_tip, Esite, Coupling, cCouling );
+    makeCouplingMatrix( nsite, spos, rot, MultiPoles, Esite0, p_tip, Q_tip, Esite, Coupling, cCoupling );
     //if(verbosity>1)printmatrix( nsite, nsite, Coupling, "%12.6f" );
 
     for(int i=0; i<nsite; i++){ vQs[i]=0; } 
@@ -269,18 +274,18 @@ int optimizeSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const
 
 
 
-double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCouling, double T ){
-    if(verbosity>0) printf( "E_Fermi %g Q_tip %g Esite{%6.3f,%6.3f,%6.3f}  \n", E_Fermi, Q_tip,  Esite0[0],Esite0[1],Esite0[2] );
+double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double T ){
+    if(verbosity>0) printf( "E_Fermi %g Q_tip %g Esite{%6.3f,%6.3f,%6.3f}  \n", E_Fermi, Q_tip,  Esites0[0],Esites0[1],Esites0[2] );
     double Qs       [ nsite ];
     double Qav      [ nsite ];
     double Esite    [ nsite ];
     double Coupling_[ nsite*nsite ];
     double* Coupling=Coupling_;
-    if( cCouling<0 ){ Coupling  = 0; }
-    makeCouplingMatrix( nsite, spos, rot, MultiPoles, Esite0, p_tip, Q_tip, Esite, Coupling, cCouling );
+    if( cCoupling<0 ){ Coupling  = 0; }
+    makeCouplingMatrix( nsite, spos, rot, MultiPoles, Esites0, p_tip, Q_tip, Esite, Coupling, cCoupling );
 
-    double kB   = 8.617333262145e-5; // [eV/K]
-    double beta = 1.0/(kB*T);
+    //double kB   = 8.617333262145e-5; // [eV/K]
+    double beta = 1.0/( const_Boltzman * T );
 
     int nspinorb = nsite*2;
     int nconfs = 1<<nspinorb;
@@ -308,29 +313,125 @@ double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, co
     return sumP;
 }
 
+double getSTM_sites( Vec3d pos, double beta, int nsite, const Vec3d* spos, const double* Amps, const bool bInCoh=false ){
+    double I=0;
+    for(int i=0; i<nsite; i++){
+        Vec3d d  = pos - spos[i];
+        double r = d.norm();
+        double amp = Amps[i]*exp( -beta*r );
+        if( bInCoh ){ amp*=amp; }  // sum of independent channels (incoherent)
+        I+=amp;
+    }
+    if( !(bInCoh) ){ I*=I; } // sum of wavefunctions ( choherent )
+    return I;
+}
 
+
+// Iout[i] = getSTM( ptips[i], params.nsite, params.spos, params.rots, params.MultiPoles, params.Esites, Qsites + i*params.nsite, Qtips[i], params.E_Fermi, params.cCouling, beta);
+
+double getSTM( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, const double* Qs, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double decay, double T ) {
+    double Esite[nsite];
+    double Coupling[nsite*nsite];
+    double dE[nsite];
+    
+    // Get energy shifts using existing coupling matrix and charging force calculation
+    makeCouplingMatrix(nsite, spos, rot, MultiPoles, Esites0, p_tip, Q_tip, Esite, Coupling, cCoupling);
+    getChargingForce(nsite, Esite, Coupling, E_Fermi, Qs, dE);
+    
+    double beta_T = 1.0/( const_Boltzman * T );
+
+    // Calculate tunneling current
+    double I = 0.0;
+    for(int i=0; i<nsite; i++) {
+        Vec3d d = p_tip - spos[i];
+        double r = d.norm();
+        if(r < R_SAFE) continue;
+        
+        // Combine orbital occupancy, energy shift and distance decay
+        double T = exp(-decay * r) * Qs[i];
+        // Add energy-dependent tunneling factor
+        T *= 1.0 / (1.0 + exp(dE[i]*beta_T  ));  // Fermi function
+        
+        I += T;
+    }
+    return I;
+}
 
 
 extern "C"{
 
-void solveSiteOccupancies( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_mu, double cCouling, int niter, double tol, double dt, int* nitrs ){
-    Vec3d* ptips = (Vec3d*)ptips_;
+void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, double* Esites, double E_Fermi, double cCouling, double Q_tip, double temperature ) {
+    params.nsite       = nsite;
+    params.spos        = (Vec3d*)spos;
+    params.rots        = (Mat3d*)rots;
+    params.MultiPoles  = MultiPoles;
+    params.Esites      = Esites;
+    params.E_Fermi     = E_Fermi;
+    params.cCoupling   = cCouling;
+    params.temperature = temperature;
+    //printf( "initRingParams() nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", nsite, params.E_Fermi, params.cCoupling, params.temperature );
+    printf( "initRingParams()"); params.print();
+    //params.Q_tip = Q_tip_;
+}
 
+// void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, temperature=100.0, int niter, double tol, double dt, int* nitrs ){
+//     printf( "solveSiteOccupancies_old() npos=%i nsite=%i E_Fermi cCoupling \n", npos, nsite );
+//     Vec3d* ptips = (Vec3d*)ptips_;
+//     //#pragma omp parallel for
+//     for(int i=0; i<npos; i++){
+//         double Qs[nsite];
+//         for(int j=0; j<nsite; j++){ Qs[j]=0; }
+//         //int nitr = optimizeSiteOccupancy( nsite, (Vec3d*)spos, (Mat3d*)rot, MultiPoles, Esite, Qs, ptips[i], Qtips[i], E_mu, cCoupling, niter, tol, dt );     
+//         boltzmanSiteOccupancy( nsite, (Vec3d*)spos, (Mat3d*)rot, MultiPoles, Esite, Qs, ptips[i], Qtips[i], E_Fermi, cCoupling, 100.0 );  int nitr=0;
+//         //printf( "solveSiteOccupancies()[%i] nitr=%i \n", i, nitr );  
+//         for(int j=0; j<nsite; j++){ Qout[i*nsite+j] = Qs[j]; }
+//         if(nitrs) nitrs[i] = nitr;
+//         //return;
+//     }
+// }
+
+void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, double temperature ){
+    printf( "solveSiteOccupancies_old() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, nsite, E_Fermi, cCoupling, temperature );
+    Vec3d* ptips = (Vec3d*)ptips_;
     //#pragma omp parallel for
     for(int i=0; i<npos; i++){
         double Qs[nsite];
-        for(int j=0; j<nsite; j++){ Qs[j]=0; }
-        //int nitr = optimizeSiteOccupancy( nsite, (Vec3d*)spos, (Mat3d*)rot, MultiPoles, Esite, Qs, ptips[i], Qtips[i], E_mu, cCouling, niter, tol, dt );     
-
-        boltzmanSiteOccupancy( nsite, (Vec3d*)spos, (Mat3d*)rot, MultiPoles, Esite, Qs, ptips[i], Qtips[i], E_mu, cCouling, 100.0 );  int nitr=0;
-
-        //printf( "solveSiteOccupancies()[%i] nitr=%i \n", i, nitr );  
+        for(int j=0; j<nsite; j++){ Qs[j]=0; }    
+        boltzmanSiteOccupancy( nsite, (Vec3d*)spos, (Mat3d*)rot, MultiPoles, Esite, Qs, ptips[i], Qtips[i], E_Fermi, cCoupling, temperature );  
         for(int j=0; j<nsite; j++){ Qout[i*nsite+j] = Qs[j]; }
-        if(nitrs) nitrs[i] = nitr;
-        //return;
     }
 }
 
+// void STM_map(int npos, double* ptips_, double* Itun, int nsite, double* spos_, const double* Qs, const double* rot, const double* MultiPoles, const double* Esite, double Q_tip, double E_Fermi, double cCoupling, double beta) {
+//     Vec3d* ptips = (Vec3d*)ptips_;
+//     Vec3d* spos = (Vec3d*)spos_;
+    
+//     #pragma omp parallel for
+//     for(int i=0; i<npos; i++) {
+//         Itun[i] = getSTM(ptips[i], nsite, spos, Qs, (Mat3d*)rot, MultiPoles,  Esite, Q_tip, E_Fermi, cCoupling, beta);
+//     }
+// }
+
+void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout) {
+    //printf( "solveSiteOccupancies() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
+    printf( "solveSiteOccupancies()"); params.print();
+    Vec3d* ptips = (Vec3d*)ptips_;
+    //#pragma omp parallel for
+    for(int i=0; i<npos; i++) {
+        double Qs[params.nsite];
+        for(int j=0; j<params.nsite; j++) { Qs[j]=0; }
+        boltzmanSiteOccupancy(params.nsite, params.spos, params.rots, params.MultiPoles,   params.Esites, Qs, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature );
+        for(int j=0; j<params.nsite; j++) {  Qout[i*params.nsite+j] = Qs[j];  }
+    }
+}
+
+void STM_map(int npos, double* ptips_, double* Qtips, double* Qsites, double* Iout, double decay ){
+    Vec3d* ptips = (Vec3d*)ptips_;
+    #pragma omp parallel for
+    for(int i=0; i<npos; i++) {
+        Iout[i] = getSTM(  params.nsite, params.spos, params.rots, params.MultiPoles, params.Esites, Qsites + i*params.nsite, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, decay, params.temperature );
+    }
+}
 
 void setVerbosity(int verbosity_){ verbosity=verbosity_; }
 

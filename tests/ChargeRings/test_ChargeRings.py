@@ -65,16 +65,17 @@ npix=400
 extent=[-L,L,-L,L]
 ps = makePosXY( n=npix, L=L, z0=5.0 )
 Qtips= np.ones( len(ps) )*Qtip
-#print( "ps ", ps)
+print( "ps ", ps)
 
 print("==== to C++ ===")
 
 #Qsites = chr.solveSiteOccupancies( ps, Qtips, spos, Esite, E_mu=0.0, cCouling=-0.01, niter=1000, tol=1e-6, dt=0.1 ).reshape( (npix,npix,nsite) )
-#Qsites, niters = chr.solveSiteOccupancies( ps, Qtips, spos, Esite, MultiPoles=mpols, rot=rot, E_mu=0.0, cCouling=0.03, niter=1000, tol=1e-6, dt=0.5 )
-Qsites, niters = chr.solveSiteOccupancies( ps, Qtips, spos, Esite, MultiPoles=mpols, rot=rot, E_mu=0.0, cCouling=0.03 )
+#Qsites, niters = chr.solveSiteOccupancies( ps, Qtips, spos, Esite, MultiPoles=mpols, rot=rot, E_fermi=0.0, cCouling=0.03, niter=1000, tol=1e-6, dt=0.5 )
+#Qsites, niters = chr.solveSiteOccupancies_old( ps, Qtips, spos, Esite, MultiPoles=mpols, rot=rot, E_fermi=0.0, cCoupling=0.03 )
+Qsites= chr.solveSiteOccupancies_old( ps, Qtips, spos, Esite, MultiPoles=mpols, rot=rot, E_fermi=0.0, cCoupling=0.03, temperature=100.0 )
 
 Qsites = Qsites.reshape( (npix,npix,nsite) )
-niters = niters.reshape( (npix,npix) )
+#niters = niters.reshape( (npix,npix) )
 
 
 Qtot = np.sum( Qsites, axis=2 )
@@ -89,11 +90,27 @@ Qtot = np.sum( Qsites, axis=2 )
 # plt.subplot(1,5,4); plt.imshow( Qsites[:,:,2], origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'or'); plt.colorbar(); plt.title("Q site 3")
 # plt.subplot(1,5,5); plt.imshow( niters       , origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'or'); plt.colorbar(); plt.title("niters")
 
-plt.figure(figsize=(25,4));
+plt.figure(figsize=(20,5));
 plt.subplot(1,4,1); plt.imshow( Qtot         , origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'or'); plt.colorbar(); plt.title("Qtot")
 plt.subplot(1,4,2); plt.imshow( Qsites[:,:,0], origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'or'); plt.colorbar(); plt.title("Q site 1")
 plt.subplot(1,4,3); plt.imshow( Qsites[:,:,1], origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'or'); plt.colorbar(); plt.title("Q site 2")
 plt.subplot(1,4,4); plt.imshow( Qsites[:,:,2], origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'or'); plt.colorbar(); plt.title("Q site 3")
+plt.tight_layout()
+plt.savefig("test_ChargeRings.png", bbox_inches='tight')
 
-plt.savefig("test_ChargeRings.png")
+
+
+# After calculating Qsites, compute STM map
+# I_stm = chr.getSTM_map(ps, Qsites.reshape(-1,nsite), spos, Esite,  rot=rot, MultiPoles=mpols, Q_tip=Qtip, E_Fermi=0.0, cCoupling=0.03, beta=1.0)
+
+# # Plot STM map
+# plt.figure(figsize=(25,5))
+# plt.subplot(1,5,5)
+# plt.imshow(I_stm.reshape(npix,npix), origin="lower", extent=extent)
+# plt.plot(spos[:,0], spos[:,1], 'or')
+# plt.colorbar()
+# plt.title("STM")
+
+
+
 plt.show()
