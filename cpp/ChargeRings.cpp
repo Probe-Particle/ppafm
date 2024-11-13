@@ -38,6 +38,7 @@ Aij = K*Q_j/r_{ij}
 #include "Mat3.h"
 //#include "SMat3.h"
 //#include "CG.h"
+#include "LinSolveGauss.cpp"
 
 
 #define SQRT3              1.7320508
@@ -329,38 +330,84 @@ double getSTM_sites( Vec3d pos, double beta, int nsite, const Vec3d* spos, const
 
 // Iout[i] = getSTM( ptips[i], params.nsite, params.spos, params.rots, params.MultiPoles, params.Esites, Qsites + i*params.nsite, Qtips[i], params.E_Fermi, params.cCouling, beta);
 
-double getSTM( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, const double* Qs, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double decay, double T ) {
+double getSTM( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, const double* Qs, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double decay, double T, bool bOccupied ) {
     double Esite[nsite];
     double Coupling[nsite*nsite];
     double dE[nsite];
+
+    //bool bOccupied = false;
     
     // Get energy shifts using existing coupling matrix and charging force calculation
     makeCouplingMatrix(nsite, spos, rot, MultiPoles, Esites0, p_tip, Q_tip, Esite, Coupling, cCoupling);
     getChargingForce(nsite, Esite, Coupling, E_Fermi, Qs, dE);
     
-    double beta_T = 1.0/( const_Boltzman * T );
+    //double beta_T = 1.0/( const_Boltzman * T );
 
-    // Calculate tunneling current
+    // Calculate tunneling current (assuming in-coherent regime - no interference between sites)
     double I = 0.0;
-    for(int i=0; i<nsite; i++) {
+    for(int i=0; i<nsite; i++) { // sum over sites
         Vec3d d = p_tip - spos[i];
         double r = d.norm();
-        if(r < R_SAFE) continue;
-        
-        // Combine orbital occupancy, energy shift and distance decay
-        double T = exp(-decay * r) * Qs[i];
-        // Add energy-dependent tunneling factor
-        T *= 1.0 / (1.0 + exp(dE[i]*beta_T  ));  // Fermi function
+        //if(r < R_SAFE) continue;
+
+        double T = exp(-decay * r);
+        if (bOccupied){
+            T *= Qs[i]; 
+            //T *= ( 1.0 + exp(dE[i]*beta_T );
+        }else{
+            T *= (1-Qs[i]);  // Fermi function
+        }
+
         
         I += T;
     }
     return I;
 }
 
+// Function to solve the eigenvalue problem for a given Hamiltonian matrix
+void solveHamiltonian(const Mat3d& H, Vec3d& evals, Vec3d* evecs) {
+    H.eigenvals(evals);
+    for (int j = 0; j < 3; j++) {
+        H.eigenvec(evals.array[j], *(evecs+j) );
+    }
+}
+
+// Function to compute the Green's function for a given Hamiltonian matrix and chemical potential
+void computeGreensFunction( double* H, double mu, double* Green) {
+    double H_minus_mu_I[9];  // (H - mu*I)
+    for (int j = 0; j < 3; j++) {
+        for (int k = 0; k < 3; k++) {
+            if (j == k) {
+                H_minus_mu_I[j * 3 + k] = H[j * 3 + k] - mu;
+            } else {
+                H_minus_mu_I[j * 3 + k] = H[j * 3 + k];
+            }
+        }
+    }
+
+    double b[3];  // Right-hand side vector for solving linear equations
+    int index[3];  // Index array required by linSolve_gauss
+
+    // Solve (H - mu*I) * G = I for each column of the identity matrix
+    for (int j = 0; j < 3; j++) {
+        for (int k = 0; k < 3; k++) {
+            b[k] = (k == j) ? 1.0 : 0.0;
+        }
+
+        double x[3];  // Solution vector for the j-th column
+        Lingebra::linSolve_gauss(3, (double**)&H_minus_mu_I, b, index, x);
+
+        // Store the solution in the Green's function matrix
+        for (int k = 0; k < 3; k++) {
+            Green[j * 3 + k] = x[k];
+        }
+    }
+}
+
 
 extern "C"{
 
-void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, double* Esites, double E_Fermi, double cCouling, double Q_tip, double temperature ) {
+void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, double* Esites, double E_Fermi, double cCouling, double temperature ) {
     params.nsite       = nsite;
     params.spos        = (Vec3d*)spos;
     params.rots        = (Mat3d*)rots;
@@ -425,11 +472,37 @@ void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout)
     }
 }
 
-void STM_map(int npos, double* ptips_, double* Qtips, double* Qsites, double* Iout, double decay ){
+void STM_map(int npos, double* ptips_, double* Qtips, double* Qsites, double* Iout, double decay, bool bOccupied ){
     Vec3d* ptips = (Vec3d*)ptips_;
     #pragma omp parallel for
     for(int i=0; i<npos; i++) {
-        Iout[i] = getSTM(  params.nsite, params.spos, params.rots, params.MultiPoles, params.Esites, Qsites + i*params.nsite, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, decay, params.temperature );
+        Iout[i] = getSTM(  params.nsite, params.spos, params.rots, params.MultiPoles, params.Esites, Qsites + i*params.nsite, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, decay, params.temperature, bOccupied );
+    }
+}
+
+
+void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* eigenvaluesOut, double* eigenvectorsOut, double* greensOut ) {
+    Vec3d* ptips = (Vec3d*)ptips_;
+    for (int i = 0; i < npos; i++) {
+        double Esite[params.nsite];
+        double Hmat [params.nsite * params.nsite];
+        makeCouplingMatrix(params.nsite, params.spos, params.rots, params.MultiPoles, params.Esites, ptips[i], Qtips[i], Esite, Hmat, params.cCoupling); // Create Hamiltonian matrix for each tip position
+        //Mat3d& H = *(Mat3d*)Coupling;  // Cast the Coupling array to a Mat3d Hamiltonian
+        solveHamiltonian( *(Mat3d*)Hmat, *(Vec3d*)(eigenvaluesOut+i*3), (Vec3d*)(eigenvectorsOut+i*9) );  // Solve the Hamiltonian to obtain eigenvalues and eigenvectors
+
+        
+        if( greensOut != 0 ){ // Compute the Green's function using computeGreensFunction
+            double G[ params.nsite * params.nsite ];
+            computeGreensFunction( Hmat, params.E_Fermi, G );
+
+            // Store the Green's function in the output array
+            for (int j = 0; j < 3; j++) {
+                for (int k = 0; k < 3; k++) {
+                    greensOut[i * 9 + j * 3 + k] = G[j * 3 + k];
+                }
+            }
+        }
+
     }
 }
 

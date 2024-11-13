@@ -65,6 +65,19 @@ def setVerbosity( verbosity ):
 #     lib.STM_map(npos, ptips, I_stm, nsite, spos, Qs, _np_as(rot,c_double_p), _np_as(MultiPoles,c_double_p), Esite, Q_tip, E_Fermi, cCoupling, beta)
 #     return I_stm
 
+# Define the ctypes interface for the new function
+lib.solveHamiltonians.argtypes = [c_int, array2d, array1d, array2d, array3d, c_double_p ]
+lib.solveHamiltonians.restype = None
+def solveHamiltonians(ptips, Qtips, eigenvalues=None, eigenvectors=None, greensOut=None , bGreen=False, bEigVecs=True ):
+    npos = len(ptips)
+    ptips = np.array(ptips)
+    Qtips = np.array(Qtips)
+    if (eigenvalues  is None)              : eigenvalues  = np.zeros((npos, 3))
+    if (eigenvectors is None) and bEigVecs : eigenvectors = np.zeros((npos, 3, 3))
+    if (greensOut    is None) and bGreen   : greensOut    = np.zeros((npos, 3, 3))
+    lib.solveHamiltonians(npos, ptips, Qtips, eigenvalues, eigenvectors, _np_as(greensOut,c_double_p) )
+    return eigenvalues, eigenvectors, greensOut
+
 # void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, double temperature=100.0 ){
 lib.solveSiteOccupancies_old.argtypes = [ c_int, array2d, array1d, c_int, array2d, c_double_p, c_double_p, array1d, array2d, c_double, c_double, c_double ]
 lib.solveSiteOccupancies_old.restype  = c_double
@@ -80,9 +93,9 @@ def solveSiteOccupancies_old( ptips, Qtips, spos, Esite, Qout=None, rot=None, Mu
     return Qout
 
 # Initialize ring parameters
-lib.initRingParams.argtypes = [c_int, array2d, c_double_p, c_double_p, array1d, c_double, c_double, c_double, c_double]
+lib.initRingParams.argtypes = [c_int, array2d, c_double_p, c_double_p, array1d, c_double, c_double, c_double]
 lib.initRingParams.restype = None
-def initRingParams(spos, Esite, rot=None, MultiPoles=None, E_Fermi=0.0, cCouling=1.0, Q_tip=1.0, temperature=100.0 ):
+def initRingParams(spos, Esite, rot=None, MultiPoles=None, E_Fermi=0.0, cCouling=1.0, temperature=100.0 ):
     global nsite, spos_, Esite_, rot_, MultiPoles_
     nsite = len(spos)
     #spos_  = np.array(spos)
@@ -95,7 +108,7 @@ def initRingParams(spos, Esite, rot=None, MultiPoles=None, E_Fermi=0.0, cCouling
     Esite_  = np.array(Esite)
     rot_   = np.array(rot)
     MultiPoles_ = np.array(MultiPoles)
-    lib.initRingParams(nsite, spos_, _np_as(rot_,c_double_p), _np_as(MultiPoles_,c_double_p), Esite_, E_Fermi, cCouling, Q_tip, temperature )
+    lib.initRingParams(nsite, spos_, _np_as(rot_,c_double_p), _np_as(MultiPoles_,c_double_p), Esite_, E_Fermi, cCouling, temperature )
 
 # Solve site occupancies
 lib.solveSiteOccupancies.argtypes = [c_int, array2d, array1d, array2d]
@@ -108,12 +121,12 @@ def solveSiteOccupancies(ptips, Qtips, Qout=None):
     return Qout
 
 # Calculate STM map
-lib.STM_map.argtypes = [c_int, array2d, array1d, array2d, array1d, c_double]
+lib.STM_map.argtypes = [c_int, array2d, array1d, array2d, array1d, c_double, c_bool ]
 lib.STM_map.restype = None
-def getSTM_map(ptips, Qtips, Qsites, Iout=None, decay=1.0):
+def getSTM_map(ptips, Qtips, Qsites, Iout=None, decay=1.0, bOccupied=False ):
     npos = len(ptips)
     if Iout is None:  Iout = np.zeros(npos)
-    lib.STM_map(npos, ptips, Qtips, Qsites, Iout, decay)
+    lib.STM_map(npos, ptips, Qtips, Qsites, Iout, decay, bOccupied )
     return Iout
     
 # ========= Python functions

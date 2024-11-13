@@ -12,3 +12,5 @@
 *.cub
 *.cube
 *.png
+.aider*
+.env

@@ -91,10 +91,10 @@ Qtot = np.sum( Qsites, axis=2 )
 # plt.subplot(1,5,5); plt.imshow( niters       , origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'or'); plt.colorbar(); plt.title("niters")
 
 plt.figure(figsize=(20,5));
-plt.subplot(1,4,1); plt.imshow( Qtot         , origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'or'); plt.colorbar(); plt.title("Qtot")
-plt.subplot(1,4,2); plt.imshow( Qsites[:,:,0], origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'or'); plt.colorbar(); plt.title("Q site 1")
-plt.subplot(1,4,3); plt.imshow( Qsites[:,:,1], origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'or'); plt.colorbar(); plt.title("Q site 2")
-plt.subplot(1,4,4); plt.imshow( Qsites[:,:,2], origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'or'); plt.colorbar(); plt.title("Q site 3")
+plt.subplot(1,4,1); plt.imshow( Qtot         , origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'og'); plt.colorbar(); plt.title("Qtot")
+plt.subplot(1,4,2); plt.imshow( Qsites[:,:,0], origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'og'); plt.colorbar(); plt.title("Q site 1")
+plt.subplot(1,4,3); plt.imshow( Qsites[:,:,1], origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'og'); plt.colorbar(); plt.title("Q site 2")
+plt.subplot(1,4,4); plt.imshow( Qsites[:,:,2], origin="lower", extent=extent ); plt.plot( spos[:,0], spos[:,1], 'og'); plt.colorbar(); plt.title("Q site 3")
 plt.tight_layout()
 plt.savefig("test_ChargeRings.png", bbox_inches='tight')
 
