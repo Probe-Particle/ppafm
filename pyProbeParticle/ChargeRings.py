@@ -66,17 +66,18 @@ def setVerbosity( verbosity ):
 #     return I_stm
 
 # Define the ctypes interface for the new function
-lib.solveHamiltonians.argtypes = [c_int, array2d, array1d, array2d, array3d, c_double_p ]
+lib.solveHamiltonians.argtypes = [c_int, array2d, array1d, array2d, array3d, c_double_p, c_double_p ]
 lib.solveHamiltonians.restype = None
-def solveHamiltonians(ptips, Qtips, eigenvalues=None, eigenvectors=None, greensOut=None , bGreen=False, bEigVecs=True ):
+def solveHamiltonians(ptips, Qtips, evals=None, evecs=None, Gs=None, Hs=None, bH=False, bG=False, bVec=True ):
     npos = len(ptips)
     ptips = np.array(ptips)
     Qtips = np.array(Qtips)
-    if (eigenvalues  is None)              : eigenvalues  = np.zeros((npos, 3))
-    if (eigenvectors is None) and bEigVecs : eigenvectors = np.zeros((npos, 3, 3))
-    if (greensOut    is None) and bGreen   : greensOut    = np.zeros((npos, 3, 3))
-    lib.solveHamiltonians(npos, ptips, Qtips, eigenvalues, eigenvectors, _np_as(greensOut,c_double_p) )
-    return eigenvalues, eigenvectors, greensOut
+    if ( evals  is None )          : evals = np.zeros((npos, 3   ))
+    if ( evecs  is None ) and bVec : evecs = np.zeros((npos, 3, 3))
+    if ( Hs     is None ) and bH   : Hs    = np.zeros((npos, 3, 3))
+    if ( Gs     is None ) and bG   : Gs    = np.zeros((npos, 3, 3))
+    lib.solveHamiltonians( npos, ptips, Qtips, evals, evecs, _np_as(Hs,c_double_p), _np_as(Gs,c_double_p) )
+    return evals, evecs, Hs, Gs
 
 # void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, double temperature=100.0 ){
 lib.solveSiteOccupancies_old.argtypes = [ c_int, array2d, array1d, c_int, array2d, c_double_p, c_double_p, array1d, array2d, c_double, c_double, c_double ]
@@ -106,7 +107,7 @@ def initRingParams(spos, Esite, rot=None, MultiPoles=None, E_Fermi=0.0, cCouling
     # MultiPoles_ = MultiPoles.copy()
     spos_   = np.array(spos)
     Esite_  = np.array(Esite)
-    rot_   = np.array(rot)
+    rot_    = np.array(rot)
     MultiPoles_ = np.array(MultiPoles)
     lib.initRingParams(nsite, spos_, _np_as(rot_,c_double_p), _np_as(MultiPoles_,c_double_p), Esite_, E_Fermi, cCouling, temperature )
 

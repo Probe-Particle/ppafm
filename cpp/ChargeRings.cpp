@@ -139,7 +139,7 @@ double getChargingForce( int nsite, const double* Esite, const double* Coupling,
 
 
 void makeCouplingMatrix( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, Vec3d pT, double Qt, double* Esite, double* Coupling, double cCoupling ){
-    //printf( "makeCouplingMatrix() @Esite=%li @Coupling=%li \n", (long)Esite, (long)Coupling  );
+    //printf( "makeCouplingMatrix() cCoupling=%g Qt=%g  @Esite=%li @Coupling=%li  \n", cCoupling, Qt, (long)Esite, (long)Coupling  );
     //printf("========\n");
     for(int i=0; i<nsite; i++){
         const Vec3d pi = spos[i];
@@ -156,8 +156,9 @@ void makeCouplingMatrix( int nsite, const Vec3d* spos, const Mat3d* rot, const d
             Vitip = COULOMB_CONST * Qt /d.norm();
         }
 
-
         double eps_i = Vitip + Esite0[i];
+
+        //printf( "makeCouplingMatrix().site[%i] eps_i=%10.5e Esite0[i]=%5.2f Vitip=%10.5e  Qt=%5.2f |d|=%8.4f d(%6.3f,%6.3f,%6.3f) \n", i, eps_i, Esite0[i], Vitip,  Qt,  d.norm(), d.x,d.y,d.z );
         Esite[i] = eps_i;
 
         if(Coupling){
@@ -276,7 +277,7 @@ int optimizeSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const
 
 
 double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double T ){
-    if(verbosity>0) printf( "E_Fermi %g Q_tip %g Esite{%6.3f,%6.3f,%6.3f}  \n", E_Fermi, Q_tip,  Esites0[0],Esites0[1],Esites0[2] );
+    if(verbosity>0) printf( "boltzmanSiteOccupancy() E_Fermi %g Q_tip %g Esite{%6.3f,%6.3f,%6.3f}  \n", E_Fermi, Q_tip,  Esites0[0],Esites0[1],Esites0[2] );
     double Qs       [ nsite ];
     double Qav      [ nsite ];
     double Esite    [ nsite ];
@@ -460,11 +461,14 @@ void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsit
 // }
 
 void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout) {
-    //printf( "solveSiteOccupancies() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
-    printf( "solveSiteOccupancies()"); params.print();
+    printf( "solveSiteOccupancies() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
+    //printf( "solveSiteOccupancies() npos=%i \n", npos ); params.print();
     Vec3d* ptips = (Vec3d*)ptips_;
+
+    int nj = 5;
     //#pragma omp parallel for
     for(int i=0; i<npos; i++) {
+        //printf( "solveSiteOccupancies[%i|%i,%i] pos(%8.4f,%8.4f,%8.4f) q=%8.4f \n", i, i/nj, i%nj,  ptips[i].x,ptips[i].y,ptips[i].z,   Qtips[i] );
         double Qs[params.nsite];
         for(int j=0; j<params.nsite; j++) { Qs[j]=0; }
         boltzmanSiteOccupancy(params.nsite, params.spos, params.rots, params.MultiPoles,   params.Esites, Qs, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature );
@@ -481,24 +485,29 @@ void STM_map(int npos, double* ptips_, double* Qtips, double* Qsites, double* Io
 }
 
 
-void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* eigenvaluesOut, double* eigenvectorsOut, double* greensOut ) {
+void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* evals, double* evecs, double* Hs, double* Gs ) {
+    printf( "solveHamiltonians() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
     Vec3d* ptips = (Vec3d*)ptips_;
     for (int i = 0; i < npos; i++) {
         double Esite[params.nsite];
-        double Hmat [params.nsite * params.nsite];
-        makeCouplingMatrix(params.nsite, params.spos, params.rots, params.MultiPoles, params.Esites, ptips[i], Qtips[i], Esite, Hmat, params.cCoupling); // Create Hamiltonian matrix for each tip position
-        //Mat3d& H = *(Mat3d*)Coupling;  // Cast the Coupling array to a Mat3d Hamiltonian
-        solveHamiltonian( *(Mat3d*)Hmat, *(Vec3d*)(eigenvaluesOut+i*3), (Vec3d*)(eigenvectorsOut+i*9) );  // Solve the Hamiltonian to obtain eigenvalues and eigenvectors
+        Mat3d Hmat;
+        //{ Vec3d psite=params.spos[2]; printf( "ptips[%3i] r=%20.10f (%8.4f,%8.4f,%8.4f) psite[2](%8.4f,%8.4f,%8.4f)\n", i, (ptips[i]-psite).norm(), ptips[i].x,ptips[i].y,ptips[i].z, psite.x,psite.y,psite.z ); }
+        makeCouplingMatrix(params.nsite, params.spos, params.rots, params.MultiPoles, params.Esites, ptips[i], Qtips[i], Esite, (double*)&Hmat, params.cCoupling);   // Create Hamiltonian matrix for each tip position
 
+        if(Hs){
+            ((Mat3d*)Hs)[i] = Hmat;
+        }
+
+        solveHamiltonian( Hmat, *(Vec3d*)(evals+i*3), (Vec3d*)(evecs+i*9) );                                                                                        // Solve the Hamiltonian to obtain eigenvalues and eigenvectors
         
-        if( greensOut != 0 ){ // Compute the Green's function using computeGreensFunction
+        if( Gs != 0 ){ // Compute the Green's function using computeGreensFunction
             double G[ params.nsite * params.nsite ];
-            computeGreensFunction( Hmat, params.E_Fermi, G );
+            computeGreensFunction( (double*)&Hmat, params.E_Fermi, G );
 
             // Store the Green's function in the output array
             for (int j = 0; j < 3; j++) {
                 for (int k = 0; k < 3; k++) {
-                    greensOut[i * 9 + j * 3 + k] = G[j * 3 + k];
+                    Gs[i * 9 + j * 3 + k] = G[j * 3 + k];
                 }
             }
         }
