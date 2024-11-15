@@ -131,3 +131,44 @@ def getSTM_map(ptips, Qtips, Qsites, Iout=None, decay=1.0, bOccupied=False ):
     return Iout
     
 # ========= Python functions
+
+def makePosXY(n=100, L=10.0, z0=5.0):
+    x = np.linspace(-L,L,n)
+    y = np.linspace(-L,L,n)
+    Xs,Ys = np.meshgrid(x,y)
+    ps = np.zeros((n*n,3))
+    ps[:,0] = Xs.flatten()
+    ps[:,1] = Ys.flatten()
+    ps[:,2] = z0
+    return ps
+    
+def makeRotMats(phi, nsite=3 ):
+    rot = np.zeros((nsite,3,3))
+    ca = np.cos(phi)
+    sa = np.sin(phi)
+    rot[:,0,0] = ca
+    rot[:,1,1] = ca
+    rot[:,0,1] = -sa
+    rot[:,1,0] = sa
+    rot[:,2,2] = 1.0
+    return rot
+
+def getLine(spos, comb1, comb2, n=10):
+    " Get line between linear combination of the charge sites"
+    ps = np.zeros((n, spos.shape[1]))
+    ts = np.linspace(0.0, 1.0, n, endpoint=False)
+    ms = 1 - ts
+    for i in range(spos.shape[0]):
+        ps += spos[i] * (comb1[i] * ms[:, None] + comb2[i] * ts[:, None])
+    return ps
+
+def makePosQscan( ps, qs ):
+    npoint  = ps.shape[0]
+    ncharge = qs.shape[0]
+    Ps = np.expand_dims(ps, axis=0)                 
+    Ps = np.broadcast_to(Ps, (ncharge, npoint, 3))  
+    Qs = np.expand_dims(qs, axis=1)  
+    Qs = np.broadcast_to(Qs, (ncharge, npoint))  
+    print("npoint ", Ps.shape, " ncharge ", ncharge )
+    print("Ps.shape ", Ps.shape, " Qs.shape", Qs.shape)
+    return  Ps.copy(), Qs.copy()

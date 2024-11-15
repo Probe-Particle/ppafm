@@ -23,30 +23,6 @@ phiRot = -1.0
 Q0  = 1.0
 Qzz = 15.0
 
-# =================  Functions
-
-
-def makePosXY(n=100, L=10.0, z0=5.0):
-    x = np.linspace(-L,L,n)
-    y = np.linspace(-L,L,n)
-    Xs,Ys = np.meshgrid(x,y)
-    ps = np.zeros((n*n,3))
-    ps[:,0] = Xs.flatten()
-    ps[:,1] = Ys.flatten()
-    ps[:,2] = z0
-    return ps
-
-def makeRotMats(phi, nsite=3 ):
-    rot = np.zeros((nsite,3,3))
-    ca = np.cos(phi)
-    sa = np.sin(phi)
-    rot[:,0,0] = ca
-    rot[:,1,1] = ca
-    rot[:,0,1] = -sa
-    rot[:,1,0] = sa
-    rot[:,2,2] = 1.0
-    return rot
-
 # =================  Main
 
 # Energy of states on the sites
@@ -70,8 +46,8 @@ chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCo
 
 # Setup scanning grid ( tip positions and charges )
 extent = [-L,L,-L,L]
-ps = makePosXY(n=npix, L=L, z0=z_tip )
-Qtips = np.ones(len(ps))*Q_tip
+ps     = chr.makePosXY(n=npix, L=L, z0=z_tip )
+Qtips  = np.ones(len(ps))*Q_tip
 
 print( "ps ", ps)
 

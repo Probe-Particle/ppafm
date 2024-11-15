@@ -63,8 +63,8 @@ mpols[:,0] = 1.0
 L=20.0
 npix=400
 extent=[-L,L,-L,L]
-ps = makePosXY( n=npix, L=L, z0=5.0 )
-Qtips= np.ones( len(ps) )*Qtip
+ps    = chr.makePosXY( n=npix, L=L, z0=5.0 )
+Qtips = np.ones( len(ps) )*Qtip
 print( "ps ", ps)
 
 print("==== to C++ ===")
