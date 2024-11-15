@@ -58,7 +58,7 @@ ps_line[:,2] = z_tip
 
 
 # ================= 1D scan
-
+"""
 Qs                   = np.ones(len(ps_line))*Q_tip 
 Q_1                  = chr.solveSiteOccupancies( ps_line, Qs )
 evals, evecs, Hs, Gs = chr.solveHamiltonians( ps_line, Qs, bH=True  )
@@ -78,11 +78,6 @@ plt.plot( evals[:,2], label="E_3" )
 plt.title("eigenvalues")
 plt.legend()
 plt.ylim(-1.0,3.0)
-
-
-
-
-
 """
 
 # ================= 2D x,y
@@ -136,7 +131,7 @@ for i in range(3):
 plt.tight_layout()
 plt.savefig("STM_sim_%2.3f.png" %(cCouling), bbox_inches='tight')
 
-"""
+
 
 # ----------------- Plot Eigen-States
 

@@ -52,25 +52,6 @@ class LandauerQDs:
         """Calculates the broadening matrix (wide-band limit)."""
         return 2 * np.pi * np.outer(coupling_vector, np.conj(coupling_vector))
 
-    def calculate_transmission(self, tip_pos, E):
-        """Calculates the transmission probability for a given tip position and energy."""
-        # Get the full Hamiltonian including tip effects
-        H = self.make_full_hamiltonian(tip_pos, Q_tip=0.0)  # Q_tip=0 for transmission calc
-        
-        # Calculate Green's function
-        G = self.calculate_greens_function(E, H)
-        
-        # Calculate coupling matrices (wide-band limit)
-        Gamma_tip = np.zeros_like(H)
-        Gamma_tip[-1,-1] = 2 * np.pi  # Tip coupling
-        
-        Gamma_sub = np.zeros_like(H)
-        Gamma_sub[0,0] = 2 * np.pi  # Substrate coupling
-        
-        # Calculate transmission
-        temp = Gamma_tip @ G @ Gamma_sub @ G.conj().T
-        return np.real(np.trace(temp))
-
     def calculate_tip_coupling(self, tip_pos):
         """Calculate coupling between tip and QDs based on distance."""
         tip_couplings = np.zeros(self.n_qds, dtype=np.complex128)
@@ -138,6 +119,25 @@ class LandauerQDs:
             eigenvalues[i] = self.get_QD_eigenvalues(tip_pos, Q_tip)
             
         return eigenvalues
+
+    def calculate_transmission(self, tip_pos, E, Q_tip=0.0 ):
+        """Calculates the transmission probability for a given tip position and energy."""
+        # Get the full Hamiltonian including tip effects
+        H = self.make_full_hamiltonian(tip_pos, Q_tip=Q_tip )  # Q_tip=0 for transmission calc
+        
+        # Calculate Green's function
+        G = self.calculate_greens_function(E, H)
+        
+        # Calculate coupling matrices (wide-band limit)
+        Gamma_tip = np.zeros_like(H)
+        Gamma_tip[-1,-1] = 2 * np.pi  # Tip coupling
+        
+        Gamma_sub = np.zeros_like(H)
+        Gamma_sub[0,0] = 2 * np.pi  # Substrate coupling
+        
+        # Calculate transmission
+        temp = Gamma_tip @ G @ Gamma_sub @ G.conj().T
+        return np.real(np.trace(temp))
 
     def scan_1D(self, ps_line, Q_tip, energies):
         """
