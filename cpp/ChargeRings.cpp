@@ -1,5 +1,3 @@
-
-
 /*
 
 
@@ -129,7 +127,7 @@ double getChargingForce( int nsite, const double* Esite, const double* Coupling,
         }
         //printf( "site[%i] fQi(%g) = eps(%g) + Vcoul(%g) - Ef(%g) \n", i, eps_i, Vcoul, fQi, E_Fermi  );
         //printf( "site[%i] eps %g  Vcoul %g  fQi %g E_Fermi %g \n", i, eps_i, Vcoul, fQi, E_Fermi );
-        if(dEdQ){ dEdQ[i] = fQi; }  
+        if(dEdQ){ dEdQ[i] = fQi; }   // NOTE: this total on-site energy (diagonal of the hamiltonian) it is not just energy-shift due to Coulomb interaction
         E += fQi*Qs[i]; 
         f2err += fQi*fQi;
     }
@@ -286,13 +284,16 @@ double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, co
     if( cCoupling<0 ){ Coupling  = 0; }
     makeCouplingMatrix( nsite, spos, rot, MultiPoles, Esites0, p_tip, Q_tip, Esite, Coupling, cCoupling );
 
-    //double kB   = 8.617333262145e-5; // [eV/K]
     double beta = 1.0/( const_Boltzman * T );
 
     int nspinorb = nsite*2;
     int nconfs = 1<<nspinorb;
-    double sumP = 0;
-    for( int i=0; i<nsite; i++ ){ Qav[i]=0;  }
+    
+    // Arrays to store log probabilities and maximum log probability
+    double logPs[nconfs];
+    double maxLogP = -1e300;  // Initialize to very negative number
+    
+    // First pass: compute all log probabilities and find maximum
     for( int ic=0; ic<nconfs; ic++ ){
         for( int j=0; j<nsite; j++){ 
             int jj=j*2; 
@@ -301,18 +302,33 @@ double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, co
             if( ic&(1<<(jj+1)) ){ qi++; }        
             Qs[j] = qi;
         };
-        //printf( "boltzmanSiteOccupancy[ic=%i] Qs(%g,%g,%g) \n", ic, Qs[0], Qs[1], Qs[2] );
         double E = getChargingForce( nsite, Esite, Coupling, E_Fermi, Qs, 0 );
-        double P = exp( -beta*E );
+        logPs[ic] = -beta*E;
+        //maxLogP = std::max(maxLogP, logPs[ic]);
+        maxLogP = fmax(maxLogP, logPs[ic]);
+    }
+    
+    // Second pass: compute normalized probabilities using the log-sum-exp trick
+    double sumP = 0;
+    for( int i=0; i<nsite; i++ ){ Qav[i]=0; }
+    
+    for( int ic=0; ic<nconfs; ic++ ){
+        for( int j=0; j<nsite; j++){ 
+            int jj=j*2; 
+            int qi=0;
+            if( ic&(1<<(jj  )) ){ qi++; }
+            if( ic&(1<<(jj+1)) ){ qi++; }        
+            Qs[j] = qi;
+        };
+        double P = exp(logPs[ic] - maxLogP);  // Subtract maxLogP to avoid overflow
         sumP += P;
         for( int j=0; j<nsite; j++){ Qav[j] += Qs[j]*P; };
     }
 
-    //printf( "boltzmanSiteOccupancy p_tip(%8.3f,%8.3f) sumP=%g  Qav(%g,%g,%g) nconfs=%i \n", p_tip.x, p_tip.y, sumP, Qav[0], Qav[1], Qav[2], nconfs );
     double renorm = 1.0/sumP;
     for( int j=0; j<nsite; j++){ Qout[j] = Qav[j] * renorm; };
-    //for(int i=0; i<nsite; i++){ Qs[i] = fQs[i]; } 
-    return sumP;
+    
+    return sumP * exp(maxLogP);  // Return the true sum by adding back the maxLogP factor
 }
 
 double getSTM_sites( Vec3d pos, double beta, int nsite, const Vec3d* spos, const double* Amps, const bool bInCoh=false ){
@@ -485,15 +501,25 @@ void STM_map(int npos, double* ptips_, double* Qtips, double* Qsites, double* Io
 }
 
 
-void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* evals, double* evecs, double* Hs, double* Gs ) {
+void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites, double* evals, double* evecs, double* Hs, double* Gs ) {
     printf( "solveHamiltonians() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
     Vec3d* ptips = (Vec3d*)ptips_;
+    
+    int nqd = params.nsite;
+    
+    double Esite[nqd];
+    double dE[nqd];
+    Mat3d Hmat;
     for (int i = 0; i < npos; i++) {
-        double Esite[params.nsite];
-        Mat3d Hmat;
+        
         //{ Vec3d psite=params.spos[2]; printf( "ptips[%3i] r=%20.10f (%8.4f,%8.4f,%8.4f) psite[2](%8.4f,%8.4f,%8.4f)\n", i, (ptips[i]-psite).norm(), ptips[i].x,ptips[i].y,ptips[i].z, psite.x,psite.y,psite.z ); }
-        makeCouplingMatrix(params.nsite, params.spos, params.rots, params.MultiPoles, params.Esites, ptips[i], Qtips[i], Esite, (double*)&Hmat, params.cCoupling);   // Create Hamiltonian matrix for each tip position
+        makeCouplingMatrix( nqd, params.spos, params.rots, params.MultiPoles, params.Esites, ptips[i], Qtips[i], Esite, (double*)&Hmat, params.cCoupling);   // Create Hamiltonian matrix for each tip position
 
+        if(Qsites){
+            getChargingForce(nqd, Esite, (double*)&Hmat, params.E_Fermi, Qsites+i*nqd, dE);
+            //for(int j=0; j<nqd; j++){ ((double*)&Hmat)[j*nqd+j] += dE[j]; } // NOTE: this is wrong, it assumes that this is just energy-shift of on-site due to Coulomb interaction, which is not true
+            for(int j=0; j<nqd; j++){ ((double*)&Hmat)[j*nqd+j] = dE[j]; }   // NOTE: this total on-site energy (diagonal of the hamiltonian) it is not just energy-shift due to Coulomb interaction
+        }
         if(Hs){
             ((Mat3d*)Hs)[i] = Hmat;
         }

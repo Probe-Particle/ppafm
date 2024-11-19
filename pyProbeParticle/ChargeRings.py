@@ -66,9 +66,9 @@ def setVerbosity( verbosity ):
 #     return I_stm
 
 # Define the ctypes interface for the new function
-lib.solveHamiltonians.argtypes = [c_int, array2d, array1d, array2d, array3d, c_double_p, c_double_p ]
+lib.solveHamiltonians.argtypes = [c_int, array2d, array1d, array2d, array2d, array3d, c_double_p, c_double_p ]
 lib.solveHamiltonians.restype = None
-def solveHamiltonians(ptips, Qtips, evals=None, evecs=None, Gs=None, Hs=None, bH=False, bG=False, bVec=True ):
+def solveHamiltonians(ptips, Qtips, Qsites=None, evals=None, evecs=None, Gs=None, Hs=None, bH=False, bG=False, bVec=True ):
     npos = len(ptips)
     ptips = np.array(ptips)
     Qtips = np.array(Qtips)
@@ -76,7 +76,7 @@ def solveHamiltonians(ptips, Qtips, evals=None, evecs=None, Gs=None, Hs=None, bH
     if ( evecs  is None ) and bVec : evecs = np.zeros((npos, 3, 3))
     if ( Hs     is None ) and bH   : Hs    = np.zeros((npos, 3, 3))
     if ( Gs     is None ) and bG   : Gs    = np.zeros((npos, 3, 3))
-    lib.solveHamiltonians( npos, ptips, Qtips, evals, evecs, _np_as(Hs,c_double_p), _np_as(Gs,c_double_p) )
+    lib.solveHamiltonians( npos, ptips, Qtips, Qsites, evals, evecs, _np_as(Hs,c_double_p), _np_as(Gs,c_double_p) )
     return evals, evecs, Hs, Gs
 
 # void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, double temperature=100.0 ){

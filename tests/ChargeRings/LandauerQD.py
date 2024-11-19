@@ -99,6 +99,29 @@ class LandauerQDs:
         
         return H
 
+    def make_full_hamiltonian_from_H(self, tip_pos, H_QD_block):
+        """Construct full Hamiltonian from pre-computed QD block (which already includes tip's Coulomb effect)."""
+        # Calculate only the tip coupling (Coulomb shifts are already in H_QD_block)
+        tip_couplings = self.calculate_tip_coupling(tip_pos)
+        
+        # Construct full Hamiltonian with complex energies for tip and substrate
+        H = np.zeros((self.n_qds + 2, self.n_qds + 2), dtype=np.complex128)
+        
+        # Fill QD block (with small broadening)
+        H[1:self.n_qds+1,1:self.n_qds+1] = H_QD_block - 1j * self.eta * np.eye(self.n_qds)
+
+        # Fill substrate part (with broadening)
+        H[0,0] = self.E_sub - 1j * self.Gamma_sub     # Substrate on-site
+        H[0,1:self.n_qds+1] = self.H_sub_QD           # Substrate-QD coupling
+        H[1:self.n_qds+1,0] = self.H_sub_QD           # QD-substrate coupling
+                
+        # Fill tip part (with broadening)
+        H[-1,-1]             = self.E_tip - 1j * self.Gamma_tip  # Tip on-site
+        H[1:self.n_qds+1,-1] = tip_couplings                     # QD-tip coupling 
+        H[-1,1:self.n_qds+1] = tip_couplings.conj()              # Tip-QD coupling
+        
+        return H
+
     def get_QD_eigenvalues(self, tip_pos, Q_tip):
         """Calculate eigenvalues of the QD subsystem for given tip position."""
         # Get energy shifts from tip
@@ -139,7 +162,7 @@ class LandauerQDs:
         temp = Gamma_tip @ G @ Gamma_sub @ G.conj().T
         return np.real(np.trace(temp))
 
-    def scan_1D(self, ps_line, Q_tip, energies):
+    def scan_1D(self, ps_line, energies, Q_tip=None, H_QDs=None ):
         """
         Perform 1D scan along given line of positions.
         
@@ -156,7 +179,10 @@ class LandauerQDs:
         transmissions = np.zeros((n_points, n_energies))
         
         for i, tip_pos in enumerate(ps_line):
-            H = self.make_full_hamiltonian(tip_pos, Q_tip)
+            if H_QDs is not None:
+                H = self.make_full_hamiltonian_from_H(tip_pos, H_QDs[i])
+            else:
+                H = self.make_full_hamiltonian(tip_pos, Q_tip)
             
             for j, E in enumerate(energies):
                 # Calculate Green's function

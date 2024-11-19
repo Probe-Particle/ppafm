@@ -14,6 +14,7 @@ Q_tip = 0.6
 z_tip = 6.0
 L = 20.0
 decay = 0.7
+#T    = 100.0
 
 # QD system setup
 nsite = 3
@@ -29,8 +30,8 @@ tA = 0.1   # Tip coupling strength
 Gamma_tip = 1.0  # Tip state broadening
 Gamma_sub = 1.0  # Substrate state broadening
 
-Emin = -0.2  # Increased range to see effect of broadening
-Emax =  0.2
+Emin = -0.1  # Increased range to see effect of broadening
+Emax =  0.3
 
 # ========== Main
 
@@ -51,8 +52,8 @@ ps_line[:,2] = z_tip
 energies = np.linspace( Emin, Emax, 100)
 
 # Perform 1D scan for transmission and eigenvalues
-transmissions = system.scan_1D(ps_line, Q_tip, energies)
-eigenvalues = system.scan_eigenvalues(ps_line, Q_tip)
+transmissions = system.scan_1D(ps_line, energies, Q_tip=Q_tip )
+eigenvalues = system.scan_eigenvalues(ps_line, Q_tip=Q_tip )
 
 # Plot results using GridSpec
 fig = plt.figure(figsize=(12, 8))
