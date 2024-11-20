@@ -87,7 +87,7 @@ cmap='cividis'
 
 # Plot transmission with eigenvalue bands
 ax1 = fig.add_subplot(gs[0, 0])
-im = ax1.imshow(transmissions.T, aspect='auto', origin='lower',  extent=[0, len(ps_line), energies[0], energies[-1]],  vmin=0.0, vmax=0.0001, cmap=cmap )
+im = ax1.imshow(transmissions.T, aspect='auto', origin='lower',  extent=[0, len(ps_line), energies[0], energies[-1]],  vmin=0.0, vmax=0.00001, cmap=cmap )
 
 xs = range(len(ps_line))
 

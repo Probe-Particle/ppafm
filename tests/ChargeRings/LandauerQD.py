@@ -69,58 +69,134 @@ class LandauerQDs:
             shifts[i] = COULOMB_CONST * Q_tip / np.linalg.norm(d)
         return shifts
 
+    def _make_QD_block(self, tip_pos, Q_tip=None, H_QD_precomputed=None):
+        """
+        Internal function to create QD Hamiltonian block.
+        
+        Args:
+            tip_pos: np.ndarray - Tip position
+            Q_tip: float (optional) - Tip charge for energy shifts
+            H_QD_precomputed: np.ndarray (optional) - Pre-computed QD Hamiltonian block
+            
+        Returns:
+            np.ndarray - QD Hamiltonian block
+        """
+        if H_QD_precomputed is not None:
+            return H_QD_precomputed
+            
+        # Calculate energy shifts from tip if Q_tip provided
+        if Q_tip is not None:
+            energy_shifts    = self.calculate_tip_induced_shifts(tip_pos, Q_tip)
+            shifted_energies = self.Esite + energy_shifts
+        else:
+            shifted_energies = self.Esite
+            
+        # Construct QD block with shifted energies
+        return np.diag(shifted_energies) + self.K_matrix
+
+    def _assemble_full_H(self, tip_pos, QD_block):
+        """
+        Internal function to assemble full Hamiltonian matrix.
+        
+        Args:
+            tip_pos: np.ndarray - Tip position
+            QD_block: np.ndarray - Central QD Hamiltonian block
+            
+        Returns:
+            np.ndarray - Full system Hamiltonian
+        """
+        
+        tip_couplings = self.calculate_tip_coupling(tip_pos)    # Calculate tip coupling
+        H = np.zeros((self.n_qds + 2, self.n_qds + 2), dtype=np.complex128)      # Construct full Hamiltonian
+        H[1:self.n_qds+1,1:self.n_qds+1] = QD_block - 1j * self.eta * np.eye(self.n_qds)   # Fill QD block (with small broadening)
+
+        # Fill substrate part (with broadening)
+        H[0,0]              = self.E_sub - 1j * self.Gamma_sub
+        H[0,1:self.n_qds+1] = self.H_sub_QD
+        H[1:self.n_qds+1,0] = self.H_sub_QD
+                
+        # Fill tip part (with broadening)
+        H[-1,-1]             = self.E_tip - 1j * self.Gamma_tip
+        H[1:self.n_qds+1,-1] = tip_couplings
+        H[-1,1:self.n_qds+1] = tip_couplings.conj()
+        
+        return H
+
+    def _calculate_coupling_matrices(self):
+        """
+        Internal function to build coupling matrices Gamma for tip and substrate.
+        
+        Returns:
+            tuple(np.ndarray, np.ndarray) - (Gamma_substrate, Gamma_tip)
+        """
+        size = self.n_qds + 2
+        Gamma_s = np.zeros((size, size), dtype=np.complex128);  Gamma_s[0,0] = 2 * self.Gamma_sub       # Substrate coupling
+        Gamma_t = np.zeros((size, size), dtype=np.complex128);  Gamma_t[-1,-1] = 2 * self.Gamma_tip     # Tip coupling
+        return Gamma_s, Gamma_t
+
+    def _calculate_transmission_from_H(self, H, energy):
+        """
+        Internal function to calculate transmission from Hamiltonian.
+        
+        Args:
+            H: np.ndarray - Full system Hamiltonian
+            energy: float - Energy at which to calculate transmission
+            
+        Returns:
+            float - Transmission probability
+        """
+        G                = self.calculate_greens_function(energy, H)
+        Gamma_s, Gamma_t = self._calculate_coupling_matrices()
+        return np.real(np.trace(Gamma_s @ G @ Gamma_t @ G.conj().T))
+
     def make_full_hamiltonian(self, tip_pos, Q_tip):
         """Construct full Hamiltonian including tip coupling and Coulomb shifts."""
-        # Calculate tip coupling and energy shifts
-        tip_couplings = self.calculate_tip_coupling(tip_pos)
-        energy_shifts = self.calculate_tip_induced_shifts(tip_pos, Q_tip)
-        
-        # Update QD energies with tip-induced shifts
-        shifted_energies = self.Esite + energy_shifts
-        
-        # Construct QD block with shifted energies
-        H_QD_block = np.diag(shifted_energies) + self.K_matrix
-        
-        # Construct full Hamiltonian with complex energies for tip and substrate
-        H = np.zeros((self.n_qds + 2, self.n_qds + 2), dtype=np.complex128)
-        
-        # Fill QD block (with small broadening)
-        H[1:self.n_qds+1,1:self.n_qds+1] = H_QD_block - 1j * self.eta * np.eye(self.n_qds)
-
-        # Fill substrate part (with broadening)
-        H[0,0] = self.E_sub - 1j * self.Gamma_sub     # Substrate on-site
-        H[0,1:self.n_qds+1] = self.H_sub_QD           # Substrate-QD coupling
-        H[1:self.n_qds+1,0] = self.H_sub_QD           # QD-substrate coupling
-                
-        # Fill tip part (with broadening)
-        H[-1,-1]             = self.E_tip - 1j * self.Gamma_tip  # Tip on-site
-        H[1:self.n_qds+1,-1] = tip_couplings                     # QD-tip coupling 
-        H[-1,1:self.n_qds+1] = tip_couplings.conj()              # Tip-QD coupling
-        
-        return H
+        QD_block = self._make_QD_block(tip_pos, Q_tip)
+        return self._assemble_full_H(tip_pos, QD_block)
 
     def make_full_hamiltonian_from_H(self, tip_pos, H_QD_block):
-        """Construct full Hamiltonian from pre-computed QD block (which already includes tip's Coulomb effect)."""
-        # Calculate only the tip coupling (Coulomb shifts are already in H_QD_block)
-        tip_couplings = self.calculate_tip_coupling(tip_pos)
-        
-        # Construct full Hamiltonian with complex energies for tip and substrate
-        H = np.zeros((self.n_qds + 2, self.n_qds + 2), dtype=np.complex128)
-        
-        # Fill QD block (with small broadening)
-        H[1:self.n_qds+1,1:self.n_qds+1] = H_QD_block - 1j * self.eta * np.eye(self.n_qds)
+        """Construct full Hamiltonian from pre-computed QD block."""
+        return self._assemble_full_H(tip_pos, H_QD_block)
 
-        # Fill substrate part (with broadening)
-        H[0,0] = self.E_sub - 1j * self.Gamma_sub     # Substrate on-site
-        H[0,1:self.n_qds+1] = self.H_sub_QD           # Substrate-QD coupling
-        H[1:self.n_qds+1,0] = self.H_sub_QD           # QD-substrate coupling
-                
-        # Fill tip part (with broadening)
-        H[-1,-1]             = self.E_tip - 1j * self.Gamma_tip  # Tip on-site
-        H[1:self.n_qds+1,-1] = tip_couplings                     # QD-tip coupling 
-        H[-1,1:self.n_qds+1] = tip_couplings.conj()              # Tip-QD coupling
+    def calculate_transmission(self, tip_pos, E, Q_tip=0.0):
+        """Calculate transmission probability for given tip position and energy."""
+        H = self.make_full_hamiltonian(tip_pos, Q_tip)
+        return self._calculate_transmission_from_H(H, E)
+
+    def calculate_transmission_single_energy(self, tip_pos, energy, H_QD=None):
+        """Calculate transmission at single energy with optional pre-computed QD block."""
+        QD_block = self._make_QD_block(tip_pos, H_QD_precomputed=H_QD)
+        H        = self._assemble_full_H(tip_pos, QD_block)
+        return self._calculate_transmission_from_H(H, energy)
+
+    def scan_1D(self, ps_line, energies, Q_tip=None, H_QDs=None):
+        """
+        Perform 1D scan along given line of positions.
         
-        return H
+        Args:
+            ps_line: np.ndarray of shape (n_points, 3) - Line of tip positions
+            energies: np.ndarray - Energies at which to calculate transmission
+            Q_tip: float (optional) - Tip charge
+            H_QDs: np.ndarray (optional) - Pre-computed QD Hamiltonians
+            
+        Returns:
+            np.ndarray - Transmission probabilities of shape (n_points, n_energies)
+        """
+        n_points      = len(ps_line)
+        n_energies    = len(energies)
+        transmissions = np.zeros((n_points, n_energies))
+        
+        for i, tip_pos in enumerate(ps_line):
+            # Get QD block (either pre-computed or new)
+            H_QD = H_QDs[i] if H_QDs is not None else None
+            QD_block = self._make_QD_block( tip_pos, Q_tip=Q_tip, H_QD_precomputed=H_QD )
+            
+            # Build full H and calculate transmission for each energy
+            H = self._assemble_full_H(tip_pos, QD_block)
+            for j, E in enumerate(energies):
+                transmissions[i,j] = self._calculate_transmission_from_H(H, E)
+                
+        return transmissions
 
     def get_QD_eigenvalues(self, tip_pos, Q_tip):
         """Calculate eigenvalues of the QD subsystem for given tip position."""
@@ -142,93 +218,6 @@ class LandauerQDs:
             eigenvalues[i] = self.get_QD_eigenvalues(tip_pos, Q_tip)
             
         return eigenvalues
-
-    def calculate_transmission(self, tip_pos, E, Q_tip=0.0 ):
-        """Calculates the transmission probability for a given tip position and energy."""
-        # Get the full Hamiltonian including tip effects
-        H = self.make_full_hamiltonian(tip_pos, Q_tip=Q_tip )  # Q_tip=0 for transmission calc
-        
-        # Calculate Green's function
-        G = self.calculate_greens_function(E, H)
-        
-        # Calculate coupling matrices (wide-band limit)
-        Gamma_tip = np.zeros_like(H)
-        Gamma_tip[-1,-1] = 2 * np.pi  # Tip coupling
-        
-        Gamma_sub = np.zeros_like(H)
-        Gamma_sub[0,0] = 2 * np.pi  # Substrate coupling
-        
-        # Calculate transmission
-        temp = Gamma_tip @ G @ Gamma_sub @ G.conj().T
-        return np.real(np.trace(temp))
-
-    def calculate_transmission_single_energy(self, tip_pos, energy, H_QD=None):
-        """
-        Calculate transmission at a single energy value.
-        
-        Args:
-            tip_pos: np.ndarray - Tip position
-            energy: float - Energy at which to calculate transmission
-            H_QD: np.ndarray (optional) - Pre-computed QD Hamiltonian block
-            
-        Returns:
-            float - Transmission probability at given energy
-        """
-        if H_QD is not None:
-            H = self.make_full_hamiltonian_from_H(tip_pos, H_QD)
-        else:
-            H = self.make_full_hamiltonian(tip_pos, 0.0)
-            
-        G = self.calculate_greens_function(energy, H)
-        
-        # Calculate coupling matrices
-        Gamma_s = np.zeros_like(H)
-        Gamma_s[0,0] = 2 * self.Gamma_sub
-        
-        Gamma_t = np.zeros_like(H)
-        Gamma_t[-1,-1] = 2 * self.Gamma_tip
-        
-        # Calculate transmission using Meir-Wingreen formula
-        return np.real(np.trace(Gamma_s @ G @ Gamma_t @ G.conj().T))
-
-    def scan_1D(self, ps_line, energies, Q_tip=None, H_QDs=None ):
-        """
-        Perform 1D scan along given line of positions.
-        
-        Args:
-            ps_line: np.ndarray of shape (n_points, 3) - Line of tip positions
-            Q_tip: float - Tip charge
-            energies: np.ndarray - Energies at which to calculate transmission
-            
-        Returns:
-            transmissions: np.ndarray of shape (n_points, n_energies)
-        """
-        n_points = len(ps_line)
-        n_energies = len(energies)
-        transmissions = np.zeros((n_points, n_energies))
-        
-        for i, tip_pos in enumerate(ps_line):
-            if H_QDs is not None:
-                H = self.make_full_hamiltonian_from_H(tip_pos, H_QDs[i])
-            else:
-                H = self.make_full_hamiltonian(tip_pos, Q_tip)
-            
-            for j, E in enumerate(energies):
-                # Calculate Green's function
-                G = self.calculate_greens_function(E, H)
-                
-                # Calculate coupling matrices (wide-band limit)
-                Gamma_tip = np.zeros_like(H)
-                Gamma_tip[-1,-1] = 2 * np.pi  # Tip coupling
-                
-                Gamma_sub = np.zeros_like(H)
-                Gamma_sub[0,0] = 2 * np.pi  # Substrate coupling
-                
-                # Calculate transmission
-                temp = Gamma_tip @ G @ Gamma_sub @ G.conj().T
-                transmissions[i,j] = np.real(np.trace(temp))
-        
-        return transmissions
 
 if __name__ == "__main__":
     QDpos = np.array([[0, 0, 0], [1, 0, 0], [0.5, np.sqrt(3)/2, 0]])

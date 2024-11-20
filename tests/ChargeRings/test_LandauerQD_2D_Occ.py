@@ -94,7 +94,7 @@ gs = GridSpec(1, 4, width_ratios=[1, 1, 1, 0.05])
 
 # Plot transmission map
 ax1 = fig.add_subplot(gs[0])
-im1 = ax1.imshow(transmission_map.T, extent=[-L/2, L/2, -L/2, L/2],       origin='lower', cmap='cividis')
+im1 = ax1.imshow(transmission_map, extent=[-L/2, L/2, -L/2, L/2], origin='lower', cmap='cividis')
 ax1.set_title('Transmission Map')
 ax1.set_xlabel('X (Å)')
 ax1.set_ylabel('Y (Å)')
@@ -103,7 +103,7 @@ ax1.legend()
 
 # Plot average QD energy map
 ax2 = fig.add_subplot(gs[1])
-im2 = ax2.imshow(np.mean(eigenvalues_map, axis=2).T,     extent=[-L/2, L/2, -L/2, L/2],   origin='lower', cmap='cividis')
+im2 = ax2.imshow(np.mean(eigenvalues_map, axis=2),     extent=[-L/2, L/2, -L/2, L/2],   origin='lower', cmap='cividis')
 ax2.set_title('Average QD Energy')
 ax2.set_xlabel('X (Å)')
 ax2.plot(QDpos[:,0], QDpos[:,1], 'r.', markersize=10, label='QDs')
@@ -111,7 +111,7 @@ ax2.legend()
 
 # Plot average QD charge map
 ax3 = fig.add_subplot(gs[2])
-im3 = ax3.imshow(np.mean(Q_qds_map, axis=2).T,
+im3 = ax3.imshow(np.mean(Q_qds_map, axis=2),
                  extent=[-L/2, L/2, -L/2, L/2],
                  origin='lower', cmap='cividis')
 ax3.set_title('Average QD Charge')
