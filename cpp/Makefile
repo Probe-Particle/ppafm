@@ -21,6 +21,8 @@ Ram: Ramman.o
 
 chrings: ChargeRings.o
 
+landauer: LandauerQD.o
+
 PolyCycles_: PolyCycles.o
 
 MMFF_: MMFF.o

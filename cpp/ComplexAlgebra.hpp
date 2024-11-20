@@ -1,10 +1,12 @@
 #ifndef COMPLEX_ALGEBRA_H
 #define COMPLEX_ALGEBRA_H
 
+#include <cstdlib>
+#include <stdio.h>
+#include <cstdio>
+
+#include "Vec2.h"
 #include <math.h>
-
-#include "../../cpp/Vec2.h"
-
 
 // Complex matrix multiplication C = A*B
 // A is n×k matrix, B is k×m matrix, C is n×m matrix
