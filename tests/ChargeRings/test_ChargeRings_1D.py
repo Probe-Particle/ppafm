@@ -17,7 +17,7 @@ decay     = 0.7
 
 dQ =0.01
 
-T = 100.0
+T = 10.0
 
 # --- sites geometry
 nsite  =  3
@@ -61,8 +61,8 @@ ps_line[:,2] = z_tip
 # ================= 1D scan  : Eigen-States, Hamiltonian ...
 
 Qs                   = np.ones(len(ps_line))*Q_tip 
-Q_1                  = chr.solveSiteOccupancies( ps_line, Qs )
-evals, evecs, Hs, Gs = chr.solveHamiltonians( ps_line, Qs, bH=True  )
+Qsites               = chr.solveSiteOccupancies( ps_line, Qs )
+evals, evecs, Hs, Gs = chr.solveHamiltonians( ps_line, Qs, Qsites=Qsites,  bH=True  )
 
 plt.figure( figsize=(10,5) )
 plt.subplot(1,2,1)

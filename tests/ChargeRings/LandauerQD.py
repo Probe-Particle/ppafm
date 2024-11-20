@@ -162,6 +162,35 @@ class LandauerQDs:
         temp = Gamma_tip @ G @ Gamma_sub @ G.conj().T
         return np.real(np.trace(temp))
 
+    def calculate_transmission_single_energy(self, tip_pos, energy, H_QD=None):
+        """
+        Calculate transmission at a single energy value.
+        
+        Args:
+            tip_pos: np.ndarray - Tip position
+            energy: float - Energy at which to calculate transmission
+            H_QD: np.ndarray (optional) - Pre-computed QD Hamiltonian block
+            
+        Returns:
+            float - Transmission probability at given energy
+        """
+        if H_QD is not None:
+            H = self.make_full_hamiltonian_from_H(tip_pos, H_QD)
+        else:
+            H = self.make_full_hamiltonian(tip_pos, 0.0)
+            
+        G = self.calculate_greens_function(energy, H)
+        
+        # Calculate coupling matrices
+        Gamma_s = np.zeros_like(H)
+        Gamma_s[0,0] = 2 * self.Gamma_sub
+        
+        Gamma_t = np.zeros_like(H)
+        Gamma_t[-1,-1] = 2 * self.Gamma_tip
+        
+        # Calculate transmission using Meir-Wingreen formula
+        return np.real(np.trace(Gamma_s @ G @ Gamma_t @ G.conj().T))
+
     def scan_1D(self, ps_line, energies, Q_tip=None, H_QDs=None ):
         """
         Perform 1D scan along given line of positions.

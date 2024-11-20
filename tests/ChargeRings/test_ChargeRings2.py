@@ -35,14 +35,14 @@ spos = np.zeros((3,3))
 spos[:,0] = np.cos(phis)*R
 spos[:,1] = np.sin(phis)*R
 # rotation of multipoles on sites
-rots = makeRotMats( phis + phiRot, nsite )
+rots = chr.makeRotMats( phis + phiRot, nsite )
 # Setup site multipoles
 mpols = np.zeros((3,10))
 mpols[:,4] = Qzz
 mpols[:,0] = Q0
 
 # Initialize global parameters
-chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling, Q_tip=Q_tip )
+chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling )
 
 # Setup scanning grid ( tip positions and charges )
 extent = [-L,L,-L,L]
