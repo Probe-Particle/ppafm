@@ -85,8 +85,7 @@ for i in range(npix):
     for j in range(npix):
         idx = i * npix + j
         H_QD = H_QDs[idx]
-        transmission_map[i,j] = system.calculate_transmission_single_energy(
-            ps_flat[idx], scan_energy, H_QD=H_QD)
+        transmission_map[i,j] = system.calculate_transmission_single_energy(ps_flat[idx], scan_energy, H_QD=H_QD)
 
 # Plot results
 fig = plt.figure(figsize=(15, 5))
