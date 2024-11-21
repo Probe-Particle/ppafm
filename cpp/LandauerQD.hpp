@@ -64,21 +64,16 @@ struct LandauerQDs {
 };
 
 // C interface
-extern "C" {
-    void initLandauerQDs(int n_qds, double* QDpos_, double* Esite_,
-                        double K, double decay, double tS,
-                        double E_sub, double E_tip, double tA,
-                        double eta, double Gamma_tip, double Gamma_sub);
-    void deleteLandauerQDs();
-    void calculateTransmissions(int npos, double* ptips_, double* energies, int nE, double* H_QDs, double* transmissions);
-    void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites, 
-                          double* evals, double* evecs, double* Hs, double* Gs);
-    void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout);
-
-    // Functions for testing and comparison
-    void get_H_QD_no_tip(Vec2d* H_out);
-    void get_tip_coupling(double* tip_pos, Vec2d* coupling_out);
-    void get_full_H(double* tip_pos, Vec2d* H_out);
-}
+// extern "C" {
+//     void initLandauerQDs(int n_qds, double* QDpos_, double* Esite_, double K, double decay, double tS, double E_sub, double E_tip, double tA, double eta, double Gamma_tip, double Gamma_sub);
+//     void deleteLandauerQDs();
+//     void calculateTransmissions(int npos, double* ptips_, double* energies, int nE, double* H_QDs, double* transmissions);
+//     void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites,   double* evals, double* evecs, double* Hs, double* Gs);
+//     void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout);
+//     // Functions for testing and comparison
+//     void get_H_QD_no_tip(Vec2d* H_out);
+//     void get_tip_coupling(double* tip_pos, Vec2d* coupling_out);
+//     void get_full_H(double* tip_pos, Vec2d* H_out);
+// }
 
 #endif // LANDAUER_QD_H

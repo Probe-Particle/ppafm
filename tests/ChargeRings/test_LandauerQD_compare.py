@@ -265,8 +265,8 @@ def test4_debug_greens_function():
     lqd.init(qd_pos, e_sites, K=K, decay=decay, tS=tS, E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
     
     print("\nStep 1: Get Hamiltonian without tip")
-    h_py = py_system.H_QD_no_tip
-    h_cpp = lqd.get_H_QD_no_tip()
+    h_py  = py_system.H_QD_no_tip;  print("h_py.shape:", h_py.shape)
+    h_cpp = lqd.get_H_QD_no_tip();  print("h_cpp.shape:", h_cpp.shape)
     print("Max difference in H_QD:", np.max(np.abs(h_py - h_cpp)))
     save_matrix(h_py, "py_H_QD_no_tip.txt", "H_QD_no_tip (Python)")
     save_matrix(h_cpp, "cpp_H_QD_no_tip.txt", "H_QD_no_tip (C++)")

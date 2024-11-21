@@ -12,6 +12,11 @@ array1d = np.ctypeslib.ndpointer(dtype=np.double, ndim=1, flags='CONTIGUOUS')
 array2d = np.ctypeslib.ndpointer(dtype=np.double, ndim=2, flags='CONTIGUOUS')
 array3d = np.ctypeslib.ndpointer(dtype=np.double, ndim=3, flags='CONTIGUOUS')
 
+array1c = np.ctypeslib.ndpointer(dtype=np.complex128, ndim=1, flags='CONTIGUOUS')
+array2c = np.ctypeslib.ndpointer(dtype=np.complex128, ndim=2, flags='CONTIGUOUS')
+array3c = np.ctypeslib.ndpointer(dtype=np.complex128, ndim=3, flags='CONTIGUOUS')
+
+
 # Global variable to store number of quantum dots
 _n_qds = None
 
@@ -151,7 +156,7 @@ def solve_site_occupancies(ptips, Qtips):
 # === Testing functions ===
 
 # Get initial Hamiltonian without tip
-lib.get_H_QD_no_tip.argtypes = [array1d]  
+lib.get_H_QD_no_tip.argtypes = [array2c]  
 lib.get_H_QD_no_tip.restype = None
 def get_H_QD_no_tip():
     """Get the initial Hamiltonian without tip.
@@ -163,13 +168,12 @@ def get_H_QD_no_tip():
         raise RuntimeError("System not initialized. Call init() first.")
         
     size = _n_qds + 1
-    H = np.zeros(size * size * 2, dtype=np.float64)  
+    H = np.zeros( (size,size), dtype=np.complex128)  
     lib.get_H_QD_no_tip(H)
-    H = H.reshape(size, size, 2)  
-    return H[...,0] + 1j * H[...,1]  
+    return H  
 
 # Get tip coupling vector
-lib.get_tip_coupling.argtypes = [array1d, array1d]  
+lib.get_tip_coupling.argtypes = [array1d, array1c]  
 lib.get_tip_coupling.restype = None
 
 def get_tip_coupling(tip_pos):
@@ -185,13 +189,12 @@ def get_tip_coupling(tip_pos):
         raise RuntimeError("System not initialized. Call init() first.")
         
     tip_pos = np.ascontiguousarray(tip_pos, dtype=np.float64)
-    coupling = np.zeros(_n_qds * 2, dtype=np.float64)  
+    coupling = np.zeros(_n_qds, dtype=np.complex128)
     lib.get_tip_coupling(tip_pos, coupling)
-    coupling = coupling.reshape(_n_qds, 2)  
-    return coupling[:,0] + 1j * coupling[:,1]  
+    return coupling
 
 # Get full Hamiltonian
-lib.get_full_H.argtypes = [array1d, array1d]  
+lib.get_full_H.argtypes = [array1d, array2c]  
 lib.get_full_H.restype = None
 def get_full_H(tip_pos):
     """Get the full Hamiltonian including tip.
@@ -207,15 +210,14 @@ def get_full_H(tip_pos):
         
     tip_pos = np.ascontiguousarray(tip_pos, dtype=np.float64)
     size = _n_qds + 2
-    H = np.zeros(size * size * 2, dtype=np.float64)  # *2 for complex
+    H = np.zeros( (size,size), dtype=np.complex128)
     lib.get_full_H(tip_pos, H)
-    H = H.reshape(size, size, 2)  # Reshape to 2D matrix with real/imag pairs
-    return H[..., 0] + 1j * H[..., 1]  # Convert to complex
+    return H
 
 # Calculate Green's function
-lib.calculate_greens_function.argtypes = [c_double, array1d, array1d]
+lib.calculate_greens_function.argtypes = [c_double, array2c, array2c]
 lib.calculate_greens_function.restype = None
-def calculate_greens_function(energy, H, G_out):
+def calculate_greens_function(energy, H, G_out=None):
     """Calculate the Green's function.
     
     Args:
@@ -223,19 +225,11 @@ def calculate_greens_function(energy, H, G_out):
         H: array[n_qds+2, n_qds+2] - Complex Hamiltonian matrix
         G_out: array[n_qds+2, n_qds+2] - Complex output matrix for Green's function
     """
-    if _n_qds is None:
-        raise RuntimeError("System not initialized. Call init() first.")
     
-    size = _n_qds + 2
-    # Convert complex arrays to real arrays for C++
-    H_real = np.zeros(size * size * 2, dtype=np.float64)
-    H_real[::2] = H.real.flatten()
-    H_real[1::2] = H.imag.flatten()
+    if G_out is None            : G_out = np.zeros( H.shape, dtype=np.complex128)
+    if H.dtype != np.complex128 : H     = H.astype(np.complex128) 
+
+    lib.calculate_greens_function(energy, H, G_out )
+
+    return G_out
     
-    G_real = np.zeros(size * size * 2, dtype=np.float64)
-    lib.calculate_greens_function(energy, H_real, G_real)
-    
-    # Convert back to complex
-    G_real = G_real.reshape(size, size, 2)
-    G_out.real = G_real[..., 0]
-    G_out.imag = G_real[..., 1]

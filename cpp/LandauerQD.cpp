@@ -1,14 +1,8 @@
 #include "LandauerQD.hpp"
 #include <stdlib.h>
 
-LandauerQDs::LandauerQDs(int n_qds_, Vec3d* QDpos_, double* Esite_,
-                         double K_, double decay_, double tS_,
-                         double E_sub_, double E_tip_, double tA_,
-                         double eta_, double Gamma_tip_, double Gamma_sub_) 
-    : n_qds(n_qds_), QDpos(QDpos_), Esite(Esite_),
-      K(K_), decay(decay_), tS(tS_),
-      E_sub(E_sub_), E_tip(E_tip_), tA(tA_),
-      eta(eta_), Gamma_tip(Gamma_tip_), Gamma_sub(Gamma_sub_)
+LandauerQDs::LandauerQDs(int n_qds_, Vec3d* QDpos_, double* Esite_,  double K_, double decay_, double tS_,  double E_sub_, double E_tip_, double tA_, double eta_, double Gamma_tip_, double Gamma_sub_) 
+    : n_qds(n_qds_), QDpos(QDpos_), Esite(Esite_), K(K_), decay(decay_), tS(tS_), E_sub(E_sub_), E_tip(E_tip_), tA(tA_),  eta(eta_), Gamma_tip(Gamma_tip_), Gamma_sub(Gamma_sub_)
 {
     // Allocate memory for matrices and workspaces
     H_sub_QD = new Vec2d[n_qds];
@@ -394,16 +388,12 @@ static LandauerQDs* g_system = nullptr;
 extern "C" {
 
 // Initialize the system
-void initLandauerQDs(int n_qds, double* QDpos_, double* Esite_,
-                     double K, double decay, double tS,
-                     double E_sub, double E_tip, double tA,
-                     double eta, double Gamma_tip, double Gamma_sub) {
+void initLandauerQDs(int n_qds, double* QDpos_, double* Esite_, double K, double decay, double tS, double E_sub, double E_tip, double tA,  double eta, double Gamma_tip, double Gamma_sub) {
     if (g_system != nullptr) {
         delete g_system;
     }
     Vec3d* QDpos = reinterpret_cast<Vec3d*>(QDpos_);
-    g_system = new LandauerQDs(n_qds, QDpos, Esite_, K, decay, tS,
-                              E_sub, E_tip, tA, eta, Gamma_tip, Gamma_sub);
+    g_system = new LandauerQDs(n_qds, QDpos, Esite_, K, decay, tS,  E_sub, E_tip, tA, eta, Gamma_tip, Gamma_sub);
 }
 
 // Clean up
@@ -418,7 +408,7 @@ void deleteLandauerQDs() {
 void calculateTransmissions(int npos, double* ptips_, double* energies, int nE, double* H_QDs, double* transmissions) {
     if (g_system == nullptr) return;
     
-    Vec3d* ptips    = reinterpret_cast<Vec3d*>(ptips_);
+    Vec3d* ptips         = reinterpret_cast<Vec3d*>(ptips_);
     Vec2d* H_QDs_complex = reinterpret_cast<Vec2d*>(H_QDs);
     
     // For each position and energy
@@ -438,8 +428,7 @@ void calculateTransmissions(int npos, double* ptips_, double* energies, int nE, 
 }
 
 // Solve Hamiltonians for multiple positions
-void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites, 
-                      double* evals, double* evecs, double* Hs, double* Gs) {
+void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites, double* evals, double* evecs, double* Hs, double* Gs) {
     if (g_system == nullptr) return;
     
     Vec3d* ptips = reinterpret_cast<Vec3d*>(ptips_);
@@ -469,7 +458,7 @@ void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites,
 
 // Solve site occupancies for multiple positions
 void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout) {
-    if (g_system == nullptr) return;
+    if (g_system == nullptr) { printf("Error: System not initialized\n"); exit(0); }
     
     Vec3d* ptips = reinterpret_cast<Vec3d*>(ptips_);
     
@@ -480,53 +469,33 @@ void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout)
 }
 
 // Get initial Hamiltonian without tip
-void get_H_QD_no_tip(Vec2d* H_out) {
+void get_H_QD_no_tip( double* H_out) {
     if(g_system) {
-        g_system->get_H_QD_no_tip(H_out);
-    }
+        g_system->get_H_QD_no_tip((Vec2d*)H_out);
+    }else{ printf("Error: System not initialized\n"); exit(0); }
 }
 
 // Get tip coupling vector
-void get_tip_coupling(double* tip_pos_, Vec2d* coupling_out) {
+void get_tip_coupling(double* tip_pos_, double* coupling_out) {
     if(g_system) {
         Vec3d tip_pos = *((Vec3d*)tip_pos_);
-        g_system->get_tip_coupling(tip_pos, coupling_out);
-    }
+        g_system->get_tip_coupling(tip_pos, (Vec2d*)coupling_out);
+    }else{ printf("Error: System not initialized\n"); exit(0); }
 }
 
 // Get full Hamiltonian at given tip position
-void get_full_H(double* tip_pos_, Vec2d* H_out) {
+void get_full_H(double* tip_pos_, double* H_out) {
     Vec3d tip_pos = {tip_pos_[0], tip_pos_[1], tip_pos_[2]};
     if(g_system) {
-        g_system->get_full_H(tip_pos, H_out);
-    }
+        g_system->get_full_H(tip_pos, (Vec2d*)H_out);
+    }else{ printf("Error: System not initialized\n"); exit(0); }
 }
 
 // Calculate Green's function
-void calculate_greens_function(double energy, double* H_in, double* G_out) {
+void calculate_greens_function(double energy, double* H, double* G) {
     if(g_system) {
-        // Convert real arrays to complex arrays
-        int size = g_system->n_qds + 2;
-        Vec2d* H = new Vec2d[size * size];
-        Vec2d* G = new Vec2d[size * size];
-        
-        // Convert input H from real array to Vec2d array
-        for(int i = 0; i < size * size; i++) {
-            H[i] = Vec2d{H_in[2*i], H_in[2*i + 1]};
-        }
-        
-        // Calculate Green's function
-        g_system->calculate_greens_function(energy, H, G);
-        
-        // Convert output G from Vec2d array to real array
-        for(int i = 0; i < size * size; i++) {
-            G_out[2*i] = G[i].x;
-            G_out[2*i + 1] = G[i].y;
-        }
-        
-        delete[] H;
-        delete[] G;
-    }
+        g_system->calculate_greens_function(energy, (Vec2d*)H, (Vec2d*)G);
+    }else{ printf("Error: System not initialized\n"); exit(0); }
 }
 
 } // extern "C"
