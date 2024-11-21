@@ -270,10 +270,22 @@ double LandauerQDs::calculate_transmission(double E, const Vec3d& tip_pos, Vec2d
     }
     save_matrix_to_file("cpp_G_dag.txt", "G_dag (C++)", G_dag, size, size);
     
-    // Calculate Gamma_t
+    // Calculate Gamma_t and Gamma_s
     Vec2d* Gamma_t = new Vec2d[size * size];
-    calculate_gamma(nullptr, Gamma_t, size);  // tip coupling vector is not needed here
+    Vec2d* Gamma_s = new Vec2d[size * size];
+    
+    // Initialize to zero
+    for(int i = 0; i < size * size; i++) {
+        Gamma_t[i] = Vec2d{0.0, 0.0};
+        Gamma_s[i] = Vec2d{0.0, 0.0};
+    }
+    
+    // Set diagonal elements for tip and substrate coupling
+    Gamma_t[(size-1) * size + (size-1)] = Vec2d{2.0 * Gamma_tip, 0.0};  // Tip coupling
+    Gamma_s[0] = Vec2d{2.0 * Gamma_sub, 0.0};  // Substrate coupling
+    
     save_matrix_to_file("cpp_Gamma_t.txt", "Gamma_t (C++)", Gamma_t, size, size);
+    save_matrix_to_file("cpp_Gamma_s.txt", "Gamma_s (C++)", Gamma_s, size, size);
     
     // Calculate Gamma_t * G_dag
     Vec2d* Gamma_t_G_dag = new Vec2d[size * size];
@@ -285,18 +297,25 @@ double LandauerQDs::calculate_transmission(double E, const Vec3d& tip_pos, Vec2d
     multiply_complex_matrices(size, G, Gamma_t_G_dag, G_Gamma_t_G_dag);
     save_matrix_to_file("cpp_G_Gamma_t_G_dag.txt", "G_Gamma_t_G_dag (C++)", G_Gamma_t_G_dag, size, size);
     
+    // Calculate Gamma_s * G * Gamma_t * G_dag
+    Vec2d* final = new Vec2d[size * size];
+    multiply_complex_matrices(size, Gamma_s, G_Gamma_t_G_dag, final);
+    save_matrix_to_file("cpp_final.txt", "Gamma_s_G_Gamma_t_G_dag (C++)", final, size, size);
+    
     // Calculate trace
     Vec2d trace = {0.0, 0.0};
     for(int i = 0; i < size; i++) {
-        trace = trace + G_Gamma_t_G_dag[i * size + i];
+        trace = trace + final[i * size + i];
     }
     
     // Clean up
     delete[] G;
     delete[] G_dag;
     delete[] Gamma_t;
+    delete[] Gamma_s;
     delete[] Gamma_t_G_dag;
     delete[] G_Gamma_t_G_dag;
+    delete[] final;
     
     return trace.x;  // Return real part of trace
 }

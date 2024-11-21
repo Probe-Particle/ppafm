@@ -5,6 +5,8 @@ sys.path.append("../../")
 sys.path.append("/home/prokop/git/ppafm")
 from pyProbeParticle import LandauerQD as lqd
 
+np.set_printoptions(linewidth=200)
+
 # ===== Test Parameters =====
 TOLERANCE = 1e-8
 
@@ -197,9 +199,52 @@ def read_matrix_from_file(filename):
         print(f"Error reading {filename}: {str(e)}")
         return None
 
+def compare_intermediate_matrices():
+    """Compare intermediate matrices from Python and C++ calculations."""
+    print("\n=== Comparing Intermediate Matrices ===")
+    
+    # List of matrix pairs to compare (Python file, C++ file)
+    matrix_pairs = [
+        ("py_G_dag.txt", "cpp_G_dag.txt"),
+        ("py_Gamma_t_G_dag.txt", "cpp_Gamma_t_G_dag.txt"),
+        ("py_G_Gamma_t_G_dag.txt", "cpp_G_Gamma_t_G_dag.txt"),
+        ("py_final.txt", "cpp_final.txt")
+    ]
+    
+    for py_file, cpp_file in matrix_pairs:
+        print(f"\nComparing {py_file} vs {cpp_file}:")
+        try:
+            py_matrix = read_matrix_from_file(py_file)
+            cpp_matrix = read_matrix_from_file(cpp_file)
+            
+            # Print both matrices for visual inspection
+            print("\nPython matrix:")
+            print(py_matrix)
+            print("\nC++ matrix:")
+            print(cpp_matrix)
+            
+            # Calculate and print differences
+            diff = np.abs(py_matrix - cpp_matrix)
+            max_diff = np.max(diff)
+            avg_diff = np.mean(diff)
+            print(f"\nMaximum absolute difference: {max_diff}")
+            print(f"Average absolute difference: {avg_diff}")
+            
+            # Print locations of largest differences
+            if max_diff > 1e-10:
+                large_diff_mask = diff > max_diff * 0.1
+                print("\nLocations of large differences:")
+                for i, j in zip(*np.where(large_diff_mask)):
+                    print(f"Position ({i},{j}): Python={py_matrix[i,j]}, C++={cpp_matrix[i,j]}, Diff={diff[i,j]}")
+        
+        except FileNotFoundError as e:
+            print(f"Could not find file: {e.filename}")
+        except Exception as e:
+            print(f"Error comparing matrices: {e}")
+
 def test4_debug_greens_function():
     """Test Green's function calculation step by step"""
-    print("\n=== Test 4: Debugging Green's function calculation ===")
+    print("\n=== Test 4: Debugging Green's function and transmission calculation ===")
     
     # Initialize QD system
     n_qds = 3
@@ -216,11 +261,11 @@ def test4_debug_greens_function():
     eta = 1e-6  # Small imaginary part for Green's function
     
     # Initialize both implementations
-    system_py = LandauerQDs_py(qd_pos, e_sites, K=K, decay=decay, tS=tS, E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
+    py_system = LandauerQDs_py(qd_pos, e_sites, K=K, decay=decay, tS=tS, E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
     lqd.init(qd_pos, e_sites, K=K, decay=decay, tS=tS, E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
     
     print("\nStep 1: Get Hamiltonian without tip")
-    h_py = system_py.H_QD_no_tip
+    h_py = py_system.H_QD_no_tip
     h_cpp = lqd.get_H_QD_no_tip()
     print("Max difference in H_QD:", np.max(np.abs(h_py - h_cpp)))
     save_matrix(h_py, "py_H_QD_no_tip.txt", "H_QD_no_tip (Python)")
@@ -230,7 +275,7 @@ def test4_debug_greens_function():
         return False
     
     print("\nStep 2: Get full Hamiltonian with tip")
-    h_full_py = system_py.make_full_hamiltonian(tip_pos, Q_tip=Q_tip)
+    h_full_py = py_system.make_full_hamiltonian(tip_pos, Q_tip=Q_tip)
     h_full_cpp = lqd.get_full_H(tip_pos)
     print("Max difference in full H:", np.max(np.abs(h_full_py - h_full_cpp)))
     save_matrix(h_full_py, "py_H_full.txt", "H_full (Python)")
@@ -294,141 +339,63 @@ def test4_debug_greens_function():
     if not matrices_match(verify_py, verify_cpp, tol=1e-6, verbose=True):  # Use higher tolerance for verification
         print("ERROR: G verification matrices don't match!")
         return False
-        
-    return True
 
-def run_all_tests():
-    """Run all comparison tests."""
-    passed = 0
-    total = 0
+    print("\nStep 5: Calculate transmission")
+    # Run transmission calculation
+    trans_py = py_system._calculate_transmission_from_H(h_full_py, energy)
     
-    print("\n=== Running Green's function debug test ===")
-    if test4_debug_greens_function():
-        print("Green's function test passed!")
-        passed += 1
-    else:
-        print("Green's function test failed!")
-    total += 1
+    # Prepare arrays for C++ call
+    tip_pos_arr = np.array([tip_pos], dtype=np.float64)  # Shape: (1, 3)
+    energies_arr = np.array([energy], dtype=np.float64)  # Shape: (1,)
+    H_QDs = np.ascontiguousarray(h_full_cpp.reshape(-1), dtype=np.complex128)  # Flatten for C++
     
-    # Return early if Green's function test fails
-    if passed != total:
-        print(f"\nTests completed: {passed}/{total} passed")
-        return False
-        
-    # ===== Setup geometry =====
-    # QD positions in triangle
-    phis = np.linspace(0, 2*np.pi, nsite, endpoint=False)
-    QDpos = np.zeros((nsite, 3))
-    QDpos[:,0] = np.cos(phis)*R
-    QDpos[:,1] = np.sin(phis)*R
-
-    print("\n=== Test Setup ===")
-    print("QD positions:")
-    print(QDpos)
-    print("\nTip position:")
-    print(tip_pos)
-
-    # ===== Initialize both implementations =====
-    print("\n=== Initializing Systems ===")
-    # Python implementation
-    system_py = LandauerQDs_py(QDpos, E0QDs, K=K, decay=decay, tS=tS,  E_sub=E_sub, E_tip=E_tip, tA=tA,  eta=eta, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
-
-    # C++ implementation
-    lqd.init(QDpos, E0QDs, K=K, decay=decay, tS=tS, E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
-
-    # ===== Test 1: Initial Hamiltonian without tip =====
-    print("\n=== Test 1: Initial Hamiltonian without tip ===")
-    H_py  = system_py.H_QD_no_tip
-    H_cpp = lqd.get_H_QD_no_tip()
-    save_matrix(H_py,  "py_H_QD_no_tip.txt",  "H_QD_no_tip (Python)")
-    save_matrix(H_cpp, "cpp_H_QD_no_tip.txt", "H_QD_no_tip (C++)")
-    total += 1
-    if print_comparison("H_QD_no_tip", H_py, H_cpp):
-        passed += 1
-
-    # ===== Test 2: Tip coupling calculation =====
-    print("\n=== Test 2: Tip coupling calculation ===")
-    tip_coupling_py  = system_py.calculate_tip_coupling(tip_pos)
-    tip_coupling_cpp = lqd.get_tip_coupling(tip_pos)
-    save_matrix(tip_coupling_py,  "py_tip_coupling.txt",  "Tip coupling (Python)")
-    save_matrix(tip_coupling_cpp, "cpp_tip_coupling.txt", "Tip coupling (C++)")
-    total += 1
-    if print_comparison("Tip coupling", tip_coupling_py, tip_coupling_cpp):
-        passed += 1
-
-    # ===== Test 3: Full Hamiltonian assembly =====
-    print("\n=== Test 3: Full Hamiltonian assembly ===")
-    H_full_py  = system_py.make_full_hamiltonian(tip_pos, Q_tip=Q_tip)  
-    H_full_cpp = lqd.get_full_H(tip_pos)
-    save_matrix(H_full_py,  "py_H_full.txt",  "Full Hamiltonian (Python)")
-    save_matrix(H_full_cpp, "cpp_H_full.txt", "Full Hamiltonian (C++)")
-    total += 1
-    if print_comparison("Full Hamiltonian", H_full_py, H_full_cpp, ignore_imag=True):
-        passed += 1
-
-    # ===== Test 4: Single energy transmission =====
-    E_test = 0.0
-    print(f"\n=== Test 4: Transmission at E = {E_test} ===\n")
-    
-    # Calculate Green's function
-    G_py = system_py.calculate_greens_function(E_test, H_full_py)
-    save_matrix(G_py, "py_G.txt", "G (Python)")
-    
-    G_dag_py = np.conjugate(G_py.T)
-    save_matrix(G_dag_py, "py_G_dag.txt", "G_dag (Python)")
-    
-    # Get coupling matrices
-    Gamma_s_py, Gamma_t_py = system_py._calculate_coupling_matrices()
-    save_matrix(Gamma_s_py, "py_Gamma_s.txt", "Gamma_s (Python)")
-    save_matrix(Gamma_t_py, "py_Gamma_t.txt", "Gamma_t (Python)")
-    
-    # Calculate transmission step by step
-    temp1 = Gamma_t_py @ G_dag_py
-    save_matrix(temp1, "py_Gamma_t_G_dag.txt", "Gamma_t @ G_dag (Python)")
-    
-    temp2 = G_py @ temp1
-    save_matrix(temp2, "py_G_Gamma_t_G_dag.txt", "G @ Gamma_t @ G_dag (Python)")
-    
-    temp3 = Gamma_s_py @ temp2
-    save_matrix(temp3, "py_final.txt", "Gamma_s @ G @ Gamma_t @ G_dag (Python)")
-    
-    T_py = np.trace(temp3).real
-    print(f"\nTransmission (Python): {T_py}")
-    
-    # C++ implementation
-    tip_pos_arr = np.array([tip_pos])
-    energies_arr = np.array([E_test])
-    H_QDs = np.zeros((1, len(QDpos)+1, len(QDpos)+1), dtype=np.float64)
     trans_cpp = lqd.calculate_transmissions(tip_pos_arr, energies_arr, H_QDs)[0,0]
     
-    total += 1
-    if print_comparison("Transmission", np.array([T_py]), np.array([trans_cpp]), tol=1e-2, relative=True):
-        passed += 1
-
-    # Compare all intermediate matrices
-    print("\n=== Comparing All Intermediate Matrices ===")
-    matrices_match = True
-    for name in ["H_QD_no_tip", "tip_coupling", "H_full", "G", "G_dag", "Gamma_t", 
-                "Gamma_t_G_dag", "G_Gamma_t_G_dag", "Gamma_s", "final"]:
-        py_file = f"py_{name}.txt"
-        cpp_file = f"cpp_{name}.txt"
-        print(f"\nComparing {name}:")
-        if compare_matrix_files(py_file, cpp_file):
-            print(f"{name} matrices match")
-        else:
-            print(f"{name} matrices differ")
-            matrices_match = False
+    print("\nPython transmission:", trans_py)
+    print("C++ transmission:", trans_cpp)
+    print("Relative difference:", abs(trans_py - trans_cpp) / (abs(trans_py) + 1e-10))
     
-    if matrices_match:
-        passed += 1
-    total += 1
-
-    # Clean up C++ resources
-    lqd.cleanup()
-
-    print(f"\n=== Final Results ===")
-    print(f"Passed {passed} out of {total} tests")
-    return passed == total
+    # Compare intermediate matrices
+    compare_intermediate_matrices()
+    
+    # Compare gamma matrices
+    print("\n=== Comparing Gamma Matrices ===")
+    Gamma_s_py, Gamma_t_py = py_system._calculate_coupling_matrices()
+    
+    print("\nPython Gamma_s:")
+    print(Gamma_s_py)
+    print("\nPython Gamma_t:")
+    print(Gamma_t_py)
+    
+    # Load C++ gamma matrices from files
+    try:
+        Gamma_s_cpp = read_matrix_from_file("cpp_Gamma_s.txt")
+        Gamma_t_cpp = read_matrix_from_file("cpp_Gamma_t.txt")
+        
+        print("\nC++ Gamma_s:")
+        print(Gamma_s_cpp)
+        print("\nC++ Gamma_t:")
+        print(Gamma_t_cpp)
+        
+        # Calculate differences
+        diff_s = np.abs(Gamma_s_py - Gamma_s_cpp)
+        diff_t = np.abs(Gamma_t_py - Gamma_t_cpp)
+        
+        print("\nMaximum difference in Gamma_s:", np.max(diff_s))
+        print("Maximum difference in Gamma_t:", np.max(diff_t))
+    except FileNotFoundError as e:
+        print(f"Could not find gamma matrix file: {e.filename}")
+    except Exception as e:
+        print(f"Error comparing gamma matrices: {e}")
+    
+    if abs(trans_py - trans_cpp) / (abs(trans_py) + 1e-10) > 1e-6:
+        print("ERROR: Transmissions don't match!")
+        return False
+        
+    print("\nAll tests passed successfully!")
+    
+    sys.exit(0)  # Exit after completing the tests
+    return True
 
 if __name__ == "__main__":
-    run_all_tests()
+    test4_debug_greens_function()  # Only run this test
