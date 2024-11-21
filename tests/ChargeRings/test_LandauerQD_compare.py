@@ -242,7 +242,7 @@ def compare_intermediate_matrices():
         except Exception as e:
             print(f"Error comparing matrices: {e}")
 
-def test4_debug_greens_function():
+def run_tests():
     """Test Green's function calculation step by step"""
     print("\n=== Test 4: Debugging Green's function and transmission calculation ===")
     
@@ -265,74 +265,77 @@ def test4_debug_greens_function():
     lqd.init(qd_pos, e_sites, K=K, decay=decay, tS=tS, E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
     
     print("\nStep 1: Get Hamiltonian without tip")
-    h_py  = py_system.H_QD_no_tip;  print("h_py.shape:", h_py.shape)
-    h_cpp = lqd.get_H_QD_no_tip();  print("h_cpp.shape:", h_cpp.shape)
-    print("Max difference in H_QD:", np.max(np.abs(h_py - h_cpp)))
-    save_matrix(h_py, "py_H_QD_no_tip.txt", "H_QD_no_tip (Python)")
-    save_matrix(h_cpp, "cpp_H_QD_no_tip.txt", "H_QD_no_tip (C++)")
-    if not matrices_match(h_py, h_cpp, verbose=True):
+    Hqd_py  = py_system.H_QD_no_tip;  print("Hqd_py.shape:",  Hqd_py.shape)
+    Hqd_cpp = lqd.get_H_QD_no_tip();  print("Hqd_cpp.shape:", Hqd_cpp.shape)
+    print("Max difference in H_QD:", np.max(np.abs(Hqd_py - Hqd_cpp)))
+    #save_matrix(Hqd_py, "py_H_QD_no_tip.txt", "H_QD_no_tip (Python)")
+    #save_matrix(Hqd_cpp, "cpp_H_QD_no_tip.txt", "H_QD_no_tip (C++)")
+    if not matrices_match(Hqd_py, Hqd_cpp, verbose=True):
         print("ERROR: H_QD matrices don't match!")
         return False
     
     print("\nStep 2: Get full Hamiltonian with tip")
-    h_full_py = py_system.make_full_hamiltonian(tip_pos, Q_tip=Q_tip)
-    h_full_cpp = lqd.get_full_H(tip_pos)
-    print("Max difference in full H:", np.max(np.abs(h_full_py - h_full_cpp)))
-    save_matrix(h_full_py, "py_H_full.txt", "H_full (Python)")
-    save_matrix(h_full_cpp, "cpp_H_full.txt", "H_full (C++)")
-    if not matrices_match(h_full_py, h_full_cpp, verbose=True):
+    H_py  = py_system.make_full_hamiltonian(tip_pos, Q_tip=Q_tip) 
+    H_cpp = lqd.get_full_H(tip_pos)
+    print("Max difference in full H:", np.max(np.abs(H_py - H_cpp)))
+    #save_matrix(H_py,  "py_H.txt",  "H_full (Python)")
+    #save_matrix(H_cpp, "cpp_H.txt", "H_full (C++)")
+    if not matrices_match(H_py, H_cpp, verbose=True):
         print("ERROR: Full H matrices don't match!")
         return False
 
+    N = n_qds+2
+
     print("\nStep 3: Construct (EI - H) matrix")
     # Python calculation
-    identity = np.eye(n_qds+2, dtype=np.complex128)
-    g_matrix_py = (energy + 1j*eta)*identity - h_full_py
+    identity = np.eye(N, dtype=np.complex128)
+    A_py  = (energy + 1j*eta)*identity - H_py
+    A_cpp = (energy + 1j*eta)*identity - H_cpp
     
     # C++ calculation - we'll save the pre-inversion matrix
-    g_matrix_cpp = np.zeros((n_qds+2, n_qds+2), dtype=np.complex128)
-    lqd.calculate_greens_function(energy, h_full_cpp, g_matrix_cpp)  # This saves pre-inversion matrix to cpp_pre_inversion.txt
+    G_cpp = np.zeros((N,N), dtype=np.complex128)
+    lqd.calculate_greens_function(energy, H_cpp, G_cpp)  # This saves pre-inversion matrix to cpp_A.txt and cpp_G.txt
     
     # Load the C++ pre-inversion matrix from file
-    g_matrix_cpp = read_matrix_from_file("cpp_pre_inversion.txt")
+    A_cpp_ = read_matrix_from_file("cpp_pre_inversion.txt")
     
-    print("\nPython (EI - H) matrix:")
-    print(g_matrix_py)
-    print("\nC++ (EI - H) matrix:")
-    print(g_matrix_cpp)
-    print("\nMax difference in (EI - H):", np.max(np.abs(g_matrix_py - g_matrix_cpp)))
+    print("\nPython A = (EI - H) :")
+    print(A_py)
+    print("\nC++    A = (EI - H) :")
+    print(A_cpp)
+    print("\nMax difference in (EI - H):", np.max(np.abs( A_py - A_cpp)))
     
-    if not matrices_match(g_matrix_py, g_matrix_cpp, verbose=True):
+    if not matrices_match(A_py, A_cpp, verbose=True):
         print("ERROR: (EI - H) matrices don't match!")
         return False
     
     print("\nStep 4: Calculate Green's function G = (EI - H)^(-1)")
     # Python calculation
-    g_py = np.linalg.inv(g_matrix_py)
+    G_py = np.linalg.inv(A_py)
     
     # C++ calculation
-    g_cpp = np.zeros((n_qds+2, n_qds+2), dtype=np.complex128)
-    lqd.calculate_greens_function(energy, h_full_cpp, g_cpp)  # This performs the full calculation including inversion
+    G_cpp = np.zeros((N, N), dtype=np.complex128)
+    lqd.calculate_greens_function(energy, H_cpp, G_cpp)  # This performs the full calculation including inversion
     
     print("\nPython Green's function G:")
-    print(g_py)
+    print(G_py)
     print("\nC++ Green's function G:")
-    print(g_cpp)
-    print("\nMax difference in G:", np.max(np.abs(g_py - g_cpp)))
+    print(G_cpp)
+    print("\nMax difference in G:", np.max(np.abs(G_py - G_cpp)))
     
-    save_matrix(g_py, "py_G.txt", "G (Python)")
-    save_matrix(g_cpp, "cpp_G.txt", "G (C++)")
+    save_matrix(G_py, "py_G.txt", "G (Python)")
+    save_matrix(G_cpp, "cpp_G.txt", "G (C++)")
     
-    if not matrices_match(g_py, g_cpp, verbose=True):
+    if not matrices_match(G_py, G_cpp, verbose=True):
         print("ERROR: Green's functions don't match!")
         return False
     
     # Verify that G is actually the inverse
     print("\nVerification that G is the inverse:")
-    verify_py = np.matmul(g_matrix_py, g_py)
+    verify_py = np.matmul(A_py, A_py)
     print("Python G verification (should be identity):")
     print(verify_py)
-    verify_cpp = np.matmul(g_matrix_cpp, g_cpp)
+    verify_cpp = np.matmul(A_cpp, A_cpp)
     print("C++ G verification (should be identity):")
     print(verify_cpp)
     
@@ -342,18 +345,18 @@ def test4_debug_greens_function():
 
     print("\nStep 5: Calculate transmission")
     # Run transmission calculation
-    trans_py = py_system._calculate_transmission_from_H(h_full_py, energy)
+    T_py = py_system._calculate_transmission_from_H(H_py, energy)
     
     # Prepare arrays for C++ call
-    tip_pos_arr = np.array([tip_pos], dtype=np.float64)  # Shape: (1, 3)
+    tip_pos_arr  = np.array([tip_pos], dtype=np.float64)  # Shape: (1, 3)
     energies_arr = np.array([energy], dtype=np.float64)  # Shape: (1,)
-    H_QDs = np.ascontiguousarray(h_full_cpp.reshape(-1), dtype=np.complex128)  # Flatten for C++
+    Hqds_cpp     = np.ascontiguousarray( Hqd_cpp.reshape(-1), dtype=np.complex128)  # Flatten for C++
     
-    trans_cpp = lqd.calculate_transmissions(tip_pos_arr, energies_arr, H_QDs)[0,0]
+    T_cpp = lqd.calculate_transmissions(tip_pos_arr, energies_arr, Hqds_cpp)[0,0]
     
-    print("\nPython transmission:", trans_py)
-    print("C++ transmission:", trans_cpp)
-    print("Relative difference:", abs(trans_py - trans_cpp) / (abs(trans_py) + 1e-10))
+    print("\nPython transmission:", T_py)
+    print("C++ transmission:",      T_cpp)
+    print("Relative difference:", abs(T_py - T_cpp) / (abs(T_py) + 1e-10))
     
     # Compare intermediate matrices
     compare_intermediate_matrices()
@@ -398,4 +401,4 @@ def test4_debug_greens_function():
     return True
 
 if __name__ == "__main__":
-    test4_debug_greens_function()  # Only run this test
+    run_tests()  # Only run this test

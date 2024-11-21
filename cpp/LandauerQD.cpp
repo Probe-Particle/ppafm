@@ -54,23 +54,24 @@ LandauerQDs::~LandauerQDs() {
 void LandauerQDs::calculate_greens_function(double E, Vec2d* H_QD, Vec2d* G_out) {
     int size = n_qds + 2;  // Include substrate and tip
     
-    // G = EI - H
+    // G = (E + iη)I - H
     for(int i = 0; i < size * size; i++) {
         int row = i / size;
         int col = i % size;
         if(row == col) {
             // Diagonal element: E - H
-            G_out[i] = Vec2d{E, 0.0} - H_QD[i];  // Initialize with real part only
+            G_out[i] = Vec2d{E, 0.0} - H_QD[i];
             
-            // Add self-energies on diagonal
+            // Add iη only to QD diagonal elements (not substrate or tip)
+            if(row > 0 && row < size-1) {
+                G_out[i].y += eta;  // Add iη
+            }
+            
+            // Add additional broadening for substrate and tip
             if(row == 0) {  // Substrate
-                G_out[i].y += 1.000001;  // Add imaginary part for substrate
-                G_out[i] = G_out[i] - Vec2d{0.0, Gamma_sub};
+                G_out[i].y -= Gamma_sub;  // Add -iΓ_sub
             } else if(row == size-1) {  // Tip
-                G_out[i].y += 1.000001;  // Add imaginary part for tip
-                G_out[i] = G_out[i] - Vec2d{0.0, Gamma_tip};
-            } else {  // QDs
-                G_out[i].y += eta;  // Add small imaginary part for QDs
+                G_out[i].y -= Gamma_tip;  // Add -iΓ_tip
             }
         } else {
             // Off-diagonal element: -H
@@ -78,7 +79,7 @@ void LandauerQDs::calculate_greens_function(double E, Vec2d* H_QD, Vec2d* G_out)
         }
     }
     
-    save_matrix_to_file("cpp_pre_inversion.txt", "Matrix before inversion (C++)", G_out, size, size);
+    save_matrix_to_file("cpp_A.txt", "Matrix before inversion (C++)", G_out, size, size);
     
     // Copy G to temporary buffer for inversion
     Vec2d* temp = new Vec2d[size * size];
@@ -89,7 +90,7 @@ void LandauerQDs::calculate_greens_function(double E, Vec2d* H_QD, Vec2d* G_out)
     // Invert G using ComplexAlgebra routines
     invert_complex_matrix(size, temp, G_out, workspace);
     
-    save_matrix_to_file("cpp_post_inversion.txt", "Matrix after inversion (C++)", G_out, size, size);
+    save_matrix_to_file("cpp_G.txt", "Matrix after inversion (C++)", G_out, size, size);
     
     delete[] temp;
 }
@@ -253,7 +254,7 @@ double LandauerQDs::calculate_transmission(double E, const Vec3d& tip_pos, Vec2d
     // Calculate G = (EI - H - Sigma)^(-1)
     Vec2d* G = new Vec2d[size * size];
     calculate_greens_function(E, H_QD, G);
-    save_matrix_to_file("cpp_G.txt", "Green's function G (C++)", G, size, size);
+    save_matrix_to_file("cpp_G_transmission.txt", "Green's function G used for transmission (C++)", G, size, size);
     
     // Calculate G_dag (conjugate transpose of G)
     Vec2d* G_dag = new Vec2d[size * size];
