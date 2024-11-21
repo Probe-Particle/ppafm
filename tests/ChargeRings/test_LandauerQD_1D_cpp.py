@@ -48,9 +48,7 @@ QDpos[:,1] = np.sin(phis)*R
 QDpos[:,2] = 0.0
 
 # Initialize LandauerQDs system
-lqd.init(QDpos, E0QDs, K=K, decay=decay, tS=tS,
-         E_sub=0.0, E_tip=0.0, tA=tA,
-         eta=0.01, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
+lqd.init(QDpos, E0QDs, K=K, decay=decay, tS=tS, E_sub=0.0, E_tip=0.0, tA=tA, eta=0.01, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
 
 # ---- Setup scan line
 ps_line = np.zeros((100, 3))
@@ -59,14 +57,14 @@ ps_line[:,2] = z_tip
 Qtips = np.ones(len(ps_line)) * Q_tip
 
 # ---- Calculate transmission
-Q_qds = lqd.solve_site_occupancies(ps_line, Qtips)
-H_QDs = lqd.solve_hamiltonians(ps_line, Qtips, Qsites=Q_qds)
-energies = np.linspace(Emin, Emax, 100)
+Q_qds         = lqd.solve_site_occupancies(ps_line, Qtips)
+H_QDs         = lqd.solve_hamiltonians(ps_line, Qtips, Qsites=Q_qds)
+energies      = np.linspace(Emin, Emax, 100)
 transmissions = lqd.calculate_transmissions(ps_line, energies, H_QDs=H_QDs)
 
 # ---- Plot results
 fig = plt.figure(figsize=(10, 8))
-gs = GridSpec(2, 2, figure=fig)
+gs  = GridSpec(2, 2, figure=fig)
 
 # Plot QD positions and scan line
 ax = fig.add_subplot(gs[0, 0])

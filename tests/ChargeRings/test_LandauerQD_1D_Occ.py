@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
-from LandauerQD import LandauerQDs
+from LandauerQD_py import LandauerQDs
 import sys
 sys.path.append("../../")
 from pyProbeParticle import ChargeRings as chr

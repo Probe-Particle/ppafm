@@ -4,7 +4,7 @@ from matplotlib.gridspec import GridSpec
 import sys
 sys.path.append("../../")
 from pyProbeParticle import ChargeRings as chr
-from LandauerQD import LandauerQDs
+from LandauerQD_py import LandauerQDs
 
 # ========== Setup
 
