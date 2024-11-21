@@ -1,7 +1,7 @@
 import numpy as np
 
 class LandauerQDs:
-    def __init__(self, QDpos, Esite, K=0.01, decay=1.0, tS=0.01, E_sub=0.0, E_tip=0.0, tA=0.1, eta=0.00, Gamma_tip=1.0, Gamma_sub=1.0):
+    def __init__(self, QDpos, Esite, K=0.01, decay=1.0, tS=0.01, E_sub=0.0, E_tip=0.0, tA=0.1, eta=0.00, Gamma_tip=1.0, Gamma_sub=1.0, debug=False, verbosity=0):
         """
         Initializes the LandauerQDs class.
 
@@ -16,18 +16,22 @@ class LandauerQDs:
             eta      : float      : Infinitesimal broadening parameter for QDs. Defaults to 0.01.
             Gamma_tip: float      : Broadening of the tip state. Defaults to 1.0.
             Gamma_sub: float      : Broadening of the substrate state. Defaults to 1.0.
+            debug    : bool      : Enable debug output. Defaults to False.
+            verbosity: int       : Level of verbosity (0-2). Defaults to 0.
         """
         self.QDpos = QDpos
         self.K = K
         self.decay = decay
         self.Esite = Esite
-        self.tS = tS
+        self.tS    = tS
         self.E_sub = E_sub
         self.E_tip = E_tip
-        self.tA = tA
-        self.eta = eta
+        self.tA    = tA
+        self.eta   = eta
         self.Gamma_tip = Gamma_tip
         self.Gamma_sub = Gamma_sub
+        self.debug = debug
+        self.verbosity = verbosity
 
         self.n_qds = len(QDpos)  # Store the number of QDs
 
@@ -44,9 +48,40 @@ class LandauerQDs:
         ])
 
     def calculate_greens_function(self, E, H_QD):
-        """Calculates the retarded Green's function."""
-        identity = np.identity(len(H_QD), dtype=np.complex128)
-        return np.linalg.inv((E + 1j*self.eta)*identity - H_QD)
+        """
+        Calculates the retarded Green's function.
+        
+        Args:
+            E: float - Energy at which to calculate Green's function
+            H_QD: np.ndarray - Hamiltonian matrix
+            
+        Returns:
+            np.ndarray - Retarded Green's function
+        """
+        identity = np.eye(len(H_QD), dtype=np.complex128)
+        G = np.linalg.inv((E + 1j*self.eta)*identity - H_QD)
+        
+        if self.debug and self.verbosity > 1:
+            print("\nPython Green's function calculation:")
+            print("Original matrix ((E + iη)I - H):")
+            A = (E + 1j*self.eta)*identity - H_QD
+            print(A)
+            
+            print("\nInverted matrix G:")
+            print(G)
+            
+            # Verify inversion
+            verification = np.matmul(A, G)
+            print("\nVerification A * A^-1:")
+            print(verification)
+            
+            # Check deviation from identity
+            off_diag_mask = ~np.eye(len(H_QD), dtype=bool)
+            max_off_diag = np.max(np.abs(verification[off_diag_mask]))
+            max_diag_diff = np.max(np.abs(verification[np.eye(len(H_QD), dtype=bool)] - 1))
+            print(f"Max deviation from identity: diagonal={max_diag_diff:.2e} off-diagonal={max_off_diag:.2e}")
+        
+        return G
 
     def calculate_gamma(self, coupling_vector):
         """Calculates the broadening matrix (wide-band limit)."""
@@ -108,7 +143,10 @@ class LandauerQDs:
         
         tip_couplings = self.calculate_tip_coupling(tip_pos)    # Calculate tip coupling
         H = np.zeros((self.n_qds + 2, self.n_qds + 2), dtype=np.complex128)      # Construct full Hamiltonian
-        H[1:self.n_qds+1,1:self.n_qds+1] = QD_block - 1j * self.eta * np.eye(self.n_qds)   # Fill QD block (with small broadening)
+        
+        # Fill QD block (with small broadening)
+        H[1:self.n_qds+1, 1:self.n_qds+1] = QD_block
+        H[1:self.n_qds+1, 1:self.n_qds+1] -= 1j * self.eta * np.eye(self.n_qds)
 
         # Fill substrate part (with broadening)
         H[0,0]              = self.E_sub - 1j * self.Gamma_sub
@@ -136,7 +174,8 @@ class LandauerQDs:
 
     def _calculate_transmission_from_H(self, H, energy):
         """
-        Internal function to calculate transmission from Hamiltonian.
+        Internal function to calculate transmission from Hamiltonian using Caroli formula:  T = Tr( Gamma_s @ G @ Gamma_t @ G†  )
+
         
         Args:
             H: np.ndarray - Full system Hamiltonian
@@ -145,9 +184,50 @@ class LandauerQDs:
         Returns:
             float - Transmission probability
         """
-        G                = self.calculate_greens_function(energy, H)
+        if self.debug and self.verbosity > 0:
+            print("\nPython transmission calculation:")
+            print("Full Hamiltonian H:")
+            print(H)
+        
+        G = self.calculate_greens_function(energy, H)
         Gamma_s, Gamma_t = self._calculate_coupling_matrices()
-        return np.real(np.trace(Gamma_s @ G @ Gamma_t @ G.conj().T))
+        
+        if self.debug and self.verbosity > 1:
+            print("\nGamma_substrate:")
+            print(Gamma_s)
+            print("\nGamma_tip:")
+            print(Gamma_t)
+            
+            print("\nStep-by-step transmission calculation:")
+            from matrix_logger import save_matrix
+            
+            # 1. G†
+            G_dag = G.conj().T
+            save_matrix(G_dag, "py_G_dag.txt", "G† (Python)")
+            
+            # 2. Gamma_t @ G†
+            temp1 = Gamma_t @ G_dag
+            save_matrix(temp1, "py_Gamma_t_G_dag.txt", "Gamma_t @ G† (Python)")
+            
+            # 3. G @ Gamma_t @ G†
+            temp2 = G @ temp1
+            save_matrix(temp2, "py_G_Gamma_t_G_dag.txt", "G @ Gamma_t @ G† (Python)")
+            
+            # 4. Gamma_s @ G @ Gamma_t @ G†
+            temp3 = Gamma_s @ temp2
+            save_matrix(temp3, "py_final.txt", "Gamma_s @ G @ Gamma_t @ G† (Python)")
+        else:
+            G_dag = G.conj().T
+            temp1 = Gamma_t @ G_dag
+            temp2 = G @ temp1
+            temp3 = Gamma_s @ temp2
+        
+        transmission = np.real(np.trace(temp3))
+        
+        if self.debug and self.verbosity > 0:
+            print(f"\nFinal transmission: {transmission}")
+        
+        return transmission
 
     def make_full_hamiltonian(self, tip_pos, Q_tip):
         """Construct full Hamiltonian including tip coupling and Coulomb shifts."""
@@ -226,7 +306,7 @@ if __name__ == "__main__":
     Esite = np.array([0.1, 0.2, 0.3])
     tS = 0.01  # QD-substrate coupling
 
-    system = LandauerQDs(QDpos, Esite, K, decay, tS)
+    system = LandauerQDs(QDpos, Esite, K, decay, tS, debug=True, verbosity=2)
 
     tip_position = np.array([0.0, 0.0, 1.0])
     E = 0.5

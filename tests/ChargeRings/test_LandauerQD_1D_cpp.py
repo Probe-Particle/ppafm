@@ -57,8 +57,20 @@ ps_line[:,2] = z_tip
 Qtips = np.ones(len(ps_line)) * Q_tip
 
 # ---- Calculate transmission
-Q_qds         = lqd.solve_site_occupancies(ps_line, Qtips)
-H_QDs         = lqd.solve_hamiltonians(ps_line, Qtips, Qsites=Q_qds)
+# Setup site multipoles and rotations for occupancy calculation
+QDrots = np.zeros((nsite, 3, 3))
+QDmpols = np.zeros((nsite, 10))
+QDmpols[:,0] = Q0
+QDmpols[:,4] = Qzz
+
+# Initialize ChargeRings system for occupancy calculation
+chr.initRingParams(QDpos, E0QDs, rot=QDrots, MultiPoles=QDmpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T)
+
+# Calculate occupancies and Hamiltonians using ChargeRings
+Q_qds = chr.solveSiteOccupancies(ps_line, Qtips)
+eigenvalues, evecs, H_QDs, Gs = chr.solveHamiltonians(ps_line, Qtips, Qsites=Q_qds, bH=True)
+
+# Calculate transmission using LandauerQD with pre-computed Hamiltonians
 energies      = np.linspace(Emin, Emax, 100)
 transmissions = lqd.calculate_transmissions(ps_line, energies, H_QDs=H_QDs)
 

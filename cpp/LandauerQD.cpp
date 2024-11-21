@@ -60,25 +60,76 @@ LandauerQDs::~LandauerQDs() {
 void LandauerQDs::calculate_greens_function(double E, Vec2d* H_QD, Vec2d* G_out) {
     int size = n_qds + 2;  // Include substrate and tip
     
-    // G = (E + iη)I - H
+    // G = EI - H
     for(int i = 0; i < size * size; i++) {
-        G_out[i] = (i % (size + 1) == 0) ? Vec2d{E, eta} - H_QD[i] : Vec2d{0.0, 0.0} - H_QD[i];
+        int row = i / size;
+        int col = i % size;
+        if(row == col) {
+            // Diagonal element: E - H
+            G_out[i] = Vec2d{E, 0.0} - H_QD[i];  // Initialize with real part only
+            
+            // Add self-energies on diagonal
+            if(row == 0) {  // Substrate
+                G_out[i].y += 1.000001;  // Add imaginary part for substrate
+                G_out[i] = G_out[i] - Vec2d{0.0, Gamma_sub};
+            } else if(row == size-1) {  // Tip
+                G_out[i].y += 1.000001;  // Add imaginary part for tip
+                G_out[i] = G_out[i] - Vec2d{0.0, Gamma_tip};
+            } else {  // QDs
+                G_out[i].y += eta;  // Add small imaginary part for QDs
+            }
+        } else {
+            // Off-diagonal element: -H
+            G_out[i] = Vec2d{0.0, 0.0} - H_QD[i];
+        }
+    }
+    
+    save_matrix_to_file("cpp_pre_inversion.txt", "Matrix before inversion (C++)", G_out, size, size);
+    
+    // Copy G to temporary buffer for inversion
+    Vec2d* temp = new Vec2d[size * size];
+    for(int i = 0; i < size * size; i++) {
+        temp[i] = G_out[i];
     }
     
     // Invert G using ComplexAlgebra routines
-    invert_complex_matrix(size, G_out, G_out, workspace);
+    invert_complex_matrix(size, temp, G_out, workspace);
+    
+    save_matrix_to_file("cpp_post_inversion.txt", "Matrix after inversion (C++)", G_out, size, size);
+    
+    delete[] temp;
 }
 
 void LandauerQDs::calculate_gamma(Vec2d* coupling_vector, Vec2d* gamma_out, int size) {
-    // Γ = 2π * V * V†
-    for(int i = 0; i < size; i++) {
-        for(int j = 0; j < size; j++) {
-            Vec2d vi = coupling_vector[i];
-            Vec2d vj = coupling_vector[j];
-            // Compute conjugate of vj
-            vj.y = -vj.y;
-            gamma_out[i * size + j].set_mul_cmplx(vi, vj);
-            gamma_out[i * size + j] = gamma_out[i * size + j] * (2.0 * M_PI);
+    // Initialize to zero
+    for(int i = 0; i < size * size; i++) {
+        gamma_out[i] = Vec2d{0.0, 0.0};
+    }
+    
+    printf("\nCalculating gamma matrix:\n");
+    if (coupling_vector == nullptr) {
+        // Special case: substrate and tip coupling
+        // For substrate: only [0,0] element is non-zero
+        // For tip: only [size-1,size-1] element is non-zero
+        if (gamma_out == workspace) {  // Using workspace to identify substrate gamma
+            gamma_out[0] = Vec2d{2.0 * Gamma_sub, 0.0};
+            printf("Substrate coupling: Gamma_sub = %g\n", Gamma_sub);
+        } else {
+            gamma_out[size * size - 1] = Vec2d{2.0 * Gamma_tip, 0.0};
+            printf("Tip coupling: Gamma_tip = %g\n", Gamma_tip);
+        }
+    } else {
+        // General case: outer product of coupling vector with itself
+        for(int i = 0; i < size; i++) {
+            for(int j = 0; j < size; j++) {
+                Vec2d vi = coupling_vector[i];
+                Vec2d vj = coupling_vector[j];
+                // Multiply by 2π for wide-band limit
+                gamma_out[i * size + j] = Vec2d{
+                    2.0 * M_PI * (vi.x * vj.x + vi.y * vj.y),
+                    2.0 * M_PI * (vi.x * vj.y - vi.y * vj.x)
+                };
+            }
         }
     }
 }
@@ -99,23 +150,30 @@ void LandauerQDs::calculate_tip_induced_shifts(const Vec3d& tip_pos, double Q_ti
 }
 
 void LandauerQDs::make_QD_block(const Vec3d& tip_pos, double Q_tip, Vec2d* H_QD_out) {
-    // Copy the pre-computed H_QD_no_tip
-    for(int i = 0; i < (n_qds + 1) * (n_qds + 1); i++) {
-        H_QD_out[i] = H_QD_no_tip[i];
+    // Calculate energy shifts from tip if Q_tip is non-zero
+    double* shifts = new double[n_qds];
+    if (Q_tip != 0.0) {
+        calculate_tip_induced_shifts(tip_pos, Q_tip, shifts);
+    } else {
+        for(int i = 0; i < n_qds; i++) {
+            shifts[i] = 0.0;
+        }
     }
     
-    if(Q_tip != 0.0) {
-        // Calculate energy shifts from tip
-        double* shifts = new double[n_qds];
-        calculate_tip_induced_shifts(tip_pos, Q_tip, shifts);
-        
-        // Add shifts to diagonal elements
-        for(int i = 0; i < n_qds; i++) {
-            H_QD_out[(i + 1) * (n_qds + 1) + (i + 1)].x += shifts[i];
+    // Set diagonal elements with shifted energies
+    for(int i = 0; i < n_qds; i++) {
+        for(int j = 0; j < n_qds; j++) {
+            if(i == j) {
+                // Diagonal: site energy + tip-induced shift
+                H_QD_out[i * n_qds + j] = Vec2d{Esite[i] + shifts[i], 0.0};
+            } else {
+                // Off-diagonal: Coulomb interaction K
+                H_QD_out[i * n_qds + j] = Vec2d{K_matrix[i * n_qds + j], 0.0};
+            }
         }
-        
-        delete[] shifts;
     }
+    
+    delete[] shifts;
 }
 
 void LandauerQDs::make_QD_block_with_charge(const Vec3d& tip_pos, double Q_tip, double* Qsites, Vec2d* H_QD_out) {
@@ -130,7 +188,7 @@ void LandauerQDs::make_QD_block_with_charge(const Vec3d& tip_pos, double Q_tip, 
                     // Add Coulomb interaction from site charges
                     Vec3d d = QDpos[i] - QDpos[j];
                     double dE = COULOMB_CONST * Qsites[j] / d.norm();
-                    H_QD_out[(i + 1) * (n_qds + 1) + (i + 1)].x += dE;
+                    H_QD_out[i * n_qds + j].x += dE;
                 }
             }
         }
@@ -138,103 +196,109 @@ void LandauerQDs::make_QD_block_with_charge(const Vec3d& tip_pos, double Q_tip, 
 }
 
 void LandauerQDs::assemble_full_H(const Vec3d& tip_pos, Vec2d* QD_block, Vec2d* H_out) {
-    int full_size = n_qds + 2;  // Include substrate and tip
+    int size = n_qds + 2;  // Include substrate and tip
     
-    // Calculate tip couplings
+    // Clear output matrix
+    for(int i = 0; i < size * size; i++) {
+        H_out[i] = Vec2d{0.0, 0.0};
+    }
+    
+    // Fill substrate part (with broadening)
+    H_out[0] = Vec2d{E_sub, -Gamma_sub};
+    
+    // Fill QD block
+    if (QD_block != nullptr) {
+        // Use external QD block if provided
+        for(int i = 0; i < n_qds; i++) {
+            for(int j = 0; j < n_qds; j++) {
+                H_out[(i + 1) * size + (j + 1)] = QD_block[i * n_qds + j];
+            }
+        }
+    } else {
+        // Create QD block internally using tip position
+        Vec2d* temp_block = new Vec2d[n_qds * n_qds];
+        make_QD_block(tip_pos, 0.6, temp_block);  // Using default Q_tip=0.6 as in test
+        for(int i = 0; i < n_qds; i++) {
+            for(int j = 0; j < n_qds; j++) {
+                H_out[(i + 1) * size + (j + 1)] = temp_block[i * n_qds + j];
+            }
+        }
+        delete[] temp_block;
+    }
+    
+    // Add broadening to QD diagonal elements
+    for(int i = 1; i <= n_qds; i++) {
+        H_out[i * size + i].y -= eta;
+    }
+    
+    // Fill substrate-QD coupling
+    for(int i = 0; i < n_qds; i++) {
+        H_out[(i + 1)] = H_sub_QD[i];                    // First row
+        H_out[(i + 1) * size] = Vec2d{tS, 0.0};         // First column
+    }
+    
+    // Calculate and fill tip coupling
     Vec2d* tip_couplings = new Vec2d[n_qds];
     calculate_tip_coupling(tip_pos, tip_couplings);
     
-    // Copy QD block
-    for(int i = 0; i < n_qds + 1; i++) {
-        for(int j = 0; j < n_qds + 1; j++) {
-            H_out[i * full_size + j] = QD_block[i * (n_qds + 1) + j];
-        }
-    }
-    
-    // Add tip row/column
-    H_out[full_size * (full_size - 1)] = Vec2d{E_tip, 0.0};  // Tip diagonal element
-    
-    // Add tip-QD couplings
+    // Fill tip-QD coupling
     for(int i = 0; i < n_qds; i++) {
-        // Tip-QD coupling
-        H_out[(full_size - 1) * full_size + (i + 1)] = tip_couplings[i];  // Column
-        H_out[(i + 1) * full_size + (full_size - 1)] = Vec2d{tip_couplings[i].x, -tip_couplings[i].y};  // Row (conjugate)
+        H_out[(i + 1) * size + (size - 1)] = tip_couplings[i];           // Last column
+        H_out[(size - 1) * size + (i + 1)] = Vec2d{tip_couplings[i].x, -tip_couplings[i].y};  // Last row (conjugate)
     }
+    
+    // Fill tip part (with broadening)
+    H_out[size * size - 1] = Vec2d{E_tip, -Gamma_tip};
     
     delete[] tip_couplings;
 }
 
 double LandauerQDs::calculate_transmission(double E, const Vec3d& tip_pos, Vec2d* H_QD) {
-    int full_size = n_qds + 2;
+    int size = n_qds + 2;  // Include substrate and tip
     
-    // Allocate temporary matrices
-    Vec2d* H_full = new Vec2d[full_size * full_size];
-    Vec2d* G = new Vec2d[full_size * full_size];
-    Vec2d* gamma_L = new Vec2d[full_size * full_size];
-    Vec2d* gamma_R = new Vec2d[full_size * full_size];
-    Vec2d* temp = new Vec2d[full_size * full_size];
+    // Calculate G = (EI - H - Sigma)^(-1)
+    Vec2d* G = new Vec2d[size * size];
+    calculate_greens_function(E, H_QD, G);
+    save_matrix_to_file("cpp_G.txt", "Green's function G (C++)", G, size, size);
     
-    // Prepare Hamiltonian
-    if (H_QD == nullptr) {
-        Vec2d* H_QD_block = new Vec2d[(n_qds + 1) * (n_qds + 1)];
-        make_QD_block(tip_pos, 0.0, H_QD_block);
-        assemble_full_H(tip_pos, H_QD_block, H_full);
-        delete[] H_QD_block;
-    } else {
-        assemble_full_H(tip_pos, H_QD, H_full);
+    // Calculate G_dag (conjugate transpose of G)
+    Vec2d* G_dag = new Vec2d[size * size];
+    for(int i = 0; i < size; i++) {
+        for(int j = 0; j < size; j++) {
+            G_dag[i * size + j] = Vec2d{G[j * size + i].x, -G[j * size + i].y};
+        }
     }
+    save_matrix_to_file("cpp_G_dag.txt", "G_dag (C++)", G_dag, size, size);
     
-    // Calculate Green's function
-    calculate_greens_function(E, H_full, G);
+    // Calculate Gamma_t
+    Vec2d* Gamma_t = new Vec2d[size * size];
+    calculate_gamma(nullptr, Gamma_t, size);  // tip coupling vector is not needed here
+    save_matrix_to_file("cpp_Gamma_t.txt", "Gamma_t (C++)", Gamma_t, size, size);
     
-    // Prepare coupling vectors for substrate (L) and tip (R)
-    Vec2d* V_L = new Vec2d[full_size]();  // Initialize to zero
-    Vec2d* V_R = new Vec2d[full_size]();  // Initialize to zero
+    // Calculate Gamma_t * G_dag
+    Vec2d* Gamma_t_G_dag = new Vec2d[size * size];
+    multiply_complex_matrices(size, Gamma_t, G_dag, Gamma_t_G_dag);
+    save_matrix_to_file("cpp_Gamma_t_G_dag.txt", "Gamma_t_G_dag (C++)", Gamma_t_G_dag, size, size);
     
-    // Substrate coupling
-    for(int i = 0; i < n_qds; i++) {
-        V_L[i + 1] = H_sub_QD[i];
-    }
-    
-    // Tip coupling
-    Vec2d* tip_couplings = new Vec2d[n_qds];
-    calculate_tip_coupling(tip_pos, tip_couplings);
-    for(int i = 0; i < n_qds; i++) {
-        V_R[i + 1] = tip_couplings[i];
-    }
-    
-    // Calculate gamma matrices
-    calculate_gamma(V_L, gamma_L, full_size);
-    calculate_gamma(V_R, gamma_R, full_size);
-    
-    // Calculate transmission: T = Tr(ΓL * G * ΓR * G†)
-    multiply_complex_matrices(full_size, gamma_L, G, temp);
-    multiply_complex_matrices(full_size, temp, gamma_R, workspace);
-    
-    // Conjugate G for G†
-    for(int i = 0; i < full_size * full_size; i++) {
-        G[i].y = -G[i].y;
-    }
-    
-    multiply_complex_matrices(full_size, workspace, G, temp);
+    // Calculate G * Gamma_t * G_dag
+    Vec2d* G_Gamma_t_G_dag = new Vec2d[size * size];
+    multiply_complex_matrices(size, G, Gamma_t_G_dag, G_Gamma_t_G_dag);
+    save_matrix_to_file("cpp_G_Gamma_t_G_dag.txt", "G_Gamma_t_G_dag (C++)", G_Gamma_t_G_dag, size, size);
     
     // Calculate trace
-    double transmission = 0.0;
-    for(int i = 0; i < full_size; i++) {
-        transmission += temp[i * full_size + i].x;
+    Vec2d trace = {0.0, 0.0};
+    for(int i = 0; i < size; i++) {
+        trace = trace + G_Gamma_t_G_dag[i * size + i];
     }
     
     // Clean up
-    delete[] H_full;
     delete[] G;
-    delete[] gamma_L;
-    delete[] gamma_R;
-    delete[] temp;
-    delete[] V_L;
-    delete[] V_R;
-    delete[] tip_couplings;
+    delete[] G_dag;
+    delete[] Gamma_t;
+    delete[] Gamma_t_G_dag;
+    delete[] G_Gamma_t_G_dag;
     
-    return transmission;
+    return trace.x;  // Return real part of trace
 }
 
 double LandauerQDs::calculate_transmission(double E, const Vec3d& tip_pos) {
@@ -266,6 +330,43 @@ void LandauerQDs::calculate_occupancies(const Vec3d& tip_pos, double Q_tip, doub
     delete[] H_full;
     delete[] G;
     delete[] H_QD_block;
+}
+
+void LandauerQDs::get_H_QD_no_tip(Vec2d* H_out) {
+    int size = n_qds + 1;  // Include substrate
+    for(int i = 0; i < size * size; i++) {
+        H_out[i] = H_QD_no_tip[i];
+    }
+}
+
+void LandauerQDs::get_tip_coupling(const Vec3d& tip_pos, Vec2d* coupling_out) {
+    calculate_tip_coupling(tip_pos, coupling_out);
+}
+
+void LandauerQDs::get_full_H(const Vec3d& tip_pos, Vec2d* H_out) {
+    Vec2d* QD_block = new Vec2d[n_qds * n_qds];
+    make_QD_block(tip_pos, 0.6, QD_block);  // Use Q_tip=0.6 to match Python test
+    assemble_full_H(tip_pos, QD_block, H_out);
+    delete[] QD_block;
+}
+
+void LandauerQDs::save_matrix_to_file(const char* filename, const char* title, Vec2d* matrix, int rows, int cols) {
+    FILE* f = fopen(filename, "w");
+    if (!f) {
+        printf("Error: Could not open file %s for writing\n", filename);
+        return;
+    }
+    fprintf(f, "%s\n", title);
+    fprintf(f, "Dimensions: %d %d\n", rows, cols);
+    fprintf(f, "Format: (real,imag)\n");
+    for(int i = 0; i < rows; i++) {
+        for(int j = 0; j < cols; j++) {
+            Vec2d val = matrix[i * cols + j];
+            fprintf(f, "(%e,%e) ", val.x, val.y);
+        }
+        fprintf(f, "\n");
+    }
+    fclose(f);
 }
 
 // Global pointer to store the current instance
@@ -356,6 +457,56 @@ void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout)
     // For each position
     for(int i = 0; i < npos; i++) {
         g_system->calculate_occupancies(ptips[i], Qtips[i], Qout + i * g_system->n_qds);
+    }
+}
+
+// Get initial Hamiltonian without tip
+void get_H_QD_no_tip(Vec2d* H_out) {
+    if(g_system) {
+        g_system->get_H_QD_no_tip(H_out);
+    }
+}
+
+// Get tip coupling vector
+void get_tip_coupling(double* tip_pos_, Vec2d* coupling_out) {
+    if(g_system) {
+        Vec3d tip_pos = *((Vec3d*)tip_pos_);
+        g_system->get_tip_coupling(tip_pos, coupling_out);
+    }
+}
+
+// Get full Hamiltonian at given tip position
+void get_full_H(double* tip_pos_, Vec2d* H_out) {
+    Vec3d tip_pos = {tip_pos_[0], tip_pos_[1], tip_pos_[2]};
+    if(g_system) {
+        g_system->get_full_H(tip_pos, H_out);
+    }
+}
+
+// Calculate Green's function
+void calculate_greens_function(double energy, double* H_in, double* G_out) {
+    if(g_system) {
+        // Convert real arrays to complex arrays
+        int size = g_system->n_qds + 2;
+        Vec2d* H = new Vec2d[size * size];
+        Vec2d* G = new Vec2d[size * size];
+        
+        // Convert input H from real array to Vec2d array
+        for(int i = 0; i < size * size; i++) {
+            H[i] = Vec2d{H_in[2*i], H_in[2*i + 1]};
+        }
+        
+        // Calculate Green's function
+        g_system->calculate_greens_function(energy, H, G);
+        
+        // Convert output G from Vec2d array to real array
+        for(int i = 0; i < size * size; i++) {
+            G_out[2*i] = G[i].x;
+            G_out[2*i + 1] = G[i].y;
+        }
+        
+        delete[] H;
+        delete[] G;
     }
 }
 

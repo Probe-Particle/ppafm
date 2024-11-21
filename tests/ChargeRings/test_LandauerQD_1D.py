@@ -12,9 +12,9 @@ from pyProbeParticle import ChargeRings as chr
 # System parameters
 Q_tip = 0.6
 z_tip = 6.0
-L = 20.0
+L     = 20.0
 decay = 0.7
-T = 10.0  # Temperature for occupancy calculation
+T     = 10.0  # Temperature for occupancy calculation
 
 # Occupancy calculation switch
 #use_occupancy = True  # Set to True to use occupancy solver

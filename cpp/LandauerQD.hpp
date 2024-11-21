@@ -38,6 +38,9 @@ struct LandauerQDs {
                 double eta_=0.00, double Gamma_tip_=1.0, double Gamma_sub_=1.0);
     ~LandauerQDs();
 
+    // Matrix logging functionality
+    void save_matrix_to_file(const char* filename, const char* title, Vec2d* matrix, int rows, int cols);
+
     // Core functionality
     void calculate_greens_function(double E, Vec2d* H_QD, Vec2d* G_out);
     void calculate_gamma(Vec2d* coupling_vector, Vec2d* gamma_out, int size);
@@ -53,6 +56,11 @@ struct LandauerQDs {
     // Occupancy calculation
     void calculate_occupancies(const Vec3d& tip_pos, double Q_tip, double* occupancies);
     void make_QD_block_with_charge(const Vec3d& tip_pos, double Q_tip, double* Qsites, Vec2d* H_QD_out);
+
+    // Functions for testing and comparison
+    void get_H_QD_no_tip(Vec2d* H_out);
+    void get_tip_coupling(const Vec3d& tip_pos, Vec2d* coupling_out);
+    void get_full_H(const Vec3d& tip_pos, Vec2d* H_out);
 };
 
 // C interface
@@ -66,6 +74,11 @@ extern "C" {
     void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites, 
                           double* evals, double* evecs, double* Hs, double* Gs);
     void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout);
+
+    // Functions for testing and comparison
+    void get_H_QD_no_tip(Vec2d* H_out);
+    void get_tip_coupling(double* tip_pos, Vec2d* coupling_out);
+    void get_full_H(double* tip_pos, Vec2d* H_out);
 }
 
 #endif // LANDAUER_QD_H

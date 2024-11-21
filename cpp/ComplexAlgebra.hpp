@@ -11,16 +11,48 @@
 // Complex matrix multiplication C = A*B
 // A is n×k matrix, B is k×m matrix, C is n×m matrix
 inline void multiply_complex_matrices(int n, int k, int m, Vec2d* A, Vec2d* B, Vec2d* C) {
+    printf("\nMatrix multiplication debug:\n");
+    printf("Matrix A (%dx%d):\n", n, k);
+    for(int i=0; i<n; i++) {
+        for(int j=0; j<k; j++) {
+            printf("(%g,%g) ", A[i*k + j].x, A[i*k + j].y);
+        }
+        printf("\n");
+    }
+    
+    printf("\nMatrix B (%dx%d):\n", k, m);
+    for(int i=0; i<k; i++) {
+        for(int j=0; j<m; j++) {
+            printf("(%g,%g) ", B[i*m + j].x, B[i*m + j].y);
+        }
+        printf("\n");
+    }
+    
     for(int i=0; i<n; i++) {
         for(int j=0; j<m; j++) {
             Vec2d sum = {0.0, 0.0};
+            printf("\nCalculating C[%d,%d]:\n", i, j);
             for(int p=0; p<k; p++) {
                 Vec2d prod;
                 prod.set_mul_cmplx(A[i*k + p], B[p*m + j]);
+                printf("  A[%d,%d] * B[%d,%d] = (%g,%g) * (%g,%g) = (%g,%g)\n",
+                    i, p, p, j,
+                    A[i*k + p].x, A[i*k + p].y,
+                    B[p*m + j].x, B[p*m + j].y,
+                    prod.x, prod.y);
                 sum = sum + prod;
+                printf("  Running sum = (%g,%g)\n", sum.x, sum.y);
             }
             C[i*m + j] = sum;
         }
+    }
+    
+    printf("\nResult matrix C (%dx%d):\n", n, m);
+    for(int i=0; i<n; i++) {
+        for(int j=0; j<m; j++) {
+            printf("(%g,%g) ", C[i*m + j].x, C[i*m + j].y);
+        }
+        printf("\n");
     }
 }
 
@@ -84,8 +116,14 @@ inline void gauss_jordan_eliminate(int n, int m, Vec2d* aug) {
         // Scale pivot row
         Vec2d pivot = aug[i*stride + i];
         if(pivot.norm() < 1e-10) {
-            printf("Warning: Near-zero pivot encountered\n");
-            continue;
+            printf("Error: Near-zero pivot encountered (norm = %g)\n", pivot.norm());
+            // Set all remaining elements to zero to indicate singular matrix
+            for(int r = i; r < n; r++) {
+                for(int c = 0; c < stride; c++) {
+                    aug[r*stride + c] = Vec2d{0.0, 0.0};
+                }
+            }
+            return;  // Exit early
         }
         
         // Compute 1/pivot
