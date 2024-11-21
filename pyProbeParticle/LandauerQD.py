@@ -55,7 +55,7 @@ def cleanup():
     _n_qds = None
 
 # Calculate transmissions
-lib.calculateTransmissions.argtypes = [c_int, array2d, array1d, c_int, array1d, array1d]
+lib.calculateTransmissions.argtypes = [c_int, array2d, array1d, c_int, array1c, array1d]  # H_QDs is complex array
 lib.calculateTransmissions.restype = None
 def calculate_transmissions(ptips, energies, H_QDs=None):
     """Calculate transmission for multiple tip positions and energies.
@@ -79,7 +79,7 @@ def calculate_transmissions(ptips, energies, H_QDs=None):
     
     if H_QDs is not None:
         # Flatten H_QDs to 1D for C++
-        H_QDs = np.ascontiguousarray(H_QDs, dtype=np.float64).reshape(-1)
+        H_QDs = np.ascontiguousarray(H_QDs, dtype=np.complex128).reshape(-1)
     
     lib.calculateTransmissions(npos, ptips, energies, nE, H_QDs, transmissions)
     return transmissions.reshape(npos, nE)  # Reshape back to 2D
