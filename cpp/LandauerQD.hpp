@@ -44,23 +44,22 @@ struct LandauerQDs {
     // Core functionality
     void calculate_greens_function(double E, Vec2d* H_QD, Vec2d* G_out);
     void calculate_gamma(Vec2d* coupling_vector, Vec2d* gamma_out, int size);
-    void calculate_tip_coupling(const Vec3d& tip_pos, Vec2d* tip_couplings);
-    void calculate_tip_induced_shifts(const Vec3d& tip_pos, double Q_tip, double* shifts);
-    void make_QD_block(const Vec3d& tip_pos, double Q_tip, Vec2d* H_QD_out);
-    void assemble_full_H(const Vec3d& tip_pos, Vec2d* QD_block, Vec2d* H_out);
+    void calculate_tip_coupling(Vec3d tip_pos, Vec2d* tip_couplings);
+    void calculate_tip_induced_shifts( Vec3d tip_pos, double Q_tip, double* shifts);
+    void make_QD_block( Vec3d tip_pos, double Q_tip, Vec2d* H_QD_out);
+    void assemble_full_H( Vec3d tip_pos, Vec2d* QD_block, Vec2d* H_out);
     
     // Transmission calculation
-    double calculate_transmission(double E, const Vec3d& tip_pos);
-    double calculate_transmission(double E, const Vec3d& tip_pos, Vec2d* H_QD);
+    double calculate_transmission(double E, Vec3d tip_pos, Vec2d* H_QD);
     
     // Occupancy calculation
-    void calculate_occupancies(const Vec3d& tip_pos, double Q_tip, double* occupancies);
-    void make_QD_block_with_charge(const Vec3d& tip_pos, double Q_tip, double* Qsites, Vec2d* H_QD_out);
+    void calculate_occupancies    ( Vec3d tip_pos, double Q_tip, double* occupancies);
+    void make_QD_block_with_charge( Vec3d tip_pos, double Q_tip, double* Qsites, Vec2d* H_QD_out);
 
     // Functions for testing and comparison
-    void get_H_QD_no_tip(Vec2d* H_out);
-    void get_tip_coupling(const Vec3d& tip_pos, Vec2d* coupling_out);
-    void get_full_H(const Vec3d& tip_pos, Vec2d* H_out);
+    void get_H_QD_no_tip ( Vec2d* H_out );
+    void get_tip_coupling( Vec3d tip_pos, Vec2d* coupling_out );
+    void get_full_H      ( Vec3d tip_pos, Vec2d* H_out );
 };
 
 // C interface

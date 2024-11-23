@@ -4,6 +4,7 @@ import sys
 sys.path.append("../../")
 sys.path.append("/home/prokop/git/ppafm")
 from pyProbeParticle import LandauerQD as lqd
+import test_utils as tu
 
 np.set_printoptions(linewidth=200)
 
@@ -31,174 +32,6 @@ E0QDs = np.array([-1.0, -1.0, -1.0])
 # Single test point for tip position
 tip_pos = np.array([0.0, 0.0, z_tip])
 
-def print_comparison(name, py_val, cpp_val, tol=1e-8, ignore_imag=False, relative=False):
-    """Print comparison between Python and C++ values."""
-    print(f"\n=== {name} ===")
-    print("Python implementation:")
-    print(py_val)
-    print("\nC++ implementation:")
-    print(cpp_val)
-    
-    # Calculate differences
-    diff = np.abs(py_val - cpp_val)
-    real_diff = np.abs(np.real(py_val) - np.real(cpp_val))
-    imag_diff = np.abs(np.imag(py_val) - np.imag(cpp_val))
-    
-    max_diff = np.max(diff)
-    max_real_diff = np.max(real_diff)
-    max_imag_diff = np.max(imag_diff)
-    
-    if relative:
-        # Use relative difference for transmission values
-        max_diff = max_diff / (np.abs(py_val).mean() + 1e-10)
-        max_real_diff = max_real_diff / (np.abs(np.real(py_val)).mean() + 1e-10)
-        if not ignore_imag:
-            max_imag_diff = max_imag_diff / (np.abs(np.imag(py_val)).mean() + 1e-10)
-    
-    print(f"\nMax difference: {max_diff}")
-    print(f"Max real difference: {max_real_diff}")
-    if not ignore_imag:
-        print(f"Max imag difference: {max_imag_diff}")
-    
-    # For full Hamiltonian test, ignore imaginary part differences
-    if ignore_imag:
-        return max_real_diff < tol
-    else:
-        return max_diff < tol
-
-def compare_matrix_files(py_file, cpp_file, tol=1e-8):
-    """Compare matrices saved in two files."""
-    def read_matrix(filename):
-        try:
-            with open(filename, 'r') as f:
-                lines = f.readlines()
-                # Skip title and dimension lines
-                data_lines = [line.strip() for line in lines[3:] if line.strip()]
-                matrix = []
-                for line in data_lines:
-                    row = []
-                    elements = line.split()
-                    for elem in elements:
-                        try:
-                            # Remove parentheses and split real/imag parts
-                            elem = elem.strip('()')
-                            if not elem:  # Skip empty elements
-                                continue
-                            real, imag = map(float, elem.split(','))
-                            row.append(complex(real, imag))
-                        except (ValueError, IndexError) as e:
-                            print(f"Warning: Could not parse element '{elem}' in {filename}")
-                            continue
-                    if row:  # Only add non-empty rows
-                        matrix.append(row)
-                return np.array(matrix) if matrix else None
-        except FileNotFoundError:
-            print(f"Warning: File {filename} not found")
-            return None
-        except Exception as e:
-            print(f"Error reading {filename}: {str(e)}")
-            return None
-    
-    py_matrix = read_matrix(py_file)
-    cpp_matrix = read_matrix(cpp_file)
-    
-    if py_matrix is None or cpp_matrix is None:
-        print(f"Could not compare matrices - one or both files invalid")
-        return False
-    
-    if py_matrix.shape != cpp_matrix.shape:
-        print(f"Matrix shapes differ: {py_matrix.shape} vs {cpp_matrix.shape}")
-        return False
-    
-    diff = np.abs(py_matrix - cpp_matrix)
-    max_diff = np.max(diff)
-    avg_diff = np.mean(diff)
-    
-    print(f"\nComparing {py_file} vs {cpp_file}:")
-    print(f"Maximum difference: {max_diff:.2e}")
-    print(f"Average difference: {avg_diff:.2e}")
-    print(f"Matrices {'match' if max_diff < tol else 'differ significantly'}")
-    
-    return max_diff < tol
-
-def save_matrix(matrix, filename, title="Matrix"):
-    """Save a complex matrix to a file with proper formatting."""
-    with open(filename, 'w') as f:
-        f.write(f"{title}\n")
-        f.write(f"Dimensions: {matrix.shape}\n")
-        f.write("Format: (real,imag)\n")
-        if len(matrix.shape) == 1:
-            # Handle 1D array (vector)
-            for elem in matrix:
-                f.write(f"({elem.real:.6e},{elem.imag:.6e}) ")
-            f.write("\n")
-        else:
-            # Handle 2D array (matrix)
-            for i in range(matrix.shape[0]):
-                for j in range(matrix.shape[1]):
-                    elem = matrix[i,j]
-                    f.write(f"({elem.real:.6e},{elem.imag:.6e}) ")
-                f.write("\n")
-
-def matrices_match(py_matrix, cpp_matrix, tol=1e-6, verbose=False):
-    """Check if two matrices match within a tolerance."""
-    if py_matrix.shape != cpp_matrix.shape:
-        if verbose:
-            print("Matrix shapes don't match:", py_matrix.shape, "vs", cpp_matrix.shape)
-        return False
-    
-    diff = np.abs(py_matrix - cpp_matrix)
-    max_diff = np.max(diff)
-    
-    if verbose and max_diff > tol:
-        print("Matrices differ by more than {}: max difference = {}".format(tol, max_diff))
-        print("\nPython matrix:")
-        print(py_matrix)
-        print("\nC++ matrix:")
-        print(cpp_matrix)
-        print("\nDifference matrix:")
-        print(diff)
-        
-        # Find position of maximum difference
-        max_pos = np.unravel_index(np.argmax(diff), diff.shape)
-        print("\nMaximum difference at position {}:".format(max_pos))
-        print("Python value:", py_matrix[max_pos])
-        print("C++ value:", cpp_matrix[max_pos])
-    
-    return max_diff <= tol
-
-def read_matrix_from_file(filename):
-    """Read a complex matrix from a file."""
-    try:
-        with open(filename, 'r') as f:
-            lines = f.readlines()
-            # Skip title and dimension lines
-            data_lines = [line.strip() for line in lines[3:] if line.strip()]
-            matrix = []
-            for line in data_lines:
-                row = []
-                elements = line.split()
-                for elem in elements:
-                    try:
-                        # Remove parentheses and split real/imag parts
-                        elem = elem.strip('()')
-                        if not elem:  # Skip empty elements
-                            continue
-                        real, imag = map(float, elem.split(','))
-                        row.append(complex(real, imag))
-                    except (ValueError, IndexError) as e:
-                        print(f"Warning: Could not parse element '{elem}' in {filename}")
-                        continue
-                if row:  # Only add non-empty rows
-                    matrix.append(row)
-            return np.array(matrix) if matrix else None
-    except FileNotFoundError:
-        print(f"Warning: File {filename} not found")
-        return None
-    except Exception as e:
-        print(f"Error reading {filename}: {str(e)}")
-        return None
-
 def compare_intermediate_matrices():
     """Compare intermediate matrices from Python and C++ calculations."""
     print("\n=== Comparing Intermediate Matrices ===")
@@ -214,7 +47,7 @@ def compare_intermediate_matrices():
     for py_file, cpp_file in matrix_pairs:
         print(f"\nComparing {py_file} vs {cpp_file}:")
         try:
-            py_matrix = read_matrix_from_file(py_file)
+            py_matrix  = read_matrix_from_file(py_file)
             cpp_matrix = read_matrix_from_file(cpp_file)
             
             # Print both matrices for visual inspection
@@ -268,9 +101,9 @@ def run_tests():
     Hqd_py  = py_system.H_QD_no_tip;  print("Hqd_py.shape:",  Hqd_py.shape)
     Hqd_cpp = lqd.get_H_QD_no_tip();  print("Hqd_cpp.shape:", Hqd_cpp.shape)
     print("Max difference in H_QD:", np.max(np.abs(Hqd_py - Hqd_cpp)))
-    #save_matrix(Hqd_py, "py_H_QD_no_tip.txt", "H_QD_no_tip (Python)")
-    #save_matrix(Hqd_cpp, "cpp_H_QD_no_tip.txt", "H_QD_no_tip (C++)")
-    if not matrices_match(Hqd_py, Hqd_cpp, verbose=True):
+    #tu.save_matrix(Hqd_py, "py_H_QD_no_tip.txt", "H_QD_no_tip (Python)")
+    #tu.save_matrix(Hqd_cpp, "cpp_H_QD_no_tip.txt", "H_QD_no_tip (C++)")
+    if not tu.matrices_match(Hqd_py, Hqd_cpp, verbose=True):
         print("ERROR: H_QD matrices don't match!")
         return False
     
@@ -278,9 +111,9 @@ def run_tests():
     H_py  = py_system.make_full_hamiltonian(tip_pos, Q_tip=Q_tip) 
     H_cpp = lqd.get_full_H(tip_pos)
     print("Max difference in full H:", np.max(np.abs(H_py - H_cpp)))
-    #save_matrix(H_py,  "py_H.txt",  "H_full (Python)")
-    #save_matrix(H_cpp, "cpp_H.txt", "H_full (C++)")
-    if not matrices_match(H_py, H_cpp, verbose=True):
+    #tu.save_matrix(H_py,  "py_H.txt",  "H_full (Python)")
+    #tu.save_matrix(H_cpp, "cpp_H.txt", "H_full (C++)")
+    if not tu.matrices_match(H_py, H_cpp, verbose=True):
         print("ERROR: Full H matrices don't match!")
         return False
 
@@ -297,7 +130,7 @@ def run_tests():
     lqd.calculate_greens_function(energy, H_cpp, G_cpp)  # This saves pre-inversion matrix to cpp_A.txt and cpp_G.txt
     
     # Load the C++ pre-inversion matrix from file
-    A_cpp_ = read_matrix_from_file("cpp_pre_inversion.txt")
+    A_cpp_ = tu.read_matrix_from_file("cpp_pre_inversion.txt")
     
     print("\nPython A = (EI - H) :")
     print(A_py)
@@ -305,7 +138,7 @@ def run_tests():
     print(A_cpp)
     print("\nMax difference in (EI - H):", np.max(np.abs( A_py - A_cpp)))
     
-    if not matrices_match(A_py, A_cpp, verbose=True):
+    if not tu.matrices_match(A_py, A_cpp, verbose=True):
         print("ERROR: (EI - H) matrices don't match!")
         return False
     
@@ -323,10 +156,10 @@ def run_tests():
     print(G_cpp)
     print("\nMax difference in G:", np.max(np.abs(G_py - G_cpp)))
     
-    save_matrix(G_py, "py_G.txt", "G (Python)")
-    save_matrix(G_cpp, "cpp_G.txt", "G (C++)")
+    #tu.save_matrix(G_py,  "py_G.txt",  "G (Python)")
+    #tu.save_matrix(G_cpp, "cpp_G.txt", "G (C++)")
     
-    if not matrices_match(G_py, G_cpp, verbose=True):
+    if not tu.matrices_match(G_py, G_cpp, verbose=True):
         print("ERROR: Green's functions don't match!")
         return False
     
@@ -339,7 +172,7 @@ def run_tests():
     print("C++ G verification (should be identity):")
     print(verify_cpp)
     
-    if not matrices_match(verify_py, verify_cpp, tol=1e-6, verbose=True):  # Use higher tolerance for verification
+    if not tu.matrices_match(verify_py, verify_cpp, tol=1e-6, verbose=True):  # Use higher tolerance for verification
         print("ERROR: G verification matrices don't match!")
         return False
 
@@ -372,8 +205,8 @@ def run_tests():
     
     # Load C++ gamma matrices from files
     try:
-        Gamma_s_cpp = read_matrix_from_file("cpp_Gamma_s.txt")
-        Gamma_t_cpp = read_matrix_from_file("cpp_Gamma_t.txt")
+        Gamma_s_cpp = tu.read_matrix_from_file("cpp_Gamma_s.txt")
+        Gamma_t_cpp = tu.read_matrix_from_file("cpp_Gamma_t.txt")
         
         print("\nC++ Gamma_s:")
         print(Gamma_s_cpp)

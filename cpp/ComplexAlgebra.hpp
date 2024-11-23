@@ -197,4 +197,23 @@ inline void solve_complex_system(int n, int m, Vec2d* A, Vec2d* B, Vec2d* X, Vec
     }
 }
 
+void save_matrix_to_file(const char* filename, const char* title, Vec2d* matrix, int rows, int cols) {
+    FILE* f = fopen(filename, "w");
+    if (!f) {
+        printf("Error: Could not open file %s for writing\n", filename);
+        return;
+    }
+    fprintf(f, "%s\n", title);
+    fprintf(f, "Dimensions: %d %d\n", rows, cols);
+    fprintf(f, "Format: (real,imag)\n");
+    for(int i = 0; i < rows; i++) {
+        for(int j = 0; j < cols; j++) {
+            Vec2d val = matrix[i * cols + j];
+            fprintf(f, "(%e,%e) ", val.x, val.y);
+        }
+        fprintf(f, "\n");
+    }
+    fclose(f);
+}
+
 #endif // COMPLEX_ALGEBRA_H
