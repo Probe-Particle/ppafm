@@ -22,9 +22,9 @@ public:
     int n_qds;
 
     // Complex matrices
-    Vec2d* H_sub_QD;
-    Vec2d* K_matrix;
-    Vec2d* H_QD_no_tip;
+    Vec2d* H_sub_QD;    // Coupling to substrate
+    //Vec2d* K_matrix;    // Coulomb interaction matrix
+    Vec2d* Hqd0;        // Base QD Hamiltonian (without tip effects)
 
     LandauerQDs(Vec2d* QDpos_, int n_qds_, double* Esite_, double K_=0.01, double decay_=1.0, 
                 double tS_=0.01, double E_sub_=0.0, double E_tip_=0.0, double tA_=0.1, 
@@ -48,8 +48,8 @@ public:
 
         // Allocate arrays
         H_sub_QD = new Vec2d[n_qds];
-        K_matrix = new Vec2d[n_qds * n_qds];
-        H_QD_no_tip = new Vec2d[(n_qds + 1) * (n_qds + 1)];
+        Hqd0     = new Vec2d[n_qds * n_qds];
+        //K_matrix = new Vec2d[n_qds * n_qds];
 
         // Initialize H_sub_QD (constant coupling)
         for(int i = 0; i < n_qds; i++) {
@@ -57,43 +57,37 @@ public:
         }
 
         // Initialize K_matrix (Coulomb interaction)
-        for(int i = 0; i < n_qds; i++) {
-            for(int j = 0; j < n_qds; j++) {
-                K_matrix[i * n_qds + j] = {(i != j) ? K : 0.0, 0.0};
-            }
-        }
+        // for(int i = 0; i < n_qds; i++) {
+        //     for(int j = 0; j < n_qds; j++) {
+        //         K_matrix[i * n_qds + j] = {(i != j) ? K : 0.0, 0.0};
+        //     }
+        // }
 
-        // Initialize H_QD_no_tip
-        // First row/column: substrate coupling
-        H_QD_no_tip[0] = {E_sub, 0.0};
+        // Initialize Hqd0 (base QD Hamiltonian without tip effects)
         for(int i = 0; i < n_qds; i++) {
-            H_QD_no_tip[(i + 1) * (n_qds + 1)] = H_sub_QD[i];  // First column
-            H_QD_no_tip[i + 1] = H_sub_QD[i];                  // First row
-        }
-
-        // QD block with Coulomb interactions
-        for(int i = 0; i < n_qds; i++) {
+            double Ei = Esite[i];
             for(int j = 0; j < n_qds; j++) {
-                double val = (i == j) ? Esite[i] : 0.0;
-                H_QD_no_tip[(i + 1) * (n_qds + 1) + (j + 1)] = {val + K_matrix[i * n_qds + j].x, 0.0};
+                double val;
+                if( i == j ){ val = Ei; }else{ val = K; }
+                Hqd0[i * n_qds + j] = { val, 0.0};
             }
         }
     }
 
     ~LandauerQDs() {
         delete[] H_sub_QD;
-        delete[] K_matrix;
-        delete[] H_QD_no_tip;
+        delete[] Hqd0;
+        //delete[] K_matrix;
     }
 
-    void calculate_greens_function(double E, Vec2d* H_QD, Vec2d* G) {
+    void calculate_greens_function(double E, Vec2d* H, Vec2d* G) {
         int n = n_qds + 2;
         int n2 = n * n;
         
         // Create (E + iη)I - H
         Vec2d A[n2];
         for(int i = 0; i < n2; i++) {
-            A[i] = {-H_QD[i].x, -H_QD[i].y};
+            A[i] = {-H[i].x, -H[i].y};
             if(i % (n + 1) == 0) {  // Diagonal elements
                 A[i].x += E;
                 A[i].y += eta;
@@ -125,11 +119,28 @@ public:
         }
     }
 
-    void assemble_full_H(const Vec2d& tip_pos, Vec2d* QD_block, Vec2d* H) {
+    void makeHqd(const Vec2d& tip_pos, double Q_tip, Vec2d* Hqd) {
+        // Copy base Hamiltonian
+        for(int i = 0; i < n_qds * n_qds; i++) {
+            Hqd[i] = Hqd0[i];
+        }
+        double shifts[n_qds];
+        // Add tip-induced shifts to diagonal elements if Q_tip is provided
+        if(Q_tip != 0.0) {
+            calculate_tip_induced_shifts(tip_pos, Q_tip, shifts);
+            for(int i = 0; i < n_qds; i++) {
+                Hqd[i * n_qds + i].x += shifts[i];
+            }
+            
+        }
+        //delete[] shifts;
+    }
+
+    void assemble_full_H(const Vec2d& tip_pos, Vec2d* Hqd, Vec2d* H) {
         int n = n_qds + 2;
-        Vec2d* tip_couplings = new Vec2d[n_qds];
+        //Vec2d* tip_couplings = new Vec2d[n_qds];
+        Vec2d tip_couplings[n_qds];
         
-        // Calculate tip coupling
         calculate_tip_coupling(tip_pos, tip_couplings);
         
         // Initialize H to zero
@@ -137,10 +148,10 @@ public:
             H[i] = {0.0, 0.0};
         }
         
-        // Fill QD block
+        // Fill QD block with broadening
         for(int i = 0; i < n_qds; i++) {
             for(int j = 0; j < n_qds; j++) {
-                H[(i + 1) * n + (j + 1)] = QD_block[i * n_qds + j];
+                H[(i + 1) * n + (j + 1)] = Hqd[i * n_qds + j];
                 if(i == j) H[(i + 1) * n + (j + 1)].y -= eta;
             }
         }
@@ -149,7 +160,7 @@ public:
         H[0] = {E_sub, -Gamma_sub};
         for(int i = 0; i < n_qds; i++) {
             H[i + 1] = H_sub_QD[i];                 // First row
-            H[(i + 1) * n] = H_sub_QD[i];        // First column
+            H[(i + 1) * n] = H_sub_QD[i];          // First column
         }
         
         // Fill tip part
@@ -159,24 +170,22 @@ public:
             H[(n - 1) * n + (i + 1)] = {tip_couplings[i].x, -tip_couplings[i].y}; // Last row (conjugate)
         }
         
-        delete[] tip_couplings;
+        //delete[] tip_couplings;
     }
 
-    void calculate_coupling_matrices(Vec2d* Gamma_s, Vec2d* Gamma_t) {
-        int n = n_qds + 2;
-        
-        // Initialize to zero
-        for(int i = 0; i < n * n; i++) {
-            Gamma_s[i] = {0.0, 0.0};
-            Gamma_t[i] = {0.0, 0.0};
+    void make_full_hamiltonian(const Vec2d& tip_pos, Vec2d* H, double Q_tip=0.0, Vec2d* Hqd_in=nullptr) {
+        Vec2d Hqd[n_qds * n_qds];
+        if(Hqd_in == nullptr) {
+            makeHqd(tip_pos, Q_tip, Hqd);
+        } else {
+            for(int i = 0; i < n_qds * n_qds; i++) {
+                Hqd[i] = Hqd_in[i];
+            }
         }
-        
-        // Set coupling strengths
-        Gamma_s[0] = {2.0 * Gamma_sub, 0.0};               // Substrate coupling
-        Gamma_t[n * n - 1] = {2.0 * Gamma_tip, 0.0}; // Tip coupling
+        assemble_full_H(tip_pos, Hqd, H);
     }
 
-    double calculate_transmission(const Vec2d& tip_pos, double energy, Vec2d* H) {
+    double calculate_transmission_from_H(Vec2d* H, double E) {
         int n = n_qds + 2;
         int n2 = n * n;
 
@@ -190,7 +199,7 @@ public:
         Vec2d Tmat[n2];
 
         // Calculate Green's function
-        calculate_greens_function(energy, H, G);
+        calculate_greens_function(E, H, G);
 
         // Calculate G_dag (conjugate transpose of G)
         for(int i = 0; i < n; i++) {
@@ -233,5 +242,30 @@ public:
         }
 
         return trace.x;  // Return real part of trace
+    }
+
+    double calculate_transmission(const Vec2d& tip_pos, double E, double Q_tip=0.0, Vec2d* Hqd=nullptr) {
+        int n = n_qds + 2;
+        Vec2d H[n * n];
+        make_full_hamiltonian(tip_pos, H, Q_tip, Hqd);
+        return calculate_transmission_from_H(H, E);
+    }
+
+    void scan_1D(const Vec2d* ps_line, int n_points, const double* energies, int n_energies, 
+                 double* transmissions, double Q_tip=0.0, Vec2d* H_QDs=nullptr) {
+        int n = n_qds + 2;
+        Vec2d H[n * n];
+
+        for(int i = 0; i < n_points; i++) {
+            if(H_QDs != nullptr) {
+                make_full_hamiltonian(ps_line[i], H, 0.0, &H_QDs[i * n_qds * n_qds]);
+            } else {
+                make_full_hamiltonian(ps_line[i], H, Q_tip);
+            }
+
+            for(int j = 0; j < n_energies; j++) {
+                transmissions[i * n_energies + j] = calculate_transmission_from_H(H, energies[j]);
+            }
+        }
     }
 };
