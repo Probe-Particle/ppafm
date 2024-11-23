@@ -83,6 +83,7 @@ public:
     }
 
     void calculate_greens_function(double E, Vec2d* H, Vec2d* G) {
+        printf("calculate_greens_function(): E = %g\n", E);
         int n = n_qds + 2;
         int n2 = n * n;
         
@@ -181,6 +182,7 @@ public:
     }
 
     void make_full_hamiltonian(const Vec3d& tip_pos, Vec2d* H, double Q_tip=0.0, Vec2d* Hqd_in=nullptr) {
+        printf("make_full_hamiltonian()\n" );
         Vec2d Hqd[n_qds * n_qds];
         if(Hqd_in == nullptr) {
             makeHqd(tip_pos, Q_tip, Hqd);
@@ -193,6 +195,7 @@ public:
     }
 
     double calculate_transmission_from_H(Vec2d* H, double E) {
+        printf("calculate_transmission_from_H()\n" );
         int n = n_qds + 2;
         int n2 = n * n;
 
@@ -222,16 +225,19 @@ public:
         }
 
         // Set coupling strengths
-        Gammas[0] = {2.0 * Gamma_sub, 0.0};        // Substrate coupling
+        Gammas[0   ] = {2.0 * Gamma_sub, 0.0};        // Substrate coupling
         Gammat[n2-1] = {2.0 * Gamma_tip, 0.0};     // Tip coupling
 
         // Calculate transmission using Caroli formula: T = Tr(Gamma_s @ G @ Gamma_t @ G†)
-        multiply_complex_matrices(n, Gammat, Gdag, Gammat_Gdag);
-        multiply_complex_matrices(n, G, Gammat_Gdag, G_Gammat_Gdag);
-        multiply_complex_matrices(n, Gammas, G_Gammat_Gdag, Tmat);
+        multiply_complex_matrices(n, Gammat , Gdag          , Gammat_Gdag    );
+        multiply_complex_matrices(n, G      , Gammat_Gdag   , G_Gammat_Gdag  );
+        multiply_complex_matrices(n, Gammas , G_Gammat_Gdag , Tmat           );
 
         // Save matrices for debugging
         if(debug) {
+
+            save_matrix_to_file( 0, "H (LandauerQD.cpp)", H, n, n);
+
             save_matrix_to_file("cpp_H.txt", "H (LandauerQD.cpp)", H, n, n);
             save_matrix_to_file("cpp_G.txt", "G (LandauerQD.cpp)", G, n, n);
             save_matrix_to_file("cpp_Gdag.txt", "Gdag (LandauerQD.cpp)", Gdag, n, n);
@@ -248,10 +254,12 @@ public:
             trace = trace + Tmat[i * n + i];
         }
 
+        printf("calculate_transmission_from_H() DONE Tr(Tmat): (real=%g,imag=%g) \n", trace.x, trace.y);
         return trace.x;  // Return real part of trace
     }
 
     double calculate_transmission(  double E, const Vec3d& tip_pos, double Q_tip=0.0, Vec2d* Hqd=nullptr) {
+        printf("calculate_transmission(): E = %g, tip_pos = (%g, %g, %g), Q_tip = %g\n", E, tip_pos.x, tip_pos.y, tip_pos.z, Q_tip);
         int n = n_qds + 2;
         Vec2d H[n * n];
         make_full_hamiltonian(tip_pos, H, Q_tip, Hqd);

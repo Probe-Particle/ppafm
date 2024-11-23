@@ -11,23 +11,6 @@
 // Complex matrix multiplication C = A*B
 // A is n×k matrix, B is k×m matrix, C is n×m matrix
 inline void multiply_complex_matrices(int n, int k, int m, Vec2d* A, Vec2d* B, Vec2d* C) {
-    //printf("\nMatrix multiplication debug:\n");
-    //printf("Matrix A (%dx%d):\n", n, k);
-    // for(int i=0; i<n; i++) {
-    //     for(int j=0; j<k; j++) {
-    //         printf("(%g,%g) ", A[i*k + j].x, A[i*k + j].y);
-    //     }
-    //     printf("\n");
-    // }
-    
-    //printf("\nMatrix B (%dx%d):\n", k, m);
-    // for(int i=0; i<k; i++) {
-    //     for(int j=0; j<m; j++) {
-    //         printf("(%g,%g) ", B[i*m + j].x, B[i*m + j].y);
-    //     }
-    //     printf("\n");
-    // }
-    
     for(int i=0; i<n; i++) {
         for(int j=0; j<m; j++) {
             Vec2d sum = {0.0, 0.0};
@@ -41,14 +24,6 @@ inline void multiply_complex_matrices(int n, int k, int m, Vec2d* A, Vec2d* B, V
             }
             C[i*m + j] = sum;
         }
-    }
-    
-    //printf("\nResult matrix C (%dx%d):\n", n, m);
-    for(int i=0; i<n; i++) {
-        for(int j=0; j<m; j++) {
-            printf("(%g,%g) ", C[i*m + j].x, C[i*m + j].y);
-        }
-        printf("\n");
     }
 }
 
@@ -97,24 +72,22 @@ inline void swap_columns_and_rows(int n, int col1, int col2, Vec2d* A, int strid
 // A is n×n matrix, B is n×m matrix (augmented part)
 // Result will be [I|A^(-1)B]
 inline void gauss_jordan_eliminate(int n, int m, Vec2d* aug) {
+    //printf("gauss_jordan_eliminate(n=%i,m=%i)\n", n, m);
     int stride = n + m;
     
     for(int i = 0; i < n; i++) {
-        // Find pivot
+
         int pivot_row, pivot_col;
         find_pivot_partial(n, i, aug, stride, pivot_row, pivot_col);
         
-        // Swap rows if needed
-        if(pivot_row != i) {
-            swap_rows(n, i, pivot_row, aug, stride);
-        }
+        
+        if(pivot_row != i) {   swap_rows(n, i, pivot_row, aug, stride);}
                 
         // Scale pivot row
         Vec2d pivot = aug[i*stride + i];
         if(pivot.norm() < 1e-10) {
             printf("Error: Near-zero pivot encountered (norm = %g)\n", pivot.norm());
-            // Set all remaining elements to zero to indicate singular matrix
-            for(int r = i; r < n; r++) {
+            for(int r = i; r < n; r++) {   // Set all remaining elements to zero to indicate singular matrix
                 for(int c = 0; c < stride; c++) {
                     aug[r*stride + c] = Vec2d{0.0, 0.0};
                 }
@@ -144,13 +117,14 @@ inline void gauss_jordan_eliminate(int n, int m, Vec2d* aug) {
             }
         }
     }
+    //printf("gauss_jordan_eliminate() DONE\n");
 }
 
 // Invert matrix using Gauss-Jordan elimination
 // workspace should be pre-allocated with size 2*n*n for augmented matrix [A|I]
 inline void invert_complex_matrix(int n, Vec2d* A, Vec2d* Ainv, Vec2d* workspace) {
+    //printf("invert_complex_matrix(n=%i)\n", n);
     Vec2d* aug = workspace;  // Use pre-allocated workspace for [A|I]
-    
     // Initialize augmented matrix [A|I]
     for(int i = 0; i < n; i++) {
         for(int j = 0; j < n; j++) {
@@ -158,16 +132,14 @@ inline void invert_complex_matrix(int n, Vec2d* A, Vec2d* Ainv, Vec2d* workspace
             aug[i*(2*n) + (j+n)] = {(i == j) ? 1.0 : 0.0, 0.0};
         }
     }
-    
-    // Perform Gauss-Jordan elimination
-    gauss_jordan_eliminate(n, n, aug);
-    
+    gauss_jordan_eliminate(n, n, aug);  // Perform Gauss-Jordan elimination
     // For partial pivoting, just copy directly
     for(int i = 0; i < n; i++) {
         for(int j = 0; j < n; j++) {
             Ainv[i*n + j] = aug[i*(2*n) + (j+n)];
         }
     }
+    //printf("invert_complex_matrix() DONE\n");
 }
 
 // Solve system of linear equations AX = B
@@ -197,23 +169,49 @@ inline void solve_complex_system(int n, int m, Vec2d* A, Vec2d* B, Vec2d* X, Vec
     }
 }
 
+// void save_matrix_to_file(const char* filename, const char* title, Vec2d* matrix, int rows, int cols) {
+    
+//     FILE* f = fopen(filename, "w");
+//     if (!f) {
+//         printf("Error: Could not open file %s for writing\n", filename);
+//         return;
+//     }
+//     fprintf(f, "%s\n", title);
+//     fprintf(f, "Dimensions: %d %d\n", rows, cols);
+//     fprintf(f, "Format: (real,imag)\n");
+//     for(int i = 0; i < rows; i++) {
+//         for(int j = 0; j < cols; j++) {
+//             Vec2d val = matrix[i * cols + j];
+//             fprintf(f, "(%e,%e) ", val.x, val.y);
+//         }
+//         fprintf(f, "\n");
+//     }
+//     fclose(f);
+// }
+
 void save_matrix_to_file(const char* filename, const char* title, Vec2d* matrix, int rows, int cols) {
-    FILE* f = fopen(filename, "w");
-    if (!f) {
-        printf("Error: Could not open file %s for writing\n", filename);
-        return;
+    FILE* f = nullptr;
+    if (filename) {
+        f = fopen(filename, "w");
+        if (!f) {
+            printf("Error: Could not open file %s for writing\n", filename);
+            return;
+        }
+    } else {
+        f = stdout; // Use standard output if no filename is provided
     }
-    fprintf(f, "%s\n", title);
-    fprintf(f, "Dimensions: %d %d\n", rows, cols);
-    fprintf(f, "Format: (real,imag)\n");
-    for(int i = 0; i < rows; i++) {
-        for(int j = 0; j < cols; j++) {
+    fprintf(f, "%s Dimensions: %d %d Format: (real,imag) \n", title, rows, cols );
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
             Vec2d val = matrix[i * cols + j];
             fprintf(f, "(%e,%e) ", val.x, val.y);
         }
         fprintf(f, "\n");
     }
-    fclose(f);
+
+    if (f != stdout) {
+        fclose(f); // Only close if it is a file
+    }
 }
 
 #endif // COMPLEX_ALGEBRA_H

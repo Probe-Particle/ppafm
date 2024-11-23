@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 
 def print_comparison_complex(name, A, B, tol=1e-8, ignore_imag=False, relative=False):
     """Print comparison between Python and C++ values."""
@@ -90,24 +91,37 @@ def compare_matrix_files(A_file, B_file, tol=1e-8):
     
     return max_diff < tol
 
-def save_matrix(matrix, filename, title="Matrix"):
-    """Save a complex matrix to a file with proper formatting."""
-    with open(filename, 'w') as f:
-        f.write(f"{title}\n")
-        f.write(f"Dimensions: {matrix.shape}\n")
-        f.write("Format: (real,imag)\n")
-        if len(matrix.shape) == 1:
-            # Handle 1D array (vector)
-            for elem in matrix:
-                f.write(f"({elem.real:.6e},{elem.imag:.6e}) ")
-            f.write("\n")
-        else:
-            # Handle 2D array (matrix)
-            for i in range(matrix.shape[0]):
-                for j in range(matrix.shape[1]):
-                    elem = matrix[i,j]
-                    f.write(f"({elem.real:.6e},{elem.imag:.6e}) ")
-                f.write("\n")
+# def save_matrix(matrix, filename, title="Matrix"):
+#     """Save a complex matrix to a file with proper formatting."""
+#     with open(filename, 'w') as f:
+#         f.write(f"{title}\n")
+#         f.write(f"Dimensions: {matrix.shape}\n")
+#         f.write("Format: (real,imag)\n")
+#         if len(matrix.shape) == 1:
+#             # Handle 1D array (vector)
+#             for elem in matrix:
+#                 f.write(f"({elem.real:.6e},{elem.imag:.6e}) ")
+#             f.write("\n")
+#         else:
+#             # Handle 2D array (matrix)
+#             for i in range(matrix.shape[0]):
+#                 for j in range(matrix.shape[1]):
+#                     elem = matrix[i,j]
+#                     f.write(f"({elem.real:.6e},{elem.imag:.6e}) ")
+#                 f.write("\n")
+
+def save_matrix(matrix, filename=None, title="Matrix"):
+    """Save a complex matrix to a file or standard output with proper formatting."""
+    f = open(filename, 'w') if filename else sys.stdout  # Use stdout if filename is None
+    # Write the content
+    f.write(f"{title} Dimensions: {matrix.shape} Format: (real,imag) \n")
+    if len(matrix.shape) == 1:  # Handle 1D array (vector)
+        f.write(" ".join( f"({elem.real:.6e},{elem.imag:.6e})" for elem in matrix) + "\n")
+    else:  # Handle 2D array (matrix)
+        for i in range(matrix.shape[0]):
+            f.write(" ".join( f"({matrix[i, j].real:.6e},{matrix[i, j].imag:.6e})" for j in range(matrix.shape[1]) ) + "\n")
+    if f is not sys.stdout:  # Close the file only if it's not stdout
+        f.close()
 
 def matrices_match(A, B, tol=1e-6, verbose=False):
     """Check if two matrices match within a tolerance."""

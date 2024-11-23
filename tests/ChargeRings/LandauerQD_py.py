@@ -195,6 +195,8 @@ class LandauerQDs:
         Gdag          = G.conj().T;  
         Gamma_s, Gamma_t = self._calculate_coupling_matrices()
 
+        tu.save_matrix(H,        None,        "H_full  (LandauerQD_py.py) ")
+
         tu.save_matrix(H,        "py_H.txt",        "H_full  (LandauerQD_py.py) ")
         tu.save_matrix(G,        "py_G.txt",        "G       (LandauerQD_py.py) ")
         tu.save_matrix(Gdag,     "py_Gdag.txt",     "Gdag    (LandauerQD_py.py) ")
