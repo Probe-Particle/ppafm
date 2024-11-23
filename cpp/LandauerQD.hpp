@@ -38,9 +38,6 @@ struct LandauerQDs {
                 double eta_=0.00, double Gamma_tip_=1.0, double Gamma_sub_=1.0);
     ~LandauerQDs();
 
-    // Matrix logging functionality
-    void save_matrix_to_file(const char* filename, const char* title, Vec2d* matrix, int rows, int cols);
-
     // Core functionality
     void calculate_greens_function(double E, Vec2d* H_QD, Vec2d* G_out);
     void calculate_gamma(Vec2d* coupling_vector, Vec2d* gamma_out, int size);

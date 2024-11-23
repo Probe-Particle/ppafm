@@ -3,7 +3,7 @@ import numpy as np
 import test_utils as tu
 
 class LandauerQDs:
-    def __init__(self, QDpos, Esite, K=0.01, decay=1.0, tS=0.01, E_sub=0.0, E_tip=0.0, tA=0.1, eta=0.00, Gamma_tip=1.0, Gamma_sub=1.0, debug=False, verbosity=0):
+    def __init__(self, QDpos, Esite, K=0.01, decay=1.0, tS=0.01, E_sub=0.0, E_tip=0.0, tA=0.1, eta=0.00, Gamma_tip=1.0, Gamma_sub=1.0, debug=False ):
         """
         Initializes the LandauerQDs class.
 
@@ -19,7 +19,6 @@ class LandauerQDs:
             Gamma_tip: float      : Broadening of the tip state. Defaults to 1.0.
             Gamma_sub: float      : Broadening of the substrate state. Defaults to 1.0.
             debug    : bool      : Enable debug output. Defaults to False.
-            verbosity: int       : Level of verbosity (0-2). Defaults to 0.
         """
         self.QDpos = QDpos
         self.K = K
@@ -33,7 +32,6 @@ class LandauerQDs:
         self.Gamma_tip = Gamma_tip
         self.Gamma_sub = Gamma_sub
         self.debug = debug
-        self.verbosity = verbosity
 
         self.n_qds = len(QDpos)  # Store the number of QDs
 
@@ -44,10 +42,13 @@ class LandauerQDs:
         self.K_matrix = K * (np.ones((self.n_qds, self.n_qds)) - np.identity(self.n_qds))
 
         # Construct the main block of the Hamiltonian (H_QD) - without tip yet
-        self.H_QD_no_tip = np.block([
+        self.Hqd0 = np.block([
             [np.array([[self.E_sub]]), self.H_sub_QD[None, :]],
             [self.H_sub_QD[:, None], np.diag(self.Esite) + self.K_matrix]
         ])
+        if self.debug:
+            tu.write_matrix( self.Hqd0, None,          "Hqd0 (LandauerQD_py.py)" )
+            tu.write_matrix( self.Hqd0, "py_Hqd0.txt", "Hqd0 (LandauerQD_py.py)" )
 
     def calculate_greens_function(self, E, H):
         """
@@ -62,27 +63,7 @@ class LandauerQDs:
         """
         identity = np.eye(len(H), dtype=np.complex128)
         G = np.linalg.inv((E + 1j*self.eta)*identity - H)
-        
-        if self.debug and self.verbosity > 1:
-            print("\nPython Green's function calculation:")
-            print("Original matrix ((E + iη)I - H):")
-            A = (E + 1j*self.eta)*identity - H
-            print(A)
-            
-            print("\nInverted matrix G:")
-            print(G)
-            
-            # Verify inversion
-            verification = np.matmul(A, G)
-            print("\nVerification A * A^-1:")
-            print(verification)
-            
-            # Check deviation from identity
-            off_diag_mask = ~np.eye(len(H), dtype=bool)
-            max_off_diag  = np.max(np.abs(verification[off_diag_mask]))
-            max_diag_diff = np.max(np.abs(verification[np.eye(len(H), dtype=bool)] - 1))
-            print(f"Max deviation from identity: diagonal={max_diag_diff:.2e} off-diagonal={max_off_diag:.2e}")
-        
+                
         return G
 
     def calculate_gamma(self, coupling_vector):
@@ -100,10 +81,16 @@ class LandauerQDs:
     def calculate_tip_induced_shifts(self, tip_pos, Q_tip):
         """Calculate energy shifts induced by tip's Coulomb potential."""
         COULOMB_CONST = 14.3996  # eV*Å/e
+        MIN_DIST      = 1e-3  # Minimum distance to prevent division by zero
         shifts = np.zeros(self.n_qds)
         for i in range(self.n_qds):
             d = tip_pos - self.QDpos[i]
-            shifts[i] = COULOMB_CONST * Q_tip / np.linalg.norm(d)
+            dist = np.linalg.norm(d)
+            # if (dist < MIN_DIST){ printf("ERROR in calculate_tip_induced_shift(): dist(%g)<MIN_DIST(%g) tip_pos(%g,%g,%g) qd_pos(%g,%g,%g) \n", dist, MIN_DIST, tip_pos.x, tip_pos.y, tip_pos.z, qd_pos.x, qd_pos.y, qd_pos.z); exit(0); };
+            if dist < MIN_DIST:
+                print(f"ERROR in calculate_tip_induced_shift(): dist({dist})<MIN_DIST({MIN_DIST}) tip_pos({tip_pos}) qd_pos({self.QDpos[i]})")
+                #dist = MIN_DIST  # Prevent division by zero
+            shifts[i] = COULOMB_CONST * Q_tip / dist
         return shifts
 
     def _makeHqd(self, tip_pos, Q_tip=None):
@@ -184,40 +171,31 @@ class LandauerQDs:
         Returns:
             float - Transmission probability
         """
-        if self.debug and self.verbosity > 0:
-            print("\nPython transmission calculation:")
-            print("Full Hamiltonian H:")
-            print(H)
         
-        tu.save_matrix(H,  "py_H.txt",  "H_full (LandauerQD_py.py) ")
-
         G = self.calculate_greens_function(energy, H)
         Gdag          = G.conj().T;  
         Gamma_s, Gamma_t = self._calculate_coupling_matrices()
-
-        tu.save_matrix(H,        None,        "H_full  (LandauerQD_py.py) ")
-
-        tu.save_matrix(H,        "py_H.txt",        "H_full  (LandauerQD_py.py) ")
-        tu.save_matrix(G,        "py_G.txt",        "G       (LandauerQD_py.py) ")
-        tu.save_matrix(Gdag,     "py_Gdag.txt",     "Gdag    (LandauerQD_py.py) ")
-        tu.save_matrix(Gamma_s,  "py_Gamma_s.txt",  "Gamma_s (LandauerQD_py.py) ")
-        tu.save_matrix(Gamma_t,  "py_Gamma_t.txt",  "Gamma_t (LandauerQD_py.py) ")
         
-        if self.debug and self.verbosity > 1:
-            print("\nGamma_substrate:")
-            print(Gamma_s)
-            print("\nGamma_tip:")
-            print(Gamma_t)  
+        if self.debug:
+
+            tu.write_matrix(H,        None,              "H_full  (LandauerQD_py.py) ")
+
+            tu.write_matrix(H,        "py_H.txt",        "H_full  (LandauerQD_py.py) ")
+            tu.write_matrix(G,        "py_G.txt",        "G       (LandauerQD_py.py) ")
+            tu.write_matrix(Gdag,     "py_Gdag.txt",     "Gdag    (LandauerQD_py.py) ")
+            tu.write_matrix(Gamma_s,  "py_Gamma_s.txt",  "Gamma_s (LandauerQD_py.py) ")
+            tu.write_matrix(Gamma_t,  "py_Gamma_t.txt",  "Gamma_t (LandauerQD_py.py) ")
+
             Gdag          = G.conj().T;               
-            Gammat_Gdag   = Gamma_t @ Gdag;           tu.save_matrix(Gammat_Gdag,   "py_Gammat_Gdag.txt",   "Gamma_t @ Gdag (LandauerQD_py.py)")
-            G_Gammat_Gdag = G @ Gammat_Gdag;          tu.save_matrix(G_Gammat_Gdag, "py_G_Gammat_Gdag.txt", "G @ Gamma_t @ Gdag (LandauerQD_py.py)")
-            Tmat          = Gamma_s @ G_Gammat_Gdag;  tu.save_matrix(Tmat,          "py_Tmat.txt",          "Tmat = Gamma_s @ G @ Gamma_t @ Gdag (LandauerQD_py.py)")
+            Gammat_Gdag   = Gamma_t @ Gdag;           tu.write_matrix(Gammat_Gdag,   "py_Gammat_Gdag.txt",   "Gamma_t @ Gdag (LandauerQD_py.py)")
+            G_Gammat_Gdag = G @ Gammat_Gdag;          tu.write_matrix(G_Gammat_Gdag, "py_G_Gammat_Gdag.txt", "G @ Gamma_t @ Gdag (LandauerQD_py.py)")
+            Tmat          = Gamma_s @ G_Gammat_Gdag;  tu.write_matrix(Tmat,          "py_Tmat.txt",          "Tmat = Gamma_s @ G @ Gamma_t @ Gdag (LandauerQD_py.py)")
         else:
             Tmat = Gamma_s @ G @ Gamma_t @ Gdag
         
         transmission = np.real(np.trace(Tmat))
         
-        if self.debug and self.verbosity > 0:
+        if self.debug:
             print( "Tmat diag (channels) :\n" )
             for i in range(Tmat.shape[0]): print( f"Tmat[{i},{i}]: ", Tmat[i,i] )
             print(f"\nFinal transmission: {transmission} (LandauerQD_py.py)")
@@ -230,6 +208,10 @@ class LandauerQDs:
             if Q_tip is None:
                 raise ValueError("ERROR in make_full_hamiltonian(): Either Q_tip or Hqd must be provided.")
             Hqd = self._makeHqd(tip_pos, Q_tip)
+        
+        if self.debug:
+            tu.write_matrix(Hqd,        None,        "Hqd  (LandauerQD_py.py) ")
+
         return self._assemble_full_H(tip_pos, Hqd)
 
     def calculate_transmission(self, tip_pos, E, Q_tip=None, Hqd=None ):
@@ -289,7 +271,7 @@ if __name__ == "__main__":
     Esite = np.array([0.1, 0.2, 0.3])
     tS = 0.01  # QD-substrate coupling
 
-    system = LandauerQDs(QDpos, Esite, K, decay, tS, debug=True, verbosity=2)
+    system = LandauerQDs(QDpos, Esite, K, decay, tS, debug=True)
 
     tip_position = np.array([0.0, 0.0, 1.0])
     E = 0.5

@@ -74,6 +74,10 @@ public:
                 Hqd0[i * n_qds + j] = { val, 0.0};
             }
         }
+        if(debug) {
+            write_matrix(0,              "Hqd0 (LandauerQD.cpp)", Hqd0, n_qds, n_qds);
+            write_matrix("cpp_Hqd0.txt", "Hqd0 (LandauerQD.cpp)", Hqd0, n_qds, n_qds);
+        }
     }
 
     ~LandauerQDs() {
@@ -108,8 +112,11 @@ public:
 
     double calculate_tip_induced_shift(const Vec3d& tip_pos, const Vec3d& qd_pos, double Q_tip) {
         const double COULOMB_CONST = 14.3996;  // eV*Å/e
+        const double MIN_DIST = 1e-3;  // Minimum distance to prevent division by zero
         Vec3d d = tip_pos - qd_pos;
-        return COULOMB_CONST * Q_tip / d.norm();
+        double dist = d.norm();
+        if (dist < MIN_DIST){ printf("ERROR in calculate_tip_induced_shift(): dist(%g)<MIN_DIST(%g) tip_pos(%g,%g,%g) qd_pos(%g,%g,%g) \n", dist, MIN_DIST, tip_pos.x, tip_pos.y, tip_pos.z, qd_pos.x, qd_pos.y, qd_pos.z); exit(0); };
+        return COULOMB_CONST * Q_tip / dist;
     }
 
     // void calculate_tip_effects(const Vec3d& tip_pos, double Q_tip, Vec2d* tip_couplings, Vec2d* Hqd) {
@@ -138,9 +145,11 @@ public:
                 Hqd[i * n_qds + i].x += shift;
                 //Hqd[i * n_qds + i].x += shifts[i];
             }
-            
         }
-        //delete[] shifts;
+        if(debug) {
+            write_matrix(0,             "Hqd (LandauerQD.cpp)", Hqd, n_qds, n_qds);
+            write_matrix("cpp_Hqd.txt", "Hqd (LandauerQD.cpp)", Hqd, n_qds, n_qds);
+        }
     }
 
     void assemble_full_H(const Vec3d& tip_pos, Vec2d* Hqd, Vec2d* H) {
@@ -236,16 +245,16 @@ public:
         // Save matrices for debugging
         if(debug) {
 
-            save_matrix_to_file( 0, "H (LandauerQD.cpp)", H, n, n);
+            write_matrix( 0, "H (LandauerQD.cpp)", H, n, n);
 
-            save_matrix_to_file("cpp_H.txt", "H (LandauerQD.cpp)", H, n, n);
-            save_matrix_to_file("cpp_G.txt", "G (LandauerQD.cpp)", G, n, n);
-            save_matrix_to_file("cpp_Gdag.txt", "Gdag (LandauerQD.cpp)", Gdag, n, n);
-            save_matrix_to_file("cpp_Gamma_t.txt", "Gamma_t (LandauerQD.cpp)", Gammat, n, n);
-            save_matrix_to_file("cpp_Gamma_s.txt", "Gamma_s (LandauerQD.cpp)", Gammas, n, n);
-            save_matrix_to_file("cpp_Gammat_Gdag.txt", "Gamma_t_G_dag (LandauerQD.cpp)", Gammat_Gdag, n, n);
-            save_matrix_to_file("cpp_G_Gammat_Gdag.txt", "G_Gamma_t_G_dag (LandauerQD.cpp)", G_Gammat_Gdag, n, n);
-            save_matrix_to_file("cpp_Tmat.txt", "Tmat = Gamma_s @ G @ Gamma_t @ Gdag (LandauerQD.cpp)", Tmat, n, n);
+            write_matrix("cpp_H.txt", "H (LandauerQD.cpp)", H, n, n);
+            write_matrix("cpp_G.txt", "G (LandauerQD.cpp)", G, n, n);
+            write_matrix("cpp_Gdag.txt", "Gdag (LandauerQD.cpp)", Gdag, n, n);
+            write_matrix("cpp_Gamma_t.txt", "Gamma_t (LandauerQD.cpp)", Gammat, n, n);
+            write_matrix("cpp_Gamma_s.txt", "Gamma_s (LandauerQD.cpp)", Gammas, n, n);
+            write_matrix("cpp_Gammat_Gdag.txt", "Gamma_t_G_dag (LandauerQD.cpp)", Gammat_Gdag, n, n);
+            write_matrix("cpp_G_Gammat_Gdag.txt", "G_Gamma_t_G_dag (LandauerQD.cpp)", G_Gammat_Gdag, n, n);
+            write_matrix("cpp_Tmat.txt", "Tmat = Gamma_s @ G @ Gamma_t @ Gdag (LandauerQD.cpp)", Tmat, n, n);
         }
 
         // Calculate trace
@@ -305,10 +314,13 @@ void deleteLandauerQDs() {
     }
 }
 
-double calculate_transmission(double E, double* tip_pos, double Q_tip, double* Hqd ) {
-    if (g_system == nullptr) { printf("ERROR calculate_transmission(): System not initialized\n"); exit(0); }
-    return g_system->calculate_transmission( E, *(Vec3d*)tip_pos,  Q_tip, (Vec2d*)Hqd );
-    //return g_system->calculate_transmission_from_H(E, (Vec2d*)H );
+double calculate_transmission(double E, double* tip_pos_, double Q_tip, double* Hqd ) {
+    if(g_system == nullptr) {
+        printf("Error: System not initialized\n");
+        return 0.0;
+    }
+    Vec3d tip_pos = {tip_pos_[0], tip_pos_[1], tip_pos_[2]};
+    return g_system->calculate_transmission(E, tip_pos, Q_tip, (Vec2d*)Hqd);
 }
 
 void calculate_transmissions( int nE, double* energies, int npos, double* ptips_, double* Qtips,  double* Hqds_, double* transmissions) {

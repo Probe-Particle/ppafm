@@ -79,7 +79,7 @@ void LandauerQDs::calculate_greens_function(double E, Vec2d* H_QD, Vec2d* G_out)
         }
     }
     
-    save_matrix_to_file("cpp_A.txt", "Matrix before inversion (C++)", G_out, N, N);
+    write_matrix("cpp_A.txt", "Matrix before inversion (C++)", G_out, N, N);
     
     // Copy G to temporary buffer for inversion
     Vec2d* temp = new Vec2d[N * N];
@@ -90,7 +90,7 @@ void LandauerQDs::calculate_greens_function(double E, Vec2d* H_QD, Vec2d* G_out)
     // Invert G using ComplexAlgebra routines
     invert_complex_matrix(N, temp, G_out, workspace);
     
-    save_matrix_to_file("cpp_G.txt", "Matrix after inversion (C++)", G_out, N, N);
+    write_matrix("cpp_G.txt", "Matrix after inversion (C++)", G_out, N, N);
     
     delete[] temp;
 }
@@ -307,22 +307,16 @@ double LandauerQDs::calculate_transmission(double E, Vec3d tip_pos, Vec2d* H ) {
     multiply_complex_matrices(n, Gammas, G_Gammat_Gdag, Tmat);
 
 
-    // tu.save_matrix(H_py,     "py_H.txt",        "H_full  (LandauerQD_py.py) ")
-    // tu.save_matrix(G_py,     "py_G.txt",        "G       (LandauerQD_py.py) ")
-    // tu.save_matrix(Gdag,     "py_Gdag.txt",     "Gdag    (LandauerQD_py.py) ")
-    // tu.save_matrix(Gamma_s,  "py_Gamma_s.txt",  "Gamma_s (LandauerQD_py.py) ")
-    // tu.save_matrix(Gamma_t,  "py_Gamma_t.txt",  "Gamma_t (LandauerQD_py.py) ")
+    write_matrix("cpp_H.txt",    "H    (LandauerQD.cpp)", H, n, n);
+    write_matrix("cpp_G.txt",    "G    (LandauerQD.cpp)", G, n, n);
+    write_matrix("cpp_Gdag.txt", "Gdag (LandauerQD.cpp)", Gdag, n, n);
 
-    save_matrix_to_file("cpp_H.txt",    "H    (LandauerQD.cpp)", H, n, n);
-    save_matrix_to_file("cpp_G.txt",    "G    (LandauerQD.cpp)", G, n, n);
-    save_matrix_to_file("cpp_Gdag.txt", "Gdag (LandauerQD.cpp)", Gdag, n, n);
+    write_matrix("cpp_Gamma_t.txt", "Gamma_t (LandauerQD.cpp)", Gammat, n, n);
+    write_matrix("cpp_Gamma_s.txt", "Gamma_s (LandauerQD.cpp)", Gammas, n, n);
 
-    save_matrix_to_file("cpp_Gamma_t.txt", "Gamma_t (LandauerQD.cpp)", Gammat, n, n);
-    save_matrix_to_file("cpp_Gamma_s.txt", "Gamma_s (LandauerQD.cpp)", Gammas, n, n);
-
-    save_matrix_to_file("cpp_Gammat_Gdag.txt",   "Gamma_t_G_dag (LandauerQD.cpp)", Gammat_Gdag, n, n);
-    save_matrix_to_file("cpp_G_Gammat_Gdag.txt", "G_Gamma_t_G_dag (LandauerQD.cpp)", G_Gammat_Gdag, n, n);
-    save_matrix_to_file("cpp_Tmat.txt",          "Tmat = Gamma_s @ G @ Gamma_t @ Gdag (LandauerQD.cpp)", Tmat, n, n);
+    write_matrix("cpp_Gammat_Gdag.txt",   "Gamma_t_G_dag (LandauerQD.cpp)", Gammat_Gdag, n, n);
+    write_matrix("cpp_G_Gammat_Gdag.txt", "G_Gamma_t_G_dag (LandauerQD.cpp)", G_Gammat_Gdag, n, n);
+    write_matrix("cpp_Tmat.txt",          "Tmat = Gamma_s @ G @ Gamma_t @ Gdag (LandauerQD.cpp)", Tmat, n, n);
     
     // Calculate trace
     Vec2d trace = {0.0, 0.0};
@@ -392,26 +386,6 @@ void LandauerQDs::get_full_H(Vec3d tip_pos, Vec2d* H_out) {
     assemble_full_H(tip_pos, Hqd, H_out);
     //delete[] QD_block;
 }
-
-void LandauerQDs::save_matrix_to_file(const char* filename, const char* title, Vec2d* matrix, int rows, int cols) {
-    FILE* f = fopen(filename, "w");
-    if (!f) {
-        printf("Error: Could not open file %s for writing\n", filename);
-        return;
-    }
-    fprintf(f, "%s\n", title);
-    fprintf(f, "Dimensions: %d %d\n", rows, cols);
-    fprintf(f, "Format: (real,imag)\n");
-    for(int i = 0; i < rows; i++) {
-        for(int j = 0; j < cols; j++) {
-            Vec2d val = matrix[i * cols + j];
-            fprintf(f, "(%e,%e) ", val.x, val.y);
-        }
-        fprintf(f, "\n");
-    }
-    fclose(f);
-}
-
 
 // =================================================
 

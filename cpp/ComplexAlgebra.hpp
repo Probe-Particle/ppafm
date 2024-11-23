@@ -71,7 +71,7 @@ inline void swap_columns_and_rows(int n, int col1, int col2, Vec2d* A, int strid
 // Perform Gauss-Jordan elimination on augmented matrix [A|B]
 // A is n×n matrix, B is n×m matrix (augmented part)
 // Result will be [I|A^(-1)B]
-inline void gauss_jordan_eliminate(int n, int m, Vec2d* aug) {
+inline void gauss_jordan_eliminate(int n, int m, Vec2d* aug, double pivot_threshold=1e-10) {
     //printf("gauss_jordan_eliminate(n=%i,m=%i)\n", n, m);
     int stride = n + m;
     
@@ -85,7 +85,7 @@ inline void gauss_jordan_eliminate(int n, int m, Vec2d* aug) {
                 
         // Scale pivot row
         Vec2d pivot = aug[i*stride + i];
-        if(pivot.norm() < 1e-10) {
+        if(pivot.norm() < pivot_threshold) {
             printf("Error: Near-zero pivot encountered (norm = %g)\n", pivot.norm());
             for(int r = i; r < n; r++) {   // Set all remaining elements to zero to indicate singular matrix
                 for(int c = 0; c < stride; c++) {
@@ -122,7 +122,7 @@ inline void gauss_jordan_eliminate(int n, int m, Vec2d* aug) {
 
 // Invert matrix using Gauss-Jordan elimination
 // workspace should be pre-allocated with size 2*n*n for augmented matrix [A|I]
-inline void invert_complex_matrix(int n, Vec2d* A, Vec2d* Ainv, Vec2d* workspace) {
+inline void invert_complex_matrix(int n, Vec2d* A, Vec2d* Ainv, Vec2d* workspace, double pivot_threshold=1e-10) {
     //printf("invert_complex_matrix(n=%i)\n", n);
     Vec2d* aug = workspace;  // Use pre-allocated workspace for [A|I]
     // Initialize augmented matrix [A|I]
@@ -132,7 +132,7 @@ inline void invert_complex_matrix(int n, Vec2d* A, Vec2d* Ainv, Vec2d* workspace
             aug[i*(2*n) + (j+n)] = {(i == j) ? 1.0 : 0.0, 0.0};
         }
     }
-    gauss_jordan_eliminate(n, n, aug);  // Perform Gauss-Jordan elimination
+    gauss_jordan_eliminate(n, n, aug, pivot_threshold);  // Perform Gauss-Jordan elimination
     // For partial pivoting, just copy directly
     for(int i = 0; i < n; i++) {
         for(int j = 0; j < n; j++) {
@@ -145,7 +145,7 @@ inline void invert_complex_matrix(int n, Vec2d* A, Vec2d* Ainv, Vec2d* workspace
 // Solve system of linear equations AX = B
 // A is n×n matrix, B is n×m matrix (m systems to solve simultaneously)
 // X will contain the solution
-inline void solve_complex_system(int n, int m, Vec2d* A, Vec2d* B, Vec2d* X, Vec2d* workspace) {
+inline void solve_complex_system(int n, int m, Vec2d* A, Vec2d* B, Vec2d* X, Vec2d* workspace, double pivot_threshold=1e-10) {
     Vec2d* aug = workspace;  // Use pre-allocated workspace for [A|B]
 
     // Initialize augmented matrix [A|B]
@@ -159,7 +159,7 @@ inline void solve_complex_system(int n, int m, Vec2d* A, Vec2d* B, Vec2d* X, Vec
     }
     
     // Perform Gauss-Jordan elimination
-    gauss_jordan_eliminate(n, m, aug);
+    gauss_jordan_eliminate(n, m, aug, pivot_threshold);
     
     // For partial pivoting, just copy directly
     for(int i = 0; i < n; i++) {
@@ -169,8 +169,7 @@ inline void solve_complex_system(int n, int m, Vec2d* A, Vec2d* B, Vec2d* X, Vec
     }
 }
 
-// void save_matrix_to_file(const char* filename, const char* title, Vec2d* matrix, int rows, int cols) {
-    
+// void write_matrix(const char* filename, const char* title, Vec2d* matrix, int rows, int cols) {
 //     FILE* f = fopen(filename, "w");
 //     if (!f) {
 //         printf("Error: Could not open file %s for writing\n", filename);
@@ -189,7 +188,7 @@ inline void solve_complex_system(int n, int m, Vec2d* A, Vec2d* B, Vec2d* X, Vec
 //     fclose(f);
 // }
 
-void save_matrix_to_file(const char* filename, const char* title, Vec2d* matrix, int rows, int cols) {
+void write_matrix(const char* filename, const char* title, Vec2d* matrix, int rows, int cols) {
     FILE* f = nullptr;
     if (filename) {
         f = fopen(filename, "w");

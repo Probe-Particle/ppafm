@@ -110,7 +110,7 @@ def compare_matrix_files(A_file, B_file, tol=1e-8):
 #                     f.write(f"({elem.real:.6e},{elem.imag:.6e}) ")
 #                 f.write("\n")
 
-def save_matrix(matrix, filename=None, title="Matrix"):
+def write_matrix(matrix, filename=None, title="Matrix"):
     """Save a complex matrix to a file or standard output with proper formatting."""
     f = open(filename, 'w') if filename else sys.stdout  # Use stdout if filename is None
     # Write the content

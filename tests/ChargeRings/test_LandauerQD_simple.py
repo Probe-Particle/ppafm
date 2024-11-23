@@ -2,7 +2,7 @@ import numpy as np
 import sys
 sys.path.append("../../")
 from LandauerQD_py import LandauerQDs as LandauerQDs_py
-from pyProbeParticle import LandauerQD_new as lqd_new
+from pyProbeParticle import LandauerQD_new as cpp_solver
 import test_utils as tu
 
 # Test parameters
@@ -31,19 +31,14 @@ tip_pos = np.array([0.0, 0.0])    # Tip position
 Q_tip = 0.6                       # Tip charge
 E_test = 0.0                      # Test energy
 
-def setup_python_solver():
-    """Initialize Python solver"""
-    solver = LandauerQDs_py(QD_pos, E_sites, K=K, decay=decay, tS=tS, 
-                           E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta,
-                           Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
-    return solver
+# def setup_python_solver():
+#     """Initialize Python solver"""
+#     solver = LandauerQDs_py(QD_pos, E_sites, K=K, decay=decay, tS=tS,   E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta,  Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
+#     return solver
 
-def setup_cpp_solver():
-    """Initialize C++ solver"""
-    lqd_new.init(QD_pos, E_sites, K=K, decay=decay, tS=tS,
-                 E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta,
-                 Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub,
-                 debug=1, verbosity=1)  # Enable debug output
+# def setup_cpp_solver():
+#     """Initialize C++ solver"""
+#     lqd_new.init(QD_pos, E_sites, K=K, decay=decay, tS=tS,  E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta,  Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub,  debug=1, verbosity=1)  # Enable debug output
 
 
 def compare_matrices():
@@ -84,8 +79,15 @@ def run_comparison():
     print(f"Tip charge: {Q_tip}")
     
     # Initialize solvers
-    py_solver = setup_python_solver()
-    setup_cpp_solver()
+    #py_solver = setup_python_solver()
+    #setup_cpp_solver()
+
+    #cpp_solver = lqd
+
+    debug = True
+
+    py_solver = LandauerQDs_py(QD_pos, E_sites, K=K, decay=decay, tS=tS,   E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta,  Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub, debug=debug )
+    cpp_solver.init(QD_pos, E_sites, K=K, decay=decay, tS=tS,  E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta,  Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub,             debug=debug )  # Enable debug output
     
     # Python implementation
     print("\nRunning Python implementation...")
@@ -93,7 +95,7 @@ def run_comparison():
     #py_transmission = py_solver.calculate_transmission_from_H(E_test, py_H)
     
     print("\nRunning C++ implementation...")
-    cpp_transmission = lqd_new.calculate_transmission(E_test, tip_pos, Hqd=None )
+    cpp_transmission = cpp_solver.calculate_transmission(E_test, tip_pos, Hqd=None )
     
     # Compare results
     print("\n=== Comparing Results ===")
@@ -107,7 +109,7 @@ def run_comparison():
     else:
         print("\nFAILURE: Some matrices do not match within tolerance!")
         
-    lqd_new.cleanup()
+    cpp_solver.cleanup()
 
 if __name__ == "__main__":
     run_comparison()
