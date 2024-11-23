@@ -86,8 +86,8 @@ class LandauerQDs:
             dist = np.linalg.norm(d)
             # if (dist < MIN_DIST){ printf("ERROR in calculate_tip_induced_shift(): dist(%g)<MIN_DIST(%g) tip_pos(%g,%g,%g) qd_pos(%g,%g,%g) \n", dist, MIN_DIST, tip_pos.x, tip_pos.y, tip_pos.z, qd_pos.x, qd_pos.y, qd_pos.z); exit(0); };
             if dist < MIN_DIST:
-                print(f"ERROR in calculate_tip_induced_shift(): dist({dist})<MIN_DIST({MIN_DIST}) tip_pos({tip_pos}) qd_pos({self.QDpos[i]})")
-                #dist = MIN_DIST  # Prevent division by zero
+                print(f"ERROR in calculate_tip_induced_shift(): dist({dist})<MIN_DIST({MIN_DIST}) tip_pos({tip_pos}) qd_pos({self.QDpos[i]})"); 
+                exit(0)
             shifts[i] = COULOMB_CONST * Q_tip / dist
         return shifts
 
@@ -109,8 +109,9 @@ class LandauerQDs:
         # Add energy shifts from tip if Q_tip provided
         if Q_tip is not None:
             energy_shifts = self.calculate_tip_induced_shifts(tip_pos, Q_tip)
-            # Add shifts only to diagonal elements
-            np.fill_diagonal(Hqd, np.diag(Hqd) + energy_shifts)
+            if self.debug:
+                print(f"LandauerQD_py._makeHqd() tip_pos={tip_pos} Q_tip={Q_tip} energy_shifts = {energy_shifts}")
+            np.fill_diagonal(Hqd, np.diag(Hqd) + energy_shifts)  # Add shifts only to diagonal elements
             
         return Hqd
 
@@ -128,6 +129,9 @@ class LandauerQDs:
         
         tip_couplings = self.calculate_tip_coupling(tip_pos)    # Calculate tip coupling
         H = np.zeros((self.n_qds + 2, self.n_qds + 2), dtype=np.complex128)      # Construct full Hamiltonian
+
+        if self.debug:
+            print( "LandauerQD_py._assemble_full_H() tip_couplings:\n", tip_couplings )
         
         # Fill QD block (with small broadening)
         H[1:self.n_qds+1, 1:self.n_qds+1] = Hqd

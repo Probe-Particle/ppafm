@@ -24,12 +24,12 @@ Gamma_sub = 1.0                   # Substrate state broadening
 # QD positions (ring configuration)
 R = 5.0  # Ring radius
 angles = np.linspace(0, 2*np.pi, n_qds, endpoint=False)
-QD_pos = np.array([[R*np.cos(phi), R*np.sin(phi)] for phi in angles])
+QD_pos = np.array([[R*np.cos(phi), R*np.sin(phi), 0.0] for phi in angles])
 
 # Test point
-tip_pos = np.array([0.0, 0.0])    # Tip position
-Q_tip = 0.6                       # Tip charge
-E_test = 0.0                      # Test energy
+tip_pos = np.array([ 1.0, 1.5, 5.0 ]) # Tip position
+Q_tip = 0.6                           # Tip charge
+E_test = 0.0                          # Test energy
 
 # def setup_python_solver():
 #     """Initialize Python solver"""
@@ -90,12 +90,12 @@ def run_comparison():
     cpp_solver.init(QD_pos, E_sites, K=K, decay=decay, tS=tS,  E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta,  Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub,             debug=debug )  # Enable debug output
     
     # Python implementation
-    print("\nRunning Python implementation...")
+    print("\n ############### Running Python implementation...\n")
     py_transmission  = py_solver.calculate_transmission( tip_pos, E_test, Q_tip=Q_tip, Hqd=None )
     #py_transmission = py_solver.calculate_transmission_from_H(E_test, py_H)
     
-    print("\nRunning C++ implementation...")
-    cpp_transmission = cpp_solver.calculate_transmission(E_test, tip_pos, Hqd=None )
+    print("\n ############### Running C++ implementation...\n")
+    cpp_transmission = cpp_solver.calculate_transmission(E_test, tip_pos, Q_tip=Q_tip, Hqd=None )
     
     # Compare results
     print("\n=== Comparing Results ===")

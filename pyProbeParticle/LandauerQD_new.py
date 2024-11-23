@@ -61,11 +61,11 @@ def cleanup():
     lib.deleteLandauerQDs()
 
 # double calculate_transmission(double E, double* tip_pos, double Q_tip, double* Hqd ) {
-lib.calculate_transmission.argtypes = [c_double, array1d, c_double_p ]
+lib.calculate_transmission.argtypes = [c_double, array1d, c_double, c_double_p ]
 lib.calculate_transmission.restype = c_double
-def calculate_transmission(energy, tip_pos, Hqd=None):
+def calculate_transmission(energy, tip_pos, Q_tip, Hqd=None):
     if (Hqd is not None) and (Hqd.dtype != np.complex128) : Hqd = Hqd.astype(np.complex128) 
-    return lib.calculate_transmission(energy, tip_pos, _np_as(Hqd,c_double_p))
+    return lib.calculate_transmission(energy, tip_pos, Q_tip, _np_as(Hqd,c_double_p))
 
 #void calculate_transmissions( int nE, double* energies, int npos, double* ptips_, double* Qtips,  double* Hqds_, double* transmissions) {
 lib.calculate_transmissions.argtypes = [ c_int, array1d, c_int, array2d, array1d, c_double_p, array2d]

@@ -144,6 +144,9 @@ public:
                 double shift = calculate_tip_induced_shift(tip_pos, QDpos[i], Q_tip);
                 Hqd[i * n_qds + i].x += shift;
                 //Hqd[i * n_qds + i].x += shifts[i];
+                if(debug) {
+                    printf("cpp:makeHqd() shift[%i] = %g\n", i, shift);
+                }
             }
         }
         if(debug) {
@@ -183,8 +186,9 @@ public:
         H[n * n - 1] = {E_tip, -Gamma_tip};
         for(int i = 0; i < n_qds; i++) {
             double t = calculate_tip_coupling(tip_pos, QDpos[i]);
-            H[(i + 1) * n + (n - 1)] = Vec2d{ t, 0 };           // Last column
-            H[(n - 1) * n + (i + 1)] = Vec2d{ t, 0 }; // Last row (conjugate)
+            printf("cpp::assemble_full_H(): tip_coupling[%i] = %g\n", i, t);
+            H[(i + 1) * n + (n - 1)] = Vec2d{ t, 0 };  // Last column
+            H[(n - 1) * n + (i + 1)] = Vec2d{ t, 0 };  // Last row (conjugate)
         }
         
         //delete[] tip_couplings;
