@@ -7,7 +7,7 @@ LD=g++
 CPPFLAGS= -fPIC -std=c++11 -Ofast -march=native -mtune=native -fopenmp -lgomp
 LDFLAGS= -shared
 
-all: PP GU MP RR PolyCycles_ atomfit_ fitting_ fitSpline_ MMFF_ FARFF_
+all: PP GU MP RR PolyCycles_ atomfit_ fitting_ fitSpline_ MMFF_ FARFF_ landauer landauer_new
 
 PP: ProbeParticle.o
 
@@ -22,6 +22,8 @@ Ram: Ramman.o
 chrings: ChargeRings.o
 
 landauer: LandauerQD.o
+
+landauer_new: LandauerQD_new.o
 
 PolyCycles_: PolyCycles.o
 

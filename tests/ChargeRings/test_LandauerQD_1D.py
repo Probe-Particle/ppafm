@@ -21,8 +21,8 @@ decay = 0.7
 T     = 10.0  # Temperature for occupancy calculation
 
 # Occupancy calculation switch
-#use_occupancy = True  # Set to True to use occupancy solver
-use_occupancy = False  # Set to True to use occupancy solver
+use_occupancy = True  # Set to True to use occupancy solver
+#use_occupancy = False  # Set to True to use occupancy solver
 cCouling = 0.03       # Coupling parameter for occupancy calculation
 E_Fermi = 0.0        # Fermi energy level
 

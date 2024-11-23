@@ -1,12 +1,14 @@
 #include <cmath>
 #include <cstring>
 #include "Vec2.h"
+#include "Vec3.h"
 #include "ComplexAlgebra.hpp"
+
 
 class LandauerQDs {
 public:
     // Parameters
-    Vec2d* QDpos;
+    Vec3d* QDpos;
     double K;
     double decay;
     double* Esite;
@@ -26,7 +28,7 @@ public:
     //Vec2d* K_matrix;    // Coulomb interaction matrix
     Vec2d* Hqd0;        // Base QD Hamiltonian (without tip effects)
 
-    LandauerQDs(Vec2d* QDpos_, int n_qds_, double* Esite_, double K_=0.01, double decay_=1.0, 
+    LandauerQDs(Vec3d* QDpos_, int n_qds_, double* Esite_, double K_=0.01, double decay_=1.0, 
                 double tS_=0.01, double E_sub_=0.0, double E_tip_=0.0, double tA_=0.1, 
                 double eta_=0.00, double Gamma_tip_=1.0, double Gamma_sub_=1.0, 
                 bool debug_=false, int verbosity_=0) {
@@ -98,28 +100,30 @@ public:
         invert_complex_matrix(n, A, G, workspace);
     }
 
-    void calculate_tip_coupling(const Vec2d& tip_pos, Vec2d* tip_couplings) {
-        for(int i = 0; i < n_qds; i++) {
-            double dx = tip_pos.x - QDpos[i].x;
-            double dy = tip_pos.y - QDpos[i].y;
-            double dz = tip_pos.z - QDpos[i].z;
-            double d = sqrt(dx*dx + dy*dy + dz*dz);
-            tip_couplings[i] = {tA * exp(-decay * d), 0.0};
-        }
+    double calculate_tip_coupling(const Vec3d& tip_pos, const Vec3d& qd_pos) {
+        Vec3d d = tip_pos - qd_pos;
+        return tA * exp(-decay * d.norm());
     }
 
-    void calculate_tip_induced_shifts(const Vec2d& tip_pos, double Q_tip, double* shifts) {
+    double calculate_tip_induced_shift(const Vec3d& tip_pos, const Vec3d& qd_pos, double Q_tip) {
         const double COULOMB_CONST = 14.3996;  // eV*Å/e
-        for(int i = 0; i < n_qds; i++) {
-            double dx = tip_pos.x - QDpos[i].x;
-            double dy = tip_pos.y - QDpos[i].y;
-            double dz = tip_pos.z - QDpos[i].z;
-            double d = sqrt(dx*dx + dy*dy + dz*dz);
-            shifts[i] = COULOMB_CONST * Q_tip / d;
-        }
+        Vec3d d = tip_pos - qd_pos;
+        return COULOMB_CONST * Q_tip / d.norm();
     }
 
-    void makeHqd(const Vec2d& tip_pos, double Q_tip, Vec2d* Hqd) {
+    // void calculate_tip_effects(const Vec3d& tip_pos, double Q_tip, Vec2d* tip_couplings, Vec2d* Hqd) {
+    //     for(int i = 0; i < n_qds; i++) {
+    //         double coupling = calculate_tip_coupling_single(tip_pos, QDpos[i]);
+    //         tip_couplings[i] = {coupling, 0.0};
+
+    //         if (Q_tip != 0.0) {
+    //             double shift = calculate_tip_induced_shift_single(tip_pos, QDpos[i], Q_tip);
+    //             Hqd[i * n_qds + i].x += shift;
+    //         }
+    //     }
+    // }
+
+    void makeHqd( Vec3d tip_pos, double Q_tip, Vec2d* Hqd) {
         // Copy base Hamiltonian
         for(int i = 0; i < n_qds * n_qds; i++) {
             Hqd[i] = Hqd0[i];
@@ -127,21 +131,23 @@ public:
         double shifts[n_qds];
         // Add tip-induced shifts to diagonal elements if Q_tip is provided
         if(Q_tip != 0.0) {
-            calculate_tip_induced_shifts(tip_pos, Q_tip, shifts);
+            //calculate_tip_induced_shifts(tip_pos, Q_tip, shifts);
             for(int i = 0; i < n_qds; i++) {
-                Hqd[i * n_qds + i].x += shifts[i];
+                double shift = calculate_tip_induced_shift(tip_pos, QDpos[i], Q_tip);
+                Hqd[i * n_qds + i].x += shift;
+                //Hqd[i * n_qds + i].x += shifts[i];
             }
             
         }
         //delete[] shifts;
     }
 
-    void assemble_full_H(const Vec2d& tip_pos, Vec2d* Hqd, Vec2d* H) {
+    void assemble_full_H(const Vec3d& tip_pos, Vec2d* Hqd, Vec2d* H) {
         int n = n_qds + 2;
         //Vec2d* tip_couplings = new Vec2d[n_qds];
-        Vec2d tip_couplings[n_qds];
+        //Vec2d tip_couplings[n_qds];
         
-        calculate_tip_coupling(tip_pos, tip_couplings);
+        //calculate_tip_coupling(tip_pos, tip_couplings);
         
         // Initialize H to zero
         for(int i = 0; i < n * n; i++) {
@@ -166,14 +172,15 @@ public:
         // Fill tip part
         H[n * n - 1] = {E_tip, -Gamma_tip};
         for(int i = 0; i < n_qds; i++) {
-            H[(i + 1) * n + (n - 1)] = tip_couplings[i];           // Last column
-            H[(n - 1) * n + (i + 1)] = {tip_couplings[i].x, -tip_couplings[i].y}; // Last row (conjugate)
+            double t = calculate_tip_coupling(tip_pos, QDpos[i]);
+            H[(i + 1) * n + (n - 1)] = Vec2d{ t, 0 };           // Last column
+            H[(n - 1) * n + (i + 1)] = Vec2d{ t, 0 }; // Last row (conjugate)
         }
         
         //delete[] tip_couplings;
     }
 
-    void make_full_hamiltonian(const Vec2d& tip_pos, Vec2d* H, double Q_tip=0.0, Vec2d* Hqd_in=nullptr) {
+    void make_full_hamiltonian(const Vec3d& tip_pos, Vec2d* H, double Q_tip=0.0, Vec2d* Hqd_in=nullptr) {
         Vec2d Hqd[n_qds * n_qds];
         if(Hqd_in == nullptr) {
             makeHqd(tip_pos, Q_tip, Hqd);
@@ -244,14 +251,14 @@ public:
         return trace.x;  // Return real part of trace
     }
 
-    double calculate_transmission(const Vec2d& tip_pos, double E, double Q_tip=0.0, Vec2d* Hqd=nullptr) {
+    double calculate_transmission(  double E, const Vec3d& tip_pos, double Q_tip=0.0, Vec2d* Hqd=nullptr) {
         int n = n_qds + 2;
         Vec2d H[n * n];
         make_full_hamiltonian(tip_pos, H, Q_tip, Hqd);
         return calculate_transmission_from_H(H, E);
     }
 
-    void scan_1D(const Vec2d* ps_line, int n_points, const double* energies, int n_energies, 
+    void scan_1D(const Vec3d* ps_line, int n_points, const double* energies, int n_energies, 
                  double* transmissions, double Q_tip=0.0, Vec2d* H_QDs=nullptr) {
         int n = n_qds + 2;
         Vec2d H[n * n];
@@ -262,10 +269,51 @@ public:
             } else {
                 make_full_hamiltonian(ps_line[i], H, Q_tip);
             }
-
             for(int j = 0; j < n_energies; j++) {
                 transmissions[i * n_energies + j] = calculate_transmission_from_H(H, energies[j]);
             }
         }
     }
 };
+
+// C interface
+extern "C" {
+
+static LandauerQDs* g_system = nullptr;
+
+void initLandauerQDs(int n_qds, double* QDpos, double* Esite_, double K, double decay, double tS,
+                    double E_sub, double E_tip, double tA, double eta, double Gamma_tip, double Gamma_sub,
+                    int debug, int verbosity) {
+    if (g_system != nullptr) {
+        delete g_system;
+    }
+    g_system = new LandauerQDs( (Vec3d*)QDpos, n_qds, Esite_, K, decay, tS, E_sub, E_tip, tA, eta, Gamma_tip, Gamma_sub, debug, verbosity);
+}
+
+void deleteLandauerQDs() {
+    if (g_system != nullptr) {
+        delete g_system;
+        g_system = nullptr;
+    }
+}
+
+double calculate_transmission(double E, double* tip_pos, double Q_tip, double* Hqd ) {
+    if (g_system == nullptr) { printf("ERROR calculate_transmission(): System not initialized\n"); exit(0); }
+    return g_system->calculate_transmission( E, *(Vec3d*)tip_pos,  Q_tip, (Vec2d*)Hqd );
+    //return g_system->calculate_transmission_from_H(E, (Vec2d*)H );
+}
+
+void calculate_transmissions( int nE, double* energies, int npos, double* ptips_, double* Qtips,  double* Hqds_, double* transmissions) {
+    if (g_system == nullptr) { printf("ERROR calculate_transmissions(): System not initialized\n"); exit(0);  }
+    Vec3d* ptips = (Vec3d*)ptips_;
+    Vec2d* Hqds  = (Vec2d*)Hqds_;
+    
+    for(int i = 0; i < npos; i++) {
+        for(int j = 0; j < nE; j++) {
+            double transmission = g_system->calculate_transmission( energies[j], ptips[i], Qtips[i], (Vec2d*)Hqds );
+            transmissions[i * nE + j] = transmission;
+        }
+    }
+}
+
+} // extern "C"
