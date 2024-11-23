@@ -41,11 +41,9 @@ class LandauerQDs:
         # Construct the inter-QD Coulomb interaction matrix
         self.K_matrix = K * (np.ones((self.n_qds, self.n_qds)) - np.identity(self.n_qds))
 
-        # Construct the main block of the Hamiltonian (H_QD) - without tip yet
-        self.Hqd0 = np.block([
-            [np.array([[self.E_sub]]), self.H_sub_QD[None, :]],
-            [self.H_sub_QD[:, None], np.diag(self.Esite) + self.K_matrix]
-        ])
+        # Construct the bare QD Hamiltonian (without tip or substrate)
+        self.Hqd0 = np.diag(self.Esite) + self.K_matrix
+        
         if self.debug:
             tu.write_matrix( self.Hqd0, None,          "Hqd0 (LandauerQD_py.py)" )
             tu.write_matrix( self.Hqd0, "py_Hqd0.txt", "Hqd0 (LandauerQD_py.py)" )
@@ -95,25 +93,25 @@ class LandauerQDs:
 
     def _makeHqd(self, tip_pos, Q_tip=None):
         """
-        Internal function to create QD Hamiltonian block.
+        Internal function to create QD Hamiltonian block with tip effects.
         
         Args:
             tip_pos: np.ndarray - Tip position
             Q_tip: float (optional) - Tip charge for energy shifts
             
         Returns:
-            np.ndarray - QD Hamiltonian block
+            np.ndarray - QD Hamiltonian block including tip effects
         """
-            
-        # Calculate energy shifts from tip if Q_tip provided
+        
+        # Start with the bare QD Hamiltonian
+        Hqd = self.Hqd0.copy()
+        
+        # Add energy shifts from tip if Q_tip provided
         if Q_tip is not None:
-            energy_shifts    = self.calculate_tip_induced_shifts(tip_pos, Q_tip)
-            shifted_energies = self.Esite + energy_shifts
-        else:
-            shifted_energies = self.Esite
+            energy_shifts = self.calculate_tip_induced_shifts(tip_pos, Q_tip)
+            # Add shifts only to diagonal elements
+            np.fill_diagonal(Hqd, np.diag(Hqd) + energy_shifts)
             
-        # Construct QD block with shifted energies
-        Hqd = np.diag(shifted_energies) + self.K_matrix
         return Hqd
 
     def _assemble_full_H(self, tip_pos, Hqd ):

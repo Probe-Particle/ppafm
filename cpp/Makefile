@@ -4,6 +4,9 @@ LD=g++
 #CPPFLAGS= -fPIC -std=c++11 -O3 -ffast-math -ftree-vectorize 
 #CPPFLAGS= -fPIC -std=c++11 -O2 -march=native -mtune=native
 #CPPFLAGS= -fPIC -std=c++11 -O3 -march=native -mtune=native
+#CPPFLAGS= -fPIC -std=c++11 -Ofast -march=native -mtune=native -fopenmp -lgomp -fsanitize=address -g
+#LDFLAGS= -shared -fsanitize=address
+
 CPPFLAGS= -fPIC -std=c++11 -Ofast -march=native -mtune=native -fopenmp -lgomp -g
 LDFLAGS= -shared
 

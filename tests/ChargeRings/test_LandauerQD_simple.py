@@ -10,7 +10,7 @@ TOLERANCE = 1e-8
 
 # System parameters
 n_qds = 3                          # Number of quantum dots
-E_sites = [-1.0, -1.0, -1.0]      # On-site energies
+E_sites = [-0.5, -0.75, -0.65]      # On-site energies
 K = 0.01                          # Coulomb interaction
 decay = 0.7                       # Decay constant
 tS = 0.1                          # Substrate coupling
