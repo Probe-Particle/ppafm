@@ -1,113 +1,165 @@
+import os
+os.environ['LD_PRELOAD'] = '/usr/lib/x86_64-linux-gnu/libgomp.so.1'
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
+#from LandauerQD_py import LandauerQDs
 import sys
 sys.path.append("../../")
-from pyProbeParticle import LandauerQD as lqd
 from pyProbeParticle import ChargeRings as chr
+from pyProbeParticle import LandauerQD as cpp_solver
 
 # ========== Setup
 
-Q_tip     = 0.6
-cCouling  = 0.03 # * 0.0
-E_Fermi   = 0.0
-z_tip     = 6.0
-L         = 20.0
-decay     = 0.7
-T         = 10.0
+# System parameters
+Q_tip = 0.6
+z_tip = 6.0
+L     = 20.0
+decay = 0.7
+T     = 10.0  # Temperature for occupancy calculation
+
+# Occupancy calculation switch
+#use_occupancy = True  # Set to True to use occupancy solver
+use_occupancy = False  # Set to True to use occupancy solver
+cCouling = 0.03       # Coupling parameter for occupancy calculation
+E_Fermi = 0.0        # Fermi energy level
 
 # QD system setup
 nsite = 3
 R = 5.0
 phiRot = -1.0
-Q0  = 1.0
-Qzz = 15.0 * 0.0
+Q0 = 1.0            # Base charge for occupancy calculation
+Qzz = 15.0 * 0.0    # z-component of quadrupole moment
 
 # Energy of states on the sites
 E0QDs = np.array([-1.0, -1.0, -1.0])
 
-K  = 0.01  # Coulomb interaction between QDs
-tS = 0.1   # QD-substrate coupling
-tA = 0.1   # Tip coupling strength
+K = 0.01    # Coulomb interaction between QDs
+tS = 0.1    # QD-substrate coupling
+tA = 0.1    # Tip coupling strength
 Gamma_tip = 1.0  # Tip state broadening
 Gamma_sub = 1.0  # Substrate state broadening
 
 Emin = -0.1  # Increased range to see effect of broadening
-Emax =  0.3
+Emax = 0.3
 
 site_colors = ['r', 'g', 'b']
 
 # ========== Main
 
-# ---- Setup geometry and electrostatic potential of the quantum dot system
+# Setup system geometry
 phis = np.linspace(0, 2*np.pi, nsite, endpoint=False)
 QDpos = np.zeros((nsite, 3))
 QDpos[:,0] = np.cos(phis)*R
 QDpos[:,1] = np.sin(phis)*R
-QDpos[:,2] = 0.0
 
-# Initialize LandauerQDs system
-lqd.init(QDpos, E0QDs, K=K, decay=decay, tS=tS, E_sub=0.0, E_tip=0.0, tA=tA, eta=0.01, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
-
-# ---- Setup scan line
-ps_line = np.zeros((100, 3))
-ps_line[:,0] = np.linspace(-L/2, L/2, len(ps_line))
+# Setup scanning line
+ps_line = chr.getLine(QDpos, [0.5,0.5,-3.0], [-3.0,-3.0,1.0], n=200)
 ps_line[:,2] = z_tip
-Qtips = np.ones(len(ps_line)) * Q_tip
 
-# ---- Calculate transmission
-# Setup site multipoles and rotations for occupancy calculation
-QDrots = np.zeros((nsite, 3, 3))
-QDmpols = np.zeros((nsite, 10))
-QDmpols[:,0] = Q0
-QDmpols[:,4] = Qzz
+# Energy range for transmission calculation
+energies = np.linspace(Emin, Emax, 100)
 
-# Initialize ChargeRings system for occupancy calculation
-chr.initRingParams(QDpos, E0QDs, rot=QDrots, MultiPoles=QDmpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T)
+# Initialize C++ solver
+cpp_solver.init(QDpos, E0QDs, K=K, decay=decay, tS=tS, E_sub=0.0, E_tip=0.0, tA=tA, 
+               eta=0.0, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
 
-# Calculate occupancies and Hamiltonians using ChargeRings
-Q_qds = chr.solveSiteOccupancies(ps_line, Qtips)
-eigenvalues, evecs, H_QDs, Gs = chr.solveHamiltonians(ps_line, Qtips, Qsites=Q_qds, bH=True)
+if use_occupancy:
+    # Setup site multipoles and rotations for occupancy calculation
+    QDrots = chr.makeRotMats(phis + phiRot, nsite)
+    QDmpols = np.zeros((3,10))
+    QDmpols[:,4] = Qzz
+    QDmpols[:,0] = Q0
+    
+    # Initialize ChargeRings system
+    chr.initRingParams(QDpos, E0QDs, rot=QDrots, MultiPoles=QDmpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T)
+    
+    # Calculate occupancies and Hamiltonians
+    Qtips = np.ones(len(ps_line))*Q_tip
+    Q_qds = chr.solveSiteOccupancies(ps_line, Qtips)
+    eigenvalues, evecs, H_QDs, Gs = chr.solveHamiltonians(ps_line, Qtips, Qsites=Q_qds, bH=True)
+    
+    # Calculate transmission using pre-computed Hamiltonians
+    transmissions = np.zeros((len(ps_line), len(energies)))
+    for i, pos in enumerate(ps_line):
+        for j, E in enumerate(energies):
+            transmissions[i,j] = cpp_solver.calculate_transmission(E, pos, Q_tip, Hqd=H_QDs[i])
+else:
+    # Calculate transmission without occupancy
+    transmissions = np.zeros((len(ps_line), len(energies)))
+    for i, pos in enumerate(ps_line):
+        for j, E in enumerate(energies):
+            transmissions[i,j] = cpp_solver.calculate_transmission(E, pos, Q_tip)
+    eigenvalues = np.zeros((len(ps_line), nsite))
+    for i, pos in enumerate(ps_line):
+        # TODO: Add eigenvalue calculation through C++ interface if needed
+        pass
 
-# Calculate transmission using LandauerQD with pre-computed Hamiltonians
-energies      = np.linspace(Emin, Emax, 100)
-transmissions = lqd.calculate_transmissions(ps_line, energies, H_QDs=H_QDs)
+# Plot results using GridSpec
+if use_occupancy:
+    fig = plt.figure(figsize=(12, 12))
+    gs = GridSpec(3, 2, width_ratios=[1, 0.05], height_ratios=[1, 1, 1])
+else:
+    fig = plt.figure(figsize=(12, 8))
+    gs = GridSpec(2, 2, width_ratios=[1, 0.05], height_ratios=[1, 1])
 
-# ---- Plot results
-fig = plt.figure(figsize=(10, 8))
-gs  = GridSpec(2, 2, figure=fig)
+#cmap='plasma'
+cmap='cividis'
+#cmap='afmhot'
 
-# Plot QD positions and scan line
-ax = fig.add_subplot(gs[0, 0])
-ax.plot(ps_line[:,0], ps_line[:,1], 'k--', label='scan line')
-for i in range(nsite):
-    ax.plot(QDpos[i,0], QDpos[i,1], 'o', color=site_colors[i], label=f'QD {i+1}')
-ax.set_xlabel('x [Å]')
-ax.set_ylabel('y [Å]')
-ax.legend()
-ax.grid(True)
-ax.axis('equal')
+# Plot transmission with eigenvalue bands
+ax1 = fig.add_subplot(gs[0, 0])
+im = ax1.imshow(transmissions.T, aspect='auto', origin='lower', extent=[0, len(ps_line), energies[0], energies[-1]], cmap=cmap, vmin=0.0, vmax=0.0001)
 
-# Plot site occupancies
-ax = fig.add_subplot(gs[0, 1])
-for i in range(nsite):
-    ax.plot(ps_line[:,0], Q_qds[:,i], color=site_colors[i], label=f'QD {i+1}')
-ax.set_xlabel('x [Å]')
-ax.set_ylabel('Site occupancy')
-ax.legend()
-ax.grid(True)
+# Overlay eigenvalue bands
+if use_occupancy:
+    # Plot eigenvalues and diagonal elements of H_QDs
+    for i in range(nsite):
+        ax1.plot(range(len(ps_line)), eigenvalues[:, i], ':', alpha=0.7, label=f'Eps_{i+1}')
+        ax1.plot(range(len(ps_line)), H_QDs[:,i,i], '-', alpha=1.0, lw=0.7, c=site_colors[i], label=f'H({i+1},{i+1})')
+else:
+    for i in range(nsite):
+        ax1.plot(range(len(ps_line)), eigenvalues[:, i], ':', alpha=0.7, label=f'E_{i+1}')
 
-# Plot transmission
-ax = fig.add_subplot(gs[1, :])
-X, Y = np.meshgrid(ps_line[:,0], energies)
-im = ax.pcolormesh(X, Y, transmissions.T, shading='auto')
-plt.colorbar(im, ax=ax, label='Transmission')
-ax.set_xlabel('x [Å]')
-ax.set_ylabel('Energy [eV]')
+ax1.legend()
+ax1.set_xlim(0, len(ps_line))
+ax1.set_ylim(energies[0], energies[-1])
+ax1.set_xlabel('Position along line')
+ax1.set_ylabel('Energy (eV)')
+ax1.set_title('Transmission and Energy Levels')
+
+# Add colorbar
+cbar_ax1 = fig.add_subplot(gs[0, 1])
+plt.colorbar(im, cax=cbar_ax1, label='Transmission')
+
+# Plot transmission at selected energies
+ax2 = fig.add_subplot(gs[1, 0])
+selected_energies = [-0.02, 0.0, 0.02]
+for E in selected_energies:
+    idx = np.argmin(np.abs(energies - E))
+    print(f"Energy: {E:.1f} eV, Index: {idx}")
+    ax2.plot(transmissions[:, idx], label=f'E = {E:.1f} eV')
+    ax1.axhline(E, ls=':', c='k', alpha=0.5)
+ax2.set_xlabel('Position Index')
+ax2.set_ylabel('Transmission')
+ax2.legend()
+ax2.set_title('Transmission vs Position at Selected Energies')
+plt.grid()
+
+if use_occupancy:
+    # Plot QD charges
+    ax3 = fig.add_subplot(gs[2, 0])
+    for i in range(nsite):
+        ax3.plot(range(len(ps_line)), Q_qds[:, i], '-', c=site_colors[i], label=f'QD {i+1}')
+    ax3.set_xlim(0, len(ps_line))
+    ax3.set_xlabel('Position along line')
+    ax3.set_ylabel('Charge Occupancy')
+    ax3.legend()
 
 plt.tight_layout()
 plt.show()
 
-# Clean up
-lqd.cleanup()
+# Clean up C++ solver at the end
+cpp_solver.cleanup()
