@@ -87,7 +87,7 @@ public:
     }
 
     void calculate_greens_function(double E, Vec2d* H, Vec2d* G) {
-        printf("calculate_greens_function(): E = %g\n", E);
+        if(debug) printf("calculate_greens_function(): E = %g\n", E);
         int n = n_qds + 2;
         int n2 = n * n;
         
@@ -115,57 +115,38 @@ public:
         const double MIN_DIST = 1e-3;  // Minimum distance to prevent division by zero
         Vec3d d = tip_pos - qd_pos;
         double dist = d.norm();
-        if (dist < MIN_DIST){ printf("ERROR in calculate_tip_induced_shift(): dist(%g)<MIN_DIST(%g) tip_pos(%g,%g,%g) qd_pos(%g,%g,%g) \n", dist, MIN_DIST, tip_pos.x, tip_pos.y, tip_pos.z, qd_pos.x, qd_pos.y, qd_pos.z); exit(0); };
+        if (dist < MIN_DIST){ 
+            printf("ERROR in calculate_tip_induced_shift(): dist(%g)<MIN_DIST(%g) tip_pos(%g,%g,%g) qd_pos(%g,%g,%g) \n", 
+                   dist, MIN_DIST, tip_pos.x, tip_pos.y, tip_pos.z, qd_pos.x, qd_pos.y, qd_pos.z); 
+            exit(0); 
+        }
         return COULOMB_CONST * Q_tip / dist;
     }
 
-    // void calculate_tip_effects(const Vec3d& tip_pos, double Q_tip, Vec2d* tip_couplings, Vec2d* Hqd) {
-    //     for(int i = 0; i < n_qds; i++) {
-    //         double coupling = calculate_tip_coupling_single(tip_pos, QDpos[i]);
-    //         tip_couplings[i] = {coupling, 0.0};
-
-    //         if (Q_tip != 0.0) {
-    //             double shift = calculate_tip_induced_shift_single(tip_pos, QDpos[i], Q_tip);
-    //             Hqd[i * n_qds + i].x += shift;
-    //         }
-    //     }
-    // }
-
-    void makeHqd( Vec3d tip_pos, double Q_tip, Vec2d* Hqd) {
-        // Copy base Hamiltonian
-        for(int i = 0; i < n_qds * n_qds; i++) {
-            Hqd[i] = Hqd0[i];
-        }
-        double shifts[n_qds];
+    void makeHqd(Vec3d tip_pos, double Q_tip, Vec2d* Hqd) {
+        // Copy base Hamiltonian and ensure memory is synchronized
+        memcpy(Hqd, Hqd0, sizeof(Vec2d) * n_qds * n_qds);
+        
         // Add tip-induced shifts to diagonal elements if Q_tip is provided
         if(Q_tip != 0.0) {
-            //calculate_tip_induced_shifts(tip_pos, Q_tip, shifts);
             for(int i = 0; i < n_qds; i++) {
                 double shift = calculate_tip_induced_shift(tip_pos, QDpos[i], Q_tip);
                 Hqd[i * n_qds + i].x += shift;
-                //Hqd[i * n_qds + i].x += shifts[i];
-                if(debug) {
-                    printf("cpp:makeHqd() shift[%i] = %g\n", i, shift);
-                }
+                if(debug) printf("cpp:makeHqd() shift[%i] = %g\n", i, shift);
             }
         }
+        
         if(debug) {
-            write_matrix(0,             "Hqd (LandauerQD.cpp)", Hqd, n_qds, n_qds);
+            write_matrix(0, "Hqd (LandauerQD.cpp)", Hqd, n_qds, n_qds);
             write_matrix("cpp_Hqd.txt", "Hqd (LandauerQD.cpp)", Hqd, n_qds, n_qds);
         }
     }
 
     void assemble_full_H(const Vec3d& tip_pos, Vec2d* Hqd, Vec2d* H) {
         int n = n_qds + 2;
-        //Vec2d* tip_couplings = new Vec2d[n_qds];
-        //Vec2d tip_couplings[n_qds];
         
-        //calculate_tip_coupling(tip_pos, tip_couplings);
-        
-        // Initialize H to zero
-        for(int i = 0; i < n * n; i++) {
-            H[i] = {0.0, 0.0};
-        }
+        // Initialize H to zero and ensure memory is synchronized
+        memset(H, 0, sizeof(Vec2d) * n * n);
         
         // Fill QD block with broadening
         for(int i = 0; i < n_qds; i++) {
@@ -186,16 +167,14 @@ public:
         H[n * n - 1] = {E_tip, -Gamma_tip};
         for(int i = 0; i < n_qds; i++) {
             double t = calculate_tip_coupling(tip_pos, QDpos[i]);
-            printf("cpp::assemble_full_H(): tip_coupling[%i] = %g\n", i, t);
+            if(debug) printf("cpp::assemble_full_H(): tip_coupling[%i] = %g\n", i, t);
             H[(i + 1) * n + (n - 1)] = Vec2d{ t, 0 };  // Last column
             H[(n - 1) * n + (i + 1)] = Vec2d{ t, 0 };  // Last row (conjugate)
         }
-        
-        //delete[] tip_couplings;
     }
 
     void make_full_hamiltonian(const Vec3d& tip_pos, Vec2d* H, double Q_tip=0.0, Vec2d* Hqd_in=nullptr) {
-        printf("make_full_hamiltonian()\n" );
+        //printf("make_full_hamiltonian()\n" );
         Vec2d Hqd[n_qds * n_qds];
         if(Hqd_in == nullptr) {
             makeHqd(tip_pos, Q_tip, Hqd);
@@ -208,7 +187,7 @@ public:
     }
 
     double calculate_transmission_from_H(Vec2d* H, double E) {
-        printf("calculate_transmission_from_H()\n" );
+        //printf("calculate_transmission_from_H()\n" );
         int n = n_qds + 2;
         int n2 = n * n;
 
@@ -267,12 +246,12 @@ public:
             trace = trace + Tmat[i * n + i];
         }
 
-        printf("calculate_transmission_from_H() DONE Tr(Tmat): (real=%g,imag=%g) \n", trace.x, trace.y);
+        //printf("calculate_transmission_from_H() DONE Tr(Tmat): (real=%g,imag=%g) \n", trace.x, trace.y);
         return trace.x;  // Return real part of trace
     }
 
     double calculate_transmission(  double E, const Vec3d& tip_pos, double Q_tip=0.0, Vec2d* Hqd=nullptr) {
-        printf("calculate_transmission(): E = %g, tip_pos = (%g, %g, %g), Q_tip = %g\n", E, tip_pos.x, tip_pos.y, tip_pos.z, Q_tip);
+        //printf("calculate_transmission(): E = %g, tip_pos = (%g, %g, %g), Q_tip = %g\n", E, tip_pos.x, tip_pos.y, tip_pos.z, Q_tip);
         int n = n_qds + 2;
         Vec2d H[n * n];
         make_full_hamiltonian(tip_pos, H, Q_tip, Hqd);
