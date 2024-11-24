@@ -2,44 +2,37 @@ import numpy as np
 import sys
 sys.path.append("../../")
 from LandauerQD_py import LandauerQDs as LandauerQDs_py
-from pyProbeParticle import LandauerQD_new as cpp_solver
+from pyProbeParticle import LandauerQD as cpp_solver
 import test_utils as tu
 
 # Test parameters
 TOLERANCE = 1e-8
 
-# System parameters
-n_qds = 3                          # Number of quantum dots
-E_sites = [-0.5, -0.75, -0.65]      # On-site energies
-K = 0.01                          # Coulomb interaction
-decay = 0.7                       # Decay constant
-tS = 0.1                          # Substrate coupling
-E_sub = 0.0                       # Substrate energy
-E_tip = 0.0                       # Tip energy
-tA = 0.1                          # Tip coupling strength
-eta = 0.01                        # Broadening
+# ======== Setup System ========
+                       
+E_sites   = [-0.5, -0.75, -0.65]  # On-site energies
+n_qds     = len(E_sites)          # Number of quantum dots
+K         = 0.01                  # Coulomb interaction
+decay     = 0.7                   # Decay constant
+tS        = 0.1                   # Substrate coupling
+E_sub     = 0.0                   # Substrate energy
+E_tip     = 0.0                   # Tip energy
+tA        = 0.1                   # Tip coupling strength
+eta       = 0.01                  # Broadening
 Gamma_tip = 1.0                   # Tip state broadening
 Gamma_sub = 1.0                   # Substrate state broadening
 
-# QD positions (ring configuration)
-R = 5.0  # Ring radius
+# ---- Quantum dot setup (triangle / ring )
+R      = 5.0  # Ring radius
 angles = np.linspace(0, 2*np.pi, n_qds, endpoint=False)
 QD_pos = np.array([[R*np.cos(phi), R*np.sin(phi), 0.0] for phi in angles])
 
-# Test point
+# ---- Tip setup
 tip_pos = np.array([ 1.0, 1.5, 5.0 ]) # Tip position
-Q_tip = 0.6                           # Tip charge
-E_test = 0.0                          # Test energy
+Q_tip   = 0.6                         # Tip charge
+E_test  = 0.0                         # Test energy
 
-# def setup_python_solver():
-#     """Initialize Python solver"""
-#     solver = LandauerQDs_py(QD_pos, E_sites, K=K, decay=decay, tS=tS,   E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta,  Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
-#     return solver
-
-# def setup_cpp_solver():
-#     """Initialize C++ solver"""
-#     lqd_new.init(QD_pos, E_sites, K=K, decay=decay, tS=tS,  E_sub=E_sub, E_tip=E_tip, tA=tA, eta=eta,  Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub,  debug=1, verbosity=1)  # Enable debug output
-
+# ======== Functions ========
 
 def compare_matrices():
     """Compare matrices saved by Python and C++ implementations"""
@@ -110,6 +103,9 @@ def run_comparison():
         print("\nFAILURE: Some matrices do not match within tolerance!")
         
     cpp_solver.cleanup()
+
+
+# ======== Body ========
 
 if __name__ == "__main__":
     run_comparison()

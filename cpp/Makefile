@@ -26,8 +26,6 @@ chrings: ChargeRings.o
 
 landauer: LandauerQD.o
 
-landauer_new: LandauerQD_new.o
-
 PolyCycles_: PolyCycles.o
 
 MMFF_: MMFF.o
