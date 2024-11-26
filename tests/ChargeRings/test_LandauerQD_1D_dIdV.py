@@ -87,8 +87,9 @@ else:
     system = LandauerQDs(QDpos, E0QDs, K, decay, tS, E_sub=0.0, E_tip=0.0, tA=tA, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
     
     # Calculate dI/dV map and eigenvalues directly
-    didv_map = system.scan_didv_2D(ps_line, energies, V_bias, dV, Q_tip=Q_tip, T=T)
-    eigenvalues = system.scan_eigenvalues(ps_line, Q_tip=Q_tip)
+    Qtips = np.ones(len(ps_line))*Q_tip  # Create array of tip charges
+    didv_map = system.scan_didv_2D(ps_line, energies, V_bias, dV, Qtips=Qtips, T=T)
+    eigenvalues = system.scan_eigenvalues(ps_line, Qtips=Qtips)
 
 # Plot results using GridSpec
 if use_occupancy:

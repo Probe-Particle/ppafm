@@ -110,15 +110,17 @@ else:
     system = LandauerQDs(QDpos, E0QDs, K, decay, tS, E_sub=0.0, E_tip=0.0, tA=tA, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
     
     # Calculate dI/dV and eigenvalues directly
+    Qtips = np.ones(len(ps_flat))*Q_tip  # Create array of tip charges
     for i in range(npix):
         for j in range(npix):
             print(f"Calculating dI/dV for pixel {i}, {j}")
             tip_pos = ps[i,j]
+            idx = i * npix + j
             # Calculate dI/dV using finite difference
-            I_plus  = system.calculate_current(tip_pos, energies, V_bias= V_bias + dV/2, Q_tip=Q_tip, T=T)
-            I_minus = system.calculate_current(tip_pos, energies, V_bias=V_bias - dV/2, Q_tip=Q_tip, T=T)
+            I_plus  = system.calculate_current(tip_pos, energies, V_bias + dV/2, Q_tip=Qtips[idx], T=T)
+            I_minus = system.calculate_current(tip_pos, energies, V_bias - dV/2, Q_tip=Qtips[idx], T=T)
             didv_map[i,j] = (I_plus - I_minus) / dV
-            eigenvalues_map[i,j] = system.get_QD_eigenvalues(tip_pos, Q_tip)
+            eigenvalues_map[i,j] = system.get_QD_eigenvalues(tip_pos, Qtips[idx])
 
 # Plot results
 if use_occupancy:

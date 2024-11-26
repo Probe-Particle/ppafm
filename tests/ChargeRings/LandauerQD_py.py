@@ -217,8 +217,19 @@ class LandauerQDs:
 
         return self._assemble_full_H(tip_pos, Hqd, V_bias)
 
-    def calculate_transmission(self, tip_pos, E, Q_tip=None, Hqd=None, V_bias=0.0 ):
-        """Calculate transmission probability for given tip position and energy."""
+    def calculate_transmission(self, tip_pos, E, *, Q_tip=None, Hqd=None, V_bias=0.0):
+        """Calculate transmission probability for given tip position and energy.
+        
+        Args:
+            tip_pos: np.ndarray - Tip position vector
+            E: float - Energy at which to calculate transmission
+            Q_tip: float (optional) - Tip charge for energy shifts
+            Hqd: np.ndarray (optional) - Pre-computed QD Hamiltonian
+            V_bias: float - Bias voltage
+        
+        Returns:
+            float - Transmission probability
+        """
         H = self.make_full_hamiltonian(tip_pos, Q_tip=Q_tip, Hqd=Hqd, V_bias=V_bias)
         return self._calculate_transmission_from_H(H, E)
 
@@ -285,7 +296,7 @@ class LandauerQDs:
         """
         kB = 8.617333262e-5  # Boltzmann constant in eV/K
         # Calculate transmission for each energy with bias voltage
-        transmissions = np.array([self.calculate_transmission(tip_pos, E, V_bias, Q_tip, Hqd) for E in energies])
+        transmissions = np.array([self.calculate_transmission(tip_pos=tip_pos, E=E, Q_tip=Q_tip, Hqd=Hqd, V_bias=V_bias) for E in energies])
         
         # Fermi functions for tip and substrate
         f_tip = 1.0 / (1.0 + np.exp((energies - V_bias/2.0) / (kB * T)))
@@ -356,7 +367,7 @@ class LandauerQDs:
             energies: np.ndarray - Energies at which to calculate transmission
             V_bias: float - Bias voltage
             dV: float - Small voltage difference for finite difference
-            Q_tip: float (optional) - Tip charge
+            Qtips: np.ndarray (optional) - Array of tip charges for each position
             H_QDs: np.ndarray (optional) - Pre-computed QD Hamiltonians
             T: float - Temperature in Kelvin
             
@@ -369,10 +380,11 @@ class LandauerQDs:
         
         for i, tip_pos in enumerate(ps_line):
             Hqd = H_QDs[i] if H_QDs is not None else None
+            Q_tip = Qtips[i] if Qtips is not None else None
             for j, E in enumerate(energies):
                 # Calculate transmission at V_bias ± dV/2
-                T_plus = self.calculate_transmission(tip_pos, E, V_bias + dV/2, Qtips[i], Hqd, T)
-                T_minus = self.calculate_transmission(tip_pos, E, V_bias - dV/2, Qtips[i], Hqd, T)
+                T_plus = self.calculate_transmission(tip_pos, E, Q_tip=Q_tip, Hqd=Hqd, V_bias=V_bias + dV/2)
+                T_minus = self.calculate_transmission(tip_pos, E, Q_tip=Q_tip, Hqd=Hqd, V_bias=V_bias - dV/2)
                 # Approximate dI/dV
                 didv_map[i,j] = (T_plus - T_minus) / dV
                 
