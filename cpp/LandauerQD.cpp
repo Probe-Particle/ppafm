@@ -118,7 +118,7 @@ public:
             printf("ERROR in calculate_tip_induced_shift(): dist(%g)<MIN_DIST(%g) tip_pos(%g,%g,%g) qd_pos(%g,%g,%g) \n", dist, MIN_DIST, tip_pos.x, tip_pos.y, tip_pos.z, qd_pos.x, qd_pos.y, qd_pos.z); 
             exit(0); 
         }
-        printf("calculate_tip_induced_shift(): Q_tip(%g) dist(%g) d(%g,%g,%g) qd_pos(%g,%g,%g) \n", Q_tip, dist, d.x, d.y, d.z, qd_pos.x, qd_pos.y, qd_pos.z ); 
+        //printf("calculate_tip_induced_shift(): Q_tip(%g) dist(%g) d(%g,%g,%g) qd_pos(%g,%g,%g) \n", Q_tip, dist, d.x, d.y, d.z, qd_pos.x, qd_pos.y, qd_pos.z ); 
         return COULOMB_CONST * Q_tip / dist;
     }
 
