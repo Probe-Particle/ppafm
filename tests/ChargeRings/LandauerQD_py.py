@@ -115,13 +115,14 @@ class LandauerQDs:
             
         return Hqd
 
-    def _assemble_full_H(self, tip_pos, Hqd ):
+    def _assemble_full_H(self, tip_pos, Hqd, V_bias=0.0):
         """
         Internal function to assemble full Hamiltonian matrix.
         
         Args:
             tip_pos: np.ndarray - Tip position
             Hqd:     np.ndarray - Central QD Hamiltonian block
+            V_bias:  float - Bias voltage (optional)
             
         Returns:
             np.ndarray - Full system Hamiltonian
@@ -137,13 +138,13 @@ class LandauerQDs:
         H[1:self.n_qds+1, 1:self.n_qds+1] = Hqd
         H[1:self.n_qds+1, 1:self.n_qds+1] -= 1j * self.eta * np.eye(self.n_qds)
 
-        # Fill substrate part (with broadening)
-        H[0,0]              = self.E_sub - 1j * self.Gamma_sub
+        # Fill substrate part (with broadening and bias shift)
+        H[0,0]              = self.E_sub - V_bias/2.0 - 1j * self.Gamma_sub
         H[0,1:self.n_qds+1] = self.H_sub_QD
         H[1:self.n_qds+1,0] = self.H_sub_QD
                 
-        # Fill tip part (with broadening)
-        H[-1,-1]             = self.E_tip - 1j * self.Gamma_tip
+        # Fill tip part (with broadening and bias shift)
+        H[-1,-1]             = self.E_tip + V_bias/2.0 - 1j * self.Gamma_tip
         H[1:self.n_qds+1,-1] = tip_couplings
         H[-1,1:self.n_qds+1] = tip_couplings.conj()
         
@@ -204,7 +205,7 @@ class LandauerQDs:
         
         return transmission
 
-    def make_full_hamiltonian(self, tip_pos, Q_tip=None, Hqd=None):
+    def make_full_hamiltonian(self, tip_pos, Q_tip=None, Hqd=None, V_bias=0.0):
         """Construct full Hamiltonian including tip coupling and Coulomb shifts."""
         if Hqd is None:
             if Q_tip is None:
@@ -212,22 +213,23 @@ class LandauerQDs:
             Hqd = self._makeHqd(tip_pos, Q_tip)
         
         if self.debug:
-            tu.write_matrix(Hqd,        None,        "Hqd  (LandauerQD_py.py) ")
+            tu.write_matrix(Hqd, None, "Hqd  (LandauerQD_py.py) ")
 
-        return self._assemble_full_H(tip_pos, Hqd)
+        return self._assemble_full_H(tip_pos, Hqd, V_bias)
 
-    def calculate_transmission(self, tip_pos, E, Q_tip=None, Hqd=None ):
+    def calculate_transmission(self, tip_pos, E, V_bias=0.0, Q_tip=None, Hqd=None):
         """Calculate transmission probability for given tip position and energy."""
-        H = self.make_full_hamiltonian(tip_pos, Q_tip=Q_tip, Hqd=Hqd )
+        H = self.make_full_hamiltonian(tip_pos, Q_tip=Q_tip, Hqd=Hqd, V_bias=V_bias)
         return self._calculate_transmission_from_H(H, E)
 
-    def scan_1D(self, ps_line, energies, Q_tip=None, H_QDs=None):
+    def scan_1D(self, ps_line, energies, V_bias=0.0, Q_tip=None, H_QDs=None):
         """
         Perform 1D scan along given line of positions.
         
         Args:
             ps_line: np.ndarray of shape (n_points, 3) - Line of tip positions
             energies: np.ndarray - Energies at which to calculate transmission
+            V_bias: float - Bias voltage
             Q_tip: float (optional) - Tip charge
             H_QDs: np.ndarray (optional) - Pre-computed QD Hamiltonians
             
@@ -241,9 +243,9 @@ class LandauerQDs:
         for i, tip_pos in enumerate(ps_line):
             if H_QDs is not None:
                 Hqd  = H_QDs[i]
-                H = self.make_full_hamiltonian(tip_pos, Hqd=Hqd)
+                H = self.make_full_hamiltonian(tip_pos, Hqd=Hqd, V_bias=V_bias)
             else:
-                H = self.make_full_hamiltonian(tip_pos, Q_tip=Q_tip)
+                H = self.make_full_hamiltonian(tip_pos, Q_tip=Q_tip, V_bias=V_bias)
             
             for j, E in enumerate(energies):
                 transmissions[i,j] = self._calculate_transmission_from_H(H, E)
@@ -265,6 +267,116 @@ class LandauerQDs:
         for i, tip_pos in enumerate(ps_line):
             eigenvalues[i] = self.get_QD_eigenvalues(tip_pos, Q_tip)
         return eigenvalues
+
+    def calculate_current(self, tip_pos, energies, V_bias, Q_tip=None, Hqd=None, T=300.0):
+        """
+        Calculate current by integrating transmission over energy window.
+        
+        Args:
+            tip_pos: np.ndarray - Tip position
+            energies: np.ndarray - Energies at which to calculate transmission
+            V_bias: float - Bias voltage
+            Q_tip: float (optional) - Tip charge
+            Hqd: np.ndarray (optional) - Pre-computed QD Hamiltonian
+            T: float - Temperature in Kelvin
+            
+        Returns:
+            float - Current in atomic units
+        """
+        kB = 8.617333262e-5  # Boltzmann constant in eV/K
+        # Calculate transmission for each energy with bias voltage
+        transmissions = np.array([self.calculate_transmission(tip_pos, E, V_bias, Q_tip, Hqd) for E in energies])
+        
+        # Fermi functions for tip and substrate
+        f_tip = 1.0 / (1.0 + np.exp((energies - V_bias/2.0) / (kB * T)))
+        f_sub = 1.0 / (1.0 + np.exp((energies + V_bias/2.0) / (kB * T)))
+        
+        # Integrate using trapezoidal rule
+        integrand = transmissions * (f_tip - f_sub)
+        current = np.trapz(integrand, energies)
+        
+        return current
+
+    def calculate_didv(self, tip_pos, energies, V_bias, dV=0.01, Q_tip=None, Hqd=None, T=300.0):
+        """
+        Calculate dI/dV using finite difference.
+        
+        Args:
+            tip_pos: np.ndarray - Tip position
+            energies: np.ndarray - Energies at which to calculate transmission
+            V_bias: float - Bias voltage
+            dV: float - Small voltage difference for finite difference
+            Q_tip: float (optional) - Tip charge
+            Hqd: np.ndarray (optional) - Pre-computed QD Hamiltonian
+            T: float - Temperature in Kelvin
+            
+        Returns:
+            float - Differential conductance (dI/dV)
+        """
+        # Calculate currents at V_bias ± dV/2
+        I_plus = self.calculate_current(tip_pos, energies, V_bias + dV/2, Q_tip, Hqd, T)
+        I_minus = self.calculate_current(tip_pos, energies, V_bias - dV/2, Q_tip, Hqd, T)
+        
+        # Calculate dI/dV using central difference
+        didv = (I_plus - I_minus) / dV
+        
+        return didv
+
+    def scan_didv_1D(self, ps_line, energies, V_bias, dV=0.01, Q_tip=None, H_QDs=None, T=300.0):
+        """
+        Perform 1D scan of dI/dV along given line of positions.
+        
+        Args:
+            ps_line: np.ndarray of shape (n_points, 3) - Line of tip positions
+            energies: np.ndarray - Energies at which to calculate transmission
+            V_bias: float - Bias voltage
+            dV: float - Small voltage difference for finite difference
+            Q_tip: float (optional) - Tip charge
+            H_QDs: np.ndarray (optional) - Pre-computed QD Hamiltonians
+            T: float - Temperature in Kelvin
+            
+        Returns:
+            np.ndarray - dI/dV values along the scanning line
+        """
+        n_points = len(ps_line)
+        didv_values = np.zeros(n_points)
+        
+        for i in range(n_points):
+            Hqd = H_QDs[i] if H_QDs is not None else None
+            didv_values[i] = self.calculate_didv(ps_line[i], energies, V_bias, dV, Q_tip, Hqd, T)
+            
+        return didv_values
+
+    def scan_didv_2D(self, ps_line, energies, V_bias, dV=0.01, Q_tip=None, H_QDs=None, T=300.0):
+        """
+        Perform 2D scan of dI/dV along given line of positions and energies.
+        
+        Args:
+            ps_line: np.ndarray of shape (n_points, 3) - Line of tip positions
+            energies: np.ndarray - Energies at which to calculate transmission
+            V_bias: float - Bias voltage
+            dV: float - Small voltage difference for finite difference
+            Q_tip: float (optional) - Tip charge
+            H_QDs: np.ndarray (optional) - Pre-computed QD Hamiltonians
+            T: float - Temperature in Kelvin
+            
+        Returns:
+            np.ndarray - dI/dV values of shape (n_points, n_energies)
+        """
+        n_points = len(ps_line)
+        n_energies = len(energies)
+        didv_map = np.zeros((n_points, n_energies))
+        
+        for i, tip_pos in enumerate(ps_line):
+            Hqd = H_QDs[i] if H_QDs is not None else None
+            for j, E in enumerate(energies):
+                # Calculate transmission at V_bias ± dV/2
+                T_plus = self.calculate_transmission(tip_pos, E, V_bias + dV/2, Q_tip, Hqd)
+                T_minus = self.calculate_transmission(tip_pos, E, V_bias - dV/2, Q_tip, Hqd)
+                # Approximate dI/dV
+                didv_map[i,j] = (T_plus - T_minus) / dV
+                
+        return didv_map
 
 if __name__ == "__main__":
     QDpos = np.array([[0, 0, 0], [1, 0, 0], [0.5, np.sqrt(3)/2, 0]])

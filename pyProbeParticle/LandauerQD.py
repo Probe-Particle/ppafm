@@ -71,7 +71,44 @@ def calculate_transmission(energy, tip_pos, Q_tip, Hqd=None):
 lib.calculate_transmissions.argtypes = [ c_int, array1d, c_int, array2d, array1d, c_double_p, array2d]
 lib.calculate_transmissions.restype = None
 def calculate_transmissions( energies, ptips, Qtips, Hqds=None):
+    nE = len(energies)
+    npos = len(ptips)
     transmissions = np.zeros((npos, nE), dtype=np.float64)
     if (Hqds is not None) and (Hqds.dtype != np.complex128) : Hqds = Hqds.astype(np.complex128) 
     lib.calculate_transmissions(  nE, energies, npos, ptips, Qtips, _np_as(Hqds,c_double_p), transmissions)
+    return transmissions
+
+# void scan_1D(int nE, double* energies, int npos, double* ptips_, double* Qtips, double* Hqds_, double* transmissions)
+lib.scan_1D.argtypes = [c_int, array1d, c_int, array2d, array1d, c_double_p, array2d]
+lib.scan_1D.restype = None
+def scan_1D(ps_line, energies, Qtips=None, Hqds=None):
+    """
+    Perform 1D scan along given line of positions using parallel computation.
+    
+    Args:
+        ps_line: np.ndarray of shape (n_points, 3) - Line of tip positions
+        energies: np.ndarray - Energies at which to calculate transmission
+        Qtips: np.ndarray (optional) - Array of tip charges for each position
+        Hqds: np.ndarray (optional) - Pre-computed QD Hamiltonians
+        
+    Returns:
+        np.ndarray - Transmission probabilities of shape (n_points, n_energies)
+    """
+    npos = len(ps_line)
+    nE = len(energies)
+    
+    # Ensure arrays are contiguous and have correct dtype
+    ps_line = np.ascontiguousarray(ps_line, dtype=np.float64)
+    energies = np.ascontiguousarray(energies, dtype=np.float64)
+    if Qtips is not None:
+        Qtips = np.ascontiguousarray(Qtips, dtype=np.float64)
+    if Hqds is not None and Hqds.dtype != np.complex128:
+        Hqds = Hqds.astype(np.complex128)
+    
+    # Allocate output array
+    transmissions = np.zeros((npos, nE), dtype=np.float64)
+    
+    # Call C++ function
+    lib.scan_1D(nE, energies, npos, ps_line, Qtips, _np_as(Hqds, c_double_p), transmissions)
+    
     return transmissions

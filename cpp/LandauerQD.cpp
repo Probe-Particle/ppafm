@@ -4,7 +4,6 @@
 #include "Vec3.h"
 #include "ComplexAlgebra.hpp"
 
-
 class LandauerQDs {
 public:
     // Parameters
@@ -274,6 +273,47 @@ public:
             }
         }
     }
+
+    void scan_1D(int nE, double* energies, int npos, double* ptips_, double* Qtips, double* Hqds_, double* transmissions) {
+        // Convert tip positions array to Vec3d array for easier handling
+        Vec3d* tip_positions = (Vec3d*)ptips_;
+        
+        // Size of full Hamiltonian (QDs + tip + substrate)
+        const int n = n_qds + 2;
+        const int n2 = n * n;
+
+        int    nqd2 = n_qds * n_qds;
+        Vec2d* Hqds = (Vec2d*)Hqds_;
+        
+        // Temporary arrays for each thread
+        #pragma omp parallel
+        {
+            // Thread-local storage for matrices
+            Vec2d H[n2];
+            Vec2d G[n2];
+            
+            // Parallel loop over positions
+            #pragma omp for schedule(dynamic)
+            for(int i = 0; i < npos; i++) {
+                Vec3d tip_pos = tip_positions[i];
+                double Q_tip = Qtips ? Qtips[i] : 0.0;
+                
+                // Get the Hamiltonian
+                if(Hqds) {
+                    make_full_hamiltonian(tip_pos, H, Q_tip, Hqds + i*nqd2 );
+                } else {
+                    // Compute QD Hamiltonian with tip effects
+                    make_full_hamiltonian(tip_pos, H, Q_tip);
+                }
+                
+                // Calculate transmission for each energy
+                for(int j = 0; j < nE; j++) {
+                    double E = energies[j];
+                    transmissions[i * nE + j] = calculate_transmission_from_H(H, E);
+                }
+            }
+        }
+    }
 };
 
 // C interface
@@ -316,6 +356,12 @@ void calculate_transmissions( int nE, double* energies, int npos, double* ptips_
             double transmission = g_system->calculate_transmission( energies[j], ptips[i], Qtips[i], (Vec2d*)Hqds );
             transmissions[i * nE + j] = transmission;
         }
+    }
+}
+
+void scan_1D(int nE, double* energies, int npos, double* ptips_, double* Qtips, double* Hqds_, double* transmissions) {
+    if(g_system) {
+        g_system->scan_1D(nE, energies, npos, ptips_, Qtips, Hqds_, transmissions);
     }
 }
 

@@ -14,20 +14,19 @@ z_tip = 6.0
 L     = 30.0
 npix  = 100  # Number of pixels in x and y
 decay = 0.7
-T     = 10.0
+T     = 10.0  # Temperature for occupancy calculation
 
 # Occupancy calculation switch
-use_occupancy  = True  # Set to True to use occupancy solver
-#use_occupancy = False  # Set to True to use occupancy solver
-cCouling       = 0.03       # Coupling parameter for occupancy calculation
-E_Fermi        = 0.0        # Fermi energy level
+use_occupancy = True  # Set to True to use occupancy solver
+cCouling      = 0.03  # Coupling parameter for occupancy calculation
+E_Fermi       = 0.0   # Fermi energy level
 
 # QD system setup
-nsite   = 3
-R       = 5.0  # radius of circle on which sites are placed
-phiRot  = -1.0
-Q0      = 1.0            # Base charge for occupancy calculation
-Qzz     = 15.0 * 0.0    # z-component of quadrupole moment
+nsite  = 3
+R      = 5.0  # radius of circle on which sites are placed
+phiRot = -1.0
+Q0     = 1.0            # Base charge for occupancy calculation
+Qzz    = 15.0 * 0.0    # z-component of quadrupole moment
 
 # Energy of states on the sites
 E0QDs = np.array([-1.0, -1.0, -1.0])
@@ -39,8 +38,16 @@ tA        = 0.1  # Tip coupling strength
 Gamma_tip = 1.0  # Tip state broadening
 Gamma_sub = 1.0  # Substrate state broadening
 
-# Energy for transmission calculation
-scan_energy = 0.0  # Scan at Fermi level
+# dI/dV calculation parameters
+V_bias = 0.1   # Bias voltage for dI/dV calculation
+dV     = 0.01      # Voltage step for finite difference
+Emin   = -0.1    # Energy range for transmission integration
+Emax   = 0.3
+#n_energies = 100
+#energies = np.linspace(Emin, Emax, n_energies)
+
+n_energies = 10
+energies = np.linspace(Emin, Emax, n_energies)
 
 # ========== Main
 
@@ -49,19 +56,6 @@ phis = np.linspace(0, 2*np.pi, nsite, endpoint=False)
 QDpos = np.zeros((3, 3))
 QDpos[:,0] = np.cos(phis)*R
 QDpos[:,1] = np.sin(phis)*R
-
-if use_occupancy:
-    # Setup site multipoles and rotations
-    QDrots = chr.makeRotMats(phis + phiRot, nsite)
-    QDmpols = np.zeros((3,10))
-    QDmpols[:,4] = Qzz
-    QDmpols[:,0] = Q0
-    
-    # Initialize ChargeRings system
-    chr.initRingParams(QDpos, E0QDs, rot=QDrots, MultiPoles=QDmpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T)
-
-# Initialize Landauer system
-system = LandauerQDs(QDpos, E0QDs, K, decay, tS, E_sub=0.0, E_tip=0.0, tA=tA, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
 
 # Setup 2D scanning grid
 x = np.linspace(-L/2, L/2, npix)
@@ -73,10 +67,19 @@ ps[:,:,1] = Y
 ps[:,:,2] = z_tip
 
 # Initialize maps
-transmission_map = np.zeros((npix, npix))
+didv_map = np.zeros((npix, npix))
 eigenvalues_map = np.zeros((npix, npix, nsite))
 
 if use_occupancy:
+    # Setup site multipoles and rotations
+    QDrots = chr.makeRotMats(phis + phiRot, nsite)
+    QDmpols = np.zeros((3,10))
+    QDmpols[:,4] = Qzz
+    QDmpols[:,0] = Q0
+    
+    # Initialize ChargeRings system
+    chr.initRingParams(QDpos, E0QDs, rot=QDrots, MultiPoles=QDmpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T)
+    
     # Reshape for charge calculation
     ps_flat = ps.reshape(-1, 3)
     Qtips = np.ones(len(ps_flat)) * Q_tip
@@ -89,18 +92,32 @@ if use_occupancy:
     Q_qds_map = Q_qds.reshape(npix, npix, nsite)
     eigenvalues_map = eigenvalues.reshape(npix, npix, nsite)
     
-    # Calculate transmission using pre-computed Hamiltonians
+    # Initialize Landauer system
+    system = LandauerQDs(QDpos, E0QDs, K, decay, tS, E_sub=0.0, E_tip=0.0, tA=tA, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
+    
+    # Calculate dI/dV for each pixel
     for i in range(npix):
         for j in range(npix):
+            print(f"Calculating dI/dV for pixel {i}, {j}")
             idx = i * npix + j
             Hqd = H_QDs[idx]
-            transmission_map[i,j] = system.calculate_transmission(ps_flat[idx], scan_energy, Hqd=Hqd)
+            # Calculate dI/dV using finite difference
+            I_plus  = system.calculate_current(ps_flat[idx], energies, V_bias + dV/2, Hqd=Hqd, T=T)
+            I_minus = system.calculate_current(ps_flat[idx], energies, V_bias - dV/2, Hqd=Hqd, T=T)
+            didv_map[i,j] = (I_plus - I_minus) / dV
 else:
-    # Calculate transmission and eigenvalues directly
+    # Initialize Landauer system without occupancy
+    system = LandauerQDs(QDpos, E0QDs, K, decay, tS, E_sub=0.0, E_tip=0.0, tA=tA, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
+    
+    # Calculate dI/dV and eigenvalues directly
     for i in range(npix):
         for j in range(npix):
+            print(f"Calculating dI/dV for pixel {i}, {j}")
             tip_pos = ps[i,j]
-            transmission_map[i,j] = system.calculate_transmission(tip_pos, scan_energy, Q_tip)
+            # Calculate dI/dV using finite difference
+            I_plus  = system.calculate_current(tip_pos, energies, V_bias + dV/2, Q_tip=Q_tip, T=T)
+            I_minus = system.calculate_current(tip_pos, energies, V_bias - dV/2, Q_tip=Q_tip, T=T)
+            didv_map[i,j] = (I_plus - I_minus) / dV
             eigenvalues_map[i,j] = system.get_QD_eigenvalues(tip_pos, Q_tip)
 
 # Plot results
@@ -111,10 +128,10 @@ else:
     fig = plt.figure(figsize=(12, 5))
     gs = GridSpec(1, 3, width_ratios=[1, 1, 0.05])
 
-# Plot transmission map
+# Plot dI/dV map
 ax1 = fig.add_subplot(gs[0])
-im1 = ax1.imshow(transmission_map, extent=[-L/2, L/2, -L/2, L/2], origin='lower', cmap='cividis')
-ax1.set_title('Transmission Map')
+im1 = ax1.imshow(didv_map, extent=[-L/2, L/2, -L/2, L/2], origin='lower', cmap='cividis')
+ax1.set_title(f'dI/dV Map (V_bias = {V_bias:.2f}V)')
 ax1.set_xlabel('X (Å)')
 ax1.set_ylabel('Y (Å)')
 ax1.plot(QDpos[:,0], QDpos[:,1], 'r.', markersize=10, label='QDs')
@@ -147,8 +164,8 @@ plt.tight_layout()
 plt.show()
 
 # Optional: Save the data
-np.savez('landauer_2D_scan.npz', 
-         transmission_map=transmission_map,
+np.savez('landauer_2D_didv_scan.npz', 
+         didv_map=didv_map,
          eigenvalues_map=eigenvalues_map,
          QDpos=QDpos,
-         scan_params={'L': L, 'z_tip': z_tip, 'scan_energy': scan_energy})
+         scan_params={'L': L, 'z_tip': z_tip, 'V_bias': V_bias, 'dV': dV})

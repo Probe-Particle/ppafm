@@ -11,7 +11,7 @@ from LandauerQD_py import LandauerQDs
 
 # System parameters
 z_tip    = 6.0
-L        = 20.0
+L        = 30.0
 npix     = 100  # Number of pixels in x and y
 decay    = 0.7
 T        = 10.0
