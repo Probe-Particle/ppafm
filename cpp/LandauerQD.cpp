@@ -90,14 +90,14 @@ public:
         int n = n_qds + 2;
         int n2 = n * n;
         
-        // Create (E + iη)I - H
+        Vec2d Eeta = Vec2d{E, eta};
+        // Create (E)I - H
         Vec2d A[n2];
         for(int i = 0; i < n2; i++) {
             A[i] = {-H[i].x, -H[i].y};
-            if(i % (n + 1) == 0) {  // Diagonal elements
-                A[i].x += E;
-                A[i].y += eta;
-            }
+        }
+        for(int i = 0; i < n; i++){  // Diagonal elements
+            A[i * n + i].add( Eeta );
         }
 
         Vec2d workspace[n2];  // Temporary workspace for inversion
@@ -115,10 +115,10 @@ public:
         Vec3d d = tip_pos - qd_pos;
         double dist = d.norm();
         if (dist < MIN_DIST){ 
-            printf("ERROR in calculate_tip_induced_shift(): dist(%g)<MIN_DIST(%g) tip_pos(%g,%g,%g) qd_pos(%g,%g,%g) \n", 
-                   dist, MIN_DIST, tip_pos.x, tip_pos.y, tip_pos.z, qd_pos.x, qd_pos.y, qd_pos.z); 
+            printf("ERROR in calculate_tip_induced_shift(): dist(%g)<MIN_DIST(%g) tip_pos(%g,%g,%g) qd_pos(%g,%g,%g) \n", dist, MIN_DIST, tip_pos.x, tip_pos.y, tip_pos.z, qd_pos.x, qd_pos.y, qd_pos.z); 
             exit(0); 
         }
+        printf("calculate_tip_induced_shift(): Q_tip(%g) dist(%g) d(%g,%g,%g) qd_pos(%g,%g,%g) \n", Q_tip, dist, d.x, d.y, d.z, qd_pos.x, qd_pos.y, qd_pos.z ); 
         return COULOMB_CONST * Q_tip / dist;
     }
 
@@ -151,7 +151,7 @@ public:
         for(int i = 0; i < n_qds; i++) {
             for(int j = 0; j < n_qds; j++) {
                 H[(i + 1) * n + (j + 1)] = Hqd[i * n_qds + j];
-                if(i == j) H[(i + 1) * n + (j + 1)].y -= eta;
+                // if(i == j) H[(i + 1) * n + (j + 1)].y -= eta;  // NOTE: this is done in calculate_greens_function(), don't do it here !!!
             }
         }
         
@@ -312,6 +312,13 @@ public:
                     transmissions[i * nE + j] = calculate_transmission_from_H(H, E);
                 }
             }
+        }
+    }
+
+    void calculate_transmissions(const Vec3d& tip_pos, double* Es, int nE, double* Ts, double Q_tip=0.0) {
+        printf("cpp:calculate_transmissions(): tip_pos=[%g,%g,%g] Q_tip=%g\n", tip_pos.x, tip_pos.y, tip_pos.z, Q_tip);
+        for(int i = 0; i < nE; i++) {
+            Ts[i] = calculate_transmission(Es[i], tip_pos, Q_tip);
         }
     }
 };

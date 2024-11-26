@@ -61,7 +61,6 @@ class LandauerQDs:
         """
         identity = np.eye(len(H), dtype=np.complex128)
         G = np.linalg.inv((E + 1j*self.eta)*identity - H)
-                
         return G
 
     def calculate_gamma(self, coupling_vector):
@@ -88,6 +87,7 @@ class LandauerQDs:
             if dist < MIN_DIST:
                 print(f"ERROR in calculate_tip_induced_shift(): dist({dist})<MIN_DIST({MIN_DIST}) tip_pos({tip_pos}) qd_pos({self.QDpos[i]})"); 
                 exit(0)
+            print( f"calculate_tip_induced_shift(): Q_tip({Q_tip}) dist({dist}) d({d}) qd_pos({self.QDpos[i]})" );
             shifts[i] = COULOMB_CONST * Q_tip / dist
         return shifts
 
@@ -136,7 +136,7 @@ class LandauerQDs:
         
         # Fill QD block (with small broadening)
         H[1:self.n_qds+1, 1:self.n_qds+1] = Hqd
-        H[1:self.n_qds+1, 1:self.n_qds+1] -= 1j * self.eta * np.eye(self.n_qds)
+        #H[1:self.n_qds+1, 1:self.n_qds+1] -= 1j * self.eta * np.eye(self.n_qds)    # NOTE: this is done in calculate_greens_function(), don't do it here !!!
 
         # Fill substrate part (with broadening and bias shift)
         H[0,0]              = self.E_sub - V_bias/2.0 - 1j * self.Gamma_sub
@@ -175,8 +175,8 @@ class LandauerQDs:
             float - Transmission probability
         """
         
-        G = self.calculate_greens_function(energy, H)
-        Gdag          = G.conj().T;  
+        G                = self.calculate_greens_function(energy, H)
+        Gdag             = G.conj().T;  
         Gamma_s, Gamma_t = self._calculate_coupling_matrices()
         
         if self.debug:

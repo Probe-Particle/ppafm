@@ -7,6 +7,9 @@ sys.path.append("../../")
 from pyProbeParticle import LandauerQD as cpp_solver
 import matplotlib.pyplot as plt
 
+# Enable more detailed numpy printing
+np.set_printoptions(precision=8, suppress=True, linewidth=100)
+
 # ========== Setup minimal test case ==========
 
 # System parameters
@@ -20,103 +23,93 @@ tA = 0.1    # Tip coupling strength
 decay = 0.7
 Gamma_tip = 1.0  # Tip state broadening
 Gamma_sub = 1.0  # Substrate state broadening
+eta = 0.01      # Small imaginary part for Green's function
 
 # Setup QD positions in a ring
 angles = np.linspace(0, 2*np.pi, nsite, endpoint=False)
-QDpos_py = np.zeros((nsite, 3))  # 3D array for Python implementation
-QDpos_py[:, 0] = R * np.cos(angles)
-QDpos_py[:, 1] = R * np.sin(angles)
-
-QDpos_cpp = QDpos_py[:, :2]  # 2D array for C++ implementation (x,y only)
+QDpos       = np.zeros((nsite, 3))  # 3D array for Python implementation
+QDpos[:, 0] = R * np.cos(angles)
+QDpos[:, 1] = R * np.sin(angles)
 
 # Energy of states on the sites
 E0QDs = np.array([-1.0, -1.0, -1.0])
 
-# Minimal test case: 2 energies, 2 positions
-energies = np.array([-0.5, 0.5])
-x_positions = np.array([-5.0, 5.0])
-ps_line = np.zeros((len(x_positions), 3))
-ps_line[:, 0] = x_positions
-ps_line[:, 2] = z_tip
+# Test points - we'll test a few strategic positions
+test_positions = [
+    np.array([-5.0, 0.0, z_tip]),  # Far left
+    np.array([0.0, 0.0, z_tip]),   # Center
+    np.array([5.0, 0.0, z_tip]),   # Far right
+    #np.array([0.87, -0.35, z_tip]),   # Center
+]
 
-# ========== Method 1: Pure Python Implementation ==========
-def run_python_method():
-    print("\n=== Method 1: Pure Python Implementation ===")
-    py_system = LandauerQDs_py(QDpos_py, E0QDs, K=K, decay=decay, tS=tS, tA=tA, 
-                              Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
-    
-    transmissions_py = np.zeros((len(ps_line), len(energies)))
-    for i, pos in enumerate(ps_line):
-        for j, E in enumerate(energies):
-            transmissions_py[i,j] = py_system.calculate_transmission(pos, E, Q_tip=Q_tip)
-    
-    print("Python Implementation Results:")
-    print(transmissions_py)
-    return transmissions_py
+test_energies = np.array([-0.5, 0.0, 0.5])  # Test at different energies
 
-# ========== Method 2: C++ Point-by-Point ==========
-def run_cpp_pointwise():
-    print("\n=== Method 2: C++ Point-by-Point ===")
-    cpp_solver.init(QDpos_cpp, E0QDs, K=K, decay=decay, tS=tS, tA=tA, 
-                   Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
+#test_energies = np.array([0.3])  # Test at different energies
+
+def debug_calculation():
+    """Debug calculation steps in detail."""
+    print("\n=== Detailed Debugging of Calculations ===")
     
-    transmissions_cpp_point = np.zeros((len(ps_line), len(energies)))
-    for i, pos in enumerate(ps_line):
-        for j, E in enumerate(energies):
-            transmissions_cpp_point[i,j] = cpp_solver.calculate_transmission(E, pos, Q_tip)
+    # Initialize C++ implementation with debug=True
+    cpp_solver.init            ( QDpos, E0QDs, K=K, decay=decay, tS=tS, tA=tA, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub, eta=eta, debug=1, verbosity=1)
+    py_system = LandauerQDs_py ( QDpos, E0QDs, K=K, decay=decay, tS=tS, tA=tA, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub, eta=eta, debug=True)   # Initialize Python implementation with debug=True
+    
+    results = []
+    print("\n=== Testing at multiple positions and energies ===")
+    for pos in test_positions:
+        for E in test_energies:
+            print(f"\nPosition: [{pos[0]:6.2f}, {pos[1]:6.2f}, {pos[2]:6.2f}]")
+            print(f"Energy: {E:6.2f}")
+            print(f"Q_tip: {Q_tip:6.2f}")
+            
+            print( "\n\n########### C++    calculation: ############## " )
+            T_cpp = cpp_solver.calculate_transmission(E, pos, Q_tip);       print(f"C++ transmission:    {T_cpp:10.3e}" )   # Calculate using C++ implementation first
+            print( "\n\n########### Python calculation: ############## " )
+            T_py  = py_system.calculate_transmission  (pos, E, Q_tip=Q_tip); print(f"Python transmission: {T_py:10.3e}"  ) # Calculate using Python implementation
+            
+            rel_diff = abs(T_cpp - T_py) / max(abs(T_cpp), abs(T_py))
+            print(f"Relative difference: {rel_diff:10.3e}")
+            
+            results.append({
+                'pos': pos,
+                'E': E,
+                'T_py': T_py,
+                'T_cpp': T_cpp,
+                'rel_diff': rel_diff
+            })
+    
+    # Find case with largest discrepancy
+    max_diff_case = max(results, key=lambda x: x['rel_diff'])
+    print("\n=== Case with largest discrepancy ===")
+    print(f"Position: {max_diff_case['pos']}")
+    print(f"Energy: {max_diff_case['E']}")
+    print(f"Python transmission: {max_diff_case['T_py']}")
+    print(f"C++ transmission: {max_diff_case['T_cpp']}")
+    print(f"Relative difference: {max_diff_case['rel_diff']}")
     
     cpp_solver.cleanup()
-    print("C++ Point-by-Point Results:")
-    print(transmissions_cpp_point)
-    return transmissions_cpp_point
+    return results
 
-# ========== Method 3: C++ scan_1D ==========
-def run_cpp_scan1d():
-    print("\n=== Method 3: C++ scan_1D ===")
-    cpp_solver.init(QDpos_cpp, E0QDs, K=K, decay=decay, tS=tS, tA=tA, 
-                   Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
-    
-    transmissions_cpp_scan = cpp_solver.scan_1D(ps_line, energies, np.full(len(ps_line), Q_tip))
-    
-    cpp_solver.cleanup()
-    print("C++ scan_1D Results:")
-    print(transmissions_cpp_scan)
-    return transmissions_cpp_scan
-
-# ========== Run all methods and compare ==========
 if __name__ == "__main__":
-    # Run all methods
-    trans_py = run_python_method()
-    trans_cpp_point = run_cpp_pointwise()
-    trans_cpp_scan = run_cpp_scan1d()
-    
-    # Compare results
-    print("\n=== Comparing Results ===")
-    print("Max difference Python vs C++ point-by-point:", 
-          np.max(np.abs(trans_py - trans_cpp_point)))
-    print("Max difference Python vs C++ scan_1D:", 
-          np.max(np.abs(trans_py - trans_cpp_scan)))
-    print("Max difference C++ methods:", 
-          np.max(np.abs(trans_cpp_point - trans_cpp_scan)))
+    results = debug_calculation()
     
     # Plot results
-    plt.figure(figsize=(12, 4))
+    plt.figure(figsize=(15, 5))
     
-    plt.subplot(121)
-    plt.title("E = -0.5")
-    plt.plot(x_positions, trans_py[:,0], 'o-', label='Python')
-    plt.plot(x_positions, trans_cpp_point[:,0], 's--', label='C++ point')
-    plt.plot(x_positions, trans_cpp_scan[:,0], '^:', label='C++ scan')
-    plt.legend()
-    plt.grid(True)
-    
-    plt.subplot(122)
-    plt.title("E = 0.5")
-    plt.plot(x_positions, trans_py[:,1], 'o-', label='Python')
-    plt.plot(x_positions, trans_cpp_point[:,1], 's--', label='C++ point')
-    plt.plot(x_positions, trans_cpp_scan[:,1], '^:', label='C++ scan')
-    plt.legend()
-    plt.grid(True)
+    # Plot transmission vs position for each energy
+    for i, E in enumerate(test_energies):
+        plt.subplot(1, 3, i+1)
+        positions = np.array([r['pos'][0] for r in results[i::len(test_energies)]])
+        T_py = np.array([r['T_py'] for r in results[i::len(test_energies)]])
+        T_cpp = np.array([r['T_cpp'] for r in results[i::len(test_energies)]])
+        
+        plt.semilogy(positions, T_py, 'o-', label='Python')
+        plt.semilogy(positions, T_cpp, 's--', label='C++')
+        plt.grid(True)
+        plt.legend()
+        plt.title(f'E = {E:.1f}')
+        plt.xlabel('X Position')
+        plt.ylabel('Transmission')
     
     plt.tight_layout()
     plt.show()

@@ -28,8 +28,7 @@ _n_qds = None
 # Initialize system
 lib.initLandauerQDs.argtypes = [c_int, array2d, array1d, c_double, c_double, c_double, c_double, c_double, c_double, c_double, c_double, c_double, c_int, c_int]
 lib.initLandauerQDs.restype = None
-def init(QDpos, Esite, K=0.01, decay=1.0, tS=0.01, E_sub=0.0, E_tip=0.0, tA=0.1, 
-         eta=0.0, Gamma_tip=1.0, Gamma_sub=1.0, debug=0, verbosity=0):
+def init(QDpos, Esite, K=0.01, decay=1.0, tS=0.01, E_sub=0.0, E_tip=0.0, tA=0.1, eta=0.0, Gamma_tip=1.0, Gamma_sub=1.0, debug=0, verbosity=0):
     """Initialize the LandauerQDs system.
     
     Args:
