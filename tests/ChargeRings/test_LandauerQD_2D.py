@@ -17,8 +17,8 @@ decay = 0.7
 T     = 10.0
 
 # Occupancy calculation switch
-use_occupancy  = True  # Set to True to use occupancy solver
-#use_occupancy = False  # Set to True to use occupancy solver
+#use_occupancy  = True  # Set to True to use occupancy solver
+use_occupancy = False  # Set to True to use occupancy solver
 cCouling       = 0.03       # Coupling parameter for occupancy calculation
 E_Fermi        = 0.0        # Fermi energy level
 
@@ -76,11 +76,12 @@ ps[:,:,2] = z_tip
 transmission_map = np.zeros((npix, npix))
 eigenvalues_map = np.zeros((npix, npix, nsite))
 
-if use_occupancy:
-    # Reshape for charge calculation
-    ps_flat = ps.reshape(-1, 3)
-    Qtips = np.ones(len(ps_flat)) * Q_tip
-    
+
+# Reshape for charge calculation
+ps_flat = ps.reshape(-1, 3)
+Qtips = np.ones(len(ps_flat)) * Q_tip
+
+if use_occupancy:    
     # Calculate occupancies and Hamiltonians
     Q_qds = chr.solveSiteOccupancies(ps_flat, Qtips)
     eigenvalues, evecs, H_QDs, Gs = chr.solveHamiltonians(ps_flat, Qtips, Qsites=Q_qds, bH=True)
@@ -100,8 +101,8 @@ else:
     for i in range(npix):
         for j in range(npix):
             tip_pos = ps[i,j]
-            transmission_map[i,j] = system.calculate_transmission(tip_pos, scan_energy, Q_tip)
-            eigenvalues_map[i,j] = system.get_QD_eigenvalues(tip_pos, Q_tip)
+            transmission_map[i,j] = system.calculate_transmission(tip_pos, scan_energy, Qtips[i] )
+            eigenvalues_map[i,j] = system.get_QD_eigenvalues(tip_pos, Qtips[i] )
 
 # Plot results
 if use_occupancy:

@@ -102,8 +102,8 @@ if use_occupancy:
             idx = i * npix + j
             Hqd = H_QDs[idx]
             # Calculate dI/dV using finite difference
-            I_plus  = system.calculate_current(ps_flat[idx], energies, V_bias + dV/2, Hqd=Hqd, T=T)
-            I_minus = system.calculate_current(ps_flat[idx], energies, V_bias - dV/2, Hqd=Hqd, T=T)
+            I_plus  = system.calculate_current(ps_flat[idx], energies, V_bias=V_bias + dV/2, Hqd=Hqd, T=T)
+            I_minus = system.calculate_current(ps_flat[idx], energies, V_bias=V_bias - dV/2, Hqd=Hqd, T=T)
             didv_map[i,j] = (I_plus - I_minus) / dV
 else:
     # Initialize Landauer system without occupancy
@@ -115,8 +115,8 @@ else:
             print(f"Calculating dI/dV for pixel {i}, {j}")
             tip_pos = ps[i,j]
             # Calculate dI/dV using finite difference
-            I_plus  = system.calculate_current(tip_pos, energies, V_bias + dV/2, Q_tip=Q_tip, T=T)
-            I_minus = system.calculate_current(tip_pos, energies, V_bias - dV/2, Q_tip=Q_tip, T=T)
+            I_plus  = system.calculate_current(tip_pos, energies, V_bias= V_bias + dV/2, Q_tip=Q_tip, T=T)
+            I_minus = system.calculate_current(tip_pos, energies, V_bias=V_bias - dV/2, Q_tip=Q_tip, T=T)
             didv_map[i,j] = (I_plus - I_minus) / dV
             eigenvalues_map[i,j] = system.get_QD_eigenvalues(tip_pos, Q_tip)
 

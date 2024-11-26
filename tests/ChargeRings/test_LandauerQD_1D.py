@@ -21,8 +21,8 @@ decay = 0.7
 T     = 10.0  # Temperature for occupancy calculation
 
 # Occupancy calculation switch
-use_occupancy = True  # Set to True to use occupancy solver
-#use_occupancy = False  # Set to True to use occupancy solver
+#use_occupancy = True  # Set to True to use occupancy solver
+use_occupancy = False  # Set to True to use occupancy solver
 cCouling = 0.03       # Coupling parameter for occupancy calculation
 E_Fermi = 0.0        # Fermi energy level
 
@@ -61,6 +61,7 @@ ps_line[:,2] = z_tip
 
 # Energy range for transmission calculation
 energies = np.linspace(Emin, Emax, 100)
+Qtips = np.ones(len(ps_line))*Q_tip
 
 if use_occupancy:
     # Setup site multipoles and rotations for occupancy calculation
@@ -73,7 +74,6 @@ if use_occupancy:
     chr.initRingParams(QDpos, E0QDs, rot=QDrots, MultiPoles=QDmpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T)
     
     # Calculate occupancies and Hamiltonians
-    Qtips = np.ones(len(ps_line))*Q_tip
     Q_qds = chr.solveSiteOccupancies(ps_line, Qtips)
     eigenvalues, evecs, H_QDs, Gs = chr.solveHamiltonians(ps_line, Qtips, Qsites=Q_qds, bH=True)
     
@@ -87,8 +87,8 @@ else:
     system = LandauerQDs(QDpos, E0QDs, K, decay, tS, E_sub=0.0, E_tip=0.0, tA=tA, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
     
     # Calculate transmission and eigenvalues directly
-    transmissions = system.scan_1D(ps_line, energies, Q_tip=Q_tip)
-    eigenvalues = system.scan_eigenvalues(ps_line, Q_tip=Q_tip)
+    transmissions = system.scan_1D(ps_line, energies, Qtips=Qtips)
+    eigenvalues = system.scan_eigenvalues(ps_line, Qtips=Qtips)
 
 # Plot results using GridSpec
 if use_occupancy:

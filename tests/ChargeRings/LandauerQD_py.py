@@ -87,7 +87,7 @@ class LandauerQDs:
             if dist < MIN_DIST:
                 print(f"ERROR in calculate_tip_induced_shift(): dist({dist})<MIN_DIST({MIN_DIST}) tip_pos({tip_pos}) qd_pos({self.QDpos[i]})"); 
                 exit(0)
-            print( f"calculate_tip_induced_shift(): Q_tip({Q_tip}) dist({dist}) d({d}) qd_pos({self.QDpos[i]})" );
+            #print( f"calculate_tip_induced_shift(): Q_tip({Q_tip}) dist({dist}) d({d}) qd_pos({self.QDpos[i]})" );
             shifts[i] = COULOMB_CONST * Q_tip / dist
         return shifts
 
@@ -217,21 +217,21 @@ class LandauerQDs:
 
         return self._assemble_full_H(tip_pos, Hqd, V_bias)
 
-    def calculate_transmission(self, tip_pos, E, V_bias=0.0, Q_tip=None, Hqd=None):
+    def calculate_transmission(self, tip_pos, E, Q_tip=None, Hqd=None, V_bias=0.0 ):
         """Calculate transmission probability for given tip position and energy."""
         H = self.make_full_hamiltonian(tip_pos, Q_tip=Q_tip, Hqd=Hqd, V_bias=V_bias)
         return self._calculate_transmission_from_H(H, E)
 
-    def scan_1D(self, ps_line, energies, V_bias=0.0, Q_tip=None, H_QDs=None):
+    def scan_1D(self, ps_line, energies, Qtips=None, H_QDs=None, V_bias=0.0):
         """
         Perform 1D scan along given line of positions.
         
         Args:
             ps_line: np.ndarray of shape (n_points, 3) - Line of tip positions
             energies: np.ndarray - Energies at which to calculate transmission
-            V_bias: float - Bias voltage
-            Q_tip: float (optional) - Tip charge
-            H_QDs: np.ndarray (optional) - Pre-computed QD Hamiltonians
+            Qtips: np.ndarray of shape (n_points,) - Tip charges for each position
+            H_QDs: Optional pre-calculated QD Hamiltonians
+            V_bias: Bias voltage
             
         Returns:
             np.ndarray - Transmission probabilities of shape (n_points, n_energies)
@@ -245,7 +245,7 @@ class LandauerQDs:
                 Hqd  = H_QDs[i]
                 H = self.make_full_hamiltonian(tip_pos, Hqd=Hqd, V_bias=V_bias)
             else:
-                H = self.make_full_hamiltonian(tip_pos, Q_tip=Q_tip, V_bias=V_bias)
+                H = self.make_full_hamiltonian(tip_pos, Q_tip=Qtips[i], V_bias=V_bias)
             
             for j, E in enumerate(energies):
                 transmissions[i,j] = self._calculate_transmission_from_H(H, E)
@@ -260,12 +260,12 @@ class LandauerQDs:
         eigvals = np.linalg.eigvalsh(Hqd) # Calculate eigenvalues
         return eigvals
 
-    def scan_eigenvalues(self, ps_line, Q_tip):
+    def scan_eigenvalues(self, ps_line, Qtips):
         """Calculate QD eigenvalues along scanning line."""
         n_points    = len(ps_line)
         eigenvalues = np.zeros((n_points, self.n_qds))
         for i, tip_pos in enumerate(ps_line):
-            eigenvalues[i] = self.get_QD_eigenvalues(tip_pos, Q_tip)
+            eigenvalues[i] = self.get_QD_eigenvalues(tip_pos, Qtips[i])
         return eigenvalues
 
     def calculate_current(self, tip_pos, energies, V_bias, Q_tip=None, Hqd=None, T=300.0):
@@ -322,7 +322,7 @@ class LandauerQDs:
         
         return didv
 
-    def scan_didv_1D(self, ps_line, energies, V_bias, dV=0.01, Q_tip=None, H_QDs=None, T=300.0):
+    def scan_didv_1D(self, ps_line, energies, V_bias, dV=0.01, Qtips=None, H_QDs=None, T=300.0):
         """
         Perform 1D scan of dI/dV along given line of positions.
         
@@ -343,11 +343,11 @@ class LandauerQDs:
         
         for i in range(n_points):
             Hqd = H_QDs[i] if H_QDs is not None else None
-            didv_values[i] = self.calculate_didv(ps_line[i], energies, V_bias, dV, Q_tip, Hqd, T)
+            didv_values[i] = self.calculate_didv(ps_line[i], energies, V_bias, dV, Qtips[i], Hqd, T)
             
         return didv_values
 
-    def scan_didv_2D(self, ps_line, energies, V_bias, dV=0.01, Q_tip=None, H_QDs=None, T=300.0):
+    def scan_didv_2D(self, ps_line, energies, V_bias, dV=0.01, Qtips=None, H_QDs=None, T=300.0):
         """
         Perform 2D scan of dI/dV along given line of positions and energies.
         
@@ -371,8 +371,8 @@ class LandauerQDs:
             Hqd = H_QDs[i] if H_QDs is not None else None
             for j, E in enumerate(energies):
                 # Calculate transmission at V_bias ± dV/2
-                T_plus = self.calculate_transmission(tip_pos, E, V_bias + dV/2, Q_tip, Hqd)
-                T_minus = self.calculate_transmission(tip_pos, E, V_bias - dV/2, Q_tip, Hqd)
+                T_plus = self.calculate_transmission(tip_pos, E, V_bias + dV/2, Qtips[i], Hqd, T)
+                T_minus = self.calculate_transmission(tip_pos, E, V_bias - dV/2, Qtips[i], Hqd, T)
                 # Approximate dI/dV
                 didv_map[i,j] = (T_plus - T_minus) / dV
                 

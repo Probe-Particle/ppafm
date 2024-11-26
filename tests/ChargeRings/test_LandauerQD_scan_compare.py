@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from LandauerQD_py import LandauerQDs as LandauerQDs_py
-import sys
-sys.path.append("../../")
-from pyProbeParticle import LandauerQD as cpp_solver
 import matplotlib.pyplot as plt
+import os
+import sys
+
+# Add parent directory to Python path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from pyProbeParticle import LandauerQD as cpp_solver
+from LandauerQD_py import LandauerQDs as LandauerQDs_py
 
 # Enable more detailed numpy printing
 np.set_printoptions(precision=8, suppress=True, linewidth=100)
@@ -90,8 +94,37 @@ def debug_calculation():
     cpp_solver.cleanup()
     return results
 
+def debug_scan_1D():
+    """Debug and compare scan_1D implementations."""
+    print("\n=== Testing scan_1D implementations ===")
+    
+    cpp_solver.init           ( QDpos, E0QDs, K=K, decay=decay, tS=tS, tA=tA, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub, eta=eta, debug=1, verbosity=1)  # Initialize C++ implementation
+    py_system = LandauerQDs_py( QDpos, E0QDs, K=K, decay=decay, tS=tS, tA=tA, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub, eta=eta, debug=True) # Initialize Python implementation
+    
+    # Convert test points to numpy array for scan_1D
+    ps_line = np.array(test_positions, dtype=np.float64)
+    Qtips   = np.full(len(test_positions), Q_tip, dtype=np.float64)
+    
+    print("\n=== C++ scan_1D ===");    T_cpp = cpp_solver.scan_1D(ps_line, test_energies, Qtips)
+    print("\n=== Python scan_1D ==="); T_py  = py_system .scan_1D(ps_line, test_energies, Qtips)
+    
+    # Compare results
+    print("\n=== Comparing Results ===")
+    for i, pos in enumerate(test_positions):
+        print(f"\nPosition: {pos}")
+        for j, E in enumerate(test_energies):
+            print(f"Energy: {E:6.2f}")
+            print(f"C++ transmission:    {T_cpp[i,j]:10.3e}")
+            print(f"Python transmission: {T_py[i,j]:10.3e}")
+            rel_diff = abs(T_cpp[i,j] - T_py[i,j]) / max(abs(T_cpp[i,j]), abs(T_py[i,j]))
+            print(f"Relative difference: {rel_diff:10.3e}")
+
 if __name__ == "__main__":
+    # Test point-by-point calculation
     results = debug_calculation()
+    
+    # Test scan_1D implementations
+    debug_scan_1D()
     
     # Plot results
     plt.figure(figsize=(15, 5))
