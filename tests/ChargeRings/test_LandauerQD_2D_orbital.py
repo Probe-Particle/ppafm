@@ -52,7 +52,7 @@ def make_tip_field(sh, dd, z0, decay):
     """Create exponentially decaying tip wavefunction."""
     return photo.makeTipField(sh, dd, z0=z0, beta=decay, bSTM=True)
 
-def calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd):
+def calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd, center_region=None):
     """Calculate STM signal using orbital convolution for all QDs."""
     # Create tip field
     tip_field, _ = make_tip_field(canvas_shape, canvas_dd, z_tip, decay)
@@ -63,8 +63,10 @@ def calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd):
     # Place each QD orbital on canvas
     for i in range(len(QDpos)):
         pos = QDpos[i]
-        # Extract middle z-slice and ensure it's contiguous
-        orbital_slice = np.ascontiguousarray(orbital_data[:,:,orbital_data.shape[2]//2], dtype=np.float64)
+        # Take xy plane (z-middle slice) and transpose to fix axis orientation
+        # orbital_data is (iz,iy,ix), we want xy plane, so take middle z and transpose
+        orbital_slice = np.ascontiguousarray(orbital_data[orbital_data.shape[0]//2,:,:].T, dtype=np.float64)
+        print(f"Orbital slice shape: {orbital_slice.shape}")
         GU.stampToGrid2D(canvas, orbital_slice, pos[:2], angles[i], dd=canvas_dd)
     
     # Print canvas statistics before convolution
@@ -84,6 +86,13 @@ def calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd):
     result = np.real(stm_map * np.conj(stm_map))
     
     print(f"STM map after convolution - min: {result.min():.3e}, max: {result.max():.3e}")
+    
+    # Crop to center region if specified
+    if center_region is not None:
+        cx, cy = canvas_shape[0]//2, canvas_shape[1]//2
+        dx, dy = center_region
+        result = result[cx-dx:cx+dx, cy-dy:cy+dy]
+        
     return result
 
 def main():
@@ -115,23 +124,31 @@ def main():
     print(f"Canvas shape: {canvas_shape}")
     print(f"Grid spacing: dx={canvas_dd[0]:.3f} Å, dy={canvas_dd[1]:.3f} Å")
     
+    # Define center region size (in pixels)
+    center_pixels = 50  # This will give us a 100x100 pixel region around center
+    
     # Create angles for each QD
     angles = [phi + phiRot for phi in phis]
     
-    # Calculate orbital-based STM
-    orbital_stm = calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd)
+    # Calculate orbital-based STM on full canvas and crop to center
+    orbital_stm = calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd, 
+                                      center_region=(center_pixels, center_pixels))
+    
+    # Calculate physical dimensions of center region
+    center_Lx = 2 * center_pixels * canvas_dd[0]
+    center_Ly = 2 * center_pixels * canvas_dd[1]
     
     # Initialize Landauer system
     system = LandauerQDs(QDpos, E0QDs, K=K, decay=decay, tS=tS, tA=tA, Gamma_tip=Gamma_tip, Gamma_sub=Gamma_sub)
     
-    # Calculate Landauer transmission map
-    x = np.linspace(0, Lx, canvas_shape[0])  # Use absolute coordinates
-    y = np.linspace(0, Ly, canvas_shape[1])
-    X, Y = np.meshgrid(x, y, indexing='ij')  # Use 'ij' indexing to match array order
+    # Calculate Landauer transmission map only for center region
+    x = np.linspace(-center_Lx/2, center_Lx/2, 2*center_pixels)
+    y = np.linspace(-center_Ly/2, center_Ly/2, 2*center_pixels)
+    X, Y = np.meshgrid(x, y, indexing='ij')
     transmission_map = np.zeros_like(X)
     
-    for i in range(canvas_shape[0]):
-        for j in range(canvas_shape[1]):
+    for i in range(2*center_pixels):
+        for j in range(2*center_pixels):
             tip_pos = np.array([X[i,j], Y[i,j], z_tip])
             transmission_map[i,j] = system.calculate_transmission(tip_pos, scan_energy, Q_tip=Q_tip)
     
@@ -146,7 +163,7 @@ def main():
     fig = plt.figure(figsize=(15, 5))
     gs = GridSpec(1, 3, figure=fig)
     
-    extent = [0, Lx, 0, Ly]  # Use absolute coordinates
+    extent = [-center_Lx/2, center_Lx/2, -center_Ly/2, center_Ly/2]  # Center around origin
     
     # Plot Landauer transmission
     ax1 = fig.add_subplot(gs[0])
@@ -181,7 +198,7 @@ def main():
              orbital_stm=orbital_stm,
              combined_map=combined_map,
              QDpos=QDpos,
-             scan_params={'L': Lx, 'z_tip': z_tip, 'scan_energy': scan_energy})
+             scan_params={'L': center_Lx, 'z_tip': z_tip, 'scan_energy': scan_energy})
     
     plt.show()
 
