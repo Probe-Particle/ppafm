@@ -1,4 +1,42 @@
 
+"""
+# =============================================================================
+#                          Theoretical Background
+# =============================================================================
+
+pyLightSTM Photo Module
+----------------------
+
+This module implements core functionality for simulating tip-enhanced electro-luminescence
+in scanning probe microscopy. The simulation combines two key physical processes:
+
+1. Optical Coupling:
+   - Interaction between molecular transition densities and tip cavity field
+   - Field modeled using multipole expansion of spherical harmonics
+   - Coupling computed efficiently using FFT-based convolution
+
+2. Quantum Mechanical Coupling:
+   - Implements exciton coupling between multiple molecules
+   - Solves eigenvalue problem for coupled system Hamiltonian
+   - Accounts for position-dependent interactions and molecular orientations
+
+The implementation uses grid-based calculations with efficient FFT methods for
+convolutions and supports both 2D and 3D geometries. The modular design allows
+separate handling of optical and quantum mechanical aspects while maintaining
+physical accuracy.
+
+Key Features:
+- Multipole expansion for tip fields
+- FFT-accelerated convolutions
+- Coupled exciton system solver
+- Support for molecular aggregates
+- Flexible grid and coordinate handling
+
+References:
+1. Time Dependent Quantum Mechanics and Spectroscopy (Tokmakoff)
+2. Excitons in Molecular Aggregates (LibreTexts)
+"""
+
 import os
 import sys
 import __main__ as main
@@ -17,6 +55,17 @@ bDebug = False
 # ===============================================================================================================
 
 def makeTransformMat( ns, lvec, angle=0.0, rot=None ):
+    """Creates transformation matrix for molecular orientations.
+    
+    Args:
+        ns (tuple): Grid dimensions (nx, ny, nz)
+        lvec (ndarray): Lattice vectors defining molecular orientation
+        angle (float): Rotation angle in radians
+        rot (ndarray, optional): Pre-computed rotation matrix
+        
+    Returns:
+        ndarray: Transformation matrix for coordinate mapping
+    """
     nx,ny,nz=ns
     #nz,ny,nx=ns
     if rot is None:
@@ -45,6 +94,15 @@ def normalizeGridWf( F ):
 # ===============================================================================================================
 
 def getMGrid2D(nDim, dd):
+    """Generate 2D coordinate grid for calculations.
+    
+    Args:
+        nDim (tuple): Grid dimensions (nx, ny)
+        dd (tuple): Grid spacing (dx, dy)
+        
+    Returns:
+        tuple: X and Y coordinate arrays and grid shifts (xshift, yshift)
+    """
     'returns coordinate arrays X, Y, Z'
     (dx, dy) = dd
     XY = np.mgrid[0:nDim[0],0:nDim[1]].astype(float)
@@ -59,6 +117,15 @@ def getMGrid2D(nDim, dd):
     return X, Y, (xshift, yshift)
 
 def getMGrid3D( nDim, dd ):
+    """Generate 3D coordinate grid for calculations.
+    
+    Args:
+        nDim (tuple): Grid dimensions (nx, ny, nz)
+        dd (tuple): Grid spacing (dx, dy, dz)
+        
+    Returns:
+        tuple: X, Y, Z coordinate arrays and grid shifts (xshift, yshift, zshift)
+    """
     'returns coordinate arrays X, Y, Z'
     (dx,dy,dz) = dd
     (nx,ny,nz) = nDim[:3]
@@ -85,6 +152,25 @@ def makeTipField2D( sh, dd, z=10.0, sigma=1.0, multipole_dict={'s':1.0}, bSTM=Fa
 '''
 
 def makeTipField( sh, dd, z0=10.0, sigma=1.0, multipole_dict={'s':1.0}, b3D=False, bSTM=False, beta=1.0 ):
+    """Construct tip field using multipole expansion.
+    
+    Generates either optical cavity field or STM tunneling field based on bSTM flag.
+    For optical field: Uses multipole expansion with spherical harmonics.
+    For STM field: Uses exponential decay with beta parameter.
+    
+    Args:
+        sh (tuple): Grid shape
+        dd (tuple): Grid spacing
+        z0 (float): Tip height
+        sigma (float): Regularization parameter for field divergence
+        multipole_dict (dict): Multipole coefficients {orbital: coefficient}
+        b3D (bool): If True, generate 3D field
+        bSTM (bool): If True, generate STM tunneling field instead of optical field
+        beta (float): Decay parameter for STM tunneling
+        
+    Returns:
+        ndarray: Generated tip field and grid shifts
+    """
     #Vtip = np.zeros( sh )
     if b3D:
         X,Y,Z,shifts  = getMGrid3D( sh,     dd )
@@ -127,6 +213,25 @@ def evalGridStep3D( sh, lvec ):
     )
 
 def photonMap2D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], byCenter=False, bComplex=False ):
+    """Generate 2D photon map by convolving transition densities with tip field.
+    
+    Computes optical coupling between molecular transitions and tip cavity field
+    using FFT-based convolution.
+    
+    Args:
+        rhos (list): Transition densities for each molecule
+        lvecs (list): Lattice vectors for each molecule
+        Vtip (ndarray): Tip field
+        dd_canv (tuple): Grid spacing for canvas
+        rots (list): Rotation angles for each molecule
+        poss (list): Positions of molecules
+        coefs (list): Coefficients for each molecule's contribution
+        byCenter (bool): If True, positions are relative to molecular centers
+        bComplex (bool): If True, return complex values
+        
+    Returns:
+        tuple: Total photon map and individual molecular contributions
+    """
     ncanv = Vtip.shape
     dd_canv = np.array( dd_canv )
     if bComplex:
@@ -149,6 +254,24 @@ def photonMap2D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] 
     return phmap, canvas
 
 def photonMap3D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], byCenter=False ):
+    """Generate 3D photon map by convolving transition densities with tip field.
+    
+    Computes optical coupling between molecular transitions and tip cavity field
+    using FFT-based convolution.
+    
+    Args:
+        rhos (list): Transition densities for each molecule
+        lvecs (list): Lattice vectors for each molecule
+        Vtip (ndarray): Tip field
+        dd_canv (tuple): Grid spacing for canvas
+        rots (list): Rotation angles for each molecule
+        poss (list): Positions of molecules
+        coefs (list): Coefficients for each molecule's contribution
+        byCenter (bool): If True, positions are relative to molecular centers
+        
+    Returns:
+        tuple: Total photon map and individual molecular contributions
+    """
     ncanv = Vtip.shape
     dd_canv = np.array( dd_canv )
     if len(ncanv)<3:
@@ -179,6 +302,18 @@ def photonMap3D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] 
 # ================================================================
 
 def prepareRhoTransForCoumpling( rhoTrans, nsub=None, lvec=None ):
+    """Prepare transition density for exciton coupling.
+    
+    Down-samples transition density if nsub is provided.
+    
+    Args:
+        rhoTrans (ndarray): Transition density
+        nsub (int, optional): Down-sampling factor
+        lvec (ndarray, optional): Lattice vector
+        
+    Returns:
+        ndarray: Prepared transition density
+    """
     if nsub is not None: # down-sample ?
         #print( "rhoTrans.shape ", rhoTrans.shape ) 
         ndim1 = rhoTrans.shape
@@ -201,6 +336,16 @@ def prepareRhoTransForCoumpling( rhoTrans, nsub=None, lvec=None ):
     return rho
 
 def hackHamiltoian( H ):
+    """Modify Hamiltonian matrix.
+    
+    Applies user-defined modifications to the Hamiltonian matrix.
+    
+    Args:
+        H (ndarray): Hamiltonian matrix
+        
+    Returns:
+        ndarray: Modified Hamiltonian matrix
+    """
     # ABAB
     #    H[1,2]*=0; H[2,1]*=0; H[2,3]*=0; H[3,2]*=0; H[3,0]*=0; H[0,3]*=0; H[0,1]*=0; H[1,0]*=0; #H[0,0]*=0.999; H[2,2]*=0.999
     # AAAB
@@ -210,6 +355,20 @@ def hackHamiltoian( H ):
     return
 
 def assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=False ):
+    """Assemble exciton Hamiltonian matrix.
+    
+    Computes coupling between molecular transitions using Coulomb interaction.
+    
+    Args:
+        rhos (list): Transition densities for each molecule
+        poss (list): Positions of molecules
+        latMats (list): Lattice vectors for each molecule
+        Ediags (list): Diagonal energies for each molecule
+        byCenter (bool): If True, positions are relative to molecular centers
+        
+    Returns:
+        ndarray: Assembled Hamiltonian matrix
+    """
     coulomb_const = 14.3996   # [eV*A/e^2]  # https://en.wikipedia.org/wiki/Coulomb_constant
     prefactor     = coulomb_const #/(dV*dV)
     n = len(poss)
@@ -240,6 +399,16 @@ def assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=False ):
     return H
 
 def solveExcitonHamliltonian( H ):
+    """Solve exciton Hamiltonian eigenvalue problem.
+    
+    Computes eigenvalues and eigenvectors of the Hamiltonian matrix.
+    
+    Args:
+        H (ndarray): Hamiltonian matrix
+        
+    Returns:
+        tuple: Eigenvalues and eigenvectors
+    """
     es,vs = np.linalg.eig(H)
     #print("eigenvalues    ", es)
     #print("eigenvectors \n", vs)
@@ -255,10 +424,25 @@ def solveExcitonHamliltonian( H ):
     return es,vs
 
 def solveExcitonSystem( rhoTranss, lvecs, poss, rots, nSub=None, byCenter=False, Ediags=1.0, hackHfunc=hackHamiltoian, bMultipole=True ):
-    '''
-    Solve coupled excitonic system according to :
+    """Solve coupled exciton system for molecular aggregate.
+    
+    Implements quantum mechanical coupling between molecules according to:
     https://chem.libretexts.org/Bookshelves/Physical_and_Theoretical_Chemistry_Textbook_Maps/Book%3A_Time_Dependent_Quantum_Mechanics_and_Spectroscopy_(Tokmakoff)/15%3A_Energy_and_Charge_Transfer/15.03%3A_Excitons_in_Molecular_Aggregates
-    '''
+    
+    Args:
+        rhoTranss (list/ndarray): Transition densities for each molecule
+        lvecs (list): Lattice vectors defining molecular orientations
+        poss (list): Positions of molecules
+        rots (list): Rotation angles for each molecule
+        nSub (int, optional): Number of subsystems
+        byCenter (bool): If True, positions are relative to molecular centers
+        Ediags (float/list): Diagonal energies for each molecule
+        hackHfunc (callable): Function to modify Hamiltonian
+        bMultipole (bool): If True, compute multipole coefficients
+        
+    Returns:
+        tuple: Eigenvalues, eigenvectors, and Hamiltonian matrix
+    """
     n = len(poss)
     poss = np.array(poss)
     if isinstance(Ediags, float ):
@@ -291,11 +475,35 @@ def solveExcitonSystem( rhoTranss, lvecs, poss, rots, nSub=None, byCenter=False,
 # ================================================================
 
 def makePreset_row( n, dx=5.0, ang=0.0 ): 
+    """Create preset row configuration.
+    
+    Generates positions and rotation angles for a row of molecules.
+    
+    Args:
+        n (int): Number of molecules
+        dx (float): Distance between molecules
+        ang (float): Rotation angle
+        
+    Returns:
+        tuple: Positions and rotation angles
+    """
     rots  = [ ang ] * n
     poss  = [ [(i-0.5*(n-1))*dx,0.0,0.0] for i in range(n) ]
     return poss, rots
 
 def makePreset_cycle( n, R=10.0, ang0=0.0 ):
+    """Create preset cycle configuration.
+    
+    Generates positions and rotation angles for a cycle of molecules.
+    
+    Args:
+        n (int): Number of molecules
+        R (float): Radius of cycle
+        ang0 (float): Initial rotation angle
+        
+    Returns:
+        tuple: Positions and rotation angles
+    """
     dang = np.pi*2/n
     rots=[]; poss=[]
     for i in range(n):
@@ -305,6 +513,18 @@ def makePreset_cycle( n, R=10.0, ang0=0.0 ):
     return poss, rots
 
 def makePreset_arr1( m,n, R=10.0 ):
+    """Create preset array configuration.
+    
+    Generates positions and rotation angles for a 2D array of molecules.
+    
+    Args:
+        m (int): Number of rows
+        n (int): Number of columns
+        R (float): Distance between molecules
+        
+    Returns:
+        tuple: Positions and rotation angles
+    """
     dang = np.pi/2
     rots=[]; poss=[]
     for i in range(m):
@@ -317,10 +537,15 @@ def makePreset_arr1( m,n, R=10.0 ):
 
 
 def combinator(oents,subsys=False):
-    '''
-    This function finds all possible combinations of all orthogonoal excited states on various molecules
-    Trying to implement splitting to subsystems (for spin incompatibility reasons)
-    '''
+    """Find all possible combinations of orthogonal excited states.
+    
+    Args:
+        oents (list): Orthogonal excited states
+        subsys (bool): If True, consider subsystems
+        
+    Returns:
+        ndarray: Combinations of excited states
+    """
     oents=np.array(oents)   ; #print(oents)
     isx=np.argsort(oents)   ; #print(isx)
     ents=oents[isx]   #; print(ents)
@@ -375,6 +600,15 @@ def combinator(oents,subsys=False):
     return inds
 
 def combine( lst, inds ):
+    """Combine elements of a list based on indices.
+    
+    Args:
+        lst (list): List of elements
+        inds (ndarray): Indices for combination
+        
+    Returns:
+        list: Combined elements
+    """
     out = []
     for j in inds:
         if j !=-1:
@@ -382,6 +616,15 @@ def combine( lst, inds ):
     return out
 
 def applyCombinator( lst, inds ):
+    """Apply combinator to a list of elements.
+    
+    Args:
+        lst (list): List of elements
+        inds (ndarray): Indices for combination
+        
+    Returns:
+        list: Combined elements
+    """
     out = []
     for js in inds:
         out.append( combine( lst, js ) )
@@ -393,3 +636,4 @@ def applyCombinator( lst, inds ):
         out.append( outl )
         '''
     return out
+

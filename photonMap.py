@@ -1,5 +1,61 @@
 #!/usr/bin/python3 
 
+"""
+# =============================================================================
+#                          Theoretical Background
+# =============================================================================
+
+pyLightSTM Main Module
+---------------------
+
+This module implements the high-level workflow for simulating tip-enhanced 
+electro-luminescence in STM. It combines quantum mechanical calculations of
+molecular excitations with optical coupling to the tip cavity.
+
+The simulation process involves:
+
+1. System Setup:
+   - Load molecular geometries and wavefunctions
+   - Define tip parameters and computational grid
+   - Set up exciton system with molecular positions and orientations
+
+2. Quantum Mechanical Solution:
+   - Solve coupled exciton system
+   - Compute eigenvalues and eigenvectors
+   - Handle multiple excited states and transitions
+
+3. Signal Generation:
+   - Calculate STM tunneling probabilities
+   - Compute optical coupling to tip cavity
+   - Combine signals for final intensity maps
+
+The implementation supports:
+- Multiple molecules and excited states
+- Different tip field models
+- 2D and 3D calculations
+- Various output formats
+
+The modular architecture allows for:
+- Easy parameter modification
+- Flexible system configuration
+- Efficient parallel processing
+- Debug output for verification
+
+Key Components:
+- ExcitonSystem class for system representation
+- Configuration management
+- Map generation functions
+- File I/O utilities
+
+Usage:
+1. Define system parameters
+2. Create ExcitonSystem instance
+3. Load molecular data
+4. Run solver
+5. Generate maps
+6. Save results
+"""
+
 import os
 import sys
 import __main__ as main
@@ -15,6 +71,25 @@ import pyProbeParticle.photo          as photo
 bDebug = False
 
 class ExcitonSystem:
+    """Class representing a coupled exciton system in molecular aggregates.
+    
+    Attributes:
+        poss (list): Molecular positions
+        rots (list): Molecular rotations
+        Ediags (list): Diagonal energies
+        irhos (list): Initial state densities
+        ents (list): Excited state energies
+        Ham (ndarray): Hamiltonian matrix
+        eigEs (ndarray): Eigenvalues
+        eigVs (ndarray): Eigenvectors
+        lvecs (list): Lattice vectors
+        rhoIns (list): Input transition densities
+        rhoCanvs (list): Transition densities on common grid
+        Vtip (ndarray): Tip field
+        phMaps (list): Photon maps
+        STMmap (ndarray): STM tunneling map
+        wfIns (list): Input wavefunctions
+    """
     # see https://stackoverflow.com/questions/3603502/prevent-creating-new-attributes-outside-init
     __slots__ = [ 'poss','rots','Ediags','irhos','ents',    'Ham','eigEs','eigVs',    'lvecs','rhoIns','rhoCanvs','Vtip','phMaps', 'STMmap', 'wfIns'  ]
     def __init__(self):
@@ -54,6 +129,11 @@ params={
 }
 
 def loadParams( fname ):
+    """Load simulation parameters from file.
+    
+    Args:
+        fname (str): Path to parameter file
+    """
     print(" >> loadParams "+fname )
     fin = open(fname,'r')
     for line in fin:
@@ -61,6 +141,15 @@ def loadParams( fname ):
     #print( params )
 
 def loadDict( fname, convertor=float ):
+    """Load dictionary from file with type conversion.
+    
+    Args:
+        fname (str): Path to dictionary file
+        convertor (callable): Function to convert values
+        
+    Returns:
+        dict: Loaded dictionary
+    """
     # what about to use AST - https://www.kite.com/python/answers/how-to-read-a-dictionary-from-a-file-in--python#
     dct = {}
     with open(fname,'r') as fin:
@@ -70,6 +159,15 @@ def loadDict( fname, convertor=float ):
     return dct
 
 def loadDicts( fname, convertor=float ):
+    """Load multiple dictionaries from file.
+    
+    Args:
+        fname (str): Path to dictionaries file
+        convertor (callable): Function to convert values
+        
+    Returns:
+        list: List of loaded dictionaries
+    """
     dcts = []
     with open(fname,'r') as fin:
         for line in fin:
@@ -267,6 +365,16 @@ def loadCubeFiles( S0 ):
     return loadedRhos, loadedLvecs, lvecMax(S0.lvecs)  # maxshape(S0.rhoIns)
 
 def runExcitationSolver( system ):
+    """Solve exciton system and generate photon maps.
+    
+    Combines quantum mechanical solution with optical coupling calculation.
+    
+    Args:
+        system (ExcitonSystem): System to solve
+        
+    Returns:
+        tuple: Eigenvalues, eigenvectors, and Hamiltonian
+    """
     if params["subsampling"]:
         print("Using user subsampling")
         subsamp=params["subsampling"]
@@ -296,17 +404,60 @@ def runExcitationSolver( system ):
     return es,vs,H
 
 def makeSTMmap_2D( S, coefs, wfTip, dd_canv, byCenter=False  ):
+    """Generate 2D STM tunneling map.
+    
+    Calculates tunneling probability between tip and molecular states.
+    
+    Args:
+        S (ExcitonSystem): System object
+        coefs (list): Coefficients for each state
+        wfTip (ndarray): Tip wavefunction
+        dd_canv (tuple): Grid spacing
+        byCenter (bool): If True, positions relative to centers
+        
+    Returns:
+        tuple: STM intensity map and wavefunctions on canvas
+    """
     Tmap, wfCanv = photo.photonMap2D_stamp( S.wfIns, S.lvecs, wfTip, dd_canv[:2], rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
     Imap = ( Tmap.real**2 + Tmap.imag**2 )
     return Imap, wfCanv
 
 def makeSTMmap( S, coefs, wfTip, dd_canv, byCenter=False  ):
+    """Generate STM tunneling map.
+    
+    Calculates tunneling probability between tip and molecular states.
+    
+    Args:
+        S (ExcitonSystem): System object
+        coefs (list): Coefficients for each state
+        wfTip (ndarray): Tip wavefunction
+        dd_canv (tuple): Grid spacing
+        byCenter (bool): If True, positions relative to centers
+        
+    Returns:
+        tuple: STM intensity map and wavefunctions on canvas
+    """
     Tmap, wfCanv = photo.photonMap3D_stamp( S.wfIns, S.lvecs, wfTip, dd_canv, rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
     Imap = ( Tmap.real**2 + Tmap.imag**2 )
     return Imap, wfCanv
 
 def makePhotonMap( S, ipl, coefs, Vtip, dd_canv, byCenter=False, bDebugXsf=False  ):
-    #print( "Volumetric ", params["volumetric"], " dd_canv ", dd_canv )
+    """Generate photon map for optical coupling.
+    
+    Computes coupling between molecular transitions and tip cavity field.
+    
+    Args:
+        S (ExcitonSystem): System object
+        ipl (int): Eigenstate index
+        coefs (list): Coefficients for each state
+        Vtip (ndarray): Tip field
+        dd_canv (tuple): Grid spacing
+        byCenter (bool): If True, positions relative to centers
+        bDebugXsf (bool): If True, save debug XSF files
+        
+    Returns:
+        tuple: Transition density on canvas and photon map
+    """
     if params["volumetric"]:
         phmap, rhoCanv_ = photo.photonMap3D_stamp( S.rhoIns, S.lvecs, Vtip, dd_canv, rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
         #phmap = np.sum(phmap_,axis=0)   # phmap_ is already 2D
