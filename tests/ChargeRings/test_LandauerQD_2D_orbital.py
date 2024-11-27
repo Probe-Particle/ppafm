@@ -64,21 +64,28 @@ def calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd, 
     for i in range(len(QDpos)):
         pos = QDpos[i]
         # Take xy plane (z-middle slice) and transpose to fix axis orientation
-        # orbital_data is (iz,iy,ix), we want xy plane, so take middle z and transpose
         orbital_slice = np.ascontiguousarray(orbital_data[orbital_data.shape[0]//2,:,:].T, dtype=np.float64)
         print(f"Orbital slice shape: {orbital_slice.shape}")
-        GU.stampToGrid2D(canvas, orbital_slice, pos[:2], angles[i], dd=canvas_dd)
+        print(f"Stamping QD {i} at position: {pos[:2]} Å")
+        GU.stampToGrid2D(canvas, orbital_slice, pos[:2]/canvas_dd, angles[i], dd=canvas_dd)
     
     # Print canvas statistics before convolution
     print(f"Canvas before convolution - min: {canvas.min():.3e}, max: {canvas.max():.3e}")
     
-    # Plot canvas before convolution
-    plt.figure(figsize=(6, 5))
+    # Plot canvas before convolution (full canvas)
+    plt.figure(figsize=(8, 8))
     plt.imshow(canvas.T, origin='lower', aspect='equal')
+    # Mark the center and QD positions
+    plt.axhline(y=canvas_shape[1]//2, color='r', linestyle='--', alpha=0.3)
+    plt.axvline(x=canvas_shape[0]//2, color='r', linestyle='--', alpha=0.3)
+    plt.scatter(QDpos[:,0]/canvas_dd[0] + canvas_shape[0]//2, 
+               QDpos[:,1]/canvas_dd[1] + canvas_shape[1]//2, 
+               c='red', marker='o', label='QDs')
     plt.colorbar(label='Orbital density')
-    plt.title('Canvas before convolution')
+    plt.title('Canvas before convolution (full canvas)')
     plt.xlabel('x [grid points]')
     plt.ylabel('y [grid points]')
+    plt.legend()
     plt.tight_layout()
     
     # Convolve with tip field
@@ -86,6 +93,26 @@ def calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd, 
     result = np.real(stm_map * np.conj(stm_map))
     
     print(f"STM map after convolution - min: {result.min():.3e}, max: {result.max():.3e}")
+    
+    # Plot full canvas after convolution
+    plt.figure(figsize=(8, 8))
+    plt.imshow(result.T, origin='lower', aspect='equal')
+    # Mark the center region that will be cropped
+    if center_region is not None:
+        cx, cy = canvas_shape[0]//2, canvas_shape[1]//2
+        dx, dy = center_region
+        rect = plt.Rectangle((cx-dx, cy-dy), 2*dx, 2*dy, 
+                           fill=False, color='red', linestyle='--', label='Crop region')
+        plt.gca().add_patch(rect)
+    plt.scatter(QDpos[:,0]/canvas_dd[0] + canvas_shape[0]//2, 
+               QDpos[:,1]/canvas_dd[1] + canvas_shape[1]//2, 
+               c='red', marker='o', label='QDs')
+    plt.colorbar(label='STM signal')
+    plt.title('Canvas after convolution (full canvas)')
+    plt.xlabel('x [grid points]')
+    plt.ylabel('y [grid points]')
+    plt.legend()
+    plt.tight_layout()
     
     # Crop to center region if specified
     if center_region is not None:
@@ -111,14 +138,12 @@ def main():
     print(orbital_lvec)
     
     # Get physical dimensions from lattice vectors (already in Angstroms)
-    # The first row is the origin offset, rows 1-3 are the lattice vectors
     # Note: orbital_data shape is (iz, iy, ix)
     Lx = abs(orbital_lvec[1,0])  # First lattice vector x component
     Ly = abs(orbital_lvec[2,1])  # Second lattice vector y component
     print(f"Physical dimensions: Lx={Lx:.3f} Å, Ly={Ly:.3f} Å")
     
     # Calculate canvas dimensions based on orbital size
-    # Use ix and iy from orbital shape
     canvas_shape = (orbital_data.shape[2], orbital_data.shape[1])  # (ix, iy)
     canvas_dd = [Lx/canvas_shape[0], Ly/canvas_shape[1]]  # Grid spacing in x and y
     print(f"Canvas shape: {canvas_shape}")
@@ -131,7 +156,7 @@ def main():
     angles = [phi + phiRot for phi in phis]
     
     # Calculate orbital-based STM on full canvas and crop to center
-    orbital_stm = calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd, 
+    orbital_stm = calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd,
                                       center_region=(center_pixels, center_pixels))
     
     # Calculate physical dimensions of center region
