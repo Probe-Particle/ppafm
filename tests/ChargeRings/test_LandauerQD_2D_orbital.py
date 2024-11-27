@@ -14,15 +14,15 @@ from LandauerQD_py import LandauerQDs
 
 # System parameters
 Q_tip = 0.6
-z_tip = 6.0
+z_tip = 5.0
 #L     = 30.0
-decay = 0.7
+decay = 1.7
 T     = 10.0
 
 # QD system setup
 nsite   = 3
-R       = 5.0  # radius of circle on which sites are placed
-phiRot  = -1.0
+R       = 7.0  # radius of circle on which sites are placed
+phiRot  = 0.1 + np.pi/2
 Q0      = 1.0
 Qzz     = 15.0 * 0.0
 
@@ -39,6 +39,13 @@ Gamma_sub = 1.0  # Substrate state broadening
 # Energy for transmission calculation
 scan_energy = 0.0  # Scan at Fermi level
 
+bDebug = True
+
+Lcanv = 60.0
+dCanv = 0.5
+
+# ========== Functions
+
 def load_orbital(fname):
     """Load QD orbital from cube file."""
     try:
@@ -48,77 +55,124 @@ def load_orbital(fname):
         print(f"Error loading cube file {fname}: {e}")
         raise
 
-def make_tip_field(sh, dd, z0, decay):
-    """Create exponentially decaying tip wavefunction."""
-    return photo.makeTipField(sh, dd, z0=z0, beta=decay, bSTM=True)
+# def make_tipWf(sh, dd, z0, decay):
+#     """Create exponentially decaying tip wavefunction."""
+#     return photo.makeTipField(sh, dd, z0=z0, beta=decay, bSTM=True)
 
-def calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd, center_region=None):
+
+def plotMinMax( data, label=None, figsize=(5,5), cmap='bwr', extent=None ):
+    plt.figure(figsize=figsize); 
+    vmin=data.min()
+    vmax=data.max()
+    absmax = max(abs(vmin),abs(vmax))
+    plt.imshow(data, origin='lower', aspect='equal', cmap=cmap, vmin=-absmax, vmax=absmax, extent=extent)
+    plt.colorbar(label=label)
+    #plt.xlabel('x [grid points]')
+    #plt.show()
+
+def evalGridStep2D( sh, lvec ):
+    dix = lvec[1][0]/sh[0]; #print( "evalGridStep2D dix: ", dix, " lvec: ", lvec[1][0], " sh: ", sh[0] )
+    diy = lvec[2][1]/sh[1]; #print( "evalGridStep2D diy: ", diy, " lvec: ", lvec[2][1], " sh: ", sh[1] )
+    return (dix,diy)
+
+def photonMap2D_stamp( rhos, lvecs, canvas_shape, dd_canv, angles=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], byCenter=False, bComplex=False ):
+    """Generate 2D photon map by convolving transition densities with tip field.
+    
+    Computes optical coupling between molecular transitions and tip cavity field
+    using FFT-based convolution.
+    
+    Args:
+        rhos (list): Transition densities for each molecule
+        lvecs (list): Lattice vectors for each molecule
+        dd_canv (tuple): Grid spacing for canvas
+        angles (list): Rotation angles for each molecule
+        poss (list): Positions of molecules
+        coefs (list): Coefficients for each molecule's contribution
+        byCenter (bool): If True, positions are relative to molecular centers
+        bComplex (bool): If True, return complex values
+        
+    Returns:
+        tuple: Total photon map and individual molecular contributions
+    """
+    dd_canv = np.array( dd_canv )
+    if bComplex:
+        dtype=np.complex128
+    else:
+        dtype=np.float64    
+    canvas = np.zeros( canvas_shape, dtype=dtype )
+    for i in range(len(poss)):
+        coef = coefs[i]
+        rho  = rhos[i]
+        if len(rho.shape)==3:
+            rho  = np.sum( rho, axis=2  )   # integrate over z
+        rho     = rho.astype( dtype ) 
+        ddi     = np.array(  evalGridStep2D( rhos[i].shape, lvecs[i] ) )
+        #print(f"ddi: {ddi}" )
+        pos     = np.array( poss[i][:2] ) 
+        pos    /= dd_canv
+        dd_fac  = ddi/dd_canv
+        if not isinstance(coef, float):
+            coef = complex( coef[0], coef[1] )
+        GU.stampToGrid2D( canvas, rho, pos, angles[i], dd=dd_fac, coef=coef, byCenter=byCenter, bComplex=bComplex)
+    return canvas
+
+def calculate_orbital_stm(orbital_data, orbital_lvec, QDpos, angles, canvas_shape, canvas_dd, center_region=None):
     """Calculate STM signal using orbital convolution for all QDs."""
+    
     # Create tip field
-    tip_field, _ = make_tip_field(canvas_shape, canvas_dd, z_tip, decay)
-    
-    # Initialize canvas for all QDs
-    canvas = np.zeros(canvas_shape, dtype=np.float64, order='C')
-    
-    # Place each QD orbital on canvas
-    for i in range(len(QDpos)):
-        pos = QDpos[i]
-        # Take xy plane (z-middle slice) and transpose to fix axis orientation
-        orbital_slice = np.ascontiguousarray(orbital_data[orbital_data.shape[0]//2,:,:].T, dtype=np.float64)
-        print(f"Orbital slice shape: {orbital_slice.shape}")
-        print(f"Stamping QD {i} at position: {pos[:2]} Å")
-        GU.stampToGrid2D(canvas, orbital_slice, pos[:2]/canvas_dd, angles[i], dd=canvas_dd)
-    
+    tipWf, _ = photo.makeTipField( canvas_shape, canvas_dd, z0=z_tip, beta=decay, bSTM=True)
+
+    #if bDebug: plotMinMax( tipWf, label='Tip Wavefunction' )
+
+    orbital_2D = np.sum( orbital_data[orbital_data.shape[0]//2:,:,:] ,axis=0)   # integrate over z the upper half of the orbital grid
+    orbital_2D = np.ascontiguousarray( orbital_2D.T, dtype=np.float64)
+    print(f"Orbital slice shape: {orbital_2D.shape}")
+
+    #if bDebug: plotMinMax( orbital_2D, label='Molecular Orbital Wf' )
+
+    nqd = len(QDpos)
+    Lx = canvas_dd[0] * canvas_shape[0]
+    Ly = canvas_dd[1] * canvas_shape[1]
+    extent = [ -Lx/2, Lx/2, -Ly/2, Ly/2 ]
+    print(f"Canvas shape: {canvas_shape}, physical dimensions: {Lx:.3f} x {Ly:.3f} Angstrom")
+    rhos  = [orbital_2D   ]*len(QDpos)
+    lvecs = [orbital_lvec ]*len(QDpos)
+    #coefs = [ [1.0,0.0] ]*len(QDpos)
+    coefs = [ 1.0 ]*len(QDpos)
+    canvas = photonMap2D_stamp( rhos, lvecs, canvas_shape, canvas_dd, angles=angles, poss=QDpos, coefs=coefs, byCenter=True, bComplex=False )
+    #canvas = photonMap2D_stamp( rhos, lvecs, canvas_shape, canvas_dd, angles=angles, poss=QDpos[:1], coefs=coefs, byCenter=True, bComplex=False )
+    #canvas = photonMap2D_stamp( rhos, lvecs, canvas_shape, canvas_dd, angles=angles, poss=[[0.0,0.0,0.0]], coefs=coefs, byCenter=True, bComplex=False )
+
+    if bDebug: 
+        plotMinMax( canvas, label='Canvas (Sum Molecular Wfs)', figsize=(8,8), extent=extent  )
+        plt.scatter(QDpos[:,0], QDpos[:,1],  c='g', marker='o', label='QDs')
+
+    #plt.show(); exit()
+
     # Print canvas statistics before convolution
-    print(f"Canvas before convolution - min: {canvas.min():.3e}, max: {canvas.max():.3e}")
-    
-    # Plot canvas before convolution (full canvas)
-    plt.figure(figsize=(8, 8))
-    plt.imshow(canvas.T, origin='lower', aspect='equal')
-    # Mark the center and QD positions
-    plt.axhline(y=canvas_shape[1]//2, color='r', linestyle='--', alpha=0.3)
-    plt.axvline(x=canvas_shape[0]//2, color='r', linestyle='--', alpha=0.3)
-    plt.scatter(QDpos[:,0]/canvas_dd[0] + canvas_shape[0]//2, 
-               QDpos[:,1]/canvas_dd[1] + canvas_shape[1]//2, 
-               c='red', marker='o', label='QDs')
-    plt.colorbar(label='Orbital density')
-    plt.title('Canvas before convolution (full canvas)')
-    plt.xlabel('x [grid points]')
-    plt.ylabel('y [grid points]')
-    plt.legend()
-    plt.tight_layout()
+    print(f"Canvas before convolution( Molecular Wfs ): min: {canvas.min():.3e}, max: {canvas.max():.3e}")
     
     # Convolve with tip field
-    stm_map = photo.convFFT(tip_field, canvas)
+    stm_map = photo.convFFT(tipWf, canvas)
     result = np.real(stm_map * np.conj(stm_map))
     
-    print(f"STM map after convolution - min: {result.min():.3e}, max: {result.max():.3e}")
+    print(f"STM map - i.e. Canvas(after convolution): min: {result.min():.3e}, max: {result.max():.3e}")
     
-    # Plot full canvas after convolution
-    plt.figure(figsize=(8, 8))
-    plt.imshow(result.T, origin='lower', aspect='equal')
-    # Mark the center region that will be cropped
-    if center_region is not None:
-        cx, cy = canvas_shape[0]//2, canvas_shape[1]//2
-        dx, dy = center_region
-        rect = plt.Rectangle((cx-dx, cy-dy), 2*dx, 2*dy, 
-                           fill=False, color='red', linestyle='--', label='Crop region')
-        plt.gca().add_patch(rect)
-    plt.scatter(QDpos[:,0]/canvas_dd[0] + canvas_shape[0]//2, 
-               QDpos[:,1]/canvas_dd[1] + canvas_shape[1]//2, 
-               c='red', marker='o', label='QDs')
-    plt.colorbar(label='STM signal')
-    plt.title('Canvas after convolution (full canvas)')
-    plt.xlabel('x [grid points]')
-    plt.ylabel('y [grid points]')
-    plt.legend()
-    plt.tight_layout()
+    if bDebug: 
+        plotMinMax( result, label='STM Map (Canvas after convolution)', figsize=(8,8), extent=extent )
+        plt.scatter(QDpos[:,0], QDpos[:,1],  c='g', marker='o', label='QDs')
     
     # Crop to center region if specified
     if center_region is not None:
         cx, cy = canvas_shape[0]//2, canvas_shape[1]//2
         dx, dy = center_region
-        result = result[cx-dx:cx+dx, cy-dy:cy+dy]
+        result = result[cx-dx:cx+dx, cy-dy:cy+dy].copy()
+
+
+    if bDebug: 
+        plotMinMax( result, label='STM Map (Canvas after convolution)', figsize=(8,8) )
+
+    plt.show(); exit()
         
     return result
 
@@ -141,23 +195,23 @@ def main():
     # Note: orbital_data shape is (iz, iy, ix)
     Lx = abs(orbital_lvec[1,0])  # First lattice vector x component
     Ly = abs(orbital_lvec[2,1])  # Second lattice vector y component
-    print(f"Physical dimensions: Lx={Lx:.3f} Å, Ly={Ly:.3f} Å")
+    print(f"Molecular orbital dimensions: Lx={Lx:.3f} Å, Ly={Ly:.3f} Å")
     
     # Calculate canvas dimensions based on orbital size
-    canvas_shape = (orbital_data.shape[2], orbital_data.shape[1])  # (ix, iy)
-    canvas_dd = [Lx/canvas_shape[0], Ly/canvas_shape[1]]  # Grid spacing in x and y
+    ncanv        = int(np.ceil(Lcanv/dCanv))
+    canvas_shape = (ncanv, ncanv)  # (ix, iy)
+    canvas_dd    = [dCanv, dCanv]  # Grid spacing in x and y
     print(f"Canvas shape: {canvas_shape}")
-    print(f"Grid spacing: dx={canvas_dd[0]:.3f} Å, dy={canvas_dd[1]:.3f} Å")
-    
-    # Define center region size (in pixels)
-    center_pixels = 50  # This will give us a 100x100 pixel region around center
+    print(f"Canvas spacing: dx={canvas_dd[0]:.3f} Å, dy={canvas_dd[1]:.3f} Å")
     
     # Create angles for each QD
-    angles = [phi + phiRot for phi in phis]
+    angles = np.array([phi + phiRot for phi in phis])
     
     # Calculate orbital-based STM on full canvas and crop to center
-    orbital_stm = calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd,
-                                      center_region=(center_pixels, center_pixels))
+    #orbital_stm = calculate_orbital_stm( orbital_data, orbital_lvec, QDpos, angles + 0.5*np.pi, canvas_shape, canvas_dd, center_region=(canvas_shape[0]//2, canvas_shape[1]//2))
+    orbital_stm = calculate_orbital_stm( orbital_data, orbital_lvec, QDpos, angles            , canvas_shape, canvas_dd, center_region=(canvas_shape[0]//4, canvas_shape[1]//4))
+
+    #plt.show(); exit(); return
     
     # Calculate physical dimensions of center region
     center_Lx = 2 * center_pixels * canvas_dd[0]
@@ -186,7 +240,7 @@ def main():
     
     # Plot results
     fig = plt.figure(figsize=(15, 5))
-    gs = GridSpec(1, 3, figure=fig)
+    gs  = GridSpec(1, 3, figure=fig)
     
     extent = [-center_Lx/2, center_Lx/2, -center_Ly/2, center_Ly/2]  # Center around origin
     
@@ -210,7 +264,7 @@ def main():
     
     # Add QD positions to all plots
     for ax in [ax1, ax2, ax3]:
-        ax.scatter(QDpos[:,0], QDpos[:,1], c='red', marker='o', label='QDs')
+        ax.scatter(QDpos[:,0], QDpos[:,1], c='g', marker='o', label='QDs')
         ax.legend()
         ax.set_xlabel('x [Å]')
         ax.set_ylabel('y [Å]')
@@ -225,6 +279,7 @@ def main():
              QDpos=QDpos,
              scan_params={'L': center_Lx, 'z_tip': z_tip, 'scan_energy': scan_energy})
     
+    plt.savefig('test_LandauerQD_2D_orbital.png', bbox_inches='tight')
     plt.show()
 
 if __name__ == "__main__":

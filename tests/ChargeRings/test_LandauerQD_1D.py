@@ -1,4 +1,3 @@
-
 import os
 os.environ['LD_PRELOAD'] = '/usr/lib/x86_64-linux-gnu/libgomp.so.1'
 
@@ -152,4 +151,5 @@ if use_occupancy:
     ax3.legend()
 
 plt.tight_layout()
+plt.savefig('test_LandauerQD_1D.png', bbox_inches='tight')
 plt.show()

@@ -123,6 +123,7 @@ cbar_ax = fig.add_subplot(gs[3])
 plt.colorbar(im1, cax=cbar_ax, label='Transmission')
 
 plt.tight_layout()
+plt.savefig('test_LandauerQD_2D_Occ.png', bbox_inches='tight')
 plt.show()
 
 # Optional: Save the data

@@ -217,7 +217,7 @@ class LandauerQDs:
 
         return self._assemble_full_H(tip_pos, Hqd, V_bias)
 
-    def calculate_transmission(self, tip_pos, E, *, Q_tip=None, Hqd=None, V_bias=0.0):
+    def calculate_transmission(self, tip_pos, E, Q_tip=None, Hqd=None, V_bias=0.0):
         """Calculate transmission probability for given tip position and energy.
         
         Args:

@@ -163,6 +163,7 @@ else:
     plt.colorbar(im2, cax=fig.add_subplot(gs[2]))
 
 plt.tight_layout()
+plt.savefig('test_LandauerQD_2D_dIdV.png', bbox_inches='tight')
 plt.show()
 
 # Optional: Save the data

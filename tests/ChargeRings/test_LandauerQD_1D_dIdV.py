@@ -153,4 +153,5 @@ if use_occupancy:
     plt.grid()
 
 plt.tight_layout()
+plt.savefig('test_LandauerQD_1D_dIdV.png', bbox_inches='tight')
 plt.show()

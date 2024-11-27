@@ -17,8 +17,8 @@ decay = 0.7
 T     = 10.0
 
 # Occupancy calculation switch
-#use_occupancy  = True  # Set to True to use occupancy solver
-use_occupancy = False  # Set to True to use occupancy solver
+use_occupancy  = True  # Set to True to use occupancy solver
+#use_occupancy = False  # Set to True to use occupancy solver
 cCouling       = 0.03       # Coupling parameter for occupancy calculation
 E_Fermi        = 0.0        # Fermi energy level
 
@@ -101,7 +101,7 @@ else:
     for i in range(npix):
         for j in range(npix):
             tip_pos = ps[i,j]
-            transmission_map[i,j] = system.calculate_transmission(tip_pos, scan_energy, Qtips[i] )
+            transmission_map[i,j] = system.calculate_transmission(tip_pos, scan_energy, Q_tip=Qtips[i] )
             eigenvalues_map[i,j] = system.get_QD_eigenvalues(tip_pos, Qtips[i] )
 
 # Plot results
@@ -145,6 +145,7 @@ else:
     plt.colorbar(im2, cax=fig.add_subplot(gs[2]))
 
 plt.tight_layout()
+plt.savefig('test_LandauerQD_2D.png', bbox_inches='tight')
 plt.show()
 
 # Optional: Save the data

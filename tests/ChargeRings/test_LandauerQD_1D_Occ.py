@@ -133,4 +133,5 @@ ax3.grid(True)
 ax3.legend()
 
 plt.tight_layout()
+plt.savefig('test_LandauerQD_1D_Occ.png', bbox_inches='tight')
 plt.show()
