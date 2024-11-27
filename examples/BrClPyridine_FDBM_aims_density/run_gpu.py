@@ -27,7 +27,7 @@ if __name__ == "__main__":
     tip_dir = Path("tip")
     sample_dir = Path("sample")
     download_dataset("CO-tip-densities", target_dir=tip_dir)
-    download_dataset("BrClPyridine-hartree-density", target_dir=sample_dir)
+    download_dataset("BrClPyridine", target_dir=sample_dir)
 
     # Load all input files
     rho_tip, xyzs_tip, Zs_tip = FFcl.TipDensity.from_file(tip_dir / "density_CO.xsf")

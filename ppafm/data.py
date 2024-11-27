@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import tarfile
+import zipfile
 from os import PathLike
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,7 +12,7 @@ DATASET_URLS = {
     "dft-afm": "https://zenodo.org/records/10563098/files/dft-afm.tar.gz?download=1",
     "hartree-density": "https://zenodo.org/records/10563098/files/hartree-density.tar.gz?download=1",
     "FFPB-KPFM-hartree": "https://zenodo.org/records/10563098/files/KPFM_hartree.tar.gz?download=1",
-    "BrClPyridine-hartree-density": "https://www.dropbox.com/scl/fi/ilx7oe6iax375tqdleuax/BrClPyridine_hartree_density.tar.gz?rlkey=5j5xyc9n36zgw66xsb5mq8rvd&st=g65e0jdk&dl=1",
+    "BrClPyridine": "https://zenodo.org/records/14222456/files/pyridineBrCl.zip?download=1",
 }
 
 
@@ -45,6 +46,40 @@ def _common_parent(paths):
     return common_part
 
 
+def _extract_targz(archive_path, target_dir):
+    with tarfile.open(archive_path, "r") as ft:
+        print("Reading tar archive files...")
+        members = []
+        base_dir = _common_parent(ft.getnames())
+        for m in ft.getmembers():
+            if m.isfile():
+                # relative_to(base_dir) here gets rid of a common parent directory within the archive (if any),
+                # which makes it so that we can just directly extract the files to the target directory.
+                m.name = Path(m.name).relative_to(base_dir)
+                members.append(m)
+        print(f"Extracting dataset to `{target_dir}`: ", end="", flush=True)
+        for i, m in enumerate(members):
+            _print_progress(i, 1, len(members) - 1)
+            ft.extract(m, target_dir)
+
+
+def _extract_zip(archive_path, target_dir):
+    with zipfile.ZipFile(archive_path, "r") as ft:
+        print("Reading zip archive files...")
+        members = []
+        base_dir = _common_parent(ft.namelist())
+        for m in ft.infolist():
+            if not m.is_dir():
+                # relative_to(base_dir) here gets rid of a common parent directory within the archive (if any),
+                # which makes it so that we can just directly extract the files to the target directory.
+                m.filename = str(Path(m.filename).relative_to(base_dir))
+                members.append(m)
+        print(f"Extracting dataset to `{target_dir}`: ", end="", flush=True)
+        for i, m in enumerate(members):
+            _print_progress(i, 1, len(members) - 1)
+            ft.extract(m, target_dir)
+
+
 def download_dataset(name: str, target_dir: PathLike):
     """
     Download and unpack a dataset to a target directory.
@@ -55,7 +90,7 @@ def download_dataset(name: str, target_dir: PathLike):
         - ``'dft-afm'``: https://doi.org/10.5281/zenodo.10563098 - dft-afm.tar.gz
         - ``'hartree-density'``: https://doi.org/10.5281/zenodo.10563098 - hartree-density.tar.gz
         - ``'FFPB-KPFM-hartree'``: https://doi.org/10.5281/zenodo.10563098 - KPFM_hartree.tar.gz
-        - ``'BrClPyridine-hartree-density'``: Hartree potential and electron density for the BrClPyridine example.
+        - ``'BrClPyridine'``: https://doi.org/10.5281/zenodo.14222456 - pyridineBrCl.zip: hartree potential and electron density for the BrClPyridine example.
 
     Arguments:
         name: Name of dataset to download.
@@ -73,21 +108,14 @@ def download_dataset(name: str, target_dir: PathLike):
         return
 
     with TemporaryDirectory() as temp_dir:
-        temp_file = Path(temp_dir) / f"dataset_{name}.tar.gz"
+        temp_file = Path(temp_dir) / f"dataset_{name}"
         print(f"Downloading dataset `{name}`: ", end="")
-        urlretrieve(dataset_url, temp_file, _print_progress)
+        _, response = urlretrieve(dataset_url, temp_file, _print_progress)
+        original_file_name = response.get_filename()
         target_dir.mkdir(exist_ok=True, parents=True)
-        with tarfile.open(temp_file, "r") as ft:
-            print("Reading archive files...")
-            members = []
-            base_dir = _common_parent(ft.getnames())
-            for m in ft.getmembers():
-                if m.isfile():
-                    # relative_to(base_dir) here gets rid of a common parent directory within the archive (if any),
-                    # which makes it so that we can just directly extract the files to the target directory.
-                    m.name = Path(m.name).relative_to(base_dir)
-                    members.append(m)
-            print(f"Extracting dataset to `{target_dir}`: ", end="", flush=True)
-            for i, m in enumerate(members):
-                _print_progress(i, 1, len(members) - 1)
-                ft.extract(m, target_dir)
+        if original_file_name.endswith(".tar.gz"):
+            _extract_targz(temp_file, target_dir)
+        elif original_file_name.endswith(".zip"):
+            _extract_zip(temp_file, target_dir)
+        else:
+            raise RuntimeError(f"Uknown file extension in `{original_file_name}`.")
