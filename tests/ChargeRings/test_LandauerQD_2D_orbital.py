@@ -67,9 +67,24 @@ def calculate_orbital_stm(orbital_data, QDpos, angles, canvas_shape, canvas_dd):
         orbital_slice = np.ascontiguousarray(orbital_data[:,:,orbital_data.shape[2]//2], dtype=np.float64)
         GU.stampToGrid2D(canvas, orbital_slice, pos[:2], angles[i], dd=canvas_dd)
     
+    # Print canvas statistics before convolution
+    print(f"Canvas before convolution - min: {canvas.min():.3e}, max: {canvas.max():.3e}")
+    
+    # Plot canvas before convolution
+    plt.figure(figsize=(6, 5))
+    plt.imshow(canvas.T, origin='lower', aspect='equal')
+    plt.colorbar(label='Orbital density')
+    plt.title('Canvas before convolution')
+    plt.xlabel('x [grid points]')
+    plt.ylabel('y [grid points]')
+    plt.tight_layout()
+    
     # Convolve with tip field
     stm_map = photo.convFFT(tip_field, canvas)
-    return np.real(stm_map * np.conj(stm_map))
+    result = np.real(stm_map * np.conj(stm_map))
+    
+    print(f"STM map after convolution - min: {result.min():.3e}, max: {result.max():.3e}")
+    return result
 
 def main():
     # Setup system geometry
@@ -88,13 +103,15 @@ def main():
     
     # Get physical dimensions from lattice vectors (already in Angstroms)
     # The first row is the origin offset, rows 1-3 are the lattice vectors
+    # Note: orbital_data shape is (iz, iy, ix)
     Lx = abs(orbital_lvec[1,0])  # First lattice vector x component
     Ly = abs(orbital_lvec[2,1])  # Second lattice vector y component
     print(f"Physical dimensions: Lx={Lx:.3f} Å, Ly={Ly:.3f} Å")
     
     # Calculate canvas dimensions based on orbital size
-    canvas_shape = orbital_data.shape[:2]  # Use original dimensions
-    canvas_dd = [Lx/canvas_shape[1], Ly/canvas_shape[0]]  # Grid spacing in x and y
+    # Use ix and iy from orbital shape
+    canvas_shape = (orbital_data.shape[2], orbital_data.shape[1])  # (ix, iy)
+    canvas_dd = [Lx/canvas_shape[0], Ly/canvas_shape[1]]  # Grid spacing in x and y
     print(f"Canvas shape: {canvas_shape}")
     print(f"Grid spacing: dx={canvas_dd[0]:.3f} Å, dy={canvas_dd[1]:.3f} Å")
     
@@ -117,6 +134,8 @@ def main():
         for j in range(canvas_shape[1]):
             tip_pos = np.array([X[i,j], Y[i,j], z_tip])
             transmission_map[i,j] = system.calculate_transmission(tip_pos, scan_energy, Q_tip=Q_tip)
+    
+    print(f"Landauer transmission - min: {transmission_map.min():.3e}, max: {transmission_map.max():.3e}")
     
     # Normalize maps for better visualization
     orbital_stm = (orbital_stm - orbital_stm.min()) / (orbital_stm.max() - orbital_stm.min() + 1e-10)
