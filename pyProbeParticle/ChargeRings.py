@@ -36,64 +36,9 @@ lib.setVerbosity.restype  = None
 def setVerbosity( verbosity ):
     lib.setVerbosity( verbosity )
 
-# # double solveSiteOccupancies( int npos, double* ptips_, double* Qtips,  int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_mu, double cCoupling, int niter, double tol, double dt, int* nitrs ){
-# lib.solveSiteOccupancies_old.argtypes = [ c_int, array2d, array1d, c_int, array2d, c_double_p, c_double_p, array1d, array2d, c_double, c_double, c_int, c_double, c_double, array1i ]
-# lib.solveSiteOccupancies_old.restype  = c_double
-# def solveSiteOccupancies_old( ptips, Qtips, spos, Esite, Qout=None, rot=None, MultiPoles=None, E_fermi=0.0, cCoupling=1.0, niter=100, tol=1e-6, dt=0.1, niters=None ):
-#     npos   = len(ptips)
-#     nsite  = len(spos)
-#     ptips  = np.array(ptips)
-#     Qtips  = np.array(Qtips)
-#     spos   = np.array(spos)
-#     Esite  = np.array(Esite)
-#     if(Qout is None): Qout = np.zeros( (npos,nsite) )
-#     if(niters is None): niters = np.zeros(npos, dtype=np.int32)
-#     lib.solveSiteOccupancies_old( npos, ptips, Qtips, nsite, spos, _np_as(rot,c_double_p), _np_as(MultiPoles,c_double_p), Esite, Qout, E_fermi, cCoupling, niter, tol, dt, niters )
-#     return Qout, niters
 
-# # STM map calculation
-# lib.STM_map.argtypes = [c_int, array2d, array1d, c_int, array2d, array2d, c_double_p, c_double_p, array1d, c_double, c_double, c_double, c_double]
-# lib.STM_map.restype = None
-# def getSTM_map(ptips, Qs, spos, Esite, rot=None, MultiPoles=None, Q_tip=1.0, E_Fermi=0.0, cCoupling=1.0, beta=1.0):
-#     npos = len(ptips)
-#     nsite = len(spos)
-#     ptips = np.array(ptips)
-#     spos = np.array(spos)
-#     Esite = np.array(Esite)
-#     Qs = np.array(Qs)
-#     I_stm = np.zeros(npos)
-#     lib.STM_map(npos, ptips, I_stm, nsite, spos, Qs, _np_as(rot,c_double_p), _np_as(MultiPoles,c_double_p), Esite, Q_tip, E_Fermi, cCoupling, beta)
-#     return I_stm
 
-# Define the ctypes interface for the new function
-lib.solveHamiltonians.argtypes = [c_int, array2d, array1d, array2d, array2d, array3d, c_double_p, c_double_p ]
-lib.solveHamiltonians.restype = None
-def solveHamiltonians(ptips, Qtips, Qsites=None, evals=None, evecs=None, Gs=None, Hs=None, bH=False, bG=False, bVec=True ):
-    npos = len(ptips)
-    ptips = np.array(ptips)
-    Qtips = np.array(Qtips)
-    if ( evals  is None )          : evals = np.zeros((npos, 3   ))
-    if ( evecs  is None ) and bVec : evecs = np.zeros((npos, 3, 3))
-    if ( Hs     is None ) and bH   : Hs    = np.zeros((npos, 3, 3))
-    if ( Gs     is None ) and bG   : Gs    = np.zeros((npos, 3, 3))
-    lib.solveHamiltonians( npos, ptips, Qtips, Qsites, evals, evecs, _np_as(Hs,c_double_p), _np_as(Gs,c_double_p) )
-    return evals, evecs, Hs, Gs
-
-# void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, double temperature=100.0 ){
-lib.solveSiteOccupancies_old.argtypes = [ c_int, array2d, array1d, c_int, array2d, c_double_p, c_double_p, array1d, array2d, c_double, c_double, c_double ]
-lib.solveSiteOccupancies_old.restype  = c_double
-def solveSiteOccupancies_old( ptips, Qtips, spos, Esite, Qout=None, rot=None, MultiPoles=None, E_fermi=0.0, cCoupling=1.0, temperature=1.0 ):
-    npos   = len(ptips)
-    nsite  = len(spos)
-    ptips  = np.array(ptips)
-    Qtips  = np.array(Qtips)
-    spos   = np.array(spos)
-    Esite  = np.array(Esite)
-    if(Qout is None): Qout = np.zeros( (npos,nsite) )
-    lib.solveSiteOccupancies_old( npos, ptips, Qtips, nsite, spos, _np_as(rot,c_double_p), _np_as(MultiPoles,c_double_p), Esite, Qout, E_fermi, cCoupling, temperature )
-    return Qout
-
-# Initialize ring parameters
+# void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, double* Esites, double E_Fermi, double cCouling, double temperature ) {
 lib.initRingParams.argtypes = [c_int, array2d, c_double_p, c_double_p, array1d, c_double, c_double, c_double]
 lib.initRingParams.restype = None
 def initRingParams(spos, Esite, rot=None, MultiPoles=None, E_Fermi=0.0, cCouling=1.0, temperature=100.0 ):
@@ -111,17 +56,38 @@ def initRingParams(spos, Esite, rot=None, MultiPoles=None, E_Fermi=0.0, cCouling
     MultiPoles_ = np.array(MultiPoles)
     lib.initRingParams(nsite, spos_, _np_as(rot_,c_double_p), _np_as(MultiPoles_,c_double_p), Esite_, E_Fermi, cCouling, temperature )
 
-# Solve site occupancies
-lib.solveSiteOccupancies.argtypes = [c_int, array2d, array1d, array2d]
+# void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf) {
+lib.solveSiteOccupancies.argtypes = [c_int, array2d, array1d, array2d, c_double_p]
 lib.solveSiteOccupancies.restype = None
-def solveSiteOccupancies(ptips, Qtips, Qout=None):
-    npos  = len(ptips)
-    #nsite = len(spos)  # Using global spos from initRingParams
-    if Qout is None: Qout = np.zeros((npos, nsite))
-    lib.solveSiteOccupancies(npos, ptips, Qtips, Qout)
+def solveSiteOccupancies(ptips, Qtips, Qout=None, Econf=None, bEconf=False ):
+    npos = len(ptips)
+    ptips = np.array(ptips)
+    Qtips = np.array(Qtips)
+    if(Qout is None): Qout = np.zeros((npos, nsite))
+    nconfs = 1<<(nsite*2)  # 2^(2*nsite) configurations
+    if bEconf: 
+        if (Econf is None): 
+            Econf = np.zeros(npos,nconfs)
+        else:
+            if ((Econf.shape[0] != npos) or ( Econf.shape[1]) != nconfs): raise ValueError(f"Econf array must have size {nconfs} (2^(2*nsite))")
+    lib.solveSiteOccupancies(npos, ptips, Qtips, Qout, _np_as(Econf, c_double_p))
     return Qout
 
-# Calculate STM map
+# void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, double temperature ){
+lib.solveSiteOccupancies_old.argtypes = [ c_int, array2d, array1d, c_int, array2d, c_double_p, c_double_p, array1d, array2d, c_double, c_double, c_double ]
+lib.solveSiteOccupancies_old.restype  = c_double
+def solveSiteOccupancies_old( ptips, Qtips, spos, Esite, Qout=None, rot=None, MultiPoles=None, E_fermi=0.0, cCoupling=1.0, temperature=1.0 ):
+    npos   = len(ptips)
+    nsite  = len(spos)
+    ptips  = np.array(ptips)
+    Qtips  = np.array(Qtips)
+    spos   = np.array(spos)
+    Esite  = np.array(Esite)
+    if(Qout is None): Qout = np.zeros( (npos,nsite) )
+    lib.solveSiteOccupancies_old( npos, ptips, Qtips, nsite, spos, _np_as(rot,c_double_p), _np_as(MultiPoles,c_double_p), Esite, Qout, E_fermi, cCoupling, temperature )
+    return Qout
+
+# void STM_map(int npos, double* ptips_, double* Qtips, double* Qsites, double* Iout, double decay, bool bOccupied ){
 lib.STM_map.argtypes = [c_int, array2d, array1d, array2d, array1d, c_double, c_bool ]
 lib.STM_map.restype = None
 def getSTM_map(ptips, Qtips, Qsites, Iout=None, decay=1.0, bOccupied=False ):
@@ -129,7 +95,21 @@ def getSTM_map(ptips, Qtips, Qsites, Iout=None, decay=1.0, bOccupied=False ):
     if Iout is None:  Iout = np.zeros(npos)
     lib.STM_map(npos, ptips, Qtips, Qsites, Iout, decay, bOccupied )
     return Iout
-    
+
+# void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites, double* evals, double* evecs, double* Hs, double* Gs ) {
+lib.solveHamiltonians.argtypes = [c_int, array2d, array1d, array2d, array2d, array3d, c_double_p, c_double_p ]
+lib.solveHamiltonians.restype = None
+def solveHamiltonians(ptips, Qtips, Qsites=None, evals=None, evecs=None, Gs=None, Hs=None, bH=False, bG=False, bVec=True ):
+    npos = len(ptips)
+    ptips = np.array(ptips)
+    Qtips = np.array(Qtips)
+    if ( evals  is None )          : evals = np.zeros((npos, 3   ))
+    if ( evecs  is None ) and bVec : evecs = np.zeros((npos, 3, 3))
+    if ( Hs     is None ) and bH   : Hs    = np.zeros((npos, 3, 3))
+    if ( Gs     is None ) and bG   : Gs    = np.zeros((npos, 3, 3))
+    lib.solveHamiltonians( npos, ptips, Qtips, Qsites, evals, evecs, _np_as(Hs,c_double_p), _np_as(Gs,c_double_p) )
+    return evals, evecs, Hs, Gs
+
 # ========= Python functions
 
 def makePosXY(n=100, L=10.0, z0=5.0):

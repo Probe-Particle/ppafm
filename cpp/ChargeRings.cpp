@@ -362,9 +362,10 @@ int optimizeSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const
  * @param E_Fermi Fermi energy
  * @param cCoupling Coupling strength
  * @param T Temperature
+ * @param Econf Optional array to store energies of all configurations [size: 2^(2*nsite)]
  * @return Total system energy
  */
-double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double T ){
+double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double T, double* Econf=0 ){
     if(verbosity>0) printf( "boltzmanSiteOccupancy() E_Fermi %g Q_tip %g Esite{%6.3f,%6.3f,%6.3f}  \n", E_Fermi, Q_tip,  Esites0[0],Esites0[1],Esites0[2] );
     double Qs       [ nsite ];
     double Qav      [ nsite ];
@@ -393,8 +394,8 @@ double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, co
             Qs[j] = qi;
         };
         double E = getChargingForce( nsite, Esite, Coupling, E_Fermi, Qs, 0 );
+        if(Econf) Econf[ic] = E;  // Store raw energy if array provided
         logPs[ic] = -beta*E;
-        //maxLogP = std::max(maxLogP, logPs[ic]);
         maxLogP = fmax(maxLogP, logPs[ic]);
     }
     
@@ -550,6 +551,12 @@ void computeGreensFunction( double* H, double mu, double* Green) {
 extern "C"{
 
 /**
+ * @brief Sets verbosity level for debugging output
+ * @param verbosity_ New verbosity level
+ */
+void setVerbosity(int verbosity_){ verbosity=verbosity_; }
+
+/**
  * @brief Initializes ring parameters for simulation
  * @param nsite Number of sites
  * @param spos Site positions
@@ -596,19 +603,22 @@ void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsit
  * @param ptips_ Array of tip positions
  * @param Qtips Array of tip charges
  * @param Qout Output array for site charges
+ * @param Econf Optional array to store energies of all configurations [size: npos * 2^(2*nsite)]
  */
-void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout) {
+void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf) {
     printf( "solveSiteOccupancies() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
     //printf( "solveSiteOccupancies() npos=%i \n", npos ); params.print();
     Vec3d* ptips = (Vec3d*)ptips_;
 
-    int nj = 5;
-    //#pragma omp parallel for
+    int nspinorb = params.nsite*2;
+    int nconfs = 1<<nspinorb;  // 2^(2*nsite) configurations
+
+    #pragma omp parallel for
     for(int i=0; i<npos; i++) {
         //printf( "solveSiteOccupancies[%i|%i,%i] pos(%8.4f,%8.4f,%8.4f) q=%8.4f \n", i, i/nj, i%nj,  ptips[i].x,ptips[i].y,ptips[i].z,   Qtips[i] );
         double Qs[params.nsite];
-        for(int j=0; j<params.nsite; j++) { Qs[j]=0; }
-        boltzmanSiteOccupancy(params.nsite, params.spos, params.rots, params.MultiPoles,   params.Esites, Qs, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature );
+        double* Econf_i = Econf ? Econf + i*nconfs : 0;  // Pointer to current tip's energy array
+        boltzmanSiteOccupancy(params.nsite, params.spos, params.rots, params.MultiPoles,   params.Esites, Qs, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature, Econf_i);
         for(int j=0; j<params.nsite; j++) {  Qout[i*params.nsite+j] = Qs[j];  }
     }
 }
@@ -630,7 +640,6 @@ void STM_map(int npos, double* ptips_, double* Qtips, double* Qsites, double* Io
         Iout[i] = getSTM(  params.nsite, params.spos, params.rots, params.MultiPoles, params.Esites, Qsites + i*params.nsite, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, decay, params.temperature, bOccupied );
     }
 }
-
 
 /**
  * @brief Solves Hamiltonians for multiple tip positions
@@ -682,11 +691,5 @@ void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites, 
 
     }
 }
-
-/**
- * @brief Sets verbosity level for debugging output
- * @param verbosity_ New verbosity level
- */
-void setVerbosity(int verbosity_){ verbosity=verbosity_; }
 
 };
