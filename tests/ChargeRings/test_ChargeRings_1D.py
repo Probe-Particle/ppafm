@@ -58,33 +58,73 @@ ps_line[:,2] = z_tip
 
 # ================= 1D scan
 
-# ================= 1D scan  : Eigen-States, Hamiltonian ...
+# ================= 1D scan  : Eigen-States, Hamiltonian, and Configuration Energies
 
-Qs                   = np.ones(len(ps_line))*Q_tip 
-Qsites               = chr.solveSiteOccupancies( ps_line, Qs )
-evals, evecs, Hs, Gs = chr.solveHamiltonians( ps_line, Qs, Qsites=Qsites,  bH=True  )
+Qs = np.ones(len(ps_line))*Q_tip 
+nconfs = 1<<(nsite*2)  # 2^(2*nsite) configurations
+Econf = np.zeros((len(ps_line), nconfs))
+Qsites = chr.solveSiteOccupancies(ps_line, Qs, Econf=Econf, bEconf=True)
+evals, evecs, Hs, Gs = chr.solveHamiltonians(ps_line, Qs, Qsites=Qsites, bH=True)
 
-plt.figure( figsize=(10,5) )
-plt.subplot(1,2,1)
-plt.plot( Hs[:,0,0], label="H[1,1]" )
-plt.plot( Hs[:,1,1], label="H[2,2]" )
-plt.plot( Hs[:,2,2], label="H[3,3]" )
+# Create figure with 3 vertically stacked subplots
+plt.figure(figsize=(10,12))
+
+# Plot 1: On-site energies
+plt.subplot(3,1,1)
+plt.plot(Hs[:,0,0], label="H[1,1]")
+plt.plot(Hs[:,1,1], label="H[2,2]")
+plt.plot(Hs[:,2,2], label="H[3,3]")
 plt.title("On-site energies")
 plt.legend()
 plt.ylim(-1.0,3.0)
-plt.subplot(1,2,2)
-plt.plot( evals[:,0], label="E_1" )
-plt.plot( evals[:,1], label="E_2" )
-plt.plot( evals[:,2], label="E_3" )
-plt.title("eigenvalues")
+plt.grid(True)
+
+# Plot 2: Eigenvalues
+plt.subplot(3,1,2)
+plt.plot(evals[:,0], label="E_1")
+plt.plot(evals[:,1], label="E_2")
+plt.plot(evals[:,2], label="E_3")
+plt.title("Eigenvalues")
 plt.legend()
 plt.ylim(-1.0,3.0)
+plt.grid(True)
 
+# Plot 3: Configuration Energies
+plt.subplot(3,1,3)
+for i in range(nconfs):
+    plt.plot(Econf[:,i] - E_Fermi, alpha=0.5, linewidth=1)
+plt.axhline(y=0, color='k', linestyle='--', alpha=0.5)  # Add Fermi level reference line
+plt.title(f"Configuration Energies (relative to E_Fermi={E_Fermi})")
+plt.ylabel("Energy (eV)")
+plt.xlabel("Position along line")
+plt.grid(True)
+
+plt.tight_layout()
 plt.show()
-
 
 # ================= 2D scan   xy(t),Q   Ocupancy, STM
 
+Qtips = np.linspace(0.0, 1.0, 50)
+nQs     = len(Qtips)
+npoints = len(ps_line)
+
+ps, qs = chr.makePosQscan(ps_line, Qtips)
+
+ps=ps.reshape((-1,3)).copy()
+qs=qs.reshape(-1).copy()
+
+Qsites = chr.solveSiteOccupancies(ps, qs)
+Qsites = Qsites.reshape((nQs,npoints,nsite))
+
+I_stm = chr.getSTM_map(ps, qs, Qsites)
+I_stm = I_stm.reshape((nQs,npoints))
+
+plt.figure(figsize=(10,10))
+plt.subplot(2,2,1); plt.imshow(Qsites[:,:,0], extent=[0,npoints,0,1], aspect='auto', origin='lower'); plt.colorbar(); plt.title("Q1")
+plt.subplot(2,2,2); plt.imshow(Qsites[:,:,1], extent=[0,npoints,0,1], aspect='auto', origin='lower'); plt.colorbar(); plt.title("Q2")
+plt.subplot(2,2,3); plt.imshow(Qsites[:,:,2], extent=[0,npoints,0,1], aspect='auto', origin='lower'); plt.colorbar(); plt.title("Q3")
+plt.subplot(2,2,4); plt.imshow(I_stm,        extent=[0,npoints,0,1], aspect='auto', origin='lower'); plt.colorbar(); plt.title("STM")
+plt.show()
 
 Qtips = np.linspace(0.0, 1.0, 50)
 nQs     = len(Qtips)
