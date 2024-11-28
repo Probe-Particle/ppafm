@@ -38,7 +38,7 @@ L         = 20.0
 npix      = 400
 decay     = 0.7
 onSiteCoulomb = 3.0
-dQ =0.01
+dQ = 0.01
 T = 2.0
 # --- sites geometry
 nsite  =  3
