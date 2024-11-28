@@ -1,33 +1,29 @@
 /*
-
-
-- **Total Energy**:
-
-\[
-U_{\text{total}} = \sum_{i=1}^3 \left( \frac{E_i Q_i}{2} + \frac{Q_i Q_{\text{tip}}}{4 \pi \epsilon_0 r_{i\text{tip}}} - \mu Q_i \right) + \sum_{i=1}^3 \sum_{j=i+1}^3 \frac{Q_i Q_j}{4 \pi \epsilon_0 r_{ij}}
-\]
-
-U = sum_i{  Q_i * ( eps_i - mu + Q_tip/r_{i,tip} + sum_j{ Q_j/r_{ij} } ) }
-
-- **Variational Derivative**:
-
-\[
-\frac{\delta U_{\text{total}}}{\delta Q_i} = \frac{E_i}{2} + \frac{Q_{\text{tip}}}{4 \pi \epsilon_0 r_{i\text{tip}}} + \sum_{\substack{j=1 \\ j \neq i}}^3 \frac{Q_j}{4 \pi \epsilon_0 r_{ij}} - \mu
-\]
-
-dU/dQ_i =  eps_i - mu + Q_tip/r_{i,tip} + sum_j{ Q_j/r_{ij} }
-
-
-
-We can also solve ti as matrix equation
-
-A * qs = b
-
-where:
-Aii = mu - K*Q_tip/r_{i,tip}
-Aij = K*Q_j/r_{ij}
-
-*/
+ * @file ChargeRings.cpp
+ * @brief Implementation of molecular charging and STM imaging with electrostatic interactions
+ *
+ * This module simulates scanning tunneling microscopy (STM) measurements of molecular systems
+ * where charging effects and electrostatic interactions play a significant role. The implementation
+ * considers a system of molecular sites that can be charged/discharged based on their energy levels,
+ * mutual Coulomb interactions, and interaction with an STM tip.
+ *
+ * The total energy of the system is given by:
+ * U_total = sum_i{ E_i Q_i/2 + Q_i Q_tip/(4π ε0 r_i,tip) - μ Q_i } + sum_i,j>i{ Q_i Q_j/(4π ε0 r_ij) }
+ *
+ * Key Features:
+ * - Handles multiple molecular sites with variable charge states
+ * - Includes multipole interactions (monopole, dipole, quadrupole)
+ * - Supports both gradient descent and Boltzmann statistics for charge optimization
+ * - Computes STM signals with temperature effects
+ * - Includes site-site and tip-site Coulomb interactions
+ *
+ * Physical Parameters:
+ * - Site energies (E_i): Energy levels of molecular orbitals
+ * - Chemical potential (μ): Fermi level controlling charge transfer
+ * - Temperature (T): Controls thermal occupation of states
+ * - Coulomb coupling: Strength of electrostatic interactions
+ * - Tip parameters: Position, charge, and decay constants
+ */
 
 
 #include <stdio.h>
@@ -38,13 +34,20 @@ Aij = K*Q_j/r_{ij}
 //#include "CG.h"
 #include "LinSolveGauss.cpp"
 
+#define R_SAFE   1e-4
 
 #define SQRT3              1.7320508
-#define R_SAFE   1e-4
 #define COULOMB_CONST      14.3996448915     // [eV A]
 #define const_Boltzman     8.617333262145e-5 // [eV/K]
 
 
+/**
+ * @struct RingParams
+ * @brief Container for system parameters of molecular ring simulation
+ *
+ * Holds all necessary parameters for simulating molecular charging and STM imaging,
+ * including geometry, energy levels, and interaction parameters.
+ */
 struct RingParams {
     int     nsite;       // number of molecular sites (quantum dots)
     Vec3d*  spos;        // [nsite,3]    positions of molecular sites 
@@ -71,6 +74,13 @@ int verbosity=0;
 //     return x;
 // }
 
+/**
+ * @brief Prints a matrix to the console
+ * @param ni Number of rows
+ * @param nj Number of columns
+ * @param A Matrix to print
+ * @param format Format string for printing elements
+ */
 void printmatrix( int ni, int nj, double* A, const char* format="%g " ){
 
     for(int i=0; i<ni; i++){
@@ -81,6 +91,13 @@ void printmatrix( int ni, int nj, double* A, const char* format="%g " ){
     }
 }
 
+/**
+ * @brief Computes multipole interaction energy between a point and a charge distribution
+ * @param d Vector between interaction points
+ * @param order Maximum order of multipole expansion (0=monopole, 1=dipole, 2=quadrupole)
+ * @param cs Array of multipole coefficients
+ * @return Total interaction energy including all multipole terms up to specified order
+ */
 double Emultipole( const Vec3d& d, int order, const double * cs ){
     //double r   = dR.norm();
     //double ir  = 1 / r;
@@ -95,6 +112,16 @@ double Emultipole( const Vec3d& d, int order, const double * cs ){
 }
 
 
+/**
+ * @brief Calculates charging forces on molecular sites
+ * @param nsite Number of molecular sites
+ * @param Esite Array of site energies
+ * @param Coupling Matrix of Coulomb coupling between sites
+ * @param E_Fermi Fermi energy (chemical potential)
+ * @param Qs Current charge state of sites
+ * @param dEdQ Output array for charging forces
+ * @return Total electrostatic energy of the system
+ */
 double getChargingForce( int nsite, const double* Esite, const double* Coupling, double E_Fermi, const double* Qs, double* dEdQ ){
     double f2err=0;
     double E_on  = 0;
@@ -136,6 +163,19 @@ double getChargingForce( int nsite, const double* Esite, const double* Coupling,
 }
 
 
+/**
+ * @brief Constructs coupling matrix including site energies and interactions
+ * @param nsite Number of molecular sites
+ * @param spos Array of site positions
+ * @param rot Array of rotation matrices for multipole orientations
+ * @param MultiPoles Array of multipole moments for each site
+ * @param Esite0 Array of bare site energies
+ * @param pT Tip position
+ * @param Qt Tip charge
+ * @param Esite Output array for site energies including interactions
+ * @param Coupling Output matrix for inter-site couplings
+ * @param cCoupling Coupling strength parameter
+ */
 void makeCouplingMatrix( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, Vec3d pT, double Qt, double* Esite, double* Coupling, double cCoupling ){
     //printf( "makeCouplingMatrix() cCoupling=%g Qt=%g  @Esite=%li @Coupling=%li  \n", cCoupling, Qt, (long)Esite, (long)Coupling  );
     //printf("========\n");
@@ -175,6 +215,14 @@ void makeCouplingMatrix( int nsite, const Vec3d* spos, const Mat3d* rot, const d
 }
 
 
+/**
+ * @brief Updates charges using gradient descent
+ * @param n Number of sites
+ * @param x Array of charges (modified in-place)
+ * @param f Array of forces
+ * @param dt Time step for integration
+ * @return Sum of squared forces (convergence measure)
+ */
 double moveGD(  int n, double *x, double *f, double dt ){
     double  f2=0;
     for(int i=0; i<n; i++){
@@ -191,6 +239,16 @@ double moveGD(  int n, double *x, double *f, double dt ){
 }
 
 
+/**
+ * @brief Updates charges using molecular dynamics with damping
+ * @param n Number of sites
+ * @param x Array of charges (modified in-place)
+ * @param f Array of forces
+ * @param v Array of velocities
+ * @param dt Time step
+ * @param damping Damping coefficient
+ * @return Sum of squared forces
+ */
 double moveMD(  int n, double *x, double *f, double *v, double dt, double damping=0.1 ){
     double  f2=0;
     double cdamp=1-damping;
@@ -223,6 +281,23 @@ double moveMD(  int n, double *x, double *f, double *v, double dt, double dampin
 
 
 
+/**
+ * @brief Optimizes site charges using gradient descent
+ * @param nsite Number of sites
+ * @param spos Site positions
+ * @param rot Rotation matrices
+ * @param MultiPoles Multipole moments
+ * @param Esite0 Bare site energies
+ * @param Qs Initial/final charges
+ * @param p_tip Tip position
+ * @param Q_tip Tip charge
+ * @param E_Fermi Fermi energy
+ * @param cCoupling Coupling strength
+ * @param niter Maximum iterations
+ * @param tol Convergence tolerance
+ * @param dt Time step
+ * @return Number of iterations performed
+ */
 int optimizeSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, double* Qs, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, int niter=1000, double tol=1e-6, double dt=0.1 ){
     //  Site occupancy is 1 if below the Fermi level, 0 otherwise
     //  Fermi level is set by the voltage applied to the STM tip and distance from the site
@@ -274,6 +349,21 @@ int optimizeSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const
 
 
 
+/**
+ * @brief Computes site charges using Boltzmann statistics
+ * @param nsite Number of sites
+ * @param spos Site positions
+ * @param rot Rotation matrices
+ * @param MultiPoles Multipole moments
+ * @param Esites0 Bare site energies
+ * @param Qout Output array for charges
+ * @param p_tip Tip position
+ * @param Q_tip Tip charge
+ * @param E_Fermi Fermi energy
+ * @param cCoupling Coupling strength
+ * @param T Temperature
+ * @return Total system energy
+ */
 double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double T ){
     if(verbosity>0) printf( "boltzmanSiteOccupancy() E_Fermi %g Q_tip %g Esite{%6.3f,%6.3f,%6.3f}  \n", E_Fermi, Q_tip,  Esites0[0],Esites0[1],Esites0[2] );
     double Qs       [ nsite ];
@@ -331,6 +421,16 @@ double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, co
     return sumP * exp(maxLogP);  // Return the true sum by adding back the maxLogP factor
 }
 
+/**
+ * @brief Computes STM signal from site occupancies
+ * @param pos Measurement position
+ * @param beta Decay constant
+ * @param nsite Number of sites
+ * @param spos Site positions
+ * @param Amps Site amplitudes
+ * @param bInCoh Consider incoherent tunneling
+ * @return STM current at specified position
+ */
 double getSTM_sites( Vec3d pos, double beta, int nsite, const Vec3d* spos, const double* Amps, const bool bInCoh=false ){
     double I=0;
     for(int i=0; i<nsite; i++){
@@ -345,9 +445,24 @@ double getSTM_sites( Vec3d pos, double beta, int nsite, const Vec3d* spos, const
 }
 
 
-// Iout[i] = getSTM( ptips[i], params.nsite, params.spos, params.rots, params.MultiPoles, params.Esites, Qsites + i*params.nsite, Qtips[i], params.E_Fermi, params.cCouling, beta);
-
-double getSTM( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, const double* Qs, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double decay, double T, bool bOccupied ) {
+/**
+ * @brief Computes STM signal with charging effects
+ * @param nsite Number of sites
+ * @param spos Site positions
+ * @param rot Rotation matrices
+ * @param MultiPoles Multipole moments
+ * @param Esites0 Bare site energies
+ * @param Qs Site charges
+ * @param p_tip Tip position
+ * @param Q_tip Tip charge
+ * @param E_Fermi Fermi energy
+ * @param cCoupling Coupling strength
+ * @param decay Tunneling decay constant
+ * @param T Temperature
+ * @param bOccupied Consider only occupied states
+ * @return STM current
+ */
+double getSTM( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, const double* Qs, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double decay, double T, bool bOccupied ){
     double Esite[nsite];
     double Coupling[nsite*nsite];
     double dE[nsite];
@@ -381,7 +496,12 @@ double getSTM( int nsite, const Vec3d* spos, const Mat3d* rot, const double* Mul
     return I;
 }
 
-// Function to solve the eigenvalue problem for a given Hamiltonian matrix
+/**
+ * @brief Solves eigenvalue problem for a given Hamiltonian matrix
+ * @param H Input Hamiltonian matrix
+ * @param evals Output eigenvalues
+ * @param evecs Output eigenvectors
+ */
 void solveHamiltonian(const Mat3d& H, Vec3d& evals, Vec3d* evecs) {
     H.eigenvals(evals);
     for (int j = 0; j < 3; j++) {
@@ -389,7 +509,12 @@ void solveHamiltonian(const Mat3d& H, Vec3d& evals, Vec3d* evecs) {
     }
 }
 
-// Function to compute the Green's function for a given Hamiltonian matrix and chemical potential
+/**
+ * @brief Computes Green's function for transport calculations
+ * @param H Hamiltonian matrix
+ * @param mu Chemical potential
+ * @param Green Output Green's function matrix
+ */
 void computeGreensFunction( double* H, double mu, double* Green) {
     double H_minus_mu_I[9];  // (H - mu*I)
     for (int j = 0; j < 3; j++) {
@@ -424,6 +549,17 @@ void computeGreensFunction( double* H, double mu, double* Green) {
 
 extern "C"{
 
+/**
+ * @brief Initializes ring parameters for simulation
+ * @param nsite Number of sites
+ * @param spos Site positions
+ * @param rots Rotation matrices
+ * @param MultiPoles Multipole moments
+ * @param Esites Site energies
+ * @param E_Fermi Fermi energy
+ * @param cCouling Coupling strength
+ * @param temperature System temperature
+ */
 void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, double* Esites, double E_Fermi, double cCouling, double temperature ) {
     params.nsite       = nsite;
     params.spos        = (Vec3d*)spos;
@@ -438,22 +574,10 @@ void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, d
     //params.Q_tip = Q_tip_;
 }
 
-// void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, temperature=100.0, int niter, double tol, double dt, int* nitrs ){
-//     printf( "solveSiteOccupancies_old() npos=%i nsite=%i E_Fermi cCoupling \n", npos, nsite );
-//     Vec3d* ptips = (Vec3d*)ptips_;
-//     //#pragma omp parallel for
-//     for(int i=0; i<npos; i++){
-//         double Qs[nsite];
-//         for(int j=0; j<nsite; j++){ Qs[j]=0; }
-//         //int nitr = optimizeSiteOccupancy( nsite, (Vec3d*)spos, (Mat3d*)rot, MultiPoles, Esite, Qs, ptips[i], Qtips[i], E_mu, cCoupling, niter, tol, dt );     
-//         boltzmanSiteOccupancy( nsite, (Vec3d*)spos, (Mat3d*)rot, MultiPoles, Esite, Qs, ptips[i], Qtips[i], E_Fermi, cCoupling, 100.0 );  int nitr=0;
-//         //printf( "solveSiteOccupancies()[%i] nitr=%i \n", i, nitr );  
-//         for(int j=0; j<nsite; j++){ Qout[i*nsite+j] = Qs[j]; }
-//         if(nitrs) nitrs[i] = nitr;
-//         //return;
-//     }
-// }
-
+/**
+ * @brief Legacy function for solving site occupancies
+ * @deprecated Use solveSiteOccupancies instead
+ */
 void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, double temperature ){
     printf( "solveSiteOccupancies_old() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, nsite, E_Fermi, cCoupling, temperature );
     Vec3d* ptips = (Vec3d*)ptips_;
@@ -466,16 +590,13 @@ void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsit
     }
 }
 
-// void STM_map(int npos, double* ptips_, double* Itun, int nsite, double* spos_, const double* Qs, const double* rot, const double* MultiPoles, const double* Esite, double Q_tip, double E_Fermi, double cCoupling, double beta) {
-//     Vec3d* ptips = (Vec3d*)ptips_;
-//     Vec3d* spos = (Vec3d*)spos_;
-    
-//     #pragma omp parallel for
-//     for(int i=0; i<npos; i++) {
-//         Itun[i] = getSTM(ptips[i], nsite, spos, Qs, (Mat3d*)rot, MultiPoles,  Esite, Q_tip, E_Fermi, cCoupling, beta);
-//     }
-// }
-
+/**
+ * @brief Solves site occupancies for multiple tip positions
+ * @param npos Number of tip positions
+ * @param ptips_ Array of tip positions
+ * @param Qtips Array of tip charges
+ * @param Qout Output array for site charges
+ */
 void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout) {
     printf( "solveSiteOccupancies() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
     //printf( "solveSiteOccupancies() npos=%i \n", npos ); params.print();
@@ -492,6 +613,16 @@ void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout)
     }
 }
 
+/**
+ * @brief Generates STM map for multiple tip positions
+ * @param npos Number of positions
+ * @param ptips_ Tip positions
+ * @param Qtips Tip charges
+ * @param Qsites Site charges
+ * @param Iout Output currents
+ * @param decay Tunneling decay constant
+ * @param bOccupied Consider only occupied states
+ */
 void STM_map(int npos, double* ptips_, double* Qtips, double* Qsites, double* Iout, double decay, bool bOccupied ){
     Vec3d* ptips = (Vec3d*)ptips_;
     #pragma omp parallel for
@@ -501,6 +632,17 @@ void STM_map(int npos, double* ptips_, double* Qtips, double* Qsites, double* Io
 }
 
 
+/**
+ * @brief Solves Hamiltonians for multiple tip positions
+ * @param npos Number of positions
+ * @param ptips_ Tip positions
+ * @param Qtips Tip charges
+ * @param Qsites Site charges
+ * @param evals Output eigenvalues
+ * @param evecs Output eigenvectors
+ * @param Hs Output Hamiltonians
+ * @param Gs Output Green's functions
+ */
 void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites, double* evals, double* evecs, double* Hs, double* Gs ) {
     printf( "solveHamiltonians() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
     Vec3d* ptips = (Vec3d*)ptips_;
@@ -541,6 +683,10 @@ void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites, 
     }
 }
 
+/**
+ * @brief Sets verbosity level for debugging output
+ * @param verbosity_ New verbosity level
+ */
 void setVerbosity(int verbosity_){ verbosity=verbosity_; }
 
 };
