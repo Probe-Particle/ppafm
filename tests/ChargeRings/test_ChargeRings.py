@@ -72,7 +72,7 @@ print("==== to C++ ===")
 #Qsites = chr.solveSiteOccupancies( ps, Qtips, spos, Esite, E_mu=0.0, cCouling=-0.01, niter=1000, tol=1e-6, dt=0.1 ).reshape( (npix,npix,nsite) )
 #Qsites, niters = chr.solveSiteOccupancies( ps, Qtips, spos, Esite, MultiPoles=mpols, rot=rot, E_fermi=0.0, cCouling=0.03, niter=1000, tol=1e-6, dt=0.5 )
 #Qsites, niters = chr.solveSiteOccupancies_old( ps, Qtips, spos, Esite, MultiPoles=mpols, rot=rot, E_fermi=0.0, cCoupling=0.03 )
-Qsites= chr.solveSiteOccupancies_old( ps, Qtips, spos, Esite, MultiPoles=mpols, rot=rot, E_fermi=0.0, cCoupling=0.03, temperature=100.0 )
+Qsites, _ = chr.solveSiteOccupancies_old( ps, Qtips, spos, Esite, MultiPoles=mpols, rot=rot, E_fermi=0.0, cCoupling=0.03, temperature=100.0 )
 
 Qsites = Qsites.reshape( (npix,npix,nsite) )
 #niters = niters.reshape( (npix,npix) )

@@ -36,12 +36,21 @@ lib.setVerbosity.restype  = None
 def setVerbosity( verbosity ):
     lib.setVerbosity( verbosity )
 
+# void setSiteConfBasis(int nconf, double* siteConfs_){
+lib.setSiteConfBasis.argtypes = [ c_int, array2d ]
+lib.setSiteConfBasis.restype  = None
+def setSiteConfBasis(siteConfs):
+    global nconfs
+    nconfs = len(siteConfs)
+    siteConfs = np.array(siteConfs)
+    if siteConfs.shape[1] != nsite: raise ValueError(f"siteConfs must have shape [nConf, {nsite}]")
+    lib.setSiteConfBasis( nconfs, siteConfs )
+    return nconfs
 
-
-# void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, double* Esites, double E_Fermi, double cCouling, double temperature ) {
-lib.initRingParams.argtypes = [c_int, array2d, c_double_p, c_double_p, array1d, c_double, c_double, c_double]
+# void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, double* Esites, double E_Fermi, double cCouling, double onSiteCoulomb, double temperature ) {
+lib.initRingParams.argtypes = [c_int, array2d, c_double_p, c_double_p, array1d, c_double, c_double, c_double, c_double]
 lib.initRingParams.restype = None
-def initRingParams(spos, Esite, rot=None, MultiPoles=None, E_Fermi=0.0, cCouling=1.0, temperature=100.0 ):
+def initRingParams(spos, Esite, rot=None, MultiPoles=None, E_Fermi=0.0, cCouling=1.0, onSiteCoulomb=3.0, temperature=100.0 ):
     global nsite, spos_, Esite_, rot_, MultiPoles_
     nsite = len(spos)
     #spos_  = np.array(spos)
@@ -54,24 +63,40 @@ def initRingParams(spos, Esite, rot=None, MultiPoles=None, E_Fermi=0.0, cCouling
     Esite_  = np.array(Esite)
     rot_    = np.array(rot)
     MultiPoles_ = np.array(MultiPoles)
-    lib.initRingParams(nsite, spos_, _np_as(rot_,c_double_p), _np_as(MultiPoles_,c_double_p), Esite_, E_Fermi, cCouling, temperature )
+    lib.initRingParams(nsite, spos_, _np_as(rot_,c_double_p), _np_as(MultiPoles_,c_double_p), Esite_, E_Fermi, cCouling, onSiteCoulomb, temperature )
 
-# void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf) {
-lib.solveSiteOccupancies.argtypes = [c_int, array2d, array1d, array2d, c_double_p]
+# void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf, bool bUserBasis ) {
+lib.solveSiteOccupancies.argtypes = [c_int, array2d, array1d, array2d, c_double_p, c_bool]
 lib.solveSiteOccupancies.restype = None
-def solveSiteOccupancies(ptips, Qtips, Qout=None, Econf=None, bEconf=False ):
+def solveSiteOccupancies(ptips, Qtips, Qout=None, Econf=None, bEconf=False, bUserBasis=False ):
+    """Solves site occupancies for multiple tip positions
+    
+    Args:
+        ptips (numpy.ndarray): Tip positions [npos, 3]
+        Qtips (numpy.ndarray): Tip charges [npos]
+        Qout (numpy.ndarray, optional): Output array for charges [npos, nsite]
+        Econf (numpy.ndarray, optional): Array for configuration energies
+        bEconf (bool, optional): Whether to store configuration energies
+        bUserBasis (bool, optional): Whether to use user defined basis
+    
+    Returns:
+        numpy.ndarray: Site charges
+        numpy.ndarray: Configuration energies
+    """
     npos = len(ptips)
     ptips = np.array(ptips)
     Qtips = np.array(Qtips)
-    if(Qout is None): Qout = np.zeros((npos, nsite))
-    nconfs = 1<<(nsite*2)  # 2^(2*nsite) configurations
-    if bEconf: 
-        if (Econf is None): 
-            Econf = np.zeros(npos,nconfs)
+    if not bUserBasis:
+        nconfs_ = 1<<(nsite*2)  # 2^(2*nsite) configurations
+    else:
+        nconfs_ = nconfs
+    if Qout is None: Qout = np.zeros((npos, nsite))    
+    if bEconf:
+        if Econf is None: Econf = np.zeros((npos, nconfs_))
         else:
-            if ((Econf.shape[0] != npos) or ( Econf.shape[1]) != nconfs): raise ValueError(f"Econf array must have size {nconfs} (2^(2*nsite))")
-    lib.solveSiteOccupancies(npos, ptips, Qtips, Qout, _np_as(Econf, c_double_p))
-    return Qout
+            if Econf.shape != (npos, nconfs_): raise ValueError(f"Econf array must have shape ({npos}, {nconfs_})")
+    lib.solveSiteOccupancies(npos, ptips, Qtips, Qout, _np_as(Econf, c_double_p), bUserBasis)
+    return Qout, Econf
 
 # void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, double temperature ){
 lib.solveSiteOccupancies_old.argtypes = [ c_int, array2d, array1d, c_int, array2d, c_double_p, c_double_p, array1d, array2d, c_double, c_double, c_double ]
@@ -152,3 +177,24 @@ def makePosQscan( ps, qs ):
     print("npoint ", Ps.shape, " ncharge ", ncharge )
     print("Ps.shape ", Ps.shape, " Qs.shape", Qs.shape)
     return  Ps.copy(), Qs.copy()
+
+
+def confsFromStrings( strs ):
+    '''
+    gets list of sting like "010", "001" etc and creates list of numpy arrays like [ [0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0] ]
+    '''
+    nconfs = len(strs)
+    confs = [ [ float(ch) for ch in s ] for s in strs ]
+    confs = np.array(confs) 
+    if (confs.shape[1] != nsite) or (confs.shape[0] != nconfs): raise ValueError(f"confs must have shape ({nconfs}, {nsite})\n", confs.shape, strs)
+    return confs
+
+def colorsFromStrings(strs, hi="ff", lo="00"):
+    '''
+    Gets list of strings like "101", "001" etc. and creates list of color strings like "#FF00FF", "#0000FF"
+    '''
+    def to_hex(s):
+        return ''.join([ hi if c == '1' else lo for c in s])
+    colors = ['#' + to_hex(s) for s in strs]
+    if any(len(s) != 3 for s in strs):  raise ValueError("Each input string must have exactly 3 characters")
+    return colors

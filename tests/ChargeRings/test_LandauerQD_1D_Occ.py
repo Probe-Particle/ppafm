@@ -68,7 +68,7 @@ Qtips        = np.ones(len(ps_line))*Q_tip                                     #
 energies     = np.linspace( Emin, Emax, 100)        # Energy range energies at which we sample the Transmission function in Landauer conductance calculation
 
 # ---- Calculate transmission
-Q_qds                         = chr.solveSiteOccupancies( ps_line, Qtips )                        #  solve quantum dot (sites) occupancies (charge) 
+Q_qds, _                      = chr.solveSiteOccupancies( ps_line, Qtips )                        #  solve quantum dot (sites) occupancies (charge) 
 eigenvalues, evecs, H_QDs, Gs = chr.solveHamiltonians( ps_line, Qtips, Qsites=Q_qds, bH=True  )   #  get hamiltonian, eigenvalues, and eigenvectors for QD system considering fixed pre-computed charge occupancy
 transmissions                 = system.scan_1D(ps_line, energies, H_QDs=H_QDs )                   # calculate transmission function using pre-computed Hamiltonian (for fixed charge occupancy of QDs)
 

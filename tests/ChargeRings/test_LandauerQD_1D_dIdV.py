@@ -73,8 +73,8 @@ if use_occupancy:
     chr.initRingParams(QDpos, E0QDs, rot=QDrots, MultiPoles=QDmpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T)
     
     # Calculate occupancies and Hamiltonians
-    Qtips = np.ones(len(ps_line))*Q_tip
-    Q_qds = chr.solveSiteOccupancies(ps_line, Qtips)
+    Qtips   = np.ones(len(ps_line))*Q_tip
+    Q_qds,_ = chr.solveSiteOccupancies(ps_line, Qtips)
     eigenvalues, evecs, H_QDs, Gs = chr.solveHamiltonians(ps_line, Qtips, Qsites=Q_qds, bH=True)
     
     # Initialize Landauer system

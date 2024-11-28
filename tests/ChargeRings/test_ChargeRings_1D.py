@@ -6,7 +6,9 @@ import matplotlib.pyplot as plt
 
 # =================  Setup
 
+"""
 #Q_tip     = 0.48
+#Q_tip     = 0.08
 Q_tip     = 0.6
 cCouling  = 0.03 # * 0.0
 E_Fermi   = 0.0
@@ -14,23 +16,46 @@ z_tip     = 6.0
 L         = 20.0
 npix      = 400
 decay     = 0.7
-
+onSiteCoulomb = 3.0
 dQ =0.01
-
-T = 10.0
-
+T = 2.0
 # --- sites geometry
 nsite  =  3
 R      =  5.0  # radius of circle on which sites are placed
 phiRot = -1.0
-
 Q0  = 1.0
 Qzz = 15.0 * 0.0
+Esite = [-1.0, -1.0, -1.0]
+"""
+
+
+
+Q_tip     = 0.6*0.2
+cCouling  = 0.03*0.2 # * 0.0
+E_Fermi   = 0.0
+z_tip     = 6.0
+L         = 20.0
+npix      = 400
+decay     = 0.7
+onSiteCoulomb = 3.0
+dQ =0.01
+T = 2.0
+# --- sites geometry
+nsite  =  3
+R      =  5.0  # radius of circle on which sites are placed
+phiRot = -1.0
+Q0  = 1.0
+Qzz = 15.0 * 0.0
+Esite = [-0.2, -0.2, -0.2]
+
+bDebugRun = False
+#bDebugRun = True
 
 # =================  Main
 
 # Energy of states on the sites
-Esite = [-1.0, -1.0, -1.0]
+
+
 
 # Setup system geometry
 # distribute sites on a circle
@@ -45,123 +70,113 @@ mpols = np.zeros((3,10))
 mpols[:,4] = Qzz
 mpols[:,0] = Q0
 
+
+
 # Initialize global parameters
-chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T )
+chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling, onSiteCoulomb=onSiteCoulomb, temperature=T )
+
+confstrs = ["000","001", "010", "100", "110", "101", "011", "111"] 
+confColors = chr.colorsFromStrings(confstrs, hi="A0", lo="00")
+confs = chr.confsFromStrings( confstrs )
+print( "confs: \n", confs)
+nconfs = chr.setSiteConfBasis(confs)
+
 
 # Setup scanning grid ( tip positions and charges )
 extent = [-L,L,-L,L]
 ps    = chr.makePosXY(n=npix, L=L, z0=z_tip )
 Qtips = np.ones(len(ps))*Q_tip
 
-ps_line = chr.getLine(spos, [0.5,0.5,-3.0], [-3.0,-3.0,1.0], n=100 )
+
+if bDebugRun:
+    ps_line = chr.getLine(spos, [0.5,0.5,-5.0], [-4.0,-4.0,1.0], n=5 )
+    chr.setVerbosity(3)
+else:
+    ps_line = chr.getLine(spos, [0.5,0.5,-5.0], [-4.0,-4.0,1.0], n=300 )
 ps_line[:,2] = z_tip
+
+plt.figure(figsize=(5,5))
+plt.plot(spos[:,0], spos[:,1], '+g')
+plt.plot(ps_line[:,0], ps_line[:,1], '.-r', ms=0.5)
+plt.title("Tip Trajectory")
+plt.axis("equal")
+plt.grid(True)
 
 # ================= 1D scan
 
 # ================= 1D scan  : Eigen-States, Hamiltonian, and Configuration Energies
 
 Qs = np.ones(len(ps_line))*Q_tip 
-nconfs = 1<<(nsite*2)  # 2^(2*nsite) configurations
-Econf = np.zeros((len(ps_line), nconfs))
-Qsites = chr.solveSiteOccupancies(ps_line, Qs, Econf=Econf, bEconf=True)
-evals, evecs, Hs, Gs = chr.solveHamiltonians(ps_line, Qs, Qsites=Qsites, bH=True)
+
+print( "chr.nconfs ", chr.nconfs)
+
+Qsites, Econf        = chr.solveSiteOccupancies( ps_line, Qs, bEconf=True, bUserBasis=True)
+evals, evecs, Hs, Gs = chr.solveHamiltonians   ( ps_line, Qs, Qsites=Qsites, bH=True)
+
+Qtot = np.sum(Qsites, axis=1)
 
 # Create figure with 3 vertically stacked subplots
 plt.figure(figsize=(10,12))
 
-# Plot 1: On-site energies
-plt.subplot(3,1,1)
-plt.plot(Hs[:,0,0], label="H[1,1]")
-plt.plot(Hs[:,1,1], label="H[2,2]")
-plt.plot(Hs[:,2,2], label="H[3,3]")
-plt.title("On-site energies")
-plt.legend()
-plt.ylim(-1.0,3.0)
-plt.grid(True)
+nplt=3
+iplt=1
 
-# Plot 2: Eigenvalues
-plt.subplot(3,1,2)
-plt.plot(evals[:,0], label="E_1")
-plt.plot(evals[:,1], label="E_2")
-plt.plot(evals[:,2], label="E_3")
-plt.title("Eigenvalues")
-plt.legend()
-plt.ylim(-1.0,3.0)
-plt.grid(True)
-
-# Plot 3: Configuration Energies
-plt.subplot(3,1,3)
+# Plot 1: Configuration Energies
+plt.subplot(nplt,1,iplt); iplt+=1
 for i in range(nconfs):
-    plt.plot(Econf[:,i] - E_Fermi, alpha=0.5, linewidth=1)
+    plt.plot(Econf[:,i] - E_Fermi, linewidth=2, label=confstrs[i], c=confColors[i])
 plt.axhline(y=0, color='k', linestyle='--', alpha=0.5)  # Add Fermi level reference line
 plt.title(f"Configuration Energies (relative to E_Fermi={E_Fermi})")
 plt.ylabel("Energy (eV)")
 plt.xlabel("Position along line")
+plt.legend()
 plt.grid(True)
 
+# Plot 2: On-site energies
+plt.subplot(nplt,1,iplt); iplt+=1
+plt.plot(Qsites[:,0], label="Q 1")
+plt.plot(Qsites[:,1], label="Q 2")
+plt.plot(Qsites[:,2], label="Q 3")
+plt.plot(Qtot,        label="Qtot")
+plt.title("On-site energies")
+plt.legend()
+plt.ylim(-0.5,3.5)
+plt.grid(True)
+
+# Plot 3: STM
+plt.subplot(nplt,1,iplt); iplt+=1
+#I_occup = chr.getSTM_map(ps_line, Qtips, Qsites, decay=decay, bOccupied=True  ); #I_occup = I_occup.reshape((npix,npix))
+I_empty = chr.getSTM_map(ps_line, Qtips, Qsites, decay=decay, bOccupied=False ); #I_empty = I_empty.reshape((npix,npix))
+#plt.plot( I_occup, label="STM occupied" )
+plt.plot( I_empty, label="STM empty" )
+#plt.plot( Qtot,    label="Qtot" )
+plt.grid(True)
+plt.title("STM")
+
+
+# plt.subplot(nplt,1,iplt); iplt+=1
+# plt.plot(Hs[:,0,0], label="H[0,0]")
+# plt.plot(Hs[:,1,1], label="H[1,1]")
+# plt.plot(Hs[:,2,2], label="H[2,2]")
+# plt.title("On-site energies")
+# plt.legend()
+# plt.ylim(-1.0,3.0)
+# plt.grid(True)
+
+
+# Plot 2: Eigenvalues
+# plt.subplot(3,1,2)
+# plt.plot(evals[:,0], label="E_1")
+# plt.plot(evals[:,1], label="E_2")
+# plt.plot(evals[:,2], label="E_3")
+# plt.title("Eigenvalues")
+# plt.legend()
+# plt.ylim(-1.0,3.0)
+# plt.grid(True)
+
+
 plt.tight_layout()
-plt.show()
-
-# ================= 2D scan   xy(t),Q   Ocupancy, STM
-
-Qtips = np.linspace(0.0, 1.0, 50)
-nQs     = len(Qtips)
-npoints = len(ps_line)
-
-ps, qs = chr.makePosQscan(ps_line, Qtips)
-
-ps=ps.reshape((-1,3)).copy()
-qs=qs.reshape(-1).copy()
-
-Qsites = chr.solveSiteOccupancies(ps, qs)
-Qsites = Qsites.reshape((nQs,npoints,nsite))
-
-I_stm = chr.getSTM_map(ps, qs, Qsites)
-I_stm = I_stm.reshape((nQs,npoints))
-
-plt.figure(figsize=(10,10))
-plt.subplot(2,2,1); plt.imshow(Qsites[:,:,0], extent=[0,npoints,0,1], aspect='auto', origin='lower'); plt.colorbar(); plt.title("Q1")
-plt.subplot(2,2,2); plt.imshow(Qsites[:,:,1], extent=[0,npoints,0,1], aspect='auto', origin='lower'); plt.colorbar(); plt.title("Q2")
-plt.subplot(2,2,3); plt.imshow(Qsites[:,:,2], extent=[0,npoints,0,1], aspect='auto', origin='lower'); plt.colorbar(); plt.title("Q3")
-plt.subplot(2,2,4); plt.imshow(I_stm,        extent=[0,npoints,0,1], aspect='auto', origin='lower'); plt.colorbar(); plt.title("STM")
-plt.show()
-
-Qtips = np.linspace(0.0, 1.0, 50)
-nQs     = len(Qtips)
-npoints = len(ps_line)
-
-ps, qs = chr.makePosQscan ( ps_line, Qtips )
-#ps, qs = chr.makePosQscan_( ps_line, Qtips )
-
-# plt.figure(figsize=(15,5))
-# plt.subplot(1,3,1); plt.imshow(qs);      plt.colorbar(); plt.title("Qs")
-# plt.subplot(1,3,2); plt.imshow(ps[:,:,0]); plt.colorbar(); plt.title("ps.x")
-# plt.subplot(1,3,3); plt.imshow(ps[:,:,1]); plt.colorbar(); plt.title("ps.y")
- 
-ps=ps.reshape((-1,3)).copy()
-qs=qs.flatten().copy()
-#print( "ps ", ps)
-#print( "qs ", qs)
-
-Q_1 = chr.solveSiteOccupancies( ps, qs )
-#I_1 = chr.getSTM_map(ps, Qtips    , Q_1.reshape(-1,nsite), decay=decay );
-
-# Q_2 = chr.solveSiteOccupancies(ps, Qtips+dQ)
-# I_2 = chr.getSTM_map(ps, Qtips+dQ , Q_2.reshape(-1,nsite), decay=decay );
-
-Q_1   = Q_1.reshape((nQs,npoints,nsite))
-Q1tot = np.sum(Q_1,axis=2)
-
-extent = [ 0.0, 1.0, Qtips.min(), Qtips.max()]
-
-print( f"Scan along line {ps_line[0,:2]} {ps_line[-1,:2]}" );
-
-plt.figure(figsize=(20,5))
-plt.subplot(1,4,1);  plt.imshow( Q1tot     , origin="lower", extent=extent, ); plt.colorbar(); plt.title("Q tot   "); plt.xlabel(f"Scan along the line "); plt.ylabel("Q_tip [e])")
-plt.subplot(1,4,2);  plt.imshow( Q_1[:,:,0], origin="lower", extent=extent, ); plt.colorbar(); plt.title("Q site 1"); plt.xlabel(f"Scan along the line "); plt.ylabel("Q_tip [e])")
-plt.subplot(1,4,3);  plt.imshow( Q_1[:,:,1], origin="lower", extent=extent, ); plt.colorbar(); plt.title("Q site 2"); plt.xlabel(f"Scan along the line "); plt.ylabel("Q_tip [e])")
-plt.subplot(1,4,4);  plt.imshow( Q_1[:,:,2], origin="lower", extent=extent, ); plt.colorbar(); plt.title("Q site 3"); plt.xlabel(f"Scan along the line "); plt.ylabel("Q_tip [e])")
-
+plt.savefig("test_ChargeRings_1D.png", bbox_inches='tight')
 
 
 plt.show()

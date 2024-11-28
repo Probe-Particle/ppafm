@@ -49,18 +49,45 @@
  * including geometry, energy levels, and interaction parameters.
  */
 struct RingParams {
-    int     nsite;       // number of molecular sites (quantum dots)
-    Vec3d*  spos;        // [nsite,3]    positions of molecular sites 
-    Mat3d*  rots;        // [nsite][3x3] rotation matrices for multipole orientation 
-    double* MultiPoles;  // [nsite][10]  multipole moments for each site  (1 + 3 + 6 components - monopole, dipole, quadrupole)
-    double* Esites;      // [nsite]      original energy levels of molecular orbitals 
-    double  E_Fermi;     // Fermi level of the substrate
-    double  cCoupling;   // strength of Coulomb interaction between sites
-    double  temperature; // temperature
+    int     nsite=0;       // number of molecular sites (quantum dots)
+    Vec3d*  spos=0;        // [nsite,3]    positions of molecular sites 
+    Mat3d*  rots=0;        // [nsite][3x3] rotation matrices for multipole orientation 
+    double* MultiPoles=0;  // [nsite][10]  multipole moments for each site  (1 + 3 + 6 components - monopole, dipole, quadrupole)
+    double* Esites=0;      // [nsite]      original energy levels of molecular orbitals 
+    double  E_Fermi=0;     // Fermi level of the substrate
+    double  cCoupling=0;   // strength of Coulomb interaction between sites
+    double  onSiteCoulomb = 3.0; 
+    double  temperature=100.0; // temperature
     //double*  Q_tips;   // [ntips] charge of the STM tip
 
+    // New parameters for predefined configurations
+    int     nConf=0;
+    double* siteConfs=0;  // Array of size [nConf * nsite]
+    //bool    usePredefConfs;
+
+    // RingParams(){
+    //     nsite      = 0;
+    //     spos       = 0;
+    //     rots       = 0;
+    //     MultiPoles = 0;
+    //     Esites     = 0;
+    //     E_Fermi    = 0.0;
+    //     cCoupling  = 1.0;
+    //     temperature= 100.0;
+    //     // Initialize new parameters
+    //     nConf      = 0;
+    //     siteConfs  = 0;
+    //     usePredefConfs = false;
+    // }
+
     void print(){
-        printf( "RingParams::print() nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", nsite, E_Fermi, cCoupling, temperature );
+        printf( "RingParams::print() \n" );
+        printf( "nsite      %i \n", nsite      );
+        printf( "E_Fermi    %g \n", E_Fermi    );
+        printf( "cCoupling  %g \n", cCoupling  );
+        printf( "onSiteCoulomb  %g \n", onSiteCoulomb  );
+        printf( "temperature %g \n", temperature );
+        //if(usePredefConfs){printf( "nConf      %i \n", nConf      );}
     }
 };
 
@@ -127,7 +154,6 @@ double getChargingForce( int nsite, const double* Esite, const double* Coupling,
     double E_on  = 0;
     double E_off = 0;
     //printf( "======== getChargingForce() \n" );
-    const double onSiteCoulomb = 3.0; 
     //printf( "getChargingForce() @Esite=%li @Coupling=%li \n", (long)Esite, (long)Coupling  );
     double E=0;
     for(int i=0; i<nsite; i++){
@@ -150,7 +176,7 @@ double getChargingForce( int nsite, const double* Esite, const double* Coupling,
         double fQi = eps_i + Vcoul - E_Fermi;   //charinging force, if below fermi level it is getting charged, if above it is getting discharged
         { // onsite Coulomb
             double qi  = Qs[i];
-            if(qi>1){ fQi += (qi-1)*onSiteCoulomb;  }
+            if(qi>1){ fQi += (qi-1)*params.onSiteCoulomb;  }
         }
         //printf( "site[%i] fQi(%g) = eps(%g) + Vcoul(%g) - Ef(%g) \n", i, eps_i, Vcoul, fQi, E_Fermi  );
         //printf( "site[%i] eps %g  Vcoul %g  fQi %g E_Fermi %g \n", i, eps_i, Vcoul, fQi, E_Fermi );
@@ -423,6 +449,77 @@ double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, co
 }
 
 /**
+ * @brief Computes site charges using Boltzmann statistics with predefined configurations
+ * @param nsite Number of sites
+ * @param spos Site positions
+ * @param rot Rotation matrices
+ * @param MultiPoles Multipole moments
+ * @param Esites0 Bare site energies
+ * @param Qout Output array for charges
+ * @param p_tip Tip position
+ * @param Q_tip Tip charge
+ * @param E_Fermi Fermi energy
+ * @param cCoupling Coupling strength
+ * @param T Temperature
+ * @param nConf Number of predefined configurations
+ * @param siteConfs Array of predefined configurations [size: nConf * nsite]
+ * @param Econf Optional array to store energies of configurations [size: nConf]
+ * @return Total system energy
+ */
+double boltzmanSiteOccupancy_new(int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double T, int nConf, const double* siteConfs, double* Econf=0){
+    //if(verbosity>0) printf("boltzmanSiteOccupancy_new() E_Fermi %g Q_tip %g Esite{%6.3f,%6.3f,%6.3f} nConf %i\n", E_Fermi, Q_tip, Esites0[0], Esites0[1], Esites0[2], nConf);
+    double Qs[nsite];
+    double Qav[nsite];
+    double Esite[nsite];
+    double Coupling_[nsite*nsite];
+    double* Coupling = Coupling_;
+    if(cCoupling < 0){ Coupling = 0; }
+    
+    makeCouplingMatrix(nsite, spos, rot, MultiPoles, Esites0, p_tip, Q_tip, Esite, Coupling, cCoupling);
+    
+    double beta = 1.0/(const_Boltzman * T);
+    
+    // Arrays to store log probabilities and maximum log probability
+    double logPs[nConf];
+    double maxLogP = -1e300;  // Initialize to very negative number
+    
+    // First pass: compute all log probabilities and find maximum
+    for(int ic=0; ic<nConf; ic++){
+        for(int j=0; j<nsite; j++){
+            Qs[j] = siteConfs[ic*nsite + j];
+        }
+        double E = getChargingForce(nsite, Esite, Coupling, E_Fermi, Qs, 0);
+        if(verbosity>2){
+            printf("boltzmanSiteOccupancy_new()[iConf=%3i/%3i] Qs{%6.3f,%6.3f,%6.3f} E=%6.3f\n", ic, nConf, Qs[0], Qs[1], Qs[2], E);
+        }
+        if(Econf) Econf[ic] = E;  // Store raw energy if array provided
+        logPs[ic] = -beta*E;
+        maxLogP = fmax(maxLogP, logPs[ic]);
+    }
+    
+    // Second pass: compute normalized probabilities using the log-sum-exp trick
+    double sumP = 0;
+    for(int ic=0; ic<nConf; ic++){
+        logPs[ic] = exp(logPs[ic] - maxLogP);
+        sumP += logPs[ic];
+    }
+    
+    // Third pass: compute average charges
+    for(int j=0; j<nsite; j++) Qav[j] = 0;
+    for(int ic=0; ic<nConf; ic++){
+        double p = logPs[ic]/sumP;
+        for(int j=0; j<nsite; j++){
+            Qav[j] += p * siteConfs[ic*nsite + j];
+        }
+    }
+    
+    // Store average charges in output array
+    for(int j=0; j<nsite; j++) Qout[j] = Qav[j];
+    
+    return getChargingForce(nsite, Esite, Coupling, E_Fermi, Qav, 0);
+}
+
+/**
  * @brief Computes STM signal from site occupancies
  * @param pos Measurement position
  * @param beta Decay constant
@@ -482,7 +579,6 @@ double getSTM( int nsite, const Vec3d* spos, const Mat3d* rot, const double* Mul
         Vec3d d = p_tip - spos[i];
         double r = d.norm();
         //if(r < R_SAFE) continue;
-
         double T = exp(-decay * r);
         if (bOccupied){
             T *= Qs[i]; 
@@ -490,8 +586,6 @@ double getSTM( int nsite, const Vec3d* spos, const Mat3d* rot, const double* Mul
         }else{
             T *= (1-Qs[i]);  // Fermi function
         }
-
-        
         I += T;
     }
     return I;
@@ -565,9 +659,10 @@ void setVerbosity(int verbosity_){ verbosity=verbosity_; }
  * @param Esites Site energies
  * @param E_Fermi Fermi energy
  * @param cCouling Coupling strength
+ * @param onSiteCoulomb On-site Coulomb interaction
  * @param temperature System temperature
  */
-void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, double* Esites, double E_Fermi, double cCouling, double temperature ) {
+void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, double* Esites, double E_Fermi, double cCouling, double onSiteCoulomb, double temperature ) {
     params.nsite       = nsite;
     params.spos        = (Vec3d*)spos;
     params.rots        = (Mat3d*)rots;
@@ -575,6 +670,7 @@ void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, d
     params.Esites      = Esites;
     params.E_Fermi     = E_Fermi;
     params.cCoupling   = cCouling;
+    params.onSiteCoulomb = onSiteCoulomb;
     params.temperature = temperature;
     //printf( "initRingParams() nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", nsite, params.E_Fermi, params.cCoupling, params.temperature );
     printf( "initRingParams()"); params.print();
@@ -604,24 +700,46 @@ void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsit
  * @param Qtips Array of tip charges
  * @param Qout Output array for site charges
  * @param Econf Optional array to store energies of all configurations [size: npos * 2^(2*nsite)]
+ * @param bUserBasis Use user-defined basis
  */
-void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf) {
+void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf, bool bUserBasis ) {
     printf( "solveSiteOccupancies() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
     //printf( "solveSiteOccupancies() npos=%i \n", npos ); params.print();
     Vec3d* ptips = (Vec3d*)ptips_;
-
-    int nspinorb = params.nsite*2;
-    int nconfs = 1<<nspinorb;  // 2^(2*nsite) configurations
-
+    int nconfs = bUserBasis ? params.nConf : 1<<(params.nsite*2);
     #pragma omp parallel for
     for(int i=0; i<npos; i++) {
-        //printf( "solveSiteOccupancies[%i|%i,%i] pos(%8.4f,%8.4f,%8.4f) q=%8.4f \n", i, i/nj, i%nj,  ptips[i].x,ptips[i].y,ptips[i].z,   Qtips[i] );
-        double Qs[params.nsite];
+        if(verbosity>2){ printf( "solveSiteOccupancies()[iPos=%i] pos(%8.4f,%8.4f,%8.4f) q=%8.4f \n", i,  ptips[i].x,ptips[i].y,ptips[i].z,   Qtips[i] ); }
         double* Econf_i = Econf ? Econf + i*nconfs : 0;  // Pointer to current tip's energy array
-        boltzmanSiteOccupancy(params.nsite, params.spos, params.rots, params.MultiPoles,   params.Esites, Qs, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature, Econf_i);
+        double  Qs[params.nsite];
+        if( bUserBasis ){ boltzmanSiteOccupancy_new(params.nsite, params.spos, params.rots, params.MultiPoles,   params.Esites, Qs, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature, nconfs, params.siteConfs, Econf_i); }
+        else            { boltzmanSiteOccupancy    (params.nsite, params.spos, params.rots, params.MultiPoles,   params.Esites, Qs, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature, Econf_i );
+        }
         for(int j=0; j<params.nsite; j++) {  Qout[i*params.nsite+j] = Qs[j];  }
     }
 }
+
+// /**
+//  * @brief Solves site occupancies for multiple tip positions with predefined configurations
+//  * @param npos Number of tip positions
+//  * @param ptips_ Array of tip positions
+//  * @param Qtips Array of tip charges
+//  * @param Qout Output array for site charges
+//  * @param Econf Optional array to store energies of all configurations [size: npos * nConf]
+//  */
+// void solveSiteOccupancies_new(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf, int nConf, const double* siteConfs) {
+//     printf( "solveSiteOccupancies_new() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
+//     //printf( "solveSiteOccupancies() npos=%i \n", npos ); params.print();
+//     Vec3d* ptips = (Vec3d*)ptips_;
+//     #pragma omp parallel for
+//     for(int i=0; i<npos; i++) {
+//         //printf( "solveSiteOccupancies[%i|%i,%i] pos(%8.4f,%8.4f,%8.4f) q=%8.4f \n", i, i/nj, i%nj,  ptips[i].x,ptips[i].y,ptips[i].z,   Qtips[i] );
+//         double Qs[params.nsite];
+//         double* Econf_i = Econf ? Econf + i*nConf : 0;  // Pointer to current tip's energy array
+//         boltzmanSiteOccupancy_new(params.nsite, params.spos, params.rots, params.MultiPoles,   params.Esites, Qs, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature, nConf, siteConfs, Econf_i);
+//         for(int j=0; j<params.nsite; j++) {  Qout[i*params.nsite+j] = Qs[j];  }
+//     }
+// }
 
 /**
  * @brief Generates STM map for multiple tip positions
@@ -690,6 +808,17 @@ void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites, 
         }
 
     }
+}
+
+/**
+ * @brief Sets up predefined configurations for Boltzmann statistics
+ * @param nConf Number of configurations
+ * @param siteConfs Array of predefined configurations [size: nConf * nsite]
+ */
+void setSiteConfBasis(int nconf, double* siteConfs) {
+    if(verbosity>0) printf("setSiteConfBasis() nConf=%i nsite=%i\n", nconf, params.nsite);
+    params.nConf = nconf;
+    params.siteConfs = siteConfs;
 }
 
 };

@@ -52,8 +52,8 @@ Qtips  = np.ones(len(ps))*Q_tip
 print( "ps ", ps)
 
 # Calculate site occupancies
-Qsites = chr.solveSiteOccupancies(ps, Qtips)
-Qsites = Qsites.reshape((npix,npix,nsite))
+Qsites,_ = chr.solveSiteOccupancies(ps, Qtips)
+Qsites   = Qsites.reshape((npix,npix,nsite))
 
 # Calculate STM map
 I_empty = chr.getSTM_map(ps, Qtips, Qsites.reshape(-1,nsite), decay=decay, bOccupied=False ); I_empty = I_empty.reshape((npix,npix))

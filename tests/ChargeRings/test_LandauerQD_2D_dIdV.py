@@ -85,7 +85,7 @@ if use_occupancy:
     Qtips = np.ones(len(ps_flat)) * Q_tip
     
     # Calculate occupancies and Hamiltonians
-    Q_qds = chr.solveSiteOccupancies(ps_flat, Qtips)
+    Q_qds,_ = chr.solveSiteOccupancies(ps_flat, Qtips)
     eigenvalues, evecs, H_QDs, Gs = chr.solveHamiltonians(ps_flat, Qtips, Qsites=Q_qds, bH=True)
     
     # Reshape results back to 2D

@@ -81,7 +81,7 @@ if use_occupancy:
     chr.initRingParams(QDpos, E0QDs, rot=QDrots, MultiPoles=QDmpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T)
     
     # Calculate occupancies and Hamiltonians
-    Q_qds = chr.solveSiteOccupancies(ps_flat, Qtips)
+    Q_qds,_ = chr.solveSiteOccupancies(ps_flat, Qtips)
     eigenvalues, evecs, H_QDs, Gs = chr.solveHamiltonians(ps_flat, Qtips, Qsites=Q_qds, bH=True)
     
     # Initialize C++ solver with occupancy
