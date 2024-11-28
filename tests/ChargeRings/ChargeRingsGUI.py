@@ -110,8 +110,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
         hb.addWidget(QtWidgets.QLabel("dQ:")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.001,0.1); bx.setValue(0.02); bx.setSingleStep(0.001); bx.setDecimals(3); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxDQ=bx
         
+        # Run Button and Auto-update Control
+        hb = QtWidgets.QHBoxLayout(); l0.addLayout(hb)
+        
+        # Auto-update checkbox
+        cb = QtWidgets.QCheckBox("Auto-update"); cb.setChecked(True); hb.addWidget(cb); self.cbAutoUpdate=cb
+        
         # Run Button
-        btn = QtWidgets.QPushButton("Run Simulation"); btn.clicked.connect(self.run_simulation); l0.addWidget(btn)
+        btn = QtWidgets.QPushButton("Run Simulation"); btn.clicked.connect(self.run_simulation); hb.addWidget(btn)
         
         # Set the central widget and initialize
         self.main_widget.setFocus()
@@ -195,7 +201,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.canvas.draw()
     
     def update_plots(self):
-        self.run_simulation()
+        if self.cbAutoUpdate.isChecked():
+            self.run_simulation()
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
