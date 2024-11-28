@@ -2,6 +2,7 @@
 
 import sys
 import os
+import json
 import numpy as np
 import matplotlib; matplotlib.use('Qt5Agg')
 from PyQt5 import QtCore, QtWidgets
@@ -19,6 +20,41 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("ChargeRings GUI")
         self.main_widget = QtWidgets.QWidget(self)
         
+        # Define parameter specifications
+        self.param_specs = {
+            # Tip Parameters
+            'Q_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (-2.0, 2.0),  'value': 0.6, 'step': 0.1},
+            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (1.0, 20.0),  'value': 6.0, 'step': 0.5},
+            
+            # System Parameters
+            'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02, 'step': 0.01, 'decimals': 3},
+            'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 10.0, 'step': 1.0},
+            'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
+            
+            # Ring Geometry
+            'nsite':         {'group': 'Ring Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
+            'radius':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 5.0, 'step': 0.5},
+            'phiRot':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0,'step': 0.1},
+            
+            # Site Properties
+            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0,'step': 0.1},
+            'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
+            'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
+            
+            # Visualization
+            'L':             {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 50.0),  'value': 20.0, 'step': 1.0},
+            'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (50, 500),    'value': 200,  'step': 50},
+            'decay':         {'group': 'Visualization',     'widget': 'double', 'range': (0.1, 2.0),   'value': 0.7,  'step': 0.1,   'decimals': 2},
+            'dQ':            {'group': 'Visualization',     'widget': 'double', 'range': (0.001, 0.1), 'value': 0.02, 'step': 0.001, 'decimals': 3},
+        }
+        
+        # Dictionary to store widget references
+        self.param_widgets = {}
+        
+        # Create GUI
+        self.create_gui()
+        
+    def create_gui(self):
         # --- Main Layout
         l00 = QtWidgets.QHBoxLayout(self.main_widget)
         
@@ -30,87 +66,41 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # --- Control Panel
         l0 = QtWidgets.QVBoxLayout(); l00.addLayout(l0)
         
-        # Tip Parameters
-        gb = QtWidgets.QGroupBox("Tip Parameters"); l0.addWidget(gb)
-        vb = QtWidgets.QVBoxLayout(gb)
+        # Create widgets for each parameter group
+        current_group = None
+        current_layout = None
         
-        # Q_tip
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("Q_tip:")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-2.0,2.0); bx.setValue(0.6); bx.setSingleStep(0.1); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxQtip=bx
+        for param_name, spec in self.param_specs.items():
+            # Create new group if needed
+            if spec['group'] != current_group:
+                current_group = spec['group']
+                gb = QtWidgets.QGroupBox(current_group); l0.addWidget(gb)
+                current_layout = QtWidgets.QVBoxLayout(gb)
+            
+            # Create widget layout
+            hb = QtWidgets.QHBoxLayout(); current_layout.addLayout(hb)
+            hb.addWidget(QtWidgets.QLabel(f"{param_name}:"))
+            
+            # Create appropriate widget type
+            if spec['widget'] == 'double':
+                widget = QtWidgets.QDoubleSpinBox()
+                widget.setRange(*spec['range'])
+                widget.setValue(spec['value'])
+                widget.setSingleStep(spec['step'])
+                if 'decimals' in spec:
+                    widget.setDecimals(spec['decimals'])
+            elif spec['widget'] == 'int':
+                widget = QtWidgets.QSpinBox()
+                widget.setRange(*spec['range'])
+                widget.setValue(spec['value'])
+                if 'step' in spec:
+                    widget.setSingleStep(spec['step'])
+            
+            widget.valueChanged.connect(self.update_plots)
+            hb.addWidget(widget)
+            self.param_widgets[param_name] = widget
         
-        # z_tip
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("z_tip:")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(1.0,20.0); bx.setValue(6.0); bx.setSingleStep(0.5); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxZtip=bx
-        
-        # System Parameters
-        gb = QtWidgets.QGroupBox("System Parameters"); l0.addWidget(gb)
-        vb = QtWidgets.QVBoxLayout(gb)
-        
-        # cCouling
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("cCouling:")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,1.0); bx.setValue(0.02); bx.setSingleStep(0.01); bx.setDecimals(3); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxCouling=bx
-        
-        # onSiteCoulomb
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("onSiteCoulomb:")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.0,10.0); bx.setValue(3.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxCoulomb=bx
-
-        # Temperature
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("Temperature:")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.1,100.0); bx.setValue(10.0); bx.setSingleStep(1.0); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxTemp=bx
-                
-        # Ring Geometry
-        gb = QtWidgets.QGroupBox("Ring Geometry"); l0.addWidget(gb)
-        vb = QtWidgets.QVBoxLayout(gb)
-        
-        # nsite
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("Number of sites:")); bx = QtWidgets.QSpinBox(); bx.setRange(1,10); bx.setValue(3); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxNsite=bx
-        
-        # R
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("Ring Radius:")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(1.0,20.0); bx.setValue(5.0); bx.setSingleStep(0.5); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxRadius=bx
-        
-        # phiRot
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("Rotation (phi):")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-10.0,10.0); bx.setValue(-1.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxPhiRot=bx
-        
-        # Site Properties
-        gb = QtWidgets.QGroupBox("Site Properties"); l0.addWidget(gb)
-        vb = QtWidgets.QVBoxLayout(gb)
-        
-        # Esite
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("Site Energy:")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-10.0,10.0); bx.setValue(-1.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxEsite=bx
-        
-        # Q0
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("Q0 (monopole):")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-10.0,10.0); bx.setValue(1.0); bx.setSingleStep(0.1); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxQ0=bx
-        
-        # Qzz
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("Qzz (quadrupole):")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(-20.0,20.0); bx.setValue(0.0); bx.setSingleStep(0.5); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxQzz=bx
-        
-        # Visualization Parameters
-        gb = QtWidgets.QGroupBox("Visualization"); l0.addWidget(gb)
-        vb = QtWidgets.QVBoxLayout(gb)
-        
-        # Canvas Size (L)
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("Canvas Size (L):")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(5.0,50.0); bx.setValue(20.0); bx.setSingleStep(1.0); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxL=bx
-        
-        # Grid Points (npix)
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("Grid Points:")); bx = QtWidgets.QSpinBox(); bx.setRange(50,500); bx.setValue(200); bx.setSingleStep(50); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxNpix=bx
-        
-        # decay
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("Decay:")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.1,2.0); bx.setValue(0.7); bx.setSingleStep(0.1); bx.setDecimals(2); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxDecay=bx
-        
-        # dQ
-        hb = QtWidgets.QHBoxLayout(); vb.addLayout(hb)
-        hb.addWidget(QtWidgets.QLabel("dQ:")); bx = QtWidgets.QDoubleSpinBox(); bx.setRange(0.001,0.1); bx.setValue(0.02); bx.setSingleStep(0.001); bx.setDecimals(3); bx.valueChanged.connect(self.update_plots); hb.addWidget(bx); self.bxDQ=bx
-        
-        # Run Button and Auto-update Control
+        # Controls
         hb = QtWidgets.QHBoxLayout(); l0.addLayout(hb)
         
         # Auto-update checkbox
@@ -119,16 +109,50 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Run Button
         btn = QtWidgets.QPushButton("Run Simulation"); btn.clicked.connect(self.run_simulation); hb.addWidget(btn)
         
+        # Save/Load buttons
+        hb = QtWidgets.QHBoxLayout(); l0.addLayout(hb)
+        btnSave = QtWidgets.QPushButton("Save Parameters"); btnSave.clicked.connect(self.save_parameters); hb.addWidget(btnSave)
+        btnLoad = QtWidgets.QPushButton("Load Parameters"); btnLoad.clicked.connect(self.load_parameters); hb.addWidget(btnLoad)
+        
         # Set the central widget and initialize
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
-        
         self.init_simulation()
-        
+    
+    def get_param_values(self):
+        """Get current values of all parameters"""
+        return {name: widget.value() for name, widget in self.param_widgets.items()}
+    
+    def set_param_values(self, values):
+        """Set values for all parameters"""
+        for name, value in values.items():
+            if name in self.param_widgets:
+                self.param_widgets[name].setValue(value)
+    
+    def save_parameters(self):
+        """Save parameters to JSON file"""
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save Parameters", "", "JSON files (*.json)")
+        if filename:
+            if not filename.endswith('.json'):
+                filename += '.json'
+            with open(filename, 'w') as f:
+                json.dump(self.get_param_values(), f, indent=4)
+    
+    def load_parameters(self):
+        """Load parameters from JSON file"""
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load Parameters", "", "JSON files (*.json)")
+        if filename:
+            with open(filename, 'r') as f:
+                values = json.load(f)
+                self.set_param_values(values)
+                self.run_simulation()
+
     def init_simulation(self):
+        params = self.get_param_values()
+        
         # Initialize geometry
-        nsite = self.bxNsite.value()
-        R = self.bxRadius.value()
+        nsite = params['nsite']
+        R = params['radius']
         
         # Setup sites on circle
         phis = np.linspace(0, 2*np.pi, nsite, endpoint=False)
@@ -137,42 +161,37 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.spos[:,1] = np.sin(phis)*R
         
         # Setup multipoles and site energies
-        self.Esite = [self.bxEsite.value()] * nsite
-        rots = chr.makeRotMats(phis + self.bxPhiRot.value(), nsite)
+        self.Esite = [params['Esite']] * nsite
+        rots = chr.makeRotMats(phis + params['phiRot'], nsite)
         mpols = np.zeros((nsite,10))
-        mpols[:,0] = self.bxQ0.value()  # Q0
-        mpols[:,4] = self.bxQzz.value() # Qzz
+        mpols[:,0] = params['Q0']  # Q0
+        mpols[:,4] = params['Qzz'] # Qzz
         
         # Initialize global parameters
-        chr.initRingParams(self.spos, self.Esite, rot=rots, MultiPoles=mpols,
-                         E_Fermi=0.0, cCouling=self.bxCouling.value(),
-                         temperature=self.bxTemp.value(), 
-                         onSiteCoulomb=self.bxCoulomb.value())
+        chr.initRingParams(self.spos, self.Esite, rot=rots, MultiPoles=mpols, E_Fermi=0.0, cCouling=params['cCouling'],temperature=params['temperature'], onSiteCoulomb=params['onSiteCoulomb'])
     
     def run_simulation(self):
         self.init_simulation()
+        params = self.get_param_values()
         
         # Setup scanning grid
-        self.L = self.bxL.value()
-        self.npix = self.bxNpix.value()
-        extent = [-self.L, self.L, -self.L, self.L]
-        ps = chr.makePosXY(n=self.npix, L=self.L, z0=self.bxZtip.value())
-        Qtips = np.ones(len(ps)) * self.bxQtip.value()
+        extent = [-params['L'], params['L'], -params['L'], params['L']]
+        ps = chr.makePosXY(n=params['npix'], L=params['L'], z0=params['z_tip'])
+        Qtips = np.ones(len(ps)) * params['Q_tip']
         
         # Calculate occupancies and STM maps
         Q_1, _ = chr.solveSiteOccupancies(ps, Qtips)
-        I_1 = chr.getSTM_map(ps, Qtips, Q_1.reshape(-1,len(self.Esite)), decay=self.bxDecay.value())
+        I_1 = chr.getSTM_map(ps, Qtips, Q_1.reshape(-1,len(self.Esite)), decay=params['decay'])
         
-        dQ = self.bxDQ.value()
-        Q_2, _ = chr.solveSiteOccupancies(ps, Qtips+dQ)
-        I_2 = chr.getSTM_map(ps, Qtips+dQ, Q_2.reshape(-1,len(self.Esite)), decay=self.bxDecay.value())
+        Q_2, _ = chr.solveSiteOccupancies(ps, Qtips+params['dQ'])
+        I_2 = chr.getSTM_map(ps, Qtips+params['dQ'], Q_2.reshape(-1,len(self.Esite)), decay=params['decay'])
         
-        dIdQ = (I_2-I_1)/dQ
+        dIdQ = (I_2-I_1)/params['dQ']
         
         # Reshape for plotting
-        Q_1 = Q_1.reshape((self.npix,self.npix,len(self.Esite)))
-        I_1 = I_1.reshape((self.npix,self.npix))
-        dIdQ = dIdQ.reshape((self.npix,self.npix))
+        Q_1 = Q_1.reshape((params['npix'],params['npix'],len(self.Esite)))
+        I_1 = I_1.reshape((params['npix'],params['npix']))
+        dIdQ = dIdQ.reshape((params['npix'],params['npix']))
         
         # Clear the entire figure and recreate subplots
         self.fig.clear()
