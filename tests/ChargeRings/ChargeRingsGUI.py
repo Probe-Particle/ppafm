@@ -116,9 +116,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Set the central widget and initialize
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
-        self.ax1 = self.fig.add_subplot(131)
-        self.ax2 = self.fig.add_subplot(132)
-        self.ax3 = self.fig.add_subplot(133)
         
         self.init_simulation()
         
@@ -171,9 +168,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         I_1 = I_1.reshape((self.npix,self.npix))
         dIdQ = dIdQ.reshape((self.npix,self.npix))
         
-        # Plot results
-        self.ax1.clear(); self.ax2.clear(); self.ax3.clear()
+        # Clear the entire figure and recreate subplots
+        self.fig.clear()
+        self.ax1 = self.fig.add_subplot(131)
+        self.ax2 = self.fig.add_subplot(132)
+        self.ax3 = self.fig.add_subplot(133)
         
+        # Plot results
         im1 = self.ax1.imshow(np.sum(Q_1,axis=2), origin="lower", extent=extent)
         self.ax1.plot(self.spos[:,0], self.spos[:,1], '+g')
         self.fig.colorbar(im1, ax=self.ax1)
@@ -189,6 +190,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.fig.colorbar(im3, ax=self.ax3)
         self.ax3.set_title("dI/dQ")
         
+        # Adjust layout to prevent overlapping
+        self.fig.tight_layout()
         self.canvas.draw()
     
     def update_plots(self):
