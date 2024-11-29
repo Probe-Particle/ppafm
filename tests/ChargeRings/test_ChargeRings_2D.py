@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 # =================  Setup
 
+V_Bias    = 1.0
 #Q_tip     = 0.48
 Q_tip     = 0.6
 cCouling  = 0.02 # * 0.0
@@ -13,7 +14,7 @@ E_Fermi   = 0.0
 z_tip     = 6.0
 L         = 20.0
 npix      = 400
-decay     = 0.7
+decay     = 0.2
 
 dQ =0.02
 
@@ -47,7 +48,12 @@ mpols[:,0] = Q0
 
 # Initialize global parameters
 chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T, onSiteCoulomb=3.0 )
-#chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T, onSiteCoulomb=0.2 )
+
+# Set up configuration basis for solver_type=2
+confstrs = ["000","001", "010", "100", "110", "101", "011", "111"] 
+confColors = chr.colorsFromStrings(confstrs, hi="A0", lo="00")
+confs = chr.confsFromStrings( confstrs )
+nconfs = chr.setSiteConfBasis(confs)
 
 # Setup scanning grid ( tip positions and charges )
 extent = [-L,L,-L,L]
@@ -63,11 +69,19 @@ ps_line[:,2] = z_tip
 print( "ps ", ps)
 
 # Calculate site occupancies
-Q_1, Es_1, Ec_1 = chr.solveSiteOccupancies(ps, Qtips)
-I_1             = chr.getSTM_map(ps, Qtips    , Q_1.reshape(-1,nsite), decay=decay );
+Q_1, Es_1, Ec_1 = chr.solveSiteOccupancies(ps, Qtips, bEsite=True, solver_type=2)
 
-Q_2, Es_2, Ec_2 = chr.solveSiteOccupancies(ps, Qtips+dQ)
-I_2             = chr.getSTM_map(ps, Qtips+dQ , Q_2.reshape(-1,nsite), decay=decay );
+bSTMcpp = False
+if bSTMcpp:
+    I_1 = chr.getSTM_map(ps, Qtips, Q_1.reshape(-1,nsite), decay=decay)
+else:
+    I_1 = chr.calculate_tunneling_current( ps, Es_1, E_fermi_sub=E_Fermi, E_fermi_tip=E_Fermi+V_Bias,decay=decay, T=T )
+
+Q_2, Es_2, Ec_2 = chr.solveSiteOccupancies(ps, Qtips+dQ, bEsite=True, solver_type=2)
+if bSTMcpp:
+    I_2 = chr.getSTM_map(ps, Qtips+dQ, Q_2.reshape(-1,nsite), decay=decay)
+else:
+    I_2 = chr.calculate_tunneling_current( ps, Es_2, E_fermi_sub=E_Fermi, E_fermi_tip=E_Fermi+V_Bias,decay=decay, T=T )
 
 dIdQ = (I_2-I_1)/dQ
 
