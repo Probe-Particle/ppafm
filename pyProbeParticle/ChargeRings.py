@@ -204,7 +204,7 @@ def fermi_function(E, E_fermi, T=300):
     kB = 8.617333262e-5  # eV/K
     return 1.0 / (1.0 + np.exp((E - E_fermi) / (kB * T)))
 
-def calculate_site_current(ps, site_pos, site_E, E_fermi_tip, E_fermi_sub, decay=0.7, T=300, rho_tip=1.0, rho_sub=1.0):
+def calculate_site_current(ps, site_pos, site_E, E_fermi_tip, E_fermi_sub, decay=0.7, T=300, rho_tip=1.0, rho_sub=1.0, M=None ):
     """Calculate tunneling current for a single site using Fermi Golden Rule.
     
     Mathematical Description:
@@ -232,19 +232,19 @@ def calculate_site_current(ps, site_pos, site_E, E_fermi_tip, E_fermi_sub, decay
     Returns:
         ndarray: Tunneling current through this site for each tip position (n_points,)
     """
-    # Calculate distances between all tip positions and the site
-    dr = ps - site_pos
-    distances = np.sqrt(np.sum(dr*dr, axis=1))  # Shape: (n_points,)
-    
+
     # Calculate matrix elements for all positions
-    M = np.exp(-decay * distances)  # Shape: (n_points,)
+    if M is None:
+        # Calculate distances between all tip positions and the site
+        dr = ps - site_pos
+        distances = np.sqrt(np.sum(dr*dr, axis=1))  # Shape: (n_points,)
+        M  = np.exp(-decay * distances)  # Shape: (n_points,)
     
     # Calculate Fermi functions
     f_tip = fermi_function(site_E, E_fermi_tip, T)  # Shape: (n_points,)
     f_sub = fermi_function(site_E, E_fermi_sub, T)  # Shape: (n_points,)
     
-    # Calculate current
-    # I ∝ |M|^2 * ρ_tip * ρ_sub * (f_tip - f_sub)
+    # Calculate current:     I ∝ |M|^2 * ρ_tip * ρ_sub * (f_tip - f_sub)
     current = M*M * rho_tip * rho_sub * (f_tip - f_sub)
     
     return current
