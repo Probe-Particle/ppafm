@@ -191,3 +191,96 @@ def colorsFromStrings(strs, hi="ff", lo="00"):
     colors = ['#' + to_hex(s) for s in strs]
     if any(len(s) != 3 for s in strs):  raise ValueError("Each input string must have exactly 3 characters")
     return colors
+
+def fermi_function(E, E_fermi, T=300):
+    """Calculate Fermi-Dirac distribution
+    Args:
+        E (float or array): Energy level
+        E_fermi (float): Fermi energy
+        T (float): Temperature in Kelvin
+    Returns:
+        float or array: Occupation probability
+    """
+    kB = 8.617333262e-5  # eV/K
+    return 1.0 / (1.0 + np.exp((E - E_fermi) / (kB * T)))
+
+def calculate_site_current(ps, site_pos, site_E, E_fermi_tip, E_fermi_sub, decay=0.7, T=300, rho_tip=1.0, rho_sub=1.0):
+    """Calculate tunneling current for a single site using Fermi Golden Rule.
+    
+    Mathematical Description:
+    ------------------------
+    For a single site, the current is given by:
+    I_site ∝ |M|^2 ρ_tip ρ_sub [f_tip(E_site) - f_sub(E_site)]
+    
+    where:
+    - Matrix element: M = M_0 exp(-κr)
+    - κ: decay constant
+    - r: tip-site distance
+    - E_site: site energy level
+    - f_tip, f_sub: Fermi-Dirac distributions
+    
+    Args:
+        ps (ndarray): Tip positions (n_points, 3)
+        site_pos (ndarray): Position of the site (3,)
+        site_E (ndarray): Site energy at each tip position (n_points,)
+        E_fermi_tip (float): Fermi energy of the tip
+        E_fermi_sub (float): Fermi energy of the substrate
+        decay (float): Decay constant for tunneling matrix element
+        T (float): Temperature in Kelvin
+        rho_tip (float): Density of states of the tip (assumed constant)
+        rho_sub (float): Density of states of the substrate (assumed constant)
+    Returns:
+        ndarray: Tunneling current through this site for each tip position (n_points,)
+    """
+    # Calculate distances between all tip positions and the site
+    dr = ps - site_pos
+    distances = np.sqrt(np.sum(dr*dr, axis=1))  # Shape: (n_points,)
+    
+    # Calculate matrix elements for all positions
+    M = np.exp(-decay * distances)  # Shape: (n_points,)
+    
+    # Calculate Fermi functions
+    f_tip = fermi_function(site_E, E_fermi_tip, T)  # Shape: (n_points,)
+    f_sub = fermi_function(site_E, E_fermi_sub, T)  # Shape: (n_points,)
+    
+    # Calculate current
+    # I ∝ |M|^2 * ρ_tip * ρ_sub * (f_tip - f_sub)
+    current = M*M * rho_tip * rho_sub * (f_tip - f_sub)
+    
+    return current
+
+def calculate_tunneling_current(ps, Esite, E_fermi_tip, E_fermi_sub, decay=0.7, T=300, rho_tip=1.0, rho_sub=1.0):
+    """Calculate total tunneling current using Fermi Golden Rule by summing over all sites.
+    
+    Mathematical Description:
+    ------------------------
+    The total current is the sum over all sites:
+    I_total = Σ_sites I_site
+    
+    where I_site is calculated by calculate_site_current()
+    
+    Args:
+        ps (ndarray): Tip positions (n_points, 3)
+        Esite (ndarray): Site energies (n_points, n_sites)
+        E_fermi_tip (float): Fermi energy of the tip
+        E_fermi_sub (float): Fermi energy of the substrate
+        decay (float): Decay constant for tunneling matrix element
+        T (float): Temperature in Kelvin
+        rho_tip (float): Density of states of the tip (assumed constant)
+        rho_sub (float): Density of states of the substrate (assumed constant)
+    Returns:
+        ndarray: Total tunneling current for each tip position
+    """
+    # Get positions of sites from global parameters
+    spos = np.array(spos_)  # Shape: (n_sites, 3)
+    n_sites = len(spos)
+    
+    # Initialize total current
+    total_current = np.zeros(len(ps))
+    
+    # Sum contributions from each site
+    for i in range(n_sites):
+        site_current = calculate_site_current( ps, spos[i], Esite[:,i], E_fermi_tip, E_fermi_sub, decay, T, rho_tip, rho_sub )
+        total_current += site_current
+    
+    return total_current

@@ -29,14 +29,14 @@ Esite = [-1.0, -1.0, -1.0]
 """
 
 
-
+V_Bias    = 0.1
 Q_tip     = 0.6*0.2
 cCouling  = 0.03*0.2 #* 0.0
 E_Fermi   = 0.0
 z_tip     = 6.0
 L         = 20.0
 npix      = 400
-decay     = 0.7
+decay     = 0.2
 onSiteCoulomb = 3.0
 dQ = 0.01
 T = 2.0
@@ -113,7 +113,7 @@ print( "chr.nconfs ", chr.nconfs)
 
 #Qsites, Esite, Econf = chr.solveSiteOccupancies( ps_line, Qs, bEconf=True, bEsite=True, solver_type=1 )
 Qsites, Esite, Econf = chr.solveSiteOccupancies( ps_line, Qs, bEconf=True, bEsite=True, solver_type=2 )
-evals, evecs, Hs, Gs = chr.solveHamiltonians   ( ps_line, Qs, Qsites=Qsites, bH=True)
+#evals, evecs, Hs, Gs = chr.solveHamiltonians   ( ps_line, Qs, Qsites=Qsites, bH=True)
 
 Qtot = np.sum(Qsites, axis=1)
 
@@ -132,7 +132,8 @@ if Econf is not None:
 if Esite is not None:
     for i in range(Esite.shape[1]):
         plt.plot( Esite[:,i], '-', alpha=0.5, lw=3.0, label=f'Esite {i}', c=siteColors[i])    
-plt.axhline(y=0, color='k', linestyle='--', alpha=0.5)  # Add Fermi level reference line
+plt.axhline(y=E_Fermi,       color='k', linestyle='--', alpha=0.5)  # Add Fermi level reference line
+plt.axhline(y=E_Fermi+V_Bias, color='r', linestyle='--', alpha=0.5)
 plt.title(f"Configuration Energies (relative to E_Fermi={E_Fermi})")
 plt.ylabel("Energy (eV)")
 plt.xlabel("Position along line")
@@ -154,10 +155,23 @@ plt.grid(True)
 
 # Plot 3: STM
 plt.subplot(nplt,1,iplt); iplt+=1
-#I_occup = chr.getSTM_map(ps_line, Qtips, Qsites, decay=decay, bOccupied=True  ); #I_occup = I_occup.reshape((npix,npix))
-I_empty = chr.getSTM_map(ps_line, Qtips, Qsites, decay=decay, bOccupied=False ); #I_empty = I_empty.reshape((npix,npix))
-#plt.plot( I_occup, label="STM occupied" )
-plt.plot( I_empty, label="STM empty" )
+
+bSTMcpp = False
+if bSTMcpp:
+    #I_STM = chr.getSTM_map(ps_line, Qtips, Qsites, decay=decay, bOccupied=True  ); #I_occup = I_occup.reshape((npix,npix))
+    I_STM = chr.getSTM_map(ps_line, Qtips, Qsites, decay=decay, bOccupied=False ); #I_empty = I_empty.reshape((npix,npix))
+else:
+    # Using new Python implementation
+    I_STM = chr.calculate_tunneling_current(
+        ps_line,          # tip positions
+        Esite,            # site energies
+        E_fermi_sub=E_Fermi,  # assuming substrate Fermi level at 0 
+        E_fermi_tip=E_Fermi+V_Bias,  # tip Fermi level above tip
+        decay=decay,      # using same decay as C++ version
+        T=T,             # room temperature
+    )
+
+plt.plot( I_STM, label="STM empty" )
 #plt.plot( Qtot,    label="Qtot" )
 plt.grid(True)
 plt.title("STM")
