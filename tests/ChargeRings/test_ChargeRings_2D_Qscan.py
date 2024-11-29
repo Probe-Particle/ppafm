@@ -64,12 +64,12 @@ for iq, Q_tip in enumerate(Q_tips):
     Qtips = np.ones(len(ps)) * Q_tip
     
     # Calculate for Q_tip
-    Q_1, Ec_1 = chr.solveSiteOccupancies(ps, Qtips)
-    I_1 = chr.getSTM_map(ps, Qtips, Q_1.reshape(-1,nsite), decay=decay)
+    Q_1,Es_1,Ec_1 = chr.solveSiteOccupancies(ps, Qtips)
+    I_1           = chr.getSTM_map(ps, Qtips, Q_1.reshape(-1,nsite), decay=decay)
     
     # Calculate for Q_tip + dQ
-    Q_2, Ec_2 = chr.solveSiteOccupancies(ps, Qtips+dQ)
-    I_2 = chr.getSTM_map(ps, Qtips+dQ, Q_2.reshape(-1,nsite), decay=decay)
+    Q_2,Es_2,Ec_2 = chr.solveSiteOccupancies(ps, Qtips+dQ)
+    I_2           = chr.getSTM_map(ps, Qtips+dQ, Q_2.reshape(-1,nsite), decay=decay)
     
     # Calculate dI/dQ
     dIdQ = (I_2-I_1)/dQ

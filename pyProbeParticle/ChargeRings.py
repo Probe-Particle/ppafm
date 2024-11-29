@@ -65,38 +65,31 @@ def initRingParams(spos, Esite, rot=None, MultiPoles=None, E_Fermi=0.0, cCouling
     MultiPoles_ = np.array(MultiPoles)
     lib.initRingParams(nsite, spos_, _np_as(rot_,c_double_p), _np_as(MultiPoles_,c_double_p), Esite_, E_Fermi, cCouling, onSiteCoulomb, temperature )
 
-# void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf, bool bUserBasis ) {
-lib.solveSiteOccupancies.argtypes = [c_int, array2d, array1d, array2d, c_double_p, c_bool]
+# void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf, double* dEdQ, int solver_type) {
+lib.solveSiteOccupancies.argtypes = [c_int, array2d, array1d, array2d, c_double_p, c_double_p, c_int]
 lib.solveSiteOccupancies.restype = None
-def solveSiteOccupancies(ptips, Qtips, Qout=None, Econf=None, bEconf=False, bUserBasis=False ):
-    """Solves site occupancies for multiple tip positions
-    
-    Args:
-        ptips (numpy.ndarray): Tip positions [npos, 3]
-        Qtips (numpy.ndarray): Tip charges [npos]
-        Qout (numpy.ndarray, optional): Output array for charges [npos, nsite]
-        Econf (numpy.ndarray, optional): Array for configuration energies
-        bEconf (bool, optional): Whether to store configuration energies
-        bUserBasis (bool, optional): Whether to use user defined basis
-    
-    Returns:
-        numpy.ndarray: Site charges
-        numpy.ndarray: Configuration energies
-    """
+def solveSiteOccupancies(ptips, Qtips, Qout=None, Econf=None, Esite=None, bEsite=False, bEconf=False, solver_type=0):
     npos = len(ptips)
     ptips = np.array(ptips)
     Qtips = np.array(Qtips)
-    if not bUserBasis:
+    if solver_type==0:
         nconfs_ = 1<<(nsite*2)  # 2^(2*nsite) configurations
     else:
         nconfs_ = nconfs
-    if Qout is None: Qout = np.zeros((npos, nsite))    
+    if Qout is None: 
+        Qout = np.zeros((npos, nsite))
     if bEconf:
-        if Econf is None: Econf = np.zeros((npos, nconfs_))
+        if Econf is None: 
+            Econf = np.zeros((npos, nconfs_))
         else:
-            if Econf.shape != (npos, nconfs_): raise ValueError(f"Econf array must have shape ({npos}, {nconfs_})")
-    lib.solveSiteOccupancies(npos, ptips, Qtips, Qout, _np_as(Econf, c_double_p), bUserBasis)
-    return Qout, Econf
+            if Econf.shape != (npos, nconfs_):  raise ValueError(f"Econf array must have shape ({npos}, {nconfs_})")
+    if bEsite:
+        if Esite is None:
+            Esite = np.zeros((npos, nsite))
+        else:
+            if Esite.shape != (npos, nsite): raise ValueError(f"Esite array must have shape ({npos}, {nsite})")
+    lib.solveSiteOccupancies(npos, ptips, Qtips, Qout, _np_as(Econf, c_double_p), _np_as(Esite, c_double_p), solver_type)
+    return Qout, Esite, Econf
 
 # void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, double temperature ){
 lib.solveSiteOccupancies_old.argtypes = [ c_int, array2d, array1d, c_int, array2d, c_double_p, c_double_p, array1d, array2d, c_double, c_double, c_double ]

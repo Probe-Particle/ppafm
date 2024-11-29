@@ -90,7 +90,7 @@ ps, qs = chr.makePosQscan(ps_line, Qtips)
 ps=ps.reshape((-1,3)).copy()
 qs=qs.reshape(-1).copy()
 
-Qsites,_ = chr.solveSiteOccupancies(ps, qs, bUserBasis=True)
+Qsites,_,_ = chr.solveSiteOccupancies(ps, qs, bUserBasis=True)
 I_stm    = chr.getSTM_map(ps, qs, Qsites)
 I_stm    = I_stm.reshape((nQs,npoints))
 

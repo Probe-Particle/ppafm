@@ -71,7 +71,7 @@ Qtips = np.ones(len(ps_flat)) * Q_tip
 
 # Calculate charges and Hamiltonians for all positions
 print("Calculating charge occupancies...")
-Q_qds,_ = chr.solveSiteOccupancies(ps_flat, Qtips)
+Q_qds,_,_ = chr.solveSiteOccupancies(ps_flat, Qtips)
 print("Solving Hamiltonians...")
 eigenvalues, evecs, H_QDs, Gs = chr.solveHamiltonians(ps_flat, Qtips, Qsites=Q_qds, bH=True)
 

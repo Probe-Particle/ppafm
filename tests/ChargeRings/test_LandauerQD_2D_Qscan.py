@@ -92,7 +92,7 @@ for iq, Q_tip in enumerate(Q_tips):
     if use_occupancy:
         # Occupancy version
         Qtips   = np.ones(len(ps_flat)) * Q_tip
-        Q_qds,_ = chr.solveSiteOccupancies(ps_flat, Qtips)
+        Q_qds,_,_ = chr.solveSiteOccupancies(ps_flat, Qtips)
         eigenvalues, evecs, H_QDs, Gs = chr.solveHamiltonians(ps_flat, Qtips, Qsites=Q_qds, bH=True)
         Q_qds_map = Q_qds.reshape(npix, npix, nsite)
         eigenvalues_map = eigenvalues.reshape(npix, npix, nsite)

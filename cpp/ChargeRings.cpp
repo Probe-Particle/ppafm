@@ -391,7 +391,7 @@ int optimizeSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const
  * @param Econf Optional array to store energies of all configurations [size: 2^(2*nsite)]
  * @return Total system energy
  */
-double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double T, double* Econf=0 ){
+double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double T, double* Econf=0, double* dEdQ_out=0 ){
     if(verbosity>0) printf( "boltzmanSiteOccupancy() E_Fermi %g Q_tip %g Esite{%6.3f,%6.3f,%6.3f}  \n", E_Fermi, Q_tip,  Esites0[0],Esites0[1],Esites0[2] );
     double Qs       [ nsite ];
     double Qav      [ nsite ];
@@ -466,7 +466,7 @@ double boltzmanSiteOccupancy( int nsite, const Vec3d* spos, const Mat3d* rot, co
  * @param Econf Optional array to store energies of configurations [size: nConf]
  * @return Total system energy
  */
-double boltzmanSiteOccupancy_new(int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double T, int nConf, const double* siteConfs, double* Econf=0){
+double boltzmanSiteOccupancy_new(int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, double T, int nConf, const double* siteConfs, double* Econf=0, double* dEdQ_out=0 ){
     //if(verbosity>0) printf("boltzmanSiteOccupancy_new() E_Fermi %g Q_tip %g Esite{%6.3f,%6.3f,%6.3f} nConf %i\n", E_Fermi, Q_tip, Esites0[0], Esites0[1], Esites0[2], nConf);
     double Qs[nsite];
     double Qav[nsite];
@@ -474,6 +474,13 @@ double boltzmanSiteOccupancy_new(int nsite, const Vec3d* spos, const Mat3d* rot,
     double Coupling_[nsite*nsite];
     double* Coupling = Coupling_;
     if(cCoupling < 0){ Coupling = 0; }
+
+    double dEdQ[nsite];
+    double dEdQsum[nsite];
+    if(dEdQ_out) {
+        for(int j=0; j<nsite; j++) dEdQsum[j] = 0;
+    }
+    double* dEdQ_ = dEdQ_out ? dEdQ : 0; 
     
     makeCouplingMatrix(nsite, spos, rot, MultiPoles, Esites0, p_tip, Q_tip, Esite, Coupling, cCoupling);
     
@@ -483,18 +490,26 @@ double boltzmanSiteOccupancy_new(int nsite, const Vec3d* spos, const Mat3d* rot,
     double logPs[nConf];
     double maxLogP = -1e300;  // Initialize to very negative number
     
+
     // First pass: compute all log probabilities and find maximum
+    double Zsum = 0;
     for(int ic=0; ic<nConf; ic++){
-        for(int j=0; j<nsite; j++){
-            Qs[j] = siteConfs[ic*nsite + j];
-        }
-        double E = getChargingForce(nsite, Esite, Coupling, E_Fermi, Qs, 0);
-        if(verbosity>2){
-            printf("boltzmanSiteOccupancy_new()[iConf=%3i/%3i] Qs{%6.3f,%6.3f,%6.3f} E=%6.3f\n", ic, nConf, Qs[0], Qs[1], Qs[2], E);
-        }
+        for(int j=0; j<nsite; j++){   Qs[j] = siteConfs[ic*nsite + j];  }
+
+        double E = getChargingForce(nsite, Esite, Coupling, E_Fermi, Qs, dEdQ_ );
+        if(verbosity>2){ printf("boltzmanSiteOccupancy_new()[iConf=%3i/%3i] Qs{%6.3f,%6.3f,%6.3f} E=%6.3f\n", ic, nConf, Qs[0], Qs[1], Qs[2], E); }
         if(Econf) Econf[ic] = E;  // Store raw energy if array provided
         logPs[ic] = -beta*E;
         maxLogP = fmax(maxLogP, logPs[ic]);
+        
+        // Accumulate site energies weighted by unnormalized probability
+        if(dEdQ_out) {
+            double p = exp(logPs[ic]);
+            Zsum += p;  // NOTE: this is less numerically stable than summing exp(logPs[ic]-maxLogP), but we do not have maxLogP yet
+            for(int k=0; k<nsite; k++) {
+                dEdQsum[k] += dEdQ[k] * p;
+            }
+        }
     }
     
     // Second pass: compute normalized probabilities using the log-sum-exp trick
@@ -513,10 +528,78 @@ double boltzmanSiteOccupancy_new(int nsite, const Vec3d* spos, const Mat3d* rot,
         }
     }
     
-    // Store average charges in output array
-    for(int j=0; j<nsite; j++) Qout[j] = Qav[j];
+    // Store average charges in output array and normalize site energies
+    for(int j=0; j<nsite; j++) {
+        Qout[j] = Qav[j];
+        if(dEdQ_out) {
+            dEdQ_out[j] = dEdQsum[j] / Zsum;  // Normalize the accumulated site energies
+        }
+    }
     
     return getChargingForce(nsite, Esite, Coupling, E_Fermi, Qav, 0);
+}
+
+/**
+ * @brief Finds the minimum energy configuration by taking the state with lowest energy
+ * @param nsite Number of sites
+ * @param spos Site positions
+ * @param rot Rotation matrices
+ * @param MultiPoles Multipole moments
+ * @param Esites0 Bare site energies
+ * @param Qout Output array for charges
+ * @param p_tip Tip position
+ * @param Q_tip Tip charge
+ * @param E_Fermi Fermi energy
+ * @param cCoupling Coupling strength
+ * @param nConf Number of predefined configurations
+ * @param siteConfs Array of predefined configurations [size: nConf * nsite]
+ * @param Econf Optional array to store energies of configurations [size: nConf]
+ * @param dEdQ Optional array to store site energies [size: nsite]
+ * @return Total system energy
+ */
+double solveSiteOccupancy_min(int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esites0, double* Qout, Vec3d p_tip, double Q_tip, double E_Fermi, double cCoupling, int nConf, const double* siteConfs, double* Econf=0, double* dEdQ_out=0) {
+    double Qs[nsite];
+    double Esite[nsite];
+    double Coupling_[nsite*nsite];
+    double* Coupling = Coupling_;
+    if(cCoupling < 0){ Coupling = 0; }
+    double dEdQ[nsite];  // Temporary array for site energies
+    
+    makeCouplingMatrix(nsite, spos, rot, MultiPoles, Esites0, p_tip, Q_tip, Esite, Coupling, cCoupling);
+    
+    // Find minimum energy configuration
+    double minE = 1e300;
+    int minIdx = -1;
+    
+    for(int ic=0; ic<nConf; ic++) {
+        for(int j=0; j<nsite; j++) {
+            Qs[j] = siteConfs[ic*nsite + j];
+        }
+        double E = getChargingForce(nsite, Esite, Coupling, E_Fermi, Qs, dEdQ);
+        if(verbosity>2) {
+            printf("solveSiteOccupancy_min()[iConf=%3i/%3i] Qs{%6.3f,%6.3f,%6.3f} E=%6.3f\n", ic, nConf, Qs[0], Qs[1], Qs[2], E);
+        }
+        if(Econf) Econf[ic] = E;  // Store raw energy if array provided
+        
+        if(E < minE) {
+            minE = E;
+            minIdx = ic;
+            if(dEdQ_out) {  // Store site energies for minimum configuration
+                for(int j=0; j<nsite; j++) {
+                    dEdQ_out[j] = dEdQ[j];
+                }
+            }
+        }
+    }
+    
+    // Set output to minimum energy configuration
+    if(minIdx >= 0) {
+        for(int j=0; j<nsite; j++) {
+            Qout[j] = siteConfs[minIdx*nsite + j];
+        }
+    }
+    
+    return minE;
 }
 
 /**
@@ -700,46 +783,48 @@ void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsit
  * @param Qtips Array of tip charges
  * @param Qout Output array for site charges
  * @param Econf Optional array to store energies of all configurations [size: npos * 2^(2*nsite)]
- * @param bUserBasis Use user-defined basis
+ * @param dEdQ Optional array to store site energies [size: npos * nsite]
+ * @param solver_type Solver type (0: Boltzmann, 1: Minimum Energy, 2: Legacy Boltzmann)
  */
-void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf, bool bUserBasis ) {
-    printf( "solveSiteOccupancies() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
-    //printf( "solveSiteOccupancies() npos=%i \n", npos ); params.print();
+void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf, double* Esites, int solver_type) {
+    //if(verbosity>0) 
+    printf( "solveSiteOccupancies() npos=%i solver_type=%i Econf=%p Esite=%p params.nConf=%i params.nsite=%i \n", npos, solver_type, Econf, Esites, params.nConf, params.nsite );
     Vec3d* ptips = (Vec3d*)ptips_;
-    int nconfs = bUserBasis ? params.nConf : 1<<(params.nsite*2);
-    #pragma omp parallel for
+    int nconfs = params.nConf;
+    if( solver_type==0 ){ nconfs = 1<<2*params.nsite; }
     for(int i=0; i<npos; i++) {
-        if(verbosity>2){ printf( "solveSiteOccupancies()[iPos=%i] pos(%8.4f,%8.4f,%8.4f) q=%8.4f \n", i,  ptips[i].x,ptips[i].y,ptips[i].z,   Qtips[i] ); }
-        double* Econf_i = Econf ? Econf + i*nconfs : 0;  // Pointer to current tip's energy array
-        double  Qs[params.nsite];
-        if( bUserBasis ){ boltzmanSiteOccupancy_new(params.nsite, params.spos, params.rots, params.MultiPoles,   params.Esites, Qs, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature, nconfs, params.siteConfs, Econf_i); }
-        else            { boltzmanSiteOccupancy    (params.nsite, params.spos, params.rots, params.MultiPoles,   params.Esites, Qs, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature, Econf_i );
+        double* Qout_i  = Qout + i*params.nsite;
+        double* Econf_i = Econf ? (Econf + i*nconfs) : 0;
+        double* dEdQ_i  = Esites ? (Esites + i*params.nsite) : 0;
+        switch(solver_type) {
+            case 0:  // Legacy Boltzmann implementation
+                boltzmanSiteOccupancy(params.nsite, (Vec3d*)params.spos, (Mat3d*)params.rots, params.MultiPoles, params.Esites, 
+                                    Qout_i, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature, Econf_i);
+                break;
+            case 1:  // Boltzmann statistics with new implementation
+                boltzmanSiteOccupancy_new(params.nsite, (Vec3d*)params.spos, (Mat3d*)params.rots, params.MultiPoles,   params.Esites, Qout_i, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature, 
+                                        nconfs, params.siteConfs, Econf_i, dEdQ_i);
+                break;
+            case 2:  // Minimum energy configuration
+                solveSiteOccupancy_min(params.nsite, (Vec3d*)params.spos, (Mat3d*)params.rots, params.MultiPoles, params.Esites, 
+                                     Qout_i, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, 
+                                     nconfs, params.siteConfs, Econf_i, dEdQ_i);
+                break;
+
         }
-        for(int j=0; j<params.nsite; j++) {  Qout[i*params.nsite+j] = Qs[j];  }
     }
 }
 
-// /**
-//  * @brief Solves site occupancies for multiple tip positions with predefined configurations
-//  * @param npos Number of tip positions
-//  * @param ptips_ Array of tip positions
-//  * @param Qtips Array of tip charges
-//  * @param Qout Output array for site charges
-//  * @param Econf Optional array to store energies of all configurations [size: npos * nConf]
-//  */
-// void solveSiteOccupancies_new(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf, int nConf, const double* siteConfs) {
-//     printf( "solveSiteOccupancies_new() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, params.nsite, params.E_Fermi, params.cCoupling, params.temperature );
-//     //printf( "solveSiteOccupancies() npos=%i \n", npos ); params.print();
-//     Vec3d* ptips = (Vec3d*)ptips_;
-//     #pragma omp parallel for
-//     for(int i=0; i<npos; i++) {
-//         //printf( "solveSiteOccupancies[%i|%i,%i] pos(%8.4f,%8.4f,%8.4f) q=%8.4f \n", i, i/nj, i%nj,  ptips[i].x,ptips[i].y,ptips[i].z,   Qtips[i] );
-//         double Qs[params.nsite];
-//         double* Econf_i = Econf ? Econf + i*nConf : 0;  // Pointer to current tip's energy array
-//         boltzmanSiteOccupancy_new(params.nsite, params.spos, params.rots, params.MultiPoles,   params.Esites, Qs, ptips[i], Qtips[i], params.E_Fermi, params.cCoupling, params.temperature, nConf, siteConfs, Econf_i);
-//         for(int j=0; j<params.nsite; j++) {  Qout[i*params.nsite+j] = Qs[j];  }
-//     }
-// }
+/**
+ * @brief Sets up predefined configurations for Boltzmann statistics
+ * @param nConf Number of configurations
+ * @param siteConfs Array of predefined configurations [size: nConf * nsite]
+ */
+void setSiteConfBasis(int nconf, double* siteConfs) {
+    if(verbosity>0) printf("setSiteConfBasis() nConf=%i nsite=%i\n", nconf, params.nsite);
+    params.nConf = nconf;
+    params.siteConfs = siteConfs;
+}
 
 /**
  * @brief Generates STM map for multiple tip positions
@@ -808,17 +893,6 @@ void solveHamiltonians(int npos, double* ptips_, double* Qtips, double* Qsites, 
         }
 
     }
-}
-
-/**
- * @brief Sets up predefined configurations for Boltzmann statistics
- * @param nConf Number of configurations
- * @param siteConfs Array of predefined configurations [size: nConf * nsite]
- */
-void setSiteConfBasis(int nconf, double* siteConfs) {
-    if(verbosity>0) printf("setSiteConfBasis() nConf=%i nsite=%i\n", nconf, params.nsite);
-    params.nConf = nconf;
-    params.siteConfs = siteConfs;
 }
 
 };

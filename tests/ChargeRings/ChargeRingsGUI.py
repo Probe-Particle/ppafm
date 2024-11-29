@@ -180,11 +180,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         Qtips = np.ones(len(ps)) * params['Q_tip']
         
         # Calculate occupancies and STM maps
-        Q_1, _ = chr.solveSiteOccupancies(ps, Qtips)
-        I_1 = chr.getSTM_map(ps, Qtips, Q_1.reshape(-1,len(self.Esite)), decay=params['decay'])
+        Q_1,_,_  = chr.solveSiteOccupancies(ps, Qtips)
+        I_1      = chr.getSTM_map(ps, Qtips, Q_1.reshape(-1,len(self.Esite)), decay=params['decay'])
         
-        Q_2, _ = chr.solveSiteOccupancies(ps, Qtips+params['dQ'])
-        I_2 = chr.getSTM_map(ps, Qtips+params['dQ'], Q_2.reshape(-1,len(self.Esite)), decay=params['decay'])
+        Q_2,_,_  = chr.solveSiteOccupancies(ps, Qtips+params['dQ'])
+        I_2      = chr.getSTM_map(ps, Qtips+params['dQ'], Q_2.reshape(-1,len(self.Esite)), decay=params['decay'])
         
         dIdQ = (I_2-I_1)/params['dQ']
         

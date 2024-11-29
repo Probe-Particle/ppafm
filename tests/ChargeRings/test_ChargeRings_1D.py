@@ -31,7 +31,7 @@ Esite = [-1.0, -1.0, -1.0]
 
 
 Q_tip     = 0.6*0.2
-cCouling  = 0.03*0.2 # * 0.0
+cCouling  = 0.03*0.2 #* 0.0
 E_Fermi   = 0.0
 z_tip     = 6.0
 L         = 20.0
@@ -47,6 +47,8 @@ phiRot = -1.0
 Q0  = 1.0
 Qzz = 15.0 * 0.0
 Esite = [-0.2, -0.2, -0.2]
+
+siteColors = ["r", "g", "b"]
 
 bDebugRun = False
 #bDebugRun = True
@@ -87,7 +89,6 @@ extent = [-L,L,-L,L]
 ps    = chr.makePosXY(n=npix, L=L, z0=z_tip )
 Qtips = np.ones(len(ps))*Q_tip
 
-
 if bDebugRun:
     ps_line = chr.getLine(spos, [0.5,0.5,-5.0], [-4.0,-4.0,1.0], n=5 )
     chr.setVerbosity(3)
@@ -110,7 +111,8 @@ Qs = np.ones(len(ps_line))*Q_tip
 
 print( "chr.nconfs ", chr.nconfs)
 
-Qsites, Econf        = chr.solveSiteOccupancies( ps_line, Qs, bEconf=True, bUserBasis=True)
+#Qsites, Esite, Econf = chr.solveSiteOccupancies( ps_line, Qs, bEconf=True, bEsite=True, solver_type=1 )
+Qsites, Esite, Econf = chr.solveSiteOccupancies( ps_line, Qs, bEconf=True, bEsite=True, solver_type=2 )
 evals, evecs, Hs, Gs = chr.solveHamiltonians   ( ps_line, Qs, Qsites=Qsites, bH=True)
 
 Qtot = np.sum(Qsites, axis=1)
@@ -123,8 +125,13 @@ iplt=1
 
 # Plot 1: Configuration Energies
 plt.subplot(nplt,1,iplt); iplt+=1
-for i in range(nconfs):
-    plt.plot(Econf[:,i] - E_Fermi, linewidth=2, label=confstrs[i], c=confColors[i])
+if Econf is not None:
+    for i in range(nconfs):
+        plt.plot(Econf[:,i], lw=1.5, label=confstrs[i], c=confColors[i])
+# Add Esite plots with dashed lines
+if Esite is not None:
+    for i in range(Esite.shape[1]):
+        plt.plot( Esite[:,i], '-', alpha=0.5, lw=3.0, label=f'Esite {i}', c=siteColors[i])    
 plt.axhline(y=0, color='k', linestyle='--', alpha=0.5)  # Add Fermi level reference line
 plt.title(f"Configuration Energies (relative to E_Fermi={E_Fermi})")
 plt.ylabel("Energy (eV)")
@@ -134,10 +141,12 @@ plt.grid(True)
 
 # Plot 2: On-site energies
 plt.subplot(nplt,1,iplt); iplt+=1
-plt.plot(Qsites[:,0], label="Q 1")
-plt.plot(Qsites[:,1], label="Q 2")
-plt.plot(Qsites[:,2], label="Q 3")
-plt.plot(Qtot,        label="Qtot")
+for i in range(Qsites.shape[1]):
+    plt.plot( Qsites[:,i], '-', alpha=0.5, lw=2.0, label=f'Q {i}', c=siteColors[i])    
+#plt.plot(Qsites[:,0], label="Q 1")
+#plt.plot(Qsites[:,1], label="Q 2")
+#plt.plot(Qsites[:,2], label="Q 3")
+plt.plot(Qtot,     'k-', label="Qtot" )
 plt.title("On-site energies")
 plt.legend()
 plt.ylim(-0.5,3.5)
