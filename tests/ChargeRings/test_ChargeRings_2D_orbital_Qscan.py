@@ -24,7 +24,7 @@ T         = 2.0
 
 # Scan parameters
 dQ = 0.004  # Charge difference for dI/dV
-Q_tips = np.linspace(0.0, 0.4, 20+1)  # Range of tip charges to scan
+Q_tips = np.linspace(0.05, 0.15, 20+1)  # Range of tip charges to scan
 save_dir = "ChargeRings_orbital_Qscan_images"  # Directory to save images
 
 # QD system setup
@@ -122,17 +122,11 @@ def main():
         
         # Calculate for Q_tip
         Q_1, Es_1, _ = chr.solveSiteOccupancies(ps, Qtips, bEsite=True, solver_type=2)
-        I_1, M_sum, M2_sum, site_coef_maps = calculate_stm_maps(
-            orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas_shape,
-            tipWf, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center, crop_size
-        )
+        I_1, M_sum, M2_sum, site_coef_maps = calculate_stm_maps(  orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas_shape, tipWf, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center, crop_size )
         
         # Calculate for Q_tip + dQ
         Q_2, Es_2, _ = chr.solveSiteOccupancies(ps, Qtips + dQ, bEsite=True, solver_type=2)
-        I_2, _, _, _ = calculate_stm_maps(
-            orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas_shape,
-            tipWf, ps, Es_2, E_Fermi, V_Bias, decay, T, crop_center, crop_size
-        )
+        I_2, _, _, _ = calculate_stm_maps( orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas_shape,  tipWf, ps, Es_2, E_Fermi, V_Bias, decay, T, crop_center, crop_size )
         
         # Calculate dI/dQ
         dIdQ = (I_2 - I_1) / dQ
