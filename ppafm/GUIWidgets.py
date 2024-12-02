@@ -60,14 +60,27 @@ def show_warning(parent, text, title="Warning!"):
 class FigCanvas(FigureCanvasQTAgg):
     """A canvas that updates itself every second with a new plot."""
 
-    def __init__(self, parentWiget=None, parentApp=None, width=5, height=4, dpi=100):
+    def __init__(self, parentWiget=None, parentApp=None, width=5, height=4, dpi=100, xlabel=None, ylabel=None):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
+        self.set_labels(xlabel, ylabel)
         FigureCanvasQTAgg.__init__(self, self.fig)
         self.parent = parentApp
         self.setParent(parentWiget)
         FigureCanvasQTAgg.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         FigureCanvasQTAgg.updateGeometry(self)
+
+    def clear(self):
+        self.axes.cla()
+        self.set_labels(self.xlabel, self.ylabel)
+
+    def set_labels(self, xlabel=None, ylabel=None):
+        self.xlabel = xlabel
+        self.ylabel = ylabel
+        if xlabel:
+            self.axes.set_xlabel(xlabel)
+        if ylabel:
+            self.axes.set_ylabel(ylabel)
 
 
 # =======================
@@ -78,8 +91,8 @@ class FigCanvas(FigureCanvasQTAgg):
 class FigPlot(FigCanvas):
     """A canvas that updates itself every second with a new plot."""
 
-    def __init__(self, parentWiget=None, parentApp=None, width=5, height=4, dpi=100):
-        super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp, width=width, height=height, dpi=dpi)
+    def __init__(self, parentWiget=None, parentApp=None, width=5, height=4, dpi=100, xlabel=None, ylabel=None):
+        super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp, width=width, height=height, dpi=dpi, xlabel=xlabel, ylabel=ylabel)
         self.defaultPlotAxis()
 
     def defaultPlotAxis(self):
@@ -87,6 +100,11 @@ class FigPlot(FigCanvas):
 
     def plotDatalines(self, x, y, label):
         self.axes.plot(x, y, "x-", label=label)
+        self.draw()
+
+    def clear(self):
+        super().clear()
+        self.defaultPlotAxis()
         self.draw()
 
 
@@ -262,9 +280,9 @@ class SlaveWindow(QtWidgets.QMainWindow):
 
 
 class PlotWindow(SlaveWindow):
-    def __init__(self, parent=None, title="PlotWindow", width=5, height=4, dpi=100):
+    def __init__(self, parent=None, title="PlotWindow", width=5, height=4, dpi=100, xlabel=None, ylabel=None):
         super(self.__class__, self).__init__(parent=parent, title=title)
-        self.figCan = FigPlot(parent, width=width, height=height, dpi=dpi)
+        self.figCan = FigPlot(parent, width=width, height=height, dpi=dpi, xlabel=xlabel, ylabel=ylabel)
         self.centralLayout.addWidget(self.figCan)
 
         vb = QtWidgets.QHBoxLayout()
@@ -322,9 +340,7 @@ class PlotWindow(SlaveWindow):
             self.figCan.fig.savefig(fileName, bbox_inches="tight")
 
     def clearFig(self):
-        self.figCan.axes.cla()
-        self.figCan.defaultPlotAxis()
-        self.figCan.draw()
+        self.figCan.clear()
         self.parent.clearPoints()
 
     def setRange(self):
