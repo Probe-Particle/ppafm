@@ -14,14 +14,14 @@ from orbital_utils import load_orbital, plotMinMax, photonMap2D_stamp
 
 # System parameters from test_ChargeRings_2D.py
 V_Bias    = 1.0
-Q_tip     = 0.6
-cCouling  = 0.02
+Q_tip     = 0.13
+cCouling  = 0.02*0.0
 E_Fermi   = 0.0
 z_tip     = 5.0
 L         = 20.0
 npix      = 400
 decay     = 0.5
-T         = 10.0
+T         = 2.0
 
 # QD system setup
 nsite  = 3
@@ -34,10 +34,10 @@ Qzz = 15.0 * 0.0
 # Canvas parameters from test_LandauerQD_2D_orbital.py
 Lcanv = 60.0
 dCanv = 0.2
-decay_conv = 1.6
+decay_conv = 0.5
 
 # Energy of states on the sites
-Esite = [-1.0, -1.0, -1.0]
+Esite = [-0.2, -0.2, -0.2]
 
 #bDebug = False
 bDebug = True
@@ -137,38 +137,33 @@ def main():
     
     # Initialize arrays for storing results
     total_current = np.zeros((2*crop_size[1], 2*crop_size[0]))  # Note: shape matches meshgrid 'xy' indexing
-    site_currents = []
+    site_coef_maps = []
     
-    STM_sum = canvas_sum * 0.0
+    M_sum  = canvas_sum * 0.0
+    M2_sum = canvas_sum * 0.0
     site_current_sum = None
     
     # Calculate current for each site
     for i in range(nsite):
         # Place orbital on canvas
-        canvas = photonMap2D_stamp([orbital_2D], [orbital_lvec], canvas_dd, canvas=canvas_sum.copy(), angles=[angles[i]], poss=[[spos[i,0], spos[i,1]]], coefs=[1.0],  byCenter=True, bComplex=False)
+        canvas = photonMap2D_stamp([orbital_2D], [orbital_lvec], canvas_dd, canvas=canvas_sum*0.0, angles=[angles[i]], poss=[[spos[i,0], spos[i,1]]], coefs=[1.0],  byCenter=True, bComplex=False)
         canvas_sum += canvas
         
-        # Convolve with tip field
-        stm_map = photo.convFFT(tipWf, canvas)
-        orbital_stm = np.real(stm_map * np.conj(stm_map))
-        STM_sum += orbital_stm
+        # Convolve with tip field   M_i = < psi_i |H| psi_tip  >
+        M_i = photo.convFFT(tipWf, canvas)
+        M_i = np.real(M_i)
+        M_sum  += M_i
+        M2_sum += M_i**2
         
         # Crop to center region
-        orbital_stm = crop_central_region(orbital_stm, crop_center, crop_size)
-        orbital_stm = orbital_stm.T  # Transpose to match meshgrid 'xy' indexing
+        M_i = crop_central_region(M_i, crop_center, crop_size)
         
-        # Calculate site current coefficients
-        site_current = chr.calculate_site_current(ps, spos[i], Es_1[:,i], E_Fermi + V_Bias, E_Fermi,  decay=decay, T=T)
-        
-        # Reshape site current to match orbital_stm shape (now in 'xy' indexing)
-        site_current = site_current.reshape((2*crop_size[1], 2*crop_size[0]))
-        
-        # Multiply orbital convolution with site current coefficients
-        current_contribution = orbital_stm * site_current
-        
-        # Add to total current and store individual contribution
-        total_current += current_contribution
-        site_currents.append(site_current)
+        # Calculate coefficient of how open is the channel passing through the site due to energy consideration    c = rho_i rho_j [ f_i - f_j ]
+        c_i = chr.calculate_site_current(ps, spos[i], Es_1[:,i], E_Fermi + V_Bias, E_Fermi,  decay=decay*0.0, T=T)
+        c_i = c_i.reshape((2*crop_size[1], 2*crop_size[0]))  # Reshape site current to match orbital_stm shape (now in 'xy' indexing)
+                
+        total_current +=  M_i**2  * c_i    # incoherent sum    I = sum c_i * M_i^2
+        site_coef_maps.append(c_i)
     
     # Debug: Plot sum of all orbitals before convolution
     if bDebug:
@@ -183,30 +178,36 @@ def main():
 
         # --- STM_sum
         plt.figure(figsize=(8,8))
-        plotMinMax(STM_sum, label='STM Map (After convolution)', extent=extent)
+        plotMinMax(M_sum, label='Sum of M_i = <psi_i|H|psi_tip> ', extent=extent)
         plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
         plt.legend()
         plt.savefig("test_ChargeRings_2D_orbital_STM_Sum.png", bbox_inches='tight')
+        plt.close()
+
+        # --- STM2_sum
+        plt.figure(figsize=(8,8))
+        plotMinMax(M2_sum, label='Sum of M_i^2 = <psi_i|H|psi_tip>^2 ', extent=extent)
+        plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
+        plt.legend()
+        plt.savefig("test_ChargeRings_2D_orbital_STM2_Sum.png", bbox_inches='tight')
         plt.close()
     
     # Plot results
     extent = [-center_Lx/2, center_Lx/2, -center_Ly/2, center_Ly/2]
     
     # Plot sum of site_currents 
-    site_current_sum = np.sum(site_currents, axis=0)
+    site_coef_sum = np.sum(site_coef_maps, axis=0)
     plt.figure(figsize=(6, 5))
-    plt.imshow(site_current_sum, extent=extent, origin='lower', aspect='equal')
-    plt.colorbar(label='Total Current')
-    plt.title('Total STM Current')
+    plt.imshow(site_coef_sum, extent=extent, origin='lower', aspect='equal')
+    plt.title('Site Coef sum')
     plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
     plt.legend()
-    plt.savefig("test_ChargeRings_2D_orbital_total_current.png", bbox_inches='tight')
+    plt.savefig("test_ChargeRings_2D_orbital_SiteCoefsum.png", bbox_inches='tight')
     plt.close()
     
     # Plot total current
     plt.figure(figsize=(8, 6))
     plt.imshow(total_current, extent=extent, origin='lower', aspect='equal')
-    plt.colorbar(label='Total Current')
     plt.title('Total STM Current')
     plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
     plt.legend()
