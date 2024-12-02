@@ -192,17 +192,14 @@ def colorsFromStrings(strs, hi="ff", lo="00"):
     if any(len(s) != 3 for s in strs):  raise ValueError("Each input string must have exactly 3 characters")
     return colors
 
-def fermi_function(E, E_fermi, T=300):
-    """Calculate Fermi-Dirac distribution
-    Args:
-        E (float or array): Energy level
-        E_fermi (float): Fermi energy
-        T (float): Temperature in Kelvin
-    Returns:
-        float or array: Occupation probability
-    """
-    kB = 8.617333262e-5  # eV/K
-    return 1.0 / (1.0 + np.exp((E - E_fermi) / (kB * T)))
+def fermi(E, E_fermi, T):
+    """Calculate Fermi-Dirac distribution with numerical safeguards."""
+    kB = 8.617333262145e-5  # eV/K
+    # Add numerical safeguards for large exponentials
+    x = (E - E_fermi) / (kB * T)
+    # Use log-sum-exp trick for numerical stability
+    x_safe = np.minimum(x, 700)  # Prevent overflow in exp
+    return 1.0 / (1.0 + np.exp(x_safe))
 
 def calculate_site_current(ps, site_pos, site_E, E_fermi_tip, E_fermi_sub, decay=0.7, T=300, rho_tip=1.0, rho_sub=1.0, M=None ):
     """Calculate tunneling current for a single site using Fermi Golden Rule.
@@ -241,8 +238,8 @@ def calculate_site_current(ps, site_pos, site_E, E_fermi_tip, E_fermi_sub, decay
         M  = np.exp(-decay * distances)  # Shape: (n_points,)
     
     # Calculate Fermi functions
-    f_tip = fermi_function(site_E, E_fermi_tip, T)  # Shape: (n_points,)
-    f_sub = fermi_function(site_E, E_fermi_sub, T)  # Shape: (n_points,)
+    f_tip = fermi(site_E, E_fermi_tip, T)  # Shape: (n_points,)
+    f_sub = fermi(site_E, E_fermi_sub, T)  # Shape: (n_points,)
     
     # Calculate current:     I ∝ |M|^2 * ρ_tip * ρ_sub * (f_tip - f_sub)
     current = M*M * rho_tip * rho_sub * (f_tip - f_sub)
