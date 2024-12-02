@@ -8,6 +8,7 @@ sys.path.append("../../")
 from pyProbeParticle import ChargeRings as chr
 from pyProbeParticle import GridUtils as GU
 from pyProbeParticle import photo
+from orbital_utils import load_orbital, plotMinMax, photonMap2D_stamp
 
 # ========== Setup Parameters
 
@@ -16,16 +17,16 @@ V_Bias    = 1.0
 Q_tip     = 0.6
 cCouling  = 0.02
 E_Fermi   = 0.0
-z_tip     = 6.0
+z_tip     = 5.0
 L         = 20.0
 npix      = 400
-decay     = 0.2
+decay     = 0.5
 T         = 10.0
 
 # QD system setup
 nsite  = 3
-R      = 5.0  # radius of circle on which sites are placed
-phiRot = -1.0
+R      = 7.0
+phiRot = 0.1 + np.pi/2
 
 Q0  = 1.0
 Qzz = 15.0 * 0.0
@@ -43,60 +44,43 @@ bDebug = True
 
 # ========== Functions
 
-def load_orbital(fname):
-    """Load QD orbital from cube file."""
-    try:
-        orbital_data, lvec, nDim, _ = GU.loadCUBE(fname)
-        return orbital_data, lvec
-    except Exception as e:
-        print(f"Error loading cube file {fname}: {e}")
-        raise
-
-def plotMinMax( data, label=None, figsize=(5,5), cmap='bwr', extent=None, bSave=False ):
-    plt.figure(figsize=figsize); 
-    vmin=data.min()
-    vmax=data.max()
-    absmax = max(abs(vmin),abs(vmax))
-    plt.imshow(data, origin='lower', aspect='equal', cmap=cmap, vmin=-absmax, vmax=absmax, extent=extent)
-    plt.colorbar()
-    plt.title(label)
-    #plt.xlabel('x [grid points]')
-    #plt.show()
-    if bSave:
-        plt.savefig(label+'.png', bbox_inches='tight')
-
-def crop_center(result, size=None, center=None):
-        cx, cy = center
-        dx, dy = size
-        result = result[cx-dx:cx+dx, cy-dy:cy+dy].T.copy()
-
-def makeCanvas( canvas_shape, canvas_dd, ):
-    # Set up canvas parameters
-    Lx = canvas_dd[0] * canvas_shape[0]
-    Ly = canvas_dd[1] * canvas_shape[1]
-    extent = [-Lx/2, Lx/2, -Ly/2, Ly/2]
-    canvas = np.zeros(canvas_shape, dtype=np.float64)
-    return canvas, extent
-
-def calculate_orbital_stm_single( canvas, orbital_2D, orbital_lvec, tipWf, QDpos, angle, canvas_dd, bTipConv=True):
+def calculate_orbital_stm_single(orbital_data, orbital_lvec, QDpos, angle, canvas_shape, canvas_dd, center_region_size=None, center_region_center=None):
     """Calculate STM signal using orbital convolution for a single QD."""
-    # Place orbital on canvas using GridUtils
-    ddi = np.array(photo.evalGridStep2D(orbital_2D.shape, orbital_lvec))
-    dd_fac = ddi/np.array(canvas_dd)
-    pos = np.array([QDpos[0], QDpos[1]]) / np.array(canvas_dd)
-    GU.stampToGrid2D(canvas, orbital_2D, pos, angle, dd=dd_fac, coef=1.0, byCenter=True, bComplex=False)
-    #if bDebug: plotMinMax( orbital_2D, label=label+'Molecular Orbital Wf' )
-    if bTipConv:
-        # Create tip field
-        #tipWf, _ = photo.makeTipField(canvas_shape, canvas_dd, z0=z_tip, beta=decay_conv, bSTM=True)
-        # Convolve with tip field
-        stm_map = photo.convFFT(tipWf, canvas)
-        result = np.real(stm_map * np.conj(stm_map))
-        #if bDebug: plotMinMax( result, label=label+'STM   Molecular_Wf o tip_Wf' )
-        #if bDebug: plotMinMax( result, label=label+'STM cut region' )
-        return result
-    else:
-        return canvas
+    
+    # Create tip field
+    tipWf, _ = photo.makeTipField(canvas_shape, canvas_dd, z0=z_tip, beta=decay_conv, bSTM=True)
+
+    # Prepare orbital data - integrate over z the upper half of the orbital grid
+    # Note: orbital_data shape is (iz, iy, ix)
+    orbital_2D = np.sum(orbital_data[orbital_data.shape[0]//2:,:,:], axis=0)
+    orbital_2D = np.ascontiguousarray(orbital_2D.T, dtype=np.float64)  # Now shape is (ix, iy)
+    
+    # Place orbital on canvas
+    canvas = photonMap2D_stamp(
+        [orbital_2D], [orbital_lvec], canvas_shape, canvas_dd,
+        angles=[angle], poss=[[QDpos[0], QDpos[1]]], coefs=[1.0],
+        byCenter=True, bComplex=False
+    )
+    
+    if bDebug:
+        plotMinMax(canvas, label='Canvas (Single Molecular Wf)', figsize=(8,8))
+        plt.scatter(QDpos[0], QDpos[1], c='g', marker='o', label='QD')
+    
+    # Convolve with tip field
+    stm_map = photo.convFFT(tipWf, canvas)
+    result = np.real(stm_map * np.conj(stm_map))
+    
+    if bDebug:
+        plotMinMax(result, label='STM Map (After convolution)', figsize=(8,8))
+        plt.scatter(QDpos[0], QDpos[1], c='g', marker='o', label='QD')
+    
+    # Crop to center region if specified
+    if center_region_size is not None:
+        cx, cy = center_region_center
+        dx, dy = center_region_size
+        result = result[cx-dx:cx+dx, cy-dy:cy+dy].T.copy()
+        
+    return result
 
 def main():
     # Setup system geometry
@@ -113,32 +97,45 @@ def main():
     
     # Initialize global parameters for ChargeRings
     rots = chr.makeRotMats(phis + phiRot, nsite)
-    chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling, temperature=T, onSiteCoulomb=3.0)
+    chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, 
+                      cCouling=cCouling, temperature=T, onSiteCoulomb=3.0)
     
     # Set up configuration basis
     confstrs = ["000","001","010","100","110","101","011","111"]
     confs = chr.confsFromStrings(confstrs)
     nconfs = chr.setSiteConfBasis(confs)
     
-    # Load QD orbital
+    # Load QD orbital and print information
     orbital_data, orbital_lvec = load_orbital("QD.cub")
+    print("Orbital shape:", orbital_data.shape)
+    print("Lattice vectors:")
+    print(orbital_lvec)
+    
+    # Get physical dimensions from lattice vectors (already in Angstroms)
+    # Note: orbital_data shape is (iz, iy, ix)
+    Lx = abs(orbital_lvec[1,0])  # First lattice vector x component
+    Ly = abs(orbital_lvec[2,1])  # Second lattice vector y component
+    print(f"Molecular orbital dimensions: Lx={Lx:.3f} Å, Ly={Ly:.3f} Å")
     
     # Setup canvas
     ncanv = int(np.ceil(Lcanv/dCanv))
-    canvas_shape = (ncanv, ncanv)
-    canvas_dd = [dCanv, dCanv]
+    canvas_shape = (ncanv, ncanv)  # (ix, iy)
+    canvas_dd = [dCanv, dCanv]  # Grid spacing in x and y
+    print(f"Canvas shape: {canvas_shape}")
+    print(f"Canvas spacing: dx={canvas_dd[0]:.3f} Å, dy={canvas_dd[1]:.3f} Å")
     
     # Define center region
-    crop_center = (canvas_shape[0]//2, canvas_shape[1]//2)
-    crop_size = (canvas_shape[0]//4, canvas_shape[1]//4)
+    center_region_center = (canvas_shape[0]//2, canvas_shape[1]//2)
+    center_region_size = (canvas_shape[0]//4, canvas_shape[1]//4)
     
     # Calculate physical dimensions of center region
-    center_Lx = 2 * crop_size[0] * canvas_dd[0]
-    center_Ly = 2 * crop_size[1] * canvas_dd[1]
+    center_Lx = 2 * center_region_size[0] * canvas_dd[0]
+    center_Ly = 2 * center_region_size[1] * canvas_dd[1]
+    print(f"Center region physical size: {center_Lx:.3f} x {center_Ly:.3f} Å")
     
     # Create grid for the center region
-    x = np.linspace(-center_Lx/2, center_Lx/2, 2*crop_size[0])
-    y = np.linspace(-center_Ly/2, center_Ly/2, 2*crop_size[1])
+    x = np.linspace(-center_Lx/2, center_Lx/2, 2*center_region_size[0])
+    y = np.linspace(-center_Ly/2, center_Ly/2, 2*center_region_size[1])
     X, Y = np.meshgrid(x, y, indexing='ij')
     
     # Create tip positions array for the center region
@@ -152,68 +149,64 @@ def main():
     Q_1, Es_1, Ec_1 = chr.solveSiteOccupancies(ps, Qtips, bEsite=True, solver_type=2)
     
     # Initialize arrays for storing results
-    total_current = np.zeros((2*crop_size[0], 2*crop_size[1]))
+    total_current = np.zeros((2*center_region_size[0], 2*center_region_size[1]))
     site_currents = []
-
-    canvas_sum, extent = makeCanvas( canvas_shape, canvas_dd )
-    # Prepare orbital data - integrate over z the upper half of the orbital grid
-    orbital_2D = np.sum(  orbital_data[orbital_data.shape[0]//2:,:,:], axis=0)
-    orbital_2D = np.ascontiguousarray(orbital_2D.T, dtype=np.float64)
-
-    tipWf, _ = photo.makeTipField(canvas_shape, canvas_dd, z0=z_tip, beta=decay_conv, bSTM=True)
-
-    bTotal   = False
-    bTipConv = False
-
+    
     # Calculate current for each site
     for i in range(nsite):
-
-        canvas = canvas_sum.copy()
-        orbital_stm = calculate_orbital_stm_single( canvas, orbital_2D, orbital_lvec, tipWf, spos[i], angles[i], canvas_dd, bTipConv=bTipConv )
-
-        canvas_sum += orbital_stm
-            
-        if bTotal == True:
-            orbital_stm = crop_center(orbital_stm, center_region_size, center_region_center)
-            site_current = chr.calculate_site_current( ps, spos[i], Es_1[:,i], E_Fermi + V_Bias, E_Fermi,  decay=decay, T=T, M=1 )
-            site_current = site_current.reshape(orbital_stm.shape)   # Reshape site current to match orbital_stm shape
-            current_contribution = orbital_stm * site_current      # Multiply orbital convolution with site current coefficients
-            total_current += current_contribution
-            site_currents.append(current_contribution)
-
-    if bDebug: 
-        plotMinMax( canvas_sum, label='Canvas Sum', extent=extent )
-        plt.scatter(spos[:,0], spos[:,1],  c='g', marker='o', label='QDs')
-        plt.savefig('test_ChargeRings_2D_orbital_canvas_sum_Wfs.png', bbox_inches='tight')
-
-    plt.show(); exit()
-
-
+        # Calculate orbital convolution for this site
+        orbital_stm = calculate_orbital_stm_single(
+            orbital_data, orbital_lvec, spos[i], angles[i],
+            canvas_shape, canvas_dd, center_region_size, center_region_center
+        )
+        
+        # Calculate site current coefficients
+        site_current = chr.calculate_site_current(
+            ps, spos[i], Es_1[:,i],
+            E_Fermi + V_Bias, E_Fermi,
+            decay=decay, T=T
+        )
+        
+        # Reshape site current to match orbital_stm shape
+        site_current = site_current.reshape(orbital_stm.shape)
+        
+        # Multiply orbital convolution with site current coefficients
+        current_contribution = orbital_stm * site_current
+        
+        # Add to total current and store individual contribution
+        total_current += current_contribution
+        site_currents.append(current_contribution)
     
     # Plot results
-    fig = plt.figure(figsize=(15, 5))
-    gs = GridSpec(1, 3, figure=fig)
-    #extent = [-center_Lx/2, center_Lx/2, -center_Ly/2, center_Ly/2]
+    extent = [-center_Lx/2, center_Lx/2, -center_Ly/2, center_Ly/2]
     
-    # Plot individual site contributions
+    fig, axs = plt.subplots(1, nsite+1, figsize=(3*(nsite+1), 6))
     for i in range(nsite):
-        plt.figure(figsize=(6, 5))
-        plt.imshow(site_currents[i], extent=extent, origin='lower', aspect='equal')
-        plt.colorbar(label=f'Site {i+1} Current')
-        plt.title(f'Site {i+1} Contribution')
-        plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
-        plt.legend()
-    
-    # Plot total current
-    plt.figure(figsize=(8, 6))
-    plt.imshow(total_current, extent=extent, origin='lower', aspect='equal')
-    plt.colorbar(label='Total Current')
-    plt.title('Total STM Current')
-    plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
-    plt.legend()
-    
+        axs[i].imshow(site_currents[i], extent=extent, origin='lower', aspect='equal')
+        axs[i].set_title(f'Site {i+1} Contribution')
+        axs[i].scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
+    axs[-1].imshow(total_current, extent=extent, origin='lower', aspect='equal')
+    axs[-1].set_title('Total STM Current')
+    axs[-1].scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
+    for ax in axs:
+        ax.set_xlabel('X [Å]')
+        ax.set_ylabel('Y [Å]')
+        ax.legend()
     plt.tight_layout()
     plt.show()
+
+def makeCanvas( canvas_shape, canvas_dd, ):
+    # Set up canvas parameters
+    Lx = canvas_dd[0] * canvas_shape[0]
+    Ly = canvas_dd[1] * canvas_shape[1]
+    extent = [-Lx/2, Lx/2, -Ly/2, Ly/2]
+    canvas = np.zeros(canvas_shape, dtype=np.float64)
+    return canvas, extent
+
+def crop_center(result, size=None, center=None):
+        cx, cy = center
+        dx, dy = size
+        result = result[cx-dx:cx+dx, cy-dy:cy+dy].T.copy()
 
 if __name__ == "__main__":
     main()
