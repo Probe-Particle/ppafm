@@ -138,6 +138,7 @@ def main():
 
 
     STM_sum = canvas_sum * 0.0
+    site_current_sum = None
     
     # Calculate current for each site
     for i in range(nsite):
@@ -148,6 +149,7 @@ def main():
         STM_sum     += orbital_stm
         
         orbital_stm = crop_central_region( orbital_stm, crop_center, crop_size )  # Crop to center region
+
         
         
         site_current = chr.calculate_site_current(  ps, spos[i], Es_1[:,i], E_Fermi + V_Bias, E_Fermi, decay=decay, T=T  )  # Calculate site current coefficients
@@ -183,6 +185,7 @@ def main():
         plt.colorbar(label=f'Site {i+1} Current')
         plt.title(f'Site {i+1} Contribution')
         plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
+        plt.savefig(f"test_ChargeRings_2D_orbital_SiteCurrent_{i}.png", bbox_inches='tight')
         plt.legend()
     
     # Plot total current
