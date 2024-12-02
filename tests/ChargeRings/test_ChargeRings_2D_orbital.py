@@ -44,15 +44,16 @@ bDebug = True
 
 # ========== Functions
 
-def makeCanvas( canvas_shape, canvas_dd, ):
+def makeCanvas( canvas_shape, canvas_dd ):
     """Create an empty canvas with the given shape and grid spacing."""
     canvas = np.zeros(canvas_shape, dtype=np.float64)
-    return canvas
+    Lx = canvas_dd[0]*canvas_shape[0]
+    Ly = canvas_dd[1]*canvas_shape[1]
+    extent = [ Lx*-0.5, Lx*0.5, Ly*-0.5, Ly*0.5 ] 
+    return canvas, extent
 
-def crop_center(result, size=None, center=None):
+def crop_central_region(result, center, size):
     """Crop the center region of a 2D array."""
-    if size is None or center is None:
-        return result
     cx, cy = center
     dx, dy = size
     return result[cx-dx:cx+dx, cy-dy:cy+dy]
@@ -72,8 +73,7 @@ def main():
     
     # Initialize global parameters for ChargeRings
     rots = chr.makeRotMats(phis + phiRot, nsite)
-    chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, 
-                      cCouling=cCouling, temperature=T, onSiteCoulomb=3.0)
+    chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi,  cCouling=cCouling, temperature=T, onSiteCoulomb=3.0)
     
     # Set up configuration basis
     confstrs = ["000","001","010","100","110","101","011","111"]
@@ -98,29 +98,28 @@ def main():
     canvas_dd = np.array([dCanv, dCanv])  # Grid spacing in x and y
     print(f"Canvas shape: {canvas_shape}")
     print(f"Canvas spacing: dx={canvas_dd[0]:.3f} Å, dy={canvas_dd[1]:.3f} Å")
-    
+
+    canvas_sum, canvas_extent = makeCanvas( canvas_shape, canvas_dd )
+
     # Create tip field (outside loop since it's the same for all sites)
     tipWf, _ = photo.makeTipField(canvas_shape, canvas_dd, z0=z_tip, beta=decay_conv, bSTM=True)
     
     # Prepare orbital data - integrate over z the upper half of the orbital grid
     orbital_2D = np.sum(orbital_data[orbital_data.shape[0]//2:,:,:], axis=0)
     orbital_2D = np.ascontiguousarray(orbital_2D.T, dtype=np.float64)  # Now shape is (ix, iy)
-    
-    # Create canvas for sum of all orbitals (for debugging)
-    canvas_sum = np.zeros(canvas_shape, dtype=np.float64)
-    
+        
     # Define center region
-    center_region_center = (canvas_shape[0]//2, canvas_shape[1]//2)
-    center_region_size = (canvas_shape[0]//4, canvas_shape[1]//4)
+    crop_center = (canvas_shape[0]//2, canvas_shape[1]//2)
+    crop_size = (canvas_shape[0]//4, canvas_shape[1]//4)
     
     # Calculate physical dimensions of center region
-    center_Lx = 2 * center_region_size[0] * canvas_dd[0]
-    center_Ly = 2 * center_region_size[1] * canvas_dd[1]
+    center_Lx = 2 * crop_size[0] * canvas_dd[0]
+    center_Ly = 2 * crop_size[1] * canvas_dd[1]
     print(f"Center region physical size: {center_Lx:.3f} x {center_Ly:.3f} Å")
     
     # Create grid for the center region
-    x = np.linspace(-center_Lx/2, center_Lx/2, 2*center_region_size[0])
-    y = np.linspace(-center_Ly/2, center_Ly/2, 2*center_region_size[1])
+    x = np.linspace(-center_Lx/2, center_Lx/2, 2*crop_size[0])
+    y = np.linspace(-center_Ly/2, center_Ly/2, 2*crop_size[1])
     X, Y = np.meshgrid(x, y, indexing='ij')
     
     # Create tip positions array for the center region
@@ -134,42 +133,26 @@ def main():
     Q_1, Es_1, Ec_1 = chr.solveSiteOccupancies(ps, Qtips, bEsite=True, solver_type=2)
     
     # Initialize arrays for storing results
-    total_current = np.zeros((2*center_region_size[0], 2*center_region_size[1]))
+    total_current = np.zeros((2*crop_size[0], 2*crop_size[1]))
     site_currents = []
+
+
+    STM_sum = canvas_sum * 0.0
     
     # Calculate current for each site
     for i in range(nsite):
-        # Place orbital on canvas
-        canvas = photonMap2D_stamp(
-            [orbital_2D], [orbital_lvec], canvas_dd, canvas_shape=canvas_shape,
-            angles=[angles[i]], poss=[[spos[i,0], spos[i,1]]], coefs=[1.0],
-            byCenter=True, bComplex=False
-        )
-        
-        # Add to sum canvas (for debugging)
-        canvas_sum += canvas
-        
-        # Convolve with tip field
-        stm_map = photo.convFFT(tipWf, canvas)
+        canvas = photonMap2D_stamp(  [orbital_2D], [orbital_lvec], canvas_dd, canvas=canvas_sum.copy(),  angles=[angles[i]], poss=[[spos[i,0], spos[i,1]]], coefs=[1.0],  byCenter=True, bComplex=False )    
+        canvas_sum += canvas                                                # Add to sum canvas (for debugging)
+        stm_map     = photo.convFFT(tipWf, canvas)                              # Convolve with tip field
         orbital_stm = np.real(stm_map * np.conj(stm_map))
+        STM_sum     += orbital_stm
         
-        # Crop to center region
-        cx, cy = center_region_center
-        dx, dy = center_region_size
-        orbital_stm = orbital_stm[cx-dx:cx+dx, cy-dy:cy+dy].T.copy()
+        orbital_stm = crop_central_region( orbital_stm, crop_center, crop_size )  # Crop to center region
         
-        # Calculate site current coefficients
-        site_current = chr.calculate_site_current(
-            ps, spos[i], Es_1[:,i],
-            E_Fermi + V_Bias, E_Fermi,
-            decay=decay, T=T
-        )
         
-        # Reshape site current to match orbital_stm shape
-        site_current = site_current.reshape(orbital_stm.shape)
-        
-        # Multiply orbital convolution with site current coefficients
-        current_contribution = orbital_stm * site_current
+        site_current = chr.calculate_site_current(  ps, spos[i], Es_1[:,i], E_Fermi + V_Bias, E_Fermi, decay=decay, T=T  )  # Calculate site current coefficients
+        site_current = site_current.reshape(orbital_stm.shape)       # Reshape site current to match orbital_stm shape
+        current_contribution = orbital_stm * site_current            # Multiply orbital convolution with site current coefficients
         
         # Add to total current and store individual contribution
         total_current += current_contribution
@@ -178,9 +161,17 @@ def main():
     # Debug: Plot sum of all orbitals before convolution
     if bDebug:
         extent = [-Lcanv/2, Lcanv/2, -Lcanv/2, Lcanv/2]
+        # --- canvas_sum
         plotMinMax(canvas_sum, label='Canvas (Sum of Molecular Wfs)', figsize=(8,8), extent=extent)
         plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
         plt.legend()
+        plt.savefig(f"test_ChargeRings_2D_orbital_canvas_Wf_Sum.png", bbox_inches='tight')
+        # --- STM_sum
+        plotMinMax(STM_sum, label='STM Map (After convolution)', figsize=(8,8), extent=extent)
+        plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
+        plt.legend()
+        plt.savefig(f"test_ChargeRings_2D_orbital_STM_Sum.png", bbox_inches='tight')
+        
     
     # Plot results
     extent = [-center_Lx/2, center_Lx/2, -center_Ly/2, center_Ly/2]
@@ -201,6 +192,7 @@ def main():
     plt.title('Total STM Current')
     plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
     plt.legend()
+    plt.savefig(f"test_ChargeRings_2D_orbital_final.png", bbox_inches='tight')
     
     plt.tight_layout()
     plt.show()
