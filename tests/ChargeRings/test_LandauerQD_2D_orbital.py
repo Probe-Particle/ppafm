@@ -60,16 +60,18 @@ def load_orbital(fname):
 #     """Create exponentially decaying tip wavefunction."""
 #     return photo.makeTipField(sh, dd, z0=z0, beta=decay, bSTM=True)
 
-
-def plotMinMax( data, label=None, figsize=(5,5), cmap='bwr', extent=None ):
+def plotMinMax( data, label=None, figsize=(5,5), cmap='bwr', extent=None, bSave=False ):
     plt.figure(figsize=figsize); 
     vmin=data.min()
     vmax=data.max()
     absmax = max(abs(vmin),abs(vmax))
     plt.imshow(data, origin='lower', aspect='equal', cmap=cmap, vmin=-absmax, vmax=absmax, extent=extent)
-    plt.colorbar(label=label)
+    plt.colorbar()
+    plt.title(label)
     #plt.xlabel('x [grid points]')
     #plt.show()
+    if bSave:
+        plt.savefig(label+'.png', bbox_inches='tight')
 
 def evalGridStep2D( sh, lvec ):
     dix = lvec[1][0]/sh[0]; #print( "evalGridStep2D dix: ", dix, " lvec: ", lvec[1][0], " sh: ", sh[0] )
@@ -147,6 +149,7 @@ def calculate_orbital_stm(orbital_data, orbital_lvec, QDpos, angles, canvas_shap
     if bDebug: 
         plotMinMax( canvas, label='Canvas (Sum Molecular Wfs)', figsize=(8,8), extent=extent  )
         plt.scatter(QDpos[:,0], QDpos[:,1],  c='g', marker='o', label='QDs')
+        plt.savefig('test_LandauerQD_2D_orbital_canvas_sum_Wfs.png', bbox_inches='tight')
 
     #plt.show(); exit()
 
