@@ -136,7 +136,6 @@ def main():
     total_current = np.zeros((2*crop_size[0], 2*crop_size[1]))
     site_currents = []
 
-
     STM_sum = canvas_sum * 0.0
     site_current_sum = None
     
@@ -150,15 +149,14 @@ def main():
         
         orbital_stm = crop_central_region( orbital_stm, crop_center, crop_size )  # Crop to center region
 
-        
-        
         site_current = chr.calculate_site_current(  ps, spos[i], Es_1[:,i], E_Fermi + V_Bias, E_Fermi, decay=decay, T=T  )  # Calculate site current coefficients
         site_current = site_current.reshape(orbital_stm.shape)       # Reshape site current to match orbital_stm shape
         current_contribution = orbital_stm * site_current            # Multiply orbital convolution with site current coefficients
         
         # Add to total current and store individual contribution
         total_current += current_contribution
-        site_currents.append(current_contribution)
+        #site_currents.append(current_contribution)
+        site_currents.append(site_current)
     
     # Debug: Plot sum of all orbitals before convolution
     if bDebug:
@@ -174,19 +172,28 @@ def main():
         plt.legend()
         plt.savefig(f"test_ChargeRings_2D_orbital_STM_Sum.png", bbox_inches='tight')
         
-    
     # Plot results
     extent = [-center_Lx/2, center_Lx/2, -center_Ly/2, center_Ly/2]
     
     # Plot individual site contributions
-    for i in range(nsite):
-        plt.figure(figsize=(6, 5))
-        plt.imshow(site_currents[i], extent=extent, origin='lower', aspect='equal')
-        plt.colorbar(label=f'Site {i+1} Current')
-        plt.title(f'Site {i+1} Contribution')
-        plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
-        plt.savefig(f"test_ChargeRings_2D_orbital_SiteCurrent_{i}.png", bbox_inches='tight')
-        plt.legend()
+    # for i in range(nsite):
+    #     plt.figure(figsize=(6, 5))
+    #     plt.imshow(site_currents[i], extent=extent, origin='lower', aspect='equal')
+    #     plt.colorbar(label=f'Site {i+1} Current')
+    #     plt.title(f'Site {i+1} Contribution')
+    #     plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
+    #     plt.savefig(f"test_ChargeRings_2D_orbital_SiteCurrent_{i}.png", bbox_inches='tight')
+    #     plt.legend()
+
+    # Plot sum of site_currents 
+    site_current_sum = np.sum(site_currents, axis=0)
+    plt.figure(figsize=(6, 5))
+    plt.imshow( site_current_sum, extent=extent, origin='lower', aspect='equal')
+    plt.colorbar(label='Total Current')
+    plt.title('Total STM Current')
+    plt.scatter(spos[:,0], spos[:,1], c='g', marker='o', label='QDs')
+    plt.legend()
+    plt.savefig(f"test_ChargeRings_2D_orbital_SumCurrent.png", bbox_inches='tight')
     
     # Plot total current
     plt.figure(figsize=(8, 6))
