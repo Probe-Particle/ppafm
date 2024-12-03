@@ -59,23 +59,19 @@ class PlotPanel2D(QtWidgets.QWidget):
         self.ax3 = self.fig.add_subplot(gs[2])
         
         # Plot results with proper orientation
-        im1 = self.ax1.imshow(Q_total, origin="lower", extent=extent)
-        self.ax1.set_title("Total Charge")
+        im1 = self.ax1.imshow(Q_total, origin="lower", extent=extent); self.ax1.set_title("Total Charge")
         cb1 = self.fig.colorbar(im1, ax=self.ax1, use_gridspec=True, fraction=0.046, pad=0.04)
         
-        im2 = self.ax2.imshow(I_1, origin="lower", extent=extent)
-        self.ax2.set_title("STM")
+        im2 = self.ax2.imshow(I_1, origin="lower", extent=extent); self.ax2.set_title("STM")
         cb2 = self.fig.colorbar(im2, ax=self.ax2, use_gridspec=True, fraction=0.046, pad=0.04)
         
-        im3 = self.ax3.imshow(dIdQ, origin="lower", extent=extent)
-        self.ax3.set_title("dI/dQ")
+        im3 = self.ax3.imshow(dIdQ, origin="lower", extent=extent); self.ax3.set_title("dI/dQ")
         cb3 = self.fig.colorbar(im3, ax=self.ax3, use_gridspec=True, fraction=0.046, pad=0.04)
         
-        # Add site markers
-        for i, (x, y) in enumerate(zip(spos[:,0], spos[:,1])):
-            self.ax1.plot(x, y, 'o', color=f'C{i}')
-            self.ax2.plot(x, y, 'o', color=f'C{i}')
-            self.ax3.plot(x, y, 'o', color=f'C{i}')
+        self.ax1.plot( spos[:,0], spos[:,1], 'og')
+        self.ax2.plot( spos[:,0], spos[:,1], 'og')
+        self.ax3.plot( spos[:,0], spos[:,1], 'og')
+
         
         # Set consistent aspect ratio and limits
         for ax in [self.ax1, self.ax2, self.ax3]:
@@ -99,9 +95,7 @@ class PlotPanel2D(QtWidgets.QWidget):
         if event.inaxes and self.start_point and event.button == 1:
             if self.scan_line:
                 self.scan_line.remove()
-            self.scan_line = self.ax1.plot([self.start_point[0], event.xdata],
-                                         [self.start_point[1], event.ydata],
-                                         'r--')[0]
+            self.scan_line = self.ax1.plot([self.start_point[0], event.xdata], [self.start_point[1], event.ydata],   'r--')[0]
             self.canvas.draw()
     
     def on_mouse_release(self, event):
@@ -289,43 +283,31 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         ps[:,1] = Y.flatten()
         ps[:,2] = z_tip
         
+
+        bUseOrbital  = self.use_orbital_checkbox.isChecked()
+        dQ = 0.004
+
         # Calculate charges and energies
         Qtips = np.ones(len(ps)) * Q_tip
         Q_1, Es_1, _ = cr.solveSiteOccupancies(ps, Qtips, bEsite=True, solver_type=2)
-        
-        if self.use_orbital_checkbox.isChecked():
-            # Calculate STM maps with orbital convolution
-            I_1, M_sum, M2_sum, site_coef_maps = orbital_utils.calculate_stm_maps(
-                orbital_2D, self.orbital_lvec, spos, angles, canvas_dd, canvas_shape,
-                tipWf, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center, crop_size
-            )
+        if bUseOrbital:
+            I_1, M_sum, M2_sum, site_coef_maps = orbital_utils.calculate_stm_maps( orbital_2D, self.orbital_lvec, spos, angles, canvas_dd, canvas_shape, tipWf, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center, crop_size )
         else:
-            # Calculate STM maps without orbital convolution - use only site energies
-            I_1 = np.zeros((2*crop_size[1], 2*crop_size[0]))
-            for i in range(len(spos)):
-                # Calculate coefficient c_i = rho_i rho_j [ f_i - f_j ]
-                c_i = cr.calculate_site_current(ps, spos[i], Es_1[:,i], E_Fermi + V_Bias, E_Fermi, decay=decay, T=T)
-                c_i = c_i.reshape((2*crop_size[1], 2*crop_size[0]))
-                I_1 += c_i  # Direct sum without M_i^2 factor
+            I_1 = calculate_simple( spos, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center=crop_center, crop_size=crop_size )
         
         # Calculate dI/dV
-        dQ = 0.004
-        if self.use_orbital_checkbox.isChecked():
-            dIdQ = orbital_utils.calculate_didv( orbital_2D, self.orbital_lvec, spos, angles, canvas_dd, canvas_shape,tipWf, ps, Q_tip, dQ, E_Fermi, V_Bias, decay, T, crop_center, crop_size )[0]
+        Q_2, Es_2, _ = cr.solveSiteOccupancies(ps, Qtips, bEsite=True, solver_type=2)
+        if bUseOrbital:
+            I_2, M_sum, M2_sum, site_coef_maps2 = orbital_utils.calculate_stm_maps( orbital_2D, self.orbital_lvec, spos, angles, canvas_dd, canvas_shape, tipWf, ps, Es_2 + dQ, E_Fermi, V_Bias, decay, T, crop_center, crop_size )
         else:
-            # Calculate dI/dV without orbital convolution
-            Q_2, Es_2, _ = cr.solveSiteOccupancies(ps, Qtips + dQ, bEsite=True, solver_type=2)
-            I_2 = np.zeros((2*crop_size[1], 2*crop_size[0]))
-            for i in range(len(spos)):
-                c_i = cr.calculate_site_current(ps, spos[i], Es_2[:,i], E_Fermi + V_Bias, E_Fermi, decay=decay, T=T)
-                c_i = c_i.reshape((2*crop_size[1], 2*crop_size[0]))
-                I_2 += c_i
-            dIdQ = (I_2 - I_1) / dQ
+            I_2 = calculate_simple( spos, ps, Es_2, E_Fermi, V_Bias, decay, T, crop_center=crop_center, crop_size=crop_size )
         
         # Reshape charge for plotting
         Q_1 = Q_1.reshape((-1, nsite))
         Q_1 = Q_1.reshape((2*crop_size[0], 2*crop_size[1], nsite))  # Note: x,y order
         Q_total = np.sum(Q_1, axis=2)
+
+        dIdQ = (I_2 - I_1) / dQ
         
         # Update plot
         self.main_widget.findChild(PlotPanel2D).update_plot(Q_total, I_1, dIdQ, spos, [-center_Lx/2, center_Lx/2, -center_Ly/2, center_Ly/2])
@@ -399,33 +381,31 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             pass
         else:
             for i in range(len(spos)):
-                c_i = cr.calculate_site_current(p, spos[i], Es_1[:,i], 
-                                              E_Fermi + V_Bias, E_Fermi, 
-                                              decay=decay, T=T)
+                c_i = cr.calculate_site_current(p, spos[i], Es_1[:,i],  E_Fermi + V_Bias, E_Fermi, decay=decay, T=T)
                 current += c_i[0]
         
         return {
-            'charge': np.sum(Q_1[0]),
-            'current': current,
-            'energies': Es_1[0],
+            'charge':      np.sum(Q_1[0]),
+            'current':     current,
+            'energies':    Es_1[0],
             'occupations': occ_1[0]
         }
 
     def get_all_params(self):
         params = {
-            'nsite': self.get_param('nsite'),
-            'radius': self.get_param('radius'),
-            'phiRot': self.get_param('phiRot'),
-            'Q0': self.get_param('Q0'),
-            'Qzz': self.get_param('Qzz'),
-            'Esite': self.get_param('Esite'),
-            'z_tip': self.get_param('z_tip'),
-            'Q_tip': self.get_param('Q_tip'),
-            'V_Bias': self.get_param('V_Bias'),
-            'E_Fermi': self.get_param('E_Fermi'),
-            'decay': self.get_param('decay'),
-            'temperature': self.get_param('temperature'),
-            'cCouling': self.get_param('cCouling'),
+            'nsite':         self.get_param('nsite'),
+            'radius':        self.get_param('radius'),
+            'phiRot':        self.get_param('phiRot'),
+            'Q0':            self.get_param('Q0'),
+            'Qzz':           self.get_param('Qzz'),
+            'Esite':         self.get_param('Esite'),
+            'z_tip':         self.get_param('z_tip'),
+            'Q_tip':         self.get_param('Q_tip'),
+            'V_Bias':        self.get_param('V_Bias'),
+            'E_Fermi':       self.get_param('E_Fermi'),
+            'decay':         self.get_param('decay'),
+            'temperature':   self.get_param('temperature'),
+            'cCouling':      self.get_param('cCouling'),
             'onSiteCoulomb': self.get_param('onSiteCoulomb'),
         }
         return params
@@ -435,15 +415,15 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.param_specs = {
             # Tip Parameters
             'Q_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (-2.0, 2.0),  'value': 0.13, 'step': 0.01},
-            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (1.0, 20.0),  'value': 5.0,  'step': 0.5},
+            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (1.0, 20.0),  'value': 5.0,  'step': 0.1},
             'V_Bias':        {'group': 'Tip Parameters',    'widget': 'double', 'range': (-2.0, 2.0),  'value': 1.0,  'step': 0.1},
             
             # System Parameters
             'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01, 'step': 0.001, 'decimals': 3},
-            'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 2.0,  'step': 1.0},
+            'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 2.0,  'step': 0.5},
             'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
             'decay':         {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 2.0),   'value': 0.5,  'step': 0.1},
-            'E_Fermi':       {'group': 'System Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': 0.0,  'step': 0.1},
+            'E_Fermi':       {'group': 'System Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': 0.0,  'step': 0.01},
             
             # Ring Geometry
             'nsite':         {'group': 'Ring Geometry',     'widget': 'int',    'range': (1, 10),      'value': 3},
@@ -452,8 +432,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             
             # Site Properties
             'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0),'value': -0.2,'step': 0.1},
-            'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0),'value': 1.0, 'step': 0.1},
-            'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0),'value': 15.0,'step': 0.5},
+            'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0),'value':  1.0, 'step': 0.1},
+            'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0),'value': -10.0,'step': 0.5},
             
             # Visualization
             'L':             {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 100.0), 'value': 20.0,'step': 1.0},

@@ -78,6 +78,16 @@ def crop_central_region(result, center, size):
     dx, dy = size
     return result[cx-dx:cx+dx, cy-dy:cy+dy]
 
+def calculate_simple( spos, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center=None, crop_size=None): 
+    '''
+    Calculate coefficient c_i = rho_i rho_j [ f_i - f_j ] with exponential decay as M_i^2
+    '''
+    Itot = np.zeros((2*crop_size[1], 2*crop_size[0]))
+    for i in range(len(spos)):
+        c_i = cr.calculate_site_current(ps, spos[i], Es_1[:,i], E_Fermi, E_Fermi, decay=decay, T=T)
+        c_i = c_i.reshape((2*crop_size[1], 2*crop_size[0]))
+        Itot += c_i  # Direct sum without M_i^2 factor
+
 def calculate_stm_maps(orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas_shape, tipWf, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center=None, crop_size=None):
     """Calculate STM maps for a given orbital configuration using Fermi Golden Rule.
     I(E,x) = M^2 * rho_i rho_j [ f_i - f_j ] = M(x)^2 * c(E)
