@@ -54,65 +54,54 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Initialize the GUI layout
         layout = QtWidgets.QHBoxLayout(self.main_widget)
         
-        # Create parameter panel
-        param_panel = QtWidgets.QWidget()
-        param_layout = QtWidgets.QVBoxLayout(param_panel)
+        # Create control panel layout
+        control_layout = QtWidgets.QVBoxLayout()
         
-        # Create parameter widgets grouped by category
-        self.param_widgets = {}
-        current_group = None
-        group_box = None
-        group_layout = None
-        
-        for param_name, spec in self.param_specs.items():
-            if spec['group'] != current_group:
-                if group_box is not None:
-                    param_layout.addWidget(group_box)
-                current_group = spec['group']
-                group_box = QtWidgets.QGroupBox(current_group)
-                group_layout = QtWidgets.QFormLayout(group_box)
+        # Add parameter groups
+        for group_name in sorted(set(spec['group'] for spec in self.param_specs.values())):
+            group_box = QtWidgets.QGroupBox(group_name)
+            group_layout = QtWidgets.QFormLayout()
             
-            if spec['widget'] == 'double':
-                widget = QtWidgets.QDoubleSpinBox()
-                widget.setRange(spec['range'][0], spec['range'][1])
-                widget.setValue(spec['value'])
-                widget.setSingleStep(spec['step'])
-                if 'decimals' in spec:
-                    widget.setDecimals(spec['decimals'])
-            elif spec['widget'] == 'int':
-                widget = QtWidgets.QSpinBox()
-                widget.setRange(spec['range'][0], spec['range'][1])
-                widget.setValue(spec['value'])
+            for param_name, spec in self.param_specs.items():
+                if spec['group'] == group_name:
+                    widget = self.create_parameter_widget(param_name, spec)
+                    self.param_specs[param_name]['widget'] = widget  # Store widget reference
+                    group_layout.addRow(param_name, widget)
             
-            self.param_widgets[param_name] = widget
-            group_layout.addRow(param_name, widget)
-            
-            # Connect value changed signal
-            widget.valueChanged.connect(self.update_plot)
+            group_box.setLayout(group_layout)
+            control_layout.addWidget(group_box)
         
-        if group_box is not None:
-            param_layout.addWidget(group_box)
+        # Add checkboxes for orbital convolution and auto-update
+        checkbox_group = QtWidgets.QGroupBox("Options")
+        checkbox_layout = QtWidgets.QVBoxLayout()
         
-        # Add orbital file selection
-        file_group = QtWidgets.QGroupBox("Orbital File")
-        file_layout = QtWidgets.QVBoxLayout(file_group)
+        self.use_orbital_checkbox = QtWidgets.QCheckBox("Use Orbital Convolution")
+        self.use_orbital_checkbox.setChecked(True)
+        self.use_orbital_checkbox.stateChanged.connect(self.update_plot)
+        checkbox_layout.addWidget(self.use_orbital_checkbox)
         
-        self.file_label = QtWidgets.QLabel("Current file: None")
-        file_layout.addWidget(self.file_label)
+        self.auto_update_checkbox = QtWidgets.QCheckBox("Auto Update")
+        self.auto_update_checkbox.setChecked(True)
+        checkbox_layout.addWidget(self.auto_update_checkbox)
         
-        load_button = QtWidgets.QPushButton("Load Orbital File")
-        load_button.clicked.connect(self.load_orbital_file)
-        file_layout.addWidget(load_button)
+        checkbox_group.setLayout(checkbox_layout)
+        control_layout.addWidget(checkbox_group)
         
-        param_layout.addWidget(file_group)
+        # Add buttons
+        button_layout = QtWidgets.QHBoxLayout()
         
-        # Add update button
         update_button = QtWidgets.QPushButton("Update Plot")
         update_button.clicked.connect(self.update_plot)
-        param_layout.addWidget(update_button)
+        button_layout.addWidget(update_button)
         
-        # Add parameter panel to main layout
-        layout.addWidget(param_panel)
+        save_button = QtWidgets.QPushButton("Save Figure")
+        save_button.clicked.connect(self.save_figure)
+        button_layout.addWidget(save_button)
+        
+        control_layout.addLayout(button_layout)
+        
+        # Add control panel to main layout
+        layout.addLayout(control_layout)
         
         # Create plot panel
         plot_panel = QtWidgets.QWidget()
@@ -142,33 +131,50 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.orbital_lvec = None
         
         self.orbital_data, self.orbital_lvec = load_orbital("QD.cub")
-        self.file_label.setText("Current file: QD.cub")
         self.update_plot()
 
         # Try to load default orbital file
         # try:
         #     self.orbital_data, self.orbital_lvec = load_orbital("QD.cub")
-        #     self.file_label.setText("Current file: QD.cub")
         #     self.update_plot()
         # except Exception as e:
         #     print("Exaption while trying to run GUI calculation with self.update_plot()\n, Probable reason : No default orbital file found. Please load one.")
         #     print(e)
+    
+    def create_parameter_widget(self, param_name, spec):
+        if spec['widget'] == 'double':
+            widget = QtWidgets.QDoubleSpinBox()
+            widget.setRange(spec['range'][0], spec['range'][1])
+            widget.setValue(spec['value'])
+            widget.setSingleStep(spec['step'])
+            if 'decimals' in spec:
+                widget.setDecimals(spec['decimals'])
+        elif spec['widget'] == 'int':
+            widget = QtWidgets.QSpinBox()
+            widget.setRange(spec['range'][0], spec['range'][1])
+            widget.setValue(spec['value'])
+        
+        widget.valueChanged.connect(self.update_plot)
+        return widget
     
     def load_orbital_file(self):
         fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open Orbital File', '', 'Cube Files (*.cub)')
         if fname:
             try:
                 self.orbital_data, self.orbital_lvec = load_orbital(fname)
-                self.file_label.setText(f"Current file: {os.path.basename(fname)}")
                 self.update_plot()
             except Exception as e:
                 QtWidgets.QMessageBox.critical(self, "Error", f"Failed to load orbital file: {str(e)}")
     
     def get_param(self, name):
-        return self.param_widgets[name].value()
+        return self.param_specs[name]['widget'].value()
     
     def update_plot(self):
         if self.orbital_data is None:
+            return
+            
+        # Check if auto-update is enabled
+        if not self.auto_update_checkbox.isChecked():
             return
         
         # Get parameters
@@ -259,18 +265,37 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         Qtips = np.ones(len(ps)) * Q_tip
         Q_1, Es_1, _ = chr.solveSiteOccupancies(ps, Qtips, bEsite=True, solver_type=2)
         
-        # Calculate STM maps
-        I_1, M_sum, M2_sum, site_coef_maps = calculate_stm_maps(
-            orbital_2D, self.orbital_lvec, spos, angles, canvas_dd, canvas_shape,
-            tipWf, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center, crop_size
-        )
+        if self.use_orbital_checkbox.isChecked():
+            # Calculate STM maps with orbital convolution
+            I_1, M_sum, M2_sum, site_coef_maps = calculate_stm_maps(
+                orbital_2D, self.orbital_lvec, spos, angles, canvas_dd, canvas_shape,
+                tipWf, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center, crop_size
+            )
+        else:
+            # Calculate STM maps without orbital convolution - use only site energies
+            I_1 = np.zeros((2*crop_size[1], 2*crop_size[0]))
+            for i in range(len(spos)):
+                # Calculate coefficient c_i = rho_i rho_j [ f_i - f_j ]
+                c_i = chr.calculate_site_current(ps, spos[i], Es_1[:,i], E_Fermi + V_Bias, E_Fermi, decay=decay, T=T)
+                c_i = c_i.reshape((2*crop_size[1], 2*crop_size[0]))
+                I_1 += c_i  # Direct sum without M_i^2 factor
         
         # Calculate dI/dV
         dQ = 0.004
-        dIdQ = calculate_didv(
-            orbital_2D, self.orbital_lvec, spos, angles, canvas_dd, canvas_shape,
-            tipWf, ps, Q_tip, dQ, E_Fermi, V_Bias, decay, T, crop_center, crop_size
-        )[0]
+        if self.use_orbital_checkbox.isChecked():
+            dIdQ = calculate_didv(
+                orbital_2D, self.orbital_lvec, spos, angles, canvas_dd, canvas_shape,
+                tipWf, ps, Q_tip, dQ, E_Fermi, V_Bias, decay, T, crop_center, crop_size
+            )[0]
+        else:
+            # Calculate dI/dV without orbital convolution
+            Q_2, Es_2, _ = chr.solveSiteOccupancies(ps, Qtips + dQ, bEsite=True, solver_type=2)
+            I_2 = np.zeros((2*crop_size[1], 2*crop_size[0]))
+            for i in range(len(spos)):
+                c_i = chr.calculate_site_current(ps, spos[i], Es_2[:,i], E_Fermi + V_Bias, E_Fermi, decay=decay, T=T)
+                c_i = c_i.reshape((2*crop_size[1], 2*crop_size[0]))
+                I_2 += c_i
+            dIdQ = (I_2 - I_1) / dQ
         
         # Reshape charge for plotting
         Q_1 = Q_1.reshape((-1, nsite))
@@ -304,6 +329,11 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Adjust layout to prevent overlapping
         self.fig.tight_layout()
         self.canvas.draw()
+    
+    def save_figure(self):
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Figure', '', 'PNG Files (*.png)')
+        if fname:
+            self.fig.savefig(fname, dpi=300)
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
