@@ -25,6 +25,7 @@ class PlotPanel2D(QtWidgets.QWidget):
         self.parent = parent
         self.init_ui()
         self.scan_line = None
+        self.scan_points = None
         self.scan_window = None
         self.start_point = None
         
@@ -89,6 +90,9 @@ class PlotPanel2D(QtWidgets.QWidget):
             if self.scan_line:
                 self.scan_line.remove()
                 self.scan_line = None
+            if self.scan_points:
+                self.scan_points.remove()
+                self.scan_points = None
             self.canvas.draw()
     
     def on_mouse_motion(self, event):
@@ -105,41 +109,47 @@ class PlotPanel2D(QtWidgets.QWidget):
             self.start_point = None
     
     def perform_line_scan(self, start_point, end_point):
-        # Create scan window if not exists
-        if not self.scan_window:
-            self.scan_window = ScanWindow1D(self, start_point, end_point)
+        """Perform a line scan between two points and display results"""
+        if not start_point or not end_point:
+            return
         
-        # Get scan parameters from parent
+        # Get scan parameters
         params = self.parent.get_all_params()
+        n_points = 50  # Number of points along the scan line
         
         # Generate points along the scan line
-        npoints = 100
-        x = np.linspace(start_point[0], end_point[0], npoints)
-        y = np.linspace(start_point[1], end_point[1], npoints)
-        scan_points = np.sqrt((x - start_point[0])**2 + (y - start_point[1])**2)
+        x = np.linspace(start_point[0], end_point[0], n_points)
+        y = np.linspace(start_point[1], end_point[1], n_points)
         
-        # Perform scan calculations
+        # Plot scan points on the charge plot
+        if hasattr(self, 'scan_points') and self.scan_points:
+            self.scan_points.remove()
+        self.scan_points = self.ax1.plot(x, y, 'r.', markersize=2)[0]
+        self.canvas.draw()
+        
+        # Calculate values at each point
         charges = []
         currents = []
-        energies_list = []
-        occupations_list = []
+        energies = []
+        occupations = []
         
         for xi, yi in zip(x, y):
-            # Calculate system state at this point
             result = self.parent.calculate_at_point(xi, yi, params)
             charges.append(result['charge'])
             currents.append(result['current'])
-            energies_list.append(result['energies'])
-            occupations_list.append(result['occupations'])
+            energies.append(result['energies'])
+            occupations.append(result['occupations'])
         
-        # Convert to arrays
-        charges = np.array(charges)
-        currents = np.array(currents)
-        energies = np.array(energies_list)
-        occupations = np.array(occupations_list)
+        # Create or update scan window
+        if not self.scan_window:
+            self.scan_window = ScanWindow1D(self, start_point, end_point)
         
-        # Update scan window
-        self.scan_window.update_plot(scan_points, charges, currents, energies, occupations)
+        # Calculate distances along the scan line
+        distances = np.sqrt((x - x[0])**2 + (y - y[0])**2)
+        
+        # Update scan window plots
+        self.scan_window.update_plot(distances, np.array(charges), np.array(currents),
+                                    np.array(energies), np.array(occupations))
         self.scan_window.show()
 
 class ApplicationWindow(QtWidgets.QMainWindow):
