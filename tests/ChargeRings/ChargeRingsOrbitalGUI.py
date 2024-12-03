@@ -124,12 +124,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         plot_layout.addWidget(self.canvas)
         
         # Create subplots
-        self.axes = []
-        titles = ['Total Charge', 'STM Current', 'dI/dV']
-        for i in range(3):
-            ax = self.fig.add_subplot(1, 3, i+1)
-            ax.set_title(titles[i])
-            self.axes.append(ax)
+        self.ax1 = self.fig.add_subplot(1, 3, 1)
+        self.ax2 = self.fig.add_subplot(1, 3, 2)
+        self.ax3 = self.fig.add_subplot(1, 3, 3)
         
         self.fig.tight_layout()
         
@@ -173,10 +170,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def update_plot(self):
         if self.orbital_data is None:
             return
-        
-        # Clear previous plots
-        for ax in self.axes:
-            ax.clear()
         
         # Get parameters
         nsite = self.get_param('nsite')
@@ -226,22 +219,29 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         ps[:,1] = Y.flatten()
         ps[:,2] = z_tip
         
-        # Prepare canvas for orbital calculations
-        canvas_shape = (300, 300)
-        canvas_dd = np.array([L/canvas_shape[0], L/canvas_shape[1]])
+        # Get physical dimensions from lattice vectors
+        Lx = abs(self.orbital_lvec[1,0])
+        Ly = abs(self.orbital_lvec[2,1])
+        
+        # Setup canvas - match reference implementation exactly
+        Lcanv = 60.0  # Fixed canvas size from reference
+        dCanv = 0.2   # Fixed grid spacing from reference
+        ncanv = int(np.ceil(Lcanv/dCanv))
+        canvas_shape = (ncanv, ncanv)
+        canvas_dd = np.array([dCanv, dCanv])
         
         # Create tip wavefunction
         tipWf, _ = photo.makeTipField(canvas_shape, canvas_dd, z0=z_tip, beta=decay, bSTM=True)
         
         # Calculate STM maps
         crop_center = (canvas_shape[0]//2, canvas_shape[1]//2)
-        crop_size = (canvas_shape[0]//4, canvas_shape[1]//4)
+        crop_size = (canvas_shape[0]//4, canvas_shape[1]//4)  # Back to //4 as per reference
         
         # Calculate physical dimensions of center region
         center_Lx = 2 * crop_size[0] * canvas_dd[0]
         center_Ly = 2 * crop_size[1] * canvas_dd[1]
         
-        # Process orbital data
+        # Process orbital data - match reference implementation
         orbital_2D = np.transpose(self.orbital_data, (2, 1, 0))
         orbital_2D = np.sum(orbital_2D[:, :, orbital_2D.shape[2]//2:], axis=2)
         orbital_2D = np.ascontiguousarray(orbital_2D, dtype=np.float64)
@@ -274,30 +274,34 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         # Reshape charge for plotting
         Q_1 = Q_1.reshape((-1, nsite))
-        Q_1 = Q_1.reshape((2*crop_size[1], 2*crop_size[0], nsite))
+        Q_1 = Q_1.reshape((2*crop_size[0], 2*crop_size[1], nsite))  # Note: x,y order
         Q_total = np.sum(Q_1, axis=2)
         
-        # Plot results
-        extent = [-L/2, L/2, -L/2, L/2]
+        # Clear previous plots and colorbars
+        for ax in [self.ax1, self.ax2, self.ax3]:
+            ax.clear()
+            if hasattr(ax, 'colorbar'):
+                ax.colorbar.remove()
         
-        # Plot total charge
-        im1 = self.axes[0].imshow(Q_total, origin='lower', extent=extent)
-        self.fig.colorbar(im1, ax=self.axes[0])
-        self.axes[0].set_title('Total Charge')
-        self.axes[0].scatter(spos[:,0], spos[:,1], c='g', marker='o')
+        # Plot results with proper orientation
+        extent = [-center_Lx/2, center_Lx/2, -center_Ly/2, center_Ly/2]
         
-        # Plot STM current
-        im2 = self.axes[1].imshow(I_1, origin='lower', extent=extent)
-        self.fig.colorbar(im2, ax=self.axes[1])
-        self.axes[1].set_title('STM Current')
-        self.axes[1].scatter(spos[:,0], spos[:,1], c='g', marker='o')
+        im1 = self.ax1.imshow(Q_total, origin="lower", extent=extent)  # Removed .T
+        self.ax1.plot(spos[:,0], spos[:,1], 'og')
+        self.fig.colorbar(im1, ax=self.ax1)
+        self.ax1.set_title("Total Charge")
         
-        # Plot dI/dV
-        im3 = self.axes[2].imshow(dIdQ, origin='lower', extent=extent)
-        self.fig.colorbar(im3, ax=self.axes[2])
-        self.axes[2].set_title('dI/dV')
-        self.axes[2].scatter(spos[:,0], spos[:,1], c='g', marker='o')
+        im2 = self.ax2.imshow(I_1, origin="lower", extent=extent)  # Removed .T
+        self.ax2.plot(spos[:,0], spos[:,1], 'og')
+        self.fig.colorbar(im2, ax=self.ax2)
+        self.ax2.set_title("STM")
         
+        im3 = self.ax3.imshow(dIdQ, origin="lower", extent=extent)  # Removed .T
+        self.ax3.plot(spos[:,0], spos[:,1], 'og')
+        self.fig.colorbar(im3, ax=self.ax3)
+        self.ax3.set_title("dI/dQ")
+        
+        # Adjust layout to prevent overlapping
         self.fig.tight_layout()
         self.canvas.draw()
 
