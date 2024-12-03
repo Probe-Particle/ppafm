@@ -144,14 +144,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.orbital_data = None
         self.orbital_lvec = None
         
+        self.orbital_data, self.orbital_lvec = load_orbital("QD.cub")
+        self.file_label.setText("Current file: QD.cub")
+        self.update_plot()
+
         # Try to load default orbital file
-        try:
-            self.orbital_data, self.orbital_lvec = load_orbital("QD.cub")
-            self.file_label.setText("Current file: QD.cub")
-            self.update_plot()
-        except Exception as e:
-            print("Exaption while trying to run GUI calculation with self.update_plot()\n, Probable reason : No default orbital file found. Please load one.")
-            print(e)
+        # try:
+        #     self.orbital_data, self.orbital_lvec = load_orbital("QD.cub")
+        #     self.file_label.setText("Current file: QD.cub")
+        #     self.update_plot()
+        # except Exception as e:
+        #     print("Exaption while trying to run GUI calculation with self.update_plot()\n, Probable reason : No default orbital file found. Please load one.")
+        #     print(e)
     
     def load_orbital_file(self):
         fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open Orbital File', '', 'Cube Files (*.cub)')
@@ -222,34 +226,40 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         ps[:,1] = Y.flatten()
         ps[:,2] = z_tip
         
-        # Calculate charges and energies
-        Qtips = np.ones(len(ps)) * Q_tip
-        Q_1, Es_1, _ = chr.solveSiteOccupancies(ps, Qtips, bEsite=True, solver_type=2)
-        
         # Prepare canvas for orbital calculations
         canvas_shape = (300, 300)
         canvas_dd = np.array([L/canvas_shape[0], L/canvas_shape[1]])
         
         # Create tip wavefunction
-        tipWf = photo.makeTipField(canvas_shape, canvas_dd, z0=z_tip, beta=decay, bSTM=True)[0]
+        tipWf, _ = photo.makeTipField(canvas_shape, canvas_dd, z0=z_tip, beta=decay, bSTM=True)
         
         # Calculate STM maps
         crop_center = (canvas_shape[0]//2, canvas_shape[1]//2)
         crop_size = (canvas_shape[0]//4, canvas_shape[1]//4)
         
+        # Calculate physical dimensions of center region
+        center_Lx = 2 * crop_size[0] * canvas_dd[0]
+        center_Ly = 2 * crop_size[1] * canvas_dd[1]
+        
+        # Process orbital data
         orbital_2D = np.transpose(self.orbital_data, (2, 1, 0))
         orbital_2D = np.sum(orbital_2D[:, :, orbital_2D.shape[2]//2:], axis=2)
         orbital_2D = np.ascontiguousarray(orbital_2D, dtype=np.float64)
         
         # Create grid for the center region
-        x = np.linspace(-L/2, L/2, 2*crop_size[0])
-        y = np.linspace(-L/2, L/2, 2*crop_size[1])
+        x = np.linspace(-center_Lx/2, center_Lx/2, 2*crop_size[0])
+        y = np.linspace(-center_Ly/2, center_Ly/2, 2*crop_size[1])
         X, Y = np.meshgrid(x, y, indexing='xy')
         ps = np.zeros((len(x) * len(y), 3))
         ps[:,0] = X.flatten()
         ps[:,1] = Y.flatten()
         ps[:,2] = z_tip
         
+        # Calculate charges and energies
+        Qtips = np.ones(len(ps)) * Q_tip
+        Q_1, Es_1, _ = chr.solveSiteOccupancies(ps, Qtips, bEsite=True, solver_type=2)
+        
+        # Calculate STM maps
         I_1, M_sum, M2_sum, site_coef_maps = calculate_stm_maps(
             orbital_2D, self.orbital_lvec, spos, angles, canvas_dd, canvas_shape,
             tipWf, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center, crop_size
@@ -264,7 +274,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         # Reshape charge for plotting
         Q_1 = Q_1.reshape((-1, nsite))
-        Q_1 = Q_1.reshape((npix, npix, nsite))
+        Q_1 = Q_1.reshape((2*crop_size[1], 2*crop_size[0], nsite))
         Q_total = np.sum(Q_1, axis=2)
         
         # Plot results
