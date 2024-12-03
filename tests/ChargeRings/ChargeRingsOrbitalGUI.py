@@ -45,8 +45,8 @@ class PlotPanel2D(QtWidgets.QWidget):
         self.ax3 = self.fig.add_subplot(gs[2])
         
         # Connect mouse events
-        self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
-        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
+        self.canvas.mpl_connect('button_press_event',   self.on_mouse_press)
+        self.canvas.mpl_connect('motion_notify_event',  self.on_mouse_motion)
         self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
         
         self.setMinimumWidth(1000)
@@ -109,47 +109,88 @@ class PlotPanel2D(QtWidgets.QWidget):
             self.start_point = None
     
     def perform_line_scan(self, start_point, end_point):
-        """Perform a line scan between two points and display results"""
-        if not start_point or not end_point:
-            return
-        
-        # Get scan parameters
+        """Perform line scan between two points"""
+        # Get current parameters
         params = self.parent.get_all_params()
-        n_points = 50  # Number of points along the scan line
         
-        # Generate points along the scan line
-        x = np.linspace(start_point[0], end_point[0], n_points)
-        y = np.linspace(start_point[1], end_point[1], n_points)
+        # Create scan window if needed
+        if not hasattr(self, 'scan_window'):
+            self.scan_window = ScanWindow1D(self, start_point, end_point)
         
         # Plot scan points on the charge plot
         if hasattr(self, 'scan_points') and self.scan_points:
             self.scan_points.remove()
+        x = np.linspace(start_point[0], end_point[0], 100)
+        y = np.linspace(start_point[1], end_point[1], 100)
         self.scan_points = self.ax1.plot(x, y, 'r.', markersize=2)[0]
         self.canvas.draw()
         
-        # Calculate values at each point
-        charges = []
-        currents = []
-        energies = []
-        occupations = []
+        # Perform line scan calculation
+        self.calculate_line_scan(start_point, end_point, params)
+    
+    def calculate_line_scan(self, start_point, end_point, params):
+        """Calculate system state along a line"""
+
+        # Extract parameters
+        nsite   = params['nsite']
+        R       = params['radius']
+        phiRot  = params['phiRot']
+        Q0      = params['Q0']
+        Qzz     = params['Qzz']
+        Esite   = np.array([params['Esite']] * nsite)  # Convert to array
+        Q_tip   = params['Q_tip']
+        V_Bias  = params['V_Bias']
+        E_Fermi = params['E_Fermi']
+        decay   = params['decay']
+        T       = params['temperature']
+        z_tip   = params['z_tip']
         
-        for xi, yi in zip(x, y):
-            result = self.parent.calculate_at_point(xi, yi, params)
-            charges.append(result['charge'])
-            currents.append(result['current'])
-            energies.append(result['energies'])
-            occupations.append(result['occupations'])
+        # Setup geometry
+        phis = np.linspace(0, 2*np.pi, nsite, endpoint=False)
+        spos = np.zeros((nsite, 3))
+        spos[:,0] = np.cos(phis)*R
+        spos[:,1] = np.sin(phis)*R
         
-        # Create or update scan window
-        if not self.scan_window:
-            self.scan_window = ScanWindow1D(self, start_point, end_point)
+        # Setup rotations and multipoles
+        rots = cr.makeRotMats(phis + phiRot, nsite)
+        mpols = np.zeros((nsite, 10))
+        mpols[:,4] = Qzz
+        mpols[:,0] = Q0
         
-        # Calculate distances along the scan line
+        # Initialize global parameters
+        cr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi,   cCouling=params['cCouling'], onSiteCoulomb=params['onSiteCoulomb'],  temperature=T)
+        
+        # Set up configuration basis
+        confstrs    = ["000","001","010","100","110","101","011","111"]
+        confs       = cr.confsFromStrings(confstrs)
+        #self.colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#800000", "#008000"]
+        self.colors = cr.colorsFromStrings(confstrs, hi="A0", lo="00")
+        cr.setSiteConfBasis(confs)
+        
+        # Convert start and end points to numpy arrays with z coordinate
+        start = np.array([start_point[0], start_point[1], z_tip])
+        end   = np.array([end_point[0],   end_point[1],   z_tip])
+        
+        # Generate scan line points
+        n_points = 100  # Number of points along the line
+        ps_line = cr.getLine(spos, start, end, n=n_points)
+        ps_line[:,2] = z_tip  # Set constant height
+        
+        # Calculate for all points at once
+        Qtips = np.ones(len(ps_line)) * Q_tip
+        
+        # Get energies and occupations
+        Qs, Es, Econf = cr.solveSiteOccupancies(ps_line, Qtips, bEsite=True, solver_type=2)
+        Is            = cr.calculate_tunneling_current(ps_line, Es, E_Fermi+V_Bias, E_Fermi, decay=decay, T=T )
+        
+        # Calculate distances along the line
+        x, y = ps_line[:,0], ps_line[:,1]
         distances = np.sqrt((x - x[0])**2 + (y - y[0])**2)
         
         # Update scan window plots
-        self.scan_window.update_plot(distances, np.array(charges), np.array(currents),
-                                    np.array(energies), np.array(occupations))
+        if self.scan_window is None:
+            self.scan_window = ScanWindow1D(self, start_point, end_point)
+        self.scan_window.update_plot(distances, Qs, Is, Es, Qs, self.colors)
         self.scan_window.show()
 
 class ApplicationWindow(QtWidgets.QMainWindow):
@@ -330,23 +371,23 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def calculate_at_point(self, x, y, params):
         """Calculate system state at a single point"""
         # Extract parameters
-        nsite = params['nsite']
-        R = params['radius']
-        phiRot = params['phiRot']
-        Q0 = params['Q0']
-        Qzz = params['Qzz']
-        Esite = params['Esite']
-        Q_tip = params['Q_tip']
-        V_Bias = params['V_Bias']
+        nsite   = params['nsite']
+        R       = params['radius']
+        phiRot  = params['phiRot']
+        Q0      = params['Q0']
+        Qzz     = params['Qzz']
+        Esite   = params['Esite']
+        Q_tip   = params['Q_tip']
+        V_Bias  = params['V_Bias']
         E_Fermi = params['E_Fermi']
-        decay = params['decay']
-        T = params['temperature']
+        decay   = params['decay']
+        T       = params['temperature']
         
         # Setup geometry
         phis = np.linspace(0, 2*np.pi, nsite, endpoint=False)
         spos = np.zeros((nsite, 3))
-        spos[:,0] = R * np.cos(phis)
-        spos[:,1] = R * np.sin(phis)
+        spos[:,0] = np.cos(phis)*R
+        spos[:,1] = np.sin(phis)*R
         
         angles = np.ones(nsite) * phiRot
         
@@ -364,41 +405,25 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Set up configuration basis
         confstrs = ["000","001","010","100","110","101","011","111"]
         confs = cr.confsFromStrings(confstrs)
+        confColors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#800000", "#008000"]
         cr.setSiteConfBasis(confs)
         
         # Calculate at single point
         p = np.array([[x, y, params['z_tip']]])
         Qtips = np.array([Q_tip])
         
-        # Calculate charges and energies
-        Q_1, Es_1, _ = cr.solveSiteOccupancies(p, Qtips, bEsite=True, solver_type=2)
+        # Get energies and occupations
+        Es, occs = cr.solveSiteOccupancies(p, Qtips, V_Bias, decay=decay)
         
-        # Calculate occupations from energies using safe exponential
-        def safe_exp(x):
-            """Safe exponential function that handles overflow"""
-            with np.errstate(over='ignore'):
-                return np.exp(np.clip(x, -700, 700))
-        
-        occ_1 = np.zeros_like(Es_1)
-        kT = T * 8.617333262e-5  # Convert temperature to eV
-        for i in range(Es_1.shape[1]):
-            occ_1[:,i] = 1.0 / (1.0 + safe_exp((Es_1[:,i] - E_Fermi) / kT))
-        
-        # Calculate current
-        current = 0
-        if self.use_orbital_checkbox.isChecked() and self.orbital_data is not None:
-            # TODO: Implement orbital convolution for single point
-            pass
-        else:
-            for i in range(len(spos)):
-                c_i = cr.calculate_site_current(p, spos[i], Es_1[:,i],  E_Fermi + V_Bias, E_Fermi, decay=decay, T=T)
-                current += c_i[0]
+        # Calculate current and charge
+        current = cr.getCurrent(Es[0], occs[0], V_Bias)
+        charge = cr.getCharge(occs[0])
         
         return {
-            'charge':      np.sum(Q_1[0]),
+            'charge':      charge,
             'current':     current,
-            'energies':    Es_1[0],
-            'occupations': occ_1[0]
+            'energies':    Es[0],
+            'occupations': occs[0]
         }
 
     def get_all_params(self):
@@ -419,6 +444,71 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             'onSiteCoulomb': self.get_param('onSiteCoulomb'),
         }
         return params
+
+    def calculate_line_scan(self, start_point, end_point, params):
+        """Calculate system state along a line"""
+        # Extract parameters
+        nsite   = params['nsite']
+        R       = params['radius']
+        phiRot  = params['phiRot']
+        Q0      = params['Q0']
+        Qzz     = params['Qzz']
+        Esite   = np.array([params['Esite']] * nsite)  # Convert to array
+        Q_tip   = params['Q_tip']
+        V_Bias  = params['V_Bias']
+        E_Fermi = params['E_Fermi']
+        decay   = params['decay']
+        T       = params['temperature']
+        
+        # Setup geometry
+        phis = np.linspace(0, 2*np.pi, nsite, endpoint=False)
+        spos = np.zeros((nsite, 3))
+        spos[:,0] = np.cos(phis)*R
+        spos[:,1] = np.sin(phis)*R
+        
+        # Setup rotations and multipoles
+        rots = cr.makeRotMats(phis + phiRot, nsite)
+        mpols = np.zeros((nsite, 10))
+        mpols[:,4] = Qzz
+        mpols[:,0] = Q0
+        
+        # Initialize global parameters
+        cr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi,  cCouling=params['cCouling'], onSiteCoulomb=params['onSiteCoulomb'],  temperature=T)
+        
+        # Set up configuration basis
+        confstrs = ["000","001","010","100","110","101","011","111"]
+        confs = cr.confsFromStrings(confstrs)
+        self.colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#800000", "#008000"]
+        cr.setSiteConfBasis(confs)
+        
+        # Convert start and end points to numpy arrays with z coordinate
+        start = np.array([start_point[0], start_point[1], params['z_tip']])
+        end = np.array([end_point[0], end_point[1], params['z_tip']])
+        
+        # Generate scan line points
+        n_points = 100  # Number of points along the line
+        ps_line = cr.getLine(spos, start, end, n=n_points)
+        ps_line[:,2] = params['z_tip']  # Set constant height
+        
+        # Calculate for all points at once
+        Qtips = np.ones(len(ps_line)) * Q_tip
+        
+        # Get energies and occupations
+        occs, Es, Econf = cr.solveSiteOccupancies(ps_line, Qtips, bEsite=True, solver_type=2)
+        
+        # Calculate currents and charges
+        currents = cr.calculate_tunneling_current(ps_line, Es, E_fermi_sub=E_Fermi, E_fermi_tip=E_Fermi + V_Bias, decay=decay, T=T)
+        charges = cr.getCharge(occs)
+        
+        # Calculate distances along the line
+        x, y = ps_line[:,0], ps_line[:,1]
+        distances = np.sqrt((x - x[0])**2 + (y - y[0])**2)
+        
+        # Update scan window plots
+        if self.scan_window is None:
+            self.scan_window = ScanWindow1D(self, start_point, end_point)
+        self.scan_window.update_plot(distances, charges, currents, Es, occs, self.colors)
+        self.scan_window.show()
 
     def init_ui(self):
         # Define parameter specifications

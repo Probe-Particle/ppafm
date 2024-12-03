@@ -46,7 +46,7 @@ class ScanWindow1D(QtWidgets.QWidget):
         
         self.setMinimumSize(800, 600)
     
-    def update_plot(self, distances, charges, currents, energies, occupations):
+    def update_plot(self, distances, charges, currents, energies, occupations, colors ):
         """Update plots with new data"""
         self.ax1.clear()
         self.ax1_twin.clear()
@@ -63,8 +63,9 @@ class ScanWindow1D(QtWidgets.QWidget):
         
         # Plot energy levels with occupation-based coloring
         for i in range(energies.shape[1]):
-            color = plt.cm.viridis(occupations[:,i])
-            self.ax2.scatter(distances, energies[:,i], c=color, s=10)
+            #color = plt.cm.viridis(occupations[:,i])
+            #self.ax2.scatter(distances, energies[:,i], c=color, s=10)
+            self.ax2.plot(distances, energies[:,i], '-', c=colors[i] )
         
         # Add labels
         self.ax1.set_xlabel('Distance (Å)')
