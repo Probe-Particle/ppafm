@@ -765,7 +765,7 @@ void initRingParams(int nsite, double* spos, double* rots, double* MultiPoles, d
  * @deprecated Use solveSiteOccupancies instead
  */
 void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsite, double* spos, const double* rot, const double* MultiPoles, const double* Esite, double* Qout, double E_Fermi, double cCoupling, double temperature ){
-    printf( "solveSiteOccupancies_old() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, nsite, E_Fermi, cCoupling, temperature );
+    //printf( "solveSiteOccupancies_old() npos=%i nsite=%i E_Fermi=%g cCoupling=%g temperature=%g \n", npos, nsite, E_Fermi, cCoupling, temperature );
     Vec3d* ptips = (Vec3d*)ptips_;
     //#pragma omp parallel for
     for(int i=0; i<npos; i++){
@@ -788,7 +788,7 @@ void solveSiteOccupancies_old( int npos, double* ptips_, double* Qtips, int nsit
  */
 void solveSiteOccupancies(int npos, double* ptips_, double* Qtips, double* Qout, double* Econf, double* Esites, int solver_type) {
     //if(verbosity>0) 
-    printf( "solveSiteOccupancies() npos=%i solver_type=%i Econf=%p Esite=%p params.nConf=%i params.nsite=%i \n", npos, solver_type, Econf, Esites, params.nConf, params.nsite );
+    //printf( "solveSiteOccupancies() npos=%i solver_type=%i Econf=%p Esite=%p params.nConf=%i params.nsite=%i \n", npos, solver_type, Econf, Esites, params.nConf, params.nsite );
     Vec3d* ptips = (Vec3d*)ptips_;
     int nconfs = params.nConf;
     if( solver_type==0 ){ nconfs = 1<<2*params.nsite; }

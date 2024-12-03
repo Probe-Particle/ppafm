@@ -193,7 +193,7 @@ def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0, byCenter=Tr
             coef = np.array([coef.real, coef.imag])
         lib.stampToGrid2D_complex( ns1, ns2, p0, a, b, stamp, canvas, coef )
     else:
-        print( "stampToGrid2D() coef:", coef, " stamp:",ns1, " canvas:", ns2, "p0:", p0, "a_dir:", a, "b_dir:", b )
+        #print( "stampToGrid2D() coef:", coef, " stamp:",ns1, " canvas:", ns2, "p0:", p0, "a_dir:", a, "b_dir:", b )
         lib.stampToGrid2D        ( ns1, ns2, p0, a, b, stamp, canvas, coef )
 
 #void stampToGrid3D        ( int* ns1_, int* ns2_, double* p0_, double* rot_, double* stamp,  double* canvas,  double coef  ){

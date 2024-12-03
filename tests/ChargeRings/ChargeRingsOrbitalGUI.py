@@ -124,9 +124,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         plot_layout.addWidget(self.canvas)
         
         # Create subplots
-        self.ax1 = self.fig.add_subplot(1, 3, 1)
-        self.ax2 = self.fig.add_subplot(1, 3, 2)
-        self.ax3 = self.fig.add_subplot(1, 3, 3)
+        self.ax1 = self.fig.add_subplot(131)
+        self.ax2 = self.fig.add_subplot(132)
+        self.ax3 = self.fig.add_subplot(133)
         
         self.fig.tight_layout()
         
@@ -277,26 +277,26 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         Q_1 = Q_1.reshape((2*crop_size[0], 2*crop_size[1], nsite))  # Note: x,y order
         Q_total = np.sum(Q_1, axis=2)
         
-        # Clear previous plots and colorbars
-        for ax in [self.ax1, self.ax2, self.ax3]:
-            ax.clear()
-            if hasattr(ax, 'colorbar'):
-                ax.colorbar.remove()
+        # Clear the entire figure and recreate subplots
+        self.fig.clear()
+        self.ax1 = self.fig.add_subplot(131)
+        self.ax2 = self.fig.add_subplot(132)
+        self.ax3 = self.fig.add_subplot(133)
         
         # Plot results with proper orientation
         extent = [-center_Lx/2, center_Lx/2, -center_Ly/2, center_Ly/2]
         
-        im1 = self.ax1.imshow(Q_total, origin="lower", extent=extent)  # Removed .T
+        im1 = self.ax1.imshow(Q_total, origin="lower", extent=extent)
         self.ax1.plot(spos[:,0], spos[:,1], 'og')
         self.fig.colorbar(im1, ax=self.ax1)
         self.ax1.set_title("Total Charge")
         
-        im2 = self.ax2.imshow(I_1, origin="lower", extent=extent)  # Removed .T
+        im2 = self.ax2.imshow(I_1, origin="lower", extent=extent)
         self.ax2.plot(spos[:,0], spos[:,1], 'og')
         self.fig.colorbar(im2, ax=self.ax2)
         self.ax2.set_title("STM")
         
-        im3 = self.ax3.imshow(dIdQ, origin="lower", extent=extent)  # Removed .T
+        im3 = self.ax3.imshow(dIdQ, origin="lower", extent=extent)
         self.ax3.plot(spos[:,0], spos[:,1], 'og')
         self.fig.colorbar(im3, ax=self.ax3)
         self.ax3.set_title("dI/dQ")
