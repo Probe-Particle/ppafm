@@ -192,8 +192,12 @@ def makeTipField( sh, dd, z0=10.0, sigma=1.0, multipole_dict={'s':1.0}, b3D=Fals
         Vtip = Vtip.transpose((2,1,0)).copy()
     return Vtip, shifts
 
-def convFFT(F1,F2):
-    return np.fft.ifftn( np.fft.fftn(F1) * np.fft.fftn(F2) )
+def convFFT(F1,F2, bNormalize=False):
+    result = np.fft.ifftn( np.fft.fftn(F1) * np.fft.fftn(F2) )
+    if bNormalize:
+        sh = result.shape
+        result = result / ( sh[0]*sh[1] )
+    return result
 
 # ==========================================================================
 #      Functions to project trasition densities on a common grid (Canvas)

@@ -45,7 +45,7 @@ nsite  =  3
 R      =  5.0  # radius of circle on which sites are placed
 phiRot = -1.0
 Q0  = 1.0
-Qzz = 15.0 * 0.0
+Qzz = 15.0 *0.0
 Esite = [-0.2, -0.2, -0.2]
 
 siteColors = ["r", "g", "b"]

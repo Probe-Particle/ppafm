@@ -33,7 +33,7 @@ R      = 7.0
 phiRot = 0.1 + np.pi/2
 
 Q0  = 1.0
-Qzz = 15.0 * 0.0
+Qzz = 15.0 #* 0.0
 
 # Canvas parameters
 Lcanv = 60.0

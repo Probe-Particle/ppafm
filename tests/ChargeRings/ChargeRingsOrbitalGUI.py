@@ -8,6 +8,7 @@ from PyQt5 import QtCore, QtWidgets
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 
 # Add project root to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
@@ -26,46 +27,51 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.param_specs = {
             # Tip Parameters
             'Q_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (-2.0, 2.0),  'value': 0.13, 'step': 0.01},
-            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (1.0, 20.0),  'value': 5.0, 'step': 0.5},
-            'V_Bias':        {'group': 'Tip Parameters',    'widget': 'double', 'range': (-2.0, 2.0),  'value': 1.0, 'step': 0.1},
+            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (1.0, 20.0),  'value': 5.0,  'step': 0.5},
+            'V_Bias':        {'group': 'Tip Parameters',    'widget': 'double', 'range': (-2.0, 2.0),  'value': 1.0,  'step': 0.1},
             
             # System Parameters
-            'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02, 'step': 0.01, 'decimals': 3},
-            'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 2.0, 'step': 0.1},
+            'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01, 'step': 0.001, 'decimals': 3},
+            'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 2.0,  'step': 1.0},
             'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
             'decay':         {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 2.0),   'value': 0.5,  'step': 0.1},
-            'E_Fermi':      {'group': 'System Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': 0.0,  'step': 0.1},
+            'E_Fermi':       {'group': 'System Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': 0.0,  'step': 0.1},
             
             # Ring Geometry
-            'nsite':         {'group': 'Ring Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
-            'radius':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 7.0, 'step': 0.5},
-            'phiRot':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': 0.1 + np.pi/2, 'step': 0.1},
+            'nsite':         {'group': 'Ring Geometry',     'widget': 'int',    'range': (1, 10),      'value': 3},
+            'radius':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (1.0, 20.0),  'value': 7.0, 'step': 0.5},
+            'phiRot':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0),'value': 0.1+np.pi/2, 'step': 0.1},
             
             # Site Properties
-            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': -0.2,'step': 0.1},
-            'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
-            'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
+            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0),'value': -0.2,'step': 0.1},
+            'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0),'value': 1.0, 'step': 0.1},
+            'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0),'value': 15.0,'step': 0.5},
             
             # Visualization
-            'L':             {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 100.0),  'value': 20.0, 'step': 1.0},
-            'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (10, 1000),    'value': 400},
+            'L':             {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 100.0), 'value': 20.0,'step': 1.0},
+            'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (10, 1000),   'value': 400},
         }
         
         # Initialize the GUI layout
         layout = QtWidgets.QHBoxLayout(self.main_widget)
         
         # Create control panel layout
-        control_layout = QtWidgets.QVBoxLayout()
+        control_panel = QtWidgets.QWidget()
+        control_panel.setMaximumWidth(350)  # Limit control panel width
+        control_layout = QtWidgets.QVBoxLayout(control_panel)
+        control_layout.setSpacing(5)  # Reduce spacing between widgets
         
         # Add parameter groups
         for group_name in sorted(set(spec['group'] for spec in self.param_specs.values())):
             group_box = QtWidgets.QGroupBox(group_name)
             group_layout = QtWidgets.QFormLayout()
+            group_layout.setSpacing(5)  # Reduce spacing in form layout
+            group_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
             
             for param_name, spec in self.param_specs.items():
                 if spec['group'] == group_name:
                     widget = self.create_parameter_widget(param_name, spec)
-                    self.param_specs[param_name]['widget'] = widget  # Store widget reference
+                    self.param_specs[param_name]['widget'] = widget
                     group_layout.addRow(param_name, widget)
             
             group_box.setLayout(group_layout)
@@ -74,6 +80,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Add checkboxes for orbital convolution and auto-update
         checkbox_group = QtWidgets.QGroupBox("Options")
         checkbox_layout = QtWidgets.QVBoxLayout()
+        checkbox_layout.setSpacing(5)  # Reduce spacing
+        checkbox_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
         
         self.use_orbital_checkbox = QtWidgets.QCheckBox("Use Orbital Convolution")
         self.use_orbital_checkbox.setChecked(True)
@@ -89,6 +97,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         # Add buttons
         button_layout = QtWidgets.QHBoxLayout()
+        button_layout.setSpacing(5)  # Reduce spacing
         
         update_button = QtWidgets.QPushButton("Update Plot")
         update_button.clicked.connect(self.update_plot)
@@ -100,27 +109,30 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         control_layout.addLayout(button_layout)
         
-        # Add control panel to main layout
-        layout.addLayout(control_layout)
+        # Add control panel to main layout with fixed width
+        layout.addWidget(control_panel)
         
         # Create plot panel
         plot_panel = QtWidgets.QWidget()
         plot_layout = QtWidgets.QVBoxLayout(plot_panel)
+        plot_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
         
-        # Create figure with subplots
-        self.fig = Figure(figsize=(12, 4))
+        # Create figure with subplots - optimized size and spacing
+        self.fig = Figure(figsize=(16, 4.5))  # Adjusted size ratio
         self.canvas = FigureCanvas(self.fig)
         plot_layout.addWidget(self.canvas)
         
-        # Create subplots
-        self.ax1 = self.fig.add_subplot(131)
-        self.ax2 = self.fig.add_subplot(132)
-        self.ax3 = self.fig.add_subplot(133)
+        # Create subplots with optimized spacing
+        gs = self.fig.add_gridspec(1, 3, width_ratios=[1, 1, 1], wspace=0.25)
+        self.ax1 = self.fig.add_subplot(gs[0])
+        self.ax2 = self.fig.add_subplot(gs[1])
+        self.ax3 = self.fig.add_subplot(gs[2])
         
-        self.fig.tight_layout()
+        # Set minimum size for the plot panel
+        plot_panel.setMinimumWidth(1000)
         
-        # Add plot panel to main layout
-        layout.addWidget(plot_panel)
+        # Add plot panel to main layout with stretch factor
+        layout.addWidget(plot_panel, stretch=2)
         
         # Set the main widget
         self.main_widget.setFocus()
@@ -178,20 +190,20 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             return
         
         # Get parameters
-        nsite = self.get_param('nsite')
-        R = self.get_param('radius')
-        phiRot = self.get_param('phiRot')
-        Q0 = self.get_param('Q0')
-        Qzz = self.get_param('Qzz')
-        Esite = self.get_param('Esite')
-        z_tip = self.get_param('z_tip')
-        Q_tip = self.get_param('Q_tip')
-        V_Bias = self.get_param('V_Bias')
+        nsite   = self.get_param('nsite')
+        R       = self.get_param('radius')
+        phiRot  = self.get_param('phiRot')
+        Q0      = self.get_param('Q0')
+        Qzz     = self.get_param('Qzz')
+        Esite   = self.get_param('Esite')
+        z_tip   = self.get_param('z_tip')
+        Q_tip   = self.get_param('Q_tip')
+        V_Bias  = self.get_param('V_Bias')
         E_Fermi = self.get_param('E_Fermi')
-        decay = self.get_param('decay')
-        T = self.get_param('temperature')
-        L = self.get_param('L')
-        npix = self.get_param('npix')
+        decay   = self.get_param('decay')
+        T       = self.get_param('temperature')
+        L       = self.get_param('L')
+        npix    = self.get_param('npix')
         
         # Setup geometry
         phis = np.linspace(0, 2*np.pi, nsite, endpoint=False)
@@ -207,9 +219,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         # Initialize ChargeRings parameters
         rots = chr.makeRotMats(angles, nsite)
-        chr.initRingParams(spos, [Esite]*nsite, rot=rots, MultiPoles=mpols, 
-                          E_Fermi=E_Fermi, cCouling=self.get_param('cCouling'), 
-                          temperature=T, onSiteCoulomb=self.get_param('onSiteCoulomb'))
+        chr.initRingParams(spos, [Esite]*nsite, rot=rots, MultiPoles=mpols,  E_Fermi=E_Fermi, cCouling=self.get_param('cCouling'),   temperature=T, onSiteCoulomb=self.get_param('onSiteCoulomb'))
         
         # Set up configuration basis for solver_type=2
         confstrs = ["000","001","010","100","110","101","011","111"]
@@ -304,30 +314,43 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         # Clear the entire figure and recreate subplots
         self.fig.clear()
-        self.ax1 = self.fig.add_subplot(131)
-        self.ax2 = self.fig.add_subplot(132)
-        self.ax3 = self.fig.add_subplot(133)
+        gs = self.fig.add_gridspec(1, 3, width_ratios=[1, 1, 1], wspace=0.25)
+        self.ax1 = self.fig.add_subplot(gs[0])
+        self.ax2 = self.fig.add_subplot(gs[1])
+        self.ax3 = self.fig.add_subplot(gs[2])
         
         # Plot results with proper orientation
         extent = [-center_Lx/2, center_Lx/2, -center_Ly/2, center_Ly/2]
         
         im1 = self.ax1.imshow(Q_total, origin="lower", extent=extent)
-        self.ax1.plot(spos[:,0], spos[:,1], 'og')
-        self.fig.colorbar(im1, ax=self.ax1)
         self.ax1.set_title("Total Charge")
+        cb1 = self.fig.colorbar(im1, ax=self.ax1, use_gridspec=True, fraction=0.046, pad=0.04)
         
         im2 = self.ax2.imshow(I_1, origin="lower", extent=extent)
-        self.ax2.plot(spos[:,0], spos[:,1], 'og')
-        self.fig.colorbar(im2, ax=self.ax2)
         self.ax2.set_title("STM")
+        cb2 = self.fig.colorbar(im2, ax=self.ax2, use_gridspec=True, fraction=0.046, pad=0.04)
         
         im3 = self.ax3.imshow(dIdQ, origin="lower", extent=extent)
-        self.ax3.plot(spos[:,0], spos[:,1], 'og')
-        self.fig.colorbar(im3, ax=self.ax3)
         self.ax3.set_title("dI/dQ")
+        cb3 = self.fig.colorbar(im3, ax=self.ax3, use_gridspec=True, fraction=0.046, pad=0.04)
         
-        # Adjust layout to prevent overlapping
+        # Add site markers
+        for i, (x, y) in enumerate(zip(spos[:,0], spos[:,1])):
+            self.ax1.plot(x, y, 'o', color=f'C{i}')
+            self.ax2.plot(x, y, 'o', color=f'C{i}')
+            self.ax3.plot(x, y, 'o', color=f'C{i}')
+        
+        # Set consistent aspect ratio and limits
+        for ax in [self.ax1, self.ax2, self.ax3]:
+            ax.set_aspect('equal')
+            ax.set_xlabel('x [Å]')
+            ax.set_ylabel('y [Å]')
+        
+        # Apply tight layout with specific spacing
+        #self.fig.tight_layout(pad=0.5, w_pad=0.5, h_pad=0.5)
         self.fig.tight_layout()
+        
+        # Update the canvas
         self.canvas.draw()
     
     def save_figure(self):

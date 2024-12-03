@@ -29,7 +29,7 @@ R      = 7.0
 phiRot = 0.1 + np.pi/2
 
 Q0  = 1.0
-Qzz = 15.0 * 0.0
+Qzz = 15.0 #* 0.0
 
 # Canvas parameters
 Lcanv = 60.0
@@ -51,8 +51,8 @@ def main():
     
     # Setup site multipoles
     mpols = np.zeros((nsite, 10))
-    mpols[:,4] = Qzz
     mpols[:,0] = Q0
+    mpols[:,4] = Qzz
     
     # Initialize global parameters for ChargeRings
     rots = chr.makeRotMats(phis + phiRot, nsite)

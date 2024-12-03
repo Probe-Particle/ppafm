@@ -132,9 +132,11 @@ double Emultipole( const Vec3d& d, int order, const double * cs ){
     double ir2 = 1/d.norm2();
     double E   = cs[0];
     if( order>0 ) E += ir2    *( cs[1]*d.x + cs[2]*d.y + cs[3]*d.z );
-    if( order>1 ) E += ir2*ir2*((cs[4]*d.x + cs[9]*d.y)*d.x +
+    if( order>1 ){ E += ir2*ir2*((cs[4]*d.x + cs[9]*d.y)*d.x +
                                 (cs[5]*d.y + cs[7]*d.z)*d.y +
                                 (cs[6]*d.z + cs[8]*d.x)*d.z );
+                                //printf( "Emultipole() Q %g Pxyz(%g,%g,%g) Qxx,yy,zz(%g,%g,%g) Qxy,xz,yz(%g,%g,%g)  \n", cs[0], cs[1],cs[2],cs[3],    cs[4],cs[9],cs[5],cs[7],cs[6],cs[8] );
+    }
     return sqrt(ir2)*E;
 }
 
@@ -203,7 +205,7 @@ double getChargingForce( int nsite, const double* Esite, const double* Coupling,
  * @param cCoupling Coupling strength parameter
  */
 void makeCouplingMatrix( int nsite, const Vec3d* spos, const Mat3d* rot, const double* MultiPoles, const double* Esite0, Vec3d pT, double Qt, double* Esite, double* Coupling, double cCoupling ){
-    //printf( "makeCouplingMatrix() cCoupling=%g Qt=%g  @Esite=%li @Coupling=%li  \n", cCoupling, Qt, (long)Esite, (long)Coupling  );
+    //printf( "makeCouplingMatrix() cCoupling=%g Qt=%g  @Esite=%p @Coupling=%p @MultiPoles=%p  \n", cCoupling, Qt, Esite, Coupling, MultiPoles  );
     //printf("========\n");
     for(int i=0; i<nsite; i++){
         const Vec3d pi = spos[i];
