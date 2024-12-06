@@ -85,6 +85,7 @@ def plotImages(
     V0=0.0,
     cbar_label=None,
 ):
+    plt.rcParams.update({"font.size": 24})
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
         write_plotting_slice(i)
