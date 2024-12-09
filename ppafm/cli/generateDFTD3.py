@@ -8,7 +8,7 @@ from .. import common
 from ..HighLevel import computeDFTD3
 
 
-def main():
+def main(argv=None):
     parser = common.CLIParser(
         description="Generate Grimme DFT-D3 vdW force field using the Becke-Johnson damping function. The generated force field is saved to FFvdW_{x,y,z}.[ext]."
     )
@@ -32,7 +32,7 @@ def main():
         metavar=("s6", "s8", "a1", "a2"),
         help="Manually specify scaling parameters s6, s8, a1, a2. Overwrites --df_name.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     parameters = common.PpafmParameters.from_file("params.ini")
 
