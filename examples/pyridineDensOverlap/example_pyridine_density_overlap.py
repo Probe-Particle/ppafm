@@ -32,7 +32,7 @@ def example_pyridine_density_overlap():
 
     generate_conv_rho(["-s", "LOCPOT.xsf", "-t", "tip/density_CO.xsf", "-B", "1.0", "--energy"])
     generate_elff(["--input", "LOCPOT.xsf", "--tip_dens", "tip/density_CO.xsf", "--Rcore", "0.7", "--energy", "--doDensity"])
-    generate_dftd3(["--input", "LOCPOT.xsf", "--df_name", "PBE"])
+    generate_dftd3(["--input", "LOCPOT.xsf", "--df_name", "PBE", "--energy"])
 
     relaxed_scan(
         ["--klat", "0.25", "--charge", "1.0", "--noLJ", "--Apauli", "18.0", "--bDebugFFtot"]
