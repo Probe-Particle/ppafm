@@ -211,11 +211,11 @@ def prepareArrays(FF, Vpot, parameters):
         gridN = np.shape(FF)
         parameters.gridN = gridN
     core.setFF_Fpointer(FF)
-    weakref.finalize(FF, lambda: core.deleteFF_Fpointer())  # Set array pointer to NULL when garbage collector runs.
+    weakref.finalize(FF, core.deleteFF_Fpointer)  # Set array pointer to NULL when garbage collector runs.
     if Vpot:
         V = np.zeros((gridN[2], gridN[1], gridN[0]))
         core.setFF_Epointer(V)
-        weakref.finalize(FF, lambda: core.deleteFF_Epointer())
+        weakref.finalize(V, core.deleteFF_Epointer)
     else:
         V = None
     return FF, V
