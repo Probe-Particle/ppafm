@@ -127,9 +127,9 @@ number_of_atoms = len(ilist)
 for i in ilist:
     fs = data[1 + i]
     zs = zs_bare  # - atoms_z[i]
-    if options.old or not options.no_morse : # Morse is not compatible with the old style and also adding options to be removed from the new style
-        alpha = 0.
-        A = 0.
+    if options.old or not options.no_morse:  # Morse is not compatible with the old style and also adding options to be removed from the new style
+        alpha = 0.0
+        A = 0.0
     else:
         alpha, A = fitExp(zs - atoms_z[i], fs, zmin, zmax)
 
@@ -157,7 +157,7 @@ print()
 for ie in range(number_of_original_elements):
     # This part is important so the PP force-field can be created without a problem ...
     tmp = FFparams[ie]
-    print(tmp[0],tmp[1],tmp[2],tmp[3],tmp[4]) # if needed for debugging - tmp[4] is not there for options.old ...
+    print(tmp[0], tmp[1], tmp[2], tmp[3], tmp[4])  # if needed for debugging - tmp[4] is not there for options.old ...
     if options.old:  # old verison of atomtypes.ini
         f2.write(f"{tmp[0]} {tmp[1]} {ie+1+number_of_atoms} {tmp[4].decode('UTF-8')}\n")
     else:  # ocl version of atomtypes.ini
