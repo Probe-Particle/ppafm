@@ -87,6 +87,24 @@ def setFF_Epointer(gridE):
     lib.setFF_Epointer(gridE)
 
 
+# void deleteFF_Fpointer()
+lib.deleteFF_Fpointer.argtypes = []
+lib.deleteFF_Fpointer.restype = None
+
+
+def deleteFF_Fpointer():
+    lib.deleteFF_Fpointer()
+
+
+# void deleteFF_Epointer()
+lib.deleteFF_Epointer.argtypes = []
+lib.deleteFF_Epointer.restype = None
+
+
+def deleteFF_Epointer():
+    lib.deleteFF_Epointer()
+
+
 def setFF(cell=None, gridF=None, gridE=None, parameters=None):
     n_ = None
     if gridF is not None:

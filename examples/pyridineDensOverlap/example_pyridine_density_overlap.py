@@ -32,7 +32,7 @@ def example_pyridine_density_overlap():
 
     generate_conv_rho("-s CHGCAR.xsf -t tip/density_CO.xsf -B 1.0 -E".split())
     generate_elff("-i LOCPOT.xsf --tip_dens tip/density_CO.xsf --Rcore 0.7 -E --doDensity".split())
-    generate_dftd3("-i LOCPOT.xsf --df_name PBE --energy".split())
+    generate_dftd3("-i LOCPOT.xsf --df_name PBE".split())
 
     relaxed_scan("-k 0.25 -q 1.0 --noLJ --Apauli 18.0 --bDebugFFtot".split())  # Note the --noLJ for loading separate Pauli and vdW instead of LJ force field
     plot_results("-k 0.25 -q 1.0 -a 2.0 --df".split())

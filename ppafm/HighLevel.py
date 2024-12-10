@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sys
+import weakref
 
 import numpy as np
 
@@ -191,6 +192,9 @@ def perform_relaxation(
         PPdisp = None
     if verbose > 0:
         print("<<<END: perform_relaxation()")
+
+    core.deleteFF_Fpointer()
+
     return fzs, PPpos, PPdisp, lvecScan
 
 
@@ -204,11 +208,14 @@ def prepareArrays(FF, Vpot, parameters):
         gridN = parameters.gridN
         FF = np.zeros((gridN[2], gridN[1], gridN[0], 3))
     else:
-        parameters.gridN = np.shape(FF)
+        gridN = np.shape(FF)
+        parameters.gridN = gridN
     core.setFF_Fpointer(FF)
+    weakref.finalize(FF, lambda: core.deleteFF_Fpointer())  # Set array pointer to NULL when garbage collector runs.
     if Vpot:
         V = np.zeros((gridN[2], gridN[1], gridN[0]))
         core.setFF_Epointer(V)
+        weakref.finalize(FF, lambda: core.deleteFF_Epointer())
     else:
         V = None
     return FF, V
@@ -455,3 +462,5 @@ def subtractCoreDensities(
         print("sum(RHO), Nelec: ", rho.sum(), rho.sum() * dV)  # check sum
     if bSaveDebugDens:
         io.saveXSF("rho_subCoreChg.xsf", rho, lvec, head=head)
+
+    core.deleteFF_Epointer()

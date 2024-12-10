@@ -1,4 +1,6 @@
 #!/usr/bin/python
+import gc
+
 import numpy as np
 
 from .. import common, fieldFFT, io
@@ -68,6 +70,10 @@ def main(argv=None):
         io.save_scal_field("E" + namestr, energy * args.Apauli, lvec_sample, data_format=args.output_format, head=head_sample)
     force_field = io.packVecGrid(f_x * args.Apauli, f_y * args.Apauli, f_z * args.Apauli)
     io.save_vec_field("FF" + namestr, force_field, lvec_sample, data_format=args.output_format, head=head_sample)
+
+    # Make sure that the energy and force field pointers are deleted so that they don't interfere if any other force fields are computed after this.
+    del energy, force_field
+    gc.collect()
 
 
 if __name__ == "__main__":
