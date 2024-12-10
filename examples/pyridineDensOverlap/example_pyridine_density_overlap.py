@@ -30,7 +30,7 @@ def example_pyridine_density_overlap():
             Path("tip").mkdir(exist_ok=True)
             zip_ref.extractall("tip")
 
-    generate_conv_rho(["-s", "LOCPOT.xsf", "-t", "tip/density_CO.xsf", "-B", "1.0", "-E"])
+    generate_conv_rho(["-s", "LOCPOT.xsf", "-t", "tip/density_CO.xsf", "-B", "1.0", "--energy"])
     generate_elff(["-i", "LOCPOT.xsf", "--tip_dens", "tip/density_CO.xsf", "--Rcore", "0.7", "--energy", "--doDensity"])
     generate_dftd3(["--input", "LOCPOT.xsf", "--df_name", "PBE"])
 
