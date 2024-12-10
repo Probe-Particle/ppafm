@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import copy
 import os
 import typing
 from argparse import ArgumentParser
@@ -320,7 +321,7 @@ class CLIParser(ArgumentParser):
         for name in arg_names:
             if name not in self.cli_args:
                 raise ValueError(f"Invalid argument name `{name}`")
-            arg_dict = self.cli_args[name]
+            arg_dict = copy.deepcopy(self.cli_args[name])
             if "help" not in arg_dict:
                 raise ValueError(f"No help message defined for `{name}`")
             if "short_name" in arg_dict:

@@ -44,7 +44,7 @@ def main(argv=None):
         if args.tip_dens is None:
             raise Exception("Rcore>0 but no tip density provided!")
         valence_electrons_dictionary = loadValenceElectronDict()
-        rs_tip, elems_tip = getAtomsWhichTouchPBCcell(args.tip_dens, Rcut=args.Rcore)
+        rs_tip, elems_tip = getAtomsWhichTouchPBCcell(args.tip_dens, Rcut=args.Rcore, parameters=parameters)
 
     atoms_samp, _, lvec_samp = io.loadGeometry(args.input, format=args.input_format, parameters=parameters)
     head_samp = io.primcoords2Xsf(atoms_samp[0], [atoms_samp[1], atoms_samp[2], atoms_samp[3]], lvec_samp)
