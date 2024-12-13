@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import sys
-import weakref
 
 import numpy as np
 
@@ -211,11 +210,9 @@ def prepareArrays(FF, Vpot, parameters):
         gridN = np.shape(FF)
         parameters.gridN = gridN
     core.setFF_Fpointer(FF)
-    weakref.finalize(FF, core.deleteFF_Fpointer)  # Set array pointer to NULL when garbage collector runs.
     if Vpot:
         V = np.zeros((gridN[2], gridN[1], gridN[0]))
         core.setFF_Epointer(V)
-        weakref.finalize(V, core.deleteFF_Epointer)
     else:
         V = None
     return FF, V
@@ -462,5 +459,3 @@ def subtractCoreDensities(
         print("sum(RHO), Nelec: ", rho.sum(), rho.sum() * dV)  # check sum
     if bSaveDebugDens:
         io.saveXSF("rho_subCoreChg.xsf", rho, lvec, head=head)
-
-    core.deleteFF_Epointer()
