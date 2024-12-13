@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import weakref
 from ctypes import POINTER, Structure, c_double, c_int
 
 import numpy as np
@@ -76,6 +77,7 @@ lib.setFF_Fpointer.restype = None
 
 def setFF_Fpointer(gridF):
     lib.setFF_Fpointer(gridF)
+    weakref.finalize(gridF, deleteFF_Fpointer)  # Set array pointer to NULL when garbage collector runs.
 
 
 # void setFF_pointer( double * gridF, double * gridE  )
@@ -85,6 +87,25 @@ lib.setFF_Epointer.restype = None
 
 def setFF_Epointer(gridE):
     lib.setFF_Epointer(gridE)
+    weakref.finalize(gridE, deleteFF_Epointer)  # Set array pointer to NULL when garbage collector runs.
+
+
+# void deleteFF_Fpointer()
+lib.deleteFF_Fpointer.argtypes = []
+lib.deleteFF_Fpointer.restype = None
+
+
+def deleteFF_Fpointer():
+    lib.deleteFF_Fpointer()
+
+
+# void deleteFF_Epointer()
+lib.deleteFF_Epointer.argtypes = []
+lib.deleteFF_Epointer.restype = None
+
+
+def deleteFF_Epointer():
+    lib.deleteFF_Epointer()
 
 
 def setFF(cell=None, gridF=None, gridE=None, parameters=None):

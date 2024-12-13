@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import gc
 from pathlib import Path
 
 from .. import common
@@ -21,6 +22,9 @@ def main(argv=None):
         ffModel=args.ffModel,
         parameters=parameters,
     )
+
+    # Make sure that the energy and force field pointers are deleted so that they don't interfere if any other force fields are computed after this.
+    gc.collect()
 
 
 if __name__ == "__main__":
