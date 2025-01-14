@@ -36,10 +36,7 @@ Esite0    = [-0.1, -0.1, -0.1]
 
 # ============  QmeQ params
 
-muS    = 0.0    ## substrate chemical potential
-muT    = 0.0    ## scanning tip chemical potential
-Temp   = 0.224  ## (2.6K) temperature in meV, 1meV = 11.6K, 1K = 0.0862meV
-DBand  = 1000.0 ## lead bandwidth
+
 GammaS = 0.20 ## coupling to substrate
 GammaT = 0.05 ## coupling to scanning tip
 ## tunneling amplitudes weighted by lead DOS
@@ -71,8 +68,8 @@ def call_qmeq(
 ):
     NSingle = len(Eps)
     ## one-particle Hamiltonian
-    H1p = {(0,0):  Eps[0], (0,1): t, (0,2): t,
-            (1,1): Eps[1],           (1,2): t,
+    H1p = {(0,0):  Eps[0], (0,1): tij, (0,2): tij,
+            (1,1): Eps[1],           (1,2): tij,
             (2,2): Eps[2]
     }
     ## coupling between leads (1st number) and impurities (2nd number)
@@ -96,6 +93,16 @@ def call_qmeq(
     system.solve()
     return system.current[1], system.Ea
 
+def get_current_Qmeq( VBias, Esites, Ttips ):
+    ntip = len(Esites)
+    Is = np.zeros(ntip)
+    for itip in range(ntip):
+       I,Ea = call_qmeq( VBias, Ttips[itip], Esites[itip]  )
+       Is[itip] = I
+       print( "itip,I,Ea", itip, I )
+    return Is
+
+
 # =================  Main
 
 # Energy of states on the sites
@@ -114,36 +121,18 @@ mpols = np.zeros((3,10))
 mpols[:,4] = Qzz
 mpols[:,0] = Q0
 
-
-#  compute_site_energies( pTip, pSites, siteRots, multi_poles, Esite0,  Qt):
-
-
-
-
-
-
-# Initialize global parameters
-chr.initRingParams(spos, Esite0, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling, onSiteCoulomb=onSiteCoulomb, temperature=T )
-
-confstrs = ["000","001", "010", "100", "110", "101", "011", "111"] 
-confColors = chr.colorsFromStrings(confstrs, hi="A0", lo="00")
-confs = chr.confsFromStrings( confstrs )
-print( "confs: \n", confs)
-nconfs = chr.setSiteConfBasis(confs)
-
-
-# Setup scanning grid ( tip positions and charges )
+# --------- 1D scan tip trajectory
+# --------- Setup scanning grid ( tip positions and charges )
 extent = [-L,L,-L,L]
 ps    = chr.makePosXY(n=npix, L=L, z0=z_tip )
 Qtips = np.ones(len(ps))*Q_tip
-
 if bDebugRun:
     ps_line = chr.getLine(spos, [0.5,0.5,-5.0], [-4.0,-4.0,1.0], n=5 )
     chr.setVerbosity(3)
 else:
     ps_line = chr.getLine(spos, [0.5,0.5,-5.0], [-4.0,-4.0,1.0], n=300 )
 ps_line[:,2] = z_tip
-
+# -------- plot 1D scan tip trajectory
 plt.figure(figsize=(5,5))
 plt.plot(spos[:,0], spos[:,1], '+g')
 plt.plot(ps_line[:,0], ps_line[:,1], '.-r', ms=0.5)
@@ -151,49 +140,21 @@ plt.title("Tip Trajectory")
 plt.axis("equal")
 plt.grid(True)
 
+# --------- Calculate site energy shifts, hopping, tunelling coefs and current
+plt.figure(figsize=(10,5))
+Esites, Ttips = tmul.compute_site_energies_and_hopping( ps_line, spos, rots, mpols, Esite0, Q_tip, beta=0. )
+Is      = get_current_Qmeq( V_Bias, Esites, Ttips )
 
-Esites_ = tmul.compute_site_energies( ps_line, spos, rots, mpols, Esite0, Q_tip )
-
-# ================= 1D scan
-
-# ================= 1D scan  : Eigen-States, Hamiltonian, and Configuration Energies
-
-Qs = np.ones(len(ps_line))*Q_tip 
-
-print( "chr.nconfs ", chr.nconfs)
-
-#Qsites, Esite, Econf = chr.solveSiteOccupancies( ps_line, Qs, bEconf=True, bEsite=True, solver_type=1 )
-Qsites, Esite, Econf = chr.solveSiteOccupancies( ps_line, Qs, bEconf=True, bEsite=True, solver_type=2 )
-#evals, evecs, Hs, Gs = chr.solveHamiltonians   ( ps_line, Qs, Qsites=Qsites, bH=True)
-
-Qtot = np.sum(Qsites, axis=1)
-
-# Create figure with 3 vertically stacked subplots
-plt.figure(figsize=(10,12))
-
-nplt=3
-iplt=1
-
-# Plot 1: Configuration Energies
-plt.subplot(nplt,1,iplt); iplt+=1
-if Econf is not None:
-    #for i in range(nconfs):
-    #    plt.plot(Econf  [:,i], lw=1.5, label=confstrs[i], c=confColors[i]) 
-    for i in range(3):
-        plt.plot(Esites_[:,i], lw=1.5, label=i ) 
-
-plt.axhline(y=E_Fermi,        color='k', linestyle='--', alpha=0.5)  # Add Fermi level reference line
-plt.axhline(y=E_Fermi+V_Bias, color='r', linestyle='--', alpha=0.5)
-plt.title(f"Configuration Energies (relative to E_Fermi={E_Fermi})")
-plt.ylabel("Energy (eV)")
-plt.xlabel("Position along line")
+# --------- Plot site energies along the 1D tip trajectory
+plt.subplot(2,1,1)
+for i in range(3):
+    plt.plot(Esites[:,i], lw=1.5, label=i ) 
 plt.legend()
-plt.grid(True)
+plt.grid()
 
-
-
-plt.tight_layout()
-plt.savefig("test_ChargeRings_1D.png", bbox_inches='tight')
-
-
+# --------- Plot current along the 1D tip trajectory
+plt.subplot(2,1,2)
+plt.plot(Is, lw=1.5, label="I" )
+plt.legend()
+plt.grid()
 plt.show()
