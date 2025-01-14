@@ -394,7 +394,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01, 'step': 0.001, 'decimals': 3},
             'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 2.0,  'step': 0.5},
             'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
-            'decay':         {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 2.0),   'value': 0.5,  'step': 0.1},
+            'decay':         {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 10.0),   'value': 0.5,  'step': 0.1},
             'E_Fermi':       {'group': 'System Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': 0.0,  'step': 0.01},
             
             # Ring Geometry
