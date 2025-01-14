@@ -25,7 +25,7 @@ R      =  5.0  # radius of circle on which sites are placed
 phiRot = -1.0
 Q0  = 1.0
 Qzz = 15.0 * 0.0
-Esite = [-1.0, -1.0, -1.0]
+Esites = [-1.0, -1.0, -1.0]
 """
 
 
@@ -46,7 +46,7 @@ R      =  5.0  # radius of circle on which sites are placed
 phiRot = -1.0
 Q0  = 1.0
 Qzz = 15.0 *0.0
-Esite = [-0.2, -0.2, -0.2]
+Esites = [-0.2, -0.2, -0.2]
 
 siteColors = ["r", "g", "b"]
 
@@ -72,10 +72,8 @@ mpols = np.zeros((3,10))
 mpols[:,4] = Qzz
 mpols[:,0] = Q0
 
-
-
 # Initialize global parameters
-chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling, onSiteCoulomb=onSiteCoulomb, temperature=T )
+chr.initRingParams(spos, Esites, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling, onSiteCoulomb=onSiteCoulomb, temperature=T )
 
 confstrs = ["000","001", "010", "100", "110", "101", "011", "111"] 
 confColors = chr.colorsFromStrings(confstrs, hi="A0", lo="00")
@@ -111,9 +109,12 @@ Qs = np.ones(len(ps_line))*Q_tip
 
 print( "chr.nconfs ", chr.nconfs)
 
-#Qsites, Esite, Econf = chr.solveSiteOccupancies( ps_line, Qs, bEconf=True, bEsite=True, solver_type=1 )
-Qsites, Esite, Econf = chr.solveSiteOccupancies( ps_line, Qs, bEconf=True, bEsite=True, solver_type=2 )
+#Qsites, Esites, Econf = chr.solvEsitesOccupancies( ps_line, Qs, bEconf=True, bEsites=True, solver_type=1 )
+Qsites, Esites, Econf = chr.solvEsitesOccupancies( ps_line, Qs, bEconf=True, bEsites=True, solver_type=2 )
 #evals, evecs, Hs, Gs = chr.solveHamiltonians   ( ps_line, Qs, Qsites=Qsites, bH=True)
+
+
+
 
 Qtot = np.sum(Qsites, axis=1)
 
@@ -128,10 +129,10 @@ plt.subplot(nplt,1,iplt); iplt+=1
 if Econf is not None:
     for i in range(nconfs):
         plt.plot(Econf[:,i], lw=1.5, label=confstrs[i], c=confColors[i])
-# Add Esite plots with dashed lines
-if Esite is not None:
-    for i in range(Esite.shape[1]):
-        plt.plot( Esite[:,i], '-', alpha=0.5, lw=3.0, label=f'Esite {i}', c=siteColors[i])    
+# Add Esites plots with dashed lines
+if Esites is not None:
+    for i in range(Esites.shape[1]):
+        plt.plot( Esites[:,i], '-', alpha=0.5, lw=3.0, label=f'Esites {i}', c=siteColors[i])    
 plt.axhline(y=E_Fermi,       color='k', linestyle='--', alpha=0.5)  # Add Fermi level reference line
 plt.axhline(y=E_Fermi+V_Bias, color='r', linestyle='--', alpha=0.5)
 plt.title(f"Configuration Energies (relative to E_Fermi={E_Fermi})")
@@ -164,7 +165,7 @@ else:
     # Using new Python implementation
     I_STM = chr.calculate_tunneling_current(
         ps_line,          # tip positions
-        Esite,            # site energies
+        Esites,            # site energies
         E_fermi_sub=E_Fermi,  # assuming substrate Fermi level at 0 
         E_fermi_tip=E_Fermi+V_Bias,  # tip Fermi level above tip
         decay=decay,      # using same decay as C++ version

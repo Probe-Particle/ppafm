@@ -140,10 +140,10 @@ def makePosXY(n=100, L=10.0, z0=5.0):
     ps[:,2] = z0
     return ps
     
-def makeRotMats(phi, nsite=3 ):
+def makeRotMats(phis, nsite=3 ):
     rot = np.zeros((nsite,3,3))
-    ca = np.cos(phi)
-    sa = np.sin(phi)
+    ca = np.cos(phis)
+    sa = np.sin(phis)
     rot[:,0,0] = ca
     rot[:,1,1] = ca
     rot[:,0,1] = -sa

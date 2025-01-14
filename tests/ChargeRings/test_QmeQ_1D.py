@@ -4,7 +4,10 @@ sys.path.append("../../")
 from pyProbeParticle import ChargeRings as chr
 import matplotlib.pyplot as plt
 
-path.insert(0, '/home/prokop/bin/home/prokop/venvs/ML/lib/python3.12/site-packages/qmeq/')
+
+import TipMultipole as tmul
+#sys.path.append('/home/prokop/bin/home/prokop/venvs/ML/lib/python3.12/site-packages/qmeq/')
+sys.path.append('/home/prokop/git_SW/qmeq')
 #path.insert(0, '/home/pokorny/bin/qmeq-1.1/')
 import qmeq
 
@@ -13,8 +16,8 @@ import qmeq
 # ============  Scan Params
 
 V_Bias    = 0.1
-Q_tip     = 0.6*0.2
-cCouling  = 0.03*0.2 #* 0.0
+Q_tip     = 0.6*0.1
+cCouling  = 0.03*0.01 #* 0.0
 E_Fermi   = 0.0
 z_tip     = 6.0
 L         = 20.0
@@ -29,7 +32,7 @@ R         =  5.0  # radius of circle on which sites are placed
 phiRot    = -1.0
 Q0        = 1.0
 Qzz       = 15.0 *0.0
-Esite     = [-0.2, -0.2, -0.2]
+Esite0    = [-0.1, -0.1, -0.1]
 
 # ============  QmeQ params
 
@@ -111,8 +114,16 @@ mpols = np.zeros((3,10))
 mpols[:,4] = Qzz
 mpols[:,0] = Q0
 
+
+#  compute_site_energies( pTip, pSites, siteRots, multi_poles, Esite0,  Qt):
+
+
+
+
+
+
 # Initialize global parameters
-chr.initRingParams(spos, Esite, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling, onSiteCoulomb=onSiteCoulomb, temperature=T )
+chr.initRingParams(spos, Esite0, rot=rots, MultiPoles=mpols, E_Fermi=E_Fermi, cCouling=cCouling, onSiteCoulomb=onSiteCoulomb, temperature=T )
 
 confstrs = ["000","001", "010", "100", "110", "101", "011", "111"] 
 confColors = chr.colorsFromStrings(confstrs, hi="A0", lo="00")
@@ -140,6 +151,9 @@ plt.title("Tip Trajectory")
 plt.axis("equal")
 plt.grid(True)
 
+
+Esites_ = tmul.compute_site_energies( ps_line, spos, rots, mpols, Esite0, Q_tip )
+
 # ================= 1D scan
 
 # ================= 1D scan  : Eigen-States, Hamiltonian, and Configuration Energies
@@ -163,13 +177,12 @@ iplt=1
 # Plot 1: Configuration Energies
 plt.subplot(nplt,1,iplt); iplt+=1
 if Econf is not None:
-    for i in range(nconfs):
-        plt.plot(Econf[:,i], lw=1.5, label=confstrs[i], c=confColors[i])
-# Add Esite plots with dashed lines
-if Esite is not None:
-    for i in range(Esite.shape[1]):
-        plt.plot( Esite[:,i], '-', alpha=0.5, lw=3.0, label=f'Esite {i}', c=siteColors[i])    
-plt.axhline(y=E_Fermi,       color='k', linestyle='--', alpha=0.5)  # Add Fermi level reference line
+    #for i in range(nconfs):
+    #    plt.plot(Econf  [:,i], lw=1.5, label=confstrs[i], c=confColors[i]) 
+    for i in range(3):
+        plt.plot(Esites_[:,i], lw=1.5, label=i ) 
+
+plt.axhline(y=E_Fermi,        color='k', linestyle='--', alpha=0.5)  # Add Fermi level reference line
 plt.axhline(y=E_Fermi+V_Bias, color='r', linestyle='--', alpha=0.5)
 plt.title(f"Configuration Energies (relative to E_Fermi={E_Fermi})")
 plt.ylabel("Energy (eV)")
@@ -177,41 +190,7 @@ plt.xlabel("Position along line")
 plt.legend()
 plt.grid(True)
 
-# Plot 2: On-site energies
-plt.subplot(nplt,1,iplt); iplt+=1
-for i in range(Qsites.shape[1]):
-    plt.plot( Qsites[:,i], '-', alpha=0.5, lw=2.0, label=f'Q {i}', c=siteColors[i])    
-#plt.plot(Qsites[:,0], label="Q 1")
-#plt.plot(Qsites[:,1], label="Q 2")
-#plt.plot(Qsites[:,2], label="Q 3")
-plt.plot(Qtot,     'k-', label="Qtot" )
-plt.title("On-site energies")
-plt.legend()
-plt.ylim(-0.5,3.5)
-plt.grid(True)
 
-# Plot 3: STM
-plt.subplot(nplt,1,iplt); iplt+=1
-
-bSTMcpp = False
-if bSTMcpp:
-    #I_STM = chr.getSTM_map(ps_line, Qtips, Qsites, decay=decay, bOccupied=True  ); #I_occup = I_occup.reshape((npix,npix))
-    I_STM = chr.getSTM_map(ps_line, Qtips, Qsites, decay=decay, bOccupied=False ); #I_empty = I_empty.reshape((npix,npix))
-else:
-    # Using new Python implementation
-    I_STM = chr.calculate_tunneling_current(
-        ps_line,          # tip positions
-        Esite,            # site energies
-        E_fermi_sub=E_Fermi,  # assuming substrate Fermi level at 0 
-        E_fermi_tip=E_Fermi+V_Bias,  # tip Fermi level above tip
-        decay=decay,      # using same decay as C++ version
-        T=T,             # room temperature
-    )
-
-plt.plot( I_STM, label="STM empty" )
-#plt.plot( Qtot,    label="Qtot" )
-plt.grid(True)
-plt.title("STM")
 
 plt.tight_layout()
 plt.savefig("test_ChargeRings_1D.png", bbox_inches='tight')
