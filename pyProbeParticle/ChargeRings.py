@@ -130,15 +130,15 @@ def solveHamiltonians(ptips, Qtips, Qsites=None, evals=None, evecs=None, Gs=None
 
 # ========= Python functions
 
-def makePosXY(n=100, L=10.0, z0=5.0):
+def makePosXY(n=100, L=10.0, axs=(0,1,2), p0=(0.0,0.0,0.0) ):
     x = np.linspace(-L,L,n)
     y = np.linspace(-L,L,n)
     Xs,Ys = np.meshgrid(x,y)
     ps = np.zeros((n*n,3))
-    ps[:,0] = Xs.flatten()
-    ps[:,1] = Ys.flatten()
-    ps[:,2] = z0
-    return ps
+    ps[:,axs[0]] = p0[axs[0]] + Xs.flatten()
+    ps[:,axs[1]] = p0[axs[1]] + Ys.flatten()
+    ps[:,axs[2]] = p0[axs[2]] 
+    return ps, Xs, Ys
     
 def makeRotMats(phis, nsite=3 ):
     rot = np.zeros((nsite,3,3))
