@@ -17,16 +17,16 @@ eV2meV = 1000.0
 
 # ============  Scan Params
 
-V_Bias    = 0.1
+V_Bias    = 0.05
 Q_tip     = 0.6*0.1
 cCouling  = 0.03*0.01 #* 0.0
 E_Fermi   = 0.0
 z_tip     = 6.0
 L         = 10.0
-#npix      = 400
-#npix      = 10
-#npix      = 100
-npix      = 20
+#npix     = 400
+#npix     = 10
+#npix     = 100
+npix      = 50
 decay     = 0.2
 onSiteCoulomb = 3.0
 dQ        = 0.01
@@ -59,7 +59,7 @@ def call_qmeq(
     VBias,           ## bias between tip and substrate
     Ttips,           ## hopping between tip and each of the sites
     Eps,             ## energy levels of sites shifted by tip bias
-    Uij  = 20.0,     ## Coulombinc coupling between different sites
+    Uij  =  10.0,     ## Coulombinc coupling between different sites
     tij  =  0.0,     ## Direct hopping between different sites
     Tsub = GammaS,   ## hopping between substrate and each of the sites
     # ------- Constant /  not interesting parameters
@@ -67,14 +67,14 @@ def call_qmeq(
     muS   = 0.0,     ## substrate chemical potential
     muT   = 0.0,     ## scanning tip chemical potential
     DBand = 1000.0,  ## lead bandwidth
-    U      = 220.0,  ## on-site Coulomb interaction, useless for spinless case
+    U     = 220.0,  ## on-site Coulomb interaction, useless for spinless case
     NLeads=2,
     kerntype = 'Pauli',
 ):
     NSingle = len(Eps)
     ## one-particle Hamiltonian
     H1p = {(0,0):  Eps[0], (0,1): tij, (0,2): tij,
-            (1,1): Eps[1],           (1,2): tij,
+            (1,1): Eps[1],             (1,2): tij,
             (2,2): Eps[2]
     }
     ## coupling between leads (1st number) and impurities (2nd number)

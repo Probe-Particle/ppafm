@@ -17,7 +17,7 @@ eV2meV = 1000.0
 
 # ============  Scan Params
 
-V_Bias    = 0.1
+V_Bias    = 0.05
 Q_tip     = 0.6*0.1
 cCouling  = 0.03*0.01 #* 0.0
 E_Fermi   = 0.0
