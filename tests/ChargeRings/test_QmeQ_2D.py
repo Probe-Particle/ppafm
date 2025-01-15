@@ -22,9 +22,11 @@ Q_tip     = 0.6*0.1
 cCouling  = 0.03*0.01 #* 0.0
 E_Fermi   = 0.0
 z_tip     = 6.0
-L         = 20.0
+L         = 10.0
 #npix      = 400
-npix      = 100
+#npix      = 10
+#npix      = 100
+npix      = 20
 decay     = 0.2
 onSiteCoulomb = 3.0
 dQ        = 0.01
@@ -96,6 +98,16 @@ def call_qmeq(
     system.solve()
     return system.current[1], system.Ea
 
+# def get_current_Qmeq_2D( VBias, Esites, Ttips ):
+#     ny,nx = Esites.shape [:2] ;print( "get_current_Qmeq_2D() ny,nx", ny,nx )
+#     Is    = np.zeros( (ny,nx) )
+#     for iy in range(ny):
+#         for ix in range(nx):
+#             I,Ea = call_qmeq( VBias, Ttips[iy,ix], Esites[iy,ix]  )
+#             Is[iy,ix] = I
+#             print( f"get_current_Qmeq_2D [{iy},{ix}] I: {I}" )
+#     return Is
+
 def get_current_Qmeq( VBias, Esites, Ttips ):
     ntip = len(Esites)
     Is = np.zeros(ntip)
@@ -104,7 +116,6 @@ def get_current_Qmeq( VBias, Esites, Ttips ):
        Is[itip] = I
        print( "itip,I,Ea", itip, I )
     return Is
-
 
 # =================  Main
 
@@ -124,54 +135,42 @@ mpols = np.zeros((3,10))
 mpols[:,4] = Qzz
 mpols[:,0] = Q0
 
+
+
 # --------- 1D scan tip trajectory
 # --------- Setup scanning grid ( tip positions and charges )
 extent = [-L,L,-L,L]
 ps    = chr.makePosXY(n=npix, L=L, z0=z_tip )
-Qtips = np.ones(len(ps))*Q_tip
-if bDebugRun:
-    ps_line = chr.getLine(spos, [0.5,0.5,-5.0], [-4.0,-4.0,1.0], n=5 )
-    chr.setVerbosity(3)
-else:
-    ps_line = chr.getLine(spos, [0.5,0.5,-5.0], [-4.0,-4.0,1.0], n=npix )
-ps_line[:,2] = z_tip
-# -------- plot 1D scan tip trajectory
-plt.figure(figsize=(5,5))
-plt.plot(spos[:,0], spos[:,1], '+g')
-plt.plot(ps_line[:,0], ps_line[:,1], '.-r', ms=0.5)
-plt.title("Tip Trajectory")
-plt.axis("equal")
-plt.grid(True)
 
 # --------- Calculate site energy shifts, hopping, tunelling coefs and current
-plt.figure(figsize=(10,12))
-Esites, Ttips = tmul.compute_site_energies_and_hopping( ps_line, spos, rots, mpols, Esite0, Q_tip, beta=0. )
+Esites, Ttips = tmul.compute_site_energies_and_hopping( ps.reshape(-1,3), spos, rots, mpols, Esite0, Q_tip, beta=0. )
 Is            = get_current_Qmeq( V_Bias*eV2meV, Esites*eV2meV, Ttips )
+Is = Is.reshape(npix,npix)
+Esites = Esites.reshape(npix,npix,3)
 
 # --------- Plot site energies along the 1D tip trajectory
-plt.subplot(3,1,1)
+plt.figure(figsize=(15,10))
 for i in range(3):
-    plt.plot(Esites[:,i]*eV2meV, lw=1.5, label=i ) 
+    plt.title('Energy of site ' + str(i) )
+    vmax = max( -np.min(Esites[:,:,i]), np.max(Esites[:,:,i]) )
+    plt.subplot(2,3,i+1); plt.imshow(Esites[:,:,i], label='', extent=extent, cmap='bwr', vmin=-vmax, vmax=vmax ) 
+    plt.plot(spos[:,0], spos[:,1], '+g')
+#plt.imshow(Esites.reshape(npix,npix,3) ) 
 plt.legend()
-plt.axhline(0, lw=1.5, ls='--', color='k')
-plt.title("Site energies")
-plt.xlabel("Tip position")
-plt.ylabel("Energy [meV]")
 plt.grid()
+
 
 # --------- Plot current along the 1D tip trajectory
-plt.subplot(3,1,2)
-plt.plot(Is, lw=1.5, label="I" )
+#plt.figure(figsize=(5,5))
+plt.subplot(2,3,3+1);
+plt.title('Total Current')
+plt.imshow(Is.reshape(npix,npix), extent=extent, ) 
+plt.plot(spos[:,0], spos[:,1], '+g')
 plt.legend()
 plt.grid()
 
-# --------- Plot current along the 1D tip trajectory
-plt.subplot(3,1,3)
-for i in range(3):
-    plt.plot(Ttips[:,i], lw=1.5, label= f"t{i} = < Tip | site#{i}>"  ) 
-plt.legend()
-plt.grid()
 
+plt.savefig("test_QmeQ_2D_.png")
 
 
 plt.show()
