@@ -140,7 +140,7 @@ mpols[:,0] = Q0
 # --------- 1D scan tip trajectory
 # --------- Setup scanning grid ( tip positions and charges )
 extent = [-L,L,-L,L]
-ps    = chr.makePosXY(n=npix, L=L, z0=z_tip )
+ps,_,_    = chr.makePosXY(n=npix, L=L, p0=(0.0,0.0,z_tip) )
 
 # --------- Calculate site energy shifts, hopping, tunelling coefs and current
 Esites, Ttips = tmul.compute_site_energies_and_hopping( ps.reshape(-1,3), spos, rots, mpols, Esite0, Q_tip, beta=0. )
