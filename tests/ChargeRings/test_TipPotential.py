@@ -7,14 +7,6 @@ import matplotlib.pyplot as plt
 
 import TipMultipole as tmul
 
-def makeCircle( n=10, R=1.0, p0=(0.0,0.0,0.0), axs=(0,1,2) ):
-    phis  = np.linspace(0,2*np.pi,n, endpoint=False)
-    ps    = np.zeros((n,3))
-    ps[:,axs[0]] = p0[axs[0]] + np.cos(phis)*R
-    ps[:,axs[1]] = p0[axs[1]] + np.sin(phis)*R
-    ps[:,axs[2]] = p0[axs[2]]
-    return ps, phis
-
 # Energy of states on the sites
 # Rtip   = 1.0
 # VBias  = 0.1
@@ -46,8 +38,8 @@ def plotTipPotXZ( VBias=1.0, Rtip=1.0, z_tip=3.0, zVO=-2.5, zQd=0.0, npix=100, L
     if bPlot:
         plt.title(f'Tip potential R_tip: {Rtip} V_Bias: {VBias}')
         extent     = [-L,L,-L,L]
-        circ1,_ = makeCircle( 16, R=Rtip, axs=(0,2,1), p0=(0.0,0.0,      zT) )
-        circ2,_ = makeCircle( 16, R=Rtip, axs=(0,2,1), p0=(0.0,0.0,2*zV0-zT) )
+        circ1,_ = tmul.makeCircle( 16, R=Rtip, axs=(0,2,1), p0=(0.0,0.0,      zT) )
+        circ2,_ = tmul.makeCircle( 16, R=Rtip, axs=(0,2,1), p0=(0.0,0.0,2*zV0-zT) )
         #plt.title('Tip Potnetial')
         im = plt.imshow( Vtip , extent=extent, cmap='bwr', origin='lower', vmin=-VBias, vmax=VBias) 
         #plt.colorbar()

@@ -73,9 +73,10 @@ def call_qmeq(
 ):
     NSingle = len(Eps)
     ## one-particle Hamiltonian
-    H1p = {(0,0):  Eps[0], (0,1): tij, (0,2): tij,
-            (1,1): Eps[1],           (1,2): tij,
-            (2,2): Eps[2]
+    H1p = {
+        (0,0):  Eps[0], (0,1): tij, (0,2): tij,
+        (1,1): Eps[1], (1,2): tij,
+        (2,2): Eps[2]
     }
     ## coupling between leads (1st number) and impurities (2nd number)
     TLeads = {
@@ -90,89 +91,66 @@ def call_qmeq(
     mu_L   = {0: muS,  1: muT + VBias}
     Temp_L = {0: Temp, 1: Temp}
     ## two-particle Hamiltonian: inter-site coupling
-    H2p = { (0,1,1,0): Uij,
-            (0,2,2,0): Uij,
-            (1,2,2,1): Uij
+    H2p = { 
+        (0,1,1,0): Uij,
+        (0,2,2,0): Uij,
+        (1,2,2,1): Uij
     }
     system = qmeq.Builder(NSingle, H1p, H2p, NLeads, TLeads, mu_L, Temp_L, DBand, kerntype=kerntype, indexing='Lin', itype=0, symq=True, solmethod='lsqr', mfreeq=0)
     system.solve()
     return system.current[1], system.Ea
 
-def get_current_Qmeq( VBias, Esites, Ttips ):
-    ntip = len(Esites)
-    Is = np.zeros(ntip)
-    for itip in range(ntip):
-       I,Ea = call_qmeq( VBias, Ttips[itip], Esites[itip], Uij*eV2meV  )
-       Is[itip] = I
-       print( "itip,I,Ea", itip, I )
+def scan2D_QmeQ( a1_range, a2_range, Ttip=0.1, VBias=1.0, E0=-0.1, Uij=0.1 ):
+    n1 = len(a1_range)
+    n2 = len(a2_range)
+    Is = np.zeros((n1,n2))
+    Ttips = [ Ttip, Ttip, Ttip ]
+    for i1 in range(n1):
+        for i2 in range(n2):
+            E1 = ( E0 + VBias * a1_range[i1] )*eV2meV
+            E2 = ( E0 + VBias * a2_range[i2] )*eV2meV
+            I,Ea = call_qmeq( VBias*eV2meV, Ttips, [ E1, E2, E2 ], Uij*eV2meV  )
+            Is[i1,i2] = I
+            print( "i1,i2,I", i1,i2, I, E1, E2 )
     return Is
 
+def scanVBias_QmeQ( VBias_range, a1=0.0, a2=0.0, Ttip=0.001, E0=-0.1, Uij=0.1 ):
+    n = len(VBias_range)
+    Ttips = [ Ttip, Ttip, Ttip ]
+    Is = np.zeros((n))
+    for i in range(n):
+        VBias = VBias_range[i]
+        E1 = ( E0 + VBias * a1 )*eV2meV
+        E2 = ( E0 + VBias * a2 )*eV2meV
+        I,Ea = call_qmeq( VBias*eV2meV, Ttips, [ E1, E2, E2 ], Uij*eV2meV  )
+        Is[i] = I
+        print( f"i {i} V {VBias*eV2meV} I {I} E1 {E1} E2 {E2} VT {VT}" )
+    return Is
 
-# =================  Main
+# a1_range = np.linspace( -0.5, 1.0, 50 )
+# a2_range = np.linspace( -1.0, 1.0, 50 )
+# extent = [ a1_range[0], a1_range[-1], a2_range[0], a2_range[-1] ]
+# Is = scan2D_QmeQ( a1_range, a2_range, VBias=1.0, E0=0.0, Uij=0.01 )
+# plt.figure()
+# plt.imshow(Is, origin='lower', extent=extent )
+# plt.xlabel("a1")
+# plt.ylabel("a2")
+# plt.colorbar()
 
-# Energy of states on the sites
 
+# a1_range = np.linspace(  0.8 , 1.0, 50 )
+# a2_range = np.linspace(  0.85, 1.0, 50 )
+# extent = [ a1_range[0], a1_range[-1], a2_range[0], a2_range[-1] ]
+# Is = scan2D_QmeQ( a1_range, a2_range, VBias=1.0, E0=0.0, Uij=0.01 )
+# plt.figure()
+# plt.imshow(Is, origin='lower', extent=extent )
+# plt.xlabel("a1")
+# plt.ylabel("a2")
+# plt.colorbar()
 
-# Setup system geometry
-# distribute sites on a circle
-phis = np.linspace(0,2*np.pi,nsite, endpoint=False)
-pSites = np.zeros((3,3))
-pSites[:,0] = np.cos(phis)*R
-pSites[:,1] = np.sin(phis)*R
-# rotation of multipoles on sites
-rots = tmul.makeRotMats( phis + phiRot, nsite )
-# Setup site multipoles
-mpols = np.zeros((3,10))
-mpols[:,4] = Qzz
-mpols[:,0] = Q0
-
-# --------- 1D scan tip trajectory
-# --------- Setup scanning grid ( tip positions and charges )
-extent = [-L,L,-L,L]
-ps_line = tmul.getLine(pSites, [0.5,0.5,-5.0], [-4.0,-4.05,1.0], n=npix )
-
-ps_line[:,2] = z_tip
-
-# -------- plot 1D scan tip trajectory
-plt.figure(figsize=(5,5))
-plt.plot(pSites[:,0], pSites[:,1], '+g')
-plt.plot(ps_line[:,0], ps_line[:,1], '.-r', ms=0.5)
-plt.title("Tip Trajectory")
-plt.axis("equal")
-plt.grid(True)
-
-# --------- Calculate site energy shifts, hopping, tunelling coefs and current
-plt.figure(figsize=(10,12))
-#Esites, Ttips = tmul.compute_site_energies_and_hopping( ps_line, pSites, rots, mpols, Esite0, Q_tip, beta=0. )
-Esites = tmul.compute_site_energies ( ps_line, pSites, V_Bias, Rtip, zV0=zV0, E0s=Esite0 )
-Ttips  = tmul.compute_site_tunelling( ps_line, pSites, beta=0.0, Amp=1.0 )
-Is     = get_current_Qmeq( V_Bias*eV2meV, Esites*eV2meV, Ttips )
-
-# --------- Plot site energies along the 1D tip trajectory
-plt.subplot(3,1,1)
-plt.title("Site energies")
-plt.xlabel("Tip position")
-plt.ylabel("Energy [meV]")
-for i in range(3):
-    plt.plot(Esites[:,i]*eV2meV, lw=1.5, label=i ) 
-plt.axhline( 0*eV2meV,   lw=1.5, ls='--', color='k')
-plt.axhline( -Uij*eV2meV, lw=1.5, ls='--', color='g', label="Uij")
-plt.legend()
-plt.grid()
-
-# --------- Plot current along the 1D tip trajectory
-plt.subplot(3,1,2)
-plt.plot(Is, lw=1.5, label="I" )
-plt.legend()
-plt.grid()
-
-# --------- Plot current along the 1D tip trajectory
-plt.subplot(3,1,3)
-for i in range(3):
-    plt.plot(Ttips[:,i], lw=1.5, label= f"t{i} = < Tip | site#{i}>"  ) 
-plt.legend()
-plt.grid()
-
+VBias_range  = np.arange(0.0,0.040,0.0005)
+Is = scanVBias_QmeQ( VBias_range, a1=-0.4, Ttip=0.001, E0=-0.01, Uij=0.02 )
+plt.plot( VBias_range, Is )
 
 
 plt.show()
