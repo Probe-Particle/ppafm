@@ -189,12 +189,18 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         # Calculate potentials
         self.tip_potential_data = {
-            'Vtip':   compute_V_mirror(tip_pos, ps_xz,  VBias=params['VBias'],  Rtip=params['Rtip'], zV0=params['zV0']                       ).reshape(params['npix'], params['npix']),
-            'Esites': compute_site_energies( ps_xz, np.array([[0.0,0.0,params['zQd']]]),params['VBias'], params['Rtip'], zV0=params['zV0'] ).reshape(params['npix'], params['npix']),
+            'Vtip':   compute_V_mirror(tip_pos, ps_xz,  VBias=params['VBias'],  Rtip=params['Rtip'], zV0=params['zV0']).reshape(params['npix'], params['npix']),
+            'Esites': compute_site_energies( ps_xz, np.array([[0.0,0.0,params['zQd']]]), params['VBias'], params['Rtip'], zV0=params['zV0']).reshape(params['npix'], params['npix']),
             'ps_xz':  ps_xz,
             'extent': [-params['L'], params['L'], -params['L'], params['L']]
         }
-    
+        
+        # Calculate 1D potential along x at z=0
+        ps_1d = np.zeros((params['npix'], 3))
+        ps_1d[:,0] = np.linspace(-params['L'], params['L'], params['npix'])  # x coordinates
+        ps_1d[:,2] = 0.0  # z=0 for all points
+        self.tip_potential_data['V1d'] = compute_V_mirror(tip_pos, ps_1d, VBias=params['VBias'], Rtip=params['Rtip'], zV0=params['zV0'])
+
     def calculateQdotSystem(self, params):
         """Calculate quantum dot system data for X-Y projections"""
         # X-Y grid
@@ -222,9 +228,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         # 1D Potential
         self.ax1.clear()
-        x_coords = np.linspace(-data['extent'][1], data['extent'][1], data['Vtip'].shape[0])
-        self.ax1.plot(x_coords, data['Vtip'].mean(axis=1))
-        self.ax1.set_title("1D Potential")
+        x_coords = np.linspace(-data['extent'][1], data['extent'][1], params['npix'])
+        self.ax1.plot(x_coords, data['V1d'])
+        self.ax1.set_title("1D Potential (z=0)")
         self.ax1.set_xlabel("x [Å]")
         self.ax1.set_ylabel("V [V]")
         self.ax1.grid()
