@@ -245,9 +245,9 @@ def compute_site_energies(pTips, pSites, VBias, Rtip=1.0, zV0=1.0, E0s=None ):
     for isite in range(nsite):
         psite = pSites[isite, :] 
         Vtip  = VR / np.linalg.norm( pTips  - psite, axis=1) 
-        Vtip -= VR / np.linalg.norm( pTips_ - psite, axis=1)  
-        #Esites[:, isite] = Vtip
-        Esites[:, isite] = 1 /( 1 + np.linalg.norm( pTips  - psite, axis=1) )
+        Vtip -= VR / np.linalg.norm( pTips_ - psite, axis=1) 
+        Esites[:, isite] = Vtip
+        #Esites[:, isite] = 1 /( 1 + np.linalg.norm( pTips  - psite, axis=1) )
         if E0s is not None:
             Esites[:, isite] += E0s[isite]
     return Esites

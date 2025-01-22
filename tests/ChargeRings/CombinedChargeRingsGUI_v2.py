@@ -32,7 +32,7 @@ class ApplicationWindow(GUITemplate):
             'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
             
             # Mirror Parameters
-            'zV0':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 0.0),  'value': -2.5, 'step': 0.1},
+            'zV0':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': -2.5, 'step': 0.1},
             'zQd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': 0.0,  'step': 0.1},
             
             # Ring Geometry
@@ -58,28 +58,14 @@ class ApplicationWindow(GUITemplate):
         self.canvas = FigureCanvas(self.fig)
         self.main_widget.layout().insertWidget(0, self.canvas)
         
-        self.init_simulation()
+        #self.init_simulation()
         self.run()
 
-    def init_simulation(self):
-        """Initialize simulation with Python backend"""
-        params = self.get_param_values()
-        print( "params: ",  params)
-        nsite = params['nsite']
-        R = params['radius']
-        
-        # Setup sites on circle using Python implementation
-        self.spos, phis = makeCircle(n=nsite, R=R)
-        self.spos[:,2] = 0.0  # quantum dots are on the surface
-        
-        # Setup multipoles and site energies
-        self.Esite = np.full(nsite, params['Esite'])
-        self.rots  = makeRotMats(phis + params['phiRot'])
-        
-        # Initialize global parameters
-        self.temperature = params['temperature']
-        self.onSiteCoulomb = params['onSiteCoulomb']
-    
+    # def init_simulation(self):
+    #     """Initialize simulation with Python backend"""
+    #     params = self.get_param_values()
+    #     print( "params: ",  params)
+
     def calculateTipPotential(self, params):
         """Calculate tip potential data for X-Z projections"""
         # X-Z grid
@@ -100,10 +86,25 @@ class ApplicationWindow(GUITemplate):
         # Calculate 1D potential along x at z=0
         ps_1d = np.zeros((params['npix'], 3))
         ps_1d[:,0] = np.linspace(-params['L'], params['L'], params['npix'])
-        ps_1d[:,2] = 0.0
+        ps_1d[:,2] = params['zQd']
         self.tip_potential_data['V1d'] = compute_V_mirror(tip_pos, ps_1d, VBias=params['VBias'], Rtip=params['Rtip'], zV0=params['zV0'])
 
     def calculateQdotSystem(self, params):
+        
+        nsite = params['nsite']
+        R     = params['radius']
+        
+        # Setup multipoles and site energies
+        self.Esite = np.full(nsite, params['Esite'])
+
+        # Initialize global parameters
+        self.temperature   = params['temperature']
+        self.onSiteCoulomb = params['onSiteCoulomb']
+
+        self.spos, phis = makeCircle(n=nsite, R=R)
+        self.spos[:,2]  = params['zQd']  # quantum dots are on the surface
+        self.rots       = makeRotMats(phis + params['phiRot'])
+
         zT = params['z_tip'] + params['Rtip']
         pTips, Xs, Ys = makePosXY(n=params['npix'], L=params['L'], p0=(0,0,zT))
         
@@ -115,6 +116,10 @@ class ApplicationWindow(GUITemplate):
             zV0=params['zV0'],
             E0s=self.Esite
         )
+
+        # Es = np.zeros( (params['npix']*params['npix'], nsite) )
+        # for i in range(nsite):
+        #     Es[:,i] = self.Esite[i] + compute_V_mirror( self.spos[:,i], pTips, VBias=params['VBias'], Rtip=params['Rtip'], zV0=params['zV0'])
         
         Ts = compute_site_tunelling(pTips, self.spos, beta=params['decay'], Amp=1.0)
 
@@ -221,7 +226,7 @@ class ApplicationWindow(GUITemplate):
     
     def run(self):
         """Main execution method"""
-        self.init_simulation()
+        #self.init_simulation()
         params = self.get_param_values()
         
         # Create 2x3 grid of plots
