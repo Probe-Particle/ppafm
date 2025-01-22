@@ -176,7 +176,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         # Setup scanning grid
         extent = [-params['L'], params['L'], -params['L'], params['L']]
-        ps = chr.makePosXY(n=params['npix'], L=params['L'], z0=params['z_tip'])
+        ps, _, _ = chr.makePosXY(n=params['npix'], L=params['L'], p0=(0.0, 0.0, params['z_tip']))
         Qtips = np.ones(len(ps)) * params['Q_tip']
         
         # Calculate occupancies and STM maps
