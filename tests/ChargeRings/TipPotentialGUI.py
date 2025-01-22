@@ -10,8 +10,8 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 # Add project root to Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from pyProbeParticle import ChargeRings as chr
+#sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+#from pyProbeParticle import ChargeRings as chr
 import TipMultipole as tmul
 
 class ApplicationWindow(QtWidgets.QMainWindow):
@@ -152,7 +152,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     
     def plotTipPotXZ(self, VBias=1.0, Rtip=1.0, z_tip=3.0, zV0=-2.5, zQd=0.0, npix=100, L=10.0):
         zT = z_tip+Rtip
-        ps,Xs,Ys = chr.makePosXY(n=npix, L=L, axs=(0,2,1))
+        ps,Xs,Ys = tmul.makePosXY(n=npix, L=L, axs=(0,2,1))
         Vtip = tmul.compute_V_mirror(np.array([0.0,0.0,zT]), ps, VBias=VBias, Rtip=Rtip, zV0=zV0)
         Vtip = Vtip.reshape(npix,npix)
         extent = [-L,L,-L,L]
@@ -165,7 +165,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     
     def plot2DpoentialXZ(self, VBias=1.0, Rtip=1.0, z_tip=3.0, zV0=-2.5, zQd=0.0, npix=100, L=10.0):
         pSites = np.array([[0.0,0.0,zQd],])
-        ps,Xs,Ys = chr.makePosXY(n=npix, L=L, axs=(0,2,1))
+        ps,Xs,Ys = tmul.makePosXY(n=npix, L=L, axs=(0,2,1))
         Esites = tmul.compute_site_energies(ps, pSites, VBias, Rtip, zV0=zV0)
         Esites = Esites.reshape(npix,npix, len(pSites))
         self.ax3.imshow(Esites[:,:,0], extent=[-L,L,-L,L], cmap='bwr', origin='lower', vmin=-VBias, vmax=VBias)
