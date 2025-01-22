@@ -11,10 +11,9 @@ from matplotlib.figure import Figure
 
 # Add project root to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-from tests.ChargeRings.TipMultipole import (
-    makeCircle, makeRotMats, compute_site_energies,
-    compute_site_tunelling, makePosXY
-)
+import tests.ChargeRings.TipMultipole as tmul
+
+# import (   makeCircle, makeRotMats, compute_site_energies, compute_site_tunelling, makePosXY, occupancy_FermiDirac )
 
 class ApplicationWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -26,8 +25,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Parameter specifications (unchanged from original)
         self.param_specs = {
             # Tip Parameters
-            'Q_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (-2.0, 2.0),  'value': 0.6, 'step': 0.1},
-            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (1.0, 20.0),  'value': 6.0, 'step': 0.5},
+            'V_Bias':        {'group': 'Tip Parameters',    'widget': 'double', 'range': (-2.0,  2.0),  'value': 0.6, 'step': 0.1},
+            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': ( 1.0, 10.0),  'value': 3.0, 'step': 0.5},
+            'R_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': ( 0.5,  5.0),   'value': 2.0, 'step': 0.5},
             
             # System Parameters
             'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02, 'step': 0.01, 'decimals': 3},
@@ -35,20 +35,20 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
             
             # Ring Geometry
-            'nsite':         {'group': 'Ring Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
-            'radius':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 5.0, 'step': 0.5},
-            'phiRot':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0,'step': 0.1},
+            'nsite':            {'group': 'Ring Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
+            'radius':           {'group': 'Ring Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 5.0, 'step': 0.5},
+            'phiRot':           {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0,'step': 0.1},
             
             # Site Properties
-            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0,'step': 0.1},
-            'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
-            'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
+            'Esite':            {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0), 'value': -0.1,'step': 0.1},
+            'Q0':               {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 10.0), 'value': 1.0, 'step': 0.1},
+            'Qzz':              {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
             
             # Visualization
-            'L':             {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 50.0),  'value': 20.0, 'step': 1.0},
-            'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (50, 500),    'value': 200,  'step': 50},
-            'decay':         {'group': 'Visualization',     'widget': 'double', 'range': (0.1, 2.0),   'value': 0.7,  'step': 0.1,   'decimals': 2},
-            'dQ':            {'group': 'Visualization',     'widget': 'double', 'range': (0.001, 0.1), 'value': 0.02, 'step': 0.001, 'decimals': 3},
+            'L':                {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 50.0),  'value': 20.0, 'step': 1.0},
+            'npix':             {'group': 'Visualization',     'widget': 'int',    'range': (50, 500),    'value': 200,  'step': 50},
+            'decay':            {'group': 'Visualization',     'widget': 'double', 'range': (0.1, 2.0),   'value': 0.7,  'step': 0.1,   'decimals': 2},
+            'dQ':               {'group': 'Visualization',     'widget': 'double', 'range': (0.001, 0.1), 'value': 0.02, 'step': 0.001, 'decimals': 3},
         }
         
         # Dictionary to store widget references
@@ -62,7 +62,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         l00 = QtWidgets.QHBoxLayout(self.main_widget)
         
         # --- Matplotlib Canvas
-        self.fig = Figure(figsize=(15, 5))
+        self.fig = Figure(figsize=(20, 5))
         self.canvas = FigureCanvas(self.fig)
         l00.addWidget(self.canvas)
         
@@ -121,10 +121,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
         self.init_simulation()
+        #self.run_simulation()
+        self.update_plots()
     
     def get_param_values(self):
         """Get current values of all parameters"""
-        return {name: widget.value() for name, widget in self.param_widgets.items()}
+        self.params = {name: widget.value() for name, widget in self.param_widgets.items()}
+        return self.params 
     
     def set_param_values(self, values):
         """Set values for all parameters"""
@@ -157,99 +160,90 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         R = params['radius']
         
         # Setup sites on circle using Python implementation
-        self.spos, phis = makeCircle(n=nsite, R=R)
-        self.spos[:,2] = params['z_tip']
+        self.spos, phis = tmul.makeCircle(n=nsite, R=R)
+        self.spos[:,2]  = params['z_tip']
         
         # Setup multipoles and site energies
         self.Esite = np.full(nsite, params['Esite'])
-        self.rots = makeRotMats(phis + params['phiRot'])
+        self.rots  = tmul.makeRotMats(phis + params['phiRot'])
         
         # Initialize global parameters
-        self.temperature = params['temperature']
+        self.temperature   = params['temperature']
         self.onSiteCoulomb = params['onSiteCoulomb']
     
     def run_simulation(self):
         """Run simulation using Python backend"""
         self.init_simulation()
         params = self.get_param_values()
-        
-        # Setup scanning grid
-        ps, Xs, Ys = makePosXY(n=params['npix'], L=params['L'], p0=(0,0,params['z_tip']))
-        
-        # Compute site energies and tunneling rates
-        Es = compute_site_energies(
-            ps, self.spos,
-            VBias=params['Q_tip'],
-            Rtip=1.0,
-            zV0=params['z_tip'],
-            E0s=self.Esite
-        )
-        
-        T = compute_site_tunelling(
-            ps, self.spos,
-            beta=params['decay'],
-            Amp=1.0
-        )
-        
-        # Calculate charge distribution
-        Q = self.solve_occupancies(Es, T)
-        
+
+        ps, Xs, Ys = tmul.makePosXY(n=params['npix'], L=params['L'], p0=(0,0,params['z_tip']))
+        Es  = tmul.compute_site_energies ( ps, self.spos,VBias=params['V_Bias'], Rtip=params['R_tip'],zV0=params['z_tip'], E0s=self.Esite );     print( "Emin Emax ", np.min(Es), np.max(Es) )
+        Ts  = tmul.compute_site_tunelling( ps, self.spos, beta=params['decay'], Amp=1.0 )
+        Qs  = np.zeros(Es.shape)
+        Is  = np.zeros(Es.shape)
+        for i in range(params['nsite']):
+            Qs[:,i] = tmul.occupancy_FermiDirac( Es[:,i], self.temperature )
+            Is[:,i] = Ts[:,i] * Qs[:,i] 
+
         # Reshape results for plotting
         npix = params['npix']
-        Q = Q.reshape((npix, npix, -1))  # Add third dimension for sites
-        I = self.getSTM_map(Q, T, params['dQ'])
-        I = I.reshape((npix, npix))      # STM image is 2D
-        
-        # Plot results
-        self.update_plots(Q, I, params)
+        self.Es = Es.reshape((npix, npix, -1))  # Add third dimension for sites
+        self.Qs = Qs.reshape((npix, npix, -1))  # Add third dimension for sites
+        self.Is = Is.reshape((npix, npix, -1))  # STM image is 2D
     
-    def solve_occupancies(self, Es, T):
-        """Calculate site occupancies using Fermi-Dirac statistics"""
-        kT = 8.617e-5 * self.temperature  # eV/K
-        nsite = Es.shape[1]
-        occupancies = 1/(1 + np.exp((Es - 0.5*self.onSiteCoulomb)/kT)) 
-        return occupancies.reshape((-1, nsite))
 
-    def getSTM_map(self, Q, T, dQ):
-        """Calculate STM image from charge distribution"""
-        # Reshape T to match Q dimensions
-        if Q.ndim == 3:
-            npix = int(np.sqrt(T.shape[0]))
-            T = T.reshape((npix, npix, -1))
-        
-        Q_perturbed = Q * (1 + dQ)
-        return np.sum(Q_perturbed * T, axis=-1)  # Sum over last dimension
-    
-    def update_plots(self, Q, I, params):
+    def update_plots(self):
         """Update plots with simulation results"""
         # Clear the entire figure and recreate subplots
+
+        self.run_simulation()
+
         self.fig.clear()
         self.ax1 = self.fig.add_subplot(131)
         self.ax2 = self.fig.add_subplot(132)
         self.ax3 = self.fig.add_subplot(133)
+
+        #params = self.params
+        params = self.get_param_values()
+
+        # Get simulation results
+        Es = self.Es
+        Qs = self.Qs
+        Is = self.Is
+
+        Emaxs= np.max(Es, axis=2)  #;print( "Emaxs ", Emaxs )
         
-        # Plot total charge
-        total_charge = np.sum(Q, axis=2) if Q.ndim == 3 else Q
-        im1 = self.ax1.imshow(total_charge, origin="lower",
-                            extent=[-params['L'], params['L'], -params['L'], params['L']])
-        self.ax1.plot(self.spos[:,0], self.spos[:,1], '+g')
+        print( "params", params )
+        L = params['L']
+        extent = [-L, L, -L, L]
+
+        # Levels Energies
+        Emax = max( -np.min(Es), np.max(Es) ); #print( "Emin Emax ", np.min(Es), np.max(Es) )
+        im1 = self.ax1.imshow( Emaxs, origin="lower", cmap='bwr', vmin=-Emax, vmax=Emax,  extent=extent )
+        self.ax1.plot(self.spos[:,0], self.spos[:,1], '+g' )
         self.fig.colorbar(im1, ax=self.ax1)
-        self.ax1.set_title("Total Charge")
-        
-        # Plot STM image
-        im2 = self.ax2.imshow(I, origin="lower",
-                            extent=[-params['L'], params['L'], -params['L'], params['L']])
+        self.ax1.set_title("Energies")
+
+        # Plot total charge
+        Qtot = np.sum(Qs, axis=2)
+        im2 = self.ax2.imshow(Qtot, origin="lower", extent=extent )
         self.ax2.plot(self.spos[:,0], self.spos[:,1], '+g')
         self.fig.colorbar(im2, ax=self.ax2)
-        self.ax2.set_title("STM")
+        self.ax2.set_title("Total Charge")
         
-        # Plot dI/dQ
-        dIdQ = (I - np.mean(I)) / params['dQ']
-        im3 = self.ax3.imshow(dIdQ, origin="lower",
-                            extent=[-params['L'], params['L'], -params['L'], params['L']])
+        # Plot STM image
+        Itot = np.sum(Is, axis=2)
+        im3 = self.ax3.imshow( Itot, origin="lower",  extent=extent )
         self.ax3.plot(self.spos[:,0], self.spos[:,1], '+g')
         self.fig.colorbar(im3, ax=self.ax3)
-        self.ax3.set_title("dI/dQ")
+        self.ax3.set_title("STM")
+        
+        # # Plot dI/dQ
+        # dIdQ = (I - np.mean(I)) / params['dQ']
+        # im3 = self.ax3.imshow(dIdQ, origin="lower", extent=extent )
+        # self.ax3.plot(self.spos[:,0], self.spos[:,1], '+g')
+        # self.fig.colorbar(im3, ax=self.ax3)
+        # self.ax3.set_title("dI/dQ")
         
         # Adjust layout to prevent overlapping
         self.fig.tight_layout()

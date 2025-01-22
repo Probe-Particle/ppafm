@@ -233,6 +233,7 @@ def compute_V_mirror( pTip, pSites, VBias, Rtip=1.0, zV0=1.0 ):
 #     return Esites
 
 def compute_site_energies(pTips, pSites, VBias, Rtip=1.0, zV0=1.0, E0s=None ):
+    #print( "pTips.shape pTips.shape, pTips, Rtip=1.0, zV0=1.0", pTips.shape, pSites, Rtip, zV0 )
     ntip  = len(pTips)  
     nsite = len(pSites)  
     VR = VBias * Rtip  
@@ -245,7 +246,8 @@ def compute_site_energies(pTips, pSites, VBias, Rtip=1.0, zV0=1.0, E0s=None ):
         psite = pSites[isite, :] 
         Vtip  = VR / np.linalg.norm( pTips  - psite, axis=1) 
         Vtip -= VR / np.linalg.norm( pTips_ - psite, axis=1)  
-        Esites[:, isite] = Vtip
+        #Esites[:, isite] = Vtip
+        Esites[:, isite] = 1 /( 1 + np.linalg.norm( pTips  - psite, axis=1) )
         if E0s is not None:
             Esites[:, isite] += E0s[isite]
     return Esites
@@ -258,6 +260,11 @@ def compute_site_tunelling(pTips, pSites, beta, Amp=1.0 ):
         psite = pSites[isite, :] 
         Tsites[:, isite] = np.exp( -beta * np.linalg.norm( pTips - psite, axis=1) )
     return Tsites
+
+def occupancy_FermiDirac( Es, T, mu=0.0 ):
+    beta = 1.0 / (const_Boltzman * T )
+    return 1.0 / ( 1.0 + np.exp( (Es - mu) * beta ) )
+
 
 # def compute_site_energies_and_hopping_mirror_2(pTip, pSites, Esite0, VBias, Rtip=1.0, beta=1.0, zV0=1.0):
 #     # Compute tip-site interactions
