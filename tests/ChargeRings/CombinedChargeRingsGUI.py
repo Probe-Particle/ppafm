@@ -27,10 +27,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Parameter specifications (same as before)
         self.param_specs = {
             # Tip Parameters
-            'Q_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (-2.0, 2.0),  'value': 0.6, 'step': 0.1},
             'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 2.0),   'value': 1.0, 'step': 0.1},
             'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 5.0),   'value': 1.0, 'step': 0.1},
-            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (1.0, 20.0),  'value': 6.0, 'step': 0.5},
+            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (1.0, 20.0),  'value': 2.0, 'step': 0.5},
             
             # System Parameters
             'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02, 'step': 0.01, 'decimals': 3},
@@ -47,13 +46,13 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             'phiRot':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0,'step': 0.1},
             
             # Site Properties
-            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0,'step': 0.1},
+            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0), 'value': -0.1,'step': 0.01},
             'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
             'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
             
             # Visualization
             'L':             {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 50.0),  'value': 20.0, 'step': 1.0},
-            'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (50, 500),    'value': 200,  'step': 50},
+            'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (50, 500),    'value': 100,  'step': 50},
             'decay':         {'group': 'Visualization',     'widget': 'double', 'range': (0.1, 2.0),   'value': 0.7,  'step': 0.1,   'decimals': 2},
             'dQ':            {'group': 'Visualization',     'widget': 'double', 'range': (0.001, 0.1), 'value': 0.02, 'step': 0.001, 'decimals': 3},
         }
@@ -168,11 +167,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         
         # Setup sites on circle using Python implementation
         self.spos, phis = makeCircle(n=nsite, R=R)
-        self.spos[:,2] = params['z_tip']
+        # Important: sites should be at z=0, not at z_tip!
+        self.spos[:,2] = 0.0  # quantum dots are on the surface
         
         # Setup multipoles and site energies
         self.Esite = np.full(nsite, params['Esite'])
-        self.rots = makeRotMats(phis + params['phiRot'])
+        self.rots  = makeRotMats(phis + params['phiRot'])
         
         # Initialize global parameters
         self.temperature = params['temperature']
@@ -180,6 +180,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     
     def calculateTipPotential(self, params):
         """Calculate tip potential data for X-Z projections"""
+        #print("calculateTipPotential()")
         # X-Z grid
         ps_xz, Xs, Zs = makePosXY(n=params['npix'], L=params['L'], axs=(0,2,1))
         
@@ -202,38 +203,55 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.tip_potential_data['V1d'] = compute_V_mirror(tip_pos, ps_1d, VBias=params['VBias'], Rtip=params['Rtip'], zV0=params['zV0'])
 
     def calculateQdotSystem(self, params):
-        """Calculate quantum dot system data for X-Y projections"""
-        # X-Y grid
-        ps_xy, Xs, Ys = makePosXY(n=params['npix'], L=params['L'], p0=(0,0,params['z_tip']))
+        #print("calculateQdotSystem()")
+        zT = params['z_tip'] + params['Rtip']
+        pTips, Xs, Ys = makePosXY(n=params['npix'], L=params['L'], p0=(0,0,zT))  # z=0 for surface
         
-        # Compute site energies and tunneling rates
-        Es = compute_site_energies( ps_xy, self.spos,VBias=params['Q_tip'], Rtip=1.0, zV0=params['z_tip'], E0s=self.Esite )
+        # Compute site energies using the same tip parameters as in tip potential
+        Es = compute_site_energies(
+            pTips, 
+            self.spos,
+            VBias=params['VBias'],  # Use same VBias as tip
+            Rtip=params['Rtip'],    # Use same Rtip as tip
+            zV0=params['zV0'],      # Use same mirror plane
+            E0s=self.Esite
+        )
         
-        T = compute_site_tunelling(ps_xy, self.spos, beta=params['decay'], Amp=1.0).reshape(params['npix'], params['npix'], -1)
+        T = compute_site_tunelling(pTips, self.spos, beta=params['decay'], Amp=1.0)
         
         # Calculate charge distribution
         Q = self.solve_occupancies(Es, T.reshape(-1, T.shape[-1]))
         Q = Q.reshape(params['npix'], params['npix'], -1)
         
-        # Compute STM and dI/dQ
-        I = self.getSTM_map(Q, T, params['dQ'])
-        dIdQ = (I - np.mean(I)) / params['dQ']
+        # Compute STM
+        I = self.getSTM_map(Q, T.reshape(params['npix'], params['npix'], -1), params['dQ'])
         
-        self.qdot_system_data = { 'total_charge': np.sum(Q, axis=2), 'STM': I, 'dIdQ': dIdQ, 'ps_xy': ps_xy, 'extent': [-params['L'], params['L'], -params['L'], params['L']] }
-    
+        self.qdot_system_data = { 
+            'Es': Es.reshape(params['npix'], params['npix'], -1),
+            'total_charge': np.sum(Q, axis=2), 
+            'STM': I,
+            'pTips': pTips, 
+            'extent': [-params['L'], params['L'], -params['L'], params['L']] 
+        }
+
     def plotTipPotential(self):
         """Plot X-Z projections using precomputed data"""
+        #print("plotTipPotential()")
         data = self.tip_potential_data
         params = self.get_param_values()
         
         # 1D Potential
         self.ax1.clear()
         x_coords = np.linspace(-data['extent'][1], data['extent'][1], params['npix'])
-        self.ax1.plot(x_coords, data['V1d'])
+        self.ax1.plot(x_coords, data['V1d']  , label='V_tip'  )
+        self.ax1.plot(x_coords, data['V1d'] + params['Esite'] , label='V_tip + E_site' )
+        self.ax1.plot(x_coords, x_coords*0.0 + params['VBias'], label= 'VBias' )
+        self.ax1.axhline( 0.0, ls='--', c='k' )
         self.ax1.set_title("1D Potential (z=0)")
         self.ax1.set_xlabel("x [Å]")
         self.ax1.set_ylabel("V [V]")
         self.ax1.grid()
+        self.ax1.legend()
         
         # Tip Potential
         self.ax2.clear()
@@ -244,16 +262,21 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         circ2, _ = makeCircle(16, R=params['Rtip'], axs=(0,2,1), p0=(0.0,0.0,2*params['zV0']-zT))
         self.ax2.plot(circ1[:,0], circ1[:,2], ':k')
         self.ax2.plot(circ2[:,0], circ2[:,2], ':k')
+        self.ax2.axhline(params['zV0'], ls='--', c='k',   label='mirror surface')
+        self.ax2.axhline(params['zQd'], ls='--', c='g',   label='Qdot height')
+        self.ax2.axhline(params['z_tip'], ls='--', c='orange', label='Tip Height')
         self.ax2.set_title("Tip Potential")
         self.ax2.set_xlabel("x [Å]")
         self.ax2.set_ylabel("z [Å]")
         self.ax2.grid()
+        self.ax2.legend()
         
         # Site Potential
         self.ax3.clear()
         self.ax3.imshow(data['Esites'], extent=data['extent'], cmap='bwr', origin='lower', vmin=-params['VBias'], vmax=params['VBias'])
         self.ax3.axhline(params['zV0'], ls='--', c='k', label='mirror surface')
         self.ax3.axhline(params['zQd'], ls='--', c='g', label='Qdot height')
+        
         self.ax3.legend()
         self.ax3.set_title("Site Potential")
         self.ax3.set_xlabel("x [Å]")
@@ -262,18 +285,25 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     
     def plotQdotSystem(self):
         """Plot X-Y projections using precomputed data"""
+        #print("plotQdotSystem()")
         data = self.qdot_system_data
         params = self.get_param_values()
         
         # Energies (using bwr colormap)
         self.ax4.clear()
-        Es = compute_site_energies(data['ps_xy'], self.spos, VBias=params['Q_tip'], Rtip=1.0, zV0=params['z_tip'], E0s=self.Esite)
-        Es = Es.reshape(params['npix'], params['npix'], -1)
-        total_energy = np.sum(Es, axis=2)  # Sum over sites
-        im = self.ax4.imshow(total_energy, origin="lower", extent=data['extent'], cmap='bwr')
+        bUseMax = True
+        if bUseMax: # use max
+            Eplot = np.max(data['Es'], axis=2)  # Symmetric colormap range
+            vmax = np.abs(Eplot).max()  # Symmetric colormap range
+            str_mode = '(max)'
+        else: # use sum
+            Eplot = np.sum(data['Es'], axis=2)  # Sum over sites
+            vmax = np.abs(Eplot).max()  # Symmetric colormap range
+            str_mode = '(sum)'
+        im = self.ax4.imshow(Eplot, origin="lower", extent=data['extent'], cmap='bwr', vmin=-vmax, vmax=vmax)
         self.ax4.plot(self.spos[:,0], self.spos[:,1], '+g')
         self.fig.colorbar(im, ax=self.ax4)
-        self.ax4.set_title("Energies")
+        self.ax4.set_title("Energies "+str_mode )
         self.ax4.set_xlabel("x [Å]")
         self.ax4.set_ylabel("y [Å]")
         
@@ -297,6 +327,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     
     def run_simulation(self):
         """Run simulation using Python backend"""
+        #print("run_simulation()")
         self.init_simulation()
         params = self.get_param_values()
         
