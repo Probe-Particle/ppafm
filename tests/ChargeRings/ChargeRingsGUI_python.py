@@ -10,8 +10,10 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 # Add project root to Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-import tests.ChargeRings.TipMultipole as tmul
+#sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+#import tests.ChargeRings.TipMultipole as tmul
+
+import TipMultipole as tmul
 
 # import (   makeCircle, makeRotMats, compute_site_energies, compute_site_tunelling, makePosXY, occupancy_FermiDirac )
 
