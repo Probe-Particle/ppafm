@@ -10,7 +10,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from TipMultipole import (
     makeCircle, makeRotMats, compute_site_energies,
-    compute_site_tunelling, makePosXY, compute_V_mirror
+    compute_site_tunelling, makePosXY, compute_V_mirror, occupancy_FermiDirac
 )
 
 class ApplicationWindow(QtWidgets.QMainWindow):
@@ -53,7 +53,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             # Visualization
             'L':             {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 50.0),  'value': 20.0, 'step': 1.0},
             'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (50, 500),    'value': 100,  'step': 50},
-            'decay':         {'group': 'Visualization',     'widget': 'double', 'range': (0.1, 2.0),   'value': 0.7,  'step': 0.1,   'decimals': 2},
+            'decay':         {'group': 'Visualization',     'widget': 'double', 'range': (0.1, 2.0),   'value': 0.3,  'step': 0.1,   'decimals': 2},
             'dQ':            {'group': 'Visualization',     'widget': 'double', 'range': (0.001, 0.1), 'value': 0.02, 'step': 0.001, 'decimals': 3},
         }
         
@@ -217,19 +217,26 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             E0s=self.Esite
         )
         
-        T = compute_site_tunelling(pTips, self.spos, beta=params['decay'], Amp=1.0)
+        Ts = compute_site_tunelling(pTips, self.spos, beta=params['decay'], Amp=1.0)
+
+
+        Qs  = np.zeros(Es.shape)
+        Is  = np.zeros(Es.shape)
+        for i in range(params['nsite']):
+            Qs[:,i] = occupancy_FermiDirac( Es[:,i], self.temperature )
+            Is[:,i] = Ts[:,i] * (1-Qs[:,i]) 
         
         # Calculate charge distribution
-        Q = self.solve_occupancies(Es, T.reshape(-1, T.shape[-1]))
-        Q = Q.reshape(params['npix'], params['npix'], -1)
+        # Q = self.solve_occupancies(Es, T.reshape(-1, T.shape[-1]))
+        # Q = Q.reshape(params['npix'], params['npix'], -1)
         
-        # Compute STM
-        I = self.getSTM_map(Q, T.reshape(params['npix'], params['npix'], -1), params['dQ'])
+        # # Compute STM
+        # I = self.getSTM_map(Q, T.reshape(params['npix'], params['npix'], -1), params['dQ'])
         
         self.qdot_system_data = { 
             'Es': Es.reshape(params['npix'], params['npix'], -1),
-            'total_charge': np.sum(Q, axis=2), 
-            'STM': I,
+            'total_charge': np.sum(Qs, axis=1).reshape(params['npix'], params['npix'],-1),
+            'STM': np.sum(Is, axis=1).reshape(params['npix'], params['npix'],-1),
             'pTips': pTips, 
             'extent': [-params['L'], params['L'], -params['L'], params['L']] 
         }
@@ -357,12 +364,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.fig.tight_layout()
         self.canvas.draw()
 
-    def solve_occupancies(self, Es, T):
-        """Calculate site occupancies using Fermi-Dirac statistics"""
-        kT = 8.617e-5 * self.temperature  # eV/K
-        nsite = Es.shape[1]
-        occupancies = 1/(1 + np.exp((Es - 0.5*self.onSiteCoulomb)/kT)) 
-        return occupancies.reshape((-1, nsite))
+    # def solve_occupancies(self, Es, T):
+    #     """Calculate site occupancies using Fermi-Dirac statistics"""
+    #     kT = 8.617e-5 * self.temperature  # eV/K
+    #     nsite = Es.shape[1]
+    #     occupancies = 1/(1 + np.exp((Es - 0.5*self.onSiteCoulomb)/kT)) 
+    #     return occupancies.reshape((-1, nsite))
 
     def getSTM_map(self, Q, T, dQ):
         """Calculate STM image from charge distribution"""
