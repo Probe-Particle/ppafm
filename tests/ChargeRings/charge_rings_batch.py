@@ -60,11 +60,11 @@ def main():
     ax6 = fig.add_subplot(236)  # STM
     
     # Calculate and plot
-    tip_data = calculate_tip_potential(params)
-    qdot_data = calculate_qdot_system(params)
+    tip_data = calculate_tip_potential(**params)
+    qdot_data = calculate_qdot_system(**params)
     
-    plot_tip_potential(ax1, ax2, ax3, tip_data, params)
-    plot_qdot_system(ax4, ax5, ax6, qdot_data, params)
+    plot_tip_potential(ax1, ax2, ax3, **tip_data, **params)
+    plot_qdot_system(ax4, ax5, ax6, **qdot_data, **params)
     
     # Save figure
     fig.tight_layout()

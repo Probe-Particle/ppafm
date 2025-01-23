@@ -72,12 +72,12 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
         
         # Calculate tip potential and quantum dot system
-        tip_data = calculate_tip_potential(params)
-        qdot_data = calculate_qdot_system(params)
+        tip_data = calculate_tip_potential(**params)
+        qdot_data = calculate_qdot_system(**params)
         
         # Plot results
-        plot_tip_potential(self.ax1, self.ax2, self.ax3, tip_data, params)
-        plot_qdot_system(self.ax4, self.ax5, self.ax6, qdot_data, params)
+        plot_tip_potential(self.ax1, self.ax2, self.ax3, **tip_data, **params)
+        plot_qdot_system(self.ax4, self.ax5, self.ax6, **qdot_data, **params)
         
         # Update the canvas
         self.fig.tight_layout()

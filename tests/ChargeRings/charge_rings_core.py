@@ -6,21 +6,20 @@ from TipMultipole import (
     compute_site_tunelling, makePosXY, compute_V_mirror, occupancy_FermiDirac
 )
 
-def calculate_tip_potential(params):
+def calculate_tip_potential(*, npix=100, L=20.0, z_tip=2.0, Rtip=1.0, 
+                          VBias=1.0, zV0=-2.5, zQd=0.0, Esite=-0.1, **kwargs):
     """
     Calculate tip potential data for X-Z projections
     
     Args:
-        params (dict): Dictionary containing simulation parameters
-            Required keys:
-            - npix: Number of pixels for grid
-            - L: Size of simulation box
-            - z_tip: Tip height
-            - Rtip: Tip radius
-            - VBias: Bias voltage
-            - zV0: Mirror surface position
-            - zQd: Quantum dot height
-            - Esite: Site energy
+        npix: Number of pixels for grid
+        L: Size of simulation box
+        z_tip: Tip height
+        Rtip: Tip radius
+        VBias: Bias voltage
+        zV0: Mirror surface position
+        zQd: Quantum dot height
+        Esite: Site energy
             
     Returns:
         dict: Dictionary containing calculated data:
@@ -31,42 +30,43 @@ def calculate_tip_potential(params):
             - extent: Plot extent parameters
     """
     # X-Z grid
-    ps_xz, Xs, Zs = makePosXY(n=params['npix'], L=params['L'], axs=(0,2,1))
+    ps_xz, Xs, Zs = makePosXY(n=npix, L=L, axs=(0,2,1))
     
     # Tip position
-    zT = params['z_tip'] + params['Rtip']
+    zT = z_tip + Rtip
     tip_pos = np.array([0.0, 0.0, zT])
     
     # Calculate potentials
     return {
-        'Vtip': compute_V_mirror( tip_pos, ps_xz, VBias=params['VBias'],   Rtip=params['Rtip'], zV0=params['zV0'] ).reshape(params['npix'], params['npix']),
-        'Esites': compute_site_energies( ps_xz, np.array([[0.0,0.0,params['zQd']]]), params['VBias'], params['Rtip'], zV0=params['zV0'] ).reshape(params['npix'], params['npix']),
+        'Vtip': compute_V_mirror(tip_pos, ps_xz, VBias=VBias, Rtip=Rtip, zV0=zV0).reshape(npix, npix),
+        'Esites': compute_site_energies(ps_xz, np.array([[0.0,0.0,zQd]]), VBias=VBias, Rtip=Rtip, zV0=zV0).reshape(npix, npix),
         'ps_xz': ps_xz,
-        'extent': [-params['L'], params['L'], -params['L'], params['L']],
-        'V1d': compute_V_mirror( tip_pos,  np.array([[x, 0, params['zQd']] for x in np.linspace(-params['L'], params['L'], params['npix'])]), VBias=params['VBias'],  Rtip=params['Rtip'],  zV0=params['zV0'] )
+        'extent': [-L, L, -L, L],
+        'V1d': compute_V_mirror(tip_pos, np.array([[x, 0, zQd] for x in np.linspace(-L, L, npix)]), VBias=VBias, Rtip=Rtip, zV0=zV0)
     }
 
-def calculate_qdot_system(params):
+def calculate_qdot_system(*, nsite=3, radius=5.0, zQd=0.0, temperature=10.0,
+                         onSiteCoulomb=3.0, phiRot=-1.0, npix=100, L=20.0,
+                         z_tip=2.0, Rtip=1.0, VBias=1.0, zV0=-2.5,
+                         Esite=-0.1, decay=0.3, **kwargs):
     """
     Calculate quantum dot system properties
     
     Args:
-        params (dict): Dictionary containing simulation parameters
-            Required keys:
-            - nsite: Number of sites
-            - radius: Ring radius
-            - zQd: Quantum dot height
-            - temperature: System temperature
-            - onSiteCoulomb: On-site Coulomb interaction
-            - phiRot: Rotation angle
-            - npix: Number of pixels for grid
-            - L: Size of simulation box
-            - z_tip: Tip height
-            - Rtip: Tip radius
-            - VBias: Bias voltage
-            - zV0: Mirror surface position
-            - Esite: Site energy
-            - decay: Tunneling decay parameter
+        nsite: Number of sites
+        radius: Ring radius
+        zQd: Quantum dot height
+        temperature: System temperature
+        onSiteCoulomb: On-site Coulomb interaction
+        phiRot: Rotation angle
+        npix: Number of pixels for grid
+        L: Size of simulation box
+        z_tip: Tip height
+        Rtip: Tip radius
+        VBias: Bias voltage
+        zV0: Mirror surface position
+        Esite: Site energy
+        decay: Tunneling decay parameter
             
     Returns:
         dict: Dictionary containing calculated data:
@@ -78,47 +78,37 @@ def calculate_qdot_system(params):
             - spos: Site positions
             - rots: Rotation matrices
     """
-    nsite = params['nsite']
-    R = params['radius']
-    
     # Setup multipoles and site energies
-    Esite = np.full(nsite, params['Esite'])
+    Esite_arr = np.full(nsite, Esite)
     
     # Calculate positions and rotations
-    spos, phis = makeCircle(n=nsite, R=R)
-    spos[:,2] = params['zQd']  # quantum dots are on the surface
-    rots = makeRotMats(phis + params['phiRot'])
+    spos, phis = makeCircle(n=nsite, R=radius)
+    spos[:,2] = zQd  # quantum dots are on the surface
+    rots = makeRotMats(phis + phiRot)
     
     # Calculate tip positions
-    zT = params['z_tip'] + params['Rtip']
-    pTips, Xs, Ys = makePosXY(n=params['npix'], L=params['L'], p0=(0,0,zT))
+    zT = z_tip + Rtip
+    pTips, Xs, Ys = makePosXY(n=npix, L=L, p0=(0,0,zT))
     
     # Calculate energies
-    Es = compute_site_energies(
-        pTips, 
-        spos,
-        VBias=params['VBias'],
-        Rtip=params['Rtip'],
-        zV0=params['zV0'],
-        E0s=Esite
-    )
+    Es = compute_site_energies(pTips, spos, VBias=VBias, Rtip=Rtip, zV0=zV0, E0s=Esite_arr)
     
     # Calculate tunneling
-    Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
+    Ts = compute_site_tunelling(pTips, spos, beta=decay, Amp=1.0)
     
     # Calculate charges and currents
     Qs = np.zeros(Es.shape)
     Is = np.zeros(Es.shape)
-    for i in range(params['nsite']):
-        Qs[:,i] = occupancy_FermiDirac(Es[:,i], params['temperature'])
+    for i in range(nsite):
+        Qs[:,i] = occupancy_FermiDirac(Es[:,i], temperature)
         Is[:,i] = Ts[:,i] * (1-Qs[:,i])
     
     return {
-        'Es': Es.reshape(params['npix'], params['npix'], -1),
-        'total_charge': np.sum(Qs, axis=1).reshape(params['npix'], params['npix'],-1),
-        'STM': np.sum(Is, axis=1).reshape(params['npix'], params['npix'],-1),
+        'Es': Es.reshape(npix, npix, -1),
+        'total_charge': np.sum(Qs, axis=1).reshape(npix, npix,-1),
+        'STM': np.sum(Is, axis=1).reshape(npix, npix,-1),
         'pTips': pTips,
-        'extent': [-params['L'], params['L'], -params['L'], params['L']],
+        'extent': [-L, L, -L, L],
         'spos': spos,
         'rots': rots
     }
