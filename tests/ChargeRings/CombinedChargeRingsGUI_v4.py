@@ -99,6 +99,38 @@ class ApplicationWindow(GUITemplate):
         # Set initial voltage index to middle
         self.exp_idx = len(self.exp_biases) // 2
 
+    def create_overlay_image(self, exp_data, sim_data, exp_extent, sim_extent):
+        """Create RGB overlay of experimental and simulation data
+        
+        Args:
+            exp_data: Experimental dI/dV data
+            sim_data: Simulated charge data
+            exp_extent: Extent of experimental data [xmin, xmax, ymin, ymax]
+            sim_extent: Extent of simulation data [xmin, xmax, ymin, ymax]
+        """
+        # Normalize experimental data to [0,1] range for red channel
+        exp_norm = (exp_data - np.min(exp_data)) / (np.max(exp_data) - np.min(exp_data))
+        
+        # Normalize simulation data to [0,1] range for green channel
+        sim_norm = (sim_data - np.min(sim_data)) / (np.max(sim_data) - np.min(sim_data))
+        
+        # Interpolate simulation data to match experimental data grid
+        x_exp = np.linspace(exp_extent[0], exp_extent[1], exp_data.shape[1])
+        y_exp = np.linspace(exp_extent[2], exp_extent[3], exp_data.shape[0])
+        x_sim = np.linspace(sim_extent[0], sim_extent[1], sim_data.shape[1])
+        y_sim = np.linspace(sim_extent[2], sim_extent[3], sim_data.shape[0])
+        
+        from scipy.interpolate import interp2d
+        sim_interp = interp2d(x_sim, y_sim, sim_norm)
+        sim_resampled = sim_interp(x_exp, y_exp)
+        
+        # Create RGB image (Red: experimental, Green: simulation, Blue: zeros)
+        rgb_image = np.zeros((*exp_data.shape, 3))
+        rgb_image[..., 0] = exp_norm  # Red channel: experimental
+        rgb_image[..., 1] = sim_resampled  # Green channel: simulation
+        
+        return rgb_image, exp_extent
+
     def plot_experimental_data(self):
         """Plot experimental data in the bottom row"""
         # Get current slice from GUI
@@ -108,6 +140,7 @@ class ApplicationWindow(GUITemplate):
         # Get plot extents
         xmin, xmax = np.min(self.exp_X[0]), np.max(self.exp_X[0])
         ymin, ymax = np.min(self.exp_Y[0]), np.max(self.exp_Y[0])
+        exp_extent = [xmin, xmax, ymin, ymax]
         
         # Clear axes
         self.ax7.clear()
@@ -118,7 +151,7 @@ class ApplicationWindow(GUITemplate):
         maxval = np.max(np.abs(self.exp_dIdV[self.exp_idx]))
         self.ax7.imshow(self.exp_dIdV[self.exp_idx], aspect='equal', 
                        cmap='seismic', vmin=-maxval, vmax=maxval,
-                       extent=[xmin, xmax, ymin, ymax])
+                       extent=exp_extent)
         self.ax7.set_title(f'Exp. dI/dV at {self.exp_biases[self.exp_idx]:.3f} V')
         self.ax7.set_xlabel('X [Å]')
         self.ax7.set_ylabel('Y [Å]')
@@ -126,16 +159,34 @@ class ApplicationWindow(GUITemplate):
         # Plot Current
         self.ax8.imshow(self.exp_I[self.exp_idx], aspect='equal',
                        cmap='inferno', vmin=0.0, vmax=600.0,
-                       extent=[xmin, xmax, ymin, ymax])
+                       extent=exp_extent)
         self.ax8.set_title(f'Exp. Current at {self.exp_biases[self.exp_idx]:.3f} V')
         self.ax8.set_xlabel('X [Å]')
         self.ax8.set_ylabel('Y [Å]')
         
-        # Additional plot (can be used for comparison or other data)
-        self.ax9.set_title('Additional Plot')
-        self.ax9.set_xlabel('X [Å]')
-        self.ax9.set_ylabel('Y [Å]')
-        self.ax9.grid(True)
+        # Create and plot overlay
+        # Get simulation data from ax5 (total charge plot)
+        sim_image = self.ax5.images[0] if self.ax5.images else None
+        if sim_image:
+            sim_data = sim_image.get_array()
+            sim_extent = sim_image.get_extent()
+            
+            # Create RGB overlay
+            rgb_overlay, extent = self.create_overlay_image(
+                self.exp_dIdV[self.exp_idx], 
+                sim_data,
+                exp_extent,
+                sim_extent
+            )
+            
+            # Plot overlay
+            self.ax9.imshow(rgb_overlay, aspect='equal', extent=extent)
+            self.ax9.set_title('Overlay (Red: Exp, Green: Sim)')
+            self.ax9.set_xlabel('X [Å]')
+            self.ax9.set_ylabel('Y [Å]')
+        else:
+            self.ax9.set_title('Run simulation first')
+            self.ax9.grid(True)
 
     def run(self):
         """Main calculation and plotting function"""
