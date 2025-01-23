@@ -78,7 +78,7 @@ def calculate_qdot_system(*, nsite=3, radius=5.0, zQd=0.0, temperature=10.0, onS
     Esite_arr = np.full(nsite, Esite)
     
     # Calculate positions and rotations
-    spos, phis = makeCircle(n=nsite, R=radius)
+    spos, phis = makeCircle(n=nsite, R=radius, phi0=phiRot)
     spos[:,2] = zQd  # quantum dots are on the surface
     rots = makeRotMats(phis + phiRot)
     

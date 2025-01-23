@@ -178,9 +178,9 @@ class ApplicationWindow(GUITemplate):
             ax: matplotlib axis to plot on
             params: dictionary of parameters
         """
-        nsite = params['nsite']
-        radius = params['radius']
-        phiRot = params['phiRot']
+        nsite   = params['nsite']
+        radius  = params['radius']
+        phiRot  = params['phiRot']
         R_major = params['R_major']
         R_minor = params['R_minor']
         phi0_ax = params['phi0_ax']

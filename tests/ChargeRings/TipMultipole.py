@@ -51,8 +51,8 @@ def makePosXY(n=100, L=10.0, axs=(0,1,2), p0=(0.0,0.0,0.0) ):
     ps[:,axs[2]] = p0[axs[2]] 
     return ps, Xs, Ys
 
-def makeCircle( n=10, R=1.0, p0=(0.0,0.0,0.0), axs=(0,1,2) ):
-    phis  = np.linspace(0,2*np.pi,n, endpoint=False)
+def makeCircle( n=10, R=1.0, p0=(0.0,0.0,0.0), axs=(0,1,2), phi0=0.0 ):
+    phis  = np.linspace(0,2*np.pi,n, endpoint=False) + phi0
     ps    = np.zeros((n,3))
     ps[:,axs[0]] = p0[axs[0]] + np.cos(phis)*R
     ps[:,axs[1]] = p0[axs[1]] + np.sin(phis)*R
