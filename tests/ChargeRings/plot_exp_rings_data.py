@@ -14,6 +14,10 @@ biases = data['biases']
 center_x = data['center_x']
 center_y = data['center_y']
 
+# lets make the images ploted with respect to the center
+X -= center_x
+Y -= center_y
+
 # Create figure and subplots
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 plt.subplots_adjust(bottom=0.25)  # Make room for slider
@@ -25,6 +29,8 @@ init_idx = len(biases) // 2
 xmin, xmax = np.min(X[0]), np.max(X[0])
 ymin, ymax = np.min(Y[0]), np.max(Y[0])
 
+
+
 # Get maxval for dI/dV scaling
 maxval1 = np.max(np.abs(dIdV[init_idx]))
 
@@ -35,16 +41,15 @@ ax1.set_title(f'dI/dV at {biases[init_idx]:.3f} V')
 ax1.set_xlabel('X (nm)')
 ax1.set_ylabel('Y (nm)')
 
-im2 = ax2.imshow(I[init_idx], aspect='equal', cmap='inferno',
-                 vmin=0.0, vmax=600.0, extent=[xmin, xmax, ymin, ymax])
+im2 = ax2.imshow(I[init_idx], aspect='equal', cmap='inferno',  vmin=0.0, vmax=600.0, extent=[xmin, xmax, ymin, ymax])
 plt.colorbar(im2, ax=ax2)
 ax2.set_title(f'Current at {biases[init_idx]:.3f} V')
 ax2.set_xlabel('X (nm)')
 ax2.set_ylabel('Y (nm)')
 
 # Mark the center position
-ax1.scatter(center_x, center_y, color='white', marker='x', s=100, label='Center')
-ax2.scatter(center_x, center_y, color='white', marker='x', s=100, label='Center')
+#ax1.scatter(center_x, center_y, color='white', marker='x', s=100, label='Center')
+#ax2.scatter(center_x, center_y, color='white', marker='x', s=100, label='Center')
 ax1.legend()
 ax2.legend()
 
