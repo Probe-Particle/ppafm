@@ -38,8 +38,13 @@ class ApplicationWindow(GUITemplate):
             'radius':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 5.0, 'step': 0.5},
             'phiRot':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0,'step': 0.1},
             
+            # Ellipse Parameters
+            'R_major':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (1.0, 10.0),   'value': 3.0, 'step': 0.1},
+            'R_minor':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (1.0, 10.0),   'value': 2.0, 'step': 0.1},
+            'phi0_ax':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (-3.14, 3.14), 'value': 0.0, 'step': 0.1},
+            
             # Site Properties
-            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0), 'value': -0.1,'step': 0.01},
+            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.1,'step': 0.01},
             'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
             'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
             
@@ -99,6 +104,43 @@ class ApplicationWindow(GUITemplate):
         # Set initial voltage index to middle
         self.exp_idx = len(self.exp_biases) // 2
 
+    def resample_to_simulation_grid(self, data, src_extent, target_size=100, target_extent=(-20, 20, -20, 20)):
+        """Resample data to match simulation grid and extent
+        
+        Args:
+            data: Source data array
+            src_extent: Source extent [xmin, xmax, ymin, ymax]
+            target_size: Size of target grid (assumed square)
+            target_extent: Target extent [xmin, xmax, ymin, ymax]
+        
+        Returns:
+            Resampled data array matching simulation grid
+        """
+        # Create source coordinate grids
+        x_src = np.linspace(src_extent[0], src_extent[1], data.shape[1])
+        y_src = np.linspace(src_extent[2], src_extent[3], data.shape[0])
+        
+        # Create target coordinate grid
+        x_target = np.linspace(target_extent[0], target_extent[1], target_size)
+        y_target = np.linspace(target_extent[2], target_extent[3], target_size)
+        
+        # Create interpolator
+        from scipy.interpolate import interp2d
+        interpolator = interp2d(x_src, y_src, data)
+        
+        # Resample data to target grid
+        resampled = interpolator(x_target, y_target)
+        
+        # Create mask for points outside source extent
+        xx, yy = np.meshgrid(x_target, y_target)
+        mask = ((xx < src_extent[0]) | (xx > src_extent[1]) | 
+                (yy < src_extent[2]) | (yy > src_extent[3]))
+        
+        # Set points outside source extent to zero
+        resampled[mask] = 0
+        
+        return resampled
+
     def create_overlay_image(self, exp_data, sim_data, exp_extent, sim_extent):
         """Create RGB overlay of experimental and simulation data
         
@@ -108,39 +150,86 @@ class ApplicationWindow(GUITemplate):
             exp_extent: Extent of experimental data [xmin, xmax, ymin, ymax]
             sim_extent: Extent of simulation data [xmin, xmax, ymin, ymax]
         """
+        # Resample experimental data to simulation grid
+        exp_resampled = self.resample_to_simulation_grid(
+            exp_data, 
+            exp_extent,
+            target_size=sim_data.shape[0],
+            target_extent=sim_extent
+        )
+        
         # Normalize experimental data to [0,1] range for red channel
-        exp_norm = (exp_data - np.min(exp_data)) / (np.max(exp_data) - np.min(exp_data))
+        exp_norm = (exp_resampled - np.min(exp_resampled)) / (np.max(exp_resampled) - np.min(exp_resampled))
         
         # Normalize simulation data to [0,1] range for green channel
         sim_norm = (sim_data - np.min(sim_data)) / (np.max(sim_data) - np.min(sim_data))
         
-        # Interpolate simulation data to match experimental data grid
-        x_exp = np.linspace(exp_extent[0], exp_extent[1], exp_data.shape[1])
-        y_exp = np.linspace(exp_extent[2], exp_extent[3], exp_data.shape[0])
-        x_sim = np.linspace(sim_extent[0], sim_extent[1], sim_data.shape[1])
-        y_sim = np.linspace(sim_extent[2], sim_extent[3], sim_data.shape[0])
-        
-        from scipy.interpolate import interp2d
-        sim_interp = interp2d(x_sim, y_sim, sim_norm)
-        sim_resampled = sim_interp(x_exp, y_exp)
-        
         # Create RGB image (Red: experimental, Green: simulation, Blue: zeros)
-        rgb_image = np.zeros((*exp_data.shape, 3))
+        rgb_image = np.zeros((*sim_data.shape, 3))
         rgb_image[..., 0] = exp_norm  # Red channel: experimental
-        rgb_image[..., 1] = sim_resampled  # Green channel: simulation
+        rgb_image[..., 1] = sim_norm*0  # Green channel: simulation
         
-        return rgb_image, exp_extent
+        return rgb_image, sim_extent
+
+    def plot_ellipses(self, ax, params):
+        """Plot ellipses for each quantum dot site
+        
+        Args:
+            ax: matplotlib axis to plot on
+            params: dictionary of parameters
+        """
+        nsite = params['nsite']
+        radius = params['radius']
+        phiRot = params['phiRot']
+        R_major = params['R_major']
+        R_minor = params['R_minor']
+        phi0_ax = params['phi0_ax']
+        
+        # Number of points for ellipse
+        n = 100
+        
+        for i in range(nsite):
+            # Calculate quantum dot position
+            phi = phiRot + i * 2 * np.pi / nsite
+            dir_x = np.cos(phi)
+            dir_y = np.sin(phi)
+            qd_pos_x = dir_x * radius
+            qd_pos_y = dir_y * radius
+            
+            # Calculate ellipse points
+            phi_ax = phi0_ax + phi
+            t = np.linspace(0, 2*np.pi, n)
+            
+            # Create ellipse in local coordinates
+            x_local = R_major * np.cos(t)
+            y_local = R_minor * np.sin(t)
+            
+            # Rotate ellipse
+            x_rot = x_local * np.cos(phi_ax) - y_local * np.sin(phi_ax)
+            y_rot = x_local * np.sin(phi_ax) + y_local * np.cos(phi_ax)
+            
+            # Translate to quantum dot position
+            x = x_rot + qd_pos_x
+            y = y_rot + qd_pos_y
+            
+            # Plot ellipse
+            ax.plot(x, y, ':', color='white', alpha=0.8, linewidth=1)
+            
+            # Plot center point
+            ax.plot(qd_pos_x, qd_pos_y, '+', color='white', markersize=5)
 
     def plot_experimental_data(self):
         """Plot experimental data in the bottom row"""
-        # Get current slice from GUI
+        # Get parameters
         params = self.get_param_values()
         self.exp_idx = params['exp_slice']
+        L = params['L']
         
         # Get plot extents
         xmin, xmax = np.min(self.exp_X[0]), np.max(self.exp_X[0])
         ymin, ymax = np.min(self.exp_Y[0]), np.max(self.exp_Y[0])
         exp_extent = [xmin, xmax, ymin, ymax]
+        sim_extent = [-L, L, -L, L]
         
         # Clear axes
         self.ax7.clear()
@@ -156,6 +245,9 @@ class ApplicationWindow(GUITemplate):
         self.ax7.set_xlabel('X [Å]')
         self.ax7.set_ylabel('Y [Å]')
         
+        # Plot ellipses on dI/dV plot
+        self.plot_ellipses(self.ax7, params)
+        
         # Plot Current
         self.ax8.imshow(self.exp_I[self.exp_idx], aspect='equal',
                        cmap='inferno', vmin=0.0, vmax=600.0,
@@ -169,7 +261,6 @@ class ApplicationWindow(GUITemplate):
         sim_image = self.ax5.images[0] if self.ax5.images else None
         if sim_image:
             sim_data = sim_image.get_array()
-            sim_extent = sim_image.get_extent()
             
             # Create RGB overlay
             rgb_overlay, extent = self.create_overlay_image(
@@ -199,6 +290,9 @@ class ApplicationWindow(GUITemplate):
         # Plot results
         plot_tip_potential(self.ax1, self.ax2, self.ax3, **tip_data, **params)
         plot_qdot_system(self.ax4, self.ax5, self.ax6, **qdot_data, **params)
+        
+        # Plot ellipses on total charge plot
+        self.plot_ellipses(self.ax5, params)
         
         # Plot experimental data
         self.plot_experimental_data()
