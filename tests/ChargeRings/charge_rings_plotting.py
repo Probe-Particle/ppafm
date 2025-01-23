@@ -3,8 +3,7 @@
 import numpy as np
 from TipMultipole import makeCircle
 
-def plot_tip_potential(ax1, ax2, ax3, *, Vtip, Esites, ps_xz, V1d, extent,
-                      npix, L, z_tip, Rtip, VBias, zV0, zQd, Esite, **kwargs):
+def plot_tip_potential(ax1, ax2, ax3, *, Vtip, Esites, V1d, extent, VBias=1.0, zV0=-2.5, zQd=0.0, z_tip=2.0, Rtip=1.0, Esite=-0.1, **kwargs):
     """
     Plot X-Z projections of tip potential
     
@@ -14,21 +13,18 @@ def plot_tip_potential(ax1, ax2, ax3, *, Vtip, Esites, ps_xz, V1d, extent,
         ax3: Matplotlib axis for site potential plot
         Vtip: Tip potential data
         Esites: Site energies data
-        ps_xz: X-Z positions
         V1d: 1D potential data
         extent: Plot extent parameters
-        npix: Number of pixels for grid
-        L: Size of simulation box
-        z_tip: Tip height
-        Rtip: Tip radius
-        VBias: Bias voltage
-        zV0: Mirror surface position
-        zQd: Quantum dot height
-        Esite: Site energy
+        VBias: Bias voltage (default: 1.0)
+        zV0: Mirror surface position (default: -2.5)
+        zQd: Quantum dot height (default: 0.0)
+        z_tip: Tip height (default: 2.0)
+        Rtip: Tip radius (default: 1.0)
+        Esite: Site energy (default: -0.1)
     """
     # 1D Potential
     ax1.clear()
-    x_coords = np.linspace(-extent[1], extent[1], npix)
+    x_coords = np.linspace(-extent[1], extent[1], len(V1d))
     ax1.plot(x_coords, V1d, label='V_tip')
     ax1.plot(x_coords, V1d + Esite, label='V_tip + E_site')
     ax1.plot(x_coords, x_coords*0.0 + VBias, label='VBias')
@@ -67,8 +63,7 @@ def plot_tip_potential(ax1, ax2, ax3, *, Vtip, Esites, ps_xz, V1d, extent,
     ax3.set_ylabel("z [Å]")
     ax3.grid()
 
-def plot_qdot_system(ax4, ax5, ax6, *, Es, total_charge, STM, pTips, extent, spos,
-                    nsite, npix, VBias, **kwargs):
+def plot_qdot_system(ax4, ax5, ax6, *, Es, total_charge, STM, spos, extent, nsite=3, VBias=1.0, **kwargs):
     """
     Plot X-Y projections of quantum dot system
     
@@ -79,12 +74,10 @@ def plot_qdot_system(ax4, ax5, ax6, *, Es, total_charge, STM, pTips, extent, spo
         Es: Site energies data
         total_charge: Total charge distribution data
         STM: STM signal data
-        pTips: Tip positions
-        extent: Plot extent parameters
         spos: Site positions
-        nsite: Number of sites
-        npix: Number of pixels for grid
-        VBias: Bias voltage
+        extent: Plot extent parameters
+        nsite: Number of sites (default: 3)
+        VBias: Bias voltage (default: 1.0)
     """
     # Energies
     ax4.clear()
@@ -102,7 +95,7 @@ def plot_qdot_system(ax4, ax5, ax6, *, Es, total_charge, STM, pTips, extent, spo
     
     # Total Charge
     ax5.clear()
-    ax5.imshow(total_charge.reshape(npix,npix), extent=extent, cmap='bwr', origin='lower')
+    ax5.imshow(total_charge.reshape(total_charge.shape[0], -1), extent=extent, cmap='bwr', origin='lower')
     for i in range(nsite):
         ax5.plot(spos[i,0], spos[i,1], 'ko')
     ax5.set_title("Total Charge")
@@ -112,7 +105,7 @@ def plot_qdot_system(ax4, ax5, ax6, *, Es, total_charge, STM, pTips, extent, spo
     
     # STM
     ax6.clear()
-    ax6.imshow(STM.reshape(npix,npix), extent=extent, cmap='gray', origin='lower')
+    ax6.imshow(STM.reshape(STM.shape[0], -1), extent=extent, cmap='gray', origin='lower')
     for i in range(nsite):
         ax6.plot(spos[i,0], spos[i,1], 'ro')
     ax6.set_title("STM")

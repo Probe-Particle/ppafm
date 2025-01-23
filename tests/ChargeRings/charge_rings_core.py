@@ -6,8 +6,7 @@ from TipMultipole import (
     compute_site_tunelling, makePosXY, compute_V_mirror, occupancy_FermiDirac
 )
 
-def calculate_tip_potential(*, npix=100, L=20.0, z_tip=2.0, Rtip=1.0, 
-                          VBias=1.0, zV0=-2.5, zQd=0.0, Esite=-0.1, **kwargs):
+def calculate_tip_potential(*, npix=100, L=20.0, z_tip=2.0, Rtip=1.0, VBias=1.0, zV0=-2.5, zQd=0.0, Esite=-0.1, **kwargs):
     """
     Calculate tip potential data for X-Z projections
     
@@ -45,10 +44,7 @@ def calculate_tip_potential(*, npix=100, L=20.0, z_tip=2.0, Rtip=1.0,
         'V1d': compute_V_mirror(tip_pos, np.array([[x, 0, zQd] for x in np.linspace(-L, L, npix)]), VBias=VBias, Rtip=Rtip, zV0=zV0)
     }
 
-def calculate_qdot_system(*, nsite=3, radius=5.0, zQd=0.0, temperature=10.0,
-                         onSiteCoulomb=3.0, phiRot=-1.0, npix=100, L=20.0,
-                         z_tip=2.0, Rtip=1.0, VBias=1.0, zV0=-2.5,
-                         Esite=-0.1, decay=0.3, **kwargs):
+def calculate_qdot_system(*, nsite=3, radius=5.0, zQd=0.0, temperature=10.0, onSiteCoulomb=3.0, phiRot=-1.0, npix=100, L=20.0,  z_tip=2.0, Rtip=1.0, VBias=1.0, zV0=-2.5, Esite=-0.1, decay=0.3, **kwargs):
     """
     Calculate quantum dot system properties
     
