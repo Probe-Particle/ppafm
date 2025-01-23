@@ -48,6 +48,9 @@ class ApplicationWindow(GUITemplate):
             'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (50, 500),    'value': 100,  'step': 50},
             'decay':         {'group': 'Visualization',     'widget': 'double', 'range': (0.1, 2.0),   'value': 0.3,  'step': 0.1,   'decimals': 2},
             'dQ':            {'group': 'Visualization',     'widget': 'double', 'range': (0.001, 0.1), 'value': 0.02, 'step': 0.001, 'decimals': 3},
+            
+            # Experimental Data
+            'exp_slice':     {'group': 'Experimental Data', 'widget': 'int',    'range': (0, 13),     'value': 0,    'step': 1},
         }
         
         self.create_gui()
@@ -67,32 +70,41 @@ class ApplicationWindow(GUITemplate):
         self.ax4 = self.fig.add_subplot(334)  # Energies
         self.ax5 = self.fig.add_subplot(335)  # Total Charge
         self.ax6 = self.fig.add_subplot(336)  # STM
-        self.ax7 = self.fig.add_subplot(337)  # Experimental dI/dV
-        self.ax8 = self.fig.add_subplot(338)  # Experimental Current
-        self.ax9 = self.fig.add_subplot(339)  # Additional plot if needed
+        self.ax7 = self.fig.add_subplot(338)  # Experimental dI/dV
+        self.ax8 = self.fig.add_subplot(339)  # Experimental Current
+        self.ax9 = self.fig.add_subplot(337)  # Additional plot if needed
         
         self.run()
         
     def load_experimental_data(self):
         """Load experimental data from npz file"""
         data = np.load('exp_rings_data.npz')
-        self.exp_X = data['X']
-        self.exp_Y = data['Y']
+        # Convert from nm to Å (1 nm = 10 Å)
+        self.exp_X = data['X'] * 10
+        self.exp_Y = data['Y'] * 10
         self.exp_dIdV = data['dIdV']
         self.exp_I = data['I']
         self.exp_biases = data['biases']
-        center_x = data['center_x']
-        center_y = data['center_y']
+        center_x = data['center_x'] * 10  # Convert to Å
+        center_y = data['center_y'] * 10  # Convert to Å
         
         # Center the coordinates
         self.exp_X -= center_x
         self.exp_Y -= center_y
+        
+        # Update exp_slice range based on actual data size
+        self.param_specs['exp_slice']['range'] = (0, len(self.exp_biases) - 1)
+        self.param_specs['exp_slice']['value'] = len(self.exp_biases) // 2
         
         # Set initial voltage index to middle
         self.exp_idx = len(self.exp_biases) // 2
 
     def plot_experimental_data(self):
         """Plot experimental data in the bottom row"""
+        # Get current slice from GUI
+        params = self.get_param_values()
+        self.exp_idx = params['exp_slice']
+        
         # Get plot extents
         xmin, xmax = np.min(self.exp_X[0]), np.max(self.exp_X[0])
         ymin, ymax = np.min(self.exp_Y[0]), np.max(self.exp_Y[0])
@@ -104,27 +116,25 @@ class ApplicationWindow(GUITemplate):
         
         # Plot dI/dV
         maxval = np.max(np.abs(self.exp_dIdV[self.exp_idx]))
-        im1 = self.ax7.imshow(self.exp_dIdV[self.exp_idx], aspect='equal', 
-                             cmap='seismic', vmin=-maxval, vmax=maxval,
-                             extent=[xmin, xmax, ymin, ymax])
-        self.fig.colorbar(im1, ax=self.ax7)
+        self.ax7.imshow(self.exp_dIdV[self.exp_idx], aspect='equal', 
+                       cmap='seismic', vmin=-maxval, vmax=maxval,
+                       extent=[xmin, xmax, ymin, ymax])
         self.ax7.set_title(f'Exp. dI/dV at {self.exp_biases[self.exp_idx]:.3f} V')
-        self.ax7.set_xlabel('X (nm)')
-        self.ax7.set_ylabel('Y (nm)')
+        self.ax7.set_xlabel('X [Å]')
+        self.ax7.set_ylabel('Y [Å]')
         
         # Plot Current
-        im2 = self.ax8.imshow(self.exp_I[self.exp_idx], aspect='equal',
-                             cmap='inferno', vmin=0.0, vmax=600.0,
-                             extent=[xmin, xmax, ymin, ymax])
-        self.fig.colorbar(im2, ax=self.ax8)
+        self.ax8.imshow(self.exp_I[self.exp_idx], aspect='equal',
+                       cmap='inferno', vmin=0.0, vmax=600.0,
+                       extent=[xmin, xmax, ymin, ymax])
         self.ax8.set_title(f'Exp. Current at {self.exp_biases[self.exp_idx]:.3f} V')
-        self.ax8.set_xlabel('X (nm)')
-        self.ax8.set_ylabel('Y (nm)')
+        self.ax8.set_xlabel('X [Å]')
+        self.ax8.set_ylabel('Y [Å]')
         
         # Additional plot (can be used for comparison or other data)
         self.ax9.set_title('Additional Plot')
-        self.ax9.set_xlabel('X (nm)')
-        self.ax9.set_ylabel('Y (nm)')
+        self.ax9.set_xlabel('X [Å]')
+        self.ax9.set_ylabel('Y [Å]')
         self.ax9.grid(True)
 
     def run(self):
