@@ -112,3 +112,57 @@ def plot_qdot_system(ax4, ax5, ax6, *, Es, total_charge, STM, spos, extent, nsit
     ax6.set_xlabel("x [Å]")
     ax6.set_ylabel("y [Å]")
     ax6.grid()
+
+
+def plot_ellipses(ax, nsite=6, radius=1.0, phiRot=0.0, R_major=0.2, R_minor=0.1, phi0_ax=0.0, n=100,      **kwargs):
+    """
+    Plot ellipses for each quantum dot site.
+
+    Parameters:
+    -----------
+    ax : matplotlib.axes.Axes
+        The axes object to plot on.
+    nsite : int, optional
+        Number of quantum dot sites (default is 6).
+    radius : float, optional
+        Radius of the circle on which quantum dots are placed (default is 1.0).
+    phiRot : float, optional
+        Rotation angle of the entire configuration (default is 0.0).
+    R_major : float, optional
+        Major axis radius of the ellipses (default is 0.2).
+    R_minor : float, optional
+        Minor axis radius of the ellipses (default is 0.1).
+    phi0_ax : float, optional
+        Initial angle of the major axis of the ellipses (default is 0.0).
+    n : int, optional
+        Number of points to use for drawing each ellipse (default is 100).
+    """
+    for i in range(nsite):
+        # Calculate quantum dot position
+        phi      = phiRot + i * 2 * np.pi / nsite
+        dir_x    = np.cos(phi)
+        dir_y    = np.sin(phi)
+        qd_pos_x = dir_x * radius
+        qd_pos_y = dir_y * radius
+        
+        # Calculate ellipse points
+        phi_ax = phi0_ax + phi
+        t = np.linspace(0, 2*np.pi, n)
+        
+        # Create ellipse in local coordinates
+        x_local = R_major * np.cos(t)
+        y_local = R_minor * np.sin(t)
+        
+        # Rotate ellipse
+        x_rot = x_local * np.cos(phi_ax) - y_local * np.sin(phi_ax)
+        y_rot = x_local * np.sin(phi_ax) + y_local * np.cos(phi_ax)
+        
+        # Translate to quantum dot position
+        x = x_rot + qd_pos_x
+        y = y_rot + qd_pos_y
+        
+        # Plot ellipse
+        ax.plot(x, y, ':', color='white', alpha=0.8, linewidth=1)
+        
+        # Plot center point
+        ax.plot(qd_pos_x, qd_pos_y, '+', color='white', markersize=5)

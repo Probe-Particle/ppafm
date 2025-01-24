@@ -12,13 +12,9 @@ from dataclasses import dataclass, field
 from typing import Optional, Any, Dict, List, Tuple, Union
 from enum import Enum, auto
 
-
-
-
-
 from GUITemplate import GUITemplate, PlotConfig, PlotType, PlotManager, PlotType
 from charge_rings_core import calculate_tip_potential, calculate_qdot_system
-from charge_rings_plotting import plot_tip_potential, plot_qdot_system
+from charge_rings_plotting import plot_tip_potential, plot_qdot_system, plot_ellipses
 
 class ApplicationWindow(GUITemplate):
     def __init__(self):
@@ -96,11 +92,8 @@ class ApplicationWindow(GUITemplate):
         self.plot_manager.add_plot('exp_didv',       PlotConfig( ax=self.ax7, title="Experimental dI/dV",   plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0) ))
         self.plot_manager.add_plot('exp_current',    PlotConfig( ax=self.ax8, title="Experimental Current", plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='inferno', grid=True, clim=(0.0, 600.0) ))
         
-        # Initialize all plots
-        self.plot_manager.initialize_plots()
-        
-        # Load experimental data
         self.load_experimental_data()
+        self.plot_manager.initialize_plots()
         
         self.run()  # Call run() method
     
@@ -193,48 +186,6 @@ class ApplicationWindow(GUITemplate):
         
         return rgb_image, sim_extent
 
-    def plot_ellipses(self, ax, params):
-        """Plot ellipses for each quantum dot site"""
-        nsite = params['nsite']
-        radius = params['radius']
-        phiRot = params['phiRot']
-        R_major = params['R_major']
-        R_minor = params['R_minor']
-        phi0_ax = params['phi0_ax']
-        
-        # Number of points for ellipse
-        n = 100
-        
-        for i in range(nsite):
-            # Calculate quantum dot position
-            phi = phiRot + i * 2 * np.pi / nsite
-            dir_x = np.cos(phi)
-            dir_y = np.sin(phi)
-            qd_pos_x = dir_x * radius
-            qd_pos_y = dir_y * radius
-            
-            # Calculate ellipse points
-            phi_ax = phi0_ax + phi
-            t = np.linspace(0, 2*np.pi, n)
-            
-            # Create ellipse in local coordinates
-            x_local = R_major * np.cos(t)
-            y_local = R_minor * np.sin(t)
-            
-            # Rotate ellipse
-            x_rot = x_local * np.cos(phi_ax) - y_local * np.sin(phi_ax)
-            y_rot = x_local * np.sin(phi_ax) + y_local * np.cos(phi_ax)
-            
-            # Translate to quantum dot position
-            x = x_rot + qd_pos_x
-            y = y_rot + qd_pos_y
-            
-            # Plot ellipse
-            ax.plot(x, y, ':', color='white', alpha=0.8, linewidth=1)
-            
-            # Plot center point
-            ax.plot(qd_pos_x, qd_pos_y, '+', color='white', markersize=5)
-
     def run(self):
         """Main calculation and plot update routine"""
         params = self.get_param_values()
@@ -279,12 +230,7 @@ class ApplicationWindow(GUITemplate):
             self.plot_manager.update_plot('exp_current', self.exp_I[self.exp_idx], extent=self.exp_extent)
             
             # Create and update overlay
-            rgb_overlay, overlay_extent = self.create_overlay_image(
-                self.exp_dIdV[self.exp_idx],
-                total_charge,
-                self.exp_extent,
-                extent
-            )
+            rgb_overlay, overlay_extent = self.create_overlay_image( self.exp_dIdV[self.exp_idx], total_charge, self.exp_extent, extent)
             self.ax9.imshow(rgb_overlay, extent=overlay_extent)
             self.ax9.set_title('Overlay (Red: Exp, Green: Sim)')
             self.ax9.set_xlabel('X [Å]')
@@ -293,7 +239,7 @@ class ApplicationWindow(GUITemplate):
         
         # Plot ellipses on relevant plots
         for ax in [self.ax5, self.ax7]:
-            self.plot_ellipses(ax, params)
+            plot_ellipses(ax, **params)
             for artist in ax.lines:
                 ax.draw_artist(artist)
         
