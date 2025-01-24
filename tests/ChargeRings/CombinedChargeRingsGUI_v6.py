@@ -14,7 +14,9 @@ from enum import Enum, auto
 
 from GUITemplate import GUITemplate, PlotConfig, PlotType, PlotManager
 from charge_rings_core import calculate_tip_potential, calculate_qdot_system
-from charge_rings_plotting import plot_tip_potential, plot_qdot_system
+#from charge_rings_plotting import plot_tip_potential, plot_qdot_system
+
+from charge_rings_plotting import plot_ellipses
 
 class ApplicationWindow(GUITemplate):
     def __init__(self):
@@ -192,54 +194,6 @@ class ApplicationWindow(GUITemplate):
         
         return rgb_image, sim_extent
 
-    def plot_ellipses(self, ax, params):
-        """Plot ellipses for each quantum dot site"""
-        # Extract parameters
-        nsite = params['nsite']
-        radius = params['radius']
-        phiRot = params['phiRot']
-        R_major = params['R_major']
-        R_minor = params['R_minor']
-        phi0_ax = params['phi0_ax']
-        
-        # Number of points for ellipse
-        n = 100
-        
-        artists = []
-        for i in range(nsite):
-            # Calculate quantum dot position
-            phi = phiRot + i * 2 * np.pi / nsite
-            dir_x = np.cos(phi)
-            dir_y = np.sin(phi)
-            qd_pos_x = dir_x * radius
-            qd_pos_y = dir_y * radius
-            
-            # Calculate ellipse points
-            phi_ax = phi0_ax + phi
-            t = np.linspace(0, 2*np.pi, n)
-            
-            # Create ellipse in local coordinates
-            x_local = R_major * np.cos(t)
-            y_local = R_minor * np.sin(t)
-            
-            # Rotate ellipse
-            x_rot = x_local * np.cos(phi_ax) - y_local * np.sin(phi_ax)
-            y_rot = x_local * np.sin(phi_ax) + y_local * np.cos(phi_ax)
-            
-            # Translate to quantum dot position
-            x = x_rot + qd_pos_x
-            y = y_rot + qd_pos_y
-            
-            # Create ellipse artist
-            line_artist, = ax.plot(x, y, ':', color='white', alpha=0.8, linewidth=1)
-            artists.append(line_artist)
-            
-            # Create center point artist
-            point_artist, = ax.plot(qd_pos_x, qd_pos_y, '+', color='white', markersize=5)
-            artists.append(point_artist)
-            
-        return artists
-
     def run(self):
         """Main calculation and plot update routine"""
         params = self.get_param_values()
@@ -297,11 +251,13 @@ class ApplicationWindow(GUITemplate):
             self.ax9.draw_artist(self.ax9.images[0])
         
         # Plot ellipses on relevant plots
-        for plot_name, ax in [('total_charge', self.ax5), ('exp_didv', self.ax7)]:
+        #for plot_name, ax in [('total_charge', self.ax5), ('exp_didv', self.ax7)]:
+        for plot_name in ['total_charge', 'exp_didv','energies' ]:
             # Clear previous overlays
             self.plot_manager.clear_overlays(plot_name)
+            ax = self.plot_manager.plots[plot_name].ax
             # Create new ellipse artists
-            artists = self.plot_ellipses(ax, params)
+            artists = plot_ellipses(ax, **params)
             # Add each artist as an overlay
             for artist in artists:
                 self.plot_manager.add_overlay(plot_name, artist)

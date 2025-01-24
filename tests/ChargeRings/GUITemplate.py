@@ -47,10 +47,7 @@ class PlotManager:
         
         self.bRestoreBackground = False
 
-        self.bUpdateLayout        = False 
-        self.bForceRedraw         = False   
-        self.bRecaptureBackground = False 
-        self.bUpdateLimits        = False
+        self.bUpdateLimits        = True
         self.bBlitIndividual      = False  
         
         
@@ -117,9 +114,11 @@ class PlotManager:
     
     def restore_backgrounds(self) -> None:
         """Restore the background for all plots"""
+       
         
         # In balanced mode, update layout and recapture backgrounds periodically
         if self.bRestoreBackground:
+            print("restore_backgrounds")
             self.fig.tight_layout()
             self.fig.canvas.draw()
             for cfg in self.plots.values():
@@ -137,7 +136,10 @@ class PlotManager:
         """Update a plot with new data"""
         if not self.initialized:
             raise RuntimeError("Plots must be initialized before updating")
-            
+
+
+        print(f"update_plot() {name} {extent}")
+
         cfg = self.plots[name]
         
         if cfg.plot_type in [PlotType.IMAGE, PlotType.COMPOSITE]:
@@ -174,6 +176,9 @@ class PlotManager:
                 cfg.ax.relim()
                 cfg.ax.autoscale_view()
         
+
+        self.bUpdateLimits = False
+
         # Draw overlay artists if they exist
         for artist in cfg.overlay_artists:
             cfg.ax.draw_artist(artist)
