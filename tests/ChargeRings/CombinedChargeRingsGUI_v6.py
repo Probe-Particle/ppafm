@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Any, Dict, List, Tuple, Union
 from enum import Enum, auto
 
-from GUITemplate import GUITemplate, PlotConfig, PlotType, PlotManager
+from GUITemplate import GUITemplate, PlotConfig, PlotManager
 from charge_rings_core import calculate_tip_potential, calculate_qdot_system
 #from charge_rings_plotting import plot_tip_potential, plot_qdot_system
 
@@ -87,19 +87,19 @@ class ApplicationWindow(GUITemplate):
         # Configure plots with explicit extents
         L = self.param_specs['L']['value']
         extent = (-L, L, -L, L)
-        self.plot_manager.add_plot('potential_1d',   PlotConfig(ax=self.ax1, title="1D Potential (z=0)",   plot_type=PlotType.MULTILINE,  xlabel="x [Å]", ylabel="V [V]", grid=True, styles=['-b', '--r', ':g']))
-        self.plot_manager.add_plot('tip_potential',  PlotConfig(ax=self.ax2, title="Tip Potential",        plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="z [Å]", cmap='bwr',     grid=True, clim=(-1.0, 1.0)))
-        self.plot_manager.add_plot('site_potential', PlotConfig(ax=self.ax3, title="Site Potential",       plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="z [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
-        self.plot_manager.add_plot('energies',       PlotConfig(ax=self.ax4, title="Site Energies",        plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
-        self.plot_manager.add_plot('Qtot',           PlotConfig(ax=self.ax5, title="Total Charge",         plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
-        self.plot_manager.add_plot('stm',            PlotConfig(ax=self.ax6, title="STM",                  plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='inferno', grid=True, clim=(0.0, 1.0)))
-        self.plot_manager.add_plot('exp_didv',       PlotConfig(ax=self.ax7, title="Experimental dI/dV",   plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
-        self.plot_manager.add_plot('exp_current',    PlotConfig(ax=self.ax8, title="Experimental Current", plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='inferno', grid=True, clim=(0.0, 600.0)))
-        self.plot_manager.add_plot('overlay',        PlotConfig(ax=self.ax9, title="Overlay (Red: Exp, Green: Sim)", plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='viridis', grid=True, clim=(0.0, 1.0)))
+        self.plot_manager.add_plot('potential_1d',   PlotConfig(ax=self.ax1, title="1D Potential (z=0)",   xlabel="x [Å]", ylabel="V [V]", grid=True, styles=['-b', '--r', ':g']))
+        self.plot_manager.add_plot('tip_potential',  PlotConfig(ax=self.ax2, title="Tip Potential",        xlabel="x [Å]", ylabel="z [Å]", cmap='bwr',     grid=True, clim=(-1.0, 1.0)))
+        self.plot_manager.add_plot('site_potential', PlotConfig(ax=self.ax3, title="Site Potential",       xlabel="x [Å]", ylabel="z [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
+        self.plot_manager.add_plot('energies',       PlotConfig(ax=self.ax4, title="Site Energies",        xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
+        self.plot_manager.add_plot('Qtot',           PlotConfig(ax=self.ax5, title="Total Charge",         xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
+        self.plot_manager.add_plot('stm',            PlotConfig(ax=self.ax6, title="STM",                  xlabel="x [Å]", ylabel="y [Å]", cmap='inferno', grid=True, clim=(0.0, 1.0)))
+        self.plot_manager.add_plot('exp_didv',       PlotConfig(ax=self.ax7, title="Experimental dI/dV",   xlabel="X [Å]", ylabel="Y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
+        self.plot_manager.add_plot('exp_current',    PlotConfig(ax=self.ax8, title="Experimental Current", xlabel="X [Å]", ylabel="Y [Å]", cmap='inferno', grid=True, clim=(0.0, 600.0)))
+        self.plot_manager.add_plot('overlay',        PlotConfig(ax=self.ax9, title="Overlay (Red: Exp, Green: Sim)", xlabel="X [Å]", ylabel="Y [Å]", cmap='viridis', grid=True, clim=(0.0, 1.0)))
         
         # Set initial axis limits for image plots
         for name, cfg in self.plot_manager.plots.items():
-            if cfg.plot_type == PlotType.IMAGE:
+            if cfg.cmap:  # Check if it's an image plot by presence of cmap
                 cfg.ax.set_xlim(extent[0], extent[1])
                 cfg.ax.set_ylim(extent[2], extent[3])
         

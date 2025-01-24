@@ -7,37 +7,35 @@ from typing import Optional, Any, Dict, List, Tuple, Union
 from enum import Enum, auto
 import matplotlib.pyplot as plt
 
-class PlotType(Enum):
-    """Enumeration of supported plot types"""
-    IMAGE = auto()          # Simple image plot
-    LINE = auto()           # Single line plot
-    MULTILINE = auto()      # Multiple line plots
-    COMPOSITE = auto()      # Image with overlays (e.g., lines, points)
-
 @dataclass
 class PlotConfig:
     """Configuration for a plot, including its display properties and artists"""
     ax: plt.Axes
     title: str
-    plot_type: PlotType
     xlabel: str = ''
     ylabel: str = ''
-    cmap: Optional[str] = None
-    clim: Optional[Tuple[float, float]] = None
     grid: bool = True
     animated: bool = True
-    # Main artists (e.g., imshow for images, line for plots)
-    artists: List[Any] = field(default_factory=list)
-    # Overlay artists (e.g., lines on top of images)
-    overlay_artists: List[Any] = field(default_factory=list)
+    
+    # Image plot properties
+    cmap: Optional[str] = None
+    clim: Optional[Tuple[float, float]] = None
+    
+    # Line plot properties
+    styles: List[str] = field(default_factory=list)
+    
+    # Artists management
+    image_artist: Optional[Any] = None      # Main imshow artist
+    line_artists: List[Any] = field(default_factory=list)  # Line plot artists
+    overlay_artists: List[Any] = field(default_factory=list)  # Additional overlay artists
     background: Optional[Any] = None
+    
     # Additional plot-specific properties
     properties: Dict[str, Any] = field(default_factory=dict)
+    
     # Performance settings
     update_layout: bool = False  # Whether to update layout for this plot
     force_redraw: bool = False   # Whether to force redraw for this plot
-    #styles: List[str] = ['-b', '--r', ':g']
-    styles: List[str] = field(default_factory=list)
 
 class PlotManager:
     """Manages plot configurations, initialization and updates with blitting support"""
@@ -46,13 +44,10 @@ class PlotManager:
         self.fig = fig
         self.plots: Dict[str, PlotConfig] = {}
         self.initialized = False
-        
         self.bRestoreBackground = False
-
-        self.bUpdateLimits        = True
-        self.bBlitIndividual      = False  
-        
-        
+        self.bUpdateLimits = True
+        self.bBlitIndividual = False
+    
     def add_plot(self, name: str, config: PlotConfig) -> None:
         """Register a new plot configuration"""
         self.plots[name] = config
@@ -64,28 +59,23 @@ class PlotManager:
             
         for name, cfg in self.plots.items():
             # Set common properties with increased padding
-            cfg.ax.set_title(cfg.title, pad=20)  # Increase title padding
-            cfg.ax.set_xlabel(cfg.xlabel, labelpad=10)  # Increase label padding
+            cfg.ax.set_title(cfg.title, pad=20)
+            cfg.ax.set_xlabel(cfg.xlabel, labelpad=10)
             cfg.ax.set_ylabel(cfg.ylabel, labelpad=10)
             if cfg.grid:
                 cfg.ax.grid(True)
             
-            # Create appropriate artist based on plot type
-            if cfg.plot_type in [PlotType.IMAGE, PlotType.COMPOSITE]:
+            # Initialize image if cmap is specified
+            if cfg.cmap:
                 dummy_data = np.zeros((100, 100))
-                artist = cfg.ax.imshow( dummy_data, animated=cfg.animated, cmap=cfg.cmap )
-                if cfg.clim: artist.set_clim(*cfg.clim)
-                cfg.artists.append(artist)
-            elif cfg.plot_type == PlotType.MULTILINE:
-                for style in cfg.styles:
-                    artist, = cfg.ax.plot([], [], style, animated=cfg.animated)
-                    cfg.artists.append(artist)
-
-            # elif cfg.plot_type == PlotType.LINE:
-            #     artist, = cfg.ax.plot([], [], animated=cfg.animated)
-            #     cfg.artists.append(artist)
-                
-
+                cfg.image_artist = cfg.ax.imshow(dummy_data, animated=cfg.animated, cmap=cfg.cmap)
+                if cfg.clim: 
+                    cfg.image_artist.set_clim(*cfg.clim)
+            
+            # Initialize lines if styles are specified
+            for style in cfg.styles:
+                artist, = cfg.ax.plot([], [], style, animated=cfg.animated)
+                cfg.line_artists.append(artist)
         
         # Initial draw and layout
         self.fig.tight_layout()
@@ -111,9 +101,6 @@ class PlotManager:
     
     def restore_backgrounds(self) -> None:
         """Restore the background for all plots"""
-       
-        
-        # In balanced mode, update layout and recapture backgrounds periodically
         if self.bRestoreBackground:
             print("restore_backgrounds")
             self.fig.tight_layout()
@@ -127,59 +114,59 @@ class PlotManager:
             self.fig.canvas.restore_region(cfg.background)
     
     def update_plot(self, name: str, 
-                   data: Union[np.ndarray, Tuple[np.ndarray, np.ndarray], List[Tuple[np.ndarray, np.ndarray]]], 
+                   data: Union[np.ndarray, List[Tuple[np.ndarray, np.ndarray]]], 
                    extent: Optional[Tuple[float, float, float, float]] = None,
                    clim: Optional[Tuple[float, float]] = None) -> None:
-        """Update a plot with new data"""
+        """Update a plot with new data. For image plots, data should be a 2D array.
+        For line plots, data should be a list of (x, y) tuples."""
         if not self.initialized:
             raise RuntimeError("Plots must be initialized before updating")
         
-        #print(f"update_plot() {name} {extent}")
-
         cfg = self.plots[name]
         
-        if cfg.plot_type in [PlotType.IMAGE, PlotType.COMPOSITE]:
-            cfg.artists[0].set_data(data)
+        # Update image if present
+        if cfg.image_artist is not None and isinstance(data, np.ndarray):
+            cfg.image_artist.set_data(data)
             
             if extent is not None:
-                cfg.artists[0].set_extent(extent)
+                cfg.image_artist.set_extent(extent)
                 if self.bUpdateLimits:
                     cfg.ax.set_xlim(extent[0], extent[1])
                     cfg.ax.set_ylim(extent[2], extent[3])
             
             if clim is not None:
-                cfg.artists[0].set_clim(*clim)
-            
-            cfg.ax.draw_artist(cfg.artists[0])
-                        
-        elif cfg.plot_type == PlotType.MULTILINE:
-            if not isinstance(data, list):
-                raise ValueError("Multiline plots require list of (x,y) tuples")
-            for artist, (x, y) in zip(cfg.artists, data):
+                cfg.image_artist.set_clim(*clim)
+        
+        # Update lines if present
+        elif cfg.line_artists and isinstance(data, list):
+            for (x, y), artist in zip(data, cfg.line_artists):
                 artist.set_data(x, y)
-                cfg.ax.draw_artist(artist)
+            
             if self.bUpdateLimits:
+                # Auto-scale the axes to fit the line data
                 cfg.ax.relim()
                 cfg.ax.autoscale_view()
-        
-        self.bUpdateLimits = False
-
-        # Draw overlay artists if they exist
-        for artist in cfg.overlay_artists:
-            cfg.ax.draw_artist(artist)
     
     def blit(self) -> None:
-        """Perform final blitting update"""
-
+        """Update the figure with blitting"""
+        if not self.initialized:
+            return
+            
+        # Draw all artists for each plot
+        for cfg in self.plots.values():
+            if cfg.image_artist:
+                cfg.ax.draw_artist(cfg.image_artist)
+            for artist in cfg.line_artists:
+                cfg.ax.draw_artist(artist)
+            for artist in cfg.overlay_artists:
+                cfg.ax.draw_artist(artist)
+        
+        # Blit everything to the screen
         if self.bBlitIndividual:
-            # Blit each axes individually
             for cfg in self.plots.values():
                 self.fig.canvas.blit(cfg.ax.bbox)
         else:
-            # Blit entire figure at once (faster)
             self.fig.canvas.blit(self.fig.bbox)
-        
-        self.fig.canvas.flush_events()
 
 class GUITemplate(QtWidgets.QMainWindow):
     def __init__(self, title="Application GUI"):
