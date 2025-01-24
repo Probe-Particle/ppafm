@@ -7,6 +7,7 @@ import matplotlib; matplotlib.use('Qt5Agg')
 from PyQt5 import QtCore, QtWidgets
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 
 from GUITemplate import GUITemplate
 from charge_rings_core import calculate_tip_potential, calculate_qdot_system
@@ -63,7 +64,7 @@ class ApplicationWindow(GUITemplate):
         # Load experimental data
         self.load_experimental_data()
         
-        # Setup matplotlib figure with 3x3 layout
+        # Setup matplotlib figure with 3x3 layout and enable blitting
         self.fig = Figure(figsize=(15, 15))
         self.canvas = FigureCanvas(self.fig)
         self.main_widget.layout().insertWidget(0, self.canvas)
@@ -78,31 +79,67 @@ class ApplicationWindow(GUITemplate):
         self.ax7 = self.fig.add_subplot(338)  # Experimental dI/dV
         self.ax8 = self.fig.add_subplot(339)  # Experimental Current
         self.ax9 = self.fig.add_subplot(337)  # Additional plot if needed
+
+        # Initialize plot artists with dummy data
+        dummy_data = np.zeros((100, 100))
+        self.line1d, = self.ax1.plot([], [], label='V_tip')
+        self.line1d_esite, = self.ax1.plot([], [], label='V_tip + E_site')
+        self.line1d_vbias, = self.ax1.plot([], [], label='VBias')
+        self.im2 = self.ax2.imshow(dummy_data, animated=True)
+        self.im3 = self.ax3.imshow(dummy_data, animated=True)
+        self.im4 = self.ax4.imshow(dummy_data, animated=True)
+        self.im5 = self.ax5.imshow(dummy_data, animated=True)
+        self.im6 = self.ax6.imshow(dummy_data, animated=True)
+        self.im7 = self.ax7.imshow(dummy_data, animated=True)
+        self.im8 = self.ax8.imshow(dummy_data, animated=True)
+        self.im9 = self.ax9.imshow(dummy_data, animated=True)
+        
+        # Store background for blitting
+        self.fig.canvas.draw()
+        self.backgrounds = [self.fig.canvas.copy_from_bbox(ax.bbox) for ax in 
+                          [self.ax1, self.ax2, self.ax3, self.ax4, self.ax5, 
+                           self.ax6, self.ax7, self.ax8, self.ax9]]
+        
+        # Enable interactive mode
+        plt.ion()
         
         self.run()
         
     def load_experimental_data(self):
         """Load experimental data from npz file"""
-        data = np.load('exp_rings_data.npz')
-        # Convert from nm to Å (1 nm = 10 Å)
-        self.exp_X = data['X'] * 10
-        self.exp_Y = data['Y'] * 10
-        self.exp_dIdV = data['dIdV']
-        self.exp_I = data['I']
-        self.exp_biases = data['biases']
-        center_x = data['center_x'] * 10  # Convert to Å
-        center_y = data['center_y'] * 10  # Convert to Å
-        
-        # Center the coordinates
-        self.exp_X -= center_x
-        self.exp_Y -= center_y
-        
-        # Update exp_slice range based on actual data size
-        self.param_specs['exp_slice']['range'] = (0, len(self.exp_biases) - 1)
-        self.param_specs['exp_slice']['value'] = len(self.exp_biases) // 2
-        
-        # Set initial voltage index to middle
-        self.exp_idx = len(self.exp_biases) // 2
+        try:
+            data = np.load('exp_rings_data.npz')
+            # Convert from nm to Å (1 nm = 10 Å)
+            self.exp_X = data['X'] * 10
+            self.exp_Y = data['Y'] * 10
+            self.exp_dIdV = data['dIdV']
+            self.exp_I = data['I']
+            self.exp_biases = data['biases']
+            center_x = data['center_x'] * 10  # Convert to Å
+            center_y = data['center_y'] * 10  # Convert to Å
+            
+            # Center the coordinates
+            self.exp_X -= center_x
+            self.exp_Y -= center_y
+            
+            # Calculate experimental data extent
+            self.exp_extent = [
+                np.min(self.exp_X), np.max(self.exp_X),
+                np.min(self.exp_Y), np.max(self.exp_Y)
+            ]
+            
+            # Update exp_slice range based on actual data size
+            self.param_specs['exp_slice']['range'] = (0, len(self.exp_biases) - 1)
+            self.param_specs['exp_slice']['value'] = len(self.exp_biases) // 2
+            
+            # Set initial voltage index to middle
+            self.exp_idx = len(self.exp_biases) // 2
+        except FileNotFoundError:
+            print("Warning: exp_rings_data.npz not found. Experimental data will not be shown.")
+            self.exp_dIdV = None
+            self.exp_I = None
+            self.exp_extent = [-20, 20, -20, 20]  # Default extent
+            self.exp_idx = 0
 
     def resample_to_simulation_grid(self, data, src_extent, target_size=100, target_extent=(-20, 20, -20, 20)):
         """Resample data to match simulation grid and extent
@@ -283,19 +320,85 @@ class ApplicationWindow(GUITemplate):
         tip_data = calculate_tip_potential(**params)
         qdot_data = calculate_qdot_system(**params)
         
-        # Plot results
-        plot_tip_potential(self.ax1, self.ax2, self.ax3, **tip_data, **params)
-        plot_qdot_system(self.ax4, self.ax5, self.ax6, **qdot_data, **params)
+        # Restore backgrounds
+        for ax, bg in zip([self.ax1, self.ax2, self.ax3, self.ax4, self.ax5, 
+                          self.ax6, self.ax7, self.ax8, self.ax9], 
+                         self.backgrounds):
+            self.fig.canvas.restore_region(bg)
         
-        # Plot ellipses on total charge plot
-        self.plot_ellipses(self.ax5, params)
+        # Update 1D potential plot
+        x_coords = np.linspace(-params['L'], params['L'], len(tip_data['V1d']))
+        self.line1d.set_data(x_coords, tip_data['V1d'])
+        self.line1d_esite.set_data(x_coords, tip_data['V1d'] + params['Esite'])
+        self.line1d_vbias.set_data(x_coords, x_coords*0.0 + params['VBias'])
+        self.ax1.draw_artist(self.line1d)
+        self.ax1.draw_artist(self.line1d_esite)
+        self.ax1.draw_artist(self.line1d_vbias)
         
-        # Plot experimental data
-        self.plot_experimental_data()
+        # Update image plots
+        extent = [-params['L'], params['L'], -params['L'], params['L']]
+        self.im2.set_data(tip_data['Vtip'])
+        self.im2.set_extent(extent)
+        self.im2.set_clim(-params['VBias'], params['VBias'])
+        self.ax2.draw_artist(self.im2)
         
-        # Update the canvas
-        self.fig.tight_layout()
-        self.canvas.draw()
+        self.im3.set_data(tip_data['Esites'])
+        self.im3.set_extent(extent)
+        self.im3.set_clim(-params['VBias'], params['VBias'])
+        self.ax3.draw_artist(self.im3)
+        
+        Eplot = np.max(qdot_data['Es'], axis=2)
+        vmax = np.abs(Eplot).max()
+        self.im4.set_data(Eplot)
+        self.im4.set_extent(extent)
+        self.im4.set_clim(-vmax, vmax)
+        self.ax4.draw_artist(self.im4)
+        
+        total_charge = qdot_data['total_charge'].reshape(qdot_data['total_charge'].shape[0], -1)
+        self.im5.set_data(total_charge)
+        self.im5.set_extent(extent)
+        self.ax5.draw_artist(self.im5)
+        
+        self.im6.set_data(qdot_data['STM'])
+        self.im6.set_extent(extent)
+        self.ax6.draw_artist(self.im6)
+        
+        # Update experimental data plots if available
+        if hasattr(self, 'exp_dIdV') and self.exp_dIdV is not None:
+            self.exp_idx = params['exp_slice']
+            
+            # Update dI/dV plot
+            self.im7.set_data(self.exp_dIdV[self.exp_idx])
+            self.im7.set_extent(self.exp_extent)
+            self.ax7.draw_artist(self.im7)
+            
+            # Update current plot
+            self.im8.set_data(self.exp_I[self.exp_idx])
+            self.im8.set_extent(self.exp_extent)
+            self.ax8.draw_artist(self.im8)
+            
+            # Create and update overlay
+            rgb_overlay, overlay_extent = self.create_overlay_image(
+                self.exp_dIdV[self.exp_idx], 
+                total_charge,
+                self.exp_extent,
+                extent
+            )
+            self.im9.set_data(rgb_overlay)
+            self.im9.set_extent(overlay_extent)
+            self.ax9.draw_artist(self.im9)
+        else:
+            # Clear experimental plots if no data
+            self.im7.set_data(np.zeros((100, 100)))
+            self.im8.set_data(np.zeros((100, 100)))
+            self.im9.set_data(np.zeros((100, 100)))
+            self.ax7.draw_artist(self.im7)
+            self.ax8.draw_artist(self.im8)
+            self.ax9.draw_artist(self.im9)
+        
+        # Blit the changes to the screen
+        self.fig.canvas.blit(self.fig.bbox)
+        self.fig.canvas.flush_events()
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
