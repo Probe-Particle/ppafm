@@ -63,7 +63,7 @@ def plot_tip_potential(ax1, ax2, ax3, *, Vtip, Esites, V1d, extent, VBias=1.0, z
     ax3.set_ylabel("z [Å]")
     ax3.grid()
 
-def plot_qdot_system(ax4, ax5, ax6, *, Es, total_charge, STM, spos, extent, nsite=3, VBias=1.0, **kwargs):
+def plot_qdot_system(ax4, ax5, ax6, *, Es, Qtot, STM, spos, extent, nsite=3, VBias=1.0, **kwargs):
     """
     Plot X-Y projections of quantum dot system
     
@@ -72,7 +72,7 @@ def plot_qdot_system(ax4, ax5, ax6, *, Es, total_charge, STM, spos, extent, nsit
         ax5: Matplotlib axis for total charge plot
         ax6: Matplotlib axis for STM plot
         Es: Site energies data
-        total_charge: Total charge distribution data
+        Qtot: Total charge distribution data
         STM: STM signal data
         spos: Site positions
         extent: Plot extent parameters
@@ -95,7 +95,7 @@ def plot_qdot_system(ax4, ax5, ax6, *, Es, total_charge, STM, spos, extent, nsit
     
     # Total Charge
     ax5.clear()
-    ax5.imshow(total_charge.reshape(total_charge.shape[0], -1), extent=extent, cmap='bwr', origin='lower')
+    ax5.imshow(Qtot, extent=extent, cmap='bwr', origin='lower')
     for i in range(nsite):
         ax5.plot(spos[i,0], spos[i,1], 'ko')
     ax5.set_title("Total Charge")
@@ -105,7 +105,7 @@ def plot_qdot_system(ax4, ax5, ax6, *, Es, total_charge, STM, spos, extent, nsit
     
     # STM
     ax6.clear()
-    ax6.imshow(STM.reshape(STM.shape[0], -1), extent=extent, cmap='gray', origin='lower')
+    ax6.imshow(STM, extent=extent, cmap='gray', origin='lower')
     for i in range(nsite):
         ax6.plot(spos[i,0], spos[i,1], 'ro')
     ax6.set_title("STM")

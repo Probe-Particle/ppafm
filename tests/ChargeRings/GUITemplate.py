@@ -36,6 +36,8 @@ class PlotConfig:
     # Performance settings
     update_layout: bool = False  # Whether to update layout for this plot
     force_redraw: bool = False   # Whether to force redraw for this plot
+    #styles: List[str] = ['-b', '--r', ':g']
+    styles: List[str] = field(default_factory=list)
 
 class PlotManager:
     """Manages plot configurations, initialization and updates with blitting support"""
@@ -71,24 +73,19 @@ class PlotManager:
             # Create appropriate artist based on plot type
             if cfg.plot_type in [PlotType.IMAGE, PlotType.COMPOSITE]:
                 dummy_data = np.zeros((100, 100))
-                artist = cfg.ax.imshow(
-                    dummy_data,
-                    animated=cfg.animated,
-                    cmap=cfg.cmap
-                )
-                if cfg.clim:
-                    artist.set_clim(*cfg.clim)
+                artist = cfg.ax.imshow( dummy_data, animated=cfg.animated, cmap=cfg.cmap )
+                if cfg.clim: artist.set_clim(*cfg.clim)
                 cfg.artists.append(artist)
-                
-            elif cfg.plot_type == PlotType.LINE:
-                artist, = cfg.ax.plot([], [], animated=cfg.animated)
-                cfg.artists.append(artist)
-                
             elif cfg.plot_type == PlotType.MULTILINE:
-                styles = ['-b', '--r', ':g']
-                for style in styles:
+                for style in cfg.styles:
                     artist, = cfg.ax.plot([], [], style, animated=cfg.animated)
                     cfg.artists.append(artist)
+
+            # elif cfg.plot_type == PlotType.LINE:
+            #     artist, = cfg.ax.plot([], [], animated=cfg.animated)
+            #     cfg.artists.append(artist)
+                
+
         
         # Initial draw and layout
         self.fig.tight_layout()
@@ -136,9 +133,8 @@ class PlotManager:
         """Update a plot with new data"""
         if not self.initialized:
             raise RuntimeError("Plots must be initialized before updating")
-
-
-        print(f"update_plot() {name} {extent}")
+        
+        #print(f"update_plot() {name} {extent}")
 
         cfg = self.plots[name]
         
@@ -155,17 +151,7 @@ class PlotManager:
                 cfg.artists[0].set_clim(*clim)
             
             cfg.ax.draw_artist(cfg.artists[0])
-            
-        elif cfg.plot_type == PlotType.LINE:
-            if not isinstance(data, tuple) or len(data) != 2:
-                raise ValueError("Line plots require x and y data as tuple")
-            x, y = data
-            cfg.artists[0].set_data(x, y)
-            if self.bUpdateLimits:
-                cfg.ax.relim()
-                cfg.ax.autoscale_view()
-            cfg.ax.draw_artist(cfg.artists[0])
-            
+                        
         elif cfg.plot_type == PlotType.MULTILINE:
             if not isinstance(data, list):
                 raise ValueError("Multiline plots require list of (x,y) tuples")
@@ -176,7 +162,6 @@ class PlotManager:
                 cfg.ax.relim()
                 cfg.ax.autoscale_view()
         
-
         self.bUpdateLimits = False
 
         # Draw overlay artists if they exist

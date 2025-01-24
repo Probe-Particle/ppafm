@@ -67,7 +67,7 @@ def calculate_qdot_system(*, nsite=3, radius=5.0, zQd=0.0, temperature=10.0, onS
     Returns:
         dict: Dictionary containing calculated data:
             - Es: Site energies
-            - total_charge: Total charge distribution
+            - Qtot: Total charge distribution
             - STM: STM signal
             - pTips: Tip positions
             - extent: Plot extent parameters
@@ -101,8 +101,8 @@ def calculate_qdot_system(*, nsite=3, radius=5.0, zQd=0.0, temperature=10.0, onS
     
     return {
         'Es': Es.reshape(npix, npix, -1),
-        'total_charge': np.sum(Qs, axis=1).reshape(npix, npix,-1),
-        'STM': np.sum(Is, axis=1).reshape(npix, npix,-1),
+        'Qtot': np.sum(Qs, axis=1).reshape(npix, npix),
+        'STM': np.sum(Is, axis=1).reshape(npix, npix),
         'pTips': pTips,
         'extent': [-L, L, -L, L],
         'spos': spos,

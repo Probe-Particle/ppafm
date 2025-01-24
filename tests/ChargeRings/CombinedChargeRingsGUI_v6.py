@@ -84,15 +84,24 @@ class ApplicationWindow(GUITemplate):
         # Initialize plot manager
         self.plot_manager = PlotManager(self.fig)
         
-        # Configure plots
-        self.plot_manager.add_plot('potential_1d',   PlotConfig( ax=self.ax1, title="1D Potential (z=0)",   plot_type=PlotType.MULTILINE,  xlabel="x [Å]", ylabel="V [V]",                 grid=True ))
-        self.plot_manager.add_plot('tip_potential',  PlotConfig( ax=self.ax2, title="Tip Potential",        plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="z [Å]", cmap='bwr',     grid=True, clim=(-1.0, 1.0) ))
-        self.plot_manager.add_plot('site_potential', PlotConfig( ax=self.ax3, title="Site Potential",       plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="z [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0) ))
-        self.plot_manager.add_plot('energies',       PlotConfig( ax=self.ax4, title="Site Energies",        plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0) ))
-        self.plot_manager.add_plot('total_charge',   PlotConfig( ax=self.ax5, title="Total Charge",         plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0) ))
-        self.plot_manager.add_plot('stm',            PlotConfig( ax=self.ax6, title="STM",                  plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='inferno', grid=True, clim=(0.0, 1.0) ))
-        self.plot_manager.add_plot('exp_didv',       PlotConfig( ax=self.ax7, title="Experimental dI/dV",   plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0) ))
-        self.plot_manager.add_plot('exp_current',    PlotConfig( ax=self.ax8, title="Experimental Current", plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='inferno', grid=True, clim=(0.0, 600.0) ))
+        # Configure plots with explicit extents
+        L = self.param_specs['L']['value']
+        extent = (-L, L, -L, L)
+        self.plot_manager.add_plot('potential_1d',   PlotConfig(ax=self.ax1, title="1D Potential (z=0)",   plot_type=PlotType.MULTILINE,  xlabel="x [Å]", ylabel="V [V]", grid=True, styles=['-b', '--r', ':g']))
+        self.plot_manager.add_plot('tip_potential',  PlotConfig(ax=self.ax2, title="Tip Potential",        plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="z [Å]", cmap='bwr',     grid=True, clim=(-1.0, 1.0)))
+        self.plot_manager.add_plot('site_potential', PlotConfig(ax=self.ax3, title="Site Potential",       plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="z [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
+        self.plot_manager.add_plot('energies',       PlotConfig(ax=self.ax4, title="Site Energies",        plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
+        self.plot_manager.add_plot('Qtot',           PlotConfig(ax=self.ax5, title="Total Charge",         plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
+        self.plot_manager.add_plot('stm',            PlotConfig(ax=self.ax6, title="STM",                  plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='inferno', grid=True, clim=(0.0, 1.0)))
+        self.plot_manager.add_plot('exp_didv',       PlotConfig(ax=self.ax7, title="Experimental dI/dV",   plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0)))
+        self.plot_manager.add_plot('exp_current',    PlotConfig(ax=self.ax8, title="Experimental Current", plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='inferno', grid=True, clim=(0.0, 600.0)))
+        self.plot_manager.add_plot('overlay',        PlotConfig(ax=self.ax9, title="Overlay (Red: Exp, Green: Sim)", plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='viridis', grid=True, clim=(0.0, 1.0)))
+        
+        # Set initial axis limits for image plots
+        for name, cfg in self.plot_manager.plots.items():
+            if cfg.plot_type == PlotType.IMAGE:
+                cfg.ax.set_xlim(extent[0], extent[1])
+                cfg.ax.set_ylim(extent[2], extent[3])
         
         # Initialize all plots
         self.plot_manager.initialize_plots()
@@ -200,33 +209,40 @@ class ApplicationWindow(GUITemplate):
         
         # Calculate tip potential
         tip_data = calculate_tip_potential(**params)
-        Vtip = tip_data['Vtip']
-        Esites = tip_data['Esites']
-        V1d = tip_data['V1d']
+        Vtip    = tip_data['Vtip']
+        Esites  = tip_data['Esites']
+        V1d     = tip_data['V1d']
         
         # Calculate quantum dot system
         qdot_data = calculate_qdot_system(**params)
-        Es = np.max(qdot_data['Es'], axis=2)  # Take maximum across all layers for 2D plot
-        total_charge = qdot_data['total_charge'][:,:,0]  # Take first layer for 2D plot
-        STM = qdot_data['STM'][:,:,0]  # Take first layer for 2D plot
+        Es        = np.max(qdot_data['Es'], axis=2)  # Take maximum across all layers for 2D plot
+        Qtot      = qdot_data['Qtot']
+        STM       = qdot_data['STM']
+        
+        #Qtot = qdot_data['Qtot'][:,:,0]  # Take first layer for 2D plot
+        #STM = qdot_data['STM'][:,:,0]  # Take first layer for 2D plot
         
         # Update plots with new data
         self.plot_manager.restore_backgrounds()
+
+        L = params['L']
+        extent = (-L, L, -L, L)
         
         # Update 1D potential plot with all three lines
-        x_coords = np.linspace(-params['L'], params['L'], len(V1d))
+        x_coords = np.linspace(-L, L, len(V1d))
         self.plot_manager.update_plot('potential_1d', [
             (x_coords, V1d),
-            (x_coords, (V1d + params['Esite']) * params['VBias']),
+            (x_coords, (V1d + params['Esite']) ),
             (x_coords, np.full_like(x_coords, params['VBias']))
         ])
         
         # Update image plots
-        extent = [-params['L'], params['L'], -params['L'], params['L']]
         self.plot_manager.update_plot('tip_potential',  Vtip,         extent=extent)
         self.plot_manager.update_plot('site_potential', Esites,       extent=extent)
         self.plot_manager.update_plot('energies',       Es,           extent=extent)
-        self.plot_manager.update_plot('total_charge',   total_charge, extent=extent)
+        # Calculate and use appropriate color limits for Qtot
+        charge_max = np.abs(Qtot).max()
+        self.plot_manager.update_plot('Qtot',   Qtot, extent=extent, clim=(-charge_max, charge_max))
         self.plot_manager.update_plot('stm',            STM,          extent=extent)
         
         # Update experimental plots if data is available
@@ -234,25 +250,19 @@ class ApplicationWindow(GUITemplate):
             self.exp_idx = params['exp_slice']
             
             # Update experimental plots
-            self.plot_manager.update_plot('exp_didv', self.exp_dIdV[self.exp_idx], extent=self.exp_extent)
-            self.plot_manager.update_plot('exp_current', self.exp_I[self.exp_idx], extent=self.exp_extent)
+            I    = self.exp_I[self.exp_idx]
+            dIdV = self.exp_dIdV[self.exp_idx]
+            vmax = np.abs( dIdV ).max()
+            self.plot_manager.update_plot('exp_didv',    self.exp_dIdV[self.exp_idx], extent=self.exp_extent, clim=(-vmax,vmax))
+            self.plot_manager.update_plot('exp_current', self.exp_I[self.exp_idx],    extent=self.exp_extent, clim=(I.min(),I.max()))
             
             # Create and update overlay
-            rgb_overlay, overlay_extent = self.create_overlay_image(
-                self.exp_dIdV[self.exp_idx],
-                total_charge,
-                self.exp_extent,
-                extent
-            )
-            self.ax9.imshow(rgb_overlay, extent=overlay_extent)
-            self.ax9.set_title('Overlay (Red: Exp, Green: Sim)')
-            self.ax9.set_xlabel('X [Å]')
-            self.ax9.set_ylabel('Y [Å]')
-            self.ax9.draw_artist(self.ax9.images[0])
+            rgb_overlay, overlay_extent = self.create_overlay_image( self.exp_dIdV[self.exp_idx], Qtot, self.exp_extent, extent )
+            self.plot_manager.update_plot('overlay', rgb_overlay, extent=overlay_extent)
         
         # Plot ellipses on relevant plots
-        #for plot_name, ax in [('total_charge', self.ax5), ('exp_didv', self.ax7)]:
-        for plot_name in ['total_charge', 'exp_didv','energies' ]:
+        #for plot_name, ax in [('Qtot', self.ax5), ('exp_didv', self.ax7)]:
+        for plot_name in ['Qtot', 'exp_didv','energies' ]:
             # Clear previous overlays
             self.plot_manager.clear_overlays(plot_name)
             ax = self.plot_manager.plots[plot_name].ax
