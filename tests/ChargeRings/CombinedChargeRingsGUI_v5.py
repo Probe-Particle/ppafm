@@ -61,9 +61,6 @@ class ApplicationWindow(GUITemplate):
         
         self.create_gui()
         
-        # Load experimental data
-        self.load_experimental_data()
-        
         # Setup matplotlib figure with 3x3 layout and enable blitting
         self.fig = Figure(figsize=(15, 15))
         self.canvas = FigureCanvas(self.fig)
@@ -94,6 +91,23 @@ class ApplicationWindow(GUITemplate):
         self.im8 = self.ax8.imshow(dummy_data, animated=True)
         self.im9 = self.ax9.imshow(dummy_data, animated=True)
         
+        # Initialize plot artists with dummy data
+        dummy_data = np.zeros((100, 100))
+        self.line1d, = self.ax1.plot([], [], label='V_tip')
+        self.line1d_esite, = self.ax1.plot([], [], label='V_tip + E_site')
+        self.line1d_vbias, = self.ax1.plot([], [], label='VBias')
+        self.im2 = self.ax2.imshow(dummy_data, animated=True)
+        self.im3 = self.ax3.imshow(dummy_data, animated=True)
+        self.im4 = self.ax4.imshow(dummy_data, animated=True)
+        self.im5 = self.ax5.imshow(dummy_data, animated=True)
+        self.im6 = self.ax6.imshow(dummy_data, animated=True)
+        self.im7 = self.ax7.imshow(dummy_data, animated=True)
+        self.im8 = self.ax8.imshow(dummy_data, animated=True)
+        self.im9 = self.ax9.imshow(dummy_data, animated=True)
+
+        # Load experimental data after all plot elements are initialized
+        self.load_experimental_data()
+        
         # Store background for blitting
         self.fig.canvas.draw()
         self.backgrounds = [self.fig.canvas.copy_from_bbox(ax.bbox) for ax in 
@@ -107,8 +121,9 @@ class ApplicationWindow(GUITemplate):
         
     def load_experimental_data(self):
         """Load experimental data from npz file"""
+        data_path = os.path.join(os.path.dirname(__file__), 'exp_rings_data.npz')
         try:
-            data = np.load('exp_rings_data.npz')
+            data = np.load(data_path)
             # Convert from nm to Å (1 nm = 10 Å)
             self.exp_X = data['X'] * 10
             self.exp_Y = data['Y'] * 10
@@ -134,12 +149,14 @@ class ApplicationWindow(GUITemplate):
             
             # Set initial voltage index to middle
             self.exp_idx = len(self.exp_biases) // 2
+            
+            # Initialize experimental plots
+            self.im7.set_cmap('seismic')
+            self.im8.set_cmap('inferno')
+            self.im9.set_cmap('jet')
+            
         except FileNotFoundError:
-            print("Warning: exp_rings_data.npz not found. Experimental data will not be shown.")
-            self.exp_dIdV = None
-            self.exp_I = None
-            self.exp_extent = [-20, 20, -20, 20]  # Default extent
-            self.exp_idx = 0
+            print(f"Warning: Experimental data file not found at {data_path}")
 
     def resample_to_simulation_grid(self, data, src_extent, target_size=100, target_extent=(-20, 20, -20, 20)):
         """Resample data to match simulation grid and extent
@@ -208,8 +225,8 @@ class ApplicationWindow(GUITemplate):
         
         return rgb_image, sim_extent
 
-    def plot_ellipses(self, ax, params):
-        """Plot ellipses for each quantum dot site
+    def plot_ellipses(self, ax, params, x_scale=1.0, y_scale=1.0, x_offset=0.0, y_offset=0.0):
+        """Plot ellipses for each quantum dot site with optional scaling and offset
         
         Args:
             ax: matplotlib axis to plot on
@@ -245,9 +262,9 @@ class ApplicationWindow(GUITemplate):
             x_rot = x_local * np.cos(phi_ax) - y_local * np.sin(phi_ax)
             y_rot = x_local * np.sin(phi_ax) + y_local * np.cos(phi_ax)
             
-            # Translate to quantum dot position
-            x = x_rot + qd_pos_x
-            y = y_rot + qd_pos_y
+            # Translate, scale and center to quantum dot position
+            x = (x_rot * x_scale) + (qd_pos_x * x_scale)
+            y = (y_rot * y_scale) + (qd_pos_y * y_scale)
             
             # Plot ellipse
             ax.plot(x, y, ':', color='white', alpha=0.8, linewidth=1)
@@ -326,66 +343,146 @@ class ApplicationWindow(GUITemplate):
                          self.backgrounds):
             self.fig.canvas.restore_region(bg)
         
-        # Update 1D potential plot
+        # Update 1D potential plot with correct parameter handling
         x_coords = np.linspace(-params['L'], params['L'], len(tip_data['V1d']))
         self.line1d.set_data(x_coords, tip_data['V1d'])
-        self.line1d_esite.set_data(x_coords, tip_data['V1d'] + params['Esite'])
-        self.line1d_vbias.set_data(x_coords, x_coords*0.0 + params['VBias'])
+        self.line1d_esite.set_data(x_coords, (tip_data['V1d'] + params['Esite']) * params['VBias'])
+        self.line1d_vbias.set_data(x_coords, np.full_like(x_coords, params['VBias']))
+        
+        # Update plot limits and labels
+        self.ax1.set_xlim(-params['L'], params['L'])
+        self.ax1.set_ylim(-params['VBias']*1.1, params['VBias']*1.1)
+        self.ax1.set_title("1D Potential (z=0)")
+        self.ax1.set_xlabel("x [Å]")
+        self.ax1.set_ylabel("V [V]")
+        self.ax1.grid(True)
+        
+        # Draw artists
         self.ax1.draw_artist(self.line1d)
         self.ax1.draw_artist(self.line1d_esite)
         self.ax1.draw_artist(self.line1d_vbias)
         
-        # Update image plots
+        # Update legend
+        self.ax1.legend(['V_tip', 'V_tip + E_site', 'VBias'], loc='upper right')
+        
+        # Update image plots with proper colormaps and scaling
         extent = [-params['L'], params['L'], -params['L'], params['L']]
+        
+        # Tip Potential (bwr colormap, symmetric scaling)
         self.im2.set_data(tip_data['Vtip'])
         self.im2.set_extent(extent)
+        self.im2.set_cmap('bwr')
         self.im2.set_clim(-params['VBias'], params['VBias'])
         self.ax2.draw_artist(self.im2)
         
+        # Site Potential (bwr colormap, symmetric scaling)
         self.im3.set_data(tip_data['Esites'])
         self.im3.set_extent(extent)
+        self.im3.set_cmap('bwr')
         self.im3.set_clim(-params['VBias'], params['VBias'])
         self.ax3.draw_artist(self.im3)
         
+        # Energies (bwr colormap, symmetric scaling)
         Eplot = np.max(qdot_data['Es'], axis=2)
         vmax = np.abs(Eplot).max()
         self.im4.set_data(Eplot)
         self.im4.set_extent(extent)
+        self.im4.set_cmap('bwr')
         self.im4.set_clim(-vmax, vmax)
         self.ax4.draw_artist(self.im4)
         
+        # Total Charge (bwr colormap with proper scaling)
         total_charge = qdot_data['total_charge'].reshape(qdot_data['total_charge'].shape[0], -1)
+        charge_max = np.abs(total_charge).max()
         self.im5.set_data(total_charge)
         self.im5.set_extent(extent)
+        self.im5.set_cmap('bwr')
+        self.im5.set_clim(-charge_max, charge_max)
+        self.ax5.set_title("Total Charge")
+        self.ax5.set_xlabel("x [Å]")
+        self.ax5.set_ylabel("y [Å]")
         self.ax5.draw_artist(self.im5)
         
+        # STM (gray colormap with proper scaling)
+        stm_max = np.abs(qdot_data['STM']).max()
         self.im6.set_data(qdot_data['STM'])
         self.im6.set_extent(extent)
+        self.im6.set_cmap('gray')
+        self.im6.set_clim(0, stm_max)
+        self.ax6.set_title("STM")
+        self.ax6.set_xlabel("x [Å]")
+        self.ax6.set_ylabel("y [Å]")
         self.ax6.draw_artist(self.im6)
+
+        # Clear and redraw ellipses on total charge plot
+        for artist in self.ax5.lines[:]:
+            artist.remove()
+        self.plot_ellipses(self.ax5, params)
+        
+        # Clear and redraw ellipses on experimental plot
+        if hasattr(self, 'exp_dIdV') and self.exp_dIdV is not None:
+            # Clear previous ellipses
+            for artist in self.ax7.lines[:]:
+                artist.remove()
+            
+            # Use same extent as simulated plot
+            sim_extent = [-params['L'], params['L'], -params['L'], params['L']]
+            
+            # Plot ellipses using simulated coordinates
+            self.plot_ellipses(self.ax7, params)
+            
+            # Set same extent as simulated plot
+            self.ax7.set_xlim(sim_extent[:2])
+            self.ax7.set_ylim(sim_extent[2:])
+            self.ax7.set_aspect('equal')
+            
+        # Redraw ellipses
+        for ax in [self.ax5, self.ax7]:
+            for artist in ax.lines:
+                ax.draw_artist(artist)
+        
+        # Plot ellipses on both charge and experimental plots
+        self.plot_ellipses(self.ax5, params)
+        if hasattr(self, 'exp_dIdV') and self.exp_dIdV is not None:
+            self.plot_ellipses(self.ax7, params)
         
         # Update experimental data plots if available
         if hasattr(self, 'exp_dIdV') and self.exp_dIdV is not None:
             self.exp_idx = params['exp_slice']
             
-            # Update dI/dV plot
+            # Update dI/dV plot with proper colormap and scaling
+            maxval = np.max(np.abs(self.exp_dIdV[self.exp_idx]))
             self.im7.set_data(self.exp_dIdV[self.exp_idx])
             self.im7.set_extent(self.exp_extent)
+            self.im7.set_cmap('seismic')
+            self.im7.set_clim(-maxval, maxval)
+            self.ax7.set_title(f'Exp. dI/dV at {self.exp_biases[self.exp_idx]:.3f} V')
+            self.ax7.set_xlabel('X [Å]')
+            self.ax7.set_ylabel('Y [Å]')
             self.ax7.draw_artist(self.im7)
             
-            # Update current plot
+            # Update current plot with proper colormap
             self.im8.set_data(self.exp_I[self.exp_idx])
             self.im8.set_extent(self.exp_extent)
+            self.im8.set_cmap('inferno')
+            self.im8.set_clim(0.0, 600.0)
+            self.ax8.set_title(f'Exp. Current at {self.exp_biases[self.exp_idx]:.3f} V')
+            self.ax8.set_xlabel('X [Å]')
+            self.ax8.set_ylabel('Y [Å]')
             self.ax8.draw_artist(self.im8)
             
             # Create and update overlay
             rgb_overlay, overlay_extent = self.create_overlay_image(
-                self.exp_dIdV[self.exp_idx], 
+                self.exp_dIdV[self.exp_idx],
                 total_charge,
                 self.exp_extent,
                 extent
             )
             self.im9.set_data(rgb_overlay)
             self.im9.set_extent(overlay_extent)
+            self.ax9.set_title('Overlay (Red: Exp, Green: Sim)')
+            self.ax9.set_xlabel('X [Å]')
+            self.ax9.set_ylabel('Y [Å]')
             self.ax9.draw_artist(self.im9)
         else:
             # Clear experimental plots if no data
