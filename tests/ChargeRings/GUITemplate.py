@@ -33,6 +33,9 @@ class PlotConfig:
     background: Optional[Any] = None
     # Additional plot-specific properties
     properties: Dict[str, Any] = field(default_factory=dict)
+    # Performance settings
+    update_layout: bool = False  # Whether to update layout for this plot
+    force_redraw: bool = False   # Whether to force redraw for this plot
 
 class PlotManager:
     """Manages plot configurations, initialization and updates with blitting support"""
@@ -41,7 +44,16 @@ class PlotManager:
         self.fig = fig
         self.plots: Dict[str, PlotConfig] = {}
         self.initialized = False
-    
+        
+        self.bRestoreBackground = False
+
+        self.bUpdateLayout        = False 
+        self.bForceRedraw         = False   
+        self.bRecaptureBackground = False 
+        self.bUpdateLimits        = False
+        self.bBlitIndividual      = False  
+        
+        
     def add_plot(self, name: str, config: PlotConfig) -> None:
         """Register a new plot configuration"""
         self.plots[name] = config
@@ -52,10 +64,10 @@ class PlotManager:
             return
             
         for name, cfg in self.plots.items():
-            # Set common properties
-            cfg.ax.set_title(cfg.title)
-            cfg.ax.set_xlabel(cfg.xlabel)
-            cfg.ax.set_ylabel(cfg.ylabel)
+            # Set common properties with increased padding
+            cfg.ax.set_title(cfg.title, pad=20)  # Increase title padding
+            cfg.ax.set_xlabel(cfg.xlabel, labelpad=10)  # Increase label padding
+            cfg.ax.set_ylabel(cfg.ylabel, labelpad=10)
             if cfg.grid:
                 cfg.ax.grid(True)
             
@@ -76,14 +88,16 @@ class PlotManager:
                 cfg.artists.append(artist)
                 
             elif cfg.plot_type == PlotType.MULTILINE:
-                # Create three lines with different styles for potential plots
                 styles = ['-b', '--r', ':g']
                 for style in styles:
                     artist, = cfg.ax.plot([], [], style, animated=cfg.animated)
                     cfg.artists.append(artist)
         
-        # Store backgrounds for blitting
+        # Initial draw and layout
+        self.fig.tight_layout()
         self.fig.canvas.draw()
+        
+        # Store backgrounds after layout is set
         for cfg in self.plots.values():
             cfg.background = self.fig.canvas.copy_from_bbox(cfg.ax.bbox)
         
@@ -103,6 +117,16 @@ class PlotManager:
     
     def restore_backgrounds(self) -> None:
         """Restore the background for all plots"""
+        
+        # In balanced mode, update layout and recapture backgrounds periodically
+        if self.bRestoreBackground:
+            self.fig.tight_layout()
+            self.fig.canvas.draw()
+            for cfg in self.plots.values():
+                cfg.background = self.fig.canvas.copy_from_bbox(cfg.ax.bbox)
+            self.bRestoreBackground = False
+        
+        # Restore backgrounds
         for cfg in self.plots.values():
             self.fig.canvas.restore_region(cfg.background)
     
@@ -118,10 +142,16 @@ class PlotManager:
         
         if cfg.plot_type in [PlotType.IMAGE, PlotType.COMPOSITE]:
             cfg.artists[0].set_data(data)
+            
             if extent is not None:
                 cfg.artists[0].set_extent(extent)
+                if self.bUpdateLimits:
+                    cfg.ax.set_xlim(extent[0], extent[1])
+                    cfg.ax.set_ylim(extent[2], extent[3])
+            
             if clim is not None:
                 cfg.artists[0].set_clim(*clim)
+            
             cfg.ax.draw_artist(cfg.artists[0])
             
         elif cfg.plot_type == PlotType.LINE:
@@ -129,8 +159,9 @@ class PlotManager:
                 raise ValueError("Line plots require x and y data as tuple")
             x, y = data
             cfg.artists[0].set_data(x, y)
-            cfg.ax.relim()
-            cfg.ax.autoscale_view()
+            if self.bUpdateLimits:
+                cfg.ax.relim()
+                cfg.ax.autoscale_view()
             cfg.ax.draw_artist(cfg.artists[0])
             
         elif cfg.plot_type == PlotType.MULTILINE:
@@ -139,8 +170,9 @@ class PlotManager:
             for artist, (x, y) in zip(cfg.artists, data):
                 artist.set_data(x, y)
                 cfg.ax.draw_artist(artist)
-            cfg.ax.relim()
-            cfg.ax.autoscale_view()
+            if self.bUpdateLimits:
+                cfg.ax.relim()
+                cfg.ax.autoscale_view()
         
         # Draw overlay artists if they exist
         for artist in cfg.overlay_artists:
@@ -148,7 +180,15 @@ class PlotManager:
     
     def blit(self) -> None:
         """Perform final blitting update"""
-        self.fig.canvas.blit(self.fig.bbox)
+
+        if self.bBlitIndividual:
+            # Blit each axes individually
+            for cfg in self.plots.values():
+                self.fig.canvas.blit(cfg.ax.bbox)
+        else:
+            # Blit entire figure at once (faster)
+            self.fig.canvas.blit(self.fig.bbox)
+        
         self.fig.canvas.flush_events()
 
 class GUITemplate(QtWidgets.QMainWindow):

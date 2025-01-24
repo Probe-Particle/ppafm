@@ -99,6 +99,9 @@ class ApplicationWindow(GUITemplate):
         self.load_experimental_data()
         
         self.run()  # Call run() method
+        self.plot_manager.bRestoreBackground = True
+        QtCore.QTimer.singleShot(100, self.run)
+        #self.plot_manager.bRestoreBackground = False
     
     def load_experimental_data(self):
         """Load experimental data from npz file"""
