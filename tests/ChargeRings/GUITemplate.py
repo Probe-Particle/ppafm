@@ -1,6 +1,132 @@
 import sys
 import json
 from PyQt5 import QtCore, QtWidgets
+from dataclasses import dataclass, field
+from typing import Optional, Any, Dict, List, Tuple, Union
+from enum import Enum, auto
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+import numpy as np
+
+
+class PlotType(Enum):
+    """Enumeration of supported plot types"""
+    IMAGE = auto()
+    LINE = auto()
+    MULTILINE = auto()
+
+@dataclass
+class PlotConfig:
+    """Configuration for a plot, including its display properties and artists"""
+    ax: plt.Axes
+    title: str
+    plot_type: PlotType
+    xlabel: str = ''
+    ylabel: str = ''
+    cmap: Optional[str] = None
+    clim: Optional[Tuple[float, float]] = None
+    grid: bool = True
+    animated: bool = True
+    overlay_artists: List[Any] = field(default_factory=list)
+    artists: List[Any] = field(default_factory=list)
+    background: Optional[Any] = None
+
+class PlotManager:
+    """Manages plot configurations, initialization and updates with blitting support"""
+    
+    def __init__(self, fig: Figure):
+        self.fig = fig
+        self.plots: Dict[str, PlotConfig] = {}
+        self.initialized = False
+    
+    def add_plot(self, name: str, config: PlotConfig) -> None:
+        """Register a new plot configuration"""
+        self.plots[name] = config
+    
+    def initialize_plots(self) -> None:
+        """Initialize all registered plots with dummy data"""
+        if self.initialized:
+            return
+            
+        for name, cfg in self.plots.items():
+            # Set common properties
+            cfg.ax.set_title(cfg.title)
+            cfg.ax.set_xlabel(cfg.xlabel)
+            cfg.ax.set_ylabel(cfg.ylabel)
+            if cfg.grid:
+                cfg.ax.grid(True)
+            
+            # Create appropriate artists based on plot type
+            if cfg.plot_type == PlotType.IMAGE:
+                dummy_data = np.zeros((100, 100))
+                artist = cfg.ax.imshow(
+                    dummy_data,
+                    animated=cfg.animated,
+                    cmap=cfg.cmap
+                )
+                if cfg.clim:
+                    artist.set_clim(*cfg.clim)
+                cfg.artists.append(artist)
+            elif cfg.plot_type == PlotType.LINE:
+                artist, = cfg.ax.plot([], [], animated=cfg.animated)
+                cfg.artists.append(artist)
+            elif cfg.plot_type == PlotType.MULTILINE:
+                for _ in range(3):  # For 1D potential plot
+                    artist, = cfg.ax.plot([], [], animated=cfg.animated)
+                    cfg.artists.append(artist)
+        
+        # Store backgrounds for blitting
+        self.fig.canvas.draw()
+        for cfg in self.plots.values():
+            cfg.background = self.fig.canvas.copy_from_bbox(cfg.ax.bbox)
+        
+        self.initialized = True
+    
+    def restore_backgrounds(self) -> None:
+        """Restore the background for all plots"""
+        for cfg in self.plots.values():
+            self.fig.canvas.restore_region(cfg.background)
+    
+    def update_plot(self, name: str, data: Union[np.ndarray, Tuple[np.ndarray, np.ndarray], List[Tuple[np.ndarray, np.ndarray]]], 
+                   extent: Optional[Tuple[float, float, float, float]] = None, clim: Optional[Tuple[float, float]] = None) -> None:
+        """Update a plot with new data"""
+        if not self.initialized:
+            raise RuntimeError("Plots must be initialized before updating")
+            
+        cfg = self.plots[name]
+        
+        if cfg.plot_type == PlotType.IMAGE:
+            cfg.artists[0].set_data(data)
+            if extent is not None:
+                cfg.artists[0].set_extent(extent)
+            if clim is not None:
+                cfg.artists[0].set_clim(*clim)
+        elif cfg.plot_type == PlotType.LINE:
+            if not isinstance(data, tuple) or len(data) != 2:
+                raise ValueError("Line plots require x and y data as tuple")
+            x, y = data
+            cfg.artists[0].set_data(x, y)
+            cfg.ax.relim()
+            cfg.ax.autoscale_view()
+        elif cfg.plot_type == PlotType.MULTILINE:
+            if not isinstance(data, list) or len(data) != len(cfg.artists):
+                raise ValueError(f"Multiline plots require {len(cfg.artists)} data series")
+            for artist, (x, y) in zip(cfg.artists, data):
+                artist.set_data(x, y)
+            cfg.ax.relim()
+            cfg.ax.autoscale_view()
+        
+        # Draw main artists and any overlays
+        for artist in cfg.artists:
+            cfg.ax.draw_artist(artist)
+        for artist in cfg.overlay_artists:
+            cfg.ax.draw_artist(artist)
+    
+    def blit(self) -> None:
+        """Perform final blitting update"""
+        self.fig.canvas.blit(self.fig.bbox)
+        self.fig.canvas.flush_events()
+
 
 class GUITemplate(QtWidgets.QMainWindow):
     def __init__(self, title="Application GUI"):

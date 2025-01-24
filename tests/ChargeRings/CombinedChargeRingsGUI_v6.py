@@ -12,111 +12,13 @@ from dataclasses import dataclass, field
 from typing import Optional, Any, Dict, List, Tuple, Union
 from enum import Enum, auto
 
-from GUITemplate import GUITemplate
+
+
+
+
+from GUITemplate import GUITemplate, PlotConfig, PlotType, PlotManager, PlotType
 from charge_rings_core import calculate_tip_potential, calculate_qdot_system
 from charge_rings_plotting import plot_tip_potential, plot_qdot_system
-
-class PlotType(Enum):
-    """Enumeration of supported plot types"""
-    IMAGE = auto()
-    LINE = auto()
-
-@dataclass
-class PlotConfig:
-    """Configuration for a plot, including its display properties and artists"""
-    ax: plt.Axes
-    title: str
-    plot_type: PlotType
-    xlabel: str = ''
-    ylabel: str = ''
-    cmap: Optional[str] = None
-    clim: Optional[Tuple[float, float]] = None
-    grid: bool = True
-    animated: bool = True
-    overlay_artists: List[Any] = field(default_factory=list)
-    artist: Optional[Any] = None
-    background: Optional[Any] = None
-
-class PlotManager:
-    """Manages plot configurations, initialization and updates with blitting support"""
-    
-    def __init__(self, fig: Figure):
-        self.fig = fig
-        self.plots: Dict[str, PlotConfig] = {}
-        self.initialized = False
-    
-    def add_plot(self, name: str, config: PlotConfig) -> None:
-        """Register a new plot configuration"""
-        self.plots[name] = config
-    
-    def initialize_plots(self) -> None:
-        """Initialize all registered plots with dummy data"""
-        if self.initialized:
-            return
-            
-        for name, cfg in self.plots.items():
-            # Set common properties
-            cfg.ax.set_title(cfg.title)
-            cfg.ax.set_xlabel(cfg.xlabel)
-            cfg.ax.set_ylabel(cfg.ylabel)
-            if cfg.grid:
-                cfg.ax.grid(True)
-            
-            # Create appropriate artist based on plot type
-            if cfg.plot_type == PlotType.IMAGE:
-                dummy_data = np.zeros((100, 100))
-                cfg.artist = cfg.ax.imshow(
-                    dummy_data,
-                    animated=cfg.animated,
-                    cmap=cfg.cmap
-                )
-                if cfg.clim:
-                    cfg.artist.set_clim(*cfg.clim)
-            elif cfg.plot_type == PlotType.LINE:
-                cfg.artist, = cfg.ax.plot([], [], animated=cfg.animated)
-        
-        # Store backgrounds for blitting
-        self.fig.canvas.draw()
-        for cfg in self.plots.values():
-            cfg.background = self.fig.canvas.copy_from_bbox(cfg.ax.bbox)
-        
-        self.initialized = True
-    
-    def restore_backgrounds(self) -> None:
-        """Restore the background for all plots"""
-        for cfg in self.plots.values():
-            self.fig.canvas.restore_region(cfg.background)
-    
-    def update_plot(self, name: str, data: Union[np.ndarray, Tuple[np.ndarray, np.ndarray]], extent: Optional[Tuple[float, float, float, float]] = None, clim: Optional[Tuple[float, float]] = None) -> None:
-        """Update a plot with new data"""
-        if not self.initialized:
-            raise RuntimeError("Plots must be initialized before updating")
-            
-        cfg = self.plots[name]
-        
-        if cfg.plot_type == PlotType.IMAGE:
-            cfg.artist.set_data(data)
-            if extent is not None:
-                cfg.artist.set_extent(extent)
-            if clim is not None:
-                cfg.artist.set_clim(*clim)
-        elif cfg.plot_type == PlotType.LINE:
-            if not isinstance(data, tuple) or len(data) != 2:
-                raise ValueError("Line plots require x and y data as tuple")
-            x, y = data
-            cfg.artist.set_data(x, y)
-            cfg.ax.relim()
-            cfg.ax.autoscale_view()
-        
-        # Draw main artist and any overlays
-        cfg.ax.draw_artist(cfg.artist)
-        for artist in cfg.overlay_artists:
-            cfg.ax.draw_artist(artist)
-    
-    def blit(self) -> None:
-        """Perform final blitting update"""
-        self.fig.canvas.blit(self.fig.bbox)
-        self.fig.canvas.flush_events()
 
 class ApplicationWindow(GUITemplate):
     def __init__(self):
@@ -185,37 +87,154 @@ class ApplicationWindow(GUITemplate):
         self.plot_manager = PlotManager(self.fig)
         
         # Configure plots
-        self.plot_manager.add_plot('potential_1d',   PlotConfig( ax=self.ax1, title="1D Potential (z=0)",   plot_type=PlotType.LINE,  xlabel="x [Å]", ylabel="V [V]",                 grid=True ))
-        self.plot_manager.add_plot('tip_potential',  PlotConfig( ax=self.ax2, title="Tip Potential",        plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="z [Å]", cmap='bwr',     grid=True ))
-        self.plot_manager.add_plot('site_potential', PlotConfig( ax=self.ax3, title="Site Potential",       plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="z [Å]", cmap='seismic', grid=True ))
-        self.plot_manager.add_plot('energies',       PlotConfig( ax=self.ax4, title="Site Energies",        plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True ))
-        self.plot_manager.add_plot('total_charge',   PlotConfig( ax=self.ax5, title="Total Charge",         plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True ))
-        self.plot_manager.add_plot('stm',            PlotConfig( ax=self.ax6, title="STM",                  plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='inferno', grid=True ))
-        self.plot_manager.add_plot('exp_didv',       PlotConfig( ax=self.ax7, title="Experimental dI/dV",   plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='seismic', grid=True ))
-        self.plot_manager.add_plot('exp_current',    PlotConfig( ax=self.ax8, title="Experimental Current", plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='inferno', grid=True ))
+        self.plot_manager.add_plot('potential_1d',   PlotConfig( ax=self.ax1, title="1D Potential (z=0)",   plot_type=PlotType.MULTILINE,  xlabel="x [Å]", ylabel="V [V]",                 grid=True ))
+        self.plot_manager.add_plot('tip_potential',  PlotConfig( ax=self.ax2, title="Tip Potential",        plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="z [Å]", cmap='bwr',     grid=True, clim=(-1.0, 1.0) ))
+        self.plot_manager.add_plot('site_potential', PlotConfig( ax=self.ax3, title="Site Potential",       plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="z [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0) ))
+        self.plot_manager.add_plot('energies',       PlotConfig( ax=self.ax4, title="Site Energies",        plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0) ))
+        self.plot_manager.add_plot('total_charge',   PlotConfig( ax=self.ax5, title="Total Charge",         plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0) ))
+        self.plot_manager.add_plot('stm',            PlotConfig( ax=self.ax6, title="STM",                  plot_type=PlotType.IMAGE, xlabel="x [Å]", ylabel="y [Å]", cmap='inferno', grid=True, clim=(0.0, 1.0) ))
+        self.plot_manager.add_plot('exp_didv',       PlotConfig( ax=self.ax7, title="Experimental dI/dV",   plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='seismic', grid=True, clim=(-1.0, 1.0) ))
+        self.plot_manager.add_plot('exp_current',    PlotConfig( ax=self.ax8, title="Experimental Current", plot_type=PlotType.IMAGE, xlabel="X [Å]", ylabel="Y [Å]", cmap='inferno', grid=True, clim=(0.0, 600.0) ))
         
         # Initialize all plots
         self.plot_manager.initialize_plots()
         
-        # Load experimental data if available
+        # Load experimental data
         self.load_experimental_data()
         
         self.run()  # Call run() method
     
     def load_experimental_data(self):
-        """Load experimental data from files"""
+        """Load experimental data from npz file"""
+        data_path = os.path.join(os.path.dirname(__file__), 'exp_rings_data.npz')
         try:
-            self.exp_dIdV = np.load('data/dIdV.npy')
-            self.exp_I = np.load('data/I.npy')
-            self.exp_biases = np.load('data/biases.npy')
-            self.exp_extent = [-20, 20, -20, 20]  # Hardcoded for now
-            self.exp_idx = 0
+            data = np.load(data_path)
+            # Convert from nm to Å (1 nm = 10 Å)
+            self.exp_X = data['X'] * 10
+            self.exp_Y = data['Y'] * 10
+            self.exp_dIdV = data['dIdV']
+            self.exp_I = data['I']
+            self.exp_biases = data['biases']
+            center_x = data['center_x'] * 10  # Convert to Å
+            center_y = data['center_y'] * 10  # Convert to Å
+            
+            # Center the coordinates
+            self.exp_X -= center_x
+            self.exp_Y -= center_y
+            
+            # Calculate experimental data extent
+            self.exp_extent = [
+                np.min(self.exp_X), np.max(self.exp_X),
+                np.min(self.exp_Y), np.max(self.exp_Y)
+            ]
+            
+            # Update exp_slice range based on actual data size
+            self.param_specs['exp_slice']['range'] = (0, len(self.exp_biases) - 1)
+            self.param_specs['exp_slice']['value'] = len(self.exp_biases) // 2
+            
+            # Set initial voltage index to middle
+            self.exp_idx = len(self.exp_biases) // 2
+            
         except FileNotFoundError:
-            print("Warning: Experimental data files not found")
+            print(f"Warning: Experimental data file not found at {data_path}")
+            self.exp_X = None
+            self.exp_Y = None
             self.exp_dIdV = None
             self.exp_I = None
             self.exp_biases = None
-    
+
+    def resample_to_simulation_grid(self, data, src_extent, target_size=100, target_extent=(-20, 20, -20, 20)):
+        """Resample data to match simulation grid and extent"""
+        # Create source coordinate grids
+        x_src = np.linspace(src_extent[0], src_extent[1], data.shape[1])
+        y_src = np.linspace(src_extent[2], src_extent[3], data.shape[0])
+        
+        # Create target coordinate grid
+        x_target = np.linspace(target_extent[0], target_extent[1], target_size)
+        y_target = np.linspace(target_extent[2], target_extent[3], target_size)
+        
+        # Create interpolator
+        from scipy.interpolate import interp2d
+        interpolator = interp2d(x_src, y_src, data)
+        
+        # Resample data to target grid
+        resampled = interpolator(x_target, y_target)
+        
+        # Create mask for points outside source extent
+        xx, yy = np.meshgrid(x_target, y_target)
+        mask = ((xx < src_extent[0]) | (xx > src_extent[1]) | 
+                (yy < src_extent[2]) | (yy > src_extent[3]))
+        
+        # Set points outside source extent to zero
+        resampled[mask] = 0
+        
+        return resampled
+
+    def create_overlay_image(self, exp_data, sim_data, exp_extent, sim_extent):
+        """Create RGB overlay of experimental and simulation data"""
+        # Resample experimental data to simulation grid
+        exp_resampled = self.resample_to_simulation_grid(
+            exp_data, 
+            exp_extent,
+            target_size=sim_data.shape[0],
+            target_extent=sim_extent
+        )
+        
+        # Normalize experimental data to [0,1] range for red channel
+        exp_norm = (exp_resampled - np.min(exp_resampled)) / (np.max(exp_resampled) - np.min(exp_resampled))
+        
+        # Normalize simulation data to [0,1] range for green channel
+        sim_norm = (sim_data - np.min(sim_data)) / (np.max(sim_data) - np.min(sim_data))
+        
+        # Create RGB image (Red: experimental, Green: simulation, Blue: zeros)
+        rgb_image = np.zeros((*sim_data.shape, 3))
+        rgb_image[..., 0] = exp_norm  # Red channel: experimental
+        rgb_image[..., 1] = sim_norm  # Green channel: simulation
+        
+        return rgb_image, sim_extent
+
+    def plot_ellipses(self, ax, params):
+        """Plot ellipses for each quantum dot site"""
+        nsite = params['nsite']
+        radius = params['radius']
+        phiRot = params['phiRot']
+        R_major = params['R_major']
+        R_minor = params['R_minor']
+        phi0_ax = params['phi0_ax']
+        
+        # Number of points for ellipse
+        n = 100
+        
+        for i in range(nsite):
+            # Calculate quantum dot position
+            phi = phiRot + i * 2 * np.pi / nsite
+            dir_x = np.cos(phi)
+            dir_y = np.sin(phi)
+            qd_pos_x = dir_x * radius
+            qd_pos_y = dir_y * radius
+            
+            # Calculate ellipse points
+            phi_ax = phi0_ax + phi
+            t = np.linspace(0, 2*np.pi, n)
+            
+            # Create ellipse in local coordinates
+            x_local = R_major * np.cos(t)
+            y_local = R_minor * np.sin(t)
+            
+            # Rotate ellipse
+            x_rot = x_local * np.cos(phi_ax) - y_local * np.sin(phi_ax)
+            y_rot = x_local * np.sin(phi_ax) + y_local * np.cos(phi_ax)
+            
+            # Translate to quantum dot position
+            x = x_rot + qd_pos_x
+            y = y_rot + qd_pos_y
+            
+            # Plot ellipse
+            ax.plot(x, y, ':', color='white', alpha=0.8, linewidth=1)
+            
+            # Plot center point
+            ax.plot(qd_pos_x, qd_pos_y, '+', color='white', markersize=5)
+
     def run(self):
         """Main calculation and plot update routine"""
         params = self.get_param_values()
@@ -231,18 +250,21 @@ class ApplicationWindow(GUITemplate):
         Es = qdot_data['Es'][:,:,0]  # Take first layer for 2D plot
         total_charge = qdot_data['total_charge'][:,:,0]  # Take first layer for 2D plot
         STM = qdot_data['STM'][:,:,0]  # Take first layer for 2D plot
-        spos = qdot_data['spos']
         
         # Update plots with new data
         self.plot_manager.restore_backgrounds()
         
-        # Update 1D potential plot
+        # Update 1D potential plot with all three lines
         x_coords = np.linspace(-params['L'], params['L'], len(V1d))
-        self.plot_manager.update_plot('potential_1d', (x_coords, V1d))
+        self.plot_manager.update_plot('potential_1d', [
+            (x_coords, V1d),
+            (x_coords, (V1d + params['Esite']) * params['VBias']),
+            (x_coords, np.full_like(x_coords, params['VBias']))
+        ])
         
         # Update image plots
         extent = [-params['L'], params['L'], -params['L'], params['L']]
-        self.plot_manager.update_plot('tip_potential',  Vtip,         extent=extent, clim=(-params['VBias'], params['VBias']))
+        self.plot_manager.update_plot('tip_potential',  Vtip,         extent=extent)
         self.plot_manager.update_plot('site_potential', Esites,       extent=extent)
         self.plot_manager.update_plot('energies',       Es,           extent=extent)
         self.plot_manager.update_plot('total_charge',   total_charge, extent=extent)
@@ -250,8 +272,30 @@ class ApplicationWindow(GUITemplate):
         
         # Update experimental plots if data is available
         if hasattr(self, 'exp_dIdV') and self.exp_dIdV is not None:
+            self.exp_idx = params['exp_slice']
+            
+            # Update experimental plots
             self.plot_manager.update_plot('exp_didv', self.exp_dIdV[self.exp_idx], extent=self.exp_extent)
             self.plot_manager.update_plot('exp_current', self.exp_I[self.exp_idx], extent=self.exp_extent)
+            
+            # Create and update overlay
+            rgb_overlay, overlay_extent = self.create_overlay_image(
+                self.exp_dIdV[self.exp_idx],
+                total_charge,
+                self.exp_extent,
+                extent
+            )
+            self.ax9.imshow(rgb_overlay, extent=overlay_extent)
+            self.ax9.set_title('Overlay (Red: Exp, Green: Sim)')
+            self.ax9.set_xlabel('X [Å]')
+            self.ax9.set_ylabel('Y [Å]')
+            self.ax9.draw_artist(self.ax9.images[0])
+        
+        # Plot ellipses on relevant plots
+        for ax in [self.ax5, self.ax7]:
+            self.plot_ellipses(ax, params)
+            for artist in ax.lines:
+                ax.draw_artist(artist)
         
         # Perform final blitting update
         self.plot_manager.blit()
