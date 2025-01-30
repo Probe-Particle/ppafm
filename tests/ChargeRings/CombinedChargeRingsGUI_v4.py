@@ -5,6 +5,7 @@ import os
 import numpy as np
 import matplotlib; matplotlib.use('Qt5Agg')
 from PyQt5 import QtCore, QtWidgets
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
@@ -20,31 +21,31 @@ class ApplicationWindow(GUITemplate):
         # Then set parameter specifications
         self.param_specs = {
             # Tip Parameters
-            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 2.0),   'value': 1.0, 'step': 0.1},
-            'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 5.0),   'value': 1.0, 'step': 0.5},
+            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 2.0),   'value': 0.2, 'step': 0.1},
+            'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 5.0),   'value': 2.5, 'step': 0.5},
             'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 20.0),  'value': 2.0, 'step': 0.5},
             
             # System Parameters
             'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02, 'step': 0.01, 'decimals': 3},
-            'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 10.0, 'step': 1.0},
+            'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 3.0, 'step': 1.0},
             'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
             
             # Mirror Parameters
             'zV0':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': -2.5, 'step': 0.1},
-            'zQd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': 0.0,  'step': 0.1},
+            'zQd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value':  0.0,  'step': 0.1},
             
             # Ring Geometry
             'nsite':         {'group': 'Ring Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
-            'radius':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 5.0, 'step': 0.5},
-            'phiRot':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0,'step': 0.1},
+            'radius':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 6.0, 'step': 0.5},
+            'phiRot':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.3,'step': 0.1},
             
             # Ellipse Parameters
-            'R_major':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (1.0, 10.0),   'value': 3.0, 'step': 0.1},
-            'R_minor':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (1.0, 10.0),   'value': 2.0, 'step': 0.1},
-            'phi0_ax':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (-3.14, 3.14), 'value': 0.0, 'step': 0.1},
+            'R_major':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (1.0, 10.0),   'value': 8.0, 'step': 0.1},
+            'R_minor':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (1.0, 10.0),   'value': 10.0, 'step': 0.1},
+            'phi0_ax':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (-3.14, 3.14), 'value': 0.2, 'step': 0.1},
             
             # Site Properties
-            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.1,'step': 0.01},
+            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.01,'step': 0.01},
             'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
             'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
             
@@ -55,7 +56,7 @@ class ApplicationWindow(GUITemplate):
             'dQ':            {'group': 'Visualization',     'widget': 'double', 'range': (0.001, 0.1), 'value': 0.02, 'step': 0.001, 'decimals': 3},
             
             # Experimental Data
-            'exp_slice':     {'group': 'Experimental Data', 'widget': 'int',    'range': (0, 13),     'value': 0,    'step': 1},
+            'exp_slice':     {'group': 'Experimental Data', 'widget': 'int',    'range': (0, 13),     'value': 8,    'step': 1},
         }
         
         self.create_gui()
@@ -78,6 +79,16 @@ class ApplicationWindow(GUITemplate):
         self.ax7 = self.fig.add_subplot(338)  # Experimental dI/dV
         self.ax8 = self.fig.add_subplot(339)  # Experimental Current
         self.ax9 = self.fig.add_subplot(337)  # Additional plot if needed
+        
+        # Initialize click-and-drag variables
+        self.clicking = False
+        self.start_point = None
+        self.line_artist = None
+        
+        # Connect mouse events
+        self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
+        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
+        self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
         
         self.run()
         
@@ -296,6 +307,113 @@ class ApplicationWindow(GUITemplate):
         # Update the canvas
         self.fig.tight_layout()
         self.canvas.draw()
+
+    def on_mouse_press(self, event):
+        """Handle mouse button press event"""
+        if event.inaxes == self.ax4:  # Check if click is in Energies plot
+            self.clicking = True
+            self.start_point = (event.xdata, event.ydata)
+            # Create temporary line
+            if self.line_artist:
+                self.line_artist.remove()
+            self.line_artist = self.ax4.plot([event.xdata], [event.ydata], 'r--')[0]
+            self.canvas.draw()
+
+    def on_mouse_motion(self, event):
+        """Handle mouse motion event"""
+        if self.clicking and event.inaxes == self.ax4 and self.start_point:
+            # Update temporary line
+            if self.line_artist:
+                self.line_artist.set_data(
+                    [self.start_point[0], event.xdata],
+                    [self.start_point[1], event.ydata]
+                )
+                self.canvas.draw()
+
+    def on_mouse_release(self, event):
+        """Handle mouse button release event"""
+        if self.clicking and event.inaxes == self.ax4 and self.start_point:
+            end_point = (event.xdata, event.ydata)
+            self.clicking = False
+            # Calculate and plot 1D scan
+            self.calculate_1d_scan(self.start_point, end_point)
+            self.start_point = None
+            if self.line_artist:
+                self.line_artist.remove()
+                self.line_artist = None
+            self.canvas.draw()
+
+    def calculate_1d_scan(self, start_point, end_point):
+        """Calculate and plot 1D scan between two points"""
+        # Get current data from plots
+        energy_data = self.ax4.images[0].get_array() if self.ax4.images else None
+        charge_data = self.ax5.images[0].get_array() if self.ax5.images else None
+        stm_data    = self.ax6.images[0].get_array() if self.ax6.images else None
+        
+        if not all([energy_data is not None, charge_data is not None, stm_data is not None]):
+            print("No data available for 1D scan")
+            return
+            
+        params = self.get_param_values()
+        L    = params['L']
+        npix = params['npix']
+        
+        # Convert plot coordinates to pixel coordinates
+        x1, y1 = start_point
+        x2, y2 = end_point
+        
+        # Convert to pixel coordinates
+        px1 = int((x1 + L) * (npix - 1) / (2 * L))
+        py1 = int((y1 + L) * (npix - 1) / (2 * L))
+        px2 = int((x2 + L) * (npix - 1) / (2 * L))
+        py2 = int((y2 + L) * (npix - 1) / (2 * L))
+        
+        # Create line coordinates using Bresenham's algorithm
+        num_points = int(np.sqrt((px2 - px1)**2 + (py2 - py1)**2))
+        x = np.linspace(px1, px2, num_points)
+        y = np.linspace(py1, py2, num_points)
+        x = x.astype(int)
+        y = y.astype(int)
+        
+        # Extract values along the line
+        energy_profile = energy_data[y, x]
+        charge_profile = charge_data[y, x]
+        stm_profile = stm_data[y, x]
+        
+        # Calculate real space coordinates for plotting
+        real_x = np.linspace(-L, L, npix)[x]
+        real_y = np.linspace(-L, L, npix)[y]
+        distance = np.sqrt((real_x - real_x[0])**2 + (real_y - real_y[0])**2)
+        
+        # Create new figure for 1D scan
+        scan_fig = plt.figure(figsize=(10, 8))
+        ax1 = scan_fig.add_subplot(311)
+        ax2 = scan_fig.add_subplot(312)
+        ax3 = scan_fig.add_subplot(313)
+        
+        # Plot profiles
+        ax1.plot(distance, energy_profile, 'b-', label='Energy')
+        ax1.set_ylabel('Energy')
+        ax1.legend()
+        
+        ax2.plot(distance, charge_profile, 'r-', label='Charge')
+        ax2.set_ylabel('Charge')
+        ax2.legend()
+        
+        ax3.plot(distance, stm_profile, 'g-', label='STM')
+        ax3.set_ylabel('STM')
+        ax3.set_xlabel('Distance [Å]')
+        ax3.legend()
+        
+        scan_fig.tight_layout()
+        plt.show()
+        
+        # Save data to file
+        save_data = np.column_stack((distance, energy_profile, charge_profile, stm_profile))
+        header   = 'Distance[A] Energy Charge STM\nLine scan from ({:.2f}, {:.2f}) to ({:.2f}, {:.2f})'.format( real_x[0], real_y[0], real_x[-1], real_y[-1] )
+        filename = 'line_scan_{:.1f}_{:.1f}_to_{:.1f}_{:.1f}.dat'.format( real_x[0], real_y[0], real_x[-1], real_y[-1] )
+        np.savetxt(filename, save_data, header=header)
+        print(f"Data saved to {filename}")
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
