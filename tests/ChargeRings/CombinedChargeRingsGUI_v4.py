@@ -10,7 +10,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 from GUITemplate import GUITemplate
-from charge_rings_core import calculate_tip_potential, calculate_qdot_system
+from charge_rings_core import calculate_tip_potential, calculate_qdot_system, makeCircle, compute_site_energies, compute_site_tunelling, occupancy_FermiDirac
 from charge_rings_plotting import plot_tip_potential, plot_qdot_system
 
 class ApplicationWindow(GUITemplate):
@@ -270,12 +270,7 @@ class ApplicationWindow(GUITemplate):
             sim_data = sim_image.get_array()
             
             # Create RGB overlay
-            rgb_overlay, extent = self.create_overlay_image(
-                self.exp_dIdV[self.exp_idx], 
-                sim_data,
-                exp_extent,
-                sim_extent
-            )
+            rgb_overlay, extent = self.create_overlay_image( self.exp_dIdV[self.exp_idx], sim_data, exp_extent, sim_extent )
             
             # Plot overlay
             self.ax9.imshow(rgb_overlay, aspect='equal', extent=extent)
@@ -291,7 +286,7 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
         
         # Calculate tip potential and quantum dot system
-        tip_data = calculate_tip_potential(**params)
+        tip_data  = calculate_tip_potential(**params)
         qdot_data = calculate_qdot_system(**params)
         
         # Plot results
@@ -343,76 +338,124 @@ class ApplicationWindow(GUITemplate):
                 self.line_artist = None
             self.canvas.draw()
 
-    def calculate_1d_scan(self, start_point, end_point):
+    def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
         """Calculate and plot 1D scan between two points"""
-        # Get current data from plots
-        energy_data = self.ax4.images[0].get_array() if self.ax4.images else None
-        charge_data = self.ax5.images[0].get_array() if self.ax5.images else None
-        stm_data    = self.ax6.images[0].get_array() if self.ax6.images else None
-        
-        if not all([energy_data is not None, charge_data is not None, stm_data is not None]):
-            print("No data available for 1D scan")
-            return
-            
         params = self.get_param_values()
-        L    = params['L']
-        npix = params['npix']
+        L = params['L']
+        nsite = params['nsite']
         
-        # Convert plot coordinates to pixel coordinates
+        # Create line coordinates in real space (no rounding)
         x1, y1 = start_point
         x2, y2 = end_point
         
-        # Convert to pixel coordinates
-        px1 = int((x1 + L) * (npix - 1) / (2 * L))
-        py1 = int((y1 + L) * (npix - 1) / (2 * L))
-        px2 = int((x2 + L) * (npix - 1) / (2 * L))
-        py2 = int((y2 + L) * (npix - 1) / (2 * L))
+        # Calculate number of points based on distance
+        dist = np.sqrt((x2-x1)**2 + (y2-y1)**2)
+        npoints = max(100, int(dist * pointPerAngstrom))
         
-        # Create line coordinates using Bresenham's algorithm
-        num_points = int(np.sqrt((px2 - px1)**2 + (py2 - py1)**2))
-        x = np.linspace(px1, px2, num_points)
-        y = np.linspace(py1, py2, num_points)
-        x = x.astype(int)
-        y = y.astype(int)
+        # Create line coordinates
+        x = np.linspace(x1, x2, npoints)
+        y = np.linspace(y1, y2, npoints)
+        distance = np.sqrt((x - x[0])**2 + (y - y[0])**2)
         
-        # Extract values along the line
-        energy_profile = energy_data[y, x]
-        charge_profile = charge_data[y, x]
-        stm_profile = stm_data[y, x]
+        # Create positions array for calculations
+        pTips = np.zeros((npoints, 3))
+        pTips[:,0] = x
+        pTips[:,1] = y
+        pTips[:,2] = params['z_tip'] + params['Rtip']
         
-        # Calculate real space coordinates for plotting
-        real_x = np.linspace(-L, L, npix)[x]
-        real_y = np.linspace(-L, L, npix)[y]
-        distance = np.sqrt((real_x - real_x[0])**2 + (real_y - real_y[0])**2)
+        # Calculate site positions
+        spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+        spos[:,2] = params['zQd']
+        
+        # Calculate energies and charges for each site
+        Esite_arr = np.full(nsite, params['Esite'])
+        Es = compute_site_energies(pTips, spos, VBias=params['VBias'],   Rtip=params['Rtip'], zV0=params['zV0'],  E0s=Esite_arr)
+        
+        # Calculate tunneling and charges for each site
+        Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
+        Qs = np.zeros(Es.shape)
+        Is = np.zeros(Es.shape)
+        for i in range(nsite):
+            Qs[:,i] = occupancy_FermiDirac(Es[:,i], params['temperature'])
+            Is[:,i] = Ts[:,i] * (1-Qs[:,i])
+        
+        Qtot = np.sum(Qs, axis=1)
+        STM  = np.sum(Is, axis=1)
         
         # Create new figure for 1D scan
-        scan_fig = plt.figure(figsize=(10, 8))
+        scan_fig = plt.figure(figsize=(10, 12))
         ax1 = scan_fig.add_subplot(311)
         ax2 = scan_fig.add_subplot(312)
         ax3 = scan_fig.add_subplot(313)
+        #ax4 = scan_fig.add_subplot(414)
         
-        # Plot profiles
-        ax1.plot(distance, energy_profile, 'b-', label='Energy')
+        # Plot individual site energies
+        for i in range(nsite):
+            ax1.plot(distance, Es[:,i], '-', label=f'Site {i+1}')
+        ax1.axhline(y=0, color='k', linestyle='--', alpha=0.5)
         ax1.set_ylabel('Energy')
         ax1.legend()
+        ax1.grid(True)
         
-        ax2.plot(distance, charge_profile, 'r-', label='Charge')
+        # Plot individual site charges
+        for i in range(nsite):
+            ax2.plot(distance, Qs[:,i], '-', label=f'Site {i+1}')
+        ax2.plot(distance, Qtot, 'k-', label='Total', linewidth=2)
         ax2.set_ylabel('Charge')
         ax2.legend()
+        ax2.grid(True)
         
-        ax3.plot(distance, stm_profile, 'g-', label='STM')
-        ax3.set_ylabel('STM')
-        ax3.set_xlabel('Distance [Å]')
+        # Plot individual site currents
+        for i in range(nsite):
+            ax3.plot(distance, Is[:,i], '-', label=f'Site {i+1}')
+        ax3.plot(distance, STM, 'k-', label='Total', linewidth=2)
+        ax3.set_ylabel('Current')
         ax3.legend()
+        ax3.grid(True)
+        
+        # Plot total quantities
+        # ax4.plot(distance, Qtot, 'r-', label='Total Charge')
+        # ax4.plot(distance, STM, 'b-', label='Total STM')
+        # ax4.set_ylabel('Total Quantities')
+        # ax4.set_xlabel('Distance [Å]')
+        # ax4.legend()
+        # ax4.grid(True)
         
         scan_fig.tight_layout()
         plt.show()
         
         # Save data to file
-        save_data = np.column_stack((distance, energy_profile, charge_profile, stm_profile))
-        header   = 'Distance[A] Energy Charge STM\nLine scan from ({:.2f}, {:.2f}) to ({:.2f}, {:.2f})'.format( real_x[0], real_y[0], real_x[-1], real_y[-1] )
-        filename = 'line_scan_{:.1f}_{:.1f}_to_{:.1f}_{:.1f}.dat'.format( real_x[0], real_y[0], real_x[-1], real_y[-1] )
-        np.savetxt(filename, save_data, header=header)
+        # Prepare header with parameters
+        param_header = "# Calculation parameters:\n"
+        for key, value in params.items():
+            param_header += f"# {key}: {value}\n"
+        
+        # Add column description
+        param_header += "#\n# Data columns:\n"
+        param_header += "# 1: Distance[A]\n"
+        param_header += "# 2: x[A]\n"
+        param_header += "# 3: y[A]\n"
+        for i in range(nsite):
+            param_header += f"# {i+4}: Esite_{i+1}\n"
+        for i in range(nsite):
+            param_header += f"# {i+4+nsite}: Qsite_{i+1}\n"
+        for i in range(nsite):
+            param_header += f"# {i+4+2*nsite}: Isite_{i+1}\n"
+        param_header += f"# {4+3*nsite}: Qtotal\n"
+        param_header += f"# {5+3*nsite}: STM_total\n"
+        
+        # Add line coordinates
+        param_header += f"\n# Line scan from ({x1:.2f}, {y1:.2f}) to ({x2:.2f}, {y2:.2f})"
+        
+        # Combine all data
+        save_data = np.column_stack([distance, x, y] + 
+                                  [Es[:,i] for i in range(nsite)] + 
+                                  [Qs[:,i] for i in range(nsite)] + 
+                                  [Is[:,i] for i in range(nsite)] + 
+                                  [Qtot, STM])
+        
+        filename = 'line_scan_{:.1f}_{:.1f}_to_{:.1f}_{:.1f}.dat'.format(x1, y1, x2, y2)
+        np.savetxt(filename, save_data, header=param_header)
         print(f"Data saved to {filename}")
 
 if __name__ == "__main__":

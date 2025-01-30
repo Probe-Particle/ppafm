@@ -95,7 +95,7 @@ def plot_qdot_system(ax4, ax5, ax6, *, Es, Qtot, STM, spos, extent, nsite=3, VBi
     
     # Total Charge
     ax5.clear()
-    ax5.imshow(Qtot, extent=extent, cmap='bwr', origin='lower')
+    ax5.imshow(Qtot, extent=extent, origin='lower')
     for i in range(nsite):
         ax5.plot(spos[i,0], spos[i,1], 'ko')
     ax5.set_title("Total Charge")
