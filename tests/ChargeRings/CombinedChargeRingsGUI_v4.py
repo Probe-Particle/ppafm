@@ -549,26 +549,29 @@ class ApplicationWindow(GUITemplate):
             # Store total charge for this voltage
             sim_charge[i,:] = np.sum(Qs, axis=1)
             
-            # Interpolate experimental dI/dV for this voltage
-            exp_idx = i  # We're using same voltages
-            
             try:
-                # Create regular grid for experimental data
-                x_unique = np.unique(self.exp_X)
-                y_unique = np.unique(self.exp_Y)
-                print(f"Unique X points: {len(x_unique)}, Unique Y points: {len(y_unique)}")
+                # Get the experimental data for this voltage
+                exp_data = self.exp_dIdV[i]  # This is a 256x256 array for this voltage
+                exp_x = self.exp_X[i]        # x coordinates for this voltage slice
+                exp_y = self.exp_Y[i]        # y coordinates for this voltage slice
                 
-                # Reshape experimental data to match the grid
-                Z = self.exp_dIdV[exp_idx].reshape(len(y_unique), len(x_unique))
+                # Create interpolator using the 2D data
+                from scipy.interpolate import LinearNDInterpolator
+                points = np.column_stack((exp_x.flatten(), exp_y.flatten()))
+                values = exp_data.flatten()
+                interp = LinearNDInterpolator(points, values)
                 
-                # Create interpolator
-                interp = RegularGridInterpolator((y_unique, x_unique), Z,
-                                               method='linear', bounds_error=False, 
-                                               fill_value=None)
+                # Interpolate along the line
+                line_points = np.column_stack((x, y))
+                exp_didv[i,:] = interp(line_points)
                 
-                # Interpolate along line
-                points = np.column_stack((y, x))  # Note: RegularGridInterpolator expects (y,x) order
-                exp_didv[i,:] = interp(points)
+                # Fill any NaN values using nearest neighbor interpolation
+                nan_mask = np.isnan(exp_didv[i,:])
+                if np.any(nan_mask):
+                    from scipy.interpolate import NearestNDInterpolator
+                    nn_interp = NearestNDInterpolator(points, values)
+                    exp_didv[i,nan_mask] = nn_interp(line_points[nan_mask])
+                
             except Exception as e:
                 print(f"Error in interpolation for voltage {vbias}: {str(e)}")
                 raise
