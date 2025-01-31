@@ -26,7 +26,7 @@ jobs:
               uses: pypa/cibuildwheel@v2.16.5
 
             - name: Upload distribution artifacts
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: release
                   path: ./wheelhouse/*.whl
@@ -52,7 +52,7 @@ jobs:
               run: python -m build --sdist --outdir dist/
 
             - name: Upload distribution artifacts
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: release
                   path: dist/*.tar.gz
