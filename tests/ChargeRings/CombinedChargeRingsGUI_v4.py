@@ -21,12 +21,12 @@ class ApplicationWindow(GUITemplate):
         # Then set parameter specifications
         self.param_specs = {
             # Tip Parameters
-            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 2.0),   'value': 0.2, 'step': 0.1},
+            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 2.0),   'value': 0.69, 'step': 0.1},
             'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 5.0),   'value': 2.5, 'step': 0.5},
             'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 20.0),  'value': 2.0, 'step': 0.5},
             
             # System Parameters
-            'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02, 'step': 0.01, 'decimals': 3},
+            'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02, 'step': 0.001, 'decimals': 3},
             'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 3.0, 'step': 1.0},
             'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
             
@@ -45,7 +45,7 @@ class ApplicationWindow(GUITemplate):
             'phi0_ax':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (-3.14, 3.14), 'value': 0.2, 'step': 0.1},
             
             # Site Properties
-            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.01,'step': 0.01},
+            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.035,'step': 0.002, 'decimals': 3},
             'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
             'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
             
@@ -327,16 +327,24 @@ class ApplicationWindow(GUITemplate):
 
     def on_mouse_release(self, event):
         """Handle mouse button release event"""
-        if self.clicking and event.inaxes == self.ax4 and self.start_point:
-            end_point = (event.xdata, event.ydata)
-            self.clicking = False
+        if not self.clicking or event.inaxes is None:
+            return
+            
+        end_point = (event.xdata, event.ydata)
+        self.clicking = False
+        
+        if event.inaxes == self.ax4:  # Energy plot (2,1)
             # Calculate and plot 1D scan
             self.calculate_1d_scan(self.start_point, end_point)
-            self.start_point = None
-            if self.line_artist:
-                self.line_artist.remove()
-                self.line_artist = None
-            self.canvas.draw()
+        elif event.inaxes == self.ax7:  # Experimental dI/dV plot (3,2)
+            # Plot voltage line scan
+            self.plot_voltage_line_scan(self.start_point, end_point)
+        
+        self.start_point = None
+        if self.line_artist:
+            self.line_artist.remove()
+            self.line_artist = None
+        self.canvas.draw()
 
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
         """Calculate and plot 1D scan between two points"""
@@ -458,6 +466,121 @@ class ApplicationWindow(GUITemplate):
         np.savetxt(filename, save_data, header=param_header)
         print(f"Data saved to {filename}")
 
+    def plot_voltage_line_scan(self, start_point, end_point, pointPerAngstrom=5):
+        """Plot simulated charge and experimental dI/dV along a line scan for different voltages
+        
+        Args:
+            start_point: (x,y) coordinates of start point
+            end_point: (x,y) coordinates of end point
+            pointPerAngstrom: Number of points per Angstrom along the line
+        """
+        # Create new figure
+        fig = Figure(figsize=(12, 5))
+        canvas = FigureCanvas(fig)
+        ax1 = fig.add_subplot(121)  # Simulated charge
+        ax2 = fig.add_subplot(122)  # Experimental dI/dV
+        
+        # Create line coordinates in real space
+        x1, y1 = start_point
+        x2, y2 = end_point
+        
+        # Calculate number of points based on distance
+        dist = np.sqrt((x2-x1)**2 + (y2-y1)**2)
+        npoints = max(100, int(dist * pointPerAngstrom))
+        
+        # Create line coordinates
+        x = np.linspace(x1, x2, npoints)
+        y = np.linspace(y1, y2, npoints)
+        distance = np.sqrt((x - x[0])**2 + (y - y[0])**2)
+        
+        # Create arrays to store results
+        sim_charge = np.zeros((len(self.exp_biases), npoints))
+        exp_didv = np.zeros((len(self.exp_biases), npoints))
+        
+        # Get current parameters
+        params = self.get_param_values()
+        nsite = params['nsite']
+        
+        # Calculate site positions (constant for all voltages)
+        spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+        spos[:,2] = params['zQd']
+        Esite_arr = np.full(nsite, params['Esite'])
+        
+        # Create positions array for calculations
+        pTips = np.zeros((npoints, 3))
+        pTips[:,0] = x
+        pTips[:,1] = y
+        pTips[:,2] = params['z_tip'] + params['Rtip']
+        
+        # Calculate tunneling (constant for all voltages)
+        Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
+        
+        # Loop over voltages
+        for i, vbias in enumerate(self.exp_biases):
+            # Update VBias in parameters
+            params['VBias'] = vbias
+            
+            # Calculate energies and charges for each site
+            Es = compute_site_energies(pTips, spos, VBias=vbias, Rtip=params['Rtip'], 
+                                     zV0=params['zV0'], E0s=Esite_arr)
+            
+            # Calculate charges for each site
+            Qs = np.zeros(Es.shape)
+            for j in range(nsite):
+                Qs[:,j] = occupancy_FermiDirac(Es[:,j], params['temperature'])
+            
+            # Store total charge for this voltage
+            sim_charge[i,:] = np.sum(Qs, axis=1)
+            
+            # Interpolate experimental dI/dV for this voltage
+            exp_idx = i  # We're using same voltages
+            
+            # Create regular grid for experimental data
+            from scipy.interpolate import RegularGridInterpolator
+            x_unique = np.unique(self.exp_X)
+            y_unique = np.unique(self.exp_Y)
+            X, Y = np.meshgrid(x_unique, y_unique)
+            
+            # Reshape experimental data to match the grid
+            Z = self.exp_dIdV[exp_idx].reshape(len(y_unique), len(x_unique))
+            
+            # Create interpolator
+            interp = RegularGridInterpolator((y_unique, x_unique), Z,
+                                           method='linear', bounds_error=False, 
+                                           fill_value=None)
+            
+            # Interpolate along line
+            points = np.column_stack((y, x))  # Note: RegularGridInterpolator expects (y,x) order
+            exp_didv[i,:] = interp(points)
+        
+        # Plot simulated charge
+        im1 = ax1.imshow(sim_charge, aspect='auto', origin='lower', 
+                        extent=[0, distance[-1], self.exp_biases[0], self.exp_biases[-1]])
+        ax1.set_title('Simulated Charge')
+        ax1.set_xlabel('Distance (Å)')
+        ax1.set_ylabel('Bias Voltage (V)')
+        fig.colorbar(im1, ax=ax1, label='Charge')
+        
+        # Plot experimental dI/dV
+        im2 = ax2.imshow(exp_didv, aspect='auto', origin='lower',
+                        extent=[0, distance[-1], self.exp_biases[0], self.exp_biases[-1]])
+        ax2.set_title('Experimental dI/dV')
+        ax2.set_xlabel('Distance (Å)')
+        ax2.set_ylabel('Bias Voltage (V)')
+        fig.colorbar(im2, ax=ax2, label='dI/dV')
+        
+        # Adjust layout and show
+        fig.tight_layout()
+        
+        # Create a new window to display the plot
+        window = QtWidgets.QMainWindow()
+        window.setCentralWidget(canvas)
+        window.resize(1200, 500)
+        window.show()
+        
+        # Keep a reference to prevent garbage collection
+        self._voltage_scan_window = window
+        
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
     aw = ApplicationWindow()
