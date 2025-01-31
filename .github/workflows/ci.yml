@@ -32,7 +32,7 @@ jobs:
                   flags: python-${{ matrix.python-version }}
 
             - name: Save test images
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: test-images
                   path: ./*.png
