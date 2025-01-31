@@ -305,25 +305,22 @@ class ApplicationWindow(GUITemplate):
 
     def on_mouse_press(self, event):
         """Handle mouse button press event"""
-        if event.inaxes == self.ax4:  # Check if click is in Energies plot
+        if event.inaxes in [self.ax4, self.ax7]:  # Energy plot or experimental dI/dV
             self.clicking = True
             self.start_point = (event.xdata, event.ydata)
-            # Create temporary line
-            if self.line_artist:
-                self.line_artist.remove()
-            self.line_artist = self.ax4.plot([event.xdata], [event.ydata], 'r--')[0]
-            self.canvas.draw()
+            print(f"Mouse press in {'energy plot' if event.inaxes == self.ax4 else 'experimental plot'} at {self.start_point}")
 
     def on_mouse_motion(self, event):
         """Handle mouse motion event"""
-        if self.clicking and event.inaxes == self.ax4 and self.start_point:
-            # Update temporary line
+        if self.clicking and event.inaxes in [self.ax4, self.ax7]:
+            # Remove old line if it exists
             if self.line_artist:
-                self.line_artist.set_data(
-                    [self.start_point[0], event.xdata],
-                    [self.start_point[1], event.ydata]
-                )
-                self.canvas.draw()
+                self.line_artist.remove()
+            
+            # Draw line from start point to current point
+            self.line_artist = event.inaxes.plot([self.start_point[0], event.xdata],
+                                               [self.start_point[1], event.ydata], 'r-')[0]
+            self.canvas.draw()
 
     def on_mouse_release(self, event):
         """Handle mouse button release event"""
@@ -333,12 +330,21 @@ class ApplicationWindow(GUITemplate):
         end_point = (event.xdata, event.ydata)
         self.clicking = False
         
+        print(f"Mouse release in subplot {event.inaxes}")
+        print(f"Start point: {self.start_point}")
+        print(f"End point: {end_point}")
+        
         if event.inaxes == self.ax4:  # Energy plot (2,1)
-            # Calculate and plot 1D scan
+            print("Processing energy plot line scan")
             self.calculate_1d_scan(self.start_point, end_point)
         elif event.inaxes == self.ax7:  # Experimental dI/dV plot (3,2)
-            # Plot voltage line scan
-            self.plot_voltage_line_scan(self.start_point, end_point)
+            print("Processing experimental plot voltage scan")
+            try:
+                self.plot_voltage_line_scan(self.start_point, end_point)
+            except Exception as e:
+                print(f"Error in plot_voltage_line_scan: {str(e)}")
+                import traceback
+                traceback.print_exc()
         
         self.start_point = None
         if self.line_artist:
@@ -474,6 +480,8 @@ class ApplicationWindow(GUITemplate):
             end_point: (x,y) coordinates of end point
             pointPerAngstrom: Number of points per Angstrom along the line
         """
+        print(f"Starting voltage line scan from {start_point} to {end_point}")
+        
         # Create new figure
         fig = Figure(figsize=(12, 5))
         canvas = FigureCanvas(fig)
@@ -487,6 +495,7 @@ class ApplicationWindow(GUITemplate):
         # Calculate number of points based on distance
         dist = np.sqrt((x2-x1)**2 + (y2-y1)**2)
         npoints = max(100, int(dist * pointPerAngstrom))
+        print(f"Number of points along line: {npoints}")
         
         # Create line coordinates
         x = np.linspace(x1, x2, npoints)
@@ -500,6 +509,13 @@ class ApplicationWindow(GUITemplate):
         # Get current parameters
         params = self.get_param_values()
         nsite = params['nsite']
+        
+        # Print experimental data shape information
+        print(f"Experimental data shapes:")
+        print(f"exp_X shape: {self.exp_X.shape}")
+        print(f"exp_Y shape: {self.exp_Y.shape}")
+        print(f"exp_dIdV shape: {self.exp_dIdV.shape}")
+        print(f"exp_biases length: {len(self.exp_biases)}")
         
         # Calculate site positions (constant for all voltages)
         spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
@@ -516,6 +532,7 @@ class ApplicationWindow(GUITemplate):
         Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
         
         # Loop over voltages
+        print("Processing voltages...")
         for i, vbias in enumerate(self.exp_biases):
             # Update VBias in parameters
             params['VBias'] = vbias
@@ -535,24 +552,28 @@ class ApplicationWindow(GUITemplate):
             # Interpolate experimental dI/dV for this voltage
             exp_idx = i  # We're using same voltages
             
-            # Create regular grid for experimental data
-            from scipy.interpolate import RegularGridInterpolator
-            x_unique = np.unique(self.exp_X)
-            y_unique = np.unique(self.exp_Y)
-            X, Y = np.meshgrid(x_unique, y_unique)
-            
-            # Reshape experimental data to match the grid
-            Z = self.exp_dIdV[exp_idx].reshape(len(y_unique), len(x_unique))
-            
-            # Create interpolator
-            interp = RegularGridInterpolator((y_unique, x_unique), Z,
-                                           method='linear', bounds_error=False, 
-                                           fill_value=None)
-            
-            # Interpolate along line
-            points = np.column_stack((y, x))  # Note: RegularGridInterpolator expects (y,x) order
-            exp_didv[i,:] = interp(points)
+            try:
+                # Create regular grid for experimental data
+                x_unique = np.unique(self.exp_X)
+                y_unique = np.unique(self.exp_Y)
+                print(f"Unique X points: {len(x_unique)}, Unique Y points: {len(y_unique)}")
+                
+                # Reshape experimental data to match the grid
+                Z = self.exp_dIdV[exp_idx].reshape(len(y_unique), len(x_unique))
+                
+                # Create interpolator
+                interp = RegularGridInterpolator((y_unique, x_unique), Z,
+                                               method='linear', bounds_error=False, 
+                                               fill_value=None)
+                
+                # Interpolate along line
+                points = np.column_stack((y, x))  # Note: RegularGridInterpolator expects (y,x) order
+                exp_didv[i,:] = interp(points)
+            except Exception as e:
+                print(f"Error in interpolation for voltage {vbias}: {str(e)}")
+                raise
         
+        print("Creating plots...")
         # Plot simulated charge
         im1 = ax1.imshow(sim_charge, aspect='auto', origin='lower', 
                         extent=[0, distance[-1], self.exp_biases[0], self.exp_biases[-1]])
@@ -572,6 +593,7 @@ class ApplicationWindow(GUITemplate):
         # Adjust layout and show
         fig.tight_layout()
         
+        print("Creating window...")
         # Create a new window to display the plot
         window = QtWidgets.QMainWindow()
         window.setCentralWidget(canvas)
@@ -580,7 +602,8 @@ class ApplicationWindow(GUITemplate):
         
         # Keep a reference to prevent garbage collection
         self._voltage_scan_window = window
-        
+        print("Voltage line scan complete")
+
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
     aw = ApplicationWindow()
