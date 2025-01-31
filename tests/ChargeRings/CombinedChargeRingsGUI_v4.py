@@ -8,6 +8,7 @@ from PyQt5 import QtCore, QtWidgets
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from scipy.interpolate import LinearNDInterpolator
 
 from GUITemplate import GUITemplate
 from charge_rings_core import calculate_tip_potential, calculate_qdot_system, makeCircle, compute_site_energies, compute_site_tunelling, occupancy_FermiDirac
@@ -556,7 +557,7 @@ class ApplicationWindow(GUITemplate):
                 exp_y = self.exp_Y[i]        # y coordinates for this voltage slice
                 
                 # Create interpolator using the 2D data
-                from scipy.interpolate import LinearNDInterpolator
+                
                 points = np.column_stack((exp_x.flatten(), exp_y.flatten()))
                 values = exp_data.flatten()
                 interp = LinearNDInterpolator(points, values)
