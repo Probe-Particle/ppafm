@@ -34,7 +34,7 @@ jobs:
             - name: Save test images
               uses: actions/upload-artifact@v4
               with:
-                  name: test-images
+                  name: test-images-${{ matrix.python-version }}
                   path: ./*.png
 
     test-docker:
