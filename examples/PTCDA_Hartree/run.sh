@@ -1,6 +1,10 @@
 #! /bin/bash
-wget --no-check-certificate "https://www.dropbox.com/s/18eg89l89npll8x/LOCPOT.xsf.zip"
-unzip LOCPOT.xsf.zip
+
+if [ ! -f "LOCPOT.xsf" ] ; then
+    wget "https://zenodo.org/records/14222456/files/PTCDA_Ag.zip"
+    unzip PTCDA_Ag.zip
+    rm PTCDA_Ag.zip
+fi
 
 # ======= STEP 1 : Generate force-field grid
 ppafm-generate-elff -i LOCPOT.xsf

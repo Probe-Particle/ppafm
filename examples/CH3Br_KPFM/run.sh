@@ -7,12 +7,12 @@
 # (2) charge induced in the sample (CH3Br) by the bias (due to the molecules polarizability) interacting with static charge on the Xe tip (t0sV)
 
 #The input Hartree potentials are files in the (Gaussian) "cube" format: hartree_potential_V0.cube (without an external field) and hartree_potential_Vz.cube (in the homogeneous field of Vref=+0.1 V/angstrom). These files have been generated with FHI-AIMS [https://fhi-aims.org/] and can be downloaded from the Zenodo site, record #10562922:
-echo "Download Hartree Potentials"
-for f in hartree_potential_V{0,z}.cube ; do
-    if [ ! -f $f ] ; then
-	wget --no-check-certificate "https://zenodo.org/records/10562922/files/$f"
-    fi
-done
+if [ ! -f "hartree_potential_V0.cube" ] ; then
+    echo "Download Hartree Potentials"
+    wget --no-check-certificate "https://zenodo.org/records/14222456/files/CH3Br_KPFM.zip"
+    unzip CH3Br_KPFM.zip
+    rm CH3Br_KPFM.zip
+fi
 
 echo "Calculate Electrostatic Forces and Polarizability in External Field"
 ppafm-generate-elff -i hartree_potential_V0.cube -t s --KPFM_sample hartree_potential_Vz.cube --KPFM_tip fit --Vref +0.1 --Rcore -1.0 --z0 0.0

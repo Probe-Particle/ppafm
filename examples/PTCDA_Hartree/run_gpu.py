@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
 
-import os
-from subprocess import run
-
-import matplotlib.pyplot as plt
-
+from ppafm.data import download_dataset
 from ppafm.ocl.AFMulator import AFMulator
 from ppafm.ocl.field import HartreePotential
 
-if not os.path.exists("LOCPOT.xsf"):
-    run(["wget", "--no-check-certificate", "https://www.dropbox.com/s/18eg89l89npll8x/LOCPOT.xsf.zip"])
-    run(["unzip", "LOCPOT.xsf.zip"])
+download_dataset("PTCDA-Ag", "sample")
 
 afmulator = AFMulator(
     scan_dim=(200, 200, 60),
@@ -24,7 +18,7 @@ afmulator = AFMulator(
 )
 
 print("Loading potential")
-pot, xyzs, Zs = HartreePotential.from_file("./LOCPOT.xsf", scale=-1.0)  # scale=-1.0 for correct units of potential (V) instead of energy (eV)
+pot, xyzs, Zs = HartreePotential.from_file("./sample/LOCPOT.xsf", scale=-1.0)  # scale=-1.0 for correct units of potential (V) instead of energy (eV)
 
 print("Running simulation")
 X = afmulator(xyzs, Zs, pot, plot_to_dir="./PTCDA_CO_dz2-0.05_K0.37_A1.0")
