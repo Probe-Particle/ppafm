@@ -2,12 +2,11 @@
 #ifndef Grid_h
 #define Grid_h
 
-#include <omp.h>
-
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
+#include <omp.h>
 #include "Vec3.h"
 #include "Mat3.h"
 //#include <string.h>

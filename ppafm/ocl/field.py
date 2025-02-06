@@ -1668,7 +1668,7 @@ class AtomProjection:
     Rpp = 2.0  #  probe-particle radius
     zmin = -3.0  #  minim position of pixels sampled in SphereMaps
     dzmax = 2.0  #  maximum distance of atoms from sampling screen for Atomic Disk maps ( similar )
-    dzmax_s = np.Inf  #  maximum depth of vdW shell in Atomic Disks
+    dzmax_s = np.inf  #  maximum depth of vdW shell in Atomic Disks
 
     Rmax = 10.0  #  Radial function of bonds&atoms potential  ; used in Bonds
     drStep = 0.1  #  step dx (dr) for sampling of radial function; used in Bonds

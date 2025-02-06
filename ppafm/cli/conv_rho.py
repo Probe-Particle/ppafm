@@ -1,4 +1,6 @@
 #!/usr/bin/python
+import gc
+
 import numpy as np
 
 from .. import common, fieldFFT, io
@@ -15,7 +17,7 @@ def handle_negative_density(rho):
     rho *= q / rho.sum()
 
 
-def main():
+def main(argv=None):
     parser = common.CLIParser(
         description="Calculate the density overlap integral for Pauli force field in the full-density based model. "
         "The integral has two parameters A and B, and is of form A*Integral( rho_tip^B * rho_sample^B )"
@@ -30,7 +32,7 @@ def main():
     parser.add_arguments(['output_format', 'energy', 'Apauli', 'Bpauli'])
     # fmt: on
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     print(">>> Loading sample from ", args.sample, " ... ")
     rho_sample, lvec_sample, n_dim_sample, head_sample = io.loadXSF(args.sample)
@@ -68,6 +70,10 @@ def main():
         io.save_scal_field("E" + namestr, energy * args.Apauli, lvec_sample, data_format=args.output_format, head=head_sample)
     force_field = io.packVecGrid(f_x * args.Apauli, f_y * args.Apauli, f_z * args.Apauli)
     io.save_vec_field("FF" + namestr, force_field, lvec_sample, data_format=args.output_format, head=head_sample)
+
+    # Make sure that the energy and force field pointers are deleted so that they don't interfere if any other force fields are computed after this.
+    del energy, force_field
+    gc.collect()
 
 
 if __name__ == "__main__":

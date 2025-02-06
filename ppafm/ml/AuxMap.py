@@ -117,7 +117,7 @@ class AtomicDisks(AuxMapBase):
         if diskMode == "sphere":
             self.offset = 0.0
         elif diskMode == "center":
-            self.projector.dzmax_s = np.Inf
+            self.projector.dzmax_s = np.inf
             self.offset = -1.0
         else:
             raise ValueError(f"Unknown diskMode {diskMode}. Should be either sphere or center")

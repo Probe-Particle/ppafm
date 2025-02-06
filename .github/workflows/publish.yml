@@ -16,7 +16,7 @@ jobs:
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
-                os: [ubuntu-22.04, windows-2022, macos-11]
+                os: [ubuntu-22.04, windows-2022, macos-latest]
 
         steps:
             - uses: actions/checkout@v3
@@ -26,7 +26,7 @@ jobs:
               uses: pypa/cibuildwheel@v2.16.5
 
             - name: Upload distribution artifacts
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: release
                   path: ./wheelhouse/*.whl
@@ -52,7 +52,7 @@ jobs:
               run: python -m build --sdist --outdir dist/
 
             - name: Upload distribution artifacts
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: release
                   path: dist/*.tar.gz
@@ -71,7 +71,7 @@ jobs:
 
         steps:
 
-            - uses: actions/download-artifact@v2
+            - uses: actions/download-artifact@v4.1.7
               name: Download distribution artifact
               with:
                   name: release
