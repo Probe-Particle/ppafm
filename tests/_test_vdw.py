@@ -4,6 +4,8 @@
 Compare the C++ and OpenCL implementations of the vdW calculation and check that they are consistent.
 """
 
+import gc
+
 import numpy as np
 import pyopencl as cl
 
@@ -102,3 +104,6 @@ def test_dftd3():
     assert np.allclose(coeffs_ocl, coeffs_cpp)
     assert np.allclose(FF_ocl[..., :3], FF_cpp, rtol=1e-4, atol=1e-6)
     assert np.allclose(FF_ocl[..., 3], E_cpp, rtol=1e-4, atol=1e-6)
+
+    del E_cpp, FF_cpp
+    gc.collect()

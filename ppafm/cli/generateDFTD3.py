@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import gc
 import sys
 
 from ppafm.defaults import d3
@@ -49,6 +50,9 @@ def main(argv=None):
         df_params = args.df_name
 
     computeDFTD3(args.input, df_params=df_params, geometry_format=args.input_format, save_format=args.output_format, compute_energy=args.energy, parameters=parameters)
+
+    # Make sure that the energy and force field pointers are deleted so that they don't interfere if any other force fields are computed after this.
+    gc.collect()
 
 
 if __name__ == "__main__":

@@ -181,7 +181,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self._create_buttons_ui()
 
         # Create curve plotting window
-        self.figCurv = guiw.PlotWindow(parent=self, width=5, height=4, dpi=100)
+        self.figCurv = guiw.PlotWindow(parent=self, width=5, height=4, dpi=100, xlabel="z_tip (Å)", ylabel="df (Hz)")
 
         if input_files:
             self.loadInput(**input_files)

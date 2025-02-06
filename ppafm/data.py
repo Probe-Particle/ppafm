@@ -8,11 +8,20 @@ from tempfile import TemporaryDirectory
 from urllib.request import urlretrieve
 
 DATASET_URLS = {
-    "CO-tip-densities": "https://zenodo.org/records/10563098/files/CO_tip_densities.tar.gz?download=1",
+    "CO-tip-densities": "https://zenodo.org/records/14222456/files/CO_tip.zip?download=1",
     "dft-afm": "https://zenodo.org/records/10563098/files/dft-afm.tar.gz?download=1",
     "hartree-density": "https://zenodo.org/records/10563098/files/hartree-density.tar.gz?download=1",
-    "FFPB-KPFM-hartree": "https://zenodo.org/records/10563098/files/KPFM_hartree.tar.gz?download=1",
+    "FFPB-KPFM-hartree": "https://zenodo.org/records/14222456/files/FFPB_KPFM.zip?download=1",
+    "pyridine": "https://zenodo.org/records/14222456/files/pyridine.zip?download=1",
     "BrClPyridine": "https://zenodo.org/records/14222456/files/pyridineBrCl.zip?download=1",
+    "C60": "https://zenodo.org/records/14222456/files/C60.zip?download=1",
+    "CH3Br_KPFM": "https://zenodo.org/records/14222456/files/CH3Br_KPFM.zip?download=1",
+    "FAD": "https://zenodo.org/records/14222456/files/FAD.zip?download=1",
+    "FFPB": "https://zenodo.org/records/14222456/files/FFPB.zip?download=1",
+    "pentacene": "https://zenodo.org/records/14222456/files/Pentacene.zip?download=1",
+    "phtalocyanine": "https://zenodo.org/records/14222456/files/Phtalocyanine.zip?download=1",
+    "PTCDA": "https://zenodo.org/records/14222456/files/PTCDA.zip?download=1",
+    "PTCDA-Ag": "https://zenodo.org/records/14222456/files/PTCDA_Ag.zip?download=1",
 }
 
 
@@ -35,6 +44,8 @@ def _print_progress(block_num: int, block_size: int, total_size: int):
 
 
 def _common_parent(paths):
+    if len(paths) == 1:
+        return Path(paths[0]).parent
     path_parts = [list(Path(p).parts) for p in paths]
     common_part = Path()
     for parts in zip(*path_parts):
@@ -44,6 +55,14 @@ def _common_parent(paths):
         else:
             break
     return common_part
+
+
+def _extract_members(archive_handle, members, target_dir):
+    print(f"Extracting dataset to `{target_dir}`: ", end="", flush=True)
+    for i, m in enumerate(members):
+        _print_progress(i, 1, len(members))
+        archive_handle.extract(m, target_dir)
+    _print_progress(len(members), 1, len(members))
 
 
 def _extract_targz(archive_path, target_dir):
@@ -57,10 +76,7 @@ def _extract_targz(archive_path, target_dir):
                 # which makes it so that we can just directly extract the files to the target directory.
                 m.name = Path(m.name).relative_to(base_dir)
                 members.append(m)
-        print(f"Extracting dataset to `{target_dir}`: ", end="", flush=True)
-        for i, m in enumerate(members):
-            _print_progress(i, 1, len(members) - 1)
-            ft.extract(m, target_dir)
+        _extract_members(ft, members, target_dir)
 
 
 def _extract_zip(archive_path, target_dir):
@@ -74,10 +90,7 @@ def _extract_zip(archive_path, target_dir):
                 # which makes it so that we can just directly extract the files to the target directory.
                 m.filename = str(Path(m.filename).relative_to(base_dir))
                 members.append(m)
-        print(f"Extracting dataset to `{target_dir}`: ", end="", flush=True)
-        for i, m in enumerate(members):
-            _print_progress(i, 1, len(members) - 1)
-            ft.extract(m, target_dir)
+        _extract_members(ft, members, target_dir)
 
 
 def download_dataset(name: str, target_dir: PathLike):
@@ -86,11 +99,20 @@ def download_dataset(name: str, target_dir: PathLike):
 
     The following datasets are available:
 
-        - ``'CO-tip-densities'``: https://doi.org/10.5281/zenodo.10563098 - CO_tip_densities.tar.gz
+        - ``'CO-tip-densities'``: https://doi.org/10.5281/zenodo.14222456 - CO_tip.zip
         - ``'dft-afm'``: https://doi.org/10.5281/zenodo.10563098 - dft-afm.tar.gz
         - ``'hartree-density'``: https://doi.org/10.5281/zenodo.10563098 - hartree-density.tar.gz
-        - ``'FFPB-KPFM-hartree'``: https://doi.org/10.5281/zenodo.10563098 - KPFM_hartree.tar.gz
-        - ``'BrClPyridine'``: https://doi.org/10.5281/zenodo.14222456 - pyridineBrCl.zip: hartree potential and electron density for the BrClPyridine example.
+        - ``'FFPB-KPFM-hartree'``: https://doi.org/10.5281/zenodo.14222456 - FFPB_KPFM.zip
+        - ``'pyridine``: https://doi.org/10.5281/zenodo.14222456 - pyridine.zip
+        - ``'BrClPyridine'``: https://doi.org/10.5281/zenodo.14222456 - pyridineBrCl.zip
+        - ``'C60'``: https://doi.org/10.5281/zenodo.14222456 - C60.zip
+        - ``'CH3Br_KPFM'``: https://doi.org/10.5281/zenodo.14222456 - CH3Br_KPFM.zip
+        - ``'FAD'``: https://doi.org/10.5281/zenodo.14222456 - FAD.zip
+        - ``'FFPB'``: https://doi.org/10.5281/zenodo.14222456 - FFPB.zip
+        - ``'pentacene'``: https://doi.org/10.5281/zenodo.14222456 - Pentacene.zip
+        - ``'phtalocyanine'``: https://doi.org/10.5281/zenodo.14222456 - Phtalocyanine.zip
+        - ``'PTCDA'``: https://doi.org/10.5281/zenodo.14222456 - PTCDA.zip
+        - ``'PTCDA-Ag'``: https://doi.org/10.5281/zenodo.14222456 - PTCDA_Ag.zip
 
     Arguments:
         name: Name of dataset to download.

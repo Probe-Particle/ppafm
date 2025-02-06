@@ -191,6 +191,9 @@ def perform_relaxation(
         PPdisp = None
     if verbose > 0:
         print("<<<END: perform_relaxation()")
+
+    core.deleteFF_Fpointer()
+
     return fzs, PPpos, PPdisp, lvecScan
 
 
@@ -204,7 +207,8 @@ def prepareArrays(FF, Vpot, parameters):
         gridN = parameters.gridN
         FF = np.zeros((gridN[2], gridN[1], gridN[0], 3))
     else:
-        parameters.gridN = np.shape(FF)
+        gridN = np.shape(FF)
+        parameters.gridN = gridN
     core.setFF_Fpointer(FF)
     if Vpot:
         V = np.zeros((gridN[2], gridN[1], gridN[0]))
