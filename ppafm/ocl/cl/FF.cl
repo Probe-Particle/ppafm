@@ -1175,6 +1175,40 @@ __kernel void sumSingleGroup(__global float2 *array, int n) {
 
 }
 
+// Clamp array values to specified range using a hard clamp
+__kernel void clamp_hard(
+    __global float *array_in,   // Input array
+    __global float *array_out,  // Output array
+    int n,                      // Number of elements in array
+    float min_value,            // Minimum clamp value
+    float max_value             // Maximum clamp value
+) {
+    int ind = get_global_id(0);
+    if (ind >= n) return;
+    array_out[ind] = max(min_value, min(max_value, array_in[ind]));
+}
+
+// Clamp array values to specified range using a soft clamp
+__kernel void clamp_soft(
+    __global float *array_in,   // Input array
+    __global float *array_out,  // Output array
+    int n,                      // Number of elements in array
+    float min_value,            // Minimum clamp value
+    float max_value,            // Maximum clamp value
+    float width                 // Width of transition region
+) {
+    int ind = get_global_id(0);
+    if (ind >= n) return;
+
+    float val = array_in[ind];
+    if (max_value <  INFINITY)
+        val = (val - max_value) / (1 + exp((val - max_value) /  width)) + max_value;
+    if (min_value > -INFINITY)
+        val = (val - min_value) / (1 + exp((val - min_value) / -width)) + min_value;
+
+    array_out[ind] = val;
+}
+
 // Multiply and add values in one array with another
 __kernel void addMult(
     __global float *array_in1,  // Input array 1
