@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     # Iterate over batches
     for ib, (afm, desc, mols) in enumerate(trainer):
-        np.savez(f"batch_{ib}.npz", afm=afm, desc=desc, mols=mols)
+        # Do stuff with the data...
 
 ```
 
@@ -156,7 +156,7 @@ We also shuffle the list of molecules with `InverseAFMtrainer.shuffle_molecules`
 The constructed instance of the generator class is an iterator which we can use in a for-loop:
 ```python
 for ib, (afm, desc, mols) in enumerate(trainer):
-    np.savez(f"batch_{ib}.npz", afm=afm, desc=desc, mols=mols)
+    # Do stuff with the data...
 ```
 The returned arrays contain the simulated AFM images `afm`, the image descriptors `desc`, and the arrays of coordinates and types of the atoms `mols`.
 
