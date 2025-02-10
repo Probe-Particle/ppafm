@@ -304,8 +304,7 @@ if __name__ == "__main__":
     )
 
     # Get samples from the trainer by iterating over it
-    counter = 0
-    for ib, (afm, desc, mols, scan_windows) in enumerate(trainer):
+    for afm, desc, mols, scan_windows in trainer:
         # Do stuff with the data...
 ```
 
@@ -368,3 +367,10 @@ To overcome this limitation, see [a more advanced example here](https://github.c
 
 Also notice that the tip electron densities, similar to the point charges in the first example, are given to `ExampleTrainer` instead of `AFMulator`.
 A list of electron densities can be used for generating samples for multiple tips at the same time.
+
+Finally, notice that when we iterate over the generated samples, there is one more returned value, `scan_windows`:
+```python
+for afm, desc, mols, scan_windows in trainer:
+    # Do stuff with the data...
+```
+The `scan_windows` contains a list of the used scan areas for each sample (in the same format as the `scan_window` argument to the {class}`.AFMulator`), which is varying as the scan window is centered on the molecules.
