@@ -306,8 +306,7 @@ if __name__ == "__main__":
     # Get samples from the trainer by iterating over it
     counter = 0
     for ib, (afm, desc, mols, scan_windows) in enumerate(trainer):
-        np.savez(f"batch_{ib}.npz", afm=afm, desc=desc, mols=mols, scan_windows=scan_windows)
-        # ...or do other stuff with the batch
+        # Do stuff with the data...
 ```
 
 We use here the data from the [ppafm review paper](https://doi.org/10.1016/j.cpc.2024.109341) as an example.
