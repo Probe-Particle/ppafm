@@ -1,3 +1,4 @@
+(generator-tutorial-title)=
 # Generating machine learning training data
 
 The previous tutorials described the [`AFMulator`](afmulator-tutorial) for producing AFM simulations and the [`AuxMap`](auxmap-tutorial) image descriptors.
