@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import copy
 import os
 import typing
 from argparse import ArgumentParser
@@ -15,7 +16,7 @@ verbose = 0
 
 # ====================== constants
 
-eVA_Nm = 16.0217662  # [eV/A^2] / [N/m]
+eVA_Nm = 16.0217662  # [eV/A^2] / [N/m] - internal units for force are eV/A - this is to convert stiffness to SI units.
 CoulombConst = 14.399645
 HBAR = 6.58211951440e-16  # [eV.s]
 AUMASS = 1.66053904020e-27  # [kg]
@@ -320,7 +321,7 @@ class CLIParser(ArgumentParser):
         for name in arg_names:
             if name not in self.cli_args:
                 raise ValueError(f"Invalid argument name `{name}`")
-            arg_dict = self.cli_args[name]
+            arg_dict = copy.deepcopy(self.cli_args[name])
             if "help" not in arg_dict:
                 raise ValueError(f"No help message defined for `{name}`")
             if "short_name" in arg_dict:
@@ -429,6 +430,7 @@ def Fz2df(F, dz, k0, f0, amplitude=1.0, units=16.0217656):
     conversion of vertical force Fz to frequency shift
     according to:
     Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
+    Internal force units are eV/A the 16.021... converts stifness eV/A**2 to N/m
     """
     W = get_df_weight(amplitude, dz=dz)
     dFconv = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F)
@@ -440,6 +442,7 @@ def Fz2df_tilt(F, d, k0, f0, amplitude=1.0, units=16.0217656):
     conversion of vertical force Fz to frequency shift
     according to:
     Giessibl, F. J. A direct method to calculate tip-sample forces from frequency shifts in frequency-modulation atomic force microscopy Appl. Phys. Lett. 78, 123 (2001)
+    Internal force units are eV/A the 16.021... converts stifness eV/A**2 to N/m
     """
     dr = np.sqrt(d[0] ** 2 + d[1] ** 2 + d[2] ** 2)
     W = get_df_weight(amplitude, dz=dr)

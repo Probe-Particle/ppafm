@@ -7,7 +7,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+                python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
 
         steps:
             - name: Check out repository
@@ -32,9 +32,9 @@ jobs:
                   flags: python-${{ matrix.python-version }}
 
             - name: Save test images
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
-                  name: test-images
+                  name: test-images-${{ matrix.python-version }}
                   path: ./*.png
 
     test-docker:

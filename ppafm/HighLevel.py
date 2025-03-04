@@ -191,6 +191,9 @@ def perform_relaxation(
         PPdisp = None
     if verbose > 0:
         print("<<<END: perform_relaxation()")
+
+    core.deleteFF_Fpointer()
+
     return fzs, PPpos, PPdisp, lvecScan
 
 
@@ -204,7 +207,8 @@ def prepareArrays(FF, Vpot, parameters):
         gridN = parameters.gridN
         FF = np.zeros((gridN[2], gridN[1], gridN[0], 3))
     else:
-        parameters.gridN = np.shape(FF)
+        gridN = np.shape(FF)
+        parameters.gridN = gridN
     core.setFF_Fpointer(FF)
     if Vpot:
         V = np.zeros((gridN[2], gridN[1], gridN[0]))
@@ -295,7 +299,7 @@ def computeDFTD3(input_file, df_params="PBE", geometry_format=None, save_format=
     # Load atomic geometry
     atoms, nDim, lvec = io.loadGeometry(input_file, format=geometry_format, parameters=parameters)
     elem_dict = PPU.getFFdict(PPU.loadSpecies())
-    iZs, Rs, _ = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=parameters.PBC, lvec=lvec)
+    iZs, Rs, _ = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=parameters.PBC, lvec=lvec, parameters=parameters)
     iPP = PPU.atom2iZ(parameters.probeType, elem_dict)
 
     # Compute coefficients for each atom
@@ -303,7 +307,7 @@ def computeDFTD3(input_file, df_params="PBE", geometry_format=None, save_format=
     coeffs = core.computeD3Coeffs(Rs, iZs, iPP, df_params)
 
     # Compute the force field
-    FF, V = prepareArrays(None, compute_energy)
+    FF, V = prepareArrays(None, compute_energy, parameters=parameters)
     core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
     core.getDFTD3FF(shift_positions(Rs, -lvec[0]), coeffs)
 
@@ -364,15 +368,13 @@ def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format
 
 
 def computeElFF(V, lvec, nDim, tip, computeVpot=False, tilt=0.0, sigma=None, deleteV=True, parameters=None):
-    if verbose > 0:
-        print(" ========= get electrostatic forcefiled from hartree ")
     rho = None
     multipole = None
     if sigma is None:
         sigma = parameters.sigma
-    if type(tip) is np.ndarray:
+    if isinstance(tip, (list, np.ndarray)):
         rho = tip
-    elif type(tip) is dict:
+    elif isinstance(tip, dict):
         multipole = tip
     else:
         if tip in {"s", "px", "py", "pz", "dx2", "dy2", "dz2", "dxy", "dxz", "dyz"}:
@@ -383,8 +385,6 @@ def computeElFF(V, lvec, nDim, tip, computeVpot=False, tilt=0.0, sigma=None, del
             if any(nDim_tip != nDim):
                 sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")
             rho *= -1  # Negative charge density from positive electron density
-    if verbose > 0:
-        print(" computing convolution with tip by FFT ")
     Fel_x, Fel_y, Fel_z, Vout = fFFT.potential2forces_mem(V, lvec, nDim, rho=rho, sigma=sigma, multipole=multipole, doPot=computeVpot, tilt=tilt, deleteV=deleteV)
     FFel = io.packVecGrid(Fel_x, Fel_y, Fel_z)
     del Fel_x, Fel_y, Fel_z
@@ -423,7 +423,7 @@ def _getAtomsWhichTouchPBCcell(Rs, elems, nDim, lvec, Rcut, bSaveDebug, fname=No
     return Rs_, elems
 
 
-def getAtomsWhichTouchPBCcell(fname, Rcut=1.0, bSaveDebug=True, geometry_format=None):
+def getAtomsWhichTouchPBCcell(fname, Rcut=1.0, bSaveDebug=True, geometry_format=None, parameters=None):
     atoms, nDim, lvec = io.loadGeometry(fname, format=geometry_format, parameters=parameters)
     Rs = np.array(atoms[1:4])  # get just positions x,y,z
     elems = np.array(atoms[0])

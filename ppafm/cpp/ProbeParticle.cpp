@@ -344,6 +344,16 @@ DLLEXPORT void setFF_Epointer( double * gridE_ ){
     gridE = gridE_;
 }
 
+// set force field array pointer to NULL
+DLLEXPORT void deleteFF_Fpointer(){
+    gridF = NULL;
+}
+
+// set energy array pointer to NULL
+DLLEXPORT void deleteFF_Epointer(){
+    gridE = NULL;
+}
+
 // set forcefield grid dimension "n"
 DLLEXPORT void setGridN( int * n ){
     //gridShape.n.set( *(Vec3i*)n );

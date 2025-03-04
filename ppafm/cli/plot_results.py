@@ -28,6 +28,7 @@ def main(argv=None):
     parser.add_argument( "--df",        action="store_true",                           help="Plot images for dfz ")
     parser.add_argument( "--save_df",   action="store_true",                           help="Save frequency shift as df.xsf "    )
     parser.add_argument( "--Laplace",   action="store_true",                           help="Plot Laplace-filtered images and save them ",    )
+    parser.add_argument( "--Fz",        action="store_true",                           help="Plot images for z-component of the (short-range) force acting on the tip in eV/Angstrom")
     parser.add_argument( "--pos",       action="store_true",                           help="Save probe particle positions"    )
     parser.add_argument( "--atoms",     action="store_true",                           help="Plot atoms to images")
     parser.add_argument( "--bonds",     action="store_true",                           help="Plot bonds to images")
@@ -446,6 +447,29 @@ def main(argv=None):
                     if opt_dict["WSxM"]:
                         print("Saving LCPD into WSxM files :")
                         io.saveWSxM_3D(dir_name_lcpd + "/LCPD" + atoms_str, lcpd, extent, slices=None)
+
+            if opt_dict["Fz"]:
+                (
+                    fzs,
+                    lvec,
+                    _,
+                    atomic_info_or_head,
+                ) = io.load_scal_field(dirname + "/OutFz", data_format=args.output_format)
+                print("Plotting Fz: ")
+                PPPlot.plotImages(
+                    dirname + "/Fz" + atoms_str + cbar_str,
+                    fzs,
+                    slices=list(range(0, len(fzs))),
+                    zs=tip_positions_z,  # + parameters.Amplitude / 2.0, # no oscillation to the force
+                    extent=extent,
+                    cmap=parameters.colorscale,
+                    atoms=atoms,
+                    bonds=bonds,
+                    atomSize=atom_size,
+                    cbar=opt_dict["cbar"],
+                    cbar_label="Fz [eV/Angstrom]",
+                )
+                print("")
 
     print(" ***** ALL DONE ***** ")
 

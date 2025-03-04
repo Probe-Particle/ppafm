@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import gc
 import sys
 from pathlib import Path
 
@@ -44,7 +45,7 @@ def main(argv=None):
         if args.tip_dens is None:
             raise Exception("Rcore>0 but no tip density provided!")
         valence_electrons_dictionary = loadValenceElectronDict()
-        rs_tip, elems_tip = getAtomsWhichTouchPBCcell(args.tip_dens, Rcut=args.Rcore)
+        rs_tip, elems_tip = getAtomsWhichTouchPBCcell(args.tip_dens, Rcut=args.Rcore, parameters=parameters)
 
     atoms_samp, _, lvec_samp = io.loadGeometry(args.input, format=args.input_format, parameters=parameters)
     head_samp = io.primcoords2Xsf(atoms_samp[0], [atoms_samp[1], atoms_samp[2], atoms_samp[3]], lvec_samp)
@@ -160,6 +161,10 @@ def main(argv=None):
     io.save_vec_field("FFel", ff_electrostatic, lvec_samp, data_format=args.output_format, head=head_samp, atomic_info=(atoms_samp[:4], lvec_samp))
     if args.energy:
         io.save_scal_field("Eel", e_electrostatic, lvec_samp, data_format=args.output_format, head=head_samp, atomic_info=(atoms_samp[:4], lvec_samp))
+
+    # Make sure that the energy and force field pointers are deleted so that they don't interfere if any other force fields are computed after this.
+    del e_electrostatic, ff_electrostatic
+    gc.collect()
 
 
 if __name__ == "__main__":

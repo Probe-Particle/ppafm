@@ -26,9 +26,9 @@ jobs:
               uses: pypa/cibuildwheel@v2.16.5
 
             - name: Upload distribution artifacts
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
-                  name: release
+                  name: release-wheel-${{ matrix.os }}
                   path: ./wheelhouse/*.whl
 
     build_sdist:
@@ -52,9 +52,9 @@ jobs:
               run: python -m build --sdist --outdir dist/
 
             - name: Upload distribution artifacts
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
-                  name: release
+                  name: release-sdist
                   path: dist/*.tar.gz
 
     publish:
@@ -74,8 +74,9 @@ jobs:
             - uses: actions/download-artifact@v4.1.7
               name: Download distribution artifact
               with:
-                  name: release
-                  path: dist/
+                  pattern: release-*
+                  path: dist
+                  merge-multiple: true
 
             - uses: softprops/action-gh-release@v1
               name: Create release
