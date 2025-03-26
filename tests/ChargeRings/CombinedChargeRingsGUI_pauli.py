@@ -190,6 +190,69 @@ class ApplicationWindow(GUITemplate):
             Hsingle[next_i, i] = t  # Hermitian conjugate
         
         return Hsingle
+    
+    def calculate_pauli_current(self, site_energies, params):
+        """Calculate current using Pauli solver for given site energies
+        
+        Parameters:
+        -----------
+        site_energies : ndarray
+            Either 2D array of shape (npoints, nsite) for 1D scan
+            or 3D array of shape (npix, npix, nsite) for 2D image
+        params : dict
+            Parameter dictionary with all necessary parameters
+            
+        Returns:
+        --------
+        ndarray
+            Current values with same shape as input (minus the last dimension)
+        """
+        # Get original shape to determine dimensionality
+        original_shape = site_energies.shape
+        nsite = original_shape[-1]  # Last dimension is always nsite
+        
+        # Make sure the Pauli solver is updated with correct number of sites
+        if nsite != self.NSingle:
+            self.NSingle = nsite
+            self.pauli = PauliSolver(self.NSingle, self.NLeads, verbosity=self.verbosity)
+            # Update state order for new number of sites
+            NStates = 2**self.NSingle
+            if NStates <= 8:  # Standard 3 sites case with 8 states
+                self.state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+            else:  # For more than 3 sites, use default ordering
+                self.state_order = np.arange(NStates, dtype=np.int32)
+        
+        # Prepare lead parameters that don't change with position
+        TLeads, lead_mu, lead_temp, lead_gamma = self.prepare_leads_cpp(params)
+        self.pauli.set_leads(lead_mu, lead_temp, lead_gamma)
+        self.pauli.set_tunneling(TLeads)
+        
+        # Reshape to 2D array (npoints, nsite) regardless of original shape
+        if len(original_shape) == 3:  # 3D array for 2D image
+            npix = original_shape[0]
+            npoints = npix * npix
+            reshaped_energies = site_energies.reshape(npoints, nsite)
+        else:  # Already 2D array for 1D scan
+            npoints = original_shape[0]
+            reshaped_energies = site_energies
+        
+        # Calculate current for each point
+        current = np.zeros(npoints)
+        for i in range(npoints):
+            # Get site energies for this point
+            epsi = reshaped_energies[i]
+            
+            # Create Hamiltonian for this point
+            Hsingle = self.prepare_hsingle_cpp(epsi)
+            
+            # Solve current for this point (get current in the tip, which is lead 1)
+            current[i] = self.pauli.solve_hsingle(Hsingle, params['W'], 1, self.state_order)
+        
+        # Reshape back to original shape (minus the last dimension)
+        if len(original_shape) == 3:  # 3D array for 2D image
+            current = current.reshape(original_shape[0], original_shape[1])
+        
+        return current
 
     def load_experimental_data(self):
         """Load experimental data from npz file"""
@@ -295,38 +358,8 @@ class ApplicationWindow(GUITemplate):
         Es        = np.max(qdot_data['Es'], axis=2)  # Take maximum across all layers for 2D plot
         Qtot      = qdot_data['Qtot']
         
-        # Initialize arrays for Pauli solver current
-        npix = params['npix']
-        Current = np.zeros((npix, npix))
-        
-        # Update Pauli solver with the number of sites
-        nsite = params['nsite']
-        if nsite != self.NSingle:
-            self.NSingle = nsite
-            self.pauli = PauliSolver(self.NSingle, self.NLeads, verbosity=self.verbosity)
-            # Update state order for new number of sites
-            NStates = 2**self.NSingle
-            if NStates <= 8: # Standard 3 sites case with 8 states
-                self.state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
-            else: # For more than 3 sites, use default ordering
-                self.state_order = np.arange(NStates, dtype=np.int32)
-        
-        # Prepare lead parameters that don't change with pixel
-        TLeads, lead_mu, lead_temp, lead_gamma = self.prepare_leads_cpp(params)
-        self.pauli.set_leads(lead_mu, lead_temp, lead_gamma)
-        self.pauli.set_tunneling(TLeads)
-        
-        # Calculate current using Pauli solver for each pixel
-        for i in range(npix):
-            for j in range(npix):
-                # Get site energies for this pixel
-                epsi = qdot_data['Es'][i, j, :] # Es has shape (npix, npix, nsite)
-                
-                # Create Hamiltonian for this pixel
-                Hsingle = self.prepare_hsingle_cpp(epsi)
-                
-                # Solve current for this pixel (get current in the tip, which is lead 1)
-                Current[i, j] = self.pauli.solve_hsingle(Hsingle, params['W'], 1, self.state_order)
+        # Calculate current using the Pauli solver
+        Current = self.calculate_pauli_current(qdot_data['Es'], params)
         
         # Scale current for visualization
         max_current = np.max(np.abs(Current))
@@ -529,34 +562,8 @@ class ApplicationWindow(GUITemplate):
         Qtot = np.sum(Qs, axis=1)
         STM_simple = np.sum(Is, axis=1)
         
-        # Calculate current using Pauli solver for each point along the line
-        # Make sure the Pauli solver is updated with correct number of sites
-        if nsite != self.NSingle:
-            self.NSingle = nsite
-            self.pauli = PauliSolver(self.NSingle, self.NLeads, verbosity=self.verbosity)
-            # Update state order for new number of sites
-            NStates = 2**self.NSingle
-            if NStates <= 8: # Standard 3 sites case with 8 states
-                self.state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
-            else: # For more than 3 sites, use default ordering
-                self.state_order = np.arange(NStates, dtype=np.int32)
-                
-        # Prepare lead parameters that don't change with position
-        TLeads, lead_mu, lead_temp, lead_gamma = self.prepare_leads_cpp(params)
-        self.pauli.set_leads(lead_mu, lead_temp, lead_gamma)
-        self.pauli.set_tunneling(TLeads)
-        
-        # Calculate Pauli current at each point
-        Current = np.zeros(npoints)
-        for i in range(npoints):
-            # Get site energies for this point
-            epsi = Es[i, :]
-            
-            # Create Hamiltonian for this point
-            Hsingle = self.prepare_hsingle_cpp(epsi)
-            
-            # Solve current for this point (get current in the tip, which is lead 1)
-            Current[i] = self.pauli.solve_hsingle(Hsingle, params['W'], 1, self.state_order)
+        # Calculate current using the Pauli solver
+        Current = self.calculate_pauli_current(Es, params)
         
         # Scale Pauli current for visualization if needed
         max_current = np.max(np.abs(Current))
