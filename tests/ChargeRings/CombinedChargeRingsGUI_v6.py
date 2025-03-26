@@ -11,9 +11,10 @@ import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
 from typing import Optional, Any, Dict, List, Tuple, Union
 from enum import Enum, auto
+from scipy.interpolate import LinearNDInterpolator
 
 from GUITemplate import GUITemplate, PlotConfig, PlotManager
-from charge_rings_core import calculate_tip_potential, calculate_qdot_system
+from charge_rings_core import calculate_tip_potential, calculate_qdot_system, makeCircle, compute_site_energies, compute_site_tunelling, occupancy_FermiDirac
 #from charge_rings_plotting import plot_tip_potential, plot_qdot_system
 
 from charge_rings_plotting import plot_ellipses
@@ -108,6 +109,16 @@ class ApplicationWindow(GUITemplate):
         
         # Load experimental data
         self.load_experimental_data()
+        
+        # Initialize click-and-drag variables
+        self.clicking = False
+        self.start_point = None
+        self.line_artist = None
+        
+        # Connect mouse events
+        self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
+        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
+        self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
         
         self.run()  # Call run() method
         self.plot_manager.bRestoreBackground = True
@@ -239,6 +250,36 @@ class ApplicationWindow(GUITemplate):
         # Update image plots
         self.plot_manager.update_plot('tip_potential',  Vtip,         extent=extent)
         self.plot_manager.update_plot('site_potential', Esites,       extent=extent)
+        
+        # Add horizontal lines to tip and site potential plots
+        # Clear previous overlays
+        self.plot_manager.clear_overlays('tip_potential')
+        self.plot_manager.clear_overlays('site_potential')
+        
+        # Add horizontal lines to tip potential plot
+        ax2 = self.plot_manager.plots['tip_potential'].ax
+        mirror_line = ax2.axhline(y=params['zV0'], color='k', linestyle='--', linewidth=1, label='mirror surface')
+        qdot_line = ax2.axhline(y=params['zQd'], color='g', linestyle='--', linewidth=1, label='Qdot height')
+        tip_line = ax2.axhline(y=params['z_tip'], color='r', linestyle='--', linewidth=1, label='Tip Height')
+        
+        # Add a legend
+        if not hasattr(ax2, 'legend_added'):
+            ax2.legend(loc='upper right', fontsize='small')
+            ax2.legend_added = True
+        
+        # Register lines as overlays for the plot manager
+        self.plot_manager.add_overlay('tip_potential', mirror_line)
+        self.plot_manager.add_overlay('tip_potential', qdot_line)
+        self.plot_manager.add_overlay('tip_potential', tip_line)
+        
+        # Add horizontal lines to site potential plot
+        ax3 = self.plot_manager.plots['site_potential'].ax
+        mirror_line2 = ax3.axhline(y=params['zV0'], color='k', linestyle='--', linewidth=1, label='mirror surface')
+        qdot_line2 = ax3.axhline(y=params['zQd'], color='g', linestyle='--', linewidth=1, label='Qdot height')
+        
+        # Register lines as overlays for the plot manager
+        self.plot_manager.add_overlay('site_potential', mirror_line2)
+        self.plot_manager.add_overlay('site_potential', qdot_line2)
         self.plot_manager.update_plot('energies',       Es,           extent=extent)
         # Calculate and use appropriate color limits for Qtot
         charge_max = np.abs(Qtot).max()
@@ -274,6 +315,268 @@ class ApplicationWindow(GUITemplate):
         
         # Perform final blitting update
         self.plot_manager.blit()
+
+    def on_mouse_press(self, event):
+        """Handle mouse button press event"""
+        if event.inaxes in [self.ax4, self.ax7]:  # Energy plot or experimental dI/dV
+            self.clicking = True
+            self.start_point = (event.xdata, event.ydata)
+            print(f"Mouse press in {'energy plot' if event.inaxes == self.ax4 else 'experimental plot'} at {self.start_point}")
+
+    def on_mouse_motion(self, event):
+        """Handle mouse motion event"""
+        if self.clicking and event.inaxes in [self.ax4, self.ax7]:
+            # Determine which plot we're working with
+            # First remove old line
+            if self.line_artist:
+                try:
+                    self.line_artist.remove()
+                except:
+                    pass
+            
+            # Fully restore the background first
+            self.plot_manager.restore_backgrounds()
+            
+            # Now draw a new line - this needs to be visible
+            self.line_artist, = event.inaxes.plot([self.start_point[0], event.xdata],
+                                               [self.start_point[1], event.ydata], 'r-', linewidth=2, zorder=100)
+            
+            # Update the display to make the line visible
+            self.canvas.draw_idle()  # Use draw_idle for smooth updates
+
+
+    def on_mouse_release(self, event):
+        """Handle mouse button release event"""
+        if not self.clicking or event.inaxes is None:
+            return
+            
+        end_point = (event.xdata, event.ydata)
+        self.clicking = False
+        
+        print(f"Mouse release in subplot {event.inaxes}")
+        print(f"Start point: {self.start_point}")
+        print(f"End point: {end_point}")
+        
+        if event.inaxes == self.ax4:  # Energy plot
+            print("Processing energy plot line scan")
+            self.calculate_1d_scan(self.start_point, end_point)
+        elif event.inaxes == self.ax7:  # Experimental dI/dV plot
+            print("Processing experimental plot voltage scan")
+            try:
+                self.plot_voltage_line_scan(self.start_point, end_point)
+            except Exception as e:
+                print(f"Error in plot_voltage_line_scan: {str(e)}")
+                import traceback
+                traceback.print_exc()
+        
+        # Clean up by forcing a complete redraw
+        if self.line_artist:
+            try:
+                self.line_artist.remove()
+            except:
+                pass
+            self.line_artist = None
+        
+        # Force a clean redraw
+        self.plot_manager.restore_backgrounds()
+        self.plot_manager.blit()
+        
+        self.start_point = None
+
+    def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5):
+        """Calculate and plot 1D scan between two points"""
+        params = self.get_param_values()
+        L = params['L']
+        nsite = params['nsite']
+        
+        # Create line coordinates in real space (no rounding)
+        x1, y1 = start_point
+        x2, y2 = end_point
+        
+        # Calculate number of points based on distance
+        dist = np.sqrt((x2-x1)**2 + (y2-y1)**2)
+        npoints = max(100, int(dist * pointPerAngstrom))
+        
+        # Create line coordinates
+        x = np.linspace(x1, x2, npoints)
+        y = np.linspace(y1, y2, npoints)
+        distance = np.sqrt((x - x[0])**2 + (y - y[0])**2)
+        
+        # Create positions array for calculations
+        pTips = np.zeros((npoints, 3))
+        pTips[:,0] = x
+        pTips[:,1] = y
+        pTips[:,2] = params['z_tip'] + params['Rtip']
+        
+        # Calculate site positions
+        spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+        spos[:,2] = params['zQd']
+        
+        # Calculate energies and charges for each site
+        Esite_arr = np.full(nsite, params['Esite'])
+        Es = compute_site_energies(pTips, spos, VBias=params['VBias'], Rtip=params['Rtip'], zV0=params['zV0'], E0s=Esite_arr)
+        
+        # Calculate tunneling and charges for each site
+        Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
+        Qs = np.zeros(Es.shape)
+        Is = np.zeros(Es.shape)
+        for i in range(nsite):
+            Qs[:,i] = occupancy_FermiDirac(Es[:,i], params['temperature'])
+            Is[:,i] = Ts[:,i] * (1-Qs[:,i])
+        
+        Qtot = np.sum(Qs, axis=1)
+        STM  = np.sum(Is, axis=1)
+        
+        # Create new figure for 1D scan
+        scan_fig = plt.figure(figsize=(10, 12))
+        scan_fig.suptitle(f'1D Scan from ({x1:.1f}, {y1:.1f}) to ({x2:.1f}, {y2:.1f})')
+        
+        # Subplot for distance vs Energies
+        ax1 = scan_fig.add_subplot(311)
+        ax1.set_title('Site Energies')
+        ax1.set_xlabel('Distance [Å]')
+        ax1.set_ylabel('Energy [eV]')
+        
+        for i in range(nsite):
+            phi = params['phiRot'] + i * 2 * np.pi / nsite
+            label = f'Site {i+1}'
+            ax1.plot(distance, Es[:,i], label=label)
+        
+        # Add horizontal line for bias voltage
+        ax1.axhline(y=params['VBias'], color='k', linestyle='--', label='Bias')
+        
+        # Add legend
+        ax1.legend()
+        ax1.grid(True)
+        
+        # Subplot for distance vs. Q
+        ax2 = scan_fig.add_subplot(312)
+        ax2.set_title('Site Occupancy')
+        ax2.set_xlabel('Distance [Å]')
+        ax2.set_ylabel('Charge [e]')
+        
+        for i in range(nsite):
+            phi = params['phiRot'] + i * 2 * np.pi / nsite
+            label = f'Site {i+1}'
+            ax2.plot(distance, Qs[:,i], label=label)
+        
+        # Plot total charge
+        ax2.plot(distance, Qtot, 'k-', label='Total')
+        
+        # Add legend
+        ax2.legend()
+        ax2.grid(True)
+        
+        # Subplot for distance vs. STM
+        ax3 = scan_fig.add_subplot(313)
+        ax3.set_title('STM Signal')
+        ax3.set_xlabel('Distance [Å]')
+        ax3.set_ylabel('Current [a.u.]')
+        
+        for i in range(nsite):
+            phi = params['phiRot'] + i * 2 * np.pi / nsite
+            label = f'Site {i+1}'
+            ax3.plot(distance, Is[:,i], label=label)
+        
+        # Plot total STM
+        ax3.plot(distance, STM, 'k-', label='Total')
+        
+        # Add legend
+        ax3.legend()
+        ax3.grid(True)
+        
+        # Adjust layout and show
+        scan_fig.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.show()
+
+    def plot_voltage_line_scan(self, start_point, end_point, pointPerAngstrom=5):
+        """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
+        if not hasattr(self, 'exp_dIdV') or self.exp_dIdV is None:
+            print("No experimental data found")
+            return
+        
+        params = self.get_param_values()
+        L = params['L']
+        nsite = params['nsite']
+        
+        # Create line coordinates
+        x1, y1 = start_point
+        x2, y2 = end_point
+        
+        # Calculate number of points based on distance
+        dist = np.sqrt((x2-x1)**2 + (y2-y1)**2)
+        npoints = max(50, int(dist * pointPerAngstrom))
+        
+        x = np.linspace(x1, x2, npoints)
+        y = np.linspace(y1, y2, npoints)
+        distance = np.sqrt((x - x[0])**2 + (y - y[0])**2)
+        
+        # Get dimensions and extents of experimental data
+        nx, ny = self.exp_dIdV[0].shape
+        xmin, xmax = np.min(self.exp_X), np.max(self.exp_X)
+        ymin, ymax = np.min(self.exp_Y), np.max(self.exp_Y)
+        
+        # Sample experimental data along the line for all voltage slices
+        exp_profiles = []
+        n_voltages = len(self.exp_biases)
+        
+        for v_idx in range(n_voltages):
+            # Prepare interpolator for this voltage slice
+            points = np.column_stack((self.exp_X.flatten(), self.exp_Y.flatten()))
+            values = self.exp_dIdV[v_idx].flatten()
+            # Use LinearNDInterpolator for better accuracy
+            interp = LinearNDInterpolator(points, values)
+            
+            # Sample along the line using interpolator
+            points_to_sample = np.column_stack((x, y))
+            sampled_values = interp(points_to_sample)
+            
+            # Store the profile
+            exp_profiles.append(sampled_values)
+        
+        # Create voltage-distance map for experimental dI/dV
+        v_dist_map = np.zeros((n_voltages, npoints))
+        for i, profile in enumerate(exp_profiles):
+            v_dist_map[i, :] = profile
+        
+        # Create new figure for voltage scan
+        v_scan_fig = plt.figure(figsize=(12, 9))
+        v_scan_fig.suptitle(f'Voltage Line Scan from ({x1:.1f}, {y1:.1f}) to ({x2:.1f}, {y2:.1f})')
+        
+        # Plot dI/dV vs. distance for each voltage
+        ax1 = v_scan_fig.add_subplot(211)
+        ax1.set_title('Experimental dI/dV vs. Distance')
+        ax1.set_xlabel('Distance [Å]')
+        ax1.set_ylabel('dI/dV [a.u.]')
+        
+        for i, v in enumerate(self.exp_biases):
+            # Only plot every few voltages to avoid crowding
+            if i % max(1, n_voltages // 10) == 0:  # Plot ~10 curves
+                ax1.plot(distance, exp_profiles[i], label=f'{v:.2f} V')
+        
+        ax1.legend()
+        ax1.grid(True)
+        
+        # Plot experimental dI/dV vs. voltage and distance as a 2D colormap
+        ax2 = v_scan_fig.add_subplot(212)
+        extent = [0, dist, np.min(self.exp_biases), np.max(self.exp_biases)]
+        
+        # Set color limits for better contrast
+        vmax = np.max(np.abs(v_dist_map))
+        im = ax2.imshow(v_dist_map, aspect='auto', origin='lower', extent=extent, 
+                    cmap='seismic', vmin=-vmax, vmax=vmax)
+        
+        ax2.set_xlabel('Distance [Å]')
+        ax2.set_ylabel('Bias Voltage [V]')
+        ax2.set_title('Experimental dI/dV Map')
+        
+        # Add color bar
+        cbar = v_scan_fig.colorbar(im, ax=ax2)
+        cbar.set_label('dI/dV [a.u.]')
+        
+        # Adjust layout and show
+        v_scan_fig.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.show()
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)

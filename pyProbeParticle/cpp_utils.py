@@ -1,8 +1,15 @@
 
 import os
-
+import ctypes
 recompile = True 
 lib_ext   ='_lib.so'
+
+c_double_p = ctypes.POINTER(ctypes.c_double)
+c_float_p  = ctypes.POINTER(ctypes.c_float)
+c_int_p    = ctypes.POINTER(ctypes.c_int)
+c_bool_p   = ctypes.POINTER(ctypes.c_bool)
+
+
 
 def work_dir( v__file__ ): 
     return os.path.dirname( os.path.realpath( v__file__ ) )
@@ -13,29 +20,83 @@ CPP_PATH     = os.path.normpath( PACKAGE_PATH + '../../cpp/' )
 print(" PACKAGE_PATH = ", PACKAGE_PATH)
 print(" CPP_PATH     = ", CPP_PATH)
 
-def compile_lib( name,
-        #FFLAGS = "-std=c++11 -Og -g -Wall",
-        FFLAGS = "-std=c++11 -O3 -ftree-vectorize -unroll-loops -ffast-math",
-        LFLAGS = "-I/usr/local/include/SDL2 -lSDL2",
-        path   = CPP_PATH,
-        clean  = True,
-    ):
-    lib_name = name+lib_ext
-    print(" COMPILATION OF : "+name)
+def _np_as(arr,atype):
+    """Convert numpy array to C pointer type"""
+    if arr is None:
+        return None
+    elif isinstance(arr, str):
+        return arr.encode('utf-8')
+    else:
+        return arr.ctypes.data_as(atype)
+
+
+# def compile_lib( name,
+#         #FFLAGS = "-std=c++11 -Og -g -Wall",
+#         FFLAGS = "-std=c++11 -O3 -ftree-vectorize -unroll-loops -ffast-math",
+#         LFLAGS = "-I/usr/local/include/SDL2 -lSDL2",
+#         path   = CPP_PATH,
+#         clean  = True,
+#     ):
+#     lib_name = name+lib_ext
+#     print(" COMPILATION OF : "+name)
+#     if path is not None:
+#         dir_bak = os.getcwd()
+#         os.chdir( path );
+#     print(os.getcwd())
+#     if clean:
+#         try:
+#             os.remove( lib_name  )
+#             os.remove( name+".o" ) 
+#         except:
+#             pass 
+#     os.system("g++ "+FFLAGS+" -c -fPIC "+name+".cpp -o "+name+".o "+LFLAGS )
+#     os.system("g++ "+FFLAGS+" -shared -Wl,-soname,"+lib_name+" -o "+lib_name+" "+name+".o "+LFLAGS)
+#     if path is not None:
+#         os.chdir( dir_bak )
+
+def compile_lib(name, FFLAGS="-std=c++20 -fPIC", LFLAGS="", path=None, clean=True, bASAN=False, bDEBUG=True):
+    """Compile a C++ library"""
+    lib_ext = '.so'
+    lib_name = name + lib_ext
+
     if path is not None:
         dir_bak = os.getcwd()
-        os.chdir( path );
+        os.chdir(path)
+    
+    print(" COMPILATION OF : " + name)
     print(os.getcwd())
+    
     if clean:
         try:
-            os.remove( lib_name  )
-            os.remove( name+".o" ) 
+            os.remove(lib_name)
+            os.remove(name + ".o")
         except:
-            pass 
-    os.system("g++ "+FFLAGS+" -c -fPIC "+name+".cpp -o "+name+".o "+LFLAGS )
-    os.system("g++ "+FFLAGS+" -shared -Wl,-soname,"+lib_name+" -o "+lib_name+" "+name+".o "+LFLAGS)
+            pass
+    if bDEBUG:
+        FFLAGS += " -g"
+    else:
+        FFLAGS += " -O3"
+    if bASAN:
+        # For ASan, we need a specific compilation approach that ensures ASan is linked first
+        str1 = f"g++ -std=c++20 -fPIC -g -fsanitize=address -fno-omit-frame-pointer -c -fPIC {name}.cpp -o {name}.o"
+        # Use -Wl,--no-as-needed to ensure ASan is linked
+        str2 = f"g++ -fsanitize=address -shared -o {lib_name} {name}.o -Wl,--no-as-needed -Wl,-soname,{lib_name}"
+        print(str1)
+        print(str2)
+        os.system(str1)
+        os.system(str2)
+        return # Skip the standard compilation commands below
+    str1 = f"g++ {FFLAGS} -c -fPIC {name}.cpp -o {name}.o"
+    str2 = f"g++ {FFLAGS} -shared -Wl,-soname,{lib_name} -o {lib_name} {name}.o {LFLAGS}"
+    print(str1)
+    print(str2)
+    os.system(str1)
+    os.system(str2)
+    
     if path is not None:
-        os.chdir( dir_bak )
+        os.chdir(dir_bak)        
+
+
 
 def makeclean( ):
     CWD=os.getcwd()

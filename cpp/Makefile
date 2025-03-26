@@ -26,6 +26,8 @@ chrings: ChargeRings.o
 
 landauer: LandauerQD.o
 
+pauli: pauli_lib.cpp 
+
 PolyCycles_: PolyCycles.o
 
 MMFF_: MMFF.o

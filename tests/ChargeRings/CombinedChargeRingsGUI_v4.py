@@ -474,13 +474,7 @@ class ApplicationWindow(GUITemplate):
         print(f"Data saved to {filename}")
 
     def plot_voltage_line_scan(self, start_point, end_point, pointPerAngstrom=5):
-        """Plot simulated charge and experimental dI/dV along a line scan for different voltages
-        
-        Args:
-            start_point: (x,y) coordinates of start point
-            end_point: (x,y) coordinates of end point
-            pointPerAngstrom: Number of points per Angstrom along the line
-        """
+        """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
         print(f"Starting voltage line scan from {start_point} to {end_point}")
         
         # Create new figure
@@ -496,12 +490,12 @@ class ApplicationWindow(GUITemplate):
         # Calculate number of points based on distance
         dist = np.sqrt((x2-x1)**2 + (y2-y1)**2)
         npoints = max(100, int(dist * pointPerAngstrom))
-        print(f"Number of points along line: {npoints}")
         
         # Create line coordinates
         x = np.linspace(x1, x2, npoints)
         y = np.linspace(y1, y2, npoints)
         distance = np.sqrt((x - x[0])**2 + (y - y[0])**2)
+        line_points = np.column_stack((x, y))
         
         # Create arrays to store results
         sim_charge = np.zeros((len(self.exp_biases), npoints))
@@ -510,13 +504,6 @@ class ApplicationWindow(GUITemplate):
         # Get current parameters
         params = self.get_param_values()
         nsite = params['nsite']
-        
-        # Print experimental data shape information
-        print(f"Experimental data shapes:")
-        print(f"exp_X shape: {self.exp_X.shape}")
-        print(f"exp_Y shape: {self.exp_Y.shape}")
-        print(f"exp_dIdV shape: {self.exp_dIdV.shape}")
-        print(f"exp_biases length: {len(self.exp_biases)}")
         
         # Calculate site positions (constant for all voltages)
         spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
@@ -531,6 +518,17 @@ class ApplicationWindow(GUITemplate):
         
         # Calculate tunneling (constant for all voltages)
         Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
+        
+        # Pre-calculate experimental interpolators for each voltage slice
+        interpolators = []
+        for i in range(len(self.exp_biases)):
+            exp_data = self.exp_dIdV[i]
+            exp_x = self.exp_X[i]
+            exp_y = self.exp_Y[i]
+            points = np.column_stack((exp_x.flatten(), exp_y.flatten()))
+            values = exp_data.flatten()
+            interp = LinearNDInterpolator(points, values)
+            interpolators.append(interp)
         
         # Loop over voltages
         print("Processing voltages...")
@@ -550,32 +548,18 @@ class ApplicationWindow(GUITemplate):
             # Store total charge for this voltage
             sim_charge[i,:] = np.sum(Qs, axis=1)
             
-            try:
-                # Get the experimental data for this voltage
-                exp_data = self.exp_dIdV[i]  # This is a 256x256 array for this voltage
-                exp_x = self.exp_X[i]        # x coordinates for this voltage slice
-                exp_y = self.exp_Y[i]        # y coordinates for this voltage slice
-                
-                # Create interpolator using the 2D data
-                
-                points = np.column_stack((exp_x.flatten(), exp_y.flatten()))
-                values = exp_data.flatten()
-                interp = LinearNDInterpolator(points, values)
-                
-                # Interpolate along the line
-                line_points = np.column_stack((x, y))
-                exp_didv[i,:] = interp(line_points)
-                
-                # Fill any NaN values using nearest neighbor interpolation
-                nan_mask = np.isnan(exp_didv[i,:])
-                if np.any(nan_mask):
-                    from scipy.interpolate import NearestNDInterpolator
-                    nn_interp = NearestNDInterpolator(points, values)
-                    exp_didv[i,nan_mask] = nn_interp(line_points[nan_mask])
-                
-            except Exception as e:
-                print(f"Error in interpolation for voltage {vbias}: {str(e)}")
-                raise
+            # Interpolate experimental data using pre-calculated interpolator
+            exp_didv[i,:] = interpolators[i](line_points)
+            
+            # Fill NaN values with nearest values if any exist
+            nan_mask = np.isnan(exp_didv[i,:])
+            if np.any(nan_mask):
+                valid_mask = ~np.isnan(exp_didv[i,:])
+                if np.any(valid_mask):
+                    # Use simple 1D interpolation for NaN filling
+                    valid_indices = np.where(valid_mask)[0]
+                    nan_indices = np.where(nan_mask)[0]
+                    exp_didv[i,nan_indices] = np.interp(nan_indices, valid_indices, exp_didv[i,valid_indices])
         
         print("Creating plots...")
         # Plot simulated charge
@@ -597,7 +581,6 @@ class ApplicationWindow(GUITemplate):
         # Adjust layout and show
         fig.tight_layout()
         
-        print("Creating window...")
         # Create a new window to display the plot
         window = QtWidgets.QMainWindow()
         window.setCentralWidget(canvas)
@@ -606,7 +589,6 @@ class ApplicationWindow(GUITemplate):
         
         # Keep a reference to prevent garbage collection
         self._voltage_scan_window = window
-        print("Voltage line scan complete")
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
