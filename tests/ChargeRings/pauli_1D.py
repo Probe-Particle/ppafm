@@ -30,10 +30,12 @@ path.insert(0, '../../pyProbeParticle')
 import pauli as psl
 from pauli import PauliSolver
 
-
-
 # setup numpy print options to infinite line length
 np.set_printoptions(linewidth=256, suppress=True)
+
+
+
+
 
 # Constants
 NSingle = 3  # number of impurity states
@@ -67,8 +69,8 @@ coeffT = 0.3
 def prepare_leads_cpp():
     """Prepare static inputs that don't change with eps"""
     # Leads
-    lead_mu = np.array([muS, muT + VBias])
-    lead_temp = np.array([Temp, Temp])
+    lead_mu    = np.array([muS, muT + VBias])
+    lead_temp  = np.array([Temp, Temp])
     lead_gamma = np.array([GammaS, GammaT])
     # Lead Tunneling matrix
     TLeads = np.array([
@@ -77,7 +79,7 @@ def prepare_leads_cpp():
     ])    
     return TLeads, lead_mu, lead_temp, lead_gamma
 
-def prepare_hsingle_cpp(eps1, eps2, eps3):
+def prepare_hsingle_cpp(eps1, eps2, eps3, t ):
     """Prepare dynamic inputs that change with eps"""
     # Single particle Hamiltonian
     Hsingle = np.array([
