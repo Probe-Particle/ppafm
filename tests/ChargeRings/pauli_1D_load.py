@@ -140,7 +140,7 @@ def prepare_leads_cpp(params):
     coeffT = 0.3  # default value
     
     # Leads
-    lead_mu = np.array([muS, muT + params['VBias']])
+    lead_mu = np.array([muS, muT + params['VBias']   ])
     lead_temp = np.array([Temp, Temp])
     lead_gamma = np.array([GammaS, GammaT])
     
@@ -175,7 +175,9 @@ def run_cpp_scan(params, scan_data):
     
     # Initialize solver once
     pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
-    pauli.set_leads(lead_mu, lead_temp, lead_gamma)
+    #pauli.set_leads(lead_mu, lead_temp, lead_gamma)
+    pauli.set_lead(0, lead_mu[0], lead_temp[0] )
+    pauli.set_lead(1, lead_mu[1], lead_temp[1] )
     pauli.set_tunneling(TLeads)
     
     for i in range(nsteps):
@@ -201,7 +203,10 @@ def run_cpp_scan(params, scan_data):
 
 
 def run_qmeq_scan(params, scan_data):
-    """Run QmeQ Pauli simulation for the entire scan"""
+    """Run QmeQ Pauli simulation for the entire scan
+    
+    Uses helper functions from QmeQ_pauli.py for better modularity and to avoid code duplication.
+    """
     if not bQmeQ:
         print("QmeQ functionality is disabled. Set bQmeQ=True to enable.")
         return None
@@ -231,38 +236,21 @@ def run_qmeq_scan(params, scan_data):
         eps2 = scan_data['Esite_2'][i]*1000.0
         eps3 = scan_data['Esite_3'][i]*1000.0
         
-        # Build Hamiltonian for QmeQ
-        hsingle = {(0,0): eps1, (0,1): t, (0,2): t,
-                   (1,1): eps2, (1,2): t,
-                   (2,2): eps3}
+        # Use helper functions from QmeQ_pauli.py to build Hamiltonian and leads
+        hsingle, coulomb = qmeq_pauli.build_hamiltonian(eps1, eps2, eps3, t, W)
+        mu_L, Temp_L, TLeads_dict = qmeq_pauli.build_leads(muS, muT+VBias, Temp, VS, [VT, VT*coeffT, VT*coeffT] )
         
-        # Two-particle Hamiltonian: inter-site coupling
-        coulomb = {(0,1,1,0): W,
-                   (1,2,2,1): W,
-                   (0,2,2,0): W}
-        
-        # Build leads for QmeQ
-        mu_L = {0: muS, 1: muT + VBias}
-        Temp_L = {0: Temp, 1: Temp}
-        TLeads_dict = {(0,0): VS,         # S <-- 1
-                      (0,1): VS,         # S <-- 2
-                      (0,2): VS,         # S <-- 3
-                      (1,0): VT,         # T <-- 1
-                      (1,1): coeffT*VT,  # T <-- 2
-                      (1,2): coeffT*VT}  # T <-- 3
-        
-        # Run QmeQ solver with low verbosity
+        # Run QmeQ solver with low verbosity using the helper function
         verbosity = 0
-        try:
-            config.verbosity = verbosity
-            system = qmeq.Builder(NSingle, hsingle, coulomb, NLeads, TLeads_dict, mu_L, Temp_L, DBand,
-                                  kerntype='Pauli', indexing='Lin', itype=0, symq=True, solmethod='solve', mfreeq=0)
-            system.appr.verbosity = verbosity
-            system.verbosity = verbosity
-            system.solve()
-            currents_qmeq[i] = system.current[1]
-        except Exception as e:
-            print(f"Error running QmeQ solver at step {i}: {e}")
+        qmeq_result = qmeq_pauli.run_QmeQ_solver(
+            NSingle, hsingle, coulomb, NLeads, TLeads_dict, mu_L, Temp_L, DBand, verbosity
+        )
+        
+        # Extract current from result
+        if qmeq_result is not None:
+            currents_qmeq[i] = qmeq_result['current']
+        else:
+            print(f"Error running QmeQ solver at step {i}")
             currents_qmeq[i] = np.nan
         
         # Print progress every 10 steps
@@ -351,22 +339,29 @@ def plot_results(scan_data, cpp_currents, qmeq_currents=None, save_path=None):
         except Exception as e:
             print(f"Warning: Could not display plot: {e}")
             print("Try running with --save option to save plots to file instead.")
+    
+'''
+run like this:
+python pauli_1D_load.py --sample 20 --solver both --compare
+python pauli_1D_load.py --sample 1 --solver both --compare
+'''
 
-def main():
-    # Parse command line arguments
+if __name__ == "__main__":
+# Parse command line arguments
     import argparse
     parser = argparse.ArgumentParser(description='Load scan data and run Pauli simulation')
     parser.add_argument('filename', nargs='?', default="rings/0.60_line_scan.dat", help='Path to scan data file')
     parser.add_argument('--save', '-s', help='Save plot to file instead of displaying')
     parser.add_argument('--sample', '-n', type=int, default=None, help='Sample every n-th point to speed up calculation')
-    parser.add_argument('--solver', choices=['cpp', 'qmeq', 'both'], default='cpp', 
-                        help='Which solver to use (cpp, qmeq, or both)')
-    parser.add_argument('--compare', action='store_true', 
-                        help='Compare C++ and QmeQ results')
+    parser.add_argument('--solver', choices=['cpp', 'qmeq', 'both'], default='cpp', help='Which solver to use (cpp, qmeq, or both)')
+    parser.add_argument('--compare', action='store_true',  help='Compare C++ and QmeQ results')
     args = parser.parse_args()
     
     print(f"Loading data from {args.filename}")
     params, scan_data, data_columns = load_scan_data(args.filename)
+
+    # Convert VBias to meV
+    params['VBias'] *= 1000.0
     
     # Print extracted parameters
     print("\nExtracted Parameters:")
@@ -429,8 +424,5 @@ def main():
     print("\nPlotting results...")
     plot_results(scan_data, cpp_currents, qmeq_currents, save_path=args.save)
     
-    return scan_data, cpp_currents, qmeq_currents
-
-if __name__ == "__main__":
-    main()
+    #return scan_data, cpp_currents, qmeq_currents
     plt.show()

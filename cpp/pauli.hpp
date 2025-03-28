@@ -118,7 +118,7 @@ double calculate_state_energy(int state, int nSingle, const double* Hsingle, dou
 struct LeadParams {
     double mu;    // Chemical potential
     double temp;  // Temperature
-    double gamma; // Coupling strength
+    //double gamma; // Coupling strength
 };
 
 
@@ -301,15 +301,16 @@ public:
     }
     
     // Set lead parameters (mu, temp, gamma)
-    void setLeadParams(int leadIndex, double mu, double temp, double gamma) {
+    //void setLeadParams(int leadIndex, double mu, double temp, double gamma) {
+    void setLeadParams(int leadIndex, double mu, double temp ) {
         if (leadIndex >= 0 && leadIndex < nleads && leads) {
             leads[leadIndex].mu = mu;
             leads[leadIndex].temp = temp;
-            leads[leadIndex].gamma = gamma;
+            //leads[leadIndex].gamma = gamma;
             kernel_updated = false;  // Kernel matrix needs to be recalculated
             if (verbosity > 1) {
-                printf("PauliSolver::setLeadParams() - Updated lead %d: mu=%f, temp=%f, gamma=%f\n",
-                       leadIndex, mu, temp, gamma);
+                //printf("PauliSolver::setLeadParams() - Updated lead %d: mu=%f, temp=%f, gamma=%f\n", leadIndex, mu, temp, gamma);
+                printf("PauliSolver::setLeadParams() - Updated lead %d: mu=%f temp=%f\n", leadIndex, mu, temp);
             }
         }
     }
@@ -1116,7 +1117,8 @@ def construct_Tba(leads, tleads, Tba_=None):
     void print_lead_params() const {
         printf("PauliSolver::print_lead_params() nleads: %d\n", nleads);
         for (int l = 0; l < nleads; l++) {
-            printf("  Lead %d: mu=%.6f, temp=%.6f, gamma=%.6f\n", l, leads[l].mu, leads[l].temp, leads[l].gamma);
+            //printf("  Lead %d: mu=%.6f, temp=%.6f, gamma=%.6f\n", l, leads[l].mu, leads[l].temp, leads[l].gamma);
+            printf("  Lead %d: mu=%.6f, temp=%.6f\n", l, leads[l].mu, leads[l].temp);
         }
     }
     

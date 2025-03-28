@@ -36,18 +36,17 @@ def build_hamiltonian(eps1, eps2, eps3, t, W):
     
     return hsingle, coulomb
 
-def build_leads(muS, muT, Temp, VS, VT, coeffT, VBias):
+def build_leads(muS, muT, Temp, VS, VTs):
     # Leads: substrate (S) and scanning tip (T)
-    mu_L   = {0: muS, 1: muT + VBias}
+    mu_L   = {0: muS, 1: muT}
     Temp_L = {0: Temp, 1: Temp}
     # Coupling between leads (1st number) and impurities (2nd number)
     TLeads = {(0,0): VS,         # S <-- 1
               (0,1): VS,         # S <-- 2
               (0,2): VS,         # S <-- 3
-              (1,0): VT,         # T <-- 1
-              (1,1): coeffT*VT,  # T <-- 2
-              (1,2): coeffT*VT}  # T <-- 3
-    
+              (1,0): VTs[0],     # T <-- 1
+              (1,1): VTs[1],     # T <-- 2
+              (1,2): VTs[2]}     # T <-- 3
     return mu_L, Temp_L, TLeads
 
 def run_QmeQ_solver(NSingle, Hsingle, Hcoulomb, NLeads, TLeads, mu_L, Temp_L, DBand, verbosity=0):

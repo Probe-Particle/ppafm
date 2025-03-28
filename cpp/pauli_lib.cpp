@@ -17,16 +17,23 @@ void* create_solver(int nSingle, int nleads, int verbosity = 0) {
     return solver;
 }
 
-// Set lead parameters for the solver (step 2 in optimization scheme)
-void set_leads(void* solver_ptr, double* lead_mu, double* lead_temp, double* lead_gamma) {
+// // Set lead parameters for the solver (step 2 in optimization scheme)
+// //void set_leads(void* solver_ptr, double* lead_mu, double* lead_temp, double* lead_gamma) {
+// void set_leads(void* solver_ptr, double* lead_mu, double* lead_temp) {
+//     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
+//     if (solver) {
+//         int nleads = solver->nleads;
+//         // Set lead parameters one by one for each lead
+//         for (int i = 0; i < nleads; i++) {
+//             //solver->setLeadParams(i, lead_mu[i], lead_temp[i], lead_gamma[i]);
+//             solver->setLeadParams(i, lead_mu[i], lead_temp[i], lead_gamma[i]);
+//         }
+//     }
+// }
+
+void set_lead(void* solver_ptr, int leadIndex, double mu, double temp) {
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
-    if (solver) {
-        int nleads = solver->nleads;
-        // Set lead parameters one by one for each lead
-        for (int i = 0; i < nleads; i++) {
-            solver->setLeadParams(i, lead_mu[i], lead_temp[i], lead_gamma[i]);
-        }
-    }
+    if (solver) { solver->setLeadParams(leadIndex, mu, temp); }
 }
 
 // Set tunneling amplitudes (step 3 in optimization scheme)
@@ -134,6 +141,9 @@ void get_pauli_factors(void* solver_ptr, double* out_pauli_factors) {
     std::memcpy(out_pauli_factors, solver->pauli_factors, n * sizeof(double));
 }
 
+
+/*
+
 // For backward compatibility - will be refactored in the future
 void* create_pauli_solver(int nstates, int nleads, 
                          double* energies, double* tunneling_amplitudes,
@@ -201,6 +211,7 @@ void* create_pauli_solver_new(int nSingle, int nstates, int nleads,
     
     return solver;
 }
+*/
 
 // Cleanup
 void delete_pauli_solver(void* solver_ptr) {

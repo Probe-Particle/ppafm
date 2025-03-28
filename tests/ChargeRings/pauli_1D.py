@@ -34,17 +34,16 @@ from pauli import PauliSolver
 np.set_printoptions(linewidth=256, suppress=True)
 
 
-
-
-
 # Constants
 NSingle = 3  # number of impurity states
-NLeads = 2   # number of leads
+NLeads  = 2   # number of leads
 
 # Parameters (in meV) - with small perturbations to break degeneracy
 eps1 = -10.0
 eps2 = -10.01  # Slightly different
 eps3 = -10.02  # Slightly different
+
+VTs = [0.0, 0.05, 0.0]
 
 t     = 0.0      # direct hopping
 W     = 3.0      # inter-site coupling (matching compare_solvers.py)
@@ -52,42 +51,24 @@ VBias = 0.1  # bias voltage
 
 # Lead parameters
 muS    = 0.0    # substrate chemical potential
-muT    = 0.0    # tip chemical potential
+muT    = 10.0    # tip chemical potential
 Temp   = 0.224 # temperature in meV
-DBand  = 1000.0 # lead bandwidth
 GammaS = 0.20 # coupling to substrate
 GammaT = 0.05 # coupling to tip
+DBand  = 10000.0 # lead bandwidth
+VTs    = np.ones(3)*np.sqrt(GammaT/np.pi)
+VS     = np.sqrt(GammaS/np.pi)
 
-# Tunneling amplitudes
-VS = np.sqrt(GammaS/np.pi)  # substrate
-VT = np.sqrt(GammaT/np.pi)  # tip
+# lead_params = {
+#     'muS':   0.0,   # substrate chemical potential
+#     'muT':   0.0,   # tip chemical potential
+#     'Temp':  0.224, # temperature in meV
+#     'VBias': 0.1,   # bias voltage
+#     'VTs':   VTs
+# }
 
 # Position-dependent coefficients
-coeffE = 0.4
-coeffT = 0.3
 
-def prepare_leads_cpp():
-    """Prepare static inputs that don't change with eps"""
-    # Leads
-    lead_mu    = np.array([muS, muT + VBias])
-    lead_temp  = np.array([Temp, Temp])
-    lead_gamma = np.array([GammaS, GammaT])
-    # Lead Tunneling matrix
-    TLeads = np.array([
-        [VS, VS, VS],
-        [VT, VT*coeffT, VT*coeffT]
-    ])    
-    return TLeads, lead_mu, lead_temp, lead_gamma
-
-def prepare_hsingle_cpp(eps1, eps2, eps3, t ):
-    """Prepare dynamic inputs that change with eps"""
-    # Single particle Hamiltonian
-    Hsingle = np.array([
-        [eps1, t, 0],
-        [t, eps2, t],
-        [0, t, eps3]
-    ])
-    return Hsingle
 
 def run_cpp_solver(pauli, eps1, eps2, eps3):
     """Run C++ solver with the given parameters"""
@@ -204,12 +185,17 @@ if __name__ == "__main__":
     # Prepare Pauli solver C++
     state_order = [0, 4, 2, 6, 1, 5, 3, 7]
     state_order = np.array(state_order, dtype=np.int32)
-    TLeads_, lead_mu, lead_temp, lead_gamma = prepare_leads_cpp()
+    #TLeads_, lead_mu, lead_temp, lead_gamma = psl.prepare_leads_cpp(**lead_params)
     NStates  = 2**NSingle
-    Hsingle_ = prepare_hsingle_cpp(eps1, eps2, eps3)
+    Hsingle_ = psl.prepare_hsingle_cpp(eps1, eps2, eps3)
     pauli  = PauliSolver(NSingle, NLeads, verbosity=verbosity )
-    pauli.set_leads(lead_mu, lead_temp, lead_gamma)
+    #pauli.set_leads(lead_mu, lead_temp, lead_gamma)
+    
+    TLeads_ = np.array([ [VS, VS, VS],  VTs ])   
     pauli.set_tunneling(TLeads_)
+    pauli.set_lead(0, muS, Temp )
+    pauli.set_lead(1, muT, Temp )
+    
 
     Iqmeq = np.zeros(nstep)
     Icpp  = np.zeros(nstep)
@@ -218,12 +204,12 @@ if __name__ == "__main__":
         if verbosity > 0: print(f"\n####### compare_scan_1D.py loop [{i}] epsi: {epsi}")
 
         if bQmeQ:
-            mu_L, Temp_L, TLeads = qmeqp.build_leads(muS, muT, Temp, VS, VT, coeffT, VBias)
+            mu_L, Temp_L, TLeads = qmeqp.build_leads(muS, muT, Temp, VS, VTs)
             Hsingle, Hcoulomb    = qmeqp.build_hamiltonian(eps1, eps2, eps3, t, W)
-            qmeq_res = qmeqp.run_QmeQ_solver(NSingle, Hsingle_, Hcoulomb, NLeads, TLeads_, lead_mu, lead_temp, DBand, verbosity)
-            Iqmeq[i] = qmeq_res['current']
+            qmeq_res             = qmeqp.run_QmeQ_solver(NSingle, Hsingle, Hcoulomb, NLeads, TLeads, mu_L, Temp_L, DBand, verbosity)
+            Iqmeq[i]             = qmeq_res['current']
 
-        Hsingle_ = prepare_hsingle_cpp(epsi[0], epsi[1], epsi[2])
+        Hsingle_ = psl.prepare_hsingle_cpp(epsi[0], epsi[1], epsi[2])
         I1 = pauli.solve_hsingle(Hsingle_, W, 1, state_order)
 
         if bQmeQ:
@@ -236,8 +222,8 @@ if __name__ == "__main__":
 
     plt.figure(figsize=(10, 6))
     if bQmeQ:
-        plt.plot(ts, Iqmeq, 'o-b', label='QmeQ Pauli')
-    plt.plot(ts, Icpp,  'o:r', label='C++ Pauli')
+        plt.plot(ts, Iqmeq, '.-b', label='QmeQ Pauli')
+    plt.plot(ts, Icpp,  '.:r', label='C++ Pauli')
     plt.xlabel('Onsite Energy (meV)')
     plt.ylabel('Current (nA)')
     plt.title('Solver Comparison for 1D Energy Scan')
