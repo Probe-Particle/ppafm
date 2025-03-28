@@ -14,6 +14,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 np.set_printoptions(linewidth=256, suppress=True)
 
+
+sys.path.insert(0, '/home/prokop/git_SW/qmeq/')
 import qmeq
 from qmeq import config
 from qmeq import indexing as qmqsi

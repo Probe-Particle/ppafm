@@ -3,7 +3,11 @@
 # Set up ASan preloading before any imports
 import os
 bASAN = True
-bQmeQ = False
+#bQmeQ = False
+bQmeQ = True
+
+if bQmeQ:
+    import QmeQ_pauli as qmeqp
 
 if bASAN:
     # Get ASan library path
@@ -21,17 +25,10 @@ import matplotlib.pyplot as plt
 from sys import path
 #path.insert(0, '/home/prokop/bin/home/prokop/venvs/ML/lib/python3.12/site-packages/qmeq/')
 
-# import qmeq
-# from qmeq import config
-# from qmeq import indexing as qmqsi
-# from qmeq.config import verb_print_
-
-
 #path.insert(0, '/home/prokop/bin/home/prokop/venvs/ML/lib/python3.12/site-packages/qmeq/')
 path.insert(0, '../../pyProbeParticle')
 import pauli as psl
 from pauli import PauliSolver
-
 
 
 
@@ -66,13 +63,6 @@ VT = np.sqrt(GammaT/np.pi)  # tip
 # Position-dependent coefficients
 coeffE = 0.4
 coeffT = 0.3
-
-
-if bQmeQ:
-    import QmeQ_pauli as qmeq
-
-
-
 
 def prepare_leads_cpp():
     """Prepare static inputs that don't change with eps"""
@@ -191,11 +181,10 @@ if __name__ == "__main__":
     print( "\n\n" )
     print( "##################################################################################" )
     print( "##################################################################################" )
-    print( "### compare_scan_1D.py Compare QmeQ vs C++ Pauli solvers for 1D array of energies" )
+    print( "### compare_scan_1D.py Compare QmeQ vs C++ Pauli solvers for 1D array of energies " )
     print( "##################################################################################" )
     print( "##################################################################################" )
     
-
     # Use exact parameters from compare_solvers.py
     bPrint = True
     nstep = 300
@@ -227,7 +216,9 @@ if __name__ == "__main__":
         if verbosity > 0: print(f"\n####### compare_scan_1D.py loop [{i}] epsi: {epsi}")
 
         if bQmeQ:
-            qmeq_res = run_QmeQ_solver(NSingle, Hsingle_, Hcoulomb, NLeads, TLeads_, lead_mu, lead_temp, DBand, verbosity)
+            mu_L, Temp_L, TLeads = qmeqp.build_leads(muS, muT, Temp, VS, VT, coeffT, VBias)
+            Hsingle, Hcoulomb    = qmeqp.build_hamiltonian(eps1, eps2, eps3, t, W)
+            qmeq_res = qmeqp.run_QmeQ_solver(NSingle, Hsingle_, Hcoulomb, NLeads, TLeads_, lead_mu, lead_temp, DBand, verbosity)
             Iqmeq[i] = qmeq_res['current']
 
         Hsingle_ = prepare_hsingle_cpp(epsi[0], epsi[1], epsi[2])
