@@ -178,8 +178,9 @@ class ApplicationWindow(GUITemplate):
         Hsingle = np.zeros((nsite, nsite))
         
         # Set diagonal elements (site energies)
+        # Convert from eV to meV (multiply by 1000.0) - this matches pauli_1D_load.py implementation
         for i in range(nsite):
-            Hsingle[i, i] = site_energies[i]
+            Hsingle[i, i] = site_energies[i] * 1000.0
         
         # Set off-diagonal elements (hopping between adjacent sites only)
         # For a ring, we connect the last site to the first one too
@@ -224,7 +225,8 @@ class ApplicationWindow(GUITemplate):
         
         # Prepare lead parameters that don't change with position
         TLeads, lead_mu, lead_temp, lead_gamma = self.prepare_leads_cpp(params)
-        self.pauli.set_leads(lead_mu, lead_temp, lead_gamma)
+        self.pauli.set_lead(0, lead_mu[0], lead_temp[0])
+        self.pauli.set_lead(1, lead_mu[1], lead_temp[1])
         self.pauli.set_tunneling(TLeads)
         
         # Reshape to 2D array (npoints, nsite) regardless of original shape

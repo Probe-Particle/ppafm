@@ -88,8 +88,10 @@ double solve_hsingle( void* solver_ptr, double* hsingle, double W, int ilead, in
     if (solver) {
         solver->W = W;
         solver->setHsingle(hsingle);
-        solver->init_states_by_charge();
-        if(state_order) { solver->setStateOrder(state_order); }
+        if(state_order) { 
+            solver->init_states_by_charge();
+            solver->setStateOrder(state_order); 
+        }
         solver->generate_fct();
         solver->generate_kern();
         solver->solve();
@@ -99,6 +101,31 @@ double solve_hsingle( void* solver_ptr, double* hsingle, double W, int ilead, in
     }
     return 0.0;
 }
+
+double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws, double* VGates, int* state_order, double* out_current) {
+    PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
+    if (!solver) { return 0.0; }
+    int n2 = solver->nSingle*solver->nSingle; 
+    int nleads = solver->nleads;
+    double base_lead_mu[nleads]; 
+    for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
+    if(state_order) { 
+        solver->init_states_by_charge();
+        solver->setStateOrder(state_order); 
+    }
+    for(int i = 0; i < npoints; i++) {
+        double  W       = Ws[i];
+        double* VGate   = VGates  + (i*solver->nleads);
+        for (int l=0; l<nleads; ++l) { solver->leads[l].mu = base_lead_mu[l] + VGate[l]; }
+        double* hsingle = hsingles + i*n2;
+        double current  = solve_hsingle(solver_ptr, hsingle, W, 0, state_order);
+        out_current[i]  = current;
+    }
+    return 0.0;
+}
+
+
+
 
 // Calculate current through a lead (step 8 in optimization scheme)
 double calculate_current(void* solver_ptr, int lead_idx) {
