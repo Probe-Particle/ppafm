@@ -122,7 +122,10 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
         
         double  W       = Ws[i];
         double* VGate   = VGates  + (i*solver->nleads);
-        for (int l=0; l<nleads; ++l) { solver->leads[l].mu = base_lead_mu[l] + VGate[l]; }
+        
+        // When I uncoment this it start to be unstable - maybe VGate is not properly initialized ? ( Check it outside python)
+        //for (int l=0; l<nleads; ++l) { solver->leads[l].mu = base_lead_mu[l] + VGate[l]; }
+
         double* hsingle = hsingles + i*n2;
         printf( "### scan_current() #i %i eps %16.8f %16.8f %16.8f \n", i, hsingle[0], hsingle[3+1], hsingle[6+2]  );
         double current  = solve_hsingle(solver_ptr, hsingle, W, 0, state_order);
