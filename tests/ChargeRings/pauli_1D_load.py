@@ -163,7 +163,6 @@ def run_cpp_scan(params, scan_data):
     TLeads, lead_mu, lead_temp, lead_gamma, NSingle, NLeads, *_ = prepare_leads_cpp(params)
     
     # Create the Pauli solver once
-    verbosity = 0  # Low verbosity for cleaner output
     state_order = [0, 4, 2, 6, 1, 5, 3, 7]
     state_order = np.array(state_order, dtype=np.int32)
     NStates = 2**NSingle
@@ -201,6 +200,34 @@ def run_cpp_scan(params, scan_data):
     
     return currents
 
+def run_cpp_scan_2(params, scan_data):
+    """Run C++ Pauli simulation for the entire scan using scan_current()"""
+    nsteps = len(scan_data['distance'])
+    print(f"\nRunning C++ Pauli simulation using scan_current...")
+    
+    # Get leads parameters once
+    TLeads, lead_mu, lead_temp, lead_gamma, NSingle, NLeads, *_ = prepare_leads_cpp(params)
+    
+    # Create the Pauli solver once
+    pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
+    pauli.set_lead(0, lead_mu[0], lead_temp[0])
+    pauli.set_lead(1, lead_mu[1], lead_temp[1])
+    pauli.set_tunneling(TLeads)
+    
+    # Prepare single-particle Hamiltonians using vectorized operations
+    eps = np.column_stack((scan_data['Esite_1'], scan_data['Esite_2'], scan_data['Esite_3'])) * 1000.0
+    hsingles = np.zeros((nsteps, 3, 3))
+    hsingles[:, np.arange(3), np.arange(3)] = eps
+    
+    # Set up other parameters
+    Ws = np.full(nsteps, params['onSiteCoulomb'])
+    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+    VGates = np.zeros(nsteps)  # Initialize VGates array
+
+    # Run scan
+    currents = pauli.scan_current(hsingles=hsingles, Ws=Ws, VGates=VGates, state_order=state_order)
+    
+    return currents
 
 def run_qmeq_scan(params, scan_data):
     """Run QmeQ Pauli simulation for the entire scan
@@ -241,10 +268,7 @@ def run_qmeq_scan(params, scan_data):
         mu_L, Temp_L, TLeads_dict = qmeq_pauli.build_leads(muS, muT+VBias, Temp, VS, [VT, VT*coeffT, VT*coeffT] )
         
         # Run QmeQ solver with low verbosity using the helper function
-        verbosity = 0
-        qmeq_result = qmeq_pauli.run_QmeQ_solver(
-            NSingle, hsingle, coulomb, NLeads, TLeads_dict, mu_L, Temp_L, DBand, verbosity
-        )
+        qmeq_result = qmeq_pauli.run_QmeQ_solver( NSingle, hsingle, coulomb, NLeads, TLeads_dict, mu_L, Temp_L, DBand, verbosity )
         
         # Extract current from result
         if qmeq_result is not None:
@@ -306,9 +330,9 @@ def plot_results(scan_data, cpp_currents, qmeq_currents=None, save_path=None):
     # Plot 2: Calculated currents
     plt.subplot(3, 1, 2)
     if cpp_currents is not None:
-        plt.plot(scan_data['distance'], cpp_currents, 'r-', label='C++ Current')
+        plt.plot(scan_data['distance'], cpp_currents, '.-r', label='C++ Current')
     if qmeq_currents is not None:
-        plt.plot(scan_data['distance'], qmeq_currents, 'b--', label='QmeQ Current')
+        plt.plot(scan_data['distance'], qmeq_currents, '.-b', label='QmeQ Current')
     plt.xlabel('Distance [Å]')
     plt.ylabel('Current')
     plt.title('Comparison of Calculated Currents')
@@ -351,8 +375,9 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Load scan data and run Pauli simulation')
     parser.add_argument('filename', nargs='?', default="rings/0.60_line_scan.dat", help='Path to scan data file')
+    #parser.add_argument('filename', nargs='?', default="rings/0.60_line_scan_tail.dat", help='Path to scan data file')
     parser.add_argument('--save', '-s', help='Save plot to file instead of displaying')
-    parser.add_argument('--sample', '-n', type=int, default=None, help='Sample every n-th point to speed up calculation')
+    parser.add_argument('--sample', '-n', type=int, default=1, help='Sample every n-th point to speed up calculation')
     parser.add_argument('--solver', choices=['cpp', 'qmeq', 'both'], default='cpp', help='Which solver to use (cpp, qmeq, or both)')
     parser.add_argument('--compare', action='store_true',  help='Compare C++ and QmeQ results')
     args = parser.parse_args()
@@ -384,9 +409,15 @@ if __name__ == "__main__":
     # Run simulations based on solver choice
     cpp_currents = None
     qmeq_currents = None
+
+    verbosity = 0
     
     if args.solver in ['cpp', 'both']:
-        cpp_currents = run_cpp_scan(params, scan_data)
+        cpp_currents1 = None
+        #cpp_currents1 = run_cpp_scan  (params, scan_data)  # If I uncomment this, the instabilities disappear
+        cpp_currents  = run_cpp_scan_2(params, scan_data) # this works but resulting current suffer from instabilities
+        print("cpp_currents.shape ", cpp_currents.shape)
+        #print("\nC++ currents:",  cpp_currents)
     
     if args.solver in ['qmeq', 'both'] and bQmeQ:
         qmeq_currents = run_qmeq_scan(params, scan_data)
@@ -422,7 +453,8 @@ if __name__ == "__main__":
     
     # Plot results
     print("\nPlotting results...")
-    plot_results(scan_data, cpp_currents, qmeq_currents, save_path=args.save)
+    #plot_results(scan_data, cpp_currents, qmeq_currents, save_path=args.save)
+    plot_results(scan_data, cpp_currents, cpp_currents1, save_path=args.save)
     
     #return scan_data, cpp_currents, qmeq_currents
     plt.show()

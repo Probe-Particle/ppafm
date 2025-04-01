@@ -199,41 +199,73 @@ public:
     bool kernel_updated = false;
 
 // Simple constructor that only allocates arrays but doesn't initialize values
-    PauliSolver(int nSingle_, int nstates_, int nleads_, int verb = 0) :  nSingle(nSingle_), nstates(nstates_), nleads(nleads_), verbosity(verb) {
+    // PauliSolver(int nSingle_, int nstates_, int nleads_, int verb = 0) :  nSingle(nSingle_), nstates(nstates_), nleads(nleads_), verbosity(verb) {
         
-        // Allocate memory for internal arrays
-        energies        = new double[nstates];
-        leads           = new LeadParams[nleads];
-        coupling        = new double[nleads * nstates * nstates];
-        state_order     = new int[nstates];
-        state_order_inv = new int[nstates];
-        //state_order2    = new int[nstates];
-        kernel          = new double[nstates * nstates];
-        rhs             = new double[nstates];
-        probabilities   = new double[nstates];
+    //     // Allocate memory for internal arrays
+    //     energies        = new double[nstates];
+    //     leads           = new LeadParams[nleads];
+    //     coupling        = new double[nleads * nstates * nstates];
+    //     state_order     = new int[nstates];
+    //     state_order_inv = new int[nstates];
+    //     //state_order2    = new int[nstates];
+    //     kernel          = new double[nstates * nstates];
+    //     rhs             = new double[nstates];
+    //     probabilities   = new double[nstates];
         
-        // Allocate input parameter arrays
-        Hsingle         = new double[nSingle * nSingle];
-        TLeads          = new double[nleads * nSingle];
+    //     // Allocate input parameter arrays
+    //     Hsingle         = new double[nSingle * nSingle];
+    //     TLeads          = new double[nleads * nSingle];
         
-        // Initialize all arrays to zero
-        std::memset(energies, 0, nstates * sizeof(double));
-        std::memset(coupling, 0, nleads * nstates * nstates * sizeof(double));
-        std::memset(kernel,   0, nstates * nstates * sizeof(double));
-        std::memset(rhs,      0, nstates * sizeof(double));
-        std::memset(probabilities, 0, nstates * sizeof(double));
-        std::memset(Hsingle,       0, nSingle * nSingle * sizeof(double));
-        std::memset(TLeads,        0, nleads * nSingle * sizeof(double));
-        std::memset(state_order,   0, nstates * sizeof(int));
+    //     // Initialize all arrays to zero
+    //     std::memset(energies, 0, nstates * sizeof(double));
+    //     std::memset(coupling, 0, nleads * nstates * nstates * sizeof(double));
+    //     std::memset(kernel,   0, nstates * nstates * sizeof(double));
+    //     std::memset(rhs,      0, nstates * sizeof(double));
+    //     std::memset(probabilities, 0, nstates * sizeof(double));
+    //     std::memset(Hsingle,       0, nSingle * nSingle * sizeof(double));
+    //     std::memset(TLeads,        0, nleads * nSingle * sizeof(double));
+    //     std::memset(state_order,   0, nstates * sizeof(int));
         
-        // Don't initialize leads array here - will be set by setLeadParams
+    //     // Don't initialize leads array here - will be set by setLeadParams
         
-        if (verbosity > 0) {
-            printf("PauliSolver constructed with: nSingle=%d, nstates=%d, nleads=%d\n", 
-                   nSingle, nstates, nleads);
-        }
-    }
+    //     if (verbosity > 0) { printf("PauliSolver constructed with: nSingle=%d, nstates=%d, nleads=%d\n",  nSingle, nstates, nleads); }
+    // }
     
+
+    // Complete and Corrected Constructor
+    PauliSolver(int nSingle_, int nstates_, int nleads_, int verb = 0) :
+        nSingle(nSingle_),
+        nstates(nstates_),
+        nleads(nleads_),
+        W(0.0),                // Initialize simple types directly
+        pauli_factors(nullptr),
+        n_pauli_factors(0),
+        ndm1(0),
+        verbosity(verb),
+        energies_updated(false), // Explicitly initialize flags
+        coupling_updated(false),
+        kernel_updated(false)
+        // std::vectors are default-constructed (empty), which is fine
+    {
+        if (verbosity > 0) {  printf("PauliSolver constructing: nSingle=%d, nstates=%d, nleads=%d, verbosity=%d\n",   nSingle, nstates, nleads, verbosity);}
+        leads           = new LeadParams[nleads];    for(int i = 0; i < nleads; ++i) { leads[i].mu = 0.0; leads[i].temp = 0.0; }
+        state_order     = new int[nstates];          for (int i = 0; i < nstates; ++i) {  state_order[i] = i;}
+        state_order_inv = new int[nstates];          for (int i = 0; i < nstates; ++i) { state_order_inv[i] = i; }
+        // Or alternatively, just zero it out:
+        // std::memset(state_order_inv, 0, nstates * sizeof(int));
+        energies = new double[nstates];                         std::memset(energies, 0, nstates * sizeof(double));
+        coupling      = new double[nleads * nstates * nstates]; std::memset(coupling, 0, nleads * nstates * nstates * sizeof(double));
+        Hsingle       = new double[nSingle * nSingle];          std::memset(Hsingle,       0, nSingle * nSingle * sizeof(double));
+        TLeads        = new double[nleads  * nSingle];          std::memset(TLeads,        0, nleads  * nSingle * sizeof(double));
+        kernel        = new double[nstates * nstates];          std::memset(kernel,        0, nstates * nstates * sizeof(double));
+        rhs           = new double[nstates          ];          std::memset(rhs,           0, nstates * sizeof(double));
+        probabilities = new double[nstates          ];          std::memset(probabilities, 0, nstates * sizeof(double));
+
+        // pauli_factors is initialized to nullptr above, allocated later in generate_fct
+
+        if (verbosity > 0) {  printf("PauliSolver construction finished: Memory allocated and initialized.\n");}
+    }
+
     // Destructor to free allocated memory
     ~PauliSolver() {
         delete[] kernel;
@@ -1215,20 +1247,17 @@ def construct_Tba(leads, tleads, Tba_=None):
                     
                     // Get factors from compact structure
                     const int idx = index_paulifct(lead_idx, cb);
-                    const double fct_enter = pauli_factors[idx];     // Electron entering (b -> c)
+                    const double fct_enter = pauli_factors[idx    ]; // Electron entering (b -> c)
                     const double fct_leave = pauli_factors[idx + 1]; // Electron leaving (c -> b)
                     
                     // Calculate current contribution
-                    double fct1 = probabilities[bb] * fct_enter;   // Electron entering: phi0[bb] * paulifct[l, cb, 0]
+                    double fct1 =  probabilities[bb] * fct_enter;   // Electron entering: phi0[bb] * paulifct[l, cb, 0]
                     double fct2 = -probabilities[cc] * fct_leave;  // Electron leaving: -phi0[cc] * paulifct[l, cb, 1]
                     double contrib = fct1 + fct2;
                     
                     current += contrib;
                     
-                    if(verbosity > 3) {
-                        printf("DEBUG: generate_current() lead:%d c:%d b:%d cb:%d fct1:%.6f fct2:%.6f contrib:%.6f\n", 
-                               lead_idx, c, b, cb, fct1, fct2, contrib);
-                    }
+                    if(verbosity > 3) { printf("DEBUG: generate_current() lead:%d c:%d b:%d cb:%d fct1:%.6f fct2:%.6f contrib:%.6f\n",  lead_idx, c, b, cb, fct1, fct2, contrib); }
                 }
             }
         }

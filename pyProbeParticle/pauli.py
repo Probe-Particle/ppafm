@@ -169,7 +169,8 @@ class PauliSolver:
             state_order = np.ascontiguousarray(state_order, dtype=np.int32)
         if out_current is None:
             out_current = np.zeros(npoints, dtype=np.float64)
-        return lib.scan_current(self.solver, npoints, _np_as(hsingles, c_double_p), _np_as(Ws, c_double_p), _np_as(VGates, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p))
+        lib.scan_current(self.solver, npoints, _np_as(hsingles, c_double_p), _np_as(Ws, c_double_p), _np_as(VGates, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p))
+        return out_current
     
     def get_energies(self, nstates):
         energies = np.zeros(nstates)

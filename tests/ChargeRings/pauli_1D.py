@@ -196,7 +196,6 @@ if __name__ == "__main__":
     pauli.set_lead(0, muS, Temp )
     pauli.set_lead(1, muT, Temp )
     
-
     Iqmeq = np.zeros(nstep)
     Icpp  = np.zeros(nstep)
     for i in range(nstep):
@@ -217,7 +216,6 @@ if __name__ == "__main__":
         else:
             print(f"Eps[{i}] {epsi} Current: C++: {I1}")
         #compare_results(qmeq_res, cpp_res, tol=1e-8, bPrintSame=True)
-        
         Icpp[i]  = I1
 
     plt.figure(figsize=(10, 6))
