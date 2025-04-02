@@ -496,7 +496,13 @@ class ApplicationWindow(GUITemplate):
         
         if event.inaxes == self.ax4:  # Energy plot
             print("Processing energy plot line scan")
-            self.calculate_1d_scan(self.start_point, end_point)
+            # Detect if Shift key is held down when releasing the mouse
+            is_shift_pressed = plt.rcParams['keymap.yscale'] and plt.get_current_fig_manager().toolbar.mode == ''
+            if is_shift_pressed:
+                print("Shift key detected, running 2D voltage scan")
+                self.calculate_2d_voltage_scan(self.start_point, end_point)
+            else:
+                self.calculate_1d_scan(self.start_point, end_point)
         elif event.inaxes == self.ax7:  # Experimental dI/dV plot
             print("Processing experimental plot voltage scan")
             try:
@@ -723,6 +729,206 @@ class ApplicationWindow(GUITemplate):
         
         # Adjust layout and show
         v_scan_fig.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.show()
+        
+    def calculate_2d_voltage_scan(self, start_point, end_point, pointPerAngstrom=5, n_voltages=20):
+        """Calculate 2D scan along line with varying bias voltage
+        
+        This function calculates a 2D scan where:
+        - x-axis is distance along the specified line scan
+        - y-axis is the bias voltage applied to the tip
+        
+        Parameters:
+        -----------
+        start_point : tuple
+            (x, y) coordinates of scan start point
+        end_point : tuple
+            (x, y) coordinates of scan end point
+        pointPerAngstrom : float
+            Resolution of the scan along the line
+        n_voltages : int
+            Number of voltage steps to calculate
+        """
+        params = self.get_param_values()
+        L = params['L']
+        nsite = params['nsite']
+        
+        # Create line coordinates in real space
+        x1, y1 = start_point
+        x2, y2 = end_point
+        
+        # Calculate number of points based on distance
+        dist = np.sqrt((x2-x1)**2 + (y2-y1)**2)
+        npoints = max(100, int(dist * pointPerAngstrom))
+        
+        # Create line coordinates
+        x = np.linspace(x1, x2, npoints)
+        y = np.linspace(y1, y2, npoints)
+        distance = np.sqrt((x - x[0])**2 + (y - y[0])**2)
+        
+        # Create voltage range centered around current value (0 to 2x current value)
+        current_vbias = params['VBias']
+        voltage_range = np.linspace(0.0, current_vbias*2, n_voltages)
+        
+        # Create positions array for calculations
+        pTips = np.zeros((npoints, 3))
+        pTips[:,0] = x
+        pTips[:,1] = y
+        pTips[:,2] = params['z_tip'] + params['Rtip']
+        
+        # Calculate site positions
+        spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+        spos[:,2] = params['zQd']
+        
+        # Arrays to store results for each voltage
+        all_Es = np.zeros((n_voltages, npoints, nsite))  # Energy levels at each position and voltage
+        all_currents = np.zeros((n_voltages, npoints))    # Current at each position and voltage
+        
+        # Prepare some constants for Pauli solver
+        NSingle = nsite  # Number of single-particle states
+        NLeads = 2       # Number of leads (substrate and tip)
+        state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)  # Standard state ordering
+        
+        # Create the Pauli solver 
+        pauli = PauliSolver(NSingle, NLeads, verbosity=0)
+        
+        # Initialize leads tunneling matrix (will be adjusted for each voltage)
+        VS = np.sqrt(params['GammaS']/np.pi)  # substrate
+        VT = np.sqrt(params['GammaT']/np.pi)  # tip
+        TLeads = np.zeros((NLeads, NSingle))
+        
+        # Fill substrate coupling (constant)
+        TLeads[0, :] = VS
+        
+        # Fill tip coupling (constant but scaled by coeffT parameter)
+        for i in range(NSingle):
+            if i == 0:
+                TLeads[1, i] = VT  # First site has full coupling
+            else:
+                TLeads[1, i] = VT * params['coeffT']  # Other sites have reduced coupling
+
+        # Create empty arrays for storing 2D maps
+        eps_map = np.zeros((n_voltages, npoints))  # For storing max energy at each point/voltage
+        current_map = np.zeros((n_voltages, npoints))  # For storing current at each point/voltage
+
+
+        hsingles = np.zeros((npoints, NSingle, NSingle))
+        Esite_arr = np.full(nsite, params['Esite'])
+        
+        # Loop through voltages
+        for v_idx, Vbias in enumerate(voltage_range):
+            # Set the leads with this voltage
+            #lead_mu = np.array([params['muS'], params['muS'] + vbias])
+            #lead_temp = np.array([params['temperature'], params['temperature']])
+            
+            #temp = params['temperature']
+            temp = 1.0
+
+            # Update Pauli solver with new voltage
+            mu = params['muS']*1000.0
+            pauli.set_lead(0, mu                , temp)
+            pauli.set_lead(1, mu + Vbias*1000.0 , temp)
+            pauli.set_tunneling(TLeads)
+            
+            # Calculate energies and charges for this voltage
+            Es = compute_site_energies(pTips, spos, VBias=Vbias, Rtip=params['Rtip'], zV0=params['zV0'], E0s=Esite_arr)
+            
+            # Store the energies
+            all_Es[v_idx] = Es
+            
+            # Take maximum energy across all sites for the 2D plot
+            eps_map[v_idx] = np.max(Es, axis=1)
+            
+            # Prepare array of Hamiltonians for all points
+            
+            # for i in range(npoints):
+            #     # Create Hamiltonian with diagonal elements = site energies
+            #     hsingle = np.diag(Es[i])                
+            #     # Add hopping terms if needed (off-diagonal elements)
+            #     for j in range(NSingle-1):
+            #         hsingle[j, j+1] = params['dQ']  # Hopping between adjacent sites
+            #         hsingle[j+1, j] = params['dQ']  # Hermitian conjugate
+            #     hsingles[i] = hsingle
+            hsingles[:,0,0] = Es[:,0]*1000.0
+            hsingles[:,1,1] = Es[:,1]*1000.0
+            hsingles[:,2,2] = Es[:,2]*1000.0
+            
+            # Prepare constants for scan_current
+            Ws     = np.full(npoints, params['onSiteCoulomb'])  # Coulomb interaction
+            VGates = np.zeros((npoints, NLeads))  # Gate voltages (not used here)
+            
+            # Calculate currents for all points at this voltage
+            #lead_idx = 1  # Get current in the tip (lead 1)
+            currents = pauli.scan_current(hsingles=hsingles, Ws=Ws, VGates=VGates, state_order=state_order )
+            
+            # Store in the current map
+            current_map[v_idx] = currents
+            
+        # Plot the 2D voltage scan results
+        self.plot_2d_voltage_scan(distance, voltage_range, eps_map, current_map, start_point, end_point)
+        
+        return eps_map, current_map
+    
+    def plot_2d_voltage_scan(self, distance, voltage_range, eps_map, current_map, start_point, end_point):
+        """Plot 2D scan results with distance vs. voltage
+        
+        Parameters:
+        -----------
+        distance : array
+            Distance along scan line
+        voltage_range : array
+            Bias voltages used in the scan
+        eps_map : 2D array
+            Map of site energies (voltage × distance)
+        current_map : 2D array
+            Map of calculated currents (voltage × distance)
+        start_point : tuple
+            (x, y) coordinates of scan start point
+        end_point : tuple
+            (x, y) coordinates of scan end point
+        """
+        # Create a new figure for the 2D scan results
+        fig = plt.figure(figsize=(10, 8))
+        fig.suptitle(f'2D Voltage Scan from ({start_point[0]:.1f}, {start_point[1]:.1f}) to ({end_point[0]:.1f}, {end_point[1]:.1f})')
+        
+        # Define extent for the 2D maps
+        extent = [0, distance[-1], np.min(voltage_range), np.max(voltage_range)]
+        
+        # Top subplot: Site Energies
+        ax1 = fig.add_subplot(211)
+        ax1.set_title('Site Energies')
+        
+        # Calculate symmetric color limits for energies
+        vmax_eps = np.max(np.abs(eps_map))
+        im1 = ax1.imshow(eps_map, aspect='auto', origin='lower', extent=extent,
+                      cmap='bwr', vmin=-vmax_eps, vmax=vmax_eps)
+        
+        ax1.set_xlabel('Distance [Å]')
+        ax1.set_ylabel('Bias Voltage [V]')
+        
+        # Add colorbar
+        cbar1 = fig.colorbar(im1, ax=ax1)
+        cbar1.set_label('Energy [eV]')
+        
+        # Bottom subplot: Current
+        ax2 = fig.add_subplot(212)
+        ax2.set_title('Tunneling Current')
+        
+        # Use a good colormap for current (inferno, viridis, plasma, etc.)
+        # You might want to normalize based on the specific data
+        vmax_current = np.max(np.abs(current_map))
+        im2 = ax2.imshow(current_map, aspect='auto', origin='lower', extent=extent,
+                      cmap='inferno', vmin=0, vmax=vmax_current)
+        
+        ax2.set_xlabel('Distance [Å]')
+        ax2.set_ylabel('Bias Voltage [V]')
+        
+        # Add colorbar
+        cbar2 = fig.colorbar(im2, ax=ax2)
+        cbar2.set_label('Current [a.u.]')
+        
+        # Adjust layout and show
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
         plt.show()
 
 if __name__ == "__main__":

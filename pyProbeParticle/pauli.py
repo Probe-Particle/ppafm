@@ -34,18 +34,6 @@ lib = compile_and_load()
 lib.create_solver.argtypes = [c_int, c_int, c_int]
 lib.create_solver.restype = c_void_p
 
-# Set up C++ function signatures at module level
-# Original solver creation (for backward compatibility)
-# lib.create_pauli_solver.argtypes = [c_int, c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_double_p, c_int]
-# lib.create_pauli_solver.restype = c_void_p
-
-# lib.create_pauli_solver_new.argtypes = [
-#     c_int, c_int, c_int,
-#     c_double_p, c_double, c_double_p,
-#     c_double_p, c_double_p, c_double_p, c_int_p, c_int
-# ]
-# lib.create_pauli_solver_new.restype = c_void_p
-
 # Step 2: Set lead parameters
 lib.set_lead.argtypes = [c_void_p, c_int, c_double, c_double]
 lib.set_lead.restype = None
@@ -111,20 +99,6 @@ class PauliSolver:
     # Methods for optimized workflow
     def create_solver(self, nSingle, nleads):
         self.solver = lib.create_solver(nSingle, nleads, self.verbosity)
-
-    # def create_pauli_solver_new(self, nstates, nleads, Hsingle, W, TLeads, lead_mu, lead_temp, lead_gamma, state_order):
-    #     # Ensure arrays are C-contiguous and in the correct format
-    #     lead_mu     = np.ascontiguousarray(lead_mu,    dtype=np.float64)
-    #     lead_temp   = np.ascontiguousarray(lead_temp,  dtype=np.float64)
-    #     lead_gamma  = np.ascontiguousarray(lead_gamma, dtype=np.float64)
-    #     nSingle = len(Hsingle)
-    #     self.solver = lib.create_pauli_solver_new(
-    #         nSingle, nstates, nleads,
-    #         _np_as(Hsingle, c_double_p), W, _np_as(TLeads, c_double_p),
-    #         _np_as(lead_mu, c_double_p), _np_as(lead_temp, c_double_p), _np_as(lead_gamma, c_double_p),
-    #         _np_as(state_order, c_int_p),
-    #         self.verbosity
-    #     )
 
     def set_lead(self, leadIndex, mu, temp):
         lib.set_lead(self.solver, leadIndex, mu, temp)

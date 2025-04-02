@@ -288,9 +288,7 @@ public:
             std::memcpy(Hsingle, newHsingle, nSingle * nSingle * sizeof(double));
             energies_updated = false;  // Energy values need to be recalculated
             kernel_updated = false;    // Kernel matrix needs to be recalculated
-            if (verbosity > 1) {
-                printf("PauliSolver::setHsingle() - Updated Hsingle matrix\n");
-            }
+            if (verbosity > 1) {printf("PauliSolver::setHsingle() - Updated Hsingle matrix\n");}
         }
     }
     
@@ -300,22 +298,18 @@ public:
             W = newW;
             energies_updated = false;  // Energy values need to be recalculated
             kernel_updated = false;    // Kernel matrix needs to be recalculated
-            if (verbosity > 1) {
-                printf("PauliSolver::setW() - Updated W to %f\n", W);
-            }
+            if (verbosity > 1) {printf("PauliSolver::setW() - Updated W to %f\n", W);}
         }
     }
     
     // Set the lead tunneling amplitudes
     void setTLeads(const double* newTLeads) {
         if (TLeads && newTLeads) {
-            printf( "PauliSolver::setTLeads() [nleads=%i, nSingle=%i] \n", nleads, nSingle );
+            //printf( "PauliSolver::setTLeads() [nleads=%i, nSingle=%i] \n", nleads, nSingle );
             std::memcpy(TLeads, newTLeads, nleads * nSingle * sizeof(double));
             coupling_updated = false;  // Coupling matrix needs to be recalculated
             kernel_updated   = false;  // Kernel matrix needs to be recalculated
-            if (verbosity > 1) {
-                printf("PauliSolver::setTLeads() - Updated TLeads array\n");
-            }
+            if (verbosity > 1) {printf("PauliSolver::setTLeads() - Updated TLeads array\n");}
         }
     }
     
@@ -326,9 +320,7 @@ public:
             energies_updated = false;  // Energy values need to be recalculated using new state order
             coupling_updated = false;  // Coupling matrix needs to be recalculated
             kernel_updated   = false;    // Kernel matrix needs to be recalculated
-            if (verbosity > 1) {
-                printf("PauliSolver::setStateOrder() - Updated state ordering\n");
-            }
+            if (verbosity > 1) {printf("PauliSolver::setStateOrder() - Updated state ordering\n");}
         }
     }
     
@@ -782,6 +774,9 @@ def construct_Tba(leads, tleads, Tba_=None):
                 return;
             }
         }
+        //leads[0].temp=1.0;
+        //leads[1].temp=1.0;
+        //printf("PauliSolver::generate_fct() load[0](mu=%f,T=%f) load[1](mu=%f, T=%f) \n", leads[0].mu, leads[0].temp, leads[1].mu, leads[1].temp );
         
         // Count valid transitions
         ndm1 = count_valid_transitions(); 

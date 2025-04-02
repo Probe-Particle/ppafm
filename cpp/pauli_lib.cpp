@@ -107,28 +107,32 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
     if (!solver) { return 0.0; }
     int n2 = solver->nSingle*solver->nSingle; 
     int nleads = solver->nleads;
-    double base_lead_mu[nleads]; 
-    for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
+    double base_lead_mu[nleads];  for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
     if(state_order) { 
         solver->init_states_by_charge();
         solver->setStateOrder(state_order); 
     }
 
-    solver->print_lead_params();
-    solver->print_state_energies();
-    solver->print_tunneling_amplitudes();
+    //solver->print_lead_params();
+    //solver->print_state_energies();
+    //solver->print_tunneling_amplitudes();
 
     for(int i = 0; i < npoints; i++) {
+
+        //printf("### scan_current() #i %i verbosity %d\n", i, solver->verbosity);
         
         double  W       = Ws[i];
-        double* VGate   = VGates  + (i*solver->nleads);
-        
-        // When I uncoment this it start to be unstable - maybe VGate is not properly initialized ? ( Check it outside python)
-        //for (int l=0; l<nleads; ++l) { solver->leads[l].mu = base_lead_mu[l] + VGate[l]; }
-
+        double* VGate   = VGates  + (i*nleads);
         double* hsingle = hsingles + i*n2;
-        printf( "### scan_current() #i %i eps %16.8f %16.8f %16.8f \n", i, hsingle[0], hsingle[3+1], hsingle[6+2]  );
-        double current  = solve_hsingle(solver_ptr, hsingle, W, 0, state_order);
+        //printf( "### scan_current() #i %i eps %16.8f %16.8f %16.8f \n", i, hsingle[0], hsingle[3+1], hsingle[6+2]  );
+        //printf("VGate: "); print_vector(VGate, nleads);
+
+        // When I uncoment this it start to be unstable - maybe VGate is not properly initialized ? ( Check it outside python)
+        for (int l=0; l<nleads; ++l) { solver->leads[l].mu = base_lead_mu[l] + VGate[l]; }
+
+        //solver->print_lead_params();
+        //double current  = solve_hsingle(solver_ptr, hsingle, W, 0, state_order);
+        double current  = solve_hsingle(solver_ptr, hsingle, W, 1, 0);
         out_current[i]  = current;
     }
     return 0.0;
@@ -177,78 +181,6 @@ void get_pauli_factors(void* solver_ptr, double* out_pauli_factors) {
     int n = solver->nleads * solver->ndm1 * 2;
     std::memcpy(out_pauli_factors, solver->pauli_factors, n * sizeof(double));
 }
-
-
-/*
-
-// For backward compatibility - will be refactored in the future
-void* create_pauli_solver(int nstates, int nleads, 
-                         double* energies, double* tunneling_amplitudes,
-                         double* lead_mu, double* lead_temp, double* lead_gamma,
-                         int verbosity = 0) {
-    setvbuf(stdout, NULL, _IONBF, 0);  // Disable buffering for stdout
-    _verbosity = verbosity;
-    
-    // For now, assume nSingle = 3 (can be modified later if needed)
-    int nSingle = 3;
-    PauliSolver* solver = new PauliSolver(nSingle, nstates, nleads, verbosity);
-    
-    // Copy energies directly
-    for (int i = 0; i < nstates; i++) {
-        solver->energies[i] = energies[i];
-    }
-    
-    // Set lead parameters one by one for each lead
-    for (int i = 0; i < nleads; i++) {
-        solver->setLeadParams(i, lead_mu[i], lead_temp[i], lead_gamma[i]);
-    }
-    
-    // Set up coupling matrix
-    solver->setTLeads(tunneling_amplitudes);
-    
-    return solver;
-}
-
-// For backward compatibility - will be refactored in the future
-void* create_pauli_solver_new(int nSingle, int nstates, int nleads, 
-                             double* Hsingle, double W, double* TLeads, 
-                             double* lead_mu, double* lead_temp, double* lead_gamma, 
-                             int* state_order, int verbosity = 0) {
-    setvbuf(stdout, NULL, _IONBF, 0);  // Disable buffering for stdout
-    _verbosity = verbosity;
-    
-    PauliSolver* solver = new PauliSolver(nSingle, nstates, nleads, verbosity);
-    
-    // Set up lead parameters one by one for each lead
-    for (int i = 0; i < nleads; i++) {
-        solver->setLeadParams(i, lead_mu[i], lead_temp[i], lead_gamma[i]);
-    }
-    
-    // Set up Hsingle and W
-    solver->setHsingle(Hsingle);
-    solver->W = W;
-    
-    // Set up tunneling amplitudes
-    solver->setTLeads(TLeads);
-    
-    // Copy state order if provided
-    if (state_order) {
-        for (int i = 0; i < nstates; i++) {
-            solver->state_order[i] = state_order[i];
-        }
-    }
-    
-    // Initialize energies based on Hsingle and W - using the new method name
-    solver->updateStateEnergies();
-    
-    // Generate coupling terms - now requires a parameter
-    for (int b = 0; b < nleads; b++) {
-        solver->generate_coupling_terms(b);
-    }
-    
-    return solver;
-}
-*/
 
 // Cleanup
 void delete_pauli_solver(void* solver_ptr) {

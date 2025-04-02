@@ -126,6 +126,7 @@ def prepare_leads_cpp(params):
     muS = 0.0    # substrate chemical potential
     muT = 0.0    # tip chemical potential
     Temp = params['temperature']  # temperature from file
+
     DBand = 1000.0  # lead bandwidth
     
     # Use parameters from file when available, otherwise use defaults
@@ -140,8 +141,8 @@ def prepare_leads_cpp(params):
     coeffT = 0.3  # default value
     
     # Leads
-    lead_mu = np.array([muS, muT + params['VBias']   ])
-    lead_temp = np.array([Temp, Temp])
+    lead_mu    = np.array([muS, muT + params['VBias']   ])
+    lead_temp  = np.array([Temp, Temp])
     lead_gamma = np.array([GammaS, GammaT])
     
     # Lead Tunneling matrix
@@ -161,6 +162,8 @@ def run_cpp_scan(params, scan_data):
     
     # Get leads parameters once - only use what we need for C++
     TLeads, lead_mu, lead_temp, lead_gamma, NSingle, NLeads, *_ = prepare_leads_cpp(params)
+
+    temp = 1.0
     
     # Create the Pauli solver once
     state_order = [0, 4, 2, 6, 1, 5, 3, 7]
@@ -175,8 +178,8 @@ def run_cpp_scan(params, scan_data):
     # Initialize solver once
     pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
     #pauli.set_leads(lead_mu, lead_temp, lead_gamma)
-    pauli.set_lead(0, lead_mu[0], lead_temp[0] )
-    pauli.set_lead(1, lead_mu[1], lead_temp[1] )
+    pauli.set_lead(0, lead_mu[0], temp )
+    pauli.set_lead(1, lead_mu[1], temp )
     pauli.set_tunneling(TLeads)
     
     for i in range(nsteps):
@@ -200,29 +203,41 @@ def run_cpp_scan(params, scan_data):
     
     return currents
 
-def run_cpp_scan_2(params, scan_data):
+def run_cpp_scan_2(params, scan_data,  NSingle=3, NLeads=2, Vbias=600.0, temp = 1.0, VT=0.01, VS=0.05 ):
     """Run C++ Pauli simulation for the entire scan using scan_current()"""
     nsteps = len(scan_data['distance'])
     print(f"\nRunning C++ Pauli simulation using scan_current...")
     
     # Get leads parameters once
-    TLeads, lead_mu, lead_temp, lead_gamma, NSingle, NLeads, *_ = prepare_leads_cpp(params)
+    #TLeads, lead_mu, lead_temp, lead_gamma, NSingle, NLeads, *_ = prepare_leads_cpp(params)
     
+    # NSingle = int(params['nsite'])  # number of impurity states
+    # NLeads = 2   # number of leads
+    # #GammaS = 0.20  # coupling to substrate - default
+    # #GammaT = 0.05  # coupling to tip - default
+    # VS = 0.20
+    # VT = 0.05 
+    # temp = 1.0
+    # Vbias = 600.0
+
+    TLeads = np.array([ [VS, VS, VS], [VT, VT, VT]])
+
     # Create the Pauli solver once
     pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
-    pauli.set_lead(0, lead_mu[0], lead_temp[0])
-    pauli.set_lead(1, lead_mu[1], lead_temp[1])
+    pauli.set_lead(0, 0.0, temp)
+    pauli.set_lead(1, Vbias, temp)
     pauli.set_tunneling(TLeads)
     
     # Prepare single-particle Hamiltonians using vectorized operations
-    eps = np.column_stack((scan_data['Esite_1'], scan_data['Esite_2'], scan_data['Esite_3'])) * 1000.0
+    #eps = np.column_stack((scan_data['Esite_1'], scan_data['Esite_2'], scan_data['Esite_3'])) * 1000.0
+    eps = np.column_stack((scan_data['Esite_1'], scan_data['Esite_2'], scan_data['Esite_3'])) * Vbias
     hsingles = np.zeros((nsteps, 3, 3))
     hsingles[:, np.arange(3), np.arange(3)] = eps
     
     # Set up other parameters
     Ws = np.full(nsteps, params['onSiteCoulomb'])
+    VGates = np.zeros( (nsteps,NLeads))  # Initialize VGates array
     state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
-    VGates = np.zeros(nsteps)  # Initialize VGates array
 
     # Run scan
     currents = pauli.scan_current(hsingles=hsingles, Ws=Ws, VGates=VGates, state_order=state_order)
@@ -314,13 +329,14 @@ def compare_results(cpp_results, qmeq_results, distance, tol=1e-8, print_every=5
 
 def plot_results(scan_data, cpp_currents, qmeq_currents=None, save_path=None):
     """Plot the simulation results"""
-    plt.figure(figsize=(12, 10))
+    plt.figure(figsize=(8,8))
     
     # Plot 1: On-site energies
-    plt.subplot(3, 1, 1)
+    plt.subplot(2, 1, 1)
     plt.plot(scan_data['distance'], scan_data['Esite_1'], 'r-', label='Esite_1')
     plt.plot(scan_data['distance'], scan_data['Esite_2'], 'g-', label='Esite_2')
     plt.plot(scan_data['distance'], scan_data['Esite_3'], 'b-', label='Esite_3')
+    plt.axhline(y=0, color='k', linestyle='--', lw=1.0)
     plt.xlabel('Distance [Å]')
     plt.ylabel('On-site Energy')
     plt.title('On-site Energies along Scan Line')
@@ -328,29 +344,16 @@ def plot_results(scan_data, cpp_currents, qmeq_currents=None, save_path=None):
     plt.grid(True)
     
     # Plot 2: Calculated currents
-    plt.subplot(3, 1, 2)
+    plt.subplot(2, 1, 2)
     if cpp_currents is not None:
-        plt.plot(scan_data['distance'], cpp_currents, '.-r', label='C++ Current')
+        plt.plot(scan_data['distance'], cpp_currents, '.-r', label='C++ Current', ms=1.5, lw=0.5)
     if qmeq_currents is not None:
-        plt.plot(scan_data['distance'], qmeq_currents, '.-b', label='QmeQ Current')
+        plt.plot(scan_data['distance'], qmeq_currents, '.-b', label='QmeQ Current', ms=1.5, lw=0.5)
     plt.xlabel('Distance [Å]')
     plt.ylabel('Current')
     plt.title('Comparison of Calculated Currents')
     plt.legend()
     plt.grid(True)
-    
-    # Plot 3: Difference between C++ and QmeQ results (if both available)
-    if cpp_currents is not None and qmeq_currents is not None:
-        plt.subplot(3, 1, 3)
-        diff = np.abs(cpp_currents - qmeq_currents)
-        plt.plot(scan_data['distance'], diff, 'k-', label='|C++ - QmeQ|')
-        plt.xlabel('Distance [Å]')
-        plt.ylabel('Absolute Difference')
-        plt.yscale('log')  # Use log scale for better visibility of small differences
-        plt.title('Difference Between C++ and QmeQ Results')
-        plt.legend()
-        plt.grid(True)
-    
     plt.tight_layout()
     
     # Save to file if path is provided, otherwise try to show
@@ -415,7 +418,8 @@ if __name__ == "__main__":
     if args.solver in ['cpp', 'both']:
         cpp_currents1 = None
         #cpp_currents1 = run_cpp_scan  (params, scan_data)  # If I uncomment this, the instabilities disappear
-        cpp_currents  = run_cpp_scan_2(params, scan_data) # this works but resulting current suffer from instabilities
+        #cpp_currents1  = run_cpp_scan_2(params, scan_data, Vbias=1000.0 )
+        cpp_currents   = run_cpp_scan_2(params, scan_data, Vbias=600.0 ) # this works but resulting current suffer from instabilities
         print("cpp_currents.shape ", cpp_currents.shape)
         #print("\nC++ currents:",  cpp_currents)
     
