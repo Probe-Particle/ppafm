@@ -1,0 +1,36 @@
+[params]
+
+solver   : Pauli
+;solver   : 1vN
+;solver   : 2vN
+spinless : 1
+
+;NSingle  : 6
+;NLeads   : 4
+
+NSingle  : 3
+NLeads   : 2
+
+;eps1     : -100.0
+;eps2     : -10.0
+;eps3     : -10.0
+t        : 0.0
+U        : 220
+W        : 30
+J        : 0.0
+
+muS      : 0.0
+muT      : 0.0
+Temp     : 0.224
+DBand    : 10000.0
+GammaS   : 0.01
+GammaT   : 0.01
+
+VBmin    : -200.0
+VBmax    : 0.0
+dVB      : 0.05
+
+[2vN]
+
+npt      : 8
+niter    : 12

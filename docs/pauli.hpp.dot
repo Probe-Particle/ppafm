@@ -1,0 +1,87 @@
+digraph PauliSolverFlow {
+    rankdir=LR; // Left-to-right layout is often good for flow
+    splines=ortho; // Use orthogonal lines for cleaner look
+
+    node [shape=rect, style=filled];
+
+    // Input Nodes
+    subgraph cluster_inputs {
+        label="Inputs";
+        style=dashed;
+        node [fillcolor="#C8E6C9"]; // Light Green
+        TLeads [label="TLeads\n(Tunneling Amplitudes)"];
+        nSingle [label="nSingle, nstates, nleads\n(System Size)"];
+
+        node [fillcolor="#BBDEFB"]; // Light Blue
+        Hsingle [label="Hsingle\n(Hamiltonian)"];
+        W [label="W\n(Coulomb)"];
+        LeadParams [label="Lead μ, T\n(mu, temp)"];
+    }
+
+    // Process Nodes (Ellipses)
+    node [shape=ellipse, style=filled, fillcolor="#FFF9C4"]; // Light Yellow
+    proc_Index [label="init_states_by_charge\n(& helpers)"];
+    proc_Coupling [label="calculate_tunneling_amplitudes\n(eval_lead_coupling)"];
+    proc_Energy [label="calculate_state_energies"];
+    proc_Factors [label="generate_fct\n(incl. fermi_func)"];
+    proc_Kernel [label="generate_kern\n(generate_coupling_terms)"];
+    proc_Solve [label="solve"];
+    proc_Current [label="generate_current"];
+
+    // Calculated Data Nodes
+    node [shape=rect, style=filled];
+    data_Index [label="Indexing Maps\n(states_by_charge, etc)", fillcolor="#FFCCBC"]; // Light Orange (Static)
+    data_Coupling [label="Coupling Matrix\n(Many-body Amplitudes)", fillcolor="#FFCCBC"]; // Light Orange (Semi-Static)
+    data_Energy [label="State Energies", fillcolor="#FFCDD2"]; // Light Red (Dynamic)
+    data_Factors [label="Pauli Factors\n(Rates)", fillcolor="#FFCDD2"]; // Light Red (Dynamic)
+    data_Kernel [label="Kernel Matrix", fillcolor="#FFCDD2"]; // Light Red (Dynamic)
+    data_Probs [label="Probabilities", fillcolor="#FFCDD2"]; // Light Red (Dynamic)
+    data_Current [label="Current", fillcolor="#E1BEE7"]; // Light Purple (Output)
+
+
+    // Edges showing dependencies
+
+    // --- One-Time Setup ---
+    nSingle -> proc_Index;
+    proc_Index -> data_Index [label=" Static"];
+
+    TLeads -> proc_Coupling;
+    proc_Coupling -> data_Coupling [label=" Semi-Static\n (if TLeads const)"];
+
+    // --- Per-Step Calculation Loop ---
+    Hsingle -> proc_Energy;
+    W -> proc_Energy;
+    proc_Energy -> data_Energy [label=" Dynamic"];
+
+    data_Energy -> proc_Factors;
+    LeadParams -> proc_Factors;
+    data_Coupling -> proc_Factors; // Reuses pre-calculated coupling
+    proc_Factors -> data_Factors [label=" Dynamic"];
+
+    data_Factors -> proc_Kernel;
+    data_Index -> proc_Kernel; // Uses static indexing
+    proc_Kernel -> data_Kernel [label=" Dynamic"];
+
+    data_Kernel -> proc_Solve;
+    proc_Solve -> data_Probs [label=" Dynamic"];
+
+    data_Probs -> proc_Current;
+    data_Factors -> proc_Current; // Current depends on both rates and probs
+    proc_Current -> data_Current;
+
+
+    // Legend (Optional but helpful)
+    subgraph cluster_legend {
+        rank=sink; // Put legend at the bottom
+        label = "Legend";
+        node [shape=rect, style=filled, width=2, height=0.5];
+        key_const_in [label="Constant Input", fillcolor="#C8E6C9"];
+        key_var_in [label="Variable Input", fillcolor="#BBDEFB"];
+        key_static_data [label="Static/Semi-Static Data", fillcolor="#FFCCBC"];
+        key_dyn_data [label="Dynamic Data (Loop)", fillcolor="#FFCDD2"];
+        key_out [label="Output", fillcolor="#E1BEE7"];
+        key_proc [label="Process/Function", shape=ellipse, fillcolor="#FFF9C4"];
+        key_const_in -> key_var_in -> key_static_data -> key_dyn_data -> key_out -> key_proc [style=invis]; // Layout hint
+    }
+
+}
