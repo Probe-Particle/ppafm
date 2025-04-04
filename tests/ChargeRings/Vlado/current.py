@@ -110,6 +110,71 @@ def calculate_current(params, input_data):
 
     return positions, currents
 
+def _current_worker(params, chunk):
+    """
+    Worker function for parallel current calculation (must be at module level)
+    """
+    positions = chunk[:, 0]
+    eps1 = chunk[:, 3] * 1000.0
+    eps2 = chunk[:, 4] * 1000.0
+    eps3 = chunk[:, 5] * 1000.0
+    T1   = chunk[:, 9]
+    T2   = chunk[:, 10]
+    T3   = chunk[:, 11]
+    
+    currents = np.zeros(len(positions))
+    
+    for i in range(len(positions)):
+        H1p, H2p, LeadMus, LeadTemps, TLeads = SetHamiltonian(
+            eV=params['VBias'], eps1=eps1[i], eps2=eps2[i], eps3=eps3[i],
+            T1=T1[i], T2=T2[i], T3=T3[i], U=params['U'], W=params['W'], 
+            t=params['t'], J=params['J'], muS=params['muS'], muT=params['muT'],
+            VS=params['VS'], VT=params['VT'], Temp=params['Temp'], 
+            spinless=params['spinless']
+        )
+        
+        system = qmeq.Builder(
+            params['NSingle'], H1p, H2p,
+            params['NLeads'], TLeads, LeadMus, LeadTemps,
+            params['DBand'], kerntype=params['solver'],
+            indexing='Lin', itype=0, symq=1,
+            solmethod='lsqr', mfreeq=0, norm_row=0
+        )
+        system.solve()
+        
+        if params['spinless']:
+            currents[i] = system.current[1]
+        else:
+            currents[i] = system.current[2] + system.current[3]
+    
+    return positions, currents
+
+def calculate_current_parallel(params, input_data, nThreads=4):
+    """
+    Parallel version of calculate_current() using multiprocessing.Pool
+    """
+    import multiprocessing as mp
+    import numpy as np
+    
+    # Split input data into chunks for each thread
+    chunk_size = len(input_data) // nThreads
+    chunks = [input_data[i*chunk_size:(i+1)*chunk_size] for i in range(nThreads-1)]
+    chunks.append(input_data[(nThreads-1)*chunk_size:])
+    
+    # Create partial function with params
+    from functools import partial
+    worker = partial(_current_worker, params)
+    
+    # Process chunks in parallel
+    with mp.Pool(processes=nThreads) as pool:
+        results = pool.map(worker, chunks)
+    
+    # Combine results
+    positions = np.concatenate([r[0] for r in results])
+    currents = np.concatenate([r[1] for r in results])
+    
+    return positions, currents
+
 def calculate_didv(positions, bias_voltages, current_grid):
     """
     Calculate differential conductance
