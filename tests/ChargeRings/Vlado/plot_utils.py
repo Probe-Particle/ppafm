@@ -40,7 +40,7 @@ def plot_results(positions, bias_voltages, eps_max_grid, current_grid, didv_grid
 
     plt.tight_layout()
 
-def plot_results_1d(positions, Eps, Is, Is2=None):
+def plot_results_1d(positions, Eps, Is, Is2=None, labels=['Is1', 'Is2']):
         plt.figure( figsize=(5,10) )
         plt.subplot(211); 
         plt.plot(positions, Eps); 
@@ -50,9 +50,9 @@ def plot_results_1d(positions, Eps, Is, Is2=None):
         plt.ylabel('Energy [meV]')
         
         plt.subplot(212); 
-        plt.plot(positions, Is, label='Is'); 
+        plt.plot(positions, Is, label=labels[0]); 
         if Is2 is not None:
-            plt.plot(positions, Is2, label='Is2'); 
+            plt.plot(positions, Is2, label=labels[1]); 
         plt.grid(); 
         plt.title('Current')
         plt.xlabel('Position [Å]')

@@ -175,7 +175,7 @@ positions = None
 if __name__ == "__main__":
     # Add command line arguments
     parser = argparse.ArgumentParser(description='Run and plot charge transport simulations')
-    parser.add_argument('--solver', choices=['qmeq', 'cpp'], default='qmeq',  help='Which solver to use (qmeq or cpp)')
+    parser.add_argument('--solver', choices=['qmeq', 'cpp', 'both'], default='qmeq',  help='Which solver to use (qmeq or cpp)')
     parser.add_argument('--Vmin', type=float, default=0.0, help='Minimum bias voltage')
     parser.add_argument('--Vmax', type=float, default=5.5, help='Maximum bias voltage')
     args = parser.parse_args()
@@ -191,17 +191,18 @@ if __name__ == "__main__":
 
 
     input_files = [ 'input/0.10_line_scan.dat']
-
+    Is2=None
     if positions is None:
-        if args.solver == 'qmeq':
+        if args.solver == 'qmeq' or args.solver == 'both':
             bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines(  input_files, params, Vmin=args.Vmin, Vmax=args.Vmax )
-        else:
+        elif args.solver == 'cpp':
             # Use the new C++ evaluation function
             bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax)
-    
+        if args.solver == 'both':
+            _, _, _, Is2 = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax)
+
     np.savez('results.npz', bias_voltages=bias_voltages, positions=positions, eps_max_grid=eps_max_grid, current_grid=current_grid, params=params)
     
-
     nV = len(bias_voltages)
     if nV>1:
         didv_grid = calculate_didv(positions, bias_voltages, current_grid)
@@ -212,7 +213,8 @@ if __name__ == "__main__":
         print( "current_grid.shape: ", current_grid.shape )
         print( "eps_max_grid.shape: ", eps_max_grid.shape )
         print( "positions.shape: ", positions.shape )
-        plot_results_1d(positions, eps_max_grid[0], current_grid[0])        
+
+        plot_results_1d(positions, eps_max_grid[0], current_grid[0], Is2=Is2[0], labels=['QmeQ Pauli', 'C++ Pauli'])        
     else:
         print( "Not enough bias voltages to calculate didv" )
         
