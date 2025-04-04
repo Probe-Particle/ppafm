@@ -85,3 +85,46 @@ def SetHamiltonian(**kwargs):
 
 ## trimerlib END
 
+def SetHamiltonian_spinless(**kwargs):
+    '''
+    eps1, eps2, eps3 - local energy levels (meV)
+    T1, T2, T3 - transmission of the coupling of the QDs to the tip (dimensionless)
+    VS - coupling to the substrate
+    eV - tip voltage
+    muS, muT, Temp - chemical potential of the substrate/tip, temperature
+    t - direct hopping (meV)
+    W - intersite coupling (meV)
+    U - local Coulomb interaction (meV) (only for spinless=False)
+    J - exchange coupling of Heisenberg type
+
+    '''
+    eps1, eps2, eps3 = kwargs.get('eps1'), kwargs.get('eps2'), kwargs.get('eps3')
+    VS = kwargs.get('VS')
+    T1, T2, T3 = kwargs.get('T1'), kwargs.get('T2'), kwargs.get('T3')
+    eV, muS, muT, Temp = kwargs.get('eV'), kwargs.get('muS'), kwargs.get('muT'), kwargs.get('Temp')
+    t = kwargs.get('t',0.0)
+    W = kwargs.get('W',0.0)
+
+    ## one-particle Hamiltonian
+    H1p = {(0,0): eps1, (0,1): t,    (0,2): t,
+                        (1,1): eps2, (1,2): t,
+                                     (2,2): eps3 }
+
+    ## two-particle Hamiltonian: inter-site coupling
+    H2p = {(0,1,1,0): W,
+           (1,2,2,1): W,
+           (0,2,2,0): W }
+
+    ## leads: substrate (S) and scanning tip (T)
+    LeadMus   = {0: muS,  1: muT+eV }
+    LeadTemps = {0: Temp, 1: Temp  }
+
+    ## coupling between leads (1st number) and impurities (2nd number)
+    TLeads = {(0,0): VS,     # S <--> 1
+              (0,1): VS,     # S <--> 2
+              (0,2): VS,     # S <--> 3
+              (1,0): VS*T1,  # T <--> 1
+              (1,1): VS*T2,  # T <--> 2
+              (1,2): VS*T3 } # T <--> 3
+    
+    return H1p,H2p,LeadMus,LeadTemps,TLeads

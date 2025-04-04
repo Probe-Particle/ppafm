@@ -35,25 +35,50 @@ input_files = sorted(input_files)
 print("#### params: ")
 for k, v in params.items(): print(f"{k}: {v}")
 
-def eval_dir_of_lines( input_files, params, Vmin = 0.0, Vmax = 10.0, nThreads=12  ):
+
+def limit_input_line( input_data, vmin=1e+300, vmax=-1e+300 ):
+    return input_data[(input_data[:,0] >= vmin) & (input_data[:,0] <= vmax)]
+
+def eval_dir_of_lines( input_files, params, Vmin = 0.0, Vmax = 10.0, nThreads=12, line_lims=None  ):
     # Initialize arrays
     bias_voltages = []
     positions     = None
     eps_max_grid  = []
     current_grid  = []
 
+    # Print QmeQ parameters before simulation
+    print("\n=== QmeQ Solver Parameters ===")
+    print(f"Vmin: {Vmin}, Vmax: {Vmax}")
+    print(f"NSingle: {params['NSingle']}, W: {params['W']}")
+    print(f"Temp: {params['Temp']}, VBias: {params['VBias']}")
+    print(f"GammaS: {params['GammaS']}, GammaT: {params['GammaT']}")
+    print(f"VS: {params['VS']}, VT: {params['VT']}")
+    VS_qmeq = params['VS']
+    VT_qmeq = params['VT']
+    # QmeQ-specific parameters from current.py
+    print(f"DBand (from params): {params.get('DBand', 'not specified')}")
+
     for input_file in input_files:
         # Extract bias voltage from filename
         filename = input_file.split('/')[-1]
-        if not '_line_scan.dat' in filename: continue
-        Vbias = float(filename.split('_line_scan.dat')[0])
+        if not '_line_scan' in filename: continue
+        Vbias = float(filename.split('_')[0])
         input_data = np.loadtxt(input_file)
+
+        if line_lims is not None: input_data = limit_input_line( input_data, vmin=line_lims[0], vmax=line_lims[1] )
+            
 
         if Vbias<Vmin or Vbias>Vmax: continue
 
         print( f"###  Vbias: {Vbias} file {input_file}" )
         params['VBias'] = Vbias*1000.0
         
+        # Print a sample of the site energies (first 3 rows)
+        if input_data.shape[0] > 3:
+            print(f"\nQmeQ Sample input energies (first 3 points):")
+            for i in range(3):
+                print(f"Point {i}: Esite_1: {input_data[i,3]*1000.0:.3f}, Esite_2: {input_data[i,4]*1000.0:.3f}, Esite_3: {input_data[i,5]*1000.0:.3f} meV")
+            
         if nThreads == 1:
             positions_, currents = calculate_current(params, input_data)
         else:
@@ -74,7 +99,7 @@ def eval_dir_of_lines( input_files, params, Vmin = 0.0, Vmax = 10.0, nThreads=12
 
     return bias_voltages, positions, eps_max_grid, current_grid
 
-def eval_dir_of_lines_cpp(input_files, params, Vmin=0.0, Vmax=10.0):
+def eval_dir_of_lines_cpp(input_files, params, Vmin=0.0, Vmax=10.0, line_lims=None):
     """Run C++ Pauli simulation for multiple bias voltages"""
     # Initialize arrays
     bias_voltages = []
@@ -82,23 +107,48 @@ def eval_dir_of_lines_cpp(input_files, params, Vmin=0.0, Vmax=10.0):
     eps_max_grid = []
     current_grid = []
     
+    # Print C++ solver parameters before simulation
+    print("\n=== C++ Pauli Solver Parameters ===")
+    print(f"Vmin: {Vmin}, Vmax: {Vmax}")
+    print(f"NSingle: {params['NSingle']}, W: {params['W']}")
+    print(f"Temp: {params['Temp']}, VBias: {params['VBias']}")
+    print(f"GammaS: {params['GammaS']}, GammaT: {params['GammaT']}")
+    VS_cpp = np.sqrt(params['GammaS']/np.pi)
+    VT_cpp = np.sqrt(params['GammaT']/np.pi)
+    print(f"VS: {VS_cpp}, VT: {VT_cpp} (calculated from GammaS/T)")
+    DBand_cpp = 1000.0  # default in C++ solver
+    print(f"DBand (hard-coded): {DBand_cpp}")
+    print(f"TunnelMatrix: [[{VS_cpp}, {VS_cpp}, {VS_cpp}], [{VT_cpp}, {VT_cpp}, {VT_cpp}]]")
+    
+    
     for input_file in input_files:
         # Extract bias voltage from filename
         filename = input_file.split('/')[-1]
-        if not '_line_scan.dat' in filename: continue
-        Vbias = float(filename.split('_line_scan.dat')[0])
+        if not '_line_scan' in filename: continue
+        Vbias = float(filename.split('_')[0])
         input_data = np.loadtxt(input_file)
+
+        if line_lims is not None: input_data = limit_input_line( input_data, vmin=line_lims[0], vmax=line_lims[1] )
 
         if Vbias < Vmin or Vbias > Vmax: continue
         
         print(f"###  Vbias: {Vbias} file {input_file}")
-        params['VBias'] = Vbias*1000.0
         
+        # Print a sample of the site energies (first 3 rows)
+        if input_data.shape[0] > 3:
+            print(f"\nC++ Sample input energies (first 3 points):")
+            for i in range(3):
+                print(f"Point {i}: Esite_1: {input_data[i,3]*1000.0:.3f}, Esite_2: {input_data[i,4]*1000.0:.3f}, Esite_3: {input_data[i,5]*1000.0:.3f} meV")
+
+        #print( "input_data ", input_data )
+
         # Run C++ simulation
         currents = run_cpp_scan(params, input_data)
         #if positions is None:   positions = input_data[:,:3]
         positions = input_data[:, 0]
         
+        #print( "currents ", currents )
+
         # Store results
         eps_max = np.maximum.reduce([input_data[:,3], input_data[:,4], input_data[:,5]]) * 1000.0
         eps_max_grid.append(eps_max)
@@ -189,17 +239,20 @@ if __name__ == "__main__":
     args.Vmin = 0.08
     args.Vmax = 0.12
 
+    #line_lims = [10.0, 30.0]
+    line_lims = None    
 
-    input_files = [ 'input/0.10_line_scan.dat']
+    #input_files = [ 'input/0.10_line_scan.dat']
+    input_files = [ 'input/0.10_line_scan_short.dat']
     Is2=None
     if positions is None:
         if args.solver == 'qmeq' or args.solver == 'both':
-            bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines(  input_files, params, Vmin=args.Vmin, Vmax=args.Vmax )
+            bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines(  input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims )
         elif args.solver == 'cpp':
             # Use the new C++ evaluation function
-            bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax)
+            bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims)
         if args.solver == 'both':
-            _, _, _, Is2 = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax)
+            _, _, _, Is2 = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims)
             Is2=Is2[0]
 
     np.savez('results.npz', bias_voltages=bias_voltages, positions=positions, eps_max_grid=eps_max_grid, current_grid=current_grid, params=params)
@@ -214,7 +267,6 @@ if __name__ == "__main__":
         print( "current_grid.shape: ", current_grid.shape )
         print( "eps_max_grid.shape: ", eps_max_grid.shape )
         print( "positions.shape: ", positions.shape )
-
         plot_results_1d(positions, eps_max_grid[0], current_grid[0], Is2=Is2, labels=['QmeQ Pauli', 'C++ Pauli'])        
     else:
         print( "Not enough bias voltages to calculate didv" )

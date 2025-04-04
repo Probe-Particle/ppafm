@@ -88,10 +88,11 @@ def calculate_current(params, input_data):
     for i in range(len(positions)):
         #print( f"calculate_current() i: {i}   VBias: {VBias}  eps: {eps1[i]} {eps2[i]} {eps3[i]}")
 
-        H1p, H2p, LeadMus, LeadTemps, TLeads = SetHamiltonian(
+        #H1p, H2p, LeadMus, LeadTemps, TLeads = SetHamiltonian(
+        H1p, H2p, LeadMus, LeadTemps, TLeads = SetHamiltonian_spinless(
             eV=VBias, eps1=eps1[i], eps2=eps2[i], eps3=eps3[i],
             T1=T1[i], T2=T2[i], T3=T3[i], U=U, W=W, t=t, J=J,
-            muS=muS, muT=muT, VS=VS, VT=VT, Temp=Temp, spinless=spinless
+            muS=muS, muT=muT, VS=VS, VT=VT, Temp=Temp
         )
 
         system = qmeq.Builder(

@@ -43,16 +43,16 @@ def plot_results(positions, bias_voltages, eps_max_grid, current_grid, didv_grid
 def plot_results_1d(positions, Eps, Is, Is2=None, labels=['Is1', 'Is2']):
         plt.figure( figsize=(5,10) )
         plt.subplot(211); 
-        plt.plot(positions, Eps); 
+        plt.plot(positions, Eps, '.-',lw=0.5, ms=1.5); 
         plt.grid(); 
         plt.title('Maximum Site Energy')
         plt.xlabel('Position [Å]')
         plt.ylabel('Energy [meV]')
         
         plt.subplot(212); 
-        plt.plot(positions, Is, label=labels[0]); 
+        plt.plot(positions, Is, '.-',label=labels[0], lw=0.5, ms=1.5); 
         if Is2 is not None:
-            plt.plot(positions, Is2, label=labels[1]); 
+            plt.plot(positions, Is2, '.--',label=labels[1], lw=0.5, ms=1.5); 
         plt.grid(); 
         plt.title('Current')
         plt.xlabel('Position [Å]')
