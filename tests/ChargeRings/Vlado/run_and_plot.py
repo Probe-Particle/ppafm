@@ -218,6 +218,6 @@ if __name__ == "__main__":
     else:
         print( "Not enough bias voltages to calculate didv" )
         
+    plt.savefig( 'run_and_plot.png' )
     plt.show()
-    plt.savefig( 'qmeq_results_summary.png' )
     plt.close()
