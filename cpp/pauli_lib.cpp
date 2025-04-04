@@ -119,7 +119,11 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
 
     for(int i = 0; i < npoints; i++) {
 
-        //printf("### scan_current() #i %i verbosity %d\n", i, solver->verbosity);
+        if ( solver->verbosity > 0 ){
+            printf("\n#####################\n");
+            printf("### C++ pauli_lib.cpp : scan_current()  # i: %i \n", i );
+            printf("#####################\n\n");
+        }
         
         double  W       = Ws[i];
         double* VGate   = VGates  + (i*nleads);

@@ -80,7 +80,7 @@ def eval_dir_of_lines( input_files, params, Vmin = 0.0, Vmax = 10.0, nThreads=12
                 print(f"Point {i}: Esite_1: {input_data[i,3]*1000.0:.3f}, Esite_2: {input_data[i,4]*1000.0:.3f}, Esite_3: {input_data[i,5]*1000.0:.3f} meV")
             
         if nThreads == 1:
-            positions_, currents = calculate_current(params, input_data)
+            positions_, currents = calculate_current(params, input_data, verbosity=verbosity)
         else:
             positions_, currents = calculate_current_parallel(params, input_data, nThreads=nThreads)
         if positions is None: positions = positions_
@@ -116,8 +116,8 @@ def eval_dir_of_lines_cpp(input_files, params, Vmin=0.0, Vmax=10.0, line_lims=No
     VS_cpp = np.sqrt(params['GammaS']/np.pi)
     VT_cpp = np.sqrt(params['GammaT']/np.pi)
     print(f"VS: {VS_cpp}, VT: {VT_cpp} (calculated from GammaS/T)")
-    DBand_cpp = 1000.0  # default in C++ solver
-    print(f"DBand (hard-coded): {DBand_cpp}")
+    DBand_cpp = params['DBand'] # DBand does not seem to be used in C++ solver ?
+    print(f"DBand (hard-coded in qmeq.in): {DBand_cpp}")
     print(f"TunnelMatrix: [[{VS_cpp}, {VS_cpp}, {VS_cpp}], [{VT_cpp}, {VT_cpp}, {VT_cpp}]]")
     
     
@@ -175,7 +175,7 @@ def run_cpp_scan(params, input_data):
     VT = np.sqrt(params['GammaT']/np.pi)
     
     # Initialize solver
-    pauli = PauliSolver(NSingle, NLeads)
+    pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
     
     # Set up leads
     pauli.set_lead(0, 0.0, Temp)  # Substrate lead (mu=0)
@@ -242,16 +242,27 @@ if __name__ == "__main__":
     #line_lims = [10.0, 30.0]
     line_lims = None    
 
+
+    verbosity = 2
+
     #input_files = [ 'input/0.10_line_scan.dat']
     input_files = [ 'input/0.10_line_scan_short.dat']
+    #input_files = [ 'input/0.10_line_scan_20.dat']
     Is2=None
     if positions is None:
-        if args.solver == 'qmeq' or args.solver == 'both':
-            bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines(  input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims )
+        if args.solver == 'qmeq':
+            bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines(  input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims, nThreads=12 )
         elif args.solver == 'cpp':
             # Use the new C++ evaluation function
             bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims)
-        if args.solver == 'both':
+        elif args.solver == 'both':
+            print( "\n\n####################################################"  )
+            print( "#################### QmeQ Pauli #####################"  )
+            print( "####################################################\n\n"  )
+            bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines(  input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims, nThreads=1 )
+            print( "\n\n####################################################"  )
+            print( "#################### C++ Pauli #####################"  )
+            print( "####################################################\n\n"  )
             _, _, _, Is2 = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims)
             Is2=Is2[0]
 
