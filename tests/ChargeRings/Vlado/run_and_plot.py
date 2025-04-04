@@ -200,6 +200,7 @@ if __name__ == "__main__":
             bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax)
         if args.solver == 'both':
             _, _, _, Is2 = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax)
+            Is2=Is2[0]
 
     np.savez('results.npz', bias_voltages=bias_voltages, positions=positions, eps_max_grid=eps_max_grid, current_grid=current_grid, params=params)
     
@@ -214,7 +215,7 @@ if __name__ == "__main__":
         print( "eps_max_grid.shape: ", eps_max_grid.shape )
         print( "positions.shape: ", positions.shape )
 
-        plot_results_1d(positions, eps_max_grid[0], current_grid[0], Is2=Is2[0], labels=['QmeQ Pauli', 'C++ Pauli'])        
+        plot_results_1d(positions, eps_max_grid[0], current_grid[0], Is2=Is2, labels=['QmeQ Pauli', 'C++ Pauli'])        
     else:
         print( "Not enough bias voltages to calculate didv" )
         
