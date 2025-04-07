@@ -217,8 +217,8 @@ def calculate_current(params, input_data, verbosity=0):
     for i in range(len(positions)):
 
         if verbosity > 0:
-            print("\n#####################\n");
-            print("### QmeQ current.py : calculate_current()  # i: %i \n", i);
+            print("\n#####################");
+            print(f"### QmeQ current.py : calculate_current()  # i: {i} ");
             print("#####################\n\n");
         #print( f"calculate_current() i: {i}   VBias: {VBias}  eps: {eps1[i]} {eps2[i]} {eps3[i]}")
 
@@ -278,8 +278,7 @@ def _current_worker(params, chunk):
             params['DBand'], kerntype=params['solver'],
             indexing='Lin', itype=0, symq=1,
             solmethod='lsqr', mfreeq=0, norm_row=0,
-            verbosity = verbosity
-
+            #verbosity = verbosity
         )
         
         system.solve()

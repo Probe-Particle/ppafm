@@ -62,7 +62,8 @@ lib.solve_hsingle.argtypes = [c_void_p, c_double_p, c_double, c_int, c_int_p]
 lib.solve_hsingle.restype = c_double
 
 # double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws, double* VGates, int* state_order, double* out_current) {
-lib.scan_current.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_double_p, c_int_p, c_double_p]
+#double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current) {
+lib.scan_current.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_int_p, c_double_p]
 lib.scan_current.restype = c_double
 
 
@@ -123,7 +124,7 @@ class PauliSolver:
     def solve_hsingle(self, hsingle, W, ilead, state_order):
         return lib.solve_hsingle(self.solver, _np_as(hsingle, c_double_p), W, ilead, _np_as(state_order, c_int_p))
     
-    def scan_current(self, hsingles=None, Ws=None, VGates=None, hsingle=None, W=0.0, VGate=0.0,  state_order=None, out_current=None):
+    def scan_current(self, hsingles=None, Ws=None, VGates=None, hsingle=None, W=0.0, VGate=0.0, TLeads=None, state_order=None, out_current=None):
         if hsingle is not None:
             npoints = len(hsingle)
         elif Ws is not None:
@@ -139,11 +140,13 @@ class PauliSolver:
         if VGates is None:
             VGates = np.zeros(npoints, dtype=np.float64)
             VGates[:,:] = VGate[None,:]
+        #if TLeads is None:
+        #    TLeads = np.zeros((nleads, nSingle), dtype=np.float64)
         if state_order is not None:
             state_order = np.ascontiguousarray(state_order, dtype=np.int32)
         if out_current is None:
             out_current = np.zeros(npoints, dtype=np.float64)
-        lib.scan_current(self.solver, npoints, _np_as(hsingles, c_double_p), _np_as(Ws, c_double_p), _np_as(VGates, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p))
+        lib.scan_current(self.solver, npoints, _np_as(hsingles, c_double_p), _np_as(Ws, c_double_p), _np_as(VGates, c_double_p), _np_as(TLeads, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p))
         return out_current
     
     def get_energies(self, nstates):

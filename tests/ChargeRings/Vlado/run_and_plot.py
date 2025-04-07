@@ -64,6 +64,10 @@ def eval_dir_of_lines( input_files, params, Vmin = 0.0, Vmax = 10.0, nThreads=12
         if not '_line_scan' in filename: continue
         Vbias = float(filename.split('_')[0])
         input_data = np.loadtxt(input_file)
+        
+        # Ensure input_data is always 2D
+        if len(input_data.shape) == 1:
+            input_data = input_data.reshape(1, -1)
 
         if line_lims is not None: input_data = limit_input_line( input_data, vmin=line_lims[0], vmax=line_lims[1] )
             
@@ -78,6 +82,9 @@ def eval_dir_of_lines( input_files, params, Vmin = 0.0, Vmax = 10.0, nThreads=12
             print(f"\nQmeQ Sample input energies (first 3 points):")
             for i in range(3):
                 print(f"Point {i}: Esite_1: {input_data[i,3]*1000.0:.3f}, Esite_2: {input_data[i,4]*1000.0:.3f}, Esite_3: {input_data[i,5]*1000.0:.3f} meV")
+        elif input_data.shape[0] > 0:
+            print(f"\nQmeQ Input energy (single point):")
+            print(f"Esite_1: {input_data[0,3]*1000.0:.3f}, Esite_2: {input_data[0,4]*1000.0:.3f}, Esite_3: {input_data[0,5]*1000.0:.3f} meV")
             
         if nThreads == 1:
             positions_, currents = calculate_current(params, input_data, verbosity=verbosity)
@@ -127,6 +134,9 @@ def eval_dir_of_lines_cpp(input_files, params, Vmin=0.0, Vmax=10.0, line_lims=No
         if not '_line_scan' in filename: continue
         Vbias = float(filename.split('_')[0])
         input_data = np.loadtxt(input_file)
+
+        if len(input_data.shape) == 1:
+            input_data = input_data.reshape(1, -1)
 
         if line_lims is not None: input_data = limit_input_line( input_data, vmin=line_lims[0], vmax=line_lims[1] )
 
@@ -182,15 +192,26 @@ def run_cpp_scan(params, input_data):
     pauli.set_lead(1, VBias, Temp)  # Tip lead (mu=VBias)
     
     # Set up tunneling
-    TLeads = np.array([
-        [VS, VS, VS],  # Substrate coupling
-        [VT, VT, VT]   # Tip coupling
-    ])
-    pauli.set_tunneling(TLeads)
-    
+    # TLeads = np.array([
+    #     [VS, VS, VS],  # Substrate coupling
+    #     [VT, VT, VT]   # Tip coupling
+    # ])
+    # pauli.set_tunneling(TLeads)
+
+    npoints = len(input_data)
+
+    TLeads = np.zeros((npoints, NLeads, NSingle), dtype=np.float64)
+    TLeads[:,0,0] = VS
+    TLeads[:,0,1] = VS
+    TLeads[:,0,2] = VS
+    TLeads[:,1,0] = VT*input_data[:,9]
+    TLeads[:,1,1] = VT*input_data[:,10]
+    TLeads[:,1,2] = VT*input_data[:,11]
+    #TLeads[:,1,2] = VT*input_data[:,11] * 1.1   # Perturbation
+
     # Prepare single-particle Hamiltonians
     eps = np.column_stack((input_data[:,3], input_data[:,4], input_data[:,5])) * 1000.0
-    npoints = len(eps)
+    
     hsingles = np.zeros((npoints, 3, 3))
     hsingles[:, np.arange(3), np.arange(3)] = eps
     
@@ -204,6 +225,7 @@ def run_cpp_scan(params, input_data):
         hsingles=hsingles,
         Ws=Ws,
         VGates=VGates,
+        TLeads=TLeads,
         state_order=state_order
     )
     
@@ -225,7 +247,7 @@ positions = None
 if __name__ == "__main__":
     # Add command line arguments
     parser = argparse.ArgumentParser(description='Run and plot charge transport simulations')
-    parser.add_argument('--solver', choices=['qmeq', 'cpp', 'both'], default='qmeq',  help='Which solver to use (qmeq or cpp)')
+    parser.add_argument('--solver', choices=['qmeq', 'cpp', 'both'], default='cpp',  help='Which solver to use (qmeq or cpp)')
     parser.add_argument('--Vmin', type=float, default=0.0, help='Minimum bias voltage')
     parser.add_argument('--Vmax', type=float, default=5.5, help='Maximum bias voltage')
     args = parser.parse_args()
@@ -242,11 +264,14 @@ if __name__ == "__main__":
     #line_lims = [10.0, 30.0]
     line_lims = None    
 
+    args.solver = 'both'
+    verbosity = 0
 
-    verbosity = 2
+    # Disable line wrapping entirely
+    np.set_printoptions(linewidth=np.inf)
 
-    #input_files = [ 'input/0.10_line_scan.dat']
-    input_files = [ 'input/0.10_line_scan_short.dat']
+    input_files = [ 'input/0.10_line_scan.dat']
+    #input_files = [ 'input/0.10_line_scan_short.dat']
     #input_files = [ 'input/0.10_line_scan_20.dat']
     Is2=None
     if positions is None:
@@ -264,10 +289,12 @@ if __name__ == "__main__":
             print( "#################### C++ Pauli #####################"  )
             print( "####################################################\n\n"  )
             _, _, _, Is2 = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims)
+            #bias_voltages, positions, eps_max_grid,Is2 = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims)
+            #current_grid = Is2*0.
             Is2=Is2[0]
 
     np.savez('results.npz', bias_voltages=bias_voltages, positions=positions, eps_max_grid=eps_max_grid, current_grid=current_grid, params=params)
-    
+
     nV = len(bias_voltages)
     if nV>1:
         didv_grid = calculate_didv(positions, bias_voltages, current_grid)
@@ -278,7 +305,7 @@ if __name__ == "__main__":
         print( "current_grid.shape: ", current_grid.shape )
         print( "eps_max_grid.shape: ", eps_max_grid.shape )
         print( "positions.shape: ", positions.shape )
-        plot_results_1d(positions, eps_max_grid[0], current_grid[0], Is2=Is2, labels=['QmeQ Pauli', 'C++ Pauli'])        
+        plot_results_1d(positions, eps_max_grid[0], current_grid[0], Is2=Is2, labels=['QmeQ Pauli', 'C++ Pauli'], ms=5.0 )        
     else:
         print( "Not enough bias voltages to calculate didv" )
         
