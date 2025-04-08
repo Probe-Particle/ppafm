@@ -34,7 +34,7 @@ def plot_results(positions, bias_voltages, eps_max_grid, current_grid, didv_grid
         vmax_didv = np.max(np.abs(didv_grid))
         didv_plot = plt.imshow(didv_grid, aspect='auto', origin='lower', extent=extent, cmap='bwr', vmin=-vmax_didv, vmax=vmax_didv)
         plt.colorbar(didv_plot, label='dI/dV [S]')
-        plt.title('Differential Conductance')
+        plt.title('dI/dV')
         plt.xlabel('Position [Å]')
         plt.ylabel('Bias Voltage [V]')
 

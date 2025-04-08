@@ -5,6 +5,7 @@ import glob
 import argparse
 from current import calculate_current, calculate_didv, load_parameters, calculate_current_parallel
 from plot_utils import plot_results, plot_results_1d
+import time
 
 # Add C++ solver imports
 import sys
@@ -142,13 +143,14 @@ def eval_dir_of_lines_cpp(input_files, params, Vmin=0.0, Vmax=10.0, line_lims=No
 
         if Vbias < Vmin or Vbias > Vmax: continue
         
-        print(f"###  Vbias: {Vbias} file {input_file}")
+        #print(f"###  Vbias: {Vbias} file {input_file}")
+        params['VBias'] = Vbias*1000.0
         
         # Print a sample of the site energies (first 3 rows)
-        if input_data.shape[0] > 3:
-            print(f"\nC++ Sample input energies (first 3 points):")
-            for i in range(3):
-                print(f"Point {i}: Esite_1: {input_data[i,3]*1000.0:.3f}, Esite_2: {input_data[i,4]*1000.0:.3f}, Esite_3: {input_data[i,5]*1000.0:.3f} meV")
+        #if input_data.shape[0] > 3:
+        #    print(f"\nC++ Sample input energies (first 3 points):")
+        #    for i in range(3):
+        #        print(f"Point {i}: Esite_1: {input_data[i,3]*1000.0:.3f}, Esite_2: {input_data[i,4]*1000.0:.3f}, Esite_3: {input_data[i,5]*1000.0:.3f} meV")
 
         #print( "input_data ", input_data )
 
@@ -256,24 +258,29 @@ if __name__ == "__main__":
     #args.solver = 'qmeq'
 
     args.Vmin = 0.0
-    args.Vmax = 0.2
+    args.Vmax = 0.3
 
-    args.Vmin = 0.08
-    args.Vmax = 0.12
+    #args.Vmin = 0.08
+    #args.Vmax = 0.12
 
     #line_lims = [10.0, 30.0]
     line_lims = None    
 
-    args.solver = 'both'
+    #args.solver = 'both'
     verbosity = 0
 
     # Disable line wrapping entirely
     np.set_printoptions(linewidth=np.inf)
 
-    input_files = [ 'input/0.10_line_scan.dat']
+    input_files = [ name for name in input_files if '_line_scan.dat' in name ]
+    #input_files = [ 'input/0.10_line_scan.dat']
     #input_files = [ 'input/0.10_line_scan_short.dat']
     #input_files = [ 'input/0.10_line_scan_20.dat']
     Is2=None
+
+    # Nano-time to measure preformance
+    T0 = time.perf_counter()
+    print( " input_files ",  input_files )
     if positions is None:
         if args.solver == 'qmeq':
             bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines(  input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims, nThreads=12 )
@@ -284,7 +291,9 @@ if __name__ == "__main__":
             print( "\n\n####################################################"  )
             print( "#################### QmeQ Pauli #####################"  )
             print( "####################################################\n\n"  )
+            #verbosity=0
             bias_voltages, positions, eps_max_grid, current_grid = eval_dir_of_lines(  input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims, nThreads=1 )
+            #verbosity=3
             print( "\n\n####################################################"  )
             print( "#################### C++ Pauli #####################"  )
             print( "####################################################\n\n"  )
@@ -292,6 +301,8 @@ if __name__ == "__main__":
             #bias_voltages, positions, eps_max_grid,Is2 = eval_dir_of_lines_cpp( input_files, params, Vmin=args.Vmin, Vmax=args.Vmax, line_lims=line_lims)
             #current_grid = Is2*0.
             Is2=Is2[0]
+    T = time.perf_counter() - T0
+    print( "Total time: ", T, "s" )
 
     np.savez('results.npz', bias_voltages=bias_voltages, positions=positions, eps_max_grid=eps_max_grid, current_grid=current_grid, params=params)
 
