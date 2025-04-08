@@ -190,6 +190,8 @@ class GUITemplate(QtWidgets.QMainWindow):
         # Control panel layout
         l0 = QtWidgets.QVBoxLayout()
         l00.addLayout(l0)
+
+        self.layout0 = l0
         
         # Create widgets for each parameter group
         current_group = None
@@ -238,6 +240,7 @@ class GUITemplate(QtWidgets.QMainWindow):
         """Add common control buttons"""
         # Auto-update checkbox
         hb = QtWidgets.QHBoxLayout()
+        #self.button_box = hb
         layout.addLayout(hb)
         self.cbAutoUpdate = QtWidgets.QCheckBox("Auto-update")
         self.cbAutoUpdate.setChecked(True)

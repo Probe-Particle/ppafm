@@ -5,6 +5,7 @@ import os
 import numpy as np
 import matplotlib; matplotlib.use('Qt5Agg')
 from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtWidgets import QFileDialog
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -12,6 +13,8 @@ from dataclasses import dataclass, field
 from typing import Optional, Any, Dict, List, Tuple, Union
 from enum import Enum, auto
 from scipy.interpolate import LinearNDInterpolator
+from matplotlib.widgets import RadioButtons
+import re
 
 # Add path to pyProbeParticle for Pauli solver
 from sys import path
@@ -25,9 +28,207 @@ from charge_rings_core import calculate_tip_potential, calculate_qdot_system, ma
 
 from charge_rings_plotting import plot_ellipses
 
+
+def export_line_scan_data(distance, x, y, Es, Qs, Is, Qtot, STM, params, x1, y1, x2, y2, filename=None):
+    """
+    Export line scan data to a file.
+    
+    Parameters:
+    -----------
+    distance : array
+        Distance along the scan line
+    x, y : arrays
+        Coordinates of points along the scan line
+    Es : array
+        Site energies, shape (npoints, nsites)
+    Qs : array
+        Site charges, shape (npoints, nsites)
+    Is : array
+        Site currents, shape (npoints, nsites)
+    Qtot : array
+        Total charge
+    STM : array
+        Total STM signal (Pauli current)
+    params : dict
+        Parameter dictionary
+    x1, y1, x2, y2 : float
+        Start and end coordinates of the scan line
+    filename : str, optional
+        Custom filename, if None a default name will be generated
+    
+    Returns:
+    --------
+    str
+        Path to the saved file
+    """
+    # Determine number of sites
+    nsite = Es.shape[1]
+    
+    # Prepare header with parameters
+    param_header = "# Calculation parameters:\n"
+    for key, value in params.items():
+        param_header += f"# {key}: {value}\n"
+    
+    # Add column description
+    param_header += "#\n# Data columns:\n"
+    param_header += "# 1: Distance[A]\n"
+    param_header += "# 2: x[A]\n"
+    param_header += "# 3: y[A]\n"
+    for i in range(nsite):
+        param_header += f"# {i+4}: Esite_{i+1}\n"
+    for i in range(nsite):
+        param_header += f"# {i+4+nsite}: Qsite_{i+1}\n"
+    for i in range(nsite):
+        param_header += f"# {i+4+2*nsite}: Isite_{i+1}\n"
+    param_header += f"# {4+3*nsite}: Qtotal\n"
+    param_header += f"# {5+3*nsite}: STM_total\n"
+    
+    # Add line coordinates
+    param_header += f"\n# Line scan from ({x1:.2f}, {y1:.2f}) to ({x2:.2f}, {y2:.2f})"
+    
+    # Combine all data
+    save_data = np.column_stack([distance, x, y] + 
+                              [Es[:,i] for i in range(nsite)] + 
+                              [Qs[:,i] for i in range(nsite)] + 
+                              [Is[:,i] for i in range(nsite)] + 
+                              [Qtot, STM])
+    
+    # Create filename if not provided
+    if filename is None:
+        filename = 'line_scan_{:.1f}_{:.1f}_to_{:.1f}_{:.1f}.dat'.format(x1, y1, x2, y2)
+    
+    # Save to file
+    np.savetxt(filename, save_data, header=param_header)
+    print(f"Data saved to {filename}")
+    
+    return filename
+
+
+def load_line_scan_data(filename):
+    """
+    Load line scan data from a file.
+    
+    Parameters:
+    -----------
+    filename : str
+        Path to the data file
+    
+    Returns:
+    --------
+    dict
+        Dictionary containing:
+        - 'params': Dictionary of parameters from the file header
+        - 'distance', 'x', 'y': Positional data
+        - 'Es', 'Qs', 'Is': Site-specific data arrays
+        - 'Qtot', 'STM': Total quantities
+        - 'nsite': Number of sites
+        - 'line_coords': (x1, y1, x2, y2) of the scan line
+    """
+    # Read the file content
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+    
+    # Parse parameters from header
+    params = {}
+    line_coords = [0, 0, 0, 0]
+    nsite = 0
+    data_columns = {}
+    
+    # Process header lines
+    for i, line in enumerate(lines):
+        if line.startswith('#'):
+            # Parameter lines
+            if ':' in line and 'Data columns' not in line:
+                parts = line.strip('# \n').split(': ', 1)
+                if len(parts) == 2:
+                    key, value = parts
+                    try:
+                        # Try to convert to appropriate type
+                        if '.' in value:
+                            params[key] = float(value)
+                        else:
+                            params[key] = int(value)
+                    except ValueError:
+                        params[key] = value
+            
+            # Line coordinates
+            if 'Line scan from' in line:
+                # Extract coordinates using regular expressions
+                coords = re.findall(r'\(([^)]+)\)', line)
+                if len(coords) == 2:
+                    start_coords = coords[0].split(',')
+                    end_coords = coords[1].split(',')
+                    if len(start_coords) == 2 and len(end_coords) == 2:
+                        line_coords = [
+                            float(start_coords[0]), 
+                            float(start_coords[1]), 
+                            float(end_coords[0]), 
+                            float(end_coords[1])
+                        ]
+            
+            # Column information to determine nsite
+            if 'Esite_' in line:
+                match = re.search(r'Esite_(\d+)', line)
+                if match:
+                    site_num = int(match.group(1))
+                    nsite = max(nsite, site_num)
+            
+            # Extract column mappings
+            if re.match(r'#\s+\d+:', line):
+                match = re.search(r'#\s+(\d+):\s+(.+)', line)
+                if match:
+                    col_idx = int(match.group(1)) - 1  # Convert to 0-indexed
+                    col_name = match.group(2)
+                    data_columns[col_name] = col_idx
+        else:
+            # First non-comment line is the start of data
+            break
+    
+    # Load numerical data
+    data = np.loadtxt(filename)
+    
+    # Extract data columns
+    distance = data[:, 0]
+    x = data[:, 1]
+    y = data[:, 2]
+    
+    # Extract site-specific data
+    Es = np.zeros((len(distance), nsite))
+    Qs = np.zeros((len(distance), nsite))
+    Is = np.zeros((len(distance), nsite))
+    
+    for i in range(nsite):
+        Es[:, i] = data[:, 3 + i]
+        Qs[:, i] = data[:, 3 + nsite + i]
+        Is[:, i] = data[:, 3 + 2*nsite + i]
+    
+    # Extract total quantities
+    Qtot = data[:, 3 + 3*nsite]
+    STM = data[:, 4 + 3*nsite]
+    
+    # Return as dictionary
+    return {
+        'params': params,
+        'distance': distance,
+        'x': x,
+        'y': y,
+        'Es': Es,
+        'Qs': Qs,
+        'Is': Is,
+        'Qtot': Qtot,
+        'STM': STM,
+        'nsite': nsite,
+        'line_coords': line_coords
+    }
+
 class ApplicationWindow(GUITemplate):
     def __init__(self):
         super().__init__("Combined Charge Rings GUI v6")
+        
+        # Initialize reference data storage
+        self.reference_data = None
+        self.reference_file = None
+        self.current_scan_data = None
         
         # Parameter specifications
         self.param_specs = {
@@ -72,6 +273,13 @@ class ApplicationWindow(GUITemplate):
             'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (50, 500),    'value': 100,  'step': 50},
             'decay':         {'group': 'Visualization',     'widget': 'double', 'range': (0.1, 2.0),   'value': 0.3,  'step': 0.1,   'decimals': 2},
             'dQ':            {'group': 'Visualization',     'widget': 'double', 'range': (0.001, 0.1), 'value': 0.02, 'step': 0.001, 'decimals': 3},
+
+
+            # 1D scan end points
+            'p1_x':          {'group': 'Visualization',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -6.5, 'step': 0.5},
+            'p1_y':          {'group': 'Visualization',     'widget': 'double', 'range': (-20.0, 20.0),  'value': 10.0, 'step': 0.5},
+            'p2_x':          {'group': 'Visualization',     'widget': 'double', 'range': (-20.0, 20.0),  'value':  6.5, 'step': 0.5},
+            'p2_y':          {'group': 'Visualization',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -10.0, 'step': 0.5},
             
             # Experimental Data
             'exp_slice':     {'group': 'Experimental Data', 'widget': 'int',    'range': (0, 13),     'value': 0,    'step': 1},
@@ -136,6 +344,12 @@ class ApplicationWindow(GUITemplate):
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
         self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
         
+        # Add menu for line scan functionality
+        self.add_line_scan_menu()
+        
+        # Add line scan buttons
+        self.add_line_scan_buttons()
+        
         # Initialize Pauli solver
         self.NSingle = 3  # Number of single-particle states (same as nsite)
         self.NLeads = 2   # Number of leads (substrate and tip)
@@ -194,6 +408,131 @@ class ApplicationWindow(GUITemplate):
             Hsingle[next_i, i] = t  # Hermitian conjugate
         
         return Hsingle
+    
+    def add_line_scan_buttons(self):
+        """Add buttons for line scan functionality"""
+        # Create button group and add it to the main layout
+        
+        scan_layout = QtWidgets.QHBoxLayout()
+        self.layout0.addLayout(scan_layout)
+
+        # Save Scan button
+        btn_save_scan = QtWidgets.QPushButton('Save Current Scan')
+        btn_save_scan.setToolTip('Save the current scan data to a file')
+        btn_save_scan.clicked.connect(self.save_current_scan_data)
+        scan_layout.addWidget(btn_save_scan)
+        
+        # Load Scan button
+        btn_load_scan = QtWidgets.QPushButton('Load Reference Scan')
+        btn_load_scan.setToolTip('Load reference scan data from a file')
+        btn_load_scan.clicked.connect(self.load_reference_data)
+        scan_layout.addWidget(btn_load_scan)
+
+        scan_layout = QtWidgets.QHBoxLayout()
+        self.layout0.addLayout(scan_layout)
+
+        # Run Scan button
+        btn_run_scan = QtWidgets.QPushButton('Run Scan from Parameters')
+        btn_run_scan.setToolTip('Execute a 1D scan using the current parameter values')
+        btn_run_scan.clicked.connect(self.run_scan_from_parameters)
+        scan_layout.addWidget(btn_run_scan)
+                
+        # Compare button
+        btn_compare = QtWidgets.QPushButton('Compare with Reference')
+        btn_compare.setToolTip('Compare current scan with reference data')
+        btn_compare.clicked.connect(lambda: self.plot_comparison_window(self.current_scan_data, self.reference_data) 
+                                  if self.current_scan_data is not None and self.reference_data is not None 
+                                  else QtWidgets.QMessageBox.warning(self, 'Warning', 'Both current scan and reference data must be loaded.'))
+        scan_layout.addWidget(btn_compare)
+    
+    def add_line_scan_menu(self):
+        """Add menu items for line scan functionality"""
+        # Create Line Scan menu
+        line_scan_menu = self.menuBar().addMenu('Line Scan')
+        
+        # Load reference data action
+        load_ref_action = QtWidgets.QAction('Load Reference Data', self)
+        load_ref_action.triggered.connect(self.load_reference_data)
+        line_scan_menu.addAction(load_ref_action)
+        
+        # Parameter-based scan action
+        param_scan_action = QtWidgets.QAction('Parametric Scan...', self)
+        param_scan_action.triggered.connect(self.show_param_scan_dialog)
+        line_scan_menu.addAction(param_scan_action)
+        
+        # Add separator
+        line_scan_menu.addSeparator()
+        
+        # Compare with reference action
+        compare_action = QtWidgets.QAction('Compare with Reference', self)
+        compare_action.triggered.connect(lambda: self.plot_comparison_window(self.current_scan_data, self.reference_data) 
+                                        if self.current_scan_data is not None and self.reference_data is not None 
+                                        else QtWidgets.QMessageBox.warning(self, 'Warning', 'Both current scan and reference data must be loaded.'))
+        line_scan_menu.addAction(compare_action)
+    
+    def show_param_scan_dialog(self):
+        """Show dialog for parameter-based 1D scan"""
+        # Create dialog
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle('Parametric Line Scan')
+        dialog.setMinimumWidth(300)
+        
+        # Create layout
+        layout = QtWidgets.QVBoxLayout()
+        dialog.setLayout(layout)
+        
+        # Create form layout for inputs
+        form_layout = QtWidgets.QFormLayout()
+        layout.addLayout(form_layout)
+        
+        # Create input fields
+        x1_input = QtWidgets.QLineEdit('-5.0')
+        y1_input = QtWidgets.QLineEdit('5.0')
+        x2_input = QtWidgets.QLineEdit('5.0')
+        y2_input = QtWidgets.QLineEdit('-5.0')
+        npoints_input = QtWidgets.QLineEdit('200')
+        
+        # Add fields to form
+        form_layout.addRow('Start X:', x1_input)
+        form_layout.addRow('Start Y:', y1_input)
+        form_layout.addRow('End X:', x2_input)
+        form_layout.addRow('End Y:', y2_input)
+        form_layout.addRow('Number of points:', npoints_input)
+        
+        # Create checkbox for comparison
+        compare_checkbox = QtWidgets.QCheckBox('Compare with reference data if available')
+        compare_checkbox.setChecked(True)
+        layout.addWidget(compare_checkbox)
+        
+        # Create buttons
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        # Show dialog and process result
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            try:
+                # Get values from inputs
+                x1 = float(x1_input.text())
+                y1 = float(y1_input.text())
+                x2 = float(x2_input.text())
+                y2 = float(y2_input.text())
+                npoints = int(npoints_input.text())
+                
+                # Run scan
+                self.current_scan_data = self.calculate_1d_scan_from_params(
+                    x1, y1, x2, y2, npoints=npoints
+                )
+                
+                # Compare with reference if requested and available
+                if compare_checkbox.isChecked() and self.reference_data is not None:
+                    self.plot_comparison_window(self.current_scan_data, self.reference_data)
+                
+            except ValueError as e:
+                QtWidgets.QMessageBox.warning(self, 'Error', f'Invalid input: {str(e)}')
     
     def calculate_pauli_current(self, site_energies, params):
         """Calculate current using Pauli solver for given site energies
@@ -352,6 +691,12 @@ class ApplicationWindow(GUITemplate):
         """Main calculation and plot update routine"""
         params = self.get_param_values()
         
+        # Store scan line coordinates in class variables for easier access
+        self.p1_x = params['p1_x']
+        self.p1_y = params['p1_y']
+        self.p2_x = params['p2_x']
+        self.p2_y = params['p2_y']
+        
         # Calculate tip potential
         tip_data = calculate_tip_potential(**params)
         Vtip    = tip_data['Vtip']
@@ -452,6 +797,16 @@ class ApplicationWindow(GUITemplate):
             # Add each artist as an overlay
             for artist in artists:
                 self.plot_manager.add_overlay(plot_name, artist)
+                
+            # Add the scan line to the energy plot
+            if plot_name == 'energies':
+                # Draw the scan line defined by parameters
+                scan_line = ax.plot([self.p1_x, self.p2_x], [self.p1_y, self.p2_y], 'r-', linewidth=2, alpha=0.7, zorder=10)[0]
+                scan_start = ax.plot([self.p1_x], [self.p1_y], 'go', markersize=8, alpha=0.8, zorder=11)[0]
+                scan_end = ax.plot([self.p2_x], [self.p2_y], 'ro', markersize=8, alpha=0.8, zorder=11)[0]
+                self.plot_manager.add_overlay(plot_name, scan_line)
+                self.plot_manager.add_overlay(plot_name, scan_start)
+                self.plot_manager.add_overlay(plot_name, scan_end)
         
         # Perform final blitting update
         self.plot_manager.blit()
@@ -505,7 +860,26 @@ class ApplicationWindow(GUITemplate):
                 print("Shift key detected, running 2D voltage scan")
                 self.calculate_2d_voltage_scan(self.start_point, end_point)
             else:
-                self.calculate_1d_scan(self.start_point, end_point)
+                # Update the parameter values to match the new line coordinates
+                x1, y1 = self.start_point
+                x2, y2 = end_point
+                
+                # Update the parameter widgets
+                self.param_widgets['p1_x'].setValue(x1)
+                self.param_widgets['p1_y'].setValue(y1)
+                self.param_widgets['p2_x'].setValue(x2)
+                self.param_widgets['p2_y'].setValue(y2)
+                
+                # Update internal class variables
+                self.p1_x, self.p1_y = x1, y1
+                self.p2_x, self.p2_y = x2, y2
+                
+                # Calculate and store the 1D scan data
+                self.current_scan_data = self.calculate_1d_scan(self.start_point, end_point)
+                
+                # If reference data is loaded, show comparison window
+                if hasattr(self, 'reference_data') and self.reference_data is not None:
+                    self.plot_comparison_window(self.current_scan_data, self.reference_data)
         elif event.inaxes == self.ax7:  # Experimental dI/dV plot
             print("Processing experimental plot voltage scan")
             try:
@@ -529,8 +903,28 @@ class ApplicationWindow(GUITemplate):
         
         self.start_point = None
 
-    def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5):
-        """Calculate and plot 1D scan between two points"""
+    def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5, npoints=None, save_data=True):
+        """
+        Calculate and plot 1D scan between two points
+        
+        Parameters:
+        -----------
+        start_point : tuple
+            (x, y) coordinates of scan start point
+        end_point : tuple
+            (x, y) coordinates of scan end point
+        pointPerAngstrom : float
+            Resolution for automatic point calculation (ignored if npoints is specified)
+        npoints : int, optional
+            Number of points along the line. If None, calculated based on pointPerAngstrom
+        save_data : bool
+            Whether to save the data to a file
+        
+        Returns:
+        --------
+        dict
+            Dictionary containing scan data and metadata
+        """
         params = self.get_param_values()
         L = params['L']
         nsite = params['nsite']
@@ -539,9 +933,10 @@ class ApplicationWindow(GUITemplate):
         x1, y1 = start_point
         x2, y2 = end_point
         
-        # Calculate number of points based on distance
+        # Calculate number of points based on distance if not provided
         dist = np.sqrt((x2-x1)**2 + (y2-y1)**2)
-        npoints = max(100, int(dist * pointPerAngstrom))
+        if npoints is None:
+            npoints = max(100, int(dist * pointPerAngstrom))
         
         # Create line coordinates
         x = np.linspace(x1, x2, npoints)
@@ -644,7 +1039,301 @@ class ApplicationWindow(GUITemplate):
         # Adjust layout and show
         scan_fig.tight_layout(rect=[0, 0, 1, 0.95])
         plt.show()
+        
+        # Save data to file if requested
+        filename = None
+        if save_data:
+            filename = export_line_scan_data(
+                distance, x, y, Es, Qs, Is, Qtot, STM, params,
+                x1, y1, x2, y2
+            )
+        
+        # Return data as dictionary for further use
+        return {
+            'params': params,
+            'distance': distance,
+            'x': x,
+            'y': y,
+            'Es': Es,
+            'Qs': Qs,
+            'Is': Is,
+            'Qtot': Qtot,
+            'STM': STM,
+            'nsite': nsite,
+            'line_coords': [x1, y1, x2, y2],
+            'filename': filename
+        }
 
+    def calculate_1d_scan_from_params(self, x1, y1, x2, y2, npoints=None, pointPerAngstrom=5, save_data=True):
+        """
+        Calculate and plot 1D scan between specified coordinates.
+        
+        Parameters:
+        -----------
+        x1, y1 : float
+            Start coordinates
+        x2, y2 : float
+            End coordinates
+        npoints : int, optional
+            Number of points along the line. If None, calculated based on pointPerAngstrom
+        pointPerAngstrom : float, optional
+            Resolution for automatic point calculation (ignored if npoints is specified)
+        save_data : bool
+            Whether to save the data to a file
+            
+        Returns:
+        --------
+        dict
+            Dictionary containing scan data
+        """
+        # Just delegate to the standard method with different parameter format
+        return self.calculate_1d_scan(
+            start_point=(x1, y1),
+            end_point=(x2, y2),
+            npoints=npoints,
+            pointPerAngstrom=pointPerAngstrom,
+            save_data=save_data
+        )
+    
+    def plot_comparison_window(self, current_data, reference_data=None, reference_file=None):
+        """
+        Create a separate window showing current scan results with optional reference data.
+        
+        Parameters:
+        -----------
+        current_data : dict
+            Dictionary containing current scan data (output of calculate_1d_scan)
+        reference_data : dict, optional
+            Dictionary with reference scan data
+        reference_file : str, optional
+            Path to reference data file, used if reference_data is None
+        """
+        # Load reference data from file if provided and not already loaded
+        if reference_data is None and reference_file is not None:
+            reference_data = load_line_scan_data(reference_file)
+        
+        if reference_data is None:
+            print("No reference data provided. Showing only current data.")
+
+        # Create new window with figure
+        compare_window = QtWidgets.QMainWindow()
+        compare_window.setWindowTitle('1D Scan Comparison')
+        
+        # Create figure with canvas
+        fig = Figure(figsize=(12, 10))
+        canvas = FigureCanvas(fig)
+        compare_window.setCentralWidget(canvas)
+        
+        # Extract current scan data
+        distance = current_data['distance']
+        nsite = current_data['nsite']
+        Es_current = current_data['Es']
+        Qs_current = current_data['Qs']
+        Is_current = current_data['Is']
+        Qtot_current = current_data['Qtot']
+        STM_current = current_data['STM']
+        params = current_data['params']
+        x1, y1, x2, y2 = current_data['line_coords']
+        
+        # Check if reference data is compatible
+        ref_compatible = False
+        if reference_data is not None:
+            # Check if sites match
+            if reference_data['nsite'] == nsite:
+                ref_compatible = True
+                # Extract reference data
+                distance_ref = reference_data['distance']
+                Es_ref = reference_data['Es']
+                Qs_ref = reference_data['Qs']
+                Is_ref = reference_data['Is']
+                Qtot_ref = reference_data['Qtot']
+                STM_ref = reference_data['STM']
+                
+                # Check if resolution matches, if not, interpolate reference data
+                if len(distance_ref) != len(distance):
+                    print(f"Interpolating reference data (points: {len(distance_ref)} -> {len(distance)})")
+                    # Create interpolated versions of reference data
+                    from scipy.interpolate import interp1d
+                    
+                    # Normalize distances for interpolation
+                    norm_dist = distance / distance[-1]
+                    norm_dist_ref = distance_ref / distance_ref[-1]
+                    
+                    # Interpolate each site's data
+                    Es_ref_interp = np.zeros_like(Es_current)
+                    Qs_ref_interp = np.zeros_like(Qs_current)
+                    Is_ref_interp = np.zeros_like(Is_current)
+                    
+                    for i in range(nsite):
+                        # Energy
+                        interp_E = interp1d(norm_dist_ref, Es_ref[:,i], bounds_error=False, fill_value="extrapolate")
+                        Es_ref_interp[:,i] = interp_E(norm_dist)
+                        
+                        # Charge
+                        interp_Q = interp1d(norm_dist_ref, Qs_ref[:,i], bounds_error=False, fill_value="extrapolate")
+                        Qs_ref_interp[:,i] = interp_Q(norm_dist)
+                        
+                        # Current
+                        interp_I = interp1d(norm_dist_ref, Is_ref[:,i], bounds_error=False, fill_value="extrapolate")
+                        Is_ref_interp[:,i] = interp_I(norm_dist)
+                    
+                    # Total quantities
+                    interp_Qtot = interp1d(norm_dist_ref, Qtot_ref, bounds_error=False, fill_value="extrapolate")
+                    Qtot_ref_interp = interp_Qtot(norm_dist)
+                    
+                    interp_STM = interp1d(norm_dist_ref, STM_ref, bounds_error=False, fill_value="extrapolate")
+                    STM_ref_interp = interp_STM(norm_dist)
+                    
+                    # Replace reference data with interpolated versions
+                    Es_ref = Es_ref_interp
+                    Qs_ref = Qs_ref_interp
+                    Is_ref = Is_ref_interp
+                    Qtot_ref = Qtot_ref_interp
+                    STM_ref = STM_ref_interp
+            else:
+                print(f"Warning: Reference data has {reference_data['nsite']} sites but current data has {nsite} sites. Cannot compare directly.")
+
+        # Add title to figure
+        fig.suptitle(f'1D Scan Comparison - Line: ({x1:.1f}, {y1:.1f}) to ({x2:.1f}, {y2:.1f})')
+        
+        # Create subplots for comparison
+        # First row: Site Energies
+        ax1 = fig.add_subplot(311)
+        ax1.set_title('Site Energies')
+        ax1.set_xlabel('Distance [Å]')
+        ax1.set_ylabel('Energy [eV]')
+        
+        # Plot current data with solid lines
+        for i in range(nsite):
+            label = f'Site {i+1}'
+            ax1.plot(distance, Es_current[:,i], '-', label=f'{label} (Current)')
+        
+        # Plot reference data with dashed lines if available
+        if ref_compatible:
+            for i in range(nsite):
+                label = f'Site {i+1}'
+                ax1.plot(distance, Es_ref[:,i], '--', label=f'{label} (Reference)')
+        
+        # Add horizontal line for bias voltage
+        ax1.axhline(y=params['VBias'], color='k', linestyle='--', label='Bias')
+        
+        # Add legend
+        ax1.legend()
+        ax1.grid(True)
+        
+        # Second row: Tunneling parameters (epsilon differences)
+        ax2 = fig.add_subplot(312)
+        ax2.set_title('Tunneling Parameters')
+        ax2.set_xlabel('Distance [Å]')
+        ax2.set_ylabel('Energy Difference [eV]')
+        
+        # Calculate energy differences between adjacent sites (T1, T2, T3)
+        if nsite >= 2:
+            deltas_current = []
+            deltas_ref = []
+            
+            # For each pair of adjacent sites
+            for i in range(nsite):
+                next_i = (i + 1) % nsite  # Circular indexing for the ring
+                delta_E = np.abs(Es_current[:,i] - Es_current[:,next_i])
+                deltas_current.append(delta_E)
+                ax2.plot(distance, delta_E, '-', label=f'T{i+1} (Current)')
+                
+                if ref_compatible:
+                    delta_E_ref = np.abs(Es_ref[:,i] - Es_ref[:,next_i])
+                    deltas_ref.append(delta_E_ref)
+                    ax2.plot(distance, delta_E_ref, '--', label=f'T{i+1} (Reference)')
+        
+        # Add legend
+        ax2.legend()
+        ax2.grid(True)
+        
+        # Third row: Current
+        ax3 = fig.add_subplot(313)
+        ax3.set_title('STM Signal')
+        ax3.set_xlabel('Distance [Å]')
+        ax3.set_ylabel('Current [a.u.]')
+        
+        # Plot current data
+        ax3.plot(distance, STM_current, 'b-', label='Current', linewidth=2)
+        
+        # Plot reference data if available
+        if ref_compatible:
+            ax3.plot(distance, STM_ref, 'r--', label='Reference', linewidth=2)
+        
+        # Add legend
+        ax3.legend()
+        ax3.grid(True)
+        
+        # Adjust layout and show
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        canvas.draw()
+        
+        # Show the window
+        compare_window.resize(900, 800)
+        compare_window.show()
+        
+        # Keep a reference to prevent garbage collection
+        self._compare_window = compare_window
+    
+    def run_scan_from_parameters(self):
+        """Run a 1D scan using the current parameter values"""
+        # Get scan line coordinates from parameters
+        x1, y1 = self.p1_x, self.p1_y
+        x2, y2 = self.p2_x, self.p2_y
+        
+        # Run the scan
+        self.current_scan_data = self.calculate_1d_scan_from_params(x1, y1, x2, y2)
+        
+        # Show comparison window if reference data is available
+        if self.reference_data is not None:
+            self.plot_comparison_window(self.current_scan_data, self.reference_data)
+    
+    def save_current_scan_data(self):
+        """Save the current scan data to a file"""
+        if self.current_scan_data is None:
+            QtWidgets.QMessageBox.warning(self, 'Warning', 'No scan data available to save.')
+            return
+            
+        # Use the export function with a file dialog
+        fileName, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Save Scan Data", "", "Data Files (*.dat)"
+        )
+        
+        if fileName:
+            if not fileName.endswith('.dat'):
+                fileName += '.dat'
+            
+            export_line_scan_data(fileName, self.current_scan_data)
+            QtWidgets.QMessageBox.information(self, 'Success', f'Scan data saved to {fileName}')
+    
+    def load_reference_data(self):
+        """Load reference data from a file using a file dialog"""
+        # Open file dialog to select the reference data file
+        file_dialog = QFileDialog()
+        file_dialog.setNameFilter("Data Files (*.dat);;All Files (*)")
+        file_dialog.setWindowTitle("Load Reference Data")
+        
+        if file_dialog.exec_():
+            file_path = file_dialog.selectedFiles()[0]
+            try:
+                reference_data = load_line_scan_data(file_path)
+                print(f"Loaded reference data from {file_path}")
+                
+                # Store reference data for later use
+                self.reference_data = reference_data
+                self.reference_file = file_path
+                
+                # If we have current scan data, show comparison window
+                if hasattr(self, 'current_scan_data'):
+                    self.plot_comparison_window(self.current_scan_data, self.reference_data)
+                
+                return reference_data
+            except Exception as e:
+                print(f"Error loading reference data: {e}")
+                return None
+        return None
+    
     def plot_voltage_line_scan(self, start_point, end_point, pointPerAngstrom=5):
         """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
         if not hasattr(self, 'exp_dIdV') or self.exp_dIdV is None:
