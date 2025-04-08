@@ -98,6 +98,9 @@ class ApplicationWindow(GUITemplate):
         # Initialize plot manager
         self.plot_manager = PlotManager(self.fig)
         
+        # Initialize Qt window for 2D voltage scans
+        self.voltage_scan_window = None
+        
         # Configure plots with explicit extents
         L = self.param_specs['L']['value']
         extent = (-L, L, -L, L)
@@ -808,8 +811,8 @@ class ApplicationWindow(GUITemplate):
         for v_idx, Vbias in enumerate(voltage_range):
             # Set up leads with fixed chemical potentials (as in run_cpp_scan)
             Temp = params['temperature']
-            pauli.set_lead(0, 0.0, Temp)  # Substrate lead (mu=0)
-            pauli.set_lead(1, Vbias*1000.0, Temp)  # Tip lead (mu=VBias)
+            pauli.set_lead(0, 0.0         , Temp )  # Substrate lead (mu=0)
+            pauli.set_lead(1, Vbias*1000.0, Temp )  # Tip lead (mu=VBias)
             
             # Calculate energies and charges for this voltage
             Es = compute_site_energies(pTips, spos, VBias=Vbias, Rtip=params['Rtip'], zV0=params['zV0'], E0s=Esite_arr)
@@ -822,7 +825,7 @@ class ApplicationWindow(GUITemplate):
             
             # Calculate tunneling coefficients for this voltage
             # These would normally come from input_data in run_cpp_scan
-            Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
+            Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=0.01)
             
             # Create 3D tunneling array (npoints, NLeads, NSingle) as in run_cpp_scan
             TLeads = np.zeros((npoints, NLeads, NSingle), dtype=np.float64)
@@ -882,8 +885,29 @@ class ApplicationWindow(GUITemplate):
         end_point : tuple
             (x, y) coordinates of scan end point
         """
-        # Create a new figure for the 2D scan results
-        fig = plt.figure(figsize=(10, 8))
+        # Create or reuse Qt window with embedded figure
+        if self.voltage_scan_window is None or not self.voltage_scan_window.isVisible():
+            # Create new window
+            self.voltage_scan_window = QtWidgets.QMainWindow()
+            self.voltage_scan_window.setWindowTitle('2D Voltage Scan Results')
+            
+            # Create figure with canvas
+            fig = Figure(figsize=(10, 8))
+            canvas = FigureCanvas(fig)
+            self.voltage_scan_window.setCentralWidget(canvas)
+            
+            # Set window size and position
+            self.voltage_scan_window.resize(900, 700)
+            
+            # Event handling for window close
+            self.voltage_scan_window.closeEvent = lambda event: setattr(self, 'voltage_scan_window', None)
+        else:
+            # Reuse existing window
+            canvas = self.voltage_scan_window.centralWidget()
+            fig = canvas.figure
+            fig.clear()
+            
+        # Set title
         fig.suptitle(f'2D Voltage Scan from ({start_point[0]:.1f}, {start_point[1]:.1f}) to ({end_point[0]:.1f}, {end_point[1]:.1f})')
         
         # Define extent for the 2D maps
@@ -924,7 +948,11 @@ class ApplicationWindow(GUITemplate):
         
         # Adjust layout and show
         fig.tight_layout(rect=[0, 0, 1, 0.95])
-        plt.show()
+        canvas.draw()
+        
+        # Show the window
+        self.voltage_scan_window.show()
+        self.voltage_scan_window.raise_()
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
