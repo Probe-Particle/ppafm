@@ -437,7 +437,7 @@ class ApplicationWindow(GUITemplate):
         
         # Save data to file
         self.save_1d_scan_data(params, distance, x, y, Es, Qs, Is, Qtot, STM, nsite, x1, y1, x2, y2)
-    
+
     def plot_1d_scan_results(self, distance, Es, Qs, Is, Qtot, STM, nsite):
         """Plot results of 1D scan"""
         # Create new figure for 1D scan
@@ -445,10 +445,22 @@ class ApplicationWindow(GUITemplate):
         ax1 = scan_fig.add_subplot(311)
         ax2 = scan_fig.add_subplot(312)
         ax3 = scan_fig.add_subplot(313)
+
+        bRef = False
+        if hasattr(self, 'ref_data_line'):
+            if self.ref_data_line is not None:
+                bRef = True
+        
         
         # Plot individual site energies
         for i in range(nsite):
             ax1.plot(distance, Es[:,i], '-', label=f'Site {i+1}')
+            
+            # Plot reference energies if available
+            if bRef:
+                icol = self.ref_columns[f'Esite_{i+1}']
+                ax1.plot( self.ref_data_line[:,0],  self.ref_data_line[:,icol], '--', alpha=0.7, label=f'Ref Site {i+1}' )
+                
         ax1.axhline(y=0, color='k', linestyle='--', alpha=0.5)
         ax1.set_ylabel('Energy')
         ax1.legend()
@@ -465,6 +477,12 @@ class ApplicationWindow(GUITemplate):
         # Plot individual site currents
         for i in range(nsite):
             ax3.plot(distance, Is[:,i], '-', label=f'Site {i+1}')
+            
+            # Plot reference tunneling if available
+            if bRef:
+                icol = self.ref_columns[f'Tsite_{i+1}']
+                ax3.plot( self.ref_data_line[:,0],  self.ref_data_line[:,icol], '--', alpha=0.7, label=f'Ref Site {i+1}' )
+                
         ax3.plot(distance, STM, 'k-', label='Total', linewidth=2)
         ax3.set_ylabel('Current')
         ax3.legend()
