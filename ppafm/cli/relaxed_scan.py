@@ -174,6 +174,7 @@ def main(argv=None):
             FFkpfm_t0sV=ff_kpfm_t0sv,
             FFkpfm_tVs0=ff_kpfm_tvs0,
             tip_spline=tip_spline,
+            bPPdisp=opt_dict["disp"],
             bFFtotDebug=args.bDebugFFtot,
             parameters=parameters,
         )
