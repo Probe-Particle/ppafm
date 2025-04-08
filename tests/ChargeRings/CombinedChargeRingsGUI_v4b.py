@@ -389,7 +389,7 @@ class ApplicationWindow(GUITemplate):
         self.canvas.draw()
 
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
-        """Calculate and plot 1D scan between two points"""
+        """Calculate 1D scan between two points"""
         params = self.get_param_values()
         L = params['L']
         nsite = params['nsite']
@@ -419,7 +419,7 @@ class ApplicationWindow(GUITemplate):
         
         # Calculate energies and charges for each site
         Esite_arr = np.full(nsite, params['Esite'])
-        Es = compute_site_energies(pTips, spos, VBias=params['VBias'],   Rtip=params['Rtip'], zV0=params['zV0'],  E0s=Esite_arr)
+        Es = compute_site_energies(pTips, spos, VBias=params['VBias'], Rtip=params['Rtip'], zV0=params['zV0'], E0s=Esite_arr)
         
         # Calculate tunneling and charges for each site
         Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
@@ -432,12 +432,19 @@ class ApplicationWindow(GUITemplate):
         Qtot = np.sum(Qs, axis=1)
         STM  = np.sum(Is, axis=1)
         
+        # Plot results
+        self.plot_1d_scan_results(distance, Es, Qs, Is, Qtot, STM, nsite)
+        
+        # Save data to file
+        self.save_1d_scan_data(params, distance, x, y, Es, Qs, Is, Qtot, STM, nsite, x1, y1, x2, y2)
+    
+    def plot_1d_scan_results(self, distance, Es, Qs, Is, Qtot, STM, nsite):
+        """Plot results of 1D scan"""
         # Create new figure for 1D scan
         scan_fig = plt.figure(figsize=(10, 12))
         ax1 = scan_fig.add_subplot(311)
         ax2 = scan_fig.add_subplot(312)
         ax3 = scan_fig.add_subplot(313)
-        #ax4 = scan_fig.add_subplot(414)
         
         # Plot individual site energies
         for i in range(nsite):
@@ -463,18 +470,11 @@ class ApplicationWindow(GUITemplate):
         ax3.legend()
         ax3.grid(True)
         
-        # Plot total quantities
-        # ax4.plot(distance, Qtot, 'r-', label='Total Charge')
-        # ax4.plot(distance, STM, 'b-', label='Total STM')
-        # ax4.set_ylabel('Total Quantities')
-        # ax4.set_xlabel('Distance [Å]')
-        # ax4.legend()
-        # ax4.grid(True)
-        
         scan_fig.tight_layout()
         plt.show()
-        
-        # Save data to file
+    
+    def save_1d_scan_data(self, params, distance, x, y, Es, Qs, Is, Qtot, STM, nsite, x1, y1, x2, y2):
+        """Save 1D scan data to file"""
         # Prepare header with parameters
         param_header = "# Calculation parameters:\n"
         for key, value in params.items():
