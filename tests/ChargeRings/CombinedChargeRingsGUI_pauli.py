@@ -38,7 +38,7 @@ class ApplicationWindow(GUITemplate):
             
             # System Parameters
             'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02, 'step': 0.01, 'decimals': 3},
-            'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 10.0, 'step': 1.0},
+            'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 2.0, 'step':  0.5},
             'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
             
             # Mirror Parameters
@@ -61,11 +61,11 @@ class ApplicationWindow(GUITemplate):
             'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
             
             # Pauli Solver Parameters
-            'W':             {'group': 'Pauli Solver',      'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
+            'W':             {'group': 'Pauli Solver',      'widget': 'double', 'range': (0.0, 100.0),  'value': 30.0,  'step': 5.0},
             'GammaS':        {'group': 'Pauli Solver',      'widget': 'double', 'range': (0.01, 1.0),  'value': 0.20, 'step': 0.01, 'decimals': 2},
             'GammaT':        {'group': 'Pauli Solver',      'widget': 'double', 'range': (0.01, 1.0),  'value': 0.05, 'step': 0.01, 'decimals': 2},
             'muS':           {'group': 'Pauli Solver',      'widget': 'double', 'range': (-1.0, 1.0),  'value': 0.0,  'step': 0.1},
-            'coeffT':        {'group': 'Pauli Solver',      'widget': 'double', 'range': (0.0, 1.0),   'value': 0.3,  'step': 0.1,   'decimals': 1},
+           # 'coeffT':        {'group': 'Pauli Solver',      'widget': 'double', 'range': (0.0, 1.0),   'value': 0.3,  'step': 0.1,   'decimals': 1},
             
             # Visualization
             'L':             {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 50.0),  'value': 20.0, 'step': 1.0},
@@ -164,7 +164,7 @@ class ApplicationWindow(GUITemplate):
         # For tip (second lead), apply position-dependent coefficient to 2nd and 3rd sites
         TLeads = np.array([
             [VS, VS, VS],  # Substrate coupling (same for all sites)
-            [VT, VT*params['coeffT'], VT*params['coeffT']]  # Tip coupling (varies by site)
+            [VT, VT, VT]  # Tip coupling (varies by site)
         ])
         
         return TLeads, lead_mu, lead_temp, lead_gamma
@@ -792,21 +792,10 @@ class ApplicationWindow(GUITemplate):
         # Create the Pauli solver 
         pauli = PauliSolver(NSingle, NLeads, verbosity=0)
         
-        # Initialize leads tunneling matrix (will be adjusted for each voltage)
-        VS = np.sqrt(params['GammaS']/np.pi)  # substrate
-        VT = np.sqrt(params['GammaT']/np.pi)  # tip
-        TLeads = np.zeros((NLeads, NSingle))
+        # Get substrate and tip coupling constants
+        VS = np.sqrt(params['GammaS']/np.pi)  # substrate coupling
+        VT = np.sqrt(params['GammaT']/np.pi)  # tip coupling
         
-        # Fill substrate coupling (constant)
-        TLeads[0, :] = VS
-        
-        # Fill tip coupling (constant but scaled by coeffT parameter)
-        for i in range(NSingle):
-            if i == 0:
-                TLeads[1, i] = VT  # First site has full coupling
-            else:
-                TLeads[1, i] = VT * params['coeffT']  # Other sites have reduced coupling
-
         # Create empty arrays for storing 2D maps
         eps_map = np.zeros((n_voltages, npoints))  # For storing max energy at each point/voltage
         current_map = np.zeros((n_voltages, npoints))  # For storing current at each point/voltage
@@ -817,18 +806,10 @@ class ApplicationWindow(GUITemplate):
         
         # Loop through voltages
         for v_idx, Vbias in enumerate(voltage_range):
-            # Set the leads with this voltage
-            #lead_mu = np.array([params['muS'], params['muS'] + vbias])
-            #lead_temp = np.array([params['temperature'], params['temperature']])
-            
-            #temp = params['temperature']
-            temp = 1.0
-
-            # Update Pauli solver with new voltage
-            mu = params['muS']*1000.0
-            pauli.set_lead(0, mu                , temp)
-            pauli.set_lead(1, mu + Vbias*1000.0 , temp)
-            pauli.set_tunneling(TLeads)
+            # Set up leads with fixed chemical potentials (as in run_cpp_scan)
+            Temp = params['temperature']
+            pauli.set_lead(0, 0.0, Temp)  # Substrate lead (mu=0)
+            pauli.set_lead(1, Vbias*1000.0, Temp)  # Tip lead (mu=VBias)
             
             # Calculate energies and charges for this voltage
             Es = compute_site_energies(pTips, spos, VBias=Vbias, Rtip=params['Rtip'], zV0=params['zV0'], E0s=Esite_arr)
@@ -839,31 +820,45 @@ class ApplicationWindow(GUITemplate):
             # Take maximum energy across all sites for the 2D plot
             eps_map[v_idx] = np.max(Es, axis=1)
             
-            # Prepare array of Hamiltonians for all points
+            # Calculate tunneling coefficients for this voltage
+            # These would normally come from input_data in run_cpp_scan
+            Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
             
-            # for i in range(npoints):
-            #     # Create Hamiltonian with diagonal elements = site energies
-            #     hsingle = np.diag(Es[i])                
-            #     # Add hopping terms if needed (off-diagonal elements)
-            #     for j in range(NSingle-1):
-            #         hsingle[j, j+1] = params['dQ']  # Hopping between adjacent sites
-            #         hsingle[j+1, j] = params['dQ']  # Hermitian conjugate
-            #     hsingles[i] = hsingle
-            hsingles[:,0,0] = Es[:,0]*1000.0
+            # Create 3D tunneling array (npoints, NLeads, NSingle) as in run_cpp_scan
+            TLeads = np.zeros((npoints, NLeads, NSingle), dtype=np.float64)
+            
+            # Set substrate couplings (constant)
+            TLeads[:,0,0] = VS
+            TLeads[:,0,1] = VS
+            TLeads[:,0,2] = VS
+            
+            # Set tip couplings (position-dependent)
+            TLeads[:,1,0] = VT * Ts[:,0]
+            TLeads[:,1,1] = VT * Ts[:,1]
+            TLeads[:,1,2] = VT * Ts[:,2]
+            
+            # Prepare array of Hamiltonians - only diagonal elements
+            hsingles = np.zeros((npoints, NSingle, NSingle))
+            hsingles[:,0,0] = Es[:,0]*1000.0  # Convert to meV
             hsingles[:,1,1] = Es[:,1]*1000.0
             hsingles[:,2,2] = Es[:,2]*1000.0
-            
+        
             # Prepare constants for scan_current
             Ws     = np.full(npoints, params['onSiteCoulomb'])  # Coulomb interaction
             VGates = np.zeros((npoints, NLeads))  # Gate voltages (not used here)
             
             # Calculate currents for all points at this voltage
-            #lead_idx = 1  # Get current in the tip (lead 1)
-            currents = pauli.scan_current(hsingles=hsingles, Ws=Ws, VGates=VGates, state_order=state_order )
+            currents = pauli.scan_current(
+                hsingles=hsingles,
+                Ws=Ws,
+                VGates=VGates,
+                TLeads=TLeads,  # Pass the 3D tunneling array (critical difference)
+                state_order=state_order
+            )
             
             # Store in the current map
             current_map[v_idx] = currents
-            
+        
         # Plot the 2D voltage scan results
         self.plot_2d_voltage_scan(distance, voltage_range, eps_map, current_map, start_point, end_point)
         
