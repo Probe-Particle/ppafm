@@ -20,6 +20,45 @@ sys.path.insert(0, '../../pyProbeParticle')
 import pauli as psl
 from pauli import PauliSolver
 
+verbosity = 0
+
+def run_cpp_scan(params, Es, Ts ):
+    """Run C++ Pauli simulation for current calculation"""
+    NSingle = int(params['NSingle'])
+    NLeads = 2
+    
+    # Get parameters
+    W     = params['W']*1000.0
+    VBias = params['VBias']*1000.0
+    Temp  = params['Temp']
+    VS    = np.sqrt(params['GammaS']/np.pi)
+    VT    = np.sqrt(params['GammaT']/np.pi)
+    
+    # Initialize solver
+    pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
+    
+    # Set up leads
+    pauli.set_lead(0, 0.0,  Temp)  # Substrate lead (mu=0)
+    pauli.set_lead(1, VBias, Temp)  # Tip lead (mu=VBias)
+    
+    npoints = len(Es)
+
+    TLeads = np.zeros((npoints, NLeads, NSingle), dtype=np.float64)
+    hsingles = np.zeros((npoints, 3, 3))
+    for i in range(NSingle):
+        hsingles[:,i,i] = Es[:,i]*1000.0
+        TLeads  [:,0,i] = VS
+        TLeads  [:,1,i] = VT*Ts[:,i]
+    
+    # Set up other parameters
+    Ws = np.full(npoints, W)
+    VGates = np.zeros((npoints, NLeads))
+    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+        
+    currents = pauli.scan_current( hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order )
+    return currents
+
+
 class ApplicationWindow(GUITemplate):
     def __init__(self):
         # First call parent constructor
@@ -34,8 +73,10 @@ class ApplicationWindow(GUITemplate):
             'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 20.0),  'value': 2.0, 'step': 0.5},
             
             # System Parameters
-            'cCouling':      {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02, 'step': 0.001, 'decimals': 3},
-            'temperature':   {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 3.0,  'step': 1.0},
+            'W':             {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.03, 'step': 0.001, 'decimals': 3},
+            'GammaS':        {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01, 'step': 0.001, 'decimals': 3},
+            'GammaT':        {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01, 'step': 0.001, 'decimals': 3},
+            'Temp':          {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 0.224,  'step': 0.01},
             'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
             
             # Mirror Parameters
@@ -70,7 +111,6 @@ class ApplicationWindow(GUITemplate):
             # 'p2_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value':  6.5, 'step': 0.5},
             # 'p2_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -10.0, 'step': 0.5},
 
-# 1.50000000e+01 1.50000000e+01
             'p1_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': 15.0, 'step': 0.5},
             'p1_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': 15.0, 'step': 0.5},
             'p2_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -15.0, 'step': 0.5},
@@ -434,47 +474,10 @@ class ApplicationWindow(GUITemplate):
         
         # Calculate tunneling and charges for each site
         Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
-        # Qs = np.zeros(Es.shape)
-        # Is = np.zeros(Es.shape)
-        # for i in range(nsite):
-        #     Qs[:,i] = occupancy_FermiDirac(Es[:,i], params['temperature'])
-        #     Is[:,i] = Ts[:,i] * (1-Qs[:,i])
-        #Qtot = np.sum(Qs, axis=1)
-        #STM  = np.sum(Is, axis=1)
         
-        # Initialize Pauli solver and calculate current
-        NSingle = nsite
-        NLeads = 2
-        pauli = PauliSolver(NSingle, NLeads)
-        
-        # Set up leads
-        pauli.set_lead(0, 0.0, params['temperature'])  # Substrate lead (mu=0)
-        pauli.set_lead(1, params['VBias'], params['temperature'])  # Tip lead (mu=VBias)
-        
-        # Set up tunneling
-        VS = np.sqrt(params['GammaS']/np.pi) if 'GammaS' in params else 1.0
-        VT = np.sqrt(params['GammaT']/np.pi) if 'GammaT' in params else 1.0
-        
-        TLeads = np.zeros((npoints, NLeads, NSingle))
-        TLeads[:,0,:] = VS  # Substrate coupling
-        TLeads[:,1,:] = VT * Ts  # Tip coupling scaled by tunneling rates
-        
-        # Prepare single-particle Hamiltonians
-        hsingles = np.zeros((npoints, NSingle, NSingle))
-        for i in range(nsite):
-            hsingles[:, i, i] = Es[:,i]
-        
-        # Set up other parameters
-        Ws = np.full(npoints, params['W'] if 'W' in params else 0.0)
-        VGates = np.zeros((npoints, NLeads))
-        
-        # Run Pauli solver scan
-        STM = pauli.scan_current(
-            hsingles=hsingles,
-            Ws=Ws,
-            VGates=VGates,
-            TLeads=TLeads
-        )
+        # Run C++ Pauli simulation
+        params['NSingle'] = 3
+        STM = run_cpp_scan(params, Es, Ts)
 
         # Plot results (including Pauli currents)
         self.plot_1d_scan_results(distance, Es, Ts, STM, nsite )
