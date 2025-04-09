@@ -6,6 +6,8 @@ import ctypes
 from ctypes import c_void_p, c_int, c_double
 from cpp_utils import compile_lib, work_dir, _np_as, c_double_p, c_int_p
 
+verbosity = 0 
+
 # Compile and load the C++ library at module level
 def compile_and_load(name='pauli_lib', bASAN=False):
     """Compile and load the C++ library"""
@@ -214,3 +216,40 @@ def prepare_hsingle_cpp(eps1, eps2, eps3, t=0.0 ):
 def count_electrons(state):
     """Count number of electrons in a state"""
     return bin(state).count('1')
+
+
+def run_cpp_scan(params, Es, Ts, scaleE=1.0 ):
+    """Run C++ Pauli simulation for current calculation"""
+    NSingle = int(params['NSingle'])
+    NLeads = 2
+    
+    # Get parameters
+    W     = params['W']*scaleE
+    VBias = params['VBias']*scaleE
+    Temp  = params['Temp']
+    VS    = np.sqrt(params['GammaS']/np.pi)
+    VT    = np.sqrt(params['GammaT']/np.pi)
+    
+    # Initialize solver
+    pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
+    
+    # Set up leads
+    pauli.set_lead(0, 0.0,  Temp)  # Substrate lead (mu=0)
+    pauli.set_lead(1, VBias, Temp)  # Tip lead (mu=VBias)
+    
+    npoints = len(Es)
+
+    TLeads = np.zeros((npoints, NLeads, NSingle), dtype=np.float64)
+    hsingles = np.zeros((npoints, 3, 3))
+    for i in range(NSingle):
+        hsingles[:,i,i] = Es[:,i]*scaleE
+        TLeads  [:,0,i] = VS
+        TLeads  [:,1,i] = VT*Ts[:,i]
+    
+    # Set up other parameters
+    Ws = np.full(npoints, W)
+    VGates = np.zeros((npoints, NLeads))
+    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+        
+    currents = pauli.scan_current( hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order )
+    return currents

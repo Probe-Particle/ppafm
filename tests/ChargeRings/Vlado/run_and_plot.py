@@ -11,8 +11,8 @@ import time
 import sys
 from sys import path
 path.insert(0, '../../../pyProbeParticle')
-import pauli as psl
-from pauli import PauliSolver
+import pauli as pls
+#from pauli import PauliSolver
 
 params = load_parameters( config_file='qmeq.in' )
 
@@ -24,14 +24,6 @@ params['VT'] = np.sqrt(params['GammaT']/np.pi)
 
 input_files = glob.glob('input/*.dat')
 input_files = sorted(input_files)
-
-#print("#### input_files: ", input_files)
-
-# input_files = [
-#     'input/0.50_line_scan.dat',
-#     'input/0.51_line_scan.dat',
-#     'input/0.53_line_scan.dat',
-# ]
 
 print("#### params: ")
 for k, v in params.items(): print(f"{k}: {v}")
@@ -144,18 +136,11 @@ def eval_dir_of_lines_cpp(input_files, params, Vmin=0.0, Vmax=10.0, line_lims=No
         if Vbias < Vmin or Vbias > Vmax: continue
         
         #print(f"###  Vbias: {Vbias} file {input_file}")
-        params['VBias'] = Vbias*1000.0
-        
-        # Print a sample of the site energies (first 3 rows)
-        #if input_data.shape[0] > 3:
-        #    print(f"\nC++ Sample input energies (first 3 points):")
-        #    for i in range(3):
-        #        print(f"Point {i}: Esite_1: {input_data[i,3]*1000.0:.3f}, Esite_2: {input_data[i,4]*1000.0:.3f}, Esite_3: {input_data[i,5]*1000.0:.3f} meV")
+        params['VBias'] = Vbias * 1000.0
 
-        #print( "input_data ", input_data )
+        pls.verbosity = verbosity
+        currents = pls.run_cpp_scan(params, input_data[:,3:6]*1000.0, input_data[:,9:12], scaleE=1.0 )
 
-        # Run C++ simulation
-        currents = run_cpp_scan(params, input_data)
         #if positions is None:   positions = input_data[:,:3]
         positions = input_data[:, 0]
         
@@ -174,78 +159,9 @@ def eval_dir_of_lines_cpp(input_files, params, Vmin=0.0, Vmax=10.0, line_lims=No
     
     return bias_voltages, positions, eps_max_grid, current_grid
 
-def run_cpp_scan(params, input_data):
-    """Run C++ Pauli simulation for current calculation"""
-    NSingle = int(params['NSingle'])
-    NLeads = 2
-    
-    # Get parameters
-    W = params['W']
-    VBias = params['VBias']
-    Temp = params['Temp']
-    VS = np.sqrt(params['GammaS']/np.pi)
-    VT = np.sqrt(params['GammaT']/np.pi)
-    
-    # Initialize solver
-    pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
-    
-    # Set up leads
-    pauli.set_lead(0, 0.0, Temp)  # Substrate lead (mu=0)
-    pauli.set_lead(1, VBias, Temp)  # Tip lead (mu=VBias)
-    
-    # Set up tunneling
-    # TLeads = np.array([
-    #     [VS, VS, VS],  # Substrate coupling
-    #     [VT, VT, VT]   # Tip coupling
-    # ])
-    # pauli.set_tunneling(TLeads)
-
-    npoints = len(input_data)
-
-    TLeads = np.zeros((npoints, NLeads, NSingle), dtype=np.float64)
-    TLeads[:,0,0] = VS
-    TLeads[:,0,1] = VS
-    TLeads[:,0,2] = VS
-    TLeads[:,1,0] = VT*input_data[:,9]
-    TLeads[:,1,1] = VT*input_data[:,10]
-    TLeads[:,1,2] = VT*input_data[:,11]
-    #TLeads[:,1,2] = VT*input_data[:,11] * 1.1   # Perturbation
-
-    # Prepare single-particle Hamiltonians
-    eps = np.column_stack((input_data[:,3], input_data[:,4], input_data[:,5])) * 1000.0
-    
-    hsingles = np.zeros((npoints, 3, 3))
-    hsingles[:, np.arange(3), np.arange(3)] = eps
-    
-    # Set up other parameters
-    Ws = np.full(npoints, W)
-    VGates = np.zeros((npoints, NLeads))
-    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
-    
-    # Run scan
-    currents = pauli.scan_current(
-        hsingles=hsingles,
-        Ws=Ws,
-        VGates=VGates,
-        TLeads=TLeads,
-        state_order=state_order
-    )
-    
-    return currents
-
 positions = None
 
-# try:
-#     # load from .npz file
-#     data = np.load('results.npz')
-#     bias_voltages = data['bias_voltages']
-#     positions     = data['positions']
-#     eps_max_grid  = data['eps_max_grid']
-#     current_grid  = data['current_grid']
-# except FileNotFoundError:
-#     # if file not found, calculate results
-#     pass
-    
+
 if __name__ == "__main__":
     # Add command line arguments
     parser = argparse.ArgumentParser(description='Run and plot charge transport simulations')

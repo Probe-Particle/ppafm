@@ -17,47 +17,10 @@ from charge_rings_plotting import plot_tip_potential, plot_qdot_system
 import data_line 
 
 sys.path.insert(0, '../../pyProbeParticle')
-import pauli as psl
-from pauli import PauliSolver
+import pauli as pls
+#from pauli import PauliSolver
 
 verbosity = 0
-
-def run_cpp_scan(params, Es, Ts ):
-    """Run C++ Pauli simulation for current calculation"""
-    NSingle = int(params['NSingle'])
-    NLeads = 2
-    
-    # Get parameters
-    W     = params['W']*1000.0
-    VBias = params['VBias']*1000.0
-    Temp  = params['Temp']
-    VS    = np.sqrt(params['GammaS']/np.pi)
-    VT    = np.sqrt(params['GammaT']/np.pi)
-    
-    # Initialize solver
-    pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
-    
-    # Set up leads
-    pauli.set_lead(0, 0.0,  Temp)  # Substrate lead (mu=0)
-    pauli.set_lead(1, VBias, Temp)  # Tip lead (mu=VBias)
-    
-    npoints = len(Es)
-
-    TLeads = np.zeros((npoints, NLeads, NSingle), dtype=np.float64)
-    hsingles = np.zeros((npoints, 3, 3))
-    for i in range(NSingle):
-        hsingles[:,i,i] = Es[:,i]*1000.0
-        TLeads  [:,0,i] = VS
-        TLeads  [:,1,i] = VT*Ts[:,i]
-    
-    # Set up other parameters
-    Ws = np.full(npoints, W)
-    VGates = np.zeros((npoints, NLeads))
-    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
-        
-    currents = pauli.scan_current( hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order )
-    return currents
-
 
 class ApplicationWindow(GUITemplate):
     def __init__(self):
@@ -477,7 +440,8 @@ class ApplicationWindow(GUITemplate):
         
         # Run C++ Pauli simulation
         params['NSingle'] = 3
-        STM = run_cpp_scan(params, Es, Ts)
+        pls.verbosity = verbosity
+        STM = pls.run_cpp_scan(params, Es, Ts, scaleE=1000.0 )
 
         # Plot results (including Pauli currents)
         self.plot_1d_scan_results(distance, Es, Ts, STM, nsite )
