@@ -10,11 +10,15 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from scipy.interpolate import LinearNDInterpolator
 
+
 from GUITemplate import GUITemplate
 from charge_rings_core import calculate_tip_potential, calculate_qdot_system, makeCircle, compute_site_energies, compute_site_tunelling, occupancy_FermiDirac
 from charge_rings_plotting import plot_tip_potential, plot_qdot_system
-
 import data_line 
+
+sys.path.insert(0, '../../pyProbeParticle')
+import pauli as psl
+from pauli import PauliSolver
 
 class ApplicationWindow(GUITemplate):
     def __init__(self):
@@ -430,103 +434,119 @@ class ApplicationWindow(GUITemplate):
         
         # Calculate tunneling and charges for each site
         Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
-        Qs = np.zeros(Es.shape)
-        Is = np.zeros(Es.shape)
+        # Qs = np.zeros(Es.shape)
+        # Is = np.zeros(Es.shape)
+        # for i in range(nsite):
+        #     Qs[:,i] = occupancy_FermiDirac(Es[:,i], params['temperature'])
+        #     Is[:,i] = Ts[:,i] * (1-Qs[:,i])
+        #Qtot = np.sum(Qs, axis=1)
+        #STM  = np.sum(Is, axis=1)
+        
+        # Initialize Pauli solver and calculate current
+        NSingle = nsite
+        NLeads = 2
+        pauli = PauliSolver(NSingle, NLeads)
+        
+        # Set up leads
+        pauli.set_lead(0, 0.0, params['temperature'])  # Substrate lead (mu=0)
+        pauli.set_lead(1, params['VBias'], params['temperature'])  # Tip lead (mu=VBias)
+        
+        # Set up tunneling
+        VS = np.sqrt(params['GammaS']/np.pi) if 'GammaS' in params else 1.0
+        VT = np.sqrt(params['GammaT']/np.pi) if 'GammaT' in params else 1.0
+        
+        TLeads = np.zeros((npoints, NLeads, NSingle))
+        TLeads[:,0,:] = VS  # Substrate coupling
+        TLeads[:,1,:] = VT * Ts  # Tip coupling scaled by tunneling rates
+        
+        # Prepare single-particle Hamiltonians
+        hsingles = np.zeros((npoints, NSingle, NSingle))
         for i in range(nsite):
-            Qs[:,i] = occupancy_FermiDirac(Es[:,i], params['temperature'])
-            Is[:,i] = Ts[:,i] * (1-Qs[:,i])
+            hsingles[:, i, i] = Es[:,i]
         
-        Qtot = np.sum(Qs, axis=1)
-        STM  = np.sum(Is, axis=1)
+        # Set up other parameters
+        Ws = np.full(npoints, params['W'] if 'W' in params else 0.0)
+        VGates = np.zeros((npoints, NLeads))
         
-        # Plot results
-        self.plot_1d_scan_results(distance, Es, Qs, Is, Qtot, STM, nsite)
-        
-        # Save data to file
-        self.save_1d_scan_data(params, distance, x, y, Es, Qs, Is, Qtot, STM, nsite, x1, y1, x2, y2)
+        # Run Pauli solver scan
+        STM = pauli.scan_current(
+            hsingles=hsingles,
+            Ws=Ws,
+            VGates=VGates,
+            TLeads=TLeads
+        )
 
-    def plot_1d_scan_results(self, distance, Es, Qs, Is, Qtot, STM, nsite):
+        # Plot results (including Pauli currents)
+        self.plot_1d_scan_results(distance, Es, Ts, STM, nsite )
+        
+        # Save data to file (including Pauli currents)
+        self.save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
+
+    def plot_1d_scan_results(self, distance, Es, Ts, STM, nsite):
         """Plot results of 1D scan"""
         # Create new figure for 1D scan
         scan_fig = plt.figure(figsize=(10, 12))
-        ax1 = scan_fig.add_subplot(311)
-        ax2 = scan_fig.add_subplot(312)
-        ax3 = scan_fig.add_subplot(313)
 
-        bRef = False
-        if hasattr(self, 'ref_data_line'):
-            if self.ref_data_line is not None:
-                bRef = True
+        bRef = hasattr(self, 'ref_data_line')
         
-        # Plot individual site energies
+        # Plot site energies
+        ax1 = scan_fig.add_subplot(311)
+        clrs = ['r','g','b']
         for i in range(nsite):
-            ax1.plot(distance, Es[:,i], '-', label=f'Site {i+1}')
-            
-            # Plot reference energies if available
+            ax1.plot(distance, Es[:,i], '-', linewidth=0.5, color=clrs[i], label=f'E_{i+1}')
             if bRef:
                 icol = self.ref_columns[f'Esite_{i+1}']
-                ax1.plot( self.ref_data_line[:,0],  self.ref_data_line[:,icol], '--', alpha=0.7, label=f'Ref Site {i+1}' )
-                
-        ax1.axhline(y=0, color='k', linestyle='--', alpha=0.5)
-        ax1.set_ylabel('Energy')
+                ax1.plot( self.ref_data_line[:,0],  self.ref_data_line[:,icol], ':', color=clrs[i], alpha=0.7, label=f'Ref E_{i+1}' )
+        ax1.set_ylabel('Energy [eV]')
         ax1.legend()
         ax1.grid(True)
         
-        # Plot individual site charges
+        # Plot tunneling
+        ax2 = scan_fig.add_subplot(312)
         for i in range(nsite):
-            ax2.plot(distance, Qs[:,i], '-', label=f'Site {i+1}')
-        ax2.plot(distance, Qtot, 'k-', label='Total', linewidth=2)
-        ax2.set_ylabel('Charge')
-        ax2.legend()
-        ax2.grid(True)
-        
-        # Plot individual site currents
-        for i in range(nsite):
-            ax3.plot(distance, Is[:,i], '-', label=f'Site {i+1}')
-            
-            # Plot reference tunneling if available
+            ax2.plot(distance, Ts[:,i], '-', linewidth=0.5, color=clrs[i], label=f'T_{i+1}')
             if bRef:
                 icol = self.ref_columns[f'Tsite_{i+1}']
-                ax3.plot( self.ref_data_line[:,0],  self.ref_data_line[:,icol], '--', alpha=0.7, label=f'Ref Site {i+1}' )
-                
-        ax3.plot(distance, STM, 'k-', label='Total', linewidth=2)
-        ax3.set_ylabel('Current')
+                ax2.plot( self.ref_data_line[:,0],  self.ref_data_line[:,icol], ':', color=clrs[i], alpha=0.7, label=f'Ref T_{i+1}' )
+        ax2.set_ylabel('Hopping T [a.u.]')
+        ax2.legend()
+        ax2.grid(True)
+        #ax3.plot(distance, STM,            'k-', label='Total', linewidth=2)
+        
+        ax3 = scan_fig.add_subplot(313)
+        ax3.plot(distance, STM, '.-', color='k', linewidth=0.5, markersize=1.5, label='STM' )
+        ax3.set_ylabel('Current [a.u.]')
         ax3.legend()
         ax3.grid(True)
         
         scan_fig.tight_layout()
         plt.show()
     
-    def save_1d_scan_data(self, params, distance, x, y, Es, Qs, Is, Qtot, STM, nsite, x1, y1, x2, y2):
+    def save_1d_scan_data(self, params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 ):
         """Save 1D scan data to file"""
         # Prepare header with parameters
         param_header = "# Calculation parameters:\n"
-        for key, value in params.items():
-            param_header += f"# {key}: {value}\n"
+        for key, val in params.items():
+            param_header += f"# {key}: {val}\n"
         
-        # Add column description
-        param_header += "#\n# Data columns:\n"
-        param_header += "# 1: Distance[A]\n"
-        param_header += "# 2: x[A]\n"
-        param_header += "# 3: y[A]\n"
+        # Add column descriptions
+        param_header += "\n# Column descriptions:\n"
+        param_header += "# 0: Distance (Angstrom)\n"
+        param_header += "# 1: X coordinate\n"
+        param_header += "# 2: Y coordinate\n"
         for i in range(nsite):
-            param_header += f"# {i+4}: Esite_{i+1}\n"
+            param_header += f"# {i+3}: Esite_{i+1}\n"
         for i in range(nsite):
-            param_header += f"# {i+4+nsite}: Qsite_{i+1}\n"
-        for i in range(nsite):
-            param_header += f"# {i+4+2*nsite}: Isite_{i+1}\n"
-        param_header += f"# {4+3*nsite}: Qtotal\n"
-        param_header += f"# {5+3*nsite}: STM_total\n"
+            param_header += f"# {i+3+nsite}: Tsite_{i+1}\n"
+        param_header += f"# {3+2*nsite}: STM_total\n"
         
         # Add line coordinates
         param_header += f"\n# Line scan from ({x1:.2f}, {y1:.2f}) to ({x2:.2f}, {y2:.2f})"
         
-        # Combine all data
         save_data = np.column_stack([distance, x, y] + 
                                   [Es[:,i] for i in range(nsite)] + 
-                                  [Qs[:,i] for i in range(nsite)] + 
-                                  [Is[:,i] for i in range(nsite)] + 
-                                  [Qtot, STM])
+                                  [Ts[:,i] for i in range(nsite)] + 
+                                  [STM])
         
         filename = 'line_scan_{:.1f}_{:.1f}_to_{:.1f}_{:.1f}.dat'.format(x1, y1, x2, y2)
         np.savetxt(filename, save_data, header=param_header)
