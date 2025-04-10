@@ -3,11 +3,17 @@ static int _verbosity = 0;
 #include "pauli.hpp"
 #include <cstdio>
 #include <cstring> // for memcpy
-#include "print_utils.hpp"
 #include <omp.h>
 #include <thread>
 
+#include "print_utils.hpp"
+#include "TipField.h"
+
 extern "C" {
+
+void computeCombinedEnergies( int nTip, double* pTips,  double* pSite, double E0, double VBias, double Rtip, double zV0, int order, double* cs, double* Eout ) {
+    computeCombinedEnergies( nTip, (Vec3d*)pTips, *(Vec3d*)pSite, E0, VBias, Rtip, zV0, order, cs, Eout );
+}
 
 // Create a PauliSolver instance with basic initialization but without setting parameters
 // This follows step 1 in the optimization scheme

@@ -37,6 +37,7 @@ def calculate_tip_potential(*, npix=100, L=20.0, z_tip=2.0, Rtip=1.0, VBias=1.0,
     
     # Calculate potentials
     return {
+        'ps_xz': ps_xz,
         'Vtip': compute_V_mirror(tip_pos, ps_xz, VBias=VBias, Rtip=Rtip, zV0=zV0).reshape(npix, npix),
         'Esites': compute_site_energies(ps_xz, np.array([[0.0,0.0,zQd]]), VBias=VBias, Rtip=Rtip, zV0=zV0).reshape(npix, npix),
         'ps_xz': ps_xz,

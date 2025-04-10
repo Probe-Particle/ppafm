@@ -33,6 +33,7 @@
 //#include "SMat3.h"
 //#include "CG.h"
 #include "LinSolveGauss.cpp"
+#include "TipField.h"
 
 #define R_SAFE   1e-4
 
@@ -117,29 +118,6 @@ void printmatrix( int ni, int nj, double* A, const char* format="%g " ){
         printf("\n");
     }
 }
-
-/**
- * @brief Computes multipole interaction energy between a point and a charge distribution
- * @param d Vector between interaction points
- * @param order Maximum order of multipole expansion (0=monopole, 1=dipole, 2=quadrupole)
- * @param cs Array of multipole coefficients
- * @return Total interaction energy including all multipole terms up to specified order
- */
-double Emultipole( const Vec3d& d, int order, const double * cs ){
-    //double r   = dR.norm();
-    //double ir  = 1 / r;
-    //double ir2 = ir*ir;
-    double ir2 = 1/d.norm2();
-    double E   = cs[0];
-    if( order>0 ) E += ir2    *( cs[1]*d.x + cs[2]*d.y + cs[3]*d.z );
-    if( order>1 ){ E += ir2*ir2*((cs[4]*d.x + cs[9]*d.y)*d.x +
-                                (cs[5]*d.y + cs[7]*d.z)*d.y +
-                                (cs[6]*d.z + cs[8]*d.x)*d.z );
-                                //printf( "Emultipole() Q %g Pxyz(%g,%g,%g) Qxx,yy,zz(%g,%g,%g) Qxy,xz,yz(%g,%g,%g)  \n", cs[0], cs[1],cs[2],cs[3],    cs[4],cs[9],cs[5],cs[7],cs[6],cs[8] );
-    }
-    return sqrt(ir2)*E;
-}
-
 
 /**
  * @brief Calculates charging forces on molecular sites

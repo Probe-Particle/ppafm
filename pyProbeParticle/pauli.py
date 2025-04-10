@@ -90,6 +90,22 @@ lib.get_coupling.restype = None
 lib.get_pauli_factors.argtypes = [c_void_p, c_double_p]
 lib.get_pauli_factors.restype = None
 
+# computeCombinedEnergies( int nTip, double* pTips,  double* pSite, double E0, double VBias, double Rtip, double zV0, int order, double* cs, double* Eout ) {
+lib.computeCombinedEnergies.argtypes = [c_int, c_double_p, c_double_p, c_double, c_double, c_double, c_double, c_int, c_double_p, c_double_p]
+lib.computeCombinedEnergies.restype = None
+def computeCombinedEnergies( pTips, VBias, cs, pSite=[0.0,0.0,0.0], E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
+    nTip = len(pTips)
+    if bMakeArrays:
+        pSite = np.array(pSite, dtype=np.float64)
+        pTips = np.array(pTips, dtype=np.float64)
+        cs    = np.array(cs,    dtype=np.float64)
+    if Eout is None:
+        Eout = np.zeros(nTip, dtype=np.float64)
+    lib.computeCombinedEnergies(nTip, _np_as(pTips, c_double_p), _np_as(pSite, c_double_p), E0, VBias, Rtip, zV0, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p))
+    return Eout
+
+
+
 class PauliSolver:
     """Python wrapper for C++ PauliSolver class"""
     
