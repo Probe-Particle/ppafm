@@ -3,7 +3,7 @@
 import numpy as np
 import os
 import ctypes
-from ctypes import c_void_p, c_int, c_double
+from ctypes import c_void_p, c_int, c_double, c_bool
 from cpp_utils import compile_lib, work_dir, _np_as, c_double_p, c_int_p
 
 verbosity = 0 
@@ -65,7 +65,7 @@ lib.solve_hsingle.restype = c_double
 
 # double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws, double* VGates, int* state_order, double* out_current) {
 #double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current) {
-lib.scan_current.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_int_p, c_double_p]
+lib.scan_current.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_int_p, c_double_p, c_bool]
 lib.scan_current.restype = c_double
 
 
@@ -126,7 +126,7 @@ class PauliSolver:
     def solve_hsingle(self, hsingle, W, ilead, state_order):
         return lib.solve_hsingle(self.solver, _np_as(hsingle, c_double_p), W, ilead, _np_as(state_order, c_int_p))
     
-    def scan_current(self, hsingles=None, Ws=None, VGates=None, hsingle=None, W=0.0, VGate=0.0, TLeads=None, state_order=None, out_current=None):
+    def scan_current(self, hsingles=None, Ws=None, VGates=None, hsingle=None, W=0.0, VGate=0.0, TLeads=None, state_order=None, out_current=None, bOmp=False):
         if hsingle is not None:
             npoints = len(hsingle)
         elif Ws is not None:
@@ -148,7 +148,7 @@ class PauliSolver:
             state_order = np.ascontiguousarray(state_order, dtype=np.int32)
         if out_current is None:
             out_current = np.zeros(npoints, dtype=np.float64)
-        lib.scan_current(self.solver, npoints, _np_as(hsingles, c_double_p), _np_as(Ws, c_double_p), _np_as(VGates, c_double_p), _np_as(TLeads, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p))
+        lib.scan_current(self.solver, npoints, _np_as(hsingles, c_double_p), _np_as(Ws, c_double_p), _np_as(VGates, c_double_p), _np_as(TLeads, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp)
         return out_current
     
     def get_energies(self, nstates):
@@ -253,3 +253,79 @@ def run_cpp_scan(params, Es, Ts, scaleE=1.0 ):
         
     currents = pauli.scan_current( hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order )
     return currents
+
+def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, nsize=None ):
+    """Run 2D C++ Pauli simulation with variable bias voltages
+    
+    Args:
+        params: Simulation parameters dictionary
+        Es: Array of energies for each point (shape [npoints, NSingle])
+        Ts: Array of tunneling amplitudes (shape [npoints, NSingle])
+        Vbiases: Array of bias voltages to scan (shape [nbias])
+        scaleE: Energy scaling factor
+        
+    Returns:
+        Array of currents for each (point, bias) combination (shape [npoints, nbias])
+    """
+    NSingle = int(params['NSingle'])
+    NLeads = 2
+    
+    # Get parameters
+    W     = params['W']*scaleE
+    Temp  = params['Temp']
+    VS    = np.sqrt(params['GammaS']/np.pi)
+    VT    = np.sqrt(params['GammaT']/np.pi)
+    
+    if nsize is None:
+        npoints = len(Es)
+        nbias   = len(Vbiases)
+    else:
+        nbias, npoints = nsize
+
+    
+    # Initialize solver
+    pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
+    
+    pauli.set_lead(0, 0.0, Temp)  # Substrate lead (mu=0)
+    pauli.set_lead(1, 0.0, Temp)  # Tip lead (mu=VBias)
+
+    # Prepare arrays with shape (nbias, npoints, ...)
+    hsingles = np.zeros((nbias, npoints, 3, 3))
+    TLeads   = np.zeros((nbias, npoints, NLeads, NSingle), dtype=np.float64)
+    VGates   = np.zeros((nbias, npoints, NLeads))
+    
+    # Set up leads using numpy broadcasting
+    #VGates[..., 0] = 0.0  # Lead 1 always at 0
+    VGates[..., 1] = Vbiases[:, None] * scaleE  # Lead 2 at VBias
+    
+    TLeads  [..., 0, :] = VS
+    if bE1d:
+        # Create energy array with shape (nbias, npoints, NSingle)
+        EVs = (Es[None, :, :] * Vbiases[:, None, None] ) * (scaleE/Vbias0)
+        TLeads  [..., 1, :] = VT * Ts[None, :, :]
+    else:
+        EVs = Es
+        TLeads  [..., 1, :] = Ts * VT
+    
+    # Set energies and tunneling amplitudes
+    for i in range(NSingle):
+        hsingles[..., i, i] = EVs[..., i]
+        #TLeads[..., 0, i] = VS
+        #TLeads[..., 1, i] = TVs
+    
+    # Reshape for scan_current (flatten first two dimensions)
+    hsingles = hsingles.reshape(-1, 3, 3)
+    VGates = VGates.reshape(-1, NLeads)
+    TLeads = TLeads.reshape(-1, NLeads, NSingle)
+    Ws = np.full(npoints*nbias, W)
+    
+    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+
+    print("min,max hsingles: ", hsingles.min(), hsingles.max())
+    print("min,max Ws:       ", Ws.min(), Ws.max())
+    print("min,max VGates:   ", VGates.min(), VGates.max())
+    print("min,max TLeads:   ", TLeads.min(), TLeads.max())
+    
+    # Run scan and reshape results to [npoints, nbias]
+    currents = pauli.scan_current(hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order)
+    return currents.reshape(nbias,npoints)

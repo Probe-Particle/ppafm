@@ -4,6 +4,7 @@ static int _verbosity = 0;
 #include <cstdio>
 #include <cstring> // for memcpy
 #include "print_utils.hpp"
+#include <omp.h>
 
 extern "C" {
 
@@ -102,9 +103,65 @@ double solve_hsingle( void* solver_ptr, double* hsingle, double W, int ilead, in
     return 0.0;
 }
 
-double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current) {
+
+double scan_current_omp( PauliSolver* solver, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current) {
+    
+    int nSingle = solver->nSingle;
+    int n2 = nSingle*nSingle; 
+    int nleads = solver->nleads;
+    double base_lead_mu[nleads];  
+    for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
+    
+    if(state_order) { 
+        solver->init_states_by_charge();
+        solver->setStateOrder(state_order); 
+    }
+
+    // Pre-allocate solvers for all threads
+    int nThreads = omp_get_max_threads();
+    std::vector<PauliSolver*> solvers(nThreads);
+    for(int i=0; i<nThreads; i++) {
+        solvers[i] = new PauliSolver(*solver);
+    }
+
+    #pragma omp parallel
+    {
+
+        #pragma omp for
+        for(int i = 0; i < npoints; i++) {
+
+            double  W       = Ws[i];
+            double* VGate   = VGates  + (i*nleads);
+            double* hsingle = hsingles + i*n2;
+
+            int tid = omp_get_thread_num();
+            PauliSolver* solver_local = solvers[tid];
+
+            for (int l=0; l<nleads; ++l) { solver_local->leads[l].mu = base_lead_mu[l] + VGate[l]; }
+
+            double* TLeads_i = TLeads + i*nleads*nSingle;
+            solver_local->setTLeads(TLeads_i);
+            solver_local->calculate_tunneling_amplitudes(TLeads_i);
+
+            double current  = solve_hsingle(solver_local, hsingle, W, 1, 0);
+            out_current[i]  = current;
+        }
+    }
+    
+    // Clean up solvers
+    for(int i=0; i<nThreads; i++) {
+        delete solvers[i];
+    }
+    
+    return 0.0;
+}
+
+double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current, bool bOmp) {
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (!solver) { return 0.0; }
+
+    if (bOmp) { return scan_current_omp(solver, npoints, hsingles, Ws, VGates, TLeads, state_order, out_current); }
+
     int nSingle = solver->nSingle;
     int n2 = nSingle*nSingle; 
     int nleads = solver->nleads;
@@ -148,7 +205,6 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
     }
     return 0.0;
 }
-
 
 
 

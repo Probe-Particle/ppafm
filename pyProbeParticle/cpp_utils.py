@@ -11,6 +11,7 @@ c_bool_p   = ctypes.POINTER(ctypes.c_bool)
 
 
 
+
 def work_dir( v__file__ ): 
     return os.path.dirname( os.path.realpath( v__file__ ) )
 
