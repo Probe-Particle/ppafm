@@ -254,7 +254,7 @@ def run_cpp_scan(params, Es, Ts, scaleE=1.0 ):
     currents = pauli.scan_current( hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order )
     return currents
 
-def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, nsize=None ):
+def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, nsize=None, bOmp=False ):
     """Run 2D C++ Pauli simulation with variable bias voltages
     
     Args:
@@ -327,5 +327,5 @@ def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, 
     print("min,max TLeads:   ", TLeads.min(), TLeads.max())
     
     # Run scan and reshape results to [npoints, nbias]
-    currents = pauli.scan_current(hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order)
+    currents = pauli.scan_current(hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order, bOmp=bOmp)
     return currents.reshape(nbias,npoints)

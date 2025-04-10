@@ -55,7 +55,7 @@ def _np_as(arr,atype):
 #     if path is not None:
 #         os.chdir( dir_bak )
 
-def compile_lib(name, FFLAGS="-std=c++20 -fPIC", LFLAGS="", path=None, clean=True, bASAN=False, bDEBUG=True):
+def compile_lib(name, FFLAGS="-std=c++20 -fPIC", LFLAGS="-fopenmp -lgomp", path=None, clean=True, bASAN=False, bDEBUG=True):
     """Compile a C++ library"""
     lib_ext = '.so'
     lib_name = name + lib_ext

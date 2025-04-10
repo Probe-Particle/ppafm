@@ -148,7 +148,7 @@ def eval_dir_of_lines_cpp(input_files, params, line_lims=None):
     
     # Run single scan for all points at their respective biases
     T0 = time.perf_counter()
-    currents = pls.run_cpp_scan_2D( params,  Es,  Ts,   bias_voltages, Vbias0=1.0, scaleE=1.0, bE1d=False, nsize=(len(bias_voltages), len(positions)) )
+    currents = pls.run_cpp_scan_2D( params,  Es,  Ts,   bias_voltages, Vbias0=1.0, scaleE=1.0, bE1d=False, nsize=(len(bias_voltages), len(positions)), bOmp=True )
     T = time.perf_counter() - T0; print( "Time(pls.run_cpp_scan_2D): ", T, "s" )
 
     # Reshape to match original format [nV, npoints]

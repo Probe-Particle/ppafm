@@ -232,6 +232,22 @@ public:
     // }
     
 
+    void alloc( int nSingle_, int nstates_, int nleads_, bool bMemSet=true ) {
+        if (verbosity > 0) {  printf("PauliSolver constructing: nSingle=%d, nstates=%d, nleads=%d, verbosity=%d\n",   nSingle, nstates, nleads, verbosity);}
+        leads           = new LeadParams[nleads];    for(int i = 0; i < nleads; ++i) { leads[i].mu = 0.0; leads[i].temp = 0.0; }
+        state_order     = new int[nstates];          for (int i = 0; i < nstates; ++i) {  state_order[i] = i;}
+        state_order_inv = new int[nstates];          for (int i = 0; i < nstates; ++i) { state_order_inv[i] = i; }
+        // Or alternatively, just zero it out:
+        // std::memset(state_order_inv, 0, nstates * sizeof(int));
+        energies = new double[nstates];                         if(bMemSet) std::memset(energies, 0, nstates * sizeof(double));
+        coupling      = new double[nleads * nstates * nstates]; if(bMemSet) std::memset(coupling, 0, nleads * nstates * nstates * sizeof(double));
+        Hsingle       = new double[nSingle * nSingle];          if(bMemSet) std::memset(Hsingle,       0, nSingle * nSingle * sizeof(double));
+        TLeads        = new double[nleads  * nSingle];          if(bMemSet) std::memset(TLeads,        0, nleads  * nSingle * sizeof(double));
+        kernel        = new double[nstates * nstates];          if(bMemSet) std::memset(kernel,        0, nstates * nstates * sizeof(double));
+        rhs           = new double[nstates          ];          if(bMemSet) std::memset(rhs,           0, nstates * sizeof(double));
+        probabilities = new double[nstates          ];          if(bMemSet) std::memset(probabilities, 0, nstates * sizeof(double));
+    }   
+
     // Complete and Corrected Constructor
     PauliSolver(int nSingle_, int nstates_, int nleads_, int verb = 0) :
         nSingle(nSingle_),
@@ -247,23 +263,63 @@ public:
         kernel_updated(false)
         // std::vectors are default-constructed (empty), which is fine
     {
-        if (verbosity > 0) {  printf("PauliSolver constructing: nSingle=%d, nstates=%d, nleads=%d, verbosity=%d\n",   nSingle, nstates, nleads, verbosity);}
-        leads           = new LeadParams[nleads];    for(int i = 0; i < nleads; ++i) { leads[i].mu = 0.0; leads[i].temp = 0.0; }
-        state_order     = new int[nstates];          for (int i = 0; i < nstates; ++i) {  state_order[i] = i;}
-        state_order_inv = new int[nstates];          for (int i = 0; i < nstates; ++i) { state_order_inv[i] = i; }
-        // Or alternatively, just zero it out:
-        // std::memset(state_order_inv, 0, nstates * sizeof(int));
-        energies = new double[nstates];                         std::memset(energies, 0, nstates * sizeof(double));
-        coupling      = new double[nleads * nstates * nstates]; std::memset(coupling, 0, nleads * nstates * nstates * sizeof(double));
-        Hsingle       = new double[nSingle * nSingle];          std::memset(Hsingle,       0, nSingle * nSingle * sizeof(double));
-        TLeads        = new double[nleads  * nSingle];          std::memset(TLeads,        0, nleads  * nSingle * sizeof(double));
-        kernel        = new double[nstates * nstates];          std::memset(kernel,        0, nstates * nstates * sizeof(double));
-        rhs           = new double[nstates          ];          std::memset(rhs,           0, nstates * sizeof(double));
-        probabilities = new double[nstates          ];          std::memset(probabilities, 0, nstates * sizeof(double));
-
+        alloc(nSingle_, nstates_, nleads_);
         // pauli_factors is initialized to nullptr above, allocated later in generate_fct
 
         if (verbosity > 0) {  printf("PauliSolver construction finished: Memory allocated and initialized.\n");}
+    }
+
+    void deep_clone( const PauliSolver* source ){
+        // Copy basic parameters
+        W = source->W;
+        verbosity = source->verbosity;
+        
+        // Copy arrays
+        std::memcpy(energies,        source->energies,        nstates * sizeof(double) );
+        std::memcpy(coupling,        source->coupling,        nleads  * nstates * nstates * sizeof(double) );
+        std::memcpy(Hsingle,         source->Hsingle,         nSingle * nSingle * sizeof(double) );
+        std::memcpy(TLeads,          source->TLeads,          nleads  * nSingle * sizeof(double) );
+        std::memcpy(kernel,          source->kernel,          nstates * nstates * sizeof(double) );
+        std::memcpy(rhs,             source->rhs,             nstates * sizeof(double) );
+        std::memcpy(probabilities,   source->probabilities,   nstates * sizeof(double) );
+        std::memcpy(state_order,     source->state_order,     nstates * sizeof(int) );
+        std::memcpy(state_order_inv, source->state_order_inv, nstates * sizeof(int) );
+        
+        // Copy lead parameters
+        for(int i = 0; i < nleads; ++i) {  leads[i] = source->leads[i]; }
+        
+        // Copy pauli factors
+        if(source->pauli_factors) {
+            n_pauli_factors = source->n_pauli_factors;
+            if(pauli_factors) delete[] pauli_factors;
+            pauli_factors = new double[n_pauli_factors];
+            std::memcpy(pauli_factors, source->pauli_factors, n_pauli_factors * sizeof(double));
+        }
+        
+        // Copy vectors
+        //dm1       = source->dm1;
+        ndm1      = source->ndm1;
+        lenlst    = source->lenlst;
+        dictdm    = source->dictdm;
+        shiftlst0 = source->shiftlst0;
+        shiftlst1 = source->shiftlst1;
+        mapdm0    = source->mapdm0;
+        //mapdm1    = source->mapdm1;
+        states_by_charge = source->states_by_charge;
+        
+        // Copy flags
+        energies_updated = source->energies_updated;
+        coupling_updated = source->coupling_updated;
+        kernel_updated = source->kernel_updated;
+    }
+
+    PauliSolver( const PauliSolver* source ){
+        nSingle = source->nSingle;
+        nstates = source->nstates;
+        nleads  = source->nleads;
+        W       = source->W;
+        alloc(nSingle, nstates, nleads, false);
+        deep_clone( source );
     }
 
     // Destructor to free allocated memory
@@ -743,6 +799,18 @@ def construct_Tba(leads, tleads, Tba_=None):
                     paulifct[l, cb, 1] = xcb*rez[1]  # Backward
     */
 
+    void init_pauli_factors() {
+        ndm1 = count_valid_transitions(); 
+        if(verbosity > 3) printf("PauliSolver::generate_fct() ndm1 = %d\n", ndm1);
+        // Calculate size of compact pauli factors array
+        n_pauli_factors = nleads * ndm1 * 2;
+        if(verbosity > 3) printf("PauliSolver::generate_fct() n_pauli_factors = %d\n", n_pauli_factors);
+        // Free previous pauli_factors if it exists
+        delete[] pauli_factors;
+        // Allocate compact array with zero initialization
+        pauli_factors = new double[n_pauli_factors]();
+    }
+
     void generate_fct() {
         if(verbosity > 3) printf("PauliSolver::generate_fct() - starting\n");
         const int n = nstates;
@@ -779,18 +847,7 @@ def construct_Tba(leads, tleads, Tba_=None):
         //printf("PauliSolver::generate_fct() load[0](mu=%f,T=%f) load[1](mu=%f, T=%f) \n", leads[0].mu, leads[0].temp, leads[1].mu, leads[1].temp );
         
         // Count valid transitions
-        ndm1 = count_valid_transitions(); 
-        if(verbosity > 3) printf("PauliSolver::generate_fct() ndm1 = %d\n", ndm1);
-        
-        // Calculate size of compact pauli factors array
-        n_pauli_factors = nleads * ndm1 * 2;
-        if(verbosity > 3) printf("PauliSolver::generate_fct() n_pauli_factors = %d\n", n_pauli_factors);
-        
-        // Free previous pauli_factors if it exists
-        delete[] pauli_factors;
-        
-        // Allocate compact array with zero initialization
-        pauli_factors = new double[n_pauli_factors]();
+        if( !pauli_factors ){ init_pauli_factors(); }
         
         int n2 = n * n;
         
