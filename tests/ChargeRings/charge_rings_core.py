@@ -101,6 +101,9 @@ def calculate_qdot_system(*, nsite=3, radius=5.0, zQd=0.0, temperature=10.0, onS
         Is[:,i] = Ts[:,i] * (1-Qs[:,i])
     
     return {
+        'spos': spos,
+        'rots': rots,
+        'pTips': pTips,
         'Es': Es.reshape(npix, npix, -1),
         'Qtot': np.sum(Qs, axis=1).reshape(npix, npix),
         'STM': np.sum(Is, axis=1).reshape(npix, npix),

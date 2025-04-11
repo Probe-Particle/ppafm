@@ -337,16 +337,26 @@ class ApplicationWindow(GUITemplate):
         tip_data  = calculate_tip_potential(**params)
 
 
+        # -------- Check C++ Site energy side view
         #calculate_tip_potential
         #tip_data['Esites'] = compute_site_energies(ps_xz, np.array([[0.0,0.0,zQd]]), VBias=VBias, Rtip=Rtip, zV0=zV0).reshape(npix, npix)
         npix = params['npix']
         # def computeCombinedEnergies( pTips, VBias, cs, pSite=[0.0,0.0,0.0], E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
-        Esite_2 = pls.computeCombinedEnergies(tip_data['ps_xz'], VBias=params['VBias'], cs=np.array([[0.0,0.0,params['zQd']]]), Rtip=params['Rtip'], zV0=params['zV0']).reshape(npix, npix)
-        
+
+        cs = np.array([[1.0, 0.0,0.0,params['zQd'] ]])
+        Esite_2 = pls.computeCombinedEnergies(tip_data['ps_xz'], VBias=params['VBias'], cs=cs, Rtip=params['Rtip'], zV0=params['zV0']).reshape(npix, npix)
+        print("Esite_2 min,max", np.min(Esite_2), np.max(Esite_2))
         tip_data['Esites'][:,:npix//2] = Esite_2[:,0:npix//2]
         
 
         qdot_data = calculate_qdot_system(**params)
+
+        # ------ Check C++ Site energy top view
+        Es = pls.compute_site_energies(qdot_data['pTips'], qdot_data['spos'], VBias=params['VBias'],  cs=cs,   Rtip=params['Rtip'],zV0=params['zV0'], E0=params['Esite'] )
+        print("Es min,max", np.min(Es), np.max(Es))
+        qdot_data['Es'][:,:npix//2]  = Es.reshape(npix, npix, -1)[:,:npix//2,:] #*0.1
+        
+
 
         # Plot results
         plot_tip_potential(self.ax1, self.ax2, self.ax3, **tip_data, **params)
@@ -594,8 +604,9 @@ class ApplicationWindow(GUITemplate):
             params['VBias'] = vbias
             
             # Calculate energies and charges for each site
-            Es = compute_site_energies(pTips, spos, VBias=vbias, Rtip=params['Rtip'], 
-                                     zV0=params['zV0'], E0s=Esite_arr)
+            #Es = compute_site_energies(pTips, spos, VBias=vbias, Rtip=params['Rtip'], zV0=params['zV0'], E0s=Esite_arr)
+            Es = pls.compute_site_energies(pTips, spos, VBias=vbias, Rtip=params['Rtip'], zV0=params['zV0'], E0s=Esite_arr)
+            #Es[npix//2,0] = 0
             
             # Calculate charges for each site
             Qs = np.zeros(Es.shape)

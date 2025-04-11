@@ -79,7 +79,9 @@ void computeCombinedEnergies( int nTip, const Vec3d* pTips, const Vec3d pSite, d
         Vec3d pTipMirror = pTip;
         pTipMirror.z     = 2*zV0 - pTip.z; // mirror tip position
         double E_direct  = Emultipole( pTip       - pSite , order, cs);
-        double E_mirror  = Emultipole( pTipMirror - pSite , order, cs);            
+        double E_mirror  = Emultipole( pTipMirror - pSite , order, cs);   
+        //printf( "computeCombinedEnergies() i: %3i E_direct: %6.3e E_mirror: %6.3e   pTip: %6.3e %6.3e %6.3e \n", i, E_direct, E_mirror, VR, pTip.x, pTip.y, pTip.z );
         Eout[i] = VR * (E_direct - E_mirror) + E0;
     }
+    //printf("computeCombinedEnergies() done VR: %6.3e E0: %6.3e VBias: %6.3e Rtip: %6.3e zV0: %6.3e order: %d cs: %6.3e %6.3e %6.3e %6.3e %6.3e \n", VR, E0, VBias, Rtip, zV0, order, cs[0], cs[1], cs[2], cs[3], cs[4] );
 }

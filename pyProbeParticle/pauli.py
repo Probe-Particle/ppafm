@@ -104,6 +104,21 @@ def computeCombinedEnergies( pTips, VBias, cs, pSite=[0.0,0.0,0.0], E0=0.0, Rtip
     lib.computeCombinedEnergies(nTip, _np_as(pTips, c_double_p), _np_as(pSite, c_double_p), E0, VBias, Rtip, zV0, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p))
     return Eout
 
+def compute_site_energies( pTips, pSites, VBias, cs, E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
+    nTip  = len(pTips)
+    nSite = len(pSites)
+    if bMakeArrays:
+        pSite = np.zeros((nSite, 3), dtype=np.float64)
+        pTips = np.array(pTips, dtype=np.float64)
+        cs    = np.array(cs,    dtype=np.float64)
+    if Eout is None:
+        Eout = np.zeros((nTip), dtype=np.float64)
+        Eout2 = np.zeros((nTip, nSite), dtype=np.float64)
+    for i in range(nSite):
+        pSite[:] = pSites[i]
+        lib.computeCombinedEnergies(nTip, _np_as(pTips, c_double_p), _np_as(pSites[i], c_double_p), E0, VBias, Rtip, zV0, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p))
+        Eout2[:,i] = Eout
+    return Eout2
 
 
 class PauliSolver:
