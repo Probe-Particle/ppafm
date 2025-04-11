@@ -68,6 +68,9 @@ lib.solve_hsingle.restype = c_double
 lib.scan_current.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_int_p, c_double_p, c_bool]
 lib.scan_current.restype = c_double
 
+# double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts ){
+lib.scan_current_tip.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_int, c_double_p, c_double_p, c_int, c_int_p, c_double_p, c_bool, c_double_p, c_double_p]
+lib.scan_current_tip.restype = c_double
 
 lib.get_kernel.argtypes = [c_void_p, c_double_p]
 lib.get_kernel.restype = None
@@ -182,6 +185,16 @@ class PauliSolver:
         lib.scan_current(self.solver, npoints, _np_as(hsingles, c_double_p), _np_as(Ws, c_double_p), _np_as(VGates, c_double_p), _np_as(TLeads, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp)
         return out_current
     
+    def scan_current_tip(self, pTips, Vtips, pSites, params, order, cs, state_order, out_current=None, bOmp=False, Es=None, Ts=None, bMakeArrays=True ):
+        npoins = len(pTips)
+        nsites  = len(pSites)
+        if out_current is None: out_current = np.zeros(npoins, dtype=np.float64)
+        if bMakeArrays:
+            if Es is None: Es = np.zeros(npoins, dtype=np.float64)
+            if Ts is None: Ts = np.zeros(npoins, dtype=np.float64)
+        lib.scan_current_tip(self.solver, npoins, _np_as(pTips, c_double_p), _np_as(Vtips, c_double_p), nsites, _np_as(pSites, c_double_p), _np_as(params, c_double_p), order, _np_as(cs, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp, _np_as(Es, c_double_p), _np_as(Ts, c_double_p))
+        return out_current, Es, Ts
+
     def get_energies(self, nstates):
         energies = np.zeros(nstates)
         lib.get_energies(self.solver, _np_as(energies, c_double_p))

@@ -85,3 +85,23 @@ void computeCombinedEnergies( int nTip, const Vec3d* pTips, const Vec3d pSite, d
     }
     //printf("computeCombinedEnergies() done VR: %6.3e E0: %6.3e VBias: %6.3e Rtip: %6.3e zV0: %6.3e order: %d cs: %6.3e %6.3e %6.3e %6.3e %6.3e \n", VR, E0, VBias, Rtip, zV0, order, cs[0], cs[1], cs[2], cs[3], cs[4] );
 }
+
+/**
+ * @brief Computes tunneling rates between tips and sites
+ * @param nTips Number of tips
+ * @param pTips Array of tip positions
+ * @param nSites Number of sites
+ * @param pSites Array of site positions
+ * @param beta Tunneling decay constant
+ * @param Amp Amplitude scaling factor (default=1.0)
+ * @param output Pre-allocated output array (nTips x nSites)
+ */
+void computeTunnelingRates( int nTips, const Vec3d* pTips, int nSites, const Vec3d* pSites, double beta, double Amp, double* output ){
+    for (int i = 0; i < nTips; i++) {
+        for (size_t j = 0; j < nSites; j++) {
+            Vec3d d = pTips[i] - pSites[j];
+            double dist = d.norm();
+            output[i*nSites + j] = Amp * exp(-beta * dist);
+        }
+    }
+}

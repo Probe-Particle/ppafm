@@ -225,8 +225,7 @@ double scan_current_omp( PauliSolver* solver, int npoints, double* hsingles, dou
     int nSingle = solver->nSingle;
     int n2 = nSingle*nSingle; 
     int nleads = solver->nleads;
-    double base_lead_mu[nleads];  
-    for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
+    double base_lead_mu[nleads];  for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
     
     if(state_order) { 
         solver->init_states_by_charge();
@@ -398,7 +397,85 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
     return 0.0;
 }
 
+/**
+ * @brief Scan current for array of tip positions with integrated site energy and tunneling calculations
+ * @param solver_ptr Pauli solver instance
+ * @param npoints Number of tip positions
+ * @param pTips Array of tip positions (npoints x 3)
+ * @param nSites Number of sites
+ * @param pSites Array of site positions (nSites x 3)
+ * @param params Array of parameters:
+ *   [0]=VBias, [1]=Rtip, [2]=zV0, [3]=Esite, [4]=beta, [5]=Gamma, [6]=W
+ * @param order Multipole order (0=monopole, 1=dipole, 2=quadrupole)
+ * @param cs Multipole coefficients array (10 elements)
+ * @param state_order State ordering array (optional)
+ * @param out_current Output array for currents (npoints)
+ * @param bOmp Whether to use OpenMP
+ * @return 0 on success
+ */
+double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts ){
+    PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
+    if (!solver) return 0.0;
 
+    Vec3d* pTips  = (Vec3d*)pTips_;
+    Vec3d* pSites = (Vec3d*)pSites_;
+    
+    // Extract parameters
+    double Rtip  = params[0];
+    double zV0   = params[1];
+    double Esite = params[2];
+    double beta  = params[3];
+    double Gamma = params[4];
+    double W     = params[5];
+
+    bool bEs = (Es != nullptr);
+    bool bTs = (Ts != nullptr);
+    
+    // Prepare arrays
+    if( !bEs ) { Es = new double[npoints*nSites]; }
+    if( !bTs ) { Ts = new double[npoints*nSites]; }
+
+    // Initialize local solver
+    PauliSolver solver_local(*solver);
+    int nleads = 2;
+    double base_lead_mu[nleads];
+    for (int l = 0; l < nleads; ++l) { base_lead_mu[l] = solver->leads[l].mu; }
+    double TLeads[nleads*nSites];
+    double hsingle[nSites*nSites];
+
+    double VS = Gamma/M_PI;
+    double VT = Gamma/M_PI;
+
+    solver_local.leads[0].mu = 0.0;
+    for (int j = 0; j < nSites;        j++) { TLeads [j] = VS;  } // Lead tunneling rates
+    for (int j = 0; j < nSites*nSites; j++) { hsingle[j] = 0.0; } // Initialize hsingle to zero
+
+    // Calculate site energies and tunneling rates for all points
+    for (int i = 0; i < npoints; i++) {
+        Vec3d tipPos = pTips[i];
+        double VBias = Vtips[i];
+        solver_local.leads[1].mu = VBias;
+        for (int j = 0; j < nSites; j++) {
+            double Ei = computeCombinedEnergy( tipPos, pSites[j], VBias, Rtip, zV0, order, cs, Esite );
+            Vec3d d          = tipPos - pSites[j];
+            double T         = exp(-beta * d.norm());
+            TLeads [  nSites + j] = VT*T;
+            hsingle[j*nSites + j] = Ei;
+        }
+        solver_local.setTLeads(TLeads); // Assuming this doesn't modify internal state needed across iterations
+        solver_local.calculate_tunneling_amplitudes(TLeads); // Assuming this is okay
+        double current = solve_hsingle(&solver_local, hsingle, W, 1, 0); // Pass address of local solver
+        out_current[i] = current;
+    }
+    
+    // Run scan using existing scan_current function
+    //double result = scan_current( solver_ptr, npoints, Es, &W, nullptr, Ts, state_order, out_current, bOmp );
+    
+    if( !bEs ) { delete[] Es; }
+    if( !bTs ) { delete[] Ts; }
+    
+    return 0.0;
+}
 
 // Calculate current through a lead (step 8 in optimization scheme)
 double calculate_current(void* solver_ptr, int lead_idx) {
