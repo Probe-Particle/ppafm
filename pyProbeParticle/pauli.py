@@ -70,7 +70,7 @@ lib.scan_current.restype = c_double
 
 
 #double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* rots_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts ){
-lib.scan_current_tip.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_int, c_double_p, c_double_p,  c_double_p, c_int, c_int_p, c_double_p, c_bool, c_double_p, c_double_p]
+lib.scan_current_tip.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_int, c_double_p, c_double_p,  c_double_p, c_int, c_double_p, c_int_p, c_double_p, c_bool, c_double_p, c_double_p]
 lib.scan_current_tip.restype = c_double
 
 lib.get_kernel.argtypes = [c_void_p, c_double_p]
@@ -111,8 +111,7 @@ def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0]], beta=1.0, Amp=1.0, ou
 # void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs ) {
 lib.evalSitesTipsMultipoleMirror.argtypes = [c_int, c_double_p,  c_double_p, c_int, c_double_p, c_double_p,  c_double, c_double, c_double, c_int, c_double_p, c_double_p]
 lib.evalSitesTipsMultipoleMirror.restype = None
-def evalSitesTipsMultipoleMirror( pTips, cs=[1.0,0.0,0.0,0.0], VBias=1.0, pSites=[[0.0,0.0,0.0]], rotSite=None, E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
-    print( f"evalSitesTipsMultipoleMirror cs: {cs}, pSites: {pSites}, rotSite: {rotSite}, E0: {E0}, Rtip: {Rtip}, zV0: {zV0}, order: {order}, bMakeArrays: {bMakeArrays}")
+def evalMultipoleMirror( pTips, pSites, VBias, Rtip=1.0, zV0=-2.0, order=1, cs=None, E0=0.0, rotSite=None, Eout=None, bMakeArrays=True ):
     nTip  = len(pTips)
     nSite = len(pSites)
     if bMakeArrays:
@@ -193,7 +192,7 @@ class PauliSolver:
         if Ws is None:
             Ws = np.ones(npoints, dtype=np.float64)*W
         if VGates is None:
-            VGates = np.zeros(npoints, dtype=np.float64)
+            VGates = np.zeros((npoints, NLeads))
             VGates[:,:] = VGate[None,:]
         #if TLeads is None:
         #    TLeads = np.zeros((nleads, nSingle), dtype=np.float64)
@@ -209,8 +208,8 @@ class PauliSolver:
         nsites = len(pSites)
         if out_current is None: out_current = np.zeros(npoins, dtype=np.float64)
         if bMakeArrays:
-            if Es is None: Es = np.zeros(npoins, dtype=np.float64)
-            if Ts is None: Ts = np.zeros(npoins, dtype=np.float64)
+            if Es is None: Es = np.zeros( (npoins, nsites), dtype=np.float64)
+            if Ts is None: Ts = np.zeros( (npoins, nsites), dtype=np.float64)
         lib.scan_current_tip(self.solver, npoins, _np_as(pTips, c_double_p), _np_as(Vtips, c_double_p), nsites, _np_as(pSites, c_double_p), _np_as(rots, c_double_p), _np_as(params, c_double_p), order, _np_as(cs, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp, _np_as(Es, c_double_p), _np_as(Ts, c_double_p))
         return out_current, Es, Ts
 
@@ -392,3 +391,17 @@ def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, 
     # Run scan and reshape results to [npoints, nbias]
     currents = pauli.scan_current(hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order, bOmp=bOmp)
     return currents.reshape(nbias,npoints)
+
+
+def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, pauli_params, rots=None, bOmp=False, state_order=None):
+    nsites  = len(pSites)
+    npoints = len(pTips)
+    if state_order is None:
+        state_order = np.arange(pauli_params.get('Nstates', 0), dtype=np.int32)
+    else:
+        state_order = np.array(state_order, dtype=np.int32) # Ensure correct type
+    pauli_solver = PauliSolver( nSingle=nsites, nleads=2, verbosity=verbosity )- 
+    current, Es, Ts = pauli_solver.scan_current_tip( pTips, Vtips, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True )
+    # Clean up solver
+    #pauli_solver.cleanup()
+    return current, Es, Ts
