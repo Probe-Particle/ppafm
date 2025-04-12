@@ -10,14 +10,15 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from scipy.interpolate import LinearNDInterpolator
 
-
 from GUITemplate import GUITemplate
-from charge_rings_core import makeCircle, makeRotMats, makePosXY, occupancy_FermiDirac # Keep necessary functions
-from charge_rings_plotting import plot_tip_potential, plot_qdot_system
 import data_line 
 
 sys.path.insert(0, '../../pyProbeParticle')
+import utils as ut
+import pauli
 from pauli import run_pauli_scan # Import the high-level scan function
+
+import plot_utils as pu
 
 verbosity = 0
 
@@ -97,8 +98,8 @@ class ApplicationWindow(GUITemplate):
         self.ax2 = self.fig.add_subplot(332)  # Tip Potential
         self.ax3 = self.fig.add_subplot(333)  # Site Potential
         self.ax4 = self.fig.add_subplot(334)  # Energies
-        self.ax5 = self.fig.add_subplot(335)  # Total Charge
-        self.ax6 = self.fig.add_subplot(336)  # STM
+        self.ax5 = self.fig.add_subplot(335)  # Tunneling
+        self.ax6 = self.fig.add_subplot(336)  # Pauli Current
         self.ax7 = self.fig.add_subplot(338)  # Experimental dI/dV
         self.ax8 = self.fig.add_subplot(339)  # Experimental Current
         self.ax9 = self.fig.add_subplot(337)  # Additional plot if needed
@@ -137,6 +138,8 @@ class ApplicationWindow(GUITemplate):
         
         # Plot reference data path
         self.draw_reference_line(self.ax4)
+
+        self.pauli_solver = pauli.PauliSolver( nSingle=3, nleads=2, verbosity=verbosity )
         
         self.run()
         
@@ -332,84 +335,24 @@ class ApplicationWindow(GUITemplate):
     def run(self):
         """Main calculation and plotting function"""
         params = self.get_param_values()
-        npix = params['npix']
-        L    = params['L']
-        nsite = params['nsite']
+        L      = params['L']
 
-        # --- Prepare inputs for run_pauli_scan --- 
-        # Site positions and rotations
-        spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+        # -- Site positions and rotations
+        spos, phis = ut.makeCircle(n=params['nsite'], R=params['radius'], phi0=params['phiRot'])
         spos[:,2] = params['zQd']
-        rots = makeRotMats(phis + params['phiRot'])
+        rots = ut.makeRotMats(phis + params['phiRot'])
 
-        # Tip positions (2D grid)
-        zT = params['z_tip'] + params['Rtip']
-        pTips, Xs, Ys = makePosXY(n=npix, L=L, p0=(0,0,zT))
-        pTips = pTips.copy() # Ensure it's contiguous and writable if needed
+        STM, Es, Ts = pauli.run_pauli_scan_top( spos, rots, params, pauli_solver=self.pauli_solver )
+        Ttot = np.max(Ts, axis=2)
+        Etot = np.max(Es, axis=2)
 
-        # Tip voltages
-        Vtips = np.full(len(pTips), params['VBias'])
-
-        # C++ parameters array [Rtip, zV0, Esite, beta, Gamma, W]
-        # Using GammaT for Gamma, assuming it's the relevant coupling
-        cpp_params = np.array([params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W']])
-
-        # Multipole parameters
-        order = params.get('order', 1)
-        cs = params.get('cs', np.array([1.0,0.,0.,0.]))
-        # Ensure cs has at least 'order' + 1 coeffs, padding if needed (handled by wrapper? check if needed)
-        # cs = np.pad(cs, (0, max(0, order*2+2 - len(cs))), 'constant') 
-
-        # State order
-        state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
-
-        # Pauli parameters dictionary
-        pauli_params_dict = {
-            'nSingle': nsite,
-            'nSpin': 1, # Assuming non-spin polarized for now
-            'Nstates': 2**nsite,
-            'NLeads': 2,
-            'Spin': False,
-            'Paulibasis': False # Assuming standard basis
-        }
-
-        # --- Call the combined calculation function --- 
-        print("Running run_pauli_scan for 2D scan...")
-        current, Es, Ts = run_pauli_scan(
-            pTips, Vtips, spos, 
-            cpp_params, order, cs, pauli_params_dict,
-            rots=rots, 
-            state_order=state_order,
-            bOmp=True # Enable OpenMP for 2D scan
-        )
-        print("Done.")
-
-        # --- Process Results --- 
-        STM = current.reshape(npix, npix)
-        Es = Es.reshape(npix, npix, nsite)
-        Ts = Ts.reshape(npix, npix, nsite)
-
-        # Calculate Qtot from energies
-        Qs = occupancy_FermiDirac(Es, params['Temp'])
-        Qtot = np.sum(Qs, axis=2)
-        
-        # ---- Plotting ---- 
-        # Clear previous plots
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla(); self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
 
-        # Prepare data for plot_qdot_system
-        plot_data = {
-            'Es': Es,
-            'STM': STM,
-            'Qtot': Qtot,
-            'spos': spos,
-            'rots': rots,
-            'extent': [-L, L, -L, L]
-        }
-        
-        # Plot results (only Qdot system plots remain)
-        # plot_tip_potential(self.ax1, self.ax2, self.ax3, **tip_data, **params) # Removed
-        plot_qdot_system(self.ax4, self.ax5, self.ax6, **plot_data, **params)
+        extent = [-L, L, -L, L]
+        pu.plot_imshow(self.ax4, Etot,    title="Energies (max)", extent=extent, spos=spos, cmap='bwr' )
+        pu.plot_imshow(self.ax5, Ttot,    title="Tunneling",      extent=extent, spos=spos)   
+        pu.plot_imshow(self.ax6, STM,     title="Current",        extent=extent, spos=spos)
+
         self.draw_scan_line(self.ax4)
         self.draw_reference_line(self.ax4)
 

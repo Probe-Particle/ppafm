@@ -435,12 +435,12 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
     double Gamma = params[4];
     double W     = params[5];
 
-    bool bEs = (Es != nullptr);
-    bool bTs = (Ts != nullptr);
-    
+    //bool bEs = (Es != nullptr);
+    //bool bTs = (Ts != nullptr);
     // Prepare arrays
-    if( !bEs ) { Es = new double[npoints*nSites]; }
-    if( !bTs ) { Ts = new double[npoints*nSites]; }
+    //if( !bEs ) { Es = new double[npoints*nSites]; }
+    //if( !bTs ) { Ts = new double[npoints*nSites]; }
+    //printf("scan_current_tip() Es: %p, Ts: %p, bEs: %d, bTs: %d\n", Es, Ts, bEs, bTs);
 
     // Initialize local solver
     PauliSolver solver_local(*solver);
@@ -469,6 +469,8 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
             double T         = exp(-beta * d.norm());
             TLeads [  nSites + j] = VT*T;
             hsingle[j*nSites + j] = Ei;
+            if( Es ) { Es[i*nSites + j] = Ei; }
+            if( Ts ) { Ts[i*nSites + j] = T; }
         }
         solver_local.setTLeads(TLeads); // Assuming this doesn't modify internal state needed across iterations
         solver_local.calculate_tunneling_amplitudes(TLeads); // Assuming this is okay
@@ -479,8 +481,8 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
     // Run scan using existing scan_current function
     //double result = scan_current( solver_ptr, npoints, Es, &W, nullptr, Ts, state_order, out_current, bOmp );
     
-    if( !bEs ) { delete[] Es; }
-    if( !bTs ) { delete[] Ts; }
+    //if( bEs ) { delete[] Es; }
+    //!if( bTs ) { delete[] Ts; }
     
     return 0.0;
 }

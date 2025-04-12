@@ -5,6 +5,7 @@ import os
 import ctypes
 from ctypes import c_void_p, c_int, c_double, c_bool
 from cpp_utils import compile_lib, work_dir, _np_as, c_double_p, c_int_p
+import utils as ut
 
 verbosity = 0 
 
@@ -111,7 +112,7 @@ def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0]], beta=1.0, Amp=1.0, ou
 # void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs ) {
 lib.evalSitesTipsMultipoleMirror.argtypes = [c_int, c_double_p,  c_double_p, c_int, c_double_p, c_double_p,  c_double, c_double, c_double, c_int, c_double_p, c_double_p]
 lib.evalSitesTipsMultipoleMirror.restype = None
-def evalMultipoleMirror( pTips, pSites, VBias, Rtip=1.0, zV0=-2.0, order=1, cs=None, E0=0.0, rotSite=None, Eout=None, bMakeArrays=True ):
+def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0]], VBias=1.0, Rtip=1.0, zV0=-2.0, order=1, cs=None, E0=0.0, rotSite=None, Eout=None, bMakeArrays=True ):
     nTip  = len(pTips)
     nSite = len(pSites)
     if bMakeArrays:
@@ -400,8 +401,53 @@ def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, pauli_params, ro
         state_order = np.arange(pauli_params.get('Nstates', 0), dtype=np.int32)
     else:
         state_order = np.array(state_order, dtype=np.int32) # Ensure correct type
-    pauli_solver = PauliSolver( nSingle=nsites, nleads=2, verbosity=verbosity )- 
+    pauli_solver    = PauliSolver( nSingle=nsites, nleads=2, verbosity=verbosity )
     current, Es, Ts = pauli_solver.scan_current_tip( pTips, Vtips, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True )
+    print("min,max current: ", current.min(), current.max())
+    print("min,max Es:      ", Es.min(), Es.max())
+    print("min,max Ts:      ", Ts.min(), Ts.max())
     # Clean up solver
     #pauli_solver.cleanup()
     return current, Es, Ts
+
+
+def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False ):
+
+    npix   = params['npix']
+    L      = params['L']
+    nsite  = params['nsite']
+
+    # --- Prepare inputs for run_pauli_scan --- 
+    # Site positions and rotations
+    #spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+    #spos[:,2]  = params['zQd']
+    #rots       = makeRotMats(phis + params['phiRot'])
+
+    # Tip positions (2D grid)
+    zT = params['z_tip'] + params['Rtip']
+    pTips, Xs, Ys = ut.makePosXY(n=npix, L=L, p0=(0,0,zT))
+    pTips = pTips.copy() # Ensure it's contiguous and writable if needed
+
+    # Tip voltages
+    Vtips = np.full(len(pTips), params['VBias'])
+
+    # C++ parameters array [Rtip, zV0, Esite, beta, Gamma, W]
+    # Using GammaT for Gamma, assuming it's the relevant coupling
+    cpp_params = np.array([params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W']])
+
+    # Multipole parameters
+    order = params.get('order', 1)
+    cs = params.get('cs', np.array([1.0,0.,0.,0.]))
+
+    # State order
+    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+
+    # --- Run scan ---
+    #print("Running scan...")
+    STM, Es, Ts = pauli_solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True )
+
+    STM = STM.reshape(npix, npix)
+    Es  = Es.reshape(npix, npix, nsite)
+    Ts  = Ts.reshape(npix, npix, nsite)
+
+    return STM, Es, Ts #, spos, rots

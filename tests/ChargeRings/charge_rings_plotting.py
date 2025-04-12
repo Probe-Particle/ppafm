@@ -114,6 +114,19 @@ def plot_qdot_system(ax4, ax5, ax6, *, Es, Qtot, STM, spos, extent, nsite=3, VBi
     ax6.grid()
 
 
+def plot_top( ax, data, title=None, extent=None, spos=None, cmap=None, **kwargs):
+    ax.clear()
+    ax.imshow(data, extent=extent, cmap=cmap, origin='lower', **kwargs)
+    if spos is not None:
+        for i in range(spos.shape[0]):
+            ax.plot(spos[i,0], spos[i,1], 'ro')
+    if title is not None:
+        ax.set_title(title)
+    ax.set_xlabel("x [Å]")
+    ax.set_ylabel("y [Å]")
+    ax.grid()
+
+
 def plot_ellipses(ax, nsite=3, radius=1.0, phiRot=0.0, R_major=0.2, R_minor=0.1, phi0_ax=0.0, n=100, c='g', **kwargs):
     artists = []
     for i in range(nsite):
