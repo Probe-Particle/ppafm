@@ -131,9 +131,9 @@ class ApplicationWindow(GUITemplate):
         #ref_datline_fname = '/home/prokop/git/ppafm/tests/ChargeRings/Vlado/input/0.20_line_scan.dat'
         ref_datline_fname = './Vlado/input/0.20_line_scan.dat'
         self.ref_params, self.ref_columns, self.ref_data_line = data_line.read_dat_file(ref_datline_fname); 
-        print( "ref_params ", self.ref_params); 
-        print( "ref_columns ", self.ref_columns); 
-        print( "ref_data_line ", self.ref_data_line)
+        #print( "ref_params ", self.ref_params); 
+        #print( "ref_columns ", self.ref_columns); 
+        #print( "ref_data_line ", self.ref_data_line)
         #exit()
         
         # Plot reference data path
@@ -657,15 +657,8 @@ class ApplicationWindow(GUITemplate):
         iy = self.ref_columns['y[A]']
         
         # Plot the path
-        ax.plot(
-            self.ref_data_line[:,ix], self.ref_data_line[:,iy], 
-            'b-', linewidth=1, alpha=0.7
-        )
-        ax.plot(
-            [self.ref_data_line[0,ix], self.ref_data_line[-1,ix]],
-            [self.ref_data_line[0,iy], self.ref_data_line[-1,iy]],
-            'bo', markersize=5, alpha=0.7
-        )
+        ax.plot(  self.ref_data_line[:,ix], self.ref_data_line[:,iy],   'b-', linewidth=1, alpha=0.7   )
+        ax.plot( [self.ref_data_line[0,ix], self.ref_data_line[-1,ix]], [self.ref_data_line[0,iy], self.ref_data_line[-1,iy]], 'bo', markersize=5, alpha=0.7)
         self.canvas.draw()
 
     def run_1d_scan_p1p2(self):

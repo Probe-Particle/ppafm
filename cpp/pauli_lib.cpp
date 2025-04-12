@@ -362,6 +362,7 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
     int n2 = nSingle*nSingle; 
     int nleads = solver->nleads;
     double base_lead_mu[nleads];  for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
+
     if(state_order) { 
         solver->init_states_by_charge();
         solver->setStateOrder(state_order); 
@@ -423,6 +424,8 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (!solver) return 0.0;
 
+    printf("scan_current_tip() npoints: %d bOmp: %d state_order: %p \n", npoints, bOmp, state_order );
+
     Vec3d* pTips  = (Vec3d*)pTips_;
     Vec3d* pSites = (Vec3d*)pSites_;
     Mat3d* rots   = (Mat3d*)rots_;
@@ -456,6 +459,13 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
     solver_local.leads[0].mu = 0.0;
     for (int j = 0; j < nSites;        j++) { TLeads [j] = VS;  } // Lead tunneling rates
     for (int j = 0; j < nSites*nSites; j++) { hsingle[j] = 0.0; } // Initialize hsingle to zero
+
+    solver_local.W = W;
+    solver_local.setHsingle(hsingle);
+    if(state_order) { 
+        solver_local.init_states_by_charge();
+        solver_local.setStateOrder(state_order); 
+    }
 
     // Calculate site energies and tunneling rates for all points
     for (int i = 0; i < npoints; i++) {
