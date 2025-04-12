@@ -3,8 +3,8 @@
 # Set up ASan preloading before any imports
 import os
 bASAN = True
-#bQmeQ = False
-bQmeQ = True
+bQmeQ = False
+#bQmeQ = True
 
 if bQmeQ:
     import QmeQ_pauli as qmeqp

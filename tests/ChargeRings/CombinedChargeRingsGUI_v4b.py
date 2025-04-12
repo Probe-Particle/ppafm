@@ -128,7 +128,8 @@ class ApplicationWindow(GUITemplate):
         self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
 
 
-        ref_datline_fname = '/home/prokop/git/ppafm/tests/ChargeRings/Vlado/input/0.20_line_scan.dat'
+        #ref_datline_fname = '/home/prokop/git/ppafm/tests/ChargeRings/Vlado/input/0.20_line_scan.dat'
+        ref_datline_fname = './Vlado/input/0.20_line_scan.dat'
         self.ref_params, self.ref_columns, self.ref_data_line = data_line.read_dat_file(ref_datline_fname); 
         print( "ref_params ", self.ref_params); 
         print( "ref_columns ", self.ref_columns); 
@@ -341,10 +342,9 @@ class ApplicationWindow(GUITemplate):
         #calculate_tip_potential
         #tip_data['Esites'] = compute_site_energies(ps_xz, np.array([[0.0,0.0,zQd]]), VBias=VBias, Rtip=Rtip, zV0=zV0).reshape(npix, npix)
         npix = params['npix']
-        # def computeCombinedEnergies( pTips, VBias, cs, pSite=[0.0,0.0,0.0], E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
 
         cs = np.array([[1.0, 0.0,0.0,params['zQd'] ]])
-        Esite_2 = pls.computeCombinedEnergies(tip_data['ps_xz'], VBias=params['VBias'], cs=cs, Rtip=params['Rtip'], zV0=params['zV0']).reshape(npix, npix)
+        Esite_2 = pls.evalSitesTipsMultipoleMirror( tip_data['ps_xz'], VBias=params['VBias'], cs=cs, Rtip=params['Rtip'], zV0=params['zV0'], order=1).reshape(npix, npix)
         print("Esite_2 min,max", np.min(Esite_2), np.max(Esite_2))
         tip_data['Esites'][:,:npix//2] = Esite_2[:,0:npix//2]
         
@@ -352,7 +352,7 @@ class ApplicationWindow(GUITemplate):
         qdot_data = calculate_qdot_system(**params)
 
         # ------ Check C++ Site energy top view
-        Es = pls.compute_site_energies(qdot_data['pTips'], qdot_data['spos'], VBias=params['VBias'],  cs=cs,   Rtip=params['Rtip'],zV0=params['zV0'], E0=params['Esite'] )
+        Es = pls.evalSitesTipsMultipoleMirror( qdot_data['pTips'], pSites=qdot_data['spos'], VBias=params['VBias'],  cs=cs,   Rtip=params['Rtip'],zV0=params['zV0'], E0=params['Esite'], order=1 )
         print("Es min,max", np.min(Es), np.max(Es))
         qdot_data['Es'][:,:npix//2]  = Es.reshape(npix, npix, -1)[:,:npix//2,:] #*0.1
         

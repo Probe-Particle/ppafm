@@ -11,9 +11,14 @@ static int _verbosity = 0;
 
 extern "C" {
 
-void computeCombinedEnergies( int nTip, double* pTips,  double* pSite, double E0, double VBias, double Rtip, double zV0, int order, double* cs, double* Eout ) {
-    computeCombinedEnergies( nTip, (Vec3d*)pTips, *(Vec3d*)pSite, E0, VBias, Rtip, zV0, order, cs, Eout );
+
+void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs ) {
+    evalSitesTipsMultipoleMirror( nTip, (Vec3d*)pTips, VBias, nSites, (Vec3d*)pSite, (Mat3d*)rotSite, E0, Rtip, zV0, order, cs, outEs );
 }
+
+void evalSitesTipsTunneling( int nTips, const double* pTips, int nSites, const double* pSites, double beta, double Amp, double* outTs ){
+    evalSitesTipsTunneling( nTips, (Vec3d*) pTips, nSites, (Vec3d*) pSites, beta, Amp, outTs ); 
+}  
 
 // Create a PauliSolver instance with basic initialization but without setting parameters
 // This follows step 1 in the optimization scheme
@@ -402,6 +407,7 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
  * @param solver_ptr Pauli solver instance
  * @param npoints Number of tip positions
  * @param pTips Array of tip positions (npoints x 3)
+ * @param rots Array of rotation matrices for sites (nSites x 3x3)
  * @param nSites Number of sites
  * @param pSites Array of site positions (nSites x 3)
  * @param params Array of parameters:
@@ -413,12 +419,13 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
  * @param bOmp Whether to use OpenMP
  * @return 0 on success
  */
-double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts ){
+double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* rots_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts ){
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (!solver) return 0.0;
 
     Vec3d* pTips  = (Vec3d*)pTips_;
     Vec3d* pSites = (Vec3d*)pSites_;
+    Mat3d* rots   = (Mat3d*)rots_;
     
     // Extract parameters
     double Rtip  = params[0];
@@ -456,7 +463,8 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
         double VBias = Vtips[i];
         solver_local.leads[1].mu = VBias;
         for (int j = 0; j < nSites; j++) {
-            double Ei = computeCombinedEnergy( tipPos, pSites[j], VBias, Rtip, zV0, order, cs, Esite );
+            Mat3d* rot = ( rots ) ? ( rots + j ) : nullptr;
+            double Ei = evalMultipoleMirror( tipPos, pSites[j], VBias, Rtip, zV0, order, cs, Esite, rot );
             Vec3d d          = tipPos - pSites[j];
             double T         = exp(-beta * d.norm());
             TLeads [  nSites + j] = VT*T;

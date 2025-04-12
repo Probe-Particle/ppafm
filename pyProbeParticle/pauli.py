@@ -68,8 +68,9 @@ lib.solve_hsingle.restype = c_double
 lib.scan_current.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_double_p, c_double_p, c_int_p, c_double_p, c_bool]
 lib.scan_current.restype = c_double
 
-# double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts ){
-lib.scan_current_tip.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_int, c_double_p, c_double_p, c_int, c_int_p, c_double_p, c_bool, c_double_p, c_double_p]
+
+#double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* rots_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts ){
+lib.scan_current_tip.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_int, c_double_p, c_double_p,  c_double_p, c_int, c_int_p, c_double_p, c_bool, c_double_p, c_double_p]
 lib.scan_current_tip.restype = c_double
 
 lib.get_kernel.argtypes = [c_void_p, c_double_p]
@@ -93,35 +94,53 @@ lib.get_coupling.restype = None
 lib.get_pauli_factors.argtypes = [c_void_p, c_double_p]
 lib.get_pauli_factors.restype = None
 
-# computeCombinedEnergies( int nTip, double* pTips,  double* pSite, double E0, double VBias, double Rtip, double zV0, int order, double* cs, double* Eout ) {
-lib.computeCombinedEnergies.argtypes = [c_int, c_double_p, c_double_p, c_double, c_double, c_double, c_double, c_int, c_double_p, c_double_p]
-lib.computeCombinedEnergies.restype = None
-def computeCombinedEnergies( pTips, VBias, cs, pSite=[0.0,0.0,0.0], E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
-    nTip = len(pTips)
+# void evalSitesTipsTunneling( int nTips, const double* pTips, int nSites, const double* pSites, double beta, double Amp, double* outTs ){
+lib.evalSitesTipsTunneling.argtypes = [c_int, c_double_p, c_int, c_double_p, c_double, c_double, c_double_p]
+lib.evalSitesTipsTunneling.restype = None
+def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0]], beta=1.0, Amp=1.0, outTs=None, bMakeArrays=True ):
+    nTips = len(pTips)
+    nSites = len(pSites)
     if bMakeArrays:
-        pSite = np.array(pSite, dtype=np.float64)
+        pSites = np.zeros((nSite, 3), dtype=np.float64)
         pTips = np.array(pTips, dtype=np.float64)
-        cs    = np.array(cs,    dtype=np.float64)
-    if Eout is None:
-        Eout = np.zeros(nTip, dtype=np.float64)
-    lib.computeCombinedEnergies(nTip, _np_as(pTips, c_double_p), _np_as(pSite, c_double_p), E0, VBias, Rtip, zV0, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p))
-    return Eout
+    if outTs is None:
+        outTs = np.zeros((nTips, nSites), dtype=np.float64)
+    lib.evalSitesTipsTunneling(nTips, _np_as(pTips, c_double_p), nSites, _np_as(pSites, c_double_p), beta, Amp, _np_as(outTs, c_double_p))
+    return outTs
 
-def compute_site_energies( pTips, pSites, VBias, cs, E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
+# void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs ) {
+lib.evalSitesTipsMultipoleMirror.argtypes = [c_int, c_double_p,  c_double_p, c_int, c_double_p, c_double_p,  c_double, c_double, c_double, c_int, c_double_p, c_double_p]
+lib.evalSitesTipsMultipoleMirror.restype = None
+def evalSitesTipsMultipoleMirror( pTips, cs=[1.0,0.0,0.0,0.0], VBias=1.0, pSites=[[0.0,0.0,0.0]], rotSite=None, E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
+    print( f"evalSitesTipsMultipoleMirror cs: {cs}, pSites: {pSites}, rotSite: {rotSite}, E0: {E0}, Rtip: {Rtip}, zV0: {zV0}, order: {order}, bMakeArrays: {bMakeArrays}")
     nTip  = len(pTips)
     nSite = len(pSites)
     if bMakeArrays:
-        pSite = np.zeros((nSite, 3), dtype=np.float64)
-        pTips = np.array(pTips, dtype=np.float64)
-        cs    = np.array(cs,    dtype=np.float64)
+        pSites = np.ascontiguousarray(pSites, dtype=np.float64)
+        pTips  = np.ascontiguousarray(pTips,  dtype=np.float64)
+        cs     = np.ascontiguousarray(cs,     dtype=np.float64)
+        if isinstance(VBias, (int, float)):
+            VBias = np.full(nTip, VBias, dtype=np.float64)
     if Eout is None:
-        Eout = np.zeros((nTip), dtype=np.float64)
-        Eout2 = np.zeros((nTip, nSite), dtype=np.float64)
-    for i in range(nSite):
-        pSite[:] = pSites[i]
-        lib.computeCombinedEnergies(nTip, _np_as(pTips, c_double_p), _np_as(pSites[i], c_double_p), E0, VBias, Rtip, zV0, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p))
-        Eout2[:,i] = Eout
-    return Eout2
+        Eout = np.zeros((nTip, nSite), dtype=np.float64)
+    lib.evalSitesTipsMultipoleMirror(nTip, _np_as(pTips, c_double_p), _np_as(VBias, c_double_p), nSite, _np_as(pSites, c_double_p), _np_as(rotSite, c_double_p), E0, Rtip, zV0, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p))
+    return Eout
+
+# def compute_site_energies( pTips, pSites, VBias, cs, E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
+#     nTip  = len(pTips)
+#     nSite = len(pSites)
+#     if bMakeArrays:
+#         pSite = np.zeros((nSite, 3), dtype=np.float64)
+#         pTips = np.array(pTips, dtype=np.float64)
+#         cs    = np.array(cs,    dtype=np.float64)
+#     if Eout is None:
+#         Eout = np.zeros((nTip), dtype=np.float64)
+#         Eout2 = np.zeros((nTip, nSite), dtype=np.float64)
+#     for i in range(nSite):
+#         pSite[:] = pSites[i]
+#         lib.computeCombinedEnergies(nTip, _np_as(pTips, c_double_p), _np_as(pSites[i], c_double_p), E0, VBias, Rtip, zV0, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p))
+#         Eout2[:,i] = Eout
+#     return Eout2
 
 
 class PauliSolver:
@@ -185,14 +204,14 @@ class PauliSolver:
         lib.scan_current(self.solver, npoints, _np_as(hsingles, c_double_p), _np_as(Ws, c_double_p), _np_as(VGates, c_double_p), _np_as(TLeads, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp)
         return out_current
     
-    def scan_current_tip(self, pTips, Vtips, pSites, params, order, cs, state_order, out_current=None, bOmp=False, Es=None, Ts=None, bMakeArrays=True ):
+    def scan_current_tip(self, pTips, Vtips, pSites, params, order, cs, state_order, rots=None, out_current=None, bOmp=False, Es=None, Ts=None, bMakeArrays=True ):
         npoins = len(pTips)
-        nsites  = len(pSites)
+        nsites = len(pSites)
         if out_current is None: out_current = np.zeros(npoins, dtype=np.float64)
         if bMakeArrays:
             if Es is None: Es = np.zeros(npoins, dtype=np.float64)
             if Ts is None: Ts = np.zeros(npoins, dtype=np.float64)
-        lib.scan_current_tip(self.solver, npoins, _np_as(pTips, c_double_p), _np_as(Vtips, c_double_p), nsites, _np_as(pSites, c_double_p), _np_as(params, c_double_p), order, _np_as(cs, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp, _np_as(Es, c_double_p), _np_as(Ts, c_double_p))
+        lib.scan_current_tip(self.solver, npoins, _np_as(pTips, c_double_p), _np_as(Vtips, c_double_p), nsites, _np_as(pSites, c_double_p), _np_as(rots, c_double_p), _np_as(params, c_double_p), order, _np_as(cs, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp, _np_as(Es, c_double_p), _np_as(Ts, c_double_p))
         return out_current, Es, Ts
 
     def get_energies(self, nstates):
