@@ -333,10 +333,14 @@ class ApplicationWindow(GUITemplate):
     def run(self):
         """Main calculation and plotting function"""
         params = self.get_param_values()
-        self.ax1.cla(); self.ax2.cla(); self.ax3.cla(); self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
-        pauli_scan.scan_xV(params, self.ax1, self.ax2, self.ax3)
-        pauli_scan.scan_xy(params, self.pauli_solver, self.ax4, self.ax5, self.ax6)
-
+        
+        self.ax1.cla(); self.ax2.cla(); self.ax3.cla() 
+        self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
+        
+        # Run scans with descriptive axis names
+        pauli_scan.scan_xV(params,                    ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3)  # ax1=Esite(x,V), ax2=Vtip, ax3=Esite
+        pauli_scan.scan_xy(params, self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax5, ax_STM=self.ax6)  # ax4=Etot, ax5=Ttot, ax6=STM
+        
         self.draw_scan_line(self.ax4)
         self.draw_reference_line(self.ax4)
         self.plot_ellipses(self.ax5, params)

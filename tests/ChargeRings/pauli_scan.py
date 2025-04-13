@@ -7,16 +7,17 @@ import pauli
 import utils as ut
 import plot_utils as pu
 
-def scan_xV(params, ax1=None, ax2=None, ax3=None, nx=100, nV=100):
+def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, nx=100, nV=100):
     """
     Scan voltage dependence above one particle
     
     Args:
         params: Dictionary of parameters
-        ax1,ax2,ax3: Optional matplotlib axes for plotting
-        
-    Returns:
-        Tuple of (V1d, V2d, Vtip, Esites)
+        ax_V2d:   Axis for 2D voltage scan plot (Esite vs x,V)
+        ax_Vtip:  Axis for tip potential plot
+        ax_Esite: Axis for site potential plot
+        nx: Number of x points
+        nV: Number of voltage points
     """
     L = params['L']
     z_tip = params['z_tip']
@@ -54,49 +55,48 @@ def scan_xV(params, ax1=None, ax2=None, ax3=None, nx=100, nV=100):
     Esites = pauli.evalSitesTipsMultipoleMirror(ps_xz, pSites=np.array([[0.0, 0.0, zQd]]), VBias=VBias, Rtip=Rtip, zV0=zV0)[:,0].reshape(nV, nx)
     
     # Plotting if axes provided
-    if ax1 is not None:
-        pu.plot_imshow(ax1, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='bwr')
-        ax1.plot(x_coords, V1d, label='V_tip')
-        ax1.plot(x_coords, V1d_, label='V_tip + E_site')
-        ax1.plot(x_coords, x_coords*0.0 + VBias, label='VBias')
-        ax1.axhline(0.0, ls='--', c='k')
-        #ax1.set_title("1D Potential (z=0)")
-        # ax1.set_xlabel("x [Å]")
-        # ax1.set_ylabel("V [V]")
-        # ax1.grid()
-        ax1.set_aspect('auto')
-        ax1.legend()
+    if ax_V2d is not None:
+        pu.plot_imshow(ax_V2d, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='bwr')
+        ax_V2d.plot(x_coords, V1d, label='V_tip')
+        ax_V2d.plot(x_coords, V1d_, label='V_tip + E_site')
+        ax_V2d.plot(x_coords, x_coords*0.0 + VBias, label='VBias')
+        ax_V2d.axhline(0.0, ls='--', c='k')
+        #ax_V2d.set_title("1D Potential (z=0)")
+        # ax_V2d.set_xlabel("x [Å]")
+        # ax_V2d.set_ylabel("V [V]")
+        # ax_V2d.grid()
+        ax_V2d.set_aspect('auto')
+        ax_V2d.legend()
     
-    if ax2 is not None:
+    if ax_Vtip is not None:
         extent_xz = [-L, L, -L, L]
-        pu.plot_imshow(ax2, Vtip, title="Tip Potential", extent=extent_xz, cmap='bwr', vmin=-VBias, vmax=VBias)
+        pu.plot_imshow(ax_Vtip, Vtip, title="Tip Potential", extent=extent_xz, cmap='bwr', vmin=-VBias, vmax=VBias)
         circ1, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, zT))
         circ2, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, 2*zV0-zT))
-        ax2.plot(circ1[:,0], circ1[:,2], ':k')
-        ax2.plot(circ2[:,0], circ2[:,2], ':k')
-        ax2.axhline(zV0, ls='--', c='k', label='mirror surface')
-        ax2.axhline(zQd, ls='--', c='g', label='Qdot height')
-        ax2.axhline(z_tip, ls='--', c='orange', label='Tip Height')
+        ax_Vtip.plot(circ1[:,0], circ1[:,2], ':k')
+        ax_Vtip.plot(circ2[:,0], circ2[:,2], ':k')
+        ax_Vtip.axhline(zV0, ls='--', c='k', label='mirror surface')
+        ax_Vtip.axhline(zQd, ls='--', c='g', label='Qdot height')
+        ax_Vtip.axhline(z_tip, ls='--', c='orange', label='Tip Height')
     
-    if ax3 is not None:
-        pu.plot_imshow(ax3, Esites, title="Site Potential", extent=extent_xz, cmap='bwr', vmin=-VBias, vmax=VBias)
-        ax3.axhline(zV0, ls='--', c='k', label='mirror surface')
-        ax3.axhline(zQd, ls='--', c='g', label='Qdot height')
-        ax3.legend()
+    if ax_Esite is not None:
+        pu.plot_imshow(ax_Esite, Esites, title="Site Potential", extent=extent_xz, cmap='bwr', vmin=-VBias, vmax=VBias)
+        ax_Esite.axhline(zV0, ls='--', c='k', label='mirror surface')
+        ax_Esite.axhline(zQd, ls='--', c='g', label='Qdot height')
+        ax_Esite.legend()
     
     return V1d, V2d, Vtip, Esites
 
-def scan_xy(params, pauli_solver=None, ax4=None, ax5=None, ax6=None):
+def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None):
     """
     Scan tip position in x,y plane for constant Vbias
     
     Args:
         params: Dictionary of parameters
         pauli_solver: Optional pauli solver instance
-        ax4,ax5,ax6: Optional matplotlib axes for plotting
-        
-    Returns:
-        Tuple of (STM, Es, Ts)
+        ax_Etot: Axis for total energies plot
+        ax_Ttot: Axis for total tunneling plot
+        ax_STM:  Axis for STM current plot
     """
     L     = params['L']
     nsite = params['nsite']
@@ -117,9 +117,9 @@ def scan_xy(params, pauli_solver=None, ax4=None, ax5=None, ax6=None):
     
     # Plotting if axes provided
     extent = [-L, L, -L, L]
-    if ax4 is not None: pu.plot_imshow(ax4, Etot, title="Energies (max)",  extent=extent, cmap='bwr')
-    if ax5 is not None: pu.plot_imshow(ax5, Ttot, title="Tunneling (max)", extent=extent, cmap='hot')
-    if ax6 is not None: pu.plot_imshow(ax6, STM,  title="STM",             extent=extent, cmap='hot')
+    if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies (max)",  extent=extent, cmap='bwr')
+    if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling (max)", extent=extent, cmap='hot')
+    if ax_STM is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",             extent=extent, cmap='hot')
     
     return STM, Es, Ts
 
@@ -139,11 +139,11 @@ if __name__ == "__main__":
     pauli_solver = pauli.PauliSolver( nSingle=3, nleads=2, verbosity=verbosity )
     
     # Create figure
-    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize=(15, 10))
+    fig, ((ax_V2d, ax_Vtip, ax_Esite), (ax_Etot, ax_Ttot, ax_STM)) = plt.subplots(2, 3, figsize=(15, 10))
     
     # Run scans with plotting
-    scan_xV(params, ax1, ax2, ax3)
-    scan_xy(params, pauli_solver, ax4, ax5, ax6)
+    scan_xV(params, ax_V2d, ax_Vtip, ax_Esite)
+    scan_xy(params, pauli_solver, ax_Etot, ax_Ttot, ax_STM)
     
     plt.tight_layout()
     plt.show()
