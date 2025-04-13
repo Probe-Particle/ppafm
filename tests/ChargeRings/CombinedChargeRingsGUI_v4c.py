@@ -584,10 +584,7 @@ class ApplicationWindow(GUITemplate):
         p1 = (params['p1_x'], params['p1_y'])
         p2 = (params['p2_x'], params['p2_y'])
         
-        self.scan_line_artist, = ax.plot(
-            [p1[0], p2[0]], [p1[1], p2[1]], 
-            'r-', linewidth=2, alpha=0.7
-        )
+        self.scan_line_artist, = ax.plot( [p1[0], p2[0]], [p1[1], p2[1]],  'r-', linewidth=2, alpha=0.7  )
         self.canvas.draw()
         
     def draw_exp_scan_line(self, ax):
@@ -599,10 +596,7 @@ class ApplicationWindow(GUITemplate):
         ep1 = (params['ep1_x'], params['ep1_y'])
         ep2 = (params['ep2_x'], params['ep2_y'])
         
-        self.exp_scan_line_artist, = ax.plot(
-            [ep1[0], ep2[0]], [ep1[1], ep2[1]], 
-            'r-', linewidth=2, alpha=0.7
-        )
+        self.exp_scan_line_artist, = ax.plot( [ep1[0], ep2[0]], [ep1[1], ep2[1]],   'r-', linewidth=2, alpha=0.7)
         self.canvas.draw()
     
     def draw_reference_line(self, ax):
