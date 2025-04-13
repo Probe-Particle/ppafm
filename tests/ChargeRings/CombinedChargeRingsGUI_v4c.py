@@ -8,7 +8,7 @@ from PyQt5 import QtCore, QtWidgets
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from scipy.interpolate import LinearNDInterpolator
+from scipy.interpolate import LinearNDInterpolator, RectBivariateSpline
 
 from GUITemplate import GUITemplate
 import data_line 
@@ -16,7 +16,7 @@ import data_line
 sys.path.insert(0, '../../pyProbeParticle')
 import utils as ut
 import pauli
-from pauli import run_pauli_scan # Import the high-level scan function
+#from pauli import run_pauli_scan # Import the high-level scan function
 
 import plot_utils as pu
 
@@ -187,11 +187,13 @@ class ApplicationWindow(GUITemplate):
         y_target = np.linspace(target_extent[2], target_extent[3], target_size)
         
         # Create interpolator
-        from scipy.interpolate import interp2d
-        interpolator = interp2d(x_src, y_src, data)
-        
-        # Resample data to target grid
-        resampled = interpolator(x_target, y_target)
+        # from scipy.interpolate import interp2d
+        # interpolator = interp2d(x_src, y_src, data)
+        # resampled = interpolator(x_target, y_target)
+
+        # Create interpolator
+        interpolator = RectBivariateSpline(y_src, x_src, data)
+        resampled = interpolator(y_target, x_target, grid=True).reshape(len(y_target), len(x_target))
         
         # Create mask for points outside source extent
         xx, yy = np.meshgrid(x_target, y_target)
@@ -395,9 +397,9 @@ class ApplicationWindow(GUITemplate):
         pTips[:,2] = zT
 
         # Site positions and rotations
-        spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+        spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
         spos[:,2] = params['zQd']
-        rots = makeRotMats(phis + params['phiRot'])
+        rots = ut.makeRotMats(phis + params['phiRot'])
         
         # Tip voltages
         Vtips = np.full(npoints, params['VBias'])
@@ -413,25 +415,10 @@ class ApplicationWindow(GUITemplate):
         # State order
         state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
 
-        # Pauli parameters dictionary
-        pauli_params_dict = {
-            'nSingle': nsite,
-            'nSpin': 1, # Assuming non-spin polarized for now
-            'Nstates': 2**nsite,
-            'NLeads': 2,
-            'Spin': False,
-            'Paulibasis': False # Assuming standard basis
-        }
 
         # --- Call the combined calculation function --- 
         print("Running run_pauli_scan for 1D scan...")
-        current, Es, Ts = run_pauli_scan(
-            pTips, Vtips, spos,
-            cpp_params, order, cs, pauli_params_dict,
-            rots=rots,
-            state_order=state_order,
-            bOmp=False # Keep OpenMP off for 1D?
-        )
+        current, Es, Ts = pauli.run_pauli_scan( pTips, Vtips, spos, cpp_params, order, cs, rots=rots, state_order=state_order, bOmp=False ) # Keep OpenMP off for 1D?
         print("Done.")
 
         # Es and Ts are now shape (npoints, nsite)

@@ -6,7 +6,7 @@
 
 //#define DEBUG   /* empty */
 //#define DEBUG   printf( "DEBUG #l %i %s \n",    __LINE__, __PRETTY_FUNCTION__ );
-#define DEBUG   printf( "DEBUG #l %i %s \n",    __LINE__, __FUNCTION__ );
+//#define DEBUG   printf( "DEBUG #l %i %s \n",    __LINE__, __FUNCTION__ );
 // #define DEBUGF  printf( "DEBUG #l %i %s %s \n", __LINE__, __FUNCTION__, __FILE__ );
 //#define DBG(format,args...) { printf("DEBUG "); printf(format,## args); }
 

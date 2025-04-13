@@ -8,17 +8,17 @@ from PyQt5 import QtCore, QtWidgets
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from scipy.interpolate import LinearNDInterpolator,  RectBivariateSpline
-
+from scipy.interpolate import LinearNDInterpolator, RectBivariateSpline
 
 from GUITemplate import GUITemplate
-from charge_rings_core import calculate_tip_potential, calculate_qdot_system, makeCircle, compute_site_energies, compute_site_tunelling, occupancy_FermiDirac
-from charge_rings_plotting import plot_tip_potential, plot_qdot_system
 import data_line 
 
 sys.path.insert(0, '../../pyProbeParticle')
-import pauli as pls
-#from pauli import PauliSolver
+import utils as ut
+import pauli
+#from pauli import run_pauli_scan # Import the high-level scan function
+
+import plot_utils as pu
 
 verbosity = 0
 
@@ -98,8 +98,8 @@ class ApplicationWindow(GUITemplate):
         self.ax2 = self.fig.add_subplot(332)  # Tip Potential
         self.ax3 = self.fig.add_subplot(333)  # Site Potential
         self.ax4 = self.fig.add_subplot(334)  # Energies
-        self.ax5 = self.fig.add_subplot(335)  # Total Charge
-        self.ax6 = self.fig.add_subplot(336)  # STM
+        self.ax5 = self.fig.add_subplot(335)  # Tunneling
+        self.ax6 = self.fig.add_subplot(336)  # Pauli Current
         self.ax7 = self.fig.add_subplot(338)  # Experimental dI/dV
         self.ax8 = self.fig.add_subplot(339)  # Experimental Current
         self.ax9 = self.fig.add_subplot(337)  # Additional plot if needed
@@ -131,13 +131,15 @@ class ApplicationWindow(GUITemplate):
         #ref_datline_fname = '/home/prokop/git/ppafm/tests/ChargeRings/Vlado/input/0.20_line_scan.dat'
         ref_datline_fname = './Vlado/input/0.20_line_scan.dat'
         self.ref_params, self.ref_columns, self.ref_data_line = data_line.read_dat_file(ref_datline_fname); 
-        print( "ref_params ", self.ref_params); 
-        print( "ref_columns ", self.ref_columns); 
-        print( "ref_data_line ", self.ref_data_line)
+        #print( "ref_params ", self.ref_params); 
+        #print( "ref_columns ", self.ref_columns); 
+        #print( "ref_data_line ", self.ref_data_line)
         #exit()
         
         # Plot reference data path
         self.draw_reference_line(self.ax4)
+
+        self.pauli_solver = pauli.PauliSolver( nSingle=3, nleads=2, verbosity=verbosity )
         
         self.run()
         
@@ -184,11 +186,7 @@ class ApplicationWindow(GUITemplate):
         x_target = np.linspace(target_extent[0], target_extent[1], target_size)
         y_target = np.linspace(target_extent[2], target_extent[3], target_size)
         
-        # # Create interpolator
-        # from scipy.interpolate import interp2d
-        # interpolator = interp2d(x_src, y_src, data)
-        # resampled = interpolator(x_target, y_target)
-
+        # Create interpolator
         interpolator = RectBivariateSpline(y_src, x_src, data)
         resampled = interpolator(y_target, x_target, grid=True).reshape(len(y_target), len(x_target))
         
@@ -334,34 +332,34 @@ class ApplicationWindow(GUITemplate):
     def run(self):
         """Main calculation and plotting function"""
         params = self.get_param_values()
+        L      = params['L']
 
-        # Calculate tip potential and quantum dot system
-        tip_data  = calculate_tip_potential(**params)
+        # -- Site positions and rotations
+        spos, phis = ut.makeCircle(n=params['nsite'], R=params['radius'], phi0=params['phiRot'])
+        spos[:,2] = params['zQd']
+        rots = ut.makeRotMats(phis + params['phiRot'])
 
+        STM, Es, Ts = pauli.run_pauli_scan_top( spos, rots, params, pauli_solver=self.pauli_solver )
+        Ttot = np.max(Ts, axis=2)
+        Etot = np.max(Es, axis=2)
 
-        # -------- Check C++ Site energy side view
-        #calculate_tip_potential
-        #tip_data['Esites'] = compute_site_energies(ps_xz, np.array([[0.0,0.0,zQd]]), VBias=VBias, Rtip=Rtip, zV0=zV0).reshape(npix, npix)
-        npix = params['npix']
+        self.ax1.cla(); self.ax2.cla(); self.ax3.cla(); self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
 
-        cs = np.array([[1.0, 0.0,0.0,params['zQd'] ]])
-        Esite_2 = pls.evalSitesTipsMultipoleMirror( tip_data['ps_xz'], VBias=params['VBias'], cs=cs, Rtip=params['Rtip'], zV0=params['zV0'], order=1).reshape(npix, npix)
-        print("Esite_2 min,max", np.min(Esite_2), np.max(Esite_2))
-        tip_data['Esites'][:,:npix//2] = Esite_2[:,0:npix//2]
+        # Calculate tip potential
+        X,Y = np.meshgrid(np.linspace(-L, L, 100), np.linspace(-L, L, 100))
+        pTips = np.array([X.flatten(), Y.flatten(), np.zeros_like(X.flatten())]).T
+        Eout = pauli.evalSitesTipsMultipoleMirror(  pTips, pSites=spos,   VBias=params['VBias'],  Rtip=params['Rtip'],  zV0=params['zV0'])
         
-
-        qdot_data = calculate_qdot_system(**params)
-
-        # ------ Check C++ Site energy top view
-        Es = pls.evalSitesTipsMultipoleMirror( qdot_data['pTips'], pSites=qdot_data['spos'], VBias=params['VBias'],  cs=cs,   Rtip=params['Rtip'],zV0=params['zV0'], E0=params['Esite'], order=1 )
-        print("Es min,max", np.min(Es), np.max(Es))
-        qdot_data['Es'][:,:npix//2]  = Es.reshape(npix, npix, -1)[:,:npix//2,:] #*0.1
+        # Reshape and plot potentials
+        extent = [X.min(), X.max(), Y.min(), Y.max()]
+        pu.plot_imshow(self.ax1, Eout[:,0].reshape(X.shape), title="1D Potential", extent=extent, cmap='viridis')
+        pu.plot_imshow(self.ax2, Eout[:,1].reshape(X.shape), title="Tip Potential", extent=extent, cmap='plasma')
+        pu.plot_imshow(self.ax3, Eout[:,2].reshape(X.shape), title="Site Potential", extent=extent, cmap='magma')
         
+        pu.plot_imshow(self.ax4, Etot,    title="Energies (max)", extent=extent, spos=spos, cmap='bwr' )
+        pu.plot_imshow(self.ax5, Ttot,    title="Tunneling",      extent=extent, spos=spos)   
+        pu.plot_imshow(self.ax6, STM,     title="Current",        extent=extent, spos=spos)
 
-
-        # Plot results
-        plot_tip_potential(self.ax1, self.ax2, self.ax3, **tip_data, **params)
-        plot_qdot_system(self.ax4, self.ax5, self.ax6, **qdot_data, **params)
         self.draw_scan_line(self.ax4)
         self.draw_reference_line(self.ax4)
 
@@ -374,58 +372,9 @@ class ApplicationWindow(GUITemplate):
         # Update the canvas
         self.fig.tight_layout()
         self.canvas.draw()
-
-    def on_mouse_press(self, event):
-        """Handle mouse button press event"""
-        if event.inaxes in [self.ax4, self.ax7]:  # Energy plot or experimental dI/dV
-            self.clicking = True
-            self.start_point = (event.xdata, event.ydata)
-            print(f"Mouse press in {'energy plot' if event.inaxes == self.ax4 else 'experimental plot'} at {self.start_point}")
-
-    def on_mouse_motion(self, event):
-        """Handle mouse motion event"""
-        if self.clicking and event.inaxes in [self.ax4, self.ax7]:
-            # Remove old line if it exists
-            if self.line_artist:
-                self.line_artist.remove()
-            
-            # Draw line from start point to current point
-            self.line_artist = event.inaxes.plot([self.start_point[0], event.xdata],
-                                               [self.start_point[1], event.ydata], 'r-')[0]
-            self.canvas.draw()
-
-    def on_mouse_release(self, event):
-        """Handle mouse button release event"""
-        if not self.clicking or event.inaxes is None:
-            return
-            
-        end_point = (event.xdata, event.ydata)
-        self.clicking = False
-        
-        print(f"Mouse release in subplot {event.inaxes}")
-        print(f"Start point: {self.start_point}")
-        print(f"End point: {end_point}")
-        
-        if event.inaxes == self.ax4:  # Energy plot (2,1)
-            print("Processing energy plot line scan")
-            self.calculate_1d_scan(self.start_point, end_point)
-        elif event.inaxes == self.ax7:  # Experimental dI/dV plot (3,2)
-            print("Processing experimental plot voltage scan")
-            try:
-                self.plot_voltage_line_scan(self.start_point, end_point)
-            except Exception as e:
-                print(f"Error in plot_voltage_line_scan: {str(e)}")
-                import traceback
-                traceback.print_exc()
-        
-        self.start_point = None
-        if self.line_artist:
-            self.line_artist.remove()
-            self.line_artist = None
-        self.canvas.draw()
-
+    
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
-        """Calculate 1D scan between two points"""
+        """Calculate 1D scan between two points using run_pauli_scan"""
         params = self.get_param_values()
         L = params['L']
         nsite = params['nsite']
@@ -438,38 +387,54 @@ class ApplicationWindow(GUITemplate):
         dist = np.sqrt((x2-x1)**2 + (y2-y1)**2)
         npoints = max(100, int(dist * pointPerAngstrom))
         
-        # Create line coordinates
-        x = np.linspace(x1, x2, npoints)
-        y = np.linspace(y1, y2, npoints)
-        distance = np.sqrt((x - x[0])**2 + (y - y[0])**2)
+        # Generate points along the line
+        t = np.linspace(0, 1, npoints)
+        x = x1 + (x2 - x1) * t
+        y = y1 + (y2 - y1) * t
+        distance = np.linspace(0, dist, npoints) # Distance axis for plotting
         
-        # Create positions array for calculations
+        # --- Prepare inputs for run_pauli_scan --- 
+        # Tip positions (1D line)
+        zT = params['z_tip'] + params['Rtip']
         pTips = np.zeros((npoints, 3))
         pTips[:,0] = x
         pTips[:,1] = y
-        pTips[:,2] = params['z_tip'] + params['Rtip']
-        
-        # Calculate site positions
-        spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
-        spos[:,2] = params['zQd']
-        
-        # Calculate energies and charges for each site
-        Esite_arr = np.full(nsite, params['Esite'])
-        Es = compute_site_energies(pTips, spos, VBias=params['VBias'], Rtip=params['Rtip'], zV0=params['zV0'], E0s=Esite_arr)
-        
-        # Calculate tunneling and charges for each site
-        Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
-        
-        # Run C++ Pauli simulation
-        params['NSingle'] = 3
-        pls.verbosity = verbosity
-        STM = pls.run_cpp_scan(params, Es, Ts, scaleE=1000.0 )
+        pTips[:,2] = zT
 
+        # Site positions and rotations
+        spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+        spos[:,2] = params['zQd']
+        rots = ut.makeRotMats(phis + params['phiRot'])
+        
+        # Tip voltages
+        Vtips = np.full(npoints, params['VBias'])
+
+        # C++ parameters array [Rtip, zV0, Esite, beta, Gamma, W]
+        cpp_params = np.array([params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W']])
+
+        # Multipole parameters
+        order = params.get('order', 1)
+        cs = params.get('cs', np.array([1.0,0.,0.,0.]))
+        # cs = np.pad(cs, (0, max(0, order*2+2 - len(cs))), 'constant') 
+
+        # State order
+        state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+
+
+        # --- Call the combined calculation function --- 
+        print("Running run_pauli_scan for 1D scan...")
+        current, Es, Ts = pauli.run_pauli_scan( pTips, Vtips, spos, cpp_params, order, cs, rots=rots, state_order=state_order, bOmp=False ) # Keep OpenMP off for 1D?
+        print("Done.")
+
+        # Es and Ts are now shape (npoints, nsite)
+        # current is shape (npoints)
+        
+        # --- Plot and Save --- 
         # Plot results (including Pauli currents)
-        self.plot_1d_scan_results(distance, Es, Ts, STM, nsite )
+        self.plot_1d_scan_results(distance, Es, Ts, current, nsite )
         
         # Save data to file (including Pauli currents)
-        self.save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
+        self.save_1d_scan_data(params, distance, x, y, Es, Ts, current, nsite, x1, y1, x2, y2 )
 
     def plot_1d_scan_results(self, distance, Es, Ts, STM, nsite):
         """Plot results of 1D scan"""
@@ -684,15 +649,8 @@ class ApplicationWindow(GUITemplate):
         iy = self.ref_columns['y[A]']
         
         # Plot the path
-        ax.plot(
-            self.ref_data_line[:,ix], self.ref_data_line[:,iy], 
-            'b-', linewidth=1, alpha=0.7
-        )
-        ax.plot(
-            [self.ref_data_line[0,ix], self.ref_data_line[-1,ix]],
-            [self.ref_data_line[0,iy], self.ref_data_line[-1,iy]],
-            'bo', markersize=5, alpha=0.7
-        )
+        ax.plot(  self.ref_data_line[:,ix], self.ref_data_line[:,iy],   'b-', linewidth=1, alpha=0.7   )
+        ax.plot( [self.ref_data_line[0,ix], self.ref_data_line[-1,ix]], [self.ref_data_line[0,iy], self.ref_data_line[-1,iy]], 'bo', markersize=5, alpha=0.7)
         self.canvas.draw()
 
     def run_1d_scan_p1p2(self):
@@ -702,6 +660,55 @@ class ApplicationWindow(GUITemplate):
         p2 = (params['p2_x'], params['p2_y'])
         
         self.calculate_1d_scan(p1, p2)
+
+    def on_mouse_press(self, event):
+        """Handle mouse button press event"""
+        if event.inaxes in [self.ax4, self.ax7]:  # Energy plot or experimental dI/dV
+            self.clicking = True
+            self.start_point = (event.xdata, event.ydata)
+            print(f"Mouse press in {'energy plot' if event.inaxes == self.ax4 else 'experimental plot'} at {self.start_point}")
+
+    def on_mouse_motion(self, event):
+        """Handle mouse motion event"""
+        if self.clicking and event.inaxes in [self.ax4, self.ax7]:
+            # Remove old line if it exists
+            if self.line_artist:
+                self.line_artist.remove()
+            
+            # Draw line from start point to current point
+            self.line_artist = event.inaxes.plot([self.start_point[0], event.xdata],
+                                               [self.start_point[1], event.ydata], 'r-')[0]
+            self.canvas.draw()
+
+    def on_mouse_release(self, event):
+        """Handle mouse button release event"""
+        if not self.clicking or event.inaxes is None:
+            return
+            
+        end_point = (event.xdata, event.ydata)
+        self.clicking = False
+        
+        print(f"Mouse release in subplot {event.inaxes}")
+        print(f"Start point: {self.start_point}")
+        print(f"End point: {end_point}")
+        
+        if event.inaxes == self.ax4:  # Energy plot (2,1)
+            print("Processing energy plot line scan")
+            self.calculate_1d_scan(self.start_point, end_point)
+        elif event.inaxes == self.ax7:  # Experimental dI/dV plot (3,2)
+            print("Processing experimental plot voltage scan")
+            try:
+                self.plot_voltage_line_scan(self.start_point, end_point)
+            except Exception as e:
+                print(f"Error in plot_voltage_line_scan: {str(e)}")
+                import traceback
+                traceback.print_exc()
+        
+        self.start_point = None
+        if self.line_artist:
+            self.line_artist.remove()
+            self.line_artist = None
+        self.canvas.draw()
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)

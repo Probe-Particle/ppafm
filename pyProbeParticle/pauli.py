@@ -394,11 +394,11 @@ def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, 
     return currents.reshape(nbias,npoints)
 
 
-def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, pauli_params, rots=None, bOmp=False, state_order=None):
+def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=False, state_order=None):
     nsites  = len(pSites)
     npoints = len(pTips)
     if state_order is None:
-        state_order = np.arange(pauli_params.get('Nstates', 0), dtype=np.int32)
+        state_order = np.arange(2**nsites, dtype=np.int32)
     else:
         state_order = np.array(state_order, dtype=np.int32) # Ensure correct type
     pauli_solver    = PauliSolver( nSingle=nsites, nleads=2, verbosity=verbosity )
