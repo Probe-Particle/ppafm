@@ -112,7 +112,7 @@ def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0]], beta=1.0, Amp=1.0, ou
 # void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs ) {
 lib.evalSitesTipsMultipoleMirror.argtypes = [c_int, c_double_p,  c_double_p, c_int, c_double_p, c_double_p,  c_double, c_double, c_double, c_int, c_double_p, c_double_p]
 lib.evalSitesTipsMultipoleMirror.restype = None
-def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0]], VBias=1.0, Rtip=1.0, zV0=-2.0, order=1, cs=None, E0=0.0, rotSite=None, Eout=None, bMakeArrays=True ):
+def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0]], VBias=1.0, Rtip=1.0, zV0=-2.0, order=1, cs=[1.0,0.0,0.0,0.0], E0=0.0, rotSite=None, Eout=None, bMakeArrays=True ):
     nTip  = len(pTips)
     nSite = len(pSites)
     if bMakeArrays:

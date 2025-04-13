@@ -345,17 +345,69 @@ class ApplicationWindow(GUITemplate):
 
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla(); self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
 
-        # Calculate tip potential
-        X,Y = np.meshgrid(np.linspace(-L, L, 100), np.linspace(-L, L, 100))
-        pTips = np.array([X.flatten(), Y.flatten(), np.zeros_like(X.flatten())]).T
-        Eout = pauli.evalSitesTipsMultipoleMirror(  pTips, pSites=spos,   VBias=params['VBias'],  Rtip=params['Rtip'],  zV0=params['zV0'])
+        # Setup parameters for tip potential calculations
+        npix = 100
+        z_tip = params['z_tip']
+        zT = z_tip + params['Rtip']
+        zV0 = params['zV0']
+        zQd = 0.0  # Quantum dot height
+        VBias = params['VBias']
+        Rtip = params['Rtip']
+        Esite = -0.1  # Site energy offset
         
-        # Reshape and plot potentials
-        extent = [X.min(), X.max(), Y.min(), Y.max()]
-        pu.plot_imshow(self.ax1, Eout[:,0].reshape(X.shape), title="1D Potential", extent=extent, cmap='viridis')
-        pu.plot_imshow(self.ax2, Eout[:,1].reshape(X.shape), title="Tip Potential", extent=extent, cmap='plasma')
-        pu.plot_imshow(self.ax3, Eout[:,2].reshape(X.shape), title="Site Potential", extent=extent, cmap='magma')
+        # 1D Potential plot (ax1)
+        pTips_1d = np.zeros((npix, 3))
+        x_coords = np.linspace(-L, L, npix)
+        pTips_1d[:,0] = x_coords
+        pTips_1d[:,2] = zT
+        V1d = pauli.evalSitesTipsMultipoleMirror( pTips_1d, pSites=np.array([[0.0,0.0,zQd]]), VBias=VBias,  Rtip=Rtip,  zV0=zV0 )[:,0]
+        print( "V1d min: ", np.min(V1d), "V1d max: ", np.max(V1d) )
+        #exit()
         
+        # Plot 1D potential exactly as in v4b
+        self.ax1.plot(x_coords, V1d, label='V_tip')
+        self.ax1.plot(x_coords, V1d + Esite, label='V_tip + E_site')
+        self.ax1.plot(x_coords, x_coords*0.0 + VBias, label='VBias')
+        self.ax1.axhline(0.0, ls='--', c='k')
+        self.ax1.set_title("1D Potential (z=0)")
+        self.ax1.set_xlabel("x [Å]")
+        self.ax1.set_ylabel("V [V]")
+        self.ax1.grid()
+        self.ax1.legend()
+        
+        # XZ grid for tip potential (ax2) and site potential (ax3)
+        x_xz = np.linspace(-L, L, npix)
+        z_xz = np.linspace(-L, L, npix)
+        X_xz, Z_xz = np.meshgrid(x_xz, z_xz)
+        ps_xz = np.array([X_xz.flatten(), np.zeros_like(X_xz.flatten()), Z_xz.flatten()]).T
+        
+        # Calculate tip potential using pauli
+        Vtip   = pauli.evalSitesTipsMultipoleMirror(ps_xz,  pSites=np.array([[0.0, 0.0, zT]]),  VBias=VBias,  Rtip=Rtip,  zV0=zV0 )[:,0].reshape(npix, npix)
+        
+        # Calculate site potential using pauli
+        Esites = pauli.evalSitesTipsMultipoleMirror( ps_xz, pSites=np.array([[0.0, 0.0, zQd]]), VBias=VBias,  Rtip=Rtip,  zV0=zV0 )[:,0].reshape(npix, npix)
+        
+        # Plot tip potential (ax2) exactly as in v4b
+        extent_xz = [-L, L, -L, L]
+        print( "Vtip min: ", np.min(Vtip), "Vtip max: ", np.max(Vtip) )
+        print( "Esites min: ", np.min(Esites), "Esites max: ", np.max(Esites) )
+        
+        pu.plot_imshow(self.ax2, Vtip,    title="Tip Potential", extent=extent_xz, cmap='bwr', vmin=-VBias, vmax=VBias )
+        circ1, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, zT))
+        circ2, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, 2*zV0-zT))
+        self.ax2.plot(circ1[:,0], circ1[:,2], ':k')
+        self.ax2.plot(circ2[:,0], circ2[:,2], ':k')
+        self.ax2.axhline(zV0, ls='--', c='k', label='mirror surface')
+        self.ax2.axhline(zQd, ls='--', c='g', label='Qdot height')
+        self.ax2.axhline(z_tip, ls='--', c='orange', label='Tip Height')
+
+        
+        pu.plot_imshow(self.ax3, Esites,    title="Site Potential", extent=extent_xz, cmap='bwr', vmin=-VBias, vmax=VBias )
+        self.ax3.axhline(zV0, ls='--', c='k', label='mirror surface')
+        self.ax3.axhline(zQd, ls='--', c='g', label='Qdot height')
+        self.ax3.legend()
+
+        extent = [-L, L, -L, L]
         pu.plot_imshow(self.ax4, Etot,    title="Energies (max)", extent=extent, spos=spos, cmap='bwr' )
         pu.plot_imshow(self.ax5, Ttot,    title="Tunneling",      extent=extent, spos=spos)   
         pu.plot_imshow(self.ax6, STM,     title="Current",        extent=extent, spos=spos)

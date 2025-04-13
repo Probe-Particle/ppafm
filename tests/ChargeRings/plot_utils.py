@@ -3,8 +3,9 @@ import matplotlib.pyplot as plt
 
 def plot_imshow( ax, data, title=None, extent=None, spos=None, cmap=None, vmin=None, vmax=None, **kwargs):
     if cmap is 'bwr':
-        vmax = np.max(np.abs(data))
-        vmin = -vmax
+        if vmin is None or vmax is None:
+            vmax = np.max(np.abs(data))
+            vmin = -vmax
     ax.clear()
     ax.imshow(data, extent=extent, cmap=cmap, origin='lower', vmin=vmin, vmax=vmax, **kwargs)
     if spos is not None:
