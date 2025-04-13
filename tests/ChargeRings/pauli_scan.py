@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 import sys
 sys.path.append('../../')
@@ -140,7 +141,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None):
     
     return STM, Es, Ts
 
-def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, decay=None):
+def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
     computed by convolution of orbitals on canvas
@@ -153,6 +154,8 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
         ax_Etot: Axis for total energies plot
         ax_Ttot: Axis for total tunneling plot
         ax_STM: Axis for STM current plot
+        ax_Ms: Axis for hopping matrix plot
+        ax_rho: Axis for density of states plot
         decay: Optional decay parameter for orbital calculations
     """
     #import sys
@@ -160,20 +163,24 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
     import orbital_utils
     
     # Extract parameters
-    L      = params['L']
+    #L      = params['L']
+    #params['GammaS'] = 1.0
+    L = 60.0; params['L'] = L
     nsite  = params['nsite']
     z_tip  = params['z_tip']
-    npix   = params['npix']
-    
-    # Use provided decay or get from params
-    if decay is None:
-        decay = params.get('decay', 0.1)
+    #npix   = params['npix']
+    npix = 400; params['npix']=npix
+    #decay  = params['decay'] *  #*5.0
+
+    decay = 0.2
     
     # Site positions and rotations
     spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
     spos[:,2]  = params['zQd']
     rots       = ut.makeRotMats(phis + params['phiRot'])
-    angles     = phis + params['phiRot']
+    angles     = phis - np.pi * 0.5 + 0.1 # - 0.05
+    
+     #- params['phiRot']
     
     # Create solver if not provided
     if pauli_solver is None:
@@ -186,57 +193,92 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
     canvas_dd = np.array([dCanv, dCanv])
     
     # Create tip wavefunction
-    tipWf = orbital_utils.make_tipWf(canvas_shape, canvas_dd, z0=z_tip, decay=decay)
+    tipWf, shift = orbital_utils.make_tipWf(canvas_shape, canvas_dd, z0=z_tip, decay=decay)
+    print( "tipWf shape: ", tipWf.shape )
     
     # Calculate hopping maps using orbital convolution
-    Ms = orbital_utils.calculate_Hopping_maps( orbital_2D, orbital_lvec, spos[:,:2], angles, canvas_dd, canvas_shape, tipWf, bTranspose=True )
+    Ms, rho = orbital_utils.calculate_Hopping_maps( orbital_2D, orbital_lvec, spos[:,:2], angles, canvas_dd, canvas_shape, tipWf, bTranspose=True )
     
-    # --- Prepare inputs similar to run_pauli_scan_top ---
-    # Tip positions (2D grid)
-    zT = params['z_tip'] + params['Rtip']
-    pTips, Xs, Ys = ut.makePosXY(n=npix, L=L, p0=(0,0,zT))
-    
-    # Tip voltages
-    Vtips = np.full(len(pTips), params['VBias'])
-    
-    # C++ parameters array [Rtip, zV0, Esite, beta, Gamma, W]
-    cpp_params = np.array([params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W']])
-    
-    # Multipole parameters
-    cs = np.array([params['Q0'], 0.0, 0.0, params['Qzz']])
-    
-    # State order
-    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
-    
-    # Reshape Ms for scan_current_tip - flatten from 3D to 2D
-    # Ms has shape (nsite, npix, npix) from calculate_Hopping_maps
-    # Ts_flat will have shape (npix*npix, nsite)
+    #Ms *= 100.0
+    #Ms[:,:,:] += 0.01
     Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
     for i in range(nsite):
-        Ts_flat[:,i] = Ms[i].flatten()
-    
-    # Run the scan directly using scan_current_tip
-    STM_flat, Es_flat, _ = pauli_solver.scan_current_tip(
-        pTips, Vtips, spos, cpp_params, 1, cs, state_order, 
-        rots=rots, Ts=Ts_flat, bOmp=False, bMakeArrays=True
-    )
+        Ts_flat[:,i] = Ms[i].flatten()**2
+
+    Ts_flat[:,:] += 0.0001*0    
+    STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat)
+    #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
+
+    print("min, max STM_flat", np.min(STM_flat), np.max(STM_flat))
+    print("min, max Es_flat", np.min(Es_flat), np.max(Es_flat))
+    print("min, max Ts_flat", np.min(Ts_flat), np.max(Ts_flat))
     
     # Reshape the results
     STM = STM_flat.reshape(npix, npix)
-    Es = Es_flat.reshape(npix, npix, nsite)
-    Ts = Ts_flat.reshape(npix, npix, nsite)
+    Es  = Es_flat.reshape(npix, npix, nsite)
+    Ts  = Ts_flat.reshape(npix, npix, nsite)
     
     # Calculate total Ts (max over sites) and Es (max over sites)
-    Ttot = np.max(Ts, axis=2)
+    Ttot = np.sum(Ts, axis=2)
     Etot = np.max(Es, axis=2)
     
     # Plotting if axes provided
     extent = [-L, L, -L, L]
-    if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies (max)",  extent=extent, cmap='bwr')
-    if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling (max)", extent=extent, cmap='hot')
+
+
+
+    if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies max(eps)",  extent=extent, cmap='bwr')
+    if ax_rho  is not None: pu.plot_imshow(ax_rho,  rho,  title="sum(Wf)", extent=extent, cmap='bwr')
+    if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)", extent=extent, cmap='hot')
     if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",             extent=extent, cmap='hot')
+    if ax_dIdV is not None:
+        params_ = params.copy()
+        params_['VBias'] += 0.05
+        STM_2, Es_flat_, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat)
+        dIdV = (STM_2 - STM) / 0.01
+        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap='bwr')
+
+    if ax_Ms   is not None: 
+        for i in range(nsite):
+            ax_Ms[i].imshow(Ms[i], cmap='bwr', origin='lower', extent=extent)
+            ax_Ms[i].set_title(f"Hopping matrix {i}")
     
     return STM, Es, Ts
+
+def run_scan_xy_orb( params, fname="QD.cub" ):
+    print("Testing scan_xy_orb with real orbital data...")
+    import orbital_utils
+        
+    # Load orbital data from the QD.cub file in the current directory
+    orbital_file = fname
+    if not os.path.exists(orbital_file):
+        print(f"ERROR: Could not find {orbital_file} in the current directory")
+        return
+        
+    print(f"Loading orbital file: {orbital_file}")
+    orbital_data, orbital_lvec = orbital_utils.load_orbital(orbital_file)
+    
+    # Process orbital data similar to ChargeRingsOrbitalGUI.py
+    # Transpose and sum over z-direction for 2D representation
+    orbital_2D = np.transpose(orbital_data, (2, 1, 0))
+    orbital_2D = np.sum(orbital_2D[:, :, orbital_2D.shape[2]//2:], axis=2)
+    orbital_2D = np.ascontiguousarray(orbital_2D, dtype=np.float64)
+    
+    # Initialize pauli solver
+    pauli_solver = pauli.PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=0)
+    
+    # Create figure for visualization
+    fig, ((ax1, ax2, ax3, ax4), (ax5, ax6, ax7, ax8)) = plt.subplots(2, 4, figsize=(20, 10))
+    
+    STM_orb, Es_orb, Ts_orb = scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver,  ax_Etot=ax1, ax_rho=ax2,  ax_Ttot=ax3, ax_STM=ax4, ax_Ms=[ax5, ax6, ax7], ax_dIdV=ax8 )
+        
+    fig.suptitle(f"Scan with Orbital-Based Hopping ({orbital_file})", fontsize=14)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])  # Make room for suptitle
+    
+    # Save and show the figure
+    plt.savefig('scan_xy_orb_test.png')
+    print(f"Figure saved as 'scan_xy_orb_test.png'")
+    plt.show()
 
 def scan_param_sweep(params, scan_params, selected_params=None, nx=100, nV=100, sz=3, bLegend=False):
     """
@@ -300,77 +342,25 @@ def scan_param_sweep(params, scan_params, selected_params=None, nx=100, nV=100, 
 if __name__ == "__main__":
     # Example usage when run as standalone script - using same defaults as GUI
     params = {
-        'VBias': 1.0, 'Rtip': 2.5, 'z_tip': 2.0,
-        'W': 0.03, 'GammaS': 0.01, 'GammaT': 0.01, 'Temp': 0.224, 'onSiteCoulomb': 3.0,
-        'zV0': -3.0, 'zQd': 0.0,
+        'VBias': 0.3, 'Rtip': 2.5, 'z_tip': 3.0,
+
+        #'W': 0.00,
+         #'W': 0.005,
+        'W': 0.01,
+        #'W': 0.015,
+        #'W': 0.02,
+        #'W': 0.025,
+        #'W': 0.03,
+        
+        'GammaS': 0.01, 'GammaT': 0.01, 'Temp': 0.224, 'onSiteCoulomb': 3.0,
+        'zV0': -10.0, 'zQd': 0.0,
         'nsite': 3, 'radius': 5.2, 'phiRot': 0.8,
         'Esite': -0.04, 'Q0': 1.0, 'Qzz': 0.0,
         'L': 20.0, 'npix': 100, 'decay': 0.1, 'dQ': 0.02
     }
     verbosity = 0
-
-    # Test scan_xy_orb function
-    print("Testing scan_xy_orb function...")
     
-    import os  # Make sure os is imported
-    
-    # Create synthetic orbital data for testing since we don't have a cube file
-    try:
-        print("Creating synthetic orbital data for testing...")
-        # Create a simple Gaussian orbital
-        nx, ny = 100, 100
-        orbital_data = np.zeros((nx, ny, 10))  # Simple 3D array
-        x = np.linspace(-10, 10, nx)
-        y = np.linspace(-10, 10, ny)
-        X, Y = np.meshgrid(x, y)
-        
-        # Create a simple Gaussian orbital in the middle of the grid
-        sigma = 2.0
-        orbital_data[:,:,5] = np.exp(-(X**2 + Y**2)/(2*sigma**2))
-        
-        # Create lattice vectors similar to what would be in a cube file
-        orbital_lvec = np.array([
-            [0.0, 0.0, 0.0],
-            [20.0, 0.0, 0.0],
-            [0.0, 20.0, 0.0],
-            [0.0, 0.0, 10.0]
-        ])
-        
-        # Process orbital data for 2D
-        orbital_2D = np.sum(orbital_data, axis=2)
-        orbital_2D = np.ascontiguousarray(orbital_2D, dtype=np.float64)
-        
-        # Initialize pauli solver
-        pauli_solver = pauli.PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=verbosity)
-        
-        # Create figure for visualization
-        fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize=(15, 10))
-        
-        # Run standard scan for comparison
-        print("Running standard scan_xy for comparison...")
-        STM, Es, Ts = scan_xy(params, pauli_solver, ax_Etot=ax1, ax_Ttot=ax2, ax_STM=ax3)
-        ax1.set_title("Standard: Energies (max)")
-        ax2.set_title("Standard: Tunneling (max)")
-        ax3.set_title("Standard: STM")
-        
-        # Run orbital-based scan
-        print("Running orbital-based scan_xy_orb...")
-        STM_orb, Es_orb, Ts_orb = scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver, ax_Etot=ax4, ax_Ttot=ax5, ax_STM=ax6)
-        ax4.set_title("Orbital: Energies (max)")
-        ax5.set_title("Orbital: Tunneling (max)")
-        ax6.set_title("Orbital: STM")
-        
-        # Add annotation - use triple quotes for multiline string
-        title = f"Comparison of scan_xy and scan_xy_orb\nSynthetic test orbital"
-        fig.suptitle(title, fontsize=14)
-        plt.tight_layout(rect=[0, 0, 1, 0.95])  # Make room for suptitle
-        
-        # Save and show the figure
-        plt.savefig('scan_xy_orb_test.png')
-        print(f"Figure saved as 'scan_xy_orb_test.png'")
-        plt.show()
-    except Exception as e:
-        print(f"Error in scan_xy_orb test: {e}")
+    run_scan_xy_orb( params )
     
     exit()
 

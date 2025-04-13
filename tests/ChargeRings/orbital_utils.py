@@ -88,17 +88,23 @@ def calculate_simple( spos, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center=Non
         c_i = c_i.reshape((2*crop_size[1], 2*crop_size[0]))
         Itot += c_i  # Direct sum without M_i^2 factor
 
-def calculate_Hopping_maps(orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas_shape, tipWf, crop_center=None, crop_size=None, bTranspose=False ):
+def calculate_Hopping_maps(orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas_shape, tipWf, crop_center=None, crop_size=None, bTranspose=False, bSqrRho=False ):
     from pyProbeParticle import photo
     # Initialize arrays
     canvas_sum = np.zeros(canvas_shape, dtype=np.float64)
     Ms = []
     nsite = len(spos)
+    print( "tipWf shape: ", tipWf.shape )
     for i in range(nsite):
         # Place orbital on canvas
         canvas = photonMap2D_stamp([orbital_2D], [orbital_lvec], canvas_dd, canvas=canvas_sum*0.0, angles=[angles[i]], poss=[[spos[i,0], spos[i,1]]], coefs=[1.0], byCenter=True, bComplex=False)
-        #canvas_sum += canvas
+        if bSqrRho:
+            canvas_sum += canvas**2
+        else:
+            canvas_sum += canvas
         # Convolve with tip field   M_i = < psi_i |H| psi_tip  >
+        #print( "tipWf shape: ", tipWf.shape) 
+        print( "canvas.shape: ", canvas.shape )
         M_i = photo.convFFT(tipWf, canvas, bNormalize=True)
         M_i = np.real(M_i)      
         # Crop to center region if needed
@@ -111,7 +117,7 @@ def calculate_Hopping_maps(orbital_2D, orbital_lvec, spos, angles, canvas_dd, ca
         for i in range(nsite):
             Ms_[i,:,:] = Ms[i][:,:]
         Ms = Ms_
-    return Ms
+    return Ms, canvas_sum
 
 def calculate_stm_maps(orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas_shape, tipWf, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center=None, crop_size=None, cis=None ):
     """Calculate STM maps for a given orbital configuration using Fermi Golden Rule.

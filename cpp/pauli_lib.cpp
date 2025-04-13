@@ -482,7 +482,8 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
 
             double T=0;
             if( externTs ) { 
-                T = TLeads [  nSites + j];
+                T = Ts[i*nSites + j];
+                //if(j!=0) { T = 0.0; }
             }else{
                 Vec3d d          = tipPos - pSites[j];
                 T         = exp(-beta * d.norm());
