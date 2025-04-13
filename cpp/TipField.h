@@ -71,7 +71,7 @@ double evalMultipoleMirror( Vec3d pTip, const Vec3d& pSite, double VBias, double
  * @param Eout Pre-allocated output array (nTips x nSites)
  */
 void evalSitesTipsMultipoleMirror( int nTip, const Vec3d* pTips, const double* VBias, int nSites, const Vec3d* pSite, const Mat3d* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs ) {
-    //printf("evalSitesTipsMultipoleMirror() nTip: %d nSites: %d E0: %6.3e Rtip: %6.3e zV0: %6.3e order: %d cs: %6.3e %6.3e %6.3e %6.3e %6.3e \n", nTip, nSites, E0, Rtip, zV0, order, cs[0], cs[1], cs[2], cs[3], cs[4] );
+    //printf("evalSitesTipsMultipoleMirror() nTip: %d nSites: %d E0: %6.3e Rtip: %6.3e VBias[0,-1](%6.3e,%6.3e) zV0: %6.3e pTip.z[0,-1](%6.3e,%6.3e) order: %d cs:[ %6.3e, %6.3e, %6.3e, %6.3e ]\n", nTip, nSites, E0, Rtip, VBias[0], VBias[nTip-1], zV0, pTips[0].z, pTips[nTip-1].z, order, cs[0], cs[1], cs[2], cs[3] );
     for (int i=0; i<nTip; i++) {
         for (int j=0; j<nSites;j++) {
             const Mat3d* rot = ( rotSite ) ? ( rotSite + j ) : nullptr;

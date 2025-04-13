@@ -423,7 +423,13 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
 double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* rots_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts ){
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (!solver) return 0.0;
-    printf("scan_current_tip() npoints: %d bOmp: %d state_order: %p \n", npoints, bOmp, state_order );
+    //printf("scan_current_tip() npoints: %d bOmp: %d state_order: %p \n", npoints, bOmp, state_order );
+    //printf("scan_current_tip() nTip: %d nSites: %d E0: %6.3e Rtip: %6.3e zV0: %6.3e order: %d cs: %6.3e %6.3e %6.3e %6.3e %6.3e \n", nTip, nSites, E0, Rtip, zV0, order, cs[0], cs[1], cs[2], cs[3], cs[4] );
+    //printf("scan_current_tip() npoints: %d nSites: %d order: %d cs:[ %6.3e, %6.3e, %6.3e, %6.3e ]\n", npoints, nSites, order, cs[0], cs[1], cs[2], cs[3] );
+    //if(state_order) { 
+    //    int nstates = solver->nstates;
+    //    printf("scan_current_tip() state_order: %i %i %i %i %i %i %i %i  \n", state_order[0], state_order[1], state_order[2], state_order[3], state_order[4], state_order[5], state_order[6], state_order[7] );
+    //}
 
     Vec3d* pTips  = (Vec3d*)pTips_;
     Vec3d* pSites = (Vec3d*)pSites_;
@@ -432,10 +438,13 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
     // Extract parameters
     double Rtip  = params[0];
     double zV0   = params[1];
-    double Esite = params[2];
+    double E0    = params[2];
     double beta  = params[3];
     double Gamma = params[4];
     double W     = params[5];
+
+    //printf("scan_current_tip() Rtip: %6.3e zV0: %6.3e Esite: %6.3e beta: %6.3e Gamma: %6.3e W: %6.3e \n", Rtip, zV0, Esite, beta, Gamma, W );
+    //printf("scan_current_tip() Rtip: nTip: %d nSites: %d E0: %6.3e Rtip: %6.3e VBias[0,-1](%6.3e,%6.3e) pTip.z[0,-1](%6.3e,%6.3e) zV0: %6.3e order: %d cs:[ %6.3e, %6.3e, %6.3e, %6.3e ]\n", npoints, nSites, E0, Rtip, Vtips[0], Vtips[npoints-1], pTips[0].z, pTips[npoints-1].z, zV0, order, cs[0], cs[1], cs[2], cs[3] );
 
     // Initialize local solver
     //PauliSolver solver_local(*solver);
@@ -466,7 +475,7 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
         solver->leads[1].mu = VBias;
         for (int j = 0; j < nSites; j++) {
             Mat3d* rot = ( rots ) ? ( rots + j ) : nullptr;
-            double Ei = evalMultipoleMirror( tipPos, pSites[j], VBias, Rtip, zV0, order, cs, Esite, rot );
+            double Ei = evalMultipoleMirror( tipPos, pSites[j], VBias, Rtip, zV0, order, cs, E0, rot );
             Vec3d d          = tipPos - pSites[j];
             double T         = exp(-beta * d.norm());
             TLeads [  nSites + j] = VT*T;
