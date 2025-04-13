@@ -88,7 +88,32 @@ def calculate_simple( spos, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center=Non
         c_i = c_i.reshape((2*crop_size[1], 2*crop_size[0]))
         Itot += c_i  # Direct sum without M_i^2 factor
 
-def calculate_stm_maps(orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas_shape, tipWf, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center=None, crop_size=None):
+def calculate_Hopping_maps(orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas_shape, tipWf, crop_center=None, crop_size=None, bTranspose=False ):
+    from pyProbeParticle import photo
+    # Initialize arrays
+    canvas_sum = np.zeros(canvas_shape, dtype=np.float64)
+    Ms = []
+    nsite = len(spos)
+    for i in range(nsite):
+        # Place orbital on canvas
+        canvas = photonMap2D_stamp([orbital_2D], [orbital_lvec], canvas_dd, canvas=canvas_sum*0.0, angles=[angles[i]], poss=[[spos[i,0], spos[i,1]]], coefs=[1.0], byCenter=True, bComplex=False)
+        #canvas_sum += canvas
+        # Convolve with tip field   M_i = < psi_i |H| psi_tip  >
+        M_i = photo.convFFT(tipWf, canvas, bNormalize=True)
+        M_i = np.real(M_i)      
+        # Crop to center region if needed
+        if crop_center is not None and crop_size is not None:
+            M_i = crop_central_region(M_i, crop_center, crop_size)    
+        Ms.append(M_i)
+    # tranform to shape (nsite,nx,ny)
+    if bTranspose:
+        Ms_ = np.empty( (nsite,)+canvas_shape, dtype=np.float64 )
+        for i in range(nsite):
+            Ms_[i,:,:] = Ms[i][:,:]
+        Ms = Ms_
+    return Ms
+
+def calculate_stm_maps(orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas_shape, tipWf, ps, Es_1, E_Fermi, V_Bias, decay, T, crop_center=None, crop_size=None, cis=None ):
     """Calculate STM maps for a given orbital configuration using Fermi Golden Rule.
     I(E,x) = M^2 * rho_i rho_j [ f_i - f_j ] = M(x)^2 * c(E)
     where:
@@ -149,14 +174,17 @@ def calculate_stm_maps(orbital_2D, orbital_lvec, spos, angles, canvas_dd, canvas
         if crop_center is not None and crop_size is not None:
             M_i = crop_central_region(M_i, crop_center, crop_size)
         
-        # Calculate coefficient c_i = rho_i rho_j [ f_i - f_j ]
-        c_i = chr.calculate_site_current(ps, spos[i], Es_1[:,i], E_Fermi + V_Bias, E_Fermi, decay=decay*0.0, T=T)
-        
-        if crop_size is not None:
-            c_i = c_i.reshape((2*crop_size[1], 2*crop_size[0]))
+        if cis is not None:
+            # Calculate coefficient c_i = rho_i rho_j [ f_i - f_j ]
+            c_i = chr.calculate_site_current(ps, spos[i], Es_1[:,i], E_Fermi + V_Bias, E_Fermi, decay=decay*0.0, T=T)
+            
+            if crop_size is not None:
+                c_i = c_i.reshape((2*crop_size[1], 2*crop_size[0]))
+            else:
+                c_i = c_i.reshape(canvas_shape)
         else:
-            c_i = c_i.reshape(canvas_shape)
-        
+            c_i = cis[i] 
+
         # Incoherent sum    I = sum c_i * M_i^2
         total_current += M_i**2 * c_i   # Fermi Golden Rule   I = sum_i{ c_i * M_i^2 }
         site_coef_maps.append(c_i)

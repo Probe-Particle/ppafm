@@ -420,7 +420,7 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
  * @param bOmp Whether to use OpenMP
  * @return 0 on success
  */
-double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* rots_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts ){
+double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* rots_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts, bool externTs ){
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (!solver) return 0.0;
     //printf("scan_current_tip() npoints: %d bOmp: %d state_order: %p \n", npoints, bOmp, state_order );
@@ -476,12 +476,19 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
         for (int j = 0; j < nSites; j++) {
             Mat3d* rot = ( rots ) ? ( rots + j ) : nullptr;
             double Ei = evalMultipoleMirror( tipPos, pSites[j], VBias, Rtip, zV0, order, cs, E0, rot );
-            Vec3d d          = tipPos - pSites[j];
-            double T         = exp(-beta * d.norm());
-            TLeads [  nSites + j] = VT*T;
+
             hsingle[j*nSites + j] = Ei;
             if( Es ) { Es[i*nSites + j] = Ei; }
-            if( Ts ) { Ts[i*nSites + j] = T; }
+
+            double T=0;
+            if( externTs ) { 
+                T = TLeads [  nSites + j];
+            }else{
+                Vec3d d          = tipPos - pSites[j];
+                T         = exp(-beta * d.norm());
+                if( Ts ) { Ts[i*nSites + j] = T; }
+            }
+            TLeads [  nSites + j] = VT*T;
         }
         solver->setTLeads(TLeads); // Assuming this doesn't modify internal state needed across iterations
         solver->calculate_tunneling_amplitudes(TLeads); // Assuming this is okay

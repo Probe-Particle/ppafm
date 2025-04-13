@@ -4,8 +4,8 @@ import numpy as np
 import os
 import ctypes
 from ctypes import c_void_p, c_int, c_double, c_bool
-from cpp_utils import compile_lib, work_dir, _np_as, c_double_p, c_int_p
-import utils as ut
+from .cpp_utils import compile_lib, work_dir, _np_as, c_double_p, c_int_p
+from . import utils as ut
 
 verbosity = 0 
 
@@ -70,8 +70,8 @@ lib.scan_current.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_double_p
 lib.scan_current.restype = c_double
 
 
-#double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* rots_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts ){
-lib.scan_current_tip.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_int, c_double_p, c_double_p,  c_double_p, c_int, c_double_p, c_int_p, c_double_p, c_bool, c_double_p, c_double_p]
+#double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* rots_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts, bool externTs ){
+lib.scan_current_tip.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_int, c_double_p, c_double_p,  c_double_p, c_int, c_double_p, c_int_p, c_double_p, c_bool, c_double_p, c_double_p, c_bool]
 lib.scan_current_tip.restype = c_double
 
 lib.get_kernel.argtypes = [c_void_p, c_double_p]
@@ -208,10 +208,14 @@ class PauliSolver:
         npoins = len(pTips)
         nsites = len(pSites)
         if out_current is None: out_current = np.zeros(npoins, dtype=np.float64)
+        if Ts is not None: 
+            externTs = True
+        else: 
+            externTs = False
         if bMakeArrays:
             if Es is None: Es = np.zeros( (npoins, nsites), dtype=np.float64)
             if Ts is None: Ts = np.zeros( (npoins, nsites), dtype=np.float64)
-        lib.scan_current_tip(self.solver, npoins, _np_as(pTips, c_double_p), _np_as(Vtips, c_double_p), nsites, _np_as(pSites, c_double_p), _np_as(rots, c_double_p), _np_as(params, c_double_p), order, _np_as(cs, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp, _np_as(Es, c_double_p), _np_as(Ts, c_double_p))
+        lib.scan_current_tip(self.solver, npoins, _np_as(pTips, c_double_p), _np_as(Vtips, c_double_p), nsites, _np_as(pSites, c_double_p), _np_as(rots, c_double_p), _np_as(params, c_double_p), order, _np_as(cs, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp, _np_as(Es, c_double_p), _np_as(Ts, c_double_p), externTs)
         return out_current, Es, Ts
 
     def get_energies(self, nstates):
@@ -281,7 +285,7 @@ def count_electrons(state):
     return bin(state).count('1')
 
 
-def run_cpp_scan(params, Es, Ts, scaleE=1.0 ):
+def run_cpp_scan(params, Es, Ts, scaleE=1.0):
     """Run C++ Pauli simulation for current calculation"""
     NSingle = int(params['NSingle'])
     NLeads = 2
@@ -317,7 +321,7 @@ def run_cpp_scan(params, Es, Ts, scaleE=1.0 ):
     currents = pauli.scan_current( hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order )
     return currents
 
-def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, nsize=None, bOmp=False ):
+def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, nsize=None, bOmp=False):
     """Run 2D C++ Pauli simulation with variable bias voltages
     
     Args:
@@ -394,7 +398,7 @@ def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, 
     return currents.reshape(nbias,npoints)
 
 
-def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=False, state_order=None):
+def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=False, state_order=None, Ts=None):
     nsites  = len(pSites)
     npoints = len(pTips)
     if state_order is None:
@@ -402,7 +406,7 @@ def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=
     else:
         state_order = np.array(state_order, dtype=np.int32) # Ensure correct type
     pauli_solver    = PauliSolver( nSingle=nsites, nleads=2, verbosity=verbosity )
-    current, Es, Ts = pauli_solver.scan_current_tip( pTips, Vtips, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True )
+    current, Es, Ts = pauli_solver.scan_current_tip( pTips, Vtips, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts )
     print("min,max current: ", current.min(), current.max())
     print("min,max Es:      ", Es.min(), Es.max())
     print("min,max Ts:      ", Ts.min(), Ts.max())
@@ -411,7 +415,7 @@ def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=
     return current, Es, Ts
 
 
-def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=None ):
+def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=None, Ts=None ):
 
     npix   = params['npix']
     L      = params['L']
@@ -448,7 +452,7 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
 
     # --- Run scan ---
     #print("Running scan...")
-    STM, Es, Ts = pauli_solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True )
+    STM, Es, Ts = pauli_solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts )
 
     STM = STM.reshape(npix, npix)
     Es  = Es.reshape(npix, npix, nsite)
@@ -456,7 +460,7 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
 
     return STM, Es, Ts #, spos, rots
 
-def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=None, bOmp=False, state_order=None ):
+def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=None, bOmp=False, state_order=None, Ts=None ):
     """
     Perform 2D scan along 1D cut of tip positions (pTips) and bias voltages (Vbiases)
     
@@ -502,7 +506,7 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
     Vtips_rep = np.repeat(Vbiases, nx)
     
     # Run scan
-    current, Es, Ts = pauli_solver.scan_current_tip( pTips_rep, Vtips_rep, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True)
+    current, Es, Ts = pauli_solver.scan_current_tip( pTips_rep, Vtips_rep, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts)
     
     # Reshape results
     current = current.reshape(nV,nx)

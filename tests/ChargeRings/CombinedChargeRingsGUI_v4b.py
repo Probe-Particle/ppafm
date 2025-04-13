@@ -16,9 +16,8 @@ from charge_rings_core import calculate_tip_potential, calculate_qdot_system, ma
 from charge_rings_plotting import plot_tip_potential, plot_qdot_system
 import data_line 
 
-sys.path.insert(0, '../../pyProbeParticle')
-import pauli as pls
-#from pauli import PauliSolver
+sys.path.append('../../')
+from pyProbeParticle import pauli as pls
 
 verbosity = 0
 

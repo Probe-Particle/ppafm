@@ -13,9 +13,9 @@ from scipy.interpolate import LinearNDInterpolator, RectBivariateSpline
 from GUITemplate import GUITemplate
 import data_line 
 
-sys.path.insert(0, '../../pyProbeParticle')
-import utils as ut
-import pauli
+sys.path.append('../../')
+from pyProbeParticle import utils as ut
+from pyProbeParticle import pauli
 #from pauli import run_pauli_scan # Import the high-level scan function
 
 import plot_utils as pu
