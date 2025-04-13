@@ -24,8 +24,9 @@ import plot_utils as pu
 
 verbosity = 0
 
-def interpolate_3d_plane_slow( xs,ys,zs, vals, line_points ):
-    # We'll process each voltage independently but with a faster method
+def interpolate_3d_plane_slow(xs, ys, zs, vals, line_points):
+    """Interpolate 3D data along a 2D line using LinearNDInterpolator (slow but works for any grid)"""
+    # We'll process each voltage independently
     npoints = len(line_points)
     exp_didv = np.zeros((len(zs), npoints))
     for i in range(len(zs)):
@@ -38,6 +39,33 @@ def interpolate_3d_plane_slow( xs,ys,zs, vals, line_points ):
         interp = LinearNDInterpolator(points, values)
         # Evaluate at all points along the line at once
         exp_didv[i,:] = interp(line_points)  # LinearNDInterpolator takes points, not separate x,y arrays
+    return exp_didv
+
+def interpolate_3d_plane_fast(xs, ys, zs, vals, line_points):
+    """Simple fast interpolation assuming data is on a regular grid"""
+    npoints = len(line_points)
+    x_coords = line_points[:, 0]  # Extract x coordinates from points
+    y_coords = line_points[:, 1]  # Extract y coordinates from points
+    exp_didv = np.zeros((len(zs), npoints))
+
+    # Get min/max of x and y from the coordinate arrays
+    ny, nx = vals[0].shape  
+    x_min, x_max = np.min(xs[0]), np.max(xs[0])
+    y_min, y_max = np.min(ys[0]), np.max(ys[0])
+    
+    # Create evenly spaced grid coordinates matching the data dimensions
+    x_grid = np.linspace(x_min, x_max, nx)
+    y_grid = np.linspace(y_min, y_max, ny)
+
+    # Process each voltage independently
+    for i in range(len(zs)):
+        interp = RectBivariateSpline(y_grid, x_grid, vals[i] )
+        exp_didv[i,:] = interp.ev(y_coords, x_coords)
+        #exp_didv[i,:] = interp.ev(x_coords, y_coords)
+
+        #interp = RectBivariateSpline(x_grid, y_grid, data_2d)
+        #exp_didv[i,:] = interp.ev(x_coords, y_coords)
+    
     return exp_didv
         
 
@@ -317,7 +345,7 @@ class ApplicationWindow(GUITemplate):
         
         # Plot dI/dV
         maxval = np.max(np.abs(self.exp_dIdV[self.exp_idx]))
-        self.ax7.imshow(self.exp_dIdV[self.exp_idx], aspect='equal',  cmap='seismic', vmin=-maxval, vmax=maxval, extent=exp_extent)
+        self.ax7.imshow(self.exp_dIdV[self.exp_idx], aspect='equal', origin='lower', cmap='seismic', vmin=-maxval, vmax=maxval, extent=exp_extent)
         self.ax7.set_title(f'Exp. dI/dV at {self.exp_biases[self.exp_idx]:.3f} V')
         self.ax7.set_xlabel('X [Å]')
         self.ax7.set_ylabel('Y [Å]')
@@ -326,7 +354,7 @@ class ApplicationWindow(GUITemplate):
         self.plot_ellipses(self.ax7, params)
         
         # Plot Current
-        self.ax8.imshow(self.exp_I[self.exp_idx], aspect='equal',  cmap='inferno', vmin=0.0, vmax=600.0,  extent=exp_extent)
+        self.ax8.imshow(self.exp_I[self.exp_idx], aspect='equal', origin='lower', cmap='inferno', vmin=0.0, vmax=600.0,  extent=exp_extent)
         self.ax8.set_title(f'Exp. Current at {self.exp_biases[self.exp_idx]:.3f} V')
         self.ax8.set_xlabel('X [Å]')
         self.ax8.set_ylabel('Y [Å]')
@@ -341,7 +369,7 @@ class ApplicationWindow(GUITemplate):
             rgb_overlay, extent = self.create_overlay_image( self.exp_dIdV[self.exp_idx], sim_data, exp_extent, sim_extent )
             
             # Plot overlay
-            self.ax9.imshow(rgb_overlay, aspect='equal', extent=extent)
+            self.ax9.imshow(rgb_overlay, aspect='equal', origin='lower', extent=extent)
             self.ax9.set_title('Overlay (Red: Exp, Green: Sim)')
             self.ax9.set_xlabel('X [Å]')
             self.ax9.set_ylabel('Y [Å]')
@@ -648,22 +676,15 @@ class ApplicationWindow(GUITemplate):
         # Run the simulation
         current, Es, Ts = pauli.run_pauli_scan_xV(  pTips,self.exp_biases,spos, scan_params,order=1, cs=[params['Q0'], 0.0, 0.0, params['Qzz']] )
                 
-        # Interpolate experimental data using linear interpolation
+        # Interpolate experimental data
         print("Interpolating experimental data...")
         T0 = time.perf_counter()
-        # # Get unique x and y coordinates (assuming regular grid)
-        # unique_x = np.unique(self.exp_X[0])
-        # unique_y = np.unique(self.exp_Y[0])
-        # print(f"unique_x,shape: {unique_x.shape}, self.exp_X,shape: {self.exp_X.shape}")
-        # print(f"unique_y,shape: {unique_y.shape}, self.exp_Y,shape: {self.exp_Y.shape}")
-        # print(f"self.exp_dIdV,shape: {self.exp_dIdV.shape}")
         
-        #exp_x    = self.exp_X[0]
-        #exp_y    = self.exp_Y[0]
-        #points = np.column_stack((exp_x.flatten(), exp_y.flatten()))
-
+        # Create line points for interpolation
         line_points = np.column_stack((x, y))
-        exp_didv = interpolate_3d_plane_slow( self.exp_X, self.exp_Y, self.exp_biases, self.exp_dIdV, line_points )
+        
+        exp_didv = interpolate_3d_plane_fast(self.exp_X, self.exp_Y, self.exp_biases, self.exp_dIdV, line_points)
+        #exp_didv = interpolate_3d_plane_slow(self.exp_X, self.exp_Y, self.exp_biases, self.exp_dIdV, line_points)
         
         print(f"Time for experimental interpolators: {time.perf_counter() - T0:.2f} seconds")
         
