@@ -27,6 +27,12 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     VBias = params['VBias']
     Rtip  = params['Rtip']
     Esite = params['Esite']
+
+    pTips_1d = np.zeros((nx, 3))
+    x_coords = np.linspace(-L, L, nx)
+    pTips_1d[:,0] = x_coords
+    pTips_1d[:,2] = zT
+    V_vals = np.linspace(0.0, VBias, nV)
         
     # XZ grid calculations
     if ax_Vtip is not None or ax_Esite is not None:
@@ -45,15 +51,10 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     # Plotting if axes provided
     if ax_V2d is not None:
         # 1D Potential calculations
-        pTips_1d = np.zeros((nx, 3))
-        x_coords = np.linspace(-L, L, nx)
-        pTips_1d[:,0] = x_coords
-        pTips_1d[:,2] = zT
         V1d = pauli.evalSitesTipsMultipoleMirror(pTips_1d, pSites=np.array([[0.0,0.0,zQd]]), VBias=VBias, E0=Esite, Rtip=Rtip, zV0=zV0)[:,0]
         V1d_ = V1d - Esite
         
         # 2D Potential calculations
-        V_vals = np.linspace(0.0, VBias, nV)
         X_v, V_v = np.meshgrid(x_coords, V_vals)
         pTips_v = np.zeros((nV*nx, 3))
         pTips_v[:,0] = X_v.flatten()
@@ -139,47 +140,61 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None):
     
     return STM, Es, Ts
 
-def scan_param_sweep(params, param_name, values, selected_params=None, nx=100, nV=100, sz=3, bLegend=False):
+def scan_param_sweep(params, scan_params, selected_params=None, nx=100, nV=100, sz=3, bLegend=False):
     """
-    Scan over multiple values of a parameter and plot V2d and Vtip for each
+    Scan over multiple parameters simultaneously and plot V2d and Vtip for each set
     
     Args:
         params: Dictionary of parameters
-        param_name: Name of parameter to sweep (e.g. 'z_tip', 'Esite')
-        values: Array of parameter values to scan
+        scan_params: List of (param_name, values) tuples to sweep
         selected_params: List of other parameters to show in figure title
         nx: Number of x points
         nV: Number of voltage points
-        figsize: Size of the figure
+        sz: Base size for each subplot
+        bLegend: Whether to show legend in plots
     """
-    nscan = len(values)
+    if not scan_params:
+        raise ValueError("scan_params cannot be empty")
+        
+    param_names = [p[0] for p in scan_params]
+    values_list = [p[1] for p in scan_params]
+    nscan = len(values_list[0])
     
-    # Create figure with (2, nscan) subplots (columns for each parameter value)
+    # Validate all value lists have same length
+    for vals in values_list[1:]:
+        assert len(vals) == nscan, "All value lists must have same length"
+    
+    # Create figure with (2, nscan) subplots (columns for each parameter set)
     fig, axes = plt.subplots(2, nscan, figsize=(sz*nscan, sz*2))
     
-    # Build figure title with selected parameters
-    title = f"Parameter sweep: {param_name}\n"
+    # Build figure title with selected parameters (excluding swept ones)
+    title = "Parameter sweep\n"
     if selected_params:
-        title += "Other params: " + ", ".join([f"{k}={params[k]}" for k in selected_params])
+        title_params = [p for p in selected_params if p not in param_names]
+        if title_params:
+            title += "Other params: " + ", ".join([f"{k}={params[k]}" for k in title_params])
     fig.suptitle(title, fontsize=12)
     
     # Make copy of params to avoid modifying original
     params = params.copy()
     
-    for i, val in enumerate(values):
-        # Update parameter value
-        params[param_name] = val
+    for i in range(nscan):
+        # Update all parameter values
+        for param, vals in scan_params:
+            params[param] = vals[i]
         
         # Get current column axes
         ax_V2d = axes[0,i] if nscan > 1 else axes[0]
         ax_Vtip = axes[1,i] if nscan > 1 else axes[1]
         
-        # Run scan for current parameter value
+        # Run scan for current parameter values
         scan_xV(params, ax_V2d=ax_V2d, ax_Vtip=ax_Vtip, nx=nx, nV=nV, bLegend=bLegend)
         
-        # Add parameter value as title to both plots
-        ax_V2d.set_title(f"{param_name} = {val:.3f}", fontsize=10)
-        ax_Vtip.set_title(f"{param_name} = {val:.3f}", fontsize=10)
+        # Build title showing all swept parameters
+        title_parts = [f"{name}={params[name]:.3f}" for name in param_names]
+        title = ", ".join(title_parts)
+        ax_V2d.set_title(title, fontsize=10)
+        ax_Vtip.set_title(title, fontsize=10)
     
     plt.tight_layout()
     return fig
@@ -187,16 +202,17 @@ def scan_param_sweep(params, param_name, values, selected_params=None, nx=100, n
 if __name__ == "__main__":
     # Example usage when run as standalone script - using same defaults as GUI
     params = {
-        'VBias': 0.6, 'Rtip': 2.5, 'z_tip': 2.0,
+        'VBias': 1.0, 'Rtip': 2.5, 'z_tip': 2.0,
         'W': 0.03, 'GammaS': 0.01, 'GammaT': 0.01, 'Temp': 0.224, 'onSiteCoulomb': 3.0,
-        'zV0': -3.3, 'zQd': 0.0,
+        'zV0': -3.0, 'zQd': 0.0,
         'nsite': 3, 'radius': 5.2, 'phiRot': 0.8,
         'Esite': -0.04, 'Q0': 1.0, 'Qzz': 0.0,
         'L': 20.0, 'npix': 100, 'decay': 0.1, 'dQ': 0.02
     }
     verbosity = 0
 
-    scan_param_sweep(params, 'z_tip', np.linspace(1.0, 10.0, 5), selected_params=['Esite','VBias','zV0'])
+    scan_param_sweep(params, [('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'])
+    plt.savefig('scan_param_sweep.png')
     plt.show()
     exit()
     
@@ -216,5 +232,5 @@ if __name__ == "__main__":
 
     # Example parameter sweep
     z_tip_vals = np.linspace(1.0, 3.0, 5)  # Scan 5 tip heights
-    fig = scan_param_sweep(params, 'z_tip', z_tip_vals)
+    fig = scan_param_sweep(params, [('z_tip', z_tip_vals)])
     plt.show()

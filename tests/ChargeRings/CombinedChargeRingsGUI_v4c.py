@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from scipy.interpolate import LinearNDInterpolator, RectBivariateSpline
+import time
+
 
 from GUITemplate import GUITemplate
 import data_line 
@@ -616,7 +618,7 @@ class ApplicationWindow(GUITemplate):
         nsite = params['nsite']
         
         # Calculate site positions (constant for all voltages)
-        spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+        spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
         spos[:,2] = params['zQd']
         Esite_arr = np.full(nsite, params['Esite'])
         
@@ -626,11 +628,25 @@ class ApplicationWindow(GUITemplate):
         pTips[:,1] = y
         pTips[:,2] = params['z_tip'] + params['Rtip']
         
-        # Calculate tunneling (constant for all voltages)
-        Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
+        # Run the simulation using modern pauli_scan_xV function
+        # Create a copy of params to modify for the scan
+        scan_params = params.copy()
         
+        # Run the simulation
+        current, Es, Ts = pauli.run_pauli_scan_xV(
+            pTips,
+            self.exp_biases,
+            spos,
+            scan_params,
+            order=1,
+            cs=[params['Q0'], 0.0, 0.0, params['Qzz']]
+        )
+                
         # Pre-calculate experimental interpolators for each voltage slice
+        print("expreimental interpolators..")
+        T0 = time.perf_counter()
         interpolators = []
+        exp_didv = np.zeros((len(self.exp_biases), npoints))
         for i in range(len(self.exp_biases)):
             exp_data = self.exp_dIdV[i]
             exp_x = self.exp_X[i]
@@ -639,25 +655,6 @@ class ApplicationWindow(GUITemplate):
             values = exp_data.flatten()
             interp = LinearNDInterpolator(points, values)
             interpolators.append(interp)
-        
-        # Loop over voltages
-        print("Processing voltages...")
-        for i, vbias in enumerate(self.exp_biases):
-            # Update VBias in parameters
-            params['VBias'] = vbias
-            
-            # Calculate energies and charges for each site
-            #Es = compute_site_energies(pTips, spos, VBias=vbias, Rtip=params['Rtip'], zV0=params['zV0'], E0s=Esite_arr)
-            Es = pls.compute_site_energies(pTips, spos, VBias=vbias, Rtip=params['Rtip'], zV0=params['zV0'], E0s=Esite_arr)
-            #Es[npix//2,0] = 0
-            
-            # Calculate charges for each site
-            Qs = np.zeros(Es.shape)
-            for j in range(nsite):
-                Qs[:,j] = occupancy_FermiDirac(Es[:,j], params['temperature'])
-            
-            # Store total charge for this voltage
-            sim_charge[i,:] = np.sum(Qs, axis=1)
             
             # Interpolate experimental data using pre-calculated interpolator
             exp_didv[i,:] = interpolators[i](line_points)
@@ -672,18 +669,18 @@ class ApplicationWindow(GUITemplate):
                     nan_indices = np.where(nan_mask)[0]
                     exp_didv[i,nan_indices] = np.interp(nan_indices, valid_indices, exp_didv[i,valid_indices])
         
+        print(f"Time for experimental interpolators: {time.perf_counter() - T0:.2f} seconds")
+        
         print("Creating plots...")
         # Plot simulated charge
-        im1 = ax1.imshow(sim_charge, aspect='auto', origin='lower', 
-                        extent=[0, distance[-1], self.exp_biases[0], self.exp_biases[-1]])
+        im1 = ax1.imshow(current, aspect='auto', origin='lower',  extent=[0, distance[-1], self.exp_biases[0], self.exp_biases[-1]])
         ax1.set_title('Simulated Charge')
         ax1.set_xlabel('Distance (Å)')
         ax1.set_ylabel('Bias Voltage (V)')
         fig.colorbar(im1, ax=ax1, label='Charge')
         
         # Plot experimental dI/dV
-        im2 = ax2.imshow(exp_didv, aspect='auto', origin='lower',
-                        extent=[0, distance[-1], self.exp_biases[0], self.exp_biases[-1]])
+        im2 = ax2.imshow(exp_didv, aspect='auto', origin='lower', extent=[0, distance[-1], self.exp_biases[0], self.exp_biases[-1]])
         ax2.set_title('Experimental dI/dV')
         ax2.set_xlabel('Distance (Å)')
         ax2.set_ylabel('Bias Voltage (V)')

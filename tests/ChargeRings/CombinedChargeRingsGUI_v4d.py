@@ -514,7 +514,7 @@ class ApplicationWindow(GUITemplate):
         nsite = params['nsite']
         
         # Calculate site positions (constant for all voltages)
-        spos, phis = makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+        spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
         spos[:,2] = params['zQd']
         Esite_arr = np.full(nsite, params['Esite'])
         
@@ -525,7 +525,8 @@ class ApplicationWindow(GUITemplate):
         pTips[:,2] = params['z_tip'] + params['Rtip']
         
         # Calculate tunneling (constant for all voltages)
-        Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
+        #Ts = compute_site_tunelling(pTips, spos, beta=params['decay'], Amp=1.0)
+
         
         # Pre-calculate experimental interpolators for each voltage slice
         interpolators = []
