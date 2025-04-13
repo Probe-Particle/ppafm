@@ -19,6 +19,7 @@ import pauli
 #from pauli import run_pauli_scan # Import the high-level scan function
 
 import plot_utils as pu
+import pauli_scan 
 
 verbosity = 0
 
@@ -31,8 +32,8 @@ class ApplicationWindow(GUITemplate):
         # Then set parameter specifications
         self.param_specs = {
             # Tip Parameters
-            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 2.0),   'value': 0.2, 'step': 0.1},
-            'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 5.0),   'value': 2.5, 'step': 0.5},
+            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 10.0),   'value': 0.6, 'step': 0.1},
+            'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 10.0),   'value': 2.5, 'step': 0.5},
             'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 20.0),  'value': 2.0, 'step': 0.5},
             
             # System Parameters
@@ -332,122 +333,15 @@ class ApplicationWindow(GUITemplate):
     def run(self):
         """Main calculation and plotting function"""
         params = self.get_param_values()
-        L      = params['L']
-
-        # -- Site positions and rotations
-        spos, phis = ut.makeCircle(n=params['nsite'], R=params['radius'], phi0=params['phiRot'])
-        spos[:,2] = params['zQd']
-        rots = ut.makeRotMats(phis + params['phiRot'])
-
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla(); self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
-
-        # Setup parameters for tip potential calculations
-        npix   = 100
-        z_tip  = params['z_tip']
-        zT     = z_tip + params['Rtip']
-        zV0    = params['zV0']
-        zQd    = 0.0  # Quantum dot height
-        VBias = params['VBias']
-        Rtip  = params['Rtip']
-        Esite = params['Esite']
-        
-        # 1D Potential plot (ax1)
-        pTips_1d = np.zeros((npix, 3))
-        x_coords = np.linspace(-L, L, npix)
-        pTips_1d[:,0] = x_coords
-        pTips_1d[:,2] = zT
-        #print( "\n--- run().1 :  V1d = pauli.evalSitesTipsMultipoleMirror() " )
-        V1d = pauli.evalSitesTipsMultipoleMirror( pTips_1d, pSites=np.array([[0.0,0.0,zQd]]), VBias=VBias, E0=Esite, Rtip=Rtip,  zV0=zV0 )[:,0]
-        V1d_ = V1d - Esite
-        #print( "V1d  min: ", np.min(V1d),  "V1d max: ", np.max(V1d) )
-        #print( "V1d_ min: ", np.min(V1d_), "V1d_ max: ", np.max(V1d_) )
-        #exit()
-        
-        # Plot 1D potential exactly as in v4b
-        V_vals = np.linspace(0.0, VBias, npix)
-        X_v, V_v = np.meshgrid(x_coords, V_vals)
-        pTips_v = np.zeros((npix*npix, 3))
-        pTips_v[:,0] = X_v.flatten()
-        pTips_v[:,2] = zT
-
-        #print( "\n--- run().2 :  V2d = pauli.evalSitesTipsMultipoleMirror() " )
-        V2d = pauli.evalSitesTipsMultipoleMirror(pTips_v, pSites=np.array([[0.0,0.0,zQd]]), VBias=V_v.flatten(), E0=Esite, Rtip=Rtip, zV0=zV0)[:,0].reshape(npix, npix)
-        V2d_ = V2d - Esite
-        #print( "V2d  min: ", np.min(V2d), "V2d max: ", np.max(V2d) )
-        #print( "V2d_ min: ", np.min(V2d_), "V2d_ max: ", np.max(V2d_) )
-        
-
-        #V2d += Esite; V2max = np.max(V2d)
-        #pu.plot_imshow(self.ax1, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], cmap='bwr', vmin=-V2max, vmax=V2max )
-        pu.plot_imshow(self.ax1, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], cmap='bwr' )
-        self.ax1.plot(x_coords, V1d , label='V_tip')
-        self.ax1.plot(x_coords, V1d_, label='V_tip + E_site')
-        self.ax1.plot(x_coords, x_coords*0.0 + VBias, label='VBias')
-        self.ax1.axhline(0.0, ls='--', c='k')
-        self.ax1.set_title("1D Potential (z=0)")
-        self.ax1.set_xlabel("x [Å]")
-        self.ax1.set_ylabel("V [V]")
-        self.ax1.set_aspect('auto') 
-        self.ax1.grid()
-        self.ax1.legend()
-        
-        # XZ grid for tip potential (ax2) and site potential (ax3)
-        x_xz = np.linspace(-L, L, npix)
-        z_xz = np.linspace(-L, L, npix)
-        X_xz, Z_xz = np.meshgrid(x_xz, z_xz)
-        ps_xz = np.array([X_xz.flatten(), np.zeros_like(X_xz.flatten()), Z_xz.flatten()]).T
-        
-        #print( "\n--- run().3 :  Vtip   = pauli.evalSitesTipsMultipoleMirror " )
-        Vtip   = pauli.evalSitesTipsMultipoleMirror(ps_xz,  pSites=np.array([[0.0, 0.0, zT]]),  VBias=VBias,  Rtip=Rtip,  zV0=zV0 )[:,0].reshape(npix, npix)
-        #print( "Vtip min: ", np.min(Vtip), "Vtip max: ", np.max(Vtip) )
-
-        #print( "\n--- run().4 :  Esites = pauli.evalSitesTipsMultipoleMirror " )
-        Esites = pauli.evalSitesTipsMultipoleMirror( ps_xz, pSites=np.array([[0.0, 0.0, zQd]]), VBias=VBias,  Rtip=Rtip,  zV0=zV0 )[:,0].reshape(npix, npix)
-        #print( "Esites min: ", np.min(Esites), "Esites max: ", np.max(Esites) )
-        
-        # Plot tip potential (ax2) exactly as in v4b
-        
-        #print( "Vtip min: ", np.min(Vtip), "Vtip max: ", np.max(Vtip) )
-        #print( "Esites min: ", np.min(Esites), "Esites max: ", np.max(Esites) )
-        
-        extent_xz = [-L, L, -L, L]
-        pu.plot_imshow(self.ax2, Vtip,    title="Tip Potential", extent=extent_xz, cmap='bwr', vmin=-VBias, vmax=VBias )
-        circ1, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, zT))
-        circ2, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, 2*zV0-zT))
-        self.ax2.plot(circ1[:,0], circ1[:,2], ':k')
-        self.ax2.plot(circ2[:,0], circ2[:,2], ':k')
-        self.ax2.axhline(zV0, ls='--', c='k', label='mirror surface')
-        self.ax2.axhline(zQd, ls='--', c='g', label='Qdot height')
-        self.ax2.axhline(z_tip, ls='--', c='orange', label='Tip Height')
-
-        pu.plot_imshow(self.ax3, Esites,    title="Site Potential", extent=extent_xz, cmap='bwr', vmin=-VBias, vmax=VBias )
-        self.ax3.axhline(zV0, ls='--', c='k', label='mirror surface')
-        self.ax3.axhline(zQd, ls='--', c='g', label='Qdot height')
-        self.ax3.legend()
-
-        #print( "\n--- run().5 :  STM, Es, Ts = pauli.run_pauli_scan_top() " )
-        STM, Es, Ts = pauli.run_pauli_scan_top( spos, rots, params, pauli_solver=self.pauli_solver )
-        Ttot = np.max(Ts, axis=2)
-        Etot = np.max(Es, axis=2)
-        #print( "Etot min: ", np.min(Etot), "Etot max: ", np.max(Etot) )
-        #print( "Ttot min: ", np.min(Ttot), "Ttot max: ", np.max(Ttot) )
-
-        extent = [-L, L, -L, L]
-        pu.plot_imshow(self.ax4, Etot,    title="Energies (max)", extent=extent, spos=spos, cmap='bwr' )
-        pu.plot_imshow(self.ax5, Ttot,    title="Tunneling",      extent=extent, spos=spos)   
-        pu.plot_imshow(self.ax6, STM,     title="Current",        extent=extent, spos=spos)
+        pauli_scan.scan_xV(params, self.ax1, self.ax2, self.ax3)
+        pauli_scan.scan_xy(params, self.pauli_solver, self.ax4, self.ax5, self.ax6)
 
         self.draw_scan_line(self.ax4)
         self.draw_reference_line(self.ax4)
-
-        # Plot ellipses on total charge plot
         self.plot_ellipses(self.ax5, params)
-
-        # Plot experimental data
         self.plot_experimental_data()
 
-        # Update the canvas
-        self.fig.tight_layout()
         self.canvas.draw()
     
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):

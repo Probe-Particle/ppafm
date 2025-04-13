@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_imshow( ax, data, title=None, extent=None, spos=None, cmap=None, vmin=None, vmax=None, **kwargs):
+def plot_imshow( ax, data, title=None, extent=None, spos=None, cmap=None, vmin=None, vmax=None, xlabel="x [Å]", ylabel="y [Å]", **kwargs):
     if cmap is 'bwr':
         if vmin is None or vmax is None:
             vmax = np.max(np.abs(data))
@@ -13,6 +13,6 @@ def plot_imshow( ax, data, title=None, extent=None, spos=None, cmap=None, vmin=N
             ax.plot(spos[i,0], spos[i,1], 'ro')
     if title is not None:
         ax.set_title(title)
-    ax.set_xlabel("x [Å]")
-    ax.set_ylabel("y [Å]")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
     ax.grid()
