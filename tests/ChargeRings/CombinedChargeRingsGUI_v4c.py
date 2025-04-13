@@ -79,19 +79,19 @@ class ApplicationWindow(GUITemplate):
         # Then set parameter specifications
         self.param_specs = {
             # Tip Parameters
-            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 2.0),   'value': 0.2, 'step': 0.1},
+            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 2.0),   'value': 1.0, 'step': 0.1},
             'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 5.0),   'value': 2.5, 'step': 0.5},
             'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 20.0),  'value': 2.0, 'step': 0.5},
             
             # System Parameters
-            'W':             {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.03, 'step': 0.001, 'decimals': 3},
-            'GammaS':        {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01, 'step': 0.001, 'decimals': 3},
-            'GammaT':        {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01, 'step': 0.001, 'decimals': 3},
-            'Temp':          {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 0.224,  'step': 0.01},
-            'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
+            'W':             {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.03,  'step': 0.001, 'decimals': 3},
+            'GammaS':        {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01,  'step': 0.001, 'decimals': 3},
+            'GammaT':        {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01,  'step': 0.001, 'decimals': 3},
+            'Temp':          {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 0.224, 'step': 0.01},
+            'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,   'step': 0.1},
             
             # Mirror Parameters
-            'zV0':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': -3.3, 'step': 0.1},
+            'zV0':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': -100.0, 'step': 0.1},
             'zQd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value':  0.0, 'step': 0.1},
             
             # Ring Geometry
@@ -105,14 +105,14 @@ class ApplicationWindow(GUITemplate):
             'phi0_ax':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (-3.14, 3.14), 'value': 0.2, 'step': 0.1},
             
             # Site Properties
-            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.04,'step': 0.002, 'decimals': 3},
-            'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
-            'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
+            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': ( -1.0,  1.0),   'value': -0.175,'step': 0.002, 'decimals': 3},
+            'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0,   'step': 0.1},
+            'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0,   'step': 0.5},
             
             # Visualization
-            'L':             {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 50.0),  'value': 20.0, 'step': 1.0},
-            'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (50, 500),    'value': 100,  'step': 50},
-            'decay':         {'group': 'Visualization',     'widget': 'double', 'range': (0.1, 2.0),   'value': 0.3,  'step': 0.1,   'decimals': 2},
+            'L':             {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 50.0 ),  'value': 20.0, 'step': 1.0},
+            'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (50,  500  ),    'value': 100,  'step': 50},
+            'decay':         {'group': 'Visualization',     'widget': 'double', 'range': (0.1, 2.0  ),   'value': 0.3,  'step': 0.1,   'decimals': 2},
             'dQ':            {'group': 'Visualization',     'widget': 'double', 'range': (0.001, 0.1), 'value': 0.02, 'step': 0.001, 'decimals': 3},
 
 
@@ -129,6 +129,13 @@ class ApplicationWindow(GUITemplate):
             
             # Experimental Data
             'exp_slice':     {'group': 'Experimental Data', 'widget': 'int',    'range': (0, 13),     'value': 8,    'step': 1},
+            'ep1_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5},
+            'ep1_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  15.0, 'step': 0.5},
+            'ep2_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5},
+            'ep2_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -6.96, 'step': 0.5},
+
+           # Start point: (-11.08342993823797, 15.204236593421697) 
+           # End point:   (9.722401661752144, -6.956393343311969)
         }
         
         self.create_gui()
@@ -159,6 +166,7 @@ class ApplicationWindow(GUITemplate):
         
         # Initialize scan line visualization
         self.scan_line_artist = None
+        self.exp_scan_line_artist = None
         
         # Create scan button layout
         scan_layout = QtWidgets.QHBoxLayout()
@@ -169,6 +177,12 @@ class ApplicationWindow(GUITemplate):
         btn_run_scan.setToolTip('Run 1D scan between p1 and p2 points defined in parameters')
         btn_run_scan.clicked.connect(self.run_1d_scan_p1p2)
         scan_layout.addWidget(btn_run_scan)
+        
+        # Add Run Voltage Scan button
+        btn_voltage_scan = QtWidgets.QPushButton('Run Voltage Scan (ep1-ep2)')
+        btn_voltage_scan.setToolTip('Run voltage scan between ep1 and ep2 points defined in parameters')
+        btn_voltage_scan.clicked.connect(self.run_voltage_scan_ep1ep2)
+        scan_layout.addWidget(btn_voltage_scan)
         
         # Connect mouse events
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
@@ -352,6 +366,9 @@ class ApplicationWindow(GUITemplate):
         
         # Plot ellipses on dI/dV plot
         self.plot_ellipses(self.ax7, params)
+        
+        # Draw experimental scan line
+        self.draw_exp_scan_line(self.ax7)
         
         # Plot Current
         self.ax8.imshow(self.exp_I[self.exp_idx], aspect='equal', origin='lower', cmap='inferno', vmin=0.0, vmax=600.0,  extent=exp_extent)
@@ -631,9 +648,15 @@ class ApplicationWindow(GUITemplate):
         np.savetxt(filename, save_data, header=param_header)
         print(f"Data saved to {filename}")
 
-    def plot_voltage_line_scan(self, start_point, end_point, pointPerAngstrom=5):
+    def plot_voltage_line_scan(self, exp_start_point, exp_end_point, pointPerAngstrom=5):
         """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
-        print(f"Starting voltage line scan from {start_point} to {end_point}")
+        params = self.get_param_values()
+        
+        # For simulation, use p1,p2 instead of ep1,ep2
+        sim_start_point = (params['p1_x'], params['p1_y'])
+        sim_end_point = (params['p2_x'], params['p2_y'])
+        
+        print(f"Starting voltage line scan: Experiment: {exp_start_point} to {exp_end_point}, Simulation: {sim_start_point} to {sim_end_point}")
         
         # Create new figure
         fig = Figure(figsize=(12, 5))
@@ -641,32 +664,33 @@ class ApplicationWindow(GUITemplate):
         ax1 = fig.add_subplot(121)  # Simulated charge
         ax2 = fig.add_subplot(122)  # Experimental dI/dV
         
-        # Create line coordinates in real space
-        x1, y1 = start_point
-        x2, y2 = end_point
+        # Calculate number of points based on both distances
+        exp_dist = np.sqrt((exp_end_point[0]-exp_start_point[0])**2 + (exp_end_point[1]-exp_start_point[1])**2)
+        sim_dist = np.sqrt((sim_end_point[0]-sim_start_point[0])**2 + (sim_end_point[1]-sim_start_point[1])**2)
+        exp_npoints = max(100, int(exp_dist * pointPerAngstrom))
+        sim_npoints = max(100, int(sim_dist * pointPerAngstrom))
         
-        # Calculate number of points based on distance
-        dist = np.sqrt((x2-x1)**2 + (y2-y1)**2)
-        npoints = max(100, int(dist * pointPerAngstrom))
+        # Create line coordinates for simulation
+        sim_x = np.linspace(sim_start_point[0], sim_end_point[0], sim_npoints)
+        sim_y = np.linspace(sim_start_point[1], sim_end_point[1], sim_npoints)
+        sim_distance = np.sqrt((sim_x - sim_x[0])**2 + (sim_y - sim_y[0])**2)
         
-        # Create line coordinates
-        x = np.linspace(x1, x2, npoints)
-        y = np.linspace(y1, y2, npoints)
-        distance = np.sqrt((x - x[0])**2 + (y - y[0])**2)
+        # Create line coordinates for experiment
+        exp_x = np.linspace(exp_start_point[0], exp_end_point[0], exp_npoints)
+        exp_y = np.linspace(exp_start_point[1], exp_end_point[1], exp_npoints)
+        exp_distance = np.sqrt((exp_x - exp_x[0])**2 + (exp_y - exp_y[0])**2)
         
         # Get current parameters
-        params = self.get_param_values()
         nsite = params['nsite']
         
         # Calculate site positions (constant for all voltages)
         spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
         spos[:,2] = params['zQd']
-        Esite_arr = np.full(nsite, params['Esite'])
         
-        # Create positions array for calculations
-        pTips = np.zeros((npoints, 3))
-        pTips[:,0] = x
-        pTips[:,1] = y
+        # Create positions array for simulation calculations
+        pTips = np.zeros((sim_npoints, 3))
+        pTips[:,0] = sim_x
+        pTips[:,1] = sim_y
         pTips[:,2] = params['z_tip'] + params['Rtip']
         
         # Run the simulation using modern pauli_scan_xV function
@@ -680,25 +704,26 @@ class ApplicationWindow(GUITemplate):
         print("Interpolating experimental data...")
         T0 = time.perf_counter()
         
-        # Create line points for interpolation
-        line_points = np.column_stack((x, y))
+        # Create line points for experimental interpolation
+        exp_line_points = np.column_stack((exp_x, exp_y))
         
-        exp_didv = interpolate_3d_plane_fast(self.exp_X, self.exp_Y, self.exp_biases, self.exp_dIdV, line_points)
-        #exp_didv = interpolate_3d_plane_slow(self.exp_X, self.exp_Y, self.exp_biases, self.exp_dIdV, line_points)
+        exp_didv = interpolate_3d_plane_fast(self.exp_X, self.exp_Y, self.exp_biases, self.exp_dIdV, exp_line_points)
         
         print(f"Time for experimental interpolators: {time.perf_counter() - T0:.2f} seconds")
         
         print("Creating plots...")
         # Plot simulated charge
-        im1 = ax1.imshow(current, aspect='auto', origin='lower',  extent=[0, distance[-1], self.exp_biases[0], self.exp_biases[-1]])
-        ax1.set_title('Simulated Charge')
+        im1 = ax1.imshow(current, aspect='auto', origin='lower', extent=[0, sim_distance[-1], self.exp_biases[0], self.exp_biases[-1]])
+        ax1.set_title('Simulated Charge (p1-p2)')
         ax1.set_xlabel('Distance (Å)')
         ax1.set_ylabel('Bias Voltage (V)')
         fig.colorbar(im1, ax=ax1, label='Charge')
         
         # Plot experimental dI/dV
-        im2 = ax2.imshow(exp_didv, aspect='auto', origin='lower', extent=[0, distance[-1], self.exp_biases[0], self.exp_biases[-1]])
-        ax2.set_title('Experimental dI/dV')
+        vmax = np.max(np.abs(exp_didv))
+        vmin = -vmax
+        im2 = ax2.imshow(exp_didv, aspect='auto', origin='lower', cmap='bwr', extent=[0, exp_distance[-1], self.exp_biases[0], self.exp_biases[-1]], vmin=vmin, vmax=vmax, interpolation='nearest')
+        ax2.set_title('Experimental dI/dV (ep1-ep2)')
         ax2.set_xlabel('Distance (Å)')
         ax2.set_ylabel('Bias Voltage (V)')
         fig.colorbar(im2, ax=ax2, label='dI/dV')
@@ -729,6 +754,21 @@ class ApplicationWindow(GUITemplate):
             'r-', linewidth=2, alpha=0.7
         )
         self.canvas.draw()
+        
+    def draw_exp_scan_line(self, ax):
+        """Draw line between ep1 and ep2 points in the Experimental panel"""
+        if self.exp_scan_line_artist:
+            self.exp_scan_line_artist.remove()
+            
+        params = self.get_param_values()
+        ep1 = (params['ep1_x'], params['ep1_y'])
+        ep2 = (params['ep2_x'], params['ep2_y'])
+        
+        self.exp_scan_line_artist, = ax.plot(
+            [ep1[0], ep2[0]], [ep1[1], ep2[1]], 
+            'r-', linewidth=2, alpha=0.7
+        )
+        self.canvas.draw()
     
     def draw_reference_line(self, ax):
         """Plot reference data path from loaded file"""
@@ -751,6 +791,20 @@ class ApplicationWindow(GUITemplate):
         p2 = (params['p2_x'], params['p2_y'])
         
         self.calculate_1d_scan(p1, p2)
+        
+    def run_voltage_scan_ep1ep2(self):
+        """Run voltage line scan using ep1 and ep2 points for experiment and p1,p2 for simulation"""
+        params = self.get_param_values()
+        ep1 = (params['ep1_x'], params['ep1_y'])
+        ep2 = (params['ep2_x'], params['ep2_y'])
+        
+        print(f"Running voltage line scan with experimental path from {ep1} to {ep2}")
+        try:
+            self.plot_voltage_line_scan(ep1, ep2)  # Uses p1,p2 internally for simulation
+        except Exception as e:
+            print(f"Error in plot_voltage_line_scan: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def on_mouse_press(self, event):
         """Handle mouse button press event"""
@@ -789,6 +843,8 @@ class ApplicationWindow(GUITemplate):
         elif event.inaxes == self.ax7:  # Experimental dI/dV plot (3,2)
             print("Processing experimental plot voltage scan")
             try:
+                # When user drags in the experimental panel, use those points for the experiment
+                # and p1/p2 for simulation (internally in the function)
                 self.plot_voltage_line_scan(self.start_point, end_point)
             except Exception as e:
                 print(f"Error in plot_voltage_line_scan: {str(e)}")
