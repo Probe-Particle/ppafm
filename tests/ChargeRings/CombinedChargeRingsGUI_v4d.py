@@ -346,13 +346,13 @@ class ApplicationWindow(GUITemplate):
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla(); self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
 
         # Setup parameters for tip potential calculations
-        npix = 100
-        z_tip = params['z_tip']
-        zT = z_tip + params['Rtip']
-        zV0 = params['zV0']
-        zQd = 0.0  # Quantum dot height
+        npix   = 100
+        z_tip  = params['z_tip']
+        zT     = z_tip + params['Rtip']
+        zV0    = params['zV0']
+        zQd    = 0.0  # Quantum dot height
         VBias = params['VBias']
-        Rtip = params['Rtip']
+        Rtip  = params['Rtip']
         Esite = -0.1  # Site energy offset
         
         # 1D Potential plot (ax1)
@@ -365,6 +365,18 @@ class ApplicationWindow(GUITemplate):
         #exit()
         
         # Plot 1D potential exactly as in v4b
+        V_vals = np.linspace(0.0, VBias, npix)
+        X_v, V_v = np.meshgrid(x_coords, V_vals)
+        pTips_v = np.zeros((npix*npix, 3))
+        pTips_v[:,0] = X_v.flatten()
+        pTips_v[:,2] = zT
+
+        V2d = pauli.evalSitesTipsMultipoleMirror(pTips_v, pSites=np.array([[0.0,0.0,zQd]]), VBias=V_v.flatten(), Rtip=Rtip, zV0=zV0)[:,0].reshape(npix, npix)
+        print( "V2d min: ", np.min(V2d), "V2d max: ", np.max(V2d) )
+
+        V2d += Esite; V2max = np.max(V2d)
+        #pu.plot_imshow(self.ax1, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], cmap='bwr', vmin=-V2max, vmax=V2max )
+        pu.plot_imshow(self.ax1, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], cmap='bwr' )
         self.ax1.plot(x_coords, V1d, label='V_tip')
         self.ax1.plot(x_coords, V1d + Esite, label='V_tip + E_site')
         self.ax1.plot(x_coords, x_coords*0.0 + VBias, label='VBias')
@@ -372,6 +384,7 @@ class ApplicationWindow(GUITemplate):
         self.ax1.set_title("1D Potential (z=0)")
         self.ax1.set_xlabel("x [Å]")
         self.ax1.set_ylabel("V [V]")
+        self.ax1.set_aspect('auto') 
         self.ax1.grid()
         self.ax1.legend()
         
@@ -388,10 +401,11 @@ class ApplicationWindow(GUITemplate):
         Esites = pauli.evalSitesTipsMultipoleMirror( ps_xz, pSites=np.array([[0.0, 0.0, zQd]]), VBias=VBias,  Rtip=Rtip,  zV0=zV0 )[:,0].reshape(npix, npix)
         
         # Plot tip potential (ax2) exactly as in v4b
-        extent_xz = [-L, L, -L, L]
+        
         print( "Vtip min: ", np.min(Vtip), "Vtip max: ", np.max(Vtip) )
         print( "Esites min: ", np.min(Esites), "Esites max: ", np.max(Esites) )
         
+        extent_xz = [-L, L, -L, L]
         pu.plot_imshow(self.ax2, Vtip,    title="Tip Potential", extent=extent_xz, cmap='bwr', vmin=-VBias, vmax=VBias )
         circ1, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, zT))
         circ2, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, 2*zV0-zT))
