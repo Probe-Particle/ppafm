@@ -24,6 +24,24 @@ import plot_utils as pu
 
 verbosity = 0
 
+def interpolate_3d_plane_slow( xs,ys,zs, vals, line_points ):
+    # We'll process each voltage independently but with a faster method
+    npoints = len(line_points)
+    exp_didv = np.zeros((len(zs), npoints))
+    for i in range(len(zs)):
+        exp_x    = xs[i]
+        exp_y    = ys[i]
+        points = np.column_stack((exp_x.flatten(), exp_y.flatten()))
+        exp_data = vals[i]
+        values   = exp_data.flatten()
+        # Create interpolator
+        interp = LinearNDInterpolator(points, values)
+        # Evaluate at all points along the line at once
+        exp_didv[i,:] = interp(line_points)  # LinearNDInterpolator takes points, not separate x,y arrays
+    return exp_didv
+        
+
+
 class ApplicationWindow(GUITemplate):
     def __init__(self):
         # First call parent constructor
@@ -607,11 +625,6 @@ class ApplicationWindow(GUITemplate):
         x = np.linspace(x1, x2, npoints)
         y = np.linspace(y1, y2, npoints)
         distance = np.sqrt((x - x[0])**2 + (y - y[0])**2)
-        line_points = np.column_stack((x, y))
-        
-        # Create arrays to store results
-        sim_charge = np.zeros((len(self.exp_biases), npoints))
-        exp_didv = np.zeros((len(self.exp_biases), npoints))
         
         # Get current parameters
         params = self.get_param_values()
@@ -633,41 +646,24 @@ class ApplicationWindow(GUITemplate):
         scan_params = params.copy()
         
         # Run the simulation
-        current, Es, Ts = pauli.run_pauli_scan_xV(
-            pTips,
-            self.exp_biases,
-            spos,
-            scan_params,
-            order=1,
-            cs=[params['Q0'], 0.0, 0.0, params['Qzz']]
-        )
+        current, Es, Ts = pauli.run_pauli_scan_xV(  pTips,self.exp_biases,spos, scan_params,order=1, cs=[params['Q0'], 0.0, 0.0, params['Qzz']] )
                 
-        # Pre-calculate experimental interpolators for each voltage slice
-        print("expreimental interpolators..")
+        # Interpolate experimental data using linear interpolation
+        print("Interpolating experimental data...")
         T0 = time.perf_counter()
-        interpolators = []
-        exp_didv = np.zeros((len(self.exp_biases), npoints))
-        for i in range(len(self.exp_biases)):
-            exp_data = self.exp_dIdV[i]
-            exp_x = self.exp_X[i]
-            exp_y = self.exp_Y[i]
-            points = np.column_stack((exp_x.flatten(), exp_y.flatten()))
-            values = exp_data.flatten()
-            interp = LinearNDInterpolator(points, values)
-            interpolators.append(interp)
-            
-            # Interpolate experimental data using pre-calculated interpolator
-            exp_didv[i,:] = interpolators[i](line_points)
-            
-            # Fill NaN values with nearest values if any exist
-            nan_mask = np.isnan(exp_didv[i,:])
-            if np.any(nan_mask):
-                valid_mask = ~np.isnan(exp_didv[i,:])
-                if np.any(valid_mask):
-                    # Use simple 1D interpolation for NaN filling
-                    valid_indices = np.where(valid_mask)[0]
-                    nan_indices = np.where(nan_mask)[0]
-                    exp_didv[i,nan_indices] = np.interp(nan_indices, valid_indices, exp_didv[i,valid_indices])
+        # # Get unique x and y coordinates (assuming regular grid)
+        # unique_x = np.unique(self.exp_X[0])
+        # unique_y = np.unique(self.exp_Y[0])
+        # print(f"unique_x,shape: {unique_x.shape}, self.exp_X,shape: {self.exp_X.shape}")
+        # print(f"unique_y,shape: {unique_y.shape}, self.exp_Y,shape: {self.exp_Y.shape}")
+        # print(f"self.exp_dIdV,shape: {self.exp_dIdV.shape}")
+        
+        #exp_x    = self.exp_X[0]
+        #exp_y    = self.exp_Y[0]
+        #points = np.column_stack((exp_x.flatten(), exp_y.flatten()))
+
+        line_points = np.column_stack((x, y))
+        exp_didv = interpolate_3d_plane_slow( self.exp_X, self.exp_Y, self.exp_biases, self.exp_dIdV, line_points )
         
         print(f"Time for experimental interpolators: {time.perf_counter() - T0:.2f} seconds")
         
