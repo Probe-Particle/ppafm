@@ -8,8 +8,10 @@ from PyQt5 import QtCore, QtWidgets
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from scipy.interpolate import LinearNDInterpolator, RectBivariateSpline
 import time
+
+# Import experimental utilities
+import exp_utils
 
 
 from GUITemplate import GUITemplate
@@ -24,49 +26,7 @@ import plot_utils as pu
 
 verbosity = 0
 
-def interpolate_3d_plane_slow(xs, ys, zs, vals, line_points):
-    """Interpolate 3D data along a 2D line using LinearNDInterpolator (slow but works for any grid)"""
-    # We'll process each voltage independently
-    npoints = len(line_points)
-    exp_didv = np.zeros((len(zs), npoints))
-    for i in range(len(zs)):
-        exp_x    = xs[i]
-        exp_y    = ys[i]
-        points = np.column_stack((exp_x.flatten(), exp_y.flatten()))
-        exp_data = vals[i]
-        values   = exp_data.flatten()
-        # Create interpolator
-        interp = LinearNDInterpolator(points, values)
-        # Evaluate at all points along the line at once
-        exp_didv[i,:] = interp(line_points)  # LinearNDInterpolator takes points, not separate x,y arrays
-    return exp_didv
-
-def interpolate_3d_plane_fast(xs, ys, zs, vals, line_points):
-    """Simple fast interpolation assuming data is on a regular grid"""
-    npoints = len(line_points)
-    x_coords = line_points[:, 0]  # Extract x coordinates from points
-    y_coords = line_points[:, 1]  # Extract y coordinates from points
-    exp_didv = np.zeros((len(zs), npoints))
-
-    # Get min/max of x and y from the coordinate arrays
-    ny, nx = vals[0].shape  
-    x_min, x_max = np.min(xs[0]), np.max(xs[0])
-    y_min, y_max = np.min(ys[0]), np.max(ys[0])
-    
-    # Create evenly spaced grid coordinates matching the data dimensions
-    x_grid = np.linspace(x_min, x_max, nx)
-    y_grid = np.linspace(y_min, y_max, ny)
-
-    # Process each voltage independently
-    for i in range(len(zs)):
-        interp = RectBivariateSpline(y_grid, x_grid, vals[i] )
-        exp_didv[i,:] = interp.ev(y_coords, x_coords)
-        #exp_didv[i,:] = interp.ev(x_coords, y_coords)
-
-        #interp = RectBivariateSpline(x_grid, y_grid, data_2d)
-        #exp_didv[i,:] = interp.ev(x_coords, y_coords)
-    
-    return exp_didv
+# These functions have been moved to exp_utils.py
         
 
 
@@ -207,19 +167,8 @@ class ApplicationWindow(GUITemplate):
         
     def load_experimental_data(self):
         """Load experimental data from npz file"""
-        data = np.load('exp_rings_data.npz')
-        # Convert from nm to Å (1 nm = 10 Å)
-        self.exp_X = data['X'] * 10
-        self.exp_Y = data['Y'] * 10
-        self.exp_dIdV = data['dIdV']
-        self.exp_I = data['I']
-        self.exp_biases = data['biases']
-        center_x = data['center_x'] * 10  # Convert to Å
-        center_y = data['center_y'] * 10  # Convert to Å
-        
-        # Center the coordinates
-        self.exp_X -= center_x
-        self.exp_Y -= center_y
+        # Use exp_utils to load the data
+        self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_I, self.exp_biases = exp_utils.load_experimental_data('exp_rings_data.npz')
         
         # Update exp_slice range based on actual data size
         self.param_specs['exp_slice']['range'] = (0, len(self.exp_biases) - 1)
@@ -240,27 +189,8 @@ class ApplicationWindow(GUITemplate):
         Returns:
             Resampled data array matching simulation grid
         """
-        # Create source coordinate grids
-        x_src = np.linspace(src_extent[0], src_extent[1], data.shape[1])
-        y_src = np.linspace(src_extent[2], src_extent[3], data.shape[0])
-        
-        # Create target coordinate grid
-        x_target = np.linspace(target_extent[0], target_extent[1], target_size)
-        y_target = np.linspace(target_extent[2], target_extent[3], target_size)
-        
-        # Create interpolator
-        interpolator = RectBivariateSpline(y_src, x_src, data)
-        resampled = interpolator(y_target, x_target, grid=True).reshape(len(y_target), len(x_target))
-        
-        # Create mask for points outside source extent
-        xx, yy = np.meshgrid(x_target, y_target)
-        mask = ((xx < src_extent[0]) | (xx > src_extent[1]) | 
-                (yy < src_extent[2]) | (yy > src_extent[3]))
-        
-        # Set points outside source extent to zero
-        resampled[mask] = 0
-        
-        return resampled
+        # Use exp_utils function for resampling
+        return exp_utils.resample_to_simulation_grid(data, src_extent, target_size, target_extent)
 
     def create_overlay_image(self, exp_data, sim_data, exp_extent, sim_extent):
         """Create RGB overlay of experimental and simulation data
@@ -271,26 +201,8 @@ class ApplicationWindow(GUITemplate):
             exp_extent: Extent of experimental data [xmin, xmax, ymin, ymax]
             sim_extent: Extent of simulation data [xmin, xmax, ymin, ymax]
         """
-        # Resample experimental data to simulation grid
-        exp_resampled = self.resample_to_simulation_grid(
-            exp_data, 
-            exp_extent,
-            target_size=sim_data.shape[0],
-            target_extent=sim_extent
-        )
-        
-        # Normalize experimental data to [0,1] range for red channel
-        exp_norm = (exp_resampled - np.min(exp_resampled)) / (np.max(exp_resampled) - np.min(exp_resampled))
-        
-        # Normalize simulation data to [0,1] range for green channel
-        sim_norm = (sim_data - np.min(sim_data)) / (np.max(sim_data) - np.min(sim_data))
-        
-        # Create RGB image (Red: experimental, Green: simulation, Blue: zeros)
-        rgb_image = np.zeros((*sim_data.shape, 3))
-        rgb_image[..., 0] = exp_norm  # Red channel: experimental
-        rgb_image[..., 1] = sim_norm*0  # Green channel: simulation
-        
-        return rgb_image, sim_extent
+        # Use exp_utils function to create overlay
+        return exp_utils.create_overlay_image(exp_data, sim_data, exp_extent, sim_extent)
 
     def plot_ellipses(self, ax, params):
         """Plot ellipses for each quantum dot site
@@ -299,45 +211,8 @@ class ApplicationWindow(GUITemplate):
             ax: matplotlib axis to plot on
             params: dictionary of parameters
         """
-        nsite   = params['nsite']
-        radius  = params['radius']
-        phiRot  = params['phiRot']
-        R_major = params['R_major']
-        R_minor = params['R_minor']
-        phi0_ax = params['phi0_ax']
-        
-        # Number of points for ellipse
-        n = 100
-        
-        for i in range(nsite):
-            # Calculate quantum dot position
-            phi = phiRot + i * 2 * np.pi / nsite
-            dir_x = np.cos(phi)
-            dir_y = np.sin(phi)
-            qd_pos_x = dir_x * radius
-            qd_pos_y = dir_y * radius
-            
-            # Calculate ellipse points
-            phi_ax = phi0_ax + phi
-            t = np.linspace(0, 2*np.pi, n)
-            
-            # Create ellipse in local coordinates
-            x_local = R_major * np.cos(t)
-            y_local = R_minor * np.sin(t)
-            
-            # Rotate ellipse
-            x_rot = x_local * np.cos(phi_ax) - y_local * np.sin(phi_ax)
-            y_rot = x_local * np.sin(phi_ax) + y_local * np.cos(phi_ax)
-            
-            # Translate to quantum dot position
-            x = x_rot + qd_pos_x
-            y = y_rot + qd_pos_y
-            
-            # Plot ellipse
-            ax.plot(x, y, ':', color='white', alpha=0.8, linewidth=1)
-            
-            # Plot center point
-            ax.plot(qd_pos_x, qd_pos_y, '+', color='white', markersize=5)
+        # Use exp_utils function to plot ellipses
+        exp_utils.plot_ellipses(ax, params)
 
     def plot_experimental_data(self):
         """Plot experimental data in the bottom row"""
@@ -357,42 +232,23 @@ class ApplicationWindow(GUITemplate):
         self.ax8.clear()
         self.ax9.clear()
         
-        # Plot dI/dV
-        maxval = np.max(np.abs(self.exp_dIdV[self.exp_idx]))
-        self.ax7.imshow(self.exp_dIdV[self.exp_idx], aspect='equal', origin='lower', cmap='seismic', vmin=-maxval, vmax=maxval, extent=exp_extent)
-        self.ax7.set_title(f'Exp. dI/dV at {self.exp_biases[self.exp_idx]:.3f} V')
-        self.ax7.set_xlabel('X [Å]')
-        self.ax7.set_ylabel('Y [Å]')
+        # Create a wrapper for our draw_exp_scan_line method
+        def draw_scan_line_wrapper(ax):
+            self.draw_exp_scan_line(ax)
         
-        # Plot ellipses on dI/dV plot
-        self.plot_ellipses(self.ax7, params)
-        
-        # Draw experimental scan line
-        self.draw_exp_scan_line(self.ax7)
-        
-        # Plot Current
-        self.ax8.imshow(self.exp_I[self.exp_idx], aspect='equal', origin='lower', cmap='inferno', vmin=0.0, vmax=600.0,  extent=exp_extent)
-        self.ax8.set_title(f'Exp. Current at {self.exp_biases[self.exp_idx]:.3f} V')
-        self.ax8.set_xlabel('X [Å]')
-        self.ax8.set_ylabel('Y [Å]')
-        
-        # Create and plot overlay
-        # Get simulation data from ax5 (total charge plot)
+        # Get simulation data if available
         sim_image = self.ax5.images[0] if self.ax5.images else None
-        if sim_image:
-            sim_data = sim_image.get_array()
-            
-            # Create RGB overlay
-            rgb_overlay, extent = self.create_overlay_image( self.exp_dIdV[self.exp_idx], sim_data, exp_extent, sim_extent )
-            
-            # Plot overlay
-            self.ax9.imshow(rgb_overlay, aspect='equal', origin='lower', extent=extent)
-            self.ax9.set_title('Overlay (Red: Exp, Green: Sim)')
-            self.ax9.set_xlabel('X [Å]')
-            self.ax9.set_ylabel('Y [Å]')
-        else:
-            self.ax9.set_title('Run simulation first')
-            self.ax9.grid(True)
+        sim_data = sim_image.get_array() if sim_image else None
+        
+        # Use exp_utils to plot the experimental data
+        exp_utils.plot_experimental_data(
+            self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_I, self.exp_biases,
+            self.exp_idx, params, sim_data, params,
+            axes=[self.ax7, self.ax8, self.ax9],
+            draw_exp_scan_line_func=draw_scan_line_wrapper
+        )
+        
+        # Note: The overlay and plot functionality is now handled by exp_utils.plot_experimental_data
 
     def run(self):
         """Main calculation and plotting function"""
@@ -658,32 +514,21 @@ class ApplicationWindow(GUITemplate):
         
         print(f"Starting voltage line scan: Experiment: {exp_start_point} to {exp_end_point}, Simulation: {sim_start_point} to {sim_end_point}")
         
-        # Create new figure
+        # Create new figure for displaying in a Qt window
         fig = Figure(figsize=(12, 5))
         canvas = FigureCanvas(fig)
         ax1 = fig.add_subplot(121)  # Simulated charge
         ax2 = fig.add_subplot(122)  # Experimental dI/dV
         
-        # Calculate number of points based on both distances
-        exp_dist = np.sqrt((exp_end_point[0]-exp_start_point[0])**2 + (exp_end_point[1]-exp_start_point[1])**2)
-        sim_dist = np.sqrt((sim_end_point[0]-sim_start_point[0])**2 + (sim_end_point[1]-sim_start_point[1])**2)
-        exp_npoints = max(100, int(exp_dist * pointPerAngstrom))
-        sim_npoints = max(100, int(sim_dist * pointPerAngstrom))
+        # === Handle the simulation part (p1,p2) ===
+        # Create simulation line coordinates
+        sim_x, sim_y, sim_distance = exp_utils.create_line_coordinates(
+            sim_start_point, sim_end_point, points_per_angstrom=pointPerAngstrom
+        )
+        sim_npoints = len(sim_x)
         
-        # Create line coordinates for simulation
-        sim_x = np.linspace(sim_start_point[0], sim_end_point[0], sim_npoints)
-        sim_y = np.linspace(sim_start_point[1], sim_end_point[1], sim_npoints)
-        sim_distance = np.sqrt((sim_x - sim_x[0])**2 + (sim_y - sim_y[0])**2)
-        
-        # Create line coordinates for experiment
-        exp_x = np.linspace(exp_start_point[0], exp_end_point[0], exp_npoints)
-        exp_y = np.linspace(exp_start_point[1], exp_end_point[1], exp_npoints)
-        exp_distance = np.sqrt((exp_x - exp_x[0])**2 + (exp_y - exp_y[0])**2)
-        
-        # Get current parameters
+        # Calculate site positions
         nsite = params['nsite']
-        
-        # Calculate site positions (constant for all voltages)
         spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
         spos[:,2] = params['zQd']
         
@@ -693,42 +538,32 @@ class ApplicationWindow(GUITemplate):
         pTips[:,1] = sim_y
         pTips[:,2] = params['z_tip'] + params['Rtip']
         
-        # Run the simulation using modern pauli_scan_xV function
-        # Create a copy of params to modify for the scan
-        scan_params = params.copy()
-        
         # Run the simulation
-        current, Es, Ts = pauli.run_pauli_scan_xV(  pTips,self.exp_biases,spos, scan_params,order=1, cs=[params['Q0'], 0.0, 0.0, params['Qzz']] )
-                
-        # Interpolate experimental data
-        print("Interpolating experimental data...")
-        T0 = time.perf_counter()
+        current, Es, Ts = pauli.run_pauli_scan_xV(
+            pTips, self.exp_biases, spos, params, order=1, 
+            cs=[params['Q0'], 0.0, 0.0, params['Qzz']]
+        )
         
-        # Create line points for experimental interpolation
-        exp_line_points = np.column_stack((exp_x, exp_y))
-        
-        exp_didv = interpolate_3d_plane_fast(self.exp_X, self.exp_Y, self.exp_biases, self.exp_dIdV, exp_line_points)
-        
-        print(f"Time for experimental interpolators: {time.perf_counter() - T0:.2f} seconds")
-        
-        print("Creating plots...")
         # Plot simulated charge
-        im1 = ax1.imshow(current, aspect='auto', origin='lower', extent=[0, sim_distance[-1], self.exp_biases[0], self.exp_biases[-1]])
+        im1 = ax1.imshow(current, aspect='auto', origin='lower', 
+                      extent=[0, sim_distance[-1], self.exp_biases[0], self.exp_biases[-1]])
         ax1.set_title('Simulated Charge (p1-p2)')
         ax1.set_xlabel('Distance (Å)')
         ax1.set_ylabel('Bias Voltage (V)')
         fig.colorbar(im1, ax=ax1, label='Charge')
         
-        # Plot experimental dI/dV
-        vmax = np.max(np.abs(exp_didv))
-        vmin = -vmax
-        im2 = ax2.imshow(exp_didv, aspect='auto', origin='lower', cmap='bwr', extent=[0, exp_distance[-1], self.exp_biases[0], self.exp_biases[-1]], vmin=vmin, vmax=vmax, interpolation='nearest')
-        ax2.set_title('Experimental dI/dV (ep1-ep2)')
-        ax2.set_xlabel('Distance (Å)')
-        ax2.set_ylabel('Bias Voltage (V)')
+        # === Handle the experimental part (ep1,ep2) ===
+        # Use the exp_utils function to process and plot experimental data
+        im2, (exp_didv, exp_distance) = exp_utils.plot_exp_voltage_line_scan(
+            self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases,
+            exp_start_point, exp_end_point,
+            ax=ax2,                       # Pass the axis for plotting
+            title_suffix='(ep1-ep2)',     # Add suffix to title
+            pointPerAngstrom=pointPerAngstrom
+        )
         fig.colorbar(im2, ax=ax2, label='dI/dV')
         
-        # Adjust layout and show
+        # Adjust layout
         fig.tight_layout()
         
         # Create a new window to display the plot
