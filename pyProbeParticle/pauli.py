@@ -411,7 +411,7 @@ def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=
     return current, Es, Ts
 
 
-def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False ):
+def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=None ):
 
     npix   = params['npix']
     L      = params['L']
@@ -437,7 +437,11 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False ):
 
     # Multipole parameters
     order = params.get('order', 1)
-    cs = params.get('cs', np.array([1.0,0.,0.,0.]))
+    #cs = params.get('cs', np.array([1.0,0.,0.,0.]))
+    if cs is None:
+        cs = np.array([ params['Q0'], 0.0, 0.0, params['Qzz']])
+    else:
+        cs = np.array(cs)
 
     # State order
     state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
@@ -451,3 +455,58 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False ):
     Ts  = Ts.reshape(npix, npix, nsite)
 
     return STM, Es, Ts #, spos, rots
+
+def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=None, bOmp=False, state_order=None ):
+    """
+    Perform 2D scan along 1D cut of tip positions (pTips) and bias voltages (Vbiases)
+    
+    Args:
+        pTips: Array of tip positions (shape [nx,3])
+        Vbiases: Array of bias voltages (shape [nV])
+        pSites: Array of site positions (shape [nsite,3])
+        params: Dictionary of parameters (must contain: Rtip, zV0, Esite, decay, GammaT, W)
+        order: Multipole order (default=1)
+        cs: Multipole coefficients (default=[1,0,0,0])
+        rots: Rotation matrices for sites (default=None)
+        bOmp: Use OpenMP parallelization (default=False)
+        state_order: State ordering (default=None)
+        
+    Returns:
+        current: 2D array of currents [nV,nx]
+        Es: 3D array of energies [nV,nx,nsite]
+        Ts: 3D array of tunneling [nV,nx,nsite]
+    """
+    nsite  = len(pSites)
+    nx     = len(pTips)
+    nV     = len(Vbiases)
+    
+    if state_order is None:
+        state_order = np.arange(2**nsite, dtype=np.int32)
+    else:
+        state_order = np.array(state_order, dtype=np.int32)
+    
+    # Prepare C++ params array [Rtip, zV0, Esite, beta, Gamma, W]
+    cpp_params = np.array([params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W']])
+    
+    # Handle cs parameter
+    if cs is None:
+        cs = np.array([ params['Q0'], 0.0, 0.0, params['Qzz']])
+    else:
+        cs = np.array(cs)
+    
+    # Create solver
+    pauli_solver = PauliSolver(nSingle=nsite, nleads=2, verbosity=verbosity)
+    
+    # Prepare arrays with shape [nV*nx,...]
+    pTips_rep = np.tile(pTips, (nV,1))
+    Vtips_rep = np.repeat(Vbiases, nx)
+    
+    # Run scan
+    current, Es, Ts = pauli_solver.scan_current_tip( pTips_rep, Vtips_rep, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True)
+    
+    # Reshape results
+    current = current.reshape(nV,nx)
+    Es = Es.reshape(nV,nx,nsite)
+    Ts = Ts.reshape(nV,nx,nsite)
+    
+    return current, Es, Ts

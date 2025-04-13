@@ -7,7 +7,7 @@ import pauli
 import utils as ut
 import plot_utils as pu
 
-def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, nx=100, nV=100):
+def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100):
     """
     Scan voltage dependence above one particle
     
@@ -54,6 +54,13 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, nx=100, nV=100):
     Vtip = pauli.evalSitesTipsMultipoleMirror(ps_xz, pSites=np.array([[0.0, 0.0, zT]]),   VBias=VBias, Rtip=Rtip, zV0=zV0)[:,0].reshape(nV, nx)
     Esites = pauli.evalSitesTipsMultipoleMirror(ps_xz, pSites=np.array([[0.0, 0.0, zQd]]), VBias=VBias, Rtip=Rtip, zV0=zV0)[:,0].reshape(nV, nx)
     
+    # Current calculations if I2d axis provided
+    if ax_I2d is not None:
+        pSite = np.array([[0.0, 0.0, zQd]])
+        current, _, _ = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSite, params)
+        pu.plot_imshow(ax_I2d, current, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
+        ax_I2d.set_aspect('auto')
+        
     # Plotting if axes provided
     if ax_V2d is not None:
         pu.plot_imshow(ax_V2d, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='bwr')
@@ -119,7 +126,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None):
     extent = [-L, L, -L, L]
     if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies (max)",  extent=extent, cmap='bwr')
     if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling (max)", extent=extent, cmap='hot')
-    if ax_STM is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",             extent=extent, cmap='hot')
+    if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",             extent=extent, cmap='hot')
     
     return STM, Es, Ts
 
@@ -131,7 +138,7 @@ if __name__ == "__main__":
         'zV0': -3.3, 'zQd': 0.0,
         'nsite': 3, 'radius': 5.2, 'phiRot': 0.8,
         'Esite': -0.04, 'Q0': 1.0, 'Qzz': 0.0,
-        'L': 20.0, 'npix': 100, 'decay': 0.3, 'dQ': 0.02
+        'L': 20.0, 'npix': 100, 'decay': 0.1, 'dQ': 0.02
     }
     verbosity = 0
     
@@ -139,11 +146,12 @@ if __name__ == "__main__":
     pauli_solver = pauli.PauliSolver( nSingle=3, nleads=2, verbosity=verbosity )
     
     # Create figure
-    fig, ((ax_V2d, ax_Vtip, ax_Esite), (ax_Etot, ax_Ttot, ax_STM)) = plt.subplots(2, 3, figsize=(15, 10))
+    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize=(15, 10))
     
     # Run scans with plotting
-    scan_xV(params, ax_V2d, ax_Vtip, ax_Esite)
-    scan_xy(params, pauli_solver, ax_Etot, ax_Ttot, ax_STM)
+    #scan_xV(params, ax_V2d=ax1, ax_Vtip=ax2, ax_Esite=ax3)
+    scan_xV(params, ax_Vtip=ax1, ax_V2d=ax2, ax_I2d=ax3)
+    scan_xy(params, pauli_solver, ax_Etot=ax4, ax_Ttot=ax5, ax_STM=ax6)
     
     plt.tight_layout()
     plt.show()
