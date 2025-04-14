@@ -144,7 +144,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None):
     
     return STM, Es, Ts
 
-def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None):
+def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
     computed by convolution of orbitals on canvas
@@ -194,7 +194,7 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
     tipWf, shift = orbital_utils.make_tipWf(canvas_shape, canvas_dd, z0=z_tip, decay=decay)
     print( "tipWf shape: ", tipWf.shape )
     Ms, rho = orbital_utils.calculate_Hopping_maps( orbital_2D, orbital_lvec, spos[:,:2], angles, canvas_dd, canvas_shape, tipWf, bTranspose=True )
-    T1=time.perf_counter(); print("Time(scan_xy_orb.1 calculate_Hopping_maps)",  T1-T0 )
+    T1=time.perf_counter(); print("Time(scan_xy_orb.1 orbital_utils.calculate_Hopping_maps)",  T1-T0 )
 
     T1 = time.perf_counter()  
     Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
@@ -207,15 +207,16 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
         pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
 
     T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
-    STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat)
+    bOmp = True
+    STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     if ax_dIdV is not None:
         params_ = params.copy()
         params_['VBias'] += 0.05
-        STM_2, Es_flat_, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat)
+        STM_2, Es_flat_, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
         dIdV = (STM_2 - STM_flat) / 0.01
 
-    T3 = time.perf_counter(); print("Time(scan_xy_orb.3 run_pauli_scan)",  T3-T2 )
+    T3 = time.perf_counter(); print("Time(scan_xy_orb.3 pauli.run_pauli_scan)",  T3-T2 )
     print("min, max STM_flat", np.min(STM_flat), np.max(STM_flat))
     print("min, max Es_flat", np.min(Es_flat), np.max(Es_flat))
     print("min, max Ts_flat", np.min(Ts_flat), np.max(Ts_flat))
@@ -244,7 +245,7 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
             ax_Ms[i].imshow(Ms[i], cmap='bwr', origin='lower', extent=extent)
             ax_Ms[i].set_title(f"Hopping matrix {i}")
 
-    T4 = time.perf_counter(); print("Time(scan_xy_orb.4 run_pauli_scan)",  T4-T3 )        
+    T4 = time.perf_counter(); print("Time(scan_xy_orb.4 plotting)",  T4-T3 )        
     
     return STM, Es, Ts
 
