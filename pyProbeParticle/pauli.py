@@ -33,6 +33,12 @@ def compile_and_load(name='pauli_lib', bASAN=False):
 # Load the library
 lib = compile_and_load()
 
+# void set_valid_point_cuts( double Tmin, double EW ){
+lib.set_valid_point_cuts.argtypes = [c_double, c_double]
+lib.set_valid_point_cuts.restype = None
+def set_valid_point_cuts( Tmin=0.0, EW=2.0 ):
+    lib.set_valid_point_cuts(Tmin, EW)
+
 # New optimized workflow functions
 lib.create_solver.argtypes = [c_int, c_int, c_int]
 lib.create_solver.restype = c_void_p

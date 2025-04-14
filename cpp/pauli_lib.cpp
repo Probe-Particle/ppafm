@@ -9,6 +9,9 @@ static int _verbosity = 0;
 #include "print_utils.hpp"
 #include "TipField.h"
 
+double Tmin_cut = 0.0;
+double EW_cut   = 2.0;
+
 extern "C" {
 
 
@@ -115,6 +118,20 @@ double solve_hsingle( void* solver_ptr, const double* hsingle, double W, int ile
     return 0.0;
 }
 
+void set_valid_point_cuts( double Tmin, double EW ){
+    Tmin_cut = Tmin;
+    EW_cut   = EW;
+}
+
+bool is_valid_point( int nSingle, const double* hsingle, const double* TLeads, double W ){
+    double Emax=-1e+300;
+    double Tmax=-1e+300;
+    for(int j=0; j<nSingle; j++) { 
+        double Ei = hsingle [j*nSingle + j]; Emax = (Ei>Emax) ? Ei : Emax; 
+        double Ti = TLeads[  nSingle + j]; Tmax = (Ti>Tmax) ? Ti : Tmax; 
+    }
+    return ( ( Emax+(W*EW_cut)<0.0 ) || ( Tmax<Tmin_cut ) );
+}
 
 // Worker function for a single thread
 void solve_batch(
@@ -144,22 +161,7 @@ void solve_batch(
         const double* hsingle  = hsingles + i * n2;
         const double* TLeads_i = TLeads + i * nleads * nSingle;
 
-
-        { // early termination
-            double Emax=-1e+300;
-            double Tmax=-1e+300;
-            for(int j=0; j<nSingle; j++) { 
-                double Ei = hsingle [j*nSingle + j]; Emax = (Ei>Emax) ? Ei : Emax; 
-                double Ti = TLeads_i[  nSingle + j]; Tmax = (Ti>Tmax) ? Ti : Tmax; 
-            }
-            //if( ( Emax<(2*W) ) || ( Tmax<1e-300 ) ) { 
-            //if( Emax<(2*W) ) { 
-            if( Tmax<1e-8) { 
-                out_current[i] = 0;
-                continue; 
-            }
-        }
-
+        if( is_valid_point( nSingle, hsingle, TLeads_i, W ) ) { out_current[i] = 0.0; continue; }
 
         // Update local solver state for this point
         for (int l = 0; l < nleads; ++l) {
@@ -240,127 +242,6 @@ double scan_current_manual_threads( PauliSolver* solver, int npoints, double* hs
     // --- End Manual Threading ---
 
     return 0.0; // Or return an appropriate value
-}
-
-double scan_current_omp( PauliSolver* solver, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current) {
-    
-    int nSingle = solver->nSingle;
-    int n2 = nSingle*nSingle; 
-    int nleads = solver->nleads;
-    double base_lead_mu[nleads];  for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
-    
-    if(state_order) { 
-        solver->init_states_by_charge();
-        solver->setStateOrder(state_order); 
-    }
-
-    // Pre-allocate solvers for all threads
-    int nThreads = omp_get_max_threads();
-    printf("scan_current_omp()  nThreads: %d npoints: %d \n", nThreads, npoints);
-    std::vector<PauliSolver*> solvers(nThreads);
-    for(int i=0; i<nThreads; i++) {
-        solvers[i] = new PauliSolver(solver);
-    }
-
-    #pragma omp parallel
-    {
-
-        int nThreads_actual = omp_get_num_threads(); // Get actual number of threads used
-        int chunk_size = (npoints + nThreads_actual - 1) / nThreads_actual; // Calculate large chunk size
-        #pragma omp for schedule(static, chunk_size) // <<-- ADD THIS SCHEDULE
-        for(int i = 0; i < npoints; i++) {
-
-            double  W       = Ws[i];
-            double* VGate   = VGates  + (i*nleads);
-            double* hsingle = hsingles + i*n2;
-
-            int tid = omp_get_thread_num();
-            PauliSolver* solver_local = solvers[tid];
-
-            for (int l=0; l<nleads; ++l) { solver_local->leads[l].mu = base_lead_mu[l] + VGate[l]; }
-
-            double* TLeads_i = TLeads + i*nleads*nSingle;
-            solver_local->setTLeads(TLeads_i);
-            solver_local->calculate_tunneling_amplitudes(TLeads_i);
-
-            double current  = solve_hsingle(solver_local, hsingle, W, 1, 0);
-            out_current[i]  = current;
-        }
-    }
-    
-    // Clean up solvers
-    for(int i=0; i<nThreads; i++) {
-        delete solvers[i];
-    }
-    
-    return 0.0;
-}
-
-double scan_current_omp_stackalloc( PauliSolver* solver, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current) {
-
-    int nSingle = solver->nSingle;
-    int n2 = nSingle*nSingle;
-    int nleads = solver->nleads;
-    // Using std::vector might be slightly safer if nleads could change, but C-array is fine too.
-    std::vector<double> base_lead_mu(nleads);
-    for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
-
-    if(state_order) {
-        // Ensure original solver is set up correctly before copying
-        solver->init_states_by_charge();
-        solver->setStateOrder(state_order);
-    }
-
-    // Get max threads for info, but don't pre-allocate vector
-    int nThreads_info = omp_get_max_threads();
-    printf("scan_current_omp_stackalloc() nThreads: %d npoints: %d \n", nThreads_info, npoints);
-
-    // No vector of PauliSolver pointers needed
-
-    #pragma omp parallel // The original 'solver' is implicitly shared (read-only access for copying is okay)
-    {
-        // Each thread will execute the loop iterations assigned by OpenMP
-
-        // Let OpenMP handle the scheduling (default static is often fine,
-        // or try schedule(dynamic) if solve_hsingle varies significantly)
-        #pragma omp for // schedule(static) is default usually
-        for(int i = 0; i < npoints; i++) {
-
-            // --- Create solver copy ON STACK inside the loop ---
-            // The original 'solver' pointer is shared, dereference it for the copy constr.
-            PauliSolver solver_local(*solver);
-
-            // Get pointers for the i-th data point (input arrays are shared)
-            // Use const if the data isn't modified
-            double  W            = Ws[i];
-            const double* VGate  = VGates  + (i * nleads);
-            const double* hsingle = hsingles + i * n2; // Mark as const if possible
-            const double* TLeads_i = TLeads + i * nleads * nSingle;
-
-            // Update thread-local solver state for this point
-            // base_lead_mu.data() gives pointer to vector's buffer (shared read is fine)
-            for (int l=0; l<nleads; ++l) {
-                 solver_local.leads[l].mu = base_lead_mu[l] + VGate[l];
-            }
-
-            // Assuming these modify the state of solver_local only
-            solver_local.setTLeads(TLeads_i);
-            solver_local.calculate_tunneling_amplitudes(TLeads_i);
-
-            // Solve for the current point using the stack-local solver
-            // Apply the const_cast fix if needed, otherwise pass hsingle directly if solve_hsingle accepts const double*
-            double current  = solve_hsingle(&solver_local, const_cast<double*>(hsingle), W, 1, 0);
-
-            // Write result to the shared output array (indexed write is okay)
-            out_current[i]  = current;
-
-            // solver_local is automatically destroyed here at the end of iteration scope
-        } // End of omp for loop
-    } // End of omp parallel region
-
-    // No cleanup loop needed
-
-    return 0.0;
 }
 
 double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current, bool bOmp) {
@@ -502,6 +383,7 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
             }
             TLeads [  nSites + j] = VT*T;
         }
+        if( is_valid_point( nSites, hsingle, TLeads, W ) ) { out_current[i] = 0.0; continue; }
         solver->setTLeads(TLeads); // Assuming this doesn't modify internal state needed across iterations
         solver->calculate_tunneling_amplitudes(TLeads); // Assuming this is okay
         double current = solve_hsingle(solver, hsingle, W, 1, 0); // Pass address of local solver
