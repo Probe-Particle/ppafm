@@ -7,6 +7,9 @@ sys.path.append('../../')
 from pyProbeParticle import pauli
 from pyProbeParticle import utils as ut
 import plot_utils as pu
+import time
+
+import orbital_utils
 
 def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, bLegend=True):
     """
@@ -179,36 +182,40 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
     spos[:,2]  = params['zQd']
     rots       = ut.makeRotMats(phis + params['phiRot'])
     angles     = phis - np.pi * 0.5 + 0.1 # - 0.05
-    
-     #- params['phiRot']
-    
-    # Create solver if not provided
-    if pauli_solver is None:
-        pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
-    
+        
     # Setup canvas for orbital calculations
     dCanv = L/npix
     ncanv = npix  # Same size as output grid
     canvas_shape = (ncanv, ncanv)
     canvas_dd = np.array([dCanv, dCanv])
-    
-    # Create tip wavefunction
+
+    T0 = time.perf_counter()    
+    # Calculate hopping maps using orbital convolution
     tipWf, shift = orbital_utils.make_tipWf(canvas_shape, canvas_dd, z0=z_tip, decay=decay)
     print( "tipWf shape: ", tipWf.shape )
-    
-    # Calculate hopping maps using orbital convolution
     Ms, rho = orbital_utils.calculate_Hopping_maps( orbital_2D, orbital_lvec, spos[:,:2], angles, canvas_dd, canvas_shape, tipWf, bTranspose=True )
-    
-    #Ms *= 100.0
-    #Ms[:,:,:] += 0.01
+    T1=time.perf_counter(); print("Time(scan_xy_orb.1 calculate_Hopping_maps)",  T1-T0 )
+
+    T1 = time.perf_counter()  
     Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
     for i in range(nsite):
         Ts_flat[:,i] = Ms[i].flatten()**2
-
     Ts_flat[:,:] += 0.0001*0    
+
+    # Create solver if not provided
+    if pauli_solver is None:
+        pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
+
+    T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat)
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
+    if ax_dIdV is not None:
+        params_ = params.copy()
+        params_['VBias'] += 0.05
+        STM_2, Es_flat_, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat)
+        dIdV = (STM_2 - STM_flat) / 0.01
 
+    T3 = time.perf_counter(); print("Time(scan_xy_orb.3 run_pauli_scan)",  T3-T2 )
     print("min, max STM_flat", np.min(STM_flat), np.max(STM_flat))
     print("min, max Es_flat", np.min(Es_flat), np.max(Es_flat))
     print("min, max Ts_flat", np.min(Ts_flat), np.max(Ts_flat))
@@ -225,30 +232,24 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
     # Plotting if axes provided
     extent = [-L, L, -L, L]
 
-
-
-    if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies max(eps)",  extent=extent, cmap='bwr')
+    if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies max(eps)",      extent=extent, cmap='bwr')
     if ax_rho  is not None: pu.plot_imshow(ax_rho,  rho,  title="sum(Wf)", extent=extent, cmap='bwr')
-    if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)", extent=extent, cmap='hot')
-    if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",             extent=extent, cmap='hot')
+    if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)",     extent=extent, cmap='hot')
+    if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",                    extent=extent, cmap='hot')
     if ax_dIdV is not None:
-        params_ = params.copy()
-        params_['VBias'] += 0.05
-        STM_2, Es_flat_, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat)
-        dIdV = (STM_2 - STM) / 0.01
+        dIdV = dIdV.reshape(npix, npix)
         pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap='bwr')
-
     if ax_Ms   is not None: 
         for i in range(nsite):
             ax_Ms[i].imshow(Ms[i], cmap='bwr', origin='lower', extent=extent)
             ax_Ms[i].set_title(f"Hopping matrix {i}")
+
+    T4 = time.perf_counter(); print("Time(scan_xy_orb.4 run_pauli_scan)",  T4-T3 )        
     
     return STM, Es, Ts
 
 def run_scan_xy_orb( params, fname="QD.cub" ):
-    print("Testing scan_xy_orb with real orbital data...")
-    import orbital_utils
-        
+    print("Testing scan_xy_orb with real orbital data...")        
     # Load orbital data from the QD.cub file in the current directory
     orbital_file = fname
     if not os.path.exists(orbital_file):
@@ -268,9 +269,11 @@ def run_scan_xy_orb( params, fname="QD.cub" ):
     pauli_solver = pauli.PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=0)
     
     # Create figure for visualization
-    fig, ((ax1, ax2, ax3, ax4), (ax5, ax6, ax7, ax8)) = plt.subplots(2, 4, figsize=(20, 10))
-    
-    STM_orb, Es_orb, Ts_orb = scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver,  ax_Etot=ax1, ax_rho=ax2,  ax_Ttot=ax3, ax_STM=ax4, ax_Ms=[ax5, ax6, ax7], ax_dIdV=ax8 )
+    #fig, ((ax1, ax2, ax3, ax4), (ax5, ax6, ax7, ax8)) = plt.subplots(2, 4, figsize=(20, 10))
+    #scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver,  ax_Etot=ax1, ax_rho=ax2,  ax_Ttot=ax3, ax_STM=ax4, ax_Ms=[ax5, ax6, ax7], ax_dIdV=ax8 )
+
+    fig, ( ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(20,5))
+    scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver,  ax_Etot=ax1, ax_Ttot=ax2, ax_STM=ax3, ax_Ms=None, ax_dIdV=ax4 )
         
     fig.suptitle(f"Scan with Orbital-Based Hopping ({orbital_file})", fontsize=14)
     plt.tight_layout(rect=[0, 0, 1, 0.95])  # Make room for suptitle
