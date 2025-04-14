@@ -144,6 +144,21 @@ void solve_batch(
         const double* hsingle  = hsingles + i * n2;
         const double* TLeads_i = TLeads + i * nleads * nSingle;
 
+
+        { // early termination
+            double Emax=-1e+300;
+            double Tmax=-1e+300;
+            for(int j=0; j<nSingle; j++) { 
+                double Ei = hsingle [j*nSingle + j];  Emax = (Ei>Emax) ? Ei : Emax; 
+                double Ti = TLeads_i[j*nSingle + j]; Tmax = (Ti>Tmax) ? Ti : Tmax; 
+            }
+            if( Emax<(2*W) && Tmax<(2*W) ) { 
+                out_current[i] = 0;
+                continue; 
+            }
+        }
+
+
         // Update local solver state for this point
         for (int l = 0; l < nleads; ++l) {
             solver_local.leads[l].mu = base_lead_mu[l] + VGate[l];
