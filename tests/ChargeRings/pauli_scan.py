@@ -138,7 +138,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None):
     
     # Plotting if axes provided
     extent = [-L, L, -L, L]
-    if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies (max)",  extent=extent, cmap='bwr')
+    if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies  (max)",  extent=extent, cmap='bwr')
     if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling (max)", extent=extent, cmap='hot')
     if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",             extent=extent, cmap='hot')
     
@@ -344,6 +344,142 @@ def scan_param_sweep(params, scan_params, selected_params=None, nx=100, nV=100, 
     plt.tight_layout()
     return fig
 
+def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2D=None, orbital_lvec=None, orbital_file=None, pauli_solver=None, bOmp=False, Tmin=0.0, EW=2.0, fig=None):
+    """
+    Scan parameter values while keeping tip position fixed, precomputing hopping maps once.
+    Generates nscan+1 columns of plots with specified layout.
+    
+    Args:
+        params: Dictionary of parameters
+        scan_params: List of (param_name, values) tuples to sweep
+        selected_params: List of other parameters to show in figure title
+        orbital_2D: 2D orbital data
+        orbital_lvec: Lattice vectors for the orbital
+        pauli_solver: Optional pauli solver instance
+        decay: Optional decay parameter for orbital calculations
+        fig: Optional figure object to plot into
+    """
+
+    
+    if orbital_2D is None or orbital_lvec is None:
+        print(f"Loading orbital file: {orbital_file}")
+        orbital_data, orbital_lvec = orbital_utils.load_orbital(orbital_file)
+        # Process orbital data similar to ChargeRingsOrbitalGUI.py
+        # Transpose and sum over z-direction for 2D representation
+        orbital_2D = np.transpose(orbital_data, (2, 1, 0))
+        orbital_2D = np.sum(orbital_2D[:, :, orbital_2D.shape[2]//2:], axis=2)
+        orbital_2D = np.ascontiguousarray(orbital_2D, dtype=np.float64)
+
+    if not scan_params:
+        raise ValueError("scan_params cannot be empty")
+        
+    param_names = [p[0] for p in scan_params]
+    values_list = [p[1] for p in scan_params]
+    nscan = len(values_list[0])
+    
+    # Validate all value lists have same length
+    for vals in values_list[1:]:
+        assert len(vals) == nscan, "All value lists must have same length"
+    
+    # Extract parameters
+    L     = params['L']
+    nsite = params['nsite']
+    z_tip = params['z_tip']
+    npix  = params['npix']
+    decay = params['decay']
+    
+
+    # Site positions and rotations
+    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+    spos[:,2]  = params['zQd']
+    angles     = phis  + params['phiRot']
+    rots       = ut.makeRotMats( angles )
+    
+    
+    # Store in params for later use
+    params['spos'] = spos
+    params['rots'] = rots
+    params['angles'] = angles
+    
+    # Setup canvas for orbital calculations
+    dCanv = L/npix
+    ncanv = npix
+    canvas_shape = (ncanv, ncanv)
+    canvas_dd = np.array([dCanv, dCanv])
+    extent = [-L, L, -L, L]
+    
+    # Precompute hopping maps once
+    tipWf, shift = orbital_utils.make_tipWf(canvas_shape, canvas_dd, z0=z_tip, decay=decay)
+    Ms, rho = orbital_utils.calculate_Hopping_maps( orbital_2D, orbital_lvec,  params['spos'][:,:2], params['angles'],  canvas_dd, canvas_shape, tipWf, bTranspose=True )
+    
+    # Prepare Ts_flat from precomputed Ms
+    Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
+    for i in range(nsite):
+        Ts_flat[:,i] = Ms[i].flatten()**2
+    #Ts_flat[:,:] += 0.0001
+    
+    # Create solver if not provided
+    if pauli_solver is None:
+        pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
+    pauli.set_valid_point_cuts(Tmin, EW)
+    
+    # Create figure if not provided
+    if fig is None:
+        fig = plt.figure(figsize=(5*(nscan+1), 5*3))
+    
+    # Build figure title with selected parameters (excluding swept ones)
+    title = "Parameter sweep: "
+    if selected_params:
+        title_params = [p for p in selected_params if p not in param_names]
+        if title_params:
+            title += ", ".join([f"{k}={params[k]}" for k in title_params])
+    fig.suptitle(title, fontsize=12)
+    
+    # First column: rho (top), Ttot (middle)
+    ax_rho = fig.add_subplot(3, nscan+1, 1)
+    ax_Ttot = fig.add_subplot(3, nscan+1, nscan+2)
+    
+    # Plot rho and Ttot (precomputed)
+    pu.plot_imshow(ax_rho, rho, title="sum(Wf)", extent=extent, cmap='bwr')
+    Ttot = np.sum(Ts_flat.reshape(npix, npix, nsite), axis=2)
+    pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)", extent=extent, cmap='hot')
+    
+    # Process each parameter value
+    for i in range(nscan):
+        # Update all parameter values
+        for param, vals in scan_params:
+            params[param] = vals[i]
+        
+        # Create axes for this parameter value
+        ax_Etot = fig.add_subplot(3, nscan+1, i+2)
+        ax_STM  = fig.add_subplot(3, nscan+1, i +nscan+3)
+        ax_dIdV = fig.add_subplot(3, nscan+1, i+2*nscan+4)
+        
+        # Run pauli scan and plot results (same as before)
+        STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+        
+        # Compute dIdV
+        params_ = params.copy()
+        params_['VBias'] += 0.05
+        STM_2, _, _ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+        dIdV = (STM_2 - STM_flat) / 0.01
+        
+        # Reshape and plot
+        STM = STM_flat.reshape(npix, npix)
+        Etot = np.max(Es_flat.reshape(npix, npix, nsite), axis=2)
+        dIdV = dIdV.reshape(npix, npix)
+        
+        # Build title showing all swept parameters
+        title_parts = [f"{name}={params[name]:.3f}" for name in param_names]
+        title = ", ".join(title_parts)
+        
+        pu.plot_imshow(ax_Etot, Etot, title=title+"\nEnergies max(eps)", extent=extent, cmap='bwr')
+        pu.plot_imshow(ax_STM, STM,   title="STM", extent=extent, cmap='hot')
+        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap='bwr')
+    
+    plt.tight_layout()
+    return fig
+
 if __name__ == "__main__":
     # Example usage when run as standalone script - using same defaults as GUI
     params = {
@@ -359,13 +495,26 @@ if __name__ == "__main__":
         
         'GammaS': 0.01, 'GammaT': 0.01, 'Temp': 0.224, 'onSiteCoulomb': 3.0,
         'zV0': -10.0, 'zQd': 0.0,
-        'nsite': 3, 'radius': 5.2, 'phiRot': 0.8,
+        'nsite': 3, 'radius': 5.2, 
+        'phiRot': np.pi*0.5 + 0.2 ,
         'Esite': -0.04, 'Q0': 1.0, 'Qzz': 0.0,
-        'L': 20.0, 'npix': 100, 'decay': 0.1, 'dQ': 0.02
+        #'L': 20.0, 
+        #'npix': 100, 
+        
+        'L': 60.0, 
+        'npix': 400,
+
+        'decay': 0.1, 'dQ': 0.02
     }
     verbosity = 0
+
+    #scan_param_sweep_xy_orb(params, scan_params=[('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'], orbital_file='QD.cub')
+    scan_param_sweep_xy_orb(params, scan_params=[('VBias', np.linspace(0.0, 0.5, 5))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file='QD.cub')
+    plt.savefig('scan_param_sweep_xy_orb.png')
+    plt.show()
+    exit()
     
-    run_scan_xy_orb( params )
+    #run_scan_xy_orb( params )
     
     exit()
 
