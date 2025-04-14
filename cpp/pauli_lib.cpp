@@ -149,10 +149,12 @@ void solve_batch(
             double Emax=-1e+300;
             double Tmax=-1e+300;
             for(int j=0; j<nSingle; j++) { 
-                double Ei = hsingle [j*nSingle + j];  Emax = (Ei>Emax) ? Ei : Emax; 
-                double Ti = TLeads_i[j*nSingle + j]; Tmax = (Ti>Tmax) ? Ti : Tmax; 
+                double Ei = hsingle [j*nSingle + j]; Emax = (Ei>Emax) ? Ei : Emax; 
+                double Ti = TLeads_i[  nSingle + j]; Tmax = (Ti>Tmax) ? Ti : Tmax; 
             }
-            if( Emax<(2*W) && Tmax<(2*W) ) { 
+            //if( ( Emax<(2*W) ) || ( Tmax<1e-300 ) ) { 
+            //if( Emax<(2*W) ) { 
+            if( Tmax<1e-8) { 
                 out_current[i] = 0;
                 continue; 
             }
