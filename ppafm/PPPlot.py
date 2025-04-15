@@ -96,7 +96,11 @@ def plotImages(
         plt.imshow(F[i], origin="lower", interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax)
 
         if cbar:
-            plt.colorbar(shrink=min(1.0, F[i].shape[0] / F[i].shape[1]), label=cbar_label)
+            tmp_min = np.min(F[i])
+            tmp_max = np.max(F[i])
+            tmp_v = np.linspace(tmp_min, tmp_max, 10, endpoint=True)
+            c_bar = plt.colorbar(shrink=min(1.0, F[i].shape[0] / F[i].shape[1]), label=cbar_label)
+            c_bar.set_ticks(ticks=tmp_v)
         plotGeom(atoms, bonds, atomSize=atomSize)
         plt.xlabel(r" Tip_x $\AA$")
         plt.ylabel(r" Tip_y $\AA$")

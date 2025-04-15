@@ -8,4 +8,4 @@ ppafm-generate-elff-point-charges -i Gr6x6N3hole.xyz --tip s
 ppafm-relaxed-scan -k 0.5 -q -0.05
 
 # ======= STEP 3 : Plot the results
-ppafm-plot-results -k 0.5 -q -0.05 -a 2.0 --df
+ppafm-plot-results -k 0.5 -q -0.05 -a 2.0 --df --cbar
