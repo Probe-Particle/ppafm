@@ -68,7 +68,7 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
         V2d_ = V2d - Esite
         
         pu.plot_imshow(ax_V2d, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='bwr')
-        ax_V2d.plot(x_coords, V1d, label='V_tip')
+        ax_V2d.plot(x_coords, V1d,  label='V_tip')
         ax_V2d.plot(x_coords, V1d_, label='V_tip + E_site')
         ax_V2d.plot(x_coords, x_coords*0.0 + VBias, label='VBias')
         ax_V2d.axhline(0.0, ls='--', c='k')
@@ -507,21 +507,14 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5):
     rots = ut.makeRotMats(phis + params['phiRot'])
 
     Vtips = np.full(npoints, params['VBias'])
-    cpp_params = np.array([
-        params['Rtip'], params['zV0'], params['Esite'],
-        params['decay'], params['GammaT'], params['W']
-    ])
+    cpp_params = np.array([ params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W'] ])
     order = params.get('order', 1)
     cs = params.get('cs', np.array([1.0, 0.0, 0.0, 0.0]))
     state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
 
     # Run scan
     solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
-    current, Es, Ts = solver.scan_current_tip(
-        pTips, Vtips, spos, cpp_params,
-        order, cs, state_order, rots=rots,
-        bOmp=False, bMakeArrays=True
-    )
+    current, Es, Ts = solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
     return distance, Es, Ts, current, x, y, x1, y1, x2, y2
 
 def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_columns=None):
@@ -535,10 +528,7 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_c
         ax1.plot(distance, Es[:, i], '-', linewidth=0.5, color=clrs[i], label=f'E_{i+1}')
         if bRef:
             icol = ref_columns[f'Esite_{i+1}']
-            ax1.plot(
-                ref_data_line[:, 0], ref_data_line[:, icol],
-                ':', color=clrs[i], alpha=0.7, label=f'Ref E_{i+1}'
-            )
+            ax1.plot( ref_data_line[:, 0], ref_data_line[:, icol], ':', color=clrs[i], alpha=0.7, label=f'Ref E_{i+1}')
     ax1.set_ylabel('Energy [eV]')
     ax1.legend()
     ax1.grid(True)
@@ -548,10 +538,7 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_c
         ax2.plot(distance, Ts[:, i], '-', linewidth=0.5, color=clrs[i], label=f'T_{i+1}')
         if bRef:
             icol = ref_columns[f'Tsite_{i+1}']
-            ax2.plot(
-                ref_data_line[:, 0], ref_data_line[:, icol],
-                ':', color=clrs[i], alpha=0.7, label=f'Ref T_{i+1}'
-            )
+            ax2.plot( ref_data_line[:, 0], ref_data_line[:, icol], ':', color=clrs[i], alpha=0.7, label=f'Ref T_{i+1}' )
     ax2.set_ylabel('Hopping T [a.u.]')
     ax2.legend()
     ax2.grid(True)
@@ -593,7 +580,7 @@ def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2
     print(f"Data saved to {filename}")
     return filename
     
-def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, bLegend=True):
+def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True):
     """Scan tip along a line for a range of voltages and plot Emax, STM, dI/dV."""
     print("calculate_xV_scan()", start_point, end_point,  )
     # Line geometry
@@ -602,51 +589,25 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     npts = nx
     t = np.linspace(0,1,npts)
     x = x1 + (x2-x1)*t; y = y1 + (y2-y1)*t
-    Vbiases = np.linspace(0.0, params['VBias'], nV)
+    if Vmax is None: Vmax = params['VBias']
+    Vbiases = np.linspace(Vmin, Vmax, nV)
 
     # Tip positions and voltages grid
     pTips = np.zeros((npts*nV,3))
-    # pTips[:,0] = np.tile(x, nV)
-    # pTips[:,1] = np.tile(y, nV)
-    # zT = params['z_tip'] + params['Rtip']
-    # pTips[:,2] = zT
-    # Vtips = np.repeat(Vbiases, npts)
-    
-    # # Site & rotation
+
+    # Site & rotation
     nsite = int(params['nsite'])
     spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
     spos[:,2] = params['zQd']
     rots = ut.makeRotMats(phis + params['phiRot'])
 
-    # # Solver params
-    # cpp_params = np.array([params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W']])
-    # order = params.get('order',1)
-    # cs = np.array(params.get('cs', np.array([1.0,0.0,0.0,0.0])))
-    # state_order = np.array([0,4,2,6,1,5,3,7],dtype=np.int32)
-
-    # # Run scan
-    # solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
-    # current, Es, Ts = solver.scan_current_tip(
-    #     pTips, Vtips, spos, cpp_params,
-    #     order, cs, state_order, rots=rots,
-    #     bOmp=False, bMakeArrays=True
-    # )
-
     pTips = np.zeros((npts,3))
     pTips[:,0] = x; pTips[:,1] = y
     zT = params['z_tip'] + params['Rtip']
     pTips[:,2] = zT
-
-    print("pTips", pTips.shape)
-    print("Vbiases", Vbiases.shape)
-    print("spos", spos.shape)
     
-    
-    current, Es, Ts = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  params, rots=rots, order=1, cs=None, bOmp=False, state_order=None, Ts=None )
-
-    print("current", current.shape)
-    print("Es", Es.shape)
-    print("Ts", Ts.shape)
+    state_order = np.array( [0,4,2,6,1,5,3,7] )
+    current, Es, Ts = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  params, rots=rots, order=1, cs=None, bOmp=False, state_order=state_order, Ts=None )
 
     # reshape
     STM = current.reshape(nV,npts)

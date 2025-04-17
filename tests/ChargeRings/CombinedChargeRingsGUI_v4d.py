@@ -367,12 +367,9 @@ class ApplicationWindow(GUITemplate):
         
         # === Handle the experimental part (ep1,ep2) ===
         # Use the exp_utils function to process and plot experimental data
-        im2, (exp_didv, exp_distance) = exp_utils.plot_exp_voltage_line_scan(
+        im2, (exp_didv, exp_distance) = exp_utils.plot_exp_voltage_line_scan( 
             self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases,
-            exp_start_point, exp_end_point,
-            ax=ax2,                       # Pass the axis for plotting
-            title_suffix='(ep1-ep2)',     # Add suffix to title
-            pointPerAngstrom=pointPerAngstrom
+            exp_start_point, exp_end_point, ax=ax2,title_suffix='(ep1-ep2)', pointPerAngstrom=pointPerAngstrom
         )
         fig.colorbar(im2, ax=ax2, label='dI/dV')
         
@@ -441,22 +438,26 @@ class ApplicationWindow(GUITemplate):
         start = (params['p1_x'], params['p1_y'])
         end = (params['p2_x'], params['p2_y'])
         # New figure window
-        fig = Figure(figsize=(12, 5))
+        fig = Figure(figsize=(15, 5))
         canvas = FigureCanvas(fig)
         axE = fig.add_subplot(131)
         axS = fig.add_subplot(132)
         axD = fig.add_subplot(133)
+        #axI = fig.add_subplot(144)
         # Perform scan
-        x, V, Emax, STM, dIdV = pauli_scan.calculate_xV_scan(
-            params, start, end,
-            ax_Emax=axE, ax_STM=axS, ax_dIdV=axD,
-            nx=100, nV=100
-        )
+        x, V, Emax, STM, dIdV = pauli_scan.calculate_xV_scan( params, start, end, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, Vmin=0.0, Vmax=0.6, nx=100, nV=100)
+        #pointPerAngstrom=5
+        #distance, Es, Ts, STM_1d, x_1d, y, x1, y1, x2, y2 = pauli_scan.calculate_1d_scan(  params, start, end, pointPerAngstrom )
+        #axI.plot( x, STM[-1,:], 'r-', label='I[-1]' )
+        #axI.plot( x, STM[ 0,:], 'b-', label='I[0 ]' )
+        #axI.plot( x_1d, STM_1d, 'g-', label='I_1d' )
+        #axI.legend()
+
         fig.tight_layout()
         # Display in new Qt window
         window = QtWidgets.QMainWindow()
         window.setCentralWidget(canvas)
-        window.resize(1200, 500)
+        #window.resize(1200, 500)
         window.show()
         # Keep reference to prevent garbage collection
         self._sim_voltage_scan_window = window
@@ -474,10 +475,8 @@ class ApplicationWindow(GUITemplate):
             # Remove old line if it exists
             if self.line_artist:
                 self.line_artist.remove()
-            
             # Draw line from start point to current point
-            self.line_artist = event.inaxes.plot([self.start_point[0], event.xdata],
-                                               [self.start_point[1], event.ydata], 'r-')[0]
+            self.line_artist = event.inaxes.plot([self.start_point[0], event.xdata], [self.start_point[1], event.ydata], 'r-')[0]
             self.canvas.draw()
 
     def on_mouse_release(self, event):
