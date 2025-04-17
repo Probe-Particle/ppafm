@@ -251,7 +251,7 @@ def plot_exp_voltage_line_scan(exp_X, exp_Y, exp_dIdV, exp_biases,
 
 def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, params=None,
                           sim_data=None, ellipse_params=None,
-                          axes=None, draw_exp_scan_line_func=None):
+                          ax_didv=None, ax_current=None, ax_overlay=None, draw_exp_scan_line_func=None):
     """Plot experimental data
     
     Args:
@@ -272,14 +272,14 @@ def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, param
     """
     import matplotlib.pyplot as plt
     
-    # Create axes if not provided
-    if axes is None or len(axes) < 3:
-        fig, axes_new = plt.subplots(1, 3, figsize=(15, 5))
-        ax_didv, ax_current, ax_overlay = axes_new
-    else:
-        ax_didv, ax_current, ax_overlay = axes
-        for ax in [ax_didv, ax_current, ax_overlay]:
-            ax.clear()
+    # # Create axes if not provided
+    # if axes is None or len(axes) < 3:
+    #     fig, axes_new = plt.subplots(1, 3, figsize=(15, 5))
+    #     ax_didv, ax_current, ax_overlay = axes_new
+    # else:
+    #     ax_didv, ax_current, ax_overlay = axes
+    #     for ax in [ax_didv, ax_current, ax_overlay]:
+    #         ax.clear()
     
     # Get plot extents
     xmin, xmax = np.min(exp_X[0]), np.max(exp_X[0])
@@ -294,42 +294,46 @@ def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, param
         # Default to experimental extent
         sim_extent = exp_extent
     
-    # Plot dI/dV
-    maxval = np.max(np.abs(exp_dIdV[idx]))
-    im1 = ax_didv.imshow(exp_dIdV[idx], aspect='equal', origin='lower', 
-                        cmap='seismic', vmin=-maxval, vmax=maxval, extent=exp_extent)
-    ax_didv.set_title(f'Exp. dI/dV at {exp_biases[idx]:.3f} V')
-    ax_didv.set_xlabel('X [Å]')
-    ax_didv.set_ylabel('Y [Å]')
+    if ax_didv is not None:
+        # Plot dI/dV
+        ax_didv.clear()
+        maxval = np.max(np.abs(exp_dIdV[idx]))
+        im1 = ax_didv.imshow(exp_dIdV[idx], aspect='equal', origin='lower', 
+                            cmap='seismic', vmin=-maxval, vmax=maxval, extent=exp_extent)
+        ax_didv.set_title(f'Exp. dI/dV at {exp_biases[idx]:.3f} V')
+        ax_didv.set_xlabel('X [Å]')
+        ax_didv.set_ylabel('Y [Å]')
+        
+        # Plot ellipses if parameters provided
+        if ellipse_params is not None:
+            plot_ellipses(ax_didv, ellipse_params)
+        
+        # Draw scan line if function provided
+        if draw_exp_scan_line_func is not None:
+            draw_exp_scan_line_func(ax_didv)
     
-    # Plot ellipses if parameters provided
-    if ellipse_params is not None:
-        plot_ellipses(ax_didv, ellipse_params)
-    
-    # Draw scan line if function provided
-    if draw_exp_scan_line_func is not None:
-        draw_exp_scan_line_func(ax_didv)
-    
-    # Plot Current
-    im2 = ax_current.imshow(exp_I[idx], aspect='equal', origin='lower', 
-                          cmap='inferno', vmin=0.0, vmax=600.0, extent=exp_extent)
-    ax_current.set_title(f'Exp. Current at {exp_biases[idx]:.3f} V')
-    ax_current.set_xlabel('X [Å]')
-    ax_current.set_ylabel('Y [Å]')
+    if ax_current is not None:
+        # Plot Current
+        ax_current.clear()
+        im2 = ax_current.imshow(exp_I[idx], aspect='equal', origin='lower',  cmap='inferno', vmin=0.0, vmax=600.0, extent=exp_extent)
+        ax_current.set_title(f'Exp. Current at {exp_biases[idx]:.3f} V')
+        ax_current.set_xlabel('X [Å]')
+        ax_current.set_ylabel('Y [Å]')
     
     # Create and plot overlay if simulation data available
-    if sim_data is not None:
-        # Create RGB overlay
-        rgb_overlay, extent = create_overlay_image(exp_dIdV[idx], sim_data, exp_extent, sim_extent)
-        
-        # Plot overlay
-        ax_overlay.imshow(rgb_overlay, aspect='equal', origin='lower', extent=extent)
-        ax_overlay.set_title('Overlay (Red: Exp, Green: Sim)')
-        ax_overlay.set_xlabel('X [Å]')
-        ax_overlay.set_ylabel('Y [Å]')
-    else:
-        ax_overlay.set_title('No simulation data for overlay')
-        ax_overlay.grid(True)
+    if ax_overlay is not None:
+        if sim_data is not None:
+            # Create RGB overlay
+            rgb_overlay, extent = create_overlay_image(exp_dIdV[idx], sim_data, exp_extent, sim_extent)
+            
+            ax_overlay.clear()
+            ax_overlay.imshow(rgb_overlay, aspect='equal', origin='lower', extent=extent)
+            ax_overlay.set_title('Overlay (Red: Exp, Green: Sim)')
+            ax_overlay.set_xlabel('X [Å]')
+            ax_overlay.set_ylabel('Y [Å]')
+        else:
+            ax_overlay.set_title('No simulation data for overlay')
+            ax_overlay.grid(True)
     
     return ax_didv, ax_current, ax_overlay
 

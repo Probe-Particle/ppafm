@@ -109,7 +109,7 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     
     return V1d, V2d, Vtip, Esites
 
-def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None):
+def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None, bOmp=False):
     """
     Scan tip position in x,y plane for constant Vbias
     
@@ -129,10 +129,16 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None):
     rots       = ut.makeRotMats(phis + params['phiRot'])
     
     # Run pauli scan
-    STM, Es, Ts = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver)
+    STM, Es, Ts = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, bOmp=bOmp)
     #print( "min,max Es", np.min(Es), np.max(Es))
     #print( "min,max Ts", np.min(Ts), np.max(Ts))
     #print( "min,max STM", np.min(STM), np.max(STM))
+    if ax_dIdV is not None:
+        params_ = params.copy()
+        dQ = params.get('dQ', 0.05)
+        params_['VBias'] += dQ
+        STM_2, _, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, bOmp=bOmp)       
+        dIdV = (STM_2 - STM) / dQ
 
     Ttot = np.max(Ts, axis=2)
     Etot = np.max(Es, axis=2)
@@ -140,8 +146,9 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None):
     # Plotting if axes provided
     extent = [-L, L, -L, L]
     if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies  (max)",  extent=extent, cmap='bwr')
-    if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling (max)", extent=extent, cmap='hot')
-    if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",             extent=extent, cmap='hot')
+    if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling (max)",  extent=extent, cmap='hot')
+    if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",              extent=extent, cmap='hot')
+    if ax_dIdV is not None: pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",            extent=extent, cmap='bwr')
     
     return STM, Es, Ts
 
@@ -214,9 +221,10 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     if ax_dIdV is not None:
         params_ = params.copy()
-        params_['VBias'] += 0.05
-        STM_2, Es_flat_, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
-        dIdV = (STM_2 - STM_flat) / 0.01
+        dQ = params.get('dQ', 0.005)
+        params_['VBias'] += dQ
+        STM_2, _, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+        dIdV = (STM_2 - STM_flat) / dQ
 
     T3 = time.perf_counter(); print("Time(scan_xy_orb.3 pauli.run_pauli_scan)",  T3-T2 )
     print("min, max STM_flat", np.min(STM_flat), np.max(STM_flat))
@@ -572,9 +580,7 @@ def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2
     # Add line coordinates
     param_header += f"\n# Line scan from ({x1:.2f}, {y1:.2f}) to ({x2:.2f}, {y2:.2f})"
     # Stack data
-    save_data = np.column_stack(
-        [distance, x, y] + [Es[:, i] for i in range(nsite)] + [Ts[:, i] for i in range(nsite)] + [STM]
-    )
+    save_data = np.column_stack( [distance, x, y] + [Es[:, i] for i in range(nsite)] + [Ts[:, i] for i in range(nsite)] + [STM] )
     filename = f"line_scan_{x1:.1f}_{y1:.1f}_to_{x2:.1f}_{y2:.1f}.dat"
     np.savetxt(filename, save_data, header=param_header)
     print(f"Data saved to {filename}")
@@ -618,7 +624,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     dIdV = np.gradient(STM, Vbiases, axis=0)
 
     # Plot
-    extent = [0, dist, 0.0, params['VBias']]
+    extent = [0, dist, Vmin, Vmax]
     if ax_Emax is not None:
         pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr')
         ax_Emax.set_aspect('auto')
@@ -686,7 +692,7 @@ if __name__ == "__main__":
     
     # Run scans with plotting
     #scan_xV(params, ax_V2d=ax1, ax_Vtip=ax2, ax_Esite=ax3)
-    scan_xV(params, ax_Vtip=ax1, ax_V2d=ax2, ax_I2d=ax3)
+    scan_xV(params, ax_Vtip=ax1,  ax_V2d=ax2,  ax_I2d=ax3)
     scan_xy(params, pauli_solver, ax_Etot=ax4, ax_Ttot=ax5, ax_STM=ax6)
     
     plt.tight_layout()

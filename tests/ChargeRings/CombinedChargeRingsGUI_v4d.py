@@ -104,11 +104,11 @@ class ApplicationWindow(GUITemplate):
         self.ax2 = self.fig.add_subplot(332)  # Tip Potential
         self.ax3 = self.fig.add_subplot(333)  # Site Potential
         self.ax4 = self.fig.add_subplot(334)  # Energies
-        self.ax5 = self.fig.add_subplot(335)  # Tunneling
+        self.ax5 = self.fig.add_subplot(335)  # dI/dV map
         self.ax6 = self.fig.add_subplot(336)  # Pauli Current
-        self.ax7 = self.fig.add_subplot(338)  # Experimental dI/dV
-        self.ax8 = self.fig.add_subplot(339)  # Experimental Current
-        self.ax9 = self.fig.add_subplot(337)  # Additional plot if needed
+        self.ax7 = self.fig.add_subplot(337)  # Experimental dI/dV
+        self.ax8 = self.fig.add_subplot(338)  # Experimental Current
+        self.ax9 = self.fig.add_subplot(339)  # Tunneling
         
         # Initialize click-and-drag variables
         self.clicking = False
@@ -252,18 +252,12 @@ class ApplicationWindow(GUITemplate):
         # Get parameters
         params = self.get_param_values()
         self.exp_idx = params['exp_slice']
-        L = params['L']
-        
+        #L = params['L']
         # Get plot extents
-        xmin, xmax = np.min(self.exp_X[0]), np.max(self.exp_X[0])
-        ymin, ymax = np.min(self.exp_Y[0]), np.max(self.exp_Y[0])
-        exp_extent = [xmin, xmax, ymin, ymax]
-        sim_extent = [-L, L, -L, L]
-        
-        # Clear axes
-        self.ax7.clear()
-        self.ax8.clear()
-        self.ax9.clear()
+        #xmin, xmax = np.min(self.exp_X[0]), np.max(self.exp_X[0])
+        #ymin, ymax = np.min(self.exp_Y[0]), np.max(self.exp_Y[0])
+        #exp_extent = [xmin, xmax, ymin, ymax]
+        #sim_extent = [-L, L, -L, L]
         
         # Create a wrapper for our draw_exp_scan_line method
         def draw_scan_line_wrapper(ax):
@@ -277,7 +271,9 @@ class ApplicationWindow(GUITemplate):
         exp_utils.plot_experimental_data(
             self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_I, self.exp_biases,
             self.exp_idx, params, sim_data, params,
-            axes=[self.ax7, self.ax8, self.ax9],
+            #axes=[self.ax7, self.ax8, self.ax9],
+            #axes=[None, self.ax8, self.ax9],
+            ax_current=self.ax8, ax_didv=self.ax9,
             draw_exp_scan_line_func=draw_scan_line_wrapper
         )
 
@@ -301,10 +297,10 @@ class ApplicationWindow(GUITemplate):
         self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
         # Run scans with descriptive axis names
         pauli_scan.scan_xV(params,                    ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3)  # ax1=Esite(x,V), ax2=Vtip, ax3=Esite
-        pauli_scan.scan_xy(params, self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax5, ax_STM=self.ax6)  # ax4=Etot, ax5=Ttot, ax6=STM
+        pauli_scan.scan_xy(params, self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6)  # ax4=Etot, ax9=Ttot, ax6=STM, ax5=dIdV
         self.draw_scan_line(self.ax4)
         self.draw_reference_line(self.ax4)
-        self.plot_ellipses(self.ax5, params)
+        self.plot_ellipses(self.ax9, params)
         self.plot_experimental_data()
 
         self.canvas.draw()
