@@ -135,6 +135,12 @@ class ApplicationWindow(GUITemplate):
         btn_voltage_scan.clicked.connect(self.run_voltage_scan_ep1ep2)
         scan_layout.addWidget(btn_voltage_scan)
         
+        # Add Run Voltage Scan button for p1-p2
+        btn_sim_voltage = QtWidgets.QPushButton('Run Voltage Scan (p1-p2)')
+        btn_sim_voltage.setToolTip('Run voltage scan between p1 and p2 points defined in parameters')
+        btn_sim_voltage.clicked.connect(self.run_voltage_scan_p1p2)
+        scan_layout.addWidget(btn_sim_voltage)
+        
         # Connect mouse events
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
@@ -312,7 +318,7 @@ class ApplicationWindow(GUITemplate):
         pauli_scan.plot_1d_scan_results( distance, Es, Ts, STM, nsite, ref_data_line, ref_columns )
         pauli_scan.save_1d_scan_data   ( params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
 
-    def plot_voltage_line_scan(self, exp_start_point, exp_end_point, pointPerAngstrom=5):
+    def plot_voltage_line_scan_exp(self, exp_start_point, exp_end_point, pointPerAngstrom=5):
         """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
         params = self.get_param_values()
         
@@ -347,11 +353,14 @@ class ApplicationWindow(GUITemplate):
         pTips[:,2] = params['z_tip'] + params['Rtip']
         
         # Run the simulation
-        current, Es, Ts = pauli.run_pauli_scan_xV( pTips, self.exp_biases, spos, params, order=1, cs=[params['Q0'], 0.0, 0.0, params['Qzz']] )
+        state_order =  np.array([0,4,2,6,1,5,3,7])
+        #current, Es, Ts = pauli.run_pauli_scan_xV( pTips, self.exp_biases, spos, params, order=1, cs=[params['Q0'], 0.0, 0.0, params['Qzz']], state_order=state_order )
+
+        current, Es, Ts = pauli.run_pauli_scan_xV( pTips, np.linspace(0.0,params['VBias'],100), spos, params, order=1, cs=[params['Q0'], 0.0, 0.0, params['Qzz']], state_order=state_order )
         
         # Plot simulated charge
         im1 = ax1.imshow(current, aspect='auto', origin='lower', extent=[0, sim_distance[-1], self.exp_biases[0], self.exp_biases[-1]])
-        ax1.set_title('Simulated Charge (p1-p2)')
+        ax1.set_title('Simulated current (p1-p2)')
         ax1.set_xlabel('Distance (Å)')
         ax1.set_ylabel('Bias Voltage (V)')
         fig.colorbar(im1, ax=ax1, label='Charge')
@@ -370,14 +379,16 @@ class ApplicationWindow(GUITemplate):
         # Adjust layout
         fig.tight_layout()
         
+        # Draw the canvas before showing
+        canvas.draw()
+        
         # Create a new window to display the plot
         window = QtWidgets.QMainWindow()
         window.setCentralWidget(canvas)
         window.resize(1200, 500)
         window.show()
-        
-        # Keep a reference to prevent garbage collection
-        self._voltage_scan_window = window
+        # Keep reference to prevent garbage collection
+        self._exp_voltage_scan_window = window
 
     def draw_scan_line(self, ax):
         """Draw line between p1 and p2 points in the Energies panel"""
@@ -417,18 +428,38 @@ class ApplicationWindow(GUITemplate):
         self.calculate_1d_scan(p1, p2)
         
     def run_voltage_scan_ep1ep2(self):
-        """Run voltage line scan using ep1 and ep2 points for experiment and p1,p2 for simulation"""
+        """Wrapper to invoke experimental voltage scan and open new window"""
         params = self.get_param_values()
-        ep1 = (params['ep1_x'], params['ep1_y'])
-        ep2 = (params['ep2_x'], params['ep2_y'])
-        
-        print(f"Running voltage line scan with experimental path from {ep1} to {ep2}")
-        try:
-            self.plot_voltage_line_scan(ep1, ep2)  # Uses p1,p2 internally for simulation
-        except Exception as e:
-            print(f"Error in plot_voltage_line_scan: {str(e)}")
-            import traceback
-            traceback.print_exc()
+        exp_start = (params['ep1_x'], params['ep1_y'])
+        exp_end = (params['ep2_x'], params['ep2_y'])
+        # Call plotting method
+        self.plot_voltage_line_scan_exp(exp_start, exp_end)
+
+    def run_voltage_scan_p1p2(self):
+        """Run voltage-dependent scan along p1-p2 and plot Emax, STM, dI/dV"""
+        params = self.get_param_values()
+        start = (params['p1_x'], params['p1_y'])
+        end = (params['p2_x'], params['p2_y'])
+        # New figure window
+        fig = Figure(figsize=(12, 5))
+        canvas = FigureCanvas(fig)
+        axE = fig.add_subplot(131)
+        axS = fig.add_subplot(132)
+        axD = fig.add_subplot(133)
+        # Perform scan
+        x, V, Emax, STM, dIdV = pauli_scan.calculate_xV_scan(
+            params, start, end,
+            ax_Emax=axE, ax_STM=axS, ax_dIdV=axD,
+            nx=100, nV=100
+        )
+        fig.tight_layout()
+        # Display in new Qt window
+        window = QtWidgets.QMainWindow()
+        window.setCentralWidget(canvas)
+        window.resize(1200, 500)
+        window.show()
+        # Keep reference to prevent garbage collection
+        self._sim_voltage_scan_window = window
 
     def on_mouse_press(self, event):
         """Handle mouse button press event"""
@@ -467,9 +498,9 @@ class ApplicationWindow(GUITemplate):
         elif event.inaxes == self.ax7:  # Experimental dI/dV plot (3,2)
             print("Processing experimental plot voltage scan")
             try:
-                self.plot_voltage_line_scan(self.start_point, end_point)
+                self.plot_voltage_line_scan_exp(self.start_point, end_point)
             except Exception as e:
-                print(f"Error in plot_voltage_line_scan: {str(e)}")
+                print(f"Error in plot_voltage_line_scan_exp: {str(e)}")
                 import traceback
                 traceback.print_exc()
         

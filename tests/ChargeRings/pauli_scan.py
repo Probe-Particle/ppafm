@@ -7,6 +7,7 @@ sys.path.append('../../')
 from pyProbeParticle import pauli
 from pyProbeParticle import utils as ut
 import plot_utils as pu
+import numpy as np
 import time
 
 import orbital_utils
@@ -474,8 +475,11 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
         title = ", ".join(title_parts)
         
         pu.plot_imshow(ax_Etot, Etot, title=title+"\nEnergies max(eps)", extent=extent, cmap='bwr')
-        pu.plot_imshow(ax_STM, STM,   title="STM", extent=extent, cmap='hot')
+        ax_Etot.set_aspect('auto')
+        pu.plot_imshow(ax_STM, STM, title="STM", extent=extent, cmap='hot')
+        ax_STM.set_aspect('auto')
         pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap='bwr')
+        ax_dIdV.set_aspect('auto')
     
     plt.tight_layout()
     return fig
@@ -512,38 +516,13 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5):
     state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
 
     # Run scan
-    current, Es, Ts = pauli.run_pauli_scan(
-        pTips, Vtips, spos, cpp_params, order, cs,
-        rots=rots, state_order=state_order, bOmp=False
+    solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
+    current, Es, Ts = solver.scan_current_tip(
+        pTips, Vtips, spos, cpp_params,
+        order, cs, state_order, rots=rots,
+        bOmp=False, bMakeArrays=True
     )
     return distance, Es, Ts, current, x, y, x1, y1, x2, y2
-
-def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2):
-    """Save 1D scan data to file"""
-    # Prepare header with parameters
-    param_header = "# Calculation parameters:\n"
-    for key, val in params.items():
-        param_header += f"# {key}: {val}\n"
-    # Add column descriptions
-    param_header += "\n# Column descriptions:\n"
-    param_header += "# 0: Distance (Angstrom)\n"
-    param_header += "# 1: X coordinate\n"
-    param_header += "# 2: Y coordinate\n"
-    for i in range(nsite):
-        param_header += f"# {i+3}: Esite_{i+1}\n"
-    for i in range(nsite):
-        param_header += f"# {i+3+nsite}: Tsite_{i+1}\n"
-    param_header += f"# {3+2*nsite}: STM_total\n"
-    # Add line coordinates
-    param_header += f"\n# Line scan from ({x1:.2f}, {y1:.2f}) to ({x2:.2f}, {y2:.2f})"
-    # Stack data
-    save_data = np.column_stack(
-        [distance, x, y] + [Es[:, i] for i in range(nsite)] + [Ts[:, i] for i in range(nsite)] + [STM]
-    )
-    filename = f"line_scan_{x1:.1f}_{y1:.1f}_to_{x2:.1f}_{y2:.1f}.dat"
-    np.savetxt(filename, save_data, header=param_header)
-    print(f"Data saved to {filename}")
-    return filename
 
 def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_columns=None):
     """Plot results of 1D scan"""
@@ -586,6 +565,114 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_c
     scan_fig.tight_layout()
     plt.show()
     return scan_fig
+
+def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2):
+    """Save 1D scan data to file"""
+    # Prepare header with parameters
+    param_header = "# Calculation parameters:\n"
+    for key, val in params.items():
+        param_header += f"# {key}: {val}\n"
+    # Add column descriptions
+    param_header += "\n# Column descriptions:\n"
+    param_header += "# 0: Distance (Angstrom)\n"
+    param_header += "# 1: X coordinate\n"
+    param_header += "# 2: Y coordinate\n"
+    for i in range(nsite):
+        param_header += f"# {i+3}: Esite_{i+1}\n"
+    for i in range(nsite):
+        param_header += f"# {i+3+nsite}: Tsite_{i+1}\n"
+    param_header += f"# {3+2*nsite}: STM_total\n"
+    # Add line coordinates
+    param_header += f"\n# Line scan from ({x1:.2f}, {y1:.2f}) to ({x2:.2f}, {y2:.2f})"
+    # Stack data
+    save_data = np.column_stack(
+        [distance, x, y] + [Es[:, i] for i in range(nsite)] + [Ts[:, i] for i in range(nsite)] + [STM]
+    )
+    filename = f"line_scan_{x1:.1f}_{y1:.1f}_to_{x2:.1f}_{y2:.1f}.dat"
+    np.savetxt(filename, save_data, header=param_header)
+    print(f"Data saved to {filename}")
+    return filename
+    
+def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, bLegend=True):
+    """Scan tip along a line for a range of voltages and plot Emax, STM, dI/dV."""
+    print("calculate_xV_scan()", start_point, end_point,  )
+    # Line geometry
+    x1, y1 = start_point; x2, y2 = end_point
+    dist = np.hypot(x2-x1, y2-y1)
+    npts = nx
+    t = np.linspace(0,1,npts)
+    x = x1 + (x2-x1)*t; y = y1 + (y2-y1)*t
+    Vbiases = np.linspace(0.0, params['VBias'], nV)
+
+    # Tip positions and voltages grid
+    pTips = np.zeros((npts*nV,3))
+    # pTips[:,0] = np.tile(x, nV)
+    # pTips[:,1] = np.tile(y, nV)
+    # zT = params['z_tip'] + params['Rtip']
+    # pTips[:,2] = zT
+    # Vtips = np.repeat(Vbiases, npts)
+    
+    # # Site & rotation
+    nsite = int(params['nsite'])
+    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+    spos[:,2] = params['zQd']
+    rots = ut.makeRotMats(phis + params['phiRot'])
+
+    # # Solver params
+    # cpp_params = np.array([params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W']])
+    # order = params.get('order',1)
+    # cs = np.array(params.get('cs', np.array([1.0,0.0,0.0,0.0])))
+    # state_order = np.array([0,4,2,6,1,5,3,7],dtype=np.int32)
+
+    # # Run scan
+    # solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
+    # current, Es, Ts = solver.scan_current_tip(
+    #     pTips, Vtips, spos, cpp_params,
+    #     order, cs, state_order, rots=rots,
+    #     bOmp=False, bMakeArrays=True
+    # )
+
+    pTips = np.zeros((npts,3))
+    pTips[:,0] = x; pTips[:,1] = y
+    zT = params['z_tip'] + params['Rtip']
+    pTips[:,2] = zT
+
+    print("pTips", pTips.shape)
+    print("Vbiases", Vbiases.shape)
+    print("spos", spos.shape)
+    
+    
+    current, Es, Ts = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  params, rots=rots, order=1, cs=None, bOmp=False, state_order=None, Ts=None )
+
+    print("current", current.shape)
+    print("Es", Es.shape)
+    print("Ts", Ts.shape)
+
+    # reshape
+    STM = current.reshape(nV,npts)
+    Es  = Es.reshape(nV,npts,nsite)
+    # max energy per bias
+    Emax = Es.max(axis=2)
+    # dI/dV
+    dIdV = np.gradient(STM, Vbiases, axis=0)
+
+    # Plot
+    extent = [0, dist, 0.0, params['VBias']]
+    if ax_Emax is not None:
+        pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr')
+        ax_Emax.set_aspect('auto')
+        if bLegend: ax_Emax.set_ylabel('V [V]')
+    if ax_STM is not None:
+        pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap='hot')
+        ax_STM.set_aspect('auto')
+        if bLegend: ax_STM.set_ylabel('V [V]')
+    if ax_dIdV is not None:
+        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr')
+        ax_dIdV.set_aspect('auto')
+        if bLegend: ax_dIdV.set_ylabel('V [V]')
+
+    print("calculate_xV_scan() DONE")
+    return x, Vbiases, Emax, STM, dIdV
 
 if __name__ == "__main__":
     # Example usage when run as standalone script - using same defaults as GUI
