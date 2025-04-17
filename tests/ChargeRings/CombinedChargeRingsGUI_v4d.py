@@ -33,9 +33,9 @@ class ApplicationWindow(GUITemplate):
         # Then set parameter specifications
         self.param_specs = {
             # Tip Parameters
-            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 10.0),   'value': 0.6, 'step': 0.1},
+            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 10.0),   'value': 0.2, 'step': 0.1},
             'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 10.0),   'value': 2.5, 'step': 0.5},
-            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 20.0),  'value': 2.0, 'step': 0.5},
+            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 20.0),   'value': 2.0, 'step': 0.5},
             
             # System Parameters
             'W':             {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.03, 'step': 0.001, 'decimals': 3},
@@ -160,13 +160,13 @@ class ApplicationWindow(GUITemplate):
         """Load experimental data from npz file"""
         data = np.load('exp_rings_data.npz')
         # Convert from nm to Å (1 nm = 10 Å)
-        self.exp_X = data['X'] * 10
-        self.exp_Y = data['Y'] * 10
-        self.exp_dIdV = data['dIdV']
-        self.exp_I = data['I']
+        self.exp_X      = data['X'] * 10
+        self.exp_Y      = data['Y'] * 10
+        self.exp_dIdV   = data['dIdV']
+        self.exp_I      = data['I']
         self.exp_biases = data['biases']
-        center_x = data['center_x'] * 10  # Convert to Å
-        center_y = data['center_y'] * 10  # Convert to Å
+        center_x        = data['center_x'] * 10  # Convert to Å
+        center_y        = data['center_y'] * 10  # Convert to Å
         
         # Center the coordinates
         self.exp_X -= center_x
@@ -279,11 +279,9 @@ class ApplicationWindow(GUITemplate):
         """Draw line between ep1 and ep2 points in the Experimental panel"""
         if self.exp_scan_line_artist:
             self.exp_scan_line_artist.remove()
-            
         params = self.get_param_values()
         ep1 = (params['ep1_x'], params['ep1_y'])
         ep2 = (params['ep2_x'], params['ep2_y'])
-        
         self.exp_scan_line_artist, = ax.plot(
             [ep1[0], ep2[0]], [ep1[1], ep2[1]], 
             'r-', linewidth=2, alpha=0.7
@@ -293,14 +291,11 @@ class ApplicationWindow(GUITemplate):
     def run(self):
         """Main calculation and plotting function"""
         params = self.get_param_values()
-        
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla() 
         self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
-        
         # Run scans with descriptive axis names
         pauli_scan.scan_xV(params,                    ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3)  # ax1=Esite(x,V), ax2=Vtip, ax3=Esite
         pauli_scan.scan_xy(params, self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax5, ax_STM=self.ax6)  # ax4=Etot, ax5=Ttot, ax6=STM
-        
         self.draw_scan_line(self.ax4)
         self.draw_reference_line(self.ax4)
         self.plot_ellipses(self.ax5, params)
@@ -309,137 +304,13 @@ class ApplicationWindow(GUITemplate):
         self.canvas.draw()
     
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
-        """Calculate 1D scan between two points using run_pauli_scan"""
         params = self.get_param_values()
-        L = params['L']
-        nsite = params['nsite']
-        
-        # Create line coordinates in real space (no rounding)
-        x1, y1 = start_point
-        x2, y2 = end_point
-        
-        # Calculate number of points based on distance
-        dist = np.sqrt((x2-x1)**2 + (y2-y1)**2)
-        npoints = max(100, int(dist * pointPerAngstrom))
-        
-        # Generate points along the line
-        t = np.linspace(0, 1, npoints)
-        x = x1 + (x2 - x1) * t
-        y = y1 + (y2 - y1) * t
-        distance = np.linspace(0, dist, npoints) # Distance axis for plotting
-        
-        # --- Prepare inputs for run_pauli_scan --- 
-        # Tip positions (1D line)
-        zT = params['z_tip'] + params['Rtip']
-        pTips = np.zeros((npoints, 3))
-        pTips[:,0] = x
-        pTips[:,1] = y
-        pTips[:,2] = zT
-
-        # Site positions and rotations
-        spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
-        spos[:,2] = params['zQd']
-        rots = ut.makeRotMats(phis + params['phiRot'])
-        
-        # Tip voltages
-        Vtips = np.full(npoints, params['VBias'])
-
-        # C++ parameters array [Rtip, zV0, Esite, beta, Gamma, W]
-        cpp_params = np.array([params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W']])
-
-        # Multipole parameters
-        order = params.get('order', 1)
-        cs = params.get('cs', np.array([1.0,0.,0.,0.]))
-        # cs = np.pad(cs, (0, max(0, order*2+2 - len(cs))), 'constant') 
-
-        # State order
-        state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
-
-
-        # --- Call the combined calculation function --- 
-        print("Running run_pauli_scan for 1D scan...")
-        current, Es, Ts = pauli.run_pauli_scan( pTips, Vtips, spos, cpp_params, order, cs, rots=rots, state_order=state_order, bOmp=False ) # Keep OpenMP off for 1D?
-        print("Done.")
-
-        # Es and Ts are now shape (npoints, nsite)
-        # current is shape (npoints)
-        
-        # --- Plot and Save --- 
-        # Plot results (including Pauli currents)
-        self.plot_1d_scan_results(distance, Es, Ts, current, nsite )
-        
-        # Save data to file (including Pauli currents)
-        self.save_1d_scan_data(params, distance, x, y, Es, Ts, current, nsite, x1, y1, x2, y2 )
-
-    def plot_1d_scan_results(self, distance, Es, Ts, STM, nsite):
-        """Plot results of 1D scan"""
-        # Create new figure for 1D scan
-        scan_fig = plt.figure(figsize=(10, 12))
-
-        bRef = hasattr(self, 'ref_data_line')
-        
-        # Plot site energies
-        ax1 = scan_fig.add_subplot(311)
-        clrs = ['r','g','b']
-        for i in range(nsite):
-            ax1.plot(distance, Es[:,i], '-', linewidth=0.5, color=clrs[i], label=f'E_{i+1}')
-            if bRef:
-                icol = self.ref_columns[f'Esite_{i+1}']
-                ax1.plot( self.ref_data_line[:,0],  self.ref_data_line[:,icol], ':', color=clrs[i], alpha=0.7, label=f'Ref E_{i+1}' )
-        ax1.set_ylabel('Energy [eV]')
-        ax1.legend()
-        ax1.grid(True)
-        
-        # Plot tunneling
-        ax2 = scan_fig.add_subplot(312)
-        for i in range(nsite):
-            ax2.plot(distance, Ts[:,i], '-', linewidth=0.5, color=clrs[i], label=f'T_{i+1}')
-            if bRef:
-                icol = self.ref_columns[f'Tsite_{i+1}']
-                ax2.plot( self.ref_data_line[:,0],  self.ref_data_line[:,icol], ':', color=clrs[i], alpha=0.7, label=f'Ref T_{i+1}' )
-        ax2.set_ylabel('Hopping T [a.u.]')
-        ax2.legend()
-        ax2.grid(True)
-        #ax3.plot(distance, STM,            'k-', label='Total', linewidth=2)
-        
-        ax3 = scan_fig.add_subplot(313)
-        ax3.plot(distance, STM, '.-', color='k', linewidth=0.5, markersize=1.5, label='STM' )
-        ax3.set_ylabel('Current [a.u.]')
-        ax3.legend()
-        ax3.grid(True)
-        
-        scan_fig.tight_layout()
-        plt.show()
-    
-    def save_1d_scan_data(self, params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 ):
-        """Save 1D scan data to file"""
-        # Prepare header with parameters
-        param_header = "# Calculation parameters:\n"
-        for key, val in params.items():
-            param_header += f"# {key}: {val}\n"
-        
-        # Add column descriptions
-        param_header += "\n# Column descriptions:\n"
-        param_header += "# 0: Distance (Angstrom)\n"
-        param_header += "# 1: X coordinate\n"
-        param_header += "# 2: Y coordinate\n"
-        for i in range(nsite):
-            param_header += f"# {i+3}: Esite_{i+1}\n"
-        for i in range(nsite):
-            param_header += f"# {i+3+nsite}: Tsite_{i+1}\n"
-        param_header += f"# {3+2*nsite}: STM_total\n"
-        
-        # Add line coordinates
-        param_header += f"\n# Line scan from ({x1:.2f}, {y1:.2f}) to ({x2:.2f}, {y2:.2f})"
-        
-        save_data = np.column_stack([distance, x, y] + 
-                                  [Es[:,i] for i in range(nsite)] + 
-                                  [Ts[:,i] for i in range(nsite)] + 
-                                  [STM])
-        
-        filename = 'line_scan_{:.1f}_{:.1f}_to_{:.1f}_{:.1f}.dat'.format(x1, y1, x2, y2)
-        np.savetxt(filename, save_data, header=param_header)
-        print(f"Data saved to {filename}")
+        distance, Es, Ts, STM, x, y, x1, y1, x2, y2 = pauli_scan.calculate_1d_scan(  params, start_point, end_point, pointPerAngstrom )
+        nsite = int(params['nsite'])
+        ref_data_line = getattr(self, 'ref_data_line', None)
+        ref_columns   = getattr(self, 'ref_columns', None)
+        pauli_scan.plot_1d_scan_results( distance, Es, Ts, STM, nsite, ref_data_line, ref_columns )
+        pauli_scan.save_1d_scan_data   ( params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
 
     def plot_voltage_line_scan(self, exp_start_point, exp_end_point, pointPerAngstrom=5):
         """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
@@ -476,14 +347,10 @@ class ApplicationWindow(GUITemplate):
         pTips[:,2] = params['z_tip'] + params['Rtip']
         
         # Run the simulation
-        current, Es, Ts = pauli.run_pauli_scan_xV(
-            pTips, self.exp_biases, spos, params, order=1, 
-            cs=[params['Q0'], 0.0, 0.0, params['Qzz']]
-        )
+        current, Es, Ts = pauli.run_pauli_scan_xV( pTips, self.exp_biases, spos, params, order=1, cs=[params['Q0'], 0.0, 0.0, params['Qzz']] )
         
         # Plot simulated charge
-        im1 = ax1.imshow(current, aspect='auto', origin='lower', 
-                        extent=[0, sim_distance[-1], self.exp_biases[0], self.exp_biases[-1]])
+        im1 = ax1.imshow(current, aspect='auto', origin='lower', extent=[0, sim_distance[-1], self.exp_biases[0], self.exp_biases[-1]])
         ax1.set_title('Simulated Charge (p1-p2)')
         ax1.set_xlabel('Distance (Å)')
         ax1.set_ylabel('Bias Voltage (V)')
@@ -611,7 +478,6 @@ class ApplicationWindow(GUITemplate):
             self.line_artist.remove()
             self.line_artist = None
         self.canvas.draw()
-
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
     aw = ApplicationWindow()

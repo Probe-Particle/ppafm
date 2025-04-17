@@ -9,9 +9,8 @@ import time
 
 # Add C++ solver imports
 import sys
-from sys import path
-path.insert(0, '../../../pyProbeParticle')
-import pauli as pls
+sys.path.append('../../../')
+from pyProbeParticle import pauli as pls
 #from pauli import PauliSolver
 
 params = load_parameters( config_file='qmeq.in' )

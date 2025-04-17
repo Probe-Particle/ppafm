@@ -480,6 +480,113 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     plt.tight_layout()
     return fig
 
+def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5):
+    """Calculate 1D scan between two points using run_pauli_scan"""
+    x1, y1 = start_point
+    x2, y2 = end_point
+    dist = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+    npoints = max(100, int(dist * pointPerAngstrom))
+    t = np.linspace(0, 1, npoints)
+    x = x1 + (x2 - x1) * t
+    y = y1 + (y2 - y1) * t
+    distance = np.linspace(0, dist, npoints)
+
+    zT = params['z_tip'] + params['Rtip']
+    pTips = np.zeros((npoints, 3))
+    pTips[:, 0] = x
+    pTips[:, 1] = y
+    pTips[:, 2] = zT
+
+    nsite = int(params['nsite'])
+    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+    spos[:, 2] = params['zQd']
+    rots = ut.makeRotMats(phis + params['phiRot'])
+
+    Vtips = np.full(npoints, params['VBias'])
+    cpp_params = np.array([
+        params['Rtip'], params['zV0'], params['Esite'],
+        params['decay'], params['GammaT'], params['W']
+    ])
+    order = params.get('order', 1)
+    cs = params.get('cs', np.array([1.0, 0.0, 0.0, 0.0]))
+    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+
+    # Run scan
+    current, Es, Ts = pauli.run_pauli_scan(
+        pTips, Vtips, spos, cpp_params, order, cs,
+        rots=rots, state_order=state_order, bOmp=False
+    )
+    return distance, Es, Ts, current, x, y, x1, y1, x2, y2
+
+def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2):
+    """Save 1D scan data to file"""
+    # Prepare header with parameters
+    param_header = "# Calculation parameters:\n"
+    for key, val in params.items():
+        param_header += f"# {key}: {val}\n"
+    # Add column descriptions
+    param_header += "\n# Column descriptions:\n"
+    param_header += "# 0: Distance (Angstrom)\n"
+    param_header += "# 1: X coordinate\n"
+    param_header += "# 2: Y coordinate\n"
+    for i in range(nsite):
+        param_header += f"# {i+3}: Esite_{i+1}\n"
+    for i in range(nsite):
+        param_header += f"# {i+3+nsite}: Tsite_{i+1}\n"
+    param_header += f"# {3+2*nsite}: STM_total\n"
+    # Add line coordinates
+    param_header += f"\n# Line scan from ({x1:.2f}, {y1:.2f}) to ({x2:.2f}, {y2:.2f})"
+    # Stack data
+    save_data = np.column_stack(
+        [distance, x, y] + [Es[:, i] for i in range(nsite)] + [Ts[:, i] for i in range(nsite)] + [STM]
+    )
+    filename = f"line_scan_{x1:.1f}_{y1:.1f}_to_{x2:.1f}_{y2:.1f}.dat"
+    np.savetxt(filename, save_data, header=param_header)
+    print(f"Data saved to {filename}")
+    return filename
+
+def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_columns=None):
+    """Plot results of 1D scan"""
+    scan_fig = plt.figure(figsize=(10, 12))
+    bRef = (ref_data_line is not None and ref_columns is not None)
+
+    ax1 = scan_fig.add_subplot(311)
+    clrs = ['r', 'g', 'b']
+    for i in range(nsite):
+        ax1.plot(distance, Es[:, i], '-', linewidth=0.5, color=clrs[i], label=f'E_{i+1}')
+        if bRef:
+            icol = ref_columns[f'Esite_{i+1}']
+            ax1.plot(
+                ref_data_line[:, 0], ref_data_line[:, icol],
+                ':', color=clrs[i], alpha=0.7, label=f'Ref E_{i+1}'
+            )
+    ax1.set_ylabel('Energy [eV]')
+    ax1.legend()
+    ax1.grid(True)
+
+    ax2 = scan_fig.add_subplot(312)
+    for i in range(nsite):
+        ax2.plot(distance, Ts[:, i], '-', linewidth=0.5, color=clrs[i], label=f'T_{i+1}')
+        if bRef:
+            icol = ref_columns[f'Tsite_{i+1}']
+            ax2.plot(
+                ref_data_line[:, 0], ref_data_line[:, icol],
+                ':', color=clrs[i], alpha=0.7, label=f'Ref T_{i+1}'
+            )
+    ax2.set_ylabel('Hopping T [a.u.]')
+    ax2.legend()
+    ax2.grid(True)
+
+    ax3 = scan_fig.add_subplot(313)
+    ax3.plot(distance, STM, '.-', color='k', linewidth=0.5, markersize=1.5, label='STM')
+    ax3.set_ylabel('Current [a.u.]')
+    ax3.legend()
+    ax3.grid(True)
+
+    scan_fig.tight_layout()
+    plt.show()
+    return scan_fig
+
 if __name__ == "__main__":
     # Example usage when run as standalone script - using same defaults as GUI
     params = {
@@ -508,20 +615,20 @@ if __name__ == "__main__":
     }
     verbosity = 0
 
-    #scan_param_sweep_xy_orb(params, scan_params=[('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'], orbital_file='QD.cub')
-    scan_param_sweep_xy_orb(params, scan_params=[('VBias', np.linspace(0.0, 0.5, 5))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file='QD.cub')
-    plt.savefig('scan_param_sweep_xy_orb.png')
-    plt.show()
-    exit()
+    # #scan_param_sweep_xy_orb(params, scan_params=[('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'], orbital_file='QD.cub')
+    # scan_param_sweep_xy_orb(params, scan_params=[('VBias', np.linspace(0.0, 0.5, 5))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file='QD.cub')
+    # plt.savefig('scan_param_sweep_xy_orb.png')
+    # plt.show()
+    # exit()
     
     #run_scan_xy_orb( params )
     
-    exit()
+    #exit()
 
-    scan_param_sweep(params, [('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'])
-    plt.savefig('scan_param_sweep.png')
-    plt.show()
-    exit()
+    # scan_param_sweep(params, [('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'])
+    # plt.savefig('scan_param_sweep.png')
+    # plt.show()
+    # exit()
     
     # Initialize pauli solver
     pauli_solver = pauli.PauliSolver( nSingle=3, nleads=2, verbosity=verbosity )
@@ -538,6 +645,6 @@ if __name__ == "__main__":
     plt.show()
 
     # Example parameter sweep
-    z_tip_vals = np.linspace(1.0, 3.0, 5)  # Scan 5 tip heights
-    fig = scan_param_sweep(params, [('z_tip', z_tip_vals)])
-    plt.show()
+    #z_tip_vals = np.linspace(1.0, 3.0, 5)  # Scan 5 tip heights
+    #fig = scan_param_sweep(params, [('z_tip', z_tip_vals)])
+    #plt.show()
