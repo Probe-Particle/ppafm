@@ -11,6 +11,7 @@ import numpy as np
 import time
 
 import orbital_utils
+from scipy.interpolate import RectBivariateSpline
 
 def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, bLegend=True, scV=1.5):
     """
@@ -216,7 +217,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         big_npix=int(params.get('big_npix',400))
         Ms,rho=generate_central_hops(orbital_2D,orbital_lvec,spos[:,:2],angles,z_tip,dcanv,big_npix,npix,decay=decay or params.get('decay',0.2))
         Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
-        for i in range(nsite): Ts_flat[:,i]=Ms[i].flatten()**2
+        for i in range(nsite): Ts_flat[:,i]=Ms[i].flatten() #**2
     else:
         Ts_flat = None
 
@@ -247,7 +248,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     Ts  = Ts_flat_.reshape(npix, npix, nsite)
     
     # Calculate total Ts (max over sites) and Es (max over sites)
-    Ttot = np.sum(Ts, axis=2)
+    Ttot = np.sum(Ts**2, axis=2)
     Etot = np.max(Es, axis=2)
     
     # Plotting if axes provided
@@ -389,7 +390,7 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
         dcanv = 2*L/npix; big_npix = int(params.get('big_npix',400))
         Ms, rho = generate_central_hops(orbital_2D, orbital_lvec, params['spos'][:,:2], params['angles'], params['z_tip'], dcanv, big_npix, npix, decay)
         Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
-        for i in range(nsite): Ts_flat[:,i] = Ms[i].flatten()**2
+        for i in range(nsite): Ts_flat[:,i] = Ms[i].flatten()   #**2
     else:
         Ts_flat = None
 
@@ -455,7 +456,7 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     # Plot rho and Ttot (precomputed)
     if bDoOrb:
         pu.plot_imshow(ax_rho, rho, title="sum(Wf)", extent=extent, cmap='bwr')
-        Ttot = np.sum(Ts_flat_.reshape(npix, npix, nsite), axis=2)
+        Ttot = np.sum(Ts_flat_.reshape(npix, npix, nsite)**2, axis=2)
         pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)", extent=extent, cmap='hot')
     
     # Process each parameter value
@@ -633,18 +634,86 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     extent = [0, dist, Vmin, Vmax]
     if ax_Emax is not None:
         pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr')
-        ax_Emax.set_aspect('auto')
+        ax_Emax.set_aspect('auto');
         if bLegend: ax_Emax.set_ylabel('V [V]')
     if ax_STM is not None:
         pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap='hot')
-        ax_STM.set_aspect('auto')
+        ax_STM.set_aspect('auto');
         if bLegend: ax_STM.set_ylabel('V [V]')
     if ax_dIdV is not None:
         pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', scV=sdIdV)
-        ax_dIdV.set_aspect('auto')
+        ax_dIdV.set_aspect('auto');
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
     print("calculate_xV_scan() DONE")
+    return x, Vbiases, Emax, STM, dIdV
+
+def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None):
+    """Scan voltage dependence along a line using orbital-based hopping Ts"""
+    # Line geometry
+    x1, y1 = start_point; x2, y2 = end_point
+    dist = np.hypot(x2-x1, y2-y1)
+    npts = nx
+    t = np.linspace(0,1,npts)
+    x = x1 + (x2-x1)*t; y = y1 + (y2-y1)*t
+    if Vmax is None: Vmax = params['VBias']
+    Vbiases = np.linspace(Vmin, Vmax, nV)
+
+    # Site & rotation
+    nsite = int(params['nsite'])
+    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+    spos[:,2] = params['zQd']
+    # angles for hopping
+    angles = phis + params.get('phi0_ax',0.0) + np.pi*0.5
+    rots = ut.makeRotMats(phis + params['phiRot'])
+
+    # Compute hopping Ts along line from orbital data
+    if orbital_2D is not None:
+        L = params['L']; npix = params['npix']
+        dcanv = 2*L/npix
+        big_npix = int(params.get('big_npix',400))
+        Ms, _ = generate_central_hops(orbital_2D, orbital_lvec, spos[:,:2], angles, params['z_tip']+params['Rtip'], dcanv, big_npix, npix, decay=decay or params.get('decay',0.2))
+        # Prepare grid for interpolation
+        coords = (np.arange(npix) + 0.5 - npix/2)*dcanv
+        Ts_line = np.zeros((npts, nsite))
+        for i in range(nsite):
+            Ts_map = Ms[i] #**2
+            interp = RectBivariateSpline(coords, coords, Ts_map)
+            Ts_line[:,i] = interp(y, x, grid=False)
+        Ts_input = Ts_line
+    else:
+        Ts_input = None
+
+    # Prepare tip positions
+    pTips = np.zeros((npts,3))
+    pTips[:,0] = x; pTips[:,1] = y; pTips[:,2] = params['z_tip']+params['Rtip']
+
+    # Prepare state order matching calculate_xV_scan
+    state_order = np.array([0,4,2,6,1,5,3,7], dtype=np.int32)
+    # Run scan with external Ts
+    current, Es, Ts = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, bOmp=False, Ts=Ts_input)
+
+    # reshape and compute
+    STM = current.reshape(nV, npts)
+    Es  = Es.reshape(nV, npts, nsite)
+    Emax = Es.max(axis=2)
+    dIdV = np.gradient(STM, Vbiases, axis=0)
+
+    # Plot results
+    extent = [0, dist, Vmin, Vmax]
+    if ax_Emax is not None:
+        pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr')
+        ax_Emax.set_aspect('auto');
+        if bLegend: ax_Emax.set_ylabel('V [V]')
+    if ax_STM is not None:
+        pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap='hot')
+        ax_STM.set_aspect('auto');
+        if bLegend: ax_STM.set_ylabel('V [V]')
+    if ax_dIdV is not None:
+        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', scV=sdIdV)
+        ax_dIdV.set_aspect('auto');
+        if bLegend: ax_dIdV.set_ylabel('V [V]')
+
     return x, Vbiases, Emax, STM, dIdV
 
 if __name__ == "__main__":

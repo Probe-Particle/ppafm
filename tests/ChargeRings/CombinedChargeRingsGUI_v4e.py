@@ -383,7 +383,10 @@ class ApplicationWindow(GUITemplate):
         dist = ((sim_end[0]-sim_start[0])**2 + (sim_end[1]-sim_start[1])**2)**0.5
         sim_npoints = max(100, int(dist * pointPerAngstrom))
         Vbiases = self.exp_biases
-        x, _, _, STM, sim_dIdV = pauli_scan.calculate_xV_scan(params, sim_start, sim_end, nx=sim_npoints, nV=200, Vmin=0, Vmax=Vbiases[-1], bLegend=False)
+        if self.cbUseOrbital.isChecked():  # orbital-based Ts
+            x, _, _, STM, sim_dIdV = pauli_scan.calculate_xV_scan_orb(params, sim_start, sim_end, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1], bLegend=False)
+        else:
+            x, _, _, STM, sim_dIdV = pauli_scan.calculate_xV_scan(params, sim_start, sim_end, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1], bLegend=False)
         extent_sim = [0, dist, 0, Vbiases[-1]]
         im1 = ax_sim_I.imshow(STM, aspect='auto', origin='lower', extent=extent_sim, cmap='hot')
         ax_sim_I.axhline( Vbiases[0], ls='--', c='g')
@@ -464,7 +467,10 @@ class ApplicationWindow(GUITemplate):
         axD = fig.add_subplot(133)
         #axI = fig.add_subplot(144)
         # Perform scan
-        x, V, Emax, STM, dIdV = pauli_scan.calculate_xV_scan( params, start, end, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, Vmin=0.0, Vmax=0.6, nx=100, nV=100)
+        if self.cbUseOrbital.isChecked():  # orbital-based Ts
+            x, V, Emax, STM, dIdV = pauli_scan.calculate_xV_scan_orb(params, start, end, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, nx=100, nV=100, Vmin=0.0, Vmax=0.6)
+        else:
+            x, V, Emax, STM, dIdV = pauli_scan.calculate_xV_scan(params, start, end, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, nx=100, nV=100, Vmin=0.0, Vmax=0.6)
         #pointPerAngstrom=5
         #distance, Es, Ts, STM_1d, x_1d, y, x1, y1, x2, y2 = pauli_scan.calculate_1d_scan(  params, start, end, pointPerAngstrom )
         #axI.plot( x, STM[-1,:], 'r-', label='I[-1]' )

@@ -516,9 +516,13 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
     # Prepare arrays with shape [nV*nx,...]
     pTips_rep = np.tile(pTips, (nV,1))
     Vtips_rep = np.repeat(Vbiases, nx)
+    if Ts is not None:
+        Ts_rep    = np.tile(Ts, (nV,1))
+    else:
+        Ts_rep = None
     
     # Run scan
-    current, Es, Ts = pauli_solver.scan_current_tip( pTips_rep, Vtips_rep, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts)
+    current, Es, Ts = pauli_solver.scan_current_tip( pTips_rep, Vtips_rep, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts_rep)
     
     # Reshape results
     current = current.reshape(nV,nx)
