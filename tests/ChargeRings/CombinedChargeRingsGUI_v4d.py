@@ -33,26 +33,26 @@ class ApplicationWindow(GUITemplate):
         # Then set parameter specifications
         self.param_specs = {
             # Tip Parameters
-            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 10.0),   'value': 0.5, 'step': 0.1},
+            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 10.0),   'value': 0.65, 'step': 0.02},
             'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 10.0),   'value': 3.0, 'step': 0.5},
-            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 20.0),   'value': 2.0, 'step': 0.5},
+            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 20.0),   'value': 1.0, 'step': 0.5},
             
             # System Parameters
-            'W':             {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.03, 'step': 0.001, 'decimals': 3},
+            'W':             {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02, 'step': 0.001, 'decimals': 3},
             'GammaS':        {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01, 'step': 0.001, 'decimals': 3},
             'GammaT':        {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01, 'step': 0.001, 'decimals': 3},
             'Temp':          {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 0.224,  'step': 0.01},
             'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,  'step': 0.1},
             
             # Mirror Parameters
-            'zV0':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value': -3.3, 'step': 0.1},
-            'zVd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value':  2.0, 'step': 0.1},
-            'zQd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),  'value':  0.0, 'step': 0.1},
+            'zV0':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),   'value': -3.3, 'step': 0.1},
+            'zVd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 10.0),  'value':  8.0, 'step': 0.1},
+            'zQd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),   'value':  0.0, 'step': 0.1},
             
             # Ring Geometry
             'nsite':         {'group': 'Ring Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
             'radius':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 5.2, 'step': 0.5},
-            'phiRot':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': 0.8,'step': 0.1},
+            'phiRot':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.3,'step': 0.1},
             
             # Ellipse Parameters
             'R_major':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (1.0, 10.0),   'value': 8.0, 'step': 0.1},
@@ -60,7 +60,7 @@ class ApplicationWindow(GUITemplate):
             'phi0_ax':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (-3.14, 3.14), 'value': 0.2, 'step': 0.1},
             
             # Site Properties
-            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.50,'step': 0.002, 'decimals': 3},
+            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.45,'step': 0.002, 'decimals': 3},
             'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
             'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
             
@@ -77,10 +77,15 @@ class ApplicationWindow(GUITemplate):
             # 'p2_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value':  6.5, 'step': 0.5},
             # 'p2_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -10.0, 'step': 0.5},
 
-            'p1_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': 15.0, 'step': 0.5},
-            'p1_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': 15.0, 'step': 0.5},
-            'p2_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -15.0, 'step': 0.5},
-            'p2_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -15.0, 'step': 0.5},
+            #'p1_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': 15.0, 'step': 0.5},
+            #'p1_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': 15.0, 'step': 0.5},
+            #'p2_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -15.0, 'step': 0.5},
+            #'p2_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -15.0, 'step': 0.5},
+
+            'p1_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5},
+            'p1_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -9.96, 'step': 0.5},
+            'p2_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5},
+            'p2_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  12.0, 'step': 0.5},
             
             # Experimental Data
             'exp_slice':     {'group': 'Experimental Data', 'widget': 'int',    'range': (0, 13),     'value': 8,    'step': 1},
@@ -325,38 +330,35 @@ class ApplicationWindow(GUITemplate):
         
         print(f"Starting voltage line scan: Experiment: {start} to {end}, Simulation: {sim_start} to {sim_end}")
         
-        # Create new figure for displaying in a Qt window
-        fig = Figure(figsize=(12, 5))
+        #make subplots
+        fig, ((ax_sim_I, ax_exp_I), ( ax_sim_dIdV, ax_exp_dIdV)) = plt.subplots(2, 2)
         canvas = FigureCanvas(fig)
-        ax1 = fig.add_subplot(121)  # Simulated charge
-        ax2 = fig.add_subplot(122)  # Experimental dI/dV
         
+        # compute distances and perform voltage scan for simulation
         dist = ((sim_end[0]-sim_start[0])**2 + (sim_end[1]-sim_start[1])**2)**0.5
         sim_npoints = max(100, int(dist * pointPerAngstrom))
-        # perform voltage scan
         Vbiases = self.exp_biases
-        _, _, _, STM, _ = pauli_scan.calculate_xV_scan(params,sim_start,sim_end, ax_STM=ax1, nx=sim_npoints,nV=100,Vmin=0,Vmax=Vbiases[-1],bLegend=False )
-        # style plot
-        ax1.set_title('Simulated current (p1-p2)')
-        ax1.set_xlabel('Distance (Å)')
-        ax1.set_ylabel('Bias Voltage (V)')
-        im1 = ax1.get_images()[0]
-        fig.colorbar(im1, ax=ax1, label='Charge')
-        
-        # === Handle the experimental part (ep1,ep2) ===
-        im2, (exp_didv, exp_distance) = exp_utils.plot_exp_voltage_line_scan(  
-            self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, start, end, ax=ax2,title='(ep1-ep2)', pointPerAngstrom=pointPerAngstrom, ylims=(0, Vbiases[-1])
-        )
-        fig.colorbar(im2, ax=ax2, label='dI/dV')
+        x, _, _, STM, sim_dIdV = pauli_scan.calculate_xV_scan(params, sim_start, sim_end, nx=sim_npoints, nV=100, Vmin=0, Vmax=Vbiases[-1], bLegend=False)
+        extent_sim = [0, dist, 0, Vbiases[-1]]
+        im1 = ax_sim_I.imshow(STM, aspect='auto', origin='lower', extent=extent_sim, cmap='hot')
+        ax_sim_I.axhline( Vbiases[0], ls='--', c='g')
+        ax_sim_I.set_title('Simulated current (STM)')
+
+        vmax = np.max(np.abs(sim_dIdV))*0.1; vmin = -vmax
+        im2 = ax_sim_dIdV.imshow(sim_dIdV, aspect='auto', origin='lower', extent=extent_sim, cmap='bwr', vmin=vmin, vmax=vmax)
+        ax_sim_dIdV.axhline( Vbiases[0], ls='--', c='g')
+        ax_sim_dIdV.set_title('Simulated dI/dV')
+
+        # experimental dI/dV plot
+        im3, (exp_didv, _)  = exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I   , self.exp_biases, start, end, ax=ax_exp_I,    ylims=(0, Vbiases[-1]), pointPerAngstrom=pointPerAngstrom)
+        im4, (exp_didv, _)  = exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, start, end, ax=ax_exp_dIdV, ylims=(0, Vbiases[-1]), pointPerAngstrom=pointPerAngstrom)
         fig.tight_layout()
         canvas.draw()
-        
-        # Create a new window to display the plot
+        # display in Qt window
         window = QtWidgets.QMainWindow()
         window.setCentralWidget(canvas)
-        window.resize(1200, 500)
+        window.resize(1200, 800)
         window.show()
-        # Keep reference to prevent garbage collection
         self._exp_voltage_scan_window = window
 
     def draw_scan_line(self, ax):

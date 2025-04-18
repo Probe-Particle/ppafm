@@ -336,7 +336,7 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
     double beta  = params[4];
     double Gamma = params[5];
     double W     = params[6];
-    //printf("scan_current_tip() Rtip: %6.3e zV0: %6.3e zV1: %6.3e Esite: %6.3e beta: %6.3e Gamma: %6.3e W: %6.3e \n", Rtip, zV0, zV1, Esite, beta, Gamma, W );
+    printf("scan_current_tip() Rtip: %6.3e zV(%6.3e,%6.3e) E0: %6.3e beta: %6.3e Gamma: %6.3e W: %6.3e \n", Rtip, zV.x, zV.y, E0, beta, Gamma, W );
     //printf("scan_current_tip() Rtip: nTip: %d nSites: %d E0: %6.3e Rtip: %6.3e VBias[0,-1](%6.3e,%6.3e) pTip.z[0,-1](%6.3e,%6.3e) zV0: %6.3e zV1: %6.3e order: %d cs:[ %6.3e, %6.3e, %6.3e, %6.3e ]\n", npoints, nSites, E0, Rtip, Vtips[0], Vtips[npoints-1], pTips[0].z, pTips[npoints-1].z, zV0, zV1, order, cs[0], cs[1], cs[2], cs[3] );
     // Initialize local solver
     //PauliSolver solver_local(*solver);
