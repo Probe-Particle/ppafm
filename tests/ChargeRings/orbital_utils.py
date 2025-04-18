@@ -94,7 +94,7 @@ def calculate_Hopping_maps(orbital_2D, orbital_lvec, spos, angles, canvas_dd, ca
     canvas_sum = np.zeros(canvas_shape, dtype=np.float64)
     Ms = []
     nsite = len(spos)
-    print( "tipWf shape: ", tipWf.shape )
+    #print( "tipWf shape: ", tipWf.shape )
     for i in range(nsite):
         # Place orbital on canvas
         canvas = photonMap2D_stamp([orbital_2D], [orbital_lvec], canvas_dd, canvas=canvas_sum*0.0, angles=[angles[i]], poss=[[spos[i,0], spos[i,1]]], coefs=[1.0], byCenter=True, bComplex=False)
@@ -104,7 +104,7 @@ def calculate_Hopping_maps(orbital_2D, orbital_lvec, spos, angles, canvas_dd, ca
             canvas_sum += canvas
         # Convolve with tip field   M_i = < psi_i |H| psi_tip  >
         #print( "tipWf shape: ", tipWf.shape) 
-        print( "canvas.shape: ", canvas.shape )
+        #print( "canvas.shape: ", canvas.shape )
         M_i = photo.convFFT(tipWf, canvas, bNormalize=True)
         M_i = np.real(M_i)      
         # Crop to center region if needed

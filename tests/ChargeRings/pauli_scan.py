@@ -152,7 +152,32 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     
     return STM, Es, Ts
 
-def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0):
+# Helpers: crop central region and index/coordinate transforms
+def cut_central_region(map_list, dcanv, big_npix, small_npix):
+    """Crop central small_npix×small_npix from big_npix maps with pixel size dcanv"""
+    # pixel size shared, so just index crop
+    center=big_npix//2; half=small_npix//2
+    start=center-half; end=start+small_npix
+    return [m[start:end, start:end] for m in map_list]
+
+def pixel_to_coord(i,j,dcanv,npix): 
+    """Map pixel idx to coord centered at 0"""
+    return ((i+0.5-npix/2)*dcanv, (j+0.5-npix/2)*dcanv)
+
+def coord_to_pixel(x,y,dcanv,npix): 
+    """Map coord to nearest pixel idx"""
+    return (int(x/dcanv + npix/2), int(y/dcanv + npix/2))
+
+def generate_central_hops(orb2D, orb_lvec, spos_xy, angles, z0, dcanv, big_npix, small_npix, decay=0.2):
+    """Compute big canvas hops and crop central small canvas"""
+    big_dd=[dcanv,dcanv]; big_shape=(big_npix,big_npix)
+    tipWf,shift=orbital_utils.make_tipWf(big_shape,big_dd,z0=z0,decay=decay)
+    Ms_big,rho_big=orbital_utils.calculate_Hopping_maps(orb2D,orb_lvec,spos_xy,angles,big_dd,big_shape,tipWf,bTranspose=True)
+    Ms_small=cut_central_region(Ms_big,dcanv,big_npix,small_npix)
+    rho_small=cut_central_region([rho_big],dcanv,big_npix,small_npix)[0]
+    return Ms_small, rho_small
+
+def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
     computed by convolution of orbitals on canvas
@@ -167,48 +192,30 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
         ax_STM: Axis for STM current plot
         ax_Ms: Axis for hopping matrix plot
         ax_rho: Axis for density of states plot
+        ax_dIdV: Axis for dI/dV plot
         decay: Optional decay parameter for orbital calculations
     """
     #import sys
     #sys.path.insert(0, '../')
     import orbital_utils
     
-    # Extract parameters
-    #L      = params['L']
-    #params['GammaS'] = 1.0
-    L = 60.0; params['L'] = L
-    nsite  = params['nsite']
-    z_tip  = params['z_tip']
-    #npix   = params['npix']
-    npix = 400; params['npix']=npix
-    #decay  = params['decay'] *  #*5.0
+    # small canvas & site setup
+    L=params['L']; npix=params['npix']
+    nsite=params['nsite']; z_tip=params['z_tip']
+    spos,phis=ut.makeCircle(n=nsite,R=params['radius'],phi0=params['phiRot'])
+    angles=phis-np.pi*0.5+0.1
+    # big-to-small hopping computation
+    #dcanv=params['L']/params['npix']
 
-    decay = 0.2
-    
-    # Site positions and rotations
-    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
-    spos[:,2]  = params['zQd']
-    rots       = ut.makeRotMats(phis + params['phiRot'])
-    angles     = phis - np.pi * 0.5 + 0.1 # - 0.05
-        
-    # Setup canvas for orbital calculations
-    dCanv = L/npix
-    ncanv = npix  # Same size as output grid
-    canvas_shape = (ncanv, ncanv)
-    canvas_dd = np.array([dCanv, dCanv])
-
-    T0 = time.perf_counter()    
-    # Calculate hopping maps using orbital convolution
-    tipWf, shift = orbital_utils.make_tipWf(canvas_shape, canvas_dd, z0=z_tip, decay=decay)
-    print( "tipWf shape: ", tipWf.shape )
-    Ms, rho = orbital_utils.calculate_Hopping_maps( orbital_2D, orbital_lvec, spos[:,:2], angles, canvas_dd, canvas_shape, tipWf, bTranspose=True )
-    T1=time.perf_counter(); print("Time(scan_xy_orb.1 orbital_utils.calculate_Hopping_maps)",  T1-T0 )
-
-    T1 = time.perf_counter()  
-    Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
-    for i in range(nsite):
-        Ts_flat[:,i] = Ms[i].flatten()**2
-    Ts_flat[:,:] += 0.0001*0    
+    T1=time.perf_counter()
+    if orbital_2D is not None:
+        dcanv=2*L/npix
+        big_npix=int(params.get('big_npix',400))
+        Ms,rho=generate_central_hops(orbital_2D,orbital_lvec,spos[:,:2],angles,z_tip,dcanv,big_npix,npix,decay=decay or params.get('decay',0.2))
+        Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
+        for i in range(nsite): Ts_flat[:,i]=Ms[i].flatten()**2
+    else:
+        Ts_flat = None
 
     # Create solver if not provided
     if pauli_solver is None:
@@ -216,14 +223,14 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
     pauli.set_valid_point_cuts(Tmin, EW)
     
     T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
-    bOmp = True
-    STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+    #bOmp = True
+    STM_flat, Es_flat, Ts_flat_ = pauli.run_pauli_scan_top(spos, ut.makeRotMats(phis + params['phiRot']), params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     if ax_dIdV is not None:
         params_ = params.copy()
         dQ = params.get('dQ', 0.005)
         params_['VBias'] += dQ
-        STM_2, _, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+        STM_2, _, _ = pauli.run_pauli_scan_top(spos, ut.makeRotMats(phis + params['phiRot']), params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
         dIdV = (STM_2 - STM_flat) / dQ
 
     T3 = time.perf_counter(); print("Time(scan_xy_orb.3 pauli.run_pauli_scan)",  T3-T2 )
@@ -233,24 +240,24 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
     
     # Reshape the results
     STM = STM_flat.reshape(npix, npix)
-    Es  = Es_flat.reshape(npix, npix, nsite)
-    Ts  = Ts_flat.reshape(npix, npix, nsite)
+    Es  = Es_flat .reshape(npix, npix, nsite)
+    Ts  = Ts_flat_.reshape(npix, npix, nsite)
     
     # Calculate total Ts (max over sites) and Es (max over sites)
     Ttot = np.sum(Ts, axis=2)
     Etot = np.max(Es, axis=2)
     
     # Plotting if axes provided
-    extent = [-L, L, -L, L]
+    extent = [-L,L, -L, L]
 
     if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies max(eps)",      extent=extent, cmap='bwr')
-    if ax_rho  is not None: pu.plot_imshow(ax_rho,  rho,  title="sum(Wf)", extent=extent, cmap='bwr')
+    if ax_rho  is not None and rho is not None: pu.plot_imshow(ax_rho,  rho,  title="sum(Wf)", extent=extent, cmap='bwr')
     if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)",     extent=extent, cmap='hot')
     if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",                    extent=extent, cmap='hot')
     if ax_dIdV is not None:
         dIdV = dIdV.reshape(npix, npix)
         pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap='bwr')
-    if ax_Ms   is not None: 
+    if ax_Ms   is not None and Ms is not None: 
         for i in range(nsite):
             ax_Ms[i].imshow(Ms[i], cmap='bwr', origin='lower', extent=extent)
             ax_Ms[i].set_title(f"Hopping matrix {i}")
@@ -259,36 +266,31 @@ def scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver=None, ax_Etot=Non
     
     return STM, Es, Ts
 
-def run_scan_xy_orb( params, fname="QD.cub" ):
+def run_scan_xy_orb( params, orbital_file="QD.cub" ):
     print("Testing scan_xy_orb with real orbital data...")        
     # Load orbital data from the QD.cub file in the current directory
-    orbital_file = fname
-    if not os.path.exists(orbital_file):
-        print(f"ERROR: Could not find {orbital_file} in the current directory")
-        return
-        
-    print(f"Loading orbital file: {orbital_file}")
-    orbital_data, orbital_lvec = orbital_utils.load_orbital(orbital_file)
-    
-    # Process orbital data similar to ChargeRingsOrbitalGUI.py
-    # Transpose and sum over z-direction for 2D representation
-    orbital_2D = np.transpose(orbital_data, (2, 1, 0))
-    orbital_2D = np.sum(orbital_2D[:, :, orbital_2D.shape[2]//2:], axis=2)
-    orbital_2D = np.ascontiguousarray(orbital_2D, dtype=np.float64)
-    
+    if orbital_file is not None:
+        if not os.path.exists(orbital_file):
+            print(f"ERROR: Could not find {orbital_file} in the current directory")
+            return
+        print(f"Loading orbital file: {orbital_file}")
+        orbital_data, orbital_lvec = orbital_utils.load_orbital(orbital_file)
+        orbital_2D = np.transpose(orbital_data, (2, 1, 0))
+        orbital_2D = np.sum(orbital_2D[:, :, orbital_2D.shape[2]//2:], axis=2)
+        orbital_2D = np.ascontiguousarray(orbital_2D, dtype=np.float64)
+    else:
+        orbital_2D = None
+        orbital_lvec = None
+
     # Initialize pauli solver
     pauli_solver = pauli.PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=0)
-    
-    # Create figure for visualization
-    #fig, ((ax1, ax2, ax3, ax4), (ax5, ax6, ax7, ax8)) = plt.subplots(2, 4, figsize=(20, 10))
-    #scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver,  ax_Etot=ax1, ax_rho=ax2,  ax_Ttot=ax3, ax_STM=ax4, ax_Ms=[ax5, ax6, ax7], ax_dIdV=ax8 )
 
     fig, ( ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(20,5))
-    scan_xy_orb(params, orbital_2D, orbital_lvec, pauli_solver,  ax_Etot=ax1, ax_Ttot=ax2, ax_STM=ax3, ax_Ms=None, ax_dIdV=ax4 )
+    scan_xy_orb(params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=pauli_solver, ax_Etot=ax1, ax_Ttot=ax2, ax_STM=ax3, ax_Ms=None, ax_dIdV=ax4 )
         
     fig.suptitle(f"Scan with Orbital-Based Hopping ({orbital_file})", fontsize=14)
     plt.tight_layout(rect=[0, 0, 1, 0.95])  # Make room for suptitle
-    
+
     # Save and show the figure
     plt.savefig('scan_xy_orb_test.png')
     print(f"Figure saved as 'scan_xy_orb_test.png'")
@@ -368,16 +370,25 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
         decay: Optional decay parameter for orbital calculations
         fig: Optional figure object to plot into
     """
-
     
-    if orbital_2D is None or orbital_lvec is None:
-        print(f"Loading orbital file: {orbital_file}")
-        orbital_data, orbital_lvec = orbital_utils.load_orbital(orbital_file)
+    bOrbGiven = (orbital_2D is not None) or (orbital_lvec is not None)
+    bDoOrb    = ( orbital_file is not None ) or bOrbGiven
+    if bDoOrb:
+        if not bOrbGiven:
+            print(f"Loading orbital file: {orbital_file}")
+            orbital_data, orbital_lvec = orbital_utils.load_orbital(orbital_file)
         # Process orbital data similar to ChargeRingsOrbitalGUI.py
         # Transpose and sum over z-direction for 2D representation
         orbital_2D = np.transpose(orbital_data, (2, 1, 0))
         orbital_2D = np.sum(orbital_2D[:, :, orbital_2D.shape[2]//2:], axis=2)
         orbital_2D = np.ascontiguousarray(orbital_2D, dtype=np.float64)
+        # Precompute hopping maps once
+        dcanv = 2*L/npix; big_npix = int(params.get('big_npix',400))
+        Ms, rho = generate_central_hops(orbital_2D, orbital_lvec, params['spos'][:,:2], params['angles'], params['z_tip'], dcanv, big_npix, npix, decay)
+        Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
+        for i in range(nsite): Ts_flat[:,i] = Ms[i].flatten()**2
+    else:
+        Ts_flat = None
 
     if not scan_params:
         raise ValueError("scan_params cannot be empty")
@@ -411,22 +422,14 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     params['angles'] = angles
     
     # Setup canvas for orbital calculations
-    dCanv = L/npix
-    ncanv = npix
-    canvas_shape = (ncanv, ncanv)
-    canvas_dd = np.array([dCanv, dCanv])
+    #dCanv = L/npix
+    #ncanv = npix
+    #canvas_shape = (ncanv, ncanv)
+    #canvas_dd = np.array([dCanv, dCanv])
     extent = [-L, L, -L, L]
     
-    # Precompute hopping maps once
-    tipWf, shift = orbital_utils.make_tipWf(canvas_shape, canvas_dd, z0=z_tip, decay=decay)
-    Ms, rho = orbital_utils.calculate_Hopping_maps( orbital_2D, orbital_lvec,  params['spos'][:,:2], params['angles'],  canvas_dd, canvas_shape, tipWf, bTranspose=True )
-    
-    # Prepare Ts_flat from precomputed Ms
-    Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
-    for i in range(nsite):
-        Ts_flat[:,i] = Ms[i].flatten()**2
-    #Ts_flat[:,:] += 0.0001
-    
+
+
     # Create solver if not provided
     if pauli_solver is None:
         pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
@@ -445,13 +448,14 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     fig.suptitle(title, fontsize=12)
     
     # First column: rho (top), Ttot (middle)
-    ax_rho = fig.add_subplot(3, nscan+1, 1)
+    ax_rho  = fig.add_subplot(3, nscan+1, 1)
     ax_Ttot = fig.add_subplot(3, nscan+1, nscan+2)
     
     # Plot rho and Ttot (precomputed)
-    pu.plot_imshow(ax_rho, rho, title="sum(Wf)", extent=extent, cmap='bwr')
-    Ttot = np.sum(Ts_flat.reshape(npix, npix, nsite), axis=2)
-    pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)", extent=extent, cmap='hot')
+    if bDoOrb:
+        pu.plot_imshow(ax_rho, rho, title="sum(Wf)", extent=extent, cmap='bwr')
+        Ttot = np.sum(Ts_flat_.reshape(npix, npix, nsite), axis=2)
+        pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)", extent=extent, cmap='hot')
     
     # Process each parameter value
     for i in range(nscan):
@@ -465,7 +469,11 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
         ax_dIdV = fig.add_subplot(3, nscan+1, i+2*nscan+4)
         
         # Run pauli scan and plot results (same as before)
-        STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+        STM_flat, Es_flat, Ts_flat_ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+
+        if not bDoOrb:
+            Ttot = np.sum(Ts_flat_.reshape(npix, npix, nsite), axis=2)
+            pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)", extent=extent, cmap='hot')
         
         # Compute dIdV
         params_ = params.copy()
@@ -482,12 +490,9 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
         title_parts = [f"{name}={params[name]:.3f}" for name in param_names]
         title = ", ".join(title_parts)
         
-        pu.plot_imshow(ax_Etot, Etot, title=title+"\nEnergies max(eps)", extent=extent, cmap='bwr')
-        ax_Etot.set_aspect('auto')
-        pu.plot_imshow(ax_STM, STM, title="STM", extent=extent, cmap='hot')
-        ax_STM.set_aspect('auto')
-        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap='bwr')
-        ax_dIdV.set_aspect('auto')
+        pu.plot_imshow(ax_Etot, Etot, title=title+"\nEnergies max(eps)", extent=extent, cmap='bwr'); #ax_Etot.set_aspect('auto')
+        pu.plot_imshow(ax_STM,  STM,  title="STM",                       extent=extent, cmap='hot'); #ax_STM.set_aspect('auto')
+        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",                     extent=extent, cmap='bwr'); #ax_dIdV.set_aspect('auto')
     
     plt.tight_layout()
     return fig
@@ -648,36 +653,45 @@ if __name__ == "__main__":
 
         #'W': 0.00,
          #'W': 0.005,
-        'W': 0.01,
+        #'W': 0.01,
         #'W': 0.015,
         #'W': 0.02,
         #'W': 0.025,
-        #'W': 0.03,
+        'W': 0.03,
         
         'GammaS': 0.01, 'GammaT': 0.01, 'Temp': 0.224, 'onSiteCoulomb': 3.0,
-        'zV0': -10.0, 'zQd': 0.0,
+        #'zV0': -10.0, 'zQd': 0.0,
+        'zV0': -3.3, 'zQd': 0.0,
         'nsite': 3, 'radius': 5.2, 
         'phiRot': np.pi*0.5 + 0.2 ,
         'Esite': -0.04, 'Q0': 1.0, 'Qzz': 0.0,
         #'L': 20.0, 
         #'npix': 100, 
         
-        'L': 60.0, 
-        'npix': 400,
-
-        'decay': 0.1, 'dQ': 0.02
+        'L': 30.0, 
+        'npix': 150,
+        'dQ': 0.001,
+        #'decay': 0.05, 
+        'decay': 0.3,
     }
     verbosity = 0
 
-    # #scan_param_sweep_xy_orb(params, scan_params=[('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'], orbital_file='QD.cub')
-    # scan_param_sweep_xy_orb(params, scan_params=[('VBias', np.linspace(0.0, 0.5, 5))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file='QD.cub')
+    #run_scan_xy_orb(params, orbital_file='QD.cub')
+    #scan_xy_orb(params, scan_params=[('VBias', np.linspace(0.0, 0.5, 5))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file='QD.cub')
     # plt.savefig('scan_param_sweep_xy_orb.png')
     # plt.show()
+    # exit()
+
+    # #scan_param_sweep(params, scan_params=[('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'], orbital_file='QD.cub')
+    #scan_param_sweep_xy_orb(params, scan_params=[('VBias', np.linspace(0.0, 0.5, 5))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file='QD.cub')
+    scan_param_sweep_xy_orb(params, scan_params=[('VBias', np.linspace(0.05, 0.2, 6))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file=None)
+    plt.savefig('scan_param_sweep_xy_orb.png')
+    plt.show()
     # exit()
     
     #run_scan_xy_orb( params )
     
-    #exit()
+    exit()
 
     # scan_param_sweep(params, [('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'])
     # plt.savefig('scan_param_sweep.png')

@@ -319,10 +319,10 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
         
         # For simulation, use p1,p2 instead of ep1,ep2
-        sim_start_point = (params['p1_x'], params['p1_y'])
-        sim_end_point = (params['p2_x'], params['p2_y'])
+        sim_start = (params['p1_x'], params['p1_y'])
+        sim_end   = (params['p2_x'], params['p2_y'])
         
-        print(f"Starting voltage line scan: Experiment: {exp_start_point} to {exp_end_point}, Simulation: {sim_start_point} to {sim_end_point}")
+        print(f"Starting voltage line scan: Experiment: {exp_start_point} to {exp_end_point}, Simulation: {sim_start} to {sim_end}")
         
         # Create new figure for displaying in a Qt window
         fig = Figure(figsize=(12, 5))
@@ -330,35 +330,16 @@ class ApplicationWindow(GUITemplate):
         ax1 = fig.add_subplot(121)  # Simulated charge
         ax2 = fig.add_subplot(122)  # Experimental dI/dV
         
-        # === Handle the simulation part (p1,p2) ===
-        # Create simulation line coordinates
-        sim_x, sim_y, sim_distance = exp_utils.create_line_coordinates(
-            sim_start_point, sim_end_point, points_per_angstrom=pointPerAngstrom
-        )
-        sim_npoints = len(sim_x)
-        
-        # Calculate site positions
-        nsite = params['nsite']
-        spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
-        spos[:,2] = params['zQd']
-        
-        # Create positions array for simulation calculations
-        pTips = np.zeros((sim_npoints, 3))
-        pTips[:,0] = sim_x
-        pTips[:,1] = sim_y
-        pTips[:,2] = params['z_tip'] + params['Rtip']
-        
-        # Run the simulation
-        state_order =  np.array([0,4,2,6,1,5,3,7])
-        #current, Es, Ts = pauli.run_pauli_scan_xV( pTips, self.exp_biases, spos, params, order=1, cs=[params['Q0'], 0.0, 0.0, params['Qzz']], state_order=state_order )
-
-        current, Es, Ts = pauli.run_pauli_scan_xV( pTips, np.linspace(0.0,params['VBias'],100), spos, params, order=1, cs=[params['Q0'], 0.0, 0.0, params['Qzz']], state_order=state_order )
-        
-        # Plot simulated charge
-        im1 = ax1.imshow(current, aspect='auto', origin='lower', extent=[0, sim_distance[-1], self.exp_biases[0], self.exp_biases[-1]])
+        dist = ((sim_end[0]-sim_start[0])**2 + (sim_end[1]-sim_start[1])**2)**0.5
+        sim_npoints = max(100, int(dist * pointPerAngstrom))
+        # perform voltage scan
+        Vbiases = self.exp_biases
+        _, _, _, STM, _ = pauli_scan.calculate_xV_scan(params,sim_start,sim_end, ax_STM=ax1, nx=sim_npoints,nV=100,Vmin=0,Vmax=Vbiases[-1],bLegend=False )
+        # style plot
         ax1.set_title('Simulated current (p1-p2)')
         ax1.set_xlabel('Distance (Å)')
         ax1.set_ylabel('Bias Voltage (V)')
+        im1 = ax1.get_images()[0]
         fig.colorbar(im1, ax=ax1, label='Charge')
         
         # === Handle the experimental part (ep1,ep2) ===
