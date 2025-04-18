@@ -196,57 +196,54 @@ def create_overlay_image(exp_data, sim_data, exp_extent, sim_extent):
     return rgb_image, sim_extent
 
 
-def plot_exp_voltage_line_scan(exp_X, exp_Y, exp_dIdV, exp_biases, 
-                           exp_start_point, exp_end_point, 
-                           ax=None, title_suffix='',
-                           pointPerAngstrom=5):
+def plot_exp_voltage_line_scan(X, Y, dIdV, biases, start, end, ax=None, title='', ylims=None, pointPerAngstrom=5):
     """Plot experimental dI/dV along a line scan for different voltages
     
     Args:
-        exp_X: Experimental X coordinates
-        exp_Y: Experimental Y coordinates
-        exp_dIdV: Experimental dI/dV data
-        exp_biases: Experimental bias voltages
-        exp_start_point: Start point for experimental line
-        exp_end_point: End point for experimental line
+        X: Experimental X coordinates
+        Y: Experimental Y coordinates
+        dIdV: Experimental dI/dV data
+        biases: Experimental bias voltages
+        start: Start point for experimental line
+        end: End point for experimental line
         ax: Matplotlib axis for plotting (required)
-        title_suffix: Optional suffix for plot title
+        title: Optional suffix for plot title
         pointPerAngstrom: Points per Angstrom for interpolation
         
     Returns:
         Tuple of (exp_didv, exp_distance) - interpolated data and distance array
     """
     # Create line coordinates for experiment
-    exp_x, exp_y, exp_distance = create_line_coordinates(
-        exp_start_point, exp_end_point, points_per_angstrom=pointPerAngstrom
-    )
-    exp_npoints = len(exp_x)
+    x, y, dist = create_line_coordinates( start, end, points_per_angstrom=pointPerAngstrom)
+    nps = len(x)
     
     # Interpolate experimental data
     print("Interpolating experimental data...")
     T0 = time.perf_counter()
-    exp_line_points = np.column_stack((exp_x, exp_y))
-    exp_didv = interpolate_3d_plane_fast(exp_X, exp_Y, exp_biases, exp_dIdV, exp_line_points)
+    points = np.column_stack((x, y))
+    dIdV = interpolate_3d_plane_fast(X, Y, biases, dIdV, points)
     print(f"Time for experimental interpolators: {time.perf_counter() - T0:.2f} seconds")
     
     # Plot experimental dI/dV if axis is provided
     if ax is not None:
         print("Creating experimental plot...")
-        vmax = np.max(np.abs(exp_didv))
+        vmax = np.max(np.abs(dIdV))
         vmin = -vmax
-        im = ax.imshow(exp_didv, aspect='auto', origin='lower', cmap='bwr',
-                       extent=[0, exp_distance[-1], exp_biases[0], exp_biases[-1]], 
-                       vmin=vmin, vmax=vmax, interpolation='nearest')
+        extent = [dist[0], dist[-1], biases[0], biases[-1]]
+        im = ax.imshow(dIdV, aspect='auto', origin='lower', cmap='bwr', extent=extent, vmin=vmin, vmax=vmax, interpolation='nearest')
+        # Ensure voltage axis spans from zero to max for comparison
+        if ylims is not None:
+            ax.set_ylim(ylims)
         title = 'Experimental dI/dV'
-        if title_suffix:
-            title += f' {title_suffix}'
+        if title:
+            title += f' {title}'
         ax.set_title(title)
         ax.set_xlabel('Distance (Å)')
         ax.set_ylabel('Bias Voltage (V)')
         # Return the image handle separately
-        return im, (exp_didv, exp_distance)
+        return im, (dIdV, dist)
     
-    return exp_didv, exp_distance
+    return dIdV, dist
 
 
 def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, params=None,

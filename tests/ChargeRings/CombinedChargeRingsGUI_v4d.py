@@ -314,7 +314,7 @@ class ApplicationWindow(GUITemplate):
         pauli_scan.plot_1d_scan_results( distance, Es, Ts, STM, nsite, ref_data_line, ref_columns )
         pauli_scan.save_1d_scan_data   ( params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
 
-    def plot_voltage_line_scan_exp(self, exp_start_point, exp_end_point, pointPerAngstrom=5):
+    def plot_voltage_line_scan_exp(self, start, end, pointPerAngstrom=5):
         """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
         params = self.get_param_values()
         
@@ -322,7 +322,7 @@ class ApplicationWindow(GUITemplate):
         sim_start = (params['p1_x'], params['p1_y'])
         sim_end   = (params['p2_x'], params['p2_y'])
         
-        print(f"Starting voltage line scan: Experiment: {exp_start_point} to {exp_end_point}, Simulation: {sim_start} to {sim_end}")
+        print(f"Starting voltage line scan: Experiment: {start} to {end}, Simulation: {sim_start} to {sim_end}")
         
         # Create new figure for displaying in a Qt window
         fig = Figure(figsize=(12, 5))
@@ -344,9 +344,8 @@ class ApplicationWindow(GUITemplate):
         
         # === Handle the experimental part (ep1,ep2) ===
         # Use the exp_utils function to process and plot experimental data
-        im2, (exp_didv, exp_distance) = exp_utils.plot_exp_voltage_line_scan( 
-            self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases,
-            exp_start_point, exp_end_point, ax=ax2,title_suffix='(ep1-ep2)', pointPerAngstrom=pointPerAngstrom
+        im2, (exp_didv, exp_distance) = exp_utils.plot_exp_voltage_line_scan(  
+            self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, start, end, ax=ax2,title='(ep1-ep2)', pointPerAngstrom=pointPerAngstrom, ylims=(0, Vbiases[-1])
         )
         fig.colorbar(im2, ax=ax2, label='dI/dV')
         
