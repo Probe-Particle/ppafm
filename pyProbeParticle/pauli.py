@@ -447,12 +447,15 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
     cpp_params = np.array([params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W']])
 
     # Multipole parameters
-    order = params.get('order', 1)
+    
     #cs = params.get('cs', np.array([1.0,0.,0.,0.]))
     if cs is None:
-        cs = np.array([ params['Q0'], 0.0, 0.0, params['Qzz']])
+        cs = np.array([ params['Q0'], 0.0, 0.0, 0.0,    0.0,params['Qzz'],0.0,0.0,0.0,0.0])
+        order = 2
     else:
         cs = np.array(cs)
+        order = params.get('order', 1)
+
 
     # State order
     state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
@@ -502,7 +505,8 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
 
     # Handle cs parameter
     if cs is None:
-        cs = np.array([ params['Q0'], 0.0, 0.0, params['Qzz']])
+        cs = np.array([ params['Q0'], 0.0, 0.0, 0.0,params['Qzz'],0.0,0.0,0.0,0.0,0.0])
+        order = 2
     else:
         cs = np.array(cs)
     

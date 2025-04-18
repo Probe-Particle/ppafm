@@ -196,13 +196,13 @@ def create_overlay_image(exp_data, sim_data, exp_extent, sim_extent):
     return rgb_image, sim_extent
 
 
-def plot_exp_voltage_line_scan(X, Y, dIdV, biases, start, end, ax=None, title='', ylims=None, pointPerAngstrom=5):
+def plot_exp_voltage_line_scan(X, Y, data, biases, start, end, ax=None, title='', ylims=None, pointPerAngstrom=5, cmap='bwr'):
     """Plot experimental dI/dV along a line scan for different voltages
     
     Args:
         X: Experimental X coordinates
         Y: Experimental Y coordinates
-        dIdV: Experimental dI/dV data
+        data: Experimental dI/dV data
         biases: Experimental bias voltages
         start: Start point for experimental line
         end: End point for experimental line
@@ -221,16 +221,20 @@ def plot_exp_voltage_line_scan(X, Y, dIdV, biases, start, end, ax=None, title=''
     print("Interpolating experimental data...")
     T0 = time.perf_counter()
     points = np.column_stack((x, y))
-    dIdV = interpolate_3d_plane_fast(X, Y, biases, dIdV, points)
+    data_1d = interpolate_3d_plane_fast(X, Y, biases, data, points)
     print(f"Time for experimental interpolators: {time.perf_counter() - T0:.2f} seconds")
     
     # Plot experimental dI/dV if axis is provided
     if ax is not None:
         print("Creating experimental plot...")
-        vmax = np.max(np.abs(dIdV))
-        vmin = -vmax
+        if cmap == 'bwr':
+            vmax = np.max(np.abs(data_1d))
+            vmin = -vmax
+        else:
+            vmax = None
+            vmin = None
         extent = [dist[0], dist[-1], biases[0], biases[-1]]
-        im = ax.imshow(dIdV, aspect='auto', origin='lower', cmap='bwr', extent=extent, vmin=vmin, vmax=vmax, interpolation='nearest')
+        im = ax.imshow(data_1d, aspect='auto', origin='lower', cmap=cmap, extent=extent, vmin=vmin, vmax=vmax, interpolation='nearest')
         # Ensure voltage axis spans from zero to max for comparison
         if ylims is not None:
             ax.set_ylim(ylims)
@@ -241,9 +245,9 @@ def plot_exp_voltage_line_scan(X, Y, dIdV, biases, start, end, ax=None, title=''
         ax.set_xlabel('Distance (Å)')
         ax.set_ylabel('Bias Voltage (V)')
         # Return the image handle separately
-        return im, (dIdV, dist)
+        return im, (data_1d, dist)
     
-    return dIdV, dist
+    return data_1d, dist
 
 
 def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, params=None,

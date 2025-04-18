@@ -26,7 +26,7 @@ def makeRotMats(phis, nsite=3 ):
     sa = np.sin(phis)
     rot[:,0,0] = ca
     rot[:,1,1] = ca
-    rot[:,0,1] = -sa
-    rot[:,1,0] = sa
+    rot[:,0,1] = sa
+    rot[:,1,0] = -sa
     rot[:,2,2] = 1.0
     return rot

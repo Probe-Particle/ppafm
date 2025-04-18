@@ -203,7 +203,10 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     L=params['L']; npix=params['npix']
     nsite=params['nsite']; z_tip=params['z_tip']
     spos,phis=ut.makeCircle(n=nsite,R=params['radius'],phi0=params['phiRot'])
-    angles=phis-np.pi*0.5+0.1
+    angles=phis+params['phi0_ax'] + np.pi*0.5
+    #print( "angles", angles)
+    rots = ut.makeRotMats(angles)
+    #print( "rots", rots)
     # big-to-small hopping computation
     #dcanv=params['L']/params['npix']
 
@@ -224,13 +227,13 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     
     T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     #bOmp = True
-    STM_flat, Es_flat, Ts_flat_ = pauli.run_pauli_scan_top(spos, ut.makeRotMats(phis + params['phiRot']), params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+    STM_flat, Es_flat, Ts_flat_ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     if ax_dIdV is not None:
         params_ = params.copy()
         dQ = params.get('dQ', 0.005)
         params_['VBias'] += dQ
-        STM_2, _, _ = pauli.run_pauli_scan_top(spos, ut.makeRotMats(phis + params['phiRot']), params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+        STM_2, _, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
         dIdV = (STM_2 - STM_flat) / dQ
 
     T3 = time.perf_counter(); print("Time(scan_xy_orb.3 pauli.run_pauli_scan)",  T3-T2 )
@@ -264,7 +267,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
 
     T4 = time.perf_counter(); print("Time(scan_xy_orb.4 plotting)",  T4-T3 )        
     
-    return STM, Es, Ts
+    return STM, Es, Ts, spos, rots
 
 def run_scan_xy_orb( params, orbital_file="QD.cub" ):
     print("Testing scan_xy_orb with real orbital data...")        
@@ -519,8 +522,8 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5):
 
     Vtips = np.full(npoints, params['VBias'])
     cpp_params = np.array([ params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W'] ])
-    order = params.get('order', 1)
-    cs = params.get('cs', np.array([1.0, 0.0, 0.0, 0.0]))
+    order = 2
+    cs = params.get('cs', np.array([ params['Q0'], 0.0, 0.0, 0.0,    0.0,params['Qzz'],0.0,0.0,0.0,0.0]))
     state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
 
     # Run scan
