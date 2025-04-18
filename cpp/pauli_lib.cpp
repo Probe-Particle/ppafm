@@ -14,9 +14,10 @@ double EW_cut   = 2.0;
 
 extern "C" {
 
-
-void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs ) {
-    evalSitesTipsMultipoleMirror( nTip, (Vec3d*)pTips, VBias, nSites, (Vec3d*)pSite, (Mat3d*)rotSite, E0, Rtip, zV0, order, cs, outEs );
+// C wrapper: include zV1 and build Vec2d
+void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, double zVd, int order, const double* cs, double* outEs ) {
+    Vec2d zV{zV0,zVd};
+    evalSitesTipsMultipoleMirror( nTip, (Vec3d*)pTips, VBias, nSites, (Vec3d*)pSite, (Mat3d*)rotSite, E0, Rtip, zV, order, cs, outEs );
 }
 
 void evalSitesTipsTunneling( int nTips, const double* pTips, int nSites, const double* pSites, double beta, double Amp, double* outTs ){
@@ -179,7 +180,6 @@ void solve_batch(
     // But using the copy constructor like above is usually better if possible.
 }
 
-
 double scan_current_manual_threads( PauliSolver* solver, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current) {
 
     int nSingle = solver->nSingle;
@@ -331,13 +331,13 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
     //}
     // Extract parameters
     double Rtip  = params[0];
-    double zV0   = params[1];
-    double E0    = params[2];
-    double beta  = params[3];
-    double Gamma = params[4];
-    double W     = params[5];
-    //printf("scan_current_tip() Rtip: %6.3e zV0: %6.3e Esite: %6.3e beta: %6.3e Gamma: %6.3e W: %6.3e \n", Rtip, zV0, Esite, beta, Gamma, W );
-    //printf("scan_current_tip() Rtip: nTip: %d nSites: %d E0: %6.3e Rtip: %6.3e VBias[0,-1](%6.3e,%6.3e) pTip.z[0,-1](%6.3e,%6.3e) zV0: %6.3e order: %d cs:[ %6.3e, %6.3e, %6.3e, %6.3e ]\n", npoints, nSites, E0, Rtip, Vtips[0], Vtips[npoints-1], pTips[0].z, pTips[npoints-1].z, zV0, order, cs[0], cs[1], cs[2], cs[3] );
+    Vec2d zV{params[1],params[2]};
+    double E0    = params[3];
+    double beta  = params[4];
+    double Gamma = params[5];
+    double W     = params[6];
+    //printf("scan_current_tip() Rtip: %6.3e zV0: %6.3e zV1: %6.3e Esite: %6.3e beta: %6.3e Gamma: %6.3e W: %6.3e \n", Rtip, zV0, zV1, Esite, beta, Gamma, W );
+    //printf("scan_current_tip() Rtip: nTip: %d nSites: %d E0: %6.3e Rtip: %6.3e VBias[0,-1](%6.3e,%6.3e) pTip.z[0,-1](%6.3e,%6.3e) zV0: %6.3e zV1: %6.3e order: %d cs:[ %6.3e, %6.3e, %6.3e, %6.3e ]\n", npoints, nSites, E0, Rtip, Vtips[0], Vtips[npoints-1], pTips[0].z, pTips[npoints-1].z, zV0, zV1, order, cs[0], cs[1], cs[2], cs[3] );
     // Initialize local solver
     //PauliSolver solver_local(*solver);
     int nleads = 2;
@@ -367,7 +367,7 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
         solver->leads[1].mu = VBias;
         for (int j = 0; j < nSites; j++) {
             Mat3d* rot = ( rots ) ? ( rots + j ) : nullptr;
-            double Ei = evalMultipoleMirror( tipPos, pSites[j], VBias, Rtip, zV0, order, cs, E0, rot );
+            double Ei = evalMultipoleMirror( tipPos, pSites[j], VBias, Rtip, zV, order, cs, E0, rot );
 
             hsingle[j*nSites + j] = Ei;
             if( Es ) { Es[i*nSites + j] = Ei; }
@@ -441,11 +441,11 @@ double scan_current_tip_threaded_2( PauliSolver* solver, int npoints, Vec3d* pTi
 
     // Extract parameters
     double Rtip  = params[0];
-    double zV0   = params[1];
-    double E0    = params[2];
-    double beta  = params[3];
-    double Gamma = params[4];
-    double W     = params[5];
+    Vec2d zV{params[1],params[2]};
+    double E0    = params[3];
+    double beta  = params[4];
+    double Gamma = params[5];
+    double W     = params[6];
 
     int nleads = 2;
     std::vector<double> base_lead_mu(nleads);
@@ -465,7 +465,7 @@ double scan_current_tip_threaded_2( PauliSolver* solver, int npoints, Vec3d* pTi
         Vec3d tipPos = pTips[i];
         for (int j = 0; j < nSites; j++) {
             Mat3d* rot = ( rots ) ? ( rots + j ) : nullptr;
-            double Ei = evalMultipoleMirror( tipPos, pSites[j], Vtips[i], Rtip, zV0, order, cs, E0, rot );
+            double Ei = evalMultipoleMirror( tipPos, pSites[j], Vtips[i], Rtip, zV, order, cs, E0, rot );
             hsingles[i*nSites*nSites + j*nSites + j] = Ei;
             if( Es ) { Es[i*nSites + j] = Ei; }
 

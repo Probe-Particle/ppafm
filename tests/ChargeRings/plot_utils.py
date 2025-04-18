@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_imshow( ax, data, title=None, extent=None, spos=None, cmap=None, vmin=None, vmax=None, xlabel="x [Å]", ylabel="y [Å]", bGrid=False, **kwargs):
+def plot_imshow( ax, data, title=None, extent=None, spos=None, cmap=None, vmin=None, vmax=None, xlabel="x [Å]", ylabel="y [Å]", bGrid=False, scV=1.0, **kwargs):
     if cmap is 'bwr':
         if vmin is None or vmax is None:
-            vmax = np.max(np.abs(data))
+            vmax = np.max(np.abs(data))*scV
             vmin = -vmax
     ax.clear()
     ax.imshow(data, extent=extent, cmap=cmap, origin='lower', vmin=vmin, vmax=vmax, **kwargs)

@@ -116,11 +116,12 @@ def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0]], beta=1.0, Amp=1.0, ou
     return outTs
 
 # void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs ) {
-lib.evalSitesTipsMultipoleMirror.argtypes = [c_int, c_double_p,  c_double_p, c_int, c_double_p, c_double_p,  c_double, c_double, c_double, c_int, c_double_p, c_double_p]
+lib.evalSitesTipsMultipoleMirror.argtypes = [c_int, c_double_p,  c_double_p, c_int, c_double_p, c_double_p,  c_double, c_double, c_double, c_double, c_int, c_double_p, c_double_p]
 lib.evalSitesTipsMultipoleMirror.restype = None
-def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0]], VBias=1.0, Rtip=1.0, zV0=-2.0, order=1, cs=[1.0,0.0,0.0,0.0], E0=0.0, rotSite=None, Eout=None, bMakeArrays=True ):
+def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0]], VBias=1.0, Rtip=1.0, zV0=-2.0, zVd=2.0, order=1, cs=[1.0,0.0,0.0,0.0], E0=0.0, rotSite=None, Eout=None, bMakeArrays=True ):
     nTip  = len(pTips)
     nSite = len(pSites)
+
     if bMakeArrays:
         pSites = np.ascontiguousarray(pSites, dtype=np.float64)
         pTips  = np.ascontiguousarray(pTips,  dtype=np.float64)
@@ -129,7 +130,7 @@ def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0]], VBias=1.0, Rtip
             VBias = np.full(nTip, VBias, dtype=np.float64)
     if Eout is None:
         Eout = np.zeros((nTip, nSite), dtype=np.float64)
-    lib.evalSitesTipsMultipoleMirror(nTip, _np_as(pTips, c_double_p), _np_as(VBias, c_double_p), nSite, _np_as(pSites, c_double_p), _np_as(rotSite, c_double_p), E0, Rtip, zV0, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p))
+    lib.evalSitesTipsMultipoleMirror(nTip, _np_as(pTips, c_double_p), _np_as(VBias, c_double_p), nSite, _np_as(pSites, c_double_p), _np_as(rotSite, c_double_p), E0, Rtip, zV0, zVd, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p))
     return Eout
 
 # def compute_site_energies( pTips, pSites, VBias, cs, E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
@@ -443,7 +444,7 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
 
     # C++ parameters array [Rtip, zV0, Esite, beta, Gamma, W]
     # Using GammaT for Gamma, assuming it's the relevant coupling
-    cpp_params = np.array([params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W']])
+    cpp_params = np.array([params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W']])
 
     # Multipole parameters
     order = params.get('order', 1)
@@ -458,7 +459,7 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
 
     # --- Run scan ---
     #print("Running scan...")
-    STM, Es, Ts = pauli_solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts )
+    STM, Es, Ts = pauli_solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts)
 
     STM = STM.reshape(npix, npix)
     Es  = Es.reshape(npix, npix, nsite)
@@ -496,8 +497,9 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
         state_order = np.array(state_order, dtype=np.int32)
     
     # Prepare C++ params array [Rtip, zV0, Esite, beta, Gamma, W]
-    cpp_params = np.array([params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W']])
-    
+    # Using GammaT for Gamma, assuming it's the relevant coupling
+    cpp_params = np.array([params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W']])
+
     # Handle cs parameter
     if cs is None:
         cs = np.array([ params['Q0'], 0.0, 0.0, params['Qzz']])

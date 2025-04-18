@@ -12,7 +12,7 @@ import time
 
 import orbital_utils
 
-def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, bLegend=True):
+def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, bLegend=True, scV=1.5):
     """
     Scan voltage dependence above one particle
     
@@ -28,6 +28,7 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     z_tip = params['z_tip']
     zT    = z_tip + params['Rtip']
     zV0   = params['zV0']
+    zVd   = params['zVd']
     zQd   = 0.0
     VBias = params['VBias']
     Rtip  = params['Rtip']
@@ -56,7 +57,7 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     # Plotting if axes provided
     if ax_V2d is not None:
         # 1D Potential calculations
-        V1d = pauli.evalSitesTipsMultipoleMirror(pTips_1d, pSites=np.array([[0.0,0.0,zQd]]), VBias=VBias, E0=Esite, Rtip=Rtip, zV0=zV0)[:,0]
+        V1d = pauli.evalSitesTipsMultipoleMirror(pTips_1d, pSites=np.array([[0.0,0.0,zQd]]), VBias=VBias, E0=Esite, Rtip=Rtip, zV0=zV0, zVd=zVd)[:,0]
         V1d_ = V1d - Esite
         
         # 2D Potential calculations
@@ -83,11 +84,10 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
         V1d  = None
         V1d_ = None
 
-    
     if ax_Vtip is not None:
         Vtip   = pauli.evalSitesTipsMultipoleMirror(ps_xz, pSites=np.array([[0.0, 0.0, zT]]),   VBias=VBias, Rtip=Rtip, zV0=zV0)[:,0].reshape(nV, nx)
         extent_xz = [-L, L, -L, L]
-        pu.plot_imshow(ax_Vtip, Vtip, title="Tip Potential", extent=extent_xz, cmap='bwr', vmin=-VBias, vmax=VBias)
+        pu.plot_imshow(ax_Vtip, Vtip, title="Tip Potential", extent=extent_xz, cmap='bwr', vmin=-VBias*scV, vmax=VBias*scV)
         circ1, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, zT))
         circ2, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, 2*zV0-zT))
         ax_Vtip.plot(circ1[:,0], circ1[:,2], ':k')
@@ -100,7 +100,7 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     
     if ax_Esite is not None:
         Esites = pauli.evalSitesTipsMultipoleMirror(ps_xz, pSites=np.array([[0.0, 0.0, zQd]]), VBias=VBias, Rtip=Rtip, zV0=zV0)[:,0].reshape(nV, nx)
-        pu.plot_imshow(ax_Esite, Esites, title="Site Potential", extent=extent_xz, cmap='bwr', vmin=-VBias, vmax=VBias)
+        pu.plot_imshow(ax_Esite, Esites, title="Site Potential", extent=extent_xz, cmap='bwr', vmin=-VBias*scV, vmax=VBias*scV)
         ax_Esite.axhline(zV0, ls='--', c='k', label='mirror surface')
         ax_Esite.axhline(zQd, ls='--', c='g', label='Qdot height')
         ax_Esite.legend()
@@ -109,7 +109,7 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     
     return V1d, V2d, Vtip, Esites
 
-def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None, bOmp=False):
+def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None, bOmp=False, sdIdV=0.5):
     """
     Scan tip position in x,y plane for constant Vbias
     
@@ -148,7 +148,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies  (max)",  extent=extent, cmap='bwr')
     if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling (max)",  extent=extent, cmap='hot')
     if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",              extent=extent, cmap='hot')
-    if ax_dIdV is not None: pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",            extent=extent, cmap='bwr')
+    if ax_dIdV is not None: pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",            extent=extent, cmap='bwr', scV=sdIdV)
     
     return STM, Es, Ts
 
@@ -177,7 +177,7 @@ def generate_central_hops(orb2D, orb_lvec, spos_xy, angles, z0, dcanv, big_npix,
     rho_small=cut_central_region([rho_big],dcanv,big_npix,small_npix)[0]
     return Ms_small, rho_small
 
-def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0):
+def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
     computed by convolution of orbitals on canvas
@@ -256,7 +256,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",                    extent=extent, cmap='hot')
     if ax_dIdV is not None:
         dIdV = dIdV.reshape(npix, npix)
-        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap='bwr')
+        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap='bwr', scV=sdIdV)
     if ax_Ms   is not None and Ms is not None: 
         for i in range(nsite):
             ax_Ms[i].imshow(Ms[i], cmap='bwr', origin='lower', extent=extent)
@@ -355,7 +355,7 @@ def scan_param_sweep(params, scan_params, selected_params=None, nx=100, nV=100, 
     plt.tight_layout()
     return fig
 
-def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2D=None, orbital_lvec=None, orbital_file=None, pauli_solver=None, bOmp=False, Tmin=0.0, EW=2.0, fig=None):
+def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2D=None, orbital_lvec=None, orbital_file=None, pauli_solver=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, fig=None):
     """
     Scan parameter values while keeping tip position fixed, precomputing hopping maps once.
     Generates nscan+1 columns of plots with specified layout.
@@ -428,8 +428,6 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     #canvas_dd = np.array([dCanv, dCanv])
     extent = [-L, L, -L, L]
     
-
-
     # Create solver if not provided
     if pauli_solver is None:
         pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
@@ -492,7 +490,7 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
         
         pu.plot_imshow(ax_Etot, Etot, title=title+"\nEnergies max(eps)", extent=extent, cmap='bwr'); #ax_Etot.set_aspect('auto')
         pu.plot_imshow(ax_STM,  STM,  title="STM",                       extent=extent, cmap='hot'); #ax_STM.set_aspect('auto')
-        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",                     extent=extent, cmap='bwr'); #ax_dIdV.set_aspect('auto')
+        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",                     extent=extent, cmap='bwr', scV=sdIdV); #ax_dIdV.set_aspect('auto')
     
     plt.tight_layout()
     return fig
@@ -520,7 +518,7 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5):
     rots = ut.makeRotMats(phis + params['phiRot'])
 
     Vtips = np.full(npoints, params['VBias'])
-    cpp_params = np.array([ params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W'] ])
+    cpp_params = np.array([ params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W'] ])
     order = params.get('order', 1)
     cs = params.get('cs', np.array([1.0, 0.0, 0.0, 0.0]))
     state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
@@ -591,7 +589,7 @@ def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2
     print(f"Data saved to {filename}")
     return filename
     
-def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True):
+def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5):
     """Scan tip along a line for a range of voltages and plot Emax, STM, dI/dV."""
     print("calculate_xV_scan()", start_point, end_point,  )
     # Line geometry
@@ -639,7 +637,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
         ax_STM.set_aspect('auto')
         if bLegend: ax_STM.set_ylabel('V [V]')
     if ax_dIdV is not None:
-        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr')
+        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', scV=sdIdV)
         ax_dIdV.set_aspect('auto')
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
@@ -662,6 +660,7 @@ if __name__ == "__main__":
         'GammaS': 0.01, 'GammaT': 0.01, 'Temp': 0.224, 'onSiteCoulomb': 3.0,
         #'zV0': -10.0, 'zQd': 0.0,
         'zV0': -3.3, 'zQd': 0.0,
+        'zVd': 2.0,
         'nsite': 3, 'radius': 5.2, 
         'phiRot': np.pi*0.5 + 0.2 ,
         'Esite': -0.04, 'Q0': 1.0, 'Qzz': 0.0,
