@@ -34,7 +34,7 @@ class ApplicationWindow(GUITemplate):
         self.param_specs = {
             # Tip Parameters
             'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 10.0),   'value': 0.2, 'step': 0.1},
-            'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 10.0),   'value': 2.5, 'step': 0.5},
+            'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 10.0),   'value': 10.5, 'step': 0.5},
             'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 20.0),   'value': 2.0, 'step': 0.5},
             
             # System Parameters
@@ -59,7 +59,7 @@ class ApplicationWindow(GUITemplate):
             'phi0_ax':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (-3.14, 3.14), 'value': 0.2, 'step': 0.1},
             
             # Site Properties
-            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.04,'step': 0.002, 'decimals': 3},
+            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.20,'step': 0.002, 'decimals': 3},
             'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
             'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 0.0, 'step': 0.5},
             
@@ -83,10 +83,10 @@ class ApplicationWindow(GUITemplate):
             
             # Experimental Data
             'exp_slice':     {'group': 'Experimental Data', 'widget': 'int',    'range': (0, 13),     'value': 8,    'step': 1},
-            'ep1_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5},
-            'ep1_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  15.0, 'step': 0.5},
-            'ep2_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5},
-            'ep2_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -6.96, 'step': 0.5},
+            'ep1_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5},
+            'ep1_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -6.96, 'step': 0.5},
+            'ep2_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5},
+            'ep2_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  15.0, 'step': 0.5},
         }
         
         self.create_gui()
@@ -343,16 +343,11 @@ class ApplicationWindow(GUITemplate):
         fig.colorbar(im1, ax=ax1, label='Charge')
         
         # === Handle the experimental part (ep1,ep2) ===
-        # Use the exp_utils function to process and plot experimental data
         im2, (exp_didv, exp_distance) = exp_utils.plot_exp_voltage_line_scan(  
             self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, start, end, ax=ax2,title='(ep1-ep2)', pointPerAngstrom=pointPerAngstrom, ylims=(0, Vbiases[-1])
         )
         fig.colorbar(im2, ax=ax2, label='dI/dV')
-        
-        # Adjust layout
         fig.tight_layout()
-        
-        # Draw the canvas before showing
         canvas.draw()
         
         # Create a new window to display the plot
