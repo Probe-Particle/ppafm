@@ -174,6 +174,10 @@ class ApplicationWindow(GUITemplate):
         self.cbUseOrbital.stateChanged.connect(self.run)
         self.layout0.addWidget(self.cbShowProbs)
         
+        # define ordering and binary labels for many-body states
+        self.state_order  = np.array([0,4,2,6,1,5,3,7])
+        self.state_labels = [bin(s)[2:].zfill(3) for s in self.state_order]
+        
         # Connect mouse events
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
@@ -375,7 +379,7 @@ class ApplicationWindow(GUITemplate):
         pauli_scan.save_1d_scan_data   ( params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
         # Plot probabilities if requested
         if self.cbShowProbs.isChecked():
-            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,distance,0,0.6])
+            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,distance,0,0.6], labels=self.state_labels)
 
     def plot_voltage_line_scan_exp(self, start, end, pointPerAngstrom=5):
         """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
@@ -422,7 +426,7 @@ class ApplicationWindow(GUITemplate):
         self._exp_voltage_scan_window = window
         # Plot probabilities if requested
         if self.cbShowProbs.isChecked():
-            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,dist,0,Vbiases[-1]])
+            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,dist,0,Vbiases[-1]], labels=self.state_labels)
 
     def draw_scan_line(self, ax):
         """Draw line between p1 and p2 points in the Energies panel"""
@@ -503,7 +507,7 @@ class ApplicationWindow(GUITemplate):
         self._sim_voltage_scan_window = window
         # Plot probabilities if requested
         if self.cbShowProbs.isChecked():
-            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,0.6,0,0.6])
+            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,0.6,0,0.6], labels=self.state_labels)
 
     def on_mouse_press(self, event):
         """Handle mouse button press event"""

@@ -630,9 +630,8 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     zT = params['z_tip'] + params['Rtip']
     pTips[:,2] = zT
     
-    state_order = np.array( [0,4,2,6,1,5,3,7] )
+    state_order = np.array([0, 4,2,6, 1,5,3, 7], dtype=np.int32)
     current, Es, Ts, probs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  params, rots=rots, order=1, cs=None, bOmp=False, state_order=state_order, Ts=None )
-
     # reshape
     STM = current.reshape(nV,npts)
     Es  = Es.reshape(nV,npts,nsite)
@@ -733,12 +732,13 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs_probs, fig=fig_probs)
     return x, Vbiases, Emax, STM, dIdV, probs_arr
 
-def plot_state_probabilities(probs_arr, extent, axs=None, fig=None):
+def plot_state_probabilities(probs_arr, extent, axs=None, fig=None, labels=None):
     if axs is None and fig is None:
         fig, axs = plt.subplots(2, probs_arr.shape[2]//2)
     axs = axs.flatten()
     for i in range(probs_arr.shape[2]):
-        ax = pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=extent, cmap='viridis')
+        title = labels[i] if labels is not None else f"P{i}"
+        ax = pu.plot_imshow(axs[i], probs_arr[:,:,i], title=title, extent=extent, cmap='viridis')
         ax.set_aspect('auto')
     return fig, axs
 
