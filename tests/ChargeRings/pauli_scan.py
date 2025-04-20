@@ -13,7 +13,7 @@ import time
 import orbital_utils
 from scipy.interpolate import RectBivariateSpline
 
-def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, bLegend=True, scV=1.5):
+def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, bLegend=True, scV=1.5, axs_probs=None, fig_probs=None):
     """
     Scan voltage dependence above one particle
     
@@ -48,13 +48,16 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
         X_xz, Z_xz = np.meshgrid(x_xz, z_xz)
         ps_xz = np.array([X_xz.flatten(), np.zeros_like(X_xz.flatten()), Z_xz.flatten()]).T
     
-    # Current calculations if I2d axis provided
-    if ax_I2d is not None:
+    # Compute probabilities if requested
+    probs_arr = None
+    if ax_I2d is not None or axs_probs is not None or fig_probs is not None:
         pSite = np.array([[0.0, 0.0, zQd]])
-        current, _, _,  probs = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSite, params)
-        pu.plot_imshow(ax_I2d, current, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
-        ax_I2d.set_aspect('auto')
-        
+        current, _, _, probs = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSite, params)
+        probs_arr = probs.reshape(nV, nx, -1)
+        if ax_I2d is not None:
+            pu.plot_imshow(ax_I2d, current, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
+            ax_I2d.set_aspect('auto')
+    
     # Plotting if axes provided
     if ax_V2d is not None:
         # 1D Potential calculations
@@ -108,9 +111,15 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     else:
         Esites = None
     
-    return V1d, V2d, Vtip, Esites
+    # optional: plot state probabilities
+    if probs_arr is not None and (axs_probs or fig_probs):
+        nStates = probs_arr.shape[2]
+        axs = axs_probs or (fig_probs or plt.figure()).subplots(2,nStates//2).flatten()
+        for i in range(nStates): pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=[-L,L,0,VBias], cmap='viridis')
+    
+    return V1d, V2d, Vtip, Esites, probs_arr
 
-def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None, bOmp=False, sdIdV=0.5):
+def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None, bOmp=False, sdIdV=0.5, axs_probs=None, fig_probs=None):
     """
     Scan tip position in x,y plane for constant Vbias
     
@@ -151,21 +160,19 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",              extent=extent, cmap='hot')
     if ax_dIdV is not None: pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",            extent=extent, cmap='bwr', scV=sdIdV)
     
-    return STM, Es, Ts
+    probs_arr = probs.reshape(params['npix'], params['npix'], -1)
+    return STM, Es, Ts, probs_arr, spos, rots
 
-# Helpers: crop central region and index/coordinate transforms
 def cut_central_region(map_list, dcanv, big_npix, small_npix):
     """Crop central small_npix×small_npix from big_npix maps with pixel size dcanv"""
-    # pixel size shared, so just index crop
-    center=big_npix//2; half=small_npix//2
-    start=center-half; end=start+small_npix
+    center=big_npix//2; half=small_npix//2; start=center-half; end=start+small_npix
     return [m[start:end, start:end] for m in map_list]
 
-def pixel_to_coord(i,j,dcanv,npix): 
+def pixel_to_coord(i,j,dcanv,npix):
     """Map pixel idx to coord centered at 0"""
     return ((i+0.5-npix/2)*dcanv, (j+0.5-npix/2)*dcanv)
 
-def coord_to_pixel(x,y,dcanv,npix): 
+def coord_to_pixel(x,y,dcanv,npix):
     """Map coord to nearest pixel idx"""
     return (int(x/dcanv + npix/2), int(y/dcanv + npix/2))
 
@@ -178,7 +185,7 @@ def generate_central_hops(orb2D, orb_lvec, spos_xy, angles, z0, dcanv, big_npix,
     rho_small=cut_central_region([rho_big],dcanv,big_npix,small_npix)[0]
     return Ms_small, rho_small
 
-def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5):
+def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, axs_probs=None, fig_probs=None):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
     computed by convolution of orbitals on canvas
@@ -266,9 +273,10 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
             ax_Ms[i].imshow(Ms[i], cmap='bwr', origin='lower', extent=extent)
             ax_Ms[i].set_title(f"Hopping matrix {i}")
 
+    probs_arr = probs.reshape(npix, npix, -1)
     T4 = time.perf_counter(); print("Time(scan_xy_orb.4 plotting)",  T4-T3 )        
     
-    return STM, Es, Ts, spos, rots
+    return STM, Es, Ts, probs_arr, spos, rots
 
 def run_scan_xy_orb( params, orbital_file="QD.cub" ):
     print("Testing scan_xy_orb with real orbital data...")        
@@ -499,7 +507,7 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     plt.tight_layout()
     return fig
 
-def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5):
+def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, axs_probs=None, fig_probs=None):
     """Calculate 1D scan between two points using run_pauli_scan"""
     x1, y1 = start_point
     x2, y2 = end_point
@@ -529,8 +537,13 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5):
 
     # Run scan
     solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
-    current, Es, Ts, probs = solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
-    return distance, Es, Ts, current, x, y, x1, y1, x2, y2
+    current, Es, Ts, probs = solver.scan_current_tip( pTips, Vtips, spos,  cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
+    probs_arr = probs.reshape(len(current), -1)
+    if axs_probs or fig_probs:
+        axp = axs_probs or (fig_probs or plt.figure()).subplots()
+        for i in range(probs_arr.shape[1]): axp.plot(distance, probs_arr[:,i], label=f"P{i}")
+        axp.legend()
+    return distance, Es, Ts, current, x, y, x1, y1, x2, y2, probs_arr
 
 def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_columns=None):
     """Plot results of 1D scan"""
@@ -593,7 +606,7 @@ def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2
     print(f"Data saved to {filename}")
     return filename
     
-def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5):
+def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5, axs_probs=None, fig_probs=None):
     """Scan tip along a line for a range of voltages and plot Emax, STM, dI/dV."""
     print("calculate_xV_scan()", start_point, end_point,  )
     # Line geometry
@@ -645,10 +658,14 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
         ax_dIdV.set_aspect('auto');
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
+    probs_arr = probs.reshape(nV, nx, -1)
+    if axs_probs or fig_probs:
+        axs = axs_probs or (fig_probs or plt.figure()).subplots(2, probs_arr.shape[2]//2).flatten()
+        for i in range(probs_arr.shape[2]): pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=[0,dist,Vmin,Vmax], cmap='viridis')
     print("calculate_xV_scan() DONE")
-    return x, Vbiases, Emax, STM, dIdV
+    return x, Vbiases, Emax, STM, dIdV, probs_arr
 
-def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None):
+def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, axs_probs=None, fig_probs=None):
     """Scan voltage dependence along a line using orbital-based hopping Ts"""
     # Line geometry
     x1, y1 = start_point; x2, y2 = end_point
@@ -714,7 +731,11 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         ax_dIdV.set_aspect('auto');
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
-    return x, Vbiases, Emax, STM, dIdV
+    probs_arr = probs.reshape(nV, nx, -1)
+    if axs_probs or fig_probs:
+        axs = axs_probs or (fig_probs or plt.figure()).subplots(2, probs_arr.shape[2]//2).flatten()
+        for i in range(probs_arr.shape[2]): pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=[0,dist,Vmin,Vmax], cmap='viridis')
+    return x, Vbiases, Emax, STM, dIdV, probs_arr
 
 if __name__ == "__main__":
     # Example usage when run as standalone script - using same defaults as GUI

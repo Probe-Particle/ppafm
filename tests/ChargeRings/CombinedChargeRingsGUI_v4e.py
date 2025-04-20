@@ -104,6 +104,7 @@ class ApplicationWindow(GUITemplate):
         # Load experimental data
         self.load_experimental_data()
         
+
         # Setup matplotlib figure with 3x3 layout
         self.fig = Figure(figsize=(15, 15))
         self.canvas = FigureCanvas(self.fig)
@@ -167,6 +168,11 @@ class ApplicationWindow(GUITemplate):
         self.load_orbital_file()
         orbital_layout.addWidget(self.cbUseOrbital)
         self.cbUseOrbital.stateChanged.connect(self.run)
+
+        # Checkbox to show many-body probabilities
+        self.cbShowProbs = QtWidgets.QCheckBox('Show state probabilities'); 
+        self.cbUseOrbital.stateChanged.connect(self.run)
+        self.layout0.addWidget(self.cbShowProbs)
         
         # Connect mouse events
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
@@ -333,16 +339,19 @@ class ApplicationWindow(GUITemplate):
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla() 
         self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
         # Run scans with descriptive axis names
-        pauli_scan.scan_xV(params,                    ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3)  # ax1=Esite(x,V), ax2=Vtip, ax3=Esite
-        if self.cbUseOrbital.isChecked():
-            orbital_2D=self.orbital_2D
-            orbital_lvec=self.orbital_lvec
+        if self.cbShowProbs.isChecked():
+            figp1 = plt.figure(); axs1 = figp1.subplots(1,1)
+            pauli_scan.scan_xV(params, ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3, axs_probs=axs1, fig_probs=figp1)
+            figp1.show()
         else:
-            orbital_2D=None
-            orbital_lvec=None
-        STM, Es, Ts, spos, rots = pauli_scan.scan_xy_orb(params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6)    
-        #else:
-        #    pauli_scan.scan_xy(params, self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6)
+            pauli_scan.scan_xV(params, ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3)
+        # 2D spatial scan with optional many-body probability panels
+        if self.cbShowProbs.isChecked():
+            figp2 = plt.figure(); axs2 = figp2.subplots(2,4).flatten()
+            STM, Es, Ts, probs_arr, spos, rots = pauli_scan.scan_xy_orb(params, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, pauli_solver=self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, axs_probs=axs2, fig_probs=figp2)
+            figp2.show()
+        else:
+            STM, Es, Ts, _, spos, rots = pauli_scan.scan_xy_orb(params, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, pauli_solver=self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6)
         self.draw_scan_line(self.ax4)
         self.draw_reference_line(self.ax4)
         self.plot_ellipses(self.ax9, params)
@@ -358,12 +367,17 @@ class ApplicationWindow(GUITemplate):
     
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
         params = self.get_param_values()
-        distance, Es, Ts, STM, x, y, x1, y1, x2, y2 = pauli_scan.calculate_1d_scan(  params, start_point, end_point, pointPerAngstrom )
+        distance, Es, Ts, STM, x, y, x1, y1, x2, y2, probs_arr = pauli_scan.calculate_1d_scan(params, start_point, end_point, pointPerAngstrom)
         nsite = int(params['nsite'])
         ref_data_line = getattr(self, 'ref_data_line', None)
         ref_columns   = getattr(self, 'ref_columns', None)
         pauli_scan.plot_1d_scan_results( distance, Es, Ts, STM, nsite, ref_data_line, ref_columns )
         pauli_scan.save_1d_scan_data   ( params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
+        # Plot probabilities if requested
+        if self.cbShowProbs.isChecked():
+            figp = plt.figure(); axp = figp.subplots()
+            for i in range(probs_arr.shape[1]): axp.plot(distance, probs_arr[:,i], label=f"P{i}")
+            axp.legend(); figp.show()
 
     def plot_voltage_line_scan_exp(self, start, end, pointPerAngstrom=5):
         """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
@@ -384,9 +398,9 @@ class ApplicationWindow(GUITemplate):
         sim_npoints = max(100, int(dist * pointPerAngstrom))
         Vbiases = self.exp_biases
         if self.cbUseOrbital.isChecked():  # orbital-based Ts
-            x, _, _, STM, sim_dIdV = pauli_scan.calculate_xV_scan_orb(params, sim_start, sim_end, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1], bLegend=False)
+            x, _, _, STM, sim_dIdV, probs_arr = pauli_scan.calculate_xV_scan_orb(params, sim_start, sim_end, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1], bLegend=False)
         else:
-            x, _, _, STM, sim_dIdV = pauli_scan.calculate_xV_scan(params, sim_start, sim_end, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1], bLegend=False)
+            x, _, _, STM, sim_dIdV, probs_arr = pauli_scan.calculate_xV_scan(params, sim_start, sim_end, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1], bLegend=False)
         extent_sim = [0, dist, 0, Vbiases[-1]]
         im1 = ax_sim_I.imshow(STM, aspect='auto', origin='lower', extent=extent_sim, cmap='hot')
         ax_sim_I.axhline( Vbiases[0], ls='--', c='g')
@@ -408,6 +422,15 @@ class ApplicationWindow(GUITemplate):
         window.resize(1200, 800)
         window.show()
         self._exp_voltage_scan_window = window
+        # Plot probabilities if requested
+        if self.cbShowProbs.isChecked():
+            figp = plt.figure(figsize=(10, 10)); 
+            nS = probs_arr.shape[2]; 
+            axs = figp.subplots( (nS+1)//2, 2 ).flatten()
+            for i in range(nS): 
+                ax=pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=[0,dist,0,Vbiases[-1]], cmap='viridis')
+                ax.set_aspect('auto')
+            figp.show()
 
     def draw_scan_line(self, ax):
         """Draw line between p1 and p2 points in the Energies panel"""
@@ -468,9 +491,9 @@ class ApplicationWindow(GUITemplate):
         #axI = fig.add_subplot(144)
         # Perform scan
         if self.cbUseOrbital.isChecked():  # orbital-based Ts
-            x, V, Emax, STM, dIdV = pauli_scan.calculate_xV_scan_orb(params, start, end, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, nx=100, nV=100, Vmin=0.0, Vmax=0.6)
+            x, V, Emax, STM, dIdV, probs_arr = pauli_scan.calculate_xV_scan_orb(params, start, end, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, nx=100, nV=100, Vmin=0.0, Vmax=0.6)
         else:
-            x, V, Emax, STM, dIdV = pauli_scan.calculate_xV_scan(params, start, end, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, nx=100, nV=100, Vmin=0.0, Vmax=0.6)
+            x, V, Emax, STM, dIdV, probs_arr = pauli_scan.calculate_xV_scan(params, start, end, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, nx=100, nV=100, Vmin=0.0, Vmax=0.6)
         #pointPerAngstrom=5
         #distance, Es, Ts, STM_1d, x_1d, y, x1, y1, x2, y2 = pauli_scan.calculate_1d_scan(  params, start, end, pointPerAngstrom )
         #axI.plot( x, STM[-1,:], 'r-', label='I[-1]' )
@@ -486,6 +509,15 @@ class ApplicationWindow(GUITemplate):
         window.show()
         # Keep reference to prevent garbage collection
         self._sim_voltage_scan_window = window
+        # Plot probabilities if requested
+        if self.cbShowProbs.isChecked():
+            figp = plt.figure(figsize=(10, 10)); 
+            nS = probs_arr.shape[2]; 
+            axs = figp.subplots( (nS+1)//2, 2 ).flatten()
+            for i in range(nS): 
+                ax=pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=[0,dist,0,0.6], cmap='viridis')
+                ax.set_aspect('auto')
+            figp.show()
 
     def on_mouse_press(self, event):
         """Handle mouse button press event"""
