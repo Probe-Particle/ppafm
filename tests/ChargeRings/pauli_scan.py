@@ -51,7 +51,7 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     # Current calculations if I2d axis provided
     if ax_I2d is not None:
         pSite = np.array([[0.0, 0.0, zQd]])
-        current, _, _ = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSite, params)
+        current, _, _,  probs = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSite, params)
         pu.plot_imshow(ax_I2d, current, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
         ax_I2d.set_aspect('auto')
         
@@ -130,7 +130,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     rots       = ut.makeRotMats(phis + params['phiRot'])
     
     # Run pauli scan
-    STM, Es, Ts = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, bOmp=bOmp)
+    STM, Es, Ts, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, bOmp=bOmp)
     #print( "min,max Es", np.min(Es), np.max(Es))
     #print( "min,max Ts", np.min(Ts), np.max(Ts))
     #print( "min,max STM", np.min(STM), np.max(STM))
@@ -138,7 +138,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
         params_ = params.copy()
         dQ = params.get('dQ', 0.05)
         params_['VBias'] += dQ
-        STM_2, _, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, bOmp=bOmp)       
+        STM_2, _, _, probs = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, bOmp=bOmp)       
         dIdV = (STM_2 - STM) / dQ
 
     Ttot = np.max(Ts, axis=2)
@@ -228,13 +228,13 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     
     T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     #bOmp = True
-    STM_flat, Es_flat, Ts_flat_ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+    STM_flat, Es_flat, Ts_flat_, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     if ax_dIdV is not None:
         params_ = params.copy()
         dQ = params.get('dQ', 0.005)
         params_['VBias'] += dQ
-        STM_2, _, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+        STM_2, _, _, probs = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)       
         dIdV = (STM_2 - STM_flat) / dQ
 
     T3 = time.perf_counter(); print("Time(scan_xy_orb.3 pauli.run_pauli_scan)",  T3-T2 )
@@ -471,7 +471,7 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
         ax_dIdV = fig.add_subplot(3, nscan+1, i+2*nscan+4)
         
         # Run pauli scan and plot results (same as before)
-        STM_flat, Es_flat, Ts_flat_ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+        STM_flat, Es_flat, Ts_flat_, probs_ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
 
         if not bDoOrb:
             Ttot = np.sum(Ts_flat_.reshape(npix, npix, nsite), axis=2)
@@ -480,7 +480,7 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
         # Compute dIdV
         params_ = params.copy()
         params_['VBias'] += 0.05
-        STM_2, _, _ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+        STM_2, _, _, probs = pauli.run_pauli_scan_top(params['spos'], params['rots'], params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
         dIdV = (STM_2 - STM_flat) / 0.01
         
         # Reshape and plot
@@ -529,7 +529,7 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5):
 
     # Run scan
     solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
-    current, Es, Ts = solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
+    current, Es, Ts, probs = solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
     return distance, Es, Ts, current, x, y, x1, y1, x2, y2
 
 def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_columns=None):
@@ -620,7 +620,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     pTips[:,2] = zT
     
     state_order = np.array( [0,4,2,6,1,5,3,7] )
-    current, Es, Ts = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  params, rots=rots, order=1, cs=None, bOmp=False, state_order=state_order, Ts=None )
+    current, Es, Ts, probs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  params, rots=rots, order=1, cs=None, bOmp=False, state_order=state_order, Ts=None )
 
     # reshape
     STM = current.reshape(nV,npts)
@@ -691,7 +691,7 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     # Prepare state order matching calculate_xV_scan
     state_order = np.array([0,4,2,6,1,5,3,7], dtype=np.int32)
     # Run scan with external Ts
-    current, Es, Ts = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, bOmp=False, Ts=Ts_input)
+    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, bOmp=False, Ts=Ts_input)
 
     # reshape and compute
     STM = current.reshape(nV, npts)

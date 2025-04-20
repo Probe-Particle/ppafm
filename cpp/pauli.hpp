@@ -1237,47 +1237,6 @@ def construct_Tba(leads, tleads, Tba_=None):
         }
     }
 
-/*
-    void generate_current(int b, double* rho, double* current) {
-        const int n = params.nstates;
-        const int Q = count_electrons(b);
-        const int bb = state_order2[b]; // Use consistent state ordering
-        if(verbosity > 3) { printf("PauliSolver::generate_current() b:%d Q:%d\n", b, Q);}
-        // Zero initialize currents
-        for(int l=0; l<params.nleads; l++) current[l] = 0.0;
-        // Handle transitions from lower charge states (a -> b)
-        if(Q > 0) {
-            const int Qlower = Q-1;
-            for(int a : states_by_charge[Qlower]) {
-                const int aa = state_order2[a];
-                const int ba = get_ind_dm1(b, a, Qlower);
-                for(int l=0; l<params.nleads; l++) {
-                    const int idx = index_paulifct(l, ba);
-                    const double fct_enter = pauli_factors[idx];
-                    const double fct_leave = pauli_factors[idx+1];
-                    current[l] += (rho[bb] - rho[aa]) * (fct_enter - fct_leave);
-                    if(verbosity > 3) { printf("l:%d a:%d ba:%d idx:%d fct+:%.6f fct-:%.6f\n", l, a, ba, idx, fct_enter, fct_leave); }
-                }
-            }
-        }
-        // Handle transitions to higher charge states (b -> c)
-        if(Q < states_by_charge.size()-1) {
-            const int Qhigher = Q+1;
-            for(int c : states_by_charge[Qhigher]) {
-                const int cc = state_order2[c];
-                const int cb = get_ind_dm1(c, b, Q);
-                for(int l=0; l<params.nleads; l++) {
-                    const int idx = index_paulifct(l, cb);
-                    const double fct_enter = pauli_factors[idx];
-                    const double fct_leave = pauli_factors[idx+1];
-                    current[l] += (rho[cc] - rho[bb]) * (fct_enter - fct_leave);
-                    if(verbosity > 3) {printf("l:%d c:%d cb:%d idx:%d fct+:%.6f fct-:%.6f\n", l, c, cb, idx, fct_enter, fct_leave); }
-                }
-            }
-        }
-    }
-*/
-
     // Calculate current through a specific lead using the compact structure
     double generate_current(int lead_idx) {
         if(verbosity > 3) printf("\nDEBUG: generate_current() lead: %d this: %p\n", lead_idx, this);
@@ -1356,9 +1315,6 @@ def construct_Tba(leads, tleads, Tba_=None):
 
         self.heat_current[:] = energy_current - current*self.leads.mulst
 */
-
-
-
 
     // Getter methods
     const double* get_kernel()        const { return kernel; }

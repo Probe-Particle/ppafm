@@ -319,7 +319,7 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
  * @return 0 on success
  */
 
-double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Vec3d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, bool externTs ){
+double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Vec3d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, double* Probs, bool externTs ){
     //PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     //if (!solver) return 0.0;
     //printf("scan_current_tip() npoints: %d bOmp: %d state_order: %p \n", npoints, bOmp, state_order );
@@ -388,12 +388,16 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
         solver->calculate_tunneling_amplitudes(TLeads); // Assuming this is okay
         double current = solve_hsingle(solver, hsingle, W, 1, 0); // Pass address of local solver
         out_current[i] = current;
+        if(Probs){
+            int nstates = solver->nstates;
+            std::memcpy(Probs + i*nstates, solver->get_probabilities(), nstates * sizeof(double));
+        }
     }
         
     return 0.0;
 }
 
-double scan_current_tip_threaded( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Vec3d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, bool externTs ){
+double scan_current_tip_threaded( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Vec3d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, double* Probs, bool externTs ){
     unsigned int num_threads = std::thread::hardware_concurrency();
     if (num_threads == 0) num_threads = 4; // Fallback if detection fails
     num_threads = std::min((unsigned int)npoints, num_threads);
@@ -426,7 +430,7 @@ double scan_current_tip_threaded( PauliSolver* solver, int npoints, Vec3d* pTips
             PauliSolver solver_local(*solver); // Create LOCAL copy inside thread
             PauliSolver* solver_local_ptr = &solver_local;
             //PauliSolver* solver_local_ptr = new PauliSolver(*solver);
-            scan_current_tip_( solver_local_ptr, i1-i0, pTips+i0, Vtips+i0, nSites, pSites, rots, params, order, cs, state_order, out_current+i0, Es?Es+i0*nSites : nullptr, Ts?Ts+i0*nSites : nullptr, externTs );
+            scan_current_tip_( solver_local_ptr, i1-i0, pTips+i0, Vtips+i0, nSites, pSites, rots, params, order, cs, state_order, out_current+i0, Es?Es+i0*nSites : nullptr, Ts?Ts+i0*nSites : nullptr, Probs?Probs+i0*solver->nstates : nullptr, externTs );
             //delete solver_local;  // this cause  double free or corruption 
         });
     }
@@ -437,7 +441,7 @@ double scan_current_tip_threaded( PauliSolver* solver, int npoints, Vec3d* pTips
 }
 
 
-double scan_current_tip_threaded_2( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Vec3d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, bool externTs ){
+double scan_current_tip_threaded_2( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Vec3d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, double* Probs, bool externTs ){
 
     // Extract parameters
     double Rtip  = params[0];
@@ -538,14 +542,13 @@ double scan_current_tip_threaded_2( PauliSolver* solver, int npoints, Vec3d* pTi
     return 0.0;
 }
 
-double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* rots_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts, bool externTs ){
+double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* rots_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts, double* Probs, bool externTs ){
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (!solver) return 0.0;
     if( bOmp ){
-        //return scan_current_tip_threaded( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Vec3d*)pSites_, (Mat3d*)rots_, params, order, cs,  state_order, out_current, Es, Ts,externTs );
-        return scan_current_tip_threaded_2( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Vec3d*)pSites_, (Mat3d*)rots_, params, order, cs,  state_order, out_current, Es, Ts,externTs );
-    }else{
-        return scan_current_tip_        ( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Vec3d*)pSites_, (Mat3d*)rots_, params, order, cs,  state_order, out_current, Es, Ts,externTs );
+        return scan_current_tip_threaded_2( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Vec3d*)pSites_, (Mat3d*)rots_, params, order, cs, state_order, out_current, Es, Ts, Probs, externTs );
+    } else {
+        return scan_current_tip_( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Vec3d*)pSites_, (Mat3d*)rots_, params, order, cs, state_order, out_current, Es, Ts, Probs, externTs );
     }
 }
 
