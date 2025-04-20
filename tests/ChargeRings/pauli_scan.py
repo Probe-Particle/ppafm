@@ -113,9 +113,7 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     
     # optional: plot state probabilities
     if probs_arr is not None and (axs_probs or fig_probs):
-        nStates = probs_arr.shape[2]
-        axs = axs_probs or (fig_probs or plt.figure()).subplots(2,nStates//2).flatten()
-        for i in range(nStates): pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=[-L,L,0,VBias], cmap='viridis')
+        plot_state_probabilities(probs_arr, extent=[-L, L, 0.0, VBias], axs=axs_probs, fig=fig_probs)
     
     return V1d, V2d, Vtip, Esites, probs_arr
 
@@ -660,8 +658,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
 
     probs_arr = probs.reshape(nV, nx, -1)
     if axs_probs or fig_probs:
-        axs = axs_probs or (fig_probs or plt.figure()).subplots(2, probs_arr.shape[2]//2).flatten()
-        for i in range(probs_arr.shape[2]): pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=[0,dist,Vmin,Vmax], cmap='viridis')
+        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs_probs, fig=fig_probs)
     print("calculate_xV_scan() DONE")
     return x, Vbiases, Emax, STM, dIdV, probs_arr
 
@@ -733,9 +730,17 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
 
     probs_arr = probs.reshape(nV, nx, -1)
     if axs_probs or fig_probs:
-        axs = axs_probs or (fig_probs or plt.figure()).subplots(2, probs_arr.shape[2]//2).flatten()
-        for i in range(probs_arr.shape[2]): pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=[0,dist,Vmin,Vmax], cmap='viridis')
+        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs_probs, fig=fig_probs)
     return x, Vbiases, Emax, STM, dIdV, probs_arr
+
+def plot_state_probabilities(probs_arr, extent, axs=None, fig=None):
+    if axs is None and fig is None:
+        fig, axs = plt.subplots(2, probs_arr.shape[2]//2)
+    axs = axs.flatten()
+    for i in range(probs_arr.shape[2]):
+        ax = pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=extent, cmap='viridis')
+        ax.set_aspect('auto')
+    return fig, axs
 
 if __name__ == "__main__":
     # Example usage when run as standalone script - using same defaults as GUI

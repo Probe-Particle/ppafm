@@ -375,9 +375,7 @@ class ApplicationWindow(GUITemplate):
         pauli_scan.save_1d_scan_data   ( params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
         # Plot probabilities if requested
         if self.cbShowProbs.isChecked():
-            figp = plt.figure(); axp = figp.subplots()
-            for i in range(probs_arr.shape[1]): axp.plot(distance, probs_arr[:,i], label=f"P{i}")
-            axp.legend(); figp.show()
+            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,distance,0,0.6])
 
     def plot_voltage_line_scan_exp(self, start, end, pointPerAngstrom=5):
         """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
@@ -424,13 +422,7 @@ class ApplicationWindow(GUITemplate):
         self._exp_voltage_scan_window = window
         # Plot probabilities if requested
         if self.cbShowProbs.isChecked():
-            figp = plt.figure(figsize=(10, 10)); 
-            nS = probs_arr.shape[2]; 
-            axs = figp.subplots( (nS+1)//2, 2 ).flatten()
-            for i in range(nS): 
-                ax=pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=[0,dist,0,Vbiases[-1]], cmap='viridis')
-                ax.set_aspect('auto')
-            figp.show()
+            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,dist,0,Vbiases[-1]])
 
     def draw_scan_line(self, ax):
         """Draw line between p1 and p2 points in the Energies panel"""
@@ -511,13 +503,7 @@ class ApplicationWindow(GUITemplate):
         self._sim_voltage_scan_window = window
         # Plot probabilities if requested
         if self.cbShowProbs.isChecked():
-            figp = plt.figure(figsize=(10, 10)); 
-            nS = probs_arr.shape[2]; 
-            axs = figp.subplots( (nS+1)//2, 2 ).flatten()
-            for i in range(nS): 
-                ax=pu.plot_imshow(axs[i], probs_arr[:,:,i], title=f"P{i}", extent=[0,dist,0,0.6], cmap='viridis')
-                ax.set_aspect('auto')
-            figp.show()
+            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,0.6,0,0.6])
 
     def on_mouse_press(self, event):
         """Handle mouse button press event"""
