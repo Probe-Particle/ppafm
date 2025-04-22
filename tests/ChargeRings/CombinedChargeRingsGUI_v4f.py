@@ -388,7 +388,9 @@ class ApplicationWindow(GUITemplate):
         nsite = int(params['nsite'])
         ref_data_line = getattr(self, 'ref_data_line', None)
         ref_columns   = getattr(self, 'ref_columns', None)
-        pauli_scan.plot_1d_scan_results( distance, Es, Ts, STM, nsite, ref_data_line, ref_columns )
+        fig = pauli_scan.plot_1d_scan_results( distance, Es, Ts, STM, nsite, ref_data_line, ref_columns )
+        fig.canvas.draw()
+        self.manage_prob_window(fig, '1dScan')
         pauli_scan.save_1d_scan_data   ( params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
         # Plot probabilities if requested
         if self.cbShowProbs.isChecked():

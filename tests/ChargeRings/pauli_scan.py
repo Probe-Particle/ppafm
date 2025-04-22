@@ -304,7 +304,7 @@ def run_scan_xy_orb( params, orbital_file="QD.cub" ):
     # Save and show the figure
     plt.savefig('scan_xy_orb_test.png')
     print(f"Figure saved as 'scan_xy_orb_test.png'")
-    plt.show()
+    #plt.show()
 
 def scan_param_sweep(params, scan_params, selected_params=None, nx=100, nV=100, sz=3, bLegend=False):
     """
@@ -576,7 +576,7 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_c
     ax3.grid(True)
 
     scan_fig.tight_layout()
-    plt.show()
+    #plt.show()
     return scan_fig
 
 def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2):
@@ -759,7 +759,7 @@ def plot_state_probabilities(probs_arr, extent, axs=None, fig=None, labels=None,
         ax.clear()
         title = labels[idx] if labels and idx < len(labels) else f"P{idx}"
         im = ax.imshow(probs_arr[:,:,idx].T, origin='lower', extent=extent, cmap='viridis', interpolation='nearest')
-        ax.set_aspect('auto')
+        ax.set_aspect(aspect)
         ax.set_title(title)
         ax.set_xlabel('x [Å]')
         ax.set_ylabel('V_bias [V]')
