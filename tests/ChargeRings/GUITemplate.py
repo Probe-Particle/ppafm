@@ -1,6 +1,7 @@
 import sys
 import json
 from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtGui import QFont
 import numpy as np
 from dataclasses import dataclass, field
 from typing import Optional, Any, Dict, List, Tuple, Union
@@ -171,6 +172,10 @@ class PlotManager:
 class GUITemplate(QtWidgets.QMainWindow):
     def __init__(self, title="Application GUI"):
         super().__init__()
+        # set smaller default font
+        app = QtWidgets.QApplication.instance()
+        if app:
+            app.setFont(QFont("Sans", 8))
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle(title)
         self.main_widget = QtWidgets.QWidget(self)
@@ -184,11 +189,15 @@ class GUITemplate(QtWidgets.QMainWindow):
         
     def create_gui(self):
         """Create the main GUI layout and widgets"""
-        # Main layout
+        # Main layout (compact margins)
         l00 = QtWidgets.QHBoxLayout(self.main_widget)
+        l00.setContentsMargins(2,2,2,2)
+        l00.setSpacing(4)
         
-        # Control panel layout
+        # Control panel layout (compact margins)
         l0 = QtWidgets.QVBoxLayout()
+        l0.setContentsMargins(2,2,2,2)
+        l0.setSpacing(4)
         l00.addLayout(l0)
 
         self.layout0 = l0
@@ -198,34 +207,46 @@ class GUITemplate(QtWidgets.QMainWindow):
         current_layout = None
         
         for param_name, spec in self.param_specs.items():
+            # skip fidget-disabled parameters
+            if not spec.get('fidget', True):
+                continue
+            
             # Create new group if needed
             if spec['group'] != current_group:
                 current_group = spec['group']
                 gb = QtWidgets.QGroupBox(current_group)
                 l0.addWidget(gb)
                 current_layout = QtWidgets.QVBoxLayout(gb)
+                # group layout compact
+                current_layout.setContentsMargins(2,2,2,2)
+                current_layout.setSpacing(4)
             
             # Create widget layout
             hb = QtWidgets.QHBoxLayout()
+            # row layout compact
+            hb.setContentsMargins(0,0,0,0)
+            hb.setSpacing(2)
             current_layout.addLayout(hb)
             hb.addWidget(QtWidgets.QLabel(f"{param_name}:"))
             
-            # Create appropriate widget type
-            if spec['widget'] == 'double':
-                widget = QtWidgets.QDoubleSpinBox()
-                widget.setRange(*spec['range'])
-                widget.setValue(spec['value'])
-                widget.setSingleStep(spec['step'])
-                if 'decimals' in spec:
-                    widget.setDecimals(spec['decimals'])
-            elif spec['widget'] == 'int':
-                widget = QtWidgets.QSpinBox()
-                widget.setRange(*spec['range'])
-                widget.setValue(spec['value'])
-                if 'step' in spec:
+            # Create widget if fidget enabled, else label
+            if spec.get('fidget', True):
+                if spec['widget'] == 'double':
+                    widget = QtWidgets.QDoubleSpinBox()
+                    widget.setRange(*spec['range'])
+                    widget.setValue(spec['value'])
                     widget.setSingleStep(spec['step'])
-            
-            widget.valueChanged.connect(self.on_parameter_change)
+                    if 'decimals' in spec:
+                        widget.setDecimals(spec['decimals'])
+                elif spec['widget'] == 'int':
+                    widget = QtWidgets.QSpinBox()
+                    widget.setRange(*spec['range'])
+                    widget.setValue(spec['value'])
+                    if 'step' in spec:
+                        widget.setSingleStep(spec['step'])
+                widget.valueChanged.connect(self.on_parameter_change)
+            else:
+                widget = QtWidgets.QLabel(str(spec['value']))
             hb.addWidget(widget)
             self.param_widgets[param_name] = widget
         
@@ -238,9 +259,9 @@ class GUITemplate(QtWidgets.QMainWindow):
     
     def add_common_controls(self, layout):
         """Add common control buttons"""
-        # Auto-update checkbox
         hb = QtWidgets.QHBoxLayout()
-        #self.button_box = hb
+        hb.setContentsMargins(2,2,2,2)
+        hb.setSpacing(4)
         layout.addLayout(hb)
         self.cbAutoUpdate = QtWidgets.QCheckBox("Auto-update")
         self.cbAutoUpdate.setChecked(True)
@@ -253,6 +274,8 @@ class GUITemplate(QtWidgets.QMainWindow):
         
         # Save/Load buttons
         hb = QtWidgets.QHBoxLayout()
+        hb.setContentsMargins(2,2,2,2)
+        hb.setSpacing(4)
         layout.addLayout(hb)
         btnSave = QtWidgets.QPushButton("Save Parameters")
         btnSave.clicked.connect(self.save_parameters)
@@ -263,7 +286,21 @@ class GUITemplate(QtWidgets.QMainWindow):
     
     def get_param_values(self):
         """Get current values of all parameters"""
-        return {name: widget.value() for name, widget in self.param_widgets.items()}
+        values = {}
+        for name, spec in self.param_specs.items():
+            if name in self.param_widgets:
+                widget = self.param_widgets[name]
+                if hasattr(widget, 'value'):
+                    values[name] = widget.value()
+                else:
+                    try:
+                        values[name] = float(widget.text())
+                    except:
+                        values[name] = widget.text()
+            else:
+                # use original spec value for skipped fidgets
+                values[name] = spec.get('value')
+        return values
     
     def set_param_values(self, values):
         """Set values for all parameters"""

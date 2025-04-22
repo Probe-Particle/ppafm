@@ -86,17 +86,17 @@ class ApplicationWindow(GUITemplate):
             #'p2_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -15.0, 'step': 0.5},
             #'p2_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -15.0, 'step': 0.5},
 
-            'p1_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5},
-            'p1_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -9.96, 'step': 0.5},
-            'p2_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5},
-            'p2_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  12.0, 'step': 0.5},
+            'p1_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5,'fidget': False},
+            'p1_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -9.96, 'step': 0.5,'fidget': False},
+            'p2_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5,'fidget': False},
+            'p2_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  12.0, 'step': 0.5,'fidget': False},
             
             # Experimental Data
             'exp_slice':     {'group': 'Experimental Data', 'widget': 'int',    'range': (0, 13),     'value': 8,    'step': 1},
-            'ep1_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5},
-            'ep1_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -6.96, 'step': 0.5},
-            'ep2_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5},
-            'ep2_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  15.0, 'step': 0.5},
+            'ep1_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5,'fidget': False},
+            'ep1_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -6.96, 'step': 0.5,'fidget': False},
+            'ep2_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5,'fidget': False},
+            'ep2_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  15.0, 'step': 0.5,'fidget': False},
         }
         
         self.create_gui()
@@ -106,7 +106,7 @@ class ApplicationWindow(GUITemplate):
         
 
         # Setup matplotlib figure with 3x3 layout
-        self.fig = Figure(figsize=(15, 15))
+        self.fig = Figure(figsize=(15, 10))
         self.canvas = FigureCanvas(self.fig)
         self.main_widget.layout().insertWidget(0, self.canvas)
         
