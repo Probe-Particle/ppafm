@@ -112,7 +112,7 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
         Esites = None
     
     # optional: plot state probabilities
-    if probs_arr is not None and (axs_probs or fig_probs):
+    if probs_arr is not None and (axs_probs is not None or fig_probs is not None):
         plot_state_probabilities(probs_arr, extent=[-L, L, 0.0, VBias], axs=axs_probs, fig=fig_probs)
     
     return V1d, V2d, Vtip, Esites, probs_arr
@@ -211,7 +211,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     spos,phis=ut.makeCircle(n=nsite,R=params['radius'],phi0=params['phiRot'])
     angles=phis+params['phi0_ax'] + np.pi*0.5
     #print( "angles", angles)
-    rots = ut.makeRotMats(angles)
+    rots = ut.makeRotMats( angles )
     #print( "rots", rots)
     # big-to-small hopping computation
     #dcanv=params['L']/params['npix']
@@ -656,7 +656,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
     probs_arr = probs.reshape(nV, nx, -1)
-    if axs_probs or fig_probs:
+    if axs_probs is not None or fig_probs is not None:
         plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs_probs, fig=fig_probs)
     print("calculate_xV_scan() DONE")
     return x, Vbiases, Emax, STM, dIdV, probs_arr
@@ -728,18 +728,47 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
     probs_arr = probs.reshape(nV, nx, -1)
-    if axs_probs or fig_probs:
+    if axs_probs is not None or fig_probs is not None:
         plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs_probs, fig=fig_probs)
     return x, Vbiases, Emax, STM, dIdV, probs_arr
 
-def plot_state_probabilities(probs_arr, extent, axs=None, fig=None, labels=None):
-    if axs is None and fig is None:
-        fig, axs = plt.subplots(2, probs_arr.shape[2]//2)
-    axs = axs.flatten()
-    for i in range(probs_arr.shape[2]):
-        title = labels[i] if labels is not None else f"P{i}"
-        ax = pu.plot_imshow(axs[i], probs_arr[:,:,i], title=title, extent=extent, cmap='viridis')
+def plot_state_probabilities(probs_arr, extent, axs=None, fig=None, labels=None, aspect='auto'):
+    """
+    Plot multiple state probability maps. Handles single or array of axes.
+    probs_arr: 3D array shape (nV, nx, n_states)
+    extent: sequence of 4 [xmin, xmax, ymin, ymax]
+    """
+    # Number of states to plot
+    n_states = probs_arr.shape[-1]
+    # Create default figure/axes if needed
+    if fig is None or axs is None:
+        ncols = min(2, n_states)
+        nrows = int(np.ceil(n_states / ncols))
+        fig, axs = plt.subplots(nrows, ncols, figsize=(4*ncols, 3*nrows))
+    # Flatten axes into list
+    try:
+        axs_flat = axs.flatten()
+    except AttributeError:
+        axs_flat = [axs]
+    # Ensure fig is set
+    if fig is None and hasattr(axs_flat[0], 'figure'):
+        fig = axs_flat[0].figure
+    # Plot each state's probability
+    for idx in range(n_states):
+        ax = axs_flat[idx]
+        ax.clear()
+        title = labels[idx] if labels and idx < len(labels) else f"P{idx}"
+        im = ax.imshow(probs_arr[:,:,idx].T, origin='lower', extent=extent, cmap='viridis', interpolation='nearest')
         ax.set_aspect('auto')
+        ax.set_title(title)
+        ax.set_xlabel('x [Å]')
+        ax.set_ylabel('V_bias [V]')
+        fig.colorbar(im, ax=ax, label='Probability')
+    # Hide extra axes
+    # for extra_ax in axs_flat[n_states:]:
+    #     extra_ax.clear()
+    #     extra_ax.set_visible(False)
+    fig.tight_layout()
     return fig, axs
 
 if __name__ == "__main__":
