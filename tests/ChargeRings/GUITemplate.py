@@ -262,15 +262,20 @@ class GUITemplate(QtWidgets.QMainWindow):
         hb = QtWidgets.QHBoxLayout()
         hb.setContentsMargins(2,2,2,2)
         hb.setSpacing(4)
+        self.common_controls_layout = hb
         layout.addLayout(hb)
-        self.cbAutoUpdate = QtWidgets.QCheckBox("Auto-update")
-        self.cbAutoUpdate.setChecked(True)
-        hb.addWidget(self.cbAutoUpdate)
-        
+
         # Run Button
         btn = QtWidgets.QPushButton("Run")
         btn.clicked.connect(self.run)
         hb.addWidget(btn)
+        
+        # Auto-update checkbox
+        self.cbAutoUpdate = QtWidgets.QCheckBox("Auto-update")
+        self.cbAutoUpdate.setChecked(True)
+        hb.addWidget(self.cbAutoUpdate)
+        
+        self.hbCommonControls = hb
         
         # Save/Load buttons
         hb = QtWidgets.QHBoxLayout()
@@ -283,6 +288,7 @@ class GUITemplate(QtWidgets.QMainWindow):
         btnLoad = QtWidgets.QPushButton("Load Parameters")
         btnLoad.clicked.connect(self.load_parameters)
         hb.addWidget(btnLoad)
+        self.hbSaveLoad = hb
     
     def get_param_values(self):
         """Get current values of all parameters"""

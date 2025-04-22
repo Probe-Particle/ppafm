@@ -162,21 +162,19 @@ class ApplicationWindow(GUITemplate):
         btnLoadOrb = QtWidgets.QPushButton("Load Orbital")
         btnLoadOrb.clicked.connect(self.load_orbital_file)
         orbital_layout.addWidget(btnLoadOrb)
-        self.cbUseOrbital = QtWidgets.QCheckBox("Use orbital hopping")
+        self.cbUseOrbital = QtWidgets.QCheckBox("Orbital hopping")
         #self.cbUseOrbital.setChecked(True)
         self.cbUseOrbital.setChecked(False)
         self.load_orbital_file()
         orbital_layout.addWidget(self.cbUseOrbital)
         self.cbUseOrbital.stateChanged.connect(self.run)
 
-        # Checkbox to show many-body probabilities
-        self.cbShowProbs = QtWidgets.QCheckBox('Show state probabilities'); 
-        self.cbUseOrbital.stateChanged.connect(self.run)
-        self.layout0.addWidget(self.cbShowProbs)
+        # Checkbox to show many-body probabilities (compact in same row)
+        self.cbShowProbs = QtWidgets.QCheckBox('probabilities')
+        self.cbShowProbs.stateChanged.connect(self.run)
+
         
-        # define ordering and binary labels for many-body states
-        self.state_order  = np.array([0,4,2,6,1,5,3,7])
-        self.state_labels = [bin(s)[2:].zfill(3) for s in self.state_order]
+        self.hbCommonControls.addWidget(self.cbShowProbs)
         
         # Connect mouse events
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
