@@ -354,7 +354,6 @@ class ApplicationWindow(GUITemplate):
         pauli_scan.scan_xV(params, ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3)
         # 2D spatial scan with optional many-body probability panels
         if self.cbShowProbs.isChecked():
-            import matplotlib.pyplot as plt
             figp2 = plt.figure(figsize=(4*3, 2*3))
             # Create 2×4 grid for state probability maps
             axs2 = figp2.subplots(2,4)
@@ -393,7 +392,13 @@ class ApplicationWindow(GUITemplate):
         pauli_scan.save_1d_scan_data   ( params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
         # Plot probabilities if requested
         if self.cbShowProbs.isChecked():
-            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,distance,0,0.6], labels=None)
+            figp = plt.figure()
+            axp = figp.add_subplot(111)
+            for idx in range(probs_arr.shape[1]): axp.plot(distance, probs_arr[:,idx], label=f"P{idx}")
+            axp.set_xlabel('Distance'); axp.set_ylabel('Probability')
+            axp.legend()
+            self.manage_prob_window(figp, '1dProb')
+            figp.canvas.draw()
         return distance, Es, Ts, STM, x, y, x1, y1, x2, y2
 
     def plot_voltage_line_scan_exp(self, start, end, pointPerAngstrom=5):
@@ -439,9 +444,16 @@ class ApplicationWindow(GUITemplate):
         window.show()
         # Keep reference to prevent garbage collection
         self._exp_voltage_scan_window = window
-        # Plot probabilities if requested
+        # Plot probabilities in dedicated window if requested
         if self.cbShowProbs.isChecked():
-            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,dist,0,Vbiases[-1]], labels=None)
+            # New probability figure
+            figp = plt.figure()
+            axs = figp.subplots(2,4)
+            # Plot exp voltage probabilities
+            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,dist,0,Vbiases[-1]], axs=axs, fig=figp)
+            # Show/manage window
+            self.manage_prob_window(figp, 'expVoltage')
+            figp.canvas.draw()
 
     def draw_scan_line(self, ax):
         """Draw line between p1 and p2 points in the Energies panel"""
@@ -520,9 +532,14 @@ class ApplicationWindow(GUITemplate):
         window.show()
         # Keep reference to prevent garbage collection
         self._sim_voltage_scan_window = window
-        # Plot probabilities if requested
+        # Plot probabilities in dedicated window if requested
         if self.cbShowProbs.isChecked():
-            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,0.6,0,0.6], labels=None)
+            figp = plt.figure()
+            axs = figp.subplots(2,4)
+            # Plot sim voltage probabilities
+            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,0.6,0,0.6], axs=axs, fig=figp)
+            self.manage_prob_window(figp, 'simVoltage')
+            figp.canvas.draw()
 
     def on_mouse_press(self, event):
         """Handle mouse button press event"""
