@@ -36,55 +36,38 @@ class ApplicationWindow(GUITemplate):
         # {'VBias': 0.2, 'Rtip': 2.5, 'z_tip': 2.0, 'cCouling': 0.02, 'temperature': 3.0, 'onSiteCoulomb': 3.0, 'zV0': -3.3, 'zQd': 0.0, 'nsite': 3.0, 'radius': 5.2, 'phiRot': 0.79, 'R_major': 8.0, 'R_minor': 10.0, 'phi0_ax': 0.2, 'Esite': -0.04, 'Q0': 1.0, 'Qzz': 0.0, 'L': 20.0, 'npix': 100.0, 'decay': 0.3, 'dQ': 0.02, 'exp_slice': 10.0}
         # Then set parameter specifications
         self.param_specs = {
+
+            'nsite':         {'group': 'Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
+            'radius':        {'group': 'Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 5.2, 'step': 0.5},
+            'phiRot':        {'group': 'Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.3,'step': 0.1},
+            'phi0_ax':       {'group': 'Geometry',     'widget': 'double', 'range': (-3.14, 3.14), 'value': 0.2, 'step': 0.1},
+
             # Tip Parameters
-            'VBias':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.0, 10.0),   'value': 0.70, 'step': 0.02},
-            'Rtip':          {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 10.0),   'value': 3.0, 'step': 0.5},
-            'z_tip':         {'group': 'Tip Parameters',    'widget': 'double', 'range': (0.5, 20.0),   'value': 1.0, 'step': 0.5},
-            
-            # System Parameters
-            'W':             {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02,  'step': 0.001, 'decimals': 3},
-            'GammaS':        {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01,  'step': 0.001, 'decimals': 3},
-            'GammaT':        {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01,  'step': 0.001, 'decimals': 3},
-            'Temp':          {'group': 'System Parameters', 'widget': 'double', 'range': (0.1, 100.0), 'value': 0.224, 'step': 0.01 },
-            'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,   'step': 0.1  },
-            
-            # Mirror Parameters
-            'zV0':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),   'value': -4.0, 'step': 0.1},
-            'zVd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 10.0),  'value':  8.0, 'step': 0.1},
-            'zQd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),   'value':  0.0, 'step': 0.1},
-            
-            # Ring Geometry
-            'nsite':         {'group': 'Ring Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
-            'radius':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 5.2, 'step': 0.5},
-            'phiRot':        {'group': 'Ring Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.3,'step': 0.1},
-            
-            # Ellipse Parameters
-            'R_major':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (1.0, 10.0),   'value': 8.0, 'step': 0.1},
-            'R_minor':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (1.0, 10.0),   'value': 10.0, 'step': 0.1},
-            'phi0_ax':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (-3.14, 3.14), 'value': 0.2, 'step': 0.1},
-            
-            # Site Properties
-            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.150,'step': 0.002, 'decimals': 3},
-            'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
-            'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 20.0, 'step': 0.5},
-            
+            'VBias':         {'group': 'Electrostatic Field', 'widget': 'double', 'range': (0.0, 10.0),   'value':  0.70, 'step': 0.02},
+            'Rtip':          {'group': 'Electrostatic Field', 'widget': 'double', 'range': (0.5, 10.0),   'value':  3.0, 'step': 0.5},
+            'z_tip':         {'group': 'Electrostatic Field', 'widget': 'double', 'range': (0.5, 20.0),   'value':  5.0, 'step': 0.5},
+            'zV0':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0, 'step': 0.1},
+            'zVd':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-5.0, 50.0),  'value':  15.0, 'step': 0.1},
+            'zQd':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-5.0, 5.0),   'value':  0.0, 'step': 0.1},
+            'Q0':            {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
+            'Qzz':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-20.0, 20.0), 'value': 1.0, 'step': 0.5},
+
+            'Esite':         {'group': 'Transport Solver',  'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.150,'step': 0.002, 'decimals': 3},
+            'W':             {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02,  'step': 0.001, 'decimals': 3},
+            'decay':         {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 2.0),   'value': 0.3,  'step': 0.1,   'decimals': 2},
+            'GammaS':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01,  'step': 0.001, 'decimals': 3},
+            'GammaT':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01,  'step': 0.001, 'decimals': 3},
+            'Temp':          {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 100.0), 'value': 0.224, 'step': 0.01 },
+            #'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,   'step': 0.1  },
+                        
+
             # Visualization
-            'L':             {'group': 'Visualization',     'widget': 'double', 'range': (5.0, 50.0),  'value': 20.0, 'step': 1.0},
-            'npix':          {'group': 'Visualization',     'widget': 'int',    'range': (50, 500),    'value': 200,  'step': 50},
-            'decay':         {'group': 'Visualization',     'widget': 'double', 'range': (0.1, 2.0),   'value': 0.3,  'step': 0.1,   'decimals': 2},
-            'dQ':            {'group': 'Visualization',     'widget': 'double', 'range': (0.001, 0.1), 'value': 0.02, 'step': 0.001, 'decimals': 3},
-
-
-            # 1D scan end points
-            # 'p1_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -6.5, 'step': 0.5},
-            # 'p1_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': 10.0, 'step': 0.5},
-            # 'p2_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value':  6.5, 'step': 0.5},
-            # 'p2_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -10.0, 'step': 0.5},
-
-            #'p1_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': 15.0, 'step': 0.5},
-            #'p1_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': 15.0, 'step': 0.5},
-            #'p2_x':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -15.0, 'step': 0.5},
-            #'p2_y':          {'group': 'scan',     'widget': 'double', 'range': (-20.0, 20.0),  'value': -15.0, 'step': 0.5},
+            'L':             {'group': 'Visualization', 'widget': 'double', 'range': (5.0, 50.0),   'value': 20.0, 'step': 1.0},
+            'npix':          {'group': 'Visualization', 'widget': 'int',    'range': (50, 500),     'value': 200,  'step': 50},
+            'dQ':            {'group': 'Visualization', 'widget': 'double', 'range': (0.001, 0.1),  'value': 0.02, 'step': 0.001, 'decimals': 3},
+            'R_major':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 8.0, 'step': 0.1},
+            'R_minor':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 10.0, 'step': 0.1},
+            
 
             'p1_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5,'fidget': False},
             'p1_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -9.96, 'step': 0.5,'fidget': False},
@@ -183,15 +166,6 @@ class ApplicationWindow(GUITemplate):
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
         self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
-
-
-        #ref_datline_fname = '/home/prokop/git/ppafm/tests/ChargeRings/Vlado/input/0.20_line_scan.dat'
-        ref_datline_fname = './Vlado/input/0.20_line_scan.dat'
-        self.ref_params, self.ref_columns, self.ref_data_line = data_line.read_dat_file(ref_datline_fname); 
-        #print( "ref_params ", self.ref_params); 
-        #print( "ref_columns ", self.ref_columns); 
-        #print( "ref_data_line ", self.ref_data_line)
-        #exit()
         
         # Plot reference data path
         self.draw_reference_line(self.ax4)
@@ -199,7 +173,14 @@ class ApplicationWindow(GUITemplate):
         self.pauli_solver = pauli.PauliSolver( nSingle=3, nleads=2, verbosity=verbosity )
         
         self.run()
-        
+
+    def load_reference_data(self, fname = './Vlado/input/0.20_line_scan.dat'):
+        self.ref_params, self.ref_columns, self.ref_data_line = data_line.read_dat_file(fname); 
+        #print( "ref_params ", self.ref_params); 
+        #print( "ref_columns ", self.ref_columns); 
+        #print( "ref_data_line ", self.ref_data_line)
+        #exit()
+
     def load_experimental_data(self):
         """Load experimental data from npz file"""
         data = np.load('exp_rings_data.npz')
@@ -299,14 +280,7 @@ class ApplicationWindow(GUITemplate):
         """Plot experimental data in the bottom row"""
         # Get parameters
         params = self.get_param_values()
-        self.exp_idx = params['exp_slice']
-        #L = params['L']
-        # Get plot extents
-        #xmin, xmax = np.min(self.exp_X[0]), np.max(self.exp_X[0])
-        #ymin, ymax = np.min(self.exp_Y[0]), np.max(self.exp_Y[0])
-        #exp_extent = [xmin, xmax, ymin, ymax]
-        #sim_extent = [-L, L, -L, L]
-        
+        self.exp_idx = params['exp_slice']        
         # Create a wrapper for our draw_exp_scan_line method
         def draw_scan_line_wrapper(ax):
             self.draw_exp_scan_line(ax)
@@ -349,10 +323,8 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla() 
         self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
-        print("DEBUG 1" )
         pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0])
         #pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, params['W'], params['W']*2.0])
-        print("DEBUG 2" )
         # 2D spatial scan with optional many-body probability panels
         if self.cbShowProbs.isChecked():
             figp = plt.figure(figsize=(4*3, 2*3))
@@ -360,20 +332,15 @@ class ApplicationWindow(GUITemplate):
             self.manage_prob_window(figp2, 'scanXY')
         else:
             figp = None
-        print("DEBUG 3" )
         orbital_2D, orbital_lvec = self.getOrbIfChecked()
-        print("DEBUG 4" )
-
         STM, Es, Ts, probs_arr, spos, rots = pauli_scan.scan_xy_orb( 
             params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver, 
             ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp
         )
-        print("DEBUG 3" )
         self.draw_scan_line(self.ax4)
         self.draw_reference_line(self.ax4)
         self.plot_ellipses(self.ax9, params)
         self.plot_experimental_data()
-        print("DEBUG 4" )
         for i,rot in enumerate(rots):
             x = spos[i][0]
             y = spos[i][1]
@@ -384,23 +351,14 @@ class ApplicationWindow(GUITemplate):
     
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
         params = self.get_param_values()
-        distance, Es, Ts, STM, x, y, x1, y1, x2, y2, probs_arr = pauli_scan.calculate_1d_scan(params, start_point, end_point, pointPerAngstrom)
+        distance, Es, Ts, STM, x, y, x1, y1, x2, y2, probs = pauli_scan.calculate_1d_scan(params, start_point, end_point, pointPerAngstrom)
         nsite = int(params['nsite'])
         ref_data_line = getattr(self, 'ref_data_line', None)
         ref_columns   = getattr(self, 'ref_columns', None)
-        fig = pauli_scan.plot_1d_scan_results( distance, Es, Ts, STM, nsite, ref_data_line, ref_columns )
+        fig=pauli_scan.plot_1d_scan_results( distance, Es, Ts, STM, nsite, probs=probs, ref_data_line=ref_data_line, ref_columns=ref_columns )
         fig.canvas.draw()
         self.manage_prob_window(fig, '1dScan')
         pauli_scan.save_1d_scan_data   ( params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
-        # Plot probabilities if requested
-        if self.cbShowProbs.isChecked():
-            figp = plt.figure()
-            axp = figp.add_subplot(111)
-            for idx in range(probs_arr.shape[1]): axp.plot(distance, probs_arr[:,idx], label=f"P{idx}")
-            axp.set_xlabel('Distance'); axp.set_ylabel('Probability')
-            axp.legend()
-            self.manage_prob_window(figp, '1dProb')
-            figp.canvas.draw()
         return distance, Es, Ts, STM, x, y, x1, y1, x2, y2
 
     def plot_voltage_line_scan_exp(self, start, end, pointPerAngstrom=5):

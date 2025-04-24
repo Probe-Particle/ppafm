@@ -43,11 +43,9 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
     pTips_1d[:,2] = zT
     V_vals = np.linspace(0.0, VBias, nV)
 
-    print("DEBUG scan_xV() 1")
     if pSites is None:
         zQd   = params['zQd']
         pSites = np.array([[0.0, 0.0, zQd]])
-    print("DEBUG scan_xV() 1") 
     # Plotting if axes provided
     if ax_xV is not None:
         # 1D Potential calculations
@@ -76,7 +74,6 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
     else:
         V1d  = None
         V1d_ = None
-    print("DEBUG scan_xV() 2")
     I = None
     if ax_I2d is not None:
         #current, _, _, probs = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSites=pSites, params=params)
@@ -94,7 +91,6 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
             pu.plot_imshow(ax_I2d, I, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
         ax_I2d.set_aspect('auto')
     
-    print("DEBUG scan_xV() 3")
     if ax_Esite is not None:
         pTip = np.array([[0.0, 0.0, zT]])
         x_xz = np.linspace(-L, L, nx)
@@ -116,7 +112,6 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
             ax_Esite.legend()
     else:
         Esites = None
-    print("DEBUG scan_xV() 4")
         
     return V1d, V2d, Esites, I
 
@@ -507,7 +502,7 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     plt.tight_layout()
     return fig
 
-def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, axs_probs=None, fig_probs=None):
+def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_probs=None):
     """Calculate 1D scan between two points using run_pauli_scan"""
     x1, y1 = start_point
     x2, y2 = end_point
@@ -536,18 +531,22 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, axs_pr
     # Run scan
     solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
     current, Es, Ts, probs = solver.scan_current_tip( pTips, Vtips, spos,  cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
-    if axs_probs or fig_probs:
-        axp = axs_probs or (fig_probs or plt.figure()).subplots()
-        for i in range(probs_arr.shape[1]): axp.plot(distance, probs_arr[:,i], label=f"P{i}")
+    if ax_probs:
+        axp = ax_probs
+        for i in range(probs.shape[1]): axp.plot(distance, probs[:,i], label=f"P{i}")
         axp.legend()
-    return distance, Es, Ts, current, x, y, x1, y1, x2, y2, probs_arr
+    return distance, Es, Ts, current, x, y, x1, y1, x2, y2, probs
 
-def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_columns=None):
+def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, ref_data_line=None, ref_columns=None, fig=None):
     """Plot results of 1D scan"""
-    scan_fig = plt.figure(figsize=(10, 12))
+    bProbs = (probs is not None)
+    nsub   = 3 + bProbs
+
+    if fig is None:
+        fig = plt.figure(figsize=(10, 12))
     bRef = (ref_data_line is not None and ref_columns is not None)
 
-    ax1 = scan_fig.add_subplot(311)
+    ax1 = fig.add_subplot(nsub,1,1)
     clrs = ['r', 'g', 'b']
     for i in range(nsite):
         ax1.plot(distance, Es[:, i], '-', linewidth=0.5, color=clrs[i], label=f'E_{i+1}')
@@ -558,7 +557,7 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_c
     ax1.legend()
     ax1.grid(True)
 
-    ax2 = scan_fig.add_subplot(312)
+    ax2 = fig.add_subplot(nsub,1,2)
     for i in range(nsite):
         ax2.plot(distance, Ts[:, i], '-', linewidth=0.5, color=clrs[i], label=f'T_{i+1}')
         if bRef:
@@ -568,15 +567,22 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, ref_data_line=None, ref_c
     ax2.legend()
     ax2.grid(True)
 
-    ax3 = scan_fig.add_subplot(313)
+    ax3 = fig.add_subplot(nsub,1,3)
     ax3.plot(distance, STM, '.-', color='k', linewidth=0.5, markersize=1.5, label='STM')
     ax3.set_ylabel('Current [a.u.]')
     ax3.legend()
     ax3.grid(True)
 
-    scan_fig.tight_layout()
+    if probs is not None:
+        ax4 = fig.add_subplot(nsub,1,4)
+        for idx in range(probs.shape[1]): ax4.plot(distance, probs[:,idx], label=f"P{idx}")
+        ax4.set_xlabel('Distance'); ax4.set_ylabel('Probability')
+        ax4.legend()
+        ax4.grid(True)
+
+    fig.tight_layout()
     #plt.show()
-    return scan_fig
+    return fig
 
 def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2):
     """Save 1D scan data to file"""
@@ -701,10 +707,9 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     pTips = np.zeros((npts,3))
     pTips[:,0] = x; pTips[:,1] = y; pTips[:,2] = params['z_tip']+params['Rtip']
 
-    cpp_params = pauli.make_cpp_params(params)
     state_order = pauli.make_state_order(nsite)
-    # Run scan with external Ts
-    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, cpp_params, order=1, cs=None, rots=rots, state_order=state_order, bOmp=False, Ts=Ts_input)
+    # Run scan using parameter dict (wrapper generates C++ params internally)
+    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, bOmp=False, state_order=state_order, Ts=Ts_input)
 
     # reshape and compute
     STM = current.reshape(nV, npts)
