@@ -49,7 +49,7 @@ class ApplicationWindow(GUITemplate):
             'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,   'step': 0.1  },
             
             # Mirror Parameters
-            'zV0':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),   'value': -3.3, 'step': 0.1},
+            'zV0':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),   'value': -4.0, 'step': 0.1},
             'zVd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 10.0),  'value':  8.0, 'step': 0.1},
             'zQd':           {'group': 'Mirror Parameters', 'widget': 'double', 'range': (-5.0, 5.0),   'value':  0.0, 'step': 0.1},
             
@@ -64,7 +64,7 @@ class ApplicationWindow(GUITemplate):
             'phi0_ax':       {'group': 'Ellipse Parameters','widget': 'double', 'range': (-3.14, 3.14), 'value': 0.2, 'step': 0.1},
             
             # Site Properties
-            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.45,'step': 0.002, 'decimals': 3},
+            'Esite':         {'group': 'Site Properties',   'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.150,'step': 0.002, 'decimals': 3},
             'Q0':            {'group': 'Site Properties',   'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
             'Qzz':           {'group': 'Site Properties',   'widget': 'double', 'range': (-20.0, 20.0), 'value': 20.0, 'step': 0.5},
             
@@ -338,14 +338,20 @@ class ApplicationWindow(GUITemplate):
         )
         self.canvas.draw()
 
+    def getOrbIfChecked(self):
+        if self.cbUseOrbital.isChecked():
+            return self.orbital_2D, self.orbital_lvec
+        else:
+            return None, None
+
     def run(self):
         """Main calculation and plotting function"""
         params = self.get_param_values()
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla() 
         self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
         print("DEBUG 1" )
-        pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3)
-        
+        pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0])
+        #pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, params['W'], params['W']*2.0])
         print("DEBUG 2" )
         # 2D spatial scan with optional many-body probability panels
         if self.cbShowProbs.isChecked():
@@ -354,19 +360,14 @@ class ApplicationWindow(GUITemplate):
             self.manage_prob_window(figp2, 'scanXY')
         else:
             figp = None
-        STM, Es, Ts, probs_arr, spos, rots = pauli_scan.scan_xy_orb(
-                params, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec,
-                pauli_solver=self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax7,
-                ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp
-            )
-            # Plot XY state probabilities
-            #L = params['L']
-            #ext = [-L, L, -L, L]
-            #pauli_scan.plot_state_probabilities(probs_arr, extent=ext, axs=axs2, fig=figp2, aspect='equal')
-            #self.manage_prob_window(figp2, 'scanXY')
-        #else:
-        #    STM, Es, Ts, _, spos, rots = pauli_scan.scan_xy_orb(params, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, pauli_solver=self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6)
-        
+        print("DEBUG 3" )
+        orbital_2D, orbital_lvec = self.getOrbIfChecked()
+        print("DEBUG 4" )
+
+        STM, Es, Ts, probs_arr, spos, rots = pauli_scan.scan_xy_orb( 
+            params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver, 
+            ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp
+        )
         print("DEBUG 3" )
         self.draw_scan_line(self.ax4)
         self.draw_reference_line(self.ax4)
@@ -420,10 +421,10 @@ class ApplicationWindow(GUITemplate):
         dist = ((sim_end[0]-sim_start[0])**2 + (sim_end[1]-sim_start[1])**2)**0.5
         sim_npoints = max(100, int(dist * pointPerAngstrom))
         Vbiases = self.exp_biases
-        if self.cbUseOrbital.isChecked():  # orbital-based Ts
-            x, _, _, STM, sim_dIdV, probs_arr = pauli_scan.calculate_xV_scan_orb(params, sim_start, sim_end, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1], bLegend=False)
-        else:
-            x, _, _, STM, sim_dIdV, probs_arr = pauli_scan.calculate_xV_scan(params, sim_start, sim_end, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1], bLegend=False)
+
+        orbital_2D, orbital_lvec = self.getOrbIfChecked()
+        _, _, _, STM, sim_dIdV, probs_arr = pauli_scan.calculate_xV_scan_orb(params, sim_start, sim_end, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1], bLegend=False)
+
         extent_sim = [0, dist, 0, Vbiases[-1]]
         im1 = ax_sim_I.imshow(STM, aspect='auto', origin='lower', extent=extent_sim, cmap='hot')
         ax_sim_I.axhline( Vbiases[0], ls='--', c='g')
@@ -514,17 +515,8 @@ class ApplicationWindow(GUITemplate):
         axD = fig.add_subplot(133)
         #axI = fig.add_subplot(144)
         # Perform scan
-        if self.cbUseOrbital.isChecked():  # orbital-based Ts
-            x, V, Emax, STM, dIdV, probs_arr = pauli_scan.calculate_xV_scan_orb(params, start, end, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, nx=100, nV=100, Vmin=0.0, Vmax=0.6)
-        else:
-            x, V, Emax, STM, dIdV, probs_arr = pauli_scan.calculate_xV_scan(params, start, end, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, nx=100, nV=100, Vmin=0.0, Vmax=0.6)
-        #pointPerAngstrom=5
-        #distance, Es, Ts, STM_1d, x_1d, y, x1, y1, x2, y2 = pauli_scan.calculate_1d_scan(  params, start, end, pointPerAngstrom )
-        #axI.plot( x, STM[-1,:], 'r-', label='I[-1]' )
-        #axI.plot( x, STM[ 0,:], 'b-', label='I[0 ]' )
-        #axI.plot( x_1d, STM_1d, 'g-', label='I_1d' )
-        #axI.legend()
-
+        orbital_2D, orbital_lvec = self.getOrbIfChecked()
+        x, V, Emax, STM, dIdV, probs_arr = pauli_scan.calculate_xV_scan_orb(params, start, end, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, nx=100, nV=100, Vmin=0.0, Vmax=0.6)
         fig.tight_layout()
         # Display in new Qt window
         window = QtWidgets.QMainWindow()

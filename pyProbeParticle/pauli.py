@@ -105,10 +105,10 @@ lib.get_pauli_factors.restype = None
 lib.evalSitesTipsTunneling.argtypes = [c_int, c_double_p, c_int, c_double_p, c_double, c_double, c_double_p]
 lib.evalSitesTipsTunneling.restype = None
 def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0]], beta=1.0, Amp=1.0, outTs=None, bMakeArrays=True ):
-    nTips = len(pTips)
+    nTips  = len(pTips)
     nSites = len(pSites)
     if bMakeArrays:
-        pSites = np.zeros((nSite, 3), dtype=np.float64)
+        pSites = np.zeros((nSites, 3), dtype=np.float64)
         pTips = np.array(pTips, dtype=np.float64)
     if outTs is None:
         outTs = np.zeros((nTips, nSites), dtype=np.float64)
@@ -301,11 +301,14 @@ def make_cpp_params(params, bMirror=True, bRamp=True):
     return np.array([params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W'], float(bMirror), float(bRamp) ], dtype=np.float64)
 
 def make_state_order(nsite):
-    if nsite != 3:
-        print("make_state_order: nsite must be 3, got", nsite)
+    if nsite == 1:
+        return np.array([0, 1], dtype=np.int32)
+    elif nsite == 3:
+        return np.array([0, 4,2,6, 1,5,3, 7], dtype=np.int32)
+    else:
+        print("make_state_order: nsite must be 1 or 3, got", nsite)
         #exit(0)
         return None
-    return np.array([0, 4,2,6, 1,5,3, 7], dtype=np.int32)
 
 def make_quadrupole_Coeffs( Q0, Qzz ):
     return np.array([ Q0, 0.0, 0.0, 0.0, 0.0, Qzz, 0.0, 0.0, 0.0, 0.0 ]), 2
@@ -518,8 +521,6 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
     
     if state_order is None:
         state_order = make_state_order(nsite)
-    else:
-        state_order = np.array(state_order, dtype=np.int32)
     
     # Prepare C++ params array [Rtip, zV0, Esite, beta, Gamma, W]
     # Using GammaT for Gamma, assuming it's the relevant coupling

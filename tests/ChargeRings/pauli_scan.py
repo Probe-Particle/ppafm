@@ -14,7 +14,7 @@ import time
 import orbital_utils
 from scipy.interpolate import RectBivariateSpline
 
-def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=100, bLegend=True, scV=1.0, axs_probs=None, Woffsets=None, fig_probs=None, pSites=None, bMirror=True, bRamp=True):
+def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=100, bLegend=True, scV=1.0, Woffsets=None, pSites=None, bMirror=True, bRamp=True):
     """
     Scan voltage dependence above one particle
     
@@ -43,10 +43,11 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
     pTips_1d[:,2] = zT
     V_vals = np.linspace(0.0, VBias, nV)
 
+    print("DEBUG scan_xV() 1")
     if pSites is None:
         zQd   = params['zQd']
         pSites = np.array([[0.0, 0.0, zQd]])
-     
+    print("DEBUG scan_xV() 1") 
     # Plotting if axes provided
     if ax_xV is not None:
         # 1D Potential calculations
@@ -75,24 +76,25 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
     else:
         V1d  = None
         V1d_ = None
-
+    print("DEBUG scan_xV() 2")
     I = None
     if ax_I2d is not None:
-        current, _, _, probs = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSites=pSites, params=params)
-        probs_arr = probs.reshape(nV, nx, -1)
-        if ax_I2d is not None:
-            if Woffsets is None:
-                pu.plot_imshow(ax_I2d, current, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
-                I = current
-            else:
-                I = current*0.0
-                for i, Woffset in enumerate(Woffsets):
-                    occup = 1.0/(1.0 + np.exp(( V2d-Woffset )/params['Temp']))
-                    I += current * occup
-                pu.plot_imshow(ax_I2d, I, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
-            ax_I2d.set_aspect('auto')
+        #current, _, _, probs = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSites=pSites, params=params)
+        if Woffsets is None:
+            I, _, _, _ = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSites=pSites, params=params)
+            #pu.plot_imshow(ax_I2d, Ts, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
+            #I = Ts
+        else:
+            Ts = pauli.evalSitesTipsTunneling(pTips_v, pSites=pSites, beta=params['Temp'], Amp=1.0).reshape(nV, nx)
+            I = Ts*0.0
+            for i, W in enumerate(Woffsets):
+                #occup = 1-1.0/(1.0 + np.exp(( V2d-Woffset )/(0.1*params['Temp'])))
+                occup = np.ones_like(Ts); occup[ V2d-W<0.0 ] = 0.0
+                I += Ts * occup
+            pu.plot_imshow(ax_I2d, I, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
+        ax_I2d.set_aspect('auto')
     
-
+    print("DEBUG scan_xV() 3")
     if ax_Esite is not None:
         pTip = np.array([[0.0, 0.0, zT]])
         x_xz = np.linspace(-L, L, nx)
@@ -114,6 +116,7 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
             ax_Esite.legend()
     else:
         Esites = None
+    print("DEBUG scan_xV() 4")
         
     return V1d, V2d, Esites, I
 
