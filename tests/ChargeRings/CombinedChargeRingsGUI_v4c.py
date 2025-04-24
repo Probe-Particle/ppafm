@@ -407,7 +407,7 @@ class ApplicationWindow(GUITemplate):
         Vtips = np.full(npoints, params['VBias'])
 
         # C++ parameters array [Rtip, zV0, Esite, beta, Gamma, W]
-        cpp_params = np.array([params['Rtip'], params['zV0'], params['Esite'], params['decay'], params['GammaT'], params['W']])
+        cpp_params = pauli.make_cpp_params(params)
 
         # Multipole parameters
         order = params.get('order', 1)

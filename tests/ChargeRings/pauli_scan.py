@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import os
 
 import sys
@@ -13,7 +14,7 @@ import time
 import orbital_utils
 from scipy.interpolate import RectBivariateSpline
 
-def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, bLegend=True, scV=1.5, axs_probs=None, fig_probs=None):
+def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=100, bLegend=True, scV=1.0, axs_probs=None, fig_probs=None, pSites=None, bMirror=True, bRamp=True):
     """
     Scan voltage dependence above one particle
     
@@ -24,13 +25,14 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
         ax_Esite: Axis for site potential plot
         nx: Number of x points
         nV: Number of voltage points
+        ny: Number of y points
     """
     L = params['L']
     z_tip = params['z_tip']
     zT    = z_tip + params['Rtip']
     zV0   = params['zV0']
     zVd   = params['zVd']
-    zQd   = 0.0
+    
     VBias = params['VBias']
     Rtip  = params['Rtip']
     Esite = params['Esite']
@@ -40,19 +42,23 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     pTips_1d[:,0] = x_coords
     pTips_1d[:,2] = zT
     V_vals = np.linspace(0.0, VBias, nV)
-        
+
+    if pSites is None:
+        zQd   = params['zQd']
+        pSites = np.array([[0.0, 0.0, zQd]])
+ 
     # XZ grid calculations
     if ax_Vtip is not None or ax_Esite is not None:
         x_xz = np.linspace(-L, L, nx)
-        z_xz = np.linspace(-L, L, nV)
+        z_xz = np.linspace(-L, L, ny)
         X_xz, Z_xz = np.meshgrid(x_xz, z_xz)
         ps_xz = np.array([X_xz.flatten(), np.zeros_like(X_xz.flatten()), Z_xz.flatten()]).T
     
     # Compute probabilities if requested
     probs_arr = None
     if ax_I2d is not None or axs_probs is not None or fig_probs is not None:
-        pSite = np.array([[0.0, 0.0, zQd]])
-        current, _, _, probs = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSite, params)
+        
+        current, _, _, probs = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSites=pSites, params=params)
         probs_arr = probs.reshape(nV, nx, -1)
         if ax_I2d is not None:
             pu.plot_imshow(ax_I2d, current, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
@@ -61,7 +67,7 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
     # Plotting if axes provided
     if ax_V2d is not None:
         # 1D Potential calculations
-        V1d = pauli.evalSitesTipsMultipoleMirror(pTips_1d, pSites=np.array([[0.0,0.0,zQd]]), VBias=VBias, E0=Esite, Rtip=Rtip, zV0=zV0, zVd=zVd)[:,0]
+        V1d = pauli.evalSitesTipsMultipoleMirror(pTips_1d, pSites=pSites, VBias=VBias, E0=Esite, Rtip=Rtip, zV0=zV0, zVd=zVd)
         V1d_ = V1d - Esite
         
         # 2D Potential calculations
@@ -69,12 +75,12 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
         pTips_v = np.zeros((nV*nx, 3))
         pTips_v[:,0] = X_v.flatten()
         pTips_v[:,2] = zT
-        V2d = pauli.evalSitesTipsMultipoleMirror(pTips_v, pSites=np.array([[0.0,0.0,zQd]]), VBias=V_v.flatten(), E0=Esite, Rtip=Rtip, zV0=zV0)[:,0].reshape(nV, nx)
+        V2d = pauli.evalSitesTipsMultipoleMirror(pTips_v, pSites=pSites, VBias=V_v.flatten(), E0=Esite, Rtip=Rtip, zV0=zV0, zVd=zVd)    .reshape(nV, nx)
         V2d_ = V2d - Esite
         
         pu.plot_imshow(ax_V2d, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='bwr')
         ax_V2d.plot(x_coords, V1d,  label='V_tip')
-        ax_V2d.plot(x_coords, V1d_, label='V_tip + E_site')
+        ax_V2d.plot(x_coords, V1d_, label=f'V_tip-E_site({Esite:.3f})')
         ax_V2d.plot(x_coords, x_coords*0.0 + VBias, label='VBias')
         ax_V2d.axhline(0.0, ls='--', c='k')
         #ax_V2d.set_title("1D Potential (z=0)")
@@ -89,25 +95,30 @@ def scan_xV(params, ax_V2d=None, ax_Vtip=None, ax_Esite=None, ax_I2d=None, nx=10
         V1d_ = None
 
     if ax_Vtip is not None:
-        Vtip   = pauli.evalSitesTipsMultipoleMirror(ps_xz, pSites=np.array([[0.0, 0.0, zT]]),   VBias=VBias, Rtip=Rtip, zV0=zV0)[:,0].reshape(nV, nx)
+        pTip = np.array([[0.0, 0.0, zT]])
+        Vtip   = pauli.evalSitesTipsMultipoleMirror( pTip, pSites=ps_xz, VBias=VBias, Rtip=Rtip, zV0=zV0, zVd=zVd, bMirror=bMirror, bRamp=bRamp, bSiteScan=True).reshape(ny,nx)
         extent_xz = [-L, L, -L, L]
         pu.plot_imshow(ax_Vtip, Vtip, title="Tip Potential", extent=extent_xz, cmap='bwr', vmin=-VBias*scV, vmax=VBias*scV)
         circ1, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, zT))
         circ2, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, 2*zV0-zT))
         ax_Vtip.plot(circ1[:,0], circ1[:,2], ':k')
         ax_Vtip.plot(circ2[:,0], circ2[:,2], ':k')
-        ax_Vtip.axhline(zV0,  ls='--', c='k', label='mirror surface')
-        ax_Vtip.axhline(zQd,  ls='--', c='g', label='Qdot height')
-        ax_Vtip.axhline(z_tip,ls='--', c='orange', label='Tip Height')
+        ax_Vtip.axhline(zV0,  ls='--', c='k', label=f'zV0 {zV0:.3f}')
+        ax_Vtip.axhline(zQd,  ls='--', c='g', label=f'zQd {zQd:.3f}')
+        ax_Vtip.axhline(z_tip,ls='--', c='orange', label=f'z_tip {z_tip:.3f}')
+        ax_Vtip.axhline(z_tip+zVd,  ls='--', c='r', label=f'z_tip+zVd {zVd+z_tip:.3f}')
+        if bLegend:
+            ax_Vtip.legend()
     else:
         Vtip = None
     
     if ax_Esite is not None:
-        Esites = pauli.evalSitesTipsMultipoleMirror(ps_xz, pSites=np.array([[0.0, 0.0, zQd]]), VBias=VBias, Rtip=Rtip, zV0=zV0)[:,0].reshape(nV, nx)
+        Esites = pauli.evalSitesTipsMultipoleMirror(ps_xz, pSites=np.array([[0.0, 0.0, zQd]]), VBias=VBias, Rtip=Rtip, zV0=zV0, zVd=zVd).reshape(nV, nx)
         pu.plot_imshow(ax_Esite, Esites, title="Site Potential", extent=extent_xz, cmap='bwr', vmin=-VBias*scV, vmax=VBias*scV)
         ax_Esite.axhline(zV0, ls='--', c='k', label='mirror surface')
         ax_Esite.axhline(zQd, ls='--', c='g', label='Qdot height')
-        ax_Esite.legend()
+        if bLegend:
+            ax_Esite.legend()
     else:
         Esites = None
     
@@ -306,7 +317,7 @@ def run_scan_xy_orb( params, orbital_file="QD.cub" ):
     print(f"Figure saved as 'scan_xy_orb_test.png'")
     #plt.show()
 
-def scan_param_sweep(params, scan_params, selected_params=None, nx=100, nV=100, sz=3, bLegend=False):
+def sweep_param_xV(params, scan_params, selected_params=None, nx=100, nV=100, sz=3, bLegend=False):
     """
     Scan over multiple parameters simultaneously and plot V2d and Vtip for each set
     
@@ -425,7 +436,6 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     angles     = phis  + params['phiRot']
     rots       = ut.makeRotMats( angles )
     
-    
     # Store in params for later use
     params['spos'] = spos
     params['rots'] = rots
@@ -528,11 +538,9 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, axs_pr
     rots = ut.makeRotMats(phis + params['phiRot'])
 
     Vtips = np.full(npoints, params['VBias'])
-    cpp_params = np.array([ params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W'] ])
-    order = 2
-    cs = params.get('cs', np.array([ params['Q0'], 0.0, 0.0, 0.0,    0.0,params['Qzz'],0.0,0.0,0.0,0.0]))
-    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
-
+    cpp_params = pauli.make_cpp_params(params)
+    cs, order = pauli.make_quadrupole_Coeffs(params['Q0'], params['Qzz'])
+    state_order = pauli.make_state_order(nsite)
     # Run scan
     solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
     current, Es, Ts, probs = solver.scan_current_tip( pTips, Vtips, spos,  cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
@@ -630,8 +638,9 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     zT = params['z_tip'] + params['Rtip']
     pTips[:,2] = zT
     
-    state_order = np.array([0, 4,2,6, 1,5,3, 7], dtype=np.int32)
-    current, Es, Ts, probs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  params, rots=rots, order=1, cs=None, bOmp=False, state_order=state_order, Ts=None )
+    cpp_params = pauli.make_cpp_params(params)
+    state_order = pauli.make_state_order(nsite)
+    current, Es, Ts, probs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=False, state_order=state_order, Ts=None )
     # reshape
     STM = current.reshape(nV,npts)
     Es  = Es.reshape(nV,npts,nsite)
@@ -701,10 +710,10 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     pTips = np.zeros((npts,3))
     pTips[:,0] = x; pTips[:,1] = y; pTips[:,2] = params['z_tip']+params['Rtip']
 
-    # Prepare state order matching calculate_xV_scan
-    state_order = np.array([0,4,2,6,1,5,3,7], dtype=np.int32)
+    cpp_params = pauli.make_cpp_params(params)
+    state_order = pauli.make_state_order(nsite)
     # Run scan with external Ts
-    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, bOmp=False, Ts=Ts_input)
+    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, cpp_params, order=1, cs=None, rots=rots, state_order=state_order, bOmp=False, Ts=Ts_input)
 
     # reshape and compute
     STM = current.reshape(nV, npts)
@@ -772,9 +781,62 @@ def plot_state_probabilities(probs_arr, extent, axs=None, fig=None, labels=None,
     return fig, axs
 
 if __name__ == "__main__":
+
+
+    mpl.rcParams.update({
+        # Font sizes
+        'font.size': 8,                # Default font size
+        'axes.titlesize': 8,           # Axes title size
+        'axes.labelsize': 8,           # Axes labels (x and y)
+        'xtick.labelsize': 7,          # x-axis tick labels
+        'ytick.labelsize': 7,          # y-axis tick labels
+        'legend.fontsize': 7,          # Legend font size
+        'figure.titlesize': 9,         # Figure title (suptitle)
+        'figure.labelsize': 8,         # Figure labels (for colorbars, etc.)
+        
+        # Margins and spacing
+        'figure.autolayout': False,    # We'll control layout manually
+        'figure.subplot.left': 0.08,   # Left margin
+        'figure.subplot.right': 0.95,  # Right margin
+        'figure.subplot.bottom': 0.08, # Bottom margin
+        'figure.subplot.top': 0.90,    # Top margin
+        'figure.subplot.wspace': 0.05,  # Horizontal space between subplots
+        'figure.subplot.hspace': 0.05,  # Vertical space between subplots
+        
+        # Lines and markers
+        'lines.linewidth': 0.8,        # Line width
+        'lines.markersize': 3,         # Marker size
+        'patch.linewidth': 0.6,        # Patch (bars, etc.) edge width
+        
+        # Legend
+        'legend.frameon': False,       # Remove legend frame
+        'legend.borderpad': 0.1,       # Padding inside legend border
+        'legend.labelspacing': 0.1,    # Vertical space between legend entries
+        'legend.handlelength': 1.5,    # Length of legend handles
+        'legend.handletextpad': 0.4,   # Space between handle and text
+        
+        # Axes
+        'axes.linewidth': 0.6,         # Axis line width
+        'axes.labelpad': 2,            # Space between label and axis
+        'xtick.major.pad': 1.5,        # Padding between x-ticks and label
+        'ytick.major.pad': 1.5,        # Padding between y-ticks and label
+        'xtick.major.size': 2,         # x-tick length
+        'ytick.major.size': 2,         # y-tick length
+        'xtick.major.width': 0.6,      # x-tick width
+        'ytick.major.width': 0.6,      # y-tick width
+        
+        # Saving figures
+        'savefig.bbox': 'tight',       # Remove extra whitespace around figure
+        'savefig.pad_inches': 0.02,    # Padding when bbox='tight'
+        #'savefig.dpi': 300,            # Higher DPI for quality when small
+    })
+
+
     # Example usage when run as standalone script - using same defaults as GUI
     params = {
-        'VBias': 0.3, 'Rtip': 2.5, 'z_tip': 3.0,
+        'VBias': 0.6, 
+        'Rtip':  3.0, 
+        'z_tip': 5.0,
 
         #'W': 0.00,
          #'W': 0.005,
@@ -788,9 +850,14 @@ if __name__ == "__main__":
         #'zV0': -10.0, 'zQd': 0.0,
         'zV0': -3.3, 'zQd': 0.0,
         'zVd': 2.0,
+        'zQd': 0.0,
         'nsite': 3, 'radius': 5.2, 
         'phiRot': np.pi*0.5 + 0.2 ,
-        'Esite': -0.04, 'Q0': 1.0, 'Qzz': 0.0,
+        
+        #'Esite': -0.04,
+        'Esite': -0.150, 
+        
+        'Q0': 1.0, 'Qzz': 0.0,
         #'L': 20.0, 
         #'npix': 100, 
         
@@ -802,43 +869,46 @@ if __name__ == "__main__":
     }
     verbosity = 0
 
-    #run_scan_xy_orb(params, orbital_file='QD.cub')
-    #scan_xy_orb(params, scan_params=[('VBias', np.linspace(0.0, 0.5, 5))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file='QD.cub')
+    # #run_scan_xy_orb(params, orbital_file='QD.cub')
+    # #scan_xy_orb(params, scan_params=[('VBias', np.linspace(0.0, 0.5, 5))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file='QD.cub')
+    # # plt.savefig('scan_xy_orb_test.png')
+    # # plt.show()
+    # # exit()
+
+    # # #scan_param_sweep(params, scan_params=[('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'], orbital_file='QD.cub')
+    # #scan_param_sweep_xy_orb(params, scan_params=[('VBias', np.linspace(0.0, 0.5, 5))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file='QD.cub')
+    # scan_param_sweep_xy_orb(params, scan_params=[('VBias', np.linspace(0.05, 0.2, 6))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file=None)
     # plt.savefig('scan_param_sweep_xy_orb.png')
     # plt.show()
-    # exit()
-
-    # #scan_param_sweep(params, scan_params=[('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'], orbital_file='QD.cub')
-    #scan_param_sweep_xy_orb(params, scan_params=[('VBias', np.linspace(0.0, 0.5, 5))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file='QD.cub')
-    scan_param_sweep_xy_orb(params, scan_params=[('VBias', np.linspace(0.05, 0.2, 6))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file=None)
-    plt.savefig('scan_param_sweep_xy_orb.png')
-    plt.show()
-    # exit()
+    # # exit()
     
-    #run_scan_xy_orb( params )
+    # #run_scan_xy_orb( params )
     
-    exit()
+    #exit()
 
     # scan_param_sweep(params, [('z_tip', np.linspace(1.0, 6.0, 5)), ('Esite', np.linspace(-0.20, -0.05, 5))], selected_params=['VBias','zV0'])
     # plt.savefig('scan_param_sweep.png')
     # plt.show()
     # exit()
     
-    # Initialize pauli solver
-    pauli_solver = pauli.PauliSolver( nSingle=3, nleads=2, verbosity=verbosity )
-    
-    # Create figure
-    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize=(15, 10))
-    
-    # Run scans with plotting
-    #scan_xV(params, ax_V2d=ax1, ax_Vtip=ax2, ax_Esite=ax3)
-    scan_xV(params, ax_Vtip=ax1,  ax_V2d=ax2,  ax_I2d=ax3)
-    scan_xy(params, pauli_solver, ax_Etot=ax4, ax_Ttot=ax5, ax_STM=ax6)
-    
-    plt.tight_layout()
-    plt.show()
+    # # Initialize pauli solver
+    # pauli_solver = pauli.PauliSolver( nSingle=3, nleads=2, verbosity=verbosity )
+    # # Create figure
+    # fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize=(15, 10))
+    # # Run scans with plotting
+    # #scan_xV(params, ax_V2d=ax1, ax_Vtip=ax2, ax_Esite=ax3)
+    # scan_xV(params, ax_Vtip=ax1,  ax_V2d=ax2,  ax_I2d=ax3)
+    # #scan_xy(params, pauli_solver, ax_Etot=ax4, ax_Ttot=ax5, ax_STM=ax6)    
+    # plt.tight_layout()
+    # plt.show()
 
     # Example parameter sweep
     #z_tip_vals = np.linspace(1.0, 3.0, 5)  # Scan 5 tip heights
-    #fig = scan_param_sweep(params, [('z_tip', z_tip_vals)])
-    #plt.show()
+    #fig = sweep_param_xV(params, [('z_tip', z_tip_vals)])
+
+    zVd_vals = np.linspace(5.0, 15.0, 5)  # Scan 5 tip heights
+    #zV0_vals = np.linspace(-1.0, -3.0, 5)  # Scan 5 tip heights
+    zV0_vals = np.linspace(-3.0, -0.5, 5)  # Scan 5 tip heights
+    fig = sweep_param_xV(params, [('zVd', zVd_vals), ('zV0', zV0_vals)])
+
+    plt.show()

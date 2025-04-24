@@ -44,7 +44,11 @@ double Emultipole( const Vec3d& d, int order, const double * cs ){
  * @param E0 Optional base energy (default=0)
  * @return Combined electrostatic energy
  */
-double evalMultipoleMirror( Vec3d pTip, const Vec3d& pSite, double VBias, double Rtip, Vec2d zV, int order, const double* cs, double E0 = 0, const Mat3d* rotSite = nullptr ) {
+double evalMultipoleMirror( Vec3d pTip, const Vec3d& pSite, double VBias, double Rtip, Vec2d zV, int order, const double* cs, double E0 = 0, const Mat3d* rotSite = nullptr, bool bMirror = true, bool bRamp = true ) {
+    //bMirror = true;
+    //bRamp   = true;
+    //bMirror = false;
+    //bRamp   = false;
     // zV.x = mirror plane, zV.y = offset for linear potential
     double zV0 = zV.x;
     double zVd = zV.y;
@@ -60,17 +64,23 @@ double evalMultipoleMirror( Vec3d pTip, const Vec3d& pSite, double VBias, double
         pTip       = rotSite->dot(pTip); 
         pTipMirror = rotSite->dot(pTipMirror); 
     }
-    double E_direct  = Emultipole(pTip,       order, cs);
-    double E_mirror  = Emultipole(pTipMirror, order, cs);
+    double        E  = Emultipole(pTip,       order, cs);
+    if(bMirror) { E -= Emultipole(pTipMirror, order, cs); }
     double VR = VBias * Rtip;
+    E*=VR;
+    //E = 0.0;
     // linear potential from flat capacitor between zV0 and zV1
-    double ramp = (orig_z - zV0) / (zV1 - zV0);
-    //ramp = _clamp(0.0,1.0,ramp); 
-    if(ramp>1.0)   ramp=1.0;
-    if(orig_z<zV0) ramp=0.0;
-    double V_lin = VBias * ramp;
-    double E_lin = cs[0] * V_lin;
-    return VR * (E_direct - E_mirror) + E0 + E_lin;
+    if(bRamp) {
+        double ramp = (pSite.z - zV0) / (zV1 - zV0);
+        //ramp = _clamp(0.0,1.0,ramp); 
+        //if(ramp>1.0)   ramp=0.0;
+        if(ramp>1.0)    ramp=1.0;
+        if(pSite.z<zV0) ramp=0.0;
+        double V_lin = VBias * ramp;
+        double E_lin = (cs[0] * V_lin);
+        E+=E_lin;
+    }
+    return E + E0;
 }
 
 /**
@@ -86,12 +96,15 @@ double evalMultipoleMirror( Vec3d pTip, const Vec3d& pSite, double VBias, double
  * @param cs Multipole coefficients array
  * @param Eout Pre-allocated output array (nTips x nSites)
  */
-void evalSitesTipsMultipoleMirror( int nTip, const Vec3d* pTips, const double* VBias, int nSites, const Vec3d* pSite, const Mat3d* rotSite, double E0, double Rtip, Vec2d zV, int order, const double* cs, double* outEs ) {
-    //printf("evalSitesTipsMultipoleMirror() nTip: %d nSites: %d E0: %6.3e Rtip: %6.3e VBias[0,-1](%6.3e,%6.3e) zV0: %6.3e pTip.z[0,-1](%6.3e,%6.3e) order: %d cs:[ %6.3e, %6.3e, %6.3e, %6.3e ]\n", nTip, nSites, E0, Rtip, VBias[0], VBias[nTip-1], zV.x, pTips[0].z, pTips[nTip-1].z, order, cs[0], cs[1], cs[2], cs[3] );
+void evalSitesTipsMultipoleMirror( int nTip, const Vec3d* pTips, const double* VBias, int nSites, const Vec3d* pSite, const Mat3d* rotSite, double E0, double Rtip, Vec2d zV, int order, const double* cs, double* outEs, bool bMirror = true, bool bRamp = true, bool bSiteScan=false ) {
+    //E0 = 0;
+    //printf("evalSitesTipsMultipoleMirror() nTip: %7d nSites: %2d E0: %7.3f Rtip: %7.3f VBias[0,-1](%7.3f,%7.3f) zV0: %7.3f pTip.z[0,-1](%7.3f,%7.3f) bMirror: %d bRamp: %d order: %d cs:[ %6.3e, %6.3e, %6.3e, %6.3e, %6.3e, %6.3e, %6.3e, %6.3e, %6.3e, %6.3e ]\n", nTip, nSites, E0, Rtip, VBias[0], VBias[nTip-1], zV.x, pTips[0].z, pTips[nTip-1].z, bMirror, bRamp, order, cs[0], cs[1], cs[2], cs[3], cs[4], cs[5], cs[6], cs[7], cs[8], cs[9] );
     for (int i=0; i<nTip; i++) {
         for (int j=0; j<nSites;j++) {
             const Mat3d* rot = ( rotSite ) ? ( rotSite + j ) : nullptr;
-            outEs[i*nSites+j] = evalMultipoleMirror(pTips[i], pSite[j], VBias[i], Rtip, zV, order, cs, E0, rot);
+            double E = evalMultipoleMirror(pTips[i], pSite[j], VBias[i], Rtip, zV, order, cs, E0, rot, bMirror, bRamp);
+            if(bSiteScan) { outEs[i*nSites+j] = E; }
+            else          { outEs[j*nTip  +i] = E; }
             //printf("evalSitesTipsMultipoleMirror() i: %d j: %d outEs: %6.3e VBias: %6.3e pTip( %6.3e %6.3e %6.3e) pSite(%6.3e %6.3e %6.3e) \n", i, j, outEs[i*nSites+j], VBias[i], pTips[i].x, pTips[i].y, pTips[i].z, pSite[j].x, pSite[j].y, pSite[j].z);
         }
     }

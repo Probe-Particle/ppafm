@@ -115,13 +115,13 @@ def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0]], beta=1.0, Amp=1.0, ou
     lib.evalSitesTipsTunneling(nTips, _np_as(pTips, c_double_p), nSites, _np_as(pSites, c_double_p), beta, Amp, _np_as(outTs, c_double_p))
     return outTs
 
-# void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs ) {
-lib.evalSitesTipsMultipoleMirror.argtypes = [c_int, c_double_p,  c_double_p, c_int, c_double_p, c_double_p,  c_double, c_double, c_double, c_double, c_int, c_double_p, c_double_p]
+# void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs, bool bMirror, bool bRamp, bool bSiteScan ) {
+lib.evalSitesTipsMultipoleMirror.argtypes = [c_int, c_double_p,  c_double_p, c_int, c_double_p, c_double_p,  c_double, c_double, c_double, c_double, c_int, c_double_p, c_double_p, c_bool, c_bool, c_bool]
 lib.evalSitesTipsMultipoleMirror.restype = None
-def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0]], VBias=1.0, Rtip=1.0, zV0=-2.0, zVd=2.0, order=1, cs=[1.0,0.0,0.0,0.0], E0=0.0, rotSite=None, Eout=None, bMakeArrays=True ):
+def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0]], VBias=1.0, Rtip=1.0, zV0=-2.0, zVd=2.0, order=1, cs=[1.0,0.0,0.0,0.0], E0=0.0, rotSite=None, Eout=None, bMakeArrays=True, bMirror=True, bRamp=True, bSiteScan=False ):
     nTip  = len(pTips)
     nSite = len(pSites)
-
+    #print("nTip", nTip, "nSite", nSite)
     if bMakeArrays:
         pSites = np.ascontiguousarray(pSites, dtype=np.float64)
         pTips  = np.ascontiguousarray(pTips,  dtype=np.float64)
@@ -129,8 +129,8 @@ def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0]], VBias=1.0, Rtip
         if isinstance(VBias, (int, float)):
             VBias = np.full(nTip, VBias, dtype=np.float64)
     if Eout is None:
-        Eout = np.zeros((nTip, nSite), dtype=np.float64)
-    lib.evalSitesTipsMultipoleMirror(nTip, _np_as(pTips, c_double_p), _np_as(VBias, c_double_p), nSite, _np_as(pSites, c_double_p), _np_as(rotSite, c_double_p), E0, Rtip, zV0, zVd, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p))
+        Eout = np.zeros( nTip*nSite, dtype=np.float64)
+    lib.evalSitesTipsMultipoleMirror(nTip, _np_as(pTips, c_double_p), _np_as(VBias, c_double_p), nSite, _np_as(pSites, c_double_p), _np_as(rotSite, c_double_p), E0, Rtip, zV0, zVd, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p), bMirror, bRamp, bSiteScan)
     return Eout
 
 # def compute_site_energies( pTips, pSites, VBias, cs, E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
@@ -297,6 +297,18 @@ def count_electrons(state):
     return bin(state).count('1')
 
 
+def make_cpp_params(params, bMirror=True, bRamp=True):
+    return np.array([params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W'], float(bMirror), float(bRamp) ], dtype=np.float64)
+
+def make_state_order(nsite):
+    if nsite != 3:
+        print("make_state_order: nsite must be 3, got", nsite)
+        exit(0)
+    return np.array([0, 4,2,6, 1,5,3, 7], dtype=np.int32)
+
+def make_quadrupole_Coeffs( Q0, Qzz ):
+    return np.array([ Q0, 0.0, 0.0, 0.0, 0.0, Qzz, 0.0, 0.0, 0.0, 0.0 ]), 2
+
 def run_cpp_scan(params, Es, Ts, scaleE=1.0):
     """Run C++ Pauli simulation for current calculation"""
     NSingle = int(params['NSingle'])
@@ -328,7 +340,7 @@ def run_cpp_scan(params, Es, Ts, scaleE=1.0):
     # Set up other parameters
     Ws = np.full(npoints, W)
     VGates = np.zeros((npoints, NLeads))
-    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+    state_order = make_state_order(NSingle)
         
     currents = pauli.scan_current( hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order )
     return currents
@@ -398,7 +410,7 @@ def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, 
     TLeads = TLeads.reshape(-1, NLeads, NSingle)
     Ws = np.full(npoints*nbias, W)
     
-    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+    state_order = make_state_order(NSingle)
 
     print("min,max hsingles: ", hsingles.min(), hsingles.max())
     print("min,max Ws:       ", Ws.min(), Ws.max())
@@ -428,7 +440,8 @@ def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=
     return current, Es, Ts, Probs
 
 
-def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=None, Ts=None ):
+
+def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=None, Ts=None, state_order=None ):
     npix   = params['npix']
     L      = params['L']
     nsite  = params['nsite']
@@ -449,21 +462,22 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
 
     # C++ parameters array [Rtip, zV0, Esite, beta, Gamma, W]
     # Using GammaT for Gamma, assuming it's the relevant coupling
-    cpp_params = np.array([params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W']])
+    cpp_params = make_cpp_params(params)
 
     # Multipole parameters
     
     #cs = params.get('cs', np.array([1.0,0.,0.,0.]))
     if cs is None:
-        cs = np.array([ params['Q0'], 0.0, 0.0, 0.0,    0.0,params['Qzz'],0.0,0.0,0.0,0.0])
-        order = 2
+        cs, order = make_quadrupole_Coeffs(params['Q0'], params['Qzz'])
     else:
         cs = np.array(cs)
         order = params.get('order', 1)
 
-
     # State order
-    state_order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+    if state_order is None:
+        state_order = make_state_order(nsite)
+    else:
+        state_order = np.array(state_order, dtype=np.int32)
 
     # --- Run scan ---
     #print("Running scan...")
@@ -502,20 +516,20 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
     nV     = len(Vbiases)
     
     if state_order is None:
-        state_order = np.arange(2**nsite, dtype=np.int32)
+        state_order = make_state_order(nsite)
     else:
         state_order = np.array(state_order, dtype=np.int32)
     
     # Prepare C++ params array [Rtip, zV0, Esite, beta, Gamma, W]
     # Using GammaT for Gamma, assuming it's the relevant coupling
-    cpp_params = np.array([params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W']])
+    cpp_params = make_cpp_params(params)
 
     # Handle cs parameter
     if cs is None:
-        cs = np.array([ params['Q0'], 0.0, 0.0, 0.0,params['Qzz'],0.0,0.0,0.0,0.0,0.0])
-        order = 2
+        cs, order = make_quadrupole_Coeffs(params['Q0'], params['Qzz'])
     else:
         cs = np.array(cs)
+        order = params.get('order', 1)
     
     # Create solver
     pauli_solver = PauliSolver(nSingle=nsite, nleads=2, verbosity=verbosity)
