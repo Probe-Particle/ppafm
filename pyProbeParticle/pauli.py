@@ -445,7 +445,7 @@ def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=
 
 
 
-def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=None, Ts=None, state_order=None ):
+def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=None, Ts=None, state_order=None, bMirror=True, bRamp=True ):
     npix   = params['npix']
     L      = params['L']
     nsite  = params['nsite']
@@ -466,7 +466,7 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
 
     # C++ parameters array [Rtip, zV0, Esite, beta, Gamma, W]
     # Using GammaT for Gamma, assuming it's the relevant coupling
-    cpp_params = make_cpp_params(params)
+    cpp_params = make_cpp_params(params, bMirror=bMirror, bRamp=bRamp)
 
     # Multipole parameters
     
@@ -495,7 +495,7 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
     return STM, Es, Ts, Probs
 
 
-def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=None, bOmp=False, state_order=None, Ts=None ):
+def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=None, bOmp=False, state_order=None, Ts=None, bMirror=True, bRamp=True ):
     """
     Perform 2D scan along 1D cut of tip positions (pTips) and bias voltages (Vbiases)
     
@@ -524,7 +524,7 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
     
     # Prepare C++ params array [Rtip, zV0, Esite, beta, Gamma, W]
     # Using GammaT for Gamma, assuming it's the relevant coupling
-    cpp_params = make_cpp_params(params)
+    cpp_params = make_cpp_params(params, bMirror=bMirror, bRamp=bRamp)
 
     # Handle cs parameter
     if cs is None:

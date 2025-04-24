@@ -115,7 +115,7 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
         
     return V1d, V2d, Esites, I
 
-def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None, bOmp=False, sdIdV=0.5, axs_probs=None, fig_probs=None):
+def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None, bOmp=False, sdIdV=0.5, fig_probs=None, bMirror=False, bRamp=False):
     """
     Scan tip position in x,y plane for constant Vbias
     
@@ -135,7 +135,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     rots       = ut.makeRotMats(phis + params['phiRot'])
     
     # Run pauli scan
-    STM, Es, Ts, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, bOmp=bOmp)
+    STM, Es, Ts, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, bOmp=bOmp, bMirror=bMirror, bRamp=bRamp)
     #print( "min,max Es", np.min(Es), np.max(Es))
     #print( "min,max Ts", np.min(Ts), np.max(Ts))
     #print( "min,max STM", np.min(STM), np.max(STM))
@@ -155,6 +155,8 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling (max)",  extent=extent, cmap='hot')
     if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",              extent=extent, cmap='hot')
     if ax_dIdV is not None: pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",            extent=extent, cmap='bwr', scV=sdIdV)
+    if fig_probs is not None:
+        plot_state_probabilities(probs_arr, extent=extent, fig=fig_probs, aspect='equal')
     
     probs_arr = probs.reshape(params['npix'], params['npix'], -1)
     return STM, Es, Ts, probs_arr, spos, rots
@@ -181,7 +183,7 @@ def generate_central_hops(orb2D, orb_lvec, spos_xy, angles, z0, dcanv, big_npix,
     rho_small=cut_central_region([rho_big],dcanv,big_npix,small_npix)[0]
     return Ms_small, rho_small
 
-def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, axs_probs=None, fig_probs=None):
+def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, axs_probs=None, fig_probs=None, bMirror=False, bRamp=False):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
     computed by convolution of orbitals on canvas
@@ -207,6 +209,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     L=params['L']; npix=params['npix']
     nsite=params['nsite']; z_tip=params['z_tip']
     spos,phis=ut.makeCircle(n=nsite,R=params['radius'],phi0=params['phiRot'])
+    spos[:,2] = params['zQd']
     angles=phis+params['phi0_ax'] + np.pi*0.5
     #print( "angles", angles)
     rots = ut.makeRotMats( angles )
@@ -231,7 +234,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     
     T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     #bOmp = True
-    STM_flat, Es_flat, Ts_flat_, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+    STM_flat, Es_flat, Ts_flat_, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp, bMirror=bMirror, bRamp=bRamp)
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     if ax_dIdV is not None:
         params_ = params.copy()
@@ -294,7 +297,7 @@ def run_scan_xy_orb( params, orbital_file="QD.cub" ):
     pauli_solver = pauli.PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=0)
 
     fig, ( ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(20,5))
-    scan_xy_orb(params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=pauli_solver, ax_Etot=ax1, ax_Ttot=ax2, ax_STM=ax3, ax_Ms=None, ax_dIdV=ax4 )
+    scan_xy_orb(params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=pauli_solver, ax_Etot=ax1, ax_Ttot=ax2, ax_STM=ax3, ax_Ms=None, ax_dIdV=ax4, bMirror=False, bRamp=False)
         
     fig.suptitle(f"Scan with Orbital-Based Hopping ({orbital_file})", fontsize=14)
     plt.tight_layout(rect=[0, 0, 1, 0.95])  # Make room for suptitle
@@ -502,7 +505,7 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     plt.tight_layout()
     return fig
 
-def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_probs=None):
+def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_probs=None, bMirror=True, bRamp=True ):
     """Calculate 1D scan between two points using run_pauli_scan"""
     x1, y1 = start_point
     x2, y2 = end_point
@@ -525,7 +528,7 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_pro
     rots = ut.makeRotMats(phis + params['phiRot'])
 
     Vtips = np.full(npoints, params['VBias'])
-    cpp_params = pauli.make_cpp_params(params)
+    cpp_params = pauli.make_cpp_params(params, bMirror=bMirror, bRamp=bRamp)
     cs, order  = pauli.make_quadrupole_Coeffs(params['Q0'], params['Qzz'])
     state_order = pauli.make_state_order(nsite)
     # Run scan
@@ -609,7 +612,7 @@ def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2
     print(f"Data saved to {filename}")
     return filename
     
-def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5, axs_probs=None, fig_probs=None):
+def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5, axs_probs=None, fig_probs=None, bMirror=True, bRamp=True):
     """Scan tip along a line for a range of voltages and plot Emax, STM, dI/dV."""
     print("calculate_xV_scan()", start_point, end_point,  )
     # Line geometry
@@ -635,7 +638,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     zT = params['z_tip'] + params['Rtip']
     pTips[:,2] = zT
     
-    cpp_params = pauli.make_cpp_params(params)
+    cpp_params = pauli.make_cpp_params(params, bMirror=bMirror, bRamp=bRamp)
     state_order = pauli.make_state_order(nsite)
     current, Es, Ts, probs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=False, state_order=state_order, Ts=None )
     # reshape
@@ -667,7 +670,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     print("calculate_xV_scan() DONE")
     return x, Vbiases, Emax, STM, dIdV, probs_arr
 
-def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, axs_probs=None, fig_probs=None):
+def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, axs_probs=None, fig_probs=None, bMirror=True, bRamp=True):
     """Scan voltage dependence along a line using orbital-based hopping Ts"""
     # Line geometry
     x1, y1 = start_point; x2, y2 = end_point
@@ -709,7 +712,7 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
 
     state_order = pauli.make_state_order(nsite)
     # Run scan using parameter dict (wrapper generates C++ params internally)
-    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, bOmp=False, state_order=state_order, Ts=Ts_input)
+    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, bOmp=False, state_order=state_order, Ts=Ts_input, bMirror=bMirror, bRamp=bRamp)
 
     # reshape and compute
     STM = current.reshape(nV, npts)

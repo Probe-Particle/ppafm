@@ -52,20 +52,20 @@ class ApplicationWindow(GUITemplate):
             'Q0':            {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
             'Qzz':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-20.0, 20.0), 'value': 1.0, 'step': 0.5},
 
-            'Esite':         {'group': 'Transport Solver',  'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.150,'step': 0.002, 'decimals': 3},
-            'W':             {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),   'value': 0.02,  'step': 0.001, 'decimals': 3},
-            'decay':         {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 2.0),   'value': 0.3,  'step': 0.1,   'decimals': 2},
-            'GammaS':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01,  'step': 0.001, 'decimals': 3},
-            'GammaT':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),   'value': 0.01,  'step': 0.001, 'decimals': 3},
-            'Temp':          {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 100.0), 'value': 0.224, 'step': 0.01 },
-            #'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,   'step': 0.1  },
+            'Esite':         {'group': 'Transport Solver',  'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.100, 'step': 0.002, 'decimals': 3},
+            'W':             {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.02,   'step': 0.001, 'decimals': 3},
+            'decay':         {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 2.0),    'value': 0.3,    'step': 0.1,   'decimals': 2},
+            'GammaS':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3},
+            'GammaT':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3},
+            'Temp':          {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 100.0),  'value': 0.224,  'step': 0.01 },
+            #'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,    'step': 0.1  },
                         
 
             # Visualization
             'L':             {'group': 'Visualization', 'widget': 'double', 'range': (5.0, 50.0),   'value': 20.0, 'step': 1.0},
             'npix':          {'group': 'Visualization', 'widget': 'int',    'range': (50, 500),     'value': 200,  'step': 50},
             'dQ':            {'group': 'Visualization', 'widget': 'double', 'range': (0.001, 0.1),  'value': 0.02, 'step': 0.001, 'decimals': 3},
-            'R_major':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 8.0, 'step': 0.1},
+            'R_major':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 8.0,  'step': 0.1},
             'R_minor':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 10.0, 'step': 0.1},
             
 
@@ -159,8 +159,17 @@ class ApplicationWindow(GUITemplate):
         self.cbShowProbs = QtWidgets.QCheckBox('probabilities')
         self.cbShowProbs.stateChanged.connect(self.run)
 
+        # Checkboxes to control mirror and ramp in voltage scans
+        self.cbMirror = QtWidgets.QCheckBox('Mirror')
+        self.cbMirror.setChecked(True)
+        self.cbMirror.stateChanged.connect(self.run)
+        self.cbRamp = QtWidgets.QCheckBox('Ramp')
+        self.cbRamp.setChecked(True)
+        self.cbRamp.stateChanged.connect(self.run)
         
         self.hbCommonControls.addWidget(self.cbShowProbs)
+        self.hbCommonControls.addWidget(self.cbMirror)
+        self.hbCommonControls.addWidget(self.cbRamp)
         
         # Connect mouse events
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
@@ -323,7 +332,10 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla() 
         self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
-        pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0])
+        bMirror = self.cbMirror.isChecked()
+        bRamp = self.cbRamp.isChecked()
+        
+        pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0], bMirror=bMirror, bRamp=bRamp)
         #pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, params['W'], params['W']*2.0])
         # 2D spatial scan with optional many-body probability panels
         if self.cbShowProbs.isChecked():
@@ -335,7 +347,8 @@ class ApplicationWindow(GUITemplate):
         orbital_2D, orbital_lvec = self.getOrbIfChecked()
         STM, Es, Ts, probs_arr, spos, rots = pauli_scan.scan_xy_orb( 
             params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver, 
-            ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp
+            ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp,
+            bMirror=bMirror, bRamp=bRamp
         )
         self.draw_scan_line(self.ax4)
         self.draw_reference_line(self.ax4)
@@ -351,7 +364,10 @@ class ApplicationWindow(GUITemplate):
     
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
         params = self.get_param_values()
-        distance, Es, Ts, STM, x, y, x1, y1, x2, y2, probs = pauli_scan.calculate_1d_scan(params, start_point, end_point, pointPerAngstrom)
+        distance, Es, Ts, STM, x, y, x1, y1, x2, y2, probs = pauli_scan.calculate_1d_scan(
+            params, start_point, end_point, pointPerAngstrom,
+            bMirror=self.cbMirror.isChecked(), bRamp=self.cbRamp.isChecked()
+        )
         nsite = int(params['nsite'])
         ref_data_line = getattr(self, 'ref_data_line', None)
         ref_columns   = getattr(self, 'ref_columns', None)
@@ -381,8 +397,14 @@ class ApplicationWindow(GUITemplate):
         Vbiases = self.exp_biases
 
         orbital_2D, orbital_lvec = self.getOrbIfChecked()
-        _, _, _, STM, sim_dIdV, probs_arr = pauli_scan.calculate_xV_scan_orb(params, sim_start, sim_end, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1], bLegend=False)
-
+        _, _, _, STM, sim_dIdV, probs_arr = pauli_scan.calculate_xV_scan_orb(
+            params, sim_start, sim_end,
+            orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
+            ax_Emax=None, ax_STM=None, ax_dIdV=None,
+            nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1],
+            bLegend=False,
+            bMirror=self.cbMirror.isChecked(), bRamp=self.cbRamp.isChecked()
+        )
         extent_sim = [0, dist, 0, Vbiases[-1]]
         im1 = ax_sim_I.imshow(STM, aspect='auto', origin='lower', extent=extent_sim, cmap='hot')
         ax_sim_I.axhline( Vbiases[0], ls='--', c='g')
@@ -474,7 +496,13 @@ class ApplicationWindow(GUITemplate):
         #axI = fig.add_subplot(144)
         # Perform scan
         orbital_2D, orbital_lvec = self.getOrbIfChecked()
-        x, V, Emax, STM, dIdV, probs_arr = pauli_scan.calculate_xV_scan_orb(params, start, end, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, ax_Emax=axE, ax_STM=axS, ax_dIdV=axD, nx=100, nV=100, Vmin=0.0, Vmax=0.6)
+        x, V, Emax, STM, dIdV, probs_arr = pauli_scan.calculate_xV_scan_orb(
+            params, start, end,
+            orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
+            ax_Emax=axE, ax_STM=axS, ax_dIdV=axD,
+            nx=100, nV=100, Vmin=0.0, Vmax=0.6,
+            bMirror=self.cbMirror.isChecked(), bRamp=self.cbRamp.isChecked()
+        )
         fig.tight_layout()
         # Display in new Qt window
         window = QtWidgets.QMainWindow()
