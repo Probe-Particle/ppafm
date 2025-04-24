@@ -343,37 +343,36 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla() 
         self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
-        # Run scans with descriptive axis names
-        # if self.cbShowProbs.isChecked():
-        #     import matplotlib.pyplot as plt
-        #     figp1 = plt.figure()
-        #     axs1 = figp1.subplots(2,4)
-        #     pauli_scan.scan_xV(params, ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3, axs_probs=axs1, fig_probs=figp1)
-        #     self.manage_prob_window(figp1, 'scanXV')
-        # else:
-        pauli_scan.scan_xV(params, ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3)
+        print("DEBUG 1" )
+        pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3)
+        
+        print("DEBUG 2" )
         # 2D spatial scan with optional many-body probability panels
         if self.cbShowProbs.isChecked():
-            figp2 = plt.figure(figsize=(4*3, 2*3))
-            # Create 2×4 grid for state probability maps
-            axs2 = figp2.subplots(2,4)
-            STM, Es, Ts, probs_arr, spos, rots = pauli_scan.scan_xy_orb(
-                params, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec,
-                pauli_solver=self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax7,
-                ax_STM=self.ax5, ax_dIdV=self.ax6, axs_probs=axs2, fig_probs=figp2
-            )
-            # Plot XY state probabilities
-            L = params['L']
-            ext = [-L, L, -L, L]
-            pauli_scan.plot_state_probabilities(probs_arr, extent=ext, axs=axs2, fig=figp2, aspect='equal')
+            figp = plt.figure(figsize=(4*3, 2*3))
+            #axps = figp2.subplots(2,4)
             self.manage_prob_window(figp2, 'scanXY')
         else:
-            STM, Es, Ts, _, spos, rots = pauli_scan.scan_xy_orb(params, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, pauli_solver=self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6)
+            figp = None
+        STM, Es, Ts, probs_arr, spos, rots = pauli_scan.scan_xy_orb(
+                params, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec,
+                pauli_solver=self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax7,
+                ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp
+            )
+            # Plot XY state probabilities
+            #L = params['L']
+            #ext = [-L, L, -L, L]
+            #pauli_scan.plot_state_probabilities(probs_arr, extent=ext, axs=axs2, fig=figp2, aspect='equal')
+            #self.manage_prob_window(figp2, 'scanXY')
+        #else:
+        #    STM, Es, Ts, _, spos, rots = pauli_scan.scan_xy_orb(params, orbital_2D=self.orbital_2D, orbital_lvec=self.orbital_lvec, pauli_solver=self.pauli_solver, ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6)
+        
+        print("DEBUG 3" )
         self.draw_scan_line(self.ax4)
         self.draw_reference_line(self.ax4)
         self.plot_ellipses(self.ax9, params)
         self.plot_experimental_data()
-
+        print("DEBUG 4" )
         for i,rot in enumerate(rots):
             x = spos[i][0]
             y = spos[i][1]

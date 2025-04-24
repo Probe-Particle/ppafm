@@ -220,7 +220,7 @@ class PauliSolver:
         else: 
             externTs = False
         if return_probs:
-            nstates = len(state_order)
+            nstates = int(2**nsites)
             Probs = np.zeros((npoins, nstates), dtype=np.float64)
         else:
             Probs = None
@@ -303,7 +303,8 @@ def make_cpp_params(params, bMirror=True, bRamp=True):
 def make_state_order(nsite):
     if nsite != 3:
         print("make_state_order: nsite must be 3, got", nsite)
-        exit(0)
+        #exit(0)
+        return None
     return np.array([0, 4,2,6, 1,5,3, 7], dtype=np.int32)
 
 def make_quadrupole_Coeffs( Q0, Qzz ):
@@ -550,6 +551,6 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
     current = current.reshape(nV,nx)
     Es = Es.reshape(nV,nx,nsite)
     Ts = Ts.reshape(nV,nx,nsite)
-    Probs = Probs.reshape(nV,nx,len(state_order))
+    #Probs = Probs.reshape(nV,nx,len(state_order))
 
     return current, Es, Ts, Probs
