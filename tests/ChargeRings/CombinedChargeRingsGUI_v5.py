@@ -22,6 +22,8 @@ import plot_utils as pu
 import pauli_scan 
 import exp_utils
 import orbital_utils
+import json, os
+import numpy as _np
 
 verbosity = 0
 
@@ -86,6 +88,10 @@ class ApplicationWindow(GUITemplate):
         self.prob_figs = {}
         
         self.create_gui()
+        # Add Save All button next to Save/Load
+        btnSaveAll = QtWidgets.QPushButton("Save All")
+        btnSaveAll.clicked.connect(self.save_everything)
+        self.hbSaveLoad.addWidget(btnSaveAll)
         
         # Load experimental data
         self.load_experimental_data()
@@ -542,6 +548,48 @@ class ApplicationWindow(GUITemplate):
         win.show()
         win.raise_()
         win.activateWindow()
+
+    def save_everything(self):
+        """Save PNG, JSON, and NPZ data with same base filename"""
+        params = self.get_param_values()
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save All", "", "Base name (*.npz)")
+        if not fname:
+            return
+        base = os.path.splitext(fname)[0]
+        # Save params JSON
+        with open(base + '.json', 'w') as f:
+            json.dump(params, f, indent=4)
+        # Save figure PNG
+        self.canvas.figure.savefig(base + '.png')
+        # Collect data
+        data = {}
+        if self.cbPlotXV.isChecked():
+            # Voltage line scan
+            sim_start = (params['p1_x'], params['p1_y'])
+            sim_end = (params['p2_x'], params['p2_y'])
+            orbital_2D, orbital_lvec = self.getOrbIfChecked()
+            x, V, Emax, STM, dIdV, probs = pauli_scan.calculate_xV_scan_orb(
+                params, sim_start, sim_end,
+                orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
+                ax_Emax=None, ax_STM=None, ax_dIdV=None,
+                nx=100, nV=100, Vmin=0.0, Vmax=self.exp_biases[-1],
+                fig_probs=None
+            )
+            data.update({'x': x, 'V': V, 'Emax': Emax, 'STM': STM, 'dIdV': dIdV, 'probs': probs})
+        else:
+            # XY plane scan
+            orbital_2D, orbital_lvec = self.getOrbIfChecked()
+            STM, Es, Ts, probs, spos, rots = pauli_scan.scan_xy_orb(
+                params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
+                pauli_solver=self.pauli_solver,
+                ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None,
+                fig_probs=None
+            )
+            data.update({'spos': spos, 'STM': STM, 'Es': Es, 'Ts': Ts, 'probs': probs})
+        # Embed params JSON string
+        data['params_json'] = json.dumps(params)
+        # Save NPZ
+        _np.savez(base + '.npz', **data)
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)
