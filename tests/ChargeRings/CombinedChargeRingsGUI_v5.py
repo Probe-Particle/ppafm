@@ -352,15 +352,13 @@ class ApplicationWindow(GUITemplate):
                 orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
                 ax_Emax=None, ax_STM=self.ax5, ax_dIdV=self.ax6,
                 nx=100, nV=100, Vmin=0.0, Vmax=self.exp_biases[-1],
-                bMirror=bMirror, bRamp=bRamp
+                bMirror=bMirror, bRamp=bRamp, fig_probs=figp
             )
             self.ax5.set_title('Sim STM (xV)'); self.ax6.set_title('Sim dI/dV (xV)')
             # experimental line scans on ax8 (I) and ax9 (dIdV)
             exp_start = (params['ep1_x'], params['ep1_y']); exp_end = (params['ep2_x'], params['ep2_y'])
-            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I,   self.exp_biases,
-                exp_start, exp_end, ax=self.ax8, ylims=(0, self.exp_biases[-1]), cmap='hot')
-            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases,
-                exp_start, exp_end, ax=self.ax9, ylims=(0, self.exp_biases[-1]))
+            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I,   self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, self.exp_biases[-1]), cmap='hot')
+            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, self.exp_biases[-1]))
             self.ax8.set_title('Exp I (xV)'); self.ax9.set_title('Exp dI/dV (xV)')
         else:
             # original XY plane simulation + experimental overlay
@@ -444,9 +442,10 @@ class ApplicationWindow(GUITemplate):
         if self.cbShowProbs.isChecked():
             # New probability figure
             figp = plt.figure()
-            axs = figp.subplots(2,4)
+            nsite = probs_arr.shape[2]
+            axs = pauli_scan.make_grid_axes(figp, nsite)
             # Plot exp voltage probabilities
-            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,dist,0,Vbiases[-1]], axs=axs, fig=figp)
+            pauli_scan.plot_state_probabilities(probs_arr, extent=[0, dist, 0, Vbiases[-1]], axs=axs[:nsite], fig=figp)
             # Show/manage window
             self.manage_prob_window(figp, 'expVoltage')
             figp.canvas.draw()

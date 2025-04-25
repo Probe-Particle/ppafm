@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import os
+import math
+import numpy as _np  # for flattening axes
 
 import sys
 sys.path.append('../../')
@@ -13,6 +15,18 @@ import time
 
 import orbital_utils
 from scipy.interpolate import RectBivariateSpline
+
+def make_grid_axes(fig, nplots):
+    """
+    Create a near-square grid of subplots for nplots axes.
+    rows = ceil(sqrt(nplots)), cols = ceil(nplots/rows).
+    Returns flat array of axes of length rows*cols.
+    """
+    nrows = math.ceil(math.sqrt(nplots))
+    ncols = math.ceil(nplots / nrows)
+    axs = fig.subplots(nrows, ncols)
+    # flatten axes array
+    return _np.array(axs).flatten()
 
 def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=100, bLegend=True, scV=1.0, Woffsets=None, pSites=None, bMirror=True, bRamp=True):
     """
@@ -156,34 +170,15 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",              extent=extent, cmap='hot')
     if ax_dIdV is not None: pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",            extent=extent, cmap='bwr', scV=sdIdV)
     if fig_probs is not None:
-        plot_state_probabilities(probs_arr, extent=extent, fig=fig_probs, aspect='equal')
+        # dynamic grid axes for probabilities
+        nsite = probs.shape[2]
+        axs = make_grid_axes(fig_probs, nsite)
+        plot_state_probabilities(probs, extent=extent, axs=axs[:nsite], fig=fig_probs, aspect='equal')
     
     probs_arr = probs.reshape(params['npix'], params['npix'], -1)
     return STM, Es, Ts, probs_arr, spos, rots
 
-def cut_central_region(map_list, dcanv, big_npix, small_npix):
-    """Crop central small_npix×small_npix from big_npix maps with pixel size dcanv"""
-    center=big_npix//2; half=small_npix//2; start=center-half; end=start+small_npix
-    return [m[start:end, start:end] for m in map_list]
-
-def pixel_to_coord(i,j,dcanv,npix):
-    """Map pixel idx to coord centered at 0"""
-    return ((i+0.5-npix/2)*dcanv, (j+0.5-npix/2)*dcanv)
-
-def coord_to_pixel(x,y,dcanv,npix):
-    """Map coord to nearest pixel idx"""
-    return (int(x/dcanv + npix/2), int(y/dcanv + npix/2))
-
-def generate_central_hops(orb2D, orb_lvec, spos_xy, angles, z0, dcanv, big_npix, small_npix, decay=0.2):
-    """Compute big canvas hops and crop central small canvas"""
-    big_dd=[dcanv,dcanv]; big_shape=(big_npix,big_npix)
-    tipWf,shift=orbital_utils.make_tipWf(big_shape,big_dd,z0=z0,decay=decay)
-    Ms_big,rho_big=orbital_utils.calculate_Hopping_maps(orb2D,orb_lvec,spos_xy,angles,big_dd,big_shape,tipWf,bTranspose=True)
-    Ms_small=cut_central_region(Ms_big,dcanv,big_npix,small_npix)
-    rho_small=cut_central_region([rho_big],dcanv,big_npix,small_npix)[0]
-    return Ms_small, rho_small
-
-def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, axs_probs=None, fig_probs=None, bMirror=False, bRamp=False):
+def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, fig_probs=None, bMirror=False, bRamp=False):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
     computed by convolution of orbitals on canvas
@@ -210,7 +205,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     nsite=params['nsite']; z_tip=params['z_tip']
     spos,phis=ut.makeCircle(n=nsite,R=params['radius'],phi0=params['phiRot'])
     spos[:,2] = params['zQd']
-    angles=phis+params['phi0_ax'] + np.pi*0.5
+    angles=phis+params['phiRot']
     #print( "angles", angles)
     rots = ut.makeRotMats( angles )
     #print( "rots", rots)
@@ -273,9 +268,34 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
             ax_Ms[i].imshow(Ms[i], cmap='bwr', origin='lower', extent=extent)
             ax_Ms[i].set_title(f"Hopping matrix {i}")
     if fig_probs is not None:
-        plot_state_probabilities(probs_arr, extent=extent, axs=axs2, fig=figp2, aspect='equal')
+        # plot site probabilities in separate window
+        nsite = probs_arr.shape[2]
+        axs_all = make_grid_axes(fig_probs, nsite)
+        plot_state_probabilities(probs_arr, extent=extent, axs=axs_all[:nsite], fig=fig_probs, aspect='equal')
     T4 = time.perf_counter(); print("Time(scan_xy_orb.4 plotting)",  T4-T3 )        
     return STM, Es, Ts, probs_arr, spos, rots
+
+def cut_central_region(map_list, dcanv, big_npix, small_npix):
+    """Crop central small_npix×small_npix from big_npix maps with pixel size dcanv"""
+    center=big_npix//2; half=small_npix//2; start=center-half; end=start+small_npix
+    return [m[start:end, start:end] for m in map_list]
+
+def pixel_to_coord(i,j,dcanv,npix):
+    """Map pixel idx to coord centered at 0"""
+    return ((i+0.5-npix/2)*dcanv, (j+0.5-npix/2)*dcanv)
+
+def coord_to_pixel(x,y,dcanv,npix):
+    """Map coord to nearest pixel idx"""
+    return (int(x/dcanv + npix/2), int(y/dcanv + npix/2))
+
+def generate_central_hops(orb2D, orb_lvec, spos_xy, angles, z0, dcanv, big_npix, small_npix, decay=0.2):
+    """Compute big canvas hops and crop central small canvas"""
+    big_dd=[dcanv,dcanv]; big_shape=(big_npix,big_npix)
+    tipWf,shift=orbital_utils.make_tipWf(big_shape,big_dd,z0=z0,decay=decay)
+    Ms_big,rho_big=orbital_utils.calculate_Hopping_maps(orb2D,orb_lvec,spos_xy,angles,big_dd,big_shape,tipWf,bTranspose=True)
+    Ms_small=cut_central_region(Ms_big,dcanv,big_npix,small_npix)
+    rho_small=cut_central_region([rho_big],dcanv,big_npix,small_npix)[0]
+    return Ms_small, rho_small
 
 def run_scan_xy_orb( params, orbital_file="QD.cub" ):
     print("Testing scan_xy_orb with real orbital data...")        
@@ -612,7 +632,7 @@ def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2
     print(f"Data saved to {filename}")
     return filename
     
-def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5, axs_probs=None, fig_probs=None, bMirror=True, bRamp=True):
+def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5, fig_probs=None, bMirror=True, bRamp=True):
     """Scan tip along a line for a range of voltages and plot Emax, STM, dI/dV."""
     print("calculate_xV_scan()", start_point, end_point,  )
     # Line geometry
@@ -665,12 +685,15 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
     probs_arr = probs.reshape(nV, nx, -1)
-    if axs_probs is not None or fig_probs is not None:
-        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs_probs, fig=fig_probs)
+    if fig_probs is not None:
+        # dynamic grid axes for probabilities
+        nsite = probs_arr.shape[2]
+        axs = make_grid_axes(fig_probs, nsite)
+        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs[:nsite], fig=fig_probs)
     print("calculate_xV_scan() DONE")
     return x, Vbiases, Emax, STM, dIdV, probs_arr
 
-def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, axs_probs=None, fig_probs=None, bMirror=True, bRamp=True):
+def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None, bMirror=True, bRamp=True):
     """Scan voltage dependence along a line using orbital-based hopping Ts"""
     # Line geometry
     x1, y1 = start_point; x2, y2 = end_point
@@ -736,8 +759,11 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
     probs_arr = probs.reshape(nV, nx, -1)
-    if axs_probs is not None or fig_probs is not None:
-        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs_probs, fig=fig_probs)
+    if fig_probs is not None:
+        # dynamic grid axes for probabilities
+        nsite = probs_arr.shape[2]
+        axs = make_grid_axes(fig_probs, nsite)
+        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs[:nsite], fig=fig_probs)
     return x, Vbiases, Emax, STM, dIdV, probs_arr
 
 def plot_state_probabilities(probs_arr, extent, axs=None, fig=None, labels=None, aspect='auto'):
@@ -749,11 +775,11 @@ def plot_state_probabilities(probs_arr, extent, axs=None, fig=None, labels=None,
     # Number of states to plot
     n_states = probs_arr.shape[-1]
     # Create default figure/axes if needed
+    ncols = min(2, n_states)
+    nrows = int(np.ceil(n_states / ncols))
     if fig is None:
-        fig = plt.figure( figsize=(4*ncols, 3*nrows) )
+        fig = plt.figure( figsize=(4*n_states, 3*nrows) )
     if axs is None:
-        ncols = min(2, n_states)
-        nrows = int(np.ceil(n_states / ncols))
         axs = fig.subplots(nrows, ncols, figsize=(4*ncols, 3*nrows))
 
     # Flatten axes into list
@@ -769,7 +795,7 @@ def plot_state_probabilities(probs_arr, extent, axs=None, fig=None, labels=None,
         ax = axs_flat[idx]
         ax.clear()
         title = labels[idx] if labels and idx < len(labels) else f"P{idx}"
-        im = ax.imshow(probs_arr[:,:,idx].T, origin='lower', extent=extent, cmap='viridis', interpolation='nearest')
+        im = ax.imshow(probs_arr[:,:,idx], origin='lower', extent=extent, cmap='viridis', interpolation='nearest')
         ax.set_aspect(aspect)
         ax.set_title(title)
         ax.set_xlabel('x [Å]')
