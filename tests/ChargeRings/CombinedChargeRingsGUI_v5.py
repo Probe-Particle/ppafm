@@ -325,8 +325,6 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla() 
         self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
-        bMirror = self.cbMirror.isChecked()
-        bRamp = self.cbRamp.isChecked()
         
         # Prepare probabilities window
         if self.cbShowProbs.isChecked():
@@ -335,7 +333,7 @@ class ApplicationWindow(GUITemplate):
         else:
             figp = None
         
-        pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0], bMirror=bMirror, bRamp=bRamp, bLegend=False)
+        pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0], bLegend=False)
         #pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, params['W'], params['W']*2.0])
         # Determine mode: XY plane or xV line comparison
         if self.cbPlotXV.isChecked():
@@ -352,7 +350,7 @@ class ApplicationWindow(GUITemplate):
                 orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
                 ax_Emax=None, ax_STM=self.ax5, ax_dIdV=self.ax6,
                 nx=100, nV=100, Vmin=0.0, Vmax=self.exp_biases[-1],
-                bMirror=bMirror, bRamp=bRamp, fig_probs=figp
+                fig_probs=figp
             )
             self.ax5.set_title('Sim STM (xV)'); self.ax6.set_title('Sim dI/dV (xV)')
             # experimental line scans on ax8 (I) and ax9 (dIdV)
@@ -365,8 +363,7 @@ class ApplicationWindow(GUITemplate):
             orbital_2D, orbital_lvec = self.getOrbIfChecked()
             STM, Es, Ts, probs_arr, spos, rots = pauli_scan.scan_xy_orb(
                 params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
-                ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp,
-                bMirror=bMirror, bRamp=bRamp
+                ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp
             )
             self.draw_scan_line(self.ax4); self.draw_reference_line(self.ax4); self.plot_ellipses(self.ax9, params)
             self.plot_experimental_data()
@@ -378,8 +375,7 @@ class ApplicationWindow(GUITemplate):
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
         params = self.get_param_values()
         distance, Es, Ts, STM, x, y, x1, y1, x2, y2, probs = pauli_scan.calculate_1d_scan(
-            params, start_point, end_point, pointPerAngstrom,
-            bMirror=self.cbMirror.isChecked(), bRamp=self.cbRamp.isChecked()
+            params, start_point, end_point, pointPerAngstrom
         )
         nsite = int(params['nsite'])
         ref_data_line = getattr(self, 'ref_data_line', None)
@@ -415,7 +411,7 @@ class ApplicationWindow(GUITemplate):
             orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
             ax_Emax=None, ax_STM=None, ax_dIdV=None,
             nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1],
-            bMirror=self.cbMirror.isChecked(), bRamp=self.cbRamp.isChecked()
+            fig_probs=None
         )
         extent_sim = [0, dist, 0, Vbiases[-1]]
         im1 = ax_sim_I.imshow(STM, aspect='auto', origin='lower', extent=extent_sim, cmap='hot')

@@ -297,8 +297,15 @@ def count_electrons(state):
     return bin(state).count('1')
 
 
-def make_cpp_params(params, bMirror=True, bRamp=True):
-    return np.array([params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W'], float(bMirror), float(bRamp) ], dtype=np.float64)
+def make_cpp_params(params):
+    """Build C++ params array including mirror/ramp flags from params dict"""
+    bMirror = params.get('bMirror', True)
+    bRamp   = params.get('bRamp',   True)
+    return np.array([
+        params['Rtip'], params['zV0'], params['zVd'], params['Esite'],
+        params['decay'], params['GammaT'], params['W'],
+        float(bMirror), float(bRamp)
+    ], dtype=np.float64)
 
 def make_state_order(nsite):
     """
@@ -482,7 +489,7 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
 
     # C++ parameters array [Rtip, zV0, Esite, beta, Gamma, W]
     # Using GammaT for Gamma, assuming it's the relevant coupling
-    cpp_params = make_cpp_params(params, bMirror=bMirror, bRamp=bRamp)
+    cpp_params = make_cpp_params(params)
 
     # Multipole parameters
     
@@ -511,7 +518,7 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
     return STM, Es, Ts, Probs
 
 
-def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=None, bOmp=False, state_order=None, Ts=None, bMirror=True, bRamp=True ):
+def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=None, bOmp=False, state_order=None, Ts=None ):
     """
     Perform 2D scan along 1D cut of tip positions (pTips) and bias voltages (Vbiases)
     
@@ -538,10 +545,13 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
     if state_order is None:
         state_order = make_state_order(nsite)
     
-    # Prepare C++ params array [Rtip, zV0, Esite, beta, Gamma, W]
-    # Using GammaT for Gamma, assuming it's the relevant coupling
-    cpp_params = make_cpp_params(params, bMirror=bMirror, bRamp=bRamp)
-
+    # Extract mirror/ramp flags from params
+    bMirror = params.get('bMirror', True)
+    bRamp   = params.get('bRamp',   True)
+    
+    # Prepare C++ params array (mirror/ramp flags read from params)
+    cpp_params = make_cpp_params(params)
+    
     # Handle cs parameter
     if cs is None:
         cs, order = make_quadrupole_Coeffs(params['Q0'], params['Qzz'])

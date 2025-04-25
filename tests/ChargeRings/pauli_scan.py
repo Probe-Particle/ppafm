@@ -28,7 +28,7 @@ def make_grid_axes(fig, nplots):
     # flatten axes array
     return _np.array(axs).flatten()
 
-def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=100, bLegend=True, scV=1.0, Woffsets=None, pSites=None, bMirror=True, bRamp=True):
+def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=100, bLegend=True, scV=1.0, Woffsets=None, pSites=None):
     """
     Scan voltage dependence above one particle
     
@@ -63,7 +63,9 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
     # Plotting if axes provided
     if ax_xV is not None:
         # 1D Potential calculations
-        V1d = pauli.evalSitesTipsMultipoleMirror(pTips_1d, pSites=pSites, VBias=VBias, E0=Esite, Rtip=Rtip, zV0=zV0, zVd=zVd)
+        bMirror = params.get('bMirror', True)
+        bRamp   = params.get('bRamp',   True)
+        V1d = pauli.evalSitesTipsMultipoleMirror(pTips_1d, pSites=pSites, VBias=VBias, E0=Esite, Rtip=Rtip, zV0=zV0, zVd=zVd, bMirror=bMirror, bRamp=bRamp)
         V1d_ = V1d - Esite
         
         # 2D Potential calculations
@@ -71,7 +73,7 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
         pTips_v = np.zeros((nV*nx, 3))
         pTips_v[:,0] = X_v.flatten()
         pTips_v[:,2] = zT
-        V2d = pauli.evalSitesTipsMultipoleMirror(pTips_v, pSites=pSites, VBias=V_v.flatten(), E0=Esite, Rtip=Rtip, zV0=zV0, zVd=zVd)    .reshape(nV, nx)
+        V2d = pauli.evalSitesTipsMultipoleMirror(pTips_v, pSites=pSites, VBias=V_v.flatten(), E0=Esite, Rtip=Rtip, zV0=zV0, zVd=zVd, bMirror=bMirror, bRamp=bRamp).reshape(nV, nx)
         
         pu.plot_imshow(ax_xV, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='bwr')
         ax_xV.plot(x_coords, V1d,  label='V_tip')
@@ -231,7 +233,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     
     T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     #bOmp = True
-    STM_flat, Es_flat, Ts_flat_, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp, bMirror=bMirror, bRamp=bRamp)
+    STM_flat, Es_flat, Ts_flat_, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     if ax_dIdV is not None:
         params_ = params.copy()
@@ -744,8 +746,7 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
 
     state_order = pauli.make_state_order(nsite)
     # Run scan using parameter dict (wrapper generates C++ params internally)
-    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, bOmp=False, state_order=state_order, Ts=Ts_input, bMirror=bMirror, bRamp=bRamp)
-
+    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, bOmp=False, state_order=state_order, Ts=Ts_input)
     # reshape and compute
     STM = current.reshape(nV, npts)
     Es  = Es.reshape(nV, npts, nsite)
