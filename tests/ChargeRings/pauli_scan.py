@@ -171,9 +171,11 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     if ax_dIdV is not None: pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",            extent=extent, cmap='bwr', scV=sdIdV)
     if fig_probs is not None:
         # dynamic grid axes for probabilities
-        nsite = probs.shape[2]
-        axs = make_grid_axes(fig_probs, nsite)
-        plot_state_probabilities(probs, extent=extent, axs=axs[:nsite], fig=fig_probs, aspect='equal')
+        n_states = probs.shape[2]
+        state_order = pauli.make_state_order(params['nsite'])
+        labels = pauli.make_state_labels(state_order)
+        axs = make_grid_axes(fig_probs, n_states)
+        plot_state_probabilities(probs, extent=extent, axs=axs[:n_states], fig=fig_probs, labels=labels, aspect='equal')
     
     probs_arr = probs.reshape(params['npix'], params['npix'], -1)
     return STM, Es, Ts, probs_arr, spos, rots
@@ -269,9 +271,11 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
             ax_Ms[i].set_title(f"Hopping matrix {i}")
     if fig_probs is not None:
         # plot site probabilities in separate window
-        nsite = probs_arr.shape[2]
-        axs_all = make_grid_axes(fig_probs, nsite)
-        plot_state_probabilities(probs_arr, extent=extent, axs=axs_all[:nsite], fig=fig_probs, aspect='equal')
+        n_states = probs_arr.shape[2]
+        state_order = pauli.make_state_order(params['nsite'])
+        labels = pauli.make_state_labels(state_order)
+        axs_all = make_grid_axes(fig_probs, n_states)
+        plot_state_probabilities(probs_arr, extent=extent, axs=axs_all[:n_states], fig=fig_probs, labels=labels, aspect='equal')
     T4 = time.perf_counter(); print("Time(scan_xy_orb.4 plotting)",  T4-T3 )        
     return STM, Es, Ts, probs_arr, spos, rots
 
@@ -598,7 +602,10 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, ref_data_line
 
     if probs is not None:
         ax4 = fig.add_subplot(nsub,1,4)
-        for idx in range(probs.shape[1]): ax4.plot(distance, probs[:,idx], label=f"P{idx}")
+        nsite = probs.shape[1]
+        state_order = pauli.make_state_order(nsite)
+        labels = pauli.make_state_labels(state_order)
+        for idx in range(probs.shape[1]): ax4.plot(distance, probs[:,idx], label=labels[idx])
         ax4.set_xlabel('Distance'); ax4.set_ylabel('Probability')
         ax4.legend()
         ax4.grid(True)
@@ -687,9 +694,11 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     probs_arr = probs.reshape(nV, nx, -1)
     if fig_probs is not None:
         # dynamic grid axes for probabilities
-        nsite = probs_arr.shape[2]
-        axs = make_grid_axes(fig_probs, nsite)
-        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs[:nsite], fig=fig_probs)
+        n_states = probs_arr.shape[2]
+        state_order = pauli.make_state_order(params['nsite'])
+        labels = pauli.make_state_labels(state_order)
+        axs = make_grid_axes(fig_probs, n_states)
+        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
     print("calculate_xV_scan() DONE")
     return x, Vbiases, Emax, STM, dIdV, probs_arr
 
@@ -761,9 +770,11 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     probs_arr = probs.reshape(nV, nx, -1)
     if fig_probs is not None:
         # dynamic grid axes for probabilities
-        nsite = probs_arr.shape[2]
-        axs = make_grid_axes(fig_probs, nsite)
-        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs[:nsite], fig=fig_probs)
+        n_states = probs_arr.shape[2]
+        state_order = pauli.make_state_order(params['nsite'])
+        labels = pauli.make_state_labels(state_order)
+        axs = make_grid_axes(fig_probs, n_states)
+        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
     return x, Vbiases, Emax, STM, dIdV, probs_arr
 
 def plot_state_probabilities(probs_arr, extent, axs=None, fig=None, labels=None, aspect='auto'):

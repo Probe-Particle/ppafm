@@ -301,14 +301,30 @@ def make_cpp_params(params, bMirror=True, bRamp=True):
     return np.array([params['Rtip'], params['zV0'],params['zVd'], params['Esite'], params['decay'], params['GammaT'], params['W'], float(bMirror), float(bRamp) ], dtype=np.float64)
 
 def make_state_order(nsite):
+    """
+    Generate a state index ordering for nsite orbitals.
+    For nsite==1 or 3 uses custom order; otherwise returns default [0..2**nsite-1].
+    """
+    Nstates = 2 ** nsite
     if nsite == 1:
-        return np.array([0, 1], dtype=np.int32)
+        order = np.array([0, 1], dtype=np.int32)
     elif nsite == 3:
-        return np.array([0, 4,2,6, 1,5,3, 7], dtype=np.int32)
+        order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
     else:
-        print("make_state_order: nsite must be 1 or 3, got", nsite)
-        #exit(0)
-        return None
+        print("make_state_order: default identity ordering for nsite", nsite)
+        order = np.arange(Nstates, dtype=np.int32)
+    return order
+
+def make_state_labels(state_order):
+    """
+    Generate binary labels for each state index in state_order.
+    Each label is the binary representation with leading zeros.
+    """
+    import math
+    n_states = len(state_order)
+    # number of bits needed
+    n_bits = int(math.ceil(math.log2(n_states))) if n_states>1 else 1
+    return [format(idx, f'0{n_bits}b') for idx in state_order]
 
 def make_quadrupole_Coeffs( Q0, Qzz ):
     return np.array([ Q0, 0.0, 0.0, 0.0, 0.0, Qzz, 0.0, 0.0, 0.0, 0.0 ]), 2
