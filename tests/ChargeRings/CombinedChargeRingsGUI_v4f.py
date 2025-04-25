@@ -335,7 +335,7 @@ class ApplicationWindow(GUITemplate):
         bMirror = self.cbMirror.isChecked()
         bRamp = self.cbRamp.isChecked()
         
-        pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0], bMirror=bMirror, bRamp=bRamp)
+        pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0], bMirror=bMirror, bRamp=bRamp, bLegend=False)
         #pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, params['W'], params['W']*2.0])
         # 2D spatial scan with optional many-body probability panels
         if self.cbShowProbs.isChecked():

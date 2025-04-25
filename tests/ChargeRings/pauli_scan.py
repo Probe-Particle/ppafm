@@ -104,10 +104,10 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
         circ2, _ = ut.makeCircle(16, R=Rtip, axs=(0,2,1), p0=(0.0, 0.0, 2*zV0-zT))
         ax_Esite.plot(circ1[:,0], circ1[:,2], ':k')
         ax_Esite.plot(circ2[:,0], circ2[:,2], ':k')
-        ax_Esite.axhline(zV0,  ls='--', c='k', label=f'zV0 {zV0:.3f}')
-        ax_Esite.axhline(zQd,  ls='--', c='g', label=f'zQd {zQd:.3f}')
-        ax_Esite.axhline(z_tip,ls='--', c='orange', label=f'z_tip {z_tip:.3f}')
-        ax_Esite.axhline(z_tip+zVd,  ls='--', c='r', label=f'z_tip+zVd {zVd+z_tip:.3f}')
+        ax_Esite.axhline(zV0,       ls='--', c='k', label=f'zV0 {zV0:.3f}')
+        ax_Esite.axhline(zQd,       ls='--', c='g', label=f'zQd {zQd:.3f}')
+        ax_Esite.axhline(z_tip,     ls='--', c='m', label=f'z_tip {z_tip:.3f}')
+        ax_Esite.axhline(z_tip+zVd, ls='--', c='b', label=f'z_tip+zVd {zVd+z_tip:.3f}')
         if bLegend:
             ax_Esite.legend()
     else:
@@ -244,9 +244,9 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         dIdV = (STM_2 - STM_flat) / dQ
 
     T3 = time.perf_counter(); print("Time(scan_xy_orb.3 pauli.run_pauli_scan)",  T3-T2 )
-    print("min, max STM_flat", np.min(STM_flat), np.max(STM_flat))
-    print("min, max Es_flat", np.min(Es_flat), np.max(Es_flat))
-    print("min, max Ts_flat", np.min(Ts_flat), np.max(Ts_flat))
+    #print("min, max STM_flat", np.min(STM_flat), np.max(STM_flat))
+    #print("min, max Es_flat", np.min(Es_flat), np.max(Es_flat))
+    #print("min, max Ts_flat", np.min(Ts_flat), np.max(Ts_flat))
     
     # Reshape the results
     STM = STM_flat.reshape(npix, npix)
