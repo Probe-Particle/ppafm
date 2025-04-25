@@ -126,18 +126,27 @@ class ApplicationWindow(GUITemplate):
         btn_run_scan.clicked.connect(self.run_1d_scan_p1p2)
         scan_layout.addWidget(btn_run_scan)
         
-        # Add Run Voltage Scan button
-        btn_voltage_scan = QtWidgets.QPushButton('Run Voltage Scan (ep1-ep2)')
-        btn_voltage_scan.setToolTip('Run voltage scan between ep1 and ep2 points defined in parameters')
-        btn_voltage_scan.clicked.connect(self.run_voltage_scan_ep1ep2)
-        scan_layout.addWidget(btn_voltage_scan)
+        # Define control checkboxes
+        self.cbShowProbs = QtWidgets.QCheckBox('probabilities')
+        self.cbShowProbs.stateChanged.connect(self.run)
+        self.cbMirror    = QtWidgets.QCheckBox('Mirror')
+        self.cbMirror.setChecked(True)
+        self.cbMirror.stateChanged.connect(self.run)
+        self.cbRamp      = QtWidgets.QCheckBox('Ramp')
+        self.cbRamp.setChecked(True)
+        self.cbRamp.stateChanged.connect(self.run)
+        self.cbPlotXV    = QtWidgets.QCheckBox('Compare in xV')
+        self.cbPlotXV.setChecked(False)
+        self.cbPlotXV.stateChanged.connect(self.run)
         
-        # Add Run Voltage Scan button for p1-p2
-        btn_sim_voltage = QtWidgets.QPushButton('Run Voltage Scan (p1-p2)')
-        btn_sim_voltage.setToolTip('Run voltage scan between p1 and p2 points defined in parameters')
-        btn_sim_voltage.clicked.connect(self.run_voltage_scan_p1p2)
-        scan_layout.addWidget(btn_sim_voltage)
-        
+        # Controls row: checkboxes for probabilities, Mirror, Ramp, Compare in xV
+        controls_layout = QtWidgets.QHBoxLayout()
+        self.layout0.addLayout(controls_layout)
+        controls_layout.addWidget(self.cbShowProbs)
+        controls_layout.addWidget(self.cbMirror)
+        controls_layout.addWidget(self.cbRamp)
+        controls_layout.addWidget(self.cbPlotXV)
+
         # Create orbital input layout
         orbital_layout = QtWidgets.QHBoxLayout()
         self.layout0.addLayout(orbital_layout)
@@ -155,28 +164,6 @@ class ApplicationWindow(GUITemplate):
         orbital_layout.addWidget(self.cbUseOrbital)
         self.cbUseOrbital.stateChanged.connect(self.run)
 
-        # Checkbox to show many-body probabilities (compact in same row)
-        self.cbShowProbs = QtWidgets.QCheckBox('probabilities')
-        self.cbShowProbs.stateChanged.connect(self.run)
-
-        # Checkboxes to control mirror and ramp in voltage scans
-        self.cbMirror = QtWidgets.QCheckBox('Mirror')
-        self.cbMirror.setChecked(True)
-        self.cbMirror.stateChanged.connect(self.run)
-        self.cbRamp = QtWidgets.QCheckBox('Ramp')
-        self.cbRamp.setChecked(True)
-        self.cbRamp.stateChanged.connect(self.run)
-        
-        self.hbCommonControls.addWidget(self.cbShowProbs)
-        self.hbCommonControls.addWidget(self.cbMirror)
-        self.hbCommonControls.addWidget(self.cbRamp)
-        
-        # Checkbox to choose experimental comparison plane: xV or xy
-        self.cbPlotXV = QtWidgets.QCheckBox('Compare in xV')
-        self.cbPlotXV.setChecked(False)
-        self.cbPlotXV.stateChanged.connect(self.run)
-        self.hbCommonControls.addWidget(self.cbPlotXV)
-        
         # Connect mouse events
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
@@ -341,6 +328,13 @@ class ApplicationWindow(GUITemplate):
         bMirror = self.cbMirror.isChecked()
         bRamp = self.cbRamp.isChecked()
         
+        # Prepare probabilities window
+        if self.cbShowProbs.isChecked():
+            figp = plt.figure(figsize=(4*3, 2*3))
+            self.manage_prob_window(figp, 'scanXY')
+        else:
+            figp = None
+        
         pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0], bMirror=bMirror, bRamp=bRamp, bLegend=False)
         #pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, params['W'], params['W']*2.0])
         # Determine mode: XY plane or xV line comparison
@@ -373,7 +367,7 @@ class ApplicationWindow(GUITemplate):
             orbital_2D, orbital_lvec = self.getOrbIfChecked()
             STM, Es, Ts, probs_arr, spos, rots = pauli_scan.scan_xy_orb(
                 params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
-                ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=None,
+                ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp,
                 bMirror=bMirror, bRamp=bRamp
             )
             self.draw_scan_line(self.ax4); self.draw_reference_line(self.ax4); self.plot_ellipses(self.ax9, params)
@@ -494,52 +488,6 @@ class ApplicationWindow(GUITemplate):
         
         self.calculate_1d_scan(p1, p2)
         
-    def run_voltage_scan_ep1ep2(self):
-        """Wrapper to invoke experimental voltage scan and open new window"""
-        params = self.get_param_values()
-        exp_start = (params['ep1_x'], params['ep1_y'])
-        exp_end = (params['ep2_x'], params['ep2_y'])
-        # Call plotting method
-        self.plot_voltage_line_scan_exp(exp_start, exp_end)
-
-    def run_voltage_scan_p1p2(self):
-        """Run voltage-dependent scan along p1-p2 and plot Emax, STM, dI/dV"""
-        params = self.get_param_values()
-        start = (params['p1_x'], params['p1_y'])
-        end = (params['p2_x'], params['p2_y'])
-        # New figure window
-        fig = Figure(figsize=(15, 5))
-        canvas = FigureCanvas(fig)
-        axE = fig.add_subplot(131)
-        axS = fig.add_subplot(132)
-        axD = fig.add_subplot(133)
-        #axI = fig.add_subplot(144)
-        # Perform scan
-        orbital_2D, orbital_lvec = self.getOrbIfChecked()
-        x, V, Emax, STM, dIdV, probs_arr = pauli_scan.calculate_xV_scan_orb(
-            params, start, end,
-            orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
-            ax_Emax=axE, ax_STM=axS, ax_dIdV=axD,
-            nx=100, nV=100, Vmin=0.0, Vmax=0.6,
-            bMirror=self.cbMirror.isChecked(), bRamp=self.cbRamp.isChecked()
-        )
-        fig.tight_layout()
-        # Display in new Qt window
-        window = QtWidgets.QMainWindow()
-        window.setCentralWidget(canvas)
-        #window.resize(1200, 500)
-        window.show()
-        # Keep reference to prevent garbage collection
-        self._sim_voltage_scan_window = window
-        # Plot probabilities in dedicated window if requested
-        if self.cbShowProbs.isChecked():
-            figp = plt.figure()
-            axs = figp.subplots(2,4)
-            # Plot sim voltage probabilities
-            pauli_scan.plot_state_probabilities(probs_arr, extent=[0,0.6,0,0.6], axs=axs, fig=figp)
-            self.manage_prob_window(figp, 'simVoltage')
-            figp.canvas.draw()
-
     def on_mouse_press(self, event):
         """Handle mouse button press event"""
         if event.inaxes in [self.ax4, self.ax7]:  # Energy plot or experimental dI/dV
