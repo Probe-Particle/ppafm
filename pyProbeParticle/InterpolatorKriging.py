@@ -111,7 +111,7 @@ class InterpolatorKriging:
              return np.zeros(query_points.shape[0], dtype=float)
 
         query_points = np.asarray(query_points, dtype=float)
-        nqps = query_points.shape[0]
+        nqps         = query_points.shape[0]
         if nqps == 0: return np.array([], dtype=float)
 
         print(f"InterpolatorKriging.evaluate(): Interpolating at {nqps} points...")
