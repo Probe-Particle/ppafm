@@ -97,6 +97,25 @@ def compile_lib(name, FFLAGS="-std=c++20 -fPIC", LFLAGS="-fopenmp -lgomp", path=
     if path is not None:
         os.chdir(dir_bak)        
 
+# Compile and load the C++ library at module level
+def compile_and_load(name='pauli_lib', bASAN=False):
+    """Compile and load the C++ library"""
+    cpp_dir = os.path.join(work_dir(__file__), '../cpp')
+    so_name = name + '.so'
+    # remove existing library if it exists
+    try:
+        os.remove(os.path.join(cpp_dir, so_name))
+    except:
+        pass
+    compile_lib(name, path=cpp_dir, clean=True, bASAN=bASAN, bDEBUG=True)
+    
+    # When using ASan, ensure it's loaded first
+    if bASAN:
+        asan_lib = os.popen('gcc -print-file-name=libasan.so').read().strip();  print("Loading ASan library...", asan_lib )
+        ctypes.CDLL(asan_lib, mode=ctypes.RTLD_GLOBAL)
+        
+    return ctypes.CDLL(os.path.join(cpp_dir, so_name), mode=ctypes.RTLD_GLOBAL)
+
 
 
 def makeclean( ):

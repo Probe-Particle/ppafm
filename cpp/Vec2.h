@@ -193,6 +193,23 @@ inline void convert( const Vec2d& from, Vec2f& to ){ to.x=(float)from.x; to.y=(f
 
 inline Vec2f toFloat( const Vec2d& from){ return (Vec2f){(float)from.x,(float)from.y}; }
 
+
+int find_neighbors( int ndata, const Vec2d* data_points, const Vec2d& p, double Rcut, int* neighs, int nNeighMax ) {
+    int nng = 0;
+    double Rcut2 = Rcut * Rcut;
+    for (int i = 0; i < ndata; ++i) {
+        if ((p - data_points[i]).norm2() <= Rcut2 ) {
+            if (nng < nNeighMax) { // Prevent buffer overflow
+                neighs[nng++] = i;
+            } else {
+                printf("ERROR in find_neighbors(): Exceeded max neighbor buffer size in find_neighbors.\n");
+                exit(0);
+            }
+        }
+    }
+    return nng;
+}
+
 //inline int print( const Vec2f&  v){ return printf( "%lg %g", v.x, v.y ); };
 //inline int print( const Vec2d&  v){ return printf( "%lg %g", v.x, v.y ); };
 //inline int print( const Vec2i&  v){ return printf( "%i %i", v.x, v.y ); };
