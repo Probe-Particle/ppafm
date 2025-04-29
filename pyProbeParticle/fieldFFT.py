@@ -6,7 +6,7 @@ import gc
 
 from . import GridUtils as GU
 
-verbose = 1
+verbose = 0
 
 
 def fieldInfo( F, label="FieldInfo: min max av: " ):

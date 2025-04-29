@@ -158,6 +158,7 @@ class PauliSolver:
     """Python wrapper for C++ PauliSolver class"""
     
     def __init__(self, nSingle=None, nleads=None, verbosity=0):
+        print( f"PauliSolver.__init__ nSingle: {nSingle} nleads: {nleads} verbosity: {verbosity}" )
         self.verbosity = verbosity
         self.solver    = None
         if nSingle is not None and nleads is not None:
@@ -221,6 +222,7 @@ class PauliSolver:
     def scan_current_tip(self, pTips, Vtips, pSites, params, order, cs, state_order, rots=None, out_current=None, bOmp=False, Es=None, Ts=None, return_probs=True, bMakeArrays=True ):
         npoins = len(pTips)
         nsites = len(pSites)
+        print( f"scan_current_tip() nsites: {nsites} npoins: {npoins} bOmp: {bOmp} bMakeArrays: {bMakeArrays} order: {order} cs: {cs}" )
         if out_current is None: out_current = np.zeros(npoins, dtype=np.float64)
         if Ts is not None: 
             externTs = True
@@ -303,7 +305,6 @@ def count_electrons(state):
     """Count number of electrons in a state"""
     return bin(state).count('1')
 
-
 def make_cpp_params(params):
     """Build C++ params array including mirror/ramp flags from params dict"""
     bMirror = params.get('bMirror', True)
@@ -343,7 +344,7 @@ def make_state_labels(state_order):
 def make_quadrupole_Coeffs( Q0, Qzz ):
     return np.array([ Q0, 0.0, 0.0, 0.0, 0.0, Qzz, 0.0, 0.0, 0.0, 0.0 ]), 2
 
-def run_cpp_scan(params, Es, Ts, scaleE=1.0):
+def run_cpp_scan(params, Es, Ts, scaleE=1.0, pauli_solver=None):
     """Run C++ Pauli simulation for current calculation"""
     NSingle = int(params['NSingle'])
     NLeads = 2
@@ -355,16 +356,16 @@ def run_cpp_scan(params, Es, Ts, scaleE=1.0):
     VS    = np.sqrt(params['GammaS']/np.pi)
     VT    = np.sqrt(params['GammaT']/np.pi)
     
-    # Initialize solver
-    pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
+    if pauli_solver is None:
+        pauli_solver = PauliSolver(NSingle, NLeads, verbosity=verbosity)
     
     # Set up leads
-    pauli.set_lead(0, 0.0,  Temp)  # Substrate lead (mu=0)
-    pauli.set_lead(1, VBias, Temp)  # Tip lead (mu=VBias)
+    pauli_solver.set_lead(0, 0.0,  Temp)  # Substrate lead (mu=0)
+    pauli_solver.set_lead(1, VBias, Temp)  # Tip lead (mu=VBias)
     
     npoints = len(Es)
 
-    TLeads = np.zeros((npoints, NLeads, NSingle), dtype=np.float64)
+    TLeads   = np.zeros((npoints, NLeads, NSingle), dtype=np.float64)
     hsingles = np.zeros((npoints, 3, 3))
     for i in range(NSingle):
         hsingles[:,i,i] = Es[:,i]*scaleE
@@ -372,14 +373,14 @@ def run_cpp_scan(params, Es, Ts, scaleE=1.0):
         TLeads  [:,1,i] = VT*Ts[:,i]
     
     # Set up other parameters
-    Ws = np.full(npoints, W)
-    VGates = np.zeros((npoints, NLeads))
+    Ws          = np.full(npoints, W)
+    VGates      = np.zeros((npoints, NLeads))
     state_order = make_state_order(NSingle)
         
-    currents = pauli.scan_current( hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order )
+    currents = pauli_solver.scan_current( hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order )
     return currents
 
-def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, nsize=None, bOmp=False):
+def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, nsize=None, bOmp=False, pauli_solver=None):
     """Run 2D C++ Pauli simulation with variable bias voltages
     
     Args:
@@ -407,12 +408,11 @@ def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, 
     else:
         nbias, npoints = nsize
 
+    if pauli_solver is None:
+        pauli_solver = PauliSolver(NSingle, NLeads, verbosity=verbosity)
     
-    # Initialize solver
-    pauli = PauliSolver(NSingle, NLeads, verbosity=verbosity)
-    
-    pauli.set_lead(0, 0.0, Temp)  # Substrate lead (mu=0)
-    pauli.set_lead(1, 0.0, Temp)  # Tip lead (mu=VBias)
+    pauli_solver.set_lead(0, 0.0, Temp)  # Substrate lead (mu=0)
+    pauli_solver.set_lead(1, 0.0, Temp)  # Tip lead (mu=VBias)
 
     # Prepare arrays with shape (nbias, npoints, ...)
     hsingles = np.zeros((nbias, npoints, 3, 3))
@@ -440,9 +440,9 @@ def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, 
     
     # Reshape for scan_current (flatten first two dimensions)
     hsingles = hsingles.reshape(-1, 3, 3)
-    VGates = VGates.reshape(-1, NLeads)
-    TLeads = TLeads.reshape(-1, NLeads, NSingle)
-    Ws = np.full(npoints*nbias, W)
+    VGates   = VGates.reshape(-1, NLeads)
+    TLeads   = TLeads.reshape(-1, NLeads, NSingle)
+    Ws       = np.full(npoints*nbias, W)
     
     state_order = make_state_order(NSingle)
 
@@ -452,18 +452,19 @@ def run_cpp_scan_2D(params, Es, Ts, Vbiases, Vbias0=1.0, scaleE=1.0, bE1d=True, 
     print("min,max TLeads:   ", TLeads.min(), TLeads.max())
     
     # Run scan and reshape results to [npoints, nbias]
-    currents = pauli.scan_current(hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order, bOmp=bOmp)
+    currents = pauli_solver.scan_current(hsingles=hsingles, Ws=Ws, VGates=VGates, TLeads=TLeads, state_order=state_order, bOmp=bOmp)
     return currents.reshape(nbias,npoints)
 
 
-def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=False, state_order=None, Ts=None):
+def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=False, state_order=None, Ts=None, pauli_solver=None, verbosity=0):
     nsites  = len(pSites)
     npoints = len(pTips)
     if state_order is None:
         state_order = np.arange(2**nsites, dtype=np.int32)
     else:
         state_order = np.array(state_order, dtype=np.int32) # Ensure correct type
-    pauli_solver    = PauliSolver( nSingle=nsites, nleads=2, verbosity=verbosity )
+    if pauli_solver is None:
+        pauli_solver = PauliSolver( nSingle=nsites, nleads=2, verbosity=verbosity )
     # always retrieve probabilities (may be None)
     current, Es, Ts, Probs = pauli_solver.scan_current_tip( pTips, Vtips, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts, return_probs=True)
     print("min,max current: ", current.min(), current.max())
@@ -475,7 +476,7 @@ def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=
 
 
 
-def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=None, Ts=None, state_order=None, bMirror=True, bRamp=True ):
+def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=None, Ts=None, state_order=None ):
     npix   = params['npix']
     L      = params['L']
     nsite  = params['nsite']
@@ -525,7 +526,7 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
     return STM, Es, Ts, Probs
 
 
-def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=None, bOmp=False, state_order=None, Ts=None ):
+def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=None, bOmp=False, state_order=None, Ts=None, pauli_solver=None ):
     """
     Perform 2D scan along 1D cut of tip positions (pTips) and bias voltages (Vbiases)
     
@@ -551,11 +552,7 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
     
     if state_order is None:
         state_order = make_state_order(nsite)
-    
-    # Extract mirror/ramp flags from params
-    bMirror = params.get('bMirror', True)
-    bRamp   = params.get('bRamp',   True)
-    
+
     # Prepare C++ params array (mirror/ramp flags read from params)
     cpp_params = make_cpp_params(params)
     
@@ -566,8 +563,8 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
         cs = np.array(cs)
         order = params.get('order', 1)
     
-    # Create solver
-    pauli_solver = PauliSolver(nSingle=nsite, nleads=2, verbosity=verbosity)
+    if pauli_solver is None:
+        pauli_solver = PauliSolver(nSingle=nsite, nleads=2, verbosity=verbosity)
     
     # Prepare arrays with shape [nV*nx,...]
     pTips_rep = np.tile(pTips, (nV,1))

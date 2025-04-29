@@ -218,15 +218,15 @@ def plot_exp_voltage_line_scan(X, Y, data, biases, start, end, ax=None, title=''
     nps = len(x)
     
     # Interpolate experimental data
-    print("Interpolating experimental data...")
+    #print("Interpolating experimental data...")
     T0 = time.perf_counter()
     points = np.column_stack((x, y))
     data_1d = interpolate_3d_plane_fast(X, Y, biases, data, points)
-    print(f"Time for experimental interpolators: {time.perf_counter() - T0:.2f} seconds")
+    print(f"plot_exp_voltage_line_scan(): {time.perf_counter() - T0:.5f} [s]")
     
     # Plot experimental dI/dV if axis is provided
     if ax is not None:
-        print("Creating experimental plot...")
+        #print("Creating experimental plot...")
         if cmap == 'bwr':
             vmax = np.max(np.abs(data_1d))
             vmin = -vmax

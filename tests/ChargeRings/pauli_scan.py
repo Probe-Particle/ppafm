@@ -16,6 +16,14 @@ import time
 import orbital_utils
 from scipy.interpolate import RectBivariateSpline
 
+def make_site_geom( params ):
+    nsite=params['nsite']
+    spos, phis = ut.makeCircle(n=nsite,R=params['radius'],phi0=params['phiRot'])
+    spos[:,2]  = params['zQd']
+    angles     = phis+params['phi0_ax']
+    rots       = ut.makeRotMats( angles )
+    return spos, rots, angles
+
 def make_grid_axes(fig, nplots):
     """
     Create a near-square grid of subplots for nplots axes.
@@ -50,6 +58,8 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
     VBias = params['VBias']
     Rtip  = params['Rtip']
     Esite = params['Esite']
+    bMirror = params.get('bMirror', True)
+    bRamp   = params.get('bRamp',   True)
 
     pTips_1d = np.zeros((nx, 3))
     x_coords = np.linspace(-L, L, nx)
@@ -63,8 +73,6 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
     # Plotting if axes provided
     if ax_xV is not None:
         # 1D Potential calculations
-        bMirror = params.get('bMirror', True)
-        bRamp   = params.get('bRamp',   True)
         V1d = pauli.evalSitesTipsMultipoleMirror(pTips_1d, pSites=pSites, VBias=VBias, E0=Esite, Rtip=Rtip, zV0=zV0, zVd=zVd, bMirror=bMirror, bRamp=bRamp)
         V1d_ = V1d - Esite
         
@@ -131,7 +139,7 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
         
     return V1d, V2d, Esites, I
 
-def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None, bOmp=False, sdIdV=0.5, fig_probs=None, bMirror=False, bRamp=False):
+def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None, bOmp=False, sdIdV=0.5, fig_probs=None):
     """
     Scan tip position in x,y plane for constant Vbias
     
@@ -145,16 +153,15 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     L     = params['L']
     nsite = params['nsite']
     
-    # Site positions and rotations
-    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
-    spos[:,2]  = params['zQd']
-    rots       = ut.makeRotMats(phis + params['phiRot'])
+    # Site geometry (positions, rotations, angles)
+    spos, rots, angles = make_site_geom(params)
     
     # Run pauli scan
-    STM, Es, Ts, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, bOmp=bOmp, bMirror=bMirror, bRamp=bRamp)
+    STM, Es, Ts, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, bOmp=bOmp)
     #print( "min,max Es", np.min(Es), np.max(Es))
     #print( "min,max Ts", np.min(Ts), np.max(Ts))
     #print( "min,max STM", np.min(STM), np.max(STM))
+    dIdV = None
     if ax_dIdV is not None:
         params_ = params.copy()
         dQ = params.get('dQ', 0.05)
@@ -179,10 +186,10 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
         axs = make_grid_axes(fig_probs, n_states)
         plot_state_probabilities(probs, extent=extent, axs=axs[:n_states], fig=fig_probs, labels=labels, aspect='equal')
     
-    probs_arr = probs.reshape(params['npix'], params['npix'], -1)
-    return STM, Es, Ts, probs_arr, spos, rots
+    probs = probs.reshape(params['npix'], params['npix'], -1)
+    return STM, dIdV, Es, Ts, probs, spos, rots
 
-def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, fig_probs=None, bMirror=False, bRamp=False):
+def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, fig_probs=None):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
     computed by convolution of orbitals on canvas
@@ -200,23 +207,18 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         ax_dIdV: Axis for dI/dV plot
         decay: Optional decay parameter for orbital calculations
     """
-    #import sys
-    #sys.path.insert(0, '../')
-    import orbital_utils
-    
+
+    T0 = time.perf_counter()
+
     # small canvas & site setup
     L=params['L']; npix=params['npix']
     nsite=params['nsite']; z_tip=params['z_tip']
-    spos,phis=ut.makeCircle(n=nsite,R=params['radius'],phi0=params['phiRot'])
-    spos[:,2] = params['zQd']
-    angles=phis+params['phiRot']
-    #print( "angles", angles)
-    rots = ut.makeRotMats( angles )
-    #print( "rots", rots)
+    # Site geometry (positions, rotations, angles)
+    spos, rots, angles = make_site_geom(params)
     # big-to-small hopping computation
     #dcanv=params['L']/params['npix']
 
-    T1=time.perf_counter()
+    #T1=time.perf_counter()
     if orbital_2D is not None:
         dcanv=2*L/npix
         big_npix=int(params.get('big_npix',400))
@@ -231,10 +233,11 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
     pauli.set_valid_point_cuts(Tmin, EW)
     
-    T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
+    #T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     #bOmp = True
     STM_flat, Es_flat, Ts_flat_, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
+    dIdV = None
     if ax_dIdV is not None:
         params_ = params.copy()
         dQ = params.get('dQ', 0.005)
@@ -242,7 +245,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         STM_2, _, _, probs = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)       
         dIdV = (STM_2 - STM_flat) / dQ
 
-    T3 = time.perf_counter(); print("Time(scan_xy_orb.3 pauli.run_pauli_scan)",  T3-T2 )
+    #T3 = time.perf_counter(); print("Time(scan_xy_orb.3 pauli.run_pauli_scan)",  T3-T2 )
     #print("min, max STM_flat", np.min(STM_flat), np.max(STM_flat))
     #print("min, max Es_flat", np.min(Es_flat), np.max(Es_flat))
     #print("min, max Ts_flat", np.min(Ts_flat), np.max(Ts_flat))
@@ -258,7 +261,9 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     
     # Plotting if axes provided
     extent = [-L,L, -L, L]
-    probs_arr = probs.reshape(npix, npix, -1)
+    probs = probs.reshape(npix, npix, -1)
+
+    T_calc = time.perf_counter(); print(f"scan_xy_orb() calc time: {T_calc-T0:.5f} [s]")
 
     if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies max(eps)",      extent=extent, cmap='bwr')
     if ax_rho  is not None and rho is not None: pu.plot_imshow(ax_rho,  rho,  title="sum(Wf)", extent=extent, cmap='bwr')
@@ -273,13 +278,13 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
             ax_Ms[i].set_title(f"Hopping matrix {i}")
     if fig_probs is not None:
         # plot site probabilities in separate window
-        n_states = probs_arr.shape[2]
+        n_states = probs.shape[2]
         state_order = pauli.make_state_order(params['nsite'])
         labels = pauli.make_state_labels(state_order)
         axs_all = make_grid_axes(fig_probs, n_states)
-        plot_state_probabilities(probs_arr, extent=extent, axs=axs_all[:n_states], fig=fig_probs, labels=labels, aspect='equal')
-    T4 = time.perf_counter(); print("Time(scan_xy_orb.4 plotting)",  T4-T3 )        
-    return STM, Es, Ts, probs_arr, spos, rots
+        plot_state_probabilities(probs, extent=extent, axs=axs_all[:n_states], fig=fig_probs, labels=labels, aspect='equal')
+    #T4 = time.perf_counter(); print("Time(scan_xy_orb.4 plotting)",  T4-T3 )        
+    return STM, dIdV, Es, Ts, probs, spos, rots
 
 def cut_central_region(map_list, dcanv, big_npix, small_npix):
     """Crop central small_npix×small_npix from big_npix maps with pixel size dcanv"""
@@ -319,11 +324,11 @@ def run_scan_xy_orb( params, orbital_file="QD.cub" ):
         orbital_2D = None
         orbital_lvec = None
 
-    # Initialize pauli solver
-    pauli_solver = pauli.PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=0)
+    if pauli_solver is None:
+        pauli_solver = PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=0)
 
     fig, ( ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(20,5))
-    scan_xy_orb(params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=pauli_solver, ax_Etot=ax1, ax_Ttot=ax2, ax_STM=ax3, ax_Ms=None, ax_dIdV=ax4, bMirror=False, bRamp=False)
+    scan_xy_orb(params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=pauli_solver, ax_Etot=ax1, ax_Ttot=ax2, ax_STM=ax3, ax_Ms=None, ax_dIdV=ax4)
         
     fig.suptitle(f"Scan with Orbital-Based Hopping ({orbital_file})", fontsize=14)
     plt.tight_layout(rect=[0, 0, 1, 0.95])  # Make room for suptitle
@@ -446,11 +451,8 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     decay = params['decay']
     
 
-    # Site positions and rotations
-    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
-    spos[:,2]  = params['zQd']
-    angles     = phis  + params['phiRot']
-    rots       = ut.makeRotMats( angles )
+    # Site geometry (positions, rotations, angles)
+    spos, rots, angles = make_site_geom(params)
     
     # Store in params for later use
     params['spos'] = spos
@@ -503,7 +505,7 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
         ax_dIdV = fig.add_subplot(3, nscan+1, i+2*nscan+4)
         
         # Run pauli scan and plot results (same as before)
-        STM_flat, Es_flat, Ts_flat_, probs_ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+        STM_flat, Es_flat, Ts_flat_, probs_ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp )
 
         if not bDoOrb:
             Ttot = np.sum(Ts_flat_.reshape(npix, npix, nsite), axis=2)
@@ -531,7 +533,7 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     plt.tight_layout()
     return fig
 
-def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_probs=None, bMirror=True, bRamp=True ):
+def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_probs=None, pauli_solver=None ):
     """Calculate 1D scan between two points using run_pauli_scan"""
     x1, y1 = start_point
     x2, y2 = end_point
@@ -549,17 +551,17 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_pro
     pTips[:, 2] = zT
 
     nsite = int(params['nsite'])
-    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
-    spos[:, 2] = params['zQd']
-    rots = ut.makeRotMats(phis + params['phiRot'])
+    # Site geometry (positions, rotations, angles)
+    spos, rots, angles = make_site_geom(params)
 
     Vtips = np.full(npoints, params['VBias'])
-    cpp_params = pauli.make_cpp_params(params, bMirror=bMirror, bRamp=bRamp)
+    cpp_params = pauli.make_cpp_params(params)
     cs, order  = pauli.make_quadrupole_Coeffs(params['Q0'], params['Qzz'])
     state_order = pauli.make_state_order(nsite)
     # Run scan
-    solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
-    current, Es, Ts, probs = solver.scan_current_tip( pTips, Vtips, spos,  cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
+    if pauli_solver is None:
+        pauli_solver = PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
+    current, Es, Ts, probs = pauli_solver.scan_current_tip( pTips, Vtips, spos,  cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
     if ax_probs:
         axp = ax_probs
         for i in range(probs.shape[1]): axp.plot(distance, probs[:,i], label=f"P{i}")
@@ -641,7 +643,7 @@ def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2
     print(f"Data saved to {filename}")
     return filename
     
-def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5, fig_probs=None, bMirror=True, bRamp=True):
+def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5, fig_probs=None, bOmp=False, pauli_solver=None):
     """Scan tip along a line for a range of voltages and plot Emax, STM, dI/dV."""
     print("calculate_xV_scan()", start_point, end_point,  )
     # Line geometry
@@ -653,23 +655,19 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     if Vmax is None: Vmax = params['VBias']
     Vbiases = np.linspace(Vmin, Vmax, nV)
 
-    # Tip positions and voltages grid
-    pTips = np.zeros((npts*nV,3))
-
     # Site & rotation
     nsite = int(params['nsite'])
-    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
-    spos[:,2] = params['zQd']
-    rots = ut.makeRotMats(phis + params['phiRot'])
+    # Site geometry (positions, rotations, angles)
+    spos, rots, angles = make_site_geom(params)
 
     pTips = np.zeros((npts,3))
     pTips[:,0] = x; pTips[:,1] = y
     zT = params['z_tip'] + params['Rtip']
     pTips[:,2] = zT
     
-    cpp_params = pauli.make_cpp_params(params, bMirror=bMirror, bRamp=bRamp)
+    cpp_params = pauli.make_cpp_params(params)
     state_order = pauli.make_state_order(nsite)
-    current, Es, Ts, probs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=False, state_order=state_order, Ts=None )
+    current, Es, Ts, probs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=bOmp, state_order=state_order, Ts=None, pauli_solver=pauli_solver )
     # reshape
     STM = current.reshape(nV,npts)
     Es  = Es.reshape(nV,npts,nsite)
@@ -693,19 +691,20 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
         ax_dIdV.set_aspect('auto');
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
-    probs_arr = probs.reshape(nV, nx, -1)
+    probs = probs.reshape(nV, nx, -1)
     if fig_probs is not None:
         # dynamic grid axes for probabilities
-        n_states = probs_arr.shape[2]
+        n_states = probs.shape[2]
         state_order = pauli.make_state_order(params['nsite'])
         labels = pauli.make_state_labels(state_order)
         axs = make_grid_axes(fig_probs, n_states)
-        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
+        plot_state_probabilities(probs, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
     print("calculate_xV_scan() DONE")
-    return x, Vbiases, Emax, STM, dIdV, probs_arr
+    return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
 
-def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None, bMirror=True, bRamp=True):
+def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None):
     """Scan voltage dependence along a line using orbital-based hopping Ts"""
+    T0 = time.perf_counter()
     # Line geometry
     x1, y1 = start_point; x2, y2 = end_point
     dist = np.hypot(x2-x1, y2-y1)
@@ -717,11 +716,8 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
 
     # Site & rotation
     nsite = int(params['nsite'])
-    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
-    spos[:,2] = params['zQd']
-    # angles for hopping
-    angles = phis + params.get('phi0_ax',0.0) + np.pi*0.5
-    rots = ut.makeRotMats(phis + params['phiRot'])
+    # Site geometry (positions, rotations, angles)
+    spos, rots, angles = make_site_geom(params)
 
     # Compute hopping Ts along line from orbital data
     if orbital_2D is not None:
@@ -746,12 +742,14 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
 
     state_order = pauli.make_state_order(nsite)
     # Run scan using parameter dict (wrapper generates C++ params internally)
-    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, bOmp=False, state_order=state_order, Ts=Ts_input)
+    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver )
     # reshape and compute
     STM = current.reshape(nV, npts)
     Es  = Es.reshape(nV, npts, nsite)
     Emax = Es.max(axis=2)
     dIdV = np.gradient(STM, Vbiases, axis=0)
+
+    T_calc = time.perf_counter(); print(f"calculate_xV_scan_orb() calc time: {T_calc-T0:.5f} [s]")
 
     # Plot results
     extent = [0, dist, Vmin, Vmax]
@@ -768,24 +766,25 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         ax_dIdV.set_aspect('auto');
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
-    probs_arr = probs.reshape(nV, nx, -1)
+    probs = probs.reshape(nV, nx, -1)
     if fig_probs is not None:
         # dynamic grid axes for probabilities
-        n_states = probs_arr.shape[2]
+        n_states = probs.shape[2]
         state_order = pauli.make_state_order(params['nsite'])
         labels = pauli.make_state_labels(state_order)
         axs = make_grid_axes(fig_probs, n_states)
-        plot_state_probabilities(probs_arr, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
-    return x, Vbiases, Emax, STM, dIdV, probs_arr
+        plot_state_probabilities(probs, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
+    return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
+    
 
-def plot_state_probabilities(probs_arr, extent, axs=None, fig=None, labels=None, aspect='auto'):
+def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, aspect='auto'):
     """
     Plot multiple state probability maps. Handles single or array of axes.
-    probs_arr: 3D array shape (nV, nx, n_states)
+    probs: 3D array shape (nV, nx, n_states)
     extent: sequence of 4 [xmin, xmax, ymin, ymax]
     """
     # Number of states to plot
-    n_states = probs_arr.shape[-1]
+    n_states = probs.shape[-1]
     # Create default figure/axes if needed
     ncols = min(2, n_states)
     nrows = int(np.ceil(n_states / ncols))
@@ -807,7 +806,7 @@ def plot_state_probabilities(probs_arr, extent, axs=None, fig=None, labels=None,
         ax = axs_flat[idx]
         ax.clear()
         title = labels[idx] if labels and idx < len(labels) else f"P{idx}"
-        im = ax.imshow(probs_arr[:,:,idx], origin='lower', extent=extent, cmap='viridis', interpolation='nearest')
+        im = ax.imshow(probs[:,:,idx], origin='lower', extent=extent, cmap='viridis', interpolation='nearest')
         ax.set_aspect(aspect)
         ax.set_title(title)
         ax.set_xlabel('x [Å]')

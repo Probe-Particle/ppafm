@@ -52,7 +52,7 @@ class ApplicationWindow(GUITemplate):
             'zVd':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-5.0, 50.0),  'value':  15.0, 'step': 0.1},
             'zQd':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-5.0, 5.0),   'value':  0.0, 'step': 0.1},
             'Q0':            {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
-            'Qzz':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-20.0, 20.0), 'value': 1.0, 'step': 0.5},
+            'Qzz':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-20.0, 20.0), 'value': 10.0, 'step': 0.5},
 
             'Esite':         {'group': 'Transport Solver',  'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.100, 'step': 0.002, 'decimals': 3},
             'W':             {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.02,   'step': 0.001, 'decimals': 3},
@@ -365,6 +365,9 @@ class ApplicationWindow(GUITemplate):
             self.manage_prob_window(figp, 'scanXY')
         else:
             figp = None
+
+        #bOmp = True   # Seems that currently it is not working
+        bOmp = False
         
         pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0], bLegend=False)
         #pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, params['W'], params['W']*2.0])
@@ -378,25 +381,25 @@ class ApplicationWindow(GUITemplate):
             sim_end   = (params['p2_x'], params['p2_y'])
             orbital_2D, orbital_lvec = self.getOrbIfChecked()
             # plot sim current & dIdV on ax5 (STM) and ax6 (dIdV)
-            _, _, _, STM, sim_dIdV, _ = pauli_scan.calculate_xV_scan_orb(
+            STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots = pauli_scan.calculate_xV_scan_orb(
                 params, sim_start, sim_end,
                 orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
                 ax_Emax=None, ax_STM=self.ax5, ax_dIdV=self.ax6,
                 nx=100, nV=100, Vmin=0.0, Vmax=self.exp_biases[-1],
-                fig_probs=figp
+                fig_probs=figp, bOmp=bOmp
             )
             self.ax5.set_title('Sim STM (xV)'); self.ax6.set_title('Sim dI/dV (xV)')
             # experimental line scans on ax8 (I) and ax9 (dIdV)
             exp_start = (params['ep1_x'], params['ep1_y']); exp_end = (params['ep2_x'], params['ep2_y'])
-            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I,   self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, self.exp_biases[-1]), cmap='hot')
+            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I,    self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, self.exp_biases[-1]), cmap='hot')
             exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, self.exp_biases[-1]))
             self.ax8.set_title('Exp I (xV)'); self.ax9.set_title('Exp dI/dV (xV)')
         else:
             # original XY plane simulation + experimental overlay
             orbital_2D, orbital_lvec = self.getOrbIfChecked()
-            STM, Es, Ts, probs_arr, spos, rots = pauli_scan.scan_xy_orb(
+            STM, dIdV, Es, Ts, probs, spos, rots = pauli_scan.scan_xy_orb(
                 params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
-                ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp
+                ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp, bOmp=bOmp
             )
             self.draw_scan_line(self.ax4); self.draw_reference_line(self.ax4); self.plot_ellipses(self.ax9, params)
             self.plot_experimental_data()
@@ -404,6 +407,7 @@ class ApplicationWindow(GUITemplate):
                 x, y = spos[i][0], spos[i][1]
                 self.ax4.plot([x, x+rot[0][0]], [y, y+rot[0][1]])
         self.canvas.draw()
+        return STM, dIdV, Es, Ts, probs, spos, rots
     
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
         params = self.get_param_values()
@@ -587,40 +591,19 @@ class ApplicationWindow(GUITemplate):
         with open(base + '.json', 'w') as f:
             json.dump(params, f, indent=4)
         # Save figure PNG
+        STM, dIdV, Es, Ts, probs, spos, rots = self.run()
         self.canvas.figure.savefig(base + '.png')
-        # Collect data
-        data = {}
-        if self.cbPlotXV.isChecked():
-            # Voltage line scan
-            sim_start = (params['p1_x'], params['p1_y'])
-            sim_end = (params['p2_x'], params['p2_y'])
-            orbital_2D, orbital_lvec = self.getOrbIfChecked()
-            x, V, Emax, STM, dIdV, probs = pauli_scan.calculate_xV_scan_orb(
-                params, sim_start, sim_end,
-                orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
-                ax_Emax=None, ax_STM=None, ax_dIdV=None,
-                nx=100, nV=100, Vmin=0.0, Vmax=self.exp_biases[-1],
-                fig_probs=None
-            )
-            data.update({'x': x, 'V': V, 'Emax': Emax, 'STM': STM, 'dIdV': dIdV, 'probs': probs})
-        else:
-            # XY plane scan
-            orbital_2D, orbital_lvec = self.getOrbIfChecked()
-            STM, Es, Ts, probs, spos, rots = pauli_scan.scan_xy_orb(
-                params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
-                pauli_solver=self.pauli_solver,
-                ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None,
-                fig_probs=None
-            )
-            data.update({'spos': spos, 'STM': STM, 'Es': Es, 'Ts': Ts, 'probs': probs})
-        # Embed params JSON string
-        data['params_json'] = json.dumps(params)
+        data = { 
+            'spos': spos, 'STM': STM, 'Es': Es, 'Ts': Ts, 'probs': probs,
+            'params_json': json.dumps(params)
+        }
         # Save NPZ
-        _np.savez(base + '.npz', **data)
+        np.savez(base + '.npz', **data)
 
     def update_lin_solver(self):
         """Update linear solver settings on the pauli solver"""
         mode = self.comboLinSolver.currentIndex() + 1
+        #print("update_lin_solver() mode", mode)
         maxIter = self.sbMaxIter.value()
         tol = self.dsTol.value()
         self.pauli_solver.setLinSolver(mode, maxIter, tol)
