@@ -209,35 +209,29 @@ class ApplicationWindow(GUITemplate):
         self.update_lin_solver()
         self.run()
 
-    def load_reference_data(self, fname = './Vlado/input/0.20_line_scan.dat'):
-        self.ref_params, self.ref_columns, self.ref_data_line = data_line.read_dat_file(fname); 
-        #print( "ref_params ", self.ref_params); 
-        #print( "ref_columns ", self.ref_columns); 
-        #print( "ref_data_line ", self.ref_data_line)
-        #exit()
-
     def load_experimental_data(self):
         """Load experimental data from npz file"""
-        data = np.load('exp_rings_data.npz')
-        # Convert from nm to Å (1 nm = 10 Å)
-        self.exp_X      = data['X'] * 10
-        self.exp_Y      = data['Y'] * 10
-        self.exp_dIdV   = data['dIdV']
-        self.exp_I      = data['I']
-        self.exp_biases = data['biases']
-        center_x        = data['center_x'] * 10  # Convert to Å
-        center_y        = data['center_y'] * 10  # Convert to Å
-        
-        # Center the coordinates
-        self.exp_X -= center_x
-        self.exp_Y -= center_y
-        
-        # Update exp_slice range based on actual data size
-        self.param_specs['exp_slice']['range'] = (0, len(self.exp_biases) - 1)
-        self.param_specs['exp_slice']['value'] = len(self.exp_biases) // 2
-        
-        # Set initial voltage index to middle
-        self.exp_idx = len(self.exp_biases) // 2
+        try:
+            data = np.load('exp_rings_data.npz')
+            # Convert from nm to Å
+            self.exp_X      = data['X'] * 10
+            self.exp_Y      = data['Y'] * 10
+            self.exp_dIdV   = data['dIdV']
+            self.exp_I      = data['I']
+            self.exp_biases = data['biases']
+            # Center coordinates
+            cx, cy = data['center_x']*10, data['center_y']*10
+            self.exp_X -= cx; self.exp_Y -= cy
+            # Update exp_slice range and initial index
+            self.param_specs['exp_slice']['range'] = (0, len(self.exp_biases)-1)
+            self.param_specs['exp_slice']['value'] = len(self.exp_biases)//2
+            self.exp_idx = len(self.exp_biases)//2
+            self.bExpLoaded = True
+        except FileNotFoundError:
+            print("Warning: experimental data file not found; disabling experimental plots.")
+            self.exp_X = self.exp_Y = self.exp_dIdV = self.exp_I = None
+            self.exp_biases = None
+            self.bExpLoaded = False
 
     def load_orbital_file(self):
         filename = self.leOrbitalFile.text()
@@ -313,6 +307,8 @@ class ApplicationWindow(GUITemplate):
 
     def plot_experimental_data(self):
         """Plot experimental data in the bottom row"""
+        if not self.bExpLoaded:
+            return
         # Get parameters
         params = self.get_param_values()
         self.exp_idx = params['exp_slice']        
@@ -373,6 +369,9 @@ class ApplicationWindow(GUITemplate):
         #pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, params['W'], params['W']*2.0])
         # Determine mode: XY plane or xV line comparison
         if self.cbPlotXV.isChecked():
+            Vmax = params['VBias']
+            if self.exp_biases is not None:
+                Vmax = self.exp_biases[-1]
             # xV simulation + experimental line comparison in main axes
             # clear target axes
             self.ax5.cla(); self.ax6.cla(); self.ax8.cla(); self.ax9.cla()
@@ -385,14 +384,18 @@ class ApplicationWindow(GUITemplate):
                 params, sim_start, sim_end,
                 orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
                 ax_Emax=None, ax_STM=self.ax5, ax_dIdV=self.ax6,
-                nx=100, nV=100, Vmin=0.0, Vmax=self.exp_biases[-1],
+                nx=100, nV=100, Vmin=0.0, Vmax=Vmax,
                 fig_probs=figp, bOmp=bOmp
             )
             self.ax5.set_title('Sim STM (xV)'); self.ax6.set_title('Sim dI/dV (xV)')
             # experimental line scans on ax8 (I) and ax9 (dIdV)
             exp_start = (params['ep1_x'], params['ep1_y']); exp_end = (params['ep2_x'], params['ep2_y'])
-            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I,    self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, self.exp_biases[-1]), cmap='hot')
-            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, self.exp_biases[-1]))
+            if self.bExpLoaded:
+                exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I,    self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, Vmax), cmap='hot')
+                exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, Vmax))
+            else:
+                self.ax8.text(0.5,0.5,"No experimental data",ha='center',transform=self.ax8.transAxes)
+                self.ax9.text(0.5,0.5,"No experimental data",ha='center',transform=self.ax9.transAxes)
             self.ax8.set_title('Exp I (xV)'); self.ax9.set_title('Exp dI/dV (xV)')
         else:
             # original XY plane simulation + experimental overlay
@@ -425,6 +428,9 @@ class ApplicationWindow(GUITemplate):
 
     def plot_voltage_line_scan_exp(self, start, end, pointPerAngstrom=5):
         """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
+        if not self.bExpLoaded:
+            print("Experimental data not loaded; aborting voltage line scan.")
+            return
         params = self.get_param_values()
         
         # For simulation, use p1,p2 instead of ep1,ep2
