@@ -8,7 +8,7 @@
 #include <cmath>
 #include "gauss_solver.hpp"
 #include "SVD.h"
-#include "SVD_lapack.h"
+//#include "SVD_lapack.h"
 //#include "iterative_solver.hpp"
 #include "print_utils.hpp"
 
@@ -1183,7 +1183,7 @@ def construct_Tba(leads, tleads, Tba_=None):
         switch (iLinsolveMode) {
             case 1:  linSolve_gauss(n, kern_copy, rhs, probabilities                                                          ); break;
             case 2:  solve_least_squares_svd(n, kern_copy, rhs, probabilities, LinsolveTolerance, nMaxLinsolveInter, false    ); break;
-            case 3:  solve_least_squares_svd_lapacke(n, kern_copy, rhs, probabilities, LinsolveTolerance, false    ); break;
+            //case 3:  solve_least_squares_svd_lapacke(n, kern_copy, rhs, probabilities, LinsolveTolerance, false    ); break;
             default: fprintf(stderr, "ERROR in PauliSolver::solve_kern(): Invalid linear solver mode (%i).\n", iLinsolveMode  ); exit(1);
         }
         

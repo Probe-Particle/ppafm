@@ -177,7 +177,7 @@ class ApplicationWindow(GUITemplate):
         self.comboLinSolver = QtWidgets.QComboBox()
         self.comboLinSolver.addItem("Gass")
         self.comboLinSolver.addItem("SVD")
-        self.comboLinSolver.addItem("LAPACK")
+        #self.comboLinSolver.addItem("LAPACK")
         solver_layout.addWidget(self.comboLinSolver)
         solver_layout.addWidget(QtWidgets.QLabel("MaxIter:"))
         self.sbMaxIter = QtWidgets.QSpinBox()
@@ -235,7 +235,13 @@ class ApplicationWindow(GUITemplate):
 
     def load_orbital_file(self):
         filename = self.leOrbitalFile.text()
-        if not os.path.exists(filename): print(f"ERROR: Could not find orbital file {filename}"); return
+        print(f"Loading orbital from {filename}")
+        if not os.path.exists(filename): 
+            print(f"ERROR: Could not find orbital file {filename}"); 
+            self.cbUseOrbital.setChecked(False)
+            self.orbital_2D   = None
+            self.orbital_lvec = None
+            return
         orbital_data, orbital_lvec = orbital_utils.load_orbital(filename)
         orbital_2D = np.transpose(orbital_data,(2,1,0))
         orbital_2D = np.sum(orbital_2D[:,:,orbital_2D.shape[2]//2:],axis=2)
@@ -344,6 +350,8 @@ class ApplicationWindow(GUITemplate):
         self.canvas.draw()
 
     def getOrbIfChecked(self):
+        if self.orbital_2D is None:
+            self.cbUseOrbital.setChecked(False)
         if self.cbUseOrbital.isChecked():
             return self.orbital_2D, self.orbital_lvec
         else:
