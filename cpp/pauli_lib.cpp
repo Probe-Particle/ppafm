@@ -14,6 +14,12 @@ double EW_cut   = 2.0;
 
 extern "C" {
 
+void setLinSolver(void* solver_ptr, int iLinsolveMode, int nMaxLinsolveInter, double LinsolveTolerance) {
+    PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
+    printf("setLinSolver() iLinsolveMode: %d nMaxLinsolveInter: %d LinsolveTolerance: %g\n", iLinsolveMode, nMaxLinsolveInter, LinsolveTolerance);
+    if (solver) { solver->setLinSolver(iLinsolveMode, nMaxLinsolveInter, LinsolveTolerance); }
+}
+
 // C wrapper: include zV1 and build Vec2d
 void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, double zVd, int order, const double* cs, double* outEs, bool bMirror, bool bRamp ) {
     Vec2d zV{zV0,zVd};

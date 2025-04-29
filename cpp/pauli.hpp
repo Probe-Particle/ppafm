@@ -7,6 +7,8 @@
 #include <numeric>  // Required for std::accumulate
 #include <cmath>
 #include "gauss_solver.hpp"
+#include "SVD.h"
+#include "SVD_lapack.h"
 //#include "iterative_solver.hpp"
 #include "print_utils.hpp"
 
@@ -172,6 +174,10 @@ public:
     double* Hsingle = nullptr;    // Single-particle Hamiltonian [nSingle * nSingle]
     double W        = 0.0;               // Coulomb interaction strength
     double* TLeads  = nullptr;     // Lead tunneling amplitudes [nleads * nSingle]
+
+    int iLinsolveMode        = 1; // 1: Gass 2: SVD
+    int nMaxLinsolveInter    = 50; 
+    double LinsolveTolerance = 10e-12; 
     
     // Working data
     double* kernel = nullptr;                  // Kernel matrix [nstates * nstates]
@@ -269,10 +275,18 @@ public:
         if (verbosity > 0) {  printf("PauliSolver construction finished: Memory allocated and initialized.\n");}
     }
 
+    void setLinSolver(int iLinsolveMode_, int nMaxLinsolveInter_, double LinsolveTolerance_){
+        iLinsolveMode     = iLinsolveMode_;
+        nMaxLinsolveInter = nMaxLinsolveInter_;
+        LinsolveTolerance = LinsolveTolerance_;
+    }
+
     void deep_clone( const PauliSolver* source ){
         // Copy basic parameters
         W = source->W;
         verbosity = source->verbosity;
+
+        setLinSolver(source->iLinsolveMode, source->nMaxLinsolveInter, source->LinsolveTolerance);
         
         // Copy arrays
         std::memcpy(energies,        source->energies,        nstates * sizeof(double) );
@@ -1163,7 +1177,15 @@ def construct_Tba(leads, tleads, Tba_=None):
         }
         
         // Solve the system using Gaussian elimination
-        linSolve_gauss(n, kern_copy, rhs, probabilities);
+        //linSolve_gauss(n, kern_copy, rhs, probabilities);
+
+
+        switch (iLinsolveMode) {
+            case 1:  linSolve_gauss(n, kern_copy, rhs, probabilities                                                          ); break;
+            case 2:  solve_least_squares_svd(n, kern_copy, rhs, probabilities, LinsolveTolerance, nMaxLinsolveInter, false    ); break;
+            case 3:  solve_least_squares_svd_lapacke(n, kern_copy, rhs, probabilities, LinsolveTolerance, false    ); break;
+            default: fprintf(stderr, "ERROR in PauliSolver::solve_kern(): Invalid linear solver mode (%i).\n", iLinsolveMode  ); exit(1);
+        }
         
         if(verbosity > 1) {
             printf("PauliSolver::solve_kern() probabilities from Gaussian solver: ");

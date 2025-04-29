@@ -170,6 +170,32 @@ class ApplicationWindow(GUITemplate):
         orbital_layout.addWidget(self.cbUseOrbital)
         self.cbUseOrbital.stateChanged.connect(self.run)
 
+        # LinSolver options
+        solver_layout = QtWidgets.QHBoxLayout()
+        self.layout0.addLayout(solver_layout)
+        solver_layout.addWidget(QtWidgets.QLabel("LinSolver:"))
+        self.comboLinSolver = QtWidgets.QComboBox()
+        self.comboLinSolver.addItem("Gass")
+        self.comboLinSolver.addItem("SVD")
+        self.comboLinSolver.addItem("LAPACK")
+        solver_layout.addWidget(self.comboLinSolver)
+        solver_layout.addWidget(QtWidgets.QLabel("MaxIter:"))
+        self.sbMaxIter = QtWidgets.QSpinBox()
+        self.sbMaxIter.setRange(1, 10000)
+        self.sbMaxIter.setValue(50)
+        solver_layout.addWidget(self.sbMaxIter)
+        solver_layout.addWidget(QtWidgets.QLabel("Tol:"))
+        self.dsTol = QtWidgets.QDoubleSpinBox()
+        self.dsTol.setDecimals(12)
+        self.dsTol.setSingleStep(1e-12)
+        self.dsTol.setRange(0.0, 1.0)
+        self.dsTol.setValue(10e-12)
+        solver_layout.addWidget(self.dsTol)
+        # Connect solver settings changes
+        self.comboLinSolver.currentIndexChanged.connect(self.update_lin_solver)
+        self.sbMaxIter.valueChanged.connect(self.update_lin_solver)
+        self.dsTol.valueChanged.connect(self.update_lin_solver)
+
         # Connect mouse events
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
@@ -179,7 +205,8 @@ class ApplicationWindow(GUITemplate):
         self.draw_reference_line(self.ax4)
 
         self.pauli_solver = pauli.PauliSolver( nSingle=3, nleads=2, verbosity=verbosity )
-        
+        # apply initial linear solver settings
+        self.update_lin_solver()
         self.run()
 
     def load_reference_data(self, fname = './Vlado/input/0.20_line_scan.dat'):
@@ -590,6 +617,15 @@ class ApplicationWindow(GUITemplate):
         data['params_json'] = json.dumps(params)
         # Save NPZ
         _np.savez(base + '.npz', **data)
+
+    def update_lin_solver(self):
+        """Update linear solver settings on the pauli solver"""
+        mode = self.comboLinSolver.currentIndex() + 1
+        maxIter = self.sbMaxIter.value()
+        tol = self.dsTol.value()
+        self.pauli_solver.setLinSolver(mode, maxIter, tol)
+        if self.cbAutoUpdate.isChecked():
+            self.run()
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)

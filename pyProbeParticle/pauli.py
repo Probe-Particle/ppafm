@@ -33,6 +33,10 @@ def compile_and_load(name='pauli_lib', bASAN=False):
 # Load the library
 lib = compile_and_load()
 
+# void setLinSolver(void* solver_ptr, int iLinsolveMode, int nMaxLinsolveInter, double LinsolveTolerance) {
+lib.setLinSolver.argtypes = [c_void_p, c_int, c_int, c_double]
+lib.setLinSolver.restype = None
+
 # void set_valid_point_cuts( double Tmin, double EW ){
 lib.set_valid_point_cuts.argtypes = [c_double, c_double]
 lib.set_valid_point_cuts.restype = None
@@ -158,6 +162,9 @@ class PauliSolver:
         self.solver    = None
         if nSingle is not None and nleads is not None:
             self.create_solver(nSingle, nleads)
+    
+    def setLinSolver(self, iLinsolveMode, nMaxLinsolveInter=50, LinsolveTolerance=1e-12):
+        lib.setLinSolver(self.solver, iLinsolveMode, nMaxLinsolveInter, LinsolveTolerance)
     
     # Methods for optimized workflow
     def create_solver(self, nSingle, nleads):
