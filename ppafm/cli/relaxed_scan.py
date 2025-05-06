@@ -104,34 +104,34 @@ def main(argv=None):
 
         print("Loading Pauli force field from FFpauli_{x,y,z}")
         ff_pauli, lvec, _, atomic_info_or_head = io.load_vec_field("FFpauli", data_format=args.output_format)
-        ff_pauli[0, :, :, :], ff_pauli[1, :, :, :] = rotate_ff(ff_pauli[0, :, :, :], ff_pauli[1, :, :, :], opt_dict["rotate"])
+        ff_pauli[:, :, :, 0], ff_pauli[1, :, :, :, 1] = rotate_ff(ff_pauli[:, :, :, 0], ff_pauli[:, :, :, 1], opt_dict["rotate"])
 
         print("Loading vdW force field from FFvdW_{x,y,z}")
         ff_vdw, lvec, _, atomic_info_or_head = io.load_vec_field("FFvdW", data_format=args.output_format)
-        ff_vdw[0, :, :, :], ff_vdw[1, :, :, :] = rotate_ff(ff_vdw[0, :, :, :], ff_vdw[1, :, :, :], opt_dict["rotate"])
+        ff_vdw[:, :, :, 0], ff_vdw[:, :, :, 1] = rotate_ff(ff_vdw[:, :, :, 0], ff_vdw[:, :, :, 1], opt_dict["rotate"])
 
     else:
         print("Loading Lennard-Jones force field from FFLJ_{x,y,z}")
         ff_vdw, lvec, _, atomic_info_or_head = io.load_vec_field("FFLJ", data_format=args.output_format)
-        ff_vdw[0, :, :, :], ff_vdw[1, :, :, :] = rotate_ff(ff_vdw[0, :, :, :], ff_vdw[1, :, :, :], opt_dict["rotate"])
+        ff_vdw[:, :, :, 0], ff_vdw[:, :, :, 1] = rotate_ff(ff_vdw[:, :, :, 0], ff_vdw[:, :, :, 1], opt_dict["rotate"])
 
     if charged_system:
         print("Loading electrostatic force field from FFel_{x,y,z}")
         ff_electrostatics, lvec, _, atomic_info_or_head = io.load_vec_field("FFel", data_format=args.output_format)
-        ff_electrostatics[0, :, :, :], ff_electrostatics[1, :, :, :] = rotate_ff(ff_electrostatics[0, :, :, :], ff_electrostatics[1, :, :, :], opt_dict["rotate"])
+        ff_electrostatics[:, :, :, 0], ff_electrostatics[:, :, :, 1] = rotate_ff(ff_electrostatics[:, :, :, 0], ff_electrostatics[:, :, :, 1], opt_dict["rotate"])
 
     if args.boltzmann or args.bI:
         print("Loading Boltzmann force field from FFboltz_{x,y,z}")
         ff_boltzman, lvec, _, atomic_info_or_head = io.load_vec_field("FFboltz", data_format=args.output_format)
-        ff_boltzman[0, :, :, :], ff_boltzman[1, :, :, :] = rotate_ff(ff_boltzman[0, :, :, :], ff_boltzman[1, :, :, :], opt_dict["rotate"])
+        ff_boltzman[:, :, :, 0], ff_boltzman[:, :, :, 1] = rotate_ff(ff_boltzman[:, :, :, 0], ff_boltzman[:, :, :, 1], opt_dict["rotate"])
 
     if applied_bias:
         print("Loading electrostatic contribution from applied bias from FFkpfm_t0sV_{x,y,z} and FFkpfm_tVs0_{x,y,z}")
         ff_kpfm_t0sv, lvec, _, atomic_info_or_head = io.load_vec_field("FFkpfm_t0sV", data_format=args.output_format)
         ff_kpfm_tvs0, lvec, _, atomic_info_or_head = io.load_vec_field("FFkpfm_tVs0", data_format=args.output_format)
 
-        ff_kpfm_t0sv[0, :, :, :], ff_kpfm_t0sv[1, :, :, :] = rotate_ff(ff_kpfm_t0sv[0, :, :, :], ff_kpfm_t0sv[1, :, :, :], opt_dict["rotate"])
-        ff_kpfm_tvs0[0, :, :, :], ff_kpfm_tvs0[1, :, :, :] = rotate_ff(ff_kpfm_tvs0[0, :, :, :], ff_kpfm_tvs0[1, :, :, :], opt_dict["rotate"])
+        ff_kpfm_t0sv[:, :, :, 0], ff_kpfm_t0sv[:, :, :, 1] = rotate_ff(ff_kpfm_t0sv[:, :, :, 0], ff_kpfm_t0sv[:, :, :, 1], opt_dict["rotate"])
+        ff_kpfm_tvs0[:, :, :, 0], ff_kpfm_tvs0[:, :, :, 1] = rotate_ff(ff_kpfm_tvs0[:, :, :, 0], ff_kpfm_tvs0[:, :, :, 1], opt_dict["rotate"])
 
         ff_kpfm_t0sv = ff_kpfm_t0sv * opt_dict["pol_s"]
         ff_kpfm_tvs0 = ff_kpfm_tvs0 * opt_dict["pol_t"]
