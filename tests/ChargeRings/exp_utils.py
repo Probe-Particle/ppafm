@@ -250,9 +250,7 @@ def plot_exp_voltage_line_scan(X, Y, data, biases, start, end, ax=None, title=''
     return data_1d, dist
 
 
-def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, params=None,
-                          sim_data=None, ellipse_params=None,
-                          ax_didv=None, ax_current=None, ax_overlay=None, draw_exp_scan_line_func=None):
+def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, params=None, sim_data=None, ellipse_params=None,  ax_didv=None, ax_current=None, ax_overlay=None, draw_exp_scan_line_func=None):
     """Plot experimental data
     
     Args:

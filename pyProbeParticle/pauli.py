@@ -309,11 +309,8 @@ def make_cpp_params(params):
     """Build C++ params array including mirror/ramp flags from params dict"""
     bMirror = params.get('bMirror', True)
     bRamp   = params.get('bRamp',   True)
-    return np.array([
-        params['Rtip'], params['zV0'], params['zVd'], params['Esite'],
-        params['decay'], params['GammaT'], params['W'],
-        float(bMirror), float(bRamp)
-    ], dtype=np.float64)
+    print("make_cpp_params(): bMirror: ", bMirror, " bRamp: ", bRamp)
+    return np.array([ params['Rtip'], params['zV0'], params['zVd'], params['Esite'],  params['decay'], params['GammaT'], params['W'], float(bMirror), float(bRamp) ], dtype=np.float64)
 
 def make_state_order(nsite):
     """

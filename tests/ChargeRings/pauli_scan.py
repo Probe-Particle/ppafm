@@ -325,7 +325,7 @@ def run_scan_xy_orb( params, orbital_file="QD.cub" ):
         orbital_lvec = None
 
     if pauli_solver is None:
-        pauli_solver = PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=0)
+        pauli_solver = pauli.PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=0)
 
     fig, ( ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(20,5))
     scan_xy_orb(params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=pauli_solver, ax_Etot=ax1, ax_Ttot=ax2, ax_STM=ax3, ax_Ms=None, ax_dIdV=ax4)
@@ -560,7 +560,7 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_pro
     state_order = pauli.make_state_order(nsite)
     # Run scan
     if pauli_solver is None:
-        pauli_solver = PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
+        pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
     current, Es, Ts, probs = pauli_solver.scan_current_tip( pTips, Vtips, spos,  cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
     if ax_probs:
         axp = ax_probs

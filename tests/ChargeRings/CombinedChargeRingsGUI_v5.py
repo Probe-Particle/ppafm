@@ -357,6 +357,13 @@ class ApplicationWindow(GUITemplate):
         else:
             return None, None
 
+    def get_param_values(self):
+        """Override parent method to include checkbox states"""
+        params = super().get_param_values()
+        params['bMirror'] = self.cbMirror.isChecked()
+        params['bRamp'] = self.cbRamp.isChecked()
+        return params
+
     def run(self):
         """Main calculation and plotting function"""
         params = self.get_param_values()
@@ -422,9 +429,7 @@ class ApplicationWindow(GUITemplate):
     
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
         params = self.get_param_values()
-        distance, Es, Ts, STM, x, y, x1, y1, x2, y2, probs = pauli_scan.calculate_1d_scan(
-            params, start_point, end_point, pointPerAngstrom
-        )
+        distance, Es, Ts, STM, x, y, x1, y1, x2, y2, probs = pauli_scan.calculate_1d_scan( params, start_point, end_point, pointPerAngstrom, pauli_solver=self.pauli_solver )
         nsite = int(params['nsite'])
         ref_data_line = getattr(self, 'ref_data_line', None)
         ref_columns   = getattr(self, 'ref_columns', None)
@@ -462,7 +467,7 @@ class ApplicationWindow(GUITemplate):
             orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
             ax_Emax=None, ax_STM=None, ax_dIdV=None,
             nx=sim_npoints, nV=200, Vmin=0.0, Vmax=Vbiases[-1],
-            fig_probs=None
+            fig_probs=None, pauli_solver=self.pauli_solver
         )
         extent_sim = [0, dist, 0, Vbiases[-1]]
         im1 = ax_sim_I.imshow(STM, aspect='auto', origin='lower', extent=extent_sim, cmap='hot')
