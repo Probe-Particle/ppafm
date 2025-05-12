@@ -16,6 +16,29 @@ import time
 import orbital_utils
 from scipy.interpolate import RectBivariateSpline
 
+def validate_probabilities(probs, tol=-1e-12):
+    """Check if any probabilities are negative below tolerance threshold.
+    
+    Args:
+        probs: Probability array (can be 1D, 2D or 3D)
+        tol: Negative values above this threshold will trigger an error
+        
+    Raises:
+        ValueError if any probabilities are below tolerance
+    """
+    if probs is None: 
+        return
+    # Reshape to ensure we always have at least 2 dimensions
+    probs = np.atleast_2d(probs)
+    
+    # Find minimum along all dimensions except the last (state dimension)
+    min_vals = np.min(probs, axis=tuple(range(probs.ndim-1)))
+    print(f"Validating probabilities: min_vals {min_vals} tol {tol}")
+    for i, min_val in enumerate(min_vals):
+        if min_val < tol: 
+            print(f"ERROR in validate_probabilities() min_val {min_val} < tol {tol}")
+            raise ValueError(f"State {i} has negative probability ({min_val:.2e}) below tolerance ({tol:.2e})")
+
 def make_site_geom( params ):
     nsite=params['nsite']
     spos, phis = ut.makeCircle(n=nsite,R=params['radius'],phi0=params['phiRot'])
@@ -102,7 +125,8 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
     if ax_I2d is not None:
         #current, _, _, probs = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSites=pSites, params=params)
         if Woffsets is None:
-            I, _, _, _ = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSites=pSites, params=params)
+            I, _, _, probs = pauli.run_pauli_scan_xV(pTips_1d, V_vals, pSites=pSites, params=params)
+            validate_probabilities(probs)
             #pu.plot_imshow(ax_I2d, Ts, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
             #I = Ts
         else:
@@ -158,6 +182,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     
     # Run pauli scan
     STM, Es, Ts, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, bOmp=bOmp)
+    validate_probabilities(probs)
     #print( "min,max Es", np.min(Es), np.max(Es))
     #print( "min,max Ts", np.min(Ts), np.max(Ts))
     #print( "min,max STM", np.min(STM), np.max(STM))
@@ -236,6 +261,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     #T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     #bOmp = True
     STM_flat, Es_flat, Ts_flat_, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+    validate_probabilities(probs)
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     dIdV = None
     if ax_dIdV is not None:
@@ -506,16 +532,14 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
         
         # Run pauli scan and plot results (same as before)
         STM_flat, Es_flat, Ts_flat_, probs_ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp )
-
-        if not bDoOrb:
-            Ttot = np.sum(Ts_flat_.reshape(npix, npix, nsite), axis=2)
-            pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)", extent=extent, cmap='hot')
-        
-        # Compute dIdV
-        params_ = params.copy()
-        params_['VBias'] += 0.05
-        STM_2, _, _, probs = pauli.run_pauli_scan_top(params['spos'], params['rots'], params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
-        dIdV = (STM_2 - STM_flat) / 0.01
+        validate_probabilities(probs_)
+        dIdV = None
+        if ax_dIdV is not None:
+            params_ = params.copy()
+            params_['VBias'] += 0.05
+            STM_2, _, _, probs = pauli.run_pauli_scan_top(params['spos'], params['rots'], params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+            validate_probabilities(probs)
+            dIdV = (STM_2 - STM_flat) / 0.01
         
         # Reshape and plot
         STM = STM_flat.reshape(npix, npix)
@@ -562,6 +586,7 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_pro
     if pauli_solver is None:
         pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
     current, Es, Ts, probs = pauli_solver.scan_current_tip( pTips, Vtips, spos,  cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
+    validate_probabilities(probs)
     if ax_probs:
         axp = ax_probs
         for i in range(probs.shape[1]): axp.plot(distance, probs[:,i], label=f"P{i}")
@@ -668,6 +693,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     cpp_params = pauli.make_cpp_params(params)
     state_order = pauli.make_state_order(nsite)
     current, Es, Ts, probs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=bOmp, state_order=state_order, Ts=None, pauli_solver=pauli_solver )
+    validate_probabilities(probs)
     # reshape
     STM = current.reshape(nV,npts)
     Es  = Es.reshape(nV,npts,nsite)
@@ -743,6 +769,7 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     state_order = pauli.make_state_order(nsite)
     # Run scan using parameter dict (wrapper generates C++ params internally)
     current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver )
+    validate_probabilities(probs)
     # reshape and compute
     STM = current.reshape(nV, npts)
     Es  = Es.reshape(nV, npts, nsite)

@@ -187,6 +187,11 @@ public:
     int n_pauli_factors = 0;           // Number of Pauli factors in compact array
     int ndm1 = 0;                              // Number of valid transitions (states differing by 1 charge)
     int verbosity = 0;                         // Verbosity level for debugging
+    bool bCheckProb = true;  // Flag to enable probability validation
+    double bCheckProbTol = -1e-12;  // Tolerance for probability validation
+
+
+
     std::vector<std::vector<int>> states_by_charge;  // States organized by charge number, like Python's statesdm
     // std::vector<int> state_order;              // Maps original index -> ordered index
     // std::vector<int> state_order_inv;          // Maps ordered index -> original index
@@ -1148,9 +1153,13 @@ def construct_Tba(leads, tleads, Tba_=None):
         const int n = nstates;
         
         // Create a copy of kernel matrix since solve() modifies it
-        double* kern_copy = new double[n * n];
-        std::copy(kernel, kernel + n * n, kern_copy);
-        
+        //double* kern_copy = new double[n * n];
+        //double* rhs       = new double[n];
+
+        // we allocate temps on stack
+        double kern_copy[n*n]; std::copy(kernel, kernel + n * n, kern_copy);
+        double rhs[n];         std::fill(rhs, rhs + n, 0.0); rhs[0] = 1.0;
+
         // Print the original kernel matrix for debugging
         if(verbosity > 1) {
             printf("PauliSolver::solve_kern() original kernel:\n");
@@ -1165,7 +1174,7 @@ def construct_Tba(leads, tleads, Tba_=None):
         
         // Set up RHS vector with first element = 1, rest = 0
         // This is equivalent to Python's approach where bvec[0] = 1
-        double* rhs = new double[n];
+        
         rhs[0] = 1.0;
         std::fill(rhs + 1, rhs + n, 0.0);
         
@@ -1192,8 +1201,23 @@ def construct_Tba(leads, tleads, Tba_=None):
             print_vector(probabilities, n, "%18.15f " );
         }
         
-        delete[] kern_copy;
-        delete[] rhs;
+        if(bCheckProb) {
+            const double tol = bCheckProbTol;
+            bool bError = false;
+            for(int i=0; i<n; i++) {
+                if(probabilities[i] < tol) {
+                    printf("ERROR: State %d has negative probability (%g) below tolerance (%g)\n", i, probabilities[i], tol);
+                    bError = true;
+                }
+            }
+            if(bError) {
+                //throw std::runtime_error("Negative probabilities detected in solve_kern()");
+                exit(1);
+            }
+        }
+        
+        //delete[] kern_copy;
+        //delete[] rhs;
     }
     
     // Update kernel matrix when parameters have changed
