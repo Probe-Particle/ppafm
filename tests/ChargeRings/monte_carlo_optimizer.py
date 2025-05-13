@@ -166,12 +166,15 @@ class MonteCarloOptimizer:
         sorted_sim_data = sorted_sim_data[:, x_idx]
         
         # Create interpolation function with sorted data
+        # Important: Note the order here - in RectBivariateSpline(y, x, z), the y coordinate is first
+        # In our case, voltage is the y-coordinate (vertical axis in typical plots)
         interp = RectBivariateSpline(sorted_voltages, sorted_x, sorted_sim_data)
         
         # Create grid of points to evaluate at
-        xx, vv = np.meshgrid(self.exp_x, self.exp_voltages)
+        vv, xx = np.meshgrid(self.exp_voltages, self.exp_x, indexing='ij')
         
         # Evaluate at each point (doesn't require strictly increasing coordinates)
+        # Must use ev(y, x) to match the exp_utils.interpolate_3d_plane_fast convention
         interpolated = interp.ev(vv, xx)
         
         return interpolated
@@ -189,8 +192,8 @@ class MonteCarloOptimizer:
         """
         STM, dIdV, voltages, x = sim_results
         
-        # We'll compare dIdV data (could also use STM based on preference)
-        sim_data = dIdV
+        # Use STM current data instead of dIdV for comparison
+        sim_data = STM
         
         # Interpolate simulation data to match experimental grid
         sim_data_interp = self.interpolate_simulation_to_exp_grid(sim_data, voltages, x)

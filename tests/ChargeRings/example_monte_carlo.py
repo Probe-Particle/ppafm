@@ -116,24 +116,25 @@ if __name__ == "__main__":
     }
     
 
-    # 'ep1_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5,'fidget': False},
-    # 'ep1_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -6.96, 'step': 0.5,'fidget': False},
-    # 'ep2_x':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5,'fidget': False},
-    # 'ep2_y':         {'group': 'Experimental Data', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  15.0, 'step': 0.5,'fidget': False},
+    # Define experimental data line points (where to extract from experimental data)
+    # These values come from the GUI's ep1_x, ep1_y, ep2_x, ep2_y parameters
+    exp_start_point = (9.72, -6.96)   # (x, y) coordinates for line start in experimental data
+    exp_end_point = (-11.0, 15.0)     # (x, y) coordinates for line end in experimental data
     
-    start_point = (9.72, -6.96)  # (x, y) coordinates 
-    end_point   = (-11.0, 15.0)  # (x, y) coordinates
-
-    # Define scan line start and end points
-    # start_point = (-5.0, -5.0)  # (x, y) coordinates 
-    # end_point   = ( 5.0,  5.0)  # (x, y) coordinates
+    # Define simulation line points (where to simulate along)
+    # In the GUI, these would come from p1_x, p1_y, p2_x, p2_y parameters
+    sim_start_point = (-5.0, -5.0)    # (x, y) coordinates for simulation line start
+    sim_end_point = (5.0, 5.0)        # (x, y) coordinates for simulation line end
     
     # Try to load experimental data
     # For this example, we'll generate synthetic "experimental" data
-    # In a real case, you would load actual experimental data
+    # In a real case, you would load actual experimental data using:
+    # exp_X, exp_Y, exp_dIdV, exp_I, exp_biases = exp_utils.load_experimental_data()
+    # and then extract data along exp_start_point to exp_end_point
+    
     print("Generating synthetic experimental data...")
     original_results = pauli_scan.calculate_xV_scan_orb(
-        params, start_point, end_point, nx=50, nV=30, Vmin=0.0, Vmax=1.0
+        params, exp_start_point, exp_end_point, nx=50, nV=30, Vmin=0.0, Vmax=1.0
     )
     
     # Extract data properly
@@ -148,17 +149,18 @@ if __name__ == "__main__":
     # Add some noise to create "experimental" data
     np.random.seed(42)  # For reproducibility
     noise_level = 0.2
-    dIdV_exp = dIdV_exp + np.random.normal(0, noise_level * np.std(dIdV_exp), dIdV_exp.shape)
+    # Add noise to STM data instead of dIdV data
+    STM_exp = STM_exp + np.random.normal(0, noise_level * np.std(STM_exp), STM_exp.shape)
     
     # Print shape information for debugging
-    print(f"Experimental data shapes: dIdV={dIdV_exp.shape}, voltages={voltage_values.shape}, x={x_exp.shape}")
+    print(f"Experimental data shapes: STM={STM_exp.shape}, voltages={voltage_values.shape}, x={x_exp.shape}")
     
     # Ensure data has the correct dimensions for Wasserstein distance calculation
-    if len(dIdV_exp.shape) != 2:
-        print(f"Warning: Unexpected dIdV shape {dIdV_exp.shape}, reshaping...")
+    if len(STM_exp.shape) != 2:
+        print(f"Warning: Unexpected STM shape {STM_exp.shape}, reshaping...")
         # Try to reshape to [nV, nx]
         nV, nx = len(voltage_values), len(x_exp)
-        dIdV_exp = dIdV_exp.reshape(nV, nx)
+        STM_exp = STM_exp.reshape(nV, nx)
     
     print("Preparing data for optimization...")
     
@@ -175,12 +177,12 @@ if __name__ == "__main__":
     print("\nInitializing Monte Carlo optimizer...")
     optimizer = MonteCarloOptimizer(
         initial_params=modified_params,
-        exp_data=dIdV_exp,
+        exp_data=STM_exp,  # Using STM data instead of dIdV
         exp_voltages=voltage_values,
         exp_x=x_exp,
         param_ranges=param_ranges,
-        start_point=start_point,
-        end_point=end_point,
+        start_point=sim_start_point,  # Using simulation start point, not experimental
+        end_point=sim_end_point,     # Using simulation end point, not experimental
         nx=50,  # Number of x points
         nV=30   # Number of voltage points
     )
