@@ -150,7 +150,7 @@ if __name__ == "__main__":
     np.random.seed(42)  # For reproducibility
     noise_level = 0.2
     # Add noise to STM data instead of dIdV data
-    STM_exp = STM_exp + np.random.normal(0, noise_level * np.std(STM_exp), STM_exp.shape)
+    #STM_exp = STM_exp + np.random.normal(0, noise_level * np.std(STM_exp), STM_exp.shape)
     
     # Print shape information for debugging
     print(f"Experimental data shapes: STM={STM_exp.shape}, voltages={voltage_values.shape}, x={x_exp.shape}")
