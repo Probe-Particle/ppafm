@@ -396,22 +396,22 @@ class MonteCarloOptimizer:
         sim_extent = [0, dist, self.Vmin, self.Vmax]
         exp_extent = [0, dist, min(self.exp_voltages), max(self.exp_voltages)]
         
-        # Plot experimental data
-        im0 = axs[0, 0].imshow(self.exp_data, extent=exp_extent, aspect='auto', origin='lower', cmap='bwr')
-        axs[0, 0].set_title('Experimental dI/dV')
+        # Plot experimental data - Use hot colormap for STM current data
+        im0 = axs[0, 0].imshow(self.exp_data, extent=exp_extent, aspect='auto', origin='lower', cmap='hot')
+        axs[0, 0].set_title('Experimental STM')
         axs[0, 0].set_xlabel('Distance (\u00c5)')
         axs[0, 0].set_ylabel('Voltage (V)')
         plt.colorbar(im0, ax=axs[0, 0])
         
-        # Plot best simulation
-        im1 = axs[0, 1].imshow(dIdV, extent=sim_extent, aspect='auto', origin='lower', cmap='bwr')
-        axs[0, 1].set_title('Best Simulation dI/dV')
+        # Plot best simulation - Use hot colormap for STM current data
+        im1 = axs[0, 1].imshow(STM, extent=sim_extent, aspect='auto', origin='lower', cmap='hot')
+        axs[0, 1].set_title('Best Simulation STM')
         axs[0, 1].set_xlabel('Distance (\u00c5)')
         axs[0, 1].set_ylabel('Voltage (V)')
         plt.colorbar(im1, ax=axs[0, 1])
         
-        # Interpolate simulation to match experimental grid
-        interp_sim = self.interpolate_simulation_to_exp_grid(dIdV, voltages, x)
+        # Interpolate simulation to match experimental grid - using STM data
+        interp_sim = self.interpolate_simulation_to_exp_grid(STM, voltages, x)
             
         # Plot difference
         diff = interp_sim - self.exp_data
