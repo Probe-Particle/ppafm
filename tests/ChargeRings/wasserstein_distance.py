@@ -1,6 +1,46 @@
 # wasserstein_distance.py
 import numpy as np
 
+def wasserstein_1d_grid(
+    ys1: np.ndarray,  # y-values (intensities/histogram heights) for dist 1 on grid
+    ys2: np.ndarray,  # y-values (intensities/histogram heights) for dist 2 on grid
+    dx: float         # Constant step size of the regular grid
+) -> float:
+    """
+    Computes 1D Wasserstein distance for distributions represented by y-values (intensities)
+    on a regular grid. Assumes y-values are proportional to mass in each bin.
+
+    Args:
+        ys1: y-values (intensities/histogram heights) of the first distribution.
+        ys2: y-values (intensities/histogram heights) of the second distribution.
+        dx: Bin width (constant step size of the regular grid).
+
+    Returns:
+        The 1D Wasserstein distance. Returns np.nan if inputs are invalid.
+    """
+    ys1 = np.asarray(ys1, dtype=float)
+    ys2 = np.asarray(ys2, dtype=float)
+
+    if ys1.shape != ys2.shape: return np.nan
+    if ys1.ndim != 1: return np.nan
+    if dx <= 0: return np.nan
+
+    # Normalize y-values (treat them as masses to be moved)
+    sum_ys1 = np.sum(ys1)
+    norm_ys1 = ys1 / sum_ys1 if sum_ys1 > 1e-9 else np.zeros_like(ys1)
+    
+    sum_ys2 = np.sum(ys2)
+    norm_ys2 = ys2 / sum_ys2 if sum_ys2 > 1e-9 else np.zeros_like(ys2)
+
+    if np.all(norm_ys1 < 1e-12) and np.all(norm_ys2 < 1e-12): # Both effectively empty
+        return 0.0
+
+    cdf1 = np.cumsum(norm_ys1)
+    cdf2 = np.cumsum(norm_ys2)
+    
+    distance = np.sum(np.abs(cdf1 - cdf2)) * dx
+    return distance
+
 def wasserstein_1d_general(
     xs1: np.ndarray,  # x-coordinates for distribution 1
     ys1: np.ndarray,  # y-values (intensities/masses) for distribution 1
@@ -113,45 +153,4 @@ def wasserstein_1d_general(
     interval_widths = np.diff(all_xs_unique)
 
     distance = np.sum(cdf_diffs * interval_widths)
-    return distance
-
-
-def wasserstein_1d_grid(
-    ys1: np.ndarray,  # y-values (intensities/histogram heights) for dist 1 on grid
-    ys2: np.ndarray,  # y-values (intensities/histogram heights) for dist 2 on grid
-    dx: float         # Constant step size of the regular grid
-) -> float:
-    """
-    Computes 1D Wasserstein distance for distributions represented by y-values (intensities)
-    on a regular grid. Assumes y-values are proportional to mass in each bin.
-
-    Args:
-        ys1: y-values (intensities/histogram heights) of the first distribution.
-        ys2: y-values (intensities/histogram heights) of the second distribution.
-        dx: Bin width (constant step size of the regular grid).
-
-    Returns:
-        The 1D Wasserstein distance. Returns np.nan if inputs are invalid.
-    """
-    ys1 = np.asarray(ys1, dtype=float)
-    ys2 = np.asarray(ys2, dtype=float)
-
-    if ys1.shape != ys2.shape: return np.nan
-    if ys1.ndim != 1: return np.nan
-    if dx <= 0: return np.nan
-
-    # Normalize y-values (treat them as masses to be moved)
-    sum_ys1 = np.sum(ys1)
-    norm_ys1 = ys1 / sum_ys1 if sum_ys1 > 1e-9 else np.zeros_like(ys1)
-    
-    sum_ys2 = np.sum(ys2)
-    norm_ys2 = ys2 / sum_ys2 if sum_ys2 > 1e-9 else np.zeros_like(ys2)
-
-    if np.all(norm_ys1 < 1e-12) and np.all(norm_ys2 < 1e-12): # Both effectively empty
-        return 0.0
-
-    cdf1 = np.cumsum(norm_ys1)
-    cdf2 = np.cumsum(norm_ys2)
-    
-    distance = np.sum(np.abs(cdf1 - cdf2)) * dx
     return distance

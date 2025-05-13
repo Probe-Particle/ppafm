@@ -1,6 +1,7 @@
 # demo_wasserstein_1d.py
 import numpy as np
-from interactive_plotter_1D import InteractiveWassersteinPlotter # From file 2
+from interactive_plotter_1D import InteractivePlotter1D
+from wasserstein_distance import wasserstein_1d_general, wasserstein_1d_grid
 
 # --- 1. Define Common X-Coordinates ---
 # This is the domain on which your y=f(x) signals will be sampled.
@@ -41,6 +42,17 @@ def multi_feature_signal_model(xs, params):
     combined_ys = peak1_ys + peak2_ys + step_ys
     return combined_ys # Raw y-values
 
+def wasserstein_metric_callback(ref_ys, interactive_ys, x_coords):
+    """Callback function that calculates Wasserstein distance"""
+    dx = x_coords[1] - x_coords[0] if len(x_coords) > 1 else 1.0
+    if not np.allclose(np.diff(x_coords), dx):
+        # Use general W1 if grid is irregular
+        wd = wasserstein_1d_general(x_coords, ref_ys, x_coords, interactive_ys)
+    else:
+        # Use optimized grid version if grid is regular
+        wd = wasserstein_1d_grid(ref_ys, interactive_ys, dx)
+    return wd, f'Wasserstein Distance (W1): {wd:.4f}'
+
 # --- 3. Define Parameters for the REFERENCE Signal y_ref = f_ref(x) ---
 reference_signal_function = gaussian_signal_model 
 reference_signal_parameters = {
@@ -65,13 +77,15 @@ interactive_signal_parameter_configs = {
 
 # --- 5. Create and Show the Plotter ---
 if __name__ == '__main__':
-    plotter = InteractiveWassersteinPlotter(
-        x_coords_domain=x_sample_points, # Pass the common x-coordinates
+    plotter = InteractivePlotter1D(
+        x_coords_domain=x_sample_points,
         reference_model_func=reference_signal_function,
         reference_params=reference_signal_parameters,
         interactive_model_func=interactive_signal_function,
         interactive_param_configs=interactive_signal_parameter_configs,
-        use_grid_optimized_wd=True # Set to False to use the general W1 calculation
+        metric_callback=wasserstein_metric_callback,
+        dist_title='1D Signals (Normalized y-values treated as mass)',
+        cdf_title='Cumulative Distribution Functions (CDFs)'
     )
     plotter.show()
 
