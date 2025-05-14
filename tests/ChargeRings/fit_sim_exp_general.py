@@ -359,24 +359,21 @@ def main():
     # Define the optimization parameters and their ranges
     # Focus on parameters that significantly affect the simulation
     param_ranges = {
-        'Esite':  ( -0.2, 0.0 ),      # Site energy
-        'z_tip':  (  3.0, 7.0 ),      # Tip height
-        'VBias':  (  0.5, 1.0 ),      # Bias voltage
-        'Rtip':   (  2.0, 4.0 ),      # Tip radius
-        'radius': (  4.0, 6.0 ),      # QD radius
-        'phiRot': (  0.8, 1.8 ),      # Rotation angle
-        'zV0':    ( -2.0, 0.0 ),      # Potential offset
-        'decay':  (  0.1, 0.5 )       # Decay parameter
+        'Esite':  ( -0.15,0.05 ),      # Site energy
+        'z_tip':  (  3.0, 70 ),      # Tip height
+        'radius': (  2.0, 4.0 ),      # QD radius
+        'zV0':    ( -4.0, 0.5 ),      # Potential offset
+        'zVd':    (  5.0, 20.0 ),     # Potential decay length
     }
 
     # Define experimental data line points (from GUI parameters)
-    exp_start_point = (9.72, -6.96)   # From ep1_x, ep1_y
-    exp_end_point = (-11.0, 15.0)     # From ep2_x, ep2_y
+    exp_start_point = (9.72, -6.96)  # From ep1_x, ep1_y
+    exp_end_point   = (-11.0, 15.0)  # From ep2_x, ep2_y
     
     # Define simulation line points (from GUI parameters)
     global sim_start_point, sim_end_point  # Make these accessible to plotting function
-    sim_start_point = (9.72, -9.96)   # From p1_x, p1_y
-    sim_end_point = (-11.0, 12.0)     # From p2_x, p2_y
+    sim_start_point = (9.72, -9.96)  # From p1_x, p1_y
+    sim_end_point   = (-11.0, 12.0)  # From p2_x, p2_y
     
     # Load experimental data
     exp_X, exp_Y, exp_dIdV, exp_I, exp_biases = load_experimental_data()
@@ -385,10 +382,7 @@ def main():
         return
     
     # Extract experimental data along the specified line
-    exp_STM, exp_dIdV_line, exp_dist, exp_biases = extract_experimental_data_along_line(
-        exp_X, exp_Y, exp_I, exp_dIdV, exp_biases, 
-        exp_start_point, exp_end_point
-    )
+    exp_STM, exp_dIdV_line, exp_dist, exp_biases = extract_experimental_data_along_line( exp_X, exp_Y, exp_I, exp_dIdV, exp_biases, exp_start_point, exp_end_point )
     
     # Create dummy x_positions array - not needed since we use the exp_dist instead
     # The optimizer uses the x positions for interpolation
@@ -424,28 +418,14 @@ def main():
     plt.savefig('experimental_data_extract.png', dpi=150)
     
     # Create the callback functions
-    simulation_cb = create_simulation_callback(
-        sim_start_point=sim_start_point,
-        sim_end_point=sim_end_point,
-        nx=50,
-        nV=len(exp_biases)  # Match number of voltage points
-    )
+    simulation_cb = create_simulation_callback( sim_start_point=sim_start_point, sim_end_point=sim_end_point, nx=50, nV=len(exp_biases) )
     
     # Get both distance calculation and interpolation functions
-    distance_cb, interpolate_func = create_distance_callback(
-        exp_data=exp_STM,  # Using STM data for optimization
-        exp_voltages=exp_biases,
-        exp_x=x_positions
-    )
+    distance_cb, interpolate_func = create_distance_callback( exp_data=exp_STM, exp_voltages=exp_biases, exp_x=x_positions)
     
     # Initialize the general Monte Carlo optimizer
     print("\nInitializing Monte Carlo optimizer...")
-    optimizer = MonteCarloOptimizer(
-        initial_params=modified_params,
-        param_ranges=param_ranges,
-        simulation_callback=simulation_cb,
-        distance_callback=distance_cb
-    )
+    optimizer = MonteCarloOptimizer( initial_params=modified_params, param_ranges=param_ranges, simulation_callback=simulation_cb, distance_callback=distance_cb )
     
     # Store the interpolation function for later use
     optimizer.interpolate_func = interpolate_func
@@ -485,18 +465,38 @@ def main():
     )
     progress_fig = optimizer.plot_optimization_progress()
     
-    # Run a high-resolution simulation with the optimized parameters
+    # Run high-resolution simulation with optimized parameters
     print("\nRunning high-resolution simulation with optimized parameters...")
-    nx_highres = 200  # 4x the original resolution
-    nV_highres = len(exp_biases)
+    nx_highres = 400  # 8x the original resolution along x-axis
+    nV_highres = 200  # High resolution along voltage axis as well
     
-    # Create a high-resolution simulation callback
-    highres_sim_cb = create_simulation_callback(
-        sim_start_point=sim_start_point,
-        sim_end_point=sim_end_point,
-        nx=nx_highres,
-        nV=nV_highres
-    )
+    # Create a high-resolution simulation callback with explicit voltage range
+    # Define a custom function that captures the voltage range from experimental data
+    def create_highres_simulation_callback():
+        # Force the simulation to use the experimental voltage range
+        V_min = min(exp_biases)
+        V_max = max(exp_biases)
+        print(f"Using experimental voltage range for high-res: [{V_min:.3f}V, {V_max:.3f}V]")
+        
+        # Use the original callback function but explicitly pass voltage range
+        def run_highres_simulation(params):
+            # Run the simulation with experimental voltage range
+            STM, dIdV, Es, Ts, probs, x, voltages, spos, rots = pauli_scan.calculate_xV_scan_orb(
+                params, 
+                sim_start_point, 
+                sim_end_point,
+                nx=nx_highres, 
+                nV=nV_highres,
+                Vmin=V_min,
+                Vmax=V_max,
+                bLegend=False
+            )
+            return STM, dIdV, voltages, x
+            
+        return run_highres_simulation
+    
+    # Use our custom callback that enforces the experimental voltage range
+    highres_sim_cb = create_highres_simulation_callback()
     
     # Run the high-resolution simulation
     highres_results = highres_sim_cb(best_params)

@@ -74,33 +74,74 @@ def create_param_ranges(params, variation_fraction=0.2):
 
 if __name__ == "__main__":
     # Load parameters from JSON file (or define directly)
-    try:
-        with open('default_params.json', 'r') as f:
-            params = json.load(f)
-    except FileNotFoundError:
-        # Default parameters if file not found
-        params = {
-            'nsite': 3,
-            'radius': 5.2,
-            'phiRot': 1.3,
-            'phi0_ax': 0.2,
-            'VBias': 0.7,
-            'Rtip': 3.0,
-            'z_tip': 5.0,
-            'zV0': -1.0,
-            'zVd': 15.0,
-            'zQd': 0.0,
-            'Q0': 1.0,
-            'Qzz': 10.0,
-            'Esite': -0.1,
-            'W': 0.02,
-            'decay': 0.3,
-            'GammaS': 0.01,
-            'GammaT': 0.01,
-            'Temp': 0.224,
-            'L': 20.0,
-            'npix': 100
-        }
+    # try:
+    #     with open('default_params.json', 'r') as f:
+    #         params = json.load(f)
+    # except FileNotFoundError:
+    #     # Default parameters if file not found
+    #     params = {
+    #         'nsite': 3,
+    #         'radius': 5.2,
+    #         'phiRot': 1.3,
+    #         'phi0_ax': 0.2,
+    #         'VBias': 0.7,
+    #         'Rtip': 3.0,
+    #         'z_tip': 5.0,
+    #         'zV0': -1.0,
+    #         'zVd': 15.0,
+    #         'zQd': 0.0,
+    #         'Q0': 1.0,
+    #         'Qzz': 10.0,
+    #         'Esite': -0.1,
+    #         'W': 0.02,
+    #         'decay': 0.3,
+    #         'GammaS': 0.01,
+    #         'GammaT': 0.01,
+    #         'Temp': 0.224,
+    #         'L': 20.0,
+    #         'npix': 100
+    #     }
+    
+    # Simulation parameters matching GUI defaults
+    params = {
+        # Geometry
+        'nsite': 3,
+        'radius': 5.2,
+        'phiRot': 1.3,
+        'phi0_ax': 0.2,
+        
+        # Electrostatic Field
+        'VBias': 0.70,
+        'Rtip': 3.0,
+        'z_tip': 5.0,
+        'zV0': -1.0,
+        'zVd': 15.0,
+        'zQd': 0.0,
+        'Q0': 1.0,
+        'Qzz': 10.0,
+        
+        # Transport Solver
+        'Esite': -0.100,
+        'W': 0.02,
+        'decay': 0.3,
+        'GammaS': 0.01,
+        'GammaT': 0.01,
+        'Temp': 0.224,
+        
+        # Visualization
+        'L': 20.0,
+        'npix': 200,
+        'dQ': 0.02,
+        'R_major': 8.0,
+        'R_minor': 10.0,
+        
+        # Experimental Data
+        'p1_x': 9.72,
+        'p1_y': -9.96,
+        'p2_x': -11.0,
+        'p2_y': 12.0,
+        'exp_slice': 8
+    }
     
     # Define the optimization parameters and their ranges
     # Focus on parameters that significantly affect the simulation
