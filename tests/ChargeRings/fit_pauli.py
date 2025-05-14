@@ -78,7 +78,8 @@ def plot_high_resolution_comparison(exp_data, exp_voltages, exp_x, sim_data, sim
     sim_extent = [0, sim_x[-1], sim_voltages[0], sim_voltages[-1]]
     
     # Create figure with 3 panels in one row
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+    #fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(20, 5))
     
     # Plot experimental data
     im1 = ax1.imshow(exp_data, extent=exp_extent, aspect='auto', origin='lower', cmap='hot')
@@ -94,33 +95,39 @@ def plot_high_resolution_comparison(exp_data, exp_voltages, exp_x, sim_data, sim
     ax2.set_ylabel('Voltage (V)')
     plt.colorbar(im2, ax=ax2)
     
-    # Calculate and plot difference (Sim - Exp)
-    # First interpolate simulation to experimental grid
-    from scipy.interpolate import RectBivariateSpline
+    # # Calculate and plot difference (Sim - Exp)
+    # # First interpolate simulation to experimental grid
+    # from scipy.interpolate import RectBivariateSpline
     
-    # Ensure coordinates are strictly increasing
-    sort_idx = np.argsort(sim_x)
-    sorted_sim_x = sim_x[sort_idx]
-    sorted_sim_data = sim_data[:, sort_idx]
+    # # Ensure coordinates are strictly increasing
+    # sort_idx = np.argsort(sim_x)
+    # sorted_sim_x = sim_x[sort_idx]
+    # sorted_sim_data = sim_data[:, sort_idx]
     
-    interp = RectBivariateSpline(sim_voltages, sorted_sim_x, sorted_sim_data)
+    # interp = RectBivariateSpline(sim_voltages, sorted_sim_x, sorted_sim_data)
     
-    # Create meshgrid for interpolation points
-    V_grid, X_grid = np.meshgrid(exp_voltages, exp_x, indexing='ij')
-    interp_sim_data = interp.ev(V_grid, X_grid)
+    # # Create meshgrid for interpolation points
+    # V_grid, X_grid = np.meshgrid(exp_voltages, exp_x, indexing='ij')
+    # interp_sim_data = interp.ev(V_grid, X_grid)
     
-    # Normalize both datasets
-    exp_norm = exp_data / np.mean(exp_data)
-    sim_norm = interp_sim_data / np.mean(interp_sim_data)
+    # # Normalize both datasets
+    # exp_norm = exp_data / np.mean(exp_data)
+    # sim_norm = interp_sim_data / np.mean(interp_sim_data)
     
-    # Calculate difference
-    diff = sim_norm - exp_norm
+    # # Calculate difference
+    # diff = sim_norm - exp_norm
     
-    im3 = ax3.imshow(diff, extent=exp_extent, aspect='auto', origin='lower', cmap='bwr')
-    ax3.set_title('Difference (Sim - Exp)')
-    ax3.set_xlabel('Distance (Å)')
-    ax3.set_ylabel('Voltage (V)')
-    plt.colorbar(im3, ax=ax3)
+    # im3 = ax3.imshow(diff, extent=exp_extent, aspect='auto', origin='lower', cmap='bwr')
+    # ax3.set_title('Difference (Sim - Exp)')
+    # ax3.set_xlabel('Distance (Å)')
+    # ax3.set_ylabel('Voltage (V)')
+    # plt.colorbar(im3, ax=ax3)
+
+    # im4 = ax4.imshow(interp_sim_data, extent=exp_extent, aspect='auto', origin='lower', cmap='hot')
+    # ax4.set_title('Interpolated Simulation')
+    # ax4.set_xlabel('Distance (Å)')
+    # ax4.set_ylabel('Voltage (V)')
+    # plt.colorbar(im4, ax=ax4)
     
     plt.tight_layout()
     
