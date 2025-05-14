@@ -116,7 +116,7 @@ def plot_high_resolution_comparison(exp_data, exp_voltages, exp_x, sim_data, sim
     # Calculate difference
     diff = sim_norm - exp_norm
     
-    im3 = ax3.imshow(diff, extent=exp_extent, aspect='auto', origin='lower', cmap='bwr', vmin=-1, vmax=1)
+    im3 = ax3.imshow(diff, extent=exp_extent, aspect='auto', origin='lower', cmap='bwr')
     ax3.set_title('Difference (Sim - Exp)')
     ax3.set_xlabel('Distance (Å)')
     ax3.set_ylabel('Voltage (V)')
