@@ -17,7 +17,7 @@ import pauli_scan
 from exp_utils import plot_exp_voltage_line_scan, create_line_coordinates
 from MonteCarloOptimizer import MonteCarloOptimizer
 from scipy.interpolate import RectBivariateSpline
-from fitting_plots import plot_optimization_progress, plot_parameter_correlations
+from fitting_plots import plot_optimization_progress, plot_parameter_correlations, plot_comparison_with_optimizer, plot_highres_comparison
 
 def load_experimental_data(filename='exp_rings_data.npz'):
     """
@@ -260,77 +260,6 @@ def create_distance_callback(exp_data, exp_voltages, exp_x):
     # so they can be accessed separately
     return calculate_distance, interpolate_simulation_to_exp_grid
 
-def create_comparison_plot(optimizer, exp_data, exp_voltages, exp_x, figsize=(15, 10)):
-    """
-    Create a comparison plot between experimental and optimized simulation data
-    
-    Args:
-        optimizer (MonteCarloOptimizer): The optimizer instance
-        exp_data (np.ndarray): Experimental data
-        exp_voltages (np.ndarray): Experimental voltage values
-        exp_x (np.ndarray): Experimental x positions
-        figsize (tuple): Figure size
-        
-    Returns:
-        matplotlib.figure.Figure: Figure object
-    """
-    fig, axs = plt.subplots(2, 2, figsize=figsize)
-    
-    # Unpack best simulation results
-    STM, dIdV, voltages, x = optimizer.best_sim_results
-    
-    # Calculate distance between points for extent
-    x1, y1 = sim_start_point
-    x2, y2 = sim_end_point
-    dist = np.hypot(x2-x1, y2-y1)
-    
-    # Create extent for both plots
-    sim_extent = [0, dist, min(voltages), max(voltages)]
-    exp_extent = [0, max(exp_x), min(exp_voltages), max(exp_voltages)]
-    
-    # Plot experimental data - Use hot colormap for STM current data
-    im0 = axs[0, 0].imshow(exp_data, extent=exp_extent, aspect='auto', origin='lower', cmap='hot')
-    axs[0, 0].set_title('Experimental STM')
-    axs[0, 0].set_xlabel('Distance (Å)')
-    axs[0, 0].set_ylabel('Voltage (V)')
-    plt.colorbar(im0, ax=axs[0, 0])
-    
-    # Plot best simulation - Use hot colormap for STM current data
-    im1 = axs[0, 1].imshow(STM, extent=sim_extent, aspect='auto', origin='lower', cmap='hot')
-    axs[0, 1].set_title('Best Simulation STM')
-    axs[0, 1].set_xlabel('Distance (Å)')
-    axs[0, 1].set_ylabel('Voltage (V)')
-    plt.colorbar(im1, ax=axs[0, 1])
-    
-    # Access the interpolation function stored in the optimizer object
-    interpolate_func = optimizer.interpolate_func
-    
-    # Create helper function to use interpolation function
-    def get_interpolated_sim(sim_results):
-        STM, dIdV, voltages, x = sim_results
-        return interpolate_func(STM, voltages, x)
-    
-    # Interpolate simulation to match experimental grid
-    interp_sim = get_interpolated_sim(optimizer.best_sim_results)
-        
-    # Plot difference
-    diff = interp_sim - exp_data
-    im2 = axs[1, 0].imshow(diff, extent=exp_extent, aspect='auto', origin='lower', cmap='bwr')
-    axs[1, 0].set_title('Difference (Sim - Exp)')
-    axs[1, 0].set_xlabel('Distance (Å)')
-    axs[1, 0].set_ylabel('Voltage (V)')
-    plt.colorbar(im2, ax=axs[1, 0])
-    
-    # Plot optimization progress
-    axs[1, 1].plot(range(1, len(optimizer.distance_history) + 1), optimizer.distance_history, 'b-')
-    axs[1, 1].set_title('Optimization Progress')
-    axs[1, 1].set_xlabel('Iteration')
-    axs[1, 1].set_ylabel('Distance (lower is better)')
-    axs[1, 1].grid(True)
-    
-    plt.tight_layout()
-    return fig
-
 def main():
     # Define simulation parameters
     params = {
@@ -456,15 +385,18 @@ def main():
         diff_percent = (diff / initial) * 100 if initial != 0 else float('inf')
         print(f"{param}: {initial:.6f} -> {optimized:.6f} (Δ = {diff:.6f}, {diff_percent:.2f}%)")
     
-    # Create comparison plot
-    print("\nGenerating comparison plots...")
-    comparison_fig = create_comparison_plot(
+    #=== Figure 1: Comparison Plot
+    comparison_fig = plot_comparison_with_optimizer(
         optimizer=optimizer,
         exp_data=exp_STM,
         exp_voltages=exp_biases,
-        exp_x=x_positions
+        exp_x=x_positions,
+        sim_start_point=sim_start_point,
+        sim_end_point=sim_end_point
     )
+    #=== Figure 2: Optimization Progress
     progress_fig = plot_optimization_progress(optimizer)
+    #=== Figure 3: Parameter Correlations
     param_corr_fig = plot_parameter_correlations(optimizer)
     
     # Run high-resolution simulation with optimized parameters
@@ -504,72 +436,15 @@ def main():
     highres_results = highres_sim_cb(best_params)
     STM_highres, dIdV_highres, voltages_highres, x_highres = highres_results
     
-    # Create high-resolution comparison plot
-    fig_highres, axs_highres = plt.subplots(2, 2, figsize=(15, 12))
-    
-    # Calculate distance for extent
-    x1, y1 = sim_start_point
-    x2, y2 = sim_end_point
-    dist = np.hypot(x2-x1, y2-y1)
-    
-    # Create extents for plots
-    sim_extent = [0, dist, min(voltages_highres), max(voltages_highres)]
-    exp_extent = [0, max(x_positions), min(exp_biases), max(exp_biases)]
-    
-    # Plot experimental data
-    im0 = axs_highres[0, 0].imshow(exp_STM, extent=exp_extent, aspect='auto', origin='lower', cmap='hot')
-    axs_highres[0, 0].set_title('Experimental STM', fontsize=14)
-    axs_highres[0, 0].set_xlabel('Distance (Å)', fontsize=12)
-    axs_highres[0, 0].set_ylabel('Voltage (V)', fontsize=12)
-    plt.colorbar(im0, ax=axs_highres[0, 0])
-    
-    # Plot high-resolution simulation
-    im1 = axs_highres[0, 1].imshow(STM_highres, extent=sim_extent, aspect='auto', origin='lower', cmap='hot')
-    axs_highres[0, 1].set_title('High-Resolution Simulation STM (4x)', fontsize=14)
-    axs_highres[0, 1].set_xlabel('Distance (Å)', fontsize=12)
-    axs_highres[0, 1].set_ylabel('Voltage (V)', fontsize=12)
-    plt.colorbar(im1, ax=axs_highres[0, 1])
-    
-    # Use the interpolation function stored in the optimizer object
-    # This avoids trying to access it through closure which was causing problems
-    
-    # Create helper function to use the interpolation function
-    def get_interpolated_sim_highres(sim_results):
-        STM, dIdV, voltages, x = sim_results
-        return optimizer.interpolate_func(STM, voltages, x)
-    
-    # Interpolate high-resolution simulation to match experimental grid
-    interp_sim_highres = get_interpolated_sim_highres(highres_results)
-    
-    # Plot difference
-    diff_highres = interp_sim_highres - exp_STM
-    im2 = axs_highres[1, 0].imshow(diff_highres, extent=exp_extent, aspect='auto', origin='lower', cmap='bwr')
-    axs_highres[1, 0].set_title('Difference (Sim - Exp)', fontsize=14)
-    axs_highres[1, 0].set_xlabel('Distance (Å)', fontsize=12)
-    axs_highres[1, 0].set_ylabel('Voltage (V)', fontsize=12)
-    plt.colorbar(im2, ax=axs_highres[1, 0])
-    
-    # Plot linecuts at different voltages
-    voltage_indices = [int(len(voltages_highres) * p) for p in [0.25, 0.5, 0.75]]
-    for i, v_idx in enumerate(voltage_indices):
-        v_val = voltages_highres[v_idx]
-        axs_highres[1, 1].plot(x_highres, STM_highres[v_idx, :], label=f'V = {v_val:.2f}V')
-    
-    axs_highres[1, 1].set_title('STM Linecuts at Different Voltages', fontsize=14)
-    axs_highres[1, 1].set_xlabel('Distance (Å)', fontsize=12)
-    axs_highres[1, 1].set_ylabel('STM Current (arb. units)', fontsize=12)
-    axs_highres[1, 1].legend()
-    axs_highres[1, 1].grid(True)
-    
-    plt.tight_layout()
-    highres_file = "fit_sim_exp_general_results_highres.png"
-    fig_highres.savefig(highres_file, dpi=200)
+    #=== Figure 4: High-Resolution Simulation & Comparison
+    fig_highres = plot_highres_comparison(exp_STM, highres_results, exp_biases, x_positions, sim_start_point, sim_end_point)
     
     # Save results
     print("\nSaving results...")
     params_file = "fit_sim_exp_general_results_params.json"
     progress_file = "fit_sim_exp_general_results_progress.png"
     comparison_file = "fit_sim_exp_general_results_comparison.png"
+    highres_file = "fit_sim_exp_general_results_highres.png"
     
     # Save parameter file
     import json
@@ -579,10 +454,10 @@ def main():
     # Save figures
     progress_fig.savefig(progress_file, dpi=150)
     comparison_fig.savefig(comparison_file, dpi=150)
-    
+    fig_highres.savefig(highres_file, dpi=200)
     print(f"Results saved to {params_file}, {progress_file}, {comparison_file}, {highres_file}")
     
-    # Show plots
+    #=== Display all figures
     plt.show()
 
 if __name__ == "__main__":
