@@ -17,6 +17,7 @@ import pauli_scan
 from exp_utils import plot_exp_voltage_line_scan, create_line_coordinates
 from MonteCarloOptimizer import MonteCarloOptimizer
 from scipy.interpolate import RectBivariateSpline
+from fitting_plots import plot_optimization_progress, plot_parameter_correlations
 
 def load_experimental_data(filename='exp_rings_data.npz'):
     """
@@ -463,7 +464,8 @@ def main():
         exp_voltages=exp_biases,
         exp_x=x_positions
     )
-    progress_fig = optimizer.plot_optimization_progress()
+    progress_fig = plot_optimization_progress(optimizer)
+    param_corr_fig = plot_parameter_correlations(optimizer)
     
     # Run high-resolution simulation with optimized parameters
     print("\nRunning high-resolution simulation with optimized parameters...")

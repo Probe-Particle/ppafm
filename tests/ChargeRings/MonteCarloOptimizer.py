@@ -3,7 +3,6 @@
 import numpy as np
 import time
 import copy
-import matplotlib.pyplot as plt
 import os
 import json
 
@@ -17,12 +16,13 @@ class MonteCarloOptimizer:
     """
     
     def __init__(self, 
-                 initial_params, 
-                 param_ranges,
-                 simulation_callback,
-                 distance_callback,
-                 mutation_factors=None,
-                 copy_params_func=None):
+            initial_params, 
+            param_ranges,
+            simulation_callback,
+            distance_callback,
+            mutation_factors=None,
+            copy_params_func=None
+        ):
         """
         Initialize the Monte Carlo optimizer.
         
@@ -63,6 +63,8 @@ class MonteCarloOptimizer:
         # Initialize tracking variables
         self.iteration_history = []
         self.distance_history = []
+        # Track parameter values per iteration for external plotting
+        self.parameters_history = [self.copy_params_func(self.current_params)]
         self.accepted_changes = 0
         self.current_iteration = 0
         
@@ -204,6 +206,8 @@ class MonteCarloOptimizer:
                 'best_distance': self.best_distance
             })
             self.distance_history.append(self.best_distance)
+            # record current parameters
+            self.parameters_history.append(self.copy_params_func(self.current_params))
             
             # Update temperature
             if temperature is not None:
@@ -226,27 +230,6 @@ class MonteCarloOptimizer:
         print(f"Best distance: {self.best_distance}")
         
         return self.best_params
-    
-    def plot_optimization_progress(self, figsize=(10, 6)):
-        """
-        Plot optimization progress.
-        
-        Args:
-            figsize (tuple): Figure size
-            
-        Returns:
-            matplotlib.figure.Figure: Figure object
-        """
-        fig, ax = plt.subplots(figsize=figsize)
-        
-        iterations = list(range(1, len(self.distance_history) + 1))
-        ax.plot(iterations, self.distance_history, 'b-')
-        ax.set_xlabel('Iteration')
-        ax.set_ylabel('Distance (lower is better)')
-        ax.set_title('Optimization Progress')
-        ax.grid(True)
-        
-        return fig
     
     def save_results(self, base_filename):
         """
@@ -274,14 +257,22 @@ class MonteCarloOptimizer:
                  iterations=np.arange(1, len(self.distance_history) + 1))
         saved_files.append(history_file)
         
-        # Save progress figure
-        prog_file = f"{base_filename}_progress.png"
-        self.plot_optimization_progress().savefig(prog_file, dpi=150)
-        saved_files.append(prog_file)
-        
+        # Note: progress figure can be generated externally using fitting_plots.plot_optimization_progress
         print(f"Results saved to {', '.join(saved_files)}")
         
         return saved_files
+
+    @property
+    def history(self):
+        """
+        Returns optimization history dict for plotting.
+        Keys: 'iterations', 'distances', 'parameters'.
+        """
+        return {
+            'iterations': list(range(1, len(self.distance_history) + 1)),
+            'distances': self.distance_history,
+            'parameters': self.parameters_history
+        }
 
 
 # Example usage
@@ -316,6 +307,6 @@ if __name__ == "__main__":
     optimized_params = optimizer.optimize(num_iterations=100)
     
     # Plot progress
-    optimizer.plot_optimization_progress()
-    plt.show()
+    # optimizer.plot_optimization_progress()
+    # plt.show()
     """)

@@ -243,10 +243,7 @@ class MonteCarloOptimizer:
         
         return new_params, param_to_mutate, current_value, new_value
     
-    def optimize(self, num_iterations=100, mutation_strength=0.1, 
-                 temperature=None, temperature_decay=0.95,
-                 early_stop_iterations=None, min_improvement=1e-6,
-                 callback=None):
+    def optimize(self, num_iterations=100, mutation_strength=0.1,  temperature=None, temperature_decay=0.95, early_stop_iterations=None, min_improvement=1e-6, callback=None):
         """
         Run Monte Carlo optimization.
         

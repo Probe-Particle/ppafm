@@ -216,24 +216,12 @@ def main():
     print(f"\nUsing distance metric: {args.metric}")
     
     # Create the PauliFitter instance
-    fitter = PauliFitter(
-        initial_params = modified_params,
-        param_ranges   = param_ranges,
-        exp_data       = exp_STM,
-        exp_voltages   = exp_biases,
-        exp_x          = x_positions,
-        sim_start_point= sim_start_point,
-        sim_end_point=sim_end_point,
-        nx=50,  # Lower resolution for optimization
-        metric_name=args.metric
-    )
+    fitter = PauliFitter( initial_params = modified_params, param_ranges=param_ranges, exp_data=exp_STM, exp_voltages=exp_biases,exp_x=x_positions,  sim_start_point= sim_start_point, sim_end_point=sim_end_point, nx=50,  metric_name=args.metric )
     
     # Run optimization
     print(f"\nRunning optimization with {args.iterations} iterations...")
     t_start = time.time()
-    best_params = fitter.optimize(
-        num_iterations=args.iterations,
-        mutation_strength=0.1,
+    best_params = fitter.optimize( num_iterations=args.iterations, mutation_strength=0.1,
         temperature=0.01,
         temperature_decay=0.95,
         early_stop_iterations=50
@@ -262,13 +250,7 @@ def main():
         # Optionally run additional optimization with new metric
         print(f"\nRunning additional optimization with {args.switch_to} metric...")
         t_start = time.time()
-        fitter.optimize(
-            num_iterations=args.iterations // 2,  # Fewer iterations for refinement
-            mutation_strength=0.05,  # Smaller mutations for fine-tuning
-            temperature=0.005,
-            temperature_decay=0.95,
-            early_stop_iterations=25
-        )
+        fitter.optimize(  num_iterations=args.iterations // 2,   mutation_strength=0.05,  temperature=0.005, temperature_decay=0.95, early_stop_iterations=25 )
         t_end = time.time()
         
         print(f"Refinement completed in {t_end - t_start:.2f} seconds")

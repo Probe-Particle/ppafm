@@ -31,21 +31,18 @@ def load_experimental_data(filename='exp_rings_data.npz'):
     try:
         data = np.load(filename)
         # Convert from nm to Å
-        X = data['X'] * 10
-        Y = data['Y'] * 10
-        dIdV = data['dIdV']
-        I = data['I']
+        X      = data['X'] * 10
+        Y      = data['Y'] * 10
+        dIdV   = data['dIdV']
+        I      = data['I']
         biases = data['biases']
-        
-        # Center coordinates
-        cx, cy = data['center_x']*10, data['center_y']*10
+        cx     = data['center_x']*10
+        cy     = data['center_y']*10
         X -= cx
         Y -= cy
-        
         print(f"Experimental data loaded successfully.")
         print(f"  Data shapes: X={X.shape}, Y={Y.shape}, I={I.shape}, dIdV={dIdV.shape}, biases={biases.shape}")
         return X, Y, dIdV, I, biases
-        
     except FileNotFoundError:
         print(f"ERROR: Could not find experimental data file {filename}")
         return None, None, None, None, None
@@ -67,54 +64,36 @@ def extract_experimental_data_along_line(X, Y, I, dIdV, biases, exp_start_point,
         distance array, and bias voltages
     """
     print(f"Extracting experimental data along line from {exp_start_point} to {exp_end_point}...")
-    
-    # Create line coordinates for experiment and interpolate experimental data
-    # For STM current
-    exp_STM, dist = plot_exp_voltage_line_scan(
-        X, Y, I, biases, 
-        exp_start_point, exp_end_point, 
-        pointPerAngstrom=pointPerAngstrom,
-        ax=None,  # No plotting, just return the data
-        cmap='hot'  # Use hot colormap for STM
-    )
-    
-    # For dI/dV
-    exp_dIdV, _ = plot_exp_voltage_line_scan(
-        X, Y, dIdV, biases, 
-        exp_start_point, exp_end_point, 
-        pointPerAngstrom=pointPerAngstrom,
-        ax=None  # No plotting, just return the data
-    )
-    
+    exp_STM, dist = plot_exp_voltage_line_scan( X, Y, I, biases,    exp_start_point, exp_end_point,   pointPerAngstrom=pointPerAngstrom, ax=None )
+    exp_dIdV, _   = plot_exp_voltage_line_scan( X, Y, dIdV, biases, exp_start_point, exp_end_point,   pointPerAngstrom=pointPerAngstrom, ax=None )
     print(f"Experimental data extracted successfully.")
     print(f"  Extracted data shapes: STM={exp_STM.shape}, dIdV={exp_dIdV.shape}, dist={dist.shape}")
-    
     return exp_STM, exp_dIdV, dist, biases
 
 def main():
     # Define simulation parameters
     params = {
-            'nsite': 3,            # Number of sites
-            'phi0': 0.0,           # Phase angle (radians)
-            'phiRot': 1.3,         # Rotation angle (radians)
-            'radius': 5.2,         # Ring radius (Å)
+            'nsite':   3,           # Number of sites
+            'phi0':    0.0,         # Phase angle (radians)
+            'phiRot':  1.3,         # Rotation angle (radians)
+            'radius':  5.2,         # Ring radius (Å)
             'phi0_ax': 0.2,         # Axial phase angle (radians)
-            'VBias': 0.7,          # Bias voltage (V)
-            'Rtip': 3.0,           # Tip radius (Å)
-            'z_tip': 5.0,          # Tip height (Å)
-            'zV0': -1.0,           # Potential offset (V)
-            'zVd': 15.0,           # Potential decay length (Å)
-            'zQd': 0.0,            # Charge decay length (Å)
-            'Q0': 1.0,             # Reference charge (e)
-            'Qzz': 10.0,           # Quadrupole moment (e·Å²)
-            'Esite': -0.1,         # Site energy (eV)
-            'W': 0.02,             # Tunnel coupling (eV)
-            'decay': 0.3,          # Decay parameter
-            'GammaS': 0.01,        # Source coupling (eV)
-            'GammaT': 0.01,        # Tip coupling (eV)
-            'Temp': 0.224,         # Temperature (eV)
-            'L': 20.0,             # Canvas size (Å)
-            'npix': 100            # Number of pixels
+            'VBias':   0.7,         # Bias voltage (V)
+            'Rtip':    3.0,         # Tip radius (Å)
+            'z_tip':   5.0,         # Tip height (Å)
+            'zV0':    -1.0,         # Potential offset (V)
+            'zVd':    15.0,         # Potential decay length (Å)
+            'zQd':     0.0,         # Charge decay length (Å)
+            'Q0':      1.0,         # Reference charge (e)
+            'Qzz':    10.0,         # Quadrupole moment (e·Å²)
+            'Esite':  -0.1,         # Site energy (eV)
+            'W':      0.02,         # Tunnel coupling (eV)
+            'decay':  0.3,          # Decay parameter
+            'GammaS': 0.01,         # Source coupling (eV)
+            'GammaT': 0.01,         # Tip coupling (eV)
+            'Temp':   0.224,        # Temperature (eV)
+            'L':      20.0,         # Canvas size (Å)
+            'npix':   100           # Number of pixels
     }
     
     # Define the optimization parameters and their ranges
@@ -131,12 +110,12 @@ def main():
     }
 
     # Define experimental data line points (from GUI parameters)
-    exp_start_point = (9.72, -6.96)   # From ep1_x, ep1_y
-    exp_end_point = (-11.0, 15.0)     # From ep2_x, ep2_y
+    exp_start_point = (   9.72, -6.96 )  # From ep1_x, ep1_y
+    exp_end_point   = (-11.0,   15.0  )  # From ep2_x, ep2_y
     
     # Define simulation line points (from GUI parameters)
-    sim_start_point = (9.72, -9.96)   # From p1_x, p1_y
-    sim_end_point = (-11.0, 12.0)     # From p2_x, p2_y
+    sim_start_point = (  9.72,  -9.96  ) # From p1_x, p1_y
+    sim_end_point   = (-11.0,   12.0   ) # From p2_x, p2_y
     
     # Load experimental data
     exp_X, exp_Y, exp_dIdV, exp_I, exp_biases = load_experimental_data()
@@ -145,10 +124,7 @@ def main():
         return
     
     # Extract experimental data along the specified line
-    exp_STM, exp_dIdV_line, exp_dist, exp_biases = extract_experimental_data_along_line(
-        exp_X, exp_Y, exp_I, exp_dIdV, exp_biases, 
-        exp_start_point, exp_end_point
-    )
+    exp_STM, exp_dIdV_line, exp_dist, exp_biases = extract_experimental_data_along_line( exp_X, exp_Y, exp_I, exp_dIdV, exp_biases, exp_start_point, exp_end_point)
     
     # Create dummy x_positions array - not needed since we use the exp_dist instead
     # The optimizer uses the x positions for interpolation
@@ -164,49 +140,30 @@ def main():
         print(f"{param}: [{min_val:.3f}, {max_val:.3f}]")
     
     # Create figure to visualize the experimental data
-    fig, axs = plt.subplots(1, 2, figsize=(12, 5))
-    
-    # Plot extracted experimental STM data
-    im0 = axs[0].imshow(exp_STM, aspect='auto', origin='lower', cmap='hot',  extent=[0, exp_dist[-1], exp_biases[0], exp_biases[-1]])
-    axs[0].set_title('Experimental STM')
-    axs[0].set_xlabel('Distance (Å)')
-    axs[0].set_ylabel('Voltage (V)')
-    plt.colorbar(im0, ax=axs[0])
-    
-    # Plot extracted experimental dI/dV data
-    im1 = axs[1].imshow(exp_dIdV_line, aspect='auto', origin='lower', cmap='bwr',  extent=[0, exp_dist[-1], exp_biases[0], exp_biases[-1]])
-    axs[1].set_title('Experimental dI/dV')
-    axs[1].set_xlabel('Distance (Å)')
-    axs[1].set_ylabel('Voltage (V)')
-    plt.colorbar(im1, ax=axs[1])
-    
-    plt.tight_layout()
-    plt.savefig('experimental_data_extract.png', dpi=150)
+    # fig, axs = plt.subplots(1, 2, figsize=(12, 5))
+    # # Plot extracted experimental STM data
+    # im0 = axs[0].imshow(exp_STM, aspect='auto', origin='lower', cmap='hot',  extent=[0, exp_dist[-1], exp_biases[0], exp_biases[-1]])
+    # axs[0].set_title('Experimental STM')
+    # axs[0].set_xlabel('Distance (Å)')
+    # axs[0].set_ylabel('Voltage (V)')
+    # plt.colorbar(im0, ax=axs[0])
+    # # Plot extracted experimental dI/dV data
+    # im1 = axs[1].imshow(exp_dIdV_line, aspect='auto', origin='lower', cmap='bwr',  extent=[0, exp_dist[-1], exp_biases[0], exp_biases[-1]])
+    # axs[1].set_title('Experimental dI/dV')
+    # axs[1].set_xlabel('Distance (Å)')
+    # axs[1].set_ylabel('Voltage (V)')
+    # plt.colorbar(im1, ax=axs[1])
+    # plt.tight_layout()
+    # plt.savefig('experimental_data_extract.png', dpi=150)
     
     # Initialize the optimizer with extracted experimental data
     print("\nInitializing Monte Carlo optimizer...")
-    optimizer = MonteCarloOptimizer(
-        initial_params=modified_params,
-        exp_data=exp_STM,  # Using STM data for optimization
-        exp_voltages=exp_biases,
-        exp_x=x_positions,
-        param_ranges=param_ranges,
-        start_point=sim_start_point,  # Using simulation line start/end points
-        end_point=sim_end_point,
-        nx=50,  # Number of x points
-        nV=len(exp_biases)  # Match the number of voltage points from experimental data
-    )
+    optimizer = MonteCarloOptimizer( initial_params=modified_params, exp_data=exp_STM,  exp_voltages=exp_biases, exp_x=x_positions, param_ranges=param_ranges, start_point=sim_start_point, end_point=sim_end_point, nx=50,  nV=len(exp_biases) )
     
     # Run optimization
     print("\nRunning optimization...")
     t_start = time.time()
-    best_params = optimizer.optimize(
-        num_iterations=1000,         # Use 100+ for real optimization
-        mutation_strength=0.1,      # Relative parameter change size
-        temperature=0.01,           # Initial temperature (enables hill climbing)
-        temperature_decay=0.95,     # Temperature decay rate
-        early_stop_iterations=20    # Stop if no improvement after this many iterations
-    )
+    best_params = optimizer.optimize( num_iterations=1000, mutation_strength=0.1, temperature=0.01, temperature_decay=0.95,  early_stop_iterations=20 )
     t_end = time.time()
     
     # Print timing and results
