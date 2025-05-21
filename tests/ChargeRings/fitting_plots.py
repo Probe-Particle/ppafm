@@ -4,6 +4,8 @@ Plotting utilities for optimization results.
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Tuple, Any
 from scipy.interpolate import RectBivariateSpline
 
@@ -56,70 +58,51 @@ def plot_optimization_progress(optimizer, figsize=(12, 5)):
     plt.tight_layout()
     return fig
 
-def plot_comparison(exp_data, sim_data, exp_voltages, exp_x, sim_voltages, sim_x, figsize=(15, 10), titles=None):
+def plot_comparison(exp_STM, exp_dIdV,  sim_STM, sim_dIdV, exp_extent, sim_extent, ylim, figsize=(15, 12), scale_dIdV=1.0):
     """
-    Plot comparison between experimental and simulated data.
+    Generates a 2x2 comparison plot of experimental vs simulated STM/dIdV data
+    with independent x-extents and shared voltage range.
     
-    Args:
-        exp_data: 2D array of experimental data
-        sim_data: 2D array of simulated data
-        exp_voltages: 1D array of experimental voltage values
+    Parameters:
+        exp_STM, exp_dIdV: Experimental 2D arrays
+        exp_voltages: 1D array of experimental bias voltages
         exp_x: 1D array of experimental x positions
-        sim_voltages: 1D array of simulated voltage values
+        sim_STM, sim_dIdV: Simulated 2D arrays
+        sim_voltages: 1D array of simulated voltages
         sim_x: 1D array of simulated x positions
-        figsize: Figure size
-        titles: Tuple of (exp_title, sim_title, diff_title)
-        
-    Returns:
-        matplotlib Figure
+        exp_extent: [xmin, xmax, vmin, vmax] for experimental data
+        sim_extent: [xmin, xmax, vmin, vmax] for simulated data
+        vmin, vmax: Global voltage range for y-axis
     """
-    if titles is None:
-        titles = ('Experimental Data', 'Simulation', 'Difference (Sim - Exp)')
+    fig, axs = plt.subplots(2, 2, figsize=figsize)
     
-    # Create figure with subplots
-    fig, axes = plt.subplots(2, 2, figsize=figsize)
+    # Determine symmetric color limits for dIdV
+    # dv_max = max(np.abs(exp_dIdV).max(), np.abs(sim_dIdV).max())
+    # dv_min = -dv_max
     
-    # Plot experimental data
-    im1 = axes[0, 0].imshow(exp_data, aspect='auto', origin='lower',
-                          extent=[exp_x[0], exp_x[-1], exp_voltages[0], exp_voltages[-1]])
-    axes[0, 0].set_title(titles[0])
-    axes[0, 0].set_xlabel('Position (Å)')
-    axes[0, 0].set_ylabel('Voltage (V)')
-    plt.colorbar(im1, ax=axes[0, 0])
+    # STM Plots
+    im0 = axs[0,0].imshow(exp_STM, extent=exp_extent, aspect='auto', cmap='hot', origin='lower')
+    axs[0,0].set(title='Experimental STM', xlabel='Distance (Å)', ylabel='Voltage (V)')
+    fig.colorbar(im0, ax=axs[0,0], label='Current (nA)')
     
-    # Plot simulation
-    im2 = axes[0, 1].imshow(sim_data, aspect='auto', origin='lower',
-                          extent=[sim_x[0], sim_x[-1], sim_voltages[0], sim_voltages[-1]])
-    axes[0, 1].set_title(titles[1])
-    axes[0, 1].set_xlabel('Position (Å)')
-    axes[0, 1].set_ylabel('Voltage (V)')
-    plt.colorbar(im2, ax=axes[0, 1])
+    im1 = axs[0,1].imshow(sim_STM, extent=sim_extent, aspect='auto', cmap='hot', origin='lower')
+    axs[0,1].set(title='Simulated STM', xlabel='Distance (Å)')
+    fig.colorbar(im1, ax=axs[0,1], label='Current (a.u.)')
     
-    # Interpolate simulation to experimental grid for difference
-    interp = RectBivariateSpline(sim_voltages, sim_x, sim_data)
-    sim_interp = interp(exp_voltages, exp_x, grid=True)
+    # dIdV Plots
+    vmax = np.max(np.abs(exp_dIdV))
+    im2 = axs[1,0].imshow(exp_dIdV, extent=exp_extent, aspect='auto', cmap='bwr', origin='lower', vmin=-vmax, vmax=vmax)
+    axs[1,0].set(title='Experimental dIdV', xlabel='Distance (Å)', ylabel='Voltage (V)')
+    fig.colorbar(im2, ax=axs[1,0], label='dI/dV (nS)')
     
-    # Plot difference
-    diff = sim_interp - exp_data
-    vmax = max(np.abs(diff.min()), diff.max())
-    im3 = axes[1, 0].imshow(diff, aspect='auto', origin='lower', cmap='bwr', vmin=-vmax, vmax=vmax, extent=[exp_x[0], exp_x[-1], exp_voltages[0], exp_voltages[-1]])
-    axes[1, 0].set_title(titles[2])
-    axes[1, 0].set_xlabel('Position (Å)')
-    axes[1, 0].set_ylabel('Voltage (V)')
-    plt.colorbar(im3, ax=axes[1, 0])
-    
-    # Plot linecuts at different voltages
-    voltage_indices = [int(len(exp_voltages) * p) for p in [0.25, 0.5, 0.75]]
-    for i, v_idx in enumerate(voltage_indices):
-        v_val = exp_voltages[v_idx]
-        axes[1, 1].plot(exp_x, exp_data[v_idx, :], '--',  label=f'Exp V={v_val:.2f}V')
-        axes[1, 1].plot(exp_x, sim_interp[v_idx, :], '-',  label=f'Sim V={v_val:.2f}V')
-    
-    axes[1, 1].set_title('Linecuts at Different Voltages')
-    axes[1, 1].set_xlabel('Position (Å)')
-    axes[1, 1].set_ylabel('Signal (a.u.)')
-    axes[1, 1].legend()
-    axes[1, 1].grid(True)
+    vmax = np.max(np.abs(sim_dIdV))
+    im3 = axs[1,1].imshow(sim_dIdV*scale_dIdV, extent=sim_extent, aspect='auto', cmap='bwr', origin='lower', vmin=-vmax, vmax=vmax)
+    axs[1,1].set(title='Simulated dIdV', xlabel='Distance (Å)')
+    fig.colorbar(im3, ax=axs[1,1], label='dI/dV (a.u.)')
+
+    # Enforce consistent voltage ranges across all plots
+    for ax in axs.flatten():
+        ax.set_ylim(ylim[0], ylim[1])
     
     plt.tight_layout()
     return fig
@@ -152,50 +135,59 @@ def plot_parameter_correlations(optimizer, figsize=(10, 8)):
     plt.tight_layout()
     return fig
 
-def plot_comparison_with_optimizer(optimizer, exp_data, exp_voltages, exp_x, sim_start_point, sim_end_point, figsize=(15, 10)):
+def plot_comparison_with_optimizer(optimizer, exp_data, exp_voltages, exp_x, sim_distance, vmin, vmax, figsize=(15, 10)):
     """
     Plot comparison between experimental data and optimized simulation.
     Args:
-        optimizer: MonteCarloOptimizer instance with best_sim_results and interpolate_func
+        optimizer: MonteCarloOptimizer instance with best_sim_results
         exp_data: 2D array of experimental data
         exp_voltages: 1D array of experimental voltage values
         exp_x: 1D array of experimental x positions
-        sim_start_point: tuple start for simulation line
-        sim_end_point: tuple end for simulation line
-        figsize: figure size
+        sim_distance: Total distance of simulation line scan
+        vmin: Minimum voltage for plot limits
+        vmax: Maximum voltage for plot limits
+        figsize: Figure size
     Returns:
         matplotlib Figure
     """
     STM, dIdV, voltages, x = optimizer.best_sim_results
-    # compute extent
-    x1, y1 = sim_start_point; x2, y2 = sim_end_point
-    dist = np.hypot(x2-x1, y2-y1)
-    sim_extent = [0, dist, min(voltages), max(voltages)]
-    exp_extent = [0, max(exp_x), min(exp_voltages), max(exp_voltages)]
+    
+    sim_extent = [0, sim_distance, vmin, vmax]
+    exp_extent = [0, max(exp_x), vmin, vmax]
+
     fig, axs = plt.subplots(2, 2, figsize=figsize)
-    # exp
-    im0 = axs[0, 0].imshow(exp_data, extent=exp_extent, aspect='auto', origin='lower', cmap='hot')
-    axs[0, 0].set_title('Experimental STM'); axs[0, 0].set_xlabel('Distance (Å)'); axs[0, 0].set_ylabel('Voltage (V)')
-    plt.colorbar(im0, ax=axs[0, 0])
-    # sim
-    im1 = axs[0, 1].imshow(STM, extent=sim_extent, aspect='auto', origin='lower', cmap='hot')
-    axs[0, 1].set_title('Best Simulation STM'); axs[0, 1].set_xlabel('Distance (Å)'); axs[0, 1].set_ylabel('Voltage (V)')
-    plt.colorbar(im1, ax=axs[0, 1])
-    # difference
-    interp = optimizer.interpolate_func(STM, voltages, x)
-    diff = interp - exp_data
-    im2 = axs[1, 0].imshow(diff, extent=exp_extent, aspect='auto', origin='lower', cmap='bwr')
-    axs[1, 0].set_title('Difference (Sim - Exp)'); axs[1, 0].set_xlabel('Distance (Å)'); axs[1, 0].set_ylabel('Voltage (V)')
-    plt.colorbar(im2, ax=axs[1, 0])
-    # progress
-    axs[1, 1].plot(range(1, len(optimizer.distance_history)+1), optimizer.distance_history, 'b-')
-    axs[1, 1].set_title('Optimization Progress'); axs[1, 1].set_xlabel('Iteration'); axs[1, 1].set_ylabel('Distance')
-    axs[1, 1].grid(True)
+    
+    # Experimental data
+    im0 = axs[0,0].imshow(exp_data, extent=exp_extent, aspect='auto', origin='lower', cmap='hot')
+    axs[0,0].set(title='Experimental STM', xlabel='Distance (Å)', ylabel='Voltage (V)')
+    fig.colorbar(im0, ax=axs[0,0])
+    
+    # Simulation data
+    im1 = axs[0,1].imshow(STM, extent=sim_extent, aspect='auto', origin='lower', cmap='hot')
+    axs[0,1].set(title='Best Simulation STM', xlabel='Distance (Å)', ylabel='Voltage (V)')
+    fig.colorbar(im1, ax=axs[0,1])
+    
+    # # Difference plot
+    # interp = optimizer.interpolate_func(STM, voltages, x)
+    # diff = interp - exp_data
+    # im2 = axs[1,0].imshow(diff, extent=exp_extent, aspect='auto', origin='lower', cmap='bwr')
+    # axs[1,0].set(title='Difference (Sim - Exp)', xlabel='Distance (Å)', ylabel='Voltage (V)')
+    # fig.colorbar(im2, ax=axs[1,0])
+    
+    # Progress plot
+    axs[1,1].plot(optimizer.distance_history, 'b-')
+    axs[1,1].set(title='Optimization Progress', xlabel='Iteration', ylabel='Distance')
+    axs[1,1].grid(True)
+    
+    # Set consistent voltage limits
+    for ax in axs[:, :-1].flatten():
+        ax.set_ylim(vmin, vmax)
+    
     plt.tight_layout()
     return fig
 
 
-def plot_highres_comparison(exp_data, highres_results, exp_voltages, exp_x, sim_start_point, sim_end_point, figsize=(15, 12)):
+def plot_highres_comparison(exp_data, highres_results, exp_voltages, exp_x, sim_distance, vmin, vmax, figsize=(15, 12)):
     """
     Plot high-resolution comparison between experimental and simulated data.
     Args:
@@ -203,41 +195,42 @@ def plot_highres_comparison(exp_data, highres_results, exp_voltages, exp_x, sim_
         highres_results: tuple (STM_highres, dIdV_highres, voltages_highres, x_highres)
         exp_voltages: 1D experimental voltages
         exp_x: 1D experimental x positions
-        sim_start_point: simulation line start
-        sim_end_point: simulation line end
-        figsize: figure size
+        sim_distance: Total distance of simulation line scan
+        vmin: Minimum voltage for plot limits
+        vmax: Maximum voltage for plot limits
+        figsize: Figure size
     Returns:
         matplotlib Figure
     """
     STM_h, dIdV_h, volt_h, x_h = highres_results
-    x1, y1 = sim_start_point; x2, y2 = sim_end_point
-    dist = np.hypot(x2-x1, y2-y1)
-    sim_extent = [0, dist, min(volt_h), max(volt_h)]
-    exp_extent = [0, max(exp_x), min(exp_voltages), max(exp_voltages)]
+    
+    sim_extent = [0, sim_distance, vmin, vmax]
+    exp_extent = [0, max(exp_x), vmin, vmax]
+
     fig, axs = plt.subplots(2, 2, figsize=figsize)
+    
+    # Experimental data
     im0 = axs[0,0].imshow(exp_data, extent=exp_extent, aspect='auto', origin='lower', cmap='hot')
-    axs[0,0].set_title('Experimental STM'); axs[0,0].set_xlabel('Distance (Å)'); axs[0,0].set_ylabel('Voltage (V)')
-    plt.colorbar(im0, ax=axs[0,0])
+    axs[0,0].set(title='Experimental STM', xlabel='Distance (Å)', ylabel='Voltage (V)')
+    fig.colorbar(im0, ax=axs[0,0])
+    
+    # High-res simulation
     im1 = axs[0,1].imshow(STM_h, extent=sim_extent, aspect='auto', origin='lower', cmap='hot')
-    axs[0,1].set_title('High-Resolution Simulation'); axs[0,1].set_xlabel('Distance (Å)'); axs[0,1].set_ylabel('Voltage (V)')
-    plt.colorbar(im1, ax=axs[0,1])
-    # Ensure strictly increasing axes for spline
-    volt_sorted_idx = np.argsort(volt_h)
-    x_sorted_idx = np.argsort(x_h)
-    vh = np.array(volt_h)[volt_sorted_idx]
-    xh = np.array(x_h)[x_sorted_idx]
-    stm = np.array(STM_h)[volt_sorted_idx,:][:,x_sorted_idx]
-    interp = RectBivariateSpline(vh, xh, stm)
-    sim_interp = interp(exp_voltages, exp_x, grid=True)
-    diff = sim_interp - exp_data
-    im2 = axs[1,0].imshow(diff, extent=exp_extent, aspect='auto', origin='lower', cmap='bwr')
-    axs[1,0].set_title('Difference (Sim - Exp)'); axs[1,0].set_xlabel('Distance (Å)'); axs[1,0].set_ylabel('Voltage (V)')
-    plt.colorbar(im2, ax=axs[1,0])
-    # linecuts
-    idxs = [int(len(volt_h)*p) for p in [0.25,0.5,0.75]]
+    axs[0,1].set(title='High-Resolution Simulation', xlabel='Distance (Å)', ylabel='Voltage (V)')
+    fig.colorbar(im1, ax=axs[0,1])
+    
+    # Linecut plots
+    idxs = [int(len(volt_h)*p) for p in [0.25, 0.5, 0.75]]
     for v_idx in idxs:
-        v = volt_h[v_idx]; axs[1,1].plot(x_h, STM_h[v_idx], label=f'V={v:.2f}V')
-    axs[1,1].set_title('Linecuts at Different Voltages'); axs[1,1].set_xlabel('Distance (Å)'); axs[1,1].set_ylabel('Current')
-    axs[1,1].legend(); axs[1,1].grid(True)
+        v = volt_h[v_idx]
+        axs[1,1].plot(x_h, STM_h[v_idx], label=f'V={v:.2f}V')
+    axs[1,1].set(title='Voltage Linecuts', xlabel='Distance (Å)', ylabel='STM Signal')
+    axs[1,1].legend()
+    axs[1,1].grid(True)
+    
+    # Set consistent voltage limits
+    for ax in axs[:, :-1].flatten():
+        ax.set_ylim(vmin, vmax)
+    
     plt.tight_layout()
     return fig

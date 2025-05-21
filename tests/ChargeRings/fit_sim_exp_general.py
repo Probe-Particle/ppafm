@@ -17,7 +17,7 @@ import pauli_scan
 from exp_utils import plot_exp_voltage_line_scan, create_line_coordinates
 from MonteCarloOptimizer import MonteCarloOptimizer
 from scipy.interpolate import RectBivariateSpline
-from fitting_plots import plot_optimization_progress, plot_parameter_correlations, plot_comparison_with_optimizer, plot_highres_comparison
+from fitting_plots import plot_optimization_progress, plot_parameter_correlations, plot_comparison, plot_highres_comparison
 
 def load_experimental_data(filename='exp_rings_data.npz'):
     """
@@ -312,7 +312,7 @@ def main():
         return
     
     # Extract experimental data along the specified line
-    exp_STM, exp_dIdV_line, exp_dist, exp_biases = extract_experimental_data_along_line( exp_X, exp_Y, exp_I, exp_dIdV, exp_biases, exp_start_point, exp_end_point )
+    exp_STM, exp_dIdV, exp_dist, exp_biases = extract_experimental_data_along_line( exp_X, exp_Y, exp_I, exp_dIdV, exp_biases, exp_start_point, exp_end_point )
     
     # Create dummy x_positions array - not needed since we use the exp_dist instead
     # The optimizer uses the x positions for interpolation
@@ -338,7 +338,7 @@ def main():
     plt.colorbar(im0, ax=axs[0])
     
     # Plot extracted experimental dI/dV data
-    im1 = axs[1].imshow(exp_dIdV_line, aspect='auto', origin='lower', cmap='bwr', extent=[0, exp_dist[-1], exp_biases[0], exp_biases[-1]])
+    im1 = axs[1].imshow(exp_dIdV, aspect='auto', origin='lower', cmap='bwr', extent=[0, exp_dist[-1], exp_biases[0], exp_biases[-1]])
     axs[1].set_title('Experimental dI/dV')
     axs[1].set_xlabel('Distance (Å)')
     axs[1].set_ylabel('Voltage (V)')
@@ -385,24 +385,42 @@ def main():
         diff_percent = (diff / initial) * 100 if initial != 0 else float('inf')
         print(f"{param}: {initial:.6f} -> {optimized:.6f} (Δ = {diff:.6f}, {diff_percent:.2f}%)")
     
-    #=== Figure 1: Comparison Plot
-    comparison_fig = plot_comparison_with_optimizer(
-        optimizer=optimizer,
-        exp_data=exp_STM,
-        exp_voltages=exp_biases,
-        exp_x=x_positions,
-        sim_start_point=sim_start_point,
-        sim_end_point=sim_end_point
+    # Calculate consistent voltage ranges
+    STM, dIdV, voltages, x = optimizer.best_sim_results
+    vmin = min(np.min(exp_biases), np.min(voltages))
+    vmax = max(np.max(exp_biases), np.max(voltages))
+    sim_distance = np.hypot(sim_end_point[0]-sim_start_point[0], sim_end_point[1]-sim_start_point[1])
+
+    # Calculate extents
+    exp_extent = [exp_dist[0], exp_dist[-1], exp_biases[0], exp_biases[-1]]
+    sim_extent = [x[0], x[-1], voltages[0], voltages[-1]]
+    
+    # Ensure 2D arrays for plotting
+    if optimizer.best_sim_results[1].ndim == 3:
+        sim_dIdV = optimizer.best_sim_results[1][0]
+    else:
+        sim_dIdV = optimizer.best_sim_results[1]
+    
+    # Unified comparison plot
+    comp_fig = plot_comparison(
+        exp_STM=exp_STM,
+        exp_dIdV=exp_dIdV,
+        sim_STM=optimizer.best_sim_results[0],
+        sim_dIdV=sim_dIdV,
+        exp_extent=exp_extent,
+        sim_extent=sim_extent,
+        ylim=[voltages[0], voltages[-1]],
     )
+    
     #=== Figure 2: Optimization Progress
     progress_fig = plot_optimization_progress(optimizer)
     #=== Figure 3: Parameter Correlations
-    param_corr_fig = plot_parameter_correlations(optimizer)
+    #param_corr_fig = plot_parameter_correlations(optimizer)
     
     # Run high-resolution simulation with optimized parameters
     print("\nRunning high-resolution simulation with optimized parameters...")
-    nx_highres = 400  # 8x the original resolution along x-axis
-    nV_highres = 200  # High resolution along voltage axis as well
+    nx_highres = 200  # 8x the original resolution along x-axis
+    nV_highres = 100  # High resolution along voltage axis as well
     
     # Create a high-resolution simulation callback with explicit voltage range
     # Define a custom function that captures the voltage range from experimental data
@@ -436,8 +454,17 @@ def main():
     highres_results = highres_sim_cb(best_params)
     STM_highres, dIdV_highres, voltages_highres, x_highres = highres_results
     
-    #=== Figure 4: High-Resolution Simulation & Comparison
-    fig_highres = plot_highres_comparison(exp_STM, highres_results, exp_biases, x_positions, sim_start_point, sim_end_point)
+    # Unified comparison plot for high-resolution data
+    highres_fig = plot_comparison(
+        exp_STM=exp_STM,
+        exp_dIdV=exp_dIdV,
+        exp_extent=exp_extent,
+        sim_STM=STM_highres,
+        sim_dIdV=dIdV_highres,
+        sim_extent=[x_highres[0], x_highres[-1], voltages_highres[0], voltages_highres[-1]],
+        ylim=[voltages_highres[0], voltages_highres[-1]],
+        scale_dIdV=3.0,
+    )
     
     # Save results
     print("\nSaving results...")
@@ -453,8 +480,8 @@ def main():
     
     # Save figures
     progress_fig.savefig(progress_file, dpi=150)
-    comparison_fig.savefig(comparison_file, dpi=150)
-    fig_highres.savefig(highres_file, dpi=200)
+    comp_fig.savefig(comparison_file, dpi=150)
+    highres_fig.savefig(highres_file, dpi=200)
     print(f"Results saved to {params_file}, {progress_file}, {comparison_file}, {highres_file}")
     
     #=== Display all figures

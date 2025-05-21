@@ -252,9 +252,7 @@ class MonteCarloOptimizer:
         
         # Save optimization history to NPZ
         history_file = f"{base_filename}_history.npz"
-        np.savez(history_file, 
-                 distance_history=np.array(self.distance_history),
-                 iterations=np.arange(1, len(self.distance_history) + 1))
+        np.savez(history_file,  distance_history=np.array(self.distance_history),  iterations=np.arange(1, len(self.distance_history) + 1))
         saved_files.append(history_file)
         
         # Note: progress figure can be generated externally using fitting_plots.plot_optimization_progress
