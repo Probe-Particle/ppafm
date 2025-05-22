@@ -140,14 +140,14 @@ def main(argv=None):
         ff_kpfm_tvs0, _ = computeElFF(electrostatic_potential, lvec, n_dim, drho_kpfm, computeVpot=args.energy, tilt=args.tilt, sigma=sigma, deleteV=False, parameters=parameters)
 
         print("Linear E to V")
-        zpos = np.linspace(lvec[0, 2] - args.z0, lvec[0, 2] + lvec[3, 2] - args.z0, n_dim[0])
-        for i in range(n_dim[0]):
+        zpos = np.linspace(lvec[0, 2] - args.z0, lvec[0, 2] + lvec[3, 2] - args.z0, n_dim[2])
+        for i in range(n_dim[2]):
             # z position of the KPFM tip with respect to the sample must not be zero or negative
             # Should that happen, use periodicity in z to get zpos>0
             zpos[i] %= lvec[3, 2]
 
-            ff_kpfm_t0sv[i, :, :] = ff_kpfm_t0sv[i, :, :] / ((v_ref_s) * (zpos[i] + 0.1))
-            ff_kpfm_tvs0[i, :, :] = ff_kpfm_tvs0[i, :, :] / ((v_ref_t) * (zpos[i] + 0.1))
+            ff_kpfm_t0sv[:, :, i] = ff_kpfm_t0sv[:, :, i] / ((v_ref_s) * (zpos[i] + 0.1))
+            ff_kpfm_tvs0[:, :, i] = ff_kpfm_tvs0[:, :, i] / ((v_ref_t) * (zpos[i] + 0.1))
 
         print(">>> Saving electrostatic forcefield ... ")
         io.save_vec_field("FFkpfm_t0sV", ff_kpfm_t0sv, lvec_samp, data_format=args.output_format, head=head_samp)

@@ -69,7 +69,7 @@ def write_plotting_slice(i):
 def plotImages(
     prefix,
     F,
-    slices,
+    slices=[],
     extent=None,
     zs=None,
     figsize=default_figsize,
@@ -84,7 +84,14 @@ def plotImages(
     symmetric_map=False,
     V0=0.0,
     cbar_label=None,
+    reversed_ind=False,
 ):
+    if not reversed_ind:  # unless the order of indices is already reversed
+        F = F.transpose()  # slices in z will be the first index, rows (y) the second and columns (x) the third index
+    if (slices is None) or (len(slices) == 0):
+        # if no slices are specified, plot all slices
+        slices = list(range(0, len(F)))
+
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
         write_plotting_slice(i)
@@ -114,8 +121,29 @@ def plotImages(
 
 
 def plotVecFieldRG(
-    prefix, dXs, dYs, slices, extent=None, zs=None, figsize=default_figsize, interpolation=default_interpolation, atoms=None, bonds=None, atomSize=default_atom_size
+    prefix,
+    dXs,
+    dYs,
+    slices=None,
+    extent=None,
+    zs=None,
+    figsize=default_figsize,
+    interpolation=default_interpolation,
+    atoms=None,
+    bonds=None,
+    atomSize=default_atom_size,
+    reversed_ind=False,
 ):
+
+    if not reversed_ind:
+        # Unless the order of indices is already reversed, transpose arrays for plotting:
+        # slices in z will be the first index, rows (y) the second and columns (x) the third index
+        dXs = dXs.transpose()
+        dYs = dYs.transpose()
+    if (slices is None) or (len(slices) == 0):
+        # if no slices are specified, plot all slices
+        slices = list(range(0, min(len(dXs), len(dYs))))
+
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
         write_plotting_slice(i)
@@ -137,7 +165,7 @@ def plotDistortions(
     prefix,
     X,
     Y,
-    slices,
+    slices=None,
     BG=None,
     by=2,
     extent=None,
@@ -152,7 +180,20 @@ def plotDistortions(
     atoms=None,
     bonds=None,
     atomSize=default_atom_size,
+    reversed_ind=False,
 ):
+
+    if not reversed_ind:
+        # Unless the order of indices is already reversed, transpose arrays for plotting:
+        # slices in z will be the first index, rows (y) the second and columns (x) the third index
+        X = X.transpose()
+        Y = Y.transpose()
+        if BG is not None:
+            BG = BG.transpose()
+    if (slices is None) or (len(slices) == 0):
+        # if no slices are specified, plot all slices
+        slices = list(range(0, min(len(X), len(Y))))
+
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
         write_plotting_slice(i)
@@ -180,7 +221,7 @@ def plotArrows(
     dY,
     X,
     Y,
-    slices,
+    slices=None,
     BG=None,
     C=None,
     extent=None,
@@ -195,14 +236,28 @@ def plotArrows(
     atoms=None,
     bonds=None,
     atomSize=default_atom_size,
+    reversed_ind=False,
 ):
+    if not reversed_ind:
+        # Unless the order of indices is already reversed, transpose arrays for plotting:
+        # slices in z will be the first index, rows (y) the second and columns (x) the third index
+        X = X.transpose()
+        Y = Y.transpose()
+        dX = dX.transpose()
+        dY = dY.transpose()
+        if BG is not None:
+            BG = BG.transpose()
+    if (slices is None) or (len(slices) == 0):
+        # if no slices specified, plot all slices
+        slices = list(range(0, min(len(X), len(Y), len(dX), len(dY))))
+
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
         write_plotting_slice(i)
         plt.figure(figsize=figsize)
-        plt.quiver(Xs[::by, ::by], Ys[::by, ::by], dX[::by, ::by], dY[::by, ::by], color="k", headlength=10, headwidth=10, scale=15)
+        plt.quiver(X[::by, ::by, i], Y[::by, ::by, i], dX[::by, ::by, i], dY[::by, ::by, i], color="k", headlength=10, headwidth=10, scale=15)
         if BG is not None:
-            plt.imshow(BG[i, :, :], origin="lower", interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax)
+            plt.imshow(BG[:, :, i], origin="lower", interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax)
             if cbar:
                 plt.colorbar()
         plotGeom(atoms, bonds, atomSize=atomSize)
@@ -219,46 +274,46 @@ def plotArrows(
 def checkField(F):
     plt.figure(figsize=(15, 5))
     plt.subplot(1, 3, 1)
-    plt.imshow(F[F.shape[0] / 2, :, :], interpolation="nearest")
-    plt.title("F(y,x)")
+    plt.imshow(F[:, :, F.shape[2] / 2], interpolation="nearest")
+    plt.title("F(x,y)")
     plt.subplot(1, 3, 2)
     plt.imshow(F[:, F.shape[1] / 2, :], interpolation="nearest")
-    plt.title("F(z,x)")
+    plt.title("F(x,z)")
     plt.subplot(1, 3, 3)
-    plt.imshow(F[:, :, F.shape[2] / 2], interpolation="nearest")
-    plt.title("F(z,y)")
+    plt.imshow(F[F.shape[0] / 2, :, :], interpolation="nearest")
+    plt.title("F(y,z)")
     plt.show()
 
 
 def checkVecField(FF):
     plt.figure(figsize=(15, 15))
     plt.subplot(3, 3, 1)
-    plt.imshow(FF[FF.shape[0] / 2, :, :, 0], interpolation="nearest")
-    plt.title("FF_x(y,x)")
+    plt.imshow(FF[:, :, FF.shape[2] / 2, 0], interpolation="nearest")
+    plt.title("FF_x(x,y)")
     plt.subplot(3, 3, 2)
-    plt.imshow(FF[FF.shape[0] / 2, :, :, 1], interpolation="nearest")
-    plt.title("FF_y(y,x)")
+    plt.imshow(FF[:, :, FF.shape[2] / 2, 1], interpolation="nearest")
+    plt.title("FF_y(x,y)")
     plt.subplot(3, 3, 3)
-    plt.imshow(FF[FF.shape[0] / 2, :, :, 2], interpolation="nearest")
-    plt.title("FF_z(y,x)")
+    plt.imshow(FF[:, :, FF.shape[2] / 2, 2], interpolation="nearest")
+    plt.title("FF_z(x,y)")
     plt.subplot(3, 3, 4)
     plt.imshow(FF[:, FF.shape[1] / 2, :, 0], interpolation="nearest")
-    plt.title("FF_x(z,x)")
+    plt.title("FF_x(x,z)")
     plt.subplot(3, 3, 5)
     plt.imshow(FF[:, FF.shape[1] / 2, :, 1], interpolation="nearest")
-    plt.title("FF_y(z,x)")
+    plt.title("FF_y(x,z)")
     plt.subplot(3, 3, 6)
     plt.imshow(FF[:, FF.shape[1] / 2, :, 2], interpolation="nearest")
-    plt.title("FF_z(z,x)")
+    plt.title("FF_z(x,z)")
     plt.subplot(3, 3, 7)
-    plt.imshow(FF[:, :, FF.shape[2] / 2, 0], interpolation="nearest")
-    plt.title("FF_x(z,y)")
+    plt.imshow(FF[FF.shape[0] / 2, :, :, 0], interpolation="nearest")
+    plt.title("FF_x(y,z)")
     plt.subplot(3, 3, 8)
-    plt.imshow(FF[:, :, FF.shape[2] / 2, 1], interpolation="nearest")
-    plt.title("FF_y(z,y)")
+    plt.imshow(FF[FF.shape[0] / 2, :, :, 1], interpolation="nearest")
+    plt.title("FF_y(y,z)")
     plt.subplot(3, 3, 9)
-    plt.imshow(FF[:, :, FF.shape[2] / 2, 2], interpolation="nearest")
-    plt.title("FF_z(z,y)")
+    plt.imshow(FF[FF.shape[0] / 2, :, :, 2], interpolation="nearest")
+    plt.title("FF_z(y,z)")
     plt.savefig("checkfield.png", bbox_inches="tight")
 
 

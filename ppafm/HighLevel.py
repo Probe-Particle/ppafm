@@ -68,9 +68,9 @@ def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
     rTips = np.zeros((ntips, 3))
     rs = np.zeros((ntips, 3))
     fs = np.zeros((ntips, 3))
-    nx = len(zTips)
+    nx = len(xTips)
     ny = len(yTips)
-    nz = len(xTips)
+    nz = len(zTips)
     if bF3d:
         fzs = np.zeros((nx, ny, nz, 3))
     else:
@@ -90,14 +90,14 @@ def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
             rTips[:, 2] = trj[:, 2]
             core.relaxTipStroke(rTips, rs, fs)
             if bF3d:
-                fzs[:, iy, ix, 0] = (fs[:, 0].copy())[::-1]
-                fzs[:, iy, ix, 1] = (fs[:, 1].copy())[::-1]
-                fzs[:, iy, ix, 2] = (fs[:, 2].copy())[::-1]
+                fzs[ix, iy, :, 0] = fs[::-1, 0]
+                fzs[ix, iy, :, 1] = fs[::-1, 1]
+                fzs[ix, iy, :, 2] = fs[::-1, 2]
             else:
-                fzs[:, iy, ix] = (fs[:, 2].copy())[::-1]
-            PPpos[:, iy, ix, 0] = rs[::-1, 0]
-            PPpos[:, iy, ix, 1] = rs[::-1, 1]
-            PPpos[:, iy, ix, 2] = rs[::-1, 2]
+                fzs[ix, iy, :] = fs[::-1, 2]
+            PPpos[ix, iy, :, 0] = rs[::-1, 0]
+            PPpos[ix, iy, :, 1] = rs[::-1, 1]
+            PPpos[ix, iy, :, 2] = rs[::-1, 2]
     if verbose > 0:
         print("<<<END: relaxedScan3D()")
     return fzs, PPpos
@@ -108,9 +108,9 @@ def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False, tip_spline=None
         print(">>BEGIN: relaxedScan3D_omp()")
     if verbose > 0:
         print(" zTips : ", zTips)
-    nz = len(zTips)
-    ny = len(yTips)
     nx = len(xTips)
+    ny = len(yTips)
+    nz = len(zTips)
     rTips = np.zeros((nx, ny, nz, 3))
     rs = np.zeros((nx, ny, nz, 3))
     fs = np.zeros((nx, ny, nz, 3))
@@ -118,14 +118,11 @@ def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False, tip_spline=None
     rTips[:, :, :, 1] = yTips[None, :, None]
     rTips[:, :, :, 2] = zTips[::-1][None, None, :]
     core.relaxTipStrokes_omp(rTips, rs, fs, tip_spline=tip_spline)
-    # rs[:,:,:,:] = rs[:,:,::-1,:].transpose(2,1,0,3).copy()
-    # fs[:,:,:,:] = fs[:,:,::-1,:]
-    # fzs = fs[:,:,::-1,2].transpose(2,1,0).copy()
-    rs = rs[:, :, ::-1, :].transpose(2, 1, 0, 3).copy()
+    rs = rs[:, :, ::-1, :].copy()
     if bF3d:
-        fzs = fs[:, :, ::-1, :].transpose(2, 1, 0, 3).copy()
+        fzs = fs[:, :, ::-1, :].copy()
     else:
-        fzs = fs[:, :, ::-1, 2].transpose(2, 1, 0).copy()
+        fzs = fs[:, :, ::-1, 2].copy()
     if verbose > 0:
         print("<<<END: relaxedScan3D_omp()")
     return fzs, rs
@@ -185,7 +182,7 @@ def perform_relaxation(
 
     if bPPdisp:
         PPdisp = PPpos.copy()
-        init_pos = np.array(np.meshgrid(xTips, yTips, zTips)).transpose(3, 1, 2, 0) + np.array([parameters.r0Probe[0], parameters.r0Probe[1], -parameters.r0Probe[2]])
+        init_pos = np.array(np.meshgrid(xTips, yTips, zTips)) + np.array([parameters.r0Probe[0], parameters.r0Probe[1], -parameters.r0Probe[2]])
         PPdisp -= init_pos
     else:
         PPdisp = None
@@ -201,17 +198,17 @@ def perform_relaxation(
 
 
 def prepareArrays(FF, Vpot, parameters):
-    if parameters.gridN[0] <= 0:
+    if parameters.gridN[2] <= 0:
         PPU.autoGridN()
     if FF is None:
         gridN = parameters.gridN
-        FF = np.zeros((gridN[2], gridN[1], gridN[0], 3))
+        FF = np.zeros((gridN[0], gridN[1], gridN[2], 3))
     else:
         gridN = np.shape(FF)
         parameters.gridN = gridN
     core.setFF_Fpointer(FF)
     if Vpot:
-        V = np.zeros((gridN[2], gridN[1], gridN[0]))
+        V = np.zeros((gridN[0], gridN[1], gridN[2]))
         core.setFF_Epointer(V)
     else:
         V = None

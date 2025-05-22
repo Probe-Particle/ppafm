@@ -594,7 +594,7 @@ def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1):
     for line in head:
         fileout.write(line)
     nDim = np.shape(data)
-    _writeArr(fileout, (nDim[2] + 1, nDim[1] + 1, nDim[0] + 1))
+    _writeArr(fileout, (nDim[0] + 1, nDim[1] + 1, nDim[2] + 1))
     _writeArr2D(fileout, lvec)
     data2 = np.zeros(np.array(nDim) + 1)
     # These crazy 3 lines are here since the first and the last cube in XSF in every direction is the same
@@ -602,17 +602,16 @@ def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1):
     data2[-1, :, :] = data2[0, :, :]
     data2[:, -1, :] = data2[:, 0, :]
     data2[:, :, -1] = data2[:, :, 0]
-    for r in data2.flat:
+    for r in data2.flatten(order="F"):
         fileout.write("%10.5e\n" % r)
     fileout.write("   END_DATAGRID_3D\n")
     fileout.write("END_BLOCK_DATAGRID_3D\n")
 
 
-def loadXSF(fname, xyz_order=False, verbose=True):
+def loadXSF(fname, verbose=True):
     filein = open(fname)
     startline, head = _readUpTo(filein, "BEGIN_DATAGRID_3D")  # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
     nDim = [int(iii) for iii in filein.readline().split()]  # reading 1 line with dimensions
-    nDim.reverse()
     nDim = np.array(nDim)
     lvec = _readmat(filein, 4)  # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
     filein.close()
@@ -623,11 +622,9 @@ def loadXSF(fname, xyz_order=False, verbose=True):
     F = readNumsUpTo(fname, nDim.astype(np.int32).copy(), startline + 5)
     if verbose:
         print("io | Done")
-    FF = np.reshape(F, nDim)[:-1, :-1, :-1]
-    if xyz_order:
-        FF = FF.transpose((2, 1, 0))
+    FF = np.reshape(F, nDim, order="F")[:-1, :-1, :-1]
     # FF is not C_CONTIGUOUS without copy
-    FF = FF.copy()
+    FF = FF.copy(order="C")
     return FF, lvec, nDim - 1, head
 
 
@@ -651,7 +648,7 @@ def getFromHead_PRIMCOORD(head):
 # =================== Cube
 
 
-def loadCUBE(fname, xyz_order=False, verbose=True):
+def loadCUBE(fname, verbose=True):
     filein = open(fname)
     # First two lines of the header are comments
     filein.readline()
@@ -680,11 +677,8 @@ def loadCUBE(fname, xyz_order=False, verbose=True):
     if verbose:
         print("io | nDim: ", nDim)
 
-    FF = np.reshape(F, nDim)
-    if not xyz_order:
-        FF = FF.transpose((2, 1, 0)).copy()  # Transposition of the array to have the same order of data as in XSF file
+    FF = np.reshape(F, nDim, order="C")
 
-    nDim = [nDim[2], nDim[1], nDim[0]]  # Setting up the corresponding dimensions.
     head = []
     head.append("BEGIN_BLOCK_DATAGRID_3D \n")
     head.append("g98_3D_unknown \n")

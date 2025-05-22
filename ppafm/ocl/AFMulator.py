@@ -659,6 +659,7 @@ class AFMulator:
             zs=zTips,
             extent=extent,
             cmap=self.colorscale,
+            reversed_ind=True,
         )
 
 
@@ -844,4 +845,4 @@ def quick_afm(
         scan_window[1][1],
     ]
     zs = np.linspace(scan_window[0][2], scan_window[1][2], scan_dim[2] + 1)[:num_heights]
-    plotImages(os.path.join(out_dir, "df"), X, range(len(X)), extent=extent, zs=zs)
+    plotImages(os.path.join(out_dir, "df"), X, range(len(X)), extent=extent, zs=zs, reversed_ind=True)
