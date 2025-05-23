@@ -5,6 +5,35 @@ import time
 import copy
 import os
 import json
+import matplotlib.pyplot as plt
+from datetime import datetime
+from pathlib import Path
+
+class FitDatasetManager:
+    def __init__(self, base_dir):
+        self.base_dir = Path(base_dir)
+        self.summary_file = self.base_dir/"summary.jsonl"
+        
+    def create_run_dir(self):
+        base_name = datetime.now().strftime("%Y_%m_%d")
+        existing = [d for d in self.base_dir.glob(f"{base_name}_*") if d.is_dir()]
+        next_num = max([int(d.name.split("_")[-1]) for d in existing] + [0]) + 1
+        run_dir = self.base_dir/f"{base_name}_{next_num:03d}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return run_dir
+
+    def record_run(self, optimizer):
+        run_dir = self.create_run_dir()
+        with open(run_dir/"params.json", "w") as f:
+            json.dump({
+                "timestamp": datetime.now().isoformat(),
+                "error": optimizer.best_distance,
+                "parameters": optimizer.best_params,
+                "metadata": optimizer.metadata
+            }, f, indent=4)
+        with open(self.summary_file, "a") as f:
+            f.write(json.dumps({"run_dir":run_dir.name,"error":optimizer.best_distance,"params":optimizer.best_params,"timestamp":datetime.now().isoformat()}) + "\n")
+        return run_dir
 
 class MonteCarloOptimizer:
     """
@@ -21,7 +50,8 @@ class MonteCarloOptimizer:
             simulation_callback,
             distance_callback,
             mutation_factors=None,
-            copy_params_func=None
+            copy_params_func=None,
+            result_dir=None
         ):
         """
         Initialize the Monte Carlo optimizer.
@@ -37,6 +67,7 @@ class MonteCarloOptimizer:
             mutation_factors (dict, optional): Relative mutation sizes for each parameter
             copy_params_func (callable, optional): Custom function to deep copy parameters
                 if a simple copy.deepcopy() is not sufficient
+            result_dir (str, optional): Directory to save results to
         """
         self.initial_params = copy.deepcopy(initial_params)
         self.current_params = copy.deepcopy(initial_params)
@@ -75,7 +106,10 @@ class MonteCarloOptimizer:
         self.distance_history.append(self.best_distance)
         
         print(f"Initialized with distance: {self.best_distance}")
-    
+        
+        self.dataset_manager = FitDatasetManager(result_dir) if result_dir else None
+        self.metadata = {}
+
     def mutate_params(self, params, mutation_strength=0.1):
         """
         Make random changes to parameters within allowed ranges.
@@ -120,7 +154,7 @@ class MonteCarloOptimizer:
         
         return new_params, param_name, old_value, new_value
     
-    def optimize(self, num_iterations=100, mutation_strength=0.1, temperature=0.01, temperature_decay=0.95, early_stop_iterations=None, min_improvement=1e-6, progress_callback=None):
+    def optimize(self, num_iterations=100, mutation_strength=0.1, temperature=0.01, temperature_decay=0.95, early_stop_iterations=None, min_improvement=1e-6, progress_callback=None, save_callback=None):
         """
         Run Monte Carlo optimization.
         
@@ -134,6 +168,8 @@ class MonteCarloOptimizer:
             min_improvement (float): Minimum improvement to consider significant
             progress_callback (callable, optional): Function to call after each iteration
                 function signature: progress_callback(optimizer, iteration)
+            save_callback (callable, optional): Function to call after optimization
+                function signature: save_callback(optimizer, run_dir)
             
         Returns:
             dict or any: Optimized parameters
@@ -226,6 +262,11 @@ class MonteCarloOptimizer:
         print(f"Iterations: {self.current_iteration}, Accepted changes: {self.accepted_changes}")
         print(f"Best distance: {self.best_distance}")
         
+        if self.dataset_manager:
+            run_dir = self.dataset_manager.record_run(self)
+            if save_callback: 
+                save_callback(self, run_dir)
+
         return self.best_params
     
     def save_results(self, base_filename):

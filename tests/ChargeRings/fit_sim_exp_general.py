@@ -22,6 +22,13 @@ from wasserstein_distance import  wasserstein_2d_grid
 # Global verbosity control
 verbosity = 1  # 0=quiet, 1=normal, 2=verbose
 
+# Global plotting and saving controls
+PLOT_FIGURES = True
+SAVE_FIGURES = True
+VIEW_FIGURES = True
+PLOT_HIGHRES = True
+PLOT_PROGRESS = True
+
 # Initialize PauliSolver once
 pauli_solver = pauli.PauliSolver(nSingle=3, nleads=2, verbosity=0)
 
@@ -54,6 +61,76 @@ def create_distance_callback(exp_data, exp_voltages, exp_x):
             print(f"  Wasserstein distance: {distance:.6f}")
         return distance
     return calculate_distance
+
+def save_results_callback(optimizer, run_dir):
+
+    if PLOT_FIGURES:
+        best_params     = optimizer.best_params
+        params          = optimizer.initial_params # Assuming initial_params is accessible from optimizer
+        param_ranges    = optimizer.param_ranges # Assuming param_ranges is accessible from optimizer
+        exp_STM         = globals().get('exp_STM') # Accessing global variables for plotting
+        exp_dIdV        = globals().get('exp_dIdV')
+        exp_dist        = globals().get('exp_dist')
+        exp_biases      = globals().get('exp_biases')
+        sim_start_point = globals().get('sim_start_point')
+        sim_end_point   = globals().get('sim_end_point')
+
+        # Print timing and results
+        # t_start and t_end are not available here, so we skip printing optimization time
+        print(f"\nOptimization completed.")
+        print(f"Best distance: {optimizer.best_distance:.6f}")
+        
+        # Print parameter changes
+        print("\nParameter changes:")
+        for param in param_ranges.keys():
+            initial = params[param]
+            optimized = best_params[param]
+            diff = optimized - initial
+            diff_percent = (diff / initial) * 100 if initial != 0 else float('inf')
+            print(f"{param}: {initial:.6f} -> {optimized:.6f} (Δ = {diff:.6f}, {diff_percent:.2f}%) ")
+        
+        # Calculate consistent voltage ranges
+        STM, dIdV, x, voltages = optimizer.best_sim_results
+        vmin = min(np.min(exp_biases), np.min(voltages))
+        vmax = max(np.max(exp_biases), np.max(voltages))
+        sim_distance = np.hypot(sim_end_point[0]-sim_start_point[0], sim_end_point[1]-sim_start_point[1])
+
+        # Calculate extents
+        exp_extent = [exp_dist[0], exp_dist[-1], exp_biases[0], exp_biases[-1]]
+        sim_extent = [x[0], x[-1], voltages[0], voltages[-1]]
+        
+        # Ensure 2D arrays for plotting
+        if optimizer.best_sim_results[1].ndim == 3:
+            sim_dIdV = optimizer.best_sim_results[1][0]
+        else:
+            sim_dIdV = optimizer.best_sim_results[1]
+
+        # Save comparison figure
+
+        fig_comp = plot_comparison( exp_STM=exp_STM, exp_dIdV=exp_dIdV, sim_STM=optimizer.best_sim_results[0], sim_dIdV=sim_dIdV,  exp_extent=exp_extent, sim_extent=sim_extent, ylim=[voltages[0], voltages[-1]] )
+        
+        if PLOT_PROGRESS:
+            fig_prog = plot_optimization_progress(optimizer)
+        
+        if PLOT_HIGHRES:
+            # Run high-resolution simulation with optimized parameters
+            print("\n Figure 3: High-resolution simulation with optimized parameters")
+            highres_sim_cb  = create_simulation_callback(sim_start_point, sim_end_point, nx=200, nV=100, Vmin=min(exp_biases), Vmax=max(exp_biases))
+            highres_results = highres_sim_cb(best_params)
+            STM_highres, dIdV_highres, x_highres, voltages_highres = highres_results
+            sim_extent_highres  = [x_highres[0], x_highres[-1], voltages_highres[0], voltages_highres[-1]]
+            highres_fig = plot_comparison( exp_STM=exp_STM, exp_dIdV=exp_dIdV, exp_extent=exp_extent, sim_STM=STM_highres, sim_dIdV=dIdV_highres, sim_extent=sim_extent_highres,  ylim=[voltages_highres[0], voltages_highres[-1]], scale_dIdV=3.0 )
+
+        if SAVE_FIGURES:
+            fig_comp.savefig(run_dir/"comparison.png", dpi=300)
+            fig_prog.savefig(run_dir/"progress.png", dpi=300)
+            highres_fig.savefig(run_dir/"comparison_hires.png", dpi=300)
+
+        if VIEW_FIGURES:
+            plt.show()
+        else:
+            plt.close('all')
+
 
 if __name__ == "__main__":
     # Define simulation parameters
@@ -118,72 +195,17 @@ if __name__ == "__main__":
     
     # Initialize the general Monte Carlo optimizer
     print("\nInitializing Monte Carlo optimizer...")
-    optimizer = MonteCarloOptimizer( initial_params=params, param_ranges=param_ranges, simulation_callback=simulation_cb, distance_callback=distance_cb )
-    
+    optimizer = MonteCarloOptimizer( initial_params=params, param_ranges=param_ranges, simulation_callback=simulation_cb, distance_callback=distance_cb, result_dir="fitting_results" )
+    optimizer.metadata.update({"exp_points":[exp_start_point, exp_end_point], "sim_points":[sim_start_point, sim_end_point]})
+
     # Run optimization
     print("\nRunning optimization...")
     t_start = time.time()
-    best_params = optimizer.optimize( num_iterations=1000, mutation_strength=0.1, temperature=0.01, temperature_decay=0.95, early_stop_iterations=20 )
+    best_params = optimizer.optimize( num_iterations=1000, mutation_strength=0.1, temperature=0.01, temperature_decay=0.95, early_stop_iterations=20, save_callback=save_results_callback )
     t_end = time.time()
     
-    # Print timing and results
-    print(f"\nOptimization completed in {t_end - t_start:.2f} seconds")
-    print(f"Best distance: {optimizer.best_distance:.6f}")
+    # The rest of the script is now handled by the save_results_callback
+    # No need for explicit plotting or saving here.
     
-    # Print parameter changes
-    print("\nParameter changes:")
-    for param in param_ranges.keys():
-        initial = params[param]
-        optimized = best_params[param]
-        diff = optimized - initial
-        diff_percent = (diff / initial) * 100 if initial != 0 else float('inf')
-        print(f"{param}: {initial:.6f} -> {optimized:.6f} (Δ = {diff:.6f}, {diff_percent:.2f}%)")
-    
-    # Calculate consistent voltage ranges
-    STM, dIdV, x, voltages = optimizer.best_sim_results
-    vmin = min(np.min(exp_biases), np.min(voltages))
-    vmax = max(np.max(exp_biases), np.max(voltages))
-    sim_distance = np.hypot(sim_end_point[0]-sim_start_point[0], sim_end_point[1]-sim_start_point[1])
-
-    # Calculate extents
-    exp_extent = [exp_dist[0], exp_dist[-1], exp_biases[0], exp_biases[-1]]
-    sim_extent = [x[0], x[-1], voltages[0], voltages[-1]]
-    
-    # Ensure 2D arrays for plotting
-    if optimizer.best_sim_results[1].ndim == 3:
-        sim_dIdV = optimizer.best_sim_results[1][0]
-    else:
-        sim_dIdV = optimizer.best_sim_results[1]
-    comp_fig = plot_comparison( exp_STM=exp_STM, exp_dIdV=exp_dIdV, sim_STM=optimizer.best_sim_results[0], sim_dIdV=sim_dIdV,  exp_extent=exp_extent, sim_extent=sim_extent, ylim=[voltages[0], voltages[-1]] )
-    
-    print("\n Figure 2: Optimization progress")
-    progress_fig = plot_optimization_progress(optimizer)
-    
-    # Run high-resolution simulation with optimized parameters
-    print("\n Figure 3: High-resolution simulation with optimized parameters")
-    highres_sim_cb  = create_simulation_callback(sim_start_point, sim_end_point, nx=200, nV=100, Vmin=min(exp_biases), Vmax=max(exp_biases))
-    highres_results = highres_sim_cb(best_params)
-    STM_highres, dIdV_highres, x_highres, voltages_highres = highres_results
-    sim_extent  = [x_highres[0], x_highres[-1], voltages_highres[0], voltages_highres[-1]]
-    highres_fig = plot_comparison( exp_STM=exp_STM, exp_dIdV=exp_dIdV, exp_extent=exp_extent, sim_STM=STM_highres, sim_dIdV=dIdV_highres, sim_extent=sim_extent,  ylim=[voltages_highres[0], voltages_highres[-1]], scale_dIdV=3.0 )
-    
-    # Save results
-    print("\nSaving results...")
-    params_file     = "fit_sim_exp_general_results_params.json"
-    progress_file   = "fit_sim_exp_general_results_progress.png"
-    comparison_file = "fit_sim_exp_general_results_comparison.png"
-    highres_file    = "fit_sim_exp_general_results_highres.png"
-    
-    # Save parameter file
-    import json
-    with open(params_file, 'w') as f:
-        json.dump(best_params, f, indent=4)
-    
-    # Save figures
-    #progress_fig .savefig(progress_file   )
-    #comp_fig     .savefig(comparison_file )
-    #highres_fig  .savefig(highres_file    )
-    #print(f"Results saved to {params_file}, {progress_file}, {comparison_file}, {highres_file}")
-    
-    #=== Display all figures
-    plt.show()
+    print(f"\nOptimization finished in {t_end - t_start:.2f} seconds.")
+    print("Results saved to: fitting_results/")
