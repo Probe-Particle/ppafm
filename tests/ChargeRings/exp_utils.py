@@ -196,6 +196,13 @@ def create_overlay_image(exp_data, sim_data, exp_extent, sim_extent):
     return rgb_image, sim_extent
 
 
+def get_exp_voltage_line_scan(X, Y, data, biases, start, end, pointPerAngstrom=5):
+    """Get experimental dI/dV along a line scan for different voltages"""
+    x, y, dist = create_line_coordinates(start, end, points_per_angstrom=pointPerAngstrom)
+    points  = np.column_stack((x, y))
+    data_1d = interpolate_3d_plane_fast(X, Y, biases, data, points)
+    return data_1d, dist, x, y
+
 def plot_exp_voltage_line_scan(X, Y, data, biases, start, end, ax=None, title='', ylims=None, pointPerAngstrom=5, cmap='bwr'):
     """Plot experimental dI/dV along a line scan for different voltages
     
@@ -214,15 +221,13 @@ def plot_exp_voltage_line_scan(X, Y, data, biases, start, end, ax=None, title=''
         Tuple of (exp_didv, exp_distance) - interpolated data and distance array
     """
     # Create line coordinates for experiment
-    x, y, dist = create_line_coordinates( start, end, points_per_angstrom=pointPerAngstrom)
-    nps = len(x)
-    
-    # Interpolate experimental data
-    #print("Interpolating experimental data...")
-    T0 = time.perf_counter()
-    points = np.column_stack((x, y))
-    data_1d = interpolate_3d_plane_fast(X, Y, biases, data, points)
-    print(f"plot_exp_voltage_line_scan(): {time.perf_counter() - T0:.5f} [s]")
+    # x, y, dist = create_line_coordinates( start, end, points_per_angstrom=pointPerAngstrom)
+    # T0      = time.perf_counter()
+    # points  = np.column_stack((x, y))
+    # data_1d = interpolate_3d_plane_fast(X, Y, biases, data, points)
+    # print(f"plot_exp_voltage_line_scan(): {time.perf_counter() - T0:.5f} [s]")
+
+    data_1d, dist, x, y = get_exp_voltage_line_scan(X, Y, data, biases, start, end, pointPerAngstrom=pointPerAngstrom)
     
     # Plot experimental dI/dV if axis is provided
     if ax is not None:
@@ -386,6 +391,60 @@ def plot_ellipses(ax, params):
         
         # Plot center point
         ax.plot(qd_pos_x, qd_pos_y, '+', color='white', markersize=5)
+
+
+def load_and_extract_experimental_data(filename='exp_rings_data.npz', start_point=None, end_point=None, pointPerAngstrom=5, verbosity=1):
+    """
+    Load and extract experimental data along specified line
+    Returns: (exp_STM, exp_dIdV, exp_dist, exp_biases)
+    """
+    print(f"Loading experimental data from {filename}..." if verbosity>0 else "", end='')
+    data = np.load(filename)
+    
+    # Process 3D experimental data
+    X = data['X'] * 10  # nm to Å
+    Y = data['Y'] * 10
+    dIdV = data['dIdV']
+    I = data['I']
+    biases = data['biases']
+    
+    # Center coordinates
+    cx, cy = data['center_x']*10, data['center_y']*10
+    X -= cx
+    Y -= cy
+        
+    exp_STM, exp_dist, exp_x, exp_biases = get_exp_voltage_line_scan(X, Y, I,    biases, start_point, end_point, pointPerAngstrom=pointPerAngstrom)
+    exp_dIdV, _ , _, _                   = get_exp_voltage_line_scan(X, Y, dIdV, biases, start_point, end_point, pointPerAngstrom=pointPerAngstrom)
+    
+    if verbosity>0:
+        print(f"Loaded experimental data. Shapes: STM={exp_STM.shape}, dIdV={exp_dIdV.shape}")
+    
+    return exp_STM, exp_dIdV, exp_dist, biases
+
+def plot2d(data, ax=None, extent=None, title=None, xlabel='Distance [Å]', ylabel='Bias [V]', bCbar=True, cmap='hot'):
+    if ax is None: fig, ax = plt.subplots()
+    if cmap=='bwr':
+        vmax = np.max(np.abs(data))
+        vmin = -vmax
+    else:
+        vmax = None
+        vmin = None
+    im = ax.imshow(data, extent=extent, aspect='auto', origin='lower', cmap=cmap, vmin=vmin, vmax=vmax)
+    if title is not None: ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    if bCbar: ax.figure.colorbar(im, ax=ax, label='Current [nA]')
+    return im
+
+def visualize_experimental_data(exp_STM, exp_dIdV, exp_dist, exp_biases):
+    """
+    Create figure to visualize experimental data
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    plot2d(exp_STM,  ax=axes[0], extent=[exp_dist[0], exp_dist[-1], exp_biases[0], exp_biases[-1]], title='Experimental STM', xlabel='Distance [Å]', ylabel='Bias [V]', bCbar=True)
+    plot2d(exp_dIdV, ax=axes[1], extent=[exp_dist[0], exp_dist[-1], exp_biases[0], exp_biases[-1]], title='Experimental dIdV', xlabel='Distance [Å]', ylabel='Bias [V]', bCbar=True, cmap='bwr')
+    plt.tight_layout()
+    return fig
 
 
 # Main test function

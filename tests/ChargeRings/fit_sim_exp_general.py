@@ -14,253 +14,48 @@ from pyProbeParticle import pauli
 
 # Import local modules
 import pauli_scan
-from exp_utils import plot_exp_voltage_line_scan, create_line_coordinates
+from exp_utils import plot_exp_voltage_line_scan, load_and_extract_experimental_data, visualize_experimental_data
 from MonteCarloOptimizer import MonteCarloOptimizer
-from scipy.interpolate import RectBivariateSpline
-from fitting_plots import plot_optimization_progress, plot_parameter_correlations, plot_comparison, plot_highres_comparison
+from fitting_plots import plot_optimization_progress,  plot_comparison
+from wasserstein_distance import wasserstein_1d_grid, wasserstein_2d_grid
 
-def load_experimental_data(filename='exp_rings_data.npz'):
-    """
-    Load experimental data from npz file
-    
-    Args:
-        filename (str): Path to the experimental data file
-        
-    Returns:
-        tuple: (X, Y, dIdV, I, biases) - Experimental data arrays
-    """
-    print(f"Loading experimental data from {filename}...")
-    try:
-        data = np.load(filename)
-        # Convert from nm to Å
-        X = data['X'] * 10
-        Y = data['Y'] * 10
-        dIdV = data['dIdV']
-        I = data['I']
-        biases = data['biases']
-        
-        # Center coordinates
-        cx, cy = data['center_x']*10, data['center_y']*10
-        X -= cx
-        Y -= cy
-        
-        print(f"Experimental data loaded successfully.")
-        print(f"  Data shapes: X={X.shape}, Y={Y.shape}, I={I.shape}, dIdV={dIdV.shape}, biases={biases.shape}")
-        return X, Y, dIdV, I, biases
-        
-    except FileNotFoundError:
-        print(f"ERROR: Could not find experimental data file {filename}")
-        return None, None, None, None, None
+# Global verbosity control
+verbosity = 1  # 0=quiet, 1=normal, 2=verbose
 
-def extract_experimental_data_along_line(X, Y, I, dIdV, biases, exp_start_point, exp_end_point, pointPerAngstrom=5):
-    """
-    Extract experimental data along a line
-    
-    Args:
-        X, Y: Experimental X, Y coordinates
-        I, dIdV: Experimental current and dI/dV data
-        biases: Experimental bias voltages
-        exp_start_point: Start point for the line in experimental data
-        exp_end_point: End point for the line in experimental data
-        pointPerAngstrom: Points per Angstrom for interpolation
-        
-    Returns:
-        tuple: (exp_STM, exp_dIdV, dist, biases) - Extracted experimental data,
-        distance array, and bias voltages
-    """
-    print(f"Extracting experimental data along line from {exp_start_point} to {exp_end_point}...")
-    
-    # Create line coordinates for experiment and interpolate experimental data
-    # For STM current
-    exp_STM, dist = plot_exp_voltage_line_scan(
-        X, Y, I, biases, 
-        exp_start_point, exp_end_point, 
-        pointPerAngstrom=pointPerAngstrom,
-        ax=None,  # No plotting, just return the data
-        cmap='hot'  # Use hot colormap for STM
-    )
-    
-    # For dI/dV
-    exp_dIdV, _ = plot_exp_voltage_line_scan(
-        X, Y, dIdV, biases, 
-        exp_start_point, exp_end_point, 
-        pointPerAngstrom=pointPerAngstrom,
-        ax=None  # No plotting, just return the data
-    )
-    
-    print(f"Experimental data extracted successfully.")
-    print(f"  Extracted data shapes: STM={exp_STM.shape}, dIdV={exp_dIdV.shape}, dist={dist.shape}")
-    
-    return exp_STM, exp_dIdV, dist, biases
+# Initialize PauliSolver once
+pauli_solver = pauli.PauliSolver(nSingle=3, nleads=2, verbosity=0)
 
-# Define the callbacks for the General Monte Carlo Optimizer
-
-def create_simulation_callback(sim_start_point, sim_end_point, nx=50, nV=None, orbital_2D=None, orbital_lvec=None):
-    """
-    Create a callback function for running simulations
-    
-    Args:
-        sim_start_point (tuple): Start point for simulation line
-        sim_end_point (tuple): End point for simulation line
-        nx (int): Number of points along the x axis
-        nV (int, optional): Number of voltage points
-        orbital_2D, orbital_lvec: Optional orbital data
-        
-    Returns:
-        callable: Simulation callback function
-    """
-    pauli_solver = pauli.PauliSolver(nSingle=3, nleads=2, verbosity=0)
-    
+def create_simulation_callback(sim_start_point, sim_end_point, nx, nV, Vmin, Vmax, orbital_2D=None, orbital_lvec=None):
     def run_simulation(params):
-        """
-        Run a simulation with the given parameters
-        
-        Args:
-            params (dict): Simulation parameters
-            
-        Returns:
-            tuple: (STM, dIdV, voltages, x) - Simulation results
-        """
-        # Get voltage range from exp_biases if available from the outer scope
-        # This ensures the simulation voltage range matches the experimental range
-        try:
-            # Try to access exp_biases from outer scope
-            Vmin = exp_biases[0]  # Min voltage from experimental data
-            Vmax = exp_biases[-1]  # Max voltage from experimental data
-            print(f"Using experimental voltage range: [{Vmin:.3f}V, {Vmax:.3f}V]")
-        except (NameError, IndexError):
-            # Fallback to parameter-based range if experimental data not available
-            Vmin = 0.0
-            Vmax = params.get('VBias', 1.0)
-            print(f"Using parameter-based voltage range: [{Vmin:.3f}V, {Vmax:.3f}V]")
-        
-        # Run the simulation
         STM, dIdV, Es, Ts, probs, x, voltages, spos, rots = pauli_scan.calculate_xV_scan_orb(
-            params, 
-            sim_start_point, 
-            sim_end_point,
-            orbital_2D=orbital_2D,
-            orbital_lvec=orbital_lvec,
-            pauli_solver=pauli_solver,
-            nx=nx, 
-            nV=nV,
-            Vmin=Vmin,
-            Vmax=Vmax,
-            bLegend=False  # No need for legends in optimization
+            params, sim_start_point, sim_end_point,
+            orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
+            nx=nx, nV=nV, Vmin=Vmin, Vmax=Vmax,
+            pauli_solver=pauli_solver
         )
-        
-        return STM, dIdV, voltages, x
-    
+        return STM, dIdV, x, voltages
     return run_simulation
 
 def create_distance_callback(exp_data, exp_voltages, exp_x):
-    """
-    Create a callback function for calculating distance between simulation and experiment
-    
-    Args:
-        exp_data (np.ndarray): Experimental data
-        exp_voltages (np.ndarray): Experimental voltage values
-        exp_x (np.ndarray): Experimental x positions
-        
-    Returns:
-        tuple: (distance_callback, interpolate_function) - Functions for calculating distance and interpolating
-    """
-    from wasserstein_distance import wasserstein_1d_grid
-    
-    def wasserstein_2d_xV(img1, img2, dx=1.0, dy=1.0):
-        """
-        Calculate 2D Wasserstein distance between two images along V direction.
-        
-        Args:
-            img1, img2: Images to compare (shape [nV, nx])
-            dx, dy: Grid spacing
-            
-        Returns:
-            float: Distance metric
-        """
-        # Make sure the images have the same shape
-        if img1.shape != img2.shape:
-            raise ValueError(f"Images must have the same shape: {img1.shape} vs {img2.shape}")
-        
-        # Calculate 1D Wasserstein for each column (V direction/y-axis)
-        distances = []
-        for i in range(img1.shape[1]):  # Loop over x positions
-            col1 = img1[:, i]  # Get column from first image (voltage profile)
-            col2 = img2[:, i]  # Get column from second image (voltage profile)
-            dist = wasserstein_1d_grid(col1, col2, dy)
-            distances.append(dist)
-        
-        # Return average distance across all columns
-        return np.mean(distances)
-    
-    def interpolate_simulation_to_exp_grid(sim_data, sim_voltages, sim_x):
-        """
-        Interpolate simulation data to match experimental grid.
-        
-        Args:
-            sim_data (np.ndarray): Simulation data
-            sim_voltages (np.ndarray): Voltage values for simulation
-            sim_x (np.ndarray): X positions for simulation
-            
-        Returns:
-            np.ndarray: Interpolated simulation data matching experimental grid
-        """
-        # Sort the simulation data to ensure coordinates are strictly increasing
-        # (required by RectBivariateSpline when grid=True)
-        volt_idx = np.argsort(sim_voltages)
-        sorted_voltages = sim_voltages[volt_idx]
-        sorted_sim_data = sim_data[volt_idx, :]
-        
-        x_idx = np.argsort(sim_x)
-        sorted_x = sim_x[x_idx]
-        sorted_sim_data = sorted_sim_data[:, x_idx]
-        
-        # Create interpolation function with sorted data
-        # Important: Note the order here - in RectBivariateSpline(y, x, z), the y coordinate is first
-        # In our case, voltage is the y-coordinate (vertical axis in typical plots)
-        interp = RectBivariateSpline(sorted_voltages, sorted_x, sorted_sim_data)
-        
-        # Create grid of points to evaluate at
-        vv, xx = np.meshgrid(exp_voltages, exp_x, indexing='ij')
-        
-        # Evaluate at each point (doesn't require strictly increasing coordinates)
-        # Must use ev(y, x) to match the exp_utils.interpolate_3d_plane_fast convention
-        interpolated = interp.ev(vv, xx)
-        
-        return interpolated
-
     def calculate_distance(sim_results):
-        """
-        Calculate the distance between simulation results and experimental data
-        
-        Args:
-            sim_results (tuple): (STM, dIdV, voltages, x) from simulation
-            
-        Returns:
-            float: Distance metric (lower is better)
-        """
-        STM, dIdV, voltages, x = sim_results
-        
-        # Use STM current data for comparison
-        sim_data = STM
-        
-        # Interpolate simulation data to match experimental grid
-        sim_data_interp = interpolate_simulation_to_exp_grid(sim_data, voltages, x)
-        
-        # Calculate 2D Wasserstein distance
-        # Use the spacing from the experimental data for consistency
-        dv = np.abs(exp_voltages[1] - exp_voltages[0]) if len(exp_voltages) > 1 else 1.0
+        STM, dIdV, x, voltages = sim_results
+        if verbosity > 1:
+            print(f"calculate_distance(): exp_data.shape: {exp_data.shape}")
+            print(f"  exp_voltages: [{exp_voltages.min():.3f}, {exp_voltages.max():.3f}]")
+            print(f"  exp_x: [{exp_x.min():.3f}, {exp_x.max():.3f}]")
+            print(f"  sim_data.shape: {STM.shape}")
+            print(f"  voltages: [{voltages.min():.3f}, {voltages.max():.3f}]")
+            print(f"  x: [{x.min():.3f}, {x.max():.3f}]")
+        # Calculate grid spacing
+        dy = np.abs(exp_voltages[1] - exp_voltages[0]) if len(exp_voltages) > 1 else 1.0
         dx = np.abs(exp_x[1] - exp_x[0]) if len(exp_x) > 1 else 1.0
-        
-        distance = wasserstein_2d_xV(sim_data_interp, exp_data, dx=dx, dy=dv)
-        
+        distance = wasserstein_2d_grid(STM, exp_data, dx=dx, dy=dy)
+        if verbosity > 0:
+            print(f"  Wasserstein distance: {distance:.6f}")
         return distance
-    
-    # Return both the distance calculation function and the interpolation function
-    # so they can be accessed separately
-    return calculate_distance, interpolate_simulation_to_exp_grid
+    return calculate_distance
 
-def main():
+if __name__ == "__main__":
     # Define simulation parameters
     params = {
             'nsite': 3,            # Number of sites
@@ -305,71 +100,30 @@ def main():
     sim_start_point = (9.72, -9.96)  # From p1_x, p1_y
     sim_end_point   = (-11.0, 12.0)  # From p2_x, p2_y
     
-    # Load experimental data
-    exp_X, exp_Y, exp_dIdV, exp_I, exp_biases = load_experimental_data()
-    if exp_X is None:
-        print("Cannot proceed without experimental data.")
-        return
-    
-    # Extract experimental data along the specified line
-    exp_STM, exp_dIdV, exp_dist, exp_biases = extract_experimental_data_along_line( exp_X, exp_Y, exp_I, exp_dIdV, exp_biases, exp_start_point, exp_end_point )
-    
-    # Create dummy x_positions array - not needed since we use the exp_dist instead
-    # The optimizer uses the x positions for interpolation
-    x_positions = np.linspace(0, exp_dist[-1], len(exp_dist))
-    
-    # Slightly modify parameters to simulate difference between experiment and initial simulation
-    modified_params = params.copy()
-    modified_params['Esite'] = params['Esite'] * 1.2
-    modified_params['z_tip'] = params['z_tip'] * 0.9
-    
+    # Load and extract experimental data
+    exp_STM, exp_dIdV, exp_dist, exp_biases = load_and_extract_experimental_data(start_point=exp_start_point, end_point=exp_end_point)
+            
     print("\nOptimization parameters:")
     for param, (min_val, max_val) in param_ranges.items():
         print(f"{param}: [{min_val:.3f}, {max_val:.3f}]")
     
     # Create figure to visualize the experimental data
-    fig, axs = plt.subplots(1, 2, figsize=(12, 5))
-    
-    # Plot extracted experimental STM data
-    im0 = axs[0].imshow(exp_STM, aspect='auto', origin='lower', cmap='hot', extent=[0, exp_dist[-1], exp_biases[0], exp_biases[-1]])
-    axs[0].set_title('Experimental STM')
-    axs[0].set_xlabel('Distance (Å)')
-    axs[0].set_ylabel('Voltage (V)')
-    plt.colorbar(im0, ax=axs[0])
-    
-    # Plot extracted experimental dI/dV data
-    im1 = axs[1].imshow(exp_dIdV, aspect='auto', origin='lower', cmap='bwr', extent=[0, exp_dist[-1], exp_biases[0], exp_biases[-1]])
-    axs[1].set_title('Experimental dI/dV')
-    axs[1].set_xlabel('Distance (Å)')
-    axs[1].set_ylabel('Voltage (V)')
-    plt.colorbar(im1, ax=axs[1])
-    
-    plt.tight_layout()
-    plt.savefig('experimental_data_extract.png', dpi=150)
+    exp_fig = visualize_experimental_data(exp_STM, exp_dIdV, exp_dist, exp_biases)
+    #plt.show()
     
     # Create the callback functions
-    simulation_cb = create_simulation_callback( sim_start_point=sim_start_point, sim_end_point=sim_end_point, nx=50, nV=len(exp_biases) )
-    
-    # Get both distance calculation and interpolation functions
-    distance_cb, interpolate_func = create_distance_callback( exp_data=exp_STM, exp_voltages=exp_biases, exp_x=x_positions)
+    exp_x_coords_for_fitting = exp_dist
+    simulation_cb = create_simulation_callback( sim_start_point=sim_start_point, sim_end_point=sim_end_point, nx=len(exp_dist), nV=len(exp_biases), Vmin=min(exp_biases), Vmax=max(exp_biases) )
+    distance_cb   = create_distance_callback( exp_data=exp_STM, exp_voltages=exp_biases, exp_x=exp_x_coords_for_fitting )
     
     # Initialize the general Monte Carlo optimizer
     print("\nInitializing Monte Carlo optimizer...")
-    optimizer = MonteCarloOptimizer( initial_params=modified_params, param_ranges=param_ranges, simulation_callback=simulation_cb, distance_callback=distance_cb )
-    
-    # Store the interpolation function for later use
-    optimizer.interpolate_func = interpolate_func
+    optimizer = MonteCarloOptimizer( initial_params=params, param_ranges=param_ranges, simulation_callback=simulation_cb, distance_callback=distance_cb )
     
     # Run optimization
     print("\nRunning optimization...")
     t_start = time.time()
-    best_params = optimizer.optimize(
-        num_iterations=1000,        # Number of iterations
-        mutation_strength=0.1,      # Relative parameter change size
-        temperature=0.01,           # Initial temperature (enables hill climbing)
-        temperature_decay=0.95,     # Temperature decay rate
-        early_stop_iterations=20    # Stop if no improvement after this many iterations
-    )
+    best_params = optimizer.optimize( num_iterations=1000, mutation_strength=0.1, temperature=0.01, temperature_decay=0.95, early_stop_iterations=20 )
     t_end = time.time()
     
     # Print timing and results
@@ -379,14 +133,14 @@ def main():
     # Print parameter changes
     print("\nParameter changes:")
     for param in param_ranges.keys():
-        initial = modified_params[param]
+        initial = params[param]
         optimized = best_params[param]
         diff = optimized - initial
         diff_percent = (diff / initial) * 100 if initial != 0 else float('inf')
         print(f"{param}: {initial:.6f} -> {optimized:.6f} (Δ = {diff:.6f}, {diff_percent:.2f}%)")
     
     # Calculate consistent voltage ranges
-    STM, dIdV, voltages, x = optimizer.best_sim_results
+    STM, dIdV, x, voltages = optimizer.best_sim_results
     vmin = min(np.min(exp_biases), np.min(voltages))
     vmax = max(np.max(exp_biases), np.max(voltages))
     sim_distance = np.hypot(sim_end_point[0]-sim_start_point[0], sim_end_point[1]-sim_start_point[1])
@@ -400,78 +154,25 @@ def main():
         sim_dIdV = optimizer.best_sim_results[1][0]
     else:
         sim_dIdV = optimizer.best_sim_results[1]
+    comp_fig = plot_comparison( exp_STM=exp_STM, exp_dIdV=exp_dIdV, sim_STM=optimizer.best_sim_results[0], sim_dIdV=sim_dIdV,  exp_extent=exp_extent, sim_extent=sim_extent, ylim=[voltages[0], voltages[-1]] )
     
-    # Unified comparison plot
-    comp_fig = plot_comparison(
-        exp_STM=exp_STM,
-        exp_dIdV=exp_dIdV,
-        sim_STM=optimizer.best_sim_results[0],
-        sim_dIdV=sim_dIdV,
-        exp_extent=exp_extent,
-        sim_extent=sim_extent,
-        ylim=[voltages[0], voltages[-1]],
-    )
-    
-    #=== Figure 2: Optimization Progress
+    print("\n Figure 2: Optimization progress")
     progress_fig = plot_optimization_progress(optimizer)
-    #=== Figure 3: Parameter Correlations
-    #param_corr_fig = plot_parameter_correlations(optimizer)
     
     # Run high-resolution simulation with optimized parameters
-    print("\nRunning high-resolution simulation with optimized parameters...")
-    nx_highres = 200  # 8x the original resolution along x-axis
-    nV_highres = 100  # High resolution along voltage axis as well
-    
-    # Create a high-resolution simulation callback with explicit voltage range
-    # Define a custom function that captures the voltage range from experimental data
-    def create_highres_simulation_callback():
-        # Force the simulation to use the experimental voltage range
-        V_min = min(exp_biases)
-        V_max = max(exp_biases)
-        print(f"Using experimental voltage range for high-res: [{V_min:.3f}V, {V_max:.3f}V]")
-        
-        # Use the original callback function but explicitly pass voltage range
-        def run_highres_simulation(params):
-            # Run the simulation with experimental voltage range
-            STM, dIdV, Es, Ts, probs, x, voltages, spos, rots = pauli_scan.calculate_xV_scan_orb(
-                params, 
-                sim_start_point, 
-                sim_end_point,
-                nx=nx_highres, 
-                nV=nV_highres,
-                Vmin=V_min,
-                Vmax=V_max,
-                bLegend=False
-            )
-            return STM, dIdV, voltages, x
-            
-        return run_highres_simulation
-    
-    # Use our custom callback that enforces the experimental voltage range
-    highres_sim_cb = create_highres_simulation_callback()
-    
-    # Run the high-resolution simulation
+    print("\n Figure 3: High-resolution simulation with optimized parameters")
+    highres_sim_cb  = create_simulation_callback(sim_start_point, sim_end_point, nx=200, nV=100, Vmin=min(exp_biases), Vmax=max(exp_biases))
     highres_results = highres_sim_cb(best_params)
-    STM_highres, dIdV_highres, voltages_highres, x_highres = highres_results
-    
-    # Unified comparison plot for high-resolution data
-    highres_fig = plot_comparison(
-        exp_STM=exp_STM,
-        exp_dIdV=exp_dIdV,
-        exp_extent=exp_extent,
-        sim_STM=STM_highres,
-        sim_dIdV=dIdV_highres,
-        sim_extent=[x_highres[0], x_highres[-1], voltages_highres[0], voltages_highres[-1]],
-        ylim=[voltages_highres[0], voltages_highres[-1]],
-        scale_dIdV=3.0,
-    )
+    STM_highres, dIdV_highres, x_highres, voltages_highres = highres_results
+    sim_extent  = [x_highres[0], x_highres[-1], voltages_highres[0], voltages_highres[-1]]
+    highres_fig = plot_comparison( exp_STM=exp_STM, exp_dIdV=exp_dIdV, exp_extent=exp_extent, sim_STM=STM_highres, sim_dIdV=dIdV_highres, sim_extent=sim_extent,  ylim=[voltages_highres[0], voltages_highres[-1]], scale_dIdV=3.0 )
     
     # Save results
     print("\nSaving results...")
-    params_file = "fit_sim_exp_general_results_params.json"
-    progress_file = "fit_sim_exp_general_results_progress.png"
+    params_file     = "fit_sim_exp_general_results_params.json"
+    progress_file   = "fit_sim_exp_general_results_progress.png"
     comparison_file = "fit_sim_exp_general_results_comparison.png"
-    highres_file = "fit_sim_exp_general_results_highres.png"
+    highres_file    = "fit_sim_exp_general_results_highres.png"
     
     # Save parameter file
     import json
@@ -479,13 +180,10 @@ def main():
         json.dump(best_params, f, indent=4)
     
     # Save figures
-    progress_fig.savefig(progress_file, dpi=150)
-    comp_fig.savefig(comparison_file, dpi=150)
-    highres_fig.savefig(highres_file, dpi=200)
-    print(f"Results saved to {params_file}, {progress_file}, {comparison_file}, {highres_file}")
+    #progress_fig .savefig(progress_file   )
+    #comp_fig     .savefig(comparison_file )
+    #highres_fig  .savefig(highres_file    )
+    #print(f"Results saved to {params_file}, {progress_file}, {comparison_file}, {highres_file}")
     
     #=== Display all figures
     plt.show()
-
-if __name__ == "__main__":
-    main()

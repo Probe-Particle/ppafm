@@ -9,6 +9,50 @@ import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Tuple, Any
 from scipy.interpolate import RectBivariateSpline
 
+def plot_error_evolution(history, ax=None):
+    """
+    Plot error evolution.
+    
+    Args:
+        history: Optimizer history
+        
+    Returns:
+        matplotlib Figure
+    """
+    if ax is None: fig, ax = plt.subplots()
+    ax.plot(history['iterations'], history['distances'], 'b-')
+    ax.set_xlabel('Iteration')
+    ax.set_ylabel('Error')
+    ax.set_title('Error Evolution')
+    ax.grid(True)
+
+def plot_params_evolution(history, ax=None):
+    """
+    Plot parameter evolution.
+    
+    Args:
+        history: Optimizer history
+        
+    Returns:
+        matplotlib Figure
+    """
+    if ax is None: fig, ax = plt.subplots()
+    param_names = list(history['parameters'][0].keys())
+    n_params = len(param_names)
+    if n_params > 10:
+        print(f"Warning: Only showing first 10 of {n_params} parameters")
+        param_names = param_names[:10]
+        n_params = 10
+    colors = plt.cm.hsv(np.linspace(0, 1, n_params))
+    for i, (param, color) in enumerate(zip(param_names, colors)):
+        param_values = [p[param] for p in history['parameters']]
+        ax.plot(history['iterations'], param_values,  color=color, label=param)
+    ax.set_xlabel('Iteration')
+    ax.set_ylabel('Parameter Value')
+    ax.set_title('Parameter Evolution')
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    ax.grid(True)
+
 def plot_optimization_progress(optimizer, figsize=(12, 5)):
     """
     Plot optimization progress.
@@ -21,40 +65,9 @@ def plot_optimization_progress(optimizer, figsize=(12, 5)):
         matplotlib Figure
     """
     history = optimizer.history
-    
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
-    
-    # Plot distance vs iteration
-    ax1.plot(history['iterations'], history['distances'], 'b-')
-    ax1.set_yscale('log')
-    ax1.set_xlabel('Iteration')
-    ax1.set_ylabel('Distance (log scale)')
-    ax1.set_title('Optimization Progress')
-    ax1.grid(True)
-    
-    # Plot parameter evolution
-    param_names = list(optimizer.param_ranges.keys())
-    n_params = len(param_names)
-    
-    # Only plot up to 10 parameters to avoid clutter
-    if n_params > 10:
-        print(f"Warning: Only showing first 10 of {n_params} parameters")
-        param_names = param_names[:10]
-        n_params = 10
-    
-    colors = plt.cm.viridis(np.linspace(0, 1, n_params))
-    
-    for i, (param, color) in enumerate(zip(param_names, colors)):
-        param_values = [p[param] for p in history['parameters']]
-        ax2.plot(history['iterations'], param_values, 
-                color=color, label=param)
-    
-    ax2.set_xlabel('Iteration')
-    ax2.set_ylabel('Parameter Value')
-    ax2.set_title('Parameter Evolution')
-    ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    ax2.grid(True)
-    
+    plot_error_evolution (history,  ax1)
+    plot_params_evolution(history, ax2)
     plt.tight_layout()
     return fig
 

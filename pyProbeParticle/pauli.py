@@ -222,7 +222,7 @@ class PauliSolver:
     def scan_current_tip(self, pTips, Vtips, pSites, params, order, cs, state_order, rots=None, out_current=None, bOmp=False, Es=None, Ts=None, return_probs=True, bMakeArrays=True ):
         npoins = len(pTips)
         nsites = len(pSites)
-        print( f"scan_current_tip() nsites: {nsites} npoins: {npoins} bOmp: {bOmp} bMakeArrays: {bMakeArrays} order: {order} cs: {cs}" )
+        #print( f"scan_current_tip() nsites: {nsites} npoins: {npoins} bOmp: {bOmp} bMakeArrays: {bMakeArrays} order: {order} cs: {cs}" )
         if out_current is None: out_current = np.zeros(npoins, dtype=np.float64)
         if Ts is not None: 
             externTs = True
@@ -309,7 +309,7 @@ def make_cpp_params(params):
     """Build C++ params array including mirror/ramp flags from params dict"""
     bMirror = params.get('bMirror', True)
     bRamp   = params.get('bRamp',   True)
-    print("make_cpp_params(): bMirror: ", bMirror, " bRamp: ", bRamp)
+    #print("make_cpp_params(): bMirror: ", bMirror, " bRamp: ", bRamp)
     return np.array([ params['Rtip'], params['zV0'], params['zVd'], params['Esite'],  params['decay'], params['GammaT'], params['W'], float(bMirror), float(bRamp) ], dtype=np.float64)
 
 def make_state_order(nsite):

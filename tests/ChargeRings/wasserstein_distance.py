@@ -154,3 +154,28 @@ def wasserstein_1d_general(
 
     distance = np.sum(cdf_diffs * interval_widths)
     return distance
+
+def wasserstein_2d_grid(img1, img2, dx=1.0, dy=1.0):
+    """
+    Calculate 2D Wasserstein distance between two images on a regular grid
+    
+    Args:
+        img1, img2: 2D arrays to compare (shape [nV, nx])
+        dx: Grid spacing along x-axis (columns)
+        dy: Grid spacing along y-axis (rows)
+    
+    Returns:
+        float: Distance metric
+    """
+    if img1.shape != img2.shape:
+        raise ValueError(f"Images must have same shape: {img1.shape} vs {img2.shape}")
+    
+    # Calculate 1D Wasserstein for each column (y direction)
+    distances = []
+    for i in range(img1.shape[1]):
+        col1 = img1[:, i]
+        col2 = img2[:, i]
+        dist = wasserstein_1d_grid(col1, col2, dy)
+        distances.append(dist)
+    
+    return np.mean(distances)

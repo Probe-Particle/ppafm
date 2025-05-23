@@ -33,7 +33,7 @@ def validate_probabilities(probs, tol=-1e-12):
     
     # Find minimum along all dimensions except the last (state dimension)
     min_vals = np.min(probs, axis=tuple(range(probs.ndim-1)))
-    print(f"Validating probabilities: min_vals {min_vals} tol {tol}")
+    #print(f"Validating probabilities: min_vals {min_vals} tol {tol}")
     for i, min_val in enumerate(min_vals):
         if min_val < tol: 
             print(f"ERROR in validate_probabilities() min_val {min_val} < tol {tol}")
@@ -776,7 +776,7 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     Emax = Es.max(axis=2)
     dIdV = np.gradient(STM, Vbiases, axis=0)
 
-    T_calc = time.perf_counter(); print(f"calculate_xV_scan_orb() calc time: {T_calc-T0:.5f} [s]")
+    #T_calc = time.perf_counter(); print(f"calculate_xV_scan_orb() calc time: {T_calc-T0:.5f} [s]")
 
     # Plot results
     extent = [0, dist, Vmin, Vmax]

@@ -120,10 +120,7 @@ class MonteCarloOptimizer:
         
         return new_params, param_name, old_value, new_value
     
-    def optimize(self, num_iterations=100, mutation_strength=0.1, 
-                 temperature=0.01, temperature_decay=0.95,
-                 early_stop_iterations=None, min_improvement=1e-6,
-                 progress_callback=None):
+    def optimize(self, num_iterations=100, mutation_strength=0.1, temperature=0.01, temperature_decay=0.95, early_stop_iterations=None, min_improvement=1e-6, progress_callback=None):
         """
         Run Monte Carlo optimization.
         
@@ -271,40 +268,3 @@ class MonteCarloOptimizer:
             'distances': self.distance_history,
             'parameters': self.parameters_history
         }
-
-
-# Example usage
-if __name__ == "__main__":
-    print("General Monte Carlo Optimizer module")
-    print("Example usage:")
-    print("""
-    # Define callbacks for your specific application
-    def run_simulation(params):
-        # Run your simulation with the parameters
-        # Return simulation results
-        return simulation_results
-        
-    def calculate_distance(sim_results):
-        # Calculate distance between simulation and reference data
-        # Return distance value (lower is better)
-        return distance
-        
-    # Initialize optimizer
-    optimizer = GeneralMonteCarloOptimizer(
-        initial_params=params,
-        param_ranges={
-            'param1': (min1, max1),
-            'param2': (min2, max2),
-            # More parameters...
-        },
-        simulation_callback=run_simulation,
-        distance_callback=calculate_distance
-    )
-
-    # Run optimization
-    optimized_params = optimizer.optimize(num_iterations=100)
-    
-    # Plot progress
-    # optimizer.plot_optimization_progress()
-    # plt.show()
-    """)
