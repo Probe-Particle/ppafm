@@ -14,10 +14,10 @@ from pyProbeParticle import pauli
 
 # Import local modules
 import pauli_scan
-from exp_utils import plot_exp_voltage_line_scan, load_and_extract_experimental_data, visualize_experimental_data
+from exp_utils import load_and_extract_experimental_data, visualize_experimental_data
 from MonteCarloOptimizer import MonteCarloOptimizer
 from fitting_plots import plot_optimization_progress,  plot_comparison
-from wasserstein_distance import wasserstein_1d_grid, wasserstein_2d_grid
+from wasserstein_distance import  wasserstein_2d_grid
 
 # Global verbosity control
 verbosity = 1  # 0=quiet, 1=normal, 2=verbose
