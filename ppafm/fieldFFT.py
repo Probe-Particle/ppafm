@@ -42,9 +42,9 @@ def getMGrid(dims, dd):
     if( nDim[1]%2 != 0 ):  yshift_ += 1.0
     if( nDim[2]%2 != 0 ):  zshift_ += 1.0
 
-    X = dx*np.roll( XYZ[0] - xshift_, xshift, axis=2)
+    X = dx*np.roll( XYZ[0] - xshift_, xshift, axis=0)
     Y = dy*np.roll( XYZ[1] - yshift_, yshift, axis=1)
-    Z = dz*np.roll( XYZ[2] - zshift_, zshift, axis=0)
+    Z = dz*np.roll( XYZ[2] - zshift_, zshift, axis=2)
     # fmt: on
     return X, Y, Z
 
