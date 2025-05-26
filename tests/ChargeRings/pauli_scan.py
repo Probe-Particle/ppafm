@@ -22,14 +22,9 @@ from scipy.interpolate import RectBivariateSpline
 # ===========================================
 
 def validate_probabilities(probs, tol=-1e-12):
-    """Check if any probabilities are negative below tolerance threshold.
-    
-    Args:
-        probs: Probability array (can be 1D, 2D or 3D)
-        tol: Negative values above this threshold will trigger an error
-        
-    Raises:
-        ValueError if any probabilities are below tolerance
+    """
+    Checks for negative probabilities in simulation results.
+    Called by all functions that compute state probabilities.
     """
     if probs is None: 
         return
@@ -44,7 +39,11 @@ def validate_probabilities(probs, tol=-1e-12):
             print(f"ERROR in validate_probabilities() min_val {min_val} < tol {tol}")
             raise ValueError(f"State {i} has negative probability ({min_val:.2e}) below tolerance ({tol:.2e})")
 
-def make_site_geom( params ):
+def make_site_geom(params):
+    """
+    Generates ring geometry for charge sites.
+    Used by all scanning functions that require multiple sites.
+    """
     nsite=params['nsite']
     spos, phis = ut.makeCircle(n=nsite,R=params['radius'],phi0=params['phiRot'])
     spos[:,2]  = params['zQd']
@@ -207,16 +206,11 @@ def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, asp
 
 def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=100, bLegend=True, scV=1.0, Woffsets=None, pSites=None):
     """
-    Scan voltage dependence above one particle
+    Simulates tip potential and current for voltage scanning experiments.
     
-    Args:
-        params: Dictionary of parameters
-        ax_V2d:   Axis for 2D voltage scan plot (Esite vs x,V)
-        ax_Vtip:  Axis for tip potential plot
-        ax_Esite: Axis for site potential plot
-        nx: Number of x points
-        nV: Number of voltage points
-        ny: Number of y points
+    Core function for visualizing potential landscapes without Pauli solver.
+    Used by CombinedChargeRingsGUI_v5.py for basic potential simulations.
+    For Pauli solver simulations, see calculate_xV_scan() functions.
     """
     L = params['L']
     z_tip = params['z_tip']
@@ -593,7 +587,13 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
 
 def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None):
-    """Scan voltage dependence along a line using orbital-based hopping Ts"""
+    """
+    Voltage scan along a line with orbital-based tunneling calculations.
+    
+    Orbital-aware version of calculate_xV_scan(). Uses external orbital data if provided,
+    otherwise falls back to internal tunneling calculations.
+    Key function used in fit_sim_exp_general.py and CombinedChargeRingsGUI_v5.py.
+    """
     T0 = time.perf_counter()
     # Line geometry
     x1, y1 = start_point; x2, y2 = end_point
