@@ -7,61 +7,49 @@ def example_xV_scan_with_exp_ref():
     from exp_utils import load_and_extract_experimental_data
     
     # Load experimental data
-    exp_STM, exp_dIdV, exp_dist, exp_biases = load_and_extract_experimental_data(
-        filename='exp_rings_data.npz',
-        start_point=(9.72, -6.96),  # From param_specs ep1_x, ep1_y
-        end_point=(-11.0, 15.0),    # From param_specs ep2_x, ep2_y
-        pointPerAngstrom=5,
-        verbosity=1
-    )
-    
-    # Prepare ExpRef dictionary
-    ExpRef = {
-        'STM': exp_STM,
-        'dIdV': exp_dIdV,
-        'x': exp_dist,
-        'voltages': exp_biases
-    }
+    exp_p0=(9.72, -6.96)
+    exp_p1=(-11.0, 15.0)
+    exp_STM, exp_dIdV, exp_dist, exp_biases = load_and_extract_experimental_data( filename='exp_rings_data.npz',  start_point=exp_p0, end_point=exp_p1, pointPerAngstrom=5, verbosity=1 )
+    ExpRef = { 'STM': exp_STM, 'dIdV': exp_dIdV, 'x': exp_dist, 'voltages': exp_biases}
     
     # Set up base parameters from param_specs
     params = {
-        'nsite': 3,
-        'radius': 5.2,
-        'phiRot': 1.3,
+        'nsite':   3,
+        'radius':  5.2,
+        'phiRot':  1.3,
         'phi0_ax': 0.2,
-        'VBias': 0.70,
-        'Rtip': 3.0,
-        'z_tip': 5.0,
-        'zV0': -1.0,
-        'zVd': 15.0,
-        'zQd': 0.0,
-        'Q0': 1.0,
-        'Qzz': 10.0,
-        'Esite': -0.100,
-        'W': 0.02,
-        'decay': 0.3,
-        'GammaS': 0.01,
-        'GammaT': 0.01,
-        'Temp': 0.224
+        'VBias':   0.70,
+        'Rtip':    3.0,
+        'z_tip':   5.0,
+        'zV0':     -1.0,
+        'zVd':     15.0,
+        'zQd':     0.0,
+        'Q0':      1.0,
+        'Qzz':     10.0,
+        'Esite':   -0.100,
+        'W':       0.02,
+        'decay':   0.3,
+        'GammaS':  0.01,
+        'GammaT':  0.01,
+        'Temp':    0.224
     }
     
     # Define parameter sweep - scanning Rtip and z_tip
     scan_params = [
-        ('Rtip', [2.5, 3.0, 3.5]),
-        ('z_tip', [4.5, 5.0, 5.5])
+        #('Rtip',  [2.5, 3.0, 3.5]),
+        #('z_tip', [4.5, 5.0, 5.5])
+        #('Esite',  [ -0.080,-0.100, -0.120, -0.140 ]),
+         ('zVd',    [ 15.0, 10.0, 8.0, 6.0 ]),
+        #('decay', [0.1, 0.2, 0.3, 0.4])
     ]
     
     # Run the xV scan with orbital data and experimental reference
-    fig, results = ps.sweep_scan_param_pauli_xV_orb(
-        params=params,
-        scan_params=scan_params,
-        start_point=(9.72, -6.96),  # Same as experimental line
-        end_point=(-11.0, 15.0),
-        ExpRef=ExpRef,
-        nx=100,
-        nV=100,
-        Vmin=0.0,
-        Vmax=1.0,
+    p0=(9.72, -9.96)
+    p1=(-11.0, 12.0)
+    fig, results = ps.sweep_scan_param_pauli_xV_orb( 
+        params=params, scan_params=scan_params, start_point=p0, end_point=p1, ExpRef=ExpRef, # pointPerAngstrom=5,
+        #verbosity=1,  
+        nx=100, nV=100, Vmin=0.0, Vmax=1.0,
         result_dir='pauli_scan_results'
     )
     
