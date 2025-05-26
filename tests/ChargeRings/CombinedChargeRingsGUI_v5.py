@@ -380,7 +380,7 @@ class ApplicationWindow(GUITemplate):
         #bOmp = True   # Seems that currently it is not working
         bOmp = False
         
-        pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0], bLegend=False)
+        pauli_scan.scan_tipField_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0], bLegend=False)
         #pauli_scan.scan_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, params['W'], params['W']*2.0])
         # Determine mode: XY plane or xV line comparison
         if self.cbPlotXV.isChecked():

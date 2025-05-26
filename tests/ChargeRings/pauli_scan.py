@@ -204,7 +204,7 @@ def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, asp
 
 # ============= Simulate Tip Field ( No Pauli solver simulation )
 
-def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=100, bLegend=True, scV=1.0, Woffsets=None, pSites=None):
+def scan_tipField_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=100, bLegend=True, scV=1.0, Woffsets=None, pSites=None):
     """
     Simulates tip potential and current for voltage scanning experiments.
     
@@ -720,7 +720,7 @@ def sweep_param_xV(params, scan_params, selected_params=None, nx=100, nV=100, sz
         ax_Esite = axes[1,i] if nscan > 1 else axes[1]
         
         # Run scan for current parameter values
-        scan_xV(params, ax_xV=ax_xV, ax_Esite=ax_Esite, nx=nx, nV=nV, bLegend=bLegend)
+        scan_tipField_xV(params, ax_xV=ax_xV, ax_Esite=ax_Esite, nx=nx, nV=nV, bLegend=bLegend)
         
         # Build title showing all swept parameters
         title_parts = [f"{name}={params[name]:.3f}" for name in param_names]
@@ -990,8 +990,8 @@ if __name__ == "__main__":
     # # Create figure
     # fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize=(15, 10))
     # # Run scans with plotting
-    # #scan_xV(params, ax_V2d=ax1, ax_Vtip=ax2, ax_Esite=ax3)
-    # scan_xV(params, ax_Vtip=ax1,  ax_V2d=ax2,  ax_I2d=ax3)
+    # #scan_tipField_xV(params, ax_V2d=ax1, ax_Vtip=ax2, ax_Esite=ax3)
+    # scan_tipField_xV(params, ax_Vtip=ax1,  ax_V2d=ax2,  ax_I2d=ax3)
     # #scan_xy(params, pauli_solver, ax_Etot=ax4, ax_Ttot=ax5, ax_STM=ax6)    
     # plt.tight_layout()
     # plt.show()

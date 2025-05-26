@@ -343,10 +343,10 @@ class ApplicationWindow(GUITemplate):
         # Run scans with descriptive axis names
         if self.cbShowProbs.isChecked():
             figp1 = plt.figure(); axs1 = figp1.subplots(1,1)
-            pauli_scan.scan_xV(params, ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3, axs_probs=axs1, fig_probs=figp1)
+            pauli_scan.scan_tipField_xV(params, ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3, axs_probs=axs1, fig_probs=figp1)
             figp1.show()
         else:
-            pauli_scan.scan_xV(params, ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3)
+            pauli_scan.scan_tipField_xV(params, ax_V2d=self.ax1, ax_Vtip=self.ax2, ax_Esite=self.ax3)
         # 2D spatial scan with optional many-body probability panels
         if self.cbShowProbs.isChecked():
             figp2 = plt.figure(); axs2 = figp2.subplots(2,4).flatten()
