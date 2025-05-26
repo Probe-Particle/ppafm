@@ -691,10 +691,10 @@ def loadCUBE(fname, verbose=True):
 
 
 def saveWSxM_2D(name_file, data, Xs, Ys):
-    tmp_data = data.flatten()
+    tmp_data = data.flatten(order="F")
     out_data = np.zeros((len(tmp_data), 3))
-    out_data[:, 0] = Xs.flatten()
-    out_data[:, 1] = Ys.flatten()
+    out_data[:, 0] = Xs.flatten(order="F")
+    out_data[:, 1] = Ys.flatten(order="F")
     out_data[:, 2] = tmp_data  # .copy()
     f = open(name_file, "w")
     print("WSxM file copyright Nanotec Electronica", file=f)
@@ -715,7 +715,7 @@ def saveWSxM_3D(prefix, data, extent, slices=None):
     for i in slices:
         print("slice no: ", i)
         fname = prefix + "_%03d.xyz" % i
-        saveWSxM_2D(fname, data[i], Xs, Ys)
+        saveWSxM_2D(fname, data[:, :, i], Xs, Ys)
 
 
 # ================ Npy
