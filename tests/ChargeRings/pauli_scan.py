@@ -269,6 +269,48 @@ def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, asp
     fig.tight_layout()
     return fig, axs
 
+def plot_xV_column(fig, ncols, col_idx, STM_data, dIdV_data, extent, 
+                  title_prefix='', stm_cmap='hot', dIdV_cmap='bwr',
+                  stm_label='Current (a.u.)', dIdV_label='dI/dV (a.u.)'):
+    """
+    Plot complete column of STM (top) and dIdV (bottom) plots.
+    
+    Args:
+        fig: Figure object
+        ncols: Total columns in figure
+        col_idx: Column index (0-based)
+        STM_data: 2D STM data
+        dIdV_data: 2D dI/dV data
+        extent: Plot extent [xmin, xmax, ymin, ymax]
+        title_prefix: Prefix for subplot titles
+        stm_cmap: Colormap for STM
+        dIdV_cmap: Colormap for dI/dV
+        stm_label: Colorbar label for STM
+        dIdV_label: Colorbar label for dI/dV
+    """
+    # STM plot (top row)
+    ax_STM = fig.add_subplot(2, ncols, col_idx + 1)
+    im_STM = ax_STM.imshow(STM_data, extent=extent, aspect='auto', 
+                          cmap=stm_cmap, origin='lower')
+    ax_STM.set(title=f'{title_prefix}STM', xlabel='Distance (Å)')
+    fig.colorbar(im_STM, ax=ax_STM, label=stm_label)
+    
+    # dIdV plot (bottom row)
+    ax_dIdV = fig.add_subplot(2, ncols, col_idx + ncols + 1)
+    vmax = np.max(np.abs(dIdV_data))
+    im_dIdV = ax_dIdV.imshow(dIdV_data, extent=extent, aspect='auto',
+                            cmap=dIdV_cmap, origin='lower', 
+                            vmin=-vmax, vmax=vmax)
+    ax_dIdV.set(title=f'{title_prefix}dI/dV', xlabel='Distance (Å)')
+    fig.colorbar(im_dIdV, ax=ax_dIdV, label=dIdV_label)
+    
+    # Set common ylabel for first column only
+    if col_idx == 0:
+        ax_STM.set_ylabel('Voltage (V)')
+        ax_dIdV.set_ylabel('Voltage (V)')
+    
+    return ax_STM, ax_dIdV
+
 # ===========================================
 # ============= Scan functions
 # ===========================================
@@ -910,7 +952,7 @@ def sweep_scan_param_pauli_xy_orb(params, scan_params, selected_params=None, orb
         ax_dIdV = fig.add_subplot(3, nscan+1, i+2*nscan+4)
         
         # Run pauli scan and plot results (same as before)
-        STM_flat, Es_flat, Ts_flat_, probs_ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp )
+        STM_flat, Es_flat, Ts_flat_, probs_ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
         validate_probabilities(probs_)
         dIdV = None
         if ax_dIdV is not None:
@@ -1035,19 +1077,8 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, start_point=(0,0), end_po
         # Calculate extent for experimental data
         exp_extent = [0, max(exp_x), min(exp_voltages), max(exp_voltages)]
         
-        # Plot experimental STM
-        ax_exp_STM = fig.add_subplot(nrows, ncols, 1)
-        im0 = ax_exp_STM.imshow(exp_STM, extent=exp_extent, aspect='auto', cmap='hot', origin='lower')
-        ax_exp_STM.set(title='Experimental STM', xlabel='Distance (Å)', ylabel='Voltage (V)')
-        fig.colorbar(im0, ax=ax_exp_STM, label='Current (nA)')
-        
-        # Plot experimental dIdV
-        ax_exp_dIdV = fig.add_subplot(nrows, ncols, ncols+1)
-        vmax = np.max(np.abs(exp_dIdV))
-        im1 = ax_exp_dIdV.imshow(exp_dIdV, extent=exp_extent, aspect='auto', cmap='bwr', 
-                               origin='lower', vmin=-vmax, vmax=vmax)
-        ax_exp_dIdV.set(title='Experimental dI/dV', xlabel='Distance (Å)', ylabel='Voltage (V)')
-        fig.colorbar(im1, ax=ax_exp_dIdV, label='dI/dV (nS)')
+        # Plot complete experimental column (first column)
+        plot_xV_column(fig, ncols, 0, exp_STM, exp_dIdV, exp_extent, title_prefix='Experimental ',  stm_label='Current (nA)', dIdV_label='dI/dV (nS)')
         
         # Set column offset for simulation plots
         col_offset = 1
@@ -1082,33 +1113,18 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, start_point=(0,0), end_po
         # Store results
         all_results.append({
             'parameters': run_params,
-            'simulation': {
-                'STM': STM.tolist(),
-                'dIdV': dIdV.tolist(),
-                'voltages': voltages.tolist(),
-                'x_coords': x.tolist()
-            },
+            # 'simulation': {
+            #     'STM':      STM .tolist(),
+            #     'dIdV':     dIdV.tolist(),
+            #     'voltages': voltages.tolist(),
+            #     'x_coords': x.tolist()
+            # },
             'timestamp': datetime.now().isoformat()
         })
         
         # Calculate extent for simulation data
         sim_extent = [0, dist, Vmin, Vmax]
-        
-        # Plot STM
-        ax_STM = fig.add_subplot(nrows, ncols, i + col_offset + 1)
-        im_STM = ax_STM.imshow(STM, extent=sim_extent, aspect='auto', cmap='hot', origin='lower')
-        ax_STM.set(title=f'STM: {param_names[0]}={params_i[param_names[0]]:.4g}', xlabel='Distance (Å)')
-        if i == nscan-1 or (i == 0 and col_offset == 0):
-            fig.colorbar(im_STM, ax=ax_STM, label='Current (a.u.)')
-        
-        # Plot dIdV
-        vmax = np.max(np.abs(dIdV))
-        ax_dIdV = fig.add_subplot(nrows, ncols, i + col_offset + ncols + 1)
-        im_dIdV = ax_dIdV.imshow(dIdV, extent=sim_extent, aspect='auto', cmap='bwr', 
-                               origin='lower', vmin=-vmax, vmax=vmax)
-        ax_dIdV.set(title=f'dI/dV: {param_names[0]}={params_i[param_names[0]]:.4g}', xlabel='Distance (Å)')
-        if i == nscan-1 or (i == 0 and col_offset == 0):
-            fig.colorbar(im_dIdV, ax=ax_dIdV, label='dI/dV (a.u.)')
+        plot_xV_column(fig, ncols, i + col_offset, STM, dIdV, sim_extent, title_prefix=f'{param_names[0]}={params_i[param_names[0]]:.4g} ')
     
     # Set consistent voltage limits across all plots
     for ax in fig.get_axes():
