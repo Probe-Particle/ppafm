@@ -16,6 +16,11 @@ import time
 import orbital_utils
 from scipy.interpolate import RectBivariateSpline
 
+
+# ===========================================
+# ============= Utility functions
+# ===========================================
+
 def validate_probabilities(probs, tol=-1e-12):
     """Check if any probabilities are negative below tolerance threshold.
     
@@ -58,6 +63,147 @@ def make_grid_axes(fig, nplots):
     axs = fig.subplots(nrows, ncols)
     # flatten axes array
     return _np.array(axs).flatten()
+
+def cut_central_region(map_list, dcanv, big_npix, small_npix):
+    """Crop central small_npix×small_npix from big_npix maps with pixel size dcanv"""
+    center=big_npix//2; half=small_npix//2; start=center-half; end=start+small_npix
+    return [m[start:end, start:end] for m in map_list]
+
+def generate_central_hops(orb2D, orb_lvec, spos_xy, angles, z0, dcanv, big_npix, small_npix, decay=0.2):
+    """Compute big canvas hops and crop central small canvas"""
+    big_dd=[dcanv,dcanv]; big_shape=(big_npix,big_npix)
+    tipWf,shift=orbital_utils.make_tipWf(big_shape,big_dd,z0=z0,decay=decay)
+    Ms_big,rho_big=orbital_utils.calculate_Hopping_maps(orb2D,orb_lvec,spos_xy,angles,big_dd,big_shape,tipWf,bTranspose=True)
+    Ms_small=cut_central_region(Ms_big,dcanv,big_npix,small_npix)
+    rho_small=cut_central_region([rho_big],dcanv,big_npix,small_npix)[0]
+    return Ms_small, rho_small
+
+# ===========================================
+# ============= Plot & Save functions
+# ===========================================
+
+def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2):
+    """Save 1D scan data to file"""
+    # Prepare header with parameters
+    param_header = "# Calculation parameters:\n"
+    for key, val in params.items():
+        param_header += f"# {key}: {val}\n"
+    # Add column descriptions
+    param_header += "\n# Column descriptions:\n"
+    param_header += "# 0: Distance (Angstrom)\n"
+    param_header += "# 1: X coordinate\n"
+    param_header += "# 2: Y coordinate\n"
+    for i in range(nsite):
+        param_header += f"# {i+3}: Esite_{i+1}\n"
+    for i in range(nsite):
+        param_header += f"# {i+3+nsite}: Tsite_{i+1}\n"
+    param_header += f"# {3+2*nsite}: STM_total\n"
+    # Add line coordinates
+    param_header += f"\n# Line scan from ({x1:.2f}, {y1:.2f}) to ({x2:.2f}, {y2:.2f})"
+    # Stack data
+    save_data = np.column_stack( [distance, x, y] + [Es[:, i] for i in range(nsite)] + [Ts[:, i] for i in range(nsite)] + [STM] )
+    filename = f"line_scan_{x1:.1f}_{y1:.1f}_to_{x2:.1f}_{y2:.1f}.dat"
+    np.savetxt(filename, save_data, header=param_header)
+    print(f"Data saved to {filename}")
+    return filename
+
+def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, ref_data_line=None, ref_columns=None, fig=None):
+    """Plot results of 1D scan"""
+    bProbs = (probs is not None)
+    nsub   = 3 + bProbs
+
+    if fig is None:
+        fig = plt.figure(figsize=(10, 12))
+    bRef = (ref_data_line is not None and ref_columns is not None)
+
+    ax1 = fig.add_subplot(nsub,1,1)
+    clrs = ['r', 'g', 'b']
+    for i in range(nsite):
+        ax1.plot(distance, Es[:, i], '-', linewidth=0.5, color=clrs[i], label=f'E_{i+1}')
+        if bRef:
+            icol = ref_columns[f'Esite_{i+1}']
+            ax1.plot( ref_data_line[:, 0], ref_data_line[:, icol], ':', color=clrs[i], alpha=0.7, label=f'Ref E_{i+1}')
+    ax1.set_ylabel('Energy [eV]')
+    ax1.legend()
+    ax1.grid(True)
+
+    ax2 = fig.add_subplot(nsub,1,2)
+    for i in range(nsite):
+        ax2.plot(distance, Ts[:, i], '-', linewidth=0.5, color=clrs[i], label=f'T_{i+1}')
+        if bRef:
+            icol = ref_columns[f'Tsite_{i+1}']
+            ax2.plot( ref_data_line[:, 0], ref_data_line[:, icol], ':', color=clrs[i], alpha=0.7, label=f'Ref T_{i+1}' )
+    ax2.set_ylabel('Hopping T [a.u.]')
+    ax2.legend()
+    ax2.grid(True)
+
+    ax3 = fig.add_subplot(nsub,1,3)
+    ax3.plot(distance, STM, '.-', color='k', linewidth=0.5, markersize=1.5, label='STM')
+    ax3.set_ylabel('Current [a.u.]')
+    ax3.legend()
+    ax3.grid(True)
+
+    if probs is not None:
+        ax4 = fig.add_subplot(nsub,1,4)
+        nsite = probs.shape[1]
+        state_order = pauli.make_state_order(nsite)
+        labels = pauli.make_state_labels(state_order)
+        for idx in range(probs.shape[1]): ax4.plot(distance, probs[:,idx], label=labels[idx])
+        ax4.set_xlabel('Distance'); ax4.set_ylabel('Probability')
+        ax4.legend()
+        ax4.grid(True)
+
+    fig.tight_layout()
+    #plt.show()
+    return fig
+
+def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, aspect='auto'):
+    """
+    Plot multiple state probability maps. Handles single or array of axes.
+    probs: 3D array shape (nV, nx, n_states)
+    extent: sequence of 4 [xmin, xmax, ymin, ymax]
+    """
+    # Number of states to plot
+    n_states = probs.shape[-1]
+    # Create default figure/axes if needed
+    ncols = min(2, n_states)
+    nrows = int(np.ceil(n_states / ncols))
+    if fig is None:
+        fig = plt.figure( figsize=(4*n_states, 3*nrows) )
+    if axs is None:
+        axs = fig.subplots(nrows, ncols, figsize=(4*ncols, 3*nrows))
+
+    # Flatten axes into list
+    try:
+        axs_flat = axs.flatten()
+    except AttributeError:
+        axs_flat = [axs]
+    # Ensure fig is set
+    if fig is None and hasattr(axs_flat[0], 'figure'):
+        fig = axs_flat[0].figure
+    # Plot each state's probability
+    for idx in range(n_states):
+        ax = axs_flat[idx]
+        ax.clear()
+        title = labels[idx] if labels and idx < len(labels) else f"P{idx}"
+        im = ax.imshow(probs[:,:,idx], origin='lower', extent=extent, cmap='viridis', interpolation='nearest')
+        ax.set_aspect(aspect)
+        ax.set_title(title)
+        ax.set_xlabel('x [Å]')
+        ax.set_ylabel('V_bias [V]')
+        fig.colorbar(im, ax=ax, label='Probability')
+    # Hide extra axes
+    # for extra_ax in axs_flat[n_states:]:
+    #     extra_ax.clear()
+    #     extra_ax.set_visible(False)
+    fig.tight_layout()
+    return fig, axs
+
+# ===========================================
+# ============= Scan functions
+# ===========================================
+
+# ============= Simulate Tip Field ( No Pauli solver simulation )
 
 def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=100, bLegend=True, scV=1.0, Woffsets=None, pSites=None):
     """
@@ -162,6 +308,47 @@ def scan_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=100, ny=1
         Esites = None
         
     return V1d, V2d, Esites, I
+
+
+# ============= 1D scan with Pauli Master-equation simulation
+
+def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_probs=None, pauli_solver=None ):
+    """Calculate 1D scan between two points using run_pauli_scan"""
+    x1, y1 = start_point
+    x2, y2 = end_point
+    dist = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+    npoints = max(100, int(dist * pointPerAngstrom))
+    t = np.linspace(0, 1, npoints)
+    x = x1 + (x2 - x1) * t
+    y = y1 + (y2 - y1) * t
+    distance = np.linspace(0, dist, npoints)
+
+    zT = params['z_tip'] + params['Rtip']
+    pTips = np.zeros((npoints, 3))
+    pTips[:, 0] = x
+    pTips[:, 1] = y
+    pTips[:, 2] = zT
+
+    nsite = int(params['nsite'])
+    # Site geometry (positions, rotations, angles)
+    spos, rots, angles = make_site_geom(params)
+
+    Vtips = np.full(npoints, params['VBias'])
+    cpp_params = pauli.make_cpp_params(params)
+    cs, order  = pauli.make_quadrupole_Coeffs(params['Q0'], params['Qzz'])
+    state_order = pauli.make_state_order(nsite)
+    # Run scan
+    if pauli_solver is None:
+        pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
+    current, Es, Ts, probs = pauli_solver.scan_current_tip( pTips, Vtips, spos,  cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
+    validate_probabilities(probs)
+    if ax_probs:
+        axp = ax_probs
+        for i in range(probs.shape[1]): axp.plot(distance, probs[:,i], label=f"P{i}")
+        axp.legend()
+    return distance, Es, Ts, current, x, y, x1, y1, x2, y2, probs    
+
+# ============= 2D (x,y) scan with Pauli Master-equation simulation
 
 def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_dIdV=None, bOmp=False, sdIdV=0.5, fig_probs=None):
     """
@@ -312,30 +499,8 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     #T4 = time.perf_counter(); print("Time(scan_xy_orb.4 plotting)",  T4-T3 )        
     return STM, dIdV, Es, Ts, probs, spos, rots
 
-def cut_central_region(map_list, dcanv, big_npix, small_npix):
-    """Crop central small_npix×small_npix from big_npix maps with pixel size dcanv"""
-    center=big_npix//2; half=small_npix//2; start=center-half; end=start+small_npix
-    return [m[start:end, start:end] for m in map_list]
-
-def pixel_to_coord(i,j,dcanv,npix):
-    """Map pixel idx to coord centered at 0"""
-    return ((i+0.5-npix/2)*dcanv, (j+0.5-npix/2)*dcanv)
-
-def coord_to_pixel(x,y,dcanv,npix):
-    """Map coord to nearest pixel idx"""
-    return (int(x/dcanv + npix/2), int(y/dcanv + npix/2))
-
-def generate_central_hops(orb2D, orb_lvec, spos_xy, angles, z0, dcanv, big_npix, small_npix, decay=0.2):
-    """Compute big canvas hops and crop central small canvas"""
-    big_dd=[dcanv,dcanv]; big_shape=(big_npix,big_npix)
-    tipWf,shift=orbital_utils.make_tipWf(big_shape,big_dd,z0=z0,decay=decay)
-    Ms_big,rho_big=orbital_utils.calculate_Hopping_maps(orb2D,orb_lvec,spos_xy,angles,big_dd,big_shape,tipWf,bTranspose=True)
-    Ms_small=cut_central_region(Ms_big,dcanv,big_npix,small_npix)
-    rho_small=cut_central_region([rho_big],dcanv,big_npix,small_npix)[0]
-    return Ms_small, rho_small
-
 def run_scan_xy_orb( params, orbital_file="QD.cub" ):
-    print("Testing scan_xy_orb with real orbital data...")        
+    print(f"run_scan_xy_orb() ... testing scan_xy_orb() with orbital loading from file {orbital_file}")        
     # Load orbital data from the QD.cub file in the current directory
     if orbital_file is not None:
         if not os.path.exists(orbital_file):
@@ -363,6 +528,149 @@ def run_scan_xy_orb( params, orbital_file="QD.cub" ):
     plt.savefig('scan_xy_orb_test.png')
     print(f"Figure saved as 'scan_xy_orb_test.png'")
     #plt.show()
+
+
+# ============= 2D (x,V)-plane scan with Pauli Master-equation simulation
+
+def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5, fig_probs=None, bOmp=False, pauli_solver=None):
+    """Scan tip along a line for a range of voltages and plot Emax, STM, dI/dV."""
+    print("calculate_xV_scan()", start_point, end_point,  )
+    # Line geometry
+    x1, y1 = start_point; x2, y2 = end_point
+    dist = np.hypot(x2-x1, y2-y1)
+    npts = nx
+    t = np.linspace(0,1,npts)
+    x = x1 + (x2-x1)*t; y = y1 + (y2-y1)*t
+    if Vmax is None: Vmax = params['VBias']
+    Vbiases = np.linspace(Vmin, Vmax, nV)
+
+    # Site & rotation
+    nsite = int(params['nsite'])
+    # Site geometry (positions, rotations, angles)
+    spos, rots, angles = make_site_geom(params)
+
+    pTips = np.zeros((npts,3))
+    pTips[:,0] = x; pTips[:,1] = y
+    zT = params['z_tip'] + params['Rtip']
+    pTips[:,2] = zT
+    
+    cpp_params = pauli.make_cpp_params(params)
+    state_order = pauli.make_state_order(nsite)
+    current, Es, Ts, probs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=bOmp, state_order=state_order, Ts=None, pauli_solver=pauli_solver )
+    validate_probabilities(probs)
+    # reshape
+    STM = current.reshape(nV,npts)
+    Es  = Es.reshape(nV,npts,nsite)
+    # max energy per bias
+    Emax = Es.max(axis=2)
+    # dI/dV
+    dIdV = np.gradient(STM, Vbiases, axis=0)
+
+    # Plot
+    extent = [0, dist, Vmin, Vmax]
+    if ax_Emax is not None:
+        pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr')
+        ax_Emax.set_aspect('auto');
+        if bLegend: ax_Emax.set_ylabel('V [V]')
+    if ax_STM is not None:
+        pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap='hot')
+        ax_STM.set_aspect('auto');
+        if bLegend: ax_STM.set_ylabel('V [V]')
+    if ax_dIdV is not None:
+        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', scV=sdIdV)
+        ax_dIdV.set_aspect('auto');
+        if bLegend: ax_dIdV.set_ylabel('V [V]')
+
+    probs = probs.reshape(nV, nx, -1)
+    if fig_probs is not None:
+        # dynamic grid axes for probabilities
+        n_states = probs.shape[2]
+        state_order = pauli.make_state_order(params['nsite'])
+        labels = pauli.make_state_labels(state_order)
+        axs = make_grid_axes(fig_probs, n_states)
+        plot_state_probabilities(probs, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
+    print("calculate_xV_scan() DONE")
+    return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
+
+def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None):
+    """Scan voltage dependence along a line using orbital-based hopping Ts"""
+    T0 = time.perf_counter()
+    # Line geometry
+    x1, y1 = start_point; x2, y2 = end_point
+    dist = np.hypot(x2-x1, y2-y1)
+    npts = nx
+    t = np.linspace(0,1,npts)
+    x = x1 + (x2-x1)*t; y = y1 + (y2-y1)*t
+    if Vmax is None: Vmax = params['VBias']
+    Vbiases = np.linspace(Vmin, Vmax, nV)
+
+    # Site & rotation
+    nsite = int(params['nsite'])
+    # Site geometry (positions, rotations, angles)
+    spos, rots, angles = make_site_geom(params)
+
+    # Compute hopping Ts along line from orbital data
+    if orbital_2D is not None:
+        L = params['L']; npix = params['npix']
+        dcanv = 2*L/npix
+        big_npix = int(params.get('big_npix',400))
+        Ms, _ = generate_central_hops(orbital_2D, orbital_lvec, spos[:,:2], angles, params['z_tip']+params['Rtip'], dcanv, big_npix, npix, decay=decay or params.get('decay',0.2))
+        # Prepare grid for interpolation
+        coords = (np.arange(npix) + 0.5 - npix/2)*dcanv
+        Ts_line = np.zeros((npts, nsite))
+        for i in range(nsite):
+            Ts_map = Ms[i] #**2
+            interp = RectBivariateSpline(coords, coords, Ts_map)
+            Ts_line[:,i] = interp(y, x, grid=False)
+        Ts_input = Ts_line
+    else:
+        Ts_input = None
+
+    # Prepare tip positions
+    pTips = np.zeros((npts,3))
+    pTips[:,0] = x; pTips[:,1] = y; pTips[:,2] = params['z_tip']+params['Rtip']
+
+    state_order = pauli.make_state_order(nsite)
+    # Run scan using parameter dict (wrapper generates C++ params internally)
+    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver )
+    validate_probabilities(probs)
+    # reshape and compute
+    STM = current.reshape(nV, npts)
+    Es  = Es.reshape(nV, npts, nsite)
+    Emax = Es.max(axis=2)
+    dIdV = np.gradient(STM, Vbiases, axis=0)
+
+    #T_calc = time.perf_counter(); print(f"calculate_xV_scan_orb() calc time: {T_calc-T0:.5f} [s]")
+
+    # Plot results
+    extent = [0, dist, Vmin, Vmax]
+    if ax_Emax is not None:
+        pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr')
+        ax_Emax.set_aspect('auto');
+        if bLegend: ax_Emax.set_ylabel('V [V]')
+    if ax_STM is not None:
+        pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap='hot')
+        ax_STM.set_aspect('auto');
+        if bLegend: ax_STM.set_ylabel('V [V]')
+    if ax_dIdV is not None:
+        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', scV=sdIdV)
+        ax_dIdV.set_aspect('auto');
+        if bLegend: ax_dIdV.set_ylabel('V [V]')
+
+    probs = probs.reshape(nV, nx, -1)
+    if fig_probs is not None:
+        # dynamic grid axes for probabilities
+        n_states = probs.shape[2]
+        state_order = pauli.make_state_order(params['nsite'])
+        labels = pauli.make_state_labels(state_order)
+        axs = make_grid_axes(fig_probs, n_states)
+        plot_state_probabilities(probs, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
+    return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
+
+
+# ===========================================
+# ============= Sweep functions
+# ===========================================
 
 def sweep_param_xV(params, scan_params, selected_params=None, nx=100, nV=100, sz=3, bLegend=False):
     """
@@ -557,294 +865,14 @@ def scan_param_sweep_xy_orb(params, scan_params, selected_params=None, orbital_2
     plt.tight_layout()
     return fig
 
-def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_probs=None, pauli_solver=None ):
-    """Calculate 1D scan between two points using run_pauli_scan"""
-    x1, y1 = start_point
-    x2, y2 = end_point
-    dist = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-    npoints = max(100, int(dist * pointPerAngstrom))
-    t = np.linspace(0, 1, npoints)
-    x = x1 + (x2 - x1) * t
-    y = y1 + (y2 - y1) * t
-    distance = np.linspace(0, dist, npoints)
 
-    zT = params['z_tip'] + params['Rtip']
-    pTips = np.zeros((npoints, 3))
-    pTips[:, 0] = x
-    pTips[:, 1] = y
-    pTips[:, 2] = zT
 
-    nsite = int(params['nsite'])
-    # Site geometry (positions, rotations, angles)
-    spos, rots, angles = make_site_geom(params)
 
-    Vtips = np.full(npoints, params['VBias'])
-    cpp_params = pauli.make_cpp_params(params)
-    cs, order  = pauli.make_quadrupole_Coeffs(params['Q0'], params['Qzz'])
-    state_order = pauli.make_state_order(nsite)
-    # Run scan
-    if pauli_solver is None:
-        pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
-    current, Es, Ts, probs = pauli_solver.scan_current_tip( pTips, Vtips, spos,  cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
-    validate_probabilities(probs)
-    if ax_probs:
-        axp = ax_probs
-        for i in range(probs.shape[1]): axp.plot(distance, probs[:,i], label=f"P{i}")
-        axp.legend()
-    return distance, Es, Ts, current, x, y, x1, y1, x2, y2, probs
 
-def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, ref_data_line=None, ref_columns=None, fig=None):
-    """Plot results of 1D scan"""
-    bProbs = (probs is not None)
-    nsub   = 3 + bProbs
 
-    if fig is None:
-        fig = plt.figure(figsize=(10, 12))
-    bRef = (ref_data_line is not None and ref_columns is not None)
 
-    ax1 = fig.add_subplot(nsub,1,1)
-    clrs = ['r', 'g', 'b']
-    for i in range(nsite):
-        ax1.plot(distance, Es[:, i], '-', linewidth=0.5, color=clrs[i], label=f'E_{i+1}')
-        if bRef:
-            icol = ref_columns[f'Esite_{i+1}']
-            ax1.plot( ref_data_line[:, 0], ref_data_line[:, icol], ':', color=clrs[i], alpha=0.7, label=f'Ref E_{i+1}')
-    ax1.set_ylabel('Energy [eV]')
-    ax1.legend()
-    ax1.grid(True)
 
-    ax2 = fig.add_subplot(nsub,1,2)
-    for i in range(nsite):
-        ax2.plot(distance, Ts[:, i], '-', linewidth=0.5, color=clrs[i], label=f'T_{i+1}')
-        if bRef:
-            icol = ref_columns[f'Tsite_{i+1}']
-            ax2.plot( ref_data_line[:, 0], ref_data_line[:, icol], ':', color=clrs[i], alpha=0.7, label=f'Ref T_{i+1}' )
-    ax2.set_ylabel('Hopping T [a.u.]')
-    ax2.legend()
-    ax2.grid(True)
 
-    ax3 = fig.add_subplot(nsub,1,3)
-    ax3.plot(distance, STM, '.-', color='k', linewidth=0.5, markersize=1.5, label='STM')
-    ax3.set_ylabel('Current [a.u.]')
-    ax3.legend()
-    ax3.grid(True)
-
-    if probs is not None:
-        ax4 = fig.add_subplot(nsub,1,4)
-        nsite = probs.shape[1]
-        state_order = pauli.make_state_order(nsite)
-        labels = pauli.make_state_labels(state_order)
-        for idx in range(probs.shape[1]): ax4.plot(distance, probs[:,idx], label=labels[idx])
-        ax4.set_xlabel('Distance'); ax4.set_ylabel('Probability')
-        ax4.legend()
-        ax4.grid(True)
-
-    fig.tight_layout()
-    #plt.show()
-    return fig
-
-def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2):
-    """Save 1D scan data to file"""
-    # Prepare header with parameters
-    param_header = "# Calculation parameters:\n"
-    for key, val in params.items():
-        param_header += f"# {key}: {val}\n"
-    # Add column descriptions
-    param_header += "\n# Column descriptions:\n"
-    param_header += "# 0: Distance (Angstrom)\n"
-    param_header += "# 1: X coordinate\n"
-    param_header += "# 2: Y coordinate\n"
-    for i in range(nsite):
-        param_header += f"# {i+3}: Esite_{i+1}\n"
-    for i in range(nsite):
-        param_header += f"# {i+3+nsite}: Tsite_{i+1}\n"
-    param_header += f"# {3+2*nsite}: STM_total\n"
-    # Add line coordinates
-    param_header += f"\n# Line scan from ({x1:.2f}, {y1:.2f}) to ({x2:.2f}, {y2:.2f})"
-    # Stack data
-    save_data = np.column_stack( [distance, x, y] + [Es[:, i] for i in range(nsite)] + [Ts[:, i] for i in range(nsite)] + [STM] )
-    filename = f"line_scan_{x1:.1f}_{y1:.1f}_to_{x2:.1f}_{y2:.1f}.dat"
-    np.savetxt(filename, save_data, header=param_header)
-    print(f"Data saved to {filename}")
-    return filename
-    
-def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5, fig_probs=None, bOmp=False, pauli_solver=None):
-    """Scan tip along a line for a range of voltages and plot Emax, STM, dI/dV."""
-    print("calculate_xV_scan()", start_point, end_point,  )
-    # Line geometry
-    x1, y1 = start_point; x2, y2 = end_point
-    dist = np.hypot(x2-x1, y2-y1)
-    npts = nx
-    t = np.linspace(0,1,npts)
-    x = x1 + (x2-x1)*t; y = y1 + (y2-y1)*t
-    if Vmax is None: Vmax = params['VBias']
-    Vbiases = np.linspace(Vmin, Vmax, nV)
-
-    # Site & rotation
-    nsite = int(params['nsite'])
-    # Site geometry (positions, rotations, angles)
-    spos, rots, angles = make_site_geom(params)
-
-    pTips = np.zeros((npts,3))
-    pTips[:,0] = x; pTips[:,1] = y
-    zT = params['z_tip'] + params['Rtip']
-    pTips[:,2] = zT
-    
-    cpp_params = pauli.make_cpp_params(params)
-    state_order = pauli.make_state_order(nsite)
-    current, Es, Ts, probs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=bOmp, state_order=state_order, Ts=None, pauli_solver=pauli_solver )
-    validate_probabilities(probs)
-    # reshape
-    STM = current.reshape(nV,npts)
-    Es  = Es.reshape(nV,npts,nsite)
-    # max energy per bias
-    Emax = Es.max(axis=2)
-    # dI/dV
-    dIdV = np.gradient(STM, Vbiases, axis=0)
-
-    # Plot
-    extent = [0, dist, Vmin, Vmax]
-    if ax_Emax is not None:
-        pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr')
-        ax_Emax.set_aspect('auto');
-        if bLegend: ax_Emax.set_ylabel('V [V]')
-    if ax_STM is not None:
-        pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap='hot')
-        ax_STM.set_aspect('auto');
-        if bLegend: ax_STM.set_ylabel('V [V]')
-    if ax_dIdV is not None:
-        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', scV=sdIdV)
-        ax_dIdV.set_aspect('auto');
-        if bLegend: ax_dIdV.set_ylabel('V [V]')
-
-    probs = probs.reshape(nV, nx, -1)
-    if fig_probs is not None:
-        # dynamic grid axes for probabilities
-        n_states = probs.shape[2]
-        state_order = pauli.make_state_order(params['nsite'])
-        labels = pauli.make_state_labels(state_order)
-        axs = make_grid_axes(fig_probs, n_states)
-        plot_state_probabilities(probs, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
-    print("calculate_xV_scan() DONE")
-    return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
-
-def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None):
-    """Scan voltage dependence along a line using orbital-based hopping Ts"""
-    T0 = time.perf_counter()
-    # Line geometry
-    x1, y1 = start_point; x2, y2 = end_point
-    dist = np.hypot(x2-x1, y2-y1)
-    npts = nx
-    t = np.linspace(0,1,npts)
-    x = x1 + (x2-x1)*t; y = y1 + (y2-y1)*t
-    if Vmax is None: Vmax = params['VBias']
-    Vbiases = np.linspace(Vmin, Vmax, nV)
-
-    # Site & rotation
-    nsite = int(params['nsite'])
-    # Site geometry (positions, rotations, angles)
-    spos, rots, angles = make_site_geom(params)
-
-    # Compute hopping Ts along line from orbital data
-    if orbital_2D is not None:
-        L = params['L']; npix = params['npix']
-        dcanv = 2*L/npix
-        big_npix = int(params.get('big_npix',400))
-        Ms, _ = generate_central_hops(orbital_2D, orbital_lvec, spos[:,:2], angles, params['z_tip']+params['Rtip'], dcanv, big_npix, npix, decay=decay or params.get('decay',0.2))
-        # Prepare grid for interpolation
-        coords = (np.arange(npix) + 0.5 - npix/2)*dcanv
-        Ts_line = np.zeros((npts, nsite))
-        for i in range(nsite):
-            Ts_map = Ms[i] #**2
-            interp = RectBivariateSpline(coords, coords, Ts_map)
-            Ts_line[:,i] = interp(y, x, grid=False)
-        Ts_input = Ts_line
-    else:
-        Ts_input = None
-
-    # Prepare tip positions
-    pTips = np.zeros((npts,3))
-    pTips[:,0] = x; pTips[:,1] = y; pTips[:,2] = params['z_tip']+params['Rtip']
-
-    state_order = pauli.make_state_order(nsite)
-    # Run scan using parameter dict (wrapper generates C++ params internally)
-    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver )
-    validate_probabilities(probs)
-    # reshape and compute
-    STM = current.reshape(nV, npts)
-    Es  = Es.reshape(nV, npts, nsite)
-    Emax = Es.max(axis=2)
-    dIdV = np.gradient(STM, Vbiases, axis=0)
-
-    #T_calc = time.perf_counter(); print(f"calculate_xV_scan_orb() calc time: {T_calc-T0:.5f} [s]")
-
-    # Plot results
-    extent = [0, dist, Vmin, Vmax]
-    if ax_Emax is not None:
-        pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr')
-        ax_Emax.set_aspect('auto');
-        if bLegend: ax_Emax.set_ylabel('V [V]')
-    if ax_STM is not None:
-        pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap='hot')
-        ax_STM.set_aspect('auto');
-        if bLegend: ax_STM.set_ylabel('V [V]')
-    if ax_dIdV is not None:
-        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', scV=sdIdV)
-        ax_dIdV.set_aspect('auto');
-        if bLegend: ax_dIdV.set_ylabel('V [V]')
-
-    probs = probs.reshape(nV, nx, -1)
-    if fig_probs is not None:
-        # dynamic grid axes for probabilities
-        n_states = probs.shape[2]
-        state_order = pauli.make_state_order(params['nsite'])
-        labels = pauli.make_state_labels(state_order)
-        axs = make_grid_axes(fig_probs, n_states)
-        plot_state_probabilities(probs, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
-    return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
-    
-
-def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, aspect='auto'):
-    """
-    Plot multiple state probability maps. Handles single or array of axes.
-    probs: 3D array shape (nV, nx, n_states)
-    extent: sequence of 4 [xmin, xmax, ymin, ymax]
-    """
-    # Number of states to plot
-    n_states = probs.shape[-1]
-    # Create default figure/axes if needed
-    ncols = min(2, n_states)
-    nrows = int(np.ceil(n_states / ncols))
-    if fig is None:
-        fig = plt.figure( figsize=(4*n_states, 3*nrows) )
-    if axs is None:
-        axs = fig.subplots(nrows, ncols, figsize=(4*ncols, 3*nrows))
-
-    # Flatten axes into list
-    try:
-        axs_flat = axs.flatten()
-    except AttributeError:
-        axs_flat = [axs]
-    # Ensure fig is set
-    if fig is None and hasattr(axs_flat[0], 'figure'):
-        fig = axs_flat[0].figure
-    # Plot each state's probability
-    for idx in range(n_states):
-        ax = axs_flat[idx]
-        ax.clear()
-        title = labels[idx] if labels and idx < len(labels) else f"P{idx}"
-        im = ax.imshow(probs[:,:,idx], origin='lower', extent=extent, cmap='viridis', interpolation='nearest')
-        ax.set_aspect(aspect)
-        ax.set_title(title)
-        ax.set_xlabel('x [Å]')
-        ax.set_ylabel('V_bias [V]')
-        fig.colorbar(im, ax=ax, label='Probability')
-    # Hide extra axes
-    # for extra_ax in axs_flat[n_states:]:
-    #     extra_ax.clear()
-    #     extra_ax.set_visible(False)
-    fig.tight_layout()
-    return fig, axs
 
 if __name__ == "__main__":
 
@@ -977,9 +1005,13 @@ if __name__ == "__main__":
     #zV0_vals = np.linspace(-3.0, -0.5, 5)  # Scan 5 tip heights
     #fig = sweep_param_xV(params, [('zVd', zVd_vals), ('zV0', zV0_vals)])
 
-    selected_params=['VBias', 'Esite', 'z_tip', 'zV0', 'zVd' ]
-    sweep_param_xV(params, [('zVd',   np.linspace( 2.0,  16.0, 5))], selected_params=selected_params); plt.savefig('sweep_xV_zVd.png')
-    sweep_param_xV(params, [('zV0',   np.linspace(-5.0, -0.5,  5))], selected_params=selected_params); plt.savefig('sweep_xV_zV0.png')
-    sweep_param_xV(params, [('z_tip', np.linspace( 1.0,  6.0,  5))], selected_params=selected_params); plt.savefig('sweep_xV_ztip.png')
+    #selected_params=['VBias', 'Esite', 'z_tip', 'zV0', 'zVd' ]
+    #sweep_param_xV(params, [('zVd',   np.linspace( 2.0,  16.0, 5))], selected_params=selected_params); plt.savefig('sweep_xV_zVd.png')
+    #sweep_param_xV(params, [('zV0',   np.linspace(-5.0, -0.5,  5))], selected_params=selected_params); plt.savefig('sweep_xV_zV0.png')
+    #sweep_param_xV(params, [('z_tip', np.linspace( 1.0,  6.0,  5))], selected_params=selected_params); plt.savefig('sweep_xV_ztip.png')
+
+
+    selected_params=[ 'Esite' ]
+    calculate_xV_scan_orb(params, (0,0), (10,10))
 
     plt.show()
