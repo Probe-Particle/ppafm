@@ -250,44 +250,49 @@ def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, asp
     fig.tight_layout()
     return fig, axs
 
-def plot_xV_column(fig, ncols, col_idx, STM_data, dIdV_data, extent, title='', stm_cmap='hot', dIdV_cmap='bwr', bCbar=False, xlabel='Distance (Å)', ylabel='Voltage (V)'):
+def plot_column(fig, ncols, col_idx, data1, data2, extent, title='', cmap1='hot', cmap2='bwr', bCbar=False, xlabel='', ylabel='', aspectEqual=False):
     """
-    Plot complete column of STM (top) and dI/dV (bottom) plots.
+    Plot a complete column of two 2D datasets (top and bottom).
     
     Args:
         fig: Figure object
         ncols: Total columns in figure
         col_idx: Column index (0-based)
-        STM_data: 2D STM data
-        dIdV_data: 2D dI/dV data
+        data1: 2D data for the top plot
+        data2: 2D data for the bottom plot
         extent: Plot extent [xmin, xmax, ymin, ymax]
-        title_prefix: Prefix for subplot titles
-        stm_cmap: Colormap for STM
-        dIdV_cmap: Colormap for dI/dV
-        stm_label: Colorbar label for STM
-        dIdV_label: Colorbar label for dI/dV
+        title: Title for the column
+        cmap1: Colormap for the top plot
+        cmap2: Colormap for the bottom plot
+        bCbar: Whether to show colorbars
+        xlabel: Label for the x-axis
+        ylabel: Label for the y-axis
     """
-    # STM plot (top row)
-    ax_STM = fig.add_subplot(2, ncols, col_idx + 1)
-    im_STM = ax_STM.imshow(STM_data, extent=extent, aspect='auto',  cmap=stm_cmap, origin='lower')
-    ax_STM.set(title=f'STM {title}', xlabel=xlabel)
+    # Top plot
+    ax1 = fig.add_subplot(2, ncols, col_idx + 1)
+    im1 = ax1.imshow(data1, extent=extent, aspect='auto',  cmap=cmap1, origin='lower', interpolation='nearest')
+    ax1.set(title=f'{title}', xlabel=xlabel)
     if bCbar:
-       fig.colorbar(im_STM, ax=ax_STM )
+       fig.colorbar(im1, ax=ax1 )
+    if aspectEqual:
+        ax1.set_aspect('equal')
     
-    # dIdV plot (bottom row)
-    ax_dIdV = fig.add_subplot(2, ncols, col_idx + ncols + 1)
-    vmax = np.max(np.abs(dIdV_data))
-    im_dIdV = ax_dIdV.imshow(dIdV_data, extent=extent, aspect='auto',cmap=dIdV_cmap, origin='lower',  vmin=-vmax, vmax=vmax)
-    ax_dIdV.set(title=f'dI/dV {title}', xlabel=xlabel)
+    # Bottom plot
+    ax2 = fig.add_subplot(2, ncols, col_idx + ncols + 1)
+    vmax = np.max(np.abs(data2))
+    im2 = ax2.imshow(data2, extent=extent, aspect='auto',cmap=cmap2, origin='lower',  vmin=-vmax, vmax=vmax, interpolation='nearest')
+    ax2.set(title=f'dI/dV {title}', xlabel=xlabel)
     if bCbar:
-       fig.colorbar(im_dIdV, ax=ax_dIdV)
+       fig.colorbar(im2, ax=ax2)
+    if aspectEqual:
+        ax2.set_aspect('equal')
     
     # Set common ylabel for first column only
     if col_idx == 0:
-        ax_STM.set_ylabel (ylabel)
-        ax_dIdV.set_ylabel(ylabel)
+        ax1.set_ylabel (ylabel)
+        ax2.set_ylabel(ylabel)
     
-    return ax_STM, ax_dIdV
+    return ax1, ax2
 
 # ===========================================
 # ============= Scan functions
@@ -486,7 +491,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     probs = probs.reshape(params['npix'], params['npix'], -1)
     return STM, dIdV, Es, Ts, probs, spos, rots
 
-def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, fig_probs=None):
+def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, fig_probs=None, bdIdV=False):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
     computed by convolution of orbitals on canvas
@@ -536,9 +541,10 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     validate_probabilities(probs)
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     dIdV = None
-    if ax_dIdV is not None:
+    if ax_dIdV is not None: bdIdV=True
+    if bdIdV:
         params_ = params.copy()
-        dQ = params.get('dQ', 0.005)
+        dQ = params.get('dQ', 0.01)
         params_['VBias'] += dQ
         STM_2, _, _, probs = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)       
         dIdV = (STM_2 - STM_flat) / dQ
@@ -699,7 +705,6 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     nsite = int(params['nsite'])
     # Site geometry (positions, rotations, angles)
     spos, rots, angles = make_site_geom(params)
-
     # Compute hopping Ts along line from orbital data
     if orbital_2D is not None:
         L = params['L']; npix = params['npix']
@@ -822,7 +827,7 @@ def sweep_param_tipField_xV(params, scan_params, selected_params=None, nx=100, n
     plt.tight_layout()
     return fig
 
-def sweep_scan_param_pauli_xy_orb(params, scan_params, selected_params=None, orbital_2D=None, orbital_lvec=None, orbital_file=None, pauli_solver=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, fig=None):
+def sweep_scan_param_pauli_xy_orb_old(params, scan_params, selected_params=None, orbital_2D=None, orbital_lvec=None, orbital_file=None, pauli_solver=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, fig=None):
     """
     Scan parameter values while keeping tip position fixed, precomputing hopping maps once.
     Generates nscan+1 columns of plots with specified layout.
@@ -956,6 +961,134 @@ def sweep_scan_param_pauli_xy_orb(params, scan_params, selected_params=None, orb
     plt.tight_layout()
     return fig
 
+def sweep_scan_param_pauli_xy_orb(params, scan_params, view_params=None, 
+                                 orbital_2D=None, orbital_lvec=None, 
+                                orbital_file=None, pauli_solver=None, bOmp=False, sdIdV=0.5, ExpRef=None, fig=None,
+                                result_dir=None):
+    """
+    Scan parameter values in xy plane (distance vs distance) using scan_xy_orb.
+    Generates nscan columns of plots with specified layout, with optional experimental reference.
+    
+    Args:
+        params: Dictionary of parameters
+        scan_params: List of (param_name, values) tuples to sweep
+        selected_params: List of other parameters to show in figure title
+        orbital_2D: 2D orbital data
+        orbital_lvec: Lattice vectors for the orbital
+        orbital_file: Path to orbital file to load if orbital_2D and orbital_lvec not provided
+        pauli_solver: Optional pauli solver instance
+        bOmp: Whether to use OpenMP for calculations
+        sdIdV: Scaling factor for dI/dV plots
+        ExpRef: Optional experimental reference data
+        fig: Optional figure to plot on
+        result_dir: Path to directory where results will be saved in flat structure
+    
+    Returns:
+        Tuple of (fig, all_results) containing the figure and all results
+    """
+    from pathlib import Path
+    import json
+    from datetime import datetime
+    
+    # Process orbital data if provided
+    if orbital_file is not None and orbital_2D is None:
+        print(f"Loading orbital file: {orbital_file}")
+        orbital_data, orbital_lvec = orbital_utils.load_orbital(orbital_file)
+        # Process orbital data
+        orbital_2D = np.transpose(orbital_data, (2, 1, 0))
+        orbital_2D = np.sum(orbital_2D[:, :, orbital_2D.shape[2]//2:], axis=2)
+        orbital_2D = np.ascontiguousarray(orbital_2D, dtype=np.float64)
+
+    if not scan_params:
+        raise ValueError("scan_params cannot be empty")
+    
+    param_names = [p[0] for p in scan_params]
+    values_list = [p[1] for p in scan_params]
+    nscan = len(values_list[0])
+    
+    # Validate all value lists have same length
+    for vals in values_list[1:]:
+        assert len(vals) == nscan, "All value lists must have same length"
+    
+    # Create solver if not provided
+    if pauli_solver is None:
+        nsite = int(params['nsite'])
+        pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
+    
+    # Create figure if not provided
+    if fig is None:
+        # If we have experimental reference, add one more column for it
+        ncols = nscan + (1 if ExpRef is not None else 0)
+        fig = plt.figure(figsize=(5*ncols, 10))
+    
+    # Build figure title with selected parameters
+    
+    if view_params: 
+        title = "params "
+        title += " ".join([f"{k}: {params[k]:.4g}" for k in view_params if k in params])
+        fig.suptitle(title, fontsize=12)
+    
+    # Set up plot grid - 2 rows (STM, dIdV), nscan+1 columns if ExpRef provided
+    nrows, ncols = 2, nscan + (1 if ExpRef is not None else 0)
+    
+    # Plot experimental reference if provided
+    col_offset = 0
+    if ExpRef is not None:
+        # Extract experimental data
+        exp_STM = ExpRef['STM']
+        exp_dIdV = ExpRef['dIdV']
+        exp_x = ExpRef['x']
+        exp_y = ExpRef['y']
+        exp_extent = [min(exp_x), max(exp_x), min(exp_y), max(exp_y)]
+        plot_column(fig, ncols, 0, exp_STM, exp_dIdV, exp_extent, title='Experimental', xlabel='x (Å)', ylabel='y (Å)', aspectEqual=True)
+        col_offset = 1
+    
+    # Initialize results collection
+    all_results = []
+    
+    # Process each parameter value
+    for i in range(nscan):
+        # Update all parameter values for this iteration
+        params_i = params.copy()
+        for param, vals in scan_params:
+            params_i[param] = vals[i]
+        
+        # Store parameters for this run
+        run_params = params_i.copy()
+        run_params.update({ 'scan_index': i, 'scan_params': {param: vals[i] for param, vals in scan_params} })
+
+        # Run xy scan with orbital data
+        STM, dIdV, Es, Ts, probs, spos, rots = scan_xy_orb(
+            params_i,
+            orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
+            pauli_solver=pauli_solver, bOmp=bOmp,
+            sdIdV=sdIdV, fig_probs=None, bdIdV=True
+        )
+
+        # Collect results for return
+        all_results.append({
+            'STM': STM, 'dIdV': dIdV, 'Es': Es, 'Ts': Ts, 'probs': probs,
+            'x': np.linspace(-params_i['L']/2, params_i['L']/2, params_i['npix']), 
+            'y': np.linspace(-params_i['L']/2, params_i['L']/2, params_i['npix']),
+            'params': run_params,
+            'spos': spos,
+            'rots': rots
+        })
+
+        # Plot results
+        col_title  = " ".join([f"{param}: {vals[i]:.4g}" for param, vals in scan_params])
+        sim_extent = [-params_i['L']/2, params_i['L']/2, -params_i['L']/2, params_i['L']/2]
+        plot_column(fig, ncols, i + col_offset, STM, dIdV, sim_extent, title=col_title, xlabel='x (Å)', ylabel='y (Å)', aspectEqual=True)
+    
+    plt.tight_layout(rect=[0, 0, 1, 0.95])  # Make room for the suptitle
+    
+    # Save results using the modular function
+    if result_dir:
+        save_scan_results( result_dir=result_dir, params=params, scan_params=scan_params, fig=fig )
+    
+    return fig, all_results  # Return results data
+
+
 def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None, 
                                 selected_params=None, orbital_2D=None, orbital_lvec=None, 
                                 orbital_file=None, nx=100, nV=100, Vmin=0.0, Vmax=None, 
@@ -1044,7 +1177,7 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None,
         exp_x = ExpRef['x']
         exp_voltages = ExpRef['voltages']
         exp_extent = [0, max(exp_x), min(exp_voltages), max(exp_voltages)]
-        plot_xV_column(fig, ncols, 0, exp_STM, exp_dIdV, exp_extent, title='Experimental')
+        plot_column(fig, ncols, 0, exp_STM, exp_dIdV, exp_extent, title='Experimental', xlabel='Distance (Å)', ylabel='Voltage (V)')
         col_offset = 1
     
     # Initialize results collection
@@ -1079,7 +1212,7 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None,
         all_results.append({ 'parameters': run_params, 'timestamp': datetime.now().isoformat() })
         col_title  = " ".join([f"{param}: {vals[i]:.4g}" for param, vals in scan_params])
         sim_extent = [0, dist, Vmin, Vmax]
-        plot_xV_column(fig, ncols, i + col_offset, STM, dIdV, sim_extent, title=col_title)
+        plot_column(fig, ncols, i + col_offset, STM, dIdV, sim_extent, title=col_title, xlabel='Distance (Å)', ylabel='Voltage (V)')
     
     # Set consistent voltage limits across all plots
     for ax in fig.get_axes():
