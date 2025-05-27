@@ -81,19 +81,16 @@ def generate_central_hops(orb2D, orb_lvec, spos_xy, angles, z0, dcanv, big_npix,
 # ============= Plot & Save functions
 # ===========================================
 
-def save_scan_results(result_dir, all_results, scan_params, fig, base_params, start_point=None, end_point=None, has_exp_ref=False):
+def save_scan_results(result_dir, params, scan_params=None, fig=None, summary_file='summary.jsonl'):
     """
     Save scan results to a flat file structure in the specified directory.
     
     Args:
         result_dir: Path to directory where results will be saved
-        all_results: List of dictionaries containing scan results (not stored in JSON)
+        params: The initial parameters dictionary before scanning, including start/end points if applicable
         scan_params: List of (param_name, values) tuples from the scan
         fig: Matplotlib figure to save
-        base_params: The initial parameters dictionary before scanning
-        start_point: Optional start point coordinates
-        end_point: Optional end point coordinates
-        has_exp_ref: Whether an experimental reference was used
+        summary_file: Name of the summary file to append results to
     
     Returns:
         Tuple of (json_path, fig_path) paths to the saved files
@@ -110,44 +107,28 @@ def save_scan_results(result_dir, all_results, scan_params, fig, base_params, st
     timestamp = datetime.now().strftime("%Y_%m_%d_%H%M%S")
     
     # Prepare the single consolidated parameters dictionary
-    combined_params = base_params.copy()
-    for param_name, values_list_np in scan_params:
-        combined_params[param_name] = values_list_np.tolist() if isinstance(values_list_np, np.ndarray) else values_list_np
+    combined_params = params.copy()
+    if scan_params is not None:
+        for param_name, values_list_np in scan_params:
+            combined_params[param_name] = values_list_np.tolist() if isinstance(values_list_np, np.ndarray) else values_list_np
 
-    # Prepare output data for the main JSON file
-    output_data = {
-        'timestamp': timestamp,
-        'parameters': combined_params, # Single dictionary of all parameters
-        'experiment_reference': has_exp_ref
-    }
-    
-    # Add geometry info if available
-    if start_point is not None and end_point is not None:
-        output_data['start_point'] = start_point
-        output_data['end_point'] = end_point
-    
-    # Save JSON file directly in result_dir
-    json_path = Path(result_dir)/f"scan_{timestamp}.json"
-    with open(json_path, 'w') as f:
-        json.dump(output_data, f, indent=2)
-    
-    # Save figure directly in result_dir
+    # Save figure
     fig_path = Path(result_dir)/f"scan_{timestamp}.png"
     fig.savefig(fig_path, dpi=300)
-    
-    # Update summary.jsonl with a single line per scan
-    summary_entry = {
+
+    # Prepare output data for both files
+    output_data = {
         'timestamp': timestamp,
-        'json_file': json_path.name,
-        'image_file': fig_path.name,
-        'scan_parameter_names': [p[0] for p in scan_params],
-        'parameter_values': {p[0]: p[1].tolist() if isinstance(p[1], np.ndarray) else p[1] for p in scan_params},
-        'num_runs': len(all_results)
+        'parameters': combined_params,   
     }
-    
-    summary_path = Path(result_dir)/'summary.jsonl'
-    with open(summary_path, 'a') as f:
-        f.write(json.dumps(summary_entry) + '\n')
+    if scan_params is not None:  output_data['scan_parameter_names'] =  [p[0] for p in scan_params]
+
+    # Save main JSON file
+    json_path = Path(result_dir)/f"scan_{timestamp}.json"
+    with open(json_path, 'w')    as f: json.dump(output_data, f, indent=2)
+    if summary_file is not None:
+        summary_path = Path(result_dir)/summary_file
+        with open(summary_path, 'a') as f: f.write(json.dumps(output_data) + '\n')
     
     print(f"Scan results saved to {json_path} and {fig_path}")
     return json_path, fig_path
@@ -269,9 +250,7 @@ def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, asp
     fig.tight_layout()
     return fig, axs
 
-def plot_xV_column(fig, ncols, col_idx, STM_data, dIdV_data, extent, 
-                  title_prefix='', stm_cmap='hot', dIdV_cmap='bwr',
-                  stm_label='Current (a.u.)', dIdV_label='dI/dV (a.u.)'):
+def plot_xV_column(fig, ncols, col_idx, STM_data, dIdV_data, extent, title='', stm_cmap='hot', dIdV_cmap='bwr', bCbar=False, xlabel='Distance (Å)', ylabel='Voltage (V)'):
     """
     Plot complete column of STM (top) and dIdV (bottom) plots.
     
@@ -290,24 +269,23 @@ def plot_xV_column(fig, ncols, col_idx, STM_data, dIdV_data, extent,
     """
     # STM plot (top row)
     ax_STM = fig.add_subplot(2, ncols, col_idx + 1)
-    im_STM = ax_STM.imshow(STM_data, extent=extent, aspect='auto', 
-                          cmap=stm_cmap, origin='lower')
-    ax_STM.set(title=f'{title_prefix}STM', xlabel='Distance (Å)')
-    fig.colorbar(im_STM, ax=ax_STM, label=stm_label)
+    im_STM = ax_STM.imshow(STM_data, extent=extent, aspect='auto',  cmap=stm_cmap, origin='lower')
+    ax_STM.set(title=f'STM {title}', xlabel=xlabel)
+    if bCbar:
+       fig.colorbar(im_STM, ax=ax_STM )
     
     # dIdV plot (bottom row)
     ax_dIdV = fig.add_subplot(2, ncols, col_idx + ncols + 1)
     vmax = np.max(np.abs(dIdV_data))
-    im_dIdV = ax_dIdV.imshow(dIdV_data, extent=extent, aspect='auto',
-                            cmap=dIdV_cmap, origin='lower', 
-                            vmin=-vmax, vmax=vmax)
-    ax_dIdV.set(title=f'{title_prefix}dI/dV', xlabel='Distance (Å)')
-    fig.colorbar(im_dIdV, ax=ax_dIdV, label=dIdV_label)
+    im_dIdV = ax_dIdV.imshow(dIdV_data, extent=extent, aspect='auto',cmap=dIdV_cmap, origin='lower',  vmin=-vmax, vmax=vmax)
+    ax_dIdV.set(title=f'dI/dV {title}', xlabel=xlabel)
+    if bCbar:
+       fig.colorbar(im_dIdV, ax=ax_dIdV)
     
     # Set common ylabel for first column only
     if col_idx == 0:
-        ax_STM.set_ylabel('Voltage (V)')
-        ax_dIdV.set_ylabel('Voltage (V)')
+        ax_STM.set_ylabel (ylabel)
+        ax_dIdV.set_ylabel(ylabel)
     
     return ax_STM, ax_dIdV
 
@@ -978,7 +956,7 @@ def sweep_scan_param_pauli_xy_orb(params, scan_params, selected_params=None, orb
     plt.tight_layout()
     return fig
 
-def sweep_scan_param_pauli_xV_orb(params, scan_params, start_point=(0,0), end_point=(10,0), 
+def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None, start_point=(0,0), end_point=(10,0), 
                                 selected_params=None, orbital_2D=None, orbital_lvec=None, 
                                 orbital_file=None, nx=100, nV=100, Vmin=0.0, Vmax=None, 
                                 pauli_solver=None, bOmp=False, sdIdV=0.5, ExpRef=None, fig=None,
@@ -1050,12 +1028,11 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, start_point=(0,0), end_po
         fig = plt.figure(figsize=(5*ncols, 10))
     
     # Build figure title with selected parameters
-    title = "xV Parameter sweep: "
-    if selected_params:
-        title_params = [p for p in selected_params if p not in param_names]
-        if title_params:
-            title += ", ".join([f"{k}={params[k]}" for k in title_params])
-    fig.suptitle(title, fontsize=12)
+    
+    if view_params: 
+        title = "params "
+        title += " ".join([f"{k}: {params[k]:.4g}" for k in view_params if k in params])
+        fig.suptitle(title, fontsize=12)
     
     # Calculate line distance for extent calculation
     x1, y1 = start_point
@@ -1073,14 +1050,8 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, start_point=(0,0), end_po
         exp_dIdV = ExpRef['dIdV']
         exp_x = ExpRef['x']
         exp_voltages = ExpRef['voltages']
-        
-        # Calculate extent for experimental data
         exp_extent = [0, max(exp_x), min(exp_voltages), max(exp_voltages)]
-        
-        # Plot complete experimental column (first column)
-        plot_xV_column(fig, ncols, 0, exp_STM, exp_dIdV, exp_extent, title_prefix='Experimental ',  stm_label='Current (nA)', dIdV_label='dI/dV (nS)')
-        
-        # Set column offset for simulation plots
+        plot_xV_column(fig, ncols, 0, exp_STM, exp_dIdV, exp_extent, title='Experimental')
         col_offset = 1
     
     # Initialize results collection
@@ -1095,11 +1066,8 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, start_point=(0,0), end_po
         
         # Store parameters for this run
         run_params = params_i.copy()
-        run_params.update({
-            'scan_index': i,
-            'scan_params': {param: vals[i] for param, vals in scan_params}
-        })
-        
+        run_params.update({ 'scan_index': i, 'scan_params': {param: vals[i] for param, vals in scan_params} })
+                
         # Run xV scan with orbital data
         STM, dIdV, Es, Ts, probs, x, voltages, spos, rots = calculate_xV_scan_orb(
             params_i, start_point, end_point,
@@ -1109,22 +1077,10 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, start_point=(0,0), end_po
             nx=nx, nV=nV, Vmin=Vmin, Vmax=Vmax,
             sdIdV=sdIdV, fig_probs=None
         )
-        
-        # Store results
-        all_results.append({
-            'parameters': run_params,
-            # 'simulation': {
-            #     'STM':      STM .tolist(),
-            #     'dIdV':     dIdV.tolist(),
-            #     'voltages': voltages.tolist(),
-            #     'x_coords': x.tolist()
-            # },
-            'timestamp': datetime.now().isoformat()
-        })
-        
-        # Calculate extent for simulation data
+        all_results.append({ 'parameters': run_params, 'timestamp': datetime.now().isoformat() })
+        col_title  = " ".join([f"{param}: {vals[i]:.4g}" for param, vals in scan_params])
         sim_extent = [0, dist, Vmin, Vmax]
-        plot_xV_column(fig, ncols, i + col_offset, STM, dIdV, sim_extent, title_prefix=f'{param_names[0]}={params_i[param_names[0]]:.4g} ')
+        plot_xV_column(fig, ncols, i + col_offset, STM, dIdV, sim_extent, title=col_title)
     
     # Set consistent voltage limits across all plots
     for ax in fig.get_axes():
@@ -1132,18 +1088,12 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, start_point=(0,0), end_po
     
     plt.tight_layout(rect=[0, 0, 1, 0.95])  # Make room for the suptitle
     
-    # Save results using the modular function if output dir specified
-    if result_dir and all_results:
-        save_scan_results(
-            result_dir=result_dir,
-            all_results=all_results,
-            scan_params=scan_params,
-            fig=fig,
-            base_params=params, # Pass the base parameters
-            start_point=start_point,
-            end_point=end_point,
-            has_exp_ref=(ExpRef is not None)
-        )
+    # Save results using the modular function
+    if result_dir:
+        params_ = params.copy()
+        params_['start_point'] = start_point
+        params_['end_point'  ] = end_point
+        save_scan_results( result_dir=result_dir, params=params_, scan_params=scan_params, fig=fig )
     
     return fig, all_results  # Return results data
 
