@@ -31,15 +31,23 @@ def example_xV_scan_with_exp_ref():
         'decay':   0.3,
         'GammaS':  0.01,
         'GammaT':  0.01,
-        'Temp':    0.224
+        'Temp':    0.224,
+        'p1_x':    9.72,
+        'p1_y':    -9.96,
+        'p2_x':    -11.0,
+        'p2_y':    12.0
     }
 
     view_params=['Rtip','z_tip','Esite','zV0','zVd','decay','W','Qzz']
     
     # Define parameter sweep - scanning Rtip and z_tip
     scan_params = [
-        #('Rtip',  [2.5, 3.0, 3.5]),
-        ('z_tip', [4.0, 4.5, 5.0, 5.5, 6.0])
+        #('Rtip',  [2.0,2.5, 3.0, 3.5,4.0]),
+        #('p1_y',  [-11.0,-10.5,-10.0,-9.5, -9.0]),
+
+        ('Qzz',  [-20.,-15., -10.0, -5.0, 0.0, 5.0, 10.0, 15.,20.]),
+
+        #('z_tip', [4.0, 4.5, 5.0, 5.5, 6.0])
         #('Esite', [ -0.080,-0.100, -0.120, -0.140 ]),
         #('zVd',  [ 10.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0 ]),
         #('zV0', [ -0.5, -0.75, -1.0, -1.5, -2.0 ]),
@@ -49,11 +57,9 @@ def example_xV_scan_with_exp_ref():
     ]
     
     # Run the xV scan with orbital data and experimental reference
-    p0=(9.72, -9.96)
-    p1=(-11.0, 12.0)
     fig, results = ps.sweep_scan_param_pauli_xV_orb( 
         params=params, scan_params=scan_params, view_params=view_params,
-        start_point=p0, end_point=p1, ExpRef=ExpRef, # pointPerAngstrom=5,
+        ExpRef=ExpRef, # pointPerAngstrom=5,
         #verbosity=1,  
         nx=100, nV=100, Vmin=0.0, Vmax=1.0,
         result_dir='pauli_scan_results'

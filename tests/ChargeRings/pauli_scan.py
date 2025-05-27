@@ -252,7 +252,7 @@ def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, asp
 
 def plot_xV_column(fig, ncols, col_idx, STM_data, dIdV_data, extent, title='', stm_cmap='hot', dIdV_cmap='bwr', bCbar=False, xlabel='Distance (Å)', ylabel='Voltage (V)'):
     """
-    Plot complete column of STM (top) and dIdV (bottom) plots.
+    Plot complete column of STM (top) and dI/dV (bottom) plots.
     
     Args:
         fig: Figure object
@@ -956,7 +956,7 @@ def sweep_scan_param_pauli_xy_orb(params, scan_params, selected_params=None, orb
     plt.tight_layout()
     return fig
 
-def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None, start_point=(0,0), end_point=(10,0), 
+def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None, 
                                 selected_params=None, orbital_2D=None, orbital_lvec=None, 
                                 orbital_file=None, nx=100, nV=100, Vmin=0.0, Vmax=None, 
                                 pauli_solver=None, bOmp=False, sdIdV=0.5, ExpRef=None, fig=None,
@@ -968,8 +968,6 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None, start_p
     Args:
         params: Dictionary of parameters
         scan_params: List of (param_name, values) tuples to sweep
-        start_point: Start point (x,y) for line scan
-        end_point: End point (x,y) for line scan
         selected_params: List of other parameters to show in figure title
         orbital_2D: 2D orbital data
         orbital_lvec: Lattice vectors for the orbital
@@ -1034,11 +1032,6 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None, start_p
         title += " ".join([f"{k}: {params[k]:.4g}" for k in view_params if k in params])
         fig.suptitle(title, fontsize=12)
     
-    # Calculate line distance for extent calculation
-    x1, y1 = start_point
-    x2, y2 = end_point
-    dist = np.hypot(x2-x1, y2-y1)
-    
     # Set up plot grid - 2 rows (STM, dIdV), nscan+1 columns if ExpRef provided
     nrows, ncols = 2, nscan + (1 if ExpRef is not None else 0)
     
@@ -1067,6 +1060,12 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None, start_p
         # Store parameters for this run
         run_params = params_i.copy()
         run_params.update({ 'scan_index': i, 'scan_params': {param: vals[i] for param, vals in scan_params} })
+
+        x1, y1 = run_params['p1_x'], run_params['p1_y']
+        x2, y2 = run_params['p2_x'], run_params['p2_y']
+        start_point = (x1, y1)
+        end_point   = (x2, y2)
+        dist = np.hypot(x2-x1, y2-y1)
                 
         # Run xV scan with orbital data
         STM, dIdV, Es, Ts, probs, x, voltages, spos, rots = calculate_xV_scan_orb(
