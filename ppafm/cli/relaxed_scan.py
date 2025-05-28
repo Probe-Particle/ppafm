@@ -104,7 +104,7 @@ def main(argv=None):
 
         print("Loading Pauli force field from FFpauli_{x,y,z}")
         ff_pauli, lvec, _, atomic_info_or_head = io.load_vec_field("FFpauli", data_format=args.output_format)
-        ff_pauli[:, :, :, 0], ff_pauli[1, :, :, :, 1] = rotate_ff(ff_pauli[:, :, :, 0], ff_pauli[:, :, :, 1], opt_dict["rotate"])
+        ff_pauli[:, :, :, 0], ff_pauli[:, :, :, 1] = rotate_ff(ff_pauli[:, :, :, 0], ff_pauli[:, :, :, 1], opt_dict["rotate"])
 
         print("Loading vdW force field from FFvdW_{x,y,z}")
         ff_vdw, lvec, _, atomic_info_or_head = io.load_vec_field("FFvdW", data_format=args.output_format)
