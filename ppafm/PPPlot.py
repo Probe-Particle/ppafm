@@ -47,7 +47,7 @@ def plotGeom(atoms=None, bonds=None, atomSize=default_atom_size):
         plotAtoms(atoms, atomSize=atomSize)
 
 
-def colorize_XY2RG(Xs, Ys):
+def colorize_XY2RGB(Xs, Ys):
     r = np.sqrt(Xs**2 + Ys**2)
     vmax = r[5:-5, 5:-5].max()
     Red = 0.5 * Xs / vmax + 0.5
@@ -120,7 +120,7 @@ def plotImages(
         plt.close()
 
 
-def plotVecFieldRG(
+def plotVecFieldRGB(
     prefix,
     dXs,
     dYs,
@@ -148,7 +148,7 @@ def plotVecFieldRG(
         # print(" plotting ", i)
         write_plotting_slice(i)
         plt.figure(figsize=(10, 10))
-        HSBs, vmax = colorize_XY2RG(dXs[i], dYs[i])
+        HSBs, vmax = colorize_XY2RGB(dXs[i], dYs[i])
         plt.imshow(HSBs, extent=extent, origin="lower", interpolation=interpolation)
         plotGeom(atoms, bonds, atomSize=atomSize)
         plt.xlabel(r" Tip_x $\AA$")
