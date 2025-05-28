@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 from scipy.interpolate import LinearNDInterpolator, RectBivariateSpline
+from scipy.ndimage import gaussian_filter
+
 
 # Functions for experimental data handling
 
@@ -445,6 +447,56 @@ def visualize_experimental_data(exp_STM, exp_dIdV, exp_dist, exp_biases):
     plot2d(exp_dIdV, ax=axes[1], extent=[exp_dist[0], exp_dist[-1], exp_biases[0], exp_biases[-1]], title='Experimental dIdV', xlabel='Distance [Å]', ylabel='Bias [V]', bCbar=True, cmap='bwr')
     plt.tight_layout()
     return fig
+
+
+# --- Denoising Functions ---
+
+def denoise_gaussian(data_3d, sigma=1.0):
+    """Applies a Gaussian filter for denoising.
+
+    Args:
+        data_3d (np.ndarray): The 3D data array to denoise.
+        sigma (float): Standard deviation for Gaussian kernel. Larger values mean more smoothing.
+
+    Returns:
+        np.ndarray: Denoised 3D data array.
+    """
+    print(f"Applying Gaussian filter with sigma={sigma}")
+    return gaussian_filter(data_3d, sigma=sigma)
+
+
+
+def denoise_nl_means(data_3d, h_factor=0.8, patch_size=5, patch_distance=7, fast_mode=True):
+    """Applies Non-Local Means denoising.
+
+    Args:
+        data_3d (np.ndarray): The 3D data array to denoise.
+        h_factor (float): Factor to determine denoising strength 'h'.
+                          h = h_factor * estimated_noise_std.
+        patch_size (int): Size of the square patch extracted around each voxel.
+        patch_distance (int): Maximum distance within which to search for similar patches.
+        fast_mode (bool): If True, uses a faster, approximate algorithm.
+
+    Returns:
+        np.ndarray: Denoised 3D data array.
+    """
+    from skimage.restoration import denoise_nl_means
+    # A simple way to estimate noise standard deviation (can be improved)
+    # For real applications, noise estimation might be more involved.
+    noise_level = np.std(data_3d[::2, ::2, ::2] - data_3d[1::2, 1::2, 1::2]) # Very rough estimate
+    if noise_level == 0:
+        noise_level = 1e-6 # Avoid division by zero if data is constant
+
+    h = h_factor * noise_level
+    print(f"Applying Non-Local Means filter with h={h:.3f}, patch_size={patch_size}, patch_distance={patch_distance}")
+    return denoise_nl_means(
+        data_3d,
+        h=h,
+        patch_size=patch_size,
+        patch_distance=patch_distance,
+        fast_mode=fast_mode,
+        preserve_range=True # Important to keep data range consistent
+    )
 
 
 # Main test function
