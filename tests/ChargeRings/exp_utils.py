@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import time
 from scipy.interpolate import LinearNDInterpolator, RectBivariateSpline
 from scipy.ndimage import gaussian_filter
+from skimage.restoration import denoise_nl_means
+from skimage.restoration import estimate_sigma
+from skimage.restoration import denoise_tv_chambolle
 
 
 # Functions for experimental data handling
@@ -481,12 +484,20 @@ def denoise_nl_means(data_3d, h_factor=0.8, patch_size=5, patch_distance=7, fast
         np.ndarray: Denoised 3D data array.
     """
     from skimage.restoration import denoise_nl_means
-    # A simple way to estimate noise standard deviation (can be improved)
-    # For real applications, noise estimation might be more involved.
-    noise_level = np.std(data_3d[::2, ::2, ::2] - data_3d[1::2, 1::2, 1::2]) # Very rough estimate
+    from skimage.restoration import estimate_sigma
+
+    # Estimate noise standard deviation using a robust method
+    # For 3D data, estimate_sigma can be applied to slices or the whole volume
+    # For a single 2D slice expanded to (1, H, W), we can estimate sigma on the 2D plane
+    if data_3d.shape[0] == 1: # If it's effectively a 2D image
+        noise_level = estimate_sigma(data_3d[0,:,:], average_sigmas=True)
+    else:
+        noise_level = estimate_sigma(data_3d, average_sigmas=True)
+
     if noise_level == 0:
         noise_level = 1e-6 # Avoid division by zero if data is constant
 
+    print(f"Estimated noise_level: {noise_level:.4f}")
     h = h_factor * noise_level
     print(f"Applying Non-Local Means filter with h={h:.3f}, patch_size={patch_size}, patch_distance={patch_distance}")
     return denoise_nl_means(
@@ -498,6 +509,70 @@ def denoise_nl_means(data_3d, h_factor=0.8, patch_size=5, patch_distance=7, fast
         preserve_range=True # Important to keep data range consistent
     )
 
+def apply_image_processing_method(data_3d, method_name, method_params):
+    """
+    Applies a specified image processing method to 3D data.
+
+    Args:
+        data_3d (np.ndarray): Input 3D data array (can be 1xHxW for 2D images).
+        method_name (str): Name of the method to apply ('nl_means', 'tv_denoising').
+        method_params (dict): Dictionary of parameters specific to the chosen method.
+
+    Returns:
+        np.ndarray: Processed 3D data array.
+    """
+    # Handle 1xHxW input by processing as 2D and expanding back if necessary
+    is_2d_input = (data_3d.shape[0] == 1)
+    if is_2d_input:
+        data_2d = data_3d[0, :, :]
+    else:
+        data_2d = None # Not used for true 3D data
+
+    processed_data = None
+
+    if method_name == 'nl_means':
+        # NL-means still uses h_factor and noise_level estimation
+        h_factor = method_params.get('h_factor', 0.1)
+        patch_size = method_params.get('patch_size', 7)
+        patch_distance = method_params.get('patch_distance', 21)
+        fast_mode = method_params.get('fast_mode', True)
+
+        # Re-use the existing denoise_nl_means logic for noise estimation
+        # This part is a bit redundant but keeps the original logic intact for NL-means
+        if is_2d_input:
+            noise_level = estimate_sigma(data_2d, average_sigmas=True)
+        else:
+            noise_level = estimate_sigma(data_3d, average_sigmas=True)
+
+        if noise_level == 0:
+            noise_level = 1e-6
+
+        h = h_factor * noise_level
+        print(f"Applying Non-Local Means filter with h={h:.3f}, patch_size={patch_size}, patch_distance={patch_distance}")
+        processed_data = denoise_nl_means(
+            data_3d, # Pass 3D data to original denoise_nl_means
+            h_factor=h_factor, # Pass h_factor to original denoise_nl_means
+            patch_size=patch_size,
+            patch_distance=patch_distance,
+            fast_mode=fast_mode
+        ) # The original denoise_nl_means will handle preserve_range
+
+    elif method_name == 'tv_denoising':
+        weight = method_params.get('weight', 1.0) # Denoising weight. The larger weight, the more denoising (at the expense of fidelity).
+        print(f"Applying Total Variation Denoising with weight={weight:.3f}")
+        if is_2d_input:
+            processed_data = denoise_tv_chambolle(data_2d, weight=weight)
+        else:
+            processed_data = denoise_tv_chambolle(data_3d, weight=weight)
+
+    else:
+        raise ValueError(f"Unknown image processing method: {method_name}")
+
+    # Ensure output is 3D if input was 3D (even if 1xHxW)
+    if is_2d_input and processed_data.ndim == 2: # If it was 1xHxW input and output is 2D
+        return np.expand_dims(processed_data, axis=0)
+    else:
+        return processed_data
 
 # Main test function
 if __name__ == "__main__":

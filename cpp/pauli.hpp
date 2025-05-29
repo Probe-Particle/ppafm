@@ -119,7 +119,7 @@ double calculate_state_energy(int state, int nSingle, const double* Hsingle, dou
 // Lead parameters
 struct LeadParams {
     double mu;    // Chemical potential
-    double temp;  // Temperature
+    double temperature;  // Temperature
     //double gamma; // Coupling strength
 };
 
@@ -187,10 +187,9 @@ public:
     int n_pauli_factors = 0;           // Number of Pauli factors in compact array
     int ndm1 = 0;                              // Number of valid transitions (states differing by 1 charge)
     int verbosity = 0;                         // Verbosity level for debugging
-    bool bCheckProb = true;  // Flag to enable probability validation
-    double bCheckProbTol = -1e-12;  // Tolerance for probability validation
-
-
+    bool   bCheckProb     = true;  // Flag to enable probability validation
+    bool   bCheckProbStop = false;  // Flag to stop if probability validation fails
+    double bCheckProbTol  = -1e-12;  // Tolerance for probability validation
 
     std::vector<std::vector<int>> states_by_charge;  // States organized by charge number, like Python's statesdm
     // std::vector<int> state_order;              // Maps original index -> ordered index
@@ -245,7 +244,7 @@ public:
 
     void alloc( int nSingle_, int nstates_, int nleads_, bool bMemSet=true ) {
         if (verbosity > 0) {  printf("PauliSolver constructing: nSingle=%d, nstates=%d, nleads=%d, verbosity=%d\n",   nSingle, nstates, nleads, verbosity);}
-        leads           = new LeadParams[nleads];    for(int i = 0; i < nleads; ++i) { leads[i].mu = 0.0; leads[i].temp = 0.0; }
+        leads           = new LeadParams[nleads];    for(int i = 0; i < nleads; ++i) { leads[i].mu = 0.0; leads[i].temperature = 0.01; }
         state_order     = new int[nstates];          for (int i = 0; i < nstates; ++i) {  state_order[i] = i;}
         state_order_inv = new int[nstates];          for (int i = 0; i < nstates; ++i) { state_order_inv[i] = i; }
         // Or alternatively, just zero it out:
@@ -401,15 +400,15 @@ public:
     
     // Set lead parameters (mu, temp, gamma)
     //void setLeadParams(int leadIndex, double mu, double temp, double gamma) {
-    void setLeadParams(int leadIndex, double mu, double temp ) {
+    void setLeadParams(int leadIndex, double mu, double temperature ) {
         if (leadIndex >= 0 && leadIndex < nleads && leads) {
             leads[leadIndex].mu = mu;
-            leads[leadIndex].temp = temp;
+            leads[leadIndex].temperature = temperature;
             //leads[leadIndex].gamma = gamma;
             kernel_updated = false;  // Kernel matrix needs to be recalculated
             if (verbosity > 1) {
                 //printf("PauliSolver::setLeadParams() - Updated lead %d: mu=%f, temp=%f, gamma=%f\n", leadIndex, mu, temp, gamma);
-                printf("PauliSolver::setLeadParams() - Updated lead %d: mu=%f temp=%f\n", leadIndex, mu, temp);
+                printf("PauliSolver::setLeadParams() - Updated lead %d: mu=%f temperature=%f\n", leadIndex, mu, temperature);
             }
         }
     }
@@ -595,8 +594,9 @@ def construct_Tba(leads, tleads, Tba_=None):
     }
 
     // Calculate Fermi function for given energy difference and lead parameters
-    double fermi_func(double energy_diff, double mu, double temp) {
-        return 1.0/(1.0 + exp((energy_diff - mu)/temp));
+    double fermi_func(double energy_diff, double mu, double temperature) {
+        //printf("PauliSolver::fermi_func() energy_diff %g mu %g temperature %g \n", energy_diff, mu, temperature);
+        return 1.0/(1.0 + exp((energy_diff - mu)/temperature));
     }
 
     //inline int get_ind_dm0_0( int i, int iq ){ return dictdm[i] + shiftlst0[iq]; }
@@ -907,7 +907,7 @@ def construct_Tba(leads, tleads, Tba_=None):
                         
                         // Apply Fermi statistics
                         const LeadParams& lead = leads[l];
-                        double fermi = fermi_func(energy_diff, lead.mu, lead.temp);
+                        double fermi = fermi_func(energy_diff, lead.mu, lead.temperature);
                         
                         // Calculate compact storage index
                         int idx = l * ndm1 * 2 + cb * 2;
@@ -1210,9 +1210,9 @@ def construct_Tba(leads, tleads, Tba_=None):
                     bError = true;
                 }
             }
-            if(bError) {
-                //throw std::runtime_error("Negative probabilities detected in solve_kern()");
-                exit(1);
+            if(bError && bCheckProbStop ) {
+               //throw std::runtime_error("Negative probabilities detected in solve_kern()");
+               exit(1);
             }
         }
         
@@ -1248,7 +1248,7 @@ def construct_Tba(leads, tleads, Tba_=None):
         printf("PauliSolver::print_lead_params() nleads: %d\n", nleads);
         for (int l = 0; l < nleads; l++) {
             //printf("  Lead %d: mu=%.6f, temp=%.6f, gamma=%.6f\n", l, leads[l].mu, leads[l].temp, leads[l].gamma);
-            printf("  Lead %d: mu=%.6f, temp=%.6f\n", l, leads[l].mu, leads[l].temp);
+            printf("  Lead %d: mu=%.6f, temperature=%.6f\n", l, leads[l].mu, leads[l].temperature);
         }
     }
     

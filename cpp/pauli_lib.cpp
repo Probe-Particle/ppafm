@@ -253,29 +253,23 @@ double scan_current_manual_threads( PauliSolver* solver, int npoints, double* hs
 double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current, bool bOmp) {
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (!solver) { return 0.0; }
-
     if (bOmp) { 
         //return scan_current_omp(solver, npoints, hsingles, Ws, VGates, TLeads, state_order, out_current); 
         //return scan_current_omp_stackalloc(solver, npoints, hsingles, Ws, VGates, TLeads, state_order, out_current);
         return scan_current_manual_threads(solver, npoints, hsingles, Ws, VGates, TLeads, state_order, out_current);
     }
-
     printf("scan_current() npoints: %d bOmp: %d\n", npoints, bOmp);
-
     int nSingle = solver->nSingle;
     int n2 = nSingle*nSingle; 
     int nleads = solver->nleads;
     double base_lead_mu[nleads];  for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
-
     if(state_order) { 
         solver->init_states_by_charge();
         solver->setStateOrder(state_order); 
     }
-
     //solver->print_lead_params();
     //solver->print_state_energies();
     //solver->print_tunneling_amplitudes();
-
     for(int i = 0; i < npoints; i++) {
 
         if ( solver->verbosity > 0 ){
@@ -607,4 +601,31 @@ void delete_pauli_solver(void* solver_ptr) {
     delete solver;
 }
 
+void print_lead_params(void* solver_ptr){
+    PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
+    solver->print_lead_params();
 }
+
+void print_state_energies(void* solver_ptr) {
+    PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
+    solver->print_state_energies();
+}
+
+void print_tunneling_amplitudes(void* solver_ptr) {
+    PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
+    solver->print_tunneling_amplitudes();
+}
+
+void print_states_by_charge(void* solver_ptr) {
+    PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
+    solver->print_states_by_charge();
+}
+
+void set_check_prob_stop(void* solver_ptr, bool bCheckProb, bool bCheckProbStop, double CheckProbTol=-1e-12){
+    PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
+    solver->bCheckProbStop = bCheckProbStop;
+    solver->bCheckProb     = bCheckProb;
+    solver->bCheckProbTol  = CheckProbTol;
+}
+
+} // extern "C"

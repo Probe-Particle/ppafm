@@ -27,6 +27,8 @@ import numpy as _np
 
 verbosity = 0
 
+kBoltz = 8.617333262e-5 # eV/K
+
 class ApplicationWindow(GUITemplate):
     def __init__(self):
         # First call parent constructor
@@ -39,27 +41,27 @@ class ApplicationWindow(GUITemplate):
         # Then set parameter specifications
         self.param_specs = {
 
-            'nsite':         {'group': 'Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
+            #'nsite':         {'group': 'Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
             'radius':        {'group': 'Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 5.2, 'step': 0.5},
             'phiRot':        {'group': 'Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.3,'step': 0.1},
             'phi0_ax':       {'group': 'Geometry',     'widget': 'double', 'range': (-3.14, 3.14), 'value': 0.2, 'step': 0.1},
 
             # Tip Parameters
             'VBias':         {'group': 'Electrostatic Field', 'widget': 'double', 'range': (0.0, 10.0),   'value':  0.70, 'step': 0.02},
-            'Rtip':          {'group': 'Electrostatic Field', 'widget': 'double', 'range': (0.5, 10.0),   'value':  3.0, 'step': 0.5},
-            'z_tip':         {'group': 'Electrostatic Field', 'widget': 'double', 'range': (0.5, 20.0),   'value':  5.0, 'step': 0.5},
-            'zV0':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0, 'step': 0.1},
+            'Rtip':          {'group': 'Electrostatic Field', 'widget': 'double', 'range': (0.5, 10.0),   'value':  3.0,  'step': 0.5},
+            'z_tip':         {'group': 'Electrostatic Field', 'widget': 'double', 'range': (0.5, 20.0),   'value':  5.0,  'step': 0.5},
+            'zV0':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0,  'step': 0.1},
             'zVd':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-5.0, 50.0),  'value':  15.0, 'step': 0.1},
-            'zQd':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-5.0, 5.0),   'value':  0.0, 'step': 0.1},
-            'Q0':            {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0, 'step': 0.1},
-            'Qzz':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-20.0, 20.0), 'value': 10.0, 'step': 0.5},
+            'zQd':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-5.0, 5.0),   'value':  0.0,  'step': 0.1},
+            'Q0':            {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.0,   'step': 0.1},
+            'Qzz':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-20.0, 20.0), 'value': 10.0,  'step': 0.5},
 
-            'Esite':         {'group': 'Transport Solver',  'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.100, 'step': 0.002, 'decimals': 3},
-            'W':             {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.02,   'step': 0.001, 'decimals': 3},
-            'decay':         {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 2.0),    'value': 0.3,    'step': 0.1,   'decimals': 2},
-            'GammaS':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3},
-            'GammaT':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3},
-            'Temp':          {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 100.0),  'value': 0.224,  'step': 0.01 },
+            'Esite':         {'group': 'Transport Solver',  'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.100, 'step': 0.002, 'decimals': 3 },
+            'W':             {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.05,   'step': 0.001, 'decimals': 3 },
+            'decay':         {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 2.0),    'value': 0.3,    'step': 0.1,   'decimals': 2 },
+            'GammaS':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3 },
+            'GammaT':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3 },
+            'Temp':          {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 100.0),  'value': 3.0,   'step': 0.05,  'decimals': 2 },
             #'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,    'step': 0.1  },
                         
 
@@ -362,11 +364,19 @@ class ApplicationWindow(GUITemplate):
         params = super().get_param_values()
         params['bMirror'] = self.cbMirror.isChecked()
         params['bRamp'] = self.cbRamp.isChecked()
+        params['nsite'] = 3
         return params
 
     def run(self):
         """Main calculation and plotting function"""
         params = self.get_param_values()
+        T_eV = params['Temp']*kBoltz
+        self.pauli_solver.set_lead(0, 0.0, T_eV) # for lead 0 (substrate)
+        self.pauli_solver.set_lead(1, 0.0, T_eV) # for lead 1 (tip)
+        #self.pauli_solver.print_lead_params()
+        self.pauli_solver.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12 )
+        pauli.bValidateProbabilities = False
+
         self.ax1.cla(); self.ax2.cla(); self.ax3.cla() 
         self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
         

@@ -8,6 +8,9 @@ from .cpp_utils import compile_lib, work_dir, _np_as, c_double_p, c_int_p
 from . import utils as ut
 
 verbosity = 0 
+bValidateProbabilities = True
+validateProbTol        = 1e-12
+
 
 # Compile and load the C++ library at module level
 def compile_and_load(name='pauli_lib', bASAN=False):
@@ -105,9 +108,33 @@ lib.get_coupling.restype = None
 lib.get_pauli_factors.argtypes = [c_void_p, c_double_p]
 lib.get_pauli_factors.restype = None
 
+
+#void print_lead_params(void* solver_ptr){
+lib.print_lead_params.argtypes = [c_void_p]
+lib.print_lead_params.restype = None
+
+#void print_state_energies(void* solver_ptr) {
+lib.print_state_energies.argtypes = [c_void_p]
+lib.print_state_energies.restype = None
+
+#void print_tunneling_amplitudes(void* solver_ptr) {
+lib.print_tunneling_amplitudes.argtypes = [c_void_p]
+lib.print_tunneling_amplitudes.restype = None
+
+#void print_states_by_charge(void* solver_ptr) {
+lib.print_states_by_charge.argtypes = [c_void_p]
+lib.print_states_by_charge.restype = None
+
+# void set_check_prob_stop(void* solver_ptr, bool bCheckProb, bool bCheckProbStop, double CheckProbTol=-1e-12){
+lib.set_check_prob_stop.argtypes = [c_void_p, c_bool, c_bool, c_double]
+lib.set_check_prob_stop.restype = None
+def set_check_prob_stop( solver_ptr, bCheckProb, bCheckProbStop, CheckProbTol=-1e-12 ):
+    lib.set_check_prob_stop(solver_ptr, bCheckProb, bCheckProbStop, CheckProbTol)
+
 # void evalSitesTipsTunneling( int nTips, const double* pTips, int nSites, const double* pSites, double beta, double Amp, double* outTs ){
 lib.evalSitesTipsTunneling.argtypes = [c_int, c_double_p, c_int, c_double_p, c_double, c_double, c_double_p]
 lib.evalSitesTipsTunneling.restype = None
+
 def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0]], beta=1.0, Amp=1.0, outTs=None, bMakeArrays=True ):
     nTips  = len(pTips)
     nSites = len(pSites)
@@ -193,6 +220,21 @@ class PauliSolver:
 
     def solve_hsingle(self, hsingle, W, ilead, state_order):
         return lib.solve_hsingle(self.solver, _np_as(hsingle, c_double_p), W, ilead, _np_as(state_order, c_int_p))
+    
+    def print_lead_params(self):
+        lib.print_lead_params(self.solver)
+    
+    def print_state_energies(self):
+        lib.print_state_energies(self.solver)
+    
+    def print_tunneling_amplitudes(self):
+        lib.print_tunneling_amplitudes(self.solver)
+    
+    def print_states_by_charge(self):
+        lib.print_states_by_charge(self.solver)
+
+    def set_check_prob_stop(self, bCheckProb=True, bCheckProbStop=False, CheckProbTol=-1e-12):
+        lib.set_check_prob_stop(self.solver, bCheckProb, bCheckProbStop, CheckProbTol)
     
     def scan_current(self, hsingles=None, Ws=None, VGates=None, hsingle=None, W=0.0, VGate=0.0, TLeads=None, state_order=None, out_current=None, bOmp=False):
         if hsingle is not None:
@@ -290,6 +332,20 @@ class PauliSolver:
 #         VTs
 #     ])    
 #     return TLeads, lead_mu, lead_temp, lead_gamma
+
+def validate_probabilities(probs, tol=validateProbTol):
+    """
+    Checks for negative probabilities in simulation results.
+    Called by all functions that compute state probabilities.
+    """
+    if probs is None or not bValidateProbabilities: 
+        return
+    probs = np.atleast_2d(probs)
+    min_vals = np.min(probs, axis=tuple(range(probs.ndim-1)))
+    for i, min_val in enumerate(min_vals):
+        if min_val < tol: 
+            print(f"ERROR in validate_probabilities() min_val {min_val} < tol {tol}")
+            raise ValueError(f"State {i} has negative probability ({min_val:.2e}) below tolerance ({tol:.2e})")
 
 def prepare_hsingle_cpp(eps1, eps2, eps3, t=0.0 ):
     """Prepare dynamic inputs that change with eps"""

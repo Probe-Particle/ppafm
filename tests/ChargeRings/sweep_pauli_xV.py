@@ -1,15 +1,17 @@
 import pauli_scan as ps
+from exp_utils import apply_image_processing_method, load_and_extract_experimental_data
 
 def example_xV_scan_with_exp_ref():
     """
     Example showing how to use sweep_scan_param_pauli_xV_orb with experimental reference data.
     """
-    from exp_utils import load_and_extract_experimental_data
-    
     # Load experimental data
     exp_p0=(9.72, -6.96)
     exp_p1=(-11.0, 15.0)
     exp_STM, exp_dIdV, exp_dist, exp_biases = load_and_extract_experimental_data( filename='exp_rings_data.npz',  start_point=exp_p0, end_point=exp_p1, pointPerAngstrom=5, verbosity=1 )
+
+    #exp_dIdV = apply_image_processing_method( exp_dIdV,  method_name='tv_denoising',  method_params={'weight': 1.0} )
+
     ExpRef = { 'STM': exp_STM, 'dIdV': exp_dIdV, 'x': exp_dist, 'voltages': exp_biases}
     
     # Set up base parameters from param_specs
