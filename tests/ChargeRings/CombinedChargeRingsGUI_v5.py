@@ -434,6 +434,7 @@ class ApplicationWindow(GUITemplate):
             for i,rot in enumerate(rots):
                 x, y = spos[i][0], spos[i][1]
                 self.ax4.plot([x, x+rot[0][0]], [y, y+rot[0][1]])
+        self.fig.tight_layout()
         self.canvas.draw()
         return STM, dIdV, Es, Ts, probs, spos, rots
     

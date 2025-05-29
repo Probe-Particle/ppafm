@@ -60,9 +60,9 @@ class PlotManager:
             
         for name, cfg in self.plots.items():
             # Set common properties with increased padding
-            cfg.ax.set_title(cfg.title, pad=20)
-            cfg.ax.set_xlabel(cfg.xlabel, labelpad=10)
-            cfg.ax.set_ylabel(cfg.ylabel, labelpad=10)
+            cfg.ax.set_title(cfg.title, pad=5)
+            cfg.ax.set_xlabel(cfg.xlabel, labelpad=2)
+            cfg.ax.set_ylabel(cfg.ylabel, labelpad=2)
             if cfg.grid:
                 cfg.ax.grid(True)
             
@@ -79,7 +79,7 @@ class PlotManager:
                 cfg.line_artists.append(artist)
         
         # Initial draw and layout
-        self.fig.tight_layout()
+        self.fig.tight_layout(pad=0.1)
         self.fig.canvas.draw()
         
         # Store backgrounds after layout is set
