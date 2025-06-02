@@ -68,9 +68,9 @@ def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
     rTips = np.zeros((ntips, 3))
     rs = np.zeros((ntips, 3))
     fs = np.zeros((ntips, 3))
-    nx = len(zTips)
+    nx = len(xTips)
     ny = len(yTips)
-    nz = len(xTips)
+    nz = len(zTips)
     if bF3d:
         fzs = np.zeros((nx, ny, nz, 3))
     else:
@@ -90,14 +90,14 @@ def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
             rTips[:, 2] = trj[:, 2]
             core.relaxTipStroke(rTips, rs, fs)
             if bF3d:
-                fzs[:, iy, ix, 0] = (fs[:, 0].copy())[::-1]
-                fzs[:, iy, ix, 1] = (fs[:, 1].copy())[::-1]
-                fzs[:, iy, ix, 2] = (fs[:, 2].copy())[::-1]
+                fzs[ix, iy, :, 0] = fs[::-1, 0]
+                fzs[ix, iy, :, 1] = fs[::-1, 1]
+                fzs[ix, iy, :, 2] = fs[::-1, 2]
             else:
-                fzs[:, iy, ix] = (fs[:, 2].copy())[::-1]
-            PPpos[:, iy, ix, 0] = rs[::-1, 0]
-            PPpos[:, iy, ix, 1] = rs[::-1, 1]
-            PPpos[:, iy, ix, 2] = rs[::-1, 2]
+                fzs[ix, iy, :] = fs[::-1, 2]
+            PPpos[ix, iy, :, 0] = rs[::-1, 0]
+            PPpos[ix, iy, :, 1] = rs[::-1, 1]
+            PPpos[ix, iy, :, 2] = rs[::-1, 2]
     if verbose > 0:
         print("<<<END: relaxedScan3D()")
     return fzs, PPpos
@@ -108,9 +108,9 @@ def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False, tip_spline=None
         print(">>BEGIN: relaxedScan3D_omp()")
     if verbose > 0:
         print(" zTips : ", zTips)
-    nz = len(zTips)
-    ny = len(yTips)
     nx = len(xTips)
+    ny = len(yTips)
+    nz = len(zTips)
     rTips = np.zeros((nx, ny, nz, 3))
     rs = np.zeros((nx, ny, nz, 3))
     fs = np.zeros((nx, ny, nz, 3))
@@ -118,14 +118,11 @@ def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False, tip_spline=None
     rTips[:, :, :, 1] = yTips[None, :, None]
     rTips[:, :, :, 2] = zTips[::-1][None, None, :]
     core.relaxTipStrokes_omp(rTips, rs, fs, tip_spline=tip_spline)
-    # rs[:,:,:,:] = rs[:,:,::-1,:].transpose(2,1,0,3).copy()
-    # fs[:,:,:,:] = fs[:,:,::-1,:]
-    # fzs = fs[:,:,::-1,2].transpose(2,1,0).copy()
-    rs = rs[:, :, ::-1, :].transpose(2, 1, 0, 3).copy()
+    rs = rs[:, :, ::-1, :].copy()
     if bF3d:
-        fzs = fs[:, :, ::-1, :].transpose(2, 1, 0, 3).copy()
+        fzs = fs[:, :, ::-1, :].copy()
     else:
-        fzs = fs[:, :, ::-1, 2].transpose(2, 1, 0).copy()
+        fzs = fs[:, :, ::-1, 2].copy()
     if verbose > 0:
         print("<<<END: relaxedScan3D_omp()")
     return fzs, rs
@@ -163,8 +160,7 @@ def perform_relaxation(
         FF += FFboltz
     if bFFtotDebug:
         io.save_vec_field("FFtotDebug", FF, lvec)
-    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
-    core.setFF_Fpointer(FF)
+    setFF(FF, lvec=lvec, parameters=parameters)
     if (np.array(parameters.stiffness) < 0.0).any():
         parameters.stiffness = np.array([parameters.klat, parameters.klat, parameters.krad])
     if verbose > 0:
@@ -185,7 +181,7 @@ def perform_relaxation(
 
     if bPPdisp:
         PPdisp = PPpos.copy()
-        init_pos = np.array(np.meshgrid(xTips, yTips, zTips)).transpose(3, 1, 2, 0) + np.array([parameters.r0Probe[0], parameters.r0Probe[1], -parameters.r0Probe[2]])
+        init_pos = np.array(np.meshgrid(xTips, yTips, zTips)) + np.array([parameters.r0Probe[0], parameters.r0Probe[1], -parameters.r0Probe[2]])
         PPdisp -= init_pos
     else:
         PPdisp = None
@@ -200,21 +196,71 @@ def perform_relaxation(
 # ==== Forcefield grid generation
 
 
-def prepareArrays(FF, Vpot, parameters):
-    if parameters.gridN[0] <= 0:
-        PPU.autoGridN()
-    if FF is None:
-        gridN = parameters.gridN
-        FF = np.zeros((gridN[2], gridN[1], gridN[0], 3))
+def setFF(FF=None, computeVpot=False, n=None, lvec=None, parameters=None, verbose=True):
+
+    # Find gridN
+    if FF is not None:
+        gridN = np.shape(FF)[0:3]
+        if parameters is not None:
+            parameters.gridN = gridN
     else:
-        gridN = np.shape(FF)
-        parameters.gridN = gridN
-    core.setFF_Fpointer(FF)
-    if Vpot:
-        V = np.zeros((gridN[2], gridN[1], gridN[0]))
+        if n is not None:
+            gridN = np.array(n, dtype=np.int32)
+        elif parameters is not None:
+            if parameters.gridN[2] <= 0:
+                gridN = PPU.autoGridN(parameters)
+            else:
+                gridN = parameters.gridN
+        else:
+            raise ValueError("FF dimensions not set !!")
+        # Create a new array for FF if needed
+        FF = np.zeros((gridN[0], gridN[1], gridN[2], 3))
+    if verbose:
+        print("setFF() gridN: ", gridN)
+    core.setGridN(gridN)
+
+    # Set pointer to FF
+    if len(FF.shape) == 4 and FF.shape[-1] == 3:
+        if verbose:
+            print("setFF() Creating a pointer to a vector field")
+        core.setFF_Fpointer(FF)
+    elif len(FF.shape) == 3 or FF.shape[-1] == 1:
+        if verbose:
+            print("setFF() Creating a pointer to a scalar field")
+        core.setFF_Epointer(FF)
+    else:
+        raise ValueError("setFF: Array dimensions wrong for both vector and array field !!")
+
+    # Create a scalar (potential) field if required
+    if computeVpot:
+        if verbose:
+            print("setFF() Creating a pointer to a scalar field")
+        V = np.zeros((gridN[0], gridN[1], gridN[2]))
         core.setFF_Epointer(V)
     else:
         V = None
+
+    # Set lattice vectors or grid geometry
+    if (lvec is None) and (parameters is not None):
+        lvec = np.array(
+            [
+                parameters.gridA,
+                parameters.gridB,
+                parameters.gridC,
+            ],
+            dtype=np.float64,
+        ).copy()
+    lvec = np.array(lvec, dtype=np.float64)
+    if lvec.shape == (3, 3):
+        lvec = lvec.copy()
+    elif lvec.shape == (4, 3):
+        lvec = lvec[1:, :].copy()
+    else:
+        raise ValueError("lvec matrix has a wrong format !!")
+    if verbose:
+        print("setFF() lvec: ", lvec)
+    core.setGridCell(lvec)
+
     return FF, V
 
 
@@ -234,10 +280,9 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
     # --- prepare LJ parameters
     iPP = PPU.atom2iZ(parameters.probeType, elem_dict)
     # --- prepare arrays and compute
-    FF, V = prepareArrays(None, computeVpot, parameters=parameters)
+    FF, V = setFF(None, computeVpot, lvec=lvec, parameters=parameters)
     if verbose > 0:
         print("FFLJ.shape", FF.shape)
-    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
 
     # shift atoms to the coordinate system in which the grid origin is zero
     Rs0 = shift_positions(Rs, -lvec[0])
@@ -307,8 +352,7 @@ def computeDFTD3(input_file, df_params="PBE", geometry_format=None, save_format=
     coeffs = core.computeD3Coeffs(Rs, iZs, iPP, df_params)
 
     # Compute the force field
-    FF, V = prepareArrays(None, compute_energy, parameters=parameters)
-    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
+    FF, V = setFF(None, compute_energy, lvec=lvec, parameters=parameters)
     core.getDFTD3FF(shift_positions(Rs, -lvec[0]), coeffs)
 
     # Save to file
@@ -339,8 +383,7 @@ def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format
     if verbose > 0:
         print(parameters.gridN, parameters.gridA, parameters.gridB, parameters.gridC)
     _, Rs, Qs = PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=parameters.PBC, lvec=lvec, parameters=parameters)
-    FF, V = prepareArrays(None, computeVpot, parameters=parameters)
-    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
+    FF, V = setFF(None, computeVpot, lvec=lvec, parameters=parameters)
 
     # shift atoms to the coordinate system in which the grid origin is zero
     Rs0 = shift_positions(Rs, -lvec[0])
@@ -449,8 +492,9 @@ def subtractCoreDensities(
         print("V : ", V, " N: ", N, " dV: ", dV)
     if verbose > 0:
         print("sum(RHO): ", rho.sum(), " Nelec: ", rho.sum() * dV, " voxel volume: ", dV)  # check sum
-    core.setFF_shape(rho.shape, lvec, parameters=parameters)  # set grid sampling dimension and shape
-    core.setFF_Epointer(rho)  # set pointer to array with density data (to write into)
+
+    # set grid sampling dimension and shape
+    setFF(rho, lvec=lvec, parameters=parameters)
     if verbose > 0:
         print(">>> Projecting Core Densities ... ")
 
