@@ -160,8 +160,7 @@ def perform_relaxation(
         FF += FFboltz
     if bFFtotDebug:
         io.save_vec_field("FFtotDebug", FF, lvec)
-    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
-    core.setFF_Fpointer(FF)
+    setFF(FF, lvec=lvec, parameters=parameters)
     if (np.array(parameters.stiffness) < 0.0).any():
         parameters.stiffness = np.array([parameters.klat, parameters.klat, parameters.krad])
     if verbose > 0:
@@ -197,21 +196,71 @@ def perform_relaxation(
 # ==== Forcefield grid generation
 
 
-def prepareArrays(FF, Vpot, parameters):
-    if parameters.gridN[2] <= 0:
-        PPU.autoGridN()
-    if FF is None:
-        gridN = parameters.gridN
-        FF = np.zeros((gridN[0], gridN[1], gridN[2], 3))
+def setFF(FF=None, computeVpot=False, n=None, lvec=None, parameters=None, verbose=True):
+
+    # Find gridN
+    if FF is not None:
+        gridN = np.shape(FF)[0:3]
+        if parameters is not None:
+            parameters.gridN = gridN
     else:
-        gridN = np.shape(FF)
-        parameters.gridN = gridN
-    core.setFF_Fpointer(FF)
-    if Vpot:
+        if n is not None:
+            gridN = np.array(n, dtype=np.int32)
+        elif parameters is not None:
+            if parameters.gridN[2] <= 0:
+                gridN = PPU.autoGridN(parameters)
+            else:
+                gridN = parameters.gridN
+        else:
+            raise ValueError("FF dimensions not set !!")
+        # Create a new array for FF if needed
+        FF = np.zeros((gridN[0], gridN[1], gridN[2], 3))
+    if verbose:
+        print("setFF() gridN: ", gridN)
+    core.setGridN(gridN)
+
+    # Set pointer to FF
+    if len(FF.shape) == 4 and FF.shape[-1] == 3:
+        if verbose:
+            print("setFF() Creating a pointer to a vector field")
+        core.setFF_Fpointer(FF)
+    elif len(FF.shape) == 3 or FF.shape[-1] == 1:
+        if verbose:
+            print("setFF() Creating a pointer to a scalar field")
+        core.setFF_Epointer(FF)
+    else:
+        raise ValueError("setFF: Array dimensions wrong for both vector and array field !!")
+
+    # Create a scalar (potential) field if required
+    if computeVpot:
+        if verbose:
+            print("setFF() Creating a pointer to a scalar field")
         V = np.zeros((gridN[0], gridN[1], gridN[2]))
         core.setFF_Epointer(V)
     else:
         V = None
+
+    # Set lattice vectors or grid geometry
+    if (lvec is None) and (parameters is not None):
+        lvec = np.array(
+            [
+                parameters.gridA,
+                parameters.gridB,
+                parameters.gridC,
+            ],
+            dtype=np.float64,
+        ).copy()
+    lvec = np.array(lvec, dtype=np.float64)
+    if lvec.shape == (3, 3):
+        lvec = lvec.copy()
+    elif lvec.shape == (4, 3):
+        lvec = lvec[1:, :].copy()
+    else:
+        raise ValueError("lvec matrix has a wrong format !!")
+    if verbose:
+        print("setFF() lvec: ", lvec)
+    core.setGridCell(lvec)
+
     return FF, V
 
 
@@ -231,10 +280,9 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
     # --- prepare LJ parameters
     iPP = PPU.atom2iZ(parameters.probeType, elem_dict)
     # --- prepare arrays and compute
-    FF, V = prepareArrays(None, computeVpot, parameters=parameters)
+    FF, V = setFF(None, computeVpot, lvec=lvec, parameters=parameters)
     if verbose > 0:
         print("FFLJ.shape", FF.shape)
-    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
 
     # shift atoms to the coordinate system in which the grid origin is zero
     Rs0 = shift_positions(Rs, -lvec[0])
@@ -304,8 +352,7 @@ def computeDFTD3(input_file, df_params="PBE", geometry_format=None, save_format=
     coeffs = core.computeD3Coeffs(Rs, iZs, iPP, df_params)
 
     # Compute the force field
-    FF, V = prepareArrays(None, compute_energy, parameters=parameters)
-    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
+    FF, V = setFF(None, compute_energy, lvec=lvec, parameters=parameters)
     core.getDFTD3FF(shift_positions(Rs, -lvec[0]), coeffs)
 
     # Save to file
@@ -336,8 +383,7 @@ def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format
     if verbose > 0:
         print(parameters.gridN, parameters.gridA, parameters.gridB, parameters.gridC)
     _, Rs, Qs = PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=parameters.PBC, lvec=lvec, parameters=parameters)
-    FF, V = prepareArrays(None, computeVpot, parameters=parameters)
-    core.setFF_shape(np.shape(FF), lvec, parameters=parameters)
+    FF, V = setFF(None, computeVpot, lvec=lvec, parameters=parameters)
 
     # shift atoms to the coordinate system in which the grid origin is zero
     Rs0 = shift_positions(Rs, -lvec[0])
@@ -446,8 +492,9 @@ def subtractCoreDensities(
         print("V : ", V, " N: ", N, " dV: ", dV)
     if verbose > 0:
         print("sum(RHO): ", rho.sum(), " Nelec: ", rho.sum() * dV, " voxel volume: ", dV)  # check sum
-    core.setFF_shape(rho.shape, lvec, parameters=parameters)  # set grid sampling dimension and shape
-    core.setFF_Epointer(rho)  # set pointer to array with density data (to write into)
+
+    # set grid sampling dimension and shape
+    setFF(rho, lvec=lvec, parameters=parameters)
     if verbose > 0:
         print(">>> Projecting Core Densities ... ")
 
