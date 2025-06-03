@@ -533,7 +533,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     probs = probs.reshape(params['npix'], params['npix'], -1)
     return STM, dIdV, Es, Ts, probs, spos, rots
 
-def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=0.5, fig_probs=None, bdIdV=False):
+def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=1.0, fig_probs=None, bdIdV=False):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
     computed by convolution of orbitals on canvas
@@ -569,8 +569,9 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         dcanv=2*L/npix
         big_npix=int(params.get('big_npix',400))
         Ms,rho=generate_central_hops(orbital_2D,orbital_lvec,spos[:,:2],angles,z_tip,dcanv,big_npix,npix,decay=decay or params.get('decay',0.2))
+        print("calculate_xV_scan_orb() Ms (min, max) ", np.min(Ms), np.max(Ms))
         Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
-        for i in range(nsite): Ts_flat[:,i]=Ms[i].flatten() #**2
+        for i in range(nsite): Ts_flat[:,i]=np.abs(Ms[i].flatten()) #**2
     else:
         # Use gaussian tunneling model with parameters from GUI
         Ts_flat, _, _, _ = generate_hops_gauss( spos, params)
@@ -760,11 +761,12 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         dcanv = 2*L/npix
         big_npix = int(params.get('big_npix',400))
         Ms, _ = generate_central_hops(orbital_2D, orbital_lvec, spos[:,:2], angles, params['z_tip']+params['Rtip'], dcanv, big_npix, npix, decay=decay or params.get('decay',0.2))
+        print("calculate_xV_scan_orb() Ms (min, max) ", np.min(Ms), np.max(Ms))
         # Prepare grid for interpolation
         coords = (np.arange(npix) + 0.5 - npix/2)*dcanv
         Ts_line = np.zeros((npts, nsite))
         for i in range(nsite):
-            Ts_map = Ms[i] #**2
+            Ts_map = np.abs(Ms[i]) #**2
             interp = RectBivariateSpline(coords, coords, Ts_map)
             Ts_line[:,i] = interp(y, x, grid=False)
         Ts_input = Ts_line

@@ -65,9 +65,9 @@ class ApplicationWindow(GUITemplate):
             #'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,    'step': 0.1  },
                         
             # Barrier
-            'Et0':          {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 10.0),   'value':  0.25,    'step': 0.01  }, # E0 base height of tunelling barrier
+            'Et0':          {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 10.0),   'value':  0.2,    'step': 0.01  }, # E0 base height of tunelling barrier
             'wt':           {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 20.0),   'value':  8.0,    'step': 0.1  }, # Amp Amplitude or tunelling barrirer modification
-            'At':           {'group': 'Barrier', 'widget': 'double', 'range': (-10.0, 10.0), 'value': -0.07,    'step': 0.01  }, # w Gaussain width for tunelling barrirer modification
+            'At':           {'group': 'Barrier', 'widget': 'double', 'range': (-10.0, 10.0), 'value': -0.1,    'step': 0.01  }, # w Gaussain width for tunelling barrirer modification
 
             # Visualization
             'L':             {'group': 'Visualization', 'widget': 'double', 'range': (5.0, 50.0),   'value': 20.0, 'step': 1.0},
