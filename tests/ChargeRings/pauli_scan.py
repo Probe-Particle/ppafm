@@ -16,6 +16,16 @@ import time
 import orbital_utils
 from scipy.interpolate import RectBivariateSpline
 
+const_hbar    = 6.582119569e-16  # [ eV*s ]
+const_me      = 9.1093837015e-31  # [ kg   ]
+#e_charge = 1.602176634e-19   # [ C    ]
+eV_A2           =  16.02176634
+hbar2_2me       =  const_hbar*const_hbar / (2.0 * const_me )
+hbar2_2me_eVA2  = hbar2_2me * eV_A2
+
+print("hbar2_2me      =",hbar2_2me,      "[ eV^2 s^2/kg ]")
+print("hbar2_2me_eVA2 =",hbar2_2me_eVA2, "[ eV A^2 ]")
+
 # ===========================================
 # ============= Utility functions
 # ===========================================
@@ -42,7 +52,7 @@ def make_grid_axes(fig, nplots):
     ncols = math.ceil(nplots / nrows)
     axs = fig.subplots(nrows, ncols)
     # flatten axes array
-    return _np.array(axs).flatten()
+    return np.array(axs).flatten()
 
 def cut_central_region(map_list, dcanv, big_npix, small_npix):
     """Crop central small_npix×small_npix from big_npix maps with pixel size dcanv"""
@@ -57,6 +67,51 @@ def generate_central_hops(orb2D, orb_lvec, spos_xy, angles, z0, dcanv, big_npix,
     Ms_small=cut_central_region(Ms_big,dcanv,big_npix,small_npix)
     rho_small=cut_central_region([rho_big],dcanv,big_npix,small_npix)[0]
     return Ms_small, rho_small
+
+# def calculate_barrier_gauss( pTips, p0=[0.,0.,0.], E0=1.0, Amp=1.0, w=1.0):
+#     r2  = (pTips[:,0] - p0[0])**2 + (pTips[:,1] - p0[1])**2 
+#     V_gauss = Amp * np.exp(-r2 / (2.0 * w**2))
+#     barrier = E0 + V_gauss
+#     beta = np.sqrt( barrier / hbar2_2me_eVA2 )
+#     return outTs
+
+def generate_hops_gauss( spos, params, pTips=None, p0=[0.,0.,0.], bBarrier=True ):
+    # Prepare tip positions for gaussian tunneling calculation
+    nsite  = len(spos)
+    npix   = params['npix']
+    L      = params['L']
+    z_tip  = params['z_tip']
+    coords = (np.arange(npix) + 0.5 - npix/2)*(2*L/npix)
+    xx, yy = np.meshgrid(coords, coords)
+    if pTips is None:
+        pTips = np.zeros((npix*npix, 3))
+        pTips[:,0] = xx.flatten()
+        pTips[:,1] = yy.flatten()
+        pTips[:,2] = z_tip + params['Rtip']
+    Ts = np.zeros((npix*npix, nsite))
+    #   calculate potential
+    barrier = None
+    if bBarrier:
+        barrier = np.zeros((npix*npix))
+        Amp = params['At']; 
+        E0  = params['Et0']; 
+        w   = params['wt']
+        if( abs(Amp) > 1e-12 ):
+            for i in range(nsite):
+                r2  = (pTips[:,0] - p0[0])**2 + (pTips[:,1] - p0[1])**2 
+                barrier[:] += Amp * np.exp(-r2 / (2.0 * w**2))
+        barrier += E0
+        print("generate_hops_gauss() barrier(min, max)", np.min(barrier), np.max(barrier))
+        beta = np.sqrt( barrier / hbar2_2me_eVA2 )
+    else:
+        beta = np.ones((npix*npix))*params['decay']
+    print("generate_hops_gauss() beta(min, max)", np.min(beta), np.max(beta))
+    for i in range(nsite):
+        p = spos[i]
+        r2 = (pTips[:,0] - p[0])**2 + (pTips[:,1] - p[1])**2 + (pTips[:,2] - p[2])**2
+        r  = np.sqrt(r2)
+        Ts[:,i] = np.exp(-beta*r )
+    return Ts, pTips, beta, barrier
 
 # ===========================================
 # ============= Plot & Save functions
@@ -497,6 +552,8 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     nsite=params['nsite']; z_tip=params['z_tip']
     # Site geometry (positions, rotations, angles)
     spos, rots, angles = make_site_geom(params)
+
+    #print( " type(rots) ",  type(rots) )
     # big-to-small hopping computation
     #dcanv=params['L']/params['npix']
 
@@ -508,8 +565,9 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
         for i in range(nsite): Ts_flat[:,i]=Ms[i].flatten() #**2
     else:
-        Ts_flat = None
-
+        # Use gaussian tunneling model with parameters from GUI
+        Ts_flat,_,_,_ = generate_hops_gauss( spos, params, p0=[0,0,0])
+    
     # Create solver if not provided
     if pauli_solver is None:
         pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
@@ -533,7 +591,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     #print("min, max STM_flat", np.min(STM_flat), np.max(STM_flat))
     #print("min, max Es_flat", np.min(Es_flat), np.max(Es_flat))
     #print("min, max Ts_flat", np.min(Ts_flat), np.max(Ts_flat))
-    
+
     # Reshape the results
     STM = STM_flat.reshape(npix, npix)
     Es  = Es_flat .reshape(npix, npix, nsite)
@@ -681,6 +739,10 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     if Vmax is None: Vmax = params['VBias']
     Vbiases = np.linspace(Vmin, Vmax, nV)
 
+    # Prepare tip positions
+    pTips = np.zeros((npts,3))
+    pTips[:,0] = x; pTips[:,1] = y; pTips[:,2] = params['z_tip']+params['Rtip']
+
     # Site & rotation
     nsite = int(params['nsite'])
     # Site geometry (positions, rotations, angles)
@@ -700,11 +762,8 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
             Ts_line[:,i] = interp(y, x, grid=False)
         Ts_input = Ts_line
     else:
-        Ts_input = None
+        Ts_input = generate_hops_gauss(spos, params, pTips=pTips)
 
-    # Prepare tip positions
-    pTips = np.zeros((npts,3))
-    pTips[:,0] = x; pTips[:,1] = y; pTips[:,2] = params['z_tip']+params['Rtip']
 
     state_order = pauli.make_state_order(nsite)
     # Run scan using parameter dict (wrapper generates C++ params internally)
@@ -863,7 +922,7 @@ def sweep_scan_param_pauli_xy_orb_old(params, scan_params, selected_params=None,
 
     # Site geometry (positions, rotations, angles)
     spos, rots, angles = make_site_geom(params)
-    
+
     # Store in params for later use
     params['spos'] = spos
     params['rots'] = rots
@@ -887,11 +946,11 @@ def sweep_scan_param_pauli_xy_orb_old(params, scan_params, selected_params=None,
     
     # Build figure title with selected parameters (excluding swept ones)
     title = "Parameter sweep: "
-    if selected_params:
+    if selected_params: 
         title_params = [p for p in selected_params if p not in param_names]
         if title_params:
             title += ", ".join([f"{k}={params[k]}" for k in title_params])
-    fig.suptitle(title, fontsize=12)
+        fig.suptitle(title, fontsize=12)
     
     # First column: rho (top), Ttot (middle)
     ax_rho  = fig.add_subplot(3, nscan+1, 1)
@@ -915,7 +974,7 @@ def sweep_scan_param_pauli_xy_orb_old(params, scan_params, selected_params=None,
         ax_dIdV = fig.add_subplot(3, nscan+1, i+2*nscan+4)
         
         # Run pauli scan and plot results (same as before)
-        STM_flat, Es_flat, Ts_flat_, probs_ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+        STM_flat, Es_flat, Ts_flat_, probs_ = pauli.run_pauli_scan_top(params['spos'], params['rots'], params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)       
         pauli.validate_probabilities(probs_)
         dIdV = None
         if ax_dIdV is not None:

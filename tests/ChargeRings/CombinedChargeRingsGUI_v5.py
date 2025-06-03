@@ -64,13 +64,17 @@ class ApplicationWindow(GUITemplate):
             'Temp':          {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 100.0),  'value': 3.0,   'step': 0.05,  'decimals': 2 },
             #'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,    'step': 0.1  },
                         
+            # Barrier
+            'Et0':          {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 10.0),   'value':  0.25,    'step': 0.01  }, # E0 base height of tunelling barrier
+            'wt':           {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 20.0),   'value':  8.0,    'step': 0.1  }, # Amp Amplitude or tunelling barrirer modification
+            'At':           {'group': 'Barrier', 'widget': 'double', 'range': (-10.0, 10.0), 'value': -0.07,    'step': 0.01  }, # w Gaussain width for tunelling barrirer modification
 
             # Visualization
             'L':             {'group': 'Visualization', 'widget': 'double', 'range': (5.0, 50.0),   'value': 20.0, 'step': 1.0},
             'npix':          {'group': 'Visualization', 'widget': 'int',    'range': (50, 500),     'value': 200,  'step': 50},
             'dQ':            {'group': 'Visualization', 'widget': 'double', 'range': (0.001, 0.1),  'value': 0.02, 'step': 0.001, 'decimals': 3},
-            'R_major':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 8.0,  'step': 0.1},
-            'R_minor':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 10.0, 'step': 0.1},
+            #'R_major':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 8.0,  'step': 0.1},
+            #'R_minor':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 10.0, 'step': 0.1},
             
             # simulation end-points for 1D scan
             'p1_x':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5,'fidget': False},

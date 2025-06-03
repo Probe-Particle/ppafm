@@ -264,6 +264,8 @@ class PauliSolver:
     def scan_current_tip(self, pTips, Vtips, pSites, params, order, cs, state_order, rots=None, out_current=None, bOmp=False, Es=None, Ts=None, return_probs=True, bMakeArrays=True ):
         npoins = len(pTips)
         nsites = len(pSites)
+        #print( "scan_current_tip() type(rots)", type(rots) )
+        #print( "scan_current_tip() type(Ts)", type(Ts) )
         #print( f"scan_current_tip() nsites: {nsites} npoins: {npoins} bOmp: {bOmp} bMakeArrays: {bMakeArrays} order: {order} cs: {cs}" )
         if out_current is None: out_current = np.zeros(npoins, dtype=np.float64)
         if Ts is not None: 
@@ -570,6 +572,7 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
     # --- Run scan ---
     #print("Running scan...")
     # always retrieve probabilities (may be None)
+    #print("run_pauli_scan_top() type(rots)", type(rots))
     STM, Es, Ts, Probs = pauli_solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts, return_probs=True)
     STM = STM.reshape(npix, npix)
     Es  = Es.reshape(npix, npix, nsite)
