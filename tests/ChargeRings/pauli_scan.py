@@ -68,49 +68,56 @@ def generate_central_hops(orb2D, orb_lvec, spos_xy, angles, z0, dcanv, big_npix,
     rho_small=cut_central_region([rho_big],dcanv,big_npix,small_npix)[0]
     return Ms_small, rho_small
 
-# def calculate_barrier_gauss( pTips, p0=[0.,0.,0.], E0=1.0, Amp=1.0, w=1.0):
+# def calculate_tunneling_gauss( pTips, p0=[0.,0.,0.], E0=1.0, Amp=1.0, w=1.0):
 #     r2  = (pTips[:,0] - p0[0])**2 + (pTips[:,1] - p0[1])**2 
 #     V_gauss = Amp * np.exp(-r2 / (2.0 * w**2))
 #     barrier = E0 + V_gauss
 #     beta = np.sqrt( barrier / hbar2_2me_eVA2 )
+#     r = np.sqrt(r2)
+#     outTs = np.exp(-beta * r)
 #     return outTs
 
-def generate_hops_gauss( spos, params, pTips=None, p0=[0.,0.,0.], bBarrier=True ):
-    # Prepare tip positions for gaussian tunneling calculation
+def generate_hops_gauss( spos, params, pTips=None, bBarrier=True ):
     nsite  = len(spos)
-    npix   = params['npix']
-    L      = params['L']
-    z_tip  = params['z_tip']
-    coords = (np.arange(npix) + 0.5 - npix/2)*(2*L/npix)
-    xx, yy = np.meshgrid(coords, coords)
     if pTips is None:
+        # Generate grid of tip positions
+        npix   = params['npix']
+        L      = params['L']
+        z_tip  = params['z_tip']
+        coords = (np.arange(npix) + 0.5 - npix/2)*(2*L/npix)
+        xx, yy = np.meshgrid(coords, coords)
         pTips = np.zeros((npix*npix, 3))
         pTips[:,0] = xx.flatten()
         pTips[:,1] = yy.flatten()
         pTips[:,2] = z_tip + params['Rtip']
-    Ts = np.zeros((npix*npix, nsite))
-    #   calculate potential
-    barrier = None
+        npoints = npix*npix
+    else:
+        npoints = pTips.shape[0]  # Use actual tip count
+    Ts = np.zeros((npoints, nsite))
+    # Calculate barrier and beta
     if bBarrier:
-        barrier = np.zeros((npix*npix))
-        Amp = params['At']; 
-        E0  = params['Et0']; 
+        barrier = np.zeros(npoints)  # Correct size
+        Amp = params['At']
+        E0  = params['Et0']
         w   = params['wt']
-        if( abs(Amp) > 1e-12 ):
+        if abs(Amp) > 1e-12:
+            # Vectorized calculation for all points
             for i in range(nsite):
-                r2  = (pTips[:,0] - p0[0])**2 + (pTips[:,1] - p0[1])**2 
+                p = spos[i]
+                r2 = (pTips[:,0] - p[0])**2 + (pTips[:,1] - p[1])**2 + (pTips[:,2] - p[2])**2 
                 barrier[:] += Amp * np.exp(-r2 / (2.0 * w**2))
         barrier += E0
-        print("generate_hops_gauss() barrier(min, max)", np.min(barrier), np.max(barrier))
-        beta = np.sqrt( barrier / hbar2_2me_eVA2 )
+        print( "generate_hops_gauss() barrier (min, max) ", np.min(barrier), np.max(barrier) )
+        beta = np.sqrt(barrier / hbar2_2me_eVA2)
     else:
-        beta = np.ones((npix*npix))*params['decay']
-    print("generate_hops_gauss() beta(min, max)", np.min(beta), np.max(beta))
+        beta = np.ones(npoints) * params['decay']
+    print( "generate_hops_gauss() beta (min, max) ", np.min(beta), np.max(beta) )
+    # Now compute Ts for each site
     for i in range(nsite):
         p = spos[i]
         r2 = (pTips[:,0] - p[0])**2 + (pTips[:,1] - p[1])**2 + (pTips[:,2] - p[2])**2
         r  = np.sqrt(r2)
-        Ts[:,i] = np.exp(-beta*r )
+        Ts[:,i] = np.exp(-beta * r)
     return Ts, pTips, beta, barrier
 
 # ===========================================
@@ -566,7 +573,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         for i in range(nsite): Ts_flat[:,i]=Ms[i].flatten() #**2
     else:
         # Use gaussian tunneling model with parameters from GUI
-        Ts_flat,_,_,_ = generate_hops_gauss( spos, params, p0=[0,0,0])
+        Ts_flat, _, _, _ = generate_hops_gauss( spos, params)
     
     # Create solver if not provided
     if pauli_solver is None:
@@ -762,7 +769,7 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
             Ts_line[:,i] = interp(y, x, grid=False)
         Ts_input = Ts_line
     else:
-        Ts_input = generate_hops_gauss(spos, params, pTips=pTips)
+        Ts_input, _, _, _ = generate_hops_gauss( spos, params, pTips=pTips, bBarrier=True )
 
 
     state_order = pauli.make_state_order(nsite)

@@ -58,10 +58,10 @@ class ApplicationWindow(GUITemplate):
 
             'Esite':         {'group': 'Transport Solver',  'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.100, 'step': 0.002, 'decimals': 3 },
             'W':             {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.05,   'step': 0.001, 'decimals': 3 },
-            'decay':         {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 2.0),    'value': 0.3,    'step': 0.1,   'decimals': 2 },
-            'GammaS':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3 },
-            'GammaT':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3 },
             'Temp':          {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 100.0),  'value': 3.0,   'step': 0.05,  'decimals': 2 },
+            'decay':         {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 2.0),    'value': 0.3,    'step': 0.1,   'decimals': 2 },
+            'GammaS':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3, 'fidget': False },
+            'GammaT':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3, 'fidget': False },
             #'onSiteCoulomb': {'group': 'System Parameters', 'widget': 'double', 'range': (0.0, 10.0),  'value': 3.0,    'step': 0.1  },
                         
             # Barrier
