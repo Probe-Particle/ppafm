@@ -13,6 +13,9 @@ import plot_utils as pu
 import numpy as np
 import time
 
+
+import colormaps
+
 import orbital_utils
 from scipy.interpolate import RectBivariateSpline
 
@@ -25,6 +28,18 @@ hbar2_2me_eVA2  = hbar2_2me * eV_A2
 
 print("hbar2_2me      =",hbar2_2me,      "[ eV^2 s^2/kg ]")
 print("hbar2_2me_eVA2 =",hbar2_2me_eVA2, "[ eV A^2 ]")
+
+#cmap_dIdV = 'bwr'
+#cmap_dIdV = 'PiYG'
+cmap_dIdV = 'PiYG_inv'
+#cmap_dIdV = 'vanimo'
+#cmap_dIdV = 'vanimo_inv'
+
+#cmap_STM  = 'hot'
+#map_STM  = 'afmhot'
+#cmap_STM = 'gnuplot2'
+#cmap_STM = 'seismic'
+cmap_STM = 'inferno'
 
 # ===========================================
 # ============= Utility functions
@@ -111,7 +126,7 @@ def generate_hops_gauss( spos, params, pTips=None, bBarrier=True ):
         beta = np.sqrt(barrier / hbar2_2me_eVA2)
     else:
         beta = np.ones(npoints) * params['decay']
-    print( "generate_hops_gauss() beta (min, max) ", np.min(beta), np.max(beta) )
+    print(     "generate_hops_gauss() beta    (min, max) ", np.min(beta), np.max(beta) )
     # Now compute Ts for each site
     for i in range(nsite):
         p = spos[i]
@@ -293,7 +308,7 @@ def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, asp
     fig.tight_layout()
     return fig, axs
 
-def plot_column(fig, ncols, col_idx, data1, data2, extent, title='', cmap1='hot', cmap2='bwr', bCbar=False, xlabel='', ylabel='', aspectEqual=False):
+def plot_column(fig, ncols, col_idx, data1, data2, extent, title='', cmap1=cmap_STM, cmap2=cmap_dIdV, bCbar=False, xlabel='', ylabel='', aspectEqual=False):
     """
     Plot a complete column of two 2D datasets (top and bottom).
     
@@ -615,16 +630,16 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
 
     T_calc = time.perf_counter(); print(f"scan_xy_orb() calc time: {T_calc-T0:.5f} [s]")
 
-    if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies max(eps)",      extent=extent, cmap='bwr')
-    if ax_rho  is not None and rho is not None: pu.plot_imshow(ax_rho,  rho,  title="sum(Wf)", extent=extent, cmap='bwr')
-    if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)",     extent=extent, cmap='hot')
-    if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",                    extent=extent, cmap='hot')
+    if ax_Etot is not None:                     pu.plot_imshow(ax_Etot, Etot, title="Energies max(eps)",  extent=extent, cmap='bwr', )
+    if ax_rho  is not None and rho is not None: pu.plot_imshow(ax_rho,  rho,  title="sum(Wf)",            extent=extent, cmap='bwr')
+    if ax_Ttot is not None:                     pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)", extent=extent, cmap=cmap_STM)
+    if ax_STM  is not None:                     pu.plot_imshow(ax_STM,  STM,  title="STM",                extent=extent, cmap=cmap_STM)
     if ax_dIdV is not None:
         dIdV = dIdV.reshape(npix, npix)
-        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap='bwr', scV=sdIdV)
+        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap=cmap_dIdV, scV=sdIdV)
     if ax_Ms   is not None and Ms is not None: 
         for i in range(nsite):
-            ax_Ms[i].imshow(Ms[i], cmap='bwr', origin='lower', extent=extent)
+            ax_Ms[i].imshow(Ms[i], cmap=cmap_STM, origin='lower', extent=extent)
             ax_Ms[i].set_title(f"Hopping matrix {i}")
     if fig_probs is not None:
         # plot site probabilities in separate window
@@ -793,11 +808,11 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         ax_Emax.set_aspect('auto');
         if bLegend: ax_Emax.set_ylabel('V [V]')
     if ax_STM is not None:
-        pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap='hot')
+        pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap=cmap_STM)
         ax_STM.set_aspect('auto');
         if bLegend: ax_STM.set_ylabel('V [V]')
     if ax_dIdV is not None:
-        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', scV=sdIdV)
+        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap=cmap_dIdV, scV=sdIdV)
         ax_dIdV.set_aspect('auto');
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 

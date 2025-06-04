@@ -10,6 +10,9 @@ from skimage.restoration import estimate_sigma
 from skimage.restoration import denoise_tv_chambolle
 
 
+import plot_utils as pu
+
+
 # Functions for experimental data handling
 
 def load_experimental_data(filename='exp_rings_data.npz'):
@@ -237,7 +240,7 @@ def plot_exp_voltage_line_scan(X, Y, data, biases, start, end, ax=None, title=''
     # Plot experimental dI/dV if axis is provided
     if ax is not None:
         #print("Creating experimental plot...")
-        if cmap == 'bwr':
+        if cmap in pu.diverting_cmaps:
             vmax = np.max(np.abs(data_1d))
             vmin = -vmax
         else:
@@ -260,7 +263,7 @@ def plot_exp_voltage_line_scan(X, Y, data, biases, start, end, ax=None, title=''
     return data_1d, dist
 
 
-def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, params=None, sim_data=None, ellipse_params=None,  ax_didv=None, ax_current=None, ax_overlay=None, draw_exp_scan_line_func=None):
+def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, params=None, sim_data=None, ellipse_params=None,  ax_didv=None, ax_current=None, ax_overlay=None, draw_exp_scan_line_func=None, cmap_STM='inferno', cmap_dIdV='bwr'):
     """Plot experimental data
     
     Args:
@@ -307,8 +310,7 @@ def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, param
         # Plot dI/dV
         ax_didv.clear()
         maxval = np.max(np.abs(exp_dIdV[idx]))
-        im1 = ax_didv.imshow(exp_dIdV[idx], aspect='equal', origin='lower', 
-                            cmap='seismic', vmin=-maxval, vmax=maxval, extent=exp_extent)
+        im1 = ax_didv.imshow(exp_dIdV[idx], aspect='equal', origin='lower',                      cmap=cmap_dIdV, vmin=-maxval, vmax=maxval, extent=exp_extent)
         ax_didv.set_title(f'Exp. dI/dV at {exp_biases[idx]:.3f} V')
         ax_didv.set_xlabel('X [Å]')
         ax_didv.set_ylabel('Y [Å]')
@@ -324,7 +326,7 @@ def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, param
     if ax_current is not None:
         # Plot Current
         ax_current.clear()
-        im2 = ax_current.imshow(exp_I[idx], aspect='equal', origin='lower',  cmap='inferno', vmin=0.0, vmax=600.0, extent=exp_extent)
+        im2 = ax_current.imshow(exp_I[idx], aspect='equal', origin='lower',  cmap=cmap_STM, vmin=0.0, vmax=600.0, extent=exp_extent)
         ax_current.set_title(f'Exp. Current at {exp_biases[idx]:.3f} V')
         ax_current.set_xlabel('X [Å]')
         ax_current.set_ylabel('Y [Å]')

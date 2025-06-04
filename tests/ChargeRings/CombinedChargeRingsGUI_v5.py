@@ -83,7 +83,7 @@ class ApplicationWindow(GUITemplate):
             'p2_y':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  12.0, 'step': 0.5,'fidget': False},
             
             # Experimental end-points for 1D scan 
-            'exp_slice':     {'group': 'Data Cuts', 'widget': 'int',    'range': (0, 13),     'value': 8,    'step': 1},
+            'exp_slice':     {'group': 'Data Cuts', 'widget': 'int',    'range': (0, 13),        'value': 10,    'step': 1},
             'ep1_x':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5,'fidget': False},
             'ep1_y':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -6.96, 'step': 0.5,'fidget': False},
             'ep2_x':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5,'fidget': False},
@@ -92,6 +92,7 @@ class ApplicationWindow(GUITemplate):
         
         # Track probability figures for window management
         self.prob_figs = {}
+
         
         self.create_gui()
         # Add Save All button next to Save/Load
@@ -201,6 +202,29 @@ class ApplicationWindow(GUITemplate):
         self.comboLinSolver.currentIndexChanged.connect(self.update_lin_solver)
         self.sbMaxIter.valueChanged.connect(self.update_lin_solver)
         self.dsTol.valueChanged.connect(self.update_lin_solver)
+
+        # Colormap selection
+        self.cmap_dIdV_options = ['bwr', 'PiYG', 'PiYG_inv', 'vanimo', 'vanimo_inv', 'seismic', 'coolwarm', 'RdYlBu']
+        self.cmap_STM_options  = ['hot', 'afmhot', 'gnuplot2', 'seismic', 'inferno', 'viridis', 'plasma', 'magma']
+        
+        # Create colormap selection widgets
+        self.cmap_dIdV_combo = QtWidgets.QComboBox()
+        self.cmap_dIdV_combo.addItems(self.cmap_dIdV_options)
+        self.cmap_dIdV_combo.setCurrentText(pauli_scan.cmap_dIdV)
+        self.cmap_dIdV_combo.currentTextChanged.connect(self.on_cmap_changed)
+        
+        self.cmap_STM_combo = QtWidgets.QComboBox()
+        self.cmap_STM_combo.addItems(self.cmap_STM_options)
+        self.cmap_STM_combo.setCurrentText(pauli_scan.cmap_STM)
+        self.cmap_STM_combo.currentTextChanged.connect(self.on_cmap_changed)
+        
+        # Add to layout
+        cmap_layout = QtWidgets.QHBoxLayout()
+        cmap_layout.addWidget(QtWidgets.QLabel("dIdV cmap:"))
+        cmap_layout.addWidget(self.cmap_dIdV_combo)
+        cmap_layout.addWidget(QtWidgets.QLabel("STM cmap:"))
+        cmap_layout.addWidget(self.cmap_STM_combo)
+        self.layout0.addLayout(cmap_layout)
 
         # Connect mouse events
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
@@ -336,10 +360,9 @@ class ApplicationWindow(GUITemplate):
         exp_utils.plot_experimental_data(
             self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_I, self.exp_biases,
             self.exp_idx, params, sim_data, params,
-            #axes=[self.ax7, self.ax8, self.ax9],
-            #axes=[None, self.ax8, self.ax9],
             ax_current=self.ax8, ax_didv=self.ax9,
-            draw_exp_scan_line_func=draw_scan_line_wrapper
+            draw_exp_scan_line_func=draw_scan_line_wrapper,
+            cmap_STM=pauli_scan.cmap_STM, cmap_dIdV=pauli_scan.cmap_dIdV
         )
 
     def draw_exp_scan_line(self, ax):
@@ -420,8 +443,8 @@ class ApplicationWindow(GUITemplate):
             # experimental line scans on ax8 (I) and ax9 (dIdV)
             exp_start = (params['ep1_x'], params['ep1_y']); exp_end = (params['ep2_x'], params['ep2_y'])
             if self.bExpLoaded:
-                exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I,    self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, Vmax), cmap='hot')
-                exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, Vmax))
+                exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I,    self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, Vmax), cmap=pauli_scan.cmap_STM   )
+                exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, Vmax), cmap=pauli_scan.cmap_dIdV  )
             else:
                 self.ax8.text(0.5,0.5,"No experimental data",ha='center',transform=self.ax8.transAxes)
                 self.ax9.text(0.5,0.5,"No experimental data",ha='center',transform=self.ax9.transAxes)
@@ -495,7 +518,7 @@ class ApplicationWindow(GUITemplate):
         ax_sim_dIdV.set_title('Simulated dI/dV')
 
         # experimental dI/dV plot
-        im3, (exp_didv, _)  = exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I   , self.exp_biases, start, end, ax=ax_exp_I,    ylims=(0, Vbiases[-1]), cmap='hot', pointPerAngstrom=pointPerAngstrom)
+        im3, (exp_didv, _)  = exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I   , self.exp_biases, start, end, ax=ax_exp_I,    ylims=(0, Vbiases[-1]), cmap=pauli_scan.cmap_STM, pointPerAngstrom=pointPerAngstrom)
         im4, (exp_didv, _)  = exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, start, end, ax=ax_exp_dIdV, ylims=(0, Vbiases[-1]), pointPerAngstrom=pointPerAngstrom)
         fig.tight_layout()
         canvas.draw()
@@ -642,6 +665,13 @@ class ApplicationWindow(GUITemplate):
         tol = self.dsTol.value()
         self.pauli_solver.setLinSolver(mode, maxIter, tol)
         if self.cbAutoUpdate.isChecked():
+            self.run()
+
+    def on_cmap_changed(self):
+        """Handle colormap selection changes"""
+        pauli_scan.cmap_dIdV = self.cmap_dIdV_combo.currentText()
+        pauli_scan.cmap_STM  = self.cmap_STM_combo.currentText()
+        if hasattr(self, 'ax5') and hasattr(self, 'ax8') and hasattr(self, 'ax9'):
             self.run()
 
 if __name__ == "__main__":
