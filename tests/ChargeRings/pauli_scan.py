@@ -762,6 +762,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     print("calculate_xV_scan() DONE")
     return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
 
+
 def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None):
     """
     Voltage scan along a line with orbital-based tunneling calculations.
