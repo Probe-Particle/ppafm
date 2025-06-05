@@ -68,6 +68,8 @@ class ApplicationWindow(GUITemplate):
             'Et0':          {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 10.0),   'value':  0.2,    'step': 0.01  }, # E0 base height of tunelling barrier
             'wt':           {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 20.0),   'value':  8.0,    'step': 0.1  }, # Amp Amplitude or tunelling barrirer modification
             'At':           {'group': 'Barrier', 'widget': 'double', 'range': (-10.0, 10.0), 'value': -0.1,    'step': 0.01  }, # w Gaussain width for tunelling barrirer modification
+            'c_orb':        {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 1.0),    'value':  1.0,    'step': 0.0001, 'decimals': 4  }, # c_orb weight for orbital tunneling
+            'T0':           {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 1000.0), 'value':  1.0,    'step': 0.0001, 'decimals': 4  }, # c_orb weight for orbital tunneling
 
             # Visualization
             'L':             {'group': 'Visualization', 'widget': 'double', 'range': (5.0, 50.0),   'value': 20.0, 'step': 1.0},

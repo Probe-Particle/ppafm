@@ -548,6 +548,17 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     probs = probs.reshape(params['npix'], params['npix'], -1)
     return STM, dIdV, Es, Ts, probs, spos, rots
 
+def interpolate_hopping_maps(T1, T2, c=1.0, T0=1.0):
+    # Combine tunneling models
+    if T2 is None: 
+        print("interpolate_hopping_maps(): Warrning: No T2 provided, returning T1")
+        return T1
+    max1 = T1.max()
+    max2 = T2.max()
+    print( "interpolate_hopping_maps() max1, max2: ", max1, max2, " c: ", c, " T0: ", T0)
+    return T0 * ( (c/max2)*T2 + ((1-c)/max1)*T1 )
+
+
 def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=1.0, fig_probs=None, bdIdV=False):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
@@ -580,16 +591,23 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     #dcanv=params['L']/params['npix']
 
     #T1=time.perf_counter()
+
+    # Use gaussian tunneling model with parameters from GUI
+    Ts_gauss, _, _, _ = generate_hops_gauss( spos, params)
+
+    c_orb = params['c_orb']  # Default to 1.0 if not specified
+    #Ts_orb = Ts_gauss
+    Ts_orb = None
     if orbital_2D is not None:
         dcanv=2*L/npix
         big_npix=int(params.get('big_npix',400))
         Ms,rho=generate_central_hops(orbital_2D,orbital_lvec,spos[:,:2],angles,z_tip,dcanv,big_npix,npix,decay=decay or params.get('decay',0.2))
         print("calculate_xV_scan_orb() Ms (min, max) ", np.min(Ms), np.max(Ms))
-        Ts_flat = np.zeros((npix*npix, nsite), dtype=np.float64)
-        for i in range(nsite): Ts_flat[:,i]=np.abs(Ms[i].flatten()) #**2
-    else:
-        # Use gaussian tunneling model with parameters from GUI
-        Ts_flat, _, _, _ = generate_hops_gauss( spos, params)
+        Ts_orb = np.zeros((npix*npix, nsite), dtype=np.float64)
+        for i in range(nsite): Ts_orb[:,i]=np.abs(Ms[i].flatten()) #**2
+    #Ts_flat = Ts_orb
+
+    Ts_flat = interpolate_hopping_maps(Ts_gauss, Ts_orb, c=c_orb, T0=params['T0'])
     
     # Create solver if not provided
     if pauli_solver is None:
@@ -771,6 +789,9 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     # Site geometry (positions, rotations, angles)
     spos, rots, angles = make_site_geom(params)
     # Compute hopping Ts along line from orbital data
+    c_orb = params['c_orb']  # Default to 1.0 if not specified
+    print("calculate_xV_scan_orb() c_orb: ", c_orb)
+    Ts_orb = None
     if orbital_2D is not None:
         L = params['L']; npix = params['npix']
         dcanv = 2*L/npix
@@ -784,9 +805,23 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
             Ts_map = np.abs(Ms[i]) #**2
             interp = RectBivariateSpline(coords, coords, Ts_map)
             Ts_line[:,i] = interp(y, x, grid=False)
-        Ts_input = Ts_line
-    else:
-        Ts_input, _, _, _ = generate_hops_gauss( spos, params, pTips=pTips, bBarrier=True )
+        Ts_orb = Ts_line
+    
+    # Compute Gaussian tunneling
+    Ts_gauss, _, _, _ = generate_hops_gauss(spos, params, pTips=pTips, bBarrier=True)
+    Ts_input = interpolate_hopping_maps(Ts_gauss, Ts_orb, c=c_orb, T0=params['T0'])
+    
+    # # Combine tunneling models
+    # if Ts_orb is not None and c_orb > 1e-9:
+    #     max1 = Ts_orb.max()
+    #     max2 = Ts_gauss.max()
+    #     T0 = params['T0']
+    #     Ts_input = T0 * ( (c_orb/max1) * Ts_orb + ((1 - c_orb)/max2) * Ts_gauss )
+    #     #Ts_input = c_orb * Ts_orb + (1-c_orb) * Ts_gauss
+    #     print(f"Using combined tunneling model with c_orb={c_orb:.2f}")
+    # else:
+    #     Ts_input = Ts_gauss
+    #     print("No orbital used, falling back to Gaussian tunneling")
 
 
     state_order = pauli.make_state_order(nsite)

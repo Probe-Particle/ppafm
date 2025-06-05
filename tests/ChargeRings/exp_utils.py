@@ -240,23 +240,15 @@ def plot_exp_voltage_line_scan(X, Y, data, biases, start, end, ax=None, title=''
     # Plot experimental dI/dV if axis is provided
     if ax is not None:
         #print("Creating experimental plot...")
-        if cmap in pu.diverting_cmaps:
-            vmax = np.max(np.abs(data_1d))
-            vmin = -vmax
-        else:
-            vmax = None
-            vmin = None
         extent = [dist[0], dist[-1], biases[0], biases[-1]]
-        im = ax.imshow(data_1d, aspect='auto', origin='lower', cmap=cmap, extent=extent, vmin=vmin, vmax=vmax, interpolation='nearest')
+        plot_title = 'Experimental dI/dV'
+        if title:
+            plot_title += f' {title}'
+        ax = pu.plot_imshow(ax, data_1d, title=plot_title, extent=extent, cmap=cmap, xlabel='Distance (Å)', ylabel='Bias Voltage (V)', aspect='auto')
+        im = ax.images[-1]  # Get the image from the axis
         # Ensure voltage axis spans from zero to max for comparison
         if ylims is not None:
             ax.set_ylim(ylims)
-        title = 'Experimental dI/dV'
-        if title:
-            title += f' {title}'
-        ax.set_title(title)
-        ax.set_xlabel('Distance (Å)')
-        ax.set_ylabel('Bias Voltage (V)')
         # Return the image handle separately
         return im, (data_1d, dist)
     
@@ -310,10 +302,7 @@ def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, param
         # Plot dI/dV
         ax_didv.clear()
         maxval = np.max(np.abs(exp_dIdV[idx]))
-        im1 = ax_didv.imshow(exp_dIdV[idx], aspect='equal', origin='lower',                      cmap=cmap_dIdV, vmin=-maxval, vmax=maxval, extent=exp_extent)
-        ax_didv.set_title(f'Exp. dI/dV at {exp_biases[idx]:.3f} V')
-        ax_didv.set_xlabel('X [Å]')
-        ax_didv.set_ylabel('Y [Å]')
+        ax_didv = pu.plot_imshow(ax_didv, exp_dIdV[idx], title=f'Exp. dI/dV at {exp_biases[idx]:.3f} V', extent=exp_extent, cmap=cmap_dIdV, vmin=-maxval, vmax=maxval, xlabel='X [Å]', ylabel='Y [Å]')
         
         # Plot ellipses if parameters provided
         if ellipse_params is not None:
@@ -326,10 +315,7 @@ def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, param
     if ax_current is not None:
         # Plot Current
         ax_current.clear()
-        im2 = ax_current.imshow(exp_I[idx], aspect='equal', origin='lower',  cmap=cmap_STM, vmin=0.0, vmax=600.0, extent=exp_extent)
-        ax_current.set_title(f'Exp. Current at {exp_biases[idx]:.3f} V')
-        ax_current.set_xlabel('X [Å]')
-        ax_current.set_ylabel('Y [Å]')
+        ax_current = pu.plot_imshow(ax_current, exp_I[idx], title=f'Exp. Current at {exp_biases[idx]:.3f} V', extent=exp_extent, cmap=cmap_STM, vmin=0.0, vmax=600.0, xlabel='X [Å]', ylabel='Y [Å]')
     
     # Create and plot overlay if simulation data available
     if ax_overlay is not None:
@@ -430,18 +416,11 @@ def load_and_extract_experimental_data(filename='exp_rings_data.npz', start_poin
 
 def plot2d(data, ax=None, extent=None, title=None, xlabel='Distance [Å]', ylabel='Bias [V]', bCbar=True, cmap='hot'):
     if ax is None: fig, ax = plt.subplots()
-    if cmap=='bwr':
-        vmax = np.max(np.abs(data))
-        vmin = -vmax
-    else:
-        vmax = None
-        vmin = None
-    im = ax.imshow(data, extent=extent, aspect='auto', origin='lower', cmap=cmap, vmin=vmin, vmax=vmax)
-    if title is not None: ax.set_title(title)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    if bCbar: ax.figure.colorbar(im, ax=ax, label='Current [nA]')
-    return im
+    ax = pu.plot_imshow(ax, data, title=title, extent=extent, cmap=cmap, xlabel=xlabel, ylabel=ylabel, bGrid=False)
+    if bCbar:
+        im = ax.images[-1]  # Get the image from the axis
+        ax.figure.colorbar(im, ax=ax, label='Current [nA]')
+    return ax.images[-1]
 
 def visualize_experimental_data(exp_STM, exp_dIdV, exp_dist, exp_biases):
     """
