@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-diverting_cmaps = set(['PiYG','PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu', 'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic', 'berlin', 'managua', 'vanimo', 'vanimo'])
+diverting_cmaps = set(['PiYG','PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu', 'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic', 'berlin', 'managua', 'vanimo', 'vanimo', 'PuRdR-w-BuGn', 'BuGnR-w-PuRd'])
 
 def plot_imshow( ax, data, title=None, extent=None, spos=None, cmap=None, vmin=None, vmax=None, xlabel="x [Å]", ylabel="y [Å]", bGrid=False, scV=1.0, **kwargs):
     cmap_ = cmap.split("_")[0]

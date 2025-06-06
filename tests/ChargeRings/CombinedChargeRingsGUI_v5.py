@@ -206,7 +206,7 @@ class ApplicationWindow(GUITemplate):
         self.dsTol.valueChanged.connect(self.update_lin_solver)
 
         # Colormap selection
-        self.cmap_dIdV_options = ['bwr', 'bwr_r', 'seismic', 'seismic_r', 'PiYG', 'PiYG_r', 'PRGn', 'PRGn_r', 'RdBu', 'RdBu_r',  'vanimo', 'vanimo_r','coolwarm', 'coolwarm_r' ]
+        self.cmap_dIdV_options = ['bwr', 'bwr_r', 'seismic', 'seismic_r', 'PiYG', 'PiYG_r', 'PRGn', 'PRGn_r', 'RdBu', 'RdBu_r',  'vanimo', 'vanimo_r','coolwarm', 'coolwarm_r', 'PuRdR-w-BuGn', 'BuGnR-w-PuRd' ]
         self.cmap_STM_options  = ['hot', 'afmhot', 'gnuplot2', 'seismic', 'inferno', 'viridis', 'plasma', 'magma']
         
         # Create colormap selection widgets

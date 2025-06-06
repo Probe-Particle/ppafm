@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib.colors import ListedColormap
+import matplotlib.colors as mcolors
 #import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib as mpl
@@ -274,3 +275,40 @@ cm.register_cmap(name='vanimo_r', cmap=vanimo_cmap_inv)
 # inverted_colors = colors[::-1]
 # PiYG_inv = mpl.colors.LinearSegmentedColormap.from_list('PiYG_inv', inverted_colors)
 # mpl.colormaps.register(PiYG_inv)
+
+
+def create_diverging_map(cmap_name1, cmap_name2, n_colors_per_half=128, name_suffix="_div"):
+    """
+    Creates a diverging colormap from two sequential colormaps.
+    Assumes cmap_name1 goes Color1 -> White (or light center)
+    Assumes cmap_name2 goes White (or light center) -> Color2
+    """
+    cmap1 = cm.get_cmap(cmap_name1)
+    cmap2 = cm.get_cmap(cmap_name2)
+
+    # Get colors from each colormap half
+    # For cmap1 (e.g., BuGn_r: Green->White), we take the whole map
+    colors1 = cmap1(np.linspace(0, 1, n_colors_per_half))
+    # For cmap2 (e.g., PuRd: White->Purple), we take the whole map
+    colors2 = cmap2(np.linspace(0, 1, n_colors_per_half))
+
+    # Combine the color arrays.
+    # If cmap1 ends at white and cmap2 starts at white, we can remove one white entry.
+    # This ensures a single central white point.
+    combined_colors = np.vstack((colors1[:-1], colors2[:])) # colors2[0] is skipped
+    
+    # Sanitize cmap names for the new name (remove _r, _r_div etc.)
+    name1_clean = cmap_name1.replace('_r', 'R')
+    name2_clean = cmap_name2.replace('_r', 'R')
+    new_cmap_name = f"{name1_clean}-w-{name2_clean}{name_suffix}"
+    
+    new_cmap = mcolors.ListedColormap(combined_colors, name=new_cmap_name)
+    cm.register_cmap(name=new_cmap_name, cmap=new_cmap)
+    print(f"Registered colormap: {new_cmap_name}")
+    return new_cmap
+
+# Create and register your Purple-White-Green colormap: PuRd_r (Purple->White) and BuGn (White->Green)
+PurpleWhiteGreen = create_diverging_map('PuRd_r', 'BuGn', name_suffix="")
+
+# Create and register your Green-White-Purple colormap: BuGn_r (Green->White) and PuRd (White->Purple)
+GreenWhitePurple = create_diverging_map('BuGn_r', 'PuRd', name_suffix="")
