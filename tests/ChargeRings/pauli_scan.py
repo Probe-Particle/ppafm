@@ -31,7 +31,7 @@ print("hbar2_2me_eVA2 =",hbar2_2me_eVA2, "[ eV A^2 ]")
 
 #cmap_dIdV = 'bwr'
 #cmap_dIdV = 'PiYG'
-cmap_dIdV = 'PiYG_inv'
+cmap_dIdV = 'PiYG_r'
 #cmap_dIdV = 'vanimo'
 #cmap_dIdV = 'vanimo_inv'
 

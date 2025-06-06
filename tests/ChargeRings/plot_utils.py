@@ -1,10 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-diverting_cmaps = set(['PiYG','PiYG_inv', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu', 'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic', 'berlin', 'managua', 'vanimo', 'vanimo_inv'])
+diverting_cmaps = set(['PiYG','PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu', 'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic', 'berlin', 'managua', 'vanimo', 'vanimo'])
 
 def plot_imshow( ax, data, title=None, extent=None, spos=None, cmap=None, vmin=None, vmax=None, xlabel="x [Å]", ylabel="y [Å]", bGrid=False, scV=1.0, **kwargs):
-    if cmap in diverting_cmaps:
+    cmap_ = cmap.split("_")[0]
+    if (cmap_ in diverting_cmaps) or (cmap_+"_r" in diverting_cmaps):
         if vmin is None or vmax is None:
             vmax = np.max(np.abs(data))*scV
             vmin = -vmax
