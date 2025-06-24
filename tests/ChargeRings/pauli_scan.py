@@ -829,11 +829,14 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
 
     state_order = pauli.make_state_order(nsite)
     # Run scan using parameter dict (wrapper generates C++ params internally)
-    current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver, return_state_energies=True)
+    current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver)
     pauli.validate_probabilities(probs)
     # reshape and compute
     STM = current.reshape(nV, npts)
     Es  = Es.reshape(nV, npts, nsite)
+    stateEs = stateEs.reshape(nV, npts, -1)
+    Ts  = Ts.reshape(nV, npts, nsite)
+    stateEs = stateEs.reshape(nV, npts, -1)
     Emax = Es.max(axis=2)
     dIdV = np.gradient(STM, Vbiases, axis=0)
 
@@ -862,7 +865,7 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         labels = pauli.make_state_labels(state_order)
         axs = make_grid_axes(fig_probs, n_states)
         plot_state_probabilities(probs, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
-    return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
+    return STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots
 
 
 # ===========================================

@@ -445,6 +445,7 @@ class ApplicationWindow(GUITemplate):
             # simulation along p1-p2
             sim_start = (params['p1_x'], params['p1_y'])
             sim_end   = (params['p2_x'], params['p2_y'])
+            dist = np.hypot(sim_end[0]-sim_start[0], sim_end[1]-sim_start[1])
             orbital_2D, orbital_lvec = self.getOrbIfChecked()
             # plot sim current & dIdV on ax5 (STM) and ax6 (dIdV)
             STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots = pauli_scan.calculate_xV_scan_orb(
