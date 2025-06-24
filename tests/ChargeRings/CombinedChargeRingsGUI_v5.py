@@ -459,6 +459,18 @@ class ApplicationWindow(GUITemplate):
             # plot site energies maps if requested
             if figE:
                 pauli_scan.plot_state_probabilities(stateEs, extent=[0, dist, 0, Vmax], fig=figE)
+                # line plot of state energies at maximum voltage
+                figCut = plt.figure()
+                axCut = figCut.add_subplot(1,1,1)
+                state_order = pauli.make_state_order(params['nsite'])
+                labels = pauli.make_state_labels(state_order)
+                for idx in range(stateEs.shape[2]):
+                    axCut.plot(x, stateEs[-1,:,idx], label=labels[idx])
+                axCut.set_xlabel('Distance')
+                axCut.set_ylabel('Energy [eV]')
+                axCut.set_title(f'Energy vs Distance at V={Vmax}')
+                axCut.legend()
+                self.manage_prob_window(figCut, 'xV Cut')
             # experimental line scans on ax8 (I) and ax9 (dIdV)
             exp_start = (params['ep1_x'], params['ep1_y']); exp_end = (params['ep2_x'], params['ep2_y'])
             if self.bExpLoaded:
