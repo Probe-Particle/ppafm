@@ -161,6 +161,10 @@ class ApplicationWindow(GUITemplate):
         controls_layout.addWidget(self.cbMirror)
         controls_layout.addWidget(self.cbRamp)
         controls_layout.addWidget(self.cbPlotXV)
+        # Checkbox for site/state energies
+        self.cbShowEnergies = QtWidgets.QCheckBox('Energies')
+        self.cbShowEnergies.stateChanged.connect(self.run)
+        controls_layout.addWidget(self.cbShowEnergies)
 
         # Create orbital input layout
         orbital_layout = QtWidgets.QHBoxLayout()
@@ -415,6 +419,15 @@ class ApplicationWindow(GUITemplate):
             self.manage_prob_window(figp, 'scanXY')
         else:
             figp = None
+        # Prepare energies window
+        if self.cbShowEnergies.isChecked():
+            # number of site energies maps
+            n = int(params['nsite'])
+            rows = (n+1)//2
+            figE = plt.figure(figsize=(4*n, 3*rows))
+            self.manage_prob_window(figE, 'Energies')
+        else:
+            figE = None
 
         #bOmp = True   # Seems that currently it is not working
         bOmp = False
@@ -434,7 +447,7 @@ class ApplicationWindow(GUITemplate):
             sim_end   = (params['p2_x'], params['p2_y'])
             orbital_2D, orbital_lvec = self.getOrbIfChecked()
             # plot sim current & dIdV on ax5 (STM) and ax6 (dIdV)
-            STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots = pauli_scan.calculate_xV_scan_orb(
+            STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots = pauli_scan.calculate_xV_scan_orb(
                 params, sim_start, sim_end,
                 orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
                 ax_Emax=None, ax_STM=self.ax5, ax_dIdV=self.ax6,
@@ -442,6 +455,9 @@ class ApplicationWindow(GUITemplate):
                 fig_probs=figp, bOmp=bOmp
             )
             self.ax5.set_title('Sim STM (xV)'); self.ax6.set_title('Sim dI/dV (xV)')
+            # plot site energies maps if requested
+            if figE:
+                pauli_scan.plot_state_probabilities(stateEs, extent=[0, dist, 0, Vmax], fig=figE)
             # experimental line scans on ax8 (I) and ax9 (dIdV)
             exp_start = (params['ep1_x'], params['ep1_y']); exp_end = (params['ep2_x'], params['ep2_y'])
             if self.bExpLoaded:
@@ -454,10 +470,15 @@ class ApplicationWindow(GUITemplate):
         else:
             # original XY plane simulation + experimental overlay
             orbital_2D, orbital_lvec = self.getOrbIfChecked()
-            STM, dIdV, Es, Ts, probs, spos, rots = pauli_scan.scan_xy_orb(
+            STM, dIdV, Es, Ts, probs, stateEs, spos, rots = pauli_scan.scan_xy_orb(
                 params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
                 ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp, bOmp=bOmp
             )
+            # plot site energies maps if requested
+            if figE:
+                L = params['L']
+                extent = [-L/2, L/2, -L/2, L/2]
+                pauli_scan.plot_state_probabilities(stateEs, extent=extent, fig=figE, aspect='equal')
             self.draw_scan_line(self.ax4); self.draw_reference_line(self.ax4); self.plot_ellipses(self.ax9, params)
             self.plot_experimental_data()
             for i,rot in enumerate(rots):
@@ -465,7 +486,7 @@ class ApplicationWindow(GUITemplate):
                 self.ax4.plot([x, x+rot[0][0]], [y, y+rot[0][1]])
         self.fig.tight_layout()
         self.canvas.draw()
-        return STM, dIdV, Es, Ts, probs, spos, rots
+        return STM, dIdV, Es, Ts, probs, stateEs, spos, rots
     
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
         params = self.get_param_values()

@@ -84,7 +84,7 @@ lib.scan_current.restype = c_double
 
 
 #double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* Vtips, int nSites, double* pSites_, double* rots_, double* params, int order, double* cs,  int* state_order, double* out_current, bool bOmp, double* Es, double* Ts, bool externTs ){
-lib.scan_current_tip.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_int, c_double_p, c_double_p,  c_double_p, c_int, c_double_p, c_int_p, c_double_p, c_bool, c_double_p, c_double_p, c_double_p, c_bool]
+lib.scan_current_tip.argtypes = [c_void_p, c_int, c_double_p, c_double_p, c_int, c_double_p, c_double_p, c_double_p, c_int, c_double_p, c_int_p, c_double_p, c_bool, c_double_p, c_double_p, c_double_p, c_double_p, c_bool]
 lib.scan_current_tip.restype = c_double
 
 lib.get_kernel.argtypes = [c_void_p, c_double_p]
@@ -261,7 +261,7 @@ class PauliSolver:
         lib.scan_current(self.solver, npoints, _np_as(hsingles, c_double_p), _np_as(Ws, c_double_p), _np_as(VGates, c_double_p), _np_as(TLeads, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp)
         return out_current
     
-    def scan_current_tip(self, pTips, Vtips, pSites, params, order, cs, state_order, rots=None, out_current=None, bOmp=False, Es=None, Ts=None, return_probs=True, bMakeArrays=True ):
+    def scan_current_tip(self, pTips, Vtips, pSites, params, order, cs, state_order, rots=None, out_current=None, bOmp=False, Es=None, Ts=None, return_probs=True, return_state_energies=False, bMakeArrays=True):
         npoins = len(pTips)
         nsites = len(pSites)
         #print( "scan_current_tip() type(rots)", type(rots) )
@@ -277,11 +277,20 @@ class PauliSolver:
             Probs = np.zeros((npoins, nstates), dtype=np.float64)
         else:
             Probs = None
+        # prepare state energies buffer
+        if return_state_energies:
+            StateEnergies = np.zeros((npoins, nstates), dtype=np.float64)
+        else:
+            StateEnergies = None
         if bMakeArrays:
             if Es is None: Es = np.zeros( (npoins, nsites), dtype=np.float64)
             if Ts is None: Ts = np.zeros( (npoins, nsites), dtype=np.float64)
-        lib.scan_current_tip(self.solver, npoins, _np_as(pTips, c_double_p), _np_as(Vtips, c_double_p), nsites, _np_as(pSites, c_double_p), _np_as(rots, c_double_p), _np_as(params, c_double_p), order, _np_as(cs, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp, _np_as(Es, c_double_p), _np_as(Ts, c_double_p), _np_as(Probs, c_double_p), externTs)
-        return out_current, Es, Ts, Probs
+        lib.scan_current_tip(self.solver, npoins, _np_as(pTips, c_double_p), _np_as(Vtips, c_double_p), nsites, _np_as(pSites, c_double_p), _np_as(rots, c_double_p), _np_as(params, c_double_p), order, _np_as(cs, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp, _np_as(Es, c_double_p), _np_as(Ts, c_double_p), _np_as(Probs, c_double_p), _np_as(StateEnergies, c_double_p) if StateEnergies is not None else None, externTs)
+        # Return outputs
+        if return_state_energies:
+            return out_current, Es, Ts, Probs, StateEnergies
+        else:
+            return out_current, Es, Ts, Probs
 
     def get_energies(self, nstates):
         energies = np.zeros(nstates)
@@ -573,13 +582,14 @@ def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=No
     #print("Running scan...")
     # always retrieve probabilities (may be None)
     #print("run_pauli_scan_top() type(rots)", type(rots))
-    STM, Es, Ts, Probs = pauli_solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts, return_probs=True)
+    STM, Es, Ts, Probs, StateEs = pauli_solver.scan_current_tip( pTips, Vtips, spos, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts, return_probs=True, return_state_energies=True)
     STM = STM.reshape(npix, npix)
     Es  = Es.reshape(npix, npix, nsite)
     Ts  = Ts.reshape(npix, npix, nsite)
     Probs = Probs.reshape(npix, npix, len(state_order))
+    StateEs = StateEs.reshape(npix, npix, len(state_order))
 
-    return STM, Es, Ts, Probs
+    return STM, Es, Ts, Probs, StateEs
 
 
 def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=None, bOmp=False, state_order=None, Ts=None, pauli_solver=None ):
@@ -632,12 +642,13 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
     
     # Run scan
     # always retrieve probabilities (may be None)
-    current, Es, Ts, Probs = pauli_solver.scan_current_tip( pTips_rep, Vtips_rep, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts_rep, return_probs=True)
+    current, Es, Ts, Probs, StateEs = pauli_solver.scan_current_tip( pTips_rep, Vtips_rep, pSites, cpp_params, order, cs, state_order, rots=rots, bOmp=bOmp, bMakeArrays=True, Ts=Ts_rep, return_probs=True, return_state_energies=True)
     
     # Reshape results
     current = current.reshape(nV,nx)
     Es = Es.reshape(nV,nx,nsite)
     Ts = Ts.reshape(nV,nx,nsite)
+    StateEs = StateEs.reshape(nV,nx,len(state_order))
     #Probs = Probs.reshape(nV,nx,len(state_order))
 
-    return current, Es, Ts, Probs
+    return current, Es, Ts, Probs, StateEs

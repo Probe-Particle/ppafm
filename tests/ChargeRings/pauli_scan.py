@@ -280,7 +280,7 @@ def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, asp
     if fig is None:
         fig = plt.figure( figsize=(4*n_states, 3*nrows) )
     if axs is None:
-        axs = fig.subplots(nrows, ncols, figsize=(4*ncols, 3*nrows))
+        axs = fig.subplots(nrows, ncols)
 
     # Flatten axes into list
     try:
@@ -487,13 +487,13 @@ def calculate_1d_scan(params, start_point, end_point, pointPerAngstrom=5, ax_pro
     # Run scan
     if pauli_solver is None:
         pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=0)
-    current, Es, Ts, probs = pauli_solver.scan_current_tip( pTips, Vtips, spos,  cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True )
+    current, Es, Ts, probs, stateEs = pauli_solver.scan_current_tip( pTips, Vtips, spos,  cpp_params, order, cs, state_order, rots=rots, bOmp=False, bMakeArrays=True, return_state_energies=True )
     pauli.validate_probabilities(probs)
     if ax_probs:
         axp = ax_probs
         for i in range(probs.shape[1]): axp.plot(distance, probs[:,i], label=f"P{i}")
         axp.legend()
-    return distance, Es, Ts, current, x, y, x1, y1, x2, y2, probs    
+    return distance, Es, Ts, current, x, y, x1, y1, x2, y2, probs, stateEs    
 
 # ============= 2D (x,y) scan with Pauli Master-equation simulation
 
@@ -515,7 +515,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     spos, rots, angles = make_site_geom(params)
     
     # Run pauli scan
-    STM, Es, Ts, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, bOmp=bOmp)
+    STM, Es, Ts, probs, stateEs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, bOmp=bOmp, return_state_energies=True)
     pauli.validate_probabilities(probs)
     #print( "min,max Es", np.min(Es), np.max(Es))
     #print( "min,max Ts", np.min(Ts), np.max(Ts))
@@ -525,7 +525,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
         params_ = params.copy()
         dQ = params.get('dQ', 0.05)
         params_['VBias'] += dQ
-        STM_2, _, _, probs = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, bOmp=bOmp)       
+        STM_2, Es_2, Ts_2, probs_2, stateEs_2 = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, bOmp=bOmp, return_state_energies=True)       
         dIdV = (STM_2 - STM) / dQ
 
     Ttot = np.max(Ts, axis=2)
@@ -546,6 +546,7 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
         plot_state_probabilities(probs, extent=extent, axs=axs[:n_states], fig=fig_probs, labels=labels, aspect='equal')
     
     probs = probs.reshape(params['npix'], params['npix'], -1)
+    stateEs = stateEs.reshape(params['npix'], params['npix'], -1)
     return STM, dIdV, Es, Ts, probs, spos, rots
 
 def interpolate_hopping_maps(T1, T2, c=1.0, T0=1.0):
@@ -616,7 +617,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     
     #T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     #bOmp = True
-    STM_flat, Es_flat, Ts_flat_, probs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+    STM_flat, Es_flat, Ts_flat_, probs, stateEs_flat = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
     pauli.validate_probabilities(probs)
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     dIdV = None
@@ -625,7 +626,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         params_ = params.copy()
         dQ = params.get('dQ', 0.01)
         params_['VBias'] += dQ
-        STM_2, _, _, probs = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)       
+        STM_2, _, _, probs, _ = pauli.run_pauli_scan_top(spos, rots, params_, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)       
         dIdV = (STM_2 - STM_flat) / dQ
 
     #T3 = time.perf_counter(); print("Time(scan_xy_orb.3 pauli.run_pauli_scan)",  T3-T2 )
@@ -645,6 +646,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     # Plotting if axes provided
     extent = [-L,L, -L, L]
     probs = probs.reshape(npix, npix, -1)
+    stateEs = stateEs_flat.reshape(npix, npix, -1)
 
     T_calc = time.perf_counter(); print(f"scan_xy_orb() calc time: {T_calc-T0:.5f} [s]")
 
@@ -667,7 +669,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         axs_all = make_grid_axes(fig_probs, n_states)
         plot_state_probabilities(probs, extent=extent, axs=axs_all[:n_states], fig=fig_probs, labels=labels, aspect='equal')
     #T4 = time.perf_counter(); print("Time(scan_xy_orb.4 plotting)",  T4-T3 )        
-    return STM, dIdV, Es, Ts, probs, spos, rots
+    return STM, dIdV, Es, Ts, probs, stateEs, spos, rots
 
 def run_scan_xy_orb( params, orbital_file="QD.cub" ):
     print(f"run_scan_xy_orb() ... testing scan_xy_orb() with orbital loading from file {orbital_file}")        
@@ -726,7 +728,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     
     cpp_params = pauli.make_cpp_params(params)
     state_order = pauli.make_state_order(nsite)
-    current, Es, Ts, probs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=bOmp, state_order=state_order, Ts=None, pauli_solver=pauli_solver )
+    current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=bOmp, state_order=state_order, Ts=None, pauli_solver=pauli_solver, return_state_energies=True )
     pauli.validate_probabilities(probs)
     # reshape
     STM = current.reshape(nV,npts)
@@ -827,7 +829,7 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
 
     state_order = pauli.make_state_order(nsite)
     # Run scan using parameter dict (wrapper generates C++ params internally)
-    current, Es, Ts, probs = pauli.run_pauli_scan_xV(pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver )
+    current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver, return_state_energies=True)
     pauli.validate_probabilities(probs)
     # reshape and compute
     STM = current.reshape(nV, npts)
