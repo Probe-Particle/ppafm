@@ -456,9 +456,13 @@ class ApplicationWindow(GUITemplate):
                 fig_probs=figp, bOmp=bOmp
             )
             self.ax5.set_title('Sim STM (xV)'); self.ax6.set_title('Sim dI/dV (xV)')
+            
             # plot site energies maps if requested
             if figE:
-                pauli_scan.plot_state_probabilities(stateEs, extent=[0, dist, 0, Vmax], fig=figE)
+                state_order_labels = pauli.make_state_order(params['nsite'])
+                labels = pauli.make_state_labels(state_order_labels)
+                pauli_scan.plot_state_maps(stateEs, extent=[0, dist, 0, Vmax], fig=figE, labels=labels, map_type='energy')
+                
                 # line plot of state energies at maximum voltage
                 figCut = plt.figure()
                 axCut = figCut.add_subplot(1,1,1)

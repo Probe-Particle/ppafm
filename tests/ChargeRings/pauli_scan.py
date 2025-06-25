@@ -57,7 +57,7 @@ def make_site_geom(params):
     rots       = ut.makeRotMats( angles )
     return spos, rots, angles
 
-def make_grid_axes(fig, nplots):
+def make_grid_axes(fig, nplots, figsize=(12, 8)):
     """
     Create a near-square grid of subplots for nplots axes.
     rows = ceil(sqrt(nplots)), cols = ceil(nplots/rows).
@@ -65,7 +65,7 @@ def make_grid_axes(fig, nplots):
     """
     nrows = math.ceil(math.sqrt(nplots))
     ncols = math.ceil(nplots / nrows)
-    axs = fig.subplots(nrows, ncols)
+    axs = fig.subplots(nrows, ncols, figsize=figsize)
     # flatten axes array
     return np.array(axs).flatten()
 
@@ -216,69 +216,84 @@ def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2
     print(f"Data saved to {filename}")
     return filename
 
-def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, ref_data_line=None, ref_columns=None, fig=None):
+def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, stateEs=None, ref_data_line=None, ref_columns=None, fig=None):
     """Plot results of 1D scan"""
     bProbs = (probs is not None)
-    nsub   = 3 + bProbs
+    bStateEs = (stateEs is not None)
+    nsub   = 3 + bProbs + bStateEs
 
     if fig is None:
         fig = plt.figure(figsize=(10, 12))
     bRef = (ref_data_line is not None and ref_columns is not None)
 
-    ax1 = fig.add_subplot(nsub,1,1)
+    ax_Es = fig.add_subplot(nsub,1,1)
     clrs = ['r', 'g', 'b']
     for i in range(nsite):
-        ax1.plot(distance, Es[:, i], '-', linewidth=0.5, color=clrs[i], label=f'E_{i+1}')
+        ax_Es.plot(distance, Es[:, i], '-', linewidth=0.5, color=clrs[i], label=f'E_{i+1}')
         if bRef:
             icol = ref_columns[f'Esite_{i+1}']
-            ax1.plot( ref_data_line[:, 0], ref_data_line[:, icol], ':', color=clrs[i], alpha=0.7, label=f'Ref E_{i+1}')
-    ax1.set_ylabel('Energy [eV]')
-    ax1.legend()
-    ax1.grid(True)
+            ax_Es.plot( ref_data_line[:, 0], ref_data_line[:, icol], ':', color=clrs[i], alpha=0.7, label=f'Ref E_{i+1}')
+    ax_Es.set_ylabel('Energy [eV]')
+    ax_Es.legend()
+    ax_Es.grid(True)
 
-    ax2 = fig.add_subplot(nsub,1,2)
+    ax_Ts = fig.add_subplot(nsub,1,2)
+    # ax_Ts = fig.add_subplot(nsub,1,2)
     for i in range(nsite):
-        ax2.plot(distance, Ts[:, i], '-', linewidth=0.5, color=clrs[i], label=f'T_{i+1}')
+        ax_Ts.plot(distance, Ts[:, i], '-', linewidth=0.5, color=clrs[i], label=f'T_{i+1}')
         if bRef:
             icol = ref_columns[f'Tsite_{i+1}']
-            ax2.plot( ref_data_line[:, 0], ref_data_line[:, icol], ':', color=clrs[i], alpha=0.7, label=f'Ref T_{i+1}' )
-    ax2.set_ylabel('Hopping T [a.u.]')
-    ax2.legend()
-    ax2.grid(True)
+            ax_Ts.plot( ref_data_line[:, 0], ref_data_line[:, icol], ':', color=clrs[i], alpha=0.7, label=f'Ref T_{i+1}' )
+    ax_Ts.set_ylabel('Hopping T [a.u.]')
+    ax_Ts.legend()
+    ax_Ts.grid(True)
 
-    ax3 = fig.add_subplot(nsub,1,3)
-    ax3.plot(distance, STM, '.-', color='k', linewidth=0.5, markersize=1.5, label='STM')
-    ax3.set_ylabel('Current [a.u.]')
-    ax3.legend()
-    ax3.grid(True)
+    ax_STM = fig.add_subplot(nsub,1,3)
+    ax_STM.plot(distance, STM, '.-', color='k', linewidth=0.5, markersize=1.5, label='STM')
+    ax_STM.set_ylabel('Current [a.u.]')
+    ax_STM.legend()
+    ax_STM.grid(True)
 
-    if probs is not None:
-        ax4 = fig.add_subplot(nsub,1,4)
-        nsite = probs.shape[1]
+    current_subplot_idx = 4
+    if bProbs:
+        ax_probs = fig.add_subplot(nsub,1,current_subplot_idx)
+        nsite = probs.shape[1] # Assuming probs is 2D (npoints, nstates)
         state_order = pauli.make_state_order(nsite)
         labels = pauli.make_state_labels(state_order)
-        for idx in range(probs.shape[1]): ax4.plot(distance, probs[:,idx], label=labels[idx])
-        ax4.set_xlabel('Distance'); ax4.set_ylabel('Probability')
-        ax4.legend()
-        ax4.grid(True)
+        for idx in range(probs.shape[1]): ax_probs.plot(distance, probs[:,idx], label=labels[idx])
+        ax_probs.set_xlabel('Distance'); ax_probs.set_ylabel('Probability')
+        ax_probs.legend()
+        ax_probs.grid(True)
+        current_subplot_idx += 1
+
+    if bStateEs:
+        ax_stateEs = fig.add_subplot(nsub,1,current_subplot_idx)
+        nsite = stateEs.shape[1] # Assuming stateEs is 2D (npoints, nstates)
+        state_order = pauli.make_state_order(nsite)
+        labels = pauli.make_state_labels(state_order)
+        for idx in range(stateEs.shape[1]): ax_stateEs.plot(distance, stateEs[:,idx], label=labels[idx])
+        ax_stateEs.set_xlabel('Distance'); ax_stateEs.set_ylabel('State Energy [eV]')
+        ax_stateEs.legend()
+        ax_stateEs.grid(True)
 
     fig.tight_layout()
     #plt.show()
     return fig
 
-def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, aspect='auto'):
+def plot_state_maps(data_3d, extent, axs=None, fig=None, labels=None, aspect='auto', map_type='probability'):
     """
-    Plot multiple state probability maps. Handles single or array of axes.
-    probs: 3D array shape (nV, nx, n_states)
+    Plot multiple state maps (probabilities or energies). Handles single or array of axes.
+    data_3d: 3D array shape (nV, nx, n_states)
     extent: sequence of 4 [xmin, xmax, ymin, ymax]
+    map_type: 'probability' or 'energy'
     """
     # Number of states to plot
-    n_states = probs.shape[-1]
+    n_states = data_3d.shape[-1]
     # Create default figure/axes if needed
     ncols = min(2, n_states)
     nrows = int(np.ceil(n_states / ncols))
-    if fig is None:
-        fig = plt.figure( figsize=(4*n_states, 3*nrows) )
+    if fig is None: # Use default figsize if not provided
+        fig = plt.figure(figsize=(4 * ncols, 3 * nrows))
     if axs is None:
         axs = fig.subplots(nrows, ncols)
 
@@ -291,20 +306,18 @@ def plot_state_probabilities(probs, extent, axs=None, fig=None, labels=None, asp
     if fig is None and hasattr(axs_flat[0], 'figure'):
         fig = axs_flat[0].figure
     # Plot each state's probability
+    cmap = 'viridis' if map_type == 'probability' else 'bwr'
+    colorbar_label = 'Probability' if map_type == 'probability' else 'Energy [eV]'
+    title_prefix = 'P' if map_type == 'probability' else 'E'
+
     for idx in range(n_states):
         ax = axs_flat[idx]
         ax.clear()
-        title = labels[idx] if labels and idx < len(labels) else f"P{idx}"
-        im = ax.imshow(probs[:,:,idx], origin='lower', extent=extent, cmap='viridis', interpolation='nearest')
+        title = labels[idx] if labels and idx < len(labels) else f"{title_prefix}{idx}"
+        im = ax.imshow(data_3d[:, :, idx], origin='lower', extent=extent, cmap=cmap, interpolation='nearest')
         ax.set_aspect(aspect)
         ax.set_title(title)
-        ax.set_xlabel('x [Å]')
-        ax.set_ylabel('V_bias [V]')
-        fig.colorbar(im, ax=ax, label='Probability')
-    # Hide extra axes
-    # for extra_ax in axs_flat[n_states:]:
-    #     extra_ax.clear()
-    #     extra_ax.set_visible(False)
+        fig.colorbar(im, ax=ax, label=colorbar_label)
     fig.tight_layout()
     return fig, axs
 
@@ -765,7 +778,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
 
 
-def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None):
+def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None, fig_energies=None):
     """
     Voltage scan along a line with orbital-based tunneling calculations.
     
@@ -830,7 +843,7 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     state_order = pauli.make_state_order(nsite)
     # Run scan using parameter dict (wrapper generates C++ params internally)
     current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver)
-    pauli.validate_probabilities(probs)
+    pauli.validate_probabilities(probs) # Validate probabilities
     # reshape and compute
     STM = current.reshape(nV, npts)
     Es  = Es.reshape(nV, npts, nsite)
@@ -858,15 +871,44 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
     probs = probs.reshape(nV, nx, -1)
+    state_order_labels = pauli.make_state_order(params['nsite'])
+    labels = pauli.make_state_labels(state_order_labels)
+
     if fig_probs is not None:
         # dynamic grid axes for probabilities
-        n_states = probs.shape[2]
-        state_order = pauli.make_state_order(params['nsite'])
-        labels = pauli.make_state_labels(state_order)
-        axs = make_grid_axes(fig_probs, n_states)
-        plot_state_probabilities(probs, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
+        plot_state_maps(probs, extent=[0,dist,Vmin,Vmax], fig=fig_probs, labels=labels, map_type='probability')
+
+    if fig_energies is not None:
+        # dynamic grid axes for state energies
+        plot_state_maps(stateEs, extent=[0,dist,Vmin,Vmax], fig=fig_energies, labels=labels, map_type='energy')
+
     return STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots
 
+
+def plot_state_scan_1d(distance, stateEs, probs, nsite, fig=None, prob_scale=200.0):
+    """
+    Plots many-body state energies and their probabilities along a 1D scan line.
+    Energies are plotted as lines, and probabilities are represented by the size of scatter points on top.
+    """
+    if fig is None:
+        fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(1, 1, 1)
+    n_states = stateEs.shape[1]
+    state_order = pauli.make_state_order(nsite)
+    labels = pauli.make_state_labels(state_order)
+    colors = plt.cm.jet(np.linspace(0, 1, n_states))
+    for i in range(n_states):
+        ax.plot(distance, stateEs[:, i], '-', color=colors[i], label=labels[i], lw=1.0)
+        prob_mask = probs[:, i] > 1e-3
+        if np.any(prob_mask):
+            ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=0.7, edgecolors='w', linewidth=0.5)
+    ax.set_xlabel('Distance [Å]')
+    ax.set_ylabel('Many-Body State Energy [eV]')
+    ax.set_title('State Energies and Probabilities along Scan Line (at Vmax)')
+    ax.legend(title='States', bbox_to_anchor=(1.05, 1), loc='upper left')
+    ax.grid(True)
+    fig.tight_layout(rect=[0, 0, 0.85, 1])
+    return fig
 
 # ===========================================
 # ============= Sweep functions
@@ -1337,89 +1379,106 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None,
 if __name__ == "__main__":
 
 
-    mpl.rcParams.update({
-        # Font sizes
-        'font.size': 8,                # Default font size
-        'axes.titlesize': 8,           # Axes title size
-        'axes.labelsize': 8,           # Axes labels (x and y)
-        'xtick.labelsize': 7,          # x-axis tick labels
-        'ytick.labelsize': 7,          # y-axis tick labels
-        'legend.fontsize': 7,          # Legend font size
-        'figure.titlesize': 9,         # Figure title (suptitle)
-        'figure.labelsize': 8,         # Figure labels (for colorbars, etc.)
+    # mpl.rcParams.update({
+    #     # Font sizes
+    #     'font.size': 8,                # Default font size
+    #     'axes.titlesize': 8,           # Axes title size
+    #     'axes.labelsize': 8,           # Axes labels (x and y)
+    #     'xtick.labelsize': 7,          # x-axis tick labels
+    #     'ytick.labelsize': 7,          # y-axis tick labels
+    #     'legend.fontsize': 7,          # Legend font size
+    #     'figure.titlesize': 9,         # Figure title (suptitle)
+    #     'figure.labelsize': 8,         # Figure labels (for colorbars, etc.)
         
-        # Margins and spacing
-        'figure.autolayout': False,    # We'll control layout manually
-        'figure.subplot.left': 0.08,   # Left margin
-        'figure.subplot.right': 0.95,  # Right margin
-        'figure.subplot.bottom': 0.08, # Bottom margin
-        'figure.subplot.top': 0.90,    # Top margin
-        'figure.subplot.wspace': 0.05,  # Horizontal space between subplots
-        'figure.subplot.hspace': 0.05,  # Vertical space between subplots
+    #     # Margins and spacing
+    #     'figure.autolayout': False,    # We'll control layout manually
+    #     'figure.subplot.left': 0.08,   # Left margin
+    #     'figure.subplot.right': 0.95,  # Right margin
+    #     'figure.subplot.bottom': 0.08, # Bottom margin
+    #     'figure.subplot.top': 0.90,    # Top margin
+    #     'figure.subplot.wspace': 0.05,  # Horizontal space between subplots
+    #     'figure.subplot.hspace': 0.05,  # Vertical space between subplots
         
-        # Lines and markers
-        'lines.linewidth': 0.8,        # Line width
-        'lines.markersize': 3,         # Marker size
-        'patch.linewidth': 0.6,        # Patch (bars, etc.) edge width
+    #     # Lines and markers
+    #     'lines.linewidth': 0.8,        # Line width
+    #     'lines.markersize': 3,         # Marker size
+    #     'patch.linewidth': 0.6,        # Patch (bars, etc.) edge width
         
-        # Legend
-        'legend.frameon': False,       # Remove legend frame
-        'legend.borderpad': 0.1,       # Padding inside legend border
-        'legend.labelspacing': 0.1,    # Vertical space between legend entries
-        'legend.handlelength': 1.5,    # Length of legend handles
-        'legend.handletextpad': 0.4,   # Space between handle and text
+    #     # Legend
+    #     'legend.frameon': False,       # Remove legend frame
+    #     'legend.borderpad': 0.1,       # Padding inside legend border
+    #     'legend.labelspacing': 0.1,    # Vertical space between legend entries
+    #     'legend.handlelength': 1.5,    # Length of legend handles
+    #     'legend.handletextpad': 0.4,   # Space between handle and text
         
-        # Axes
-        'axes.linewidth': 0.6,         # Axis line width
-        'axes.labelpad': 2,            # Space between label and axis
-        'xtick.major.pad': 1.5,        # Padding between x-ticks and label
-        'ytick.major.pad': 1.5,        # Padding between y-ticks and label
-        'xtick.major.size': 2,         # x-tick length
-        'ytick.major.size': 2,         # y-tick length
-        'xtick.major.width': 0.6,      # x-tick width
-        'ytick.major.width': 0.6,      # y-tick width
+    #     # Axes
+    #     'axes.linewidth': 0.6,         # Axis line width
+    #     'axes.labelpad': 2,            # Space between label and axis
+    #     'xtick.major.pad': 1.5,        # Padding between x-ticks and label
+    #     'ytick.major.pad': 1.5,        # Padding between y-ticks and label
+    #     'xtick.major.size': 2,         # x-tick length
+    #     'ytick.major.size': 2,         # y-tick length
+    #     'xtick.major.width': 0.6,      # x-tick width
+    #     'ytick.major.width': 0.6,      # y-tick width
         
-        # Saving figures
-        'savefig.bbox': 'tight',       # Remove extra whitespace around figure
-        'savefig.pad_inches': 0.02,    # Padding when bbox='tight'
-        #'savefig.dpi': 300,            # Higher DPI for quality when small
-    })
+    #     # Saving figures
+    #     'savefig.bbox': 'tight',       # Remove extra whitespace around figure
+    #     'savefig.pad_inches': 0.02,    # Padding when bbox='tight'
+    #     #'savefig.dpi': 300,            # Higher DPI for quality when small
+    # })
 
 
     # Example usage when run as standalone script - using same defaults as GUI
     params = {
-        'VBias': 0.6, 
-        'Rtip':  3.0, 
-        'z_tip': 5.0,
+       # Geometry
+        'nsite': 3,
+        'radius': 5.2,
+        'phiRot': 1.3,
+        'phi0_ax': 0.2,
 
-        #'W': 0.00,
-         #'W': 0.005,
-        #'W': 0.01,
-        #'W': 0.015,
-        #'W': 0.02,
-        #'W': 0.025,
-        'W': 0.03,
-        
-        'GammaS': 0.01, 'GammaT': 0.01, 'Temp': 0.224, 'onSiteCoulomb': 3.0,
-        #'zV0': -10.0, 'zQd': 0.0,
-        'zV0': -3.3, 'zQd': 0.0,
-        'zVd': 2.0,
+        # Electrostatic Field
+        'VBias': 0.70,
+        'Rtip': 3.0,
+        'z_tip': 5.0,
+        'zV0': -1.0,
+        'zVd': 15.0,
         'zQd': 0.0,
-        'nsite': 3, 'radius': 5.2, 
-        'phiRot': np.pi*0.5 + 0.2 ,
-        
-        #'Esite': -0.04,
-        'Esite': -0.150, 
-        
-        'Q0': 1.0, 'Qzz': 0.0,
-        #'L': 20.0, 
-        #'npix': 100, 
-        
-        'L': 30.0, 
-        'npix': 150,
-        'dQ': 0.001,
-        #'decay': 0.05, 
+        'Q0': 1.0,
+        'Qzz': 10.0,
+
+        # Transport Solver
+        'Esite': -0.100,
+        'W': 0.05,
+        'Temp': 3.00,
         'decay': 0.3,
+        'GammaS': 0.01,
+        'GammaT': 0.01,
+        'onSiteCoulomb': 3.0, # Explicitly included, matches GUI's internal default
+
+        # Barrier
+        'Et0': 0.2,
+        'wt': 8.0,
+        'At': -0.1,
+        'c_orb': 1.0,
+        'T0': 1.0,
+
+        # Visualization
+        'L': 20.0,
+        'npix': 200,
+        'dQ': 0.02,
+
+        # Data Cuts (simulation end-points for 1D scan)
+        'p1_x': 9.72,
+        'p1_y': -9.96,
+        'p2_x': -11.0,
+        'p2_y': 12.0,
+
+        # Data Cuts (Experimental end-points for 1D scan)
+        'exp_slice': 10,
+        'ep1_x': 9.72,
+        'ep1_y': -6.96,
+        'ep2_x': -11.0,
+        'ep2_y': 15.0,
     }
     verbosity = 0
 
@@ -1471,7 +1530,42 @@ if __name__ == "__main__":
     #sweep_param_xV(params, [('z_tip', np.linspace( 1.0,  6.0,  5))], selected_params=selected_params); plt.savefig('sweep_xV_ztip.png')
 
 
-    selected_params=[ 'Esite' ]
-    calculate_xV_scan_orb(params, (0,0), (10,10))
 
+
+    # ---------- From Here
+
+    # Define start and end points for the scan from params, mirroring GUI logic
+    start_point = (params['p1_x'], params['p1_y'])
+    end_point   = (params['p2_x'], params['p2_y'])
+    kBoltz = 8.617333262e-5 # eV/K
+    # Define Vmax for the scan, mirroring GUI's default logic
+    Vmax_scan = params['VBias']
+    
+    # Initialize Pauli solver once, mirroring GUI logic (moved from previous position)
+    pauli_solver = pauli.PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=verbosity)
+    
+    # Set lead temperatures and check_prob_stop, mirroring GUI logic
+    T_eV = params['Temp'] * kBoltz
+    pauli_solver.set_lead(0, 0.0, T_eV) # for lead 0 (substrate)
+    pauli_solver.set_lead(1, 0.0, T_eV) # for lead 1 (tip)
+    # Set check_prob_stop and bValidateProbabilities as in GUI
+    pauli_solver.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12)
+    pauli.bValidateProbabilities = False # Set global flag for probability validation
+
+    # Create figures for main plots, probabilities, and state energies
+    fig, (ax_Emax, ax_STM, ax_dIdV) = plt.subplots(1, 3, figsize=(15, 5))
+    fig_probs = plt.figure(figsize=(12, 8)) # Separate figure for probabilities
+    fig_energies = plt.figure(figsize=(12, 8)) # Separate figure for state energies
+
+    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies)
+    fig.tight_layout() # Adjust layout to prevent overlapping titles/labels
+
+    # Create a separate figure for the 1D line plot of many-body states
+    fig_1d_states = plt.figure()
+    # Take a slice at the maximum bias voltage
+    stateEs_1d = stateEs[-1, :, :]
+    probs_1d   = probs[-1, :, :]
+    plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], fig=fig_1d_states)
+
+    print("HERE - DONE, show()")
     plt.show()
