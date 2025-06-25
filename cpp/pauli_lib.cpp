@@ -12,12 +12,22 @@ static int _verbosity = 0;
 double Tmin_cut = 0.0;
 double EW_cut   = 2.0;
 
+
+// auxuliary output arrays
+double* g_current_matrix_ptr = nullptr;
+
+
 extern "C" {
 
 void setLinSolver(void* solver_ptr, int iLinsolveMode, int nMaxLinsolveInter, double LinsolveTolerance) {
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     printf("setLinSolver() iLinsolveMode: %d nMaxLinsolveInter: %d LinsolveTolerance: %g\n", iLinsolveMode, nMaxLinsolveInter, LinsolveTolerance);
     if (solver) { solver->setLinSolver(iLinsolveMode, nMaxLinsolveInter, LinsolveTolerance); }
+}
+
+// C function to set the pointer for the current matrix
+void set_current_matrix_pointer(double* ptr) {
+    g_current_matrix_ptr = ptr;
 }
 
 // C wrapper: include zV1 and build Vec2d
@@ -361,43 +371,40 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
         solver->init_states_by_charge();
         solver->setStateOrder(state_order); 
     }
+    int nstates = solver->nstates;
+    int nstate2 = nstates*nstates;
 
     // Calculate site energies and tunneling rates for all points
-    for (int i = 0; i < npoints; i++) {
-        Vec3d tipPos = pTips[i];
-        double VBias = Vtips[i];
+    for (int ip = 0; ip < npoints; ip++) {
+        Vec3d tipPos = pTips[ip];
+        double VBias = Vtips[ip];
         solver->leads[1].mu = VBias;
         for (int j = 0; j < nSites; j++) {
             Mat3d* rot = ( rots ) ? ( rots + j ) : nullptr;
             double Ei = evalMultipoleMirror( tipPos, pSites[j], VBias, Rtip, zV, order, cs, E0, rot, bMirror, bRamp );
 
             hsingle[j*nSites + j] = Ei;
-            if( Es ) { Es[i*nSites + j] = Ei; }
+            if( Es ) { Es[ip*nSites + j] = Ei; }
 
             double T=0;
             if( externTs ) { 
-                T = Ts[i*nSites + j];
+                T = Ts[ip*nSites + j];
                 //if(j!=0) { T = 0.0; }
             }else{
                 Vec3d d          = tipPos - pSites[j];
                 T         = exp(-beta * d.norm());
-                if( Ts ) { Ts[i*nSites + j] = T; }
+                if( Ts ) { Ts[ip*nSites + j] = T; }
             }
             TLeads [  nSites + j] = VT*T;
         }
-        if( is_valid_point( nSites, hsingle, TLeads, W ) ) { out_current[i] = 0.0; continue; }
+        if( is_valid_point( nSites, hsingle, TLeads, W ) ) { out_current[ip] = 0.0; continue; }
         solver->setTLeads(TLeads); // Assuming this doesn't modify internal state needed across iterations
         solver->calculate_tunneling_amplitudes(TLeads); // Assuming this is okay
+        if(g_current_matrix_ptr){ solver->current_matrix_ptr = g_current_matrix_ptr + ip*nstate2; }
         double current = solve_hsingle(solver, hsingle, W, 1, 0); // Pass address of local solver
-        out_current[i] = current;
-        if(Probs){
-            int nstates = solver->nstates;
-            std::memcpy(Probs + i*nstates, solver->get_probabilities(), nstates * sizeof(double));
-        }
-        if(StateEnergies){
-            int nstates = solver->nstates;
-            std::memcpy(StateEnergies + i*nstates, solver->energies, nstates * sizeof(double));
-        }
+        out_current[ip] = current;
+        if(Probs         ){ std::memcpy(Probs         + ip*nstates, solver->get_probabilities(), nstates * sizeof(double)); }
+        if(StateEnergies ){ std::memcpy(StateEnergies + ip*nstates, solver->energies,            nstates * sizeof(double)); }
     }
         
     return 0.0;

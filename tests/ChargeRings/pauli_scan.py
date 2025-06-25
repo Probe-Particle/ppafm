@@ -784,7 +784,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
 
 
-def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None, fig_energies=None, V_slice=None):
+def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None, fig_energies=None, V_slice=None, ax_current_components=None):
     """
     Voltage scan along a line with orbital-based tunneling calculations.
     
@@ -847,7 +847,10 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
 
 
     state_order = pauli.make_state_order(nsite)
-    # Run scan using parameter dict (wrapper generates C++ params internally)
+    nstate = len(state_order)
+    # allocate buffer for current components: flat array [nV*npts, nstate*nstate]
+    current_matrix_flat = np.zeros((nV * npts, nstate*nstate), dtype=float)
+    pauli.set_current_matrix_export_pointer(current_matrix_flat)
     current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver)
     pauli.validate_probabilities(probs) # Validate probabilities
     # reshape and compute
@@ -892,7 +895,38 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     if fig_energies is not None:
         plot_state_maps(stateEs, extent=[0,dist,Vmin,Vmax], fig=fig_energies, labels=labels, map_type='energy', V_slice=V_slice)
 
+    # Plot individual current components if requested
+    if ax_current_components is not None:
+        # reshape flat buffer to [nV, npts, nstate, nstate]
+        flat = current_matrix_flat.reshape((nV, npts, nstate, nstate))
+        # find closest voltage slice index
+        iv = np.argmin(np.abs(Vbiases - V_slice))
+        # extract and transpose to [nstates, nstates, npts]
+        slice_cm = flat[iv]  # shape (npts, nstate, nstate)
+        cm = slice_cm.transpose((1,2,0))
+        plot_current_components(cm, ax_current_components, x, V_slice, labels)
+
     return STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots
+
+def plot_current_components(current_matrix, ax, distance, V_slice, state_labels):
+    """
+    Plots the current contribution matrix for a given point in the scan.
+    """
+    ax.clear()
+    nstates = current_matrix.shape[1]
+
+    # Plot the contribution of each state transition
+    for i in range(nstates):
+        for j in range(nstates):
+            if np.max(np.abs(current_matrix[i, j])) > 1e-12:  # Only plot significant contributions
+                ax.plot(distance, current_matrix[i, j], label=f'{state_labels[i]} -> {state_labels[j]}')
+
+    ax.set_xlabel('Distance [Å]')
+    ax.set_ylabel('Current Contribution')
+    ax.set_title(f'Current Contributions at V={V_slice:.2f}V')
+    ax.legend(loc='upper right', fontsize='x-small')
+    ax.grid(True)
+
 
 
 def plot_state_scan_1d(distance, stateEs, probs, nsite, fig=None, prob_scale=200.0, V_slice=None, alpha_prob=0.25):
@@ -1586,9 +1620,13 @@ if __name__ == "__main__":
     fig, (ax_Emax, ax_STM, ax_dIdV) = plt.subplots(1, 3, figsize=(15, 5))
     fig_probs = plt.figure(figsize=(12, 8)) # Separate figure for probabilities
     fig_energies = plt.figure(figsize=(12, 8)) # Separate figure for state energies
+    # Separate figure for current component slice
+    fig_curr = plt.figure(figsize=(12, 6))
+    ax_current = fig_curr.add_subplot(1,1,1)
 
-    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies)
+    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, ax_current_components=ax_current, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies)
     fig.tight_layout() # Adjust layout to prevent overlapping titles/labels
+    fig_curr.tight_layout() # Adjust layout for current components figure
 
     # Create a separate figure for the 1D line plot of many-body states
     fig_1d_states = plt.figure()

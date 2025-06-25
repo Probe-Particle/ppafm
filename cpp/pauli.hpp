@@ -191,6 +191,9 @@ public:
     bool   bCheckProbStop = false;  // Flag to stop if probability validation fails
     double bCheckProbTol  = -1e-12;  // Tolerance for probability validation
 
+    double* current_matrix_ptr = nullptr; // Pointer to external buffer for current matrix (nstates x nstates)
+    bool    bAuxOutput = true;    // Flag to enable export of current matrix
+
     std::vector<std::vector<int>> states_by_charge;  // States organized by charge number, like Python's statesdm
     // std::vector<int> state_order;              // Maps original index -> ordered index
     // std::vector<int> state_order_inv;          // Maps ordered index -> original index
@@ -278,6 +281,12 @@ public:
 
         if (verbosity > 0) {  printf("PauliSolver construction finished: Memory allocated and initialized.\n");}
     }
+
+    // // Setter for current_matrix_ptr
+    // void setCurrentMatrixPointer(double* ptr) {
+    //     current_matrix_ptr = ptr;
+    //     bExportCurrentMatrix = (ptr != nullptr);
+    // }
 
     void setLinSolver(int iLinsolveMode_, int nMaxLinsolveInter_, double LinsolveTolerance_){
         iLinsolveMode     = iLinsolveMode_;
@@ -1289,6 +1298,9 @@ def construct_Tba(leads, tleads, Tba_=None):
         
         double current = 0.0;
         const int ncharge = states_by_charge.size();
+
+        bool bAux = (bAuxOutput && (current_matrix_ptr != nullptr));
+        
         
         // Calculate current for each charge state transition
         for(int charge = 0; charge < ncharge - 1; charge++) {
@@ -1313,6 +1325,10 @@ def construct_Tba(leads, tleads, Tba_=None):
                     double contrib = fct1 + fct2;
                     
                     current += contrib;
+
+                    if (bAux) {
+                        current_matrix_ptr[b * nstates + c] = contrib; 
+                    }
                     
                     if(verbosity > 3) { printf("DEBUG: generate_current() lead:%d c:%d b:%d cb:%d fct1:%.6f fct2:%.6f contrib:%.6f\n",  lead_idx, c, b, cb, fct1, fct2, contrib); }
                 }

@@ -40,6 +40,12 @@ lib = compile_and_load()
 lib.setLinSolver.argtypes = [c_void_p, c_int, c_int, c_double]
 lib.setLinSolver.restype = None
 
+# void set_current_matrix_pointer(void* solver_ptr, double* ptr)
+lib.set_current_matrix_pointer.argtypes = [ c_double_p]
+lib.set_current_matrix_pointer.restype = None
+def set_current_matrix_export_pointer(current_matrix_array):
+    lib.set_current_matrix_pointer(_np_as(current_matrix_array, c_double_p))
+
 # void set_valid_point_cuts( double Tmin, double EW ){
 lib.set_valid_point_cuts.argtypes = [c_double, c_double]
 lib.set_valid_point_cuts.restype = None
@@ -163,6 +169,8 @@ def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0]], VBias=1.0, Rtip
         Eout = np.zeros( nTip*nSite, dtype=np.float64)
     lib.evalSitesTipsMultipoleMirror(nTip, _np_as(pTips, c_double_p), _np_as(VBias, c_double_p), nSite, _np_as(pSites, c_double_p), _np_as(rotSite, c_double_p), E0, Rtip, zV0, zVd, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p), bMirror, bRamp, bSiteScan)
     return Eout
+
+
 
 # def compute_site_energies( pTips, pSites, VBias, cs, E0=0.0, Rtip=1.0, zV0=-2.0, order=1, Eout=None, bMakeArrays=True ):
 #     nTip  = len(pTips)
@@ -325,6 +333,7 @@ class PauliSolver:
         if self.solver is not None:
             lib.delete_pauli_solver(self.solver)
             self.solver = None
+
 
 # ========== python
 
