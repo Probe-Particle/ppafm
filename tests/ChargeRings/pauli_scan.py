@@ -216,7 +216,7 @@ def save_1d_scan_data(params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2
     print(f"Data saved to {filename}")
     return filename
 
-def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, stateEs=None, ref_data_line=None, ref_columns=None, fig=None):
+def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, stateEs=None, ref_data_line=None, ref_columns=None, fig=None, V_slice=None):
     """Plot results of 1D scan"""
     bProbs = (probs is not None)
     bStateEs = (stateEs is not None)
@@ -271,7 +271,10 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, stateEs=None,
         nsite = stateEs.shape[1] # Assuming stateEs is 2D (npoints, nstates)
         state_order = pauli.make_state_order(nsite)
         labels = pauli.make_state_labels(state_order)
-        for idx in range(stateEs.shape[1]): ax_stateEs.plot(distance, stateEs[:,idx], label=labels[idx])
+        for idx in range(stateEs.shape[1]):
+            ax_stateEs.plot(distance, stateEs[:,idx], label=labels[idx])
+        if V_slice is not None:
+            ax_stateEs.set_title(f'State Energies and Probabilities along Scan Line (at V={V_slice:.2f}V)')
         ax_stateEs.set_xlabel('Distance'); ax_stateEs.set_ylabel('State Energy [eV]')
         ax_stateEs.legend()
         ax_stateEs.grid(True)
@@ -280,7 +283,7 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, stateEs=None,
     #plt.show()
     return fig
 
-def plot_state_maps(data_3d, extent, axs=None, fig=None, labels=None, aspect='auto', map_type='probability'):
+def plot_state_maps(data_3d, extent, axs=None, fig=None, labels=None, aspect='auto', map_type='probability', V_slice=None):
     """
     Plot multiple state maps (probabilities or energies). Handles single or array of axes.
     data_3d: 3D array shape (nV, nx, n_states)
@@ -317,6 +320,9 @@ def plot_state_maps(data_3d, extent, axs=None, fig=None, labels=None, aspect='au
         im = ax.imshow(data_3d[:, :, idx], origin='lower', extent=extent, cmap=cmap, interpolation='nearest')
         ax.set_aspect(aspect)
         ax.set_title(title)
+        if V_slice is not None:
+            ax.axhline(V_slice, color='cyan', linestyle=':', linewidth=1.5, label=f'V={V_slice:.2f}V', zorder=10)
+            ax.legend(fontsize='x-small', loc='upper right')
         fig.colorbar(im, ax=ax, label=colorbar_label)
     fig.tight_layout()
     return fig, axs
@@ -778,7 +784,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
 
 
-def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None, fig_energies=None):
+def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None, fig_energies=None, V_slice=None):
     """
     Voltage scan along a line with orbital-based tunneling calculations.
     
@@ -865,27 +871,31 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap=cmap_STM)
         ax_STM.set_aspect('auto');
         if bLegend: ax_STM.set_ylabel('V [V]')
+        if V_slice is not None:
+            ax_STM.axhline(V_slice, color='cyan', linestyle=':', linewidth=1.5, label=f'V={V_slice:.2f}V', zorder=10)
+            ax_STM.legend(fontsize='x-small', loc='upper right')
     if ax_dIdV is not None:
         pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap=cmap_dIdV, scV=sdIdV)
         ax_dIdV.set_aspect('auto');
         if bLegend: ax_dIdV.set_ylabel('V [V]')
+        if V_slice is not None:
+            ax_dIdV.axhline(V_slice, color='cyan', linestyle=':', linewidth=1.5, label=f'V={V_slice:.2f}V', zorder=10)
+            ax_dIdV.legend(fontsize='x-small', loc='upper right')
 
     probs = probs.reshape(nV, nx, -1)
     state_order_labels = pauli.make_state_order(params['nsite'])
     labels = pauli.make_state_labels(state_order_labels)
 
     if fig_probs is not None:
-        # dynamic grid axes for probabilities
-        plot_state_maps(probs, extent=[0,dist,Vmin,Vmax], fig=fig_probs, labels=labels, map_type='probability')
+        plot_state_maps(probs, extent=[0,dist,Vmin,Vmax], fig=fig_probs, labels=labels, map_type='probability', V_slice=V_slice)
 
     if fig_energies is not None:
-        # dynamic grid axes for state energies
-        plot_state_maps(stateEs, extent=[0,dist,Vmin,Vmax], fig=fig_energies, labels=labels, map_type='energy')
+        plot_state_maps(stateEs, extent=[0,dist,Vmin,Vmax], fig=fig_energies, labels=labels, map_type='energy', V_slice=V_slice)
 
     return STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots
 
 
-def plot_state_scan_1d(distance, stateEs, probs, nsite, fig=None, prob_scale=200.0):
+def plot_state_scan_1d(distance, stateEs, probs, nsite, fig=None, prob_scale=200.0, V_slice=None, alpha_prob=0.25):
     """
     Plots many-body state energies and their probabilities along a 1D scan line.
     Energies are plotted as lines, and probabilities are represented by the size of scatter points on top.
@@ -896,15 +906,35 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, fig=None, prob_scale=200
     n_states = stateEs.shape[1]
     state_order = pauli.make_state_order(nsite)
     labels = pauli.make_state_labels(state_order)
-    colors = plt.cm.jet(np.linspace(0, 1, n_states))
+
+    state_sytels={
+      # label, color, line style  
+      '000': ('gray', '-'),
+      '111': ('gray', '-'),
+
+      '100': ('b', '--'),
+      '010': ('b', '-'),
+      '001': ('b', '-'),
+
+      '011': ('r', '--'),
+      '101': ('r', '-'),
+      '110': ('r', '-'),
+
+    }
+    colors = [ state_sytels[label][0] for label in labels]
+    styles = [ state_sytels[label][1] for label in labels]
+
+    #colors = plt.cm.jet(np.linspace(0, 1, n_states))
     for i in range(n_states):
-        ax.plot(distance, stateEs[:, i], '-', color=colors[i], label=labels[i], lw=1.0)
         prob_mask = probs[:, i] > 1e-3
         if np.any(prob_mask):
-            ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=0.7, edgecolors='w', linewidth=0.5)
+            ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=alpha_prob, edgecolors='none')
+            #ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=0.3, edgecolors=None, linewidth=0.5)
+        ax.plot(distance, stateEs[:, i], ls=styles[i], color=colors[i], label=labels[i], lw=1.0)
+       
     ax.set_xlabel('Distance [Å]')
     ax.set_ylabel('Many-Body State Energy [eV]')
-    ax.set_title('State Energies and Probabilities along Scan Line (at Vmax)')
+    ax.set_title(f'State Energies and Probabilities along Scan Line (V={V_slice:.2f}V)')
     ax.legend(title='States', bbox_to_anchor=(1.05, 1), loc='upper left')
     ax.grid(True)
     fig.tight_layout(rect=[0, 0, 0.85, 1])
@@ -1437,7 +1467,8 @@ if __name__ == "__main__":
         'phi0_ax': 0.2,
 
         # Electrostatic Field
-        'VBias': 0.70,
+        'VBias': 1.0,
+        'V_slice': 0.6,
         'Rtip': 3.0,
         'z_tip': 5.0,
         'zV0': -1.0,
@@ -1540,8 +1571,7 @@ if __name__ == "__main__":
     kBoltz = 8.617333262e-5 # eV/K
     # Define Vmax for the scan, mirroring GUI's default logic
     Vmax_scan = params['VBias']
-    
-    # Initialize Pauli solver once, mirroring GUI logic (moved from previous position)
+    V_slice_scan = params.get('V_slice', 0.5)  # Initialize Pauli solver once, mirroring GUI logic (moved from previous position)
     pauli_solver = pauli.PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=verbosity)
     
     # Set lead temperatures and check_prob_stop, mirroring GUI logic
@@ -1557,15 +1587,16 @@ if __name__ == "__main__":
     fig_probs = plt.figure(figsize=(12, 8)) # Separate figure for probabilities
     fig_energies = plt.figure(figsize=(12, 8)) # Separate figure for state energies
 
-    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies)
+    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies)
     fig.tight_layout() # Adjust layout to prevent overlapping titles/labels
 
     # Create a separate figure for the 1D line plot of many-body states
     fig_1d_states = plt.figure()
-    # Take a slice at the maximum bias voltage
-    stateEs_1d = stateEs[-1, :, :]
-    probs_1d   = probs[-1, :, :]
-    plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], fig=fig_1d_states)
+    # Take a slice at the desired bias voltage
+    idx = np.argmin(np.abs(Vbiases - V_slice_scan))
+    stateEs_1d = stateEs[idx, :, :]
+    probs_1d   = probs[idx, :, :]
+    plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], fig=fig_1d_states, V_slice=V_slice_scan)
 
     print("HERE - DONE, show()")
     plt.show()
