@@ -784,7 +784,7 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
     return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
 
 
-def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None, fig_energies=None, V_slice=None, ax_current_components=None):
+def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None, fig_energies=None, V_slice=None, bCurrentComponents=False):
     """
     Voltage scan along a line with orbital-based tunneling calculations.
     
@@ -848,9 +848,31 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
 
     state_order = pauli.make_state_order(nsite)
     nstate = len(state_order)
-    # allocate buffer for current components: flat array [nV*npts, nstate*nstate]
-    current_matrix_flat = np.zeros((nV * npts, nstate*nstate), dtype=float)
-    pauli.set_current_matrix_export_pointer(current_matrix_flat)
+    if bCurrentComponents:
+        # allocate buffer for current components: flat array [nV*npts, nstate*nstate]
+        #         double* current_matrix_ptr = nullptr; // Pointer to external buffer for current matrix (nstates x nstates)
+        # double* out_prob_b_enter  = nullptr; // Pointer to external buffer for probability of electron entering (b -> c)
+        # double* out_prob_c_leave  = nullptr; // Pointer to external buffer for probability of electron leaving (c -> b)
+        # double* out_fct1_b_enter  = nullptr; // Pointer to external buffer for factor entering (b -> c)
+        # double* out_fct2_c_leave  = nullptr; // Pointer to external buffer for factor leaving (c -> b)
+        # int   * out_b  = nullptr; // Pointer to external buffer for state entering (b -> c)
+        # int   * out_c = nullptr; // Pointer to external buffer for state leaving (c -> b)
+        # int   * out_Q = nullptr; // Pointer to external buffer for state leaving (b -> c)
+        nstate2 = nstate*nstate
+        nxV = npts*nV
+        current_matrix = np.zeros((nxV,nstate2), dtype=float)
+        out_prob_b     = np.zeros((nxV,nstate2), dtype=float)
+        out_prob_c     = np.zeros((nxV,nstate2), dtype=float)
+        out_fct_b      = np.zeros((nxV,nstate2), dtype=float)
+        out_fct_c      = np.zeros((nxV,nstate2), dtype=float)
+        out_b          = np.zeros((nxV,nstate2), dtype=np.int32)
+        out_c          = np.zeros((nxV,nstate2), dtype=np.int32)
+        out_Q          = np.zeros((nxV,nstate2), dtype=np.int32)
+        pauli.set_current_matrix_export_pointer(current_matrix, out_prob_b, out_prob_c, out_fct_b, out_fct_c, out_b, out_c, out_Q)
+        current_decomp = ( current_matrix, (out_prob_b, out_fct_b ), ( out_prob_c, out_fct_c), (out_b, out_c, out_Q) )
+    else:
+        current_decomp = None
+
     current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver)
     pauli.validate_probabilities(probs) # Validate probabilities
     # reshape and compute
@@ -897,19 +919,8 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
 
     # Plot individual current components if requested
     # reshape flat buffer to [nV, npts, nstate, nstate]
-    flat = current_matrix_flat.reshape((nV, npts, nstate, nstate))
-    # find closest voltage slice index
-    iv = np.argmin(np.abs(Vbiases - V_slice))
-    # extract and transpose to [nstates, nstates, npts]
-    slice_cm = flat[iv]  # shape (npts, nstate, nstate)
-    cm = slice_cm.transpose((1,2,0))
-    if ax_current_components is not None:
-        plot_current_components(cm, ax_current_components, x, V_slice, labels)
-    # Prepare 1D currents and components for return
-    currents_1d = STM[iv, :]
-    current_components = cm
 
-    return STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, current_components, currents_1d
+    return STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, current_decomp
 
 def plot_current_components(current_matrix, ax, distance, V_slice, state_labels):
     """
@@ -970,7 +981,7 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
                 if np.max(np.abs(comp_raw)) > comp_thresh:
                     comp = comp_raw / currents if bNormalize else comp_raw
                     comp_list.append(comp)
-                    comp_labels.append(f'{i}:{state_labels[i]}->{j}:{state_labels[j]}')
+                    comp_labels.append(f'{i}:{labels[i]}->{j}:{labels[j]}')
         if comp_list:
             ax1.stackplot(distance, *comp_list, labels=comp_labels)
         ax1.set_title(f'Current Components (V={V_slice:.2f}V)')
@@ -1644,12 +1655,61 @@ if __name__ == "__main__":
     fig_probs = plt.figure(figsize=(12, 8)) # Separate figure for probabilities
     fig_energies = plt.figure(figsize=(12, 8)) # Separate figure for state energies
     # Separate figure for current component slice
-    fig_curr = plt.figure(figsize=(12, 6))
-    ax_current = fig_curr.add_subplot(1,1,1)
+    #fig_curr = plt.figure(figsize=(12, 6))
+    #ax_current = fig_curr.add_subplot(1,1,1)
 
-    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, curr_comps, curr_1d = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, ax_current_components=ax_current, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies)
+    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, curr_decomp = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies, bCurrentComponents=True)
     fig.tight_layout() # Adjust layout to prevent overlapping titles/labels
-    fig_curr.tight_layout() # Adjust layout for current components figure
+    # fig_curr.tight_layout() # Adjust layout for current components figure
+
+
+    ( current_matrix, up, down, inds ) = curr_decomp
+    (out_prob_b, out_fct_b ) = up
+    (out_prob_c, out_fct_c ) = down
+    (out_b, out_c, out_Q) = inds
+
+    # Plot each exported component at selected voltage slice
+    state_order = pauli.make_state_order(params['nsite'])
+    labels = pauli.make_state_labels(state_order)
+    nstate = len(state_order)
+    npts = len(x)
+    nV = len(Vbiases)
+    iv = np.argmin(np.abs(Vbiases - V_slice_scan))  # index of closest voltage slice
+    exports = {
+        'Current': current_matrix,
+        'Prob_enter': out_prob_b,
+        'Fct_enter': out_fct_b,
+        'Prob_leave': out_prob_c,
+        'Fct_leave': out_fct_c,
+        'State_b': out_b.astype(float),
+        'State_c': out_c.astype(float),
+        'Index_cb': out_Q.astype(float)
+    }
+    for name, arr in exports.items():
+        flat = arr.reshape((nV, npts, nstate, nstate))
+        slice_arr = flat[iv]  # shape (npts, nstate, nstate)
+        comp = slice_arr.transpose((1, 2, 0))
+        fig_c = plt.figure(figsize=(12, 6))
+        ax_c = fig_c.add_subplot(1, 1, 1)
+        plot_current_components(comp, ax_c, x, V_slice_scan, labels)
+        ax_c.set_title(f'{name} components at V={V_slice_scan:.2f}V')
+        fig_c.tight_layout()
+
+    # Prepare data for 1D state plot
+    flat_curr = current_matrix.reshape((nV, npts, nstate, nstate))
+    slice_curr = flat_curr[iv]
+    curr_comps = slice_curr.transpose((1, 2, 0))
+    curr_1d = STM[iv, :]
+    # # find closest voltage slice index
+    # iv = np.argmin(np.abs(Vbiases - V_slice))
+    # # extract and transpose to [nstates, nstates, npts]
+    # slice_cm = flat[iv]  # shape (npts, nstate, nstate)
+    # cm = slice_cm.transpose((1,2,0))
+    # # if ax_current_components is not None:
+    # #     plot_current_components(cm, ax_current_components, x, V_slice, labels)
+    # #     # Prepare 1D currents and components for return
+    # #     currents_1d = STM[iv, :]
+    # #     current_components = cm 
 
     # Create a separate figure for the 1D line plot of many-body states
     fig_1d_states = plt.figure()

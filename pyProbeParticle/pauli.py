@@ -40,11 +40,11 @@ lib = compile_and_load()
 lib.setLinSolver.argtypes = [c_void_p, c_int, c_int, c_double]
 lib.setLinSolver.restype = None
 
-# void set_current_matrix_pointer(void* solver_ptr, double* ptr)
-lib.set_current_matrix_pointer.argtypes = [ c_double_p]
+# void set_current_matrix_pointer(double* ptr, double* out_prob_b_enter, double* out_prob_c_leave, double* out_fct1_b_enter, double* out_fct2_c_leave, int* out_b, int* out_c, int* out_Q) {
+lib.set_current_matrix_pointer.argtypes = [c_double_p, c_double_p, c_double_p, c_double_p, c_double_p, c_int_p, c_int_p, c_int_p]
 lib.set_current_matrix_pointer.restype = None
-def set_current_matrix_export_pointer(current_matrix_array):
-    lib.set_current_matrix_pointer(_np_as(current_matrix_array, c_double_p))
+def set_current_matrix_export_pointer(current_matrix_array, out_prob_b_enter=None, out_prob_c_leave=None, out_fct1_b_enter=None, out_fct2_c_leave=None, out_b=None, out_c=None, out_Q=None):
+    lib.set_current_matrix_pointer(_np_as(current_matrix_array, c_double_p), _np_as(out_prob_b_enter, c_double_p), _np_as(out_prob_c_leave, c_double_p), _np_as(out_fct1_b_enter, c_double_p), _np_as(out_fct2_c_leave, c_double_p), _np_as(out_b, c_int_p), _np_as(out_c, c_int_p), _np_as(out_Q, c_int_p))
 
 # void set_valid_point_cuts( double Tmin, double EW ){
 lib.set_valid_point_cuts.argtypes = [c_double, c_double]

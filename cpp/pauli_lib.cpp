@@ -15,6 +15,15 @@ double EW_cut   = 2.0;
 
 // auxuliary output arrays
 double* g_current_matrix_ptr = nullptr;
+// Additional auxiliary output arrays
+double* g_out_prob_b_enter  = nullptr; // Pointer to external buffer for probability of electron entering (b -> c)
+double* g_out_prob_c_leave  = nullptr; // Pointer to external buffer for probability of electron leaving (c -> b)
+double* g_out_fct1_b_enter  = nullptr; // Pointer to external buffer for factor entering (b -> c)
+double* g_out_fct2_c_leave  = nullptr; // Pointer to external buffer for factor leaving (c -> b)
+int   * g_out_b  = nullptr; // Pointer to external buffer for state entering (b -> c)
+int   * g_out_c = nullptr; // Pointer to external buffer for state leaving (c -> b)
+int   * g_out_Q = nullptr; // Pointer to external buffer for state leaving (b -> c)
+
 
 
 extern "C" {
@@ -26,8 +35,15 @@ void setLinSolver(void* solver_ptr, int iLinsolveMode, int nMaxLinsolveInter, do
 }
 
 // C function to set the pointer for the current matrix
-void set_current_matrix_pointer(double* ptr) {
+void set_current_matrix_pointer(double* ptr, double* out_prob_b_enter, double* out_prob_c_leave, double* out_fct1_b_enter, double* out_fct2_c_leave, int* out_b, int* out_c, int* out_Q) {
     g_current_matrix_ptr = ptr;
+    g_out_prob_b_enter   = out_prob_b_enter;
+    g_out_prob_c_leave   = out_prob_c_leave;
+    g_out_fct1_b_enter   = out_fct1_b_enter;
+    g_out_fct2_c_leave   = out_fct2_c_leave;
+    g_out_b              = out_b;
+    g_out_c              = out_c;
+    g_out_Q              = out_Q;
 }
 
 // C wrapper: include zV1 and build Vec2d
@@ -401,6 +417,14 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
         solver->setTLeads(TLeads); // Assuming this doesn't modify internal state needed across iterations
         solver->calculate_tunneling_amplitudes(TLeads); // Assuming this is okay
         if(g_current_matrix_ptr){ solver->current_matrix_ptr = g_current_matrix_ptr + ip*nstate2; }
+        if(g_out_prob_b_enter  ){ solver->out_prob_b_enter = g_out_prob_b_enter + ip*nstate2; }
+        if(g_out_prob_c_leave  ){ solver->out_prob_c_leave = g_out_prob_c_leave + ip*nstate2; }
+        if(g_out_fct1_b_enter  ){ solver->out_fct1_b_enter = g_out_fct1_b_enter + ip*nstate2; }
+        if(g_out_fct2_c_leave  ){ solver->out_fct2_c_leave = g_out_fct2_c_leave + ip*nstate2; }
+        if(g_out_b              ){ solver->out_b = g_out_b + ip*nstate2; }
+        if(g_out_c              ){ solver->out_c = g_out_c + ip*nstate2; }
+        if(g_out_Q              ){ solver->out_Q = g_out_Q + ip*nstate2; }
+
         double current = solve_hsingle(solver, hsingle, W, 1, 0); // Pass address of local solver
         out_current[ip] = current;
         if(Probs         ){ std::memcpy(Probs         + ip*nstates, solver->get_probabilities(), nstates * sizeof(double)); }
