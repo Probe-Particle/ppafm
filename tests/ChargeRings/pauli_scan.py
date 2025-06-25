@@ -896,17 +896,20 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         plot_state_maps(stateEs, extent=[0,dist,Vmin,Vmax], fig=fig_energies, labels=labels, map_type='energy', V_slice=V_slice)
 
     # Plot individual current components if requested
+    # reshape flat buffer to [nV, npts, nstate, nstate]
+    flat = current_matrix_flat.reshape((nV, npts, nstate, nstate))
+    # find closest voltage slice index
+    iv = np.argmin(np.abs(Vbiases - V_slice))
+    # extract and transpose to [nstates, nstates, npts]
+    slice_cm = flat[iv]  # shape (npts, nstate, nstate)
+    cm = slice_cm.transpose((1,2,0))
     if ax_current_components is not None:
-        # reshape flat buffer to [nV, npts, nstate, nstate]
-        flat = current_matrix_flat.reshape((nV, npts, nstate, nstate))
-        # find closest voltage slice index
-        iv = np.argmin(np.abs(Vbiases - V_slice))
-        # extract and transpose to [nstates, nstates, npts]
-        slice_cm = flat[iv]  # shape (npts, nstate, nstate)
-        cm = slice_cm.transpose((1,2,0))
         plot_current_components(cm, ax_current_components, x, V_slice, labels)
+    # Prepare 1D currents and components for return
+    currents_1d = STM[iv, :]
+    current_components = cm
 
-    return STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots
+    return STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, current_components, currents_1d
 
 def plot_current_components(current_matrix, ax, distance, V_slice, state_labels):
     """
@@ -929,13 +932,61 @@ def plot_current_components(current_matrix, ax, distance, V_slice, state_labels)
 
 
 
-def plot_state_scan_1d(distance, stateEs, probs, nsite, fig=None, prob_scale=200.0, V_slice=None, alpha_prob=0.25):
+def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_components=None, fig=None, prob_scale=200.0, V_slice=None, alpha_prob=0.25, comp_thresh=1e-12):
     """
     Plots many-body state energies and their probabilities along a 1D scan line.
     Energies are plotted as lines, and probabilities are represented by the size of scatter points on top.
     """
     if fig is None:
         fig = plt.figure(figsize=(12, 8))
+    if currents is not None and current_components is not None:
+        # Two-panel plot: component stackplot above, state energies below
+        fig = plt.figure(figsize=(12, 8)) if fig is None else fig
+        ax1 = fig.add_subplot(2, 1, 1)
+        # Stackplot of components
+        nstates = current_components.shape[0]
+        comp_list = []
+        comp_labels = []
+        for i in range(nstates):
+            for j in range(nstates):
+                comp = current_components[i, j]
+                if np.max(np.abs(comp)) > comp_thresh:
+                    comp_list.append(comp)
+                    comp_labels.append(f'{i}->{j}')
+        if comp_list:
+            ax1.stackplot(distance, *comp_list, labels=comp_labels)
+        ax1.set_title(f'Current Components (V={V_slice:.2f}V)')
+        ax1.set_xlabel('Distance [Å]'); ax1.set_ylabel('Current')
+        ax1.legend(loc='upper right', fontsize='x-small')
+        ax1.grid(True)
+        # Bottom panel: state energies and probabilities
+        ax = fig.add_subplot(2, 1, 2)
+        # Plot energies and probs
+        n_states = stateEs.shape[1]
+        state_order = pauli.make_state_order(nsite)
+        labels = pauli.make_state_labels(state_order)
+        # Reuse style mapping
+        state_sytels={
+            '000': ('gray', '-'), '111': ('gray', '-'),
+            '100': ('b', '--'), '010': ('b', '-'), '001': ('b', '-'),
+            '011': ('r', '--'), '101': ('r', '-'), '110': ('r', '-'),
+        }
+        colors = [ state_sytels[label][0] for label in labels]
+        styles = [ state_sytels[label][1] for label in labels]
+        for i in range(n_states):
+            prob_mask = probs[:, i] > 1e-3
+            if np.any(prob_mask):
+                ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=alpha_prob, edgecolors='none')
+            ax.plot(distance, stateEs[:, i], ls=styles[i], color=colors[i], label=labels[i], lw=1.0)
+        ax.set_xlabel('Distance [Å]')
+        ax.set_ylabel('Many-Body State Energy [eV]')
+        ax.set_title(f'State Energies and Probabilities along Scan Line (V={V_slice:.2f}V)')
+        ax.legend(title='States', bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.grid(True)
+        fig.tight_layout(rect=[0, 0, 0.85, 1])
+        return fig
+
+
     ax = fig.add_subplot(1, 1, 1)
     n_states = stateEs.shape[1]
     state_order = pauli.make_state_order(nsite)
@@ -1624,7 +1675,7 @@ if __name__ == "__main__":
     fig_curr = plt.figure(figsize=(12, 6))
     ax_current = fig_curr.add_subplot(1,1,1)
 
-    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, ax_current_components=ax_current, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies)
+    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, curr_comps, curr_1d = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, ax_current_components=ax_current, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies)
     fig.tight_layout() # Adjust layout to prevent overlapping titles/labels
     fig_curr.tight_layout() # Adjust layout for current components figure
 
@@ -1634,7 +1685,7 @@ if __name__ == "__main__":
     idx = np.argmin(np.abs(Vbiases - V_slice_scan))
     stateEs_1d = stateEs[idx, :, :]
     probs_1d   = probs[idx, :, :]
-    plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], fig=fig_1d_states, V_slice=V_slice_scan)
+    plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, fig=fig_1d_states, V_slice=V_slice_scan)
 
     print("HERE - DONE, show()")
     plt.show()

@@ -1327,7 +1327,8 @@ def construct_Tba(leads, tleads, Tba_=None):
                     current += contrib;
 
                     if (bAux) {
-                        current_matrix_ptr[b * nstates + c] = contrib; 
+                        // Store in ordered index space (original->ordered)
+                        current_matrix_ptr[bb * nstates + cc] = contrib; 
                     }
                     
                     if(verbosity > 3) { printf("DEBUG: generate_current() lead:%d c:%d b:%d cb:%d fct1:%.6f fct2:%.6f contrib:%.6f\n",  lead_idx, c, b, cb, fct1, fct2, contrib); }
