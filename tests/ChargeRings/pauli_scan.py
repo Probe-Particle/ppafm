@@ -19,6 +19,12 @@ import colormaps
 import orbital_utils
 from scipy.interpolate import RectBivariateSpline
 
+
+# unlimited lenght of line for numpy array printing
+np.set_printoptions(threshold=np.inf)
+np.set_printoptions(linewidth=np.inf)
+
+
 const_hbar    = 6.582119569e-16  # [ eV*s ]
 const_me      = 9.1093837015e-31  # [ kg   ]
 #e_charge = 1.602176634e-19   # [ C    ]
@@ -865,11 +871,12 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         out_prob_c     = np.zeros((nxV,nstate2), dtype=float)
         out_fct_b      = np.zeros((nxV,nstate2), dtype=float)
         out_fct_c      = np.zeros((nxV,nstate2), dtype=float)
-        out_b          = np.zeros((nxV,nstate2), dtype=np.int32)
-        out_c          = np.zeros((nxV,nstate2), dtype=np.int32)
-        out_Q          = np.zeros((nxV,nstate2), dtype=np.int32)
-        pauli.set_current_matrix_export_pointer(current_matrix, out_prob_b, out_prob_c, out_fct_b, out_fct_c, out_b, out_c, out_Q)
-        current_decomp = ( current_matrix, (out_prob_b, out_fct_b ), ( out_prob_c, out_fct_c), (out_b, out_c, out_Q) )
+        #out_b          = np.zeros((nxV,nstate2), dtype=np.int32)
+        #out_c          = np.zeros((nxV,nstate2), dtype=np.int32)
+        #out_Q          = np.zeros((nxV,nstate2), dtype=np.int32)
+        out_inds       = np.zeros((10,nstate,nstate), dtype=np.int32)
+        pauli.set_current_matrix_export_pointer(current_matrix, out_prob_b, out_prob_c, out_fct_b, out_fct_c, out_inds)
+        current_decomp = ( current_matrix, (out_prob_b, out_fct_b ), ( out_prob_c, out_fct_c), out_inds )
     else:
         current_decomp = None
 
@@ -922,35 +929,34 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
 
     return STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, current_decomp
 
-def plot_current_components(current_matrix, ax, distance, V_slice, state_labels):
+def plot_current_components(current_matrix, ax, distance, V_slice, state_labels, trashold=1e-16, title="Current Components", bDebugPrint=False ):
     """
     Plots the current contribution matrix for a given point in the scan.
     """
     ax.clear()
     nstates = current_matrix.shape[1]
-
     # Plot the contribution of each state transition
+    ii=0
     for i in range(nstates):
         for j in range(nstates):
-            if np.max(np.abs(current_matrix[i, j])) > 1e-12:  # Only plot significant contributions
+            vmax =  np.max(np.abs(current_matrix[i, j]))
+            if bDebugPrint: print( f"{title} {ii} {i}:{state_labels[i]} -> {j}:{state_labels[j]} : {vmax} >? trashold({trashold}) : {vmax > trashold}" )
+            if vmax > trashold:  # Only plot significant contributions
                 ax.plot(distance, current_matrix[i, j], label=f'{state_labels[i]} -> {state_labels[j]}')
-
+                ii+=1
     ax.set_xlabel('Distance [Å]')
     ax.set_ylabel('Current Contribution')
-    ax.set_title(f'Current Contributions at V={V_slice:.2f}V')
+    ax.set_title(f'{title} V={V_slice:.2f}V')
     ax.legend(loc='upper right', fontsize='x-small')
     ax.grid(True)
 
 
 
-def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_components=None, fig=None, prob_scale=200.0, V_slice=None, alpha_prob=0.25, comp_thresh=1e-12, bNormalize=True):
+def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_components=None, prob_scale=200.0, V_slice=None, alpha_prob=0.25, comp_thresh=1e-12, bNormalize=True,  figsize=(16,12)):
     """
     Plots many-body state energies and their probabilities along a 1D scan line.
     Energies are plotted as lines, and probabilities are represented by the size of scatter points on top.
     """
-    if fig is None:
-        fig = plt.figure(figsize=(12, 8))
-
     state_order = pauli.make_state_order(nsite)
     labels = pauli.make_state_labels(state_order)
     state_sytels={
@@ -972,7 +978,7 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
     # Prepare axes
     if currents is not None and current_components is not None:
         # Two-panel: components above, states below
-        ax1 = fig.add_subplot(2, 1, 1)
+        fig, (ax1, ax) = plt.subplots(2, 1, figsize=figsize, gridspec_kw={'height_ratios': [1, 3]})
         nstates = current_components.shape[0]
         comp_list, comp_labels = [], []
         for i in range(nstates):
@@ -982,16 +988,14 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
                     comp = comp_raw / currents if bNormalize else comp_raw
                     comp_list.append(comp)
                     comp_labels.append(f'{i}:{labels[i]}->{j}:{labels[j]}')
-        if comp_list:
-            ax1.stackplot(distance, *comp_list, labels=comp_labels)
+        ax1.stackplot(distance, *comp_list, labels=comp_labels)
         ax1.set_title(f'Current Components (V={V_slice:.2f}V)')
         ax1.set_xlabel('Distance [Å]'); ax1.set_ylabel('Normalized Current' if bNormalize else 'Current')
-        ax1.legend(loc='upper right', fontsize='x-small'); ax1.grid(True)
-        ax = fig.add_subplot(2, 1, 2)
+        #ax1.legend(loc='upper right', fontsize='x-small'); ax1.grid(True)
+        ax1.legend(title="transitions", bbox_to_anchor=(1.05, 1), loc='upper left')
     else:
-        ax = fig.add_subplot(1, 1, 1)
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
     n_states = stateEs.shape[1]
-
     #colors = plt.cm.jet(np.linspace(0, 1, n_states))
     for i in range(n_states):
         prob_mask = probs[:, i] > 1e-3
@@ -999,7 +1003,6 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
             ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=alpha_prob, edgecolors='none')
             #ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=0.3, edgecolors=None, linewidth=0.5)
         ax.plot(distance, stateEs[:, i], ls=styles[i], color=colors[i], label=labels[i], lw=1.0)
-       
     ax.set_xlabel('Distance [Å]')
     ax.set_ylabel('Many-Body State Energy [eV]')
     ax.set_title(f'State Energies and Probabilities along Scan Line (V={V_slice:.2f}V)')
@@ -1658,15 +1661,17 @@ if __name__ == "__main__":
     #fig_curr = plt.figure(figsize=(12, 6))
     #ax_current = fig_curr.add_subplot(1,1,1)
 
-    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, curr_decomp = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies, bCurrentComponents=True)
+    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, current_decomp = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies, bCurrentComponents=True)
     fig.tight_layout() # Adjust layout to prevent overlapping titles/labels
     # fig_curr.tight_layout() # Adjust layout for current components figure
 
 
-    ( current_matrix, up, down, inds ) = curr_decomp
-    (out_prob_b, out_fct_b ) = up
-    (out_prob_c, out_fct_c ) = down
-    (out_b, out_c, out_Q) = inds
+    #( current_matrix, up, down, inds ) = curr_decomp
+    #(out_prob_b, out_fct_b ) = up
+    #(out_prob_c, out_fct_c ) = down
+    #(out_b, out_c, out_Q) = inds
+
+    ( current_matrix, (out_prob_b, out_fct_b ), ( out_prob_c, out_fct_c), out_inds ) = current_decomp
 
     # Plot each exported component at selected voltage slice
     state_order = pauli.make_state_order(params['nsite'])
@@ -1674,50 +1679,53 @@ if __name__ == "__main__":
     nstate = len(state_order)
     npts = len(x)
     nV = len(Vbiases)
+    np.set_printoptions(formatter={'float': lambda x: f"{x:12g}"})
+    print( "out_prob_b: \n", out_prob_b[0].reshape(nstate, nstate) )
+    print( "out_fct_b : \n", out_fct_b [0].reshape(nstate, nstate) )
+    print( "out_prob_c: \n", out_prob_c[0].reshape(nstate, nstate) )
+    print( "out_fct_c : \n", out_fct_c [0].reshape(nstate, nstate) )
+    # out_inds[ ij         ] = charge; 
+    # out_inds[ ij + ns2   ] = b;       
+    # out_inds[ ij + ns2*2 ] = c;       
+    # out_inds[ ij + ns2*3 ] = bb;      
+    # out_inds[ ij + ns2*4 ] = cc;      
+    # out_inds[ ij + ns2*5 ] = cb;      
+    # out_inds[ ij + ns2*6 ] = idx;
+    print( "out_inds[charge]:\n", out_inds[0] )
+    print( "out_inds[b     ]:\n", out_inds[1] )
+    print( "out_inds[c     ]:\n", out_inds[2] )
+    print( "out_inds[bb    ]:\n", out_inds[3] )
+    print( "out_inds[cc    ]:\n", out_inds[4] )
+    print( "out_inds[cb    ]:\n", out_inds[5] )
+    print( "out_inds[idx   ]:\n", out_inds[6] )
+
     iv = np.argmin(np.abs(Vbiases - V_slice_scan))  # index of closest voltage slice
     exports = {
-        'Current': current_matrix,
-        'Prob_enter': out_prob_b,
-        'Fct_enter': out_fct_b,
-        'Prob_leave': out_prob_c,
-        'Fct_leave': out_fct_c,
-        'State_b': out_b.astype(float),
-        'State_c': out_c.astype(float),
-        'Index_cb': out_Q.astype(float)
+        'Current':    current_matrix,
+        'out_prob_b': out_prob_b,
+        'out_fct_b':  out_fct_b,
+        'out_prob_c': out_prob_c,
+        'out_fct_c':  out_fct_c,
     }
     for name, arr in exports.items():
-        flat = arr.reshape((nV, npts, nstate, nstate))
+        flat      = arr.reshape((nV, npts, nstate, nstate))
         slice_arr = flat[iv]  # shape (npts, nstate, nstate)
-        comp = slice_arr.transpose((1, 2, 0))
-        fig_c = plt.figure(figsize=(12, 6))
-        ax_c = fig_c.add_subplot(1, 1, 1)
-        plot_current_components(comp, ax_c, x, V_slice_scan, labels)
-        ax_c.set_title(f'{name} components at V={V_slice_scan:.2f}V')
+        comp      = slice_arr.transpose((1, 2, 0))
+        fig_c     = plt.figure(figsize=(12, 6))
+        ax_c      = fig_c.add_subplot(1, 1, 1)
+        plot_current_components(comp, ax_c, x, V_slice_scan, labels, title=name, bDebugPrint=True)
         fig_c.tight_layout()
 
     # Prepare data for 1D state plot
-    flat_curr = current_matrix.reshape((nV, npts, nstate, nstate))
+    flat_curr  = current_matrix.reshape((nV, npts, nstate, nstate))
     slice_curr = flat_curr[iv]
     curr_comps = slice_curr.transpose((1, 2, 0))
-    curr_1d = STM[iv, :]
-    # # find closest voltage slice index
-    # iv = np.argmin(np.abs(Vbiases - V_slice))
-    # # extract and transpose to [nstates, nstates, npts]
-    # slice_cm = flat[iv]  # shape (npts, nstate, nstate)
-    # cm = slice_cm.transpose((1,2,0))
-    # # if ax_current_components is not None:
-    # #     plot_current_components(cm, ax_current_components, x, V_slice, labels)
-    # #     # Prepare 1D currents and components for return
-    # #     currents_1d = STM[iv, :]
-    # #     current_components = cm 
+    curr_1d    = STM[iv, :]
 
     # Create a separate figure for the 1D line plot of many-body states
-    fig_1d_states = plt.figure()
-    # Take a slice at the desired bias voltage
-    idx = np.argmin(np.abs(Vbiases - V_slice_scan))
-    stateEs_1d = stateEs[idx, :, :]
-    probs_1d   = probs[idx, :, :]
-    plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, fig=fig_1d_states, V_slice=V_slice_scan)
+    stateEs_1d = stateEs[iv, :, :]
+    probs_1d   = probs  [iv, :, :]
+    plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan)
 
     print("HERE - DONE, show()")
     plt.show()

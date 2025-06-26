@@ -194,14 +194,13 @@ public:
     double bCheckProbTol  = -1e-12;  // Tolerance for probability validation
 
     bool    bAuxOutput = true;    // Flag to enable export of current matrix
+    bool    bOutIndex  = true;    // Flag to enable export of index information
     double* current_matrix_ptr = nullptr; // Pointer to external buffer for current matrix (nstates x nstates)
     double* out_prob_b_enter  = nullptr; // Pointer to external buffer for probability of electron entering (b -> c)
     double* out_prob_c_leave  = nullptr; // Pointer to external buffer for probability of electron leaving (c -> b)
     double* out_fct1_b_enter  = nullptr; // Pointer to external buffer for factor entering (b -> c)
     double* out_fct2_c_leave  = nullptr; // Pointer to external buffer for factor leaving (c -> b)
-    int   * out_b  = nullptr; // Pointer to external buffer for state entering (b -> c)
-    int   * out_c = nullptr; // Pointer to external buffer for state leaving (c -> b)
-    int   * out_Q = nullptr; // Pointer to external buffer for state leaving (b -> c)
+    int   * out_inds          = nullptr; // Pointer to external buffer for state entering (b -> c)
 
     std::vector<std::vector<int>> states_by_charge;  // States organized by charge number, like Python's statesdm
     // std::vector<int> state_order;              // Maps original index -> ordered index
@@ -1335,17 +1334,25 @@ def construct_Tba(leads, tleads, Tba_=None):
                     
                     current += contrib;
 
-                    if (bAux) {
+                    if (bAux)[[unlikely]] {
+                        int ij = bb * nstates + cc;
                         // Store in ordered index space (original->ordered)
-                        current_matrix_ptr[bb * nstates + cc] = contrib;
+                        current_matrix_ptr[ij] = contrib;
                         // Store auxiliary components if requested
-                        if (out_prob_b_enter )    out_prob_b_enter[bb * nstates + cc] = probabilities[bb];
-                        if (out_prob_c_leave )    out_prob_c_leave[bb * nstates + cc] = probabilities[cc];
-                        if (out_fct1_b_enter )    out_fct1_b_enter[bb * nstates + cc] = fct_enter;
-                        if (out_fct2_c_leave )    out_fct2_c_leave[bb * nstates + cc] = fct_leave; 
-                        if (out_b )               out_b[bb * nstates + cc] = b;
-                        if (out_c )               out_c[bb * nstates + cc] = c;
-                        if (out_Q )               out_Q[bb * nstates + cc] = cb;
+                        if (out_prob_b_enter )    out_prob_b_enter[ij] = probabilities[bb];
+                        if (out_prob_c_leave )    out_prob_c_leave[ij] = probabilities[cc];
+                        if (out_fct1_b_enter )    out_fct1_b_enter[ij] = fct_enter;
+                        if (out_fct2_c_leave )    out_fct2_c_leave[ij] = fct_leave; 
+                        if (out_inds && bOutIndex ){
+                            int ns2 = nstates * nstates;
+                            out_inds[ ij         ] = charge; 
+                            out_inds[ ij + ns2   ] = b;       
+                            out_inds[ ij + ns2*2 ] = c;       
+                            out_inds[ ij + ns2*3 ] = bb;      
+                            out_inds[ ij + ns2*4 ] = cc;      
+                            out_inds[ ij + ns2*5 ] = cb;      
+                            out_inds[ ij + ns2*6 ] = idx;
+                        }            
                     }
                     
                     if(verbosity > 3) { printf("DEBUG: generate_current() lead:%d c:%d b:%d cb:%d fct1:%.6f fct2:%.6f contrib:%.6f\n",  lead_idx, c, b, cb, fct1, fct2, contrib); }
