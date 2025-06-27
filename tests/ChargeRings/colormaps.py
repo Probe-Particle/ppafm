@@ -312,3 +312,22 @@ PurpleWhiteGreen = create_diverging_map('PuRd_r', 'BuGn', name_suffix="")
 
 # Create and register your Green-White-Purple colormap: BuGn_r (Green->White) and PuRd (White->Purple)
 GreenWhitePurple = create_diverging_map('BuGn_r', 'PuRd', name_suffix="")
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    w=0.05
+    xs = np.linspace(-1,1, 256)
+    X,Y = np.meshgrid(xs,xs)
+    E = np.exp(-(Y/w)**2)        * X \
+      +  np.exp(-((Y-0.75)/w)**2) * X \
+      +  np.exp(-((Y+0.75)/w)**2) * X \
+      +  Y*0.5
+
+
+    vmax=np.abs(E).max()
+    vmin=-vmax
+
+    plt.imshow(E, cmap='PiYG', vmin=vmin, vmax=vmax)
+    plt.colorbar()
+    plt.show()

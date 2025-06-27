@@ -800,11 +800,15 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     """
     T0 = time.perf_counter()
     # Line geometry
-    x1, y1 = start_point; x2, y2 = end_point
+    print( "calculate_xV_scan_orb() start_point: ", start_point )
+    print( "calculate_xV_scan_orb() end_point: ", end_point )
+    x1, y1 = start_point; 
+    x2, y2 = end_point
     dist = np.hypot(x2-x1, y2-y1)
     npts = nx
     t = np.linspace(0,1,npts)
-    x = x1 + (x2-x1)*t; y = y1 + (y2-y1)*t
+    x = x1 + (x2-x1)*t; 
+    y = y1 + (y2-y1)*t
     if Vmax is None: Vmax = params['VBias']
     Vbiases = np.linspace(Vmin, Vmax, nV)
 
@@ -1530,58 +1534,126 @@ if __name__ == "__main__":
 
 
     # Example usage when run as standalone script - using same defaults as GUI
+    # params = {
+    #    # Geometry
+    #     'nsite': 3,
+    #     'radius': 5.2,
+    #     'phiRot': 1.3,
+    #     'phi0_ax': 0.2,
+
+    #     # Electrostatic Field
+    #     'VBias': 1.0,
+    #     'V_slice': 0.6,
+    #     'Rtip': 3.0,
+    #     'z_tip': 5.0,
+    #     'zV0': -1.0,
+    #     'zVd': 15.0,
+    #     'zQd': 0.0,
+    #     'Q0': 1.0,
+    #     'Qzz': 10.0,
+
+    #     # Transport Solver
+    #     'Esite': -0.100,
+    #     'W': 0.05,
+    #     'Temp': 3.00,
+    #     'decay': 0.3,
+    #     'GammaS': 0.01,
+    #     'GammaT': 0.01,
+    #     'onSiteCoulomb': 3.0, # Explicitly included, matches GUI's internal default
+
+    #     # Barrier
+    #     'Et0': 0.2,
+    #     'wt': 8.0,
+    #     'At': -0.1,
+    #     'c_orb': 1.0,
+    #     'T0': 1.0,
+
+    #     # Visualization
+    #     'L': 20.0,
+    #     'npix': 200,
+    #     'dQ': 0.02,
+
+    #     # Data Cuts (simulation end-points for 1D scan)
+    #     'p1_x': 9.72,
+    #     'p1_y': -9.96,
+    #     'p2_x': -11.0,
+    #     'p2_y': 12.0,
+
+    #     # Data Cuts (Experimental end-points for 1D scan)
+    #     'exp_slice': 10,
+    #     'ep1_x': 9.72,
+    #     'ep1_y': -6.96,
+    #     'ep2_x': -11.0,
+    #     'ep2_y': 15.0,
+    # }
+
     params = {
-       # Geometry
+
+        # Geometry
         'nsite': 3,
         'radius': 5.2,
         'phiRot': 1.3,
         'phi0_ax': 0.2,
 
-        # Electrostatic Field
-        'VBias': 1.0,
-        'V_slice': 0.6,
-        'Rtip': 3.0,
-        'z_tip': 5.0,
-        'zV0': -1.0,
-        'zVd': 15.0,
-        'zQd': 0.0,
-        'Q0': 1.0,
-        'Qzz': 10.0,
+    "radius": 5.77,
+    "phiRot": 1.31,
+    "phi0_ax": -0.28,
+    
+    "VBias": 1.0,
+    "V_slice": 0.79,
 
-        # Transport Solver
-        'Esite': -0.100,
-        'W': 0.05,
-        'Temp': 3.00,
-        'decay': 0.3,
-        'GammaS': 0.01,
-        'GammaT': 0.01,
-        'onSiteCoulomb': 3.0, # Explicitly included, matches GUI's internal default
+    "Rtip": 3.0,
+    "z_tip": 6.0,
+    "zV0": -0.9,
+    "zVd": 20.0,
+    "zQd": 0.0,
+    "Q0": 1.0,
+    "Qzz": 0.0,
+    "Esite": -0.09,
+    "W": 0.05,
+    "Temp": 2.6,
+    "decay": 0.3,
+    "GammaS": 0.01,
+    "GammaT": 0.01,
+    "Et0": 0.3,
+    "wt": 10.0,
+    "At": -0.1,
+    "c_orb": 0.4,
+    "T0": 0.3,
+    "L": 20.0,
+    "npix": 200,
+    "dQ": 0.02,
 
-        # Barrier
-        'Et0': 0.2,
-        'wt': 8.0,
-        'At': -0.1,
-        'c_orb': 1.0,
-        'T0': 1.0,
+    #"p1_x": 9.72,
+    #"p1_y": -9.96,
+    #"p2_x": -11.0,
+    #"p2_y": 12.0,
 
-        # Visualization
-        'L': 20.0,
-        'npix': 200,
-        'dQ': 0.02,
+    "p1_x":  10.0,
+    "p1_y": -10.0,
+    "p2_x": -10.0,
+    "p2_y":  10.0,
 
-        # Data Cuts (simulation end-points for 1D scan)
-        'p1_x': 9.72,
-        'p1_y': -9.96,
-        'p2_x': -11.0,
-        'p2_y': 12.0,
+    # "p1_x":  9.72,
+    # "p1_y":  0.0,
+    # "p2_x": -11.0,
+    # "p2_y": 0.0,
 
-        # Data Cuts (Experimental end-points for 1D scan)
-        'exp_slice': 10,
-        'ep1_x': 9.72,
-        'ep1_y': -6.96,
-        'ep2_x': -11.0,
-        'ep2_y': 15.0,
+    # "p2_x": 9.72,
+    # "p2_y": -9.96,
+    # "p1_x": -11.0,
+    # "p1_y": 12.0,
+
+    "exp_slice": 5,
+    "ep1_x": 9.72,
+    "ep1_y": -6.96,
+    "ep2_x": -11.0,
+    "ep2_y": 15.0,
+    "bMirror": True,
+    "bRamp": True,
+    "nsite": 3
     }
+
     verbosity = 0
 
     # #run_scan_xy_orb(params, orbital_file='QD.cub')
@@ -1677,8 +1749,8 @@ if __name__ == "__main__":
     state_order = pauli.make_state_order(params['nsite'])
     labels = pauli.make_state_labels(state_order)
     nstate = len(state_order)
-    npts = len(x)
-    nV = len(Vbiases)
+    npts   = len(x)
+    nV     = len(Vbiases)
     np.set_printoptions(formatter={'float': lambda x: f"{x:12g}"})
     print( "out_prob_b: \n", out_prob_b[0].reshape(nstate, nstate) )
     print( "out_fct_b : \n", out_fct_b [0].reshape(nstate, nstate) )
@@ -1713,7 +1785,7 @@ if __name__ == "__main__":
         comp      = slice_arr.transpose((1, 2, 0))
         fig_c     = plt.figure(figsize=(12, 6))
         ax_c      = fig_c.add_subplot(1, 1, 1)
-        plot_current_components(comp, ax_c, x, V_slice_scan, labels, title=name, bDebugPrint=True)
+        plot_current_components(comp, ax_c, x, V_slice_scan, labels, title=name, bDebugPrint=False)
         fig_c.tight_layout()
 
     # Prepare data for 1D state plot
