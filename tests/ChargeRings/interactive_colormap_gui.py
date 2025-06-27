@@ -61,6 +61,7 @@ class ColormapGUI(QtWidgets.QMainWindow):
             'gamma_pos_g': {'value': 1.0, 'range': (0.1, 5.0), 'step': 0.1, 'decimals': 1},
             'gamma_pos_b': {'value': 1.0, 'range': (0.1, 5.0), 'step': 0.1, 'decimals': 1},
         }
+        self.n_steps = 16 # Default number of colormap steps
 
     def create_controls(self):
         self.add_group_box("Min Color", ['min_r', 'min_g', 'min_b'])
@@ -68,6 +69,15 @@ class ColormapGUI(QtWidgets.QMainWindow):
         self.add_group_box("Max Color", ['max_r', 'max_g', 'max_b'])
         self.add_group_box("Negative Gamma (min to center)", ['gamma_neg_r', 'gamma_neg_g', 'gamma_neg_b'])
         self.add_group_box("Positive Gamma (center to max)", ['gamma_pos_r', 'gamma_pos_g', 'gamma_pos_b'])
+
+        # Number of colormap steps
+        nsteps_layout = QtWidgets.QFormLayout()
+        self.nsteps_spinbox = QtWidgets.QSpinBox()
+        self.nsteps_spinbox.setRange(2, 512)
+        self.nsteps_spinbox.setValue(self.n_steps)
+        self.nsteps_spinbox.valueChanged.connect(self.on_nsteps_change)
+        nsteps_layout.addRow("Colormap Steps:", self.nsteps_spinbox)
+        self.control_layout.addLayout(nsteps_layout)
 
         # --- Predefined Colormap Controls ---
         predefined_group = QtWidgets.QGroupBox("Predefined Colormap Comparison")
@@ -85,6 +95,19 @@ class ColormapGUI(QtWidgets.QMainWindow):
         self.use_predefined_checkbox.stateChanged.connect(self.on_param_change)
         predefined_layout.addRow(self.use_predefined_checkbox)
         self.control_layout.addWidget(predefined_group)
+
+        # --- Data Loading Controls ---
+        data_loading_group = QtWidgets.QGroupBox("Data Loading")
+        data_loading_layout = QtWidgets.QFormLayout(data_loading_group)
+
+        self.data_key_input = QtWidgets.QLineEdit("dIdV")
+        data_loading_layout.addRow("Array Name:", self.data_key_input)
+
+        load_data_button = QtWidgets.QPushButton("Load Data (.npz)")
+        load_data_button.clicked.connect(self.load_data_from_npz)
+        data_loading_layout.addRow(load_data_button)
+
+        self.control_layout.addWidget(data_loading_group)
 
         self.auto_update_checkbox = QtWidgets.QCheckBox("Auto Update")
         self.auto_update_checkbox.setChecked(True)
@@ -127,6 +150,10 @@ class ColormapGUI(QtWidgets.QMainWindow):
             self.param_widgets[key] = spin_box
         self.control_layout.addWidget(group_box)
 
+    def on_nsteps_change(self, value):
+        self.n_steps = value
+        self.on_param_change()
+
     def on_param_change(self):
         if self.auto_update_checkbox.isChecked():
             self.update_plot()
@@ -161,14 +188,13 @@ class ColormapGUI(QtWidgets.QMainWindow):
         gamma_pos    = np.array([params['gamma_pos_r'], params['gamma_pos_g'], params['gamma_pos_b']])
 
         # Create a lookup table for the colormap
-        n_steps = 256
-        cmap_array = np.zeros((n_steps, 3))
+        coarse_cmap_array = np.zeros((self.n_steps, 3))
 
         # Create a linear space for the colormap's internal values (0 to 1)
-        linear_steps = np.linspace(0, 1, n_steps)
+        coarse_linear_steps = np.linspace(0, 1, self.n_steps)
 
-        for i in range(n_steps):
-            val_norm = linear_steps[i] # This is the normalized value for the colormap
+        for i in range(self.n_steps):
+            val_norm = coarse_linear_steps[i] # This is the normalized value for the colormap
 
             if val_norm < 0.5: # Negative part (from min to center)
                 # To be symmetric, the "zero" of the interpolation ramp must be at the center.
@@ -176,17 +202,31 @@ class ColormapGUI(QtWidgets.QMainWindow):
                 t = (0.5 - val_norm) / 0.5
                 f = t ** gamma_neg
                 # As f goes from 0 (at center) to 1 (at min), we interpolate from color_center to color_min.
-                cmap_array[i, :] = color_center + (color_min - color_center) * f
+                coarse_cmap_array[i, :] = color_center + (color_min - color_center) * f
             else: # Positive part (from center to max)
                 # Map val_norm from [0.5, 1] to [0, 1] for gamma interpolation
                 x_interp = (val_norm - 0.5) / 0.5
                 f = x_interp ** gamma_pos
-                cmap_array[i, :] = color_center + (color_max - color_center) * f
+                coarse_cmap_array[i, :] = color_center + (color_max - color_center) * f
         
         # Ensure RGB values are clipped to [0, 1]
-        cmap_array = np.clip(cmap_array, 0, 1)
+        coarse_cmap_array = np.clip(coarse_cmap_array, 0, 1)
 
-        return ListedColormap(cmap_array, name='custom_diverging'), cmap_array # Return both colormap object and raw RGB values
+        # --- Resample the coarse colormap to 256 steps for a smooth result ---
+        # This prevents the "blocky" look in the final image.
+        final_n_steps = 256
+        resampled_cmap_array = np.zeros((final_n_steps, 3))
+        
+        x_coarse = np.linspace(0, 1, self.n_steps)
+        x_final  = np.linspace(0, 1, final_n_steps)
+
+        for i in range(3): # Interpolate R, G, and B channels
+            resampled_cmap_array[:, i] = np.interp(x_final, x_coarse, coarse_cmap_array[:, i])
+
+        smooth_cmap = ListedColormap(resampled_cmap_array, name='custom_diverging_smooth')
+
+        # Return the smooth colormap for imshow and the coarse array for plotting the control curves
+        return smooth_cmap, coarse_cmap_array
 
     def update_plot(self):
         current_params = self.get_current_params()
@@ -198,11 +238,11 @@ class ColormapGUI(QtWidgets.QMainWindow):
         predefined_cmap_name = self.predefined_cmap_combo.currentText()
         try:
             predefined_cmap_obj = plt.get_cmap(predefined_cmap_name)
-            predefined_rgb_values = predefined_cmap_obj(np.linspace(0, 1, 256))[:, :3]
+            predefined_rgb_values = predefined_cmap_obj(np.linspace(0, 1, self.n_steps))[:, :3]
         except ValueError:
             print(f"Warning: Colormap '{predefined_cmap_name}' not found. Using 'bwr'.")
             predefined_cmap_obj = plt.get_cmap('bwr')
-            predefined_rgb_values = predefined_cmap_obj(np.linspace(0, 1, 256))[:, :3]
+            predefined_rgb_values = predefined_cmap_obj(np.linspace(0, 1, self.n_steps))[:, :3]
 
         # --- Determine which colormap to use for the image ---
         display_cmap = predefined_cmap_obj if self.use_predefined_checkbox.isChecked() else custom_cmap
@@ -227,10 +267,10 @@ class ColormapGUI(QtWidgets.QMainWindow):
         # --- Plot both custom and predefined RGB curves over the imshow plot ---
         x_vals = np.linspace(0, 1, cmap_rgb_values.shape[0])
 
-        # Plot custom curves (solid lines)
-        self.ax_image.plot(x_vals, cmap_rgb_values[:, 0], color='red',   linewidth=2, alpha=0.9, label='Custom R')
-        self.ax_image.plot(x_vals, cmap_rgb_values[:, 1], color='green', linewidth=2, alpha=0.9, label='Custom G')
-        self.ax_image.plot(x_vals, cmap_rgb_values[:, 2], color='blue',  linewidth=2, alpha=0.9, label='Custom B')
+        # Plot custom curves (solid lines with markers to show control points)
+        self.ax_image.plot(x_vals, cmap_rgb_values[:, 0], 'o-', color='red',   linewidth=2, alpha=0.9, label='Custom R')
+        self.ax_image.plot(x_vals, cmap_rgb_values[:, 1], 'o-', color='green', linewidth=2, alpha=0.9, label='Custom G')
+        self.ax_image.plot(x_vals, cmap_rgb_values[:, 2], 'o-', color='blue',  linewidth=2, alpha=0.9, label='Custom B')
 
         # Plot predefined curves (dotted lines)
         self.ax_image.plot(x_vals, predefined_rgb_values[:, 0], color='red',   linestyle=':', linewidth=2, alpha=0.7, label=f'"{predefined_cmap_name}" R')
@@ -245,9 +285,35 @@ class ColormapGUI(QtWidgets.QMainWindow):
         plt.close(self.fig) # Close the matplotlib figure when the window is closed
         event.accept()
 
+    def load_data_from_npz(self):
+        """Load a 2D array from a .npz file and update the plot."""
+        array_name = self.data_key_input.text()
+        if not array_name:
+            print("Warning: Please specify an array name to load.")
+            return
+
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load Data", "", "NumPy NPZ Files (*.npz)")
+
+        if filename:
+            try:
+                with np.load(filename) as data_file:
+                    if array_name in data_file:
+                        self.data = data_file[array_name]
+                        if self.data.ndim != 2:
+                            raise ValueError(f"Array '{array_name}' is not 2D.")
+                        self.data_min = np.min(self.data)
+                        self.data_max = np.max(self.data)
+                        print(f"Successfully loaded array '{array_name}' from {filename}")
+                        self.update_plot()
+                    else:
+                        raise KeyError(f"Array '{array_name}' not found in {filename}. Available keys: {list(data_file.keys())}")
+            except Exception as e:
+                print(f"Error loading data: {e}")
+
     def save_params(self):
         """Save current color and gamma parameters to a JSON file."""
         params_to_save = self.get_current_params()
+        params_to_save['n_steps'] = self.n_steps
 
         # Open file dialog
         filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save Parameters", "", "JSON Files (*.json)")
@@ -271,6 +337,10 @@ class ColormapGUI(QtWidgets.QMainWindow):
             try:
                 with open(filename, 'r') as f:
                     loaded_params = json.load(f)
+
+                # Set n_steps first if it exists, remove it from dict
+                self.n_steps = loaded_params.pop('n_steps', 16)
+                self.nsteps_spinbox.setValue(self.n_steps)
 
                 # Set widget values from loaded params
                 for key, value in loaded_params.items():

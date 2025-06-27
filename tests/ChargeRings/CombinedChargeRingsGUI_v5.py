@@ -448,7 +448,7 @@ class ApplicationWindow(GUITemplate):
             dist = np.hypot(sim_end[0]-sim_start[0], sim_end[1]-sim_start[1])
             orbital_2D, orbital_lvec = self.getOrbIfChecked()
             # plot sim current & dIdV on ax5 (STM) and ax6 (dIdV)
-            STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots = pauli_scan.calculate_xV_scan_orb(
+            STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, *_ = pauli_scan.calculate_xV_scan_orb(
                 params, sim_start, sim_end,
                 orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
                 ax_Emax=None, ax_STM=self.ax5, ax_dIdV=self.ax6,
@@ -688,10 +688,10 @@ class ApplicationWindow(GUITemplate):
         with open(base + '.json', 'w') as f:
             json.dump(params, f, indent=4)
         # Save figure PNG
-        STM, dIdV, Es, Ts, probs, spos, rots = self.run()
+        STM, dIdV, Es, Ts, probs, stateEs, spos, rots = self.run()
         self.canvas.figure.savefig(base + '.png')
         data = { 
-            'spos': spos, 'STM': STM, 'Es': Es, 'Ts': Ts, 'probs': probs,
+            'spos': spos, 'STM': STM, 'dIdV': dIdV, 'Es': Es, 'Ts': Ts, 'probs': probs,
             'params_json': json.dumps(params)
         }
         # Save NPZ
