@@ -4,6 +4,7 @@ import matplotlib as mpl
 import os
 import math
 import numpy as _np  # for flattening axes
+import json
 
 import sys
 sys.path.append('../../')
@@ -1051,8 +1052,7 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
             ax1.stackplot(distance, [ comp/comp_sum for comp in comp_list], labels=comp_labels, alpha=0.6)
             ax2c = ax1.twinx()
             ax2c.plot(distance, currents, color='black', linewidth=2, label='Total Current')
-            ax2c.set_ylabel('Total Current')
-            ax1 .legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
+            ax2c.set_ylabel('Total Current')            ax1 .legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
             ax2c.legend(loc='upper right')
         else:
             ax1.stackplot(distance, *comp_list, labels=comp_labels, alpha=0.6)
@@ -1190,7 +1190,7 @@ def sweep_scan_param_pauli_xy_orb_old(params, scan_params, selected_params=None,
         decay: Optional decay parameter for orbital calculations
         fig: Optional figure object to plot into
     """
-    
+
     bOrbGiven = (orbital_2D is not None) or (orbital_lvec is not None)
     bDoOrb    = ( orbital_file is not None ) or bOrbGiven
     if bDoOrb:
@@ -1578,6 +1578,33 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None,
     return fig, all_results  # Return results data
 
 
+class NoIndent:
+    def __init__(self, value):
+        self.value = value
+
+
+class NoIndentEncoder(json.JSONEncoder):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._replacements = {}
+
+    def default(self, obj):
+        if isinstance(obj, NoIndent):
+            # Create a unique placeholder string
+            key = f"__placeholder_{id(obj)}__"
+            self._replacements[key] = json.dumps(obj.value, separators=(',', ':'))
+            return key
+        return super().default(obj)
+
+    def encode(self, obj):
+        result = super().encode(obj)
+        for key, value in self._replacements.items():
+            result = result.replace(f'"{key}"', value)
+        return result
+
+
+
 if __name__ == "__main__":
 
 
@@ -1885,7 +1912,7 @@ if __name__ == "__main__":
     probs_1d   = probs  [iv, :, :]
     fig, (ax1, ax2) = plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan)
 
-    # for x_spec in xs_spec:
+    # for idx, x_spec in enumerate(xs_spec):
     #     # add markers for original stateEs on state scan
     #     ix_mark = np.argmin(np.abs(dist - x_spec))
     #     for ist in range(stateEs_1d.shape[1]):
@@ -1896,6 +1923,21 @@ if __name__ == "__main__":
 
     stateEs_extracted = []
     
+    # --- Prepare for JSON output ---
+    json_output_data = {
+        'params': params,
+        'scan_info': {
+            'voltage_slice_V': V_slice_scan,
+            'voltage_slice_index': int(np.argmin(np.abs(Vbiases - V_slice_scan))),
+            'start_point': start_point,
+            'end_point': end_point,
+            'state_labels': pauli.make_state_labels(pauli.make_state_order(params['nsite'])),
+            'xs_spec': xs_spec.tolist()
+        },
+        'decomposed_data': {}
+    }
+    # --- End of JSON prep ---
+    
     if current_decomp:
         (current_matrix, (out_prob_b, out_fct_b), (out_prob_c, out_fct_c), out_inds) = current_decomp
         
@@ -1904,9 +1946,10 @@ if __name__ == "__main__":
         nstate = 2**nsite
         
         print("\n--- Decomposed Current Components at specific x-points ---")
+        iv = json_output_data['scan_info']['voltage_slice_index']
         print(f"Voltage slice V = {Vbiases[iv]:.3f} V (index iv={iv})")
 
-        for x_spec in xs_spec:
+        for idx, x_spec in enumerate(xs_spec):
             # Find the index of the closest x-coordinate in the scan
             ix = np.argmin(np.abs(x - x_spec))
             actual_x = x[ix]
@@ -1916,27 +1959,98 @@ if __name__ == "__main__":
             # Calculate the flat index corresponding to (iv, ix)
             flat_index = ix + iv * npts
             
-            # Reshape and print the flattened auxiliary arrays for this specific point
+            cur_matrix = current_matrix[flat_index].reshape(nstate, nstate)
+            prob_b     = out_prob_b    [flat_index].reshape(nstate, nstate)
+            fct_b      = out_fct_b     [flat_index].reshape(nstate, nstate)
+            prob_c     = out_prob_c    [flat_index].reshape(nstate, nstate)
+            fct_c      = out_fct_c     [flat_index].reshape(nstate, nstate)
+            STM_       = STM[iv, ix]
+            Es_        = Es     [iv, ix, :]
+            Ts_        = Ts     [iv, ix, :]
+            probs_     = probs  [iv, ix, :]
+            stateEs_   = stateEs[iv, ix, :]
+            pTips_     = pTips[ix]
+
+            spec_data = {
+                'x_spec_requested': x_spec,
+                'x_actual': actual_x,
+                'index_x': int(ix),
+                'current_matrix': NoIndent(cur_matrix.tolist()),
+                'prob_enter':     NoIndent(prob_b.tolist()),
+                'factor_enter':   NoIndent(fct_b.tolist()),
+                'prob_leave':     NoIndent(prob_c.tolist()),
+                'factor_leave':   NoIndent(fct_c.tolist()),
+                'STM':            NoIndent(STM_),
+                'Es':             NoIndent(Es_.tolist()),
+                'Ts':             NoIndent(Ts_.tolist()),
+                'probabilities':  NoIndent(probs_.tolist()),
+                'stateEs':        NoIndent(stateEs_.tolist()),
+                'pTip':           NoIndent(pTips_.tolist())
+            }
+            json_output_data['decomposed_data'][f'x_spec_{idx+1}'] = spec_data
+
             np.set_printoptions(precision=3, suppress=True, linewidth=200)
-            print("  - Current Matrix (I_ij):\n",    current_matrix[flat_index].reshape(nstate, nstate))
-            print("  - Probability Enter (P_b):\n",  out_prob_b[flat_index].reshape(nstate, nstate))
-            print("  - Factor Enter (f_b):\n",       out_fct_b[flat_index].reshape(nstate, nstate))
-            print("  - Probability Leave (P_c):\n",  out_prob_c[flat_index].reshape(nstate, nstate))
-            print("  - Factor Leave (f_c):\n",       out_fct_c[flat_index].reshape(nstate, nstate))
-            # Also print scan data at this point
-            print("  - STM:", STM[iv, ix])
-            print("  - Es:", Es[iv, ix, :])
-            print("  - Ts:", Ts[iv, ix, :])
-            print("  - probabilities:", probs[iv, ix, :])
-            print("  - stateEs:", stateEs[iv, ix, :])
+            print("  - Current Matrix (I_ij):\n",    cur_matrix)
+            print("  - Probability Enter (P_b):\n",  prob_b)
+            print("  - Factor Enter (f_b):\n",       fct_b)
+            print("  - Probability Leave (P_c):\n",  prob_c)
+            print("  - Factor Leave (f_c):\n",       fct_c)
+            print("  - STM:", STM_)
+            print("  - Es:", Es_)
+            print("  - Ts:", Ts_)
+            print("  - probabilities:", probs_)
+            print("  - stateEs:", stateEs_)
+            print("  - pTip:", pTips_)
+
+            # # --- Populate data for JSON ---
+            # spec_data = {
+            #     'x_spec_requested': x_spec,
+            #     'x_actual': actual_x,
+            #     'index_x': int(ix),
+            #     'current_matrix': current_matrix[flat_index].reshape(nstate, nstate).tolist(),
+            #     'prob_enter':     out_prob_b    [flat_index].reshape(nstate, nstate).tolist(),
+            #     'factor_enter':   out_fct_b     [flat_index].reshape(nstate, nstate).tolist(),
+            #     'prob_leave':     out_prob_c    [flat_index].reshape(nstate, nstate).tolist(),
+            #     'factor_leave':   out_fct_c     [flat_index].reshape(nstate, nstate).tolist(),
+            #     'STM':            float(STM[iv, ix]),
+            #     'Es':             Es     [iv, ix, :].tolist(),
+            #     'Ts':             Ts     [iv, ix, :].tolist(),
+            #     'probabilities':  probs  [iv, ix, :].tolist(),
+            #     'stateEs':        stateEs[iv, ix, :].tolist(),
+            #     'pTip':           pTips[ix].tolist()
+            # }
+            # json_output_data['decomposed_data'][f'x_spec_{idx+1}'] = spec_data
+            # # --- End of JSON population ---
+
+            # # Reshape and print the flattened auxiliary arrays for this specific point
+            # np.set_printoptions(precision=3, suppress=True, linewidth=200)
+            # print("  - Current Matrix (I_ij):\n",    np.array(spec_data['current_matrix']))
+            # print("  - Probability Enter (P_b):\n",  np.array(spec_data['prob_enter']))
+            # print("  - Factor Enter (f_b):\n",       np.array(spec_data['factor_enter']))
+            # print("  - Probability Leave (P_c):\n",  np.array(spec_data['prob_leave']))
+            # print("  - Factor Leave (f_c):\n",       np.array(spec_data['factor_leave']))
+            # # Also print scan data at this point
+            # print("  - STM:", spec_data['STM'])
+            # print("  - Es:", np.array(spec_data['Es']))
+            # print("  - Ts:", np.array(spec_data['Ts']))
+            # print("  - probabilities:", np.array(spec_data['probabilities']))
+            # print("  - stateEs:", np.array(spec_data['stateEs']))
+            # print("  - pTip:", pTips[ix])
 
             stateEs_extracted.append(stateEs[iv, ix, :])
 
+    # --- Save JSON file ---
+    json_filename = "decomposed_scan_data.json"
+    encoder = NoIndentEncoder(indent=4)
+    with open(json_filename, 'w') as f:
+        f.write(encoder.encode(json_output_data))
+    print(f"\nDecomposed data saved to {json_filename}")
+    # --- End of JSON save ---
 
     print("stateEs.shape ", stateEs.shape, " STM.shape ", STM.shape, " Es.shape ", Es.shape, " Ts.shape ", Ts.shape, " probs.shape ", probs.shape)
 
     # plot markers for specified x-points from xs_spec
-    for x_spec in xs_spec:
+    for idx, x_spec in enumerate(xs_spec):
         ax1.axvline(x_spec, color='r', linestyle='--')
     ax1.plot(xs_spec, stateEs_extracted, 'xk', markersize=10)
 
