@@ -333,6 +333,11 @@ def plot_state_maps(data_3d, extent, axs=None, fig=None, labels=None, aspect='au
     fig.tight_layout()
     return fig, axs
 
+
+def plot_state_probabilities(data_3d, extent, axs=None, fig=None, labels=None, aspect='auto', V_slice=None):
+    """Alias to plot_state_maps for probabilities."""
+    return plot_state_maps(data_3d, extent, axs=axs, fig=fig, labels=labels, aspect=aspect, map_type='probability', V_slice=V_slice)
+
 def plot_column(fig, ncols, col_idx, data1, data2, extent, title='', cmap1=cmap_STM, cmap2=cmap_dIdV, bCbar=False, xlabel='', ylabel='', aspectEqual=False):
     """
     Plot a complete column of two 2D datasets (top and bottom).
@@ -727,30 +732,47 @@ def run_scan_xy_orb( params, orbital_file="QD.cub" ):
     #plt.show()
 
 
+def make_pTips_line( start_point, end_point, npts=100, zT=0, ts=None ):
+    #print( "calculate_xV_scan_orb() start_point: ", start_point )
+    #print( "calculate_xV_scan_orb() end_point: ", end_point )
+    x1, y1 = start_point; 
+    x2, y2 = end_point
+    #print("make_pTips_line() start_point: ", start_point)
+    #print("make_pTips_line() end_point: ", end_point)
+    dist = np.hypot(x2-x1, y2-y1)
+    if ts is None: 
+        ts = np.linspace(0,1,npts)
+    else:
+        npts = len(ts)
+    x = x1 + (x2-x1)*ts
+    y = y1 + (y2-y1)*ts
+    pTips = np.zeros((npts,3))
+    pTips[:,0] = x; 
+    pTips[:,1] = y
+    pTips[:,2] = zT
+    return pTips, ts, dist
+
+
+
 # ============= 2D (x,V)-plane scan with Pauli Master-equation simulation
 
-def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5, fig_probs=None, bOmp=False, pauli_solver=None):
+def calculate_xV_scan(params, pTips=None, start_point=None, end_point=None, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0,Vmax=None, bLegend=True, sdIdV=0.5, fig_probs=None, bOmp=False, pauli_solver=None):
     """Scan tip along a line for a range of voltages and plot Emax, STM, dI/dV."""
     print("calculate_xV_scan()", start_point, end_point,  )
     # Line geometry
-    x1, y1 = start_point; x2, y2 = end_point
-    dist = np.hypot(x2-x1, y2-y1)
-    npts = nx
-    t = np.linspace(0,1,npts)
-    x = x1 + (x2-x1)*t; y = y1 + (y2-y1)*t
-    if Vmax is None: Vmax = params['VBias']
+
+    if pTips is None:
+        npts = nx
+        pTips, t, dist = make_pTips_line(start_point, end_point, npts, zT = params['z_tip']+params['Rtip'])
+    else:
+        npts = len(pTips)
+        dist = np.hypot(pTips[:,0]-pTips[0,0], pTips[:,1]-pTips[0,1])
+
     Vbiases = np.linspace(Vmin, Vmax, nV)
 
-    # Site & rotation
     nsite = int(params['nsite'])
-    # Site geometry (positions, rotations, angles)
     spos, rots, angles = make_site_geom(params)
 
-    pTips = np.zeros((npts,3))
-    pTips[:,0] = x; pTips[:,1] = y
-    zT = params['z_tip'] + params['Rtip']
-    pTips[:,2] = zT
-    
     cpp_params = pauli.make_cpp_params(params)
     state_order = pauli.make_state_order(nsite)
     current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=bOmp, state_order=state_order, Ts=None, pauli_solver=pauli_solver, return_state_energies=True )
@@ -787,10 +809,9 @@ def calculate_xV_scan(params, start_point, end_point, ax_Emax=None, ax_STM=None,
         axs = make_grid_axes(fig_probs, n_states)
         plot_state_probabilities(probs, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
     print("calculate_xV_scan() DONE")
-    return STM, dIdV, Es, Ts, probs, x, Vbiases, spos, rots
+    return STM, dIdV, Es, Ts, probs, pTips, Vbiases, spos, rots
 
-
-def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None, fig_energies=None, V_slice=None, bCurrentComponents=False):
+def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, orbital_2D=None, orbital_lvec=None, pauli_solver=None, bOmp=False, ax_Emax=None, ax_STM=None, ax_dIdV=None, nx=100, nV=100, Vmin=0.0, Vmax=None, bLegend=True, sdIdV=0.5, decay=None, fig_probs=None, fig_energies=None, V_slice=None, bCurrentComponents=False):
     """
     Voltage scan along a line with orbital-based tunneling calculations.
     
@@ -799,22 +820,17 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     Key function used in fit_sim_exp_general.py and CombinedChargeRingsGUI_v5.py.
     """
     T0 = time.perf_counter()
-    # Line geometry
-    print( "calculate_xV_scan_orb() start_point: ", start_point )
-    print( "calculate_xV_scan_orb() end_point: ", end_point )
-    x1, y1 = start_point; 
-    x2, y2 = end_point
-    dist = np.hypot(x2-x1, y2-y1)
-    npts = nx
-    t = np.linspace(0,1,npts)
-    x = x1 + (x2-x1)*t; 
-    y = y1 + (y2-y1)*t
+
+    
+    if pTips is None:
+        npts = nx
+        pTips, t, dist = make_pTips_line(start_point, end_point, npts, zT = params['z_tip']+params['Rtip'])
+    else:
+        npts = len(pTips)
+        dist = np.hypot(pTips[:,0]-pTips[0,0], pTips[:,1]-pTips[0,1])
+
     if Vmax is None: Vmax = params['VBias']
     Vbiases = np.linspace(Vmin, Vmax, nV)
-
-    # Prepare tip positions
-    pTips = np.zeros((npts,3))
-    pTips[:,0] = x; pTips[:,1] = y; pTips[:,2] = params['z_tip']+params['Rtip']
 
     # Site & rotation
     nsite = int(params['nsite'])
@@ -836,38 +852,16 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
         for i in range(nsite):
             Ts_map = np.abs(Ms[i]) #**2
             interp = RectBivariateSpline(coords, coords, Ts_map)
-            Ts_line[:,i] = interp(y, x, grid=False)
+            Ts_line[:,i] = interp(pTips[:,1], pTips[:,0], grid=False)
         Ts_orb = Ts_line
     
     # Compute Gaussian tunneling
     Ts_gauss, _, _, _ = generate_hops_gauss(spos, params, pTips=pTips, bBarrier=True)
     Ts_input = interpolate_hopping_maps(Ts_gauss, Ts_orb, c=c_orb, T0=params['T0'])
     
-    # # Combine tunneling models
-    # if Ts_orb is not None and c_orb > 1e-9:
-    #     max1 = Ts_orb.max()
-    #     max2 = Ts_gauss.max()
-    #     T0 = params['T0']
-    #     Ts_input = T0 * ( (c_orb/max1) * Ts_orb + ((1 - c_orb)/max2) * Ts_gauss )
-    #     #Ts_input = c_orb * Ts_orb + (1-c_orb) * Ts_gauss
-    #     print(f"Using combined tunneling model with c_orb={c_orb:.2f}")
-    # else:
-    #     Ts_input = Ts_gauss
-    #     print("No orbital used, falling back to Gaussian tunneling")
-
-
     state_order = pauli.make_state_order(nsite)
     nstate = len(state_order)
     if bCurrentComponents:
-        # allocate buffer for current components: flat array [nV*npts, nstate*nstate]
-        #         double* current_matrix_ptr = nullptr; // Pointer to external buffer for current matrix (nstates x nstates)
-        # double* out_prob_b_enter  = nullptr; // Pointer to external buffer for probability of electron entering (b -> c)
-        # double* out_prob_c_leave  = nullptr; // Pointer to external buffer for probability of electron leaving (c -> b)
-        # double* out_fct1_b_enter  = nullptr; // Pointer to external buffer for factor entering (b -> c)
-        # double* out_fct2_c_leave  = nullptr; // Pointer to external buffer for factor leaving (c -> b)
-        # int   * out_b  = nullptr; // Pointer to external buffer for state entering (b -> c)
-        # int   * out_c = nullptr; // Pointer to external buffer for state leaving (c -> b)
-        # int   * out_Q = nullptr; // Pointer to external buffer for state leaving (b -> c)
         nstate2 = nstate*nstate
         nxV = npts*nV
         current_matrix = np.zeros((nxV,nstate2), dtype=float)
@@ -893,7 +887,10 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     Ts  = Ts.reshape(nV, npts, nsite)
     stateEs = stateEs.reshape(nV, npts, -1)
     Emax = Es.max(axis=2)
-    dIdV = np.gradient(STM, Vbiases, axis=0)
+    if len(Vbiases) > 1:
+        dIdV = np.gradient(STM, Vbiases, axis=0)
+    else:
+        dIdV = np.zeros_like(STM)
 
     #T_calc = time.perf_counter(); print(f"calculate_xV_scan_orb() calc time: {T_calc-T0:.5f} [s]")
 
@@ -931,7 +928,7 @@ def calculate_xV_scan_orb(params, start_point, end_point, orbital_2D=None, orbit
     # Plot individual current components if requested
     # reshape flat buffer to [nV, npts, nstate, nstate]
 
-    return STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, current_decomp
+    return STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, current_decomp
 
 def plot_current_components(current_matrix, ax, distance, V_slice, state_labels, trashold=1e-16, title="Current Components", bDebugPrint=False ):
     """
@@ -956,32 +953,63 @@ def plot_current_components(current_matrix, ax, distance, V_slice, state_labels,
 
 
 
-def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_components=None, prob_scale=200.0, V_slice=None, alpha_prob=0.25, comp_thresh=1e-12, bNormalize=True,  figsize=(16,12)):
+def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_components=None, prob_scale=200.0, V_slice=None, alpha_prob=1.0, comp_thresh=1e-12, bNormalize=False,  figsize=(16,12)):
     """
     Plots many-body state energies and their probabilities along a 1D scan line.
     Energies are plotted as lines, and probabilities are represented by the size of scatter points on top.
     """
     state_order = pauli.make_state_order(nsite)
-    labels = pauli.make_state_labels(state_order)
+    labels      = pauli.make_state_labels(state_order)
+    # state_sytels={
+    #   # label, color, line style  
+    #   '000': ('gray', '-'),
+    #   '111': ('gray', '-'),
+
+    #   '100': ('b', '--'),
+    #   '010': ('b', '-'),
+    #   '001': ('b', '-'),
+
+    #   '011': ('r', '--'),
+    #   '101': ('r', '-'),
+    #   '110': ('r', '-'),
+    # }
+
     state_sytels={
-      # label, color, line style  
-      '000': ('gray', '-'),
-      '111': ('gray', '-'),
+    #   # label, color, line style  
+    #    '000': ('gray', '-'),
+    #    '111': ('gray', '-'),
 
-      '100': ('b', '--'),
-      '010': ('b', '-'),
-      '001': ('b', '-'),
+    #    '100': ('#0000FF', '--'),
+    #    '010': ('#008F00', '--'),
+    #    '001': ('#FF0000', '--'),
 
-      '011': ('r', '--'),
-      '101': ('r', '-'),
-      '110': ('r', '-'),
+    #    '011': ('#8F8F00', '-'),
+    #    '101': ('#8F008F', '-'),
+    #    '110': ('#008F8F', '-'),
+
+
+       '000': ('gray', '-'),
+       '111': ('gray', '-'),
+
+       '001': ('#0000FF', '--'),
+       '010': ('#008F00', '--'),
+       '100': ('#FF0000', '--'),
+
+       '110': ('#8F8F00', '-'),
+       '101': ('#8F008F', '-'),
+       '011': ('#008F8F', '-'),
     }
+
+
+    re_order = [0,1,2,4,3,5,6,7]
+
     colors = [ state_sytels[label][0] for label in labels]
     styles = [ state_sytels[label][1] for label in labels]
 
     # Prepare axes
     if currents is not None and current_components is not None:
-        # Two-panel: components above, states below
+
+        # Two-panel: components above (stacked components), states below
         fig, (ax1, ax) = plt.subplots(2, 1, figsize=figsize, gridspec_kw={'height_ratios': [1, 3]})
         nstates = current_components.shape[0]
         comp_list, comp_labels = [], []
@@ -989,31 +1017,100 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
             for j in range(nstates):
                 comp_raw = current_components[i, j]
                 if np.max(np.abs(comp_raw)) > comp_thresh:
-                    comp = comp_raw / currents if bNormalize else comp_raw
+                    comp_list.append(comp_raw)
+                    comp_labels.append(f'{i}:{labels[i]}->{j}:{labels[j]}')
+        # Background stackplot of current components
+        ax1.stackplot(distance, *comp_list, labels=comp_labels, alpha=0.6)
+        # Overlay total current
+        ax1.plot(distance, currents, color='black', linewidth=2, label='Total Current')
+        ax1.set_title(f'Current Components (V={V_slice:.2f}V)')
+        ax1.set_xlabel('Distance [Å]')
+        ax1.set_ylabel('Current')
+        ax1.legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax1.grid(True)
+
+        #bNormalize=True
+
+        # Two-panel: components above (stacked components), states below
+        fig, (ax1, ax) = plt.subplots(2, 1, figsize=figsize, gridspec_kw={'height_ratios': [1, 3]})
+        nstates = current_components.shape[0]
+        comp_list, comp_labels = [], []
+        # Collect component arrays, optionally normalize to current max
+        #comp_max = currents.max() if currents is not None else 1.0
+        comp_sum = np.zeros(len(distance))
+        for i in range(nstates):
+            for j in range(nstates):
+                comp = current_components[i, j]
+                if np.max(np.abs(comp)) > comp_thresh:
+                    if bNormalize: comp_sum += comp
                     comp_list.append(comp)
                     comp_labels.append(f'{i}:{labels[i]}->{j}:{labels[j]}')
-        ax1.stackplot(distance, *comp_list, labels=comp_labels)
-        ax1.set_title(f'Current Components (V={V_slice:.2f}V)')
-        ax1.set_xlabel('Distance [Å]'); ax1.set_ylabel('Normalized Current' if bNormalize else 'Current')
-        #ax1.legend(loc='upper right', fontsize='x-small'); ax1.grid(True)
-        ax1.legend(title="transitions", bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        if bNormalize:
+            # Background stackplot of current components (normalized to total current max)
+            ax1.stackplot(distance, [ comp/comp_sum for comp in comp_list], labels=comp_labels, alpha=0.6)
+            ax2c = ax1.twinx()
+            ax2c.plot(distance, currents, color='black', linewidth=2, label='Total Current')
+            ax2c.set_ylabel('Total Current')
+            ax1 .legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
+            ax2c.legend(loc='upper right')
+        else:
+            ax1.stackplot(distance, *comp_list, labels=comp_labels, alpha=0.6)
+            ax1.plot(distance, currents, color='black', linewidth=2, label='Total Current')
+            ax1.set_ylabel('Component Current')
+            ax1 .legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
+          
+        # ax1.set_title(f'Current Components (V={V_slice:.2f}V)')
+        # ax1.set_xlabel('Distance [Å]')
+        # ax1.grid(True)
     else:
         fig, ax = plt.subplots(1, 1, figsize=figsize)
+    # Background stacked plot of normalized state probabilities on twin axis
+    norm_probs = probs / np.sum(probs, axis=1)[:, None]
+    # main axis (ax) for energies
+    emin, emax = stateEs.min(), stateEs.max()
+    ax.set_ylim(emin, emax)
+    # twin axis for probabilities
+    ax2 = ax.twinx()
+    # make main axis and twin axis backgrounds transparent for proper layering
+    ax.patch.set_visible(False)
+    ax2.patch.set_visible(False)
+    # set z-order: probabilities behind energies
+    ax2.set_zorder(1)
+    ax.set_zorder(2)
+    # define distinct colors for probabilities
+    n_states = stateEs.shape[1]
+    #prob_colors = plt.cm.tab10(np.linspace(0, 1, n_states))
+    prob_labels = labels
+    prob_colors = [ state_sytels[label][0] for label in labels]
+    # stacked plot of probabilities with its own legend
+    polys = ax2.stackplot(distance, *norm_probs.T[re_order], colors=[prob_colors[i] for i in re_order], alpha=0.3, labels=[prob_labels[i] for i in re_order], zorder=3.)
+    ax2.set_ylabel('Probability')
+    ax2.set_ylim(0, 1)
+    ax2.legend(title='Probability', bbox_to_anchor=(1.05, 0.5), loc='center left')
+    ax2.grid(False)
+    ax2.set_zorder(1)
+    ax.set_zorder(2)
+
     n_states = stateEs.shape[1]
     #colors = plt.cm.jet(np.linspace(0, 1, n_states))
-    for i in range(n_states):
+    for ii in range(n_states):
+        i = re_order[ii]
         prob_mask = probs[:, i] > 1e-3
         if np.any(prob_mask):
-            ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=alpha_prob, edgecolors='none')
+            ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=alpha_prob, edgecolors='none', zorder=1.)
             #ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=0.3, edgecolors=None, linewidth=0.5)
-        ax.plot(distance, stateEs[:, i], ls=styles[i], color=colors[i], label=labels[i], lw=1.0)
+    for ii in range(n_states):
+        i = re_order[ii]
+        ax.plot(distance, stateEs[:, i], ls=styles[i], color=colors[i], label=labels[i], lw=2.0, zorder=2.)
     ax.set_xlabel('Distance [Å]')
     ax.set_ylabel('Many-Body State Energy [eV]')
     ax.set_title(f'State Energies and Probabilities along Scan Line (V={V_slice:.2f}V)')
     ax.legend(title='States', bbox_to_anchor=(1.05, 1), loc='upper left')
     ax.grid(True)
     fig.tight_layout(rect=[0, 0, 0.85, 1])
-    return fig
+    return fig, (ax, ax2)
+
 
 # ===========================================
 # ============= Sweep functions
@@ -1733,7 +1830,11 @@ if __name__ == "__main__":
     #fig_curr = plt.figure(figsize=(12, 6))
     #ax_current = fig_curr.add_subplot(1,1,1)
 
-    STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, current_decomp = calculate_xV_scan_orb(params, start_point, end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies, bCurrentComponents=True)
+    STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, current_decomp = calculate_xV_scan_orb(params, start_point=start_point, end_point=end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies, bCurrentComponents=True)
+    # scan positions along line
+    x = pTips[:,0]
+    # extract scan positions
+    #x = pTips[:,0](params, start_point=start_point, end_point=end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies, bCurrentComponents=True)
     fig.tight_layout() # Adjust layout to prevent overlapping titles/labels
     # fig_curr.tight_layout() # Adjust layout for current components figure
 
@@ -1742,6 +1843,12 @@ if __name__ == "__main__":
     #(out_prob_b, out_fct_b ) = up
     #(out_prob_c, out_fct_c ) = down
     #(out_b, out_c, out_Q) = inds
+
+    dist = np.hypot( (pTips[:,0] - start_point[0]), (pTips[:,1] - start_point[1]) )
+     
+    xs_spec = np.array([   -5., -1.,  0.0,  1.0,  5.0  ])
+
+
 
     ( current_matrix, (out_prob_b, out_fct_b ), ( out_prob_c, out_fct_c), out_inds ) = current_decomp
 
@@ -1756,13 +1863,6 @@ if __name__ == "__main__":
     print( "out_fct_b : \n", out_fct_b [0].reshape(nstate, nstate) )
     print( "out_prob_c: \n", out_prob_c[0].reshape(nstate, nstate) )
     print( "out_fct_c : \n", out_fct_c [0].reshape(nstate, nstate) )
-    # out_inds[ ij         ] = charge; 
-    # out_inds[ ij + ns2   ] = b;       
-    # out_inds[ ij + ns2*2 ] = c;       
-    # out_inds[ ij + ns2*3 ] = bb;      
-    # out_inds[ ij + ns2*4 ] = cc;      
-    # out_inds[ ij + ns2*5 ] = cb;      
-    # out_inds[ ij + ns2*6 ] = idx;
     print( "out_inds[charge]:\n", out_inds[0] )
     print( "out_inds[b     ]:\n", out_inds[1] )
     print( "out_inds[c     ]:\n", out_inds[2] )
@@ -1772,21 +1872,7 @@ if __name__ == "__main__":
     print( "out_inds[idx   ]:\n", out_inds[6] )
 
     iv = np.argmin(np.abs(Vbiases - V_slice_scan))  # index of closest voltage slice
-    exports = {
-        'Current':    current_matrix,
-        'out_prob_b': out_prob_b,
-        'out_fct_b':  out_fct_b,
-        'out_prob_c': out_prob_c,
-        'out_fct_c':  out_fct_c,
-    }
-    for name, arr in exports.items():
-        flat      = arr.reshape((nV, npts, nstate, nstate))
-        slice_arr = flat[iv]  # shape (npts, nstate, nstate)
-        comp      = slice_arr.transpose((1, 2, 0))
-        fig_c     = plt.figure(figsize=(12, 6))
-        ax_c      = fig_c.add_subplot(1, 1, 1)
-        plot_current_components(comp, ax_c, x, V_slice_scan, labels, title=name, bDebugPrint=False)
-        fig_c.tight_layout()
+
 
     # Prepare data for 1D state plot
     flat_curr  = current_matrix.reshape((nV, npts, nstate, nstate))
@@ -1797,7 +1883,75 @@ if __name__ == "__main__":
     # Create a separate figure for the 1D line plot of many-body states
     stateEs_1d = stateEs[iv, :, :]
     probs_1d   = probs  [iv, :, :]
-    plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan)
+    fig, (ax1, ax2) = plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan)
+
+    # for x_spec in xs_spec:
+    #     # add markers for original stateEs on state scan
+    #     ix_mark = np.argmin(np.abs(dist - x_spec))
+    #     for ist in range(stateEs_1d.shape[1]):
+    #         ax1.scatter(x_spec, stateEs_1d[ix_mark, ist], s=200, marker='X', color='k', edgecolors='k')
+    #     ax1.axvline(x_spec, color='r', linestyle='--')
+
+    # --- Extract and print auxiliary matrices at specified x-points
+
+    stateEs_extracted = []
+    
+    if current_decomp:
+        (current_matrix, (out_prob_b, out_fct_b), (out_prob_c, out_fct_c), out_inds) = current_decomp
+        
+        npts = len(x)
+        nsite = params['nsite']
+        nstate = 2**nsite
+        
+        print("\n--- Decomposed Current Components at specific x-points ---")
+        print(f"Voltage slice V = {Vbiases[iv]:.3f} V (index iv={iv})")
+
+        for x_spec in xs_spec:
+            # Find the index of the closest x-coordinate in the scan
+            ix = np.argmin(np.abs(x - x_spec))
+            actual_x = x[ix]
+            
+            print(f"\n* For x_spec = {x_spec:.3f} Å (closest simulated point: x={actual_x:.3f} Å, index ix={ix})")
+            
+            # Calculate the flat index corresponding to (iv, ix)
+            flat_index = ix + iv * npts
+            
+            # Reshape and print the flattened auxiliary arrays for this specific point
+            np.set_printoptions(precision=3, suppress=True, linewidth=200)
+            print("  - Current Matrix (I_ij):\n",    current_matrix[flat_index].reshape(nstate, nstate))
+            print("  - Probability Enter (P_b):\n",  out_prob_b[flat_index].reshape(nstate, nstate))
+            print("  - Factor Enter (f_b):\n",       out_fct_b[flat_index].reshape(nstate, nstate))
+            print("  - Probability Leave (P_c):\n",  out_prob_c[flat_index].reshape(nstate, nstate))
+            print("  - Factor Leave (f_c):\n",       out_fct_c[flat_index].reshape(nstate, nstate))
+            # Also print scan data at this point
+            print("  - STM:", STM[iv, ix])
+            print("  - Es:", Es[iv, ix, :])
+            print("  - Ts:", Ts[iv, ix, :])
+            print("  - probabilities:", probs[iv, ix, :])
+            print("  - stateEs:", stateEs[iv, ix, :])
+
+            stateEs_extracted.append(stateEs[iv, ix, :])
+
+
+    print("stateEs.shape ", stateEs.shape, " STM.shape ", STM.shape, " Es.shape ", Es.shape, " Ts.shape ", Ts.shape, " probs.shape ", probs.shape)
+
+    # plot markers for specified x-points from xs_spec
+    for x_spec in xs_spec:
+        ax1.axvline(x_spec, color='r', linestyle='--')
+    ax1.plot(xs_spec, stateEs_extracted, 'xk', markersize=10)
+
+    print( "stateEs_extracted ", stateEs_extracted )
+
+    # recalculate stateEs at specified x-points from xs_spec
+    pTips_spec, _, _ = make_pTips_line(start_point, end_point, zT=params['z_tip']+params['Rtip'], ts=(xs_spec-start_point[0])/(end_point[0]-start_point[0]) )
+    STM_spec, dIdV_spec, Es_spec, Ts_spec, probs_spec, stateEs_spec, pTips_spec, Vbiases_spec, spos_spec, rots_spec, current_decomp_spec  = calculate_xV_scan_orb(params, pTips=pTips_spec, pauli_solver=pauli_solver, nx=len(xs_spec), nV=1, Vmin=V_slice_scan, Vmax=V_slice_scan, bCurrentComponents=False)
+
+    print("STM_spec.shape ", STM_spec.shape, " Es_spec.shape ", Es_spec.shape, " Ts_spec.shape ", Ts_spec.shape, " probs_spec.shape ", probs_spec.shape, " stateEs_spec.shape ", stateEs_spec.shape)
+    
+    print( "stateEs_spec ", stateEs_spec )
+
+    for ist in range(stateEs_spec.shape[2]):
+        ax1.scatter(xs_spec, stateEs_spec[0,:,ist], s=200, marker='o', facecolors='none', edgecolors='gray', linewidths=2)
 
     print("HERE - DONE, show()")
     plt.show()

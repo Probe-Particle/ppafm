@@ -447,15 +447,26 @@ class ApplicationWindow(GUITemplate):
             sim_end   = (params['p2_x'], params['p2_y'])
             dist = np.hypot(sim_end[0]-sim_start[0], sim_end[1]-sim_start[1])
             orbital_2D, orbital_lvec = self.getOrbIfChecked()
-            # plot sim current & dIdV on ax5 (STM) and ax6 (dIdV)
-            STM, dIdV, Es, Ts, probs, stateEs, x, Vbiases, spos, rots, *_ = pauli_scan.calculate_xV_scan_orb(
-                params, sim_start, sim_end,
-                orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
-                ax_Emax=None, ax_STM=self.ax5, ax_dIdV=self.ax6,
-                nx=100, nV=100, Vmin=0.0, Vmax=Vmax,
-                fig_probs=figp, bOmp=bOmp
+            STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, *_ = pauli_scan.calculate_xV_scan_orb(
+                params,
+                start_point=sim_start,
+                end_point=sim_end,
+                orbital_2D=orbital_2D,
+                orbital_lvec=orbital_lvec,
+                pauli_solver=self.pauli_solver,
+                ax_Emax=None,
+                ax_STM=self.ax5,
+                ax_dIdV=self.ax6,
+                nx=100,
+                nV=100,
+                Vmin=0.0,
+                Vmax=Vmax,
+                fig_probs=figp,
+                bOmp=bOmp
             )
+            x = pTips[:,0]
             self.ax5.set_title('Sim STM (xV)'); self.ax6.set_title('Sim dI/dV (xV)')
+
             
             # plot site energies maps if requested
             if figE:
