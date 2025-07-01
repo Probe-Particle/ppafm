@@ -217,7 +217,8 @@ public:
     // Flags to track what needs to be recalculated
     bool energies_updated = false;
     bool coupling_updated = false;
-    bool kernel_updated = false;
+    bool kernel_updated   = false;
+    bool bUseQmeQOrder    = false;
 
 // Simple constructor that only allocates arrays but doesn't initialize values
     // PauliSolver(int nSingle_, int nstates_, int nleads_, int verb = 0) :  nSingle(nSingle_), nstates(nstates_), nleads(nleads_), verbosity(verb) {
@@ -466,8 +467,7 @@ public:
     }
 
 /*
-=== Function eval_lead_coupling ====
-should reproduce construct_Tba from QmeQ /home/prokophapala/git/qmeq/qmeq/leadstun.py
+// should reproduce construct_Tba from QmeQ /home/prokophapala/git/qmeq/qmeq/leadstun.py
 def construct_Tba(leads, tleads, Tba_=None):
     si, mtype = leads.si, leads.mtype
     if Tba_ is None:
@@ -499,7 +499,7 @@ def construct_Tba(leads, tleads, Tba_=None):
     return Tba
 */
 
-    void eval_lead_coupling(int lead, const double* TLead) {
+    void eval_lead_coupling_QmeQ(int lead, const double* TLead) {
         //if(_verbosity > 3) printf("SolverParams::eval_lead_coupling() Lead %i \n", lead);
         double* coupling_ = coupling + lead * nstates * nstates;
         for(int j1 = 0; j1 < nstates; j1++) {
@@ -534,21 +534,49 @@ def construct_Tba(leads, tleads, Tba_=None):
         }
     }
 
-    // Update tunneling amplitudes after TLeads has changed
-    // Seems redundant - perahps we should call eval_lead_coupling() for each lead
+    void eval_lead_coupling_natural(int lead, const double* TLead) {
+        //if(_verbosity > 3) printf("SolverParams::eval_lead_coupling() Lead %i \n", lead);
+        double* coupling_ = coupling + lead * nstates * nstates;
+        for(int j1 = 0; j1 < nstates; j1++) {
+            int state = j1;
+            for(int j2 = 0; j2 < nSingle; j2++) {
+                // --- MODIFIED: Use natural bit mapping ---
+                // The site index j2 now directly corresponds to the bit position.
+                // TLead[0] -> site 0 (LSB), TLead[1] -> site 1, etc.
+                int site = j2;
+                
+                // --- MODIFIED: Calculate fermionic sign for natural bit order ---
+                // fsign = (-1)^sum(occupied_sites_before_this_one)
+                int fsign = 1;
+                for(int k = 0; k < site; k++) {
+                    if((state >> k) & 1) fsign *= -1;
+                }
+
+                double tamp = TLead[j2];
+                double dTba = fsign * tamp;
+                
+                // Check if site is occupied using natural bit position
+                if(!((state >> site) & 1)) {  // Add electron
+                    int ind = state | (1 << site);
+                    coupling_[ind * nstates + j1] += dTba;
+                    //if(_verbosity > 3) {  printf("add_e lead %i states %3i -> %3i  |  site %3i ind %3i dTba %g tamp %g fsign %i\n",  lead, j1, j2, site, ind, dTba, tamp, fsign ); }
+                } else {  // Remove electron
+                    int ind = state & ~(1 << site);
+                    coupling_[ind * nstates + j1] += dTba;
+                    //if(_verbosity > 3) {  printf("sub_e lead %i states %3i -> %3i  |  site %3i ind %3i dTba %g tamp %g fsign %i\n",  lead, j1, j2, site, ind, dTba, tamp, fsign ); }
+                }
+            }
+        }
+    }
+
     void updateTunnelingAmplitudes() {
         if (!coupling_updated && TLeads && coupling) {
-            if (verbosity > 1) {
-                printf("PauliSolver::updateTunnelingAmplitudes() - Recalculating tunneling amplitudes\n");
-            }
-            
-            // Zero the coupling matrix
+            if (verbosity > 1) { printf("PauliSolver::updateTunnelingAmplitudes() - Recalculating tunneling amplitudes\n"); }
             std::memset(coupling, 0, nleads * nstates * nstates * sizeof(double));
-
-            for (int lead = 0; lead < nleads; lead++) {
-                eval_lead_coupling(lead, TLeads + lead * nSingle);
-            }
-                        
+            for (int lead = 0; lead < nleads; lead++) {  
+                if(bUseQmeQOrder){ eval_lead_coupling_QmeQ   (lead, TLeads + lead * nSingle); }
+                else             { eval_lead_coupling_natural(lead, TLeads + lead * nSingle); } 
+            }    
             coupling_updated = true;
         }
     }
@@ -557,12 +585,11 @@ def construct_Tba(leads, tleads, Tba_=None):
     void calculate_tunneling_amplitudes(const double* TLeads) {
         memset(coupling, 0, nleads * nstates * nstates * sizeof(double));
         // Process all leads to match QmeQ behavior
-        for(int lead = 0; lead < nleads; lead++) {
-            eval_lead_coupling(lead, TLeads + lead * nSingle);
+        for(int lead = 0; lead < nleads; lead++) { 
+            if(bUseQmeQOrder){ eval_lead_coupling_QmeQ   (lead, TLeads + lead * nSingle); }
+            else             { eval_lead_coupling_natural(lead, TLeads + lead * nSingle); } 
         }
         if(_verbosity > 1) print_tunneling_amplitudes();
-        //exit(0);
-        //exit(0);
     }
 
         // Update functions for recalculating internal data after parameter changes
@@ -570,19 +597,12 @@ def construct_Tba(leads, tleads, Tba_=None):
     // Update state energies after Hsingle or W has changed
     void updateStateEnergies() {
         if (!energies_updated && Hsingle && energies && state_order) {
-            if (verbosity > 1) {
-                printf("PauliSolver::updateStateEnergies() - Recalculating state energies\n");
-            }
-            
-            // Calculate energies for all states
+            if (verbosity > 1) { printf("PauliSolver::updateStateEnergies() - Recalculating state energies\n"); }
             for (int i = 0; i < nstates; i++) {
                 int state_idx = state_order[i];
                 energies[i] = calculate_state_energy(state_idx, nSingle, Hsingle, W);
-                if (verbosity > 2) {
-                    printf("  State %d (raw state %d): Energy = %g\n", i, state_idx, energies[i]);
-                }
+                if (verbosity > 2) { printf("  State %d (raw state %d): Energy = %g\n", i, state_idx, energies[i]); }
             }
-            
             energies_updated = true;
         }
     }
