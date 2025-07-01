@@ -142,6 +142,40 @@ def generate_hops_gauss( spos, params, pTips=None, bBarrier=True ):
         Ts[:,i] = np.exp(-beta * r)
     return Ts, pTips, beta, barrier
 
+def create_transition_mask(labels, type_=bool ):
+    """
+    Creates a boolean mask for valid transitions between many-body states,
+    based on a list of string labels.
+    A transition is valid if exactly one site changes occupancy.
+
+    Args:
+        labels (list of str): A list of binary strings representing the states,
+                              e.g., ['|000>', '|001>', ...]. The order can be arbitrary.
+
+    Returns:
+        np.ndarray: A boolean matrix of shape (n_states, n_states) where
+                    n_states = len(labels). `True` indicates a valid transition.
+    """
+    n_states = len(labels)
+    # Convert string labels (e.g., '|101>') to integers for efficient comparison
+    try:
+        # Strip common characters and convert from binary string to int
+        int_states = [int(label.strip('|>'), 2) for label in labels]
+    except (ValueError, TypeError) as e:
+        print(f"Warning: Could not parse all labels as binary due to {e}. This function requires binary-like string labels.")
+        # Return an empty or all-False mask as a fallback
+        return np.zeros((n_states, n_states), dtype=type_)
+
+    mask = np.zeros((n_states, n_states), dtype=type_)
+    for i in range(n_states):
+        for j in range(i):  # Iterate only over the lower triangle for efficiency
+            # A valid transition changes the occupancy of exactly one site.
+            # This is equivalent to the XOR of the state integers having exactly one bit set.
+            if (int_states[i] ^ int_states[j]).bit_count() == 1:
+                mask[i, j] = True
+                mask[j, i] = True  # The mask is symmetric
+    return mask
+
 # ===========================================
 # ============= Plot & Save functions
 # ===========================================
@@ -1052,7 +1086,8 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
             ax1.stackplot(distance, [ comp/comp_sum for comp in comp_list], labels=comp_labels, alpha=0.6)
             ax2c = ax1.twinx()
             ax2c.plot(distance, currents, color='black', linewidth=2, label='Total Current')
-            ax2c.set_ylabel('Total Current')            ax1 .legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
+            ax2c.set_ylabel('Total Current')            
+            ax1 .legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
             ax2c.legend(loc='upper right')
         else:
             ax1.stackplot(distance, *comp_list, labels=comp_labels, alpha=0.6)
@@ -1780,6 +1815,21 @@ if __name__ == "__main__":
 
     verbosity = 0
 
+    nsite=3
+    state_order_set = pauli.make_state_order(nsite)
+    labels_set      = pauli.make_state_labels(state_order_set)
+
+    print( "state_order_set: \n", state_order_set )
+    print( "labels_set: \n", labels_set )
+    
+    labels_natural=["000", "001","010","100","110","101","011","111"]
+    allowed_transitions = create_transition_mask(labels_natural, type_=int)
+    print("labels_natural: \n", labels_natural)
+    print("Allowed transitions mask: \n", allowed_transitions)
+    #exit()
+
+
+
     # #run_scan_xy_orb(params, orbital_file='QD.cub')
     # #scan_xy_orb(params, scan_params=[('VBias', np.linspace(0.0, 0.5, 5))], selected_params=['VBias','zV0', 'z_tip', 'W', 'Esite' ], orbital_file='QD.cub')
     # # plt.savefig('scan_xy_orb_test.png')
@@ -1980,62 +2030,32 @@ if __name__ == "__main__":
                 'factor_enter':   NoIndent(fct_b.tolist()),
                 'prob_leave':     NoIndent(prob_c.tolist()),
                 'factor_leave':   NoIndent(fct_c.tolist()),
+                'pTip':           NoIndent(pTips_.tolist()),
                 'STM':            NoIndent(STM_),
                 'Es':             NoIndent(Es_.tolist()),
                 'Ts':             NoIndent(Ts_.tolist()),
                 'probabilities':  NoIndent(probs_.tolist()),
                 'stateEs':        NoIndent(stateEs_.tolist()),
-                'pTip':           NoIndent(pTips_.tolist())
+                
             }
             json_output_data['decomposed_data'][f'x_spec_{idx+1}'] = spec_data
 
-            np.set_printoptions(precision=3, suppress=True, linewidth=200)
+            #np.set_printoptions(precision=10, suppress=False, linewidth=200)
+            np.set_printoptions(formatter={'float': lambda x: f"{x:12g}"})
             print("  - Current Matrix (I_ij):\n",    cur_matrix)
             print("  - Probability Enter (P_b):\n",  prob_b)
             print("  - Factor Enter (f_b):\n",       fct_b)
             print("  - Probability Leave (P_c):\n",  prob_c)
             print("  - Factor Leave (f_c):\n",       fct_c)
-            print("  - STM:", STM_)
-            print("  - Es:", Es_)
-            print("  - Ts:", Ts_)
-            print("  - probabilities:", probs_)
-            print("  - stateEs:", stateEs_)
-            print("  - pTip:", pTips_)
+            print("  - labels_natural: ", labels_natural)
+            print("  - labels_set    : ", labels_set)
+            print("  - probabilities : ", probs_)
+            print("  - stateEs       : ", stateEs_)
+            print("  - STM           : ", STM_)
+            print("  - Es            : ", Es_)
+            print("  - Ts            : ", Ts_)
+            print("  - pTips         : ", pTips_)
 
-            # # --- Populate data for JSON ---
-            # spec_data = {
-            #     'x_spec_requested': x_spec,
-            #     'x_actual': actual_x,
-            #     'index_x': int(ix),
-            #     'current_matrix': current_matrix[flat_index].reshape(nstate, nstate).tolist(),
-            #     'prob_enter':     out_prob_b    [flat_index].reshape(nstate, nstate).tolist(),
-            #     'factor_enter':   out_fct_b     [flat_index].reshape(nstate, nstate).tolist(),
-            #     'prob_leave':     out_prob_c    [flat_index].reshape(nstate, nstate).tolist(),
-            #     'factor_leave':   out_fct_c     [flat_index].reshape(nstate, nstate).tolist(),
-            #     'STM':            float(STM[iv, ix]),
-            #     'Es':             Es     [iv, ix, :].tolist(),
-            #     'Ts':             Ts     [iv, ix, :].tolist(),
-            #     'probabilities':  probs  [iv, ix, :].tolist(),
-            #     'stateEs':        stateEs[iv, ix, :].tolist(),
-            #     'pTip':           pTips[ix].tolist()
-            # }
-            # json_output_data['decomposed_data'][f'x_spec_{idx+1}'] = spec_data
-            # # --- End of JSON population ---
-
-            # # Reshape and print the flattened auxiliary arrays for this specific point
-            # np.set_printoptions(precision=3, suppress=True, linewidth=200)
-            # print("  - Current Matrix (I_ij):\n",    np.array(spec_data['current_matrix']))
-            # print("  - Probability Enter (P_b):\n",  np.array(spec_data['prob_enter']))
-            # print("  - Factor Enter (f_b):\n",       np.array(spec_data['factor_enter']))
-            # print("  - Probability Leave (P_c):\n",  np.array(spec_data['prob_leave']))
-            # print("  - Factor Leave (f_c):\n",       np.array(spec_data['factor_leave']))
-            # # Also print scan data at this point
-            # print("  - STM:", spec_data['STM'])
-            # print("  - Es:", np.array(spec_data['Es']))
-            # print("  - Ts:", np.array(spec_data['Ts']))
-            # print("  - probabilities:", np.array(spec_data['probabilities']))
-            # print("  - stateEs:", np.array(spec_data['stateEs']))
-            # print("  - pTip:", pTips[ix])
 
             stateEs_extracted.append(stateEs[iv, ix, :])
 
@@ -2062,10 +2082,30 @@ if __name__ == "__main__":
 
     print("STM_spec.shape ", STM_spec.shape, " Es_spec.shape ", Es_spec.shape, " Ts_spec.shape ", Ts_spec.shape, " probs_spec.shape ", probs_spec.shape, " stateEs_spec.shape ", stateEs_spec.shape)
     
-    print( "stateEs_spec ", stateEs_spec )
+    print( "stateEs_spec: \n", stateEs_spec )
 
     for ist in range(stateEs_spec.shape[2]):
         ax1.scatter(xs_spec, stateEs_spec[0,:,ist], s=200, marker='o', facecolors='none', edgecolors='gray', linewidths=2)
 
+    print("labels_natural: \n", labels_natural)
+    print("Allowed transitions mask: \n", allowed_transitions)
+
     print("HERE - DONE, show()")
     plt.show()
+
+
+
+# Mask
+'''
+
+#      000  |  001  010  100  |   110  101  011  |  111 
+000:    0       1    1    1        0    0    0       0 
+001:    1       0    0    0        0    
+010:    1
+100:    1
+110:    0
+101:    0
+011:    0
+111:    0
+
+'''
