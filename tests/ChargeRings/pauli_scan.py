@@ -176,6 +176,37 @@ def create_transition_mask(labels, type_=bool ):
                 mask[j, i] = True  # The mask is symmetric
     return mask
 
+def make_permut(labels_from, labels_to):
+    """
+    Creates a permutation index array to reorder 'labels_from' to match 'labels_to'.
+    Returns an array `p` such that `np.array(labels_from)[p]` is ordered like `labels_to`.
+    """
+    from_map = {label: i for i, label in enumerate(labels_from)}
+    return np.array([from_map[label] for label in labels_to], dtype=int)
+
+def print_cols(arrays, headers):
+    """
+    Prints a list of 1D arrays as aligned columns with headers.
+    """
+    # Determine format strings for alignment
+    formats = []
+    for arr in arrays:
+        if np.issubdtype(arr.dtype, np.floating) or np.issubdtype(arr.dtype, np.complexfloating):
+            formats.append("{: >25.8e}")
+        elif np.issubdtype(arr.dtype, np.integer):
+            formats.append("{: >25d}")
+        else:  # String or other
+            formats.append("{: >25s}")
+
+    # Print headers
+    print("".join([f"{h: >25s}" for h in headers]))
+    print("-" * (25 * len(headers)))
+
+    # Print data rows
+    for i in range(len(arrays[0])):
+        row_str = "".join([formats[j].format(arr[i]) for j, arr in enumerate(arrays)])
+        print(row_str)
+
 # ===========================================
 # ============= Plot & Save functions
 # ===========================================
@@ -1822,9 +1853,15 @@ if __name__ == "__main__":
     print( "state_order_set: \n", state_order_set )
     print( "labels_set: \n", labels_set )
     
-    labels_natural=["000", "001","010","100","110","101","011","111"]
-    allowed_transitions = create_transition_mask(labels_natural, type_=int)
-    print("labels_natural: \n", labels_natural)
+    labels_nat=["000", "001","010","100","110","101","011","111"]
+
+    perm_nat_to_set = make_permut(labels_from=labels_nat, labels_to=labels_set); print("perm_nat_to_set: \n", perm_nat_to_set)
+    perm_set_to_nat = make_permut(labels_from=labels_set, labels_to=labels_nat); print("perm_set_to_nat: \n", perm_set_to_nat)
+
+
+
+    allowed_transitions = create_transition_mask(labels_nat, type_=int)
+    print("labels_nat: \n", labels_nat)
     print("Allowed transitions mask: \n", allowed_transitions)
     #exit()
 
@@ -2047,7 +2084,7 @@ if __name__ == "__main__":
             print("  - Factor Enter (f_b):\n",       fct_b)
             print("  - Probability Leave (P_c):\n",  prob_c)
             print("  - Factor Leave (f_c):\n",       fct_c)
-            print("  - labels_natural: ", labels_natural)
+            print("  - labels_nat: ", labels_nat)
             print("  - labels_set    : ", labels_set)
             print("  - probabilities : ", probs_)
             print("  - stateEs       : ", stateEs_)
@@ -2056,7 +2093,12 @@ if __name__ == "__main__":
             print("  - Ts            : ", Ts_)
             print("  - pTips         : ", pTips_)
 
-
+            # --- Add consistency check ---
+            print("\n  --- Consistency Check (reordering probabilities to match stateEs) ---")
+            #perm_nat_to_set = make_permut(labels_from=labels_nat, labels_to=labels_set)
+            #print_cols( [np.array(labels_set), stateEs_, probs_[perm_nat_to_set]], headers=["labels_set", "stateEs", "probs_reordered"] )
+            #print_cols( [np.array(labels_nat), stateEs_[perm_set_to_nat], probs_], headers=["labels_nat",  "stateEs_reordered", "probs"] )
+            print_cols( [np.array(labels_nat), stateEs_[perm_set_to_nat], probs_[perm_set_to_nat]], headers=["labels_nat",  "stateEs_reordered", "probs"] )
             stateEs_extracted.append(stateEs[iv, ix, :])
 
     # --- Save JSON file ---
@@ -2087,7 +2129,7 @@ if __name__ == "__main__":
     for ist in range(stateEs_spec.shape[2]):
         ax1.scatter(xs_spec, stateEs_spec[0,:,ist], s=200, marker='o', facecolors='none', edgecolors='gray', linewidths=2)
 
-    print("labels_natural: \n", labels_natural)
+    print("labels_nat: \n", labels_nat)
     print("Allowed transitions mask: \n", allowed_transitions)
 
     print("HERE - DONE, show()")

@@ -398,6 +398,7 @@ def make_state_order(nsite):
         order = np.array([0, 1], dtype=np.int32)
     elif nsite == 3:
         order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)
+        #order = np.array([0, 1, 2, 3, 4, 5, 6, 7], dtype=np.int32)
     else:
         print("make_state_order: default identity ordering for nsite", nsite)
         order = np.arange(Nstates, dtype=np.int32)
