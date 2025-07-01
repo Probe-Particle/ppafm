@@ -1019,7 +1019,7 @@ def plot_current_components(current_matrix, ax, distance, V_slice, state_labels,
 
 
 
-def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_components=None, prob_scale=200.0, V_slice=None, alpha_prob=1.0, comp_thresh=1e-12, bNormalize=False,  figsize=(16,12)):
+def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_components=None, prob_scale=200.0, V_slice=None, alpha_prob=1.0, comp_thresh=1e-12, bNormalize=False,  figsize=(12,12), height_ratios=[1,3], ylims=None):
     """
     Plots many-body state energies and their probabilities along a 1D scan line.
     Energies are plotted as lines, and probabilities are represented by the size of scatter points on top.
@@ -1072,33 +1072,36 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
     colors = [ state_sytels[label][0] for label in labels]
     styles = [ state_sytels[label][1] for label in labels]
 
+    xmin=distance.min()
+    xmax=distance.max()
+
     # Prepare axes
     if currents is not None and current_components is not None:
 
         # Two-panel: components above (stacked components), states below
-        fig, (ax1, ax) = plt.subplots(2, 1, figsize=figsize, gridspec_kw={'height_ratios': [1, 3]})
-        nstates = current_components.shape[0]
-        comp_list, comp_labels = [], []
-        for i in range(nstates):
-            for j in range(nstates):
-                comp_raw = current_components[i, j]
-                if np.max(np.abs(comp_raw)) > comp_thresh:
-                    comp_list.append(comp_raw)
-                    comp_labels.append(f'{i}:{labels[i]}->{j}:{labels[j]}')
-        # Background stackplot of current components
-        ax1.stackplot(distance, *comp_list, labels=comp_labels, alpha=0.6)
-        # Overlay total current
-        ax1.plot(distance, currents, color='black', linewidth=2, label='Total Current')
-        ax1.set_title(f'Current Components (V={V_slice:.2f}V)')
-        ax1.set_xlabel('Distance [Å]')
-        ax1.set_ylabel('Current')
-        ax1.legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
-        ax1.grid(True)
+        fig, (ax1, ax) = plt.subplots(2, 1, figsize=figsize, gridspec_kw={'height_ratios': height_ratios})
+        # nstates = current_components.shape[0]
+        # comp_list, comp_labels = [], []
+        # for i in range(nstates):
+        #     for j in range(nstates):
+        #         comp_raw = current_components[i, j]
+        #         if np.max(np.abs(comp_raw)) > comp_thresh:
+        #             comp_list.append(comp_raw)
+        #             comp_labels.append(f'{i}:{labels[i]}->{j}:{labels[j]}')
+        # # Background stackplot of current components
+        # ax1.stackplot(distance, *comp_list, labels=comp_labels, alpha=0.6)
+        # # Overlay total current
+        # ax1.plot(distance, currents, color='black', linewidth=2, label='Total Current')
+        # ax1.set_title(f'Current Components (V={V_slice:.2f}V)')
+        # ax1.set_xlabel('Distance [Å]')
+        # ax1.set_ylabel('Current')
+        # ax1.legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
+        # ax1.grid(True)
 
         #bNormalize=True
 
         # Two-panel: components above (stacked components), states below
-        fig, (ax1, ax) = plt.subplots(2, 1, figsize=figsize, gridspec_kw={'height_ratios': [1, 3]})
+        #fig, (ax1, ax) = plt.subplots(2, 1, figsize=figsize, gridspec_kw={'height_ratios': [1, 3]})
         nstates = current_components.shape[0]
         comp_list, comp_labels = [], []
         # Collect component arrays, optionally normalize to current max
@@ -1118,14 +1121,14 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
             ax2c = ax1.twinx()
             ax2c.plot(distance, currents, color='black', linewidth=2, label='Total Current')
             ax2c.set_ylabel('Total Current')            
-            ax1 .legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
             ax2c.legend(loc='upper right')
+            ax2c.set_xlim(xmin, xmax)
         else:
             ax1.stackplot(distance, *comp_list, labels=comp_labels, alpha=0.6)
-            ax1.plot(distance, currents, color='black', linewidth=2, label='Total Current')
-            ax1.set_ylabel('Component Current')
-            ax1 .legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
-          
+        ax1.plot(distance, currents, color='black', linewidth=2, label='Total Current')
+        ax1.set_ylabel('Component Current')
+        ax1.legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax1.set_xlim(xmin, xmax)
         # ax1.set_title(f'Current Components (V={V_slice:.2f}V)')
         # ax1.set_xlabel('Distance [Å]')
         # ax1.grid(True)
@@ -1134,8 +1137,13 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
     # Background stacked plot of normalized state probabilities on twin axis
     norm_probs = probs / np.sum(probs, axis=1)[:, None]
     # main axis (ax) for energies
-    emin, emax = stateEs.min(), stateEs.max()
+    
+    if ylims is not None:
+        emin, emax = ylims
+    else:
+        emin, emax = stateEs.min(), stateEs.max()
     ax.set_ylim(emin, emax)
+
     # twin axis for probabilities
     ax2 = ax.twinx()
     # make main axis and twin axis backgrounds transparent for proper layering
@@ -1153,7 +1161,7 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
     polys = ax2.stackplot(distance, *norm_probs.T[re_order], colors=[prob_colors[i] for i in re_order], alpha=0.3, labels=[prob_labels[i] for i in re_order], zorder=3.)
     ax2.set_ylabel('Probability')
     ax2.set_ylim(0, 1)
-    ax2.legend(title='Probability', bbox_to_anchor=(1.05, 0.5), loc='center left')
+    #ax2.legend(title='Probability', bbox_to_anchor=(1.1, 0.3), loc='center left')
     ax2.grid(False)
     ax2.set_zorder(1)
     ax.set_zorder(2)
@@ -1172,8 +1180,13 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
     ax.set_xlabel('Distance [Å]')
     ax.set_ylabel('Many-Body State Energy [eV]')
     ax.set_title(f'State Energies and Probabilities along Scan Line (V={V_slice:.2f}V)')
-    ax.legend(title='States', bbox_to_anchor=(1.05, 1), loc='upper left')
-    ax.grid(True)
+    #ax.legend(title='States', bbox_to_anchor=(0.85, 1), loc='upper left', framealpha=1, edgecolor='white' )
+    #ax.legend(title='States', bbox_to_anchor=(0.02, 1), loc='upper left', framealpha=1, edgecolor='white' )
+    ax.legend(title='States', bbox_to_anchor=(1.10, 1.0), loc='upper left' )
+    
+    ax .set_xlim(xmin, xmax)
+    ax2.set_xlim(xmin, xmax)
+    #ax.grid(True)
     fig.tight_layout(rect=[0, 0, 0.85, 1])
     return fig, (ax, ax2)
 
@@ -1944,7 +1957,7 @@ if __name__ == "__main__":
     #fig_curr = plt.figure(figsize=(12, 6))
     #ax_current = fig_curr.add_subplot(1,1,1)
 
-    STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, current_decomp = calculate_xV_scan_orb(params, start_point=start_point, end_point=end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies, bCurrentComponents=True)
+    STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, current_decomp = calculate_xV_scan_orb(params, nx=500, start_point=start_point, end_point=end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies, bCurrentComponents=True)
     # scan positions along line
     x = pTips[:,0]
     # extract scan positions
@@ -1997,7 +2010,19 @@ if __name__ == "__main__":
     # Create a separate figure for the 1D line plot of many-body states
     stateEs_1d = stateEs[iv, :, :]
     probs_1d   = probs  [iv, :, :]
-    fig, (ax1, ax2) = plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan)
+
+    distance = -np.sqrt(2.0)*x
+
+    #fig, (ax1, ax2) = plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan)    # supplement
+    fig, (ax1, ax2) = plot_state_scan_1d(distance, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan, ylims=(-0.08,0.0), height_ratios=(1,1), figsize=(8,8) )   # For Main Text
+    # Save the figure with appropriate formatting
+    plt.figure(fig.number)  # Make sure the figure is active
+    plt.tight_layout()      # Adjust layout for better appearance
+    fig.savefig('state_scan_1d.svg', bbox_inches='tight')
+    
+    # fig.save( 'state_scan_1d.svg' )
+
+
 
     # for idx, x_spec in enumerate(xs_spec):
     #     # add markers for original stateEs on state scan
@@ -2111,23 +2136,21 @@ if __name__ == "__main__":
 
     print("stateEs.shape ", stateEs.shape, " STM.shape ", STM.shape, " Es.shape ", Es.shape, " Ts.shape ", Ts.shape, " probs.shape ", probs.shape)
 
-    # plot markers for specified x-points from xs_spec
-    for idx, x_spec in enumerate(xs_spec):
-        ax1.axvline(x_spec, color='r', linestyle='--')
-    ax1.plot(xs_spec, stateEs_extracted, 'xk', markersize=10)
+    bPlotSpecPoints = False
+
+    if bPlotSpecPoints:
+        for idx, x_spec in enumerate(xs_spec):  ax1.axvline(x_spec, color='r', linestyle='--')
+        ax1.plot(xs_spec, stateEs_extracted, 'xk', markersize=10)
 
     print( "stateEs_extracted ", stateEs_extracted )
 
-    # recalculate stateEs at specified x-points from xs_spec
-    pTips_spec, _, _ = make_pTips_line(start_point, end_point, zT=params['z_tip']+params['Rtip'], ts=(xs_spec-start_point[0])/(end_point[0]-start_point[0]) )
-    STM_spec, dIdV_spec, Es_spec, Ts_spec, probs_spec, stateEs_spec, pTips_spec, Vbiases_spec, spos_spec, rots_spec, current_decomp_spec  = calculate_xV_scan_orb(params, pTips=pTips_spec, pauli_solver=pauli_solver, nx=len(xs_spec), nV=1, Vmin=V_slice_scan, Vmax=V_slice_scan, bCurrentComponents=False)
-
-    print("STM_spec.shape ", STM_spec.shape, " Es_spec.shape ", Es_spec.shape, " Ts_spec.shape ", Ts_spec.shape, " probs_spec.shape ", probs_spec.shape, " stateEs_spec.shape ", stateEs_spec.shape)
-    
-    print( "stateEs_spec: \n", stateEs_spec )
-
-    for ist in range(stateEs_spec.shape[2]):
-        ax1.scatter(xs_spec, stateEs_spec[0,:,ist], s=200, marker='o', facecolors='none', edgecolors='gray', linewidths=2)
+    if bPlotSpecPoints:
+        # recalculate stateEs at specified x-points from xs_spec
+        pTips_spec, _, _ = make_pTips_line(start_point, end_point, zT=params['z_tip']+params['Rtip'], ts=(xs_spec-start_point[0])/(end_point[0]-start_point[0]) )
+        STM_spec, dIdV_spec, Es_spec, Ts_spec, probs_spec, stateEs_spec, pTips_spec, Vbiases_spec, spos_spec, rots_spec, current_decomp_spec  = calculate_xV_scan_orb(params, pTips=pTips_spec, pauli_solver=pauli_solver, nx=len(xs_spec), nV=1, Vmin=V_slice_scan, Vmax=V_slice_scan, bCurrentComponents=False)
+        print("STM_spec.shape ", STM_spec.shape, " Es_spec.shape ", Es_spec.shape, " Ts_spec.shape ", Ts_spec.shape, " probs_spec.shape ", probs_spec.shape, " stateEs_spec.shape ", stateEs_spec.shape)
+        print( "stateEs_spec: \n", stateEs_spec )
+        for ist in range(stateEs_spec.shape[2]): ax1.scatter(xs_spec, stateEs_spec[0,:,ist], s=200, marker='o', facecolors='none', edgecolors='gray', linewidths=2)
 
     print("labels_nat: \n", labels_nat)
     print("Allowed transitions mask: \n", allowed_transitions)
