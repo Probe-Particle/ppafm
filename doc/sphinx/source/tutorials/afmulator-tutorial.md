@@ -8,6 +8,7 @@ The tutorial here concerns how to run GPU-accelerated AFM simulations programmat
 In contrast, the [graphical user interface](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI) is better suited to study an individual system and experiment with the simulation parameters.
 This tutorial also assumes that you are already familiar with the basic structure of the ppafm simulation.
 If not, take a look at the wiki pages explaining the [basics of the simulation](https://github.com/Probe-Particle/ppafm/wiki#probe-particle-model) and the [different force field models](https://github.com/Probe-Particle/ppafm/wiki/Forces).
+Also check the wiki page on [the differences between the CPU and GPU implementations](https://github.com/Probe-Particle/ppafm/wiki/Differences-between-the-CPU-and-GPU-implementations).
 
 ## The AFMulator
 
@@ -65,10 +66,10 @@ afmulator = AFMulator(
 )
 ```
 We set here the following parameters:
-- `pixPerAngstrome` sets the density of points in the force-field grid.
+- `pixPerAngstrome` sets the density of points in the **force-field grid**.
 The default value of 10 is usually adequate, but in some cases, a higher value can lead to slightly more accurate results, but at the expense of higher video memory usage.
 Try setting this lower if you get memory errors on devices with a low amount of video memory.
-- `scan_dim` sets the number points in the x, y, and z directions in the scan region, and the `scan_window` sets the physical size of the scan region as a tuple with the start and end points (opposing corners) of the region in units of Ångströms.
+- `scan_dim` sets the number points in the x, y, and z directions in the **scan region**, and the `scan_window` sets the physical size of the scan region as a tuple with the start and end points (opposing corners) of the region in units of Ångströms.
 - `iZPP` sets the atomic number of the probe particle, which affects the used Lennard-Jones parameters.
 - The amplitude of the oscillation is set by the `df_steps` parameter, which specifies how many steps in the z-direction are used in the $F_\mathrm{z} \rightarrow \Delta f$ conversion.
 The step size in z-direction is determined as `(scan_window[1][2] - scan_window[0][2]) / scan_dim`, so in this case the amplitude is `10 * (9.0Å - 5.0Å) / 40 = 1.0Å`, and the final number of constant-height images is `scan_dim[2] - df_steps + 1 = 40 - 30 + 1 = 31`.
@@ -133,7 +134,7 @@ If the `.xyz` input file does not contain point charges for the atoms, then `loa
 ```python
 import numpy as np
 xyzs, Zs, qs, _ = loadXYZ("./molecule_without_charges.xyz")
-print(np.allclose(qs), 0) # True
+print(np.allclose(qs, 0)) # True
 afm_images = afmulator(xyzs, Zs, qs) # No electrostatics
 ```
 The `qs` argument can also be explicitly set to `None` to skip the electrostatics calculation:
@@ -164,6 +165,10 @@ afmulator = AFMulator(
     Qs=[0.3, 0.0, 0.0, 0.0],
     QZs=[0.0, 0.0, 0.0, 0.0]
 )
+```
+```{note}
+The `Qs` and `QZs` lists have exactly four elements because of technical limitations in how the vector types are memory aligned in OpenCL.
+Typically you would never use the fourth element and always set it to zero.
 ```
 
 (hartree-electrostatics)=

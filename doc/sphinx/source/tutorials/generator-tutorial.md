@@ -118,7 +118,7 @@ The ordering of the PPs matters for the {class}`.HeightMap` descriptor which use
 The other two important arguments are `batch_size`, which sets the number of samples in a batch (last batch might be smaller), and `distAbove` which sets the tip-sample distance.
 The tip-sample distance here is measured as the distance between the top of the scan and the top atom in the sample subtracted by the vdW radius of the PP and the top atom of the sample.
 This is a heuristic which gives a roughly similar level of contrast in the simulated AFM images regardless of the sample.
-
+The specific value is best chosen by trying different values and choosing one that gives the desired level of contrast.
 
 Secondly, instead of using the {class}`.InverseAFMtrainer` directly, we subclass it:
 ```python
