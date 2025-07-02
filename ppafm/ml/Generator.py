@@ -346,6 +346,9 @@ class GeneratorAFMtrainer:
             is FDBM, where it is used for calculating the electrostatic interaction.
         ignore_elements: list of int. Atomic numbers of elements to ignore in scan window distance and position calculations.
             Useful for example for ignoring surface slab atoms in centering the scan window.
+        density_cutoff: float or None. If not None, apply a cutoff to electron densities in the FDBM Pauli integral. Useful when
+            working with all-electron densities where large density values near nuclei can cause artifacts in the resulting images.
+            Ignored when sim_type is not ``'FDBM'``.
     """
 
     bRuntime = False
@@ -365,6 +368,7 @@ class GeneratorAFMtrainer:
         rhos=None,
         rho_deltas=None,
         ignore_elements=[],
+        density_cutoff=None,
     ):
         self.afmulator = afmulator
         self.aux_maps = aux_maps
@@ -374,8 +378,10 @@ class GeneratorAFMtrainer:
         self.distAbove = distAbove
         self.distAboveActive = distAbove
         self.iZPPs = iZPPs
-        self._prepareBuffers(rhos, rho_deltas)
         self.ignore_elements = ignore_elements
+
+        self.density_cutoff = density_cutoff if self.sim_type == "fdbm" else None
+        self._prepare_tip_buffers(rhos, rho_deltas, self.density_cutoff)
 
         if Qs is None or QZs is None:
             if self.sim_type == "lj+pc":
@@ -393,29 +399,33 @@ class GeneratorAFMtrainer:
         self.df_steps = self.afmulator.df_steps
         self.z_size = self.scan_dim[2] - self.df_steps + 1
 
-    def _prepareBuffers(self, rhos=None, rho_deltas=None):
+    def _prepare_tip_buffers(self, rhos=None, rho_deltas=None, density_cutoff=None):
         if rhos is None:
-            self.rhos = self.ffts = [(None, None)] * len(self.iZPPs)
+            self.rhos_tip = self.rhos_tip_delta = self.ffts_tip = self.ffts_tip_delta = [None] * len(self.iZPPs)
             return
         elif len(rhos) != len(self.iZPPs):
             raise ValueError(f"The length of rhos ({len(rhos)}) does not match the length of iZPPs ({len(self.iZPPs)})")
         if rho_deltas is not None and (len(rhos) != len(rho_deltas)):
             raise ValueError(f"The length of rhos ({len(rhos)}) does not match the length of rho_deltas ({len(rho_deltas)})")
-        self.rhos = []
-        self.ffts = []
-        for i in range(len(rhos)):
-            self.afmulator.setRho(rhos[i], sigma=self.afmulator.sigma, B_pauli=self.afmulator.B_pauli)
-            rhos_ = [self.afmulator.forcefield.rho]
-            ffts_ = [self.afmulator.forcefield.fft_corr]
-            if rho_deltas is not None:
-                self.afmulator.setRhoDelta(rho_deltas[i])
-                rhos_.append(self.afmulator.forcefield.rho_delta)
-                ffts_.append(self.afmulator.forcefield.fft_corr_delta)
-            else:
-                rhos_.append(None)
-                ffts_.append(None)
-            self.rhos.append(rhos_)
-            self.ffts.append(ffts_)
+        self.rhos_tip = []
+        self.ffts_tip = []
+        self._rhos_original = []
+        for rho in rhos:
+            if density_cutoff is not None:
+                rho = rho.clamp(maximum=density_cutoff, in_place=False)
+            self.afmulator.setRho(rho, sigma=self.afmulator.sigma, B_pauli=self.afmulator.B_pauli)
+            self.rhos_tip.append(self.afmulator.forcefield.rho)
+            self.ffts_tip.append(self.afmulator.forcefield.fft_corr)
+            self._rhos_original.append(rho)
+        if rho_deltas is not None:
+            self.rhos_tip_delta = []
+            self.ffts_tip_delta = []
+            for rho_delta in rho_deltas:
+                self.afmulator.setRhoDelta(rho_delta)
+                self.rhos_tip_delta.append(self.afmulator.forcefield.rho_delta)
+                self.ffts_tip_delta.append(self.afmulator.forcefield.fft_corr_delta)
+        else:
+            self.rhos_tip_delta = self.ffts_tip_delta = [None] * len(self.iZPPs)
 
     def __iter__(self):
         self.sample_dict = {}
@@ -475,14 +485,16 @@ class GeneratorAFMtrainer:
                 print(f"Sample {s} preparation time [s]: {time.perf_counter() - sample_start}")
 
             # Get AFM
-            for i, (iZPP, rho, fft, Qs, QZs) in enumerate(zip(self.iZPPs, self.rhos, self.ffts, self.Qs, self.QZs)):  # Loop over different tips
+            for i, (iZPP, rho_tip, rho_tip_delta, fft_tip, fft_tip_delta, Qs, QZs) in enumerate(
+                zip(self.iZPPs, self.rhos_tip, self.rhos_tip_delta, self.ffts_tip, self.ffts_tip_delta, self.Qs, self.QZs)
+            ):  # Loop over different tips
                 # Set interaction parameters
                 self.afmulator.iZPP = iZPP
                 self.afmulator.setQs(Qs, QZs)
-                self.afmulator.forcefield.rho = rho[0]
-                self.afmulator.forcefield.fft_corr = fft[0]
-                self.afmulator.forcefield.rho_delta = rho[1]
-                self.afmulator.forcefield.fft_corr_delta = fft[1]
+                self.afmulator.forcefield.rho = rho_tip
+                self.afmulator.forcefield.fft_corr = fft_tip
+                self.afmulator.forcefield.rho_delta = rho_tip_delta
+                self.afmulator.forcefield.fft_corr_delta = fft_tip_delta
                 self.sample_dict["REAs"] = PPU.getAtomsREA(self.afmulator.iZPP, self.sample_dict["Zs"], self.afmulator.typeParams, alphaFac=-1.0)
 
                 # Make sure tip-sample distance is right
@@ -567,6 +579,9 @@ class GeneratorAFMtrainer:
         if "rot" not in sample_dict:
             sample_dict["rot"] = np.eye(3)
 
+        if self.density_cutoff is not None:
+            sample_dict["rho_sample"] = sample_dict["rho_sample"].clamp(maximum=self.density_cutoff, in_place=False)
+
         return sample_dict
 
     def __len__(self):
@@ -618,6 +633,26 @@ class GeneratorAFMtrainer:
             (sw[0][0], sw[0][1], z_min),
             (sw[1][0], sw[1][1], z_min + self.scan_size[2]),
         )
+
+    def set_fdbm_parameters(self, A_pauli, B_pauli):
+        """
+        Set the Pauli integral parameters in an FDBM simulation. If set simulation type is not FDBM, does nothing.
+
+        Arguments:
+            A_pauli: float. Integral prefactor.
+            B_pauli: float. Integrant exponent.
+        """
+        if self.sim_type != "fdbm":
+            return
+        self.afmulator.A_pauli = A_pauli
+        new_rhos = []
+        new_ffts = []
+        for rho in self._rhos_original:
+            self.afmulator.setRho(rho, sigma=self.afmulator.sigma, B_pauli=B_pauli)
+            new_rhos.append(self.afmulator.forcefield.rho)
+            new_ffts.append(self.afmulator.forcefield.fft_corr)
+        self.rhos_tip = new_rhos
+        self.ffts_tip = new_ffts
 
     def randomize_df_steps(self, minimum=4, maximum=20):
         """Randomize oscillation amplitude by randomizing the number of steps in df convolution.

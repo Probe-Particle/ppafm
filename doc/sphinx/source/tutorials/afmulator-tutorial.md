@@ -222,6 +222,7 @@ The full-density-based model (FDBM) can provide a better approximation of the Pa
 In order to use the FDBM, more input files and parameters are required:
 ```python
 from ppafm.ocl.AFMulator import AFMulator, HartreePotential, ElectronDensity, TipDensity
+
 pot, xyzs, Zs = HartreePotential.from_file("LOCPOT.xsf", scale=-1) # Sample Hartree potential
 rho_sample, _, _ = ElectronDensity.from_file("CHGCAR.xsf") # Sample electron density
 rho_tip, xyzs_tip, Zs_tip = TipDensity.from_file("density_CO.xsf") # Tip electron density
@@ -242,10 +243,21 @@ Above, we first load the input files.
 In addition to the Hartree potential we also load the sample electron density `rho_sample`, and two densities for the tip, the full electron density `rho_tip`, and a delta density `rho_tip_delta`.
 When constructing the `AFMulator`, we use both of the densities.
 In this case the `rho=rho_tip` is used for the Pauli density overlap intergral, and the `rho_delta=rho_tip_delta` is used in the electrostatics calculation as in the previous section.
+
+````{warning}
+All-electron densities from codes such as FHI-aims can sometimes produce severe artifacts when used with the FDBM.
+A simple work around is to simply cutoff extremely high values of the electron density around the nuclei, which can be done using the {meth}`.clamp` method for the electron density grid:
+```python
+rho_sample = rho_sample.clamp(maximum=100)
+```
+A value of 100 for the cutoff is usually safe to use, although sometimes when both the prefactor ``'A_pauli'`` and exponent ``'B_pauli'`` are large, a lower cutoff may be required.
+````
+
 The delta density can be separately calculated and loaded from a file as above, or it can be estimated by subtracting the valence electrons from the full electron density:
 ```python
 rho_tip_delta = rho_tip.subCores(xyzs_tip, Zs_tip, Rcore=0.7)
 ```
+
 
 We also specify the two parameters of the Pauli overlap integral, the prefactor `A_pauli` and the exponent `B_pauli`, as well as the DFT-D3 parameters based on the functional name via `d3_params`.
 In this case we suppose that the electron densities were calculated using the `PBE` functional, so we use the corresponding parameters.
@@ -257,7 +269,3 @@ afm_images = afmulator(xyzs, Zs, qs=pot, rho_sample=rho_sample)
 ```
 
 For examples of using the FDBM, see the [pyridine example](https://github.com/Probe-Particle/ppafm/blob/main/examples/pyridineDensOverlap/run_gpu.py), as well as another [more advanced example](https://github.com/Probe-Particle/ppafm/blob/main/examples/paper_figure/run_simulation.py) where multiple simulations are performed using all of the different force field models described here.
-
-```{warning}
-Electron densities from FHI-aims are known to not work well with the FDBM. This simulation model is generally less explored compared to the other ones, so expect more problems. Known working configurations have used densities calculated with VASP.
-```
