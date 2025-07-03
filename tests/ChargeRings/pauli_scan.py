@@ -207,6 +207,21 @@ def print_cols(arrays, headers):
         row_str = "".join([formats[j].format(arr[i]) for j, arr in enumerate(arrays)])
         print(row_str)
 
+def plot_1d_data_grid( x, ys, ax=None, labels=None, title=None, xlabel="x [A]", ylabel="Energy [eV]", bGrid=True, colors=None, linestyles=None):
+    """Helper to plot multiple lines on a single axis."""
+    if ax is None: fig, ax = plt.subplots()
+
+    for i in range(ys.shape[1]):
+        c  = colors[i]     if colors     is not None else None
+        ls = linestyles[i] if linestyles is not None else None
+        ax.plot(x, ys[:, i], label=labels[i], color=c, linestyle=ls)
+    if title is not None: ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.legend()
+    ax.grid(bGrid)
+    return ax
+
 # ===========================================
 # ============= Plot & Save functions
 # ===========================================
@@ -1019,58 +1034,18 @@ def plot_current_components(current_matrix, ax, distance, V_slice, state_labels,
 
 
 
-def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_components=None, prob_scale=200.0, V_slice=None, alpha_prob=1.0, comp_thresh=1e-12, bNormalize=False,  figsize=(12,12), height_ratios=[1,3], ylims=None):
+def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_components=None, prob_scale=200.0, V_slice=None, alpha_prob=1.0, comp_thresh=1e-12, bNormalize=False,  figsize=(12,12), height_ratios=[1,3], ylims=None, state_styles=None):
     """
     Plots many-body state energies and their probabilities along a 1D scan line.
     Energies are plotted as lines, and probabilities are represented by the size of scatter points on top.
     """
     state_order = pauli.make_state_order(nsite)
     labels      = pauli.make_state_labels(state_order)
-    # state_sytels={
-    #   # label, color, line style  
-    #   '000': ('gray', '-'),
-    #   '111': ('gray', '-'),
-
-    #   '100': ('b', '--'),
-    #   '010': ('b', '-'),
-    #   '001': ('b', '-'),
-
-    #   '011': ('r', '--'),
-    #   '101': ('r', '-'),
-    #   '110': ('r', '-'),
-    # }
-
-    state_sytels={
-    #   # label, color, line style  
-    #    '000': ('gray', '-'),
-    #    '111': ('gray', '-'),
-
-    #    '100': ('#0000FF', '--'),
-    #    '010': ('#008F00', '--'),
-    #    '001': ('#FF0000', '--'),
-
-    #    '011': ('#8F8F00', '-'),
-    #    '101': ('#8F008F', '-'),
-    #    '110': ('#008F8F', '-'),
-
-
-       '000': ('gray', '-'),
-       '111': ('gray', '-'),
-
-       '001': ('#0000FF', '--'),
-       '010': ('#008F00', '--'),
-       '100': ('#FF0000', '--'),
-
-       '110': ('#8F8F00', '-'),
-       '101': ('#8F008F', '-'),
-       '011': ('#008F8F', '-'),
-    }
-
 
     re_order = [0,1,2,4,3,5,6,7]
 
-    colors = [ state_sytels[label][0] for label in labels]
-    styles = [ state_sytels[label][1] for label in labels]
+    colors = [ state_styles[label][0] for label in labels]
+    styles = [ state_styles[label][1] for label in labels]
 
     xmin=distance.min()
     xmax=distance.max()
@@ -1156,7 +1131,7 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
     n_states = stateEs.shape[1]
     #prob_colors = plt.cm.tab10(np.linspace(0, 1, n_states))
     prob_labels = labels
-    prob_colors = [ state_sytels[label][0] for label in labels]
+    prob_colors = [ state_styles[label][0] for label in labels]
     # stacked plot of probabilities with its own legend
     polys = ax2.stackplot(distance, *norm_probs.T[re_order], colors=[prob_colors[i] for i in re_order], alpha=0.3, labels=[prob_labels[i] for i in re_order], zorder=3.)
     ax2.set_ylabel('Probability')
@@ -1966,6 +1941,9 @@ if __name__ == "__main__":
     # fig_curr.tight_layout() # Adjust layout for current components figure
 
 
+    
+
+
     #( current_matrix, up, down, inds ) = curr_decomp
     #(out_prob_b, out_fct_b ) = up
     #(out_prob_c, out_fct_c ) = down
@@ -2011,10 +1989,70 @@ if __name__ == "__main__":
     stateEs_1d = stateEs[iv, :, :]
     probs_1d   = probs  [iv, :, :]
 
+    prob_1d_tot = np.sum(probs_1d, axis=1)
+    probs_1d_norm = probs_1d / prob_1d_tot[:, np.newaxis]
+
     distance = -np.sqrt(2.0)*x
 
+
+    # state_sytels={
+    #   # label, color, line style  
+    #   '000': ('gray', '-'),
+    #   '111': ('gray', '-'),
+    #   '100': ('b', '--'),
+    #   '010': ('b', '-'),
+    #   '001': ('b', '-'),
+    #   '011': ('r', '--'),
+    #   '101': ('r', '-'),
+    #   '110': ('r', '-'),
+    # }
+
+    state_styles={
+    #   # label, color, line style  
+    #    '000': ('gray', '-'),
+    #    '111': ('gray', '-'),
+
+    #    '100': ('#0000FF', '--'),
+    #    '010': ('#008F00', '--'),
+    #    '001': ('#FF0000', '--'),
+
+    #    '011': ('#8F8F00', '-'),
+    #    '101': ('#8F008F', '-'),
+    #    '110': ('#008F8F', '-'),
+       '000': ('gray', '-'),
+       '111': ('gray', '-'),
+       '001': ('#0000FF', '--'),
+       '010': ('#008F00', '--'),
+       '100': ('#FF0000', '--'),
+       '110': ('#8F8F00', '-'),
+       '101': ('#8F008F', '-'),
+       '011': ('#008F8F', '-'),
+    }
+
+    colors    =[ state_styles[label][0] for label in labels_set]
+    linestyles=[ state_styles[label][1] for label in labels_set]
+    
+
+
+    print( "Es.shape", Es.shape )
+    print( "Ts.shape", Ts.shape )
+    
+    fig, axs = plt.subplots(2, 2, figsize=(12, 10))
+    #fig.suptitle(f"Scan details at V_slice = {V_slice_scan:.3f}V", fontsize=14)
+    site_labels      = [f"E_site_{i+1}" for i in range(Es.shape[2])]
+    tunneling_labels = [f"T_site_{i+1}" for i in range(Ts.shape[2])]
+    plot_1d_data_grid(distance, Es[iv,:,:], ax=axs[0,0], labels=site_labels,      ylabel="Energy [eV]",      title="Single-particle Site Energies", colors=['b','g','r'] )
+    plot_1d_data_grid(distance, Ts[iv,:,:], ax=axs[0,1], labels=tunneling_labels, ylabel="Tunneling [a.u.]", title="Single-particle Tip Tunneling", colors=['b','g','r'] )
+    plot_1d_data_grid(distance, stateEs_1d, ax=axs[1,0], labels=labels_set,       ylabel="Energy [eV]",      title="Many-body State Energies", colors=colors, linestyles=linestyles)
+    plot_1d_data_grid(distance, probs_1d,   ax=axs[1,1], labels=labels_set,       ylabel="Probability",      title="Many-body State Probabilities", colors=colors, linestyles=linestyles)
+    #)
+    plt.tight_layout()
+    plt.savefig('debug_1d.svg', bbox_inches='tight')
+    
+
+
     #fig, (ax1, ax2) = plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan)    # supplement
-    fig, (ax1, ax2) = plot_state_scan_1d(distance, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan, ylims=(-0.08,0.0), height_ratios=(1,1), figsize=(8,8) )   # For Main Text
+    fig, (ax1, ax2) = plot_state_scan_1d(distance, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan, ylims=(-0.08,0.0), height_ratios=(1,1), figsize=(8,8), state_styles=state_styles )   # For Main Text
     # Save the figure with appropriate formatting
     plt.figure(fig.number)  # Make sure the figure is active
     plt.tight_layout()      # Adjust layout for better appearance
@@ -2131,20 +2169,16 @@ if __name__ == "__main__":
     encoder = NoIndentEncoder(indent=4)
     with open(json_filename, 'w') as f:
         f.write(encoder.encode(json_output_data))
-    print(f"\nDecomposed data saved to {json_filename}")
+        print(f"\nDecomposed data saved to {json_filename}")
     # --- End of JSON save ---
 
     print("stateEs.shape ", stateEs.shape, " STM.shape ", STM.shape, " Es.shape ", Es.shape, " Ts.shape ", Ts.shape, " probs.shape ", probs.shape)
-
     bPlotSpecPoints = False
 
     if bPlotSpecPoints:
         for idx, x_spec in enumerate(xs_spec):  ax1.axvline(x_spec, color='r', linestyle='--')
         ax1.plot(xs_spec, stateEs_extracted, 'xk', markersize=10)
-
-    print( "stateEs_extracted ", stateEs_extracted )
-
-    if bPlotSpecPoints:
+        print( "stateEs_extracted ", stateEs_extracted )
         # recalculate stateEs at specified x-points from xs_spec
         pTips_spec, _, _ = make_pTips_line(start_point, end_point, zT=params['z_tip']+params['Rtip'], ts=(xs_spec-start_point[0])/(end_point[0]-start_point[0]) )
         STM_spec, dIdV_spec, Es_spec, Ts_spec, probs_spec, stateEs_spec, pTips_spec, Vbiases_spec, spos_spec, rots_spec, current_decomp_spec  = calculate_xV_scan_orb(params, pTips=pTips_spec, pauli_solver=pauli_solver, nx=len(xs_spec), nV=1, Vmin=V_slice_scan, Vmax=V_slice_scan, bCurrentComponents=False)
