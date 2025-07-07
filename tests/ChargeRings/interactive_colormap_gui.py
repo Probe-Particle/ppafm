@@ -41,34 +41,38 @@ class ColormapGUI(QtWidgets.QMainWindow):
     def init_params(self):
         # Default colors (RGB values from 0-1)
         self.params = {
+            'zero_shift': {'value': 0.0, 'range': (-1e6, 1e6), 'step': 0.1, 'decimals': 4},  # Large range for flexibility
             'min_r': {'value': 0.0, 'range': (0.0, 1.0), 'step': 0.01, 'decimals': 2},
             'min_g': {'value': 0.0, 'range': (0.0, 1.0), 'step': 0.01, 'decimals': 2},
             'min_b': {'value': 1.0, 'range': (0.0, 1.0), 'step': 0.01, 'decimals': 2}, # Blue
-
             'center_r': {'value': 1.0, 'range': (0.0, 1.0), 'step': 0.01, 'decimals': 2},
             'center_g': {'value': 1.0, 'range': (0.0, 1.0), 'step': 0.01, 'decimals': 2},
             'center_b': {'value': 1.0, 'range': (0.0, 1.0), 'step': 0.01, 'decimals': 2}, # White
-
             'max_r': {'value': 1.0, 'range': (0.0, 1.0), 'step': 0.01, 'decimals': 2},
             'max_g': {'value': 0.0, 'range': (0.0, 1.0), 'step': 0.01, 'decimals': 2},
             'max_b': {'value': 0.0, 'range': (0.0, 1.0), 'step': 0.01, 'decimals': 2}, # Red
-
             'gamma_neg_r': {'value': 1.0, 'range': (0.1, 5.0), 'step': 0.1, 'decimals': 1},
             'gamma_neg_g': {'value': 1.0, 'range': (0.1, 5.0), 'step': 0.1, 'decimals': 1},
             'gamma_neg_b': {'value': 1.0, 'range': (0.1, 5.0), 'step': 0.1, 'decimals': 1},
-
             'gamma_pos_r': {'value': 1.0, 'range': (0.1, 5.0), 'step': 0.1, 'decimals': 1},
             'gamma_pos_g': {'value': 1.0, 'range': (0.1, 5.0), 'step': 0.1, 'decimals': 1},
             'gamma_pos_b': {'value': 1.0, 'range': (0.1, 5.0), 'step': 0.1, 'decimals': 1},
         }
-        self.n_steps = 16 # Default number of colormap steps
+        self.n_steps = 31 # Default number of colormap steps
 
     def create_controls(self):
+        # Add zero shift control at the top
+        self.add_group_box("Data Shift", ['zero_shift'])
         self.add_group_box("Min Color", ['min_r', 'min_g', 'min_b'])
         self.add_group_box("Center Color", ['center_r', 'center_g', 'center_b'])
         self.add_group_box("Max Color", ['max_r', 'max_g', 'max_b'])
         self.add_group_box("Negative Gamma (min to center)", ['gamma_neg_r', 'gamma_neg_g', 'gamma_neg_b'])
         self.add_group_box("Positive Gamma (center to max)", ['gamma_pos_r', 'gamma_pos_g', 'gamma_pos_b'])
+
+        # Add flip colormap button
+        flip_button = QtWidgets.QPushButton("Flip Colormap")
+        flip_button.clicked.connect(self.flip_colormap)
+        self.control_layout.addWidget(flip_button)
 
         # Number of colormap steps
         nsteps_layout = QtWidgets.QFormLayout()
@@ -165,6 +169,7 @@ class ColormapGUI(QtWidgets.QMainWindow):
         return current_params
 
     def generate_sample_data(self):
+        """Generate example data for visualization."""
         # Data from colormaps.py example
         w = 0.05
         xs = np.linspace(-1, 1, 256)
@@ -173,9 +178,8 @@ class ColormapGUI(QtWidgets.QMainWindow):
                   + np.exp(-((Y-0.75)/w)**2) * X \
                   + np.exp(-((Y+0.75)/w)**2) * X \
                   + Y*0.5
-        self.data_min = np.min(self.data)
-        self.data_max = np.max(self.data)
-        self.data_center = 0.0 # Assuming diverging around zero
+        self.current_slice = self.data  # Store as current slice for plotting
+        print("Generated sample data")
 
     def create_custom_colormap(self, params):
         # Extract colors
@@ -229,12 +233,20 @@ class ColormapGUI(QtWidgets.QMainWindow):
         return smooth_cmap, coarse_cmap_array
 
     def update_plot(self):
+        """Update the plot with current data slice and colormap settings."""
+        if not hasattr(self, 'current_slice') or self.current_slice is None:
+            return
+            
+        # Apply zero shift to data
+        zero_shift = self.param_widgets['zero_shift'].value() if 'zero_shift' in self.param_widgets else 0.0
+        shifted_data = self.current_slice + zero_shift
+        
         current_params = self.get_current_params()
         custom_cmap, cmap_rgb_values = self.create_custom_colormap(current_params)
 
         self.ax_image.clear()
 
-        # --- Get predefined colormap data ---
+        # Get predefined colormap data
         predefined_cmap_name = self.predefined_cmap_combo.currentText()
         try:
             predefined_cmap_obj = plt.get_cmap(predefined_cmap_name)
@@ -244,32 +256,42 @@ class ColormapGUI(QtWidgets.QMainWindow):
             predefined_cmap_obj = plt.get_cmap('bwr')
             predefined_rgb_values = predefined_cmap_obj(np.linspace(0, 1, self.n_steps))[:, :3]
 
-        # --- Determine which colormap to use for the image ---
+        # Determine which colormap to use
         display_cmap = predefined_cmap_obj if self.use_predefined_checkbox.isChecked() else custom_cmap
-
 
         # Remove existing colorbar if it exists
         if self.colorbar_instance is not None:
             self.colorbar_instance.remove()
 
         # Find the maximum absolute deviation from the center
-        max_abs_dev = max(abs(self.data_min - self.data_center), abs(self.data_max - self.data_center))
-        
+        data_min = np.min(shifted_data)
+        data_max = np.max(shifted_data)
+        data_center = 0.0 # Center is now at the shifted zero
+        max_abs_dev = max(abs(data_min - data_center), abs(data_max - data_center))
+
         # Set vmin and vmax for imshow to be symmetric around data_center
-        vmin_imshow = self.data_center - max_abs_dev
-        vmax_imshow = self.data_center + max_abs_dev
+        vmin_imshow = data_center - max_abs_dev
+        vmax_imshow = data_center + max_abs_dev
 
         # Plot the image
-        im = self.ax_image.imshow(self.data, cmap=display_cmap, origin='lower', vmin=vmin_imshow, vmax=vmax_imshow, extent=[0, 1, 0, 1]) # Set extent to 0-1
+        im = self.ax_image.imshow(shifted_data, cmap=display_cmap, origin='lower', 
+                                vmin=vmin_imshow, vmax=vmax_imshow, extent=[0, 1, 0, 1])
         self.colorbar_instance = self.fig.colorbar(im, ax=self.ax_image)
-        self.ax_image.set_title("Custom Diverging Colormap")
+        
+        # Add slice info to title if we have 3D data
+        title = "Custom Diverging Colormap"
+        if hasattr(self, 'data') and self.data.ndim == 3:
+            title += f" (Slice axis={self.slice_axis}, idx={self.slice_idx})"
+        if zero_shift != 0:
+            title += f" [Zero shift: {zero_shift:.3f}]"
+        self.ax_image.set_title(title)
 
-        # --- Plot both custom and predefined RGB curves over the imshow plot ---
+        # Plot both custom and predefined RGB curves over the imshow plot
         x_vals = np.linspace(0, 1, cmap_rgb_values.shape[0])
 
         # Plot custom curves (solid lines with markers to show control points)
         self.ax_image.plot(x_vals, cmap_rgb_values[:, 0], 'o-', color='red',   linewidth=2, alpha=0.9, label='Custom R')
-        self.ax_image.plot(x_vals, cmap_rgb_values[:, 1], 'o-', color='green', linewidth=2, alpha=0.9, label='Custom G')
+        self.ax_image.plot(x_vals, cmap_rgb_values[:, 1], 'o-', color='green', linewidth=2,  alpha=0.9, label='Custom G')
         self.ax_image.plot(x_vals, cmap_rgb_values[:, 2], 'o-', color='blue',  linewidth=2, alpha=0.9, label='Custom B')
 
         # Plot predefined curves (dotted lines)
@@ -278,7 +300,6 @@ class ColormapGUI(QtWidgets.QMainWindow):
         self.ax_image.plot(x_vals, predefined_rgb_values[:, 2], color='blue',  linestyle=':', linewidth=2, alpha=0.7, label=f'"{predefined_cmap_name}" B')
         self.ax_image.legend(loc='upper left', fontsize='x-small')
 
-        # self.fig.tight_layout() # tight_layout does not work well with add_axes
         self.canvas.draw_idle()
 
     def closeEvent(self, event):
@@ -286,7 +307,7 @@ class ColormapGUI(QtWidgets.QMainWindow):
         event.accept()
 
     def load_data_from_npz(self):
-        """Load a 2D array from a .npz file and update the plot."""
+        """Load a 2D or 3D array from a .npz file."""
         array_name = self.data_key_input.text()
         if not array_name:
             print("Warning: Please specify an array name to load.")
@@ -299,10 +320,16 @@ class ColormapGUI(QtWidgets.QMainWindow):
                 with np.load(filename) as data_file:
                     if array_name in data_file:
                         self.data = data_file[array_name]
-                        if self.data.ndim != 2:
-                            raise ValueError(f"Array '{array_name}' is not 2D.")
-                        self.data_min = np.min(self.data)
-                        self.data_max = np.max(self.data)
+                        if self.data.ndim == 3:
+                            self.slice_axis = 0
+                            self.slice_idx = 0
+                            self.slice_max = self.data.shape[0] - 1
+                            self.update_slice_controls()
+                            self.current_slice = np.take(self.data, self.slice_idx, axis=self.slice_axis)
+                        elif self.data.ndim == 2:
+                            self.current_slice = self.data
+                        else:
+                            raise ValueError(f"Array '{array_name}' must be 2D or 3D.")
                         print(f"Successfully loaded array '{array_name}' from {filename}")
                         self.update_plot()
                     else:
@@ -339,7 +366,7 @@ class ColormapGUI(QtWidgets.QMainWindow):
                     loaded_params = json.load(f)
 
                 # Set n_steps first if it exists, remove it from dict
-                self.n_steps = loaded_params.pop('n_steps', 16)
+                self.n_steps = loaded_params.pop('n_steps', 31)
                 self.nsteps_spinbox.setValue(self.n_steps)
 
                 # Set widget values from loaded params
@@ -360,6 +387,58 @@ class ColormapGUI(QtWidgets.QMainWindow):
             _, cmap_rgb_values = self.create_custom_colormap(current_params)
             np.save(filename, cmap_rgb_values)
             print(f"Colormap array saved to {filename}")
+
+    def update_slice_controls(self):
+        """Add UI controls for selecting slice axis and index."""
+        # Add slice controls
+        slice_controls_group = QtWidgets.QGroupBox("Slice Controls")
+        slice_controls_layout = QtWidgets.QFormLayout(slice_controls_group)
+
+        self.slice_axis_combo = QtWidgets.QComboBox()
+        self.slice_axis_combo.addItems(['0', '1', '2'])
+        self.slice_axis_combo.currentTextChanged.connect(self.on_slice_axis_change)
+        slice_controls_layout.addRow("Slice Axis:", self.slice_axis_combo)
+
+        self.slice_idx_spinbox = QtWidgets.QSpinBox()
+        self.slice_idx_spinbox.setRange(0, self.slice_max)
+        self.slice_idx_spinbox.setValue(self.slice_idx)
+        self.slice_idx_spinbox.valueChanged.connect(self.on_slice_idx_change)
+        slice_controls_layout.addRow("Slice Index:", self.slice_idx_spinbox)
+
+        self.control_layout.addWidget(slice_controls_group)
+
+    def on_slice_axis_change(self, axis):
+        """Handle slice axis change."""
+        self.slice_axis = int(axis)
+        self.slice_max = self.data.shape[self.slice_axis] - 1
+        self.slice_idx_spinbox.setRange(0, self.slice_max)
+        self.current_slice = np.take(self.data, self.slice_idx, axis=self.slice_axis)
+        self.update_plot()
+
+    def on_slice_idx_change(self, idx):
+        """Handle slice index change."""
+        self.slice_idx = idx
+        self.current_slice = np.take(self.data, self.slice_idx, axis=self.slice_axis)
+        self.update_plot()
+
+    def flip_colormap(self):
+        """Flip the colormap by swapping min/max colors and gamma values."""
+        # Swap min and max colors
+        for color in ['r', 'g', 'b']:
+            min_val = self.param_widgets[f'min_{color}'].value()
+            max_val = self.param_widgets[f'max_{color}'].value()
+            self.param_widgets[f'min_{color}'].setValue(max_val)
+            self.param_widgets[f'max_{color}'].setValue(min_val)
+        
+        # Swap negative and positive gamma values
+        for color in ['r', 'g', 'b']:
+            neg_gamma = self.param_widgets[f'gamma_neg_{color}'].value()
+            pos_gamma = self.param_widgets[f'gamma_pos_{color}'].value()
+            self.param_widgets[f'gamma_neg_{color}'].setValue(pos_gamma)
+            self.param_widgets[f'gamma_pos_{color}'].setValue(neg_gamma)
+        
+        # Update the plot
+        self.update_plot()
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication([])
