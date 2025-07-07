@@ -778,7 +778,7 @@ class ApplicationWindow(GUITemplate):
                 params = load_colormap_params(filename)
                 cmap_rgb, _ = generate_diverging_colormap( **params, n_steps=31)
                 #cmap_rgb = resample_colormap(cmap_rgb, 256)
-                pauli_scan.cmap_dIdV = resample_colormap(cmap_rgb)
+                _,pauli_scan.cmap_dIdV = resample_colormap(cmap_rgb)
                 self.cmap_dIdV_combo.setCurrentText("custom: " + filename)
                 #self.cmap_STM_combo.setCurrentText("custom"
                 # Redraw plots

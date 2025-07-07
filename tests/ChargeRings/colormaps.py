@@ -354,11 +354,11 @@ def generate_diverging_colormap(
     coarse_cmap = np.clip(coarse_cmap, 0, 1)
     
     # Create smooth version
-    smooth_cmap = resample_colormap(coarse_cmap)
+    #smooth_cmap,cmap = resample_colormap(coarse_cmap)
     
-    return coarse_cmap, smooth_cmap
+    return coarse_cmap  #, cmap
 
-def resample_colormap(coarse_cmap, n_final=256):
+def resample_colormap(coarse_cmap, n_final=256, upload=True):
     """
     Resample a colormap to higher resolution using linear interpolation.
     
@@ -372,12 +372,12 @@ def resample_colormap(coarse_cmap, n_final=256):
     n_coarse = coarse_cmap.shape[0]
     x_coarse = np.linspace(0, 1, n_coarse)
     x_final = np.linspace(0, 1, n_final)
-    
     resampled = np.zeros((n_final, 3))
     for i in range(3):  # R,G,B channels
         resampled[:, i] = np.interp(x_final, x_coarse, coarse_cmap[:, i])
-    
-    return ListedColormap(resampled)
+    cmap = None
+    if upload: cmap = ListedColormap(resampled)
+    return resampled, cmap
 
 def load_colormap_params(json_path):
     """
