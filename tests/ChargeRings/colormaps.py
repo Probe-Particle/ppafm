@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib.colors import ListedColormap
+import json
 import matplotlib.colors as mcolors
 #import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -312,6 +313,119 @@ PurpleWhiteGreen = create_diverging_map('PuRd_r', 'BuGn', name_suffix="")
 
 # Create and register your Green-White-Purple colormap: BuGn_r (Green->White) and PuRd (White->Purple)
 GreenWhitePurple = create_diverging_map('BuGn_r', 'PuRd', name_suffix="")
+
+
+def generate_diverging_colormap(
+    min, center, max, 
+    gamma_neg, gamma_pos, 
+    n_steps=16
+):
+    """
+    Generate a diverging colormap from RGB parameters.
+    
+    Args:
+        min_rgb:     [r,g,b] values for minimum (negative) side (0-1)
+        center_rgb:  [r,g,b] values for center (0-1)
+        max_rgb:     [r,g,b] values for maximum (positive) side (0-1)
+        gamma_neg_rgb: [r,g,b] gamma values for negative side (>0)
+        gamma_pos_rgb: [r,g,b] gamma values for positive side (>0)
+        n_steps:     Number of sampling points in the colormap
+        
+    Returns:
+        Tuple of (coarse_cmap_array, smooth_cmap) where:
+        - coarse_cmap_array: Array of shape (n_steps, 3) with RGB values
+        - smooth_cmap: ListedColormap with 256 interpolated steps
+    """
+    # Create lookup table for the colormap
+    coarse_cmap = np.zeros((n_steps, 3))
+    linspace = np.linspace(0, 1, n_steps)
+    
+    for i, val_norm in enumerate(linspace):
+        if val_norm < 0.5:  # Negative part
+            t = (0.5 - val_norm) / 0.5
+            f = t ** gamma_neg
+            coarse_cmap[i] = center + (min - center) * f
+        else:  # Positive part
+            x_interp = (val_norm - 0.5) / 0.5
+            f = x_interp ** gamma_pos
+            coarse_cmap[i] = center + (max - center) * f
+    
+    # Clip to valid RGB range
+    coarse_cmap = np.clip(coarse_cmap, 0, 1)
+    
+    # Create smooth version
+    smooth_cmap = resample_colormap(coarse_cmap)
+    
+    return coarse_cmap, smooth_cmap
+
+def resample_colormap(coarse_cmap, n_final=256):
+    """
+    Resample a colormap to higher resolution using linear interpolation.
+    
+    Args:
+        coarse_cmap: Array of shape (n,3) with RGB values
+        n_final: Number of steps in output colormap
+        
+    Returns:
+        ListedColormap with n_final steps
+    """
+    n_coarse = coarse_cmap.shape[0]
+    x_coarse = np.linspace(0, 1, n_coarse)
+    x_final = np.linspace(0, 1, n_final)
+    
+    resampled = np.zeros((n_final, 3))
+    for i in range(3):  # R,G,B channels
+        resampled[:, i] = np.interp(x_final, x_coarse, coarse_cmap[:, i])
+    
+    return ListedColormap(resampled)
+
+def load_colormap_params(json_path):
+    """
+    Load colormap parameters from JSON file.
+    
+    Returns:
+        Dict with keys: min, center, max, gamma_neg, gamma_pos
+        Each value is a list of [r,g,b] values
+    """
+    with open(json_path) as f:
+        params = json.load(f)
+    
+    try:
+        # Try new format first
+        return {
+            'min': np.array(params['min']),
+            'center': np.array(params['center']),
+            'max': np.array(params['max']),
+            'gamma_neg': np.array(params['gamma_neg']),
+            'gamma_pos': np.array(params['gamma_pos'])
+        }
+    except KeyError:
+        # Fall back to old format
+        return {
+            'min': np.array([params['min_r'], params['min_g'], params['min_b']]),
+            'center': np.array([params['center_r'], params['center_g'], params['center_b']]),
+            'max': np.array([params['max_r'], params['max_g'], params['max_b']]),
+            'gamma_neg': np.array([params['gamma_neg_r'], params['gamma_neg_g'], params['gamma_neg_b']]),
+            'gamma_pos': np.array([params['gamma_pos_r'], params['gamma_pos_g'], params['gamma_pos_b']])
+        }
+
+def save_colormap_params(params, json_path):
+    """
+    Save colormap parameters to JSON file.
+    
+    Args:
+        params: Dict with keys: min, center, max, gamma_neg, gamma_pos
+               Each value should be a list-like of [r,g,b] values
+        json_path: Path to save JSON file
+    """
+    # Convert numpy arrays to lists if needed
+    save_params = {}
+    for key in ['min', 'center', 'max', 'gamma_neg', 'gamma_pos']:
+        val = params[key]
+        save_params[key] = val.tolist() if hasattr(val, 'tolist') else list(val)
+    
+    with open(json_path, 'w') as f:
+        json.dump(save_params, f, indent=2)
 
 
 if __name__ == "__main__":

@@ -63,12 +63,41 @@ class ColormapGUI(QtWidgets.QMainWindow):
     def create_controls(self):
         # Add zero shift control at the top
         self.add_group_box("Data Shift", ['zero_shift'])
-        self.add_group_box("Min Color", ['min_r', 'min_g', 'min_b'])
-        self.add_group_box("Center Color", ['center_r', 'center_g', 'center_b'])
-        self.add_group_box("Max Color", ['max_r', 'max_g', 'max_b'])
-        self.add_group_box("Negative Gamma (min to center)", ['gamma_neg_r', 'gamma_neg_g', 'gamma_neg_b'])
-        self.add_group_box("Positive Gamma (center to max)", ['gamma_pos_r', 'gamma_pos_g', 'gamma_pos_b'])
-
+        
+        # Create a single group box for all color parameters
+        color_group = QtWidgets.QGroupBox("Colormap Parameters")
+        grid_layout = QtWidgets.QGridLayout(color_group)
+        
+        # Add column headers
+        grid_layout.addWidget(QtWidgets.QLabel("R"), 0, 1, QtCore.Qt.AlignCenter)
+        grid_layout.addWidget(QtWidgets.QLabel("G"), 0, 2, QtCore.Qt.AlignCenter)
+        grid_layout.addWidget(QtWidgets.QLabel("B"), 0, 3, QtCore.Qt.AlignCenter)
+        
+        # Add rows with controls
+        params = [
+            ('min', 'Min'),
+            ('center', 'Center'),
+            ('max', 'Max'),
+            ('gamma_pos', 'Gamma +'),
+            ('gamma_neg', 'Gamma -')
+        ]
+        
+        for row, (prefix, label) in enumerate(params, start=1):
+            grid_layout.addWidget(QtWidgets.QLabel(label), row, 0)
+            
+            for col, color in enumerate(['r', 'g', 'b'], start=1):
+                key = f'{prefix}_{color}'
+                spin_box = QtWidgets.QDoubleSpinBox()
+                spin_box.setRange(self.params[key]['range'][0], self.params[key]['range'][1])
+                spin_box.setValue(self.params[key]['value'])
+                spin_box.setSingleStep(self.params[key]['step'])
+                spin_box.setDecimals(self.params[key]['decimals'])
+                spin_box.valueChanged.connect(self.on_param_change)
+                grid_layout.addWidget(spin_box, row, col)
+                self.param_widgets[key] = spin_box
+        
+        self.control_layout.addWidget(color_group)
+        
         # Add flip colormap button
         flip_button = QtWidgets.QPushButton("Flip Colormap")
         flip_button.clicked.connect(self.flip_colormap)
@@ -182,54 +211,27 @@ class ColormapGUI(QtWidgets.QMainWindow):
         print("Generated sample data")
 
     def create_custom_colormap(self, params):
-        # Extract colors
-        color_min    = np.array([params['min_r'],   params['min_g'],   params['min_b']])
-        color_center = np.array([params['center_r'],params['center_g'],params['center_b']])
-        color_max    = np.array([params['max_r'],   params['max_g'],   params['max_b']])
-
-        # Extract gammas
-        gamma_neg    = np.array([params['gamma_neg_r'], params['gamma_neg_g'], params['gamma_neg_b']])
-        gamma_pos    = np.array([params['gamma_pos_r'], params['gamma_pos_g'], params['gamma_pos_b']])
-
-        # Create a lookup table for the colormap
-        coarse_cmap_array = np.zeros((self.n_steps, 3))
-
-        # Create a linear space for the colormap's internal values (0 to 1)
-        coarse_linear_steps = np.linspace(0, 1, self.n_steps)
-
-        for i in range(self.n_steps):
-            val_norm = coarse_linear_steps[i] # This is the normalized value for the colormap
-
-            if val_norm < 0.5: # Negative part (from min to center)
-                # To be symmetric, the "zero" of the interpolation ramp must be at the center.
-                # We define an interpolation factor `t` that is 0 at the center and 1 at the minimum.
-                t = (0.5 - val_norm) / 0.5
-                f = t ** gamma_neg
-                # As f goes from 0 (at center) to 1 (at min), we interpolate from color_center to color_min.
-                coarse_cmap_array[i, :] = color_center + (color_min - color_center) * f
-            else: # Positive part (from center to max)
-                # Map val_norm from [0.5, 1] to [0, 1] for gamma interpolation
-                x_interp = (val_norm - 0.5) / 0.5
-                f = x_interp ** gamma_pos
-                coarse_cmap_array[i, :] = color_center + (color_max - color_center) * f
+        """
+        Create custom diverging colormap using the new colormaps.py functions.
+        Returns both the smooth colormap and the coarse RGB values for plotting curves.
+        """
+        # Extract parameters in format expected by generate_diverging_colormap
+        # min_rgb = 
+        # center_rgb = np.array([params['center_r'], params['center_g'], params['center_b']])
+        # max_rgb = np.array([params['max_r'], params['max_g'], params['max_b']])
+        # gamma_neg_rgb = np.array([params['gamma_neg_r'], params['gamma_neg_g'], params['gamma_neg_b']])
+        # gamma_pos_rgb = np.array([params['gamma_pos_r'], params['gamma_pos_g'], params['gamma_pos_b']])
         
-        # Ensure RGB values are clipped to [0, 1]
-        coarse_cmap_array = np.clip(coarse_cmap_array, 0, 1)
-
-        # --- Resample the coarse colormap to 256 steps for a smooth result ---
-        # This prevents the "blocky" look in the final image.
-        final_n_steps = 256
-        resampled_cmap_array = np.zeros((final_n_steps, 3))
+        # Generate colormap using the new function
+        coarse_cmap_array, smooth_cmap = colormaps.generate_diverging_colormap(
+            min       = np.array([params['min_r'],       params['min_g'],       params['min_b']]),
+            center    = np.array([params['center_r'],    params['center_g'],    params['center_b']]),
+            max       = np.array([params['max_r'],       params['max_g'],       params['max_b']]),
+            gamma_neg = np.array([params['gamma_neg_r'], params['gamma_neg_g'], params['gamma_neg_b']]),
+            gamma_pos = np.array([params['gamma_pos_r'], params['gamma_pos_g'], params['gamma_pos_b']]),
+            n_steps=self.n_steps
+        )
         
-        x_coarse = np.linspace(0, 1, self.n_steps)
-        x_final  = np.linspace(0, 1, final_n_steps)
-
-        for i in range(3): # Interpolate R, G, and B channels
-            resampled_cmap_array[:, i] = np.interp(x_final, x_coarse, coarse_cmap_array[:, i])
-
-        smooth_cmap = ListedColormap(resampled_cmap_array, name='custom_diverging_smooth')
-
-        # Return the smooth colormap for imshow and the coarse array for plotting the control curves
         return smooth_cmap, coarse_cmap_array
 
     def update_plot(self):

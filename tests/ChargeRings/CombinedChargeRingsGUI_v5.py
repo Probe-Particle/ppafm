@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from scipy.interpolate import LinearNDInterpolator, RectBivariateSpline
+from matplotlib.colors import ListedColormap
+from colormaps import generate_diverging_colormap, load_colormap_params
 
 from GUITemplate import GUITemplate
 import data_line 
@@ -232,6 +234,25 @@ class ApplicationWindow(GUITemplate):
         cmap_layout.addWidget(self.cmap_STM_combo)
         self.layout0.addLayout(cmap_layout)
 
+        # Add Load Colormap button
+        self.load_cmap_btn = QtWidgets.QPushButton("Load Colormap")
+        self.load_cmap_btn.clicked.connect(self.load_colormap_params)
+        self.layout0.addWidget(self.load_cmap_btn)
+
+        # Add zero shift control
+        zero_shift_box = QtWidgets.QGroupBox("Zero Shift")
+        zero_shift_layout = QtWidgets.QHBoxLayout()
+        zero_shift_layout.addWidget(QtWidgets.QLabel("Zero Shift:"))
+        self.zero_shift = QtWidgets.QDoubleSpinBox()
+        self.zero_shift.setRange(-1e6, 1e6)
+        self.zero_shift.setSingleStep(0.1)
+        self.zero_shift.setDecimals(4)
+        self.zero_shift.setValue(0.0)
+        self.zero_shift.valueChanged.connect(lambda: self.update_exp_plot())
+        zero_shift_layout.addWidget(self.zero_shift)
+        zero_shift_box.setLayout(zero_shift_layout)
+        self.layout0.addWidget(zero_shift_box)
+
         # Connect mouse events
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
@@ -362,9 +383,12 @@ class ApplicationWindow(GUITemplate):
         sim_image = self.ax5.images[0] if self.ax5.images else None
         sim_data = sim_image.get_array() if sim_image else None
         
+        # Apply zero shift to experimental data
+        exp_dIdV_shifted = self.exp_dIdV - self.zero_shift.value()
+        
         # Use exp_utils to plot the experimental data
         exp_utils.plot_experimental_data(
-            self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_I, self.exp_biases,
+            self.exp_X, self.exp_Y, exp_dIdV_shifted, self.exp_I, self.exp_biases,
             self.exp_idx, params, sim_data, params,
             ax_current=self.ax8, ax_didv=self.ax9,
             draw_exp_scan_line_func=draw_scan_line_wrapper,
@@ -486,15 +510,19 @@ class ApplicationWindow(GUITemplate):
                 axCut.set_title(f'Energy vs Distance at V={Vmax}')
                 axCut.legend()
                 self.manage_prob_window(figCut, 'xV Cut')
+
+
+
             # experimental line scans on ax8 (I) and ax9 (dIdV)
-            exp_start = (params['ep1_x'], params['ep1_y']); exp_end = (params['ep2_x'], params['ep2_y'])
-            if self.bExpLoaded:
-                exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I,    self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, Vmax), cmap=pauli_scan.cmap_STM   )
-                exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_dIdV, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, Vmax), cmap=pauli_scan.cmap_dIdV  )
-            else:
-                self.ax8.text(0.5,0.5,"No experimental data",ha='center',transform=self.ax8.transAxes)
-                self.ax9.text(0.5,0.5,"No experimental data",ha='center',transform=self.ax9.transAxes)
-            self.ax8.set_title('Exp I (xV)'); self.ax9.set_title('Exp dI/dV (xV)')
+            
+            # if self.bExpLoaded:
+            #     exp_dIdV_shifted = self.exp_dIdV - self.zero_shift.value()
+            #     exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I      , self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, Vmax), cmap=pauli_scan.cmap_STM   )
+            #     exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, exp_dIdV_shifted, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, Vmax), cmap=pauli_scan.cmap_dIdV  )
+            #else:
+            #    self.ax8.text(0.5,0.5,"No experimental data",ha='center',transform=self.ax8.transAxes)
+            #    self.ax9.text(0.5,0.5,"No experimental data",ha='center',transform=self.ax9.transAxes)
+            #self.ax8.set_title('Exp I (xV)'); self.ax9.set_title('Exp dI/dV (xV)')
         else:
             # original XY plane simulation + experimental overlay
             orbital_2D, orbital_lvec = self.getOrbIfChecked()
@@ -508,14 +536,30 @@ class ApplicationWindow(GUITemplate):
                 extent = [-L/2, L/2, -L/2, L/2]
                 pauli_scan.plot_state_probabilities(stateEs, extent=extent, fig=figE, aspect='equal')
             self.draw_scan_line(self.ax4); self.draw_reference_line(self.ax4); self.plot_ellipses(self.ax9, params)
-            self.plot_experimental_data()
+            #self.plot_experimental_data()
             for i,rot in enumerate(rots):
                 x, y = spos[i][0], spos[i][1]
                 self.ax4.plot([x, x+rot[0][0]], [y, y+rot[0][1]])
+        
+        self.update_exp_plot(params)
         self.fig.tight_layout()
         self.canvas.draw()
         return STM, dIdV, Es, Ts, probs, stateEs, spos, rots
     
+    def update_exp_plot(self, params=None):
+        if not self.bExpLoaded: return
+        if params is None: params = self.get_param_values()
+        if self.cbPlotXV.isChecked():
+            Vmax = params['VBias']
+            exp_start = (params['ep1_x'], params['ep1_y']); exp_end = (params['ep2_x'], params['ep2_y'])
+            exp_dIdV_shifted = self.exp_dIdV - self.zero_shift.value()
+            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I      , self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, Vmax), cmap=pauli_scan.cmap_STM   )
+            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, exp_dIdV_shifted, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, Vmax), cmap=pauli_scan.cmap_dIdV  )
+        else:
+            self.plot_experimental_data()
+        self.canvas.draw()
+
+
     def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
         params = self.get_param_values()
         distance, Es, Ts, STM, x, y, x1, y1, x2, y2, probs = pauli_scan.calculate_1d_scan( params, start_point, end_point, pointPerAngstrom, pauli_solver=self.pauli_solver )
@@ -724,6 +768,26 @@ class ApplicationWindow(GUITemplate):
         pauli_scan.cmap_STM  = self.cmap_STM_combo.currentText()
         if hasattr(self, 'ax5') and hasattr(self, 'ax8') and hasattr(self, 'ax9'):
             self.run()
+
+    def load_colormap_params(self):
+        """Load colormap parameters from JSON file and update plots"""
+        try:
+            from colormaps import load_colormap_params, generate_diverging_colormap, resample_colormap
+            filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load Colormap Parameters", "", "JSON Files (*.json)")
+            if filename:
+                params = load_colormap_params(filename)
+                cmap_rgb, _ = generate_diverging_colormap( **params, n_steps=31)
+                #cmap_rgb = resample_colormap(cmap_rgb, 256)
+                pauli_scan.cmap_dIdV = resample_colormap(cmap_rgb)
+                self.cmap_dIdV_combo.setCurrentText("custom: " + filename)
+                #self.cmap_STM_combo.setCurrentText("custom"
+                # Redraw plots
+                self.run()
+                
+        except Exception as e:
+            print(f"Error loading colormap: {e}")
+            import traceback
+            traceback.print_exc()
 
 if __name__ == "__main__":
     qApp = QtWidgets.QApplication(sys.argv)

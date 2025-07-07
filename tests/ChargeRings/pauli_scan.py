@@ -511,7 +511,7 @@ def scan_tipField_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=
         pTips_v[:,2] = zT
         V2d = pauli.evalSitesTipsMultipoleMirror(pTips_v, pSites=pSites, VBias=V_v.flatten(), E0=Esite, Rtip=Rtip, zV0=zV0, zVd=zVd, bMirror=bMirror, bRamp=bRamp).reshape(nV, nx)
         
-        pu.plot_imshow(ax_xV, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='bwr')
+        pu.plot_imshow(ax_xV, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='bwr', bDiverging=True)
         ax_xV.plot(x_coords, V1d,  label='V_tip')
         ax_xV.plot(x_coords, V1d_, label=f'V_tip-E_site({Esite:.3f})')
         ax_xV.plot(x_coords, x_coords*0.0 + VBias, label='VBias')
@@ -644,10 +644,10 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
     
     # Plotting if axes provided
     extent = [-L, L, -L, L]
-    if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies  (max)",  extent=extent, cmap='bwr')
+    if ax_Etot is not None: pu.plot_imshow(ax_Etot, Etot, title="Energies  (max)",  extent=extent, cmap='bwr', bDiverging=True)
     if ax_Ttot is not None: pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling (max)",  extent=extent, cmap='hot')
     if ax_STM  is not None: pu.plot_imshow(ax_STM,  STM,  title="STM",              extent=extent, cmap='hot')
-    if ax_dIdV is not None: pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",            extent=extent, cmap='bwr', scV=sdIdV)
+    if ax_dIdV is not None: pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",            extent=extent, cmap='bwr', bDiverging=True, scV=sdIdV)
     if fig_probs is not None:
         # dynamic grid axes for probabilities
         n_states = probs.shape[2]
@@ -761,13 +761,13 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
 
     T_calc = time.perf_counter(); print(f"scan_xy_orb() calc time: {T_calc-T0:.5f} [s]")
 
-    if ax_Etot is not None:                     pu.plot_imshow(ax_Etot, Etot, title="Energies max(eps)",  extent=extent, cmap='bwr', )
-    if ax_rho  is not None and rho is not None: pu.plot_imshow(ax_rho,  rho,  title="sum(Wf)",            extent=extent, cmap='bwr')
+    if ax_Etot is not None:                     pu.plot_imshow(ax_Etot, Etot, title="Energies max(eps)",  extent=extent, cmap='bwr', bDiverging=True)
+    if ax_rho  is not None and rho is not None: pu.plot_imshow(ax_rho,  rho,  title="sum(Wf)",            extent=extent, cmap='bwr', bDiverging=True)
     if ax_Ttot is not None:                     pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)", extent=extent, cmap=cmap_STM)
     if ax_STM  is not None:                     pu.plot_imshow(ax_STM,  STM,  title="STM",                extent=extent, cmap=cmap_STM)
     if ax_dIdV is not None:
         dIdV = dIdV.reshape(npix, npix)
-        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap=cmap_dIdV, scV=sdIdV)
+        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV", extent=extent, cmap=cmap_dIdV, bDiverging=True, scV=sdIdV)
     if ax_Ms   is not None and Ms is not None: 
         for i in range(nsite):
             ax_Ms[i].imshow(Ms[i], cmap=cmap_STM, origin='lower', extent=extent)
@@ -869,7 +869,7 @@ def calculate_xV_scan(params, pTips=None, start_point=None, end_point=None, ax_E
     # Plot
     extent = [0, dist, Vmin, Vmax]
     if ax_Emax is not None:
-        pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr')
+        pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr', bDiverging=True)
         ax_Emax.set_aspect('auto');
         if bLegend: ax_Emax.set_ylabel('V [V]')
     if ax_STM is not None:
@@ -877,7 +877,7 @@ def calculate_xV_scan(params, pTips=None, start_point=None, end_point=None, ax_E
         ax_STM.set_aspect('auto');
         if bLegend: ax_STM.set_ylabel('V [V]')
     if ax_dIdV is not None:
-        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', scV=sdIdV)
+        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', bDiverging=True, scV=sdIdV)
         ax_dIdV.set_aspect('auto');
         if bLegend: ax_dIdV.set_ylabel('V [V]')
 
@@ -978,7 +978,7 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
     # Plot results
     extent = [0, dist, Vmin, Vmax]
     if ax_Emax is not None:
-        pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr')
+        pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr', bDiverging=True)
         ax_Emax.set_aspect('auto');
         if bLegend: ax_Emax.set_ylabel('V [V]')
     if ax_STM is not None:
@@ -989,7 +989,7 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
             ax_STM.axhline(V_slice, color='cyan', linestyle=':', linewidth=1.5, label=f'V={V_slice:.2f}V', zorder=10)
             ax_STM.legend(fontsize='x-small', loc='upper right')
     if ax_dIdV is not None:
-        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap=cmap_dIdV, scV=sdIdV)
+        pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap=cmap_dIdV, bDiverging=True, scV=sdIdV)
         ax_dIdV.set_aspect('auto');
         if bLegend: ax_dIdV.set_ylabel('V [V]')
         if V_slice is not None:
@@ -1321,7 +1321,7 @@ def sweep_scan_param_pauli_xy_orb_old(params, scan_params, selected_params=None,
     
     # Plot rho and Ttot (precomputed)
     if bDoOrb:
-        pu.plot_imshow(ax_rho, rho, title="sum(Wf)", extent=extent, cmap='bwr')
+        pu.plot_imshow(ax_rho, rho, title="sum(Wf)", extent=extent, cmap='bwr', bDiverging=True)
         Ttot = np.sum(Ts_flat_.reshape(npix, npix, nsite)**2, axis=2)
         pu.plot_imshow(ax_Ttot, Ttot, title="Tunneling sum(M^2)", extent=extent, cmap='hot')
     
@@ -1356,9 +1356,9 @@ def sweep_scan_param_pauli_xy_orb_old(params, scan_params, selected_params=None,
         title_parts = [f"{name}={params[name]:.3f}" for name in param_names]
         title = ", ".join(title_parts)
         
-        pu.plot_imshow(ax_Etot, Etot, title=title+"\nEnergies max(eps)", extent=extent, cmap='bwr'); #ax_Etot.set_aspect('auto')
+        pu.plot_imshow(ax_Etot, Etot, title=title+"\nEnergies max(eps)", extent=extent, cmap='bwr', bDiverging=True); #ax_Etot.set_aspect('auto')
         pu.plot_imshow(ax_STM,  STM,  title="STM",                       extent=extent, cmap='hot'); #ax_STM.set_aspect('auto')
-        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",                     extent=extent, cmap='bwr', scV=sdIdV); #ax_dIdV.set_aspect('auto')
+        pu.plot_imshow(ax_dIdV, dIdV, title="dI/dV",                     extent=extent, cmap='bwr', bDiverging=True, scV=sdIdV); #ax_dIdV.set_aspect('auto')
     
     plt.tight_layout()
     return fig
