@@ -1493,4 +1493,34 @@ def construct_Tba(leads, tleads, Tba_=None):
     const double* get_energies()      const { return energies; }
     const double* get_rhs()           const { return rhs; }
     const double* get_pauli_factors() const { return pauli_factors; }
+    
+
+    double current_simple( bool bEmpty=true) const {
+        //if(verbosity > 2){ printf("PauliSolver::equilibrium_tip_current(mu_tip=%.6f, T_tip=%.6f)\n", mu_tip, T_tip); }
+        // 1. Calculate site occupancies from many-body probabilities
+        double occ[nSingle];
+        for(int state = 0; state < nstates; ++state) {
+            double p = probabilities[state];
+            int mask = state;  // state index is the bitmask
+            for(int s = 0; s < nSingle; ++s) {
+                if(mask & 1) occ[s] += p;  // bit s is set -> site s is occupied
+                mask >>= 1;
+            }
+        }
+        //if(verbosity > 3) { printf("  Site occupancies:"); for(int s = 0; s < nSingle; ++s) { printf(" %.6f", occ[s]);}   }
+        // 2. Calculate current contribution from each site
+        double current = 0.0;
+        for(int s = 0; s < nSingle; ++s) {
+            // Fermi-Dirac at tip
+            //double f = 1.0 / (1.0 + exp((eps_site[s] - mu_tip) / T_tip));
+            // Current: Gamma * (n_sample - n_tip)
+            double p = occ[s];
+            if(bEmpty){ p = 1-p; }
+            current += TLeads[nSingle+s] * p;
+            //if(verbosity > 3) { printf("  site %d: occ=%.6f, eps=%.6f, f=%.6f, contrib=%.6f\n",   s, occ[s], eps_site[s], f, Gamma_site[s] * (occ[s] - f));}
+        }
+        //if(verbosity > 2) {  printf("  Total current: %.6f\n", current); }
+        return current;
+    }
+
 };
