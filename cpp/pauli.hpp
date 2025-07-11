@@ -37,9 +37,7 @@ void swap_matrix_cols(double* mat, int nrows, int ncols, int col1, int col2) {
     }
 }
 
-inline static int site_to_state(int site) { return 1 << site;}
 
-inline static bool site_in_state(int site, int state) {  return (state >> site) & 1;}
 
 
 /*
@@ -79,6 +77,35 @@ def construct_Ea_manybody(valslst, si):
                 Ea[si.chargelst[charge][ind]] = valslst[charge][ind]
     return Ea
 */
+
+inline static int  site_to_state(int site)            { return 1 << site;           }
+inline static bool site_in_state(int site, int state) { return (state >> site) & 1; }
+// New simplified function for many-body state energy calculation
+// This assumes Hsingle contains only diagonal single-particle energies
+// and sums Coulomb interaction for occupied pairs.
+// It uses the same bitmask state convention as current_simple.
+double calculate_state_energy_simple(int state, int nSingle, const double* Hsingle, double W) {
+    double energy = 0.0;
+    // Sum single-particle energies for occupied sites
+    for(int i = 0; i < nSingle; i++) {
+        if(site_in_state(i, state)) {
+            energy += Hsingle[i*nSingle+i]; // Assuming Hsingle_diag is an array of diagonal elements
+        }
+    }
+    // Sum Coulomb interaction for each pair of occupied sites
+    for(int i = 0; i < nSingle; i++) {
+        if(site_in_state(i, state)) {
+            for(int j = i; j < nSingle; j++) {
+                if(j==i){ continue; }
+                if(site_in_state(j, state)) {
+                    energy += W;
+                }
+            }
+        }
+    }
+    return energy;
+}
+
 double calculate_state_energy(int state, int nSingle, const double* Hsingle, double W) {
     //printf("calculate_state_energy() state: %i nSingle: %i Hsingle: %p W: %f \n", state, nSingle, Hsingle, W );
     double energy = 0.0;
@@ -596,12 +623,13 @@ def construct_Tba(leads, tleads, Tba_=None):
         // Update functions for recalculating internal data after parameter changes
     
     // Update state energies after Hsingle or W has changed
-    void updateStateEnergies() {
+    void updateStateEnergies( bool bSimple=false) {
         if (!energies_updated && Hsingle && energies && state_order) {
             if (verbosity > 1) { printf("PauliSolver::updateStateEnergies() - Recalculating state energies\n"); }
             for (int i = 0; i < nstates; i++) {
                 int state_idx = state_order[i];
-                energies[i] = calculate_state_energy(state_idx, nSingle, Hsingle, W);
+                if(bSimple){ energies[i] = calculate_state_energy_simple(i        , nSingle, Hsingle, W); }
+                else       { energies[i] = calculate_state_energy       (state_idx, nSingle, Hsingle, W); }
                 if (verbosity > 2) { printf("  State %d (raw state %d): Energy = %g\n", i, state_idx, energies[i]); }
             }
             energies_updated = true;
@@ -1125,13 +1153,13 @@ def construct_Tba(leads, tleads, Tba_=None):
     
     // Generate kernel matrix
     void generate_kern() {
-        if(verbosity > 0) printf("\nPauliSolver::generate_kern() Building kernel matrix...\n");
+        if(verbosity > 2) printf("\nPauliSolver::generate_kern() Building kernel matrix...\n");
         // -- set kernel to zero using memset
         memset(kernel, 0, sizeof(double) * nstates * nstates);
         //state_order2 = {0,1,2,4,3,5,6,7};
         state_order2 = {0,1,2,3,4,5,6,7};
         
-        if(verbosity > 1) {
+        if(verbosity > 2) {
             printf("PauliSolver::generate_kern() starting\n");
             print_lead_params();
             print_state_energies();
@@ -1151,13 +1179,13 @@ def construct_Tba(leads, tleads, Tba_=None):
         // IMPORTANT: Check if pauli_factors have been calculated already
         // Only regenerate if they haven't been calculated yet
         if(pauli_factors == nullptr || n_pauli_factors == 0) {
-            if(verbosity > 0) printf("PauliSolver::generate_kern() - pauli_factors not yet calculated, generating now\n");
+            if(verbosity > 2) printf("PauliSolver::generate_kern() - pauli_factors not yet calculated, generating now\n");
             generate_fct();
-        } else if(verbosity > 0) {
+        } else if(verbosity > 2) {
             printf("PauliSolver::generate_kern() - using pre-calculated pauli_factors\n");
         }
 
-        if(verbosity > 0) {
+        if(verbosity > 2) {
             printf("PauliSolver::generate_kern().1 kernel generation\n");
             printf("pauli_factors[nlead%i,ndm1=%i,%i]:\n", nleads, ndm1, 2);
             printf("pauli_factors[lead=0]:\n");  print_matrix(pauli_factors       , ndm1, 2, "%16.8f");
@@ -1168,7 +1196,7 @@ def construct_Tba(leads, tleads, Tba_=None):
 
         //exit(0);
 
-        if(verbosity > 1){ printf("\n==== PauliSolver::generate_kern().2 goto generate_coupling_terms()\n"); }
+        if(verbosity > 2){ printf("\n==== PauliSolver::generate_kern().2 goto generate_coupling_terms()\n"); }
         std::fill(kernel, kernel + n * n, 0.0);
         for(int state = 0; state < n; state++) { 
             int b = state_order_inv[state];
@@ -1176,7 +1204,7 @@ def construct_Tba(leads, tleads, Tba_=None):
             if(verbosity > 2) { printf("\n---- PauliSolver::generate_kern() -> generate_coupling_terms( istate=%i -> b=%i ) \n", state, b); }
             generate_coupling_terms(b);
         }
-        if(verbosity > 1) { 
+        if(verbosity > 2) { 
             printf("\nPauliSolver::generate_kern() final kernel:\n");
             print_matrix(kernel, n, n, "%16.8f");
             printf("===== PauliSolver::generate_kern() DONE \n");
@@ -1277,26 +1305,23 @@ def construct_Tba(leads, tleads, Tba_=None):
     void solve() {
         // Check if any parameters were changed and update as needed
         updateKernelMatrix();
-        
         // Solve the kernel matrix equation
         solve_kern();
+        if(verbosity>0) {  printf("PauliSolver::solve() DONE:\n"); }
+            
     }
 
     // === New Equilibrium Solvers (do NOT interfere with PME solver) ===
     // 1) Ground-state equilibrium: probability 1 assigned to many-body state of minimum energy.
     void solve_equilibrium_ground_state(){
         // Ensure energies are up to date
-        updateStateEnergies();
-
-        // Locate the state of minimum energy
+        updateStateEnergies(true);
         int idx_min = 0;
         double e_min = energies[0];
         for(int i = 1; i < nstates; ++i){
+            probabilities[i]=0;
             if(energies[i] < e_min){ e_min = energies[i]; idx_min = i; }
         }
-
-        // Set probabilities: 1 for ground state, 0 otherwise
-        std::fill(probabilities, probabilities + nstates, 0.0);
         probabilities[idx_min] = 1.0;
     }
 
@@ -1309,7 +1334,7 @@ def construct_Tba(leads, tleads, Tba_=None):
             return;
         }
 
-        updateStateEnergies();
+        updateStateEnergies(true);
 
         // Prepare temporary storage for exponent values
         static std::vector<double> exponents; exponents.resize(nstates);
@@ -1498,7 +1523,12 @@ def construct_Tba(leads, tleads, Tba_=None):
     double current_simple( bool bEmpty=true) const {
         //if(verbosity > 2){ printf("PauliSolver::equilibrium_tip_current(mu_tip=%.6f, T_tip=%.6f)\n", mu_tip, T_tip); }
         // 1. Calculate site occupancies from many-body probabilities
+        if(_verbosity>0) printf("nSingle %d\n", nSingle );
         double occ[nSingle];
+        for(int s = 0; s < nSingle; ++s) { occ[s] = 0.0; }
+
+        
+        // state index is the bitmask };
         for(int state = 0; state < nstates; ++state) {
             double p = probabilities[state];
             int mask = state;  // state index is the bitmask
@@ -1507,6 +1537,7 @@ def construct_Tba(leads, tleads, Tba_=None):
                 mask >>= 1;
             }
         }
+        
         //if(verbosity > 3) { printf("  Site occupancies:"); for(int s = 0; s < nSingle; ++s) { printf(" %.6f", occ[s]);}   }
         // 2. Calculate current contribution from each site
         double current = 0.0;

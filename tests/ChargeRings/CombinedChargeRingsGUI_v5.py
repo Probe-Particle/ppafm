@@ -273,7 +273,13 @@ class ApplicationWindow(GUITemplate):
         # Plot reference data path
         self.draw_reference_line(self.ax4)
 
-        self.pauli_solver = pauli.PauliSolver( nSingle=3, nleads=2, verbosity=verbosity )
+        #if self.nsite>3: verbosity = 1
+        self.pauli_solver = pauli.PauliSolver( nSingle=self.nsite, nleads=2, verbosity=verbosity )
+        if self.nsite>3:
+            pauli.verbosity = verbosity
+            self.comboSolverMode.setCurrentIndex(0) 
+            self.update_lin_solver()
+
         # apply initial linear solver settings
         self.update_lin_solver()
         self.run()

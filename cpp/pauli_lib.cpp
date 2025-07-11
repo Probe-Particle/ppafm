@@ -140,6 +140,7 @@ void solve_pauli(void* solver_ptr) {
 }
 
 double solve_hsingle( void* solver_ptr, const double* hsingle, double W, int ilead, const int* state_order ){
+    //if(_verbosity>0){ printf("solve_hsingle() \n"); }
     //printf("solve_hsingle() ilead: %d W: %g\n", ilead, W);
     bool bEmpty = true;
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
@@ -152,14 +153,22 @@ double solve_hsingle( void* solver_ptr, const double* hsingle, double W, int ile
         solver->setStateOrder(state_order);
     }
     // Select solver backend based on global flag
+
+    if(which_solver>=0 && (solver->nSingle>3)){
+        // DEBUG - this is just because we were getting segfault for n>3
+        which_solver = -1;
+    }
+    //if(_verbosity>0){ printf("solve_hsingle() 2 which_solver: %d nSingle: %d\n", which_solver, solver->nSingle); }
     if(which_solver == -1){
         // Ground-state only
         solver->solve_equilibrium_ground_state();
+        //if(_verbosity>0){ printf("solve_hsingle() 1\n"); }
         return solver->current_simple(bEmpty); 
+        //if(_verbosity>0){ printf("solve_hsingle() 2\n"); }
     } else if(which_solver == -2){
         // Boltzmann equilibrium; use first lead as reference for μ and T
         double T  = (solver->nleads > 0) ? solver->leads[0].temperature : 0.01;
-        double mu = (solver->nleads > 0) ? solver->leads[0].mu         : 0.0;
+        double mu = (solver->nleads > 0) ? solver->leads[0].mu          :  0.0;
         solver->solve_equilibrium_boltzmann(T, mu);
         return solver->current_simple(bEmpty); 
     } else {
@@ -450,6 +459,7 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
         out_current[ip] = current;
         if(Probs         ){ std::memcpy(Probs         + ip*nstates, solver->get_probabilities(), nstates * sizeof(double)); }
         if(StateEnergies ){ std::memcpy(StateEnergies + ip*nstates, solver->energies,            nstates * sizeof(double)); }
+        if(_verbosity>2){ printf("scan_current_tip_() ip: %d current: %f\n", ip, current); }
     }
         
     return 0.0;
