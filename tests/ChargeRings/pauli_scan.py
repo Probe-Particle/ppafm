@@ -52,16 +52,51 @@ cmap_STM = 'inferno'
 # ============= Utility functions
 # ===========================================
 
+def load_site_geometry(filename):
+    """
+    Load site geometry from a file with x, y, angle columns.
+    
+    Args:
+        filename: Path to the input file with three columns: x, y, angle (in degrees)
+        
+    Returns:
+        tuple: (spos, rots, angles) where:
+            - spos: (n,3) array of site positions [x,y,z]
+            - rots: (n,3,3) array of rotation matrices
+            - angles: (n,) array of angles in radians
+    """
+    data = np.loadtxt(filename)
+    n_sites = len(data)
+    
+    # Create positions array [x, y, z=0]
+    spos = np.zeros((n_sites, 3))
+    spos[:, :2] = data[:, :2]  # x, y coordinates
+    
+    # Convert angles from degrees to radians
+    angles_deg = data[:, 2]
+    angles_rad = np.radians(angles_deg)
+    
+    # Generate rotation matrices
+    rots = ut.makeRotMats(angles_rad)
+    
+    return spos, rots, angles_rad
+
 def make_site_geom(params):
     """
     Generates ring geometry for charge sites.
     Used by all scanning functions that require multiple sites.
+    
+    If 'geometry_file' is in params, loads geometry from file.
+    Otherwise, generates a circular arrangement.
     """
-    nsite=params['nsite']
-    spos, phis = ut.makeCircle(n=nsite,R=params['radius'],phi0=params['phiRot'])
-    spos[:,2]  = params['zQd']
-    angles     = phis+params['phi0_ax']
-    rots       = ut.makeRotMats( angles )
+    if 'geometry_file' in params:
+        return load_site_geometry(params['geometry_file'])
+    
+    nsite = params['nsite']
+    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+    spos[:, 2] = params['zQd']
+    angles = phis + params['phi0_ax']
+    rots = ut.makeRotMats(angles, nsite=nsite)
     return spos, rots, angles
 
 def make_grid_axes(fig, nplots, figsize=(12, 8)):

@@ -38,6 +38,8 @@ class ApplicationWindow(GUITemplate):
         
         self.orbital_2D = None
         self.orbital_lvec = None
+        #self.nsite = 4
+        self.nsite = 3
         
         # {'VBias': 0.2, 'Rtip': 2.5, 'z_tip': 2.0, 'cCouling': 0.02, 'temperature': 3.0, 'onSiteCoulomb': 3.0, 'zV0': -3.3, 'zQd': 0.0, 'nsite': 3.0, 'radius': 5.2, 'phiRot': 0.79, 'R_major': 8.0, 'R_minor': 10.0, 'phi0_ax': 0.2, 'Esite': -0.04, 'Q0': 1.0, 'Qzz': 0.0, 'L': 20.0, 'npix': 100.0, 'decay': 0.3, 'dQ': 0.02, 'exp_slice': 10.0}
         # Then set parameter specifications
@@ -431,7 +433,7 @@ class ApplicationWindow(GUITemplate):
         params = super().get_param_values()
         params['bMirror'] = self.cbMirror.isChecked()
         params['bRamp'] = self.cbRamp.isChecked()
-        params['nsite'] = 3
+        params['nsite'] = self.nsite
         return params
 
     def run(self):
