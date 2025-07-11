@@ -159,6 +159,7 @@ inline static int state_to_charge(int state, int nSingle) {
 //                PauliSolver
 // ==================================================
 
+
 class PauliSolver {
 public:
     // Direct integration of SolverParams data
@@ -1280,6 +1281,68 @@ def construct_Tba(leads, tleads, Tba_=None):
         // Solve the kernel matrix equation
         solve_kern();
     }
+
+    // === New Equilibrium Solvers (do NOT interfere with PME solver) ===
+    // 1) Ground-state equilibrium: probability 1 assigned to many-body state of minimum energy.
+    void solve_equilibrium_ground_state(){
+        // Ensure energies are up to date
+        updateStateEnergies();
+
+        // Locate the state of minimum energy
+        int idx_min = 0;
+        double e_min = energies[0];
+        for(int i = 1; i < nstates; ++i){
+            if(energies[i] < e_min){ e_min = energies[i]; idx_min = i; }
+        }
+
+        // Set probabilities: 1 for ground state, 0 otherwise
+        std::fill(probabilities, probabilities + nstates, 0.0);
+        probabilities[idx_min] = 1.0;
+    }
+
+    // 2) Boltzmann equilibrium: probabilities ~ exp(-(E_i - N_i*mu)/T) with user-supplied kT (meV) and chemical potential mu (meV).
+    //    Falls back to the ground-state solver if T <= 0 or numerical issues occur.
+    void solve_equilibrium_boltzmann(double temperature, double chemical_potential){
+        // Guard against non-positive temperature
+        if(temperature <= 0.0){
+            solve_equilibrium_ground_state();
+            return;
+        }
+
+        updateStateEnergies();
+
+        // Prepare temporary storage for exponent values
+        static std::vector<double> exponents; exponents.resize(nstates);
+
+        double max_exp = -1e300; // For numerical stability (prevent overflow)
+        for(int i = 0; i < nstates; ++i){
+            int raw_state = state_order[i];               // Map ordered index -> raw state
+            int N = count_electrons(raw_state);           // Electron count of this state
+            double exponent = -(energies[i] - N*chemical_potential)/temperature;
+            exponents[i] = exponent;
+            if(exponent > max_exp) max_exp = exponent;
+        }
+
+        // Convert to weights with shifted exponent and accumulate partition sum Z
+        double Z = 0.0;
+        for(int i = 0; i < nstates; ++i){
+            double w = std::exp(exponents[i] - max_exp);
+            exponents[i] = w;
+            Z += w;
+        }
+
+        // Fallback in case of numerical problems
+        if(!(Z > 0.0) || !std::isfinite(Z)){
+            solve_equilibrium_ground_state();
+            return;
+        }
+
+        // Normalize to obtain probabilities
+        for(int i = 0; i < nstates; ++i){
+            probabilities[i] = exponents[i] / Z;
+        }
+    }
+
     
     // Print methods for debugging
     void print_lead_params() const {

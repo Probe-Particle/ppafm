@@ -23,12 +23,16 @@ double* g_out_fct2_c_leave  = nullptr; // Pointer to external buffer for factor 
 int   * g_out_inds  = nullptr; // Pointer to external buffer for state entering (b -> c)
 
 
+int which_solver = 1;  //  0: original PME, -1: simple ground state minimum solver, -2: simple ground state minimum solver with Boltzmann weights
+
+
 
 extern "C" {
 
-void setLinSolver(void* solver_ptr, int iLinsolveMode, int nMaxLinsolveInter, double LinsolveTolerance) {
+void setLinSolver(void* solver_ptr, int iLinsolveMode, int nMaxLinsolveInter, double LinsolveTolerance, int which_solver_) {
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
-    printf("setLinSolver() iLinsolveMode: %d nMaxLinsolveInter: %d LinsolveTolerance: %g\n", iLinsolveMode, nMaxLinsolveInter, LinsolveTolerance);
+    printf("!!!!!!setLinSolver() iLinsolveMode: %d nMaxLinsolveInter: %d LinsolveTolerance: %g which_solver: %d\n", iLinsolveMode, nMaxLinsolveInter, LinsolveTolerance, which_solver_);
+    which_solver = which_solver_;
     if (solver) { solver->setLinSolver(iLinsolveMode, nMaxLinsolveInter, LinsolveTolerance); }
 }
 
@@ -122,7 +126,15 @@ void generate_kernel(void* solver_ptr) {
 // Solve the master equation (step 7 in optimization scheme)
 void solve_pauli(void* solver_ptr) {
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
-    if (solver) {
+    if(!solver) return;
+
+    if(which_solver == -1){
+        solver->solve_equilibrium_ground_state();
+    } else if(which_solver == -2){
+        double T  = (solver->nleads > 0) ? solver->leads[0].temperature : 0.01;
+        double mu = (solver->nleads > 0) ? solver->leads[0].mu : 0.0;
+        solver->solve_equilibrium_boltzmann(T, mu);
+    } else {
         solver->solve();
     }
 }
@@ -130,17 +142,33 @@ void solve_pauli(void* solver_ptr) {
 double solve_hsingle( void* solver_ptr, const double* hsingle, double W, int ilead, const int* state_order ){
     //printf("solve_hsingle() ilead: %d W: %g\n", ilead, W);
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
-    if (solver) {
-        solver->W = W;
-        solver->setHsingle(hsingle);
-        if(state_order) { 
-            solver->init_states_by_charge();
-            solver->setStateOrder(state_order); 
-        }
+    if (!solver) return 0.0;
+
+    // --- Update basic Hamiltonian parameters ---
+    solver->W = W;
+    solver->setHsingle(hsingle);
+    if(state_order){
+        solver->init_states_by_charge();
+        solver->setStateOrder(state_order);
+    }
+
+    // Select solver backend based on global flag
+    if(which_solver == -1){
+        // Ground-state only
+        solver->solve_equilibrium_ground_state();
+        return 0.0; // No transport calculation in equilibrium mode
+    } else if(which_solver == -2){
+        // Boltzmann equilibrium; use first lead as reference for μ and T
+        double T  = (solver->nleads > 0) ? solver->leads[0].temperature : 0.01;
+        double mu = (solver->nleads > 0) ? solver->leads[0].mu         : 0.0;
+        solver->solve_equilibrium_boltzmann(T, mu);
+        return 0.0;
+    } else {
+        // Original Pauli Master Equation solver
         solver->generate_fct();
         solver->generate_kern();
         solver->solve();
-        if(ilead >= 0) {
+        if(ilead >= 0){
             return solver->generate_current(ilead);
         }
     }

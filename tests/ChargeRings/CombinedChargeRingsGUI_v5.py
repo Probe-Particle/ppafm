@@ -198,7 +198,17 @@ class ApplicationWindow(GUITemplate):
         self.sbMaxIter = QtWidgets.QSpinBox()
         self.sbMaxIter.setRange(1, 10000)
         self.sbMaxIter.setValue(50)
-        solver_layout.addWidget(self.sbMaxIter)
+        
+        # Add which_solver control
+        solver_layout.addWidget(QtWidgets.QLabel("Solver Mode:"))
+        self.comboSolverMode = QtWidgets.QComboBox()
+        self.comboSolverMode.addItem("PME (0)", 0)
+        self.comboSolverMode.addItem("Ground State (-1)", -1)
+        self.comboSolverMode.addItem("Boltzmann (-2)", -2)
+        self.comboSolverMode.setCurrentIndex(0)  # Default to PME
+        self.comboSolverMode.currentIndexChanged.connect(self.update_lin_solver)
+        solver_layout.addWidget(self.comboSolverMode)
+        
         solver_layout.addWidget(QtWidgets.QLabel("Tol:"))
         self.dsTol = QtWidgets.QDoubleSpinBox()
         self.dsTol.setDecimals(12)
@@ -758,7 +768,8 @@ class ApplicationWindow(GUITemplate):
         #print("update_lin_solver() mode", mode)
         maxIter = self.sbMaxIter.value()
         tol = self.dsTol.value()
-        self.pauli_solver.setLinSolver(mode, maxIter, tol)
+        which_solver = self.comboSolverMode.currentData()
+        self.pauli_solver.setLinSolver(mode, maxIter, tol, which_solver)
         if self.cbAutoUpdate.isChecked():
             self.run()
 
