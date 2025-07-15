@@ -77,7 +77,7 @@ def load_site_geometry(filename):
     angles_rad = np.radians(angles_deg)
     
     # Generate rotation matrices
-    rots = ut.makeRotMats(angles_rad)
+    rots = ut.makeRotMats(angles_rad, nsite=n_sites)
     
     return spos, rots, angles_rad
 
@@ -91,7 +91,6 @@ def make_site_geom(params):
     """
     if 'geometry_file' in params:
         return load_site_geometry(params['geometry_file'])
-    
     nsite = params['nsite']
     spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
     spos[:, 2] = params['zQd']
@@ -164,17 +163,19 @@ def generate_hops_gauss( spos, params, pTips=None, bBarrier=True ):
                 r2 = (pTips[:,0] - p[0])**2 + (pTips[:,1] - p[1])**2 + (pTips[:,2] - p[2])**2 
                 barrier[:] += Amp * np.exp(-r2 / (2.0 * w**2))
         barrier += E0
-        print( "generate_hops_gauss() barrier (min, max) ", np.min(barrier), np.max(barrier) )
+        print( "generate_hops_gauss() barrier (min, max) ", np.min(barrier), np.max(barrier), f"E0={E0}, Amp={Amp}, w={w}" )
         beta = np.sqrt(barrier / hbar2_2me_eVA2)
     else:
         beta = np.ones(npoints) * params['decay']
-    print(     "generate_hops_gauss() beta    (min, max) ", np.min(beta), np.max(beta) )
+    print(     "generate_hops_gauss() beta  (min, max) ", np.min(beta), np.max(beta) )
+    print(     "generate_hops_gauss() Ts    (min, max) ", np.min(Ts), np.max(Ts) )
     # Now compute Ts for each site
     for i in range(nsite):
         p = spos[i]
         r2 = (pTips[:,0] - p[0])**2 + (pTips[:,1] - p[1])**2 + (pTips[:,2] - p[2])**2
         r  = np.sqrt(r2)
         Ts[:,i] = np.exp(-beta * r)
+    print(     "generate_hops_gauss() Ts    (min, max) ", np.min(Ts), np.max(Ts) )
     return Ts, pTips, beta, barrier
 
 def create_transition_mask(labels, type_=bool ):

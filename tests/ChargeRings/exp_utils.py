@@ -305,12 +305,9 @@ def plot_experimental_data(exp_X, exp_Y, exp_dIdV, exp_I, exp_biases, idx, param
         ax_didv = pu.plot_imshow(ax_didv, exp_dIdV[idx], title=f'Exp. dI/dV at {exp_biases[idx]:.3f} V', extent=exp_extent, cmap=cmap_dIdV, vmin=-maxval, vmax=maxval, xlabel='X [Å]', ylabel='Y [Å]')
         
         # Plot ellipses if parameters provided
-        if ellipse_params is not None:
-            plot_ellipses(ax_didv, ellipse_params)
-        
+        if ellipse_params is not None:plot_ellipses(ax_didv, ellipse_params)
         # Draw scan line if function provided
-        if draw_exp_scan_line_func is not None:
-            draw_exp_scan_line_func(ax_didv)
+        if draw_exp_scan_line_func is not None:  draw_exp_scan_line_func(ax_didv)
     
     if ax_current is not None:
         # Plot Current

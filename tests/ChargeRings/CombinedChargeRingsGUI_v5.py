@@ -40,6 +40,8 @@ class ApplicationWindow(GUITemplate):
         self.orbital_lvec = None
         #self.nsite = 4
         self.nsite = 3
+
+        self.geometry_file = None
         
         # {'VBias': 0.2, 'Rtip': 2.5, 'z_tip': 2.0, 'cCouling': 0.02, 'temperature': 3.0, 'onSiteCoulomb': 3.0, 'zV0': -3.3, 'zQd': 0.0, 'nsite': 3.0, 'radius': 5.2, 'phiRot': 0.79, 'R_major': 8.0, 'R_minor': 10.0, 'phi0_ax': 0.2, 'Esite': -0.04, 'Q0': 1.0, 'Qzz': 0.0, 'L': 20.0, 'npix': 100.0, 'decay': 0.3, 'dQ': 0.02, 'exp_slice': 10.0}
         # Then set parameter specifications
@@ -47,11 +49,11 @@ class ApplicationWindow(GUITemplate):
 
             #'nsite':         {'group': 'Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
             'radius':        {'group': 'Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 5.2, 'step': 0.5},
-            'phiRot':        {'group': 'Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.3,'step': 0.1},
+            'phiRot':        {'group': 'Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.3, 'step': 0.1},
             'phi0_ax':       {'group': 'Geometry',     'widget': 'double', 'range': (-3.14, 3.14), 'value': 0.2, 'step': 0.1},
 
             # Tip Parameters
-            'VBias':         {'group': 'Electrostatic Field', 'widget': 'double', 'range': (0.0, 10.0),   'value':  0.70, 'step': 0.02},
+            'VBias':         {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-10.0, 10.0),   'value':  0.70, 'step': 0.02},
             'Rtip':          {'group': 'Electrostatic Field', 'widget': 'double', 'range': (0.5, 10.0),   'value':  3.0,  'step': 0.5},
             'z_tip':         {'group': 'Electrostatic Field', 'widget': 'double', 'range': (0.5, 20.0),   'value':  5.0,  'step': 0.5},
             'zV0':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-10.0, 10.0), 'value': -1.0,  'step': 0.1},
@@ -62,7 +64,7 @@ class ApplicationWindow(GUITemplate):
 
             'Esite':         {'group': 'Transport Solver',  'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.100, 'step': 0.002, 'decimals': 3 },
             'W':             {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.05,   'step': 0.001, 'decimals': 3 },
-            'Temp':          {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 100.0),  'value': 3.0,   'step': 0.05,  'decimals': 2 },
+            'Temp':          {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 100.0),  'value': 3.0,   'step': 0.05,   'decimals': 2 },
             'decay':         {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 2.0),    'value': 0.3,    'step': 0.1,   'decimals': 2 },
             'GammaS':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3, 'fidget': False },
             'GammaT':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3, 'fidget': False },
@@ -71,7 +73,7 @@ class ApplicationWindow(GUITemplate):
             # Barrier
             'Et0':          {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 10.0),   'value':  0.2,    'step': 0.01  }, # E0 base height of tunelling barrier
             'wt':           {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 20.0),   'value':  8.0,    'step': 0.1  }, # Amp Amplitude or tunelling barrirer modification
-            'At':           {'group': 'Barrier', 'widget': 'double', 'range': (-10.0, 10.0), 'value': -0.1,    'step': 0.01  }, # w Gaussain width for tunelling barrirer modification
+            'At':           {'group': 'Barrier', 'widget': 'double', 'range': (-10.0, 10.0), 'value':  0.0,    'step': 0.01  }, # w Gaussain width for tunelling barrirer modification
             'c_orb':        {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 1.0),    'value':  1.0,    'step': 0.0001, 'decimals': 4  }, # c_orb weight for orbital tunneling
             'T0':           {'group': 'Barrier', 'widget': 'double', 'range': (0.0, 1000.0), 'value':  1.0,    'step': 0.0001, 'decimals': 4  }, # c_orb weight for orbital tunneling
 
@@ -186,6 +188,20 @@ class ApplicationWindow(GUITemplate):
         self.load_orbital_file()
         orbital_layout.addWidget(self.cbUseOrbital)
         self.cbUseOrbital.stateChanged.connect(self.run)
+
+        # Create geometry file input layout
+        geom_layout = QtWidgets.QHBoxLayout()
+        self.layout0.addLayout(geom_layout)
+        geom_layout.addWidget(QtWidgets.QLabel("Geometry file:"))
+        self.leGeometryFile = QtWidgets.QLineEdit()
+        self.leGeometryFile.setText("hexamer.txt")
+        geom_layout.addWidget(self.leGeometryFile)
+        btnLoadGeom = QtWidgets.QPushButton("Load Geometry")
+        btnLoadGeom.clicked.connect(self.load_geometry_file)
+        geom_layout.addWidget(btnLoadGeom)
+        # If previously loaded, display file path
+        if self.geometry_file:
+            self.leGeometryFile.setText(self.geometry_file)
 
         # LinSolver options
         solver_layout = QtWidgets.QHBoxLayout()
@@ -324,6 +340,26 @@ class ApplicationWindow(GUITemplate):
         self.orbital_lvec = orbital_lvec
         print(f"Loaded orbital from {filename}")
 
+    def load_geometry_file(self):
+        """Load site geometry from file and reinitialize solver."""
+        filename = self.leGeometryFile.text()
+        print(f"Loading geometry from {filename}")
+        if not os.path.exists(filename):
+            print(f"ERROR: Could not find geometry file {filename}")
+            return
+        self.geometry_file = filename
+        try:
+            # Determine number of sites from geometry file
+            spos, rots, angles = pauli_scan.make_site_geom({'geometry_file': filename})
+            self.nsite = int(spos.shape[0])
+            # Reallocate Pauli solver for new number of sites
+            self.pauli_solver = pauli.PauliSolver(nSingle=self.nsite, nleads=2, verbosity=verbosity)
+            self.update_lin_solver()
+            self.run()
+        except Exception as e:
+            print(f"Error loading geometry: {e}")
+            import traceback; traceback.print_exc()
+
     def resample_to_simulation_grid(self, data, src_extent, target_size=100, target_extent=(-20, 20, -20, 20)):
         """Resample data to match simulation grid and extent
         
@@ -394,9 +430,10 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
         self.exp_idx = params['exp_slice']        
         # Create a wrapper for our draw_exp_scan_line method
-        def draw_scan_line_wrapper(ax):
-            self.draw_exp_scan_line(ax)
+        #def draw_scan_line_wrapper(ax): self.draw_exp_scan_line(ax)
         
+        draw_scan_line_wrapper = None
+
         # Get simulation data if available
         sim_image = self.ax5.images[0] if self.ax5.images else None
         sim_data = sim_image.get_array() if sim_image else None
@@ -420,10 +457,7 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
         ep1 = (params['ep1_x'], params['ep1_y'])
         ep2 = (params['ep2_x'], params['ep2_y'])
-        self.exp_scan_line_artist, = ax.plot(
-            [ep1[0], ep2[0]], [ep1[1], ep2[1]], 
-            'r-', linewidth=2, alpha=0.7
-        )
+        self.exp_scan_line_artist, = ax.plot( [ep1[0], ep2[0]], [ep1[1], ep2[1]], 'r-', linewidth=2, alpha=0.7)
         self.canvas.draw()
 
     def getOrbIfChecked(self):
@@ -440,6 +474,9 @@ class ApplicationWindow(GUITemplate):
         params['bMirror'] = self.cbMirror.isChecked()
         params['bRamp'] = self.cbRamp.isChecked()
         params['nsite'] = self.nsite
+        # Include geometry file if loaded
+        if self.geometry_file:
+            params['geometry_file'] = self.geometry_file
         return params
 
     def run(self):
@@ -553,7 +590,7 @@ class ApplicationWindow(GUITemplate):
                 L = params['L']
                 extent = [-L/2, L/2, -L/2, L/2]
                 pauli_scan.plot_state_probabilities(stateEs, extent=extent, fig=figE, aspect='equal')
-            self.draw_scan_line(self.ax4); self.draw_reference_line(self.ax4); self.plot_ellipses(self.ax9, params)
+            #self.draw_scan_line(self.ax4); self.draw_reference_line(self.ax4); self.plot_ellipses(self.ax9, params)
             #self.plot_experimental_data()
             for i,rot in enumerate(rots):
                 x, y = spos[i][0], spos[i][1]
