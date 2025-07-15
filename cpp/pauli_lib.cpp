@@ -31,7 +31,7 @@ extern "C" {
 
 void setLinSolver(void* solver_ptr, int iLinsolveMode, int nMaxLinsolveInter, double LinsolveTolerance, int which_solver_) {
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
-    printf("!!!!!!setLinSolver() iLinsolveMode: %d nMaxLinsolveInter: %d LinsolveTolerance: %g which_solver: %d\n", iLinsolveMode, nMaxLinsolveInter, LinsolveTolerance, which_solver_);
+    //printf("!!!!!!setLinSolver() iLinsolveMode: %d nMaxLinsolveInter: %d LinsolveTolerance: %g which_solver: %d\n", iLinsolveMode, nMaxLinsolveInter, LinsolveTolerance, which_solver_);
     which_solver = which_solver_;
     if (solver) { solver->setLinSolver(iLinsolveMode, nMaxLinsolveInter, LinsolveTolerance); }
 }
@@ -99,9 +99,16 @@ void set_hsingle(void* solver_ptr, double* hsingle) {
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (solver) {
         solver->setHsingle(hsingle);
-        
         // Initialize state ordering after setting Hsingle
         solver->init_states_by_charge();
+    }
+}
+
+// Set Coulomb interaction matrix Wij (standalone, avoid long argument lists elsewhere)
+void set_wij(void* solver_ptr, const double* Wij) {
+    PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
+    if (solver) {
+        solver->setWij(Wij);
     }
 }
 

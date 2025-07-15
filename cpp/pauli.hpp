@@ -84,7 +84,7 @@ inline static bool site_in_state(int site, int state) { return (state >> site) &
 // This assumes Hsingle contains only diagonal single-particle energies
 // and sums Coulomb interaction for occupied pairs.
 // It uses the same bitmask state convention as current_simple.
-double calculate_state_energy_simple(int state, int nSingle, const double* Hsingle, double W) {
+double calculate_state_energy_simple(int state, int nSingle, const double* Hsingle, const double* Wij, double W) {
     double energy = 0.0;
     // Sum single-particle energies for occupied sites
     for(int i = 0; i < nSingle; i++) {
@@ -98,7 +98,7 @@ double calculate_state_energy_simple(int state, int nSingle, const double* Hsing
             for(int j = i; j < nSingle; j++) {
                 if(j==i){ continue; }
                 if(site_in_state(j, state)) {
-                    energy += W;
+                    energy += (Wij ? Wij[i*nSingle + j] : W);
                 }
             }
         }
@@ -106,7 +106,7 @@ double calculate_state_energy_simple(int state, int nSingle, const double* Hsing
     return energy;
 }
 
-double calculate_state_energy(int state, int nSingle, const double* Hsingle, double W) {
+double calculate_state_energy(int state, int nSingle, const double* Hsingle, const double* Wij, double W) {
     //printf("calculate_state_energy() state: %i nSingle: %i Hsingle: %p W: %f \n", state, nSingle, Hsingle, W );
     double energy = 0.0;
     // Single-particle energies
@@ -136,14 +136,13 @@ double calculate_state_energy(int state, int nSingle, const double* Hsingle, dou
             for(int j = i+1; j < nSingle; j++) {
                 int jmask = site_to_state(j);
                 if(state & jmask) {
-                    energy += W;
+                    energy += (Wij ? Wij[i*nSingle + j] : W);
                 }
             }
         }
     }
     return energy;
 }
-
 
 // Lead parameters
 struct LeadParams {
@@ -152,14 +151,13 @@ struct LeadParams {
     //double gamma; // Coupling strength
 };
 
-
+// === Add member variable =============================================================
 template<typename T> bool _reallocate(T*& ptr, int size) {
     bool b = (ptr != nullptr);
     if(b){ delete[] ptr; }
     ptr = new T[size];
     return b;
 }
-
 
 // Calculate number of occupied sites (charge) for a state
 inline static int state_to_charge(int state, int nSingle) {
@@ -186,7 +184,6 @@ inline static int state_to_charge(int state, int nSingle) {
 //                PauliSolver
 // ==================================================
 
-
 class PauliSolver {
 public:
     // Direct integration of SolverParams data
@@ -202,8 +199,9 @@ public:
     
     // Input parameters that can be modified in a loop
     double* Hsingle = nullptr;    // Single-particle Hamiltonian [nSingle * nSingle]
-    double W        = 0.0;               // Coulomb interaction strength
-    double* TLeads  = nullptr;     // Lead tunneling amplitudes [nleads * nSingle]
+    double  W        = 0.0;       // Coulomb interaction strength (uniform)
+    double* Wij      = nullptr;   // Coulomb interaction matrix [nSingle*nSingle]
+    double* TLeads  = nullptr;    // Lead tunneling amplitudes [nleads * nSingle]
 
     int iLinsolveMode        = 1; // 1: Gass 2: SVD
     int nMaxLinsolveInter    = 50; 
@@ -293,6 +291,7 @@ public:
         coupling      = new double[nleads * nstates * nstates]; if(bMemSet) std::memset(coupling, 0, nleads * nstates * nstates * sizeof(double));
         Hsingle       = new double[nSingle * nSingle];          if(bMemSet) std::memset(Hsingle,       0, nSingle * nSingle * sizeof(double));
         TLeads        = new double[nleads  * nSingle];          if(bMemSet) std::memset(TLeads,        0, nleads  * nSingle * sizeof(double));
+        Wij           = new double[nSingle * nSingle];          if(bMemSet) std::memset(Wij,           0, nSingle * nSingle * sizeof(double)); for(int i = 0; i < nSingle * nSingle; i++) { Wij[i] = 0.0; }
         kernel        = new double[nstates * nstates];          if(bMemSet) std::memset(kernel,        0, nstates * nstates * sizeof(double));
         rhs           = new double[nstates          ];          if(bMemSet) std::memset(rhs,           0, nstates * sizeof(double));
         probabilities = new double[nstates          ];          if(bMemSet) std::memset(probabilities, 0, nstates * sizeof(double));
@@ -304,6 +303,7 @@ public:
         nstates(nstates_),
         nleads(nleads_),
         W(0.0),                // Initialize simple types directly
+        Wij(nullptr),
         pauli_factors(nullptr),
         n_pauli_factors(0),
         ndm1(0),
@@ -334,6 +334,7 @@ public:
     void deep_clone( const PauliSolver* source ){
         // Copy basic parameters
         W = source->W;
+        Wij = nullptr;
         verbosity = source->verbosity;
 
         setLinSolver(source->iLinsolveMode, source->nMaxLinsolveInter, source->LinsolveTolerance);
@@ -360,6 +361,13 @@ public:
             std::memcpy(pauli_factors, source->pauli_factors, n_pauli_factors * sizeof(double));
         }
         
+        // Copy Coulomb interaction matrix
+        if(source->Wij){
+            if(Wij) delete[] Wij;
+            Wij = new double[nSingle*nSingle];
+            std::memcpy(Wij, source->Wij, nSingle*nSingle*sizeof(double));
+        }
+        
         // Copy vectors
         //dm1       = source->dm1;
         ndm1      = source->ndm1;
@@ -382,6 +390,7 @@ public:
         nstates = source->nstates;
         nleads  = source->nleads;
         W       = source->W;
+        Wij     = nullptr;
         alloc(nSingle, nstates, nleads, false);
         deep_clone( source );
     }
@@ -398,6 +407,7 @@ public:
         delete[] state_order;
         delete[] Hsingle;
         delete[] TLeads;
+        delete[] Wij;
     }
 
     // Setter methods for modifying parameters in a loop
@@ -420,6 +430,26 @@ public:
             kernel_updated = false;    // Kernel matrix needs to be recalculated
             if (verbosity > 1) {printf("PauliSolver::setW() - Updated W to %f\n", W);}
         }
+    }
+    
+    // Set the Coulomb interaction matrix Wij (length nSingle*nSingle). Pass nullptr to revert to scalar W.
+    void setWij(const double* newWij){
+        int nTot = nSingle * nSingle;
+        // if(newWij==nullptr){
+        //     if(Wij){ delete[] Wij; Wij=nullptr; }
+        //     energies_updated = false;
+        //     kernel_updated   = false;
+        //     return;
+        // }
+        // if(Wij==nullptr){ Wij = new double[nTot]; }
+        //printf("!!!!!!!!!!!!!!! PauliSolver::setWij() @%p\n", Wij);
+        for(int i = 0; i < nTot; i++){ 
+            //printf("PauliSolver()  %i : %16.12g -> %16.12g\n", i, Wij[i], newWij[i]);
+            Wij[i] = newWij[i]; 
+        }
+        energies_updated = false;
+        kernel_updated   = false;
+        if(verbosity>1){ printf("PauliSolver::setWij() - Updated Wij matrix\n"); }
     }
     
     // Set the lead tunneling amplitudes
@@ -489,7 +519,7 @@ public:
         }
         for(int i = 0; i < nstates; i++) {
             int state_idx = state_order[i];
-            energies[i] = calculate_state_energy(state_idx, nSingle, Hsingle, W);
+            energies[i] = calculate_state_energy(state_idx, nSingle, Hsingle, Wij, W);
             //printf("calculate_state_energies() i: %i state %i energy=%g \n", i, state_idx, energies[i] );
         }
     }
@@ -628,8 +658,8 @@ def construct_Tba(leads, tleads, Tba_=None):
             if (verbosity > 1) { printf("PauliSolver::updateStateEnergies() - Recalculating state energies\n"); }
             for (int i = 0; i < nstates; i++) {
                 int state_idx = state_order[i];
-                if(bSimple){ energies[i] = calculate_state_energy_simple(i        , nSingle, Hsingle, W); }
-                else       { energies[i] = calculate_state_energy       (state_idx, nSingle, Hsingle, W); }
+                if(bSimple){ energies[i] = calculate_state_energy_simple(i        , nSingle, Hsingle, Wij, W); }
+                else       { energies[i] = calculate_state_energy       (state_idx, nSingle, Hsingle, Wij, W); }
                 if (verbosity > 2) { printf("  State %d (raw state %d): Energy = %g\n", i, state_idx, energies[i]); }
             }
             energies_updated = true;

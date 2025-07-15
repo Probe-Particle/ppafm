@@ -98,7 +98,7 @@ def make_site_geom(params):
     rots = ut.makeRotMats(angles, nsite=nsite)
     return spos, rots, angles
 
-def make_grid_axes(fig, nplots, figsize=(12, 8)):
+def make_grid_axes(fig, nplots):
     """
     Create a near-square grid of subplots for nplots axes.
     rows = ceil(sqrt(nplots)), cols = ceil(nplots/rows).
@@ -106,7 +106,7 @@ def make_grid_axes(fig, nplots, figsize=(12, 8)):
     """
     nrows = math.ceil(math.sqrt(nplots))
     ncols = math.ceil(nplots / nrows)
-    axs = fig.subplots(nrows, ncols, figsize=figsize)
+    axs = fig.subplots(nrows, ncols)
     # flatten axes array
     return np.array(axs).flatten()
 
@@ -547,7 +547,7 @@ def scan_tipField_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=
         pTips_v[:,2] = zT
         V2d = pauli.evalSitesTipsMultipoleMirror(pTips_v, pSites=pSites, VBias=V_v.flatten(), E0=Esite, Rtip=Rtip, zV0=zV0, zVd=zVd, bMirror=bMirror, bRamp=bRamp).reshape(nV, nx)
         
-        pu.plot_imshow(ax_xV, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='bwr', bDiverging=True)
+        pu.plot_imshow(ax_xV, V2d, title="Esite(tip_x,tip_V)", extent=[-L, L, min(0.0, VBias), max(0.0, VBias)], ylabel="V [V]", cmap='bwr', bDiverging=True)
         ax_xV.plot(x_coords, V1d,  label='V_tip')
         ax_xV.plot(x_coords, V1d_, label=f'V_tip-E_site({Esite:.3f})')
         ax_xV.plot(x_coords, x_coords*0.0 + VBias, label='VBias')
@@ -576,7 +576,7 @@ def scan_tipField_xV(params, ax_xV=None, ax_Esite=None, ax_I2d=None, nx=100, nV=
             for i, W in enumerate(Woffsets):
                 occup = np.ones_like(Ts); occup[ V2d-W<0.0 ] = 0.0
                 I += Ts * occup
-            pu.plot_imshow(ax_I2d, I, title="Current", extent=[-L, L, 0.0, VBias], ylabel="V [V]", cmap='hot')
+            pu.plot_imshow(ax_I2d, I, title="Current", extent=[-L, L, min(0.0, VBias), max(0.0, VBias)], ylabel="V [V]", cmap='hot')
         ax_I2d.set_aspect('auto')
     
     if ax_Esite is not None:
@@ -734,6 +734,9 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     # Site geometry (positions, rotations, angles)
     spos, rots, angles = make_site_geom(params)
 
+
+
+
     #print( " type(rots) ",  type(rots) )
     # big-to-small hopping computation
     #dcanv=params['L']/params['npix']
@@ -751,7 +754,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         big_npix=int(params.get('big_npix',400))
         Ms,rho=generate_central_hops(orbital_2D,orbital_lvec,spos[:,:2],angles,z_tip,dcanv,big_npix,npix,decay=decay or params.get('decay',0.2))
         print("calculate_xV_scan_orb() Ms (min, max) ", np.min(Ms), np.max(Ms))
-        Ts_orb = np.zeros((npix*npix, nsite), dtype=np.float64)
+        Ts_orb = np.zeros((npix*npix, nsite))
         for i in range(nsite): Ts_orb[:,i]=np.abs(Ms[i].flatten()) #**2
     #Ts_flat = Ts_orb
 
@@ -761,6 +764,8 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     if pauli_solver is None:
         pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
     pauli.set_valid_point_cuts(Tmin, EW)
+    print("!!!!!!!!!!!!!!! scan_xy_orb() befroe setWijCoulomb(): ")
+    pauli.setWijCoulomb(spos, pauli_solver, W0=params['W'])
     
     #T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     #bOmp = True
@@ -816,6 +821,18 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         axs_all = make_grid_axes(fig_probs, n_states)
         plot_state_probabilities(probs, extent=extent, axs=axs_all[:n_states], fig=fig_probs, labels=labels, aspect='equal')
     #T4 = time.perf_counter(); print("Time(scan_xy_orb.4 plotting)",  T4-T3 )        
+
+    print(f"scan_xy_orb() Vbias={params['VBias']} summary:")
+    if dIdV is not None:
+        print("dIdV    min,max: ", np.min(dIdV), np.max(dIdV))
+    print("STM     min,max: ", np.min(STM), np.max(STM))
+    print("Es      min,max: ", np.min(Es), np.max(Es))
+    print("Ts      min,max: ", np.min(Ts), np.max(Ts))
+    print("probs   min,max: ", np.min(probs), np.max(probs))
+    print("stateEs min,max: ", np.min(stateEs), np.max(stateEs))
+
+
+
     return STM, dIdV, Es, Ts, probs, stateEs, spos, rots
 
 def run_scan_xy_orb( params, orbital_file="QD.cub" ):
@@ -953,6 +970,10 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
     nsite = int(params['nsite'])
     # Site geometry (positions, rotations, angles)
     spos, rots, angles = make_site_geom(params)
+
+    print("!!!!!!!!!!!!!!! calculate_xV_scan_orb() befroe setWijCoulomb(): ")
+    pauli.setWijCoulomb(spos, pauli_solver, W0=params['W'])
+
     # Compute hopping Ts along line from orbital data
     c_orb = params['c_orb']  # Default to 1.0 if not specified
     print("calculate_xV_scan_orb() c_orb: ", c_orb)
@@ -1044,6 +1065,14 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
 
     # Plot individual current components if requested
     # reshape flat buffer to [nV, npts, nstate, nstate]
+
+    print("calculate_xV_scan_orb() summary: ")
+    print("STM min,max", np.min(STM), np.max(STM))
+    print("dIdV min,max", np.min(dIdV), np.max(dIdV))
+    print("Es min,max", np.min(Es), np.max(Es))
+    print("Ts min,max", np.min(Ts), np.max(Ts))
+    print("probs min,max", np.min(probs), np.max(probs))
+    print("stateEs min,max", np.min(stateEs), np.max(stateEs))
 
     return STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, current_decomp
 
@@ -1343,12 +1372,11 @@ def sweep_scan_param_pauli_xy_orb_old(params, scan_params, selected_params=None,
     if fig is None:
         fig = plt.figure(figsize=(5*(nscan+1), 5*3))
     
-    # Build figure title with selected parameters (excluding swept ones)
-    title = "Parameter sweep: "
+    # Build figure title with selected parameters
+    
     if selected_params: 
-        title_params = [p for p in selected_params if p not in param_names]
-        if title_params:
-            title += ", ".join([f"{k}={params[k]}" for k in title_params])
+        title = "params "
+        title += " ".join([f"{k}: {params[k]:.4g}" for k in selected_params if k in params])
         fig.suptitle(title, fontsize=12)
     
     # First column: rho (top), Ttot (middle)

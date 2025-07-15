@@ -63,7 +63,7 @@ class ApplicationWindow(GUITemplate):
             'Qzz':           {'group': 'Electrostatic Field', 'widget': 'double', 'range': (-20.0, 20.0), 'value': 10.0,  'step': 0.5},
 
             'Esite':         {'group': 'Transport Solver',  'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.100, 'step': 0.002, 'decimals': 3 },
-            'W':             {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.05,   'step': 0.001, 'decimals': 3 },
+            'W':             {'group': 'Transport Solver',  'widget': 'double', 'range': (-100.0, 100.0),    'value': 0.05,   'step': 0.001, 'decimals': 3 },
             'Temp':          {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 100.0),  'value': 3.0,   'step': 0.05,   'decimals': 2 },
             'decay':         {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 2.0),    'value': 0.3,    'step': 0.1,   'decimals': 2 },
             'GammaS':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3, 'fidget': False },
@@ -510,7 +510,7 @@ class ApplicationWindow(GUITemplate):
 
         #bOmp = True   # Seems that currently it is not working
         bOmp = False
-        
+
         pauli_scan.scan_tipField_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0], bLegend=False)
         #pauli_scan.scan_tipField_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, params['W'], params['W']*2.0])
         # Determine mode: XY plane or xV line comparison
@@ -608,8 +608,11 @@ class ApplicationWindow(GUITemplate):
             Vmax = params['VBias']
             exp_start = (params['ep1_x'], params['ep1_y']); exp_end = (params['ep2_x'], params['ep2_y'])
             exp_dIdV_shifted = self.exp_dIdV - self.zero_shift.value()
-            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I      , self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, Vmax), cmap=pauli_scan.cmap_STM   )
-            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, exp_dIdV_shifted, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, Vmax), cmap=pauli_scan.cmap_dIdV  )
+            #exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I      , self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, Vmax), cmap=pauli_scan.cmap_STM   )
+            #exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, exp_dIdV_shifted, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, Vmax), cmap=pauli_scan.cmap_dIdV  )
+            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I      , self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(min(0, Vmax), max(0, Vmax)), cmap=pauli_scan.cmap_STM   )
+            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, exp_dIdV_shifted, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(min(0, Vmax), max(0, Vmax)), cmap=pauli_scan.cmap_dIdV  )
+  
         else:
             self.plot_experimental_data()
         self.canvas.draw()

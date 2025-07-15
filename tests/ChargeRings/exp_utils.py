@@ -240,7 +240,9 @@ def plot_exp_voltage_line_scan(X, Y, data, biases, start, end, ax=None, title=''
     # Plot experimental dI/dV if axis is provided
     if ax is not None:
         #print("Creating experimental plot...")
-        extent = [dist[0], dist[-1], biases[0], biases[-1]]
+        # Ensure biases are sorted for extent to avoid ValueError in imshow
+        sorted_biases = np.sort(biases)
+        extent = [dist[0], dist[-1], sorted_biases[0], sorted_biases[-1]]
         plot_title = 'Experimental dI/dV'
         if title:
             plot_title += f' {title}'

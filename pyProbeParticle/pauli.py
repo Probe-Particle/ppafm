@@ -12,6 +12,9 @@ bValidateProbabilities = True
 validateProbTol        = 1e-12
 
 
+COULOMB_CONSTANT = 14.399644730092272
+
+
 # Compile and load the C++ library at module level
 def compile_and_load(name='pauli_lib', bASAN=False):
     """Compile and load the C++ library"""
@@ -67,6 +70,10 @@ lib.set_tunneling.restype = None
 # Step 4: Set Hsingle (single-particle Hamiltonian)
 lib.set_hsingle.argtypes = [c_void_p, c_double_p]
 lib.set_hsingle.restype = None
+
+# New: Set Coulomb interaction matrix Wij
+lib.set_wij.argtypes = [c_void_p, c_double_p]
+lib.set_wij.restype = None
 
 # Step 5: Generate Pauli factors
 lib.generate_pauli_factors.argtypes = [c_void_p, c_double, c_int_p]
@@ -216,6 +223,15 @@ class PauliSolver:
     def set_hsingle(self, hsingle):
         hsingle = np.ascontiguousarray(hsingle, dtype=np.float64)
         lib.set_hsingle(self.solver, _np_as(hsingle, c_double_p))
+    
+    def set_Wij(self, Wij):
+        """Set Coulomb interaction matrix Wij (shape [nSingle,nSingle])
+        Pass None to revert to scalar W"""
+        if Wij is None:
+            lib.set_wij(self.solver, None)
+            return
+        Wij = np.ascontiguousarray(Wij, dtype=np.float64)
+        lib.set_wij(self.solver, _np_as(Wij, c_double_p))
     
     def generate_pauli_factors(self, W=0.0, state_order=None):
         lib.generate_pauli_factors(self.solver, W, _np_as(state_order, c_int_p))
@@ -662,3 +678,25 @@ def run_pauli_scan_xV( pTips, Vbiases, pSites, params, order=1, cs=None, rots=No
     #Probs = Probs.reshape(nV,nx,len(state_order))
 
     return current, Es, Ts, Probs, StateEs
+
+def setWijCoulomb(ps, pauli_solver=None, W0=1.0):
+    """set Wij as coulomb matrix
+    buidld Wij from ps (positions, rotations, angles)
+    """
+    print("!!!!!!!!!!!!!! setWijCoulomb() ps.shape: ", ps.shape, "W0 ", W0)
+    nsite = ps.shape[0]
+    Wij = np.zeros((nsite, nsite), dtype=np.float64)
+    WQ = W0 * COULOMB_CONSTANT
+    for i in range(nsite):
+        for j in range(nsite):
+            if i==j: continue
+            ir = 1/np.linalg.norm(ps[i] - ps[j])
+            #Wij[i,j] = Wij[j,i] = WQ * ir
+            Wij[i,j] = Wij[j,i] = WQ * ir*ir*ir
+
+    print("!!!!!!!!!!!!!! setWijCoulomb() Wij:\n", Wij)
+    print("!!!!!!!!!!!!!! setWijCoulomb() Wij (min, max): ", Wij.min(), Wij.max())
+    if pauli_solver is not None:
+        Wij = np.ascontiguousarray(Wij, dtype=np.float64)
+        pauli_solver.set_Wij(Wij)
+    return Wij
