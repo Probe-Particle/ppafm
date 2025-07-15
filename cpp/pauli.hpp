@@ -228,7 +228,10 @@ public:
     double* out_prob_c_leave  = nullptr; // Pointer to external buffer for probability of electron leaving (c -> b)
     double* out_fct1_b_enter  = nullptr; // Pointer to external buffer for factor entering (b -> c)
     double* out_fct2_c_leave  = nullptr; // Pointer to external buffer for factor leaving (c -> b)
+    double* out_kernel        = nullptr; // Pointer to external buffer for kernel matrix (nstates x nstates)
+    
     int   * out_inds          = nullptr; // Pointer to external buffer for state entering (b -> c)
+
 
     std::vector<std::vector<int>> states_by_charge;  // States organized by charge number, like Python's statesdm
     // std::vector<int> state_order;              // Maps original index -> ordered index
@@ -1217,12 +1220,17 @@ def construct_Tba(leads, tleads, Tba_=None):
 
     // Solve the kernel matrix equation
     void solve_kern() {
-        const int n = nstates;
+        const int n  = nstates;
+        const int n2 = n * n;
         
         // Create a copy of kernel matrix since solve() modifies it
         //double* kern_copy = new double[n * n];
         //double* rhs       = new double[n];
 
+        if (bAuxOutput)[[unlikely]] {
+            if (out_kernel ) for(int i=0; i<n2; i++){ out_kernel[i] = kernel[i]; }         
+        }
+        
         // we allocate temps on stack
         double kern_copy[n*n]; std::copy(kernel, kernel + n * n, kern_copy);
         double rhs[n];         std::fill(rhs, rhs + n, 0.0); rhs[0] = 1.0;
@@ -1235,9 +1243,7 @@ def construct_Tba(leads, tleads, Tba_=None):
         
         // Apply normalization condition by replacing the first row with all ones
         // This is equivalent to Python's approach where kern[0] = self.norm_vec
-        for(int j = 0; j < n; j++) {
-            kern_copy[j] = 1.0;
-        }
+        for(int j = 0; j < n; j++) { kern_copy[j] = 1.0; }
         
         // Set up RHS vector with first element = 1, rest = 0
         // This is equivalent to Python's approach where bvec[0] = 1

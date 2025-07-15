@@ -986,12 +986,13 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
         out_prob_c     = np.zeros((nxV,nstate2), dtype=float)
         out_fct_b      = np.zeros((nxV,nstate2), dtype=float)
         out_fct_c      = np.zeros((nxV,nstate2), dtype=float)
+        out_kernel     = np.zeros((nxV,nstate2), dtype=float)
         #out_b          = np.zeros((nxV,nstate2), dtype=np.int32)
         #out_c          = np.zeros((nxV,nstate2), dtype=np.int32)
         #out_Q          = np.zeros((nxV,nstate2), dtype=np.int32)
         out_inds       = np.zeros((10,nstate,nstate), dtype=np.int32)
-        pauli.set_current_matrix_export_pointer(current_matrix, out_prob_b, out_prob_c, out_fct_b, out_fct_c, out_inds)
-        current_decomp = ( current_matrix, (out_prob_b, out_fct_b ), ( out_prob_c, out_fct_c), out_inds )
+        pauli.set_current_matrix_export_pointer(current_matrix, out_prob_b, out_prob_c, out_fct_b, out_fct_c, out_inds, out_kernel)
+        current_decomp = ( current_matrix, (out_prob_b, out_fct_b ), ( out_prob_c, out_fct_c), out_inds, out_kernel )
     else:
         current_decomp = None
 
@@ -1694,6 +1695,21 @@ class NoIndentEncoder(json.JSONEncoder):
         return result
 
 
+def plot_state_matrix( data, ax=None, title=None, threshold=1e-8):
+    nstate1 =  data.shape[1]
+    nstate2 = data.shape [2]
+    print( "data.shape", data.shape, nstate1, nstate2 )
+    if ax is None: fig,ax = plt.subplots()
+    #fct_b = out_fct_b.reshape(500,100,nstate*nstate); fct_b = fct_b[0,-1,:]
+    #fct_b = out_fct_b.reshape(100,500,nstate*nstate); fct_b = fct_b[-1,:,:]
+    #print( "out_fct_b.shape", fct_b.shape )
+    for i in range(nstate1):
+        for j in range(nstate2):
+            if np.max(np.abs(data[:,i,j])) > threshold:
+                ax.plot(     data[:,i,j], label=f"{i},{j}")
+    ax.legend()
+    if title is not None: ax.set_title(title)
+    return ax
 
 if __name__ == "__main__":
 
@@ -1991,7 +2007,8 @@ if __name__ == "__main__":
 
 
 
-    ( current_matrix, (out_prob_b, out_fct_b ), ( out_prob_c, out_fct_c), out_inds ) = current_decomp
+    ( current_matrix, (out_prob_b, out_fct_b ), ( out_prob_c, out_fct_c), out_inds, out_kernel ) = current_decomp
+
 
     # Plot each exported component at selected voltage slice
     state_order = pauli.make_state_order(params['nsite'])
@@ -2000,19 +2017,28 @@ if __name__ == "__main__":
     npts   = len(x)
     nV     = len(Vbiases)
     np.set_printoptions(formatter={'float': lambda x: f"{x:12g}"})
-    print( "out_prob_b: \n", out_prob_b[0].reshape(nstate, nstate) )
-    print( "out_fct_b : \n", out_fct_b [0].reshape(nstate, nstate) )
-    print( "out_prob_c: \n", out_prob_c[0].reshape(nstate, nstate) )
-    print( "out_fct_c : \n", out_fct_c [0].reshape(nstate, nstate) )
-    print( "out_inds[charge]:\n", out_inds[0] )
-    print( "out_inds[b     ]:\n", out_inds[1] )
-    print( "out_inds[c     ]:\n", out_inds[2] )
-    print( "out_inds[bb    ]:\n", out_inds[3] )
-    print( "out_inds[cc    ]:\n", out_inds[4] )
-    print( "out_inds[cb    ]:\n", out_inds[5] )
-    print( "out_inds[idx   ]:\n", out_inds[6] )
+    # print( "out_prob_b: \n", out_prob_b[0].reshape(nstate, nstate) )
+    # print( "out_fct_b : \n", out_fct_b [0].reshape(nstate, nstate) )
+    # print( "out_prob_c: \n", out_prob_c[0].reshape(nstate, nstate) )
+    # print( "out_fct_c : \n", out_fct_c [0].reshape(nstate, nstate) )
+    # print( "out_inds[charge]:\n", out_inds[0] )
+    # print( "out_inds[b     ]:\n", out_inds[1] )
+    # print( "out_inds[c     ]:\n", out_inds[2] )
+    # print( "out_inds[bb    ]:\n", out_inds[3] )
+    # print( "out_inds[cc    ]:\n", out_inds[4] )
+    # print( "out_inds[cb    ]:\n", out_inds[5] )
+    # print( "out_inds[idx   ]:\n", out_inds[6] )
 
     iv = np.argmin(np.abs(Vbiases - V_slice_scan))  # index of closest voltage slice
+
+
+
+
+    plot_state_matrix( out_kernel.reshape((nV, npts, nstate, nstate))[iv,:,:,:] )
+
+    plt.show(); exit()
+
+
 
 
     # Prepare data for 1D state plot
@@ -2067,7 +2093,6 @@ if __name__ == "__main__":
 
     colors    =[ state_styles[label][0] for label in labels_set]
     linestyles=[ state_styles[label][1] for label in labels_set]
-    
 
 
     print( "Es.shape", Es.shape )
@@ -2079,7 +2104,7 @@ if __name__ == "__main__":
     tunneling_labels = [f"T_site_{i+1}" for i in range(Ts.shape[2])]
     plot_1d_data_grid(distance, Es[iv,:,:], ax=axs[0,0], labels=site_labels,      ylabel="Energy [eV]",      title="Single-particle Site Energies", colors=['b','g','r'] )
     plot_1d_data_grid(distance, Ts[iv,:,:], ax=axs[0,1], labels=tunneling_labels, ylabel="Tunneling [a.u.]", title="Single-particle Tip Tunneling", colors=['b','g','r'] )
-    plot_1d_data_grid(distance, stateEs_1d, ax=axs[1,0], labels=labels_set,       ylabel="Energy [eV]",      title="Many-body State Energies", colors=colors, linestyles=linestyles)
+    plot_1d_data_grid(distance, stateEs_1d, ax=axs[1,0], labels=labels_set,       ylabel="Energy [eV]",      title="Many-body State Energies",      colors=colors, linestyles=linestyles)
     plot_1d_data_grid(distance, probs_1d,   ax=axs[1,1], labels=labels_set,       ylabel="Probability",      title="Many-body State Probabilities", colors=colors, linestyles=linestyles)
     #)
     plt.tight_layout()
@@ -2125,6 +2150,7 @@ if __name__ == "__main__":
     # --- End of JSON prep ---
     
     if current_decomp:
+        print("\n\n\n--- Decomposed Current Components ---\n\n\n")
         (current_matrix, (out_prob_b, out_fct_b), (out_prob_c, out_fct_c), out_inds) = current_decomp
         
         npts = len(x)
@@ -2134,6 +2160,17 @@ if __name__ == "__main__":
         print("\n--- Decomposed Current Components at specific x-points ---")
         iv = json_output_data['scan_info']['voltage_slice_index']
         print(f"Voltage slice V = {Vbiases[iv]:.3f} V (index iv={iv})")
+
+
+        plt.figure()
+        #fct_b = out_fct_b.reshape(500,100,nstate*nstate); fct_b = fct_b[0,-1,:]
+        fct_b = out_fct_b.reshape(100,500,nstate*nstate); fct_b = fct_b[-1,:,:]
+        print( "out_fct_b.shape", fct_b.shape )
+        for i in range(nstate*nstate):
+            if np.max(np.abs(fct_b[:])) > 1e-12:
+                plt.plot(fct_b[:], label=f"fct_b_{i}")
+        plt.legend()
+        plt.show()
 
         for idx, x_spec in enumerate(xs_spec):
             # Find the index of the closest x-coordinate in the scan
@@ -2157,6 +2194,8 @@ if __name__ == "__main__":
             stateEs_   = stateEs[iv, ix, :]
             pTips_     = pTips[ix]
 
+
+            
             spec_data = {
                 'x_spec_requested': x_spec,
                 'x_actual': actual_x,

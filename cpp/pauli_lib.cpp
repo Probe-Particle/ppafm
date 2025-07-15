@@ -20,6 +20,7 @@ double* g_out_prob_b_enter  = nullptr; // Pointer to external buffer for probabi
 double* g_out_prob_c_leave  = nullptr; // Pointer to external buffer for probability of electron leaving (c -> b)
 double* g_out_fct1_b_enter  = nullptr; // Pointer to external buffer for factor entering (b -> c)
 double* g_out_fct2_c_leave  = nullptr; // Pointer to external buffer for factor leaving (c -> b)
+double* g_out_kernel        = nullptr; // Pointer to external buffer for kernel matrix (nstates x nstates)
 int   * g_out_inds  = nullptr; // Pointer to external buffer for state entering (b -> c)
 
 
@@ -37,13 +38,14 @@ void setLinSolver(void* solver_ptr, int iLinsolveMode, int nMaxLinsolveInter, do
 }
 
 // C function to set the pointer for the current matrix
-void set_current_matrix_pointer(double* ptr, double* out_prob_b_enter, double* out_prob_c_leave, double* out_fct1_b_enter, double* out_fct2_c_leave, int* out_inds) {
+void set_current_matrix_pointer(double* ptr, double* out_prob_b_enter, double* out_prob_c_leave, double* out_fct1_b_enter, double* out_fct2_c_leave, int* out_inds, double* out_kernel) {
     g_current_matrix_ptr = ptr;
     g_out_prob_b_enter   = out_prob_b_enter;
     g_out_prob_c_leave   = out_prob_c_leave;
     g_out_fct1_b_enter   = out_fct1_b_enter;
     g_out_fct2_c_leave   = out_fct2_c_leave;
     g_out_inds           = out_inds;
+    g_out_kernel         = out_kernel;
 }
 
 // C wrapper: include zV1 and build Vec2d
@@ -453,6 +455,7 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
         if(g_out_prob_c_leave  ){ solver->out_prob_c_leave = g_out_prob_c_leave + ip*nstate2; }
         if(g_out_fct1_b_enter  ){ solver->out_fct1_b_enter = g_out_fct1_b_enter + ip*nstate2; }
         if(g_out_fct2_c_leave  ){ solver->out_fct2_c_leave = g_out_fct2_c_leave + ip*nstate2; }
+        if(g_out_kernel        ){ solver->out_kernel       = g_out_kernel       + ip*nstate2; }
         if(g_out_inds          ){ solver->out_inds         = g_out_inds; if(ip==0){ solver->bOutIndex = true; }else{ solver->bOutIndex = false; } }
 
         double current = solve_hsingle(solver, hsingle, W, 1, 0); // Pass address of local solver
