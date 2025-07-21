@@ -16,7 +16,7 @@ The Python package is named as `ppafm`.
 The standard way of installing `ppafm` is:
 
 ```bash
-$ pip install ppafm
+pip install ppafm
 ```
 
 This should install the package and all its dependencies.
@@ -48,8 +48,8 @@ To run them, navigate to the directory and run the `run.sh` script.
 For example:
 
 ```bash
-$ cd examples/PTCDA_single
-$ ./run.sh
+cd examples/PTCDA_single
+./run.sh
 ```
 
 You can study the script to see how to run the simulation.
