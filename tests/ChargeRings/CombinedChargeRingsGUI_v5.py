@@ -85,10 +85,15 @@ class ApplicationWindow(GUITemplate):
             #'R_minor':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 10.0, 'step': 0.1},
             
             # simulation end-points for 1D scan
-            'p1_x':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5,'fidget': False},
-            'p1_y':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -9.96, 'step': 0.5,'fidget': False},
-            'p2_x':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5,'fidget': False},
-            'p2_y':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  12.0, 'step': 0.5,'fidget': False},
+            # 'p1_x':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5,'fidget': False},
+            # 'p1_y':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -9.96, 'step': 0.5,'fidget': False},
+            # 'p2_x':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -11.0, 'step': 0.5,'fidget': False},
+            # 'p2_y':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  12.0, 'step': 0.5,'fidget': False},
+
+            'p1_x':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  0.0,  'step': 0.5,'fidget': False},
+            'p1_y':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -20.0,  'step': 0.5,'fidget': False},
+            'p2_x':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  0.0, 'step': 0.5,'fidget': False},
+            'p2_y':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  20.0, 'step': 0.5,'fidget': False},
             
             # Experimental end-points for 1D scan 
             'exp_slice':     {'group': 'Data Cuts', 'widget': 'int',    'range': (0, 13),        'value': 10,    'step': 1},

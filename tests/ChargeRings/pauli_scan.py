@@ -350,7 +350,8 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, stateEs=None,
     bRef = (ref_data_line is not None and ref_columns is not None)
 
     ax_Es = fig.add_subplot(nsub,1,1)
-    clrs = ['r', 'g', 'b']
+    #clrs = ['r', 'g', 'b']
+    clrs = plt.cm.get_cmap('tab10', nsite)(range(nsite))
     for i in range(nsite):
         ax_Es.plot(distance, Es[:, i], '-', linewidth=0.5, color=clrs[i], label=f'E_{i+1}')
         if bRef:
@@ -380,7 +381,6 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, stateEs=None,
     current_subplot_idx = 4
     if bProbs:
         ax_probs = fig.add_subplot(nsub,1,current_subplot_idx)
-        nsite = probs.shape[1] # Assuming probs is 2D (npoints, nstates)
         state_order = pauli.make_state_order(nsite)
         labels = pauli.make_state_labels(state_order)
         for idx in range(probs.shape[1]): ax_probs.plot(distance, probs[:,idx], label=labels[idx])
@@ -390,8 +390,7 @@ def plot_1d_scan_results(distance, Es, Ts, STM, nsite, probs=None, stateEs=None,
         current_subplot_idx += 1
 
     if bStateEs:
-        ax_stateEs = fig.add_subplot(nsub,1,current_subplot_idx)
-        nsite = stateEs.shape[1] # Assuming stateEs is 2D (npoints, nstates)
+        ax_stateEs = fig.add_subplot(nsub,1,current_subplot_idx)# Assuming stateEs is 2D (npoints, nstates)
         state_order = pauli.make_state_order(nsite)
         labels = pauli.make_state_labels(state_order)
         for idx in range(stateEs.shape[1]):
@@ -725,6 +724,8 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         ax_dIdV: Axis for dI/dV plot
         decay: Optional decay parameter for orbital calculations
     """
+
+    print("scan_xy_orb() nsite ", params['nsite'])
 
     T0 = time.perf_counter()
 

@@ -400,7 +400,7 @@ def make_state_order(nsite):
         #order = np.array([0, 4, 2, 6, 1, 5, 3, 7], dtype=np.int32)  # use with  PauliSolver::eval_lead_coupling_QmeQ()        PauliSolver::bUseQmeQOrder=Trye 
         order = np.array([0, 1, 2, 3, 4, 5, 6, 7], dtype=np.int32)   # use with  PauliSolver::eval_lead_coupling_natural()     PauliSolver::bUseQmeQOrder=False 
     else:
-        print("make_state_order: default identity ordering for nsite", nsite)
+        print(f"make_state_order: default identity ordering for nsite: {nsite} Nstates: {Nstates}")
         order = np.arange(Nstates, dtype=np.int32)
     return order
 
@@ -551,9 +551,12 @@ def run_pauli_scan(pTips, Vtips, pSites, cpp_params, order, cs, rots=None, bOmp=
 
 
 def run_pauli_scan_top( spos, rots, params, pauli_solver=None, bOmp=False, cs=None, Ts=None, state_order=None ):
+
     npix   = params['npix']
     L      = params['L']
     nsite  = params['nsite']
+
+    print("run_pauli_scan_top() nsite ", nsite)
 
     # --- Prepare inputs for run_pauli_scan --- 
     # Site positions and rotations
