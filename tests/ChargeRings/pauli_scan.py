@@ -698,10 +698,10 @@ def scan_xy(params, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, 
 
 def interpolate_hopping_maps(T1, T2, c=1.0, T0=1.0):
     # Combine tunneling models
+    max1 = T1.max()
     if T2 is None: 
         print("interpolate_hopping_maps(): Warrning: No T2 provided, returning T1")
-        return T1
-    max1 = T1.max()
+        return T1*(T0/max1)
     max2 = T2.max()
     print( "interpolate_hopping_maps() max1, max2: ", max1, max2, " c: ", c, " T0: ", T0)
     return T0 * ( (c/max2)*T2 + ((1-c)/max1)*T1 )
@@ -754,6 +754,8 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
         Ts_orb = np.zeros((npix*npix, nsite), dtype=np.float64)
         for i in range(nsite): Ts_orb[:,i]=np.abs(Ms[i].flatten()) #**2
     #Ts_flat = Ts_orb
+
+
 
     Ts_flat = interpolate_hopping_maps(Ts_gauss, Ts_orb, c=c_orb, T0=params['T0'])
     
@@ -1071,7 +1073,7 @@ def plot_current_components(current_matrix, ax, distance, V_slice, state_labels,
 
 
 
-def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_components=None, prob_scale=200.0, V_slice=None, alpha_prob=1.0, comp_thresh=1e-12, bNormalize=False,  figsize=(12,12), height_ratios=[1,3], ylims=None, state_styles=None):
+def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_components=None, prob_scale=200.0, V_slice=None, alpha_prob=1.0, comp_thresh=1e-12, bNormalize=False,  figsize=(12,13), height_ratios=[1,3], ylims=None, state_styles=None, dIdV=None):
     """
     Plots many-body state energies and their probabilities along a 1D scan line.
     Energies are plotted as lines, and probabilities are represented by the size of scatter points on top.
@@ -1139,11 +1141,27 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
             ax1.stackplot(distance, *comp_list, labels=comp_labels, alpha=0.6)
         ax1.plot(distance, currents, color='black', linewidth=2, label='Total Current')
         ax1.set_ylabel('Component Current')
-        ax1.legend(title='Transitions', bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax1.legend(title='Transitions', bbox_to_anchor=(1.10, 1), loc='upper left')
         ax1.set_xlim(xmin, xmax)
+        Imax = np.max(np.abs(currents))
+        ax1.set_ylim(0,Imax*2.0)
         # ax1.set_title(f'Current Components (V={V_slice:.2f}V)')
         # ax1.set_xlabel('Distance [Å]')
         # ax1.grid(True)
+        # twing axis for dIdV
+        ax2c = ax1.twinx()
+        if dIdV is not None:
+            ax2c.plot(distance, dIdV, color='red', linewidth=1.5)
+            ax2c.set_ylabel('dI/dV')
+            # axiscolor='red'
+            ax2c.spines['right'].set_color('red')
+            ax2c.tick_params(axis='y', colors='red')
+            #ax2c.legend(loc='upper right')
+            Gmin = np.min(dIdV)
+            Gmax = np.max(dIdV)
+            ax2c.set_ylim(Gmin*3.0,Gmax)
+            ax2c.set_xlim(xmin, xmax)
+            ax2c.axhline(y=0, color='red', linestyle='--', linewidth=1.0)
     else:
         fig, ax = plt.subplots(1, 1, figsize=figsize)
     # Background stacked plot of normalized state probabilities on twin axis
@@ -1184,7 +1202,7 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
         i = re_order[ii]
         prob_mask = probs[:, i] > 1e-3
         if np.any(prob_mask):
-            ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=alpha_prob, edgecolors='none', zorder=1.)
+            ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=alpha_prob, edgecolors='none', marker='|', zorder=1.)
             #ax.scatter(distance[prob_mask], stateEs[prob_mask, i], s=probs[prob_mask, i] * prob_scale, color=colors[i], alpha=0.3, edgecolors=None, linewidth=0.5)
     for ii in range(n_states):
         i = re_order[ii]
@@ -1849,7 +1867,7 @@ if __name__ == "__main__":
     "wt": 10.0,
     "At": -0.1,
     "c_orb": 0.4,
-    "T0": 0.3,
+    "T0": 0.003,
     "L": 20.0,
     "npix": 200,
     "dQ": 0.02,
@@ -2034,9 +2052,8 @@ if __name__ == "__main__":
 
 
 
-    plot_state_matrix( out_kernel.reshape((nV, npts, nstate, nstate))[iv,:,:,:] )
-
-    plt.show(); exit()
+    #plot_state_matrix( out_kernel.reshape((nV, npts, nstate, nstate))[iv,:,:,:] )
+    #plt.show(); exit()
 
 
 
@@ -2113,7 +2130,7 @@ if __name__ == "__main__":
 
 
     #fig, (ax1, ax2) = plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan)    # supplement
-    fig, (ax1, ax2) = plot_state_scan_1d(distance, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan, ylims=(-0.08,0.0), height_ratios=(1,1), figsize=(8,8), state_styles=state_styles )   # For Main Text
+    fig, (ax1, ax2) = plot_state_scan_1d(distance, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan, ylims=(-0.08,0.0), height_ratios=(1,1), figsize=(8,8), state_styles=state_styles, dIdV=dIdV[iv,:] )   # For Main Text
     # Save the figure with appropriate formatting
     plt.figure(fig.number)  # Make sure the figure is active
     plt.tight_layout()      # Adjust layout for better appearance
@@ -2151,7 +2168,7 @@ if __name__ == "__main__":
     
     if current_decomp:
         print("\n\n\n--- Decomposed Current Components ---\n\n\n")
-        (current_matrix, (out_prob_b, out_fct_b), (out_prob_c, out_fct_c), out_inds) = current_decomp
+        (current_matrix, (out_prob_b, out_fct_b), (out_prob_c, out_fct_c), out_inds, out_kernel) = current_decomp
         
         npts = len(x)
         nsite = params['nsite']
@@ -2162,15 +2179,15 @@ if __name__ == "__main__":
         print(f"Voltage slice V = {Vbiases[iv]:.3f} V (index iv={iv})")
 
 
-        plt.figure()
-        #fct_b = out_fct_b.reshape(500,100,nstate*nstate); fct_b = fct_b[0,-1,:]
-        fct_b = out_fct_b.reshape(100,500,nstate*nstate); fct_b = fct_b[-1,:,:]
-        print( "out_fct_b.shape", fct_b.shape )
-        for i in range(nstate*nstate):
-            if np.max(np.abs(fct_b[:])) > 1e-12:
-                plt.plot(fct_b[:], label=f"fct_b_{i}")
-        plt.legend()
-        plt.show()
+        # plt.figure()
+        # #fct_b = out_fct_b.reshape(500,100,nstate*nstate); fct_b = fct_b[0,-1,:]
+        # fct_b = out_fct_b.reshape(100,500,nstate*nstate); fct_b = fct_b[-1,:,:]
+        # print( "out_fct_b.shape", fct_b.shape )
+        # for i in range(nstate*nstate):
+        #     if np.max(np.abs(fct_b[:])) > 1e-12:
+        #         plt.plot(fct_b[:], label=f"fct_b_{i}")
+        # plt.legend()
+        # plt.show()
 
         for idx, x_spec in enumerate(xs_spec):
             # Find the index of the closest x-coordinate in the scan
@@ -2194,8 +2211,6 @@ if __name__ == "__main__":
             stateEs_   = stateEs[iv, ix, :]
             pTips_     = pTips[ix]
 
-
-            
             spec_data = {
                 'x_spec_requested': x_spec,
                 'x_actual': actual_x,
@@ -2217,26 +2232,26 @@ if __name__ == "__main__":
 
             #np.set_printoptions(precision=10, suppress=False, linewidth=200)
             np.set_printoptions(formatter={'float': lambda x: f"{x:12g}"})
-            print("  - Current Matrix (I_ij):\n",    cur_matrix)
-            print("  - Probability Enter (P_b):\n",  prob_b)
-            print("  - Factor Enter (f_b):\n",       fct_b)
-            print("  - Probability Leave (P_c):\n",  prob_c)
-            print("  - Factor Leave (f_c):\n",       fct_c)
-            print("  - labels_nat: ", labels_nat)
-            print("  - labels_set    : ", labels_set)
-            print("  - probabilities : ", probs_)
-            print("  - stateEs       : ", stateEs_)
-            print("  - STM           : ", STM_)
-            print("  - Es            : ", Es_)
-            print("  - Ts            : ", Ts_)
-            print("  - pTips         : ", pTips_)
+            # print("  - Current Matrix (I_ij):\n",    cur_matrix)
+            # print("  - Probability Enter (P_b):\n",  prob_b)
+            # print("  - Factor Enter (f_b):\n",       fct_b)
+            # print("  - Probability Leave (P_c):\n",  prob_c)
+            # print("  - Factor Leave (f_c):\n",       fct_c)
+            # print("  - labels_nat: ", labels_nat)
+            # print("  - labels_set    : ", labels_set)
+            # print("  - probabilities : ", probs_)
+            # print("  - stateEs       : ", stateEs_)
+            # print("  - STM           : ", STM_)
+            # print("  - Es            : ", Es_)
+            # print("  - Ts            : ", Ts_)
+            # print("  - pTips         : ", pTips_)
 
             # --- Add consistency check ---
-            print("\n  --- Consistency Check (reordering probabilities to match stateEs) ---")
+            #print("\n  --- Consistency Check (reordering probabilities to match stateEs) ---")
             #perm_nat_to_set = make_permut(labels_from=labels_nat, labels_to=labels_set)
             #print_cols( [np.array(labels_set), stateEs_, probs_[perm_nat_to_set]], headers=["labels_set", "stateEs", "probs_reordered"] )
             #print_cols( [np.array(labels_nat), stateEs_[perm_set_to_nat], probs_], headers=["labels_nat",  "stateEs_reordered", "probs"] )
-            print_cols( [np.array(labels_nat), stateEs_[perm_set_to_nat], probs_[perm_set_to_nat]], headers=["labels_nat",  "stateEs_reordered", "probs"] )
+            #print_cols( [np.array(labels_nat), stateEs_[perm_set_to_nat], probs_[perm_set_to_nat]], headers=["labels_nat",  "stateEs_reordered", "probs"] )
             stateEs_extracted.append(stateEs[iv, ix, :])
 
     # --- Save JSON file ---

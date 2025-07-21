@@ -282,9 +282,9 @@ class ApplicationWindow(GUITemplate):
         self.layout0.addWidget(zero_shift_box)
 
         # Connect mouse events
-        self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
-        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
-        self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
+        # self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
+        # self.canvas.mpl_connect('motion_notify_event', self.on_mouse_motion)
+        # self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
         
         # Plot reference data path
         self.draw_reference_line(self.ax4)
@@ -430,7 +430,8 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
         self.exp_idx = params['exp_slice']        
         # Create a wrapper for our draw_exp_scan_line method
-        #def draw_scan_line_wrapper(ax): self.draw_exp_scan_line(ax)
+        def draw_scan_line_wrapper(ax):
+            self.draw_exp_scan_line(ax)
         
         draw_scan_line_wrapper = None
 
@@ -590,7 +591,7 @@ class ApplicationWindow(GUITemplate):
                 L = params['L']
                 extent = [-L/2, L/2, -L/2, L/2]
                 pauli_scan.plot_state_probabilities(stateEs, extent=extent, fig=figE, aspect='equal')
-            #self.draw_scan_line(self.ax4); self.draw_reference_line(self.ax4); self.plot_ellipses(self.ax9, params)
+            self.draw_scan_line(self.ax4); self.draw_reference_line(self.ax4); self.plot_ellipses(self.ax9, params)
             #self.plot_experimental_data()
             for i,rot in enumerate(rots):
                 x, y = spos[i][0], spos[i][1]
@@ -614,18 +615,18 @@ class ApplicationWindow(GUITemplate):
             self.plot_experimental_data()
         self.canvas.draw()
 
-
-    def calculate_1d_scan(self, start_point, end_point, pointPerAngstrom=5 ):
-        params = self.get_param_values()
-        distance, Es, Ts, STM, x, y, x1, y1, x2, y2, probs = pauli_scan.calculate_1d_scan( params, start_point, end_point, pointPerAngstrom, pauli_solver=self.pauli_solver )
+    def calculate_1d_scan(self, params, pointPerAngstrom=5):
+        start_point = (params['p1_x'], params['p1_y'])
+        end_point = (params['p2_x'], params['p2_y'])
+        distance, Es, Ts, current, x, y, x1, y1, x2, y2, probs, stateEs = pauli_scan.calculate_1d_scan(params, start_point, end_point, pointPerAngstrom, pauli_solver=self.pauli_solver)
         nsite = int(params['nsite'])
         ref_data_line = getattr(self, 'ref_data_line', None)
-        ref_columns   = getattr(self, 'ref_columns', None)
-        fig=pauli_scan.plot_1d_scan_results( distance, Es, Ts, STM, nsite, probs=probs, ref_data_line=ref_data_line, ref_columns=ref_columns )
+        ref_columns = getattr(self, 'ref_columns', None)
+        fig = pauli_scan.plot_1d_scan_results(distance, Es, Ts, current, nsite, probs=probs, ref_data_line=ref_data_line, ref_columns=ref_columns)
         fig.canvas.draw()
         self.manage_prob_window(fig, '1dScan')
-        pauli_scan.save_1d_scan_data   ( params, distance, x, y, Es, Ts, STM, nsite, x1, y1, x2, y2 )
-        return distance, Es, Ts, STM, x, y, x1, y1, x2, y2
+        pauli_scan.save_1d_scan_data(params, distance, x, y, Es, Ts, current, nsite, x1, y1, x2, y2)
+        return distance, Es, Ts, current, x, y, x1, y1, x2, y2, probs, stateEs
 
     def plot_voltage_line_scan_exp(self, start, end, pointPerAngstrom=5):
         """Plot simulated charge and experimental dI/dV along a line scan for different voltages"""
@@ -719,60 +720,206 @@ class ApplicationWindow(GUITemplate):
         ax.plot( [self.ref_data_line[0,ix], self.ref_data_line[-1,ix]], [self.ref_data_line[0,iy], self.ref_data_line[-1,iy]], 'bo', markersize=5, alpha=0.7)
         self.canvas.draw()
 
+    def get_param_values(self):
+        """Override parent method to include checkbox states"""
+        params = super().get_param_values()
+        params['bMirror'] = self.cbMirror.isChecked()
+        params['bRamp'] = self.cbRamp.isChecked()
+        params['nsite'] = self.nsite
+        # Include geometry file if loaded
+        if self.geometry_file:
+            params['geometry_file'] = self.geometry_file
+        return params
+
+    def run(self):
+        """Main calculation and plotting function"""
+        params = self.get_param_values()
+        T_eV = params['Temp']*kBoltz
+        self.pauli_solver.set_lead(0, 0.0, T_eV) # for lead 0 (substrate)
+        self.pauli_solver.set_lead(1, 0.0, T_eV) # for lead 1 (tip)
+        #self.pauli_solver.print_lead_params()
+        self.pauli_solver.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12 )
+        pauli.bValidateProbabilities = False
+
+        self.ax1.cla(); self.ax2.cla(); self.ax3.cla() 
+        self.ax4.cla(); self.ax5.cla(); self.ax6.cla()
+        
+        # Prepare probabilities window
+        if self.cbShowProbs.isChecked():
+            figp = plt.figure(figsize=(4*3, 2*3))
+            self.manage_prob_window(figp, 'scanXY')
+        else:
+            figp = None
+        # Prepare energies window
+        if self.cbShowEnergies.isChecked():
+            # number of site energies maps
+            n = int(params['nsite'])
+            rows = (n+1)//2
+            figE = plt.figure(figsize=(4*n, 3*rows))
+            self.manage_prob_window(figE, 'Energies')
+        else:
+            figE = None
+
+        #bOmp = True   # Seems that currently it is not working
+        bOmp = False
+        
+        pauli_scan.scan_tipField_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, -params['W'], -params['W']*2.0], bLegend=False)
+        #pauli_scan.scan_tipField_xV(params, ax_Esite=self.ax1, ax_xV=self.ax2, ax_I2d=self.ax3, Woffsets=[0.0, params['W'], params['W']*2.0])
+        # Determine mode: XY plane or xV line comparison
+        if self.cbPlotXV.isChecked():
+            Vmax = params['VBias']
+            if self.exp_biases is not None:
+                Vmax = self.exp_biases[-1]
+            # xV simulation + experimental line comparison in main axes
+            # clear target axes
+            self.ax5.cla(); self.ax6.cla(); self.ax8.cla(); self.ax9.cla()
+            # simulation along p1-p2
+            sim_start = (params['p1_x'], params['p1_y'])
+            sim_end   = (params['p2_x'], params['p2_y'])
+            dist = np.hypot(sim_end[0]-sim_start[0], sim_end[1]-sim_start[1])
+            orbital_2D, orbital_lvec = self.getOrbIfChecked()
+            STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, *_ = pauli_scan.calculate_xV_scan_orb(
+                params,
+                start_point=sim_start,
+                end_point=sim_end,
+                orbital_2D=orbital_2D,
+                orbital_lvec=orbital_lvec,
+                pauli_solver=self.pauli_solver,
+                ax_Emax=None,
+                ax_STM=self.ax5,
+                ax_dIdV=self.ax6,
+                nx=100,
+                nV=100,
+                Vmin=0.0,
+                Vmax=Vmax,
+                fig_probs=figp,
+                bOmp=bOmp
+            )
+            x = pTips[:,0]
+            self.ax5.set_title('Sim STM (xV)'); self.ax6.set_title('Sim dI/dV (xV)')
+
+            
+            # plot site energies maps if requested
+            if figE:
+                state_order_labels = pauli.make_state_order(params['nsite'])
+                labels = pauli.make_state_labels(state_order_labels)
+                pauli_scan.plot_state_maps(stateEs, extent=[0, dist, 0, Vmax], fig=figE, labels=labels, map_type='energy')
+                
+                # line plot of state energies at maximum voltage
+                figCut = plt.figure()
+                axCut = figCut.add_subplot(1,1,1)
+                state_order = pauli.make_state_order(params['nsite'])
+                labels = pauli.make_state_labels(state_order)
+                for idx in range(stateEs.shape[2]):
+                    axCut.plot(x, stateEs[-1,:,idx], label=labels[idx])
+                axCut.set_xlabel('Distance')
+                axCut.set_ylabel('Energy [eV]')
+                axCut.set_title(f'Energy vs Distance at V={Vmax}')
+                axCut.legend()
+                self.manage_prob_window(figCut, 'xV Cut')
+
+
+
+            # experimental line scans on ax8 (I) and ax9 (dIdV)
+            
+            # if self.bExpLoaded:
+            #     exp_dIdV_shifted = self.exp_dIdV - self.zero_shift.value()
+            #     exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I      , self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, Vmax), cmap=pauli_scan.cmap_STM   )
+            #     exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, exp_dIdV_shifted, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, Vmax), cmap=pauli_scan.cmap_dIdV  )
+            #else:
+            #    self.ax8.text(0.5,0.5,"No experimental data",ha='center',transform=self.ax8.transAxes)
+            #    self.ax9.text(0.5,0.5,"No experimental data",ha='center',transform=self.ax9.transAxes)
+            #self.ax8.set_title('Exp I (xV)'); self.ax9.set_title('Exp dI/dV (xV)')
+        else:
+            # original XY plane simulation + experimental overlay
+            orbital_2D, orbital_lvec = self.getOrbIfChecked()
+            STM, dIdV, Es, Ts, probs, stateEs, spos, rots = pauli_scan.scan_xy_orb(
+                params, orbital_2D=orbital_2D, orbital_lvec=orbital_lvec, pauli_solver=self.pauli_solver,
+                ax_Etot=self.ax4, ax_Ttot=self.ax7, ax_STM=self.ax5, ax_dIdV=self.ax6, fig_probs=figp, bOmp=bOmp
+            )
+            # plot site energies maps if requested
+            if figE:
+                L = params['L']
+                extent = [-L/2, L/2, -L/2, L/2]
+                pauli_scan.plot_state_probabilities(stateEs, extent=extent, fig=figE, aspect='equal')
+            self.draw_scan_line(self.ax4); self.draw_reference_line(self.ax4); self.plot_ellipses(self.ax9, params)
+            #self.plot_experimental_data()
+            for i,rot in enumerate(rots):
+                x, y = spos[i][0], spos[i][1]
+                self.ax4.plot([x, x+rot[0][0]], [y, y+rot[0][1]])
+        
+        self.update_exp_plot(params)
+        self.fig.tight_layout()
+        self.canvas.draw()
+        return STM, dIdV, Es, Ts, probs, stateEs, spos, rots
+    
+    def update_exp_plot(self, params=None):
+        if not self.bExpLoaded: return
+        if params is None: params = self.get_param_values()
+        if self.cbPlotXV.isChecked():
+            Vmax = params['VBias']
+            exp_start = (params['ep1_x'], params['ep1_y']); exp_end = (params['ep2_x'], params['ep2_y'])
+            exp_dIdV_shifted = self.exp_dIdV - self.zero_shift.value()
+            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, self.exp_I      , self.exp_biases, exp_start, exp_end, ax=self.ax8, ylims=(0, Vmax), cmap=pauli_scan.cmap_STM   )
+            exp_utils.plot_exp_voltage_line_scan(self.exp_X, self.exp_Y, exp_dIdV_shifted, self.exp_biases, exp_start, exp_end, ax=self.ax9, ylims=(0, Vmax), cmap=pauli_scan.cmap_dIdV  )
+        else:
+            self.plot_experimental_data()
+        self.canvas.draw()
+
     def run_1d_scan_p1p2(self):
         """Run 1D scan using p1 and p2 points from parameters"""
         params = self.get_param_values()
         p1 = (params['p1_x'], params['p1_y'])
         p2 = (params['p2_x'], params['p2_y'])
         
-        self.calculate_1d_scan(p1, p2)
+        self.calculate_1d_scan(params)
         
-    def on_mouse_press(self, event):
-        """Handle mouse button press event"""
-        if event.inaxes in [self.ax4, self.ax7]:  # Energy plot or experimental dI/dV
-            self.clicking = True
-            self.start_point = (event.xdata, event.ydata)
-            print(f"Mouse press in {'energy plot' if event.inaxes == self.ax4 else 'experimental plot'} at {self.start_point}")
+    # def on_mouse_press(self, event):
+    #     """Handle mouse button press event"""
+    #     if event.inaxes in [self.ax4, self.ax7]:  # Energy plot or experimental dI/dV
+    #         self.clicking = True
+    #         self.start_point = (event.xdata, event.ydata)
+    #         print(f"Mouse press in {'energy plot' if event.inaxes == self.ax4 else 'experimental plot'} at {self.start_point}")
 
-    def on_mouse_motion(self, event):
-        """Handle mouse motion event"""
-        if self.clicking and event.inaxes in [self.ax4, self.ax7]:
-            # Remove old line if it exists
-            if self.line_artist:
-                self.line_artist.remove()
-            # Draw line from start point to current point
-            self.line_artist = event.inaxes.plot([self.start_point[0], event.xdata], [self.start_point[1], event.ydata], 'r-')[0]
-            self.canvas.draw()
+    # def on_mouse_motion(self, event):
+    #     """Handle mouse motion event"""
+    #     if self.clicking and event.inaxes in [self.ax4, self.ax7]:
+    #         # Remove old line if it exists
+    #         if self.line_artist:
+    #             self.line_artist.remove()
+    #         # Draw line from start point to current point
+    #         self.line_artist = event.inaxes.plot([self.start_point[0], event.xdata], [self.start_point[1], event.ydata], 'r-')[0]
+    #         self.canvas.draw()
 
-    def on_mouse_release(self, event):
-        """Handle mouse button release event"""
-        if not self.clicking or event.inaxes is None:
-            return
+    # def on_mouse_release(self, event):
+    #     """Handle mouse button release event"""
+    #     if not self.clicking or event.inaxes is None:
+    #         return
             
-        end_point = (event.xdata, event.ydata)
-        self.clicking = False
+    #     end_point = (event.xdata, event.ydata)
+    #     self.clicking = False
         
-        print(f"Mouse release in subplot {event.inaxes}")
-        print(f"Start point: {self.start_point}")
-        print(f"End point: {end_point}")
+    #     print(f"Mouse release in subplot {event.inaxes}")
+    #     print(f"Start point: {self.start_point}")
+    #     print(f"End point: {end_point}")
         
-        if event.inaxes == self.ax4:  # Energy plot (2,1)
-            print("Processing energy plot line scan")
-            self.calculate_1d_scan(self.start_point, end_point)
-        elif event.inaxes == self.ax7:  # Experimental dI/dV plot (3,2)
-            print("Processing experimental plot voltage scan")
-            try:
-                self.plot_voltage_line_scan_exp(self.start_point, end_point)
-            except Exception as e:
-                print(f"Error in plot_voltage_line_scan_exp: {str(e)}")
-                import traceback
-                traceback.print_exc()
+    #     if event.inaxes == self.ax4:  # Energy plot (2,1)
+    #         print("Processing energy plot line scan")
+    #         self.calculate_1d_scan(self.start_point, end_point)
+    #     elif event.inaxes == self.ax7:  # Experimental dI/dV plot (3,2)
+    #         print("Processing experimental plot voltage scan")
+    #         try:
+    #             self.plot_voltage_line_scan_exp(self.start_point, end_point)
+    #         except Exception as e:
+    #             print(f"Error in plot_voltage_line_scan_exp: {str(e)}")
+    #             import traceback
+    #             traceback.print_exc()
         
-        self.start_point = None
-        if self.line_artist:
-            self.line_artist.remove()
-            self.line_artist = None
-        self.canvas.draw()
+    #     self.start_point = None
+    #     if self.line_artist:
+    #         self.line_artist.remove()
+    #         self.line_artist = None
+    #     self.canvas.draw()
     
     def manage_prob_window(self, fig, key):
         """Parent probability window to main GUI and bring to front."""
