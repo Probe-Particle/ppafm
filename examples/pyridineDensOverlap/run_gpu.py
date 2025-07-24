@@ -15,7 +15,7 @@ oclu.init_env(i_platform=0)
 FFcl.bRuntime = True  # Print timings
 
 # Load all input files
-rho_tip, xyzs_tip, Zs_tip = FFcl.TipDensity.from_file("tip/CHGCAR.xsf")
+rho_tip, xyzs_tip, Zs_tip = FFcl.TipDensity.from_file("tip/density_CO.xsf")
 pot, xyzs, Zs = FFcl.HartreePotential.from_file("sample/LOCPOT.xsf", scale=-1.0)  # Scale=-1.0 for correct units of potential (V) instead of energy (eV)
 rho_sample, _, _ = FFcl.ElectronDensity.from_file("sample/CHGCAR.xsf")
 
