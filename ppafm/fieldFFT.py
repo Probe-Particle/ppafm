@@ -31,20 +31,20 @@ def getSize(inp_axis, dims, sampleSize):
 def getMGrid(dims, dd):
     "returns coordinate arrays X, Y, Z"
     (dx, dy, dz) = dd
-    nDim = [dims[2], dims[1], dims[0]]
+    nDim = [dims[0], dims[1], dims[2]]
     XYZ = np.mgrid[0 : nDim[0], 0 : nDim[1], 0 : nDim[2]].astype(float)
     # fmt: off
-    xshift = nDim[2]//2;  xshift_ = xshift;
+    xshift = nDim[0]//2;  xshift_ = xshift;
     yshift = nDim[1]//2;  yshift_ = yshift;
-    zshift = nDim[0]//2;  zshift_ = zshift;
+    zshift = nDim[2]//2;  zshift_ = zshift;
 
-    if( nDim[2]%2 != 0 ):  xshift_ += 1.0
+    if( nDim[0]%2 != 0 ):  xshift_ += 1.0
     if( nDim[1]%2 != 0 ):  yshift_ += 1.0
-    if( nDim[0]%2 != 0 ):  zshift_ += 1.0
+    if( nDim[2]%2 != 0 ):  zshift_ += 1.0
 
-    X = dx*np.roll( XYZ[2] - xshift_, xshift, axis=2)
+    X = dx*np.roll( XYZ[0] - xshift_, xshift, axis=0)
     Y = dy*np.roll( XYZ[1] - yshift_, yshift, axis=1)
-    Z = dz*np.roll( XYZ[0] - zshift_, zshift, axis=0)
+    Z = dz*np.roll( XYZ[2] - zshift_, zshift, axis=2)
     # fmt: on
     return X, Y, Z
 
@@ -142,7 +142,7 @@ def addCoreDensity(rho, val, x, y, z, sigma=0.1):
 def addCoreDensities(atoms, valElDict, rho, lvec, sigma=0.1):
     sampleSize = getSampleDimensions(lvec)
     nDim = rho.shape
-    dims = (nDim[2], nDim[1], nDim[0])
+    dims = (nDim[0], nDim[1], nDim[2])
     xsize, dx = getSize("x", dims, sampleSize)
     ysize, dy = getSize("y", dims, sampleSize)
     zsize, dz = getSize("z", dims, sampleSize)
@@ -261,7 +261,7 @@ def potential2forces(V, lvec, nDim, sigma=0.7, rho=None, multipole=None, tilt=0.
     if verbose > 0:
         print("--- Preprocessing ---")
     sampleSize = getSampleDimensions(lvec)
-    dims = (nDim[2], nDim[1], nDim[0])
+    dims = (nDim[0], nDim[1], nDim[2])
     xsize, dx = getSize("x", dims, sampleSize)
     ysize, dy = getSize("y", dims, sampleSize)
     zsize, dz = getSize("z", dims, sampleSize)
@@ -287,7 +287,7 @@ def potential2forces(V, lvec, nDim, sigma=0.7, rho=None, multipole=None, tilt=0.
 def potential2forces_mem(V, lvec, nDim, sigma=0.7, rho=None, multipole=None, doForce=True, doPot=False, deleteV=True, tilt=0.0):
     print("--- Preprocessing ---")
     sampleSize = getSampleDimensions(lvec)
-    dims = (nDim[2], nDim[1], nDim[0])
+    dims = (nDim[0], nDim[1], nDim[2])
 
     xsize, dx = getSize("x", dims, sampleSize)
     ysize, dy = getSize("y", dims, sampleSize)
