@@ -4,12 +4,18 @@
 [![Documentation Status](https://readthedocs.org/projects/ppafm/badge/?version=latest)](https://ppafm.readthedocs.io/en/latest/?badge=latest)
 [![PyPI-downloads](https://img.shields.io/pypi/dm/ppafm.svg?style=flat)](https://pypistats.org/packages/ppafm)
 
-
 # Probe-Particle Model
 
 Simple and efficient simulation software for high-resolution atomic force microscopy (HR-AFM) and other scanning probe microscopy (SPM) techniques with sub-molecular resolution (STM, IETS, TERS).
 It simulates the deflection of the probe particle attached to the tip, where the probe particle represents a flexible tip apex (typically CO molecule, but also e.g. Xe, Cl-, H2O and others).
 The Python package is named as `ppafm`.
+
+## Documentation
+
+* [readthedocs](https://ppafm.readthedocs.io/en/latest/?badge=latest)
+* Auto-generated:
+   * [DeepWiki](https://deepwiki.com/Probe-Particle/ppafm)
+   * [Context7](https://context7.com/probe-particle/ppafm/llms.txt)
 
 ## Installation
 
