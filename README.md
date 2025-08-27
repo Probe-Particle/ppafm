@@ -15,7 +15,7 @@ The Python package is named as `ppafm`.
 * [readthedocs](https://ppafm.readthedocs.io/en/latest/?badge=latest)
 * Auto-generated:
    * [DeepWiki](https://deepwiki.com/Probe-Particle/ppafm)
-   * [Context7](https://context7.com/probe-particle/ppafm/llms.txt) 
+   * [Context7](https://context7.com/probe-particle/ppafm/llms.txt)
 
 ## Installation
 
