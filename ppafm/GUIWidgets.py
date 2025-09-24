@@ -147,7 +147,9 @@ class FigImshow(FigCanvas):
                     print("plotSlice: reset points")
             else:
                 for p, (ix, iy) in zip(self.axes.lines, points):
-                    p.set_data((ix, iy))
+                    x = np.atleast_1d(ix)
+                    y = np.atleast_1d(iy)
+                    p.set_data(x, y)
 
         if cbar_range:
             if self.cbar == None:
