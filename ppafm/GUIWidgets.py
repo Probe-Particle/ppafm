@@ -175,10 +175,10 @@ class FigImshow(FigCanvas):
         if margins:
             self.axes.add_patch(
                 matplotlib.patches.Rectangle(
-                    (margins[0], margins[1]), F.shape[1] - margins[2] - margins[0], F.shape[0] - margins[3] - margins[1], linewidth=2, edgecolor="r", facecolor="none"
+                    (margins[0], margins[1]), F.shape[0] - margins[2] - margins[0], F.shape[1] - margins[3] - margins[1], linewidth=2, edgecolor="r", facecolor="none"
                 )
             )
-            textRes = "output size: " + str(F.shape[1] - margins[2] - margins[0]) + "x" + str(F.shape[0] - margins[3] - margins[1])
+            textRes = "output size: " + str(F.shape[0] - margins[2] - margins[0]) + "x" + str(F.shape[1] - margins[3] - margins[1])
             if slice_length:
                 textRes += "     length [A] =" + f"{slice_length[0]:03.4f}, {slice_length[1]:03.4f}"
             self.axes.set_xlabel(textRes)
@@ -204,8 +204,8 @@ class FigImshow(FigCanvas):
             F = F * (1 - alpha) + big_len_image * alpha
         self.img = self.axes.imshow(F, origin="lower", cmap="viridis", interpolation="bicubic")
 
-        j_min, i_min = np.unravel_index(F.argmin(), F.shape)
-        j_max, i_max = np.unravel_index(F.argmax(), F.shape)
+        i_min, j_min = np.unravel_index(F.argmin(), F.shape)
+        i_max, j_max = np.unravel_index(F.argmax(), F.shape)
 
         if margins:
             self.axes.add_patch(matplotlib.patches.Rectangle((margins[0], margins[1]), margins[2], margins[3], linewidth=2, edgecolor="r", facecolor="none"))
@@ -214,8 +214,8 @@ class FigImshow(FigCanvas):
                 textRes += "     length [A] =" + f"{slice_length[0]:03.4f}, {slice_length[1]:03.4f}"
             self.axes.set_xlabel(textRes)
 
-        self.axes.set_xlim(0, F.shape[1])
-        self.axes.set_ylim(0, F.shape[0])
+        self.axes.set_xlim(0, F.shape[0])
+        self.axes.set_ylim(0, F.shape[1])
         self.axes.set_title(title)
         if grid_selector > 0:
             self.axes.grid(True, linestyle="dotted", color="blue")

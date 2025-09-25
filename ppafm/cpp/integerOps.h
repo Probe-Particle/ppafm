@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-// ========= index poerations and modulo-math ===========
+// ========= index operations and modulo-math ===========
 
 inline int wrap_index_fast( int i, int n){
     if(i<0){ return n+i; }else if (i>=n){ return i-n; };
