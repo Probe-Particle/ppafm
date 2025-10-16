@@ -628,7 +628,7 @@ class AFMulator:
                     "the size of the scan window and the force field grid."
                 )
 
-    def plot_images(self, X, outdir="afm_images", prefix="df"):
+    def plot_images(self, X, outdir="afm_images", prefix="df", **plot_kwargs):
         """
         Plot simulated AFM images and save them to a directory.
 
@@ -636,6 +636,7 @@ class AFMulator:
             X: np.ndarray. AFM images to plot.
             outdir: str. Path to directory where files are saved.
             prefix: str. Prefix string for saved files.
+            plot_kwargs: Additional keyword arguments passed to :func:`.plotImages`.
         """
         if not os.path.exists(outdir):
             os.makedirs(outdir)
@@ -652,14 +653,7 @@ class AFMulator:
             self.scan_window[0][1],
             self.scan_window[1][1],
         ]
-        plotImages(
-            os.path.join(outdir, prefix),
-            X,
-            slices=list(range(0, len(X))),
-            zs=zTips,
-            extent=extent,
-            cmap=self.colorscale,
-        )
+        plotImages(os.path.join(outdir, prefix), X, slices=list(range(0, len(X))), zs=zTips, extent=extent, cmap=self.colorscale, **plot_kwargs)
 
 
 def _get_params(file_path):
