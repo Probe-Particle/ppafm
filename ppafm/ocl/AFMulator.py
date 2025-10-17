@@ -722,7 +722,7 @@ def _get_params(file_path):
     return afmulator_params, sample_lvec
 
 
-def get_lvec(scan_window, pad=(3.0, 3.0, 3.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrome=10):
+def get_lvec(scan_window, pad=(3.0, 3.0, 5.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrome=10):
     pad = np.array(pad)
     tipR0 = np.array(tipR0)
     center = (np.array(scan_window[0]) + np.array(scan_window[1])) / 2
