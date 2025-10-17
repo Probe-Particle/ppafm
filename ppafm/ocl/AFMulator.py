@@ -653,6 +653,11 @@ class AFMulator:
             self.scan_window[0][1],
             self.scan_window[1][1],
         ]
+
+        for key in ["F", "slices", "extent", "zs", "cmap"]:
+            if key in plot_kwargs:
+                warnings.warn(f"plot_images(): '{key}' found in plot_kwargs but is  set internally, removing from plot_kwargs.")
+                del plot_kwargs[key]
         plotImages(os.path.join(outdir, prefix), X, slices=list(range(0, len(X))), zs=zTips, extent=extent, cmap=self.colorscale, **plot_kwargs)
 
 
