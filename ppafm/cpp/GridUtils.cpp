@@ -36,8 +36,6 @@ extern "C" {
 
         FILE *f;
         char line[5000]; // define a length which is long enough to store a line
-        char *waste;
-        int waste2;
         long i=0, j=0, k=0, tot=0;
         int nx=dims[0];
         int ny=dims[1];
@@ -49,14 +47,12 @@ extern "C" {
             fprintf(stderr, "Can't open the file %s", fname);
             exit (1);
         }
-        for (i=0; i<noline; i++) {
-            waste=fgets(line,5000, f);
-        }
+        for (i=0; i<noline; i++) fgets(line,5000, f);
 //       printf ("Line: %s", line);
         for  (tot=0, k=0; k<dims[2]; k++){
             for (j=0; j<dims[1]; j++){
                 for (i=0; i<dims[0]; i++){
-                    waste2=fscanf(f,"%lf",&numbers[tot]);
+                    fscanf(f,"%lf",&numbers[tot]);
                     //printf ("%20.20lf ", numbers[tot]);
                     //printf ("%i %i %i %f \n", k, j, i, numbers[tot] );
                     tot++;
@@ -151,7 +147,7 @@ extern "C" {
 	DLLEXPORT void sphericalHist( double * data_, double* center, double dr, int n, double* Hs, double* Ws ){
 	    data = data_; Histogram::n = n; Histogram::Hs=Hs; Histogram::Ws=Ws; Histogram::dx = dr; Histogram::center.set(center[0],center[1],center[2]);
         Vec3d r0; r0.set(0.0,0.0,0.0);
-        interateGrid3D<acum_sphere_hist>( r0, gridShape.n, gridShape.dCell, NULL );
+        iterateGrid3D<acum_sphere_hist>( r0, gridShape.n, gridShape.dCell, NULL );
 	}
 
 	// ---------  find center of mass
@@ -165,7 +161,7 @@ extern "C" {
 	DLLEXPORT double cog( double * data_, double* center ){
 	    data = data_; Histogram::Htot += 0;  Histogram::center.set(0.0);
         Vec3d r0; r0.set(0.0,0.0,0.0);
-        interateGrid3D<acum_cog>( r0, gridShape.n, gridShape.dCell, NULL );
+        iterateGrid3D<acum_cog>( r0, gridShape.n, gridShape.dCell, NULL );
         Histogram::center.mul( 1/Histogram::Htot  );
         ((Vec3d*)center)->set(Histogram::center);
         return Histogram::Htot;
@@ -181,7 +177,7 @@ extern "C" {
 
 	DLLEXPORT void setGridN( int * n ){
 		//gridShape.n.set( *(Vec3i*)n );
-		gridShape.n.set( n[2], n[1], n[0] );
+		gridShape.n.set( n[0], n[1], n[2] );
 		printf( " nxyz  %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
 	}
 

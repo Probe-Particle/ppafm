@@ -141,7 +141,6 @@ def main(argv=None):
                     dirname + "/xy" + atoms_str + cbar_str,
                     pp_positions[:, :, :, 0],
                     pp_positions[:, :, :, 1],
-                    slices=list(range(0, len(pp_positions))),
                     BG=pp_positions[:, :, :, 2],
                     extent=extent,
                     atoms=atoms,
@@ -164,7 +163,6 @@ def main(argv=None):
                 PPPlot.plotImages(
                     dirname + "/IETS" + atoms_str + cbar_str,
                     iets,
-                    slices=list(range(0, len(iets))),
                     zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
@@ -177,7 +175,6 @@ def main(argv=None):
                 PPPlot.plotImages(
                     dirname + "/Evib" + atoms_str + cbar_str,
                     e_vib[:, :, :, 0],
-                    slices=list(range(0, len(iets))),
                     zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
@@ -190,7 +187,6 @@ def main(argv=None):
                 PPPlot.plotImages(
                     dirname + "/Kvib" + atoms_str + cbar_str,
                     16.0217662 * eigenvalue_k[:, :, :, 0],
-                    slices=list(range(0, len(iets))),
                     zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
@@ -206,7 +202,6 @@ def main(argv=None):
                 PPPlot.plotImages(
                     dirname + "/OutI" + atoms_str + cbar_str,
                     current,
-                    slices=list(range(0, len(current))),
                     zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
@@ -224,14 +219,14 @@ def main(argv=None):
             else:
                 # Prepare to calculate KPFM/LCPD
                 # For each pixel, find a,b,c such that df = aV^2 + bV + c
-                # This is done as polynomial (2nd order) regression, the above equality need not be exact
+                # This is done as polynomial (2nd order) regression, the above equality needs not be exact
                 # but the least-square criterion will be used.
                 # The coefficients a,b,c are going to be determined as linar combinations of df(V) at different biases:
                 #   a = Sum_i w_KPFM_a (V_i)
                 #   b = Sum_i w_KPFM_b (V_i)
                 #   c = Sum_i w_KPFM_c (V_i)
                 # Now, the coefficients (weights) w_KPFM have to be determined.
-                # This will be done with the help of Gram-sSchmidt ortogonalization:
+                # This will be done with the help of Gram-Schmidt ortogonalization:
                 # Create vectors v0, v1, v2,
                 #   v0 = [1]_(i=1..N),
                 #   v1 = [V_i]_(i=1..N,)
@@ -316,7 +311,7 @@ def main(argv=None):
                         if applied_bias:
                             r_tip = parameters.Rtip
                             for iz, z in enumerate(tip_positions_z):
-                                fzs[iz, :, :] = fzs[iz, :, :] - np.pi * parameters.permit * ((r_tip * r_tip) / ((z - args.z0) * (z + r_tip))) * (voltage - args.V0) * (
+                                fzs[:, :, iz] = fzs[:, :, iz] - np.pi * parameters.permit * ((r_tip * r_tip) / ((z - args.z0) * (z + r_tip))) * (voltage - args.V0) * (
                                     voltage - args.V0
                                 )
                         dfs = common.Fz2df(
@@ -344,7 +339,6 @@ def main(argv=None):
                         PPPlot.plotImages(
                             dir_name_amplitude + "/df" + atoms_str + cbar_str,
                             dfs,
-                            slices=list(range(0, len(dfs))),
                             zs=tip_positions_z + parameters.Amplitude / 2.0,
                             extent=extent,
                             cmap=parameters.colorscale,
@@ -371,7 +365,6 @@ def main(argv=None):
                         PPPlot.plotImages(
                             dir_name_amplitude + "/df_laplace" + atoms_str + cbar_str,
                             df_laplace_filtered,
-                            slices=list(range(0, len(dfs))),
                             zs=tip_positions_z + parameters.Amplitude / 2.0,
                             extent=extent,
                             cmap=parameters.colorscale,
@@ -405,7 +398,6 @@ def main(argv=None):
                     PPPlot.plotImages(
                         dir_name_lcpd + "/LCPD" + atoms_str + cbar_str,
                         lcpd,
-                        slices=list(range(0, len(lcpd))),
                         zs=tip_positions_z + parameters.Amplitude / 2.0,
                         extent=extent,
                         cmap=parameters.colorscale_kpfm,
@@ -422,7 +414,6 @@ def main(argv=None):
                     PPPlot.plotImages(
                         dir_name_lcpd + "/_Asym-LCPD" + atoms_str + cbar_str,
                         lcpd,
-                        slices=list(range(0, len(lcpd))),
                         zs=tip_positions_z + parameters.Amplitude / 2.0,
                         extent=extent,
                         cmap=parameters.colorscale_kpfm,
@@ -459,7 +450,6 @@ def main(argv=None):
                 PPPlot.plotImages(
                     dirname + "/Fz" + atoms_str + cbar_str,
                     fzs,
-                    slices=list(range(0, len(fzs))),
                     zs=tip_positions_z,  # + parameters.Amplitude / 2.0, # no oscillation to the force
                     extent=extent,
                     cmap=parameters.colorscale,

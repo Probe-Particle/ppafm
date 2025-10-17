@@ -9,7 +9,7 @@ import ppafm.fieldFFT as fFFT
 from ppafm import io
 
 from .. import common, core
-from ..HighLevel import prepareArrays, relaxedScan3D
+from ..HighLevel import relaxedScan3D, setFF
 
 file_format = "xsf"
 
@@ -34,10 +34,8 @@ parameters.gridB = lvec_t[2]
 parameters.gridC = lvec_t[3]  # must be before parseAtoms
 print(parameters.gridN, parameters.gridA, parameters.gridB, parameters.gridC)
 
-force_field, _ = prepareArrays(None, False)
-
+force_field, _ = setFF(None, False, lvec=lvec_t, parameters=parameters)
 print("FFLJ.shape", force_field.shape)
-core.setFF_shape(np.shape(force_field), lvec_t, parameters=parameters)
 
 base_dir = os.getcwd()
 paths = ["out1", "out2"]

@@ -156,6 +156,6 @@ lib.ReadNumsUpTo_C.restype = c_int
 
 
 def readNumsUpTo(filename, dimensions, noline):
-    N_arry = np.zeros((dimensions[0] * dimensions[1] * dimensions[2]), dtype=np.double)
-    lib.ReadNumsUpTo_C(filename.encode(), N_arry, dimensions, noline)
-    return N_arry
+    N_array = np.zeros((dimensions[0] * dimensions[1] * dimensions[2]), dtype=np.double)
+    lib.ReadNumsUpTo_C(filename.encode(), N_array, dimensions, noline)
+    return N_array
