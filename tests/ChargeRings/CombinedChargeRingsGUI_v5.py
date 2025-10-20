@@ -49,7 +49,7 @@ class ApplicationWindow(GUITemplate):
 
             #'nsite':         {'group': 'Geometry',     'widget': 'int',    'range': (1, 10),       'value': 3},
             'radius':        {'group': 'Geometry',     'widget': 'double', 'range': (1.0, 20.0),   'value': 5.2, 'step': 0.5},
-            'phiRot':        {'group': 'Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.3, 'step': 0.1},
+            'phiRot':        {'group': 'Geometry',     'widget': 'double', 'range': (-10.0, 10.0), 'value': 1.5, 'step': 0.1},
             'phi0_ax':       {'group': 'Geometry',     'widget': 'double', 'range': (-3.14, 3.14), 'value': 0.2, 'step': 0.1},
 
             # Tip Parameters
@@ -459,7 +459,9 @@ class ApplicationWindow(GUITemplate):
     def draw_exp_scan_line(self, ax):
         """Draw line between ep1 and ep2 points in the Experimental panel"""
         if self.exp_scan_line_artist:
-            self.exp_scan_line_artist.remove()
+            if getattr(self.exp_scan_line_artist, 'axes', None) is not None:
+                self.exp_scan_line_artist.remove()
+            self.exp_scan_line_artist = None
         params = self.get_param_values()
         ep1 = (params['ep1_x'], params['ep1_y'])
         ep2 = (params['ep2_x'], params['ep2_y'])
@@ -699,7 +701,9 @@ class ApplicationWindow(GUITemplate):
     def draw_scan_line(self, ax):
         """Draw line between p1 and p2 points in the Energies panel"""
         if self.scan_line_artist:
-            self.scan_line_artist.remove()
+            if getattr(self.scan_line_artist, 'axes', None) is not None:
+                self.scan_line_artist.remove()
+            self.scan_line_artist = None
             
         params = self.get_param_values()
         p1 = (params['p1_x'], params['p1_y'])
@@ -952,6 +956,7 @@ class ApplicationWindow(GUITemplate):
         # Save figure PNG
         STM, dIdV, Es, Ts, probs, stateEs, spos, rots = self.run()
         self.canvas.figure.savefig(base + '.png')
+        self.grab().save(base + '_gui.png')
         data = { 
             'spos': spos, 'STM': STM, 'dIdV': dIdV, 'Es': Es, 'Ts': Ts, 'probs': probs,
             'params_json': json.dumps(params)

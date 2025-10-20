@@ -6,6 +6,17 @@ import matplotlib.colors as mcolors
 import matplotlib.cm as cm
 import matplotlib as mpl
 
+
+def _register_cmap(name, cmap):
+    if hasattr(mpl, 'colormaps') and name in mpl.colormaps:
+        return mpl.colormaps[name]
+    if hasattr(cm, 'cmap_d') and name in cm.cmap_d:
+        return cm.cmap_d[name]
+    if hasattr(cm, 'register_cmap'):
+        cm.register_cmap(name=name, cmap=cmap)
+    else:
+        mpl.colormaps.register(cmap, name=name)
+
 colors_vanimo = np.array(
           [[1, 0.80346, 0.99215],      
            [0.99397, 0.79197, 0.98374],      
@@ -266,9 +277,9 @@ colors_vanimo = np.array(
 
 # -------- vanimo and vanimo_inv
 vanimo_cmap = ListedColormap( colors_vanimo, name='vanimo')
-cm.register_cmap(name='vanimo', cmap=vanimo_cmap)
+_register_cmap(name='vanimo', cmap=vanimo_cmap)
 vanimo_cmap_inv = ListedColormap( colors_vanimo[::-1], name='vanimo_r')
-cm.register_cmap(name='vanimo_r', cmap=vanimo_cmap_inv)
+_register_cmap(name='vanimo_r', cmap=vanimo_cmap_inv)
 
 # -------- Invert PiYG
 # original_cmap = mpl.cm.get_cmap('PiYG')
@@ -304,7 +315,7 @@ def create_diverging_map(cmap_name1, cmap_name2, n_colors_per_half=128, name_suf
     new_cmap_name = f"{name1_clean}-w-{name2_clean}{name_suffix}"
     
     new_cmap = mcolors.ListedColormap(combined_colors, name=new_cmap_name)
-    cm.register_cmap(name=new_cmap_name, cmap=new_cmap)
+    _register_cmap(name=new_cmap_name, cmap=new_cmap)
     print(f"Registered colormap: {new_cmap_name}")
     return new_cmap
 
