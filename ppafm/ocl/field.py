@@ -12,6 +12,7 @@ from ..common import genFFSampling
 from ..defaults import d3
 from ..fieldFFT import getProbeDensity
 from ..HighLevel import _getAtomsWhichTouchPBCcell, subtractCoreDensities
+from ..logging_utils import get_logger, get_perf_logger, perf_log_enabled
 
 try:
     from reikna import cluda
@@ -36,8 +37,8 @@ def init(env):
     oclu = env
 
 
-verbose = 0
-bRuntime = False
+logger = get_logger("ocl.field")
+perf_logger = get_perf_logger("ocl.field")
 
 
 def makeDivisibleUp(num, divisor):
@@ -175,8 +176,7 @@ class DataGrid:
         if self._cl_array is None:
             self._cl_array = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=self.array)
             self.nbytes += 4 * np.prod(self.shape)
-            if verbose > 0:
-                print(f"DataGrid.nbytes {self.nbytes}")
+            logger.debug(f"DataGrid.nbytes {self.nbytes}")
         return self._cl_array
 
     def update_array(self, array, lvec):
@@ -189,8 +189,7 @@ class DataGrid:
         if self._cl_array is not None:
             current_size = np.prod(self.shape)
             if array.size > current_size:
-                if verbose > 0:
-                    print(f"Reallocating buffers. Old size = {current_size}, new size = {array.size}")
+                logger.debug(f"Reallocating buffers. Old size = {current_size}, new size = {array.size}")
                 self._cl_array = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY, 4 * array.size)
                 self.nbytes += 4 * (array.size - current_size)
             self._enqueue_event = cl.enqueue_copy(oclu.queue, self._cl_array, array, is_blocking=False)
@@ -227,10 +226,10 @@ class DataGrid:
 
         file_path = str(file_path)
         if file_path.endswith(".cube"):
-            data, lvec, _, _ = io.loadCUBE(file_path, xyz_order=True, verbose=False)
+            data, lvec, _, _ = io.loadCUBE(file_path, xyz_order=True)
             Zs, x, y, z, _ = io.loadAtomsCUBE(file_path)
         elif file_path.endswith(".xsf"):
-            data, lvec, _, _ = io.loadXSF(file_path, xyz_order=True, verbose=False)
+            data, lvec, _, _ = io.loadXSF(file_path, xyz_order=True)
             try:
                 (Zs, x, y, z, _), _, _ = io.loadXSFGeom(file_path)
             except ValueError:
@@ -395,7 +394,10 @@ class DataGrid:
             grid_out: Same type as self. New data grid with result.
         """
 
-        if bRuntime:
+        queue = queue or oclu.queue
+
+        if perf_log_enabled():
+            queue.finish()
             t0 = time.perf_counter()
 
         array_in = self.cl_array
@@ -409,7 +411,6 @@ class DataGrid:
         else:
             scale = np.float32(1.0)
 
-        queue = queue or oclu.queue
         global_size = [int(np.ceil(n / local_size[0]) * local_size[0])]
 
         # fmt: off
@@ -422,8 +423,9 @@ class DataGrid:
         )
         # fmt: on
 
-        if bRuntime:
-            print("runtime(DataGrid.power_positive) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            queue.finish()
+            perf_logger.info(f"power_positive [s]: {time.perf_counter() - t0}")
 
         return grid_out
 
@@ -681,8 +683,7 @@ class MultipoleTipDensity(TipDensity):
         super().__init__(array, lvec, ctx)
 
     def _make_tip_density(self, lvec, shape, center, sigma, multipole, tilt):
-        if bRuntime:
-            t0 = time.perf_counter()
+        t0 = time.perf_counter()
 
         lvec_len = np.linalg.norm(lvec, axis=1)
         center = np.array(center)
@@ -699,8 +700,7 @@ class MultipoleTipDensity(TipDensity):
         step = lvec_len / shape
         rho = getProbeDensity(lvec, X, Y, Z, step, sigma=sigma, multipole_dict=multipole, tilt=tilt)
 
-        if bRuntime:
-            print("runtime(MultipoleTipDensity._make_tip_density) [s]: ", time.perf_counter() - t0)
+        perf_logger.info(f"_make_tip_density [s]: {time.perf_counter() - t0}")
 
         return rho.astype(np.float32)
 
@@ -726,8 +726,7 @@ class FFTCrossCorrelation:
         self._make_transforms()
         self._make_fft()
         self._set_rho(rho)
-        if verbose > 0:
-            print(f"FFTCrossCorrelation.nbytes {self.nbytes}")
+        logger.debug(f"FFTCrossCorrelation.nbytes {self.nbytes}")
 
     # https://github.com/fjarri/reikna/issues/57
     def _make_transforms(self):
@@ -771,7 +770,9 @@ class FFTCrossCorrelation:
         # fmt: on
 
     def _make_fft(self):
-        if bRuntime:
+
+        if perf_log_enabled():
+            self.queue.finish()
             t0 = time.perf_counter()
 
         thr = ocl_api().Thread(self.queue)
@@ -789,8 +790,9 @@ class FFTCrossCorrelation:
         fft_i.parameter.output.connect(self.c2r, self.c2r.input, new_output=self.c2r.output, scale=self.c2r.scale)
         self.fft_i = fft_i.compile(thr)
 
-        if bRuntime:
-            print("runtime(FFTCrossCorrelation._make_fft) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            self.queue.finish()
+            perf_logger.info(f"_make_fft [s]: {time.perf_counter() - t0}")
 
     def _set_rho(self, rho):
         self.rho = rho
@@ -811,7 +813,8 @@ class FFTCrossCorrelation:
             E: :class:`DataGrid`. Result of cross-correlation.
         """
 
-        if bRuntime:
+        if perf_log_enabled():
+            self.queue.finish()
             t0 = time.perf_counter()
 
         if isinstance(array, DataGrid):
@@ -825,25 +828,23 @@ class FFTCrossCorrelation:
             assert E.shape == self.shape, "E data grid shape does not match"
             E_cl = E.cl_array
 
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
-            print("runtime(FFTCrossCorrelation.correlate.pre) [s]: ", time.perf_counter() - t0)
+            perf_logger.info(f"correlate.pre [s]: {time.perf_counter() - t0}")
 
         # Do cross-correlation
         self.fft_f(output=self.pot_hat_cl, new_input=array, inverse=0)
         self.fft_i(new_output=E_cl, new_input1=self.rho_hat_cl, new_input2=self.pot_hat_cl, scale=scale * self.rho.cell_vol, inverse=1)
 
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
-            print("runtime(FFTCrossCorrelation.correlate) [s]: ", time.perf_counter() - t0)
+            perf_logger.info(f"correlate [s]: {time.perf_counter() - t0}")
 
         return E
 
 
 class ForceField_LJC:
     """Evaluate Lennard-Jones based force fields on an OpenCL device."""
-
-    verbose = 0
 
     def __init__(self):
         self.ctx = oclu.ctx
@@ -912,7 +913,7 @@ class ForceField_LJC:
     ):
         """Allocate all necessary buffers in device memory."""
 
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
             t0 = time.perf_counter()
 
@@ -946,8 +947,7 @@ class ForceField_LJC:
             nb = self.nDim[0] * self.nDim[1] * self.nDim[2] * 4 * nb_float
             self.cl_FE = cl.Buffer(self.ctx, mf.WRITE_ONLY, nb)
             nbytes += nb
-            if self.verbose > 0:
-                print(" forcefield.prepareBuffers() :  self.cl_FE  ", self.cl_FE)
+            logger.debug(f" forcefield.prepareBuffers() :  self.cl_FE  {self.cl_FE}")
         if pot is not None:
             assert isinstance(pot, HartreePotential), "pot should be a HartreePotential object"
             self.pot = pot
@@ -985,25 +985,22 @@ class ForceField_LJC:
             self.rho_sample = rho_sample
             self.rho_sample.cl_array
 
-        if self.verbose > 0:
-            print("ForceField_LJC.prepareBuffers.nbytes", nbytes)
+        logger.debug(f"ForceField_LJC.prepareBuffers.nbytes {nbytes}")
 
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
-            print("runtime(ForceField_LJC.prepareBuffers) [s]: ", time.perf_counter() - t0)
+            perf_logger.info(f"prepareBuffers [s]: {time.perf_counter() - t0}")
 
     def updateBuffers(self, atoms=None, cLJs=None, poss=None):
         """Update the content of device buffers."""
-        if self.verbose > 0:
-            print(" ForceField_LJC.updateBuffers ")
+        logger.debug("ForceField_LJC.updateBuffers")
         oclu.updateBuffer(atoms, self.cl_atoms)
         oclu.updateBuffer(cLJs, self.cl_cLJs)
         oclu.updateBuffer(poss, self.cl_poss)
 
     def tryReleaseBuffers(self):
         """Release all device buffers."""
-        if self.verbose > 0:
-            print(" ForceField_LJC.tryReleaseBuffers ")
+        logger.debug("ForceField_LJC.tryReleaseBuffers")
         try:
             self.cl_atoms.release()
             self.cl_atoms = None
@@ -1076,8 +1073,7 @@ class ForceField_LJC:
         else:
             FE = np.empty((self.nDim[3],) + tuple(self.nDim[:3]), dtype=np.float32, order="F")
 
-        if self.verbose:
-            print("FE.shape ", FE.shape)
+        logger.debug(f"FE.shape {FE.shape}")
 
         # Copy from device to host
         cl.enqueue_copy(self.queue, FE, self.cl_FE)
@@ -1114,7 +1110,8 @@ class ForceField_LJC:
             FE: np.ndarray if bCopy == True or None otherwise. Calculated force field and energy.
         """
 
-        if bRuntime:
+        if perf_log_enabled():
+            self.queue.finish()
             t0 = time.perf_counter()
 
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
@@ -1124,27 +1121,28 @@ class ForceField_LJC:
 
         if bCopy:
             FE = self.downloadFF(FE)
-        if bFinish:
+        if bFinish or perf_log_enabled():
             self.queue.finish()
-        if bRuntime:
-            print("runtime(ForceField_LJC.run_evalLJ_noPos) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            perf_logger.info(f"run_evalLJ_noPos [s]: {time.perf_counter() - t0}")
 
         return FE
 
     def run_evalLJC_QZs_noPos(self, FE=None, local_size=(32,), bCopy=True, bFinish=True):
         """Compute Lennard-Jones force field with several point-charges separated on the z-axis."""
-        if bRuntime:
-            t0 = time.time()
+        if perf_log_enabled():
+            self.queue.finish()
+            t0 = time.perf_counter()
         if bCopy and (FE is None):
             ns = tuple(self.nDim[:3]) + (4,)
             FE = np.zeros(ns, dtype=np.float32)
-            if self.verbose > 0:
-                print("FE.shape", FE.shape, self.nDim)
+            logger.debug(f"FE.shape {FE.shape} {self.nDim}")
         ntot = self.nDim[0] * self.nDim[1] * self.nDim[2]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
         global_size = (ntot,)  # TODO make sure divisible by local_size
-        if bRuntime:
-            print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos.pre) [s]: ", time.time() - t0)
+        if perf_log_enabled():
+            self.queue.finish()
+            perf_logger.info(f"run_evalLJC_QZs_noPos.pre [s]: {time.perf_counter() - t0}")
         # fmt: off
         cl_program.evalLJC_QZs_noPos(self.queue, global_size, local_size,
             self.nAtoms,
@@ -1162,10 +1160,10 @@ class ForceField_LJC:
         # fmt: on
         if bCopy:
             cl.enqueue_copy(self.queue, FE, self.cl_FE)
-        if bFinish:
+        if bFinish or perf_log_enabled():
             self.queue.finish()
-        if bRuntime:
-            print("runtime(ForceField_LJC.run_evalLJC_QZs_noPos) [s]: ", time.time() - t0)
+        if perf_log_enabled():
+            perf_logger.info(f"run_evalLJC_QZs_noPos [s]: {time.perf_counter() - t0}")
         return FE
 
     def run_evalLJC_Hartree(self, FE=None, local_size=(32,), bCopy=True, bFinish=True):
@@ -1184,13 +1182,15 @@ class ForceField_LJC:
             FE: np.ndarray if bCopy == True or None otherwise. Calculated force field and energy.
         """
 
-        if bRuntime:
+        if perf_log_enabled():
+            self.queue.finish()
             t0 = time.perf_counter()
 
         T = np.append(np.linalg.inv(self.dlvec[:, :3]).T.copy(), np.zeros((3, 1)), axis=1).astype(np.float32)
 
-        if bRuntime:
-            print("runtime(ForceField_LJC.run_evalLJC_Hartree.pre) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            self.queue.finish()
+            perf_logger.info(f"run_evalLJC_Hartree.pre [s]: {time.perf_counter() - t0}")
 
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
         cl_program.evalLJC_Hartree(
@@ -1216,10 +1216,10 @@ class ForceField_LJC:
 
         if bCopy:
             FE = self.downloadFF(FE)
-        if bFinish:
+        if bFinish or perf_log_enabled():
             self.queue.finish()
-        if bRuntime:
-            print("runtime(ForceField_LJC.run_evalLJC_Hartree) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            perf_logger.info(f"run_evalLJC_Hartree [s]: {time.perf_counter() - t0}")
 
         return FE
 
@@ -1243,7 +1243,8 @@ class ForceField_LJC:
             E_field: np.ndarray if bCopy == True or None otherwise. Calculated electric field and potential.
         """
 
-        if bRuntime:
+        if perf_log_enabled():
+            self.queue.finish()
             t0 = time.perf_counter()
 
         if pot:
@@ -1269,11 +1270,11 @@ class ForceField_LJC:
             and (np.abs(np.diag(self.pot.step) * self.pot.shape - np.diag(self.lvec[:, :3])) < 1e-3).all()
             and (self.pot.step == np.diag(np.diag(self.pot.step))).all()
         )
-        if self.verbose > 0:
-            print("Matching grid:", matching_grid)
+        logger.debug(f"Matching grid: {matching_grid}")
 
-        if bRuntime:
-            print("runtime(ForceField_LJC.run_gradPotentialGrid.pre) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            self.queue.finish()
+            perf_logger.info(f"run_gradPotentialGrid.pre [s]: {time.perf_counter() - t0}")
 
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
         if matching_grid:
@@ -1309,10 +1310,10 @@ class ForceField_LJC:
 
         if bCopy:
             cl.enqueue_copy(self.queue, E_field, self.cl_Efield)
-        if bFinish:
+        if bFinish or perf_log_enabled():
             self.queue.finish()
-        if bRuntime:
-            print("runtime(ForceField_LJC.run_gradPotentialGrid) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            perf_logger.info(f"run_gradPotentialGrid [s]: {time.perf_counter() - t0}")
 
         return E_field
 
@@ -1417,13 +1418,14 @@ class ForceField_LJC:
                 functional name or a dict with manually specified parameters.
             local_size: tuple of a single int. Size of local work group on device.
         """
-        if bRuntime:
+        if perf_log_enabled():
+            self.queue.finish()
             t0 = time.perf_counter()
         local_size = (min(local_size[0], 64),)  # The kernel uses shared memory arrays with size 64. Let's not overflow.
         self._get_dftd3_params(params, local_size)
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
-            print("runtime(ForceField_LJC.add_dftd3.get_params) [s]: ", time.perf_counter() - t0)
+            perf_logger.info(f"add_dftd3.get_params [s]: {time.perf_counter() - t0}")
         global_size = [int(np.ceil(np.prod(self.nDim[:3]) / local_size[0]) * local_size[0])]
         # fmt: off
         cl_program.addDFTD3_BJ(self.queue, global_size, local_size,
@@ -1438,9 +1440,9 @@ class ForceField_LJC:
             self.dlvec[2]
         )
         # fmt: on
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
-            print("runtime(ForceField_LJC.add_dftd3) [s]: ", time.perf_counter() - t0)
+            perf_logger.info(f"add_dftd3 [s]: {time.perf_counter() - t0}")
 
     def calc_force_hartree(self, FE=None, rot=np.eye(3), rot_center=np.zeros(3), local_size=(32,), bCopy=True, bFinish=True):
         """
@@ -1459,7 +1461,8 @@ class ForceField_LJC:
             FE: np.ndarray if bCopy==True or None otherwise. Calculated force field and energy.
         """
 
-        if bRuntime:
+        if perf_log_enabled():
+            self.queue.finish()
             t0 = time.perf_counter()
 
         if (self.lvec[:, :3] != np.diag(np.diag(self.lvec[:, :3]))).any():
@@ -1471,32 +1474,33 @@ class ForceField_LJC:
         lvec = np.concatenate([self.lvec0[None, :3], self.lvec[:, :3]], axis=0)
         pot = self.pot.interp_at(lvec, self.nDim[:3], rot=rot, rot_center=rot_center, local_size=local_size, queue=self.queue)
 
-        if bRuntime:
-            print("runtime(ForceField_LJC.calc_force_hartree.interpolate) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            self.queue.finish()
+            perf_logger.info(f"calc_force_hartree.interpolate [s]: {time.perf_counter() - t0}")
 
         # Cross-correlate Hartree potential and tip charge density
         E = self.fft_corr.correlate(pot)
 
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_hartree.cross-correlation) [s]: ", time.perf_counter() - t0)
+            perf_logger.info(f"calc_force_hartree.cross-correlation [s]: {time.perf_counter() - t0}")
 
         # Take gradient to get electrostatic force field
         E.grad(scale=[-1.0, -1.0, -1.0, 1.0], array_out=self.cl_FE, order="F", local_size=local_size, queue=self.queue)
 
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_hartree.gradient) [s]: ", time.perf_counter() - t0)
+            perf_logger.info(f"calc_force_hartree.gradient [s]: {time.perf_counter() - t0}")
 
         # Add Lennard-Jones force
         self.addLJ(local_size=local_size)
 
         if bCopy:
             FE = self.downloadFF(FE)
-        if bFinish or bRuntime:
+        if bFinish or perf_log_enabled():
             self.queue.finish()
-        if bRuntime:
-            print("runtime(ForceField_LJC.calc_force_hartree) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            perf_logger.info(f"calc_force_hartree [s]: {time.perf_counter() - t0}")
 
         return FE
 
@@ -1527,7 +1531,8 @@ class ForceField_LJC:
             FE: np.ndarray if ``bCopy==True`` or ``None`` otherwise. Calculated force field and energy.
         """
 
-        if bRuntime:
+        if perf_log_enabled():
+            self.queue.finish()
             t0 = time.perf_counter()
 
         if (self.lvec[:, :3] != np.diag(np.diag(self.lvec[:, :3]))).any():
@@ -1548,9 +1553,9 @@ class ForceField_LJC:
         else:
             rho_sample = self.rho_sample
 
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_fdbm.interpolate) [s]: ", time.perf_counter() - t0)
+            perf_logger.info(f"calc_force_fdbm.interpolate [s]: {time.perf_counter() - t0}")
 
         # Cross-correlate Hartree potential and tip electron delta density for electrostatic energy
         E_es = self.fft_corr_delta.correlate(pot, scale=-1.0)  # scale=-1.0, because the electron density has positive sign.
@@ -1564,25 +1569,25 @@ class ForceField_LJC:
         if not rho_sample_lvec_same:
             rho_sample.release(keep_on_host=False)
 
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_fdbm.cross-correlation) [s]: ", time.perf_counter() - t0)
+            perf_logger.info(f"calc_force_fdbm.cross-correlation [s]: {time.perf_counter() - t0}")
 
         # Add the two energy contributions together
         E = E_es.add_mult(E_pauli, scale=A, in_place=True, local_size=local_size, queue=self.queue)
         E_pauli.release(keep_on_host=False)
 
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_fdbm.add_mult) [s]: ", time.perf_counter() - t0)
+            perf_logger.info(f"calc_force_fdbm.add_mult [s]: {time.perf_counter() - t0}")
 
         # Take gradient to get the force field
         E.grad(scale=[-1.0, -1.0, -1.0, 1.0], array_out=self.cl_FE, order="F", local_size=local_size, queue=self.queue)
         E.release(keep_on_host=False)
 
-        if bRuntime:
+        if perf_log_enabled():
             self.queue.finish()
-            print("runtime(ForceField_LJC.calc_force_fdbm.gradient) [s]: ", time.perf_counter() - t0)
+            perf_logger.info(f"calc_force_fdbm.gradient [s]: {time.perf_counter() - t0}")
 
         # Add vdW force
         if vdw_type == "D3":
@@ -1594,10 +1599,10 @@ class ForceField_LJC:
 
         if bCopy:
             FE = self.downloadFF(FE)
-        if bFinish or bRuntime:
+        if bFinish or perf_log_enabled():
             self.queue.finish()
-        if bRuntime:
-            print("runtime(ForceField_LJC.calc_force_fdbm) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            perf_logger.info(f"calc_force_fdbm [s]: {time.perf_counter() - t0}")
 
         return FE
 
@@ -1679,7 +1684,8 @@ class ForceField_LJC:
             FE: np.ndarray if ``bCopy==True`` or ``None`` otherwise. Calculated force field and energy.
         """
 
-        if bRuntime:
+        if perf_log_enabled():
+            self.queue.finish()
             t0 = time.perf_counter()
 
         if not hasattr(self, "nDim") or not hasattr(self, "lvec"):
@@ -1697,8 +1703,9 @@ class ForceField_LJC:
             qs = np.zeros(len(xyzs))
         self.atoms = np.concatenate([xyzs, qs[:, None]], axis=1)
         self.prepareBuffers(self.atoms, cLJs, REAs=REAs, Zs=Zs, pot=pot, rho=rho, rho_delta=rho_delta, rho_sample=rho_sample)
-        if bRuntime:
-            print("runtime(ForceField_LJC.makeFF.pre) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            self.queue.finish()
+            perf_logger.info(f"makeFF.pre [s]: {time.perf_counter() - t0}")
 
         if method == "point-charge":
             if np.allclose(self.atoms[:, -1], 0):  # No charges
@@ -1734,8 +1741,9 @@ class ForceField_LJC:
 
         if bRelease:
             self.tryReleaseBuffers()
-        if bRuntime:
-            print("runtime(ForceField_LJC.makeFF.tot) [s]: ", time.perf_counter() - t0)
+        if perf_log_enabled():
+            self.queue.finish()
+            perf_logger.info(f"makeFF.tot [s]: {time.perf_counter() - t0}")
 
         return FF
 
@@ -1771,23 +1779,20 @@ class AtomProjection:
         """
         na = len(Zs)
         coefs = np.zeros((na, 4), dtype=np.float32)
-        if verbose > 0:
-            print("Zs", Zs)
+        logger.debug(f"Zs {Zs}")
         for i, ie in enumerate(Zs):
             coefs[i, 0] = 1.0
             coefs[i, 1] = ie
             coefs[i, 2] = ELEMENTS[ie - 1][6]
             coefs[i, 3] = ELEMENTS[ie - 1][7]
-        if verbose > 0:
-            print("coefs[:,2]", coefs[:, 2])
+        logger.debug(f"coefs[:,2] {coefs[:, 2]}")
         return coefs
 
     def prepareBuffers(self, atoms, prj_dim, coefs=None, bonds2atoms=None, Rfunc=None, elem_channels=None):
         """
         allocate GPU buffers
         """
-        if verbose > 0:
-            print("AtomProjection.prepareBuffers prj_dim", prj_dim)
+        logger.debug(f"AtomProjection.prepareBuffers prj_dim {prj_dim}")
         self.prj_dim = prj_dim
         nbytes = 0
         self.nAtoms = np.int32(len(atoms))
@@ -1836,8 +1841,7 @@ class AtomProjection:
             self.cl_elem_channels = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=elem_channels)
             nbytes += elem_channels.nbytes
 
-        if verbose > 0:
-            print("AtomProjection.prepareBuffers.nbytes ", nbytes)
+        logger.debug(f"AtomProjection.prepareBuffers.nbytes {nbytes}")
 
     def updateBuffers(self, atoms=None, coefs=None, poss=None):
         """
@@ -1865,8 +1869,7 @@ class AtomProjection:
         """
         deallocated all GPU buffers
         """
-        if verbose > 0:
-            print(" AtomProjection.releaseBuffers ")
+        logger.debug("AtomProjection.releaseBuffers")
         self.cl_atoms.release()
         self.cl_coefs.release()
         self.cl_poss.release()
@@ -1876,8 +1879,7 @@ class AtomProjection:
         """
         deallocated all GPU buffers (those which exists)
         """
-        if verbose > 0:
-            print(" AtomProjection.releaseBuffers ")
+        logger.debug("AtomProjection.releaseBuffers")
         try:
             self.cl_atoms.release()
         except:
@@ -1901,11 +1903,9 @@ class AtomProjection:
         """
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            if verbose > 0:
-                print("FE.shape", Eout.shape, self.nDim)
+            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -1931,11 +1931,9 @@ class AtomProjection:
             self.tipRot = tipRot
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            if verbose > 0:
-                print("FE.shape", Eout.shape, self.nDim)
+            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -1968,11 +1966,9 @@ class AtomProjection:
             self.tipRot = tipRot
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            if verbose > 0:
-                print("FE.shape", Eout.shape, self.nDim)
+            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -2005,11 +2001,9 @@ class AtomProjection:
             self.tipRot = tipRot
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            if verbose > 0:
-                print("FE.shape", Eout.shape, self.nDim)
+            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -2040,11 +2034,9 @@ class AtomProjection:
             self.tipRot = tipRot
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            if verbose > 0:
-                print("FE.shape", Eout.shape, self.nDim)
+            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -2077,11 +2069,9 @@ class AtomProjection:
             self.tipRot = tipRot
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            if verbose > 0:
-                print("FE.shape", Eout.shape, self.nDim)
+            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -2111,8 +2101,7 @@ class AtomProjection:
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -2148,8 +2137,7 @@ class AtomProjection:
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -2184,8 +2172,7 @@ class AtomProjection:
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -2220,8 +2207,7 @@ class AtomProjection:
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -2255,8 +2241,7 @@ class AtomProjection:
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -2287,11 +2272,9 @@ class AtomProjection:
         """
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            if verbose > 0:
-                print("FE.shape", Eout.shape, self.nDim)
+            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
         ntot = self.prj_dim[0] * self.prj_dim[1]
         ntot = makeDivisibleUp(ntot, local_size[0])  # TODO: - we should make sure it does not overflow
@@ -2325,11 +2308,9 @@ class AtomProjection:
 
         if Eout is None:
             Eout = np.zeros(self.prj_dim[:2], dtype=np.float32)
-            if verbose > 0:
-                print("FE.shape", Eout.shape, self.nDim)
+            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
         if poss is not None:
-            if verbose > 0:
-                print("poss.shape ", poss.shape, self.prj_dim, poss.nbytes, poss.dtype)
+            logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
 
         global_size = (int(np.ceil(np.prod(self.prj_dim[:2]) / local_size[0]) * local_size[0]),)

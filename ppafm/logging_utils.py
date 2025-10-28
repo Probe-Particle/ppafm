@@ -1,7 +1,6 @@
 import logging
 import os
 import sys
-from copy import deepcopy
 from typing import Optional, Union
 
 # Setup the root logger for the ppafm package. All other loggers will be derived from this one.
@@ -12,7 +11,9 @@ _log_path = None
 
 # Setup another logger for performance benchmarking
 _perf_logger = logging.getLogger("ppafm.perf")
+_perf_logger.propagate = False
 _perf_log_format = "[%(asctime)s - %(name)s] %(message)s"
+_perf_log_enabled = False
 
 
 def configure_logging(
@@ -40,6 +41,7 @@ def configure_logging(
     global _log_handler
     global _log_format
     global _log_path
+    global _perf_log_enabled
 
     if level is None:
         try:
@@ -67,14 +69,19 @@ def configure_logging(
     if log_performance is None:
         log_performance = "PPAFM_LOG_PERFORMANCE" in os.environ
     if log_performance:
-        perf_log_handler = deepcopy(_log_handler)
+        if _log_path is None:
+            perf_log_handler = logging.StreamHandler(sys.stdout)
+        else:
+            perf_log_handler = logging.FileHandler(_log_path)
         perf_log_handler.setFormatter(logging.Formatter(fmt=_perf_log_format))
         for handler in _perf_logger.handlers:
             _perf_logger.removeHandler(handler)
         _perf_logger.addHandler(perf_log_handler)
         _perf_logger.setLevel(logging.INFO)
+        _perf_log_enabled = True
     else:
         _perf_logger.setLevel(logging.CRITICAL)
+        _perf_log_enabled = False
 
     if format is None:
         try:
@@ -99,6 +106,10 @@ def get_logger(name: str) -> logging.Logger:
 
 def get_perf_logger(name: str) -> logging.Logger:
     return _perf_logger.getChild(name)
+
+
+def perf_log_enabled() -> bool:
+    return _perf_log_enabled
 
 
 class ProgressLogger:

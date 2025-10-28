@@ -8,11 +8,12 @@ in the same folder.
 
 import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
+from ppafm.logging_utils import configure_logging
 from ppafm.ocl.AFMulator import AFMulator
 
 # Initialize an OpenCL environment. You can change i_platform to select the device to use
 oclu.init_env(i_platform=0)
-FFcl.bRuntime = True  # Print timings
+configure_logging(log_performance=True)  # Print timings
 
 # Load all input files
 rho_tip, xyzs_tip, Zs_tip = FFcl.TipDensity.from_file("tip/density_CO.xsf")

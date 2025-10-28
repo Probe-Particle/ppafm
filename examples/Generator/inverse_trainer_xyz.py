@@ -11,6 +11,9 @@ from ppafm.ml.Generator import InverseAFMtrainer
 from ppafm.ocl.AFMulator import AFMulator
 from ppafm.ocl.oclUtils import init_env
 
+# from ppafm.logging_utils import configure_logging
+# configure_logging(log_performance=True)
+
 
 class ExampleTrainer(InverseAFMtrainer):
     # We override this callback method in order to augment the samples with randomized tip distance and tilt
@@ -57,7 +60,6 @@ if __name__ == "__main__":
         QZs=[[0.1, 0, -0.1, 0]],
         Qs=[[-10, 20, -10, 0]],
     )
-    # trainer.bRuntime = True
 
     # Augment molecule list with rotations and shuffle
     trainer.augment_with_rotations_entropy(sphereTangentSpace(n=100), 30)
