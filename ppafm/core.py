@@ -9,6 +9,9 @@ from . import common as PPU
 from . import cpp_utils
 from .defaults import d3
 from .io import bohrRadius2angstroem
+from .logging_utils import get_logger
+
+logger = get_logger("core")
 
 # ==============================
 # ============================== interface to C++ core
@@ -59,8 +62,7 @@ def setGridCell(cell=None, parameters=None):
         cell = cell[1:, :].copy()
     else:
         raise ValueError("cell has wrong format")
-        exit()
-    print("cell", cell)
+    logger.debug(f"cell {cell}")
     lib.setGridCell(cell)
 
 
@@ -125,10 +127,10 @@ def setFF(cell=None, gridF=None, gridE=None, parameters=None):
             ]
         ).copy()
     if n_ is not None:
-        print("setFF() n_ : ", n_)
+        logger.debug(f"setFF() n_ : {n_}")
         setFF_shape(n_, cell, parameters=parameters)
     else:
-        "Warrning : setFF shape not set !!!"
+        logger.warning("setFF shape not set !!!")
 
 
 # void setRelax( int maxIters, double convF2, double dt, double damping )
@@ -163,11 +165,11 @@ def setTip(lRadial=None, kRadial=None, rPP0=None, kSpring=None, parameters=None)
         rPP0 = np.array((parameters.r0Probe[0], parameters.r0Probe[1], 0.0))
     if kSpring is None:
         kSpring = np.array((parameters.klat, parameters.klat, 0.0)) / -PPU.eVA_Nm
-    print(" IN setTip !!!!!!!!!!!!!! ")
-    print(" lRadial ", lRadial)
-    print(" kRadial ", kRadial)
-    print(" rPP0 ", rPP0)
-    print(" kSpring ", kSpring)
+    logger.debug("IN setTip !!!!!!!!!!!!!! ")
+    logger.debug(f"lRadial {lRadial}")
+    logger.debug(f"kRadial {kRadial}")
+    logger.debug(f"rPP0 {rPP0}")
+    logger.debug(f"kSpring {kSpring}")
     lib.setTip(lRadial, kRadial, rPP0, kSpring)
 
 
@@ -299,7 +301,7 @@ lib.getMorseFF.restype = None
 def getMorseFF(Rs, REs, alpha=None, parameters=None):
     if alpha is None:
         alpha = parameters.aMorse
-    print(f"getMorseFF: alpha: {alpha} [1/A] ")
+    logger.debug(f"getMorseFF: alpha: {alpha} [1/A] ")
     natom = len(Rs)
     lib.getMorseFF(natom, Rs, REs, alpha)
 
@@ -372,7 +374,7 @@ lib.stiffnessMatrix.restype = None
 
 
 def stiffnessMatrix(rTips, rPPs, which=0, ddisp=0.05, tip_spline=None):
-    print("py.core.stiffnessMatrix() ")
+    logger.debug("py.core.stiffnessMatrix() ")
     n = len(rTips)
     eigenvals = np.zeros((n, 3))
     # this is really stupid solution because we cannot simply pass null pointer by ctypes; see :
@@ -381,7 +383,7 @@ def stiffnessMatrix(rTips, rPPs, which=0, ddisp=0.05, tip_spline=None):
     evecs = [None, None, None]
     for i in range(which):
         evecs[i] = np.zeros((n, 3))
-    print("py.core.stiffnessMatrix() 1 ")
+    logger.debug("py.core.stiffnessMatrix() 1 ")
 
     lib.stiffnessMatrix(ddisp, which, n, rTips, rPPs, eigenvals, evecs[0], evecs[1], evecs[2], tip_spline)
     return eigenvals, evecs

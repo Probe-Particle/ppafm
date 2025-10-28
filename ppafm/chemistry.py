@@ -1,15 +1,15 @@
 #!/usr/bin/python
 
-
 import numpy as np
 
 from . import elements
+from .logging_utils import get_logger
+
+logger = get_logger("chemistry")
 
 # ===========================
 #      Molecular Topology
 # ===========================
-
-iDebug = 0
 
 
 def findBonds(xyzs, Rs, fR=1.3):
@@ -73,15 +73,12 @@ def findTris(bonds, neighs):
         for i in a_ngs:
             if i in b_ngs:
                 common.append(i)
-        # print "bond ",b," common ",common
         ncm = len(common)
         if ncm > 2:
-            if iDebug > 0:
-                print("WARRNING: bond ", b, " common neighbors ", common)
+            logger.debug(f"WARNING: bond {b} common neighbors {common}")
             continue
         elif ncm < 1:
-            if iDebug > 0:
-                print("WARRNING: bond ", b, " common neighbors ", common)
+            logger.debug(f"WARNING: bond {b} common neighbors {common}")
             continue
         tri0 = tuple(sorted(b + (common[0],)))
         tris.add(tri0)
@@ -142,7 +139,7 @@ def trisToPoints(tris, ps):
 
 def removeBorderAtoms(ps, cog, R):
     rnds = np.random.rand(len(ps))
-    r2s = np.sum((ps - cog[None, :]) ** 2, axis=1)  # ;print "r2s ", r2s, R*R
+    r2s = np.sum((ps - cog[None, :]) ** 2, axis=1)
     mask = rnds > r2s / (R * R)
     return mask
 
@@ -150,9 +147,7 @@ def removeBorderAtoms(ps, cog, R):
 def validBonds(bonds, mask, na):
     a2a = np.cumsum(mask) - 1
     bonds_ = []
-    # print mask
     for i, j in bonds:
-        # print i,j
         if mask[i] and mask[j]:
             bonds_.append((a2a[i], a2a[j]))
     return bonds_
@@ -196,7 +191,7 @@ def ringsToMolecule(ring_pos, ring_Rs, Lrange=6.0):
                                  ring_N6mask[atom2ring[:,2]]  ) )
     # fmt: on
 
-    neighs = bonds2neighs(bonds, len(atom_pos))  # ;print neighs
+    neighs = bonds2neighs(bonds, len(atom_pos))
     nngs = np.array([len(ngs) for ngs in neighs], dtype=int)
 
     atypes = nngs.copy() - 1
@@ -257,7 +252,7 @@ def selectRandomGroups(an, ao, groupDict):
             out.append(groups[il + 1][0])
         else:
             out.append(None)
-        print(k, out[-1])
+        logger.debug(f"{k} {out[-1]}")
     return out
 
 
@@ -395,7 +390,7 @@ def groups2atoms(groupNames, neighs, ps):
             if ndir == 4:  # ==== tetrahedral
                 flip = np.random.randint(2) * 2 - 1
                 if nsigma == 1:  # like -CH3
-                    print(name, ndir, nsigma, nH)
+                    logger.debug(f"{name} {ndir} {nsigma} {nH}")
                     txyz = makeTetrahedron(pi - ps[ngs[0]], up * flip) + pi[None, :]
                     appendHs(txyz, Hmasks3[nH], elems, xyzs)
                 elif nsigma == 2:  # like -CH2-
@@ -417,12 +412,10 @@ def groups2atoms(groupNames, neighs, ps):
                 appendHs(normalize(pi - ps[ngs[0]])[0] + pi[None, :], [(1,)], elems, xyzs)
 
         else:
-            print("Group >>%s<< not known" % name)
-    print("len(xyzs), len(elems) ", len(xyzs), len(elems))
+            logger.info(f"Group >>{name}<< not known")
+    logger.debug(f"len(xyzs), len(elems) {len(xyzs)} {len(elems)}")
     for xyz in xyzs:
-        print(len(xyz), end=" ")
-        if len(xyz) != 3:
-            print(xyz)
+        logger.debug(f"{len(xyz)} {xyz if len(xyz) != 3 else ''}")
     return np.array(xyzs), elems
 
 

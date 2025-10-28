@@ -4,6 +4,9 @@ from ctypes import c_double, c_int
 import numpy as np
 
 from . import common, cpp_utils, io
+from .logging_utils import get_logger
+
+logger = get_logger("fitting")
 
 c_double_p = ctypes.POINTER(c_double)
 c_int_p = ctypes.POINTER(c_int)
@@ -63,7 +66,7 @@ def getProjections(ps, Yrefs, centers, types, ncomps, By=None, BB=None):
     ndim = Yrefs.shape
     nps = 1
     if len(ndim) > 1:
-        print("ndim ", ndim)
+        logger.debug(f"ndim {ndim}")
         for ni in ndim:
             nps *= ni
     else:
@@ -96,7 +99,7 @@ def project(ps, Youts, centers, types, ncomps, coefs):
     ndim = Youts.shape
     nps = 1
     if len(ndim) > 1:
-        print("ndim ", ndim)
+        logger.debug(f"ndim {ndim}")
         for ni in ndim:
             nps *= ni
     else:
@@ -129,7 +132,7 @@ if __name__ == "__main__":
 
     atoms, nDim, lvec = io.loadGeometry(fname_ext, parameters=parameters)
     centers = np.array(atoms[1:4]).transpose().copy()
-    print("centers \n", centers)
+    logger.info(f"centers \n{centers}")
 
     import sys
 
@@ -141,29 +144,29 @@ if __name__ == "__main__":
     RFuncs = data[1:, :].copy()
 
     rfsh = RFuncs.shape
-    print("RFunc.shape() ", rfsh)
+    logger.info(f"RFunc.shape() {rfsh}")
     fitting.setSplines(zs[1] - zs[0], 5.0, RFuncs)
 
-    print("nDim ", nDim)
+    logger.info(f"nDim {nDim}")
     fitting.setPBC(lvec[1:], npbc=[1, 1, 1])
 
     types_header = [1, 6, 7]
     typedict = {k: i for i, k in enumerate(types_header)}
     types = np.array([typedict[elem] for elem in atoms[0]], dtype=np.int32)
 
-    print("types ", types)
+    logger.info(f"types {types}")
     ncomps = np.ones(len(types), dtype=np.int32)
 
     Yrefs, lvec, nDim, head = io.loadXSF(fname_ext)
     gridPoss = PPU.getPos_Vec3d(np.array(lvec), nDim)
 
-    print("gridPoss.shape, yrefs.shape, centers.shape ", gridPoss.shape, Yrefs.shape, centers.shape)
+    logger.info(f"gridPoss.shape, yrefs.shape, centers.shape {gridPoss.shape} {Yrefs.shape} {centers.shape}")
 
     coefs = np.ones(len(centers)) * 1.2
 
-    print(">>>>>> Yrefs -= project( coefs ) ")
+    logger.info(">>>>> Yrefs -= project( coefs ) ")
     fitting.project(gridPoss, Yrefs, centers, types, ncomps, coefs * -1.0)
     io.saveXSF("Yresidual.xsf", Yrefs, lvec)
     exit()
 
-    print(" **** ALL DONE *** ")
+    logger.info(" **** ALL DONE *** ")
