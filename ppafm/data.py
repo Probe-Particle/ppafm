@@ -47,9 +47,9 @@ def _common_parent(paths):
 def _extract_members(archive_handle, members, target_dir):
     progress_logger = ProgressLogger(logger_name=_progress_logger_name, pre_message=f"Extracting dataset to `{target_dir}`: ")
     for i, m in enumerate(members):
-        progress_logger.print_progress(i, 1, len(members))
+        progress_logger.print_percent(i, 1, len(members))
         archive_handle.extract(m, target_dir)
-    progress_logger.print_progress(len(members), 1, len(members))
+    progress_logger.print_percent(len(members), 1, len(members))
 
 
 def _extract_targz(archive_path, target_dir):
@@ -119,7 +119,7 @@ def download_dataset(name: str, target_dir: Union[Path, str]):
     with TemporaryDirectory() as temp_dir:
         temp_file = Path(temp_dir) / f"dataset_{name}"
         progress_logger = ProgressLogger(logger_name=_progress_logger_name, pre_message=f"Downloading dataset `{name}`: ")
-        _, response = urlretrieve(dataset_url, temp_file, reporthook=progress_logger.print_progress)
+        _, response = urlretrieve(dataset_url, temp_file, reporthook=progress_logger.print_percent)
         original_file_name = response.get_filename()
         target_dir.mkdir(exist_ok=True, parents=True)
         if original_file_name.endswith(".tar.gz"):

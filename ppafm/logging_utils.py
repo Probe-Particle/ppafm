@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 # Setup the root logger for the ppafm package. All other loggers will be derived from this one.
 _root_logger = logging.getLogger("ppafm")
@@ -113,7 +113,7 @@ def perf_log_enabled() -> bool:
 
 
 class ProgressLogger:
-    """Print gradual progress as a percent number."""
+    """Print gradual progress messages."""
 
     def __init__(self, logger_name: str = "progress", pre_message: str = ""):
 
@@ -143,7 +143,7 @@ class ProgressLogger:
         self.pre_message = pre_message
         self._previous_percent = -self._percent_increment
 
-    def print_progress(self, block_num: int, block_size: int, total_size: int):
+    def print_percent(self, block_num: int, block_size: int, total_size: int):
         if total_size == -1:
             return
         current_size = block_num * block_size
@@ -158,3 +158,9 @@ class ProgressLogger:
             if self._print_to_terminal:
                 msg += "\n"
             self.logger.info(msg)
+
+    def print_message(self, message: Any, is_last: bool):
+        message = f"{self.pre_message}{message}"
+        if is_last and self._print_to_terminal:
+            message += "\n"
+        self.logger.info(message)
