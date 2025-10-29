@@ -15,14 +15,12 @@ see:  https://mega.nz/#!KLoilKIB!NxxCRQ814xtCXfjy7mPFfmJTOL9TaTHbmPKSxn_0sFs
 """
 
 
-import matplotlib
 import numpy as np
-import pyopencl as cl
 
-from .. import atomicUtils as au
 from .. import common as PPU
-from .. import elements, io
+from .. import io
 from ..dev import SimplePot as sp
+from ..logging_utils import get_logger
 from ..ocl import AFMulator
 from ..ocl import field as FFcl
 from ..ocl import oclUtils as oclu
@@ -30,8 +28,7 @@ from ..ocl import relax as oclr
 from . import AuxMap, Generator
 from .Corrector import Corrector, Molecule, Mutator
 
-verbose = 0
-bRunTime = False
+logger = get_logger("CorrectionLoop")
 
 
 # ========================================================================
@@ -106,8 +103,7 @@ class CorrectorTrainer(Generator.InverseAFMtrainer):
 
     def __getitem__(self, index):
         self.index = index
-        if verbose > 0:
-            print("index ", index)
+        logger.debug(f"index {index}")
         return next(self)
 
     def __iter__(self):
@@ -386,7 +382,7 @@ def Job_trainCorrector(simulator, geom_fname="input.xyz", nstep=10):
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
     xyzs[:, :2] += scan_center - xyzs[:, :2].mean(axis=0)
     xyzs[:, 2] += (sw[1][2] - 9.0) - xyzs[:, 2].max()
-    print("xyzs ", xyzs)
+    logger.debug(f"xyzs {xyzs}")
     mol = Molecule(xyzs, Zs, qs)
 
     trainer.start(mol)
@@ -450,7 +446,7 @@ def Job_CorrectionLoop(simulator, atoms, bonds, geom_fname="input.xyz", nstep=10
     scan_center = np.array([sw[1][0] + sw[0][0], sw[1][1] + sw[0][1]]) / 2
     xyzs[:, :2] += scan_center - xyzs[:, :2].mean(axis=0)
     xyzs[:, 2] += (sw[1][2] - 9.0) - xyzs[:, 2].max()
-    print("xyzs ", xyzs)
+    logger.debug(f"xyzs {xyzs}")
 
     xyzqs = np.concatenate([xyzs, qs[:, None]], axis=1)
     np.save("./Atoms.npy", atoms(xyzqs, Zs))
@@ -461,9 +457,9 @@ def Job_CorrectionLoop(simulator, atoms, bonds, geom_fname="input.xyz", nstep=10
 
     looper.startLoop(molecule, atomMap, bondMap, lvecMap, AFMRef)
     ErrConv = 0.1
-    print("# ------ To Loop    ")
+    logger.debug("# ------ To Loop    ")
     for itr in range(nstep):
-        print("# ======= CorrectionLoop[ %i ] ", itr)
+        logger.debug(f"# ======= CorrectionLoop[ {itr} ] ")
         Err = looper.iteration(itr=itr)
         if Err < ErrConv:
             break
@@ -481,27 +477,27 @@ if __name__ == "__main__":
     parser.add_option("-j", "--job", action="store", type="string", help="[train/loop]")
     (options, args) = parser.parse_args()
 
-    print(" UNIT_TEST START : CorrectionLoop ... ")
+    logger.info(" UNIT_TEST START : CorrectionLoop ... ")
 
-    print("# ------ Init Generator   ")
+    logger.info("# ------ Init Generator   ")
 
     i_platform = 0
     env = oclu.OCLEnvironment(i_platform=i_platform)
     FFcl.init(env)
     oclr.init(env)
 
-    # fmt: off
     afmulator = AFMulator.AFMulator(
         pixPerAngstrome=10,
-        lvec=np.array([
-            [0.0, 0.0, 0.0],
-            [20.0, 0.0, 0.0],
-            [0.0, 20.0, 0.0],
-            [0.0, 0.0, 5.0]
-            ]),
+        lvec=np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [20.0, 0.0, 0.0],
+                [0.0, 20.0, 0.0],
+                [0.0, 0.0, 5.0],
+            ]
+        ),
         scan_window=((2.0, 2.0, 5.0), (18.0, 18.0, 8.0)),
     )
-    # fmt: on
 
     atoms = AuxMap.AtomRfunc(scan_dim=(128, 128), scan_window=((2, 2), (18, 18)))
     bonds = AuxMap.Bonds(scan_dim=(128, 128), scan_window=((2, 2), (18, 18)))
@@ -511,6 +507,6 @@ if __name__ == "__main__":
     elif options.job == "train":
         Job_trainCorrector(afmulator, geom_fname="pos_out3.xyz", nstep=10)
     else:
-        print("ERROR : invalid job ", options.job)
+        logger.error(f"invalid job {options.job}")
 
-    print(" UNIT_TEST CorrectionLoop DONE !!! ")
+    logger.info(" UNIT_TEST CorrectionLoop DONE !!! ")

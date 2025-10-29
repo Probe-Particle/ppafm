@@ -1,11 +1,10 @@
-import matplotlib
 import numpy as np
-import pyopencl as cl
 
-from .. import atomicUtils as au
-from .. import common as PPU
-from .. import elements, io
+from .. import io
 from ..dev import SimplePot as pot
+from ..logging_utils import get_logger
+
+logger = get_logger("Corrector")
 
 # ======================================================
 # ================== Class  Molecule
@@ -253,11 +252,11 @@ class Corrector:
         ps = ps[mask]
         Ws = Ws[mask]
         nps = len(ps)
-        print("na0,nps", na0, nps)
+        logger.debug(f"na0,nps {na0} {nps}")
         Zs2 = np.concatenate([molIn.Zs, np.ones(nps, dtype=np.int32)])
         Rs = np.concatenate([np.ones(na0), Ws])
         xyzs2 = np.concatenate([molIn.xyzs, ps], axis=0)
-        print("xyzs2.shape ", xyzs2.shape)
+        logger.debug(f"xyzs2.shape {xyzs2.shape}")
         _saveXYZDebug(Zs2, xyzs2, "debug_genAtomWs.xyz", qs=([0.0] * (na0 + nps)), Rs=Rs)
 
     def try_improve(self, molIn, AFMs, AFMRef, span, itr=0):
