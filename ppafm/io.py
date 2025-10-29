@@ -8,7 +8,7 @@ import numpy as np
 
 from . import elements
 from .GridUtils import readNumsUpTo
-from .logging_utils import get_logger
+from .logging_utils import ProgressLogger, get_logger
 
 bohrRadius2angstroem = 0.5291772109217
 Hartree2eV = 27.211396132
@@ -701,8 +701,9 @@ def saveWSxM_3D(prefix, data, extent, slices=None):
     xs = np.linspace(extent[0], extent[1], nDim[2])
     ys = np.linspace(extent[2], extent[3], nDim[1])
     Xs, Ys = np.meshgrid(xs, ys)
-    for i in slices:
-        logger.debug(f"slice no: {i}")
+    progress_logger = ProgressLogger("saveWSxM_3D", pre_message="slice no: ")
+    for ii, i in enumerate(slices):
+        progress_logger.print_message(i, is_last=ii == (len(slices) - 1))
         fname = prefix + "_%03d.xyz" % i
         saveWSxM_2D(fname, data[i], Xs, Ys)
 

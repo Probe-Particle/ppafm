@@ -122,11 +122,10 @@ class FigImshow(FigCanvas):
 
     cbar = None
 
-    def __init__(self, parentWiget=None, parentApp=None, width=5, height=4, dpi=100, verbose=0):
+    def __init__(self, parentWiget=None, parentApp=None, width=5, height=4, dpi=100):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp, width=width, height=height, dpi=dpi)
         self.fig.canvas.mpl_connect("button_press_event", self.onclick)
         self.fig.canvas.mpl_connect("scroll_event", self.onscroll)
-        self.verbose = verbose
         self.img = None
         self.cbar = None
 
@@ -509,9 +508,8 @@ class LJParamEditor(QtWidgets.QMainWindow):
 
 
 class FFViewer(SlaveWindow):
-    def __init__(self, parent=None, title="View Forcefield", width=5, height=4, dpi=100, verbose=0):
+    def __init__(self, parent=None, title="View Forcefield", width=5, height=4, dpi=100):
         super().__init__(parent=parent, title=title)
-        self.verbose = verbose
 
         self.figCan = FigImshow(parent, width=width, height=height, dpi=dpi)
         self.centralLayout.addWidget(self.figCan)

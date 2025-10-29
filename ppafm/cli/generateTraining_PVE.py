@@ -10,13 +10,16 @@ from ppafm import io
 
 from .. import common, core
 from ..HighLevel import prepareArrays, relaxedScan3D
+from ..logging_utils import get_logger
+
+logger = get_logger("generateTraining_PVE")
 
 file_format = "xsf"
 
 parameters = common.PpafmParameters.from_file("params.ini")
 
 if os.path.isfile("atomtypes.ini"):
-    print(">> LOADING LOCAL atomtypes.ini")
+    logger.info(">> LOADING LOCAL atomtypes.ini")
     ff_params = common.loadSpecies("atomtypes.ini")
 else:
     ff_params = common.loadSpecies(cpp_utils.PACKAGE_PATH / "defaults" / "atomtypes.ini")
@@ -32,11 +35,11 @@ parameters.gridN = ndim_t[::-1]
 parameters.gridA = lvec_t[1]
 parameters.gridB = lvec_t[2]
 parameters.gridC = lvec_t[3]  # must be before parseAtoms
-print(parameters.gridN, parameters.gridA, parameters.gridB, parameters.gridC)
+logger.debug(parameters.gridN, parameters.gridA, parameters.gridB, parameters.gridC)
 
 force_field, _ = prepareArrays(None, False)
 
-print("FFLJ.shape", force_field.shape)
+logger.debug("FFLJ.shape", force_field.shape)
 core.setFF_shape(np.shape(force_field), lvec_t, parameters=parameters)
 
 base_dir = os.getcwd()
@@ -54,7 +57,6 @@ for path in paths:
 
     force_field[:, :, :, :] = 0
     lj_coefficients = common.getAtomsLJ(pp_indexes, izs, ff_params)
-    # print "cLJs",cLJs; np.savetxt("cLJs_3D.dat", cLJs);  exit()
     core.getVdWFF(rs, lj_coefficients)  # THE MAIN STUFF HERE
 
     # Generate Pauli force field.

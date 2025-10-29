@@ -13,15 +13,19 @@ from enum import Enum
 
 import matplotlib
 import numpy as np
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 
 import ppafm.common as PPU
 import ppafm.GUIWidgets as guiw
-import ppafm.ocl.field as FFcl
 import ppafm.ocl.oclUtils as oclu
-from ppafm import PPPlot, io
+from ppafm import io
 from ppafm.ocl.AFMulator import AFMulator
 from ppafm.ocl.field import ElectronDensity, HartreePotential, TipDensity
+
+from ...logging_utils import configure_logging, get_logger, get_perf_logger
+
+logger = get_logger("ppafm-gui")
+perf_logger = get_perf_logger("ppafm-gui")
 
 matplotlib.use("Qt5Agg")
 
@@ -94,9 +98,10 @@ def parse_args():
     parser = ArgumentParser(description="Probe Particle Model graphical user interface")
     # fmt: off
     parser.add_argument("input", nargs='*', help="Optional input file(s). The first file is the main input file containing the xyz geometry or Hartree potential. The subsequent optional files, in order, are the sample electron density, tip electron density, and tip electron delta density.")
-    parser.add_argument("-d", "--device",       action="store", type=int, default=0,  help="Choose OpenCL device.")
-    parser.add_argument("-l", "--list-devices", action="store_true",                  help="List available OpenCL devices and exit.")
-    parser.add_argument("-v", '--verbosity',    action="store", type=int, default=0,  help="Set verbosity level (0-2).")
+    parser.add_argument("-d", "--device",          action="store", type=int, default=0,       help="Choose OpenCL device.")
+    parser.add_argument("-l", "--list-devices",    action="store_true",                       help="List available OpenCL devices and exit.")
+    parser.add_argument("-v", '--log_level',       action="store",           default="INFO",  help="Set logging level.")
+    parser.add_argument("-p", '--log_performance', action="store_true",                       help="Enable performance logging.")
     # fmt: on
     args = parser.parse_args()
     if args.input:
@@ -118,7 +123,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     df_range = (-1, 1)  # min and max df value in colorbar
     fixed_df_range = False  # Keep track if df range was fixed by user or should be set automatically
 
-    def __init__(self, input_files=None, device=0, verbose=0):
+    def __init__(self, input_files=None, device=0):
         self.df = None
         self.xyzs = None
         self.Zs = None
@@ -136,11 +141,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         oclu.init_env(device)
         self.afmulator = AFMulator()
 
-        # Set verbosity level to same value everywhere
-        if verbose > 0:
-            print(f"Verbosity level = {verbose}")
-        self.verbose = verbose
-
         # --- init QtMain
         QtWidgets.QMainWindow.__init__(self)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
@@ -149,7 +149,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         l00 = QtWidgets.QHBoxLayout(self.main_widget)
         l1 = QtWidgets.QVBoxLayout(self.main_widget)
         l00.addLayout(l1, 2)
-        self.figCan = guiw.FigImshow(parentWiget=self.main_widget, parentApp=self, width=5, height=4, dpi=100, verbose=verbose)
+        self.figCan = guiw.FigImshow(parentWiget=self.main_widget, parentApp=self, width=5, height=4, dpi=100)
         l1.addWidget(self.figCan)
         self.resize(1200, 600)
         self.main_widget.setFocus()
@@ -207,8 +207,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         )  # fmt: on
         self.afmulator.kCantilever = self.bxCant_K.value() * 1000
         self.afmulator.f0Cantilever = self.bxCant_f0.value() * 1000
-        if self.verbose > 0:
-            print("setScanWindow", step, scan_size, scan_start, scan_dim, scan_window)
+        logger.debug(f"setScanWindow {step}, {scan_size}, {scan_start}, {scan_dim}, {scan_window}")
 
         # Set new values to the fields
         guiw.set_widget_value(self.bxSSx, scan_size[0])
@@ -230,8 +229,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Update status bar info
         ff_dim = self.afmulator.forcefield.nDim
         self.dim_label.setText(f"Scan dim: {scan_dim[0]}x{scan_dim[1]}x{scan_dim[2]} | " f"FF dim: {ff_dim[0]}x{ff_dim[1]}x{ff_dim[2]}")
-        if self.verbose > 0:
-            print("lvec:\n", self.afmulator.forcefield.nDim, self.afmulator.lvec)
+        logger.debug(f"lvec:\n {self.afmulator.forcefield.nDim}, {self.afmulator.lvec}")
 
     def scanWindowFromGeom(self):
         """Infer and set scan window from current geometry"""
@@ -266,8 +264,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             [np.sin(a),  np.cos(a), 0],
             [        0,          0, 1]
         ])  # fmt: on
-        if self.verbose > 0:
-            print("updateRotation", a, self.rot)
+        logger.debug(f"updateRotation {a}, {self.rot}")
         self.update()
 
     def updateParams(self, preset_none=True):
@@ -298,8 +295,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             Qs = [Q, -2 * Q, Q, 0]
             QZs = [sigma, 0, -sigma, 0]
 
-        if self.verbose > 0:
-            print("updateParams", Q, sigma, multipole, tipStiffness, tipR0, use_point_charge, A_pauli, B_pauli, type(self.qs))
+        logger.debug(f"updateParams {Q}, {sigma}, {multipole}, {tipStiffness}, {tipR0}, {use_point_charge}, {A_pauli}, {B_pauli}, {type(self.qs)}")
 
         if self.rho_sample is not None:  # Use FDBM
 
@@ -384,8 +380,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def setPBC(self, lvec, enabled):
         """Set periodic boundary condition lattice"""
 
-        if self.verbose > 0:
-            print("setPBC", lvec, enabled)
+        logger.debug(f"setPBC {lvec}, {enabled}")
 
         if enabled:
             self.sample_lvec = lvec
@@ -455,8 +450,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         """Run simulation, and show the result"""
         if self.xyzs is None:
             return
-        if self.verbose > 1:
-            t0 = time.perf_counter()
+        t0 = time.perf_counter()
         self.status_message("Running simulation...")
         try:
             self.df = self.afmulator(
@@ -468,10 +462,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 rot=self.rot,
             )
         except Exception:
-            traceback.print_exc()
+            logger.error(f"Error during simulation:\n{traceback.format_exc()}")
             guiw.show_warning(self, f"Error during simulation! Error message:\n{traceback.format_exc()}", "Simulation error!")
-        if self.verbose > 1:
-            print(f"AFMulator total time [s]: {time.perf_counter() - t0}")
+        perf_logger.info(f"AFMulator total time [s]: {time.perf_counter() - t0}")
         self.status_message("Updating plot...")
         self.updateDataView()
         if self.FFViewer.isVisible():
@@ -505,8 +498,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         # Load input file
         file_name = os.path.split(main_input)[1].lower()
         ext = os.path.splitext(file_name)[1]
-        if self.verbose > 0:
-            print(f"loadInput: {main_input}, {file_name}, {ext}")
+        logger.debug(f"loadInput: {main_input}, {file_name}, {ext}")
         if file_name in ["poscar", "contcar"]:
             xyzs, Zs, lvec = io.loadPOSCAR(main_input)
             qs = np.zeros(len(Zs))
@@ -572,14 +564,12 @@ class ApplicationWindow(QtWidgets.QMainWindow):
 
                 for name, preset in Presets.items():  # Try to find a matching preset
                     if preset["Z"] == Zpp:
-                        if self.verbose > 0:
-                            print(f"Setting preset `{name}` based on tip density file geometry.")
+                        logger.info(f"Setting preset `{name}` based on tip density file geometry.")
                         self.slPreset.setCurrentText(name)
                         self.applyPreset(update=False)
                         break
                 else:
-                    if self.verbose > 0:
-                        print(f"Setting probe particle type `{Zpp}` based on tip density file geometry.")
+                    logger.info(f"Setting probe particle type `{Zpp}` based on tip density file geometry.")
                     guiw.set_widget_value(self.bxZPP, Zpp)
 
         self.bxPC.blockSignals(True)
@@ -657,9 +647,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             from ase import Atoms
             from ase.visualize import view
         except ModuleNotFoundError:
-            print("No ase installation detected. Cannot show molecule geometry.")
-            if self.verbose > 1:
-                traceback.print_exc()
+            logger.error("No ase installation detected. Cannot show molecule geometry.")
+            logger.debug(traceback.format_exc())
             return
         atoms = Atoms(
             positions=self.xyzs,
@@ -672,15 +661,14 @@ class ApplicationWindow(QtWidgets.QMainWindow):
     def openFile(self):
         self.openFileDialog.exec()
         file_paths = self.openFileDialog.paths
-        if self.verbose > 0:
-            print("openFile", file_paths)
+        logger.info(f"openFile {file_paths}")
         if file_paths is None:
             return
         self.status_message("Opening file(s)...")
         try:
             self.loadInput(**file_paths)
         except:
-            traceback.print_exc()
+            logger.error(f"Error while opening files:\n{traceback.format_exc()}")
             guiw.show_warning(self, f"Ran into an error while opening a file! Error message:\n{traceback.format_exc()}", "File open error!")
             self.status_message("Ready")
 
@@ -692,8 +680,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         if fileName:
             self.status_message("Saving image...")
             fileName = guiw.correct_ext(fileName, ".png")
-            if self.verbose > 0:
-                print("Saving image to :", fileName)
+            logger.info(f"Saving image to : {fileName}")
             self.figCan.fig.savefig(fileName, bbox_inches="tight")
             self.status_message("Ready")
 
@@ -707,11 +694,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         ext = os.path.splitext(fileName)[1]
         if ext not in [".xyz", ".xsf"]:
             self.status_message("Unsupported file type in df save file path")
-            print(f"Unsupported file type in df save file path `{fileName}`")
+            logger.error(f"Unsupported file type in df save file path `{fileName}`")
             return
         self.status_message("Saving data...")
-        if self.verbose > 0:
-            print(f"Saving df data to {fileName}...")
+        logger.info(f"Saving df data to {fileName}...")
         if ext == ".xyz":
             data = self.df[:, :, -1].T
             xs = np.linspace(0, self.bxSSx.value(), data.shape[1], endpoint=False)
@@ -738,8 +724,6 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             io.saveXSF(fileName, data, lvecScan, head=atomstring)
         else:
             raise RuntimeError("This should not happen. Missing file format check?")
-        if self.verbose > 0:
-            print("Done saving df data.")
         self.status_message("Ready")
 
     def updateDataView(self):
@@ -771,11 +755,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             self.figCan.plotSlice(data, -1, title=title, points=self.df_points, cbar_range=cbar_range, extent=extent)
 
         except Exception:
-            print(f"Failed to plot df slice.\n{traceback.format_exc()}")
+            logger.error(f"Failed to plot df slice.\n{traceback.format_exc()}")
             guiw.show_warning(self, f"Ran into an error while plotting! Error message:\n{traceback.format_exc()}", "Plot error!")
 
-        if self.verbose > 1:
-            print(f"plotSlice time {time.perf_counter() - t1:.5f} [s]")
+        perf_logger.info(f"plotSlice time {time.perf_counter() - t1:.5f} [s]")
 
     def clickImshow(self, x, y):
         if self.df is None:
@@ -786,8 +769,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         x_step, y_step = self.bxStepX.value(), self.bxStepY.value()
         ix = int(round((x - x_min) / x_step))
         iy = int(round((y - y_min) / y_step))
-        if self.verbose > 0:
-            print("clickImshow", ix, iy, x, y)
+        logger.debug(f"clickImshow {ix}, {iy}, {x}, {y}")
 
         # Remember coordinates in case scan_start changes
         self.df_points.append((x, y))
@@ -806,8 +788,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.updateDataView()
 
     def zoomTowards(self, x, y, zoom_direction):
-        if self.verbose > 0:
-            print("zoomTowards", x, y, zoom_direction)
+        logger.debug(f"zoomTowards {x}, {y}, {zoom_direction}")
 
         scan_size = np.array([self.bxSSx.value(), self.bxSSy.value()])
         scan_start = np.array([self.bxSCx.value(), self.bxSCy.value()])
@@ -841,8 +822,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save parameters", default_path, "(*.ini)")
         if not fileName:
             return
-        if self.verbose > 0:
-            print(f"Saving current parameters to `{fileName}`")
+        logger.info(f"Saving current parameters to `{fileName}`")
         self.afmulator.save_params(fileName)
         self.status_message("Saved parameters")
 
@@ -1267,7 +1247,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         self.l0.addLayout(vb)
 
         # Forcefield viewer
-        self.FFViewer = guiw.FFViewer(self, verbose=self.verbose)
+        self.FFViewer = guiw.FFViewer(self)
         bt = QtWidgets.QPushButton("View Forcefield", self)
         bt.setToolTip(TTips["view_ff"])
         bt.clicked.connect(self.showFFViewer)
@@ -1341,18 +1321,19 @@ def _spin_box(value_range, value, step, connect_func, tool_tip, parent, stretch=
 def main():
     qApp = QtWidgets.QApplication(sys.argv)
     args = parse_args()
+    configure_logging(level=args.log_level, log_performance=args.log_performance)
     if args.list_devices:
-        print("\nAvailable OpenCL platforms:")
+        logger.info("Available OpenCL platforms:")
         oclu.print_platforms()
         sys.exit(0)
     try:
-        aw = ApplicationWindow(args.input, args.device, args.verbosity)
+        aw = ApplicationWindow(args.input, args.device)
         aw.show()
         sys.exit(qApp.exec_())
     except SystemExit:
         pass
     except:
-        traceback.print_exc()
+        logger.error(f"Ran into an error:\n{traceback.format_exc()}")
         guiw.show_warning(None, f"Ran into an error!\n\n{traceback.format_exc()}", "Error!")
 
 

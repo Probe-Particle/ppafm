@@ -9,6 +9,9 @@ import numpy as np
 from .. import common, core, io
 from ..GridUtils import interpolate_cartesian
 from ..HighLevel import perform_relaxation
+from ..logging_utils import get_logger
+
+logger = get_logger("relaxed_scan")
 
 
 def rotate_vector(v, a):
@@ -91,42 +94,41 @@ def main(argv=None):
             applied_bias = True
 
     if applied_bias:
-        print("Vs   =", voltages)
-    print("Ks   =", k_constants)
-    print("Qs   =", charges)
-
-    print(" ============= RUN  ")
+        logger.info(f"Vs   = {voltages}")
+    logger.info(f"Ks   = {k_constants}")
+    logger.info(f"Qs   = {charges}")
+    logger.info(" ============= RUN  ")
 
     ff_vdw = ff_pauli = ff_electrostatics = ff_boltzman = ff_kpfm_t0sv = ff_kpfm_tvs0 = None
 
     if args.noLJ:
-        print("Apauli", parameters.Apauli)
+        logger.debug(f"Apauli {parameters.Apauli}")
 
-        print("Loading Pauli force field from FFpauli_{x,y,z}")
+        logger.info("Loading Pauli force field from FFpauli_{x,y,z}")
         ff_pauli, lvec, _, atomic_info_or_head = io.load_vec_field("FFpauli", data_format=args.output_format)
         ff_pauli[0, :, :, :], ff_pauli[1, :, :, :] = rotate_ff(ff_pauli[0, :, :, :], ff_pauli[1, :, :, :], opt_dict["rotate"])
 
-        print("Loading vdW force field from FFvdW_{x,y,z}")
+        logger.info("Loading vdW force field from FFvdW_{x,y,z}")
         ff_vdw, lvec, _, atomic_info_or_head = io.load_vec_field("FFvdW", data_format=args.output_format)
         ff_vdw[0, :, :, :], ff_vdw[1, :, :, :] = rotate_ff(ff_vdw[0, :, :, :], ff_vdw[1, :, :, :], opt_dict["rotate"])
 
     else:
-        print("Loading Lennard-Jones force field from FFLJ_{x,y,z}")
+        logger.info("Loading Lennard-Jones force field from FFLJ_{x,y,z}")
         ff_vdw, lvec, _, atomic_info_or_head = io.load_vec_field("FFLJ", data_format=args.output_format)
         ff_vdw[0, :, :, :], ff_vdw[1, :, :, :] = rotate_ff(ff_vdw[0, :, :, :], ff_vdw[1, :, :, :], opt_dict["rotate"])
 
     if charged_system:
-        print("Loading electrostatic force field from FFel_{x,y,z}")
+        logger.info("Loading electrostatic force field from FFel_{x,y,z}")
         ff_electrostatics, lvec, _, atomic_info_or_head = io.load_vec_field("FFel", data_format=args.output_format)
         ff_electrostatics[0, :, :, :], ff_electrostatics[1, :, :, :] = rotate_ff(ff_electrostatics[0, :, :, :], ff_electrostatics[1, :, :, :], opt_dict["rotate"])
 
     if args.boltzmann or args.bI:
-        print("Loading Boltzmann force field from FFboltz_{x,y,z}")
+        logger.info("Loading Boltzmann force field from FFboltz_{x,y,z}")
         ff_boltzman, lvec, _, atomic_info_or_head = io.load_vec_field("FFboltz", data_format=args.output_format)
         ff_boltzman[0, :, :, :], ff_boltzman[1, :, :, :] = rotate_ff(ff_boltzman[0, :, :, :], ff_boltzman[1, :, :, :], opt_dict["rotate"])
 
     if applied_bias:
-        print("Loading electrostatic contribution from applied bias from FFkpfm_t0sV_{x,y,z} and FFkpfm_tVs0_{x,y,z}")
+        logger.info("Loading electrostatic contribution from applied bias from FFkpfm_t0sV_{x,y,z} and FFkpfm_tVs0_{x,y,z}")
         ff_kpfm_t0sv, lvec, _, atomic_info_or_head = io.load_vec_field("FFkpfm_t0sV", data_format=args.output_format)
         ff_kpfm_tvs0, lvec, _, atomic_info_or_head = io.load_vec_field("FFkpfm_tVs0", data_format=args.output_format)
 
@@ -143,11 +145,11 @@ def main(argv=None):
     if args.tipspline is not None:
         try:
             tip_spline = core.SplineParameters.from_file(args.tipspline)
-            print(f"Loaded tip spline from {args.tipspline}")
-            print("xs: ", tip_spline.rff_xs)
-            print("ydys: ", tip_spline.rff_ydys)
+            logger.info(f"Loaded tip spline from {args.tipspline}")
+            logger.debug(f"xs: {tip_spline.rff_xs}")
+            logger.debug(f"ydys: {tip_spline.rff_ydys}")
         except:
-            print(f"Could not load tip spline from {args.tipspline}")
+            logger.error(f"Could not load tip spline from {args.tipspline}")
             sys.exit(1)
     else:
         tip_spline = None
@@ -160,7 +162,7 @@ def main(argv=None):
         dirname = f"Q{charge:1.2f}K{stiffness:1.2f}"
         if applied_bias:
             dirname += f"V{voltage:1.2f}"
-        print(" Relaxed_scan for ", dirname)
+        logger.info(f"Relaxed_scan for {dirname}")
         if not os.path.exists(dirname):
             os.makedirs(dirname)
 
@@ -187,7 +189,7 @@ def main(argv=None):
 
         if opt_dict["vib"] >= 0:
             which = opt_dict["vib"]
-            print(f" === Computing eigenvectors of dynamical matrix: which={which} ddisp={parameters.ddisp}")
+            logger.info(f" === Computing eigenvectors of dynamical matrix: which={which} ddisp={parameters.ddisp}")
             tip_positions_x, tip_positions_y, tip_positions_z, lvec_scan = common.prepareScanGrids()
             r_tips = np.array(np.meshgrid(tip_positions_x, tip_positions_y, tip_positions_z)).transpose(3, 1, 2, 0).copy()
             evals, evecs = core.stiffnessMatrix(
@@ -197,9 +199,9 @@ def main(argv=None):
                 ddisp=parameters.ddisp,
                 tip_spline=tip_spline,
             )
-            print("vib eigenval 1 min..max : ", np.min(evals[:, 0]), np.max(evals[:, 0]))
-            print("vib eigenval 2 min..max : ", np.min(evals[:, 1]), np.max(evals[:, 1]))
-            print("vib eigenval 3 min..max : ", np.min(evals[:, 2]), np.max(evals[:, 2]))
+            logger.debug(f"vib eigenval 1 min..max : {np.min(evals[:, 0])}..{np.max(evals[:, 0])}")
+            logger.debug(f"vib eigenval 2 min..max : {np.min(evals[:, 1])}..{np.max(evals[:, 1])}")
+            logger.debug(f"vib eigenval 3 min..max : {np.min(evals[:, 2])}..{np.max(evals[:, 2])}")
             io.save_vec_field(dirname + "/eigvalKs", evals.reshape(r_tips.shape), **data_info)
             if which > 0:
                 io.save_vec_field(dirname + "/eigvecK1", evecs[0].reshape(r_tips.shape), **data_info)
@@ -215,7 +217,7 @@ def main(argv=None):
             io.save_vec_field(dirname + "/PPpos", pp_positions, **data_info)
 
         if args.bI:
-            print("Calculating current from tip to the Boltzmann particle:")
+            logger.info("Calculating current from tip to the Boltzmann particle:")
             current_in, lvec, _, atomic_info_or_head = io.load_scal_field("I_boltzmann", data_format=args.output_format)
             current_out = interpolate_cartesian(current_in, pp_positions, cell=lvec[1:, :], result=None)
             io.save_scal_field(dirname + "/OutI_boltzmann", current_out, **data_info)

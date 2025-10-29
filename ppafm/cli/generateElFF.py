@@ -12,6 +12,9 @@ from ..HighLevel import (
     loadValenceElectronDict,
     subtractCoreDensities,
 )
+from ..logging_utils import get_logger
+
+logger = get_logger("generateElFF")
 
 
 def main(argv=None):
@@ -43,7 +46,8 @@ def main(argv=None):
     subtract_core_densities = (args.doDensity) and (args.Rcore > 0.0) and (args.tip_dens is not None)
     if subtract_core_densities:  # We do it here, in case it crash we don't want to wait for all the huge density files to load
         if args.tip_dens is None:
-            raise Exception("Rcore>0 but no tip density provided!")
+            logger.error("Rcore>0 but no tip density provided!")
+            sys.exit(1)
         valence_electrons_dictionary = loadValenceElectronDict()
         rs_tip, elems_tip = getAtomsWhichTouchPBCcell(args.tip_dens, Rcut=args.Rcore, parameters=parameters)
 
@@ -66,43 +70,42 @@ def main(argv=None):
 
     if args.tip_dens is not None:
         #  No need to renormalize: fieldFFT already works with density
-        print(">>> Loading tip density from ", args.tip_dens, "...")
+        logger.info(f">>> Loading tip density from {args.tip_dens}")
         if args.tip_dens.lower().endswith("xsf"):
             rho_tip, lvec_tip, _, head_tip = io.loadXSF(args.tip_dens)
         else:
-            print(f'ERROR!!! Unknown or unsupported format of the tip density file "{args.tip_dens}"\n', file=sys.stderr)
+            logger.error(f'Unknown or unsupported format of the tip density file "{args.tip_dens}"\n')
             sys.exit(1)
         if subtract_core_densities:
-            print(">>> subtracting core densities from rho_tip ... ")
+            logger.info(">>> subtracting core densities from rho_tip ... ")
             subtractCoreDensities(rho_tip, lvec_tip, elems=elems_tip, Rs=rs_tip, valElDict=valence_electrons_dictionary, Rcore=args.Rcore, head=head_tip)
 
         parameters.tip = -rho_tip  # Negative sign, because the electron density needs to be negative but the input density is positive
 
     if args.KPFM_sample is not None:
         sigma = parameters.sigma
-        print(parameters.sigma)
+        logger.debug(f"{parameters.sigma}")
         if input_format == "xsf" and args.KPFM_sample.lower().endswith(".xsf"):
             v_ref_s = args.Vref
-            print(">>> Loading Hartree potential under bias from ", args.KPFM_sample, "...")
-            print("Use loadXSF")
+            logger.info(f">>> Loading Hartree potential under bias from {args.KPFM_sample}")
+            logger.debug("Use loadXSF")
             v_kpfm, lvec, n_dim, head = io.loadXSF(args.KPFM_sample)
 
         elif input_format == "cube" and args.KPFM_sample.lower().endswith(".cube"):
             v_ref_s = args.Vref
-            print(">>> Loading Hartree potential under bias from ", args.KPFM_sample, "...")
-            print("Use loadCUBE")
+            logger.info(f">>> Loading Hartree potential under bias from {args.KPFM_sample}")
+            logger.debug("Use loadCUBE")
             v_kpfm, lvec, n_dim, head = io.loadCUBE(args.KPFM_sample)
 
         else:
-            print(
-                f'ERROR!!! Format of the "{args.KPFM_sample}" file with Hartree potential under bias is unknown or incompatible with the main input format, which is "{input_format}".\n',
-                file=sys.stderr,
+            logger.error(
+                f'Format of the "{args.KPFM_sample}" file with Hartree potential under bias is unknown or incompatible with the main input format, which is "{input_format}".\n'
             )
             sys.exit(1)
         v_kpfm *= -1  # Unit conversion, energy to potential (eV -> V)
         dv_kpfm = v_kpfm - electrostatic_potential
 
-        print(">>> Loading tip density under bias from ", args.KPFM_tip, "...")
+        logger.info(f">>> Loading tip density under bias from {args.KPFM_tip}")
         if input_format == "xsf" and args.KPFM_tip.lower().endswith(".xsf"):
             v_ref_t = args.Vref
             rho_tip_kpfm, lvec_tip, _, head_tip = io.loadXSF(args.KPFM_tip)
@@ -118,28 +121,23 @@ def main(argv=None):
             if parameters.probeType == "8":
                 drho_kpfm = {"pz": 0.045}
                 sigma = 0.48
-                print(" Select CO-tip polarization ")
+                logger.debug("Select CO-tip polarization ")
             if parameters.probeType == "47":
                 drho_kpfm = {"pz": 0.21875}
                 sigma = 0.7
-                print(" Select Ag polarization with decay sigma", sigma)
+                logger.debug(f"Select Ag polarization with decay sigma {sigma}")
             if parameters.probeType == "54":
                 drho_kpfm = {"pz": 0.250}
                 sigma = 0.67
-                print(" Select Xe-tip polarization")
+                logger.debug("Select Xe-tip polarization")
         else:
-            raise ValueError(
-                'ERROR!!! Neither is "'
-                + args.KPFM_sample
-                + '" a density file with an appropriate ("'
-                + input_format
-                + '") format\nnor is it a valid name of a tip polarizability model.\n'
-            )
+            logger.error(f'Neither is "{args.KPFM_sample}" a density file with an appropriate ("{input_format}") format nor is it a valid name of a tip polarizability model.')
+            sys.exit(1)
 
         ff_kpfm_t0sv, _ = computeElFF(dv_kpfm, lvec, n_dim, parameters.tip, computeVpot=args.energy, tilt=args.tilt, parameters=parameters)
         ff_kpfm_tvs0, _ = computeElFF(electrostatic_potential, lvec, n_dim, drho_kpfm, computeVpot=args.energy, tilt=args.tilt, sigma=sigma, deleteV=False, parameters=parameters)
 
-        print("Linear E to V")
+        logger.debug("Linear E to V")
         zpos = np.linspace(lvec[0, 2] - args.z0, lvec[0, 2] + lvec[3, 2] - args.z0, n_dim[0])
         for i in range(n_dim[0]):
             # z position of the KPFM tip with respect to the sample must not be zero or negative
@@ -149,14 +147,14 @@ def main(argv=None):
             ff_kpfm_t0sv[i, :, :] = ff_kpfm_t0sv[i, :, :] / ((v_ref_s) * (zpos[i] + 0.1))
             ff_kpfm_tvs0[i, :, :] = ff_kpfm_tvs0[i, :, :] / ((v_ref_t) * (zpos[i] + 0.1))
 
-        print(">>> Saving electrostatic forcefield ... ")
+        logger.info(">>> Saving electrostatic forcefield")
         io.save_vec_field("FFkpfm_t0sV", ff_kpfm_t0sv, lvec_samp, data_format=args.output_format, head=head_samp)
         io.save_vec_field("FFkpfm_tVs0", ff_kpfm_tvs0, lvec_samp, data_format=args.output_format, head=head_samp)
 
-    print(">>> Calculating electrostatic forcefield with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) ) ... ")
+    logger.info(">>> Calculating electrostatic forcefield with FFT convolution as Eel(R) = Integral( rho_tip(r-R) V_sample(r) )")
     ff_electrostatic, e_electrostatic = computeElFF(electrostatic_potential, lvec, n_dim, parameters.tip, computeVpot=args.energy, tilt=args.tilt, parameters=parameters)
 
-    print(">>> Saving electrostatic forcefield ... ")
+    logger.info(">>> Saving electrostatic forcefield")
 
     io.save_vec_field("FFel", ff_electrostatic, lvec_samp, data_format=args.output_format, head=head_samp, atomic_info=(atoms_samp[:4], lvec_samp))
     if args.energy:
