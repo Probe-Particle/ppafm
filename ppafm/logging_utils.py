@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import tempfile
 from typing import Any, Optional, Union
 
 # Setup the root logger for the ppafm package. All other loggers will be derived from this one.
@@ -14,6 +15,8 @@ _perf_logger = logging.getLogger("ppafm.perf")
 _perf_logger.propagate = False
 _perf_log_format = "[%(asctime)s - %(name)s] %(message)s"
 _perf_log_enabled = False
+
+lib = None
 
 
 def configure_logging(
@@ -45,7 +48,7 @@ def configure_logging(
 
     if level is None:
         try:
-            level = os.environ["PPAFM_LOG_LEVEL"]
+            level = os.environ["PPAFM_LOG_LEVEL"].upper()
         except KeyError:
             level = logging.INFO
     _root_logger.setLevel(level)
@@ -95,9 +98,64 @@ def configure_logging(
     _log_handler.setFormatter(logging.Formatter(fmt=_log_format))
 
 
-# This sets the logging level immediately from environment variable or defaults to INFO.
-# Also sets the message format.
-configure_logging()
+def _init_logging():
+
+    global lib
+    if lib is not None:
+        return
+
+    configure_logging()
+
+    # We have to do this import here, or otherwise we get a circular import
+    from .cpp_utils import get_cdll
+
+    lib = get_cdll("logging")
+    lib.set_log_fd(sys.stdout.fileno())
+
+    with CppLogger("test_logger"):
+        lib.test_log()
+
+
+def _get_lib():
+    if lib is None:
+        raise RuntimeError("Logging not initialized")
+    return lib
+
+
+class CppLogger:
+    """Context manager for redirecting logging events in C++ to Python logging."""
+
+    def __init__(self, logger_name: str):
+        self.logger = get_logger(logger_name)
+        self.lib = _get_lib()
+
+    def __enter__(self):
+        self.log = tempfile.TemporaryFile()
+        self.lib.set_log_fd(self.log.fileno())
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.log.seek(0)
+
+        # Read file line-by-line and convert messages to logging events
+        log_level = logging.INFO
+        msg = ""
+        for line in self.log:
+            line = line.decode().strip()
+            if line.startswith("LOG_ENTRY_"):
+                if msg:
+                    self.logger.log(log_level, msg)
+                    msg = ""
+                line = line.removeprefix("LOG_ENTRY_")
+                level_str, msg = line.split(" ", maxsplit=1)
+                log_level = getattr(logging, level_str)
+            else:
+                msg += f"\n{line}"
+        if msg:
+            self.logger.log(log_level, msg)
+
+        self.log.close()
+
+        self.lib.set_log_fd(sys.stdout.fileno())
 
 
 def get_logger(name: str) -> logging.Logger:

@@ -29,7 +29,7 @@ CPP_PATH = PACKAGE_PATH.joinpath("cpp")
 logger.debug(f" PACKAGE_PATH = {PACKAGE_PATH}")
 logger.debug(f" CPP_PATH     = {CPP_PATH}")
 
-cpp_modules = {"PP": "ProbeParticle", "GU": "GridUtils", "fitting": "fitting", "fitSpline": "fitSpline"}
+cpp_modules = {"PP": "ProbeParticle", "GU": "GridUtils", "fitting": "fitting", "fitSpline": "fitSpline", "logging": "logging"}
 """Dictionary of C++ extension modules. Keys are targets for make and values are module names."""
 
 

@@ -5,7 +5,7 @@ from ctypes import c_char_p, c_double, c_int
 import numpy as np
 
 from . import cpp_utils
-from .logging_utils import get_logger
+from .logging_utils import CppLogger, get_logger
 
 logger = get_logger("GridUtils")
 
@@ -160,5 +160,6 @@ lib.ReadNumsUpTo_C.restype = c_int
 
 def readNumsUpTo(filename, dimensions, noline):
     N_arry = np.zeros((dimensions[0] * dimensions[1] * dimensions[2]), dtype=np.double)
-    lib.ReadNumsUpTo_C(filename.encode(), N_arry, dimensions, noline)
+    with CppLogger("GridUtils"):
+        lib.ReadNumsUpTo_C(filename.encode(), N_arry, dimensions, noline)
     return N_arry

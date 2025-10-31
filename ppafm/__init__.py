@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
-# Importing the logging utils sets up the default root logger
-from . import logging_utils
 from .common import *
+from .logging_utils import _init_logging
 from .version import __version__
+
+_init_logging()

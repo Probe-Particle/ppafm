@@ -3,6 +3,7 @@
 //#include <string.h>
 
 #include "Grid.h"
+#include "logging.h"
 
 #include <locale.h>
 
@@ -42,8 +43,8 @@ extern "C" {
         int nx=dims[0];
         int ny=dims[1];
         int nz=dims[2];
-        printf ("FileRead program: reading %s file\n", fname);
-        printf ("XYZ dimensions are %d %d %d\n", dims[0], dims[1], dims[2]);
+        log_info ("FileRead program: reading %s file\n", fname);
+        log_info ("XYZ dimensions are %d %d %d\n", dims[0], dims[1], dims[2]);
         f=fopen(fname, "r");
         if (f==NULL)        {
             fprintf(stderr, "Can't open the file %s", fname);

@@ -9,7 +9,7 @@ CPPFLAGS= -fPIC -std=c++11 -O2 -mtune=native -fopenmp
 LDFLAGS= -shared -fopenmp
 
 
-all: PP GU fitting_ fitSpline_
+all: PP GU fitting_ fitSpline_ logging_
 
 PP: ProbeParticle.o
 
@@ -18,6 +18,8 @@ GU: GridUtils.o
 fitting_: fitting.o
 
 fitSpline_: fitSpline.o
+
+logging_: logging.o
 
 # .o files depend on .cpp files with same prefix
 # $@ target, $< prerequisite, $* matched stencil
