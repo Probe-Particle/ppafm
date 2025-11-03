@@ -378,11 +378,10 @@ def loadValenceElectronDict():
     except:
         pass
     if valElDict_ is None:
-        namespace = {}
-        fname_valelec_dict = cpp_utils.PACKAGE_PATH / "defaults" / "valelec_dict.py"
-        exec(open(fname_valelec_dict).read(), namespace)
-        valElDict_ = namespace["valElDict"]
-        logger.debug(f"Valence electrons loaded from default location : {fname_valelec_dict}")
+        from .defaults import valelec_dict
+
+        valElDict_ = valelec_dict.valElDict
+        logger.debug(f"Valence electrons loaded from defaults")
     logger.debug(f" Valence Electron Dict : \n {valElDict_}")
     return valElDict_
 

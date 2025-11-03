@@ -29,4 +29,4 @@ valElDict = {
     54: 8.0,
 }
 
-logger.debug(f"inside  valelec_dict.py valElDict={valElDict}")
+logger.debug(f"inside valelec_dict.py valElDict={valElDict}")

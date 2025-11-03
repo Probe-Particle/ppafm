@@ -1873,7 +1873,6 @@ class AtomProjection:
         self.cl_atoms.release()
         self.cl_coefs.release()
         self.cl_poss.release()
-        self.cl_FE.release()
 
     def tryReleaseBuffers(self):
         """
@@ -1892,10 +1891,6 @@ class AtomProjection:
             self.cl_poss.release()
         except:
             pass
-        try:
-            self.cl_FE.release()
-        except:
-            pass
 
     def run_evalLorenz(self, poss=None, Eout=None, local_size=(32,)):
         """
@@ -1903,7 +1898,7 @@ class AtomProjection:
         """
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
+            logger.debug(f"FE.shape {Eout.shape}")
         if poss is not None:
             logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
@@ -1931,7 +1926,7 @@ class AtomProjection:
             self.tipRot = tipRot
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
+            logger.debug(f"FE.shape {Eout.shape}")
         if poss is not None:
             logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
@@ -1966,7 +1961,7 @@ class AtomProjection:
             self.tipRot = tipRot
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
+            logger.debug(f"FE.shape {Eout.shape}")
         if poss is not None:
             logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
@@ -2001,7 +1996,7 @@ class AtomProjection:
             self.tipRot = tipRot
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
+            logger.debug(f"FE.shape {Eout.shape}")
         if poss is not None:
             logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
@@ -2034,7 +2029,7 @@ class AtomProjection:
             self.tipRot = tipRot
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
+            logger.debug(f"FE.shape {Eout.shape}")
         if poss is not None:
             logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
@@ -2069,7 +2064,7 @@ class AtomProjection:
             self.tipRot = tipRot
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
+            logger.debug(f"FE.shape {Eout.shape}")
         if poss is not None:
             logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
@@ -2272,7 +2267,7 @@ class AtomProjection:
         """
         if Eout is None:
             Eout = np.zeros(self.prj_dim, dtype=np.float32)
-            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
+            logger.debug(f"FE.shape {Eout.shape}")
         if poss is not None:
             logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
@@ -2308,7 +2303,7 @@ class AtomProjection:
 
         if Eout is None:
             Eout = np.zeros(self.prj_dim[:2], dtype=np.float32)
-            logger.debug(f"FE.shape {Eout.shape} {self.nDim}")
+            logger.debug(f"FE.shape {Eout.shape}")
         if poss is not None:
             logger.debug(f"poss.shape {poss.shape} {self.prj_dim} {poss.nbytes} {poss.dtype}")
             oclu.updateBuffer(poss, self.cl_poss)
