@@ -16,6 +16,21 @@ _perf_log_format = "[%(asctime)s - %(name)s] %(message)s"
 _perf_log_enabled = False
 
 
+class _DefaultFormatter(logging.Formatter):
+
+    def __init__(self):
+        super().__init__()
+        self.info_formatter = logging.Formatter("%(message)s")
+        self.other_formatter = logging.Formatter("%(levelname)s: %(message)s")
+
+    def format(self, record):
+        if record.levelno == logging.INFO:
+            formatter = self.info_formatter
+        else:
+            formatter = self.other_formatter
+        return formatter.format(record)
+
+
 def configure_logging(
     level: Optional[Union[int, str]] = None,
     format: Optional[str] = None,
@@ -31,7 +46,7 @@ def configure_logging(
         format: Format to use for logging messages. See https://docs.python.org/3/library/logging.html#logrecord-attributes.
             If None, the format is determined from the PPAFM_LOG_FORMAT environment variable or
             defaults to "[%(asctime)s - %(name)s - %(levelname)s] %(message)s" if logging level is DEBUG,
-            or '%(message)s' otherwise.
+            or otherwise '%(message)s' for INFO and `%(levelname): %(message)s` for more severe levels.
         log_path: Path where log will be written. If None, the path is determined from the the PPAFM_LOG_PATH
             environment variable, or defaults to stdout.
         log_performance: Whether to enable performance logging. If None, is True if the PPAFM_LOG_PERFORMANCE
@@ -88,15 +103,15 @@ def configure_logging(
             format = os.environ["PPAFM_LOG_FORMAT"]
         except KeyError:
             if _root_logger.level == logging.DEBUG:
-                format = "[%(asctime)s - %(name)s - %(levelname)s] %(message)s"
+                _log_format = "[%(asctime)s - %(name)s - %(levelname)s] %(message)s"
+                formatter = logging.Formatter(fmt=_log_format)
             else:
-                format = "%(message)s"
-    _log_format = format
-    _log_handler.setFormatter(logging.Formatter(fmt=_log_format))
+                _log_format = "%(message)s"
+                formatter = _DefaultFormatter()
+    _log_handler.setFormatter(formatter)
 
 
-# This sets the logging level immediately from environment variable or defaults to INFO.
-# Also sets the message format.
+# This sets the logging level and other options immediately from environment variables.
 configure_logging()
 
 
