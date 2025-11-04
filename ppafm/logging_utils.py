@@ -115,10 +115,6 @@ def configure_logging(
     _log_handler.setFormatter(formatter)
 
 
-# This sets the logging level and other options immediately from environment variables.
-configure_logging()
-
-
 def get_logger(name: str) -> logging.Logger:
     return _root_logger.getChild(name)
 
