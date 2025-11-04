@@ -75,10 +75,10 @@ def findTris(bonds, neighs):
                 common.append(i)
         ncm = len(common)
         if ncm > 2:
-            logger.debug(f"WARNING: bond {b} common neighbors {common}")
+            logger.warning(f"bond {b} common neighbors {common}")
             continue
         elif ncm < 1:
-            logger.debug(f"WARNING: bond {b} common neighbors {common}")
+            logger.warning(f"bond {b} common neighbors {common}")
             continue
         tri0 = tuple(sorted(b + (common[0],)))
         tris.add(tri0)
@@ -147,6 +147,7 @@ def removeBorderAtoms(ps, cog, R):
 def validBonds(bonds, mask, na):
     a2a = np.cumsum(mask) - 1
     bonds_ = []
+    logger.debug(f"validBonds mask: {mask}")
     for i, j in bonds:
         if mask[i] and mask[j]:
             bonds_.append((a2a[i], a2a[j]))

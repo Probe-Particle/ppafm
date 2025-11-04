@@ -102,7 +102,7 @@ def main(argv=None):
     ff_vdw = ff_pauli = ff_electrostatics = ff_boltzman = ff_kpfm_t0sv = ff_kpfm_tvs0 = None
 
     if args.noLJ:
-        logger.debug(f"Apauli {parameters.Apauli}")
+        logger.info(f"Using separate Pauli and vdW force fields. Apauli: {parameters.Apauli}")
 
         logger.info("Loading Pauli force field from FFpauli_{x,y,z}")
         ff_pauli, lvec, _, atomic_info_or_head = io.load_vec_field("FFpauli", data_format=args.output_format)

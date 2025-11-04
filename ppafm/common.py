@@ -525,9 +525,9 @@ def autoGridN(parameters):
 # load atoms species parameters form a file ( currently used to load Lennard-Jones parameters )
 def loadSpecies(fname=None):
     if fname is None or not os.path.exists(fname):
-        logger.debug("WARNING: loadSpecies(None) => load default atomtypes.ini")
+        logger.debug("loadSpecies(None) => load default atomtypes.ini")
         fname = cpp_utils.PACKAGE_PATH / "defaults" / "atomtypes.ini"
-    logger.debug(f"loadSpecies from {fname}")
+    logger.info(f"loadSpecies from {fname}")
     # FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',int),('symbol', '|S10')],usecols=[0,1,2,3])
     FFparams = np.genfromtxt(
         fname,
@@ -828,12 +828,12 @@ def atoms2iZs(names, elem_dict):
 def parseAtoms(atoms, elem_dict, PBC=True, autogeom=False, lvec=None, parameters=None):
     Rs = np.array([atoms[1], atoms[2], atoms[3]])
     if elem_dict is None:
-        logger.debug("WARNING: elem_dict is None => iZs are zero")
+        logger.warning("elem_dict is None => iZs are zero")
         iZs = np.zeros(len(atoms[0]))
     else:
         iZs = atoms2iZs(atoms[0], elem_dict)
     if autogeom:
-        logger.debug("WARNING: autoGeom shifts atoms")
+        logger.warning("autoGeom shifts atoms")
         autoGeom(Rs, shiftXY=True, fitCell=True, border=3.0)
     Rs = np.transpose(Rs, (1, 0)).copy()
     Qs = np.array(atoms[4])

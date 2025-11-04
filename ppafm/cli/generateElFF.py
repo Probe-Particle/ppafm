@@ -121,15 +121,15 @@ def main(argv=None):
             if parameters.probeType == "8":
                 drho_kpfm = {"pz": 0.045}
                 sigma = 0.48
-                logger.debug("Select CO-tip polarization ")
+                logger.info("Select CO-tip polarization ")
             if parameters.probeType == "47":
                 drho_kpfm = {"pz": 0.21875}
                 sigma = 0.7
-                logger.debug(f"Select Ag polarization with decay sigma {sigma}")
+                logger.info(f"Select Ag polarization with decay sigma {sigma}")
             if parameters.probeType == "54":
                 drho_kpfm = {"pz": 0.250}
                 sigma = 0.67
-                logger.debug("Select Xe-tip polarization")
+                logger.info("Select Xe-tip polarization")
         else:
             logger.error(f'Neither is "{args.KPFM_sample}" a density file with an appropriate ("{input_format}") format nor is it a valid name of a tip polarizability model.')
             sys.exit(1)
