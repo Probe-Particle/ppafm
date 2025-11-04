@@ -100,7 +100,8 @@ def configure_logging(
 
     if format is None:
         try:
-            format = os.environ["PPAFM_LOG_FORMAT"]
+            _log_format = os.environ["PPAFM_LOG_FORMAT"]
+            formatter = logging.Formatter(fmt=_log_format)
         except KeyError:
             if _root_logger.level == logging.DEBUG:
                 _log_format = "[%(asctime)s - %(name)s - %(levelname)s] %(message)s"
@@ -108,6 +109,9 @@ def configure_logging(
             else:
                 _log_format = "%(message)s"
                 formatter = _DefaultFormatter()
+    else:
+        _log_format = format
+        formatter = logging.Formatter(fmt=_log_format)
     _log_handler.setFormatter(formatter)
 
 

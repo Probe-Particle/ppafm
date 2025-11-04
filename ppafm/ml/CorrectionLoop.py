@@ -457,9 +457,9 @@ def Job_CorrectionLoop(simulator, atoms, bonds, geom_fname="input.xyz", nstep=10
 
     looper.startLoop(molecule, atomMap, bondMap, lvecMap, AFMRef)
     ErrConv = 0.1
-    logger.debug("# ------ To Loop    ")
+    logger.info("# ------ To Loop    ")
     for itr in range(nstep):
-        logger.debug(f"# ======= CorrectionLoop[ {itr} ] ")
+        logger.info(f"# ======= CorrectionLoop[ {itr} ] ")
         Err = looper.iteration(itr=itr)
         if Err < ErrConv:
             break
