@@ -700,3 +700,13 @@ def setWijCoulomb(ps, pauli_solver=None, W0=1.0):
         Wij = np.ascontiguousarray(Wij, dtype=np.float64)
         pauli_solver.set_Wij(Wij)
     return Wij
+
+
+def setWijConstant(nsite, pauli_solver=None, W0=0.0):
+    """Set Wij to a constant off-diagonal value W0."""
+    Wij = np.full((nsite, nsite), W0, dtype=np.float64)
+    np.fill_diagonal(Wij, 0.0)
+    if pauli_solver is not None:
+        Wij = np.ascontiguousarray(Wij, dtype=np.float64)
+        pauli_solver.set_Wij(Wij)
+    return Wij

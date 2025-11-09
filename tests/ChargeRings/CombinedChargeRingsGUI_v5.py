@@ -64,6 +64,7 @@ class ApplicationWindow(GUITemplate):
 
             'Esite':         {'group': 'Transport Solver',  'widget': 'double', 'range': (-1.0, 1.0),   'value': -0.100, 'step': 0.002, 'decimals': 3 },
             'W':             {'group': 'Transport Solver',  'widget': 'double', 'range': (-100.0, 100.0),    'value': 0.05,   'step': 0.001, 'decimals': 3 },
+            'bWijDistance':  {'group': 'Transport Solver',  'widget': 'bool',   'value': False},
             'Temp':          {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 100.0),  'value': 3.0,   'step': 0.05,   'decimals': 2 },
             'decay':         {'group': 'Transport Solver',  'widget': 'double', 'range': (0.1, 2.0),    'value': 0.3,    'step': 0.1,   'decimals': 2 },
             'GammaS':        {'group': 'Transport Solver',  'widget': 'double', 'range': (0.0, 1.0),    'value': 0.01,   'step': 0.001, 'decimals': 3, 'fidget': False },
@@ -474,6 +475,7 @@ class ApplicationWindow(GUITemplate):
         params['bMirror'] = self.cbMirror.isChecked()
         params['bRamp'] = self.cbRamp.isChecked()
         params['nsite'] = self.nsite
+        params.setdefault('bWijDistance', False)
         # Include geometry file if loaded
         if self.geometry_file:
             params['geometry_file'] = self.geometry_file

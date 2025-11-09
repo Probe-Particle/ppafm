@@ -707,6 +707,18 @@ def interpolate_hopping_maps(T1, T2, c=1.0, T0=1.0):
     return T0 * ( (c/max2)*T2 + ((1-c)/max1)*T1 )
 
 
+def _apply_wij_config(pauli_solver, spos, params):
+    """Configure Coulomb interaction matrix based on params."""
+    if pauli_solver is None:
+        return
+    use_distance = params.get('bWijDistance', False)
+    W0 = params.get('W', 0.0)
+    if use_distance:
+        pauli.setWijCoulomb(spos, pauli_solver, W0=W0)
+    else:
+        pauli.setWijConstant(len(spos), pauli_solver, W0=W0)
+
+
 def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=1.0, fig_probs=None, bdIdV=False):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
@@ -764,8 +776,7 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     if pauli_solver is None:
         pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
     pauli.set_valid_point_cuts(Tmin, EW)
-    print("!!!!!!!!!!!!!!! scan_xy_orb() befroe setWijCoulomb(): ")
-    pauli.setWijCoulomb(spos, pauli_solver, W0=params['W'])
+    _apply_wij_config(pauli_solver, spos, params)
     
     #T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     #bOmp = True
@@ -971,8 +982,7 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
     # Site geometry (positions, rotations, angles)
     spos, rots, angles = make_site_geom(params)
 
-    print("!!!!!!!!!!!!!!! calculate_xV_scan_orb() befroe setWijCoulomb(): ")
-    pauli.setWijCoulomb(spos, pauli_solver, W0=params['W'])
+    _apply_wij_config(pauli_solver, spos, params)
 
     # Compute hopping Ts along line from orbital data
     c_orb = params['c_orb']  # Default to 1.0 if not specified
