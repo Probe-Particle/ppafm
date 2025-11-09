@@ -248,12 +248,13 @@ void solve_batch(
 }
 
 double scan_current_manual_threads( PauliSolver* solver, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current) {
+    printf("[pauli_lib] scan_current_manual_threads() npoints=%d\n", npoints);
+    fflush(stdout);
 
     int nSingle = solver->nSingle;
     int nleads = solver->nleads;
     std::vector<double> base_lead_mu(nleads); // Use std::vector
     for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
-
     if(state_order) {
         // This setup should ideally happen *before* creating copies if it affects
         // the base state copied by the constructor.
@@ -315,11 +316,11 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (!solver) { return 0.0; }
     if (bOmp) { 
-        //return scan_current_omp(solver, npoints, hsingles, Ws, VGates, TLeads, state_order, out_current); 
-        //return scan_current_omp_stackalloc(solver, npoints, hsingles, Ws, VGates, TLeads, state_order, out_current);
+        printf("[pauli_lib] scan_current() dispatching to threaded path (npoints=%d)\n", npoints);
+        fflush(stdout);
         return scan_current_manual_threads(solver, npoints, hsingles, Ws, VGates, TLeads, state_order, out_current);
     }
-    printf("scan_current() npoints: %d bOmp: %d\n", npoints, bOmp);
+    printf("[pauli_lib] scan_current() running serial path (npoints=%d)\n", npoints);
     int nSingle = solver->nSingle;
     int n2 = nSingle*nSingle; 
     int nleads = solver->nleads;
@@ -617,10 +618,12 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (!solver) return 0.0;
     if( bOmp ){
+        printf("[pauli_lib] scan_current_tip() dispatching to threaded path (npoints=%d)\n", npoints);
+        fflush(stdout);
         return scan_current_tip_threaded_2( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Vec3d*)pSites_, (Mat3d*)rots_, params, order, cs, state_order, out_current, Es, Ts, Probs, StateEnergies, externTs );
-    } else {
-        return scan_current_tip_( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Vec3d*)pSites_, (Mat3d*)rots_, params, order, cs, state_order, out_current, Es, Ts, Probs, StateEnergies, externTs );
     }
+    printf("[pauli_lib] scan_current_tip() running serial path (npoints=%d)\n", npoints);
+    return scan_current_tip_( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Vec3d*)pSites_, (Mat3d*)rots_, params, order, cs, state_order, out_current, Es, Ts, Probs, StateEnergies, externTs );
 }
 
 // Calculate current through a lead (step 8 in optimization scheme)
