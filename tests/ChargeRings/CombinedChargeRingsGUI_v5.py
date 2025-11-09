@@ -38,8 +38,8 @@ class ApplicationWindow(GUITemplate):
         
         self.orbital_2D = None
         self.orbital_lvec = None
-        #self.nsite = 4
-        self.nsite = 3
+        self.nsite = 4
+        #self.nsite = 3
 
         self.geometry_file = None
         

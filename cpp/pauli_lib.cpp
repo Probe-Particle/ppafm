@@ -161,10 +161,6 @@ double solve_hsingle( void* solver_ptr, const double* hsingle, double W, int ile
     }
     // Select solver backend based on global flag
 
-    if(which_solver>=0 && (solver->nSingle>3)){
-        // DEBUG - this is just because we were getting segfault for n>3
-        which_solver = -1;
-    }
     //if(_verbosity>0){ printf("solve_hsingle() 2 which_solver: %d nSingle: %d\n", which_solver, solver->nSingle); }
     if(which_solver == -1){
         // Ground-state only
