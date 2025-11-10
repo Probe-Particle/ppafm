@@ -918,13 +918,24 @@ def calculate_xV_scan(params, pTips=None, start_point=None, end_point=None, ax_E
     nsite = int(params['nsite'])
     spos, rots, angles = make_site_geom(params)
 
-    cpp_params = pauli.make_cpp_params(params)
     state_order = pauli.make_state_order(nsite)
-    current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=bOmp, state_order=state_order, Ts=None, pauli_solver=pauli_solver, return_state_energies=True )
+    current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV(
+        pTips,
+        Vbiases,
+        spos,
+        params,
+        order=1,
+        cs=None,
+        rots=rots,
+        bOmp=bOmp,
+        state_order=state_order,
+        Ts=None,
+        pauli_solver=pauli_solver,
+    )
     pauli.validate_probabilities(probs)
     # reshape
-    STM = current.reshape(nV,npts)
-    Es  = Es.reshape(nV,npts,nsite)
+    STM = current.reshape(nV, npts)
+    Es = Es.reshape(nV, npts, nsite)
     # max energy per bias
     Emax = Es.max(axis=2)
     # dI/dV
@@ -934,16 +945,19 @@ def calculate_xV_scan(params, pTips=None, start_point=None, end_point=None, ax_E
     extent = [0, dist, Vmin, Vmax]
     if ax_Emax is not None:
         pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr', bDiverging=True)
-        ax_Emax.set_aspect('auto');
-        if bLegend: ax_Emax.set_ylabel('V [V]')
+        ax_Emax.set_aspect('auto')
+        if bLegend:
+            ax_Emax.set_ylabel('V [V]')
     if ax_STM is not None:
         pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap='hot')
-        ax_STM.set_aspect('auto');
-        if bLegend: ax_STM.set_ylabel('V [V]')
+        ax_STM.set_aspect('auto')
+        if bLegend:
+            ax_STM.set_ylabel('V [V]')
     if ax_dIdV is not None:
         pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', bDiverging=True, scV=sdIdV)
-        ax_dIdV.set_aspect('auto');
-        if bLegend: ax_dIdV.set_ylabel('V [V]')
+        ax_dIdV.set_aspect('auto')
+        if bLegend:
+            ax_dIdV.set_ylabel('V [V]')
 
     probs = probs.reshape(nV, nx, -1)
     if fig_probs is not None:

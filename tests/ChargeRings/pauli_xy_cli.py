@@ -17,6 +17,7 @@ from typing import Dict, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 import sys
 sys.path.append('../../')
@@ -146,22 +147,15 @@ def run_xy_scan(params: Dict[str, object], *, parallel: bool, compute_didv: bool
     pauli.set_valid_point_cuts(Tmin, EW)
 
     Ts_gauss, _pTips, _beta, _barrier = pauli_scan.generate_hops_gauss(spos, params)
-    Ts_flat = pauli_scan.interpolate_hopping_maps(
-        Ts_gauss,
-        None,
-        c=params.get("c_orb", 1.0),
-        T0=params.get("T0", 1.0),
-    )
+    Ts_flat = pauli_scan.interpolate_hopping_maps(  Ts_gauss, None, c=params.get("c_orb", 1.0), T0=params.get("T0", 1.0), )
     Ts_flat = np.ascontiguousarray(Ts_flat, dtype=np.float64)
 
-    STM, Es, Ts, _probs, _stateEs = pauli.run_pauli_scan_top(
-        spos,
-        rots,
-        params,
-        pauli_solver=solver,
-        bOmp=parallel,
-        Ts=Ts_flat,
-    )
+    t0 = time.perf_counter()
+
+    STM, Es, Ts, _probs, _stateEs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=solver, bOmp=parallel, Ts=Ts_flat )
+
+    base_runtime = time.perf_counter() - t0
+    print(f"[pauli_xy_cli] base scan runtime: {base_runtime:.6f} s")
 
     results = {"STM": STM, "Es": Es, "Ts": Ts}
 
@@ -177,21 +171,15 @@ def run_xy_scan(params: Dict[str, object], *, parallel: bool, compute_didv: bool
         solver_shifted.set_lead(1, 0.0, T_eV)
         solver_shifted.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12)
         pauli_scan._apply_wij_config(solver_shifted, spos, params_shifted)
-        STM_shifted, _Es2, _Ts2, _probs2, _stateEs2 = pauli.run_pauli_scan_top(
-            spos,
-            rots,
-            params_shifted,
-            pauli_solver=solver_shifted,
-            bOmp=parallel,
-            Ts=Ts_flat,
-        )
+        t1 = time.perf_counter()
+        STM_shifted, _Es2, _Ts2, _probs2, _stateEs2 = pauli.run_pauli_scan_top(spos, rots, params_shifted, pauli_solver=solver_shifted, bOmp=parallel, Ts=Ts_flat,)
         dIdV = (STM_shifted - STM) / dQ
         results["dIdV"] = dIdV
 
-    metadata = {
-        "spos": spos,
-        "rots": rots,
-    }
+        shifted_runtime = time.perf_counter() - t1
+        print(f"[pauli_xy_cli] shifted scan runtime: {shifted_runtime:.6f} s")
+
+    metadata = { "spos": spos, "rots": rots }
     return results, metadata
 
 
@@ -258,7 +246,7 @@ if __name__ == "__main__":
     parser.add_argument("--wijDistance", type=int,   default=0, help="Use distance-dependent Wij (1=yes, 0=no)")
     parser.add_argument("--mirror",      type=int,   default=1, help="Mirror image term (1=on, 0=off)")
     parser.add_argument("--ramp",        type=int,   default=1, help="Ramp flag (1=on, 0=off)")
-    parser.add_argument("--parallel",    type=int,   default=1, help="Enable threaded scan (1=yes)")
+    parser.add_argument("--parallel",    type=int,   default=0, help="Enable threaded scan (1=yes)")
     parser.add_argument("--verbosity",   type=int,   default=None, help="Pass-through verbosity for PauliSolver")
     parser.add_argument("--output",      type=Path,  help="Optional .npz file to store STM/dI/dV arrays")
     parser.add_argument("--plot",        type=int,   default=1, help="Display STM and dI/dV maps (1=yes)")
@@ -269,21 +257,13 @@ if __name__ == "__main__":
     running_mode = "parallel" if args.parallel else "serial"
     print(f"Running Pauli xy scan with nsite={params['nsite']} in {running_mode} mode")
 
-    results, _meta = run_xy_scan(
-        params,
-        parallel=bool(args.parallel),
-        compute_didv=bool(args.didv),
-    )
+    results, _meta = run_xy_scan( params, parallel=bool(args.parallel), compute_didv=bool(args.didv) )
 
     stm = results["STM"]
-    print(
-        f"STM stats: min={stm.min():.4e}, max={stm.max():.4e}, shape={stm.shape}"
-    )
+    print( f"STM stats: min={stm.min():.4e}, max={stm.max():.4e}, shape={stm.shape}" )
     if "dIdV" in results:
         didv = results["dIdV"]
-        print(
-            f"dI/dV stats: min={didv.min():.4e}, max={didv.max():.4e}, shape={didv.shape}"
-        )
+        print( f"dI/dV stats: min={didv.min():.4e}, max={didv.max():.4e}, shape={didv.shape}")
 
     if args.output:
         maybe_save(args.output, params, results)
