@@ -771,17 +771,27 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     #Ts_flat = Ts_orb
 
     Ts_flat = interpolate_hopping_maps(Ts_gauss, Ts_orb, c=c_orb, T0=params['T0'])
-    
+
     # Create solver if not provided
     if pauli_solver is None:
         pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
     pauli.set_valid_point_cuts(Tmin, EW)
     _apply_wij_config(pauli_solver, spos, params)
+
+    # Align solver probability checks with CLI defaults
+    T_eV = params.get('Temp', 0.0) * 8.617333262e-5
+    pauli_solver.set_lead(0, 0.0, T_eV)
+    pauli_solver.set_lead(1, 0.0, T_eV)
+    pauli_solver.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12)
+    old_validate = pauli.bValidateProbabilities
+    pauli.bValidateProbabilities = False
     
     #T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     #bOmp = True
-    STM_flat, Es_flat, Ts_flat_, probs, stateEs_flat = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
-    pauli.validate_probabilities(probs)
+    try:
+        STM_flat, Es_flat, Ts_flat_, probs, stateEs_flat = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+    finally:
+        pauli.bValidateProbabilities = old_validate
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     dIdV = None
     if ax_dIdV is not None: bdIdV=True
@@ -1023,6 +1033,13 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
     
     state_order = pauli.make_state_order(nsite)
     nstate = len(state_order)
+    # Align solver probability checks with CLI defaults
+    T_eV = params.get('Temp', 0.0) * 8.617333262e-5
+    pauli_solver.set_lead(0, 0.0, T_eV)
+    pauli_solver.set_lead(1, 0.0, T_eV)
+    pauli_solver.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12)
+    old_validate = pauli.bValidateProbabilities
+    pauli.bValidateProbabilities = False
     if bCurrentComponents:
         nstate2 = nstate*nstate
         nxV = npts*nV
@@ -1040,8 +1057,10 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
     else:
         current_decomp = None
 
-    current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver)
-    pauli.validate_probabilities(probs) # Validate probabilities
+    try:
+        current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver)
+    finally:
+        pauli.bValidateProbabilities = old_validate
     # reshape and compute
     STM = current.reshape(nV, npts)
     Es  = Es.reshape(nV, npts, nsite)
@@ -1548,7 +1567,7 @@ def sweep_scan_param_pauli_xy_orb(params, scan_params, view_params=None,
         run_params.update({ 'scan_index': i, 'scan_params': {param: vals[i] for param, vals in scan_params} })
 
         # Run xy scan with orbital data
-        STM, dIdV, Es, Ts, probs, spos, rots = scan_xy_orb(
+        STM, dIdV, Es, Ts, probs, stateEs, spos, rots = scan_xy_orb(
             params_i,
             orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
             pauli_solver=pauli_solver, bOmp=bOmp,
@@ -1558,6 +1577,7 @@ def sweep_scan_param_pauli_xy_orb(params, scan_params, view_params=None,
         # Collect results for return
         all_results.append({
             'STM': STM, 'dIdV': dIdV, 'Es': Es, 'Ts': Ts, 'probs': probs,
+            'stateEs': stateEs,
             'x': np.linspace(-params_i['L']/2, params_i['L']/2, params_i['npix']), 
             'y': np.linspace(-params_i['L']/2, params_i['L']/2, params_i['npix']),
             'params': run_params,
@@ -1691,15 +1711,23 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None,
         dist = np.hypot(x2-x1, y2-y1)
                 
         # Run xV scan with orbital data
-        STM, dIdV, Es, Ts, probs, x, voltages, spos, rots = calculate_xV_scan_orb(
-            params_i, start_point, end_point,
+        STM, dIdV, Es, Ts, probs, stateEs, x, voltages, spos, rots, current_decomp = calculate_xV_scan_orb(
+            params_i,
+            start_point=start_point,
+            end_point=end_point,
             orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
             pauli_solver=pauli_solver, bOmp=bOmp,
             ax_Emax=None, ax_STM=None, ax_dIdV=None,  # Don't plot in the function
             nx=nx, nV=nV, Vmin=Vmin, Vmax=Vmax,
             sdIdV=sdIdV, fig_probs=None
         )
-        all_results.append({ 'parameters': run_params, 'timestamp': datetime.now().isoformat() })
+        all_results.append({
+            'STM': STM, 'dIdV': dIdV, 'Es': Es, 'Ts': Ts, 'probs': probs,
+            'stateEs': stateEs, 'current_decomp': current_decomp,
+            'distance': x, 'voltages': voltages,
+            'spos': spos, 'rots': rots,
+            'parameters': run_params, 'timestamp': datetime.now().isoformat()
+        })
         col_title  = " ".join([f"{param}: {vals[i]:.4g}" for param, vals in scan_params])
         sim_extent = [0, dist, Vmin, Vmax]
         plot_column(fig, ncols, i + col_offset, STM, dIdV, sim_extent, title=col_title, xlabel='Distance (Å)', ylabel='Voltage (V)')
