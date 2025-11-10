@@ -35,7 +35,7 @@ K_BOLTZ_EV = 8.617333262e-5
 # run without external JSON configuration. Users are expected to override these
 # via --config.
 DEFAULT_PARAMS: Dict[str, object] = {
-    "nsite": 4,
+    "nsite": 2,
     "radius": 5.2,
     "phiRot": 1.3,
     "phi0_ax": 0.2,
@@ -53,6 +53,7 @@ DEFAULT_PARAMS: Dict[str, object] = {
     "decay": 0.3,
     "GammaS": 0.01,
     "GammaT": 0.01,
+    "solver_mode": 0,
     "Et0": 0.2,
     "wt": 8.0,
     "At": 0.0,
@@ -73,7 +74,6 @@ DEFAULT_PARAMS: Dict[str, object] = {
 # Default scan line (Å)
 DEFAULT_LINE: Tuple[Tuple[float, float], Tuple[float, float]] = ((9.72, -9.96), (-11.0, 12.0))
 
-# Default number of samples along the sweep path when not specified
 DEFAULT_SWEEP_SAMPLES = 11
 
 
@@ -86,6 +86,17 @@ class SweepSpec:
         return float(self.values[index])
 
 
+def resolve_geometry_file(path: Path) -> str:
+    """Resolve geometry file path relative to CWD or script directory."""
+    path = path.expanduser()
+    if path.exists():
+        return str(path.resolve())
+    script_path = (SCRIPT_DIR / path).expanduser()
+    if script_path.exists():
+        return str(script_path.resolve())
+    raise FileNotFoundError(f"Geometry file '{path}' not found (checked {path} and {script_path})")
+
+
 def load_params(config_path: Path | None) -> Dict[str, object]:
     params = DEFAULT_PARAMS.copy()
     if config_path is not None:
@@ -96,8 +107,11 @@ def load_params(config_path: Path | None) -> Dict[str, object]:
         with config_path.open() as fp:
             cfg = json.load(fp)
         params.update(cfg)
+    if "geometry_file" in params:
+        params["geometry_file"] = resolve_geometry_file(Path(params["geometry_file"]))
     params["nsite"] = int(params["nsite"])
     params["npix"] = int(params["npix"])
+    params["solver_mode"] = int(params.get("solver_mode", 0))
     return params
 
 
@@ -191,6 +205,8 @@ def run_single_scan(
     nsite = int(params_local["nsite"])
     verbosity = int(params_local.get("verbosity", 0))
     solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=verbosity)
+    which_solver = int(params_local.get("solver_mode", 0))
+    solver.setLinSolver(1, 50, 1e-12, which_solver)
     T_eV = float(params_local["Temp"]) * K_BOLTZ_EV
     solver.set_lead(0, 0.0, T_eV)
     solver.set_lead(1, 0.0, T_eV)
@@ -325,7 +341,9 @@ if __name__ == "__main__":
     parser.add_argument("--config",    type=Path,  default=Path("example_pauli_params.json"), help="JSON file with baseline parameters")
     parser.add_argument("--sweep",     type=Path,  default=Path("example_pauli_sweep.json"), help="JSON file describing linear sweep endpoints [start, stop]")
     parser.add_argument("--table",     type=Path,  default=None, help="Optional CSV/whitespace table specifying explicit parameter values (overrides --sweep)")
-    parser.add_argument("--samples",   type=int,   default=DEFAULT_SWEEP_SAMPLES, help="Number of sweep samples (ignored when --table is used)")
+    parser.add_argument("--geometry",  type=Path,  default="dimer.txt", help="Path to custom site geometry file (x y angle columns)")
+    parser.add_argument("--solverMode",type=int,   choices=[0, -1, -2], help="Select solver mode: 0=PME, -1=Ground State, -2=Boltzmann")
+    parser.add_argument("--samples",   type=int,   default=5, help="Number of sweep samples (ignored when --table is used)")
     parser.add_argument("--nx",        type=int,   default=100,  help="Number of points along the spatial line")
     parser.add_argument("--nV",        type=int,   default=120,  help="Number of bias samples")
     parser.add_argument("--Vmin",      type=float, default=0.0,  help="Minimum bias [V]")
@@ -344,6 +362,10 @@ if __name__ == "__main__":
         raise ValueError("--samples must be a positive integer")
 
     params = load_params(args.config)
+    if args.geometry is not None:
+        params["geometry_file"] = resolve_geometry_file(args.geometry)
+    if args.solverMode is not None:
+        params["solver_mode"] = int(args.solverMode)
     if args.verbosity is not None:
         params["verbosity"] = int(args.verbosity)
     if args.table is not None:

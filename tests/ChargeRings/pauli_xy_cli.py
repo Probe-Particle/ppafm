@@ -24,6 +24,8 @@ sys.path.append('../../')
 import pauli_scan  # noqa: E402  (local module adjusts sys.path for pyProbeParticle)
 from pyProbeParticle import pauli
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+
 # Default parameter set mirrors the useful subset of GUI defaults so the CLI can
 # be used without supplying a configuration file.
 DEFAULT_PARAMS: Dict[str, object] = {
@@ -51,6 +53,7 @@ DEFAULT_PARAMS: Dict[str, object] = {
     "decay": 0.3,
     "GammaS": 0.01,
     "GammaT": 0.01,
+    "solver_mode": 0,
     # Barrier / tunnelling model
     "Et0": 0.2,
     "wt": 8.0,
@@ -95,7 +98,19 @@ CLI_OVERRIDE_KEYS = {
     "T0": "T0",
     "L": "L",
     "npix": "npix",
+    "solver_mode": "solverMode",
 }
+
+
+def resolve_geometry_file(path: Path) -> str:
+    """Resolve geometry file path relative to CWD or script directory."""
+    path = path.expanduser()
+    if path.exists():
+        return str(path.resolve())
+    script_path = (SCRIPT_DIR / path).expanduser()
+    if script_path.exists():
+        return str(script_path.resolve())
+    raise FileNotFoundError(f"Geometry file '{path}' not found (checked {path} and {script_path})")
 
 
 def build_params(args: argparse.Namespace) -> Dict[str, object]:
@@ -107,11 +122,17 @@ def build_params(args: argparse.Namespace) -> Dict[str, object]:
             config_data = json.load(fp)
         params.update(config_data)
 
+    if "geometry_file" in params:
+        params["geometry_file"] = resolve_geometry_file(Path(params["geometry_file"]))
+
     # Apply CLI overrides.
     for key, attr in CLI_OVERRIDE_KEYS.items():
         value = getattr(args, attr)
         if value is not None:
             params[key] = value
+
+    if args.geometry is not None:
+        params["geometry_file"] = resolve_geometry_file(args.geometry)
 
     if args.verbosity is not None:
         params["verbosity"] = int(args.verbosity)
@@ -122,6 +143,7 @@ def build_params(args: argparse.Namespace) -> Dict[str, object]:
     # Ensure integer fields stay ints.
     params["nsite"] = int(params["nsite"])
     params["npix"] = int(params["npix"])
+    params["solver_mode"] = int(params.get("solver_mode", 0))
 
     return params
 
@@ -135,6 +157,8 @@ def run_xy_scan(params: Dict[str, object], *, parallel: bool, compute_didv: bool
     spos, rots, _angles = pauli_scan.make_site_geom(params)
 
     solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=verbosity)
+    which_solver = int(params.get("solver_mode", 0))
+    solver.setLinSolver(1, 50, 1e-12, which_solver)
     T_eV = params["Temp"] * 8.617333262e-5  # k_B in eV/K
     solver.set_lead(0, 0.0, T_eV)
     solver.set_lead(1, 0.0, T_eV)
@@ -167,6 +191,7 @@ def run_xy_scan(params: Dict[str, object], *, parallel: bool, compute_didv: bool
         params_shifted = params.copy()
         params_shifted["VBias"] = float(params["VBias"]) + dQ
         solver_shifted = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=verbosity)
+        solver_shifted.setLinSolver(1, 50, 1e-12, which_solver)
         solver_shifted.set_lead(0, 0.0, T_eV)
         solver_shifted.set_lead(1, 0.0, T_eV)
         solver_shifted.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12)
@@ -243,6 +268,8 @@ if __name__ == "__main__":
     parser.add_argument("--T0",          type=float, help="Overall tunnelling scale T0")
     parser.add_argument("--L",           type=float, help="Half-width of scan window [Å]")
     parser.add_argument("--npix",        type=int,   help="Number of pixels per axis in scan grid")
+    parser.add_argument("--geometry",    type=Path,  help="Path to custom site geometry file (x y angle columns)")
+    parser.add_argument("--solverMode",  type=int,   choices=[0, -1, -2], help="Select solver mode: 0=PME, -1=Ground State, -2=Boltzmann")
     parser.add_argument("--wijDistance", type=int,   default=0, help="Use distance-dependent Wij (1=yes, 0=no)")
     parser.add_argument("--mirror",      type=int,   default=1, help="Mirror image term (1=on, 0=off)")
     parser.add_argument("--ramp",        type=int,   default=1, help="Ramp flag (1=on, 0=off)")
