@@ -53,32 +53,17 @@ cmap_STM = 'inferno'
 # ===========================================
 
 def load_site_geometry(filename):
-    """
-    Load site geometry from a file with x, y, angle columns.
-    
-    Args:
-        filename: Path to the input file with three columns: x, y, angle (in degrees)
-        
-    Returns:
-        tuple: (spos, rots, angles) where:
-            - spos: (n,3) array of site positions [x,y,z]
-            - rots: (n,3,3) array of rotation matrices
-            - angles: (n,) array of angles in radians
-    """
+    """Load site geometry (x, y, angle[, Esite]) from text file."""
     data = np.loadtxt(filename)
+    if data.ndim != 2 or data.shape[1] < 3:
+        raise ValueError(f"Geometry file '{filename}' must have >=3 columns (x,y,angle[,E]).")
     n_sites = len(data)
-    
-    # Create positions array [x, y, z=0]
-    spos = np.zeros((n_sites, 3))
-    spos[:, :2] = data[:, :2]  # x, y coordinates
-    
-    # Convert angles from degrees to radians
-    angles_deg = data[:, 2]
-    angles_rad = np.radians(angles_deg)
-    
-    # Generate rotation matrices
+    spos = np.zeros((n_sites, 4))
+    spos[:, :2] = data[:, :2]
+    if data.shape[1] >= 4:
+        spos[:, 3] = data[:, 3]
+    angles_rad = np.radians(data[:, 2])
     rots = ut.makeRotMats(angles_rad, nsite=n_sites)
-    
     return spos, rots, angles_rad
 
 def make_site_geom(params):
@@ -92,9 +77,12 @@ def make_site_geom(params):
     if 'geometry_file' in params:
         return load_site_geometry(params['geometry_file'])
     nsite = params['nsite']
-    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
-    spos[:, 2] = params['zQd']
+    xyz, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+    xyz[:, 2] = params['zQd']
     angles = phis + params['phi0_ax']
+    spos = np.zeros((nsite, 4))
+    spos[:, :3] = xyz
+    spos[:, 3] = params.get('Esite', 0.0)
     rots = ut.makeRotMats(angles, nsite=nsite)
     return spos, rots, angles
 

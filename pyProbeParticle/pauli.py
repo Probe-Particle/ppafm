@@ -15,6 +15,26 @@ validateProbTol        = 1e-12
 COULOMB_CONSTANT = 14.399644730092272
 
 
+def _ensure_sites_quat_array(pSites, default_E=0.0):
+    """Return contiguous (n,4) array storing xyz,E for site coordinates."""
+    arr = np.asarray(pSites, dtype=np.float64)
+    if arr.ndim != 2: raise ValueError(f"pSites must be 2D, got ndim={arr.ndim}")
+    nsites, ncols = arr.shape
+    if ncols == 4:
+        arr4 = arr
+    elif ncols == 3:
+        if np.isscalar(default_E):
+            default_col = np.full((nsites, 1), float(default_E), dtype=np.float64)
+        else:
+            default_arr = np.asarray(default_E, dtype=np.float64)
+            if default_arr.shape != (nsites,): raise ValueError(   f"default_E must be scalar or shape ({nsites},), got {default_arr.shape}" )
+            default_col = default_arr.reshape(-1, 1)
+        arr4 = np.hstack((arr, default_col))
+    else:
+        raise ValueError(f"pSites must have 3 or 4 columns, got {ncols}")
+    return np.ascontiguousarray(arr4, dtype=np.float64)
+
+
 # Compile and load the C++ library at module level
 def compile_and_load(name='pauli_lib', bASAN=False):
     """Compile and load the C++ library"""
@@ -148,12 +168,14 @@ def set_check_prob_stop( solver_ptr, bCheckProb, bCheckProbStop, CheckProbTol=-1
 lib.evalSitesTipsTunneling.argtypes = [c_int, c_double_p, c_int, c_double_p, c_double, c_double, c_double_p]
 lib.evalSitesTipsTunneling.restype = None
 
-def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0]], beta=1.0, Amp=1.0, outTs=None, bMakeArrays=True ):
+def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0,0.0]], beta=1.0, Amp=1.0, outTs=None, bMakeArrays=True ):
     nTips  = len(pTips)
     nSites = len(pSites)
+    pSites = _ensure_sites_quat_array(pSites)
     if bMakeArrays:
-        pSites = np.zeros((nSites, 3), dtype=np.float64)
-        pTips = np.array(pTips, dtype=np.float64)
+        pTips = np.ascontiguousarray(pTips, dtype=np.float64)
+    else:
+        pTips = np.ascontiguousarray(pTips, dtype=np.float64)
     if outTs is None:
         outTs = np.zeros((nTips, nSites), dtype=np.float64)
     lib.evalSitesTipsTunneling(nTips, _np_as(pTips, c_double_p), nSites, _np_as(pSites, c_double_p), beta, Amp, _np_as(outTs, c_double_p))
@@ -162,16 +184,20 @@ def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0]], beta=1.0, Amp=1.0, ou
 # void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs, bool bMirror, bool bRamp, bool bSiteScan ) {
 lib.evalSitesTipsMultipoleMirror.argtypes = [c_int, c_double_p,  c_double_p, c_int, c_double_p, c_double_p,  c_double, c_double, c_double, c_double, c_int, c_double_p, c_double_p, c_bool, c_bool, c_bool]
 lib.evalSitesTipsMultipoleMirror.restype = None
-def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0]], VBias=1.0, Rtip=1.0, zV0=-2.0, zVd=2.0, order=1, cs=[1.0,0.0,0.0,0.0], E0=0.0, rotSite=None, Eout=None, bMakeArrays=True, bMirror=True, bRamp=True, bSiteScan=False ):
+def evalSitesTipsMultipoleMirror( pTips, pSites=[[0.0,0.0,0.0,0.0]], VBias=1.0, Rtip=1.0, zV0=-2.0, zVd=2.0, order=1, cs=[1.0,0.0,0.0,0.0], E0=0.0, rotSite=None, Eout=None, bMakeArrays=True, bMirror=True, bRamp=True, bSiteScan=False ):
     nTip  = len(pTips)
     nSite = len(pSites)
     #print("nTip", nTip, "nSite", nSite)
     if bMakeArrays:
-        pSites = np.ascontiguousarray(pSites, dtype=np.float64)
+        pSites = _ensure_sites_quat_array(pSites, default_E=E0)
         pTips  = np.ascontiguousarray(pTips,  dtype=np.float64)
         cs     = np.ascontiguousarray(cs,     dtype=np.float64)
         if isinstance(VBias, (int, float)):
             VBias = np.full(nTip, VBias, dtype=np.float64)
+    else:
+        pSites = _ensure_sites_quat_array(pSites, default_E=E0)
+        pTips  = np.ascontiguousarray(pTips,  dtype=np.float64)
+        cs     = np.ascontiguousarray(cs,     dtype=np.float64)
     if Eout is None:
         Eout = np.zeros( nTip*nSite, dtype=np.float64)
     lib.evalSitesTipsMultipoleMirror(nTip, _np_as(pTips, c_double_p), _np_as(VBias, c_double_p), nSite, _np_as(pSites, c_double_p), _np_as(rotSite, c_double_p), E0, Rtip, zV0, zVd, order, _np_as(cs, c_double_p), _np_as(Eout, c_double_p), bMirror, bRamp, bSiteScan)
@@ -309,6 +335,7 @@ class PauliSolver:
         if bMakeArrays:
             if Es is None: Es = np.zeros( (npoins, nsites), dtype=np.float64)
             if Ts is None: Ts = np.zeros( (npoins, nsites), dtype=np.float64)
+        pSites = _ensure_sites_quat_array(pSites, default_E=params[3] if params is not None and len(params) > 3 else 0.0)
         lib.scan_current_tip(self.solver, npoins, _np_as(pTips, c_double_p), _np_as(Vtips, c_double_p), nsites, _np_as(pSites, c_double_p), _np_as(rots, c_double_p), _np_as(params, c_double_p), order, _np_as(cs, c_double_p), _np_as(state_order, c_int_p), _np_as(out_current, c_double_p), bOmp, _np_as(Es, c_double_p), _np_as(Ts, c_double_p), _np_as(Probs, c_double_p), _np_as(StateEnergies, c_double_p) if StateEnergies is not None else None, externTs)
         # Return outputs
         if return_state_energies:
@@ -683,14 +710,16 @@ def setWijCoulomb(ps, pauli_solver=None, W0=1.0):
     """set Wij as coulomb matrix
     buidld Wij from ps (positions, rotations, angles)
     """
+    ps = _ensure_sites_quat_array(ps)
     print("!!!!!!!!!!!!!! setWijCoulomb() ps.shape: ", ps.shape, "W0 ", W0)
     nsite = ps.shape[0]
     Wij = np.zeros((nsite, nsite), dtype=np.float64)
     WQ = W0 * COULOMB_CONSTANT
+    positions = ps[:, :3]
     for i in range(nsite):
         for j in range(nsite):
             if i==j: continue
-            ir = 1/np.linalg.norm(ps[i] - ps[j])
+            ir = 1/np.linalg.norm(positions[i] - positions[j])
             #Wij[i,j] = Wij[j,i] = WQ * ir
             Wij[i,j] = Wij[j,i] = WQ * ir*ir*ir
 

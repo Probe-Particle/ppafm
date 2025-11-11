@@ -113,6 +113,15 @@ def resolve_geometry_file(path: Path) -> str:
     raise FileNotFoundError(f"Geometry file '{path}' not found (checked {path} and {script_path})")
 
 
+def sync_nsite_with_geometry(params: Dict[str, object]) -> None:
+    """Update nsite to match the number of sites in the geometry file, if present."""
+    geometry_path = params.get("geometry_file")
+    if not geometry_path:
+        return
+    spos, _rots, _angles = pauli_scan.load_site_geometry(geometry_path)
+    params["nsite"] = int(spos.shape[0])
+
+
 def build_params(args: argparse.Namespace) -> Dict[str, object]:
     params: Dict[str, object] = DEFAULT_PARAMS.copy()
 
@@ -124,6 +133,7 @@ def build_params(args: argparse.Namespace) -> Dict[str, object]:
 
     if "geometry_file" in params:
         params["geometry_file"] = resolve_geometry_file(Path(params["geometry_file"]))
+        sync_nsite_with_geometry(params)
 
     # Apply CLI overrides.
     for key, attr in CLI_OVERRIDE_KEYS.items():
@@ -133,6 +143,7 @@ def build_params(args: argparse.Namespace) -> Dict[str, object]:
 
     if args.geometry is not None:
         params["geometry_file"] = resolve_geometry_file(args.geometry)
+        sync_nsite_with_geometry(params)
 
     if args.verbosity is not None:
         params["verbosity"] = int(args.verbosity)
@@ -231,7 +242,9 @@ def maybe_plot(results: Dict[str, np.ndarray]) -> None:
 
     if dIdV is not None:
         ax = axes[1]
-        im1 = ax.imshow(dIdV, origin="lower", cmap="PiYG_r")
+        vmax = float(np.max(np.abs(dIdV)))
+        if vmax == 0.0: vmax = 1e-9
+        im1 = ax.imshow(dIdV, origin="lower", cmap="PiYG_r", vmin=-vmax, vmax=vmax)
         ax.set_title("dI/dV")
         plt.colorbar(im1, ax=ax, fraction=0.046, pad=0.04)
 
@@ -268,7 +281,10 @@ if __name__ == "__main__":
     parser.add_argument("--T0",          type=float, help="Overall tunnelling scale T0")
     parser.add_argument("--L",           type=float, help="Half-width of scan window [Å]")
     parser.add_argument("--npix",        type=int,   help="Number of pixels per axis in scan grid")
-    parser.add_argument("--geometry",    type=Path,  help="Path to custom site geometry file (x y angle columns)")
+    #parser.add_argument("--geometry",    type=Path,  help="Path to custom site geometry file (x y angle columns)")
+    #parser.add_argument("--geometry",  type=Path,  default="Ruslan_short.txt", help="Path to custom site geometry file (x y angle columns)")
+    parser.add_argument("--geometry",  type=Path,  default="Ruslan_kite.txt", help="Path to custom site geometry file (x y angle columns)")
+
     parser.add_argument("--solverMode",  type=int,   choices=[0, -1, -2], help="Select solver mode: 0=PME, -1=Ground State, -2=Boltzmann")
     parser.add_argument("--wijDistance", type=int,   default=0, help="Use distance-dependent Wij (1=yes, 0=no)")
     parser.add_argument("--mirror",      type=int,   default=1, help="Mirror image term (1=on, 0=off)")

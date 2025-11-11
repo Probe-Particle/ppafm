@@ -65,10 +65,10 @@ DEFAULT_PARAMS: Dict[str, object] = {
     "bRamp": True,
     "bWijDistance": False,
     "verbosity": 0,
-    "p1_x": 9.72,
-    "p1_y": -9.96,
-    "p2_x": -11.0,
-    "p2_y": 12.0,
+    "p1_x": -10.0,
+    "p1_y":  0.0,
+    "p2_x": 10.0,
+    "p2_y":  0.0,
 }
 
 # Default scan line (Å)
@@ -97,6 +97,15 @@ def resolve_geometry_file(path: Path) -> str:
     raise FileNotFoundError(f"Geometry file '{path}' not found (checked {path} and {script_path})")
 
 
+def sync_nsite_with_geometry(params: Dict[str, object]) -> None:
+    """Update nsite to match geometry file if provided."""
+    geometry_path = params.get("geometry_file")
+    if not geometry_path:
+        return
+    spos, _rots, _angles = pauli_scan.load_site_geometry(geometry_path)
+    params["nsite"] = int(spos.shape[0])
+
+
 def load_params(config_path: Path | None) -> Dict[str, object]:
     params = DEFAULT_PARAMS.copy()
     if config_path is not None:
@@ -109,6 +118,7 @@ def load_params(config_path: Path | None) -> Dict[str, object]:
         params.update(cfg)
     if "geometry_file" in params:
         params["geometry_file"] = resolve_geometry_file(Path(params["geometry_file"]))
+        sync_nsite_with_geometry(params)
     params["nsite"] = int(params["nsite"])
     params["npix"] = int(params["npix"])
     params["solver_mode"] = int(params.get("solver_mode", 0))
@@ -341,7 +351,8 @@ if __name__ == "__main__":
     parser.add_argument("--config",    type=Path,  default=Path("example_pauli_params.json"), help="JSON file with baseline parameters")
     parser.add_argument("--sweep",     type=Path,  default=Path("example_pauli_sweep.json"), help="JSON file describing linear sweep endpoints [start, stop]")
     parser.add_argument("--table",     type=Path,  default=None, help="Optional CSV/whitespace table specifying explicit parameter values (overrides --sweep)")
-    parser.add_argument("--geometry",  type=Path,  default="dimer.txt", help="Path to custom site geometry file (x y angle columns)")
+    #parser.add_argument("--geometry",  type=Path,  default="Ruslan_short.txt", help="Path to custom site geometry file (x y angle columns)")
+    parser.add_argument("--geometry",  type=Path,  default="Ruslan_kite.txt", help="Path to custom site geometry file (x y angle columns)")
     parser.add_argument("--solverMode",type=int,   choices=[0, -1, -2], help="Select solver mode: 0=PME, -1=Ground State, -2=Boltzmann")
     parser.add_argument("--samples",   type=int,   default=5, help="Number of sweep samples (ignored when --table is used)")
     parser.add_argument("--nx",        type=int,   default=100,  help="Number of points along the spatial line")
@@ -364,6 +375,7 @@ if __name__ == "__main__":
     params = load_params(args.config)
     if args.geometry is not None:
         params["geometry_file"] = resolve_geometry_file(args.geometry)
+        sync_nsite_with_geometry(params)
     if args.solverMode is not None:
         params["solver_mode"] = int(args.solverMode)
     if args.verbosity is not None:

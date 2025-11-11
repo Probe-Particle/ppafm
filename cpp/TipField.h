@@ -2,6 +2,7 @@
 
 #include "Vec2.h"
 #include "Vec3.h"
+#include "quaternion.h"
 #include "Mat3.h"
 //#include "SMat3.h"
 #define SQRT3              1.7320508
@@ -96,13 +97,13 @@ double evalMultipoleMirror( Vec3d pTip, const Vec3d& pSite, double VBias, double
  * @param cs Multipole coefficients array
  * @param Eout Pre-allocated output array (nTips x nSites)
  */
-void evalSitesTipsMultipoleMirror( int nTip, const Vec3d* pTips, const double* VBias, int nSites, const Vec3d* pSite, const Mat3d* rotSite, double E0, double Rtip, Vec2d zV, int order, const double* cs, double* outEs, bool bMirror = true, bool bRamp = true, bool bSiteScan=false ) {
+void evalSitesTipsMultipoleMirror( int nTip, const Vec3d* pTips, const double* VBias, int nSites, const Quat4d* pSite, const Mat3d* rotSite, double E0, double Rtip, Vec2d zV, int order, const double* cs, double* outEs, bool bMirror = true, bool bRamp = true, bool bSiteScan=false ) {
     //E0 = 0;
     //printf("evalSitesTipsMultipoleMirror() nTip: %7d nSites: %2d E0: %7.3f Rtip: %7.3f VBias[0,-1](%7.3f,%7.3f) zV0: %7.3f pTip.z[0,-1](%7.3f,%7.3f) bMirror: %d bRamp: %d order: %d cs:[ %6.3e, %6.3e, %6.3e, %6.3e, %6.3e, %6.3e, %6.3e, %6.3e, %6.3e, %6.3e ]\n", nTip, nSites, E0, Rtip, VBias[0], VBias[nTip-1], zV.x, pTips[0].z, pTips[nTip-1].z, bMirror, bRamp, order, cs[0], cs[1], cs[2], cs[3], cs[4], cs[5], cs[6], cs[7], cs[8], cs[9] );
     for (int i=0; i<nTip; i++) {
         for (int j=0; j<nSites;j++) {
             const Mat3d* rot = ( rotSite ) ? ( rotSite + j ) : nullptr;
-            double E = evalMultipoleMirror(pTips[i], pSite[j], VBias[i], Rtip, zV, order, cs, E0, rot, bMirror, bRamp);
+            double E = evalMultipoleMirror(pTips[i], pSite[j].f, VBias[i], Rtip, zV, order, cs, E0, rot, bMirror, bRamp);
             if(bSiteScan) { outEs[i*nSites+j] = E; }
             else          { outEs[j*nTip  +i] = E; }
             //printf("evalSitesTipsMultipoleMirror() i: %d j: %d outEs: %6.3e VBias: %6.3e pTip( %6.3e %6.3e %6.3e) pSite(%6.3e %6.3e %6.3e) \n", i, j, outEs[i*nSites+j], VBias[i], pTips[i].x, pTips[i].y, pTips[i].z, pSite[j].x, pSite[j].y, pSite[j].z);
@@ -121,10 +122,10 @@ void evalSitesTipsMultipoleMirror( int nTip, const Vec3d* pTips, const double* V
  * @param Amp Amplitude scaling factor (default=1.0)
  * @param outTs Pre-allocated output array (nTips x nSites)
  */
-void evalSitesTipsTunneling( int nTips, const Vec3d* pTips, int nSites, const Vec3d* pSites, double beta, double Amp, double* outTs ){
+void evalSitesTipsTunneling( int nTips, const Vec3d* pTips, int nSites, const Quat4d* pSites, double beta, double Amp, double* outTs ){
     for (int i = 0; i < nTips; i++) {
         for (size_t j = 0; j < nSites; j++) {
-            Vec3d d = pTips[i] - pSites[j];
+            Vec3d d = pTips[i] - pSites[j].f;
             double r = d.norm();
             outTs[i*nSites + j] = Amp * exp(-beta * r);
         }
