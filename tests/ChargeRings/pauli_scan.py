@@ -695,16 +695,142 @@ def interpolate_hopping_maps(T1, T2, c=1.0, T0=1.0):
     return T0 * ( (c/max2)*T2 + ((1-c)/max1)*T1 )
 
 
+def _pairwise_distances_xyz(spos):
+    """Pairwise distances between sites using xyz columns of spos.
+
+    spos is expected to be (nsite, >=3). The fourth column (onsite energy)
+    is ignored when computing distances.
+    """
+    xyz = np.asarray(spos, dtype=np.float64)[..., :3]
+    d = xyz[:, np.newaxis, :] - xyz[np.newaxis, :, :]
+    r = np.linalg.norm(d, axis=2)
+    return r
+
+
+def make_Wij_distance(spos, W, mode='dipole', beta=1.0, power=3.0):
+    """Build distance-dependent Wij with nearest neighbour normalized to W.
+
+    Parameters
+    ----------
+    spos : array_like, shape (nsite, >=3)
+        Site positions (xyz[+E]).
+    W : float
+        Target coupling for the shortest non-zero distance.
+    mode : {'const','dipole','exp','coulomb'}
+        Kernel type f(r):
+            'const'   : f(r)=1 (pure constant off-diagonal)
+            'dipole'  : f(r)=1/r**power
+            'coulomb' : f(r)=1/r
+            'exp'     : f(r)=exp(-beta*(r-r_min)) for r>0
+    beta : float
+        Exponential decay rate for 'exp' mode.
+    power : float
+        Power-law exponent for 'dipole' mode.
+    """
+    spos = np.asarray(spos, dtype=np.float64)
+    nsite = spos.shape[0]
+    if nsite <= 1:
+        return np.zeros((nsite, nsite), dtype=np.float64)
+
+    r = _pairwise_distances_xyz(spos)
+    # Mask out diagonal for r_min
+    with np.errstate(invalid='ignore'):
+        r_no_diag = r.copy()
+        np.fill_diagonal(r_no_diag, np.nan)
+        r_min = np.nanmin(r_no_diag)
+    if not np.isfinite(r_min) or r_min <= 0.0:
+        # Fallback: all sites coincident or invalid geometry
+        return np.zeros((nsite, nsite), dtype=np.float64)
+
+    f = np.zeros_like(r)
+    if mode == 'const':
+        f[:] = 1.0
+    elif mode == 'dipole':
+        f = 1.0 / np.power(r, power)
+    elif mode == 'coulomb':
+        f = 1.0 / r
+    elif mode == 'exp':
+        f = np.exp(-beta * (r - r_min))
+    else:
+        raise ValueError(f"Unknown Wij distance mode '{mode}'")
+
+    # Ensure diagonal stays zero in kernel
+    np.fill_diagonal(f, 0.0)
+
+    # Normalization so that f(r_min) * S = W
+    # r_min is non-zero and finite; compute its kernel value
+    # NOTE: use the minimum positive r in f as well (excluding diagonal)
+    with np.errstate(invalid='ignore'):
+        f_no_diag = f.copy()
+        np.fill_diagonal(f_no_diag, np.nan)
+        f_min = np.nanmax(f_no_diag[r_no_diag == r_min]) if np.any(r_no_diag == r_min) else np.nan
+    if not np.isfinite(f_min) or f_min == 0.0:
+        # Degenerate kernel; fall back to zero matrix
+        return np.zeros((nsite, nsite), dtype=np.float64)
+
+    S = float(W) / float(f_min)
+    Wij = S * f
+    np.fill_diagonal(Wij, 0.0)
+    return Wij
+
+
+def plot_Wij(Wij, ax=None, cmap='bwr'):
+    """Quick helper to visualize Wij with symmetric diverging scale around 0."""
+    import matplotlib.pyplot as plt
+    Wij = np.asarray(Wij, dtype=np.float64)
+    vmax = float(np.max(np.abs(Wij)))
+    if vmax == 0.0:
+        vmax = 1e-9
+    if ax is None:
+        fig, ax = plt.subplots()
+    im = ax.imshow(Wij, origin='lower', cmap=cmap, vmin=-vmax, vmax=vmax)
+    ax.set_title('Wij')
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    return ax
+
+
 def _apply_wij_config(pauli_solver, spos, params):
-    """Configure Coulomb interaction matrix based on params."""
+    """Configure Coulomb interaction matrix based on params.
+
+    Priority:
+      1) If 'Wij_file' is given, load Wij from that file.
+      2) Else if bWijDistance/\"Wij_mode\" requests distance dependence,
+         build distance-based Wij with r_min normalization to W.
+      3) Else use constant off-diagonal W.
+    """
     if pauli_solver is None:
         return
-    use_distance = params.get('bWijDistance', False)
-    W0 = params.get('W', 0.0)
-    if use_distance:
-        pauli.setWijCoulomb(spos, pauli_solver, W0=W0)
-    else:
-        pauli.setWijConstant(len(spos), pauli_solver, W0=W0)
+
+    W0 = float(params.get('W', 0.0))
+    if W0 == 0.0:
+        # Degenerate case: explicitly set zero matrix (no interaction)
+        pauli_solver.set_Wij(np.zeros((len(spos), len(spos)), dtype=np.float64))
+        return
+
+    # 1) Custom Wij file
+    Wij_file = params.get('Wij_file', None)
+    if Wij_file:
+        Wij = np.loadtxt(Wij_file)
+        Wij = np.ascontiguousarray(Wij, dtype=np.float64)
+        pauli_solver.set_Wij(Wij)
+        print(f"_apply_wij_config(): loaded Wij from '{Wij_file}' shape={Wij.shape} (min,max)=({Wij.min()},{Wij.max()})")
+        return
+
+    # 2) Distance-based Wij
+    use_distance = bool(params.get('bWijDistance', False))
+    mode = params.get('Wij_mode', None)
+    if use_distance or (mode is not None and mode != 'const'):
+        mode = mode or 'dipole'
+        beta = float(params.get('Wij_beta', 1.0))
+        power = float(params.get('Wij_power', 3.0))
+        Wij = make_Wij_distance(spos, W=W0, mode=mode, beta=beta, power=power)
+        Wij = np.ascontiguousarray(Wij, dtype=np.float64)
+        pauli_solver.set_Wij(Wij)
+        print(f"_apply_wij_config(): distance-based Wij mode={mode} (min,max)=({Wij.min()},{Wij.max()})")
+        return
+
+    # 3) Simple constant off-diagonal W
+    pauli.setWijConstant(len(spos), pauli_solver, W0=W0)
 
 
 def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=1.0, fig_probs=None, bdIdV=False):
