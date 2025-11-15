@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>WebGL Pauli STM Viewer - Phase 0</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+        background: #111;
+        color: #eee;
+        height: 100vh;
+        display: flex;
+        flex-direction: row;
+      }
+      #container {
+        flex: 0 0 512px;
+        width: 512px;
+        height: 512px;
+        background: #000;
+      }
+      #ui {
+        flex: 0 0 340px;
+        padding: 8px;
+        box-sizing: border-box;
+        overflow: auto;
+        border-left: 1px solid #333;
+      }
+      .row { margin-bottom: 6px; }
+      label { display: inline-block; width: 80px; }
+      input[type="number"] { width: 80px; }
+      button { margin: 2px 0; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r83/three.js"></script>
+  </head>
+  <body>
+    <div id="container"></div>
+    <div id="ui">
+      <div class="row"><strong>Pauli STM Viewer (Phase 1: sites + geometry)</strong></div>
+      <div class="row">
+        <label for="inpNSites">nsites</label>
+        <input id="inpNSites" type="number" min="1" max="4" step="1" value="3" />
+      </div>
+      <div class="row">
+        <label for="inpL">L (Å)</label>
+        <input id="inpL" type="number" step="1" value="20" />
+      </div>
+      <div class="row">
+        <label for="inpZTip">z_tip (Å)</label>
+        <input id="inpZTip" type="number" step="0.5" value="8" />
+      </div>
+      <div class="row">
+        <label for="inpVBias">VBias (V)</label>
+        <input id="inpVBias" type="number" step="0.1" value="1.0" />
+      </div>
+      <div class="row">
+        <label for="inpRTip">Rtip (Å)</label>
+        <input id="inpRTip" type="number" step="0.5" value="5.0" />
+      </div>
+      <div class="row">
+        <label for="inpEcenter">E center</label>
+        <input id="inpEcenter" type="number" step="0.05" value="0.0" />
+      </div>
+      <div class="row">
+        <label for="inpEscale">E scale</label>
+        <input id="inpEscale" type="number" step="0.05" value="0.5" />
+      </div>
+      <div class="row">
+        <button id="btnUpdate">Update view</button>
+      </div>
+      <div class="row">
+        <label for="txtSites">Sites (x y z E)</label>
+      </div>
+      <div class="row">
+        <textarea id="txtSites" spellcheck="false" style="width: 100%; height: 120px;">
+-5.7850  0.0000  0.0000  -0.1000
+ 5.7850  0.0000  0.0000  -0.1000
+ 0.0000 -7.5200  0.0000  -0.1080
+ 0.0000  7.5200  0.0000  -0.1080
+        </textarea>
+      </div>
+      <div class="row">
+        <button id="btnApplySites">Apply sites</button>
+      </div>
+      <div class="row" id="status"></div>
+      <div class="row" style="font-size: 0.8em; color: #aaa;">
+        Phase 1: gradient + visualization of site positions/energies. No PME physics yet.
+      </div>
+    </div>
+
+    <script>
+      var renderer, scene, camera, mesh, material;
+
+      var uniforms = {
+        uResolution: { value: new THREE.Vector2(512, 512) },
+        uNSites:     { value: 3 },
+        uL:          { value: 20.0 },
+        uZTip:       { value: 8.0 },
+        uVBias:      { value: 1.0 },
+        uRtip:       { value: 5.0 },
+        uEcenter:    { value: 0.0 },
+        uEscale:     { value: 0.5 },
+        // Sites: up to 4 sites, each as (x, y, z, E)
+        uSites:      { value: [
+          new THREE.Vector4(0, 0, 0, -0.1),
+          new THREE.Vector4(0, 0, 0, -0.1),
+          new THREE.Vector4(0, 0, 0, -0.1),
+          new THREE.Vector4(0, 0, 0, -0.1)
+        ] }
+      };
+
+      function setStatus(msg) {
+        var el = document.getElementById('status');
+        if (el) el.textContent = msg;
+      }
+
+      function init() {
+        var container = document.getElementById('container');
+
+        scene  = new THREE.Scene();
+        camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+        camera.position.z = 1;
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        uniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
+
+        var vertexShaderSrc = [
+          'varying vec2 vUv;',
+          'void main() {',
+          '  vUv = uv;',
+          '  gl_Position = vec4(position, 1.0);',
+          '}'
+        ].join('\n');
+
+        // Load fragment shader from external file (Phase 1 shader)
+        fetch('Pauli_PME_phase1.glslf')
+          .then(function (r) { return r.text(); })
+          .then(function (fragSource) {
+            material = new THREE.ShaderMaterial({
+              uniforms: uniforms,
+              vertexShader: vertexShaderSrc,
+              fragmentShader: fragSource
+            });
+
+            var geom = new THREE.PlaneBufferGeometry(2, 2);
+            mesh     = new THREE.Mesh(geom, material);
+            scene.add(mesh);
+
+            window.addEventListener('resize', onWindowResize, false);
+
+            document.getElementById('btnUpdate').addEventListener('click', function () {
+              updateFromInputs();
+              applySitesFromTextarea();
+            });
+            document.getElementById('btnApplySites').addEventListener('click', function () {
+              applySitesFromTextarea();
+            });
+
+            // Numeric inputs: re-render on change
+            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpEcenter', 'inpEscale'].forEach(function (id) {
+              var el = document.getElementById(id);
+              if (!el) return;
+              el.addEventListener('input', function () {
+                updateFromInputs();
+                // Do not re-parse sites on every numeric input to keep it predictable
+              });
+            });
+
+            // Mouse-wheel increment on numeric inputs (similar to ppafm_web/index.html)
+            function attachWheelIncrement(id) {
+              var el = document.getElementById(id);
+              if (!el) return;
+              el.addEventListener('wheel', function (ev) {
+                ev.preventDefault();
+                var step = parseFloat(el.step) || 1.0;
+                var v    = parseFloat(el.value) || 0.0;
+                var dir  = (ev.deltaY > 0) ? -1.0 : 1.0; // wheel up -> increase
+                el.value = (v + dir * step).toString();
+                updateFromInputs();
+              });
+            }
+
+            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpEcenter', 'inpEscale'].forEach(attachWheelIncrement);
+            // Initialize uniforms from default inputs and site list
+            updateFromInputs();
+            applySitesFromTextarea();
+          })
+          .catch(function (e) {
+            setStatus('Error loading fragment shader: ' + e);
+          });
+      }
+
+      function onWindowResize() {
+        var container = document.getElementById('container');
+        if (!renderer) return;
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        uniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
+        renderOnce();
+      }
+
+      function updateFromInputs() {
+        var nsites = parseInt(document.getElementById('inpNSites').value, 10);
+        var L      = parseFloat(document.getElementById('inpL').value);
+        var zTip   = parseFloat(document.getElementById('inpZTip').value);
+        var VBias  = parseFloat(document.getElementById('inpVBias').value);
+        var Rtip   = parseFloat(document.getElementById('inpRTip').value);
+        var Ecenter = parseFloat(document.getElementById('inpEcenter').value);
+        var Escale  = parseFloat(document.getElementById('inpEscale').value);
+
+        if (!isFinite(nsites)) nsites = 3;
+        if (!isFinite(L))      L      = 20.0;
+        if (!isFinite(zTip))   zTip   = 8.0;
+        if (!isFinite(VBias))  VBias  = 1.0;
+        if (!isFinite(Rtip))   Rtip   = 5.0;
+        if (!isFinite(Ecenter)) Ecenter = 0.0;
+        if (!isFinite(Escale))  Escale  = 0.5;
+
+        // Clamp to reasonable ranges
+        if (nsites < 1) nsites = 1;
+        if (nsites > 4) nsites = 4;
+        if (L <= 0.0)   L = 1.0;
+        if (Rtip <= 0.) Rtip = 0.1;
+        if (Escale <= 0.0) Escale = 0.05;
+
+        uniforms.uNSites.value = nsites;
+        uniforms.uL.value      = L;
+        uniforms.uZTip.value   = zTip;
+        uniforms.uVBias.value  = VBias;
+        uniforms.uRtip.value   = Rtip;
+        uniforms.uEcenter.value = Ecenter;
+        uniforms.uEscale.value  = Escale;
+
+        setStatus('nsites=' + nsites + ', L=' + L.toFixed(2) + ', z_tip=' + zTip.toFixed(2) + ', VBias=' + VBias.toFixed(2)
+                  + ', Rtip=' + Rtip.toFixed(2) + ', Ecenter=' + Ecenter.toFixed(2) + ', Escale=' + Escale.toFixed(2));
+        renderOnce();
+      }
+
+      function applySitesFromTextarea() {
+        var txt = document.getElementById('txtSites').value || '';
+        var lines = txt.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
+        var maxSites = 4;
+        var parsed = [];
+        for (var i = 0; i < lines.length && parsed.length < maxSites; i++) {
+          var parts = lines[i].split(/\s+/);
+          if (parts.length < 4) continue;
+          var x = parseFloat(parts[0]);
+          var y = parseFloat(parts[1]);
+          var z = parseFloat(parts[2]);
+          var E = parseFloat(parts[3]);
+          if (!isFinite(x) || !isFinite(y) || !isFinite(z) || !isFinite(E)) continue;
+          parsed.push(new THREE.Vector4(x, y, z, E));
+        }
+
+        if (parsed.length === 0) {
+          setStatus('No valid site lines parsed; keeping previous uSites');
+          renderOnce();
+          return;
+        }
+
+        // Update uNSites to the number of parsed sites, capped by 4
+        uniforms.uNSites.value = Math.min(parsed.length, maxSites);
+
+        // Fill remaining slots with dummy far-away sites so they do not contribute
+        while (parsed.length < maxSites) {
+          parsed.push(new THREE.Vector4(1e6, 1e6, 0.0, 0.0));
+        }
+
+        uniforms.uSites.value = parsed;
+        setStatus('Parsed ' + uniforms.uNSites.value + ' sites from textarea');
+        renderOnce();
+      }
+
+      function renderOnce() {
+        if (!(renderer && scene && camera)) return;
+        renderer.render(scene, camera);
+      }
+
+      init();
+    </script>
+  </body>
+</html>
