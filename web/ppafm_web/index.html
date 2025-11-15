@@ -83,7 +83,9 @@ H         -2.50150       -0.00060        0.00010     +0.2
         uScale:      { value: 10.0 },
         uCenter:     { value: new THREE.Vector2(0.0, 0.0) },
         uNumAtoms:   { value: 0 },
-        uAtoms:      { value: [] }
+        uAtoms:      { value: [] },
+        // Per-atom Morse+Coulomb parameters (R0,E0,Q,K)
+        uREQK:       { value: [] }
       };
 
       function init() {
@@ -240,22 +242,42 @@ H         -2.50150       -0.00060        0.00010     +0.2
           var x = parseFloat(parts[1]);
           var y = parseFloat(parts[2]);
           var z = parseFloat(parts[3]);
-          atoms.push(new THREE.Vector4(x, y, z, 0.0));
+          var q = (parts.length > 4) ? parseFloat(parts[4]) : 0.0; // atomic charge if provided
+          atoms.push(new THREE.Vector4(x, y, z, q));
           if (x < minX) minX = x; if (x > maxX) maxX = x;
           if (y < minY) minY = y; if (y > maxY) maxY = y;
           if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
         }
-        // GLSL uses a fixed-size array uAtoms[256], so we must pad
-        // the JS array to length 256 to avoid undefined entries
+        // Build REQK per atom: (R0,E0,Q,K)
+        var REQK = [];
+        // Default Morse+Coulomb parameters; moderate values to avoid saturation
+        var R0_default = 3.0;
+        var E0_default = 0.1;
+        var K_default  = 1.5;
+        for (var j = 0; j < atoms.length; j++) {
+          var qj = atoms[j].w;
+          REQK.push(new THREE.Vector4(R0_default, E0_default, qj, K_default));
+        }
+
+        // GLSL uses fixed-size arrays uAtoms[256] and uREQK[256], so pad
         var maxAtoms = 256;
         uniforms.uNumAtoms.value = Math.min(atoms.length, maxAtoms);
         if (atoms.length > maxAtoms) {
           atoms.length = maxAtoms;
+          REQK.length = maxAtoms;
         }
         while (atoms.length < maxAtoms) {
           atoms.push(new THREE.Vector4(1e9, 1e9, 1e9, 0.0));
+          REQK.push(new THREE.Vector4(R0_default, E0_default, 0.0, K_default));
         }
         uniforms.uAtoms.value = atoms;
+        uniforms.uREQK.value  = REQK;
+
+        if (uniforms.uNumAtoms.value > 0) {
+          console.log('applyXYZ/REQK: uNumAtoms =', uniforms.uNumAtoms.value,
+                      'atom0 xyzq =', atoms[0].x, atoms[0].y, atoms[0].z, atoms[0].w,
+                      'REQK0 =', REQK[0].x, REQK[0].y, REQK[0].z, REQK[0].w);
+        }
 
         // Auto-center view and choose reasonable z-plane / scale based on bounding box
         if (uniforms.uNumAtoms.value > 0) {

@@ -9,62 +9,122 @@ uniform float uScale;        // lateral scale (Å per screen unit)
 uniform vec2  uCenter;       // center of the view in sample coordinates
 
 uniform int   uNumAtoms;
-uniform vec4  uAtoms[256];   // xyz in Å, w unused for now
+uniform vec4  uAtoms[256];   // xyz in Å, w = charge (e)
+
+// Per-atom Morse+Coulomb parameters: (R0, E0, Q, K)
+// Potential:  E(r) = E0 * (1.0 - exp(-K*(r-R0)))^2 + Q * COULOMB_CONST / r
+uniform vec4  uREQK[256];
 
 varying vec2 vUv;
 
-// void main() {
-//     // Map screen coordinates to sample XY coordinates
-//     vec2 uv  = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0; // -1..1
-//     vec2 posXY = uCenter + uv * uScale;
-//     float z   = uZPlane;
+// Numerical safety for r^2
+const float R2SAFE = 1e-4;
+// Coulomb constant in eV·Å/e^2 (same as COULOMB_CONST in FF.cl)
+const float COULOMB_CONST = 14.399644;
 
-//     float density = 0.0;
+// --- Basic building blocks (mirroring FF.cl) ---
 
-//     const float decay = 1.0;   // radial decay; tweak as needed
-//     const float sigma = 0.7;   // width of Gaussian (Å)
-//     const float sigma2 = sigma * sigma;
+// Coulomb: returns (Fx,Fy,Fz,E)
+vec4 getCoulomb(vec4 atom, vec3 pos) {
+    vec3 dp  = pos - atom.xyz;
+    float r2 = dot(dp, dp) + R2SAFE;
+    float ir2 = 1.0 / r2;
+    float ir  = sqrt(ir2);
+    float E   = atom.w * COULOMB_CONST * ir;          // atom.w = charge in e
+    vec3 F    = dp * (E * ir2);                       // F = grad(E)
+    return vec4(F, E);
+}
 
-//     for (int i = 0; i < 256; i++) {
-//         if (i >= uNumAtoms) break;
-//         vec3 atom = uAtoms[i].xyz;
-//         vec3 dr   = vec3(posXY, z) - atom;
-//         float r2  = dot(dr, dr);
-//         // Gaussian-like blob
-//         float w   = exp(-r2 / (2.0 * sigma2));
-//         density  += w;
-//     }
+// Lennard-Jones: cLJ.x = C6, cLJ.y = C12 (same as float2 in FF.cl)
+// returns (Fx,Fy,Fz,E)
+vec4 getLJ(vec3 apos, vec2 cLJ, vec3 pos) {
+    vec3 dp  = pos - apos;
+    float r2 = dot(dp, dp) + R2SAFE;
+    float ir2 = 1.0 / r2;
+    float ir6 = ir2 * ir2 * ir2;
+    float ELJ = (cLJ.y * ir6 - cLJ.x) * ir6;
+    vec3 FLJ = ((12.0 * cLJ.y * ir6 - 6.0 * cLJ.x) * ir6 * ir2) * dp;
+    return vec4(FLJ, ELJ);
+}
 
-//     // Simple tone mapping
-//     //float val = 1.0 - exp(-density * 1.5);
+// Morse potential: REA.x = R0, REA.y = E0, REA.z = beta
+// dp = pos - apos; returns (Fx,Fy,Fz,E)
+vec4 getMorse(vec3 dp, vec3 REA) {
+    float r    = sqrt(dot(dp, dp) + R2SAFE);
+    float expar = exp(REA.z * (r - REA.x));
+    float E     = REA.y * expar * (expar - 2.0);
+    float fr    = REA.y * expar * (expar - 1.0) * 2.0 * REA.z;
+    vec3 F      = dp * (fr / r);
+    return vec4(F, E);
+}
 
-//     //float val = sin(uv.x * uv.y);
-//     //uAtoms[i].xyz
-//     //vec3 col = vec3( posXY-uAtoms[0].xy*0.00001, 0.0 );
-//     vec3 col = vec3(density);
-//     gl_FragColor = vec4(col, 1.0);
-// }
+// Combined Lennard-Jones + Coulomb for a single atom
+// atom.w = charge (e), cLJ = LJ parameters
+vec4 getLJC(vec4 atom, vec2 cLJ, vec3 pos) {
+    vec4 lj  = getLJ(atom.xyz, cLJ, pos);
+    vec4 col = getCoulomb(atom, pos);
+    return vec4(lj.xyz + col.xyz, lj.w + col.w);
+}
+
+// Combined Morse + Coulomb for a single atom using REQK = (R0, E0, Q, K)
+float getMorseCoulomb(vec3 pos, vec3 apos, vec4 REQK) {
+    float R0 = REQK.x;
+    float E0 = REQK.y;
+    float Q  = REQK.z;
+    float K  = REQK.w;
+
+    vec3  dp = pos - apos;
+    float r2 = dot(dp, dp) + R2SAFE;
+    float r  = sqrt(r2);
+
+    float expar = exp(-K * (r - R0));
+    float Em    = E0 * (1.0 - expar) * (1.0 - expar);
+    float Ec    = (r > 0.0) ? Q * COULOMB_CONST / r : 0.0;
+    return Em + Ec;
+}
 
 
+// --- MAIN KERNEL: Morse+Coulomb via REQK ---
 
 void main() {
-    vec2 uv  = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0;
+    // Map screen coordinates to sample coordinates
+    vec2 uv    = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0;
     vec2 posXY = uCenter + uv * uScale;
-    float density = 0.0;
-    float sigma   = 0.7;
-    float sigma2  = sigma * sigma;
+    float z    = uZPlane;
+    vec3 pos   = vec3(posXY, z);
 
+    float E = 0.0;
     for (int i = 0; i < 256; i++) {
         if (i >= uNumAtoms) break;
-        vec2 dr = posXY - uAtoms[i].xy;        // 2D distance only
-        float r2 = dot(dr, dr);
-        density += exp(-r2 / (2.0 * sigma2));
+        E += getMorseCoulomb(pos, uAtoms[i].xyz, uREQK[i]);
     }
-    // Stronger tone mapping
-    float val = 1.0 - exp(-density * 3.0);
+
+    // Simple signed tone mapping around E = 0
+    // Map some energy window [-Emax, Emax] to [0,1]
+    float Emax = 1.0;
+    float val = clamp(0.5 + 0.5 * (E / Emax), 0.0, 1.0);
     gl_FragColor = vec4(vec3(val), 1.0);
 }
 
+
+// ---- OLD KERNEL ----
+// void main() {
+//     vec2 uv  = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0;
+//     vec2 posXY = uCenter + uv * uScale;
+//     float density = 0.0;
+//     float sigma   = 0.7;
+//     float sigma2  = sigma * sigma;
+
+//     for (int i = 0; i < 256; i++) {
+//         if (i >= uNumAtoms) break;
+//         vec2 dr = posXY - uAtoms[i].xy;        // 2D distance only
+//         float r2 = dot(dr, dr);
+//         density += exp(-r2 / (2.0 * sigma2));
+//     }
+//     // Stronger tone mapping
+//     float val = 1.0 - exp(-density * 3.0);
+//     gl_FragColor = vec4(vec3(val), 1.0);
+// }
 
 // ---- DEBUG KERNEL ----
 // void main() {
