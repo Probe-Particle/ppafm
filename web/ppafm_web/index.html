@@ -51,7 +51,11 @@
         <label>Center Y</label><input id="inpCY" type="number" step="0.5" value="0.0" />
       </div>
       <div class="row">
-        <label>Contrast</label><input id="inpContrast" type="number" step="0.1" value="0.5" />
+        <label>Contrast</label><input id="inpContrast" type="number" step="0.1" value="5.0" />
+      </div>
+      <div class="row">
+        <label>Auto-update</label><input id="chkAutoUpdate" type="checkbox" checked />
+        <label>Animate</label><input id="chkAnimate" type="checkbox" />
       </div>
       <div class="row">
         <label>Probe Q</label><input id="inpProbeQ" type="number" step="0.01" value="0.05" />
@@ -85,6 +89,9 @@ H         -2.50150       -0.00060        0.00010     +0.2
 
     <script>
       var renderer, scene, camera, material, mesh;
+      var animateEnabled = false; // animation OFF by default
+      var autoUpdate     = true;  // auto-update ON by default
+      var frameCounter   = 0;
 
       // Minimal LJ parameter table extracted from atomtypes.ini
       // Columns there: Rii, Eii, ???, Z, Symbol, ...
@@ -152,7 +159,14 @@ H         -2.50150       -0.00060        0.00010     +0.2
             mesh = new THREE.Mesh(geom, material);
             scene.add(mesh);
 
-            animate();
+            // After shader + mesh are ready, initialize from default XYZ and inputs
+            applyXYZ(document.getElementById('txtXYZ').value);
+            updateViewFromInputs();
+
+            // Start animation loop only if enabled
+            if (animateEnabled) {
+              animate();
+            }
           })
           .catch(function (e) {
             setStatus('Error loading shader: ' + e);
@@ -167,6 +181,8 @@ H         -2.50150       -0.00060        0.00010     +0.2
             var txt = evt.target.result;
             document.getElementById('txtXYZ').value = txt;
             applyXYZ(txt);
+            // Initialize uniforms from current inputs and render once
+            updateViewFromInputs();
             setStatus('Loaded local file: ' + file.name);
           };
           reader.onerror = function (evt) {
@@ -176,6 +192,8 @@ H         -2.50150       -0.00060        0.00010     +0.2
         });
         document.getElementById('btnApplyXYZ').addEventListener('click', function () {
           applyXYZ(document.getElementById('txtXYZ').value);
+          // Re-read inputs and render using current parameter values
+          updateViewFromInputs();
         });
 
         function updateViewFromInputs() {
@@ -190,17 +208,22 @@ H         -2.50150       -0.00060        0.00010     +0.2
           uniforms.uCenter.value.set(cx, cy);
           uniforms.uContrast.value = contrast;
           setStatus('Updated view parameters');
+          renderOnce();
         }
 
         // Button still available for manual trigger
         document.getElementById('btnUpdateView').addEventListener('click', updateViewFromInputs);
 
-        // Auto-update when basic view parameter inputs change
+        // Auto-update when basic view parameter inputs change (if enabled)
         ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast']
           .forEach(function (id) {
             var el = document.getElementById(id);
             if (!el) return;
-            el.addEventListener('input', updateViewFromInputs);
+            el.addEventListener('input', function () {
+              if (autoUpdate) {
+                updateViewFromInputs();
+              }
+            });
           });
 
         // Mouse wheel should behave like up/down arrows on numeric inputs
@@ -219,11 +242,26 @@ H         -2.50150       -0.00060        0.00010     +0.2
 
         ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast'].forEach(attachWheelIncrement);
 
-        // Parameter inputs no longer auto-update uniforms on every change;
-        // use the "Update view" button to push them all at once.
+        // Checkboxes to control auto-update and animation
+        var chkAutoUpdate = document.getElementById('chkAutoUpdate');
+        var chkAnimate    = document.getElementById('chkAnimate');
+        if (chkAutoUpdate) {
+          chkAutoUpdate.addEventListener('change', function () {
+            autoUpdate = !!chkAutoUpdate.checked;
+            console.log('autoUpdate =', autoUpdate);
+          });
+        }
+        if (chkAnimate) {
+          chkAnimate.addEventListener('change', function () {
+            animateEnabled = !!chkAnimate.checked;
+            console.log('animateEnabled =', animateEnabled);
+            if (animateEnabled) {
+              // Start animation loop
+              animate();
+            }
+          });
+        }
 
-        // Initialize with default XYZ content so atoms are visible immediately
-        applyXYZ(document.getElementById('txtXYZ').value);
       }
 
       function onWindowResize() {
@@ -233,11 +271,21 @@ H         -2.50150       -0.00060        0.00010     +0.2
         uniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
       }
 
+      // Render a single frame (used both for on-demand updates and animation)
+      function renderOnce() {
+        if (!(renderer && scene && camera)) return;
+        console.log('renderOnce: rendering frame');
+        renderer.render(scene, camera);
+      }
+
       function animate() {
+        if (!animateEnabled) return; // stop loop when animation is disabled
         requestAnimationFrame(animate);
-        if (renderer && scene && camera) {
-          renderer.render(scene, camera);
+        frameCounter++;
+        if ((frameCounter % 60) === 0) {
+          console.log('animate loop frame', frameCounter, 'animateEnabled =', animateEnabled);
         }
+        renderOnce();
       }
 
       function setStatus(msg) {
