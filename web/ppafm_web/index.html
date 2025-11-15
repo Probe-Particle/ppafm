@@ -43,24 +43,37 @@
         <input id="fileXYZ" type="file" accept=".xyz,text/plain" />
       </div>
       <div class="row">
-        <label>Z plane</label><input id="inpZ" type="number" step="0.1" value="5.0" />
-        <label>Scale</label><input id="inpScale" type="number" step="0.5" value="10.0" />
+        <label> Z plane     </label><input id="inpZ"          type="number" step="0.1" value="6.2" />
+        <label> Scale       </label><input id="inpScale"      type="number" step="0.5" value="10.0" />
       </div>
       <div class="row">
-        <label>Center X</label><input id="inpCX" type="number" step="0.5" value="0.0" />
-        <label>Center Y</label><input id="inpCY" type="number" step="0.5" value="0.0" />
+        <label> Center X    </label><input id="inpCX"         type="number" step="0.5" value="0.0" />
+        <label> Center Y    </label><input id="inpCY"         type="number" step="0.5" value="0.0" />
       </div>
       <div class="row">
-        <label>Contrast</label><input id="inpContrast" type="number" step="0.1" value="5.0" />
+        <label> Contrast    </label><input id="inpContrast"   type="number" step="0.1" value="5.0" />
       </div>
       <div class="row">
-        <label>Auto-update</label><input id="chkAutoUpdate" type="checkbox" checked />
-        <label>Animate</label><input id="chkAnimate" type="checkbox" />
+        <label> Auto-update </label><input id="chkAutoUpdate" type="checkbox" checked />
+        <label> Animate     </label><input id="chkAnimate"    type="checkbox" />
       </div>
       <div class="row">
-        <label>Probe Q</label><input id="inpProbeQ" type="number" step="0.01" value="0.05" />
-        <label>Rpp</label><input id="inpProbeR" type="number" step="0.01" value="1.6612" />
-        <label>Epp</label><input id="inpProbeE" type="number" step="0.0001" value="0.009106" />
+        <label> Center XY   </label><input id="chkCenterXY"   type="checkbox" checked />
+        <label> Shift Z     </label><input id="chkShiftZ"     type="checkbox" checked />
+      </div>
+      <div class="row">
+        <label> k_lat       </label><input id="inpKLat"       type="number" step="0.1"    value="0.5" />
+        <label> k_rad       </label><input id="inpKRad"       type="number" step="1"      value="20.0" />
+        <label> R_tip       </label><input id="inpRTip"       type="number" step="0.1"    value="3.5" />
+      </div>
+      <div class="row">
+        <label> Relax iters </label><input id="inpRelaxIters" type="number" step="1"      value="32" />
+        <label> dt          </label><input id="inpDt"         type="number" step="0.01"   value="0.5" />
+      </div>
+      <div class="row">
+        <label> Probe Q     </label><input id="inpProbeQ"     type="number" step="0.01"   value="-0.05" />
+        <label> Rpp         </label><input id="inpProbeR"     type="number" step="0.01"   value="1.6612" />
+        <label> Epp         </label><input id="inpProbeE"     type="number" step="0.0001" value="0.009106" />
       </div>
       <div class="row">
         <button id="btnApplyXYZ">Apply XYZ below</button>
@@ -68,7 +81,7 @@
       </div>
       <div class="row">
         <label>XYZ input</label>
-        <textarea id="txtXYZ" spellcheck="false">12
+        <!-- <textarea id="txtXYZ" spellcheck="false">12
 
 Br         3.26630        0.00100        0.00000     -0.1
 Cl        -1.57610       -2.69890       -0.00010     -0.1
@@ -82,7 +95,70 @@ C         -1.41360       -0.00030        0.00010     -0.05
 H          1.22000        2.15150        0.00000     +0.2
 H          1.22130       -2.15110       -0.00010     +0.2
 H         -2.50150       -0.00060        0.00010     +0.2
+</textarea> -->
+
+        <textarea id="txtXYZ" spellcheck="false">
+57		
+			
+H	18.104373	10.401761	2.369083
+H	15.723386	14.788904	2.998967
+H	18.222862	14.695479	2.815662
+H	19.391609	12.53275	2.576687
+H	12.527993	4.212183	2.905962
+H	16.957029	6.57417	2.604585
+H	16.844763	4.074362	2.696337
+H	14.667275	2.908347	2.814978
+H	6.363155	9.757266	2.388214
+H	8.732031	5.35711	2.972512
+H	6.232341	5.459763	2.796706
+H	5.070068	7.629339	2.589743
+H	11.921506	15.945094	2.920939
+H	7.504387	13.564116	2.595464
+H	7.606341	16.067155	2.672836
+H	9.781073	17.239443	2.805498
+C	15.158601	10.40057	2.504868
+C	14.12512	12.351805	2.80396
+C	16.190995	11.418522	2.53513
+C	15.525435	12.647498	2.750762
+C	17.593391	11.353726	2.49784
+C	16.240749	13.848137	2.822221
+C	18.303086	12.548239	2.612965
+C	17.638784	13.77992	2.752133
+C	12.54747	7.130026	2.764944
+C	14.501576	8.177866	2.555203
+C	13.5614	6.106163	2.728354
+C	14.794848	6.772197	2.610055
+C	13.489556	4.710452	2.800319
+C	15.998517	6.057406	2.577722
+C	14.684568	3.994891	2.761864
+C	15.923931	4.655049	2.666489
+C	9.307027	9.749219	2.509953
+C	10.337373	7.795889	2.791581
+C	8.272466	8.733226	2.536627
+C	8.936036	7.50081	2.740277
+C	6.871324	8.802721	2.508651
+C	8.217295	6.30071	2.803211
+C	6.15875	7.609611	2.617216
+C	6.819033	6.37416	2.740556
+C	11.915141	13.021115	2.7903
+C	9.965566	11.970728	2.575298
+C	10.898362	14.044258	2.753516
+C	9.667415	13.375531	2.630581
+C	10.963018	15.440743	2.815164
+C	8.460624	14.084946	2.582506
+C	9.766203	16.152496	2.761569
+C	8.52855	15.488808	2.658654
+N	13.204998	13.291637	2.865853
+N	15.441647	9.103614	2.376948
+N	11.258047	6.85734	2.844182
+N	9.024472	11.047488	2.393733
+N	13.918216	10.973349	2.660016
+N	13.142926	8.392626	2.667018
+N	10.546202	9.174504	2.657936
+N	11.32322	11.757364	2.687684
+Co	12.232819	10.07487	2.601853
 </textarea>
+
       </div>
       <div class="row" id="status"></div>
     </div>
@@ -104,12 +180,25 @@ H         -2.50150       -0.00060        0.00010     +0.2
         Cl:  { R: 1.9480, E: 0.011491 },
         Br:  { R: 2.2200, E: 0.013876 }
       };
+      // Molecule bounds in sample coordinates (after any Z-shift)
+      var molBounds = {
+        hasData: false,
+        minX: 0.0, maxX: 0.0,
+        minY: 0.0, maxY: 0.0,
+        minZ: 0.0, maxZ: 0.0
+      };
+
       var uniforms = {
         uResolution: { value: new THREE.Vector2() },
         uZPlane:     { value: 5.0 },
         uScale:      { value: 10.0 },
         uCenter:     { value: new THREE.Vector2(0.0, 0.0) },
         uContrast:   { value: 0.5 },
+        uKLat:       { value: 0.5 },
+        uKRad:       { value: 20.0 },
+        uRtip:       { value: 4.0 },
+        uRelaxIters: { value: 16 },
+        uDt:         { value: 0.1 },
         uNumAtoms:   { value: 0 },
         uAtoms:      { value: [] },
         // Per-atom Morse+Coulomb parameters (R0,E0,Q,K)
@@ -197,16 +286,67 @@ H         -2.50150       -0.00060        0.00010     +0.2
         });
 
         function updateViewFromInputs() {
-          // Re-read numeric inputs and push into uniforms without re-parsing XYZ
-          var z        = parseFloat(document.getElementById('inpZ').value) || 0.0;
-          var scale    = parseFloat(document.getElementById('inpScale').value) || 10.0;
-          var cx       = parseFloat(document.getElementById('inpCX').value) || 0.0;
-          var cy       = parseFloat(document.getElementById('inpCY').value) || 0.0;
-          var contrast = parseFloat(document.getElementById('inpContrast').value) || 0.5;
-          uniforms.uZPlane.value = z;
+          // Re-read numeric inputs and sanitize physical parameters on the JS side
+          var z        = parseFloat(document.getElementById('inpZ').value);
+          var scale    = parseFloat(document.getElementById('inpScale').value);
+          var cxUser   = parseFloat(document.getElementById('inpCX').value);
+          var cyUser   = parseFloat(document.getElementById('inpCY').value);
+          var contrast = parseFloat(document.getElementById('inpContrast').value);
+          var kLat     = parseFloat(document.getElementById('inpKLat').value);
+          var kRad     = parseFloat(document.getElementById('inpKRad').value);
+          var RTip     = parseFloat(document.getElementById('inpRTip').value);
+          var relaxIt  = parseInt  (document.getElementById('inpRelaxIters').value, 10);
+          var dt       = parseFloat(document.getElementById('inpDt').value);
+
+          // Apply defaults if parsing failed
+          if (!isFinite(z))        z        = 0.0;
+          if (!isFinite(scale))    scale    = 10.0;
+          if (!isFinite(cxUser))   cxUser   = 0.0;
+          if (!isFinite(cyUser))   cyUser   = 0.0;
+          if (!isFinite(contrast)) contrast = 0.5;
+          if (!isFinite(kLat))     kLat     = 0.5;
+          if (!isFinite(kRad))     kRad     = 20.0;
+          if (!isFinite(RTip))     RTip     = 4.0;
+          if (!isFinite(dt))       dt       = 0.1;
+          if (!isFinite(relaxIt))  relaxIt  = 16;
+
+          // Physical constraints: all stiffnesses, dt and bond length must be positive
+          var EPS_K   = 1e-6;
+          var EPS_DT  = 1e-5;
+          var EPS_LEN = 1e-4;
+          if (kLat <= 0.0)   kLat   = EPS_K;
+          if (kRad <= 0.0)   kRad   = EPS_K;
+          if (RTip <= 0.0)   RTip   = EPS_LEN;
+          if (dt   <= 0.0)   dt     = EPS_DT;
+          if (relaxIt < 1)   relaxIt = 1;
+          // Determine actual anchor Z from user-defined height above top-most atom
+          var chkShiftZ   = document.getElementById('chkShiftZ');
+          var shiftZOn    = chkShiftZ && chkShiftZ.checked;
+          var zTop = 0.0;
+          if (molBounds.hasData) {
+            zTop = shiftZOn ? 0.0 : molBounds.maxZ;
+          }
+          uniforms.uZPlane.value = zTop + z;
           uniforms.uScale.value  = scale;
-          uniforms.uCenter.value.set(cx, cy);
+
+          // Center: either molecule center + user offsets, or absolute user coordinates
+          var centerX = cxUser;
+          var centerY = cyUser;
+          var chkCenterXY = document.getElementById('chkCenterXY');
+          var centerOn    = chkCenterXY && chkCenterXY.checked;
+          if (centerOn && molBounds.hasData) {
+            var cxMol = 0.5 * (molBounds.minX + molBounds.maxX);
+            var cyMol = 0.5 * (molBounds.minY + molBounds.maxY);
+            centerX = cxMol + cxUser;
+            centerY = cyMol + cyUser;
+          }
+          uniforms.uCenter.value.set(centerX, centerY);
           uniforms.uContrast.value = contrast;
+          uniforms.uKLat.value       = kLat / 16.02176634; // convert from N/m to eV/Å^2
+          uniforms.uKRad.value       = kRad / 16.02176634; // convert from N/m to eV/Å^2
+          uniforms.uRtip.value       = RTip;
+          uniforms.uRelaxIters.value = relaxIt;
+          uniforms.uDt.value         = dt;
           setStatus('Updated view parameters');
           renderOnce();
         }
@@ -215,7 +355,7 @@ H         -2.50150       -0.00060        0.00010     +0.2
         document.getElementById('btnUpdateView').addEventListener('click', updateViewFromInputs);
 
         // Auto-update when basic view parameter inputs change (if enabled)
-        ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast']
+        ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast', 'inpKLat', 'inpKRad', 'inpRTip', 'inpRelaxIters', 'inpDt']
           .forEach(function (id) {
             var el = document.getElementById(id);
             if (!el) return;
@@ -240,7 +380,7 @@ H         -2.50150       -0.00060        0.00010     +0.2
           });
         }
 
-        ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast'].forEach(attachWheelIncrement);
+        ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast', 'inpKLat', 'inpKRad', 'inpRTip', 'inpDt'].forEach(attachWheelIncrement);
 
         // Checkboxes to control auto-update and animation
         var chkAutoUpdate = document.getElementById('chkAutoUpdate');
@@ -392,25 +532,28 @@ H         -2.50150       -0.00060        0.00010     +0.2
                       'REQK0 =', REQK[0].x, REQK[0].y, REQK[0].z, REQK[0].w);
         }
 
-        // Auto-center view and choose reasonable z-plane / scale based on bounding box
+        // Store molecule bounds; optional Z-shift (top-most atom to z=0) is handled via checkbox
         if (uniforms.uNumAtoms.value > 0) {
-          var cx = 0.5 * (minX + maxX);
-          var cy = 0.5 * (minY + maxY);
-          var cz = 0.5 * (minZ + maxZ);
-          var spanX = (maxX - minX);
-          var spanY = (maxY - minY);
-          var span  = Math.max(spanX, spanY);
-          if (span <= 0) span = 5.0;
+          var chkShiftZ = document.getElementById('chkShiftZ');
+          var shiftZOn  = chkShiftZ && chkShiftZ.checked;
+          var zShift    = shiftZOn ? maxZ : 0.0;
 
-          uniforms.uCenter.value.set(cx, cy);
-          uniforms.uZPlane.value = cz + span * 0.5;
-          uniforms.uScale.value  = span * 0.75; // show molecule with some margin
+          // Apply Z-shift if requested and recompute bounds in shifted coordinates
+          if (shiftZOn) {
+            minZ -= zShift;
+            maxZ -= zShift;
+            for (var ia = 0; ia < atoms.length; ia++) {
+              atoms[ia].z -= zShift;
+            }
+          }
 
-          // Reflect new values in UI inputs
-          document.getElementById('inpCX').value = cx.toFixed(3);
-          document.getElementById('inpCY').value = cy.toFixed(3);
-          document.getElementById('inpZ').value  = uniforms.uZPlane.value.toFixed(3);
-          document.getElementById('inpScale').value = uniforms.uScale.value.toFixed(3);
+          molBounds.hasData = true;
+          molBounds.minX = minX;
+          molBounds.maxX = maxX;
+          molBounds.minY = minY;
+          molBounds.maxY = maxY;
+          molBounds.minZ = minZ;
+          molBounds.maxZ = maxZ;
         }
 
         // Debug output
