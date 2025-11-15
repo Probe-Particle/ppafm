@@ -51,6 +51,14 @@
         <label>Center Y</label><input id="inpCY" type="number" step="0.5" value="0.0" />
       </div>
       <div class="row">
+        <label>Contrast</label><input id="inpContrast" type="number" step="0.1" value="0.5" />
+      </div>
+      <div class="row">
+        <label>Probe Q</label><input id="inpProbeQ" type="number" step="0.01" value="0.05" />
+        <label>Rpp</label><input id="inpProbeR" type="number" step="0.01" value="1.6612" />
+        <label>Epp</label><input id="inpProbeE" type="number" step="0.0001" value="0.009106" />
+      </div>
+      <div class="row">
         <button id="btnApplyXYZ">Apply XYZ below</button>
         <button id="btnUpdateView">Update view</button>
       </div>
@@ -77,11 +85,24 @@ H         -2.50150       -0.00060        0.00010     +0.2
 
     <script>
       var renderer, scene, camera, material, mesh;
+
+      // Minimal LJ parameter table extracted from atomtypes.ini
+      // Columns there: Rii, Eii, ???, Z, Symbol, ...
+      // Here we only keep Rii (Å) and Eii (eV) for elements used in examples.
+      var elementLJ = {
+        H :  { R: 1.4870, E: 0.000681 },
+        C :  { R: 1.9080, E: 0.003729 },
+        N :  { R: 1.7800, E: 0.007372 },
+        O :  { R: 1.6612, E: 0.009106 },
+        Cl:  { R: 1.9480, E: 0.011491 },
+        Br:  { R: 2.2200, E: 0.013876 }
+      };
       var uniforms = {
         uResolution: { value: new THREE.Vector2() },
         uZPlane:     { value: 5.0 },
         uScale:      { value: 10.0 },
         uCenter:     { value: new THREE.Vector2(0.0, 0.0) },
+        uContrast:   { value: 0.5 },
         uNumAtoms:   { value: 0 },
         uAtoms:      { value: [] },
         // Per-atom Morse+Coulomb parameters (R0,E0,Q,K)
@@ -100,13 +121,17 @@ H         -2.50150       -0.00060        0.00010     +0.2
 
         uniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
 
-        // Initialize uAtoms with 256 dummy atoms so three.js never sees undefined entries
+        // Initialize uAtoms and uREQK with 256 dummy entries so three.js never sees undefined
         var maxAtoms = 256;
         var atomsInit = [];
+        var reqkInit  = [];
         for (var i = 0; i < maxAtoms; i++) {
           atomsInit.push(new THREE.Vector4(1e9, 1e9, 1e9, 0.0));
+          // (R0,E0,Q,K) dummy values
+          reqkInit.push(new THREE.Vector4(3.0, 0.1, 0.0, 1.5));
         }
         uniforms.uAtoms.value = atomsInit;
+        uniforms.uREQK.value  = reqkInit;
 
         fetch('PP_AFM_shader.glslf')
           .then(function (r) { return r.text(); })
@@ -153,20 +178,46 @@ H         -2.50150       -0.00060        0.00010     +0.2
           applyXYZ(document.getElementById('txtXYZ').value);
         });
 
-        document.getElementById('btnUpdateView').addEventListener('click', function () {
-          // Ensure atoms are parsed from the current textarea content
-          applyXYZ(document.getElementById('txtXYZ').value);
-
-          // Re-read numeric inputs and push into uniforms
-          var z     = parseFloat(document.getElementById('inpZ').value) || 0.0;
-          var scale = parseFloat(document.getElementById('inpScale').value) || 10.0;
-          var cx    = parseFloat(document.getElementById('inpCX').value) || 0.0;
-          var cy    = parseFloat(document.getElementById('inpCY').value) || 0.0;
+        function updateViewFromInputs() {
+          // Re-read numeric inputs and push into uniforms without re-parsing XYZ
+          var z        = parseFloat(document.getElementById('inpZ').value) || 0.0;
+          var scale    = parseFloat(document.getElementById('inpScale').value) || 10.0;
+          var cx       = parseFloat(document.getElementById('inpCX').value) || 0.0;
+          var cy       = parseFloat(document.getElementById('inpCY').value) || 0.0;
+          var contrast = parseFloat(document.getElementById('inpContrast').value) || 0.5;
           uniforms.uZPlane.value = z;
           uniforms.uScale.value  = scale;
           uniforms.uCenter.value.set(cx, cy);
+          uniforms.uContrast.value = contrast;
           setStatus('Updated view parameters');
-        });
+        }
+
+        // Button still available for manual trigger
+        document.getElementById('btnUpdateView').addEventListener('click', updateViewFromInputs);
+
+        // Auto-update when basic view parameter inputs change
+        ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast']
+          .forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', updateViewFromInputs);
+          });
+
+        // Mouse wheel should behave like up/down arrows on numeric inputs
+        function attachWheelIncrement(id) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          el.addEventListener('wheel', function (ev) {
+            ev.preventDefault();
+            var step = parseFloat(el.step) || 1.0;
+            var v    = parseFloat(el.value) || 0.0;
+            var dir  = (ev.deltaY > 0) ? -1.0 : 1.0; // wheel up -> increase
+            el.value = (v + dir * step).toString();
+            updateViewFromInputs();
+          });
+        }
+
+        ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast'].forEach(attachWheelIncrement);
 
         // Parameter inputs no longer auto-update uniforms on every change;
         // use the "Update view" button to push them all at once.
@@ -248,15 +299,26 @@ H         -2.50150       -0.00060        0.00010     +0.2
           if (y < minY) minY = y; if (y > maxY) maxY = y;
           if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
         }
-        // Build REQK per atom: (R0,E0,Q,K)
+        // Probe parameters from UI
+        var qProbe = parseFloat(document.getElementById('inpProbeQ').value) || 0.05;
+        var Rpp    = parseFloat(document.getElementById('inpProbeR').value) || 1.6612;   // O from atomtypes.ini
+        var Epp    = parseFloat(document.getElementById('inpProbeE').value) || 0.009106; // O from atomtypes.ini
+
+        // Build REQK per atom: (R0,E0,Q,K) using Lorentz-Berthelot mixing
+        // Rij = Rpp + Rii, Eij = sqrt(Epp * Eii), Q = qProbe * q_atom
         var REQK = [];
-        // Default Morse+Coulomb parameters; moderate values to avoid saturation
-        var R0_default = 3.0;
-        var E0_default = 0.1;
-        var K_default  = 1.5;
+        var K_default   = 1.5;
         for (var j = 0; j < atoms.length; j++) {
-          var qj = atoms[j].w;
-          REQK.push(new THREE.Vector4(R0_default, E0_default, qj, K_default));
+          var partsj = lines[atomStartIndex + j].trim().split(/\s+/);
+          var sym = partsj[0];
+          var lj  = elementLJ[sym] || elementLJ['C'];
+          var Rii = lj.R;
+          var Eii = lj.E;
+          var R0  = Rpp + Rii;
+          var E0  = Math.sqrt(Math.max(Epp,0.0) * Math.max(Eii,0.0));
+          var qj  = atoms[j].w;
+          var Qij = qProbe * qj;
+          REQK.push(new THREE.Vector4(R0, E0, Qij, K_default));
         }
 
         // GLSL uses fixed-size arrays uAtoms[256] and uREQK[256], so pad
@@ -266,9 +328,12 @@ H         -2.50150       -0.00060        0.00010     +0.2
           atoms.length = maxAtoms;
           REQK.length = maxAtoms;
         }
+        // Padding defaults for REQK (used for off-screen dummy atoms)
+        var R0_pad = 3.0;
+        var E0_pad = 0.1;
         while (atoms.length < maxAtoms) {
           atoms.push(new THREE.Vector4(1e9, 1e9, 1e9, 0.0));
-          REQK.push(new THREE.Vector4(R0_default, E0_default, 0.0, K_default));
+          REQK.push(new THREE.Vector4(R0_pad, E0_pad, 0.0, K_default));
         }
         uniforms.uAtoms.value = atoms;
         uniforms.uREQK.value  = REQK;

@@ -15,6 +15,9 @@ uniform vec4  uAtoms[256];   // xyz in Å, w = charge (e)
 // Potential:  E(r) = E0 * (1.0 - exp(-K*(r-R0)))^2 + Q * COULOMB_CONST / r
 uniform vec4  uREQK[256];
 
+// Linear contrast scaling for visualization: val = clamp(0.5 + E * uContrast, 0, 1)
+uniform float uContrast;
+
 varying vec2 vUv;
 
 // Numerical safety for r^2
@@ -99,10 +102,8 @@ void main() {
         E += getMorseCoulomb(pos, uAtoms[i].xyz, uREQK[i]);
     }
 
-    // Simple signed tone mapping around E = 0
-    // Map some energy window [-Emax, Emax] to [0,1]
-    float Emax = 1.0;
-    float val = clamp(0.5 + 0.5 * (E / Emax), 0.0, 1.0);
+    // Pure linear grayscale mapping around E = 0, user-controlled contrast
+    float val = clamp(0.5 + E * uContrast, 0.0, 1.0);
     gl_FragColor = vec4(vec3(val), 1.0);
 }
 
