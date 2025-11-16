@@ -1,6 +1,8 @@
 precision highp float;
+precision highp int;
 
-varying vec2 vUv;
+in vec2 vUv;
+out vec4 outColor;
 
 uniform vec2  uResolution;
 uniform int   uNSites;
@@ -10,9 +12,10 @@ uniform float uVBias;
 uniform float uRtip;
 uniform float uEcenter; // center of diverging colormap ("zero" level)
 uniform float uEscale;  // energy scale for colormap (half-width)
-uniform float uW;       // uniform Coulomb interaction per occupied pair
-uniform int   uMode;    // 0 = single-particle min(E_i), 1 = many-body ground state
-uniform vec4  uSites[4]; // (x, y, z, E0)
+uniform float uW;         // uniform Coulomb interaction per occupied pair
+uniform int   uMode;      // 0 = single-particle, 1 = many-body GS, 2 = GS current, 3–5 = PME
+uniform int   uSiteIndex; // for PME site occupancy visualization
+uniform vec4  uSites[4];  // (x, y, z, E0)
 
 // Phase 1/2 shader: render single-particle or many-body energies over all sites.
 // On-site energy model (simplified):
@@ -150,13 +153,288 @@ float ground_state_tip_current(
   return Itip;
 }
 
+// === PME solver helpers (modes 3–5) ===
+
+// Compute many-body energies Es[s] and electron counts Ne[s] for all configurations s < 2^nsites.
+void compute_many_body_energies(
+  in  float Ei_arr[4],
+  in  int   nsites,
+  in  float W,
+  out float Es[16],
+  out float Ne[16],
+  out int   nStates
+) {
+  int maxStates = 1;
+  for (int k = 0; k < 4; ++k) {
+    if (k >= nsites) break;
+    maxStates *= 2;
+  }
+  nStates = maxStates;
+
+  float w2[4];
+  w2[0] = 1.0;
+  w2[1] = 2.0;
+  w2[2] = 4.0;
+  w2[3] = 8.0;
+
+  for (int s = 0; s < 16; ++s) {
+    if (s >= maxStates) {
+      Es[s] = 0.0;
+      Ne[s] = 0.0;
+      continue;
+    }
+    float N   = 0.0;
+    float Esp = 0.0;
+    for (int i = 0; i < 4; ++i) {
+      if (i >= nsites) break;
+      float occ = floor(mod(float(s) / w2[i], 2.0));
+      N   += occ;
+      Esp += occ * Ei_arr[i];
+    }
+    float Npairs = 0.5 * N * (N - 1.0);
+    float Ecoul  = W * Npairs;
+    Es[s] = Esp + Ecoul;
+    Ne[s] = N;
+  }
+}
+
+// Simple Fermi-Dirac function for energy difference dE at temperature kT.
+float fermi(float dE, float kT) {
+  float x = dE / max(kT, 1e-6);
+  x = clamp(x, -40.0, 40.0);
+  float ex = exp(-x);
+  return 1.0 / (1.0 + ex);
+}
+
+// Solve K rho = rhs for rho via Gaussian elimination; n is number of states (<=16).
+void solve_linear_system(
+  inout float K[16*16],
+  inout float rhs[16],
+  int  n
+) {
+  for (int i = 0; i < 16; ++i) {
+    if (i >= n) break;
+    float pivot = K[i*16 + i];
+    if (abs(pivot) < 1e-12) pivot = (pivot < 0.0 ? -1.0 : 1.0) * 1e-12;
+    float invPivot = 1.0 / pivot;
+    for (int j = 0; j < 16; ++j) {
+      if (j >= n) break;
+      K[i*16 + j] *= invPivot;
+    }
+    rhs[i] *= invPivot;
+
+    for (int r = 0; r < 16; ++r) {
+      if (r >= n || r == i) break;
+      float factor = K[r*16 + i];
+      if (abs(factor) == 0.0) continue;
+      for (int c = 0; c < 16; ++c) {
+        if (c >= n) break;
+        K[r*16 + c] -= factor * K[i*16 + c];
+      }
+      rhs[r] -= factor * rhs[i];
+    }
+  }
+}
+
+// PME steady-state solver: fills rho_s for s < nStates and returns a simple tip current.
+void solve_pme(
+  in  float Ei_arr[4],
+  in  float Ri_arr[4],
+  in  int   nsites,
+  in  float W,
+  out float rho[16],
+  out float I_tip
+) {
+  float Es[16];
+  float Ne[16];
+  int   nStates;
+  compute_many_body_energies(Ei_arr, nsites, W, Es, Ne, nStates);
+
+  float w2[4];
+  w2[0] = 1.0;
+  w2[1] = 2.0;
+  w2[2] = 4.0;
+  w2[3] = 8.0;
+
+  float kT   = 0.01;      // heuristic temperature in eV
+  float muS  = 0.0;       // substrate chemical potential
+  float muT  = uVBias;    // tip chemical potential ~ bias
+  float gammaS0 = 1.0;    // base coupling substrate
+  float gammaT0 = 1.0;    // base coupling tip
+
+  float K[16*16];
+  float rhs[16];
+  for (int i = 0; i < 16; ++i) {
+    rhs[i] = 0.0;
+    for (int j = 0; j < 16; ++j) {
+      K[i*16 + j] = 0.0;
+    }
+  }
+
+  // Build K from transition rates for both leads.
+  for (int s = 0; s < 16; ++s) {
+    if (s >= nStates) break;
+
+    for (int i = 0; i < 4; ++i) {
+      if (i >= nsites) break;
+      float occ = floor(mod(float(s) / w2[i], 2.0));
+
+      for (int l = 0; l < 2; ++l) {
+        float mu     = (l == 0) ? muS : muT;
+        float gamma0 = (l == 0) ? gammaS0 : gammaT0;
+        float r      = Ri_arr[i];
+        float Ttun   = exp(-2.0 * r / max(uRtip, 1e-3));
+        float gamma  = gamma0 * Ttun;
+
+        int t = s;
+        float dN = 0.0;
+        if (occ < 0.5) {
+          // Electron tunnels in: s -> t with bit i set.
+          t = s + int(w2[i]);
+          if (t >= nStates) continue;
+          dN = 1.0;
+        } else {
+          // Electron tunnels out: s -> t with bit i cleared.
+          t = s - int(w2[i]);
+          if (t < 0) continue;
+          dN = -1.0;
+        }
+
+        float dE = Es[t] - Es[s] - mu * dN;
+        float f  = fermi(dE, kT);
+
+        float G_forward  = gamma * f;
+        float G_backward = gamma * (1.0 - f);
+
+        // Outflow from s due to s->t, inflow to t.
+        K[s*16 + s] += G_forward;
+        K[t*16 + s] -= G_forward;
+        // Outflow from t due to t->s, inflow to s.
+        K[t*16 + t] += G_backward;
+        K[s*16 + t] -= G_backward;
+      }
+    }
+  }
+
+  // Replace last equation by normalization: sum_s rho_s = 1.
+  int normRow = nStates - 1;
+  for (int j = 0; j < 16; ++j) {
+    if (j < nStates) {
+      K[normRow*16 + j] = 1.0;
+    } else {
+      K[normRow*16 + j] = 0.0;
+    }
+  }
+  for (int r = 0; r < nStates - 1; ++r) {
+    K[r*16 + normRow] = 0.0;
+  }
+  for (int i = 0; i < nStates; ++i) {
+    rhs[i] = 0.0;
+  }
+  rhs[normRow] = 1.0;
+
+  solve_linear_system(K, rhs, nStates);
+
+  for (int s = 0; s < 16; ++s) {
+    rho[s] = (s < nStates) ? rhs[s] : 0.0;
+  }
+
+  // PME tip current: sum over transitions involving tip only.
+  I_tip = 0.0;
+  for (int s = 0; s < 16; ++s) {
+    if (s >= nStates) break;
+
+    for (int i = 0; i < 4; ++i) {
+      if (i >= nsites) break;
+      float occ = floor(mod(float(s) / w2[i], 2.0));
+      float r   = Ri_arr[i];
+      float Ttun = exp(-2.0 * r / max(uRtip, 1e-3));
+      float gammaT = gammaT0 * Ttun;
+
+      int t = s;
+      float dN = 0.0;
+      if (occ < 0.5) {
+        t = s + int(w2[i]);
+        if (t >= nStates) continue;
+        dN = 1.0; // electron enters system from tip
+      } else {
+        t = s - int(w2[i]);
+        if (t < 0) continue;
+        dN = -1.0; // electron leaves system to tip
+      }
+
+      float dE = Es[t] - Es[s] - muT * dN;
+      float f  = fermi(dE, kT);
+      float G_forward  = gammaT * f;
+      float G_backward = gammaT * (1.0 - f);
+
+      float sign = (dN > 0.0) ? 1.0 : -1.0;
+      float contrib = 0.0;
+      contrib += rho[s] * sign * G_forward;
+      if (t < nStates) {
+        contrib += rho[t] * (-sign) * G_backward;
+      }
+      I_tip += contrib;
+    }
+  }
+}
+
+// PME observables
+float pme_site_occupancy(float rho[16], int nsites, int siteIdx) {
+  float w2[4];
+  w2[0] = 1.0;
+  w2[1] = 2.0;
+  w2[2] = 4.0;
+  w2[3] = 8.0;
+  if (siteIdx < 0) siteIdx = 0;
+  if (siteIdx >= nsites) siteIdx = nsites - 1;
+
+  float occSite = 0.0;
+  int nStates = 1;
+  for (int k = 0; k < 4; ++k) {
+    if (k >= nsites) break;
+    nStates *= 2;
+  }
+  for (int s = 0; s < 16; ++s) {
+    if (s >= nStates) break;
+    float occ = floor(mod(float(s) / w2[siteIdx], 2.0));
+    occSite += rho[s] * occ;
+  }
+  return occSite;
+}
+
+float pme_total_charge(float rho[16], int nsites) {
+  float w2[4];
+  w2[0] = 1.0;
+  w2[1] = 2.0;
+  w2[2] = 4.0;
+  w2[3] = 8.0;
+  float Q = 0.0;
+  int nStates = 1;
+  for (int k = 0; k < 4; ++k) {
+    if (k >= nsites) break;
+    nStates *= 2;
+  }
+  for (int s = 0; s < 16; ++s) {
+    if (s >= nStates) break;
+    float N = 0.0;
+    for (int i = 0; i < 4; ++i) {
+      if (i >= nsites) break;
+      float occ = floor(mod(float(s) / w2[i], 2.0));
+      N += occ;
+    }
+    Q += rho[s] * N;
+  }
+  return Q;
+}
+
 void main() {
   // Map vUv in [0,1]^2 to tip-plane coordinates [-L, L]^2
   vec3 tip = tip_from_uv(vUv, uL, uZTip);
 
   // If no sites, show neutral gray.
   if (uNSites <= 0) {
-    gl_FragColor = vec4(vec3(0.2), 1.0);
+    outColor = vec4(vec3(0.2), 1.0);
     return;
   }
 
@@ -174,7 +452,7 @@ void main() {
   if (uMode == 0) {
     // Mode 0: single-particle picture – minimum on-site energy over all sites.
     Eplot = Emin;
-  } else {
+  } else if (uMode == 1 || uMode == 2) {
     // Modes 1 and 2: many-body quantities based on ground-state configuration.
     float Eg_min;
     int   bestState;
@@ -184,14 +462,27 @@ void main() {
       // Mode 1: many-body ground-state energy.
       Eplot = Eg_min;
     } else {
-      // Mode 2 (or other): simple ground-state current based on tip tunneling.
+      // Mode 2: simple ground-state current based on tip tunneling.
       float Itip = ground_state_tip_current(Ri_arr, Ei_arr, uNSites, Rscale, bestState);
       Eplot = Itip;
+    }
+  } else {
+    // Modes 3–5: PME steady-state observables.
+    float rho[16];
+    float I_tip;
+    solve_pme(Ei_arr, Ri_arr, uNSites, uW, rho, I_tip);
+
+    if (uMode == 3) {
+      Eplot = pme_site_occupancy(rho, uNSites, uSiteIndex);
+    } else if (uMode == 4) {
+      Eplot = pme_total_charge(rho, uNSites);
+    } else {
+      Eplot = I_tip;
     }
   }
 
   // Map selected energy to diverging red-white-blue colormap controlled by uEcenter and uEscale.
   vec3 col = colormap_rwb(Eplot, uEcenter, uEscale);
 
-  gl_FragColor = vec4(col, 1.0);
+  outColor = vec4(col, 1.0);
 }

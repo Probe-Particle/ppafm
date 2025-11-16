@@ -31,7 +31,8 @@
       input[type="number"] { width: 80px; }
       button { margin: 2px 0; }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r83/three.js"></script>
+    <!-- Use a newer Three.js build (0.150.1) from unpkg that exposes global THREE and supports WebGL2/GLSL3 -->
+    <script src="https://unpkg.com/three@0.150.1/build/three.min.js"></script>
   </head>
   <body>
     <div id="container"></div>
@@ -118,7 +119,7 @@
         uniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
 
         var vertexShaderSrc = [
-          'varying vec2 vUv;',
+          'out vec2 vUv;',
           'void main() {',
           '  vUv = uv;',
           '  gl_Position = vec4(position, 1.0);',
@@ -132,10 +133,11 @@
             material = new THREE.ShaderMaterial({
               uniforms: uniforms,
               vertexShader: vertexShaderSrc,
-              fragmentShader: fragSource
+              fragmentShader: fragSource,
+              glslVersion: THREE.GLSL3
             });
 
-            var geom = new THREE.PlaneBufferGeometry(2, 2);
+            var geom = new THREE.PlaneGeometry(2, 2);
             mesh     = new THREE.Mesh(geom, material);
             scene.add(mesh);
 
