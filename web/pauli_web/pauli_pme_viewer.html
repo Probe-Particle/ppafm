@@ -37,40 +37,22 @@
     <div id="container"></div>
     <div id="ui">
       <div class="row"><strong>Pauli STM Viewer (Phase 1: sites + geometry)</strong></div>
-      <div class="row">
-        <label for="inpNSites">nsites</label>
-        <input id="inpNSites" type="number" min="1" max="4" step="1" value="3" />
+      <div class="row"><label for="inpNSites">nsites     </label> <input id="inpNSites"  type="number" min="1" max="4" step="1"   value="4" /></div>
+      <div class="row"><label for="inpL">L (Å)           </label> <input id="inpL"       type="number" step="1"      value="20" /></div>
+      <div class="row"><label for="inpZTip">z_tip (Å)    </label> <input id="inpZTip"    type="number" step="0.5"    value="8" /></div>
+      <div class="row"><label for="inpVBias">VBias (V)   </label> <input id="inpVBias"   type="number" step="0.1"    value="0.3" /></div>
+      <div class="row"><label for="inpRTip">Rtip (Å)     </label> <input id="inpRTip"    type="number" step="0.5"    value="4.0" /></div>
+      <div class="row"><label for="inpW">W (Coul)       </label> <input id="inpW"        type="number" step="0.05"   value="0.0" /></div>
+      <div class="row"><label for="inpEcenter">E center    </label> <input id="inpEcenter" type="number" step="0.05"   value="0.0" /></div>
+      <div class="row"><label for="inpEscale">E scale      </label> <input id="inpEscale"  type="number" step="0.1"    value="10.0" /></div>
+      <div class="row"><label for="selMode">Mode         </label>
+        <select id="selMode">
+          <option value="0" selected>Single-particle min(E_i)</option>
+          <option value="1">Many-body ground-state E</option>
+        </select>
       </div>
-      <div class="row">
-        <label for="inpL">L (Å)</label>
-        <input id="inpL" type="number" step="1" value="20" />
-      </div>
-      <div class="row">
-        <label for="inpZTip">z_tip (Å)</label>
-        <input id="inpZTip" type="number" step="0.5" value="8" />
-      </div>
-      <div class="row">
-        <label for="inpVBias">VBias (V)</label>
-        <input id="inpVBias" type="number" step="0.1" value="1.0" />
-      </div>
-      <div class="row">
-        <label for="inpRTip">Rtip (Å)</label>
-        <input id="inpRTip" type="number" step="0.5" value="5.0" />
-      </div>
-      <div class="row">
-        <label for="inpEcenter">E center</label>
-        <input id="inpEcenter" type="number" step="0.05" value="0.0" />
-      </div>
-      <div class="row">
-        <label for="inpEscale">E scale</label>
-        <input id="inpEscale" type="number" step="0.05" value="0.5" />
-      </div>
-      <div class="row">
-        <button id="btnUpdate">Update view</button>
-      </div>
-      <div class="row">
-        <label for="txtSites">Sites (x y z E)</label>
-      </div>
+      <div class="row"><button id="btnUpdate">Update view</button></div>
+      <div class="row"><label for="txtSites">Sites (x y z E)</label></div>
       <div class="row">
         <textarea id="txtSites" spellcheck="false" style="width: 100%; height: 120px;">
 -5.7850  0.0000  0.0000  -0.1000
@@ -98,8 +80,10 @@
         uZTip:       { value: 8.0 },
         uVBias:      { value: 1.0 },
         uRtip:       { value: 5.0 },
+        uW:          { value: 0.0 },
         uEcenter:    { value: 0.0 },
         uEscale:     { value: 0.5 },
+        uMode:       { value: 0 },
         // Sites: up to 4 sites, each as (x, y, z, E)
         uSites:      { value: [
           new THREE.Vector4(0, 0, 0, -0.1),
@@ -160,7 +144,7 @@
             });
 
             // Numeric inputs: re-render on change
-            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpEcenter', 'inpEscale'].forEach(function (id) {
+            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpW', 'inpEcenter', 'inpEscale'].forEach(function (id) {
               var el = document.getElementById(id);
               if (!el) return;
               el.addEventListener('input', function () {
@@ -168,6 +152,14 @@
                 // Do not re-parse sites on every numeric input to keep it predictable
               });
             });
+
+            // Mode selector: change render mode without re-parsing sites
+            var selMode = document.getElementById('selMode');
+            if (selMode) {
+              selMode.addEventListener('change', function () {
+                updateFromInputs();
+              });
+            }
 
             // Mouse-wheel increment on numeric inputs (similar to ppafm_web/index.html)
             function attachWheelIncrement(id) {
@@ -183,7 +175,7 @@
               });
             }
 
-            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpEcenter', 'inpEscale'].forEach(attachWheelIncrement);
+            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpW', 'inpEcenter', 'inpEscale'].forEach(attachWheelIncrement);
             // Initialize uniforms from default inputs and site list
             updateFromInputs();
             applySitesFromTextarea();
@@ -207,22 +199,28 @@
         var zTip   = parseFloat(document.getElementById('inpZTip').value);
         var VBias  = parseFloat(document.getElementById('inpVBias').value);
         var Rtip   = parseFloat(document.getElementById('inpRTip').value);
+        var W      = parseFloat(document.getElementById('inpW').value);
         var Ecenter = parseFloat(document.getElementById('inpEcenter').value);
         var Escale  = parseFloat(document.getElementById('inpEscale').value);
+        var modeSel = document.getElementById('selMode');
+        var Mode    = modeSel ? parseInt(modeSel.value, 10) : 0;
 
-        if (!isFinite(nsites)) nsites = 3;
-        if (!isFinite(L))      L      = 20.0;
-        if (!isFinite(zTip))   zTip   = 8.0;
-        if (!isFinite(VBias))  VBias  = 1.0;
-        if (!isFinite(Rtip))   Rtip   = 5.0;
-        if (!isFinite(Ecenter)) Ecenter = 0.0;
-        if (!isFinite(Escale))  Escale  = 0.5;
+            // if (!isFinite(nsites)) nsites = 3;
+            // if (!isFinite(L))      L      = 20.0;
+            // if (!isFinite(zTip))   zTip   = 8.0;
+            // if (!isFinite(VBias))  VBias  = 1.0;
+             if (!isFinite(Rtip))   Rtip   = 5.0;
+            if (!isFinite(W))      W      = 0.0;
+            if (!isFinite(Ecenter)) Ecenter = 0.0;
+            if (!isFinite(Escale))  Escale  = 0.5;
+            if (!isFinite(Mode))    Mode    = 0;
 
-        // Clamp to reasonable ranges
-        if (nsites < 1) nsites = 1;
-        if (nsites > 4) nsites = 4;
-        if (L <= 0.0)   L = 1.0;
-        if (Rtip <= 0.) Rtip = 0.1;
+            // Clamp to reasonable ranges
+            if (nsites < 1) nsites = 1;
+            if (nsites > 4) nsites = 4;
+            if (L <= 0.0)   L = 1.0;
+            if (Rtip <= 0.) Rtip = 0.1;
+            if (Escale <= 0.0) Escale = 0.05;
         if (Escale <= 0.0) Escale = 0.05;
 
         uniforms.uNSites.value = nsites;
@@ -230,11 +228,15 @@
         uniforms.uZTip.value   = zTip;
         uniforms.uVBias.value  = VBias;
         uniforms.uRtip.value   = Rtip;
+        uniforms.uW.value      = W;
         uniforms.uEcenter.value = Ecenter;
         uniforms.uEscale.value  = Escale;
+        uniforms.uMode.value    = Mode;
 
         setStatus('nsites=' + nsites + ', L=' + L.toFixed(2) + ', z_tip=' + zTip.toFixed(2) + ', VBias=' + VBias.toFixed(2)
-                  + ', Rtip=' + Rtip.toFixed(2) + ', Ecenter=' + Ecenter.toFixed(2) + ', Escale=' + Escale.toFixed(2));
+                  + ', Rtip=' + Rtip.toFixed(2) + ', W=' + W.toFixed(2)
+                  + ', Ecenter=' + Ecenter.toFixed(2) + ', Escale=' + Escale.toFixed(2)
+                  + ', Mode=' + Mode + '');
         renderOnce();
       }
 
