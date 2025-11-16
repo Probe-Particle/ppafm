@@ -551,7 +551,7 @@ void solve_pme(
   for (int i = 0; i < nStates; ++i)     { rhs[i] = 0.0;}
   rhs[normRow] = 1.0;
 
-  solve_linear_system(K, rhs, nStates);
+  //solve_linear_system(K, rhs, nStates);
 
   for (int s = 0; s < 16; ++s) { rho[s] = (s < nStates) ? rhs[s] : 0.0; }
 

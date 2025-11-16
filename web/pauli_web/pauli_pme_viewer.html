@@ -13,11 +13,20 @@
         display: flex;
         flex-direction: row;
       }
-      #container {
+      #leftPanel {
         flex: 0 0 512px;
+        display: flex;
+        flex-direction: column;
+      }
+      #container {
         width: 512px;
         height: 512px;
         background: #000;
+      }
+      #cpuScanPanel {
+        width: 512px;
+        padding: 4px;
+        box-sizing: border-box;
       }
       #ui {
         flex: 0 0 340px;
@@ -33,23 +42,23 @@
     </style>
     <!-- Use a newer Three.js build (0.150.1) from unpkg that exposes global THREE and supports WebGL2/GLSL3 -->
     <script src="https://unpkg.com/three@0.150.1/build/three.min.js"></script>
+    <!-- Lightweight plotting library for CPU line-scan debug -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Generic PME GUI utilities (param specs, GUI generation, param I/O) -->
+    <script src="pme_gui_utils.js"></script>
+    <!-- CPU-side PME solver for single-point debug -->
+    <script src="pauli_pme_cpu.js"></script>
   </head>
   <body>
-    <div id="container"></div>
+    <div id="leftPanel">
+      <div id="container"></div>
+      <div id="cpuScanPanel">
+        <div class="row"><label for="inpLineScanPoints">CPU scan pts</label> <input id="inpLineScanPoints" type="number" min="2" step="1" value="20" /> <button id="btnCpuScan">Run CPU line scan</button></div>
+        <div class="row"><canvas id="cpuLineScanCanvas" style="width:100%; height:180px;"></canvas></div>
+      </div>
+    </div>
     <div id="ui">
-      <div class="row"><strong>Pauli STM Viewer (Phase 1: sites + geometry)</strong></div>
-      <div class="row"><label for="inpNSites">nsites     </label> <input id="inpNSites"  type="number" min="1" max="4" step="1"   value="2" /></div>
-      <div class="row"><label for="inpL">L (Å)           </label> <input id="inpL"       type="number" step="1"      value="20" /></div>
-      <div class="row"><label for="inpZTip">z_tip (Å)    </label> <input id="inpZTip"    type="number" step="0.5"    value="8" /></div>
-      <div class="row"><label for="inpVBias">VBias (V)   </label> <input id="inpVBias"   type="number" step="0.001"    value="0.3" /></div>
-      <div class="row"><label for="inpRTip">Rtip (Å)     </label> <input id="inpRTip"    type="number" step="0.5"    value="4.0" /></div>
-      <div class="row"><label for="inpTemp">Temp (K)     </label> <input id="inpTemp"    type="number" step="0.1"    value="3.0" /></div>
-      <div class="row"><label for="inpGammaS">GammaS     </label> <input id="inpGammaS"  type="number" step="0.001"  value="0.01" /></div>
-      <div class="row"><label for="inpGammaT">GammaT     </label> <input id="inpGammaT"  type="number" step="0.001"  value="0.01" /></div>
-      <div class="row"><label for="inpDecay">decay       </label> <input id="inpDecay"   type="number" step="0.05"   value="0.3" /></div>
-      <div class="row"><label for="inpW">W (Coul)        </label> <input id="inpW"        type="number" step="0.001"   value="0.0" /></div>
-      <div class="row"><label for="inpEcenter">E center  </label> <input id="inpEcenter" type="number" step="0.05"   value="0.0" /></div>
-      <div class="row"><label for="inpEscale">E scale    </label> <input id="inpEscale"  type="number" step="0.1"    value="10.0" /></div>
+      <div id="paramPanel"></div>
       <div class="row"><label for="selMode">Mode         </label>
         <select id="selMode">
           <option value="0" selected>Single-particle min(E_i)</option>
@@ -87,21 +96,30 @@
 
     <script>
       var renderer, scene, camera, mesh, material;
+      var cpuLineScanChart = null;
 
+      // Parameter specifications for PME controls (similar to param_specs in GUITemplate).
+      // Each entry links to a numeric input and a uniform. GUI widgets are generated programmatically.
+      var paramSpecs = [
+        { uniform: 'uNSites',   inputId: 'inpNSites', label: 'nsites',     type: 'int',   def: 2,   min: 1, max: 4 },
+        { uniform: 'uL',        inputId: 'inpL',      label: 'L (Å)',      type: 'float', def: 20.0 },
+        { uniform: 'uZTip',     inputId: 'inpZTip',   label: 'z_tip (Å)',  type: 'float', def: 8.0 },
+        { uniform: 'uVBias',    inputId: 'inpVBias',  label: 'VBias (V)',  type: 'float', def: 0.3 },
+        { uniform: 'uRtip',     inputId: 'inpRTip',   label: 'Rtip (Å)',   type: 'float', def: 4.0,  min: 0.1 },
+        { uniform: 'uTemp',     inputId: 'inpTemp',   label: 'Temp (K)',   type: 'float', def: 3.0,  min: 0.0 },
+        { uniform: 'uGammaS',   inputId: 'inpGammaS', label: 'GammaS',     type: 'float', def: 0.01, min: 0.0 },
+        { uniform: 'uGammaT',   inputId: 'inpGammaT', label: 'GammaT',     type: 'float', def: 0.01, min: 0.0 },
+        { uniform: 'uDecay',    inputId: 'inpDecay',  label: 'decay',      type: 'float', def: 0.3,  min: 0.0 },
+        { uniform: 'uW',        inputId: 'inpW',      label: 'W (Coul)',   type: 'float', def: 0.0 },
+        { uniform: 'uEcenter',  inputId: 'inpEcenter',label: 'E center',   type: 'float', def: 0.0 },
+        { uniform: 'uEscale',   inputId: 'inpEscale', label: 'E scale',    type: 'float', def: 10.0, min: 0.05 }
+      ];
+
+      var paramInputIds = paramSpecs.map(function (s) { return s.inputId; });
+
+      // Uniforms: special ones explicit, parameter uniforms derived from paramSpecs.
       var uniforms = {
         uResolution: { value: new THREE.Vector2(512, 512) },
-        uNSites:     { value: 3 },
-        uL:          { value: 20.0 },
-        uZTip:       { value: 8.0 },
-        uVBias:      { value: 1.0 },
-        uRtip:       { value: 5.0 },
-        uTemp:       { value: 3.0 },
-        uGammaS:     { value: 0.01 },
-        uGammaT:     { value: 0.01 },
-        uDecay:      { value: 0.3 },
-        uW:          { value: 0.0 },
-        uEcenter:    { value: 0.0 },
-        uEscale:     { value: 0.5 },
         uMode:       { value: 0 },
         uSiteIndex:  { value: 0 },
         // Sites: up to 4 sites, each as (x, y, z, E)
@@ -112,6 +130,11 @@
           new THREE.Vector4(0, 0, 0, -0.1)
         ] }
       };
+
+      for (var i = 0; i < paramSpecs.length; i++) {
+        var s = paramSpecs[i];
+        uniforms[s.uniform] = { value: s.def };
+      }
 
       function setStatus(msg) {
         var el = document.getElementById('status');
@@ -164,8 +187,18 @@
               applySitesFromTextarea();
             });
 
+            var btnCpuScan = document.getElementById('btnCpuScan');
+            if (btnCpuScan) {
+              btnCpuScan.addEventListener('click', function () {
+                runCpuLineScan();
+              });
+            }
+
+            // Generate parameter GUI from spec
+            createPmeGui('paramPanel', 'Pauli STM Viewer (Phase 1: sites + geometry)', paramSpecs);
+
             // Numeric inputs: re-render on change
-            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpTemp', 'inpGammaS', 'inpGammaT', 'inpDecay', 'inpW', 'inpEcenter', 'inpEscale', 'inpSiteIndex'].forEach(function (id) {
+            paramInputIds.concat(['inpSiteIndex']).forEach(function (id) {
               var el = document.getElementById(id);
               if (!el) return;
               el.addEventListener('input', function () {
@@ -196,7 +229,7 @@
               });
             }
 
-            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpTemp', 'inpGammaS', 'inpGammaT', 'inpDecay', 'inpW', 'inpEcenter', 'inpEscale', 'inpSiteIndex'].forEach(attachWheelIncrement);
+            paramInputIds.concat(['inpSiteIndex']).forEach(attachWheelIncrement);
             // Initialize uniforms from default inputs and site list
             updateFromInputs();
             applySitesFromTextarea();
@@ -215,72 +248,33 @@
       }
 
       function updateFromInputs() {
-        var nsites = parseInt(document.getElementById('inpNSites').value, 10);
-        var L      = parseFloat(document.getElementById('inpL').value);
-        var zTip   = parseFloat(document.getElementById('inpZTip').value);
-        var VBias  = parseFloat(document.getElementById('inpVBias').value);
-        var Rtip   = parseFloat(document.getElementById('inpRTip').value);
-        var Temp   = parseFloat(document.getElementById('inpTemp').value);
-        var GammaS = parseFloat(document.getElementById('inpGammaS').value);
-        var GammaT = parseFloat(document.getElementById('inpGammaT').value);
-        var Decay  = parseFloat(document.getElementById('inpDecay').value);
-        var W      = parseFloat(document.getElementById('inpW').value);
-        var Ecenter = parseFloat(document.getElementById('inpEcenter').value);
-        var Escale  = parseFloat(document.getElementById('inpEscale').value);
+        // Read and clamp all parameter values from inputs using the shared spec.
+        var p = readParamsFromInputsWithSpecs(paramSpecs);
+
+        // Handle mode and site index separately.
         var siteIdx = parseInt(document.getElementById('inpSiteIndex').value, 10);
         var modeSel = document.getElementById('selMode');
         var Mode    = modeSel ? parseInt(modeSel.value, 10) : 0;
-
-            // if (!isFinite(nsites)) nsites = 3;
-            // if (!isFinite(L))      L      = 20.0;
-            // if (!isFinite(zTip))   zTip   = 8.0;
-            // if (!isFinite(VBias))  VBias  = 1.0;
-             if (!isFinite(Rtip))   Rtip   = 5.0;
-        if (!isFinite(Temp))   Temp   = 3.0;
-        if (!isFinite(GammaS)) GammaS = 0.01;
-        if (!isFinite(GammaT)) GammaT = 0.01;
-        if (!isFinite(Decay))  Decay  = 0.3;
-        if (!isFinite(W))      W      = 0.0;
-        if (!isFinite(Ecenter)) Ecenter = 0.0;
-        if (!isFinite(Escale))  Escale  = 0.5;
-        if (!isFinite(Mode))    Mode    = 0;
         if (!isFinite(siteIdx)) siteIdx = 0;
+        if (!isFinite(Mode))    Mode    = 0;
 
-            // Clamp to reasonable ranges
-            if (nsites < 1) nsites = 1;
+        // Additional constraints that depend on other params.
+        var nsites = p.uNSites;
+        if (nsites < 1) nsites = 1;
         if (nsites > 4) nsites = 4;
-        if (L <= 0.0)   L = 1.0;
-        if (Rtip <= 0.) Rtip = 0.1;
-        if (Temp < 0.0) Temp = 0.0;
-        if (GammaS < 0.0) GammaS = 0.0;
-        if (GammaT < 0.0) GammaT = 0.0;
-        if (Decay  < 0.0) Decay  = 0.0;
-        if (Escale <= 0.0) Escale = 0.05;
-        // if (siteIdx < 0) siteIdx = 0;
-        // if (siteIdx > 3) siteIdx = 3;
-        if (Escale <= 0.0) Escale = 0.05;
+        p.uNSites = nsites;
 
-        uniforms.uNSites.value = nsites;
-        uniforms.uL.value      = L;
-        uniforms.uZTip.value   = zTip;
-        uniforms.uVBias.value  = VBias;
-        uniforms.uRtip.value   = Rtip;
-        uniforms.uTemp.value   = Temp;
-        uniforms.uGammaS.value = GammaS;
-        uniforms.uGammaT.value = GammaT;
-        uniforms.uDecay.value  = Decay;
-        uniforms.uW.value      = W;
-        uniforms.uEcenter.value = Ecenter;
-        uniforms.uEscale.value  = Escale;
-        uniforms.uMode.value    = Mode;
+        if (siteIdx < 0) siteIdx = 0;
+        if (siteIdx >= nsites) siteIdx = nsites - 1;
+
+        // Apply to uniforms in bulk.
+        applyParamsToUniformsWithSpecs(paramSpecs, uniforms, p);
+        uniforms.uMode.value      = Mode;
         uniforms.uSiteIndex.value = siteIdx;
 
-        setStatus('nsites=' + nsites + ', L=' + L.toFixed(2) + ', z_tip=' + zTip.toFixed(2) + ', VBias=' + VBias.toFixed(2)
-                  + ', Rtip=' + Rtip.toFixed(2) + ', Temp=' + Temp.toFixed(2)
-                  + ', GammaS=' + GammaS.toFixed(3) + ', GammaT=' + GammaT.toFixed(3) + ', decay=' + Decay.toFixed(2)
-                  + ', W=' + W.toFixed(2)
-                  + ', Ecenter=' + Ecenter.toFixed(2) + ', Escale=' + Escale.toFixed(2)
-                  + ', Mode=' + Mode + ', siteIdx=' + siteIdx + '');
+        var status = buildStatusStringFromParams(paramSpecs, p, Mode, siteIdx);
+        setStatus(status);
+
         renderOnce();
       }
 
