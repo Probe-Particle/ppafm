@@ -42,13 +42,14 @@
       <div class="row"><label for="inpZTip">z_tip (Å)    </label> <input id="inpZTip"    type="number" step="0.5"    value="8" /></div>
       <div class="row"><label for="inpVBias">VBias (V)   </label> <input id="inpVBias"   type="number" step="0.1"    value="0.3" /></div>
       <div class="row"><label for="inpRTip">Rtip (Å)     </label> <input id="inpRTip"    type="number" step="0.5"    value="4.0" /></div>
-      <div class="row"><label for="inpW">W (Coul)       </label> <input id="inpW"        type="number" step="0.05"   value="0.0" /></div>
-      <div class="row"><label for="inpEcenter">E center    </label> <input id="inpEcenter" type="number" step="0.05"   value="0.0" /></div>
-      <div class="row"><label for="inpEscale">E scale      </label> <input id="inpEscale"  type="number" step="0.1"    value="10.0" /></div>
+      <div class="row"><label for="inpW">W (Coul)        </label> <input id="inpW"        type="number" step="0.05"   value="0.0" /></div>
+      <div class="row"><label for="inpEcenter">E center  </label> <input id="inpEcenter" type="number" step="0.05"   value="0.0" /></div>
+      <div class="row"><label for="inpEscale">E scale    </label> <input id="inpEscale"  type="number" step="0.1"    value="10.0" /></div>
       <div class="row"><label for="selMode">Mode         </label>
         <select id="selMode">
           <option value="0" selected>Single-particle min(E_i)</option>
           <option value="1">Many-body ground-state E</option>
+          <option value="2">Ground-state tip current (proxy)</option>
         </select>
       </div>
       <div class="row"><button id="btnUpdate">Update view</button></div>

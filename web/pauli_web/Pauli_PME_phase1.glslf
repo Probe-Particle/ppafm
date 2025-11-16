@@ -51,6 +51,7 @@ void main() {
   // Compute on-site energy for each site and track min/max.
   float Rscale = max(uRtip, 1.0); // avoid division by zero
   float Ei_arr[4];
+  float Ri_arr[4];
   float Emin   =  1e9;
   float Emax   = -1e9;
   for (int i = 0; i < 4; ++i) {
@@ -65,6 +66,7 @@ void main() {
     float Egate = uVBias * Rscale / max(r, 1e-3);
     float Ei    = E0 + Egate;
     Ei_arr[i]   = Ei;
+    Ri_arr[i]   = r;
     Emin = min(Emin, Ei);
     Emax = max(Emax, Ei);
   }
@@ -76,7 +78,7 @@ void main() {
     // Mode 0: single-particle picture – minimum on-site energy over all sites.
     Eplot = Emin;
   } else {
-    // Mode 1: many-body ground-state energy with uniform Coulomb interaction.
+    // Mode 1 or 2: many-body quantities based on ground-state configuration.
     // NOTE: GLSL ES 1.0 has no bitwise shift, so compute 2^nsites manually.
     int   maxStates = 1;
     for (int k = 0; k < 4; ++k) {
@@ -84,6 +86,7 @@ void main() {
       maxStates *= 2;
     }
     float Eg_min    =  1e9;
+    int   bestState = 0;
 
     // Precompute weights for bit extraction: state s has bit i set if floor(mod(s / 2^i, 2)) == 1.
     float w2[4];
@@ -110,10 +113,28 @@ void main() {
       float Ecoul  = uW * Npairs;
       float Es     = Esp + Ecoul;
 
-      Eg_min = min(Eg_min, Es);
+      if (Es < Eg_min) {
+        Eg_min   = Es;
+        bestState = s;
+      }
     }
-
-    Eplot = Eg_min;
+    if (uMode == 1) {
+      // Mode 1: many-body ground-state energy.
+      Eplot = Eg_min;
+    } else {
+      // Mode 2 (or other): simple ground-state current based on tip tunneling.
+      float Itip = 0.0;
+      float beta = 1.0 / Rscale; // decay parameter for tunneling
+      for (int i = 0; i < 4; ++i) {
+        if (i >= uNSites) break;
+        float occ = floor(mod(float(bestState) / w2[i], 2.0)); // 0 or 1
+        float r   = Ri_arr[i];
+        float T   = exp(-beta * r); // tunneling amplitude
+        float gamma = T * T * (1.0 - occ); // suppress tunneling into occupied sites
+        Itip += gamma;
+      }
+      Eplot = Itip;
+    }
   }
 
   // Map selected energy to diverging red-white-blue colormap controlled by uEcenter and uEscale.
