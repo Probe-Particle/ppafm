@@ -10,6 +10,10 @@ uniform float uL;
 uniform float uZTip;
 uniform float uVBias;
 uniform float uRtip;
+uniform float uTemp;    // temperature in Kelvin (from GUI)
+uniform float uGammaS;  // substrate coupling (dimensionless)
+uniform float uGammaT;  // tip coupling (dimensionless)
+uniform float uDecay;   // tunneling decay beta [1/Å]
 uniform float uEcenter; // center of diverging colormap ("zero" level)
 uniform float uEscale;  // energy scale for colormap (half-width)
 uniform float uW;         // uniform Coulomb interaction per occupied pair
@@ -206,72 +210,200 @@ float fermi(float dE, float kT) {
   return 1.0 / (1.0 + ex);
 }
 
-// Solve K rho = rhs for rho via Gaussian elimination; n is number of states (<=16).
+// --- Small 4x4 Cramer's rule solver helpers ---
+
+// 3x3 determinant from a 4x4 block stored row-major in A4 (only first 4x4 used).
+// Rows are r0,r1,r2 and columns c0,c1,c2.
+float det3_sub4(float A4[16], int r0, int r1, int r2, int c0, int c1, int c2) {
+  float a00 = A4[r0*4 + c0];
+  float a01 = A4[r0*4 + c1];
+  float a02 = A4[r0*4 + c2];
+  float a10 = A4[r1*4 + c0];
+  float a11 = A4[r1*4 + c1];
+  float a12 = A4[r1*4 + c2];
+  float a20 = A4[r2*4 + c0];
+  float a21 = A4[r2*4 + c1];
+  float a22 = A4[r2*4 + c2];
+
+  return a00*(a11*a22 - a12*a21)
+       - a01*(a10*a22 - a12*a20)
+       + a02*(a10*a21 - a11*a20);
+}
+
+// 4x4 determinant of A4 using expansion along first row.
+float det4(float A4[16]) {
+  float d0 = det3_sub4(A4, 1, 2, 3, 1, 2, 3);
+  float d1 = det3_sub4(A4, 1, 2, 3, 0, 2, 3);
+  float d2 = det3_sub4(A4, 1, 2, 3, 0, 1, 3);
+  float d3 = det3_sub4(A4, 1, 2, 3, 0, 1, 2);
+
+  return  A4[0] * d0
+        - A4[1] * d1
+        + A4[2] * d2
+        - A4[3] * d3;
+}
+
+// Solve a 4x4 system A4 * x = b4 using Cramer's rule.
+void solve_4x4_cramer(in float A4[16], in float b4[4], out float x4[4]) {
+  float detA = det4(A4);
+  if (abs(detA) < 1e-20) {
+    for (int i = 0; i < 4; ++i) x4[i] = 0.0;
+    return;
+  }
+
+  float Ai[16];
+  // Column 0 replaced by b
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      Ai[i*4 + j] = (j == 0) ? b4[i] : A4[i*4 + j];
+    }
+  }
+  x4[0] = det4(Ai) / detA;
+
+  // Column 1
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      Ai[i*4 + j] = (j == 1) ? b4[i] : A4[i*4 + j];
+    }
+  }
+  x4[1] = det4(Ai) / detA;
+
+  // Column 2
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      Ai[i*4 + j] = (j == 2) ? b4[i] : A4[i*4 + j];
+    }
+  }
+  x4[2] = det4(Ai) / detA;
+
+  // Column 3
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      Ai[i*4 + j] = (j == 3) ? b4[i] : A4[i*4 + j];
+    }
+  }
+  x4[3] = det4(Ai) / detA;
+}
+
+// Solve K rho = rhs for rho. For n<=4 use 4x4 Cramer's rule, otherwise
+// Gaussian elimination with simple partial pivoting; n <= 16.
 void solve_linear_system(
   inout float K[16*16],
   inout float rhs[16],
   int  n
 ) {
-  for (int i = 0; i < 16; ++i) {
-    if (i >= n) break;
-    float pivot = K[i*16 + i];
-    if (abs(pivot) < 1e-12) pivot = (pivot < 0.0 ? -1.0 : 1.0) * 1e-12;
-    float invPivot = 1.0 / pivot;
-    for (int j = 0; j < 16; ++j) {
-      if (j >= n) break;
-      K[i*16 + j] *= invPivot;
-    }
-    rhs[i] *= invPivot;
+  if (n <= 4) {
+    // Copy top-left n x n block into a 4x4 buffer and solve via Cramer.
+    float A4[16];
+    float b4[4];
+    float x4[4];
 
-    for (int r = 0; r < 16; ++r) {
-      if (r >= n || r == i) break;
-      float factor = K[r*16 + i];
-      if (abs(factor) == 0.0) continue;
-      for (int c = 0; c < 16; ++c) {
-        if (c >= n) break;
-        K[r*16 + c] -= factor * K[i*16 + c];
+    for (int i = 0; i < 4; ++i) {
+      if (i < n) {
+        b4[i] = rhs[i];
+      } else {
+        b4[i] = 0.0;
       }
-      rhs[r] -= factor * rhs[i];
+      for (int j = 0; j < 4; ++j) {
+        if (i < n && j < n) {
+          A4[i*4 + j] = K[i*16 + j];
+        } else {
+          A4[i*4 + j] = (i == j) ? 1.0 : 0.0;
+        }
+      }
     }
+
+    solve_4x4_cramer(A4, b4, x4);
+
+    for (int i = 0; i < 4; ++i) {
+      if (i < n) {
+        rhs[i] = x4[i];
+      }
+    }
+    return;
+  }
+
+  // Forward elimination with partial pivoting for larger n
+  for (int k = 0; k < 16; ++k) {
+    if (k >= n) break;
+
+    int   pivotRow = k;
+    float pivotVal = abs(K[k*16 + k]);
+    for (int i = k + 1; i < 16; ++i) {
+      if (i >= n) break;
+      float val = abs(K[i*16 + k]);
+      if (val > pivotVal) {
+        pivotVal = val;
+        pivotRow = i;
+      }
+    }
+
+    if (pivotVal < 1e-20) {
+      continue;
+    }
+
+    if (pivotRow != k) {
+      for (int j = 0; j < 16; ++j) {
+        if (j >= n) break;
+        float tmp = K[k*16 + j];
+        K[k*16 + j]   = K[pivotRow*16 + j];
+        K[pivotRow*16 + j] = tmp;
+      }
+      float tmpR = rhs[k];
+      rhs[k]     = rhs[pivotRow];
+      rhs[pivotRow] = tmpR;
+    }
+
+    float pivot = K[k*16 + k];
+    if (abs(pivot) < 1e-20) continue;
+    float invPivot = 1.0 / pivot;
+
+    for (int j = k; j < 16; ++j) {
+      if (j >= n) break;
+      K[k*16 + j] *= invPivot;
+    }
+    rhs[k] *= invPivot;
+
+    for (int i = k + 1; i < 16; ++i) {
+      if (i >= n) break;
+      float factor = K[i*16 + k];
+      if (abs(factor) < 1e-20) continue;
+      for (int j = k; j < 16; ++j) {
+        if (j >= n) break;
+        K[i*16 + j] -= factor * K[k*16 + j];
+      }
+      rhs[i] -= factor * rhs[k];
+    }
+  }
+
+  // Back substitution
+  for (int i = n - 1; i >= 0; --i) {
+    float sum = rhs[i];
+    for (int j = i + 1; j < n; ++j) {
+      sum -= K[i*16 + j] * rhs[j];
+    }
+    float diag = K[i*16 + i];
+    if (abs(diag) < 1e-20) {
+      continue;
+    }
+    rhs[i] = sum / diag;
   }
 }
 
-// PME steady-state solver: fills rho_s for s < nStates and returns a simple tip current.
-void solve_pme(
-  in  float Ei_arr[4],
+// Build PME kernel K from transition rates for both substrate and tip leads.
+void build_pme_kernel(
+  in  float Es[16],
   in  float Ri_arr[4],
   in  int   nsites,
-  in  float W,
-  out float rho[16],
-  out float I_tip
+  in  int   nStates,
+  in  float muS,
+  in  float muT,
+  in  float gammaS0,
+  in  float gammaT0,
+  in  float w2[4],
+  in  float kT,
+  inout float K[16*16]
 ) {
-  float Es[16];
-  float Ne[16];
-  int   nStates;
-  compute_many_body_energies(Ei_arr, nsites, W, Es, Ne, nStates);
-
-  float w2[4];
-  w2[0] = 1.0;
-  w2[1] = 2.0;
-  w2[2] = 4.0;
-  w2[3] = 8.0;
-
-  float kT   = 0.01;      // heuristic temperature in eV
-  float muS  = 0.0;       // substrate chemical potential
-  float muT  = uVBias;    // tip chemical potential ~ bias
-  float gammaS0 = 1.0;    // base coupling substrate
-  float gammaT0 = 1.0;    // base coupling tip
-
-  float K[16*16];
-  float rhs[16];
-  for (int i = 0; i < 16; ++i) {
-    rhs[i] = 0.0;
-    for (int j = 0; j < 16; ++j) {
-      K[i*16 + j] = 0.0;
-    }
-  }
-
-  // Build K from transition rates for both leads.
   for (int s = 0; s < 16; ++s) {
     if (s >= nStates) break;
 
@@ -315,32 +447,21 @@ void solve_pme(
       }
     }
   }
+}
 
-  // Replace last equation by normalization: sum_s rho_s = 1.
-  int normRow = nStates - 1;
-  for (int j = 0; j < 16; ++j) {
-    if (j < nStates) {
-      K[normRow*16 + j] = 1.0;
-    } else {
-      K[normRow*16 + j] = 0.0;
-    }
-  }
-  for (int r = 0; r < nStates - 1; ++r) {
-    K[r*16 + normRow] = 0.0;
-  }
-  for (int i = 0; i < nStates; ++i) {
-    rhs[i] = 0.0;
-  }
-  rhs[normRow] = 1.0;
-
-  solve_linear_system(K, rhs, nStates);
-
-  for (int s = 0; s < 16; ++s) {
-    rho[s] = (s < nStates) ? rhs[s] : 0.0;
-  }
-
-  // PME tip current: sum over transitions involving tip only.
-  I_tip = 0.0;
+// Compute PME tip current from solved rho using tip lead only.
+float compute_tip_current(
+  in float Es[16],
+  in float Ri_arr[4],
+  in float rho[16],
+  in int   nStates,
+  in int   nsites,
+  in float muT,
+  in float gammaT0,
+  in float w2[4]
+) {
+  float I_tip = 0.0;
+  float kT   = 0.01;
   for (int s = 0; s < 16; ++s) {
     if (s >= nStates) break;
 
@@ -371,12 +492,71 @@ void solve_pme(
       float sign = (dN > 0.0) ? 1.0 : -1.0;
       float contrib = 0.0;
       contrib += rho[s] * sign * G_forward;
-      if (t < nStates) {
-        contrib += rho[t] * (-sign) * G_backward;
-      }
+      if (t < nStates) { contrib += rho[t] * (-sign) * G_backward;   }
       I_tip += contrib;
     }
   }
+  return I_tip;
+}
+
+// PME steady-state solver: fills rho_s for s < nStates and returns a simple tip current.
+// K and rhs are provided as out parameters so they can be inspected by the caller for debugging.
+void solve_pme(
+  in  float Ei_arr[4],
+  in  float Ri_arr[4],
+  in  int   nsites,
+  in  float W,
+  out float rho[16],
+  out float I_tip,
+  out float K[16*16],
+  out float rhs[16]
+) {
+  float Es[16];
+  float Ne[16];
+  int   nStates;
+  compute_many_body_energies(Ei_arr, nsites, W, Es, Ne, nStates);
+
+  float w2[4];
+  w2[0] = 1.0;
+  w2[1] = 2.0;
+  w2[2] = 4.0;
+  w2[3] = 8.0;
+
+  // Temperature kT in eV from uTemp [K]
+  float kBoltz = 8.617333262e-5; // eV/K
+  float kT   = max(uTemp * kBoltz, 1e-6);
+  float muS  = 0.0;        // substrate chemical potential
+  float muT  = uVBias;     // tip chemical potential ~ bias
+  float gammaS0 = max(uGammaS, 0.0);
+  float gammaT0 = max(uGammaT, 0.0);
+
+  // Initialize K and rhs to zero before building the kernel.
+  for (int i = 0; i < 16; ++i) {
+    rhs[i] = 0.0;
+    for (int j = 0; j < 16; ++j) {
+      K[i*16 + j] = 0.0;
+    }
+  }
+
+  // Build K from transition rates for both leads.
+  build_pme_kernel(Es, Ri_arr, nsites, nStates, muS, muT, gammaS0, gammaT0, w2, kT, K);
+
+  // Replace last equation by normalization: sum_s rho_s = 1.
+  int normRow = nStates - 1;
+  for (int j = 0; j < 16; ++j) {
+    if (j < nStates) { K[normRow*16 + j] = 1.0; } 
+    else             { K[normRow*16 + j] = 0.0; }
+  }
+  for (int r = 0; r < nStates - 1; ++r) { K[r*16 + normRow] = 0.0;}
+  for (int i = 0; i < nStates; ++i)     { rhs[i] = 0.0;}
+  rhs[normRow] = 1.0;
+
+  solve_linear_system(K, rhs, nStates);
+
+  for (int s = 0; s < 16; ++s) { rho[s] = (s < nStates) ? rhs[s] : 0.0; }
+
+  // Compute PME tip current from solved rho.
+  I_tip = compute_tip_current(Es, Ri_arr, rho, nStates, nsites, muT, gammaT0, w2);
 }
 
 // PME observables
@@ -470,14 +650,54 @@ void main() {
     // Modes 3–5: PME steady-state observables.
     float rho[16];
     float I_tip;
-    solve_pme(Ei_arr, Ri_arr, uNSites, uW, rho, I_tip);
+    float K  [16*16];
+    float rhs[16];
+    solve_pme(Ei_arr, Ri_arr, uNSites, uW, rho, I_tip, K, rhs);
 
     if (uMode == 3) {
       Eplot = pme_site_occupancy(rho, uNSites, uSiteIndex);
     } else if (uMode == 4) {
       Eplot = pme_total_charge(rho, uNSites);
-    } else {
+    } else if (uMode == 5) {
       Eplot = I_tip;
+    } else if (uMode == 6) {
+      // Debug mode: visualize Es[0]
+      float Es_dbg[16];
+      float Ne_dbg[16];
+      int   nStates_dbg;
+      compute_many_body_energies(Ei_arr, uNSites, uW, Es_dbg, Ne_dbg, nStates_dbg);
+      Eplot = Es_dbg[0];
+    } else if (uMode == 7) {
+      // Debug mode: visualize rho[0]
+      Eplot = rho[0];
+    } else if (uMode == 8) {
+      // Debug mode: visualize sum_s rho[s]
+      float sumR = 0.0;
+      for (int s = 0; s < 16; ++s) {
+        sumR += rho[s];
+      }
+      Eplot = sumR;
+    } else if (uMode == 9 || uMode == 10) {
+      // Debug modes: inspect raw K and rhs elements from solve_pme.
+      // Recompute nStates from uNSites (same logic as compute_many_body_energies).
+      int nStates_dbg = 1;
+      for (int k = 0; k < 4; ++k) {
+        if (k >= uNSites) break;
+        nStates_dbg *= 2;
+      }
+
+      int maxK = nStates_dbg * nStates_dbg;
+      int idx  = uSiteIndex; //clamp(uSiteIndex, 0, (uMode == 9 ? maxK - 1 : nStates_dbg - 1));
+
+      if (uMode == 9) {
+        // Treat K as row-major nStates_dbg x nStates_dbg matrix.
+        Eplot = K[idx];
+      } else {
+        // rhs element.
+        Eplot = rhs[idx];
+      }
+    } else {
+      Eplot = 0.0;
     }
   }
 
