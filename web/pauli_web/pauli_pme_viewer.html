@@ -40,9 +40,9 @@
       <div class="row"><label for="inpNSites">nsites     </label> <input id="inpNSites"  type="number" min="1" max="4" step="1"   value="4" /></div>
       <div class="row"><label for="inpL">L (Å)           </label> <input id="inpL"       type="number" step="1"      value="20" /></div>
       <div class="row"><label for="inpZTip">z_tip (Å)    </label> <input id="inpZTip"    type="number" step="0.5"    value="8" /></div>
-      <div class="row"><label for="inpVBias">VBias (V)   </label> <input id="inpVBias"   type="number" step="0.1"    value="0.3" /></div>
+      <div class="row"><label for="inpVBias">VBias (V)   </label> <input id="inpVBias"   type="number" step="0.001"    value="0.3" /></div>
       <div class="row"><label for="inpRTip">Rtip (Å)     </label> <input id="inpRTip"    type="number" step="0.5"    value="4.0" /></div>
-      <div class="row"><label for="inpW">W (Coul)        </label> <input id="inpW"        type="number" step="0.05"   value="0.0" /></div>
+      <div class="row"><label for="inpW">W (Coul)        </label> <input id="inpW"        type="number" step="0.001"   value="0.0" /></div>
       <div class="row"><label for="inpEcenter">E center  </label> <input id="inpEcenter" type="number" step="0.05"   value="0.0" /></div>
       <div class="row"><label for="inpEscale">E scale    </label> <input id="inpEscale"  type="number" step="0.1"    value="10.0" /></div>
       <div class="row"><label for="selMode">Mode         </label>
@@ -50,8 +50,12 @@
           <option value="0" selected>Single-particle min(E_i)</option>
           <option value="1">Many-body ground-state E</option>
           <option value="2">Ground-state tip current (proxy)</option>
+          <option value="3">PME: occupancy of site</option>
+          <option value="4">PME: total charge</option>
+          <option value="5">PME: tip current</option>
         </select>
       </div>
+      <div class="row"><label for="inpSiteIndex">site idx    </label> <input id="inpSiteIndex" type="number" min="0" max="3" step="1" value="0" /></div>
       <div class="row"><button id="btnUpdate">Update view</button></div>
       <div class="row"><label for="txtSites">Sites (x y z E)</label></div>
       <div class="row">
@@ -85,6 +89,7 @@
         uEcenter:    { value: 0.0 },
         uEscale:     { value: 0.5 },
         uMode:       { value: 0 },
+        uSiteIndex:  { value: 0 },
         // Sites: up to 4 sites, each as (x, y, z, E)
         uSites:      { value: [
           new THREE.Vector4(0, 0, 0, -0.1),
@@ -145,7 +150,7 @@
             });
 
             // Numeric inputs: re-render on change
-            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpW', 'inpEcenter', 'inpEscale'].forEach(function (id) {
+            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpW', 'inpEcenter', 'inpEscale', 'inpSiteIndex'].forEach(function (id) {
               var el = document.getElementById(id);
               if (!el) return;
               el.addEventListener('input', function () {
@@ -176,7 +181,7 @@
               });
             }
 
-            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpW', 'inpEcenter', 'inpEscale'].forEach(attachWheelIncrement);
+            ['inpNSites', 'inpL', 'inpZTip', 'inpVBias', 'inpRTip', 'inpW', 'inpEcenter', 'inpEscale', 'inpSiteIndex'].forEach(attachWheelIncrement);
             // Initialize uniforms from default inputs and site list
             updateFromInputs();
             applySitesFromTextarea();
@@ -203,6 +208,7 @@
         var W      = parseFloat(document.getElementById('inpW').value);
         var Ecenter = parseFloat(document.getElementById('inpEcenter').value);
         var Escale  = parseFloat(document.getElementById('inpEscale').value);
+        var siteIdx = parseInt(document.getElementById('inpSiteIndex').value, 10);
         var modeSel = document.getElementById('selMode');
         var Mode    = modeSel ? parseInt(modeSel.value, 10) : 0;
 
@@ -211,17 +217,20 @@
             // if (!isFinite(zTip))   zTip   = 8.0;
             // if (!isFinite(VBias))  VBias  = 1.0;
              if (!isFinite(Rtip))   Rtip   = 5.0;
-            if (!isFinite(W))      W      = 0.0;
-            if (!isFinite(Ecenter)) Ecenter = 0.0;
-            if (!isFinite(Escale))  Escale  = 0.5;
-            if (!isFinite(Mode))    Mode    = 0;
+        if (!isFinite(W))      W      = 0.0;
+        if (!isFinite(Ecenter)) Ecenter = 0.0;
+        if (!isFinite(Escale))  Escale  = 0.5;
+        if (!isFinite(Mode))    Mode    = 0;
+        if (!isFinite(siteIdx)) siteIdx = 0;
 
             // Clamp to reasonable ranges
             if (nsites < 1) nsites = 1;
-            if (nsites > 4) nsites = 4;
-            if (L <= 0.0)   L = 1.0;
-            if (Rtip <= 0.) Rtip = 0.1;
-            if (Escale <= 0.0) Escale = 0.05;
+        if (nsites > 4) nsites = 4;
+        if (L <= 0.0)   L = 1.0;
+        if (Rtip <= 0.) Rtip = 0.1;
+        if (Escale <= 0.0) Escale = 0.05;
+        if (siteIdx < 0) siteIdx = 0;
+        if (siteIdx > 3) siteIdx = 3;
         if (Escale <= 0.0) Escale = 0.05;
 
         uniforms.uNSites.value = nsites;
@@ -233,11 +242,12 @@
         uniforms.uEcenter.value = Ecenter;
         uniforms.uEscale.value  = Escale;
         uniforms.uMode.value    = Mode;
+        uniforms.uSiteIndex.value = siteIdx;
 
         setStatus('nsites=' + nsites + ', L=' + L.toFixed(2) + ', z_tip=' + zTip.toFixed(2) + ', VBias=' + VBias.toFixed(2)
                   + ', Rtip=' + Rtip.toFixed(2) + ', W=' + W.toFixed(2)
                   + ', Ecenter=' + Ecenter.toFixed(2) + ', Escale=' + Escale.toFixed(2)
-                  + ', Mode=' + Mode + '');
+                  + ', Mode=' + Mode + ', siteIdx=' + siteIdx + '');
         renderOnce();
       }
 
