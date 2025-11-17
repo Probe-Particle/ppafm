@@ -40,6 +40,7 @@
       input[type="number"] { width: 80px; }
       button { margin: 2px 0; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/numeric@1.2.6/lib/numeric.js"></script>
     <!-- Use a newer Three.js build (0.150.1) from unpkg that exposes global THREE and supports WebGL2/GLSL3 -->
     <script src="https://unpkg.com/three@0.150.1/build/three.min.js"></script>
     <!-- Lightweight plotting library for CPU line-scan debug -->
@@ -53,7 +54,7 @@
     <div id="leftPanel">
       <div id="container"></div>
       <div id="cpuScanPanel">
-        <div class="row"><label for="inpLineScanPoints">CPU scan pts</label> <input id="inpLineScanPoints" type="number" min="2" step="1" value="20" /> <button id="btnCpuScan">Run CPU line scan</button></div>
+        <div class="row"><label for="inpLineScanPoints">CPU scan pts</label> <input id="inpLineScanPoints" type="number" min="2" step="1" value="3" /> <button id="btnCpuScan">Run CPU line scan</button></div>
         <div class="row"><canvas id="cpuLineScanCanvas" style="width:100%; height:180px;"></canvas></div>
       </div>
     </div>
@@ -72,6 +73,12 @@
           <option value="8">DEBUG: sum rho</option>
           <option value="9">DEBUG: K[idx]</option>
           <option value="10">DEBUG: rhs[idx]</option>
+        </select>
+      </div>
+      <div class="row"><label for="selSolver">Solver      </label>
+        <select id="selSolver">
+          <option value="numericjs" selected>numeric.js</option>
+          <option value="our">our Gaussian</option>
         </select>
       </div>
       <div class="row"><label for="inpSiteIndex">site idx    </label> <input id="inpSiteIndex" type="number" min="0" step="1" value="0" /></div>
@@ -98,24 +105,24 @@
       var renderer, scene, camera, mesh, material;
       var cpuLineScanChart = null;
 
-      // Parameter specifications for PME controls (similar to param_specs in GUITemplate).
-      // Each entry links to a numeric input and a uniform. GUI widgets are generated programmatically.
+      // Parameter specifications for PME controls. Each entry uses a canonical
+      // `key` and we derive uniform/input IDs by convention in pme_gui_utils.
       var paramSpecs = [
-        { uniform: 'uNSites',   inputId: 'inpNSites', label: 'nsites',     type: 'int',   def: 2,   min: 1, max: 4 },
-        { uniform: 'uL',        inputId: 'inpL',      label: 'L (Å)',      type: 'float', def: 20.0 },
-        { uniform: 'uZTip',     inputId: 'inpZTip',   label: 'z_tip (Å)',  type: 'float', def: 8.0 },
-        { uniform: 'uVBias',    inputId: 'inpVBias',  label: 'VBias (V)',  type: 'float', def: 0.3 },
-        { uniform: 'uRtip',     inputId: 'inpRTip',   label: 'Rtip (Å)',   type: 'float', def: 4.0,  min: 0.1 },
-        { uniform: 'uTemp',     inputId: 'inpTemp',   label: 'Temp (K)',   type: 'float', def: 3.0,  min: 0.0 },
-        { uniform: 'uGammaS',   inputId: 'inpGammaS', label: 'GammaS',     type: 'float', def: 0.01, min: 0.0 },
-        { uniform: 'uGammaT',   inputId: 'inpGammaT', label: 'GammaT',     type: 'float', def: 0.01, min: 0.0 },
-        { uniform: 'uDecay',    inputId: 'inpDecay',  label: 'decay',      type: 'float', def: 0.3,  min: 0.0 },
-        { uniform: 'uW',        inputId: 'inpW',      label: 'W (Coul)',   type: 'float', def: 0.0 },
-        { uniform: 'uEcenter',  inputId: 'inpEcenter',label: 'E center',   type: 'float', def: 0.0 },
-        { uniform: 'uEscale',   inputId: 'inpEscale', label: 'E scale',    type: 'float', def: 10.0, min: 0.05 }
+        { key: 'NSites',  label: 'NSites',     type: 'int',   def: 2,   min: 1, max: 4 },
+        { key: 'L',       label: 'L (Å)',      type: 'float', def: 20.0 },
+        { key: 'ZTip',    label: 'z_tip (Å)',  type: 'float', def: 8.0 },
+        { key: 'VBias',   label: 'VBias (V)',  type: 'float', def: 0.3 },
+        { key: 'Rtip',    label: 'Rtip (Å)',   type: 'float', def: 4.0,  min: 0.1 },
+        { key: 'TempK',   label: 'Temp (K)',   type: 'float', def: 3.0,  min: 0.0 },
+        { key: 'GammaS',  label: 'GammaS',     type: 'float', def: 0.01, min: 0.0 },
+        { key: 'GammaT',  label: 'GammaT',     type: 'float', def: 0.01, min: 0.0 },
+        { key: 'decay',   label: 'decay',      type: 'float', def: 0.3,  min: 0.0 },
+        { key: 'W',       label: 'W (Coul)',   type: 'float', def: 0.0 },
+        { key: 'Ecenter', label: 'E center',   type: 'float', def: 0.0 },
+        { key: 'Escale',  label: 'E scale',    type: 'float', def: 10.0, min: 0.05 }
       ];
 
-      var paramInputIds = paramSpecs.map(function (s) { return s.inputId; });
+      var paramInputIds = paramSpecs.map(function (s) { return s.inputId || ('inp' + s.key.charAt(0).toUpperCase() + s.key.slice(1)); });
 
       // Uniforms: special ones explicit, parameter uniforms derived from paramSpecs.
       var uniforms = {
@@ -133,7 +140,8 @@
 
       for (var i = 0; i < paramSpecs.length; i++) {
         var s = paramSpecs[i];
-        uniforms[s.uniform] = { value: s.def };
+        var uniformName = 'u' + s.key.charAt(0).toUpperCase() + s.key.slice(1);
+        uniforms[uniformName] = { value: s.def };
       }
 
       function setStatus(msg) {
@@ -249,7 +257,7 @@
 
       function updateFromInputs() {
         // Read and clamp all parameter values from inputs using the shared spec.
-        var p = readParamsFromInputsWithSpecs(paramSpecs);
+        var p = readParamsFromInputsWithSpecs(paramSpecs); // { Rtip, VBias, TempK, ... }
 
         // Handle mode and site index separately.
         var siteIdx = parseInt(document.getElementById('inpSiteIndex').value, 10);
@@ -259,13 +267,13 @@
         if (!isFinite(Mode))    Mode    = 0;
 
         // Additional constraints that depend on other params.
-        var nsites = p.uNSites;
-        if (nsites < 1) nsites = 1;
-        if (nsites > 4) nsites = 4;
-        p.uNSites = nsites;
+        var NSites = p.NSites;
+        if (NSites < 1) NSites = 1;
+        if (NSites > 4) NSites = 4;
+        p.NSites = NSites;
 
         if (siteIdx < 0) siteIdx = 0;
-        if (siteIdx >= nsites) siteIdx = nsites - 1;
+        if (siteIdx >= NSites) siteIdx = NSites - 1;
 
         // Apply to uniforms in bulk.
         applyParamsToUniformsWithSpecs(paramSpecs, uniforms, p);
@@ -280,37 +288,119 @@
 
       function applySitesFromTextarea() {
         var txt = document.getElementById('txtSites').value || '';
-        var lines = txt.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
         var maxSites = 4;
-        var parsed = [];
-        for (var i = 0; i < lines.length && parsed.length < maxSites; i++) {
-          var parts = lines[i].split(/\s+/);
-          if (parts.length < 4) continue;
-          var x = parseFloat(parts[0]);
-          var y = parseFloat(parts[1]);
-          var z = parseFloat(parts[2]);
-          var E = parseFloat(parts[3]);
-          if (!isFinite(x) || !isFinite(y) || !isFinite(z) || !isFinite(E)) continue;
-          parsed.push(new THREE.Vector4(x, y, z, E));
-        }
-
+        var parsed = parseSitesArrayFromText(txt, maxSites); // [[x,y,z,E], ...]
         if (parsed.length === 0) {
-          setStatus('No valid site lines parsed; keeping previous uSites');
+          setStatus('No valid sites parsed.');
           renderOnce();
           return;
         }
 
         // Update uNSites to the number of parsed sites, capped by 4
-        uniforms.uNSites.value = Math.min(parsed.length, maxSites);
+        var nsites = Math.min(parsed.length, maxSites);
+        uniforms.uNSites.value = nsites;
 
-        // Fill remaining slots with dummy far-away sites so they do not contribute
-        while (parsed.length < maxSites) {
-          parsed.push(new THREE.Vector4(1e6, 1e6, 0.0, 0.0));
+        // Write parsed numeric rows into THREE.Vector4 site uniforms.
+        for (var i = 0; i < maxSites; i++) {
+          if (i < nsites) {
+            var row = parsed[i];
+            uniforms.uSites.value[i].set(row[0], row[1], row[2], row[3]);
+          } else {
+            // Dummy far-away site so it does not contribute.
+            uniforms.uSites.value[i].set(1e6, 1e6, 0.0, 0.0);
+          }
         }
 
-        uniforms.uSites.value = parsed;
-        setStatus('Parsed ' + uniforms.uNSites.value + ' sites from textarea');
+        setStatus('Parsed ' + nsites + ' sites from textarea');
         renderOnce();
+      }
+
+      function runCpuLineScan() {
+        if (typeof solvePmeCpu !== 'function') {  console.warn('solvePmeCpu not available (pauli_pme_cpu.js not loaded?)');  return;  }
+
+        var txt = document.getElementById('txtSites').value || '';
+        var parsed = parseSitesArrayFromText ? parseSitesArrayFromText(txt, 4) : [];
+        if (parsed.length < 2) {   console.warn('CPU line scan requires at least two sites. Parsed:', parsed.length); return;  }
+
+        var nPts = parseInt(document.getElementById('inpLineScanPoints').value, 10);
+        if (!isFinite(nPts) || nPts < 2) nPts = 20;
+
+        // numeric sites: parsed[i] = [x,y,z,E]
+        var s0 = parsed[0];
+        var s1 = parsed[1];
+
+        var modeSel = document.getElementById('selMode');
+        var mode    = modeSel ? parseInt(modeSel.value, 10) : 3;
+        if (!isFinite(mode)) mode = 3;
+
+        // Read generic params from inputs.
+        var p = readParamsFromInputsWithSpecs(paramSpecs);
+
+        var NSites = p.NSites;
+        if (NSites < 2) NSites = 2;
+        if (NSites > parsed.length) NSites = parsed.length;
+
+        var siteIdx = parseInt(document.getElementById('inpSiteIndex').value, 10);
+        if (!isFinite(siteIdx)) siteIdx = 0;
+
+        var solverSel = document.getElementById('selSolver');
+        var solver    = solverSel ? solverSel.value : 'numericjs';
+
+        p.NSites = NSites;
+        p.solver = solver;
+
+        // Pack sites into objects expected by the CPU solver.
+        var sitesObj = parsed.map(function (row) {
+          return { x: row[0], y: row[1], z: row[2], E: row[3] };
+        });
+
+        var result = runCpuLineScanNumeric(s0, s1, nPts, sitesObj, p, NSites, mode, siteIdx);
+        var xs = result.xs;
+        var Ys = result.Ys;
+
+        var ctx = document.getElementById('cpuLineScanCanvas');
+        if (!ctx) return;
+
+        if (window.cpuLineScanChart) {
+          window.cpuLineScanChart.destroy();
+          window.cpuLineScanChart = null;
+        }
+
+        var label;
+        if (mode === 3) label = 'PME occupancy (CPU)';
+        else if (mode === 4) label = 'PME total charge (CPU)';
+        else label = 'PME I_tip (CPU)';
+
+        window.cpuLineScanChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: xs,
+            datasets: [{
+              label: label,
+              data: Ys,
+              borderColor: 'rgba(0, 192, 255, 1.0)',
+              backgroundColor: 'rgba(0, 192, 255, 0.25)',
+              pointRadius: 1,
+              tension: 0.0
+            }]
+          },
+          options: {
+            animation: false,
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                title: { display: true, text: 't along line (0 = site 0, 1 = site 1)' }
+              },
+              y: {
+                title: { display: true, text: label }
+              }
+            },
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
       }
 
       function renderOnce() {

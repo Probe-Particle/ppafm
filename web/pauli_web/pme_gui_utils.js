@@ -1,6 +1,16 @@
 'use strict';
 
 // Generic PME GUI utilities: param specs, GUI generation, param I/O.
+// paramSpecs entries use `key` (canonical param name). Uniform and input IDs
+// are derived by convention to avoid boilerplate duplication.
+
+function _pmeInputIdFromKey(key) {
+  return 'inp' + key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+function _pmeUniformFromKey(key) {
+  return 'u' + key.charAt(0).toUpperCase() + key.slice(1);
+}
 
 function createPmeGui(containerId, titleText, paramSpecs) {
   var container = document.getElementById(containerId);
@@ -18,16 +28,19 @@ function createPmeGui(containerId, titleText, paramSpecs) {
 
   for (var i = 0; i < paramSpecs.length; i++) {
     var s = paramSpecs[i];
+    var key = s.key;
+    var inputId = s.inputId || _pmeInputIdFromKey(key);
+
     var row = document.createElement('div');
     row.className = 'row';
 
     var label = document.createElement('label');
-    label.htmlFor = s.inputId;
-    label.textContent = s.label || s.uniform.substring(1);
+    label.htmlFor = inputId;
+    label.textContent = s.label || key;
     row.appendChild(label);
 
     var input = document.createElement('input');
-    input.id = s.inputId;
+    input.id = inputId;
     input.type = 'number';
     if (s.min !== undefined) input.min = String(s.min);
     if (s.max !== undefined) input.max = String(s.max);
@@ -44,7 +57,9 @@ function readParamsFromInputsWithSpecs(paramSpecs) {
   var params = {};
   for (var i = 0; i < paramSpecs.length; i++) {
     var s  = paramSpecs[i];
-    var el = document.getElementById(s.inputId);
+    var key = s.key;
+    var inputId = s.inputId || _pmeInputIdFromKey(key);
+    var el = document.getElementById(inputId);
     var v;
     if (!el) {
       v = s.def;
@@ -57,7 +72,7 @@ function readParamsFromInputsWithSpecs(paramSpecs) {
     }
     if (s.min !== undefined && v < s.min) v = s.min;
     if (s.max !== undefined && v > s.max) v = s.max;
-    params[s.uniform] = v;
+    params[key] = v;
   }
   return params;
 }
@@ -65,8 +80,10 @@ function readParamsFromInputsWithSpecs(paramSpecs) {
 function applyParamsToUniformsWithSpecs(paramSpecs, uniforms, params) {
   for (var i = 0; i < paramSpecs.length; i++) {
     var s = paramSpecs[i];
-    if (uniforms[s.uniform]) {
-      uniforms[s.uniform].value = params[s.uniform];
+    var key = s.key;
+    var uniformName = s.uniform || _pmeUniformFromKey(key);
+    if (uniforms[uniformName]) {
+      uniforms[uniformName].value = params[key];
     }
   }
 }
@@ -75,8 +92,9 @@ function buildStatusStringFromParams(paramSpecs, params, Mode, siteIdx) {
   var parts = [];
   for (var i = 0; i < paramSpecs.length; i++) {
     var s = paramSpecs[i];
-    var v = params[s.uniform];
-    var name = s.uniform.substring(1);
+    var key = s.key;
+    var v = params[key];
+    var name = key;
     if (s.type === 'int') {
       parts.push(name + '=' + v);
     } else {
@@ -88,9 +106,33 @@ function buildStatusStringFromParams(paramSpecs, params, Mode, siteIdx) {
   return parts.join(', ');
 }
 
+// Parse a multiline text of sites into an array of numeric rows [x,y,z,E].
+// Each non-empty line is split on whitespace and the first 4 tokens are
+// parsed as floats. Invalid lines are skipped. The result is an array of
+// arrays with shape [n,4], up to maxSites rows.
+function parseSitesArrayFromText(text, maxSites) {
+  var lines = (text || '').split(/\r?\n/);
+  var sites = [];
+  for (var i = 0; i < lines.length && sites.length < maxSites; i++) {
+    var parts = lines[i].trim().split(/\s+/);
+    if (parts.length < 4) continue;
+    var row = [];
+    var ok  = true;
+    for (var j = 0; j < 4; j++) {
+      var v = parseFloat(parts[j]);
+      if (!isFinite(v)) { ok = false; break; }
+      row.push(v);
+    }
+    if (!ok) continue;
+    sites.push(row);
+  }
+  return sites;
+}
+
 if (typeof window !== 'undefined') {
   window.createPmeGui                   = createPmeGui;
   window.readParamsFromInputsWithSpecs  = readParamsFromInputsWithSpecs;
   window.applyParamsToUniformsWithSpecs = applyParamsToUniformsWithSpecs;
   window.buildStatusStringFromParams    = buildStatusStringFromParams;
+  window.parseSitesArrayFromText        = parseSitesArrayFromText;
 }
