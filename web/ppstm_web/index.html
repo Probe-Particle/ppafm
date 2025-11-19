@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL STM Visualizer</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; color: #eee; font-family: sans-serif; display: flex; height: 100vh; }
+        #sidebar { width: 300px; background: #222; padding: 10px; display: flex; flex-direction: column; overflow-y: auto; border-right: 1px solid #444; }
+        #viewer { flex-grow: 1; position: relative; }
+        canvas { display: block; width: 100%; height: 100%; }
+        
+        .control-group { margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .control-group h3 { margin: 0 0 10px 0; font-size: 1.1em; color: #aaa; }
+        .control-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .control-row label { font-size: 0.9em; }
+        .control-row input[type="number"] { width: 60px; background: #333; border: 1px solid #555; color: #eee; padding: 2px; }
+        .control-row input[type="range"] { width: 100px; }
+        
+        button { background: #444; color: #fff; border: none; padding: 5px 10px; cursor: pointer; width: 100%; margin-top: 5px; }
+        button:hover { background: #555; }
+
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.5em; color: #888; pointer-events: none; display: none; }
+    </style>
+    <!-- Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dat.gui@0.7.9/build/dat.gui.min.js"></script>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2>PP-STM Web</h2>
+        
+        <div class="control-group">
+            <h3>Molecule</h3>
+            <select id="moleculeSelect" style="width: 100%; background: #333; color: #eee; border: 1px solid #555; padding: 5px;">
+                <option value="PTCDA">PTCDA</option>
+                <option value="Benzene">Benzene</option>
+                <option value="Graphene">Graphene (Small)</option>
+            </select>
+            <button id="btnReload">Reload / Solve</button>
+        </div>
+
+        <div class="control-group">
+            <h3>Physics (Tight Binding)</h3>
+            <div class="control-row">
+                <label title="Hopping energy at d0">V_pp&pi; (eV)</label>
+                <input type="number" id="inpV0" value="-2.7" step="0.1">
+            </div>
+            <div class="control-row">
+                <label title="Decay constant">Beta (1/&Aring;)</label>
+                <input type="number" id="inpBeta" value="2.0" step="0.1">
+            </div>
+            <div class="control-row">
+                <label title="On-site energy">E_site (eV)</label>
+                <input type="number" id="inpE0" value="0.0" step="0.1">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>STM Scan</h3>
+            <div class="control-row">
+                <label>Bias (V)</label>
+                <input type="number" id="inpBias" value="0.5" step="0.05">
+            </div>
+            <div class="control-row">
+                <label>Tip Height (&Aring;)</label>
+                <input type="number" id="inpZTip" value="3.0" step="0.1">
+            </div>
+             <div class="control-row">
+                <label>Iso-Surface</label>
+                <input type="number" id="inpIso" value="0.01" step="0.001">
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <h3>Visualization</h3>
+             <div class="control-row">
+                <label>Atom Size</label>
+                <input type="range" id="sldAtomSize" min="0.1" max="1.0" step="0.05" value="0.4">
+            </div>
+        </div>
+
+        <div id="status" style="font-size: 0.8em; color: #888; margin-top: auto;">
+            Ready.
+        </div>
+    </div>
+
+    <div id="viewer">
+        <div id="loading">Calculating...</div>
+    </div>
+
+    <!-- Application Scripts -->
+    <script src="ppstm.js"></script>
+    <script>
+        // Main entry point
+        window.onload = function() {
+            const app = new PPSTMApp();
+            app.init();
+        };
+    </script>
+</body>
+</html>
