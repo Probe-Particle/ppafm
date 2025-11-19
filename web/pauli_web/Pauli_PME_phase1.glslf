@@ -1,6 +1,13 @@
 precision highp float;
 precision highp int;
 
+#ifndef NSITE
+#define NSITE 4
+#endif
+#ifndef NSTATE
+#define NSTATE 16 
+#endif
+
 in vec2 vUv;
 out vec4 outColor;
 
@@ -19,7 +26,11 @@ uniform float uEscale;  // energy scale for colormap (half-width)
 uniform float uW;         // uniform Coulomb interaction per occupied pair
 uniform int   uMode;      // 0 = single-particle, 1 = many-body GS, 2 = GS current, 3–5 = PME
 uniform int   uSiteIndex; // for PME site occupancy visualization
-uniform vec4  uSites[4];  // (x, y, z, E0)
+uniform int   uSolverMode; // 0 = Gaussian, 1 = Cramer
+uniform int   uDebugI;    // Debug index I (row/state)
+uniform int   uDebugJ;    // Debug index J (col/state)
+uniform bool  uOutputRaw; // If true, output raw float value in R channel
+uniform vec4  uSites[NSITE];  // (x, y, z, E0)
 
 // Phase 1/2 shader: render single-particle or many-body energies over all sites.
 // On-site energy model (simplified):
@@ -53,14 +64,14 @@ void compute_site_energies(
   in  vec3  tip,
   in  int   nsites,
   in  float Rscale,
-  out float Ei_arr[4],
-  out float Ri_arr[4],
+  out float Ei_arr[NSITE],
+  out float Ri_arr[NSITE],
   out float Emin,
   out float Emax
 ) {
   Emin =  1e9;
   Emax = -1e9;
-  for (int i = 0; i < 4; ++i) {
+  for (int i = 0; i < NSITE; ++i) {
     if (i >= nsites) {
       Ei_arr[i] = 0.0;
       Ri_arr[i] = 0.0;
@@ -81,7 +92,7 @@ void compute_site_energies(
 
 // Compute many-body ground-state energy and best state index with uniform Coulomb W per occupied pair.
 void ground_state_energy(
-  in  float Ei_arr[4],
+  in  float Ei_arr[NSITE],
   in  int   nsites,
   in  float W,
   out float Eg_min,
@@ -89,7 +100,7 @@ void ground_state_energy(
 ) {
   // NOTE: GLSL ES 1.0 has no bitwise shift, so compute 2^nsites manually.
   int maxStates = 1;
-  for (int k = 0; k < 4; ++k) {
+  for (int k = 0; k < NSITE; ++k) {
     if (k >= nsites) break;
     maxStates *= 2;
   }
@@ -98,19 +109,25 @@ void ground_state_energy(
   bestState = 0;
 
   // Precompute weights for bit extraction: state s has bit i set if floor(mod(s / 2^i, 2)) == 1.
-  float w2[4];
+  float w2[NSITE];
   w2[0] = 1.0;
+#if NSITE > 1
   w2[1] = 2.0;
+#endif
+#if NSITE > 2
   w2[2] = 4.0;
+#endif
+#if NSITE > 3
   w2[3] = 8.0;
+#endif
 
-  for (int s = 0; s < 16; ++s) {
+  for (int s = 0; s < NSTATE; ++s) {
     if (s >= maxStates) break;
 
     // Count electrons and accumulate single-particle energy.
     float N   = 0.0;
     float Esp = 0.0;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < NSITE; ++i) {
       if (i >= nsites) break;
       float occ = floor(mod(float(s) / w2[i], 2.0)); // 0 or 1
       N   += occ;
@@ -131,26 +148,32 @@ void ground_state_energy(
 
 // Simple ground-state tip current proxy: exponential tunneling into empty sites of bestState.
 float ground_state_tip_current(
-  in float Ri_arr[4],
-  in float Ei_arr[4],
+  in float Ri_arr[NSITE],
+  in float Ei_arr[NSITE],
   in int   nsites,
   in float Rscale,
   in int   bestState
 ) {
   // Precompute weights for bit extraction.
-  float w2[4];
+  float w2[NSITE];
   w2[0] = 1.0;
+#if NSITE > 1
   w2[1] = 2.0;
+#endif
+#if NSITE > 2
   w2[2] = 4.0;
+#endif
+#if NSITE > 3
   w2[3] = 8.0;
+#endif
 
   float Itip = 0.0;
   float beta = 1.0 / Rscale; // decay parameter for tunneling
-  for (int i = 0; i < 4; ++i) {
+  for (int i = 0; i < NSITE; ++i) {
     if (i >= nsites) break;
     float occ = floor(mod(float(bestState) / w2[i], 2.0)); // 0 or 1
     float r   = Ri_arr[i];
-    float T   = exp(-beta * r); // tunneling amplitude
+    float T   = exp(-uDecay * r); // tunneling amplitude
     float gamma = T * T * (1.0 - occ); // suppress tunneling into occupied sites
     Itip += gamma;
   }
@@ -161,27 +184,33 @@ float ground_state_tip_current(
 
 // Compute many-body energies Es[s] and electron counts Ne[s] for all configurations s < 2^nsites.
 void compute_many_body_energies(
-  in  float Ei_arr[4],
+  in  float Ei_arr[NSITE],
   in  int   nsites,
   in  float W,
-  out float Es[16],
-  out float Ne[16],
+  out float Es[NSTATE],
+  out float Ne[NSTATE],
   out int   nStates
 ) {
   int maxStates = 1;
-  for (int k = 0; k < 4; ++k) {
+  for (int k = 0; k < NSITE; ++k) {
     if (k >= nsites) break;
     maxStates *= 2;
   }
   nStates = maxStates;
 
-  float w2[4];
+  float w2[NSITE];
   w2[0] = 1.0;
+#if NSITE > 1
   w2[1] = 2.0;
+#endif
+#if NSITE > 2
   w2[2] = 4.0;
+#endif
+#if NSITE > 3
   w2[3] = 8.0;
+#endif
 
-  for (int s = 0; s < 16; ++s) {
+  for (int s = 0; s < NSTATE; ++s) {
     if (s >= maxStates) {
       Es[s] = 0.0;
       Ne[s] = 0.0;
@@ -189,7 +218,7 @@ void compute_many_body_energies(
     }
     float N   = 0.0;
     float Esp = 0.0;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < NSITE; ++i) {
       if (i >= nsites) break;
       float occ = floor(mod(float(s) / w2[i], 2.0));
       N   += occ;
@@ -288,11 +317,11 @@ void solve_4x4_cramer(in float A4[16], in float b4[4], out float x4[4]) {
 // Solve K rho = rhs for rho. For n<=4 use 4x4 Cramer's rule, otherwise
 // Gaussian elimination with simple partial pivoting; n <= 16.
 void solve_linear_system(
-  inout float K[16*16],
-  inout float rhs[16],
+  inout float K[NSTATE*NSTATE],
+  inout float rhs[NSTATE],
   int  n
 ) {
-  if (n <= 4) {
+  if (n <= 4 && uSolverMode == 1) {
     // Copy top-left n x n block into a 4x4 buffer and solve via Cramer.
     float A4[16];
     float b4[4];
@@ -306,7 +335,7 @@ void solve_linear_system(
       }
       for (int j = 0; j < 4; ++j) {
         if (i < n && j < n) {
-          A4[i*4 + j] = K[i*16 + j];
+          A4[i*4 + j] = K[i*NSTATE + j];
         } else {
           A4[i*4 + j] = (i == j) ? 1.0 : 0.0;
         }
@@ -324,14 +353,14 @@ void solve_linear_system(
   }
 
   // Forward elimination with partial pivoting for larger n
-  for (int k = 0; k < 16; ++k) {
+  for (int k = 0; k < NSTATE; ++k) {
     if (k >= n) break;
 
     int   pivotRow = k;
-    float pivotVal = abs(K[k*16 + k]);
-    for (int i = k + 1; i < 16; ++i) {
+    float pivotVal = abs(K[k*NSTATE + k]);
+    for (int i = k + 1; i < NSTATE; ++i) {
       if (i >= n) break;
-      float val = abs(K[i*16 + k]);
+      float val = abs(K[i*NSTATE + k]);
       if (val > pivotVal) {
         pivotVal = val;
         pivotRow = i;
@@ -343,34 +372,34 @@ void solve_linear_system(
     }
 
     if (pivotRow != k) {
-      for (int j = 0; j < 16; ++j) {
+      for (int j = 0; j < NSTATE; ++j) {
         if (j >= n) break;
-        float tmp = K[k*16 + j];
-        K[k*16 + j]   = K[pivotRow*16 + j];
-        K[pivotRow*16 + j] = tmp;
+        float tmp = K[k*NSTATE + j];
+        K[k*NSTATE + j]   = K[pivotRow*NSTATE + j];
+        K[pivotRow*NSTATE + j] = tmp;
       }
       float tmpR = rhs[k];
       rhs[k]     = rhs[pivotRow];
       rhs[pivotRow] = tmpR;
     }
 
-    float pivot = K[k*16 + k];
+    float pivot = K[k*NSTATE + k];
     if (abs(pivot) < 1e-20) continue;
     float invPivot = 1.0 / pivot;
 
-    for (int j = k; j < 16; ++j) {
+    for (int j = k; j < NSTATE; ++j) {
       if (j >= n) break;
-      K[k*16 + j] *= invPivot;
+      K[k*NSTATE + j] *= invPivot;
     }
     rhs[k] *= invPivot;
 
-    for (int i = k + 1; i < 16; ++i) {
+    for (int i = k + 1; i < NSTATE; ++i) {
       if (i >= n) break;
-      float factor = K[i*16 + k];
+      float factor = K[i*NSTATE + k];
       if (abs(factor) < 1e-20) continue;
-      for (int j = k; j < 16; ++j) {
+      for (int j = k; j < NSTATE; ++j) {
         if (j >= n) break;
-        K[i*16 + j] -= factor * K[k*16 + j];
+        K[i*NSTATE + j] -= factor * K[k*NSTATE + j];
       }
       rhs[i] -= factor * rhs[k];
     }
@@ -380,9 +409,9 @@ void solve_linear_system(
   for (int i = n - 1; i >= 0; --i) {
     float sum = rhs[i];
     for (int j = i + 1; j < n; ++j) {
-      sum -= K[i*16 + j] * rhs[j];
+      sum -= K[i*NSTATE + j] * rhs[j];
     }
-    float diag = K[i*16 + i];
+    float diag = K[i*NSTATE + i];
     if (abs(diag) < 1e-20) {
       continue;
     }
@@ -392,22 +421,22 @@ void solve_linear_system(
 
 // Build PME kernel K from transition rates for both substrate and tip leads.
 void build_pme_kernel(
-  in  float Es[16],
-  in  float Ri_arr[4],
+  in  float Es[NSTATE],
+  in  float Ri_arr[NSITE],
   in  int   nsites,
   in  int   nStates,
   in  float muS,
   in  float muT,
   in  float gammaS0,
   in  float gammaT0,
-  in  float w2[4],
+  in  float w2[NSITE],
   in  float kT,
-  inout float K[16*16]
+  inout float K[NSTATE*NSTATE]
 ) {
-  for (int s = 0; s < 16; ++s) {
+  for (int s = 0; s < NSTATE; ++s) {
     if (s >= nStates) break;
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < NSITE; ++i) {
       if (i >= nsites) break;
       float occ = floor(mod(float(s) / w2[i], 2.0));
 
@@ -415,7 +444,8 @@ void build_pme_kernel(
         float mu     = (l == 0) ? muS : muT;
         float gamma0 = (l == 0) ? gammaS0 : gammaT0;
         float r      = Ri_arr[i];
-        float Ttun   = exp(-2.0 * r / max(uRtip, 1e-3));
+        // float Ttun   = exp(-2.0 * r / max(uRtip, 1e-3));
+        float Ttun   = exp(-uDecay * r);
         float gamma  = gamma0 * Ttun;
 
         int t = s;
@@ -439,11 +469,11 @@ void build_pme_kernel(
         float G_backward = gamma * (1.0 - f);
 
         // Outflow from s due to s->t, inflow to t.
-        K[s*16 + s] += G_forward;
-        K[t*16 + s] -= G_forward;
+        K[s*NSTATE + s] += G_forward;
+        K[t*NSTATE + s] -= G_forward;
         // Outflow from t due to t->s, inflow to s.
-        K[t*16 + t] += G_backward;
-        K[s*16 + t] -= G_backward;
+        K[t*NSTATE + t] += G_backward;
+        K[s*NSTATE + t] -= G_backward;
       }
     }
   }
@@ -451,25 +481,25 @@ void build_pme_kernel(
 
 // Compute PME tip current from solved rho using tip lead only.
 float compute_tip_current(
-  in float Es[16],
-  in float Ri_arr[4],
-  in float rho[16],
+  in float Es[NSTATE],
+  in float Ri_arr[NSITE],
+  in float rho[NSTATE],
   in int   nStates,
   in int   nsites,
   in float muT,
   in float gammaT0,
-  in float w2[4]
+  in float w2[NSITE]
 ) {
   float I_tip = 0.0;
   float kT   = 0.01;
-  for (int s = 0; s < 16; ++s) {
+  for (int s = 0; s < NSTATE; ++s) {
     if (s >= nStates) break;
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < NSITE; ++i) {
       if (i >= nsites) break;
       float occ = floor(mod(float(s) / w2[i], 2.0));
       float r   = Ri_arr[i];
-      float Ttun = exp(-2.0 * r / max(uRtip, 1e-3));
+      float Ttun = exp(-uDecay * r);
       float gammaT = gammaT0 * Ttun;
 
       int t = s;
@@ -502,25 +532,31 @@ float compute_tip_current(
 // PME steady-state solver: fills rho_s for s < nStates and returns a simple tip current.
 // K and rhs are provided as out parameters so they can be inspected by the caller for debugging.
 void solve_pme(
-  in  float Ei_arr[4],
-  in  float Ri_arr[4],
+  in  float Ei_arr[NSITE],
+  in  float Ri_arr[NSITE],
   in  int   nsites,
   in  float W,
-  out float rho[16],
+  out float rho[NSTATE],
   out float I_tip,
-  out float K[16*16],
-  out float rhs[16]
+  out float K[NSTATE*NSTATE],
+  out float rhs[NSTATE]
 ) {
-  float Es[16];
-  float Ne[16];
+  float Es[NSTATE];
+  float Ne[NSTATE];
   int   nStates;
   compute_many_body_energies(Ei_arr, nsites, W, Es, Ne, nStates);
 
-  float w2[4];
+  float w2[NSITE];
   w2[0] = 1.0;
+#if NSITE > 1
   w2[1] = 2.0;
+#endif
+#if NSITE > 2
   w2[2] = 4.0;
+#endif
+#if NSITE > 3
   w2[3] = 8.0;
+#endif
 
   // Temperature kT in eV from uTemp [K]
   float kBoltz = 8.617333262e-5; // eV/K
@@ -531,47 +567,73 @@ void solve_pme(
   float gammaT0 = max(uGammaT, 0.0);
 
   // Initialize K and rhs to zero before building the kernel.
-  for (int i = 0; i < 16; ++i) {
+  for (int i = 0; i < NSTATE; ++i) {
     rhs[i] = 0.0;
-    for (int j = 0; j < 16; ++j) {
-      K[i*16 + j] = 0.0;
+    for (int j = 0; j < NSTATE; ++j) {
+      K[i*NSTATE + j] = 0.0;
     }
   }
 
   // Build K from transition rates for both leads.
   build_pme_kernel(Es, Ri_arr, nsites, nStates, muS, muT, gammaS0, gammaT0, w2, kT, K);
 
+  // Row normalization to improve numerical stability (equilibration)
+  // We normalize rows 0 to nStates-2. Row nStates-1 will be overwritten by probability normalization.
+  for (int i = 0; i < NSTATE; ++i) {
+    if (i >= nStates - 1) break; // Skip last row (will be overwritten) and unused rows
+
+    float maxVal = 0.0;
+    for (int j = 0; j < NSTATE; ++j) {
+      if (j >= nStates) break;
+      maxVal = max(maxVal, abs(K[i*NSTATE + j]));
+    }
+
+    if (maxVal > 1e-20) {
+      float invMax = 1.0 / maxVal;
+      for (int j = 0; j < NSTATE; ++j) {
+        if (j >= nStates) break;
+        K[i*NSTATE + j] *= invMax;
+      }
+      // rhs[i] is 0.0, so no need to scale it.
+    }
+  }
+
   // Replace last equation by normalization: sum_s rho_s = 1.
   int normRow = nStates - 1;
-  for (int j = 0; j < 16; ++j) {
-    if (j < nStates) { K[normRow*16 + j] = 1.0; } 
-    else             { K[normRow*16 + j] = 0.0; }
+  for (int j = 0; j < NSTATE; ++j) {
+    if (j < nStates) { K[normRow*NSTATE + j] = 1.0; } 
+    else             { K[normRow*NSTATE + j] = 0.0; }
   }
-  for (int r = 0; r < nStates - 1; ++r) { K[r*16 + normRow] = 0.0;}
   for (int i = 0; i < nStates; ++i)     { rhs[i] = 0.0;}
   rhs[normRow] = 1.0;
 
-  //solve_linear_system(K, rhs, nStates);
+  solve_linear_system(K, rhs, nStates);
 
-  for (int s = 0; s < 16; ++s) { rho[s] = (s < nStates) ? rhs[s] : 0.0; }
+  for (int s = 0; s < NSTATE; ++s) { rho[s] = (s < nStates) ? rhs[s] : 0.0; }
 
   // Compute PME tip current from solved rho.
   I_tip = compute_tip_current(Es, Ri_arr, rho, nStates, nsites, muT, gammaT0, w2);
 }
 
 // PME observables
-float pme_site_occupancy(float rho[16], int nsites, int siteIdx) {
-  float w2[4];
+float pme_site_occupancy(float rho[NSTATE], int nsites, int siteIdx) {
+  float w2[NSITE];
   w2[0] = 1.0;
+#if NSITE > 1
   w2[1] = 2.0;
+#endif
+#if NSITE > 2
   w2[2] = 4.0;
+#endif
+#if NSITE > 3
   w2[3] = 8.0;
+#endif
   if (siteIdx < 0) siteIdx = 0;
   if (siteIdx >= nsites) siteIdx = nsites - 1;
 
   float occSite = 0.0;
   int nStates = 1;
-  for (int k = 0; k < 4; ++k) {
+  for (int k = 0; k < NSITE; ++k) {
     if (k >= nsites) break;
     nStates *= 2;
   }
@@ -583,22 +645,28 @@ float pme_site_occupancy(float rho[16], int nsites, int siteIdx) {
   return occSite;
 }
 
-float pme_total_charge(float rho[16], int nsites) {
-  float w2[4];
+float pme_total_charge(float rho[NSTATE], int nsites) {
+  float w2[NSITE];
   w2[0] = 1.0;
+#if NSITE > 1
   w2[1] = 2.0;
+#endif
+#if NSITE > 2
   w2[2] = 4.0;
+#endif
+#if NSITE > 3
   w2[3] = 8.0;
+#endif
   float Q = 0.0;
   int nStates = 1;
-  for (int k = 0; k < 4; ++k) {
+  for (int k = 0; k < NSITE; ++k) {
     if (k >= nsites) break;
     nStates *= 2;
   }
-  for (int s = 0; s < 16; ++s) {
+  for (int s = 0; s < NSTATE; ++s) {
     if (s >= nStates) break;
     float N = 0.0;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < NSITE; ++i) {
       if (i >= nsites) break;
       float occ = floor(mod(float(s) / w2[i], 2.0));
       N += occ;
@@ -620,8 +688,8 @@ void main() {
 
   // Compute on-site energy for each site and track min/max.
   float Rscale = max(uRtip, 1.0); // avoid division by zero
-  float Ei_arr[4];
-  float Ri_arr[4];
+  float Ei_arr[NSITE];
+  float Ri_arr[NSITE];
   float Emin;
   float Emax;
   compute_site_energies(tip, uNSites, Rscale, Ei_arr, Ri_arr, Emin, Emax);
@@ -648,10 +716,10 @@ void main() {
     }
   } else {
     // Modes 3–5: PME steady-state observables.
-    float rho[16];
+    float rho[NSTATE];
     float I_tip;
-    float K  [16*16];
-    float rhs[16];
+    float K  [NSTATE*NSTATE];
+    float rhs[NSTATE];
     solve_pme(Ei_arr, Ri_arr, uNSites, uW, rho, I_tip, K, rhs);
 
     if (uMode == 3) {
@@ -662,8 +730,8 @@ void main() {
       Eplot = I_tip;
     } else if (uMode == 6) {
       // Debug mode: visualize Es[0]
-      float Es_dbg[16];
-      float Ne_dbg[16];
+      float Es_dbg[NSTATE];
+      float Ne_dbg[NSTATE];
       int   nStates_dbg;
       compute_many_body_energies(Ei_arr, uNSites, uW, Es_dbg, Ne_dbg, nStates_dbg);
       Eplot = Es_dbg[0];
@@ -673,7 +741,7 @@ void main() {
     } else if (uMode == 8) {
       // Debug mode: visualize sum_s rho[s]
       float sumR = 0.0;
-      for (int s = 0; s < 16; ++s) {
+      for (int s = 0; s < NSTATE; ++s) {
         sumR += rho[s];
       }
       Eplot = sumR;
@@ -681,28 +749,68 @@ void main() {
       // Debug modes: inspect raw K and rhs elements from solve_pme.
       // Recompute nStates from uNSites (same logic as compute_many_body_energies).
       int nStates_dbg = 1;
-      for (int k = 0; k < 4; ++k) {
+      for (int k = 0; k < NSITE; ++k) {
         if (k >= uNSites) break;
         nStates_dbg *= 2;
       }
 
-      int maxK = nStates_dbg * nStates_dbg;
-      int idx  = uSiteIndex; //clamp(uSiteIndex, 0, (uMode == 9 ? maxK - 1 : nStates_dbg - 1));
+      // Use uDebugI and uDebugJ to select element
+      int r = clamp(uDebugI, 0, nStates_dbg - 1);
+      int c = clamp(uDebugJ, 0, nStates_dbg - 1);
 
       if (uMode == 9) {
         // Treat K as row-major nStates_dbg x nStates_dbg matrix.
-        Eplot = K[idx];
+        Eplot = K[r*NSTATE + c];
       } else {
-        // rhs element.
-        Eplot = rhs[idx];
+        // rhs element (use uDebugI as index)
+        Eplot = rhs[r];
       }
+    } else if (uMode == 11) {
+      // DEBUG: Visualize uW directly
+      Eplot = uW;
+    } else if (uMode == 12) {
+      // DEBUG: Visualize W effect (Es[3] - Es[1] - Es[2])
+      // This assumes NSites >= 2 and we look at state 3 (11) vs 1 (01) and 2 (10).
+      float Es_dbg[NSTATE];
+      float Ne_dbg[NSTATE];
+      int   nStates_dbg;
+      compute_many_body_energies(Ei_arr, uNSites, uW, Es_dbg, Ne_dbg, nStates_dbg);
+      if (nStates_dbg >= 4) {
+        Eplot = Es_dbg[3] - (Es_dbg[1] + Es_dbg[2]);
+      } else {
+        Eplot = -999.0; // Error
+      }
+    } else if (uMode == 13) {
+      // DEBUG: nStates
+      float Es_dbg[NSTATE];
+      float Ne_dbg[NSTATE];
+      int   nStates_dbg;
+      compute_many_body_energies(Ei_arr, uNSites, uW, Es_dbg, Ne_dbg, nStates_dbg);
+      Eplot = float(nStates_dbg);
+    } else if (uMode == 14) {
+      // DEBUG: Es[3]
+      float Es_dbg[NSTATE];
+      float Ne_dbg[NSTATE];
+      int   nStates_dbg;
+      compute_many_body_energies(Ei_arr, uNSites, uW, Es_dbg, Ne_dbg, nStates_dbg);
+      Eplot = Es_dbg[3];
+    } else if (uMode == 15) {
+      // DEBUG: Es[1] + Es[2]
+      float Es_dbg[NSTATE];
+      float Ne_dbg[NSTATE];
+      int   nStates_dbg;
+      compute_many_body_energies(Ei_arr, uNSites, uW, Es_dbg, Ne_dbg, nStates_dbg);
+      Eplot = Es_dbg[1] + Es_dbg[2];
     } else {
       Eplot = 0.0;
     }
   }
 
   // Map selected energy to diverging red-white-blue colormap controlled by uEcenter and uEscale.
-  vec3 col = colormap_rwb(Eplot, uEcenter, uEscale);
-
-  outColor = vec4(col, 1.0);
+  if (uOutputRaw) {
+    outColor = vec4(Eplot, 0.0, 0.0, 1.0);
+  } else {
+    vec3 col = colormap_rwb(Eplot, uEcenter, uEscale);
+    outColor = vec4(col, 1.0);
+  }
 }
