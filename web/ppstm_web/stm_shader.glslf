@@ -1,33 +1,24 @@
 precision highp float;
 
-uniform sampler2D uTexture;
-uniform float uIso;
-uniform float uMin;
-uniform float uMax;
+uniform sampler2D uEigenvectors; // N x N texture (RGBA: px, py, pz, s)
+uniform float uEigenvalues[100]; // Max 100 states
+uniform sampler2D uAtomTexture;  // N x 1 texture (RGBA: x, y, z, 0)
+uniform sampler2D uAtomParams;   // N x 1 texture (RGBA: decay, 0, 0, 0)
+uniform float uBias;
+uniform float uZTip;
+uniform vec2 uResolution;
+uniform float uL;
+uniform bool uShowAtoms;
+uniform float uAtomSize;
+uniform int uAtomCount;
+
+uniform bool uSingleOrbitalMode;
+uniform int uSelectedOrbital;
+uniform float uColorScale;
 
 varying vec2 vUv;
 
 // Simple Red-White-Blue colormap
-vec3 colormap(float t) {
-    // t is expected to be in [0, 1]
-    // 0.0 -> Blue
-    // 0.5 -> White
-    // 1.0 -> Red
-    
-    vec3 c;
-    if (t < 0.5) {
-        // Blue to White
-        float x = t * 2.0;
-        c = mix(vec3(0.0, 0.0, 1.0), vec3(1.0, 1.0, 1.0), x);
-    } else {
-        // White to Red
-        float x = (t - 0.5) * 2.0;
-        c = mix(vec3(1.0, 1.0, 1.0), vec3(1.0, 0.0, 0.0), x);
-    }
-    return c;
-}
-
-// Heatmap style: Black -> Red -> Yellow -> White
 vec3 colormap_heat(float t) {
     float x = clamp(t, 0.0, 1.0);
     vec3 c;
@@ -41,17 +32,114 @@ vec3 colormap_heat(float t) {
     return c;
 }
 
+// --- Modular Functions ---
+
+// Evaluate contribution from a single atom 'j' to the wavefunction
+// Returns phi_j(r)
+float eval_atom_decay(int j, vec3 pos) {
+    // Fetch atom position
+    float u = (float(j) + 0.5) / float(uAtomCount);
+    vec4 atomData = texture2D(uAtomTexture, vec2(u, 0.5));
+    vec3 atom = atomData.xyz;
+    
+    // Fetch atom params (decay)
+    vec4 params = texture2D(uAtomParams, vec2(u, 0.5));
+    float decay = params.r;
+    
+    float dx = pos.x - atom.x;
+    float dy = pos.y - atom.y;
+    float dz = uZTip - atom.z;
+    float r = sqrt(dx*dx + dy*dy + dz*dz);
+    
+    return exp(-decay * r);
+}
+
+// Evaluate wavefunction for orbital 'k' at position 'pos'
+float eval_orbital(int k, vec3 pos) {
+    float psi = 0.0;
+    for (int j = 0; j < 100; j++) {
+        if (j >= uAtomCount) break;
+        
+        float phi = eval_atom_decay(j, pos);
+        
+        // Fetch coefficient (s-orbital in Red channel)
+        float u = (float(j) + 0.5) / float(uAtomCount);
+        float v = (float(k) + 0.5) / float(uAtomCount);
+        vec4 coeffs = texture2D(uEigenvectors, vec2(u, v));
+        float coeff_s = coeffs.r; 
+        
+        psi += coeff_s * phi;
+    }
+    return psi;
+}
+
 void main() {
-    float val = texture2D(uTexture, vUv).r;
+    // Physical coordinates with Aspect Ratio Correction
+    float aspect = uResolution.x / uResolution.y;
+    float x = (vUv.x * 2.0 - 1.0) * uL * aspect;
+    float y = (vUv.y * 2.0 - 1.0) * uL;
+    vec3 pos = vec3(x, y, 0.0); 
     
-    // Normalize for visualization
-    // We assume val is positive (density)
-    // uMax should be the max value in the texture or a user-defined scale
+    float rho = 0.0;
     
-    float normVal = val / uMax;
+    if (uSingleOrbitalMode) {
+        // --- Single Orbital Mode ---
+        // Visualize |psi|^2 for the selected orbital
+        float psi = eval_orbital(uSelectedOrbital, pos);
+        rho = psi * psi;
+    } else {
+        // --- Full STM Mode ---
+        // Sum |psi_k|^2 for all states k within energy window [Ef, Ef + V]
+        
+        float Ef = 0.0;
+        float rangeMin = (uBias > 0.0) ? Ef : Ef + uBias;
+        float rangeMax = (uBias > 0.0) ? Ef + uBias : Ef;
+        
+        for (int k = 0; k < 100; k++) {
+            if (k >= uAtomCount) break; 
+            
+            float en = uEigenvalues[k];
+            if (en >= rangeMin && en <= rangeMax) {
+                // Active state
+                float psi = eval_orbital(k, pos);
+                rho += psi * psi;
+            }
+        }
+    }
     
-    // Apply colormap
-    vec3 color = colormap_heat(normVal);
+    // Map rho to color
+    vec3 color = colormap_heat(rho * uColorScale); 
+    
+    // Atoms overlay (Always on top if enabled)
+    if (uShowAtoms) {
+        for (int i = 0; i < 100; i++) {
+            if (i >= uAtomCount) break;
+            
+            // Fetch atom from texture
+            float u = (float(i) + 0.5) / float(uAtomCount);
+            vec4 atomData = texture2D(uAtomTexture, vec2(u, 0.5));
+            vec3 atom = atomData.xyz;
+            
+            float dx = x - atom.x;
+            float dy = y - atom.y;
+            float distSq = dx*dx + dy*dy;
+            float rSq = uAtomSize * uAtomSize;
+            
+            if (distSq < rSq) {
+                // Pseudo-3D Sphere Shading
+                float z = sqrt(rSq - distSq);
+                vec3 normal = normalize(vec3(dx, dy, z));
+                vec3 lightDir = normalize(vec3(-0.5, -0.5, 1.0));
+                
+                float diffuse = max(dot(normal, lightDir), 0.0);
+                float ambient = 0.4; 
+                float specular = pow(max(dot(normal, lightDir), 0.0), 16.0);
+                
+                vec3 atomColor = vec3(0.0, 1.0, 0.0); // Bright Green
+                color = atomColor * (diffuse + ambient) + vec3(1.0) * specular * 0.5;
+            }
+        }
+    }
     
     gl_FragColor = vec4(color, 1.0);
 }

@@ -43,30 +43,26 @@ class TightBindingHamiltonian {
         this.N = atoms.length;
         this.H = numeric.rep([this.N, this.N], 0.0);
 
-        const V0 = params.V0; // Hopping at d0 (usually defined relative to some distance, but here we use simple exp)
-        // Model: H_ij = V0 * exp(-beta * (r_ij - d0))
-        // Simplified: H_ij = V_pre * exp(-beta * r_ij)
-        // Let's use the user input V0 as the hopping amplitude at a typical bond length (e.g. 1.4 A for C-C)
-        // Or just V(r) = V0 * exp(-beta * (r - 1.4))
-        
+        const V0 = params.V0;
         const beta = params.beta;
         const E0 = params.E0;
-        const d0 = 1.4; // Reference bond length for Carbon
+        const d0 = 1.4;
 
         for (let i = 0; i < this.N; i++) {
-            this.H[i][i] = E0; // On-site energy
+            this.H[i][i] = E0;
             for (let j = i + 1; j < this.N; j++) {
                 const dx = atoms[i].x - atoms[j].x;
                 const dy = atoms[i].y - atoms[j].y;
                 const dz = atoms[i].z - atoms[j].z;
-                const r = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                const r = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
                 // Cutoff for performance/physics
-                if (r > 6.0) continue; 
+                // Increased cutoff to ensure symmetry for small molecules like PTCDA
+                if (r > 12.0) continue;
 
                 // Exponential hopping
                 const val = V0 * Math.exp(-beta * (r - d0));
-                
+
                 this.H[i][j] = val;
                 this.H[j][i] = val;
             }
@@ -76,31 +72,32 @@ class TightBindingHamiltonian {
 
 class Solver {
     static solve(H) {
-        // Use numeric.js to diagonalize
-        // numeric.eig(H) returns {lambda: eigenvalues, E: eigenvectors}
-        // For symmetric real matrix, eigenvalues are real.
-        // numeric.js might return complex structure even for real symmetric, need to handle.
-        // Actually numeric.eig is generic. For symmetric, it's robust.
-        
         const result = numeric.eig(H);
-        
-        // Extract real parts (assuming symmetric H)
-        const eigenvalues = result.lambda.x; // .x is real part in numeric.js complex number
-        const eigenvectors = result.E.x;     // Columns are eigenvectors? No, numeric.js: E[i] is eigenvector i?
-        // numeric.eig docs: E is matrix of eigenvectors. E[i][j] is j-th component of i-th eigenvector?
-        // Wait, usually E is V where H = V D V^-1. So columns are eigenvectors.
-        // Let's verify: H * v = lambda * v
-        // numeric.js: "E is a matrix of eigenvectors".
-        // Let's assume row-major or column-major? numeric.js usually uses array of arrays.
-        // If E is [[v00, v01], [v10, v11]], then E[row][col].
-        // Usually eigenvectors are columns. So E[j][i] is i-th component of j-th eigenvector.
-        
-        // We will assume E[row][col] where col is the index of eigenvector.
-        // So eigenvector k is [ E[0][k], E[1][k], ... ]
-        
+        const eigenvalues = result.lambda.x;
+        const eigenvectors = result.E.x;
+
+        // Sort eigenvalues
+        const indices = new Array(eigenvalues.length);
+        for (let i = 0; i < eigenvalues.length; i++) indices[i] = i;
+        indices.sort((a, b) => eigenvalues[a] - eigenvalues[b]);
+
+        const sortedEigenvalues = new Float64Array(eigenvalues.length);
+        const sortedEigenvectors = []; // Array of arrays (columns)
+
+        for (let i = 0; i < eigenvalues.length; i++) {
+            sortedEigenvalues[i] = eigenvalues[indices[i]];
+            // Extract column k = indices[i]
+            // numeric.js E[row][col]
+            const vec = new Float64Array(eigenvalues.length);
+            for (let row = 0; row < eigenvalues.length; row++) {
+                vec[row] = eigenvectors[row][indices[i]];
+            }
+            sortedEigenvectors.push(vec);
+        }
+
         return {
-            energies: eigenvalues,
-            vectors: eigenvectors // [row][col]
+            energies: sortedEigenvalues,
+            vectors: sortedEigenvectors // [eigenStateIndex][atomIndex] (transposed relative to numeric.js E)
         };
     }
 }
@@ -110,28 +107,27 @@ class PPSTMApp {
         this.molecule = new Molecule();
         this.hamiltonian = new TightBindingHamiltonian(this.molecule);
         this.eigenSystem = null;
-        
+
         this.scene = null;
         this.camera = null;
         this.renderer = null;
-        this.controls = null;
-        
-        this.atomMeshes = [];
-        this.bondMeshes = [];
-        this.stmPlane = null;
-        this.stmTexture = null;
-        this.stmData = null; // Float32Array
-        
+        this.quad = null;
+        this.stmTexture = null; // Removed, using shader calc
+        this.eigenTexture = null; // New: Eigenvectors
+
         this.params = {
             V0: -2.7,
             beta: 2.0,
             E0: 0.0,
-            bias: 0.5,
+            bias: 1.0,
             zTip: 3.0,
-            iso: 0.01,
-            atomSize: 0.4
+            atomSize: 0.1, // Updated default
+            showAtoms: true,
+            singleOrbitalMode: true, // Added
+            selectedOrbital: 0, // Added, Relative to HOMO
+            colorScale: 10000.0 // Updated default
         };
-        
+
         this.gridSize = 128;
         this.gridL = 20.0; // Angstroms (half-width)
     }
@@ -139,7 +135,7 @@ class PPSTMApp {
     init() {
         this.initThree();
         this.initUI();
-        this.loadMolecule('PTCDA'); // Default
+        this.loadMolecule('PTCDA');
     }
 
     initThree() {
@@ -148,37 +144,14 @@ class PPSTMApp {
         const height = viewer.clientHeight;
 
         this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-        this.camera.position.set(0, 0, 30);
-        this.camera.lookAt(0, 0, 0);
+        this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); // NDC camera
 
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer = new THREE.WebGLRenderer({ antialias: false });
         this.renderer.setSize(width, height);
         viewer.appendChild(this.renderer.domElement);
 
-        // Lights
-        const ambientLight = new THREE.AmbientLight(0x404040);
-        this.scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(10, 10, 10);
-        this.scene.add(directionalLight);
-
-        // Orbit controls (manual implementation or simple mouse listener if OrbitControls not available)
-        // Since we didn't load OrbitControls explicitly in index.html (it's usually separate in examples/js),
-        // let's try to see if THREE.OrbitControls exists (sometimes bundled).
-        // If not, we'll add a simple rotator.
-        // Actually, let's just add a simple mouse drag to rotate the molecule.
-        this.setupSimpleControls();
-
-        // STM Plane
-        const geometry = new THREE.PlaneGeometry(this.gridL * 2, this.gridL * 2);
-        
-        // Create DataTexture
-        this.stmData = new Float32Array(this.gridSize * this.gridSize);
-        this.stmTexture = new THREE.DataTexture(this.stmData, this.gridSize, this.gridSize, THREE.RedFormat, THREE.FloatType);
-        this.stmTexture.magFilter = THREE.LinearFilter;
-        this.stmTexture.minFilter = THREE.LinearFilter;
-        this.stmTexture.needsUpdate = true;
+        // STM Plane (Full Screen Quad)
+        const geometry = new THREE.PlaneGeometry(2, 2);
 
         // Load shader
         fetch('stm_shader.glslf')
@@ -186,126 +159,170 @@ class PPSTMApp {
             .then(fragShader => {
                 const material = new THREE.ShaderMaterial({
                     uniforms: {
-                        uTexture: { value: this.stmTexture },
-                        uMax: { value: 1.0 }
+                        uEigenvectors: { value: null }, // N x N (RGBA)
+                        uEigenvalues: { value: new Float32Array(100) }, // Initialize with dummy data
+                        uAtomTexture: { value: null }, // N x 1 (RGBA: x,y,z,0)
+                        uAtomParams: { value: null },  // N x 1 (RGBA: decay, 0, 0, 0)
+                        uBias: { value: this.params.bias },
+                        uZTip: { value: this.params.zTip },
+                        uResolution: { value: new THREE.Vector2(width, height) },
+                        uL: { value: this.gridL },
+                        uShowAtoms: { value: this.params.showAtoms },
+                        uAtomSize: { value: this.params.atomSize },
+                        uAtomCount: { value: 0 },
+                        uSingleOrbitalMode: { value: this.params.singleOrbitalMode }, // Initial value
+                        uSelectedOrbital: { value: this.params.selectedOrbital }, // Initial value
+                        uColorScale: { value: this.params.colorScale } // Initial value
                     },
                     vertexShader: `
                         varying vec2 vUv;
                         void main() {
                             vUv = uv;
-                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                            gl_Position = vec4(position, 1.0);
                         }
                     `,
                     fragmentShader: fragShader,
-                    side: THREE.DoubleSide,
-                    transparent: true,
-                    opacity: 0.8
+                    depthTest: false,
+                    depthWrite: false
                 });
-                this.stmPlane = new THREE.Mesh(geometry, material);
-                this.stmPlane.position.z = this.params.zTip;
-                this.scene.add(this.stmPlane);
+                this.quad = new THREE.Mesh(geometry, material);
+                this.scene.add(this.quad);
+                this.render();
             });
 
         window.addEventListener('resize', () => {
             const w = viewer.clientWidth;
             const h = viewer.clientHeight;
             this.renderer.setSize(w, h);
-            this.camera.aspect = w / h;
-            this.camera.updateProjectionMatrix();
-        });
-
-        this.animate();
-    }
-
-    setupSimpleControls() {
-        let isDragging = false;
-        let previousMousePosition = { x: 0, y: 0 };
-        const viewer = this.renderer.domElement;
-
-        viewer.addEventListener('mousedown', (e) => {
-            isDragging = true;
-        });
-        viewer.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                const deltaMove = {
-                    x: e.offsetX - previousMousePosition.x,
-                    y: e.offsetY - previousMousePosition.y
-                };
-
-                const deltaRotationQuaternion = new THREE.Quaternion()
-                    .setFromEuler(new THREE.Euler(
-                        toRadians(deltaMove.y * 1),
-                        toRadians(deltaMove.x * 1),
-                        0,
-                        'XYZ'
-                    ));
-                
-                // Rotate the scene/camera
-                // Ideally rotate the camera around 0,0,0
-                // Simple orbit:
-                const x = this.camera.position.x;
-                const y = this.camera.position.y;
-                const z = this.camera.position.z;
-                
-                // Rotate around Y axis (horizontal drag)
-                const angleY = -deltaMove.x * 0.01;
-                const x_new = x * Math.cos(angleY) - z * Math.sin(angleY);
-                const z_new = x * Math.sin(angleY) + z * Math.cos(angleY);
-                this.camera.position.x = x_new;
-                this.camera.position.z = z_new;
-                
-                // Rotate around X axis (vertical drag) - simplified, just move Y
-                // const angleX = -deltaMove.y * 0.01;
-                // this.camera.position.y += deltaMove.y * 0.1;
-                
-                this.camera.lookAt(0, 0, 0);
+            if (this.quad) {
+                this.quad.material.uniforms.uResolution.value.set(w, h);
             }
-            previousMousePosition = { x: e.offsetX, y: e.offsetY };
+            this.render();
         });
-        viewer.addEventListener('mouseup', () => isDragging = false);
     }
 
     initUI() {
         document.getElementById('btnReload').addEventListener('click', () => this.solvePhysics());
-        
-        const inputs = ['inpV0', 'inpBeta', 'inpE0', 'inpBias', 'inpZTip', 'inpIso', 'sldAtomSize'];
+
+        const inputs = ['inpV0', 'inpBeta', 'inpE0', 'bias', 'zTip', 'sldAtomSize', 'orbitalIndex', 'colorScale'];
         inputs.forEach(id => {
-            document.getElementById(id).addEventListener('change', (e) => {
+            const el = document.getElementById(id);
+            if (!el) {
+                console.error(`Element with id '${id}' not found`);
+                return;
+            }
+            el.addEventListener('change', (e) => {
                 this.updateParams();
                 if (id === 'inpV0' || id === 'inpBeta' || id === 'inpE0') {
                     this.solvePhysics();
-                } else if (id === 'inpBias' || id === 'inpZTip') {
+                } else if (id === 'bias' || id === 'zTip' || id === 'orbitalIndex' || id === 'singleOrbitalMode' || id === 'colorScale') {
                     this.updateSTM();
-                } else if (id === 'sldAtomSize') {
-                    this.updateAtoms();
+                } else if (id === 'sldAtomSize' || id === 'showAtoms') {
+                    this.updateVisuals();
                 }
+                this.updateSummary();
             });
+
+            // Mouse wheel support
+            if (el.type === 'number') {
+                el.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const step = parseFloat(el.step) || 0.1;
+                    const delta = e.deltaY > 0 ? -step : step;
+                    el.value = (parseFloat(el.value) + delta).toFixed(2); // simple fix for float precision
+                    el.dispatchEvent(new Event('change'));
+                });
+            }
         });
 
         document.getElementById('moleculeSelect').addEventListener('change', (e) => {
             this.loadMolecule(e.target.value);
         });
+
+        document.getElementById('showAtoms').addEventListener('change', (e) => {
+            this.params.showAtoms = e.target.checked;
+            this.updateVisuals();
+        });
+
+        document.getElementById('singleOrbitalMode').addEventListener('change', (e) => {
+            this.params.singleOrbitalMode = e.target.checked;
+            this.updateSTM();
+            this.updateSummary();
+        });
+
+        document.getElementById('btnEditGeom').addEventListener('click', () => {
+            const el = document.getElementById('txtXYZ');
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        });
+
+        document.getElementById('btnEditParams').addEventListener('click', () => {
+            const el = document.getElementById('txtParams');
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+            if (!el.value) {
+                el.value = JSON.stringify(this.params, null, 2);
+            }
+        });
+
+        document.getElementById('btnApplyAdvanced').addEventListener('click', () => {
+            const xyz = document.getElementById('txtXYZ').value;
+            if (xyz) {
+                this.molecule.loadXYZ(xyz);
+            }
+
+            const pStr = document.getElementById('txtParams').value;
+            if (pStr) {
+                try {
+                    const p = JSON.parse(pStr);
+                    Object.assign(this.params, p);
+                    this.syncUI();
+                } catch (e) {
+                    alert("Invalid JSON parameters");
+                }
+            }
+            this.solvePhysics();
+        });
+    }
+
+    syncUI() {
+        document.getElementById('inpV0').value = this.params.V0;
+        document.getElementById('inpBeta').value = this.params.beta;
+        document.getElementById('inpE0').value = this.params.E0;
+        document.getElementById('bias').value = this.params.bias;
+        document.getElementById('zTip').value = this.params.zTip;
+        document.getElementById('sldAtomSize').value = this.params.atomSize;
+        document.getElementById('showAtoms').checked = this.params.showAtoms;
+        document.getElementById('singleOrbitalMode').checked = this.params.singleOrbitalMode;
+        document.getElementById('orbitalIndex').value = this.params.selectedOrbital;
+        document.getElementById('colorScale').value = Math.log10(this.params.colorScale);
+        this.updateVisuals();
+        this.updateSummary();
     }
 
     updateParams() {
         this.params.V0 = parseFloat(document.getElementById('inpV0').value);
         this.params.beta = parseFloat(document.getElementById('inpBeta').value);
         this.params.E0 = parseFloat(document.getElementById('inpE0').value);
-        this.params.bias = parseFloat(document.getElementById('inpBias').value);
-        this.params.zTip = parseFloat(document.getElementById('inpZTip').value);
-        this.params.iso = parseFloat(document.getElementById('inpIso').value);
+        this.params.bias = parseFloat(document.getElementById('bias').value);
+        this.params.zTip = parseFloat(document.getElementById('zTip').value);
         this.params.atomSize = parseFloat(document.getElementById('sldAtomSize').value);
+        this.params.singleOrbitalMode = document.getElementById('singleOrbitalMode').checked;
+        this.params.selectedOrbital = parseInt(document.getElementById('orbitalIndex').value);
+        this.params.colorScale = Math.pow(10, parseFloat(document.getElementById('colorScale').value));
+    }
+
+    updateSummary() {
+        const s = this.params;
+        const summary = `V0: ${s.V0} eV, Beta: ${s.beta} 1/A, E0: ${s.E0} eV
+Bias: ${s.bias} V, Z-Tip: ${s.zTip} A
+Atom Size: ${s.atomSize}, Color Scale: ${s.colorScale.toExponential(1)}
+Mode: ${s.singleOrbitalMode ? 'Single Orbital (Rel. HOMO: ' + s.selectedOrbital + ')' : 'Full STM'}`;
+        const el = document.getElementById('simSummary');
+        if (el) el.textContent = summary;
     }
 
     loadMolecule(name) {
         let xyz = "";
         if (name === 'PTCDA') {
-            // Minimal PTCDA XYZ (approximate or placeholder if file not available)
-            // Since we can't easily fetch the file from the server in this client-side only setup without a proper server,
-            // we'll hardcode a simple molecule or try to fetch if running on a server.
-            // The user has `examples/xyz/PTCDA.xyz`. We can try to fetch it relative to this file?
-            // `../../examples/xyz/PTCDA.xyz` might work if served correctly.
-            // For now, let's try to fetch.
             fetch('../../examples/xyz/PTCDA.xyz')
                 .then(r => {
                     if (!r.ok) throw new Error("Not found");
@@ -313,7 +330,7 @@ class PPSTMApp {
                 })
                 .then(text => {
                     this.molecule.loadXYZ(text);
-                    this.buildScene();
+                    document.getElementById('txtXYZ').value = text;
                     this.solvePhysics();
                 })
                 .catch(e => {
@@ -338,8 +355,8 @@ H       -2.14862       -1.24050        0.00000
 H       -2.14862        1.24050        0.00000
 `;
         } else {
-             // Graphene small
-             xyz = `24
+            // Graphene small
+            xyz = `24
 Graphene
 C 0 0 0
 C 1.42 0 0
@@ -367,77 +384,14 @@ C -3.55 -1.23 0
 C -3.55 1.23 0
 `;
         }
-        
+
         this.molecule.loadXYZ(xyz);
-        this.buildScene();
+        document.getElementById('txtXYZ').value = xyz;
         this.solvePhysics();
-    }
-
-    buildScene() {
-        // Clear old meshes
-        this.atomMeshes.forEach(m => this.scene.remove(m));
-        this.bondMeshes.forEach(m => this.scene.remove(m));
-        this.atomMeshes = [];
-        this.bondMeshes = [];
-
-        const atoms = this.molecule.atoms;
-        const sphereGeo = new THREE.SphereGeometry(1, 16, 16);
-        
-        atoms.forEach(atom => {
-            let color = 0x888888;
-            if (atom.type === 'C') color = 0x333333;
-            if (atom.type === 'H') color = 0xffffff;
-            if (atom.type === 'O') color = 0xff0000;
-            if (atom.type === 'N') color = 0x0000ff;
-
-            const mat = new THREE.MeshPhongMaterial({ color: color });
-            const mesh = new THREE.Mesh(sphereGeo, mat);
-            mesh.position.set(atom.x, atom.y, atom.z);
-            mesh.scale.set(this.params.atomSize, this.params.atomSize, this.params.atomSize);
-            this.scene.add(mesh);
-            this.atomMeshes.push(mesh);
-        });
-
-        // Simple bonds (distance check)
-        const bondMat = new THREE.MeshPhongMaterial({ color: 0xaaaaaa });
-        for (let i = 0; i < atoms.length; i++) {
-            for (let j = i + 1; j < atoms.length; j++) {
-                const a1 = atoms[i];
-                const a2 = atoms[j];
-                const dx = a1.x - a2.x;
-                const dy = a1.y - a2.y;
-                const dz = a1.z - a2.z;
-                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                
-                if (dist < 1.8) { // Typical bond length cutoff
-                    const midX = (a1.x + a2.x) / 2;
-                    const midY = (a1.y + a2.y) / 2;
-                    const midZ = (a1.z + a2.z) / 2;
-                    
-                    const cylinder = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, dist, 8), bondMat);
-                    cylinder.position.set(midX, midY, midZ);
-                    
-                    // Orientation
-                    const axis = new THREE.Vector3(dx, dy, dz).normalize();
-                    const quaternion = new THREE.Quaternion();
-                    quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis);
-                    cylinder.setRotationFromQuaternion(quaternion);
-                    
-                    this.scene.add(cylinder);
-                    this.bondMeshes.push(cylinder);
-                }
-            }
-        }
-    }
-
-    updateAtoms() {
-        const s = this.params.atomSize;
-        this.atomMeshes.forEach(m => m.scale.set(s, s, s));
     }
 
     solvePhysics() {
         document.getElementById('loading').style.display = 'block';
-        // Use setTimeout to allow UI to render "Calculating..."
         setTimeout(() => {
             console.time("Hamiltonian");
             this.hamiltonian.build(this.params);
@@ -447,116 +401,147 @@ C -3.55 1.23 0
             this.eigenSystem = Solver.solve(this.hamiltonian.H);
             console.timeEnd("Diagonalization");
 
-            console.log("Eigenvalues:", this.eigenSystem.energies);
+            // Auto-center Fermi level
+            const N = this.eigenSystem.energies.length;
+            const nOcc = Math.floor(N / 2);
+            if (nOcc > 0 && nOcc < N) {
+                const homo = this.eigenSystem.energies[nOcc - 1];
+                const lumo = this.eigenSystem.energies[nOcc];
+                const ef = (homo + lumo) / 2.0;
+                console.log(`Auto-centering Ef. HOMO: ${homo.toFixed(3)}, LUMO: ${lumo.toFixed(3)}, Gap: ${(lumo - homo).toFixed(3)}, Shift: ${-ef.toFixed(3)}`);
+
+                for (let i = 0; i < N; i++) {
+                    this.eigenSystem.energies[i] -= ef;
+                }
+                this.eigenSystem.homoIndex = nOcc - 1; // Store HOMO index
+            } else {
+                this.eigenSystem.homoIndex = -1; // No HOMO if N is too small
+            }
+
+            console.log("Eigenvalues (shifted):", this.eigenSystem.energies);
+            this.updateEigenstatesList();
+
+            // Pack eigenvectors into texture
+            // Size N x N. 
+            // Rows = States (k), Cols = Atoms (j)
+            // vectors[k][j]
+            // N is already defined above
+            // const N = this.eigenSystem.energies.length;
+
+            // RGBA Float Texture: 4 components per pixel
+            const data = new Float32Array(N * N * 4);
+            for (let k = 0; k < N; k++) {
+                for (let j = 0; j < N; j++) {
+                    const val = this.eigenSystem.vectors[k][j];
+                    const idx = (k * N + j) * 4;
+                    // Store s-orbital coefficient in Red (x) for now
+                    // Alpha channel proved unreliable for float texture on some platforms/browsers
+                    data[idx + 0] = val; // s
+                    data[idx + 1] = 0.0; // py
+                    data[idx + 2] = 0.0; // pz
+                    data[idx + 3] = 1.0; // Alpha (unused/padding)
+                }
+            }
+
+            if (this.eigenTexture) this.eigenTexture.dispose();
+            this.eigenTexture = new THREE.DataTexture(data, N, N, THREE.RGBAFormat, THREE.FloatType);
+            this.eigenTexture.magFilter = THREE.NearestFilter;
+            this.eigenTexture.minFilter = THREE.NearestFilter;
+            this.eigenTexture.needsUpdate = true;
 
             this.updateSTM();
             document.getElementById('loading').style.display = 'none';
         }, 10);
     }
 
-    updateSTM() {
-        if (!this.eigenSystem) return;
+    updateEigenstatesList() {
+        const div = document.getElementById('eigenstates');
+        if (!div || !this.eigenSystem) return;
 
-        const zTip = this.params.zTip;
-        const bias = this.params.bias;
-        const atoms = this.molecule.atoms;
-        const N = atoms.length;
-        const energies = this.eigenSystem.energies;
-        const vectors = this.eigenSystem.vectors; // [row][col] -> [atomIndex][eigenStateIndex]
-
-        // Fermi level is roughly 0.0 for this simple model if half-filled, but let's assume 0.0 is mid-gap or similar.
-        // For simple Hückel, alpha=0.
-        // We sum states between E_F and E_F + Bias.
-        // Let's assume E_F = 0 for now (or mid point of HOMO-LUMO).
-        // Actually, for PTCDA, we might want to find the gap.
-        // Let's just sum states within [ -|Bias|/2, +|Bias|/2 ] or [0, Bias] relative to 0?
-        // User requirement: "User selects Bias Voltage... identify all Eigenstates n where Energy En falls within [Ef, Ef + Vbias]"
-        // We'll assume Ef = 0.0.
-        
-        const Ef = 0.0;
-        const rangeMin = (bias > 0) ? Ef : Ef + bias;
-        const rangeMax = (bias > 0) ? Ef + bias : Ef;
-
-        const activeStates = [];
-        for (let i = 0; i < N; i++) {
-            if (energies[i] >= rangeMin && energies[i] <= rangeMax) {
-                activeStates.push(i);
-            }
-        }
-        console.log(`Active states: ${activeStates.length} (Bias: ${bias})`);
-
-        // Compute STM image on grid
-        // Grid covers [-L, L] x [-L, L]
-        const L = this.gridL;
-        const res = this.gridSize;
-        const dl = (2 * L) / res;
-        
-        // Precompute atom contributions at zTip
-        // psi(r) = sum_i c_i phi_i(r)
-        // phi_i(r) ~ exp(-beta * |r - R_i|) or similar.
-        // For STM, we usually assume s-wave tip and sample psi at r_tip.
-        // So we just evaluate |psi(r_tip)|^2.
-        // phi_i(r) is the orbital on atom i. Let's use the same exponential decay as hopping?
-        // Or a standard Slater orbital decay. Carbon 2pz decay is roughly 1.625 au^-1 ~ 3 A^-1?
-        // Let's use a visualization decay constant, maybe same as beta or slightly different.
-        const decay = 1.5; // 1/Angstrom
-
-        let maxVal = 0.0;
-
-        for (let iy = 0; iy < res; iy++) {
-            const y = -L + iy * dl;
-            for (let ix = 0; ix < res; ix++) {
-                const x = -L + ix * dl;
-                
-                let rho = 0.0;
-
-                // Sum over active states
-                for (let k of activeStates) {
-                    // psi_k(r) = sum_j C_jk * phi_j(r)
-                    let psi = 0.0;
-                    for (let j = 0; j < N; j++) {
-                        const atom = atoms[j];
-                        const dx = x - atom.x;
-                        const dy = y - atom.y;
-                        const dz = zTip - atom.z;
-                        const r = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                        
-                        // Orbital value
-                        // Simple s-orbital approximation: exp(-decay * r)
-                        // For pz orbitals (aromatic), it should be z * exp... but let's stick to simple s-like blobs for now as requested "exponential hopping model".
-                        // Actually, if it's pi-system, pz orbitals are important.
-                        // But for "simple exponential hopping", s-orbitals are the direct mapping.
-                        const phi = Math.exp(-decay * r);
-                        
-                        // C_jk is vectors[j][k]
-                        psi += vectors[j][k] * phi;
-                    }
-                    rho += psi * psi;
-                }
-                
-                this.stmData[iy * res + ix] = rho;
-                if (rho > maxVal) maxVal = rho;
-            }
-        }
-
-        // Update texture
-        this.stmTexture.needsUpdate = true;
-        
-        // Update shader max for normalization
-        if (this.stmPlane) {
-            this.stmPlane.material.uniforms.uMax.value = maxVal > 1e-6 ? maxVal : 1.0;
-            this.stmPlane.position.z = zTip;
-        }
+        const energiesArray = Array.from(this.eigenSystem.energies);
+        const lines = energiesArray.map((e, i) => {
+            const nOcc = Math.floor(energiesArray.length / 2);
+            const label = (i === nOcc - 1) ? "HOMO" : (i === nOcc) ? "LUMO" : `    `;
+            return `${i.toString().padStart(3)}: ${e.toFixed(4)} ${label}`;
+        });
+        div.innerText = lines.join('\n');
     }
 
-    animate() {
-        requestAnimationFrame(() => this.animate());
+    updateSTM() {
+        if (!this.eigenSystem || !this.quad) return;
+
+        const atoms = this.molecule.atoms;
+
+        // Update Uniforms
+        this.quad.material.uniforms.uEigenvectors.value = this.eigenTexture;
+        this.quad.material.uniforms.uEigenvalues.value = Float32Array.from(this.eigenSystem.energies);
+        this.quad.material.uniforms.uBias.value = this.params.bias;
+        this.quad.material.uniforms.uZTip.value = this.params.zTip;
+        this.quad.material.uniforms.uSingleOrbitalMode.value = this.params.singleOrbitalMode;
+
+        // Calculate absolute orbital index from relative
+        let absOrbital = 0;
+        if (this.eigenSystem && this.eigenSystem.homoIndex !== undefined) {
+            absOrbital = this.eigenSystem.homoIndex + this.params.selectedOrbital;
+            // Clamp to valid range
+            if (absOrbital < 0) absOrbital = 0;
+            if (absOrbital >= 100) absOrbital = 99;
+        }
+        this.quad.material.uniforms.uSelectedOrbital.value = absOrbital;
+
+        this.quad.material.uniforms.uColorScale.value = this.params.colorScale;
+
+
+        // Create Atom Texture (N x 1)
+        const N = atoms.length;
+        // 4 components per atom: x, y, z, padding
+        const atomData = new Float32Array(N * 4);
+        atoms.forEach((a, i) => {
+            atomData[i * 4 + 0] = a.x;
+            atomData[i * 4 + 1] = a.y;
+            atomData[i * 4 + 2] = a.z;
+            atomData[i * 4 + 3] = 0.0;
+        });
+
+        const atomTexture = new THREE.DataTexture(atomData, N, 1, THREE.RGBAFormat, THREE.FloatType);
+        atomTexture.magFilter = THREE.NearestFilter;
+        atomTexture.minFilter = THREE.NearestFilter;
+        atomTexture.needsUpdate = true;
+
+        this.quad.material.uniforms.uAtomTexture.value = atomTexture;
+
+        // Create Atom Params Texture (N x 1)
+        // RGBA: decay, 0, 0, 0
+        const paramData = new Float32Array(N * 4);
+        atoms.forEach((a, i) => {
+            // Default decay = 1.5 (or 2.0, adjustable later)
+            paramData[i * 4 + 0] = 1.5;
+            paramData[i * 4 + 1] = 0.0;
+            paramData[i * 4 + 2] = 0.0;
+            paramData[i * 4 + 3] = 0.0;
+        });
+        const paramTexture = new THREE.DataTexture(paramData, N, 1, THREE.RGBAFormat, THREE.FloatType);
+        paramTexture.magFilter = THREE.NearestFilter;
+        paramTexture.minFilter = THREE.NearestFilter;
+        paramTexture.needsUpdate = true;
+
+        this.quad.material.uniforms.uAtomParams.value = paramTexture;
+        this.quad.material.uniforms.uAtomCount.value = atoms.length;
+
+        this.render();
+    }
+
+    updateVisuals() {
+        if (this.quad) {
+            this.quad.material.uniforms.uShowAtoms.value = this.params.showAtoms;
+            this.quad.material.uniforms.uAtomSize.value = this.params.atomSize;
+        }
+        this.render();
+    }
+
+    render() {
         if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
         }
     }
-}
-
-function toRadians(angle) {
-    return angle * (Math.PI / 180);
 }
