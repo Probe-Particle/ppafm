@@ -33,7 +33,18 @@ This document summarizes the development and debugging session focused on enhanc
 ### 4. UI Refinements
 *   **Logarithmic Scaling:** Added `OutScale (10^x)` to allow visualizing data over many orders of magnitude (crucial for tunneling currents).
 *   **Step Sizes:** Added `step` attributes to input fields for finer control with the mouse wheel.
-*   **Defaults:** Updated default mode to PME Tip Current (5) and optimized default parameters.
+*   **Defaults:** Updated default Mode to PME Tip Current (5) and optimized default parameters.
+
+### 5. XV Scan Mode (Position vs Bias)
+*   **Functionality:** Added a new visualization mode that scans spatially along a line (X-axis) while varying the bias voltage (Y-axis). This is critical for observing Coulomb blockade "diamonds" and resonant tunneling features.
+*   **Controls:**
+    *   **Scan Mode:** Toggle between `XY` (Top-down spatial map) and `XV` (Position vs Bias).
+    *   **P1 / P2:** Define the start and end points of the spatial line scan (X-axis).
+    *   **VBiasMin / Max:** Define the voltage range for the Y-axis.
+*   **Implementation:**
+    *   The shader now accepts `uScanMode`, `uP1`, `uP2`, `uVBiasMin`, and `uVBiasMax` uniforms.
+    *   In `XV` mode, the shader interpolates the tip position between `P1` and `P2` based on the pixel's x-coordinate (`vUv.x`) and interpolates the bias voltage between `VBiasMin` and `VBiasMax` based on the y-coordinate (`vUv.y`).
+    *   This allows the same physics core to render both spatial maps and spectroscopic plots without code duplication.
 
 ## Debugging Strategies & Lessons Learned
 

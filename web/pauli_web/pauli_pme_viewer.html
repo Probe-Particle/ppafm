@@ -100,6 +100,12 @@
                 <option value="15">DEBUG: Es[1]+Es[2]</option>
             </select>
         </div>
+        <div class="row"><label for="selScanMode">Scan Mode </label>
+            <select id="selScanMode">
+                <option value="0" selected>XY (Top-down)</option>
+                <option value="1">XV (Position vs Bias)</option>
+            </select>
+        </div>
         <div class="row"><label for="selSolver">Solver </label>
             <select id="selSolver">
                 <option value="numericjs" selected>numeric.js</option>
@@ -155,7 +161,14 @@
             { key: 'decay', label: 'decay', type: 'float', def: 0.3, min: 0.0, step: 0.1 },
             { key: 'W', label: 'W (Coul)', type: 'float', def: 0.0, step: 0.01 },
             { key: 'Ecenter', label: 'E center', type: 'float', def: 0.0, step: 0.01 },
-            { key: 'OutScale', label: 'OutScale (10^x)', type: 'float', def: 4.0, min: -10.0, max: 10.0, step: 0.1 }
+            { key: 'OutScale', label: 'OutScale (10^x)', type: 'float', def: 4.0, min: -10.0, max: 10.0, step: 0.1 },
+            // XV Scan Mode Params
+            { key: 'P1x', label: 'P1.x', type: 'float', def: -5.0, step: 0.1 },
+            { key: 'P1y', label: 'P1.y', type: 'float', def: 0.0, step: 0.1 },
+            { key: 'P2x', label: 'P2.x', type: 'float', def: 5.0, step: 0.1 },
+            { key: 'P2y', label: 'P2.y', type: 'float', def: 0.0, step: 0.1 },
+            { key: 'VBiasMin', label: 'VBiasMin', type: 'float', def: -1.0, step: 0.1 },
+            { key: 'VBiasMax', label: 'VBiasMax', type: 'float', def: 1.0, step: 0.1 }
         ];
 
         var paramInputIds = paramSpecs.map(function (s) { return s.inputId || ('inp' + s.key.charAt(0).toUpperCase() + s.key.slice(1)); });
@@ -177,7 +190,12 @@
                     new THREE.Vector4(0, 0, 0, -0.1),
                     new THREE.Vector4(0, 0, 0, -0.1)
                 ]
-            }
+            },
+            uP1: { value: new THREE.Vector2(-5, 0) },
+            uP2: { value: new THREE.Vector2(5, 0) },
+            uVBiasMin: { value: -1.0 },
+            uVBiasMax: { value: 1.0 },
+            uScanMode: { value: 0 }
         };
 
         for (var i = 0; i < paramSpecs.length; i++) {
@@ -272,6 +290,13 @@
                         });
                     }
 
+                    var selScanMode = document.getElementById('selScanMode');
+                    if (selScanMode) {
+                        selScanMode.addEventListener('change', function () {
+                            updateFromInputs();
+                        });
+                    }
+
                     // Mouse-wheel increment on numeric inputs (similar to ppafm_web/index.html)
                     function attachWheelIncrement(id) {
                         var el = document.getElementById(id);
@@ -353,6 +378,10 @@
             if (!isFinite(debugJ)) debugJ = 0;
             if (!isFinite(Mode)) Mode = 0;
 
+            var scanModeSel = document.getElementById('selScanMode');
+            var ScanMode = scanModeSel ? parseInt(scanModeSel.value, 10) : 0;
+            if (!isFinite(ScanMode)) ScanMode = 0;
+
             // Additional constraints that depend on other params.
             var NSites = p.NSites;
             if (NSites < 1) NSites = 1;
@@ -383,6 +412,13 @@
             uniforms.uSiteIndex.value = siteIdx;
             uniforms.uDebugI.value = debugI;
             uniforms.uDebugJ.value = debugJ;
+            uniforms.uScanMode.value = ScanMode;
+
+            // Map separate P1/P2 components to vectors
+            if (uniforms.uP1) uniforms.uP1.value.set(p.P1x, p.P1y);
+            if (uniforms.uP2) uniforms.uP2.value.set(p.P2x, p.P2y);
+            if (uniforms.uVBiasMin) uniforms.uVBiasMin.value = p.VBiasMin;
+            if (uniforms.uVBiasMax) uniforms.uVBiasMax.value = p.VBiasMax;
 
             var solverSel = document.getElementById('selSolver');
             var solverVal = solverSel ? solverSel.value : 'numericjs';

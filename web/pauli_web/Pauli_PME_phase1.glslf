@@ -31,6 +31,11 @@ uniform int   uDebugI;    // Debug index I (row/state)
 uniform int   uDebugJ;    // Debug index J (col/state)
 uniform bool  uOutputRaw; // If true, output raw float value in R channel
 uniform vec4  uSites[NSITE];  // (x, y, z, E0)
+uniform vec2  uP1;        // Start point for line scan (XV mode)
+uniform vec2  uP2;        // End point for line scan (XV mode)
+uniform float uVBiasMin;  // Min bias for XV mode
+uniform float uVBiasMax;  // Max bias for XV mode
+uniform int   uScanMode;  // 0 = XY, 1 = XV
 
 // Phase 1/2 shader: render single-particle or many-body energies over all sites.
 // On-site energy model (simplified):
@@ -64,6 +69,7 @@ void compute_site_energies(
   in  vec3  tip,
   in  int   nsites,
   in  float Rscale,
+  in  float VBias,
   out float Ei_arr[NSITE],
   out float Ri_arr[NSITE],
   out float Emin,
@@ -81,7 +87,7 @@ void compute_site_energies(
     float E0  = uSites[i].w;
     float r   = length(tip - spos);
     // Simple gating: decays with distance from tip (heuristic)
-    float Egate = uVBias * Rscale / max(r, 1e-3);
+    float Egate = VBias * Rscale / max(r, 1e-3);
     float Ei    = E0 + Egate;
     Ei_arr[i]   = Ei;
     Ri_arr[i]   = r;
@@ -536,6 +542,7 @@ void solve_pme(
   in  float Ri_arr[NSITE],
   in  int   nsites,
   in  float W,
+  in  float VBias,
   out float rho[NSTATE],
   out float I_tip,
   out float K[NSTATE*NSTATE],
@@ -562,7 +569,7 @@ void solve_pme(
   float kBoltz = 8.617333262e-5; // eV/K
   float kT   = max(uTemp * kBoltz, 1e-6);
   float muS  = 0.0;        // substrate chemical potential
-  float muT  = uVBias;     // tip chemical potential ~ bias
+  float muT  = VBias;     // tip chemical potential ~ bias
   float gammaS0 = max(uGammaS, 0.0);
   float gammaT0 = max(uGammaT, 0.0);
 
@@ -677,8 +684,21 @@ float pme_total_charge(float rho[NSTATE], int nsites) {
 }
 
 void main() {
-  // Map vUv in [0,1]^2 to tip-plane coordinates [-L, L]^2
-  vec3 tip = tip_from_uv(vUv, uL, uZTip);
+  // Determine tip position and local VBias based on scan mode.
+  vec3 tip;
+  float localVBias;
+
+  if (uScanMode == 1) {
+    // XV Mode: x-axis is position along P1-P2, y-axis is VBias
+    float t = vUv.x;
+    vec2 pos2d = mix(uP1, uP2, t);
+    tip = vec3(pos2d, uZTip);
+    localVBias = mix(uVBiasMin, uVBiasMax, vUv.y);
+  } else {
+    // XY Mode (default): Map vUv in [0,1]^2 to tip-plane coordinates [-L, L]^2
+    tip = tip_from_uv(vUv, uL, uZTip);
+    localVBias = uVBias;
+  }
 
   // If no sites, show neutral gray.
   if (uNSites <= 0) {
@@ -692,7 +712,8 @@ void main() {
   float Ri_arr[NSITE];
   float Emin;
   float Emax;
-  compute_site_energies(tip, uNSites, Rscale, Ei_arr, Ri_arr, Emin, Emax);
+
+  compute_site_energies(tip, uNSites, Rscale, localVBias, Ei_arr, Ri_arr, Emin, Emax);
 
   // Select scalar to render based on mode.
   float Eplot = 0.0;
@@ -720,7 +741,7 @@ void main() {
     float I_tip;
     float K  [NSTATE*NSTATE];
     float rhs[NSTATE];
-    solve_pme(Ei_arr, Ri_arr, uNSites, uW, rho, I_tip, K, rhs);
+    solve_pme(Ei_arr, Ri_arr, uNSites, uW, localVBias, rho, I_tip, K, rhs);
 
     if (uMode == 3) {
       Eplot = pme_site_occupancy(rho, uNSites, uSiteIndex);
