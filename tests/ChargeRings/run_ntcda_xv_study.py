@@ -78,15 +78,19 @@ def run_single_case(config_path, geometry_file, geom_name, solver_mode, W, out_r
     ax_stm.set_title(f'{geom_name}, solver={solver_mode}, W={W:.3f} eV (STM)')
     fig.colorbar(im0, ax=ax_stm, fraction=0.046, pad=0.04)
 
-    vmax = float(np.max(np.abs(dIdV)))
-    if vmax == 0.0:
-        vmax = 1e-9
+    # dI/dV visualization: symmetric around zero with optional oversaturation.
+    DIDV_CMAP = 'bwr'
+    DIDV_OVERSAT = 3.0  # shrink color range to highlight sign changes
+    abs_max = float(np.max(np.abs(dIdV)))
+    if abs_max == 0.0:
+        abs_max = 1e-9
+    vmax = abs_max / DIDV_OVERSAT
     im1 = ax_didv.imshow(
         dIdV,
         origin='lower',
         aspect='auto',
         extent=extent,
-        cmap='PiYG_r',
+        cmap=DIDV_CMAP,
         vmin=-vmax,
         vmax=vmax,
     )

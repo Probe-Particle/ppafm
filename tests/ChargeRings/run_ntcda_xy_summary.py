@@ -80,6 +80,12 @@ def make_summary_for_solver_and_W(geom_label: str, solver_mode: int, W: float, W
     didv_max = max(d.max() for d in dIdVs)
     didv_abs = max(abs(didv_min), abs(didv_max))
 
+    DIDV_CMAP = "bwr"
+    DIDV_OVERSAT = 3.0
+    if didv_abs <= 0.0:
+        didv_abs = 1e-9
+    didv_plot_abs = didv_abs / DIDV_OVERSAT
+
     ncols = len(VBs)
     fig, axes = plt.subplots(2, ncols, figsize=(3.8 * ncols, 6.0), squeeze=False)
 
@@ -96,13 +102,13 @@ def make_summary_for_solver_and_W(geom_label: str, solver_mode: int, W: float, W
             vmin=stm_min,
             vmax=stm_max,
         )
-        norm = TwoSlopeNorm(vcenter=0.0, vmin=-didv_abs, vmax=didv_abs)
+        norm = TwoSlopeNorm(vcenter=0.0, vmin=-didv_plot_abs, vmax=didv_plot_abs)
         im1 = ax_didv.imshow(
             dIdV,
             origin="lower",
             aspect="equal",
             extent=extent,
-            cmap="PiYG_r",
+            cmap=DIDV_CMAP,
             norm=norm,
         )
 

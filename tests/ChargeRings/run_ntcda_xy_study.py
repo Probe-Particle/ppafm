@@ -85,15 +85,18 @@ def run_single_case(config_path, geometry_file, geom_name, solver_mode, W, Vbias
     fig.colorbar(im0, ax=ax0, fraction=0.046, pad=0.04)
 
     if dIdV is not None:
-        vmax = float(np.max(np.abs(dIdV)))
-        if vmax == 0.0:
-            vmax = 1e-9
+        DIDV_CMAP = 'bwr'
+        DIDV_OVERSAT = 3.0
+        abs_max = float(np.max(np.abs(dIdV)))
+        if abs_max == 0.0:
+            abs_max = 1e-9
+        vmax = abs_max / DIDV_OVERSAT
         ax1 = axes[1]
         im1 = ax1.imshow(
             dIdV,
             origin='lower',
             extent=extent,
-            cmap='PiYG_r',
+            cmap=DIDV_CMAP,
             vmin=-vmax,
             vmax=vmax,
         )
