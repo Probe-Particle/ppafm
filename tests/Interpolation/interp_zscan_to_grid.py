@@ -264,9 +264,6 @@ python interp_zscan_to_grid.py \
     --zmin 2.0 --zmax 4.0 --zstep 0.1 \
     --save-prefix data_Mithun/OHO-h_1-CO_O_slice
 
-
-
-
 python interp_zscan_to_grid.py \
     --points data_Mithun/points/OHO-h_1_points_clean.txt \
     --zscan  data_Mithun/scans/OHO-h_1-CO_O.dat \

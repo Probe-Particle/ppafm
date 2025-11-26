@@ -5,7 +5,7 @@ from scipy.linalg import solve # Using scipy's wrapper for better handling
 
 # --- Helper Functions ---
 
-def wendland_c2(r, R_basis):
+def wendland_c2(r, R_basis, C=1.0):
     """Wendland C2 compactly supported RBF."""
     r     = np.abs(r)
     mask  = r < R_basis
@@ -14,7 +14,7 @@ def wendland_c2(r, R_basis):
     t2 = t1 * t1
     t4 = t2 * t2
     out = np.zeros_like(r)
-    out[mask] = t4 * (4.0 * t + 1.0)
+    out[mask] = t4 * (4.0 * t + C)
     return out
 
 def compact_c2_covariance(r, R_basis):
