@@ -49,11 +49,11 @@ void set_current_matrix_pointer(double* ptr, double* out_prob_b_enter, double* o
 // C wrapper: include zV1 and build Vec2d
 void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, double zVd, int order, const double* cs, double* outEs, bool bMirror, bool bRamp ) {
     Vec2d zV{zV0,zVd};
-    evalSitesTipsMultipoleMirror( nTip, (Vec3d*)pTips, VBias, nSites, (Vec3d*)pSite, (Mat3d*)rotSite, E0, Rtip, zV, order, cs, outEs, bMirror, bRamp );
+    evalSitesTipsMultipoleMirror( nTip, (Vec3d*)pTips, VBias, nSites, (Quat4d*)pSite, (Mat3d*)rotSite, E0, Rtip, zV, order, cs, outEs, bMirror, bRamp );
 }
 
 void evalSitesTipsTunneling( int nTips, const double* pTips, int nSites, const double* pSites, double beta, double Amp, double* outTs ){
-    evalSitesTipsTunneling( nTips, (Vec3d*) pTips, nSites, (Vec3d*) pSites, beta, Amp, outTs ); 
+    evalSitesTipsTunneling( nTips, (Vec3d*) pTips, nSites, (Quat4d*) pSites, beta, Amp, outTs ); 
 }  
 
 // Create a PauliSolver instance with basic initialization but without setting parameters
@@ -161,10 +161,6 @@ double solve_hsingle( void* solver_ptr, const double* hsingle, double W, int ile
     }
     // Select solver backend based on global flag
 
-    if(which_solver>=0 && (solver->nSingle>3)){
-        // DEBUG - this is just because we were getting segfault for n>3
-        which_solver = -1;
-    }
     //if(_verbosity>0){ printf("solve_hsingle() 2 which_solver: %d nSingle: %d\n", which_solver, solver->nSingle); }
     if(which_solver == -1){
         // Ground-state only
@@ -252,12 +248,13 @@ void solve_batch(
 }
 
 double scan_current_manual_threads( PauliSolver* solver, int npoints, double* hsingles, double* Ws, double* VGates, double* TLeads, int* state_order, double* out_current) {
+    printf("[pauli_lib] scan_current_manual_threads() npoints=%d\n", npoints);
+    fflush(stdout);
 
     int nSingle = solver->nSingle;
     int nleads = solver->nleads;
     std::vector<double> base_lead_mu(nleads); // Use std::vector
     for(int l = 0; l < nleads; l++) { base_lead_mu[l] = solver->leads[l].mu; }
-
     if(state_order) {
         // This setup should ideally happen *before* creating copies if it affects
         // the base state copied by the constructor.
@@ -319,11 +316,11 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (!solver) { return 0.0; }
     if (bOmp) { 
-        //return scan_current_omp(solver, npoints, hsingles, Ws, VGates, TLeads, state_order, out_current); 
-        //return scan_current_omp_stackalloc(solver, npoints, hsingles, Ws, VGates, TLeads, state_order, out_current);
+        printf("[pauli_lib] scan_current() dispatching to threaded path (npoints=%d)\n", npoints);
+        fflush(stdout);
         return scan_current_manual_threads(solver, npoints, hsingles, Ws, VGates, TLeads, state_order, out_current);
     }
-    printf("scan_current() npoints: %d bOmp: %d\n", npoints, bOmp);
+    printf("[pauli_lib] scan_current() running serial path (npoints=%d)\n", npoints);
     int nSingle = solver->nSingle;
     int n2 = nSingle*nSingle; 
     int nleads = solver->nleads;
@@ -373,7 +370,7 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
  * @param pTips Array of tip positions (npoints x 3)
  * @param rots Array of rotation matrices for sites (nSites x 3x3)
  * @param nSites Number of sites
- * @param pSites Array of site positions (nSites x 3)
+ * @param pSites Array of site positions (nSites x 4)
  * @param params Array of parameters:
  *   [0]=VBias, [1]=Rtip, [2]=zV0, [3]=Esite, [4]=beta, [5]=Gamma, [6]=W
  * @param order Multipole order (0=monopole, 1=dipole, 2=quadrupole)
@@ -384,7 +381,7 @@ double scan_current(void* solver_ptr, int npoints, double* hsingles, double* Ws,
  * @return 0 on success
  */
 
-double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Vec3d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, double* Probs, double* StateEnergies, bool externTs ){
+double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Quat4d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, double* Probs, double* StateEnergies, bool externTs ){
     //PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     //if (!solver) return 0.0;
     //printf("scan_current_tip() npoints: %d bOmp: %d state_order: %p \n", npoints, bOmp, state_order );
@@ -436,7 +433,8 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
         solver->leads[1].mu = VBias;
         for (int j = 0; j < nSites; j++) {
             Mat3d* rot = ( rots ) ? ( rots + j ) : nullptr;
-            double Ei = evalMultipoleMirror( tipPos, pSites[j], VBias, Rtip, zV, order, cs, E0, rot, bMirror, bRamp );
+            double Esite = pSites[j].w;
+            double Ei = evalMultipoleMirror( tipPos, pSites[j].f, VBias, Rtip, zV, order, cs, Esite, rot, bMirror, bRamp );
 
             hsingle[j*nSites + j] = Ei;
             if( Es ) { Es[ip*nSites + j] = Ei; }
@@ -446,7 +444,7 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
                 T = Ts[ip*nSites + j];
                 //if(j!=0) { T = 0.0; }
             }else{
-                Vec3d d          = tipPos - pSites[j];
+                Vec3d d          = tipPos - pSites[j].f;
                 T         = exp(-beta * d.norm());
                 if( Ts ) { Ts[ip*nSites + j] = T; }
             }
@@ -472,7 +470,7 @@ double scan_current_tip_( PauliSolver* solver, int npoints, Vec3d* pTips, double
     return 0.0;
 }
 
-double scan_current_tip_threaded( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Vec3d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, double* Probs, double* StateEnergies, bool externTs ){
+double scan_current_tip_threaded( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Quat4d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, double* Probs, double* StateEnergies, bool externTs ){
     unsigned int num_threads = std::thread::hardware_concurrency();
     if (num_threads == 0) num_threads = 4; // Fallback if detection fails
     num_threads = std::min((unsigned int)npoints, num_threads);
@@ -516,7 +514,7 @@ double scan_current_tip_threaded( PauliSolver* solver, int npoints, Vec3d* pTips
 }
 
 
-double scan_current_tip_threaded_2( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Vec3d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, double* Probs, double* StateEnergies, bool externTs ){
+double scan_current_tip_threaded_2( PauliSolver* solver, int npoints, Vec3d* pTips, double* Vtips, int nSites, Quat4d* pSites, Mat3d* rots, double* params, int order, double* cs,  int* state_order, double* out_current, double* Es, double* Ts, double* Probs, double* StateEnergies, bool externTs ){
 
     // Extract parameters
     double Rtip  = params[0];
@@ -544,7 +542,8 @@ double scan_current_tip_threaded_2( PauliSolver* solver, int npoints, Vec3d* pTi
         Vec3d tipPos = pTips[i];
         for (int j = 0; j < nSites; j++) {
             Mat3d* rot = ( rots ) ? ( rots + j ) : nullptr;
-            double Ei = evalMultipoleMirror( tipPos, pSites[j], Vtips[i], Rtip, zV, order, cs, E0, rot );
+            double Esite = pSites[j].w;
+            double Ei = evalMultipoleMirror( tipPos, pSites[j].f, Vtips[i], Rtip, zV, order, cs, Esite, rot );
             hsingles[i*nSites*nSites + j*nSites + j] = Ei;
             if( Es ) { Es[i*nSites + j] = Ei; }
 
@@ -552,7 +551,7 @@ double scan_current_tip_threaded_2( PauliSolver* solver, int npoints, Vec3d* pTi
             if( externTs ) { 
                 T = Ts[i*nSites + j];
             }else{
-                Vec3d d = tipPos - pSites[j];
+                Vec3d d = tipPos - pSites[j].f;
                 T = exp(-beta * d.norm());
                 if( Ts ) { Ts[i*nSites + j] = T; }
             }
@@ -621,10 +620,12 @@ double scan_current_tip( void* solver_ptr, int npoints, double* pTips_, double* 
     PauliSolver* solver = static_cast<PauliSolver*>(solver_ptr);
     if (!solver) return 0.0;
     if( bOmp ){
-        return scan_current_tip_threaded_2( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Vec3d*)pSites_, (Mat3d*)rots_, params, order, cs, state_order, out_current, Es, Ts, Probs, StateEnergies, externTs );
-    } else {
-        return scan_current_tip_( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Vec3d*)pSites_, (Mat3d*)rots_, params, order, cs, state_order, out_current, Es, Ts, Probs, StateEnergies, externTs );
+        printf("[pauli_lib] scan_current_tip() dispatching to threaded path (npoints=%d)\n", npoints);
+        fflush(stdout);
+        return scan_current_tip_threaded_2( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Quat4d*)pSites_, (Mat3d*)rots_, params, order, cs, state_order, out_current, Es, Ts, Probs, StateEnergies, externTs );
     }
+    printf("[pauli_lib] scan_current_tip() running serial path (npoints=%d)\n", npoints);
+    return scan_current_tip_( solver, npoints, (Vec3d*)pTips_, Vtips, nSites, (Quat4d*)pSites_, (Mat3d*)rots_, params, order, cs, state_order, out_current, Es, Ts, Probs, StateEnergies, externTs );
 }
 
 // Calculate current through a lead (step 8 in optimization scheme)

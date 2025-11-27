@@ -238,13 +238,18 @@ class GUITemplate(QtWidgets.QMainWindow):
                     widget.setSingleStep(spec['step'])
                     if 'decimals' in spec:
                         widget.setDecimals(spec['decimals'])
+                    widget.valueChanged.connect(self.on_parameter_change)
                 elif spec['widget'] == 'int':
                     widget = QtWidgets.QSpinBox()
                     widget.setRange(*spec['range'])
                     widget.setValue(spec['value'])
                     if 'step' in spec:
                         widget.setSingleStep(spec['step'])
-                widget.valueChanged.connect(self.on_parameter_change)
+                    widget.valueChanged.connect(self.on_parameter_change)
+                elif spec['widget'] == 'bool':
+                    widget = QtWidgets.QCheckBox()
+                    widget.setChecked(bool(spec.get('value', False)))
+                    widget.stateChanged.connect(self.on_parameter_change)
             else:
                 widget = QtWidgets.QLabel(str(spec['value']))
             hb.addWidget(widget)
@@ -298,6 +303,8 @@ class GUITemplate(QtWidgets.QMainWindow):
                 widget = self.param_widgets[name]
                 if hasattr(widget, 'value'):
                     values[name] = widget.value()
+                elif isinstance(widget, QtWidgets.QCheckBox):
+                    values[name] = widget.isChecked()
                 else:
                     try:
                         values[name] = float(widget.text())
@@ -312,7 +319,11 @@ class GUITemplate(QtWidgets.QMainWindow):
         """Set values for all parameters"""
         for name, value in values.items():
             if name in self.param_widgets:
-                self.param_widgets[name].setValue(value)
+                widget = self.param_widgets[name]
+                if hasattr(widget, 'setValue'):
+                    widget.setValue(value)
+                elif isinstance(widget, QtWidgets.QCheckBox):
+                    widget.setChecked(bool(value))
     
     def save_parameters(self):
         """Save parameters to JSON file"""

@@ -1186,8 +1186,11 @@ def construct_Tba(leads, tleads, Tba_=None):
         if(verbosity > 2) printf("\nPauliSolver::generate_kern() Building kernel matrix...\n");
         // -- set kernel to zero using memset
         memset(kernel, 0, sizeof(double) * nstates * nstates);
-        //state_order2 = {0,1,2,4,3,5,6,7};
-        state_order2 = {0,1,2,3,4,5,6,7};
+        state_order2.resize(nstates);
+        for(int i = 0; i < nstates; ++i){ state_order2[i] = i; }
+        if(verbosity > 1 && nstates > 8){
+            printf("PauliSolver::generate_kern() generalized state_order2 for %d states\n", nstates);
+        }
         
         if(verbosity > 2) {
             printf("PauliSolver::generate_kern() starting\n");

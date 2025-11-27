@@ -53,32 +53,17 @@ cmap_STM = 'inferno'
 # ===========================================
 
 def load_site_geometry(filename):
-    """
-    Load site geometry from a file with x, y, angle columns.
-    
-    Args:
-        filename: Path to the input file with three columns: x, y, angle (in degrees)
-        
-    Returns:
-        tuple: (spos, rots, angles) where:
-            - spos: (n,3) array of site positions [x,y,z]
-            - rots: (n,3,3) array of rotation matrices
-            - angles: (n,) array of angles in radians
-    """
+    """Load site geometry (x, y, angle[, Esite]) from text file."""
     data = np.loadtxt(filename)
+    if data.ndim != 2 or data.shape[1] < 3:
+        raise ValueError(f"Geometry file '{filename}' must have >=3 columns (x,y,angle[,E]).")
     n_sites = len(data)
-    
-    # Create positions array [x, y, z=0]
-    spos = np.zeros((n_sites, 3))
-    spos[:, :2] = data[:, :2]  # x, y coordinates
-    
-    # Convert angles from degrees to radians
-    angles_deg = data[:, 2]
-    angles_rad = np.radians(angles_deg)
-    
-    # Generate rotation matrices
+    spos = np.zeros((n_sites, 4))
+    spos[:, :2] = data[:, :2]
+    if data.shape[1] >= 4:
+        spos[:, 3] = data[:, 3]
+    angles_rad = np.radians(data[:, 2])
     rots = ut.makeRotMats(angles_rad, nsite=n_sites)
-    
     return spos, rots, angles_rad
 
 def make_site_geom(params):
@@ -92,9 +77,12 @@ def make_site_geom(params):
     if 'geometry_file' in params:
         return load_site_geometry(params['geometry_file'])
     nsite = params['nsite']
-    spos, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
-    spos[:, 2] = params['zQd']
+    xyz, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
+    xyz[:, 2] = params['zQd']
     angles = phis + params['phi0_ax']
+    spos = np.zeros((nsite, 4))
+    spos[:, :3] = xyz
+    spos[:, 3] = params.get('Esite', 0.0)
     rots = ut.makeRotMats(angles, nsite=nsite)
     return spos, rots, angles
 
@@ -707,6 +695,144 @@ def interpolate_hopping_maps(T1, T2, c=1.0, T0=1.0):
     return T0 * ( (c/max2)*T2 + ((1-c)/max1)*T1 )
 
 
+def _pairwise_distances_xyz(spos):
+    """Pairwise distances between sites using xyz columns of spos.
+
+    spos is expected to be (nsite, >=3). The fourth column (onsite energy)
+    is ignored when computing distances.
+    """
+    xyz = np.asarray(spos, dtype=np.float64)[..., :3]
+    d = xyz[:, np.newaxis, :] - xyz[np.newaxis, :, :]
+    r = np.linalg.norm(d, axis=2)
+    return r
+
+
+def make_Wij_distance(spos, W, mode='dipole', beta=1.0, power=3.0):
+    """Build distance-dependent Wij with nearest neighbour normalized to W.
+
+    Parameters
+    ----------
+    spos : array_like, shape (nsite, >=3)
+        Site positions (xyz[+E]).
+    W : float
+        Target coupling for the shortest non-zero distance.
+    mode : {'const','dipole','exp','coulomb'}
+        Kernel type f(r):
+            'const'   : f(r)=1 (pure constant off-diagonal)
+            'dipole'  : f(r)=1/r**power
+            'coulomb' : f(r)=1/r
+            'exp'     : f(r)=exp(-beta*(r-r_min)) for r>0
+    beta : float
+        Exponential decay rate for 'exp' mode.
+    power : float
+        Power-law exponent for 'dipole' mode.
+    """
+    spos = np.asarray(spos, dtype=np.float64)
+    nsite = spos.shape[0]
+    if nsite <= 1:
+        return np.zeros((nsite, nsite), dtype=np.float64)
+
+    r = _pairwise_distances_xyz(spos)
+    # Mask out diagonal for r_min
+    with np.errstate(invalid='ignore'):
+        r_no_diag = r.copy()
+        np.fill_diagonal(r_no_diag, np.nan)
+        r_min = np.nanmin(r_no_diag)
+    if not np.isfinite(r_min) or r_min <= 0.0:
+        # Fallback: all sites coincident or invalid geometry
+        return np.zeros((nsite, nsite), dtype=np.float64)
+
+    f = np.zeros_like(r)
+    if mode == 'const':
+        f[:] = 1.0
+    elif mode == 'dipole':
+        f = 1.0 / np.power(r, power)
+    elif mode == 'coulomb':
+        f = 1.0 / r
+    elif mode == 'exp':
+        f = np.exp(-beta * (r - r_min))
+    else:
+        raise ValueError(f"Unknown Wij distance mode '{mode}'")
+
+    # Ensure diagonal stays zero in kernel
+    np.fill_diagonal(f, 0.0)
+
+    # Normalization so that f(r_min) * S = W
+    # r_min is non-zero and finite; compute its kernel value
+    # NOTE: use the minimum positive r in f as well (excluding diagonal)
+    with np.errstate(invalid='ignore'):
+        f_no_diag = f.copy()
+        np.fill_diagonal(f_no_diag, np.nan)
+        f_min = np.nanmax(f_no_diag[r_no_diag == r_min]) if np.any(r_no_diag == r_min) else np.nan
+    if not np.isfinite(f_min) or f_min == 0.0:
+        # Degenerate kernel; fall back to zero matrix
+        return np.zeros((nsite, nsite), dtype=np.float64)
+
+    S = float(W) / float(f_min)
+    Wij = S * f
+    np.fill_diagonal(Wij, 0.0)
+    return Wij
+
+
+def plot_Wij(Wij, ax=None, cmap='bwr'):
+    """Quick helper to visualize Wij with symmetric diverging scale around 0."""
+    import matplotlib.pyplot as plt
+    Wij = np.asarray(Wij, dtype=np.float64)
+    vmax = float(np.max(np.abs(Wij)))
+    if vmax == 0.0:
+        vmax = 1e-9
+    if ax is None:
+        fig, ax = plt.subplots()
+    im = ax.imshow(Wij, origin='lower', cmap=cmap, vmin=-vmax, vmax=vmax)
+    ax.set_title('Wij')
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    return ax
+
+
+def _apply_wij_config(pauli_solver, spos, params):
+    """Configure Coulomb interaction matrix based on params.
+
+    Priority:
+      1) If 'Wij_file' is given, load Wij from that file.
+      2) Else if bWijDistance/\"Wij_mode\" requests distance dependence,
+         build distance-based Wij with r_min normalization to W.
+      3) Else use constant off-diagonal W.
+    """
+    if pauli_solver is None:
+        return
+
+    W0 = float(params.get('W', 0.0))
+    if W0 == 0.0:
+        # Degenerate case: explicitly set zero matrix (no interaction)
+        pauli_solver.set_Wij(np.zeros((len(spos), len(spos)), dtype=np.float64))
+        return
+
+    # 1) Custom Wij file
+    Wij_file = params.get('Wij_file', None)
+    if Wij_file:
+        Wij = np.loadtxt(Wij_file)
+        Wij = np.ascontiguousarray(Wij, dtype=np.float64)
+        pauli_solver.set_Wij(Wij)
+        print(f"_apply_wij_config(): loaded Wij from '{Wij_file}' shape={Wij.shape} (min,max)=({Wij.min()},{Wij.max()})")
+        return
+
+    # 2) Distance-based Wij
+    use_distance = bool(params.get('bWijDistance', False))
+    mode = params.get('Wij_mode', None)
+    if use_distance or (mode is not None and mode != 'const'):
+        mode = mode or 'dipole'
+        beta = float(params.get('Wij_beta', 1.0))
+        power = float(params.get('Wij_power', 3.0))
+        Wij = make_Wij_distance(spos, W=W0, mode=mode, beta=beta, power=power)
+        Wij = np.ascontiguousarray(Wij, dtype=np.float64)
+        pauli_solver.set_Wij(Wij)
+        print(f"_apply_wij_config(): distance-based Wij mode={mode} (min,max)=({Wij.min()},{Wij.max()})")
+        return
+
+    # 3) Simple constant off-diagonal W
+    pauli.setWijConstant(len(spos), pauli_solver, W0=W0)
+
+
 def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, ax_Etot=None, ax_Ttot=None, ax_STM=None, ax_Ms=None, ax_rho=None, ax_dIdV=None, decay=None, bOmp=False, Tmin=0.0, EW=2.0, sdIdV=1.0, fig_probs=None, bdIdV=False):
     """
     Scan tip position in x,y plane for constant Vbias using external hopping Ts
@@ -759,18 +885,27 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     #Ts_flat = Ts_orb
 
     Ts_flat = interpolate_hopping_maps(Ts_gauss, Ts_orb, c=c_orb, T0=params['T0'])
-    
+
     # Create solver if not provided
     if pauli_solver is None:
         pauli_solver = pauli.PauliSolver(nSingle=nsite, nleads=2)
     pauli.set_valid_point_cuts(Tmin, EW)
-    print("!!!!!!!!!!!!!!! scan_xy_orb() befroe setWijCoulomb(): ")
-    pauli.setWijCoulomb(spos, pauli_solver, W0=params['W'])
+    _apply_wij_config(pauli_solver, spos, params)
+
+    # Align solver probability checks with CLI defaults
+    T_eV = params.get('Temp', 0.0) * 8.617333262e-5
+    pauli_solver.set_lead(0, 0.0, T_eV)
+    pauli_solver.set_lead(1, 0.0, T_eV)
+    pauli_solver.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12)
+    old_validate = pauli.bValidateProbabilities
+    pauli.bValidateProbabilities = False
     
     #T2 = time.perf_counter(); print("Time(scan_xy_orb.2 Ts,PauliSolver)",  T2-T1 )     
     #bOmp = True
-    STM_flat, Es_flat, Ts_flat_, probs, stateEs_flat = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
-    pauli.validate_probabilities(probs)
+    try:
+        STM_flat, Es_flat, Ts_flat_, probs, stateEs_flat = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, Ts=Ts_flat, bOmp=bOmp)
+    finally:
+        pauli.bValidateProbabilities = old_validate
     #STM_flat, Es_flat, _ = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver )
     dIdV = None
     if ax_dIdV is not None: bdIdV=True
@@ -907,13 +1042,24 @@ def calculate_xV_scan(params, pTips=None, start_point=None, end_point=None, ax_E
     nsite = int(params['nsite'])
     spos, rots, angles = make_site_geom(params)
 
-    cpp_params = pauli.make_cpp_params(params)
     state_order = pauli.make_state_order(nsite)
-    current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos,  cpp_params, order=1, cs=None, rots=rots, bOmp=bOmp, state_order=state_order, Ts=None, pauli_solver=pauli_solver, return_state_energies=True )
+    current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV(
+        pTips,
+        Vbiases,
+        spos,
+        params,
+        order=1,
+        cs=None,
+        rots=rots,
+        bOmp=bOmp,
+        state_order=state_order,
+        Ts=None,
+        pauli_solver=pauli_solver,
+    )
     pauli.validate_probabilities(probs)
     # reshape
-    STM = current.reshape(nV,npts)
-    Es  = Es.reshape(nV,npts,nsite)
+    STM = current.reshape(nV, npts)
+    Es = Es.reshape(nV, npts, nsite)
     # max energy per bias
     Emax = Es.max(axis=2)
     # dI/dV
@@ -923,16 +1069,19 @@ def calculate_xV_scan(params, pTips=None, start_point=None, end_point=None, ax_E
     extent = [0, dist, Vmin, Vmax]
     if ax_Emax is not None:
         pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr', bDiverging=True)
-        ax_Emax.set_aspect('auto');
-        if bLegend: ax_Emax.set_ylabel('V [V]')
+        ax_Emax.set_aspect('auto')
+        if bLegend:
+            ax_Emax.set_ylabel('V [V]')
     if ax_STM is not None:
         pu.plot_imshow(ax_STM, STM, title='STM', extent=extent, cmap='hot')
-        ax_STM.set_aspect('auto');
-        if bLegend: ax_STM.set_ylabel('V [V]')
+        ax_STM.set_aspect('auto')
+        if bLegend:
+            ax_STM.set_ylabel('V [V]')
     if ax_dIdV is not None:
         pu.plot_imshow(ax_dIdV, dIdV, title='dI/dV', extent=extent, cmap='bwr', bDiverging=True, scV=sdIdV)
-        ax_dIdV.set_aspect('auto');
-        if bLegend: ax_dIdV.set_ylabel('V [V]')
+        ax_dIdV.set_aspect('auto')
+        if bLegend:
+            ax_dIdV.set_ylabel('V [V]')
 
     probs = probs.reshape(nV, nx, -1)
     if fig_probs is not None:
@@ -971,8 +1120,7 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
     # Site geometry (positions, rotations, angles)
     spos, rots, angles = make_site_geom(params)
 
-    print("!!!!!!!!!!!!!!! calculate_xV_scan_orb() befroe setWijCoulomb(): ")
-    pauli.setWijCoulomb(spos, pauli_solver, W0=params['W'])
+    _apply_wij_config(pauli_solver, spos, params)
 
     # Compute hopping Ts along line from orbital data
     c_orb = params['c_orb']  # Default to 1.0 if not specified
@@ -999,6 +1147,13 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
     
     state_order = pauli.make_state_order(nsite)
     nstate = len(state_order)
+    # Align solver probability checks with CLI defaults
+    T_eV = params.get('Temp', 0.0) * 8.617333262e-5
+    pauli_solver.set_lead(0, 0.0, T_eV)
+    pauli_solver.set_lead(1, 0.0, T_eV)
+    pauli_solver.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12)
+    old_validate = pauli.bValidateProbabilities
+    pauli.bValidateProbabilities = False
     if bCurrentComponents:
         nstate2 = nstate*nstate
         nxV = npts*nV
@@ -1016,8 +1171,10 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
     else:
         current_decomp = None
 
-    current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver)
-    pauli.validate_probabilities(probs) # Validate probabilities
+    try:
+        current, Es, Ts, probs, stateEs = pauli.run_pauli_scan_xV( pTips, Vbiases, spos, params, order=1, cs=None, rots=rots, state_order=state_order, Ts=Ts_input, bOmp=bOmp, pauli_solver=pauli_solver)
+    finally:
+        pauli.bValidateProbabilities = old_validate
     # reshape and compute
     STM = current.reshape(nV, npts)
     Es  = Es.reshape(nV, npts, nsite)
@@ -1524,7 +1681,7 @@ def sweep_scan_param_pauli_xy_orb(params, scan_params, view_params=None,
         run_params.update({ 'scan_index': i, 'scan_params': {param: vals[i] for param, vals in scan_params} })
 
         # Run xy scan with orbital data
-        STM, dIdV, Es, Ts, probs, spos, rots = scan_xy_orb(
+        STM, dIdV, Es, Ts, probs, stateEs, spos, rots = scan_xy_orb(
             params_i,
             orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
             pauli_solver=pauli_solver, bOmp=bOmp,
@@ -1534,6 +1691,7 @@ def sweep_scan_param_pauli_xy_orb(params, scan_params, view_params=None,
         # Collect results for return
         all_results.append({
             'STM': STM, 'dIdV': dIdV, 'Es': Es, 'Ts': Ts, 'probs': probs,
+            'stateEs': stateEs,
             'x': np.linspace(-params_i['L']/2, params_i['L']/2, params_i['npix']), 
             'y': np.linspace(-params_i['L']/2, params_i['L']/2, params_i['npix']),
             'params': run_params,
@@ -1667,15 +1825,23 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None,
         dist = np.hypot(x2-x1, y2-y1)
                 
         # Run xV scan with orbital data
-        STM, dIdV, Es, Ts, probs, x, voltages, spos, rots = calculate_xV_scan_orb(
-            params_i, start_point, end_point,
+        STM, dIdV, Es, Ts, probs, stateEs, x, voltages, spos, rots, current_decomp = calculate_xV_scan_orb(
+            params_i,
+            start_point=start_point,
+            end_point=end_point,
             orbital_2D=orbital_2D, orbital_lvec=orbital_lvec,
             pauli_solver=pauli_solver, bOmp=bOmp,
             ax_Emax=None, ax_STM=None, ax_dIdV=None,  # Don't plot in the function
             nx=nx, nV=nV, Vmin=Vmin, Vmax=Vmax,
             sdIdV=sdIdV, fig_probs=None
         )
-        all_results.append({ 'parameters': run_params, 'timestamp': datetime.now().isoformat() })
+        all_results.append({
+            'STM': STM, 'dIdV': dIdV, 'Es': Es, 'Ts': Ts, 'probs': probs,
+            'stateEs': stateEs, 'current_decomp': current_decomp,
+            'distance': x, 'voltages': voltages,
+            'spos': spos, 'rots': rots,
+            'parameters': run_params, 'timestamp': datetime.now().isoformat()
+        })
         col_title  = " ".join([f"{param}: {vals[i]:.4g}" for param, vals in scan_params])
         sim_extent = [0, dist, Vmin, Vmax]
         plot_column(fig, ncols, i + col_offset, STM, dIdV, sim_extent, title=col_title, xlabel='Distance (Å)', ylabel='Voltage (V)')

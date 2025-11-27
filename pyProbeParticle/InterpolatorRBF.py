@@ -6,7 +6,7 @@ from scipy.linalg import solve # Using scipy's wrapper for better handling
 from .interpy import wendland_c2, pairwise_distances
 
 class InterpolatorRBF:
-    def __init__(self, data_points, R_basis):
+    def __init__(self, data_points, R_basis, C_peak=1.0, normalized=False, eps_norm=0.0):
         """
         Setup phase: Builds and factorizes the RBF matrix.
         data_points: (N, 2) numpy array of data point locations.
@@ -15,6 +15,9 @@ class InterpolatorRBF:
         self.data_points = np.asarray(data_points, dtype=float)
         self.ndata       = self.data_points.shape[0]
         self.R_basis     = float(R_basis)
+        self.C_peak      = float(C_peak)
+        self.normalized  = bool(normalized)
+        self.eps_norm    = float(eps_norm)
 
         if self.ndata == 0:
             print("WARRNING: GlobalRbfInterpolator initialized with no data points.")
@@ -27,7 +30,7 @@ class InterpolatorRBF:
         # Build the Phi matrix: Phi_ij = phi(||p_i - p_j||)
         # Use pairwise_distances to get all distances efficiently
         distances = pairwise_distances(self.data_points, self.data_points)
-        self.phi_matrix = wendland_c2(distances, self.R_basis)
+        self.phi_matrix = wendland_c2(distances, self.R_basis, C=self.C_peak)
 
         # Factorize the matrix (e.g., LU decomposition) for efficient solves later
         # solve() handles factorization internally for repeat calls if the matrix doesn't change.
@@ -163,10 +166,16 @@ class InterpolatorRBF:
             neighbor_pts = self.data_points[neighbors_q_indices, :]
             dists = np.linalg.norm(neighbor_pts - q, axis=1)
 
-            phi_vals = wendland_c2(dists, self.R_basis)
+            phi_vals = wendland_c2(dists, self.R_basis, C=self.C_peak)
             neighbor_weights = self.weights[neighbors_q_indices]
 
-            interpolated_values[i] = np.sum(neighbor_weights * phi_vals)
+            base_val = np.sum(neighbor_weights * phi_vals)
+
+            if self.normalized:
+                S = np.sum(phi_vals)
+                interpolated_values[i] = base_val / (S + self.eps_norm)
+            else:
+                interpolated_values[i] = base_val
         #print("Global RBF Evaluate: Done.")
         return interpolated_values
 
