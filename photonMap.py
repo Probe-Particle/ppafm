@@ -70,6 +70,58 @@ import pyProbeParticle.photo          as photo
 
 bDebug = False
 
+# =============================================================================
+#      GUI Wrapper Functions
+# =============================================================================
+
+def photonMap2D_stamp( rhoTrans, lvec, z=5.0, sigma=1.0, multipole_dict={'s':1.0}, rots=[0.0], poss=[[0.0,0.0]], coefs=[[1.0,0.0]], ncanv=(500,500) ):
+    """Wrapper function for GUI compatibility.
+    
+    Creates tip field and calls photo.photonMap2D_stamp with proper parameters.
+    
+    Args:
+        rhoTrans: Transition density
+        lvec: Lattice vectors
+        z: Tip height
+        sigma: Field regularization parameter
+        multipole_dict: Tip multipole coefficients
+        rots: Molecular rotations
+        poss: Molecular positions
+        coefs: Molecular coefficients
+        ncanv: Canvas size (nx, ny)
+        
+    Returns:
+        tuple: (photon_map, Vtip, rho_canvas, grid_spacing)
+    """    
+    # Determine grid spacing from lvec and canvas size
+    dd = np.array([
+        lvec[3][2] / ncanv[0],
+        lvec[2][1] / ncanv[1]
+    ])
+    
+    # Create tip field
+    Vtip, shifts = photo.makeTipField( ncanv, dd, z0=z, sigma=sigma, multipole_dict=multipole_dict, b3D=False, bSTM=False )
+    
+    # Prepare inputs for photo.photonMap2D_stamp
+    # photo.photonMap2D_stamp expects 3D arrays (x,y,z) and sums along z
+    # But GUI provides 2D HOMO*LUMO, so add dummy z-dimension if needed
+    if len(rhoTrans.shape) == 2:
+        rhoTrans = rhoTrans[:, :, np.newaxis]  # Add z-dimension
+    
+    # Provide same density for each molecule position
+    nmol = len(poss)
+    rhos = [rhoTrans] * nmol
+    lvecs = [lvec] * nmol
+    
+    # Convert GUI coefficient format [[re, im], ...] to simple float list [re, ...]
+    # For real transition densities, we only need the real part
+    simple_coefs = [c[0] if isinstance(c, list) else c for c in coefs]
+    
+    # Call the actual photonMap2D_stamp function
+    phmap, canvas = photo.photonMap2D_stamp( rhos, lvecs, Vtip, dd, rots=rots, poss=poss, coefs=simple_coefs, byCenter=False, bComplex=False )
+    
+    return phmap, Vtip, canvas, dd
+
 class ExcitonSystem:
     """Class representing a coupled exciton system in molecular aggregates.
     
@@ -110,6 +162,7 @@ params={
 "radius":10.0,
 "ztip":6.0,
 #"tip":"s",
+"dcanv":0.2,
 "subsampling":6,
 "excitons":False,
 "volumetric":False,
@@ -124,7 +177,7 @@ params={
 "tipDictSTM":"tipdictstm.ini",
 "images":True,
 "grdebug":False,
-#"current":False,
+"debug_dims":False,
 "beta":-1.0,
 }
 
@@ -209,11 +262,39 @@ def plotBoxes( poss, rots, lvecs, ax=None, byCenter=False ):
     #print "lvec ", lvecH
     for i in range(len(poss)):
         lvec = lvecs[i]
+        
+        # Calculate box dimensions from lattice vectors
+        # GENERIC approach: a and b are molecular dimensions (not plot dimensions)
+        # The makeBox function applies rotation to transform these to plot coordinates
+        # a = dimension along molecular X-axis (local coordinate)
+        # b = dimension along molecular Y-axis (local coordinate)
+        a = np.linalg.norm(lvec[1][:2])  # X-vector length (molecular X-axis)
+        b = np.linalg.norm(lvec[2][:2])  # Y-vector length (molecular Y-axis)
+        
+        if params["debug_dims"]:
+            print(f"[DEBUG] plotBoxes molecule {i}:")
+            print(f"[DEBUG]   Position: {poss[i]}")
+            print(f"[DEBUG]   Rotation: {rots[i]:.3f} rad ({np.degrees(rots[i]):.1f}°)")
+            print(f"[DEBUG]   lvec[1] (X): {lvec[1]} (length: {np.linalg.norm(lvec[1]):.3f} Å)")
+            print(f"[DEBUG]   lvec[2] (Y): {lvec[2]} (length: {np.linalg.norm(lvec[2]):.3f} Å)")
+            print(f"[DEBUG]   lvec[3] (Z): {lvec[3]} (length: {np.linalg.norm(lvec[3]):.3f} Å)")
+            print(f"[DEBUG]   Box dimensions (molecular frame): a={a:.3f} Å (along mol-X), b={b:.3f} Å (along mol-Y)")
+            print(f"[DEBUG]   Rotation will transform these to plot coordinates")
+            print(f"[DEBUG]   byCenter: {byCenter}")
+        
         #xs,ys = makeBox( poss[i], rots[i], a=lvec[2][1],b=lvec[3][2] )
         if byCenter:
-            xs,ys = makeBox( poss[i], rots[i], a=float(lvec[3][2]),b=float(lvec[2][1]), byCenter=True )
+            xs,ys = makeBox( poss[i], rots[i], a=a, b=b, byCenter=True )
         else:
-            xs,ys = makeBox( poss[i], rots[i], a=float(lvec[3][2]),b=float(lvec[2][1]), byCenter=False )
+            xs,ys = makeBox( poss[i], rots[i], a=a, b=b, byCenter=False )
+        
+        if params["debug_dims"]:
+            print(f"[DEBUG]   Box corners (x,y):")
+            for j, (x, y) in enumerate(zip(xs, ys)):
+                corner_name = ["START/END", "Corner 1", "Corner 2", "Corner 3", "START/END"][j]
+                print(f"[DEBUG]     {corner_name}: ({x:.3f}, {y:.3f})")
+            print(f"[DEBUG]   First corner (orange dot): ({xs[0]:.3f}, {ys[0]:.3f})")
+        
         ax.plot(xs,ys,linewidth=0.5)
         ax.plot(xs[0],ys[0],'.',markersize=5)
 
@@ -244,9 +325,9 @@ def loadMolecules( fname ):
     S.rots   = DATA[:,  3]   # rotations
     coefs    = DATA[:,4:6]   # coeficients (complex)
     S.Ediags = DATA[:,  6]   # excited state energy
-    S.irhos  = ( DATA[:,7] +0.5 ).astype(np.int)  # type of transity file
+    S.irhos  = ( DATA[:,7] +0.5 ).astype(int)  # type of transity file
     if len(DATA[0,:])>8:
-        S.ents = ( DATA[:,8] +0.5 ).astype(np.int)
+        S.ents = ( DATA[:,8] +0.5 ).astype(int)
         #print( " DATA.oents ", oents )
     else:
         S.ents = range( len(S.Ediags) )
@@ -275,29 +356,36 @@ def makeCombination( S0, inds ):
     #system  = ExcitonSystem( poss=poss,rots=rots,Ediags=Ediags,irhos=irhos,ents=ents,    Ham=None,eigEs=None,eigVs=eigVs,  lvecs=lvecs,rhosIns=rhosIns,rhoCanvs=None,Vti=None,PhMaps=None  )
     return S
 
-def loadRhoTrans( cubName=None ):
-    if cubName is not None:
-        #print(cubName)
-        #print(isinstance(cubName,str))
-        if (isinstance(cubName,str)):
-            rhoName = wdir+cubName
-            print(( ">>> Loading Transition density from ", rhoName, " ... " ))
-            rhoTrans, lvec, nDim, head = GU.loadCUBE( rhoName,trden=True)
-        #else: 
-        #
-        #print( "cubName ",   cubName )
-        #    homoName=wdir+cubName[0]
-        #    lumoName=wdir+cubName[1]
-        #    print(( ">>> Loading HOMO from ", homoName, " ... " ))
-        #    homo, lvecH, nDimH, headH = GU.loadCUBE( homoName )
-        #    print(( ">>> Loading LUMO from ", lumoName, " ... " ))
-        #    lumo, lvecL, nDimL, headL = GU.loadCUBE( lumoName )
-        #    lvec=lvecH; nDim=nDimH; headH=headH
-        #    homo = photo.normalizeGridWf( homo )
-        #    lumo = photo.normalizeGridWf( lumo )
-        #    rhoTrans = homo*lumo
-        #    qh = (homo**2).sum()   #; print("q(homo) ",qh)
-        #    ql = (lumo**2).sum()   #; print("q(lumo) ",ql)
+def loadRhoTrans(cubName):
+    """Load transition density from cube file.
+    
+    Args:
+        cubName: Path to cube file
+        
+    Returns:
+        tuple: (rhoTrans, lvec) - transition density array and lattice vectors
+    """
+    print(( ">>> Loading Transition density from ", cubName, " ... " ))
+    rhoTrans, lvec, nDim, head = GU.loadCUBE( cubName, trden=True )
+    
+    if params["debug_dims"]:
+        print(f"[DEBUG] loadRhoTrans: Loaded cube file")
+        print(f"[DEBUG]   nDim from file: {nDim} (nx, ny, nz)")
+        print(f"[DEBUG]   rhoTrans.shape: {rhoTrans.shape}")
+        print(f"[DEBUG]   lvec[1] (X-vector): {lvec[1]} (length: {np.linalg.norm(lvec[1]):.3f} Å)")
+        print(f"[DEBUG]   lvec[2] (Y-vector): {lvec[2]} (length: {np.linalg.norm(lvec[2]):.3f} Å)")
+        print(f"[DEBUG]   lvec[3] (Z-vector): {lvec[3]} (length: {np.linalg.norm(lvec[3]):.3f} Å)")
+    
+    #    print(( ">>> Loading HOMO from ", homoName, " ... " ))
+    #    homo, lvecH, nDimH, headH = GU.loadCUBE( homoName )
+    #    print(( ">>> Loading LUMO from ", lumoName, " ... " ))
+    #    lumo, lvecL, nDimL, headL = GU.loadCUBE( lumoName )
+    #    lvec=lvecH; nDim=nDimH; headH=headH
+    #    homo = photo.normalizeGridWf( homo )
+    #    lumo = photo.normalizeGridWf( lumo )
+    #    rhoTrans = homo*lumo
+    #    qh = (homo**2).sum()   #; print("q(homo) ",qh)
+    #    ql = (lumo**2).sum()   #; print("q(lumo) ",ql)
         
     if params["flip"]:
         print("Transposing XYZ->ZXY")
@@ -307,6 +395,9 @@ def loadRhoTrans( cubName=None ):
         nDim=npnDim[[2,0,1]]
         print(lvec)
         rhoTrans=(np.transpose(rhoTrans,(1,2,0))).copy()
+        if params["debug_dims"]:
+            print(f"[DEBUG] After flip: rhoTrans.shape: {rhoTrans.shape}")
+    
     return rhoTrans, lvec
 
 def loadCubeFilesINI( S0, fname_ini ):
@@ -458,6 +549,16 @@ def makePhotonMap( S, ipl, coefs, Vtip, dd_canv, byCenter=False, bDebugXsf=False
     Returns:
         tuple: Transition density on canvas and photon map
     """
+    if params["debug_dims"]:
+        print(f"[DEBUG] Before photonMap stamp:")
+        print(f"[DEBUG]   S.rhoIns[0].shape: {S.rhoIns[0].shape}")
+        print(f"[DEBUG]   S.lvecs[0]: {S.lvecs[0]}")
+        print(f"[DEBUG]   Vtip.shape: {Vtip.shape}")
+        print(f"[DEBUG]   dd_canv: {dd_canv}")
+        print(f"[DEBUG]   S.poss: {S.poss}")
+        print(f"[DEBUG]   S.rots: {S.rots}")
+        print(f"[DEBUG]   byCenter: {byCenter}")
+    
     if params["volumetric"]:
         phmap, rhoCanv_ = photo.photonMap3D_stamp( S.rhoIns, S.lvecs, Vtip, dd_canv, rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
         #phmap = np.sum(phmap_,axis=0)   # phmap_ is already 2D
@@ -467,6 +568,11 @@ def makePhotonMap( S, ipl, coefs, Vtip, dd_canv, byCenter=False, bDebugXsf=False
             GU.saveXSF( "rhoCanv_%03i.xsf" %ipl, rhoCanv_, dd=dd_canv )
     else:
         phmap, rhoCanv = photo.photonMap2D_stamp( S.rhoIns, S.lvecs, Vtip, dd_canv[:2], rots=S.rots, poss=S.poss, coefs=coefs, byCenter=byCenter )
+    
+    if params["debug_dims"]:
+        print(f"[DEBUG] After photonMap stamp:")
+        print(f"[DEBUG]   rhoCanv.shape: {rhoCanv.shape}")
+        print(f"[DEBUG]   phmap.shape: {phmap.shape}")
         #(dx,dy)=dd
     phmap = (phmap.real**2+phmap.imag**2)
     #print( "phmap.shape ", phmap.shape  )
@@ -501,7 +607,30 @@ def plotPhotonMap( system, ipl,ncomb, nvs, byCenter=False, fname=None, dd=None )
     #rho   = system.rhoCanvs[0]
     phMap = system.phMaps  [ipl]
     sh   = phMap.shape
-    extent=( -sh[0]*dd[0]*0.5,sh[0]*dd[0]*0.5,   -sh[1]*dd[1]*0.5, sh[1]*dd[1]*0.5  )
+    
+    if params["debug_dims"]:
+        print(f"[DEBUG] plotPhotonMap:")
+        print(f"[DEBUG]   rho.shape: {rho.shape}")
+        print(f"[DEBUG]   phMap.shape: {phMap.shape}")
+        print(f"[DEBUG]   dd (grid spacing): {dd}")
+        print(f"[DEBUG]   sh[0] = {sh[0]} (first dimension of array)")
+        print(f"[DEBUG]   sh[1] = {sh[1]} (second dimension of array)")
+        print(f"[DEBUG]   NOTE: Due to transpose in makeTipField, sh[0]=hcanv, sh[1]=wcanv")
+    
+    # IMPORTANT: After 3D transpose in makeTipField, the array dimensions are swapped:
+    # sh[0] corresponds to hcanv (ydim, vertical extent)
+    # sh[1] corresponds to wcanv (xdim, horizontal extent)
+    # So for extent (xmin, xmax, ymin, ymax), we need to use sh[1] for X and sh[0] for Y
+    extent=( -sh[1]*dd[1]*0.5, sh[1]*dd[1]*0.5,   -sh[0]*dd[0]*0.5, sh[0]*dd[0]*0.5  )
+    
+    if params["debug_dims"]:
+        print(f"[DEBUG]   extent calculation (CORRECTED for transpose):")
+        print(f"[DEBUG]     X-range: [-{sh[1]}*{dd[1]}*0.5, +{sh[1]}*{dd[1]}*0.5] = [{extent[0]:.1f}, {extent[1]:.1f}]")
+        print(f"[DEBUG]     Y-range: [-{sh[0]}*{dd[0]}*0.5, +{sh[0]}*{dd[0]}*0.5] = [{extent[2]:.1f}, {extent[3]:.1f}]")
+        print(f"[DEBUG]   extent: {extent} (xmin, xmax, ymin, ymax)")
+        print(f"[DEBUG]   Physical size: {sh[1]*dd[1]:.2f} x {sh[0]*dd[0]:.2f} Å (width x height)")
+        print(f"[DEBUG]   Expected from canvas: wcanv={params['xdim']}, hcanv={params['ydim']}")
+        print(f"[DEBUG]   Verification: X-extent should be ±{params['xdim']*dd[0]/2:.1f}, Y-extent should be ±{params['ydim']*dd[1]/2:.1f}")
     maxval=(np.max(rho.real))
     minval=abs(np.min(rho.real))
     maxs=np.max(np.array([maxval,minval])) #doing this to set the blue-red diverging scale white to zero in the plots
@@ -564,13 +693,13 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option( "-y", "--ydim",        action="store", type="int",    default=PARSER_DEFAULTVAL, help="height of canvas")
     parser.add_option( "-x", "--xdim",        action="store", type="int",    default=PARSER_DEFAULTVAL, help="width of canvas")
-#    parser.add_option( "-H", "--homo",        action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of electron hole;    3D data-file (.xsf,.cube)")
-#    parser.add_option( "-L", "--lumo",        action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of excited electron; 3D data-file (.xsf,.cube)")
+    parser.add_option( "-H", "--homo",        action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of electron hole;    3D data-file (.xsf,.cube)")
+    parser.add_option( "-L", "--lumo",        action="store", type="string", default=PARSER_DEFAULTVAL, help="orbital of excited electron; 3D data-file (.xsf,.cube)")
     parser.add_option( "-D", "--dens",        action="store", type="string", default=PARSER_DEFAULTVAL, help="transition density; 3D data-file (.xsf,.cube)")
     parser.add_option( "-R", "--radius",      action="store", type="float",  default=PARSER_DEFAULTVAL, help="tip radius")
     parser.add_option( "-n", "--subsampling", action="store", type="int",    default=PARSER_DEFAULTVAL, help="subsampling for coupling calculation, recommended setting 5-10, lower is slower")
     parser.add_option( "-Z", "--ztip",        action="store", type="float",  default=PARSER_DEFAULTVAL, help="tip above substrate") #need to clarify what it exactly means
-#    parser.add_option( "-t", "--tip",         action="store", type="string", default=PARSER_DEFAULTVAL, help="tip compositon s,px,py,pz,d...")
+    parser.add_option( "-t", "--tip",         action="store", type="string", default=PARSER_DEFAULTVAL, help="tip compositon s,px,py,pz,d...")
     parser.add_option( "-e", "--excitons",    action="store_true",           default=PARSER_DEFAULTVAL, help="calculate deloc. exitons of J-aggregate ( just WIP !!! )")
     parser.add_option( "-v", "--volumetric",  action="store_true",           default=PARSER_DEFAULTVAL, help="calculate on 2D grid, much faster")
     parser.add_option( "-f", "--flip",        action="store_true",           default=PARSER_DEFAULTVAL, help="transpose XYZ xsf/cube file to ZXY")
@@ -582,6 +711,7 @@ if __name__ == "__main__":
     parser.add_option( "-m", "--molecules",   action="store", type="string", default=PARSER_DEFAULTVAL, help="filename from which to read excitonic coordinates and other attributes")
     parser.add_option( "-i", "--images",      action="store_true",           default=PARSER_DEFAULTVAL, help="save output as images")
     parser.add_option( "-g", "--grdebug",     action="store_true",           default=PARSER_DEFAULTVAL, help="produce graphical output;")
+    parser.add_option( "-d", "--debug_dims",  action="store_true",           default=PARSER_DEFAULTVAL, help="print dimension tracking for debugging")
     parser.add_option( "-b", "--beta",        action="store", type="float",  default=PARSER_DEFAULTVAL, help="tunelling current (STM) modulation beta")
 
     bDebugXsf = False
@@ -632,11 +762,21 @@ if __name__ == "__main__":
 
     fnmb = setPathIfExist( params["dens"], default=fnmb)
     print("OUTPUT Basename: '"+fnmb+"'")
-    _,_,lmax = loadCubeFiles( S0 )
+    loadedRhos, loadedLvecs, lmax = loadCubeFiles( S0 )
+    
+    if params["debug_dims"] and loadedRhos and len(loadedRhos) > 0:
+        print(f"[DEBUG] After loadCubeFiles:")
+        print(f"[DEBUG]   loadedRhos[0].shape: {loadedRhos[0].shape}")
+        print(f"[DEBUG]   lmax: {lmax}")
  
     # -------- make Vtip
     hcanv = params["ydim"]
     wcanv = params["xdim"]
+    
+    if params["debug_dims"]:
+        print(f"[DEBUG] Initial canvas dimensions from params:")
+        print(f"[DEBUG]   wcanv (xdim): {wcanv} → horizontal extent in plot")
+        print(f"[DEBUG]   hcanv (ydim): {hcanv} → vertical extent in plot")
     #byCenter = False
     byCenter = True
     
@@ -672,11 +812,25 @@ if __name__ == "__main__":
     print( " tipDict     ", tipDict     )
     print( " tipDictSTM ", tipDictsSTM )
 
-    dcanv = 0.2
+    dcanv = params["dcanv"]
     dd = (dcanv,dcanv,dcanv)
     nz_ph = int( lmax[0]/dd[0]+1 )   # because lvecs are transposed x=z
     print( "nz_ph ", nz_ph ," lmax ", lmax )
+    
+    if params["debug_dims"]:
+        print(f"[DEBUG] Before makeTipField:")
+        print(f"[DEBUG]   Canvas shape for Vtip: ({wcanv}, {hcanv}, {nz_ph})")
+        print(f"[DEBUG]   Grid spacing dd: {dd}")
+        print(f"[DEBUG]   NOTE: Input shape is (nx, ny, nz) = (wcanv, hcanv, nz_ph)")
+    
     Vtip, shifts = photo.makeTipField( (wcanv,hcanv,nz_ph), dd, z0=params["ztip"], sigma=params["radius"], multipole_dict=tipDict, b3D=params["volumetric"] )
+    
+    if params["debug_dims"]:
+        print(f"[DEBUG] After makeTipField:")
+        print(f"[DEBUG]   Vtip.shape: {Vtip.shape}")
+        if params["volumetric"]:
+            print(f"[DEBUG]   NOTE: Vtip transposed from (nx,ny,nz) to (nz,ny,nx) inside makeTipField!")
+            print(f"[DEBUG]   So Vtip.shape = (nz={nz_ph}, ny={hcanv}, nx={wcanv})")
     if bDebugXsf and params["volumetric"]:
         GU.saveXSF( wdir+"Vtip.xsf", Vtip,  dd=dd )
     if params["grdebug"]:

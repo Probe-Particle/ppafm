@@ -204,16 +204,38 @@ def convFFT(F1,F2, bNormalize=False):
 # ==========================================================================
 
 def evalGridStep2D( sh, lvec ):
+    """Calculate 2D grid spacing from lattice vectors and shape.
+    
+    Args:
+        sh: Shape (nx, ny, nz) of the 3D density array
+        lvec: Lattice vectors [origin, X-vec, Y-vec, Z-vec]
+        
+    Returns:
+        tuple: (dx, dy) grid spacing in Ångströms
+    """
+    # Use full vector lengths, not individual components
+    # sh[0] = nx (points along X), sh[1] = ny (points along Y)
+    import numpy as np
     return (
-        lvec[3][2]/sh[0],
-        lvec[2][1]/sh[1]
+        np.linalg.norm(lvec[1][:2]) / sh[0],  # X-vector length / nx
+        np.linalg.norm(lvec[2][:2]) / sh[1]   # Y-vector length / ny
     )
 
 def evalGridStep3D( sh, lvec ):
+    """Calculate 3D grid spacing from lattice vectors and shape.
+    
+    Args:
+        sh: Shape (nx, ny, nz) of the 3D density array
+        lvec: Lattice vectors [origin, X-vec, Y-vec, Z-vec]
+        
+    Returns:
+        tuple: (dx, dy, dz) grid spacing in Ångströms
+    """
+    import numpy as np
     return (
-        lvec[3][2]/sh[0],
-        lvec[2][1]/sh[1],
-        lvec[1][0]/sh[2],    
+        np.linalg.norm(lvec[1]) / sh[0],  # X-vector length / nx
+        np.linalg.norm(lvec[2]) / sh[1],  # Y-vector length / ny
+        np.linalg.norm(lvec[3]) / sh[2]   # Z-vector length / nz
     )
 
 def photonMap2D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] ], coefs=[ [1.0,0.0] ], byCenter=False, bComplex=False ):
@@ -243,14 +265,37 @@ def photonMap2D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] 
     else:
         dtype=np.float64    
     canvas = np.zeros( ncanv, dtype=dtype )
+    
+    # Debug flag check (import params if available)
+    import importlib.util
+    debug_dims = False
+    if importlib.util.find_spec("photonMap"):
+        import photonMap
+        debug_dims = getattr(photonMap, "params", {}).get("debug_dims", False)
+    
     for i in range(len(poss)):
         coef = coefs[i]
         rho  = np.sum    (  rhos[i], axis=2  )
         rho  = rho.astype( dtype                 ) 
+        # Calculate grid spacing BEFORE transpose
         ddi  = np.array(  evalGridStep2D( rhos[i].shape, lvecs[i] ) )
+        # Transpose to match matplotlib imshow convention: (nx,ny) -> (ny,nx)
+        # imshow treats first dimension as rows (Y) and second as columns (X)
+        rho  = rho.T
+        # Also swap the grid spacing to match transposed array
+        ddi  = ddi[::-1]  # Swap (dx, dy) to (dy, dx)
         pos  = np.array( poss[i][:2] ) 
         pos    /= dd_canv
         dd_fac = ddi/dd_canv
+        
+        if debug_dims:
+            print(f"[DEBUG] photonMap2D_stamp molecule {i}:")
+            print(f"[DEBUG]   rho (2D after Z-sum).shape: {rho.shape}")
+            print(f"[DEBUG]   ddi (cube grid spacing): {ddi}")
+            print(f"[DEBUG]   dd_canv (canvas grid spacing): {dd_canv}")
+            print(f"[DEBUG]   dd_fac (scaling factor): {dd_fac}")
+            print(f"[DEBUG]   Stamped size on canvas: {rho.shape * dd_fac}")
+        
         if not isinstance(coef, float):
             coef = complex( coef[0], coef[1] )
         GU.stampToGrid2D( canvas, rho, pos, rots[i], dd=dd_fac, coef=coef, byCenter=byCenter, bComplex=bComplex)
@@ -294,7 +339,15 @@ def photonMap3D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] 
         coef = coefs[i]
         if not isinstance(coef, float):
             coef = complex( coef[0], coef[1] )
-        GU.stampToGrid3D( canvas, rho, pos, rots[i], dd=dd_fac, coef=coef, byCenter=byCenter )
+        
+        # CRITICAL FIX: Negate rotation because transpose((2,1,0)) swaps X and Z axes
+        # This causes the rotation to be inverted relative to the box
+        rot_angle = -rots[i]  # Negate to match box rotation direction
+        
+        print(f"[DEBUG] photonMap3D_stamp molecule {i}: Original rotation={rots[i]:.3f} rad ({np.degrees(rots[i]):.1f}°)")
+        print(f"[DEBUG] photonMap3D_stamp molecule {i}: Negated rotation={rot_angle:.3f} rad ({np.degrees(rot_angle):.1f}°) to compensate for transpose")
+            
+        GU.stampToGrid3D( canvas, rho, pos, rot_angle, dd=dd_fac, coef=coef, byCenter=byCenter )
     #phmap  = convFFT(Vtip,canvas)   # WARRNING : FFT should not be done in z-direction
     phmap   = np.zeros( canvas.shape[1:], dtype=np.complex128  )
     for i in range( canvas.shape[0] ):

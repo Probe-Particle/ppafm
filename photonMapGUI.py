@@ -101,7 +101,8 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         vb.addWidget( QtWidgets.QLabel("x y [A]  rot[deg]  coef {Re,Im}") )
         tx = QtWidgets.QTextEdit()
         vb.addWidget( tx )
-        tx.setText('''-5.0 -10.0      0.0     1.0 0.0\n10.0 5.0     90.0     -1.0 0.0''')
+        # tx.setText('''-5.0 -10.0      0.0     1.0 0.0\n10.0 5.0     90.0     -1.0 0.0''')
+        tx.setText('''0.0 0.0      0.0     1.0 0.0''')
         self.txPoses = tx
         #self.centralLayout.addWidget( bt )
 
@@ -166,7 +167,9 @@ class ApplicationWindow(QtWidgets.QMainWindow):
             xs,ys = makeBox( self.poss[i], self.rots[i], a=10.0,b=20.0 )
             fig.axes.plot( xs, ys, '-' )
         '''
-        phmap.plotBoxes( self.poss, self.rots, self.lvec, ax=fig.axes )
+        # plotBoxes expects lvecs as a list, one per molecule
+        lvecs = [self.lvec] * len(self.poss)
+        phmap.plotBoxes( self.poss, self.rots, lvecs, ax=fig.axes )
         fig.draw()
 
     def eval(self):
@@ -240,10 +243,10 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         t2 = time.clock(); print "plotSlice time %f [s]" %(t2-t1)
     '''
 
-    #def clickImshow(self,ix,iy):
-    #    ys = self.viewed_data[ :, iy, ix ]
-    #    self.figCurv.show()
-    #    self.figCurv.figCan.plotDatalines( ( range(len(ys)), ys, "%i_%i" %(ix,iy) )  )
+    def clickImshow(self,ix,iy):
+       ys = self.viewed_data[ :, iy, ix ]
+       self.figCurv.show()
+       self.figCurv.figCan.plotDatalines( ( range(len(ys)), ys, "%i_%i" %(ix,iy) )  )
 
 if __name__ == "__main__":
 
@@ -260,7 +263,7 @@ if __name__ == "__main__":
     parser.add_option( "-T", "--transdens",  action="store", type="string", default="", help="transition density; 3D data-file (.xsf,.cube)")
 
     parser.add_option( "-R", "--radius", action="store", type="float",  default="1.0", help="tip radius")
-    parser.add_option( "-z", "--ztip",   action="store", type="float",  default="5.0", help="tip above substrate")
+    parser.add_option( "-Z", "--ztip",   action="store", type="float",  default="5.0", help="tip above substrate")
     parser.add_option( "-t", "--tip",    action="store", type="string", default="s",   help="tip compositon s,px,py,pz,d...")
     (opts, args) = parser.parse_args()
 

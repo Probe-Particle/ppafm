@@ -49,8 +49,10 @@ def renorSlice( F ):
     return vranges
 
 def rot3DFormAngle(angle):
-    ca=np.cos(-angle)
-    sa=np.sin(-angle)#*-1
+    # Fixed: Use positive angle to match box rotation (counter-clockwise)
+    # Previously used negative angle, causing density to rotate opposite to box
+    ca=np.cos(angle)
+    sa=np.sin(angle)
     rot  = np.array([
         [ ca,-sa,0],
         [ sa, ca,0],
@@ -175,9 +177,11 @@ lib.stampToGrid2D        .restype  = None
 lib.stampToGrid2D_complex.argtypes = [ array1i, array1i, array1d, array1d, array1d, array2d, array2d, array1d  ]
 lib.stampToGrid2D_complex.restype  = None
 def stampToGrid2D( canvas, stamp, p0, angle, dd=[1.0,1.0], coef=1.0, byCenter=True, bComplex=False ):
-    ca=np.cos(-angle)
-    sa=np.sin(-angle)
-    b    = np.array([ca,-sa]) *dd[0]   # ToDo : This is just quick fix for the fact that data-array are transposed 
+    # Fixed: Use positive angle to match box rotation (counter-clockwise)
+    # Previously used negative angle, causing density to rotate opposite to box
+    ca=np.cos(angle)
+    sa=np.sin(angle)
+    b    = np.array([ca,-sa]) *dd[0]
     a    = np.array([sa, ca]) *dd[1]
     ns1=np.array( stamp .shape[::-1], dtype=np.int32 )
     ns2=np.array( canvas.shape[::-1], dtype=np.int32 )
@@ -467,28 +471,43 @@ def loadCUBE(fname,trden=False):
     #print "GridUtils| np.shape(F): ",np.shape(F)
     #print "GridUtils| nDim: ",nDim
 
-    FF = np.reshape(F, nDim).transpose((2,1,0)).copy()  # Transposition of the array to have the same order of data as in XSF file
-
-    #FF [1:,1:,1:] = FF [:-1,:-1,:-1] 
-    #FF [:,1:,:] = FF [:,:-1,:] 
-#    FF [0,:,0] = 1. 
-#    FF [-1,:,-1] = 1. 
- 
-#    FF [0,0,:] = 0.05 
-#    FF [-1,-1,:] = 0.05 
-#    FF [:,-1,-1] = 1. 
-#    FF [:,0,0] = 1. 
-    nDim=[nDim[2],nDim[1],nDim[0]]                          # Setting up the corresponding dimensions. 
+    # Cube file format specification (Gaussian cube format):
+    # - Data is stored in Fortran order: Z varies fastest, then Y, then X
+    # - Linear index: i = ix*ny*nz + iy*nz + iz
+    # 
+    # We reshape the flat array F into 3D array FF:
+    # - nDim = [nx, ny, nz] from cube file header
+    # - F is 1D array with nx*ny*nz elements in Fortran order
+    # - We reshape to (nx, ny, nz) which gives us FF[ix, iy, iz] in C-contiguous memory
+    # 
+    # This is the standard interpretation - no transposition needed for most QM codes
+    FF = np.reshape(F, nDim, order='C').copy()
+    
+    # Keep nDim consistent with FF.shape for generic compatibility
+    # nDim[0] = nx (number of points along X)
+    # nDim[1] = ny (number of points along Y)
+    # nDim[2] = nz (number of points along Z)
+    # This matches: FF.shape = (nx, ny, nz)
+    
     head = []
     head.append("BEGIN_BLOCK_DATAGRID_3D \n")
     head.append("g98_3D_unknown \n")
     head.append("DATAGRID_3D_g98Cube \n")
-    if trden: #added by MS
-        FF*=float(sth1[1])*float(sth2[2])*float(sth3[3])
+    
+    if trden:
+        # Scale transition density by voxel volume (in Angstrom^3)
+        # Voxel volume = |v1 · (v2 × v3)| where v1, v2, v3 are the axis vectors
+        # This works for both orthogonal and non-orthogonal grids
+        v1 = np.array([float(sth1[1]), float(sth1[2]), float(sth1[3])])  # X-axis vector (in Bohr)
+        v2 = np.array([float(sth2[1]), float(sth2[2]), float(sth2[3])])  # Y-axis vector (in Bohr)
+        v3 = np.array([float(sth3[1]), float(sth3[2]), float(sth3[3])])  # Z-axis vector (in Bohr)
+        voxel_volume_bohr3 = abs(np.dot(v1, np.cross(v2, v3)))
+        voxel_volume_ang3 = voxel_volume_bohr3 * (bohrRadius2angstroem**3)
+        FF *= voxel_volume_ang3
     else:
-        FF*=Hartree2eV
+        FF *= Hartree2eV
 
-    return FF,lvec, nDim, head
+    return FF, lvec, nDim, head
 #================ WSxM output
 
 def saveWSxM_2D(name_file, data, Xs, Ys):

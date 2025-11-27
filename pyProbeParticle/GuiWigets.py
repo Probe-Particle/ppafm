@@ -74,7 +74,7 @@ class FigImshow(FigCanvas):
 
         print('self.margins', margins)
         #self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='nearest', extent=extent )
-        self.img = self.axes.imshow( F, origin='image', cmap='gray', interpolation='bicubic', extent=extent )
+        self.img = self.axes.imshow( F, origin='lower', cmap='gray', interpolation='bicubic', extent=extent )
        
         j_min,i_min = np.unravel_index(F.argmin(), F.shape)  
         j_max,i_max = np.unravel_index(F.argmax(), F.shape)  
@@ -92,7 +92,7 @@ class FigImshow(FigCanvas):
             self.axes.set_xlabel(textRes)
         if self.cbar is None:
             self.cbar = self.fig.colorbar( self.img )
-        self.cbar.set_clim( vmin=F.min(), vmax=F.max() )
+        self.img.set_clim( vmin=F.min(), vmax=F.max() )
         self.cbar.update_normal(self.img)
         #self.axes.set_xlim(0,F.shape[1])
         #self.axes.set_ylim(0,F.shape[0])
