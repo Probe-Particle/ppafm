@@ -29,6 +29,15 @@ uniform int   uRelaxIters;
 // v = (1-damp)*v + f*dt; pos += v*dt;
 uniform float uDt;
 uniform float uDamp;
+uniform float uF2Conv;
+uniform int   uAlgo;        // 0 = basic Euler, 1 = zero-velocity quench
+uniform int   uRenderMode;  // 0 = df, 1 = Fz, 2 = residual |F|, 3 = iter count
+uniform int   uOscSteps;    // number of approach/oscillation steps (<=128)
+uniform float uDz;          // step size for adiabatic approach
+uniform float uOscAmp;      // oscillation amplitude (peak offset)
+uniform int   uPreRelax;    // iterations for far-field pre-relax
+uniform int   uRelaxSub;    // sub-iterations per step
+uniform float uWeights[32];// Giessibl weights (top -> bottom)
 
 varying vec2 vUv;
 
@@ -159,36 +168,79 @@ void main() {
     // Map screen coordinates to sample coordinates
     vec2 uv    = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0;
     vec2 posXY = uCenter + uv * uScale;
-    float z    = uZPlane;
 
-    // Dynamic relaxation in XY: damped velocity + lateral spring to original posXY
-    vec3 pAnchor = vec3(posXY, z);
-    vec3 pos     = pAnchor; 
-    pos.z       -= uRtip;   // anchor is at some height above the sample
-    vec3 vel  = vec3(0.0);
-    vec3 Fsamp;
-    float dt =uDt;
-    //float damp = clamp(uDamp, 0.0, 0.999);
-    for (int iter = 0; iter < 16; iter++) { // hard cap for safety
-        if (iter >= uRelaxIters) break;
-        Fsamp = computeSampleForce(pos);
-        vec3 Ftip = computeTipForce( pos-pAnchor );
+    // --- Adiabatic approach with preconditioned relaxation ---
+    float zStart = uZPlane + uOscAmp;
+    vec3 anchor  = vec3(posXY, zStart);
+    vec3 pos     = anchor;
+    pos.z       -= uRtip;   // equilibrium bond offset
+
+    float kx = max(uKLat, 1e-6);
+    float kz = max(uKRad, 1e-6);
+    vec3 invK = vec3(1.0/kx, 1.0/kx, 1.0/kz) * 0.5; // mild mixing
+
+    // Pre-relax in far field
+    int preIters = 0;
+    for (int i = 0; i < 32; i++) {
+        if (i >= uPreRelax) break;
+        preIters = i;
+        vec3 Fsamp = computeSampleForce(pos);
+        vec3 Ftip  = computeTipForce(pos - anchor);
         vec3 Ftot  = Fsamp + Ftip;
-        //if (dot(Ftot, Ftot) < F2CONV) break;
-        //float cVF = dot(Ftot, vel); if(cVF < 0.0){ vel = vec3(0.0); }
-        vel += Ftot * dt;
-        pos += vel  * dt;
+        if (dot(Ftot, Ftot) < uF2Conv) break;
+        pos += Ftot * invK;
     }
-    //Fsamp = computeSampleForce(pos);
-    //pos += Fsamp / uKLat;  // Hook law
 
-    Fsamp = computeSampleForce(pos);
-    vec3 rgb = vec3( (0.5+Fsamp.z*uContrast));
+    float dfAccum = 0.0;
+    float fzFinal = 0.0;
+    float resF2   = 0.0;
+    int   iters   = 0;
 
-    // // Use the final force F (at relaxed position) for visualization
-    // float fmag = length(F.xy);
-    // float angle = atan(F.y, F.x); // [-pi,pi]
-    // float hue   = (angle / (2.0 * 3.14159265)) + 0.5; // map to [0,1]
+    for (int step = 0; step < 32; step++) {
+        if (step >= uOscSteps) break;
+
+        vec3 Ftot = vec3(0.0);
+        // Sub-iterations at this Z
+        for (int sub = 0; sub < 16; sub++) {
+            if (sub >= uRelaxSub) break;
+            iters++;
+            vec3 Fsamp = computeSampleForce(pos);
+            vec3 Ftip  = computeTipForce(pos - anchor);
+            Ftot = Fsamp + Ftip;
+            resF2 = dot(Ftot, Ftot);
+            if (resF2 < uF2Conv) break;
+            pos += Ftot * invK;
+        }
+
+        // Measure force after relaxation at this step
+        vec3 FsampFinal = computeSampleForce(pos);
+        fzFinal = FsampFinal.z;
+        float w = (step < 32) ? uWeights[step] : 0.0;
+        dfAccum += FsampFinal.z * w;
+
+        // Rigid advance towards surface
+        anchor.z -= uDz;
+        pos.z    -= uDz;
+    }
+
+    vec3 rgb;
+    if (uRenderMode == 0) {
+        // df from Giessibl convolution (default)
+        dfAccum *= -1.0; // seems to be inverted for some reason (perhaps the convolution mask ?, we go down in z )
+        rgb = vec3(0.5 + dfAccum * uContrast);
+    } else if (uRenderMode == 1) {
+        // relaxed vertical force
+        rgb = vec3(0.5 + fzFinal * uContrast);
+    } else if (uRenderMode == 2) {
+        // residual force norm after last relaxation step
+        float res = sqrt(resF2);
+        rgb = vec3(0.5 + res * uContrast);
+    } else {
+        // relative iteration count
+        float denom = max(float(uOscSteps * uRelaxSub + uPreRelax), 1.0);
+        float t = float(iters) / denom;
+        rgb = vec3(t);
+    }
     // // Map |F| to saturation with a soft roll-off
     // float s = clamp(fmag * 0.5, 0.0, 1.0);
     // float v = 0.5;

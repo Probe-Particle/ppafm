@@ -99,7 +99,7 @@
         <label> Center Y    </label><input id="inpCY"         type="number" step="0.5" value="0.0" />
       </div>
       <div class="row">
-        <label> Contrast    </label><input id="inpContrast"   type="number" step="0.1" value="5.0" />
+        <label> Contrast    </label><input id="inpContrast"   type="number" step="0.1" value="10.0" />
       </div>
       <div class="row">
         <label> Auto-update </label><input id="chkAutoUpdate" type="checkbox" checked />
@@ -110,6 +110,11 @@
         <label> Shift Z     </label><input id="chkShiftZ"     type="checkbox" checked />
       </div>
       <div class="row">
+        <label> Probe Q     </label><input id="inpProbeQ"     type="number" step="0.01"   value="-0.05" />
+        <label> Rpp         </label><input id="inpProbeR"     type="number" step="0.01"   value="1.6612" />
+        <label> Epp         </label><input id="inpProbeE"     type="number" step="0.0001" value="0.009106" />
+      </div>
+      <div class="row">
         <label> k_lat       </label><input id="inpKLat"       type="number" step="0.1"    value="0.5" />
         <label> k_rad       </label><input id="inpKRad"       type="number" step="1"      value="20.0" />
         <label> R_tip       </label><input id="inpRTip"       type="number" step="0.1"    value="3.5" />
@@ -117,11 +122,20 @@
       <div class="row">
         <label> Relax iters </label><input id="inpRelaxIters" type="number" step="1"      value="32" />
         <label> dt          </label><input id="inpDt"         type="number" step="0.01"   value="0.5" />
+        <label> F2Conv      </label><input id="inpF2Conv"     type="number" step="1e-8"   value="1e-6" />
       </div>
       <div class="row">
-        <label> Probe Q     </label><input id="inpProbeQ"     type="number" step="0.01"   value="-0.05" />
-        <label> Rpp         </label><input id="inpProbeR"     type="number" step="0.01"   value="1.6612" />
-        <label> Epp         </label><input id="inpProbeE"     type="number" step="0.0001" value="0.009106" />
+        <label> Osc steps   </label><input id="inpOscSteps"   type="number" step="1"      value="8" />
+        <label> dz          </label><input id="inpDz"         type="number" step="0.01"   value="0.1" />
+        <label> Amp         </label><input id="inpOscAmp"     type="number" step="0.1"    value="0.8" />
+      </div>
+      <div class="row">
+        <label> Pre-relax   </label><input id="inpPreRelax"   type="number" step="1"      value="16" />
+        <label> Substeps    </label><input id="inpRelaxSub"   type="number" step="1"      value="4" />
+        <label> Render (0/1/2/3)</label><input id="inpRender" type="number" step="1"      value="0" />
+      </div>
+      <div class="row">
+        <label> Algo (0/1)</label><input id="inpAlgo"        type="number" step="1"      value="0" />
       </div>
       <div class="row">
         <button id="btnApplyXYZ">Apply XYZ below</button>
@@ -208,6 +222,23 @@ Co	12.232819	10.07487	2.601853
 </textarea>
 
       </div>
+
+      <div class="row" style="margin-top:4px; border-top:1px solid var(--border); padding-top:2px; font-size:10px; line-height:1.25; color:var(--muted); max-width:420px;">
+        <strong>Usage & physics</strong><br/>
+        <strong>XYZ input:</strong> first line = number of atoms, then lines "Sym x y z [q]". Optional last column is atomic charge <code>q</code> (e).<br/>
+        <strong>Probe:</strong> <code>Probe Q</code> is tip charge, <code>Rpp,Epp</code> are LJ parameters for the probe particle. Sample LJ is taken from element type and mixed with probe (LorentzBerthelot).<br/>
+        <strong>Tip spring:</strong> <code>k_lat,k_rad,R_tip</code> define lateral and radial stiffness and equilibrium bond length; they control how strongly the CO-like particle bends and stretches.<br/>
+        <strong>Relaxation:</strong> <code>Relax iters,dt,F2Conv</code> set maximum iterations, step and convergence threshold. <code>Osc steps,dz,Amp,Pre-relax,Substeps</code> control the adiabatic approach and df integration along the oscillation path.<br/>
+        <strong>Render mode:</strong> 0 = frequency shift df (Giessibl convolution), 1 = relaxed vertical force Fz, 2 = residual |F| after relaxation, 3 = relative iteration count.<br/>
+        <strong>Model:</strong> This WebGL demo implements the probe-particle AFM model where a flexible particle (e.g. CO) attached to the tip relaxes in the combined Morse+LJ+Coulomb field of sample atoms, reproducing high-resolution nc-AFM contrast.<br/>
+        <strong>References:</strong>
+        Hapala et al., <em>Mechanism of high-resolution STM/AFM imaging with functionalized tips</em>, Phys. Rev. B 90, 085421 (2014),
+        <a href="https://doi.org/10.1103/PhysRevB.90.085421" target="_blank" rel="noopener">doi:10.1103/PhysRevB.90.085421</a>.<br/>
+        Oinonen et al., <em>Advancing scanning probe microscopy simulations: A decade of development in probe-particle models</em>, Comput. Phys. Commun. 305, 109341 (2024),
+        <a href="https://doi.org/10.1016/j.cpc.2024.109341" target="_blank" rel="noopener">doi:10.1016/j.cpc.2024.109341</a>.<br/>
+        Code and related tools: <a href="https://github.com/Probe-Particle/PPSTM" target="_blank" rel="noopener">github.com/Probe-Particle/PPSTM</a>.
+      </div>
+
       <div class="row" id="status"></div>
     </div>
 
@@ -247,6 +278,15 @@ Co	12.232819	10.07487	2.601853
         uRtip:       { value: 4.0 },
         uRelaxIters: { value: 16 },
         uDt:         { value: 0.1 },
+        uF2Conv:     { value: 1e-6 },
+        uAlgo:       { value: 0 },   // 0 = basic Euler, 1 = quench
+        uRenderMode: { value: 0 },   // 0 = df, 1 = Fz, 2 = residual |F|, 3 = iter count
+        uOscSteps:   { value: 8 },
+        uDz:         { value: 0.1 },
+        uOscAmp:     { value: 0.8 },
+        uPreRelax:   { value: 16 },
+        uRelaxSub:   { value: 4 },
+        uWeights:    { value: new Float32Array(32).fill(0.0) },
         uNumAtoms:   { value: 0 },
         uAtoms:      { value: [] },
         // Per-atom Morse+Coulomb parameters (R0,E0,Q,K)
@@ -349,18 +389,34 @@ Co	12.232819	10.07487	2.601853
           var RTip     = parseFloat(document.getElementById('inpRTip').value);
           var relaxIt  = parseInt  (document.getElementById('inpRelaxIters').value, 10);
           var dt       = parseFloat(document.getElementById('inpDt').value);
+          var algo     = parseInt  (document.getElementById('inpAlgo').value, 10);
+          var renderM  = parseInt  (document.getElementById('inpRender').value, 10);
+          var f2conv   = parseFloat(document.getElementById('inpF2Conv').value);
+          var oscSteps = parseInt  (document.getElementById('inpOscSteps').value, 10);
+          var dz       = parseFloat(document.getElementById('inpDz').value);
+          var oscAmp   = parseFloat(document.getElementById('inpOscAmp').value);
+          var preRelax = parseInt  (document.getElementById('inpPreRelax').value, 10);
+          var relaxSub = parseInt  (document.getElementById('inpRelaxSub').value, 10);
 
           // Apply defaults if parsing failed
-          if (!isFinite(z))        z        = 0.0;
-          if (!isFinite(scale))    scale    = 10.0;
-          if (!isFinite(cxUser))   cxUser   = 0.0;
-          if (!isFinite(cyUser))   cyUser   = 0.0;
-          if (!isFinite(contrast)) contrast = 0.5;
-          if (!isFinite(kLat))     kLat     = 0.5;
-          if (!isFinite(kRad))     kRad     = 20.0;
-          if (!isFinite(RTip))     RTip     = 4.0;
-          if (!isFinite(dt))       dt       = 0.1;
-          if (!isFinite(relaxIt))  relaxIt  = 16;
+        //   if (!isFinite(z))        z        = 0.0;
+        //   if (!isFinite(scale))    scale    = 10.0;
+        //   if (!isFinite(cxUser))   cxUser   = 0.0;
+        //   if (!isFinite(cyUser))   cyUser   = 0.0;
+        //   if (!isFinite(contrast)) contrast = 0.5;
+        //   if (!isFinite(kLat))     kLat     = 0.5;
+        //   if (!isFinite(kRad))     kRad     = 20.0;
+        //   if (!isFinite(RTip))     RTip     = 4.0;
+        //   if (!isFinite(dt))       dt       = 0.1;
+        //   if (!isFinite(relaxIt))  relaxIt  = 16;
+        //   if (!isFinite(algo))     algo     = 0;
+        //   if (!isFinite(renderM))  renderM  = 0;
+        //   if (!isFinite(f2conv))   f2conv   = 1e-6;
+        //   if (!isFinite(oscSteps)) oscSteps = 32;
+        //   if (!isFinite(dz))       dz       = 0.1;
+        //   if (!isFinite(oscAmp))   oscAmp   = oscSteps * dz * 0.5;
+        //   if (!isFinite(preRelax)) preRelax = 16;
+        //   if (!isFinite(relaxSub)) relaxSub = 4;
 
           // Physical constraints: all stiffnesses, dt and bond length must be positive
           var EPS_K   = 1e-6;
@@ -371,6 +427,34 @@ Co	12.232819	10.07487	2.601853
           if (RTip <= 0.0)   RTip   = EPS_LEN;
           if (dt   <= 0.0)   dt     = EPS_DT;
           if (relaxIt < 1)   relaxIt = 1;
+          if (oscSteps < 1)  oscSteps = 1;
+          if (oscSteps > 32) oscSteps = 32;
+          if (dz <= 0.0)     dz = 0.01;
+          if (oscAmp <= 0.0) oscAmp = oscSteps * dz * 0.5;
+          if (preRelax < 0)  preRelax = 0;
+          if (preRelax > 32) preRelax = 32;
+          if (relaxSub < 1)  relaxSub = 1;
+          if (relaxSub > 16) relaxSub = 16;
+
+          // Keep Osc steps, dz, Amp mutually consistent based on the last edited field
+          var active = document.activeElement ? document.activeElement.id : '';
+          if (active === 'inpOscSteps' || active === 'inpDz') {
+            // steps or dz changed -> recompute Amp = steps * dz
+            oscAmp = oscSteps * dz;
+            var ampInput = document.getElementById('inpOscAmp');
+            if (ampInput) ampInput.value = oscAmp.toFixed(3);
+          } else if (active === 'inpOscAmp') {
+            // Amp changed -> recompute steps ≈ Amp/dz, then snap Amp back to steps*dz
+            var estSteps = Math.round(oscAmp / dz);
+            if (!(estSteps > 0)) estSteps = 1;
+            if (estSteps > 32) estSteps = 32;
+            oscSteps = estSteps;
+            oscAmp   = oscSteps * dz;
+            var stepsInput = document.getElementById('inpOscSteps');
+            var ampInput2  = document.getElementById('inpOscAmp');
+            if (stepsInput) stepsInput.value = oscSteps.toString();
+            if (ampInput2)  ampInput2.value  = oscAmp.toFixed(3);
+          }
           // Determine actual anchor Z from user-defined height above top-most atom
           var chkShiftZ   = document.getElementById('chkShiftZ');
           var shiftZOn    = chkShiftZ && chkShiftZ.checked;
@@ -399,15 +483,51 @@ Co	12.232819	10.07487	2.601853
           uniforms.uRtip.value       = RTip;
           uniforms.uRelaxIters.value = relaxIt;
           uniforms.uDt.value         = dt;
+          uniforms.uAlgo.value       = algo;
+          uniforms.uRenderMode.value = renderM;
+          uniforms.uF2Conv.value     = f2conv;
+          uniforms.uOscSteps.value   = oscSteps;
+          uniforms.uDz.value         = dz;
+          uniforms.uOscAmp.value     = oscAmp;
+          uniforms.uPreRelax.value   = preRelax;
+          uniforms.uRelaxSub.value   = relaxSub;
+          // Recompute Giessibl weights
+          var weights = calculateGiessiblWeights(oscSteps, dz);
+          var wArr = uniforms.uWeights.value;
+          wArr.fill(0.0);
+          for (var wi = 0; wi < oscSteps && wi < wArr.length; wi++) {
+            wArr[wi] = weights[wi];
+          }
           setStatus('Updated view parameters');
           renderOnce();
+        }
+
+        // Giessibl weights as in getDfWeight
+        function calculateGiessiblWeights(nSteps, dz) {
+          if (!(nSteps > 1)) return [];
+          var x = [];
+          for (var i = 0; i <= nSteps; i++) {
+            x.push(-1 + 2 * (i / nSteps)); // bottom -> top
+          }
+          var y = x.map(function (v) { var vv = 1 - v*v; return (vv > 0) ? Math.sqrt(vv) : 0.0; });
+          var dy = [];
+          for (var i = 0; i < nSteps; i++) {
+            dy.push((y[i+1] - y[i]) / (dz * nSteps));
+          }
+          var fpi = Math.pow(nSteps - 2, 2);
+          var prefactor = -1 * (1 + fpi * (2/Math.PI)) / (fpi + 1);
+          var weights = [];
+          for (var i = 0; i < nSteps; i++) {
+            weights.push(dy[nSteps - 1 - i] * prefactor); // reverse: top->bottom
+          }
+          return weights;
         }
 
         // Button still available for manual trigger
         document.getElementById('btnUpdateView').addEventListener('click', updateViewFromInputs);
 
         // Auto-update when basic view parameter inputs change (if enabled)
-        ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast', 'inpKLat', 'inpKRad', 'inpRTip', 'inpRelaxIters', 'inpDt']
+        ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast', 'inpKLat', 'inpKRad', 'inpRTip', 'inpRelaxIters', 'inpDt', 'inpAlgo', 'inpRender', 'inpF2Conv', 'inpOscSteps', 'inpDz', 'inpOscAmp', 'inpPreRelax', 'inpRelaxSub']
           .forEach(function (id) {
             var el = document.getElementById(id);
             if (!el) return;
@@ -432,7 +552,29 @@ Co	12.232819	10.07487	2.601853
           });
         }
 
-        ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast', 'inpKLat', 'inpKRad', 'inpRTip', 'inpDt'].forEach(attachWheelIncrement);
+        ['inpZ', 'inpScale', 'inpCX', 'inpCY', 'inpContrast', 'inpKLat', 'inpKRad', 'inpRTip', 'inpDt', 'inpAlgo', 'inpRender', 'inpF2Conv', 'inpOscSteps', 'inpDz', 'inpOscAmp', 'inpPreRelax', 'inpRelaxSub'].forEach(attachWheelIncrement);
+
+        // Auto-update REQK when probe parameters change
+        ['inpProbeQ', 'inpProbeR', 'inpProbeE'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          el.addEventListener('input', function () {
+            if (autoUpdate) {
+              applyXYZ(document.getElementById('txtXYZ').value);
+              updateViewFromInputs();
+            }
+          });
+        });
+        // Auto-apply XYZ text edits
+        var txtXYZ = document.getElementById('txtXYZ');
+        if (txtXYZ) {
+          txtXYZ.addEventListener('input', function () {
+            if (autoUpdate) {
+              applyXYZ(txtXYZ.value);
+              updateViewFromInputs();
+            }
+          });
+        }
 
         // Checkboxes to control auto-update and animation
         var chkAutoUpdate = document.getElementById('chkAutoUpdate');
@@ -533,7 +675,12 @@ Co	12.232819	10.07487	2.601853
           var x = parseFloat(parts[1]);
           var y = parseFloat(parts[2]);
           var z = parseFloat(parts[3]);
-          var q = (parts.length > 4) ? parseFloat(parts[4]) : 0.0; // atomic charge if provided
+          // atomic charge if provided (take first parsable token beyond xyz)
+          var q = 0.0;
+          for (var qi = 4; qi < parts.length; qi++) {
+            var qtmp = parseFloat(parts[qi].replace(',', '.'));
+            if (isFinite(qtmp)) { q = qtmp; break; }
+          }
           atoms.push(new THREE.Vector4(x, y, z, q));
           if (x < minX) minX = x; if (x > maxX) maxX = x;
           if (y < minY) minY = y; if (y > maxY) maxY = y;
