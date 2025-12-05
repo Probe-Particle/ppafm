@@ -494,10 +494,10 @@ float compute_tip_current(
   in int   nsites,
   in float muT,
   in float gammaT0,
-  in float w2[NSITE]
+  in float w2[NSITE],
+  in float kT
 ) {
   float I_tip = 0.0;
-  float kT   = 0.01;
   for (int s = 0; s < NSTATE; ++s) {
     if (s >= nStates) break;
 
@@ -619,7 +619,7 @@ void solve_pme(
   for (int s = 0; s < NSTATE; ++s) { rho[s] = (s < nStates) ? rhs[s] : 0.0; }
 
   // Compute PME tip current from solved rho.
-  I_tip = compute_tip_current(Es, Ri_arr, rho, nStates, nsites, muT, gammaT0, w2);
+  I_tip = compute_tip_current(Es, Ri_arr, rho, nStates, nsites, muT, gammaT0, w2, kT);
 }
 
 // PME observables

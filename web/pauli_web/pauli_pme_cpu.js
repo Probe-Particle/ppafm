@@ -5,7 +5,16 @@
 'use strict';
 
 // Minimal debug printing helpers for vectors and matrices.
+// Returns current verbosity level (numeric). Default 0 if unset.
+function getPmeVerbosity() {
+    if (typeof window !== 'undefined' && typeof window.pmeVerbosity === 'number') {
+        return window.pmeVerbosity;
+    }
+    return 0;
+}
+
 function dbgPrintVector(label, v, n) {
+    if (getPmeVerbosity() < 4) return;
     var m = (typeof n === 'number') ? n : v.length;
     var row = [];
     for (var i = 0; i < m; i++) {
@@ -16,6 +25,7 @@ function dbgPrintVector(label, v, n) {
 }
 
 function dbgPrintMatrix(label, K, nStates) {
+    if (getPmeVerbosity() < 4) return;
     console.log(label + ' (size ' + nStates + 'x' + nStates + '):');
     for (var r = 0; r < nStates; r++) {
         var row = [];
@@ -526,19 +536,21 @@ function solvePmeCpu(params) {
         W
     } = params;
 
-    console.log('solvePmeCpu params:', {
-        NSites: NSites,
-        sites: sites,
-        tip: tip,
-        Rtip: Rtip,
-        VBias: VBias,
-        TempK: TempK,
-        GammaS: GammaS,
-        GammaT: GammaT,
-        decay: decay,
-        W: W,
-        solver: params.solver
-    });
+    if (getPmeVerbosity() >= 3) {
+        console.log('solvePmeCpu params:', {
+            NSites: NSites,
+            sites: sites,
+            tip: tip,
+            Rtip: Rtip,
+            VBias: VBias,
+            TempK: TempK,
+            GammaS: GammaS,
+            GammaT: GammaT,
+            decay: decay,
+            W: W,
+            solver: params.solver
+        });
+    }
 
     const Rscale = Math.max(Rtip, 1.0);
     const { Ei, Ri } = computeSiteEnergies(tip, sites, NSites, Rscale, VBias);
@@ -572,7 +584,9 @@ function solvePmeCpu(params) {
     }
 
     const I_tip = computeTipCurrent(Es, Ri, rho, nStates, NSites, muT, gammaT0, Rtip, useDecay, decay, kT);
-    console.log('solvePmeCpu debug: solver=' + solver + ' NSites=' + NSites + ' nStates=' + nStates + ' I_tip=' + I_tip);
+    if (getPmeVerbosity() >= 3) {
+        console.log('solvePmeCpu debug: solver=' + solver + ' NSites=' + NSites + ' nStates=' + nStates + ' I_tip=' + I_tip);
+    }
     dbgPrintMatrix('  K', K, nStates);
     dbgPrintVector('  rhs', rhs, nStates);
     dbgPrintVector('  rho', rho, nStates);
@@ -591,6 +605,115 @@ function solvePmeCpu(params) {
 
 function pauliPmeDebug(params) {
     const out = solvePmeCpu(params);
-    console.log('PME CPU debug result:', out);
+    if (getPmeVerbosity() >= 2) {
+        console.log('PME CPU debug result:', out);
+    }
     return out;
+}
+
+// -----------------------------------------------------------------------------
+// 2D CPU PME scans (XY and XV) mirroring the GLSL shader logic
+// -----------------------------------------------------------------------------
+
+// Evaluate a single PME observable at a given tip position and bias, using the
+// same parameters/observables as the shader. This reuses solvePmeCpu and the
+// existing pmeSiteOccupancy / pmeTotalCharge helpers.
+function evalPmeAtTipAndBias(tip, VBias, sites, params, NSites, mode, siteIdx) {
+    const p = Object.assign({}, params, {
+        tip: tip,
+        sites: sites,
+        NSites: NSites,
+        VBias: VBias
+    });
+
+    const out = solvePmeCpu(p);
+
+    if (mode === 3) {
+        return pmeSiteOccupancy(out.rho, NSites, siteIdx);
+    } else if (mode === 4) {
+        return pmeTotalCharge(out.rho, NSites);
+    } else {
+        // Default: PME tip current, matching shader uMode==5
+        return out.I_tip;
+    }
+}
+
+// 2D XY scan: map a regular grid in uv \in [0,1]^2 to real-space tip positions
+// using the same mapping as the shader:
+//   tip = ((2*u-1)*L, (2*v-1)*L, ZTip),  VBias = params.VBias
+// Returns { xs, ys, Z } where Z[iy][ix] is the scalar observable.
+function runCpuScan2D_XY(nx, ny, sites, params, NSites, mode, siteIdx) {
+    if (nx < 1 || ny < 1) return { xs: [], ys: [], Z: [] };
+
+    const L = params.L;
+    const ZTip = params.ZTip;
+    const VBias = params.VBias;
+
+    const xs = new Array(nx);
+    const ys = new Array(ny);
+    const Z  = new Array(ny);
+
+    for (let iy = 0; iy < ny; iy++) {
+        // Center of pixel in [0,1]
+        const v = (iy + 0.5) / ny;
+        ys[iy] = v;
+        const row = new Array(nx);
+
+        for (let ix = 0; ix < nx; ix++) {
+            const u = (ix + 0.5) / nx;
+            if (iy === 0) xs[ix] = u;
+
+            const x = (u * 2.0 - 1.0) * L;
+            const y = (v * 2.0 - 1.0) * L;
+            const tip = { x: x, y: y, z: ZTip };
+
+            row[ix] = evalPmeAtTipAndBias(tip, VBias, sites, params, NSites, mode, siteIdx);
+        }
+        Z[iy] = row;
+    }
+
+    return { xs: xs, ys: ys, Z: Z };
+}
+
+// 2D XV scan: x-axis is position along P1-P2 (t \in [0,1]), y-axis is bias
+// between VBiasMin and VBiasMax, mirroring the shader's uScanMode==1 branch.
+//   pos2d = mix(P1, P2, t)
+//   tip   = (pos2d.x, pos2d.y, ZTip)
+//   VBias = mix(VBiasMin, VBiasMax, v)
+// Returns { ts, Vs, Z } where Z[iy][ix] corresponds to (t, V).
+function runCpuScan2D_XV(nx, ny, sites, params, NSites, mode, siteIdx) {
+    if (nx < 1 || ny < 1) return { ts: [], Vs: [], Z: [] };
+
+    const ZTip     = params.ZTip;
+    const P1x      = params.P1x;
+    const P1y      = params.P1y;
+    const P2x      = params.P2x;
+    const P2y      = params.P2y;
+    const VBiasMin = params.VBiasMin;
+    const VBiasMax = params.VBiasMax;
+
+    const ts = new Array(nx);   // position parameter t in [0,1]
+    const Vs = new Array(ny);   // bias values
+    const Z  = new Array(ny);
+
+    for (let iy = 0; iy < ny; iy++) {
+        const v = (iy + 0.5) / ny;
+        const VBias = VBiasMin + (VBiasMax - VBiasMin) * v;
+        Vs[iy] = VBias;
+        const row = new Array(nx);
+
+        for (let ix = 0; ix < nx; ix++) {
+            const t = (ix + 0.5) / nx;
+            if (iy === 0) ts[ix] = t;
+
+            const px = P1x + (P2x - P1x) * t;
+            const py = P1y + (P2y - P1y) * t;
+            const tip = { x: px, y: py, z: ZTip };
+
+            row[ix] = evalPmeAtTipAndBias(tip, VBias, sites, params, NSites, mode, siteIdx);
+        }
+        Z[iy] = row;
+    }
+
+    return { ts: ts, Vs: Vs, Z: Z };
 }

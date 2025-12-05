@@ -76,6 +76,9 @@
             <div class="row"><label for="inpLineScanPoints">CPU scan pts</label> <input id="inpLineScanPoints"
                     type="number" min="2" step="1" value="3" /> <button id="btnCpuScan">Run CPU line scan</button></div>
             <div class="row"><canvas id="cpuLineScanCanvas" style="width:100%; height:180px;"></canvas></div>
+            <div class="row"><button id="btnCpu2DScan">Run CPU 2D scan</button></div>
+            <div class="row"><canvas id="cpu2DCanvas" style="width:100%; height:180px; border:1px solid #333;"></canvas></div>
+            <div class="row"><label for="inpVerbosity">verbosity</label> <input id="inpVerbosity" type="number" min="0" step="1" value="0" style="width:70px" /></div>
         </div>
     </div>
     <div id="ui">
@@ -153,13 +156,14 @@
             { key: 'NSites', label: 'NSites', type: 'int', def: 2, min: 1, max: 4, step: 1 },
             { key: 'L', label: 'L (Å)', type: 'float', def: 20.0, step: 1.0 },
             { key: 'ZTip', label: 'z_tip (Å)', type: 'float', def: 8.0, step: 0.1 },
-            { key: 'VBias', label: 'VBias (V)', type: 'float', def: 0.3, step: 0.01 },
-            { key: 'Rtip', label: 'Rtip (Å)', type: 'float', def: 4.0, min: 0.1, step: 0.1 },
+            { key: 'VBias', label: 'VBias (V)', type: 'float', def: 0.25, step: 0.01 },
+            { key: 'VBias0', label: 'VBias0 (V)', type: 'float', def: 0.0, step: 0.01 },
+            { key: 'Rtip', label: 'Rtip (Å)', type: 'float', def: 4.8, min: 0.1, step: 0.1 },
             { key: 'TempK', label: 'Temp (K)', type: 'float', def: 3.0, min: 0.0, step: 1.0 },
-            { key: 'GammaS', label: 'GammaS', type: 'float', def: 0.01, min: 0.0, step: 0.001 },
-            { key: 'GammaT', label: 'GammaT', type: 'float', def: 0.01, min: 0.0, step: 0.001 },
-            { key: 'decay', label: 'decay', type: 'float', def: 0.3, min: 0.0, step: 0.1 },
-            { key: 'W', label: 'W (Coul)', type: 'float', def: 0.0, step: 0.01 },
+            { key: 'GammaS', label: 'GammaS', type: 'float', def: 1.000, min: 0.0, step: 0.0001 },
+            { key: 'GammaT', label: 'GammaT', type: 'float', def: 0.001, min: 0.0, step: 0.0001 },
+            { key: 'decay', label: 'decay', type: 'float', def: 0.4, min: 0.0, step: 0.1 },
+            { key: 'W', label: 'W (Coul)', type: 'float', def: -0.01, step: 0.01 },
             { key: 'Ecenter', label: 'E center', type: 'float', def: 0.0, step: 0.01 },
             { key: 'OutScale', label: 'OutScale (10^x)', type: 'float', def: 4.0, min: -10.0, max: 10.0, step: 0.1 },
             // XV Scan Mode Params
@@ -167,8 +171,6 @@
             { key: 'P1y', label: 'P1.y', type: 'float', def: 0.0, step: 0.1 },
             { key: 'P2x', label: 'P2.x', type: 'float', def: 5.0, step: 0.1 },
             { key: 'P2y', label: 'P2.y', type: 'float', def: 0.0, step: 0.1 },
-            { key: 'VBiasMin', label: 'VBiasMin', type: 'float', def: -1.0, step: 0.1 },
-            { key: 'VBiasMax', label: 'VBiasMax', type: 'float', def: 1.0, step: 0.1 }
         ];
 
         var paramInputIds = paramSpecs.map(function (s) { return s.inputId || ('inp' + s.key.charAt(0).toUpperCase() + s.key.slice(1)); });
@@ -176,7 +178,7 @@
         // Uniforms: special ones explicit, parameter uniforms derived from paramSpecs.
         var uniforms = {
             uResolution: { value: new THREE.Vector2(512, 512) },
-            uMode: { value: 0 },
+            uMode: { value: 5 },
             uSolverMode: { value: 0 },
             uSiteIndex: { value: 0 },
             uDebugI: { value: 0 },
@@ -259,6 +261,25 @@
                         });
                     }
 
+                    var btnCpu2DScan = document.getElementById('btnCpu2DScan');
+                    if (btnCpu2DScan) {
+                        btnCpu2DScan.addEventListener('click', function () {
+                            runCpu2DScan();
+                        });
+                    }
+
+                    var inpVerbosity = document.getElementById('inpVerbosity');
+                    if (inpVerbosity) {
+                        var setVerbosity = function () {
+                            var v = parseInt(inpVerbosity.value, 10);
+                            if (!isFinite(v) || v < 0) v = 0;
+                            if (typeof window !== 'undefined') { window.pmeVerbosity = v; }
+                            inpVerbosity.value = v.toString();
+                        };
+                        inpVerbosity.addEventListener('input', setVerbosity);
+                        setVerbosity();
+                    }
+
                     document.getElementById('btnReadPixels').addEventListener('click', function () {
                         readPixelsDebug();
                     });
@@ -319,6 +340,132 @@
                 .catch(function (e) {
                     setStatus('Error loading fragment shader: ' + e);
                 });
+        }
+
+        // Coarse 2D CPU PME scan (XY or XV) and image rendering
+        function runCpu2DScan() {
+            if (typeof runCpuScan2D_XY !== 'function' || typeof runCpuScan2D_XV !== 'function') {
+                console.warn('runCpuScan2D_XY / runCpuScan2D_XV not available (pauli_pme_cpu.js too old?)');
+                return;
+            }
+
+            var txt = document.getElementById('txtSites').value || '';
+            var parsed = parseSitesArrayFromText ? parseSitesArrayFromText(txt, 4) : [];
+            if (parsed.length < 1) {
+                console.warn('CPU 2D scan requires at least one site. Parsed:', parsed.length);
+                return;
+            }
+
+            // Coarse grid to keep it fast; canvas will stretch it visually.
+            var nx = 64, ny = 64;
+
+            // Read generic params from inputs.
+            var p = readParamsFromInputsWithSpecs(paramSpecs);
+
+            var NSites = p.NSites;
+            if (NSites < 1) NSites = 1;
+            if (NSites > parsed.length) NSites = parsed.length;
+
+            var siteIdx = parseInt(document.getElementById('inpSiteIndex').value, 10);
+            if (!isFinite(siteIdx)) siteIdx = 0;
+
+            var modeSel = document.getElementById('selMode');
+            var mode = modeSel ? parseInt(modeSel.value, 10) : 5;
+            if (!isFinite(mode)) mode = 5;
+
+            var scanModeSel = document.getElementById('selScanMode');
+            var scanMode = scanModeSel ? parseInt(scanModeSel.value, 10) : 0;
+            if (!isFinite(scanMode)) scanMode = 0;
+
+            var solverSel = document.getElementById('selSolver');
+            var solver = solverSel ? solverSel.value : 'numericjs';
+
+            p.NSites = NSites;
+            p.solver = solver;
+            // For XV scans, use bias range [VBias0, VBias].
+            if (scanMode === 1) {
+                p.VBiasMin = p.VBias0;
+                p.VBiasMax = p.VBias;
+            }
+
+            // Pack sites into objects expected by the CPU solver.
+            var sitesObj = parsed.map(function (row) {
+                return { x: row[0], y: row[1], z: row[2], E: row[3] };
+            });
+
+            var field;
+            if (scanMode === 1) {
+                field = runCpuScan2D_XV(nx, ny, sitesObj, p, NSites, mode, siteIdx);
+            } else {
+                field = runCpuScan2D_XY(nx, ny, sitesObj, p, NSites, mode, siteIdx);
+            }
+
+            var Z = field.Z;
+            if (!Z || !Z.length) {
+                console.warn('CPU 2D scan produced empty field.');
+                return;
+            }
+
+            // Draw into cpu2DCanvas
+            var canvas = document.getElementById('cpu2DCanvas');
+            if (!canvas) return;
+            var ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            // Keep pixel aspect consistent with data (nx/ny). Use canvas client width.
+            var cw = canvas.clientWidth || canvas.width || 300;
+            var ch = Math.max(cw * (ny / nx), 1);
+            canvas.width = cw;
+            canvas.height = ch;
+            canvas.style.height = ch + 'px';
+
+            // Compute min/max for simple normalization.
+            var vmin = +Infinity, vmax = -Infinity;
+            for (var iy = 0; iy < ny; iy++) {
+                var row = Z[iy];
+                for (var ix = 0; ix < nx; ix++) {
+                    var val = row[ix];
+                    if (!isFinite(val)) continue;
+                    if (val < vmin) vmin = val;
+                    if (val > vmax) vmax = val;
+                }
+            }
+            if (!isFinite(vmin) || !isFinite(vmax) || vmin === vmax) {
+                vmin = 0.0; vmax = 1.0;
+            }
+
+            var imgData = ctx.createImageData(nx, ny);
+            var data = imgData.data;
+
+            for (var iy = 0; iy < ny; iy++) {
+                var row = Z[iy];
+                // Flip vertically so higher bias (larger v) is at the top visually
+                var dy = (ny - 1 - iy);
+                for (var ix = 0; ix < nx; ix++) {
+                    var val = row[ix];
+                    var t = (val - vmin) / (vmax - vmin);
+                    if (!isFinite(t)) t = 0.0;
+                    t = Math.max(0.0, Math.min(1.0, t));
+
+                    // Simple grayscale mapping
+                    var g = Math.floor(t * 255);
+                    var idx = 4 * (dy * nx + ix);
+                    data[idx + 0] = g;
+                    data[idx + 1] = g;
+                    data[idx + 2] = g;
+                    data[idx + 3] = 255;
+                }
+            }
+
+            // Draw at native resolution, then scale to canvas size.
+            var tmpCanvas = document.createElement('canvas');
+            tmpCanvas.width = nx;
+            tmpCanvas.height = ny;
+            var tmpCtx = tmpCanvas.getContext('2d');
+            tmpCtx.putImageData(imgData, 0, 0);
+
+            // Clear and draw stretched to full canvas.
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(tmpCanvas, 0, 0, canvas.width, canvas.height);
         }
 
         function onWindowResize() {
@@ -417,8 +564,8 @@
             // Map separate P1/P2 components to vectors
             if (uniforms.uP1) uniforms.uP1.value.set(p.P1x, p.P1y);
             if (uniforms.uP2) uniforms.uP2.value.set(p.P2x, p.P2y);
-            if (uniforms.uVBiasMin) uniforms.uVBiasMin.value = p.VBiasMin;
-            if (uniforms.uVBiasMax) uniforms.uVBiasMax.value = p.VBiasMax;
+            if (uniforms.uVBiasMin) uniforms.uVBiasMin.value = p.VBias0; // lower bias
+            if (uniforms.uVBiasMax) uniforms.uVBiasMax.value = p.VBias;  // upper bias
 
             var solverSel = document.getElementById('selSolver');
             var solverVal = solverSel ? solverSel.value : 'numericjs';
