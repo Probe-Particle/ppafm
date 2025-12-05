@@ -36,6 +36,32 @@ CPU-side JS will manage UI, parameter uniforms, and possibly some precomputation
   - [x] `web/ppafm_web/index.html` – single-page WebGL app, GUI controls, Three.js/matrix of uniforms
   - [x] `web/ppafm_web/PP_AFM_shader.glslf` – AFM fragment shader; example of per-pixel iterative relaxation & field evaluation
 
+## TODO / Checks to add
+
+- **W sign consistency check (JS/GLSL vs C++/Python)**  
+  Investigate potential sign flip of Coulomb term W: compare many-body energies computed with the same inputs between JS/GLSL and C++ (`cpp/pauli.hpp`, `cpp/pauli_lib.cpp`) and Python (`pyProbeParticle/pauli.py`, `tests/ChargeRings/pauli_scan.py`). Plan: print/record state energies for identical inputs (off-line via bash/node/python) and diff them to ensure W is treated as repulsive when positive.
+  - Include a bash-able script trio (node + python + C++ wrapper) to dump energies/K/rho for the same params.
+  - Log inputs/outputs for a few canonical cases (2-site, 3-site) and store as fixtures to catch regressions.
+  - Check both XY and XV scan modes; confirm bias mapping and kT alignment.
+
+## Completed (recent)
+
+- Low-res CPU 2D PME scans (XY/XV) added in JS mirroring shader; plotted under WebGL viewport with aspect-correct rendering and vertical flip fixed. XV uses bias range [VBias0, VBias] to match shader.
+- Verbosity control via GUI (window.pmeVerbosity), quiet by default; debug prints gated.
+- GLSL tip current now uses the same kT as the kernel; tunneling uses decay law consistent with JS (exp(-decay*r)).
+- Added VBias0 parameter; shader and CPU XV scans use [VBias0, VBias]; defaults set to reproduce 2-dot system. Defaults: NSites=2, L=20, ZTip=8, VBias=0.25, VBias0=0, Rtip=4.8, TempK=3, GammaS=1.0, GammaT=0.001, decay=0.4, W=-0.01, Ecenter=0, OutScale=4, P1=(-5,0), P2=(5,0), Mode=5.
+- Fixed aspect/stretching in CPU 2D canvas; added coarse grid (64x64) for speed.
+- Synced shader bias uniforms to GUI (VBias0/VBias) and scan-mode mappings (XY vs XV).
+- Added GUI slider/input for verbosity; added CPU 2D scan button/canvas; ensured Cramer/Gaussian solver selection is consistent.
+
+## Progress / Implementation notes (latest)
+
+- Added shared `web/pauli_web/test/params.json` and aligned defaults (2-dot system).
+- Node dump: `web/pauli_web/test/run_pme_node.js` now reads `params.json` and dumps Ei/Ri/Es/Ne/K/rho/I_tip.
+- Python dump: `web/pauli_web/test/dump_pme_python.py` reads `params.json`, uses `pyProbeParticle.pauli` (C++ backend) via `set_lead`, `set_tunneling`, `set_hsingle`, `generate_pauli_factors(W)`, `generate_kernel`, `solve`, then retrieves energies/kernel/probs/current via exported getters; outputs JSON comparable to Node.
+- Both scripts run and produced `node_out.json` and `python_out.json` for direct diff.
+- Remaining check: compare dumps to catch any W sign mismatch or other discrepancies.
+
 ---
 
 ## Physics/Numerics We Need to Reproduce

@@ -1,0 +1,83 @@
+ PACKAGE_PATH =  /home/prokop/git/ppafm/pyProbeParticle
+ CPP_PATH     =  /home/prokop/git/ppafm/cpp
+ COMPILATION OF : pauli_lib
+/home/prokop/git/ppafm/cpp
+g++ -std=c++20 -fPIC -g -c -fPIC pauli_lib.cpp -o pauli_lib.o
+g++ -std=c++20 -fPIC -g -shared -Wl,-soname,pauli_lib.so -o pauli_lib.so pauli_lib.o -fopenmp -lgomp
+PauliSolver.__init__ nSingle: 2 nleads: 2 verbosity: 0
+make_state_order: default identity ordering for nsite 2
+{
+  "params": {
+    "sites": [
+      {
+        "x": -5.785,
+        "y": 0.0,
+        "z": 0.0,
+        "E": -0.1
+      },
+      {
+        "x": 5.785,
+        "y": 0.0,
+        "z": 0.0,
+        "E": -0.1
+      }
+    ],
+    "NSites": 2,
+    "Rtip": 4.8,
+    "VBias0": 0.0,
+    "VBias": 0.25,
+    "TempK": 3.0,
+    "GammaS": 1.0,
+    "GammaT": 0.001,
+    "decay": 0.4,
+    "W": -0.01,
+    "ZTip": 8.0,
+    "L": 20.0,
+    "Mode": 5
+  },
+  "sites": [
+    [
+      -5.785,
+      0.0,
+      0.0,
+      -0.1
+    ],
+    [
+      5.785,
+      0.0,
+      0.0,
+      -0.1
+    ]
+  ],
+  "Es": [
+    0.0,
+    -0.1,
+    -0.1,
+    -0.2
+  ],
+  "K": [
+    -4.004,
+    0.0,
+    0.0,
+    0.0,
+    2.002,
+    -2.002,
+    0.0,
+    0.0,
+    2.002,
+    0.0,
+    -2.002,
+    0.0,
+    0.0,
+    2.002,
+    2.002,
+    0.0
+  ],
+  "rho": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "I_tip": 0.0
+}
