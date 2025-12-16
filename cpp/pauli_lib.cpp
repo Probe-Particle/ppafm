@@ -56,6 +56,10 @@ void evalSitesTipsTunneling( int nTips, const double* pTips, int nSites, const d
     evalSitesTipsTunneling( nTips, (Vec3d*) pTips, nSites, (Quat4d*) pSites, beta, Amp, outTs ); 
 }  
 
+void evalSitesTipsAngularFactor( int nTips, const double* pTips, int nSites, const double* pSites, const double* tipOrb, int power, bool bAbs, double* outFac ){
+    evalSitesTipsAngularFactor( nTips, (Vec3d*)pTips, nSites, (Quat4d*)pSites, *(Quat4d*)tipOrb, power, bAbs, outFac );
+}
+
 // Create a PauliSolver instance with basic initialization but without setting parameters
 // This follows step 1 in the optimization scheme
 void* create_solver(int nSingle, int nleads, int verbosity = 0) {

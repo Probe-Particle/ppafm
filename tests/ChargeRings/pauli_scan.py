@@ -19,6 +19,7 @@ import colormaps
 
 import orbital_utils
 from scipy.interpolate import RectBivariateSpline
+from pathlib import Path
 
 
 # unlimited lenght of line for numpy array printing
@@ -85,6 +86,331 @@ def make_site_geom(params):
     spos[:, 3] = params.get('Esite', 0.0)
     rots = ut.makeRotMats(angles, nsite=nsite)
     return spos, rots, angles
+
+
+
+def resolve_existing_path(path, base_dirs=None):
+    p = Path(path).expanduser()
+    if p.is_absolute() and p.exists():
+        return str(p)
+    if p.exists():
+        return str(p.resolve())
+    if base_dirs is None:
+        base_dirs = [Path.cwd(), Path(__file__).resolve().parent]
+    for b in base_dirs:
+        cand = (Path(b) / p).expanduser()
+        if cand.exists():
+            return str(cand.resolve())
+    raise FileNotFoundError(f"File '{path}' not found")
+
+
+def load_json_params(path):
+    with open(path, 'r') as f:
+        return json.load(f)
+
+
+def _ensure_numeric_params(params):
+    p = dict(params)
+    if 'nsite' in p: p['nsite'] = int(p['nsite'])
+    if 'npix'  in p: p['npix']  = int(p['npix'])
+    if 'solver_mode' in p: p['solver_mode'] = int(p['solver_mode'])
+    return p
+
+
+def make_configured_solver(params, nsite=None, verbosity=None):
+    params = _ensure_numeric_params(params)
+    if nsite is None:
+        nsite = int(params['nsite'])
+    if verbosity is None:
+        verbosity = int(params.get('verbosity', 0))
+    solver = pauli.PauliSolver(nSingle=nsite, nleads=2, verbosity=verbosity)
+    which_solver = int(params.get('solver_mode', 0))
+    solver.setLinSolver(1, 50, 1e-12, which_solver)
+    T_eV = float(params.get('Temp', 0.0)) * 8.617333262e-5
+    solver.set_lead(0, 0.0, T_eV)
+    solver.set_lead(1, 0.0, T_eV)
+    solver.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12)
+    Tmin = float(params.get('Tmin', 0.0))
+    EW   = float(params.get('EW',   2.0))
+    pauli.set_valid_point_cuts(Tmin, EW)
+    return solver
+
+
+def _pack_current_decomposition(current_decomp, nV, npts, nstate):
+    if current_decomp is None:
+        return None
+    (current_matrix, (out_prob_b, out_fct_b), (out_prob_c, out_fct_c), out_inds) = current_decomp
+    nstate2 = nstate * nstate
+    nxV = nV * npts
+    assert current_matrix.shape == (nxV, nstate2)
+    return {
+        'current_matrix': current_matrix.reshape(nV, npts, nstate, nstate),
+        'prob_enter':     out_prob_b.reshape    (nV, npts, nstate, nstate),
+        'factor_enter':   out_fct_b.reshape     (nV, npts, nstate, nstate),
+        'prob_leave':     out_prob_c.reshape    (nV, npts, nstate, nstate),
+        'factor_leave':   out_fct_c.reshape     (nV, npts, nstate, nstate),
+        'inds':           out_inds,
+    }
+
+
+def run_xv_scan_case(params, start_point=None, end_point=None, geometry_file=None, pTips=None, nx=100, nV=120, Vmin=0.0, Vmax=None, parallel=False, bCurrentComponents=False, pauli_solver=None, bOmp=False):
+    params = _ensure_numeric_params(params)
+    if geometry_file is not None:
+        params['geometry_file'] = resolve_existing_path(geometry_file)
+        spos, rots, _angles = load_site_geometry(params['geometry_file'])
+        params['nsite'] = int(spos.shape[0])
+    else:
+        spos, rots, _angles = make_site_geom(params)
+
+    if pauli_solver is None:
+        pauli_solver = make_configured_solver(params, nsite=int(params['nsite']))
+    _apply_wij_config(pauli_solver, spos, params)
+
+    STM, dIdV, Es, Ts, probs, stateEs, pTips_out, Vbiases, spos_out, rots_out, current_decomp = calculate_xV_scan_orb(
+        params,
+        pTips=pTips,
+        start_point=start_point,
+        end_point=end_point,
+        pauli_solver=pauli_solver,
+        bOmp=(bool(parallel) or bool(bOmp)),
+        nx=int(nx),
+        nV=int(nV),
+        Vmin=float(Vmin),
+        Vmax=Vmax,
+        bCurrentComponents=bool(bCurrentComponents),
+    )
+
+    npts = STM.shape[1]
+    nstate = probs.shape[2]
+    decomp = _pack_current_decomposition(current_decomp, nV=len(Vbiases), npts=npts, nstate=nstate)
+    return {
+        'STM': STM,
+        'dIdV': dIdV,
+        'Es': Es,
+        'Ts': Ts,
+        'probs': probs,
+        'stateEs': stateEs,
+        'pTips': pTips_out,
+        'Vbiases': Vbiases,
+        'spos': spos_out,
+        'rots': rots_out,
+        'current_decomp': decomp,
+    }
+
+
+def run_xy_scan_case(params, geometry_file=None, npix=None, parallel=False, compute_didv=True, pauli_solver=None):
+    params = _ensure_numeric_params(params)
+    if npix is not None:
+        params['npix'] = int(npix)
+    if geometry_file is not None:
+        params['geometry_file'] = resolve_existing_path(geometry_file)
+
+    spos, rots, _angles = make_site_geom(params)
+    params['nsite'] = int(spos.shape[0])
+
+    if pauli_solver is None:
+        pauli_solver = make_configured_solver(params, nsite=int(params['nsite']))
+    _apply_wij_config(pauli_solver, spos, params)
+
+    Ts_gauss, _pTips, _beta, _barrier = generate_hops_gauss(spos, params)
+    Ts_flat = interpolate_hopping_maps(Ts_gauss, None, c=params.get('c_orb', 1.0), T0=params.get('T0', 1.0))
+    Ts_flat = np.ascontiguousarray(Ts_flat, dtype=np.float64)
+
+    STM, Es, Ts, Probs, StateEs = pauli.run_pauli_scan_top(spos, rots, params, pauli_solver=pauli_solver, bOmp=bool(parallel), Ts=Ts_flat)
+    results = {
+        'STM': STM,
+        'Es': Es,
+        'Ts': Ts,
+        'probs': Probs,
+        'stateEs': StateEs,
+        'spos': spos,
+        'rots': rots,
+    }
+
+    if compute_didv:
+        dQ = float(params.get('dQ', 0.0))
+        if dQ <= 0.0:
+            raise ValueError('dQ must be positive to compute dI/dV')
+        params2 = dict(params)
+        params2['VBias'] = float(params['VBias']) + dQ
+        solver2 = make_configured_solver(params2, nsite=int(params2['nsite']))
+        _apply_wij_config(solver2, spos, params2)
+        STM2, _Es2, _Ts2, _Probs2, _StateEs2 = pauli.run_pauli_scan_top(spos, rots, params2, pauli_solver=solver2, bOmp=bool(parallel), Ts=Ts_flat)
+        results['dIdV'] = (STM2 - STM) / dQ
+
+    return results
+
+
+def save_scan_case(out_dir, params, arrays, extra=None, save_npz=True, save_json=True):
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    params_out = _ensure_numeric_params(params)
+    if save_npz:
+        npz_path = out_dir / 'scan.npz'
+        np_payload = {}
+        for k, v in arrays.items():
+            if v is None:
+                continue
+            if isinstance(v, dict):
+                for kk, vv in v.items():
+                    if vv is None: continue
+                    np_payload[f'{k}.{kk}'] = vv
+            else:
+                np_payload[k] = v
+        np.savez_compressed(npz_path, **np_payload)
+    if save_json:
+        json_path = out_dir / 'params.json'
+        payload = dict(params_out)
+        if extra is not None:
+            payload['_extra'] = extra
+        with json_path.open('w') as f:
+            json.dump(payload, f, indent=2)
+    return str(out_dir)
+
+
+def _tips_to_distance_1d(pTips):
+    pTips = np.asarray(pTips)
+    return np.hypot(pTips[:, 0] - pTips[0, 0], pTips[:, 1] - pTips[0, 1])
+
+
+def plot_state_probabilities_stack_1d(x, probs_1d, labels, out_path, alpha=0.5, xlabel='Distance [Å]', title=None):
+    x = np.asarray(x)
+    probs_1d = np.asarray(probs_1d)
+    norm = probs_1d / np.sum(probs_1d, axis=1)[:, None]
+    fig, ax = plt.subplots(1, 1, figsize=(10, 4))
+    colors = plt.cm.tab20(np.linspace(0, 1, norm.shape[1]))
+    ax.stackplot(x, *norm.T, labels=labels, colors=colors, alpha=alpha)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('Probability')
+    ax.set_ylim(0.0, 1.0)
+    if title is not None:
+        ax.set_title(title)
+    ax.legend(loc='upper left', bbox_to_anchor=(1.02, 1.0), fontsize='x-small', title='States')
+    fig.tight_layout(rect=[0, 0, 0.82, 1])
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def plot_state_probabilities_stack_with_energies_1d(x, probs_1d, stateEs_1d, labels, out_path, alpha=0.5, xlabel='Distance [Å]', title=None, energy_ylabel='Many-body energy [eV]'):
+    x = np.asarray(x)
+    probs_1d = np.asarray(probs_1d)
+    stateEs_1d = np.asarray(stateEs_1d)
+    assert probs_1d.shape == stateEs_1d.shape
+    norm = probs_1d / np.sum(probs_1d, axis=1)[:, None]
+    fig, axE = plt.subplots(1, 1, figsize=(10, 4))
+    axP = axE.twinx()
+    axE.patch.set_visible(False)
+    axP.patch.set_visible(False)
+    axP.set_zorder(1)
+    axE.set_zorder(2)
+    colors = plt.cm.tab20(np.linspace(0, 1, norm.shape[1]))
+    axP.stackplot(x, *norm.T, labels=labels, colors=colors, alpha=float(alpha), zorder=1)
+    for i in range(stateEs_1d.shape[1]):  axE.plot(x, stateEs_1d[:, i], color=colors[i], lw=1.0, zorder=3)
+    axE.set_xlabel(xlabel)
+    axE.set_ylabel(energy_ylabel)
+    axP.set_ylabel('Probability')
+    axP.set_ylim(0.0, 1.0)
+    if title is not None: axE.set_title(title)
+    axP.legend(loc='upper left', bbox_to_anchor=(1.02, 1.0), fontsize='x-small', title='States')
+    fig.tight_layout(rect=[0, 0, 0.82, 1])
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def plot_current_decomposition_stack_1d(x, current_mat_1d, labels, out_path, threshold=1e-12, alpha=0.6, max_transitions=None, xlabel='Distance [Å]', title=None):
+    x = np.asarray(x)
+    cur = np.asarray(current_mat_1d)  # (npts,nstate,nstate)
+    npts, nstate, nstate2 = cur.shape
+    assert nstate == nstate2
+
+    allowed = create_transition_mask(labels, type_=bool)
+    pairs = []
+    for i in range(nstate):
+        for j in range(nstate):
+            if not allowed[i, j]:
+                continue
+            v = cur[:, i, j]
+            vmax = float(np.max(np.abs(v)))
+            if vmax <= threshold:
+                continue
+            pairs.append((vmax, i, j, v))
+    pairs.sort(key=lambda x: x[0], reverse=True)
+    if max_transitions is not None:
+        pairs = pairs[:int(max_transitions)]
+
+    fig, ax = plt.subplots(1, 1, figsize=(10, 4))
+    if not pairs:
+        ax.plot(x, np.sum(cur.reshape(npts, -1), axis=1), '-', color='k', lw=1.0)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel('Current [a.u.]')
+        if title is not None:
+            ax.set_title(title)
+        fig.tight_layout()
+        fig.savefig(out_path, dpi=150)
+        plt.close(fig)
+        return out_path
+
+    comps = [p[3] for p in pairs]
+    comp_labels = [f'{labels[p[1]]}->{labels[p[2]]}' for p in pairs]
+    colors = plt.cm.tab20(np.linspace(0, 1, len(comps)))
+    ax.stackplot(x, *comps, labels=comp_labels, colors=colors, alpha=alpha)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('Current contribution [a.u.]')
+    if title is not None:
+        ax.set_title(title)
+    ax.legend(loc='upper left', bbox_to_anchor=(1.02, 1.0), fontsize='x-small', title='Transitions')
+    fig.tight_layout(rect=[0, 0, 0.82, 1])
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def _nearest_index(values, x):
+    values = np.asarray(values)
+    return int(np.argmin(np.abs(values - x)))
+
+
+def export_xv_state_and_current_decomposition_plots(out_dir, params, arrays, V_slice=None, x_slice=None, threshold=1e-12, max_transitions=None):
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    Vbiases = np.asarray(arrays['Vbiases'])
+    pTips = np.asarray(arrays['pTips'])
+    probs = np.asarray(arrays['probs'])      # (nV,nx,nstate)
+    stateEs = np.asarray(arrays['stateEs'])  # (nV,nx,nstate)
+    nsite = int(params['nsite'])
+    state_order = pauli.make_state_order(nsite)
+    labels = pauli.make_state_labels(state_order)
+
+    if V_slice is None:
+        V_slice = float(params.get('V_slice', params.get('VBias', Vbiases[-1])))
+    iv = _nearest_index(Vbiases, V_slice)
+
+    dist = _tips_to_distance_1d(pTips)
+
+    # (1) Cut along distance for fixed V
+    Vc = float(Vbiases[iv])
+    plot_state_probabilities_stack_with_energies_1d(dist, probs[iv, :, :], stateEs[iv, :, :], labels, out_dir / f'prob_stack_V{Vc:.3f}.png', xlabel='Distance [Å]', alpha=0.5, title=f'State probabilities + energies (cut at V={Vc:.3f} V)')
+
+    decomp = arrays.get('current_decomp')
+    if decomp is not None and isinstance(decomp, dict) and ('current_matrix' in decomp):
+        cur = np.asarray(decomp['current_matrix'])  # (nV,nx,nstate,nstate)
+        plot_current_decomposition_stack_1d(dist, cur[iv, :, :, :], labels, out_dir / f'current_decomp_stack_V{Vc:.3f}.png', threshold=threshold, max_transitions=max_transitions, xlabel='Distance [Å]', title=f'Current decomposition (cut at V={Vc:.3f} V)')
+
+        # (2) Cut along V for fixed distance
+        if x_slice is None:
+            x_slice = float(dist[len(dist)//2])
+        ix = _nearest_index(dist, x_slice)
+        xc = float(dist[ix])
+        plot_state_probabilities_stack_with_energies_1d(Vbiases, probs[:, ix, :], stateEs[:, ix, :], labels, out_dir / f'prob_stack_x{xc:.3f}.png', xlabel='V [V]', alpha=0.5, title=f'State probabilities + energies (cut at x={xc:.3f} Å)')
+        plot_current_decomposition_stack_1d(Vbiases, cur[:, ix, :, :], labels, out_dir / f'current_decomp_stack_x{xc:.3f}.png', threshold=threshold, max_transitions=max_transitions, xlabel='V [V]', title=f'Current decomposition (cut at x={xc:.3f} Å)')
+    else:
+        print(f"export_xv_state_and_current_decomposition_plots(): current_decomp not available in arrays (enable bCurrentComponents=True)")
+
+    return str(out_dir)
+
 
 def make_grid_axes(fig, nplots):
     """
@@ -163,6 +489,12 @@ def generate_hops_gauss( spos, params, pTips=None, bBarrier=True ):
         r2 = (pTips[:,0] - p[0])**2 + (pTips[:,1] - p[1])**2 + (pTips[:,2] - p[2])**2
         r  = np.sqrt(r2)
         Ts[:,i] = np.exp(-beta * r)
+    tipOrb = params.get('tipOrb', None)
+    if tipOrb is not None:
+        power = int(params.get('tipOrb_power', 1))
+        bAbs  = bool(params.get('tipOrb_abs', True))
+        fac = pauli.evalSitesTipsAngularFactor(pTips, pSites=spos, tipOrb=tipOrb, power=power, bAbs=bAbs)
+        Ts *= fac
     print(     "generate_hops_gauss() Ts    (min, max) ", np.min(Ts), np.max(Ts) )
     return Ts, pTips, beta, barrier
 
@@ -885,6 +1217,16 @@ def scan_xy_orb(params, orbital_2D=None, orbital_lvec=None, pauli_solver=None, a
     #Ts_flat = Ts_orb
 
     Ts_flat = interpolate_hopping_maps(Ts_gauss, Ts_orb, c=c_orb, T0=params['T0'])
+    tipOrb = params.get('tipOrb', None)
+    if tipOrb is not None:
+        power = int(params.get('tipOrb_power', 1))
+        bAbs  = bool(params.get('tipOrb_abs', True))
+        coords = (np.arange(npix) + 0.5 - npix/2)*(2*L/npix)
+        xx, yy = np.meshgrid(coords, coords)
+        pTips = np.zeros((npix*npix, 3), dtype=np.float64)
+        pTips[:,0] = xx.flatten(); pTips[:,1] = yy.flatten(); pTips[:,2] = z_tip + params['Rtip']
+        fac = pauli.evalSitesTipsAngularFactor(pTips, pSites=spos, tipOrb=tipOrb, power=power, bAbs=bAbs)
+        Ts_flat *= fac
 
     # Create solver if not provided
     if pauli_solver is None:
@@ -1144,6 +1486,12 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
     # Compute Gaussian tunneling
     Ts_gauss, _, _, _ = generate_hops_gauss(spos, params, pTips=pTips, bBarrier=True)
     Ts_input = interpolate_hopping_maps(Ts_gauss, Ts_orb, c=c_orb, T0=params['T0'])
+    tipOrb = params.get('tipOrb', None)
+    if tipOrb is not None:
+        power = int(params.get('tipOrb_power', 1))
+        bAbs  = bool(params.get('tipOrb_abs', True))
+        fac = pauli.evalSitesTipsAngularFactor(pTips, pSites=spos, tipOrb=tipOrb, power=power, bAbs=bAbs)
+        Ts_input *= fac
     
     state_order = pauli.make_state_order(nsite)
     nstate = len(state_order)

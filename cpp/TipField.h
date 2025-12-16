@@ -131,3 +131,25 @@ void evalSitesTipsTunneling( int nTips, const Vec3d* pTips, int nSites, const Qu
         }
     }
 }
+
+inline double evalTipOrbFactor( const Vec3d& rhat, const Quat4d& tipOrb, int power=1, bool bAbs=true ){
+    double A = tipOrb.x*rhat.x + tipOrb.y*rhat.y + tipOrb.z*rhat.z + tipOrb.w;
+    if(bAbs) A = fabs(A);
+    if(power<=1) return A;
+    double out = A;
+    for(int i=1; i<power; i++) out *= A;
+    return out;
+}
+
+void evalSitesTipsAngularFactor( int nTips, const Vec3d* pTips, int nSites, const Quat4d* pSites, Quat4d tipOrb, int power, bool bAbs, double* outFac ){
+    for (int i = 0; i < nTips; i++) {
+        for (int j = 0; j < nSites; j++) {
+            Vec3d dr = pSites[j].f - pTips[i];
+            double r2 = dr.norm2();
+            if(r2<=0){ outFac[i*nSites + j] = 0.0; continue; }
+            double invr = 1.0/sqrt(r2);
+            Vec3d rhat = dr*invr;
+            outFac[i*nSites + j] = evalTipOrbFactor( rhat, tipOrb, power, bAbs );
+        }
+    }
+}

@@ -167,19 +167,30 @@ def set_check_prob_stop( solver_ptr, bCheckProb, bCheckProbStop, CheckProbTol=-1
 # void evalSitesTipsTunneling( int nTips, const double* pTips, int nSites, const double* pSites, double beta, double Amp, double* outTs ){
 lib.evalSitesTipsTunneling.argtypes = [c_int, c_double_p, c_int, c_double_p, c_double, c_double, c_double_p]
 lib.evalSitesTipsTunneling.restype = None
-
 def evalSitesTipsTunneling( pTips, pSites=[[0.0,0.0,0.0,0.0]], beta=1.0, Amp=1.0, outTs=None, bMakeArrays=True ):
     nTips  = len(pTips)
     nSites = len(pSites)
-    pSites = _ensure_sites_quat_array(pSites)
     if bMakeArrays:
-        pTips = np.ascontiguousarray(pTips, dtype=np.float64)
-    else:
+        pSites = _ensure_sites_quat_array(pSites)
         pTips = np.ascontiguousarray(pTips, dtype=np.float64)
     if outTs is None:
         outTs = np.zeros((nTips, nSites), dtype=np.float64)
     lib.evalSitesTipsTunneling(nTips, _np_as(pTips, c_double_p), nSites, _np_as(pSites, c_double_p), beta, Amp, _np_as(outTs, c_double_p))
     return outTs
+
+lib.evalSitesTipsAngularFactor.argtypes = [c_int, c_double_p, c_int, c_double_p, c_double_p, c_int, c_bool, c_double_p]
+lib.evalSitesTipsAngularFactor.restype = None
+def evalSitesTipsAngularFactor( pTips, pSites=[[0.0,0.0,0.0,0.0]], tipOrb=(0.0,0.0,0.0,1.0), power=1, bAbs=True, outFac=None, bMakeArrays=True ):
+    nTips  = len(pTips)
+    nSites = len(pSites)
+    if bMakeArrays:
+        pSites = _ensure_sites_quat_array(pSites)
+        pTips  = np.ascontiguousarray(pTips, dtype=np.float64)
+        tipOrb = np.ascontiguousarray(tipOrb, dtype=np.float64)
+    if outFac is None:
+        outFac = np.zeros((nTips, nSites), dtype=np.float64)
+    lib.evalSitesTipsAngularFactor(nTips, _np_as(pTips, c_double_p), nSites, _np_as(pSites, c_double_p), _np_as(tipOrb, c_double_p), int(power), bool(bAbs), _np_as(outFac, c_double_p))
+    return outFac
 
 # void evalSitesTipsMultipoleMirror( int nTip, double* pTips, double* VBias,  int nSites, double* pSite, double* rotSite, double E0, double Rtip, double zV0, int order, const double* cs, double* outEs, bool bMirror, bool bRamp, bool bSiteScan ) {
 lib.evalSitesTipsMultipoleMirror.argtypes = [c_int, c_double_p,  c_double_p, c_int, c_double_p, c_double_p,  c_double, c_double, c_double, c_double, c_int, c_double_p, c_double_p, c_bool, c_bool, c_bool]
