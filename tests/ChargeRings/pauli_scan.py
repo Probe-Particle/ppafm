@@ -1132,12 +1132,21 @@ def _apply_wij_config(pauli_solver, spos, params):
     """Configure Coulomb interaction matrix based on params.
 
     Priority:
+      0) If 'Wij_matrix' is provided directly in params, use it.
       1) If 'Wij_file' is given, load Wij from that file.
-      2) Else if bWijDistance/\"Wij_mode\" requests distance dependence,
+      2) Else if bWijDistance/"Wij_mode" requests distance dependence,
          build distance-based Wij with r_min normalization to W.
       3) Else use constant off-diagonal W.
     """
     if pauli_solver is None:
+        return
+
+    # 0) Explicit matrix in params
+    Wij_matrix = params.get('Wij_matrix', None)
+    if Wij_matrix is not None:
+        Wij = np.ascontiguousarray(np.array(Wij_matrix, dtype=np.float64))
+        pauli_solver.set_Wij(Wij)
+        print(f"_apply_wij_config(): using Wij_matrix from params shape={Wij.shape} (min,max)=({Wij.min()},{Wij.max()})")
         return
 
     W0 = float(params.get('W', 0.0))

@@ -31,7 +31,8 @@ def fmt_meV(val_ev: float) -> int:
     return int(round(1000.0 * float(val_ev)))
 
 def build_params(args: argparse.Namespace) -> Dict[str, object]:
-    params: Dict[str, object] = pauli_xy_cli.DEFAULT_PARAMS.copy()
+    # Start from defaults provided by pauli_xy_cli, then override
+    params = pauli_xy_cli.DEFAULT_PARAMS.copy()
 
     if args.config:
         with args.config.open() as fp: cfg = json.load(fp)
@@ -59,6 +60,24 @@ def build_params(args: argparse.Namespace) -> Dict[str, object]:
         Esite = float(params.get("Esite", 0.0))
         params["rect_sites"] = make_rect_geometry(float(args.rect_x), float(args.rect_y), z_plane, Esite)
         params["nsite"] = 4
+
+    # Anisotropic couplings (two dimers along x, vertical y, diagonals)
+    Wx = float(args.W_x)
+    Wy = float(args.W_y)
+    Wd = float(args.W_diag)
+    params["W_x"] = Wx
+    params["W_y"] = Wy
+    params["W_diag"] = Wd
+    params["W"] = max(params.get("W", 0.0), Wx, Wy, Wd)  # keep scalar for reference
+    Wij = np.zeros((4, 4), dtype=np.float64)
+    # site order: [ x,  y], [-x,  y], [ x, -y], [-x, -y]
+    Wij[0, 1] = Wij[1, 0] = Wx
+    Wij[2, 3] = Wij[3, 2] = Wx
+    Wij[0, 2] = Wij[2, 0] = Wy
+    Wij[1, 3] = Wij[3, 1] = Wy
+    Wij[0, 3] = Wij[3, 0] = Wd
+    Wij[1, 2] = Wij[2, 1] = Wd
+    params["Wij_matrix"] = Wij
 
     return params
 
@@ -143,10 +162,13 @@ if __name__ == "__main__":
     ap.add_argument("--config",       type=Path, help="JSON params file (optional).")
     ap.add_argument("--geometry",     type=Path, help="Geometry file (optional, overrides config).")
     ap.add_argument("--solver-mode",  type=int, default=None, help="Solver mode (e.g., 0, -1).")
-    ap.add_argument("--W",            type=float, default=0.02, help="W (eV).")
+    ap.add_argument("--W",            type=float, default=0.02, help="W (eV, legacy scalar).")
+    ap.add_argument("--W-x",          dest="W_x", type=float, default=0.03, help="Dimer coupling along +x/-x (eV).")
+    ap.add_argument("--W-y",          dest="W_y", type=float, default=0.01, help="Coupling along y (vertical) (eV).")
+    ap.add_argument("--W-diag",       dest="W_diag", type=float, default=0.0, help="Diagonal coupling (eV).")
     ap.add_argument("--decay",        type=float, default=None, help="decay (overrides params).")
     ap.add_argument("--z_tip",        type=float, default=None, help="tip height z (overrides params).")
-    ap.add_argument("--rect-x",       type=float, default=5.0, help="Rectangle half-width x (Å).")
+    ap.add_argument("--rect-x",       type=float, default=6.0, help="Rectangle half-width x (Å).")
     ap.add_argument("--rect-y",       type=float, default=5.0, help="Rectangle half-height y (Å).")
     ap.add_argument("--npix",         type=int, default=None, help="Grid size (overrides params).")
     ap.add_argument("--out-dir",      type=Path, default=Path("results_quick"), help="Output directory.")
@@ -189,16 +211,25 @@ if __name__ == "__main__":
 
         if args.montage != 2:
             V_meV = fmt_meV(V)
-            stem = f"{geom_name}_solver{int(params_run['solver_mode'])}_W{W_meV}meV_V{V_meV}meV"
+            Wx_meV = fmt_meV(params["W_x"])
+            Wy_meV = fmt_meV(params["W_y"])
+            Wd_meV = fmt_meV(params["W_diag"])
+            stem = (
+                f"{geom_name}_solver{int(params_run['solver_mode'])}"
+                f"_Wx{Wx_meV}meV_Wy{Wy_meV}meV_Wd{Wd_meV}meV_V{V_meV}meV"
+            )
             png_path = out_dir / f"{stem}.png"
             save_png(png_path, STM, dIdV, params_run["L"])
             print(f"[xy_quickflat] saved PNG  -> {png_path}")
 
             if args.save_json:
                 json_path = out_dir / f"{stem}.json"
-                payload = {"VBias": V,"params": params_run,"STM_shape": list(np.shape(STM)),"dIdV_shape": list(np.shape(dIdV)) if dIdV is not None else None,}
-                # ensure JSON-serializable (convert Path)
-                payload["params"] = {k: (str(v) if isinstance(v, Path) else v) for k, v in payload["params"].items()}
+                payload = {
+                    "VBias": V,
+                    "params": _jsonable_params(params_run),
+                    "STM_shape": list(np.shape(STM)),
+                    "dIdV_shape": list(np.shape(dIdV)) if dIdV is not None else None,
+                }
                 json_path.write_text(json.dumps(payload, indent=2))
                 print(f"[xy_quickflat] saved JSON -> {json_path}")
 
