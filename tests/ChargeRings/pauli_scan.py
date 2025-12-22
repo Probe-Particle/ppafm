@@ -73,10 +73,17 @@ def make_site_geom(params):
     Used by all scanning functions that require multiple sites.
     
     If 'geometry_file' is in params, loads geometry from file.
+    If 'rect_sites' is in params, uses the provided rectangular sites.
     Otherwise, generates a circular arrangement.
     """
     if 'geometry_file' in params:
         return load_site_geometry(params['geometry_file'])
+    if 'rect_sites' in params:
+        spos = np.array(params['rect_sites'], dtype=np.float64)
+        nsite = spos.shape[0]
+        angles = np.zeros(nsite)
+        rots = ut.makeRotMats(angles, nsite=nsite)
+        return spos, rots, angles
     nsite = params['nsite']
     xyz, phis = ut.makeCircle(n=nsite, R=params['radius'], phi0=params['phiRot'])
     xyz[:, 2] = params['zQd']
