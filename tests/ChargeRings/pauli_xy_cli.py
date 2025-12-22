@@ -45,7 +45,7 @@ DEFAULT_PARAMS: Dict[str, object] = {
     "zVd": 15.0,
     # Multipole coefficients
     "Q0": 1.0,
-    "Qzz": 10.0,
+    "Qzz": 0.0,
     # Transport solver
     "Esite": -0.100,
     "W": 0.05,
