@@ -375,3 +375,21 @@ And please switch to **Code mode** if you want me to implement:
 - **Completed:** xV cut export infrastructure (configurable cuts, 2D overview cut markers, 1D plot titles).
 - **Completed:** 1D probability stackplots with overlaid many-body energies for exported xV cuts.
 - **Completed:** tip-orbital angular prefactor for tunneling (`tipOrb`) implemented from C++ through Python and integrated into scan tunneling map generation.
+
+---
+
+## Post-mortem: XY scans returning all-zero STM/dIdV
+
+**Symptom:** XY scans produced `STM`/`dIdV` arrays of all zeros while xV scans worked.
+
+**Root cause:** The C++ `is_valid_point()` pre-check (in `cpp/pauli_lib.cpp`) used the *signed* tunneling amplitude when testing the `Tmin` threshold. With `tipOrb_abs: false`, the tip-orbital angular factor can make `T` negative. The check took `Tmax = max(T)` over signed values; if all `T` were negative, `Tmax < Tmin_cut` was always true, so every grid point was marked invalid and its current forced to zero.
+
+**Fix:** Use the absolute value of `T` in `is_valid_point()`:
+```cpp
+double Ti = TLeads[nSingle + j];
+Ti = (Ti < 0) ? -Ti : Ti;  // take abs(T)
+Tmax = (Ti > Tmax) ? Ti : Tmax;
+```
+After rebuild (`cd cpp && make clean && make pauli`), XY scans produced nonzero STM/dIdV again.
+
+**Takeaway / guardrail:** Any validity check that depends on tunneling magnitude must use `|T|` when signed angular factors are enabled (`tipOrb_abs: false`). Otherwise the cut can zero out entire scans. When adding new cuts, explicitly decide whether they should use signed or magnitude values.

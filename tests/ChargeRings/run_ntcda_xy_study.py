@@ -79,13 +79,24 @@ if __name__ == '__main__':
     base = Path(__file__).resolve().parent
     config_path = base / 'example_pauli_params.json'
 
+    # geometries = [
+    #     ('2site_Ruslan_long',  base / 'Ruslan_long.txt'),
+    #     ('2site_Ruslan_short', base / 'Ruslan_short.txt'),
+    #     ('4site_Ruslan_kite',  base / 'Ruslan_kite.txt'),
+    # ]
+    # solvers = [0, -1]  # PME, Ground-state
+    # W_values = [0.02, 0.05]
+    #Vbias_values = [0.5 + 0.1 * i for i in range(11)]  # 0.5 .. 1.5 step 0.1
+
     geometries = [
-        ('2site_Ruslan_long',  base / 'Ruslan_long.txt'),
-        ('2site_Ruslan_short', base / 'Ruslan_short.txt'),
-        ('4site_Ruslan_kite',  base / 'Ruslan_kite.txt'),
+        #('Ruslan_long',  base / 'Ruslan_long.txt'),
+        #('Ruslan_short', base / 'Ruslan_short.txt'),
+        ('Ruslan_kite',  base / 'Ruslan_kite.txt'),
     ]
-    solvers = [0, -1]  # PME, Ground-state
-    W_values = [0.02, 0.05]
+    solvers = [0]  # PME, Ground-state
+    W_values = [0.02]
+
+
     Vbias_values = [0.5 + 0.1 * i for i in range(11)]  # 0.5 .. 1.5 step 0.1
 
     out_root = base / 'results'

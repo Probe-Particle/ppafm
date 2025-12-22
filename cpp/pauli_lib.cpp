@@ -195,12 +195,24 @@ void set_valid_point_cuts( double Tmin, double EW ){
     EW_cut   = EW;
 }
 
+// bool is_valid_point( int nSingle, const double* hsingle, const double* TLeads, double W ){
+//     double Emax=-1e+300;
+//     double Tmax=-1e+300;
+//     for(int j=0; j<nSingle; j++) { 
+//         double Ei = hsingle [j*nSingle + j]; Emax = (Ei>Emax) ? Ei : Emax; 
+//         double Ti = TLeads[  nSingle + j]; Tmax = (Ti>Tmax) ? Ti : Tmax; 
+//     }
+//     return ( ( Emax+(W*EW_cut)<0.0 ) || ( Tmax<Tmin_cut ) );
+// }
+
 bool is_valid_point( int nSingle, const double* hsingle, const double* TLeads, double W ){
     double Emax=-1e+300;
     double Tmax=-1e+300;
     for(int j=0; j<nSingle; j++) { 
         double Ei = hsingle [j*nSingle + j]; Emax = (Ei>Emax) ? Ei : Emax; 
-        double Ti = TLeads[  nSingle + j]; Tmax = (Ti>Tmax) ? Ti : Tmax; 
+        double Ti = TLeads[  nSingle + j];
+        Ti = (Ti<0) ? -Ti : Ti;                // <-- ADD THIS (or fabs)
+        Tmax = (Ti>Tmax) ? Ti : Tmax;
     }
     return ( ( Emax+(W*EW_cut)<0.0 ) || ( Tmax<Tmin_cut ) );
 }

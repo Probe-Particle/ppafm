@@ -28,7 +28,7 @@
   "p2_x":     10.0,
   "p2_y":     0.0,
 
-  "tipOrb": [0.2, 0.0, 1.0, 0.0],
-"tipOrb_power": 1,
-"tipOrb_abs": false
+  "tipOrb": [0.0, 0.0, 1.0, 0.0],
+  "tipOrb_power": 1,
+  "tipOrb_abs": false
 }

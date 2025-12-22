@@ -87,9 +87,13 @@ if __name__ == '__main__':
     config_path = base / 'example_pauli_params.json'
 
     geometries = [
-        ('2site_Ruslan_long',  base / 'Ruslan_long.txt'),
+       # ('2site_Ruslan_long',  base / 'Ruslan_long.txt'),
        # ('2site_Ruslan_short', base / 'Ruslan_short.txt'),
-       # ('4site_Ruslan_kite',  base / 'Ruslan_kite.txt'),
+       ('Ruslan_kite_sq',  base / 'Ruslan_kite_sq.txt'),
+       ('Ruslan_kite_E',  base / 'Ruslan_kite_E.txt'),
+       ('Ruslan_kite',  base / 'Ruslan_kite.txt'),
+       ('Ruslan_rect',  base / 'Ruslan_rect.txt'),
+       ('Ruslan_square',base / 'Ruslan_square.txt'),
     ]
     #solvers  = [0, -1]  # PME, Ground-state
     #W_values = [0.0, 0.02, 0.05, 0.10]
