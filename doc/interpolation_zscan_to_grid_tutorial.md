@@ -147,7 +147,7 @@ Once you have a clean points file and the z‑scan data, you can interpolate ont
 
 ### 3.2 Command‑line options
 
-Run from `tests/Interpolation/`:
+Run from `tests/Interpolation/` (the script ships with sensible defaults so `python interp_zscan_to_grid.py` works out of the box, but you usually override the paths/resolution explicitly):
 
 ```bash
 python interp_zscan_to_grid.py \
