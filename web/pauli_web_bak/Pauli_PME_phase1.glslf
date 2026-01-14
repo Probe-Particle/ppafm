@@ -21,14 +21,6 @@ uniform float uTemp;    // temperature in Kelvin (from GUI)
 uniform float uGammaS;  // substrate coupling (dimensionless)
 uniform float uGammaT;  // tip coupling (dimensionless)
 uniform float uDecay;   // tunneling decay beta [1/Å]
-uniform int   uOrder;   // multipole order (0,1,2)
-uniform vec2  uZV;      // (zV0, zVd) as in C++ evalMultipoleMirror
-uniform bool  uMirror;  // enable mirror term
-uniform bool  uRamp;    // enable linear ramp term
-uniform float uCs[10];  // multipole coefficients (monopole+dipole+quadrupole)
-uniform bool  uUseRot;  // apply per-site rotation matrices
-uniform mat3  uRot[NSITE];
-uniform float uDV;      // bias step for numerical derivative (dI/dV)
 uniform float uEcenter; // center of diverging colormap ("zero" level)
 uniform float uEscale;  // energy scale for colormap (half-width)
 uniform float uW;         // uniform Coulomb interaction per occupied pair
@@ -72,65 +64,6 @@ vec3 tip_from_uv(vec2 uv, float L, float zTip) {
   return vec3(x, y, zTip);
 }
 
-const float PI = 3.1415926535897932384626433832795;
-
-float Emultipole(vec3 d, int order, float cs[10]) {
-  float ir2 = 1.0 / max(dot(d, d), 1e-12);
-  float E = cs[0];
-  if (order > 0) {
-    E += ir2 * (cs[1] * d.x + cs[2] * d.y + cs[3] * d.z);
-  }
-  return sqrt(ir2) * E;
-}
-
-float evalMultipoleMirror(
-  vec3 pTip,
-  vec3 pSite,
-  float VBias,
-  float Rtip,
-  vec2 zV,
-  int order,
-  float cs[10],
-  float E0,
-  mat3 rotSite,
-  bool bUseRot,
-  bool bMirror,
-  bool bRamp
-) {
-  float zV0 = zV.x;
-  float zVd = zV.y;
-  float orig_z = pTip.z;
-  float zV1 = orig_z + zVd;
-
-  vec3 pTipMirror = pTip;
-  pTipMirror.z = 2.0 * zV0 - orig_z;
-
-  vec3 d  = pTip - pSite;
-  vec3 dm = pTipMirror - pSite;
-  // NOTE: rotation is currently disabled to keep register pressure low in WebGL.
-  // The viewer keeps uUseRot=false by default.
-  // if (bUseRot) { d = rotSite * d; dm = rotSite * dm; }
-
-  int ord = (order > 1) ? 1 : order;
-
-  float E = Emultipole(d, ord, cs);
-  if (bMirror) {
-    E -= Emultipole(dm, ord, cs);
-  }
-  float VR = VBias * Rtip;
-  E *= VR;
-
-  if (bRamp) {
-    float ramp = (pSite.z - zV0) / (zV1 - zV0);
-    if (ramp > 1.0) ramp = 1.0;
-    if (pSite.z < zV0) ramp = 0.0;
-    float V_lin = VBias * ramp;
-    float E_lin = cs[0] * V_lin;
-    E += E_lin;
-  }
-  return E + E0;
-}
-
 // Compute on-site energies Ei(tip) and distances Ri for all sites, and track min/max.
 void compute_site_energies(
   in  vec3  tip,
@@ -152,9 +85,10 @@ void compute_site_energies(
     }
     vec3 spos = vec3(uSites[i].xyz);
     float E0  = uSites[i].w;
-    vec3 d0 = tip - spos;
-    float r = length(d0);
-    float Ei = evalMultipoleMirror(tip, spos, VBias, uRtip, uZV, uOrder, uCs, E0, mat3(1.0), false, uMirror, uRamp);
+    float r   = length(tip - spos);
+    // Simple gating: decays with distance from tip (heuristic)
+    float Egate = VBias * Rscale / max(r, 1e-3);
+    float Ei    = E0 + Egate;
     Ei_arr[i]   = Ei;
     Ri_arr[i]   = r;
     Emin = min(Emin, Ei);
@@ -514,14 +448,11 @@ void build_pme_kernel(
 
       for (int l = 0; l < 2; ++l) {
         float mu     = (l == 0) ? muS : muT;
+        float gamma0 = (l == 0) ? gammaS0 : gammaT0;
         float r      = Ri_arr[i];
-        float Tamp;
-        if (l == 0) {
-          Tamp = gammaS0;
-        } else {
-          Tamp = gammaT0 * exp(-uDecay * r);
-        }
-        float rate0 = 2.0 * PI * (Tamp * Tamp);
+        // float Ttun   = exp(-2.0 * r / max(uRtip, 1e-3));
+        float Ttun   = exp(-uDecay * r);
+        float gamma  = gamma0 * Ttun;
 
         int t = s;
         float dN = 0.0;
@@ -540,16 +471,15 @@ void build_pme_kernel(
         float dE = Es[t] - Es[s] - mu * dN;
         float f  = fermi(dE, kT);
 
-        float G_forward  = rate0 * f;
-        float G_backward = rate0 * (1.0 - f);
+        float G_forward  = gamma * f;
+        float G_backward = gamma * (1.0 - f);
 
-        // C++ sign convention: diagonals are negative sums of outgoing rates.
         // Outflow from s due to s->t, inflow to t.
-        K[s*NSTATE + s] -= G_forward;
-        K[t*NSTATE + s] += G_forward;
+        K[s*NSTATE + s] += G_forward;
+        K[t*NSTATE + s] -= G_forward;
         // Outflow from t due to t->s, inflow to s.
-        K[t*NSTATE + t] -= G_backward;
-        K[s*NSTATE + t] += G_backward;
+        K[t*NSTATE + t] += G_backward;
+        K[s*NSTATE + t] -= G_backward;
       }
     }
   }
@@ -575,8 +505,8 @@ float compute_tip_current(
       if (i >= nsites) break;
       float occ = floor(mod(float(s) / w2[i], 2.0));
       float r   = Ri_arr[i];
-      float Tamp = gammaT0 * exp(-uDecay * r);
-      float rate0 = 2.0 * PI * (Tamp * Tamp);
+      float Ttun = exp(-uDecay * r);
+      float gammaT = gammaT0 * Ttun;
 
       int t = s;
       float dN = 0.0;
@@ -592,8 +522,8 @@ float compute_tip_current(
 
       float dE = Es[t] - Es[s] - muT * dN;
       float f  = fermi(dE, kT);
-      float G_forward  = rate0 * f;
-      float G_backward = rate0 * (1.0 - f);
+      float G_forward  = gammaT * f;
+      float G_backward = gammaT * (1.0 - f);
 
       float sign = (dN > 0.0) ? 1.0 : -1.0;
       float contrib = 0.0;
@@ -640,9 +570,8 @@ void solve_pme(
   float kT   = max(uTemp * kBoltz, 1e-6);
   float muS  = 0.0;        // substrate chemical potential
   float muT  = VBias;     // tip chemical potential ~ bias
-  // Match C++: VS=Gamma/pi and VT=Gamma/pi, used as amplitudes.
-  float gammaS0 = max(uGammaS, 0.0) / PI;
-  float gammaT0 = max(uGammaT, 0.0) / PI;
+  float gammaS0 = max(uGammaS, 0.0);
+  float gammaT0 = max(uGammaT, 0.0);
 
   // Initialize K and rhs to zero before building the kernel.
   for (int i = 0; i < NSTATE; ++i) {
@@ -655,13 +584,34 @@ void solve_pme(
   // Build K from transition rates for both leads.
   build_pme_kernel(Es, Ri_arr, nsites, nStates, muS, muT, gammaS0, gammaT0, w2, kT, K);
 
-  // Match C++: replace first equation by normalization sum rho = 1.
-  int normRow = 0;
+  // Row normalization to improve numerical stability (equilibration)
+  // We normalize rows 0 to nStates-2. Row nStates-1 will be overwritten by probability normalization.
+  for (int i = 0; i < NSTATE; ++i) {
+    if (i >= nStates - 1) break; // Skip last row (will be overwritten) and unused rows
+
+    float maxVal = 0.0;
+    for (int j = 0; j < NSTATE; ++j) {
+      if (j >= nStates) break;
+      maxVal = max(maxVal, abs(K[i*NSTATE + j]));
+    }
+
+    if (maxVal > 1e-20) {
+      float invMax = 1.0 / maxVal;
+      for (int j = 0; j < NSTATE; ++j) {
+        if (j >= nStates) break;
+        K[i*NSTATE + j] *= invMax;
+      }
+      // rhs[i] is 0.0, so no need to scale it.
+    }
+  }
+
+  // Replace last equation by normalization: sum_s rho_s = 1.
+  int normRow = nStates - 1;
   for (int j = 0; j < NSTATE; ++j) {
-    if (j < nStates) { K[normRow*NSTATE + j] = 1.0; }
+    if (j < nStates) { K[normRow*NSTATE + j] = 1.0; } 
     else             { K[normRow*NSTATE + j] = 0.0; }
   }
-  for (int i = 0; i < nStates; ++i) { rhs[i] = 0.0; }
+  for (int i = 0; i < nStates; ++i)     { rhs[i] = 0.0;}
   rhs[normRow] = 1.0;
 
   solve_linear_system(K, rhs, nStates);
@@ -799,8 +749,81 @@ void main() {
       Eplot = pme_total_charge(rho, uNSites);
     } else if (uMode == 5) {
       Eplot = I_tip;
+    } else if (uMode == 6) {
+      // Debug mode: visualize Es[0]
+      float Es_dbg[NSTATE];
+      float Ne_dbg[NSTATE];
+      int   nStates_dbg;
+      compute_many_body_energies(Ei_arr, uNSites, uW, Es_dbg, Ne_dbg, nStates_dbg);
+      Eplot = Es_dbg[0];
+    } else if (uMode == 7) {
+      // Debug mode: visualize rho[0]
+      Eplot = rho[0];
+    } else if (uMode == 8) {
+      // Debug mode: visualize sum_s rho[s]
+      float sumR = 0.0;
+      for (int s = 0; s < NSTATE; ++s) {
+        sumR += rho[s];
+      }
+      Eplot = sumR;
+    } else if (uMode == 9 || uMode == 10) {
+      // Debug modes: inspect raw K and rhs elements from solve_pme.
+      // Recompute nStates from uNSites (same logic as compute_many_body_energies).
+      int nStates_dbg = 1;
+      for (int k = 0; k < NSITE; ++k) {
+        if (k >= uNSites) break;
+        nStates_dbg *= 2;
+      }
+
+      // Use uDebugI and uDebugJ to select element
+      int r = clamp(uDebugI, 0, nStates_dbg - 1);
+      int c = clamp(uDebugJ, 0, nStates_dbg - 1);
+
+      if (uMode == 9) {
+        // Treat K as row-major nStates_dbg x nStates_dbg matrix.
+        Eplot = K[r*NSTATE + c];
+      } else {
+        // rhs element (use uDebugI as index)
+        Eplot = rhs[r];
+      }
+    } else if (uMode == 11) {
+      // DEBUG: Visualize uW directly
+      Eplot = uW;
+    } else if (uMode == 12) {
+      // DEBUG: Visualize W effect (Es[3] - Es[1] - Es[2])
+      // This assumes NSites >= 2 and we look at state 3 (11) vs 1 (01) and 2 (10).
+      float Es_dbg[NSTATE];
+      float Ne_dbg[NSTATE];
+      int   nStates_dbg;
+      compute_many_body_energies(Ei_arr, uNSites, uW, Es_dbg, Ne_dbg, nStates_dbg);
+      if (nStates_dbg >= 4) {
+        Eplot = Es_dbg[3] - (Es_dbg[1] + Es_dbg[2]);
+      } else {
+        Eplot = -999.0; // Error
+      }
+    } else if (uMode == 13) {
+      // DEBUG: nStates
+      float Es_dbg[NSTATE];
+      float Ne_dbg[NSTATE];
+      int   nStates_dbg;
+      compute_many_body_energies(Ei_arr, uNSites, uW, Es_dbg, Ne_dbg, nStates_dbg);
+      Eplot = float(nStates_dbg);
+    } else if (uMode == 14) {
+      // DEBUG: Es[3]
+      float Es_dbg[NSTATE];
+      float Ne_dbg[NSTATE];
+      int   nStates_dbg;
+      compute_many_body_energies(Ei_arr, uNSites, uW, Es_dbg, Ne_dbg, nStates_dbg);
+      Eplot = Es_dbg[3];
+    } else if (uMode == 15) {
+      // DEBUG: Es[1] + Es[2]
+      float Es_dbg[NSTATE];
+      float Ne_dbg[NSTATE];
+      int   nStates_dbg;
+      compute_many_body_energies(Ei_arr, uNSites, uW, Es_dbg, Ne_dbg, nStates_dbg);
+      Eplot = Es_dbg[1] + Es_dbg[2];
     } else {
-      Eplot = -999.0;
+      Eplot = 0.0;
     }
   }
 

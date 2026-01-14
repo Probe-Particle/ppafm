@@ -233,7 +233,7 @@ void solve_batch(
     double* out_current)
 {
     // 1. Create a thread-local copy of the solver
-    PauliSolver solver_local(solver_template); // Use copy constructor
+    PauliSolver solver_local(*solver_template); // Use deep-copy copy-constructor
     int n2 = nSingle * nSingle;
 
     // printf("Thread %d processing indices [%d, %d)\n", thread_id, start_index, end_index); // Debug
@@ -508,7 +508,7 @@ double scan_current_tip_threaded( PauliSolver* solver, int npoints, Vec3d* pTips
     std::vector<std::thread> threads;
     threads.reserve(num_threads);
     int batch_size = std::ceil(static_cast<double>(npoints) / num_threads);
-    printf("scan_current_tip_threaded() nThreads: %i batch_size %i npoints: %i \n", num_threads, batch_size, npoints);
+    printf("scan_current_tip_threaded() nThreads: %i batch_size %i npoints: %i iSolver: %i \n", num_threads, batch_size, npoints, solver->iLinsolveMode );
     
     // Launch threads
     for (unsigned int t = 0; t < num_threads; ++t) {
@@ -516,7 +516,7 @@ double scan_current_tip_threaded( PauliSolver* solver, int npoints, Vec3d* pTips
         int i1 = std::min(i0 + batch_size, npoints);
         if (i0 >= npoints) break;
         threads.emplace_back([=]() { // Capture t by value
-            PauliSolver solver_local(*solver); // Create LOCAL copy inside thread
+            PauliSolver solver_local(*solver); // deep copy (see PauliSolver copy ctor)
             PauliSolver* solver_local_ptr = &solver_local;
             //PauliSolver* solver_local_ptr = new PauliSolver(*solver);
             scan_current_tip_( solver_local_ptr, i1-i0, pTips+i0, Vtips+i0, nSites, pSites, rots, params, order, cs, state_order, out_current+i0, Es?Es+i0*nSites : nullptr, Ts?Ts+i0*nSites : nullptr, Probs?Probs+i0*solver->nstates : nullptr, StateEnergies?StateEnergies+i0*solver->nstates : nullptr, externTs );

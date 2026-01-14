@@ -217,8 +217,8 @@ if __name__ == "__main__":
     ap.add_argument("--geometry",     type=Path, help="Geometry file (optional, overrides config).")
     ap.add_argument("--solver-mode",  type=int, default=None, help="Solver mode (e.g., 0, -1).")
     #ap.add_argument("--W",            type=float, default=0.02, help="W (eV, legacy scalar).")
-    ap.add_argument("--W-x",          dest="W_x",    type=float, default=0.02, help="Dimer coupling along +x/-x (eV).")
-    ap.add_argument("--W-y",          dest="W_y",    type=float, default=0.01, help="Coupling along y (vertical) (eV).")
+    ap.add_argument("--W-x",          dest="W_x",    type=float, default=0.020, help="Dimer coupling along +x/-x (eV).")
+    ap.add_argument("--W-y",          dest="W_y",    type=float, default=0.005, help="Coupling along y (vertical) (eV).")
     ap.add_argument("--W-diag",       dest="W_diag", type=float, default=0.0, help="Diagonal coupling (eV).")
     ap.add_argument("--decay",        type=float, default=None, help="decay (overrides params).")
     ap.add_argument("--z_tip",        type=float, default=None, help="tip height z (overrides params).")
@@ -235,14 +235,25 @@ if __name__ == "__main__":
     ap.add_argument("--compute-didv", type=int, default=1, help="Compute dI/dV via finite difference.")
     ap.add_argument("--save-json",    type=int, default=1, help="Also save JSON metadata.")
     ap.add_argument("--save-npz",     type=int, default=0, help="Also save NPZ arrays.")
-    ap.add_argument("--parallel",     type=int, default=1, help="Enable OpenMP in solver.")
+    ap.add_argument("--parallel",     type=int, default=0, help="Enable OpenMP in solver.")
     ap.add_argument("--montage",      type=int, default=2, help="Save a montage (STM[/dIdV]) over all V into one PNG.")
     ap.add_argument("--xv-vmax",      type=float, default=2.0, help="Vmax for xV cuts (eV).")
+    ap.add_argument("--xv-vmin",      type=float, default=0.2, help="Vmin for xV cuts (eV).")
     ap.add_argument("--xv-nx",        type=int, default=200, help="Number of spatial samples for xV cuts.")
     ap.add_argument("--xv-nV",        type=int, default=200, help="Number of voltage samples for xV cuts.")
+    ap.add_argument("--tip-orb",      nargs=4, type=float, default=[0.1, 0.1, 1.0, 0.0], help="Tip orbital components [px, py, pz, s].")
+    ap.add_argument("--tip-orb-power",type=int, default=None, help="Power for angular factor (tipOrb_power).")
+    ap.add_argument("--tip-orb-abs",  type=int, default=None, help="Use absolute value in angular factor (tipOrb_abs: 1/0).")
     args = ap.parse_args()
 
     params = build_params(args)
+    # tip orbital asymmetry (px/py/pz mix), matches example_pauli_params.json
+    if args.tip_orb is not None:
+        params["tipOrb"] = list(args.tip_orb)
+    if args.tip_orb_power is not None:
+        params["tipOrb_power"] = int(args.tip_orb_power)
+    if args.tip_orb_abs is not None:
+        params["tipOrb_abs"] = bool(args.tip_orb_abs)
     out_dir = args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -340,11 +351,12 @@ if __name__ == "__main__":
     # xV cuts: four lines (center x/y, site x/y), spanning full window [-L,+L]
     Lspan = float(params["L"])
     Vmax_xv = float(args.xv_vmax)
+    Vmin_xv = float(args.xv_vmin)
     nx_xv = int(args.xv_nx)
     nV_xv = int(args.xv_nV)
     # through center
-    run_and_plot_xv(np.array([-Lspan, 0.0]), np.array([ Lspan, 0.0]), "center_x", params, out_dir, geom_name, Wx_meV, Wy_meV, Wd_meV, dx, dy, caption_base, Vmin=0.0, Vmax=Vmax_xv, nx=nx_xv, nV=nV_xv, parallel=bool(args.parallel))
-    run_and_plot_xv(np.array([0.0, -Lspan]), np.array([0.0,  Lspan]), "center_y", params, out_dir, geom_name, Wx_meV, Wy_meV, Wd_meV, dx, dy, caption_base, Vmin=0.0, Vmax=Vmax_xv, nx=nx_xv, nV=nV_xv, parallel=bool(args.parallel))
+    run_and_plot_xv(np.array([-Lspan, 0.0]), np.array([ Lspan, 0.0]), "center_x", params, out_dir, geom_name, Wx_meV, Wy_meV, Wd_meV, dx, dy, caption_base, Vmin=Vmin_xv, Vmax=Vmax_xv, nx=nx_xv, nV=nV_xv, parallel=bool(args.parallel))
+    run_and_plot_xv(np.array([0.0, -Lspan]), np.array([0.0,  Lspan]), "center_y", params, out_dir, geom_name, Wx_meV, Wy_meV, Wd_meV, dx, dy, caption_base, Vmin=Vmin_xv, Vmax=Vmax_xv, nx=nx_xv, nV=nV_xv, parallel=bool(args.parallel))
     # through first site
-    run_and_plot_xv(np.array([-Lspan, dy]), np.array([ Lspan, dy]), "site_x", params, out_dir, geom_name, Wx_meV, Wy_meV, Wd_meV, dx, dy, caption_base, Vmin=0.0, Vmax=Vmax_xv, nx=nx_xv, nV=nV_xv, parallel=bool(args.parallel))
-    run_and_plot_xv(np.array([dx, -Lspan]), np.array([dx,  Lspan]), "site_y", params, out_dir, geom_name, Wx_meV, Wy_meV, Wd_meV, dx, dy, caption_base, Vmin=0.0, Vmax=Vmax_xv, nx=nx_xv, nV=nV_xv, parallel=bool(args.parallel))
+    run_and_plot_xv(np.array([-Lspan, dy]), np.array([ Lspan, dy]), "site_x", params, out_dir, geom_name, Wx_meV, Wy_meV, Wd_meV, dx, dy, caption_base, Vmin=Vmin_xv, Vmax=Vmax_xv, nx=nx_xv, nV=nV_xv, parallel=bool(args.parallel))
+    run_and_plot_xv(np.array([dx, -Lspan]), np.array([dx,  Lspan]), "site_y", params, out_dir, geom_name, Wx_meV, Wy_meV, Wd_meV, dx, dy, caption_base, Vmin=Vmin_xv, Vmax=Vmax_xv, nx=nx_xv, nV=nV_xv, parallel=bool(args.parallel))

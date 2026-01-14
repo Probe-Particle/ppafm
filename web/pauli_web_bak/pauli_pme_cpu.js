@@ -13,8 +13,6 @@ function getPmeVerbosity() {
     return 0;
 }
 
-const PI = Math.PI;
-
 function dbgPrintVector(label, v, n) {
     if (getPmeVerbosity() < 4) return;
     var m = (typeof n === 'number') ? n : v.length;
@@ -40,65 +38,7 @@ function dbgPrintMatrix(label, K, nStates) {
 }
 
 // Map tip-plane coordinates from (x, y, zTip) and sites -> Ei_arr, Ri_arr
-function Emultipole(d, order, cs) {
-    const r2 = d.x * d.x + d.y * d.y + d.z * d.z;
-    const ir2 = 1.0 / Math.max(r2, 1e-12);
-    let E = cs[0];
-    if (order > 0) {
-        E += ir2 * (cs[1] * d.x + cs[2] * d.y + cs[3] * d.z);
-    }
-    if (order > 1) {
-        const ir4 = ir2 * ir2;
-        E += ir4 * ((cs[4] * d.x + cs[9] * d.y) * d.x +
-            (cs[5] * d.y + cs[7] * d.z) * d.y +
-            (cs[6] * d.z + cs[8] * d.x) * d.z);
-    }
-    return Math.sqrt(ir2) * E;
-}
-
-function mat3MulVec3(m, v) {
-    return {
-        x: m[0] * v.x + m[1] * v.y + m[2] * v.z,
-        y: m[3] * v.x + m[4] * v.y + m[5] * v.z,
-        z: m[6] * v.x + m[7] * v.y + m[8] * v.z
-    };
-}
-
-function evalMultipoleMirror(tip, sitePos, VBias, Rtip, zV, order, cs, E0, rot, useRot, bMirror, bRamp) {
-    const zV0 = zV[0];
-    const zVd = zV[1];
-    const origZ = tip.z;
-    const zV1 = origZ + zVd;
-
-    const tipMirror = { x: tip.x, y: tip.y, z: 2.0 * zV0 - origZ };
-
-    let d = { x: tip.x - sitePos.x, y: tip.y - sitePos.y, z: tip.z - sitePos.z };
-    let dm = { x: tipMirror.x - sitePos.x, y: tipMirror.y - sitePos.y, z: tipMirror.z - sitePos.z };
-    if (useRot && rot) {
-        d = mat3MulVec3(rot, d);
-        dm = mat3MulVec3(rot, dm);
-    }
-
-    let E = Emultipole(d, order, cs);
-    if (bMirror) {
-        E -= Emultipole(dm, order, cs);
-    }
-    const VR = VBias * Rtip;
-    E *= VR;
-
-    if (bRamp) {
-        let ramp = (sitePos.z - zV0) / (zV1 - zV0);
-        if (ramp > 1.0) ramp = 1.0;
-        if (sitePos.z < zV0) ramp = 0.0;
-        const Vlin = VBias * ramp;
-        const Elin = cs[0] * Vlin;
-        E += Elin;
-    }
-
-    return E + E0;
-}
-
-function computeSiteEnergies(tip, sites, NSites, VBias, Rtip, zV, order, cs, mirror, ramp, useRot, rots) {
+function computeSiteEnergies(tip, sites, NSites, Rscale, VBias) {
     const Ei = new Array(4).fill(0.0);
     const Ri = new Array(4).fill(0.0);
     let Emin = 1e9;
@@ -113,21 +53,8 @@ function computeSiteEnergies(tip, sites, NSites, VBias, Rtip, zV, order, cs, mir
         const dy = tip.y - sy;
         const dz = tip.z - sz;
         const r = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        const rot = (useRot && rots && rots[i]) ? rots[i] : null;
-        const Ei_i = evalMultipoleMirror(
-            tip,
-            { x: sx, y: sy, z: sz },
-            VBias,
-            Rtip,
-            zV,
-            order,
-            cs,
-            E0,
-            rot,
-            useRot,
-            mirror,
-            ramp
-        );
+        const Egate = VBias * Rscale / Math.max(r, 1e-3);
+        const Ei_i = E0 + Egate;
         Ei[i] = Ei_i;
         Ri[i] = r;
         if (Ei_i < Emin) Emin = Ei_i;
@@ -181,7 +108,7 @@ function fermi(dE, kT) {
 }
 
 // Build PME kernel K (16x16) in row-major form, same as GLSL build_pme_kernel
-function buildPmeKernel(Es, Ri, NSites, nStates, muS, muT, VS, VT, kT, decay) {
+function buildPmeKernel(Es, Ri, NSites, nStates, muS, muT, gammaS0, gammaT0, kT, Rtip, useDecay, decay) {
     const K = new Array(16 * 16).fill(0.0);
     const w2 = [1, 2, 4, 8];
 
@@ -194,14 +121,15 @@ function buildPmeKernel(Es, Ri, NSites, nStates, muS, muT, VS, VT, kT, decay) {
 
             for (let l = 0; l < 2; l++) {
                 const mu = (l === 0) ? muS : muT;
+                const gamma0 = (l === 0) ? gammaS0 : gammaT0;
                 const r = Ri[i];
-                let Tamp;
-                if (l === 0) {
-                    Tamp = VS;
+                let Ttun;
+                if (useDecay) {
+                    Ttun = Math.exp(-decay * r);
                 } else {
-                    Tamp = VT * Math.exp(-decay * r);
+                    Ttun = Math.exp(-2.0 * r / Math.max(Rtip, 1e-3));
                 }
-                const rate0 = 2.0 * PI * (Tamp * Tamp);
+                const gamma = gamma0 * Ttun;
 
                 let t = s;
                 let dN = 0.0;
@@ -220,14 +148,15 @@ function buildPmeKernel(Es, Ri, NSites, nStates, muS, muT, VS, VT, kT, decay) {
                 const dE = Es[t] - Es[s] - mu * dN;
                 const f = fermi(dE, kT);
 
-                const G_forward = rate0 * f;
-                const G_backward = rate0 * (1.0 - f);
+                const G_forward = gamma * f;
+                const G_backward = gamma * (1.0 - f);
 
-                // C++ sign convention (matches updated GLSL)
-                K[s * 16 + s] -= G_forward;
-                K[t * 16 + s] += G_forward;
-                K[t * 16 + t] -= G_backward;
-                K[s * 16 + t] += G_backward;
+                // Outflow from s due to s->t, inflow to t
+                K[s * 16 + s] += G_forward;
+                K[t * 16 + s] -= G_forward;
+                // Outflow from t due to t->s, inflow to s
+                K[t * 16 + t] += G_backward;
+                K[s * 16 + t] -= G_backward;
             }
         }
     }
@@ -452,7 +381,7 @@ function solveLinearSystem_wraper(K, rhs, nStates, solver) {
     return solveLinearSystem_our(K, rhs, nStates);
 }
 
-function computeTipCurrent(Es, Ri, rho, nStates, NSites, muT, VT, decay, kT) {
+function computeTipCurrent(Es, Ri, rho, nStates, NSites, muT, gammaT0, Rtip, useDecay, decay, kT) {
     const w2 = [1, 2, 4, 8];
     let I_tip = 0.0;
 
@@ -462,8 +391,13 @@ function computeTipCurrent(Es, Ri, rho, nStates, NSites, muT, VT, decay, kT) {
             if (i >= NSites) break;
             const occ = Math.floor((s / w2[i]) % 2);
             const r = Ri[i];
-            const Tamp = VT * Math.exp(-decay * r);
-            const rate0 = 2.0 * PI * (Tamp * Tamp);
+            let Ttun;
+            if (useDecay) {
+                Ttun = Math.exp(-decay * r);
+            } else {
+                Ttun = Math.exp(-2.0 * r / Math.max(Rtip, 1e-3));
+            }
+            const gammaT = gammaT0 * Ttun;
 
             let t = s;
             let dN = 0.0;
@@ -479,8 +413,8 @@ function computeTipCurrent(Es, Ri, rho, nStates, NSites, muT, VT, decay, kT) {
 
             const dE = Es[t] - Es[s] - muT * dN;
             const f = fermi(dE, kT);
-            const G_forward = rate0 * f;
-            const G_backward = rate0 * (1.0 - f);
+            const G_forward = gammaT * f;
+            const G_backward = gammaT * (1.0 - f);
 
             const sign = (dN > 0.0) ? 1.0 : -1.0;
             let contrib = 0.0;
@@ -599,14 +533,7 @@ function solvePmeCpu(params) {
         GammaS,
         GammaT,
         decay,
-        W,
-        order,
-        zV,
-        cs,
-        mirror,
-        ramp,
-        useRot,
-        rots
+        W
     } = params;
 
     if (getPmeVerbosity() >= 3) {
@@ -625,14 +552,8 @@ function solvePmeCpu(params) {
         });
     }
 
-    const iOrder = (typeof order === 'number') ? order : 0;
-    const zVv = (Array.isArray(zV) && zV.length >= 2) ? zV : [0.0, 0.0];
-    const csv = (Array.isArray(cs) && cs.length >= 10) ? cs : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    const bMirror = !!mirror;
-    const bRamp = !!ramp;
-    const bUseRot = !!useRot;
-
-    const { Ei, Ri } = computeSiteEnergies(tip, sites, NSites, VBias, Rtip, zVv, iOrder, csv, bMirror, bRamp, bUseRot, rots);
+    const Rscale = Math.max(Rtip, 1.0);
+    const { Ei, Ri } = computeSiteEnergies(tip, sites, NSites, Rscale, VBias);
 
     const { Es, Ne, nStates } = computeManyBodyEnergies(Ei, NSites, W);
 
@@ -640,13 +561,15 @@ function solvePmeCpu(params) {
     const kT = Math.max(TempK * kBoltz, 1e-6);
     const muS = 0.0;
     const muT = VBias;
-    const VS = Math.max(GammaS, 0.0) / PI;
-    const VT = Math.max(GammaT, 0.0) / PI;
+    const gammaS0 = Math.max(GammaS, 0.0);
+    const gammaT0 = Math.max(GammaT, 0.0);
 
-    let K = buildPmeKernel(Es, Ri, NSites, nStates, muS, muT, VS, VT, kT, decay);
+    const useDecay = true; // mirror planned decay-based tunneling
+
+    let K = buildPmeKernel(Es, Ri, NSites, nStates, muS, muT, gammaS0, gammaT0, kT, Rtip, useDecay, decay);
 
     const rhs = new Array(16).fill(0.0);
-    const normRow = 0;
+    const normRow = nStates - 1;
     for (let j = 0; j < 16; j++) {
         if (j < nStates) K[normRow * 16 + j] = 1.0;
         else K[normRow * 16 + j] = 0.0;
@@ -660,7 +583,7 @@ function solvePmeCpu(params) {
         rho[s] = (s < nStates) ? rhoSol[s] : 0.0;
     }
 
-    const I_tip = computeTipCurrent(Es, Ri, rho, nStates, NSites, muT, VT, decay, kT);
+    const I_tip = computeTipCurrent(Es, Ri, rho, nStates, NSites, muT, gammaT0, Rtip, useDecay, decay, kT);
     if (getPmeVerbosity() >= 3) {
         console.log('solvePmeCpu debug: solver=' + solver + ' NSites=' + NSites + ' nStates=' + nStates + ' I_tip=' + I_tip);
     }
@@ -709,11 +632,6 @@ function evalPmeAtTipAndBias(tip, VBias, sites, params, NSites, mode, siteIdx) {
         return pmeSiteOccupancy(out.rho, NSites, siteIdx);
     } else if (mode === 4) {
         return pmeTotalCharge(out.rho, NSites);
-    } else if (mode === 16) {
-        const dV = (typeof params.dV === 'number' && isFinite(params.dV) && params.dV > 0) ? params.dV : 0.01;
-        const outP = solvePmeCpu(Object.assign({}, p, { VBias: VBias + dV }));
-        const outM = solvePmeCpu(Object.assign({}, p, { VBias: VBias - dV }));
-        return (outP.I_tip - outM.I_tip) / (2.0 * dV);
     } else {
         // Default: PME tip current, matching shader uMode==5
         return out.I_tip;
@@ -798,18 +716,4 @@ function runCpuScan2D_XV(nx, ny, sites, params, NSites, mode, siteIdx) {
     }
 
     return { ts: ts, Vs: Vs, Z: Z };
-}
-
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-    module.exports = {
-        solvePmeCpu,
-        evalPmeAtTipAndBias,
-        runCpuScan2D_XY,
-        runCpuScan2D_XV,
-        computeSiteEnergies,
-        computeManyBodyEnergies,
-        buildPmeKernel,
-        pmeSiteOccupancy,
-        pmeTotalCharge
-    };
 }

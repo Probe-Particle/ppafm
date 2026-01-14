@@ -310,7 +310,10 @@ public:
         verbosity(verb),
         energies_updated(false), // Explicitly initialize flags
         coupling_updated(false),
-        kernel_updated(false)
+        kernel_updated(false),
+        iLinsolveMode(0),
+        nMaxLinsolveInter(10),
+        LinsolveTolerance(1e-12)
         // std::vectors are default-constructed (empty), which is fine
     {
         alloc(nSingle_, nstates_, nleads_);
@@ -334,7 +337,6 @@ public:
     void deep_clone( const PauliSolver* source ){
         // Copy basic parameters
         W = source->W;
-        Wij = nullptr;
         verbosity = source->verbosity;
 
         setLinSolver(source->iLinsolveMode, source->nMaxLinsolveInter, source->LinsolveTolerance);
@@ -362,9 +364,7 @@ public:
         }
         
         // Copy Coulomb interaction matrix
-        if(source->Wij){
-            if(Wij) delete[] Wij;
-            Wij = new double[nSingle*nSingle];
+        if(source->Wij && Wij){
             std::memcpy(Wij, source->Wij, nSingle*nSingle*sizeof(double));
         }
         
@@ -395,6 +395,20 @@ public:
         deep_clone( source );
     }
 
+    // Deep-copy constructor (IMPORTANT: default compiler copy would be shallow and unsafe)
+    PauliSolver( const PauliSolver& source ) : PauliSolver(&source) {}
+
+    // Deep-copy assignment (only valid for matching dimensions)
+    PauliSolver& operator=( const PauliSolver& source ){
+        if(this == &source) return *this;
+        if( (nSingle!=source.nSingle) || (nstates!=source.nstates) || (nleads!=source.nleads) ){
+            fprintf(stderr, "ERROR: PauliSolver::operator= dimension mismatch (%d,%d,%d) != (%d,%d,%d)\n", nSingle,nstates,nleads, source.nSingle,source.nstates,source.nleads);
+            exit(1);
+        }
+        deep_clone(&source);
+        return *this;
+    }
+
     // Destructor to free allocated memory
     ~PauliSolver() {
         delete[] kernel;
@@ -405,6 +419,7 @@ public:
         delete[] leads;
         delete[] coupling;
         delete[] state_order;
+        delete[] state_order_inv;
         delete[] Hsingle;
         delete[] TLeads;
         delete[] Wij;

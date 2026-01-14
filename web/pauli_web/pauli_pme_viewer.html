@@ -27,6 +27,22 @@
             background: #000;
         }
 
+        .glContainer {
+            width: 512px;
+            height: 512px;
+            background: #000;
+            position: relative;
+        }
+
+        #overlayXY {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
         #cpuScanPanel {
             width: 512px;
             padding: 4px;
@@ -71,18 +87,41 @@
 
 <body>
     <div id="leftPanel">
-        <div id="container"></div>
+        <div id="containerXY" class="glContainer"><canvas id="overlayXY"></canvas></div>
+        <div id="containerXV" class="glContainer"></div>
         <div id="cpuScanPanel">
             <div class="row"><label for="inpLineScanPoints">CPU scan pts</label> <input id="inpLineScanPoints"
                     type="number" min="2" step="1" value="3" /> <button id="btnCpuScan">Run CPU line scan</button></div>
             <div class="row"><canvas id="cpuLineScanCanvas" style="width:100%; height:180px;"></canvas></div>
             <div class="row"><button id="btnCpu2DScan">Run CPU 2D scan</button></div>
-            <div class="row"><canvas id="cpu2DCanvas" style="width:100%; height:180px; border:1px solid #333;"></canvas></div>
+            <div class="row"><label>CPU 2D</label></div>
+            <div class="row"><canvas id="cpu2DCanvasXY" style="width:100%; height:180px; border:1px solid #333;"></canvas></div>
+            <div class="row"><canvas id="cpu2DCanvasXV" style="width:100%; height:180px; border:1px solid #333;"></canvas></div>
             <div class="row"><label for="inpVerbosity">verbosity</label> <input id="inpVerbosity" type="number" min="0" step="1" value="0" style="width:70px" /></div>
         </div>
     </div>
     <div id="ui">
         <div id="paramPanel"></div>
+        <div class="row"><label>Electrostatics</label></div>
+        <div class="row"><label for="inpOrder">order</label> <input id="inpOrder" type="number" min="0" max="2" step="1" value="2" /></div>
+        <div class="row"><label for="inpZv0">zV0</label> <input id="inpZv0" type="number" step="0.1" value="-1.0" /></div>
+        <div class="row"><label for="inpZvd">zVd</label> <input id="inpZvd" type="number" step="0.1" value="15.0" /></div>
+        <div class="row"><label for="inpMirror">Mirror</label> <input id="inpMirror" type="checkbox" checked /></div>
+        <div class="row"><label for="inpRamp">Ramp</label> <input id="inpRamp" type="checkbox" checked /></div>
+        <div class="row"><label for="inpUseRot">UseRot</label> <input id="inpUseRot" type="checkbox" /></div>
+        <div class="row"><label>dIdV</label></div>
+        <div class="row"><label for="inpDv">dV</label> <input id="inpDv" type="number" step="0.001" value="0.01" /></div>
+        <div class="row"><label>Multipole cs</label></div>
+        <div class="row"><label for="inpCs0">cs0</label> <input id="inpCs0" type="number" step="0.001" value="1.0" /></div>
+        <div class="row"><label for="inpCs1">cs1</label> <input id="inpCs1" type="number" step="0.001" value="0.0" /></div>
+        <div class="row"><label for="inpCs2">cs2</label> <input id="inpCs2" type="number" step="0.001" value="0.0" /></div>
+        <div class="row"><label for="inpCs3">cs3</label> <input id="inpCs3" type="number" step="0.001" value="1.0" /></div>
+        <div class="row"><label for="inpCs4">cs4</label> <input id="inpCs4" type="number" step="0.001" value="0.0" /></div>
+        <div class="row"><label for="inpCs5">cs5</label> <input id="inpCs5" type="number" step="0.001" value="0.0" /></div>
+        <div class="row"><label for="inpCs6">cs6</label> <input id="inpCs6" type="number" step="0.001" value="0.0" /></div>
+        <div class="row"><label for="inpCs7">cs7</label> <input id="inpCs7" type="number" step="0.001" value="0.0" /></div>
+        <div class="row"><label for="inpCs8">cs8</label> <input id="inpCs8" type="number" step="0.001" value="0.0" /></div>
+        <div class="row"><label for="inpCs9">cs9</label> <input id="inpCs9" type="number" step="0.001" value="0.0" /></div>
         <div class="row"><label for="selMode">Mode </label>
             <select id="selMode">
                 <option value="0">Single-particle min(E_i)</option>
@@ -91,6 +130,7 @@
                 <option value="3">PME: occupancy of site</option>
                 <option value="4">PME: total charge</option>
                 <option value="5" selected>PME: tip current</option>
+                <option value="16">PME: dI/dV (numerical)</option>
                 <option value="6">DEBUG: Es[0]</option>
                 <option value="7">DEBUG: rho[0]</option>
                 <option value="8">DEBUG: sum rho</option>
@@ -145,9 +185,10 @@
     </div>
 
     <script>
-        var renderer, scene, camera, mesh, material;
-        var fragShaderTemplate = "";
-        var currentNSites = -1;
+        var rendererXY, rendererXV, sceneXY, sceneXV, cameraXY, cameraXV, meshXY, meshXV, materialXY, materialXV;
+        var fragShaderTemplateMain = "";
+        var fragShaderTemplateDidv = "";
+        var currentShaderKey = "";
         var cpuLineScanChart = null;
 
         // Parameter specifications for PME controls. Each entry uses a canonical
@@ -155,17 +196,17 @@
         var paramSpecs = [
             { key: 'NSites', label: 'NSites', type: 'int', def: 2, min: 1, max: 4, step: 1 },
             { key: 'L', label: 'L (Å)', type: 'float', def: 20.0, step: 1.0 },
-            { key: 'ZTip', label: 'z_tip (Å)', type: 'float', def: 8.0, step: 0.1 },
-            { key: 'VBias', label: 'VBias (V)', type: 'float', def: 0.25, step: 0.01 },
+            { key: 'ZTip', label: 'z_tip (Å)', type: 'float', def: 5.0, step: 0.1 },
+            { key: 'VBias', label: 'VBias (V)', type: 'float', def: 1.00, step: 0.01 },
             { key: 'VBias0', label: 'VBias0 (V)', type: 'float', def: 0.0, step: 0.01 },
-            { key: 'Rtip', label: 'Rtip (Å)', type: 'float', def: 4.8, min: 0.1, step: 0.1 },
+            { key: 'Rtip', label: 'Rtip (Å)', type: 'float', def: 3.0, min: 0.1, step: 0.1 },
             { key: 'TempK', label: 'Temp (K)', type: 'float', def: 3.0, min: 0.0, step: 1.0 },
-            { key: 'GammaS', label: 'GammaS', type: 'float', def: 1.000, min: 0.0, step: 0.0001 },
-            { key: 'GammaT', label: 'GammaT', type: 'float', def: 0.001, min: 0.0, step: 0.0001 },
-            { key: 'decay', label: 'decay', type: 'float', def: 0.4, min: 0.0, step: 0.1 },
-            { key: 'W', label: 'W (Coul)', type: 'float', def: -0.01, step: 0.01 },
+            { key: 'GammaS', label: 'GammaS', type: 'float', def: 0.0100, min: 0.0, step: 0.0001 },
+            { key: 'GammaT', label: 'GammaT', type: 'float', def: 0.0100, min: 0.0, step: 0.0001 },
+            { key: 'decay', label: 'decay', type: 'float', def: 0.3, min: 0.0, step: 0.1 },
+            { key: 'W', label: 'W (Coul)', type: 'float', def: 0.02, step: 0.01 },
             { key: 'Ecenter', label: 'E center', type: 'float', def: 0.0, step: 0.01 },
-            { key: 'OutScale', label: 'OutScale (10^x)', type: 'float', def: 4.0, min: -10.0, max: 10.0, step: 0.1 },
+            { key: 'OutScale', label: 'OutScale (10^x)', type: 'float', def: 4.0, min: -50.0, max: 50.0, step: 0.1 },
             // XV Scan Mode Params
             { key: 'P1x', label: 'P1.x', type: 'float', def: -5.0, step: 0.1 },
             { key: 'P1y', label: 'P1.y', type: 'float', def: 0.0, step: 0.1 },
@@ -176,7 +217,7 @@
         var paramInputIds = paramSpecs.map(function (s) { return s.inputId || ('inp' + s.key.charAt(0).toUpperCase() + s.key.slice(1)); });
 
         // Uniforms: special ones explicit, parameter uniforms derived from paramSpecs.
-        var uniforms = {
+        var uniformsBase = {
             uResolution: { value: new THREE.Vector2(512, 512) },
             uMode: { value: 5 },
             uSolverMode: { value: 0 },
@@ -184,6 +225,19 @@
             uDebugI: { value: 0 },
             uDebugJ: { value: 0 },
             uOutputRaw: { value: false },
+            uOrder: { value: 2 },
+            uZV: { value: new THREE.Vector2(-1.0, 15.0) },
+            uMirror: { value: true },
+            uRamp: { value: true },
+            uUseRot: { value: false },
+            uDV: { value: 0.01 },
+            uCs: { value: [1, 0, 0, 1, 0, 0, 0, 0, 0, 0] },
+            uRot: { value: [
+                new THREE.Matrix3(),
+                new THREE.Matrix3(),
+                new THREE.Matrix3(),
+                new THREE.Matrix3()
+            ] },
             // Sites: up to 4 sites, each as (x, y, z, E)
             uSites: {
                 value: [
@@ -200,10 +254,53 @@
             uScanMode: { value: 0 }
         };
 
-        for (var i = 0; i < paramSpecs.length; i++) {
-            var s = paramSpecs[i];
-            var uniformName = 'u' + s.key.charAt(0).toUpperCase() + s.key.slice(1);
-            uniforms[uniformName] = { value: s.def };
+        var uniformsXY = null;
+        var uniformsXV = null;
+
+        function makeUniforms() {
+            var u = {
+                uResolution: { value: new THREE.Vector2(512, 512) },
+                uMode: { value: 5 },
+                uSolverMode: { value: 0 },
+                uSiteIndex: { value: 0 },
+                uDebugI: { value: 0 },
+                uDebugJ: { value: 0 },
+                uOutputRaw: { value: false },
+                uOrder: { value: 2 },
+                uZV: { value: new THREE.Vector2(-1.0, 15.0) },
+                uMirror: { value: true },
+                uRamp: { value: true },
+                uUseRot: { value: false },
+                uDV: { value: 0.01 },
+                uCs: { value: [1, 0, 0, 1, 0, 0, 0, 0, 0, 0] },
+                uRot: { value: [
+                    new THREE.Matrix3(),
+                    new THREE.Matrix3(),
+                    new THREE.Matrix3(),
+                    new THREE.Matrix3()
+                ] },
+                uSites: {
+                    value: [
+                        new THREE.Vector4(0, 0, 0, -0.1),
+                        new THREE.Vector4(0, 0, 0, -0.1),
+                        new THREE.Vector4(0, 0, 0, -0.1),
+                        new THREE.Vector4(0, 0, 0, -0.1)
+                    ]
+                },
+                uP1: { value: new THREE.Vector2(-5, 0) },
+                uP2: { value: new THREE.Vector2(5, 0) },
+                uVBiasMin: { value: -1.0 },
+                uVBiasMax: { value: 1.0 },
+                uScanMode: { value: 0 }
+            };
+            for (var i = 0; i < paramSpecs.length; i++) {
+                var s = paramSpecs[i];
+                var uniformName = 'u' + s.key.charAt(0).toUpperCase() + s.key.slice(1);
+                if (u[uniformName] === undefined) {
+                    u[uniformName] = { value: s.def };
+                }
+            }
+            return u;
         }
 
         function setStatus(msg) {
@@ -212,17 +309,25 @@
         }
 
         function init() {
-            var container = document.getElementById('container');
+            var containerXY = document.getElementById('containerXY');
+            var containerXV = document.getElementById('containerXV');
 
-            scene = new THREE.Scene();
-            camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
-            camera.position.z = 1;
+            uniformsXY = makeUniforms();
+            uniformsXV = makeUniforms();
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            container.appendChild(renderer.domElement);
+            sceneXY = new THREE.Scene();
+            sceneXV = new THREE.Scene();
+            cameraXY = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+            cameraXV = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+            cameraXY.position.z = 1;
+            cameraXV.position.z = 1;
 
-            uniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
+            rendererXY = new THREE.WebGLRenderer({ antialias: true });
+            rendererXV = new THREE.WebGLRenderer({ antialias: true });
+            rendererXY.setSize(containerXY.clientWidth, containerXY.clientHeight);
+            rendererXV.setSize(containerXV.clientWidth, containerXV.clientHeight);
+            containerXY.appendChild(rendererXY.domElement);
+            containerXV.appendChild(rendererXV.domElement);
 
             var vertexShaderSrc = [
                 'out vec2 vUv;',
@@ -232,18 +337,23 @@
                 '}'
             ].join('\n');
 
-            // Load fragment shader from external file (Phase 1 shader)
-            fetch('Pauli_PME_phase1.glslf')
-                .then(function (r) { return r.text(); })
-                .then(function (fragSource) {
-                    fragShaderTemplate = fragSource;
+            // Load fragment shaders
+            Promise.all([
+                fetch('Pauli_PME_phase1.glslf').then(function (r) { return r.text(); }),
+                fetch('Pauli_PME_dIdV.glslf').then(function (r) { return r.text(); })
+            ])
+                .then(function (sources) {
+                    fragShaderTemplateMain = sources[0] || "";
+                    fragShaderTemplateDidv = sources[1] || "";
 
-                    // Initial compilation with default NSites (will be updated by updateFromInputs)
-                    compileShader(2);
+                    // Initial compilation with default NSites/mode (will be updated by updateFromInputs)
+                    compileShader(2, 5);
 
                     var geom = new THREE.PlaneGeometry(2, 2);
-                    mesh = new THREE.Mesh(geom, material);
-                    scene.add(mesh);
+                    meshXY = new THREE.Mesh(geom, materialXY);
+                    meshXV = new THREE.Mesh(geom, materialXV);
+                    sceneXY.add(meshXY);
+                    sceneXV.add(meshXV);
 
                     window.addEventListener('resize', onWindowResize, false);
 
@@ -288,12 +398,25 @@
                     createPmeGui('paramPanel', 'Pauli STM Viewer (Phase 1: sites + geometry)', paramSpecs);
 
                     // Numeric inputs: re-render on change
-                    paramInputIds.concat(['inpSiteIndex', 'inpDebugI', 'inpDebugJ']).forEach(function (id) {
+                    paramInputIds.concat([
+                        'inpSiteIndex', 'inpDebugI', 'inpDebugJ',
+                        'inpOrder', 'inpZv0', 'inpZvd', 'inpDv',
+                        'inpCs0', 'inpCs1', 'inpCs2', 'inpCs3', 'inpCs4',
+                        'inpCs5', 'inpCs6', 'inpCs7', 'inpCs8', 'inpCs9'
+                    ]).forEach(function (id) {
                         var el = document.getElementById(id);
                         if (!el) return;
                         el.addEventListener('input', function () {
                             updateFromInputs();
                             // Do not re-parse sites on every numeric input to keep it predictable
+                        });
+                    });
+
+                    ['inpMirror', 'inpRamp', 'inpUseRot'].forEach(function (id) {
+                        var el = document.getElementById(id);
+                        if (!el) return;
+                        el.addEventListener('change', function () {
+                            updateFromInputs();
                         });
                     });
 
@@ -332,7 +455,12 @@
                         });
                     }
 
-                    paramInputIds.concat(['inpSiteIndex', 'inpDebugI', 'inpDebugJ']).forEach(attachWheelIncrement);
+                    paramInputIds.concat([
+                        'inpSiteIndex', 'inpDebugI', 'inpDebugJ',
+                        'inpOrder', 'inpZv0', 'inpZvd', 'inpDv',
+                        'inpCs0', 'inpCs1', 'inpCs2', 'inpCs3', 'inpCs4',
+                        'inpCs5', 'inpCs6', 'inpCs7', 'inpCs8', 'inpCs9'
+                    ]).forEach(attachWheelIncrement);
                     // Initialize uniforms from default inputs and site list
                     updateFromInputs();
                     applySitesFromTextarea();
@@ -349,6 +477,98 @@
                 return;
             }
 
+            function colormapRwb(t) {
+                if (!isFinite(t)) t = 0.5;
+                t = Math.max(0.0, Math.min(1.0, t));
+                var r, g, b;
+                if (t < 0.5) {
+                    var u = t * 2.0;
+                    r = 255 * u;
+                    g = 255 * u;
+                    b = 255;
+                } else {
+                    var v = (t - 0.5) * 2.0;
+                    r = 255;
+                    g = 255 * (1.0 - v);
+                    b = 255 * (1.0 - v);
+                }
+                return [r | 0, g | 0, b | 0];
+            }
+
+            function drawFieldToCanvas(canvas, Z, nx, ny, mode, displayScale) {
+                if (!canvas || !Z || !Z.length) return;
+                var ctx = canvas.getContext('2d');
+                if (!ctx) return;
+
+                var cw = canvas.clientWidth || canvas.width || 300;
+                var ch = Math.max(cw * (ny / nx), 1);
+                canvas.width = cw;
+                canvas.height = ch;
+                canvas.style.height = ch + 'px';
+
+                var vmin = +Infinity, vmax = -Infinity;
+                for (var iy = 0; iy < ny; iy++) {
+                    var row = Z[iy];
+                    for (var ix = 0; ix < nx; ix++) {
+                        var val = row[ix] * displayScale;
+                        if (!isFinite(val)) continue;
+                        if (val < vmin) vmin = val;
+                        if (val > vmax) vmax = val;
+                    }
+                }
+
+                var imgData = ctx.createImageData(nx, ny);
+                var data = imgData.data;
+
+                var dv = vmax - vmin;
+                var vabs = Math.max(Math.abs(vmin), Math.abs(vmax));
+                if (!isFinite(dv) || dv <= 0) dv = 1.0;
+                if (!isFinite(vabs) || vabs <= 0) vabs = 1.0;
+
+                for (var iy2 = 0; iy2 < ny; iy2++) {
+                    var row2 = Z[iy2];
+                    var dy = (ny - 1 - iy2);
+                    for (var ix2 = 0; ix2 < nx; ix2++) {
+                        var val2 = row2[ix2] * displayScale;
+                        var idx = 4 * (dy * nx + ix2);
+                        if (!isFinite(val2)) {
+                            data[idx + 0] = 0;
+                            data[idx + 1] = 0;
+                            data[idx + 2] = 0;
+                            data[idx + 3] = 255;
+                            continue;
+                        }
+
+                        if (mode === 16) {
+                            var tt = 0.5 + 0.5 * (val2 / vabs);
+                            var rgb = colormapRwb(tt);
+                            data[idx + 0] = rgb[0];
+                            data[idx + 1] = rgb[1];
+                            data[idx + 2] = rgb[2];
+                            data[idx + 3] = 255;
+                        } else {
+                            var t = (val2 - vmin) / dv;
+                            if (!isFinite(t)) t = 0.0;
+                            t = Math.max(0.0, Math.min(1.0, t));
+                            var g = Math.floor(t * 255);
+                            data[idx + 0] = g;
+                            data[idx + 1] = g;
+                            data[idx + 2] = g;
+                            data[idx + 3] = 255;
+                        }
+                    }
+                }
+
+                var tmpCanvas = document.createElement('canvas');
+                tmpCanvas.width = nx;
+                tmpCanvas.height = ny;
+                var tmpCtx = tmpCanvas.getContext('2d');
+                tmpCtx.putImageData(imgData, 0, 0);
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(tmpCanvas, 0, 0, canvas.width, canvas.height);
+            }
+
             var txt = document.getElementById('txtSites').value || '';
             var parsed = parseSitesArrayFromText ? parseSitesArrayFromText(txt, 4) : [];
             if (parsed.length < 1) {
@@ -362,6 +582,33 @@
             // Read generic params from inputs.
             var p = readParamsFromInputsWithSpecs(paramSpecs);
 
+            // Extra params needed by the updated CPU solver / GLSL mirror.
+            p.order = (function () {
+                var el = document.getElementById('inpOrder');
+                var v = el ? parseInt(el.value, 10) : 0;
+                if (!isFinite(v)) v = 0;
+                return Math.max(0, Math.min(2, v));
+            })();
+            p.zV = [
+                (function () { var el = document.getElementById('inpZv0'); var v = el ? parseFloat(el.value) : -1.0; return isFinite(v) ? v : -1.0; })(),
+                (function () { var el = document.getElementById('inpZvd'); var v = el ? parseFloat(el.value) : 15.0; return isFinite(v) ? v : 15.0; })()
+            ];
+            p.cs = (function () {
+                var a = new Array(10);
+                for (var iCs = 0; iCs < 10; iCs++) {
+                    var el = document.getElementById('inpCs' + iCs);
+                    var v = el ? parseFloat(el.value) : 0.0;
+                    if (!isFinite(v)) v = 0.0;
+                    a[iCs] = v;
+                }
+                return a;
+            })();
+            p.mirror = (function () { var el = document.getElementById('inpMirror'); return el ? !!el.checked : true; })();
+            p.ramp = (function () { var el = document.getElementById('inpRamp'); return el ? !!el.checked : true; })();
+            p.useRot = (function () { var el = document.getElementById('inpUseRot'); return el ? !!el.checked : false; })();
+            p.rots = null;
+            p.dV = (function () { var el = document.getElementById('inpDv'); var v = el ? parseFloat(el.value) : 0.01; if (!isFinite(v) || v <= 0) v = 0.01; return v; })();
+
             var NSites = p.NSites;
             if (NSites < 1) NSites = 1;
             if (NSites > parsed.length) NSites = parsed.length;
@@ -373,125 +620,106 @@
             var mode = modeSel ? parseInt(modeSel.value, 10) : 5;
             if (!isFinite(mode)) mode = 5;
 
-            var scanModeSel = document.getElementById('selScanMode');
-            var scanMode = scanModeSel ? parseInt(scanModeSel.value, 10) : 0;
-            if (!isFinite(scanMode)) scanMode = 0;
-
             var solverSel = document.getElementById('selSolver');
             var solver = solverSel ? solverSel.value : 'numericjs';
 
             p.NSites = NSites;
             p.solver = solver;
-            // For XV scans, use bias range [VBias0, VBias].
-            if (scanMode === 1) {
-                p.VBiasMin = p.VBias0;
-                p.VBiasMax = p.VBias;
-            }
+            p.VBiasMin = p.VBias0;
+            p.VBiasMax = p.VBias;
 
             // Pack sites into objects expected by the CPU solver.
             var sitesObj = parsed.map(function (row) {
                 return { x: row[0], y: row[1], z: row[2], E: row[3] };
             });
 
-            var field;
-            if (scanMode === 1) {
-                field = runCpuScan2D_XV(nx, ny, sitesObj, p, NSites, mode, siteIdx);
-            } else {
-                field = runCpuScan2D_XY(nx, ny, sitesObj, p, NSites, mode, siteIdx);
+            var fieldXY = runCpuScan2D_XY(nx, ny, sitesObj, p, NSites, mode, siteIdx);
+            var fieldXV = runCpuScan2D_XV(nx, ny, sitesObj, p, NSites, mode, siteIdx);
+
+            function fieldMinMax(field) {
+                var Z = field && field.Z;
+                if (!Z || !Z.length) return { min: NaN, max: NaN };
+                var vmin = +Infinity;
+                var vmax = -Infinity;
+                for (var iy = 0; iy < Z.length; iy++) {
+                    var row = Z[iy];
+                    for (var ix = 0; ix < row.length; ix++) {
+                        var val = row[ix];
+                        if (!isFinite(val)) continue;
+                        if (val < vmin) vmin = val;
+                        if (val > vmax) vmax = val;
+                    }
+                }
+                if (!isFinite(vmin) || !isFinite(vmax)) return { min: NaN, max: NaN };
+                return { min: vmin, max: vmax };
             }
 
-            var Z = field.Z;
-            if (!Z || !Z.length) {
-                console.warn('CPU 2D scan produced empty field.');
-                return;
-            }
+            var mmXY = fieldMinMax(fieldXY);
+            var mmXV = fieldMinMax(fieldXV);
+            console.log('CPU2D raw stats mode=' + mode + ' dV=' + p.dV + ' OutScale=' + p.OutScale + ':', {
+                XY: mmXY,
+                XV: mmXV
+            });
 
-            // Draw into cpu2DCanvas
-            var canvas = document.getElementById('cpu2DCanvas');
-            if (!canvas) return;
-            var ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            // Keep pixel aspect consistent with data (nx/ny). Use canvas client width.
-            var cw = canvas.clientWidth || canvas.width || 300;
-            var ch = Math.max(cw * (ny / nx), 1);
-            canvas.width = cw;
-            canvas.height = ch;
-            canvas.style.height = ch + 'px';
+            var displayScale = Math.pow(10.0, p.OutScale);
+            drawFieldToCanvas(document.getElementById('cpu2DCanvasXY'), fieldXY.Z, nx, ny, mode, displayScale);
+            drawFieldToCanvas(document.getElementById('cpu2DCanvasXV'), fieldXV.Z, nx, ny, mode, displayScale);
 
-            // Compute min/max for simple normalization.
-            var vmin = +Infinity, vmax = -Infinity;
-            for (var iy = 0; iy < ny; iy++) {
-                var row = Z[iy];
-                for (var ix = 0; ix < nx; ix++) {
-                    var val = row[ix];
-                    if (!isFinite(val)) continue;
-                    if (val < vmin) vmin = val;
-                    if (val > vmax) vmax = val;
+            var canvasXY = document.getElementById('cpu2DCanvasXY');
+            if (canvasXY) {
+                var ctxXY = canvasXY.getContext('2d');
+                if (ctxXY) {
+                    var L = p.L;
+                    var x1 = p.P1x, y1 = p.P1y, x2 = p.P2x, y2 = p.P2y;
+                    var u1 = (x1 / L + 1.0) * 0.5;
+                    var v1 = (y1 / L + 1.0) * 0.5;
+                    var u2 = (x2 / L + 1.0) * 0.5;
+                    var v2 = (y2 / L + 1.0) * 0.5;
+                    var cx1 = u1 * canvasXY.width;
+                    var cy1 = (1.0 - v1) * canvasXY.height;
+                    var cx2 = u2 * canvasXY.width;
+                    var cy2 = (1.0 - v2) * canvasXY.height;
+                    ctxXY.save();
+                    ctxXY.strokeStyle = 'rgba(255,255,0,0.9)';
+                    ctxXY.lineWidth = 2;
+                    ctxXY.beginPath();
+                    ctxXY.moveTo(cx1, cy1);
+                    ctxXY.lineTo(cx2, cy2);
+                    ctxXY.stroke();
+                    ctxXY.restore();
                 }
             }
-            if (!isFinite(vmin) || !isFinite(vmax) || vmin === vmax) {
-                vmin = 0.0; vmax = 1.0;
-            }
-
-            var imgData = ctx.createImageData(nx, ny);
-            var data = imgData.data;
-
-            for (var iy = 0; iy < ny; iy++) {
-                var row = Z[iy];
-                // Flip vertically so higher bias (larger v) is at the top visually
-                var dy = (ny - 1 - iy);
-                for (var ix = 0; ix < nx; ix++) {
-                    var val = row[ix];
-                    var t = (val - vmin) / (vmax - vmin);
-                    if (!isFinite(t)) t = 0.0;
-                    t = Math.max(0.0, Math.min(1.0, t));
-
-                    // Simple grayscale mapping
-                    var g = Math.floor(t * 255);
-                    var idx = 4 * (dy * nx + ix);
-                    data[idx + 0] = g;
-                    data[idx + 1] = g;
-                    data[idx + 2] = g;
-                    data[idx + 3] = 255;
-                }
-            }
-
-            // Draw at native resolution, then scale to canvas size.
-            var tmpCanvas = document.createElement('canvas');
-            tmpCanvas.width = nx;
-            tmpCanvas.height = ny;
-            var tmpCtx = tmpCanvas.getContext('2d');
-            tmpCtx.putImageData(imgData, 0, 0);
-
-            // Clear and draw stretched to full canvas.
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(tmpCanvas, 0, 0, canvas.width, canvas.height);
         }
 
         function onWindowResize() {
-            var container = document.getElementById('container');
-            if (!renderer) return;
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            uniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
+            var containerXY = document.getElementById('containerXY');
+            var containerXV = document.getElementById('containerXV');
+            if (!rendererXY || !rendererXV) return;
+            rendererXY.setSize(containerXY.clientWidth, containerXY.clientHeight);
+            rendererXV.setSize(containerXV.clientWidth, containerXV.clientHeight);
+            if (uniformsXY && uniformsXY.uResolution) uniformsXY.uResolution.value.set(rendererXY.domElement.width, rendererXY.domElement.height);
+            if (uniformsXV && uniformsXV.uResolution) uniformsXV.uResolution.value.set(rendererXV.domElement.width, rendererXV.domElement.height);
             renderOnce();
         }
 
-        function compileShader(nsites) {
-            if (!fragShaderTemplate) return;
+        function compileShader(nsites, mode) {
+            var useDidv = (mode === 16);
+            var templ = useDidv ? fragShaderTemplateDidv : fragShaderTemplateMain;
+            if (!templ) return;
 
-            // If NSites hasn't changed, do nothing (unless force recompile needed, but usually not)
-            if (nsites === currentNSites && material) return;
+            var key = nsites + '|' + (useDidv ? 'didv' : 'main');
+            if (key === currentShaderKey && materialXY && materialXV) return;
 
-            currentNSites = nsites;
+            currentShaderKey = key;
             var nstates = 1 << nsites; // 2^nsites
 
             // Replace macros
-            var source = fragShaderTemplate
+            var source = templ
                 .replace(/#define NSITE \d+/g, '#define NSITE ' + nsites)
                 .replace(/#define NSTATE \d+/g, '#define NSTATE ' + nstates);
 
             var newMaterial = new THREE.ShaderMaterial({
-                uniforms: uniforms,
+                uniforms: uniformsXY,
                 vertexShader: [
                     'out vec2 vUv;',
                     'void main() {',
@@ -503,15 +731,59 @@
                 glslVersion: THREE.GLSL3
             });
 
-            material = newMaterial;
-            if (mesh) mesh.material = material;
+            var newMaterialXV = new THREE.ShaderMaterial({
+                uniforms: uniformsXV,
+                vertexShader: [
+                    'out vec2 vUv;',
+                    'void main() {',
+                    '  vUv = uv;',
+                    '  gl_Position = vec4(position, 1.0);',
+                    '}'
+                ].join('\n'),
+                fragmentShader: source,
+                glslVersion: THREE.GLSL3
+            });
 
-            console.log("Recompiled shader for NSITE=" + nsites + ", NSTATE=" + nstates);
+            materialXY = newMaterial;
+            materialXV = newMaterialXV;
+            if (meshXY) meshXY.material = materialXY;
+            if (meshXV) meshXV.material = materialXV;
+
+            console.log("Recompiled shader for NSITE=" + nsites + ", NSTATE=" + nstates + (useDidv ? " (dIdV)" : ""));
         }
 
         function updateFromInputs() {
             // Read and clamp all parameter values from inputs using the shared spec.
             var p = readParamsFromInputsWithSpecs(paramSpecs); // { Rtip, VBias, TempK, ... }
+
+            var orderEl = document.getElementById('inpOrder');
+            var zv0El = document.getElementById('inpZv0');
+            var zvdEl = document.getElementById('inpZvd');
+            var dvEl = document.getElementById('inpDv');
+            var mirrorEl = document.getElementById('inpMirror');
+            var rampEl = document.getElementById('inpRamp');
+            var useRotEl = document.getElementById('inpUseRot');
+
+            var uOrder = orderEl ? parseInt(orderEl.value, 10) : 0;
+            if (!isFinite(uOrder)) uOrder = 0;
+            uOrder = Math.max(0, Math.min(2, uOrder));
+            var zV0 = zv0El ? parseFloat(zv0El.value) : -1.0;
+            var zVd = zvdEl ? parseFloat(zvdEl.value) : 15.0;
+            if (!isFinite(zV0)) zV0 = -1.0;
+            if (!isFinite(zVd)) zVd = 15.0;
+            var dV = dvEl ? parseFloat(dvEl.value) : 0.01;
+            if (!isFinite(dV) || dV <= 0) dV = 0.01;
+            var bMirror = mirrorEl ? !!mirrorEl.checked : true;
+            var bRamp = rampEl ? !!rampEl.checked : true;
+            var bUseRot = useRotEl ? !!useRotEl.checked : false;
+
+            var cs = new Array(10);
+            for (var iCs = 0; iCs < 10; iCs++) {
+                var elCs = document.getElementById('inpCs' + iCs);
+                var vCs = elCs ? parseFloat(elCs.value) : 0.0;
+                if (!isFinite(vCs)) vCs = 0.0;
+                cs[iCs] = vCs;
+            }
 
             // Handle mode and site index separately.
             var siteIdx = parseInt(document.getElementById('inpSiteIndex').value, 10);
@@ -535,46 +807,78 @@
             if (NSites > 4) NSites = 4;
             p.NSites = NSites;
 
-            // Recompile shader if NSites changed
-            compileShader(NSites);
+            // Recompile shader if NSites or shader selection changed
+            compileShader(NSites, Mode);
 
             if (siteIdx < 0) siteIdx = 0;
             if (siteIdx >= NSites) siteIdx = NSites - 1;
 
             // Apply to uniforms in bulk.
-            applyParamsToUniformsWithSpecs(paramSpecs, uniforms, p);
+            applyParamsToUniformsWithSpecs(paramSpecs, uniformsXY, p);
+            applyParamsToUniformsWithSpecs(paramSpecs, uniformsXV, p);
+
+            if (uniformsXY.uOrder) uniformsXY.uOrder.value = uOrder;
+            if (uniformsXV.uOrder) uniformsXV.uOrder.value = uOrder;
+            if (uniformsXY.uZV) uniformsXY.uZV.value.set(zV0, zVd);
+            if (uniformsXV.uZV) uniformsXV.uZV.value.set(zV0, zVd);
+            if (uniformsXY.uMirror) uniformsXY.uMirror.value = bMirror;
+            if (uniformsXV.uMirror) uniformsXV.uMirror.value = bMirror;
+            if (uniformsXY.uRamp) uniformsXY.uRamp.value = bRamp;
+            if (uniformsXV.uRamp) uniformsXV.uRamp.value = bRamp;
+            if (uniformsXY.uUseRot) uniformsXY.uUseRot.value = bUseRot;
+            if (uniformsXV.uUseRot) uniformsXV.uUseRot.value = bUseRot;
+            if (uniformsXY.uDV) uniformsXY.uDV.value = dV;
+            if (uniformsXV.uDV) uniformsXV.uDV.value = dV;
+            if (uniformsXY.uCs) uniformsXY.uCs.value = cs;
+            if (uniformsXV.uCs) uniformsXV.uCs.value = cs;
 
             // Override uEscale to be 10^OutScale
-            if (uniforms.uEscale) {
-                uniforms.uEscale.value = Math.pow(10.0, p.OutScale);
+            if (uniformsXY.uEscale) {
+                uniformsXY.uEscale.value = Math.pow(10.0, p.OutScale);
             } else {
                 // If uEscale wasn't created automatically because key changed, create/set it manually
                 // (Though applyParamsToUniformsWithSpecs creates uniforms based on keys. 
                 //  Wait, the shader expects uEscale. Our param is OutScale. 
                 //  We need to map p.OutScale -> uEscale uniform manually if keys don't match.)
-                uniforms.uEscale = { value: Math.pow(10.0, p.OutScale) };
+                uniformsXY.uEscale = { value: Math.pow(10.0, p.OutScale) };
             }
 
-            uniforms.uMode.value = Mode;
-            uniforms.uSiteIndex.value = siteIdx;
-            uniforms.uDebugI.value = debugI;
-            uniforms.uDebugJ.value = debugJ;
-            uniforms.uScanMode.value = ScanMode;
+            if (uniformsXV.uEscale) {
+                uniformsXV.uEscale.value = Math.pow(10.0, p.OutScale);
+            } else {
+                uniformsXV.uEscale = { value: Math.pow(10.0, p.OutScale) };
+            }
+
+            uniformsXY.uMode.value = Mode;
+            uniformsXV.uMode.value = Mode;
+            uniformsXY.uSiteIndex.value = siteIdx;
+            uniformsXV.uSiteIndex.value = siteIdx;
+            uniformsXY.uDebugI.value = debugI;
+            uniformsXV.uDebugI.value = debugI;
+            uniformsXY.uDebugJ.value = debugJ;
+            uniformsXV.uDebugJ.value = debugJ;
+            uniformsXY.uScanMode.value = 0;
+            uniformsXV.uScanMode.value = 1;
 
             // Map separate P1/P2 components to vectors
-            if (uniforms.uP1) uniforms.uP1.value.set(p.P1x, p.P1y);
-            if (uniforms.uP2) uniforms.uP2.value.set(p.P2x, p.P2y);
-            if (uniforms.uVBiasMin) uniforms.uVBiasMin.value = p.VBias0; // lower bias
-            if (uniforms.uVBiasMax) uniforms.uVBiasMax.value = p.VBias;  // upper bias
+            if (uniformsXY.uP1) uniformsXY.uP1.value.set(p.P1x, p.P1y);
+            if (uniformsXV.uP1) uniformsXV.uP1.value.set(p.P1x, p.P1y);
+            if (uniformsXY.uP2) uniformsXY.uP2.value.set(p.P2x, p.P2y);
+            if (uniformsXV.uP2) uniformsXV.uP2.value.set(p.P2x, p.P2y);
+            if (uniformsXY.uVBiasMin) uniformsXY.uVBiasMin.value = p.VBias0; // lower bias
+            if (uniformsXV.uVBiasMin) uniformsXV.uVBiasMin.value = p.VBias0; // lower bias
+            if (uniformsXY.uVBiasMax) uniformsXY.uVBiasMax.value = p.VBias;  // upper bias
+            if (uniformsXV.uVBiasMax) uniformsXV.uVBiasMax.value = p.VBias;  // upper bias
 
             var solverSel = document.getElementById('selSolver');
             var solverVal = solverSel ? solverSel.value : 'numericjs';
             // Map solver string to shader mode: 0 = Gaussian (default), 1 = Cramer
             // Note: 'numericjs' and 'our' both map to Gaussian (0) for the shader, 
             // while 'cramer' maps to 1.
-            uniforms.uSolverMode.value = (solverVal === 'cramer') ? 1 : 0;
+            uniformsXY.uSolverMode.value = (solverVal === 'cramer') ? 1 : 0;
+            uniformsXV.uSolverMode.value = (solverVal === 'cramer') ? 1 : 0;
 
-            console.log("Update: uW=" + uniforms.uW.value + ", uDecay=" + uniforms.uDecay.value);
+            console.log("Update: uW=" + uniformsXY.uW.value + ", uDecay=" + uniformsXY.uDecay.value);
 
             var status = buildStatusStringFromParams(paramSpecs, p, Mode, siteIdx);
             setStatus(status);
@@ -594,16 +898,19 @@
 
             // Update uNSites to the number of parsed sites, capped by 4
             var nsites = Math.min(parsed.length, maxSites);
-            uniforms.uNSites.value = nsites;
+            uniformsXY.uNSites.value = nsites;
+            uniformsXV.uNSites.value = nsites;
 
             // Write parsed numeric rows into THREE.Vector4 site uniforms.
             for (var i = 0; i < maxSites; i++) {
                 if (i < nsites) {
                     var row = parsed[i];
-                    uniforms.uSites.value[i].set(row[0], row[1], row[2], row[3]);
+                    uniformsXY.uSites.value[i].set(row[0], row[1], row[2], row[3]);
+                    uniformsXV.uSites.value[i].set(row[0], row[1], row[2], row[3]);
                 } else {
                     // Dummy far-away site so it does not contribute.
-                    uniforms.uSites.value[i].set(1e6, 1e6, 0.0, 0.0);
+                    uniformsXY.uSites.value[i].set(1e6, 1e6, 0.0, 0.0);
+                    uniformsXV.uSites.value[i].set(1e6, 1e6, 0.0, 0.0);
                 }
             }
 
@@ -665,6 +972,7 @@
             var label;
             if (mode === 3) label = 'PME occupancy (CPU)';
             else if (mode === 4) label = 'PME total charge (CPU)';
+            else if (mode === 16) label = 'PME dI/dV (CPU)';
             else label = 'PME I_tip (CPU)';
 
             window.cpuLineScanChart = new Chart(ctx, {
@@ -763,8 +1071,41 @@
         }
 
         function renderOnce() {
-            if (!(renderer && scene && camera)) return;
-            renderer.render(scene, camera);
+            if (!rendererXY || !rendererXV || !sceneXY || !sceneXV) return;
+            rendererXY.render(sceneXY, cameraXY);
+            rendererXV.render(sceneXV, cameraXV);
+
+            var overlay = document.getElementById('overlayXY');
+            var cont = document.getElementById('containerXY');
+            if (!overlay || !cont || !uniformsXY) return;
+            var w = cont.clientWidth || 1;
+            var h = cont.clientHeight || 1;
+            overlay.width = w;
+            overlay.height = h;
+            var ctx = overlay.getContext('2d');
+            if (!ctx) return;
+            ctx.clearRect(0, 0, w, h);
+
+            var L = uniformsXY.uL ? uniformsXY.uL.value : 20.0;
+            var p1 = uniformsXY.uP1 ? uniformsXY.uP1.value : { x: -5, y: 0 };
+            var p2 = uniformsXY.uP2 ? uniformsXY.uP2.value : { x: 5, y: 0 };
+            var u1 = (p1.x / L + 1.0) * 0.5;
+            var v1 = (p1.y / L + 1.0) * 0.5;
+            var u2 = (p2.x / L + 1.0) * 0.5;
+            var v2 = (p2.y / L + 1.0) * 0.5;
+            var x1 = u1 * w;
+            var y1 = (1.0 - v1) * h;
+            var x2 = u2 * w;
+            var y2 = (1.0 - v2) * h;
+
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255,255,0,0.9)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.restore();
         }
 
         init();

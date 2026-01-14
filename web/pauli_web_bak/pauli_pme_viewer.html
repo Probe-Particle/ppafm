@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>WebGL Pauli STM Viewer - Phase 0</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: sans-serif;
+            background: #111;
+            color: #eee;
+            height: 100vh;
+            display: flex;
+            flex-direction: row;
+        }
+
+        #leftPanel {
+            flex: 0 0 512px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #container {
+            width: 512px;
+            height: 512px;
+            background: #000;
+        }
+
+        #cpuScanPanel {
+            width: 512px;
+            padding: 4px;
+            box-sizing: border-box;
+        }
+
+        #ui {
+            flex: 0 0 340px;
+            padding: 8px;
+            box-sizing: border-box;
+            overflow: auto;
+            border-left: 1px solid #333;
+        }
+
+        .row {
+            margin-bottom: 6px;
+        }
+
+        label {
+            display: inline-block;
+            width: 80px;
+        }
+
+        input[type="number"] {
+            width: 80px;
+        }
+
+        button {
+            margin: 2px 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/numeric@1.2.6/lib/numeric.js"></script>
+    <!-- Use a newer Three.js build (0.150.1) from unpkg that exposes global THREE and supports WebGL2/GLSL3 -->
+    <script src="https://unpkg.com/three@0.150.1/build/three.min.js"></script>
+    <!-- Lightweight plotting library for CPU line-scan debug -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Generic PME GUI utilities (param specs, GUI generation, param I/O) -->
+    <script src="pme_gui_utils.js"></script>
+    <!-- CPU-side PME solver for single-point debug -->
+    <script src="pauli_pme_cpu.js"></script>
+</head>
+
+<body>
+    <div id="leftPanel">
+        <div id="container"></div>
+        <div id="cpuScanPanel">
+            <div class="row"><label for="inpLineScanPoints">CPU scan pts</label> <input id="inpLineScanPoints"
+                    type="number" min="2" step="1" value="3" /> <button id="btnCpuScan">Run CPU line scan</button></div>
+            <div class="row"><canvas id="cpuLineScanCanvas" style="width:100%; height:180px;"></canvas></div>
+            <div class="row"><button id="btnCpu2DScan">Run CPU 2D scan</button></div>
+            <div class="row"><canvas id="cpu2DCanvas" style="width:100%; height:180px; border:1px solid #333;"></canvas></div>
+            <div class="row"><label for="inpVerbosity">verbosity</label> <input id="inpVerbosity" type="number" min="0" step="1" value="0" style="width:70px" /></div>
+        </div>
+    </div>
+    <div id="ui">
+        <div id="paramPanel"></div>
+        <div class="row"><label for="selMode">Mode </label>
+            <select id="selMode">
+                <option value="0">Single-particle min(E_i)</option>
+                <option value="1">Many-body ground-state E</option>
+                <option value="2">Ground-state tip current (proxy)</option>
+                <option value="3">PME: occupancy of site</option>
+                <option value="4">PME: total charge</option>
+                <option value="5" selected>PME: tip current</option>
+                <option value="6">DEBUG: Es[0]</option>
+                <option value="7">DEBUG: rho[0]</option>
+                <option value="8">DEBUG: sum rho</option>
+                <option value="9">DEBUG: K[idx]</option>
+                <option value="10">DEBUG: rhs[idx]</option>
+                <option value="11">DEBUG: uW</option>
+                <option value="12">DEBUG: W effect</option>
+                <option value="13">DEBUG: nStates</option>
+                <option value="14">DEBUG: Es[3]</option>
+                <option value="15">DEBUG: Es[1]+Es[2]</option>
+            </select>
+        </div>
+        <div class="row"><label for="selScanMode">Scan Mode </label>
+            <select id="selScanMode">
+                <option value="0" selected>XY (Top-down)</option>
+                <option value="1">XV (Position vs Bias)</option>
+            </select>
+        </div>
+        <div class="row"><label for="selSolver">Solver </label>
+            <select id="selSolver">
+                <option value="numericjs" selected>numeric.js</option>
+                <option value="our">our Gaussian</option>
+                <option value="cramer">Cramer (4x4)</option>
+            </select>
+        </div>
+        <div class="row"><button id="btnReadPixels">Debug: Read Pixels</button></div>
+        <div class="row"><textarea id="txtDebugLog"
+                style="width: 100%; height: 80px; font-family: monospace; font-size: 10px;" readonly></textarea></div>
+        <div class="row"><label for="inpSiteIndex">site idx </label> <input id="inpSiteIndex" type="number" min="0"
+                step="1" value="0" /></div>
+        <div class="row"><label for="inpDebugI">I State </label> <input id="inpDebugI" type="number" min="0" step="1"
+                value="0" /></div>
+        <div class="row"><label for="inpDebugJ">J State </label> <input id="inpDebugJ" type="number" min="0" step="1"
+                value="0" /></div>
+        <div class="row"><button id="btnUpdate">Update view</button></div>
+        <div class="row"><label for="txtSites">Sites (x y z E)</label></div>
+        <div class="row">
+            <textarea id="txtSites" spellcheck="false" style="width: 100%; height: 120px;">
+-5.7850  0.0000  0.0000  -0.1000
+ 5.7850  0.0000  0.0000  -0.1000
+ 0.0000 -7.5200  0.0000  -0.1080
+ 0.0000  7.5200  0.0000  -0.1080
+        </textarea>
+        </div>
+        <div class="row">
+            <button id="btnApplySites">Apply sites</button>
+        </div>
+        <div class="row" id="status"></div>
+        <div class="row" style="font-size: 0.8em; color: #aaa;">
+            Phase 1: gradient + visualization of site positions/energies. No PME physics yet.
+        </div>
+    </div>
+
+    <script>
+        var renderer, scene, camera, mesh, material;
+        var fragShaderTemplate = "";
+        var currentNSites = -1;
+        var cpuLineScanChart = null;
+
+        // Parameter specifications for PME controls. Each entry uses a canonical
+        // `key` and we derive uniform/input IDs by convention in pme_gui_utils.
+        var paramSpecs = [
+            { key: 'NSites', label: 'NSites', type: 'int', def: 2, min: 1, max: 4, step: 1 },
+            { key: 'L', label: 'L (Å)', type: 'float', def: 20.0, step: 1.0 },
+            { key: 'ZTip', label: 'z_tip (Å)', type: 'float', def: 8.0, step: 0.1 },
+            { key: 'VBias', label: 'VBias (V)', type: 'float', def: 0.25, step: 0.01 },
+            { key: 'VBias0', label: 'VBias0 (V)', type: 'float', def: 0.0, step: 0.01 },
+            { key: 'Rtip', label: 'Rtip (Å)', type: 'float', def: 4.8, min: 0.1, step: 0.1 },
+            { key: 'TempK', label: 'Temp (K)', type: 'float', def: 3.0, min: 0.0, step: 1.0 },
+            { key: 'GammaS', label: 'GammaS', type: 'float', def: 1.000, min: 0.0, step: 0.0001 },
+            { key: 'GammaT', label: 'GammaT', type: 'float', def: 0.001, min: 0.0, step: 0.0001 },
+            { key: 'decay', label: 'decay', type: 'float', def: 0.4, min: 0.0, step: 0.1 },
+            { key: 'W', label: 'W (Coul)', type: 'float', def: -0.01, step: 0.01 },
+            { key: 'Ecenter', label: 'E center', type: 'float', def: 0.0, step: 0.01 },
+            { key: 'OutScale', label: 'OutScale (10^x)', type: 'float', def: 4.0, min: -10.0, max: 10.0, step: 0.1 },
+            // XV Scan Mode Params
+            { key: 'P1x', label: 'P1.x', type: 'float', def: -5.0, step: 0.1 },
+            { key: 'P1y', label: 'P1.y', type: 'float', def: 0.0, step: 0.1 },
+            { key: 'P2x', label: 'P2.x', type: 'float', def: 5.0, step: 0.1 },
+            { key: 'P2y', label: 'P2.y', type: 'float', def: 0.0, step: 0.1 },
+        ];
+
+        var paramInputIds = paramSpecs.map(function (s) { return s.inputId || ('inp' + s.key.charAt(0).toUpperCase() + s.key.slice(1)); });
+
+        // Uniforms: special ones explicit, parameter uniforms derived from paramSpecs.
+        var uniforms = {
+            uResolution: { value: new THREE.Vector2(512, 512) },
+            uMode: { value: 5 },
+            uSolverMode: { value: 0 },
+            uSiteIndex: { value: 0 },
+            uDebugI: { value: 0 },
+            uDebugJ: { value: 0 },
+            uOutputRaw: { value: false },
+            // Sites: up to 4 sites, each as (x, y, z, E)
+            uSites: {
+                value: [
+                    new THREE.Vector4(0, 0, 0, -0.1),
+                    new THREE.Vector4(0, 0, 0, -0.1),
+                    new THREE.Vector4(0, 0, 0, -0.1),
+                    new THREE.Vector4(0, 0, 0, -0.1)
+                ]
+            },
+            uP1: { value: new THREE.Vector2(-5, 0) },
+            uP2: { value: new THREE.Vector2(5, 0) },
+            uVBiasMin: { value: -1.0 },
+            uVBiasMax: { value: 1.0 },
+            uScanMode: { value: 0 }
+        };
+
+        for (var i = 0; i < paramSpecs.length; i++) {
+            var s = paramSpecs[i];
+            var uniformName = 'u' + s.key.charAt(0).toUpperCase() + s.key.slice(1);
+            uniforms[uniformName] = { value: s.def };
+        }
+
+        function setStatus(msg) {
+            var el = document.getElementById('status');
+            if (el) el.textContent = msg;
+        }
+
+        function init() {
+            var container = document.getElementById('container');
+
+            scene = new THREE.Scene();
+            camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+            camera.position.z = 1;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            uniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
+
+            var vertexShaderSrc = [
+                'out vec2 vUv;',
+                'void main() {',
+                '  vUv = uv;',
+                '  gl_Position = vec4(position, 1.0);',
+                '}'
+            ].join('\n');
+
+            // Load fragment shader from external file (Phase 1 shader)
+            fetch('Pauli_PME_phase1.glslf')
+                .then(function (r) { return r.text(); })
+                .then(function (fragSource) {
+                    fragShaderTemplate = fragSource;
+
+                    // Initial compilation with default NSites (will be updated by updateFromInputs)
+                    compileShader(2);
+
+                    var geom = new THREE.PlaneGeometry(2, 2);
+                    mesh = new THREE.Mesh(geom, material);
+                    scene.add(mesh);
+
+                    window.addEventListener('resize', onWindowResize, false);
+
+                    document.getElementById('btnUpdate').addEventListener('click', function () {
+                        updateFromInputs();
+                        applySitesFromTextarea();
+                    });
+                    document.getElementById('btnApplySites').addEventListener('click', function () {
+                        applySitesFromTextarea();
+                    });
+
+                    if (btnCpuScan) {
+                        btnCpuScan.addEventListener('click', function () {
+                            runCpuLineScan();
+                        });
+                    }
+
+                    var btnCpu2DScan = document.getElementById('btnCpu2DScan');
+                    if (btnCpu2DScan) {
+                        btnCpu2DScan.addEventListener('click', function () {
+                            runCpu2DScan();
+                        });
+                    }
+
+                    var inpVerbosity = document.getElementById('inpVerbosity');
+                    if (inpVerbosity) {
+                        var setVerbosity = function () {
+                            var v = parseInt(inpVerbosity.value, 10);
+                            if (!isFinite(v) || v < 0) v = 0;
+                            if (typeof window !== 'undefined') { window.pmeVerbosity = v; }
+                            inpVerbosity.value = v.toString();
+                        };
+                        inpVerbosity.addEventListener('input', setVerbosity);
+                        setVerbosity();
+                    }
+
+                    document.getElementById('btnReadPixels').addEventListener('click', function () {
+                        readPixelsDebug();
+                    });
+
+                    // Generate parameter GUI from spec
+                    createPmeGui('paramPanel', 'Pauli STM Viewer (Phase 1: sites + geometry)', paramSpecs);
+
+                    // Numeric inputs: re-render on change
+                    paramInputIds.concat(['inpSiteIndex', 'inpDebugI', 'inpDebugJ']).forEach(function (id) {
+                        var el = document.getElementById(id);
+                        if (!el) return;
+                        el.addEventListener('input', function () {
+                            updateFromInputs();
+                            // Do not re-parse sites on every numeric input to keep it predictable
+                        });
+                    });
+
+                    // Mode selector: change render mode without re-parsing sites
+                    if (selMode) {
+                        selMode.addEventListener('change', function () {
+                            updateFromInputs();
+                        });
+                    }
+
+                    var selSolver = document.getElementById('selSolver');
+                    if (selSolver) {
+                        selSolver.addEventListener('change', function () {
+                            updateFromInputs();
+                        });
+                    }
+
+                    var selScanMode = document.getElementById('selScanMode');
+                    if (selScanMode) {
+                        selScanMode.addEventListener('change', function () {
+                            updateFromInputs();
+                        });
+                    }
+
+                    // Mouse-wheel increment on numeric inputs (similar to ppafm_web/index.html)
+                    function attachWheelIncrement(id) {
+                        var el = document.getElementById(id);
+                        if (!el) return;
+                        el.addEventListener('wheel', function (ev) {
+                            ev.preventDefault();
+                            var step = parseFloat(el.step) || 1.0;
+                            var v = parseFloat(el.value) || 0.0;
+                            var dir = (ev.deltaY > 0) ? -1.0 : 1.0; // wheel up -> increase
+                            el.value = (v + dir * step).toString();
+                            updateFromInputs();
+                        });
+                    }
+
+                    paramInputIds.concat(['inpSiteIndex', 'inpDebugI', 'inpDebugJ']).forEach(attachWheelIncrement);
+                    // Initialize uniforms from default inputs and site list
+                    updateFromInputs();
+                    applySitesFromTextarea();
+                })
+                .catch(function (e) {
+                    setStatus('Error loading fragment shader: ' + e);
+                });
+        }
+
+        // Coarse 2D CPU PME scan (XY or XV) and image rendering
+        function runCpu2DScan() {
+            if (typeof runCpuScan2D_XY !== 'function' || typeof runCpuScan2D_XV !== 'function') {
+                console.warn('runCpuScan2D_XY / runCpuScan2D_XV not available (pauli_pme_cpu.js too old?)');
+                return;
+            }
+
+            var txt = document.getElementById('txtSites').value || '';
+            var parsed = parseSitesArrayFromText ? parseSitesArrayFromText(txt, 4) : [];
+            if (parsed.length < 1) {
+                console.warn('CPU 2D scan requires at least one site. Parsed:', parsed.length);
+                return;
+            }
+
+            // Coarse grid to keep it fast; canvas will stretch it visually.
+            var nx = 64, ny = 64;
+
+            // Read generic params from inputs.
+            var p = readParamsFromInputsWithSpecs(paramSpecs);
+
+            var NSites = p.NSites;
+            if (NSites < 1) NSites = 1;
+            if (NSites > parsed.length) NSites = parsed.length;
+
+            var siteIdx = parseInt(document.getElementById('inpSiteIndex').value, 10);
+            if (!isFinite(siteIdx)) siteIdx = 0;
+
+            var modeSel = document.getElementById('selMode');
+            var mode = modeSel ? parseInt(modeSel.value, 10) : 5;
+            if (!isFinite(mode)) mode = 5;
+
+            var scanModeSel = document.getElementById('selScanMode');
+            var scanMode = scanModeSel ? parseInt(scanModeSel.value, 10) : 0;
+            if (!isFinite(scanMode)) scanMode = 0;
+
+            var solverSel = document.getElementById('selSolver');
+            var solver = solverSel ? solverSel.value : 'numericjs';
+
+            p.NSites = NSites;
+            p.solver = solver;
+            // For XV scans, use bias range [VBias0, VBias].
+            if (scanMode === 1) {
+                p.VBiasMin = p.VBias0;
+                p.VBiasMax = p.VBias;
+            }
+
+            // Pack sites into objects expected by the CPU solver.
+            var sitesObj = parsed.map(function (row) {
+                return { x: row[0], y: row[1], z: row[2], E: row[3] };
+            });
+
+            var field;
+            if (scanMode === 1) {
+                field = runCpuScan2D_XV(nx, ny, sitesObj, p, NSites, mode, siteIdx);
+            } else {
+                field = runCpuScan2D_XY(nx, ny, sitesObj, p, NSites, mode, siteIdx);
+            }
+
+            var Z = field.Z;
+            if (!Z || !Z.length) {
+                console.warn('CPU 2D scan produced empty field.');
+                return;
+            }
+
+            // Draw into cpu2DCanvas
+            var canvas = document.getElementById('cpu2DCanvas');
+            if (!canvas) return;
+            var ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            // Keep pixel aspect consistent with data (nx/ny). Use canvas client width.
+            var cw = canvas.clientWidth || canvas.width || 300;
+            var ch = Math.max(cw * (ny / nx), 1);
+            canvas.width = cw;
+            canvas.height = ch;
+            canvas.style.height = ch + 'px';
+
+            // Compute min/max for simple normalization.
+            var vmin = +Infinity, vmax = -Infinity;
+            for (var iy = 0; iy < ny; iy++) {
+                var row = Z[iy];
+                for (var ix = 0; ix < nx; ix++) {
+                    var val = row[ix];
+                    if (!isFinite(val)) continue;
+                    if (val < vmin) vmin = val;
+                    if (val > vmax) vmax = val;
+                }
+            }
+            if (!isFinite(vmin) || !isFinite(vmax) || vmin === vmax) {
+                vmin = 0.0; vmax = 1.0;
+            }
+
+            var imgData = ctx.createImageData(nx, ny);
+            var data = imgData.data;
+
+            for (var iy = 0; iy < ny; iy++) {
+                var row = Z[iy];
+                // Flip vertically so higher bias (larger v) is at the top visually
+                var dy = (ny - 1 - iy);
+                for (var ix = 0; ix < nx; ix++) {
+                    var val = row[ix];
+                    var t = (val - vmin) / (vmax - vmin);
+                    if (!isFinite(t)) t = 0.0;
+                    t = Math.max(0.0, Math.min(1.0, t));
+
+                    // Simple grayscale mapping
+                    var g = Math.floor(t * 255);
+                    var idx = 4 * (dy * nx + ix);
+                    data[idx + 0] = g;
+                    data[idx + 1] = g;
+                    data[idx + 2] = g;
+                    data[idx + 3] = 255;
+                }
+            }
+
+            // Draw at native resolution, then scale to canvas size.
+            var tmpCanvas = document.createElement('canvas');
+            tmpCanvas.width = nx;
+            tmpCanvas.height = ny;
+            var tmpCtx = tmpCanvas.getContext('2d');
+            tmpCtx.putImageData(imgData, 0, 0);
+
+            // Clear and draw stretched to full canvas.
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(tmpCanvas, 0, 0, canvas.width, canvas.height);
+        }
+
+        function onWindowResize() {
+            var container = document.getElementById('container');
+            if (!renderer) return;
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            uniforms.uResolution.value.set(renderer.domElement.width, renderer.domElement.height);
+            renderOnce();
+        }
+
+        function compileShader(nsites) {
+            if (!fragShaderTemplate) return;
+
+            // If NSites hasn't changed, do nothing (unless force recompile needed, but usually not)
+            if (nsites === currentNSites && material) return;
+
+            currentNSites = nsites;
+            var nstates = 1 << nsites; // 2^nsites
+
+            // Replace macros
+            var source = fragShaderTemplate
+                .replace(/#define NSITE \d+/g, '#define NSITE ' + nsites)
+                .replace(/#define NSTATE \d+/g, '#define NSTATE ' + nstates);
+
+            var newMaterial = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: [
+                    'out vec2 vUv;',
+                    'void main() {',
+                    '  vUv = uv;',
+                    '  gl_Position = vec4(position, 1.0);',
+                    '}'
+                ].join('\n'),
+                fragmentShader: source,
+                glslVersion: THREE.GLSL3
+            });
+
+            material = newMaterial;
+            if (mesh) mesh.material = material;
+
+            console.log("Recompiled shader for NSITE=" + nsites + ", NSTATE=" + nstates);
+        }
+
+        function updateFromInputs() {
+            // Read and clamp all parameter values from inputs using the shared spec.
+            var p = readParamsFromInputsWithSpecs(paramSpecs); // { Rtip, VBias, TempK, ... }
+
+            // Handle mode and site index separately.
+            var siteIdx = parseInt(document.getElementById('inpSiteIndex').value, 10);
+            var debugI = parseInt(document.getElementById('inpDebugI').value, 10);
+            var debugJ = parseInt(document.getElementById('inpDebugJ').value, 10);
+
+            var modeSel = document.getElementById('selMode');
+            var Mode = modeSel ? parseInt(modeSel.value, 10) : 5;
+            if (!isFinite(siteIdx)) siteIdx = 0;
+            if (!isFinite(debugI)) debugI = 0;
+            if (!isFinite(debugJ)) debugJ = 0;
+            if (!isFinite(Mode)) Mode = 0;
+
+            var scanModeSel = document.getElementById('selScanMode');
+            var ScanMode = scanModeSel ? parseInt(scanModeSel.value, 10) : 0;
+            if (!isFinite(ScanMode)) ScanMode = 0;
+
+            // Additional constraints that depend on other params.
+            var NSites = p.NSites;
+            if (NSites < 1) NSites = 1;
+            if (NSites > 4) NSites = 4;
+            p.NSites = NSites;
+
+            // Recompile shader if NSites changed
+            compileShader(NSites);
+
+            if (siteIdx < 0) siteIdx = 0;
+            if (siteIdx >= NSites) siteIdx = NSites - 1;
+
+            // Apply to uniforms in bulk.
+            applyParamsToUniformsWithSpecs(paramSpecs, uniforms, p);
+
+            // Override uEscale to be 10^OutScale
+            if (uniforms.uEscale) {
+                uniforms.uEscale.value = Math.pow(10.0, p.OutScale);
+            } else {
+                // If uEscale wasn't created automatically because key changed, create/set it manually
+                // (Though applyParamsToUniformsWithSpecs creates uniforms based on keys. 
+                //  Wait, the shader expects uEscale. Our param is OutScale. 
+                //  We need to map p.OutScale -> uEscale uniform manually if keys don't match.)
+                uniforms.uEscale = { value: Math.pow(10.0, p.OutScale) };
+            }
+
+            uniforms.uMode.value = Mode;
+            uniforms.uSiteIndex.value = siteIdx;
+            uniforms.uDebugI.value = debugI;
+            uniforms.uDebugJ.value = debugJ;
+            uniforms.uScanMode.value = ScanMode;
+
+            // Map separate P1/P2 components to vectors
+            if (uniforms.uP1) uniforms.uP1.value.set(p.P1x, p.P1y);
+            if (uniforms.uP2) uniforms.uP2.value.set(p.P2x, p.P2y);
+            if (uniforms.uVBiasMin) uniforms.uVBiasMin.value = p.VBias0; // lower bias
+            if (uniforms.uVBiasMax) uniforms.uVBiasMax.value = p.VBias;  // upper bias
+
+            var solverSel = document.getElementById('selSolver');
+            var solverVal = solverSel ? solverSel.value : 'numericjs';
+            // Map solver string to shader mode: 0 = Gaussian (default), 1 = Cramer
+            // Note: 'numericjs' and 'our' both map to Gaussian (0) for the shader, 
+            // while 'cramer' maps to 1.
+            uniforms.uSolverMode.value = (solverVal === 'cramer') ? 1 : 0;
+
+            console.log("Update: uW=" + uniforms.uW.value + ", uDecay=" + uniforms.uDecay.value);
+
+            var status = buildStatusStringFromParams(paramSpecs, p, Mode, siteIdx);
+            setStatus(status);
+
+            renderOnce();
+        }
+
+        function applySitesFromTextarea() {
+            var txt = document.getElementById('txtSites').value || '';
+            var maxSites = 4;
+            var parsed = parseSitesArrayFromText(txt, maxSites); // [[x,y,z,E], ...]
+            if (parsed.length === 0) {
+                setStatus('No valid sites parsed.');
+                renderOnce();
+                return;
+            }
+
+            // Update uNSites to the number of parsed sites, capped by 4
+            var nsites = Math.min(parsed.length, maxSites);
+            uniforms.uNSites.value = nsites;
+
+            // Write parsed numeric rows into THREE.Vector4 site uniforms.
+            for (var i = 0; i < maxSites; i++) {
+                if (i < nsites) {
+                    var row = parsed[i];
+                    uniforms.uSites.value[i].set(row[0], row[1], row[2], row[3]);
+                } else {
+                    // Dummy far-away site so it does not contribute.
+                    uniforms.uSites.value[i].set(1e6, 1e6, 0.0, 0.0);
+                }
+            }
+
+            setStatus('Parsed ' + nsites + ' sites from textarea');
+            renderOnce();
+        }
+
+        function runCpuLineScan() {
+            if (typeof solvePmeCpu !== 'function') { console.warn('solvePmeCpu not available (pauli_pme_cpu.js not loaded?)'); return; }
+
+            var txt = document.getElementById('txtSites').value || '';
+            var parsed = parseSitesArrayFromText ? parseSitesArrayFromText(txt, 4) : [];
+            if (parsed.length < 2) { console.warn('CPU line scan requires at least two sites. Parsed:', parsed.length); return; }
+
+            var nPts = parseInt(document.getElementById('inpLineScanPoints').value, 10);
+            if (!isFinite(nPts) || nPts < 2) nPts = 20;
+
+            // numeric sites: parsed[i] = [x,y,z,E]
+            var s0 = parsed[0];
+            var s1 = parsed[1];
+
+            var modeSel = document.getElementById('selMode');
+            var mode = modeSel ? parseInt(modeSel.value, 10) : 3;
+            if (!isFinite(mode)) mode = 3;
+
+            // Read generic params from inputs.
+            var p = readParamsFromInputsWithSpecs(paramSpecs);
+
+            var NSites = p.NSites;
+            if (NSites < 2) NSites = 2;
+            if (NSites > parsed.length) NSites = parsed.length;
+
+            var siteIdx = parseInt(document.getElementById('inpSiteIndex').value, 10);
+            if (!isFinite(siteIdx)) siteIdx = 0;
+
+            var solverSel = document.getElementById('selSolver');
+            var solver = solverSel ? solverSel.value : 'numericjs';
+
+            p.NSites = NSites;
+            p.solver = solver;
+
+            // Pack sites into objects expected by the CPU solver.
+            var sitesObj = parsed.map(function (row) {
+                return { x: row[0], y: row[1], z: row[2], E: row[3] };
+            });
+
+            var result = runCpuLineScanNumeric(s0, s1, nPts, sitesObj, p, NSites, mode, siteIdx);
+            var xs = result.xs;
+            var Ys = result.Ys;
+
+            var ctx = document.getElementById('cpuLineScanCanvas');
+            if (!ctx) return;
+
+            if (window.cpuLineScanChart) {
+                window.cpuLineScanChart.destroy();
+                window.cpuLineScanChart = null;
+            }
+
+            var label;
+            if (mode === 3) label = 'PME occupancy (CPU)';
+            else if (mode === 4) label = 'PME total charge (CPU)';
+            else label = 'PME I_tip (CPU)';
+
+            window.cpuLineScanChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: xs,
+                    datasets: [{
+                        label: label,
+                        data: Ys,
+                        borderColor: 'rgba(0, 192, 255, 1.0)',
+                        backgroundColor: 'rgba(0, 192, 255, 0.25)',
+                        pointRadius: 1,
+                        tension: 0.0
+                    }]
+                },
+                options: {
+                    animation: false,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 't along line (0 = site 0, 1 = site 1)' }
+                        },
+                        y: {
+                            title: { display: true, text: label }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+
+
+        function readPixelsDebug() {
+            if (!renderer || !material) return;
+
+            var w = renderer.domElement.width;
+            var h = renderer.domElement.height;
+
+            // Create a float render target for high precision readback
+            var renderTarget = new THREE.WebGLRenderTarget(w, h, {
+                type: THREE.FloatType,
+                format: THREE.RGBAFormat,
+                minFilter: THREE.NearestFilter,
+                magFilter: THREE.NearestFilter
+            });
+
+            // Render to float target with raw output enabled
+            var oldOutputRaw = uniforms.uOutputRaw.value;
+            uniforms.uOutputRaw.value = true;
+
+            renderer.setRenderTarget(renderTarget);
+            renderer.render(scene, camera);
+
+            var buf = new Float32Array(w * h * 4);
+            renderer.readRenderTargetPixels(renderTarget, 0, 0, w, h, buf);
+
+            // Restore state
+            renderer.setRenderTarget(null);
+            uniforms.uOutputRaw.value = oldOutputRaw;
+            renderTarget.dispose(); // Clean up
+
+            var minVal = 1e9, maxVal = -1e9;
+            var nanCount = 0, zeroCount = 0;
+            var sample = [];
+
+            for (var i = 0; i < w * h; i++) {
+                var val = buf[i * 4]; // R channel
+                if (isNaN(val)) {
+                    nanCount++;
+                } else {
+                    if (val < minVal) minVal = val;
+                    if (val > maxVal) maxVal = val;
+                    if (Math.abs(val) < 1e-20) zeroCount++;
+                }
+                if (i % 10000 === 0) sample.push(val.toExponential(2));
+            }
+
+            var logText = "ReadPixels Debug:\n" +
+                "  Min: " + minVal.toExponential(4) + "\n" +
+                "  Max: " + maxVal.toExponential(4) + "\n" +
+                "  NaN count: " + nanCount + "\n" +
+                "  Zero count: " + zeroCount + "\n" +
+                "  Total pixels: " + (w * h) + "\n" +
+                "  Sample: [" + sample.join(", ") + "]";
+
+            console.log(logText);
+            var logEl = document.getElementById('txtDebugLog');
+            if (logEl) logEl.value = logText;
+
+            // Re-render to screen to ensure consistent state
+            renderOnce();
+        }
+
+        function renderOnce() {
+            if (!(renderer && scene && camera)) return;
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
