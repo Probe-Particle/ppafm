@@ -27,7 +27,7 @@ def pack_float4(xyz_arr, w_arr=None, w_default=0.0):
     return np.ascontiguousarray(packed)
 
 class PauliSolverCL:
-    def __init__(self, nSingle=4, nLeads=2, verbosity=0, ctx=None):
+    def __init__(self, nSingle=4, nLeads=2, verbosity=0, ctx=None, queue=None, device=None):
         self.nSingle = nSingle
         self.nStates = 2**nSingle
         self.nLeads = nLeads
@@ -44,8 +44,11 @@ class PauliSolverCL:
         else:
             self.ctx = ctx
             
-        self.queue = cl.CommandQueue(self.ctx, properties=cl.command_queue_properties.PROFILING_ENABLE)
-        
+        if queue is None:
+            self.queue = cl.CommandQueue(self.ctx, properties=cl.command_queue_properties.PROFILING_ENABLE)
+        else:
+            self.queue = queue
+            
         # Compile Kernels
         path = os.path.dirname(os.path.abspath(__file__))
         cl_file = os.path.join(path, "../cl/PME.cl")
@@ -58,6 +61,10 @@ class PauliSolverCL:
             
         try:
             self.prg = cl.Program(self.ctx, src).build()
+
+            # Cache kernels to avoid repeated retrieval overhead (important for interactive GUI)
+            self.krn_compute_tip_interaction = cl.Kernel(self.prg, 'compute_tip_interaction')
+            self.krn_solve_pme = cl.Kernel(self.prg, 'solve_pme')
         except cl.RuntimeError as e:
             print("Build failed:")
             print(e)
@@ -85,7 +92,8 @@ class PauliSolverCL:
     def scan_current_tip(self, pTips, Vtips, pSites, params, order, cs, 
                          state_order=None, rots=None, bOmp=False, 
                          bMakeArrays=True, Ts=None, return_probs=False, 
-                         return_state_energies=False, externTs=False, return_curmat=False):
+                         return_state_energies=False, externTs=False, return_curmat=False,
+                         Wij=None):
         """
         Main simulation function.
         
@@ -127,12 +135,17 @@ class PauliSolverCL:
         global_size_1 = (n_pixels,)
         local_size_1 = None 
         
-        evt1 = self.prg.compute_tip_interaction(
-            self.queue, global_size_1, local_size_1,
+        evt1 = self.krn_compute_tip_interaction(
+            self.queue, global_size_1, None,
             np.int32(n_pixels), np.int32(n_sites),
-            p_tips_cl.data, p_sites_cl.data, v_tips_cl.data, cs_cl.data,
-            params_cl.data, np.int32(order),
-            h_shifts_cl.data, t_factors_cl.data
+            p_tips_cl.data,
+            p_sites_cl.data,
+            v_tips_cl.data,
+            cs_cl.data,
+            params_cl.data,
+            np.int32(order),
+            h_shifts_cl.data,
+            t_factors_cl.data
         )
 
         # ----------------------------------------------------------------
@@ -177,9 +190,10 @@ class PauliSolverCL:
         
         lead_params_cl = cl_array.to_device(self.queue, self.lead_params)
         H_single_cl = cl_array.zeros(self.queue, (n_sites, n_sites), dtype=np.float32)
-        # If Wij is mostly constant W, we handle it via W_scalar in kernel. 
-        # If complex Wij is needed, we would upload it here.
-        Wij_dummy_cl = cl_array.zeros(self.queue, (n_sites, n_sites), dtype=np.float32)
+        Wij_cl = None
+        if Wij is not None:
+            Wij = np.ascontiguousarray(Wij, dtype=np.float32)
+            Wij_cl = cl_array.to_device(self.queue, Wij)
         
         out_current_cl = cl_array.zeros(self.queue, n_pixels, dtype=np.float32)
 
@@ -200,12 +214,13 @@ class PauliSolverCL:
         global_size_2 = (n_pixels * 16,)
         local_size_2 = (16,)
         
-        evt2 = self.prg.solve_pme(
+        evt2 = self.krn_solve_pme(
             self.queue, global_size_2, local_size_2,
             np.int32(n_pixels), np.int32(n_sites), np.int32(self.nStates),
             h_shifts_cl.data, t_factors_cl.data,
             v_tips_cl.data,
             lead_params_cl.data, H_single_cl.data,
+            Wij_cl.data if Wij_cl is not None else None,
             np.float32(w_val),
             np.float32(gamma_input), np.float32(gamma_input),
             self.state_order_dev.data,

@@ -125,6 +125,7 @@ __kernel void solve_pme(
     // Global Config
     __global const float* restrict lead_params, // [mu0, T0, mu1, T1]
     __global const float* restrict H_single_base,// [n_sites * n_sites]
+    __global const float* restrict Wij,          // [n_sites * n_sites] or NULL
     float W_scalar,
     float Gamma0,   // Substrate
     float Gamma1,   // Tip
@@ -169,18 +170,29 @@ __kernel void solve_pme(
     // ------------------------------------------------------------------
     int mask = state_order[tid];
     float my_energy = 0.0f;
+    int nocc = 0;
 
     // Single Particle (Diagonal + Shift)
     for (int i = 0; i < n_sites; i++) {
         if ((mask >> i) & 1) {
             float h_val = H_single_base[i * n_sites + i] + H_shifts[pix_id * n_sites + i];
             my_energy += h_val;
+            nocc++;
         }
     }
-    // Coulomb (W)
-    // NOTE: C++ scan_current_tip_ reference (pauli_lib.cpp) produces StateEnergies that
-    // match sum of occupied on-site energies (no +W*N(N-1)/2 shift). To keep 1:1
-    // reproducibility with that reference, we do not add W here.
+    // Coulomb (W/Wij)
+    // Match C++ calculate_state_energy(): add (Wij ? Wij[i,j] : W_scalar) for each occupied pair (i<j).
+    if (Wij) {
+        for (int i = 0; i < n_sites; i++) {
+            if ((mask >> i) & 1) {
+                for (int j = i + 1; j < n_sites; j++) {
+                    if ((mask >> j) & 1) {
+                        my_energy += Wij[i * n_sites + j];
+                    }
+                }
+            }
+        }
+    }
     Energies[tid] = my_energy;
     
     barrier(CLK_LOCAL_MEM_FENCE);
