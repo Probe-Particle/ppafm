@@ -222,22 +222,32 @@ class ApplicationWindow(GUITemplate):
         _safe_print(f"[geom] geometry_file={self.geometry_file}")
         self.run()
 
-    def _solve_xy_cpu(self, params, spos, rots, cs, return_ets=False):
-        # Match CombinedChargeRingsGUI_v5 / pauli_scan.scan_xy_orb convention
-        STM, Es, Ts, _Probs, _StateEs = pauli.run_pauli_scan_top(
+    def _solve_xy_cpu(self, params, spos, rots, cs, order, return_ets=False):
+        # Use the same scan_current_tip pipeline as OpenCL to avoid path differences
+        pTips, _ = _make_xy_grid(params)
+        Vtips = np.full((pTips.shape[0],), float(params['VBias']), dtype=np.float64)
+        state_order = pauli.make_state_order(self.nsite)
+        cpp_params = pauli.make_cpp_params(params)
+        cur, Es, Ts, _Probs, _StateEs = self.solver_cpu.scan_current_tip(
+            pTips,
+            Vtips,
             spos,
-            rots,
-            params,
-            pauli_solver=self.solver_cpu,
+            cpp_params,
+            int(order),
+            cs,
+            state_order,
+            rots=rots,
             bOmp=False,
-            cs=cs,
+            bMakeArrays=True,
             Ts=None,
-            state_order=None,
+            return_probs=True,
+            return_state_energies=True,
         )
+        cur = np.asarray(cur, dtype=np.float64).reshape(int(params['npix']), int(params['npix']))
         _safe_print(f"[XY cpu] Es(min,max)=({Es.min():.3e},{Es.max():.3e}) Ts(min,max)=({Ts.min():.3e},{Ts.max():.3e})")
         if return_ets:
-            return STM, Es, Ts
-        return STM
+            return cur, Es, Ts
+        return cur
 
     def _solve_xy_ocl(self, params, pTips, Vtips, spos, rots, order, cs, Wij=None):
         cpp_params = pauli.make_cpp_params(params).astype(np.float32)
@@ -296,21 +306,9 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
 
         # solver setup
+        T_eV = float(params['Temp']) * kBoltz
         V0 = float(params['VBias'])
         use_ocl = bool(self.cbUseOpenCL.isChecked()) and (self.solver_ocl is not None)
-        T_eV = float(params.get('Temp', 0.0)) * kBoltz
-        solver_mode = int(params.get('solver_mode', 0))
-        try:
-            self.solver_cpu.set_lead(0, 0.0, T_eV); self.solver_cpu.set_lead(1, 0.0, T_eV)
-            self.solver_cpu.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12)
-            self.solver_cpu.setLinSolver(1, 50, 1e-12, solver_mode)
-        except Exception:
-            pass
-        if self.solver_ocl is not None:
-            try:
-                self.solver_ocl.set_lead(0, 0.0, T_eV); self.solver_ocl.set_lead(1, 0.0, T_eV)
-            except Exception:
-                pass
         _safe_print(
             f"[run] use_ocl={use_ocl} V0={V0:.3f} Temp_eV={T_eV:.3e} npix={params['npix']} L={params['L']} "
             f"decay={params['decay']} GammaT={params['GammaT']} W={params['W']} Q0={params['Q0']} Qzz={params['Qzz']}"
@@ -378,7 +376,7 @@ class ApplicationWindow(GUITemplate):
             cur_xy = self._solve_xy_ocl(params, pTips, Vtips, spos, rots, order, cs, Wij=Wij)
             cur_xy = cur_xy.reshape(int(params['npix']), int(params['npix']))
         else:
-            cur_xy, Es_cpu, Ts_cpu = self._solve_xy_cpu(params, spos, rots, cs, return_ets=True)
+            cur_xy, Es_cpu, Ts_cpu = self._solve_xy_cpu(params, spos, rots, cs, order, return_ets=True)
             extent_xy = (-float(params['L']), float(params['L']), -float(params['L']), float(params['L']))
             if self.solver_ocl is not None:
                 pTips_dbg, _ = _make_xy_grid(params)
@@ -439,32 +437,22 @@ class ApplicationWindow(GUITemplate):
 
         if self.cbShowdIdV.isChecked():
             dQ = float(params['dQ'])
-            Vp = V0 + 0.5 * dQ
-            Vm = V0 - 0.5 * dQ
-            params_p = params.copy(); params_p['VBias'] = Vp
-            params_m = params.copy(); params_m['VBias'] = Vm
+            params2 = params.copy(); params2['VBias'] = V0 + dQ
             if use_ocl:
-                pTips_p, _ = _make_xy_grid(params_p)
-                Vtips_p = np.full((pTips_p.shape[0],), Vp, dtype=np.float64)
-                cur_p = self._solve_xy_ocl(params_p, pTips_p, Vtips_p, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
-                pTips_m, _ = _make_xy_grid(params_m)
-                Vtips_m = np.full((pTips_m.shape[0],), Vm, dtype=np.float64)
-                cur_m = self._solve_xy_ocl(params_m, pTips_m, Vtips_m, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
+                pTips2, _ = _make_xy_grid(params2)
+                Vtips2 = np.full((pTips2.shape[0],), V0 + dQ, dtype=np.float64)
+                cur_xy_2 = self._solve_xy_ocl(params2, pTips2, Vtips2, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
             else:
-                cur_p = self._solve_xy_cpu(params_p, spos, rots, cs)
-                cur_m = self._solve_xy_cpu(params_m, spos, rots, cs)
+                cur_xy_2 = self._solve_xy_cpu(params2, spos, rots, cs, order)
                 if self.solver_ocl is not None:
-                    pTips_p_dbg, _ = _make_xy_grid(params_p)
-                    Vtips_p_dbg = np.full((pTips_p_dbg.shape[0],), Vp, dtype=np.float64)
-                    cur_gpu_p = self._solve_xy_ocl(params_p, pTips_p_dbg, Vtips_p_dbg, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
-                    pTips_m_dbg, _ = _make_xy_grid(params_m)
-                    Vtips_m_dbg = np.full((pTips_m_dbg.shape[0],), Vm, dtype=np.float64)
-                    cur_gpu_m = self._solve_xy_ocl(params_m, pTips_m_dbg, Vtips_m_dbg, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
-                    img_xy_gpu = (cur_gpu_p - cur_gpu_m) / dQ
-                    img_xy_cpu = (cur_p - cur_m) / dQ
+                    pTips2_dbg, _ = _make_xy_grid(params2)
+                    Vtips2_dbg = np.full((pTips2_dbg.shape[0],), V0 + dQ, dtype=np.float64)
+                    cur_xy_gpu_2 = self._solve_xy_ocl(params2, pTips2_dbg, Vtips2_dbg, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
+                    img_xy_gpu = (cur_xy_gpu_2 - cur_xy_gpu) / dQ
+                    img_xy_cpu = (cur_xy_2 - cur_xy) / dQ
                     diff_didv = img_xy_gpu - img_xy_cpu
                     _safe_print(f"[XY dIdV diff] max_abs={np.max(np.abs(diff_didv)):.3e} mean_abs={np.mean(np.abs(diff_didv)):.3e}")
-            img_xy = (cur_p - cur_m) / dQ
+            img_xy = (cur_xy_2 - cur_xy) / dQ
             _safe_print(f"[XY dIdV] min={img_xy.min():.3e} max={img_xy.max():.3e}")
         else:
             img_xy = cur_xy

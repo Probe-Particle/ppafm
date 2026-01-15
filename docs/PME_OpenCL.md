@@ -994,4 +994,12 @@ class PauliSolverCL:
 ### 2026-01 GPU valid-point cut parity
 - Issue: CPU zeroes current when `Emax + W*EW_cut < 0` or `Tmax < Tmin_cut` (see `is_valid_point` in C++), but OpenCL previously returned small non-zero currents. This caused discrepancies near V≈0.3–0.55 V.
 - Fix: Apply the same cut on GPU results after fetching `Es`/`Ts` in `pyProbeParticle/pauli_ocl.py`: compute `Emax` from `Es`, `Tmax` from `gamma_amp*Ts`, and zero `currents[invalid]` with defaults `Tmin_cut=0`, `EW_cut=2` (matching C++ globals).
+
+### 2026-01 GUI XY/dIdV parity (CPU vs OpenCL)
+- Issue: GUI compared CPU XY via `run_pauli_scan_top` (wrapper that rebuilds grids/params) versus OpenCL XY via direct `scan_current_tip`, leading to visual shifts in XY and dIdV rings despite solver parity in headless scripts.
+- Fix: Make GUI CPU XY use the same `scan_current_tip` call/signature as OpenCL (pass identical pTips/Vtips, cpp_params, `order`, `cs`, `state_order`, `rots`). After this, CPU/GPU XY diff ~1e-12, zero_mismatch=0; dIdV diff ~9e-11.
+- Takeaways:
+  - Compare identical pipelines: avoid mixing wrappers (`run_pauli_scan_top`) with low-level calls (`scan_current_tip`) when validating CPU/OCL parity.
+  - Keep state order, lead setup, Gamma convention, and grid generation identical across backends.
+  - When debugging parity, add lightweight diff prints (max/mean, zero-mask counts) at the GUI layer to see mismatches quickly.
 - Result: Midpoint bias sweep (p=(p1+p2)/2, VBias=1.0, nV=120) now matches CPU with max_abs diff ~1e-12; GPU zeros where CPU zeros.
