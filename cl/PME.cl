@@ -10,13 +10,12 @@
 // ======================================================================
 
 inline float fermi(float E, float mu, float T) {
-    // fast_exp is often good enough for physics simulations and much faster
-    return 1.0f / (1.0f + native_exp((E - mu) / T));
+    return 1.0f / (1.0f + exp((E - mu) / T));
 }
 
 inline float eval_multipole(float3 d, int order, __global const float* cs) {
     float r2 = dot(d, d);
-    float ir2 = native_recip(r2); // 1/r^2
+    float ir2 = 1.0f / r2; // 1/r^2
     float E = cs[0]; // Monopole
 
     if (order > 0) { // Dipole
@@ -28,7 +27,7 @@ inline float eval_multipole(float3 d, int order, __global const float* cs) {
                      (cs[5]*d.y + cs[7]*d.z)*d.y +
                      (cs[6]*d.z + cs[8]*d.x)*d.z );
     }
-    return native_sqrt(ir2) * E; // 1/r * E
+    return sqrt(ir2) * E; // 1/r * E
 }
 
 // ======================================================================
@@ -42,6 +41,7 @@ __kernel void compute_tip_interaction(
     int n_sites,
     __global const float4* restrict p_tips,      // [n_pixels] (x,y,z, ignored)
     __global const float4* restrict p_sites,     // [n_sites] (x,y,z, E0)
+    __global const float*  restrict rots,        // [n_sites * 9] row-major 3x3 per site (identity if unused)
     __global const float*  restrict v_tips,      // [n_pixels]
     __global const float*  restrict multipole_cs,// [10]
     
@@ -76,15 +76,29 @@ __kernel void compute_tip_interaction(
         float3 site_pos = site_data.xyz;
         float E_base = site_data.w;
 
+        // rotation matrix for this site (row-major)
+        const float* R = rots + i * 9;
+
         // --- Electrostatics ---
         float3 d = tip_pos - site_pos;
         float3 tip_mirror = (float3)(tip_pos.x, tip_pos.y, 2.0f*zV0 - tip_pos.z);
         float3 d_mir = tip_mirror - site_pos;
 
-        float E_val = eval_multipole(d, order, multipole_cs);
+        // rotate into site frame to match C++ evalMultipoleMirror(rot)
+        float3 d_rot;
+        d_rot.x = R[0]*d.x + R[1]*d.y + R[2]*d.z;
+        d_rot.y = R[3]*d.x + R[4]*d.y + R[5]*d.z;
+        d_rot.z = R[6]*d.x + R[7]*d.y + R[8]*d.z;
+
+        float3 d_mir_rot;
+        d_mir_rot.x = R[0]*d_mir.x + R[1]*d_mir.y + R[2]*d_mir.z;
+        d_mir_rot.y = R[3]*d_mir.x + R[4]*d_mir.y + R[5]*d_mir.z;
+        d_mir_rot.z = R[6]*d_mir.x + R[7]*d_mir.y + R[8]*d_mir.z;
+
+        float E_val = eval_multipole(d_rot, order, multipole_cs);
         
         if (bMirror > 0.5f) {
-            E_val -= eval_multipole(d_mir, order, multipole_cs);
+            E_val -= eval_multipole(d_mir_rot, order, multipole_cs);
         }
         
         E_val *= (v_bias * Rtip);
@@ -96,7 +110,7 @@ __kernel void compute_tip_interaction(
             E_val += multipole_cs[0] * v_bias * ramp; 
         }
 
-        // --- Tunneling ---
+        // --- Tunneling --- (use unrotated distance, matching C++ evalMultipoleMirror path)
         float r = length(d);
         float t_fac = native_exp(-beta * r);
 

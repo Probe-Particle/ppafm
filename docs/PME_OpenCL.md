@@ -990,3 +990,8 @@ class PauliSolverCL:
 - If further differences appear, dump kernel matrices and probabilities at a single pixel for CPU vs OCL (similar to `compare_pme_solvers.py --dumpK` with `--ip` targeting a hotspot).
 - Add a small GUI-side debug toggle to print max_abs diff between successive runs for XY/xV when switching CPU↔OCL.
 - For regression testing, extend `debug_W_Esite_propagation.py` to sweep several W/Esite pairs and assert max_abs diff < tolerance for CPU vs OCL.
+
+### 2026-01 GPU valid-point cut parity
+- Issue: CPU zeroes current when `Emax + W*EW_cut < 0` or `Tmax < Tmin_cut` (see `is_valid_point` in C++), but OpenCL previously returned small non-zero currents. This caused discrepancies near V≈0.3–0.55 V.
+- Fix: Apply the same cut on GPU results after fetching `Es`/`Ts` in `pyProbeParticle/pauli_ocl.py`: compute `Emax` from `Es`, `Tmax` from `gamma_amp*Ts`, and zero `currents[invalid]` with defaults `Tmin_cut=0`, `EW_cut=2` (matching C++ globals).
+- Result: Midpoint bias sweep (p=(p1+p2)/2, VBias=1.0, nV=120) now matches CPU with max_abs diff ~1e-12; GPU zeros where CPU zeros.

@@ -119,6 +119,13 @@ class PauliSolverCL:
         e0_default = params[3] if len(params) > 3 else 0.0
         p_sites_packed = pack_float4(pSites, w_default=e0_default)
         p_sites_cl = cl_array.to_device(self.queue, p_sites_packed)
+
+        # Rotations: expect shape (n_sites, 3, 3) or None => identity
+        if rots is None:
+            rots_host = np.tile(np.eye(3, dtype=np.float32), (n_sites, 1, 1))
+        else:
+            rots_host = np.asarray(rots, dtype=np.float32).reshape(n_sites, 3, 3)
+        rots_cl = cl_array.to_device(self.queue, rots_host.reshape(n_sites * 3 * 3))
         
         v_tips_cl = cl_array.to_device(self.queue, np.array(Vtips, dtype=np.float32))
         cs_cl = cl_array.to_device(self.queue, np.array(cs, dtype=np.float32))
@@ -140,6 +147,7 @@ class PauliSolverCL:
             np.int32(n_pixels), np.int32(n_sites),
             p_tips_cl.data,
             p_sites_cl.data,
+            rots_cl.data,
             v_tips_cl.data,
             cs_cl.data,
             params_cl.data,
@@ -183,9 +191,8 @@ class PauliSolverCL:
         # Match C++ scan_current_tip_ convention:
         #   VS = Gamma/pi; VT = Gamma/pi; coupling ~ (VS)^2, rates use *2*pi
         # Here kernel uses:
-        #   rate0 = Gamma0 * (...) * 2*pi
-        #   rate1 = (Gamma1 * T^2) * (...) * 2*pi
-        # Therefore pass Gamma0=Gamma1=(Gamma/pi)^2.
+        # C++ sets VS=VT=Gamma/pi, and rates use (TLeads)^2 * 2*pi.
+        # Kernel multiplies by T^2, so pass (Gamma/pi)^2 to match.
         gamma_input = (gamma_val / np.pi) ** 2
         
         lead_params_cl = cl_array.to_device(self.queue, self.lead_params)
@@ -244,11 +251,28 @@ class PauliSolverCL:
         K = None
         CurMat = None
         
+        Es_tmp = h_shifts_cl.get().astype(np.float64)
+        Ts_tmp = t_factors_cl.get().astype(np.float64)
         if return_state_energies:
-            Es = h_shifts_cl.get().astype(np.float64)
-            
+            Es = Es_tmp
         if True: # Always return Ts as per request or debug
-            Ts = t_factors_cl.get().astype(np.float64)
+            Ts = Ts_tmp
+
+        # Match C++ is_valid_point() cut (Emax + W*EW_cut < 0 or Tmax < Tmin_cut)
+        # Defaults in C++: Tmin_cut=0.0, EW_cut=2.0
+        Tmin_cut = 0.0
+        EW_cut = 2.0
+        W_scalar = float(w_val)
+        if Es_tmp is not None and Ts_tmp is not None:
+            Es_sp = Es_tmp.reshape(n_pixels, n_sites)
+            Ts_sp = Ts_tmp.reshape(n_pixels, n_sites)
+            Emax = Es_sp.max(axis=1)
+            gamma_amp = np.sqrt(gamma_input)
+            Tmax = np.max(np.abs(gamma_amp * Ts_sp), axis=1)
+            invalid = (Emax + W_scalar * EW_cut < 0.0) | (Tmax < Tmin_cut)
+            if np.any(invalid):
+                currents = currents.copy()
+                currents[invalid] = 0.0
 
         if out_probs_cl is not None:
             Probs = out_probs_cl.get().astype(np.float64).reshape(n_pixels, self.nStates)

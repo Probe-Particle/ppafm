@@ -33,7 +33,7 @@ def _make_xy_grid(params):
     npix = int(params['npix'])
     L    = float(params['L'])
     zT   = float(params['z_tip']) + float(params['Rtip'])
-    coords = (np.arange(npix) + 0.5 - npix/2) * (2*L/npix)
+    coords = np.linspace(-L, L, npix)
     xx, yy = np.meshgrid(coords, coords)
     pTips = np.zeros((npix*npix, 3), dtype=np.float64)
     pTips[:, 0] = xx.ravel()
@@ -125,7 +125,8 @@ class ApplicationWindow(GUITemplate):
         self.layout0.addLayout(geom_layout)
         geom_layout.addWidget(QtWidgets.QLabel("Geometry file:"))
         self.leGeometryFile = QtWidgets.QLineEdit()
-        self.leGeometryFile.setText("/home/prokophapala/git/ppafm/tests/ChargeRings/Ruslan_kite.txt")
+        default_geom = os.path.join(_REPO_ROOT, 'tests', 'ChargeRings', 'Ruslan_kite.txt')
+        self.leGeometryFile.setText(default_geom)
         geom_layout.addWidget(self.leGeometryFile)
         btnLoadGeom = QtWidgets.QPushButton("Load")
         btnLoadGeom.clicked.connect(self.load_geometry_file)
@@ -221,7 +222,7 @@ class ApplicationWindow(GUITemplate):
         _safe_print(f"[geom] geometry_file={self.geometry_file}")
         self.run()
 
-    def _solve_xy_cpu(self, params, spos, rots, cs):
+    def _solve_xy_cpu(self, params, spos, rots, cs, return_ets=False):
         # Match CombinedChargeRingsGUI_v5 / pauli_scan.scan_xy_orb convention
         STM, Es, Ts, _Probs, _StateEs = pauli.run_pauli_scan_top(
             spos,
@@ -234,9 +235,11 @@ class ApplicationWindow(GUITemplate):
             state_order=None,
         )
         _safe_print(f"[XY cpu] Es(min,max)=({Es.min():.3e},{Es.max():.3e}) Ts(min,max)=({Ts.min():.3e},{Ts.max():.3e})")
+        if return_ets:
+            return STM, Es, Ts
         return STM
 
-    def _solve_xy_ocl(self, params, pTips, Vtips, spos, order, cs, Wij=None):
+    def _solve_xy_ocl(self, params, pTips, Vtips, spos, rots, order, cs, Wij=None):
         cpp_params = pauli.make_cpp_params(params).astype(np.float32)
         cur, *_ = self.solver_ocl.scan_current_tip(
             pTips.astype(np.float32),
@@ -245,6 +248,7 @@ class ApplicationWindow(GUITemplate):
             cpp_params,
             int(order),
             np.asarray(cs, dtype=np.float32),
+            rots=rots.astype(np.float32) if rots is not None else None,
             return_probs=False,
             return_state_energies=False,
             Wij=Wij.astype(np.float32) if Wij is not None else None,
@@ -268,7 +272,7 @@ class ApplicationWindow(GUITemplate):
         cur = out[0]
         return cur.reshape(nV, nx)
 
-    def _solve_xv_ocl(self, params, pTips_line, Vbiases, spos, order, cs, Wij=None):
+    def _solve_xv_ocl(self, params, pTips_line, Vbiases, spos, rots, order, cs, Wij=None):
         nV = len(Vbiases)
         nx = len(pTips_line)
         pTips = np.tile(pTips_line, (nV, 1))
@@ -281,6 +285,7 @@ class ApplicationWindow(GUITemplate):
             cpp_params,
             int(order),
             np.asarray(cs, dtype=np.float32),
+            rots=rots.astype(np.float32) if rots is not None else None,
             return_probs=False,
             return_state_energies=False,
             Wij=Wij.astype(np.float32) if Wij is not None else None,
@@ -317,7 +322,7 @@ class ApplicationWindow(GUITemplate):
         # Match CombinedChargeRingsGUI_v5 / pauli_scan pipeline: configure Wij from W
         # (constant/distance-based/file) on the solver instance.
         pauli_scan._apply_wij_config(self.solver_cpu, spos, params)
-        Wij = _build_Wij_matrix(spos, params) if use_ocl else None
+        Wij = _build_Wij_matrix(spos, params)
         cs, order = pauli.make_quadrupole_Coeffs(float(params['Q0']), float(params['Qzz']))
 
         # single-point sanity check (C++ scan_current_tip directly)
@@ -358,11 +363,65 @@ class ApplicationWindow(GUITemplate):
         if use_ocl:
             pTips, extent_xy = _make_xy_grid(params)
             Vtips = np.full((pTips.shape[0],), V0, dtype=np.float64)
-            cur_xy = self._solve_xy_ocl(params, pTips, Vtips, spos, order, cs, Wij=Wij)
+            cur_xy = self._solve_xy_ocl(params, pTips, Vtips, spos, rots, order, cs, Wij=Wij)
             cur_xy = cur_xy.reshape(int(params['npix']), int(params['npix']))
         else:
-            cur_xy = self._solve_xy_cpu(params, spos, rots, cs)
+            cur_xy, Es_cpu, Ts_cpu = self._solve_xy_cpu(params, spos, rots, cs, return_ets=True)
             extent_xy = (-float(params['L']), float(params['L']), -float(params['L']), float(params['L']))
+            if self.solver_ocl is not None:
+                pTips_dbg, _ = _make_xy_grid(params)
+                Vtips_dbg = np.full((pTips_dbg.shape[0],), V0, dtype=np.float64)
+                cur_xy_gpu = self._solve_xy_ocl(params, pTips_dbg, Vtips_dbg, spos, rots, order, cs, Wij=Wij)
+                diff_xy = cur_xy_gpu - cur_xy
+                mask_zero_cpu = cur_xy == 0.0
+                mask_zero_gpu = cur_xy_gpu == 0.0
+                n_zero_cpu = int(np.sum(mask_zero_cpu))
+                n_zero_gpu = int(np.sum(mask_zero_gpu))
+                n_zero_mismatch = int(np.sum(mask_zero_cpu != mask_zero_gpu))
+                _safe_print(f"[XY diff] max_abs={np.max(np.abs(diff_xy)):.3e} mean_abs={np.mean(np.abs(diff_xy)):.3e} zero_cpu={n_zero_cpu} zero_gpu={n_zero_gpu} zero_mismatch={n_zero_mismatch}")
+                if n_zero_mismatch > 0:
+                    # compute CPU/GPU validity masks using the same cut as C++
+                    gamma_amp = float(params['GammaT']) / np.pi
+                    W_scalar = float(params['W'])
+                    EW_cut = 2.0
+                    Tmin_cut = 0.0
+                    Es_cpu_sp = Es_cpu.reshape(int(params['npix']) * int(params['npix']), -1)
+                    Ts_cpu_sp = Ts_cpu.reshape(int(params['npix']) * int(params['npix']), -1)
+                    Emax_cpu = Es_cpu_sp.max(axis=1)
+                    Tmax_cpu = np.max(np.abs(gamma_amp * Ts_cpu_sp), axis=1)
+                    invalid_cpu = (Emax_cpu + W_scalar * EW_cut < 0.0) | (Tmax_cpu < Tmin_cut)
+                    # GPU Es/Ts (float32) for debug
+                    cur_xy_gpu_dbg, Es_gpu, Ts_gpu, *_ = self.solver_ocl.scan_current_tip(
+                        pTips_dbg.astype(np.float32),
+                        Vtips_dbg.astype(np.float32),
+                        spos.astype(np.float32),
+                        pauli.make_cpp_params(params).astype(np.float32),
+                        int(order),
+                        np.asarray(cs, dtype=np.float32),
+                        rots=rots.astype(np.float32) if rots is not None else None,
+                        return_probs=False,
+                        return_state_energies=True,
+                        Wij=Wij.astype(np.float32) if Wij is not None else None,
+                    )
+                    if Es_gpu is not None and Ts_gpu is not None:
+                        Es_gpu_sp = Es_gpu.reshape(int(params['npix']) * int(params['npix']), -1)
+                        Ts_gpu_sp = Ts_gpu.reshape(int(params['npix']) * int(params['npix']), -1)
+                        Emax_gpu = Es_gpu_sp.max(axis=1)
+                        Tmax_gpu = np.max(np.abs(gamma_amp * Ts_gpu_sp), axis=1)
+                        invalid_gpu = (Emax_gpu + W_scalar * EW_cut < 0.0) | (Tmax_gpu < Tmin_cut)
+                    else:
+                        invalid_gpu = None
+                    idxs = np.flatnonzero(mask_zero_cpu != mask_zero_gpu)
+                    for k in idxs[:5]:
+                        xk, yk = pTips_dbg[k, 0], pTips_dbg[k, 1]
+                        if invalid_gpu is not None:
+                            _safe_print(f"[XY diff] mismatch idx={k} x={xk:.3f} y={yk:.3f} I_cpu={cur_xy.flat[k]:.3e} I_gpu={cur_xy_gpu.flat[k]:.3e} valid_cpu={not invalid_cpu[k]} valid_gpu={not invalid_gpu[k]} Emax_cpu={Emax_cpu[k]:.3e} Tmax_cpu={Tmax_cpu[k]:.3e} Emax_gpu={Emax_gpu[k]:.3e} Tmax_gpu={Tmax_gpu[k]:.3e}")
+                        else:
+                            _safe_print(f"[XY diff] mismatch idx={k} x={xk:.3f} y={yk:.3f} I_cpu={cur_xy.flat[k]:.3e} I_gpu={cur_xy_gpu.flat[k]:.3e}")
+                if np.any(~mask_zero_cpu & ~mask_zero_gpu):
+                    diff_xy_nz = diff_xy[~mask_zero_cpu & ~mask_zero_gpu]
+                    _safe_print(f"[XY diff nz] max_abs={np.max(np.abs(diff_xy_nz)):.3e} mean_abs={np.mean(np.abs(diff_xy_nz)):.3e}")
+                _safe_print(f"[XY diff] params: V0={V0:.6f} dQ={params['dQ']} Temp={params['Temp']} GammaT={params['GammaT']} W={params['W']} Q0={params['Q0']} Qzz={params['Qzz']}")
 
         _safe_print(f"[XY] V={V0:.3f} min={cur_xy.min():.3e} max={cur_xy.max():.3e}")
 
@@ -372,9 +431,17 @@ class ApplicationWindow(GUITemplate):
             if use_ocl:
                 pTips2, _ = _make_xy_grid(params2)
                 Vtips2 = np.full((pTips2.shape[0],), V0 + dQ, dtype=np.float64)
-                cur_xy_2 = self._solve_xy_ocl(params2, pTips2, Vtips2, spos, order, cs).reshape(cur_xy.shape)
+                cur_xy_2 = self._solve_xy_ocl(params2, pTips2, Vtips2, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
             else:
                 cur_xy_2 = self._solve_xy_cpu(params2, spos, rots, cs)
+                if self.solver_ocl is not None:
+                    pTips2_dbg, _ = _make_xy_grid(params2)
+                    Vtips2_dbg = np.full((pTips2_dbg.shape[0],), V0 + dQ, dtype=np.float64)
+                    cur_xy_gpu_2 = self._solve_xy_ocl(params2, pTips2_dbg, Vtips2_dbg, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
+                    img_xy_gpu = (cur_xy_gpu_2 - cur_xy_gpu) / dQ
+                    img_xy_cpu = (cur_xy_2 - cur_xy) / dQ
+                    diff_didv = img_xy_gpu - img_xy_cpu
+                    _safe_print(f"[XY dIdV diff] max_abs={np.max(np.abs(diff_didv)):.3e} mean_abs={np.mean(np.abs(diff_didv)):.3e}")
             img_xy = (cur_xy_2 - cur_xy) / dQ
             _safe_print(f"[XY dIdV] min={img_xy.min():.3e} max={img_xy.max():.3e}")
         else:
@@ -385,13 +452,13 @@ class ApplicationWindow(GUITemplate):
             pTips_line, dist = _make_line_tips(params)
             nV = int(params['nV'])
             Vbiases = np.linspace(0.0, float(params['VBias']), nV).astype(np.float64)
-            stm_xv = self._solve_xv_ocl(params, pTips_line, Vbiases.astype(np.float32), spos, order, cs, Wij=Wij)
+            stm_xv = self._solve_xv_ocl(params, pTips_line, Vbiases.astype(np.float32), spos, rots, order, cs, Wij=Wij)
         else:
             pTips_line, dist = _make_line_tips(params)
             nV = int(params['nV'])
             Vbiases = np.linspace(0.0, float(params['VBias']), nV).astype(np.float64)
             stm_xv = self._solve_xv_cpu(params, pTips_line, Vbiases, spos, rots, order, cs)
-        _safe_print(f"[xV] min={stm_xv.min():.3e} max={stm_xv.max():.3e}")
+        _safe_print(f"[xV] min={np.min(stm_xv):.3e} max={np.max(stm_xv):.3e}")
 
         if self.cbShowdIdV.isChecked() and len(Vbiases) > 1:
             img_xv = np.gradient(stm_xv, Vbiases, axis=0)
