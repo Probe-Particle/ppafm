@@ -296,9 +296,21 @@ class ApplicationWindow(GUITemplate):
         params = self.get_param_values()
 
         # solver setup
-        T_eV = float(params['Temp']) * kBoltz
         V0 = float(params['VBias'])
         use_ocl = bool(self.cbUseOpenCL.isChecked()) and (self.solver_ocl is not None)
+        T_eV = float(params.get('Temp', 0.0)) * kBoltz
+        solver_mode = int(params.get('solver_mode', 0))
+        try:
+            self.solver_cpu.set_lead(0, 0.0, T_eV); self.solver_cpu.set_lead(1, 0.0, T_eV)
+            self.solver_cpu.set_check_prob_stop(bCheckProb=False, bCheckProbStop=False, CheckProbTol=1e-12)
+            self.solver_cpu.setLinSolver(1, 50, 1e-12, solver_mode)
+        except Exception:
+            pass
+        if self.solver_ocl is not None:
+            try:
+                self.solver_ocl.set_lead(0, 0.0, T_eV); self.solver_ocl.set_lead(1, 0.0, T_eV)
+            except Exception:
+                pass
         _safe_print(
             f"[run] use_ocl={use_ocl} V0={V0:.3f} Temp_eV={T_eV:.3e} npix={params['npix']} L={params['L']} "
             f"decay={params['decay']} GammaT={params['GammaT']} W={params['W']} Q0={params['Q0']} Qzz={params['Qzz']}"
@@ -427,22 +439,32 @@ class ApplicationWindow(GUITemplate):
 
         if self.cbShowdIdV.isChecked():
             dQ = float(params['dQ'])
-            params2 = params.copy(); params2['VBias'] = V0 + dQ
+            Vp = V0 + 0.5 * dQ
+            Vm = V0 - 0.5 * dQ
+            params_p = params.copy(); params_p['VBias'] = Vp
+            params_m = params.copy(); params_m['VBias'] = Vm
             if use_ocl:
-                pTips2, _ = _make_xy_grid(params2)
-                Vtips2 = np.full((pTips2.shape[0],), V0 + dQ, dtype=np.float64)
-                cur_xy_2 = self._solve_xy_ocl(params2, pTips2, Vtips2, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
+                pTips_p, _ = _make_xy_grid(params_p)
+                Vtips_p = np.full((pTips_p.shape[0],), Vp, dtype=np.float64)
+                cur_p = self._solve_xy_ocl(params_p, pTips_p, Vtips_p, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
+                pTips_m, _ = _make_xy_grid(params_m)
+                Vtips_m = np.full((pTips_m.shape[0],), Vm, dtype=np.float64)
+                cur_m = self._solve_xy_ocl(params_m, pTips_m, Vtips_m, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
             else:
-                cur_xy_2 = self._solve_xy_cpu(params2, spos, rots, cs)
+                cur_p = self._solve_xy_cpu(params_p, spos, rots, cs)
+                cur_m = self._solve_xy_cpu(params_m, spos, rots, cs)
                 if self.solver_ocl is not None:
-                    pTips2_dbg, _ = _make_xy_grid(params2)
-                    Vtips2_dbg = np.full((pTips2_dbg.shape[0],), V0 + dQ, dtype=np.float64)
-                    cur_xy_gpu_2 = self._solve_xy_ocl(params2, pTips2_dbg, Vtips2_dbg, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
-                    img_xy_gpu = (cur_xy_gpu_2 - cur_xy_gpu) / dQ
-                    img_xy_cpu = (cur_xy_2 - cur_xy) / dQ
+                    pTips_p_dbg, _ = _make_xy_grid(params_p)
+                    Vtips_p_dbg = np.full((pTips_p_dbg.shape[0],), Vp, dtype=np.float64)
+                    cur_gpu_p = self._solve_xy_ocl(params_p, pTips_p_dbg, Vtips_p_dbg, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
+                    pTips_m_dbg, _ = _make_xy_grid(params_m)
+                    Vtips_m_dbg = np.full((pTips_m_dbg.shape[0],), Vm, dtype=np.float64)
+                    cur_gpu_m = self._solve_xy_ocl(params_m, pTips_m_dbg, Vtips_m_dbg, spos, rots, order, cs, Wij=Wij).reshape(cur_xy.shape)
+                    img_xy_gpu = (cur_gpu_p - cur_gpu_m) / dQ
+                    img_xy_cpu = (cur_p - cur_m) / dQ
                     diff_didv = img_xy_gpu - img_xy_cpu
                     _safe_print(f"[XY dIdV diff] max_abs={np.max(np.abs(diff_didv)):.3e} mean_abs={np.mean(np.abs(diff_didv)):.3e}")
-            img_xy = (cur_xy_2 - cur_xy) / dQ
+            img_xy = (cur_p - cur_m) / dQ
             _safe_print(f"[XY dIdV] min={img_xy.min():.3e} max={img_xy.max():.3e}")
         else:
             img_xy = cur_xy

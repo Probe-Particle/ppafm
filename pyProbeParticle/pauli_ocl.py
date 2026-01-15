@@ -262,6 +262,7 @@ class PauliSolverCL:
         # Defaults in C++: Tmin_cut=0.0, EW_cut=2.0
         Tmin_cut = 0.0
         EW_cut = 2.0
+        bias = 5.0e-4
         W_scalar = float(w_val)
         if Es_tmp is not None and Ts_tmp is not None:
             Es_sp = Es_tmp.reshape(n_pixels, n_sites)
@@ -269,7 +270,7 @@ class PauliSolverCL:
             Emax = Es_sp.max(axis=1)
             gamma_amp = np.sqrt(gamma_input)
             Tmax = np.max(np.abs(gamma_amp * Ts_sp), axis=1)
-            invalid = (Emax + W_scalar * EW_cut < 0.0) | (Tmax < Tmin_cut)
+            invalid = (Emax + W_scalar * EW_cut < -bias) | (Tmax < Tmin_cut)
             if np.any(invalid):
                 currents = currents.copy()
                 currents[invalid] = 0.0
