@@ -50,6 +50,25 @@ import pyProbeParticle.fieldFFT       as fFFT
 
 bDebug = False
 
+_exc_dbg_env = os.environ.get('PP_EXCITON_DEBUG', '')
+bExcitonDebug = (_exc_dbg_env != '') and (_exc_dbg_env != '0') and (_exc_dbg_env.lower() != 'false')
+
+def _gridStats( name, rho, lat=None ):
+    rho = np.asarray(rho)
+    s1  = rho.sum()
+    s2  = (rho*rho).sum()
+    mn  = rho.min()
+    mx  = rho.max()
+    amx = np.abs(rho).max()
+    print(f"[EXCITON-DBG] {name}: shape={rho.shape} min={mn:.6g} max={mx:.6g} maxabs={amx:.6g} sum={s1:.6g} sumsq={s2:.6g}")
+    if lat is not None:
+        lat = np.asarray(lat)
+        dv = abs(np.dot(lat[0], np.cross(lat[1], lat[2])))
+        n0 = np.linalg.norm(lat[0])
+        n1 = np.linalg.norm(lat[1])
+        n2 = np.linalg.norm(lat[2])
+        print(f"[EXCITON-DBG] {name}: step_norms_A=({n0:.6g},{n1:.6g},{n2:.6g}) dV_A3={dv:.6g}")
+
 # ===============================================================================================================
 #      General utility functions
 # ===============================================================================================================
@@ -344,8 +363,10 @@ def photonMap3D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] 
         # This causes the rotation to be inverted relative to the box
         rot_angle = -rots[i]  # Negate to match box rotation direction
         
-        print(f"[DEBUG] photonMap3D_stamp molecule {i}: Original rotation={rots[i]:.3f} rad ({np.degrees(rots[i]):.1f}°)")
-        print(f"[DEBUG] photonMap3D_stamp molecule {i}: Negated rotation={rot_angle:.3f} rad ({np.degrees(rot_angle):.1f}°) to compensate for transpose")
+        if 'debug_dims' in globals() or (
+            'photonMap' in sys.modules and getattr(sys.modules['photonMap'], 'params', {}).get('debug_dims', False)):
+            print(f"[DEBUG] photonMap3D_stamp molecule {i}: Original rotation={rots[i]:.3f} rad ({np.degrees(rots[i]):.1f}°)")
+            print(f"[DEBUG] photonMap3D_stamp molecule {i}: Negated rotation={rot_angle:.3f} rad ({np.degrees(rot_angle):.1f}°) to compensate for transpose")
             
         GU.stampToGrid3D( canvas, rho, pos, rot_angle, dd=dd_fac, coef=coef, byCenter=byCenter )
     #phmap  = convFFT(Vtip,canvas)   # WARRNING : FFT should not be done in z-direction
@@ -376,9 +397,16 @@ def prepareRhoTransForCoumpling( rhoTrans, nsub=None, lvec=None ):
         ndim1 = rhoTrans.shape
         ndim2 = (ndim1[0]//nsub,ndim1[1]//nsub,ndim1[2]//nsub) 
         #(nDim[0]//subsamp,nDim[1]//subsamp,nDim[2]//subsamp)
+        if bExcitonDebug:
+            _gridStats( "rhoTrans_in", rhoTrans )
         if bDebug:
             sum1 = (rhoTrans**2).sum()
         rho = GU.downSample3D( rhoTrans, ndim=ndim2 )
+        if bExcitonDebug:
+            _gridStats( "rhoTrans_down_noScale", rho )
+        rho *= (nsub**3)
+        if bExcitonDebug:
+            _gridStats( f"rhoTrans_down_scaled_nsub3={nsub**3}", rho )
         if bDebug:
             #print rhoTrans.shape
             sum2  = (rho**2).sum()
@@ -427,7 +455,6 @@ def assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=False ):
         ndarray: Assembled Hamiltonian matrix
     """
     coulomb_const = 14.3996   # [eV*A/e^2]  # https://en.wikipedia.org/wiki/Coulomb_constant
-    prefactor     = coulomb_const #/(dV*dV)
     n = len(poss)
     H = np.eye(n)
     for i in range(n): 
@@ -446,10 +473,22 @@ def assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=False ):
             rho2 = rhos[j]
             ns2  = rho2.shape
             if byCenter: p2 = p2 + lat2[0,:]*(ns2[0]*-0.5) + lat2[1,:]*(ns2[1]*-0.5)
-            if bDebug:
-                GU.setDebugFileName( "coulombGrid_%03i_%03i_.xyz" %(i,j) )
-            eij = GU.coulombGrid_brute( rho1, rho2, pos1=p1, pos2=p2, lat1=lat1, lat2=lat2 )
-            eij *= prefactor
+            dpos = p1 - p2
+            if np.dot(dpos, dpos) < 1e-12:
+                eij = 0.0
+            else:
+                if bDebug:
+                    GU.setDebugFileName( "coulombGrid_%03i_%03i_.xyz" %(i,j) )
+                if bExcitonDebug:
+                    dv1 = abs(np.dot(lat1[0], np.cross(lat1[1], lat1[2])))
+                    dv2 = abs(np.dot(lat2[0], np.cross(lat2[1], lat2[2])))
+                    print(f"[EXCITON-DBG] H[{i},{j}] dR_A={np.linalg.norm(dpos):.6g} dV1_A3={dv1:.6g} dV2_A3={dv2:.6g}")
+                eij = GU.coulombGrid_brute( rho1, rho2, pos1=p1, pos2=p2, lat1=lat1, lat2=lat2 )
+                if bExcitonDebug:
+                    print(f"[EXCITON-DBG] H[{i},{j}] eij_raw_e2_over_A={eij:.6g} eij_eV={eij*coulomb_const:.6g}")
+            eij *= coulomb_const
+            if not np.isfinite(eij):
+                eij = 0.0
             H[i,j]=eij
             H[j,i]=eij
     print("H  = \n", H)
@@ -517,6 +556,8 @@ def solveExcitonSystem( rhoTranss, lvecs, poss, rots, nSub=None, byCenter=False,
         lvec = np.array(lvec[1:][::-1,::-1])
         latMat = makeTransformMat( rhos[i].shape, lvec, rots[i] )
         latMats.append( latMat  )
+        if bExcitonDebug:
+            _gridStats( f"Mol[{i}] rho", rhos[i], lat=latMat )
         if bMultipole:
             mpol_coefs = GU.evalMultipole( rhos[i], rot=latMat )
             print("Mol[%i] multipoles coefs: " %i, mpol_coefs )
