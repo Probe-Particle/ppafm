@@ -36,8 +36,6 @@ extern "C" {
 
         FILE *f;
         char line[5000]; // define a length which is long enough to store a line
-        char *waste;
-        int waste2;
         long i=0, j=0, k=0, tot=0;
         int nx=dims[0];
         int ny=dims[1];
@@ -49,14 +47,12 @@ extern "C" {
             fprintf(stderr, "Can't open the file %s", fname);
             exit (1);
         }
-        for (i=0; i<noline; i++) {
-            waste=fgets(line,5000, f);
-        }
+        for (i=0; i<noline; i++) fgets(line,5000, f);
 //       printf ("Line: %s", line);
         for  (tot=0, k=0; k<dims[2]; k++){
             for (j=0; j<dims[1]; j++){
                 for (i=0; i<dims[0]; i++){
-                    waste2=fscanf(f,"%lf",&numbers[tot]);
+                    fscanf(f,"%lf",&numbers[tot]);
                     //printf ("%20.20lf ", numbers[tot]);
                     //printf ("%i %i %i %f \n", k, j, i, numbers[tot] );
                     tot++;

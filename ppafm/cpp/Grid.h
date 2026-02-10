@@ -152,7 +152,7 @@ void iterateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void 
 template< void FUNC( int ibuff, const Vec3d& pos_, void * args ) >
 void iterateGrid3D_omp( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void * args ){
     int ntot = n.x*n.y*n.z;
-    int ncpu = omp_get_num_threads(); printf( "iterateGrid3D_omp nx,y,z (%i,%i,%i) nxy %i ncpu %i \n",  n.x,n.y,n.z, ntot, ncpu );
+    int ncpu = omp_get_num_threads(); printf( "iterateGrid3D_omp nx,y,z (%i,%i,%i) ntot %i ncpu %i \n",  n.x,n.y,n.z, ntot, ncpu );
     int ndone=0;
     #pragma omp parallel for collapse(3) shared(pos0,n,dCell,args,ndone)
     for ( int ic=0; ic<n.z; ic++ ){
