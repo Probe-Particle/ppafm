@@ -92,7 +92,7 @@ inline double interpolate3DWrap( double * grid, const Vec3i& n, const Vec3d& r )
 // interpolation of vector force-field Vec3d[ix,iy,iz] in periodic boundary condition
 inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r ){
   //#pragma omp simd
-  ////{
+  //{
   struct {double x, y, z;} m, t;
   struct {int x, y, z;} im, it;
   SET_GRID_IND(x);
