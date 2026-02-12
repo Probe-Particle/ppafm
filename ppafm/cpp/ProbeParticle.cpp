@@ -357,7 +357,7 @@ DLLEXPORT void deleteFF_Epointer(){
 // set forcefield grid dimension "n"
 DLLEXPORT void setGridN( int * n ){
     //gridShape.n.set( *(Vec3i*)n );
-    gridShape.n.set( n[2], n[1], n[0] );
+    gridShape.n.set( n[0], n[1], n[2] );
     printf( " nxyz  %i %i %i \n", gridShape.n.x, gridShape.n.y, gridShape.n.z );
 }
 

@@ -201,6 +201,7 @@ def setFF(FF=None, computeVpot=False, n=None, lvec=None, parameters=None, verbos
     # Find gridN
     if FF is not None:
         gridN = np.shape(FF)[0:3]
+        gridN = np.array(gridN[::-1], dtype=np.int32)
         if parameters is not None:
             parameters.gridN = gridN
         if n is not None:
