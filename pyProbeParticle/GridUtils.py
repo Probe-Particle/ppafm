@@ -440,6 +440,7 @@ def loadCUBE(fname,trden=False):
     #First two lines of the header are comments
     header1=filein.readline()
     header2=filein.readline()
+    head_low = (header1 + " " + header2).lower()
     #The third line has the number of atoms included in the file followed by the position of the origin of the volumetric data.
     sth0 = filein.readline().split()
     #The next three lines give the number of voxels along each axis (x, y, z) followed by the axis vector
@@ -447,12 +448,27 @@ def loadCUBE(fname,trden=False):
     sth2 = filein.readline().split()
     sth3 = filein.readline().split()
     nDim = np.array( [int(sth1[0]),int(sth2[0]),int(sth3[0])] )
+    unit_len = 'bohr'
+    if ('angstrom' in head_low) or ('angstroem' in head_low) or ('angström' in head_low):
+        unit_len = 'angstrom'
+    if 'bohr' in head_low:
+        unit_len = 'bohr'
+    unit_den = unit_len
+    if trden:
+        if ('e/bohr' in head_low) or ('bohr^3' in head_low) or ('bohr**3' in head_low):
+            unit_den = 'bohr'
+        if ('e/ang' in head_low) or ('ang^3' in head_low) or ('angstrom^3' in head_low):
+            unit_den = 'angstrom'
+
+    unit_scale = 1.0
+    if unit_len == 'bohr':
+        unit_scale = bohrRadius2angstroem
     lvec = np.zeros((4, 3))
     for jj in range(3):
-        lvec[0,jj]=float(sth0[jj+1])*bohrRadius2angstroem
-        lvec[1,jj]=float(sth1[jj+1])*int(sth1[0])*bohrRadius2angstroem  # bohr_radius ?
-        lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*bohrRadius2angstroem
-        lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*bohrRadius2angstroem
+        lvec[0,jj]=float(sth0[jj+1])*unit_scale
+        lvec[1,jj]=float(sth1[jj+1])*int(sth1[0])*unit_scale
+        lvec[2,jj]=float(sth2[jj+1])*int(sth2[0])*unit_scale
+        lvec[3,jj]=float(sth3[jj+1])*int(sth3[0])*unit_scale
 
     #print "GridUtils| Load "+fname+" using readNumsUpTo"  
     noline = 6+abs(int(sth0[0]))
@@ -495,15 +511,18 @@ def loadCUBE(fname,trden=False):
     head.append("DATAGRID_3D_g98Cube \n")
     
     if trden:
-        # Scale transition density by voxel volume (in Angstrom^3)
-        # Voxel volume = |v1 · (v2 × v3)| where v1, v2, v3 are the axis vectors
-        # This works for both orthogonal and non-orthogonal grids
-        v1 = np.array([float(sth1[1]), float(sth1[2]), float(sth1[3])])  # X-axis vector (in Bohr)
-        v2 = np.array([float(sth2[1]), float(sth2[2]), float(sth2[3])])  # Y-axis vector (in Bohr)
-        v3 = np.array([float(sth3[1]), float(sth3[2]), float(sth3[3])])  # Z-axis vector (in Bohr)
-        voxel_volume_bohr3 = abs(np.dot(v1, np.cross(v2, v3)))
-        voxel_volume_ang3 = voxel_volume_bohr3 * (bohrRadius2angstroem**3)
-        FF *= voxel_volume_ang3
+        v1 = np.array([float(sth1[1]), float(sth1[2]), float(sth1[3])])
+        v2 = np.array([float(sth2[1]), float(sth2[2]), float(sth2[3])])
+        v3 = np.array([float(sth3[1]), float(sth3[2]), float(sth3[3])])
+        v1a = v1*unit_scale
+        v2a = v2*unit_scale
+        v3a = v3*unit_scale
+        voxel_volume_ang3 = abs(np.dot(v1a, np.cross(v2a, v3a)))
+        if unit_den == 'bohr':
+            voxel_volume = voxel_volume_ang3/(bohrRadius2angstroem**3)
+        else:
+            voxel_volume = voxel_volume_ang3
+        FF *= voxel_volume
     else:
         FF *= Hartree2eV
 

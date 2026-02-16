@@ -50,6 +50,136 @@ import pyProbeParticle.fieldFFT       as fFFT
 
 bDebug = False
 
+_exc_dbg_env = os.environ.get('PP_EXCITON_DEBUG', '')
+bExcitonDebug = (_exc_dbg_env != '') and (_exc_dbg_env != '0') and (_exc_dbg_env.lower() != 'false')
+
+_exc_dump_pair_env = os.environ.get('PP_EXCITON_DUMP_PAIR', '').strip()
+_exc_dump_all_env  = os.environ.get('PP_EXCITON_DUMP_ALL', '').strip()
+_exc_dump_all = (_exc_dump_all_env != '') and (_exc_dump_all_env != '0') and (_exc_dump_all_env.lower() != 'false')
+_exc_dump_pair = None
+if _exc_dump_pair_env != '':
+    _pp = _exc_dump_pair_env.replace(';', ',').replace(' ', '').split(',')
+    if (len(_pp) >= 2) and (_pp[0].lstrip('-').isdigit()) and (_pp[1].lstrip('-').isdigit()):
+        _exc_dump_pair = (int(_pp[0]), int(_pp[1]))
+
+_exc_report_multipoles_env = os.environ.get('PP_EXCITON_REPORT_MULTIPOLES', '').strip()
+_exc_report_multipoles = (_exc_report_multipoles_env != '') and (_exc_report_multipoles_env != '0') and (_exc_report_multipoles_env.lower() != 'false')
+
+_exc_report_sij_multipoles_env = os.environ.get('PP_EXCITON_REPORT_SIJ_MULTIPOLES', '').strip()
+_exc_report_sij_multipoles = (_exc_report_sij_multipoles_env != '') and (_exc_report_sij_multipoles_env != '0') and (_exc_report_sij_multipoles_env.lower() != 'false')
+
+def _gridStats( name, rho, lat=None ):
+    rho = np.asarray(rho)
+    s1  = rho.sum()
+    s2  = (rho*rho).sum()
+    mn  = rho.min()
+    mx  = rho.max()
+    amx = np.abs(rho).max()
+    print(f"[EXCITON-DBG] {name}: shape={rho.shape} min={mn:.6g} max={mx:.6g} maxabs={amx:.6g} sum={s1:.6g} sumsq={s2:.6g}")
+    if lat is not None:
+        lat = np.asarray(lat)
+        dv = abs(np.dot(lat[0], np.cross(lat[1], lat[2])))
+        n0 = np.linalg.norm(lat[0])
+        n1 = np.linalg.norm(lat[1])
+        n2 = np.linalg.norm(lat[2])
+        print(f"[EXCITON-DBG] {name}: step_norms_A=({n0:.6g},{n1:.6g},{n2:.6g}) dV_A3={dv:.6g}")
+
+def _dump_rho_pair_xyz( fname, rho1, rho2, pos1, pos2, lat1, lat2 ):
+    rho1 = np.asarray(rho1)
+    rho2 = np.asarray(rho2)
+    lat1 = np.asarray(lat1)
+    lat2 = np.asarray(lat2)
+    pos1 = np.asarray(pos1)
+    pos2 = np.asarray(pos2)
+    n1 = int(rho1.size)
+    n2 = int(rho2.size)
+    with open(fname, 'w') as f:
+        f.write(f"{n1+n2+1}\n")
+        f.write(f"# ns1={n1} ns2={n2}   (He=rho1 grid, Ne=rho2 grid)\n")
+        f.write("U 0.0 0.0 0.0\n")
+
+        nx, ny, nz = rho1.shape
+        ix, iy, iz = np.indices((nx, ny, nz), dtype=float)
+        v = np.stack([ix+0.5, iy+0.5, iz+0.5], axis=-1).reshape(-1, 3)
+        p = v @ lat1 + pos1[None, :]
+        q = rho1.reshape(-1)
+        for (x, y, z), qq in zip(p, q):
+            f.write(f"He  {x:.6f} {y:.6f} {z:.6f}   {qq:.15g}\n")
+
+        nx, ny, nz = rho2.shape
+        ix, iy, iz = np.indices((nx, ny, nz), dtype=float)
+        v = np.stack([ix+0.5, iy+0.5, iz+0.5], axis=-1).reshape(-1, 3)
+        p = v @ lat2 + pos2[None, :]
+        q = rho2.reshape(-1)
+        for (x, y, z), qq in zip(p, q):
+            f.write(f"Ne  {x:.6f} {y:.6f} {z:.6f}   {qq:.15g}\n")
+
+def _unitvec( v ):
+    v = np.asarray(v, dtype=float)
+    n = np.linalg.norm(v)
+    if n < 1e-30:
+        return v*0.0
+    return v/n
+
+def _Vdd( mu1, mu2, R ):
+    R = np.asarray(R, dtype=float)
+    r = np.linalg.norm(R)
+    if r < 1e-12:
+        return 0.0
+    rhat = R / r
+    return (np.dot(mu1, mu2) - 3.0*np.dot(mu1, rhat)*np.dot(mu2, rhat)) / (r**3)
+
+def _grad_phi_Q( Q, R ):
+    R = np.asarray(R, dtype=float)
+    r = np.linalg.norm(R)
+    if r < 1e-12:
+        return np.zeros(3)
+    S = float(R @ Q @ R)
+    return (Q @ R) / (r**5) - 2.5 * S * R / (r**7)
+
+def _VmuQ( mu, Q, R ):
+    return float(np.dot(mu, _grad_phi_Q(Q, R)))
+
+def _multipoles_from_density( rho, pos, lat, byCenter=False ):
+    rho = np.asarray(rho)
+    pos = np.asarray(pos, dtype=float)
+    lat = np.asarray(lat, dtype=float)
+    nx, ny, nz = rho.shape
+    pos0 = pos.copy()
+    if byCenter:
+        pos0 = pos0 + lat[0]*(nx*-0.5) + lat[1]*(ny*-0.5)
+
+    ix, iy, iz = np.indices((nx, ny, nz), dtype=float)
+    v = np.stack([ix+0.5, iy+0.5, iz+0.5], axis=-1).reshape(-1, 3)
+    r = v @ lat + pos0[None, :]
+    q = rho.reshape(-1)
+
+    qsum = q.sum()
+    dip  = (q[:, None] * r).sum(axis=0)
+
+    r0   = r.mean(axis=0)
+    rc   = r - r0[None, :]
+    dip_c = (q[:, None] * rc).sum(axis=0)
+
+    r2 = (rc*rc).sum(axis=1)
+    Q = np.zeros((3, 3))
+    Q[0, 0] = (q*(3.0*rc[:, 0]*rc[:, 0] - r2)).sum()
+    Q[1, 1] = (q*(3.0*rc[:, 1]*rc[:, 1] - r2)).sum()
+    Q[2, 2] = (q*(3.0*rc[:, 2]*rc[:, 2] - r2)).sum()
+    Q[0, 1] = (q*(3.0*rc[:, 0]*rc[:, 1])).sum(); Q[1, 0] = Q[0, 1]
+    Q[0, 2] = (q*(3.0*rc[:, 0]*rc[:, 2])).sum(); Q[2, 0] = Q[0, 2]
+    Q[1, 2] = (q*(3.0*rc[:, 1]*rc[:, 2])).sum(); Q[2, 1] = Q[1, 2]
+
+    return qsum, dip, dip_c, Q, r0
+
+def _downsample3D_blocksum( Fin, nsub ):
+    sh = Fin.shape
+    ndim2 = (sh[0]//nsub, sh[1]//nsub, sh[2]//nsub)
+    sh2 = (ndim2[0]*nsub, ndim2[1]*nsub, ndim2[2]*nsub)
+    F = np.asarray(Fin[:sh2[0], :sh2[1], :sh2[2]], order='C')
+    F = F.reshape(ndim2[0], nsub, ndim2[1], nsub, ndim2[2], nsub)
+    return F.sum(axis=(1,3,5))
+
 # ===============================================================================================================
 #      General utility functions
 # ===============================================================================================================
@@ -344,8 +474,10 @@ def photonMap3D_stamp( rhos, lvecs, Vtip, dd_canv, rots=[0.0], poss=[ [0.0,0.0] 
         # This causes the rotation to be inverted relative to the box
         rot_angle = -rots[i]  # Negate to match box rotation direction
         
-        print(f"[DEBUG] photonMap3D_stamp molecule {i}: Original rotation={rots[i]:.3f} rad ({np.degrees(rots[i]):.1f}°)")
-        print(f"[DEBUG] photonMap3D_stamp molecule {i}: Negated rotation={rot_angle:.3f} rad ({np.degrees(rot_angle):.1f}°) to compensate for transpose")
+        if 'debug_dims' in globals() or (
+            'photonMap' in sys.modules and getattr(sys.modules['photonMap'], 'params', {}).get('debug_dims', False)):
+            print(f"[DEBUG] photonMap3D_stamp molecule {i}: Original rotation={rots[i]:.3f} rad ({np.degrees(rots[i]):.1f}°)")
+            print(f"[DEBUG] photonMap3D_stamp molecule {i}: Negated rotation={rot_angle:.3f} rad ({np.degrees(rot_angle):.1f}°) to compensate for transpose")
             
         GU.stampToGrid3D( canvas, rho, pos, rot_angle, dd=dd_fac, coef=coef, byCenter=byCenter )
     #phmap  = convFFT(Vtip,canvas)   # WARRNING : FFT should not be done in z-direction
@@ -376,16 +508,17 @@ def prepareRhoTransForCoumpling( rhoTrans, nsub=None, lvec=None ):
         ndim1 = rhoTrans.shape
         ndim2 = (ndim1[0]//nsub,ndim1[1]//nsub,ndim1[2]//nsub) 
         #(nDim[0]//subsamp,nDim[1]//subsamp,nDim[2]//subsamp)
+        if bExcitonDebug:
+            _gridStats( "rhoTrans_in", rhoTrans )
         if bDebug:
             sum1 = (rhoTrans**2).sum()
-        rho = GU.downSample3D( rhoTrans, ndim=ndim2 )
+        rho = _downsample3D_blocksum( rhoTrans, nsub )
+        if bExcitonDebug:
+            _gridStats( "rhoTrans_down_blocksum", rho )
         if bDebug:
-            #print rhoTrans.shape
             sum2  = (rho**2).sum()
-            #print(sum2, sum1)
             print(sum2/(ndim2[0]*ndim2[1]*ndim2[2]), sum1/(ndim1[0]*ndim1[1]*ndim1[2]))
             GU.saveXSF("rhoTrans_down.xsf", rhoTrans, lvec )
-            #exit()
     else:
         rho = rhoTrans
     #sh = rhoTrans.shape
@@ -411,7 +544,7 @@ def hackHamiltoian( H ):
     #    H[2,0]*=0; H[0,2]*=0; H[1,2]*=0; H[2,1]*=0; H[0,3]*=0; H[3,0]*=0; H[3,1]*=0; H[1,3]*=0; #H[0,0]*=0.999;H[2,2]*=0.999;
     return
 
-def assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=False ):
+def assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=False, dipoles=None ):
     """Assemble exciton Hamiltonian matrix.
     
     Computes coupling between molecular transitions using Coulomb interaction.
@@ -422,12 +555,12 @@ def assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=False ):
         latMats (list): Lattice vectors for each molecule
         Ediags (list): Diagonal energies for each molecule
         byCenter (bool): If True, positions are relative to molecular centers
+        dipoles (list): Optional dipole vectors for debug output
         
     Returns:
         ndarray: Assembled Hamiltonian matrix
     """
     coulomb_const = 14.3996   # [eV*A/e^2]  # https://en.wikipedia.org/wiki/Coulomb_constant
-    prefactor     = coulomb_const #/(dV*dV)
     n = len(poss)
     H = np.eye(n)
     for i in range(n): 
@@ -446,13 +579,91 @@ def assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=False ):
             rho2 = rhos[j]
             ns2  = rho2.shape
             if byCenter: p2 = p2 + lat2[0,:]*(ns2[0]*-0.5) + lat2[1,:]*(ns2[1]*-0.5)
-            if bDebug:
-                GU.setDebugFileName( "coulombGrid_%03i_%03i_.xyz" %(i,j) )
-            eij = GU.coulombGrid_brute( rho1, rho2, pos1=p1, pos2=p2, lat1=lat1, lat2=lat2 )
-            eij *= prefactor
+            dpos = p1 - p2
+            _do_dump = False
+            if _exc_dump_all:
+                _do_dump = True
+            elif _exc_dump_pair is not None:
+                _a, _b = _exc_dump_pair
+                _do_dump = ((i == _a) and (j == _b)) or ((i == _b) and (j == _a))
+
+            if np.dot(dpos, dpos) < 1e-12:
+                eij = 0.0
+                if _do_dump:
+                    fname = "coulombGrid_%03i_%03i_.xyz" % (i, j)
+                    if bExcitonDebug:
+                        print(f"[EXCITON-DBG] dumping (on-site) sample points for H[{i},{j}] to {fname} (coupling forced to zero)")
+                    _dump_rho_pair_xyz( fname, rho1, rho2, p1, p2, lat1, lat2 )
+            else:
+                if _do_dump:
+                    GU.setDebugFileName( "coulombGrid_%03i_%03i_.xyz" %(i,j) )
+                    if bExcitonDebug:
+                        print(f"[EXCITON-DBG] dumping coulomb sample points for H[{i},{j}] to coulombGrid_{i:03d}_{j:03d}_.xyz")
+                else:
+                    GU.setDebugFileName( "" )
+                if bExcitonDebug:
+                    dv1 = abs(np.dot(lat1[0], np.cross(lat1[1], lat1[2])))
+                    dv2 = abs(np.dot(lat2[0], np.cross(lat2[1], lat2[2])))
+                    print(f"[EXCITON-DBG] H[{i},{j}] dR_A={np.linalg.norm(dpos):.6g} dV1_A3={dv1:.6g} dV2_A3={dv2:.6g}")
+                eij = GU.coulombGrid_brute( rho1, rho2, pos1=p1, pos2=p2, lat1=lat1, lat2=lat2 )
+                if bExcitonDebug:
+                    print(f"[EXCITON-DBG] H[{i},{j}] eij_raw_e2_over_A={eij:.6g} eij_eV={eij*coulomb_const:.6g}")
+            eij *= coulomb_const
+            if not np.isfinite(eij):
+                eij = 0.0
             H[i,j]=eij
             H[j,i]=eij
     print("H  = \n", H)
+    
+    # Comprehensive debug: print FULL NxN table with coordinates and dipoles
+    if bExcitonDebug and dipoles is not None:
+        print("\n" + "="*100)
+        print("COMPLETE FRENKEL HAMILTONIAN ANALYSIS - ALL ELEMENTS WITH COORDINATES AND DIPOLES")
+        print("="*100)
+        print(f"{'H[i,j]':8s} | {'pos_i (x,y,z) Ang':24s} | {'pos_j (x,y,z) Ang':24s} | {'dR Ang':8s} | {'dipole_i (x,y,z)':24s} | {'dipole_j (x,y,z)':24s} | {'angle':7s} | {'H_ij meV':12s}")
+        print("-"*100)
+        for i in range(n):
+            for j in range(n):
+                pi = np.array(poss[i])
+                pj = np.array(poss[j])
+                di = dipoles[i] if dipoles is not None else np.zeros(3)
+                dj = dipoles[j] if dipoles is not None else np.zeros(3)
+                dR = np.linalg.norm(pi - pj)
+                
+                # Calculate angle between dipoles
+                di_mag, dj_mag = np.linalg.norm(di), np.linalg.norm(dj)
+                if di_mag > 1e-10 and dj_mag > 1e-10:
+                    cos_angle = np.dot(di/di_mag, dj/dj_mag)
+                    angle_deg = np.arccos(np.clip(cos_angle, -1, 1)) * 180 / np.pi
+                else:
+                    angle_deg = 0.0
+                
+                H_meV = H[i,j] * 1000  # Convert to meV
+                
+                pos_i_str = f"({pi[0]:+7.2f},{pi[1]:+7.2f},{pi[2]:+5.2f})"
+                pos_j_str = f"({pj[0]:+7.2f},{pj[1]:+7.2f},{pj[2]:+5.2f})"
+                dip_i_str = f"({di[0]:+6.3f},{di[1]:+6.3f},{di[2]:+6.3f})"
+                dip_j_str = f"({dj[0]:+6.3f},{dj[1]:+6.3f},{dj[2]:+6.3f})"
+                
+                if i == j:
+                    print(f"H[{i},{j}]    | {pos_i_str:24s} | {'--- DIAGONAL ---':24s} | {'---':8s} | {dip_i_str:24s} | {'---':24s} | {'---':7s} | {H_meV:+12.4f}")
+                else:
+                    print(f"H[{i},{j}]    | {pos_i_str:24s} | {pos_j_str:24s} | {dR:8.3f} | {dip_i_str:24s} | {dip_j_str:24s} | {angle_deg:6.1f}° | {H_meV:+12.4f}")
+        print("="*100)
+        
+        # Also print the raw Hamiltonian matrix in meV
+        print("\nHamiltonian matrix in meV:")
+        print("      ", end="")
+        for j in range(n):
+            print(f"   [{j}]      ", end="")
+        print()
+        for i in range(n):
+            print(f"[{i}]  ", end="")
+            for j in range(n):
+                print(f"{H[i,j]*1000:+10.3f} ", end="")
+            print()
+        print()
+    
     return H
 
 def solveExcitonHamliltonian( H ):
@@ -512,17 +723,206 @@ def solveExcitonSystem( rhoTranss, lvecs, poss, rots, nSub=None, byCenter=False,
         for i in range(n):
             rhos.append(  prepareRhoTransForCoumpling( rhoTranss[i], nsub=nSub ) )
     latMats = []
+    dipoles = []  # Store dipole vectors for debug
+    _mp_qs   = []
+    _mp_mus  = []
+    _mp_Qs   = []
+    _mp_r0s  = []
     for i in range(n):
-        lvec = lvecs[i]
-        lvec = np.array(lvec[1:][::-1,::-1])
+        lvec = np.array(lvecs[i][1:])
         latMat = makeTransformMat( rhos[i].shape, lvec, rots[i] )
         latMats.append( latMat  )
+        if bExcitonDebug:
+            _gridStats( f"Mol[{i}] rho", rhos[i], lat=latMat )
         if bMultipole:
             mpol_coefs = GU.evalMultipole( rhos[i], rot=latMat )
             print("Mol[%i] multipoles coefs: " %i, mpol_coefs )
-    H = assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=byCenter )
+        # Always extract dipole for debug analysis
+        mpol = GU.evalMultipole( rhos[i], rot=latMat )
+        dipoles.append( mpol[1:4].copy() )  # px, py, pz
+
+        qsum, dip_raw, dip_c, Q, r0 = _multipoles_from_density( rhos[i], poss[i], latMat, byCenter=byCenter )
+        _mp_qs .append( qsum )
+        _mp_mus.append( dip_c )
+        _mp_Qs .append( Q )
+        _mp_r0s.append( r0 )
+    
+    # Debug: Print dipole orientations and predict coupling patterns
+    if bExcitonDebug:
+        print("\n" + "="*70)
+        print("DIPOLE ORIENTATION ANALYSIS")
+        print("="*70)
+        for i in range(n):
+            d = dipoles[i]
+            dmag = np.linalg.norm(d)
+            if dmag > 1e-10:
+                dhat = d / dmag
+            else:
+                dhat = np.array([0.,0.,0.])
+            print(f"State[{i}] pos={poss[i][:2]} rot={rots[i]*180/np.pi:.1f}deg")
+            print(f"         dipole=({d[0]:+.4f}, {d[1]:+.4f}, {d[2]:+.4f}) |d|={dmag:.4f}")
+            print(f"         dir=({dhat[0]:+.3f}, {dhat[1]:+.3f}, {dhat[2]:+.3f})")
+        
+        print("\n" + "-"*70)
+        print("DIPOLE-DIPOLE COUPLING PREDICTION (for off-diagonal H elements)")
+        print("-"*70)
+        for i in range(n):
+            for j in range(i):
+                di, dj = dipoles[i], dipoles[j]
+                di_mag, dj_mag = np.linalg.norm(di), np.linalg.norm(dj)
+                if di_mag > 1e-10 and dj_mag > 1e-10:
+                    di_hat, dj_hat = di/di_mag, dj/dj_mag
+                    cos_angle = np.dot(di_hat, dj_hat)
+                    angle_deg = np.arccos(np.clip(cos_angle, -1, 1)) * 180 / np.pi
+                    # Dipole-dipole: parallel=strong, perpendicular=weak
+                    if abs(cos_angle) > 0.7:
+                        orient = "PARALLEL" if cos_angle > 0 else "ANTIPARALLEL"
+                        expect = "STRONG"
+                    elif abs(cos_angle) < 0.3:
+                        orient = "PERPENDICULAR"
+                        expect = "WEAK/ZERO"
+                    else:
+                        orient = "OBLIQUE"
+                        expect = "MODERATE"
+                    print(f"H[{i},{j}]: angle={angle_deg:5.1f}deg cos={cos_angle:+.3f} -> {orient:12s} expect {expect}")
+                else:
+                    print(f"H[{i},{j}]: one dipole is zero")
+        print("="*70 + "\n")
+        
+        # Save XYZ file with molecular positions and dipole vectors for visualization
+        xyz_fname = "exciton_dipoles_debug.xyz"
+        with open(xyz_fname, 'w') as f:
+            # Write positions as atoms, dipole endpoints as separate atoms
+            n_atoms = n * 3  # position + dipole start + dipole end
+            f.write(f"{n_atoms}\n")
+            f.write("Exciton dipoles: C=position, N=dipole_start, O=dipole_end (dipole scaled for visibility)\n")
+            dipole_scale = 5.0  # Scale factor for visualization
+            for i in range(n):
+                p = poss[i]
+                d = dipoles[i]
+                dmag = np.linalg.norm(d)
+                if dmag > 1e-10:
+                    d_scaled = d / dmag * dipole_scale
+                else:
+                    d_scaled = np.zeros(3)
+                # Position marker
+                f.write(f"C  {p[0]:12.6f} {p[1]:12.6f} {p[2]:12.6f}\n")
+                # Dipole start (at position)
+                f.write(f"N  {p[0]:12.6f} {p[1]:12.6f} {p[2]:12.6f}\n")
+                # Dipole end (position + scaled dipole)
+                end = p + d_scaled
+                f.write(f"O  {end[0]:12.6f} {end[1]:12.6f} {end[2]:12.6f}\n")
+        print(f"[DEBUG] Saved dipole positions to: {xyz_fname}")
+        
+        # Also save a detailed CSV with all data
+        csv_fname = "exciton_dipoles_debug.csv"
+        with open(csv_fname, 'w') as f:
+            f.write("state,pos_x,pos_y,pos_z,rot_deg,dipole_x,dipole_y,dipole_z,dipole_mag,dir_x,dir_y,dir_z\n")
+            for i in range(n):
+                p = poss[i]
+                d = dipoles[i]
+                dmag = np.linalg.norm(d)
+                dhat = d / dmag if dmag > 1e-10 else np.zeros(3)
+                rot_deg = rots[i] * 180 / np.pi
+                f.write(f"{i},{p[0]:.6f},{p[1]:.6f},{p[2]:.6f},{rot_deg:.1f},{d[0]:.6f},{d[1]:.6f},{d[2]:.6f},{dmag:.6f},{dhat[0]:.6f},{dhat[1]:.6f},{dhat[2]:.6f}\n")
+        print(f"[DEBUG] Saved dipole data to: {csv_fname}")
+        
+        # Analyze why "perpendicular" couplings might not be exactly zero
+        print("\n" + "="*70)
+        print("ANALYSIS: WHY PERPENDICULAR COUPLINGS ARE NOT EXACTLY ZERO")
+        print("="*70)
+        print("The Coulomb coupling is NOT just dipole-dipole interaction!")
+        print("Full Coulomb integral includes ALL multipole contributions:")
+        print("  V = sum_ij q_i * q_j / |r_i - r_j|")
+        print("")
+        print("Breakdown of contributions:")
+        for i in range(n):
+            mpol = GU.evalMultipole(rhos[i], rot=latMats[i])
+            q = mpol[0]  # monopole (should be ~0 for transition density)
+            d = mpol[1:4]  # dipole
+            Q = mpol[4:10]  # quadrupole
+            print(f"State[{i}]: monopole={q:.2e}, |dipole|={np.linalg.norm(d):.4f}, |quadrupole|={np.linalg.norm(Q):.4f}")
+        print("")
+        print("Non-zero 'perpendicular' couplings arise from:")
+        print("  1. Quadrupole-quadrupole interactions (always present)")
+        print("  2. Dipole-quadrupole cross-terms")
+        print("  3. Finite spatial extent of charge distributions")
+        print("  4. Small numerical deviations from perfect 90 degrees")
+        print("="*70 + "\n")
+    
+    H = assembleExcitonHamiltonian( rhos, poss, latMats, Ediags, byCenter=byCenter, dipoles=dipoles )
     if hackHfunc is not None: 
         hackHfunc( H )
+
+    if _exc_report_sij_multipoles:
+        coulomb_const = 14.3996
+        print("\n" + "="*120)
+        print("PAIR MULTIPOLE DECOMPOSITION (approx; from centered dipole/quadrupole of each transition density)")
+        print("="*120)
+        
+        # First: show per-state dipole analysis with off-axis components
+        print("\n--- PER-STATE DIPOLE ANALYSIS (off-axis components from cube file) ---")
+        for i in range(n):
+            mu_i = np.array(_mp_mus[i])
+            mu_mag = np.linalg.norm(mu_i)
+            main_idx = np.argmax(np.abs(mu_i))
+            main_val = mu_i[main_idx]
+            axis_names = ['X', 'Y', 'Z']
+            print(f"  State {i}: μ = ({mu_i[0]:+.4f}, {mu_i[1]:+.4f}, {mu_i[2]:+.4f})  |μ| = {mu_mag:.4f}")
+            print(f"           Main axis: {axis_names[main_idx]} = {main_val:+.4f}")
+            off_axis_info = []
+            for k in range(3):
+                if k != main_idx and abs(mu_i[k]) > 1e-10:
+                    pct = 100 * abs(mu_i[k]) / abs(main_val)
+                    off_axis_info.append(f"{axis_names[k]}={mu_i[k]:+.4f} ({pct:.2f}%)")
+            if off_axis_info:
+                print(f"           Off-axis:  {', '.join(off_axis_info)}  <-- from cube file, causes Vdd≠0 for ⊥ dipoles!")
+            print()
+        
+        # Pair analysis with detailed Vdd breakdown
+        print("--- PAIR COUPLING ANALYSIS ---")
+        print(f"{'pair':6s} | {'angle':7s} | {'μi·μj':10s} | {'μi·R̂':8s} | {'μj·R̂':8s} | {'(μi·R̂)(μj·R̂)':14s} | {'Vdd(meV)':10s} | {'H_ij(meV)':10s}")
+        print("-"*120)
+        for i in range(n):
+            for j in range(i):
+                R = np.array(_mp_r0s[i]) - np.array(_mp_r0s[j])
+                r = float(np.linalg.norm(R))
+                if r < 1e-12:
+                    continue
+                Rhat = R / r
+                mu_i = np.array(_mp_mus[i])
+                mu_j = np.array(_mp_mus[j])
+                
+                # Compute angle between dipoles
+                mi_mag = np.linalg.norm(mu_i)
+                mj_mag = np.linalg.norm(mu_j)
+                if mi_mag > 1e-10 and mj_mag > 1e-10:
+                    cos_ang = np.dot(mu_i, mu_j) / (mi_mag * mj_mag)
+                    angle_deg = np.arccos(np.clip(cos_ang, -1, 1)) * 180 / np.pi
+                else:
+                    angle_deg = 0.0
+                
+                # Compute Vdd terms
+                mu_i_dot_mu_j = np.dot(mu_i, mu_j)
+                mu_i_dot_Rhat = np.dot(mu_i, Rhat)
+                mu_j_dot_Rhat = np.dot(mu_j, Rhat)
+                cross_term = mu_i_dot_Rhat * mu_j_dot_Rhat
+                
+                vdd = _Vdd(mu_i, mu_j, R) * coulomb_const
+                vmuq = (_VmuQ(mu_i, _mp_Qs[j], R) + _VmuQ(mu_j, _mp_Qs[i], -R)) * coulomb_const
+                
+                # Flag perpendicular pairs with non-zero Vdd
+                perp_flag = ""
+                if 85 < angle_deg < 95 and abs(vdd*1000) > 0.01:
+                    perp_flag = " <-- ⊥ but Vdd≠0!"
+                
+                print(f"{i:02d},{j:02d}  | {angle_deg:6.1f}° | {mu_i_dot_mu_j:+10.4f} | {mu_i_dot_Rhat:+8.4f} | {mu_j_dot_Rhat:+8.4f} | {cross_term:+14.6f} | {vdd*1000:+10.3f} | {H[i,j]*1000:+10.3f}{perp_flag}")
+        
+        print("-"*120)
+        print("NOTE: For Vdd=0, you need BOTH: (1) μi·μj=0 (perpendicular) AND (2) (μi·R̂)(μj·R̂)=0")
+        print("      The off-axis dipole components (from cube file asymmetry) make condition (2) fail!")
+        print("="*120 + "\n")
+
     es,vs = solveExcitonHamliltonian( H )
     #    print(" <<<<!!!!! DEBUG : solveExcitonSystem() DONE .... this is WIP, do not take seriously ")
     return es,vs,H

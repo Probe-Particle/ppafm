@@ -466,16 +466,17 @@ extern "C" {
     }
 
 void setDebugFileName( const char* fname ){
+    if( (fname==0) || (fname[0]=='\0') ){
+        bDebug = false;
+        debug_file_name = "";
+        return;
+    }
     debug_file_name = fname;
     bDebug = true;
 }
 
-void debugPrint(FILE* fdebug, double q, Vec3d p){
-    if(fabs(q)>1e-3){
-        fprintf(fdebug, "He %f %f %f   %f\n", p.x, p.y, p.z, 0.1 );
-    }else{
-        fprintf(fdebug, "H  %f %f %f   %f\n", p.x, p.y, p.z, q );
-    }
+void debugPrint(FILE* fdebug, const char* sym, double q, Vec3d p){
+    fprintf(fdebug, "%s  %f %f %f   %g\n", sym, p.x, p.y, p.z, q );
 }
 
     //double coulombGrid_brute( int* ns1_, int* ns2_, double* dpos_, double* rot1_, double* rot2_, double* rho1, double* rho2 ){
@@ -538,8 +539,29 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
             fdebug = fopen(debug_file_name.c_str(), "w");
             //FILE *fdebug = fopen("coulombGrid_brute_poss.xyz", "w");
             fprintf(fdebug, "%i\n", ns1.totprod()+ns2.totprod()+1 );
-            fprintf(fdebug, "#comment\n" );
+            fprintf(fdebug, "# ns1=%i ns2=%i   (He=rho1 grid, Ne=rho2 grid)\n", ns1.totprod(), ns2.totprod() );
             fprintf(fdebug, "U 0.0 0.0 0.0\n" );
+
+            for(int ix=0; ix<ns1.x; ix++){
+                for(int iy=0; iy<ns1.y; iy++){
+                    for(int iz=0; iz<ns1.z; iz++){
+                        Vec3d pi;  rot1.dot_to_T({ix+0.5,iy+0.5,iz+0.5},pi);
+                        pi.add(pos1);
+                        double qi = rho1[ix*nyz1 + iy*ns1.z + iz];
+                        debugPrint(fdebug, "He", qi, pi );
+                    }
+                }
+            }
+            for(int jx=0; jx<ns2.x; jx++){
+                for(int jy=0; jy<ns2.y; jy++){
+                    for(int jz=0; jz<ns2.z; jz++){
+                        Vec3d pj;  rot2.dot_to_T({jx+0.5,jy+0.5,jz+0.5},pj);
+                        pj.add(pos2);
+                        double qj = rho2[jx*nyz2 + jy*ns2.z + jz];
+                        debugPrint(fdebug, "Ne", qj, pj );
+                    }
+                }
+            }
         }
 #endif
         //for(int iz=0; iz<ns1.z; iz++){
@@ -556,7 +578,7 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
 #if DEBUG_FILE
                     if(bDebug){
                         //fprintf(fdebug, "H %f %f %f\n", pi.x, pi.y, pi.z );
-                        debugPrint(fdebug, qi, pi );
+                        //debugPrint(fdebug, qi, pi );
                     }      
 #endif
 //                    for(int jz=0; jz<ns2.z; jz++){
@@ -575,7 +597,7 @@ void debugPrint(FILE* fdebug, double q, Vec3d p){
 #if DEBUG_FILE
                                 if(bDebug){
                                     nops++;
-                                    if((ix==0)&&(iy==0)&&(iz==0)) debugPrint(fdebug, qj, pj);
+                                    //if((ix==0)&&(iy==0)&&(iz==0)) debugPrint(fdebug, qj, pj);
                                     //if((ix==0)&&(iy==0)&&(iz==0)) fprintf(fdebug, "He %f %f %f\n", p.x, p.y, p.z );
                                     //if( fabs(qi*qj)>1e-3 ) printf( "C++ dE %g r % q(%g,%g) i(%i,%i,%i) j(%i,%i,%i) \n", qi*qj/r, r, qi, qj, ix,iy,iz, jx,jy,jz );
                                     //if( (jz==0)&&(jy==0)&&(jx==0)  &&   (iz==0)&&(iy==0)&&(ix==0) ){   

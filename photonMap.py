@@ -306,6 +306,11 @@ def loadDensityFileNames( fname ):
     fin = open( fname )
     names = [] 
     for line in fin:
+        line_ = line.strip()
+        if line_ == "":
+            continue
+        if line_[0] == '#':
+            continue
         ws = line.split()
         #print( "ws ",  ws )
         if( len(ws)>1 ):
@@ -706,7 +711,7 @@ if __name__ == "__main__":
     parser.add_option( "-s", "--save",        action="store_true",           default=PARSER_DEFAULTVAL, help="save output as txt files")
     parser.add_option( "-u", "--subsys",      action="store_true",           default=PARSER_DEFAULTVAL, help="enable splitting to subsystems (EXPERIMENTAL)")
     parser.add_option( "-o", "--output",      action="store", type="string", default=PARSER_DEFAULTVAL, help="base filename for output")
-#    parser.add_option( "-c", "--cubelist",    action="store", type="string", default=PARSER_DEFAULTVAL, help="read trans. density or homo/lumo using a list in a file")
+    parser.add_option( "-c", "--cubelist",    action="store", type="string", default=PARSER_DEFAULTVAL, help="read transition densities using a list of cube files in a file")
     parser.add_option( "-w", "--wdir",        action="store", type="string", default=PARSER_DEFAULTVAL, help="working directory to find tr. densities and all the input files")
     parser.add_option( "-m", "--molecules",   action="store", type="string", default=PARSER_DEFAULTVAL, help="filename from which to read excitonic coordinates and other attributes")
     parser.add_option( "-i", "--images",      action="store_true",           default=PARSER_DEFAULTVAL, help="save output as images")
@@ -761,6 +766,16 @@ if __name__ == "__main__":
         fnmb = params["molecules"]
 
     fnmb = setPathIfExist( params["dens"], default=fnmb)
+    if params["output"] != "":
+        dens_dir  = os.path.dirname(fnmb)
+        dens_base = os.path.basename(fnmb)
+        if os.path.isabs(params["output"]):
+            outdir = params["output"]
+        else:
+            outdir = os.path.join(dens_dir, params["output"])
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        fnmb = os.path.join(outdir, dens_base)
     print("OUTPUT Basename: '"+fnmb+"'")
     loadedRhos, loadedLvecs, lmax = loadCubeFiles( S0 )
     
