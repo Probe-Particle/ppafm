@@ -17,6 +17,28 @@ def wendland_c2(r, R_basis, C=1.0):
     out[mask] = t4 * (4.0 * t + C)
     return out
 
+def wendland_c2_varR(r, R, C=1.0):
+    """Wendland C2 for elementwise radii.
+
+    Parameters
+    ----------
+    r : array
+        Distances.
+    R : array
+        Support radii, same shape as r (or broadcastable).
+    """
+    r = np.abs(r)
+    R = np.asarray(R, dtype=float)
+    out = np.zeros_like(r, dtype=float)
+    mask = r < R
+    if np.any(mask):
+        t = r[mask] / R[mask]
+        t1 = 1.0 - t
+        t2 = t1 * t1
+        t4 = t2 * t2
+        out[mask] = t4 * (4.0 * t + C)
+    return out
+
 def compact_c2_covariance(r, R_basis):
      """Compactly supported C2 Wendland function used as a covariance model C(r)."""
      # For Wendland C2, C(0)=1. The function itself can serve as the covariance kernel.

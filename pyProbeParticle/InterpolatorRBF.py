@@ -3,7 +3,7 @@ from scipy.spatial import KDTree
 from scipy.linalg import solve # Using scipy's wrapper for better handling
 # from scipy.linalg import lu_factor, lu_solve # Alternative for explicit factorization
 
-from .interpy import wendland_c2, pairwise_distances
+from .interpy import wendland_c2, pairwise_distances, wendland_c2_varR
 
 class InterpolatorRBF:
     def __init__(self, data_points, R_basis, C_peak=1.0, normalized=False, eps_norm=0.0):
@@ -14,7 +14,16 @@ class InterpolatorRBF:
         """
         self.data_points = np.asarray(data_points, dtype=float)
         self.ndata       = self.data_points.shape[0]
-        self.R_basis     = float(R_basis)
+        self.R_basis     = R_basis
+        self.R_i         = None
+        self.R_max       = None
+        if np.ndim(R_basis) == 0:
+            self.R_basis = float(R_basis)
+        else:
+            self.R_i = np.asarray(R_basis, dtype=float).reshape(-1)
+            if self.R_i.shape[0] != self.ndata:
+                raise ValueError(f"InterpolatorRBF: per-point R_basis must have shape (N,), got {self.R_i.shape} for N={self.ndata}")
+            self.R_max = float(np.max(self.R_i)) if self.ndata > 0 else 0.0
         self.C_peak      = float(C_peak)
         self.normalized  = bool(normalized)
         self.eps_norm    = float(eps_norm)
@@ -25,12 +34,20 @@ class InterpolatorRBF:
             # No factorization needed
             return
 
-        print(f"GlobalRbfInterpolator.init(): Building {self.ndata}x{self.ndata} Phi matrix (R_basis={R_basis})")
+        if self.R_i is None:
+            print(f"GlobalRbfInterpolator.init(): Building {self.ndata}x{self.ndata} Phi matrix (R_basis={self.R_basis})")
+        else:
+            print(f"GlobalRbfInterpolator.init(): Building {self.ndata}x{self.ndata} Phi matrix (R_i: min={self.R_i.min():.3g} max={self.R_i.max():.3g})")
 
         # Build the Phi matrix: Phi_ij = phi(||p_i - p_j||)
         # Use pairwise_distances to get all distances efficiently
         distances = pairwise_distances(self.data_points, self.data_points)
-        self.phi_matrix = wendland_c2(distances, self.R_basis, C=self.C_peak)
+        if self.R_i is None:
+            self.phi_matrix = wendland_c2(distances, self.R_basis, C=self.C_peak)
+        else:
+            # Keep the matrix symmetric: pair radius = min(R_i, R_j)
+            R_pair = np.minimum(self.R_i[:, None], self.R_i[None, :])
+            self.phi_matrix = wendland_c2_varR(distances, R_pair, C=self.C_peak)
 
         # Factorize the matrix (e.g., LU decomposition) for efficient solves later
         # solve() handles factorization internally for repeat calls if the matrix doesn't change.
@@ -121,7 +138,10 @@ class InterpolatorRBF:
         # Instead of loop + KDTree query per point, query neighbors for *all* query points
         # within R_basis using query_ball_tree
         # This gives a list of lists: indices[i] is list of neighbors of query_points[i]
-        neighbor_indices_list = data_kdtree.query_ball_point(query_points, r=self.R_basis)
+        if self.R_i is None:
+            neighbor_indices_list = data_kdtree.query_ball_point(query_points, r=self.R_basis)
+        else:
+            neighbor_indices_list = data_kdtree.query_ball_point(query_points, r=self.R_max)
 
         # Efficiently compute contributions using broadcasting and fancy indexing
         # This is more complex than simple loop but faster in numpy for large arrays
@@ -166,8 +186,17 @@ class InterpolatorRBF:
             neighbor_pts = self.data_points[neighbors_q_indices, :]
             dists = np.linalg.norm(neighbor_pts - q, axis=1)
 
-            phi_vals = wendland_c2(dists, self.R_basis, C=self.C_peak)
-            neighbor_weights = self.weights[neighbors_q_indices]
+            if self.R_i is None:
+                phi_vals = wendland_c2(dists, self.R_basis, C=self.C_peak)
+                neighbor_weights = self.weights[neighbors_q_indices]
+            else:
+                Ri = self.R_i[neighbors_q_indices]
+                mask = dists < Ri
+                if not np.any(mask):
+                    interpolated_values[i] = 0.0
+                    continue
+                phi_vals = wendland_c2_varR(dists[mask], Ri[mask], C=self.C_peak)
+                neighbor_weights = self.weights[neighbors_q_indices][mask]
 
             base_val = np.sum(neighbor_weights * phi_vals)
 
