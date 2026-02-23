@@ -130,7 +130,24 @@ def find_ham_file(folder, ham_name):
     return None
 
 
-def plot_splitting(H, eigEs, eigVs, out_path, title, n_mol, wcut, topk, figsize, dpi):
+def plot_splitting(
+    H,
+    eigEs,
+    eigVs,
+    out_path,
+    title,
+    n_mol,
+    wcut,
+    topk,
+    figsize,
+    dpi,
+    annotate,
+    annotate_fmt,
+    color_mode,
+    connector_bicolor,
+    cmap_name,
+    line_halfwidth,
+):
     n = H.shape[0]
 
     if n_mol < 1:
@@ -145,23 +162,51 @@ def plot_splitting(H, eigEs, eigVs, out_path, title, n_mol, wcut, topk, figsize,
 
     xs = np.arange(n_mol, dtype=float)
     x_c = 0.5 * (xs[0] + xs[-1])
-    w = 0.22
+    w = float(line_halfwidth)
 
-    cmap = plt.get_cmap('tab10')
-    mol_colors = [cmap(i % 10) for i in range(n_mol)]
+    mol_cmap = plt.get_cmap('tab10')
+    mol_colors = [mol_cmap(i % 10) for i in range(n_mol)]
+    basis_cmap = plt.get_cmap(cmap_name, n)
+    eig_cmap = plt.get_cmap(cmap_name, n)
 
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
     Ediag = np.diag(H).copy()
 
+    if annotate_fmt is None:
+        annotate_fmt = '{:.4f}'
+
+    def _pick_basis_color(j, im):
+        if (color_mode == 'basis') or (color_mode == 'both'):
+            return basis_cmap(j)
+        if color_mode == 'molecule':
+            return mol_colors[im]
+        return (0.25, 0.25, 0.25, 1.0)
+
+    def _pick_eig_color(ie):
+        if (color_mode == 'eigen') or (color_mode == 'both'):
+            return eig_cmap(ie)
+        return (0.0, 0.0, 0.0, 1.0)
+
     for im in range(n_mol):
         x0 = xs[im]
         Es = Ediag[im * n_per:(im + 1) * n_per]
         for k, e in enumerate(Es):
-            ax.hlines(e, x0 - w, x0 + w, color=mol_colors[im], lw=2.0)
+            j = im * n_per + k
+            col = _pick_basis_color(j, im)
+            ax.hlines(e, x0 - w, x0 + w, color=col, lw=2.0)
+            if annotate:
+                if x0 <= x_c:
+                    xt, ha = x0 - w - 0.05, 'right'
+                else:
+                    xt, ha = x0 + w + 0.05, 'left'
+                ax.text(xt, float(e), annotate_fmt.format(float(e)), ha=ha, va='center', fontsize=8, color=col)
 
-    for e in eigEs:
-        ax.hlines(e, x_c - w, x_c + w, color='k', lw=2.2)
+    for ie, e in enumerate(eigEs):
+        col = _pick_eig_color(ie)
+        ax.hlines(e, x_c - w, x_c + w, color=col, lw=2.2)
+        if annotate:
+            ax.text(x_c + w + 0.05, float(e), annotate_fmt.format(float(e)), ha='left', va='center', fontsize=8, color=col)
 
     for ie in range(n):
         v = eigVs[ie].copy()
@@ -187,7 +232,21 @@ def plot_splitting(H, eigEs, eigVs, out_path, title, n_mol, wcut, topk, figsize,
                 xa, xb = x0 - w, x_c + w
 
             lw = 0.5 + 3.0 * wt
-            ax.plot([xa, xb], [e0, e1], linestyle=':', color=mol_colors[im], lw=lw, alpha=0.75)
+            col_basis = _pick_basis_color(j, im)
+            col_eig = _pick_eig_color(ie)
+            if connector_bicolor:
+                xm = 0.5 * (xa + xb)
+                ym = 0.5 * (e0 + e1)
+                ax.plot([xa, xm], [e0, ym], linestyle=':', color=col_basis, lw=lw, alpha=0.80)
+                ax.plot([xm, xb], [ym, e1], linestyle=':', color=col_eig, lw=lw, alpha=0.80)
+            else:
+                if color_mode == 'basis':
+                    col = col_basis
+                elif color_mode == 'eigen':
+                    col = col_eig
+                else:
+                    col = mol_colors[im]
+                ax.plot([xa, xb], [e0, e1], linestyle=':', color=col, lw=lw, alpha=0.75)
 
     ax.set_xlim(float(xs[0]) - 0.7, float(xs[-1]) + 0.7)
     ymin = min(float(np.min(Ediag)), float(np.min(eigEs)))
@@ -222,14 +281,35 @@ def main(argv=None):
     parser.add_argument('--topk', type=int, default=2)
     parser.add_argument('--dpi', type=int, default=200)
     parser.add_argument('--figsize', type=float, nargs=2, default=(6.5, 5.0))
+    parser.add_argument('--annotate', action='store_true', default=False)
+    parser.add_argument('--annotate-fmt', default='{:.4f}')
+    parser.add_argument('--color-mode', choices=['molecule', 'basis', 'eigen', 'both'], default='molecule')
+    parser.add_argument('--connector-bicolor', action='store_true', default=False)
+    parser.add_argument('--cmap', default='tab10')
+    parser.add_argument('--line-halfwidth', type=float, default=0.22)
 
     args = parser.parse_args(argv)
 
     folders = []
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    def _resolve_root(root):
+        if os.path.isabs(root):
+            return root
+        cand_cwd = os.path.abspath(os.path.join(os.getcwd(), root))
+        if os.path.isdir(cand_cwd):
+            return cand_cwd
+        cand_script = os.path.abspath(os.path.join(script_dir, root))
+        if os.path.isdir(cand_script):
+            return cand_script
+        return cand_cwd
+
     if len(args.dirs) > 0:
         folders = [os.path.abspath(d) for d in args.dirs]
     elif args.globpat:
-        folders = sorted(glob.glob(os.path.join(os.path.abspath(args.root), args.globpat)))
+        root_abs = _resolve_root(args.root)
+        folders = sorted(glob.glob(os.path.join(root_abs, args.globpat)))
+        folders = [p for p in folders if os.path.isdir(p)]
     else:
         print("ERROR: provide --dir ... or --glob ...")
         return 2
@@ -263,6 +343,12 @@ def main(argv=None):
             topk=args.topk,
             figsize=tuple(args.figsize),
             dpi=args.dpi,
+            annotate=args.annotate,
+            annotate_fmt=args.annotate_fmt,
+            color_mode=args.color_mode,
+            connector_bicolor=args.connector_bicolor,
+            cmap_name=args.cmap,
+            line_halfwidth=args.line_halfwidth,
         )
         print(f"saved: {out_path}")
 
@@ -288,5 +374,17 @@ python3 plot_exciton_splitting.py \
   --glob "T_*_*" \
   --out energy_splitting.png \
   --n-mol 2
+
+
+
+python3 plot_exciton_splitting.py \
+  --dir T_-1_-1 \
+  --out energy_splitting.png \
+  --n-mol 2 \
+  --annotate \
+  --color-mode both \
+  --connector-bicolor \
+  --topk 2 \
+  --wcut 0.10
 
 '''
