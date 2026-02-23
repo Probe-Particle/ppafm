@@ -4,6 +4,7 @@ import os
 import sys
 import glob
 import argparse
+import math
 import numpy as np
 
 import matplotlib as mpl
@@ -130,6 +131,42 @@ def find_ham_file(folder, ham_name):
     return None
 
 
+def infer_nmol_from_H(H, eps):
+    n = H.shape[0]
+    if H.shape[0] != H.shape[1]:
+        print(f"ERROR: cannot infer n_mol from non-square H, shape={H.shape}")
+        sys.exit(2)
+
+    # We assume the basis is ordered as contiguous blocks per molecule.
+    # In this exciton construction there are typically no *intra-molecule* couplings,
+    # so each diagonal block should be (approximately) diagonal.
+    # We find the largest block size b (dividing n) for which every diagonal block
+    # has off-diagonal magnitude <= eps, then infer n_mol = n/b.
+    divisors = [b for b in range(1, n + 1) if (n % b) == 0]
+    best_b = None
+    for b in divisors:
+        ok = True
+        for i0 in range(0, n, b):
+            B = H[i0:i0 + b, i0:i0 + b]
+            off = B - np.diag(np.diag(B))
+            if float(np.max(np.abs(off))) > eps:
+                ok = False
+                break
+        if ok:
+            best_b = b
+
+    if best_b is None:
+        print(f"ERROR: cannot infer n_mol (no diagonal-only block size found, eps={eps:g})")
+        sys.exit(2)
+
+    n_mol = int(n // best_b)
+    if n_mol < 1:
+        print(f"ERROR: inferred invalid n_mol={n_mol}")
+        sys.exit(2)
+
+    return n_mol
+
+
 def plot_splitting(
     H,
     eigEs,
@@ -147,11 +184,18 @@ def plot_splitting(
     connector_bicolor,
     cmap_name,
     line_halfwidth,
+    conn_lw_min,
+    conn_lw_max,
+    conn_lw_gamma,
+    infer_eps,
 ):
     n = H.shape[0]
 
+    if n_mol == 0:
+        n_mol = infer_nmol_from_H(H, infer_eps)
+
     if n_mol < 1:
-        print("ERROR: n_mol must be >=1")
+        print("ERROR: n_mol must be >=1 (or use --n-mol 0 to infer)")
         sys.exit(2)
 
     if (n % n_mol) != 0:
@@ -160,8 +204,16 @@ def plot_splitting(
 
     n_per = n // n_mol
 
-    xs = np.arange(n_mol, dtype=float)
-    x_c = 0.5 * (xs[0] + xs[-1])
+    if n_mol == 2:
+        xs = np.array([0.0, 1.0])
+        x_c = 0.5
+    else:
+        # Put molecules in vertical stacks (one x per molecule) and insert a gap
+        # column in the middle for the coupled eigen-energies.
+        mid = int(n_mol // 2)
+        xs = np.arange(n_mol, dtype=float)
+        xs[mid:] += 1.0
+        x_c = float(mid)
     w = float(line_halfwidth)
 
     mol_cmap = plt.get_cmap('tab10')
@@ -172,6 +224,11 @@ def plot_splitting(
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
     Ediag = np.diag(H).copy()
+
+    ymin = min(float(np.min(Ediag)), float(np.min(eigEs)))
+    ymax = max(float(np.max(Ediag)), float(np.max(eigEs)))
+    yspan = (ymax - ymin + 1e-9)
+    yoff = 0.012 * yspan
 
     if annotate_fmt is None:
         annotate_fmt = '{:.4f}'
@@ -206,7 +263,8 @@ def plot_splitting(
         col = _pick_eig_color(ie)
         ax.hlines(e, x_c - w, x_c + w, color=col, lw=2.2)
         if annotate:
-            ax.text(x_c + w + 0.05, float(e), annotate_fmt.format(float(e)), ha='left', va='center', fontsize=8, color=col)
+            dy = yoff * (1.0 + 0.35 * (ie % 3))
+            ax.text(x_c, float(e) + dy, annotate_fmt.format(float(e)), ha='center', va='bottom', fontsize=8, color=col)
 
     for ie in range(n):
         v = eigVs[ie].copy()
@@ -231,7 +289,14 @@ def plot_splitting(
             else:
                 xa, xb = x0 - w, x_c + w
 
-            lw = 0.5 + 3.0 * wt
+            if conn_lw_max <= conn_lw_min:
+                print(f"ERROR: conn_lw_max must be > conn_lw_min, got {conn_lw_max} <= {conn_lw_min}")
+                sys.exit(2)
+            if conn_lw_gamma <= 0.0:
+                print(f"ERROR: conn_lw_gamma must be > 0, got {conn_lw_gamma}")
+                sys.exit(2)
+
+            lw = float(conn_lw_min + (conn_lw_max - conn_lw_min) * (wt ** conn_lw_gamma))
             col_basis = _pick_basis_color(j, im)
             col_eig = _pick_eig_color(ie)
             if connector_bicolor:
@@ -248,17 +313,23 @@ def plot_splitting(
                     col = mol_colors[im]
                 ax.plot([xa, xb], [e0, e1], linestyle=':', color=col, lw=lw, alpha=0.75)
 
-    ax.set_xlim(float(xs[0]) - 0.7, float(xs[-1]) + 0.7)
-    ymin = min(float(np.min(Ediag)), float(np.min(eigEs)))
-    ymax = max(float(np.max(Ediag)), float(np.max(eigEs)))
-    pad = 0.05 * (ymax - ymin + 1e-9)
+    if n_mol == 2:
+        ax.set_xlim(-0.7, 1.7)
+    else:
+        ax.set_xlim(float(np.min(xs)) - 0.7, float(max(np.max(xs), x_c)) + 0.7)
+
+    pad = 0.05 * yspan
     ax.set_ylim(ymin - pad, ymax + pad)
 
-    ax.set_xticks([xs[0], x_c, xs[-1]] if n_mol > 1 else [x_c])
-    if n_mol > 1:
-        ax.set_xticklabels(['mol 1', 'coupled', f'mol {n_mol}'])
+    if n_mol == 2:
+        ax.set_xticks([xs[0], x_c, xs[-1]])
+        ax.set_xticklabels(['mol 1', 'coupled', 'mol 2'])
     else:
-        ax.set_xticklabels(['coupled'])
+        order = np.argsort(xs)
+        xt = [float(xs[i]) for i in order] + [float(x_c)]
+        xl = [f'mol {int(i) + 1}' for i in order] + ['coupled']
+        ax.set_xticks(xt)
+        ax.set_xticklabels(xl, rotation=0)
 
     ax.set_ylabel('Energy (eV)')
     if title:
@@ -287,6 +358,10 @@ def main(argv=None):
     parser.add_argument('--connector-bicolor', action='store_true', default=False)
     parser.add_argument('--cmap', default='tab10')
     parser.add_argument('--line-halfwidth', type=float, default=0.22)
+    parser.add_argument('--conn-lw-min', type=float, default=0.15)
+    parser.add_argument('--conn-lw-max', type=float, default=1.30)
+    parser.add_argument('--conn-lw-gamma', type=float, default=0.30)
+    parser.add_argument('--infer-eps', type=float, default=1e-6)
 
     args = parser.parse_args(argv)
 
@@ -349,6 +424,10 @@ def main(argv=None):
             connector_bicolor=args.connector_bicolor,
             cmap_name=args.cmap,
             line_halfwidth=args.line_halfwidth,
+            conn_lw_min=args.conn_lw_min,
+            conn_lw_max=args.conn_lw_max,
+            conn_lw_gamma=args.conn_lw_gamma,
+            infer_eps=args.infer_eps,
         )
         print(f"saved: {out_path}")
 
@@ -387,4 +466,17 @@ python3 plot_exciton_splitting.py \
   --topk 2 \
   --wcut 0.10
 
+
+python3 plot_exciton_splitting.py \
+  --dir T_-1_-1 \
+  --out energy_splitting.png \
+  --n-mol 0 \
+  --annotate \
+  --color-mode both \
+  --connector-bicolor \
+  --topk 0 \
+  --wcut 0.001 \
+  --conn-lw-min 0.10 \
+  --conn-lw-max 1.20 \
+  --conn-lw-gamma 0.30
 '''
