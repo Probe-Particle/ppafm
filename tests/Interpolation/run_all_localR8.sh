@@ -3,12 +3,13 @@ set -euo pipefail
 
 # Base paths
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
-DATA_DIR="$BASE_DIR/data_Mithun_new"
+#DATA_DIR="$BASE_DIR/data_Mithun_new"
+DATA_DIR="$BASE_DIR/data_Mithun_flat"
 POINT_INFO_DIR="$DATA_DIR/endgroup_points"
 POINTS_CLEAN_DIR="$DATA_DIR/points_clean"
 RESULTS_DIR="$DATA_DIR/results"
-VOLS_DIR="$DATA_DIR/volumes/local_R8"
-SLICES_DIR="$DATA_DIR/slices/local_R8"
+VOLS_DIR="$DATA_DIR/volumes/"
+SLICES_DIR="$DATA_DIR/slices/"
 
 mkdir -p "$POINTS_CLEAN_DIR" "$VOLS_DIR" "$SLICES_DIR"
 

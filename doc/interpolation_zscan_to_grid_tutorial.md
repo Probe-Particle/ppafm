@@ -1,11 +1,11 @@
 # Interpolating DFT z‑scans to a Regular 3D Grid
 
-This tutorial explains how to go from raw DFT data (irregular lateral sampling + z‑scans) to a regular 3D grid that can be used for AFM/STM analysis.
+This tutorial explains how to go from raw DFT data (irregular lateral sampling + z‑scans) to a regular 3D grid that can be used for AFM/STM analysis. It reflects the latest fixes for avoiding vacuum bumps via adaptive radii, optional global kriging, and a scatter overlay for checking data fidelity.
 
-It uses two small helper scripts in `tests/Interpolation/`:
+It uses two helper scripts in `tests/Interpolation/`:
 
 - `clean_point_info.py` – parses `*_point_info.txt` from the DFT workflow and produces a clean list of lateral sampling points.
-- `interp_zscan_to_grid.py` – takes the clean points and the z‑scan file and interpolates onto a regular `(x, y, z)` grid using RBF or Kriging.
+- `interp_zscan_to_grid.py` – takes the clean points and the z‑scan file and interpolates onto a regular `(x, y, z)` grid using RBF or Kriging, with optional adaptive radii, nugget, global evaluation, and scatter overlays.
 
 The target audience is someone who already has DFT z‑scan data but has not worked with this interpolation tooling before.
 
@@ -13,7 +13,7 @@ The target audience is someone who already has DFT z‑scan data but has not wor
 
 ## 1. Input Files
 
-You need two kinds of inputs, typically under `tests/Interpolation/data_Mithun/`:
+You need two kinds of inputs, typically under `tests/Interpolation/data_Mithun_new/` (new data with supplemented outer points) or `data_Mithun/` (legacy):
 
 - **Point info file** (irregular lateral sampling positions):
 
@@ -36,7 +36,7 @@ You need two kinds of inputs, typically under `tests/Interpolation/data_Mithun/`
     - `zMM` is the z‑index (integer step),
     - `value` is the scalar quantity (e.g. potential, energy, field component).
 
-The scripts will convert this irregular `{point, z}` data into a regular 3D numpy array `vol[nz, ny, nx]`.
+The scripts convert this irregular `{point, z}` data into a regular 3D numpy array `vol[nz, ny, nx]`.
 
 ---
 
@@ -104,7 +104,7 @@ Both formats are supported by the loader in `interp_zscan_to_grid.py`.
 
 ## 3. Interpolating to a Regular 3D Grid (`interp_zscan_to_grid.py`)
 
-Once you have a clean points file and the z‑scan data, you can interpolate onto a regular 3D grid.
+Once you have a clean points file and the z‑scan data, you can interpolate onto a regular 3D grid. The key to avoiding “dotted” vacuum artifacts is to ensure sufficient kernel overlap (larger R or adaptive radii) or use the global/dense kriging evaluation.
 
 ### 3.1 What the script does
 
@@ -134,6 +134,11 @@ Once you have a clean points file and the z‑scan data, you can interpolate ont
    - Uses either:
      - `InterpolatorRBF` (radial basis functions; `--kind rbf`), or
      - `InterpolatorKriging` (kriging; `--kind kriging`).
+   - Optional robustness knobs:
+     - Adaptive radii: `--autoR-k`, `--autoR-scale`, `--autoR-percentile`, `--autoR-rmin`, `--autoR-rmax` (per-point or global radius from k-NN distances).
+     - Nugget for kriging: `--kriging-nugget` (diagonal regularization; 0 keeps exact fit).
+     - Global evaluation: `--kriging-global 1` (dense evaluation; choose large R to act truly global).
+     - Scatter overlay: `--scatter-overlay 1` to draw raw points on saved PNGs with the same colormap limits.
    - Calls `update_weights()` with the 1D data for this z.
    - Evaluates the interpolator on all grid points.
    - Reshapes the result to `(ny, nx)` and stores into `vol[iz, :, :]`.
@@ -147,7 +152,7 @@ Once you have a clean points file and the z‑scan data, you can interpolate ont
 
 ### 3.2 Command‑line options
 
-Run from `tests/Interpolation/` (the script ships with sensible defaults so `python interp_zscan_to_grid.py` works out of the box, but you usually override the paths/resolution explicitly):
+Run from `tests/Interpolation/` (defaults work, but override paths/resolution explicitly):
 
 ```bash
 python interp_zscan_to_grid.py \
@@ -161,22 +166,19 @@ python interp_zscan_to_grid.py \
     --save-prefix data_Mithun/OHO-h_1-CO_O_slice
 ```
 
-Key flags:
+Key flags (common):
 
 - `--points`: path to clean (or indexed) points file.
 - `--zscan`: path to DFT z‑scan file.
 - `--out-npy`: output `.npy` file for the 3D volume.
-- `--nx`, `--ny`: lateral grid resolution.
-- `--nz`: optional limit on number of z steps used (otherwise all from input).
-- `--z0`, `--dz`:
-  - `z0`: starting z coordinate (offset).
-  - `dz`: spacing between z layers in the output grid.
-- `--R-basis`: support radius for the interpolation kernel (RBF or Kriging).
+- `--nx`, `--ny` or `--dx`, `--dy`: grid resolution or spacing.
+- `--nz`, `--z0`, `--dz`/`--dz-grid`: z sampling.
 - `--kind`: `rbf` or `kriging`.
-- `--plot-slice-z`: optional physical z at which to show/plot a single slice.
-- `--zmin`, `--zmax`, `--zstep`: optional parameters to plot a sequence of z slices (linearly interpolated in z).
-- `--show`: actually show matplotlib windows for the requested plots.
-- `--save-prefix`: directory prefix for saving PNG slices; if set, images are saved instead of or in addition to showing.
+- `--R-basis`: support radius (scalar) unless adaptive radii are enabled.
+- Adaptive radii: `--autoR-k`, `--autoR-scale`, `--autoR-percentile`, `--autoR-rmin`, `--autoR-rmax`.
+- Kriging robustness: `--kriging-nugget`, `--kriging-global`.
+- Visualization: `--plot-slice-z` or `--zmin/--zmax/--zstep`, `--show`, `--save-prefix`.
+- Scatter check: `--scatter-overlay 1 --scatter-size 10 --scatter-skip 1` (uses same vmin/vmax as the imshow).
 
 A second example (different `R_basis`):
 
@@ -194,7 +196,7 @@ python interp_zscan_to_grid.py \
 
 ---
 
-## 4. Choosing Between RBF and Kriging
+## 4. Choosing Between RBF and Kriging (and what fixes “dotted” vacuum)
 
 Both interpolators share the same interface but behave differently:
 
@@ -208,11 +210,13 @@ Both interpolators share the same interface but behave differently:
   - Solves a kriging system to obtain weights that tend to behave more robustly in inter‑stationary regions.
   - Often gives smoother and more physically plausible behavior between data points.
 
-A good workflow is:
+Practical guidance to remove bumps in vacuum:
 
-1. Start with **Kriging** and tune `R_basis` to get a reasonable field.
-2. Compare to **RBF** with the same `R_basis`.
-3. Use visual inspection of slices (`--show` or `--save-prefix`) to decide which behaves better for your system.
+1) Ensure overlap: use a **larger R** or adaptive radii so outer points overlap several neighbors (k≈6). Small R produces isolated bumps.
+2) If you want a reference “ground truth”: use **global kriging** (`--kriging-global 1`) with a large R (e.g., 20–25 Å) and nugget=0. This matches the smooth baseline we observed (`global_R25_nug0`).
+3) A fast and good local setting observed: **local kriging, R=8.0, nugget=0, dx=dy=dz=0.10**, with scatter overlay to confirm fidelity (`local_R8_nug0`).
+4) Nugget can smooth spikes if needed; start with 1e-3–1e-2.
+5) Use scatter overlays to verify the interpolant passes through raw points without rims.
 
 ---
 
@@ -271,30 +275,22 @@ If you need to experiment with these advanced options, you can:
 
 ---
 
-## 6. Suggested Workflow Summary
+## 6. Suggested Workflow (concise)
 
-1. **Prepare points**:
+1) **Clean points**: `python clean_point_info.py endgroup_points/<TIP>_point_info.txt points_clean/<TIP>_points_clean.txt`
 
-   - Run `clean_point_info.py` on your `*_point_info.txt` to obtain
-     `*_points_clean.txt` and (optionally) `*_points_indexed.txt`.
+2) **Pick settings** (recommendation):
+   - Fast/local: `--kind kriging -r 8.0 --kriging-nugget 0 --dx 0.10 --dy 0.10 --dz-grid 0.10`
+   - Reference/global: `--kriging-global 1 -r 25.0 --kriging-nugget 0`
+   - Adaptive option: `--autoR-k 6 --autoR-scale 1.8` (per-point radii) or `--autoR-percentile 90 --autoR-scale 3.0` (single large R)
+   - Scatter check: `--scatter-overlay 1 --scatter-size 10 --scatter-skip 1`
 
-2. **Inspect points** (optional but recommended):
+3) **Run one scan** (example): see Section 3.2; adjust `--points`, `--zscan`, and output paths.
 
-   - Plot the `x, y` positions from the clean file to verify the sampling pattern (atoms, bonds, centers, etc.).
+4) **Batch all scans** (example script): `tests/Interpolation/run_all_localR8.sh` (R=8, nugget=0, scatter overlay).
+   - Outputs: `data_Mithun_new/volumes/local_R8/` and `data_Mithun_new/slices/local_R8/`
+   - Robustness: if any `.dat` has missing z entries, either fix the file or modify the script to skip on error (wrap the python call with `|| { echo "[WARN]..."; continue; }`).
 
-3. **Interpolate with Kriging**:
+5) **Inspect**: open a few `slice_z*.png` (with scatter overlay) to ensure the interpolant passes through data and vacuum is smooth (no isolated bumps).
 
-   - Run `interp_zscan_to_grid.py` with `--kind kriging` and a reasonable `--R-basis`.
-   - Save the 3D volume to `.npy` and visualize a few slices.
-
-4. **Compare with RBF**:
-
-   - Run the script with `--kind rbf` and the same `R-basis`.
-   - Compare slices to identify differences, especially in inter‑stationary regions.
-
-5. **(Advanced) Tune RBF kernel / normalization**:
-
-   - If needed, adjust `InterpolatorRBF` construction to use non‑default `C_peak`, `normalized=True`, and a small `eps_norm`.
-   - Use this to reduce sensitivity to the exact kernel shape and improve behavior between sampling points.
-
-Following these steps, you can go from raw DFT z‑scan output to a clean, regular 3D representation suitable for further AFM/STM analysis and visualization.
+This workflow yields smooth, artifact‑free interpolations while remaining fast for batch processing.
