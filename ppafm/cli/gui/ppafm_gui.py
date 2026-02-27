@@ -740,7 +740,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
                 atomstring = io.primcoords2Xsf(self.Zs, self.xyzs.T, lvec)
             else:
                 atomstring = io.XSF_HEAD_DEFAULT
-            io.saveXSF(fileName, data, lvecScan, head=atomstring, verbose=0)
+            io.saveXSFData(fileName, data, lvecScan, head=atomstring, verbose=0)
         else:
             raise RuntimeError("This should not happen. Missing file format check?")
         if self.verbose > 0:

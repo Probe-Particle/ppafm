@@ -52,7 +52,7 @@ def main(argv=None):
 
     # Load electrostatic potential.
     loaders = {
-        "xsf": io.loadXSF,
+        "xsf": io.loadXSFData,
         "cube": io.loadCUBE,
     }
     input_format = args.input_format
@@ -68,7 +68,7 @@ def main(argv=None):
         #  No need to renormalize: fieldFFT already works with density
         print(">>> Loading tip density from ", args.tip_dens, "...")
         if args.tip_dens.lower().endswith("xsf"):
-            rho_tip, lvec_tip, _, head_tip = io.loadXSF(args.tip_dens)
+            rho_tip, lvec_tip, _, head_tip = io.loadXSFData(args.tip_dens)
         else:
             print(f'ERROR!!! Unknown or unsupported format of the tip density file "{args.tip_dens}"\n', file=sys.stderr)
             sys.exit(1)
@@ -85,7 +85,7 @@ def main(argv=None):
             v_ref_s = args.Vref
             print(">>> Loading Hartree potential under bias from ", args.KPFM_sample, "...")
             print("Use loadXSF")
-            v_kpfm, lvec, n_dim, head = io.loadXSF(args.KPFM_sample)
+            v_kpfm, lvec, n_dim, head = io.loadXSFData(args.KPFM_sample)
 
         elif input_format == "cube" and args.KPFM_sample.lower().endswith(".cube"):
             v_ref_s = args.Vref
@@ -105,7 +105,7 @@ def main(argv=None):
         print(">>> Loading tip density under bias from ", args.KPFM_tip, "...")
         if input_format == "xsf" and args.KPFM_tip.lower().endswith(".xsf"):
             v_ref_t = args.Vref
-            rho_tip_kpfm, lvec_tip, _, head_tip = io.loadXSF(args.KPFM_tip)
+            rho_tip_kpfm, lvec_tip, _, head_tip = io.loadXSFData(args.KPFM_tip)
             drho_kpfm = rho_tip - rho_tip_kpfm  # Order of terms in the difference is swapped,
             # because the sign of rho_tip is as in *electron* density while drho_kpfm should be a difference of *charge* densities.
         elif input_format == "cube" and args.KPFM_tip.lower().endswith(".cube"):

@@ -230,7 +230,7 @@ class DataGrid:
             data, lvec, _, _ = io.loadCUBE(file_path, xyz_order=True, verbose=False)
             Zs, x, y, z, _ = io.loadAtomsCUBE(file_path)
         elif file_path.endswith(".xsf"):
-            data, lvec, _, _ = io.loadXSF(file_path, xyz_order=True, verbose=False)
+            data, lvec, _, _ = io.loadXSFData(file_path, xyz_order=True, verbose=False)
             try:
                 (Zs, x, y, z, _), _, _ = io.loadXSFGeom(file_path)
             except ValueError:

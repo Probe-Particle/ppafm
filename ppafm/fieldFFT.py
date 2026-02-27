@@ -306,7 +306,7 @@ def potential2forces_mem(V, lvec, nDim, sigma=0.7, rho=None, multipole=None, doF
         if verbose > 0:
             print("--- Get Probe Density ---")
         rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt)
-        io.saveXSF("rhoTip.xsf", rho, lvec)
+        io.saveXSFData("rhoTip.xsf", rho, lvec)
 
     if doForce:
         if verbose > 0:

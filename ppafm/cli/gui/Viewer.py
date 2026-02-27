@@ -106,7 +106,7 @@ class ApplicationWindow(QtWidgets.QMainWindow):
         _, fext = os.path.splitext(fname)
         try:
             if fext == ".xsf":
-                F, lvec, nDim, head = io.loadXSF(fname)
+                F, lvec, nDim, head = io.loadXSFData(fname)
             elif fext == ".cube":
                 F, lvec, nDim, head = io.loadCUBE(fname)
             item[0] = F

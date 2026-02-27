@@ -432,7 +432,7 @@ def computeElFF(V, lvec, nDim, tip, computeVpot=False, tilt=0.0, sigma=None, del
             rho = None
             multipole = {tip: 1.0}
         elif tip.endswith(".xsf"):
-            rho, lvec_tip, nDim_tip, tiphead = io.loadXSF(tip)
+            rho, lvec_tip, nDim_tip, tiphead = io.loadXSFData(tip)
             if any(nDim_tip != nDim):
                 sys.exit("Error: Input file for tip charge density has been specified, but the dimensions are incompatible with the Hartree potential file!")
             rho *= -1  # Negative charge density from positive electron density
@@ -510,4 +510,4 @@ def subtractCoreDensities(
     if verbose > 0:
         print("sum(RHO), Nelec: ", rho.sum(), rho.sum() * dV)  # check sum
     if bSaveDebugDens:
-        io.saveXSF("rho_subCoreChg.xsf", rho, lvec, head=head)
+        io.saveXSFData("rho_subCoreChg.xsf", rho, lvec, head=head)

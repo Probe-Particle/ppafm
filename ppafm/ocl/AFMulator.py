@@ -606,7 +606,7 @@ class AFMulator:
     def saveDebugXSF_FF(self, fname, F):
         if self.verbose > 0:
             print("saveDebugXSF : ", fname)
-        io.saveXSF(fname, F, self.lvec)
+        io.saveXSFData(fname, F, self.lvec)
 
     def check_scan_window(self):
         """Check that scan window does not extend beyond any non-periodic boundaries."""
