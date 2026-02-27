@@ -13,7 +13,7 @@
 
 // ================= MACROS
 
-#define i3D( ix, iy, iz )  ( (iz*ny + iy)*nx + ix  )
+#define i3D( ix, iy, iz )  ( (iz*n.y + iy)*n.x + ix  )
 
 // ================= CONSTANTS
 
@@ -63,60 +63,51 @@ class GridShape {
 	}
 };
 
+#define SET_GRID_IND(a) \
+  if (r.a >= 0) {im.a = r.a; t.a = r.a - im.a; m.a = 1 - t.a; im.a %= n.a;} \
+  else {it.a = r.a; m.a = it.a - r.a; t.a = 1 - m.a; im.a = it.a % n.a + n.a - 1;} \
+  it.a = (im.a + 1) % n.a
+
 // interpolation of vector force-field Vec3d[ix,iy,iz] in periodic boundary condition
 inline double interpolate3DWrap( double * grid, const Vec3i& n, const Vec3d& r ){
-	//#pragma omp simd
-	//{
-	int nx = n.x; int ny = n.y; int nz = n.z;
-	int imx, imy, imz, itx, ity, itz;
-	double mx, my, mz, tx, ty, tz;
-	if(r.x >= 0) {imx = r.x; tx = r.x - imx; mx = 1 - tx; imx %= nx;}
-	else {itx = r.x; mx = itx - r.x; tx = 1 - mx; imx = itx % nx + nx - 1;}
-	itx = (imx + 1) % nx;
-	if(r.y >= 0) {imy = r.y; ty = r.y - imy; my = 1 - ty; imy %= ny;}
-	else {ity = r.y; my = ity - r.y; ty = 1 - my; imy = ity % ny + ny - 1;}
-	ity = (imy + 1) % ny;
-	if(r.z >= 0) {imz = r.z; tz = r.z - imz; mz = 1 - tz; imz %= nz;}
-	else {itz = r.z; mz = itz - r.z; tz = 1 - mz; imz = itz % nz + nz - 1;}
-	itz = (imz + 1) % nz;
+  //#pragma omp simd
+  //{
+  struct {double x, y, z;} m, t;
+  struct {int x, y, z;} im, it;
+  SET_GRID_IND(x);
+  SET_GRID_IND(y);
+  SET_GRID_IND(z);
 
-	double out =
-		mz * (
-			my * ( ( mx * grid[ i3D( imx, imy, imz ) ] ) + ( tx * grid[ i3D( itx, imy, imz ) ] ) ) +
-			ty * ( ( mx * grid[ i3D( imx, ity, imz ) ] ) + ( tx * grid[ i3D( itx, ity, imz ) ] ) ) ) +
-		tz * (
-			my * ( ( mx * grid[ i3D( imx, imy, itz ) ] ) + ( tx * grid[ i3D( itx, imy, itz ) ] ) ) +
-			ty * ( ( mx * grid[ i3D( imx, ity, itz ) ] ) + ( tx * grid[ i3D( itx, ity, itz ) ] ) ) );
-	//}
-	return out;
+  double out =
+    m.z * (
+	  m.y * ( ( m.x * grid[ i3D( im.x, im.y, im.z ) ] ) + ( t.x * grid[ i3D( it.x, im.y, im.z ) ] ) ) +
+	  t.y * ( ( m.x * grid[ i3D( im.x, it.y, im.z ) ] ) + ( t.x * grid[ i3D( it.x, it.y, im.z ) ] ) ) ) +
+    t.z * (
+	  m.y * ( ( m.x * grid[ i3D( im.x, im.y, it.z ) ] ) + ( t.x * grid[ i3D( it.x, im.y, it.z ) ] ) ) +
+	  t.y * ( ( m.x * grid[ i3D( im.x, it.y, it.z ) ] ) + ( t.x * grid[ i3D( it.x, it.y, it.z ) ] ) ) );
+  //}
+  return out;
 }
 
 // interpolation of vector force-field Vec3d[ix,iy,iz] in periodic boundary condition
 inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r ){
-	//#pragma omp simd
-	////{
-	int nx = n.x; int ny = n.y; int nz = n.z;
-	int imx, imy, imz, itx, ity, itz;
-	double mx, my, mz, tx, ty, tz;
-	if(r.x >= 0) {imx = r.x; tx = r.x - imx; mx = 1 - tx; imx %= nx;}
-	else {itx = r.x; mx = itx - r.x; tx = 1 - mx; imx = itx % nx + nx - 1;}
-	itx = (imx + 1) % nx;
-	if(r.y >= 0) {imy = r.y; ty = r.y - imy; my = 1 - ty; imy %= ny;}
-	else {ity = r.y; my = ity - r.y; ty = 1 - my; imy = ity % ny + ny - 1;}
-	ity = (imy + 1) % ny;
-	if(r.z >= 0) {imz = r.z; tz = r.z - imz; mz = 1 - tz; imz %= nz;}
-	else {itz = r.z; mz = itz - r.z; tz = 1 - mz; imz = itz % nz + nz - 1;}
-	itz = (imz + 1) % nz;
+  //#pragma omp simd
+  ////{
+  struct {double x, y, z;} m, t;
+  struct {int x, y, z;} im, it;
+  SET_GRID_IND(x);
+  SET_GRID_IND(y);
+  SET_GRID_IND(z);
 
-	double mymx = my*mx; double mytx = my*tx; double tymx = ty*mx; double tytx = ty*tx;
-	Vec3d out;
-	out.set_mul( grid[ i3D( imx, imy, imz ) ], mz*mymx );  out.add_mul( grid[ i3D( itx, imy, imz ) ], mz*mytx );
-	out.add_mul( grid[ i3D( imx, ity, imz ) ], mz*tymx );  out.add_mul( grid[ i3D( itx, ity, imz ) ], mz*tytx );
-	out.add_mul( grid[ i3D( imx, ity, itz ) ], tz*tymx );  out.add_mul( grid[ i3D( itx, ity, itz ) ], tz*tytx );
-	out.add_mul( grid[ i3D( imx, imy, itz ) ], tz*mymx );  out.add_mul( grid[ i3D( itx, imy, itz ) ], tz*mytx );
-	//printf( "DEBUG interpolate3DvecWrap gp(%g,%g,%g) igp(%i,%i,%i)/(%i,%i,%i) %i->%g out(%g,%g,%g) \n", r.x, r.y, r.z, imx, imy, imz, n.x, n.y, n.z, i3D( imx, imy, imz ), grid[ i3D( imx, imy, imz ) ], out.x,out.y,out.z );
-	//}
-	return out;
+  double mymx = m.y*m.x; double mytx = m.y*t.x; double tymx = t.y*m.x; double tytx = t.y*t.x;
+  Vec3d out;
+  out.set_mul( grid[ i3D( im.x, im.y, im.z ) ], m.z*mymx );  out.add_mul( grid[ i3D( it.x, im.y, im.z ) ], m.z*mytx );
+  out.add_mul( grid[ i3D( im.x, it.y, im.z ) ], m.z*tymx );  out.add_mul( grid[ i3D( it.x, it.y, im.z ) ], m.z*tytx );
+  out.add_mul( grid[ i3D( im.x, it.y, it.z ) ], t.z*tymx );  out.add_mul( grid[ i3D( it.x, it.y, it.z ) ], t.z*tytx );
+  out.add_mul( grid[ i3D( im.x, im.y, it.z ) ], t.z*mymx );  out.add_mul( grid[ i3D( it.x, im.y, it.z ) ], t.z*mytx );
+  //printf( "DEBUG interpolate3DvecWrap gp(%g,%g,%g) igp(%i,%i,%i)/(%i,%i,%i) %i->%g out(%g,%g,%g) \n", r.x, r.y, r.z, im.x, im.y, im.z, n.x, n.y, n.z, i3D( im.x, im.y, im.z ), grid[ i3D( im.x, im.y, im.z ) ], out.x,out.y,out.z );
+  //}
+  return out;
 }
 
 // iterate over field
