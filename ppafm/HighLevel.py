@@ -232,6 +232,9 @@ def setFF(FF=None, computeVpot=False, n=None, lvec=None, parameters=None, verbos
         if verbose:
             print("setFF() Creating a pointer to a scalar field")
         core.setFF_Epointer(FF)
+        if computeVpot:
+            print("WARNING in setFF: computeVpot required but ignored because FF itself is scalar!")
+        computeVpot = False
     else:
         raise ValueError("setFF: Array dimensions wrong for both vector and array field !!")
 
