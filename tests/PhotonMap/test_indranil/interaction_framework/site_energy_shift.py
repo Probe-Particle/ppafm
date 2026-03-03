@@ -23,6 +23,9 @@ Units convention for cube files (Gaussian format from PySCF):
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from scipy.fft import next_fast_len
+from scipy.special import erf
+from scipy.ndimage import map_coordinates
 
 # ======================== Constants ========================
 BOHR_TO_ANG = 0.5291772109217
@@ -159,7 +162,7 @@ def fft_poisson_potential(rho, origin, axes, pad_sizes=None):
     dx = abs(axes[0, 0])
     dy = abs(axes[1, 1])
     dz = abs(axes[2, 2])
-    dV = dx * dy * dz
+    dV = abs(dx * dy * dz)
 
     if pad_sizes is None:
         pad_sizes = (3 * nx, 3 * ny, 3 * nz)
@@ -179,6 +182,7 @@ def fft_poisson_potential(rho, origin, axes, pad_sizes=None):
     kernel = np.zeros_like(R)
     mask = R > 0
     kernel[mask] = 1.0 / R[mask]
+    kernel[0, 0, 0] = 2.38008 / (dV ** (1.0 / 3.0))
 
     rho_k = np.fft.fftn(rho_padded)
     ker_k = np.fft.fftn(kernel)
@@ -223,6 +227,7 @@ def smear_nuclear_charges(atom_pos, atom_Z, origin, axes, npts):
     dy = axes[1, 1]
     dz = axes[2, 2]
     dV = abs(dx * dy * dz)
+
     nx, ny, nz = int(npts[0]), int(npts[1]), int(npts[2])
     rho_nuc = np.zeros((nx, ny, nz))
 
@@ -636,7 +641,19 @@ class SiteEnergyShiftCalculator:
         shifts = calc.distance_scan(distances_ang, axis='y')
     """
 
-    def __init__(self, diff_density_path, gs_density_path, mol2_charge=0.0, enforce_dn_zero_integral=True):
+    def __init__(
+        self,
+        diff_density_path,
+        gs_density_path,
+        mol2_charge=0.0,
+        enforce_dn_zero_integral=True,
+        rescale_gs_to_target=False,
+        use_target_charge=False,
+        enable_residual_mono_correction=False,
+        calc_potential_cube_path=None,
+        calc_potential_extrapolate='error',
+        interp_kind='linear',
+    ):
         """
         Parameters
         ----------
@@ -649,6 +666,19 @@ class SiteEnergyShiftCalculator:
         self.gs_density_path = gs_density_path
         self.mol2_charge = float(mol2_charge)
         self.enforce_dn_zero_integral = bool(enforce_dn_zero_integral)
+        self.rescale_gs_to_target = bool(rescale_gs_to_target)
+        self.use_target_charge = bool(use_target_charge)
+        self.enable_residual_mono_correction = bool(enable_residual_mono_correction)
+        self.calc_potential_cube_path = calc_potential_cube_path
+        self.calc_potential_extrapolate = str(calc_potential_extrapolate)
+        if self.calc_potential_extrapolate not in ['error', 'multipole']:
+            raise ValueError(
+                "calc_potential_extrapolate must be 'error' or 'multipole', got: "
+                f"{self.calc_potential_extrapolate}"
+            )
+        self.interp_kind = str(interp_kind)
+        if self.interp_kind not in ['linear', 'cubic']:
+            raise ValueError(f"interp_kind must be 'linear' or 'cubic', got: {self.interp_kind}")
 
         print(f"Loading difference density: {diff_density_path}")
         self.cube_dn = load_cube_with_atoms(diff_density_path)
@@ -659,6 +689,29 @@ class SiteEnergyShiftCalculator:
         print(f"  Grid: {self.cube_gs['npts']}, dV = {self.cube_gs['dV']:.6e} Bohr³")
 
         self.V_total_interp = None
+        self.V_total_grid = None
+        self.V_total_x0 = None
+        self.V_total_y0 = None
+        self.V_total_z0 = None
+        self.V_total_dx = None
+        self.V_total_dy = None
+        self.V_total_dz = None
+        self.V_total_multipole_moments = None
+        self.V_total_multipole_beta = 0.0
+        self.V_total_multipole_rmin_fit = None
+        self._warned_potential_cube_missing = False
+        self._warned_potential_cube_nearfield = False
+        self.V_elec_interp = None
+        self.V_elec_grid = None
+        self.V_elec_x0 = None
+        self.V_elec_y0 = None
+        self.V_elec_z0 = None
+        self.V_elec_dx = None
+        self.V_elec_dy = None
+        self.V_elec_dz = None
+        self.mol2_charge_measured = None
+        self.mol2_charge_residual = None
+        self.mol2_mono_sigma = None
         self.mol1_center = np.mean(self.cube_dn['atom_pos'], axis=0)
         self.mol2_center = np.mean(self.cube_gs['atom_pos'], axis=0)
 
@@ -690,12 +743,25 @@ class SiteEnergyShiftCalculator:
         integral_dn_raw = np.sum(dn['density']) * dn['dV']
         integral_gs_raw = np.sum(gs['density']) * gs['dV']
         Z_total = float(np.sum(gs['atom_Z']))
-        N_e_target = Z_total - self.mol2_charge
+
+        q_net_raw = float(Z_total - integral_gs_raw)
+        self.mol2_charge_measured = float(q_net_raw)
+        if self.use_target_charge:
+            self.mol2_charge_residual = float(self.mol2_charge - q_net_raw)
+        else:
+            self.mol2_charge = float(q_net_raw)
+            self.mol2_charge_residual = 0.0
 
         print(f"\nSanity checks (before normalization):")
         print(f"  ∫Δn₁ dV = {integral_dn_raw:.6e} e  (should be ≈ 0)")
-        print(f"  ∫n_GS dV = {integral_gs_raw:.4f} e  (target N_e = {N_e_target:.0f}, Z_total = {Z_total:.0f})")
-        print(f"  Net charge (raw) = {Z_total - integral_gs_raw:.4f} e  (target charge = {self.mol2_charge:.4f} e)")
+        print(f"  ∫n_GS dV = {integral_gs_raw:.4f} e  (Z_total = {Z_total:.0f})")
+        if self.use_target_charge:
+            N_e_target = Z_total - float(self.mol2_charge)
+            print(f"  Net charge (measured) = {q_net_raw:.4f} e  (target charge = {self.mol2_charge:.4f} e)")
+            print(f"  Δq (target-measured) = {self.mol2_charge_residual:+.4f} e")
+            print(f"  Target N_e = {N_e_target:.0f}")
+        else:
+            print(f"  Net charge (measured) = {q_net_raw:.4f} e")
 
         dn_min = float(np.min(dn['density']))
         dn_max = float(np.max(dn['density']))
@@ -708,20 +774,37 @@ class SiteEnergyShiftCalculator:
             if (frac_pos < 1e-6) or (frac_neg < 1e-6):
                 raise ValueError("Δn cube appears single-signed; this is not a valid density difference cube")
 
-        # Rescale GS density: n_GS *= N_e_target / integral
-        if abs(integral_gs_raw) > 1e-10:
+        if self.rescale_gs_to_target and (not self.use_target_charge):
+            raise ValueError("rescale_gs_to_target requires use_target_charge=True")
+
+        if self.rescale_gs_to_target and (abs(integral_gs_raw) > 1e-10):
+            N_e_target = Z_total - float(self.mol2_charge)
             scale_gs = N_e_target / integral_gs_raw
-            gs['density'] = gs['density'] * scale_gs
-            integral_gs_new = np.sum(gs['density']) * gs['dV']
-            print(f"\n  Rescaled GS density by {scale_gs:.6f}")
-            print(f"  ∫n_GS dV (after) = {integral_gs_new:.6f} e")
+            gs['density'] = gs['density'] * float(scale_gs)
+            integral_gs_raw = float(np.sum(gs['density']) * gs['dV'])
+            q_net_raw = float(Z_total - integral_gs_raw)
+            self.mol2_charge_measured = float(q_net_raw)
+            self.mol2_charge_residual = float(self.mol2_charge - q_net_raw)
+            print(f"\n  Rescaled GS density by {scale_gs:.8f}")
+            print(f"  ∫n_GS dV (after) = {integral_gs_raw:.6f} e")
+            print(f"  Net charge (after) = {q_net_raw:.6f} e  (target charge = {self.mol2_charge:.4f} e)")
 
         if self.enforce_dn_zero_integral:
-            n_voxels = np.prod(dn['npts'])
-            offset = integral_dn_raw / (n_voxels * dn['dV'])
-            dn['density'] = dn['density'] - offset
-            integral_dn_new = np.sum(dn['density']) * dn['dV']
-            print(f"  Corrected Δn offset by {offset:.6e} e/Bohr³")
+            dens = dn['density']
+            pos_mask = dens > 0.0
+            neg_mask = dens < 0.0
+            q_pos = float(np.sum(dens[pos_mask]) * dn['dV'])
+            q_neg = float(np.sum(dens[neg_mask]) * dn['dV'])
+            q_neg_abs = -q_neg
+            if (q_pos <= 0.0) or (q_neg_abs <= 0.0):
+                raise ValueError("Δn cube has invalid positive/negative integrals; cannot enforce zero integral robustly")
+            q_avg = 0.5 * (q_pos + q_neg_abs)
+            s_pos = q_avg / q_pos
+            s_neg = q_avg / q_neg_abs
+            dens[pos_mask] = dens[pos_mask] * s_pos
+            dens[neg_mask] = dens[neg_mask] * s_neg
+            integral_dn_new = float(np.sum(dens) * dn['dV'])
+            print(f"  Corrected Δn by lobe scaling: s_pos={s_pos:.8f}  s_neg={s_neg:.8f}")
             print(f"  ∫Δn₁ dV (after) = {integral_dn_new:.6e} e")
 
         return integral_dn_raw, integral_gs_raw, Z_total
@@ -806,8 +889,7 @@ class SiteEnergyShiftCalculator:
             # pn//2 >= pts_neg and pn - pn//2 >= pts_pos + ns_gs[i]
             # For even pn: pn//2 = pn/2, so pn >= 2*max(pts_neg, pts_pos + ns_gs[i])
             pn = max(2 * pts_neg, 2 * (pts_pos + ns_gs[i]), 2 * ns_gs[i])
-            # Round up to even number for FFT efficiency
-            pn = pn + (pn % 2)
+            pn = int(next_fast_len(int(pn)))
             pad_sizes.append(pn)
 
         return tuple(pad_sizes)
@@ -844,47 +926,280 @@ class SiteEnergyShiftCalculator:
         print(f"  Molecular center (Mol2): ({self.mol2_center[0]:.3f}, "
               f"{self.mol2_center[1]:.3f}, {self.mol2_center[2]:.3f}) Bohr")
 
-        pad_sizes = self._compute_pad_sizes(max_disp_bohr_vec, rot_mol2=rot_mol2)
-        print(f"\n  Computing total electrostatic potential (net charge FFT)...")
-        print(f"  Padded grid: {pad_sizes} (for max R = {max_distance_ang:.1f} Å along {scan_axis})")
-        mem_mb = np.prod(pad_sizes) * 8 / 1e6
-        print(f"  Memory: {mem_mb:.1f} MB")
+        self.V_total_interp = None
+        self.V_total_grid = None
+        self.V_total_x0 = None
+        self.V_total_y0 = None
+        self.V_total_z0 = None
+        self.V_total_dx = None
+        self.V_total_dy = None
+        self.V_total_dz = None
 
-        V_total, xs, ys, zs = compute_total_potential_fft(gs, pad_sizes=pad_sizes)
+        if self.calc_potential_cube_path is None:
+            pad_sizes = self._compute_pad_sizes(max_disp_bohr_vec, rot_mol2=rot_mol2)
+            print(f"\n  Computing electron potential (FFT Poisson)...")
+            print(f"  Padded grid: {pad_sizes} (for max R = {max_distance_ang:.1f} Å along {scan_axis})")
+            mem_mb = np.prod(pad_sizes) * 8 / 1e6
+            print(f"  Memory: {mem_mb:.1f} MB")
 
-        self.V_total_interp = RegularGridInterpolator(
-            (xs, ys, zs), V_total,
-            method='linear',
-            bounds_error=False,
-            fill_value=0.0,
-        )
-        print(f"  V_total grid bounds (Bohr):")
-        print(f"    X: [{xs[0]:.2f}, {xs[-1]:.2f}]")
-        print(f"    Y: [{ys[0]:.2f}, {ys[-1]:.2f}]")
-        print(f"    Z: [{zs[0]:.2f}, {zs[-1]:.2f}]")
+            V_elec, xs, ys, zs = fft_poisson_potential(gs['density'], gs['origin'], gs['axes'], pad_sizes=pad_sizes)
+
+            if self.interp_kind == 'linear':
+                self.V_elec_interp = RegularGridInterpolator(
+                    (xs, ys, zs), V_elec,
+                    method='linear',
+                    bounds_error=False,
+                    fill_value=0.0,
+                )
+                self.V_elec_grid = None
+                self.V_elec_x0 = None
+                self.V_elec_y0 = None
+                self.V_elec_z0 = None
+                self.V_elec_dx = None
+                self.V_elec_dy = None
+                self.V_elec_dz = None
+            else:
+                self.V_elec_interp = None
+                self.V_elec_grid = np.asarray(V_elec, dtype=float)
+                self.V_elec_x0 = float(xs[0])
+                self.V_elec_y0 = float(ys[0])
+                self.V_elec_z0 = float(zs[0])
+                self.V_elec_dx = float(xs[1] - xs[0])
+                self.V_elec_dy = float(ys[1] - ys[0])
+                self.V_elec_dz = float(zs[1] - zs[0])
+
+            print(f"  V_elec grid bounds (Bohr):")
+            print(f"    X: [{xs[0]:.2f}, {xs[-1]:.2f}]")
+            print(f"    Y: [{ys[0]:.2f}, {ys[-1]:.2f}]")
+            print(f"    Z: [{zs[0]:.2f}, {zs[-1]:.2f}]")
+        else:
+            pot = load_cube_with_atoms(self.calc_potential_cube_path)
+            pot_center = np.mean(pot['atom_pos'], axis=0)
+            pot['origin'] = pot['origin'] - pot_center
+            pot['atom_pos'] = pot['atom_pos'] - pot_center[None, :]
+            xs, ys, zs = make_grid_axes(pot)
+            V_total = np.asarray(pot['density'], dtype=float)
+
+            dn = self.cube_dn
+            dn_origin = dn['origin']
+            dn_steps = [abs(dn['axes'][i, i]) for i in range(3)]
+            dn_npts = dn['npts']
+            mol1_min = np.array([dn_origin[i] for i in range(3)])
+            mol1_max = np.array([dn_origin[i] + (dn_npts[i] - 1) * dn_steps[i] for i in range(3)])
+
+            corners = np.array([
+                [mol1_min[0], mol1_min[1], mol1_min[2]],
+                [mol1_min[0], mol1_min[1], mol1_max[2]],
+                [mol1_min[0], mol1_max[1], mol1_min[2]],
+                [mol1_min[0], mol1_max[1], mol1_max[2]],
+                [mol1_max[0], mol1_min[1], mol1_min[2]],
+                [mol1_max[0], mol1_min[1], mol1_max[2]],
+                [mol1_max[0], mol1_max[1], mol1_min[2]],
+                [mol1_max[0], mol1_max[1], mol1_max[2]],
+            ], dtype=float)
+            if rot_mol2 is not None:
+                corners = corners @ np.asarray(rot_mol2, dtype=float)
+            mol1_min = np.min(corners, axis=0)
+            mol1_max = np.max(corners, axis=0)
+
+            max_disp_bohr_vec = np.asarray(max_disp_bohr_vec, dtype=float)
+            q_min = mol1_min - max_disp_bohr_vec
+            q_max = mol1_max + max_disp_bohr_vec
+            pot_min = np.array([float(xs[0]), float(ys[0]), float(zs[0])])
+            pot_max = np.array([float(xs[-1]), float(ys[-1]), float(zs[-1])])
+            tol = 1e-9
+            outside = (q_min < (pot_min - tol)) | (q_max > (pot_max + tol))
+            if bool(np.any(outside)) and (self.calc_potential_extrapolate == 'error'):
+                raise ValueError(
+                    "External potential cube does not cover required query region for the scan. "
+                    "Provide a larger potential cube (bigger box), reduce scan distances, or omit --calc-potential-cube to compute potential via FFT. "
+                    "Alternatively, use calc_potential_extrapolate='multipole' to extrapolate outside the cube. "
+                    f"Required min/max (Bohr): {q_min} .. {q_max} ; cube bounds (Bohr): {pot_min} .. {pot_max}."
+                )
+
+            if self.interp_kind == 'linear':
+                self.V_total_interp = RegularGridInterpolator(
+                    (xs, ys, zs), V_total,
+                    method='linear',
+                    bounds_error=False,
+                    fill_value=(np.nan if (self.calc_potential_extrapolate == 'multipole') else 0.0),
+                )
+                self.V_total_grid = None
+                self.V_total_x0 = None
+                self.V_total_y0 = None
+                self.V_total_z0 = None
+                self.V_total_dx = None
+                self.V_total_dy = None
+                self.V_total_dz = None
+            else:
+                self.V_total_interp = None
+                self.V_total_grid = V_total
+                self.V_total_x0 = float(xs[0])
+                self.V_total_y0 = float(ys[0])
+                self.V_total_z0 = float(zs[0])
+                self.V_total_dx = float(xs[1] - xs[0])
+                self.V_total_dy = float(ys[1] - ys[0])
+                self.V_total_dz = float(zs[1] - zs[0])
+
+            self.V_elec_interp = None
+            self.V_elec_grid = None
+            self.V_elec_x0 = None
+            self.V_elec_y0 = None
+            self.V_elec_z0 = None
+            self.V_elec_dx = None
+            self.V_elec_dy = None
+            self.V_elec_dz = None
+            print(f"\n  Using external total potential cube for calculation:")
+            print(f"    {self.calc_potential_cube_path}")
+            print(f"  V_total grid bounds (Bohr):")
+            print(f"    X: [{xs[0]:.2f}, {xs[-1]:.2f}]")
+            print(f"    Y: [{ys[0]:.2f}, {ys[-1]:.2f}]")
+            print(f"    Z: [{zs[0]:.2f}, {zs[-1]:.2f}]")
+
+        r_atoms = np.sqrt(np.sum(gs['atom_pos'] * gs['atom_pos'], axis=1))
+        extent = float(np.max(r_atoms))
+        h = min(abs(float(gs['axes'][0, 0])), abs(float(gs['axes'][1, 1])), abs(float(gs['axes'][2, 2])))
+        self.mol2_mono_sigma = float(max(0.5 * extent, 0.5 * h, 1e-6))
 
         about = self.mol_center
         mom_nuc = nuclear_multipoles_about(gs['atom_pos'], gs['atom_Z'], about)
         mom_e = extract_multipoles_about(gs['density'], gs['origin'], gs['axes'], gs['npts'], about)
+        q_net_measured = float(mom_nuc['monopole'] - mom_e['monopole'])
+        self.mol2_charge_measured = q_net_measured
+        if self.use_target_charge:
+            self.mol2_charge_residual = float(self.mol2_charge - q_net_measured)
+        else:
+            self.mol2_charge = float(q_net_measured)
+            self.mol2_charge_residual = 0.0
+        if self.use_target_charge and self.enable_residual_mono_correction:
+            q_used = float(self.mol2_charge)
+        else:
+            q_used = float(q_net_measured)
         self.moments_net = {
-            'monopole': mom_nuc['monopole'] - mom_e['monopole'],
+            'monopole': float(q_used),
             'dipole': mom_nuc['dipole'] - mom_e['dipole'],
             'quadrupole': mom_nuc['quadrupole'] - mom_e['quadrupole'],
             'center': np.array([0.0, 0.0, 0.0]),
         }
 
+        if (self.calc_potential_cube_path is not None) and (self.calc_potential_extrapolate == 'multipole'):
+            h_fit = float(min(abs(gs['axes'][0, 0]), abs(gs['axes'][1, 1]), abs(gs['axes'][2, 2])))
+            r_excl = float(max(0.5, 2.0 * h_fit))
+            pot_center = self.mol_center
+            pot_atom_pos = np.asarray(pot['atom_pos'], dtype=float)
+            xs_fit, ys_fit, zs_fit = xs, ys, zs
+            Xs, Ys, Zs = np.meshgrid(xs_fit, ys_fit, zs_fit, indexing='ij')
+            points_fit = np.stack([Xs.ravel(), Ys.ravel(), Zs.ravel()], axis=-1)
+            V_fit = np.asarray(V_total, dtype=float).ravel()
+
+            dr_atoms = points_fit[:, None, :] - pot_atom_pos[None, :, :]
+            r_atoms = np.sqrt(np.sum(dr_atoms * dr_atoms, axis=2))
+            rmin_atom = np.min(r_atoms, axis=1)
+
+            R_vecs = points_fit - pot_center[None, :]
+            R = np.sqrt(np.sum(R_vecs * R_vecs, axis=1))
+            R = np.maximum(R, 1e-12)
+
+            corner_Rs = []
+            for x in (float(xs_fit[0]), float(xs_fit[-1])):
+                for y in (float(ys_fit[0]), float(ys_fit[-1])):
+                    for z in (float(zs_fit[0]), float(zs_fit[-1])):
+                        corner_Rs.append(float(np.linalg.norm(np.array([x, y, z], dtype=float) - pot_center)))
+            Rmax_avail = float(max(corner_Rs))
+            rmin_fit = float(max(r_excl, 0.70 * Rmax_avail))
+            self.V_total_multipole_rmin_fit = float(rmin_fit)
+
+            fit_mask = (rmin_atom >= r_excl) & (R >= rmin_fit)
+            if int(np.sum(fit_mask)) < 256:
+                rmin_fit = float(max(r_excl, 0.60 * Rmax_avail))
+                fit_mask = (rmin_atom >= r_excl) & (R >= rmin_fit)
+            if int(np.sum(fit_mask)) < 256:
+                rmin_fit = float(max(r_excl, 0.50 * Rmax_avail))
+                fit_mask = (rmin_atom >= r_excl) & (R >= rmin_fit)
+            if int(np.sum(fit_mask)) < 64:
+                fit_mask = (rmin_atom >= r_excl)
+
+            Rv = R_vecs[fit_mask]
+            Rm = R[fit_mask]
+            y = V_fit[fit_mask]
+
+            invR = 1.0 / Rm
+            invR3 = 1.0 / (Rm**3)
+            invR5 = 1.0 / (Rm**5)
+            rx = Rv[:, 0]
+            ry = Rv[:, 1]
+            rz = Rv[:, 2]
+
+            q_fixed = float(self.mol2_charge) if bool(self.use_target_charge) else None
+
+            if q_fixed is None:
+                A_q = np.column_stack([np.ones_like(invR), invR])
+                cq, _, _, _ = np.linalg.lstsq(A_q, y, rcond=None)
+                beta = float(cq[0])
+                q = float(cq[1])
+            else:
+                q = float(q_fixed)
+                beta = float(np.mean(y - q * invR))
+
+            y2 = y - beta - (q * invR)
+            A = np.column_stack([
+                -(rx * invR3),
+                -(ry * invR3),
+                -(rz * invR3),
+                0.5 * (rx * rx * invR5),
+                0.5 * (ry * ry * invR5),
+                0.5 * (rz * rz * invR5),
+                (rx * ry * invR5),
+                (rx * rz * invR5),
+                (ry * rz * invR5),
+            ])
+            coeffs, _, _, _ = np.linalg.lstsq(A, y2, rcond=None)
+            mu = np.array([float(coeffs[0]), float(coeffs[1]), float(coeffs[2])], dtype=float)
+            Q_coeffs = coeffs[3:]
+            Q = np.zeros((3, 3), dtype=float)
+            Q[0, 0] = float(Q_coeffs[0])
+            Q[1, 1] = float(Q_coeffs[1])
+            Q[2, 2] = float(Q_coeffs[2])
+            Q[0, 1] = float(Q_coeffs[3])
+            Q[1, 0] = float(Q_coeffs[3])
+            Q[0, 2] = float(Q_coeffs[4])
+            Q[2, 0] = float(Q_coeffs[4])
+            Q[1, 2] = float(Q_coeffs[5])
+            Q[2, 1] = float(Q_coeffs[5])
+
+            self.V_total_multipole_moments = {
+                'monopole': q,
+                'dipole': mu,
+                'quadrupole': Q,
+                'center': np.array([0.0, 0.0, 0.0]),
+            }
+            self.V_total_multipole_beta = beta
+            print("\n  Fitted multipole tail from external potential cube:")
+            print(f"    r_excl_bohr: {r_excl:.3f}  rmin_fit_bohr: {rmin_fit:.3f}  n_fit: {int(np.sum(fit_mask))}")
+            print(f"    beta: {beta:+.6e} Ha")
+            print(f"    q_fit: {q:+.6e} e")
+            print(f"    mu_fit: ({mu[0]:+.6e}, {mu[1]:+.6e}, {mu[2]:+.6e}) e·Bohr")
+
         print(f"\n  Net-charge multipoles about molecular center:")
-        print(f"    q_net: {self.moments_net['monopole']:.6e} e")
+        if self.use_target_charge:
+            print(f"    q_net(target): {float(self.mol2_charge):.6e} e")
+            print(f"    q_net(measured): {q_net_measured:.6e} e")
+            print(f"    Δq (target-measured): {self.mol2_charge_residual:+.6e} e")
+            print(f"    q_net(used): {self.moments_net['monopole']:.6e} e")
+        else:
+            print(f"    q_net(measured): {q_net_measured:.6e} e")
         print(f"    mu_net: ({self.moments_net['dipole'][0]:.4e}, {self.moments_net['dipole'][1]:.4e}, {self.moments_net['dipole'][2]:.4e}) e·Bohr")
 
-        
         test_Rs = [30.0, 50.0, 60.0]
+        if self.calc_potential_cube_path is not None:
+            Rmax = float(max(abs(float(xs[0])), abs(float(xs[-1])), abs(float(ys[0])), abs(float(ys[-1])), abs(float(zs[0])), abs(float(zs[-1]))))
+            test_Rs = [R for R in test_Rs if R <= (0.9 * Rmax)]
         vals = []
         for Rtest in test_Rs:
             Rvec = np.zeros(3)
             Rvec[scan_axis_idx] = -Rtest
             p = about + Rvec
-            V_fft = float(self.V_total_interp(p[None, :]))
+            V_fft = float(self._total_potential_at_points(p[None, :])[0])
             V_mp = multipole_potential(self.moments_net, Rvec)
             vals.append((Rtest, V_fft, V_mp))
         if len(vals) >= 2:
@@ -898,7 +1213,7 @@ class SiteEnergyShiftCalculator:
             Rvec = np.zeros(3)
             Rvec[scan_axis_idx] = -Rtest
             p = about + Rvec
-            E_fft = fft_field_at_points(self.V_total_interp, p[None, :], h=0.5)[0]
+            E_fft = fft_field_at_points(self._total_potential_at_points, p[None, :], h=0.5)[0]
             E_mp = multipole_field_points(self.moments_net, Rvec[None, :])[0]
             denom = max(float(np.linalg.norm(E_fft)), 1e-16)
             rel = float(np.linalg.norm(E_fft - E_mp)) / denom
@@ -923,7 +1238,7 @@ class SiteEnergyShiftCalculator:
         mu_nuc = np.sum(self.cube_gs['atom_Z'][:, None].astype(float) * self.cube_gs['atom_pos'], axis=0)
 
         self.moments_total_mol = {
-            'monopole': Z_nuc - moments_gs_elec['monopole'],
+            'monopole': float(self.moments_net['monopole']),
             'dipole': mu_nuc - moments_gs_elec['dipole'],
         }
         print(f"\n  Total molecule multipoles:")
@@ -956,6 +1271,249 @@ class SiteEnergyShiftCalculator:
         self.points_mol1 = np.stack([XX.ravel(), YY.ravel(), ZZ.ravel()], axis=-1)
         self.delta_n_flat = dn['density'].ravel()
         self.dV_dn = dn['dV']
+
+    def _total_potential_raw_at_points(self, points_in_mol2_frame):
+        p = np.asarray(points_in_mol2_frame, dtype=float)
+        if self.calc_potential_cube_path is not None:
+            if self.interp_kind == 'linear':
+                V = self.V_total_interp(p)
+            else:
+                ix = (p[:, 0] - self.V_total_x0) / self.V_total_dx
+                iy = (p[:, 1] - self.V_total_y0) / self.V_total_dy
+                iz = (p[:, 2] - self.V_total_z0) / self.V_total_dz
+                coords = np.vstack([ix, iy, iz])
+                V = map_coordinates(
+                    self.V_total_grid,
+                    coords,
+                    order=3,
+                    mode='constant',
+                    cval=(np.nan if (self.calc_potential_extrapolate == 'multipole') else 0.0),
+                    prefilter=True,
+                )
+
+            if self.calc_potential_extrapolate != 'multipole':
+                return V
+
+            missing = ~np.isfinite(V)
+            if not bool(np.any(missing)):
+                return V
+            if self.V_total_multipole_moments is None:
+                raise ValueError("calc_potential_extrapolate='multipole' requires multipole moments to be fitted in precompute()")
+
+            if not bool(self._warned_potential_cube_missing):
+                n_missing = int(np.sum(missing))
+                n_total = int(V.shape[0])
+                frac = float(n_missing) / float(max(n_total, 1))
+                print(f"\n  NOTE: calc_potential_extrapolate='multipole': {n_missing}/{n_total} ({frac:.3f}) potential queries are outside the cube; using multipole tail for those points.")
+                self._warned_potential_cube_missing = True
+
+            if (self.V_total_multipole_rmin_fit is not None) and (not bool(self._warned_potential_cube_nearfield)):
+                R_vecs_missing = p[missing] - self.mol_center[None, :]
+                R_missing = np.sqrt(np.sum(R_vecs_missing * R_vecs_missing, axis=1))
+                if int(R_missing.shape[0]) > 0:
+                    minR = float(np.min(R_missing))
+                    rmin_fit = float(self.V_total_multipole_rmin_fit)
+                    if minR < (rmin_fit - 1e-9):
+                        print(
+                            "\n  WARNING: Multipole extrapolation is being applied at radii smaller than the fitted region. "
+                            f"min(R_missing)={minR:.3f} Bohr but rmin_fit={rmin_fit:.3f} Bohr. "
+                            "This can make short-range Δω unreliable; use a larger potential cube or reduce the region where the cube is used."
+                        )
+                        self._warned_potential_cube_nearfield = True
+
+            R_vecs = p[missing] - self.mol_center[None, :]
+            V_mp = multipole_potential_points(self.V_total_multipole_moments, R_vecs)
+            V_out = np.array(V, dtype=float, copy=True)
+            V_out[missing] = V_mp + float(self.V_total_multipole_beta)
+            return V_out
+        if self.interp_kind == 'linear':
+            V_elec = self.V_elec_interp(p)
+        else:
+            ix = (p[:, 0] - self.V_elec_x0) / self.V_elec_dx
+            iy = (p[:, 1] - self.V_elec_y0) / self.V_elec_dy
+            iz = (p[:, 2] - self.V_elec_z0) / self.V_elec_dz
+            coords = np.vstack([ix, iy, iz])
+            V_elec = map_coordinates(
+                self.V_elec_grid,
+                coords,
+                order=3,
+                mode='constant',
+                cval=0.0,
+                prefilter=True,
+            )
+        V_nuc = nuclear_potential_at_points(self.cube_gs['atom_pos'], self.cube_gs['atom_Z'], p)
+        return V_nuc - V_elec
+
+    def _total_potential_at_points(self, points_in_mol2_frame):
+        p = np.asarray(points_in_mol2_frame, dtype=float)
+        V_total = self._total_potential_raw_at_points(p)
+        if (self.calc_potential_cube_path is None) and self.enable_residual_mono_correction and self.use_target_charge:
+            dq = 0.0 if self.mol2_charge_residual is None else float(self.mol2_charge_residual)
+            dq_tol = 1e-5
+            if abs(dq) > dq_tol:
+                sigma = float(self.mol2_mono_sigma) if self.mol2_mono_sigma is not None else 1.0
+                r = np.sqrt(np.sum((p - self.mol_center[None, :]) ** 2, axis=1))
+                r = np.maximum(r, 1e-10)
+                arg = r / (np.sqrt(2.0) * max(sigma, 1e-12))
+                V_total = V_total + (dq * erf(arg) / r)
+        return V_total
+
+    def validate_potential_cube(self, potential_cube_path, exclude_nuc_radius_bohr=0.5):
+        pot = load_cube_with_atoms(potential_cube_path)
+        pot_center = np.mean(pot['atom_pos'], axis=0)
+        pot['origin'] = pot['origin'] - pot_center
+        pot['atom_pos'] = pot['atom_pos'] - pot_center[None, :]
+
+        same_grid = (
+            np.all(pot['npts'] == self.cube_gs['npts'])
+            and np.allclose(pot['axes'], self.cube_gs['axes'])
+            and np.allclose(pot['origin'], self.cube_gs['origin'])
+        )
+        if not same_grid:
+            print(f"\n  Potential-cube validation: grid mismatch")
+            print(f"    ref npts: {pot['npts']}  calc npts: {self.cube_gs['npts']}")
+            print(f"    ref origin: {pot['origin']}  calc origin: {self.cube_gs['origin']}")
+            print(f"    ref axes:\n{pot['axes']}")
+            print(f"    calc axes:\n{self.cube_gs['axes']}")
+
+        xs, ys, zs = make_grid_axes(pot)
+        XX, YY, ZZ = np.meshgrid(xs, ys, zs, indexing='ij')
+        points = np.stack([XX.ravel(), YY.ravel(), ZZ.ravel()], axis=-1)
+
+        V_calc_used = self._total_potential_at_points(points)
+        if self.enable_residual_mono_correction and self.use_target_charge:
+            V_calc_raw = self._total_potential_raw_at_points(points)
+        else:
+            V_calc_raw = None
+        V_ref = np.asarray(pot['density'], dtype=float).ravel()
+
+        r_excl = float(exclude_nuc_radius_bohr)
+        if r_excl > 0.0:
+            rmin = np.full(points.shape[0], np.inf, dtype=float)
+            for Ra in np.asarray(pot['atom_pos'], dtype=float):
+                dr = points - Ra[None, :]
+                r = np.sqrt(np.sum(dr * dr, axis=1))
+                rmin = np.minimum(rmin, r)
+            mask = rmin >= r_excl
+        else:
+            mask = np.ones(points.shape[0], dtype=bool)
+
+        def eval_metrics(V_calc, V_ref_signed):
+            dv = (V_calc - V_ref_signed)[mask]
+            dv = dv - float(np.mean(dv))
+            rms = float(np.sqrt(np.mean(dv * dv)))
+            max_abs = float(np.max(np.abs(dv)))
+            return rms, max_abs
+
+        def eval_affine_fit(V_calc, V_ref_signed):
+            x = V_ref_signed[mask]
+            y = V_calc[mask]
+            x0 = float(np.mean(x))
+            y0 = float(np.mean(y))
+            xc = x - x0
+            yc = y - y0
+            denom = float(np.sum(xc * xc))
+            if denom <= 1e-30:
+                alpha = 0.0
+            else:
+                alpha = float(np.sum(xc * yc) / denom)
+            beta = y0 - alpha * x0
+            y_fit = alpha * x + beta
+            dv = y - y_fit
+            rms = float(np.sqrt(np.mean(dv * dv)))
+            max_abs = float(np.max(np.abs(dv)))
+            return alpha, beta, rms, max_abs
+
+        rms_same, max_same = eval_metrics(V_calc_used, V_ref)
+        rms_flip, max_flip = eval_metrics(V_calc_used, -V_ref)
+        a_same, b_same, rms_same_aff, max_same_aff = eval_affine_fit(V_calc_used, V_ref)
+        a_flip, b_flip, rms_flip_aff, max_flip_aff = eval_affine_fit(V_calc_used, -V_ref)
+
+        if rms_flip < rms_same:
+            best = 'flip'
+            best_rms = rms_flip
+            best_max = max_flip
+        else:
+            best = 'same'
+            best_rms = rms_same
+            best_max = max_same
+
+        if rms_flip_aff < rms_same_aff:
+            best_aff = 'flip'
+            best_aff_rms = rms_flip_aff
+            best_aff_max = max_flip_aff
+            best_aff_alpha = a_flip
+            best_aff_beta = b_flip
+        else:
+            best_aff = 'same'
+            best_aff_rms = rms_same_aff
+            best_aff_max = max_same_aff
+            best_aff_alpha = a_same
+            best_aff_beta = b_same
+
+        print(f"\n  Potential-cube validation (up to constant offset):")
+        print(f"    ref:  {potential_cube_path}")
+        print(f"    exclude_nuc_radius_bohr: {r_excl:.3f}")
+        print(f"    use_target_charge: {bool(self.use_target_charge)}")
+        print(f"    enable_residual_mono_correction: {bool(self.enable_residual_mono_correction)}")
+        print(f"    RMS same-sign = {rms_same:.6e} Ha   max same-sign = {max_same:.6e} Ha")
+        print(f"    RMS flipped   = {rms_flip:.6e} Ha   max flipped   = {max_flip:.6e} Ha")
+        print(f"    best_sign: {best}   best_rms = {best_rms:.6e} Ha   best_max = {best_max:.6e} Ha")
+        print(f"    affine same: alpha={a_same:.6e}  beta={b_same:.6e}  rms={rms_same_aff:.6e}  max={max_same_aff:.6e}")
+        print(f"    affine flip: alpha={a_flip:.6e}  beta={b_flip:.6e}  rms={rms_flip_aff:.6e}  max={max_flip_aff:.6e}")
+        print(f"    best_affine: {best_aff}  alpha={best_aff_alpha:.6e}  beta={best_aff_beta:.6e}  rms={best_aff_rms:.6e}  max={best_aff_max:.6e}")
+
+        if V_calc_raw is not None:
+            rms_same_raw, max_same_raw = eval_metrics(V_calc_raw, V_ref)
+            rms_flip_raw, max_flip_raw = eval_metrics(V_calc_raw, -V_ref)
+            a_same_raw, b_same_raw, rms_same_aff_raw, max_same_aff_raw = eval_affine_fit(V_calc_raw, V_ref)
+            a_flip_raw, b_flip_raw, rms_flip_aff_raw, max_flip_aff_raw = eval_affine_fit(V_calc_raw, -V_ref)
+            print(f"\n    raw-potential metrics (no residual correction applied):")
+            print(f"      RMS same-sign = {rms_same_raw:.6e} Ha   max same-sign = {max_same_raw:.6e} Ha")
+            print(f"      RMS flipped   = {rms_flip_raw:.6e} Ha   max flipped   = {max_flip_raw:.6e} Ha")
+            print(f"      affine same: alpha={a_same_raw:.6e}  beta={b_same_raw:.6e}  rms={rms_same_aff_raw:.6e}  max={max_same_aff_raw:.6e}")
+            print(f"      affine flip: alpha={a_flip_raw:.6e}  beta={b_flip_raw:.6e}  rms={rms_flip_aff_raw:.6e}  max={max_flip_aff_raw:.6e}")
+
+        out = {
+            'same_grid': bool(same_grid),
+            'exclude_nuc_radius_bohr': r_excl,
+            'rms_same': rms_same,
+            'max_abs_same': max_same,
+            'rms_flip': rms_flip,
+            'max_abs_flip': max_flip,
+            'best_sign': best,
+            'best_rms': best_rms,
+            'best_max_abs': best_max,
+            'alpha_same': a_same,
+            'beta_same': b_same,
+            'rms_affine_same': rms_same_aff,
+            'max_abs_affine_same': max_same_aff,
+            'alpha_flip': a_flip,
+            'beta_flip': b_flip,
+            'rms_affine_flip': rms_flip_aff,
+            'max_abs_affine_flip': max_flip_aff,
+            'best_affine_sign': best_aff,
+            'best_affine_alpha': best_aff_alpha,
+            'best_affine_beta': best_aff_beta,
+            'best_affine_rms': best_aff_rms,
+            'best_affine_max_abs': best_aff_max,
+        }
+        if V_calc_raw is not None:
+            out['raw'] = {
+                'rms_same': rms_same_raw,
+                'max_abs_same': max_same_raw,
+                'rms_flip': rms_flip_raw,
+                'max_abs_flip': max_flip_raw,
+                'alpha_same': a_same_raw,
+                'beta_same': b_same_raw,
+                'rms_affine_same': rms_same_aff_raw,
+                'max_abs_affine_same': max_same_aff_raw,
+                'alpha_flip': a_flip_raw,
+                'beta_flip': b_flip_raw,
+                'rms_affine_flip': rms_flip_aff_raw,
+                'max_abs_affine_flip': max_flip_aff_raw,
+            }
+        return out
 
     def displacement_from_scan_value(self, value_ang, axis='y', scan_kind='displacement'):
         axis_idx = {'x': 0, 'y': 1, 'z': 2}[axis.lower()]
@@ -1066,7 +1624,7 @@ class SiteEnergyShiftCalculator:
         points_in_mol2_frame = points_mol1 - d
         if rot_mol2 is not None:
             points_in_mol2_frame = points_in_mol2_frame @ np.asarray(rot_mol2, dtype=float)
-        V_total = self.V_total_interp(points_in_mol2_frame)
+        V_total = self._total_potential_at_points(points_in_mol2_frame)
 
         # Δω₁ = ∫ Δρ₁ · V₂ = -∫ Δn₁ · V₂  (Δρ = -Δn for electrons)
         delta_n_flat = dn['density'].ravel() if self.delta_n_flat is None else self.delta_n_flat
@@ -1104,19 +1662,33 @@ class SiteEnergyShiftCalculator:
         rho1, o1, a1, n1, dV1 = resample_orthogonal_grid(-dn['density'], dn['origin'], dn['axes'], npts_dn)
         mask1 = np.abs(rho1) > float(rho_cut)
         nsel1 = int(np.sum(mask1))
-        if self.enforce_dn_zero_integral and (nsel1 > 0):
-            q1_sel = float(np.sum(rho1[mask1]) * dV1)
-            rho1[mask1] = rho1[mask1] - (q1_sel / (nsel1 * dV1))
 
-        rho_nuc = smear_nuclear_charges(gs['atom_pos'], gs['atom_Z'], gs['origin'], gs['axes'], gs['npts'])
-        rho_net = rho_nuc - gs['density']
-        rho2, o2, a2, n2, dV2 = resample_orthogonal_grid(rho_net, gs['origin'], gs['axes'], npts_gs)
+        if self.enforce_dn_zero_integral:
+            if nsel1 > 0:
+                dens = rho1[mask1]
+            else:
+                dens = rho1.ravel()
+
+            pos_mask = dens > 0.0
+            neg_mask = dens < 0.0
+            if (np.sum(pos_mask) > 0) and (np.sum(neg_mask) > 0):
+                q_pos = float(np.sum(dens[pos_mask]) * dV1)
+                q_neg = float(np.sum(dens[neg_mask]) * dV1)
+                q_neg_abs = -q_neg
+                if (q_pos > 0.0) and (q_neg_abs > 0.0):
+                    q_avg = 0.5 * (q_pos + q_neg_abs)
+                    s_pos = q_avg / q_pos
+                    s_neg = q_avg / q_neg_abs
+                    dens[pos_mask] = dens[pos_mask] * s_pos
+                    dens[neg_mask] = dens[neg_mask] * s_neg
+                    if nsel1 > 0:
+                        rho1[mask1] = dens
+                    else:
+                        rho1 = dens.reshape(rho1.shape)
+
+        rho2, o2, a2, n2, dV2 = resample_orthogonal_grid(-gs['density'], gs['origin'], gs['axes'], npts_gs)
         mask2 = np.abs(rho2) > float(rho_cut)
         nsel2 = int(np.sum(mask2))
-        if nsel2 > 0:
-            q2_sel = float(np.sum(rho2[mask2]) * dV2)
-            target_q2 = float(self.mol2_charge)
-            rho2[mask2] = rho2[mask2] - ((q2_sel - target_q2) / (nsel2 * dV2))
 
         if nsel1 > 0:
             q1 = (rho1[mask1] * dV1).ravel()
@@ -1151,8 +1723,35 @@ class SiteEnergyShiftCalculator:
             h2 = min(abs(float(a2[0, 0])), abs(float(a2[1, 1])), abs(float(a2[2, 2])))
             r_min = 0.5 * min(h1, h2)
 
-        e = coulomb_energy_bruteforce(q1, pos1, q2, pos2, chunk=chunk, r_min=float(r_min))
-        return e
+        e_elec = coulomb_energy_bruteforce(q1, pos1, q2, pos2, chunk=chunk, r_min=float(r_min))
+
+        atom_pos2 = gs['atom_pos'] + d[None, :]
+        if rot_mol2 is not None:
+            atom_pos2 = atom_pos2 @ np.asarray(rot_mol2, dtype=float)
+        V_nuc = nuclear_potential_at_points(atom_pos2, gs['atom_Z'], pos1)
+        e_nuc = float(np.sum(q1 * V_nuc))
+
+        if self.enable_residual_mono_correction and self.use_target_charge:
+            Z_total = float(np.sum(gs['atom_Z']))
+            q_measured = Z_total + float(np.sum(rho2) * dV2)
+            dq = float(self.mol2_charge - q_measured)
+            dq_tol = 1e-5
+            if abs(dq) > dq_tol:
+                sigma = float(self.mol2_mono_sigma) if self.mol2_mono_sigma is not None else 1.0
+                center = d.copy()[None, :]
+                if rot_mol2 is not None:
+                    center = center @ np.asarray(rot_mol2, dtype=float)
+                dr = pos1 - center
+                r = np.sqrt(np.sum(dr * dr, axis=1))
+                r = np.maximum(r, 1e-10)
+                arg = r / (np.sqrt(2.0) * max(sigma, 1e-12))
+                e_corr = float(np.sum(q1 * (dq * erf(arg) / r)))
+            else:
+                e_corr = 0.0
+        else:
+            e_corr = 0.0
+
+        return float(e_elec + e_nuc + e_corr)
 
     def distance_scan(self, distances_ang, axis='y', scan_kind='displacement', rot_mol2=None):
         """Compute Δω₁ for a range of distances along the specified axis.
