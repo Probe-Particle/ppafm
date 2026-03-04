@@ -59,7 +59,7 @@ export PP_EXCITON_SUBSAMP=${PP_EXCITON_SUBSAMP:-6}              # subsampling fa
 python $PPPATH/photonMap.py \
   -c "$CUBEFILES_INI" -m "$MOLECULES_INI" \
   -R 10.0 -Z 5.0 -t s --excitons --volumetric \
-  --output out_full_NxN
+  --output T_0_0
 
 if [ "$PP_EXCITON_REPORT_MULTIPOLES" != "0" ]; then
   PYTHONPATH="$PPPATH" python3 - <<'PY'
@@ -305,5 +305,11 @@ Examples:
   PP_EXCITON_DEBUG=1 PP_EXCITON_REPORT_MULTIPOLES=1 PP_EXCITON_DUMP_PAIR=3,0 PP_EXCITON_PLOT=1 PP_EXCITON_SUBSAMP=6 bash run.sh
 
  PP_EXCITON_DUMP_ALL=1 PP_EXCITON_PLOT=1 PP_EXCITON_PLOT_ALL=1 PP_EXCITON_DEBUG=1 PP_EXCITON_REPORT_MULTIPOLES=1 PP_EXCITON_REPORT_SIJ_MULTIPOLES=1 bash run.sh
+python3 /home/indranil/git/ppafm/photonMap.py \
+  -w /home/indranil/git/ppafm/tests/PhotonMap/test_indranil/interaction_framework/ \
+  -m molecules.ini -c cubefiles.ini --excitons --volumetric \
+  --siteshift-cubes siteshift_cubes.ini --site-shifts electrostatics.ini \
+  --siteshift-interp cubic --siteshift-chunk 100000 --siteshift-json site_shifts.json \
+  -R 10.0 -Z 6.0 -t s --output out_with_site_shifts
 
 EXAMPLES

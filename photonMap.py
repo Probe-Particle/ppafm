@@ -370,6 +370,11 @@ def loadRhoTrans(cubName):
     Returns:
         tuple: (rhoTrans, lvec) - transition density array and lattice vectors
     """
+    if isinstance(cubName, str):
+        if (not os.path.isabs(cubName)) and ('wdir' in globals()):
+            cand = os.path.join(str(wdir), cubName)
+            if os.path.isfile(cand):
+                cubName = cand
     print(( ">>> Loading Transition density from ", cubName, " ... " ))
     rhoTrans, lvec, nDim, head = GU.loadCUBE( cubName, trden=True )
     
@@ -719,6 +724,12 @@ if __name__ == "__main__":
     parser.add_option( "-d", "--debug_dims",  action="store_true",           default=PARSER_DEFAULTVAL, help="print dimension tracking for debugging")
     parser.add_option( "-b", "--beta",        action="store", type="float",  default=PARSER_DEFAULTVAL, help="tunelling current (STM) modulation beta")
 
+    parser.add_option( "--siteshift-cubes", action="store", type="string", default=PARSER_DEFAULTVAL, help="ini-style list mapping each molecules.ini row to (mol_id diff_density_cube gs_density_cube)")
+    parser.add_option( "--site-shifts",     action="store", type="string", default=PARSER_DEFAULTVAL, help="electrostatics.ini specifying per-molecule potential_cube and resp_charges (charges.xyzq) for hybrid cube+RESP site shifts")
+    parser.add_option( "--siteshift-interp",action="store", type="string", default=PARSER_DEFAULTVAL, help="interpolation kind for potential cube: linear or cubic")
+    parser.add_option( "--siteshift-chunk", action="store", type="int",    default=PARSER_DEFAULTVAL, help="chunk size for site-shift potential evaluation")
+    parser.add_option( "--siteshift-json",  action="store", type="string", default=PARSER_DEFAULTVAL, help="optional output json file with per-site-state Δω and shifted diagonals")
+
     bDebugXsf = False
     #bDebugXsf = True
     #parser.add_option( "-o", "--output", action="store", type="string", default="pauli", help="output 3D data-file (.xsf)")
@@ -891,6 +902,41 @@ if __name__ == "__main__":
             print("Saving PNG image as ",fnmb+'_current.png' )
             plt.savefig(fnmb+'_current.png', dpi=fig.dpi)
  
+    if (opt_dict.get('site_shifts') is not None) and (opt_dict.get('siteshift_cubes') is not None):
+        import pyProbeParticle.site_shifts as site_shifts
+        siteshift_cubes_path = str(opt_dict.get('siteshift_cubes'))
+        electrostatics_ini_path = str(opt_dict.get('site_shifts'))
+        interp_kind = str(opt_dict.get('siteshift_interp') if opt_dict.get('siteshift_interp') is not None else 'cubic')
+        chunk = int(opt_dict.get('siteshift_chunk') if opt_dict.get('siteshift_chunk') is not None else 100000)
+        save_json_path = opt_dict.get('siteshift_json')
+
+        if siteshift_cubes_path != "":
+            p = siteshift_cubes_path
+            if not os.path.isabs(p):
+                p = os.path.join(wdir, p)
+            if not os.path.isfile(p):
+                raise ValueError(f"--siteshift-cubes file not found: {p}")
+        if electrostatics_ini_path != "":
+            p = electrostatics_ini_path
+            if not os.path.isabs(p):
+                p = os.path.join(wdir, p)
+            if not os.path.isfile(p):
+                raise ValueError(f"--site-shifts file not found: {p}")
+        if (interp_kind != 'linear') and (interp_kind != 'cubic'):
+            raise ValueError(f"--siteshift-interp must be 'linear' or 'cubic', got: {interp_kind}")
+
+        dw = site_shifts.apply_site_shifts_to_system(
+            S0,
+            siteshift_cubes_path,
+            electrostatics_ini_path,
+            base_dir=wdir,
+            interp_kind=interp_kind,
+            chunk=chunk,
+            save_json_path=save_json_path,
+        )
+        print("Applied electrostatic site shifts Δω (eV) to Ediags:")
+        print(dw)
+
     #cposs,crots,ccoefs,cents,cens,combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
     inds = photo.combinator(S0.ents,subsys=params["subsys"])
     print("inds type: ",type(inds))
