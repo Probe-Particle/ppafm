@@ -25,6 +25,9 @@ import json
 # Add parent paths so we can import the module
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_dir)
+repo_root = os.path.abspath(os.path.join(script_dir, '..', '..', '..', '..'))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
 
 from site_energy_shift import (
     SiteEnergyShiftCalculator,
@@ -35,52 +38,130 @@ from site_energy_shift import (
 )
 
 
+class SimpleSystem:
+    def __init__(self, poss_ang, rots_rad, Ediags_eV):
+        self.poss = np.asarray(poss_ang, dtype=float)
+        self.rots = np.asarray(rots_rad, dtype=float)
+        self.Ediags = np.asarray(Ediags_eV, dtype=float)
+
+
+def load_molecules_ini(fname):
+    data = np.genfromtxt(fname, skip_header=1)
+    if len(data.shape) == 1:
+        data = np.reshape(data, (1, data.shape[0]))
+    poss = np.asarray(data[:, :3], dtype=float)
+    rots = np.asarray(data[:, 3], dtype=float) * np.pi / 180.0
+    Ediags = np.asarray(data[:, 6], dtype=float)
+    return poss, rots, Ediags
+
+
+def make_system_for_siteshift_scan(mol_ids, mol1_pos_ang, mol2_pos_ang, mol1_rot_rad, mol2_rot_rad):
+    mol_ids = [int(x) for x in mol_ids]
+    poss = np.zeros((len(mol_ids), 3), dtype=float)
+    rots = np.zeros(len(mol_ids), dtype=float)
+    for i, mid in enumerate(mol_ids):
+        if int(mid) == 1:
+            poss[i] = np.asarray(mol1_pos_ang, dtype=float)
+            rots[i] = float(mol1_rot_rad)
+        elif int(mid) == 2:
+            poss[i] = np.asarray(mol2_pos_ang, dtype=float)
+            rots[i] = float(mol2_rot_rad)
+        else:
+            raise ValueError(f"Unsupported mol_id={mid} for scan builder. Expected mol_id 1 or 2.")
+    Ediags = np.zeros(len(mol_ids), dtype=float)
+    return SimpleSystem(poss, rots, Ediags)
+
+
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--cube-dir', type=str, default='/home/indranil/Documents/Secondment/test/PTCDA/anion_cal/opt/charge0/wb97x_d3bj')
-    parser.add_argument('--mol1-dir', type=str, default=None)
-    parser.add_argument('--mol2-dir', type=str, default=None)
-    parser.add_argument('--diff-cube', type=str, default='density_difference_state1.cube')
-    parser.add_argument('--gs-cube', type=str, default='ground_state_density.cube')
-    parser.add_argument('--interp-kind', type=str, default='linear', choices=['linear', 'cubic'])
-    parser.add_argument('--mol2-charge', type=float, default=0.0)
-    parser.add_argument('--use-target-charge', type=float, default=None)
-    parser.add_argument('--residual-mono-correction', dest='residual_mono_correction', action='store_true')
-    parser.add_argument('--no-residual-mono-correction', dest='residual_mono_correction', action='store_false')
-    parser.add_argument('--rescale-gs-to-target', dest='rescale_gs_to_target', action='store_true')
-    parser.add_argument('--no-rescale-gs-to-target', dest='rescale_gs_to_target', action='store_false')
-    parser.add_argument('--validate-potential', dest='validate_potential', action='store_true')
-    parser.add_argument('--no-validate-potential', dest='validate_potential', action='store_false')
-    parser.add_argument('--potential-cube', type=str, default=None)
-    parser.add_argument('--calc-potential-cube', type=str, default=None)
-    parser.add_argument('--calc-potential-extrapolate', type=str, default='error', choices=['error', 'multipole'])
-    parser.add_argument('--exclude-nuc-radius-bohr', type=float, default=0.5)
-    parser.add_argument('--axis', type=str, default='y', choices=['x', 'y', 'z'])
-    parser.add_argument('--scan-kind', type=str, default='displacement', choices=['displacement', 'center', 'gap', 'proj_gap'])
-    parser.add_argument('--start', type=float, default=12.0)
-    parser.add_argument('--stop', type=float, default=42.0)
-    parser.add_argument('--step', type=float, default=2.0)
-    parser.add_argument('--bruteforce-at', type=float, default=None)
-    parser.add_argument('--bf-npts-dn', type=int, nargs=3, default=[18, 14, 10])
-    parser.add_argument('--bf-npts-gs', type=int, nargs=3, default=[18, 18, 18])
-    parser.add_argument('--bf-chunk', type=int, default=384)
-    parser.add_argument('--bf-rho-cut', type=float, default=0.0)
-    parser.add_argument('--bf-r-min', type=float, default=None)
-    parser.add_argument('--neutral-dir', type=str, default='/home/indranil/Documents/Secondment/test/PTCDA/anion_cal/opt/charge0/wb97x_d3bj')
-    parser.add_argument('--anion-dir', type=str, default='/home/indranil/git/ppafm/tests/PhotonMap/test_indranil/interaction_framework/M4_S0.2_optimised_structure_wb97x_d3bj_6_31g__gpu_charge-1')
-    parser.add_argument('--run-4combos', action='store_true')
-    parser.add_argument('--run-4combos-charge-mode', type=str, default='target', choices=['cube', 'target'])
-    parser.add_argument('--out-prefix', type=str, default=os.path.join(script_dir, 'ptcda'))
-    parser.add_argument('--show', dest='show', action='store_true')
-    parser.add_argument('--no-show', dest='show', action='store_false')
-    parser.add_argument('--enforce-dn-zero-integral', dest='enforce_dn_zero_integral', action='store_true')
-    parser.add_argument('--no-enforce-dn-zero-integral', dest='enforce_dn_zero_integral', action='store_false')
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    g_workflow = parser.add_argument_group('Workflow selection')
+    g_workflow.add_argument(
+        '--workflow',
+        type=str,
+        default=None,
+        choices=['fft-scan', 'fft-4combos', 'hybrid-eval', 'hybrid-scan'],
+        help='Select which standalone workflow to run. If omitted, the script uses legacy behavior: --run-4combos triggers fft-4combos, otherwise fft-scan.',
+    )
+
+    g_paths = parser.add_argument_group('Cube paths (FFT / potential-cube workflows)')
+    g_paths.add_argument('--cube-dir', type=str, default='/home/indranil/Documents/Secondment/test/PTCDA/anion_cal/opt/charge0/wb97x_d3bj', help='Default directory for both molecules if --mol1-dir/--mol2-dir are not set')
+    g_paths.add_argument('--mol1-dir', type=str, default=None, help='Directory containing molecule-1 cubes (Δn cube)')
+    g_paths.add_argument('--mol2-dir', type=str, default=None, help='Directory containing molecule-2 cubes (n_GS cube and optional potential cube)')
+    g_paths.add_argument('--diff-cube', type=str, default='density_difference_state1.cube', help='Δn cube filename for molecule 1 (relative to --mol1-dir unless absolute)')
+    g_paths.add_argument('--gs-cube', type=str, default='ground_state_density.cube', help='Ground-state density cube filename for molecule 2 (relative to --mol2-dir unless absolute)')
+
+    g_fft = parser.add_argument_group('FFT / potential-cube settings (SiteEnergyShiftCalculator)')
+    g_fft.add_argument('--interp-kind', type=str, default='linear', choices=['linear', 'cubic'], help='Interpolation for potential cube sampling (when --calc-potential-cube is used)')
+    g_fft.add_argument('--mol2-charge', type=float, default=0.0, help='Total charge of molecule 2 (used when NOT using --use-target-charge). Units: electron charge')
+    g_fft.add_argument('--use-target-charge', type=float, default=None, help='If set, constrain fitted monopole to this target net charge (electron charge)')
+    g_fft.add_argument('--residual-mono-correction', dest='residual_mono_correction', action='store_true', help='Enable residual monopole correction in target-charge mode')
+    g_fft.add_argument('--no-residual-mono-correction', dest='residual_mono_correction', action='store_false', help='Disable residual monopole correction in target-charge mode')
+    g_fft.add_argument('--rescale-gs-to-target', dest='rescale_gs_to_target', action='store_true', help='Rescale molecule-2 ground-state density to match target charge before potential evaluation')
+    g_fft.add_argument('--no-rescale-gs-to-target', dest='rescale_gs_to_target', action='store_false', help='Do not rescale ground-state density to match target charge')
+    g_fft.add_argument('--calc-potential-cube', type=str, default=None, help='If set, use this external TOTAL electrostatic potential cube instead of FFT Poisson potential (path relative to --mol2-dir unless absolute)')
+    g_fft.add_argument('--calc-potential-extrapolate', type=str, default='error', choices=['error', 'multipole'], help='Behavior when sampling outside the external potential cube bounds')
+    g_fft.add_argument('--enforce-dn-zero-integral', dest='enforce_dn_zero_integral', action='store_true', help='Enforce ∫Δn dV = 0 by lobe scaling before integration (recommended)')
+    g_fft.add_argument('--no-enforce-dn-zero-integral', dest='enforce_dn_zero_integral', action='store_false', help='Do not enforce ∫Δn dV = 0')
+
+    g_validate = parser.add_argument_group('Potential validation diagnostic (optional)')
+    g_validate.add_argument('--validate-potential', dest='validate_potential', action='store_true', help='Validate potential cube against FFT-derived reference')
+    g_validate.add_argument('--no-validate-potential', dest='validate_potential', action='store_false', help='Disable potential validation')
+    g_validate.add_argument('--potential-cube', type=str, default=None, help='Potential cube to validate (defaults to electrostatic_potential.cube in --mol2-dir)')
+    g_validate.add_argument('--exclude-nuc-radius-bohr', type=float, default=0.5, help='Exclude points within this radius of nuclei during validation (Bohr)')
+
+    g_scan = parser.add_argument_group('Distance scan settings')
+    g_scan.add_argument('--axis', type=str, default='y', choices=['x', 'y', 'z'], help='Scan axis for the dimer displacement')
+    g_scan.add_argument('--scan-kind', type=str, default='displacement', choices=['displacement', 'center', 'gap', 'proj_gap'], help='Meaning of scan coordinate: displacement, center distance, surface gap, or projected gap')
+    g_scan.add_argument('--start', type=float, default=12.0, help='Start scan value (Å)')
+    g_scan.add_argument('--stop', type=float, default=42.0, help='Stop scan value (Å)')
+    g_scan.add_argument('--step', type=float, default=2.0, help='Scan step (Å)')
+
+    g_bf = parser.add_argument_group('Brute-force check (optional)')
+    g_bf.add_argument('--bruteforce-at', type=float, default=None, help='If set, run a brute-force integral check at this scan coordinate (Å)')
+    g_bf.add_argument('--bf-npts-dn', type=int, nargs=3, default=[18, 14, 10], help='Brute-force sampling grid for Δn integration (nx ny nz)')
+    g_bf.add_argument('--bf-npts-gs', type=int, nargs=3, default=[18, 18, 18], help='Brute-force sampling grid for n_GS integration (nx ny nz)')
+    g_bf.add_argument('--bf-chunk', type=int, default=384, help='Chunk size for brute-force evaluation')
+    g_bf.add_argument('--bf-rho-cut', type=float, default=0.0, help='Brute-force density cutoff (skip |ρ| below this threshold)')
+    g_bf.add_argument('--bf-r-min', type=float, default=None, help='Brute-force minimum r (Bohr) to regularize 1/r singularities')
+
+    g_reg = parser.add_argument_group('Regression driver (4-combo matrix)')
+    g_reg.add_argument('--neutral-dir', type=str, default='/home/indranil/Documents/Secondment/test/PTCDA/anion_cal/opt/charge0/wb97x_d3bj', help='Directory for neutral monomer cube set (used by --run-4combos)')
+    g_reg.add_argument('--anion-dir', type=str, default='/home/indranil/git/ppafm/tests/PhotonMap/test_indranil/interaction_framework/M4_S0.2_optimised_structure_wb97x_d3bj_6_31g__gpu_charge-1', help='Directory for anion monomer cube set (used by --run-4combos)')
+    g_reg.add_argument('--run-4combos', action='store_true', help='Run the 4-combo matrix: neutral/anion combinations (legacy)')
+    g_reg.add_argument('--run-4combos-charge-mode', type=str, default='target', choices=['cube', 'target'], help='Charge handling for --run-4combos: cube (as-is) or target (constrain monopole)')
+
+    g_hybrid = parser.add_argument_group('Hybrid site-shift settings (ini-driven cube+RESP)')
+    g_hybrid.add_argument('--molecules-ini', type=str, default=None, help='molecules.ini describing aggregate geometry (required for hybrid-eval)')
+    g_hybrid.add_argument('--siteshift-cubes', type=str, default=None, help='siteshift_cubes.ini mapping each molecules.ini row to mol_id and Δn cube (and n_GS cube placeholder)')
+    g_hybrid.add_argument('--site-shifts', type=str, default=None, help='electrostatics.ini specifying per-molecule potential_cube and resp_charges for hybrid evaluation')
+    g_hybrid.add_argument('--siteshift-interp', type=str, default='cubic', choices=['linear', 'cubic'], help='Interpolation kind for potential cube in hybrid evaluator')
+    g_hybrid.add_argument('--siteshift-chunk', type=int, default=100000, help='Chunk size for evaluating hybrid potential over many grid points')
+    g_hybrid.add_argument('--siteshift-json', type=str, default=None, help='Optional JSON output file (hybrid)')
+    g_hybrid.add_argument('--hybrid-site-index', type=int, default=0, help='For hybrid-scan: which siteshift row index to track/plot as Δω(scan)')
+    g_hybrid.add_argument('--hybrid-mol1-rot-deg', type=float, default=0.0, help='For hybrid-scan: mol1 rotation about Z (degrees)')
+    g_hybrid.add_argument('--hybrid-mol2-rot-deg', type=float, default=0.0, help='For hybrid-scan: mol2 rotation about Z (degrees)')
+
+    g_out = parser.add_argument_group('Output')
+    g_out.add_argument('--out-prefix', type=str, default=os.path.join(script_dir, 'ptcda'), help='Output prefix for plots/data files')
+    g_out.add_argument('--show', dest='show', action='store_true', help='Show interactive plots')
+    g_out.add_argument('--no-show', dest='show', action='store_false', help='Do not show plots (save only)')
     parser.set_defaults(enforce_dn_zero_integral=True)
     parser.set_defaults(rescale_gs_to_target=False)
     parser.set_defaults(residual_mono_correction=None)
     parser.set_defaults(validate_potential=False)
     parser.set_defaults(show=True)
     args = parser.parse_args()
+
+    if args.workflow is None:
+        if bool(args.run_4combos):
+            workflow = 'fft-4combos'
+        else:
+            workflow = 'fft-scan'
+    else:
+        workflow = str(args.workflow)
 
     mol1_dir_default = args.cube_dir if args.mol1_dir is None else args.mol1_dir
     mol2_dir_default = args.cube_dir if args.mol2_dir is None else args.mol2_dir
@@ -126,6 +207,161 @@ def main():
             print(f"ERROR: potential cube not found: {pot_path}")
             sys.exit(1)
         return pot_path
+
+    def run_hybrid_eval():
+        if args.molecules_ini is None:
+            raise ValueError("hybrid-eval requires --molecules-ini")
+        if args.siteshift_cubes is None:
+            raise ValueError("hybrid-eval requires --siteshift-cubes")
+        if args.site_shifts is None:
+            raise ValueError("hybrid-eval requires --site-shifts")
+
+        import pyProbeParticle.site_shifts as site_shifts
+
+        mol_ini = args.molecules_ini
+        if not os.path.isabs(mol_ini):
+            mol_ini = os.path.join(script_dir, mol_ini)
+        if not os.path.isfile(mol_ini):
+            raise ValueError(f"molecules.ini not found: {mol_ini}")
+        poss, rots, Ediags = load_molecules_ini(mol_ini)
+        system = SimpleSystem(poss, rots, Ediags.copy())
+
+        base_dir = script_dir
+        dw = site_shifts.compute_site_shifts_for_system(
+            system,
+            args.siteshift_cubes,
+            args.site_shifts,
+            base_dir=base_dir,
+            interp_kind=str(args.siteshift_interp),
+            chunk=int(args.siteshift_chunk),
+            save_json_path=args.siteshift_json,
+        )
+
+        print("=" * 70)
+        print("  Hybrid site-energy shifts (Δω) from ini-driven cube+RESP")
+        print("=" * 70)
+        print(f"Rows: {len(dw)}")
+        for i, val in enumerate(dw):
+            print(f"  i={i:3d}  Δω={val:+.6e} eV")
+
+        data_file = f"{args.out_prefix}_hybrid_eval_data.txt"
+        header = "# Columns: i  delta_omega_eV\n"
+        data = np.column_stack([np.arange(len(dw), dtype=int), np.asarray(dw, dtype=float)])
+        np.savetxt(data_file, data, header=header, fmt=['%6d', '%16.8e'])
+        print(f"\n  Data saved to: {data_file}")
+
+    def run_hybrid_scan():
+        if args.siteshift_cubes is None:
+            raise ValueError("hybrid-scan requires --siteshift-cubes")
+        if args.site_shifts is None:
+            raise ValueError("hybrid-scan requires --site-shifts")
+
+        import pyProbeParticle.site_shifts as site_shifts
+
+        mol1_dir = mol1_dir_default
+        mol2_dir = mol2_dir_default
+        diff_density_path, gs_density_path = resolve_paths(mol1_dir, mol2_dir, args.diff_cube, args.gs_cube)
+
+        calc = SiteEnergyShiftCalculator(
+            diff_density_path=diff_density_path,
+            gs_density_path=gs_density_path,
+            mol2_charge=float(args.mol2_charge),
+            enforce_dn_zero_integral=bool(args.enforce_dn_zero_integral),
+            rescale_gs_to_target=bool(args.rescale_gs_to_target),
+            use_target_charge=bool(False),
+            enable_residual_mono_correction=bool(False),
+            calc_potential_cube_path=resolve_calc_potential_cube(mol2_dir),
+            calc_potential_extrapolate=str(args.calc_potential_extrapolate),
+            interp_kind=args.interp_kind,
+        )
+
+        mol_ids, _, _ = site_shifts.load_siteshift_cubes(args.siteshift_cubes, base_dir=script_dir)
+
+        distances_ang = np.arange(args.start, args.stop, args.step)
+        axis_idx = {'x': 0, 'y': 1, 'z': 2}[str(args.axis).lower()]
+        disps = np.array([
+            calc.displacement_from_scan_value(x, axis=args.axis, scan_kind=args.scan_kind)
+            for x in distances_ang
+        ], dtype=float)
+        max_disp_axis_ang = float(np.max(np.abs(disps[:, axis_idx])) * BOHR_TO_ANG)
+        calc.precompute(max_distance_ang=max_disp_axis_ang, scan_axis=str(args.axis))
+
+        shifts_track = []
+        results = {
+            'scan_ang': distances_ang,
+            'R_ang': np.zeros(len(distances_ang), dtype=float),
+            'gap_ang': np.zeros(len(distances_ang), dtype=float),
+            'proj_gap_ang': np.zeros(len(distances_ang), dtype=float),
+            'min_atom_dist_ang': np.zeros(len(distances_ang), dtype=float),
+            'shift_eV': np.zeros(len(distances_ang), dtype=float),
+            'shift_hartree': np.zeros(len(distances_ang), dtype=float),
+            'multipole_eV': np.zeros(len(distances_ang), dtype=float),
+        }
+
+        mol1_rot = float(args.hybrid_mol1_rot_deg) * np.pi / 180.0
+        mol2_rot = float(args.hybrid_mol2_rot_deg) * np.pi / 180.0
+
+        for i, x in enumerate(distances_ang):
+            d_bohr = calc.displacement_from_scan_value(float(x), axis=args.axis, scan_kind=args.scan_kind)
+            d_ang = np.asarray(d_bohr, dtype=float) * BOHR_TO_ANG
+
+            system = make_system_for_siteshift_scan(
+                mol_ids,
+                mol1_pos_ang=[0.0, 0.0, 0.0],
+                mol2_pos_ang=d_ang,
+                mol1_rot_rad=mol1_rot,
+                mol2_rot_rad=mol2_rot,
+            )
+
+            dw = site_shifts.compute_site_shifts_for_system(
+                system,
+                args.siteshift_cubes,
+                args.site_shifts,
+                base_dir=script_dir,
+                interp_kind=str(args.siteshift_interp),
+                chunk=int(args.siteshift_chunk),
+                save_json_path=None,
+            )
+
+            k = int(args.hybrid_site_index)
+            if (k < 0) or (k >= len(dw)):
+                raise ValueError(f"--hybrid-site-index out of range: {k} for {len(dw)} rows")
+            dw_eV = float(dw[k])
+            results['shift_eV'][i] = dw_eV
+            results['shift_hartree'][i] = dw_eV / HARTREE_TO_EV
+            shifts_track.append(dw_eV)
+
+            geom = calc.compute_shift(d_bohr)
+            results['R_ang'][i] = float(geom['R_ang'])
+            results['gap_ang'][i] = float(geom['gap_ang'])
+            results['proj_gap_ang'][i] = float(geom.get('proj_gap_ang', geom['gap_ang']))
+            results['min_atom_dist_ang'][i] = float(geom['min_atom_dist_ang'])
+
+        save_prefix = f"{args.out_prefix}_hybrid".replace(' ', '_')
+        plot_results(results, title="Hybrid Δω(scan)", save_prefix=save_prefix, show=args.show)
+
+        data_file = f"{save_prefix}_data.txt"
+        header = "# Columns: scan_ang  R_ang  gap_ang  proj_gap_ang  min_atom_dist_ang  shift_eV\n"
+        data = np.column_stack([
+            results['scan_ang'],
+            results['R_ang'],
+            results['gap_ang'],
+            results['proj_gap_ang'],
+            results['min_atom_dist_ang'],
+            results['shift_eV'],
+        ])
+        np.savetxt(data_file, data, header=header, fmt='%16.8e')
+        print(f"\n  Data saved to: {data_file}")
+
+        if args.siteshift_json is not None:
+            out = {
+                'scan_ang': results['scan_ang'].tolist(),
+                'shift_eV': results['shift_eV'].tolist(),
+                'hybrid_site_index': int(args.hybrid_site_index),
+            }
+            fout = open(args.siteshift_json, 'w')
+            json.dump(out, fout, indent=2, sort_keys=True)
+            fout.close()
 
     def resolve_calc_potential_cube(mol2_dir):
         if args.calc_potential_cube is None:
@@ -248,7 +484,15 @@ def main():
 
         return results
 
-    if args.run_4combos:
+    if workflow == 'hybrid-eval':
+        run_hybrid_eval()
+        return
+
+    if workflow == 'hybrid-scan':
+        run_hybrid_scan()
+        return
+
+    if (workflow == 'fft-4combos') or args.run_4combos:
         def charge_for_case(q_target):
             if args.run_4combos_charge_mode == 'cube':
                 return resolve_charge_settings(None)
@@ -443,3 +687,46 @@ if __name__ == '__main__':
 
 
 # python3 run_ptcda_dimer.py --run-4combos --run-4combos-charge-mode target  --calc-potential-cube electrostatic_potential.cube --calc-potential-extrapolate multipole --start 0.5 --stop 17 --step 1 --axis z --scan-kind displacement --interp-kind linear  --exclude-nuc-radius-bohr 0.5 --out-prefix /home/indranil/git/ppafm/tests/PhotonMap/test_indranil/interaction_framework/test_scan
+
+# ======================== PhotonMap + Δω diagonal shifts (hybrid cube+RESP) ========================
+#
+# This example runs PhotonMap exciton diagonalization (Frenkel Hamiltonian) for a 6-row molecules.ini
+# system, and applies electrostatic site-energy shifts Δω_i (one per row) to the diagonal energies
+# before the Hamiltonian is solved.
+#
+# Requirements (files in the working directory passed by -w):
+#   - molecules.ini              (6 rows: 3 states for Mol1, then 3 states for Mol2)
+#   - cubefiles.ini              (transition densities for couplings)
+#   - siteshift_cubes.ini        (mol_id + density_difference_stateX.cube per row)
+#   - electrostatics.ini         (per mol_id: electrostatic_potential.cube + charges.xyzq)
+#
+# Run (adjust -w and output as needed):
+# python3 /home/indranil/git/ppafm/photonMap.py \
+#   -w /home/indranil/git/ppafm/tests/PhotonMap/test_indranil/interaction_framework/ \
+#   -m molecules.ini -c cubefiles.ini --excitons --volumetric \
+#   --siteshift-cubes siteshift_cubes.ini --site-shifts electrostatics.ini \
+#   --siteshift-interp cubic --siteshift-chunk 100000 --siteshift-json site_shifts.json \
+#   -R 10.0 -Z 6.0 -t s --output out_with_site_shifts
+
+'''
+python3 run_ptcda_dimer.py \
+  --workflow hybrid-eval \
+  --molecules-ini molecules.ini \
+  --siteshift-cubes siteshift_cubes.ini \
+  --site-shifts electrostatics.ini \
+  --siteshift-interp cubic \
+  --siteshift-chunk 100000 \
+  --siteshift-json site_shifts.json \
+  --out-prefix ptcda
+
+python3 run_ptcda_dimer.py \
+  --workflow hybrid-scan \
+  --siteshift-cubes siteshift_cubes.ini \
+  --site-shifts electrostatics.ini \
+  --siteshift-interp cubic \
+  --siteshift-chunk 100000 \
+  --hybrid-site-index 0 \
+  --axis y --scan-kind displacement --start 12 --stop 32 --step 2 \
+  --out-prefix ptcda --no-show  
+  
+  '''
