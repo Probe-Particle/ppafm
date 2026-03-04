@@ -140,6 +140,7 @@ def main():
     g_hybrid.add_argument('--siteshift-interp', type=str, default='cubic', choices=['linear', 'cubic'], help='Interpolation kind for potential cube in hybrid evaluator')
     g_hybrid.add_argument('--siteshift-chunk', type=int, default=100000, help='Chunk size for evaluating hybrid potential over many grid points')
     g_hybrid.add_argument('--siteshift-json', type=str, default=None, help='Optional JSON output file (hybrid)')
+    g_hybrid.add_argument('--siteshift-terms', type=str, default=None, help='site_shift_terms.ini enabling extra physics terms (exchange, polarization, ct) beyond Coulomb')
     g_hybrid.add_argument('--hybrid-site-index', type=int, default=0, help='For hybrid-scan: which siteshift row index to track/plot as Δω(scan)')
     g_hybrid.add_argument('--hybrid-mol1-rot-deg', type=float, default=0.0, help='For hybrid-scan: mol1 rotation about Z (degrees)')
     g_hybrid.add_argument('--hybrid-mol2-rot-deg', type=float, default=0.0, help='For hybrid-scan: mol2 rotation about Z (degrees)')
@@ -227,22 +228,50 @@ def main():
         system = SimpleSystem(poss, rots, Ediags.copy())
 
         base_dir = script_dir
-        dw = site_shifts.compute_site_shifts_for_system(
-            system,
-            args.siteshift_cubes,
-            args.site_shifts,
-            base_dir=base_dir,
-            interp_kind=str(args.siteshift_interp),
-            chunk=int(args.siteshift_chunk),
-            save_json_path=args.siteshift_json,
-        )
+        terms_ini = args.siteshift_terms
+        if terms_ini is not None:
+            if not os.path.isabs(terms_ini):
+                terms_ini = os.path.join(script_dir, terms_ini)
+            if not os.path.isfile(terms_ini):
+                raise ValueError(f"--siteshift-terms file not found: {terms_ini}")
 
-        print("=" * 70)
-        print("  Hybrid site-energy shifts (Δω) from ini-driven cube+RESP")
-        print("=" * 70)
-        print(f"Rows: {len(dw)}")
-        for i, val in enumerate(dw):
-            print(f"  i={i:3d}  Δω={val:+.6e} eV")
+        if terms_ini is not None:
+            result = site_shifts.compute_site_shift_terms(
+                system,
+                args.siteshift_cubes,
+                args.site_shifts,
+                terms_ini_path=terms_ini,
+                base_dir=base_dir,
+                interp_kind=str(args.siteshift_interp),
+                chunk=int(args.siteshift_chunk),
+                save_json_path=args.siteshift_json,
+            )
+            dw = result['total_eV']
+            print("=" * 70)
+            print("  Multi-term site-energy shifts from ini-driven framework")
+            print("=" * 70)
+            print(f"Rows: {len(dw)}")
+            for key in ['coulomb_eV', 'exchange_eV', 'polarization_eV', 'ct_eV', 'total_eV']:
+                if key in result:
+                    print(f"  {key}:")
+                    for i, val in enumerate(result[key]):
+                        print(f"    i={i:3d}  {val:+.6e} eV")
+        else:
+            dw = site_shifts.compute_site_shifts_for_system(
+                system,
+                args.siteshift_cubes,
+                args.site_shifts,
+                base_dir=base_dir,
+                interp_kind=str(args.siteshift_interp),
+                chunk=int(args.siteshift_chunk),
+                save_json_path=args.siteshift_json,
+            )
+            print("=" * 70)
+            print("  Hybrid site-energy shifts (Δω) from ini-driven cube+RESP")
+            print("=" * 70)
+            print(f"Rows: {len(dw)}")
+            for i, val in enumerate(dw):
+                print(f"  i={i:3d}  Δω={val:+.6e} eV")
 
         data_file = f"{args.out_prefix}_hybrid_eval_data.txt"
         header = "# Columns: i  delta_omega_eV\n"
@@ -275,7 +304,7 @@ def main():
             interp_kind=args.interp_kind,
         )
 
-        mol_ids, _, _ = site_shifts.load_siteshift_cubes(args.siteshift_cubes, base_dir=script_dir)
+        mol_ids, _, _, _ = site_shifts.load_siteshift_cubes(args.siteshift_cubes, base_dir=script_dir)
 
         distances_ang = np.arange(args.start, args.stop, args.step)
         axis_idx = {'x': 0, 'y': 1, 'z': 2}[str(args.axis).lower()]

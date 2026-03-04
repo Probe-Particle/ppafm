@@ -729,6 +729,7 @@ if __name__ == "__main__":
     parser.add_option( "--siteshift-interp",action="store", type="string", default=PARSER_DEFAULTVAL, help="interpolation kind for potential cube: linear or cubic")
     parser.add_option( "--siteshift-chunk", action="store", type="int",    default=PARSER_DEFAULTVAL, help="chunk size for site-shift potential evaluation")
     parser.add_option( "--siteshift-json",  action="store", type="string", default=PARSER_DEFAULTVAL, help="optional output json file with per-site-state Δω and shifted diagonals")
+    parser.add_option( "--siteshift-terms", action="store", type="string", default=PARSER_DEFAULTVAL, help="site_shift_terms.ini enabling extra physics terms (exchange, polarization, ct) beyond Coulomb")
 
     bDebugXsf = False
     #bDebugXsf = True
@@ -925,17 +926,44 @@ if __name__ == "__main__":
         if (interp_kind != 'linear') and (interp_kind != 'cubic'):
             raise ValueError(f"--siteshift-interp must be 'linear' or 'cubic', got: {interp_kind}")
 
-        dw = site_shifts.apply_site_shifts_to_system(
-            S0,
-            siteshift_cubes_path,
-            electrostatics_ini_path,
-            base_dir=wdir,
-            interp_kind=interp_kind,
-            chunk=chunk,
-            save_json_path=save_json_path,
-        )
-        print("Applied electrostatic site shifts Δω (eV) to Ediags:")
-        print(dw)
+        terms_ini_path = opt_dict.get('siteshift_terms')
+        if terms_ini_path is not None:
+            p = str(terms_ini_path)
+            if not os.path.isabs(p):
+                p = os.path.join(wdir, p)
+            if not os.path.isfile(p):
+                raise ValueError(f"--siteshift-terms file not found: {p}")
+            terms_ini_path = p
+
+        if terms_ini_path is not None:
+            result = site_shifts.compute_site_shift_terms(
+                S0,
+                siteshift_cubes_path,
+                electrostatics_ini_path,
+                terms_ini_path=terms_ini_path,
+                base_dir=wdir,
+                interp_kind=interp_kind,
+                chunk=chunk,
+                save_json_path=save_json_path,
+            )
+            dw = result['total_eV']
+            S0.Ediags = np.asarray(S0.Ediags, dtype=float) + np.asarray(dw, dtype=float)
+            print("Applied multi-term site shifts Δω (eV) to Ediags:")
+            for key in ['coulomb_eV', 'exchange_eV', 'polarization_eV', 'ct_eV', 'total_eV']:
+                if key in result:
+                    print(f"  {key}: {result[key]}")
+        else:
+            dw = site_shifts.apply_site_shifts_to_system(
+                S0,
+                siteshift_cubes_path,
+                electrostatics_ini_path,
+                base_dir=wdir,
+                interp_kind=interp_kind,
+                chunk=chunk,
+                save_json_path=save_json_path,
+            )
+            print("Applied electrostatic site shifts Δω (eV) to Ediags:")
+            print(dw)
 
     #cposs,crots,ccoefs,cents,cens,combos = photo.combinator(oposs,orots,ocoefs,oents,oens)
     inds = photo.combinator(S0.ents,subsys=params["subsys"])
