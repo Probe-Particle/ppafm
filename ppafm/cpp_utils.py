@@ -3,6 +3,10 @@ import os
 import platform
 from pathlib import Path
 
+from .logging_utils import get_logger
+
+logger = get_logger("cpp_utils")
+
 # Check for environment variable PPAFM_RECOMPILE to determine whether
 # we should recompile the C++ extensions.
 if "PPAFM_RECOMPILE" in os.environ and os.environ["PPAFM_RECOMPILE"] != "":
@@ -22,8 +26,8 @@ _vars_path = None
 PACKAGE_PATH = Path(__file__).resolve().parent
 CPP_PATH = PACKAGE_PATH.joinpath("cpp")
 
-print(" PACKAGE_PATH = ", PACKAGE_PATH)
-print(" CPP_PATH     = ", CPP_PATH)
+logger.debug(f" PACKAGE_PATH = {PACKAGE_PATH}")
+logger.debug(f" CPP_PATH     = {CPP_PATH}")
 
 cpp_modules = {"PP": "ProbeParticle", "GU": "GridUtils", "fitting": "fitting", "fitSpline": "fitSpline"}
 """Dictionary of C++ extension modules. Keys are targets for make and values are module names."""
@@ -85,5 +89,5 @@ def _build_windows(target):
         targets = [cpp_modules[target]]
     for module in targets:
         cmd = f'"{vars_path}" /no_logo /arch=amd64 && cl.exe /openmp /O2 /D_USRDLL /D_WINDLL {module}.cpp /link /dll /out:{module}{_lib_ext}'
-        print(cmd)
+        logger.debug(cmd)
         os.system(cmd)

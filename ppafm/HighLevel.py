@@ -9,8 +9,9 @@ from . import core, cpp_utils
 from . import fieldFFT as fFFT
 from . import io
 from .defaults import d3
+from .logging_utils import get_logger
 
-verbose = 1
+logger = get_logger("HighLevel")
 
 # ===== constants
 Fmax_DEFAULT = 10.0
@@ -60,10 +61,8 @@ def shift_positions(R, s):
 
 
 def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
-    if verbose > 0:
-        print(">>BEGIN: relaxedScan3D()")
-    if verbose > 0:
-        print(" zTips : ", zTips)
+    logger.info(">>BEGIN: relaxedScan3D()")
+    logger.debug(f" zTips : {zTips}")
     ntips = len(zTips)
     rTips = np.zeros((ntips, 3))
     rs = np.zeros((ntips, 3))
@@ -98,16 +97,13 @@ def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
             PPpos[:, iy, ix, 0] = rs[::-1, 0]
             PPpos[:, iy, ix, 1] = rs[::-1, 1]
             PPpos[:, iy, ix, 2] = rs[::-1, 2]
-    if verbose > 0:
-        print("<<<END: relaxedScan3D()")
+    logger.info("<<END: relaxedScan3D()")
     return fzs, PPpos
 
 
 def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False, tip_spline=None):
-    if verbose > 0:
-        print(">>BEGIN: relaxedScan3D_omp()")
-    if verbose > 0:
-        print(" zTips : ", zTips)
+    logger.info(">>BEGIN: relaxedScan3D_omp()")
+    logger.debug(f" zTips : {zTips}")
     nz = len(zTips)
     ny = len(yTips)
     nx = len(xTips)
@@ -123,8 +119,7 @@ def relaxedScan3D_omp(xTips, yTips, zTips, trj=None, bF3d=False, tip_spline=None
         fzs = fs[:, :, ::-1, :].transpose(2, 1, 0, 3).copy()
     else:
         fzs = fs[:, :, ::-1, 2].transpose(2, 1, 0).copy()
-    if verbose > 0:
-        print("<<<END: relaxedScan3D_omp()")
+    logger.info("<<END: relaxedScan3D_omp()")
     return fzs, rs
 
 
@@ -142,18 +137,15 @@ def perform_relaxation(
     parameters=None,
 ):
     global FF  # We need FF global otherwise it is garbage collected and program crashes inside C++ e.g. in stiffnessMatrix()
-    if verbose > 0:
-        print(">>>BEGIN: perform_relaxation()")
+    logger.info(">>>BEGIN: perform_relaxation()")
     xTips, yTips, zTips, lvecScan = PPU.prepareScanGrids(parameters=parameters)
     FF = FFLJ.copy()
     if FFel is not None:
         FF += FFel * parameters.charge
-        if verbose > 0:
-            print("adding charge:", parameters.charge)
+        logger.debug(f"adding charge: {parameters.charge}")
     if FFkpfm_t0sV is not None and FFkpfm_tVs0 is not None:
         FF += (parameters.charge * FFkpfm_t0sV - FFkpfm_tVs0) * parameters.Vbias
-        if verbose > 0:
-            print("adding charge:", parameters.charge, "and bias:", parameters.Vbias, "V")
+        logger.debug(f"adding charge: {parameters.charge} and bias: {parameters.Vbias} V")
     if FFpauli is not None:
         FF += FFpauli * parameters.Apauli
     if FFboltz != None:
@@ -163,8 +155,7 @@ def perform_relaxation(
     setFF(FF, lvec=lvec, parameters=parameters)
     if (np.array(parameters.stiffness) < 0.0).any():
         parameters.stiffness = np.array([parameters.klat, parameters.klat, parameters.krad])
-    if verbose > 0:
-        print("stiffness:", parameters.stiffness)
+    logger.debug(f"stiffness: {parameters.stiffness}")
     core.setTip(kSpring=np.array((parameters.stiffness[0], parameters.stiffness[1], 0.0)) / -PPU.eVA_Nm, kRadial=parameters.stiffness[2] / -PPU.eVA_Nm, parameters=parameters)
 
     # grid origin has to be moved to zero, hence the subtraction of lvec[0,:] from trj and xTip, yTips, zTips
@@ -185,8 +176,7 @@ def perform_relaxation(
         PPdisp -= init_pos
     else:
         PPdisp = None
-    if verbose > 0:
-        print("<<<END: perform_relaxation()")
+    logger.info("<<<END: perform_relaxation()")
 
     core.deleteFF_Fpointer()
 
@@ -196,7 +186,7 @@ def perform_relaxation(
 # ==== Forcefield grid generation
 
 
-def setFF(FF=None, computeVpot=False, n=None, lvec=None, parameters=None, verbose=True):
+def setFF(FF=None, computeVpot=False, n=None, lvec=None, parameters=None):
 
     # Find gridN
     if FF is not None:
@@ -219,29 +209,25 @@ def setFF(FF=None, computeVpot=False, n=None, lvec=None, parameters=None, verbos
         # Create a new array for FF if needed
         FF = np.zeros((gridN[2], gridN[1], gridN[0], 3))
 
-    if verbose:
-        print("setFF() gridN: ", gridN)
+    logger.debug(f"setFF() gridN: {gridN}")
     core.setGridN(gridN)
 
     # Set pointer to FF
     if len(FF.shape) == 4 and FF.shape[-1] == 3:
-        if verbose:
-            print("setFF() Creating a pointer to a vector field")
+        logger.debug("setFF: Creating a pointer to a vector field")
         core.setFF_Fpointer(FF)
     elif len(FF.shape) == 3 or FF.shape[-1] == 1:
-        if verbose:
-            print("setFF() Creating a pointer to a scalar field")
+        logger.debug("setFF: Creating a pointer to a scalar field")
         core.setFF_Epointer(FF)
         if computeVpot:
-            print("WARNING in setFF: computeVpot required but ignored because FF itself is scalar!")
+            logger.warning("setFF: computeVpot required but ignored because FF itself is scalar!")
         computeVpot = False
     else:
         raise ValueError("setFF: Array dimensions wrong for both vector and array field !!")
 
     # Create a scalar (potential) field if required
     if computeVpot:
-        if verbose:
-            print("setFF() Creating a pointer to a scalar field")
+        logger.debug("setFF: Creating a pointer to a scalar field")
         V = np.zeros((gridN[2], gridN[1], gridN[0]))
         core.setFF_Epointer(V)
     else:
@@ -265,32 +251,27 @@ def setFF(FF=None, computeVpot=False, n=None, lvec=None, parameters=None, verbos
     else:
         raise ValueError("lvec matrix has a wrong format !!")
 
-    if verbose:
-        print("setFF() lvec: ", lvec)
+    logger.debug(f"setFF: lvec = {lvec}")
     core.setGridCell(lvec)
 
     return FF, V
 
 
 def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT, ffModel="LJ", parameters=None):
-    if verbose > 0:
-        print(">>>BEGIN: computeLJ()")
+    logger.info(">>>BEGIN: computeLJ()")
     # --- load species (LJ potential)
     FFparams = PPU.loadSpecies(speciesFile)
     elem_dict = PPU.getFFdict(FFparams)
-    # print elem_dict
     # --- load atomic geometry
     atoms, nDim, lvec = io.loadGeometry(geomFile, format=geometry_format, parameters=parameters)
     atomstring = io.primcoords2Xsf(PPU.atoms2iZs(atoms[0], elem_dict), [atoms[1], atoms[2], atoms[3]], lvec)
-    if verbose > 0:
-        print(parameters.gridN, parameters.gridO, parameters.gridA, parameters.gridB, parameters.gridC)
+    logger.debug(f"{parameters.gridN}, {parameters.gridO}, {parameters.gridA}, {parameters.gridB}, {parameters.gridC}")
     iZs, Rs, Qs = PPU.parseAtoms(atoms, elem_dict, autogeom=False, PBC=parameters.PBC, lvec=lvec, parameters=parameters)
     # --- prepare LJ parameters
     iPP = PPU.atom2iZ(parameters.probeType, elem_dict)
     # --- prepare arrays and compute
     FF, V = setFF(None, computeVpot, lvec=lvec, parameters=parameters)
-    if verbose > 0:
-        print("FFLJ.shape", FF.shape)
+    logger.debug(f"FFLJ.shape {FF.shape}")
 
     # shift atoms to the coordinate system in which the grid origin is zero
     Rs0 = shift_positions(Rs, -lvec[0])
@@ -311,22 +292,18 @@ def computeLJ(geomFile, speciesFile, geometry_format=None, save_format=None, com
         core.getLennardJonesFF(Rs0, cLJs)  # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not None:
-        if verbose > 0:
-            print("Clamp force >", Fmax)
+        logger.debug(f"Clamp force > {Fmax}")
         io.limit_vec_field(FF, Fmax=Fmax)
     if (Vmax is not None) and computeVpot:
-        if verbose > 0:
-            print("Clamp potential >", Vmax)
+        logger.debug(f"Clamp potential > {Vmax}")
         V[V > Vmax] = Vmax  # remove too large values
     # --- save to files ?
     if save_format is not None:
-        if verbose > 0:
-            print("computeLJ Save ", save_format)
+        logger.info(f"Saving Lennard-Jones force field to {save_format}")
         io.save_vec_field("FF" + ffModel, FF, lvec, data_format=save_format, head=atomstring, atomic_info=(atoms[:4], lvec))
         if computeVpot:
             io.save_scal_field("E" + ffModel, V, lvec, data_format=save_format, head=atomstring, atomic_info=(atoms[:4], lvec))
-    if verbose > 0:
-        print("<<<END: computeLJ()")
+    logger.info("<<<END: computeLJ()")
     return FF, V, nDim, lvec
 
 
@@ -374,22 +351,18 @@ def computeDFTD3(input_file, df_params="PBE", geometry_format=None, save_format=
 
 
 def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format=None, computeVpot=False, Fmax=Fmax_DEFAULT, Vmax=Vmax_DEFAULT, parameters=None):
-    if verbose > 0:
-        print(">>>BEGIN: computeELFF_pointCharge()")
+    logger.info(">>>BEGIN: computeELFF_pointCharge()")
     tipKinds = {"s": 0, "pz": 1, "dz2": 2}
     tipKind = tipKinds[tip]
-    if verbose > 0:
-        print(" ========= get electrostatic forcefiled from the point charges tip=%s %i " % (tip, tipKind))
+    logger.debug(f" ========= get electrostatic forcefield from the point charges tip={tip} {tipKind} ")
     # --- load atomic geometry
     FFparams = PPU.loadSpecies()
     elem_dict = PPU.getFFdict(FFparams)
-    # print elem_dict
 
     atoms, nDim, lvec = io.loadGeometry(geomFile, format=geometry_format, parameters=parameters)
     atomstring = io.primcoords2Xsf(PPU.atoms2iZs(atoms[0], elem_dict), [atoms[1], atoms[2], atoms[3]], lvec)
     # --- prepare arrays and compute
-    if verbose > 0:
-        print(parameters.gridN, parameters.gridA, parameters.gridB, parameters.gridC)
+    logger.debug(f"{parameters.gridN}, {parameters.gridA}, {parameters.gridB}, {parameters.gridC}")
     _, Rs, Qs = PPU.parseAtoms(atoms, elem_dict=elem_dict, autogeom=False, PBC=parameters.PBC, lvec=lvec, parameters=parameters)
     FF, V = setFF(None, computeVpot, lvec=lvec, parameters=parameters)
 
@@ -399,22 +372,18 @@ def computeELFF_pointCharge(geomFile, geometry_format=None, tip="s", save_format
     core.getCoulombFF(Rs0, Qs * PPU.CoulombConst, kind=tipKind)  # THE MAIN STUFF HERE
     # --- post porces FFs
     if Fmax is not None:
-        if verbose > 0:
-            print("Clamp force >", Fmax)
+        logger.debug(f"Clamp force > {Fmax}")
         io.limit_vec_field(FF, Fmax=Fmax)
     if (Vmax is not None) and computeVpot:
-        if verbose > 0:
-            print("Clamp potential >", Vmax)
+        logger.debug(f"Clamp potential > {Vmax}")
         V[V > Vmax] = Vmax  # remove too large values
     # --- save to files ?
     if save_format is not None:
-        if verbose > 0:
-            print("computeLJ Save ", save_format)
+        logger.debug(f"computeELFF Save {save_format}")
         io.save_vec_field("FFel", FF, lvec, data_format=save_format, head=atomstring, atomic_info=(atoms[:4], lvec))
         if computeVpot:
             io.save_scal_field("Vel", V, lvec, data_format=save_format, head=atomstring, atomic_info=(atoms[:4], lvec))
-    if verbose > 0:
-        print("<<<END: computeELFF_pointCharge()")
+    logger.info("<<<END: computeELFF_pointCharge()")
     return FF, V, nDim, lvec
 
 
@@ -449,19 +418,17 @@ def loadValenceElectronDict():
         fname_valelec_dict = "valelec_dict.py"
         namespace = {}
         exec(open(fname_valelec_dict).read(), namespace)
-        print("   : ", namespace["valElDict"])
+        logger.debug(f"   : {namespace['valElDict']}")
         valElDict_ = namespace["valElDict"]
-        print("Valence electrons loaded from local file : ", fname_valelec_dict)
+        logger.debug(f"Valence electrons loaded from local file : {fname_valelec_dict}")
     except:
         pass
     if valElDict_ is None:
-        namespace = {}
-        fname_valelec_dict = cpp_utils.PACKAGE_PATH / "defaults" / "valelec_dict.py"
-        exec(open(fname_valelec_dict).read(), namespace)
-        valElDict_ = namespace["valElDict"]
-        print("Valence electrons loaded from default location : ", fname_valelec_dict)
-    if verbose > 0:
-        print(" Valence Electron Dict : \n", valElDict_)
+        from .defaults import valelec_dict
+
+        valElDict_ = valelec_dict.valElDict
+        logger.debug(f"Valence electrons loaded from defaults")
+    logger.debug(f" Valence Electron Dict : \n {valElDict_}")
     return valElDict_
 
 
@@ -490,24 +457,21 @@ def subtractCoreDensities(
         elems, Rs = getAtomsWhichTouchPBCcell(fname, Rcut=Rcore, bSaveDebug=bSaveDebugDens)
     if valElDict is None:
         valElDict = loadValenceElectronDict()
-    print("subtractCoreDensities valElDict ", valElDict)
-    print("subtractCoreDensities elems ", elems)
+    logger.debug(f"subtractCoreDensities valElDict {valElDict}")
+    logger.debug(f"subtractCoreDensities elems {elems}")
     cRAs = np.array([(-valElDict[elem], Rcore) for elem in elems])
     V = np.linalg.det(lvec[1:])  # volume of triclinic cell
     N = nDim[0] * nDim[1] * nDim[2]
     dV = V / N  # volume of one voxel
-    if verbose > 0:
-        print("V : ", V, " N: ", N, " dV: ", dV)
-    if verbose > 0:
-        print("sum(RHO): ", rho.sum(), " Nelec: ", rho.sum() * dV, " voxel volume: ", dV)  # check sum
+
+    logger.debug(f"V : {V}, N: {N}, dV: {dV}")
+    logger.debug(f"sum(RHO): {rho.sum()}, Nelec: {rho.sum() * dV}, voxel volume: {dV}")  # check sum
 
     # set sampling grid (dimension, shape, and pointer)
     setFF(rho, lvec=lvec, parameters=parameters)
-    if verbose > 0:
-        print(">>> Projecting Core Densities ... ")
+    logger.debug(">>> Projecting Core Densities ... ")
 
     core.getDensityR4spline(shift_positions(Rs, -lvec[0]), cRAs.copy())  # Do the job ( the Projection of atoms onto grid )
-    if verbose > 0:
-        print("sum(RHO), Nelec: ", rho.sum(), rho.sum() * dV)  # check sum
+    logger.debug(f"sum(RHO), Nelec: {rho.sum()}, {rho.sum() * dV}")  # check sum
     if bSaveDebugDens:
         io.saveXSF("rho_subCoreChg.xsf", rho, lvec, head=head)

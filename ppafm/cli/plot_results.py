@@ -8,9 +8,12 @@ import numpy as np
 
 from .. import PPPlot, atomicUtils, common, io
 from ..HighLevel import symGauss
+from ..logging_utils import get_logger
+
+logger = get_logger("plot_results")
 
 mpl.use("Agg")
-print("plot WITHOUT Xserver")
+logger.debug("plot WITHOUT Xserver")
 # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
 
@@ -46,8 +49,6 @@ def main(argv=None):
 
     if opt_dict["Laplace"]:
         from scipy.ndimage import laplace
-
-    print(" >> OVEWRITING SETTINGS by command line arguments  ")
 
     # Spring constants.
     if opt_dict["krange"] is not None:
@@ -88,11 +89,11 @@ def main(argv=None):
             applied_bias = True
 
     if applied_bias:
-        print("Vs   =", bias_voltages)
-    print("Ks   =", k_constants)
-    print("Qs   =", charges)
-    print("Amps =", amplitudes)
-    print(" ============= RUN  ")
+        logger.info(f"Vs   = {bias_voltages}")
+    logger.info(f"Ks   = {k_constants}")
+    logger.info(f"Qs   = {charges}")
+    logger.info(f"Amps = {amplitudes}")
+    logger.info(" ============= RUN  ")
 
     dz = parameters.scanStep[2]
     tip_positions_x, tip_positions_y, tip_positions_z, _ = common.prepareScanGrids(parameters=parameters)
@@ -136,7 +137,7 @@ def main(argv=None):
                 dirname = f"Q{charge:1.2f}K{stiffness:1.2f}V{voltage:1.2f}"
             if opt_dict["pos"]:
                 pp_positions, lvec, _, atomic_info_or_head = io.load_vec_field(dirname + "/PPpos", data_format=args.output_format)
-                print("Plotting PPpos: ")
+                logger.info("Plotting PPpos: ")
                 PPPlot.plotDistortions(
                     dirname + "/xy" + atoms_str + cbar_str,
                     pp_positions[:, :, :, 0],
@@ -150,14 +151,13 @@ def main(argv=None):
                     markersize=2.0,
                     cbar=opt_dict["cbar"],
                 )
-                print()
 
             if opt_dict["iets"] is not None:
                 eigenvalue_k, lvec, _, atomic_info_or_head = io.load_vec_field(dirname + "/eigvalKs", data_format=args.output_format)
                 iets_m = opt_dict["iets"][0]
                 iets_e = opt_dict["iets"][1]
                 iets_w = opt_dict["iets"][2]
-                print(f"Plotting IETS M={iets_m:f} V={iets_e:f} w={iets_w:f}")
+                logger.info(f"Plotting IETS M={iets_m:f} V={iets_e:f} w={iets_w:f}")
                 e_vib = common.HBAR * np.sqrt((common.eVA_Nm * eigenvalue_k) / (iets_m * common.AUMASS))
                 iets = symGauss(e_vib[:, :, :, 0], iets_e, iets_w) + symGauss(e_vib[:, :, :, 1], iets_e, iets_w) + symGauss(e_vib[:, :, :, 2], iets_e, iets_w)
 
@@ -172,7 +172,6 @@ def main(argv=None):
                     atomSize=atom_size,
                     cbar=opt_dict["cbar"],
                 )
-                print()
 
                 PPPlot.plotImages(
                     dirname + "/Evib" + atoms_str + cbar_str,
@@ -185,7 +184,6 @@ def main(argv=None):
                     atomSize=atom_size,
                     cbar=opt_dict["cbar"],
                 )
-                print()
 
                 PPPlot.plotImages(
                     dirname + "/Kvib" + atoms_str + cbar_str,
@@ -198,11 +196,10 @@ def main(argv=None):
                     atomSize=atom_size,
                     cbar=opt_dict["cbar"],
                 )
-                print()
 
             if opt_dict["bI"]:
                 current, lvec, _, atomic_info_or_head = io.load_scal_field(dirname + "/OutI_boltzmann", data_format=args.output_format)
-                print("Plotting Boltzmann current: ")
+                logger.info("Plotting Boltzmann current: ")
                 PPPlot.plotImages(
                     dirname + "/OutI" + atoms_str + cbar_str,
                     current,
@@ -214,12 +211,10 @@ def main(argv=None):
                     atomSize=atom_size,
                     cbar=opt_dict["cbar"],
                 )
-                print()
 
         if opt_dict["LCPD_maps"]:
             if len(bias_voltages) < 3:
-                print("At last three different values of volage needed to evaluate LCPD!")
-                print("LCPD will not be calculated here.")
+                logger.warning("At least three different values of voltage needed to evaluate LCPD! LCPD will not be calculated here.")
                 opt_dict["LCPD_maps"] = False
             else:
                 # Prepare to calculate KPFM/LCPD
@@ -277,7 +272,7 @@ def main(argv=None):
                 for iv, voltage in enumerate(bias_voltages):
                     parameters.Amplitude = amplitude
                     amp_string = f"/Amp{amplitude:2.2f}"
-                    print("Amplitude= ", amp_string)
+                    logger.info(f"Amplitude = {amp_string}")
                     dirname0 = f"Q{charge:1.2f}K{stiffness:1.2f}"
                     if applied_bias:
                         dirname = dirname0 + f"V{voltage:1.2f}"
@@ -289,12 +284,7 @@ def main(argv=None):
                         os.makedirs(dir_name_amplitude)
 
                     if parameters.tiltedScan:
-                        (
-                            f_out,
-                            lvec,
-                            _,
-                            atomic_info_or_head,
-                        ) = io.load_vec_field(dirname + "/OutF", data_format=args.output_format)
+                        (f_out, lvec, _, atomic_info_or_head) = io.load_vec_field(dirname + "/OutF", data_format=args.output_format)
                         dfs = common.Fz2df_tilt(
                             f_out,
                             parameters.scanTilt,
@@ -307,12 +297,7 @@ def main(argv=None):
                         lvec_df[0] = lvec_df[0] + lvec_df[3] / lvec_3_norm * amplitude / 2
                         lvec_df[3] = lvec_df[3] / lvec_3_norm * (lvec_3_norm - amplitude)
                     else:
-                        (
-                            fzs,
-                            lvec,
-                            _,
-                            atomic_info_or_head,
-                        ) = io.load_scal_field(dirname + "/OutFz", data_format=args.output_format)
+                        (fzs, lvec, _, atomic_info_or_head) = io.load_scal_field(dirname + "/OutFz", data_format=args.output_format)
                         if applied_bias:
                             r_tip = parameters.Rtip
                             for iz, z in enumerate(tip_positions_z):
@@ -340,7 +325,7 @@ def main(argv=None):
                             atomic_info=atomic_info_or_head,
                         )
                     if opt_dict["df"]:
-                        print("Plotting df: ")
+                        logger.info("Plotting df: ")
                         PPPlot.plotImages(
                             dir_name_amplitude + "/df" + atoms_str + cbar_str,
                             dfs,
@@ -354,10 +339,9 @@ def main(argv=None):
                             cbar=opt_dict["cbar"],
                             cbar_label="df [Hz]",
                         )
-                        print("")
 
                     if opt_dict["Laplace"]:
-                        print("Plotting Laplace-filtered df: ")
+                        logger.info("Plotting Laplace-filtered df: ")
                         df_laplace_filtered = dfs.copy()
                         laplace(dfs, output=df_laplace_filtered)
                         io.save_scal_field(
@@ -380,10 +364,9 @@ def main(argv=None):
                             atomSize=atom_size,
                             cbar=opt_dict["cbar"],
                         )
-                        print()
 
                     if opt_dict["WSxM"]:
-                        print(" printing df into WSxM files :")
+                        logger.info("Printing df into WSxM files :")
                         io.saveWSxM_3D(dir_name_amplitude + "/df", dfs, extent, slices=None)
 
                     if opt_dict["LCPD_maps"]:
@@ -399,7 +382,7 @@ def main(argv=None):
                 if opt_dict["LCPD_maps"]:
                     lcpd = -kpfm_b / (2 * kpfm_a)
 
-                    print("Plotting LCPD: ")
+                    logger.info("Plotting LCPD: ")
                     if not os.path.exists(dir_name_lcpd):
                         os.makedirs(dir_name_lcpd)
                     PPPlot.plotImages(
@@ -417,7 +400,6 @@ def main(argv=None):
                         V0=args.V0,
                         cbar_label="V_LCPD [V]",
                     )
-                    print()
 
                     PPPlot.plotImages(
                         dir_name_lcpd + "/_Asym-LCPD" + atoms_str + cbar_str,
@@ -433,7 +415,6 @@ def main(argv=None):
                         symmetric_map=False,
                         cbar_label="V_LCPD [V]",
                     )
-                    print()
 
                     io.save_scal_field(
                         dir_name_lcpd + "/LCPD",
@@ -445,7 +426,7 @@ def main(argv=None):
                     )
 
                     if opt_dict["WSxM"]:
-                        print("Saving LCPD into WSxM files :")
+                        logger.info("Saving LCPD into WSxM files :")
                         io.saveWSxM_3D(dir_name_lcpd + "/LCPD" + atoms_str, lcpd, extent, slices=None)
 
             if opt_dict["Fz"]:
@@ -455,7 +436,7 @@ def main(argv=None):
                     _,
                     atomic_info_or_head,
                 ) = io.load_scal_field(dirname + "/OutFz", data_format=args.output_format)
-                print("Plotting Fz: ")
+                logger.info("Plotting Fz: ")
                 PPPlot.plotImages(
                     dirname + "/Fz" + atoms_str + cbar_str,
                     fzs,
@@ -469,9 +450,8 @@ def main(argv=None):
                     cbar=opt_dict["cbar"],
                     cbar_label="Fz [eV/Angstrom]",
                 )
-                print("")
 
-    print(" ***** ALL DONE ***** ")
+    logger.info(" ***** ALL DONE ***** ")
 
 
 if __name__ == "__main__":

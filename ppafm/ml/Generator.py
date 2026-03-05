@@ -5,7 +5,10 @@ import numpy as np
 
 from .. import common as PPU
 from .. import io
+from ..logging_utils import get_perf_logger
 from ..ocl import field as FFcl
+
+perf_logger = get_perf_logger("Generator")
 
 
 class InverseAFMtrainer:
@@ -34,9 +37,6 @@ class InverseAFMtrainer:
         Qs: list of arrays of length 4. Charges for tips.
         QZS: list of arrays of length 4. Positions of tip charges.
     """
-
-    # Print timings during excecution
-    bRuntime = False
 
     def __init__(
         self,
@@ -75,12 +75,10 @@ class InverseAFMtrainer:
             Ys = [[] for _ in range(len(self.aux_maps))]
             batch_size = min(self.batch_size, len(self.molecules) - self.counter)
 
-            if self.bRuntime:
-                batch_start = time.time()
+            batch_start = time.perf_counter()
 
             for s in range(batch_size):
-                if self.bRuntime:
-                    sample_start = time.time()
+                sample_start = time.perf_counter()
 
                 # Load molecule
                 mol = self.molecules[self.counter]
@@ -114,11 +112,9 @@ class InverseAFMtrainer:
                     self.on_afm_start()
 
                     # Evaluate AFM
-                    if self.bRuntime:
-                        afm_start = time.time()
+                    afm_start = time.perf_counter()
                     Xs[i].append(self.afmulator(self.xyzs, self.Zs, self.qs, REAs=self.REAs))
-                    if self.bRuntime:
-                        print(f"AFM {i} runtime [s]: {time.time() - afm_start}")
+                    perf_logger.info(f"AFM {i} runtime [s]: {time.perf_counter() - afm_start}")
 
                     self.Xs = Xs[i][-1]
                     # Callback
@@ -126,15 +122,12 @@ class InverseAFMtrainer:
 
                 # Get AuxMaps
                 for i, aux_map in enumerate(self.aux_maps):
-                    if self.bRuntime:
-                        aux_start = time.time()
+                    aux_start = time.perf_counter()
                     xyzqs = np.concatenate([self.xyzs, self.qs[:, None]], axis=1)
                     Ys[i].append(aux_map(xyzqs, self.Zs))
-                    if self.bRuntime:
-                        print(f"AuxMap {i} runtime [s]: {time.time() - aux_start}")
+                    perf_logger.info(f"AuxMap {i} runtime [s]: {time.perf_counter() - aux_start}")
 
-                if self.bRuntime:
-                    print(f"Sample {s} runtime [s]: {time.time() - sample_start}")
+                perf_logger.info(f"Sample {s} runtime [s]: {time.perf_counter() - sample_start}")
                 self.counter += 1
 
             for i in range(len(self.iZPPs)):
@@ -143,8 +136,7 @@ class InverseAFMtrainer:
             for i in range(len(self.aux_maps)):
                 Ys[i] = np.stack(Ys[i], axis=0)
 
-            if self.bRuntime:
-                print(f"Batch runtime [s]: {time.time() - batch_start}")
+            perf_logger.info(f"Batch runtime [s]: {time.perf_counter() - batch_start}")
 
         else:
             raise StopIteration
@@ -351,9 +343,6 @@ class GeneratorAFMtrainer:
             Ignored when sim_type is not ``'FDBM'``.
     """
 
-    bRuntime = False
-    """Print timings during execution."""
-
     def __init__(
         self,
         afmulator,
@@ -446,12 +435,10 @@ class GeneratorAFMtrainer:
         Ys = []
         sws = []
 
-        if self.bRuntime:
-            batch_start = time.perf_counter()
+        batch_start = time.perf_counter()
 
         for s in range(self.batch_size):
-            if self.bRuntime:
-                sample_start = time.perf_counter()
+            sample_start = time.perf_counter()
 
             Xs_ = []
             Ys_ = []
@@ -481,8 +468,7 @@ class GeneratorAFMtrainer:
             # Callback
             self.on_sample_start()
 
-            if self.bRuntime:
-                print(f"Sample {s} preparation time [s]: {time.perf_counter() - sample_start}")
+            perf_logger.info(f"Sample {s} preparation time [s]: {time.perf_counter() - sample_start}")
 
             # Get AFM
             for i, (iZPP, rho_tip, rho_tip_delta, fft_tip, fft_tip_delta, Qs, QZs) in enumerate(
@@ -508,11 +494,9 @@ class GeneratorAFMtrainer:
                 self.on_afm_start()
 
                 # Evaluate AFM
-                if self.bRuntime:
-                    afm_start = time.perf_counter()
+                afm_start = time.perf_counter()
                 Xs_.append(self.afmulator(**self.sample_dict))
-                if self.bRuntime:
-                    print(f"AFM {i} runtime [s]: {time.perf_counter() - afm_start}")
+                perf_logger.info(f"AFM {i} runtime [s]: {time.perf_counter() - afm_start}")
 
                 sws_.append(np.array(self.scan_window))
 
@@ -528,18 +512,15 @@ class GeneratorAFMtrainer:
                 pot = None
             xyzqs = np.concatenate([xyzs, qs[:, None]], axis=1)
             for i, aux_map in enumerate(self.aux_maps):
-                if self.bRuntime:
-                    aux_start = time.perf_counter()
+                aux_start = time.perf_counter()
                 Ys_.append(aux_map(xyzqs, Zs, pot, rot))
-                if self.bRuntime:
-                    print(f"AuxMap {i} runtime [s]: {time.perf_counter() - aux_start}")
+                perf_logger.info(f"AuxMap {i} runtime [s]: {time.perf_counter() - aux_start}")
 
             Xs.append(Xs_)
             Ys.append(Ys_)
             sws.append(sws_)
 
-            if self.bRuntime:
-                print(f"Sample {s} runtime [s]: {time.perf_counter() - sample_start}")
+            perf_logger.info(f"Sample {s} runtime [s]: {time.perf_counter() - sample_start}")
 
         if len(mols) == 0:  # Sample iterator was empty
             raise StopIteration
@@ -548,8 +529,7 @@ class GeneratorAFMtrainer:
         Ys = np.array(Ys)
         sws = np.array(sws)
 
-        if self.bRuntime:
-            print(f"Batch runtime [s]: {time.perf_counter() - batch_start}")
+        perf_logger.info(f"Batch runtime [s]: {time.perf_counter() - batch_start}")
 
         return Xs, Ys, mols, sws
 

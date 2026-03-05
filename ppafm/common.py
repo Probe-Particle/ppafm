@@ -11,8 +11,9 @@ import pydantic
 import toml
 
 from . import cpp_utils
+from .logging_utils import get_logger
 
-verbose = 0
+logger = get_logger("common")
 
 # ====================== constants
 
@@ -98,7 +99,7 @@ class PpafmParameters(pydantic.BaseModel):
 
     def apply_options(self, obj):
         for key, value in obj.items():
-            print("Applying", key, value)
+            logger.debug(f"Applying {key} {value}")
             if hasattr(self, key) and value is not None:
                 setattr(self, key, value)
 
@@ -123,39 +124,31 @@ class PpafmParameters(pydantic.BaseModel):
                 key = words[0]
                 if hasattr(self, key):
                     val = getattr(self, key)
-                    if verbose > 0:
-                        print(key, " is class ", val.__class__)
+                    logger.debug(f"{key} is class {val.__class__}")
                     try:
                         if isinstance(val, bool):
                             word = words[1].strip()
                             setattr(self, key, word[0] == "T" or word[0] == "t")
-                            if verbose > 0:
-                                print(key, getattr(self, key), ">>", word, "<<")
+                            logger.debug(f"{key} {getattr(self, key)} >> {word} <<")
                         elif isinstance(val, float):
                             setattr(self, key, float(words[1]))
-                            if verbose > 0:
-                                print(key, getattr(self, key), words[1])
+                            logger.debug(f"{key} {getattr(self, key)} {words[1]}")
                         elif isinstance(val, int):
                             setattr(self, key, int(words[1]))
-                            if verbose > 0:
-                                print(key, getattr(self, key), words[1])
+                            logger.debug(f"{key} {getattr(self, key)} {words[1]}")
                         elif isinstance(val, str):
                             setattr(self, key, words[1])
                         elif isinstance(val, list):
                             if isinstance(val[0], float):
                                 setattr(self, key, [float(words[1]), float(words[2]), float(words[3])])
-                                if verbose > 0:
-                                    print(key, getattr(self, key), words[1], words[2], words[3])
+                                logger.debug(f"{key} {getattr(self, key)} {words[1]} {words[2]} {words[3]}")
                             elif isinstance(val[0], int):
-                                if verbose > 0:
-                                    print(key)
+                                logger.debug(f"{key}")
                                 setattr(self, key, [int(words[1]), int(words[2]), int(words[3])])
-                                if verbose > 0:
-                                    print(key, getattr(self, key), words[1], words[2], words[3])
+                                logger.debug(f"{key} {getattr(self, key)} {words[1]} {words[2]} {words[3]}")
                             else:
                                 setattr(self, key, [str(words[1]), float(words[2])])
-                                if verbose > 0:
-                                    print(key, getattr(self, key), words[1], words[2])
+                                logger.debug(f"{key} {getattr(self, key)} {words[1]} {words[2]}")
                     except:
                         raise ValueError(f"Error parsing parameters on line: {line}") from None
                 else:
@@ -532,11 +525,9 @@ def autoGridN(parameters):
 # load atoms species parameters form a file ( currently used to load Lennard-Jones parameters )
 def loadSpecies(fname=None):
     if fname is None or not os.path.exists(fname):
-        if verbose > 0:
-            print("WARRNING: loadSpecies(None) => load default atomtypes.ini")
+        logger.debug("loadSpecies(None) => load default atomtypes.ini")
         fname = cpp_utils.PACKAGE_PATH / "defaults" / "atomtypes.ini"
-    if verbose > 0:
-        print(" loadSpecies from ", fname)
+    logger.info(f"loadSpecies from {fname}")
     # FFparams=np.genfromtxt(fname,dtype=[('rmin',np.float64),('epsilon',np.float64),('atom',int),('symbol', '|S10')],usecols=[0,1,2,3])
     FFparams = np.genfromtxt(
         fname,
@@ -558,7 +549,6 @@ def loadSpeciesLines(lines):
     for l in lines:
         l = l.split()
         if len(l) >= 5:
-            # print l
             parameters.append((float(l[0]), float(l[1]), float(l[2]), int(l[3]), l[4]))
     return np.array(
         parameters,
@@ -579,8 +569,7 @@ def autoGeom(Rs, parameters, shiftXY=False, fitCell=False, border=3.0):
     """
     zmax = max(Rs[2])
     Rs[2] -= zmax
-    if verbose > 0:
-        print(" autoGeom subtracted zmax = ", zmax)
+    logger.debug(f"autoGeom subtracted zmax = {zmax}")
     xmin = min(Rs[0])
 
     xmax = max(Rs[0])
@@ -595,27 +584,22 @@ def autoGeom(Rs, parameters, shiftXY=False, fitCell=False, border=3.0):
         parameters.scanMin[1] = 0
         parameters.scanMax[0] = parameters.gridA[0]
         parameters.scanMax[1] = parameters.gridB[1]
-        if verbose > 0:
-            print(" autoGeom changed cell to = ", parameters.scanM)
+        logger.debug(f"autoGeom changed cell to = {parameters.scanMin}")
     if shiftXY:
         dx = -0.5 * (xmin + xmax) + 0.5 * (parameters.gridA[0] + parameters.gridB[0])
         Rs[0] += dx
         dy = -0.5 * (ymin + ymax) + 0.5 * (parameters.gridA[1] + parameters.gridB[1])
         Rs[1] += dy
-        if verbose > 0:
-            print(" autoGeom moved geometry by ", dx, dy)
+        logger.debug(f"autoGeom moved geometry by {dx}, {dy}")
 
 
 def wrapAtomsCell(Rs, da, db, avec, bvec):
     M = np.array((avec[:2], bvec[:2]))
     invM = np.linalg.inv(M)
-    if verbose > 0:
-        print(M)
-    if verbose > 0:
-        print(invM)
+    logger.debug(f"wrapAtomsCell M = \n{M}")
+    logger.debug(f"wrapAtomsCell invM = \n{invM}")
     ABs = np.dot(Rs[:, :2], invM)
-    if verbose > 0:
-        print("ABs.shape", ABs.shape)
+    logger.debug(f"wrapAtomsCell ABs.shape = {ABs.shape}")
     ABs[:, 0] = (ABs[:, 0] + 10 + da) % 1.0
     ABs[:, 1] = (ABs[:, 1] + 10 + db) % 1.0
     Rs[:, :2] = np.dot(ABs, M)
@@ -746,7 +730,6 @@ def PBCAtoms3D_np(Zs, Rs, Qs, cLJs, REAs, lvec, npbc=[1, 1, 1]):
     multiply atoms of sample along supercell vectors
     the multiplied sample geometry is used for evaluation of forcefield in Periodic-boundary-Conditions ( PBC )
     """
-    # print( "PBCAtoms3D_np lvec", lvec )
     mx = npbc[0] * 2 + 1
     my = npbc[1] * 2 + 1
     mz = npbc[2] * 2 + 1
@@ -823,8 +806,7 @@ def multRot(Zs, Rs, Qs, cLJs, rots, cog=(0, 0, 0)):
 def getFFdict(FFparams):
     elem_dict = {}
     for i, ff in enumerate(FFparams):
-        if verbose > 0:
-            print(i, ff)
+        logger.debug(f"getFFdict {i} {ff}")
         elem_dict[ff[4]] = i + 1
     return elem_dict
 
@@ -846,14 +828,12 @@ def atoms2iZs(names, elem_dict):
 def parseAtoms(atoms, elem_dict, PBC=True, autogeom=False, lvec=None, parameters=None):
     Rs = np.array([atoms[1], atoms[2], atoms[3]])
     if elem_dict is None:
-        if verbose > 0:
-            print("WARRNING: elem_dict is None => iZs are zero")
+        logger.warning("elem_dict is None => iZs are zero")
         iZs = np.zeros(len(atoms[0]))
     else:
         iZs = atoms2iZs(atoms[0], elem_dict)
     if autogeom:
-        if verbose > 0:
-            print("WARRNING: autoGeom shifts atoms")
+        logger.warning("autoGeom shifts atoms")
         autoGeom(Rs, shiftXY=True, fitCell=True, border=3.0)
     Rs = np.transpose(Rs, (1, 0)).copy()
     Qs = np.array(atoms[4])

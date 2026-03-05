@@ -1,17 +1,19 @@
 from pathlib import Path
 
-import numpy as np
 import pyopencl as cl
 
+from ..logging_utils import get_logger
 from . import field as FFcl
 from . import relax as oclr
+
+logger = get_logger("oclUtils")
 
 
 class OCLEnvironment:
     def __init__(self, i_platform=0):
         platforms = get_platforms()
         self.platform = platforms[i_platform]
-        print(f"Initializing an OpenCL environment on {self.platform.name}")
+        logger.info(f"Initializing an OpenCL environment on {self.platform.name}")
 
         self.PACKAGE_PATH = Path(__file__).resolve().parent
         self.CL_PATH = self.PACKAGE_PATH / "cl"
@@ -39,30 +41,30 @@ class OCLEnvironment:
 
     def printInfo(self):
         # fmt: off
-        print("======= DEVICES\n",         self.ctx.get_info(cl.context_info.DEVICES))
-        print("======= PROPERTIES\n",      self.ctx.get_info(cl.context_info.PROPERTIES))
-        print("======= REFERENCE_COUNT\n", self.ctx.get_info(cl.context_info.REFERENCE_COUNT))
+        logger.info("======= DEVICES\n"         + str(self.ctx.get_info(cl.context_info.DEVICES)))
+        logger.info("======= PROPERTIES\n"      + str(self.ctx.get_info(cl.context_info.PROPERTIES)))
+        logger.info("======= REFERENCE_COUNT\n" + str(self.ctx.get_info(cl.context_info.REFERENCE_COUNT)))
         # fmt: on
 
     def printPlatformInfo(self):
         # fmt: off
         platform = self.platform
-        print("===============================================================")
-        print(" Platform name:",    platform.name)
-        print(" Platform profile:", platform.profile)
-        print(" Platform vendor:",  platform.vendor)
-        print(" Platform version:", platform.version)
+        logger.info("===============================================================")
+        logger.info(" Platform name: "    + platform.name)
+        logger.info(" Platform profile: " + platform.profile)
+        logger.info(" Platform vendor: "  + platform.vendor)
+        logger.info(" Platform version: " + platform.version)
         for device in platform.get_devices():
-            print("---------------------------------------------------------------")
-            print(" Device name:",     device.name)
-            print(" type:",            cl.device_type.to_string(device.type))
-            print(" memory: ",         device.global_mem_size // 1024 // 1024, 'MB')
-            print(" max clock speed:", device.max_clock_frequency, 'MHz')
-            print(" compute units:",   device.max_compute_units)
-            print("  GLOBAL_MEM_SIZE          = ", device.get_info( cl.device_info.GLOBAL_MEM_SIZE          ) / 4, " float32")
-            print("  LOCAL_MEM_SIZE           = ", device.get_info( cl.device_info.LOCAL_MEM_SIZE           ) / 4, " float32")
-            print("  MAX_CONSTANT_BUFFER_SIZE = ", device.get_info( cl.device_info.MAX_CONSTANT_BUFFER_SIZE ) / 4, " float32")
-            print("  MAX_WORK_GROUP_SIZE      = ", device.get_info( cl.device_info.MAX_WORK_GROUP_SIZE      ))
+            logger.info("---------------------------------------------------------------")
+            logger.info(" Device name: "     + device.name)
+            logger.info(" type: "            + cl.device_type.to_string(device.type))
+            logger.info(" memory: "          + f"{device.global_mem_size // 1024 // 1024} + MB")
+            logger.info(" max clock speed: " + f"{device.max_clock_frequency} MHz")
+            logger.info(" compute units: "   + str(device.max_compute_units))
+            logger.info(f"  GLOBAL_MEM_SIZE          = {device.get_info( cl.device_info.GLOBAL_MEM_SIZE          ) / 4} float32")
+            logger.info(f"  LOCAL_MEM_SIZE           = {device.get_info( cl.device_info.LOCAL_MEM_SIZE           ) / 4} float32")
+            logger.info(f"  MAX_CONSTANT_BUFFER_SIZE = {device.get_info( cl.device_info.MAX_CONSTANT_BUFFER_SIZE ) / 4} float32")
+            logger.info(f"  MAX_WORK_GROUP_SIZE      = {device.get_info( cl.device_info.MAX_WORK_GROUP_SIZE      )}")
         # fmt: on
 
 
@@ -83,4 +85,4 @@ def init_env(i_platform=0):
 def print_platforms():
     platforms = get_platforms()
     for i, plat in enumerate(platforms):
-        print(f"Platform {i}: {plat.name}")
+        logger.info(f"Platform {i}: {plat.name}")
