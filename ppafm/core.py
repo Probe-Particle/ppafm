@@ -45,34 +45,13 @@ lib.setGridCell.argtypes = [array2d]
 lib.setGridCell.restype = None
 
 
-def setGridCell(cell=None, parameters=None):
-    if cell is None:
-        cell = np.array(
-            [
-                parameters.gridA,
-                parameters.gridB,
-                parameters.gridC,
-            ],
-            dtype=np.float64,
-        ).copy()
-    cell = np.array(cell, dtype=np.float64)
-    if cell.shape == (3, 3):
-        cell = cell.copy()
-    elif cell.shape == (4, 3):
-        cell = cell[1:, :].copy()
-    else:
-        raise ValueError("cell has wrong format")
+def setGridCell(cell):
+    cell = np.array(cell[-3:, 0:3], copy=True, dtype=np.float64)
     logger.debug(f"cell {cell}")
     lib.setGridCell(cell)
 
 
-def setFF_shape(n_, cell, parameters=None):
-    n = np.array(n_).astype(np.int32)
-    lib.setGridN(n)
-    setGridCell(cell, parameters=parameters)
-
-
-# void setFF_pointer( double * gridF, double * gridE  )
+# void setFF_Fpointer( double * gridF, double * gridE  )
 lib.setFF_Fpointer.argtypes = [array4d]
 lib.setFF_Fpointer.restype = None
 
@@ -82,7 +61,7 @@ def setFF_Fpointer(gridF):
     weakref.finalize(gridF, deleteFF_Fpointer)  # Set array pointer to NULL when garbage collector runs.
 
 
-# void setFF_pointer( double * gridF, double * gridE  )
+# void setFF_Epointer( double * gridF, double * gridE  )
 lib.setFF_Epointer.argtypes = [array3d]
 lib.setFF_Epointer.restype = None
 
@@ -108,29 +87,6 @@ lib.deleteFF_Epointer.restype = None
 
 def deleteFF_Epointer():
     lib.deleteFF_Epointer()
-
-
-def setFF(cell=None, gridF=None, gridE=None, parameters=None):
-    n_ = None
-    if gridF is not None:
-        setFF_Fpointer(gridF)
-        n_ = np.shape(gridF)
-    if gridE is not None:
-        setFF_Epointer(gridE)
-        n_ = np.shape(gridF)
-    if cell is None:
-        cell = np.array(
-            [
-                parameters.gridA,
-                parameters.gridB,
-                parameters.gridC,
-            ]
-        ).copy()
-    if n_ is not None:
-        logger.debug(f"setFF() n_ : {n_}")
-        setFF_shape(n_, cell, parameters=parameters)
-    else:
-        logger.warning("setFF shape not set !!!")
 
 
 # void setRelax( int maxIters, double convF2, double dt, double damping )
