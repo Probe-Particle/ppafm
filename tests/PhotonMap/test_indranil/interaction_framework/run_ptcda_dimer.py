@@ -342,15 +342,35 @@ def main():
                 mol2_rot_rad=mol2_rot,
             )
 
-            dw = site_shifts.compute_site_shifts_for_system(
-                system,
-                args.siteshift_cubes,
-                args.site_shifts,
-                base_dir=script_dir,
-                interp_kind=str(args.siteshift_interp),
-                chunk=int(args.siteshift_chunk),
-                save_json_path=None,
-            )
+            terms_ini = args.siteshift_terms
+            if terms_ini is not None:
+                if not os.path.isabs(terms_ini):
+                    terms_ini = os.path.join(script_dir, terms_ini)
+                if not os.path.isfile(terms_ini):
+                    raise ValueError(f"--siteshift-terms file not found: {terms_ini}")
+
+            if terms_ini is not None:
+                result = site_shifts.compute_site_shift_terms(
+                    system,
+                    args.siteshift_cubes,
+                    args.site_shifts,
+                    terms_ini_path=terms_ini,
+                    base_dir=script_dir,
+                    interp_kind=str(args.siteshift_interp),
+                    chunk=int(args.siteshift_chunk),
+                    save_json_path=None,
+                )
+                dw = result['total_eV']
+            else:
+                dw = site_shifts.compute_site_shifts_for_system(
+                    system,
+                    args.siteshift_cubes,
+                    args.site_shifts,
+                    base_dir=script_dir,
+                    interp_kind=str(args.siteshift_interp),
+                    chunk=int(args.siteshift_chunk),
+                    save_json_path=None,
+                )
 
             k = int(args.hybrid_site_index)
             if (k < 0) or (k >= len(dw)):
@@ -734,24 +754,142 @@ if __name__ == '__main__':
 #   -w /home/indranil/git/ppafm/tests/PhotonMap/test_indranil/interaction_framework/ \
 #   -m molecules.ini -c cubefiles.ini --excitons --volumetric \
 #   --siteshift-cubes siteshift_cubes.ini --site-shifts electrostatics.ini \
-#   --siteshift-interp cubic --siteshift-chunk 100000 --siteshift-json site_shifts.json \
+#   --siteshift-terms site_shift_terms.ini \
+#   --siteshift-interp cubic --siteshift-chunk 100000 --siteshift-json site_shifts_multiterm.json \
 #   -R 10.0 -Z 6.0 -t s --output out_with_site_shifts
-
+ 
+# ======================== Multi-term site shifts (Coulomb + add-ons) ========================
+#
+# This code supports a modular site-energy shift decomposition per site-state (row in molecules.ini):
+#
+#   Δω_total = Δω_Coulomb + Δω_Exchange + Δω_Polarization + Δω_CT
+#
+# Where:
+#   - Coulomb:      electrostatic interaction of Δρ_A with environment potential (hybrid cube+RESP)
+#   - Exchange:     Pauli exchange/steric repulsion via overlap integral Δρ_A · ρ_B^GS
+#   - Polarization: mutual polarization of environment molecules via α tensors and electric fields
+#   - CT:           charge-transfer mixing via superexchange-like coupling models
+#
+# Enable/disable terms via --siteshift-terms site_shift_terms.ini.
+# If --siteshift-terms is omitted, the workflow computes Coulomb-only shifts (backward compatible).
+#
+# IMPORTANT (multi-state aggregates):
+#   - molecules.ini can contain multiple excited states for the same physical molecule.
+#   - These are identified by the same mol_id.
+#   - For ALL terms, environment contributions are excluded when env mol_id == site mol_id.
+#
+# ------------------------------ Required input files ------------------------------
+#
+# (1) molecules.ini
+#   - One row per site-state.
+#   - Rows with the same mol_id share the same physical molecule pose (position + rotation).
+#
+# (2) siteshift_cubes.ini
+#   - One row per molecules.ini row.
+#   - Columns (space-separated):
+#       mol_id   diff_density_cube   gs_density_cube   [virtual_orbital_cube]
+#
+#   diff_density_cube:
+#     - Δρ cube for that excited state (used by Coulomb/exchange/polarization)
+#
+#   gs_density_cube:
+#     - ρ_GS cube for that mol_id (used by exchange)
+#     - it is OK to repeat the same GS file on multiple rows
+#
+#   virtual_orbital_cube (optional 4th column):
+#     - used only for CT model = orbital_overlap
+#     - typically a LUMO-like orbital cube per site-state
+#
+# (3) electrostatics.ini
+#   - One section per mol_id, e.g. [mol1], [mol2].
+#
+#   Required keys (Coulomb hybrid cube+RESP potential):
+#     potential_cube = path/to/electrostatic_potential.cube
+#     resp_charges   = path/to/charges.xyzq
+#     resp_center    = cube_atom_mean | none
+#     switch_width_ang, cube_margin_ang, beta_match_shell_ang
+#
+#   charges.xyzq format (space-separated, Angstrom coordinates):
+#     x_ang  y_ang  z_ang  q_e
+#
+#   Optional keys for additional terms:
+#     gs_density_cube       = path/to/ground_state_density.cube    (exchange)
+#     polarizability_tensor = path/to/polarizability_tensor.txt    (polarization)
+#     alpha_units           = bohr3 | ang3                         (polarization)
+#     alpha_frame           = local | global                       (polarization)
+#     homo_cube             = path/to/HOMO.cube                    (CT hole coupling)
+#
+# (4) site_shift_terms.ini
+#   - Controls which terms are computed and their parameters.
+#
+#   Minimal example enabling all terms:
+#     [terms]
+#     enable = coulomb, exchange, polarization, ct
+#
+#   Exchange parameters:
+#     [exchange]
+#     k_exch_eV_bohr3 = 7.0
+#
+#   Polarization parameters (requires polarizability_tensor per mol_id):
+#     [polarization]
+#     field_method = direct
+#     r_min_bohr = 0.5
+#
+#   CT parameters:
+#     [ct]
+#     model = orbital_overlap | exp | off
+#     k_ct_eV = 1.0
+#     E_CT_model = fixed | ip_ea
+#     E_CT_eV = 3.5
+#
+# ------------------------------ Common CLI switches ------------------------------
+#
+# --siteshift-interp  : cube interpolation kind (linear|cubic)
+# --siteshift-chunk   : chunk size for batched evaluation (speed/memory)
+# --siteshift-json    : write a JSON report with per-site/per-neighbor breakdown
+# --siteshift-terms   : enable multi-term framework using site_shift_terms.ini
+#
+# ------------------------------ Copy/paste examples ------------------------------
+#
+# A) Compute multi-term shifts directly (hybrid-eval):
+# python3 run_ptcda_dimer.py \
+#   --workflow hybrid-eval \
+#   --molecules-ini molecules.ini \
+#   --siteshift-cubes siteshift_cubes.ini \
+#   --site-shifts electrostatics.ini \
+#   --siteshift-terms site_shift_terms.ini \
+#   --siteshift-interp cubic --siteshift-chunk 100000 \
+#   --siteshift-json site_shifts_multiterm.json \
+#   --out-prefix ptcda --no-show
+#
+# B) PhotonMap run applying multi-term Δω_i to exciton diagonals before diagonalization:
+# python3 /home/indranil/git/ppafm/photonMap.py \
+#   -w /home/indranil/git/ppafm/tests/PhotonMap/test_indranil/interaction_framework/ \
+#   -m molecules.ini -c cubefiles.ini --excitons --volumetric \
+#   --siteshift-cubes siteshift_cubes.ini --site-shifts electrostatics.ini \
+#   --siteshift-terms site_shift_terms.ini \
+#   --siteshift-interp cubic --siteshift-chunk 100000 \
+#   --siteshift-json site_shifts_multiterm.json \
+#   -R 10.0 -Z 6.0 -t s --output out_with_multiterm_site_shifts
+#
 '''
 python3 run_ptcda_dimer.py \
   --workflow hybrid-eval \
   --molecules-ini molecules.ini \
   --siteshift-cubes siteshift_cubes.ini \
   --site-shifts electrostatics.ini \
+  --siteshift-terms site_shift_terms.ini \
   --siteshift-interp cubic \
   --siteshift-chunk 100000 \
-  --siteshift-json site_shifts.json \
-  --out-prefix ptcda
+  --siteshift-json site_shifts_multiterm.json \
+  --out-prefix ptcda --no-show
+  
 
 python3 run_ptcda_dimer.py \
   --workflow hybrid-scan \
   --siteshift-cubes siteshift_cubes.ini \
   --site-shifts electrostatics.ini \
+  --siteshift-terms site_shift_terms.ini \
   --siteshift-interp cubic \
   --siteshift-chunk 100000 \
   --hybrid-site-index 0 \
