@@ -40,11 +40,11 @@ def plotAtoms(atoms, atomSize=default_atom_size, edge=True, ec="k", color="w"):
         plt.fig.gca().add_artist(circle)
 
 
-def plotGeom(atoms=None, bonds=None, atomSize=default_atom_size):
+def plotGeom(atoms=None, bonds=None, atomSize=default_atom_size, edge=True):
     if (bonds is not None) and (atoms is not None):
         plotBonds(atoms, bonds)
     if atoms is not None:
-        plotAtoms(atoms, atomSize=atomSize)
+        plotAtoms(atoms, atomSize=atomSize, edge=edge)
 
 
 def colorize_XY2RG(Xs, Ys):
@@ -84,6 +84,7 @@ def plotImages(
     symmetric_map=False,
     V0=0.0,
     cbar_label=None,
+    edge=True,
 ):
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
@@ -101,7 +102,7 @@ def plotImages(
             tmp_v = np.linspace(tmp_min, tmp_max, 10, endpoint=True)
             c_bar = plt.colorbar(shrink=min(1.0, F[i].shape[0] / F[i].shape[1]), label=cbar_label)
             c_bar.set_ticks(ticks=tmp_v)
-        plotGeom(atoms, bonds, atomSize=atomSize)
+        plotGeom(atoms, bonds, atomSize=atomSize, edge=edge)
         plt.xlabel(r" Tip_x $\AA$")
         plt.ylabel(r" Tip_y $\AA$")
         if zs is None:
