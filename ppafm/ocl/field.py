@@ -267,13 +267,12 @@ class DataGrid:
         if len(self.shape) == 3:
             if clamp:
                 array[array > clamp] = clamp
-            io.save_scal_field(file_head, array.T, self.lvec, data_format=ext)
+            io.save_scal_field(file_head, array, self.lvec, data_format=ext)
         if len(self.shape) == 4:
             assert self.shape[3] == 4, "Wrong number of components"
             if clamp:
                 io.limit_vec_field(array, Fmax=clamp)
                 array[:, :, :, 3][array[:, :, :, 3] > clamp] = clamp
-            array = array.transpose(2, 1, 0, 3)
             io.save_vec_field(file_head, array[:, :, :, :3], self.lvec, data_format=ext)
             io.save_scal_field(file_head + "_w", array[:, :, :, 3], self.lvec, data_format=ext)
 

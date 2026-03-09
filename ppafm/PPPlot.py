@@ -69,7 +69,7 @@ def write_plotting_slice(i):
 def plotImages(
     prefix,
     F,
-    slices,
+    slices=None,
     extent=None,
     zs=None,
     figsize=default_figsize,
@@ -85,6 +85,12 @@ def plotImages(
     V0=0.0,
     cbar_label=None,
 ):
+
+    # Specific index order (z,y,x) and default slices (full z-range) for plotting
+    F = F.transpose()
+    if slices is None:
+        slices = list(range(len(F)))
+
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
         write_plotting_slice(i)
@@ -116,6 +122,13 @@ def plotImages(
 def plotVecFieldRG(
     prefix, dXs, dYs, slices, extent=None, zs=None, figsize=default_figsize, interpolation=default_interpolation, atoms=None, bonds=None, atomSize=default_atom_size
 ):
+
+    # Set the index order (z,y,x) and default slices (full z-range) for plotting
+    dXs = dXs.transpose()
+    dYs = dYs.transpose()
+    if slices is None:
+        slices = list(range(len(dXs)))
+
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
         write_plotting_slice(i)
@@ -153,6 +166,15 @@ def plotDistortions(
     bonds=None,
     atomSize=default_atom_size,
 ):
+
+    # Set the index order (z,y,x) and default slices (full z-range) for plotting
+    X = X.transpose()
+    Y = Y.transpose()
+    if BG is not None:
+        BG = BG.transpose()
+    if slices is None:
+        slices = list(range(len(X)))
+
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
         write_plotting_slice(i)
@@ -196,11 +218,22 @@ def plotArrows(
     bonds=None,
     atomSize=default_atom_size,
 ):
+
+    # Set the index order (z,y,x) and default slices (full z-range) for plotting
+    dX = dX.transpose()
+    dY = dY.transpose()
+    X = X.transpose()
+    Y = Y.transpose()
+    if BG is not None:
+        BG = BG.transpose()
+    if slices is None:
+        slices = list(range(len(X)))
+
     for ii, i in enumerate(slices):
         # print(" plotting ", i)
         write_plotting_slice(i)
         plt.figure(figsize=figsize)
-        plt.quiver(Xs[::by, ::by], Ys[::by, ::by], dX[::by, ::by], dY[::by, ::by], color="k", headlength=10, headwidth=10, scale=15)
+        plt.quiver(X[i, ::by, ::by], Y[i, ::by, ::by], dX[i, ::by, ::by], dY[i, ::by, ::by], color="k", headlength=10, headwidth=10, scale=15)
         if BG is not None:
             plt.imshow(BG[i, :, :], origin="lower", interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax)
             if cbar:
@@ -217,6 +250,7 @@ def plotArrows(
 
 
 def checkField(F):
+    F = F.transpose()
     plt.figure(figsize=(15, 5))
     plt.subplot(1, 3, 1)
     plt.imshow(F[F.shape[0] / 2, :, :], interpolation="nearest")
@@ -231,6 +265,7 @@ def checkField(F):
 
 
 def checkVecField(FF):
+    FF = FF.transpose()
     plt.figure(figsize=(15, 15))
     plt.subplot(3, 3, 1)
     plt.imshow(FF[FF.shape[0] / 2, :, :, 0], interpolation="nearest")

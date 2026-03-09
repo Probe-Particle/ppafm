@@ -640,7 +640,7 @@ class AFMulator:
         """
         if not os.path.exists(outdir):
             os.makedirs(outdir)
-        X = X.transpose(2, 1, 0)[::-1]
+        X = X[:, :, ::-1]
         zTips = np.linspace(
             self.scan_window[0][2],
             self.scan_window[1][2] - self.df_steps * self.dz,
@@ -658,7 +658,7 @@ class AFMulator:
             if key in plot_kwargs:
                 warnings.warn(f"\n plot_images(): '{key}' found in plot_kwargs but is  set internally, removing from plot_kwargs.")
                 del plot_kwargs[key]
-        plotImages(os.path.join(outdir, prefix), X, slices=list(range(0, len(X))), zs=zTips, extent=extent, cmap=self.colorscale, **plot_kwargs)
+        plotImages(os.path.join(outdir, prefix), X, zs=zTips, extent=extent, cmap=self.colorscale, **plot_kwargs)
 
 
 def _get_params(file_path):

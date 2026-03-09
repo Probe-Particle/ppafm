@@ -583,7 +583,7 @@ BEGIN_BLOCK_DATAGRID_3D
 """
 
 
-def saveXSFData(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1, xyz_order=False):
+def saveXSFData(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1, xyz_order=True):
     if verbose > 0:
         print("Saving xsf", fname)
     if xyz_order:
@@ -610,7 +610,7 @@ def saveXSFData(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=
     fileout.write("END_BLOCK_DATAGRID_3D\n")
 
 
-def loadXSFData(fname, xyz_order=False, verbose=True):
+def loadXSFData(fname, xyz_order=True, verbose=True):
     filein = open(fname)
     startline, head = _readUpTo(filein, "BEGIN_DATAGRID_3D")  # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
     nDim = [int(iii) for iii in filein.readline().split()]  # reading 1 line with dimensions
@@ -628,6 +628,7 @@ def loadXSFData(fname, xyz_order=False, verbose=True):
     FF = np.reshape(F, nDim)[:-1, :-1, :-1]
     if xyz_order:
         FF = FF.transpose((2, 1, 0))
+        nDim[:] = nDim[::-1]
     # FF is not C_CONTIGUOUS without copy
     FF = FF.copy()
     return FF, lvec, nDim - 1, head
@@ -685,8 +686,8 @@ def loadCUBE(fname, xyz_order=False, verbose=True):
     FF = np.reshape(F, nDim)
     if not xyz_order:
         FF = FF.transpose((2, 1, 0)).copy()  # Transposition of the array to have the same order of data as in XSF file
-
-    nDim = [nDim[2], nDim[1], nDim[0]]  # Setting up the corresponding dimensions.
+    else:
+        nDim = [nDim[2], nDim[1], nDim[0]]  # Setting up the corresponding dimensions.
     head = []
     head.append("BEGIN_BLOCK_DATAGRID_3D \n")
     head.append("g98_3D_unknown \n")
@@ -716,14 +717,14 @@ def saveWSxM_2D(name_file, data, Xs, Ys):
 def saveWSxM_3D(prefix, data, extent, slices=None):
     nDim = np.shape(data)
     if slices is None:
-        slices = list(range(nDim[0]))
-    xs = np.linspace(extent[0], extent[1], nDim[2])
+        slices = list(range(nDim[2]))
+    xs = np.linspace(extent[0], extent[1], nDim[0])
     ys = np.linspace(extent[2], extent[3], nDim[1])
     Xs, Ys = np.meshgrid(xs, ys)
     for i in slices:
         print("slice no: ", i)
         fname = prefix + "_%03d.xyz" % i
-        saveWSxM_2D(fname, data[i], Xs, Ys)
+        saveWSxM_2D(fname, data[:, :, i], Xs, Ys)
 
 
 # ================ Npy

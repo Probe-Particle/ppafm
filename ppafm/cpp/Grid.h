@@ -13,7 +13,7 @@
 
 // ================= MACROS
 
-#define i3D( ix, iy, iz )  ( (iz*n.y + iy)*n.x + ix  )
+#define i3D( ix, iy, iz )  ( (ix*n.y + iy)*n.z + iz )
 
 // ================= CONSTANTS
 
@@ -79,12 +79,12 @@ inline double interpolate3DWrap( double * grid, const Vec3i& n, const Vec3d& r )
   SET_GRID_IND(z);
 
   double out =
-    m.z * (
-	  m.y * ( ( m.x * grid[ i3D( im.x, im.y, im.z ) ] ) + ( t.x * grid[ i3D( it.x, im.y, im.z ) ] ) ) +
-	  t.y * ( ( m.x * grid[ i3D( im.x, it.y, im.z ) ] ) + ( t.x * grid[ i3D( it.x, it.y, im.z ) ] ) ) ) +
-    t.z * (
-	  m.y * ( ( m.x * grid[ i3D( im.x, im.y, it.z ) ] ) + ( t.x * grid[ i3D( it.x, im.y, it.z ) ] ) ) +
-	  t.y * ( ( m.x * grid[ i3D( im.x, it.y, it.z ) ] ) + ( t.x * grid[ i3D( it.x, it.y, it.z ) ] ) ) );
+    m.x * (
+	  m.y * ( ( m.z * grid[ i3D( im.x, im.y, im.z ) ] ) + ( t.z * grid[ i3D( im.x, im.y, it.z ) ] ) ) +
+	  t.y * ( ( m.z * grid[ i3D( im.x, it.y, im.z ) ] ) + ( t.z * grid[ i3D( im.x, it.y, it.z ) ] ) ) ) +
+    t.x * (
+	  m.y * ( ( m.z * grid[ i3D( it.x, im.y, im.z ) ] ) + ( t.z * grid[ i3D( it.x, im.y, it.z ) ] ) ) +
+	  t.y * ( ( m.z * grid[ i3D( it.x, it.y, im.z ) ] ) + ( t.z * grid[ i3D( it.x, it.y, it.z ) ] ) ) );
   //}
   return out;
 }
@@ -99,12 +99,12 @@ inline Vec3d interpolate3DvecWrap( Vec3d * grid, const Vec3i& n, const Vec3d& r 
   SET_GRID_IND(y);
   SET_GRID_IND(z);
 
-  double mymx = m.y*m.x; double mytx = m.y*t.x; double tymx = t.y*m.x; double tytx = t.y*t.x;
+  double mxmy = m.x*m.y; double mxty = m.x*t.y; double txmy = t.x*m.y; double txty = t.x*t.y;
   Vec3d out;
-  out.set_mul( grid[ i3D( im.x, im.y, im.z ) ], m.z*mymx );  out.add_mul( grid[ i3D( it.x, im.y, im.z ) ], m.z*mytx );
-  out.add_mul( grid[ i3D( im.x, it.y, im.z ) ], m.z*tymx );  out.add_mul( grid[ i3D( it.x, it.y, im.z ) ], m.z*tytx );
-  out.add_mul( grid[ i3D( im.x, it.y, it.z ) ], t.z*tymx );  out.add_mul( grid[ i3D( it.x, it.y, it.z ) ], t.z*tytx );
-  out.add_mul( grid[ i3D( im.x, im.y, it.z ) ], t.z*mymx );  out.add_mul( grid[ i3D( it.x, im.y, it.z ) ], t.z*mytx );
+  out.set_mul( grid[ i3D( im.x, im.y, im.z ) ], mxmy*m.z );  out.add_mul( grid[ i3D( im.x, im.y, it.z ) ], mxmy*t.z );
+  out.add_mul( grid[ i3D( im.x, it.y, im.z ) ], mxty*m.z );  out.add_mul( grid[ i3D( im.x, it.y, it.z ) ], mxty*t.z );
+  out.add_mul( grid[ i3D( it.x, it.y, im.z ) ], txty*m.z );  out.add_mul( grid[ i3D( it.x, it.y, it.z ) ], txty*t.z );
+  out.add_mul( grid[ i3D( it.x, im.y, im.z ) ], txmy*m.z );  out.add_mul( grid[ i3D( it.x, im.y, it.z ) ], txmy*t.z );
   //printf( "DEBUG interpolate3DvecWrap gp(%g,%g,%g) igp(%i,%i,%i)/(%i,%i,%i) %i->%g out(%g,%g,%g) \n", r.x, r.y, r.z, im.x, im.y, im.z, n.x, n.y, n.z, i3D( im.x, im.y, im.z ), grid[ i3D( im.x, im.y, im.z ) ], out.x,out.y,out.z );
   //}
   return out;
@@ -117,24 +117,24 @@ void iterateGrid3D( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, void 
 	printf( "iterateGrid3D nx,y,z (%i,%i,%i)\n", nx, ny, nz );
 	Vec3d pos; pos.set( pos0 );
 	//printf( " iterateGrid3D : args %i \n", args );
-	for ( int ic=0; ic<nz; ic++ ){
-		std::cout << "ic " << ic;
+	for ( int ia=0; ia<nx; ia++ ){
+		std::cout << "ia " << ia;
 		std::cout.flush();
 		std::cout << '\r';
 		for ( int ib=0; ib<ny; ib++ ){
-			for ( int ia=0; ia<nx; ia++ ){
+			for ( int ic=0; ic<nz; ic++ ){
 				int ibuff = i3D( ia, ib, ic );
 				//FUNC( ibuff, {ia, ib, ic}, pos );
-				//pos = pos0 + dCell.c*ic + dCell.b*ib + dCell.a*ia;
+				//pos = pos0 + dCell.a*ia + dCell.b*ib + dCell.c*ic;
 				FUNC( ibuff, pos, args );
 				//printf( "(%i,%i,%i)(%3.3f,%3.3f,%3.3f)\n", ia, ib, ic, pos.x, pos.y, pos.z );
-				pos.add( dCell.a );
+				pos.add( dCell.c );
 			}
-			pos.add_mul( dCell.a, -nx );
+			pos.add_mul( dCell.c, -nz );
 			pos.add( dCell.b );
 		}
 	pos.add_mul( dCell.b, -ny );
-	pos.add( dCell.c );
+	pos.add( dCell.a );
 	}
 	printf ( "\n" );
 }
@@ -145,12 +145,12 @@ void iterateGrid3D_omp( const Vec3d& pos0, const Vec3i& n, const Mat3d& dCell, v
 	int ncpu = omp_get_num_threads(); printf( "iterateGrid3D_omp nx,y,z (%i,%i,%i) ntot %i ncpu %i \n", n.x, n.y, n.z, ntot, ncpu );
 	int ndone=0;
 	#pragma omp parallel for collapse(3) shared(pos0,n,dCell,args,ndone)
-	for ( int ic=0; ic<n.z; ic++ ){
+	for ( int ia=0; ia<n.x; ia++ ){
 		for ( int ib=0; ib<n.y; ib++ ){
-			for ( int ia=0; ia<n.x; ia++ ){
-				Vec3d pos = pos0 + dCell.c*ic + dCell.b*ib + dCell.a*ia;
+			for ( int ic=0; ic<n.z; ic++ ){
+				Vec3d pos = pos0 + dCell.a*ia + dCell.b*ib + dCell.c*ic;
 				//int ibuff = i3D( ia, ib, ic );
-				int ibuff = ic*(n.x*n.y) + ib*n.x + ia;
+				int ibuff = ia*(n.y*n.z) + ib*n.z + ic;
 				//ndone[ omp_get_thread_num() ]++;
 				if( omp_get_thread_num()==0 ){
 					ndone++;

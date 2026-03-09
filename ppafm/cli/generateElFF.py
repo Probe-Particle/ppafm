@@ -140,8 +140,8 @@ def main(argv=None):
         ff_kpfm_tvs0, _ = computeElFF(electrostatic_potential, lvec, n_dim, drho_kpfm, computeVpot=args.energy, tilt=args.tilt, sigma=sigma, deleteV=False, parameters=parameters)
 
         print("Linear E to V")
-        zpos = np.linspace(lvec[0, 2] - args.z0, lvec[0, 2] + lvec[3, 2] - args.z0, n_dim[0])
-        for i in range(n_dim[0]):
+        zpos = np.linspace(lvec[0, 2] - args.z0, lvec[0, 2] + lvec[3, 2] - args.z0, n_dim[2])
+        for i in range(n_dim[3]):
             # z position of the KPFM tip with respect to the sample must not be zero or negative
             # Should that happen, use periodicity in z to get zpos>0
             zpos[i] %= lvec[3, 2]

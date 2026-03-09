@@ -433,7 +433,7 @@ def Fz2df(F, dz, k0, f0, amplitude=1.0, units=16.0217656):
     Internal force units are eV/A the 16.021... converts stifness eV/A**2 to N/m
     """
     W = get_df_weight(amplitude, dz=dz)
-    dFconv = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F)
+    dFconv = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=2, arr=F)
     return dFconv * units * f0 / k0
 
 
@@ -446,9 +446,9 @@ def Fz2df_tilt(F, d, k0, f0, amplitude=1.0, units=16.0217656):
     """
     dr = np.sqrt(d[0] ** 2 + d[1] ** 2 + d[2] ** 2)
     W = get_df_weight(amplitude, dz=dr)
-    dFconv_x = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 0])
-    dFconv_y = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 1])
-    dFconv_z = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 2])
+    dFconv_x = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=2, arr=F[:, :, :, 0])
+    dFconv_y = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=2, arr=F[:, :, :, 1])
+    dFconv_z = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=2, arr=F[:, :, :, 2])
     return (dFconv_x * d[0] + dFconv_y * d[1] + dFconv_z * d[2]) * units * f0 / k0
 
 
