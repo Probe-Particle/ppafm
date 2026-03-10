@@ -595,10 +595,10 @@ class TipDensity(DataGrid):
         Returns:
             TipDensity. New tip density with core densities subtracted.
         """
-        array = np.ascontiguousarray(self.array.T, dtype=np.float64)  # 64 bit required by library
+        array = np.ascontiguousarray(self.array, dtype=np.float64)  # 64 bit required by library
         Rs, elems = _getAtomsWhichTouchPBCcell(xyzs.T, Zs, self.shape, self.lvec, 1.0, False)
         subtractCoreDensities(array, self.lvec, elems=elems, Rs=Rs, valElDict=valElDict, Rcore=Rcore, bSaveDebugGeom=False)
-        grid = TipDensity(array.T, self.lvec, ctx=self.ctx)
+        grid = TipDensity(array, self.lvec, ctx=self.ctx)
         return grid
 
     def interp_at(self, lvec_new, shape_new, array_out=None, local_size=(32,), queue=None):

@@ -1000,11 +1000,11 @@ def genFFSampling(lvec, pixPerAngstrome=10):
 def getPos(lvec, nDim=None, pixPerAngstrome=10):
     if nDim is None:
         nDim = genFFSampling(lvec, pixPerAngstrome=pixPerAngstrome)
-    dCell = np.array((lvec[1, :] / nDim[2], lvec[2, :] / nDim[1], lvec[3, :] / nDim[0]))
+    dCell = np.array((lvec[1, :] / nDim[0], lvec[2, :] / nDim[1], lvec[3, :] / nDim[2]))
     ABC = np.mgrid[0 : nDim[0], 0 : nDim[1], 0 : nDim[2]]
-    X = lvec[0, 0] + ABC[2] * dCell[0, 0] + ABC[1] * dCell[1, 0] + ABC[0] * dCell[2, 0]
-    Y = lvec[0, 1] + ABC[2] * dCell[0, 1] + ABC[1] * dCell[1, 1] + ABC[0] * dCell[2, 1]
-    Z = lvec[0, 2] + ABC[2] * dCell[0, 2] + ABC[1] * dCell[1, 2] + ABC[0] * dCell[2, 2]
+    X = lvec[0, 0] + ABC[0] * dCell[0, 0] + ABC[1] * dCell[1, 0] + ABC[2] * dCell[2, 0]
+    Y = lvec[0, 1] + ABC[0] * dCell[0, 1] + ABC[1] * dCell[1, 1] + ABC[2] * dCell[2, 1]
+    Z = lvec[0, 2] + ABC[0] * dCell[0, 2] + ABC[1] * dCell[1, 2] + ABC[2] * dCell[2, 2]
     return X, Y, Z
 
 
