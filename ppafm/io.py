@@ -654,7 +654,7 @@ def getFromHead_PRIMCOORD(head):
 # =================== Cube
 
 
-def loadCUBE(fname, xyz_order=False, verbose=True):
+def loadCUBE(fname, xyz_order=True, verbose=True):
     filein = open(fname)
     # First two lines of the header are comments
     filein.readline()
@@ -686,7 +686,6 @@ def loadCUBE(fname, xyz_order=False, verbose=True):
     FF = np.reshape(F, nDim)
     if not xyz_order:
         FF = FF.transpose((2, 1, 0)).copy()  # Transposition of the array to have the same order of data as in XSF file
-    else:
         nDim = [nDim[2], nDim[1], nDim[0]]  # Setting up the corresponding dimensions.
     head = []
     head.append("BEGIN_BLOCK_DATAGRID_3D \n")
