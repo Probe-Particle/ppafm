@@ -25,14 +25,14 @@ def test_vdw():
     x_FF = np.arange(x_min, x_max, step)
     atoms = np.zeros((1, 4))
     lvec = np.array([[x_min, 0, 0], [x_max - x_min, 0, 0], [0, step, 0], [0, 0, step]])
-    pixPerAngstrome = round(1 / step)
+    pixPerAmgstrom = round(1 / step)
 
     forcefield = FFcl.ForceField_LJC()
     typeParams = PPU.loadSpecies("atomtypes.ini")
     REAs = PPU.getAtomsREA(Z_pp, Z_atom, typeParams)
     cLJs = PPU.REA2LJ(REAs)
 
-    forcefield.initSampling(lvec, pixPerAngstrome=pixPerAngstrome)
+    forcefield.initSampling(lvec, pixPerAmgstrom=pixPerAmgstrom)
 
     for damp_method in [-1, 0, 1, 2, 3, 4]:
         for i, Z in enumerate(Z_atom):
@@ -74,11 +74,11 @@ def test_dftd3():
         ]
     )
     lvec = np.array([[0, 0, 0], [20, 0, 0], [0, 20, 0], [0, 0, 20]])
-    pixPerAngstrome = 10
+    pixPerAmgstrom = 10
     params = {"s6": 1.000, "s8": 0.7875, "a1": 0.4289, "a2": 4.4407}
 
     forcefield = FFcl.ForceField_LJC()
-    forcefield.initSampling(lvec, pixPerAngstrome=pixPerAngstrome)
+    forcefield.initSampling(lvec, pixPerAmgstrom=pixPerAmgstrom)
     forcefield.prepareBuffers(atoms=np.concatenate([xyzs, np.zeros((len(Zs), 1))], axis=1), Zs=Zs)
     forcefield.setPP(Z_pp)
 
