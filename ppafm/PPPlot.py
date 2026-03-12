@@ -69,6 +69,7 @@ def write_plotting_slice(i):
 def plotImages(
     prefix,
     F,
+    xyz_order=True,
     slices=None,
     extent=None,
     zs=None,
@@ -87,7 +88,8 @@ def plotImages(
 ):
 
     # Specific index order (z,y,x) and default slices (full z-range) for plotting
-    F = F.transpose()
+    if xyz_order:
+        F = F.transpose()
     if slices is None:
         slices = list(range(len(F)))
 
@@ -120,12 +122,24 @@ def plotImages(
 
 
 def plotVecFieldRG(
-    prefix, dXs, dYs, slices, extent=None, zs=None, figsize=default_figsize, interpolation=default_interpolation, atoms=None, bonds=None, atomSize=default_atom_size
+    prefix,
+    dXs,
+    dYs,
+    xyz_order=True,
+    slices=None,
+    extent=None,
+    zs=None,
+    figsize=default_figsize,
+    interpolation=default_interpolation,
+    atoms=None,
+    bonds=None,
+    atomSize=default_atom_size,
 ):
 
     # Set the index order (z,y,x) and default slices (full z-range) for plotting
-    dXs = dXs.transpose()
-    dYs = dYs.transpose()
+    if xyz_order:
+        dXs = dXs.transpose()
+        dYs = dYs.transpose()
     if slices is None:
         slices = list(range(len(dXs)))
 
@@ -150,7 +164,8 @@ def plotDistortions(
     prefix,
     X,
     Y,
-    slices,
+    xyz_order=True,
+    slices=None,
     BG=None,
     by=2,
     extent=None,
@@ -168,10 +183,11 @@ def plotDistortions(
 ):
 
     # Set the index order (z,y,x) and default slices (full z-range) for plotting
-    X = X.transpose()
-    Y = Y.transpose()
-    if BG is not None:
-        BG = BG.transpose()
+    if xyz_order:
+        X = X.transpose()
+        Y = Y.transpose()
+        if BG is not None:
+            BG = BG.transpose()
     if slices is None:
         slices = list(range(len(X)))
 
@@ -202,9 +218,9 @@ def plotArrows(
     dY,
     X,
     Y,
-    slices,
+    xyz_order=True,
+    slices=None,
     BG=None,
-    C=None,
     extent=None,
     zs=None,
     by=2,
@@ -220,12 +236,13 @@ def plotArrows(
 ):
 
     # Set the index order (z,y,x) and default slices (full z-range) for plotting
-    dX = dX.transpose()
-    dY = dY.transpose()
-    X = X.transpose()
-    Y = Y.transpose()
-    if BG is not None:
-        BG = BG.transpose()
+    if xyz_order:
+        dX = dX.transpose()
+        dY = dY.transpose()
+        X = X.transpose()
+        Y = Y.transpose()
+        if BG is not None:
+            BG = BG.transpose()
     if slices is None:
         slices = list(range(len(X)))
 
@@ -265,7 +282,7 @@ def checkField(F):
 
 
 def checkVecField(FF):
-    FF = FF.transpose()
+    FF = FF.transpose(2, 1, 0, 3)
     plt.figure(figsize=(15, 15))
     plt.subplot(3, 3, 1)
     plt.imshow(FF[FF.shape[0] / 2, :, :, 0], interpolation="nearest")
