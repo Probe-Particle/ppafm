@@ -90,11 +90,11 @@ def relaxedScan3D(xTips, yTips, zTips, trj=None, bF3d=False):
             rTips[:, 2] = trj[:, 2]
             core.relaxTipStroke(rTips, rs, fs)
             if bF3d:
-                fzs[ix, iy, :, 0] = (fs[:, 0].copy())[::-1]
-                fzs[ix, iy, :, 1] = (fs[:, 1].copy())[::-1]
-                fzs[ix, iy, :, 2] = (fs[:, 2].copy())[::-1]
+                fzs[ix, iy, :, 0] = fs[::-1, 0]
+                fzs[ix, iy, :, 1] = fs[::-1, 1]
+                fzs[ix, iy, :, 2] = fs[::-1, 2]
             else:
-                fzs[:, iy, ix] = (fs[:, 2].copy())[::-1]
+                fzs[:, iy, ix] = fs[::-1, 2]
             PPpos[ix, iy, :, 0] = rs[::-1, 0]
             PPpos[ix, iy, :, 1] = rs[::-1, 1]
             PPpos[ix, iy, :, 2] = rs[::-1, 2]
