@@ -221,6 +221,7 @@ def plotArrows(
     xyz_order=True,
     slices=None,
     BG=None,
+    C=None,
     extent=None,
     zs=None,
     by=2,
@@ -250,7 +251,10 @@ def plotArrows(
         # print(" plotting ", i)
         write_plotting_slice(i)
         plt.figure(figsize=figsize)
-        plt.quiver(X[i, ::by, ::by], Y[i, ::by, ::by], dX[i, ::by, ::by], dY[i, ::by, ::by], color="k", headlength=10, headwidth=10, scale=15)
+        if C is None:
+            plt.quiver(X[i, ::by, ::by], Y[i, ::by, ::by], dX[i, ::by, ::by], dY[i, ::by, ::by], color="k", headlength=10, headwidth=10, scale=15)
+        else:
+            plt.quiver(X[i, ::by, ::by], Y[i, ::by, ::by], dX[i, ::by, ::by], dY[i, ::by, ::by], C, color="k", headlength=10, headwidth=10, scale=15)
         if BG is not None:
             plt.imshow(BG[i, :, :], origin="lower", interpolation=interpolation, cmap=cmap, extent=extent, vmin=vmin, vmax=vmax)
             if cbar:
