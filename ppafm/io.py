@@ -583,9 +583,11 @@ BEGIN_BLOCK_DATAGRID_3D
 """
 
 
-def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1):
+def saveXSFData(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1, xyz_order=True):
     if verbose > 0:
         print("Saving xsf", fname)
+    if xyz_order:
+        data = data.transpose((2, 1, 0))
     fileout = open(fname, "w")
     if lvec is None:
         if dd is None:
@@ -608,7 +610,7 @@ def saveXSF(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1):
     fileout.write("END_BLOCK_DATAGRID_3D\n")
 
 
-def loadXSF(fname, xyz_order=False, verbose=True):
+def loadXSFData(fname, xyz_order=True, verbose=True):
     filein = open(fname)
     startline, head = _readUpTo(filein, "BEGIN_DATAGRID_3D")  # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
     nDim = [int(iii) for iii in filein.readline().split()]  # reading 1 line with dimensions
@@ -626,6 +628,7 @@ def loadXSF(fname, xyz_order=False, verbose=True):
     FF = np.reshape(F, nDim)[:-1, :-1, :-1]
     if xyz_order:
         FF = FF.transpose((2, 1, 0))
+        nDim[:] = nDim[::-1]
     # FF is not C_CONTIGUOUS without copy
     FF = FF.copy()
     return FF, lvec, nDim - 1, head
@@ -651,7 +654,7 @@ def getFromHead_PRIMCOORD(head):
 # =================== Cube
 
 
-def loadCUBE(fname, xyz_order=False, verbose=True):
+def loadCUBE(fname, xyz_order=True, verbose=True):
     filein = open(fname)
     # First two lines of the header are comments
     filein.readline()
@@ -683,8 +686,7 @@ def loadCUBE(fname, xyz_order=False, verbose=True):
     FF = np.reshape(F, nDim)
     if not xyz_order:
         FF = FF.transpose((2, 1, 0)).copy()  # Transposition of the array to have the same order of data as in XSF file
-
-    nDim = [nDim[2], nDim[1], nDim[0]]  # Setting up the corresponding dimensions.
+        nDim = [nDim[2], nDim[1], nDim[0]]  # Setting up the corresponding dimensions.
     head = []
     head.append("BEGIN_BLOCK_DATAGRID_3D \n")
     head.append("g98_3D_unknown \n")
@@ -714,14 +716,14 @@ def saveWSxM_2D(name_file, data, Xs, Ys):
 def saveWSxM_3D(prefix, data, extent, slices=None):
     nDim = np.shape(data)
     if slices is None:
-        slices = list(range(nDim[0]))
-    xs = np.linspace(extent[0], extent[1], nDim[2])
+        slices = list(range(nDim[2]))
+    xs = np.linspace(extent[0], extent[1], nDim[0])
     ys = np.linspace(extent[2], extent[3], nDim[1])
     Xs, Ys = np.meshgrid(xs, ys)
     for i in slices:
         print("slice no: ", i)
         fname = prefix + "_%03d.xyz" % i
-        saveWSxM_2D(fname, data[i], Xs, Ys)
+        saveWSxM_2D(fname, data[:, :, i], Xs, Ys)
 
 
 # ================ Npy
@@ -777,53 +779,6 @@ def unpackVecGrid(FF):
     return FF[:, :, :, 0].copy(), FF[:, :, :, 1].copy(), FF[:, :, :, 2].copy()
 
 
-def loadVecFieldXsf(fname, FF=None):
-    Fx, lvec, nDim, head = loadXSF(fname + "_x.xsf")
-    Fy, lvec, nDim, head = loadXSF(fname + "_y.xsf")
-    Fz, lvec, nDim, head = loadXSF(fname + "_z.xsf")
-    FF = packVecGrid(Fx, Fy, Fz, FF)
-    del Fx, Fy, Fz
-    return FF, lvec, nDim, head
-
-
-def loadVecFieldNpy(fname, FF=None):
-    """
-    Function for loading vector grid data, together with its lattice_vector and information about original atoms and the original lattice vector (lvec0) in numpy format.
-
-    Arguments:
-        fname: str. name of the npz file.
-
-    Returns:
-        FF: np.array of shape(nz, ny, nx, 3) with volumetric (vector data) we want to load.
-        lvec: np.array of shape(4,3) with lattice vector of the volumetric data.
-        atomic_info: tuple of shape (2) with 2 np.arrays, one is np.array([e,x,y,z]) with atoms positions and the second one is np.array(lvec0) of shape (4,3) with saved information about lattice vector.
-    """
-    tmp_input = np.load(fname + ".npz")
-    FF = tmp_input["FF"]
-    lvec = tmp_input["lvec"]
-    atomic_info = (tmp_input["atoms"], tmp_input["lvec0"])
-    return FF, lvec, atomic_info
-
-
-def saveVecFieldXsf(fname, FF, lvec, head=XSF_HEAD_DEFAULT):
-    saveXSF(fname + "_x.xsf", FF[:, :, :, 0], lvec, head=head)
-    saveXSF(fname + "_y.xsf", FF[:, :, :, 1], lvec, head=head)
-    saveXSF(fname + "_z.xsf", FF[:, :, :, 2], lvec, head=head)
-
-
-def saveVecFieldNpy(fname, FF, lvec, atomic_info):
-    """
-    Function for saving vector grid data, together with its lattice_vector and information about original atoms and the original lattice vector (lvec0) in numpy format.
-
-    Arguments:
-        fname: str. name of the npz file. fname should be without the npz expension, which is added by this function.
-        FF: np.array of shape(nz, ny, nx, 3) with volumetric (vector data) we want to load.
-        lvec: np.array of shape(4,3) with lattice vector of the volumetric data.
-        atomic_info: tuple of shape (2) with 2 np.arrays, one is np.array([e,x,y,z]) with atoms positions and the second one is np.array(lvec0) of shape (4,3) with saved information about lattice vector.
-    """
-    np.savez(fname + ".npz", FF=FF, lvec=lvec, atoms=atomic_info[0], lvec0=atomic_info[1])
-
-
 def limit_vec_field(FF, Fmax=100.0):
     """
     remove too large values; preserves direction of vectors.
@@ -852,10 +807,12 @@ def save_vec_field(fname, data, lvec, data_format="xsf", head=XSF_HEAD_DEFAULT, 
         atomic_info: tuple of shape (2) with 2 np.arrays - one is np.array([e,x,y,z]) with atoms positions and the second one is np.array(lvec) of shape (4,3) with saved information about lattice vector.
     """
     if data_format == "xsf":
-        saveVecFieldXsf(fname, data, lvec, head=head)
+        saveXSFData(fname + "_x.xsf", data[:, :, :, 0], lvec, head=head)
+        saveXSFData(fname + "_y.xsf", data[:, :, :, 1], lvec, head=head)
+        saveXSFData(fname + "_z.xsf", data[:, :, :, 2], lvec, head=head)
     elif data_format == "npy":
         atomic_info = atomic_info if atomic_info is not None else (np.zeros((4, 1)), lvec)
-        saveVecFieldNpy(fname, data, lvec, atomic_info)
+        np.savez(fname + ".npz", FF=data, lvec=lvec, atoms=atomic_info[0], lvec0=atomic_info[1])
     else:
         print("I cannot save this format!")
 
@@ -878,13 +835,20 @@ def load_vec_field(fname, data_format="xsf"):
     """
     atomic_info_or_head = None
     if data_format == "xsf":
-        data, lvec, ndim, atomic_info_or_head = loadVecFieldXsf(fname)
+        Fx, lvec, nDim, atomic_info_or_head = loadXSFData(fname + "_x.xsf")
+        Fy, lvec, nDim, atomic_info_or_head = loadXSFData(fname + "_y.xsf")
+        Fz, lvec, nDim, atomic_info_or_head = loadXSFData(fname + "_z.xsf")
+        data = packVecGrid(Fx, Fy, Fz)
+        del Fx, Fy, Fz
     elif data_format == "npy":
-        data, lvec, atomic_info_or_head = loadVecFieldNpy(fname)
-        ndim = data.shape
+        tmp_input = np.load(fname + ".npz")
+        data = tmp_input["FF"]
+        lvec = tmp_input["lvec"]
+        atomic_info_or_head = (tmp_input["atoms"], tmp_input["lvec0"])
+        nDim = data.shape
     else:
         print("I cannot load this format!")
-    return data.copy(), lvec, ndim, atomic_info_or_head
+    return data.copy(), lvec, nDim, atomic_info_or_head
 
 
 # =============== Scalar Fields
@@ -903,7 +867,7 @@ def save_scal_field(fname, data, lvec, data_format="xsf", head=XSF_HEAD_DEFAULT,
         atomic_info: tuple of shape (2) with 2 np.arrays - one is np.array([e,x,y,z]) with atoms positions and the second one is np.array(lvec) of shape (4,3) with saved information about lattice vector.
     """
     if data_format == "xsf":
-        saveXSF(fname + ".xsf", data, lvec, head=head)
+        saveXSFData(fname + ".xsf", data, lvec, head=head)
     elif data_format == "npy":
         atomic_info = atomic_info if atomic_info is not None else (np.zeros((4, 1)), lvec)
         saveNpy(fname, data, lvec, atomic_info)
@@ -928,7 +892,7 @@ def load_scal_field(fname, data_format="xsf"):
     """
     atomic_info_or_head = None
     if data_format == "xsf":
-        data, lvec, ndim, atomic_info_or_head = loadXSF(fname + ".xsf")
+        data, lvec, ndim, atomic_info_or_head = loadXSFData(fname + ".xsf")
     elif data_format == "npy":
         data, lvec, atomic_info_or_head = loadNpy(fname)
         ndim = data.shape

@@ -36,9 +36,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     print(">>> Loading sample from ", args.sample, " ... ")
-    rho_sample, lvec_sample, n_dim_sample, head_sample = io.loadXSF(args.sample)
+    rho_sample, lvec_sample, n_dim_sample, head_sample = io.loadXSFData(args.sample)
     print(">>> Loading tip from ", args.tip, " ... ")
-    rho_tip, lvec_tip, n_dim_tip, head_tip = io.loadXSF(args.tip)
+    rho_tip, lvec_tip, n_dim_tip, head_tip = io.loadXSFData(args.tip)
 
     if np.any(n_dim_sample != n_dim_tip):
         raise Exception("Tip and Sample grids have different dimensions! - sample: " + str(n_dim_sample) + " tip: " + str(n_dim_tip))

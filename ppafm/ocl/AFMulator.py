@@ -21,7 +21,7 @@ class AFMulator:
     Simulate Atomic force microscope images of molecules.
 
     Arguments:
-        pixPerAngstrome: int. Number of pixels (voxels) per angstrom in force field grid.
+        pixPerAngstrom: int. Number of pixels (voxels) per angstrom in force field grid.
         lvec: np.ndarray of shape (4, 3) or None. Unit cell boundaries for force field. First (row) vector
             specifies the origin, and the remaining three vectors specify the edge vectors of the unit cell.
             If None, will be calculated automatically from scan_window and tipR0, leaving some additional space
@@ -80,7 +80,7 @@ class AFMulator:
 
     def __init__(
         self,
-        pixPerAngstrome=10,
+        pixPerAngstrom=10,
         lvec=None,
         scan_dim=(128, 128, 30),
         scan_window=((2.0, 2.0, 7.0), (18.0, 18.0, 10.0)),
@@ -129,7 +129,7 @@ class AFMulator:
         self.minimize_memory = minimize_memory
 
         self.setScanWindow(scan_window, scan_dim, df_steps)
-        self.setLvec(lvec, pixPerAngstrome)
+        self.setLvec(lvec, pixPerAngstrom)
         self.setRho(rho, sigma, B_pauli)
         self.setRhoDelta(rho_delta)
         self.setQs(Qs, QZs)
@@ -183,18 +183,18 @@ class AFMulator:
 
     # ========= Setup =========
 
-    def setLvec(self, lvec=None, pixPerAngstrome=None):
+    def setLvec(self, lvec=None, pixPerAngstrom=None):
         """Set forcefield lattice vectors. If lvec is not given it is inferred from the scan window."""
 
         if self.bRuntime:
             t0 = time.perf_counter()
 
-        if pixPerAngstrome is not None:
-            self.pixPerAngstrome = pixPerAngstrome
+        if pixPerAngstrom is not None:
+            self.pixPerAngstrom = pixPerAngstrom
         if lvec is not None:
             self.lvec = lvec
         else:
-            self.lvec = get_lvec(self.scan_window, tipR0=self.tipR0, pixPerAngstrome=self.pixPerAngstrome)
+            self.lvec = get_lvec(self.scan_window, tipR0=self.tipR0, pixPerAngstrom=self.pixPerAngstrom)
 
         # Remember old grid size
         if hasattr(self.forcefield, "nDim"):
@@ -203,7 +203,7 @@ class AFMulator:
             self._old_nDim = np.zeros(4)
 
         # Set lvec in force field and scanner
-        self.forcefield.initSampling(self.lvec, pixPerAngstrome=self.pixPerAngstrome)
+        self.forcefield.initSampling(self.lvec, pixPerAngstrom=self.pixPerAngstrom)
         FEin_shape = self.forcefield.nDim if (self._old_nDim != self.forcefield.nDim).any() else None
         self.scanner.prepareBuffers(lvec=self.lvec, FEin_shape=FEin_shape)
 
@@ -530,7 +530,7 @@ class AFMulator:
         self.npbc = parameters["npbc"]
         self.A_pauli = parameters["A_pauli"]
         self.setScanWindow(parameters["scan_window"], parameters["scan_dim"], parameters["df_steps"])
-        self.setLvec(parameters["lvec"], parameters["pixPerAngstrome"])
+        self.setLvec(parameters["lvec"], parameters["pixPerAngstrom"])
         if (self._rho is None) or isinstance(self._rho, dict):
             self.setRho(parameters["rho"], parameters["sigma"])
         else:
@@ -606,7 +606,7 @@ class AFMulator:
     def saveDebugXSF_FF(self, fname, F):
         if self.verbose > 0:
             print("saveDebugXSF : ", fname)
-        io.saveXSF(fname, F, self.lvec)
+        io.saveXSFData(fname, F, self.lvec)
 
     def check_scan_window(self):
         """Check that scan window does not extend beyond any non-periodic boundaries."""
@@ -640,7 +640,7 @@ class AFMulator:
         """
         if not os.path.exists(outdir):
             os.makedirs(outdir)
-        X = X.transpose(2, 1, 0)[::-1]
+        X = X[:, :, ::-1]
         zTips = np.linspace(
             self.scan_window[0][2],
             self.scan_window[1][2] - self.df_steps * self.dz,
@@ -658,7 +658,7 @@ class AFMulator:
             if key in plot_kwargs:
                 warnings.warn(f"\n plot_images(): '{key}' found in plot_kwargs but is  set internally, removing from plot_kwargs.")
                 del plot_kwargs[key]
-        plotImages(os.path.join(outdir, prefix), X, slices=list(range(0, len(X))), zs=zTips, extent=extent, cmap=self.colorscale, **plot_kwargs)
+        plotImages(os.path.join(outdir, prefix), X, zs=zTips, extent=extent, cmap=self.colorscale, **plot_kwargs)
 
 
 def _get_params(file_path):
@@ -676,16 +676,16 @@ def _get_params(file_path):
         lvec = None
     sample_lvec = np.array([parameters.gridA, parameters.gridB, parameters.gridC])
     if (np.array(parameters.gridN) == 0).any() or lvec is None:
-        pixPerAngstrome = 10
+        pixPerAngstrom = 10
     else:
         rx, ry, rz = (round(parameters.gridN[i] / np.linalg.norm(lvec[i + 1])) for i in range(3))
         if np.allclose([rx, ry], rz):
-            pixPerAngstrome = rx
+            pixPerAngstrom = rx
         else:
-            pixPerAngstrome = np.max([rx, ry, rz])
+            pixPerAngstrom = np.max([rx, ry, rz])
             warnings.warn(
                 "Unequal grid densities in x, y, z directions is not supported in the OpenCL version of ppafm. "
-                f"Using the maximum of x, y, z directions, {pixPerAngstrome}, for grid point density."
+                f"Using the maximum of x, y, z directions, {pixPerAngstrom}, for grid point density."
             )
     scan_window = (parameters.scanMin, parameters.scanMax)
     scan_dim = (
@@ -702,7 +702,7 @@ def _get_params(file_path):
         tipStiffness = np.insert(tipStiffness, 2, 0.0)  # AFMulator additionally has a z-component in the third place
     afmulator_params = {
         "lvec": lvec,
-        "pixPerAngstrome": pixPerAngstrome,
+        "pixPerAngstrom": pixPerAngstrom,
         "scan_dim": scan_dim,
         "scan_window": scan_window,
         "iZPP": iZPP,
@@ -721,14 +721,14 @@ def _get_params(file_path):
     return afmulator_params, sample_lvec
 
 
-def get_lvec(scan_window, pad=(3.0, 3.0, 5.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrome=10):
+def get_lvec(scan_window, pad=(3.0, 3.0, 5.0), tipR0=(0.0, 0.0, 3.0), pixPerAngstrom=10):
     pad = np.array(pad)
     tipR0 = np.array(tipR0)
     center = (np.array(scan_window[0]) + np.array(scan_window[1])) / 2
     box_size = (np.array(scan_window[1]) - np.array(scan_window[0])) + 2 * pad
-    nDim = (pixPerAngstrome * box_size).round().astype(np.int32)
+    nDim = (pixPerAngstrom * box_size).round().astype(np.int32)
     nDim = np.array([VALID_SIZES[VALID_SIZES >= d][0] for d in nDim])
-    box_size = nDim / pixPerAngstrome
+    box_size = nDim / pixPerAngstrom
     origin = center - box_size / 2 - tipR0
     # fmt: off
     lvec = np.array([

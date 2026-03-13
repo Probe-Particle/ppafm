@@ -433,7 +433,7 @@ def Fz2df(F, dz, k0, f0, amplitude=1.0, units=16.0217656):
     Internal force units are eV/A the 16.021... converts stifness eV/A**2 to N/m
     """
     W = get_df_weight(amplitude, dz=dz)
-    dFconv = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F)
+    dFconv = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=2, arr=F)
     return dFconv * units * f0 / k0
 
 
@@ -446,9 +446,9 @@ def Fz2df_tilt(F, d, k0, f0, amplitude=1.0, units=16.0217656):
     """
     dr = np.sqrt(d[0] ** 2 + d[1] ** 2 + d[2] ** 2)
     W = get_df_weight(amplitude, dz=dr)
-    dFconv_x = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 0])
-    dFconv_y = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 1])
-    dFconv_z = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=0, arr=F[:, :, :, 2])
+    dFconv_x = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=2, arr=F[:, :, :, 0])
+    dFconv_y = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=2, arr=F[:, :, :, 1])
+    dFconv_z = np.apply_along_axis(lambda m: np.convolve(m, W, mode="valid"), axis=2, arr=F[:, :, :, 2])
     return (dFconv_x * d[0] + dFconv_y * d[1] + dFconv_z * d[2]) * units * f0 / k0
 
 
@@ -984,12 +984,12 @@ def params2lvec(parameters):
     return lvec
 
 
-def genFFSampling(lvec, pixPerAngstrome=10):
+def genFFSampling(lvec, pixPerAngstrom=10):
     nDim = np.array(
         [
-            int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[1], lvec[1])))),
-            int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[2], lvec[2])))),
-            int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[3], lvec[3])))),
+            int(round(pixPerAngstrom * np.sqrt(np.dot(lvec[1], lvec[1])))),
+            int(round(pixPerAngstrom * np.sqrt(np.dot(lvec[2], lvec[2])))),
+            int(round(pixPerAngstrom * np.sqrt(np.dot(lvec[3], lvec[3])))),
             4,
         ],
         np.int32,
@@ -997,19 +997,19 @@ def genFFSampling(lvec, pixPerAngstrome=10):
     return nDim
 
 
-def getPos(lvec, nDim=None, pixPerAngstrome=10):
+def getPos(lvec, nDim=None, pixPerAngstrom=10):
     if nDim is None:
-        nDim = genFFSampling(lvec, pixPerAngstrome=pixPerAngstrome)
-    dCell = np.array((lvec[1, :] / nDim[2], lvec[2, :] / nDim[1], lvec[3, :] / nDim[0]))
+        nDim = genFFSampling(lvec, pixPerAngstrom=pixPerAngstrom)
+    dCell = np.array((lvec[1, :] / nDim[0], lvec[2, :] / nDim[1], lvec[3, :] / nDim[2]))
     ABC = np.mgrid[0 : nDim[0], 0 : nDim[1], 0 : nDim[2]]
-    X = lvec[0, 0] + ABC[2] * dCell[0, 0] + ABC[1] * dCell[1, 0] + ABC[0] * dCell[2, 0]
-    Y = lvec[0, 1] + ABC[2] * dCell[0, 1] + ABC[1] * dCell[1, 1] + ABC[0] * dCell[2, 1]
-    Z = lvec[0, 2] + ABC[2] * dCell[0, 2] + ABC[1] * dCell[1, 2] + ABC[0] * dCell[2, 2]
+    X = lvec[0, 0] + ABC[0] * dCell[0, 0] + ABC[1] * dCell[1, 0] + ABC[2] * dCell[2, 0]
+    Y = lvec[0, 1] + ABC[0] * dCell[0, 1] + ABC[1] * dCell[1, 1] + ABC[2] * dCell[2, 1]
+    Z = lvec[0, 2] + ABC[0] * dCell[0, 2] + ABC[1] * dCell[1, 2] + ABC[2] * dCell[2, 2]
     return X, Y, Z
 
 
-def getPos_Vec3d(lvec, nDim=None, pixPerAngstrome=10):
-    X, Y, Z = getPos(lvec, nDim=nDim, pixPerAngstrome=pixPerAngstrome)
+def getPos_Vec3d(lvec, nDim=None, pixPerAngstrom=10):
+    X, Y, Z = getPos(lvec, nDim=nDim, pixPerAngstrom=pixPerAngstrom)
     XYZ = np.empty(X.shape + (3,))
     XYZ[:, :, :, 0] = X
     XYZ[:, :, :, 1] = Y

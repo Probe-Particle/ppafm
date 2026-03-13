@@ -569,7 +569,7 @@ class FFViewer(SlaveWindow):
         self.bxInd.setRange(0, self.FE.shape[2] - 1)
 
         self.z_min = afmulator.lvec[0, 2]
-        self.z_step = 1 / afmulator.pixPerAngstrome
+        self.z_step = 1 / afmulator.pixPerAngstrom
 
         z = afmulator.scan_window[0][2] + afmulator.amplitude / 2 - afmulator.tipR0[2]
         iz = round((z - self.z_min) / self.z_step)
@@ -620,7 +620,7 @@ class FFViewer(SlaveWindow):
         lvec = self.parent.afmulator.lvec
         xyzs = self.parent.xyzs - lvec[0]
         atomstring = io.primcoords2Xsf(self.parent.Zs, xyzs.T, lvec)
-        io.saveXSF(fileName, data, lvec, head=atomstring, verbose=0)
+        io.saveXSFData(fileName, data, lvec, head=atomstring, verbose=0)
 
         if self.verbose > 0:
             print("Done saving force field data.")
