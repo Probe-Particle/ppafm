@@ -28,7 +28,7 @@ pp_indexes = common.atom2iZ(parameters.probeType, elem_dict)
 drho_tip, lvec_dt, ndim_dt, atomic_info_or_head = io.load_scal_field("drho_tip", data_format=file_format)
 rho_tip, lvec_t, ndim_t, atomic_info_or_head = io.load_scal_field("rho_tip", data_format=file_format)
 
-parameters.gridN = ndim_t[::-1]
+parameters.gridN = ndim_t[:3]
 parameters.gridA = lvec_t[1]
 parameters.gridB = lvec_t[2]
 parameters.gridC = lvec_t[3]  # must be before parseAtoms

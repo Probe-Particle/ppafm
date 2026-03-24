@@ -230,7 +230,7 @@ class DataGrid:
             data, lvec, _, _ = io.loadCUBE(file_path, xyz_order=True, verbose=False)
             Zs, x, y, z, _ = io.loadAtomsCUBE(file_path)
         elif file_path.endswith(".xsf"):
-            data, lvec, _, _ = io.loadXSF(file_path, xyz_order=True, verbose=False)
+            data, lvec, _, _ = io.loadXSFData(file_path, xyz_order=True, verbose=False)
             try:
                 (Zs, x, y, z, _), _, _ = io.loadXSFGeom(file_path)
             except ValueError:
@@ -267,13 +267,12 @@ class DataGrid:
         if len(self.shape) == 3:
             if clamp:
                 array[array > clamp] = clamp
-            io.save_scal_field(file_head, array.T, self.lvec, data_format=ext)
+            io.save_scal_field(file_head, array, self.lvec, data_format=ext)
         if len(self.shape) == 4:
             assert self.shape[3] == 4, "Wrong number of components"
             if clamp:
                 io.limit_vec_field(array, Fmax=clamp)
                 array[:, :, :, 3][array[:, :, :, 3] > clamp] = clamp
-            array = array.transpose(2, 1, 0, 3)
             io.save_vec_field(file_head, array[:, :, :, :3], self.lvec, data_format=ext)
             io.save_scal_field(file_head + "_w", array[:, :, :, 3], self.lvec, data_format=ext)
 
@@ -596,10 +595,10 @@ class TipDensity(DataGrid):
         Returns:
             TipDensity. New tip density with core densities subtracted.
         """
-        array = np.ascontiguousarray(self.array.T, dtype=np.float64)  # 64 bit required by library
+        array = np.ascontiguousarray(self.array, dtype=np.float64)  # 64 bit required by library
         Rs, elems = _getAtomsWhichTouchPBCcell(xyzs.T, Zs, self.shape, self.lvec, 1.0, False)
         subtractCoreDensities(array, self.lvec, elems=elems, Rs=Rs, valElDict=valElDict, Rcore=Rcore, bSaveDebugGeom=False)
-        grid = TipDensity(array.T, self.lvec, ctx=self.ctx)
+        grid = TipDensity(array, self.lvec, ctx=self.ctx)
         return grid
 
     def interp_at(self, lvec_new, shape_new, array_out=None, local_size=(32,), queue=None):
