@@ -492,7 +492,7 @@ if __name__ == "__main__":
 
     # fmt: off
     afmulator = AFMulator.AFMulator(
-        pixPerAngstrom=10,
+        pixPerAngstrome=10,
         lvec=np.array([
             [0.0, 0.0, 0.0],
             [20.0, 0.0, 0.0],

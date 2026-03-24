@@ -9,7 +9,7 @@ from ppafm.ocl.AFMulator import AFMulator
 
 def test_afmulator_save_load():
     afmulator_original = AFMulator(
-        pixPerAngstrom=15,
+        pixPerAngstrome=15,
         lvec=np.array([[1, 1, 1], [5, 1, 0], [2, 5, 0], [0, 0, 8]]),
         scan_dim=(200, 200, 60),
         scan_window=((0.0, 0.0, 16.0), (19.9, 19.9, 22.0)),
@@ -47,7 +47,7 @@ def test_afmulator_save_load():
         assert np.allclose(afmulator.kCantilever, afmulator_original.kCantilever)
         assert np.allclose(afmulator.npbc, afmulator_original.npbc)
         assert np.allclose(afmulator.lvec, afmulator_original.lvec)
-        assert np.allclose(afmulator.pixPerAngstrom, afmulator_original.pixPerAngstrom)
+        assert np.allclose(afmulator.pixPerAngstrome, afmulator_original.pixPerAngstrome)
         assert afmulator._rho == afmulator_original._rho
         assert np.allclose(afmulator.sigma, afmulator_original.sigma)
         assert np.allclose(afmulator.A_pauli, afmulator_original.A_pauli)

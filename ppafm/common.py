@@ -984,12 +984,12 @@ def params2lvec(parameters):
     return lvec
 
 
-def genFFSampling(lvec, pixPerAngstrom=10):
+def genFFSampling(lvec, pixPerAngstrome=10):
     nDim = np.array(
         [
-            int(round(pixPerAngstrom * np.sqrt(np.dot(lvec[1], lvec[1])))),
-            int(round(pixPerAngstrom * np.sqrt(np.dot(lvec[2], lvec[2])))),
-            int(round(pixPerAngstrom * np.sqrt(np.dot(lvec[3], lvec[3])))),
+            int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[1], lvec[1])))),
+            int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[2], lvec[2])))),
+            int(round(pixPerAngstrome * np.sqrt(np.dot(lvec[3], lvec[3])))),
             4,
         ],
         np.int32,
@@ -997,9 +997,9 @@ def genFFSampling(lvec, pixPerAngstrom=10):
     return nDim
 
 
-def getPos(lvec, nDim=None, pixPerAngstrom=10):
+def getPos(lvec, nDim=None, pixPerAngstrome=10):
     if nDim is None:
-        nDim = genFFSampling(lvec, pixPerAngstrom=pixPerAngstrom)
+        nDim = genFFSampling(lvec, pixPerAngstrome=pixPerAngstrome)
     dCell = np.array((lvec[1, :] / nDim[0], lvec[2, :] / nDim[1], lvec[3, :] / nDim[2]))
     ABC = np.mgrid[0 : nDim[0], 0 : nDim[1], 0 : nDim[2]]
     X = lvec[0, 0] + ABC[0] * dCell[0, 0] + ABC[1] * dCell[1, 0] + ABC[2] * dCell[2, 0]
@@ -1008,8 +1008,8 @@ def getPos(lvec, nDim=None, pixPerAngstrom=10):
     return X, Y, Z
 
 
-def getPos_Vec3d(lvec, nDim=None, pixPerAngstrom=10):
-    X, Y, Z = getPos(lvec, nDim=nDim, pixPerAngstrom=pixPerAngstrom)
+def getPos_Vec3d(lvec, nDim=None, pixPerAngstrome=10):
+    X, Y, Z = getPos(lvec, nDim=nDim, pixPerAngstrome=pixPerAngstrome)
     XYZ = np.empty(X.shape + (3,))
     XYZ[:, :, :, 0] = X
     XYZ[:, :, :, 1] = Y

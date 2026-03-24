@@ -856,15 +856,15 @@ class ForceField_LJC:
         self.rho_delta = None
         self.rho_sample = None
 
-    def initSampling(self, lvec, pixPerAngstrom=10, nDim=None):
+    def initSampling(self, lvec, pixPerAngstrome=10, nDim=None):
         if nDim is None:
-            nDim = genFFSampling(lvec, pixPerAngstrom=pixPerAngstrom)
+            nDim = genFFSampling(lvec, pixPerAngstrome=pixPerAngstrome)
         self.nDim = nDim
         self.setLvec(lvec, nDim=nDim)
 
-    def initPoss(self, poss=None, nDim=None, lvec=None, pixPerAngstrom=10):
+    def initPoss(self, poss=None, nDim=None, lvec=None, pixPerAngstrome=10):
         if poss is None:
-            self.initSampling(lvec, pixPerAngstrom=10, nDim=None)
+            self.initSampling(lvec, pixPerAngstrome=10, nDim=None)
         self.prepareBuffers(poss=poss)
 
     def setLvec(self, lvec, nDim=None):
