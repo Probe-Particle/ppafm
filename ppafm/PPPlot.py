@@ -69,7 +69,7 @@ def write_plotting_slice(i):
 def plotImages(
     prefix,
     F,
-    xyz_order=True,
+    data_is_xyz_order=True,
     slices=None,
     extent=None,
     zs=None,
@@ -88,7 +88,7 @@ def plotImages(
 ):
 
     # Specific index order (z,y,x) and default slices (full z-range) for plotting
-    if xyz_order:
+    if data_is_xyz_order:
         F = F.transpose()
     if slices is None:
         slices = list(range(len(F)))
@@ -125,7 +125,7 @@ def plotVecFieldRG(
     prefix,
     dXs,
     dYs,
-    xyz_order=True,
+    data_is_xyz_order=True,
     slices=None,
     extent=None,
     zs=None,
@@ -137,7 +137,7 @@ def plotVecFieldRG(
 ):
 
     # Set the index order (z,y,x) and default slices (full z-range) for plotting
-    if xyz_order:
+    if data_is_xyz_order:
         dXs = dXs.transpose()
         dYs = dYs.transpose()
     if slices is None:
@@ -164,7 +164,7 @@ def plotDistortions(
     prefix,
     X,
     Y,
-    xyz_order=True,
+    data_is_xyz_order=True,
     slices=None,
     BG=None,
     by=2,
@@ -183,7 +183,7 @@ def plotDistortions(
 ):
 
     # Set the index order (z,y,x) and default slices (full z-range) for plotting
-    if xyz_order:
+    if data_is_xyz_order:
         X = X.transpose()
         Y = Y.transpose()
         if BG is not None:
@@ -218,7 +218,7 @@ def plotArrows(
     dY,
     X,
     Y,
-    xyz_order=True,
+    data_is_xyz_order=True,
     slices=None,
     BG=None,
     C=None,
@@ -237,7 +237,7 @@ def plotArrows(
 ):
 
     # Set the index order (z,y,x) and default slices (full z-range) for plotting
-    if xyz_order:
+    if data_is_xyz_order:
         dX = dX.transpose()
         dY = dY.transpose()
         X = X.transpose()

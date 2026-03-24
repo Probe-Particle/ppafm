@@ -583,10 +583,10 @@ BEGIN_BLOCK_DATAGRID_3D
 """
 
 
-def saveXSFData(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1, xyz_order=True):
+def saveXSFData(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1, data_is_xyz_order=True):
     if verbose > 0:
         print("Saving xsf", fname)
-    if xyz_order:
+    if data_is_xyz_order:
         data = data.transpose((2, 1, 0))
     fileout = open(fname, "w")
     if lvec is None:
