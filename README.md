@@ -17,6 +17,10 @@ The Python package is named as `ppafm`.
    * [DeepWiki](https://deepwiki.com/Probe-Particle/ppafm)
    * [Context7](https://context7.com/probe-particle/ppafm/llms.txt)
 
+## Simplified on-line version
+
+The on-line graphic-user interface can be found [here](https://prokophapala.github.io/web_physics/ppafm_web/), extra explanation on this [wiki page](https://github.com/Probe-Particle/ppafm/wiki/On%E2%80%90line-GUI).
+
 ## Installation
 
 The standard way of installing `ppafm` is:
