@@ -620,7 +620,7 @@ class FFViewer(SlaveWindow):
         lvec = self.parent.afmulator.lvec
         xyzs = self.parent.xyzs - lvec[0]
         atomstring = io.primcoords2Xsf(self.parent.Zs, xyzs.T, lvec)
-        io.saveXSF(fileName, data, lvec, head=atomstring, verbose=0)
+        io.saveXSFData(fileName, data, lvec, head=atomstring, verbose=0)
 
         if self.verbose > 0:
             print("Done saving force field data.")

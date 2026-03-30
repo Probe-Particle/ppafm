@@ -141,7 +141,6 @@ def main(argv=None):
                     dirname + "/xy" + atoms_str + cbar_str,
                     pp_positions[:, :, :, 0],
                     pp_positions[:, :, :, 1],
-                    slices=list(range(0, len(pp_positions))),
                     BG=pp_positions[:, :, :, 2],
                     extent=extent,
                     atoms=atoms,
@@ -164,7 +163,6 @@ def main(argv=None):
                 PPPlot.plotImages(
                     dirname + "/IETS" + atoms_str + cbar_str,
                     iets,
-                    slices=list(range(0, len(iets))),
                     zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
@@ -177,7 +175,6 @@ def main(argv=None):
                 PPPlot.plotImages(
                     dirname + "/Evib" + atoms_str + cbar_str,
                     e_vib[:, :, :, 0],
-                    slices=list(range(0, len(iets))),
                     zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
@@ -190,7 +187,6 @@ def main(argv=None):
                 PPPlot.plotImages(
                     dirname + "/Kvib" + atoms_str + cbar_str,
                     16.0217662 * eigenvalue_k[:, :, :, 0],
-                    slices=list(range(0, len(iets))),
                     zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
@@ -206,7 +202,6 @@ def main(argv=None):
                 PPPlot.plotImages(
                     dirname + "/OutI" + atoms_str + cbar_str,
                     current,
-                    slices=list(range(0, len(current))),
                     zs=tip_positions_z,
                     extent=extent,
                     atoms=atoms,
@@ -316,7 +311,7 @@ def main(argv=None):
                         if applied_bias:
                             r_tip = parameters.Rtip
                             for iz, z in enumerate(tip_positions_z):
-                                fzs[iz, :, :] = fzs[iz, :, :] - np.pi * parameters.permit * ((r_tip * r_tip) / ((z - args.z0) * (z + r_tip))) * (voltage - args.V0) * (
+                                fzs[:, :, iz] = fzs[:, :, iz] - np.pi * parameters.permit * ((r_tip * r_tip) / ((z - args.z0) * (z + r_tip))) * (voltage - args.V0) * (
                                     voltage - args.V0
                                 )
                         dfs = common.Fz2df(
@@ -344,7 +339,6 @@ def main(argv=None):
                         PPPlot.plotImages(
                             dir_name_amplitude + "/df" + atoms_str + cbar_str,
                             dfs,
-                            slices=list(range(0, len(dfs))),
                             zs=tip_positions_z + parameters.Amplitude / 2.0,
                             extent=extent,
                             cmap=parameters.colorscale,
@@ -371,7 +365,6 @@ def main(argv=None):
                         PPPlot.plotImages(
                             dir_name_amplitude + "/df_laplace" + atoms_str + cbar_str,
                             df_laplace_filtered,
-                            slices=list(range(0, len(dfs))),
                             zs=tip_positions_z + parameters.Amplitude / 2.0,
                             extent=extent,
                             cmap=parameters.colorscale,
@@ -384,7 +377,7 @@ def main(argv=None):
 
                     if opt_dict["WSxM"]:
                         print(" printing df into WSxM files :")
-                        io.saveWSxM_3D(dir_name_amplitude + "/df", dfs, extent, slices=None)
+                        io.saveWSxM_3D(dir_name_amplitude + "/df", dfs, extent)
 
                     if opt_dict["LCPD_maps"]:
                         if iv == 0:
@@ -405,7 +398,6 @@ def main(argv=None):
                     PPPlot.plotImages(
                         dir_name_lcpd + "/LCPD" + atoms_str + cbar_str,
                         lcpd,
-                        slices=list(range(0, len(lcpd))),
                         zs=tip_positions_z + parameters.Amplitude / 2.0,
                         extent=extent,
                         cmap=parameters.colorscale_kpfm,
@@ -422,7 +414,6 @@ def main(argv=None):
                     PPPlot.plotImages(
                         dir_name_lcpd + "/_Asym-LCPD" + atoms_str + cbar_str,
                         lcpd,
-                        slices=list(range(0, len(lcpd))),
                         zs=tip_positions_z + parameters.Amplitude / 2.0,
                         extent=extent,
                         cmap=parameters.colorscale_kpfm,
@@ -446,7 +437,7 @@ def main(argv=None):
 
                     if opt_dict["WSxM"]:
                         print("Saving LCPD into WSxM files :")
-                        io.saveWSxM_3D(dir_name_lcpd + "/LCPD" + atoms_str, lcpd, extent, slices=None)
+                        io.saveWSxM_3D(dir_name_lcpd + "/LCPD" + atoms_str, lcpd, extent)
 
             if opt_dict["Fz"]:
                 (
@@ -459,7 +450,6 @@ def main(argv=None):
                 PPPlot.plotImages(
                     dirname + "/Fz" + atoms_str + cbar_str,
                     fzs,
-                    slices=list(range(0, len(fzs))),
                     zs=tip_positions_z,  # + parameters.Amplitude / 2.0, # no oscillation to the force
                     extent=extent,
                     cmap=parameters.colorscale,

@@ -234,7 +234,7 @@ if __name__ == "__main__":
     if b3D:
         from ppafm import io
         Es = Es.reshape( (nz,ny,nx) )
-        io.saveXSF( 'SimplePot.xsf', Es )
+        io.saveXSFData( 'SimplePot.xsf', Es )
     else:
         Es = Es.reshape( (ny,nx) )
         vmax=1.5
