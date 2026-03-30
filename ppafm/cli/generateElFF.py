@@ -56,7 +56,7 @@ def main(argv=None):
 
     # Load electrostatic potential.
     loaders = {
-        "xsf": io.loadXSF,
+        "xsf": io.loadXSFData,
         "cube": io.loadCUBE,
     }
     input_format = args.input_format
@@ -72,7 +72,7 @@ def main(argv=None):
         #  No need to renormalize: fieldFFT already works with density
         logger.info(f">>> Loading tip density from {args.tip_dens}")
         if args.tip_dens.lower().endswith("xsf"):
-            rho_tip, lvec_tip, _, head_tip = io.loadXSF(args.tip_dens)
+            rho_tip, lvec_tip, _, head_tip = io.loadXSFData(args.tip_dens)
         else:
             logger.error(f'Unknown or unsupported format of the tip density file "{args.tip_dens}"\n')
             sys.exit(1)
@@ -89,7 +89,7 @@ def main(argv=None):
             v_ref_s = args.Vref
             logger.info(f">>> Loading Hartree potential under bias from {args.KPFM_sample}")
             logger.debug("Use loadXSF")
-            v_kpfm, lvec, n_dim, head = io.loadXSF(args.KPFM_sample)
+            v_kpfm, lvec, n_dim, head = io.loadXSFData(args.KPFM_sample)
 
         elif input_format == "cube" and args.KPFM_sample.lower().endswith(".cube"):
             v_ref_s = args.Vref
@@ -108,7 +108,7 @@ def main(argv=None):
         logger.info(f">>> Loading tip density under bias from {args.KPFM_tip}")
         if input_format == "xsf" and args.KPFM_tip.lower().endswith(".xsf"):
             v_ref_t = args.Vref
-            rho_tip_kpfm, lvec_tip, _, head_tip = io.loadXSF(args.KPFM_tip)
+            rho_tip_kpfm, lvec_tip, _, head_tip = io.loadXSFData(args.KPFM_tip)
             drho_kpfm = rho_tip - rho_tip_kpfm  # Order of terms in the difference is swapped,
             # because the sign of rho_tip is as in *electron* density while drho_kpfm should be a difference of *charge* densities.
         elif input_format == "cube" and args.KPFM_tip.lower().endswith(".cube"):
@@ -137,15 +137,16 @@ def main(argv=None):
         ff_kpfm_t0sv, _ = computeElFF(dv_kpfm, lvec, n_dim, parameters.tip, computeVpot=args.energy, tilt=args.tilt, parameters=parameters)
         ff_kpfm_tvs0, _ = computeElFF(electrostatic_potential, lvec, n_dim, drho_kpfm, computeVpot=args.energy, tilt=args.tilt, sigma=sigma, deleteV=False, parameters=parameters)
 
+        print("Linear E to V")
         logger.debug("Linear E to V")
-        zpos = np.linspace(lvec[0, 2] - args.z0, lvec[0, 2] + lvec[3, 2] - args.z0, n_dim[0])
-        for i in range(n_dim[0]):
+        zpos = np.linspace(lvec[0, 2] - args.z0, lvec[0, 2] + lvec[3, 2] - args.z0, n_dim[2])
+        for i in range(n_dim[2]):
             # z position of the KPFM tip with respect to the sample must not be zero or negative
             # Should that happen, use periodicity in z to get zpos>0
             zpos[i] %= lvec[3, 2]
 
-            ff_kpfm_t0sv[i, :, :] = ff_kpfm_t0sv[i, :, :] / ((v_ref_s) * (zpos[i] + 0.1))
-            ff_kpfm_tvs0[i, :, :] = ff_kpfm_tvs0[i, :, :] / ((v_ref_t) * (zpos[i] + 0.1))
+            ff_kpfm_t0sv[:, :, i] = ff_kpfm_t0sv[:, :, i] / ((v_ref_s) * (zpos[i] + 0.1))
+            ff_kpfm_tvs0[:, :, i] = ff_kpfm_tvs0[:, :, i] / ((v_ref_t) * (zpos[i] + 0.1))
 
         logger.info(">>> Saving electrostatic forcefield")
         io.save_vec_field("FFkpfm_t0sV", ff_kpfm_t0sv, lvec_samp, data_format=args.output_format, head=head_samp)

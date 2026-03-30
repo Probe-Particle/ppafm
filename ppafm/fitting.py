@@ -157,8 +157,8 @@ if __name__ == "__main__":
     logger.info(f"types {types}")
     ncomps = np.ones(len(types), dtype=np.int32)
 
-    Yrefs, lvec, nDim, head = io.loadXSF(fname_ext)
-    gridPoss = PPU.getPos_Vec3d(np.array(lvec), nDim)
+    Yrefs, lvec, nDim, head = io.loadXSFData(fname_ext)
+    gridPoss = common.getPos_Vec3d(np.array(lvec), nDim)
 
     logger.info(f"gridPoss.shape, yrefs.shape, centers.shape {gridPoss.shape} {Yrefs.shape} {centers.shape}")
 

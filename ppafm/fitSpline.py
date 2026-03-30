@@ -304,8 +304,8 @@ if __name__ == "__main__":
     from ppafm import io
 
     lvec0 = [[0.0, 0, 0], [1.0, 0, 0], [0.0, 1, 0], [0.0, 0, 1]]
-    io.saveXSF("y2d.xsf", y3D, lvec0)
-    io.saveXSF("y2d_conv.xsf", y3D_conv, lvec0)
+    io.saveXSFData("y2d.xsf", y3D, lvec0)
+    io.saveXSFData("y2d_conv.xsf", y3D_conv, lvec0)
 
     # ====== Fit 3D
 
@@ -319,7 +319,7 @@ if __name__ == "__main__":
 
     imfig(Ycoefs[iz_view], "Fitted: Ycoefs")
     imfig(Yfit[iz_view], "Fitted: Yfit")
-    io.saveXSF("Ycoefs.xsf", Ycoefs, lvec0)
-    io.saveXSF("Yfit.xsf", Yfit, lvec0)
+    io.saveXSFData("Ycoefs.xsf", Ycoefs, lvec0)
+    io.saveXSFData("Yfit.xsf", Yfit, lvec0)
 
     plt.show()
