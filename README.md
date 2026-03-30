@@ -12,6 +12,7 @@ The Python package is named as `ppafm`.
 
 ## Documentation
 
+* [Wiki](https://github.com/Probe-Particle/ProbeParticleModel/wiki)
 * [readthedocs](https://ppafm.readthedocs.io/en/latest/?badge=latest)
 * Auto-generated:
    * [DeepWiki](https://deepwiki.com/Probe-Particle/ppafm)
@@ -25,7 +26,7 @@ The standard way of installing `ppafm` is:
 pip install ppafm
 ```
 
-This should install the package and all its dependencies.
+This should install the package and all its dependencies including **CPU** and **GPU** version and fully working CLI:
 
 The most up-to-date installation guide can be found on the [dedicated wiki page](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm).
 
@@ -73,45 +74,10 @@ Currently, modification of estimate geometry is random (Monte-Carlo), while late
 * `examples/Generator` quickly generates a batch of simulated AFM images (resp. 3D data stacks) which can be further used for machine learning.
 Especially in connection with (https://github.com/SINGROUP/ASD-AFM).
 
-## ppafm simulation models and implementations
-
-Since 2014 ppafm developed into the toolbox of various methodologies adjusted for a particular use case.
-
-1. **CPU version:** - Original implementation using Python & C/C++.
-It can simulate a typical AFM experiment (3D stack of AFM images) in a matter of a few minutes.
-It is the base version for the development of new features and methodology.
-All available simulation models are implemented in this version, including:
-   1. **Point charge electrostatics + Lennard-Jones:** Original fully classical implementation allows the user to set up calculation without any ab initio input by specifying atomic positions, types and (optionally) charges.
-   1. **Hartree-potential electrostatics + Lennard-Jones:** Electrostatics is considerably improved by using Hartree potential from DFT calculation and using the Quadrupole model for CO-tip.
-   We found this crucial to properly simulate polar molecules (e.g. H2O clusters, carboxylic acids, PTCDA) which exhibit strong electrostatic distortions of AFM images.
-   1. **Hartree-potential electrostatics + Density overlap:** Further accuracy improvement is achieved when Pauli repulsion between electron shells of atoms is modelled by the overlap between electron density of tip and sample.
-   This repulsive term replaces the repulsive part of Lennard-Jones while the attractive part (C6) remains.
-   This modification considerably improves especially the simulation of molecules with electron pairs (-NH-, -OH, =O group), triple bonds and other strongly concentrated electrons.
-1. **GPU version:** - Version specially designed for the generation of training data for machine learning.
-Implementation using `pyOpenCL` can parallelize the evaluation of forcefield and relaxation of probe-particle positions over hundreds or thousands of stream processors of the graphical accelerator.
-The further speed-up is achieved by using hardware-accelerated trilinear interpolation of 3D textures available in most GPUs.
-This allows simulating 10-100 AFM experiments per second on consumer-grade desktop GPU.
-_GPU version is designed to work in collaboration with machine-learning software for AFM (https://github.com/SINGROUP/ASD-AFM) and use various generators of molecular geometry._
-1. **GUI @ GPU** - The speed of GPU implementation enables interactive GUI where AFM images of molecules can be updated on the fly (<<0.1s) on a common laptop computer, while the user is editing molecular geometry or parameters of the tip.
-This provides an invaluable tool, especially for experimentalists trying to identify and interpret the structure and configuration of molecules in experiments on the fly while running the experiment.
-
-## Other branches
-
-* **master_backup** is the old `master` branch that was recently significantly updated and named `main`.
-For users who miss the old master branch, we provided a backup copy.
-However, this version is very old and its use is discouraged.
-* **PhotonMap** implements the latest developments concerning sub-molecular scanning probes combined with Raman spectroscopy (TERS) and fluorescent spectroscopy (LSTM).
-* **complex_tip** is a modification of the Probe-Particle Model with 2 particles that allows a better fit to experimental results at the cost of additional fitting parameters.
-
-
 ## For contributors
 If you miss some functionality or have discovered issues with the latest release - let us know by creating [an issue](https://github.com/Probe-Particle/ppafm/issues/new).
 If you would like to contribute to the development of the ppafm code, please read the [Developer's Guide](https://github.com/Probe-Particle/ppafm/wiki/For-Developers) wiki page.
 Small improvements in the documentation or minor bug fixes are always welcome.
-
-## Further information
-- Wiki: https://github.com/Probe-Particle/ProbeParticleModel/wiki
-- Python API documentation: https://ppafm.readthedocs.io/en/latest/
 
 ## Publications describing the Probe-Particle Model
 
@@ -122,3 +88,4 @@ If you have used `ppafm` in your research, please cite the following articles:
 
 ## License
 MIT
+
