@@ -7,6 +7,9 @@ from ppafm.defaults import d3
 
 from .. import common
 from ..HighLevel import computeDFTD3
+from ..logging_utils import get_logger
+
+logger = get_logger("generateDFTD3")
 
 
 def main(argv=None):
@@ -45,7 +48,7 @@ def main(argv=None):
         df_params = {"s6": p[0], "s8": p[1], "a1": p[2], "a2": p[3]}
     else:
         if args.df_name not in d3.DF_DEFAULT_PARAMS:
-            print(f"Unknown functional name `{args.df_name}`!")
+            logger.error(f"Unknown functional name `{args.df_name}`!")
             sys.exit(1)
         df_params = args.df_name
 

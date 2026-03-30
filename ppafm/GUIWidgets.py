@@ -8,6 +8,10 @@ from matplotlib.figure import Figure
 from PyQt5 import QtCore, QtWidgets
 
 from . import io
+from .logging_utils import get_logger, get_perf_logger
+
+logger = get_logger("GUIWidgets")
+perf_logger = get_perf_logger("GUIWidgets")
 
 matplotlib.use("Qt5Agg")
 
@@ -118,19 +122,17 @@ class FigImshow(FigCanvas):
 
     cbar = None
 
-    def __init__(self, parentWiget=None, parentApp=None, width=5, height=4, dpi=100, verbose=0):
+    def __init__(self, parentWiget=None, parentApp=None, width=5, height=4, dpi=100):
         super(self.__class__, self).__init__(parentWiget=parentWiget, parentApp=parentApp, width=width, height=height, dpi=dpi)
         self.fig.canvas.mpl_connect("button_press_event", self.onclick)
         self.fig.canvas.mpl_connect("scroll_event", self.onscroll)
-        self.verbose = verbose
         self.img = None
         self.cbar = None
 
     def plotSlice(self, F_stack, z_slice, title=None, margins=None, grid_selector=0, slice_length=None, points=[], cbar_range=None, extent=None):
         F = F_stack[z_slice]
 
-        if self.verbose > 0:
-            print("plotSlice F.shape, F.min(), F.max(), margins", F.shape, F.min(), F.max(), margins)
+        logger.debug(f"plotSlice F.shape, F.min(), F.max(), margins {F.shape} {F.min()} {F.max()} {margins}")
 
         if self.img is None or self.img.get_array().shape != F.shape:
             self.axes.cla()
@@ -143,8 +145,7 @@ class FigImshow(FigCanvas):
                 for line in self.axes.lines:
                     line.remove()
                 self.axes.set_prop_cycle(None)  # Reset color cycle
-                if self.verbose > 0:
-                    print("plotSlice: reset points")
+                logger.debug("plotSlice: reset points")
             else:
                 for p, (ix, iy) in zip(self.axes.lines, points):
                     x = np.atleast_1d(ix)
@@ -155,8 +156,7 @@ class FigImshow(FigCanvas):
             if self.cbar == None:
                 self.cbar = self.fig.colorbar(self.img, ax=self.axes)
                 self.cbar.set_label("df (Hz)")
-                if self.verbose > 0:
-                    print("plotSlice: added colorbar")
+                logger.debug("plotSlice: added colorbar")
             self.img.set_clim(vmin=cbar_range[0], vmax=cbar_range[1])
             self.cbar.mappable.set_clim(vmin=cbar_range[0], vmax=cbar_range[1])
         else:
@@ -164,8 +164,7 @@ class FigImshow(FigCanvas):
             if self.cbar is not None:
                 self.cbar.remove()
                 self.cbar = None
-                if self.verbose > 0:
-                    print("plotSlice: removed colorbar")
+                logger.debug("plotSlice: removed colorbar")
 
         if extent is not None:
             self.img.set_extent(extent)
@@ -197,9 +196,9 @@ class FigImshow(FigCanvas):
         self.axes.cla()
 
         F = F_stack
-        print("plotSlice F.shape, F.min(), F.max() ", F.shape, F.min(), F.max())
+        logger.debug(f"plotSlice F.shape, F.min(), F.max() {F.shape} {F.min()} {F.max()}")
 
-        print("self.margins", margins)
+        logger.debug(f"self.margins {margins}")
         if alpha > 0 and big_len_image is not None:
             F = F * (1 - alpha) + big_len_image * alpha
         self.img = self.axes.imshow(F, origin="lower", cmap="viridis", interpolation="bicubic")
@@ -232,8 +231,7 @@ class FigImshow(FigCanvas):
             x = float(event.xdata)
             y = float(event.ydata)
         except TypeError:
-            if self.verbose > 0:
-                print("Invalid click event.")
+            logger.warning("Invalid click event.")
             return
         self.axes.plot([x], [y], "o", scalex=False, scaley=False)
         self.draw()
@@ -247,15 +245,14 @@ class FigImshow(FigCanvas):
             x = float(event.xdata)
             y = float(event.ydata)
         except TypeError:
-            if self.verbose > 0:
-                print("Invalid scroll event.")
+            logger.warning("Invalid scroll event.")
             return
         if event.button == "up":
             direction = "in"
         elif event.button == "down":
             direction = "out"
         else:
-            print(f"Invalid scroll direction {event.button}")
+            logger.warning(f"Invalid scroll direction {event.button}")
             return
         self.parent.zoomTowards(x, y, direction)
 
@@ -325,7 +322,7 @@ class PlotWindow(SlaveWindow):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save df curve raw data", default_path, "Data files (*.dat)")
         if fileName:
             fileName = correct_ext(fileName, ".dat")
-            print("saving data to :", fileName)
+            logger.info(f"Saving data to: {fileName}")
             data = []
             data.append(np.array(self.figCan.axes.lines[0].get_xdata()))
             for line in self.figCan.axes.lines:
@@ -338,7 +335,7 @@ class PlotWindow(SlaveWindow):
         fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save df curve image", default_path, "Image files (*.png)")
         if fileName:
             fileName = correct_ext(fileName, ".png")
-            print("saving image to :", fileName)
+            logger.info(f"Saving image to: {fileName}")
             self.figCan.fig.savefig(fileName, bbox_inches="tight")
 
     def clearFig(self):
@@ -363,7 +360,7 @@ class PlotWindow(SlaveWindow):
         except:
             pass
         self.figCan.draw()
-        print("range: ", xmin, xmax, ymin, ymax)
+        logger.debug(f"range: {xmin} {xmax} {ymin} {ymax}")
 
 
 # =======================
@@ -511,9 +508,8 @@ class LJParamEditor(QtWidgets.QMainWindow):
 
 
 class FFViewer(SlaveWindow):
-    def __init__(self, parent=None, title="View Forcefield", width=5, height=4, dpi=100, verbose=0):
+    def __init__(self, parent=None, title="View Forcefield", width=5, height=4, dpi=100):
         super().__init__(parent=parent, title=title)
-        self.verbose = verbose
 
         self.figCan = FigImshow(parent, width=width, height=height, dpi=dpi)
         self.centralLayout.addWidget(self.figCan)
@@ -576,8 +572,7 @@ class FFViewer(SlaveWindow):
         if not self.isVisible():
             set_widget_value(self.bxInd, iz)
 
-        if self.verbose > 0:
-            print("FFViewer.updateFF", self.FE.shape, iz, self.z_step, self.z_min)
+        logger.debug(f"FFViewer.updateFF {self.FE.shape} {iz} {self.z_step} {self.z_min}")
 
     def updateView(self):
         t0 = time.perf_counter()
@@ -588,10 +583,8 @@ class FFViewer(SlaveWindow):
         data = self.FE[..., ic].transpose(2, 1, 0)
         self.figCan.plotSlice(data, iz, title=f"z = {z:.2f}Å")
 
-        if self.verbose > 0:
-            print("FFViewer.updateView", ic, iz, data.shape)
-        if self.verbose > 1:
-            print("updateView time [s]", time.perf_counter() - t0)
+        logger.debug(f"FFViewer.updateView {ic} {iz} {data.shape}")
+        perf_logger.info(f"updateView time [s] {time.perf_counter() - t0}")
 
     def saveFF(self):
         comp = self.slComponent.currentText()
@@ -602,12 +595,11 @@ class FFViewer(SlaveWindow):
         ext = os.path.splitext(fileName)[1]
         if ext != ".xsf":
             self.parent.status_message("Unsupported file type in force field save file path")
-            print(f"Unsupported file type in force field save file path `{fileName}`")
+            logger.error(f"Unsupported file type in force field save file path `{fileName}`")
             return
         self.parent.status_message("Saving data...")
 
-        if self.verbose > 0:
-            print(f"Saving force field data to {fileName}...")
+        logger.debug(f"Saving force field data to {fileName}...")
         ic = self.slComponent.currentIndex()
         data = self.FE.copy()
         # Clamp large values for easier visualization
@@ -620,10 +612,9 @@ class FFViewer(SlaveWindow):
         lvec = self.parent.afmulator.lvec
         xyzs = self.parent.xyzs - lvec[0]
         atomstring = io.primcoords2Xsf(self.parent.Zs, xyzs.T, lvec)
-        io.saveXSFData(fileName, data, lvec, head=atomstring, verbose=0)
+        io.saveXSFData(fileName, data, lvec, head=atomstring)
 
-        if self.verbose > 0:
-            print("Done saving force field data.")
+        logger.info("Done saving force field data.")
         self.parent.status_message("Ready")
 
 

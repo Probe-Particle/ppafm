@@ -4,7 +4,9 @@
 import numpy as np
 import pyopencl as cl
 
-from .. import common as PPU
+from ..logging_utils import get_logger
+
+logger = get_logger("ocl.relax")
 
 # ========== Globals
 
@@ -17,8 +19,6 @@ DEFAULT_stiffness    = np.array( [-0.03,-0.03, -0.03,-1.0 ], dtype=np.float32 )
 DEFAULT_dpos0        = np.array( [ 0.0 , 0.0 , -4.0 , 4.0 ], dtype=np.float32 )
 DEFAULT_relax_params = np.array( [ 0.5 , 0.1 ,  0.02, 0.5 ], dtype=np.float32 )
 # fmt: on
-
-verbose = 0
 
 # ========== Functions
 
@@ -43,8 +43,7 @@ def mat3x3to4f(M):
 def getInvCell(lvec):
     cell = lvec[1:4, 0:3]
     invCell = np.transpose(np.linalg.inv(cell))
-    if verbose > 0:
-        print(invCell)
+    logger.debug(f"invCell: {invCell}")
     return mat3x3to4f(invCell)
 
 
@@ -92,7 +91,6 @@ def rotTip(rot, zstep, tipR0=[0.0, 0.0, 4.0]):
 
 
 class RelaxedScanner:
-    verbose = 0
 
     def __init__(self):
         self.queue = oclu.queue
@@ -112,8 +110,7 @@ class RelaxedScanner:
         self.cl_feMap = None
 
     def updateFEin(self, FEin_cl, bFinish=False):
-        if verbose > 0:
-            print(" updateFEin ", FEin_cl, self.cl_ImgIn, self.FEin_shape)
+        logger.debug(f"updateFEin {FEin_cl} {self.cl_ImgIn} {self.FEin_shape}")
         if bFinish:
             self.queue.finish()
         cl.enqueue_copy(queue=self.queue, src=FEin_cl, dest=self.cl_ImgIn, offset=0, origin=(0, 0, 0), region=self.FEin_shape[:3])
@@ -148,8 +145,7 @@ class RelaxedScanner:
             self.nAtoms = np.int32(len(atoms))
             self.cl_atoms = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=atoms)
             nbytes += atoms.nbytes
-        if self.verbose > 0:
-            print("prepareAuxMapBuffers.nbytes: ", nbytes)
+        logger.debug(f"prepareAuxMapBuffers.nbytes: {nbytes}")
 
     def prepareBuffers(self, FEin_np=None, lvec=None, FEin_cl=None, FEin_shape=None, scan_dim=None, nDimConv=None, nDimConvOut=None, bZMap=False, bFEmap=False, atoms=None):
         nbytes = 0
@@ -161,15 +157,13 @@ class RelaxedScanner:
         if FEin_np is not None:
             self.cl_ImgIn = cl.image_from_array(self.ctx, FEin_np, num_channels=4, mode="r")
             nbytes += FEin_np.nbytes  # TODO make this re-uploadable
-            if self.verbose > 0:
-                print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn)
+            logger.debug(f"prepareBuffers made self.cl_ImgIn {self.cl_ImgIn}")
         else:
             if FEin_shape is not None:
                 self.FEin_shape = FEin_shape
                 self.image_format = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.FLOAT)
                 self.cl_ImgIn = cl.Image(self.ctx, mf.READ_ONLY, self.image_format, shape=FEin_shape[:3], pitches=None, hostbuf=None, is_array=False, buffer=None)
-                if self.verbose > 0:
-                    print("prepareBuffers made self.cl_ImgIn ", self.cl_ImgIn)
+                logger.debug(f"prepareBuffers made self.cl_ImgIn {self.cl_ImgIn}")
             if FEin_cl is not None:
                 self.updateFEin(FEin_cl)
                 self.FEin_cl = FEin_cl
@@ -206,12 +200,10 @@ class RelaxedScanner:
             self.updateAtoms(atoms)
             nbytes += atoms.nbytes
 
-        if self.verbose > 0:
-            print("prepareBuffers.nbytes: ", nbytes)
+        logger.debug(f"prepareBuffers.nbytes: {nbytes}")
 
     def releaseBuffers(self):
-        if self.verbose > 0:
-            print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn)
+        logger.debug(f"tryReleaseBuffers self.cl_ImgIn {self.cl_ImgIn}")
         self.cl_ImgIn.release()
         self.cl_poss.release()
         self.cl_FEout.release()
@@ -223,8 +215,7 @@ class RelaxedScanner:
             self.cl_atoms.release()
 
     def tryReleaseBuffers(self):
-        if self.verbose > 0:
-            print("tryReleaseBuffers self.cl_ImgIn ", self.cl_ImgIn)
+        logger.debug(f"tryReleaseBuffers self.cl_ImgIn {self.cl_ImgIn}")
         try:
             self.cl_ImgIn.release()
         except:
@@ -283,8 +274,7 @@ class RelaxedScanner:
         if FEin is not None:
             region = FEin.shape[:3]
             region = region[::-1]
-            if self.verbose > 0:
-                print("region : ", region)
+            logger.debug(f"region : {region}")
             cl.enqueue_copy(self.queue, self.cl_ImgIn, FEin, origin=(0, 0, 0), region=region)
         if WZconv is not None:
             cl.enqueue_copy(self.queue, self.cl_WZconv, WZconv)
@@ -300,8 +290,7 @@ class RelaxedScanner:
         # Make numpy array. Last axis is bigger by one because OCL aligns to multiples of 4 floats.
         paths = np.empty(self.scan_dim + (4,), dtype=np.float32, order="C")
 
-        if self.verbose:
-            print("paths.shape ", paths.shape)
+        logger.debug(f"paths.shape {paths.shape}")
 
         # Copy from device to host
         cl.enqueue_copy(self.queue, paths, self.cl_paths)

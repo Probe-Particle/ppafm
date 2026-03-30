@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
-import sys
-
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
+
+from .logging_utils import ProgressLogger
 
 # =========== defaults
 
@@ -58,11 +58,6 @@ def colorize_XY2RG(Xs, Ys):
     return c, vmax
 
 
-def write_plotting_slice(i):
-    sys.stdout.write(f"\r plotting slice # {i}")
-    sys.stdout.flush()
-
-
 # =========== plotting functions
 
 
@@ -93,9 +88,9 @@ def plotImages(
     if slices is None:
         slices = list(range(len(F)))
 
+    progress_logger = ProgressLogger("plot", pre_message="Plotting slice # ")
     for ii, i in enumerate(slices):
-        # print(" plotting ", i)
-        write_plotting_slice(i)
+        progress_logger.print_message(i, is_last=ii == (len(slices) - 1))
         if symmetric_map:
             limit = max(abs(np.min(F[i] - V0)), abs(np.max(F[i] - V0)))
             vmin = -limit + V0
@@ -143,9 +138,9 @@ def plotVecFieldRG(
     if slices is None:
         slices = list(range(len(dXs)))
 
+    progress_logger = ProgressLogger("plot", pre_message="Plotting slice # ")
     for ii, i in enumerate(slices):
-        # print(" plotting ", i)
-        write_plotting_slice(i)
+        progress_logger.print_message(i, is_last=ii == (len(slices) - 1))
         plt.figure(figsize=(10, 10))
         HSBs, vmax = colorize_XY2RG(dXs[i], dYs[i])
         plt.imshow(HSBs, extent=extent, origin="lower", interpolation=interpolation)
@@ -191,9 +186,9 @@ def plotDistortions(
     if slices is None:
         slices = list(range(len(X)))
 
+    progress_logger = ProgressLogger("plot", pre_message="Plotting slice # ")
     for ii, i in enumerate(slices):
-        # print(" plotting ", i)
-        write_plotting_slice(i)
+        progress_logger.print_message(i, is_last=ii == (len(slices) - 1))
         plt.figure(figsize=figsize)
         plt.plot(X[i, ::by, ::by].flat, Y[i, ::by, ::by].flat, "r.", markersize=markersize)
         if BG is not None:
@@ -247,9 +242,9 @@ def plotArrows(
     if slices is None:
         slices = list(range(len(X)))
 
+    progress_logger = ProgressLogger("plot", pre_message="Plotting slice # ")
     for ii, i in enumerate(slices):
-        # print(" plotting ", i)
-        write_plotting_slice(i)
+        progress_logger.print_message(i, is_last=ii == (len(slices) - 1))
         plt.figure(figsize=figsize)
         if C is None:
             plt.quiver(X[i, ::by, ::by], Y[i, ::by, ::by], dX[i, ::by, ::by], dY[i, ::by, ::by], color="k", headlength=10, headwidth=10, scale=15)

@@ -8,11 +8,12 @@ import numpy as np
 
 from . import elements
 from .GridUtils import readNumsUpTo
+from .logging_utils import ProgressLogger, get_logger
 
 bohrRadius2angstroem = 0.5291772109217
 Hartree2eV = 27.211396132
 
-verbose = 0
+logger = get_logger("io")
 
 
 def loadXYZ(fname):
@@ -259,19 +260,15 @@ def loadXSFGeom(fname):
         ws = f.readline().split()
         lvec.append([float(ws[0]), float(ws[1]), float(ws[2])])
     f.close()
-    if verbose > 0:
-        print("nDim+1", nDim)
+    logger.debug(f"nDim+1 {nDim}")
     nDim = (nDim[0] - 1, nDim[1] - 1, nDim[2] - 1)
-    if verbose > 0:
-        print("lvec", lvec)
-    if verbose > 0:
-        print("reading ended")
+    logger.debug(f"lvec {lvec}")
+    logger.debug("reading ended")
     return [e, x, y, z, q], nDim, lvec
 
 
 def loadNPYGeom(fname):
-    if verbose > 0:
-        print("loading atoms")
+    logger.debug("loading atoms")
     tmp = np.load(fname + "_atoms.npy")
     e = tmp[0]
     x = tmp[1]
@@ -279,20 +276,15 @@ def loadNPYGeom(fname):
     z = tmp[3]
     q = tmp[4]
     del tmp
-    if verbose > 0:
-        print("loading lvec")
+    logger.debug("loading lvec")
     lvec = np.load(fname + "_vec.npy")
-    if verbose > 0:
-        print("loading nDim")
+    logger.debug("loading nDim")
     tmp = np.load(fname + "_z.npy")
     nDim = tmp.shape
     del tmp
-    if verbose > 0:
-        print("nDim", nDim)
-    if verbose > 0:
-        print("lvec", lvec)
-    if verbose > 0:
-        print("e,x,y,z", e, x, y, z)
+    logger.debug(f"nDim {nDim}")
+    logger.debug(f"lvec {lvec}")
+    logger.debug(f"e,x,y,z {e}, {x}, {y}, {z}")
     return [e, x, y, z, q], nDim, lvec
 
 
@@ -331,8 +323,7 @@ def loadAtomsCUBE(fname):
 def primcoords2Xsf(iZs, xyzs, lvec):
     import io as SIO
 
-    if verbose > 0:
-        print("lvec: ", lvec)
+    logger.debug(f"lvec: {lvec}")
     sio = SIO.StringIO()
     sio.write("CRYSTAL\n")
     sio.write("PRIMVEC\n")
@@ -353,7 +344,6 @@ def primcoords2Xsf(iZs, xyzs, lvec):
     sio.write("some_datagrid\n")
     sio.write("BEGIN_DATAGRID_3D_whatever\n")
     s = sio.getvalue()
-    # print s; exit()
     return s
 
 
@@ -406,8 +396,7 @@ def loadNCUBE(fname):
 
 
 def loadGeometry(fname=None, format=None, parameters=None):
-    if verbose > 0:
-        print("loadGeometry ", fname)
+    logger.debug(f"loadGeometry {fname}")
     if fname == None:
         raise ValueError("Please provide the name of the file with coordinates")
     if parameters == None:
@@ -583,9 +572,8 @@ BEGIN_BLOCK_DATAGRID_3D
 """
 
 
-def saveXSFData(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=1, data_is_xyz_order=True):
-    if verbose > 0:
-        print("Saving xsf", fname)
+def saveXSFData(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, data_is_xyz_order=True):
+    logger.debug(f"Saving xsf {fname}")
     if data_is_xyz_order:
         data = data.transpose((2, 1, 0))
     fileout = open(fname, "w")
@@ -610,7 +598,8 @@ def saveXSFData(fname, data, lvec=None, dd=None, head=XSF_HEAD_DEFAULT, verbose=
     fileout.write("END_BLOCK_DATAGRID_3D\n")
 
 
-def loadXSFData(fname, xyz_order=True, verbose=True):
+def loadXSFData(fname, xyz_order=True):
+    logger.debug(f"Loading xsf {fname}")
     filein = open(fname)
     startline, head = _readUpTo(filein, "BEGIN_DATAGRID_3D")  # startline - number of the line with DATAGRID_3D_. Dinensions are located in the next line
     nDim = [int(iii) for iii in filein.readline().split()]  # reading 1 line with dimensions
@@ -618,13 +607,10 @@ def loadXSFData(fname, xyz_order=True, verbose=True):
     nDim = np.array(nDim)
     lvec = _readmat(filein, 4)  # reading 4 lines where 1st line is origin of datagrid and 3 next lines are the cell vectors
     filein.close()
-    if verbose:
-        print("nDim xsf (= nDim + [1,1,1] ):", nDim)
-    if verbose:
-        print("io | Load " + fname + " using readNumsUpTo ")
+    logger.debug(f"nDim xsf (= nDim + [1,1,1] ) {nDim}")
+    logger.debug(f"io | Load {fname} using readNumsUpTo")
     F = readNumsUpTo(fname, nDim.astype(np.int32).copy(), startline + 5)
-    if verbose:
-        print("io | Done")
+    logger.debug("io | Done")
     FF = np.reshape(F, nDim)[:-1, :-1, :-1]
     if xyz_order:
         FF = FF.transpose((2, 1, 0))
@@ -654,7 +640,7 @@ def getFromHead_PRIMCOORD(head):
 # =================== Cube
 
 
-def loadCUBE(fname, xyz_order=True, verbose=True):
+def loadCUBE(fname, xyz_order=False):
     filein = open(fname)
     # First two lines of the header are comments
     filein.readline()
@@ -674,14 +660,11 @@ def loadCUBE(fname, xyz_order=True, verbose=True):
         lvec[2, jj] = float(sth2[jj + 1]) * int(sth2[0]) * bohrRadius2angstroem
         lvec[3, jj] = float(sth3[jj + 1]) * int(sth3[0]) * bohrRadius2angstroem
 
-    if verbose:
-        print("io | Load " + fname + " using readNumsUpTo")
+    logger.debug(f"io | Load {fname} using readNumsUpTo")
     noline = 6 + int(sth0[0])
     F = readNumsUpTo(fname, nDim.astype(np.int32).copy(), noline)
-    if verbose:
-        print("io | np.shape(F): ", np.shape(F))
-    if verbose:
-        print("io | nDim: ", nDim)
+    logger.debug(f"io | np.shape(F): {np.shape(F)}")
+    logger.debug(f"io | nDim: {nDim}")
 
     FF = np.reshape(F, nDim)
     if not xyz_order:
@@ -720,8 +703,9 @@ def saveWSxM_3D(prefix, data, extent, slices=None):
     xs = np.linspace(extent[0], extent[1], nDim[0])
     ys = np.linspace(extent[2], extent[3], nDim[1])
     Xs, Ys = np.meshgrid(xs, ys)
-    for i in slices:
-        print("slice no: ", i)
+    progress_logger = ProgressLogger("saveWSxM_3D", pre_message="slice no: ")
+    for ii, i in enumerate(slices):
+        progress_logger.print_message(i, is_last=ii == (len(slices) - 1))
         fname = prefix + "_%03d.xyz" % i
         saveWSxM_2D(fname, data[:, :, i], Xs, Ys)
 
@@ -814,7 +798,8 @@ def save_vec_field(fname, data, lvec, data_format="xsf", head=XSF_HEAD_DEFAULT, 
         atomic_info = atomic_info if atomic_info is not None else (np.zeros((4, 1)), lvec)
         np.savez(fname + ".npz", FF=data, lvec=lvec, atoms=atomic_info[0], lvec0=atomic_info[1])
     else:
-        print("I cannot save this format!")
+        # Should this raise an error instead of just a log event?
+        logger.error(f"Cannot save vector field in format: {data_format}")
 
 
 def load_vec_field(fname, data_format="xsf"):
@@ -847,7 +832,7 @@ def load_vec_field(fname, data_format="xsf"):
         atomic_info_or_head = (tmp_input["atoms"], tmp_input["lvec0"])
         nDim = data.shape
     else:
-        print("I cannot load this format!")
+        raise ValueError(f"Cannot load vector field in format: {data_format}")
     return data.copy(), lvec, nDim, atomic_info_or_head
 
 
@@ -872,7 +857,8 @@ def save_scal_field(fname, data, lvec, data_format="xsf", head=XSF_HEAD_DEFAULT,
         atomic_info = atomic_info if atomic_info is not None else (np.zeros((4, 1)), lvec)
         saveNpy(fname, data, lvec, atomic_info)
     else:
-        print("I cannot save this format!")
+        # Should this raise an error instead of just a log event?
+        logger.error(f"Cannot save scalar field in format: {data_format}")
 
 
 def load_scal_field(fname, data_format="xsf"):
@@ -899,7 +885,7 @@ def load_scal_field(fname, data_format="xsf"):
     elif data_format == "cube":
         data, lvec, ndim, atomic_info_or_head = loadCUBE(fname + ".cube")
     else:
-        print("I cannot load this format!")
+        raise ValueError(f"Cannot load scalar field in format: {data_format}")
     return data.copy(), lvec, ndim, atomic_info_or_head
 
 

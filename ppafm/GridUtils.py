@@ -5,6 +5,9 @@ from ctypes import c_char_p, c_double, c_int
 import numpy as np
 
 from . import cpp_utils
+from .logging_utils import get_logger
+
+logger = get_logger("GridUtils")
 
 # ============================== interface to C++ core
 
@@ -97,7 +100,7 @@ def interpolate_cartesian(F, pos, cell=None, result=None):
     if cell is not None:
         setGridCell(cell)
     nDim = np.array(pos.shape)
-    print(nDim)
+    logger.debug(nDim)
     if result is None:
         result = np.zeros((nDim[0], nDim[1], nDim[2]))
     n = nDim[0] * nDim[1] * nDim[2]
@@ -120,9 +123,9 @@ def dens2Q_CHGCARxsf(data, lvec):
     nDim = data.shape
     Ntot = nDim[0] * nDim[1] * nDim[2]
     Vtot = np.linalg.det(lvec[1:])
-    print("dens2Q Volume    : ", Vtot)
-    print("dens2Q Ntot      : ", Ntot)
-    print("dens2Q Vtot/Ntot : ", Vtot / Ntot)
+    logger.debug(f"dens2Q Volume    : {Vtot}")
+    logger.debug(f"dens2Q Ntot      : {Ntot}")
+    logger.debug(f"dens2Q Vtot/Ntot : {Vtot / Ntot}")
     # Qsum = rho1.sum()
     return Vtot / Ntot
 

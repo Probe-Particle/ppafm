@@ -5,6 +5,9 @@ import math
 import numpy as np
 
 from . import elements
+from .logging_utils import get_logger
+
+logger = get_logger("atomicUtils")
 
 
 def neighs(natoms, bonds):
@@ -163,12 +166,12 @@ def loadCoefs(characters=["s"]):
     coefs = []
     for char in characters:
         fname = "phi_0000_%s.dat" % char
-        print(fname)
+        logger.debug(fname)
         raw = np.genfromtxt(fname, skip_header=1)
         Es = raw[:, 0]
         cs = raw[:, 1:]
         sh = cs.shape
-        print(("shape : ", sh))
+        logger.debug(f"Shape of data: {sh}")
         cs = cs.reshape(sh[0], sh[1] // 2, 2)
         d = cs[:, :, 0] ** 2 + cs[:, :, 1] ** 2
         coefs.append(cs[:, :, 0] + 1j * cs[:, :, 1])
@@ -200,7 +203,7 @@ def histR(ps, dbin=None, Rmax=None, weights=None):
         if Rmax is None:
             Rmax = rs.max() + 0.5
         bins = np.linspace(0, Rmax, int(Rmax / (dbin)) + 1)
-    print((rs.shape, weights.shape))
+    logger.debug(f"{rs.shape} {weights.shape}")
     return np.histogram(rs, bins, weights=weights)
 
 
@@ -224,7 +227,7 @@ def findBonds(atoms, iZs, sc, ELEMENTS=elements.ELEMENTS, FFparams=None):
             ii = iZs[i] - 1
             jj = iZs[j] - 1
             bondlength = ELEMENTS[ii][6] + ELEMENTS[jj][6]
-            print(" find bond ", i, j, bondlength, r, sc, (xs[i], ys[i], zs[i]), (xs[j], ys[j], zs[j]))
+            logger.debug(f"find bond {i} {j} {bondlength} {r} {sc} ({xs[i]}, {ys[i]}, {zs[i]}) ({xs[j]}, {ys[j]}, {zs[j]})")
             if r < (sc * bondlength):
                 bonds.append((i, j))
     return bonds

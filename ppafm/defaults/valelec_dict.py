@@ -1,5 +1,9 @@
 # total Valence Electron Charge to be subtracted to achieve electron neutrality. The numbers may vary depending on DFT code, pseudopotentials etc.
 
+from ..logging_utils import get_logger
+
+logger = get_logger("valelec_dict")
+
 valElDict = {
     1: 1.0,
     2: 2.0,
@@ -25,4 +29,4 @@ valElDict = {
     54: 8.0,
 }
 
-print("inside  valelec_dict.py valElDict=", valElDict)
+logger.debug(f"inside valelec_dict.py valElDict={valElDict}")

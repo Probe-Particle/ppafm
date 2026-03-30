@@ -2,10 +2,15 @@
 
 import tarfile
 import zipfile
-from os import PathLike
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Union
 from urllib.request import urlretrieve
+
+from .logging_utils import ProgressLogger, get_logger
+
+logger = get_logger("data")
+_progress_logger_name = "data.progress"
 
 DATASET_URLS = {
     "CO-tip-densities": "https://zenodo.org/records/14222456/files/CO_tip.zip?download=1",
@@ -25,24 +30,6 @@ DATASET_URLS = {
 }
 
 
-def _print_progress(block_num: int, block_size: int, total_size: int):
-    if total_size == -1:
-        return
-    delta = block_size / total_size * 100
-    current_size = block_num * block_size
-    percent = current_size / total_size * 100
-    percent_int = int(percent)
-    if (percent - percent_int) > 1.0001 * delta:
-        # Only print when crossing an integer percentage
-        return
-    if block_num > 0:
-        print("\b\b\b", end="", flush=True)
-    if current_size < total_size:
-        print(f"{percent_int:2d}%", end="", flush=True)
-    else:
-        print("Done")
-
-
 def _common_parent(paths):
     if len(paths) == 1:
         return Path(paths[0]).parent
@@ -58,30 +45,30 @@ def _common_parent(paths):
 
 
 def _extract_members(archive_handle, members, target_dir):
-    print(f"Extracting dataset to `{target_dir}`: ", end="", flush=True)
+    progress_logger = ProgressLogger(logger_name=_progress_logger_name, pre_message=f"Extracting dataset to `{target_dir}`: ")
     for i, m in enumerate(members):
-        _print_progress(i, 1, len(members))
+        progress_logger.print_percent(i, 1, len(members))
         archive_handle.extract(m, target_dir)
-    _print_progress(len(members), 1, len(members))
+    progress_logger.print_percent(len(members), 1, len(members))
 
 
 def _extract_targz(archive_path, target_dir):
     with tarfile.open(archive_path, "r") as ft:
-        print("Reading tar archive files...")
+        logger.debug("Reading tar archive files...")
         members = []
         base_dir = _common_parent(ft.getnames())
         for m in ft.getmembers():
             if m.isfile():
                 # relative_to(base_dir) here gets rid of a common parent directory within the archive (if any),
                 # which makes it so that we can just directly extract the files to the target directory.
-                m.name = Path(m.name).relative_to(base_dir)
+                m.name = str(Path(m.name).relative_to(base_dir))
                 members.append(m)
         _extract_members(ft, members, target_dir)
 
 
 def _extract_zip(archive_path, target_dir):
     with zipfile.ZipFile(archive_path, "r") as ft:
-        print("Reading zip archive files...")
+        logger.debug("Reading zip archive files...")
         members = []
         base_dir = _common_parent(ft.namelist())
         for m in ft.infolist():
@@ -93,7 +80,7 @@ def _extract_zip(archive_path, target_dir):
         _extract_members(ft, members, target_dir)
 
 
-def download_dataset(name: str, target_dir: PathLike):
+def download_dataset(name: str, target_dir: Union[Path, str]):
     """
     Download and unpack a dataset to a target directory.
 
@@ -126,13 +113,13 @@ def download_dataset(name: str, target_dir: PathLike):
 
     target_dir = Path(target_dir)
     if target_dir.exists() and any(target_dir.iterdir()):
-        print(f"Target directory `{target_dir}` exists and is not empty. Skipping downloading dataset `{name}`.")
+        logger.info(f"Target directory `{target_dir}` exists and is not empty. Skipping downloading dataset `{name}`.")
         return
 
     with TemporaryDirectory() as temp_dir:
         temp_file = Path(temp_dir) / f"dataset_{name}"
-        print(f"Downloading dataset `{name}`: ", end="")
-        _, response = urlretrieve(dataset_url, temp_file, _print_progress)
+        progress_logger = ProgressLogger(logger_name=_progress_logger_name, pre_message=f"Downloading dataset `{name}`: ")
+        _, response = urlretrieve(dataset_url, temp_file, reporthook=progress_logger.print_percent)
         original_file_name = response.get_filename()
         target_dir.mkdir(exist_ok=True, parents=True)
         if original_file_name.endswith(".tar.gz"):
@@ -140,4 +127,4 @@ def download_dataset(name: str, target_dir: PathLike):
         elif original_file_name.endswith(".zip"):
             _extract_zip(temp_file, target_dir)
         else:
-            raise RuntimeError(f"Uknown file extension in `{original_file_name}`.")
+            raise RuntimeError(f"Unknown file extension in `{original_file_name}`.")

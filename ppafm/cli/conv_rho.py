@@ -1,9 +1,13 @@
 #!/usr/bin/python
 import gc
+import sys
 
 import numpy as np
 
 from .. import common, fieldFFT, io
+from ..logging_utils import get_logger
+
+logger = get_logger("conv_rho")
 
 
 def handle_aeccar(fname, lvec, rho):
@@ -35,21 +39,23 @@ def main(argv=None):
 
     args = parser.parse_args(argv)
 
-    print(">>> Loading sample from ", args.sample, " ... ")
+    logger.info(f"Loading sample from {args.sample}")
     rho_sample, lvec_sample, n_dim_sample, head_sample = io.loadXSFData(args.sample)
-    print(">>> Loading tip from ", args.tip, " ... ")
+    logger.info(f"Loading tip from {args.tip}")
     rho_tip, lvec_tip, n_dim_tip, head_tip = io.loadXSFData(args.tip)
 
     if np.any(n_dim_sample != n_dim_tip):
-        raise Exception("Tip and Sample grids have different dimensions! - sample: " + str(n_dim_sample) + " tip: " + str(n_dim_tip))
+        logger.error(f"Tip and Sample grids have different dimensions! - sample: {n_dim_sample} tip: {n_dim_tip}")
+        sys.exit(1)
     if np.any(lvec_sample != lvec_tip):
-        raise Exception("Tip and Sample grids have different shapes! - sample: " + str(lvec_sample) + " tip: " + str(lvec_tip))
+        logger.error(f"Tip and Sample grids have different shapes! - sample: {lvec_sample} tip: {lvec_tip}")
+        sys.exit(1)
 
     handle_aeccar(args.sample, lvec_sample, rho_sample)
     handle_aeccar(args.tip, lvec_tip, rho_tip)
 
     if args.Bpauli > 0.0:
-        print(">>> computing rho^B where B = ", args.Bpauli)
+        logger.info(f"Computing rho^B where B = {args.Bpauli}")
         # NOTE: due to round-off error the density from DFT code is often negative in some voxels which produce NaNs after exponentiation; we need to correct this
         if not args.no_negative_check:
             handle_negative_density(rho_sample)
@@ -61,15 +67,15 @@ def main(argv=None):
             io.save_scal_field("tip_density_pow_%03.3f.xsf" % args.Bpauli, rho_tip, lvec_tip, data_format=args.output_format, head=head_tip)
 
     if args.density_cutoff:
-        print(f">>> Applying a density cutoff of {args.density_cutoff} to sample and tip electron densities.")
+        logger.info(f"Applying a density cutoff of {args.density_cutoff} to sample and tip electron densities.")
         rho_sample[rho_sample > args.density_cutoff] = args.density_cutoff
         rho_tip[rho_tip > args.density_cutoff] = args.density_cutoff
 
-    print(">>> Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... ")
+    logger.info("Evaluating convolution E(R) = A*Integral_r ( rho_tip^B(r-R) * rho_sample^B(r) ) using FFT ... ")
     f_x, f_y, f_z, energy = fieldFFT.potential2forces_mem(rho_sample, lvec_sample, n_dim_sample, rho=rho_tip, doForce=True, doPot=True, deleteV=True)
 
     namestr = args.output
-    print(">>> Saving result of convolution to FF_", namestr, "_?.xsf ... ")
+    logger.info(f">>> Saving result of convolution to FF_{namestr}_?.xsf ... ")
 
     # Density Overlap Model
     if args.energy:

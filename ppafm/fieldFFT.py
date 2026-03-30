@@ -5,12 +5,13 @@ import gc
 import numpy as np
 
 from . import io
+from .logging_utils import get_logger
 
-verbose = 1
+logger = get_logger("fieldFFT")
 
 
 def fieldInfo(F, label="FieldInfo: min max av: "):
-    print(label, np.min(F), np.max(F), np.average(F))
+    logger.info(f"{label} {np.min(F)} {np.max(F)} {np.average(F)}")
 
 
 def getSampleDimensions(lvec):
@@ -58,48 +59,38 @@ def getSphericalHarmonic(X, Y, Z, kind="dz2", tilt=0.0):
     Z, X = rotZX(Z, X, tilt=tilt)
     # TODO: renormalization should be probaby here
     if kind == "s":
-        if verbose > 0:
-            print("Spherical harmonic: s")
+        logger.debug("Spherical harmonic: s")
         return 1.0
     # p-functions
     elif kind == "px":
-        if verbose > 0:
-            print("Spherical harmonic: px")
+        logger.debug("Spherical harmonic: px")
         return X
     elif kind == "py":
-        if verbose > 0:
-            print("Spherical harmonic: py")
+        logger.debug("Spherical harmonic: py")
         return Y
     elif kind == "pz":
-        if verbose > 0:
-            print("Spherical harmonic: pz")
+        logger.debug("Spherical harmonic: pz")
         return Z
     # d-functions
     if kind == "dz2":
-        if verbose > 0:
-            print("Spherical harmonic: dz2")
+        logger.debug("Spherical harmonic: dz2")
         return 0.25 * (
             2 * Z**2 - X**2 - Y**2
         )  # quadrupole normalized to get 3 times the quadrpole in the standard (cartesian) tensor normalization of Qzz. Also, 3D integral of rho_dz2(x,y,z)*(z/sigma)**2 gives 1 in the normalization used here.
     elif kind == "dx2":
-        if verbose > 0:
-            print("Spherical harmonic: dx2")
+        logger.debug("Spherical harmonic: dx2")
         return 0.25 * (2 * X**2 - Y**2 - Z**2)
     elif kind == "dy2":
-        if verbose > 0:
-            print("Spherical harmonic: dy2")
+        logger.debug("Spherical harmonic: dy2")
         return 0.25 * (2 * Y**2 - X**2 - Z**2)
     elif kind == "dxy":
-        if verbose > 0:
-            print("Spherical harmonic: dxy")
+        logger.debug("Spherical harmonic: dxy")
         return X * Y
     elif kind == "dxz":
-        if verbose > 0:
-            print("Spherical harmonic: dxz")
+        logger.debug("Spherical harmonic: dxz")
         return X * Z
     elif kind == "dyz":
-        if verbose > 0:
-            print("Spherical harmonic: dyz")
+        logger.debug("Spherical harmonic: dyz")
         return Y * Z
     else:
         return 0.0
@@ -107,9 +98,7 @@ def getSphericalHarmonic(X, Y, Z, kind="dz2", tilt=0.0):
 
 def getProbeDensity(sampleSize, X, Y, Z, dd, sigma=0.7, multipole_dict=None, tilt=0.0):
     "returns probe particle potential"
-    if verbose > 0:
-        print("sigma: ", sigma)
-        # exit()
+    logger.debug(f"sigma: {sigma}")
     mat = getNormalizedBasisMatrix(sampleSize).getT()
 
     rx = X * mat[0, 0] + Y * mat[0, 1] + Z * mat[0, 2]
@@ -134,7 +123,7 @@ def addCoreDensity(rho, val, x, y, z, sigma=0.1):
     radial = np.exp(-rquad / (2 * sigma**2))
     radial_renom = np.sum(radial)  # TODO analytical renormalization may save some time ?
     radial *= val / float(radial_renom)
-    print("radial.sum()", radial.sum(), val)
+    logger.debug(f"radial.sum() {radial.sum()} {val}")
     rho += radial
 
 
@@ -195,10 +184,8 @@ def getForces(V, rho, sampleSize, dims, dd, X, Y, Z):
         zeta[axis] = LmatInv[axis, 0] * dzetax * X
         zeta[axis] += LmatInv[axis, 1] * dzetay * Y
         zeta[axis] += LmatInv[axis, 2] * dzetaz * Z
-    if verbose > 0:
-        print("Ftrans :   ", detLmatInv, zeta[0].sum(), zeta[1].sum(), zeta[2].sum())
-    if verbose > 0:
-        print("derConvFFT ", derConvFFT.sum(), derConvFFT.min(), derConvFFT.max())
+    logger.debug(f"Ftrans :   {detLmatInv} {zeta[0].sum()} {zeta[1].sum()} {zeta[2].sum()}")
+    logger.debug(f"derConvFFT {derConvFFT.sum()} {derConvFFT.min()} {derConvFFT.max()}")
     forceSkewFFTx = zeta[0] * derConvFFT
     forceSkewFFTy = zeta[1] * derConvFFT
     forceSkewFFTz = zeta[2] * derConvFFT
@@ -219,8 +206,7 @@ def getForceTransform(sampleSize, dims, dd, X, Y, Z):
         zeta[axis] = LmatInv[axis, 0] * dzetax * X
         zeta[axis] += LmatInv[axis, 1] * dzetay * Y
         zeta[axis] += LmatInv[axis, 2] * dzetaz * Z
-    if verbose > 0:
-        print("Ftrans :   ", zeta[0].sum(), zeta[1].sum(), zeta[2].sum())
+    logger.debug(f"Ftrans :   {zeta[0].sum()} {zeta[1].sum()} {zeta[2].sum()}")
     return zeta[0], zeta[1], zeta[2], detLmatInv
 
 
@@ -234,16 +220,16 @@ def getNormalizedBasisMatrix(sampleSize):
 def printMetadata(sampleSize, dims, dd, xsize, ysize, zsize, V, rho):
     first_col = 30
     sec_col = 25
-    print("basis transformation matrix:".rjust(first_col))
-    print("sampleSize = \n", sampleSize)
-    print("Lmat = \n", getNormalizedBasisMatrix(sampleSize))
-    print("number of data points:".rjust(first_col), " dims".rjust(sec_col), " = %s" % list(dims))
-    print("specimen size:".rjust(first_col), "(xsize, ysize, zsize)".rjust(sec_col), f" = ({xsize}, {ysize}, {zsize})")
-    print("elementary lengths:".rjust(first_col), "(dx, dy, dz)".rjust(sec_col), " = (%.5f, %.5f, %.5f)" % dd)
-    print("V potential:".rjust(first_col), "(max, min)".rjust(sec_col), f" = ({V.max()}, {V.min()})")
-    print("".rjust(first_col), "V.shape".rjust(sec_col), " = %s" % list(V.shape))
-    print("probe potential:".rjust(first_col), "(max, min)".rjust(sec_col), f" = ({rho.max()}, {rho.min()})")
-    print("".rjust(first_col), "rho.shape".rjust(sec_col), " = %s" % list(rho.shape))
+    logger.info("basis transformation matrix:".rjust(first_col))
+    logger.info("sampleSize = \n".rjust(first_col) + str(sampleSize))
+    logger.info("Lmat = \n".rjust(first_col) + str(getNormalizedBasisMatrix(sampleSize)))
+    logger.info("number of data points:".rjust(first_col) + " dims".rjust(sec_col) + f" = {list(dims)}")
+    logger.info("specimen size:".rjust(first_col) + "(xsize, ysize, zsize)".rjust(sec_col) + f" = ({xsize}, {ysize}, {zsize})")
+    logger.info("elementary lengths:".rjust(first_col) + "(dx, dy, dz)".rjust(sec_col) + f" = ({dd[0]:.5f}, {dd[1]:.5f}, {dd[2]:.5f})")
+    logger.info("V potential:".rjust(first_col) + "(max, min)".rjust(sec_col) + f" = ({V.max()}, {V.min()})")
+    logger.info("".rjust(first_col) + "V.shape".rjust(sec_col) + f" = {list(V.shape)}")
+    logger.info("probe potential:".rjust(first_col) + "(max, min)".rjust(sec_col) + f" = ({rho.max()}, {rho.min()})")
+    logger.info("".rjust(first_col) + "rho.shape".rjust(sec_col) + f" = {list(rho.shape)}")
 
 
 def exportPotential(rho, rho_data="rho_data"):
@@ -257,8 +243,7 @@ def exportPotential(rho, rho_data="rho_data"):
 
 def potential2forces(V, lvec, nDim, sigma=0.7, rho=None, multipole=None, tilt=0.0):
     fieldInfo(V, label="fieldInfo V ")
-    if verbose > 0:
-        print("--- Preprocessing ---")
+    logger.debug("--- Preprocessing ---")
     sampleSize = getSampleDimensions(lvec)
     dims = nDim
     xsize, dx = getSize("x", dims, sampleSize)
@@ -268,23 +253,20 @@ def potential2forces(V, lvec, nDim, sigma=0.7, rho=None, multipole=None, tilt=0.
     X, Y, Z = getMGrid(dims, dd)
     fieldInfo(Z, label="fieldInfo Z ")
     if rho == None:
-        if verbose > 0:
-            print("--- Get Probe Density ---")
+        logger.debug("--- Get Probe Density ---")
         rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt)
     else:
         rho[:, :, :] = rho[::-1, ::-1, ::-1].copy()
     fieldInfo(rho, label="fieldInfo rho ")
-    if verbose > 0:
-        print("--- Get Forces ---")
+    logger.debug("--- Get Forces ---")
     Fx, Fy, Fz = getForces(V, rho, sampleSize, dims, dd, X, Y, Z)
     fieldInfo(Fz, label="fieldInfo Fz ")
-    if verbose > 0:
-        print("Fz.max(), Fz.min() = ", Fz.max(), Fz.min())
+    logger.debug(f"Fz.max(), Fz.min() = {Fz.max()}, {Fz.min()}")
     return Fx, Fy, Fz
 
 
 def potential2forces_mem(V, lvec, nDim, sigma=0.7, rho=None, multipole=None, doForce=True, doPot=False, deleteV=True, tilt=0.0):
-    print("--- Preprocessing ---")
+    logger.debug("--- Preprocessing ---")
     sampleSize = getSampleDimensions(lvec)
     dims = nDim
 
@@ -293,46 +275,37 @@ def potential2forces_mem(V, lvec, nDim, sigma=0.7, rho=None, multipole=None, doF
     zsize, dz = getSize("z", dims, sampleSize)
     dd = (dx, dy, dz)
 
-    if verbose > 0:
-        print("potential2forces_mem: dims ", dims)
-    if verbose > 0:
-        print("potential2forces_mem: dims ", dd)
+    logger.debug(f"potential2forces_mem: dims {dims}")
+    logger.debug(f"potential2forces_mem: dims {dd}")
 
-    if verbose > 0:
-        print("--- X, Y, Z ---")
+    logger.debug("--- X, Y, Z ---")
     X, Y, Z = getMGrid(dims, dd)
     if rho is None:
-        if verbose > 0:
-            print("--- Get Probe Density ---")
+        logger.debug("--- Get Probe Density ---")
         rho = getProbeDensity(sampleSize, X, Y, Z, dd, sigma=sigma, multipole_dict=multipole, tilt=tilt)
         io.saveXSFData("rhoTip.xsf", rho, lvec)
 
     if doForce:
-        if verbose > 0:
-            print("--- prepare Force transforms ---")
+        logger.debug("--- prepare Force transforms ---")
         zetaX, zetaY, zetaZ, detLmatInv = getForceTransform(sampleSize, dims, dd, X, Y, Z)
     del X, Y, Z
     E = None
     Fx = None
     Fy = None
     Fz = None
-    if verbose > 0:
-        print("--- forward FFT ---")
+    logger.debug("--- forward FFT ---")
     gc.collect()
     convFFT = np.fft.fftn(V) * np.conj(np.fft.fftn(rho))
     if deleteV:
         del V
     gc.collect()
     if doPot:
-        if verbose > 0:
-            print("--- Get Potential ---")
+        logger.debug("--- Get Potential ---")
         E = np.real(np.fft.ifftn(convFFT * (dd[0] * dd[1] * dd[2]) / (detLmatInv)))
     if doForce:
-        if verbose > 0:
-            print("--- Get Forces ---")
+        logger.debug("--- Get Forces ---")
         convFFT *= -2 * np.pi * 1j * (dd[0] * dd[1] * dd[2]) / (detLmatInv)
-        if verbose > 0:
-            print("derConvFFT ", convFFT.sum(), convFFT.min(), convFFT.max())
+        logger.debug(f"derConvFFT {convFFT.sum()} {convFFT.min()} {convFFT.max()}")
         Fx = np.real(np.fft.ifftn(zetaX * convFFT))
         del zetaX
         gc.collect()
@@ -342,8 +315,7 @@ def potential2forces_mem(V, lvec, nDim, sigma=0.7, rho=None, multipole=None, doF
         Fz = np.real(np.fft.ifftn(zetaZ * convFFT))
         del zetaZ
         gc.collect()
-    if verbose > 0:
-        print("Fz.max(), Fz.min() = ", Fz.max(), Fz.min())
+    logger.debug(f"Fz.max(), Fz.min() = {Fz.max()}, {Fz.min()}")
     return Fx, Fy, Fz, E
 
 
@@ -353,8 +325,7 @@ def Average_surf(Val_surf, W_surf, W_tip):
     | <F>(R) = -----------------------------------------  = -----------------------------; where * means convolution
     |            Int_r W_tip(r) W_sample(r+R)                     W_tip * W_sample
     """
-    if verbose > 0:
-        print("Forward FFT ")
+    logger.debug("Forward FFT ")
     kE_tip = np.fft.fftn(W_tip[::-1, ::-1, ::-1])  # W_tip
     kE_surf = np.fft.fftn(W_surf)  # W_sample
     kFE_surf = np.fft.fftn(W_surf * Val_surf)  # (Val_surf W_surf)
@@ -370,8 +341,7 @@ def Average_surf(Val_surf, W_surf, W_tip):
     del kE_surf
     del kFE_surf
 
-    if verbose > 0:
-        print("Backward FFT ")
+    logger.debug("Backward FFT ")
 
     E = np.fft.ifftn(kE)
     FE = np.fft.ifftn(kFE)
@@ -387,8 +357,7 @@ def Average_tip(Val_tip, W_surf, W_tip):
     | <F>(R) = -----------------------------------------  = -----------------------------; where * means convolution
     |            Int_r W_surf(r) W_sample(r+R)                     W_tip * W_sample
     """
-    if verbose > 0:
-        print("Forward FFT ")
+    logger.debug("Forward FFT ")
     kE_tip = np.fft.fftn(W_tip[::-1, ::-1, ::-1])  # W_tip
     kE_surf = np.fft.fftn(W_surf)  # W_sample
     kFE_tip = np.fft.fftn(W_tip[::-1, ::-1, ::-1] * (-1) * Val_tip[::-1, ::-1, ::-1])  # (Val_tip W_tip)
@@ -404,8 +373,7 @@ def Average_tip(Val_tip, W_surf, W_tip):
     del kE_surf
     del kFE_tip
 
-    if verbose > 0:
-        print("Backward FFT ")
+    logger.debug("Backward FFT ")
 
     E = np.fft.ifftn(kE)
     FE = np.fft.ifftn(kFE)
