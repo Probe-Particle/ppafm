@@ -26,7 +26,7 @@ The standard way of installing `ppafm` is:
 pip install ppafm
 ```
 
-This should install the package and all its dependencies including **CPU** and **GPU** version and fully working CLI:
+This should install the package and all its dependencies including **CPU** version and fully working CLI:
 
 The most up-to-date installation guide can be found on the [dedicated wiki page](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm).
 
@@ -42,11 +42,12 @@ ppafm-generate-ljff -h
 
 For more information, please consult the [dedicated page](https://github.com/Probe-Particle/ppafm/wiki/Command-line-interface) on the command line interface of `ppafm`.
 
-## Graphical User Interface (GUI)
-The package comes with a convenient graphical user interface.
-Unlike CLI, this interface needs to be explicitly enabled during the installation.
+## GPU version and Graphical User Interface (GUI)
+The package comes with a **GPU** speedup version and convenient graphical user interface.
+Unlike CLI, these needs to be explicitly enabled during the installation.
 To enable it, check the [dedicated section](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) on the [Install ppafm](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) wiki page.
 To know more about the GUI interface, please consult the [ppafm GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI) wiki page.
+Additional information about the **GPU** version can be found [bellow](https://github.com/Probe-Particle/ppafm?tab=readme-ov-file#run-gpu-generator-for-machine-learning), at [models](https://github.com/Probe-Particle/ppafm/wiki#ppafm-simulation-models-and-implementations) and [models differences](https://github.com/Probe-Particle/ppafm/wiki/Differences-between-the-CPU-and-GPU-implementations) wiki pages.
 
 ## Usage examples
 
@@ -88,3 +89,4 @@ If you have used `ppafm` in your research, please cite the following articles:
 
 ## License
 MIT
+
