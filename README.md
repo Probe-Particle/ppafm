@@ -47,7 +47,7 @@ The package comes with a **GPU** speedup version and convenient graphical user i
 Unlike CLI, these needs to be explicitly enabled during the installation.
 To enable it, check the [dedicated section](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) on the [Install ppafm](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) wiki page.
 To know more about the GUI interface, please consult the [ppafm GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI) wiki page.
-Additional information about the **GPU** version can be found [bellow, when describing python API](https://github.com/Probe-Particle/ppafm?tab=readme-ov-file#usage-examples), at [models](https://github.com/Probe-Particle/ppafm/wiki#ppafm-simulation-models-and-implementations) and [models differences](https://github.com/Probe-Particle/ppafm/wiki/Differences-between-the-CPU-and-GPU-implementations) wiki pages.
+Additional information about the **GPU** version can be found [below, when describing python API](https://github.com/Probe-Particle/ppafm?tab=readme-ov-file#usage-examples), at [models](https://github.com/Probe-Particle/ppafm/wiki#ppafm-simulation-models-and-implementations) and [models differences](https://github.com/Probe-Particle/ppafm/wiki/Differences-between-the-CPU-and-GPU-implementations) wiki pages.
 
 ## Usage examples
 
