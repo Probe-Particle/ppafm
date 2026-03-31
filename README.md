@@ -47,7 +47,7 @@ The package comes with a **GPU** speedup version and convenient graphical user i
 Unlike CLI, these needs to be explicitly enabled during the installation.
 To enable it, check the [dedicated section](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) on the [Install ppafm](https://github.com/Probe-Particle/ppafm/wiki/Install-ppafm#enable-gpugui-support) wiki page.
 To know more about the GUI interface, please consult the [ppafm GUI](https://github.com/Probe-Particle/ppafm/wiki/PPAFM-GUI) wiki page.
-Additional information about the **GPU** version can be found [bellow](https://github.com/Probe-Particle/ppafm?tab=readme-ov-file#run-gpu-generator-for-machine-learning), at [models](https://github.com/Probe-Particle/ppafm/wiki#ppafm-simulation-models-and-implementations) and [models differences](https://github.com/Probe-Particle/ppafm/wiki/Differences-between-the-CPU-and-GPU-implementations) wiki pages.
+Additional information about the **GPU** version can be found [bellow, when describing python API](https://github.com/Probe-Particle/ppafm?tab=readme-ov-file#usage-examples), at [models](https://github.com/Probe-Particle/ppafm/wiki#ppafm-simulation-models-and-implementations) and [models differences](https://github.com/Probe-Particle/ppafm/wiki/Differences-between-the-CPU-and-GPU-implementations) wiki pages.
 
 ## Usage examples
 
@@ -66,14 +66,6 @@ Also, have a look at the `params.ini` file and [the wiki](https://github.com/Pro
 Once the simulation is finished, several files and folders will be created.
 
 See also the tutorial for using the Python API for [running GPU-accelerated simulations](https://ppafm.readthedocs.io/en/latest/tutorials/afmulator-tutorial.html).
-
-### Run GPU generator for machine learning
-
-* `examples/CorrectionLoopGraphene` use GPU accelerated ppafm to iteratively improve the estimate of molecular geometry by comparing simulated AFM images with reference.
-This is a work in progress.
-Currently, modification of estimate geometry is random (Monte-Carlo), while later we plan to develop a more clever (e.g. Machine-Learned) heuristic for more efficient improvement.
-* `examples/Generator` quickly generates a batch of simulated AFM images (resp. 3D data stacks) which can be further used for machine learning.
-Especially in connection with (https://github.com/SINGROUP/ASD-AFM).
 
 ## For contributors
 If you miss some functionality or have discovered issues with the latest release - let us know by creating [an issue](https://github.com/Probe-Particle/ppafm/issues/new).
