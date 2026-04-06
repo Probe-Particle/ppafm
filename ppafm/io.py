@@ -560,9 +560,7 @@ def _orthoLvec(sh, dd):
     return [[0, 0, 0], [sh[2] * dd[0], 0, 0], [0, sh[1] * dd[1], 0], [0, 0, sh[0] * dd[2]]]
 
 
-XSF_HEAD_DEFAULT = (
-    headScan
-) = """
+XSF_HEAD_DEFAULT = headScan = """
 ATOMS
  1   0.0   0.0   0.0
 
@@ -934,8 +932,7 @@ background      { color rgb <1.0,1.0,1.0> }
 #end
 """
 
-DEFAULT_POV_HEAD = (
-    """
+DEFAULT_POV_HEAD = """
 // ***********************************************
 // Camera & other global settings
 // ***********************************************
@@ -950,9 +947,7 @@ camera{
   up       < 0, Zoom, 0 >
   look_at  < .0.0,  0.0,  0.0 >
 }
-"""
-    + DEFAULT_POV_HEAD_NO_CAM
-)
+""" + DEFAULT_POV_HEAD_NO_CAM
 
 
 def makePovCam(pos, up=[0.0, 1.0, 0.0], rg=[-1.0, 0.0, 0.0], fw=[0.0, 0.0, 100.0], lpos=[0.0, 0.0, -100.0], W=10.0, H=10.0):

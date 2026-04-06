@@ -20,7 +20,7 @@ parser.add_option( "--zmax",           action="store", type="float",   help="To 
 parser.add_option( "--dz",             action="store", type="float",   help="use dz with step",                           default=-0.1         )
 parser.add_option( "--plot",           action="store_false"        ,   help="plot extracted ?",                           default=True         )
 # fmt: on
-(options, args) = parser.parse_args()
+options, args = parser.parse_args()
 
 fname, fext = os.path.splitext(options.i)
 fext = fext[1:]

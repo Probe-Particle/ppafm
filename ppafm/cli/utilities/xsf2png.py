@@ -31,7 +31,7 @@ parser.add_option( "--npy" ,   action="store_true",                default=False
 parser.add_option( "--atoms",  action="store",      type="string", default='input_plot.xyz', help="xyz geometry file",                           )
 parser.add_option( "--bonds",  action="store_true",                default=False,            help="plot bonds to images" )
 # fmt: on
-(options, args) = parser.parse_args()
+options, args = parser.parse_args()
 
 
 atoms = None

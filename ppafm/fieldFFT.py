@@ -31,7 +31,7 @@ def getSize(inp_axis, dims, sampleSize):
 
 def getMGrid(dims, dd):
     "returns coordinate arrays X, Y, Z"
-    (dx, dy, dz) = dd
+    dx, dy, dz = dd
     XYZ = np.mgrid[0 : dims[0], 0 : dims[1], 0 : dims[2]].astype(float)
     # fmt: off
     xshift = dims[0]//2;  xshift_ = xshift;

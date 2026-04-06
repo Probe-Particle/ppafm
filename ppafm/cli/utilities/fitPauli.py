@@ -33,7 +33,7 @@ parser.add_option( "--old",        action="store_true",           help="use old 
 parser.add_option( "--not_plot",   action="store_false"        ,  help="do not-plot the lines above atoms",       default= True            )
 parser.add_option( "--debug",      action="store_true"         ,  help="plot and pr. all lines and data from fit",default= False           )
 # fmt: on
-(options, args) = parser.parse_args()
+options, args = parser.parse_args()
 
 # ====== functions
 

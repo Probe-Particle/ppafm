@@ -54,7 +54,7 @@ parser.add_option( "-f", "--data_format", type="string", action="store",      de
 parser.add_option( "--nodisp",                           action="store_true", default=False, help="Do NOT show the " "plots on the screen",  )
 # fmt: on
 
-(options, args) = parser.parse_args()
+options, args = parser.parse_args()
 opt_dict = vars(options)
 if options.points == []:
     sys.exit("Error!! The '-p' or '--points' argument is required\npython plotLine.py -p XMINxYMINxZMIN XMAXxYMAXxZMAX")

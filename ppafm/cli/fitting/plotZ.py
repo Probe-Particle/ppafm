@@ -21,12 +21,8 @@ def find_minimum(array, precision=0.0001):
         i += 1
 
 
-HELP_MSG = (
-    """Use this program in the following way:
-"""
-    + os.path.basename(main.__file__)
-    + """ -p "X1xY1" [-p "X2xY2" ...]  """
-)
+HELP_MSG = """Use this program in the following way:
+""" + os.path.basename(main.__file__) + """ -p "X1xY1" [-p "X2xY2" ...]  """
 
 # fmt: off
 parser = OptionParser()
@@ -42,7 +38,7 @@ parser.add_option( "--npy",         action="store_true",           help="load an
 # parser.add_option( "--yrange", action="store", type="float", help="y positions of the tip range (min,max,n) [A]", nargs=3)
 # fmt: on
 
-(options, args) = parser.parse_args()
+options, args = parser.parse_args()
 opt_dict = vars(options)
 print(options)
 if options.npy:

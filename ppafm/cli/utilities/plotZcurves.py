@@ -16,7 +16,7 @@ parser.add_option( "-i",                 action="store", type="string", help="in
 parser.add_option( "--iz",               action="store", type="int",    help="z-slice index to plot legend", default=15                 )
 parser.add_option("-f","--data_format" , action="store", type="string", help="Specify the output format of the vector and scalar field. Supported formats are: xsf,npy", default="xsf")
 # fmt: on
-(options, args) = parser.parse_args()
+options, args = parser.parse_args()
 
 try:
     points = np.genfromtxt(options.p)

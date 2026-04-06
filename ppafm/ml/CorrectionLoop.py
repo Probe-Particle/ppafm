@@ -14,7 +14,6 @@ see:  https://mega.nz/#!KLoilKIB!NxxCRQ814xtCXfjy7mPFfmJTOL9TaTHbmPKSxn_0sFs
 
 """
 
-
 import numpy as np
 
 from .. import common as PPU
@@ -475,7 +474,7 @@ if __name__ == "__main__":
 
     parser = OptionParser()
     parser.add_option("-j", "--job", action="store", type="string", help="[train/loop]")
-    (options, args) = parser.parse_args()
+    options, args = parser.parse_args()
 
     logger.info(" UNIT_TEST START : CorrectionLoop ... ")
 

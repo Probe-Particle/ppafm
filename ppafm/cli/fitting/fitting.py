@@ -188,7 +188,7 @@ if __name__ == "__main__":
     parser.add_option( "--nobounds",     action="store_true",               help="Skipf the first optimization step with bounds",     default=False)
     # fmt: on
 
-    (options, args) = parser.parse_args()
+    options, args = parser.parse_args()
     opt_dict = vars(options)
     parameters.apply_options(opt_dict)  # setting up all the options according to their
     x_new, bounds = set_fit_dict(opt=opt_dict)

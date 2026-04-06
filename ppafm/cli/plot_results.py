@@ -279,7 +279,7 @@ def main(argv=None):
                         os.makedirs(dir_name_amplitude)
 
                     if parameters.tiltedScan:
-                        (f_out, lvec, _, atomic_info_or_head) = io.load_vec_field(dirname + "/OutF", data_format=args.output_format)
+                        f_out, lvec, _, atomic_info_or_head = io.load_vec_field(dirname + "/OutF", data_format=args.output_format)
                         dfs = common.Fz2df_tilt(
                             f_out,
                             parameters.scanTilt,
@@ -292,7 +292,7 @@ def main(argv=None):
                         lvec_df[0] = lvec_df[0] + lvec_df[3] / lvec_3_norm * amplitude / 2
                         lvec_df[3] = lvec_df[3] / lvec_3_norm * (lvec_3_norm - amplitude)
                     else:
-                        (fzs, lvec, _, atomic_info_or_head) = io.load_scal_field(dirname + "/OutFz", data_format=args.output_format)
+                        fzs, lvec, _, atomic_info_or_head = io.load_scal_field(dirname + "/OutFz", data_format=args.output_format)
                         if applied_bias:
                             r_tip = parameters.Rtip
                             for iz, z in enumerate(tip_positions_z):
