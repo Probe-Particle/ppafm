@@ -311,7 +311,7 @@ public:
         energies_updated(false), // Explicitly initialize flags
         coupling_updated(false),
         kernel_updated(false),
-        iLinsolveMode(0),
+        iLinsolveMode(1),
         nMaxLinsolveInter(10),
         LinsolveTolerance(1e-12)
         // std::vectors are default-constructed (empty), which is fine
