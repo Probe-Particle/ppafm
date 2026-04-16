@@ -39,9 +39,11 @@ print("hbar2_2me_eVA2 =",hbar2_2me_eVA2, "[ eV A^2 ]")
 
 #cmap_dIdV = 'bwr'
 #cmap_dIdV = 'PiYG'
-cmap_dIdV = 'PiYG_r'
-#cmap_dIdV = 'vanimo'
+#cmap_dIdV = 'PiYG_r'
+cmap_dIdV = 'vanimo'
 #cmap_dIdV = 'vanimo_inv'
+cmap_dIdV = 'PuRdR-w-BuGn' #, 'BuGnR-w-PuRd' 
+
 
 #cmap_STM  = 'hot'
 #map_STM  = 'afmhot'
@@ -52,6 +54,35 @@ cmap_STM = 'inferno'
 # ===========================================
 # ============= Utility functions
 # ===========================================
+
+def load_and_register_custom_colormap(json_path, name):
+    """Load colormap parameters from JSON and register as named colormap."""
+    params = colormaps.load_colormap_params(json_path)
+    n_steps = params.pop('n_steps', 31)
+    coarse_cmap = colormaps.generate_diverging_colormap(
+        min=params['min'], center=params['center'], max=params['max'],
+        gamma_neg=params['gamma_neg'], gamma_pos=params['gamma_pos'], n_steps=n_steps)
+    smooth_cmap_array, cmap = colormaps.resample_colormap(coarse_cmap)
+    colormaps._register_cmap(name, cmap)
+    print(f"Registered custom colormap '{name}' from {json_path}")
+    return name
+
+# Load and register custom colormaps
+load_and_register_custom_colormap('colormaps/RB_nice.json', 'RB_nice')
+load_and_register_custom_colormap('colormaps/better_RdBu_1.json', 'better_RdBu_1')
+load_and_register_custom_colormap('colormaps/better_RdBu_2.json', 'better_RdBu_2')
+load_and_register_custom_colormap('colormaps/better_RdBu_3.json', 'better_RdBu_3')
+load_and_register_custom_colormap('colormaps/better_RdBu_3r05.json', 'better_RdBu_3r05')
+load_and_register_custom_colormap('colormaps/better_RdBu_3r10.json', 'better_RdBu_3r10')
+load_and_register_custom_colormap('colormaps/better_RdBu_4.json', 'better_RdBu_4')
+load_and_register_custom_colormap('colormaps/better_RdBu_4r05.json', 'better_RdBu_4r05')
+load_and_register_custom_colormap('colormaps/better_RdBu_4r10.json', 'better_RdBu_4r10')
+load_and_register_custom_colormap('colormaps/blue_purple.json', 'blue_purple')
+load_and_register_custom_colormap('colormaps/green_purple.json', 'green_purple')
+
+# Use custom colormap
+cmap_dIdV = 'better_RdBu_3'
+sdIdV = 1.0  # Scaling factor for dIdV color scale (lower = less saturated, higher = more saturated)
 
 def load_site_geometry(filename):
     """Load site geometry (x, y, angle[, Esite]) from text file."""
@@ -1423,8 +1454,10 @@ def calculate_xV_scan(params, pTips=None, start_point=None, end_point=None, ax_E
     # dI/dV
     dIdV = np.gradient(STM, Vbiases, axis=0)
 
-    # Plot
-    extent = [0, dist, Vmin, Vmax]
+    # Plot - use actual x-coordinate range instead of distance
+    x1, y1 = start_point
+    x2, y2 = end_point
+    extent = [min(x1, x2), max(x1, x2), Vmin, Vmax]
     if ax_Emax is not None:
         pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr', bDiverging=True)
         ax_Emax.set_aspect('auto')
@@ -1448,7 +1481,7 @@ def calculate_xV_scan(params, pTips=None, start_point=None, end_point=None, ax_E
         state_order = pauli.make_state_order(params['nsite'])
         labels = pauli.make_state_labels(state_order)
         axs = make_grid_axes(fig_probs, n_states)
-        plot_state_probabilities(probs, extent=[0,dist,Vmin,Vmax], axs=axs[:n_states], fig=fig_probs, labels=labels)
+        plot_state_probabilities(probs, extent=extent, axs=axs[:n_states], fig=fig_probs, labels=labels)
     print("calculate_xV_scan() DONE")
     return STM, dIdV, Es, Ts, probs, pTips, Vbiases, spos, rots
 
@@ -1553,8 +1586,10 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
 
     #T_calc = time.perf_counter(); print(f"calculate_xV_scan_orb() calc time: {T_calc-T0:.5f} [s]")
 
-    # Plot results
-    extent = [0, dist, Vmin, Vmax]
+    # Plot results - use actual x-coordinate range instead of distance
+    x1, y1 = start_point
+    x2, y2 = end_point
+    extent = [min(x1, x2), max(x1, x2), Vmin, Vmax]
     if ax_Emax is not None:
         pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr', bDiverging=True)
         ax_Emax.set_aspect('auto');
@@ -1583,9 +1618,6 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
 
     if fig_energies is not None:
         plot_state_maps(stateEs, extent=[0,dist,Vmin,Vmax], fig=fig_energies, labels=labels, map_type='energy', V_slice=V_slice)
-
-    # Plot individual current components if requested
-    # reshape flat buffer to [nV, npts, nstate, nstate]
 
     print("calculate_xV_scan_orb() summary: ")
     print("STM min,max", np.min(STM), np.max(STM))
@@ -1750,6 +1782,104 @@ def plot_state_scan_1d(distance, stateEs, probs, nsite, currents=None, current_c
     #ax.grid(True)
     fig.tight_layout(rect=[0, 0, 0.85, 1])
     return fig, (ax, ax2)
+
+
+_DEFAULT_STATE_STYLES = {
+    '000': ('gray',    '-'),
+    '111': ('gray',    '-'),
+    '001': ('#0000FF', '--'),
+    '010': ('#008F00', '--'),
+    '100': ('#FF0000', '--'),
+    '110': ('#8F8F00', '-'),
+    '101': ('#8F008F', '-'),
+    '011': ('#008F8F', '-'),
+}
+
+def make_aux_scan_plots(params, STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, current_decomp, V_slice=0.5, state_styles=None, ylims=(-0.08, 0.0)):
+    """
+    Generate all auxiliary diagnostic figures for a completed xV scan:
+      1. debug_1d : 2x2 grid - site energies, tip tunneling, many-body state energies/probs
+      2. dIdV_1d  : dI/dV 1D cut at V_slice
+      3. state_scan_1d : current channel decomposition + probability-weighted state energies
+
+    Args:
+        params: simulation parameter dict (needs 'nsite')
+        STM, dIdV, Es, Ts, probs, stateEs: 2D/3D arrays from calculate_xV_scan_orb
+        pTips: tip positions array (npts, 3)
+        Vbiases: voltage array
+        current_decomp: tuple from calculate_xV_scan_orb with bCurrentComponents=True; if None, skips channel decomp
+        V_slice: voltage value for 1D cuts
+        state_styles: dict {label: (color, linestyle)}; defaults to _DEFAULT_STATE_STYLES
+        ylims: (emin, emax) for state energy axis in state_scan_1d
+
+    Returns:
+        list of created matplotlib figures
+    """
+    if state_styles is None:
+        state_styles = _DEFAULT_STATE_STYLES
+
+    nsite  = int(params['nsite'])
+    state_order = pauli.make_state_order(nsite)
+    labels      = pauli.make_state_labels(state_order)
+    nstate = len(state_order)
+
+    x      = pTips[:, 0]
+    npts   = len(x)
+    nV     = len(Vbiases)
+    iv     = np.argmin(np.abs(Vbiases - V_slice))
+
+    colors     = [state_styles[label][0] for label in labels]
+    linestyles = [state_styles[label][1] for label in labels]
+
+    site_labels      = [f"E_site_{i+1}" for i in range(Es.shape[2])]
+    tunneling_labels = [f"T_site_{i+1}" for i in range(Ts.shape[2])]
+
+    stateEs_1d = stateEs[iv, :, :]
+    probs_1d   = probs  [iv, :, :]
+    dIdV_1d    = dIdV   [iv, :]
+    curr_1d    = STM    [iv, :]
+
+    figs = []
+
+    # --- Figure 1: debug_1d (2x2 grid) ---
+    fig_debug, axs = plt.subplots(2, 2, figsize=(12, 10))
+    fig_debug.suptitle(f"Scan details at V = {Vbiases[iv]:.3f} V", fontsize=12)
+    plot_1d_data_grid(x, Es[iv,:,:],  ax=axs[0,0], labels=site_labels,      ylabel="Energy [eV]",    title="Single-particle Site Energies", colors=['b','g','r'])
+    plot_1d_data_grid(x, Ts[iv,:,:],  ax=axs[0,1], labels=tunneling_labels, ylabel="Tunneling [a.u.]", title="Single-particle Tip Tunneling", colors=['b','g','r'])
+    plot_1d_data_grid(x, stateEs_1d,  ax=axs[1,0], labels=labels,           ylabel="Energy [eV]",    title="Many-body State Energies", colors=colors, linestyles=linestyles)
+    plot_1d_data_grid(x, probs_1d,    ax=axs[1,1], labels=labels,           ylabel="Probability",    title="Many-body State Probabilities", colors=colors, linestyles=linestyles)
+    fig_debug.tight_layout()
+    figs.append(fig_debug)
+
+    # --- Figure 2: dIdV 1D cut ---
+    fig_dIdV, ax_dIdV = plt.subplots(1, 1, figsize=(10, 5))
+    ax_dIdV.plot(x, dIdV_1d, 'b-', linewidth=2)
+    ax_dIdV.set_xlabel('Distance [Å]')
+    ax_dIdV.set_ylabel('dI/dV [a.u.]')
+    ax_dIdV.set_title(f'dI/dV 1D cut at V = {Vbiases[iv]:.3f} V')
+    ax_dIdV.grid(True)
+    fig_dIdV.tight_layout()
+    figs.append(fig_dIdV)
+
+    # --- Figure 3: state_scan_1d (current decomp + probabilities) ---
+    if current_decomp is not None:
+        ( current_matrix, (out_prob_b, out_fct_b), (out_prob_c, out_fct_c), out_inds ) = current_decomp
+        flat_curr  = current_matrix.reshape((nV, npts, nstate, nstate))
+        slice_curr = flat_curr[iv]
+        curr_comps = slice_curr.transpose((1, 2, 0))  # shape (npts, nstate, nstate)
+    else:
+        curr_comps = None
+
+    fig_state, _ = plot_state_scan_1d(
+        x, stateEs_1d, probs_1d, nsite,
+        currents=curr_1d, current_components=curr_comps,
+        V_slice=V_slice, ylims=ylims, height_ratios=(1, 1), figsize=(8, 8),
+        state_styles=state_styles
+    )
+    fig_state.tight_layout()
+    figs.append(fig_state)
+
+    return figs
 
 
 # ===========================================
@@ -2187,6 +2317,7 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None,
         start_point = (x1, y1)
         end_point   = (x2, y2)
         dist = np.hypot(x2-x1, y2-y1)
+        x_extent = [min(x1, x2), max(x1, x2)]
                 
         # Run xV scan with orbital data
         STM, dIdV, Es, Ts, probs, stateEs, x, voltages, spos, rots, current_decomp = calculate_xV_scan_orb(
@@ -2207,7 +2338,7 @@ def sweep_scan_param_pauli_xV_orb(params, scan_params, view_params=None,
             'parameters': run_params, 'timestamp': datetime.now().isoformat()
         })
         col_title  = " ".join([f"{param}: {vals[i]:.4g}" for param, vals in scan_params])
-        sim_extent = [0, dist, Vmin, Vmax]
+        sim_extent = x_extent + [Vmin, Vmax]
         plot_column(fig, ncols, i + col_offset, STM, dIdV, sim_extent, title=col_title, xlabel='Distance (Å)', ylabel='Voltage (V)')
     
     # Set consistent voltage limits across all plots
@@ -2387,10 +2518,10 @@ if __name__ == "__main__":
     "decay": 0.3,
     "GammaS": 0.01,
     "GammaT": 0.01,
-    "Et0": 0.3,
-    "wt": 10.0,
+    "Et0": 0.5,
+    "wt": 0.0,
     "At": -0.1,
-    "c_orb": 0.4,
+    "c_orb": 0.000,
     "T0": 0.3,
     "L": 20.0,
     "npix": 200,
@@ -2401,10 +2532,10 @@ if __name__ == "__main__":
     #"p2_x": -11.0,
     #"p2_y": 12.0,
 
-    "p1_x":  20.0,
-    "p1_y": -20.0,
-    "p2_x": -20.0,
-    "p2_y":  20.0,
+    "p1_x":  15.0,
+    "p1_y": -15.0,
+    "p2_x": -15.0,
+    "p2_y":  15.0,
 
     # "p1_x":  9.72,
     # "p1_y":  0.0,
@@ -2425,6 +2556,17 @@ if __name__ == "__main__":
     "bRamp": True,
     "nsite": 3
     }
+
+    # Load JSON file if provided as command-line argument
+    if len(sys.argv) > 1:
+        json_path = sys.argv[1]
+        try:
+            loaded_params = load_json_params(json_path)
+            params.update(loaded_params)
+            print(f"Loaded parameters from {json_path}")
+        except Exception as e:
+            print(f"Error loading JSON file {json_path}: {e}")
+            print("Using default parameters")
 
     verbosity = 0
 
@@ -2509,6 +2651,9 @@ if __name__ == "__main__":
     Vmax_scan = params['VBias']
     V_slice_scan = params.get('V_slice', 0.5)  # Initialize Pauli solver once, mirroring GUI logic (moved from previous position)
     pauli_solver = pauli.PauliSolver(nSingle=params['nsite'], nleads=2, verbosity=verbosity)
+    # Configure solver mode (mirroring GUI update_lin_solver)
+    which_solver = int(params.get('solver_mode', 0))
+    pauli_solver.setLinSolver(1, 50, 1e-12, which_solver)
     
     # Set lead temperatures and check_prob_stop, mirroring GUI logic
     T_eV = params['Temp'] * kBoltz
@@ -2526,7 +2671,9 @@ if __name__ == "__main__":
     #fig_curr = plt.figure(figsize=(12, 6))
     #ax_current = fig_curr.add_subplot(1,1,1)
 
-    STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, current_decomp = calculate_xV_scan_orb(params, nx=500, start_point=start_point, end_point=end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies, bCurrentComponents=True)
+    STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, current_decomp = calculate_xV_scan_orb(params, nx=500, start_point=start_point, end_point=end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies, bCurrentComponents=True, sdIdV=sdIdV)
+    # Save main figure as SVG immediately after plotting
+    fig.savefig('pauli_scan_main.svg', format='svg', bbox_inches='tight')
     # scan positions along line
     x = pTips[:,0]
     # extract scan positions
@@ -2578,6 +2725,7 @@ if __name__ == "__main__":
     slice_curr = flat_curr[iv]
     curr_comps = slice_curr.transpose((1, 2, 0))
     curr_1d    = STM[iv, :]
+    dIdV_1d    = dIdV[iv, :]  # 1D dIdV cut at V_slice_scan
 
     # Create a separate figure for the 1D line plot of many-body states
     stateEs_1d = stateEs[iv, :, :]
@@ -2586,7 +2734,7 @@ if __name__ == "__main__":
     prob_1d_tot = np.sum(probs_1d, axis=1)
     probs_1d_norm = probs_1d / prob_1d_tot[:, np.newaxis]
 
-    distance = -np.sqrt(2.0)*x
+    distance = x
 
 
     # state_sytels={
@@ -2642,15 +2790,26 @@ if __name__ == "__main__":
     #)
     plt.tight_layout()
     plt.savefig('debug_1d.svg', bbox_inches='tight')
+
+    # Plot dIdV 1D cut at V_slice_scan
+    fig_dIdV_1d = plt.figure(figsize=(10, 6))
+    ax_dIdV_1d = fig_dIdV_1d.add_subplot(111)
+    ax_dIdV_1d.plot(distance, dIdV_1d, 'b-', linewidth=2)
+    ax_dIdV_1d.set_xlabel('Distance [Å]')
+    ax_dIdV_1d.set_ylabel('dI/dV [a.u.]')
+    ax_dIdV_1d.set_title(f'dI/dV 1D cut at V = {V_slice_scan:.3f} V')
+    ax_dIdV_1d.grid(True)
+    plt.tight_layout()
+    fig_dIdV_1d.savefig('dIdV_1d_cut.svg', format='svg', bbox_inches='tight')
     
 
 
     #fig, (ax1, ax2) = plot_state_scan_1d(x, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan)    # supplement
-    fig, (ax1, ax2) = plot_state_scan_1d(distance, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan, ylims=(-0.08,0.0), height_ratios=(1,1), figsize=(8,8), state_styles=state_styles )   # For Main Text
+    fig_state, (ax1, ax2) = plot_state_scan_1d(distance, stateEs_1d, probs_1d, params['nsite'], currents=curr_1d, current_components=curr_comps, V_slice=V_slice_scan, ylims=(-0.08,0.0), height_ratios=(1,1), figsize=(8,8), state_styles=state_styles )   # For Main Text
     # Save the figure with appropriate formatting
-    plt.figure(fig.number)  # Make sure the figure is active
+    plt.figure(fig_state.number)  # Make sure the figure is active
     plt.tight_layout()      # Adjust layout for better appearance
-    fig.savefig('state_scan_1d.svg', bbox_inches='tight')
+    fig_state.savefig('state_scan_1d.svg', bbox_inches='tight')
     
     # fig.save( 'state_scan_1d.svg' )
 
@@ -2784,6 +2943,11 @@ if __name__ == "__main__":
     print("Allowed transitions mask: \n", allowed_transitions)
 
     print("HERE - DONE, show()")
+    # Save remaining figures as SVG
+    fig_probs.savefig('pauli_scan_probabilities.svg', format='svg', bbox_inches='tight')
+    fig_energies.savefig('pauli_scan_energies.svg', format='svg', bbox_inches='tight')
+    fig_state.savefig('state_scan_1d.svg', format='svg', bbox_inches='tight')
+    print("Figures saved as SVG in current directory")
     plt.show()
 
 

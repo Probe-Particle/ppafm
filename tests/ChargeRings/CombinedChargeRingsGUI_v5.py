@@ -38,8 +38,8 @@ class ApplicationWindow(GUITemplate):
         
         self.orbital_2D = None
         self.orbital_lvec = None
-        self.nsite = 4
-        #self.nsite = 3
+        #self.nsite = 4
+        self.nsite = 3
 
         self.geometry_file = None
         
@@ -85,6 +85,9 @@ class ApplicationWindow(GUITemplate):
             #'R_major':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 8.0,  'step': 0.1},
             #'R_minor':       {'group': 'Visualization', 'widget': 'double', 'range': (1.0, 10.0),   'value': 10.0, 'step': 0.1},
             
+            # xV scan resolution
+            'nx':           {'group': 'Data Cuts', 'widget': 'int',    'range': (50, 1000),    'value': 100,   'step': 50},
+            'nV':           {'group': 'Data Cuts', 'widget': 'int',    'range': (50, 500),     'value': 100,   'step': 50},
             # simulation end-points for 1D scan
             'p1_x':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value':  9.72, 'step': 0.5,'fidget': False},
             'p1_y':         {'group': 'Data Cuts', 'widget': 'double', 'range': (-20.0, 20.0),  'value': -9.96, 'step': 0.5,'fidget': False},
@@ -172,6 +175,24 @@ class ApplicationWindow(GUITemplate):
         self.cbShowEnergies = QtWidgets.QCheckBox('Energies')
         self.cbShowEnergies.stateChanged.connect(self.run)
         controls_layout.addWidget(self.cbShowEnergies)
+        # Checkbox for auxiliary plots (channel decomposition, probabilities)
+        self.cbAuxPlots = QtWidgets.QCheckBox('Aux Plots')
+        self.cbAuxPlots.setChecked(False)
+        self.cbAuxPlots.stateChanged.connect(self.run)
+        controls_layout.addWidget(self.cbAuxPlots)
+        # Checkbox to disable run on JSON load
+        self.cbRunOnLoad = QtWidgets.QCheckBox('Run on Load')
+        self.cbRunOnLoad.setChecked(True)
+        controls_layout.addWidget(self.cbRunOnLoad)
+        # V_slice spinbox: voltage for 1D cuts in aux plots
+        controls_layout.addWidget(QtWidgets.QLabel('V_slice:'))
+        self.sbVslice = QtWidgets.QDoubleSpinBox()
+        self.sbVslice.setRange(-5.0, 5.0)
+        self.sbVslice.setSingleStep(0.05)
+        self.sbVslice.setDecimals(3)
+        self.sbVslice.setValue(0.5)
+        self.sbVslice.setFixedWidth(70)
+        controls_layout.addWidget(self.sbVslice)
 
         # Create orbital input layout
         orbital_layout = QtWidgets.QHBoxLayout()
@@ -299,7 +320,7 @@ class ApplicationWindow(GUITemplate):
 
         # apply initial linear solver settings
         self.update_lin_solver()
-        self.run()
+        # self.run()  # Removed to prevent auto-run sequence on startup
 
     def load_experimental_data(self):
         """Load experimental data from npz file"""
@@ -324,6 +345,51 @@ class ApplicationWindow(GUITemplate):
             self.exp_X = self.exp_Y = self.exp_dIdV = self.exp_I = None
             self.exp_biases = None
             self.bExpLoaded = False
+
+    def set_param_values(self, values):
+        """Override to block signals during batch parameter updates and handle non-widget parameters"""
+        for name, value in values.items():
+            if name in self.param_widgets:
+                widget = self.param_widgets[name]
+                widget.blockSignals(True)
+                if hasattr(widget, 'setValue'):
+                    widget.setValue(value)
+                elif isinstance(widget, QtWidgets.QCheckBox):
+                    widget.setChecked(bool(value))
+                widget.blockSignals(False)
+            # Store non-widget parameters (fidget=False) in param_specs for later use
+            elif name in self.param_specs:
+                self.param_specs[name]['value'] = value
+
+    def get_param_values(self):
+        """Override to include non-widget (fidget=False) parameters from param_specs"""
+        values = {}
+        for name, widget in self.param_widgets.items():
+            if hasattr(widget, 'value'):
+                values[name] = widget.value()
+            elif isinstance(widget, QtWidgets.QCheckBox):
+                values[name] = widget.isChecked()
+            else:
+                try:
+                    values[name] = float(widget.text())
+                except:
+                    values[name] = widget.text()
+        # Add non-widget parameters from param_specs
+        for name, spec in self.param_specs.items():
+            if name not in values:
+                values[name] = spec.get('value')
+        return values
+
+    def load_parameters(self):
+        """Override to check cbRunOnLoad before auto-running"""
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Load Parameters", "", "JSON files (*.json)")
+        if filename:
+            with open(filename, 'r') as f:
+                values = json.load(f)
+                self.set_param_values(values)
+                if self.cbRunOnLoad.isChecked():
+                    self.run()
 
     def load_orbital_file(self):
         filename = self.leOrbitalFile.text()
@@ -509,7 +575,6 @@ class ApplicationWindow(GUITemplate):
             self.manage_prob_window(figE, 'Energies')
         else:
             figE = None
-
         #bOmp = True   # Seems that currently it is not working
         bOmp = False
 
@@ -527,8 +592,10 @@ class ApplicationWindow(GUITemplate):
             sim_start = (params['p1_x'], params['p1_y'])
             sim_end   = (params['p2_x'], params['p2_y'])
             dist = np.hypot(sim_end[0]-sim_start[0], sim_end[1]-sim_start[1])
+            print(f"DEBUG: sim_start={sim_start}, sim_end={sim_end}, dist={dist}")
             orbital_2D, orbital_lvec = self.getOrbIfChecked()
-            STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, *_ = pauli_scan.calculate_xV_scan_orb(
+            bAux = self.cbAuxPlots.isChecked()
+            STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, current_decomp = pauli_scan.calculate_xV_scan_orb(
                 params,
                 start_point=sim_start,
                 end_point=sim_end,
@@ -538,15 +605,26 @@ class ApplicationWindow(GUITemplate):
                 ax_Emax=None,
                 ax_STM=self.ax5,
                 ax_dIdV=self.ax6,
-                nx=100,
-                nV=100,
+                nx=params.get('nx', 100),
+                nV=params.get('nV', 100),
                 Vmin=0.0,
                 Vmax=Vmax,
                 fig_probs=figp,
+                fig_energies=None,
+                bCurrentComponents=bAux,
                 bOmp=bOmp
             )
             x = pTips[:,0]
             self.ax5.set_title('Sim STM (xV)'); self.ax6.set_title('Sim dI/dV (xV)')
+            if bAux:
+                V_slice = self.sbVslice.value()
+                aux_figs = pauli_scan.make_aux_scan_plots(
+                    params, STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases,
+                    current_decomp=current_decomp, V_slice=V_slice
+                )
+                for i, f in enumerate(aux_figs):
+                    titles = ['AuxDebug1D', 'AuxdIdV1D', 'AuxStateScan1D']
+                    self.manage_prob_window(f, titles[i] if i < len(titles) else f'Aux_{i}')
 
             
             # plot site energies maps if requested
@@ -837,7 +915,7 @@ class ApplicationWindow(GUITemplate):
             filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load Colormap Parameters", "", "JSON Files (*.json)")
             if filename:
                 params = load_colormap_params(filename)
-                cmap_rgb, _ = generate_diverging_colormap( **params, n_steps=31)
+                cmap_rgb = generate_diverging_colormap( **params, n_steps=31)
                 #cmap_rgb = resample_colormap(cmap_rgb, 256)
                 _,pauli_scan.cmap_dIdV = resample_colormap(cmap_rgb)
                 self.cmap_dIdV_combo.setCurrentText("custom: " + filename)
