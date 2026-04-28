@@ -51,6 +51,36 @@ def compact_c2_variogram(r, R_basis):
     C0 = 1.0 # wendland_c2(0, R_basis) is 1.0 if R_basis > 0
     return C0 - compact_c2_covariance(r, R_basis)
 
+def wendland_c2_deriv(r, R_basis, C=1.0):
+    """Analytical derivative dφ/dr of Wendland C2 compactly supported RBF.
+
+    φ(r) = (1 - r/R)^4 * (4*r/R + C)    for r < R
+    dφ/dr = (1/R) * (1 - r/R)^3 * (4 - 4*C - 20*r/R)
+          = -(20/R) * t * (1-t)^3   for C=1 (standard case)
+
+    Returns 0 for r >= R (compact support).
+    """
+    r = np.abs(r)
+    out = np.zeros_like(r, dtype=float)
+    mask = r < R_basis
+    if np.any(mask):
+        t = r[mask] / R_basis
+        t1 = 1.0 - t
+        out[mask] = (1.0 / R_basis) * (t1 ** 3) * (4.0 - 4.0 * C - 20.0 * t)
+    return out
+
+def wendland_c2_deriv_varR(r, R, C=1.0):
+    """Analytical derivative dφ/dr of Wendland C2 with elementwise radii."""
+    r = np.abs(r)
+    R = np.asarray(R, dtype=float)
+    out = np.zeros_like(r, dtype=float)
+    mask = r < R
+    if np.any(mask):
+        t = r[mask] / R[mask]
+        t1 = 1.0 - t
+        out[mask] = (1.0 / R[mask]) * (t1 ** 3) * (4.0 - 4.0 * C - 20.0 * t)
+    return out
+
 def pairwise_distances(points1, points2):
     """Compute distances between all pairs of points from two arrays."""
     # Using broadcasting for efficiency in numpy

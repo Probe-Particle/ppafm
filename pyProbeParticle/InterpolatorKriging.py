@@ -3,7 +3,7 @@ from scipy.spatial import KDTree
 from scipy.linalg import solve # Using scipy's wrapper for better handling
 # from scipy.linalg import lu_factor, lu_solve # Alternative for explicit factorization
 
-from .interpy import compact_c2_covariance, pairwise_distances, wendland_c2_varR
+from .interpy import compact_c2_covariance, pairwise_distances, wendland_c2_varR, wendland_c2_deriv, wendland_c2_deriv_varR
 
 class InterpolatorKriging:
     def __init__(self, data_points, R_basis, nugget=0.0, global_eval=False):
@@ -203,6 +203,69 @@ class InterpolatorKriging:
         #print("Global Kriging Evaluate: Done.")
         return interpolated_values
 
+    def evaluate_gradient(self, query_points):
+        """
+        Analytical gradient ∇E at query points using d/dx C(||q - p_i||).
+        Force F = -∇E. Returns gradient (not force) as (M, D) array.
+        query_points: (M, D) numpy array.
+        Returns: (M, D) array of gradients, or None if coefficients not set.
+        """
+        if self.coefficients is None:
+            print("ERROR in InterpolatorKriging.evaluate_gradient(): Coefficients not computed.")
+            return None
+        if self.ndata == 0:
+            return np.zeros((query_points.shape[0], query_points.shape[1]), dtype=float)
 
+        query_points = np.asarray(query_points, dtype=float)
+        nqps = query_points.shape[0]
+        D = query_points.shape[1]
+        if nqps == 0:
+            return np.array([], dtype=float).reshape(0, D)
 
+        c_coeffs = self.coefficients[:self.ndata]
 
+        if self.global_eval:
+            neighbor_indices_list = [np.arange(self.ndata, dtype=int) for _ in range(nqps)]
+        else:
+            data_kdtree = KDTree(self.data_points)
+            if self.R_i is None:
+                neighbor_indices_list = data_kdtree.query_ball_point(query_points, r=self.R_basis)
+            else:
+                neighbor_indices_list = data_kdtree.query_ball_point(query_points, r=self.R_max)
+
+        gradients = np.zeros((nqps, D), dtype=float)
+
+        for i in range(nqps):
+            q = query_points[i]
+            neighbors_q_indices = neighbor_indices_list[i]
+            if not neighbors_q_indices:
+                continue
+
+            neighbor_pts = self.data_points[neighbors_q_indices, :]
+            neighbor_c_coeffs = c_coeffs[neighbors_q_indices]
+            diffs = q - neighbor_pts  # (k, D)
+            dists = np.linalg.norm(diffs, axis=1)
+
+            if self.R_i is None:
+                deriv_vals = wendland_c2_deriv(dists, self.R_basis)
+            else:
+                Ri = self.R_i[neighbors_q_indices]
+                mask = dists < Ri
+                if not np.any(mask):
+                    continue
+                deriv_vals = wendland_c2_deriv_varR(dists[mask], Ri[mask])
+                diffs = diffs[mask]
+                neighbor_c_coeffs = neighbor_c_coeffs[mask]
+                dists = dists[mask]
+
+            # dC/dx_j = (dC/dr) * (q_j - p_ij) / r
+            # Sum over neighbors: Σ c_i * dC/dx_j
+            # Handle r=0 (dists can be zero at data points)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                direction = diffs / dists[:, None]
+            direction[np.isnan(direction)] = 0.0
+
+            grad_i = np.sum(neighbor_c_coeffs[:, None] * deriv_vals[:, None] * direction, axis=0)
+            gradients[i] = grad_i
+
+        return gradients

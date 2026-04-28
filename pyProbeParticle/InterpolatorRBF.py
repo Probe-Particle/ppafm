@@ -3,7 +3,7 @@ from scipy.spatial import KDTree
 from scipy.linalg import solve # Using scipy's wrapper for better handling
 # from scipy.linalg import lu_factor, lu_solve # Alternative for explicit factorization
 
-from .interpy import wendland_c2, pairwise_distances, wendland_c2_varR
+from .interpy import wendland_c2, pairwise_distances, wendland_c2_varR, wendland_c2_deriv, wendland_c2_deriv_varR
 
 class InterpolatorRBF:
     def __init__(self, data_points, R_basis, C_peak=1.0, normalized=False, eps_norm=0.0):
@@ -208,3 +208,62 @@ class InterpolatorRBF:
         #print("Global RBF Evaluate: Done.")
         return interpolated_values
 
+
+    def evaluate_gradient(self, query_points):
+        """
+        Analytical gradient ∇E at query points using d/dx φ(||q - p_i||).
+        Force F = -∇E. Returns gradient (not force) as (M, D) array.
+        query_points: (M, D) numpy array.
+        Returns: (M, D) array of gradients, or None if weights not set.
+        """
+        if self.weights is None:
+            print("ERROR in InterpolatorRBF.evaluate_gradient(): Weights not computed.")
+            return None
+        if self.ndata == 0:
+            return np.zeros((query_points.shape[0], query_points.shape[1]), dtype=float)
+
+        query_points = np.asarray(query_points, dtype=float)
+        nqps = query_points.shape[0]
+        D = query_points.shape[1]
+        if nqps == 0:
+            return np.array([], dtype=float).reshape(0, D)
+
+        data_kdtree = KDTree(self.data_points)
+        if self.R_i is None:
+            neighbor_indices_list = data_kdtree.query_ball_point(query_points, r=self.R_basis)
+        else:
+            neighbor_indices_list = data_kdtree.query_ball_point(query_points, r=self.R_max)
+
+        gradients = np.zeros((nqps, D), dtype=float)
+
+        for i in range(nqps):
+            q = query_points[i]
+            neighbors_q_indices = neighbor_indices_list[i]
+            if not neighbors_q_indices:
+                continue
+
+            neighbor_pts = self.data_points[neighbors_q_indices, :]
+            neighbor_weights = self.weights[neighbors_q_indices]
+            diffs = q - neighbor_pts
+            dists = np.linalg.norm(diffs, axis=1)
+
+            if self.R_i is None:
+                deriv_vals = wendland_c2_deriv(dists, self.R_basis, C=self.C_peak)
+            else:
+                Ri = self.R_i[neighbors_q_indices]
+                mask = dists < Ri
+                if not np.any(mask):
+                    continue
+                deriv_vals = wendland_c2_deriv_varR(dists[mask], Ri[mask], C=self.C_peak)
+                diffs = diffs[mask]
+                neighbor_weights = neighbor_weights[mask]
+                dists = dists[mask]
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                direction = diffs / dists[:, None]
+            direction[np.isnan(direction)] = 0.0
+
+            grad_i = np.sum(neighbor_weights[:, None] * deriv_vals[:, None] * direction, axis=0)
+            gradients[i] = grad_i
+
+        return gradients
