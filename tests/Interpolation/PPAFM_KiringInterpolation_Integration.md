@@ -517,6 +517,28 @@ Created `run_all_hho.py` to process multiple datasets:
 
 ## Caveats
 
+### 0. Data Quality Issues
+**IMPORTANT**: Some z-scan data files have missing values. The following 7 files are incomplete and will cause `load_zscan` to crash:
+
+| File | Missing Point | Z-Level |
+|------|--------------|---------|
+| HN-hh-CO_O.dat | p091 | z00 |
+| HN-hh-H2O_O.dat | p050 | z01 |
+| HN-hh-NH3_N.dat | p043 | z02 |
+| HN-hp_2-HCN_N.dat | p026 | z00 |
+| HNO-p-HCN_N.dat | p010 | z00 |
+| N-h-CO_C.dat | p023 | z00 |
+| O-p-CO_C.dat | p024 | z03 |
+
+**Impact**: These missing values cause `load_zscan` to crash with `RuntimeError: Missing value for point pXXX zYY`, preventing image generation for these datasets.
+
+**Action needed**: Discuss with student who prepared the data to either:
+1. Fix the missing values in these files
+2. Provide explanation for why data is missing
+3. Update batch script to skip incomplete files gracefully
+
+**Potential solution**: Could supplement missing data by interpolating from neighboring points (e.g., averaging spatial neighbors at the same z-level, or interpolating across z-levels for the same point). This would allow processing incomplete datasets without crashes.
+
 ### 1. GridFF z-Range is Fixed
 - GridFF z-range is hardcoded to 1.6-6.0 Å based on input data
 - Cannot be changed without regenerating GridFF

@@ -1,23 +1,39 @@
 #!/usr/bin/env python
 """Run test_relax_kriging.py for all HHO-h-* datasets."""
-import os, glob, subprocess, sys
+import os, glob, subprocess, sys, argparse
 
-DATA_DIR = "data_Mithun_new"
-BASE_OUT_DIR = "data_Mithun_new/relax_test_hho"
+parser = argparse.ArgumentParser()
+parser.add_argument('--data_dir', type=str, default="data_Mithun_new", help='Input data directory')
+parser.add_argument('--out_dir', type=str, default=None, help='Output directory (default: {data_dir}/relax_test_hho)')
+args = parser.parse_args()
 
-# Find all *-h* points files (matches HHO-h-p_1, HN-hh, OHO-h_1, etc.)
-points_pattern = os.path.join(DATA_DIR, "points_clean", "*-h*_points_clean.txt")
-points_files = glob.glob(points_pattern)
+DATA_DIR = args.data_dir
+BASE_OUT_DIR = args.out_dir if args.out_dir else os.path.join(DATA_DIR, "relax_test_hho")
+
+# Try different directory structures for points files
+# Option 1: points_clean/ with _points_clean.txt suffix
+points_pattern1 = os.path.join(DATA_DIR, "points_clean", "*-h*_points_clean.txt")
+points_files = glob.glob(points_pattern1)
+
+# Option 2: endgroup_points/ with _point_info.txt suffix
+if not points_files:
+    points_pattern2 = os.path.join(DATA_DIR, "endgroup_points", "*-h*_point_info.txt")
+    points_files = glob.glob(points_pattern2)
+    points_suffix = "_point_info.txt"
+else:
+    points_suffix = "_points_clean.txt"
 
 if not points_files:
-    print(f"[run_all] No *-h* files found matching: {points_pattern}")
+    print(f"[run_all] No *-h* files found in either:")
+    print(f"  - {points_pattern1}")
+    print(f"  - {points_pattern2}")
     sys.exit(1)
 
-print(f"[run_all] Found {len(points_files)} *-h* datasets")
+print(f"[run_all] Found {len(points_files)} *-h* datasets in {points_pattern1 if os.path.exists(os.path.dirname(points_pattern1)) else points_pattern2}")
 
 for points_file in sorted(points_files):
-    # Extract basename (e.g., HHO-h-p_1 from HHO-h-p_1_points_clean.txt)
-    basename = os.path.basename(points_file).replace("_points_clean.txt", "")
+    # Extract basename (e.g., HHO-h-p_1 from HHO-h-p_1_points_clean.txt or HHO-h-p_1_point_info.txt)
+    basename = os.path.basename(points_file).replace(points_suffix, "")
     
     # Find all zscan files for this molecule (different tips)
     zscan_pattern = os.path.join(DATA_DIR, "results", f"{basename}-*.dat")

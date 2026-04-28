@@ -43,6 +43,47 @@ def load_clean_points(fname):
     return types, pts
 
 
+def load_point_info(fname):
+    """Load points from _point_info.txt format: 'index atom[x y][]'."""
+    types = []
+    xs = []
+    ys = []
+    with open(fname, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            # Parse format: "0 N[ 0.85480606 -2.13842196][]"
+            # Extract atom type (before '[') and coordinates (between brackets)
+            idx_end = line.find(' ')
+            if idx_end == -1:
+                continue
+            atom_part = line[idx_end+1:]
+            
+            # Extract atom type (before '[')
+            atom_start = atom_part.find('[')
+            if atom_start == -1:
+                continue
+            atom_type = atom_part[:atom_start]
+            
+            # Extract coordinates (between first '[' and ']')
+            coord_start = atom_start + 1
+            coord_end = atom_part.find(']', coord_start)
+            if coord_end == -1:
+                continue
+            coord_str = atom_part[coord_start:coord_end].strip()
+            coords = coord_str.split()
+            if len(coords) < 2:
+                continue
+            
+            types.append(atom_type)
+            xs.append(float(coords[0]))
+            ys.append(float(coords[1]))
+
+    pts = np.stack([xs, ys], axis=1)
+    return types, pts
+
+
 def load_zscan(fname):
     """Load z-scan data with lines of the form 'p000 z00 value'.
 

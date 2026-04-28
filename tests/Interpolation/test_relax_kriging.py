@@ -6,7 +6,7 @@ import pyProbeParticle                as PPU
 import pyProbeParticle.GridUtils      as GU
 import pyProbeParticle.HighLevel      as PPH
 from interp_zscan_to_grid_and_ff import interpolate_volume_and_forces, save_gridff_ppafm
-from interp_zscan_to_grid import load_clean_points, load_zscan, auto_support_radii
+from interp_zscan_to_grid import load_clean_points, load_zscan, load_point_info, auto_support_radii
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--points_file', type=str, default=None, help='Path to points file')
@@ -32,7 +32,11 @@ else:
     points_file = os.path.join(DATA_DIR, "points_clean", "OHO-h_1_points_clean.txt")
     zscan_file = os.path.join(DATA_DIR, "results", "OHO-h_1-CO_O.dat")
 print("[test] Loading points:", points_file)
-_, points_xy = load_clean_points(points_file)
+# Detect file format and use appropriate loader
+if "_point_info.txt" in points_file:
+    _, points_xy = load_point_info(points_file)
+else:
+    _, points_xy = load_clean_points(points_file)
 print("[test] Loading z-scan:", zscan_file)
 zscan_vals = load_zscan(zscan_file)
 print(f"[test] Points: {points_xy.shape}, z-scan shape: {zscan_vals.shape}")
