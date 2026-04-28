@@ -16,7 +16,7 @@ ppafm-generate-ljff -i LOCPOT_V0.xsf
 echo
 
 echo "Tip Relaxation"
-ppafm-relaxed-scan --Vrange -0.5 0.5 3
+ppafm-relaxed-scan --Vrange -0.5 0.5 3 --disp
 echo
 
 echo "Plotting"

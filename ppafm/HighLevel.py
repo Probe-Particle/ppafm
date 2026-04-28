@@ -28,11 +28,6 @@ def symGauss(Evib, E0, w):
     return Gauss(Evib, E0, w) - Gauss(Evib, -E0, w)
 
 
-def meshgrid3d(xs, ys, zs):
-    Xs, Ys, Zs = np.zeros()
-    Xs, Ys = np.meshgrid(xs, ys)
-
-
 def trjByDir(n, d, p0):
     trj = np.zeros((n, 3))
     trj[:, 0] = p0[0] + (np.arange(n)[::-1]) * d[0]
@@ -173,7 +168,7 @@ def perform_relaxation(
 
     if bPPdisp:
         PPdisp = PPpos.copy()
-        init_pos = np.array(np.meshgrid(xTips, yTips, zTips)).transpose(3, 1, 2, 0) + np.array([parameters.r0Probe[0], parameters.r0Probe[1], -parameters.r0Probe[2]])
+        init_pos = np.array(np.meshgrid(xTips, yTips, zTips)).transpose(2, 1, 3, 0) + np.array([parameters.r0Probe[0], parameters.r0Probe[1], -parameters.r0Probe[2]])
         PPdisp -= init_pos
     else:
         PPdisp = None

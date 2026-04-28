@@ -685,7 +685,7 @@ DLLEXPORT int relaxTipStrokes_omp( int nx, int ny, int probeStart, int relaxAlg,
     #pragma omp parallel for collapse(2) shared( nx, ny, probeStart, relaxAlg, nstep, rTips_, rs_, fs_, ndone )
     for (int ix=0; ix<nx; ix++){
         for (int iy=0; iy<ny; iy++){
-            int ioff = (ix + iy*nx)*nstep;
+            int ioff = (ix*ny + iy)*nstep;
             relaxTipStroke( probeStart, relaxAlg, nstep, rTips_+ioff*3, rs_+ioff*3, fs_+ioff*3, splineParams );
             if( omp_get_thread_num()==0 ){
                 ndone++;
