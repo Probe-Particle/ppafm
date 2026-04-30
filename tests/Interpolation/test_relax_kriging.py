@@ -18,6 +18,14 @@ parser.add_argument('--outfz_cmap', type=str, default='afmhot', help='Colormap f
 parser.add_argument('--plot_pppos', type=int, default=1, help='Plot PPpos_top_slice.png (0=no, 1=yes)')
 parser.add_argument('--plot_comparison', type=int, default=1, help='Plot GridFF_vs_OutFz.png (0=no, 1=yes)')
 parser.add_argument('--plot_gridff', type=int, default=1, help='Plot GridFF_approach_slices.png (0=no, 1=yes)')
+parser.add_argument('--plot_stiffness_comparison', type=int, default=1, help='Plot GridFF_vs_OutFz_stiffness.png (0=no, 1=yes)')
+parser.add_argument('--klat_values', type=str, default='0.5,1.0,2.0,5.0', help='Comma-separated lateral stiffness values in N/m')
+parser.add_argument('--include_rigid', type=int, default=1, help='Include rigid scan with maxIters=0 and dt=0 (0=no, 1=yes)')
+parser.add_argument('--maxIters', type=int, default=1000, help='Relaxation iterations for normal scans')
+parser.add_argument('--convF', type=float, default=1.0e-8, help='Force convergence threshold squared')
+parser.add_argument('--dt', type=float, default=0.1, help='Relaxation step size for normal scans')
+parser.add_argument('--damping', type=float, default=0.1, help='Velocity damping for normal scans')
+parser.add_argument('--gridff_cache_dir', type=str, default='', help='Directory with precomputed gridFF.npy/lvec.npy to reuse')
 args = parser.parse_args()
 
 DATA_DIR = "data_Mithun_new"
@@ -43,8 +51,9 @@ print(f"[test] Points: {points_xy.shape}, z-scan shape: {zscan_vals.shape}")
 
 # --- 2. Interpolate to GridFF ---
 # Check if precomputed GridFF exists (single file)
-gridFF_file = os.path.join(OUT_DIR, "gridFF.npy")
-lvec_file = os.path.join(OUT_DIR, "lvec.npy")
+GRIDFF_CACHE_DIR = args.gridff_cache_dir if args.gridff_cache_dir else OUT_DIR
+gridFF_file = os.path.join(GRIDFF_CACHE_DIR, "gridFF.npy")
+lvec_file = os.path.join(GRIDFF_CACHE_DIR, "lvec.npy")
 if os.path.exists(gridFF_file) and os.path.exists(lvec_file):
     print(f"[test] Loading precomputed GridFF from {gridFF_file}")
     gridFF = np.load(gridFF_file)
@@ -74,7 +83,6 @@ else:
 
 # --- 3. Run PPAFM relaxation ---
 # Set PPU params directly (skip params.ini)
-PPU.params['klat']      = 0.5
 PPU.params['charge']    = 0.0
 PPU.params['Amplitude'] = 1.0
 PPU.params['scanStep']  = np.array([0.1, 0.1, 0.1])
@@ -84,15 +92,34 @@ PPU.params['scanMin']   = np.array([0.0, 0.0, 6.6])
 PPU.params['scanMax']   = np.array([xs[-1]-xs[0], ys[-1]-ys[0], 12.0])
 PPU.params['tilt']      = np.array([0.0, 0.0])
 PPU.params['flexible']  = True
-PPU.params['stiffness'] = np.array([0.5, 0.5, 0.0])
-# kCantilever etc. may be required
 PPU.lvec2params(lvec)
 
 FF = gridFF[:, :, :, :3]
+klat_values = [float(v) for v in args.klat_values.split(',') if v.strip()]
+if not klat_values:
+    klat_values = [0.5]
 
-print("[test] Running PPAFM relaxation...")
-fzs, PPpos, PPdisp, lvecScan = PPH.perform_relaxation(lvec, FF, FFel=None, FFpauli=None, FFboltz=None, tipspline=None, bPPdisp=True, bFFtotDebug=False)
-print(f"[test] fzs shape: {fzs.shape}, PPpos shape: {PPpos.shape}")
+def run_relax_case(label, klat, rigid=False):
+    PPU.params['klat'] = klat
+    PPU.params['stiffness'] = np.array([klat, klat, 0.0])
+    print(f"[test] Running PPAFM relaxation: {label} (klat={klat:.3f} N/m, rigid={int(rigid)})")
+    fzs_i, PPpos_i, PPdisp_i, lvecScan_i = PPH.perform_relaxation(lvec, FF, FFel=None, FFpauli=None, FFboltz=None, tipspline=None, bPPdisp=True, bFFtotDebug=False, rigid=rigid, maxIters=args.maxIters, convF=args.convF, dt=args.dt, damping=args.damping)
+    print(f"[test] {label} fzs shape: {fzs_i.shape}, PPpos shape: {PPpos_i.shape}")
+    return dict(label=label, klat=klat, rigid=rigid, fzs=fzs_i, PPpos=PPpos_i, PPdisp=PPdisp_i, lvecScan=lvecScan_i)
+
+relax_runs = []
+relax_runs.append(run_relax_case(f"klat={klat_values[0]:g}", klat_values[0], rigid=False))
+for klat in klat_values[1:]:
+    relax_runs.append(run_relax_case(f"klat={klat:g}", klat, rigid=False))
+if args.include_rigid:
+    relax_runs.append(run_relax_case("rigid", klat_values[0], rigid=True))
+
+baseline = relax_runs[0]
+fzs = baseline['fzs']
+PPpos = baseline['PPpos']
+PPdisp = baseline['PPdisp']
+lvecScan = baseline['lvecScan']
+print(f"[test] Baseline run: {baseline['label']}")
 
 # --- 4. Save outputs ---
 if args.save_outputs:
@@ -115,27 +142,49 @@ try:
     E = gridFF[:, :, :, 3]
     Fz_grid = gridFF[:, :, :, 2]
 
-    # --- Plot ALL OutFz z-slices (approach sequence) ---
+    # --- Plot ALL OutFz z-slices (approach sequence) for every stiffness/rigid variant ---
     if args.plot_outfz:
         ncols = 9
-        nrows = (nz_out + ncols - 1) // ncols
-        fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 2.2, nrows * 2.0))
-        if nrows == 1:
-            axes = axes.reshape(1, -1)
-        for i, iz in enumerate(range(iz_start, fzs.shape[0])):
-            ax = axes[i // ncols, i % ncols]
-            z_tip = zTips[iz]
-            z_probe = zProbe_all[iz]
-            im = ax.imshow(fzs[iz, :, :], origin='lower', extent=extent, cmap=args.outfz_cmap)
-            ax.set_title(f"Fz z={z_probe:.1f}A")
-            ax.set_xticks([]); ax.set_yticks([])
-        for j in range(nz_out, nrows * ncols):
-            axes[j // ncols, j % ncols].axis('off')
-        plt.tight_layout()
-        out_png = os.path.join(OUT_DIR, "OutFz_all_slices.png")
-        fig.savefig(out_png, dpi=150)
-        plt.close(fig)
-        print(f"[test] Saved ALL Fz slices ({nz_out} panels): {out_png}")
+        for rr in relax_runs:
+            fzs_plot = rr['fzs']
+            nrows = (nz_out + ncols - 1) // ncols
+            fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 2.2, nrows * 2.0))
+            if nrows == 1:
+                axes = axes.reshape(1, -1)
+            for i, iz in enumerate(range(iz_start, fzs_plot.shape[0])):
+                ax = axes[i // ncols, i % ncols]
+                z_probe = zProbe_all[iz]
+                im = ax.imshow(fzs_plot[iz, :, :], origin='lower', extent=extent, cmap='gray')
+                ax.set_title(f"Fz z={z_probe:.1f}A", fontsize=8)
+                ax.set_xticks([]); ax.set_yticks([])
+            for j in range(nz_out, nrows * ncols):
+                axes[j // ncols, j % ncols].axis('off')
+            plt.tight_layout()
+            safe_label = rr['label'].replace('=', '').replace('.', 'p').replace(' ', '')
+            out_png = os.path.join(OUT_DIR, f"OutFz_all_slices_{safe_label}.png")
+            fig.savefig(out_png, dpi=150)
+            plt.close(fig)
+            print(f"[test] Saved ALL Fz slices ({nz_out} panels): {out_png}")
+            if rr is baseline:
+                legacy_png = os.path.join(OUT_DIR, "OutFz_all_slices.png")
+                try:
+                    import shutil
+                    shutil.copyfile(out_png, legacy_png)
+                except Exception:
+                    fig2, axes2 = plt.subplots(nrows, ncols, figsize=(ncols * 2.2, nrows * 2.0))
+                    if nrows == 1:
+                        axes2 = axes2.reshape(1, -1)
+                    for i, iz in enumerate(range(iz_start, fzs_plot.shape[0])):
+                        ax = axes2[i // ncols, i % ncols]
+                        z_probe = zProbe_all[iz]
+                        ax.imshow(fzs_plot[iz, :, :], origin='lower', extent=extent, cmap='gray')
+                        ax.set_title(f"Fz z={z_probe:.1f}A", fontsize=8)
+                        ax.set_xticks([]); ax.set_yticks([])
+                    for j in range(nz_out, nrows * ncols):
+                        axes2[j // ncols, j % ncols].axis('off')
+                    plt.tight_layout()
+                    fig2.savefig(legacy_png, dpi=150)
+                    plt.close(fig2)
 
     # --- Plot relative PP displacement dX,dY,dZ = PPpos - TipPos at top slice ---
     if args.plot_pppos:
@@ -197,6 +246,44 @@ try:
         fig.savefig(out_png3, dpi=150)
         plt.close(fig)
         print(f"[test] Saved side-by-side comparison ({nz_out} rows): {out_png3}")
+
+    # --- Multi-stiffness comparison: E / Fz_grid / rigid / klat runs ---
+    if args.plot_stiffness_comparison:
+        run_cols = []
+        run_titles = []
+        if args.include_rigid:
+            rigid_run = next((rr for rr in relax_runs if rr['rigid']), None)
+            if rigid_run is not None:
+                run_cols.append(rigid_run['fzs'])
+                run_titles.append('rigid (maxIters=0)')
+        for rr in relax_runs:
+            if rr['rigid']:
+                continue
+            run_cols.append(rr['fzs'])
+            run_titles.append(f"klat={rr['klat']:g} N/m")
+        ncols_stiff = 2 + len(run_cols)
+        fig, axes = plt.subplots(nz_out, ncols_stiff, figsize=(ncols_stiff * 2.4, nz_out * 1.8))
+        if nz_out == 1:
+            axes = axes.reshape(1, -1)
+        for i_scan in range(nz_out):
+            iz_scan = iz_start + i_scan
+            iz_grid = iz_grid0 + i_scan
+            z_probe = zProbe_all[iz_scan]
+            z_grid = zs[iz_grid]
+            row_data = [E[iz_grid, :, :], Fz_grid[iz_grid, :, :]] + [rr[iz_scan, :, :] for rr in run_cols]
+            row_titles = [f"E z={z_grid:.1f}A", f"Fz_grid z={z_grid:.1f}A"] + [f"OutFz {tt} z={z_probe:.1f}A" for tt in run_titles]
+            for ax, arr, title in zip(axes[i_scan], row_data, row_titles):
+                im = ax.imshow(arr, origin='lower', extent=extent, cmap='RdBu_r')
+                vlim = max(abs(arr.min()), abs(arr.max()))
+                im.set_clim(-vlim, vlim)
+                ax.set_title(title, fontsize=8)
+                ax.set_xticks([]); ax.set_yticks([])
+                plt.colorbar(im, ax=ax, fraction=0.046)
+        plt.tight_layout()
+        out_png5 = os.path.join(OUT_DIR, "GridFF_vs_OutFz_stiffness.png")
+        fig.savefig(out_png5, dpi=150)
+        plt.close(fig)
+        print(f"[test] Saved stiffness comparison ({nz_out} rows, {ncols_stiff} cols): {out_png5}")
 
     # --- Plot GridFF E,Fx,Fy,Fz at multiple z levels (raw) ---
     if args.plot_gridff:

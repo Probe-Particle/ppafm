@@ -1,341 +1,255 @@
 #!/usr/bin/python
 
-import numpy as np
-from . import elements
+import math
 
-def findAllBonds( atoms, Rcut=3.0, RvdwCut=0.7 ):
-    bonds     = []
-    bondsVecs = []
-    ps     = atoms[:,1:]
-    iatoms = np.arange( len(atoms), dtype=int )
-    Rcut2 = Rcut*Rcut
-    for i,atom in enumerate(atoms):
-        p    = atom[1:]
-        dp   = ps - p
-        rs   = np.sum( dp**2, axis=1 )
-        for j in iatoms[:i][ rs[:i] < Rcut2 ]:
-            ei = int( atoms[i,0] )
-            ej = int( atoms[j,0] )
-            Rcut_ij =  elements.ELEMENTS[ ei ][7] + elements.ELEMENTS[ ej ][7]
-            #print ( i, j, ei, ej, Rcut_ij )
-            rij =  np.sqrt( rs[j] )
-            if ( rij < ( RvdwCut * Rcut_ij ) ):
-                bonds.append( (i,j) )
-                bondsVecs.append( ( rij, dp[j]/rij ) )
-    return bonds, bondsVecs
-    
-def neighs( natoms, bonds ):
-    neighs = [{} for i in range(natoms) ]
+import numpy as np
+
+from . import elements
+from .logging_utils import get_logger
+
+logger = get_logger("atomicUtils")
+
+
+def neighs(natoms, bonds):
+    neighs = [{} for i in range(natoms)]
     for ib, b in enumerate(bonds):
-        i = b[0]; j = b[1]; 
+        i = b[0]
+        j = b[1]
         neighs[i][j] = ib
         neighs[j][i] = ib
     return neighs
 
-def findTypeNeigh( atoms, neighs, typ, neighTyps=[(1,2,2)] ):
-    typ_mask = ( atoms[:,0] == typ )
-    satoms   = atoms[typ_mask]
-    iatoms   = np.arange(len(atoms),dtype=int)[typ_mask]
+
+def findTypeNeigh(atoms, neighs, typ, neighTyps=[(1, 2, 2)]):
+    typ_mask = atoms[:, 0] == typ
+    satoms = atoms[typ_mask]
+    iatoms = np.arange(len(atoms), dtype=int)[typ_mask]
     selected = []
-    for i,atom in enumerate(satoms):
+    for i, atom in enumerate(satoms):
         iatom = iatoms[i]
-        #for jatom in neighs[ iatom ]:
-        #    jtyp = atoms[jatom,0]
         count = {}
-        for jatom in neighs[ iatom ]:
-            jtyp = atoms[jatom,0]
+        for jatom in neighs[iatom]:
+            jtyp = atoms[jatom, 0]
             count[jtyp] = count.get(jtyp, 0) + 1
-        for jtyp, (nmin,nmax) in list(neighTyps.items()):
-            n = count.get(jtyp,0)
-            if( (n>=nmin)and(n<=nmax) ):
-                selected.append( iatom )
+        for jtyp, (nmin, nmax) in list(neighTyps.items()):
+            n = count.get(jtyp, 0)
+            if (n >= nmin) and (n <= nmax):
+                selected.append(iatom)
     return selected
-    
-def getAllNeighsOfSelected( selected, neighs, atoms, typs={1} ):
+
+
+def getAllNeighsOfSelected(selected, neighs, atoms, typs={1}):
     result = {}
     for iatom in selected:
-        for jatom in neighs[ iatom ]:
-            if( atoms[jatom,0] in typs ):
+        for jatom in neighs[iatom]:
+            if atoms[jatom, 0] in typs:
                 if jatom in result:
-                    result[jatom].append( iatom )
+                    result[jatom].append(iatom)
                 else:
                     result[jatom] = [iatom]
-    return result 
-    
-def findPairs( select1, select2, atoms, Rcut=2.0 ):    
-    ps = atoms[select2,1:]
-    Rcut2 = Rcut*Rcut
+    return result
+
+
+def findPairs(select1, select2, atoms, Rcut=2.0):
+    ps = atoms[select2, 1:]
+    Rcut2 = Rcut * Rcut
     pairs = []
-    select2 = np.array( select2 )
+    select2 = np.array(select2)
     for iatom in select1:
-        p = atoms[iatom,1:]
-        rs = np.sum( (ps - p)**2, axis=1 )
-        for jatom in select2[ rs < Rcut2 ]:
-            pairs.append( (iatom,jatom) )
+        p = atoms[iatom, 1:]
+        rs = np.sum((ps - p) ** 2, axis=1)
+        for jatom in select2[rs < Rcut2]:
+            pairs.append((iatom, jatom))
     return pairs
 
-def findPairs_one( select1, atoms, Rcut=2.0 ):    
-    ps = atoms[select1,1:]
-    Rcut2 = Rcut*Rcut
+
+def findPairs_one(select1, atoms, Rcut=2.0):
+    ps = atoms[select1, 1:]
+    Rcut2 = Rcut * Rcut
     pairs = []
-    select1 = np.array( select1 )
-    for i,iatom in enumerate(select1):
-        p = atoms[iatom,1:]
-        rs = np.sum( (ps - p)**2, axis=1 )
-        #print ( i, iatom, rs )
-        for jatom in select1[:i][ rs[:i] < Rcut2 ]:
-            pairs.append( (iatom,jatom) )
-    return pairs  
-    
-def pairsNotShareNeigh( pairs, neighs ):
+    select1 = np.array(select1)
+    for i, iatom in enumerate(select1):
+        p = atoms[iatom, 1:]
+        rs = np.sum((ps - p) ** 2, axis=1)
+        for jatom in select1[:i][rs[:i] < Rcut2]:
+            pairs.append((iatom, jatom))
+    return pairs
+
+
+def pairsNotShareNeigh(pairs, neighs):
     pairs_ = []
     for pair in pairs:
-        ngis = neighs[ pair[0] ]
-        ngjs = neighs[ pair[1] ]
+        ngis = neighs[pair[0]]
+        ngjs = neighs[pair[1]]
         share_ng = False
         for ngi in ngis:
             if ngi in ngjs:
                 share_ng = True
                 break
         if not share_ng:
-            pairs_.append( pair )
+            pairs_.append(pair)
     return pairs_
 
-def makeRotMat( fw, up ):
-    fw   = fw/np.linalg.norm(fw)
-    up   = up - fw*np.dot(up,fw)
-    up   = up/np.linalg.norm(up)
-    left = np.cross(fw,up)
-    left = left/np.linalg.norm(left) 
-    return np.array([left,up,fw])
 
-def groupToPair( p1, p2, group, up, up_by_cog=False ):
-    center = (p1+p2)*0.5
-    fw  = p2-p1;    
+def makeRotMat(fw, up):
+    fw = fw / np.linalg.norm(fw)
+    up = up - fw * np.dot(up, fw)
+    up = up / np.linalg.norm(up)
+    left = np.cross(fw, up)
+    left = left / np.linalg.norm(left)
+    return np.array([left, up, fw])
+
+
+def groupToPair(p1, p2, group, up, up_by_cog=False):
+    center = (p1 + p2) * 0.5
+    fw = p2 - p1
     if up_by_cog:
-        up  = center - up
-    rotmat = makeRotMat( fw, up )
-    ps  = group[:,1:]
-    #ps_ = ps
-    #print( "ps=", ps )
-    #print ( rotmat )
-    #ps_ = np.transpose( np.dot( rotmat, np.transpose(ps) ) )
-    ps_ = np.dot( ps, rotmat ) 
-    #print( "ps_=", ps_ )
-    group[:,1:] = ps_ + center
+        up = center - up
+    rotmat = makeRotMat(fw, up)
+    ps = group[:, 1:]
+    ps_ = np.dot(ps, rotmat)
+    group[:, 1:] = ps_ + center
     return group
-    
-def replacePairs( pairs, atoms, group, up_vec=(np.array((0.0,0.0,0.0)),1) ):
+
+
+def replacePairs(pairs, atoms, group, up_vec=(np.array((0.0, 0.0, 0.0)), 1)):
     replaceDict = {}
-    for ipair,pair in enumerate(pairs):
+    for ipair, pair in enumerate(pairs):
         for iatom in pair:
             replaceDict[iatom] = 1
-            #if( iatom in replaceDict ):
-            #    replaceDict[iatom].append(ipair)
-            #else:
-            #    replaceDict[iatom] = [ipair]
     atoms_ = []
-    for iatom,atom in enumerate( atoms ):
-        if(iatom in replaceDict): continue
+    for iatom, atom in enumerate(atoms):
+        if iatom in replaceDict:
+            continue
         atoms_.append(atom)
     for pair in pairs:
-        group_ = groupToPair( atoms[pair[0],1:], atoms[pair[1],1:], group.copy(), up_vec[0], up_vec[1] )
-        #print( "group = ", group )
+        group_ = groupToPair(atoms[pair[0], 1:], atoms[pair[1], 1:], group.copy(), up_vec[0], up_vec[1])
         for atom in group_:
-            atoms_.append( atom )
-        #break
+            atoms_.append(atom)
     return atoms_
 
-def findNearest( p, ps, rcut=1e+9 ):
-	rs = np.sum( (ps - p)**2, axis=1 )
-	imin = np.argmin(rs)
-	if rs[imin]<(rcut**2):
-	    return imin
-	else: 
-	    return -1 
 
-def countTypeBonds( atoms, ofAtoms, rcut ):
-    bond_counts = np.zeros(len(atoms), dtype=int )
-    ps = ofAtoms[:,1:]
-    for i,atom in enumerate(atoms):
+def findNearest(p, ps, rcut=1e9):
+    rs = np.sum((ps - p) ** 2, axis=1)
+    imin = np.argmin(rs)
+    if rs[imin] < (rcut**2):
+        return imin
+    else:
+        return -1
+
+
+def countTypeBonds(atoms, ofAtoms, rcut):
+    bond_counts = np.zeros(len(atoms), dtype=int)
+    ps = ofAtoms[:, 1:]
+    for i, atom in enumerate(atoms):
         p = atom[1:]
-        rs = np.sum( (ps - p)**2, axis=1 )
-        bond_counts[i] = np.sum( rs < (rcut**2) )
+        rs = np.sum((ps - p) ** 2, axis=1)
+        bond_counts[i] = np.sum(rs < (rcut**2))
     return bond_counts
-	
-def findBondsTo( atoms, typ, ofAtoms, rcut ):
-    found     = []
-    foundDict = {}
-    ps = ofAtoms[:,1:] 
-    for i,atom in enumerate(atoms):
-        if atom[0]==typ:
-            p = atom[1:]
-            ineigh = findNearest( p, ps, rcut )
-            if ineigh >= 0:
-                foundDict[i] = len(found)
-                found.append( (i, p - ps[ineigh]) )
-    return found, foundDict
-	
-def replace( atoms, found, to=17, bond_length=2.0, radial=0.0, prob=0.75 ):
+
+
+def replace(atoms, found, to=17, bond_length=2.0, radial=0.0, prob=0.75):
     replace_mask = np.random.rand(len(found)) < prob
-    for i,foundi in enumerate(found):
+    for i, foundi in enumerate(found):
         if replace_mask[i]:
             iatom = foundi[0]
-            bvec  = foundi[1]
-            rb    = np.linalg.norm(bvec)
-            bvec *= ( bond_length - rb )/rb
-            #if radial > 0:
-            #    brad = atoms[iatom,1:]
-            #    brad = brad/np.linalg.norm(brad)
-            #    cdot = np.dot( brad, bvec )
-            #    bvec = (1-radial)*bvec + brad*radial/cdot
-            atoms[iatom,0]   = to
-            atoms[iatom,1:] += bvec  
+            bvec = foundi[1]
+            rb = np.linalg.norm(bvec)
+            bvec *= (bond_length - rb) / rb
+            atoms[iatom, 0] = to
+            atoms[iatom, 1:] += bvec
     return atoms
 
-def saveAtoms( atoms, fname, xyz=True ):
-    fout = open(fname,'w')
-    fout.write("%i\n"  %len(atoms) )
-    if xyz==True : fout.write("\n") 
-    for i,atom in enumerate( atoms ):
-        #print( i, atom )
-        if isinstance( atom[0], str ):
-            fout.write("%s %f %f %f\n"  %( atom[0], atom[1], atom[2], atom[3] ) )
-        else:
-            fout.write("%i %f %f %f\n"  %( atom[0], atom[1], atom[2], atom[3] ) )
-    fout.close() 
 
-def writeToXYZ( fout, es, xyzs, qs=None, commet="" ):
-    fout.write("%i\n"  %len(xyzs) )
-    fout.write(commet+"\n")
-    if (qs is not None):
-        for i,xyz in enumerate( xyzs ):
-            fout.write("%s %f %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2], qs[i] ) )
-    else:
-        for i,xyz in enumerate( xyzs ):
-            fout.write("%s %f %f %f\n"  %( es[i], xyz[0], xyz[1], xyz[2] ) )
-
-def saveXYZ( es, xyzs, fname, qs=None ):
-    print(">>>>>",fname,"<<<<<")
-    fout = open(fname, "w")
-    writeToXYZ( fout, es, xyzs, qs )
-    fout.close() 
-
-def makeMovie( fname, n, es, func ):
-    fout = open(fname, "w")
-    for i in range(n):
-        xyzs, qs = func(i)
-        writeToXYZ( fout, es, xyzs, qs, commet=("frame %i " %i) )
-    fout.close() 
-
-def loadAtomsNP(fname):
-    xyzs   = [] 
-    Zs     = []
-    enames = []
-    qs     = []
-    with open(fname, 'r') as f:
-        for line in f:
-            wds = line.split()
-            try:
-                xyzs.append( ( float(wds[1]), float(wds[2]), float(wds[3]) ) )
-                try:
-                    iz    = int(wds[0]) 
-                    Zs    .append(iz)
-                    enames.append( elements.ELEMENTS[iz] )
-                except:
-                    ename = wds[0]
-                    enames.append( ename )
-                    Zs    .append( elements.ELEMENT_DICT[ename][0] )
-                try:
-                    q = float(wds[4])
-                except:
-                    q = 0
-                qs.append(q)
-            except:
-                print("cannot interpet line: ", line)
-                continue
-    xyzs = np.array( xyzs )
-    Zs   = np.array( Zs, dtype=np.int32 )
-    qs   = np.array(qs)
-    return xyzs,Zs,enames,qs
-
-def loadAtoms( name ):
-    f = open(name,"r")
-    n=0;
-    l = f.readline()
-    try:
-        n=int(l)
-    except:
-        raise ValueError("First line of a xyz file should contain the number of atoms. Aborting...")
-    line = f.readline() 
-    if (n>0):
-        n=int(l)
-        e=[];x=[];y=[]; z=[]; q=[]
-        i = 0;
-        for line in f:
-            words=line.split()
-            nw = len( words)
-            ie = None
-            if( nw >=4 ):
-                e.append( words[0] )
-                x.append( float(words[1]) )
-                y.append( float(words[2]) )
-                z.append( float(words[3]) )
-                if ( nw >=5 ):
-                    q.append( float(words[4]) )
-                else:
-                    q.append( 0.0 )
-                i+=1
-            else:
-                print(" skipped line : ", line)
-    f.close()
-    return [ e,x,y,z,q ]
-
-
-#def loadCoefs( characters=['s','px','py','pz'] ):
-def loadCoefs( characters=['s'] ):
+def loadCoefs(characters=["s"]):
     dens = None
     coefs = []
     for char in characters:
-        fname  = 'phi_0000_%s.dat' %char
-        print( fname )
-        raw = np.genfromtxt(fname,skip_header=1)
-        Es  = raw[:,0]
-        cs  = raw[:,1:]
-        sh  = cs.shape
-        print(( "shape : ", sh ))
-        cs  = cs.reshape(sh[0],sh[1]//2,2)
-        d   = cs[:,:,0]**2 + cs[:,:,1]**2
-        coefs.append( cs[:,:,0] + 1j*cs[:,:,1] )
+        fname = "phi_0000_%s.dat" % char
+        logger.debug(fname)
+        raw = np.genfromtxt(fname, skip_header=1)
+        Es = raw[:, 0]
+        cs = raw[:, 1:]
+        sh = cs.shape
+        logger.debug(f"Shape of data: {sh}")
+        cs = cs.reshape(sh[0], sh[1] // 2, 2)
+        d = cs[:, :, 0] ** 2 + cs[:, :, 1] ** 2
+        coefs.append(cs[:, :, 0] + 1j * cs[:, :, 1])
         if dens is None:
-            dens  = d 
+            dens = d
         else:
             dens += d
     return dens, coefs, Es
 
 
-    
-def findCOG( ps, byBox=False ):
-    if(byBox):
+def findCOG(ps, byBox=False):
+    if byBox:
+        # fmt: off
         xmin=ps[:,0].min(); xmax=ps[:,0].max();
         ymin=ps[:,1].min(); ymax=ps[:,1].max();
         zmin=ps[:,2].min(); zmax=ps[:,2].max();
-        return np.array( (xmin+xmax, ymin+ymax, zmin+zmax) ) * 0.5
+        # fmt: on
+        return np.array((xmin + xmax, ymin + ymax, zmin + zmax)) * 0.5
     else:
-        cog = np.sum( ps, axis=0 )
-        cog *=(1.0/len(ps))
+        cog = np.sum(ps, axis=0)
+        cog *= 1.0 / len(ps)
         return cog
-        
-def histR( ps, dbin=None, Rmax=None, weights=None ):
-    rs = np.sqrt(np.sum((ps*ps),axis=1))
-    bins=100
+
+
+def histR(ps, dbin=None, Rmax=None, weights=None):
+    rs = np.sqrt(np.sum((ps * ps), axis=1))
+    bins = 100
     if dbin is not None:
         if Rmax is None:
-            Rmax = rs.max()+0.5
-        bins = np.linspace( 0,Rmax, int(Rmax/(dbin))+1 )
-    print(( rs.shape, weights.shape ))
+            Rmax = rs.max() + 0.5
+        bins = np.linspace(0, Rmax, int(Rmax / (dbin)) + 1)
+    logger.debug(f"{rs.shape} {weights.shape}")
     return np.histogram(rs, bins, weights=weights)
 
 
+def ZsToElems(Zs):
+    """Convert atomic numbers to element symbols."""
+    return [elements.ELEMENTS[Z - 1][1] for Z in Zs]
 
-    
+
+def findBonds(atoms, iZs, sc, ELEMENTS=elements.ELEMENTS, FFparams=None):
+    bonds = []
+    xs = atoms[1]
+    ys = atoms[2]
+    zs = atoms[3]
+    n = len(xs)
+    for i in range(n):
+        for j in range(i):
+            dx = xs[j] - xs[i]
+            dy = ys[j] - ys[i]
+            dz = zs[j] - zs[i]
+            r = math.sqrt(dx * dx + dy * dy + dz * dz)
+            ii = iZs[i] - 1
+            jj = iZs[j] - 1
+            bondlength = ELEMENTS[ii][6] + ELEMENTS[jj][6]
+            logger.debug(f"find bond {i} {j} {bondlength} {r} {sc} ({xs[i]}, {ys[i]}, {zs[i]}) ({xs[j]}, {ys[j]}, {zs[j]})")
+            if r < (sc * bondlength):
+                bonds.append((i, j))
+    return bonds
+
+
+def findBonds_(atoms, iZs, sc, ELEMENTS=elements.ELEMENTS):
+    bonds = []
+    n = len(atoms)
+    for i in range(n):
+        for j in range(i):
+            d = atoms[i] - atoms[j]
+            r = math.sqrt(np.dot(d, d))
+            ii = iZs[i] - 1
+            jj = iZs[j] - 1
+            bondlength = ELEMENTS[ii][6] + ELEMENTS[jj][6]
+            if r < (sc * bondlength):
+                bonds.append((i, j))
+    return bonds
+
+
+def getAtomColors(iZs, ELEMENTS=elements.ELEMENTS, FFparams=None):
+    colors = []
+    for e in iZs:
+        colors.append(ELEMENTS[FFparams[e - 1][3] - 1][8])
+    return colors

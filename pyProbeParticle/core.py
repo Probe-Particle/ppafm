@@ -97,7 +97,7 @@ def setFF( cell=None, gridF=None, gridE=None ):
 #void setRelax( int maxIters, double convF2, double dt, double damping )
 lib.setRelax.argtypes = [ c_int, c_double, c_double, c_double ]
 lib.setRelax.restype  = None
-def setRelax( maxIters  = 1000, convF2 = 1.0e-4, dt = 0.1, damping = 0.1 ):
+def setRelax( maxIters  = 1000, convF = 1.0e-4, dt = 0.1, damping = 0.1 ):
     lib.setRelax( maxIters, convF*convF, dt, damping )
 
 #void setFIRE( double finc, double fdec, double falpha )

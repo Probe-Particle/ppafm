@@ -58,7 +58,7 @@ def relaxedScan3D( xTips, yTips, zTips ):
     if(verbose>0): print("<<<END: relaxedScan3D()")
     return fzs,PPpos
 
-def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipspline=None,bPPdisp=False,bFFtotDebug=False):
+def perform_relaxation(lvec, FFLJ, FFel=None, FFpauli=None, FFboltz=None, tipspline=None, bPPdisp=False, bFFtotDebug=False, rigid=False, maxIters=1000, convF=1.0e-4, dt=0.1, damping=0.1):
     if(verbose>0): print(">>>BEGIN: perform_relaxation()")
     if tipspline is not None :
         try:
@@ -89,6 +89,11 @@ def perform_relaxation (lvec,FFLJ,FFel=None, FFpauli=None, FFboltz=None,tipsplin
     core.setFF_Fpointer( FF )
     if(verbose>0): print("stiffness:", PPU.params['klat'])
     core.setTip( kSpring = np.array((PPU.params['klat'],PPU.params['klat'],0.0))/-PPU.eVA_Nm )
+    if rigid:
+        if(verbose>0): print("rigid scan: setRelax(maxIters=0, dt=0.0)")
+        core.setRelax(maxIters=0, convF=convF, dt=0.0, damping=damping)
+    else:
+        core.setRelax(maxIters=maxIters, convF=convF, dt=dt, damping=damping)
     fzs,PPpos = relaxedScan3D( xTips, yTips, zTips )
     if bPPdisp:
         PPdisp=PPpos.copy()

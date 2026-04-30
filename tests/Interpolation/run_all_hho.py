@@ -5,10 +5,13 @@ import os, glob, subprocess, sys, argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_dir', type=str, default="data_Mithun_new", help='Input data directory')
 parser.add_argument('--out_dir', type=str, default=None, help='Output directory (default: {data_dir}/relax_test_hho)')
+parser.add_argument('--cache_base_dir', type=str, default='', help='Base directory containing precomputed gridFF.npy/lvec.npy to reuse (default: out_dir)')
+parser.add_argument('--only_dataset_prefix', type=str, default='', help='Only process datasets whose basename starts with this prefix')
 args = parser.parse_args()
 
 DATA_DIR = args.data_dir
 BASE_OUT_DIR = args.out_dir if args.out_dir else os.path.join(DATA_DIR, "relax_test_hho")
+CACHE_BASE_DIR = args.cache_base_dir if args.cache_base_dir else BASE_OUT_DIR
 
 # Try different directory structures for points files
 # Option 1: points_clean/ with _points_clean.txt suffix
@@ -34,6 +37,8 @@ print(f"[run_all] Found {len(points_files)} *-h* datasets in {points_pattern1 if
 for points_file in sorted(points_files):
     # Extract basename (e.g., HHO-h-p_1 from HHO-h-p_1_points_clean.txt or HHO-h-p_1_point_info.txt)
     basename = os.path.basename(points_file).replace(points_suffix, "")
+    if args.only_dataset_prefix and not basename.startswith(args.only_dataset_prefix):
+        continue
     
     # Find all zscan files for this molecule (different tips)
     zscan_pattern = os.path.join(DATA_DIR, "results", f"{basename}-*.dat")
@@ -52,6 +57,7 @@ for points_file in sorted(points_files):
         # Create output directory for this tip variant
         out_dir = os.path.join(BASE_OUT_DIR, f"{basename}_{tip_variant}")
         os.makedirs(out_dir, exist_ok=True)
+        cache_dir = os.path.join(CACHE_BASE_DIR, f"{basename}_{tip_variant}")
         
         # Build command
         cmd = [
@@ -59,6 +65,7 @@ for points_file in sorted(points_files):
             "--points_file", points_file,
             "--zscan_file", zscan_file,
             "--out_dir", out_dir,
+            "--gridff_cache_dir", cache_dir,
             "--save_outputs", "0",
             "--plot_comparison", "1",
             "--plot_pppos", "0",
