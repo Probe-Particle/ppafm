@@ -693,6 +693,201 @@ git add test_relax_kriging.py
 git add run_all_hho.py
 ```
 
+## Adding Molecular Geometry Images
+
+### Overview
+Molecular geometry visualization helps inspect the structure of molecules being simulated. Two types of images can be generated:
+1. **Molecular geometry only**: Shows atoms with element-specific colors and bonds
+2. **Molecular geometry with sampling points**: Shows atoms, bonds, and numbered sampling points with different colors per point type
+
+### Plotting Molecular Geometry Only
+
+#### Standalone Script
+```bash
+cd /home/prokop/git/ppafm/tests
+python plot_molecule.py \
+  --input data_Mithun_flat/opt-geom/HHO-h-p_1.xyz \
+  --output HHO-h-p_1.png \
+  --axes 0,1 \
+  --size 80 \
+  --bonds 1 \
+  --labels 1
+```
+
+**CLI Options**:
+- `--input`: Input molecular structure file (xyz, mol, mol2)
+- `--output`: Output image file (default: show interactively)
+- `--axes`: Axes to plot (comma-separated, e.g., "0,1" for XY, "0,2" for XZ, "1,2" for YZ)
+- `--size`: Atom size scaling factor (default: 50.0)
+- `--bonds`: Plot bonds (0=no, 1=yes)
+- `--labels`: Show atom labels (0=no, 1=yes)
+- `--RvdwCut`: vdW radius cutoff for bond detection (default: 0.5)
+- `--extent`: Plot extent as "xmin,xmax,ymin,ymax"
+- `--figsize`: Figure size as "width,height" (default: 8,8)
+
+#### Batch Copy to Tip Directories
+```bash
+cd /home/prokop/git/ppafm/tests/Interpolation
+python copy_molecule_plots.py
+```
+
+This script:
+1. Loads all molecule xyz files from `data_Mithun_flat/opt-geom/`
+2. Plots each molecule using `plot_molecule.py`
+3. Copies each plot to all matching tip variant directories in `data_Mithun_flat/relax_test_hho/`
+4. Skips existing files to avoid overwriting (especially `GridFF.npy`)
+
+**Output**: Each tip variant directory gets `{molecule_name}.png` (e.g., `HHO-h-p_1.png`)
+
+### Plotting Molecular Geometry with Sampling Points
+
+#### Standalone Script
+The sampling points are stored in `data_Mithun_flat/endgroup_points/` in `_point_info.txt` format:
+```
+0 N[ 0.85480606 -2.13842196][]
+1 C[ 2.11072679 -1.76642157][]
+...
+16 kink[ 0.49220046 -3.07036465][16]
+17 kink[1.40145248 2.20080629][17]
+...
+93 grid[-3.07055000 -0.09026000][]
+```
+
+To plot points on top of geometry:
+```bash
+cd /home/prokop/git/ppafm/tests/Interpolation
+python plot_points_on_molecule.py
+```
+
+This script:
+1. Loads molecular geometry from `data_Mithun_flat/opt-geom/`
+2. Loads sampling points from `data_Mithun_flat/endgroup_points/`
+3. Plots geometry with atoms and bonds
+4. Overlays sampling points with different colors per type:
+   - N: blue, C: black, H: gray, O: red
+   - kink: purple, center: green, bond: orange
+   - cp: cyan, grid: lightblue
+5. Numbers all points (0-187 for HHO-h-p_1)
+6. Copies plots to matching tip variant directories
+
+**Output**: Each tip variant directory gets `{molecule_name}_points.png`
+
+**Point Types**:
+- **Atom points** (N, C, H, O): Atomic positions from the molecule
+- **kink**: Special points on the molecular structure
+- **center**: Center points of molecular fragments
+- **bond**: Bond midpoints
+- **cp**: Cross-product or control points
+- **grid**: Regular grid points for Kriging interpolation
+
+### Important Notes
+- Both scripts check for existing files and skip them to avoid overwriting
+- Critical files like `GridFF.npy` are never overwritten
+- Temporary plots are stored in `temp_molecule_plots/` and `temp_points_plots/`
+- Scripts use absolute paths to avoid path resolution issues
+
+## Multi-Stiffness and Rigid Scan Mode
+
+### Overview
+The relaxation simulation can be run with different lateral spring constants and in "rigid scan" mode (no relaxation, just force evaluation). This is useful for:
+- Comparing AFM images at different cantilever stiffnesses
+- Generating reference images without probe relaxation effects
+- Studying the impact of lateral stiffness on image contrast
+
+### Rigid Scan Mode
+Rigid scan mode sets `maxIters=0` and `dt=0` to skip relaxation steps, effectively computing forces at the initial probe position without allowing it to relax.
+
+**CLI Option**:
+```bash
+python test_relax_kriging.py \
+  --rigid 1
+```
+
+**Effect**: The probe particle stays at its initial position, and forces are computed directly from the GridFF without relaxation. This produces "rigid" AFM images that show the raw force field.
+
+### Multi-Stiffness Mode
+Multiple lateral spring constants can be tested in a single run to compare the effect of cantilever stiffness on the relaxed probe position.
+
+**CLI Option**:
+```bash
+python test_relax_kriging.py \
+  --stiffnesses 0.5 1.0 2.0 5.0
+```
+
+**Effect**: Runs relaxation for each stiffness value, generating separate outputs:
+- `OutFz_all_slices_klat0.5.png`
+- `OutFz_all_slices_klat1.0.png`
+- `OutFz_all_slices_klat2.0.png`
+- `OutFz_all_slices_klat5.0.png`
+- `GridFF_vs_OutFz_stiffness.png` (comparison plot)
+
+### Combining Rigid and Multi-Stiffness
+Both modes can be combined to include rigid scan alongside stiffness variants:
+
+```bash
+python test_relax_kriging.py \
+  --stiffnesses 0.5 1.0 2.0 5.0 \
+  --rigid 1
+```
+
+**Output**:
+- Stiffness variants: `OutFz_all_slices_klat*.png`
+- Rigid scan: `OutFz_all_slices_rigid.png`
+- Comparison: `GridFF_vs_OutFz_stiffness.png` (includes rigid)
+
+### Batch Processing with Multi-Stiffness and Rigid
+The batch runner `run_all_hho.py` supports multi-stiffness and rigid scan by default:
+
+```bash
+python run_all_hho.py
+```
+
+This will:
+1. Run relaxation for all stiffness variants (default: 0.5, 1.0, 2.0, 5.0 N/m)
+2. Include rigid scan mode
+3. Generate comparison plots
+4. Use cached GridFF to avoid recomputation
+
+**Custom Stiffness Values**:
+```bash
+python run_all_hho.py --stiffnesses 0.1 0.5 1.0 --rigid 1
+```
+
+**Disable Rigid Scan**:
+```bash
+python run_all_hho.py --no_rigid
+```
+
+### Stiffness Values
+Typical lateral spring constants for AFM cantilevers:
+- **Soft**: 0.1-0.5 N/m (high compliance, probe relaxes more)
+- **Medium**: 1.0-2.0 N/m (typical for non-contact AFM)
+- **Stiff**: 5.0-10.0 N/m (low compliance, probe stays closer to tip)
+
+**Effect on Images**:
+- **Lower stiffness**: Probe relaxes more, images show more contrast from lateral forces
+- **Higher stiffness**: Probe stays closer to tip, images resemble rigid scan more closely
+- **Rigid scan**: No relaxation, shows raw force field (reference)
+
+### Output Files
+
+#### Per Stiffness
+- `OutFz_all_slices_klat{klat}.png`: Grayscale Fz slices for specific stiffness
+- `PPpos_top_slice_klat{klat}.png`: Probe displacement for specific stiffness
+
+#### Rigid Scan
+- `OutFz_all_slices_rigid.png`: Grayscale Fz slices for rigid scan
+- `PPpos_top_slice_rigid.png`: Probe displacement for rigid scan (should be zero)
+
+#### Comparison
+- `GridFF_vs_OutFz_stiffness.png`: Multi-panel comparison showing GridFF Fz vs OutFz for all stiffnesses and rigid scan
+
+### Performance Notes
+- Multi-stiffness runs reuse the same GridFF (no recomputation)
+- Each stiffness variant runs serially (due to probe position dependency in relaxation)
+- Rigid scan is fast (no relaxation iterations)
+- Total time ≈ (number of stiffnesses) × (single relaxation time)
+
 ### Scripts for Molecular Geometry Visualization
 ```bash
 cd /home/prokop/git/ppafm
