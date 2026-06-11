@@ -9,3 +9,6 @@ ppafm-relaxed-scan -k 0.5 -q -0.10
 
 # ======= STEP 3 : Plot the results
 ppafm-plot-results -k 0.5 -q -0.10 --arange 0.5 2.0 2 --df
+
+# ======= STEP 4 : Plot the results with atoms overlayed
+ppafm-plot-results -k 0.5 -q -0.10 --arange 0.5 2.0 2 --df --atoms --atomSize 0.15

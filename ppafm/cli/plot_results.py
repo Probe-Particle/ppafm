@@ -17,9 +17,6 @@ logger.debug("plot WITHOUT Xserver")
 # this makes it run without Xserver (e.g. on supercomputer) # see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 
 
-atom_size = 0.15
-
-
 def main(argv=None):
     # fmt: off
     parser = common.CLIParser( description="Plot results for a scan with a specified charge, amplitude, and spring constant.Images are saved in folder Q{charge}K{klat}/Amp{Amplitude}." )
@@ -34,6 +31,7 @@ def main(argv=None):
     parser.add_argument( "--Fz",        action="store_true",                           help="Plot images for z-component of the (short-range) force acting on the tip in eV/Angstrom")
     parser.add_argument( "--pos",       action="store_true",                           help="Save probe particle positions"    )
     parser.add_argument( "--atoms",     action="store_true",                           help="Plot atoms to images")
+    parser.add_argument( "--atomSize",  action="store",     type=float, default=0.15,  help="Size of atoms in images")
     parser.add_argument( "--bonds",     action="store_true",                           help="Plot bonds to images")
     parser.add_argument( "--cbar",      action="store_true",                           help="Plot colorbars to images")
     parser.add_argument( "--WSxM",      action="store_true",                           help="Save frequency shift into WsXM *.dat files"    )
@@ -146,7 +144,7 @@ def main(argv=None):
                     extent=extent,
                     atoms=atoms,
                     bonds=bonds,
-                    atomSize=atom_size,
+                    atomSize=args.atomSize,
                     markersize=2.0,
                     cbar=opt_dict["cbar"],
                 )
@@ -167,7 +165,7 @@ def main(argv=None):
                     extent=extent,
                     atoms=atoms,
                     bonds=bonds,
-                    atomSize=atom_size,
+                    atomSize=args.atomSize,
                     cbar=opt_dict["cbar"],
                 )
 
@@ -178,7 +176,7 @@ def main(argv=None):
                     extent=extent,
                     atoms=atoms,
                     bonds=bonds,
-                    atomSize=atom_size,
+                    atomSize=args.atomSize,
                     cbar=opt_dict["cbar"],
                 )
 
@@ -189,7 +187,7 @@ def main(argv=None):
                     extent=extent,
                     atoms=atoms,
                     bonds=bonds,
-                    atomSize=atom_size,
+                    atomSize=args.atomSize,
                     cbar=opt_dict["cbar"],
                 )
 
@@ -203,7 +201,7 @@ def main(argv=None):
                     extent=extent,
                     atoms=atoms,
                     bonds=bonds,
-                    atomSize=atom_size,
+                    atomSize=args.atomSize,
                     cbar=opt_dict["cbar"],
                 )
 
@@ -329,7 +327,7 @@ def main(argv=None):
                             cmap=parameters.colorscale,
                             atoms=atoms,
                             bonds=bonds,
-                            atomSize=atom_size,
+                            atomSize=args.atomSize,
                             cbar=opt_dict["cbar"],
                             cbar_label="df [Hz]",
                         )
@@ -354,7 +352,7 @@ def main(argv=None):
                             cmap=parameters.colorscale,
                             atoms=atoms,
                             bonds=bonds,
-                            atomSize=atom_size,
+                            atomSize=args.atomSize,
                             cbar=opt_dict["cbar"],
                         )
 
@@ -386,7 +384,7 @@ def main(argv=None):
                         cmap=parameters.colorscale_kpfm,
                         atoms=atoms,
                         bonds=bonds,
-                        atomSize=atom_size,
+                        atomSize=args.atomSize,
                         cbar=opt_dict["cbar"],
                         symmetric_map=True,
                         V0=args.V0,
@@ -401,7 +399,7 @@ def main(argv=None):
                         cmap=parameters.colorscale_kpfm,
                         atoms=atoms,
                         bonds=bonds,
-                        atomSize=atom_size,
+                        atomSize=args.atomSize,
                         cbar=opt_dict["cbar"],
                         symmetric_map=False,
                         cbar_label="V_LCPD [V]",
@@ -436,7 +434,7 @@ def main(argv=None):
                     cmap=parameters.colorscale,
                     atoms=atoms,
                     bonds=bonds,
-                    atomSize=atom_size,
+                    atomSize=args.atomSize,
                     cbar=opt_dict["cbar"],
                     cbar_label="Fz [eV/Angstrom]",
                 )
