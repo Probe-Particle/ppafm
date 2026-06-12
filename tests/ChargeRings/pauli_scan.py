@@ -1586,10 +1586,11 @@ def calculate_xV_scan_orb(params, pTips=None, start_point=None, end_point=None, 
 
     #T_calc = time.perf_counter(); print(f"calculate_xV_scan_orb() calc time: {T_calc-T0:.5f} [s]")
 
-    # Plot results - use actual x-coordinate range instead of distance
+    # Plot results - use arc-length along scan line (centered at 0)
     x1, y1 = start_point
     x2, y2 = end_point
-    extent = [min(x1, x2), max(x1, x2), Vmin, Vmax]
+    d_total = np.hypot(x2-x1, y2-y1)
+    extent = [-d_total/2, d_total/2, Vmin, Vmax]
     if ax_Emax is not None:
         pu.plot_imshow(ax_Emax, Emax, title='Emax', extent=extent, cmap='bwr', bDiverging=True)
         ax_Emax.set_aspect('auto');
@@ -2518,10 +2519,22 @@ if __name__ == "__main__":
     "decay": 0.3,
     "GammaS": 0.01,
     "GammaT": 0.01,
-    "Et0": 0.5,
-    "wt": 0.0,
+
+
+    "Et0": 0.3,
+    "wt": 10.0,
     "At": -0.1,
+
+
+    # "Et0": 0.15,
+    # #"Et0": 0.5,   # Before keep
+    # "wt": 0.0,
+    # "At": -0.1,
+
     "c_orb": 0.000,
+
+
+
     "T0": 0.3,
     "L": 20.0,
     "npix": 200,
@@ -2672,8 +2685,33 @@ if __name__ == "__main__":
     #ax_current = fig_curr.add_subplot(1,1,1)
 
     STM, dIdV, Es, Ts, probs, stateEs, pTips, Vbiases, spos, rots, current_decomp = calculate_xV_scan_orb(params, nx=500, start_point=start_point, end_point=end_point, ax_Emax=ax_Emax, ax_STM=ax_STM, ax_dIdV=ax_dIdV, Vmax=Vmax_scan, V_slice=V_slice_scan, pauli_solver=pauli_solver, fig_probs=fig_probs, fig_energies=fig_energies, bCurrentComponents=True, sdIdV=sdIdV)
+    
+    # Save complete scan data for publication (input params + full output arrays)
+    decomp_packed = _pack_current_decomposition(current_decomp, nV=len(Vbiases), npts=len(pTips), nstate=2**params['nsite'])
+    arrays = {
+        'STM': STM, 'dIdV': dIdV, 'Es': Es, 'Ts': Ts, 'probs': probs, 'stateEs': stateEs,
+        'pTips': pTips, 'Vbiases': Vbiases, 'spos': spos, 'rots': rots, 'current_decomp': decomp_packed
+    }
+    out_dir = save_scan_case('pauli_scan_results', params, arrays, extra={'scan_type': 'xV_line_scan', 'start_point': start_point, 'end_point': end_point}, save_npz=True, save_json=True)
+    print(f"Complete scan data saved to {out_dir}")
+    
     # Save main figure as SVG immediately after plotting
-    fig.savefig('pauli_scan_main.svg', format='svg', bbox_inches='tight')
+    Path('fig_data/fig_1').mkdir(parents=True, exist_ok=True)
+    fig.savefig('fig_data/fig_1/fig_1_Emax_STM_dIdV.svg', format='svg', bbox_inches='tight')
+    # --- Fig.1 panel data save ---
+    Emax = Es.max(axis=2)  # recompute; same as inside calculate_xV_scan_orb
+    x1, y1 = start_point; x2, y2 = end_point
+    dist_total = np.hypot(x2-x1, y2-y1)  # arc-length along diagonal scan line
+    extent = [-dist_total/2, dist_total/2, 0.0, Vmax_scan]  # centered arc-length axis, matches figures
+    np.save('fig_data/fig_1/panel_a_Emax.npy',  Emax)
+    np.save('fig_data/fig_1/panel_b_STM.npy',   STM)
+    np.save('fig_data/fig_1/panel_c_dIdV.npy',  dIdV)
+    np.save('fig_data/fig_1/x_axis.npy',        np.linspace(-dist_total/2, dist_total/2, len(pTips)))
+    np.save('fig_data/fig_1/V_axis.npy',        Vbiases)
+    np.save('fig_data/fig_1/extent.npy',        np.array(extent))
+    np.save('fig_data/fig_1/V_slice.npy',       np.array(V_slice_scan))
+    json.dump(params, open('fig_data/fig_1/params.json','w'), indent=2)
+    print('Fig.1 data saved to fig_data/fig_1/')
     # scan positions along line
     x = pTips[:,0]
     # extract scan positions
@@ -2734,7 +2772,7 @@ if __name__ == "__main__":
     prob_1d_tot = np.sum(probs_1d, axis=1)
     probs_1d_norm = probs_1d / prob_1d_tot[:, np.newaxis]
 
-    distance = x
+    distance = dist - dist_total/2  # arc-length centered at 0, matches ±21 Å in figures
 
 
     # state_sytels={
@@ -2779,6 +2817,7 @@ if __name__ == "__main__":
     print( "Es.shape", Es.shape )
     print( "Ts.shape", Ts.shape )
     
+    Path('fig_data/fig_6').mkdir(parents=True, exist_ok=True)
     fig, axs = plt.subplots(2, 2, figsize=(12, 10))
     #fig.suptitle(f"Scan details at V_slice = {V_slice_scan:.3f}V", fontsize=14)
     site_labels      = [f"E_site_{i+1}" for i in range(Es.shape[2])]
@@ -2789,7 +2828,7 @@ if __name__ == "__main__":
     plot_1d_data_grid(distance, probs_1d,   ax=axs[1,1], labels=labels_set,       ylabel="Probability",      title="Many-body State Probabilities", colors=colors, linestyles=linestyles)
     #)
     plt.tight_layout()
-    plt.savefig('debug_1d.svg', bbox_inches='tight')
+    plt.savefig('fig_data/fig_6/debug_1d.svg', bbox_inches='tight')
 
     # Plot dIdV 1D cut at V_slice_scan
     fig_dIdV_1d = plt.figure(figsize=(10, 6))
@@ -2800,7 +2839,7 @@ if __name__ == "__main__":
     ax_dIdV_1d.set_title(f'dI/dV 1D cut at V = {V_slice_scan:.3f} V')
     ax_dIdV_1d.grid(True)
     plt.tight_layout()
-    fig_dIdV_1d.savefig('dIdV_1d_cut.svg', format='svg', bbox_inches='tight')
+    fig_dIdV_1d.savefig('fig_data/fig_6/dIdV_1d_cut.svg', format='svg', bbox_inches='tight')
     
 
 
@@ -2809,8 +2848,19 @@ if __name__ == "__main__":
     # Save the figure with appropriate formatting
     plt.figure(fig_state.number)  # Make sure the figure is active
     plt.tight_layout()      # Adjust layout for better appearance
-    fig_state.savefig('state_scan_1d.svg', bbox_inches='tight')
-    
+    fig_state.savefig('fig_data/fig_6/fig_6_state_scan_1d.svg', bbox_inches='tight')
+    # --- Fig.6 panel data save ---
+    np.save('fig_data/fig_6/x_distance.npy',                    distance)  # arc-length [Å], centered at 0
+    np.save('fig_data/fig_6/panel_a_current_total.npy',         curr_1d)
+    np.save('fig_data/fig_6/panel_a_current_components.npy',    curr_comps)
+    np.save('fig_data/fig_6/panel_b_state_energies.npy',        stateEs_1d)
+    np.save('fig_data/fig_6/panel_b_state_probabilities.npy',   probs_1d)
+    np.save('fig_data/fig_6/panel_b_state_probabilities_norm.npy', probs_1d_norm)
+    np.save('fig_data/fig_6/V_slice.npy',                       np.array(V_slice_scan))
+    np.save('fig_data/fig_6/state_labels.npy',                  np.array(labels))
+    np.save('fig_data/fig_6/state_reorder.npy',                 np.array([0,1,2,4,3,5,6,7]))
+    json.dump(params, open('fig_data/fig_6/params.json','w'), indent=2)
+    print('Fig.6 data saved to fig_data/fig_6/')
     # fig.save( 'state_scan_1d.svg' )
 
 
@@ -2944,10 +2994,11 @@ if __name__ == "__main__":
 
     print("HERE - DONE, show()")
     # Save remaining figures as SVG
-    fig_probs.savefig('pauli_scan_probabilities.svg', format='svg', bbox_inches='tight')
-    fig_energies.savefig('pauli_scan_energies.svg', format='svg', bbox_inches='tight')
-    fig_state.savefig('state_scan_1d.svg', format='svg', bbox_inches='tight')
-    print("Figures saved as SVG in current directory")
+    Path('fig_data/fig_supp').mkdir(parents=True, exist_ok=True)
+    fig_probs.savefig('fig_data/fig_supp/pauli_scan_probabilities.svg', format='svg', bbox_inches='tight')
+    fig_energies.savefig('fig_data/fig_supp/pauli_scan_energies.svg', format='svg', bbox_inches='tight')
+    fig_state.savefig('fig_data/fig_6/fig_6_state_scan_1d.svg', format='svg', bbox_inches='tight')
+    print("Figures saved to fig_data/ subdirectories")
     plt.show()
 
 

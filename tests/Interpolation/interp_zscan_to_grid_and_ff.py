@@ -2,17 +2,12 @@ import argparse, os, numpy as np, sys
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from pyProbeParticle.GridUtils import save_vec_field, save_scal_field
 from pyProbeParticle import InterpolatorRBF, InterpolatorKriging
-from interp_zscan_to_grid import (load_clean_points, load_zscan, build_grid, make_interpolator,
-                                   auto_support_radii, plot_z_sequence, plot_single_slice)
+from interp_zscan_to_grid import (load_clean_points, load_zscan, build_grid, make_interpolator,auto_support_radii, plot_z_sequence, plot_single_slice)
 
-def interpolate_volume_and_forces(points_xy, zscan_vals, nx, ny, nz, z0, dz, R_basis, kind='rbf',
-                                  dx=None, dy=None, kriging_nugget=0.0, kriging_global_eval=False,
-                                  rbf_normalized=False, rbf_eps_norm=0.0):
+def interpolate_volume_and_forces(points_xy, zscan_vals, nx, ny, nz, z0, dz, R_basis, kind='rbf',dx=None, dy=None, kriging_nugget=0.0, kriging_global_eval=False, rbf_normalized=False, rbf_eps_norm=0.0):
     xs, ys, zs, grid_points = build_grid(points_xy, nx, ny, nz, z0, dz, dx=dx, dy=dy)
     nx_eff, ny_eff = len(xs), len(ys)
-    interp = make_interpolator(kind, points_xy, R_basis, kriging_nugget=kriging_nugget,
-                               kriging_global_eval=kriging_global_eval, rbf_normalized=rbf_normalized,
-                               rbf_eps_norm=rbf_eps_norm)
+    interp = make_interpolator(kind, points_xy, R_basis, kriging_nugget=kriging_nugget,kriging_global_eval=kriging_global_eval, rbf_normalized=rbf_normalized, rbf_eps_norm=rbf_eps_norm)
     vol = np.zeros((nz, ny_eff, nx_eff), dtype=float)
     vol_Fxy = np.zeros((nz, ny_eff, nx_eff, 2), dtype=float)
     for iz in range(nz):
@@ -38,8 +33,8 @@ def interpolate_volume_and_forces(points_xy, zscan_vals, nx, ny, nz, z0, dz, R_b
     gridFF = np.zeros((nz, ny_eff, nx_eff, 4), dtype=float)
     gridFF[:, :, :, 0] = vol_Fxy[:, :, :, 0] * kcal_to_eV
     gridFF[:, :, :, 1] = vol_Fxy[:, :, :, 1] * kcal_to_eV
-    gridFF[:, :, :, 2] = vol_Fz * kcal_to_eV
-    gridFF[:, :, :, 3] = vol * kcal_to_eV
+    gridFF[:, :, :, 2] = vol_Fz              * kcal_to_eV
+    gridFF[:, :, :, 3] = vol                 * kcal_to_eV
     gridFF = np.ascontiguousarray(gridFF)
     lvec = np.array([[0.,0.,0.], [xs[-1]-xs[0],0.,0.], [0.,ys[-1]-ys[0],0.], [0.,0.,zs[-1]-zs[0]]], dtype=float)
     return xs, ys, zs, gridFF, lvec
@@ -61,34 +56,34 @@ def main():
     p.add_argument("--out-ppafm-prefix",     type=str,   default=None, help="Save FF/E in PPAFM npy format with this prefix")
     p.add_argument("-x", "--nx",             type=int,   default=50)
     p.add_argument("-y", "--ny",             type=int,   default=50)
-    p.add_argument("--dx",                    type=float, default=None)
-    p.add_argument("--dy",                    type=float, default=None)
+    p.add_argument("--dx",                   type=float, default=None)
+    p.add_argument("--dy",                   type=float, default=None)
     p.add_argument("-n", "--nz",             type=int,   default=None)
-    p.add_argument("--iz0",                   type=int,   default=None)
-    p.add_argument("--iz1",                   type=int,   default=None)
+    p.add_argument("--iz0",                  type=int,   default=None)
+    p.add_argument("--iz1",                  type=int,   default=None)
     p.add_argument("-s", "--z0",             type=float, default=1.6)
     p.add_argument("-d", "--dz",             type=float, default=0.1)
-    p.add_argument("--dz-grid",               type=float, default=None)
+    p.add_argument("--dz-grid",              type=float, default=None)
     p.add_argument("-r", "--R-basis",        type=float, default=1.2)
-    p.add_argument("--kriging-nugget",        type=float, default=0.0)
-    p.add_argument("--kriging-global",        type=int,   default=0)
-    p.add_argument("--rbf-normalized",        type=int,   default=0)
-    p.add_argument("--rbf-eps-norm",          type=float, default=0.0)
-    p.add_argument("--autoR-k",               type=int,   default=0)
-    p.add_argument("--autoR-scale",           type=float, default=1.3)
-    p.add_argument("--autoR-rmin",            type=float, default=0.5)
-    p.add_argument("--autoR-rmax",            type=float, default=1e9)
-    p.add_argument("--autoR-percentile",      type=float, default=-1.0)
+    p.add_argument("--kriging-nugget",       type=float, default=0.0)
+    p.add_argument("--kriging-global",       type=int,   default=0)
+    p.add_argument("--rbf-normalized",       type=int,   default=0)
+    p.add_argument("--rbf-eps-norm",         type=float, default=0.0)
+    p.add_argument("--autoR-k",              type=int,   default=0)
+    p.add_argument("--autoR-scale",          type=float, default=1.3)
+    p.add_argument("--autoR-rmin",           type=float, default=0.5)
+    p.add_argument("--autoR-rmax",           type=float, default=1e9)
+    p.add_argument("--autoR-percentile",     type=float, default=-1.0)
     p.add_argument("-c", "--plot-slice-z",   type=float, default=None)
     p.add_argument("-a", "--zmin",           type=float, default=None)
     p.add_argument("-b", "--zmax",           type=float, default=None)
     p.add_argument("-t", "--zstep",          type=float, default=None)
     p.add_argument("-w", "--show",           type=int,   default=1)
     p.add_argument("-f", "--save-prefix",    type=str,   default=None)
-    p.add_argument("--scatter-overlay",       type=int,   default=0)
-    p.add_argument("--scatter-size",          type=float, default=8.0)
-    p.add_argument("--scatter-alpha",         type=float, default=1.0)
-    p.add_argument("--scatter-skip",          type=int,   default=1)
+    p.add_argument("--scatter-overlay",      type=int,   default=0)
+    p.add_argument("--scatter-size",         type=float, default=8.0)
+    p.add_argument("--scatter-alpha",        type=float, default=1.0)
+    p.add_argument("--scatter-skip",         type=int,   default=1)
     args = p.parse_args()
 
     _, points_xy = load_clean_points(args.points)
