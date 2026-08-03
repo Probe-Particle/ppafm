@@ -12,11 +12,11 @@ sys.path.insert(0, os.path.abspath("../../.."))  # Package root relative to this
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-_year = 2025
+_year = 2026
 project = "ppafm"
 copyright = f"{_year}, Probe-Particle team"
 author = "Probe-Particle team"
-version = "0.4.0"
+version = "0.4.1"
 release = version
 
 # -- General configuration ---------------------------------------------------
