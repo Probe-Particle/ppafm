@@ -28,10 +28,13 @@ class OCLEnvironment:
             # this is needed for the version of pocl running on Github Actions at the moment of writing.
             cl_path = f'"{cl_path}"'
         with open(fname) as f:
-            src = f.read()
-            if platform.system() == "Darwin":
+            #src = f.read()
+            if platform.system() == "Darwin": # Mac
                 src = src.replace('#include "splines.cl"', f.read())
-            program = cl.Program(self.ctx, src).build(options=["-I", cl_path])
+                program = cl.Program(self.ctx, src).build(options=["-I", cl_path])
+            else: # Linux
+                print("We are not on MAC")
+                program = cl.Program(self.ctx, f.read()).build(options=["-I", cl_path])
         return program
 
     def updateBuffer(self, buff, cl_buff, access=cl.mem_flags):
