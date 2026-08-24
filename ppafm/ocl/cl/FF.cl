@@ -12,7 +12,7 @@
 #define MAX_D3_ELEM 94
 #define R2_D3_CUTOFF 400.0f
 
-#include "splines.cl"
+#include "/Users/krejcio1/WORK/Program_Files/ppafm_main/ppafm/ocl/cl/splines.cl"
 
 // vdW damping coefficients
 __constant float ADamp_Const = 180.0;
