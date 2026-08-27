@@ -63,6 +63,8 @@ def _make(module):
     if system == "Windows":
         _build_windows(module)
     else:
+        # linux or MAC, however MAC is using different modules starting with capital "M"
+        module = "M" + module if system == "Darwin" else module
         os.system("make clean")
         os.system("make " + module)
     os.chdir(current_directory)

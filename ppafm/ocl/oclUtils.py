@@ -1,3 +1,5 @@
+import os
+import platform
 from pathlib import Path
 
 import pyopencl as cl
@@ -20,14 +22,22 @@ class OCLEnvironment:
         self.ctx = cl.Context(properties=[(cl.context_properties.PLATFORM, self.platform)], devices=None)
         self.queue = cl.CommandQueue(self.ctx)
 
-    def loadProgram(self, fname):
+    def loadProgram(self, fname, ffexeption=False):
         cl_path = str(self.CL_PATH)
         if self.platform.name != "Portable Computing Language":
             # Older versions of pocl don't handle quotes and spaces properly. This is kind of ugly, but
             # this is needed for the version of pocl running on Github Actions at the moment of writing.
             cl_path = f'"{cl_path}"'
         with open(fname) as f:
-            program = cl.Program(self.ctx, f.read()).build(options=["-I", cl_path])
+            if (platform.system() == "Darwin") and (ffexeption):  # Mac
+                src = f.read()
+                cl_path = cl_path.strip('"')
+                with open(os.path.join(cl_path, "splines.cl")) as sf:
+                    spline_src = sf.read()
+                    src = src.replace('#include "splines.cl"', spline_src)
+                    program = cl.Program(self.ctx, src).build()
+            else:  # Linux
+                program = cl.Program(self.ctx, f.read()).build(options=["-I", cl_path])
         return program
 
     def updateBuffer(self, buff, cl_buff, access=cl.mem_flags):
